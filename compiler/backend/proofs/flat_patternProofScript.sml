@@ -713,6 +713,16 @@ Proof
   Cases_on `e` \\ rw [match_rel_def]
 QED
 
+Theorem match_rel_IMP:
+  match_rel N e e' ==>
+    (e = No_match /\ e = e')
+    \/ (e = Match_type_error /\ e = e')
+    \/ (? env1 env2. e = Match env1 /\ e' = Match env2 /\ nv_rel N env1 env2)
+Proof
+  Cases_on `e` \\ simp []
+  \\ Cases_on `e'` \\ simp [match_rel_def]
+QED
+
 Theorem MAX_ADD_LESS:
   (MAX i j + k < l) = (i + k < l /\ j + k < l)
 Proof
@@ -860,12 +870,7 @@ Proof
     \\ simp []
   )
   >- (
-    drule_then strip_assume_tac
-      (Q.prove (`x <> Match_type_error ==> ?y. x = y`, simp []))
-    \\ fs [match_result_case_eq] \\ rveq \\ fs []
-    \\ rpt (first_x_assum drule \\ rw [])
-    \\ every_case_tac \\ fs []
-    \\ fs [match_rel_def]
+    rpt ((first_x_assum drule ORELSE CASE_TAC) \\ rw [] \\ fs [match_rel_def])
   )
 QED
 
@@ -1797,7 +1802,6 @@ Proof
     \\ rveq \\ fs []
     \\ rfs [SUBSET_DEF]
   )
-  >- simp [OPTREL_def]
   >- (
     first_x_assum (drule_then (qspec_then `cfg` mp_tac))
     \\ impl_tac >- (fs [SUBSET_DEF] \\ CCONTR_TAC \\ fs [])

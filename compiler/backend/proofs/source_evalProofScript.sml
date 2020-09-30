@@ -912,8 +912,10 @@ Proof
     \\ simp [bool_case_eq, option_case_eq, EL_APPEND_EQN]
   )
   \\ rpt strip_tac \\ fs []
-  \\ TRY (imp_res_tac forward_rules \\ rw [FUN_EQ_THM, EQ_SYM_EQ]
-    \\ fs [] \\ NO_TAC)
+  \\ TRY (imp_res_tac forward_rules \\ rw [] \\ fs [] \\ NO_TAC)
+  >- (
+    simp [EQ_SYM_EQ, FUN_EQ_THM]
+  )
   >- (
     drule_then (drule_then irule) recorded_orac_wf_step
     \\ rw [] \\ fs []

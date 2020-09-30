@@ -91,8 +91,7 @@ Definition inc_compile_decs_def:
 End
 
 Definition install_config_rel_def:
-  install_config_rel (Eval _) co cc = F /\
-  install_config_rel (Install ic) co cc = (
+  install_config_rel ic co cc = (
     (!i. no_Mat_decs (SND (ic.compile_oracle i))) /\
     co = pure_co inc_compile_decs o ic.compile_oracle /\
     ic.compile = pure_cc inc_compile_decs cc
@@ -106,7 +105,7 @@ Definition state_rel_def:
     s.clock = t.clock /\
     store_rel s.refs t.refs /\
     LIST_REL (opt_rel v_rel) s.globals t.globals /\
-    install_config_rel s.eval_mode t.compile_oracle t.compile
+    install_config_rel s.eval_config t.compile_oracle t.compile
 End
 
 Theorem v_rel_to_list:
@@ -1230,11 +1229,11 @@ Proof
 QED
 
 Theorem do_eval_install:
-  do_eval xs s.eval_mode = SOME res /\
+  do_eval xs s.eval_config = SOME res /\
   state_rel s t /\
   LIST_REL v_rel xs ys ==>
-  ?decs exps eval_mode t'. state_rel (s with eval_mode := eval_mode) t' /\
-  res = (decs, eval_mode, Unitv) /\
+  ?decs exps eval_config t'. state_rel (s with eval_config := eval_config) t' /\
+  res = (decs, eval_config, Unitv) /\
   do_install ys t = (if t'.clock = 0
     then (Rerr (Rabort Rtimeout_error), t')
     else (Rval (exps ++ compile [] [Con None NONE []]), dec_clock 1 t')) /\
@@ -1243,10 +1242,10 @@ Theorem do_eval_install:
   (t'.clock <> 0 ==> exps = compile_decs decs)
 Proof
   rw []
-  \\ `install_config_rel s.eval_mode t.compile_oracle t.compile`
+  \\ `install_config_rel s.eval_config t.compile_oracle t.compile`
     by fs [state_rel_def]
-  \\ Cases_on `s.eval_mode` \\ fs [install_config_rel_def]
-  \\ fs [do_eval_def, case_eq_thms, CaseEq "eval_config"]
+  \\ fs [install_config_rel_def]
+  \\ fs [do_eval_def, case_eq_thms]
   \\ fs [listTheory.SWAP_REVERSE_SYM]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs [case_eq_thms, pair_case_eq]
@@ -1372,9 +1371,9 @@ Proof
   THEN1 (
     simp [compile_op_def, evaluate_def]
     \\ fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs []
-    \\ drule do_eval_install
-    \\ rpt (disch_then drule)
+    \\ drule (Q.INST [`ys` |-> `REVERSE zs`] do_eval_install)
     \\ simp []
+    \\ rpt (disch_then drule)
     \\ strip_tac
     \\ drule_then strip_assume_tac state_rel_dec_clock
     \\ fs []
