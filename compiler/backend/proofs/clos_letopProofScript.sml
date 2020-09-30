@@ -7,6 +7,8 @@ open preamble closPropsTheory clos_letopTheory closSemTheory
 
 fun bump_assum pat = qpat_x_assum pat assume_tac;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "clos_letopProof";
 
 Overload let_op = ``clos_letop$let_op``

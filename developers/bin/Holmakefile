@@ -18,7 +18,6 @@ cake-$(ARCH)-$(WORD_SIZE).tar.gz:
 
 cake.S: cake-$(ARCH)-$(WORD_SIZE).tar.gz
 	tar -xvzf cake-$(ARCH)-$(WORD_SIZE).tar.gz --strip-components 1
-	poly -q < set_heap_stack.sml
 
 cake: cake.S
-	make -f Makefile CFLAGS=-mcmodel=medium
+	make -f Makefile

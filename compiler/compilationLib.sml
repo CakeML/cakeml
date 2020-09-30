@@ -136,7 +136,8 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
         FORK_CONV(REWR_CONV(SYM bvi_conf_def),
                   FORK_CONV(REWR_CONV(SYM bvi_prog_def),
                             REWR_CONV(SYM bvi_names_def)))));
-    val () = computeLib.extend_compset [computeLib.Defs [bvi_prog_def]] cs;
+    val () = computeLib.extend_compset
+      [computeLib.Defs [bvi_prog_def,bvi_names_def]] cs;
 
     val to_data_thm0 =
       ``to_data ^conf_tm ^prog_tm``
@@ -705,8 +706,7 @@ val export_defs = [
   ,exportTheory.comma_cat_def
   ,exportTheory.comm_strlit_def
   ,exportTheory.data_section_def
-  ,exportTheory.preamble_def
-  ,exportTheory.space_line_def];
+  ,exportTheory.preamble_def];
 
 val arm7_export_defs = [
   export_arm7Theory.arm7_export_def,
@@ -737,6 +737,8 @@ datatype 'a app_list = Nil | List of 'a list | Append of 'a app_list * 'a app_li
 val is_Nil = same_const (prim_mk_const{Thy="misc",Name="Nil"})
 val (List_tm,mk_List,dest_List,is_List) = HolKernel.syntax_fns1 "misc" "List"
 val (Append_tm,mk_Append,dest_Append,is_Append) = HolKernel.syntax_fns2 "misc" "Append"
+val (emit_symbols_tm,mk_emit_symbols,dest_emit_symbols,is_emit_symbols) =
+  HolKernel.syntax_fns1 "export" "emit_symbols"
 val (SmartAppend_tm,mk_SmartAppend,dest_SmartAppend,is_SmartAppend) = HolKernel.syntax_fns2 "misc" "SmartAppend"
 val (split16_tm,mk_split16,dest_split16,is_split16) = HolKernel.syntax_fns2 "export" "split16"
 
@@ -777,6 +779,29 @@ fun split16_ml_to_app_list (prefix,to_string) def =
     val ints = map wordsSyntax.uint_of_word ls
   in split16_to_app_list (words_line prefix to_string) ints end
 
+fun emit_symbols_to_app_list tm =
+  let
+    val (ls,_) = listSyntax.dest_list tm
+    fun emit_symbol ix tpl =
+      let
+        val (name, baselen) = pairSyntax.dest_pair tpl
+        val (base, len) = pairSyntax.dest_pair baselen
+        val name = mlstring_to_string name
+        val base = Arbnum.toInt (numSyntax.dest_numeral base)
+        val len = Arbnum.toInt (numSyntax.dest_numeral len)
+        fun safe ch = ch = #"_" orelse
+                      (ch >= #"0" andalso ch <= #"9") orelse
+                      (ch >= #"a" andalso ch <= #"z") orelse
+                      (ch >= #"A" andalso ch <= #"Z")
+        fun esc ch = if safe ch then str ch else "$"^Int.toString (ord ch)^"_"
+      in
+        "    makesym(cml_"^concat (map esc (explode name))^"_"^Int.toString ix^
+        ", "^Int.toString base^", "^Int.toString len^")\n"
+      end
+  in
+    List (mapi emit_symbol ls)
+  end
+
 fun term_to_app_list word_directive eval code_def data_def =
   let
     fun ttal tm =
@@ -796,6 +821,8 @@ fun term_to_app_list word_directive eval code_def data_def =
         dest_List tm |> listSyntax.dest_list |> #1
         |> map mlstring_to_string
         |> List
+      else if is_emit_symbols tm then
+        emit_symbols_to_app_list (dest_emit_symbols tm)
       else
         let
           val (t1,t2) =
@@ -824,7 +851,7 @@ fun split16_conv tm =
   RAND_CONV split16_conv ) )
 *)
 
-fun eval_export word_directive target_export_defs heap_size stack_size code_def data_def ffi_names_tm out =
+fun eval_export word_directive target_export_defs code_def data_def syms_tm ffi_names_tm out =
   let
     val cs = wordsLib.words_compset()
     val eval = computeLib.CBV_CONV cs;
@@ -839,17 +866,16 @@ fun eval_export word_directive target_export_defs heap_size stack_size code_def 
     val eval_export_tm =
       list_mk_comb(exporter_tm,
         [ffi_names_tm,
-         numSyntax.term_of_int heap_size,
-         numSyntax.term_of_int stack_size,
          lhs(concl code_def),
-         lhs(concl data_def)])
+         lhs(concl data_def),
+         syms_tm])
     val app_list = eval eval_export_tm |> rconc
-  in print_app_list out (term_to_app_list word_directive eval code_def data_def app_list) end
+    in print_app_list out (term_to_app_list word_directive eval code_def data_def app_list) end
 
 fun cbv_to_bytes
       word_directive
       add_encode_compset backend_config_def names_def target_export_defs
-      stack_to_lab_thm lab_prog_def heap_size stack_size
+      stack_to_lab_thm lab_prog_def
       code_name data_name config_name filename =
   let
     val cs = compilation_compset()
@@ -867,15 +893,17 @@ fun cbv_to_bytes
     val code_def = mk_abbrev code_name (#code result)
     val data_def = mk_abbrev data_name (#data result)
     val config_def = mk_abbrev config_name (#config result)
-    val result_thm = PURE_REWRITE_RULE[GSYM code_def, GSYM data_def, GSYM config_def] bootstrap_thm
+    val result_thm = PURE_REWRITE_RULE[GSYM code_def, GSYM data_def,
+      GSYM config_def] bootstrap_thm
 
+    val syms_tm = assoc "symbols" (#2 (TypeBase.dest_record (#config result)));
     val ffi_names_tm = extract_ffi_names_tm (#config result)
 
     val out = TextIO.openOut filename
 
     val () = Lib.say(pad_to 30 (" export: "))
     val () = time (
-      eval_export word_directive target_export_defs heap_size stack_size code_def data_def ffi_names_tm) out
+      eval_export word_directive target_export_defs code_def data_def syms_tm ffi_names_tm) out
 
     val () = TextIO.closeOut out
 
@@ -927,7 +955,7 @@ val cbv_to_bytes_x64 =
 
 val intermediate_prog_prefix = ref ""
 
-fun compile backend_config_def cbv_to_bytes heap_size stack_size name prog_def =
+fun compile backend_config_def cbv_to_bytes name prog_def =
   let
     val cs = compilation_compset()
     val conf_def = backend_config_def
@@ -942,7 +970,7 @@ fun compile backend_config_def cbv_to_bytes heap_size stack_size name prog_def =
     val data_name = (!intermediate_prog_prefix) ^ "data"
     val config_name = (!intermediate_prog_prefix) ^ "config"
     val result_thm =
-      cbv_to_bytes stack_to_lab_thm lab_prog_def heap_size stack_size code_name data_name config_name (name^".S")
+      cbv_to_bytes stack_to_lab_thm lab_prog_def code_name data_name config_name (name^".S")
   in result_thm end
 
 val compile_arm7 = compile arm7_backend_config_def cbv_to_bytes_arm7
@@ -954,7 +982,7 @@ val compile_x64 = compile x64_backend_config_def cbv_to_bytes_x64
 
 (*
 
-val (backend_config_def,cbv_to_bytes,heap_size,stack_size,name,prog_def) =
+val (backend_config_def,cbv_to_bytes,name,prog_def) =
     (x64_backend_config_def,cbv_to_bytes_x64,500,500,"hello",hello_prog_def)
 
 *)

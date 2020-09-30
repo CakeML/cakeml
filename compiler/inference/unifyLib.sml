@@ -3,7 +3,7 @@
 *)
 structure unifyLib = struct
 local
-  open HolKernel boolLib bossLib lcsymtacs
+  open HolKernel boolLib bossLib
 
   val t_unify_wfs = Q.prove(
    `t_wfs s ∧ (t_unify s t1 t2 = SOME sx) ==> t_wfs sx`,

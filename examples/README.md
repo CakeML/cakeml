@@ -6,6 +6,9 @@ found in their own top-level directories.
 [array_searchProgScript.sml](array_searchProgScript.sml):
 An example based on searching an array.
 
+[bot](bot):
+Formalization of the FFI and proofs for the VeriPhy pipeline.
+
 [catProgScript.sml](catProgScript.sml):
 cat program example: concatenate and print lines from files.
 
@@ -53,6 +56,9 @@ Verification of longest common subsequence algorithms.
 
 [lpr_checker](lpr_checker):
 An LPR checker built on CakeML
+
+[opentheory](opentheory):
+Implementation of an OpenTheory reader based on the Candle kernel.
 
 [patchProgScript.sml](patchProgScript.sml):
 patch example: apply a patch to a file.

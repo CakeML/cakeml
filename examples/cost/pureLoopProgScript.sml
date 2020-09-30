@@ -30,7 +30,7 @@ Definition pureLoop_ast_def:
 End
 
 val _ = intermediate_prog_prefix := "pureLoop_";
-Theorem pureLoop_thm = compile_x64 1000 1000 "pureLoop" (REFL pureLoop);
+Theorem pureLoop_thm = compile_x64 "pureLoop" (REFL pureLoop);
 val _ = intermediate_prog_prefix := "";
 
 val pureLoop_data_code_def       = definition"pureLoop_data_prog_def"

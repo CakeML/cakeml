@@ -3,7 +3,7 @@
   evaluate the type inferencers inside the logic. See tests.
 *)
 structure inferenceComputeLib = struct
-  open HolKernel boolLib bossLib lcsymtacs
+  open HolKernel boolLib bossLib
   open infer_tTheory inferTheory
 
   (* val (Success_tm,mk_Success,dest_Success,is_Success) = syntax_fns1 "ml_monadBase" "Success" *)

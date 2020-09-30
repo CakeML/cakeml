@@ -12,6 +12,10 @@ open yesProgTheory;
 
 val _ = new_theory "yesProof"
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 Overload monad_unitbind[local] = ``data_monad$bind``
 Overload return[local] = ``data_monad$return``
 val _ = monadsyntax.temp_add_monadsyntax()
@@ -19,6 +23,7 @@ val _ = monadsyntax.temp_add_monadsyntax()
 val yes_x64_conf = (rand o rator o lhs o concl) yes_thm
 
 val _ = install_naming_overloads "yesProg";
+val _ = write_to_file yes_data_prog_def;
 
 val printLoop_body =
   “lookup_printLoop (fromAList yes_data_prog)”

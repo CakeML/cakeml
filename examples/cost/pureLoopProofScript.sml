@@ -10,6 +10,10 @@ open pureLoopProgTheory;
 
 val _ = new_theory "pureLoopProof"
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 Overload monad_unitbind[local] = ``data_monad$bind``
 Overload return[local] = ``data_monad$return``
 val _ = monadsyntax.temp_add_monadsyntax()
@@ -17,6 +21,7 @@ val _ = monadsyntax.temp_add_monadsyntax()
 val pureLoop = pureLoop_ast_def |> concl |> rand
 
 val _ = install_naming_overloads "pureLoopProg";
+val _ = write_to_file pureLoop_data_prog_def;
 
 val body = ``lookup_pureLoop (fromAList pureLoop_data_prog)``
            |> (REWRITE_CONV [pureLoop_data_code_def] THENC EVAL)

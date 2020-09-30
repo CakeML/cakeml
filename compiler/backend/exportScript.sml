@@ -33,31 +33,31 @@ val preamble_tm =
        "# define wcdecl(s) s";
        "#endif";
        "";
+       "#if defined(__APPLE__)";
+       "# define makesym(name,base,len)";
+       "#elif defined(__WIN32)";
+       "# define makesym(name,base,len)";
+       "#else";
+       ".macro _makesym name, base, len";
+       ".local \\name";
+       ".set \\name, cake_main+\\base";
+       ".size \\name, \\len";
+       ".type \\name, function";
+       ".endm";
+       "# define makesym(name,base,len) _makesym name, base, len";
+       "#endif";
+       "";
        "     .file        \"cake.S\"";
        ""])`` |> EVAL |> rconc;
 val preamble_def = Define`preamble = ^preamble_tm`;
 
-val space_line_def = Define`
-  space_line n = concat[strlit"     .space 1024 * 1024 * "; toString (n:num); strlit "\n"]`;
-
-val data_section_def = Define`data_section word_directive heap_space stack_space =
+val data_section_def = Define`data_section word_directive =
      MAP (\n. strlit (n ++ "\n"))
-       ["/* Data section -- modify the numbers to change stack/heap size */";
-        "";
-        "     .bss";
+       ["     .data";
         "     .p2align 3";
-        "cake_heap:"] ++ [space_line heap_space] ++
-     MAP (\n. strlit (n ++ "\n"))
-       ["     .p2align 3";
-        "cake_stack:"] ++ [space_line stack_space] ++
-      MAP (\n. (strlit (n ++ "\n")))
-       ["     .p2align 3";
-        "cake_end:";
-        "";
-        "     .data";
-        "     .p2align 3";
-        "cdecl(argc): " ++ word_directive ++ " 0";
-        "cdecl(argv): " ++ word_directive ++ " 0";
+        "cdecl(cml_heap): " ++ word_directive ++ " 0";
+        "cdecl(cml_stack): " ++ word_directive ++ " 0";
+        "cdecl(cml_stackend): " ++ word_directive ++ " 0";
         "     .p2align 3";
         "cake_bitmaps:"]`;
 
@@ -96,5 +96,23 @@ Proof
   \\ full_simp_tac std_ss [w2n_n2w,EVAL ``dimword (:8)``]
   \\ full_simp_tac std_ss [listTheory.EL_GENLIST]
 QED
+
+(* gas allows 0-9a-zA-Z_$. in labels as long as the first is _A-Za-z *)
+(* we prefix labels and reserve $; . is special *)
+
+val escape_sym_char_def = Define`
+  escape_sym_char ch = let code = ORD ch in
+    if code >= 0x61 /\ code <= 0x7A \/ code >= 0x41 /\ code <= 0x5A \/
+       code >= 0x30 /\ code <= 0x39 \/ code = 0x5F then str ch else
+    «$» ^ toString(code) ^ «_»`
+
+val emit_symbol_def = Define`
+  emit_symbol (ix,appl) (name,start,len) = (ix + 1, misc$Append appl (misc$List
+      [«    makesym(cml_» ^ concat (MAP escape_sym_char (explode name)) ^
+      «_» ^ toString(ix) ^ «, » ^ toString(start) ^ «, » ^
+      toString(len) ^ «)\n»]))`
+
+val emit_symbols_def = Define `
+  emit_symbols ls = SND $ FOLDL emit_symbol (0, misc$Nil) ls`;
 
 val _ = export_theory ();

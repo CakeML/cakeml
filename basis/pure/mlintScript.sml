@@ -243,7 +243,7 @@ val fromString_unsafe_def = Define`
 val fromString_def = Define`
   fromString str =
     if strlen str = 0
-    then SOME 0i
+    then (NONE : int option)
     else if strsub str 0 = #"~" ∨
             strsub str 0 = #"-"
       then OPTION_MAP ($~ o $&)
@@ -358,27 +358,32 @@ Proof
   \\ rename1`s ≠ ""` \\ Cases_on `s` \\ fs[]
 QED
 
+Theorem fromChars_range_lemma[local] =
+  CONJ
+   (fromChars_range_unsafe_thm
+    |> ISPEC ``DROP 1 str' : string``
+    |> REWRITE_RULE [prove(``STRLEN (DROP 1 str') = STRLEN str' - 1``, rw [])])
+   (fromChars_range_unsafe_thm
+    |> ISPEC “h::t : string”
+    |> REWRITE_RULE [prove(``STRLEN (h::t) = SUC (STRLEN t)``, rw [])])
+
 Theorem fromString_thm:
-   ∀str. (HD str ≠ #"~" ∧ HD str ≠ #"-" ∧ HD str ≠ #"+" ⇒ EVERY isDigit str) ∧
-         (HD str = #"~" ∨ HD str = #"-" ∨ HD str = #"+" ⇒ EVERY isDigit (DROP 1 str)) ⇒
-         fromString (strlit str) = SOME
-           if HD str = #"~" ∨ HD str = #"-"
-           then ~&num_from_dec_string (DROP 1 str)
-           else if HD str = #"+"
-           then &num_from_dec_string (DROP 1 str)
-           else &num_from_dec_string str
+  ∀str.
+    str ≠ "" ∧
+    (HD str ≠ #"~" ∧ HD str ≠ #"-" ∧ HD str ≠ #"+" ⇒ EVERY isDigit str) ∧
+    (HD str = #"~" ∨ HD str = #"-" ∨ HD str = #"+" ⇒ EVERY isDigit (DROP 1 str)) ⇒
+      fromString (strlit str) = SOME
+        if HD str = #"~" ∨ HD str = #"-"
+        then ~&num_from_dec_string (DROP 1 str)
+        else if HD str = #"+"
+        then &num_from_dec_string (DROP 1 str)
+        else &num_from_dec_string str
 Proof
-  rw [fromString_def
-     , fromChars_eq_unsafe
-     , fromChars_range_unsafe_eq
-     , fromChars_range_unsafe_thm
-     , substring_def, SEG_TAKE_DROP
-     , TAKE_LENGTH_ID_rwt
-     , fromChars_range_unsafe_thm
-       |> ISPEC ``DROP 1 str' : string``
-       |> REWRITE_RULE
-          [prove(``STRLEN (DROP 1 str') = STRLEN str' - 1``, rw [])]]
-  \\ rename1`s ≠ ""` \\ Cases_on `s` \\ fs[]
+  Cases
+  \\ rw [fromString_def, fromChars_eq_unsafe, fromChars_range_unsafe_eq,
+         fromChars_range_unsafe_thm, substring_def, SEG_TAKE_DROP,
+         TAKE_LENGTH_ID_rwt,
+         fromChars_range_lemma]
 QED
 
 val fromString_eq_unsafe = save_thm("fromString_eq_unsafe",

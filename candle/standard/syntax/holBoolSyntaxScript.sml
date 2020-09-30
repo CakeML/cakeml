@@ -5,6 +5,8 @@
 *)
 open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"holBoolSyntax"
 
 Overload True = ``Const (strlit "T") Bool``

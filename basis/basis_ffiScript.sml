@@ -458,11 +458,20 @@ val whole_prog_ffidiv_spec_def = Define`
       (POSTf n. λc b. STDIO fs' * RUNTIME * &(n = n' /\ c = c' /\ b = b')) ∧
     post n' c' b' (fs' with numchars := fs.numchars)`;
 
-Theorem whole_prog_spec_semantics_prog:
+val whole_prog_spec2_def = Define`
+  whole_prog_spec2 fv cl fs sprop post ⇔
+    app (basis_proj1, basis_proj2) fv [Conv NONE []]
+      (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME p => p)
+      (POSTv uv. &UNIT_TYPE () uv *
+      SEP_EXISTS fs'.
+        STDIO fs' * &(post (fs' with numchars := fs.numchars))
+      )`;
+
+Theorem whole_prog_spec2_semantics_prog:
    ∀fname fv.
      Decls env1 (init_state (basis_ffi cl fs)) prog env2 st2 ==>
      lookup_var fname env2 = SOME fv ==>
-     whole_prog_spec fv cl fs sprop Q ==>
+     whole_prog_spec2 fv cl fs sprop Q ==>
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
      (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME Q => Q) h1)
    ==>
@@ -471,13 +480,16 @@ Theorem whole_prog_spec_semantics_prog:
        (SNOC ^main_call prog) (Terminate Success io_events) /\
      extract_fs fs io_events = SOME fs' ∧ Q fs'
 Proof
-  rw[whole_prog_spec_def]
+  rw[whole_prog_spec2_def]
   \\ drule (GEN_ALL call_main_thm2)
   \\ rpt(disch_then drule)
   \\ disch_then (qspecl_then [`h2`, `h1`] mp_tac)
   \\ impl_keep_tac
   >- (
     rw[STDIO_def]
+    \\ ho_match_mp_tac FFI_part_hprop_SEP_EXISTS
+    \\ strip_tac
+    \\ match_mp_tac FFI_part_hprop_STAR \\ disj1_tac
     \\ match_mp_tac FFI_part_hprop_STAR \\ disj1_tac
     \\ ho_match_mp_tac FFI_part_hprop_SEP_EXISTS
     \\ metis_tac[IOFS_FFI_part_hprop] )
@@ -490,7 +502,6 @@ Proof
   \\ simp[Once extract_fs_with_numchars_def]
   \\ simp[Once ml_progTheory.init_state_def]
   \\ rw[basis_proj1_write,Once basis_ffi_def]
-  \\ `∃ll. SND st3.ffi.ffi_state = fs' with numchars := ll` suffices_by ( rw[] \\ rw[] )
   \\ fs[STDIO_def, IOFS_def,cfHeapsBaseTheory.IO_def,
         cfHeapsBaseTheory.IOx_def, set_sepTheory.SEP_CLAUSES,
         set_sepTheory.SEP_EXISTS_THM, fsFFITheory.fs_ffi_part_def]
@@ -507,6 +518,34 @@ Proof
   \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`"write"`)
   \\ fs[basis_proj1_write,STAR_def,cond_def]
   \\ metis_tac[]
+QED
+
+Theorem whole_prog_spec_semantics_prog:
+   ∀fname fv.
+     Decls env1 (init_state (basis_ffi cl fs)) prog env2 st2 ==>
+     lookup_var fname env2 = SOME fv ==>
+     whole_prog_spec fv cl fs sprop Q ==>
+     (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
+     (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME Q => Q) h1)
+   ==>
+   ∃io_events fs'.
+     semantics_prog (init_state (basis_ffi cl fs)) env1
+       (SNOC ^main_call prog) (Terminate Success io_events) /\
+     extract_fs fs io_events = SOME fs' ∧ Q fs'
+Proof
+  rw[]>>
+  match_mp_tac (whole_prog_spec2_semantics_prog|> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
+  asm_exists_tac>>
+  simp[]>>
+  qexists_tac`sprop`>>rw[]
+  >- (
+    fs[whole_prog_spec_def,whole_prog_spec2_def]>>
+    drule app_weaken>>
+    disch_then match_mp_tac>>
+    xsimpl>> rw[]>>
+    qexists_tac`fs'`>>xsimpl)
+  >>
+  metis_tac[]
 QED
 
 Theorem whole_prog_spec_semantics_prog_ffidiv:

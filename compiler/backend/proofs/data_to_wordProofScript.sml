@@ -15,6 +15,9 @@ local open backendTheory gen_gcTheory in end
 
 val _ = new_theory "data_to_wordProof";
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = set_grammar_ancestry
   ["backend","dataLang","dataSem","data_to_word_gcProof","word_to_wordProof",

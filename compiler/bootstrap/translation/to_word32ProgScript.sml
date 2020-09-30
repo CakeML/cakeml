@@ -6,6 +6,8 @@ open preamble ml_translatorLib ml_translatorTheory
      sexp_parserProgTheory std_preludeTheory
 local open backendTheory in end
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "to_word32Prog"
 
 val _ = translation_extends "sexp_parserProg";
@@ -484,12 +486,24 @@ val _ = translate(LongDiv_code_def|> inline_simp |> conv32)
 
 val _ = translate (word_bignumTheory.generated_bignum_stubs_eq |> inline_simp |> conv32)
 
+val _ = translate data_to_wordTheory.stub_names_def
+val _ = translate word_to_stackTheory.stub_names_def
+val _ = translate stack_allocTheory.stub_names_def
+val _ = translate stack_removeTheory.stub_names_def
 val res = translate (data_to_wordTheory.compile_def
                      |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv32_RHS);
 
 (* translate some 32/64 specific parts of the tap/explorer
    that can't be translated in explorerProgScript *)
 val res = translate (presLangTheory.tap_word_def |> conv32);
+val res = translate (presLangTheory.store_name_to_display_def |> conv32);
+val res = translate (presLangTheory.stack_prog_to_display_def |> conv32);
+val res = translate (presLangTheory.stack_progs_to_display_def |> conv32);
+val res = translate (presLangTheory.tap_stack_def |> conv32);
+val res = translate (presLangTheory.lab_asm_to_display_def |> conv32);
+val res = translate (presLangTheory.lab_line_to_display_def |> conv32);
+val res = translate (presLangTheory.lab_secs_to_display_def |> conv32);
+val res = translate (presLangTheory.tap_lab_def |> conv32);
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

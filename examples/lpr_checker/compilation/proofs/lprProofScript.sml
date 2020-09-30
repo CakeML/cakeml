@@ -63,17 +63,19 @@ Theorem machine_code_sound:
   ∃out err.
     extract_fs fs (check_unsat_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-    if out = strlit "UNSATISFIABLE\n" then
+    if out = strlit "s VERIFIED UNSAT\n" then
       LENGTH cl = 3 ∧ inFS_fname fs (EL 1 cl) ∧
       ∃mv fml.
         parse_dimacs (all_lines fs (EL 1 cl)) = SOME (mv,fml) ∧
         unsatisfiable (interp fml)
     else
-      out = strlit "" ∨
-      LENGTH cl = 2 ∧ inFS_fname fs (EL 1 cl) ∧
-      ∃mv fml.
-        parse_dimacs (all_lines fs (EL 1 cl)) = SOME (mv,fml) ∧
-        out = concat (print_dimacs fml)
+      if LENGTH cl = 2 ∧ inFS_fname fs (EL 1 cl)
+      then
+        case parse_dimacs (all_lines fs (EL 1 cl)) of
+          NONE => out = strlit ""
+        | SOME (mv,fml) => out = concat (print_dimacs fml)
+      else
+        out = strlit ""
 Proof
   ntac 2 strip_tac>>
   fs[installed_x64_def,check_unsat_code_def]>>
@@ -92,10 +94,9 @@ Proof
     TOP_CASE_TAC>>fs[]>- (
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     TOP_CASE_TAC>>fs[]>>
-    qexists_tac`concat (print_dimacs r)`>>
     qexists_tac`strlit ""` >>
     simp[STD_streams_stderr,add_stdo_nil]>>
-    simp[print_dimacs_def]>>
+    simp[print_dimacs_def,print_header_line_def]>>
     qmatch_goalsub_abbrev_tac` (strlit"p cnf " ^ a ^ b ^ c)`>>
     qmatch_goalsub_abbrev_tac` _ :: d`>>
     EVAL_TAC
@@ -115,12 +116,46 @@ Proof
   reverse IF_CASES_TAC >> fs[] >-
     (qexists_tac`strlit ""`>> simp[]>>
     metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-  qexists_tac`strlit "UNSATISFIABLE\n"` >> qexists_tac`strlit ""`>> rw[]
+  qexists_tac`strlit "s VERIFIED UNSAT\n"` >> qexists_tac`strlit ""`>> rw[]
   >-
     metis_tac[STD_streams_stderr,add_stdo_nil]>>
   drule parse_dimacs_wf_bound>>
   drule parse_lpr_wf>>
   metis_tac[check_lpr_unsat_sound]
+QED
+
+Theorem machine_code_sound_parse_print:
+  wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ⇒
+  installed_x64 check_unsat_code (basis_ffi cl fs) mc ms ⇒
+  machine_sem mc (basis_ffi cl fs) ms ⊆
+    extend_with_resource_limit
+      {Terminate Success (check_unsat_io_events cl fs)} ∧
+  (* If we start with a well-formed formula, and put it into the file *)
+  wf_fml fml ∧ inFS_fname fs (EL 1 cl) ∧ all_lines fs (EL 1 cl) = print_dimacs fml ⇒
+  ∃out err.
+    extract_fs fs (check_unsat_io_events cl fs) = SOME (add_stdout (add_stderr fs err) out) ∧
+    (* Then if the output is "s VERIFIED UNSAT\n" that formula was also unsatisfiable *)
+    if out = strlit "s VERIFIED UNSAT\n" then
+      LENGTH cl = 3 ∧ unsatisfiable (interp fml)
+    else
+      if LENGTH cl = 2 then
+        ∃fml'.
+        interp fml = interp fml' ∧ out = concat (print_dimacs fml')
+      else out = strlit ""
+Proof
+  rw[]>>
+  drule machine_code_sound>>
+  rpt(disch_then drule>>simp[])>>
+  strip_tac>>
+  asm_exists_tac>> simp[] >>
+  IF_CASES_TAC
+  >- (
+    drule parse_dimacs_print_dimacs>> rw[]>>
+    fs[interp_def]>>
+    rw[]) >>
+  fs[]>> rw[] >> fs[]>>
+  drule parse_dimacs_print_dimacs>> rw[]>> fs[]>>
+  qexists_tac`fml'`>> simp[interp_def]
 QED
 
 val _ = export_theory();

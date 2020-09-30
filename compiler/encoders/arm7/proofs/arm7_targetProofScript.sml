@@ -982,6 +982,8 @@ val arm7_target_ok = Q.prove (
 
 val print_tac = asmLib.print_tac "correct"
 
+val _ = diminish_srw_ss ["NORMEQ_ss"]
+
 Theorem arm7_encoder_correct:
    encoder_correct arm7_target
 Proof

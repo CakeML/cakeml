@@ -4,17 +4,9 @@
 # then similarly linking the resulting machine code with the FFI primitives to
 # produce executables. It is designed to work on GNU/Linux, macOS, and Windows.
 
-# To set the stack and heap sizes for CakeML programs, use the
-# --stack_size and --heap_size arguments to the CakeML compiler
-# (provided on the command line or in the CAKEFLAGS variable). The unit of
-# measure for both arguments is mebibytes (1024 * 1024 bytes).
-
-# To set the stack and heap sizes for the CakeML compiler itself, edit the
-# .space directives in cake.S.
-
-# To support large stack and heap sizes, use -mcmodel=medium or -mcmodel=large.
-# For example:
-# CFLAGS += -mcmodel=medium
+# To set the stack and heap sizes for CakeML programs, set the
+# CML_STACK_SIZE and CML_HEAP_SIZE environment variables (or see basis_ffi.c)
+# The unit of measure for both arguments is mebibytes (1024 * 1024 bytes).
 
 OS ?= $(shell uname)
 
@@ -41,6 +33,29 @@ all: cake$(SUFF) $(CML_PROGS)
 
 cake$(SUFF): cake.o basis_ffi.o
 	$(CC) $(LDFLAGS) $< basis_ffi.o $(LOADLIBES) $(LDLIBS) -o $@
+
+# Note: While this Makefile is shared the sexpr files used in the example rules
+# below are only included in the verified cake-x64-64.tar.gz release package
+
+# *UNVERIFIED* build with GC and stage tracing; regenerating the .S will take
+# about five minutes
+
+cake_verbose$(SUFF): cake-sexpr-64 basis_ffi.c cake$(SUFF)
+	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --emit_empty_ffi=true --reg_alg=0 < $< > $<.S
+	$(CC) $(CFLAGS) $(LDFLAGS) -DDEBUG_FFI -o $@ $<.S basis_ffi.c
+
+# *UNVERIFIED* compiler supporting 32-bit targets; see cake-x64-32.tar.gz for a
+# verified compiler
+
+cake_unverified32$(SUFF): cake-sexpr-32 basis_ffi.c cake$(SUFF)
+	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --reg_alg=0 < $< > $<.S
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<.S basis_ffi.c
+
+# Example of cross-compiling the compiler itself
+RISCV_CC ?= riscv64-unknown-linux-gnu-cc
+cake_riscv_host: cake-sexpr-64 basis_ffi.c cake$(SUFF)
+	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --target=riscv --reg_alg=0 < $< > $<.riscv.S
+	$(RISCV_CC) $(CFLAGS) $(LDFLAGS) -o $@ $<.riscv.S basis_ffi.c
 
 # Using the CakeML compiler
 

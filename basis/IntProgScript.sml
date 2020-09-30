@@ -21,7 +21,7 @@ val _ = trans "*" intSyntax.mult_tm;
 val _ = trans "div" intSyntax.div_tm;
 val _ = trans "mod" intSyntax.mod_tm;
 val _ = trans "<" intSyntax.less_tm;
-val _ = trans ">" intSyntax.great_tm;
+val _ = trans ">" intSyntax.greater_tm;
 val _ = trans "<=" intSyntax.leq_tm;
 val _ = trans ">=" intSyntax.geq_tm;
 val _ = trans "~" ``\i. - (i:int)``;

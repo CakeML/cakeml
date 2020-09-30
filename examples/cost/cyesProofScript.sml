@@ -12,11 +12,16 @@ open cyesProgTheory;
 
 val _ = new_theory "cyesProof"
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 Overload monad_unitbind[local] = ``data_monad$bind``
 Overload return[local] = ``data_monad$return``
 val _ = monadsyntax.temp_add_monadsyntax()
 
 val _ = install_naming_overloads "cyesProg";
+val _ = write_to_file cyes_data_prog_def;
 
 val cyes_x64_conf = (rand o rator o lhs o concl) cyes_thm
 val cyes = cyes_prog_def |> concl |> rand

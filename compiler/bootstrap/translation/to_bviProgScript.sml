@@ -3,6 +3,8 @@
 *)
 open preamble ml_translatorLib ml_translatorTheory to_bvlProgTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "to_bviProg";
 val _ = translation_extends "to_bvlProg";
 

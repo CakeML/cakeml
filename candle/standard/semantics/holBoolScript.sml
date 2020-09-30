@@ -5,6 +5,8 @@
 open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory
      holSemanticsTheory holSemanticsExtraTheory setSpecTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"holBool"
 
 val _ = Parse.hide "mem";

@@ -5,6 +5,8 @@ open preamble explorerProgTheory
      ml_translatorLib ml_translatorTheory
      pegTheory simpleSexpTheory simpleSexpPEGTheory simpleSexpParseTheory fromSexpTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"sexp_parserProg";
 val _ = translation_extends "explorerProg";
 

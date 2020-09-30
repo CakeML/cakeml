@@ -5,6 +5,8 @@
 open preamble wordLangTheory wordSemTheory wordPropsTheory word_depthTheory
      backendPropsTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "word_depthProof";
 
 Triviality option_le_X_MAX_X[simp]:

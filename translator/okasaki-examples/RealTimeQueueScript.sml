@@ -63,7 +63,7 @@ val rotate_thm = Q.prove(
   Induct
   THEN Cases_on `r` THEN FULL_SIMP_TAC (srw_ss()) [LENGTH_NIL,rotate_def]
   THEN Cases_on `t` THEN FULL_SIMP_TAC (srw_ss()) [LENGTH_NIL,rotate_def]
-  THEN REPEAT STRIP_TAC THEN1 `F` by DECIDE_TAC
+  THEN REPEAT STRIP_TAC
   THEN `LENGTH (h'::t') = LENGTH f + 1` by (EVAL_TAC THEN DECIDE_TAC)
   THEN FULL_SIMP_TAC std_ss [REVERSE_DEF,GSYM APPEND_ASSOC,APPEND]);
 

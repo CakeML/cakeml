@@ -214,6 +214,11 @@ val sec_length_def = Define `
   (sec_length ((Asm x1 x2 l)::xs) k = sec_length xs (k+l)) /\
   (sec_length ((LabAsm a w bytes l)::xs) k = sec_length xs (k+l))`
 
+val get_symbols_def = Define `
+  (get_symbols pos [] = []) /\
+  (get_symbols pos ((Section k l)::secs) =
+    let len = sec_length l 0 in (k, pos, len)::get_symbols (pos+len) secs)`;
+
 (* Compute the labels whose second part is 0 *)
 val zero_labs_acc_of_def = Define`
   (zero_labs_acc_of (LocValue _ (Lab n1 n2)) acc =
@@ -311,6 +316,7 @@ QED
 
 val _ = Datatype`
   config = <| labels : num num_map num_map
+            ; sec_pos_len : (num # num # num) list
             ; pos : num
             ; asm_conf : 'a asm_config
             ; init_clock : num
@@ -342,7 +348,9 @@ val compile_lab_def = Define `
       case remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list of
       | SOME (sec_list,l1) =>
           let bytes = prog_to_bytes sec_list in
-          SOME (bytes, c with <| labels := l1; pos := LENGTH bytes + c.pos;
+          SOME (bytes,
+                c with <| labels := l1; pos := LENGTH bytes + c.pos;
+                          sec_pos_len := get_symbols c.pos sec_list;
                           ffi_names := SOME ffis |>)
       | NONE => NONE
     else NONE`;

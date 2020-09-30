@@ -174,8 +174,8 @@ Proof
   \\ simp[MAX_DEF]
   \\ IF_CASES_TAC \\ fs[NOT_LESS]
   >- metis_tac[]
-  \\ Cases_on`w2n bytes_in_word` \\ fs[] \\ rw[]
-  \\ Cases_on`n''` \\ fs[]
+  \\ Cases_on`w2n (bytes_in_word:'a word)` \\ fs[] \\ rw[]
+  \\ Cases_on`n''` \\ fs[] \\ metis_tac []
 QED
 
 Theorem words_of_bytes_append_word:
@@ -185,7 +185,8 @@ Proof
   rw[]
   \\ Cases_on`l1` \\ rw[words_of_bytes_def] \\ fs[]
   \\ fs[MAX_DEF]
-  \\ first_x_assum(assume_tac o SYM) \\ fs[ADD1]
+  \\ qabbrev_tac ‘k = w2n (bytes_in_word:'a word)’
+  \\ fs[ADD1]
   \\ rw[TAKE_APPEND,DROP_APPEND,DROP_LENGTH_NIL] \\ fs[]
 QED
 

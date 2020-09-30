@@ -10,6 +10,8 @@ open parserProgTheory;
 open basisProgTheory
 *)
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "reg_allocProg";
 
 val _ = translation_extends "parserProg";

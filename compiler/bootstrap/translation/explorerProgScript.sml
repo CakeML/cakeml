@@ -5,6 +5,8 @@ open preamble
      ml_translatorLib
      inferProgTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "explorerProg"
 
 val _ = translation_extends "inferProg";

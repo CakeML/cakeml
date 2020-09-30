@@ -9,6 +9,8 @@ open compilerTheory
      ml_translatorLib ml_translatorTheory;
 open cfLib basis;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"compiler32Prog";
 
 val _ = translation_extends "ag32Prog";
@@ -82,6 +84,9 @@ val _ = res |> hyp |> null orelse
    should probably be moved up to to_dataProg or something*)
 val res = translate all_bytes_eq
 val res = translate byte_to_string_eq
+val res = translate escape_sym_char_def
+val res = translate emit_symbol_def
+val res = translate emit_symbols_def
 
 val export_byte_to_string_side_def = prove(
   ``!b. export_byte_to_string_side b``,
@@ -92,7 +97,7 @@ val export_byte_to_string_side_def = prove(
 val res = translate split16_def;
 val res = translate preamble_def;
 
-val res = translate space_line_def;
+(* val res = translate space_line_def; *)
 
 (* TODO: maybe do this directly to the definition of data_section *)
 fun is_strcat_lits tm =
@@ -177,7 +182,7 @@ val res = translate parse_stack_conf_def;
 val res = translate parse_tap_conf_def;
 val res = translate (parse_lab_conf_def |> spec32)
 
-val res = translate (parse_top_config_def |> SIMP_RULE (srw_ss()) [default_heap_sz_def,default_stack_sz_def]);
+val res = translate (parse_top_config_def |> SIMP_RULE (srw_ss()) []);
 
 (* Translations for each 32-bit target
   Note: ffi_asm is translated multiple times...
@@ -209,8 +214,8 @@ val res = translate Appends_def;
 val res = translate add_tap_output_def;
 
 val res = format_compiler_result_def
-        |> Q.GENL[`bytes`,`heap`,`stack`,`c`]
-        |> Q.ISPECL[`bytes:word8 list`,`heap:num`,`stack:num`,`c:'a backend$config`]
+        |> Q.GENL[`bytes`,`c`]
+        |> Q.ISPECL[`bytes:word8 list`,`c:'a backend$config`]
         |> spec32
         |> translate;
 
