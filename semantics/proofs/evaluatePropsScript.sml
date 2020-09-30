@@ -684,8 +684,9 @@ Theorem call_FFI_return_unchanged:
 Proof
   simp [ffiTheory.call_FFI_def]
   \\ every_case_tac
-  \\ simp [EQ_SYM_EQ]
   \\ simp [ffiTheory.ffi_state_component_equality]
+  \\ TRY EQ_TAC
+  \\ simp []
 QED
 
 Theorem do_app_ffi_unchanged:
@@ -943,9 +944,10 @@ Theorem do_app_SOME_ffi_same_oracle_state:
    do_app (refs,ffi with io_events := l) op args =
    SOME ((refs',ffi' with io_events := l ++ DROP (LENGTH ffi.io_events) ffi'.io_events),r)
 Proof
-  rw[]
-  \\ fs[semanticPrimitivesPropsTheory.do_app_cases]
-  \\ rw[] \\ fs[]
+  simp [Once semanticPrimitivesPropsTheory.do_app_cases]
+  \\ rw []
+  \\ fs [do_app_def]
+  \\ simp [DROP_LENGTH_NIL]
   \\ fs[ffiTheory.call_FFI_def]
   \\ rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
   \\ rveq \\ fs[ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
