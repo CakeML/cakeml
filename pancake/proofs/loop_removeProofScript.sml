@@ -1202,7 +1202,7 @@ Proof
 QED
 
 
-Theorem first_comp_all_distinct:
+Theorem first_params_comp_all_distinct:
   !prog l n q r name params.
     FOLDR comp (n,l) prog = (q,r) ∧
     EVERY (λ(name,params,body). ALL_DISTINCT params) prog ∧
@@ -1233,7 +1233,7 @@ Proof
   qmatch_asmsub_abbrev_tac ‘(n, [])’ >>
   cases_on ‘FOLDR comp (n,[]) prog’ >>
   fs [] >>
-  drule first_comp_all_distinct >>
+  drule first_params_comp_all_distinct >>
   fs [] >>
   strip_tac >>
   gs [EVERY_MEM] >>
@@ -1254,7 +1254,8 @@ Theorem store_cont_names_distinct:
     acc_ok s ⇒
     acc_ok t ∧ FST s ≤ FST t ∧
     (∀x. x < FST s ∧ MEM x (MAP FST (SND t)) ⇒
-         MEM x (MAP FST (SND s)))
+         MEM x (MAP FST (SND s))) ∧
+    (∀x. MEM x (SND s) ⇒ MEM x (SND t))
 Proof
   rw [] >>
   cases_on ‘s’ >> cases_on ‘t’ >>
@@ -1272,7 +1273,8 @@ Theorem comp_with_loop_names_distinct:
     acc_ok s ⇒
     acc_ok t ∧ FST s ≤ FST t ∧
     (∀x. MEM x (MAP FST (SND t)) ∧ x < FST s ⇒
-         MEM x (MAP FST (SND s)))
+         MEM x (MAP FST (SND s))) ∧
+    (∀x. MEM x (SND s) ⇒ MEM x (SND t))
 Proof
   ho_match_mp_tac comp_with_loop_ind >>
   rpt conj_tac >> rpt gen_tac >>
@@ -1338,7 +1340,8 @@ Theorem first_comp_all_distinct:
     acc_ok (n,l) ⇒
     acc_ok (q,r) ∧ n ≤ q ∧
     (∀x. MEM x (MAP FST r) ∧ x < n ⇒
-         MEM x (MAP FST l) ∨ MEM x (MAP FST prog))
+         MEM x (MAP FST l) ∨ MEM x (MAP FST prog)) ∧
+    (∀x. MEM x l ⇒ MEM x r)
 Proof
   Induct
   >- (rw [] >> fs []) >>
@@ -1707,5 +1710,93 @@ Proof
   rveq >> fs [] >>
   fs [evaluate_def]
 QED
+
+(*
+
+Theorem foo:
+  ∀prog l name params body n.
+    ALL_DISTINCT (MAP FST prog ++ MAP FST l) ∧
+    MEM (name,params,body) l ∧
+    (∀x. MEM x (MAP FST prog) ⇒ x < n) ∧
+    acc_ok (n,l) ⇒
+    ALOOKUP (SND (FOLDR comp (n,l) prog)) name = SOME (params,body)
+Proof
+  rw [] >>
+  match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
+  cases_on ‘FOLDR comp (n,l) prog’ >> fs [] >>
+  drule first_comp_all_distinct >>
+  disch_then (qspecl_then [‘n’, ‘q’, ‘r’] mp_tac) >>
+  fs [acc_ok_def]
+QED
+
+Theorem alookup_comp_prog_elem:
+  ∀prog l name params body n.
+    ALL_DISTINCT (MAP FST prog ++ MAP FST l) ∧
+    MEM (name,params,body) prog ∧
+    (∀x. MEM x (MAP FST prog) ⇒ x < n) ∧
+    acc_ok (n,l) ⇒
+    ALOOKUP (SND (FOLDR comp (n,l) prog)) name = SOME (params,body')
+Proof
+  rw [] >>
+  match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
+  cases_on ‘FOLDR comp (n,l) prog’ >> fs [] >>
+  drule first_comp_all_distinct >>
+  disch_then (qspecl_then [‘n’, ‘q’, ‘r’] mp_tac) >>
+  fs [acc_ok_def]
+QED
+*)
+Theorem bar:
+  ALL_DISTINCT (MAP FST prog) ∧
+  MEM (name,params,body) prog ⇒
+  ∃init.
+    has_code (comp (name,params,body) init)
+             (fromAList (comp_prog prog))
+Proof
+  rw [] >>
+  fs [MEM_SPLIT] >>
+  rename [‘ prog = fprog ++ [(name,params,body)] ++ lprog’] >>
+  fs [] >>
+  pop_assum kall_tac >>
+  fs [ALL_DISTINCT_APPEND] >>
+  ‘~MEM (name,params,body) fprog’ by (
+    CCONTR_TAC >>
+    gs [MEM_MAP] >>
+    last_x_assum (qspec_then ‘(name,params,body)’ mp_tac) >>
+    fs []) >>
+  ‘~MEM (name,params,body) lprog’ by (
+    CCONTR_TAC >>
+    gs [MEM_MAP] >>
+    first_x_assum (qspec_then ‘(name,params,body)’ mp_tac) >>
+    fs [] >>
+    first_x_assum (qspec_then ‘name’ mp_tac) >>
+    fs [] >>
+    qexists_tac ‘(name,params,body)’ >> fs []) >>
+  qmatch_goalsub_abbrev_tac ‘comp_prog prog’ >>
+  fs [loop_removeTheory.comp_prog_def] >>
+  qmatch_goalsub_abbrev_tac ‘(nn,[])’ >>
+  qexists_tac ‘FOLDR comp (nn, []) lprog’ >>
+  qmatch_goalsub_abbrev_tac ‘comp _ accum’ >>
+  fs [comp_def] >>
+  pairarg_tac >> fs [] >>
+
+  fs [has_code_def] >>
+  fs [lookup_fromAList] >>
+  conj_tac
+  >- (
+  match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
+  cases_on ‘FOLDR comp (nn,[]) prog’ >> fs [] >>
+  ‘ALL_DISTINCT (MAP FST prog ++
+                 MAP FST ([] :(num # num list # α loopLang$prog) list))’ by cheat >>
+  drule first_comp_all_distinct >>
+  disch_then (qspecl_then [‘nn’, ‘q’, ‘r’] mp_tac) >>
+  impl_tac >- cheat >>
+  strip_tac >>
+  conj_asm1_tac
+  >- fs [acc_ok_def] >>
+  cheat) >>
+  cheat
+QED
+
+
 
 val _ = export_theory();
