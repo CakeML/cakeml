@@ -1711,46 +1711,60 @@ Proof
   fs [evaluate_def]
 QED
 
-(*
-
-Theorem foo:
-  ∀prog l name params body n.
-    ALL_DISTINCT (MAP FST prog ++ MAP FST l) ∧
-    MEM (name,params,body) l ∧
-    (∀x. MEM x (MAP FST prog) ⇒ x < n) ∧
-    acc_ok (n,l) ⇒
-    ALOOKUP (SND (FOLDR comp (n,l) prog)) name = SOME (params,body)
+Theorem comp_comp_with_loop_mem:
+  ∀fprog lprog n l q r name params body body' accum t.
+    FOLDR comp (n,l) (fprog ++ [(name,params,body)] ++ lprog) = (q,r) ∧
+    acc_ok (n,l) ∧
+    (∀x. MEM x (MAP FST (fprog ++ [(name,params,body)] ++ lprog)) ⇒ x < n) ∧
+    ALL_DISTINCT (MAP FST (fprog ++ [(name,params,body)] ++ lprog) ++ MAP FST l) ∧
+    accum = FOLDR comp (n,l) lprog ∧
+    comp_with_loop (Fail,Fail) body Fail accum = (body',t) ⇒
+    MEM (name,params,body') r ∧
+    (∀n' p b. MEM (n',p,b) (SND t) ⇒ MEM (n',p,b) r)
 Proof
-  rw [] >>
-  match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
-  cases_on ‘FOLDR comp (n,l) prog’ >> fs [] >>
+  Induct >>
+  rpt gen_tac >> strip_tac
+  >- (
+  fs [comp_def] >>
+  pairarg_tac >> fs [] >> rveq >> gs []) >>
+  cases_on ‘FOLDR comp (n,l) (fprog ++ [(name,params,body)] ++ lprog)’ >>
+  fs [] >>
+  last_x_assum drule >>
+  fs [] >>
+  strip_tac >>
+  last_x_assum assume_tac >>
+  PairCases_on ‘h’ >>
+  fs [comp_def] >>
+  pairarg_tac >> fs [] >>
+  rveq >> gs [] >>
+  drule comp_with_loop_names_distinct >>
+  impl_tac
+  >- (
+  ‘ALL_DISTINCT (MAP FST (fprog ++ [(name,params,body)] ++ lprog) ++ MAP FST l)’ by fs [] >>
   drule first_comp_all_distinct >>
-  disch_then (qspecl_then [‘n’, ‘q’, ‘r’] mp_tac) >>
-  fs [acc_ok_def]
+  fs [] >>
+  disch_then (qspecl_then [‘n’, ‘q'’, ‘r'’] mp_tac) >>
+  impl_tac
+  >- (
+    fs [] >>
+    rw [] >> gs []) >>
+  strip_tac >> rfs []) >>
+  strip_tac >>
+  res_tac >> gs [] >>
+  ‘∀x. (MEM x (MAP FST fprog) ∨ x = name) ∨ MEM x (MAP FST lprog) ⇒
+       x < n’ by (rw [] >> gs []) >>
+  last_x_assum drule >>
+  strip_tac >>
+  fs []
 QED
 
-Theorem alookup_comp_prog_elem:
-  ∀prog l name params body n.
-    ALL_DISTINCT (MAP FST prog ++ MAP FST l) ∧
-    MEM (name,params,body) prog ∧
-    (∀x. MEM x (MAP FST prog) ⇒ x < n) ∧
-    acc_ok (n,l) ⇒
-    ALOOKUP (SND (FOLDR comp (n,l) prog)) name = SOME (params,body')
-Proof
-  rw [] >>
-  match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
-  cases_on ‘FOLDR comp (n,l) prog’ >> fs [] >>
-  drule first_comp_all_distinct >>
-  disch_then (qspecl_then [‘n’, ‘q’, ‘r’] mp_tac) >>
-  fs [acc_ok_def]
-QED
-*)
-Theorem bar:
-  ALL_DISTINCT (MAP FST prog) ∧
-  MEM (name,params,body) prog ⇒
-  ∃init.
-    has_code (comp (name,params,body) init)
-             (fromAList (comp_prog prog))
+Theorem comp_prog_has_code:
+  ∀prog name params body.
+    ALL_DISTINCT (MAP FST prog) ∧
+    MEM (name,params,body) prog ⇒
+    ∃init.
+      has_code (comp (name,params,body) init)
+               (fromAList (comp_prog prog))
 Proof
   rw [] >>
   fs [MEM_SPLIT] >>
@@ -1778,23 +1792,76 @@ Proof
   qmatch_goalsub_abbrev_tac ‘comp _ accum’ >>
   fs [comp_def] >>
   pairarg_tac >> fs [] >>
-
   fs [has_code_def] >>
   fs [lookup_fromAList] >>
-  conj_tac
+  conj_asm1_tac
   >- (
   match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
   cases_on ‘FOLDR comp (nn,[]) prog’ >> fs [] >>
   ‘ALL_DISTINCT (MAP FST prog ++
-                 MAP FST ([] :(num # num list # α loopLang$prog) list))’ by cheat >>
+                 MAP FST ([] :(num # num list # α loopLang$prog) list))’ by (
+    fs [ALL_DISTINCT_APPEND] >>
+    gs [Abbr ‘prog’, ALL_DISTINCT_APPEND] >>
+    rw [] >>
+    last_x_assum (qspec_then ‘e’ mp_tac) >>
+    fs []) >>
   drule first_comp_all_distinct >>
   disch_then (qspecl_then [‘nn’, ‘q’, ‘r’] mp_tac) >>
-  impl_tac >- cheat >>
+  impl_tac
+  >- (
+    fs [acc_ok_def] >>
+    fs [Abbr ‘nn’] >> rw [] >> gs [] >>
+    match_mp_tac pan_commonPropsTheory.max_foldr_lt >>
+    fs []) >>
   strip_tac >>
   conj_asm1_tac
   >- fs [acc_ok_def] >>
-  cheat) >>
-  cheat
+  fs [Abbr ‘prog’] >>
+  drule comp_comp_with_loop_mem >>
+  disch_then (qspecl_then [‘body'’, ‘accum’, ‘(n,funs)’] mp_tac) >>
+  fs [acc_ok_def] >>
+  impl_tac
+  >- (
+    fs [Abbr ‘nn’] >>
+    rw [] >> gs [] >>
+    match_mp_tac pan_commonPropsTheory.max_foldr_lt >>
+    fs []) >>
+  fs []) >>
+  fs [EVERY_MEM] >>
+  rw [] >>
+  pairarg_tac >> fs [] >>
+  pop_assum kall_tac >>
+  match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
+  cases_on ‘FOLDR comp (nn,[]) prog’ >> fs [] >>
+  ‘ALL_DISTINCT (MAP FST prog ++
+                 MAP FST ([] :(num # num list # α loopLang$prog) list))’ by (
+    fs [ALL_DISTINCT_APPEND] >>
+    gs [Abbr ‘prog’, ALL_DISTINCT_APPEND] >>
+    rw [] >>
+    last_x_assum (qspec_then ‘e’ mp_tac) >>
+    fs []) >>
+  drule first_comp_all_distinct >>
+  disch_then (qspecl_then [‘nn’, ‘q’, ‘r’] mp_tac) >>
+  impl_tac
+  >- (
+    fs [acc_ok_def] >>
+    fs [Abbr ‘nn’] >> rw [] >> gs [] >>
+    match_mp_tac pan_commonPropsTheory.max_foldr_lt >>
+    fs []) >>
+  strip_tac >>
+  conj_asm1_tac
+  >- fs [acc_ok_def] >>
+  fs [Abbr ‘prog’] >>
+  drule comp_comp_with_loop_mem >>
+  disch_then (qspecl_then [‘body'’, ‘accum’, ‘(n,funs)’] mp_tac) >>
+  fs [acc_ok_def] >>
+  impl_tac
+  >- (
+    fs [Abbr ‘nn’] >>
+    rw [] >> gs [] >>
+    match_mp_tac pan_commonPropsTheory.max_foldr_lt >>
+    fs []) >>
+  fs []
 QED
 
 

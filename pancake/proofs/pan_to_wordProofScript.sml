@@ -550,7 +550,7 @@ Proof
       fs [loop_liveTheory.comp_def] >>
       fs [loop_liveProofTheory.mark_all_syntax_ok]) >>
      (* has_code *)
-     match_mp_tac loop_removeProofTheory.bar >>
+     match_mp_tac loop_removeProofTheory.comp_prog_has_code >>
      reverse conj_tac
      >- (
         fs [Abbr ‘lst’, loop_state_def] >>
