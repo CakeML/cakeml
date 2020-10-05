@@ -4,6 +4,7 @@
 *)
 open preamble
      mlstringTheory
+     realTheory
 
 val _ = new_theory "timeLang";
 
@@ -18,26 +19,15 @@ Datatype:
            | Output effect
 End
 
-(* TOASK *)
-(*
-from Clocks.v
-(* Clock variables *)
-Inductive clock : Set :=
- CVar : string -> clock.
-*)
+(* clock names basically *)
 
 Datatype:
   clock = CVar mlstring
 End
 
-(* TOASK *)
-(*
-from Time.v
-Definition time : Set := Q.
-*)
-
+(* clock values *)
 Datatype:
-  time = Time num
+  time = Time real
 End
 
 Datatype:
@@ -46,14 +36,10 @@ Datatype:
        | ELit time
 End
 
-(*
-cond ::= e <= e
-       | e < e
-*)
 
 Datatype:
-  cond = CndLe expr expr
-       | CndLt expr expr
+  cond = CndLe expr expr  (* e <= e *)
+       | CndLt expr expr  (* e < e *)
 End
 
 
@@ -67,8 +53,10 @@ End
 
 Type program = ``:(loc # term list) list``
 
-(* term from DSL *)
-(* action is remaining *)
+
+(*
+generic DSL, that is infact too generic for our purposes
+
 Datatype:
   dterm = TmSkip                       (* No-op *)
         | TmPanic                      (* Panic *)
@@ -84,7 +72,8 @@ Datatype:
                    dterm
 
 End
+*)
 
-(* state and sematics of program *)
+
 
 val _ = export_theory();
