@@ -32,6 +32,7 @@ End
 
 (* TOASK *)
 (*
+from Time.v
 Definition time : Set := Q.
 *)
 
@@ -66,5 +67,24 @@ End
 
 Type program = ``:(loc # term list) list``
 
+(* term from DSL *)
+(* action is remaining *)
+Datatype:
+  dterm = TmSkip                       (* No-op *)
+        | TmPanic                      (* Panic *)
+        | TmWait (expr list)           (* Wait _at most_ a certain time *)
+        | TmGoto loc                   (* Decide next location *)
+        | TmReset (clock list)         (* Reset some clocks *)
+        | TmOutput effect              (* Perform output *)
+        | TmConsume action             (* Consume input *)
+        | TmSeq dterm dterm            (* Sequencing *)
+        | TmSwitch (action option)     (* Switch *)
+                   (cond list)
+                   dterm
+                   dterm
+
+End
+
+(* state and sematics of program *)
 
 val _ = export_theory();
