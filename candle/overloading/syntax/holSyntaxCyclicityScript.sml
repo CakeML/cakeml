@@ -581,6 +581,97 @@ Proof
   >> fs[TYPE_SUBST_drop_suffix,GSYM clean_tysubst_TYPE_SUBST_eq]
 QED
 
+(* equivalence relations from section 3 *)
+(* equal type substitutions; equal on a set of variables  *)
+Definition equal_ts_on_def:
+  equal_ts_on s s' vars =
+    !x. MEM x vars ==> TYPE_SUBST s (Tyvar x) = TYPE_SUBST s' (Tyvar x)
+End
+
+(* equivalent type substitutions; equivalent on a set of variables  *)
+Definition equiv_ts_on_def:
+  equiv_ts_on s s' vars =
+  ?η. var_renaming η /\ equal_ts_on s (MAP (TYPE_SUBST η ## I) s' ++ η) vars
+End
+
+Theorem equal_ts_on_symm:
+  !s' s vars. equal_ts_on s' s vars = equal_ts_on s s' vars
+Proof
+  fs[equal_ts_on_def,EQ_IMP_THM,Once EQ_SYM_EQ]
+QED
+
+Theorem equiv_ts_on_symm:
+  !s' s vars. equiv_ts_on s' s vars = equiv_ts_on s s' vars
+Proof
+  fs[EQ_IMP_THM,FORALL_AND_THM]
+  >> reverse conj_asm1_tac
+  >- metis_tac[]
+  >> rw[equiv_ts_on_def,equal_ts_on_def,Excl"TYPE_SUBST_def"]
+  >> rename[`var_renaming e`]
+  >> qexists_tac `MAP SWAP e`
+  >> rw[var_renaming_SWAP_IMP,Excl"TYPE_SUBST_def"]
+  >> fs[GSYM TYPE_SUBST_compose,var_renaming_SWAP_id]
+QED
+
+(* Lemma 3.1 *)
+Theorem var_renaming_type_size:
+  !e ty. var_renaming e ==> type_size' (TYPE_SUBST e ty) =  type_size' ty
+Proof
+  gen_tac >> ho_match_mp_tac type_ind
+  >> rw[Excl"TYPE_SUBST_def",type_size'_def]
+  >- (
+    rename[`TYPE_SUBST e (Tyvar m)`]
+    >> Cases_on `MEM (Tyvar m) (MAP SND e)`
+    >- (
+      fs[MEM_MAP]
+      >> rename[`MEM y e`] >> PairCases_on`y`
+      >> drule_all_then assume_tac $ cj 3 var_renaming_Tyvar_imp
+      >> gvs[]
+      >> drule_all_then assume_tac var_renaming_MEM_REV_ASSOCD
+      >> fs[type_size'_def]
+    )
+    >> drule_all_then assume_tac var_renaming_NOT_MEM_REV_ASSOCD_IMP
+    >> fs[type_size'_def]
+  )
+  >> fs[EVERY_MEM,type_size'_def,type1_size'_SUM_MAP]
+  >> AP_TERM_TAC
+  >> match_mp_tac LIST_EQ
+  >> rw[EL_MAP]
+  >> first_x_assum match_mp_tac
+  >> fs[EL_MEM]
+QED
+
+(* Lemma 3.2 *)
+Theorem var_renaming_tyvars_comm:
+  !e p. var_renaming e
+  ==> set (MAP (TYPE_SUBST e) (MAP Tyvar (tyvars p))) = set (MAP Tyvar (tyvars (TYPE_SUBST e p)))
+Proof
+  rpt strip_tac
+  >> CONV_TAC $ RHS_CONV $ ONCE_REWRITE_CONV [LIST_TO_SET_MAP]
+  >> rw[tyvars_TYPE_SUBST,pred_setTheory.EXTENSION,PULL_EXISTS,MAP_MAP_o,o_DEF,EQ_IMP_THM,MEM_MAP,Excl"TYPE_SUBST_def"]
+  >> goal_assum $ drule_at Any
+  >> rename[`TYPE_SUBST e (Tyvar a)`]
+  >> Cases_on `MEM (Tyvar a) (MAP SND e)`
+  >> TRY (
+    qmatch_asmsub_abbrev_tac `~MEM (Tyvar _) _`
+    >> drule_all_then assume_tac var_renaming_NOT_MEM_REV_ASSOCD_IMP
+    >> fs[tyvars_def]
+  )
+  >> fs[MEM_MAP]
+  >> rename[`MEM y _`] >> PairCases_on `y`
+  >> drule_all_then assume_tac $ cj 3 var_renaming_Tyvar_imp
+  >> gvs[]
+  >> drule_all_then assume_tac var_renaming_MEM_REV_ASSOCD
+  >> fs[tyvars_def]
+QED
+
+Theorem var_renaming_FV_comm:
+  !e p. var_renaming e /\ is_const_or_type p
+  ==> set (MAP (TYPE_SUBST e) (MAP Tyvar (FV p))) = set (MAP Tyvar (FV (LR_TYPE_SUBST e p)))
+Proof
+  fs[is_const_or_type_eq,PULL_EXISTS,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM,FORALL_AND_THM,FV_def,tvars_def,LR_TYPE_SUBST_def,INST_def,INST_CORE_def,var_renaming_tyvars_comm]
+QED
+
 (* Lemma 5.4, Kunčar 2015 *)
 Theorem mg_solution1:
   !rs rs' pqs.
