@@ -7,10 +7,6 @@ open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheor
 
 val _ = new_theory"holSyntaxCyclicity"
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
-
 Overload is_instance = ``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``
 val _ = Parse.add_infix("#", 401, Parse.NONASSOC)
 Overload "#" = ``$orth_ty``
@@ -21,8 +17,6 @@ Overload "#" = ``$orth_ci``
 fun ccontr_equiv(x) =
   let val (a,b) = EQ_IMP_RULE (SPEC_ALL x)
   in GEN_ALL (IMP_ANTISYM_RULE (CONTRAPOS b) (CONTRAPOS a)) end;
-fun eq_ltr(x) = fst (EQ_IMP_RULE (SPEC_ALL x));
-fun eq_rtl(x) = snd (EQ_IMP_RULE (SPEC_ALL x));
 
 (* well-formed list of dependencies *)
 
@@ -2162,12 +2156,6 @@ Proof
   >> fs[sol_seq_def,wf_pqs_def]
 QED
 
-Theorem LAPPEND_CONS:
-  !x h t. LAPPEND x (h:::t) = LAPPEND (LAPPEND x [|h|]) t
-Proof
-  fs[LAPPEND_ASSOC]
-QED
-
 Theorem every_LAPPEND_SINGLETON:
   !P h x. LFINITE x /\ every P (LAPPEND x [|h|]) ==> P h
 Proof
@@ -2184,45 +2172,23 @@ Proof
   >> imp_res_tac every_LAPPEND1
 QED
 
-Theorem every_fromList:
-  !P ls. every P (fromList ls) ==> EVERY P ls
-Proof
-  CONV_TAC SWAP_FORALL_CONV
-  >> Induct
-  >> fs[]
-QED
-
 Theorem every_LPREFIX_EVERY:
   !pre s P. LPREFIX (fromList pre) s
   /\ every P s ==> EVERY P pre
 Proof
-  rw[]
-  >> match_mp_tac every_fromList
+  rw[GSYM every_fromList_EVERY]
   >> imp_res_tac every_LPREFIX
 QED
 
-Theorem every_LTAKE_EVERY:
+Theorem every_LTAKE_EVERY':
   !i P s. every P s /\ ~LFINITE s
   ==>  EVERY P (THE (LTAKE i s))
 Proof
-  rw[]
-  >> match_mp_tac every_fromList
+  rw[GSYM every_fromList_EVERY]
   >> match_mp_tac every_LAPPEND1
   >> imp_res_tac LTAKE_DROP
   >> qexists_tac `THE (LDROP i s)`
   >> fs[]
-QED
-
-Theorem every_LNTH:
-  !P s i. every P s /\ ~LFINITE s
-  ==> P (THE (LNTH i s))
-Proof
-  rw[]
-  >> imp_res_tac infinite_lnth_some
-  >> first_x_assum (qspec_then `i` assume_tac)
-  >> fs[every_def,exists_LNTH]
-  >> first_x_assum (qspecl_then [`i`,`x`] assume_tac)
-  >> rfs[]
 QED
 
 Theorem WOP_eq[local]:
@@ -2740,85 +2706,6 @@ Proof
   >> fs[LDROP_SUC_LGENLIST_NOT_SOME]
 QED
 
-Theorem LNTH_LNTH_SUC_NOT_LFINITE:
-  !n P ll e e'. ~LFINITE (LFILTER P ll)
-  /\ LNTH n (LFILTER P ll) = SOME e
-  /\ LNTH (SUC n) (LFILTER P ll) = SOME e'
-  ==> ?ll1 ll2. LFILTER P ll = LAPPEND ll1 (e:::e':::ll2)
-Proof
-  rw[]
-  >> imp_res_tac LNTH_LDROP
-  >> qmatch_asmsub_abbrev_tac `LNTH _ FPL`
-  >> qspecl_then [`n`,`FPL`] mp_tac (CONJUNCT1 LTAKE_DROP)
-  >> fs[]
-  >> disch_then (fn x => PURE_ONCE_REWRITE_TAC[GSYM x])
-  >> qmatch_goalsub_abbrev_tac `LAPPEND ll1 _`
-  >> qexists_tac `ll1`
-  >> qmatch_goalsub_abbrev_tac `LAPPEND ll1 ll2`
-  >> Cases_on `ll2`
-  >> fs[]
-  >> `t = THE (LDROP (SUC n) FPL)` by (
-    fs[markerTheory.Abbrev_def,LDROP_SUC]
-    >> drule NOT_LFINITE_DROP
-    >> disch_then (qspec_then `n` assume_tac)
-    >> fs[OPTION_BIND_def,option_CLAUSES]
-    >> qpat_x_assum `_:::_ = _` (assume_tac o GSYM)
-    >> rfs[option_CLAUSES]
-  )
-  >> Cases_on `t`
-  >- (qpat_x_assum `[||] = _` (assume_tac o GSYM) >> fs[])
-  >> qpat_x_assum `_:::_ = _` (assume_tac o GSYM)
-  >> qexists_tac `t'`
-  >> fs[]
-QED
-
-Theorem LNTH_LNTH_SUC_LFINITE:
-  !n P ll e e'. LFINITE (LFILTER P ll)
-  /\ SUC n <= THE (LLENGTH (LFILTER P ll))
-  /\ LNTH n (LFILTER P ll) = SOME e
-  /\ LNTH (SUC n) (LFILTER P ll) = SOME e'
-  ==> ?ll1 ll2. LFILTER P ll = LAPPEND ll1 (e:::e':::ll2)
-Proof
-  rw[]
-  >> imp_res_tac LNTH_LDROP
-  >> qmatch_asmsub_abbrev_tac `LNTH _ FPL`
-  >> qspecl_then [`n`,`FPL`] mp_tac (CONJUNCT2 LTAKE_DROP)
-  >> fs[]
-  >> disch_then (fn x => PURE_ONCE_REWRITE_TAC[GSYM x])
-  >> qmatch_goalsub_abbrev_tac `LAPPEND ll1 _`
-  >> qexists_tac `ll1`
-  >> qmatch_goalsub_abbrev_tac `LAPPEND ll1 ll2`
-  >> Cases_on `ll2`
-  >> fs[]
-  >> `t = THE (LDROP (SUC n) FPL)` by (
-    fs[markerTheory.Abbrev_def,LDROP_SUC]
-    >> drule LFINITE_DROP
-    >> disch_then (qspec_then `n` assume_tac)
-    >> rfs[]
-    >> qpat_x_assum `_:::_ = _` (assume_tac o GSYM)
-    >> rfs[option_CLAUSES]
-  )
-  >> Cases_on `t`
-  >- (qpat_x_assum `[||] = _` (assume_tac o GSYM) >> fs[])
-  >> qpat_x_assum `_:::_ = _` (assume_tac o GSYM)
-  >> qexists_tac `t'`
-  >> fs[]
-QED
-
-Theorem LFINITE_LNTH_SOME:
-  !n ll. n < THE (LLENGTH ll) /\ LFINITE ll
-  ==> ?e. LNTH n ll = SOME e
-Proof
-  rw[]
-  >> drule LFINITE_TAKE
-  >> disch_then (qspec_then `SUC n` mp_tac)
-  >> rw[]
-  >> drule LTAKE_LNTH_EL
-  >> disch_then (qspec_then `n` mp_tac)
-  >> rw[]
-QED
-
-
 Definition infin_or_leq_def:
   infin_or_leq ll k P =
     (~LFINITE ll \/ (LFINITE ll /\ k <= THE (LLENGTH ll) /\ P))
@@ -3278,16 +3165,11 @@ Theorem every_THE_LDROP:
 Proof
   rw[]
   >> qpat_x_assum `every _ _` mp_tac
-  >> drule (CONJUNCT1 LTAKE_DROP)
-  >> disch_then (qspec_then `k` (fn x => ONCE_REWRITE_TAC[GSYM x]))
-  >> rw[every_LAPPEND2_LFINITE]
-  >> drule every_LAPPEND1
-  >> qspec_then `THE (LTAKE k ll)` assume_tac LFINITE_fromList
-  >> drule_all_then assume_tac every_LAPPEND2_LFINITE
-  >> qspecl_then [`ll`,`k`] mp_tac (REWRITE_RULE[infin_or_leq_def] infin_or_leq_LENGTH_LTAKE_EQ)
-  >> rw[LLENGTH_fromList]
-  >> drule LFINITE_LDROP_LAPPEND_snd
-  >> fs[LLENGTH_fromList]
+  >> drule_then (qspec_then `k` mp_tac) $ CONJUNCT1 LTAKE_DROP
+  >> disch_then $ CONV_TAC o LAND_CONV o DEPTH_CONV o REWR_CONV o GSYM
+  >> strip_tac
+  >> drule_at Any every_LAPPEND2_LFINITE
+  >> rw[LFINITE_fromList]
 QED
 
 (* wf_pqs_def for llists *)
@@ -3299,7 +3181,7 @@ End
 Theorem wf_pqs_inf_wf_pqs_LTAKE:
   !pqs k. wf_pqs_inf pqs /\ ~LFINITE pqs ==> wf_pqs (THE (LTAKE k pqs))
 Proof
-  rw[wf_pqs_inf_def,wf_pqs_def,every_LTAKE_EVERY,LAMBDA_PROD,o_DEF]
+  rw[wf_pqs_inf_def,wf_pqs_def,every_LTAKE_EVERY',LAMBDA_PROD,o_DEF]
 QED
 
 Theorem wf_pqs_inf_LDROP:
@@ -3381,7 +3263,7 @@ Proof
   >> qspecl_then [`THE (LTAKE (SUC (SUC k)) rs)`,`THE (LTAKE (SUC (SUC k)) pqs)`,`ctxt`] mp_tac (REWRITE_RULE[DISJ_EQ_IMP,AND_IMP_INTRO] leq_geq_monotone_composable)
   >> `infin_or_leq rs (SUC (SUC k)) T /\ ~LFINITE pqs /\ ~LFINITE rs` by fs[infin_or_leq_def,sol_seq_inf_def]
   >> dxrule_then strip_assume_tac infin_or_leq_LENGTH_LTAKE_EQ
-  >> fs[LTAKE_FRONT_LNTH_LAST,sol_seq_inf_sol_seq_LTAKE,every_LTAKE_EVERY,DISJ_EQ_IMP]
+  >> fs[LTAKE_FRONT_LNTH_LAST,sol_seq_inf_sol_seq_LTAKE,every_LTAKE_EVERY',DISJ_EQ_IMP]
 QED
 
 Theorem leq_geq_monotone_composable_LTAKE_LDROP[local]:
@@ -3528,21 +3410,6 @@ Proof
   fs[is_const_or_type_eq,PULL_EXISTS,DISJ_IMP_THM]
   >> rw[LAMBDA_PROD,LR_TYPE_SUBST_def,INST_def,INST_CORE_def,FV_def,tvars_def]
   >> fs[Once TYPE_SUBST_slim_FILTER]
-QED
-
-Theorem MEM_APPEND_lemma2:
-  ∀a b c d x. a ++ [x] ++ b = c ++ [x] ++ d ∧ ~MEM x a ∧ ~MEM x c
-  ==> a = c ∧ b = d
-Proof
-  Induct
-  >- (gen_tac >> Induct >> fs[])
-  >> ntac 2 gen_tac
-  >> Cases
-  >- (pop_assum kall_tac >> fs[])
-  >> rpt strip_tac
-  >> fs[]
-  >> first_x_assum drule_all
-  >> fs[]
 QED
 
 (* TODO simplify proof *)
@@ -3731,7 +3598,7 @@ Proof
     >> qexists_tac `THE (LTAKE i rs)`
     >> `infin_or_leq rs i T` by fs[infin_or_leq_def]
     >> dxrule_then assume_tac infin_or_leq_LENGTH_LTAKE_EQ
-    >> fs[sol_seq_inf_sol_seq_LTAKE,every_LTAKE_EVERY]
+    >> fs[sol_seq_inf_sol_seq_LTAKE,every_LTAKE_EVERY']
   )
   >> cheat
   *)
