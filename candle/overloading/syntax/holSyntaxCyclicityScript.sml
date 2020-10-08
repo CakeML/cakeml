@@ -458,6 +458,80 @@ Proof
   >> fs[EL_MAP]
 QED
 
+Theorem bij_props:
+  !t' t e e'.
+  TYPE_SUBST e' t' = t /\ TYPE_SUBST e t = t'
+  ==> 
+    ALL_DISTINCT (MAP FST (FILTER ((λx. MEM x (MAP Tyvar (tyvars t))) o SND) (clean_tysubst e)))
+Proof
+  rpt strip_tac
+  >> rename[`clean_tysubst e`]
+  >> REWRITE_TAC[GSYM clean_tysubst_FILTER_SND]
+  >> match_mp_tac renaming_ALL_DISTINCT_FST
+  >> REWRITE_TAC[GSYM clean_tysubst_TYPE_SUBST_eq,o_DEF,EVERY_FILTER]
+  >> BETA_TAC
+  >> qmatch_asmsub_abbrev_tac `TYPE_SUBST e t`
+  >> qpat_x_assum `TYPE_SUBST _ _ = t` assume_tac
+  >> goal_assum $ drule_at Any
+  >> fs[GSYM TYPE_SUBST_FILTER_tyvars2,EVERY_FILTER]
+QED
+
+Theorem bij_props':
+  !t' t e e'.
+  TYPE_SUBST e' t' = t /\ TYPE_SUBST e t = t'
+  ==> 
+    ALL_DISTINCT (MAP FST (FILTER ((λx. MEM x (MAP Tyvar (tyvars t))) o SND) (clean_tysubst e)))
+    /\ ALL_DISTINCT (MAP FST (FILTER ((λx. MEM x (MAP Tyvar (tyvars t'))) o SND) (clean_tysubst e')))
+Proof
+  rpt strip_tac
+  >> match_mp_tac bij_props
+  >> rpt $ goal_assum drule
+QED
+
+Theorem bij_props_inj1:
+  !t' t e e'.
+  TYPE_SUBST e' t' = t /\ TYPE_SUBST e t = t'
+  ==> !a. MEM a (tyvars t') ==> TYPE_SUBST e (TYPE_SUBST e' (Tyvar a)) = Tyvar a
+Proof
+  rpt strip_tac
+  >> qmatch_goalsub_rename_tac `TYPE_SUBST e (TYPE_SUBST e' _)`
+  >> qpat_x_assum `TYPE_SUBST e _ = _` mp_tac
+  >> qpat_x_assum `TYPE_SUBST _ _ = _` (ONCE_REWRITE_TAC o single o GSYM)
+  >> CONV_TAC $ LAND_CONV $ RAND_CONV $ ONCE_REWRITE_CONV $ single $ GSYM TYPE_SUBST_NIL
+  >> REWRITE_TAC[TYPE_SUBST_compose,TYPE_SUBST_tyvars]
+  >> ONCE_REWRITE_TAC[GSYM TYPE_SUBST_def]
+  >> REWRITE_TAC[GSYM TYPE_SUBST_compose,TYPE_SUBST_NIL]
+  >> rw[]
+QED
+
+Theorem bij_props_all_Tyvar:
+  !t' t e e'.
+  TYPE_SUBST e' t' = t /\ TYPE_SUBST e t = t'
+  ==> !a. MEM a (tyvars t') ==> ?b. TYPE_SUBST e' (Tyvar a) = Tyvar b
+Proof
+  rpt strip_tac
+  >> qmatch_goalsub_rename_tac `TYPE_SUBST e'`
+  >> qpat_x_assum `TYPE_SUBST e' _ = _` assume_tac
+  >> drule_all bij_props_inj1
+  >> qabbrev_tac `ty = TYPE_SUBST e' (Tyvar a)`
+  >> Cases_on `ty` >> fs[]
+QED
+
+Theorem bij_props_inj:
+  !t' t e e'.
+  TYPE_SUBST e' t' = t /\ TYPE_SUBST e t = t'
+  ==> !a b. MEM a (tyvars t) /\ MEM b (tyvars t) /\
+    TYPE_SUBST e (Tyvar a) = TYPE_SUBST e (Tyvar b)
+    ==> a = b
+Proof
+  rpt gen_tac >> strip_tac
+  >> drule_then drule bij_props_inj1
+  >> rpt strip_tac
+  >> first_assum drule
+  >> first_x_assum $ rev_drule_at Any
+  >> rw[]
+QED
+
 Theorem mgu_TYPE_SUBST_pre:
   !e e' t t'.
     EVERY (λx. MEM (SND x) (MAP Tyvar (tyvars t))) e
