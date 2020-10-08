@@ -596,6 +596,13 @@ Proof
   >> fs[MAP_MAP_o,SWAP_SWAP_INVOL]
 QED
 
+Theorem var_renaming_TYPE_SUBST_SWAP_eq:
+  !s t t'. var_renaming s ⇒
+  (TYPE_SUBST s t' = t <=> t' = TYPE_SUBST (MAP SWAP s) t)
+Proof
+  fs[EQ_IMP_THM,FORALL_AND_THM,IMP_CONJ_THM,var_renaming_SWAP_id,var_renaming_SWAP_id']
+QED
+
 Theorem var_renaming_Tyvar_imp:
   (!s x. var_renaming s ∧
   MEM x (MAP FST s) ⇒ ∃a. x = Tyvar a)

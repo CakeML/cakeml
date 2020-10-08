@@ -827,6 +827,24 @@ Proof
   fs[is_const_or_type_eq,PULL_EXISTS,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM,FORALL_AND_THM,FV_def,tvars_def,LR_TYPE_SUBST_def,INST_def,INST_CORE_def,var_renaming_tyvars_comm]
 QED
 
+Theorem TYPE_SUBST_instance_tyvars':
+  !t t' s s'.
+    (∀x. MEM x (tyvars t) ⇒ TYPE_SUBST s (Tyvar x) = TYPE_SUBST s' (Tyvar x))
+    ==> (TYPE_SUBST s t = t' <=> TYPE_SUBST s' t = t')
+Proof
+  ho_match_mp_tac type_ind
+  >> conj_tac
+  >- fs[tyvars_def]
+  >> rw[tyvars_Tyapp,MEM_FLAT,PULL_EXISTS,EVERY_MEM,MEM_MAP]
+  >> rw[EQ_IMP_THM]
+  >> match_mp_tac LIST_EQ
+  >> rw[EVERY_MEM,EL_MAP]
+  >> rename[`EL x l`]
+  >> `MEM (EL x l) l` by fs[EL_MEM]
+  >> rpt (first_x_assum $ drule_then assume_tac)
+  >> fs[EQ_IMP_THM,FORALL_AND_THM]
+QED
+
 (* Lemma 5.4, Kunčar 2015 *)
 Theorem mg_solution1:
   !rs rs' pqs.

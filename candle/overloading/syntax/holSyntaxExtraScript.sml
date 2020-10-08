@@ -5530,6 +5530,11 @@ Proof
 QED
 
 val clean_tysubst_prop_conj = CONJUNCTS clean_tysubst_prop
+Theorem clean_tysubst_prop_deprecated:
+  (λx. ?a. SND x = Tyvar a) = (λ(x,y). ?a. y = Tyvar a)
+Proof
+  fs[LAMBDA_PROD]
+QED
 
 Theorem clean_tysubst_ALL_DISTINCT_MAP_SND =
   el 1 clean_tysubst_prop_conj
@@ -12859,6 +12864,28 @@ Theorem set_foldr_list_union:
   set b ∪ set(FLAT(MAP f ls))
 Proof
   rw[SET_EQ_SUBSET,SUBSET_DEF,MEM_FOLDR_LIST_UNION,MEM_FLAT,MEM_MAP] >> metis_tac[]
+QED
+
+Theorem tyvars_Tyapp:
+  !m l. set (tyvars (Tyapp m l)) = set (FLAT (MAP tyvars l))
+Proof
+  gen_tac >> Induct >> rw[tyvars_def,set_foldr_list_union]
+QED
+
+Theorem TYPE_SUBST_instance_tyvars:
+  !t t' s s'.  TYPE_SUBST s t = t'
+  /\ (∀x. MEM x (tyvars t) ⇒ TYPE_SUBST s (Tyvar x) = TYPE_SUBST s' (Tyvar x))
+  ⇒ TYPE_SUBST s' t = t'
+Proof
+  ho_match_mp_tac type_ind
+  >> conj_tac >- fs[tyvars_def]
+  >> rw[tyvars_Tyapp,MEM_FLAT,PULL_EXISTS,EVERY_MEM,MEM_MAP]
+  >> match_mp_tac LIST_EQ
+  >> rw[EVERY_MEM,EL_MAP]
+  >> rename[`EL x l`]
+  >> `MEM (EL x l) l` by fs[EL_MEM]
+  >> rpt (first_x_assum $ drule_then assume_tac)
+  >> fs[]
 QED
 
 Theorem tydepth_TYPE_SUBST:
