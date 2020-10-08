@@ -604,6 +604,17 @@ Proof
   >> fs[ALOOKUP_NONE]
 QED
 
+Theorem clean_tysubst_MEM_MAP_SND':
+  !s x. ~MEM (Tyvar x) (MAP SND (clean_tysubst s))
+  ==> TYPE_SUBST s (Tyvar x) = Tyvar x
+Proof
+  rpt strip_tac
+  >> Cases_on `MEM (Tyvar x) (MAP SND s)`
+  >> fs[TYPE_SUBST_drop_all]
+  >> drule_all clean_tysubst_MEM_MAP_SND
+  >> fs[REV_ASSOCD_ALOOKUP,GSYM SWAP_eq]
+QED
+
 Theorem renaming_var_renaming_clean_tysubst:
   !e e' t t'. EVERY ((λx. MEM x (MAP Tyvar (tyvars t))) o SND) e
     /\ TYPE_SUBST e t = t' /\ TYPE_SUBST e' t' = t
