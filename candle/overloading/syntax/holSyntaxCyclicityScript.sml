@@ -789,6 +789,14 @@ Proof
   >> fs[EL_MEM]
 QED
 
+Theorem equiv_ts_on_type_size:
+  !s' s vars. equiv_ts_on s s' vars
+    ==> !a. MEM a vars ==> type_size' (TYPE_SUBST s (Tyvar a)) = type_size' (TYPE_SUBST s' (Tyvar a))
+Proof
+  rw[Excl"TYPE_SUBST_def",equiv_ts_on_def,equal_ts_on_def,GSYM TYPE_SUBST_compose]
+  >> rw[Excl"TYPE_SUBST_def",var_renaming_type_size]
+QED
+
 (* Lemma 3.2 *)
 Theorem var_renaming_tyvars_comm:
   !e p. var_renaming e
