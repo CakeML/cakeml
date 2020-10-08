@@ -5839,7 +5839,7 @@ Proof
   >> rw[clean_tysubst_prop,GSYM clean_tysubst_TYPE_SUBST_eq]
 QED
 
-Theorem TYPE_SUBST_FILTER_tyvars:
+Theorem TYPE_SUBST_FILTER_SND_tyvars:
   !ty s. TYPE_SUBST s ty = TYPE_SUBST (FILTER (λ(x,y). ?a. Tyvar a = y /\ MEM a (tyvars ty)) s) ty
 Proof
   CONV_TAC SWAP_FORALL_CONV
@@ -5851,7 +5851,7 @@ Proof
   >> rw[REV_ASSOCD_def,TYPE_SUBST_def]
 QED
 
-Theorem TYPE_SUBST_FILTER_tyvars2:
+Theorem TYPE_SUBST_FILTER_SND_tyvars2:
   !ty s. TYPE_SUBST s ty
   = TYPE_SUBST (FILTER (λx. MEM (SND x) (MAP Tyvar (tyvars ty))) s) ty
 Proof
@@ -5868,6 +5868,10 @@ Proof
   >> rw[REV_ASSOCD_def]
   >> fs[MEM_MAP]
 QED
+
+Theorem TYPE_SUBST_FILTER_SND_tyvars3 =
+  REWRITE_RULE[TYPE_SUBST_tyvars] TYPE_SUBST_FILTER_SND_tyvars2
+  |> PURE_REWRITE_RULE[GSYM TYPE_SUBST_def]
 
 Theorem orth_ty_instances:
   !(ty1:type) ty2. ty1 # ty2 ==> !s s'. (TYPE_SUBST s ty1) # (TYPE_SUBST s' ty2)
@@ -5915,8 +5919,8 @@ Proof
     >> qexists_tac `s`
     >> rw[]
   )
-  >> (qspecl_then [`ty2`,`i'`] assume_tac) TYPE_SUBST_FILTER_tyvars
-  >> (qspecl_then [`ty1`,`i`] assume_tac) TYPE_SUBST_FILTER_tyvars
+  >> (qspecl_then [`ty2`,`i'`] assume_tac) TYPE_SUBST_FILTER_SND_tyvars
+  >> (qspecl_then [`ty1`,`i`] assume_tac) TYPE_SUBST_FILTER_SND_tyvars
   >> qmatch_asmsub_abbrev_tac `TYPE_SUBST (FILTER p1 i) ty1`
   >> qmatch_asmsub_abbrev_tac `TYPE_SUBST (FILTER p2 i') ty2`
   >> qexists_tac `(FILTER p1 i) ++ (FILTER p2 i')`
@@ -5937,7 +5941,7 @@ Proof
     >> rveq
     >> fs[]
   )
-  >> PURE_ONCE_REWRITE_TAC[TYPE_SUBST_FILTER_tyvars]
+  >> PURE_ONCE_REWRITE_TAC[TYPE_SUBST_FILTER_SND_tyvars]
   >> rw[FILTER_APPEND,FILTER_IDEM,FILTER_COMM]
   >> fs[]
 QED

@@ -460,8 +460,8 @@ QED
 
 Theorem bij_props:
   !t' t e e'.
-  TYPE_SUBST e' t' = t /\ TYPE_SUBST e t = t'
-  ==> 
+  TYPE_SUBST e t = t' /\ TYPE_SUBST e' t' = t
+  ==>
     ALL_DISTINCT (MAP FST (FILTER ((λx. MEM x (MAP Tyvar (tyvars t))) o SND) (clean_tysubst e)))
 Proof
   rpt strip_tac
@@ -473,15 +473,15 @@ Proof
   >> qmatch_asmsub_abbrev_tac `TYPE_SUBST e t`
   >> qpat_x_assum `TYPE_SUBST _ _ = t` assume_tac
   >> goal_assum $ drule_at Any
-  >> fs[GSYM TYPE_SUBST_FILTER_tyvars2,EVERY_FILTER]
+  >> fs[GSYM TYPE_SUBST_FILTER_SND_tyvars2,EVERY_FILTER]
 QED
 
 Theorem bij_props':
   !t' t e e'.
   TYPE_SUBST e' t' = t /\ TYPE_SUBST e t = t'
-  ==> 
-    ALL_DISTINCT (MAP FST (FILTER ((λx. MEM x (MAP Tyvar (tyvars t))) o SND) (clean_tysubst e)))
-    /\ ALL_DISTINCT (MAP FST (FILTER ((λx. MEM x (MAP Tyvar (tyvars t'))) o SND) (clean_tysubst e')))
+  ==>
+    ALL_DISTINCT (MAP FST (FILTER ((λx. MEM x (MAP Tyvar (tyvars t'))) o SND) (clean_tysubst e')))
+    /\ ALL_DISTINCT (MAP FST (FILTER ((λx. MEM x (MAP Tyvar (tyvars t))) o SND) (clean_tysubst e)))
 Proof
   rpt strip_tac
   >> match_mp_tac bij_props
@@ -520,15 +520,15 @@ QED
 Theorem bij_props_inj:
   !t' t e e'.
   TYPE_SUBST e' t' = t /\ TYPE_SUBST e t = t'
-  ==> !a b. MEM a (tyvars t) /\ MEM b (tyvars t) /\
-    TYPE_SUBST e (Tyvar a) = TYPE_SUBST e (Tyvar b)
+  ==> !a b. MEM a (tyvars t') /\ MEM b (tyvars t') /\
+    TYPE_SUBST e' (Tyvar a) = TYPE_SUBST e' (Tyvar b)
     ==> a = b
 Proof
   rpt gen_tac >> strip_tac
-  >> drule_then drule bij_props_inj1
+  >> rev_drule_then drule bij_props_inj1
   >> rpt strip_tac
   >> first_assum drule
-  >> first_x_assum $ rev_drule_at Any
+  >> first_x_assum $ rev_drule
   >> rw[]
 QED
 
@@ -674,7 +674,7 @@ Proof
     )
     >> drule_all_then assume_tac clean_tysubst_MEM_MAP_SND'
     >> disch_then (strip_assume_tac o REWRITE_RULE[MEM_MAP])
-    >> qpat_x_assum `TYPE_SUBST e' _ = _` (assume_tac o ONCE_REWRITE_RULE[TYPE_SUBST_FILTER_tyvars2])
+    >> qpat_x_assum `TYPE_SUBST e' _ = _` (assume_tac o ONCE_REWRITE_RULE[TYPE_SUBST_FILTER_SND_tyvars2])
     >> qmatch_asmsub_abbrev_tac `TYPE_SUBST (FILTER f _)`
     >> qabbrev_tac `s = FILTER f e'`
     >> `EVERY f s` by (
@@ -689,7 +689,7 @@ Proof
       >> asm_rewrite_tac[]
     )
     >> qpat_x_assum `TYPE_SUBST s _ = t` assume_tac
-    >> drule $ bij_props_inj
+    >> rev_drule $ bij_props_inj
     >> disch_then $ drule_then drule
     >> drule_then strip_assume_tac $ Ho_Rewrite.REWRITE_RULE[EVERY_MEM,BETA_THM] clean_tysubst_SND_Tyvar
     >> pop_assum $ assume_tac o SIMP_RULE(srw_ss())[]
@@ -931,7 +931,7 @@ Proof
   >> REWRITE_TAC[GSYM TYPE_SUBST_tyvars]
   >> PURE_REWRITE_TAC[GSYM TYPE_SUBST_def,GSYM TYPE_SUBST_compose]
   >> qpat_x_assum `_ = TYPE_SUBST r ty` (fn x => fs[GSYM x])
-  >> rw[GSYM TYPE_SUBST_FILTER_tyvars2]
+  >> rw[GSYM TYPE_SUBST_FILTER_SND_tyvars2]
 QED
 
 Theorem LR_TYPE_SUBST_tyvars:
@@ -1660,7 +1660,7 @@ Proof
   >> ONCE_REWRITE_TAC[CONJ_COMM]
   >> rw[]
   >- (
-    qspecl_then [`rn_qn`,`s`] mp_tac LR_TYPE_SUBST_FILTER_tyvars
+    qspecl_then [`rn_qn`,`s`] mp_tac LR_TYPE_SUBST_FILTER_SND_tyvars
     >> qspec_then `rn_qn` mp_tac LR_TYPE_SUBST_NIL
     >> fs[]
     >> disch_then (fn x => qpat_x_assum `LR_TYPE_SUBST _ rn_qn = rn_qn` (mp_tac o (CONV_RULE (RHS_CONV (ONCE_REWRITE_CONV[GSYM x])))))
@@ -1938,7 +1938,7 @@ Proof
   >> unabbrev_all_tac
   >> fs[GSYM LAST_EL]
   >> disch_then (mp_tac o REWRITE_RULE[GSYM LAST_EL])
-  >> imp_res_tac LR_TYPE_SUBST_FILTER_tyvars
+  >> imp_res_tac LR_TYPE_SUBST_FILTER_SND_tyvars
   >> fs[]
 QED
 

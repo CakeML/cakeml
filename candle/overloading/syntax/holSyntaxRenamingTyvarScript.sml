@@ -2235,14 +2235,14 @@ Proof
   >> rw[GSYM MAP_MAP_o,NULL_list_inter_MAP_Tyvar,rename_apart_by_LIST_UNION]
 QED
 
-Theorem LR_TYPE_SUBST_FILTER_tyvars:
+Theorem LR_TYPE_SUBST_FILTER_SND_tyvars:
   !p s. is_const_or_type p ==>
   LR_TYPE_SUBST (FILTER (λx. MEM (SND x) (MAP Tyvar (FV p))) s) p
   = LR_TYPE_SUBST s p
 Proof
   rw[is_const_or_type_eq,LAMBDA_PROD,sum_case_def,LR_TYPE_SUBST_cases,tvars_def,FV_def]
   >> fs[MEM_MAP,LR_TYPE_SUBST_cases]
-  >> qspecl_then [`ty`,`s`] assume_tac TYPE_SUBST_FILTER_tyvars
+  >> qspecl_then [`ty`,`s`] assume_tac TYPE_SUBST_FILTER_SND_tyvars
   >> fs[tvars_def]
   >> qmatch_goalsub_abbrev_tac `TYPE_SUBST (FILTER f1 s) _ = TYPE_SUBST (FILTER f2 s) _`
   >> `f1 = f2` by (
