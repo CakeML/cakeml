@@ -619,13 +619,15 @@ Theorem renaming_var_renaming_clean_tysubst:
   !e e' t t'. EVERY ((λx. MEM x (MAP Tyvar (tyvars t))) o SND) e
     /\ TYPE_SUBST e t = t' /\ TYPE_SUBST e' t' = t
   ==> ?s.
-  var_renaming s
-  /\ !x. MEM (Tyvar x) (MAP SND (clean_tysubst e)) ==> TYPE_SUBST s (Tyvar x) = TYPE_SUBST e (Tyvar x)
+    var_renaming s
+    /\ (!x. MEM (Tyvar x) (MAP SND e)
+      ==> TYPE_SUBST s (Tyvar x) = TYPE_SUBST e (Tyvar x))
+    /\ set (MAP SND s) = set (MAP FST (clean_tysubst e)) ∪ set (MAP SND (clean_tysubst e))
 Proof
   rpt strip_tac
   >> drule renaming_ALL_DISTINCT_FST
   >> disch_then (drule_at Any)
-  >> fs[GSYM clean_tysubst_TYPE_SUBST_eq,o_DEF]
+  >> fs[GSYM clean_tysubst_TYPE_SUBST_eq,o_DEF,Excl"TYPE_SUBST_def"]
   >> strip_tac
   >> drule_all_then assume_tac mgu_TYPE_SUBST_pre
   >> Cases_on `set (MAP FST (clean_tysubst e)) = set (MAP SND (clean_tysubst e))`
@@ -641,7 +643,7 @@ Proof
   >> conj_tac
   >- (
     fs[o_DEF,ELIM_UNCURRY,var_renaming_eq,rename_bij_def]
-    >> conj_asm1_tac >- fs[renaming_clean_tysubst_prop]
+    >> conj_asm1_tac >- fs[renaming_clean_tysubst_all_Tyvars]
     >> REWRITE_TAC[EVERY_MEM] >> Cases >> strip_tac
     >> drule_then assume_tac $ Q.ISPEC `FST` MEM_MAP_f
     >> drule_then assume_tac $ Q.ISPEC `SND` MEM_MAP_f
@@ -650,9 +652,81 @@ Proof
     >> qpat_x_assum `EVERY _ _` $ imp_res_tac o REWRITE_RULE[EVERY_MEM]
     >> fs[ELIM_UNCURRY]
   )
-  >> rw[]
-  >> REWRITE_TAC[GSYM TYPE_SUBST_def]
-  >> fs[TYPE_SUBST_drop_suffix,GSYM clean_tysubst_TYPE_SUBST_eq]
+  >> conj_tac
+  >- (
+    rpt strip_tac
+    >> Cases_on `MEM (Tyvar x) (MAP SND (clean_tysubst e))`
+    >- (
+      ASM_REWRITE_TAC[]
+      >> REWRITE_TAC[GSYM TYPE_SUBST_def]
+      >> fs[TYPE_SUBST_drop_suffix,GSYM clean_tysubst_TYPE_SUBST_eq]
+    )
+    >> `~MEM (Tyvar x) (MAP FST (clean_tysubst e))` by (
+      rename[`clean_tysubst e`,`Tyvar x`]
+      >> qmatch_asmsub_rename_tac `TYPE_SUBST e t`
+      >> `MEM x (tyvars t)` by (
+        fs[EVERY_MEM,MEM_MAP]
+        >> first_x_assum $ drule_then strip_assume_tac
+        >> fs[]
+      )
+      >> drule_all_then assume_tac clean_tysubst_MEM_MAP_SND'
+      >> disch_then (strip_assume_tac o REWRITE_RULE[MEM_MAP])
+      >> qpat_x_assum `TYPE_SUBST e' _ = _` (assume_tac o ONCE_REWRITE_RULE[TYPE_SUBST_FILTER_tyvars2])
+      >> qmatch_asmsub_abbrev_tac `TYPE_SUBST (FILTER f _)`
+      >> qabbrev_tac `s = FILTER f e'`
+      >> `EVERY f s` by (
+        fs[EVERY_FILTER,Abbr`s`]
+      )
+      >> qunabbrev_tac `f`
+      >> qpat_x_assum `Abbr (s = _)` kall_tac
+      >> rename1`MEM y (clean_tysubst _)` >> PairCases_on `y`
+      >> `TYPE_SUBST s (Tyvar x) = Tyvar x` by (
+        rev_drule_at Any $ Ho_Rewrite.REWRITE_RULE[PULL_FORALL,AND_IMP_INTRO] bij_props_inj1
+        >> disch_then drule_all
+        >> asm_rewrite_tac[]
+      )
+      >> qpat_x_assum `TYPE_SUBST s _ = t` assume_tac
+      >> drule $ bij_props_inj
+      >> disch_then $ drule_then drule
+      >> drule_then strip_assume_tac $ Ho_Rewrite.REWRITE_RULE[EVERY_MEM,BETA_THM] clean_tysubst_SND_Tyvar
+      >> pop_assum $ assume_tac o SIMP_RULE(srw_ss())[]
+      >> VAR_EQ_TAC 
+      >> rename1`MEM (_, Tyvar a) (clean_tysubst e)`
+      >> `MEM a (tyvars t)` by (
+        drule_then assume_tac $ REWRITE_RULE[SUBSET_DEF] clean_tysubst_SUBSET
+        >> qpat_x_assum `EVERY _ e` (drule o REWRITE_RULE[EVERY_MEM])
+        >> rw[MEM_MAP]
+      )
+      >> disch_then $ drule
+      >> CONV_TAC $ LAND_CONV $ LAND_CONV $ RAND_CONV $ ONCE_REWRITE_CONV $ single $ clean_tysubst_TYPE_SUBST_eq
+      >> disch_then assume_tac
+      >> rfs[Excl"TYPE_SUBST_def"]
+      >> drule_at Any TYPE_SUBST_MEM
+      >> impl_tac
+      >- (
+        rw[clean_tysubst_prop,EVERY_MEM]
+        >> ONCE_REWRITE_TAC[GSYM PAIR]
+        >> drule $ REWRITE_RULE[EVERY_MEM] clean_tysubst_SND_Tyvar
+        >> drule $ REWRITE_RULE[EVERY_MEM] clean_tysubst_ineq
+        >> rw[ELIM_UNCURRY,EQ_SYM_EQ]
+      )
+      >> disch_then assume_tac
+      >> VAR_EQ_TAC
+      >> fs[Excl"TYPE_SUBST_def"]
+      >> qpat_x_assum `TYPE_SUBST _ _ = _` kall_tac
+      >> VAR_EQ_TAC
+      >> drule $ REWRITE_RULE[EVERY_MEM] clean_tysubst_ineq
+      >> gvs[]
+    )
+    >> qpat_x_assum `_ ⊆ _` $ (drule_then assume_tac) o REWRITE_RULE[SUBSET_DEF,Once MONO_NOT_EQ]
+    >> qpat_x_assum `_ ⊆ _` $ (drule_then assume_tac) o REWRITE_RULE[SUBSET_DEF,Once MONO_NOT_EQ]
+    >> asm_rewrite_tac[]
+    >> REWRITE_TAC[GSYM TYPE_SUBST_def]
+    >> CONV_TAC $ RAND_CONV $ ONCE_REWRITE_CONV $ single $ clean_tysubst_TYPE_SUBST_eq
+    >> fs[TYPE_SUBST_drop_prefix,TYPE_SUBST_drop_all,Excl"TYPE_SUBST_def"]
+  )
+  >> rw[pred_setTheory.EXTENSION,EQ_IMP_THM]
+  >> fs[SUBSET_DEF,EQ_IMP_THM,pred_setTheory.EXTENSION]
 QED
 
 (* equivalence relations from section 3 *)
