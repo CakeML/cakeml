@@ -543,26 +543,21 @@ Proof
   >> rfs[GSYM FILTER_EQ_ID]
 QED
 
-Theorem EVERY_Tyvar_CONJ:
-  EVERY (λx. ?a b. x = (Tyvar a,Tyvar b)) s
-  <=>
-  EVERY (λx. ?a. x = Tyvar a) (MAP FST s)
-  /\ EVERY (λx. ?a. x = Tyvar a) (MAP SND s)
+Theorem EVERY_MAP_PAIR:
+  !f g s. EVERY (λ(x,y). f x /\ g y) s
+    = (EVERY f (MAP FST s) /\ EVERY g (MAP SND s))
 Proof
-  fs[EVERY_MEM,EQ_IMP_THM,MEM_MAP,PULL_EXISTS,FORALL_AND_THM,IMP_CONJ_THM]
-  >> rpt conj_tac
-  >> strip_tac
-  >> Cases
-  >> strip_tac
-  >> rpt (first_x_assum drule)
-  >> rw[]
+  rw[EVERY_MEM,EQ_IMP_THM,MEM_MAP,PULL_EXISTS,FORALL_AND_THM,IMP_CONJ_THM]
+  >> rpt $ first_x_assum drule
+  >> ONCE_REWRITE_TAC[GSYM PAIR]
+  >> fs[]
 QED
 
-Theorem renaming_clean_tysubst_prop:
+Theorem renaming_clean_tysubst_all_Tyvars:
   !e. renaming e
   ==> EVERY (λx. ?a b. x = (Tyvar a,Tyvar b)) (clean_tysubst e)
 Proof
-  fs[EVERY_Tyvar_CONJ,clean_tysubst_prop,EVERY_MAP_o,o_DEF]
+  fs[Once LAMBDA_PROD,EVERY_MAP_PAIR,GSYM PULL_EXISTS,clean_tysubst_prop,EVERY_MAP]
   >> ho_match_mp_tac clean_tysubst_ind
   >> rw[]
   >- fs[clean_tysubst_def]
