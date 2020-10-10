@@ -520,6 +520,12 @@ Proof
   >> fs[ELIM_UNCURRY,PULL_EXISTS]
 QED
 
+Theorem var_renaming_nil:
+  var_renaming []
+Proof
+  fs[rename_bij_def,var_renaming_def]
+QED
+
 Theorem var_renaming_SWAP_IMP:
   !s. var_renaming s ⇒ var_renaming (MAP SWAP s)
 Proof

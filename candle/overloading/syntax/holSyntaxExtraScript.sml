@@ -5596,90 +5596,6 @@ Proof
   >> fs[UNCURRY]
 QED
 
-Theorem clean_tysubst_eq[local]:
-  (!s1 s2 a b tys. clean_tysubst (s1++[(a,Tyapp b tys)]++s2) = clean_tysubst (s1++s2))
-  /\ (!s1 s2 s3 a b c. a <> Tyvar b ==> clean_tysubst (s1++[(a,Tyvar b)]++s2++[(c,Tyvar b)]++s3) = clean_tysubst (s1++[(a,Tyvar b)]++s2++s3))
-Proof
-  strip_tac
-  >- (
-    Induct >- (strip_tac >> Cases >> rw[clean_tysubst_def])
-    >> Cases >> Cases_on `r` >> fs[clean_tysubst_def]
-  )
-  >> Induct (* on s1 *)
-  >- (
-    Induct (* on s2 *)
-    >- rw[clean_tysubst_def,FILTER_IDEM]
-    >> Cases >> Cases_on `r`
-    >- (
-      rw[clean_tysubst_def]
-      >- (fs[] >> first_x_assum drule >> rw[clean_tysubst_def]
-        >> CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
-        >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
-        >> rw[]
-      )
-      >> FULL_CASE_TAC >> rw[clean_tysubst_def]
-      >- (
-        first_x_assum (qspecl_then [`s3`,`a`,`b`,`c`] mp_tac)
-        >> rw[clean_tysubst_def]
-        >> CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
-        >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
-        >> rw[]
-      )
-      >> rw[FILTER_IDEM]
-      >> first_x_assum drule
-      >> fs[clean_tysubst_def]
-    )
-    >> rw[clean_tysubst_def]
-    >> first_x_assum drule
-    >> fs[clean_tysubst_def]
-  )
-  >> Cases >> Cases_on `r`
-  >> rw[clean_tysubst_def]
-QED
-
-Theorem clean_tysubst_FILTER_eq[local]:
-  (!s1 s2 a b. a <> Tyvar b ==> clean_tysubst (s1++[(a,Tyvar b)]++s2)
-  = clean_tysubst (s1++[(a,Tyvar b)]++FILTER (λ(y,x). x <> Tyvar b) s2))
-Proof
-  Induct
-  >- (
-    Induct
-    >- fs[]
-    >> Cases >> Cases_on `r`
-    >- (
-      rw[clean_tysubst_def]
-      >- (
-        first_x_assum drule
-        >> rw[clean_tysubst_def]
-        >> CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
-        >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
-        >> rw[]
-      )
-      >- (
-        first_x_assum drule
-        >> rw[clean_tysubst_def,FILTER_IDEM]
-      )
-      >- (
-        first_x_assum drule
-        >> rw[clean_tysubst_def]
-        >> CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
-        >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
-        >> rw[]
-      )
-      >> first_x_assum drule
-      >> rw[clean_tysubst_def,FILTER_IDEM]
-    )
-    >> fs[clean_tysubst_def]
-    >> fs[]
-  )
-  >> Cases >> Cases_on `r`
-  >> rpt strip_tac
-  >> (
-    RULE_ASSUM_TAC GSYM
-    >> fs[clean_tysubst_def]
-  )
-QED
-
 Theorem clean_tysubst_SUBSET:
   !s. set (clean_tysubst s) ⊆ set s
 Proof
@@ -5872,6 +5788,13 @@ Proof
   )
   >> rw[REV_ASSOCD_def]
   >> fs[MEM_MAP]
+QED
+
+Theorem TYPE_SUBST_FILTER_SND_tyvars2':
+  !ty s. TYPE_SUBST s ty
+  = TYPE_SUBST (FILTER ((λx. MEM x (MAP Tyvar (tyvars ty))) o SND) s) ty
+Proof
+  fs[Once TYPE_SUBST_FILTER_SND_tyvars2,o_DEF]
 QED
 
 Theorem TYPE_SUBST_FILTER_SND_tyvars3 =
