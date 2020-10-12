@@ -24,6 +24,12 @@ Datatype:
            | Output effect
 End
 
+
+Datatype:
+  label = LDelay time
+        | LAction ioAction
+End
+
 (* time expression *)
 Datatype:
   expr = ESub expr expr
@@ -106,6 +112,26 @@ Definition setWait_def:
   setWait (st:store) t = st with waitTime := t
 End
 
+Definition mkStore_def:
+  mkStore cmap loc ac eff wt =
+  <| clockVal := cmap
+   ; location := loc
+   ; consumed := ac
+   ; output   := eff
+   ; waitTime := wt
+  |>
+End
+
+Definition resetOutput_def:
+  resetOutput st =
+  <| clockVal := st.clockVal
+   ; location := st.location
+   ; consumed := NONE
+   ; output   := NONE
+   ; waitTime := NONE
+  |>
+End
+
 Definition list_min_option_def:
   (list_min_option ([]:real list) = NONE) /\
   (list_min_option (x::xs) =
@@ -113,6 +139,18 @@ Definition list_min_option_def:
    | NONE => SOME x
    | SOME y => SOME (if x < y then x else y))
 End
+
+Definition llookup_def:
+  llookup (p : program) (l : loc) = ARB
+End
+
+(*
+Definition lookup (p : program) (l : loc) :=
+  match find (fun a => match a with (l', _) => Nat.eqb l l' end) p with
+  | Some (_, tm) => Some tm
+  | None => None
+  end.
+*)
 
 Inductive evalTerm:
   (∀st event cnds rs dest diffs.
@@ -172,6 +210,58 @@ Inductive pickTerm:
       pickTerm st act tms st' ==>
       pickTerm st act (Tm (Output eff) cnds rs dest diffs :: tms) st')
 End
+
+
+Inductive step:
+  (!p st d.
+    st.waitTime = NONE /\
+    0 <= d ==>
+    step p st NONE
+         (mkStore
+          FEMPTY (* (mapTotVal _ _ _ (addT d) (clockVal st)) *)
+          st.location
+          NONE
+          NONE
+          NONE)
+         (LDelay d)) /\
+  (!p st d w.
+    st.waitTime = SOME w /\
+    d < w /\
+    0 <= d ==>
+    step p st NONE
+         (mkStore
+          FEMPTY (* (mapTotVal _ _ _ (addT d) (clockVal st)) *)
+          st.location
+          NONE
+          NONE
+          (SOME (w - d)))
+         (LDelay d)) /\
+  (!p st tms st' event.
+      llookup p st.location = SOME tms /\
+      pickTerm (resetOutput st) (SOME event) tms st' /\
+      st'.consumed = SOME event /\
+      st'.output = NONE ==>
+      step p st (SOME event) st' (LAction (Input event))) /\
+  (!p st tms st' eff.
+      llookup p st.location = SOME tms /\
+      pickTerm (resetOutput st) NONE tms st' /\
+      st'.consumed = NONE /\
+      st'.output = SOME eff ==>
+      step p st NONE st' (LAction (Output eff)))
+End
+
+
+Inductive stepTrace:
+  (!p st.
+    stepTrace p st st []) /\
+  (!p st st' st'' act lbl tr.
+    step p st act st' lbl /\
+    stepTrace p st' st'' tr ==>
+    stepTrace p st st'' (lbl::tr))
+End
+
+
+(* to ask Magnus: about inductive parametrisation *)
 
 
 val _ = export_theory();
