@@ -1086,7 +1086,7 @@ Proof
     >> gvs[]
   )
   >> rpt strip_tac
-  >> gs[IS_SOME_EXISTS,Excl"LUNFOLD",Excl"LNTH_THM",Excl"LNTH",Excl"LNTH_LUNFOLD"]
+  >> gs[IS_SOME_EXISTS]
 QED
 
 Theorem LUNFOLD_f_iter:
