@@ -43,7 +43,6 @@ Datatype:
        | CndLt expr expr  (* e < e *)
 End
 
-
 Datatype:
   term = Tm ioAction
             (cond list)
@@ -57,11 +56,11 @@ Type program = ``:(loc # term list) list``
 
 Datatype:
   store =
-  <| clockVal: clock |-> time
-   ; location: loc
-   ; consumed: action option
-   ; output:   effect option
-   ; waitTime: time option
+  <| clockVal : clock |-> time
+   ; location : loc
+   ; consumed : action option
+   ; output   :   effect option
+   ; waitTime : time option
   |>
 End
 
@@ -140,17 +139,12 @@ Definition list_min_option_def:
    | SOME y => SOME (if x < y then x else y))
 End
 
-Definition llookup_def:
-  llookup (p : program) (l : loc) = ARB
+Definition delay_clock_vals_def:
+  delay_clock_vals fm d = fm |++
+                             (MAP (λ(x,y). (x,y+d))
+                              (fmap_to_alist fm))
 End
 
-(*
-Definition lookup (p : program) (l : loc) :=
-  match find (fun a => match a with (l', _) => Nat.eqb l l' end) p with
-  | Some (_, tm) => Some tm
-  | None => None
-  end.
-*)
 
 Inductive evalTerm:
   (∀st event cnds rs dest diffs.
@@ -218,7 +212,7 @@ Inductive step:
     0 <= d ==>
     step p st NONE
          (mkStore
-          FEMPTY (* (mapTotVal _ _ _ (addT d) (clockVal st)) *)
+          (delay_clock_vals (st.clockVal) d)
           st.location
           NONE
           NONE
@@ -230,20 +224,20 @@ Inductive step:
     0 <= d ==>
     step p st NONE
          (mkStore
-          FEMPTY (* (mapTotVal _ _ _ (addT d) (clockVal st)) *)
+          (delay_clock_vals (st.clockVal) d)
           st.location
           NONE
           NONE
           (SOME (w - d)))
          (LDelay d)) /\
   (!p st tms st' event.
-      llookup p st.location = SOME tms /\
+      ALOOKUP p st.location = SOME tms /\
       pickTerm (resetOutput st) (SOME event) tms st' /\
       st'.consumed = SOME event /\
       st'.output = NONE ==>
       step p st (SOME event) st' (LAction (Input event))) /\
   (!p st tms st' eff.
-      llookup p st.location = SOME tms /\
+      ALOOKUP p st.location = SOME tms /\
       pickTerm (resetOutput st) NONE tms st' /\
       st'.consumed = NONE /\
       st'.output = SOME eff ==>
@@ -259,9 +253,6 @@ Inductive stepTrace:
     stepTrace p st' st'' tr ==>
     stepTrace p st st'' (lbl::tr))
 End
-
-
-(* to ask Magnus: about inductive parametrisation *)
 
 
 val _ = export_theory();
