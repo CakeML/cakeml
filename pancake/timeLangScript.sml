@@ -15,9 +15,6 @@ Type time   = ``:real`` (* time is rational in the Coq formalism,
                            we are modeling it as real *)
 Type clock   = ``:mlstring``
 Type clocks  = ``:clock list``
-Type cls     = ``:'a set``
-Type partial_valuation = ``:'a set``
-
 
 Datatype:
   ioAction = Input action
