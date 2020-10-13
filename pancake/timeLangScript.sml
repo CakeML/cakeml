@@ -3,7 +3,7 @@
   compiling timed-automata based specifications
 *)
 open preamble
-     mlstringTheory
+     stringTheory
      realTheory
 
 val _ = new_theory "timeLang";
@@ -13,7 +13,13 @@ Type effect = ``:num``
 Type loc    = ``:num``
 Type time   = ``:real`` (* time is rational in the Coq formalism,
                            we are modeling it as real *)
-Type clock   = ``:mlstring``
+
+(* Type clock   = ``:mlstring`` *)
+(* to make it consistent with Coq for parsing *)
+Datatype:
+  clock = CVar string
+End
+
 Type clocks  = ``:clock list``
 
 Datatype:
@@ -50,6 +56,14 @@ Datatype:
 End
 
 Type program = ``:(loc # term list) list``
+
+
+fun parseFile fname filename =
+    let val fd = TextIO.openIn filename
+        val content = TextIO.inputAll fd handle e => (TextIO.closeIn fd; raise e)
+        val _ = TextIO.closeIn fd
+        fun parsedContent str = Define [QUOTE (fname ^ " " ^ str)]
+    in parsedContent content end
 
 Datatype:
   store =
@@ -248,5 +262,7 @@ Inductive stepTrace:
     stepTrace p st st'' (lbl::tr))
 End
 
+
+val taProg_def = parseFile "taProg" "flashing_led.out";
 
 val _ = export_theory();
