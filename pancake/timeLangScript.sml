@@ -57,11 +57,30 @@ End
 
 Type program = ``:(loc # term list) list``
 
+(*
+fun replace [] = []
+| replace (x::xs) = if x <> #"%" then x::replace xs else
+                      #"n"::replace (List.drop(xs,3))
+*)
+
+fun replace _ [] = []
+  | replace nums (x::p::n::a::t::xs) =
+    if exists (fn n:char => n = x) nums andalso
+              p = #"%" andalso n = #"n"  andalso a = #"a" andalso t = #"t"
+    then  x:: #"n" ::replace nums xs
+    else x::replace nums (p::n::a::t::xs)
+  | replace nums (x::xs) = x :: replace nums xs
+
+fun fix_ntype str =
+  let val nums = explode "0123456789"
+     in implode (replace nums (explode str)) end
+
 
 fun parseFile fname filename =
     let val fd = TextIO.openIn filename
         val content = TextIO.inputAll fd handle e => (TextIO.closeIn fd; raise e)
         val _ = TextIO.closeIn fd
+        val content = fix_ntype content
         fun parsedContent str = Define [QUOTE (fname ^ " " ^ str)]
     in parsedContent content end
 
