@@ -174,9 +174,6 @@ Inductive evalTerm:
                (list_min_option (MAP (evalDiff (resetClocks st rs)) diffs))))
 End
 
-
-(* NB: The second store is also an index, but not introduced as
-such to keep order of parameters in sync with evalTerm *)
 Inductive pickTerm:
   (!st cnds act event rs dest diffs tms st'.
       EVERY (\x. x) (MAP (evalCond st) cnds) /\
