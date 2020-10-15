@@ -2477,11 +2477,11 @@ Proof
 QED
 
 Theorem locals_rel_word_exp:
-    ∀s exp w.
-  every_var_exp (λx. x < temp) exp ∧
-  word_exp s exp = SOME w ∧
-  locals_rel temp s.locals loc ⇒
-  word_exp (s with locals:=loc) exp = SOME w
+  ∀s exp w.
+    every_var_exp (λx. x < temp) exp ∧
+    word_exp s exp = SOME w ∧
+    locals_rel temp s.locals loc ⇒
+    word_exp (s with locals:=loc) exp = SOME w
 Proof
   ho_match_mp_tac word_exp_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[word_exp_def,every_var_exp_def,locals_rel_def]

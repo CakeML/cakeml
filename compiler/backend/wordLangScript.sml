@@ -67,6 +67,7 @@ val raise_stub_location_eq = save_thm("raise_stub_location_eq",
 val every_var_exp_def = tDefine "every_var_exp" `
   (every_var_exp P (Var num) = P num) ∧
   (every_var_exp P (Load exp) = every_var_exp P exp) ∧
+  (every_var_exp P (OpLookup _ exp _) = every_var_exp P exp) ∧
   (every_var_exp P (Op wop ls) = EVERY (every_var_exp P) ls) ∧
   (every_var_exp P (Shift sh exp n) = every_var_exp P exp) ∧
   (every_var_exp P expr = T)`
