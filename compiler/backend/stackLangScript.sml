@@ -26,6 +26,7 @@ val _ = Datatype `
        | Inst ('a inst)
        | Get num store_name
        | Set store_name num
+       | GetOp binop num num store_name
        | Call ((stackLang$prog # num # num # num) option)
               (* return-handler code, link reg, labels l1,l2*)
               (num + num) (* target of call *)

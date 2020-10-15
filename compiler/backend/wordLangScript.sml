@@ -15,6 +15,7 @@ val _ = Datatype `
       | Lookup store_name
       | Load exp
       | Op binop (exp list)
+      | OpLookup binop exp store_name
       | Shift shift exp num`
 
 Theorem MEM_IMP_exp_size:
