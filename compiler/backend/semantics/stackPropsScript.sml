@@ -751,6 +751,8 @@ val inst_name_def = Define`
 
 val stack_asm_name_def = Define`
   (stack_asm_name c ((Inst i):'a stackLang$prog) ⇔ inst_name c i) ∧
+  (stack_asm_name c (OpCurrHeap b r1 r2) ⇔
+    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c) ∧
   (stack_asm_name c (CodeBufferWrite r1 r2) ⇔ reg_name r1 c ∧ reg_name r2 c) ∧
   (stack_asm_name c (DataBufferWrite r1 r2) ⇔ reg_name r1 c ∧ reg_name r2 c) ∧
   (stack_asm_name c (Seq p1 p2) ⇔ stack_asm_name c p1 ∧ stack_asm_name c p2) ∧
@@ -777,6 +779,7 @@ val fixed_names_def = Define`
 
 val stack_asm_remove_def = Define`
   (stack_asm_remove c ((Get n s):'a stackLang$prog) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (OpCurrHeap binop v src) ⇔ reg_name v c ∧ reg_name src c) ∧
   (stack_asm_remove c (Set s n) ⇔ reg_name n c) ∧
   (stack_asm_remove c (StackStore n n0) ⇔ reg_name n c) ∧
   (stack_asm_remove c (StackStoreAny n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
@@ -826,6 +829,7 @@ val reg_bound_exp_def = tDefine"reg_bound_exp"`
   (reg_bound_exp (Load e) k ⇔ reg_bound_exp e k) ∧
   (reg_bound_exp (Shift _ e _) k ⇔ reg_bound_exp e k) ∧
   (reg_bound_exp (Lookup _) _ ⇔ F) ∧
+  (reg_bound_exp (OpLookup _ _ _) _ ⇔ F) ∧
   (reg_bound_exp (Op _ es) k ⇔ EVERY (λe. reg_bound_exp e k) es) ∧
   (reg_bound_exp _ _ ⇔ T)`
   (WF_REL_TAC`measure ((exp_size ARB) o FST)` \\ simp[]
@@ -859,6 +863,8 @@ val reg_bound_def = Define `
      v1 < k) /\
   (reg_bound (Get v1 n) k <=>
      v1 < k) /\
+  (reg_bound (OpCurrHeap op v1 v2) k <=>
+     v1 < k ∧ v2 < k) /\
   (reg_bound (Set n v1) k <=>
      v1 < k /\ n <> BitmapBase) /\
   (reg_bound (LocValue v1 l1 l2) k <=>

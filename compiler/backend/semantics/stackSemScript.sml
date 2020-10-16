@@ -547,9 +547,9 @@ val evaluate_def = tDefine "evaluate" `
      case get_var v s of
      | SOME w => (NONE, set_store name w s)
      | NONE => (SOME Error, s)) /\
-  (evaluate (GetOp binop v src name,s) =
+  (evaluate (OpCurrHeap binop v src,s) =
      if ¬s.use_store then (SOME Error,s) else
-     case word_exp s (OpLookup binop (Var src) name) of
+     case word_exp s (OpLookup binop (Var src) CurrHeap) of
      | SOME w => (NONE, set_var v (Word w) s)
      | _ => (SOME Error, s)) /\
   (evaluate (Tick,s) =
