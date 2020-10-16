@@ -208,7 +208,6 @@ val comp_correct = Q.prove(
      s.compile = (λcfg. c cfg o (stack_names$compile f))
      ==>
      evaluate (comp f p, rename_state c f s) = (r, rename_state c f t)`,
-
   recInduct evaluate_ind \\ rpt strip_tac
   THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac)
   THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ CASE_TAC \\ fs []
@@ -217,6 +216,7 @@ val comp_correct = Q.prove(
   THEN1 (fs [evaluate_def,comp_def] >>
     every_case_tac >> fs[] >> rveq >> fs[] >>
     imp_res_tac inst_rename >> fs[])
+  THEN1 (fs [evaluate_def,comp_def,rename_state_def] >> rveq >> fs[])
   THEN1 (fs [evaluate_def,comp_def,rename_state_def] >> rveq >> fs[])
   THEN1 (fs [evaluate_def,comp_def,rename_state_def] >> rveq >> fs[])
   THEN1 (fs [evaluate_def,comp_def,rename_state_def] \\ rw []
