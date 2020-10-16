@@ -2234,6 +2234,41 @@ val stubs_def = Define`
     (Dummy_location,0,Skip)
   ] ++ generated_bignum_stubs Bignum_location`;
 
+val stub_names_def = Define`
+  stub_names () = [
+    (FromList_location,«_FromList»);
+    (FromList1_location,«_FromList1»);
+    (RefByte_location,«_RefByte»);
+    (RefArray_location,«_RefArray»);
+    (Replicate_location,«_Replicate»);
+    (AnyArith_location,«_AnyArith»);
+    (Add_location,«_Add»);
+    (Sub_location,«_Sub»);
+    (Mul_location,«_Mul»);
+    (Div_location,«_Div»);
+    (Mod_location,«_Mod»);
+    (Compare1_location,«_Compare1»);
+    (Compare_location,«_Compare»);
+    (Equal1_location,«_Equal1»);
+    (Equal_location,«_Equal»);
+    (LongDiv1_location,«_LongDiv1»);
+    (LongDiv_location,«_LongDiv»);
+    (Install_location,«_Install»);
+    (InstallCode_location,«_InstallCode»);
+    (InstallData_location,«_InstallData»);
+    (Append_location,«_Append»);
+    (AppendMainLoop_location,«_AppendMainLoop»);
+    (AppendLenLoop_location,«_AppendLenLoop»);
+    (AppendFastLoop_location,«_AppendFastLoop»);
+    (MemCopy_location,«_MemCopy»);
+    (ByteCopy_location,«_ByteCopy»);
+    (ByteCopyAdd_location,«_ByteCopyAdd»);
+    (ByteCopySub_location,«_ByteCopySub»);
+    (ByteCopyNew_location,«_ByteCopyNew»);
+    (Dummy_location,«_Dummy»)
+  ] ++ GENLIST (\i. (i + Bignum_location, «_Bignum»))
+    (data_num_stubs - Bignum_location)`;
+
 Theorem check_stubs_length:
    word_num_stubs + LENGTH (stubs (:α) c) = data_num_stubs
 Proof

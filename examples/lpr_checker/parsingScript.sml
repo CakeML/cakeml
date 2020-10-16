@@ -610,7 +610,7 @@ val parse_PR_hint_def = tDefine "parse_PR_hint" `
   case parse_until_nn xs [] of
     NONE => NONE
   | SOME (n,clause,rest) =>
-      parse_PR_hint n rest (insert id clause acc)`
+      parse_PR_hint n rest ((id,clause)::acc)`
   (WF_REL_TAC `measure (LENGTH o (FST o SND))`>>
   rw[]>>
   drule parse_until_nn_length>>fs[])
@@ -635,7 +635,7 @@ val parse_lprstep_def = Define`
         case parse_until_nn rest [] of
           NONE => NONE
         | SOME (id,hint,rest) =>
-          case parse_PR_hint id rest LN of
+          case parse_PR_hint id rest [] of
             NONE => NONE
           | SOME sp =>
               SOME (PR (Num l) clause witness hint sp)

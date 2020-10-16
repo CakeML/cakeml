@@ -3,7 +3,7 @@
   load/store operations.
 *)
 
-open preamble stackLangTheory
+open preamble stackLangTheory mlstringTheory
 
 val _ = new_theory "stack_remove";
 
@@ -271,6 +271,12 @@ val init_stubs_def = Define `
     [(0n,Seq (init_code gen_gc max_heap k) (Call NONE (INL start) NONE));
      (1n,halt_inst 0w);
      (2n,halt_inst 2w)]`
+
+val stub_names_def = Define`
+  stub_names () = [
+    (0n,mlstring$strlit "_Init");
+    (1n,mlstring$strlit "_Halt0");
+    (2n,mlstring$strlit "_Halt2")]`
 
 Theorem check_init_stubs_length:
    LENGTH (init_stubs gen_gc max_heap k start) + 1 (* gc *) =

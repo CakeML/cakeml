@@ -58,14 +58,14 @@ val interp_def = Define`
 val _ = Datatype`
   lprstep =
   | Delete (num list) (* Clauses to delete *)
-  | PR num cclause (cclause option) (num list) ((num list) spt)`
+  | PR num cclause (cclause option) (num list) ((num,(num list)) alist)`
     (* PR step:
       PR n C wopt i0 (ik id ~> ik)
       n is the new id of the clause C
       wopt is a witnessing assignment (represented as a list of literals)
         if w is NONE, then this reduces to RAT
       i0 is a list of clause IDs for the AT part
-      ik is a sptree mapping clause IDs to their hints
+      ik is a alist mapping clause IDs to their hints
     *)
 
 Type lpr = ``:lprstep list``
@@ -117,7 +117,7 @@ val check_RAT_def = Define`
   (* Step 5.1: if Ci contains -p do work, else skip *)
   if check_overlap Ci [-p] then
     (* Lookup the hint *)
-    case lookup i ik of
+    case ALOOKUP ik i of
       NONE => F
     | SOME is =>
     case is of
@@ -148,7 +148,7 @@ val check_PR_def = Define`
   (* Step 5.1: if Ci is touched by w do work, else skip *)
   if check_overlap Ci (flip w) then
     (* Lookup the hint *)
-    case lookup i ik of
+    case ALOOKUP ik i of
       NONE =>
       (* Step 5.2.1: Ci is satisfied by w *)
       check_overlap Ci w
@@ -592,7 +592,7 @@ Proof
   strip_tac>>
   `wf_clause Ci` by
     fs[wf_fml_def]>>
-  Cases_on`lookup i ik`>>
+  Cases_on`ALOOKUP ik i`>>
   simp[]
   >- (
     (* 5.2.1: Ci already satisfied by w *)
@@ -947,26 +947,5 @@ Proof
   drule check_lpr_sound>>
   metis_tac[unsatisfiable_def]
 QED
-
-(* Try on an example
-val fml = rconc (EVAL
-``insert 1 [ -3;  1;  2] (
-  insert 2 [ -2; -1;  3] (
-  insert 3 [ -4;  2;  3] (
-  insert 4 [ -3; -2;  4] (
-  insert 5 [ -4; -3; -1] (
-  insert 6 [  1;  3;  4] (
-  insert 7 [ -1;  2;  4] (
-  insert 8 [ -4; -2; (1:int)] LN))))))) :ccnf``)
-
-val lpr =
-``[
-  Delete [];
-  PR 9 [-1] NONE [] (insert 1 [5;7] (insert 6 [2;7] (insert 8 [5;2] LN)));
-]``;
-
-(* result contains the empty clause *)
-  val res = EVAL``check_lpr ^(lpr) ^(fml)``
-*)
 
 val _ = export_theory ();

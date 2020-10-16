@@ -7,6 +7,10 @@ open basisProgTheory ArrayProofTheory
 
 val _ = new_theory "quicksortProg";
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 val _ = translation_extends"basisProg";
 
 (* TODO: move *)

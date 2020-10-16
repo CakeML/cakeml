@@ -34,6 +34,29 @@ all: cake$(SUFF) $(CML_PROGS)
 cake$(SUFF): cake.o basis_ffi.o
 	$(CC) $(LDFLAGS) $< basis_ffi.o $(LOADLIBES) $(LDLIBS) -o $@
 
+# Note: While this Makefile is shared the sexpr files used in the example rules
+# below are only included in the verified cake-x64-64.tar.gz release package
+
+# *UNVERIFIED* build with GC and stage tracing; regenerating the .S will take
+# about five minutes
+
+cake_verbose$(SUFF): cake-sexpr-64 basis_ffi.c cake$(SUFF)
+	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --emit_empty_ffi=true --reg_alg=0 < $< > $<.S
+	$(CC) $(CFLAGS) $(LDFLAGS) -DDEBUG_FFI -o $@ $<.S basis_ffi.c
+
+# *UNVERIFIED* compiler supporting 32-bit targets; see cake-x64-32.tar.gz for a
+# verified compiler
+
+cake_unverified32$(SUFF): cake-sexpr-32 basis_ffi.c cake$(SUFF)
+	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --reg_alg=0 < $< > $<.S
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<.S basis_ffi.c
+
+# Example of cross-compiling the compiler itself
+RISCV_CC ?= riscv64-unknown-linux-gnu-cc
+cake_riscv_host: cake-sexpr-64 basis_ffi.c cake$(SUFF)
+	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --target=riscv --reg_alg=0 < $< > $<.riscv.S
+	$(RISCV_CC) $(CFLAGS) $(LDFLAGS) -o $@ $<.riscv.S basis_ffi.c
+
 # Using the CakeML compiler
 
 # The conventions used here for extensions, namely,

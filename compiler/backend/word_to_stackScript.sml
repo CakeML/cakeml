@@ -7,7 +7,7 @@
   stack frame.
 *)
 open preamble asmTheory wordLangTheory stackLangTheory parmoveTheory
-     word_allocTheory
+     word_allocTheory mlstringTheory
 
 val _ = new_theory "word_to_stack";
 
@@ -349,5 +349,9 @@ val compile_def = Define `
     let sfs = fromAList (MAP (λ((i,_),n). (i,n)) (ZIP (progs,fs))) in
       (<| bitmaps := bitmaps;
           stack_frame_size := sfs |>, 0::fs, (raise_stub_location,raise_stub k) :: progs)`
+
+val stub_names_def = Define`
+  stub_names () = [
+    (raise_stub_location,mlstring$strlit "_Raise")]`
 
 val _ = export_theory();

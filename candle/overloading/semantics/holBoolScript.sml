@@ -719,6 +719,60 @@ Proof
   fs[bool_ops_not_overloadable_def,overloadable_in_def,mk_bool_ctxt_def]
 QED
 
+Theorem overloadable_in_APPEND:
+  overloadable_in name (ctxt ++ ctxt')
+  = (overloadable_in name ctxt ∨ overloadable_in name ctxt')
+Proof
+  rw[overloadable_in_def,EQ_IMP_THM,GSYM EXISTS_OR_THM]
+  >> TRY (goal_assum (first_x_assum o mp_then Any mp_tac))
+  >> qmatch_asmsub_abbrev_tac `NewConst name ty`
+  >> qexists_tac `ty` >> asm_rewrite_tac[]
+QED
+
+Theorem ConstDef_extends_not_overloadable:
+  (ConstDef name def)::ctxt extends []
+  ⇒ ~overloadable_in name ctxt
+Proof
+  rw[extends_NIL_CONS_extends,updates_cases,overloadable_in_def,constspec_ok_def,is_builtin_name_def]
+  >> rw[MEM_SPLIT]
+  >> CCONTR_TAC
+  >> fs[] >> fs[]
+QED
+
+Theorem ConstDef_extends_not_overloadable':
+  ctxt' ++ (ConstDef name def)::ctxt extends []
+  ⇒ ~overloadable_in name (ctxt' ++ (ConstDef name def)::ctxt)
+Proof
+  reverse (rw[overloadable_in_APPEND])
+  >- (
+    imp_res_tac extends_APPEND_NIL
+    >> imp_res_tac ConstDef_extends_not_overloadable
+    >> fs[overloadable_in_def]
+  )
+  >> CCONTR_TAC
+  >> fs[overloadable_in_def,MEM_SPLIT]
+  >> rveq
+  >> qpat_x_assum `_ extends _` (assume_tac o REWRITE_RULE[GSYM APPEND_ASSOC])
+  >> imp_res_tac extends_APPEND_NIL
+  >> fs[extends_NIL_CONS_extends,updates_cases]
+QED
+
+Theorem mk_bool_ctxt_extends_bool_ops_not_overloadable:
+  !ctxt' ctxt. ctxt' ++ (mk_bool_ctxt ctxt) extends []
+  ⇒ bool_ops_not_overloadable (ctxt' ++ mk_bool_ctxt ctxt)
+Proof
+  rw[holBoolSyntaxTheory.mk_bool_ctxt_def,holBoolSyntaxTheory.bool_ops_not_overloadable_def]
+  >> rpt (CHANGED_TAC (TRY (match_mp_tac ConstDef_extends_not_overloadable')
+    >> PURE_ONCE_REWRITE_TAC[INST_TYPE [alpha |-> ``:update``] CONS_APPEND]
+    >> REWRITE_TAC[APPEND_ASSOC,APPEND_NIL]))
+  >> pop_assum mp_tac
+  >> fs[]
+  >> rpt (CHANGED_TAC (
+    PURE_ONCE_REWRITE_TAC[INST_TYPE [alpha |-> ``:update``] CONS_APPEND]
+    >> REWRITE_TAC[APPEND_ASSOC,APPEND_NIL]))
+  >> fs[overloadable_in_def,is_builtin_name_def]
+QED
+
 Theorem extends_is_bool_interpretation:
   is_set_theory ^mem ∧
     theory_ok (thyof (mk_bool_ctxt ctxt)) ∧
