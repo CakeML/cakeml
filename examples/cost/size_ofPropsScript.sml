@@ -893,7 +893,7 @@ Proof
 QED
 
 Theorem sane_timestamps_cons:
-  ∀x xs. sane_timestamps (x::xs) =
+  ∀x xs. sane_timestamps (x::xs) ⇔
          (sane_timestamps xs ∧
           ∀ts tag tag' vl vl'.
             x = Block ts tag vl ∧
@@ -913,7 +913,7 @@ Proof
 QED
 
 Theorem sane_timestamps_PERM:
-  ∀xs ys. PERM xs ys ⇒  sane_timestamps xs = sane_timestamps ys
+  ∀xs ys. PERM xs ys ⇒ sane_timestamps xs = sane_timestamps ys
 Proof
   rw [] \\  EQ_TAC \\ pop_assum mp_tac
   \\ MAP_EVERY (W(curry Q.SPEC_TAC)) [‘ys’,‘xs’]
