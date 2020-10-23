@@ -4,11 +4,15 @@
 
 open preamble
      timeLangTheory
-     realTheory
 
 val _ = new_theory "timeSem";
 
-(* is it for every state *)
+Datatype:
+  label = LDelay time
+        | LAction ioAction
+End
+
+
 Datatype:
   store =
   <| clocks   : clock |-> time
@@ -41,6 +45,7 @@ Definition resetOutput_def:
    ; waitTime := NONE
   |>
 End
+
 
 Definition resetClocks_def:
   resetClocks (st:store) cvs =
@@ -141,22 +146,21 @@ Inductive evalTerm:
                clks))
 End
 
-
 Inductive pickTerm:
   (!st cnds event action clks dest diffs tms st'.
-    EVERY (λx. x) (MAP (evalCond st) cnds) /\
+    EVERY (λcnd. evalCond st cnd) cnds /\
     event = SOME action /\
     evalTerm st event (Tm (Input action) cnds clks dest diffs) st' ==>
     pickTerm st event (Tm (Input action) cnds clks dest diffs :: tms) st') /\
 
   (!st cnds event effect clks dest diffs tms st'.
-    EVERY (λx. x) (MAP (evalCond st) cnds) /\
+    EVERY (λcnd. evalCond st cnd) cnds /\
     event = NONE /\
     evalTerm st event (Tm (Output effect) cnds clks dest diffs) st' ==>
     pickTerm st event (Tm (Output effect) cnds clks dest diffs :: tms) st') /\
 
   (!st cnds event ioAction clks dest diffs tms st'.
-    ~(EVERY (λx. x) (MAP (evalCond st) cnds)) /\
+    ~(EVERY (λcnd. evalCond st cnd) cnds) /\
     pickTerm st event tms st' ==>
     pickTerm st event (Tm ioAction cnds clks dest diffs :: tms) st') /\
 
@@ -175,71 +179,48 @@ Inductive step:
   (!p st d.
     st.waitTime = NONE /\
     0 <= d ==>
-    step p st NONE
+    step p (LDelay d) st
          (mkStore
           (delay_clocks (st.clocks) d)
           st.location
           NONE
           NONE
-          NONE)
-         (LDelay d)) /\
+          NONE)) /\
+
   (!p st d w.
     st.waitTime = SOME w /\
-    d < w /\
-    0 <= d ==>
-    step p st NONE
+    0 <= d /\ d < w ==>
+    step p (LDelay d) st
          (mkStore
           (delay_clocks (st.clocks) d)
           st.location
           NONE
           NONE
-          (SOME (w - d)))
-         (LDelay d)) /\
-  (!p st tms st' event.
+          (SOME (w - d)))) /\
+
+  (!p st tms st' action.
       ALOOKUP p st.location = SOME tms /\
-      pickTerm (resetOutput st) (SOME event) tms st' /\
-      st'.consumed = SOME event /\
+      pickTerm (resetOutput st) (SOME action) tms st' /\
+      st'.consumed = SOME action /\
       st'.output = NONE ==>
-      step p st (SOME event) st' (LAction (Input event))) /\
-  (!p st tms st' eff.
+      step p (LAction (Input action)) st st') /\
+
+  (!p st tms st' effect.
       ALOOKUP p st.location = SOME tms /\
       pickTerm (resetOutput st) NONE tms st' /\
       st'.consumed = NONE /\
-      st'.output = SOME eff ==>
-      step p st NONE st' (LAction (Output eff)))
+      st'.output = SOME effect ==>
+      step p (LAction (Output effect)) st st')
 End
 
 
 Inductive stepTrace:
   (!p st.
     stepTrace p st st []) /\
-  (!p st st' st'' act lbl tr.
-    step p st act st' lbl /\
+  (!p lbl st st' st'' tr.
+    step p lbl st st' /\
     stepTrace p st' st'' tr ==>
     stepTrace p st st'' (lbl::tr))
 End
-
-(*
-
-Datatype:
-  label = LDelay time
-        | LAction ioAction
-End
-
-        (setWait (setLocation
-                        (resetClocks
-                         (setConsumed st action)
-                         clks)
-                        dest)
-               (list_min_option (MAP (evalDiff (resetClocks st clks)) diffs)))
-
-        (setWait (setLocation
-                        (resetClocks
-                         (setOutput st effect)
-                         clks)
-                        dest)
-               (list_min_option (MAP (evalDiff (resetClocks st clks)) diffs)))
-*)
-
 
 val _ = export_theory();

@@ -25,6 +25,7 @@ End
 (* IMP: modeled as rational in the Coq formalism  *)
 Type time   = ``:real``
 
+
 (* clock variable *)
 Datatype:
   clock = CVar string (* datatype instead of type_synonym to enable parsing *)
