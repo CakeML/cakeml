@@ -1,62 +1,13 @@
 (*
-  Abstract syntax for timeLang
+  semantics for timeLang
 *)
 
 open preamble
-     stringTheory
+     timeLangTheory
      realTheory
 
-val _ = new_theory "timeLang";
+val _ = new_theory "timeSem";
 
-Type action = ``:num``
-Type effect = ``:num``
-Type loc    = ``:num``
-Type time   = ``:real`` (* time is rational in the Coq formalism,
-                           we are modeling it as real *)
-
-(* Type clock   = ``:mlstring`` *)
-(* to make it consistent with Coq for parsing *)
-Datatype:
-  clock = CVar string
-End
-
-Type clocks  = ``:clock list``
-
-Datatype:
-  ioAction = Input action
-           | Output effect
-End
-
-Datatype:
-  label = LDelay time
-        | LAction ioAction
-End
-
-(* time expression *)
-Datatype:
-  expr = ESub expr expr
-       | EClock clock
-       | ELit time
-End
-
-(* relational expressions *)
-Datatype:
-  cond = CndLe expr expr  (* e <= e *)
-       | CndLt expr expr  (* e < e *)
-End
-
-Datatype:
-  term = Tm ioAction
-            (cond list)
-            clocks
-            loc
-            ((time # clock) list) (* (run-time value # clock variable) list for
-                                     wait time *)
-End
-
-Type program = ``:(loc # term list) list``
-
-(*
 
 Datatype:
   store =
@@ -253,6 +204,6 @@ Inductive stepTrace:
     stepTrace p st' st'' tr ==>
     stepTrace p st st'' (lbl::tr))
 End
-*)
+
 
 val _ = export_theory();

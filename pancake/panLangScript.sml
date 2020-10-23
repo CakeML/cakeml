@@ -140,5 +140,4 @@ Definition size_of_eids_def:
   let eids = FLAT (MAP (exp_ids o SND o SND) prog) in
    LENGTH (remove_dup eids)
 End
-
 val _ = export_theory();
