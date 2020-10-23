@@ -8,13 +8,13 @@ open preamble
 
 val _ = new_theory "timeSem";
 
-
+(* is it for every state *)
 Datatype:
   store =
-  <| clockVal : clock |-> time
+  <| clocks   : clock |-> time
    ; location : loc
    ; consumed : action option
-   ; output   :   effect option
+   ; output   : effect option
    ; waitTime : time option
   |>
 End
@@ -26,12 +26,11 @@ End
 Definition evalExpr_def:
   (evalExpr st (ELit t) = t) ∧
   (evalExpr st (ESub e1 e2) =
-   minusT (evalExpr st e1) (evalExpr st e2)) ∧
+    minusT (evalExpr st e1) (evalExpr st e2)) ∧
   (evalExpr st (EClock c) =
-   case FLOOKUP st.clockVal c of
-    | NONE => 0
-    | SOME t => t)
-  (* val_apply clock clock_dec time 0 clocks (clockVal st) c *)
+    case FLOOKUP st.clocks c of
+     | NONE => 0
+     | SOME t => t)
 End
 
 Definition evalCond_def:
@@ -39,15 +38,36 @@ Definition evalCond_def:
   (evalCond st (CndLt e1 e2) = (evalExpr st e1 < evalExpr st e2))
 End
 
+(* I think that t is run-time,
+   and evalDiff would be used to calculate the delay *)
 Definition evalDiff_def:
   evalDiff st ((t,c): time # clock) =
     evalExpr st (ESub (ELit t) (EClock c))
 End
 
+Definition mkStore_def:
+  mkStore cks loc ac eff wt =
+  <| clocks   := cks
+   ; location := loc
+   ; consumed := ac
+   ; output   := eff
+   ; waitTime := wt
+  |>
+End
+
+Definition resetOutput_def:
+  resetOutput st =
+  st with
+  <| consumed := NONE
+   ; output   := NONE
+   ; waitTime := NONE
+  |>
+End
+
 Definition resetClocks_def:
   resetClocks (st:store) cvs =
-  let cvs_zeros = MAP (\x. (x,0:time)) cvs in
-      st with clockVal := st.clockVal |++ cvs_zeros
+  let reset_cvs = MAP (λx. (x,0:time)) cvs in
+      st with clocks := st.clocks |++ reset_cvs
 End
 
 Definition setLocation_def:
@@ -59,31 +79,11 @@ Definition setConsumed_def:
 End
 
 Definition setOutput_def:
-  setOutput (st:store) eff = st with consumed := SOME eff
+  setOutput (st:store) eff = st with output := SOME eff
 End
 
 Definition setWait_def:
   setWait (st:store) t = st with waitTime := t
-End
-
-Definition mkStore_def:
-  mkStore cmap loc ac eff wt =
-  <| clockVal := cmap
-   ; location := loc
-   ; consumed := ac
-   ; output   := eff
-   ; waitTime := wt
-  |>
-End
-
-Definition resetOutput_def:
-  resetOutput st =
-  <| clockVal := st.clockVal
-   ; location := st.location
-   ; consumed := NONE
-   ; output   := NONE
-   ; waitTime := NONE
-  |>
 End
 
 Definition list_min_option_def:
@@ -94,43 +94,48 @@ Definition list_min_option_def:
    | SOME y => SOME (if x < y then x else y))
 End
 
-Definition delay_clock_vals_def:
-  delay_clock_vals fm d = fm |++
-                             (MAP (λ(x,y). (x,y+d))
-                              (fmap_to_alist fm))
+Definition calculate_wtime_def:
+  calculate_wtime st clks diffs =
+    list_min_option (MAP (evalDiff (resetClocks st clks)) diffs)
+End
+
+Definition delay_clocks_def:
+  delay_clocks fm d = fm |++
+                         (MAP (λ(x,y). (x,y+d))
+                          (fmap_to_alist fm))
 End
 
 
 Inductive evalTerm:
-  (∀st event cnds rs dest diffs.
-     EVERY (\c. c IN FDOM st.clockVal) rs ==>
-     evalTerm st (SOME event)
-              (Tm (Input event)
+  (∀st action cnds clks dest diffs.
+     EVERY (λck. ck IN FDOM st.clocks) clks ==>
+     evalTerm st (SOME action)
+              (Tm (Input action)
                   cnds
-                  rs
+                  clks
                   dest
                   diffs)
-              (setWait (setLocation
-                        (resetClocks
-                         (setConsumed st event)
-                         rs)
-                        dest)
-               (list_min_option (MAP (evalDiff (resetClocks st rs)) diffs)))) /\
-  (∀st eff cnds rs dest diffs.
-     EVERY (\c. c IN FDOM st.clockVal) rs ==>
+              (resetClocks
+               (st with  <| consumed := SOME action
+                          ; location := dest
+                          ; waitTime := calculate_wtime st clks diffs|>)
+               clks)) /\
+
+  (∀st effect cnds clks dest diffs.
+     EVERY (λck. ck IN FDOM st.clocks) clks ==>
      evalTerm st NONE
-              (Tm (Output eff)
+              (Tm (Output effect)
                   cnds
-                  rs
+                  clks
                   dest
                   diffs)
-              (setWait (setLocation
-                        (resetClocks
-                         (setOutput st eff)
-                         rs)
-                        dest)
-               (list_min_option (MAP (evalDiff (resetClocks st rs)) diffs))))
+              (resetClocks
+               (st with  <| output   := SOME effect
+                          ; location := dest
+                          ; waitTime := calculate_wtime st clks diffs|>)
+               clks))
 End
+
 
 Inductive pickTerm:
   (!st cnds act event rs dest diffs tms st'.
@@ -163,7 +168,7 @@ Inductive step:
     0 <= d ==>
     step p st NONE
          (mkStore
-          (delay_clock_vals (st.clockVal) d)
+          (delay_clocks (st.clocks) d)
           st.location
           NONE
           NONE
@@ -175,7 +180,7 @@ Inductive step:
     0 <= d ==>
     step p st NONE
          (mkStore
-          (delay_clock_vals (st.clockVal) d)
+          (delay_clocks (st.clocks) d)
           st.location
           NONE
           NONE
@@ -204,6 +209,28 @@ Inductive stepTrace:
     stepTrace p st' st'' tr ==>
     stepTrace p st st'' (lbl::tr))
 End
+
+(*
+
+Datatype:
+  label = LDelay time
+        | LAction ioAction
+End
+
+        (setWait (setLocation
+                        (resetClocks
+                         (setConsumed st action)
+                         clks)
+                        dest)
+               (list_min_option (MAP (evalDiff (resetClocks st clks)) diffs)))
+
+        (setWait (setLocation
+                        (resetClocks
+                         (setOutput st effect)
+                         clks)
+                        dest)
+               (list_min_option (MAP (evalDiff (resetClocks st clks)) diffs)))
+*)
 
 
 val _ = export_theory();
