@@ -9,8 +9,7 @@ open preamble
 val _ = new_theory "timeLang";
 
 (* location of a state in timed-automata *)
-Type loc    = ``:num``
-
+Type loc = ``:num``
 
 (* input and output asscociated with each state *)
 Type action = ``:num``

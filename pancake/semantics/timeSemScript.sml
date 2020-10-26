@@ -68,26 +68,6 @@ Definition delay_clocks_def:
                           (fmap_to_alist fm))
 End
 
-
-(*
-Definition setLocation_def:
-  setLocation (st:store) l = st with location := l
-End
-
-Definition setConsumed_def:
-  setConsumed (st:store) ac = st with consumed := SOME ac
-End
-
-Definition setOutput_def:
-  setOutput (st:store) eff = st with output := SOME eff
-End
-
-Definition setWait_def:
-  setWait (st:store) t = st with waitTime := t
-End
-*)
-
-
 Definition evalExpr_def:
   (evalExpr st (ELit t) = t) ∧
   (evalExpr st (ESub e1 e2) =
@@ -103,8 +83,6 @@ Definition evalCond_def:
   (evalCond st (CndLt e1 e2) = (evalExpr st e1 < evalExpr st e2))
 End
 
-(* I think that t is run-time,
-   and evalDiff would be used to calculate the delay *)
 Definition evalDiff_def:
   evalDiff st ((t,c): time # clock) =
     evalExpr st (ESub (ELit t) (EClock c))
