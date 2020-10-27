@@ -7,7 +7,9 @@ structure packLib =
 struct
 
 open HolKernel boolLib bossLib;
+local
 open ThyDataSexp
+in
 
 fun ERR f msg = mk_HOL_ERR "packLib" f msg
 
@@ -60,5 +62,5 @@ fun unpack_5tuple f1 f2 f3 f4 f5 th =
 fun pack_6tuple f1 f2 f3 f4 f5 f6 (x1,x2,x3,x4,x5,x6) = pack_list I [f1 x1, f2 x2, f3 x3, f4 x4, f5 x5, f6 x6]
 fun unpack_6tuple f1 f2 f3 f4 f5 f6 th =
   let val x = unpack_list I th in (f1 (el 1 x), f2 (el 2 x), f3 (el 3 x), f4 (el 4 x), f5 (el 5 x), f6 (el 6 x)) end
-
+end (* local *)
 end
