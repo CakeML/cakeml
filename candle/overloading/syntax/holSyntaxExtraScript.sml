@@ -7266,7 +7266,7 @@ QED
 
 Theorem subtype_has_leaf'[local]:
   !x y p q. (!p. is_subtype_leaf x p \/ is_subtype_leaf y p ==> subtype_at x p = subtype_at y p)
-  /\ subtype_at x p = NONE /\ IS_SOME (subtype_at y (p ⧺ q)) ==> (NONE = subtype_at y p)
+  /\ subtype_at x p = NONE /\ IS_SOME (subtype_at y (p ++ q)) ==> (NONE = subtype_at y p)
 Proof
   CCONTR_TAC
   >> fs[is_subtype_leaf_def]

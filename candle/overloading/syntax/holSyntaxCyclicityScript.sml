@@ -19,6 +19,14 @@ fun ccontr_equiv(x) =
   in GEN_ALL (IMP_ANTISYM_RULE (CONTRAPOS b) (CONTRAPOS a)) end;
 
 
+Theorem WOP_eq[local]:
+  ∀P. (∃(n:num). P n) <=> ∃n. P n ∧ ∀m. m < n ⇒ ¬P m
+Proof
+  rw[EQ_IMP_THM,WOP]
+  >> goal_assum (first_assum o mp_then Any mp_tac)
+QED
+
+
 (* lemmata on lists *)
 
 Theorem ALL_DISTINCT_MAP_PAIR_FILTER:
@@ -930,6 +938,41 @@ Proof
   >> fs[TYPE_SUBST_drop_prefix,TYPE_SUBST_drop_all,Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_def]
 QED
 
+Triviality subtype_at_NONE_IS_PREFIX_IS_SOME:
+  !t p. subtype_at t p = NONE
+  ==> ?q. IS_PREFIX p q /\ IS_SOME (subtype_at t q)
+    /\ !q'. IS_PREFIX p q' /\ IS_PREFIX q' q /\ q' <> q ==> IS_NONE (subtype_at t q')
+Proof
+  CONV_TAC SWAP_FORALL_CONV
+  >> gen_tac
+  >> completeInduct_on `LENGTH p`
+  >> fs[subtype_at_def,PULL_FORALL,AND_IMP_INTRO]
+  >> gen_tac
+  >> Q.ISPEC_THEN `p` FULL_STRUCT_CASES_TAC SNOC_CASES
+  >> rw[SNOC_APPEND,subtype_at_def]
+  >> Cases_on `subtype_at t l`
+  >- (
+    first_x_assum $ drule_at Any
+    >> rw[GSYM PULL_FORALL]
+    >> goal_assum $ drule_at Any
+    >> conj_tac >- fs[IS_PREFIX_APPEND]
+    >> rw[]
+    >> Cases_on `q' = l ++ [x]`
+    >- gvs[]
+    >> first_x_assum match_mp_tac
+    >> fs[]
+    >> gs[IS_PREFIX_APPEND]
+    >> qmatch_asmsub_rename_tac `llll ++ [_] = ll ++ lll`
+    >> Q.ISPEC_THEN `lll` FULL_STRUCT_CASES_TAC SNOC_CASES
+    >> fs[]
+  )
+  >> qmatch_asmsub_rename_tac `l ++ [_]`
+  >> qexists_tac `l`
+  >> fs[IS_PREFIX_APPEND,PULL_EXISTS]
+  >> gen_tac >> Cases
+  >> rw[] >> fs[]
+QED
+
 Theorem equiv_ts_on_mg_sol:
   !e e' t t' r r' p.
   TYPE_SUBST e (TYPE_SUBST r p) = TYPE_SUBST r' p
@@ -1326,6 +1369,22 @@ Proof
   >> match_mp_tac sol_mon_prop'
   >> rpt $ goal_assum $ drule_at Any
   >> fs[]
+QED
+
+Theorem id_sol_mg_sol':
+  !rs pqs ctxt i.
+  0 < LENGTH rs /\ i < LENGTH rs
+  /\ EL i rs = []
+  /\ sol_seq rs pqs
+  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  /\ monotone (dependency ctxt)
+  ==> mg_sol_seq (DROP i rs) (DROP i pqs)
+Proof
+  rw[]
+  >> match_mp_tac id_sol_mg_sol
+  >> REWRITE_TAC[GSYM EL]
+  >> goal_assum $ drule_at Any
+  >> fs[EVERY_DROP,EL_DROP,sol_seq_DROP]
 QED
 
 (* Lemma 5.8, Kunčar 2015 *)
@@ -2110,6 +2169,8 @@ Proof
   >> fs[sol_seq_def,wf_pqs_def]
 QED
 
+(* various properties about llists *)
+
 Theorem every_LAPPEND_SINGLETON:
   !P h x. LFINITE x /\ every P (LAPPEND x [|h|]) ==> P h
 Proof
@@ -2143,13 +2204,6 @@ Proof
   >> imp_res_tac LTAKE_DROP
   >> qexists_tac `THE (LDROP i s)`
   >> fs[]
-QED
-
-Theorem WOP_eq[local]:
-  ∀P. (∃(n:num). P n) <=> ∃n. P n ∧ ∀m. m < n ⇒ ¬P m
-Proof
-  rw[EQ_IMP_THM,WOP]
-  >> goal_assum (first_assum o mp_then Any mp_tac)
 QED
 
 Theorem NOT_LFINITE_LDROP:
@@ -2842,23 +2896,60 @@ Proof
   >> fs[NOT_LFINITE_DROP,IS_SOME_EXISTS,LFINITE_DROP]
 QED
 
+Theorem less_opt_cases:
+  !opt k. less_opt k opt =
+    (opt = NONE \/ ?l. opt = SOME l /\ k < l)
+Proof
+  Cases >> fs[less_opt_def]
+QED
+
+Theorem NOT_LFINITE_LLENGTH_NONE:
+  !ll. ~LFINITE ll <=> LLENGTH ll = NONE
+Proof
+  fs[NOT_LFINITE_NO_LENGTH,EQ_IMP_THM,LLENGTH]
+QED
+
+Theorem less_opt_add_elim:
+  (!n m z. less_opt (n + m) z ⇒ less_opt n z)
+  /\ !n m z. less_opt (m + n) z ⇒ less_opt n z
+Proof
+  conj_asm1_tac
+  >- (
+    gen_tac
+    >> Induct
+    >> fs[less_opt_SUC_elim,GSYM ADD_SUC]
+  )
+  >> fs[]
+QED
+
+Theorem less_opt_IS_SOME_LDROP:
+  !ll k. less_opt k (LLENGTH ll) ==> IS_SOME (LDROP k ll)
+Proof
+  rw[less_opt_cases,GSYM NOT_LFINITE_LLENGTH_NONE]
+  >> fs[NOT_LFINITE_DROP,IS_SOME_EXISTS,LFINITE_LLENGTH,LFINITE_DROP]
+QED
+
 Theorem LDROP_THE_LDROP_ADD:
-  !ll l k. infin_or_leq ll (k + l) T
+  !ll l k. less_opt (k + l) (LLENGTH ll)
   ==> LDROP k (THE (LDROP l ll)) = LDROP (k + l) ll
 Proof
   CONV_TAC SWAP_FORALL_CONV
   >> Induct
   >> rw[]
-  >> first_assum (qspecl_then [`ll`,`1`] assume_tac)
-  >> first_x_assum (qspecl_then [`ll`,`SUC k`] assume_tac)
+  >> first_assum $ qspecl_then [`ll`,`1`] assume_tac
+  >> first_x_assum $ qspecl_then [`ll`,`SUC k`] assume_tac
   >> rfs[ADD1]
-  >> pop_assum (fn x => ONCE_REWRITE_TAC[GSYM x])
+  >> pop_assum $ ONCE_REWRITE_TAC o single o GSYM
   >> fs[GSYM ADD1]
   >> CONV_TAC(RHS_CONV (ONCE_REWRITE_CONV [CONJUNCT2 LDROP]))
-  >> drule infin_or_leq_imp
-  >> disch_then (qspec_then `SUC l` assume_tac)
   >> fs[LDROP1_THM]
-  >> drule infin_or_leq_IS_SOME_LDROP
+  >> pop_assum mp_tac
+  >> impl_tac
+  >- imp_res_tac less_opt_add_elim
+  >> disch_then $ ONCE_REWRITE_TAC o single
+  >> qspecl_then [`ll`,`SUC l`] mp_tac less_opt_IS_SOME_LDROP
+  >> impl_tac
+  >- imp_res_tac less_opt_add_elim
   >> rw[IS_SOME_EXISTS]
   >> fs[option_CLAUSES]
 QED
@@ -2885,33 +2976,6 @@ Proof
   >> disch_then imp_res_tac
   >> drule LTAKE_LNTH_EL
   >> disch_then (qspec_then `k` mp_tac)
-  >> fs[]
-QED
-
-Theorem LDROP_CONS:
-  !k ll. infin_or_leq ll (SUC k) T
-  ==> THE (LDROP k ll) = LAPPEND [|THE (LNTH k ll)|] (THE (LDROP (SUC k) ll))
-  /\ IS_SOME (LDROP (SUC k) ll)
-  /\ IS_SOME (LDROP k ll)
-  /\ IS_SOME (LNTH k ll)
-Proof
-  rw[]
-  >> imp_res_tac LNTH_EL_LTAKE
-  >> TRY (match_mp_tac infin_or_leq_SUC_IS_SOME_LNTH >> fs[infin_or_leq_imp])
-  >> TRY (match_mp_tac infin_or_leq_IS_SOME_LDROP >> imp_res_tac infin_or_leq_imp >> fs[])
-  >> ONCE_REWRITE_TAC[LLIST_BISIMULATION0]
-  >> qexists_tac `λx y. (x = [||] /\ x = y) \/ LHD x = LHD y /\ LTL x = LTL y`
-  >> rw[]
-  >- (
-    fs[LDROP_LDROP,LNTH_LDROP,ADD1]
-    >> ONCE_REWRITE_TAC[GSYM LDROP1_THM]
-    >> fs[LDROP_THE_LDROP_ADD]
-    >> imp_res_tac infin_or_leq_IS_SOME_LDROP
-    >> fs[IS_SOME_EXISTS]
-  )
-  >> rename1`LHD la = LHD lb`
-  >> Cases_on `la`
-  >> Cases_on `lb`
   >> fs[]
 QED
 
@@ -3116,7 +3180,43 @@ Proof
   >> rw[LFINITE_fromList]
 QED
 
+Theorem llist_SKOLEM:
+  !P. (!i. ?j. P i j) <=> ?ll.
+    ~LFINITE ll /\ !i. ?j. LNTH i ll = SOME j /\ P i j
+Proof
+  rw[EQ_IMP_THM]
+  >- (
+    fs[SKOLEM_THM]
+    >> qexists_tac `LMAP f (LGENLIST I NONE)`
+    >> fs[LNTH_LMAP,PULL_EXISTS,LGENLIST_num]
+    >> qexists_tac `f`
+    >> fs[]
+  )
+  >> first_x_assum $ qspec_then `i` strip_assume_tac
+  >> goal_assum drule
+QED
+
+Theorem llist_SKOLEM_WOP:
+  !(P:num->num->bool). (!i. ?j. P i j) <=> ?ll.
+    ~LFINITE ll /\ !i. ?j. LNTH i ll = SOME j /\ P i j
+    /\ !j'. j' < j ==> ~P i j'
+Proof
+  fs[Once WOP_eq]
+  >> rw[EQ_IMP_THM]
+  >- (
+    fs[Once llist_SKOLEM]
+    >> ntac 2 $ goal_assum drule
+    >> rpt strip_tac
+    >> first_x_assum $ qspec_then `i` strip_assume_tac
+    >> rpt $ goal_assum drule
+  )
+  >> first_x_assum $ qspec_then `i` strip_assume_tac
+  >> rpt $ goal_assum drule
+QED
+
+
 (* wf_pqs_def for llists *)
+
 Definition wf_pqs_inf_def:
   wf_pqs_inf (pqs:((type + term) # (type + term)) llist) =
   every (λx. is_const_or_type (FST x) /\ is_const_or_type (SND x)) pqs
@@ -3288,6 +3388,21 @@ QED
 Theorem LTAKE_LENGTH' =
   CONV_RULE (SYM_CONV |> RAND_CONV |> ONCE_DEPTH_CONV |> ONCE_DEPTH_CONV) LTAKE_LENGTH
 
+Theorem WOP_NOT_PRE_eq:
+  ∀P. (∃n. P n) <=> ∃n. P n ∧ (0 < n ==> ~P (PRE n))
+Proof
+  fs[EQ_IMP_THM,FORALL_AND_THM]
+  >> conj_tac
+  >- (
+    rw[Once WOP_eq]
+    >> goal_assum drule
+    >> first_x_assum $ qspec_then `PRE n` mp_tac
+    >> rw[]
+  )
+  >> rw[]
+  >> goal_assum drule
+QED
+
 (* Lemma 5.16 *)
 Theorem ascending_infinite_suffix:
   !rs pqs ctxt.
@@ -3345,6 +3460,64 @@ Proof
   )
   >> cheat
   *)
+QED
+
+(* Definition 6.1 *)
+Definition LR_orth_def:
+  (LR_orth (INL p) (INL q) = orth_ty p q)
+  /\ (LR_orth (INR (Const c ty1)) (INR (Const d ty2)) = orth_ci (Const c ty1) (Const d ty2))
+  /\ (LR_orth _ _ = T)
+End
+
+Definition orth_dependency_def:
+  orth_dependency ctxt =
+  !p q p' q'.
+    dependency ctxt p q
+    /\ dependency ctxt p' q'
+    /\ p <> p' /\ q <> q' ==> LR_orth p p'
+End
+
+Theorem LR_orth_SYM:
+  !p q. LR_orth p q = LR_orth q p
+Proof
+  fs[FORALL_SUM,LR_orth_def,orth_ty_symm,orth_ci_def]
+  >> rpt (conj_tac >> TRY Cases) >> TRY Cases
+  >> fs[LR_orth_def,orth_ty_symm,orth_ci_def]
+  >> fs[EQ_SYM_EQ,orth_ty_symm]
+QED
+
+Theorem LR_orth_simp:
+  (!a b. LR_orth (INR a) (INL b) = T)
+  /\ !a b. LR_orth (INL a) (INR b) = T
+Proof
+  fs[LR_orth_def] >> Cases >> fs[LR_orth_def]
+QED
+
+Theorem orth_ctxt_orth_dependency_INR:
+  !ctxt p q p' q'. extends_init ctxt /\ orth_ctxt ctxt
+    /\ dependency ctxt (INR p) q
+    /\ dependency ctxt (INR p') q'
+    /\ p <> p' /\ q <> q'
+    ==> LR_orth (INR p) (INR p')
+Proof
+  rw[dependency_cases]
+  >> rw[LR_orth_def,DISJ_EQ_IMP,orth_ci_def]
+  >> drule (cj 1 (Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,FORALL_AND_THM] orth_ctxt_def)
+    |> Ho_Rewrite.REWRITE_RULE[IMP_CONJ_THM,FORALL_AND_THM] |> cj 1)
+  >> fs[orth_ci_def]
+  >> rpt (disch_then dxrule)
+  >> fs[]
+  >> cheat
+QED
+
+Theorem orth_ctxt_orth_dependency_INL:
+  !ctxt p q p' q'. extends_init ctxt /\ orth_ctxt ctxt
+    /\ dependency ctxt (INL p) q
+    /\ dependency ctxt (INL p') q'
+    /\ p <> p' /\ q <> q'
+    ==> LR_orth (INL p) (INL p')
+Proof
+  cheat
 QED
 
 (* Algorithm 1, Kunčar 2015 *)
