@@ -3493,6 +3493,15 @@ Proof
   fs[LR_orth_def] >> Cases >> fs[LR_orth_def]
 QED
 
+Theorem has_type_distinct:
+  tm has_type ty ∧
+  tm' has_type ty' ∧
+  ty ≠ ty' ⇒
+  tm ≠ tm'
+Proof
+  rpt strip_tac >> imp_res_tac WELLTYPED_LEMMA >> rveq >> fs[]
+QED
+
 Theorem orth_ctxt_orth_dependency_INR:
   !ctxt p q p' q'. extends_init ctxt /\ orth_ctxt ctxt
     /\ dependency ctxt (INR p) q
@@ -3505,9 +3514,48 @@ Proof
   >> drule (cj 1 (Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,FORALL_AND_THM] orth_ctxt_def)
     |> Ho_Rewrite.REWRITE_RULE[IMP_CONJ_THM,FORALL_AND_THM] |> cj 1)
   >> fs[orth_ci_def]
-  >> rpt (disch_then dxrule)
-  >> fs[]
+  >> TRY(rpt (disch_then dxrule)
+         >> fs[]
+         >> drule_at (Pos last) has_type_distinct
+         >> rpt(disch_then drule)
+         >> strip_tac >> simp[]
+         >> imp_res_tac WELLTYPED_LEMMA
+         >> rveq >> fs[orth_ty_symm] >> NO_TAC)
   >> cheat
+QED
+
+Theorem TypeDefn_NewType_name_distinct:
+  MEM (TypeDefn name pred abs rep) ctxt ∧
+  MEM (NewType name' arity) ctxt ∧
+  extends_init ctxt ⇒
+  name ≠ name'
+Proof
+  rpt strip_tac >>
+  fs[extends_init_def] >>
+  dxrule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+  rveq >>
+  gs[MEM_SPLIT] >> rveq >>
+  gs[APPEND_EQ_APPEND] >> rveq >> gs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> gs[] >>
+  FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
+  drule_then strip_assume_tac extends_APPEND_NIL >>
+  fs[] >>
+  imp_res_tac extends_NIL_CONS_updates >> fs[updates_cases]
+QED
+
+Theorem tyapp_distinct_orth:
+  name ≠ name' ⇒
+  Tyapp name tys # Tyapp name' tys'
+Proof
+  rw[orth_ty_def] >>
+  Cases_on ‘ty’ >> rw[] >>
+  spose_not_then strip_assume_tac >> fs[]
+QED
+
+Theorem GENLIST_ARG_EQ:
+  ∀f n n'.
+    GENLIST f n = GENLIST f n' ⇔ n = n'
+Proof
+  strip_tac >> Induct_on ‘n’ >> Cases >> rw[GENLIST] >> rw[EQ_IMP_THM]
 QED
 
 Theorem orth_ctxt_orth_dependency_INL:
@@ -3517,7 +3565,26 @@ Theorem orth_ctxt_orth_dependency_INL:
     /\ p <> p' /\ q <> q'
     ==> LR_orth (INL p) (INL p')
 Proof
-  cheat
+  rw[dependency_cases]
+  >> rw[LR_orth_def,DISJ_EQ_IMP,orth_ci_def]
+  >> drule (cj 1 (Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,FORALL_AND_THM] orth_ctxt_def)
+    |> Ho_Rewrite.REWRITE_RULE[IMP_CONJ_THM,FORALL_AND_THM] |> cj 2)
+  >> fs[orth_ci_def]
+  >> TRY(rpt (disch_then dxrule) >> fs[orth_ty_symm] >>
+         (impl_tac >- (spose_not_then strip_assume_tac >> gs[]) >>
+          fs[orth_ty_symm]) >>
+         NO_TAC)
+  >> TRY(drule TypeDefn_NewType_name_distinct >> disch_then drule >> rpt(disch_then drule) >>
+         gs[tyapp_distinct_orth] >> NO_TAC)
+  >> TRY(gs[tyapp_distinct_orth] >> NO_TAC)
+  >> TRY(disch_then kall_tac >>
+         qpat_x_assum ‘MAP _ _ ≠ MAP _ _’ mp_tac >>
+         dep_rewrite.DEP_ONCE_REWRITE_TAC[INJ_MAP_EQ_IFF] >>
+         conj_tac >- rw[INJ_DEF] >>
+         rw[GENLIST_ARG_EQ] >>
+         rw[orth_ty_def] >> Cases_on ‘ty’ >> rw[] >>
+         spose_not_then strip_assume_tac >> gs[] >> rveq >>
+         gs[MAP_EQ_EVERY2])
 QED
 
 (* Algorithm 1, Kunčar 2015 *)
