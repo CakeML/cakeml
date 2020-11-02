@@ -14914,4 +14914,9 @@ Proof
   simp[subtype1_cases]
 QED
 
+(* Hiding this under a definition so it won't obstruct drules later *)
+Definition extends_init_def:
+  extends_init ctxt = (ctxt extends init_ctxt)
+End
+
 val _ = export_theory()
