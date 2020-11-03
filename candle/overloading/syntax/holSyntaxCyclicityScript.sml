@@ -3618,6 +3618,23 @@ Proof
   >> fs[]
 QED
 
+(* Lemma 6.2 *)
+Theorem path_starting_at_equal:
+  !pqs pqs' rs rs' i ctxt.
+  0 < LENGTH pqs'
+  /\ LENGTH pqs = LENGTH pqs'
+  /\ orth_dependency ctxt
+  /\ monotone (dependency ctxt)
+  /\ path_starting_at ctxt 0 rs pqs
+  /\ path_starting_at ctxt 0 rs' pqs'
+  /\ HD pqs = HD pqs'
+  /\ i < LENGTH pqs' ==>
+    EL i pqs = EL i pqs'
+    /\ equal_ts_on (EL i rs) (EL i rs') (FV (FST (EL i pqs)))
+Proof
+  cheat
+QED
+
 (* Algorithm 1, Kunčar 2015 *)
 (* acyclicity check of transitive closure of a dependency relation *)
 Definition is_acyclic_def:
