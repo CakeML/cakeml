@@ -3630,7 +3630,7 @@ Theorem path_starting_at_equal:
   /\ HD pqs = HD pqs'
   /\ i < LENGTH pqs' ==>
     EL i pqs = EL i pqs'
-    /\ equal_ts_on (EL i rs) (EL i rs') (FV (FST (EL i pqs)))
+    /\ equiv_ts_on (EL i rs) (EL i rs') (FV (FST (EL i pqs)))
 Proof
   cheat
 QED
