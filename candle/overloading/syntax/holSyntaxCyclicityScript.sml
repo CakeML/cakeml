@@ -3474,6 +3474,15 @@ Definition orth_dependency_def:
   !p q p' q'.
     dependency ctxt p q
     /\ dependency ctxt p' q'
+    /\ ((ISR p /\ ISR p') ==>
+      ?c c' tm tm' ov ov' cl cl' prop prop'.
+        p = INR (Const c (typeof tm)) /\
+        p' = INR (Const c' (typeof tm')) /\
+        MEM (ConstSpec ov cl prop) ctxt /\
+        MEM (ConstSpec ov' cl' prop') ctxt /\
+        MEM (c,tm) cl /\ MEM (c',tm') cl' /\
+        (c,tm) <> (c',tm')
+    )
     /\ p <> p' /\ q <> q' ==> LR_orth p p'
 End
 
@@ -3503,9 +3512,16 @@ Proof
 QED
 
 Theorem orth_ctxt_orth_dependency_INR:
-  !ctxt p q p' q'. extends_init ctxt /\ orth_ctxt ctxt
+  !ctxt p q p' q' c c' tm tm' ov ov' cl cl' prop prop'.
+    extends_init ctxt /\ orth_ctxt ctxt
     /\ dependency ctxt (INR p) q
     /\ dependency ctxt (INR p') q'
+    /\ p = Const c (typeof tm)
+    /\ p' = Const c' (typeof tm')
+    /\ MEM (ConstSpec ov cl prop) ctxt
+    /\ MEM (ConstSpec ov' cl' prop') ctxt
+    /\ MEM (c,tm) cl /\ MEM (c',tm') cl'
+    /\ (c,tm) <> (c',tm')
     /\ p <> p' /\ q <> q'
     ==> LR_orth (INR p) (INR p')
 Proof
@@ -3521,7 +3537,6 @@ Proof
          >> strip_tac >> simp[]
          >> imp_res_tac WELLTYPED_LEMMA
          >> rveq >> fs[orth_ty_symm] >> NO_TAC)
-  >> cheat
 QED
 
 Theorem TypeDefn_NewType_name_distinct:
@@ -3585,6 +3600,22 @@ Proof
          rw[orth_ty_def] >> Cases_on ‘ty’ >> rw[] >>
          spose_not_then strip_assume_tac >> gs[] >> rveq >>
          gs[MAP_EQ_EVERY2])
+QED
+
+Theorem orth_ctxt_orth_dependency:
+  !ctxt. extends_init ctxt /\ orth_ctxt ctxt ==> orth_dependency ctxt
+Proof
+  fs[orth_dependency_def]
+  >> ntac 2 strip_tac
+  >> fs[Once FORALL_SUM]
+  >> rpt conj_tac
+  >> ntac 2 strip_tac
+  >> fs[Once FORALL_SUM,LR_orth_simp]
+  >> rw[]
+  >> TRY $ match_mp_tac orth_ctxt_orth_dependency_INL
+  >> TRY $ match_mp_tac orth_ctxt_orth_dependency_INR
+  >> rpt $ goal_assum drule
+  >> fs[]
 QED
 
 (* Algorithm 1, Kunčar 2015 *)
