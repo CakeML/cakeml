@@ -111,11 +111,12 @@ val real_addr_def = Define `
   (real_addr (conf:data_to_word$config) r): 'a wordLang$exp =
     let k = shift (:'a) in
       if k <= conf.pad_bits + 1 then
-        OpLookup Add
-          (Shift Lsr (Var r) (shift_length conf - k)) CurrHeap
+        Op Add [Lookup CurrHeap;
+                Shift Lsr (Var r) (shift_length conf - k)]
       else
-        OpLookup Add
-          (Shift Lsl (Shift Lsr (Var r) (shift_length conf)) k) CurrHeap`
+        Op Add [Lookup CurrHeap;
+                Shift Lsl (Shift Lsr (Var r)
+                  (shift_length conf)) k]`
 
 val real_offset_def = Define `
   (real_offset (conf:data_to_word$config) r): 'a wordLang$exp =
@@ -330,7 +331,7 @@ val RefByte_code_def = Define `
                              Shift Lsl (Var 5) (shift (:'a))]);
            Set NextFree (Op Add [Var 1; Const bytes_in_word]);
            (* 3 := return value *)
-           Assign 3 (Op Or [Shift Lsl (OpLookup Sub (Var 9) CurrHeap)
+           Assign 3 (Op Or [Shift Lsl (Op Sub [Var 9; Lookup CurrHeap])
                (shift_length c − shift (:'a)); Const (1w:'a word)]);
            (* compute header *)
            Assign 5 (Op Or [Op Or [y; Const 7w]; Var 6]);
@@ -360,7 +361,7 @@ val Maxout_bits_code_def = Define `
 val Make_ptr_bits_code_def = Define `
   Make_ptr_bits_code c tag len dest =
     list_Seq [Assign dest (Op Or
-       [Const 1w; Shift Lsl (OpLookup Sub (Lookup NextFree) CurrHeap)
+       [Const 1w; Shift Lsl (Op Sub [Lookup NextFree; Lookup CurrHeap])
            (shift_length c − shift (:'a))]);
         Maxout_bits_code c.tag_bits (1 + c.len_bits) dest tag;
         Maxout_bits_code c.len_bits 1 dest len] :'a wordLang$prog`
@@ -414,7 +415,7 @@ val RefArray_code_def = Define `
            Assign 1 (Op Sub [Lookup EndOfHeap; Var 1]);
            Set EndOfHeap (Var 1);
            (* 3 := return value *)
-           Assign 3 (Op Or [Shift Lsl (OpLookup Sub (Var 1) CurrHeap)
+           Assign 3 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                (shift_length c − shift (:'a)); Const (1w:'a word)]);
            (* compute header *)
            Assign 5 (Op Or [Shift Lsl (Var 2)
@@ -541,7 +542,7 @@ val AnyArith_code_def = Define `
                        ShiftVar Lsl 6 (dimindex (:'a) − c.len_size);
                        ShiftVar Lsl 8 4]);
       Store (Var 5) 7;
-      Assign 1 (OpLookup Sub (Var 5) CurrHeap);
+      Assign 1 (Op Sub [Var 5; Lookup CurrHeap]);
       Assign 1 (Op Or [ShiftVar Lsl 1 (shift_length c − shift (:'a)); Const 1w]);
       Set NextFree (Op Add [Var 5; Const bytes_in_word;
                             ShiftVar Lsl 6 (shift (:'a))]);
@@ -1093,7 +1094,7 @@ val def = assign_Define `
                          Assign 3 (Const header);
                          StoreEach 1 (3::MAP adjust_var args) 0w;
                          Assign (adjust_var dest)
-                           (Op Or [Shift Lsl (OpLookup Sub (Var 1) CurrHeap)
+                           (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                                      (shift_length c − shift (:'a));
                                    Const (1w ||
                                            (small_shift_length c − 1 -- 0)
@@ -1163,7 +1164,7 @@ val def = assign_Define `
                   Assign 3 (Const header);
                   StoreEach 1 (3::MAP adjust_var args) 0w;
                   Assign (adjust_var dest)
-                    (Op Or [Shift Lsl (OpLookup Sub (Var 1) CurrHeap)
+                    (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                               (shift_length c − shift (:'a));
                             Const 1w])],l))
       : 'a wordLang$prog # num`;
