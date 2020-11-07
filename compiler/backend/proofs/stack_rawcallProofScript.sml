@@ -16,6 +16,7 @@ val _ = set_grammar_ancestry["stack_rawcall","stackLang","stackSem","stackProps"
 Overload good_dimindex[local] = ``labProps$good_dimindex``
 Overload comp[local] = ``stack_rawcall$comp``
 Overload compile[local] = ``stack_rawcall$compile``
+Type prog[pp] = “:α stackLang$prog”
 
 Definition state_ok_def:
   state_ok i code <=>
