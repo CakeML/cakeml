@@ -9,16 +9,19 @@ open preamble
 
 val _ = new_theory "branchLang";
 
+Type offset = “:num”
+Type offsetVal = “:num”
 
 Datatype:
   lab = Lab num
       | AddLabels lab lab
-      | AddOffset lab num
+      | AddOffset lab offset
 End
 
 Datatype:
   instr = Jump lab
         | CallFFI string
+        | UpdateOff offset offsetVal
 End
 
 Datatype:
