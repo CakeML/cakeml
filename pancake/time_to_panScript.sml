@@ -12,9 +12,40 @@ val _ = set_grammar_ancestry ["pan_common", "timeLang", "panLang"];
   timeLang program turns into list of Pancake functions
 *)
 
-Definition compile_conditions:
-  (compile_conditions [] = Const 0w) ∧
-  (compile_conditions (x::xs) = Const 0w)
+Definition to_word:
+  (to_word (t:real) = (ARB t): 'a word)
+End
+
+Definition to_mlstring:
+  (to_mlstring (s:string) = (ARB s): mlstring)
+End
+
+Definition comp_exp:
+  (comp_exp (ELit time) = Const (to_word time)) ∧
+  (comp_exp (EClock (CVar clock)) = Var (to_mlstring clock)) ∧
+  (comp_exp (ESub e1 e2) = Op Sub [comp_exp e1; comp_exp e2])
+End
+
+(*
+ (("asm", "datatype_cmp"),
+     (⊢ DATATYPE
+          (cmp Equal Lower Less Test NotEqual NotLower NotLess NotTest), Thm))
+*)
+
+(* ≤ operator in the cmp datatype *)
+
+Definition comp_condition:
+  (comp_condition (CndLe e1 e2) =
+    Cmp Less (comp_exp e1) (comp_exp e2)) ∧
+  (comp_condition (CndLt e1 e2) =
+    Cmp Less (comp_exp e1) (comp_exp e2))
+End
+
+
+Definition comp_conditions:
+  (comp_conditions [] = Const 1w) ∧
+  (* generating true for the time being*)
+  (comp_conditions cs = Op And (MAP comp_condition cs))
 End
 
 Definition reset_clks:
@@ -48,6 +79,11 @@ End
 (* what does it mean conceptually if a state has more than
    one transitions *)
 (* to understand how wait time is modeled in the formalism *)
+
+(* keep going in the same direction *)
+
+
+
 
 
 

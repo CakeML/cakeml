@@ -34,9 +34,9 @@ Type clocks  = ``:clock list``
 
 (* clock and time expressions *)
 Datatype:
-  expr = ESub expr expr
+  expr = ELit time
        | EClock clock
-       | ELit time
+       | ESub expr expr
 End
 
 (* relational time expressions *)
