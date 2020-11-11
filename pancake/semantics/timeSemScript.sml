@@ -12,12 +12,17 @@ Datatype:
         | LAction ioAction
 End
 
+(*
+   ; consumed : ioAction option
+   ; output   : effect option ⇒
+   ioAction   : ioAction
+ *)
 
 Datatype:
   store =
   <| clocks   : clock |-> time
    ; location : loc
-   ; consumed : action option
+   ; consumed : ioAction option
    ; output   : effect option
    ; waitTime : time option
   |>
