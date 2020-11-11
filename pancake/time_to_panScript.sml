@@ -44,28 +44,36 @@ End
 
 Definition comp_conditions:
   (comp_conditions [] = Const 1w) ∧
-  (* generating true for the time being*)
+  (* generating true for the time being *)
   (comp_conditions cs = Op And (MAP comp_condition cs))
 End
 
+(* provide a value to be reseted at, for the time being *)
 Definition reset_clks:
-  (reset_clks [] = Skip) ∧
-  (reset_clks (c::cs) = Seq (Assign c (Const 0w)) (reset_clks cs))
+  (reset_clks [] n = Skip) ∧
+  (reset_clks (c::cs) n = Seq (Assign c (Const n)) (reset_clks cs n))
 End
 
+
+(* we might be returning loc *)
 Definition compile_step:
-  (compile_step (Input action) location_var location clks waitad waitval =
-   Seq (reset_clks clks)
-       (Seq (Assign location_var location)
-        (Store (Const waitad) (Const waitval)))) ∧
-  (compile_step (Output eff) location_var location clks waitad waitval =
-   Seq (reset_clks clks)
-       (Seq (Assign location_var location)
-        (Store (Const waitad) (Const waitval))))
-  (* I think here we should simply state that now the output action should be taken,
-     like a flag. And, may be the time wrapper recieve that flag and call the respective
-     output action *)
+  (compile_step (Input action) clks reset_val loc nloc adr wait_val out =
+    Seq (reset_clks clks reset_val)
+        (Seq (Assign loc nloc)
+         (Store adr wait_val) (* update later *))) ∧
+
+ (compile_step (Output effect) clks reset_val loc nloc adr wait_val out =
+  Seq (reset_clks clks reset_val)
+      (Seq (Seq (Assign loc nloc) (Store adr wait_val))
+       (Store out (Const 1w))))
 End
+
+(*
+  I think here we should simply state that now the output action should be taken,
+  like a flag. And, may be the time wrapper recieve that flag and call the respective
+  output action
+*)
+
 
 Definition compile_term:
   compile_term
