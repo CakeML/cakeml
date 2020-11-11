@@ -126,8 +126,6 @@ val word_exp_def = tDefine "word_exp" `
      case FLOOKUP s.store name of
      | SOME (Word w) => SOME w
      | _ => NONE) /\
-  (word_exp s (OpLookup op x name) =
-     word_exp s (Op op [x; Lookup name])) /\
   (word_exp s (Load addr) =
      case word_exp s addr of
      | SOME w => (case mem_load w s of
@@ -141,10 +139,10 @@ val word_exp_def = tDefine "word_exp" `
      case word_exp s wexp of
      | NONE => NONE
      | SOME w => word_sh sh w n)`
-  (WF_REL_TAC `measure (word_exp_size o SND)`
-   \\ fs [wordSemTheory.word_exp_size_def]
-   \\ Induct \\ fs [] \\ rw []
-   \\ fs [] \\ res_tac \\ fs []);
+  (WF_REL_TAC `measure (exp_size ARB o SND)`
+   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC wordLangTheory.MEM_IMP_exp_size
+   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
+   \\ DECIDE_TAC);
 
 val get_var_def = Define `
   get_var v (s:('a,'c,'ffi) stackSem$state) = FLOOKUP s.regs v`;
@@ -549,7 +547,7 @@ val evaluate_def = tDefine "evaluate" `
      | NONE => (SOME Error, s)) /\
   (evaluate (OpCurrHeap binop v src,s) =
      if ¬s.use_store then (SOME Error,s) else
-     case word_exp s (OpLookup binop (Var src) CurrHeap) of
+     case word_exp s (Op binop [Var src; Lookup CurrHeap]) of
      | SOME w => (NONE, set_var v (Word w) s)
      | _ => (SOME Error, s)) /\
   (evaluate (Tick,s) =

@@ -175,25 +175,10 @@ val the_words_def = Define `
      | SOME (Word x), SOME xs => SOME (x::xs)
      | _ => NONE)`
 
-Definition word_exp_size_def:
-  word_exp_size (Op _ xs) = SUM (MAP word_exp_size xs) + 1 ∧
-  word_exp_size (Shift _ x _) = word_exp_size x + 1 ∧
-  word_exp_size (OpLookup _ x _) = word_exp_size x + 3 ∧
-  word_exp_size (Load x) = word_exp_size x + 1 ∧
-  word_exp_size _ = 1
-Termination
-  WF_REL_TAC `measure (exp_size ARB)`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC
-End
-
 val word_exp_def = tDefine "word_exp" `
   (word_exp ^s (Const w) = SOME (Word w)) /\
   (word_exp s (Var v) = lookup v s.locals) /\
   (word_exp s (Lookup name) = FLOOKUP s.store name) /\
-  (word_exp s (OpLookup op x name) =
-     word_exp s (Op op [x; Lookup name])) /\
   (word_exp s (Load addr) =
      case word_exp s addr of
      | SOME (Word w) => mem_load w s
@@ -206,10 +191,10 @@ val word_exp_def = tDefine "word_exp" `
      case word_exp s wexp of
      | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
      | _ => NONE)`
-  (WF_REL_TAC `measure (word_exp_size o SND)`
-   \\ fs [word_exp_size_def]
-   \\ Induct \\ fs [] \\ rw []
-   \\ fs [] \\ res_tac \\ fs [])
+  (WF_REL_TAC `measure (exp_size ARB o SND)`
+   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
+   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
+   \\ DECIDE_TAC);
 
 val get_var_def = Define `
   get_var v ^s = sptree$lookup v s.locals`;
@@ -714,6 +699,10 @@ val evaluate_def = tDefine "evaluate" `
      case word_exp s exp of
      | NONE => (SOME Error, s)
      | SOME w => (NONE, set_store v w s)) /\
+  (evaluate (OpCurrHeap b dst src,s) =
+     case word_exp s (Op b [Var src; Lookup CurrHeap]) of
+     | NONE => (SOME Error, s)
+     | SOME w => (NONE, set_var dst w s)) /\
   (evaluate (Store exp v,s) =
      case (word_exp s exp, get_var v s) of
      | (SOME (Word a), SOME w) =>

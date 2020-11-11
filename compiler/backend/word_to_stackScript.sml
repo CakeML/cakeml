@@ -252,6 +252,9 @@ val comp_def = Define `
      let (xs,x) = wReg1 v1 kf in
        (wStackLoad xs (SeqStackFree (FST (SND kf)) (Return x 1)),bs)) /\
   (comp (Raise v) bs kf = (Call NONE (INL raise_stub_location) NONE,bs)) /\
+  (comp (OpCurrHeap b dst src) bs kf =
+     let (xs,src_r) = wReg1 src kf in
+       (wStackLoad xs (wRegWrite1 (\dst_r. OpCurrHeap b dst_r src_r) dst kf),bs)) /\
   (comp (Tick) bs kf = (Tick,bs)) /\
   (comp (MustTerminate p1) gs kf = comp p1 gs kf) /\
   (comp (Seq p1 p2) bs kf =

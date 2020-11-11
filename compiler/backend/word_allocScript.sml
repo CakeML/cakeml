@@ -298,6 +298,10 @@ val ssa_cc_trans_def = Define`
     let num' = option_lookup ssa num in
     let mov = Move 0 [(2,num')] in
     (Seq mov (Raise 2),ssa,na)) ∧
+  (ssa_cc_trans (OpCurrHeap b num1 num2) ssa na=
+    let num1' = option_lookup ssa num1 in
+    let num2' = option_lookup ssa num2 in
+    (OpCurrHeap b num1' num2',ssa,na)) ∧
   (ssa_cc_trans (Return num1 num2) ssa na=
     let num1' = option_lookup ssa num1 in
     let num2' = option_lookup ssa num2 in
@@ -483,6 +487,7 @@ val apply_colour_def = Define `
   (apply_colour f (Return num1 num2) = Return (f num1) (f num2)) ∧
   (apply_colour f Tick = Tick) ∧
   (apply_colour f (Set n exp) = Set n (apply_colour_exp f exp)) ∧
+  (apply_colour f (OpCurrHeap b n1 n2) = OpCurrHeap b (f n1) (f n2)) ∧
   (apply_colour f p = p )`
 
 val _ = export_rewrites ["apply_nummap_key_def","apply_colour_exp_def"
@@ -622,6 +627,7 @@ val get_live_def = Define`
   (get_live Tick live = live) ∧
   (get_live (LocValue r l1) live = delete r live) ∧
   (get_live (Set n exp) live = union (get_live_exp exp) live) ∧
+  (get_live (OpCurrHeap b n1 n2) live = insert n2 () (delete n1 live)) ∧
   (*Cut-set must be live, args input must be live
     For tail calls, there shouldn't be a liveset since control flow will
     never return into the same instance
@@ -863,6 +869,7 @@ val get_clash_tree_def = Define`
   (get_clash_tree Tick = Delta [] []) ∧
   (get_clash_tree (LocValue r l1) = Delta [r] []) ∧
   (get_clash_tree (Set n exp) = Delta [] (get_reads_exp exp)) ∧
+  (get_clash_tree (OpCurrHeap b _ num) = Delta [] [num]) ∧
   (get_clash_tree (Call ret dest args h) =
     let args_set = numset_list_insert args LN in
     dtcase ret of

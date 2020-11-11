@@ -5697,6 +5697,54 @@ Proof
   \\ metis_tac[state_rel_set_store]
 QED
 
+Theorem comp_OpCurrHeap_correct:
+  ^(get_goal "OpCurrHeap")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def]
+  \\ fs[flat_exp_conventions_def]
+  \\ fs[comp_def,LET_THM]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,the_words_def,AllCaseEqs()]
+  \\ gvs [] \\ qexists_tac`0` \\ simp[]
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac`NONE` \\ simp[]
+  \\ CONV_TAC (PATH_CONV "ralrlrrlrr" (UNBETA_CONV “src_r:num”))
+  \\ match_mp_tac (GEN_ALL wStackLoad_thm1_weak)
+  \\ gvs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+  \\ asm_exists_tac \\ fs []
+  \\ fs [get_var_def]
+  \\ asm_exists_tac \\ fs [] \\ rw []
+  \\ ‘t.use_store’ by fs [state_rel_def]
+  THEN1
+   (qmatch_goalsub_abbrev_tac `wRegWrite1 kont (2 * m)`
+    \\ qmatch_goalsub_abbrev_tac `state_rel _ _ _ (set_var _ v _)`
+    \\ drule_then(qspecl_then [`v`,`m`,`kont`] mp_tac) (GEN_ALL wRegWrite1_thm1)
+    \\ unabbrev_all_tac
+    \\ fs[wordLangTheory.max_var_def,GSYM LEFT_ADD_DISTRIB]
+    \\ reverse impl_tac >- metis_tac[]
+    \\ rw [] \\ fs [stackSemTheory.evaluate_def,stackSemTheory.word_exp_def]
+    \\ fs [AllCaseEqs()]
+    \\ ‘FLOOKUP t.store CurrHeap = FLOOKUP s.store CurrHeap’ by
+          fs [state_rel_def,DOMSUB_FLOOKUP_THM] \\ fs []
+    \\ ‘get_var (2 * m') s = SOME (Word x)’ by fs [get_var_def]
+    \\ imp_res_tac state_rel_get_var_imp \\ fs [])
+  \\ qmatch_goalsub_abbrev_tac `wRegWrite1 kont (2 * m)`
+  \\ qmatch_goalsub_abbrev_tac `state_rel _ _ _ (set_var _ v _)`
+  \\ qmatch_goalsub_abbrev_tac ‘_,set_var _ kval _’
+  \\ ‘state_rel k f f' s (set_var k kval t) lens’ by fs []
+  \\ drule_then(qspecl_then [`v`,`m`,`kont`] mp_tac) (GEN_ALL wRegWrite1_thm1)
+  \\ unabbrev_all_tac
+  \\ fs[wordLangTheory.max_var_def,GSYM LEFT_ADD_DISTRIB]
+  \\ reverse impl_tac >- metis_tac[]
+  \\ rw [] \\ fs [stackSemTheory.evaluate_def,stackSemTheory.word_exp_def]
+  \\ fs [AllCaseEqs()]
+  \\ ‘FLOOKUP t.store CurrHeap = FLOOKUP s.store CurrHeap’ by
+    fs [state_rel_def,DOMSUB_FLOOKUP_THM] \\ fs []
+  \\ ‘get_var (2 * m') s = SOME (Word x)’ by fs [get_var_def]
+  \\ imp_res_tac state_rel_get_var_imp2 \\ fs []
+  \\ fs [stackSemTheory.set_var_def,FLOOKUP_UPDATE]
+QED
+
 Theorem comp_Store_correct:
   ^(get_goal "Store")
 Proof
@@ -8264,7 +8312,7 @@ Proof
      comp_Get_correct,comp_Set_correct,comp_Store_correct,comp_Tick_correct,comp_MustTerminate_correct,
      comp_Seq_correct,comp_Return_correct,comp_Raise_correct,comp_If_correct,comp_LocValue_correct,
      comp_Install_correct,comp_CodeBufferWrite_correct,comp_DataBufferWrite_correct,
-     comp_FFI_correct,comp_Call_correct
+     comp_FFI_correct,comp_OpCurrHeap_correct,comp_Call_correct
     ]
 QED
 
@@ -8930,6 +8978,7 @@ Proof
     TRY(Cases_on`b`>>Cases_on`r`)>>EVAL_TAC>>
     EVERY_CASE_TAC>>EVAL_TAC)
   >- rpt (EVERY_CASE_TAC>>EVAL_TAC)
+  >- rpt (EVERY_CASE_TAC>>EVAL_TAC)
   >- (rpt(pairarg_tac>>fs[])>>EVAL_TAC)
   >-
     (Cases_on`ri`>>fs[wRegImm2_def,wReg2_def]>>EVERY_CASE_TAC>>
@@ -9100,6 +9149,14 @@ Proof
     ntac 3 (EVAL_TAC>>rw[])>>
     rpt(EVAL_TAC>>rw[]))
   >-
+    (PairCases_on`kf` \\ EVAL_TAC
+    \\ rw [] \\ EVAL_TAC
+    \\ fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,
+          two_reg_inst_def,wordLangTheory.every_var_inst_def,full_inst_ok_less_def,
+          reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def]
+    \\ rw [] \\ EVAL_TAC \\ fs [] \\ gvs []
+    \\ CCONTR_TAC \\ gvs [])
+  >-
     (fs wconvs>>
     ntac 4 (pop_assum mp_tac)>>
     EVAL_TAC>>rw[])
@@ -9199,6 +9256,9 @@ Proof
     (PairCases_on`kf'`>>
     rpt(EVAL_TAC>>rw[]))
   >-
+    (PairCases_on`kf`>>
+    rpt(EVAL_TAC>>rw[]))
+  >-
     (rpt(pairarg_tac>>fs[])>>
     EVAL_TAC>>fs[])
   >-
@@ -9275,16 +9335,16 @@ Proof
 QED
 
 Theorem stack_move_alloc_arg:
-    ∀n st off i p.
-  alloc_arg p ⇒
-  alloc_arg (stack_move n st off i p)
+  ∀n st off i p.
+    alloc_arg p ⇒
+    alloc_arg (stack_move n st off i p)
 Proof
   Induct>>rw[stack_move_def,alloc_arg_def]
 QED
 
 Theorem word_to_stack_alloc_arg:
-    ∀p n args.
-  alloc_arg (FST(word_to_stack$comp p n args))
+  ∀p n args.
+    alloc_arg (FST(word_to_stack$comp p n args))
 Proof
   recInduct comp_ind >>
   fs[comp_def,alloc_arg_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>
@@ -9301,7 +9361,12 @@ Proof
     fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def,wRegWrite2_def]>>
     BasicProvers.EVERY_CASE_TAC>>
     fs[wStackLoad_def,alloc_arg_def])
-  >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[alloc_arg_def,wStackLoad_def])
+  >-
+    (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>
+    fs[alloc_arg_def,wStackLoad_def])
+  >-
+    (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>
+    fs[alloc_arg_def,wStackLoad_def])
   >- rpt (pairarg_tac>>fs[alloc_arg_def])
   >- (rpt (pairarg_tac>>fs[alloc_arg_def])>>
   Cases_on`ri`>>fs[wReg1_def,wRegImm2_def,wReg2_def]>>BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[wStackLoad_def,alloc_arg_def])
@@ -9329,19 +9394,19 @@ Proof
 QED
 
 Theorem stack_move_reg_bound:
-    ∀n st off i p k.
-  i < k ∧
-  reg_bound p k ⇒
-  reg_bound (stack_move n st off i p) k
+  ∀n st off i p k.
+    i < k ∧
+    reg_bound p k ⇒
+    reg_bound (stack_move n st off i p) k
 Proof
   Induct>>rw[stack_move_def,reg_bound_def]
 QED
 
 Theorem word_to_stack_reg_bound:
-    ∀p n args.
-  post_alloc_conventions (FST args) p ∧
-  4 ≤ FST args ⇒
-  reg_bound (FST(word_to_stack$comp p n args)) (FST args+2)
+  ∀p n args.
+    post_alloc_conventions (FST args) p ∧
+    4 ≤ FST args ⇒
+    reg_bound (FST(word_to_stack$comp p n args)) (FST args+2)
 Proof
   recInduct comp_ind >>fs[comp_def,reg_bound_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>rw[]>>
   fs[reg_bound_def,convs_def]
@@ -9360,7 +9425,12 @@ Proof
     fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def,wRegWrite2_def]>>
     BasicProvers.EVERY_CASE_TAC>>
     fs[wStackLoad_def,reg_bound_def]>>fs [reg_bound_def,convs_def,inst_arg_convention_def])
-  >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[reg_bound_def,wStackLoad_def])
+  >-
+    (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>
+    fs[reg_bound_def,wStackLoad_def])
+  >-
+    (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>
+    fs[reg_bound_def,wStackLoad_def])
   >- rpt (pairarg_tac>>fs [reg_bound_def])
   >- (rpt (pairarg_tac>>fs [reg_bound_def])>>
   Cases_on`ri`>>fs[wReg1_def,wRegImm2_def,wReg2_def]>>BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[wStackLoad_def,reg_bound_def])
@@ -9389,17 +9459,17 @@ Proof
 QED
 
 Theorem stack_move_call_args:
-    ∀n st off i p.
-  call_args p 1 2 3 4 0 ⇒
-  call_args (stack_move n st off i p) 1 2 3 4 0
+  ∀n st off i p.
+    call_args p 1 2 3 4 0 ⇒
+    call_args (stack_move n st off i p) 1 2 3 4 0
 Proof
   Induct>>rw[stack_move_def,call_args_def]
 QED
 
 Theorem word_to_stack_call_args:
-    ∀p n args.
-  post_alloc_conventions (FST args) p ⇒
-  call_args (FST(word_to_stack$comp p n args)) 1 2 3 4 0
+  ∀p n args.
+    post_alloc_conventions (FST args) p ⇒
+    call_args (FST(word_to_stack$comp p n args)) 1 2 3 4 0
 Proof
   ho_match_mp_tac comp_ind >>
   fs[comp_def,call_args_def,FORALL_PROD,wRegWrite1_def,wLive_def,convs_def]>>rw[]>>
@@ -9418,6 +9488,7 @@ Proof
     fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def,wRegWrite2_def]>>
     BasicProvers.EVERY_CASE_TAC>>
     fs[wStackLoad_def,convs_def]>>fs [call_args_def])
+  >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[call_args_def,wStackLoad_def])
   >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[call_args_def,wStackLoad_def])
   >- rpt (pairarg_tac>>fs [call_args_def,convs_def])
   >- (rpt (pairarg_tac>>fs [call_args_def])>>
@@ -9449,10 +9520,10 @@ val reg_bound_def = stackPropsTheory.reg_bound_def
 val reg_bound_inst_def = stackPropsTheory.reg_bound_inst_def
 
 Theorem reg_bound_mono:
-    ∀p k k'.
-  reg_bound p k ∧
-  k ≤ k' ⇒
-  reg_bound p k'
+  ∀p k k'.
+    reg_bound p k ∧
+    k ≤ k' ⇒
+    reg_bound p k'
 Proof
   ho_match_mp_tac reg_bound_ind>>rw[reg_bound_def]>>
   rpt(TOP_CASE_TAC>>fs[])>>
@@ -9520,7 +9591,7 @@ Proof
 QED
 
 Theorem compile_word_to_stack_convs:
-   ∀p bm q bm'.
+  ∀p bm q bm'.
    compile_word_to_stack k p bm = (q,bm') ∧
    EVERY (λ(n,m,p).
      full_inst_ok_less c p ∧
@@ -9582,9 +9653,10 @@ val stack_move_code_labels = Q.prove(`
 
 Theorem word_to_stack_comp_code_labels:
   ∀prog bs kf n.
-  good_handlers n prog ⇒
-  get_code_labels (FST (comp prog bs kf)) ⊆
-  (raise_stub_location,0n) INSERT ((IMAGE (λn.(n,0)) (get_code_labels prog)) ∪ stack_get_handler_labels n (FST (comp prog bs kf)))
+    good_handlers n prog ⇒
+    get_code_labels (FST (comp prog bs kf)) ⊆
+    (raise_stub_location,0n) INSERT ((IMAGE (λn.(n,0)) (get_code_labels prog)) ∪
+      stack_get_handler_labels n (FST (comp prog bs kf)))
 Proof
   ho_match_mp_tac word_to_stackTheory.comp_ind>>
   rw[word_to_stackTheory.comp_def]>>
@@ -9609,6 +9681,7 @@ Proof
   >>
     rpt(first_x_assum drule)>>rw[]>>
     TRY(fs[SUBSET_DEF]>>metis_tac[])
+  >- (rw [wRegWrite1_def])
   >-
     (TOP_CASE_TAC>>fs[]>>pairarg_tac>>fs[get_code_handler_labels_wStackLoad])
   >-
@@ -9656,7 +9729,7 @@ Proof
   >>
   fs[SUBSET_DEF]>>
   metis_tac[]
-QED;
+QED
 
 Theorem word_to_stack_good_code_labels:
   compile asm_conf progs = (bs,fs,prog') ∧
@@ -9682,7 +9755,7 @@ Proof
     metis_tac[])
   >>
     fs[SUBSET_DEF]
-QED;
+QED
 
 Theorem word_to_stack_good_code_labels_incr:
   raise_stub_location ∈ elabs ∧
@@ -9704,7 +9777,7 @@ Proof
     metis_tac[])
   >>
     fs[SUBSET_DEF]
-QED;
+QED
 
 Triviality sub_union_lemma:
   x SUBSET y ==> x SUBSET y UNION z
@@ -9736,7 +9809,7 @@ Proof
     (simp[backendPropsTheory.restrict_nonzero_def,Abbr`xxx`,EXTENSION,MEM_MAP]>>
     metis_tac[SND])>>
   simp[]
-QED;
+QED
 
 Theorem word_to_stack_good_handler_labels_incr:
   EVERY (λ(n,m,pp). good_handlers n pp) prog ⇒
@@ -9760,6 +9833,6 @@ Proof
     (simp[backendPropsTheory.restrict_nonzero_def,Abbr`xxx`,EXTENSION,MEM_MAP]>>
     metis_tac[SND])>>
   simp[]
-QED;
+QED
 
 val _ = export_theory();

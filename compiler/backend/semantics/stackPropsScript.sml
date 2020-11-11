@@ -829,7 +829,6 @@ val reg_bound_exp_def = tDefine"reg_bound_exp"`
   (reg_bound_exp (Load e) k ⇔ reg_bound_exp e k) ∧
   (reg_bound_exp (Shift _ e _) k ⇔ reg_bound_exp e k) ∧
   (reg_bound_exp (Lookup _) _ ⇔ F) ∧
-  (reg_bound_exp (OpLookup _ _ _) _ ⇔ F) ∧
   (reg_bound_exp (Op _ es) k ⇔ EVERY (λe. reg_bound_exp e k) es) ∧
   (reg_bound_exp _ _ ⇔ T)`
   (WF_REL_TAC`measure ((exp_size ARB) o FST)` \\ simp[]
