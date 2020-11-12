@@ -38,12 +38,12 @@ Datatype:
   |>
 End
 
-Definition real_to_word_def:
-  (real_to_word (t:real) = (ARB t): 'a word)
+Definition r2w_def:
+  (r2w (t:real) = (ARB t): 'a word)
 End
 
 Definition comp_exp_def:
-  (comp_exp (ELit time) = Const (real_to_word time)) ∧
+  (comp_exp (ELit time) = Const (r2w time)) ∧
   (comp_exp (EClock (CVar clock)) = Var «clock») ∧
   (comp_exp (ESub e1 e2) = Op Sub [comp_exp e1; comp_exp e2])
 End
@@ -74,7 +74,16 @@ Definition set_clks_def:
     Seq (Assign «c» n) (set_clks cs n))
 End
 
-(* does order matter here *)
+Definition time_diffs_def:
+  (time_diffs [] = ARB) ∧ (* what should be the wait time if unspecified *)
+  (time_diffs ((t,CVar c)::tcs) =
+   (Op Sub [Const (r2w t); Var «c»]) :: time_diffs tcs)
+End
+
+Definition cal_wtime_def:
+  cal_wtime (min_of:'a exp list -> 'a exp) tcs =
+  min_of (time_diffs tcs):'a exp
+End
 
 Definition comp_step_def:
   comp_step ctxt (Tm io cnds clks loc wt) =
@@ -85,15 +94,14 @@ Definition comp_step_def:
         nested_seq [
             set_clks clks (Var «sys_time»);
             case io of
-            | (Input act)  => Return (Struct [Label «fname»; Const (ARB wt)])
+            | (Input act)  => Return (Struct [Label «fname»; cal_wtime ARB wt])
             | (Output eff) =>
                 case FLOOKUP ctxt.ext_funcs eff of
                 | NONE => Skip
                 | SOME efname =>
                     Seq (ExtCall efname ARB ARB ARB ARB)
-                        (Return (Struct [Label «fname»; Const (ARB wt)]))])
+                        (Return (Struct [Label «fname»; cal_wtime ARB wt]))])
 End
-
 
 Definition comp_terms_def:
   (comp_terms ctxt [] = Skip) ∧
