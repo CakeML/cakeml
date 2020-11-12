@@ -10,7 +10,7 @@ val _ = set_grammar_ancestry ["pan_common", "timeLang", "panLang"];
 
 
 (*
-  leave input_recieved for the time being
+  input trigger is remaining
 *)
 
 Definition task_controller_def:
@@ -29,9 +29,7 @@ Definition task_controller_def:
                 Call (Ret «task_ret» NONE) (Var «location») [Var «sys_time»]
               ])
     ]
-
 End
-
 
 Datatype:
   context =
@@ -46,7 +44,7 @@ End
 
 Definition comp_exp_def:
   (comp_exp (ELit time) = Const (real_to_word time)) ∧
-  (comp_exp (EClock (CVar clock)) = Var (strlit clock)) ∧
+  (comp_exp (EClock (CVar clock)) = Var «clock») ∧
   (comp_exp (ESub e1 e2) = Op Sub [comp_exp e1; comp_exp e2])
 End
 
@@ -69,52 +67,54 @@ Definition comp_conditions_def:
   (comp_conditions cs = Op And (MAP comp_condition cs))
 End
 
-(* provide a value to be reseted at, for the time being *)
+
 Definition set_clks_def:
   (set_clks [] n = Skip) ∧
-  (set_clks (CVar c::cs) n = Seq (Assign (strlit c) (Const n))
-                                 (set_clks cs n))
+  (set_clks (CVar c::cs) n =
+    Seq (Assign «c» n) (set_clks cs n))
 End
 
 (* does order matter here *)
+
 Definition comp_step_def:
-  comp_step ctxt cval loc_var wt_var
-  (Tm io cnds clks loc wt) =
+  comp_step ctxt (Tm io cnds clks loc wt) =
   case FLOOKUP ctxt.funcs loc of
-  | NONE => Skip
+  | NONE => Skip (* maybe add a return statement here *)
   | SOME fname =>
-      Seq (set_clks clks cval)
-          (Seq (Store loc_var (Label fname))
-               (Seq (Store wt_var (ARB wt))
-                     (case io of
-                      | (Input act)  => Skip
-                      | (Output eff) =>
-                          case FLOOKUP ctxt.ext_funcs eff of
-                          | NONE => Skip
-                          | SOME efname => ExtCall efname ARB ARB ARB ARB)))
+      Dec «task_ret» (Struct [Label «»; Const 0w]) (
+        nested_seq [
+            set_clks clks (Var «sys_time»);
+            case io of
+            | (Input act)  => Return (Struct [Label «fname»; Const (ARB wt)])
+            | (Output eff) =>
+                case FLOOKUP ctxt.ext_funcs eff of
+                | NONE => Skip
+                | SOME efname =>
+                    Seq (ExtCall efname ARB ARB ARB ARB)
+                        (Return (Struct [Label «fname»; Const (ARB wt)]))])
 End
 
+
 Definition comp_terms_def:
-  (comp_terms ctxt cval loc_var wt_var [] = Skip) ∧
-  (comp_terms ctxt cval loc_var wt_var (t::ts) =
+  (comp_terms ctxt [] = Skip) ∧
+  (comp_terms ctxt (t::ts) =
    If (comp_conditions (conditions_of t))
-        (comp_step ctxt cval loc_var wt_var t)
-        (comp_terms ctxt cval loc_var wt_var ts))
+        (comp_step ctxt t)
+        (comp_terms ctxt ts))
 End
 
 Definition comp_location_def:
-  comp_location ctxt cval loc_var wt_var (loc, ts) =
+  comp_location ctxt (loc, ts) =
    case FLOOKUP ctxt.funcs loc of
-   | SOME fname => (fname, [], comp_terms ctxt cval loc_var wt_var ts)
-   | NONE => (strlit "", [], Skip)
+   | SOME fname => (fname, [(«sys_time»,One)], comp_terms ctxt ts)
+   | NONE => («», [], Skip)
 End
 
 
 Definition comp_prog_def:
-  (comp_prog ctxt ctxt cval loc_var wt_var [] = []) ∧
-  (comp_prog ctxt ctxt cval loc_var wt_var (p::ps) =
-   comp_location ctxt cval loc_var wt_var p ::
-   comp_prog ctxt ctxt cval loc_var wt_var ps)
+  (comp_prog ctxt [] = []) ∧
+  (comp_prog ctxt (p::ps) =
+   comp_location ctxt p :: comp_prog ctxt ps)
 End
 
 
@@ -143,5 +143,24 @@ End
 Type program = ``:(loc # term list) list``
 *)
 
+
+(*
+Definition comp_step_def:
+  comp_step ctxt cval loc_var wt_var
+  (Tm io cnds clks loc wt) =
+  case FLOOKUP ctxt.funcs loc of
+  | NONE => Skip (* maybe add a return statement here *)
+  | SOME fname =>
+      Seq (set_clks clks cval)
+          (Seq (Store loc_var (Label fname))
+               (Seq (Store wt_var (ARB wt))
+                     (case io of
+                      | (Input act)  => Skip
+                      | (Output eff) =>
+                          case FLOOKUP ctxt.ext_funcs eff of
+                          | NONE => Skip
+                          | SOME efname => ExtCall efname ARB ARB ARB ARB)))
+End
+*)
 
 val _ = export_theory();
