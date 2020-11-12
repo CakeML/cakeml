@@ -4018,15 +4018,15 @@ QED
 
 (* Lemma 6.2 *)
 Theorem path_starting_at_equal:
-  !pqs pqs' rs rs' i ctxt.
-  0 < LENGTH pqs'
+  !pqs pqs' rs rs' i n ctxt.
+  0 < LENGTH pqs' /\ n < LENGTH pqs'
   /\ LENGTH pqs = LENGTH pqs'
   /\ orth_dependency ctxt
   /\ monotone (dependency ctxt)
-  /\ path_starting_at ctxt 0 rs pqs
-  /\ path_starting_at ctxt 0 rs' pqs'
+  /\ path_starting_at ctxt n rs pqs
+  /\ path_starting_at ctxt n rs' pqs'
   /\ HD pqs = HD pqs'
-  /\ i < LENGTH pqs' ==>
+  /\ i < n ==>
     EL i pqs = EL i pqs'
     /\ equiv_ts_on (EL i rs) (EL i rs') (FV (FST (EL i pqs)))
 Proof
