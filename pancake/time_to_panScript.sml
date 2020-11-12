@@ -9,6 +9,30 @@ val _ = new_theory "time_to_pan"
 val _ = set_grammar_ancestry ["pan_common", "timeLang", "panLang"];
 
 
+(*
+  leave input_recieved for the time being
+*)
+
+Definition initialiser_def:
+  initialiser loc =
+  nested_seq [
+      Assign  «location» loc;
+      Assign  «task_ret» (Struct [Var «location»; Var «wake_up_at»]);
+      Assign  «wait_set» (Const 1w);
+      ExtCall «get_time» «sys_time» ARB ARB ARB;
+      Assign  «wake_up_at» (Op Add [Var «sys_time»; Const 1w]);
+      While (Op And [Var «wait_set»;
+                     Cmp Less (Var «sys_time») (Var «wake_up_at»)])
+            (ExtCall «get_time» «sys_time» ARB ARB ARB);
+      Call (Ret «task_ret» NONE) (Var «location») [Var «sys_time»]
+    ]
+End
+
+
+
+
+
+
 Datatype:
   context =
   <| funcs     : timeLang$loc    |-> panLang$funname;
