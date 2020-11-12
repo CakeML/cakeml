@@ -1200,41 +1200,17 @@ Theorem renaming_CARD_LESS_OR_EQ:
   !s t. (!a. MEM a (tyvars t) ==> ?b. TYPE_SUBST s (Tyvar a) = Tyvar b)
   ==> CARD (set (tyvars (TYPE_SUBST s t))) <= CARD (set (tyvars t))
 Proof
-  gen_tac
-  >> ho_match_mp_tac type_ind
-  >> rw[tyvars_Tyapp,tyvars_def,PULL_EXISTS,tyvars_TYPE_SUBST]
-  >> qho_match_abbrev_tac `CARD ({v | P v }) <= _`
-  >> `{v | P v} = set (FLAT $ MAP (tyvars o TYPE_SUBST s o Tyvar) (FLAT (MAP tyvars l)))` by (
-    unabbrev_all_tac
-    >> rw[pred_setTheory.EXTENSION,o_DEF,MEM_FLAT,MEM_MAP,PULL_EXISTS,GSYM CONJ_ASSOC]
-  )
-  >> pop_assum $ REWRITE_TAC o single
-  >> qpat_x_assum `Abbrev (P = _)` kall_tac
-  >> `!x. MEM x l ==>
-    CARD (set (FLAT (MAP (tyvars ∘ TYPE_SUBST s ∘ Tyvar) (tyvars x)))) <=
-    CARD (set (tyvars x))` by (
-    rw[] >> fs[EVERY_MEM]
-    >> first_x_assum drule
-    >> impl_tac
-    >- (
-      rw[]
-      >> last_x_assum $ match_mp_tac o Ho_Rewrite.REWRITE_RULE[MEM_FLAT,PULL_EXISTS,MEM_MAP,GSYM CONJ_ASSOC]
-      >> rpt $ goal_assum $ drule_at Any
-      >> fs[]
-    )
-    >> qho_match_abbrev_tac `CARD ({v | P' v }) <= _ ==> CARD P'' <= _`
-    >> `{v | P' v} = P''` by (
-      unabbrev_all_tac
-      >> rw[pred_setTheory.EXTENSION,o_DEF,MEM_FLAT,MEM_MAP,PULL_EXISTS,GSYM CONJ_ASSOC]
-    )
-    >> fs[]
-  )
-  >> qpat_x_assum `EVERY _ _` kall_tac
-  >> qpat_x_assum `!a. MEM _ (FLAT _) ==> _` kall_tac
-  >> Induct_on `l`
-  >> rw[DISJ_IMP_THM,FORALL_AND_THM]
-  >> fs[]
-  >> cheat
+  rw[tyvars_TYPE_SUBST] >>
+  qmatch_goalsub_abbrev_tac ‘CARD a1 ≤ _’ >>
+  ‘a1 = IMAGE (λ a. @b. REV_ASSOCD (Tyvar a) s (Tyvar a) = Tyvar b) (set(tyvars t))’
+    by(rw[Abbr ‘a1’,SET_EQ_SUBSET,SUBSET_DEF] >>
+       res_tac >> fs[] >>
+       first_x_assum(irule_at Any) >>
+       gs[tyvars_def]) >>
+  pop_assum SUBST_ALL_TAC >>
+  pop_assum kall_tac >>
+  match_mp_tac CARD_IMAGE >>
+  rw[]
 QED
 
 Theorem is_instance_NOT_is_instance_imp':
