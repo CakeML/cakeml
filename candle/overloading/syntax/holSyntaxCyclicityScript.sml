@@ -1076,6 +1076,189 @@ Proof
   >> fs[]
 QED
 
+Theorem is_instance_NOT_is_instance_imp:
+  !e t t'. TYPE_SUBST e t = t' /\ (!e'. TYPE_SUBST e' t' <> t)
+  ==>
+  ((?a m l. MEM a (tyvars t) /\ MEM (Tyvar a) (MAP SND e) /\ TYPE_SUBST e (Tyvar a) = Tyapp m l)
+  \/ (?a b. a <> b /\ MEM a (tyvars t) /\ MEM b (tyvars t)
+    /\ TYPE_SUBST e (Tyvar a) = TYPE_SUBST e (Tyvar b)))
+Proof
+  rpt gen_tac
+  >> CONV_TAC $ LAND_CONV $ LAND_CONV $ ONCE_REWRITE_CONV $ single TYPE_SUBST_wlog_eq
+  >> rpt strip_tac
+  >> qmatch_asmsub_abbrev_tac `TYPE_SUBST ee`
+  >> `set (MAP SND ee) ⊆ set (MAP Tyvar (tyvars t)) ∩ set (MAP SND e)` by (
+    unabbrev_all_tac
+    >> rw[SUBSET_DEF,GSYM FILTER_MAP,MEM_FILTER,INTER_DEF,
+      REWRITE_RULE[SUBSET_DEF] clean_tysubst_FST_SND_SUBSET]
+  )
+  >> `ALL_DISTINCT (MAP SND ee)` by (
+    unabbrev_all_tac
+    >> match_mp_tac $ cj 2 $ ALL_DISTINCT_MAP_PAIR_FILTER
+    >> fs[clean_tysubst_ALL_DISTINCT_MAP_SND]
+  )
+  >> `EVERY (UNCURRY $<>) ee /\ EVERY (λx. ∃a. SND x = Tyvar a) ee` by (
+    unabbrev_all_tac
+    >> dep_rewrite.DEP_REWRITE_TAC[EVERY_FILTER_IMP]
+    >> fs[clean_tysubst_prop]
+  )
+  >> `!a. MEM a (tyvars t) ==> TYPE_SUBST e (Tyvar a) = TYPE_SUBST ee (Tyvar a)` by (
+    rpt strip_tac
+    >> unabbrev_all_tac
+    >> drule_then (qspecl_then [`clean_tysubst e`,`[]`] mp_tac) TYPE_SUBST_FILTER_MEM1
+    >> fs[Excl"TYPE_SUBST_def",o_DEF,GSYM clean_tysubst_TYPE_SUBST_eq]
+  )
+  >> qpat_x_assum `Abbrev _` kall_tac
+  >> CCONTR_TAC
+  >> fs[Excl"TYPE_SUBST_def",DISJ_EQ_IMP,AND_IMP_INTRO]
+  >> `ALL_DISTINCT (MAP FST ee)` by (
+    rw[EL_ALL_DISTINCT_EL_EQ,Excl"TYPE_SUBST_def",EQ_IMP_THM]
+    >> `MEM (EL n1 ee) ee /\ MEM (EL n2 ee) ee` by fs[EL_MEM]
+    >> qpat_assum `ALL_DISTINCT _` $ fs o single o GSYM o REWRITE_RULE[EL_ALL_DISTINCT_EL_EQ]
+    >> imp_res_tac $ Q.ISPEC `SND` MEM_MAP_f
+    >> ntac 2 $ qpat_x_assum `_ ⊆ _` $ imp_res_tac o REWRITE_RULE[SUBSET_DEF]
+    >> ntac 2 $ qpat_x_assum `MEM _ (MAP Tyvar _)` $ strip_assume_tac o REWRITE_RULE[MEM_MAP]
+    >> first_x_assum $ drule_at_then Any (rev_drule_at_then Any assume_tac)
+    >> gs[]
+    >> rw[EL_MAP]
+    >> first_x_assum $ match_mp_tac o Ho_Rewrite.ONCE_REWRITE_RULE[GSYM MONO_NOT_EQ]
+    >> qspec_then `ee` assume_tac TYPE_SUBST_MEM_MAP_SND
+    >> first_assum $ drule_then strip_assume_tac
+    >> first_x_assum $ rev_drule_then strip_assume_tac
+    >> last_assum $ drule_then assume_tac
+    >> last_x_assum $ rev_drule_then assume_tac
+    >> gs[]
+    >> ntac 2 $ qpat_x_assum `MEM (EL _ _) _` $ assume_tac o ONCE_REWRITE_RULE[GSYM PAIR]
+    >> drule_then assume_tac ALL_DISTINCT_SND_MEMs
+    >> first_assum $ dxrule_then mp_tac
+    >> first_x_assum $ dxrule_then mp_tac
+    >> asm_rewrite_tac[]
+    >> ntac 2 $ disch_then imp_res_tac
+    >> gs[EL_MAP]
+  )
+  >> `EVERY (λx. ?a b. x = (Tyvar a,Tyvar b)) ee` by (
+    fs[LAMBDA_PROD,EVERY_MAP_PAIR,GSYM PULL_EXISTS]
+    >> reverse conj_tac
+    >- fs[EVERY_MAP_o,o_DEF,LAMBDA_PROD]
+    >> fs[EVERY_MEM,ELIM_UNCURRY]
+    >> REWRITE_TAC[MEM_MAP]
+    >> ONCE_REWRITE_TAC[GSYM PAIR]
+    >> rpt strip_tac
+    >> first_assum $ drule_then strip_assume_tac
+    >> drule_at_then Any (drule_at Any) TYPE_SUBST_MEM
+    >> impl_tac
+    >- (
+      rw[EVERY_MEM,ELIM_UNCURRY]
+      >> first_x_assum $ drule_then strip_assume_tac
+      >> fs[]
+    )
+    >> drule_then assume_tac $ Q.ISPEC `SND` MEM_MAP_f
+    >> ntac 2 $ qpat_x_assum `_ ⊆ _` $ imp_res_tac o REWRITE_RULE[SUBSET_DEF]
+    >> qpat_x_assum `MEM _ (MAP Tyvar _)` $ strip_assume_tac o REWRITE_RULE[MEM_MAP]
+    >> gvs[]
+    >> qpat_x_assum `!a b c. _` $ drule_then drule
+    >> Cases_on `FST y`
+    >> fs[]
+  )
+  >> first_x_assum $ qspec_then `MAP SWAP ee` match_mp_tac
+  >> rw[TYPE_SUBST_compose,Excl"TYPE_SUBST_def"]
+  >> CONV_TAC $ RHS_CONV $ ONCE_REWRITE_CONV o single $ GSYM TYPE_SUBST_NIL
+  >> rw[TYPE_SUBST_tyvars,Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_def,Once EQ_SYM_EQ,GSYM TYPE_SUBST_compose]
+  >> Cases_on `MEM (Tyvar x) (MAP SND ee)`
+  >- (
+    drule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
+    >> qpat_x_assum `EVERY _ _` $ imp_res_tac o REWRITE_RULE[EVERY_MEM]
+    >> gvs[]
+    >> drule_then assume_tac $ Q.ISPEC `FST` MEM_MAP_f
+    >> fs[Once $ GSYM FST_SWAP_SND,GSYM MAP_MAP_o]
+    >> drule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
+    >> fs[MEM_MAP_SWAP',SWAP_def,MAP_MAP_o,FST_SWAP_SND]
+    >> drule_then match_mp_tac ALL_DISTINCT_FST_MEMs
+    >> rpt $ goal_assum drule
+  )
+  >> Cases_on `MEM (Tyvar x) (MAP SND (MAP SWAP ee))`
+  >> fs[TYPE_SUBST_drop_all,Excl"TYPE_SUBST_def"]
+  >> drule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
+  >> imp_res_tac TYPE_SUBST_drop_all
+  >> fs[MEM_MAP_SWAP',SWAP_def,EVERY_MEM]
+  >> drule_then assume_tac $ Q.ISPEC `SND` MEM_MAP_f
+  >> ntac 2 $ qpat_x_assum `_ ⊆ _` $ imp_res_tac o REWRITE_RULE[SUBSET_DEF]
+  >> qpat_x_assum `!x. MEM _ _ ==> _` $ imp_res_tac
+  >> CCONTR_TAC
+  >> gvs[MEM_Tyvar_MAP_Tyvar]
+  >> ntac 3 $ qpat_x_assum `!x. MEM _ _ ==> _` $ imp_res_tac
+  >> gvs[]
+  >> first_x_assum $ rev_drule_at_then Any (drule_at Any)
+  >> fs[]
+  >> qspec_then `ee` mp_tac TYPE_SUBST_MEM_MAP_SND
+  >> disch_then $ drule_then strip_assume_tac
+  >> drule_then (rev_drule_then drule) ALL_DISTINCT_SND_MEMs
+  >> fs[]
+QED
+
+Theorem renaming_CARD_LESS_OR_EQ:
+  !s t. (!a. MEM a (tyvars t) ==> ?b. TYPE_SUBST s (Tyvar a) = Tyvar b)
+  ==> CARD (set (tyvars (TYPE_SUBST s t))) <= CARD (set (tyvars t))
+Proof
+  gen_tac
+  >> ho_match_mp_tac type_ind
+  >> rw[tyvars_Tyapp,tyvars_def,PULL_EXISTS,tyvars_TYPE_SUBST]
+  >> qho_match_abbrev_tac `CARD ({v | P v }) <= _`
+  >> `{v | P v} = set (FLAT $ MAP (tyvars o TYPE_SUBST s o Tyvar) (FLAT (MAP tyvars l)))` by (
+    unabbrev_all_tac
+    >> rw[pred_setTheory.EXTENSION,o_DEF,MEM_FLAT,MEM_MAP,PULL_EXISTS,GSYM CONJ_ASSOC]
+  )
+  >> pop_assum $ REWRITE_TAC o single
+  >> qpat_x_assum `Abbrev (P = _)` kall_tac
+  >> `!x. MEM x l ==>
+    CARD (set (FLAT (MAP (tyvars ∘ TYPE_SUBST s ∘ Tyvar) (tyvars x)))) <=
+    CARD (set (tyvars x))` by (
+    rw[] >> fs[EVERY_MEM]
+    >> first_x_assum drule
+    >> impl_tac
+    >- (
+      rw[]
+      >> last_x_assum $ match_mp_tac o Ho_Rewrite.REWRITE_RULE[MEM_FLAT,PULL_EXISTS,MEM_MAP,GSYM CONJ_ASSOC]
+      >> rpt $ goal_assum $ drule_at Any
+      >> fs[]
+    )
+    >> qho_match_abbrev_tac `CARD ({v | P' v }) <= _ ==> CARD P'' <= _`
+    >> `{v | P' v} = P''` by (
+      unabbrev_all_tac
+      >> rw[pred_setTheory.EXTENSION,o_DEF,MEM_FLAT,MEM_MAP,PULL_EXISTS,GSYM CONJ_ASSOC]
+    )
+    >> fs[]
+  )
+  >> qpat_x_assum `EVERY _ _` kall_tac
+  >> qpat_x_assum `!a. MEM _ (FLAT _) ==> _` kall_tac
+  >> Induct_on `l`
+  >> rw[DISJ_IMP_THM,FORALL_AND_THM]
+  >> fs[]
+  >> cheat
+QED
+
+Theorem is_instance_NOT_is_instance_imp':
+  !t t'. is_instance t t' /\ ~(is_instance t' t)
+  ==> CARD (set (tyvars t')) < CARD (set (tyvars t))
+    \/ type_size' t < type_size' t'
+Proof
+  rpt strip_tac
+  >> fs[]
+  >> drule_then dxrule $ GSYM is_instance_NOT_is_instance_imp
+  >> qmatch_goalsub_abbrev_tac `not_tyvar_only \/ inj ==> _`
+  >> rw[Once DISJ_EQ_IMP]
+  >> Cases_on `∃a m l. MEM a (tyvars t) ∧ MEM (Tyvar a) (MAP SND i) ∧
+      Tyapp m l = TYPE_SUBST i (Tyvar a) /\ 0 < LENGTH l`
+  >- (
+    disj2_tac
+    >> match_mp_tac type_size_TYPE_SUBST_LESS
+    >> rw[Once EQ_SYM_EQ]
+    >> rpt $ goal_assum $ drule_at Any
+  )
+  >> fs[DISJ_EQ_IMP,AND_IMP_INTRO]
+  >> cheat
+QED
+
 Theorem equiv_ts_on_mg_sol:
   !e e' t t' r r' p.
   TYPE_SUBST e (TYPE_SUBST r p) = TYPE_SUBST r' p
