@@ -2929,10 +2929,11 @@ val two_reg_inst_def = Define`
   (two_reg_inst _ ⇔ T)`
 
 (* Recursor over instructions *)
-val every_inst_def = Define`
+Definition every_inst_def:
   (every_inst P (Inst i) ⇔ P i) ∧
   (every_inst P (Seq p1 p2) ⇔ (every_inst P p1 ∧ every_inst P p2)) ∧
   (every_inst P (If cmp r1 ri c1 c2) ⇔ every_inst P c1 ∧ every_inst P c2) ∧
+  (every_inst P (OpCurrHeap bop r1 r2) ⇔ P (Arith (Binop bop r1 r2 (Reg r2)))) ∧
   (every_inst P (MustTerminate p) ⇔ every_inst P p) ∧
   (every_inst P (Call ret dest args handler)
     ⇔ (case ret of
@@ -2941,7 +2942,8 @@ val every_inst_def = Define`
       (case handler of
         NONE => T
       | SOME (n,h,l1,l2) => every_inst P h))) ∧
-  (every_inst P prog ⇔ T)`
+  (every_inst P prog ⇔ T)
+End
 
 (* Every instruction is well-formed, including the jump hidden in If *)
 val full_inst_ok_less_def = Define`
@@ -2952,8 +2954,6 @@ val full_inst_ok_less_def = Define`
     ((case ri of Imm w => c.valid_imm (INR cmp) w | _ => T) ∧
     full_inst_ok_less c c1 ∧ full_inst_ok_less c c2)) ∧
   (full_inst_ok_less c (MustTerminate p) ⇔ full_inst_ok_less c p) ∧
-  (full_inst_ok_less c (OpCurrHeap b r1 r2) ⇔
-    (c.two_reg_arith ==> (r2 = r1))) ∧
   (full_inst_ok_less c (Call ret dest args handler)
     ⇔ (case ret of
         NONE => T

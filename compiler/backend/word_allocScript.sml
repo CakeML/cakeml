@@ -298,10 +298,10 @@ val ssa_cc_trans_def = Define`
     let num' = option_lookup ssa num in
     let mov = Move 0 [(2,num')] in
     (Seq mov (Raise 2),ssa,na)) ∧
-  (ssa_cc_trans (OpCurrHeap b num1 num2) ssa na=
-    let num1' = option_lookup ssa num1 in
-    let num2' = option_lookup ssa num2 in
-    (OpCurrHeap b num1' num2',ssa,na)) ∧
+  (ssa_cc_trans (OpCurrHeap b dst src) ssa na=
+    let src' = option_lookup ssa src in
+    let (dst',ssa',na') = next_var_rename dst ssa na in
+      (OpCurrHeap b dst' src',ssa',na')) ∧
   (ssa_cc_trans (Return num1 num2) ssa na=
     let num1' = option_lookup ssa num1 in
     let num2' = option_lookup ssa num2 in
@@ -686,6 +686,10 @@ val remove_dead_def = Define`
     if lookup num live = NONE then
       (Skip,live)
     else (Get num store,delete num live)) ∧
+  (remove_dead (OpCurrHeap b num src) live =
+    if lookup num live = NONE then
+      (Skip,live)
+    else (OpCurrHeap b num src,insert src () (delete num live))) ∧
   (remove_dead (LocValue r l1) live =
     if lookup r live = NONE then
       (Skip,live)
@@ -739,6 +743,7 @@ val get_writes_def = Define`
   (get_writes (Get num store) = insert num () LN) ∧
   (get_writes (LocValue r l1) = insert r () LN) ∧
   (get_writes (Install r1 _ _ _ _) = insert r1 () LN) ∧
+  (get_writes (OpCurrHeap b r1 _) = insert r1 () LN) ∧
   (get_writes prog = LN)`
 
 Theorem get_writes_pmatch:
@@ -751,6 +756,7 @@ Theorem get_writes_pmatch:
     | Get num store => insert num () LN
     | LocValue r l1 => insert r () LN
     | Install r1 _ _ _ _ => insert r1 () LN
+    | OpCurrHeap b r1 _ => insert r1 () LN
     | prog => LN
 Proof
   rpt strip_tac
@@ -869,7 +875,7 @@ val get_clash_tree_def = Define`
   (get_clash_tree Tick = Delta [] []) ∧
   (get_clash_tree (LocValue r l1) = Delta [r] []) ∧
   (get_clash_tree (Set n exp) = Delta [] (get_reads_exp exp)) ∧
-  (get_clash_tree (OpCurrHeap b _ num) = Delta [] [num]) ∧
+  (get_clash_tree (OpCurrHeap b dst src) = Delta [dst] [src]) ∧
   (get_clash_tree (Call ret dest args h) =
     let args_set = numset_list_insert args LN in
     dtcase ret of
@@ -1079,6 +1085,8 @@ val get_heu_def = Define `
     (dtcase exp of (Var r) =>
        (add1_rhs_mem r lr,calls)
     | _ => (lr,calls))) ∧ (* General Set exp ignored *)
+  (get_heu fc (OpCurrHeap b dst src) (lr,calls) =
+    (add1_lhs_reg dst (add1_rhs_reg src lr),calls)) ∧
   (get_heu fc (LocValue r l1) (lr,calls) =
     (add1_lhs_reg r lr,calls)) ∧
   (get_heu fc (Seq s1 s2) lr = get_heu fc s2 (get_heu fc s1 lr)) ∧

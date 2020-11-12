@@ -322,6 +322,7 @@ val const_fp_loop_def = Define `
          | Const c => (Assign v const_fp_e, insert v c cs)
          | _ => (Assign v const_fp_e, delete v cs)) /\
   (const_fp_loop (Get v name) cs = (Get v name, delete v cs)) /\
+  (const_fp_loop (OpCurrHeap b v w) cs = (OpCurrHeap b v w, delete v cs)) /\
   (const_fp_loop (MustTerminate p) cs =
     let (p', cs') = const_fp_loop p cs in
       (MustTerminate p', cs')) /\
@@ -363,6 +364,7 @@ Theorem const_fp_loop_pmatch:
        | Const c => (Assign v (Const c), insert v c cs)
        | const_fp_e => (Assign v const_fp_e, delete v cs))
   | (Get v name) => (Get v name, delete v cs)
+  | (OpCurrHeap b v w) => (OpCurrHeap b v w, delete v cs)
   | (MustTerminate p) =>
     (let (p', cs') = const_fp_loop p cs in
       (MustTerminate p', cs'))
@@ -400,6 +402,7 @@ Proof
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- (CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
      >> rpt strip_tac >> fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[])
+  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]

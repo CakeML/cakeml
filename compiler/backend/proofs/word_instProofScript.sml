@@ -590,7 +590,7 @@ Theorem inst_select_thm:
 Proof
   ho_match_mp_tac inst_select_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[inst_select_def,locals_rel_evaluate_thm]
-  >-
+  >- (* Assign *)
     (full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>FULL_CASE_TAC>>srw_tac[][]>>
     full_simp_tac(srw_ss())[every_var_def]>>
     imp_res_tac pull_exp_every_var_exp>>
@@ -606,7 +606,7 @@ Proof
     srw_tac[][]>>full_simp_tac(srw_ss())[lookup_insert]>>
     IF_CASES_TAC>>fs[]>>
     metis_tac[])
-  >-
+  >- (* Set *)
     (full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>
     ntac 2 FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>strip_tac>>
     full_simp_tac(srw_ss())[every_var_def]>>
@@ -819,8 +819,8 @@ val inst_select_exp_flat_exp_conventions = Q.prove(`
   EVERY_CASE_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,inst_select_exp_def,LET_THM]);
 
 Theorem inst_select_flat_exp_conventions:
-    ∀c temp prog.
-  flat_exp_conventions (inst_select c temp prog)
+  ∀c temp prog.
+    flat_exp_conventions (inst_select c temp prog)
 Proof
   ho_match_mp_tac inst_select_ind >>srw_tac[][]>>
   full_simp_tac(srw_ss())[flat_exp_conventions_def,inst_select_def,LET_THM]>>
@@ -840,11 +840,11 @@ val inst_select_exp_full_inst_ok_less = Q.prove(`
   );
 
 Theorem inst_select_full_inst_ok_less:
-    ∀c temp prog.
-  addr_offset_ok c 0w ∧
-  every_inst (inst_ok_less c) prog
-  ⇒
-  full_inst_ok_less c (inst_select c temp prog)
+  ∀c temp prog.
+    addr_offset_ok c 0w ∧
+    every_inst (inst_ok_less c) prog
+    ⇒
+    full_inst_ok_less c (inst_select c temp prog)
 Proof
   ho_match_mp_tac inst_select_ind>>
   rw[inst_select_def,full_inst_ok_less_def,every_inst_def]>>
@@ -857,11 +857,11 @@ QED
 
 (*Semantics preservation*)
 Theorem three_to_two_reg_correct:
-    ∀prog s res s'.
-  every_inst distinct_tar_reg prog ∧
-  evaluate (prog,s) = (res,s') ∧ res ≠ SOME Error
-  ⇒
-  evaluate(three_to_two_reg prog,s) = (res,s')
+  ∀prog s res s'.
+    every_inst distinct_tar_reg prog ∧
+    evaluate (prog,s) = (res,s') ∧ res ≠ SOME Error
+    ⇒
+    evaluate(three_to_two_reg prog,s) = (res,s')
 Proof
   ho_match_mp_tac three_to_two_reg_ind>>
   srw_tac[][]>>full_simp_tac(srw_ss())[three_to_two_reg_def,evaluate_def,state_component_equality]>>
@@ -903,20 +903,20 @@ QED
 
 (* Syntactic three_to_two_reg *)
 Theorem three_to_two_reg_two_reg_inst:
-    ∀prog. every_inst two_reg_inst (three_to_two_reg prog)
+  ∀prog. every_inst two_reg_inst (three_to_two_reg prog)
 Proof
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>full_simp_tac(srw_ss())[every_inst_def,two_reg_inst_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]
 QED
 
 Theorem three_to_two_reg_wf_cutsets:
-   ∀prog. wf_cutsets prog ⇒ wf_cutsets (three_to_two_reg prog)
+  ∀prog. wf_cutsets prog ⇒ wf_cutsets (three_to_two_reg prog)
 Proof
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[wf_cutsets_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]
 QED
 
 Theorem three_to_two_reg_pre_alloc_conventions:
-   ∀prog. pre_alloc_conventions prog ⇒ pre_alloc_conventions (three_to_two_reg prog)
+  ∀prog. pre_alloc_conventions prog ⇒ pre_alloc_conventions (three_to_two_reg prog)
 Proof
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[pre_alloc_conventions_def,every_stack_var_def,three_to_two_reg_def,LET_THM,call_arg_convention_def,inst_arg_convention_def]>>
@@ -927,15 +927,15 @@ Proof
 QED
 
 Theorem three_to_two_reg_flat_exp_conventions:
-   ∀prog. flat_exp_conventions prog ⇒ flat_exp_conventions (three_to_two_reg prog)
+  ∀prog. flat_exp_conventions prog ⇒ flat_exp_conventions (three_to_two_reg prog)
 Proof
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[flat_exp_conventions_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]
 QED
 
 Theorem three_to_two_reg_full_inst_ok_less:
-   ∀prog. full_inst_ok_less c prog ⇒
-  full_inst_ok_less c (three_to_two_reg prog)
+  ∀prog. full_inst_ok_less c prog ⇒
+         full_inst_ok_less c (three_to_two_reg prog)
 Proof
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>fs[full_inst_ok_less_def]
@@ -955,8 +955,8 @@ val inst_select_exp_no_lab = Q.prove(`
   rpt(TOP_CASE_TAC>>fs[extract_labels_def,inst_select_exp_def]))
 
 Theorem inst_select_lab_pres:
-    ∀c temp prog.
-  extract_labels prog = extract_labels (inst_select c temp prog)
+  ∀c temp prog.
+    extract_labels prog = extract_labels (inst_select c temp prog)
 Proof
   ho_match_mp_tac inst_select_ind>>rw[inst_select_def,extract_labels_def]>>
   TRY(metis_tac[inst_select_exp_no_lab])>>
@@ -965,8 +965,8 @@ Proof
 QED
 
 Theorem three_to_two_reg_lab_pres:
-    ∀prog.
-  extract_labels prog = extract_labels (three_to_two_reg prog)
+  ∀prog.
+    extract_labels prog = extract_labels (three_to_two_reg prog)
 Proof
   ho_match_mp_tac three_to_two_reg_ind>>rw[three_to_two_reg_def,extract_labels_def]>>EVERY_CASE_TAC>>fs[]
 QED
