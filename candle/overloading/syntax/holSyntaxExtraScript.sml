@@ -457,51 +457,6 @@ Proof
   >> fs[type_size'_def,type1_size'_SUM_MAP]
 QED
 
-Theorem type_size_TYPE_SUBST_LESS:
-  !t s a m l. MEM a (tyvars t)
-    /\ TYPE_SUBST s (Tyvar a) = Tyapp m l /\ 0 < LENGTH l
-    ==> type_size' t < type_size' (TYPE_SUBST s t)
-Proof
-  ho_match_mp_tac type_ind
-  >> conj_tac
-  >- (
-    rw[type_size'_def,tyvars_def]
-    >> Cases_on `MEM (Tyvar a) (MAP SND s)`
-    >- (
-      dxrule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
-      >> Cases_on `b`
-      >> gvs[type_size'_def]
-      >> fs[]
-      >> Cases_on `l`
-      >> fs[type_size'_def,type1_size'_SUM_MAP]
-    )
-    >> fs[REV_ASSOCD_NOT_MEM_drop,type_size'_def]
-  )
-  >> rw[type_size'_def,GSYM subtype_at_tyvars,PULL_EXISTS,EVERY_MEM]
-  >> qmatch_assum_rename_tac `subtype_at _ p = SOME _`
-  >> Cases_on `p` >> fs[subtype_at_def]
-  >> qmatch_assum_rename_tac `subtype_at _ (h::t) = SOME _`
-  >> Cases_on `h`
-  >> fs[subtype_at_def,type1_size'_SUM_MAP]
-  >> `MEM (EL r l) l` by fs[EL_MEM]
-  >> first_x_assum drule
-  >> rpt $ disch_then $ drule_at Any
-  >> rw[]
-  >> fs[MEM_SPLIT]
-  >> qpat_x_assum `_ = _ ++ _` $ ONCE_REWRITE_TAC o single
-  >> fs[MAP_APPEND,SUM_APPEND]
-  >> ONCE_REWRITE_TAC[ADD_ASSOC]
-  >> qmatch_goalsub_abbrev_tac `A + B`
-  >> qmatch_assum_abbrev_tac `B < B'`
-  >> match_mp_tac LESS_LESS_EQ_TRANS
-  >> qexists_tac `A + B'`
-  >> fs[LESS_MONO_ADD]
-  >> unabbrev_all_tac
-  >> qmatch_goalsub_abbrev_tac `A + B <= (A' + B')`
-  >> `A <= A' /\ B <= B'` by (unabbrev_all_tac >> fs[type_size_TYPE_SUBST'])
-  >> fs[]
-QED
-
 Theorem TYPE_SUBST_drop_suffix:
   !s a. MEM (Tyvar a) (MAP SND s)
   ==> !s'. TYPE_SUBST (s++s') (Tyvar a) = TYPE_SUBST s (Tyvar a)
@@ -7012,6 +6967,51 @@ Proof
   >> qspecl_then [`Tyapp m l`,`[n]`,`y`,`p`,`Tyvar a`] drule subtype_at_trans
   >> disch_then imp_res_tac
   >> goal_assum (first_assum o mp_then Any mp_tac)
+QED
+
+Theorem type_size_TYPE_SUBST_LESS:
+  !t s a m l. MEM a (tyvars t)
+    /\ TYPE_SUBST s (Tyvar a) = Tyapp m l /\ 0 < LENGTH l
+    ==> type_size' t < type_size' (TYPE_SUBST s t)
+Proof
+  ho_match_mp_tac type_ind
+  >> conj_tac
+  >- (
+    rw[type_size'_def,tyvars_def]
+    >> Cases_on `MEM (Tyvar a) (MAP SND s)`
+    >- (
+      dxrule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
+      >> Cases_on `b`
+      >> gvs[type_size'_def]
+      >> fs[]
+      >> Cases_on `l`
+      >> fs[type_size'_def,type1_size'_SUM_MAP]
+    )
+    >> fs[REV_ASSOCD_NOT_MEM_drop,type_size'_def]
+  )
+  >> rw[type_size'_def,GSYM subtype_at_tyvars,PULL_EXISTS,EVERY_MEM]
+  >> qmatch_assum_rename_tac `subtype_at _ p = SOME _`
+  >> Cases_on `p` >> fs[subtype_at_def]
+  >> qmatch_assum_rename_tac `subtype_at _ (h::t) = SOME _`
+  >> Cases_on `h`
+  >> fs[subtype_at_def,type1_size'_SUM_MAP]
+  >> `MEM (EL r l) l` by fs[EL_MEM]
+  >> first_x_assum drule
+  >> rpt $ disch_then $ drule_at Any
+  >> rw[]
+  >> fs[MEM_SPLIT]
+  >> qpat_x_assum `_ = _ ++ _` $ ONCE_REWRITE_TAC o single
+  >> fs[MAP_APPEND,SUM_APPEND]
+  >> ONCE_REWRITE_TAC[ADD_ASSOC]
+  >> qmatch_goalsub_abbrev_tac `A + B`
+  >> qmatch_assum_abbrev_tac `B < B'`
+  >> match_mp_tac LESS_LESS_EQ_TRANS
+  >> qexists_tac `A + B'`
+  >> fs[LESS_MONO_ADD]
+  >> unabbrev_all_tac
+  >> qmatch_goalsub_abbrev_tac `A + B <= (A' + B')`
+  >> `A <= A' /\ B <= B'` by (unabbrev_all_tac >> fs[type_size_TYPE_SUBST'])
+  >> fs[]
 QED
 
 Theorem subtype_at_MEM:
