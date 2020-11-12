@@ -273,7 +273,7 @@ Proof
 QED
 
 Theorem find_v_globals_v_to_list:
-     ∀ x reachable xs .
+     ∀ x (reachable:num_set) xs .
         domain (find_v_globals x) ⊆ domain reachable ∧ v_to_list x = SOME xs
     ⇒ domain (find_v_globalsL xs) ⊆ domain reachable
 Proof
@@ -284,7 +284,7 @@ Proof
 QED
 
 Theorem find_v_globals_list_to_v:
-     ∀ xs reachable x .
+     ∀ xs (reachable:num_set) x .
         domain (find_v_globalsL xs) ⊆ domain reachable ∧ list_to_v xs = x
     ⇒ domain (find_v_globals x) ⊆ domain reachable
 Proof
@@ -503,7 +503,7 @@ Theorem pmatch_Match_reachable:
         domain (find_v_globalsL vs) ⊆ domain reachable ∧
         domain (find_v_globalsL (MAP SND l)) ⊆ domain reachable ∧
         domain (find_refs_globals s.refs) ⊆ domain reachable
-    ⇒ domain (find_v_globalsL (MAP SND a)) ⊆ domain reachable)
+    ⇒ sptree$domain (find_v_globalsL (MAP SND a)) ⊆ domain reachable)
 Proof
     ho_match_mp_tac pmatch_ind >> rw[pmatch_def] >>
     fs[find_v_globals_def, domain_union] >>
@@ -516,8 +516,8 @@ Proof
 QED
 
 Theorem find_v_globals_list_to_v_APPEND:
-     ∀ xs reachable ys .
-        domain (find_v_globalsL xs) ⊆ domain reachable ∧
+     ∀ xs (reachable:num_set) ys .
+        domain (find_v_globalsL xs) ⊆ sptree$domain reachable ∧
         domain(find_v_globalsL ys) ⊆ domain reachable
     ⇒ domain (find_v_globals (list_to_v (xs ++ ys))) ⊆ domain reachable
 Proof
@@ -770,7 +770,7 @@ QED
 Theorem pmatch_rows_find_lookups:
   pmatch_rows pes q a = Match (env',p',e') /\
   domain (find_lookupsL (MAP SND pes)) ⊆ domain reachable ==>
-  domain (find_lookups e') ⊆ domain reachable
+  domain (find_lookups e') ⊆ sptree$domain reachable
 Proof
   Induct_on `pes` \\ fs [pmatch_rows_def,FORALL_PROD]
   \\ fs [CaseEq"match_result"] \\ rw []

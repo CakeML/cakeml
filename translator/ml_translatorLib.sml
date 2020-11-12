@@ -875,7 +875,7 @@ fun check_uptodate_term t =
 
 
 local
-  val {export,segment_data} = ThyDataSexp.new {
+  val {export,segment_data,set} = ThyDataSexp.new {
     thydataty = "ml_translator",
     merge = fn {old, new} => new,
     load = fn _ => (), other_tds = fn (t,_) => SOME t}
