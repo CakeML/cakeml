@@ -1213,6 +1213,79 @@ Proof
   rw[]
 QED
 
+Theorem renaming_CARD_LESS_OR_EQ:
+  !t. (∀a m l.
+            MEM a (tyvars t) ∧ MEM (Tyvar a) (MAP SND i) ∧
+            Tyapp m l = REV_ASSOCD (Tyvar a) i (Tyvar a) ⇒
+            l = [])
+  ==> CARD (set (tyvars (TYPE_SUBST i t))) <= CARD (set (tyvars t))
+Proof
+  rw[tyvars_TYPE_SUBST] >>
+  ‘∃UU V. (set(tyvars t) = (UU ∪ V)) ∧
+         UU ⊆ set(tyvars t) ∧
+         V ⊆ set(tyvars t) ∧
+         (∀u. u ∈ UU ⇒ ∃b. TYPE_SUBST i (Tyvar u) = Tyvar b) ∧
+         (∀v. v ∈ V ⇒ ∃m l. Tyapp m l = REV_ASSOCD (Tyvar v) i (Tyvar v))
+  ’
+  by(qexists_tac ‘{u | ∃x. TYPE_SUBST i (Tyvar u) = Tyvar x ∧ MEM u (tyvars t)}’ >>
+     qexists_tac ‘{v | ∃m l. Tyapp m l = REV_ASSOCD (Tyvar v) i (Tyvar v) ∧ MEM v (tyvars t)}’ >>
+     rw[SUBSET_DEF] >> gs[] >>
+     rw[SET_EQ_SUBSET,SUBSET_DEF] >- (Cases_on ‘REV_ASSOCD (Tyvar x) i (Tyvar x)’ >> fs[]) >>
+     metis_tac[]) >>
+  qpat_x_assum ‘_ = _ ∪ _’ (rw o single) >>
+  rw[RIGHT_AND_OVER_OR,EXISTS_OR_THM,GSPEC_OR] >>
+  qmatch_goalsub_abbrev_tac ‘CARD(_ ∪ VV)’ >>
+  ‘VV = ∅’
+    by(ONCE_REWRITE_TAC[SET_EQ_SUBSET] >>
+       reverse conj_tac >- simp[] >>
+       ONCE_REWRITE_TAC[SUBSET_DEF] >>
+       rpt strip_tac >>
+       gs[Abbr ‘VV’] >>
+       drule_all_then strip_assume_tac SUBSET_THM >>
+       first_x_assum drule_all >> strip_tac >>
+       first_x_assum drule >>
+       disch_then(drule_at (Pos last)) >>
+       reverse impl_tac >- (strip_tac >> rveq >> qpat_x_assum ‘Tyapp _ _ = _’ (assume_tac o GSYM) >> gs[tyvars_def]) >>
+       qpat_x_assum ‘Tyapp _ _ = _’ (assume_tac o GSYM) >>
+       fs[REV_ASSOCD_ALOOKUP,AllCaseEqs()] >>
+       imp_res_tac ALOOKUP_MEM >>
+       gs[MEM_MAP] >>
+       pairarg_tac >> gs[] >>
+       metis_tac[FST,SND,PAIR]) >>
+  pop_assum SUBST_ALL_TAC >>
+  pop_assum kall_tac >>
+  gs[] >>
+  match_mp_tac LESS_EQ_TRANS >>
+  irule_at (Pos last) CARD_SUBSET >>
+  simp[GSYM PULL_EXISTS] >>
+  conj_tac >- (metis_tac[SUBSET_FINITE,FINITE_LIST_TO_SET]) >>
+  irule_at (Pos hd) (SUBSET_UNION |> CONJUNCT1) >>
+  qmatch_goalsub_abbrev_tac ‘CARD a1 ≤ _’ >>
+  ‘a1 = IMAGE (λ a. @b. REV_ASSOCD (Tyvar a) i (Tyvar a) = Tyvar b) UU’
+    by(rw[Abbr ‘a1’,SET_EQ_SUBSET,SUBSET_DEF] >>
+       drule_all_then strip_assume_tac SUBSET_THM >>
+       res_tac >> fs[] >>
+       first_x_assum(irule_at Any) >>
+       gs[tyvars_def]) >>
+  pop_assum SUBST_ALL_TAC >>
+  pop_assum kall_tac >>
+  match_mp_tac CARD_IMAGE >>
+  rw[] >>
+  metis_tac[SUBSET_FINITE,FINITE_LIST_TO_SET]
+QED
+
+Theorem CARD_BIGUNION_BOUNDED_SETS:
+  ∀n s.
+    FINITE s ∧ (∀e. e ∈ s ⇒ FINITE e ∧ CARD e ≤ n) ⇒
+    CARD (BIGUNION s) ≤ CARD s * n
+Proof
+  strip_tac >> simp[GSYM AND_IMP_INTRO] >>
+  ho_match_mp_tac FINITE_INDUCT >>
+  rw[CARD_UNION_EQN,MULT_CLAUSES,DISJ_IMP_THM,FORALL_AND_THM] >>
+  res_tac >>
+  intLib.COOPER_TAC
+QED
+
 Theorem is_instance_NOT_is_instance_imp':
   !t t'. is_instance t t' /\ ~(is_instance t' t)
   ==> CARD (set (tyvars t')) < CARD (set (tyvars t))
@@ -1232,7 +1305,117 @@ Proof
     >> rpt $ goal_assum $ drule_at Any
   )
   >> fs[DISJ_EQ_IMP,AND_IMP_INTRO]
-  >> cheat
+  >> rw[NOT_LESS]
+  >> drule renaming_CARD_LESS_OR_EQ
+  >> strip_tac
+  >> dxrule_all_then strip_assume_tac LESS_EQUAL_ANTISYM
+  >> Cases_on ‘not_tyvar_only’
+  >> gs[]
+  >- (
+     res_tac >> rveq >>
+     gs[tyvars_TYPE_SUBST] >>
+     pop_assum mp_tac >>
+     qmatch_goalsub_abbrev_tac ‘CARD a1 = CARD _’ >>
+     ‘a1 = {v | ∃x. MEM x (tyvars t) ∧ x ≠ a ∧
+                    MEM v (tyvars (REV_ASSOCD (Tyvar x) i (Tyvar x)))}’
+       by(rw[Abbr ‘a1’,SET_EQ_SUBSET,SUBSET_DEF] >>
+          res_tac >> fs[] >-
+            (Cases_on ‘a = x'’ >> rveq >>
+             qpat_x_assum ‘Tyapp _ _ = REV_ASSOCD _ _ _’ (assume_tac o GSYM) >>
+             gs[tyvars_def] >> metis_tac[]) >>
+          metis_tac[]) >>
+     pop_assum SUBST_ALL_TAC >> pop_assum kall_tac >>
+     strip_tac >>
+     ‘∃b. MEM b (tyvars t) ∧ 1 < CARD(set(tyvars (REV_ASSOCD (Tyvar b) i (Tyvar b))))’
+       by(spose_not_then strip_assume_tac >>
+          gs[NOT_LESS] >>
+          qmatch_asmsub_abbrev_tac ‘CARD a1 = CARD _’ >>
+          ‘a1 = BIGUNION {set(tyvars (REV_ASSOCD (Tyvar x) i (Tyvar x))) | MEM x (tyvars t) ∧ x ≠ a}’
+            by(rw[Abbr ‘a1’,SET_EQ_SUBSET,SUBSET_DEF] >> metis_tac[]) >>
+          pop_assum SUBST_ALL_TAC >> pop_assum kall_tac >>
+          qmatch_asmsub_abbrev_tac ‘BIGUNION a1’ >>
+          ‘CARD(BIGUNION a1) ≤ CARD a1 * 1’
+            by(match_mp_tac CARD_BIGUNION_BOUNDED_SETS >>
+               rw[Abbr ‘a1’] >> rw[] >>
+               rw[GSPEC_IMAGE,o_DEF] >>
+               match_mp_tac IMAGE_FINITE >>
+               match_mp_tac(MP_CANON SUBSET_FINITE) >>
+               qexists_tac ‘set(tyvars t)’ >> rw[SUBSET_DEF,IN_DEF]) >>
+          gs[] >>
+          ‘CARD a1 ≤ CARD(set(tyvars t)) - 1’
+            by(rw[Abbr ‘a1’] >>
+               match_mp_tac LESS_EQ_TRANS >>
+               rw[GSPEC_IMAGE,o_DEF] >>
+               irule_at (Pos hd) CARD_IMAGE >>
+               conj_asm1_tac
+               >- (match_mp_tac(MP_CANON SUBSET_FINITE) >>
+                   qexists_tac ‘set(tyvars t)’ >> rw[SUBSET_DEF,IN_DEF]) >>
+               ‘(λx. MEM x (tyvars t) ∧ x ≠ a) = set(tyvars t) DIFF {a}’
+                 by(rw[SET_EQ_SUBSET,SUBSET_DEF] >> rw[]) >>
+               pop_assum SUBST_ALL_TAC >>
+               simp[CARD_DIFF] >>
+               ‘(set (tyvars t) ∩ {a}) = {a}’
+                 by(rw[SET_EQ_SUBSET,SUBSET_DEF,INTER_DEF] >> rw[]) >>
+               pop_assum SUBST_ALL_TAC >>
+               simp[]) >>
+          dxrule_all_then strip_assume_tac LESS_EQ_TRANS >>
+          ‘0 < CARD(set (tyvars t))’
+            by(spose_not_then strip_assume_tac >>
+               gs[]) >>
+          intLib.COOPER_TAC) >>
+     spose_not_then kall_tac >>
+     Cases_on ‘REV_ASSOCD (Tyvar b) i (Tyvar b)’ >- gs[tyvars_def] >>
+     first_x_assum drule >>
+     disch_then (drule_at (Pos last) o GSYM) >>
+     impl_tac
+     >- (fs[REV_ASSOCD_ALOOKUP,AllCaseEqs()] >>
+         imp_res_tac ALOOKUP_MEM >>
+         gs[MEM_MAP] >>
+         pairarg_tac >> gs[] >>
+         rveq >> gs[] >>
+         pairarg_tac >> gs[] >> rveq >> gs[] >>
+         metis_tac[FST,SND,PAIR]) >>
+     strip_tac >> rveq >> gs[tyvars_def]
+  ) >>
+  gs[Abbr ‘inj’] >>
+  gs[DISJ_EQ_IMP] >>
+  qmatch_asmsub_abbrev_tac ‘CARD a1 = _’ >>
+  ‘a1 = IMAGE (λ a. @b. REV_ASSOCD (Tyvar a) i (Tyvar a) = Tyvar b) (set(tyvars t))’
+    by(rw[Abbr ‘a1’,SET_EQ_SUBSET,SUBSET_DEF,tyvars_TYPE_SUBST] >-
+         (first_assum(irule_at Any) >>
+          Cases_on ‘REV_ASSOCD (Tyvar x') i (Tyvar x')’ >> (* TODO: generated names *)
+          gs[tyvars_def,MEM_FOLDR_LIST_UNION] >>
+          last_x_assum drule >>
+          disch_then(qspecl_then [‘m’,‘l’] mp_tac) >>
+          reverse impl_tac >- metis_tac[] >>
+          fs[REV_ASSOCD_ALOOKUP,AllCaseEqs()] >>
+          imp_res_tac ALOOKUP_MEM >>
+          gs[MEM_MAP] >>
+          pairarg_tac >> gs[] >>
+          rveq >> gs[] >>
+          pairarg_tac >> gs[] >> rveq >> gs[] >>
+          metis_tac[FST,SND,PAIR]) >>
+       first_assum(irule_at Any) >>
+       Cases_on ‘REV_ASSOCD (Tyvar a') i (Tyvar a')’ >> gs[tyvars_def] >>  (* TODO: generated names *)
+       gs[tyvars_def,MEM_FOLDR_LIST_UNION] >>
+       last_x_assum drule >>
+       disch_then(qspecl_then [‘m’,‘l’] mp_tac) >>
+       reverse impl_tac >- metis_tac[] >>
+       fs[REV_ASSOCD_ALOOKUP,AllCaseEqs()] >>
+       imp_res_tac ALOOKUP_MEM >>
+       gs[MEM_MAP] >>
+       pairarg_tac >> gs[] >>
+       rveq >> gs[] >>
+       pairarg_tac >> gs[] >> rveq >> gs[] >>
+       metis_tac[FST,SND,PAIR]) >>
+  pop_assum SUBST_ALL_TAC >>
+  pop_assum kall_tac >>
+  drule_at (Pos last) CARD_IMAGE_EQ_BIJ >>
+  impl_tac >- simp[] >>
+  rw[BIJ_DEF,INJ_DEF] >>
+  first_x_assum drule >>
+  disch_then(qspec_then ‘b’ mp_tac) >>
+  simp[]
 QED
 
 Theorem equiv_ts_on_mg_sol:
