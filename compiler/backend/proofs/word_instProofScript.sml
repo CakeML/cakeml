@@ -392,7 +392,6 @@ Theorem inst_select_exp_thm[local]:
     else if x < temp then lookup x loc' = lookup x s.locals
     else T
 Proof
-
   completeInduct_on`exp_size (K 0) exp`>>
   rpt strip_tac>>
   Cases_on`exp`>>
@@ -459,18 +458,46 @@ Proof
       simp[state_component_equality,set_var_def,lookup_insert]>>
       srw_tac[][]>>DISJ2_TAC>>strip_tac>>
       `x ≠ temp` by DECIDE_TAC>>metis_tac[])
-
   >-
     (rename [‘Op’]>>
     Cases_on`∃e1 e2. l = [e1;e2]`>>full_simp_tac(srw_ss())[inst_select_exp_def]
     >-
       (IF_CASES_TAC THEN1
-
-
-
-cheat >>
+       (gvs[PULL_FORALL] >>
+        first_x_assum (qspec_then ‘e1’ mp_tac) >>
+        fs [exp_size_def,binary_branch_exp_def] >>
+        ‘binary_branch_exp e1’ by
+           (Cases_on ‘b’ \\ fs [binary_branch_exp_def]) >> fs [] >>
+        disch_then drule >>
+        gvs [word_exp_def,AllCaseEqs(),the_words_def,GSYM PULL_FORALL] >>
+        disch_then (qspecl_then [‘c’,‘temp’] strip_assume_tac) >>
+        pop_assum drule >> fs [] >> strip_tac >>
+        gvs [evaluate_def,word_exp_def,the_words_def] >>
+        first_assum (qspec_then ‘temp’ assume_tac) >> fs [] >>
+        Cases_on ‘e2’ >> fs [is_Lookup_CurrHeap_def] >>
+        rename [‘Lookup ss’] \\ Cases_on ‘ss’ >> fs [is_Lookup_CurrHeap_def] >>
+        gvs [word_exp_def,set_var_def,state_component_equality,lookup_insert] >>
+        rw [] >> metis_tac [prim_recTheory.LESS_REFL]) >>
       pop_assum mp_tac >>
-      IF_CASES_TAC THEN1 cheat >>
+      IF_CASES_TAC THEN1
+       (gvs[PULL_FORALL] >>
+        first_x_assum (qspec_then ‘e2’ mp_tac) >>
+        fs [exp_size_def,binary_branch_exp_def] >>
+        ‘binary_branch_exp e2’ by
+           (Cases_on ‘b’ \\ fs [binary_branch_exp_def]) >> fs [] >>
+        disch_then drule >>
+        gvs [word_exp_def,AllCaseEqs(),the_words_def,GSYM PULL_FORALL] >>
+        disch_then (qspecl_then [‘c’,‘temp’] strip_assume_tac) >>
+        pop_assum drule >> fs [] >> strip_tac >>
+        gvs [evaluate_def,word_exp_def,the_words_def] >>
+        first_assum (qspec_then ‘temp’ assume_tac) >> fs [] >>
+        Cases_on ‘e1’ >> fs [is_Lookup_CurrHeap_def] >>
+        rename [‘Lookup ss’] \\ Cases_on ‘ss’ >> fs [is_Lookup_CurrHeap_def] >>
+        rename [‘word_op b [x1; x2] = SOME x3’] >>
+        ‘word_op b [x2; x1] = SOME x3’ by
+          (Cases_on ‘b’ \\ fs [word_op_def,AllCaseEqs()]) >>
+        gvs [word_exp_def,set_var_def,state_component_equality,lookup_insert] >>
+        rw [] >> metis_tac [prim_recTheory.LESS_REFL]) >>
       pop_assum mp_tac>>
       `binary_branch_exp e1` by
         (Cases_on`b`>>full_simp_tac(srw_ss())[binary_branch_exp_def])>>
