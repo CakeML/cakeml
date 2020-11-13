@@ -367,16 +367,18 @@ val flatten_exp_binary_branch_exp = Q.prove(`
   binary_branch_exp (flatten_exp exp)`,
   ho_match_mp_tac flatten_exp_ind>>full_simp_tac(srw_ss())[op_consts_def,flatten_exp_def,binary_branch_exp_def,EVERY_MEM,EVERY_MAP]);
 
-val flatten_exp_every_var_exp = Q.prove(`
+Theorem flatten_exp_every_var_exp[local]:
   ∀exp.
   every_var_exp P exp ⇒
-  every_var_exp P (flatten_exp exp)`,
-  ho_match_mp_tac flatten_exp_ind>>full_simp_tac(srw_ss())[op_consts_def,flatten_exp_def,every_var_exp_def,EVERY_MEM,EVERY_MAP]);
+  every_var_exp P (flatten_exp exp)
+Proof
+  ho_match_mp_tac flatten_exp_ind>>full_simp_tac(srw_ss())[op_consts_def,flatten_exp_def,every_var_exp_def,EVERY_MEM,EVERY_MAP]
+QED
 
 (* inst_select correctness
   Main difficulty: Dealing with multiple choice of optimizations, depending on whether we are allowed to use them w.r.t. to the asm configuration
 *)
-val inst_select_exp_thm = Q.prove(`
+Theorem inst_select_exp_thm[local]:
   ∀c tar temp exp s w loc.
   binary_branch_exp exp ∧
   every_var_exp (λx. x < temp) exp ∧
@@ -388,29 +390,34 @@ val inst_select_exp_thm = Q.prove(`
   ∀x.
     if x = tar then lookup x loc' = SOME w
     else if x < temp then lookup x loc' = lookup x s.locals
-    else T`,
+    else T
+Proof
+
   completeInduct_on`exp_size (K 0) exp`>>
   rpt strip_tac>>
   Cases_on`exp`>>
   full_simp_tac(srw_ss())[evaluate_def,binary_branch_exp_def,every_var_exp_def]
   >-
-    (simp[inst_select_exp_def]>>
+    (rename [‘Const’]>>
+    simp[inst_select_exp_def]>>
     full_simp_tac(srw_ss())[LET_THM,evaluate_def,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,mem_load_def,word_op_def]>>
     simp[state_component_equality,locals_rel_def,lookup_insert]>>
     full_simp_tac(srw_ss())[locals_rel_def])
   >-
-    (simp[inst_select_exp_def]>>
+    (rename [‘Var’] >>
+    simp[inst_select_exp_def]>>
     full_simp_tac(srw_ss())[LET_THM,evaluate_def,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,mem_load_def,word_op_def,get_vars_def,set_vars_def,get_var_def]>>
     full_simp_tac(srw_ss())[locals_rel_def]>>
     res_tac>>fs[alist_insert_def]>>
     simp[state_component_equality,lookup_insert])
   >-
-    (simp[inst_select_exp_def]>>
+    (rename [‘Lookup’]>>
+    simp[inst_select_exp_def]>>
     full_simp_tac(srw_ss())[LET_THM,evaluate_def,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,mem_load_def,word_op_def,get_vars_def,set_vars_def,get_var_def]>>
     fs[locals_rel_def,state_component_equality,lookup_insert])
   >-
-    (*Load*)
-    (Cases_on`∃exp' w'. e = Op Add[exp';Const w']` >>full_simp_tac(srw_ss())[]
+    (rename [‘Load’]>>
+    Cases_on`∃exp' w'. e = Op Add[exp';Const w']` >>full_simp_tac(srw_ss())[]
     >-
       (simp[Once inst_select_exp_def]>>IF_CASES_TAC
       >-
@@ -452,11 +459,20 @@ val inst_select_exp_thm = Q.prove(`
       simp[state_component_equality,set_var_def,lookup_insert]>>
       srw_tac[][]>>DISJ2_TAC>>strip_tac>>
       `x ≠ temp` by DECIDE_TAC>>metis_tac[])
+
   >-
-    (*Op*)
-    (Cases_on`∃e1 e2. l = [e1;e2]`>>full_simp_tac(srw_ss())[inst_select_exp_def]
+    (rename [‘Op’]>>
+    Cases_on`∃e1 e2. l = [e1;e2]`>>full_simp_tac(srw_ss())[inst_select_exp_def]
     >-
-      (`binary_branch_exp e1` by
+      (IF_CASES_TAC THEN1
+
+
+
+cheat >>
+      pop_assum mp_tac >>
+      IF_CASES_TAC THEN1 cheat >>
+      pop_assum mp_tac>>
+      `binary_branch_exp e1` by
         (Cases_on`b`>>full_simp_tac(srw_ss())[binary_branch_exp_def])>>
       full_simp_tac(srw_ss())[word_exp_def,the_words_def,IS_SOME_EXISTS]>>
       last_x_assum mp_tac>>simp[Once PULL_FORALL]>>
@@ -469,7 +485,8 @@ val inst_select_exp_thm = Q.prove(`
       pop_assum(qspecl_then[`temp`,`c`] assume_tac)>>full_simp_tac(srw_ss())[]>>
       Cases_on`∃w. e2 = Const w`
       >-
-        (full_simp_tac(srw_ss())[]>>IF_CASES_TAC
+        (rpt (disch_then kall_tac) >>
+        full_simp_tac(srw_ss())[]>>IF_CASES_TAC
         >-
           (full_simp_tac(srw_ss())[evaluate_def]>>
           simp[LET_THM,inst_def,mem_load_def,word_exp_def,assign_def,the_words_def]>>
@@ -496,15 +513,25 @@ val inst_select_exp_thm = Q.prove(`
           DISJ2_TAC>>strip_tac>-`F` by DECIDE_TAC>>
           `x ≠ temp` by DECIDE_TAC>>
           `¬ (temp+1 < temp)` by DECIDE_TAC>>
-          metis_tac[]))
+          metis_tac[])) >>
+      ntac 2 (disch_then assume_tac)
       >>
         `inst_select_exp c tar temp (Op b [e1;e2]) =
         let p1 = inst_select_exp c temp temp e1 in
         let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
-        Seq p1 (Seq p2 (Inst (Arith (Binop b tar temp (Reg (temp+1))))))` by
-        (full_simp_tac(srw_ss())[inst_select_exp_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])>>
+          Seq p1 (Seq p2 (Inst (Arith (Binop b tar temp (Reg (temp+1))))))` by
+            (full_simp_tac(srw_ss())[inst_select_exp_def,LET_THM]>>
+             EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])>>
+        pop_assum mp_tac >>
+        pop_assum mp_tac >>
+        pop_assum mp_tac >>
         full_simp_tac(srw_ss())[inst_select_exp_def,LET_THM]>>pop_assum kall_tac>>
+        ntac 2 (disch_then assume_tac) >>
+        IF_CASES_TAC THEN1 fs [] >>
+        rpt (qpat_x_assum ‘~(_:bool)’ kall_tac) >>
+        rpt (qpat_x_assum ‘_ ∨ _’ kall_tac) >>
         full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>
+        disch_then kall_tac >>
         first_x_assum(qspecl_then[`e2`] mp_tac)>>
         simp[exp_size_def]>>
         disch_then(qspecl_then [`c`,`temp+1`,`temp+1`,`s with locals:=loc''`,`Word c''`,`loc''`] mp_tac)>>
@@ -544,8 +571,8 @@ val inst_select_exp_thm = Q.prove(`
       Cases_on`t'`>>fs[the_words_def]>>
       EVERY_CASE_TAC>>fs[]))
   >-
-    (*Shift*)
-    (simp[inst_select_exp_def]>>last_x_assum mp_tac>>simp[Once PULL_FORALL]>>disch_then (qspec_then`e`mp_tac)>>impl_tac>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
+    (rename [‘Shift’]>>
+    simp[inst_select_exp_def]>>last_x_assum mp_tac>>simp[Once PULL_FORALL]>>disch_then (qspec_then`e`mp_tac)>>impl_tac>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
     full_simp_tac(srw_ss())[LET_THM,word_exp_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]
     >-
       (`word_sh s' c' n = SOME c'` by
@@ -571,7 +598,8 @@ val inst_select_exp_thm = Q.prove(`
       metis_tac[])
     >-
       (`n ≥ dimindex(:'a)` by DECIDE_TAC>>
-      full_simp_tac(srw_ss())[word_sh_def])));
+      full_simp_tac(srw_ss())[word_sh_def]))
+QED
 
 val locals_rm = Q.prove(`
   D with locals := D.locals = D`,
