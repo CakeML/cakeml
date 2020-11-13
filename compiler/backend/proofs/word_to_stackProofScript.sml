@@ -20,7 +20,7 @@ val _ = set_grammar_ancestry [
   "labProps", (* for good_dimindex *)
   "stackSem", "wordSem", "word_to_stack"
 ]
-
+Type state[pp] = “:(α,β,γ)wordSem$state”
 val _ = Parse.hide "B"
 
 (* TODO: many things in this file need moving *)
@@ -2789,39 +2789,47 @@ Proof
   \\ AP_TERM_TAC \\ fs [stackSemTheory.state_component_equality]
 QED
 
-val get_vars_eq = Q.prove(
-  `∀ls z.
-  get_vars ls st = SOME z ⇒
-  let lookups = MAP (\x. lookup x st.locals) ls in
-  EVERY IS_SOME lookups ∧
-  z = MAP THE lookups`,
+Theorem get_vars_eq[local]:
+  ∀ls z.
+    get_vars ls st = SOME z ⇒
+    let lookups = MAP (\x. lookup x st.locals) ls in
+      EVERY IS_SOME lookups ∧
+      z = MAP THE lookups
+Proof
   Induct>>fs[get_vars_def,get_var_def]>>rw[]>>unabbrev_all_tac>>
   EVERY_CASE_TAC>>fs[]>>
-  metis_tac[])
+  metis_tac[]
+QED
 
-val LAST_add_ret_loc = Q.prove(`
+Theorem LAST_add_ret_loc[local]:
   args' ≠ [] ⇒
-  LAST (add_ret_loc ret args') =
-  LAST args'`,
+  LAST (add_ret_loc ret args') = LAST args'
+Proof
   Cases_on`ret`>>TRY(PairCases_on`x`)>>fs[add_ret_loc_def]>>
-  Cases_on`args'`>>fs[LAST_CONS])
+  Cases_on`args'`>>fs[LAST_CONS]
+QED
 
-val call_dest_lemma = Q.prove(
-  `¬bad_dest_args dest args /\
-    state_rel k f f' (s:('a,'a word list # 'c,'ffi) state) t lens /\
-    call_dest dest args (k,f,f') = (q0,dest') /\
-    get_vars args s = SOME args' ==>
-    ?t4:('a,'c,'ffi) stackSem$state. evaluate (q0,t) = (NONE,t4) /\
-         state_rel k f f' s t4 lens /\
-         LENGTH t4.stack = LENGTH t.stack /\
-         t4.stack_space = t.stack_space /\
-         !real_args prog ssize.
-            find_code dest (add_ret_loc (ret:(num#num_set#'a wordLang$prog#num#num)option) args':'a word_loc list) s.code s.stack_size = SOME (real_args,prog,ssize) ==>
-            ?bs bs2 fs stack_prog.
-              compile_prog prog (LENGTH real_args) k bs = (stack_prog,fs,bs2) ∧
-              bs2 ≼ t4.bitmaps ∧
-              the fs ssize = fs ∧
-              find_code dest' t4.regs t4.code = SOME stack_prog`,
+Theorem call_dest_lemma[local]:
+  ¬bad_dest_args dest args /\
+  state_rel k f f' (s:('a,'a word list # 'c,'ffi) state) t lens /\
+  call_dest dest args (k,f,f') = (q0,dest') /\
+  get_vars args s = SOME args' ==>
+  ?t4:('a,'c,'ffi) stackSem$state.
+    evaluate (q0,t) = (NONE,t4) /\
+    state_rel k f f' s t4 lens /\
+    LENGTH t4.stack = LENGTH t.stack /\
+    t4.stack_space = t.stack_space /\
+    !real_args prog ssize.
+      find_code dest
+                (add_ret_loc (ret:(num#num_set#'a wordLang$prog#num#num)option)
+                             args':'a word_loc list)
+                s.code s.stack_size = SOME (real_args,prog,ssize) ==>
+      ?bs bs2 fs stack_prog.
+        compile_prog prog (LENGTH real_args) k bs = (stack_prog,fs,bs2) ∧
+        bs2 ≼ t4.bitmaps ∧
+        the fs ssize = fs ∧
+        find_code dest' t4.regs t4.code = SOME stack_prog
+Proof
   Cases_on`dest`>>fs[call_dest_def,bad_dest_args_def,LENGTH_NIL]>>rw[]
   >-
     (fs[wReg2_def,TWOxDIV2,LET_THM]>>
@@ -2904,7 +2912,8 @@ val call_dest_lemma = Q.prove(
     fs[find_code_def,stackSemTheory.find_code_def]>>
     ntac 2 TOP_CASE_TAC>>rw[]>>
     res_tac>>
-    simp[]>>metis_tac[]);
+    simp[]>>metis_tac[]
+QED
 
 val compile_result_NOT_2 = Q.prove(
   `good_dimindex (:'a) ==>
@@ -3423,18 +3432,23 @@ QED
 
 Theorem wStackLoad_thm1:
    wReg1 (2 * n1) (k,f,f') = (l,n2) ∧
-   get_var (2*n1) (s:('a,'a word list # 'c,'ffi)state) = SOME x ∧
+   get_var (2*n1) (s:('a,'a word list # 'c,'ffi)wordSem$state) = SOME x ∧
    state_rel k f f' s t lens ∧
-   (n1 < k ⇒ ∃t'. evaluate (kont n1, t) = (NONE, t') ∧ state_rel k f f' s' t' lens /\
-                   LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space) ∧
-   (¬(n1 < k) ⇒ ∃t'. evaluate (kont k, set_var k (EL (t.stack_space + (f+k-(n1+1))) t.stack) t) = (NONE, t')
-    ∧ state_rel k f f' s' t' lens /\ LENGTH t'.stack = LENGTH t.stack /\
-    t'.stack_space = t.stack_space)
-  ⇒
+   (n1 < k ⇒ ∃t'. evaluate (kont n1, t) = (NONE, t') ∧
+                  state_rel k f f' s' t' lens /\
+                  LENGTH t'.stack = LENGTH t.stack /\
+                  t'.stack_space = t.stack_space) ∧
+   (¬(n1 < k) ⇒
+    ∃t'. evaluate (kont k,
+                   set_var k (EL (t.stack_space + (f+k-(n1+1))) t.stack) t) =
+         (NONE, t') ∧
+         state_rel k f f' s' t' lens /\ LENGTH t'.stack = LENGTH t.stack /\
+         t'.stack_space = t.stack_space)
+   ⇒
    ∃t'.
      evaluate (wStackLoad l (kont n2),t) = (NONE,t') ∧
      state_rel k f f' s' t' lens  /\ LENGTH t'.stack = LENGTH t.stack /\
-    t'.stack_space = t.stack_space
+     t'.stack_space = t.stack_space
 Proof
   simp[wReg1_def,TWOxDIV2]
   \\ rw[] \\ rw[wStackLoad_def] \\ fs[]

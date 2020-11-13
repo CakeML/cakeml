@@ -7042,14 +7042,14 @@ Proof
 QED
 
 Definition cut_locals_def:
-  cut_locals names s =
-    case cut_env names s.locals of
+  cut_locals names (s:('a,'b)dataSem$state) =
+    case dataSem$cut_env names s.locals of
     | SOME env => s with locals := env
     | NONE => s with locals := LN
 End
 
 Theorem size_of_heap_call_push_env:
-  cut_env names s.locals = SOME x ==>
+  dataSem$cut_env names s.locals = SOME x ==>
   size_of_heap (call_env [] ss (push_env x F s)) = size_of_heap (s with locals := x)
 Proof
   fs [push_env_def,call_env_def,size_of_heap_def,stack_to_vs_def,
@@ -7395,7 +7395,7 @@ val alloc_fail_lemma = alloc_lemma
 
 Theorem alloc_fail:
   good_dimindex (:α) ∧ state_rel c l1 l2 ^s t [] locs ∧
-  cut_env names s.locals = SOME x ∧
+  dataSem$cut_env names s.locals = SOME x ∧
   alloc (-1w:'a word) (adjust_set names)
     (t with locals := insert 1 (Word (-1w)) t.locals) = (q,r) ⇒
   (q = SOME NotEnoughSpace ⇒ r.ffi = s.ffi ∧ option_le r.stack_max s.stack_max) ∧
