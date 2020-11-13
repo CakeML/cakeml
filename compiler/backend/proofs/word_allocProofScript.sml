@@ -2719,7 +2719,11 @@ Proof
   >- (* get *)
     rm_tac
   >- (* OpCurrHeap *)
-    cheat
+   (rm_tac \\ fs[evaluate_def,state_component_equality,set_var_def,word_exp_def,
+       the_words_def,AllCaseEqs(),PULL_EXISTS,get_live_exp_def,big_union_def]>>
+    first_x_assum (qspecl_then [‘t’,‘delete num live’] mp_tac) >>
+    impl_tac >- (fs [domain_delete] \\ metis_tac []) >>
+    strip_tac \\ fs [] \\ rw [lookup_insert])
   >- (* loc value *)
     rm_tac
   >- (* seq *)
@@ -5942,19 +5946,15 @@ Proof
     (exists_tac>>
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[call_env_def, flush_state_def,dec_clock_def])
   >- (* OpCurrHeap *)
-    (exists_tac>>
-    fs [word_exp_def,the_words_def] >>
-    Cases_on ‘lookup n0 st.locals’ >> fs []>> Cases_on ‘x’ \\ fs []>>
-    Cases_on ‘FLOOKUP st.store CurrHeap’ >> fs []>> Cases_on ‘x’ \\ fs []>>
-    Cases_on ‘word_op b [c; c']’ >> fs [] >>
-    full_simp_tac(srw_ss())[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,
-      assign_def,word_exp_perm,evaluate_def,LET_THM,word_exp_def,the_words_def] >>
-    imp_res_tac ssa_locals_rel_get_var >>
-    fs[set_vars_def,get_var_def,lookup_alist_insert]>>
-    first_x_assum drule >> fs [set_var_def] >>
-    full_simp_tac(srw_ss())[ssa_locals_rel_def]>>
-    srw_tac[][]>>full_simp_tac(srw_ss())[lookup_insert] >>
-    pop_assum mp_tac >> cheat)
+    (last_x_assum kall_tac>>
+    exists_tac>>
+    EVERY_CASE_TAC>>full_simp_tac(srw_ss())[next_var_rename_def]>>
+    imp_res_tac ssa_locals_rel_get_var>>
+    imp_res_tac ssa_cc_trans_exp_correct>>full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
+    rev_full_simp_tac(srw_ss())[word_exp_perm,evaluate_def]>>
+    fs[set_var_def,set_store_def,ssa_cc_trans_exp_def]>>
+    match_mp_tac ssa_locals_rel_set_var>>
+    full_simp_tac(srw_ss())[every_var_def])
   >-
     exp_tac
   >- (* Install *)
