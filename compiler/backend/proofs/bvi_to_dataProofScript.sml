@@ -505,6 +505,8 @@ Proof
       by ((drule o GEN_ALL o GSYM) integerTheory.NUM_LT \\ strip_tac \\ fs [])
       \\ Cases_on `z` \\ fs [data_to_bvi_ref_def]
       \\ rw [EL_MAP] \\ fs [] \\ rw [EL_MAP] \\ fs [])
+  >- (Cases_on `z` \\ fs [data_to_bvi_ref_def]
+      \\ rw [EL_MAP] \\ fs [] \\ rw [EL_MAP] \\ fs [])
   >- (Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def])
   >- (Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def])
   >- (rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map])

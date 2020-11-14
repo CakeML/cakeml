@@ -127,6 +127,7 @@ fun mk_strip_assign code_lookup frame_lookup =
           , flush_state_def   , vs_depth_def      , eq_code_stack_max_def
           , lookup_insert     , semanticPrimitivesTheory.copy_array_def
           , size_of_stack_frame_def
+          , word_depthTheory.max_depth_def,data_to_wordTheory.AnyArith_call_tree_def
           , backend_commonTheory.small_enough_int_def ]
   \\ (fn (asm, goal) => let
         val pat   = ``sptree$lookup _ _``
@@ -143,7 +144,10 @@ fun mk_open_tailcall code_lookup frame_lookup =
                   , lookup_def   , timeout_def
                   , flush_state_def]
   \\ simp [code_lookup,lookup_def,frame_lookup]
-  \\ IF_CASES_TAC >- (simp [data_safe_def,size_of_def,frame_lookup] \\ EVAL_TAC)
+  \\ IF_CASES_TAC >- (simp [data_safe_def,size_of_def,frame_lookup]
+                     \\ TRY (fs [size_of_stack_def,GREATER_DEF,state_component_equality]
+                            \\ EVAL_TAC \\ NO_TAC)
+                     \\ EVAL_TAC)
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def
                  , flush_state_def ]
@@ -168,7 +172,7 @@ fun mk_open_call code_lookup frame_lookup =
        , size_of_stack_frame_def]
   \\ IF_CASES_TAC >- (simp [data_safe_def,size_of_def,frame_lookup]
                      (* This deals with the symbolic cases *)
-                     \\ TRY (fs [size_of_stack_def,GREATER_DEF]
+                     \\ TRY (fs [size_of_stack_def,GREATER_DEF,state_component_equality]
                             \\ EVAL_TAC \\ NO_TAC)
                      \\ EVAL_TAC)
   \\ REWRITE_TAC [ push_env_def   , to_shallow_def
