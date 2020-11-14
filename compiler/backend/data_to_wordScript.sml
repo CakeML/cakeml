@@ -110,13 +110,13 @@ val ptr_bits_def = Define `
 val real_addr_def = Define `
   (real_addr (conf:data_to_word$config) r): 'a wordLang$exp =
     let k = shift (:'a) in
-      if k <= conf.pad_bits + 1 then
-        Op Add [Lookup CurrHeap;
-                Shift Lsr (Var r) (shift_length conf - k)]
+    let l = shift_length conf in
+      if k = l ∧ conf.len_bits = 0 ∧ conf.tag_bits = 0 then
+        Op Add [Lookup CurrHeap; Op Sub [Var r; Const 1w]]
+      else if k <= conf.pad_bits + 1 then
+        Op Add [Lookup CurrHeap; Shift Lsr (Var r) (l - k)]
       else
-        Op Add [Lookup CurrHeap;
-                Shift Lsl (Shift Lsr (Var r)
-                  (shift_length conf)) k]`
+        Op Add [Lookup CurrHeap; Shift Lsl (Shift Lsr (Var r) l) k]`
 
 val real_offset_def = Define `
   (real_offset (conf:data_to_word$config) r): 'a wordLang$exp =
