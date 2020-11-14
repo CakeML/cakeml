@@ -27,11 +27,54 @@ Proof
 QED
 
 Theorem size_of_Number_head:
-  ∀vs lims refs seen n b.
+  ∀vs lims refs seen n.
   small_num lims.arch_64_bit n ⇒
   (size_of lims (Number n::vs) refs seen = size_of lims vs refs seen)
 Proof
   Cases \\ rw [size_of_def] \\ pairarg_tac \\ fs []
+QED
+
+Theorem size_of_Number_gen:
+  ∀xs lim i refs seen n refs1 seen1.
+    (size_of lim (Number i::xs) refs seen = (n,refs1,seen1))
+    ⇒ ∃n1. (size_of lim xs refs seen = (n1,refs1,seen1)) ∧
+           (n = FST (size_of lim [Number i] LN LN) + n1)
+Proof
+  Cases \\ rw [size_of_def] \\ pairarg_tac \\ fs []
+QED
+
+Theorem size_of_Number_swap:
+  ∀x ys i lim refs seen n refs1 seen1.
+    (size_of lim (x::Number i::ys) refs seen = (n,refs1,seen1))
+    ⇔ (size_of lim (Number i::x::ys) refs seen = (n,refs1,seen1))
+Proof
+  rw [size_of_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  >- (drule size_of_Number_head
+      \\ disch_then (qspecl_then [‘ys’,‘refs’,‘seen’] mp_tac)
+      \\ strip_tac \\ Cases_on ‘ys’ \\ fs [size_of_def] \\ rveq \\ rfs [])
+  \\ drule size_of_Number_gen \\ strip_tac \\ rveq \\ fs [size_of_def]
+  \\ Cases_on ‘ys’ \\ fs [size_of_def]
+  \\ rveq \\ rfs []
+  \\ rveq \\ rfs []
+QED
+
+Theorem size_of_Number_swap_APPEND:
+  ∀xs ys i lim refs seen n refs1 seen1.
+    (size_of lim (xs ++ Number i::ys) refs seen = (n,refs1,seen1))
+    ⇔ (size_of lim (Number i::(xs ++ ys)) refs seen = (n,refs1,seen1))
+Proof
+  Induct \\ rw []
+  \\ ONCE_REWRITE_TAC [GSYM size_of_Number_swap]
+  \\ rw [size_of_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ first_assum (qspecl_then [‘ys’,‘i’,‘lim’,‘refs’,‘seen’,‘n1’,‘refs1'’,‘seen1'’] mp_tac)
+  \\ disch_then (drule o snd o EQ_IMP_RULE)
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac ‘h::rest’
+  \\ ‘∃r rs. rest = r :: rs’ by
+     (qunabbrev_tac ‘rest’ \\ Cases_on ‘xs’ \\ rw [])
+  \\ rw [size_of_def]
 QED
 
 Theorem size_of_seen_SUBSET:
@@ -62,6 +105,23 @@ Proof
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ ho_match_mp_tac SUBSET_TRANS
   \\ asm_exists_tac \\ fs []
+QED
+
+Theorem size_of_refs_subspt:
+  ∀lims vs refs seen n1 seen1 refs1.
+  (size_of lims vs refs seen = (n1,refs1,seen1))
+  ⇒ subspt refs1 refs
+Proof
+  ho_match_mp_tac size_of_ind \\ rw [size_of_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  >- (ho_match_mp_tac (GEN_ALL subspt_trans)
+     \\ asm_exists_tac \\ fs [])
+  \\ every_case_tac \\ fs []
+  \\ rveq \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ fs [subspt_delete]
+  \\ ho_match_mp_tac (GEN_ALL subspt_trans)
+  \\ asm_exists_tac \\ fs [subspt_delete]
 QED
 
 Theorem size_of_le_head:
@@ -473,4 +533,216 @@ Proof
   \\ Cases_on `n = p` \\ fs [lookup_delete,lookup_insert]
 QED
 
+Definition safe_ts_def:
+  (safe_ts [] refs seen = (T, refs, seen)) /\
+  (safe_ts (x::y::ys) refs seen =
+    let (t1,refs1,seen1) = check_res refs (safe_ts (y::ys) refs seen) in
+    let (t2,refs2,seen2) = safe_ts [x] refs1 seen1 in
+      (t1 ∧ t2,refs2,seen2)) /\
+  (safe_ts [Word64 _] refs seen  = (T, refs, seen)) /\
+  (safe_ts [Number i] refs seen  = (T, refs, seen)) /\
+  (safe_ts [CodePtr _] refs seen = (T, refs, seen)) /\
+  (safe_ts [RefPtr r] refs seen =
+     case lookup r refs of
+     | NONE => (T, refs, seen)
+     | SOME (ByteArray _ bs) => (T, delete r refs, seen)
+     | SOME (ValueArray vs)  => safe_ts vs (delete r refs) seen) /\
+  (safe_ts [Block ts tag []] refs seen = (T, refs, seen)) /\
+  (safe_ts [Block ts tag vs] refs seen =
+     case lookup ts seen of
+        SOME blk => let (t1,refs1,seen1) = safe_ts vs refs seen
+                    in (t1 ∧ (blk = Block ts tag vs) ∧ (refs1 = refs) ∧ (seen1 = seen),refs,seen)
+     |  NONE     => safe_ts vs refs (insert ts (Block ts tag vs) seen))
+Termination
+  WF_REL_TAC `(inv_image (measure I LEX measure v1_size)
+                          (\(vs,refs,seen). (sptree$size refs,vs)))`
+  \\ rpt strip_tac \\ fs [sptreeTheory.size_delete]
+  \\ imp_res_tac miscTheory.lookup_zero \\ fs []
+  \\ rw [] \\ fs []
+  \\ imp_res_tac check_res_IMP \\ fs []
+End
+
+Triviality check_res_safe_ts:
+  check_res refs (safe_ts vs refs seen) = safe_ts vs refs seen
+Proof
+  qsuff_tac
+    `!vs refs seen. size (( \ (n,refs,seen). refs) (safe_ts vs refs seen)) <= size refs`
+  THEN1 (rw [] \\ pop_assum (assume_tac o SPEC_ALL) \\ pairarg_tac \\ fs [check_res_def])
+  \\ ho_match_mp_tac safe_ts_ind \\ fs [safe_ts_def] \\ rw []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs[]
+  \\ fs [check_res_def,bool_case_eq,option_case_eq,pair_case_eq,CaseEq"ref"]
+  \\ rveq \\ fs [] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs[] \\ fs [size_delete]
+QED
+
+Theorem safe_ts_def[compute] = REWRITE_RULE [check_res_safe_ts] safe_ts_def
+Theorem safe_ts_ind = REWRITE_RULE [check_res_safe_ts] safe_ts_ind
+
+(* Stolen from clos_to_bvlProof *)
+Theorem not_domain_lookup:
+   ∀x n. n ∉ domain x ⇔ (lookup n x = NONE)
+Proof
+  rw [] \\
+  fs [domain_lookup] \\ Cases_on `lookup n x` \\ fs []
+QED
+
+Theorem size_of_safe_ts_seen_eq:
+  ∀lims l refs seen bseen n safe refs1 refs2 seen0 bseen0.
+    (safe_ts l refs bseen = (safe, refs1, bseen0)) ∧
+    (size_of lims l refs seen  = (n,    refs2, seen0))  ∧
+    (domain bseen = domain seen)
+    ⇒ ∀ts. (domain bseen0 = domain seen0) ∧ (refs1 = refs2)
+Proof
+  ho_match_mp_tac size_of_ind \\ rw [size_of_def,safe_ts_def] \\ fs []
+  >- (rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+     \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs []
+     \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs [])
+  >- (rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+     \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs []
+     \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs [])
+  >- (Cases_on ‘lookup r refs’ \\ fs [] \\ rveq \\ fs []
+     \\ Cases_on ‘x’ \\ fs [] \\ rveq \\ fs []
+     \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+     \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs [])
+  >- (Cases_on ‘lookup r refs’ \\ fs [] \\ rveq \\ fs []
+     \\ Cases_on ‘x’ \\ fs [] \\ rveq \\ fs []
+     \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+     \\ first_x_assum drule \\ disch_then drule \\ rw [] \\ fs [])
+  >- (‘IS_SOME (lookup ts bseen)’ by fs [GSYM domain_IS_SOME]
+      \\ fs [IS_SOME_EXISTS] \\ rfs [] \\ fs [] \\ rveq \\ fs []
+      \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [])
+  >- (‘IS_SOME (lookup ts bseen)’ by fs [GSYM domain_IS_SOME]
+      \\ fs [IS_SOME_EXISTS] \\ rfs [] \\ fs [] \\ rveq \\ fs []
+      \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [])
+  >- (‘lookup ts bseen = NONE’ by fs [GSYM not_domain_lookup]
+      \\ fs [] \\ rfs []
+      \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+      \\ first_x_assum drule
+      \\ rw [domain_insert])
+  >- (‘lookup ts bseen = NONE’ by fs [GSYM not_domain_lookup]
+      \\ fs [] \\ rfs []
+      \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+      \\ first_x_assum drule
+      \\ rw [domain_insert])
+QED
+
+Theorem safe_ts_head:
+  ∀lims x xs refs seen refs0 seen0.
+    (safe_ts (x::xs) refs seen = (T,refs0,seen0))
+    ⇒ ∃refs1 seen1. safe_ts xs refs seen = (T,refs1,seen1)
+Proof
+  rw [] \\ Cases_on ‘xs’ \\ rw [safe_ts_def]
+  \\ fs [safe_ts_def]
+  \\ rpt (pairarg_tac \\ fs [])
+QED
+
+Theorem safe_ts_seen_subspt:
+  ∀vs refs seen n1 seen1 refs1.
+  (safe_ts vs refs seen = (n1,refs1,seen1))
+  ⇒ subspt seen seen1
+Proof
+  ho_match_mp_tac safe_ts_ind \\ rw [safe_ts_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  >- (ho_match_mp_tac (GEN_ALL subspt_trans)
+     \\ asm_exists_tac \\ fs [])
+  >- (every_case_tac \\ fs []
+     \\ first_x_assum irule
+     \\ rpt (pairarg_tac \\ fs []))
+  \\ every_case_tac \\ fs []
+  \\ first_x_assum drule \\ rw []
+  \\ ho_match_mp_tac (GEN_ALL subspt_trans)
+  \\ qmatch_asmsub_rename_tac ‘insert ts blk’
+  \\ qexists_tac ‘insert ts blk seen’ \\ fs []
+  \\ ONCE_REWRITE_TAC [insert_union]
+  \\ (irule o GEN_ALL o snd o EQ_IMP_RULE o SPEC_ALL) subspt_lookup
+  \\ rw [lookup_union,lookup_insert] \\ fs []
+  \\ rw [lookup_def]
+QED
+
+Theorem safe_ts_refs_subspt:
+  ∀vs refs seen n1 seen1 refs1.
+  (safe_ts vs refs seen = (n1,refs1,seen1))
+  ⇒ subspt refs1 refs
+Proof
+  ho_match_mp_tac safe_ts_ind \\ rw [safe_ts_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  >- (ho_match_mp_tac (GEN_ALL subspt_trans)
+     \\ asm_exists_tac \\ fs [])
+  >- (every_case_tac \\ fs [] \\ rveq
+      \\ fs [subspt_delete]
+      \\ ho_match_mp_tac (GEN_ALL subspt_trans)
+      \\ asm_exists_tac \\ fs [subspt_delete])
+  \\ every_case_tac \\ fs []
+QED
+
+Theorem size_of_cons:
+  ∀lims x y refs seen n1 refs1 seen1.
+   (size_of lims (x::y) refs seen = (n1, refs1, seen1))
+   ⇔ ∃n0 n2 refs0 seen0.
+      (size_of lims y   refs seen   = (n0, refs0, seen0)) ∧
+      (size_of lims [x] refs0 seen0 = (n2, refs1, seen1)) ∧
+      (n1 = n0 + n2)
+Proof
+  rw []
+  \\ EQ_TAC
+  >- (Cases_on ‘y’ \\ fs [size_of_def]
+     \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [])
+  \\ rw [] \\ Cases_on ‘y’ \\ fs [size_of_def]
+QED
+
+Theorem size_of_append:
+  ∀x lims y refs seen n1 refs1 seen1.
+   (size_of lims (x ++ y) refs seen = (n1, refs1, seen1))
+   ⇒ ∃n0 n2 refs0 seen0.
+      (size_of lims y refs seen   = (n0, refs0, seen0)) ∧
+      (size_of lims x refs0 seen0 = (n2, refs1, seen1)) ∧
+      (n1 = n0 + n2)
+Proof
+  Induct \\ rw [size_of_def]
+  \\ (drule o GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_cons \\ rw []
+  \\ first_x_assum drule
+  \\ rw [] \\ asm_exists_tac \\ fs []
+  \\ ONCE_REWRITE_TAC [size_of_cons]
+  \\ asm_exists_tac \\ fs []
+QED
+
+Theorem safe_ts_cons:
+  ∀x y refs seen t1 refs1 seen1.
+   (safe_ts (x::y) refs seen = (t1, refs1, seen1))
+   ⇔ ∃t0 t2 refs0 seen0.
+      (safe_ts y   refs seen   = (t0, refs0, seen0)) ∧
+      (safe_ts [x] refs0 seen0 = (t2, refs1, seen1)) ∧
+      (t1 = t0 ∧ t2)
+Proof
+  rw []
+  \\ EQ_TAC
+  >- (Cases_on ‘y’ \\ fs [safe_ts_def]
+     \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [])
+  \\ rw [] \\ Cases_on ‘y’ \\ fs [safe_ts_def]
+QED
+
+Theorem safe_ts_append:
+  ∀x y refs seen t1 refs1 seen1.
+   (safe_ts (x ++ y) refs seen = (t1, refs1, seen1))
+   ⇔ ∃t0 t2 refs0 seen0.
+      (safe_ts y refs seen   = (t0, refs0, seen0)) ∧
+      (safe_ts x refs0 seen0 = (t2, refs1, seen1)) ∧
+      (t1 = t0 ∧ t2)
+Proof
+  Induct \\ rw [safe_ts_def]
+  \\ EQ_TAC
+  >- (rw []
+      \\ (drule o GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) safe_ts_cons \\ rw []
+
+      \\ asm_exists_tac \\ fs []
+      \\ ONCE_REWRITE_TAC [safe_ts_cons]
+      \\ qexists_tac ‘t2' ∧ t2’
+      \\ rw []
+      \\ metis_tac [])
+  \\ rw []
+  \\ ONCE_REWRITE_TAC [safe_ts_cons]
+  \\ rw []
+  \\ (drule o GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) safe_ts_cons \\ rw []
+  \\ MAP_EVERY qexists_tac [‘t0 ∧ t0'’,‘t2'’,‘refs0'’,‘seen0'’]
+  \\ rw [] \\ metis_tac []
+QED
 val _ = export_theory();

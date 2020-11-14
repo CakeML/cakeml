@@ -362,6 +362,7 @@ val clos_op_to_display_def = Define `
     | LengthByteVec => empty_item (strlit "LengthByteVec")
     | DerefByteVec => empty_item (strlit "DerefByteVec")
     | TagLenEq n1 n2 => item_with_nums (strlit "TagLenEq") [n1; n2]
+    | ElemAt num => item_with_num (strlit "ElemAt") num
     | LenEq num => item_with_num (strlit "LenEq") num
     | TagEq num => item_with_num (strlit "TagEq") num
     | Ref => empty_item (strlit "Ref")

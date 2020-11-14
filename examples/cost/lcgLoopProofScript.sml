@@ -1832,8 +1832,7 @@ in
   (* 5 :≡ (El,[0; 4],NONE); *)
   (* 6 :≡ (Const 1,[],NONE); *)
   (* 7 :≡ (El,[0; 6],NONE); *)
-  \\ ntac 4 strip_assign
-  \\ qmatch_goalsub_abbrev_tac ‘bind _ put_chars_rest’
+  \\ ntac 3 strip_assign
   (* call_put_char *)
   \\ simp [bind_def,call_def]
   \\ eval_goalsub_tac “dataSem$get_vars _ _” \\ fs []
@@ -1897,7 +1896,6 @@ in
       \\ rw [state_component_equality]
       \\ fs[max_def])
   \\ simp[call_env_def,push_env_def,dec_clock_def,pop_env_def,set_var_def]
-  \\ Q.UNABBREV_TAC ‘put_chars_rest’
   (* tailcall_put_chars [7] *)
   \\ simp [bind_def,tailcall_def]
   \\ eval_goalsub_tac “dataSem$get_vars _ _” \\ fs []
@@ -2374,6 +2372,7 @@ QED
 Theorem data_safe_lcgLoop_code_shallow[local] =
   data_safe_lcgLoop_code |> simp_rule [lcgLoop_body_def,to_shallow_thm,to_shallow_def];
 
+(* TODO: move to dataProps *)
 Theorem do_app_mono:
   (dataSem$do_app op xs s = Rval (r,s')) ⇒
   subspt s.code s'.code ∧
@@ -2392,6 +2391,7 @@ Proof
   \\ fs [] \\ fs [subspt_lookup,lookup_union]
 QED
 
+(* TODO: move to dataProps *)
 Theorem evaluate_mono:
   ∀prog s res s'.
     (dataSem$evaluate (prog,s) = (res,s')) ⇒

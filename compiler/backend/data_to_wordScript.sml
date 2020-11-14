@@ -1041,6 +1041,14 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_ElemAt (c:data_to_word$config) n (l:num) (dest:num) v1 =
+                         (Assign (adjust_var dest)
+                            (Load (Op Add [real_addr c (adjust_var v1);
+                                           Const (bytes_in_word +
+                                                  bytes_in_word * n2w n)])),l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
   assign_DerefByte (c:data_to_word$config) (l:num) (dest:num) v1 v2 =
          (list_Seq [
             Assign 1 (Op Add [real_addr c (adjust_var v1);
@@ -1853,8 +1861,8 @@ val def = assign_Define `
                Assign (adjust_var dest) (Op Add [ShiftVar Lsl 3 4; Const 2w])],l)))
       : 'a wordLang$prog # num`;
 
-  val def = assign_Define `
-    assign_FP_top fpt (c:data_to_word$config) (secn:num)
+val def = assign_Define `
+  assign_FP_top fpt (c:data_to_word$config) (secn:num)
               (l:num) (dest:num) (names:num_set option) v1 v2 v3 =
        (if ~c.has_fp_ops \/ ~c.has_fp_tern then (GiveUp,l) else
         if dimindex(:'a) = 64 then
@@ -1971,6 +1979,7 @@ val assign_def = Define `
     | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
     | SetGlobalsPtr => arg1 args (assign_SetGlobalsPtr l dest) (Skip,l)
     | El => arg2 args (assign_El c l dest) (Skip,l)
+    | ElemAt n => arg1 args (assign_ElemAt c n l dest) (Skip,l)
     | DerefByte => arg2 args (assign_DerefByte c l dest) (Skip,l)
     | Update => arg3 args (assign_Update c l dest) (Skip,l)
     | UpdateByte => arg3 args (assign_UpdateByte c l dest) (Skip,l)

@@ -182,6 +182,10 @@ local val SmartOp2_quotation = `
       | (SOME i, _) => Op (EqualInt i) [x2]
       | (_, SOME i) => Op (EqualInt i) [x1]
       | _ => default
+    else if op = El then
+      dtcase dest_simple x1 of
+      | SOME i => if i < 0 then default else Op (ElemAt (Num i)) [x2]
+      | _ => default
     else default`
 in
 val SmartOp2_def = Define SmartOp2_quotation

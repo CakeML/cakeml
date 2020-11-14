@@ -11427,6 +11427,66 @@ Proof
   \\ fs [] \\ rw [] \\ fs []
 QED
 
+Theorem assign_ElemAt:
+   (∃n. op = ElemAt n) ==> ^assign_thm_goal
+Proof
+  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ rpt_drule0 state_rel_cut_IMP
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
+  \\ fs [do_app,CaseEq"list",CaseEq"dataSem$v",CaseEq"bool"]
+  \\ rveq \\ fs []
+  THEN1
+   (fs [INT_EQ_NUM_LEMMA] \\ clean_tac
+    \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_1] \\ clean_tac
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ disch_then drule0 \\ fs []
+    \\ imp_res_tac get_vars_1_IMP \\ fs []
+    \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_1] \\ clean_tac
+    \\ imp_res_tac get_vars_1_IMP \\ fs [] \\ strip_tac
+    \\ drule0 (memory_rel_El' |> GEN_ALL) \\ fs []
+    \\ disch_then drule
+    \\ strip_tac \\ clean_tac
+    \\ rename [`get_real_addr c t.store ptr_w = SOME x1`]
+    \\ `word_exp t (real_addr c (adjust_var a1)) = SOME (Word x1)` by
+          metis_tac [get_real_addr_lemma]
+    \\ fs [] \\ eval_tac
+    \\ fs [lookup_insert,adjust_var_11]
+    \\ rw [] \\ fs []
+    THEN1 metis_tac [option_le_trans,option_le_max_right]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+    \\ fs [] \\ rw [] \\ fs [])
+  \\ fs [INT_EQ_NUM_LEMMA] \\ clean_tac
+  \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_1] \\ clean_tac
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm,option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ disch_then drule0 \\ fs []
+  \\ imp_res_tac get_vars_1_IMP \\ fs []
+  \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_1] \\ clean_tac
+  \\ imp_res_tac get_vars_1_IMP \\ fs [] \\ strip_tac
+  \\ fs [CaseEq"option",CaseEq"ref",CaseEq"bool"] \\ rveq \\ fs []
+  \\ drule0 (memory_rel_Deref' |> GEN_ALL) \\ fs []
+  \\ strip_tac \\ clean_tac
+  \\ pop_assum drule \\ strip_tac
+  \\ `word_exp t (real_addr c (adjust_var a1)) = SOME (Word x')` by
+        metis_tac [get_real_offset_lemma,get_real_addr_lemma]
+  \\ fs [] \\ eval_tac
+  \\ fs [lookup_insert,adjust_var_11]
+  \\ rw [] \\ fs [option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+  \\ fs [] \\ rw [] \\ fs []
+QED
+
 Theorem assign_UpdateByte:
    op = UpdateByte ==> ^assign_thm_goal
 Proof
