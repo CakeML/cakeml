@@ -17,10 +17,12 @@ val _ = set_grammar_ancestry ["wordLang", "wordProps", "word_inst", "wordSem"];
 Type result[pp] = “:'a wordSem$result”
 
 (* TODO: Move, but some of these are specific instantiations *)
-val PERM_SWAP_SIMP = Q.prove(`
-  PERM (A ++ (B::C)) (B::(A++C))`,
+Theorem PERM_SWAP_SIMP[local]:
+  PERM (A ++ (B::C)) (B::(A++C))
+Proof
   match_mp_tac APPEND_PERM_SYM>>full_simp_tac(srw_ss())[]>>
-  metis_tac[PERM_APPEND]);
+  metis_tac[PERM_APPEND]
+QED
 
 val EL_FILTER = Q.prove(`
   ∀ls x. x < LENGTH (FILTER P ls) ⇒ P (EL x (FILTER P ls))`,
