@@ -1213,7 +1213,7 @@ Proof
   rw[]
 QED
 
-Theorem renaming_CARD_LESS_OR_EQ:
+Theorem renaming_CARD_LESS_OR_EQ':
   !t. (∀a m l.
             MEM a (tyvars t) ∧ MEM (Tyvar a) (MAP SND i) ∧
             Tyapp m l = REV_ASSOCD (Tyvar a) i (Tyvar a) ⇒
@@ -1306,7 +1306,7 @@ Proof
   )
   >> fs[DISJ_EQ_IMP,AND_IMP_INTRO]
   >> rw[NOT_LESS]
-  >> drule renaming_CARD_LESS_OR_EQ
+  >> drule renaming_CARD_LESS_OR_EQ'
   >> strip_tac
   >> dxrule_all_then strip_assume_tac LESS_EQUAL_ANTISYM
   >> Cases_on ‘not_tyvar_only’
@@ -3948,7 +3948,7 @@ QED
 
 (* any extension of a mg_sol_seq with last step leq expansion
  * is equivalent to the shorter solution *)
-Theorem mg_sol_seq_SUC_equiv_ts_on:
+Theorem mg_sol_seq_leq_SUC_equiv_ts_on:
   !pqs rs ctxt i.
   has_mg_sol_leq (TAKE i pqs) (FST (EL i pqs))
   /\ mg_sol_seq rs (TAKE i pqs)
@@ -3990,7 +3990,7 @@ QED
 
 (* unique extension of mg_sol_seq followed by leq,
  * up to equivalent type substitutions *)
-Theorem mg_sol_seq_equiv_ts_on:
+Theorem mg_sol_seq_leq_equiv_ts_on:
   !pqs rs ctxt k.
   EVERY (UNCURRY (dependency ctxt)) pqs
   /\ monotone (dependency ctxt)
@@ -4018,7 +4018,7 @@ Proof
   )
   >> rw[]
   >> first_x_assum $ qspecl_then [`pqs`,`SUC k`] mp_tac
-  >> qspec_then `TAKE (SUC k) pqs` mp_tac mg_sol_seq_SUC_equiv_ts_on
+  >> qspec_then `TAKE (SUC k) pqs` mp_tac mg_sol_seq_leq_SUC_equiv_ts_on
   >> fs[LENGTH_TAKE,TAKE_TAKE,EL_TAKE]
   >> rpt $ disch_then $ drule_at Any
   >> impl_tac
@@ -4096,7 +4096,7 @@ Proof
   )
   >> VAR_EQ_TAC
   >> qpat_x_assum `_ = THE $ LTAKE _ _` kall_tac
-  >> qspecl_then [`THE $ LTAKE (k + i) pqs`,`rors' ++ [[]]`,`ctxt`,`SUC k`] mp_tac mg_sol_seq_equiv_ts_on
+  >> qspecl_then [`THE $ LTAKE (k + i) pqs`,`rors' ++ [[]]`,`ctxt`,`SUC k`] mp_tac mg_sol_seq_leq_equiv_ts_on
   >> impl_tac
   >- (
     drule_then (qspec_then `k+i` strip_assume_tac) NOT_LFINITE_TAKE
@@ -4149,7 +4149,7 @@ Proof
     >> fs[]
   )
   >> qspecl_then [`SUC $ i + k`,`pqs`] assume_tac less_opt_LENGTH_THE_LTAKE
-  >> qspec_then `THE (LTAKE (SUC $ i + k) pqs)` mp_tac mg_sol_seq_SUC_equiv_ts_on
+  >> qspec_then `THE (LTAKE (SUC $ i + k) pqs)` mp_tac mg_sol_seq_leq_SUC_equiv_ts_on
   >> rfs[less_opt_cases,NOT_LFINITE_NO_LENGTH]
   >> drule_then (dep_rewrite.DEP_REWRITE_TAC o single) TAKE_LTAKE_EQ_LTAKE_LTAKE
   >> drule EL_LTAKE_LDROP_LNTH
