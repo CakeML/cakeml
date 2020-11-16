@@ -2865,7 +2865,9 @@ val builtin_monops =
    Eval_empty_ffi,
    Eval_force_out_of_memory_error,
    Eval_Chr,
-   Eval_Ord]
+   Eval_Chrw,
+   Eval_Ord,
+   Eval_Ordw]
   |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator, th))
 

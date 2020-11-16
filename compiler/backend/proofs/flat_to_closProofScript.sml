@@ -538,8 +538,8 @@ QED
 
 Theorem op_chars:
   (?chop. op = Chopb chop) \/
-  (op = Ord) \/
-  (op = Chr) ==>
+  (op = Ord) \/ (op = Ordw) \/
+  (op = Chr) \/ (op = Chrw) ==>
   ^op_goal
 Proof
   Cases_on `?chop. op = Chopb chop` THEN1
@@ -564,6 +564,17 @@ Proof
     \\ TRY (rename1 `~(ii < 0i)` \\ Cases_on `ii` \\ fs [])
     \\ TRY (rename1 `(0i <= ii)` \\ Cases_on `ii` \\ fs [])
     \\ `F` by intLib.COOPER_TAC)
+  \\ Cases_on `op = Ordw \/ op = Chrw` THEN1
+   (fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+        CaseEq "ast$lit"]
+    \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute]
+    \\ qpat_x_assum `v_rel _ _` mp_tac
+    \\ simp [Once v_rel_cases] \\ rw []
+    \\ fs [compile_op_def,evaluate_def,evaluate_APPEND,do_app_def,evaluate_def,arg1_def]
+    \\ simp [Once v_rel_cases] \\ rw [ORD_CHR,chr_exn_v_def,CHR_ORD]
+    \\ rename [‘w2n w’]
+    \\ qspec_then ‘w’ assume_tac w2n_lt
+    \\ fs [])
   \\ rw [] \\ fs []
 QED
 

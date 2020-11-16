@@ -656,12 +656,16 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
       end
     | (Ord, [Litv (Char c)]) ->
           Just ((s,t), Rval (Litv(IntLit(integerFromNat(String_extra.ord c)))))
+    | (Ordw, [Litv (Char c)]) ->
+          Just ((s,t), Rval (Litv(Word8(word8FromNat(String_extra.ord c)))))
     | (Chr, [Litv (IntLit i)]) ->
         Just ((s,t),
           if i < 0 || i > 255 then
             Rerr (Rraise chr_exn_v)
           else
             Rval (Litv(Char(String_extra.chr(natFromInteger i)))))
+    | (Chrw, [Litv (Word8 w)]) ->
+        Just ((s,t), Rval (Litv(Char(String_extra.chr(natFromWord8 w)))))
     | (Chopb op, [Litv (Char c1); Litv (Char c2)]) ->
         Just ((s,t), Rval (Boolv (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2)))))
     | (Implode, [v]) ->

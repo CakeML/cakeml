@@ -371,7 +371,9 @@ val _ = Define `
     | (CopyAw8Aw8, [t1; t2; t3; t4; t5]) =>
       (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
     | (Chr, [t1]) => (t1 = Tint) /\ (t = Tchar)
+    | (Chrw, [t1]) => (t1 = Tword8) /\ (t = Tchar)
     | (Ord, [t1]) => (t1 = Tchar) /\ (t = Tint)
+    | (Ordw, [t1]) => (t1 = Tchar) /\ (t = Tword8)
     | (Chopb _, [t1; t2]) => (t1 = Tchar) /\ (t2 = Tchar) /\ (t = Tbool)
     | (Implode, [t1]) => (t1 = Tlist Tchar) /\ (t = Tstring)
     | (Explode, [t1]) => (t1 = Tstring) /\ (t = Tlist Tchar)

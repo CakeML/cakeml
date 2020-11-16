@@ -83,6 +83,8 @@ Definition compile_op_def:
     | LenEq n => closLang$Op t (LenEq n) xs
     | El n => arg1 xs (\x. Op t El [Op None (Const (& n)) []; x])
     | Ord => arg1 xs (\x. x)
+    | Ordw => arg1 xs (\x. x)
+    | Chrw => arg1 xs (\x. x)
     | Chr => Let t xs (If t (Op t Less [Op None (Const 0) []; Var t 0])
                         (Raise t (Op t (Cons chr_tag) []))
                         (If t (Op t Less [Var t 0; Op None (Const 255) []])

@@ -1850,7 +1850,7 @@ Proof
     \\ xlet_auto \\ xsimpl
     \\ xapp \\ xsimpl
     \\ asm_exists_tac \\ fs [CharProgTheory.some_char_thm]
-    \\ fs[ORD_BOUND,CHR_ORD,std_preludeTheory.OPTION_TYPE_def,CharProgTheory.fromByte_def])
+    \\ fs[ORD_BOUND,CHR_ORD,std_preludeTheory.OPTION_TYPE_def,ml_translatorTheory.byte_to_char_def])
   >- xsimpl
   \\ xsimpl
   \\ xcases
@@ -2355,7 +2355,7 @@ Proof
     \\ rveq \\ xlet_auto >- xsimpl
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- (xsimpl \\ fs[instream_buffered_inv_def])
-    \\ xlet_auto >- xsimpl \\ fs [CharProgTheory.fromByte_def]
+    \\ xlet_auto >- xsimpl \\ fs [ml_translatorTheory.byte_to_char_def]
     \\ xapp
     \\ `bactive <> []` by (fs[instream_buffered_inv_def] \\ fs[DROP_NIL])
     \\ xsimpl

@@ -332,12 +332,16 @@ val do_app_def = Define `
     | _ => NONE)
   | (Ord, [Litv (Char c)]) =>
     SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
+  | (Ordw, [Litv (Char c)]) =>
+    SOME (s, Rval (Litv(Word8(n2w(ORD c)))))
   | (Chr, [Litv (IntLit i)]) =>
     SOME (s,
           if (i < 0) ∨ (i > 255) then
             Rerr (Rraise chr_exn_v)
           else
             Rval (Litv(Char(CHR(Num(ABS i))))))
+  | (Chrw, [Litv (Word8 w)]) =>
+    SOME (s, Rval (Litv(Char(CHR(w2n w)))))
   | (Chopb op, [Litv (Char c1); Litv (Char c2)]) =>
     SOME (s, Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
   | (Implode, [v]) =>

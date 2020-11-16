@@ -59,7 +59,9 @@ val _ = Datatype `
   | CopyAw8Aw8
   (* Char operations *)
   | Ord
+  | Ordw
   | Chr
+  | Chrw
   | Chopb opb
   (* String operations *)
   | Implode

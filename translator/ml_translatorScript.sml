@@ -1538,6 +1538,32 @@ Proof
   \\ intLib.COOPER_TAC
 QED
 
+Definition char_to_byte_def:
+  char_to_byte c = n2w (ORD c) :word8
+End
+
+Theorem Eval_Ordw:
+    Eval env x (CHAR c) ==>
+    Eval env (App Ordw [x]) (WORD (char_to_byte c))
+Proof
+  rw[Eval_rw,CHAR_def,NUM_def,INT_def,char_to_byte_def,WORD_def]
+  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
+QED
+
+Definition byte_to_char_def:
+  byte_to_char b = CHR (w2n (b:word8))
+End
+
+Theorem Eval_Chrw:
+    Eval env x (WORD w) ==>
+    Eval env (App Chrw [x]) (CHAR (byte_to_char w))
+Proof
+  rw[Eval_rw,CHAR_def,NUM_def,INT_def,byte_to_char_def,WORD_def]
+  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
+QED
+
 Theorem Boolv_11:
    (Boolv b1 = Boolv b2) <=> (b1 = b2)
 Proof

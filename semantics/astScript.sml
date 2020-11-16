@@ -98,7 +98,9 @@ val _ = Hol_datatype `
   | CopyAw8Aw8
   (* Char operations *)
   | Ord
+  | Ordw
   | Chr
+  | Chrw
   | Chopb of opb
   (* String operations *)
   | Implode
