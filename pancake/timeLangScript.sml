@@ -12,12 +12,12 @@ val _ = new_theory "timeLang";
 Type loc = ``:num``
 
 (* state specific input and output *)
-Type response = ``:num``
-Type signal   = ``:num``
+Type in_signal  = ``:num``
+Type out_signal = ``:num``
 
 Datatype:
-  ioAction = Input  response
-           | Output signal
+  ioAction = Input  in_signal
+           | Output out_signal
 End
 
 (*

@@ -7,37 +7,54 @@ open preamble
 
 val _ = new_theory "timeSem";
 
+
 Datatype:
   label = LDelay time
         | LAction ioAction
 End
 
+
 (*
+   in our discussion, Magnus mentioned that its better to
+   replace 'consumed' and 'output' components of state to
+   something  ioAction : ioAction
+
    ; consumed : ioAction option
-   ; output   : effect option ⇒
-   ioAction   : ioAction
- *)
+   ; output   : effect option ⇒ ioAction : ioAction
+
 
 Datatype:
   store =
   <| clocks   : clock |-> time
    ; location : loc
-   ; consumed : ioAction option
-   ; output   : effect option
+   ; ioAction : ioAction option
+     (* without option mayby, not sure *)
    ; waitTime : time option
   |>
 End
+*)
+
+Datatype:
+  store =
+  <| clocks   : clock |-> time
+   ; location : loc
+   ; consumed : in_signal option
+   ; output   : out_signal option
+   ; waitTime : time option
+  |>
+End
+
 
 Definition minusT_def:
   minusT (t1:time) (t2:time) = t1 - t2
 End
 
 Definition mkStore_def:
-  mkStore cks loc ac eff wt =
+  mkStore cks loc act out wt =
   <| clocks   := cks
    ; location := loc
-   ; consumed := ac
-   ; output   := eff
+   ; consumed := act
+   ; output   := out
    ; waitTime := wt
   |>
 End
@@ -59,8 +76,10 @@ Definition resetClocks_def:
 End
 
 
+(* TODO: rephrase this def *)
+
 Definition list_min_option_def:
-  (list_min_option ([]:real list) = NONE) /\
+  (list_min_option ([]:num list) = NONE) /\
   (list_min_option (x::xs) =
    case list_min_option xs of
    | NONE => SOME x
@@ -68,9 +87,9 @@ Definition list_min_option_def:
 End
 
 Definition delay_clocks_def:
-  delay_clocks fm d = fm |++
-                         (MAP (λ(x,y). (x,y+d))
-                          (fmap_to_alist fm))
+  delay_clocks fm (d:num) = fm |++
+                            (MAP (λ(x,y). (x,y+d))
+                            (fmap_to_alist fm))
 End
 
 Definition evalExpr_def:
@@ -100,68 +119,68 @@ Definition calculate_wtime_def:
 End
 
 Inductive evalTerm:
-  (∀st action cnds clks dest diffs.
+  (∀st in_signal cnds clks dest diffs.
      EVERY (λck. ck IN FDOM st.clocks) clks ==>
-     evalTerm st (SOME action)
-              (Tm (Input action)
+     evalTerm st (SOME in_signal)
+              (Tm (Input in_signal)
                   cnds
                   clks
                   dest
                   diffs)
               (resetClocks
-               (st with  <| consumed := SOME action
+               (st with  <| consumed := SOME in_signal
                           ; location := dest
                           ; waitTime := calculate_wtime st clks diffs|>)
                clks)) /\
 
-  (∀st effect cnds clks dest diffs.
+  (∀st out_signal cnds clks dest diffs.
      EVERY (λck. ck IN FDOM st.clocks) clks ==>
      evalTerm st NONE
-              (Tm (Output effect)
+              (Tm (Output out_signal)
                   cnds
                   clks
                   dest
                   diffs)
               (resetClocks
-               (st with  <| output   := SOME effect
+               (st with  <| output   := SOME out_signal
                           ; location := dest
                           ; waitTime := calculate_wtime st clks diffs|>)
                clks))
 End
 
 Inductive pickTerm:
-  (!st cnds event action clks dest diffs tms st'.
+  (!st cnds event in_signal clks dest diffs tms st'.
     EVERY (λcnd. evalCond st cnd) cnds /\
-    event = SOME action /\
-    evalTerm st event (Tm (Input action) cnds clks dest diffs) st' ==>
-    pickTerm st event (Tm (Input action) cnds clks dest diffs :: tms) st') /\
+    event = SOME in_signal /\
+    evalTerm st event (Tm (Input in_signal) cnds clks dest diffs) st' ==>
+    pickTerm st event (Tm (Input in_signal) cnds clks dest diffs :: tms) st') /\
 
-  (!st cnds event effect clks dest diffs tms st'.
+  (!st cnds event out_signal clks dest diffs tms st'.
     EVERY (λcnd. evalCond st cnd) cnds /\
     event = NONE /\
-    evalTerm st event (Tm (Output effect) cnds clks dest diffs) st' ==>
-    pickTerm st event (Tm (Output effect) cnds clks dest diffs :: tms) st') /\
+    evalTerm st event (Tm (Output out_signal) cnds clks dest diffs) st' ==>
+    pickTerm st event (Tm (Output out_signal) cnds clks dest diffs :: tms) st') /\
 
   (!st cnds event ioAction clks dest diffs tms st'.
     ~(EVERY (λcnd. evalCond st cnd) cnds) /\
     pickTerm st event tms st' ==>
     pickTerm st event (Tm ioAction cnds clks dest diffs :: tms) st') /\
 
-  (!st cnds event action clks dest diffs tms st'.
-    event <> SOME action /\
+  (!st cnds event in_signal clks dest diffs tms st'.
+    event <> SOME in_signal /\
     pickTerm st event tms st' ==>
-    pickTerm st event (Tm (Input action) cnds clks dest diffs :: tms) st') /\
+    pickTerm st event (Tm (Input in_signal) cnds clks dest diffs :: tms) st') /\
 
-  (!st cnds event effect clks dest diffs tms st'.
+  (!st cnds event out_signal clks dest diffs tms st'.
     event <> NONE /\
     pickTerm st event tms st' ==>
-    pickTerm st event (Tm (Output effect) cnds clks dest diffs :: tms) st')
+    pickTerm st event (Tm (Output out_signal) cnds clks dest diffs :: tms) st')
 End
 
 Inductive step:
   (!p st d.
     st.waitTime = NONE /\
-    0 <= d ==>
+    (0:num) <= d ==>
     step p (LDelay d) st
          (mkStore
           (delay_clocks (st.clocks) d)
@@ -181,19 +200,19 @@ Inductive step:
           NONE
           (SOME (w - d)))) /\
 
-  (!p st tms st' action.
+  (!p st tms st' in_signal.
       ALOOKUP p st.location = SOME tms /\
-      pickTerm (resetOutput st) (SOME action) tms st' /\
-      st'.consumed = SOME action /\
+      pickTerm (resetOutput st) (SOME in_signal) tms st' /\
+      st'.consumed = SOME in_signal /\
       st'.output = NONE ==>
-      step p (LAction (Input action)) st st') /\
+      step p (LAction (Input in_signal)) st st') /\
 
-  (!p st tms st' effect.
+  (!p st tms st' out_signal.
       ALOOKUP p st.location = SOME tms /\
       pickTerm (resetOutput st) NONE tms st' /\
       st'.consumed = NONE /\
-      st'.output = SOME effect ==>
-      step p (LAction (Output effect)) st st')
+      st'.output = SOME out_signal ==>
+      step p (LAction (Output out_signal)) st st')
 End
 
 
