@@ -141,6 +141,7 @@ Proof
     >- (EVERY_CASE_TAC >> fs[set_var_def] >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> fs[set_var_def] >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> fs[set_store_def] >> rw[] >> fs[])
+    >- (EVERY_CASE_TAC >> fs[set_var_def] >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> fs[mem_store_def] >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> fs[call_env_def, flush_state_def, dec_clock_def] >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> fs[] >> rename1 `evaluate (p, st)` >>
@@ -1558,6 +1559,14 @@ Proof
         `n ∈ domain reachable` by (imp_res_tac domain_get_locals_lookup >>
             fs[SUBSET_DEF]) >>
         fs[SUBSET_DEF] >> metis_tac[]
+        )
+    >- ( (* OpCurrHeap *)
+        simp[wordSemTheory.evaluate_def,word_exp_def,the_words_def]
+        \\ simp [AllCaseEqs(),PULL_EXISTS] \\ rpt gen_tac \\ strip_tac
+        \\ gvs [dest_result_loc_def,set_var_def]
+        \\ fs[word_state_rel_def, domain_find_loc_state, dest_result_loc_def]
+        \\ qspecl_then [`dst`, `Word z`, `s.locals`] mp_tac get_locals_insert
+        \\ fs[dest_word_loc_def] \\ metis_tac[SUBSET_TRANS]
         )
     >- ( (* Set *)
         simp[wordSemTheory.evaluate_def] >>

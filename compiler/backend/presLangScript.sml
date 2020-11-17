@@ -631,6 +631,8 @@ val stack_prog_to_display_def = Define`
         store_name_to_display sn]
     | Set sn n => Item NONE «Set» [store_name_to_display sn;
         num_to_display n]
+    | OpCurrHeap b n1 n2 => Item NONE «OpCurrHeap»
+        [asm_binop_to_display b; num_to_display n1; num_to_display n2]
     | Call rh tgt eh => Item NONE «Call»
         [(case rh of
             | NONE => empty_item «Tail»
@@ -762,6 +764,8 @@ val word_prog_to_display_def = tDefine "word_prog_to_display" `
     [word_prog_to_display_ret a; option_to_display num_to_display b;
         list_to_display num_to_display c;
         word_prog_to_display_handler d]) /\
+  (word_prog_to_display (OpCurrHeap b n1 n2) = Item NONE «OpCurrHeap»
+    [asm_binop_to_display b; num_to_display n1; num_to_display n2]) /\
   (word_prog_to_display (Seq prog1 prog2) = Item NONE (strlit "Seq")
     [word_prog_to_display prog1; word_prog_to_display prog2]) /\
   (word_prog_to_display (If cmp n reg p1 p2) = Item NONE (strlit "If")

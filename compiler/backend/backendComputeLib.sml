@@ -631,6 +631,7 @@ val add_backend_compset = computeLib.extend_compset
       (* ---- wordLang inst_select and inst flattening ---- *)
     ,word_instTheory.three_to_two_reg_def
     ,word_instTheory.pull_exp_def
+    ,word_instTheory.is_Lookup_CurrHeap_def
     ,word_instTheory.inst_select_def
     ,word_instTheory.inst_select_exp_def
     ,word_instTheory.flatten_exp_def

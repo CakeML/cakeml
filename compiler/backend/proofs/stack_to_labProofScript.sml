@@ -1168,6 +1168,10 @@ Proof
     srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
     full_simp_tac(srw_ss())[state_rel_def] ) >>
   conj_tac >- (
+    rename [`OpCurrHeap`] >>
+    srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
+    full_simp_tac(srw_ss())[state_rel_def] ) >>
+  conj_tac >- (
     rename [`Tick`] >>
     simp[stackSemTheory.evaluate_def,flatten_def] >>
     rpt gen_tac >> strip_tac >>
