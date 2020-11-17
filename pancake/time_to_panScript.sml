@@ -9,34 +9,20 @@ val _ = new_theory "time_to_pan"
 val _ = set_grammar_ancestry ["pan_common", "timeLang", "panLang"];
 
 
-Definition comp_exp_def:
-  (comp_exp (ELit time) = Const (n2w time)) ∧
-  (comp_exp (EClock (CVar clock)) = Var «clock») ∧
-  (comp_exp (ESub e1 e2) = Op Sub [comp_exp e1; comp_exp e2])
+(* controller, imagine the compiler is in place  *)
+
+Definition mk_clks_def:
+  mk_clks clks = Struct (MAP (Var o strlit) clks)
 End
 
 
-Definition comp_condition_def:
-  (comp_condition (CndLt e1 e2) =
-    Cmp Less (comp_exp e1) (comp_exp e2)) ∧
-  (comp_condition (CndLe e1 e2) =
-    Op Or [Cmp Less  (comp_exp e1) (comp_exp e2);
-           Cmp Equal (comp_exp e1) (comp_exp e2)])
+Definition task_controller_def:
+  task_controller clks iloc =
+    nested_decs [«clks»; «location»]
+                [mk_clks clks; iloc] Skip
 End
 
 
-(*
-  start from compiling the functions and then fix the controller,
-  because controller is a bit complicated and also a bit involved
-*)
-
-
-
-
-
-(*
-  input trigger is remaining
-*)
 
 
 (*
@@ -44,9 +30,40 @@ clocks are in the memory
 need to pass a parameter that is a pointer to the clock array
 *)
 
+Definition mk_clk_var:
+  mk_clk_var clk = strlit clk (* «clk» is not the same *)
+End
+
+
+Definition abc_def:
+  (mk_clks [] = Struct []) /\
+  (mk_clks [] = Struct [])
+End
+
+
+Datatype:
+  exp = Const ('a word)
+      | Var varname
+      | Label funname
+   (* | GetAddr decname *)
+      | Struct (exp list)
+      | Field index exp
+      | Load shape exp
+      | LoadByte exp
+      | Op binop (exp list)
+      | Cmp cmp exp exp
+      | Shift shift exp num
+End
+
+
+Definition abc_def:
+  (mk_clks [] = Struct []) /\
+  (mk_clks [] = Struct [])
+End
+
 
 Definition task_controller_def:
-  task_controller initial_loc =
+  task_controller clks iloc =
   nested_seq [
       Assign  «location» initial_loc;
       Assign  «task_ret» (Struct [Var «location»; Var «wake_up_at»]);
@@ -63,50 +80,71 @@ Definition task_controller_def:
     ]
 End
 
+
 (*
-num -> mlstring,
-basis/pure/mlint
-num_to_str
+  input trigger is remaining
 *)
 
 
 
-Datatype:
-  context =
-  <| funcs     : timeLang$loc    |-> panLang$funname;
-     ext_funcs : timeLang$effect |-> panLang$funname
-  |>
-End
-(* t:num*)
-Definition r2w_def:
-  (r2w (t:real) = (ARB t): 'a word)
-End
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Definition comp_exp_def:
-  (comp_exp (ELit time) = Const (r2w time)) ∧
+  (comp_exp (ELit time) = Const (n2w time)) ∧
   (comp_exp (EClock (CVar clock)) = Var «clock») ∧
   (comp_exp (ESub e1 e2) = Op Sub [comp_exp e1; comp_exp e2])
 End
 
-(* ≤ is missing in the cmp datatype *)
 
 Definition comp_condition_def:
-  (comp_condition (CndLe e1 e2) =
-    Cmp Less (comp_exp e1) (comp_exp e2)) ∧
   (comp_condition (CndLt e1 e2) =
-    Cmp Less (comp_exp e1) (comp_exp e2))
+    Cmp Less (comp_exp e1) (comp_exp e2)) ∧
+  (comp_condition (CndLe e1 e2) =
+    Op Or [Cmp Less  (comp_exp e1) (comp_exp e2);
+           Cmp Equal (comp_exp e1) (comp_exp e2)])
 End
 
 Definition conditions_of_def:
   (conditions_of (Tm _ cs _ _ _) = cs)
 End
 
+(*
+   ToDisc:
+   generating true for [] conditions,
+   to double check with semantics
+*)
+
 Definition comp_conditions_def:
   (comp_conditions [] = Const 1w) ∧
-  (* generating true for the time being *)
   (comp_conditions cs = Op And (MAP comp_condition cs))
 End
 
+(* fix *)
 
 Definition set_clks_def:
   (set_clks [] n = Skip) ∧
@@ -114,8 +152,8 @@ Definition set_clks_def:
     Seq (Assign «c» n) (set_clks cs n))
 End
 
-(* obly react to input *)
-
+(* only react to input *)
+(* fix *)
 Definition time_diffs_def:
   (time_diffs [] = ARB) ∧ (* what should be the wait time if unspecified *)
   (time_diffs ((t,CVar c)::tcs) =
@@ -123,10 +161,12 @@ Definition time_diffs_def:
 End
 
 (* statement for this *)
+(* fix *)
 Definition cal_wtime_def:
   cal_wtime (min_of:'a exp list -> 'a exp) tcs =
   min_of (time_diffs tcs):'a exp
 End
+
 
 Definition comp_step_def:
   comp_step ctxt (Tm io cnds clks loc wt) =
@@ -166,6 +206,37 @@ Definition comp_prog_def:
   (comp_prog ctxt (p::ps) =
    comp_location ctxt p :: comp_prog ctxt ps)
 End
+
+(*
+  start from compiling the functions and then fix the controller,
+  because controller is a bit complicated and also a bit involved
+*)
+
+
+
+
+
+
+
+(*
+num -> mlstring,
+basis/pure/mlint
+num_to_str
+*)
+
+
+
+Datatype:
+  context =
+  <| funcs     : timeLang$loc    |-> panLang$funname;
+     ext_funcs : timeLang$effect |-> panLang$funname
+  |>
+End
+
+
+
+
+
 
 
 
