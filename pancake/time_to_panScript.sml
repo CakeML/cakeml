@@ -8,6 +8,9 @@ val _ = new_theory "time_to_pan"
 
 val _ = set_grammar_ancestry ["pan_common", "timeLang", "panLang"];
 
+(*
+  things to discuss are under ToDisc
+*)
 
 (* controller, imagine the compiler is in place  *)
 
@@ -15,19 +18,29 @@ Definition mk_clks_def:
   mk_clks clks = Struct (MAP (Var o strlit) clks)
 End
 
-
 Definition task_controller_def:
-  task_controller clks iloc =
+  task_controller iloc clks (ffi_confs: 'a word list) =
     nested_decs
-     [«clks»; «location»; «sys_time»; «wait_set»; «wake_up_at»;
-      «task_ret»]
-     [mk_clks clks; iloc; Const 0w; Const 1w; Const 0w;
-      Struct [Var «location»; Var «wake_up_at»]]
-     Skip
+      [«location»; «clks»; «sys_time»;
+       «ptr1»; «len1»; «ptr2»; «len2»;
+       «wait_set»; «wake_up_at»; «task_ret»]
+      [iloc; mk_clks clks; Const 0w;
+       Const (EL 0 ffi_confs); Const (EL 1 ffi_confs);
+       Const (EL 2 ffi_confs); Const (EL 3 ffi_confs);
+       Const 1w; Const 0w; Struct [Var «location»; Var «wake_up_at»]]
+      (nested_seq
+        [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
+         Assign «sys_time» (Load One (Var «ptr2»))
+                (* ToDisc: what is the maximum time we support?
+                   should we load under len2? *)
+        ])
 End
 
 
-
+(*
+   ExtCall «get_time» «sys_time» ARB ARB ARB;
+   Assign  «wake_up_at» (Op Add [Var «sys_time»; Const 1w])
+*)
 
 Definition task_controller_def:
   task_controller clks iloc =
