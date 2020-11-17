@@ -140,4 +140,17 @@ Definition size_of_eids_def:
   let eids = FLAT (MAP (exp_ids o SND o SND) prog) in
    LENGTH (remove_dup eids)
 End
+
+(*
+  for time_to_pancake compiler:
+*)
+
+Definition nested_decs_def:
+  (nested_decs [] [] p = p) /\
+  (nested_decs (v::vs) (e::es) p = Dec v e (nested_decs vs es p)) /\
+  (nested_decs [] _ p = Skip) /\
+  (nested_decs _ [] p = Skip)
+End
+
+
 val _ = export_theory();
