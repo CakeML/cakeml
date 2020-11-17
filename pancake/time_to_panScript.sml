@@ -18,48 +18,15 @@ End
 
 Definition task_controller_def:
   task_controller clks iloc =
-    nested_decs [«clks»; «location»]
-                [mk_clks clks; iloc] Skip
+    nested_decs
+     [«clks»; «location»; «sys_time»; «wait_set»; «wake_up_at»;
+      «task_ret»]
+     [mk_clks clks; iloc; Const 0w; Const 1w; Const 0w;
+      Struct [Var «location»; Var «wake_up_at»]]
+     Skip
 End
 
 
-
-
-(*
-clocks are in the memory
-need to pass a parameter that is a pointer to the clock array
-*)
-
-Definition mk_clk_var:
-  mk_clk_var clk = strlit clk (* «clk» is not the same *)
-End
-
-
-Definition abc_def:
-  (mk_clks [] = Struct []) /\
-  (mk_clks [] = Struct [])
-End
-
-
-Datatype:
-  exp = Const ('a word)
-      | Var varname
-      | Label funname
-   (* | GetAddr decname *)
-      | Struct (exp list)
-      | Field index exp
-      | Load shape exp
-      | LoadByte exp
-      | Op binop (exp list)
-      | Cmp cmp exp exp
-      | Shift shift exp num
-End
-
-
-Definition abc_def:
-  (mk_clks [] = Struct []) /\
-  (mk_clks [] = Struct [])
-End
 
 
 Definition task_controller_def:
@@ -79,6 +46,25 @@ Definition task_controller_def:
               ])
     ]
 End
+
+
+
+(*
+clocks are in the memory
+need to pass a parameter that is a pointer to the clock array
+*)
+
+Definition mk_clk_var:
+  mk_clk_var clk = strlit clk (* «clk» is not the same *)
+End
+
+
+Definition abc_def:
+  (mk_clks [] = Struct []) /\
+  (mk_clks [] = Struct [])
+End
+
+
 
 
 (*
