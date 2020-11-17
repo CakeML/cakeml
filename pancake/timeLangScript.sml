@@ -8,38 +8,40 @@ open preamble
 
 val _ = new_theory "timeLang";
 
-(* location of a state in timed-automata *)
+(* location identifies TA-states *)
 Type loc = ``:num``
 
-(* input and output asscociated with each state *)
-Type action = ``:num``
-Type effect = ``:num``
+(* state specific input and output *)
+Type response = ``:num``
+Type signal   = ``:num``
 
 Datatype:
-  ioAction = Input action
-           | Output effect
+  ioAction = Input  response
+           | Output signal
 End
 
-(* real-valued time, equivalent to run-time *)
-(* IMP: modeled as rational in the Coq formalism  *)
-Type time   = ``:real``
+(*
+  IMP:
+  time:rat in the Coq formalism,
+  Pancake has discrete time:num  *)
+Type time   = ``:num``
 
 
-(* clock variable *)
+(* clock variable(s) *)
 Datatype:
-  clock = CVar string (* datatype instead of type_synonym to enable parsing *)
+  clock = CVar string
 End
-(* clock variables *)
+
 Type clocks  = ``:clock list``
 
-(* clock and time expressions *)
+(* time expression *)
 Datatype:
   expr = ELit time
        | EClock clock
        | ESub expr expr
 End
 
-(* relational time expressions *)
+(* relational time expression *)
 Datatype:
   cond = CndLe expr expr  (* e <= e *)
        | CndLt expr expr  (* e < e *)
@@ -54,42 +56,5 @@ Datatype:
 End
 
 Type program = ``:(loc # term list) list``
-
-(*
-     = [(0%nat,
-        [Tm (Output 1%nat)
-           [CndLe (EClock (CVar "x")) (ELit 1);
-           CndLe (ELit 1) (EClock (CVar "x"));
-           CndLe (EClock (CVar "x")) (ELit 2)] [] 1%nat
-	   [(2, CVar "x")]]);
-       (1%nat,
-       [Tm (Output 0%nat)
-          [CndLe (EClock (CVar "x")) (ELit 2);
-          CndLe (ELit 2) (EClock (CVar "x"));
-	  CndLe (ELit 0) (ELit 1)]
-          [CVar "x"] 0%nat [(1, CVar "x")]])]
-     : program
-
-*)
-
-(*
-
-  step s
-  {
-  switch s
-  case 0:
-     perform this task
-     update the state
-
-  case 1:
-    perform this task
-    update the state
-
-
-}
-
-*)
-
-
 
 val _ = export_theory();
