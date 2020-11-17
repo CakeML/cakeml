@@ -9,9 +9,41 @@ val _ = new_theory "time_to_pan"
 val _ = set_grammar_ancestry ["pan_common", "timeLang", "panLang"];
 
 
+Definition comp_exp_def:
+  (comp_exp (ELit time) = Const (n2w time)) ∧
+  (comp_exp (EClock (CVar clock)) = Var «clock») ∧
+  (comp_exp (ESub e1 e2) = Op Sub [comp_exp e1; comp_exp e2])
+End
+
+
+Definition comp_condition_def:
+  (comp_condition (CndLt e1 e2) =
+    Cmp Less (comp_exp e1) (comp_exp e2)) ∧
+  (comp_condition (CndLe e1 e2) =
+    Op Or [Cmp Less  (comp_exp e1) (comp_exp e2);
+           Cmp Equal (comp_exp e1) (comp_exp e2)])
+End
+
+
+(*
+  start from compiling the functions and then fix the controller,
+  because controller is a bit complicated and also a bit involved
+*)
+
+
+
+
+
 (*
   input trigger is remaining
 *)
+
+
+(*
+clocks are in the memory
+need to pass a parameter that is a pointer to the clock array
+*)
+
 
 Definition task_controller_def:
   task_controller initial_loc =
@@ -31,13 +63,21 @@ Definition task_controller_def:
     ]
 End
 
+(*
+num -> mlstring,
+basis/pure/mlint
+num_to_str
+*)
+
+
+
 Datatype:
   context =
   <| funcs     : timeLang$loc    |-> panLang$funname;
      ext_funcs : timeLang$effect |-> panLang$funname
   |>
 End
-
+(* t:num*)
 Definition r2w_def:
   (r2w (t:real) = (ARB t): 'a word)
 End
@@ -74,12 +114,15 @@ Definition set_clks_def:
     Seq (Assign «c» n) (set_clks cs n))
 End
 
+(* obly react to input *)
+
 Definition time_diffs_def:
   (time_diffs [] = ARB) ∧ (* what should be the wait time if unspecified *)
   (time_diffs ((t,CVar c)::tcs) =
    (Op Sub [Const (r2w t); Var «c»]) :: time_diffs tcs)
 End
 
+(* statement for this *)
 Definition cal_wtime_def:
   cal_wtime (min_of:'a exp list -> 'a exp) tcs =
   min_of (time_diffs tcs):'a exp
@@ -90,7 +133,6 @@ Definition comp_step_def:
   case FLOOKUP ctxt.funcs loc of
   | NONE => Skip (* maybe add a return statement here *)
   | SOME fname =>
-      Dec «task_ret» (Struct [Label «»; Const 0w]) (
         nested_seq [
             set_clks clks (Var «sys_time»);
             case io of
@@ -100,7 +142,7 @@ Definition comp_step_def:
                 | NONE => Skip
                 | SOME efname =>
                     Seq (ExtCall efname ARB ARB ARB ARB)
-                        (Return (Struct [Label «fname»; cal_wtime ARB wt]))])
+                        (Return (Struct [Label «fname»; cal_wtime ARB wt]))]
 End
 
 Definition comp_terms_def:
