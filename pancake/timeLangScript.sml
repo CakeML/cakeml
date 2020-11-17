@@ -4,7 +4,6 @@
 
 open preamble
      stringTheory
-     realTheory
 
 val _ = new_theory "timeLang";
 
