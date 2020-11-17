@@ -30,36 +30,21 @@ Definition task_controller_def:
        Const 1w; Const 0w; Struct [Var «location»; Var «wake_up_at»]]
       (nested_seq
         [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
-         Assign «sys_time» (Load One (Var «ptr2»))
+         Assign «sys_time» (Load One (Var «ptr2»));
                 (* ToDisc: what is the maximum time we support?
                    should we load under len2? *)
+         Assign  «wake_up_at» (Op Add [Var «sys_time»; Const 1w]);
+         While (Const 1w)
+               (nested_seq [
+                   While (Op And [Var «wait_set»;
+                                  Cmp Less (Var «sys_time») (Var «wake_up_at»)])
+                   (Seq (ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»)
+                        (Assign «sys_time» (Load One (Var «ptr2»))));
+                   Call (Ret «task_ret» NONE) (Var «location») [Var «sys_time»]
+                 ])
         ])
 End
-
-
-(*
-   ExtCall «get_time» «sys_time» ARB ARB ARB;
-   Assign  «wake_up_at» (Op Add [Var «sys_time»; Const 1w])
-*)
-
-Definition task_controller_def:
-  task_controller clks iloc =
-  nested_seq [
-      Assign  «location» initial_loc;
-      Assign  «task_ret» (Struct [Var «location»; Var «wake_up_at»]);
-      Assign  «wait_set» (Const 1w);
-      ExtCall «get_time» «sys_time» ARB ARB ARB;
-      Assign  «wake_up_at» (Op Add [Var «sys_time»; Const 1w]);
-      While (Const 1w)
-            (nested_seq [
-                While (Op And [Var «wait_set»;
-                               Cmp Less (Var «sys_time») (Var «wake_up_at»)])
-                (ExtCall «get_time» «sys_time» ARB ARB ARB);
-                Call (Ret «task_ret» NONE) (Var «location») [Var «sys_time»]
-              ])
-    ]
-End
-
+(* next steps: add clocks to the return value *)
 
 
 (*
