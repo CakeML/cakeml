@@ -16,6 +16,13 @@ Definition mk_clks_def:
   mk_clks clks = Struct (MAP (Var o strlit) clks)
 End
 
+(* clks: 'a exp
+   Struct [Var «»; Var «»]
+*)
+
+
+(* I thin we need a mapping from mlstring to index of the clock arrays *)
+
 
 Definition task_controller_def:
   task_controller iloc clks (ffi_confs: 'a word list) =
@@ -78,11 +85,10 @@ Definition comp_conditions_def:
 End
 
 
-(* fix *)
 Definition set_clks_def:
-  (set_clks [] n = Skip) ∧
-  (set_clks (CVar c::cs) n =
-    Seq (Assign «c» n) (set_clks cs n))
+  (set_clks clks [] n = Skip) ∧
+  (set_clks clks (CVar c::cs) n =
+    Seq (Assign «c» n) (set_clks clks cs n))
 End
 
 (* only react to input *)
@@ -90,7 +96,7 @@ End
 Definition time_diffs_def:
   (time_diffs [] = ARB) ∧ (* what should be the wait time if unspecified *)
   (time_diffs ((t,CVar c)::tcs) =
-   (Op Sub [Const (r2w t); Var «c»]) :: time_diffs tcs)
+   (Op Sub [Const (n2w t); Var «c»]) :: time_diffs tcs)
 End
 
 (* statement for this *)
@@ -100,30 +106,24 @@ Definition cal_wtime_def:
   min_of (time_diffs tcs):'a exp
 End
 
-
 Definition comp_step_def:
-  comp_step ctxt (Tm io cnds clks loc wt) =
-  case FLOOKUP ctxt.funcs loc of
-  | NONE => Skip (* maybe add a return statement here *)
-  | SOME fname =>
-        nested_seq [
-            set_clks clks (Var «sys_time»);
-            case io of
-            | (Input act)  => Return (Struct [Label «fname»; cal_wtime ARB wt])
-            | (Output eff) =>
-                case FLOOKUP ctxt.ext_funcs eff of
-                | NONE => Skip
-                | SOME efname =>
-                    Seq (ExtCall efname ARB ARB ARB ARB)
-                        (Return (Struct [Label «fname»; cal_wtime ARB wt]))]
+  comp_step clks (Tm io cnds tclks loc wt) =
+  let fname = mlint$num_to_str loc in
+    nested_seq [
+        set_clks clks tclks (Var «sys_time»);
+        case io of
+        | (Input in_signal)  => Return (Struct [Label fname; Struct ARB; cal_wtime ARB wt])
+        | (Output out_signal) => ARB]
 End
 
+Struct [Var «location»; Var «clks»; Var «wake_up_at»]
+
 Definition comp_terms_def:
-  (comp_terms ctxt [] = Skip) ∧
-  (comp_terms ctxt (t::ts) =
+  (comp_terms [] = Skip) ∧
+  (comp_terms (t::ts) =
    If (comp_conditions (conditions_of t))
-        (comp_step ctxt t)
-        (comp_terms ctxt ts))
+        (comp_step t)
+        (comp_terms ts))
 End
 
 (*
@@ -146,7 +146,6 @@ Definition clks_accum_def:
    then clks_accum ac clks
    else clks_accum (clk::ac) clks)
 End
-
 
 Definition clks_of_prog_def:
   (clks_of_prog ps =
@@ -263,6 +262,23 @@ Type program = ``:(loc # term list) list``
 
 
 (*
+Definition comp_step_def:
+  comp_step ctxt (Tm io cnds clks loc wt) =
+  case FLOOKUP ctxt.funcs loc of
+  | NONE => Skip (* maybe add a return statement here *)
+  | SOME fname =>
+        nested_seq [
+            set_clks clks (Var «sys_time»);
+            case io of
+            | (Input act)  => Return (Struct [Label «fname»; cal_wtime ARB wt])
+            | (Output eff) =>
+                case FLOOKUP ctxt.ext_funcs eff of
+                | NONE => Skip
+                | SOME efname =>
+                    Seq (ExtCall efname ARB ARB ARB ARB)
+                        (Return (Struct [Label «fname»; cal_wtime ARB wt]))]
+End
+
 Definition comp_step_def:
   comp_step ctxt cval loc_var wt_var
   (Tm io cnds clks loc wt) =
