@@ -1028,9 +1028,12 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
-  assign_SetGlobalsPtr (l:num) (dest:num) v1 =
+  assign_SetGlobalsPtr (c:data_to_word$config) (l:num) (dest:num) v1 =
       (Seq (Set Globals (Var (adjust_var v1)))
-           (Assign (adjust_var dest) Unit),l)
+      (Seq (Set GlobReal (Op Add [Lookup CurrHeap;
+                                  Shift Lsl (Shift Lsr (Var (adjust_var v1))
+                                    (shift_length c)) (shift (:'a))]))
+           (Assign (adjust_var dest) Unit)),l)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -1977,7 +1980,7 @@ val assign_def = Define `
     dtcase op of
     | Const i => assign_Const i l dest
     | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
-    | SetGlobalsPtr => arg1 args (assign_SetGlobalsPtr l dest) (Skip,l)
+    | SetGlobalsPtr => arg1 args (assign_SetGlobalsPtr c l dest) (Skip,l)
     | El => arg2 args (assign_El c l dest) (Skip,l)
     | ElemAt n => arg1 args (assign_ElemAt c n l dest) (Skip,l)
     | DerefByte => arg2 args (assign_DerefByte c l dest) (Skip,l)

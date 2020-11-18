@@ -176,13 +176,6 @@ Proof
   metis_tac [WORD_NOT_LESS]
 QED
 
-Theorem heap_in_memory_store_IMP_UPDATE:
-   heap_in_memory_store heap a sp sp1 gens c st m dm l ==>
-    heap_in_memory_store heap a sp sp1 gens c (st |+ (Globals,h)) m dm l
-Proof
-  fs [heap_in_memory_store_def,FLOOKUP_UPDATE]
-QED
-
 Theorem get_vars_2_imp:
    wordSem$get_vars [x1;x2] s = SOME [y1;y2] ==>
     wordSem$get_var x1 s = SOME y1 /\
@@ -11783,10 +11776,36 @@ Proof
   \\ fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
          adjust_var_11,libTheory.the_def,set_var_def,
          wordSemTheory.set_store_def,code_oracle_rel_def,FLOOKUP_UPDATE]
-  \\ rpt_drule0 heap_in_memory_store_IMP_UPDATE
-  \\ disch_then (qspec_then `h` assume_tac)
+  \\ ‘isWord h’ by
+   (full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ drule0 (GEN_ALL word_ml_inv_get_vars_IMP)
+    \\ disch_then drule0
+    \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
+    \\ strip_tac
+    \\ gvs [word_ml_inv_def,abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
+    \\ fs [word_addr_def,isWord_def])
+  \\ Cases_on ‘h’ \\ fs [isWord_def]
+  \\ ‘∃curr. FLOOKUP t.store CurrHeap = SOME (Word curr)’ by
+       fs [heap_in_memory_store_def]
+  \\ fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
+         adjust_var_11,libTheory.the_def,set_var_def,word_sh_def,
+         wordSemTheory.set_store_def,code_oracle_rel_def,FLOOKUP_UPDATE]
+  \\ IF_CASES_TAC THEN1
+   (qsuff_tac ‘F’ \\ rewrite_tac []
+    \\ pop_assum mp_tac \\ fs [good_dimindex_def,shift_def])
+  \\ fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
+         adjust_var_11,libTheory.the_def,set_var_def,word_sh_def,
+         wordSemTheory.set_store_def,code_oracle_rel_def,FLOOKUP_UPDATE,
+         wordSemTheory.the_words_def,word_op_def]
   \\ rw [] \\ fs [option_le_max_right]
-  \\ asm_exists_tac \\ fs [the_global_def,libTheory.the_def]
+  \\ qexists_tac ‘heap’
+  \\ qexists_tac ‘limit’
+  \\ qexists_tac ‘a’
+  \\ qexists_tac ‘sp’
+  \\ qexists_tac ‘sp1’
+  \\ qexists_tac ‘gens’
+  \\ fs [heap_in_memory_store_def,FLOOKUP_UPDATE,glob_real_inv_def]
+  \\ fs [the_global_def,libTheory.the_def]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ drule0 (GEN_ALL word_ml_inv_get_vars_IMP)
   \\ disch_then drule0
@@ -11797,6 +11816,7 @@ Proof
   \\ match_mp_tac word_ml_inv_Unit
   \\ pop_assum mp_tac \\ fs []
   \\ match_mp_tac word_ml_inv_rearrange \\ rw [] \\ fs []
+  \\ fs [FAPPLY_FUPDATE_THM]
 QED
 
 Theorem IMP:

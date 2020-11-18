@@ -2452,6 +2452,7 @@ val init_prop_def = Define `
        FLOOKUP s.store ProgStart = SOME (Word 0w) /\
        FLOOKUP s.store AllocSize = SOME (Word 0w) /\
        FLOOKUP s.store Globals = SOME (Word 0w) /\
+       FLOOKUP s.store GlobReal = SOME (Word curr) /\
        FLOOKUP s.store Handler = SOME (Word 0w) /\
        FLOOKUP s.store GenStart = SOME (Word 0w) /\
        FLOOKUP s.store CodeBuffer = SOME (Word s.code_buffer.position) ∧

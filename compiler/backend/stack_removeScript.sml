@@ -20,8 +20,8 @@ val word_offset_def = Define `
 
 val store_list_def = Define `
   store_list = [NextFree; EndOfHeap; HeapLength; OtherHeap; TriggerGC;
-                AllocSize; Handler; Globals; ProgStart; BitmapBase; GenStart;
-                CodeBuffer; CodeBufferEnd; BitmapBuffer; BitmapBufferEnd;
+                AllocSize; Handler; Globals; GlobReal; ProgStart; BitmapBase;
+                GenStart; CodeBuffer; CodeBufferEnd; BitmapBuffer; BitmapBufferEnd;
                 Temp 00w; Temp 01w; Temp 02w; Temp 03w; Temp 04w;
                 Temp 05w; Temp 06w; Temp 07w; Temp 08w; Temp 09w;
                 Temp 10w; Temp 11w; Temp 12w; Temp 13w; Temp 14w;
@@ -195,6 +195,7 @@ val store_init_def = Define `
   store_init gen_gc (k:num) =
     (K (INL 0w)) =++
       [(CurrHeap,INR (k+2));
+       (GlobReal,INR (k+2));
        (NextFree,INR (k+2));
        (TriggerGC,INR (if gen_gc then k+2 else 2));
        (EndOfHeap,INR 2);

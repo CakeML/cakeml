@@ -4433,6 +4433,12 @@ Proof
   \\ Cases_on `x'` \\ fs [gen_starts_in_store_def]
 QED
 
+Definition glob_real_inv_def:
+  glob_real_inv c (curr:'a word) globals globreal ⇔
+    ∃w. globals = SOME (Word w) ∧
+        globreal = SOME (Word (curr + (w >>> (shift_length c) << shift (:α))))
+End
+
 val heap_in_memory_store_def = Define `
   heap_in_memory_store heap a sp sp1 gens c s m dm limit <=>
     heap_length heap <= dimword (:'a) DIV 2 ** shift_length c /\
@@ -4449,6 +4455,7 @@ val heap_in_memory_store_def = Define `
       (FLOOKUP s TriggerGC = SOME (Word (curr + bytes_in_word * n2w (a+sp)))) /\
       (FLOOKUP s EndOfHeap = SOME (Word (curr + bytes_in_word * n2w (a+sp+sp1)))) /\
       (FLOOKUP s HeapLength = SOME (Word (bytes_in_word * n2w limit))) /\
+      glob_real_inv c curr (FLOOKUP s Globals) (FLOOKUP s GlobReal) /\
       gen_starts_in_store c gens (FLOOKUP s GenStart) /\
       (word_heap curr heap c *
        word_heap other (heap_expand limit) c) (fun2set (m,dm))`

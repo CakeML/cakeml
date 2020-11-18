@@ -17,7 +17,7 @@ val _ = set_grammar_ancestry["asm", "backend_common",
 val _ = Datatype `
   store_name =
     NextFree | EndOfHeap | TriggerGC | HeapLength | ProgStart | BitmapBase |
-    CurrHeap | OtherHeap | AllocSize | Globals | Handler | GenStart |
+    CurrHeap | OtherHeap | AllocSize | Globals | GlobReal | Handler | GenStart |
     CodeBuffer | CodeBufferEnd | BitmapBuffer | BitmapBufferEnd |
     Temp (5 word)`
 
