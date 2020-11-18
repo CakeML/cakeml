@@ -2504,9 +2504,7 @@ Proof
   >> disch_then $ REWRITE_TAC o single o GSYM
   >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_compose]
   >> asm_rewrite_tac[]
-  >> qmatch_goalsub_abbrev_tac `LR_TYPE_SUBST _ p = LR_TYPE_SUBST eors p`
-  >> qexists_tac `eors`
-  >> fs[]
+  >> irule_at Any EQ_REFL
 QED
 
 Theorem has_mg_sol_geq_imp:
@@ -4277,9 +4275,7 @@ Proof
   >> fs[]
   >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_compose]
   >> fs[]
-  >> qmatch_goalsub_abbrev_tac `LR_TYPE_SUBST _ p = LR_TYPE_SUBST eors p`
-  >> qexists_tac `eors`
-  >> fs[]
+  >> irule_at Any EQ_REFL
 QED
 
 (* any extension of a mg_sol_seq with last step geq expansion
@@ -4391,8 +4387,7 @@ Proof
     >> dep_rewrite.DEP_REWRITE_TAC[TAKE1,EL_DROP]
     >> fs[NOT_NIL_EQ_LENGTH_NOT_0]
   )
-  >> VAR_EQ_TAC
-  >> pop_assum kall_tac
+  >> pop_assum SUBST_ALL_TAC
   >> rw[]
   >> goal_assum drule
   >> rpt strip_tac >> fs[]

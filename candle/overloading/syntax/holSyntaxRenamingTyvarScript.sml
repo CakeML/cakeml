@@ -1013,7 +1013,7 @@ Proof
   >> imp_res_tac REV_ASSOCD_NOT_MEM_drop >> fs[]
 QED
 
-Theorem var_renaming_SWAP_idem:
+Theorem var_renaming_SWAP_inverse:
   !s x y. var_renaming s ∧ set (MAP SWAP s) = set s
     ∧ TYPE_SUBST s (Tyvar x) = (Tyvar y)
     ==> TYPE_SUBST s (Tyvar y) = (Tyvar x)
@@ -1025,7 +1025,7 @@ Proof
   >> fs[]
 QED
 
-Theorem var_renaming_SWAP_idem':
+Theorem var_renaming_SWAP_inverse':
   !s x. var_renaming s ∧ set (MAP SWAP s) = set s
     ==> TYPE_SUBST s (TYPE_SUBST s (Tyvar x)) = (Tyvar x)
 Proof
@@ -2531,12 +2531,8 @@ Theorem renn_MEM:
   !r c x y. MEM (x,y) (renn r c) <=> MEM (y,x) (renn r c)
 Proof
   rw[]
-  >> qspecl_then [`SWAP`,`renn r c`] assume_tac
-    (INST_TYPE [alpha |-> ``:type#type``,beta|-> ``:type#type``] MEM_f_MAP_f_INJ)
-  >> fs[SWAP_eq,LAMBDA_PROD]
-  >> fs[ELIM_UNCURRY,GSYM SWAP_eq]
-  >> pop_assum (fn x => CONV_TAC (RHS_CONV (ONCE_REWRITE_CONV[GSYM x])))
-  >> fs[renn_set_MAP_SWAP]
+  >> CONV_TAC $ LAND_CONV $ ONCE_REWRITE_CONV $ single $ GSYM MEM_MAP_SWAP
+  >> fs[SWAP_eq,renn_MEM_MAP_SWAP]
 QED
 
 Theorem renn_MAP_FST_SND:
@@ -2556,7 +2552,7 @@ Proof
   rpt gen_tac
   >> rename1`renn r c`
   >> qspecl_then [`r`,`c`] assume_tac (GEN_ALL renn_var_renaming)
-  >> drule var_renaming_SWAP_idem
+  >> drule var_renaming_SWAP_inverse
   >> ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO]
   >> disch_then match_mp_tac
   >> fs[renn_set_MAP_SWAP]
@@ -2600,15 +2596,15 @@ Proof
   >> fs[]
 QED
 
-Theorem renn_TYPE_SUBST_idem:
+Theorem renn_TYPE_SUBST_inverse:
   !r c x. TYPE_SUBST (renn r c) (TYPE_SUBST (renn r c) (Tyvar x)) = Tyvar x
 Proof
   rpt gen_tac
-  >> match_mp_tac var_renaming_SWAP_idem'
+  >> match_mp_tac var_renaming_SWAP_inverse'
   >> fs[renn_var_renaming,renn_set_MAP_SWAP]
 QED
 
-Theorem renn_LR_TYPE_SUBST_idem:
+Theorem renn_LR_TYPE_SUBST_inverse:
   !r c x. is_const_or_type x ==> LR_TYPE_SUBST (renn r c) (LR_TYPE_SUBST (renn r c) x) = x
 Proof
   rw[is_const_or_type_eq]
@@ -2616,7 +2612,7 @@ Proof
   >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [GSYM TYPE_SUBST_NIL]))
   >> rw[TYPE_SUBST_tyvars]
   >> ONCE_REWRITE_TAC[GSYM TYPE_SUBST_def]
-  >> fs[GSYM TYPE_SUBST_compose,renn_TYPE_SUBST_idem]
+  >> fs[GSYM TYPE_SUBST_compose,renn_TYPE_SUBST_inverse]
 QED
 
 Theorem ren_Tyvars_TYPE_SUBST:
