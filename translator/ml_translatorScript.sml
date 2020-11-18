@@ -352,12 +352,14 @@ val EqualityType_def = Define `
     (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> ((v1 = v2) = (x1 = x2))) /\
     (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> types_match v1 v2)`;
 
-val Eq_lemma = Q.prove(
-  `n < dimword (:'a) /\ dimindex (:α) <= k ==>
-    (n * 2n ** (k − dimindex (:α))) < 2 ** k`,
+Theorem Eq_lemma[local]:
+  n < dimword (:'a) /\ dimindex (:α) <= k ==>
+    (n * 2n ** (k − dimindex (:α))) < 2 ** k
+Proof
   fs [dimword_def] \\ rw []
   \\ fs [LESS_EQ_EXISTS] \\ rw [] \\ fs [EXP_ADD]
-  \\ simp_tac std_ss [Once MULT_COMM] \\ fs []);
+  \\ simp_tac std_ss [Once MULT_COMM] \\ fs []
+QED
 
 Theorem EqualityType_NUM_BOOL:
   EqualityType NUM /\ EqualityType INT /\
@@ -461,27 +463,33 @@ Proof
   \\ imp_res_tac types_match_list_length
 QED
 
-val do_eq_succeeds = Q.prove(`
+Theorem do_eq_succeeds[local]:
   (!a x1 v1 x2 v2. EqualityType a /\ a x1 v1 /\ a x2 v2 ==>
-                   (do_eq v1 v2 = Eq_val (x1 = x2)))`,
+                   (do_eq v1 v2 = Eq_val (x1 = x2)))
+Proof
  rw [EqualityType_def]
  \\ res_tac
  \\ imp_res_tac type_match_implies_do_eq_succeeds
  \\ Cases_on `v1 = v2`
- \\ fs []);
+ \\ fs []
+QED
 
-val empty_state_with_refs_eq = Q.prove(
-  `empty_state with refs := r =
+Theorem empty_state_with_refs_eq[local]:
+   empty_state with refs := r =
    s2 with <| refs := r'; ffi := f |> ⇔
    ∃refs ffi.
    s2 = empty_state with <| refs := refs; ffi := ffi |> ∧
-   r' = r ∧ f = empty_state.ffi`,
-  rw[state_component_equality,EQ_IMP_THM]);
+   r' = r ∧ f = empty_state.ffi
+Proof
+  rw[state_component_equality,EQ_IMP_THM]
+QED
 
-val empty_state_with_ffi_elim = Q.prove(
-   `empty_state with <| refs := r; ffi := empty_state.ffi |> =
-    empty_state with refs := r`,
-  rw[state_component_equality]);
+Theorem empty_state_with_ffi_elim[local]:
+   empty_state with <| refs := r; ffi := empty_state.ffi |> =
+   empty_state with refs := r
+Proof
+  rw[state_component_equality]
+QED
 
 val Eval2_tac =
   first_x_assum (qspec_then `refs` strip_assume_tac)
