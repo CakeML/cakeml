@@ -1,7 +1,7 @@
 (*
   Compilation from timeLang to panLang
 *)
-open preamble pan_commonTheory
+open preamble pan_commonTheory mlintTheory
      timeLangTheory panLangTheory
 
 val _ = new_theory "time_to_pan"
@@ -9,10 +9,8 @@ val _ = new_theory "time_to_pan"
 val _ = set_grammar_ancestry ["pan_common", "timeLang", "panLang"];
 
 (*
-  things to discuss are under ToDisc
+  things to discuss are under TODISC
 *)
-
-(* controller, imagine the compiler is in place  *)
 
 Definition mk_clks_def:
   mk_clks clks = Struct (MAP (Var o strlit) clks)
@@ -28,11 +26,12 @@ Definition task_controller_def:
       [iloc; mk_clks clks; Const 0w;
        Const (EL 0 ffi_confs); Const (EL 1 ffi_confs);
        Const (EL 2 ffi_confs); Const (EL 3 ffi_confs);
-       Const 1w; Const 0w; Struct [Var «location»; Var «wake_up_at»]]
+       Const 1w; Const 0w;
+       Struct [Var «location»; Var «clks»; Var «wake_up_at»]]
       (nested_seq
         [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
          Assign «sys_time» (Load One (Var «ptr2»));
-                (* ToDisc: what is the maximum time we support?
+                (* TODISC: what is the maximum time we support?
                    should we load under len2? *)
          Assign  «wake_up_at» (Op Add [Var «sys_time»; Const 1w]);
          While (Const 1w)
@@ -41,39 +40,13 @@ Definition task_controller_def:
                                   Cmp Less (Var «sys_time») (Var «wake_up_at»)])
                    (Seq (ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»)
                         (Assign «sys_time» (Load One (Var «ptr2»))));
-                   Call (Ret «task_ret» NONE) (Var «location») [Var «sys_time»]
+                   Call (Ret «task_ret» NONE) (Var «location») [Var «sys_time»; Var «clks»]
                  ])
         ])
 End
 
-(*
-  Thoughts about clocks-passing:
-  Pancake only permits declared return values.
-  Ideally we should not pass clocks as an arguement of "Call",
-  rather each finction should only return the restted clocks, and
-  we should then update such clocks to the system time after the call.
-  But this would not be possible as figuring out the relevant clocks
-  for each function requires some workaround.
 
-  the feasible solution then I guess is to pass all of the clocks
-  to the function, the function then updates the clock it needs to and
-  returns all of the clock back
-*)
-
-
-(* next steps: add clocks to the return value *)
-
-(*
-clocks are in the memory
-need to pass a parameter that is a pointer to the clock array
-*)
-
-(*
-  input trigger is remaining
-*)
-
-
-
+(* compile time expressions *)
 Definition comp_exp_def:
   (comp_exp (ELit time) = Const (n2w time)) ∧
   (comp_exp (EClock (CVar clock)) = Var «clock») ∧
@@ -81,6 +54,7 @@ Definition comp_exp_def:
 End
 
 
+(* compile condistions of time *)
 Definition comp_condition_def:
   (comp_condition (CndLt e1 e2) =
     Cmp Less (comp_exp e1) (comp_exp e2)) ∧
@@ -94,18 +68,17 @@ Definition conditions_of_def:
 End
 
 (*
-   ToDisc:
+   TODISC:
    generating true for [] conditions,
    to double check with semantics
 *)
-
 Definition comp_conditions_def:
   (comp_conditions [] = Const 1w) ∧
   (comp_conditions cs = Op And (MAP comp_condition cs))
 End
 
-(* fix *)
 
+(* fix *)
 Definition set_clks_def:
   (set_clks [] n = Skip) ∧
   (set_clks (CVar c::cs) n =
@@ -153,19 +126,83 @@ Definition comp_terms_def:
         (comp_terms ctxt ts))
 End
 
+(*
 Definition comp_location_def:
   comp_location ctxt (loc, ts) =
    case FLOOKUP ctxt.funcs loc of
    | SOME fname => (fname, [(«sys_time»,One)], comp_terms ctxt ts)
    | NONE => («», [], Skip)
 End
+*)
 
+Definition clks_of_term_def:
+  clks_of_term (Tm _ _ clks _ _) = clks
+End
+
+Definition clks_accum_def:
+  (clks_accum ac [] = ac) ∧
+  (clks_accum ac (clk::clks) =
+   if MEM clk ac
+   then clks_accum ac clks
+   else clks_accum (clk::ac) clks)
+End
+
+
+Definition clks_of_prog_def:
+  (clks_of_prog ps =
+     clks_accum [] (FLAT (MAP clks_of_term ps)))
+End
+
+Definition shape_of_clks_def:
+  shape_of_clks ps =
+    Comb (GENLIST (λ_. One) (LENGTH (clks_of_prog ps)))
+End
+
+Definition comp_location_def:
+  comp_location clk_shp (loc, ts) =
+  (mlint$num_to_str loc,
+   [(«sys_time»,One); («clks»,clk_shp)], ARB (* comp_terms ctxt ts*) )
+
+End
 
 Definition comp_prog_def:
-  (comp_prog ctxt [] = []) ∧
-  (comp_prog ctxt (p::ps) =
-   comp_location ctxt p :: comp_prog ctxt ps)
+  (comp_prog clk_shp [] = []) ∧
+  (comp_prog clk_shp (p::ps) =
+   comp_location clk_shp p :: comp_prog clk_shp ps)
 End
+
+
+Definition comp_def:
+  comp prog = comp_prog (shape_of_clks prog) prog
+End
+
+(*
+  Thoughts about clocks-passing:
+  Pancake only permits declared return values.
+  Ideally we should not pass clocks as an arguement of "Call",
+  rather each finction should only return the restted clocks, and
+  we should then update such clocks to the system time after the call.
+  But this would not be possible as figuring out the relevant clocks
+  for each function requires some workaround.
+
+  the feasible solution then I guess is to pass all of the clocks
+  to the function, the function then updates the clock it needs to and
+  returns all of the clock back
+*)
+
+
+(* next steps: add clocks to the return value *)
+
+(*
+clocks are in the memory
+need to pass a parameter that is a pointer to the clock array
+*)
+
+(*
+  input trigger is remaining
+*)
+
+
 
 (*
   start from compiling the functions and then fix the controller,
