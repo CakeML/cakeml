@@ -1597,7 +1597,7 @@ Definition path_starting_at_def:
     /\ LENGTH rs = LENGTH pqs
     /\ EVERY (UNCURRY (dependency ctxt)) (DROP k pqs)
     /\ equiv_ts_on [] (EL k rs) (FV (FST (EL k pqs)))
-    /\ sol_seq (TAKE k rs) (TAKE k pqs)
+    /\ sol_seq (DROP k rs) (DROP k pqs)
   )
 End
 
@@ -1612,8 +1612,11 @@ Proof
     >> drule MEM_TAKE
     >> fs[]
   )
-  >> imp_res_tac MEM_DROP_TAKE
-  >> fs[]
+  >- (
+    imp_res_tac MEM_DROP_TAKE
+    >> fs[]
+  )
+  >> fs[DROP_TAKE,sol_seq_TAKE]
 QED
 
 Theorem path_starting_at_0:
@@ -1621,11 +1624,8 @@ Theorem path_starting_at_0:
   path_starting_at ctxt 0 (DROP k rs) (DROP k pqs)
 Proof
   rw[path_starting_at_def,wf_pqs_def,HD_DROP,EVERY_MEM]
-  >- (
-    first_x_assum match_mp_tac
-    >> fs[EL_MEM,MEM_DROP]
-  )
-  >> rw[sol_seq_def,wf_pqs_def]
+  >> first_x_assum match_mp_tac
+  >> fs[EL_MEM,MEM_DROP]
 QED
 
 Definition instance_LR_compute_def:
@@ -2401,10 +2401,9 @@ Proof
       dep_rewrite.DEP_ONCE_REWRITE_TAC[EL_APPEND2]
       >> fs[equiv_ts_on_refl]
     )
-    >> dep_rewrite.DEP_ONCE_REWRITE_TAC[TAKE_APPEND1,TAKE_LENGTH_ID_rwt]
-    >> fs[TAKE_APPEND1]
-    >> match_mp_tac sol_seq_TYPE_SUBST
-    >> fs[mg_sol_seq_def]
+    >> qpat_x_assum `mg_sol_seq (_ ++_) _` $ strip_assume_tac o REWRITE_RULE[mg_sol_seq_def]
+    >> drule_then (qspec_then `SUC (LENGTH l)` mp_tac) sol_seq_DROP
+    >> fs[]
   )
   >> drule mg_sol_ext_leq
   >> rpt $ disch_then $ drule_at Any
@@ -2426,9 +2425,14 @@ Proof
   >> goal_assum drule
   >> qexists_tac `k`
   >> fs[path_starting_at_def,wf_pqs_def,EVERY_APPEND,EVERY_DROP]
-  >> ONCE_REWRITE_TAC[CONS_APPEND]
-  >> PURE_REWRITE_TAC[APPEND_ASSOC]
-  >> fs[TAKE_APPEND1,EL_APPEND1]
+  >> conj_tac
+  >- (
+    ONCE_REWRITE_TAC[GSYM $ CONJUNCT2 APPEND]
+    >> dep_rewrite.DEP_REWRITE_TAC[EL_APPEND1]
+    >> fs[]
+  )
+  >> match_mp_tac sol_seq_DROP
+  >> fs[mg_sol_seq_def]
 QED
 
 (* Lemma 5.11, Kunčar 2015 *)
@@ -2726,7 +2730,7 @@ Proof
     >> fs[equiv_ts_on_def,EVERY_MEM]
     >> rpt $ goal_assum drule
   )
-  >> fs[sol_seq_def,wf_pqs_def]
+  >> fs[mg_sol_seq_def]
 QED
 
 (* various properties about llists *)
