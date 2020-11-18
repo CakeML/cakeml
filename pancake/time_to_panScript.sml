@@ -18,6 +18,7 @@ Definition mk_clks_def:
   mk_clks clks = Struct (MAP (Var o strlit) clks)
 End
 
+
 Definition task_controller_def:
   task_controller iloc clks (ffi_confs: 'a word list) =
     nested_decs
@@ -44,57 +45,32 @@ Definition task_controller_def:
                  ])
         ])
 End
-(* next steps: add clocks to the return value *)
 
+(*
+  Thoughts about clocks-passing:
+  Pancake only permits declared return values.
+  Ideally we should not pass clocks as an arguement of "Call",
+  rather each finction should only return the restted clocks, and
+  we should then update such clocks to the system time after the call.
+  But this would not be possible as figuring out the relevant clocks
+  for each function requires some workaround.
+
+  the feasible solution then I guess is to pass all of the clocks
+  to the function, the function then updates the clock it needs to and
+  returns all of the clock back
+*)
+
+
+(* next steps: add clocks to the return value *)
 
 (*
 clocks are in the memory
 need to pass a parameter that is a pointer to the clock array
 *)
 
-Definition mk_clk_var:
-  mk_clk_var clk = strlit clk (* «clk» is not the same *)
-End
-
-
-Definition abc_def:
-  (mk_clks [] = Struct []) /\
-  (mk_clks [] = Struct [])
-End
-
-
-
-
 (*
   input trigger is remaining
 *)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
