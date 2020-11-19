@@ -12,16 +12,53 @@ val _ = set_grammar_ancestry ["pan_common", "timeLang", "panLang"];
   things to discuss are under TODISC
 *)
 
+(* clks: 'a exp
+   Struct [Var «»; Var «»] *)
 Definition mk_clks_def:
-  mk_clks clks = Struct (MAP (Var o strlit) clks)
+  mk_clks clks = Struct (MAP Var clks)
 End
 
-(* clks: 'a exp
-   Struct [Var «»; Var «»]
+Definition empty_consts_def:
+  empty_consts n = GENLIST (λ_. Const 0w) n
+End
+
+Definition part_to_total_def:
+  (part_to_total (SOME x) = x:num) ∧
+  (part_to_total NONE = 0)
+End
+
+(*
+   MAP (λn. INDEX_OF n (clks_of p)) clks
 *)
 
 
-(* I thin we need a mapping from mlstring to index of the clock arrays *)
+(*
+  task_controller _ (clks_of p) _
+*)
+
+(* I think we need a mapping from mlstring to index of the clock arrays *)
+
+
+(*
+  each individual clock variable needs to be declared,
+  before we make a struct of clocks
+*)
+
+(*
+    nested_decs
+      (clks ++
+       [«location»; «clks»; «sys_time»;
+        «ptr1»; «len1»; «ptr2»; «len2»;
+        «wait_set»; «wake_up_at»; «task_ret»])
+      (empty_consts (LENGTH clks) ++
+       [iloc; mk_clks clks; Const 0w;
+        Const (EL 0 ffi_confs); Const (EL 1 ffi_confs);
+        Const (EL 2 ffi_confs); Const (EL 3 ffi_confs);
+        Const 1w; Const 0w;
+        Struct [Var «location»; Var «clks»; Var «wake_up_at»]]
+
+)
+*)
 
 
 Definition task_controller_def:
@@ -51,6 +88,8 @@ Definition task_controller_def:
                  ])
         ])
 End
+
+
 
 
 (* compile time expressions *)
@@ -116,7 +155,6 @@ Definition comp_step_def:
         | (Output out_signal) => ARB]
 End
 
-Struct [Var «location»; Var «clks»; Var «wake_up_at»]
 
 Definition comp_terms_def:
   (comp_terms [] = Skip) ∧
@@ -135,22 +173,6 @@ Definition comp_location_def:
 End
 *)
 
-Definition clks_of_term_def:
-  clks_of_term (Tm _ _ clks _ _) = clks
-End
-
-Definition clks_accum_def:
-  (clks_accum ac [] = ac) ∧
-  (clks_accum ac (clk::clks) =
-   if MEM clk ac
-   then clks_accum ac clks
-   else clks_accum (clk::ac) clks)
-End
-
-Definition clks_of_prog_def:
-  (clks_of_prog ps =
-     clks_accum [] (FLAT (MAP clks_of_term ps)))
-End
 
 Definition shape_of_clks_def:
   shape_of_clks ps =
@@ -179,7 +201,7 @@ End
   Thoughts about clocks-passing:
   Pancake only permits declared return values.
   Ideally we should not pass clocks as an arguement of "Call",
-  rather each finction should only return the restted clocks, and
+  rather each function should only return the restted clocks, and
   we should then update such clocks to the system time after the call.
   But this would not be possible as figuring out the relevant clocks
   for each function requires some workaround.
@@ -295,6 +317,13 @@ Definition comp_step_def:
                           | NONE => Skip
                           | SOME efname => ExtCall efname ARB ARB ARB ARB)))
 End
+
+
+Definition mk_clks_def:
+  mk_clks clks = Struct (MAP (Var o strlit) clks)
+End
+
 *)
+
 
 val _ = export_theory();
