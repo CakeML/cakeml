@@ -145,18 +145,19 @@ End
   for time_to_pancake compiler:
 *)
 
-Definition nested_decs_def:
-  (nested_decs [] [] p = p) /\
-  (nested_decs (v::vs) (e::es) p = Dec v e (nested_decs vs es p)) /\
-  (nested_decs [] _ p = Skip) /\
-  (nested_decs _ [] p = Skip)
-End
-
-
+(* optimise this function *)
 Definition assigns_def:
   (assigns [] n = Skip) ∧
   (assigns (v::vs) n =
     Seq (Assign v n) (assigns vs n))
 End
+
+
+Definition decs_def:
+  (decs [] p = p) /\
+  (decs ((v,e)::es) p =
+    Dec v e (decs es p))
+End
+
 
 val _ = export_theory();
