@@ -153,4 +153,10 @@ Definition nested_decs_def:
 End
 
 
+Definition assigns_def:
+  (assigns [] n = Skip) ∧
+  (assigns (v::vs) n =
+    Seq (Assign v n) (assigns vs n))
+End
+
 val _ = export_theory();
