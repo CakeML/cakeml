@@ -12,6 +12,11 @@ Definition empty_consts_def:
   empty_consts n = GENLIST (λ_. Const 0w) n
 End
 
+Definition mk_clks_def:
+  mk_clks n vname = Struct (GENLIST (λ_. Var vname) n)
+End
+
+
 Definition task_controller_def:
   task_controller iloc n =
      decs
@@ -30,14 +35,17 @@ Definition task_controller_def:
          Assign «sys_time» (Load One (Var «ptr2»));
                 (* TODISC: what is the maximum time we support?
                    should we load under len2? *)
-         Assign  «wake_up_at» (Op Add [Var «sys_time»; Const 1w]);
+
+         Assign «task_ret» (Struct (mk_clks n «sys_time» :: [Var «wake_up_at»; Var «location»]));
+         Assign «wake_up_at» (Op Add [Var «sys_time»; Const 1w]);
          While (Const 1w)
                (nested_seq [
                    While (Op And [Var «wait_set»;
                                   Cmp Less (Var «sys_time») (Var «wake_up_at»)])
                    (Seq (ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»)
                         (Assign «sys_time» (Load One (Var «ptr2»))));
-                   Call (Ret «task_ret» NONE) (Var «location») [Var «sys_time»]
+                   Call (Ret «task_ret» NONE) (Var «location»)
+                        [Var «sys_time»; Field 0 (Var «task_ret»)]
                  ])
         ])
 End
@@ -48,7 +56,6 @@ Definition comp_exp_def:
   (comp_exp (EClock (CVar clock)) = Var «clock») ∧
   (comp_exp (ESub e1 e2) = Op Sub [comp_exp e1; comp_exp e2])
 End
-
 
 (* compile conditions of time *)
 Definition comp_condition_def:
@@ -73,7 +80,6 @@ Definition comp_conditions_def:
   (comp_conditions cs = Op And (MAP comp_condition cs))
 End
 
-
 Definition part_to_total_def:
   (part_to_total (SOME x) = x:num) ∧
   (part_to_total NONE = 0)
@@ -84,7 +90,6 @@ Definition mk_vars_def:
     MAP (λn. (toString o part_to_total o INDEX_OF n) xs)
         ys
 End
-
 
 Definition time_diffs_def:
   (time_diffs [] = ARB) ∧ (* TODISC: what should be the wait time if unspecified *)
@@ -102,6 +107,7 @@ End
 Definition comp_step_def:
   comp_step clks (Tm io cnds tclks loc wt) =
   let fname  = toString loc;
+
       reset_clks  = mk_vars clks (MAP to_mlstring tclks);
       times       = MAP FST wt;
       wt_clocks   = MAP (to_mlstring o SND) wt;
@@ -112,7 +118,6 @@ Definition comp_step_def:
                                calc_wtime ARB new_wt;
                                Label fname]) in
     nested_seq [
-        assigns reset_clks (Var «sys_time»);
         case io of
         | (Input insig)   => return
         | (Output outsig) =>
@@ -211,5 +216,28 @@ Definition gen_shape_def:
   gen_shape n = GENLIST (λ_. One) n
 End
 
+
+Definition comp_step_def:
+  comp_step clks (Tm io cnds tclks loc wt) =
+  let fname  = toString loc;
+      reset_clks  = mk_vars clks (MAP to_mlstring tclks);
+      times       = MAP FST wt;
+      wt_clocks   = MAP (to_mlstring o SND) wt;
+      wtime_clks  = mk_vars clks wt_clocks;
+      new_wt      = MAP2 (λt c. (t,c)) times wtime_clks;
+      return      = Return (Struct [
+                               Struct (MAP Var clks);
+                               calc_wtime ARB new_wt;
+                               Label fname]) in
+    nested_seq [
+        assigns reset_clks (Var «sys_time»);
+        case io of
+        | (Input insig)   => return
+        | (Output outsig) =>
+            Seq
+            (ExtCall (strlit (toString outsig)) ARB ARB ARB ARB)
+                     (* TODISC: what should we for ARBs  *)
+            return]
+End
 
 val _ = export_theory();
