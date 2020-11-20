@@ -12,6 +12,14 @@ Definition empty_consts_def:
   empty_consts n = GENLIST (λ_. Const 0w) n
 End
 
+Definition gen_vnames_def:
+  gen_vnames n =
+    GENLIST (λx. toString x) n
+End
+
+Definition gen_shape_def:
+  gen_shape n = GENLIST (λ_. One) n
+End
 
 Definition task_controller_def:
   task_controller iloc clks (ffi_confs: 'a word list) =
@@ -128,52 +136,32 @@ End
 
 Definition comp_terms_def:
   (comp_terms clks [] = Skip) ∧
-  (comp_terms (t::ts) =
+  (comp_terms clks (t::ts) =
    If (comp_conditions (conditions_of t))
         (comp_step clks t)
-        (comp_terms ts))
+        (comp_terms clks ts))
 End
 
-(*
-Definition comp_location_def:
-  comp_location ctxt (loc, ts) =
-   case FLOOKUP ctxt.funcs loc of
-   | SOME fname => (fname, [(«sys_time»,One)], comp_terms ctxt ts)
-   | NONE => («», [], Skip)
-End
-*)
-
-
-Definition gen_vnames_def:
-  gen_vnames n =
-    GENLIST (λx. toString x) n
-End
-
-Definition gen_shape_def:
-  gen_shape n = GENLIST (λ_. One) n
-End
 
 Definition comp_location_def:
-  comp_location n (loc, ts) =
+  comp_location clks (loc, ts) =
+  let n = LENGTH clks in
     (toString loc,
-     [(«sys_time»,One); (gen_vnames n,gen_shape n)],
-      comp_terms clks ts)
+     MAP2 (λx y. (x,y)) («sys_time»::gen_vnames n) (gen_shape (SUC n)),
+     comp_terms clks ts)
 
 End
 
 Definition comp_prog_def:
-  (comp_prog n [] = []) ∧
-  (comp_prog n (p::ps) =
-   comp_location clks n p :: comp_prog n ps)
+  (comp_prog clks [] = []) ∧
+  (comp_prog clks (p::ps) =
+   comp_location clks p :: comp_prog clks ps)
 End
 
 Definition comp_def:
   comp prog =
-  let clks = clks_of prog;
-      n = LENGTH clks in
-    comp_prog n prog
+    comp_prog (clks_of prog) prog
 End
-
 
 
 val _ = export_theory();
