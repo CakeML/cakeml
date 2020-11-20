@@ -12,42 +12,20 @@ Definition empty_consts_def:
   empty_consts n = GENLIST (λ_. Const 0w) n
 End
 
-Definition gen_vnames_def:
-  gen_vnames n =
-    GENLIST (λx. toString x) n
-End
-
-Definition gen_shape_def:
-  gen_shape n = GENLIST (λ_. One) n
-End
-
-(*
-  Struct [Var "", Var ""]
-*)
-
-(* we do not need intermediate variables *)
-(* Note: instead of ffi_conf, we should have a buffer_size, and that should be the length of
-
-  current time,
-  flag:
-
-*)
-
 Definition task_controller_def:
-  task_controller iloc clks (ffi_confs: 'a word list) =
-     nested_decs
-      (clks ++
-       [«location»; «sys_time»;
-        «ptr1» (*0*); «len1»(*0*); «ptr2»; «len2»;
-        «wait_set»; «wake_up_at»; «task_ret»])
-      (empty_consts (LENGTH clks) ++
-       [iloc; Const 0w;
-        Const (EL 0 ffi_confs); Const (EL 1 ffi_confs);
-        Const (EL 2 ffi_confs); Const (EL 3 ffi_confs);
-        Const 1w; Const 0w;
-        Struct [
-            Struct (MAP Var clks); Var «wake_up_at»; Var «location»]])
-     (nested_seq
+  task_controller iloc n =
+     decs
+      [(«location»,iloc);
+       («sys_time»,Const 0w);
+       («ptr1»,Const 0w);
+       («len1»,Const 0w);
+       («ptr2»,Const 0w); (* TOUPDATE *)
+       («len2»,Const 0w); (* TOUPDATE *)
+       («wait_set»,Const 1w);
+       («wake_up_at»,Const 0w);
+       («task_ret»,
+        Struct [Struct (empty_consts n); Var «wake_up_at»; Var «location»])]
+      (nested_seq
         [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
          Assign «sys_time» (Load One (Var «ptr2»));
                 (* TODISC: what is the maximum time we support?
@@ -59,11 +37,10 @@ Definition task_controller_def:
                                   Cmp Less (Var «sys_time») (Var «wake_up_at»)])
                    (Seq (ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»)
                         (Assign «sys_time» (Load One (Var «ptr2»))));
-                   Call (Ret «task_ret» NONE) (Var «location») (Var «sys_time» :: MAP Var clks)
+                   Call (Ret «task_ret» NONE) (Var «location») [Var «sys_time»]
                  ])
         ])
 End
-
 
 (* compile time expressions *)
 Definition comp_exp_def:
@@ -173,6 +150,65 @@ End
 Definition comp_def:
   comp prog =
     comp_prog (clks_of prog) prog
+End
+
+(*
+  Thoughts about FFI
+
+(* Note: instead of ffi_conf, we should have a buffer_size, and that should be the length of
+
+  current time,
+  flag:
+
+*)
+
+
+*)
+
+
+
+(*
+Definition task_controller_def:
+  task_controller iloc clks (ffi_confs: 'a word list) =
+     nested_decs
+      (clks ++
+       [«location»; «sys_time»;
+        «ptr1» (*0*); «len1»(*0*); «ptr2»; «len2»;
+        «wait_set»; «wake_up_at»; «task_ret»])
+      (empty_consts (LENGTH clks) ++
+       [iloc; Const 0w;
+        Const (EL 0 ffi_confs); Const (EL 1 ffi_confs);
+        Const (EL 2 ffi_confs); Const (EL 3 ffi_confs);
+        Const 1w; Const 0w;
+        Struct [
+            Struct (MAP Var clks); Var «wake_up_at»; Var «location»]])
+     (nested_seq
+        [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
+         Assign «sys_time» (Load One (Var «ptr2»));
+                (* TODISC: what is the maximum time we support?
+                   should we load under len2? *)
+         Assign  «wake_up_at» (Op Add [Var «sys_time»; Const 1w]);
+         While (Const 1w)
+               (nested_seq [
+                   While (Op And [Var «wait_set»;
+                                  Cmp Less (Var «sys_time») (Var «wake_up_at»)])
+                   (Seq (ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»)
+                        (Assign «sys_time» (Load One (Var «ptr2»))));
+                   Call (Ret «task_ret» NONE) (Var «location») (Var «sys_time» :: MAP Var clks)
+                 ])
+        ])
+End
+
+*)
+
+
+Definition gen_vnames_def:
+  gen_vnames n =
+    GENLIST (λx. toString x) n
+End
+
+Definition gen_shape_def:
+  gen_shape n = GENLIST (λ_. One) n
 End
 
 

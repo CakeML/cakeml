@@ -60,6 +60,7 @@ Definition clks_of_term_def:
   clks_of_term (Tm _ _ clks _ _) = clks
 End
 
+
 Definition clks_accum_def:
   (clks_accum ac [] = ac) ∧
   (clks_accum ac (clk::clks) =
