@@ -6,7 +6,7 @@ open preamble pan_commonTheory mlintTheory
 
 val _ = new_theory "time_to_pan"
 
-val _ = set_grammar_ancestry ["pan_common", "timeLang", "panLang"];
+val _ = set_grammar_ancestry ["pan_common", "mlint", "timeLang", "panLang"];
 
 Definition empty_consts_def:
   empty_consts n = GENLIST (λ_. Const 0w) n
@@ -84,34 +84,35 @@ End
 
 Definition mk_vars_def:
   mk_vars xs ys =
-    MAP (λn. (mlint$num_to_str o part_to_total o INDEX_OF n) xs)
+    MAP (λn. (toString o part_to_total o INDEX_OF n) xs)
         ys
 End
 
-
-
 Definition comp_step_def:
   comp_step clks (Tm io cnds tclks loc wt) =
-  let fname = mlint$num_to_str loc;
-      nclks = mk_vars clks (MAP to_mlstring tclks) in
+  let fname  = toString loc;
+      nclks  = mk_vars clks (MAP to_mlstring tclks);
+      return = Return (Struct [
+                        Struct (MAP Var clks);
+                        (* cal_wtime ARB wt *) ARB;
+                        Label fname]) in
     nested_seq [
         assigns nclks (Var «sys_time»);
         case io of
-        | (Input in_signal)  => Skip
-        | (Output out_signal) => Skip]
+        | (Input insig)   => return
+        | (Output outsig) =>
+            Seq
+            (ExtCall (strlit (toString outsig)) ARB ARB ARB ARB)
+                     (* TODISC: what should we for ARBs  *)
+            return]
 End
 
+(*
 
-Definition comp_step_def:
-  comp_step clks (Tm io cnds tclks loc wt) =
-  let fname = mlint$num_to_str loc;
-      nclks = mk_vars clks (MAP to_mlstring tclks) in
-    nested_seq [
-        assigns nclks (Var «sys_time»);
-        case io of
-        | (Input in_signal)  => Return (Struct [Label fname; Struct ARB; cal_wtime ARB wt])
-        | (Output out_signal) => ARB]
-End
+  | (Output eff) =>
+    Seq (ExtCall efname ARB ARB ARB ARB)
+    (Return (Struct [Label «fname»; cal_wtime ARB wt]))]
+*)
 
 
 (* only react to input *)
@@ -160,7 +161,7 @@ End
 
 Definition gen_vnames_def:
   gen_vnames n =
-    GENLIST (λx. mlint$num_to_str x) n
+    GENLIST (λx. toString x) n
 End
 
 Definition gen_shape_def:
@@ -169,7 +170,7 @@ End
 
 Definition comp_location_def:
   comp_location n (loc, ts) =
-    (mlint$num_to_str loc,
+    (toString loc,
      [(«sys_time»,One); (gen_vnames n,gen_shape n)],
       comp_terms clks ts)
 
