@@ -21,12 +21,24 @@ Definition gen_shape_def:
   gen_shape n = GENLIST (λ_. One) n
 End
 
+(*
+  Struct [Var "", Var ""]
+*)
+
+(* we do not need intermediate variables *)
+(* Note: instead of ffi_conf, we should have a buffer_size, and that should be the length of
+
+  current time,
+  flag:
+
+*)
+
 Definition task_controller_def:
   task_controller iloc clks (ffi_confs: 'a word list) =
      nested_decs
       (clks ++
        [«location»; «sys_time»;
-        «ptr1»; «len1»; «ptr2»; «len2»;
+        «ptr1» (*0*); «len1»(*0*); «ptr2»; «len2»;
         «wait_set»; «wake_up_at»; «task_ret»])
       (empty_consts (LENGTH clks) ++
        [iloc; Const 0w;

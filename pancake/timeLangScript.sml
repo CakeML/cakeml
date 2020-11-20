@@ -7,6 +7,8 @@ open preamble
 
 val _ = new_theory "timeLang";
 
+Overload CVar[inferior] = “strlit”
+
 (* location identifies TA-states *)
 Type loc = ``:num``
 
@@ -25,12 +27,9 @@ End
   Pancake has discrete time:num  *)
 Type time   = ``:num``
 
-(* clock variable(s) *)
-Datatype:
-  clock = CVar string
-End
-
-Type clocks  = ``:clock list``
+(* clock variables *)
+Type clock  = ``:mlstring``
+Type clocks = ``:clock list``
 
 (* time expression *)
 Datatype:
@@ -55,15 +54,10 @@ End
 
 Type program = ``:(loc # term list) list``
 
-
 (* functinos for compiler *)
 
-Definition to_mlstring_def:
-  to_mlstring (CVar str) = strlit str
-End
-
 Definition clks_of_term_def:
-  clks_of_term (Tm _ _ clks _ _) = MAP to_mlstring clks
+  clks_of_term (Tm _ _ clks _ _) = clks
 End
 
 Definition clks_accum_def:
