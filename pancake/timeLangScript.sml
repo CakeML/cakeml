@@ -75,8 +75,9 @@ Definition clks_accum_def:
 End
 
 Definition clks_of_def:
-  clks_of ps =
-     clks_accum [] (FLAT (MAP clks_of_term ps))
+  clks_of prog =
+  let tms = FLAT (MAP SND prog) in
+     clks_accum [] (FLAT (MAP clks_of_term tms))
 End
 
 val _ = export_theory();
