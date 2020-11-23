@@ -16,39 +16,53 @@ Definition mk_clks_def:
   mk_clks n vname = Struct (GENLIST (λ_. Var vname) n)
 End
 
-
 Definition task_controller_def:
   task_controller iloc n =
      decs
       [(«location»,iloc);
+       («wait_set»,Const 1w);
        («sys_time»,Const 0w);
+       («wake_up_at»,Const 0w);
+       («task_ret»,
+        Struct [Struct (empty_consts n); Var «wake_up_at»; Var «location»]);
        («ptr1»,Const 0w);
        («len1»,Const 0w);
        («ptr2»,Const 0w); (* TOUPDATE *)
-       («len2»,Const 0w); (* TOUPDATE *)
-       («wait_set»,Const 1w);
-       («wake_up_at»,Const 0w);
-       («task_ret»,
-        Struct [Struct (empty_consts n); Var «wake_up_at»; Var «location»])]
+       («len2»,Const 0w)  (* TOUPDATE *)
+      ]
       (nested_seq
-        [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
-         Assign «sys_time» (Load One (Var «ptr2»));
-                (* TODISC: what is the maximum time we support?
-                   should we load under len2? *)
-
-         Assign «task_ret» (Struct (mk_clks n «sys_time» :: [Var «wake_up_at»; Var «location»]));
-         Assign «wake_up_at» (Op Add [Var «sys_time»; Const 1w]);
+       [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
+        Assign «sys_time» (Load One (Var «ptr2»));
+        Assign «wake_up_at» (Op Add [Var «sys_time»; Const 1w]);
+        Assign «task_ret»
+               (Struct (mk_clks n «sys_time» ::
+                        (* to intitalise clocks to the first recorded system time *)
+                        [Var «wake_up_at»; (* for pancake purpose only *)
+                         Var «location»    (* for pancake purpose only *)]));
          While (Const 1w)
                (nested_seq [
                    While (Op And [Var «wait_set»;
                                   Cmp Less (Var «sys_time») (Var «wake_up_at»)])
                    (Seq (ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»)
                         (Assign «sys_time» (Load One (Var «ptr2»))));
-                   Call (Ret «task_ret» NONE) (Var «location»)
-                        [Var «sys_time»; Field 0 (Var «task_ret»)]
+                   Call (Ret «task_ret» NONE)
+                        (Var «location»)
+                        [Var «sys_time»;
+                         Field 0 (Var «task_ret») (* the elapsed time for each clock variable *)]
                  ])
         ])
 End
+
+(*
+  TODISC: what is the maximum time we support?
+  should we load under len2?
+*)
+
+(*
+  Assign «task_ret»
+   (Struct (mk_clks n «sys_time» :: [Var «wake_up_at»; Var «location»]))
+*)
+
 
 (* compile time expressions *)
 Definition comp_exp_def:
@@ -239,5 +253,7 @@ Definition comp_step_def:
                      (* TODISC: what should we for ARBs  *)
             return]
 End
+
+
 
 val _ = export_theory();
