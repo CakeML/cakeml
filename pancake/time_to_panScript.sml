@@ -97,13 +97,14 @@ Definition wait_times_def:
      e]) :: wait_times tes)
 End
 
-(* TODISC: add sys_time back *)
-Definition wait_time_def:
-  wait_time (min_of:'a exp list -> 'a exp) tes =
-  Op Add [min_of (wait_times tes);
-          Var «sys_time»]
+Definition min_of_def:
+  (min_of ([]:'a exp list) =
+   (Assign «wtime» (Var «wtime»)):'a prog) ∧
+  (min_of (e::es) =
+   If (Cmp Less e (Var «wtime»))
+      (Assign «wtime» e)
+      (min_of es))
 End
-
 
 Definition indices_def:
   indices fm xs =
@@ -136,20 +137,25 @@ Definition comp_step_def:
       wait_clks_indices = indices clks_map wait_clks;
       wait_clks_exps = destruct clocks wait_clks_indices;
       time_invs_and_clks = MAP2 (λt e. (t,e)) (MAP FST wt) wait_clks_exps;
-      wakup_time = wait_time ARB time_invs_and_clks;
+      wait_time_exps = wait_times time_invs_and_clks;
+      wakeup_time = Var «wtime»; (* wait_time ARB time_invs_and_clks; *)
       return  = Return (
         Struct
         [clocks;
-         wakup_time;
+         wakeup_time;
          fname]) in
-    nested_seq [
-        case io of
-        | (Input insig)   => return
-        | (Output outsig) =>
-            Seq
-            (ExtCall (strlit (toString outsig)) ARB ARB ARB ARB)
-                     (* TODISC: what should we for ARBs  *)
-            return]
+    Dec «wtime» (Const 0w)
+        (nested_seq
+         [min_of wait_time_exps;
+          (* TODISC: add sys_time back *)
+          Assign «wtime» (Op Add [Var «wtime»; Var «sys_time»]);
+          case io of
+          | (Input insig)   => return
+          | (Output outsig) =>
+              Seq
+              (ExtCall (strlit (toString outsig)) ARB ARB ARB ARB)
+              (* TODISC: what should we for ARBs  *)
+              return])
 End
 
 
