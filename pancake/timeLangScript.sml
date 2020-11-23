@@ -62,17 +62,28 @@ End
 
 
 Definition clks_accum_def:
+  (clks_accum alist accum [] = alist) ∧
+  (clks_accum alist accum (clk::clks) =
+   if MEM clk accum
+   then clks_accum alist accum clks
+   else clks_accum ((LENGTH alist,clk)::alist) (clk::accum) clks)
+End
+
+
+Definition clks_of_def:
+  clks_of prog =
+  let tms = FLAT (MAP SND prog) in
+     clks_accum [] [] (FLAT (MAP clks_of_term tms))
+End
+
+(*
+Definition clks_accum_def:
   (clks_accum ac [] = ac) ∧
   (clks_accum ac (clk::clks) =
    if MEM clk ac
    then clks_accum ac clks
    else clks_accum (clk::ac) clks)
 End
-
-Definition clks_of_def:
-  clks_of prog =
-  let tms = FLAT (MAP SND prog) in
-     clks_accum [] (FLAT (MAP clks_of_term tms))
-End
+*)
 
 val _ = export_theory();
