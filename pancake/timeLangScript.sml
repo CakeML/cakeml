@@ -66,7 +66,7 @@ Definition clks_accum_def:
   (clks_accum alist accum (clk::clks) =
    if MEM clk accum
    then clks_accum alist accum clks
-   else clks_accum ((LENGTH alist,clk)::alist) (clk::accum) clks)
+   else clks_accum ((clk,LENGTH alist)::alist) (clk::accum) clks)
 End
 
 
