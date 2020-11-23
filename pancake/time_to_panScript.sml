@@ -58,12 +58,6 @@ End
   should we load under len2?
 *)
 
-(*
-  Assign «task_ret»
-   (Struct (mk_clks n «sys_time» :: [Var «wake_up_at»; Var «location»]))
-*)
-
-
 (* compile time expressions *)
 Definition comp_exp_def:
   (comp_exp (ELit time) = Const (n2w time)) ∧
@@ -94,17 +88,6 @@ Definition comp_conditions_def:
   (comp_conditions cs = Op And (MAP comp_condition cs))
 End
 
-Definition part_to_total_def:
-  (part_to_total (SOME x) = x:num) ∧
-  (part_to_total NONE = 0)
-End
-
-Definition mk_vars_def:
-  mk_vars xs ys =
-    MAP (λn. (toString o part_to_total o INDEX_OF n) xs)
-        ys
-End
-
 Definition time_diffs_def:
   (time_diffs [] = ARB) ∧ (* TODISC: what should be the wait time if unspecified *)
   (time_diffs ((t,c)::tcs) =
@@ -118,18 +101,36 @@ Definition calc_wtime_def:
 End
 
 
-Definition comp_step_def:
-  comp_step clks (Tm io cnds tclks loc wt) =
-  let fname  = toString loc;
+Definition indexes_def:
+  indexes fm xs =
+    mapPartial (λx. FLOOKUP fm x) xs
+End
 
-      reset_clks  = mk_vars clks (MAP to_mlstring tclks);
+Definition mk_struct_def:
+  mk_struct n indexes =
+  Struct (
+    GENLIST
+    ((λn. Field n (Var «clks»))
+     =++ (MAP (λx. (x, Var «sys_time»)) indexes))
+    n)
+End
+
+
+Definition comp_step_def:
+  comp_step clks_map (Tm io cnds tclks loc wt) =
+  let fname  = toString loc;
+      number_of_clks = LENGTH (fmap_to_alist clks_map);
+      tclks_indexes = indexes clks_map tclks;
+      clocks = mk_struct number_of_clks tclks_indexes;
+      (*
       times       = MAP FST wt;
-      wt_clocks   = MAP (to_mlstring o SND) wt;
+      wt_clocks   = MAP SND wt;
       wtime_clks  = mk_vars clks wt_clocks;
       new_wt      = MAP2 (λt c. (t,c)) times wtime_clks;
+      *)
       return      = Return (Struct [
-                               Struct (MAP Var clks);
-                               calc_wtime ARB new_wt;
+                               clocks;
+                               ARB (*calc_wtime ARB new_wt*);
                                Label fname]) in
     nested_seq [
         case io of
@@ -143,27 +144,35 @@ End
 
 
 Definition comp_terms_def:
-  (comp_terms clks [] = Skip) ∧
-  (comp_terms clks (t::ts) =
+  (comp_terms clks_map [] = Skip) ∧
+  (comp_terms clks_map (t::ts) =
    If (comp_conditions (conditions_of t))
-        (comp_step clks t)
-        (comp_terms clks ts))
+        (comp_step clks_map t)
+        (comp_terms clks_map ts))
 End
 
+Definition gen_shape_def:
+  gen_shape n = Comb (GENLIST (λ_. One) n)
+End
 
 Definition comp_location_def:
-  comp_location clks (loc, ts) =
-  let n = LENGTH clks in
+  comp_location clks_map (loc, ts) =
+  let n = LENGTH (fmap_to_alist clks_map) in
     (toString loc,
-     MAP2 (λx y. (x,y)) («sys_time»::gen_vnames n) (gen_shape (SUC n)),
-     comp_terms clks ts)
+     [(«sys_time», One); («clks», gen_shape n)],
+     comp_terms clks_map ts)
 
 End
 
+(*
+ MAP2 (λx y. (x,y)) («sys_time»::gen_vnames n) (gen_shape (SUC n)),
+*)
+
+
 Definition comp_prog_def:
-  (comp_prog clks [] = []) ∧
-  (comp_prog clks (p::ps) =
-   comp_location clks p :: comp_prog clks ps)
+  (comp_prog clks_map [] = []) ∧
+  (comp_prog clks_map (p::ps) =
+   comp_location clks_map p :: comp_prog clks_map ps)
 End
 
 Definition comp_def:
@@ -180,80 +189,4 @@ End
   flag:
 
 *)
-
-
-*)
-
-
-
-(*
-Definition task_controller_def:
-  task_controller iloc clks (ffi_confs: 'a word list) =
-     nested_decs
-      (clks ++
-       [«location»; «sys_time»;
-        «ptr1» (*0*); «len1»(*0*); «ptr2»; «len2»;
-        «wait_set»; «wake_up_at»; «task_ret»])
-      (empty_consts (LENGTH clks) ++
-       [iloc; Const 0w;
-        Const (EL 0 ffi_confs); Const (EL 1 ffi_confs);
-        Const (EL 2 ffi_confs); Const (EL 3 ffi_confs);
-        Const 1w; Const 0w;
-        Struct [
-            Struct (MAP Var clks); Var «wake_up_at»; Var «location»]])
-     (nested_seq
-        [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
-         Assign «sys_time» (Load One (Var «ptr2»));
-                (* TODISC: what is the maximum time we support?
-                   should we load under len2? *)
-         Assign  «wake_up_at» (Op Add [Var «sys_time»; Const 1w]);
-         While (Const 1w)
-               (nested_seq [
-                   While (Op And [Var «wait_set»;
-                                  Cmp Less (Var «sys_time») (Var «wake_up_at»)])
-                   (Seq (ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»)
-                        (Assign «sys_time» (Load One (Var «ptr2»))));
-                   Call (Ret «task_ret» NONE) (Var «location») (Var «sys_time» :: MAP Var clks)
-                 ])
-        ])
-End
-
-*)
-
-
-Definition gen_vnames_def:
-  gen_vnames n =
-    GENLIST (λx. toString x) n
-End
-
-Definition gen_shape_def:
-  gen_shape n = GENLIST (λ_. One) n
-End
-
-
-Definition comp_step_def:
-  comp_step clks (Tm io cnds tclks loc wt) =
-  let fname  = toString loc;
-      reset_clks  = mk_vars clks (MAP to_mlstring tclks);
-      times       = MAP FST wt;
-      wt_clocks   = MAP (to_mlstring o SND) wt;
-      wtime_clks  = mk_vars clks wt_clocks;
-      new_wt      = MAP2 (λt c. (t,c)) times wtime_clks;
-      return      = Return (Struct [
-                               Struct (MAP Var clks);
-                               calc_wtime ARB new_wt;
-                               Label fname]) in
-    nested_seq [
-        assigns reset_clks (Var «sys_time»);
-        case io of
-        | (Input insig)   => return
-        | (Output outsig) =>
-            Seq
-            (ExtCall (strlit (toString outsig)) ARB ARB ARB ARB)
-                     (* TODISC: what should we for ARBs  *)
-            return]
-End
-
-
-
 val _ = export_theory();
