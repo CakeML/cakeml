@@ -60,7 +60,21 @@ Definition clks_of_term_def:
   clks_of_term (Tm _ _ clks _ _) = clks
 End
 
+Definition clk_map_def:
+  (clk_map fm (n:num) [] = fm) ∧
+  (clk_map fm n (clk::clks) =
+   if clk ∈ FDOM fm
+   then clk_map fm n clks
+   else clk_map (fm |+ (clk,n)) (n+1) clks)
+End
 
+Definition clks_of_def:
+  clks_of prog =
+  let tms = FLAT (MAP SND prog) in
+     clk_map FEMPTY 0 (FLAT (MAP clks_of_term tms))
+End
+
+(*
 Definition clks_accum_def:
   (clks_accum alist accum [] = alist) ∧
   (clks_accum alist accum (clk::clks) =
@@ -75,6 +89,7 @@ Definition clks_of_def:
   let tms = FLAT (MAP SND prog) in
      clks_accum [] [] (FLAT (MAP clks_of_term tms))
 End
+*)
 
 (*
 Definition clks_accum_def:
