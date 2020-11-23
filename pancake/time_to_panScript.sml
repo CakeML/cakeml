@@ -88,50 +88,60 @@ Definition comp_conditions_def:
   (comp_conditions cs = Op And (MAP comp_condition cs))
 End
 
-Definition time_diffs_def:
-  (time_diffs [] = ARB) ∧ (* TODISC: what should be the wait time if unspecified *)
-  (time_diffs ((t,c)::tcs) =
-   (Op Sub [Const (n2w t); Var c]) :: time_diffs tcs)
+(* TODISC: system timw should be added to timing constants *)
+Definition wait_times_def:
+  (wait_times [] = ARB) ∧ (* TODISC: what should be the wait time if unspecified *)
+  (wait_times ((t,e)::tes) =
+   (Op Sub
+    [Op Add [Const (n2w t); Var «sys_time»];
+     e]) :: wait_times tes)
+End
+
+(* TODISC: add sys_time back *)
+Definition wait_time_def:
+  wait_time (min_of:'a exp list -> 'a exp) tes =
+  Op Add [min_of (wait_times tes);
+          Var «sys_time»]
 End
 
 
-Definition calc_wtime_def:
-  calc_wtime (min_of:'a exp list -> 'a exp) tcs =
-    min_of (time_diffs tcs):'a exp
-End
-
-
-Definition indexes_def:
-  indexes fm xs =
+Definition indices_def:
+  indices fm xs =
     mapPartial (λx. FLOOKUP fm x) xs
 End
 
 Definition mk_struct_def:
-  mk_struct n indexes =
+  mk_struct n indices =
   Struct (
     GENLIST
     ((λn. Field n (Var «clks»))
-     =++ (MAP (λx. (x, Var «sys_time»)) indexes))
+     =++ (MAP (λx. (x, Var «sys_time»)) indices))
     n)
+End
+
+Definition destruct_def:
+  destruct e xs =
+  MAP (λx. Field x e) xs
 End
 
 
 Definition comp_step_def:
   comp_step clks_map (Tm io cnds tclks loc wt) =
-  let fname  = toString loc;
+  let fname  = Label (toString loc);
       number_of_clks = LENGTH (fmap_to_alist clks_map);
-      tclks_indexes = indexes clks_map tclks;
-      clocks = mk_struct number_of_clks tclks_indexes;
-      (*
-      times       = MAP FST wt;
-      wt_clocks   = MAP SND wt;
-      wtime_clks  = mk_vars clks wt_clocks;
-      new_wt      = MAP2 (λt c. (t,c)) times wtime_clks;
-      *)
-      return      = Return (Struct [
-                               clocks;
-                               ARB (*calc_wtime ARB new_wt*);
-                               Label fname]) in
+      tclks_indices = indices clks_map tclks;
+      clocks = mk_struct number_of_clks tclks_indices;
+      (* wait-time should be calculated after resetting the clocks *)
+      wait_clks   = MAP SND wt;
+      wait_clks_indices = indices clks_map wait_clks;
+      wait_clks_exps = destruct clocks wait_clks_indices;
+      time_invs_and_clks = MAP2 (λt e. (t,e)) (MAP FST wt) wait_clks_exps;
+      wakup_time = wait_time ARB time_invs_and_clks;
+      return  = Return (
+        Struct
+        [clocks;
+         wakup_time;
+         fname]) in
     nested_seq [
         case io of
         | (Input insig)   => return
