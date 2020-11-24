@@ -6,7 +6,8 @@ open preamble pan_commonTheory mlintTheory
 
 val _ = new_theory "time_to_pan"
 
-val _ = set_grammar_ancestry ["pan_common", "mlint", "timeLang", "panLang"];
+val _ = set_grammar_ancestry
+        ["pan_common", "mlint", "timeLang", "panLang"];
 
 Definition empty_consts_def:
   empty_consts n = GENLIST (λ_. Const 0w) n
@@ -14,6 +15,11 @@ End
 
 Definition mk_clks_def:
   mk_clks n vname = Struct (GENLIST (λ_. Var vname) n)
+End
+
+Definition sub_range_of_def:
+  sub_range_of fm xs =
+    mapPartial (λx. FLOOKUP fm x) xs
 End
 
 Definition task_controller_def:
@@ -106,10 +112,6 @@ Definition min_of_def:
       (min_of es))
 End
 
-Definition indices_def:
-  indices fm xs =
-    mapPartial (λx. FLOOKUP fm x) xs
-End
 
 Definition mk_struct_def:
   mk_struct n indices =
@@ -130,15 +132,15 @@ Definition comp_step_def:
   comp_step clks_map (Tm io cnds tclks loc wt) =
   let fname  = Label (toString loc);
       number_of_clks = LENGTH (fmap_to_alist clks_map);
-      tclks_indices = indices clks_map tclks;
+      tclks_indices = sub_range_of clks_map tclks;
       clocks = mk_struct number_of_clks tclks_indices;
       (* wait-time should be calculated after resetting the clocks *)
       wait_clks   = MAP SND wt;
-      wait_clks_indices = indices clks_map wait_clks;
+      wait_clks_indices = sub_range_of clks_map wait_clks;
       wait_clks_exps = destruct clocks wait_clks_indices;
       time_invs_and_clks = MAP2 (λt e. (t,e)) (MAP FST wt) wait_clks_exps;
       wait_time_exps = wait_times time_invs_and_clks;
-      wakeup_time = Var «wtime»; (* wait_time ARB time_invs_and_clks; *)
+      wakeup_time = Var «wtime»;
       return  = Return (
         Struct
         [clocks;
@@ -177,13 +179,7 @@ Definition comp_location_def:
     (toString loc,
      [(«sys_time», One); («clks», gen_shape n)],
      comp_terms clks_map ts)
-
 End
-
-(*
- MAP2 (λx y. (x,y)) («sys_time»::gen_vnames n) (gen_shape (SUC n)),
-*)
-
 
 Definition comp_prog_def:
   (comp_prog clks_map [] = []) ∧
