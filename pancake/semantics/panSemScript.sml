@@ -386,14 +386,14 @@ Definition evaluate_def:
     | (_, _) => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
    case (FLOOKUP s.locals len1, FLOOKUP s.locals ptr1, FLOOKUP s.locals len2, FLOOKUP s.locals ptr2) of
-    | SOME (ValWord w),SOME (ValWord w2),SOME (ValWord w3),SOME (ValWord w4) =>
-       (case (read_bytearray w2 (w2n w) (mem_load_byte s.memory s.memaddrs s.be),
-              read_bytearray w4 (w2n w3) (mem_load_byte s.memory s.memaddrs s.be)) of
+    | SOME (ValWord sz1),SOME (ValWord ad1),SOME (ValWord sz2),SOME (ValWord ad2) =>
+       (case (read_bytearray ad1 (w2n sz1) (mem_load_byte s.memory s.memaddrs s.be),
+              read_bytearray ad2 (w2n sz2) (mem_load_byte s.memory s.memaddrs s.be)) of
          | SOME bytes,SOME bytes2 =>
             (case call_FFI s.ffi (explode ffi_index) bytes bytes2 of
               | FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
               | FFI_return new_ffi new_bytes =>
-                let nmem = write_bytearray w4 new_bytes s.memory s.memaddrs s.be in
+                let nmem = write_bytearray ad2 new_bytes s.memory s.memaddrs s.be in
                   (NONE, s with <| memory := nmem; ffi := new_ffi |>))
          | _ => (SOME Error,s))
        | res => (SOME Error,s))

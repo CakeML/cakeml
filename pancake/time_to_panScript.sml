@@ -31,10 +31,14 @@ Definition task_controller_def:
        («wake_up_at»,Const 0w);
        («task_ret»,
         Struct [Struct (empty_consts n); Var «wake_up_at»; Var «location»]);
-       («ptr1»,Const 0w);
-       («len1»,Const 0w);
-       («ptr2»,Const 0w); (* TOUPDATE *)
-       («len2»,Const 0w)  (* TOUPDATE *)
+       («ptr1»,Const 0w); (* if len1 is zero, then it can be any address *)
+       («len1»,Const 0w); (* are we setting configuaration array to nil∃ *)
+                          (* no immutable input bytes *)
+       («ptr2»,Const 0w); (* mutable array, FFI permits this to be both input and output,
+                             should we just use it to read the time,
+                             what should be the address  *)
+       («len2»,Const 1w) (* Magnus mentioned that we should specify buffer-size as input to
+                            the task controller *)
       ]
       (nested_seq
        [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
@@ -191,9 +195,6 @@ Definition comp_def:
   comp prog =
     comp_prog (clks_of prog) prog
 End
-
-(*
-  Thoughts about FFI
 
 (* Note: instead of ffi_conf, we should have a buffer_size, and that should be the length of
 
