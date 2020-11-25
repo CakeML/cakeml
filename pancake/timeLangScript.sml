@@ -54,25 +54,25 @@ End
 
 Type program = ``:(loc # term list) list``
 
+
 (* functinos for compiler *)
 
 Definition clks_of_term_def:
   clks_of_term (Tm _ _ clks _ _) = clks
 End
 
-Definition clk_map_def:
-  (clk_map fm (n:num) [] = fm) ∧
-  (clk_map fm n (clk::clks) =
-   if clk ∈ FDOM fm
-   then clk_map fm n clks
-   else clk_map (fm |+ (clk,n)) (n+1) clks)
+Definition clks_accum_def:
+  (clks_accum ac [] = ac) ∧
+  (clks_accum ac (clk::clks) =
+   if MEM clk ac
+   then clks_accum ac clks
+   else clks_accum (clk::ac) clks)
 End
 
 Definition clks_of_def:
   clks_of prog =
   let tms = FLAT (MAP SND prog) in
-     clk_map FEMPTY 0 (FLAT (MAP clks_of_term tms))
+     clks_accum [] (FLAT (MAP clks_of_term tms))
 End
-
 
 val _ = export_theory();
