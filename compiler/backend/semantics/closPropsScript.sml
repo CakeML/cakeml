@@ -2864,51 +2864,50 @@ Proof
          initial_state_with_clock,SND,ADD_SYM]
 QED
 
-val CURRY_I_rel_def = Define`
-  CURRY_I_rel s1 s2 ⇔
-    s1.globals = s2.globals ∧
-    s1.refs = s2.refs ∧
-    s1.ffi = s2.ffi ∧
-    s1.clock = s2.clock ∧
-    s1.compile = state_cc (CURRY I) s2.compile ∧
-    s2.compile_oracle = state_co (CURRY I) s1.compile_oracle ∧
-    s1.code = s2.code ∧
-    s1.max_app = s2.max_app`;
+Definition adj_orac_rel_def:
+  adj_orac_rel cc f s1 s2 ⇔
+     (!n x y. s1.compile_oracle n = (x, y) ==>
+        OPTION_MAP (I ## (I ## f)) (s1.compile x y) = cc (f x) y) /\
+     s2 = <| 
+      globals := s1.globals; refs := s1.refs;
+      ffi := s1.ffi; clock := s1.clock;
+      compile := cc;
+      compile_oracle := (f ## I) o s1.compile_oracle;
+      code := s1.code; max_app := s1.max_app |>
+End
 
-Theorem do_install_CURRY_I:
-   do_install xs z1 = (r,s1) ∧ r ≠ Rerr (Rabort Rtype_error) ∧
-   CURRY_I_rel z1 z2 ⇒
+Theorem do_install_adj_orac:
+   do_install xs z1 = (r,s1) ∧
+   adj_orac_rel cc f z1 z2 ∧
+   r ≠ Rerr (Rabort Rtype_error) ⇒
    ∃s2.
      do_install xs z2 = (r,s2) ∧
-     CURRY_I_rel s1 s2
+     adj_orac_rel cc f s1 s2
 Proof
   rw[closSemTheory.do_install_def]
   \\ fs[CaseEq"list",CaseEq"option",pair_case_eq] \\ rw[]
   \\ rpt (pairarg_tac \\ fs[])
-  \\ imp_res_tac CURRY_I_rel_def
-  \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]
-  \\ rpt (pairarg_tac \\ fs[])
+  \\ imp_res_tac adj_orac_rel_def
+  \\ fs []
   \\ rveq \\ fs[]
   \\ IF_CASES_TAC \\ fs[] \\ fs[]
-  \\ fs[FUN_EQ_THM, FORALL_PROD]
   \\ TOP_CASE_TAC \\ fs[]
   \\ TOP_CASE_TAC \\ fs[]
   \\ TOP_CASE_TAC \\ fs[]
   \\ TOP_CASE_TAC \\ fs[]
-  \\ rpt (pairarg_tac \\ fs[])
+  \\ fs [pair_case_eq]
   \\ fs[shift_seq_def]
   \\ fs [bool_case_eq] \\ rveq \\ fs []
-  \\ simp [ELIM_UNCURRY, CURRY_I_rel_def, FUN_EQ_THM]
-  \\ fs[backendPropsTheory.state_cc_def, backendPropsTheory.state_co_def]
-  \\ simp [FUN_EQ_THM, FORALL_PROD, ELIM_UNCURRY]
+  \\ fs [adj_orac_rel_def, FUN_EQ_THM]
+  \\ fsrw_tac [SATISFY_ss] []
 QED
 
-val do_app_lemma_simp = prove(
-  ``(exc_rel $= err1 err2 <=> err1 = err2) /\
+val do_app_lemma_simp = Q.prove(
+  `(exc_rel $= err1 err2 <=> err1 = err2) /\
     LIST_REL $= xs xs /\
-    simple_state_rel $= CURRY_I_rel /\
-    simple_val_rel $=``,
-  rw [] \\ fs [simple_state_rel_def,CURRY_I_rel_def]
+    simple_state_rel $= (adj_orac_rel cc f) /\
+    simple_val_rel $=`,
+  rw [] \\ fs [simple_state_rel_def,adj_orac_rel_def] \\ rw []
   THEN1
    (Cases_on `err1` \\ fs [semanticPrimitivesPropsTheory.exc_rel_def]
     \\ eq_tac \\ rw [])
@@ -2918,90 +2917,128 @@ val do_app_lemma =
   simple_val_rel_do_app
   |> Q.GENL [`vr`,`sr`]
   |> ISPEC ``(=):closSem$v -> closSem$v -> bool``
-  |> ISPEC ``CURRY_I_rel``
+  |> ISPEC ``adj_orac_rel cc f``
   |> Q.INST [`opp`|->`op`,`s`|->`s1`,`t`|->`s2`,`ys`|->`xs`]
   |> SIMP_RULE std_ss [do_app_lemma_simp]
 
-Theorem do_app_CURRY_I_Rerr:
+Theorem do_app_adj_orac_Rerr:
    ∀op xs s1 s2 r.
     do_app op xs s1 = Rerr r ∧
-    CURRY_I_rel s1 s2 ⇒
+    adj_orac_rel cc f s1 s2 ⇒
     do_app op xs s2 = Rerr r
 Proof
   rw [] \\ imp_res_tac do_app_lemma
   \\ pop_assum (assume_tac o SPEC_ALL) \\ rfs []
 QED
 
-Theorem do_app_CURRY_I_Rval:
+Theorem do_app_adj_orac_Rval:
    ∀op xs s1 s2 r z1.
     do_app op xs s1 = Rval (r,z1) ∧
-    CURRY_I_rel s1 s2 ⇒
+    adj_orac_rel cc f s1 s2 ⇒
     ∃z2.
     do_app op xs s2 = Rval (r,z2) ∧
-    CURRY_I_rel z1 z2
+    adj_orac_rel cc f z1 z2
 Proof
   rw [] \\ imp_res_tac do_app_lemma
   \\ pop_assum (assume_tac o SPEC_ALL) \\ rfs []
 QED
 
-Theorem evaluate_CURRY_I:
-   (∀p x y (z1:('a # 'c, 'ffi)closSem$state) r s1 s2 (z2:('c,'ffi)closSem$state).
-    p = (x,y,z1) ∧
-    closSem$evaluate (x,y,z1) = (r,s1) ∧
+Theorem evaluate_adj_orac:
+   (∀p (z1:('a, 'ffi)closSem$state) r s1 s2 (z2:('b,'ffi)closSem$state).
+    closSem$evaluate p = (r,s1) ∧
+    SND (SND p) = z1 ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
-    CURRY_I_rel z1 z2
+    adj_orac_rel cc f z1 z2
     ⇒
     ∃s2.
-    closSem$evaluate (x,y,z2) = (r,s2) ∧
-    CURRY_I_rel s1 s2) ∧
-   (∀w x y (z1:('a # 'c, 'ffi)closSem$state) r s1 s2 (z2:('c,'ffi)closSem$state).
+    closSem$evaluate (FST p, FST (SND p), z2) = (r,s2) ∧
+    adj_orac_rel cc f s1 s2) ∧
+   (∀w x y (z1:('a, 'ffi)closSem$state) r s1 s2 (z2:('b,'ffi)closSem$state).
     evaluate_app w x y z1 = (r,s1) ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
-    CURRY_I_rel z1 z2
+    adj_orac_rel cc f z1 z2
     ⇒
     ∃s2.
     evaluate_app w x y z2 = (r,s2) ∧
-    CURRY_I_rel s1 s2)
+    adj_orac_rel cc f s1 s2)
 Proof
   ho_match_mp_tac closSemTheory.evaluate_ind
-  \\ rw[closSemTheory.evaluate_def]
+  \\ rw []
+  \\ fs [closSemTheory.evaluate_def]
+(* helpful for development
+  \\ (rename [`if _ = Install then _ else _`] ORELSE cheat)
+*)
+  \\ TRY (
+    rename [`if _ = Install then _ else _`]
+    \\ fs[CaseEq"option",CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS]
+    \\ fs[]
+    \\ rveq \\ fs[]
+    \\ res_tac \\ fs[]
+    \\ Cases_on`op = Install`
+    \\ fs[CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS]
+    \\ rveq \\ fs[]
+    \\ TRY (drule_then drule do_install_adj_orac \\ rw [])
+    \\ imp_res_tac do_app_adj_orac_Rval
+    \\ imp_res_tac do_app_adj_orac_Rerr
+    \\ fs [adj_orac_rel_def] \\ fsrw_tac [SATISFY_ss] []
+  )
   \\ TRY (
        fs[closSemTheory.evaluate_def,
           bool_case_eq,
           CaseEq"prod", CaseEq"option", CaseEq"list",
           CaseEq"semanticPrimitives$result",
           CaseEq"app_kind",
-          CaseEq"error_result"]
+          CaseEq"error_result",
+          dec_clock_def]
     \\ rw[]
     \\ fs[PULL_EXISTS]
     \\ res_tac \\ fs[]
-    \\ rpt(qpat_x_assum`(_,_) = _`(assume_tac o SYM) \\ fs[])
+    \\ fs [Q.ISPEC `(_, _)` EQ_SYM_EQ]
     \\ res_tac \\ fs[]
-    \\ fs[CURRY_I_rel_def, CaseEq"prod", CaseEq"option",
-          bool_case_eq, PULL_EXISTS]
-    \\ rveq \\ fs[closSemTheory.dec_clock_def] \\ rfs[]
-    \\ fsrw_tac[DNF_ss][]
-    \\ qmatch_goalsub_abbrev_tac`evaluate (_,_,ss)`
-    \\ TRY(last_x_assum(qspec_then`ss`mp_tac) \\ simp[Abbr`ss`] \\ strip_tac \\ fs[] \\ NO_TAC)
-    \\ TRY(first_x_assum(qspec_then`ss`mp_tac) \\ simp[Abbr`ss`] \\ strip_tac \\ fs[] \\ NO_TAC)
-    \\ NO_TAC)
-    (* only Install and do_app *)
-  \\ fs[CaseEq"option",CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS] \\ fs[]
-  \\ rveq \\ fs[]
-  \\ res_tac \\ fs[]
-  \\ Cases_on`op = Install`
-  \\ fs[CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS]
-  \\ rveq \\ fs[]
-  \\ TRY (
-    drule (GEN_ALL do_install_CURRY_I)
-    \\ simp[]
-    \\ disch_then drule
-    \\ rw[] \\ fs[]
-    \\ res_tac \\ fs []
-    \\ NO_TAC )
-  \\ imp_res_tac do_app_CURRY_I_Rval
-  \\ fs[]
-  \\ imp_res_tac do_app_CURRY_I_Rerr
+    \\ fs [adj_orac_rel_def] \\ fsrw_tac [SATISFY_ss] []
+    \\ NO_TAC
+  )
+QED
+
+Theorem semantics_adj_orac:
+   semantics ffi max_app code co cc_x es ≠ Fail /\
+   (co_x = (f ## I) o co) /\
+   (!n x y. co n = (x, y) ==> cc (f x) y = OPTION_MAP (I ## (I ## f)) (cc_x x y)) ==>
+   semantics ffi max_app code co_x cc es =
+   semantics ffi max_app code co cc_x es
+Proof
+  rw[]
+  \\ irule IMP_semantics_eq
+  \\ rw[eval_sim_def]
+  \\ qexists_tac`K (K (K (K (K (K (K (K T)))))))` \\ rw[]
+  \\ qspec_then `f` drule (Q.GEN `f` (CONJUNCT1 evaluate_adj_orac))
+  \\ simp []
+  \\ disch_then (qspecl_then [`f`, `cc`,
+        `initial_state ffi max_app code ((f ## I) o co) cc k`] mp_tac)
+  \\ impl_tac
+  >- (
+    simp[adj_orac_rel_def, initial_state_def]
+    \\ fsrw_tac [SATISFY_ss] [FORALL_PROD, state_cc_def, state_co_def, FUN_EQ_THM]
+  )
+  \\ strip_tac \\ fs[]
+  \\ fs [adj_orac_rel_def]
+  \\ qexists_tac `0`
+  \\ simp []
+QED
+
+Theorem semantics_CURRY_I_gen:
+   (∀n x y. co n = (x, y) ⇒ cc_x x y = state_cc (CURRY I) cc x y) ⇒
+   semantics ffi max_app code co cc_x es ≠ Fail ⇒
+   semantics ffi max_app code (state_co (CURRY I) co) cc es =
+   semantics ffi max_app code co cc_x es
+Proof
+  rw[]
+  \\ irule semantics_adj_orac
+  \\ simp []
+  \\ qexists_tac `SND`
+  \\ fsrw_tac [SATISFY_ss] [FORALL_PROD, FUN_EQ_THM, state_co_def]
+  \\ rw [state_cc_def] \\ rpt (pairarg_tac \\ fs[])
+  \\ every_case_tac \\ simp []
 QED
 
 Theorem semantics_CURRY_I:
@@ -3010,21 +3047,8 @@ Theorem semantics_CURRY_I:
    semantics ffi max_app code co (state_cc (CURRY I) cc) es
 Proof
   rw[]
-  \\ irule IMP_semantics_eq
-  \\ rw[eval_sim_def]
-  \\ qexists_tac`K (K (K (K (K (K (K (K T)))))))` \\ rw[]
-  \\ imp_res_tac(CONJUNCT1 evaluate_CURRY_I)
-  \\ fs[PULL_FORALL,PULL_EXISTS]
-  \\ qexists_tac`0` \\ fs[]
-  \\ qmatch_goalsub_abbrev_tac`(es,[],sz)`
-  \\ last_x_assum(qspec_then`sz`mp_tac)
-  \\ impl_tac
-  >- (
-    simp[CURRY_I_rel_def]
-    \\ simp[Abbr`sz`]
-    \\ EVAL_TAC )
-  \\ strip_tac \\ fs[]
-  \\ imp_res_tac CURRY_I_rel_def
+  \\ irule semantics_CURRY_I_gen
+  \\ simp []
 QED
 
 Theorem semantics_nil[simp]:
