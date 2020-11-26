@@ -72,9 +72,26 @@ End
 Definition min_of_def:
   (min_of ([]:'a exp list) = Skip) ∧
   (min_of (e::es) =
-    Seq (If (Cmp Less e (Var «wtime»))
-         (Assign «wtime» e) Skip)
+    Seq (If (Cmp Less e (Var «wake_up_at»))
+         (Assign «wake_up_at» e) Skip)
         (min_of es))
+End
+
+ (* calibrate wait time with system time *)
+Definition update_wake_up_time_def:
+  update_wake_up_time wts =
+    Seq (min_of wts)
+        (Assign «wake_up_at» (Op Add [Var «wake_up_at»; Var «sys_time»]))
+End
+
+
+Definition init_wtime_def:
+  init_wtime ts =
+  let
+    tes = MAP (λt. Const (n2w t)) ts
+  in
+    Seq (min_of tes)
+        (Assign «wake_up_at» (Op Add [Var «wake_up_at»; Var «sys_time»]))
 End
 
 (* compile time expressions *)
@@ -108,7 +125,6 @@ Definition comp_conditions_def:
 End
 
 
-
 Definition comp_step_def:
   comp_step clks (Tm io cnds tclks loc wt) =
   let term_clks = indices_of clks tclks;
@@ -131,9 +147,7 @@ Definition comp_step_def:
         («input_set», case tclks of [] => Const 1w | _ => Const 0w);
         («wake_up_at», Const (-1w))]
          (nested_seq
-          [min_of wait_time_exps;
-           (* calibrate wait time with system time *)
-           Assign «wtime» (Op Add [Var «wtime»; Var «sys_time»]);
+          [update_wake_up_time wait_time_exps;
            case io of
            | (Input insig)   => return
            | (Output outsig) =>
@@ -179,6 +193,7 @@ Definition comp_def:
     comp_prog (clks_of prog) prog
 End
 
+
 (* either implement it or return from the task *)
 (*
 Definition not_def:
@@ -195,12 +210,13 @@ End
   n : number of clocks
 *)
 
+
 Definition task_controller_def:
-  task_controller init_loc init_wset init_inset init_wtime n =
+  task_controller init_loc init_tm n =
      decs
       [(«location»,Label (toString init_loc));
-       («wait_set»,Const (n2w init_wset));
-       («input_set»,Const (n2w init_inset));
+       («wait_set»,Const (n2w (wait_set init_tm)));
+       («input_set»,Const (n2w (input_set init_tm)));
        («sys_time»,Const 0w);
        («wake_up_at»,Const 0w);
        («task_ret»,
@@ -215,7 +231,7 @@ Definition task_controller_def:
       (nested_seq
        [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
         Assign «sys_time» (Load One (Var «ptr2»));
-        Assign «wake_up_at» (Op Add [Var «sys_time»; Const (n2w init_wtime)]);
+        init_wtime (tinv_of init_tm);
         (* initialise clocks to the system time *)
         Assign «task_ret»
                (Struct (mk_clks n «sys_time» :: MAP Var
@@ -247,16 +263,20 @@ Definition start_controller_def:
     terms = MAP SND prog;
     init_term = init_term_of terms;
     (* init_loc is set to zero, in timeLang *)
-    init_wset = wait_set init_term;
-    init_inset = input_set init_term;
-    (* to read system time and then find the wait time similar to as of comp_step *)
-    init_wtime = 0;
     n = number_of_clks prog
   in
-    task_controller init_loc init_wset init_inset init_wtime n
+    task_controller init_loc init_term n
 End
 
 
+(*
+ min_of wait_time_exps;
+ Assign «wake_up_at» (Op Add [Var «wake_up_at»; Var «sys_time»]
+ *)
+
+(*
+  Remaining is init_wtime
+*)
 
 
 (*

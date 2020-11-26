@@ -57,6 +57,10 @@ Type program = ``:(loc # term list) list``
 
 (* functinos for compiler *)
 
+Definition tinv_of_def:
+  tinv_of (Tm _ _ _ _ tes) = MAP FST tes
+End
+
 Definition clks_of_term_def:
   clks_of_term (Tm _ _ clks _ _) = clks
 End
