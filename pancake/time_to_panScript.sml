@@ -108,6 +108,7 @@ Definition comp_conditions_def:
 End
 
 
+
 Definition comp_step_def:
   comp_step clks (Tm io cnds tclks loc wt) =
   let term_clks = indices_of clks tclks;
@@ -188,14 +189,16 @@ End
 
 (*
   init_loc: initial state
+  init_wset: inital wake time enable flag
+  init_inset: inital input time enable flag
   init_wtime: normalised initial wait time
   n : number of clocks
 *)
 
 Definition task_controller_def:
-  task_controller buffer_size init_loc init_wset init_inset init_wtime n =
+  task_controller init_loc init_wset init_inset init_wtime n =
      decs
-      [(«location»,init_loc);
+      [(«location»,Label (toString init_loc));
        («wait_set»,Const (n2w init_wset));
        («input_set»,Const (n2w init_inset));
        («sys_time»,Const 0w);
@@ -227,7 +230,7 @@ Definition task_controller_def:
                    (nested_seq [
                        ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
                        Assign «sys_time» (Load One (Var «ptr2»));
-                       ExtCall «get_in_flag» «ptr1» «len1» «ptr2» «len2»;
+                       ExtCall «get_input_flag» «ptr1» «len1» «ptr2» «len2»;
                        Assign «input_arrived» (Load One (Var «ptr2»))]);
                    Call (Ret «task_ret» NONE)
                         (Var «location»)
@@ -236,6 +239,25 @@ Definition task_controller_def:
                  ])
         ])
 End
+
+
+Definition start_controller_def:
+  start_controller prog =
+  let
+    terms = MAP SND prog;
+    init_term = init_term_of terms;
+    (* init_loc is set to zero, in timeLang *)
+    init_wset = wait_set init_term;
+    init_inset = input_set init_term;
+    (* to read system time and then find the wait time similar to as of comp_step *)
+    init_wtime = 0;
+    n = number_of_clks prog
+  in
+    task_controller init_loc init_wset init_inset init_wtime n
+End
+
+
+
 
 (*
   TODISC: what is the maximum time we support?
@@ -248,7 +270,5 @@ Definition indices_of_def:
 End
 *)
 
-(*
-to ask questions there *)
 
 val _ = export_theory();

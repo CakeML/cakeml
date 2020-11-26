@@ -75,4 +75,27 @@ Definition clks_of_def:
      clks_accum [] (FLAT (MAP clks_of_term tms))
 End
 
+Definition number_of_clks_def:
+  number_of_clks prog = LENGTH (clks_of prog)
+End
+
+Definition init_term_of_def:
+  (init_term_of ((t::ts)::tss) = t) ∧
+  (init_term_of [] = Tm (Input 0) [] [] 0 [])
+End
+
+Definition init_loc_def:
+  init_loc = 0:num
+End
+
+Definition wait_set_def:
+  (wait_set (Tm _ _ _ _ []) = 0:num) ∧
+  (wait_set _ = 1:num)
+End
+
+Definition input_set_def:
+  (input_set (Tm _ _ _ _ []) = 1:num) ∧
+  (input_set _ = 0:num)
+End
+
 val _ = export_theory();
