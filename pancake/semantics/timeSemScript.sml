@@ -148,18 +148,17 @@ Inductive evalTerm:
                clks))
 End
 
-Inductive pickTerm:
-  (!st cnds event in_signal clks dest diffs tms st'.
-    EVERY (λcnd. evalCond st cnd) cnds /\
-    event = SOME in_signal /\
-    evalTerm st event (Tm (Input in_signal) cnds clks dest diffs) st' ==>
-    pickTerm st event (Tm (Input in_signal) cnds clks dest diffs :: tms) st') /\
 
-  (!st cnds event out_signal clks dest diffs tms st'.
+Inductive pickTerm:
+  (!st cnds in_signal clks dest diffs tms st'.
     EVERY (λcnd. evalCond st cnd) cnds /\
-    event = NONE /\
-    evalTerm st event (Tm (Output out_signal) cnds clks dest diffs) st' ==>
-    pickTerm st event (Tm (Output out_signal) cnds clks dest diffs :: tms) st') /\
+    evalTerm st (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs) st' ==>
+    pickTerm st (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs :: tms) st') /\
+
+  (!st cnds out_signal clks dest diffs tms st'.
+    EVERY (λcnd. evalCond st cnd) cnds /\
+    evalTerm st NONE (Tm (Output out_signal) cnds clks dest diffs) st' ==>
+    pickTerm st NONE (Tm (Output out_signal) cnds clks dest diffs :: tms) st') /\
 
   (!st cnds event ioAction clks dest diffs tms st'.
     ~(EVERY (λcnd. evalCond st cnd) cnds) /\

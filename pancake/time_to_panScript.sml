@@ -11,12 +11,12 @@ val _ = set_grammar_ancestry
 
 
 Definition ffi_buffer_address_def:
-  ffi_buffer_address = 4000w : 'a word
+  ffi_buffer_address = 4000w:'a word
 End
 
 
 Definition ffi_buffer_size_def:
-  ffi_buffer_size = 16w : 'a word
+  ffi_buffer_size = 16w:'a word
 End
 
 
@@ -45,13 +45,6 @@ Definition indices_of_def:
   indices_of xs ys =
    MAP (to_num o (λx. INDEX_OF x xs)) ys
 End
-
-(*
-Definition indices_of_def:
-  indices_of xs ys =
-   mapPartial (λx. INDEX_OF x xs) ys
-End
-*)
 
 Definition destruct_def:
   destruct e xs =
@@ -130,25 +123,28 @@ Definition comp_step_def:
       return  = Return (
         Struct
         [clocks;
-         Var «wtime»; (* has_wakeup_time *)
-         Label (toString loc)]) in
-    Dec «wtime» (Const (-1w))
-        (nested_seq
-         [min_of wait_time_exps;
-          (* calibrating wait time with system time *)
-          Assign «wtime» (Op Add [Var «wtime»; Var «sys_time»]);
-          case io of
-          | (Input insig)   => return
-          | (Output outsig) =>
-              decs
-              [(«ptr1»,Const 0w);
-               («len1»,Const 0w);
-               («ptr2»,Const ffi_buffer_address);
-               («len2»,Const ffi_buffer_size)
-              ] (Seq
-                 (ExtCall (strlit (toString outsig)) «ptr1» «len1» «ptr2» «len2»)
-                 return)
-         ])
+         Var «wait_set»; Var «input_set»;
+         Var «wake_up_at»; Label (toString loc)]) in
+    decs [
+        («wait_set»,  case tclks of [] => Const 0w | _ => Const 1w);
+        («input_set», case tclks of [] => Const 1w | _ => Const 0w);
+        («wake_up_at», Const (-1w))]
+         (nested_seq
+          [min_of wait_time_exps;
+           (* calibrate wait time with system time *)
+           Assign «wtime» (Op Add [Var «wtime»; Var «sys_time»]);
+           case io of
+           | (Input insig)   => return
+           | (Output outsig) =>
+               decs
+               [(«ptr1»,Const 0w);
+                («len1»,Const 0w);
+                («ptr2»,Const ffi_buffer_address);
+                («len2»,Const ffi_buffer_size)
+               ] (Seq
+                  (ExtCall (strlit (toString outsig)) «ptr1» «len1» «ptr2» «len2»)
+                  return)
+          ])
 End
 
 
@@ -182,15 +178,32 @@ Definition comp_def:
     comp_prog (clks_of prog) prog
 End
 
+(* either implement it or return from the task *)
+(*
+Definition not_def:
+  not e =
+    If _ _ _
+End
+*)
+
+(*
+  init_loc: initial state
+  init_wtime: normalised initial wait time
+  n : number of clocks
+*)
+
 Definition task_controller_def:
-  task_controller iloc init_wtime n buffer_size =
+  task_controller buffer_size init_loc init_wset init_inset init_wtime n =
      decs
-      [(«location»,iloc);
-       («wait_set»,Const 1w);
+      [(«location»,init_loc);
+       («wait_set»,Const (n2w init_wset));
+       («input_set»,Const (n2w init_inset));
        («sys_time»,Const 0w);
        («wake_up_at»,Const 0w);
        («task_ret»,
-        Struct [Struct (empty_consts n); Var «wake_up_at»; Var «location»]);
+        Struct (Struct (empty_consts n) :: MAP Var
+                [«wait_set»; «input_set»;
+                 «wake_up_at»; «location»]));
        («ptr1»,Const 0w);
        («len1»,Const 0w);
        («ptr2»,Const ffi_buffer_address);
@@ -199,22 +212,27 @@ Definition task_controller_def:
       (nested_seq
        [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
         Assign «sys_time» (Load One (Var «ptr2»));
-        Assign «wake_up_at» (Op Add [Var «sys_time»; Const (init_wtime)]);
+        Assign «wake_up_at» (Op Add [Var «sys_time»; Const (n2w init_wtime)]);
+        (* initialise clocks to the system time *)
         Assign «task_ret»
-               (Struct (mk_clks n «sys_time» ::
-                        (* to intitalise clocks to the first recorded system time *)
-                        [Var «wake_up_at»; (* for pancake purpose only *)
-                         Var «location»    (* for pancake purpose only *)]));
+               (Struct (mk_clks n «sys_time» :: MAP Var
+                        [«wait_set»; «input_set»; «wake_up_at»; «location»]));
          While (Const 1w)
-               (nested_seq [
-                   While (Op And [Var «wait_set»;
-                                  Cmp Less (Var «sys_time») (Var «wake_up_at»)])
-                   (Seq (ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»)
-                        (Assign «sys_time» (Load One (Var «ptr2»))));
+               (nested_seq [ (* wait_set and input_set are mutually exclusive *)
+                   While (Op Or
+                          [Op And [Var «wait_set»;
+                                   Cmp Less (Var «sys_time») (Var «wake_up_at»)];
+                           Op And [Var «input_set»;
+                                   Var «input_arrived»]])
+                   (nested_seq [
+                       ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
+                       Assign «sys_time» (Load One (Var «ptr2»));
+                       ExtCall «get_in_flag» «ptr1» «len1» «ptr2» «len2»;
+                       Assign «input_arrived» (Load One (Var «ptr2»))]);
                    Call (Ret «task_ret» NONE)
                         (Var «location»)
                         [Var «sys_time»;
-                         Field 0 (Var «task_ret») (* the elapsed time for each clock variable *)]
+                         Field 0 (Var «task_ret») (* elapsed time clock variables *)]
                  ])
         ])
 End
@@ -223,6 +241,14 @@ End
   TODISC: what is the maximum time we support?
 *)
 
+(*
+Definition indices_of_def:
+  indices_of xs ys =
+   mapPartial (λx. INDEX_OF x xs) ys
+End
+*)
 
+(*
+to ask questions there *)
 
 val _ = export_theory();
