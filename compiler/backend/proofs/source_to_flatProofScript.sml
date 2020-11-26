@@ -101,6 +101,26 @@ val _ = Datatype `
     <| v : flatSem$v option list; c : (ctor_id # type_id) # num |-> stamp;
         tys : num |-> (ctor_id # num) list |>`;
 
+Theorem submap_distinct_fupdate_flookup:
+  x ∉ FDOM f ==>
+  (f |+ (x,y) ⊑ g <=> FLOOKUP g x = SOME y /\ f ⊑ g)
+Proof
+  rw [SUBMAP_FUPDATE, FLOOKUP_DEF]
+  \\ EQ_TAC \\ rw []
+  \\ fs [SUBMAP_DEF]
+  \\ fs [DOMSUB_FAPPLY_THM]
+  \\ metis_tac []
+QED
+
+Theorem submap_fupdate_flookup:
+  (f |+ (x,y) ⊑ g <=> FLOOKUP g x = SOME y /\ f \\ x ⊑ g)
+Proof
+  rw [SUBMAP_FUPDATE, FLOOKUP_DEF]
+  \\ EQ_TAC \\ rw []
+  \\ fs [SUBMAP_DEF]
+  \\ fs [DOMSUB_FAPPLY_THM]
+QED
+
 val has_bools_def = Define `
   has_bools genv ⇔
     FLOOKUP genv ((true_tag, SOME bool_id), 0n) = SOME (TypeStamp "True" bool_type_num) ∧
@@ -3207,11 +3227,14 @@ Proof
     \\ rw []
   )
   \\ drule alloc_tags1_imp
-  \\ rw []
+  \\ rw [MAP_REVERSE]
+  \\ `? r_ctors. ctors = REVERSE r_ctors`
+    by metis_tac [REVERSE_REVERSE]
+  \\ fs [MAP_REVERSE]
   \\ qexists_tac `genv with <| c := FUNION genv.c (alist_to_fmap
         (MAP (\(cn, tag, arity). (((tag, SOME idx.tidx), arity),
             TypeStamp cn st.next_type_stamp)) cn_tags));
-        tys := FUNION genv.tys (alist_to_fmap [(idx.tidx, MAP SND cn_tags)])
+        tys := FUNION genv.tys (alist_to_fmap [(idx.tidx, MAP SND (REVERSE cn_tags))])
     |>`
   \\ rw [SUBMAP_FUNION_ID]
   >- (
@@ -3278,7 +3301,7 @@ Proof
     \\ simp [subglobals_refl, SUBMAP_FUNION_ID]
   )
   >- (
-    simp [build_constrs_def]
+    simp [build_constrs_def, MAP_REVERSE]
     \\ simp [Once v_rel_cases]
     \\ rw [nsLookup_alist_to_ns_some]
     \\ imp_res_tac ALOOKUP_MEM
@@ -4800,32 +4823,112 @@ Definition init_eval_state_ok_def:
     s.generation = 0 /\ s.envs = [[]])
 End
 
+Definition init_genv_ty_els_def:
+  init_genv_ty_els = [
+    (bool_id, [(false_tag, 0n, TypeStamp "False" bool_type_num);
+        (true_tag, 0n, TypeStamp "True" bool_type_num)]);
+    (list_id, REVERSE [(cons_tag, 2n, TypeStamp "::" list_type_num);
+        (nil_tag, 0n, TypeStamp "[]" list_type_num)])]
+End
+
+Definition init_genv_els_def:
+  init_genv_els = FLAT (MAP (\(id, xs).
+        MAP (\(tag, arity, stamp). (((tag, SOME id), arity), stamp)) xs)
+    init_genv_ty_els) ++ [
+    (((div_tag, NONE), 0n), div_stamp);
+    (((chr_tag, NONE), 0n), chr_stamp);
+    (((subscript_tag, NONE), 0n), subscript_stamp);
+    (((bind_tag, NONE), 0n), bind_stamp)]
+End
+
+Definition init_genv_def:
+  init_genv = <| v := []; c := FEMPTY |++ init_genv_els;
+    tys := FEMPTY |++ MAP (I ## MAP (I ## FST)) init_genv_ty_els |>
+End
+
+Theorem init_genv_ok:
+  genv_c_ok init_genv.c
+Proof
+  simp [genv_c_ok_def]
+  \\ rpt (conj_tac >- EVAL_TAC)
+  \\ simp [init_genv_def, EVAL ``init_genv_els``, flookup_fupdate_list]
+  \\ rw [] \\ full_simp_tac bool_ss []
+  \\ TRY (simp_tac bool_ss [DISJ_EQ_IMP] \\ disch_tac \\ rw [])
+  \\ EVAL_TAC
+QED
+
+Theorem init_genv_tys_ok:
+  genv_c_tys_ok init_genv.c init_genv.tys
+Proof
+  EVAL_TAC \\ rw []
+QED
+
+Theorem init_genv_FDOM:
+  FDOM init_genv.c = initial_ctors
+Proof
+  EVAL_TAC
+QED
+
+Definition init_genv_next:
+  init_genv_next = <|
+    vidx := 0;
+    tidx := SUC (list_max (MAP (\v. case SND v of TypeStamp _ i => i | _ => 0) init_genv_els));
+    eidx := SUC (list_max (MAP (\v. case SND v of ExnStamp i => i | _ => 0) init_genv_els))
+  |>
+End
+
+Definition init_global_env_inv_def:
+  init_global_env_inv genv comp_map env <=>
+  env.v = nsEmpty /\
+  (case env.c of Bind ns ms => ms = [] /\
+    EVERY (\(x, (arity, stamp)). case nsLookup comp_map.c (Short x) of
+      NONE => F
+    | SOME (cn, ty_gp) =>
+        FLOOKUP genv.c ((cn, OPTION_MAP FST ty_gp), arity) = SOME stamp ∧
+        (case ty_gp of NONE => T | SOME (ty_id, ctors) =>
+            FLOOKUP genv.tys ty_id = SOME ctors)
+    ) ns)
+End
+
+Theorem init_global_env_inv_imp:
+  init_global_env_inv genv comp_map env ==>
+  global_env_inv genv comp_map {} env
+Proof
+  rw [init_global_env_inv_def]
+  \\ MAP_FIRST irule (CONJUNCTS v_rel_rules)
+  \\ simp []
+  \\ every_case_tac
+  \\ Cases \\ simp [namespaceTheory.nsLookup_def]
+  \\ rw []
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ imp_res_tac EVERY_MEM
+  \\ fs []
+  \\ every_case_tac
+  \\ fs []
+QED
+
 Definition precondition1_def:
-  precondition1 interp s1 env1 genv conf eval_conf prog ⇔
-  let conf2 = FST (compile_prog conf prog) in
+  precondition1 interp s1 env1 conf eval_conf prog ⇔
   conf.next.vidx = 0 ∧
-  s_rel genv s1 (initial_state s1.ffi s1.clock eval_conf) ∧
-  global_env_inv genv conf.mod_env {} env1 ∧
+  s1.refs = [] ∧
+  init_global_env_inv init_genv conf.mod_env env1 ∧
   orac_rel interp s1.eval_state eval_conf ∧
-  genv_c_ok genv.c ∧ genv_c_tys_ok genv.c genv.tys ∧
   init_eval_state_ok s1.eval_state ∧
-  DISJOINT (idx_final_block conf.next) (genv_allocated_idxs genv) ∧
-  (∀cn t. t >= s1.next_type_stamp ⇒ TypeStamp cn t ∉ FRANGE genv.c) ∧
-  (∀cn. cn >= s1.next_exn_stamp ⇒ ExnStamp cn ∉ FRANGE genv.c) ∧
+  idx_prev init_genv_next conf.next ∧
+  EVERY (\(_, stamp). case stamp of TypeStamp cn t => t < s1.next_type_stamp
+    | ExnStamp cn => cn < s1.next_exn_stamp) init_genv_els ∧
   src_orac_step_invs interp s1.eval_state ∧
-  genv.v = [] ∧ conf.next.vidx = 0 ∧
   conf.envs = empty_config.envs ∧
   (case src_orac_next_cfg interp s1.eval_state of
     | NONE => T
-    | SOME cfg => cfg = conf2)
+    | SOME cfg => cfg = FST (compile_prog conf prog))
 End
 
 Theorem precondition1_change_clock:
-   precondition1 interp s1 env1 genv conf eval_conf prog ⇒
-   precondition1 interp (s1 with clock := k) env1 genv conf eval_conf prog
+   precondition1 interp s1 env1 conf eval_conf prog ⇒
+   precondition1 interp (s1 with clock := k) env1 conf eval_conf prog
 Proof
   rw [precondition1_def]
-  \\ fs [s_rel_cases, initial_state_def]
 QED
 
 Theorem idx_block_union_final:
@@ -4836,21 +4939,36 @@ Proof
   \\ simp [FORALL_PROD, idx_types_FORALL]
 QED
 
+Triviality precondition_stamp_helper:
+  EVERY (\(_, stamp). case stamp of TypeStamp cn t => t < type_stamp
+    | ExnStamp cn => cn < exn_stamp) init_genv_els ==>
+  (∀cn t. t ≥ type_stamp ==> TypeStamp cn t ∉ FRANGE init_genv.c) ∧
+  (∀cn. cn ≥ exn_stamp ==> ExnStamp cn ∉ FRANGE init_genv.c)
+Proof
+  rw [init_genv_def]
+  \\ CCONTR_TAC
+  \\ fs []
+  \\ dxrule_then assume_tac (MATCH_MP SUBSET_IMP (SPEC_ALL FRANGE_FUPDATE_LIST_SUBSET))
+  \\ fs [MEM_MAP, EXISTS_PROD, EVERY_MEM]
+  \\ res_tac
+  \\ fs []
+QED
+
 Theorem invariant_begin_alloc_blanks:
-  precondition1 interp s1 env1 genv cfg eval_conf prog /\
+  precondition1 interp s1 env1 cfg eval_conf prog /\
   cfg' = FST (compile_prog cfg prog) /\
   init_globs = SOME (Loc 0) :: REPLICATE (cfg'.next.vidx - 1) NONE ==>
   invariant interp
     <|next := 0; generation := cfg.envs.next; envs := LN|>
-    (genv with v := init_globs)
+    (init_genv with v := init_globs)
     (cfg.next with vidx := 1, cfg'.next, {})
     s1
     (initial_state s1.ffi s1.clock eval_conf with
                <|refs := [Refv (Conv NONE [])]; globals := init_globs |>)
-
 Proof
   rw []
   \\ fs [precondition1_def, invariant_def]
+  \\ simp [init_genv_ok, init_genv_tys_ok]
   \\ fs [compile_prog_def]
   \\ rfs []
   \\ rpt (pairarg_tac \\ fs [])
@@ -4860,22 +4978,23 @@ Proof
   \\ imp_res_tac compile_decs_idx_prev
   \\ rw []
   >- (
-    fs [s_rel_cases, EVAL ``(initial_state ffi clock ec).refs``]
+    fs [s_rel_cases, initial_state_def, init_genv_FDOM]
   )
   >- (
     fs [idx_range_rel_def]
+    \\ drule_then assume_tac precondition_stamp_helper
     \\ qexists_tac `next`
     \\ simp [idx_prev_refl]
-    \\ rpt conj_tac
-    >- (
+    \\ conj_tac >- (
       every_case_tac \\ fs []
     )
     \\ Cases_on `next.vidx` \\ fs [idx_prev_def]
+    \\ simp [init_genv_def]
     \\ fs [ALL_DISJOINT_CONS, idx_block_def, idx_final_block_def,
         genv_allocated_idxs_def]
-    \\ fs [DISJOINT_ALT, PULL_EXISTS]
-    \\ rw [EL_CONS_IF] \\ res_tac \\ fs []
-    \\ simp [DISJ_EQ_IMP, EL_REPLICATE]
+    \\ fs [EVAL ``init_genv_els``, EVAL ``init_genv_ty_els``, FUPDATE_LIST_THM, DISJ_IMP_THM]
+    \\ fs [DISJOINT_ALT, PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM, EVAL ``init_genv_next``]
+    \\ csimp [EL_CONS_IF, EL_REPLICATE]
   )
   >- (
     simp [src_orac_invs_def, src_orac_gen_inv_def, src_orac_env_invs_def]
@@ -4892,7 +5011,7 @@ Proof
 QED
 
 Theorem compile_prog_correct:
-  precondition1 interp s env genv cfg eval_conf ds ∧
+  precondition1 interp s env cfg eval_conf ds ∧
   compile_prog cfg ds = (cfg', ds') ∧
   evaluate_decs s env ds = (s', r) ∧
   r <> Rerr (Rabort Rtype_error)
@@ -4916,6 +5035,7 @@ Proof
   \\ simp [compile_prog_def]
   \\ imp_res_tac compile_decs_idx_prev
   \\ fs [idx_prev_def, precondition1_def]
+  \\ imp_res_tac init_global_env_inv_imp
   \\ Cases_on `next.vidx` \\ fs []
   \\ simp [LUPDATE_def]
   \\ rw []
@@ -4927,7 +5047,7 @@ Proof
     rw []
     >- (
       drule_then irule global_env_inv_weak
-      \\ simp [subglobals_def]
+      \\ simp [subglobals_def, init_genv_def]
     )
     >- (
       simp [env_gen_rel_def]
@@ -4954,7 +5074,7 @@ val SND_eq = Q.prove(
   Cases_on`x`\\rw[]);
 
 Theorem compile_prog_semantics:
-  precondition1 interp s1 env1 genv conf eval_conf prog ⇒
+  precondition1 interp s1 env1 conf eval_conf prog ⇒
    ¬semantics_prog s1 env1 prog Fail ⇒
    semantics_prog s1 env1 prog
       (semantics eval_conf s1.ffi
@@ -5076,7 +5196,7 @@ QED
 
 Definition precondition_def:
   precondition interp s env cfg ec prog <=>
-  ?genv ec1. precondition1 interp s env genv cfg ec1 prog /\
+  ?ec1. precondition1 interp s env cfg ec1 prog /\
     flat_patternProof$install_conf_rel cfg.pattern_cfg ec1 ec
 End
 
@@ -5213,13 +5333,45 @@ Proof
 QED
 
 Theorem compile_esgc_free:
-   compile c p = (c1, p1)
-   ==>
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet p1))
+   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (SND (compile c p))))
 Proof
   rw [compile_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ metis_tac [compile_prog_esgc_free, compile_flat_esgc_free]
+QED
+
+Theorem inc_compile_prog_esgc_free:
+   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (SND (inc_compile_prog env_id c p))))
+Proof
+  rw [inc_compile_prog_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs [glob_alloc_def]
+  \\ simp [store_env_id_def, env_id_tuple_def, FILTER_APPEND]
+  \\ metis_tac [compile_decs_esgc_free]
+QED
+
+Theorem inc_compile_esgc_free:
+   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (SND (inc_compile env_id c p))))
+Proof
+  rw [inc_compile_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ metis_tac [inc_compile_prog_esgc_free, compile_flat_esgc_free, SND]
+QED
+
+Theorem compile_no_Mat:
+  no_Mat_decs (SND (compile c prog))
+Proof
+  fs [compile_def, compile_prog_def, compile_flat_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ irule flat_patternProofTheory.compile_decs_no_Mat
+QED
+
+Theorem inc_compile_no_Mat:
+  no_Mat_decs (SND (inc_compile env_id c prog))
+Proof
+  fs [inc_compile_def, inc_compile_prog_def, compile_flat_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ irule flat_patternProofTheory.compile_decs_no_Mat
 QED
 
 val mem_size_lemma = Q.prove ( `list_size sz xs < N ==> (MEM x xs ⇒ sz x < N)`,
@@ -5318,6 +5470,45 @@ Proof
        flat_elimProofTheory.remove_flat_prog_sub_bag,
        flat_patternProofTheory.compile_decs_elist_globals]
 QED
+
+Triviality compile_flat_BAG_ALL_DISTINCT = MATCH_MP
+    ( BAG_ALL_DISTINCT_SUB_BAG |> REWRITE_RULE [GSYM AND_IMP_INTRO] )
+    compile_flat_sub_bag
+
+Theorem compile_globals_BAG_ALL_DISTINCT:
+  BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet (SND (compile c prog)))))
+Proof
+  rw []
+  \\ fs [compile_def, compile_prog_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ irule compile_flat_BAG_ALL_DISTINCT
+  \\ fs [glob_alloc_def, op_gbag_def, alloc_env_ref_def]
+  \\ imp_res_tac compile_decs_elist_globals
+  \\ simp [bagTheory.BAG_ALL_DISTINCT_BAG_UNION, bagTheory.BAG_DISJOINT_BAG_INSERT,
+        containerTheory.IN_LIST_TO_BAG, MEM_MAP]
+  \\ fs [LIST_TO_BAG_DISTINCT]
+  \\ irule listTheory.ALL_DISTINCT_MAP_INJ
+  \\ fs [all_distinct_count_list]
+QED
+
+Theorem inc_compile_globals_BAG_ALL_DISTINCT:
+  BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet
+    (SND (inc_compile env_id c prog)))))
+Proof
+  rw []
+  \\ fs [inc_compile_def, inc_compile_prog_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ irule compile_flat_BAG_ALL_DISTINCT
+  \\ fs [glob_alloc_def, op_gbag_def, store_env_id_def, FILTER_APPEND,
+        elist_globals_append, env_id_tuple_def]
+  \\ imp_res_tac compile_decs_elist_globals
+  \\ fs [LIST_TO_BAG_DISTINCT]
+  \\ irule listTheory.ALL_DISTINCT_MAP_INJ
+  \\ fs [all_distinct_count_list]
+QED
+
 
 Theorem SUB_BAG_IMP:
   (B1 <= B2) ==> x ⋲ B1 ==> x ⋲ B2

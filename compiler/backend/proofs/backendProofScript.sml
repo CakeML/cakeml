@@ -51,13 +51,20 @@ Proof
   rfs[labPropsTheory.good_dimindex_def] \\ rfs []
 QED
 
-(* -- *)
+Definition prim_src_config_def:
+  prim_src_config =
+    let (_, next, env, _, _) = compile_decs [] 1n empty_config.next empty_env
+        ARB prim_types_program in
+    (empty_config with <| next := next; mod_env := env |>)
+End
 
-val prim_config = prim_config_eq |> concl |> lhs
+Theorem prim_src_config_eq = EVAL ``prim_src_config``
+
+(* -- *)
 
 val backend_config_ok_def = Define`
   backend_config_ok (c:'a config) ⇔
-    c.source_conf = ^prim_config.source_conf ∧
+    c.source_conf = prim_src_config ∧
     0 < c.clos_conf.max_app ∧
     c.bvl_conf.next_name2 = bvl_num_stubs + 2 ∧
     LENGTH c.lab_conf.asm_conf.avoid_regs + 13 ≤ c.lab_conf.asm_conf.reg_count ∧
@@ -299,7 +306,8 @@ val semantics_thms = [source_to_flatProofTheory.compile_semantics,
   full_make_init_semantics]
 
 val _ = Datatype `progs =
-  <| source_prog : ast$dec list
+  <| env_id : num # num
+   ; source_prog : ast$dec list
    ; flat_prog : flatLang$dec list
    ; clos_prog : closLang$exp list
    ; bvl_prog : (num # num # bvl$exp) list
@@ -313,7 +321,7 @@ val _ = Datatype `progs =
    |>`;
 
 val empty_progs_def = Define `
-  empty_progs = <| source_prog := []; flat_prog := [];
+  empty_progs = <| env_id := (0, 0); source_prog := []; flat_prog := [];
     clos_prog := []; bvl_prog := []; bvi_prog := [];
     data_prog := []; word_prog := []; stack_prog := []; cur_bm := [];
     lab_prog := []; target_prog := ([], []) |>`;
@@ -370,9 +378,10 @@ val ensure_fp_conf_ok_def = Define `
           has_fp_tern := (asm_c.ISA = ARMv7 ∧ 2 < asm_c.fp_reg_count)|>`;
 
 val compile_inc_progs_def = Define`
-  compile_inc_progs c p =
-    let ps = empty_progs with <| source_prog := p |> in
-    let (c',p) = source_to_flat$compile c.source_conf p in
+  compile_inc_progs c p_tup =
+    let (env_id,p) = p_tup in
+    let ps = empty_progs with <| env_id := env_id; source_prog := p |> in
+    let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
     let ps = ps with <| flat_prog := p |> in
     let c = c with source_conf := c' in
     let p = flat_to_clos_compile p in
@@ -571,8 +580,8 @@ Proof
 QED
 
 Theorem cake_orac_eqs:
-  state_co source_to_flat$compile
-    (cake_orac c' src config_tuple1 (\ps. ps.source_prog)) =
+  state_co (\c (env_id, decs). inc_compile env_id c decs)
+    (cake_orac c' src config_tuple1 (\ps. (ps.env_id, ps.source_prog))) =
   cake_orac c' src (SND o config_tuple1) (\ps. ps.flat_prog)
   /\
   pure_co (\p. (flat_to_clos_compile p, []))
@@ -792,46 +801,6 @@ Proof
   \\ Induct
   \\ simp [cake_orac_0, cake_orac_SUC]
   \\ fs [UNCURRY, cake_orac_def]
-QED
-
-Theorem source_to_flat_SND_compile_esgc_free =
-  GEN_ALL source_to_flatProofTheory.compile_esgc_free
-    |> REWRITE_RULE [PAIR_FST_SND_EQ]
-    |> SIMP_RULE bool_ss [EVERY_MAP |> REWRITE_RULE [GSYM o_DEF]]
-
-Theorem compile_globals_BAG_ALL_DISTINCT:
-  source_to_flat$compile conf prog = (conf', prog') /\ conf' = conf'' ==>
-  BAG_ALL_DISTINCT (flatProps$elist_globals (MAP flatProps$dest_Dlet
-    (FILTER flatProps$is_Dlet prog')))
-Proof
-  rw []
-  \\ fs [source_to_flatTheory.compile_def,
-        source_to_flatTheory.compile_prog_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ rveq \\ fs []
-  \\ drule_then assume_tac compile_flat_sub_bag
-  \\ drule_then irule BAG_ALL_DISTINCT_SUB_BAG
-  \\ fs [source_to_flatTheory.glob_alloc_def, flatPropsTheory.op_gbag_def]
-  \\ imp_res_tac compile_decs_elist_globals
-  \\ fs [LIST_TO_BAG_DISTINCT]
-  \\ irule listTheory.ALL_DISTINCT_MAP_INJ
-  \\ fs [all_distinct_count_list]
-QED
-
-Theorem compile_SND_globals_BAG_ALL_DISTINCT =
-  GEN_ALL compile_globals_BAG_ALL_DISTINCT
-    |> SIMP_RULE bool_ss [PAIR_FST_SND_EQ, FST, SND]
-
-Theorem source_to_flat_compile_no_Mat:
-  flatProps$no_Mat_decs (SND (compile c prog))
-Proof
-  fs [source_to_flatTheory.compile_def,
-        source_to_flatTheory.compile_prog_def,
-        source_to_flatTheory.compile_flat_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ rveq \\ fs []
-  \\ drule flat_patternProofTheory.compile_decs_no_Mat
-  \\ simp []
 QED
 
 fun conseq xs = ConseqConv.CONSEQ_REWRITE_TAC (xs, [], [])
@@ -1079,8 +1048,9 @@ Proof
 QED
 
 Theorem cake_orac_source_is_state:
-  is_state_oracle compile
-    (cake_orac c' syntax config_tuple1 (\ps. ps.source_prog))
+  is_state_oracle
+    (\c (env_id, decs). inc_compile env_id c decs)
+    (cake_orac c' syntax config_tuple1 (\ps. (ps.env_id, ps.source_prog)))
 Proof
   match_mp_tac is_state_oracle_cake_orac
   \\ rw []
@@ -1127,7 +1097,7 @@ Theorem cake_orac_clos_syntax_oracle_ok:
   (?st. c'.clos_conf = clos_c' with start := st) /\
   c2 = c.clos_conf /\ clos_prog = SND (to_clos c prog) /\
   1 <= c.clos_conf.max_app /\
-  c.source_conf = (prim_config : 's config).source_conf ==>
+  c.source_conf = prim_src_config ==>
   clos_to_bvlProof$syntax_oracle_ok c.clos_conf clos_c' clos_prog
      (cake_orac c' syntax (SND ∘ config_tuple1) (λps. (ps.clos_prog,[])))
 Proof
@@ -1148,9 +1118,12 @@ Proof
   \\ csimp []
   \\ fs [PAIR_FST_SND_EQ |> Q.ISPEC `source_to_flat$compile c p`, SND_state_co]
   \\ rveq
-  \\ simp [compile_SND_globals_BAG_ALL_DISTINCT, source_to_flat_SND_compile_esgc_free]
-  \\ simp [source_to_flat_compile_no_Mat]
-  \\ simp [Q.prove (`prim_config.source_conf.mod_env.v = nsEmpty`, EVAL_TAC)]
+  \\ simp [UNCURRY, compile_no_Mat, inc_compile_no_Mat, inc_compile_esgc_free,
+        EVERY_MAP |> REWRITE_RULE [GSYM o_DEF] |> GSYM,
+        inc_compile_globals_BAG_ALL_DISTINCT,
+        compile_globals_BAG_ALL_DISTINCT,
+        source_to_flatProofTheory.compile_esgc_free]
+  \\ simp [Q.prove (`prim_src_config.mod_env.v = nsEmpty`, EVAL_TAC)]
   \\ qpat_assum `compile c _ = SOME _`
     (assume_tac o REWRITE_RULE [compile_eq_from_source])
   \\ fs [from_source_def, from_flat_def,
@@ -1159,7 +1132,7 @@ Proof
   \\ rveq \\ fs []
   \\ drule_then (fn t => conseq [t]) monotonic_globals_state_co_compile
   \\ simp [cake_orac_0, config_tuple1_def]
-  \\ rename [`compile _.source_conf _ = (source_conf',_)`]
+  \\ rename [`compile prim_src_config _ = (source_conf',_)`]
   \\ `source_conf' = c'.source_conf` by (
     EVERY (map imp_res_tac from_EXS)
     \\ fs [] \\ rfs []
@@ -2575,13 +2548,83 @@ Proof
   \\ imp_res_tac pred_setTheory.LINV_DEF \\ fs []
 QED
 
-Triviality x_eq_3:
+Triviality x_eq_3r:
   (x = x1 /\ (x = x1 \/ x = x2 \/ x = x3) <=> x = x1) /\
   (x = x2 /\ (x = x1 \/ x = x2 \/ x = x3) <=> x = x2) /\
   (x = x3 /\ (x = x1 \/ x = x2 \/ x = x3) <=> x = x3)
 Proof
   metis_tac []
 QED
+
+Theorem source_precond:
+  THE (prim_sem_env (ffi:'ffi ffi_state)) = (s, env) ==>
+  source_to_flatProof$precondition NONE s env prim_src_config
+   (flatSem$install_config_compile_oracle_fupd (K (pure_co
+              (MAP (flat_pattern$compile_dec prim_src_config.pattern_cfg))
+        o ARB "TODO syntax oracle")) ARB)
+    prog
+Proof
+  rw []
+  \\ simp [source_to_flatProofTheory.precondition_def,
+        source_to_flatProofTheory.precondition1_def]
+  \\ srw_tac[QUANT_INST_ss[pair_default_qp,record_default_qp]][]
+  \\ simp [flat_patternProofTheory.install_conf_rel_def]
+  \\ simp [GSYM PULL_EXISTS, source_to_flatProofTheory.orac_rel_def]
+  \\ simp [Q.prove (`?y. f x = f y`, metis_tac [])]
+  \\ fs [prim_sem_env_eq]
+  \\ rveq \\ fs []
+  \\ EVAL_TAC
+QED
+
+Triviality source_semantics:
+  ¬ semantics_prog s env prog Fail /\
+  compile prim_src_config prog = (c', p') /\
+  THE (prim_sem_env (ffi:'ffi ffi_state)) = (s, env) ==>
+  semantics_prog s env prog (flatSem$semantics
+   (flatSem$install_config_compile_oracle_fupd (K (pure_co
+              (MAP (flat_pattern$compile_dec prim_src_config.pattern_cfg))
+        o ARB "TODO syntax oracle")) ARB)
+    s.ffi p')
+Proof
+  rw []
+  \\ imp_res_tac source_precond
+  \\ first_x_assum (qspec_then `prog` assume_tac)
+  \\ drule_then drule source_to_flatProofTheory.compile_semantics
+  \\ simp []
+QED
+
+Definition
+val cc = (
+     ``
+      clos_to_bvlProof$compile_common_inc (c:'a config).clos_conf
+         (backendProps$pure_cc (clos_to_bvlProof$compile_inc c.clos_conf.max_app)
+           (bvl_to_bviProof$full_cc c.bvl_conf (backendProps$pure_cc bvi_to_data_compile_prog
+             (λcfg. OPTION_MAP (I ## MAP data_to_word_gcProof$upper_w2w ## I) o
+                    (λprogs.
+                      (λ(bm0,cfg) progs.
+                        (λ(progs,fs,bm).
+                          OPTION_MAP
+                            (λ(bytes,cfg).
+                              (bytes, DROP (LENGTH bm0) bm,bm,cfg))
+                            (compile cfg
+                              (MAP prog_to_section
+                                (MAP
+                                  (prog_comp c.stack_conf.reg_names)
+                                  (MAP
+                                    (prog_comp c.stack_conf.jump
+                                      c.lab_conf.asm_conf.addr_offset
+                                      (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3)))
+                                    (MAP prog_comp progs))))))
+                         (compile_word_to_stack ((c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3))-2) progs bm0))
+                            cfg (MAP (λp. full_compile_single mc.target.config.two_reg_arith (mc.target.config.reg_count - (LENGTH mc.target.config.avoid_regs + 5))
+                            c.word_to_word_conf.reg_alg
+                            (mc:('a,'b,'c)machine_config).target.config (p,NONE)) progs)) o
+                            MAP (compile_part (ensure_fp_conf_ok mc.target.config c.data_conf))))))`` )
+
+Triviality flat_to_clos_sem = flat_to_closProofTheory.compile_semantics
+  |> SIMP_RULE bool_ss [ASSUME ``0 < (max_app : num)``, ASSUME ``flatProps$no_Mat_decs ds``]
+
+
 
 Theorem compile_correct':
 
@@ -2603,54 +2646,16 @@ Proof
     assume_tac t) >>
   `c.lab_conf.asm_conf = mc.target.config` by fs[mc_init_ok_def] >>
   `c'.lab_conf.ffi_names = SOME mc.ffi_names` by fs[targetSemTheory.installed_def] >>
-  old_drule(GEN_ALL(MATCH_MP SWAP_IMP source_to_flatProofTheory.compile_semantics)) >>
+
+  fs [] >>
+  rpt (pairarg_tac >> fs []) >>
+  drule_then (drule_then drule) source_semantics >>
   fs[primSemEnvTheory.prim_sem_env_eq] >>
   qpat_x_assum`_ = s`(assume_tac o Abbrev_intro o SYM) >>
   qpat_x_assum`_ = env`(assume_tac o Abbrev_intro o SYM) >>
-  `source_to_flatProof$precondition s env c.source_conf` by (
-    simp[source_to_flatProofTheory.precondition_def] >>
-    simp[Abbr`env`,Abbr`s`] >>
-    srw_tac[QUANT_INST_ss[pair_default_qp,record_default_qp]][] >>
-    rw[source_to_flatProofTheory.invariant_def] >>
-    rw[source_to_flatProofTheory.genv_c_ok_def] >>
-    rw[source_to_flatProofTheory.s_rel_cases] >>
-    rw[flatSemTheory.initial_state_def] >>
-    rw[prim_config_eq] >>
-    rw[Once source_to_flatProofTheory.v_rel_cases] >>
-    rw[namespacePropsTheory.nsLookup_Bind_v_some,PULL_EXISTS] \\
-    (fn g as (asl,w) =>
-      let
-        val (genv_c,tm) = dest_exists w
-        val tm = tm |> strip_conj |> rev |> first is_forall |> strip_forall |> #2
-        val (tms1, tm) = dest_imp tm
-        val tms2 = tm |> dest_exists |> #2 |> strip_conj |> el 1
-        fun get_data (tm,acc) =
-          let
-            val (eq, data, rest) = dest_cond tm
-          in
-            get_data (rest, (lhs eq, subst[rhs eq |-> lhs eq](optionSyntax.dest_some data))::acc)
-          end handle HOL_ERR _ => acc
-        val d1 = get_data (lhs tms1,[])
-        val d2 = get_data (lhs tms2,[])
-        fun get_pair (k,cn) =
-          let
-            val (arity, stamp) = pairSyntax.dest_pair (tassoc k d1)
-          in
-            pairSyntax.mk_pair(pairSyntax.mk_pair(cn, arity), stamp)
-          end
-        val al = map get_pair d2
-      in
-        exists_tac (
-          finite_mapSyntax.list_mk_fupdate(
-            finite_mapSyntax.mk_fempty(finite_mapSyntax.dest_fmap_ty (type_of genv_c)),
-            al)
-        )
-      end g)
-    \\ simp[IN_FRANGE, DOMSUB_FAPPLY_THM]
-    \\ EVAL_TAC \\ rw[] \\ EVAL_TAC
-    \\ CCONTR_TAC \\ fs[] \\ rw[] \\ fs[])
-  \\ disch_then old_drule >> strip_tac >>
-  pairarg_tac \\ fs[] >>
+
+  strip_tac >>
+  fs[] >>
   qhdtm_x_assum`from_flat`mp_tac >>
   srw_tac[][from_flat_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
@@ -2660,9 +2665,12 @@ Proof
     simp[EXTENSION,IN_DEF] >>
     metis_tac[semantics_prog_deterministic] ) >>
   qunabbrev_tac`sem2` >>
+
   (
    flat_to_closProofTheory.compile_semantics
    |> Q.GEN`cc`
+
+(*
    |> (
      ``
       clos_to_bvlProof$compile_common_inc (c:'a config).clos_conf
@@ -2694,11 +2702,13 @@ Proof
    |> Q.GEN`c`
    |> Q.GEN`ds`
    |> Q.GEN`ffi`
+*)
+
    |> old_drule)
 
   \\ disch_then (first_assum o mp_then (Pat `_ <> Fail`) mp_tac)
 
-  \\ simp [source_to_flat_compile_no_Mat]
+  \\ simp [compile_no_Mat]
 
   \\ disch_then(qspecl_then[`c`,
         `cake_orac c' TODO_syntax (SND o config_tuple1)

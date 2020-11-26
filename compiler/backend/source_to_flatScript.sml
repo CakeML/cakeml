@@ -349,8 +349,9 @@ End
 
 Definition alloc_tags_def:
   alloc_tags tid ctors =
-    let (con_ns, cid_spt, tag_list) = alloc_tags1 ctors in
-    (nsMap (\tag. (tag, SOME (tid, tag_list))) con_ns, cid_spt)
+    let (con_ns, cid_spt, tag_list) = alloc_tags1 (REVERSE ctors) in
+    let data = SOME (tid, REVERSE tag_list) in
+    (nsMap (\tag. (tag, data)) con_ns, cid_spt)
 End
 
 Definition env_id_tuple_def:
@@ -460,7 +461,7 @@ val compile_prog_def = Define`
     let (_,next,e,gen,p') = compile_decs [] 1n next c.mod_env envs p in
     let envs2 = <| next := c.envs.next + 1;
         env_gens := insert c.envs.next gen.envs c.envs.env_gens |> in
-    (c with <| next := next; envs := envs2 |>,
+    (c with <| next := next; envs := envs2; mod_env := e |>,
         glob_alloc next c :: alloc_env_ref :: p')`;
 
 Definition lookup_env_id_def:
