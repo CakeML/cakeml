@@ -1807,4 +1807,32 @@ Proof
   \\ rw [] \\ simp [compile_syntactic_props]
 QED
 
+Theorem FST_inc_compile_syntactic_props:
+  EVERY closProps$no_mti (FST (inc_compile_decs decs)) /\
+  closProps$every_Fn_vs_NONE (FST (inc_compile_decs decs)) /\
+  (0 < max_app ==> ¬closProps$contains_App_SOME max_app (FST (inc_compile_decs decs)))
+Proof
+  simp [inc_compile_decs_def, compile_decs_syntactic_props,
+    contains_App_SOME_APPEND]
+QED
+
+Theorem FST_inc_compile_set_globals:
+  ∀decs. no_Mat_decs decs ==>
+  closProps$elist_globals (FST (inc_compile_decs decs)) =
+  flatProps$elist_globals (MAP flatProps$dest_Dlet (FILTER flatProps$is_Dlet decs))
+Proof
+  simp [inc_compile_decs_def, closPropsTheory.elist_globals_append]
+  \\ simp [compile_decs_set_globals]
+QED
+
+Theorem FST_inc_compile_esgc_free:
+  EVERY (flatProps$esgc_free o flatProps$dest_Dlet) (FILTER flatProps$is_Dlet decs) /\
+  no_Mat_decs decs ==>
+  EVERY closProps$esgc_free (FST (inc_compile_decs decs))
+
+Proof
+  simp [inc_compile_decs_def]
+  \\ simp [compile_decs_esgc_free]
+QED
+
 val _ = export_theory()
