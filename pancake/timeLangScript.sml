@@ -55,10 +55,10 @@ End
 Type program = ``:(loc # term list) list``
 
 
-(* functinos for compiler *)
+(* functions for compiler *)
 
-Definition tinv_of_def:
-  tinv_of (Tm _ _ _ _ tes) = MAP FST tes
+Definition conditions_of_def:
+  (conditions_of (Tm _ cs _ _ _) = cs)
 End
 
 Definition clks_of_term_def:
@@ -83,10 +83,22 @@ Definition number_of_clks_def:
   number_of_clks prog = LENGTH (clks_of prog)
 End
 
+
+Definition tinv_of_def:
+  tinv_of (Tm _ _ _ _ tes) = MAP FST tes
+End
+
+Definition init_term_of_def:
+  (init_term_of (t::ts) = t) ∧
+  (init_term_of [] = [])
+End
+
+(*
 Definition init_term_of_def:
   (init_term_of ((t::ts)::tss) = t) ∧
   (init_term_of [] = Tm (Input 0) [] [] 0 [])
 End
+*)
 
 Definition init_loc_def:
   init_loc = 0:num
@@ -101,5 +113,6 @@ Definition input_set_def:
   (input_set (Tm _ _ _ _ []) = 1:num) ∧
   (input_set _ = 0:num)
 End
+
 
 val _ = export_theory();
