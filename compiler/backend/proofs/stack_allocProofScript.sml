@@ -5215,6 +5215,19 @@ Proof
     \\ BasicProvers.TOP_CASE_TAC \\ fs[] \\ rw[]
     \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
     \\ full_simp_tac(srw_ss())[state_component_equality] )
+  \\ conj_tac (* OpCurrHeap *) >- (
+    fs[Once comp_def,evaluate_def,get_var_def,word_exp_def]
+    \\ fs [AllCaseEqs(),set_var_def]
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ rw [] \\ fs [PULL_EXISTS]
+    \\ gs [optionTheory.IS_SOME_EXISTS,AllCaseEqs()]
+    \\ qpat_x_assum`_ = t.regs`(assume_tac o SYM) \\ fs[]
+    \\ rename [‘FLOOKUP s.regs src = SOME (Word x7)’]
+    \\ ‘FLOOKUP regs src = SOME (Word x7)’ by fs [FLOOKUP_DEF,SUBMAP_DEF]
+    \\ fs []
+    \\ match_mp_tac SUBMAP_mono_FUPDATE
+    \\ rw[GSYM SUBMAP_DOMSUB_gen]
+    \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB] )
   \\ conj_tac (* Tick *) >- (
     rpt strip_tac
     \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,dec_clock_def]

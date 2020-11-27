@@ -275,6 +275,10 @@ Proof
    (fs [wordSemTheory.evaluate_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
     \\ fs [])
+  THEN1 (* OpCurrHeap *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
+    \\ fs [])
   THEN1 (* Store *)
    (fs [wordSemTheory.evaluate_def,mem_store_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []

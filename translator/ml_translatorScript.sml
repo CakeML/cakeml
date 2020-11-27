@@ -101,6 +101,27 @@ val PreImpEval_def = Define`
 
 (* Theorems *)
 
+Theorem AppReturns_thm:
+  AppReturns P cl Q ⇔
+    ∀v. P v ⇒
+        ∃env exp.
+          do_opapp [cl;v] = SOME (env,exp) ∧
+          ∀refs.
+            ∃refs' u.
+              eval_rel (empty_state with refs := refs) env exp
+                       (empty_state with refs := refs++refs') u ∧
+              Q u
+Proof
+  fs [AppReturns_def] \\ eq_tac \\ rw []
+  \\ first_x_assum drule
+  \\ Cases_on ‘cl’ \\ fs [do_opapp_def,AllCaseEqs()]
+  \\ rename [‘find_recfun x1 x2’]
+  \\ Cases_on ‘find_recfun x1 x2’ \\ fs []
+  \\ PairCases_on ‘x’ \\ fs []
+  \\ rename [‘ALL_DISTINCT xx’]
+  \\ Cases_on ‘ALL_DISTINCT xx’ \\ fs []
+QED
+
 local
   val Eval_lemma = prove(
     ``∀env exp P.

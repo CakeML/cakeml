@@ -175,7 +175,7 @@ val code_rel_union_fromAList = Q.prove(`
     first_x_assum drule>>rw[]>>
     simp[]>>metis_tac[]);
 
-val compile_single_correct = Q.prove(`
+Theorem compile_single_correct[local]:
   ∀prog (st:('a,'c,'ffi) wordSem$state) l coracle cc.
   code_rel st.code l /\
   (domain st.code = domain l) ∧
@@ -196,8 +196,8 @@ val compile_single_correct = Q.prove(`
           rst1 = rst with <|
             code:=rst1.code ;
             compile_oracle := (I ## MAP (λp. compile_single tt kk aa co (p,NONE))) o rst.compile_oracle;
-            compile:=cc |>`, (* todo: rst1.perm? *)
-
+            compile:=cc |> (* todo: rst1.perm? *)
+Proof
   (*recInduct doesn't seem to give a nice induction thm*)
   completeInduct_on`((st:('a,'c,'ffi)wordSem$state).termdep)`>>
   completeInduct_on`((st:('a,'c,'ffi)wordSem$state).clock)`>>
@@ -233,8 +233,6 @@ val compile_single_correct = Q.prove(`
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     rw[] >> rw[]>>
     fs[state_component_equality])
-
-
 
   >- (*Call -- the hard case*)
     (fs[evaluate_def]>>
@@ -547,7 +545,7 @@ val compile_single_correct = Q.prove(`
       rw[]>>fs[]>>
       pairarg_tac>>fs[]>>
       qpat_x_assum`rst1 = _` SUBST_ALL_TAC>>fs[])
-  >-
+  >- (* If *)
     (simp[evaluate_def,get_var_def,get_var_imm_def]>>
     ntac 2 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
     Cases_on`r`>>full_simp_tac(srw_ss())[get_var_imm_def,get_var_def]>>
@@ -556,7 +554,7 @@ val compile_single_correct = Q.prove(`
     TRY(qpat_abbrev_tac`prog = p0`)>>
     first_x_assum(qspecl_then[`prog`,`st`,`l`,`cc`] mp_tac)>>
     (impl_tac>-size_tac>>srw_tac[][]))
-  >-
+  >- (* Alloc *)
     (qexists_tac`st.permute`>>fs[rm_perm]>>
     fs[evaluate_def,get_var_def]>>
     ntac 2 (TOP_CASE_TAC>>fs[])>>
@@ -571,10 +569,11 @@ val compile_single_correct = Q.prove(`
     Cases_on`x'`>>fs[]>>Cases_on`h`>>fs[]>>
     EVERY_CASE_TAC>>fs[has_space_def]>>
     rfs[call_env_def,flush_state_def])
-  >- tac
-  >- tac
-  >- tac
-  >- (tac \\ fs[domain_lookup] \\ metis_tac[] )
+  >- (rename [‘Raise’] \\ tac)
+  >- (rename [‘Return’] \\ tac)
+  >- (rename [‘Tick’] \\ tac)
+  >- (rename [‘OpCurrHeap’] \\ tac)
+  >- (rename [‘LocValue’] \\ tac \\ fs[domain_lookup] \\ metis_tac[])
   >- (* Install *)
     (qexists_tac`st.permute`>>fs[rm_perm]>>
     ntac 3 (last_x_assum kall_tac)>>
@@ -596,11 +595,10 @@ val compile_single_correct = Q.prove(`
       simp[domain_fromAList]>>AP_TERM_TAC>>
       simp[EXTENSION,MAP_MAP_o,compile_single_def,MEM_MAP,EXISTS_PROD])>>
     simp[state_component_equality,o_DEF])
-  >- (*CBW*) tac
-  >- (*DBW*) tac
-  >- (*FFI*)
-    (tac>>
-     Cases_on`call_FFI st.ffi s x'' x'`>>simp[]));
+  >- (rename [‘CodeBufferWrite’] \\ tac)
+  >- (rename [‘DataBufferWrite’] \\ tac)
+  >- (rename [‘FFI’] \\ tac \\ Cases_on`call_FFI st.ffi s x'' x'` \\ simp[])
+QED
 
 Theorem compile_word_to_word_thm:
      code_rel (st:('a,'c,'ffi) wordSem$state).code l ∧
