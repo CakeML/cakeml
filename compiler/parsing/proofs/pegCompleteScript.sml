@@ -623,6 +623,7 @@ Theorem firstSet_nNonETopLevelDecs[simp]:
        LocalT}
 Proof
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
+  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   simp[INSERT_COMM, INSERT_UNION_EQ]
 QED
 
