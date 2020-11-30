@@ -11755,6 +11755,95 @@ Proof
   \\ fs [] \\ rw [] \\ fs []
 QED
 
+Theorem assign_Global:
+   (∃n. op = Global n) ==> ^assign_thm_goal
+Proof
+  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ rpt_drule0 state_rel_cut_IMP
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
+  \\ fs [do_app,CaseEq"list",CaseEq"dataSem$v",CaseEq"bool"]
+  \\ gvs [AllCaseEqs(),set_var_def]
+  \\ rveq \\ fs []
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ ‘∃curr.
+        FLOOKUP t.store CurrHeap = SOME (Word curr) ∧
+        glob_real_inv c curr (FLOOKUP t.store Globals) (FLOOKUP t.store GlobReal)’
+          by fs [memory_rel_def,heap_in_memory_store_def,state_rel_def]
+  \\ fs [glob_real_inv_def]
+  \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm,option_le_max_right]
+  \\ gvs [the_global_def,libTheory.the_def]
+  \\ qmatch_asmsub_abbrev_tac ‘(xs1 ++ [(RefPtr ptr,t.store ' Globals)] ++ xs2)’
+  \\ ‘memory_rel c t.be (THE x.tstamps) x.refs x.space t.store t.memory
+          t.mdomain ((RefPtr ptr,t.store ' Globals) :: (xs1 ++ xs2))’ by
+      (first_x_assum (fn th => mp_tac th \\ match_mp_tac memory_rel_rearrange)
+       \\ fs [] \\ rw [] \\ fs [])
+  \\ drule0 (memory_rel_Deref' |> GEN_ALL) \\ fs []
+  \\ disch_then drule \\ strip_tac \\ fs []
+  \\ drule memory_rel_RefPtr_IMP' \\ fs [] \\ strip_tac
+  \\ gvs [get_real_simple_addr_def]
+  \\ gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ gvs [FLOOKUP_DEF]
+  \\ fs [lookup_insert,adjust_var_11]
+  \\ rw [] \\ fs [option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+  \\ fs [] \\ rw [] \\ fs []
+QED
+
+Theorem assign_SetGlobal:
+   (∃n. op = SetGlobal n) ==> ^assign_thm_goal
+Proof
+  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ rpt_drule0 state_rel_cut_IMP
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
+  \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs [] \\ clean_tac
+  \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_1] \\ clean_tac
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [bvlSemTheory.Unit_def] \\ rveq
+  \\ fs [GSYM bvlSemTheory.Unit_def] \\ rveq
+  \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm]
+  \\ rfs [the_global_def,libTheory.the_def]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ disch_then drule0 \\ fs []
+  \\ imp_res_tac get_vars_1_IMP \\ fs []
+  \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_1] \\ clean_tac
+  \\ qmatch_goalsub_abbrev_tac ‘(_,_)::(xs1++[(RefPtr ref_ptr,_)]++xs2)’
+  \\ strip_tac
+  \\ ‘memory_rel c t.be (THE x.tstamps) x.refs x.space t.store t.memory t.mdomain
+        ((RefPtr ref_ptr,t.store ' Globals)::(h,a1')::(xs1 ++ xs2))’ by
+      (first_x_assum (fn th => mp_tac th \\ match_mp_tac memory_rel_rearrange)
+       \\ fs [] \\ rw [] \\ fs [])
+  \\ ‘∃curr.
+        FLOOKUP t.store CurrHeap = SOME (Word curr) ∧
+        glob_real_inv c curr (FLOOKUP t.store Globals) (FLOOKUP t.store GlobReal)’
+          by fs [memory_rel_def,heap_in_memory_store_def,state_rel_def]
+  \\ drule memory_rel_RefPtr_IMP' \\ fs [] \\ strip_tac
+  \\ fs [glob_real_inv_def]
+  \\ fs [wordSemTheory.get_vars_def,AllCaseEqs()]
+  \\ ‘memory_rel c t.be (THE x.tstamps) x.refs x.space t.store t.memory t.mdomain
+        ((h,a1')::(RefPtr ref_ptr,t.store ' Globals)::(xs1 ++ xs2))’ by
+      (first_x_assum (fn th => mp_tac th \\ match_mp_tac memory_rel_rearrange)
+       \\ fs [] \\ rw [] \\ fs [])
+  \\ drule0 (memory_rel_Update' |> GEN_ALL) \\ fs []
+  \\ disch_then drule \\ strip_tac
+  \\ fs [] \\ gvs[get_real_simple_addr_def]
+  \\ gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,wordSemTheory.mem_store_def]
+  \\ gvs [FLOOKUP_DEF,wordSemTheory.word_exp_def,data_to_wordTheory.Unit_def]
+  \\ fs [lookup_insert,adjust_var_11]
+  \\ rw [] \\ fs [option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ match_mp_tac memory_rel_Unit \\ fs []
+  \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+  \\ rw [] \\ fs []
+QED
+
 Theorem assign_SetGlobalsPtr:
    op = SetGlobalsPtr ==> ^assign_thm_goal
 Proof
@@ -13307,10 +13396,6 @@ Theorem assign_thm:
    ^assign_thm_goal
 Proof
   Cases_on `op = AllocGlobal` \\ fs []
-  THEN1 (fs [do_app] \\ every_case_tac \\ fs [])
-  \\ Cases_on `?i. op = Global i` \\ fs []
-  THEN1 (fs [do_app] \\ every_case_tac \\ fs [])
-  \\ Cases_on `?i. op = SetGlobal i` \\ fs []
   THEN1 (fs [do_app] \\ every_case_tac \\ fs [])
   \\ Cases_on `op = Greater` \\ fs []
   THEN1 (fs [do_app] \\ every_case_tac \\ fs [])

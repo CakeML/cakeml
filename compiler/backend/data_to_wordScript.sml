@@ -1037,6 +1037,19 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_Global (c:data_to_word$config) n (l:num) (dest:num) =
+      (Assign (adjust_var dest) (Load (Op Add [Lookup GlobReal;
+                                               Const (bytes_in_word * n2w (n+1))])),l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_SetGlobal (c:data_to_word$config) n (l:num) (dest:num) v1 =
+      (Seq (Store (Op Add [Lookup GlobReal; Const (bytes_in_word * n2w (n+1))])
+                  (adjust_var v1))
+           (Assign (adjust_var dest) Unit),l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
   assign_El (c:data_to_word$config) (l:num) (dest:num) v1 v2 =
                          (Assign (adjust_var dest)
                             (Load (Op Add [real_addr c (adjust_var v1);
@@ -1981,6 +1994,8 @@ val assign_def = Define `
     | Const i => assign_Const i l dest
     | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
     | SetGlobalsPtr => arg1 args (assign_SetGlobalsPtr c l dest) (Skip,l)
+    | SetGlobal n => arg1 args (assign_SetGlobal c n l dest) (Skip,l)
+    | Global n => assign_Global c n l dest
     | El => arg2 args (assign_El c l dest) (Skip,l)
     | ElemAt n => arg1 args (assign_ElemAt c n l dest) (Skip,l)
     | DerefByte => arg2 args (assign_DerefByte c l dest) (Skip,l)
