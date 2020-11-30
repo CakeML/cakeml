@@ -52,11 +52,13 @@ Datatype:
             ((time # clock) list) (* to calculate wait time *)
 End
 
+(*
 Type program = ``:(loc # term list) list``
+*)
 
+Type program = ``:(loc # term list) list # time option``
 
 (* functions for compiler *)
-
 Definition conditions_of_def:
   (conditions_of (Tm _ cs _ _ _) = cs)
 End

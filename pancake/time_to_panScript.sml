@@ -74,6 +74,14 @@ Definition wait_times_def:
 End
 
 
+Definition negate_def:
+  negate vname =
+  If  (Cmp Equal (Var vname) (Const 0w))
+      (Assign vname (Const 1w))
+      (Assign vname (Const 0w))
+End
+
+
 Definition min_of_def:
   (min_of v ([]:'a exp list) = Skip) ∧
   (min_of v (e::es) =
@@ -133,11 +141,10 @@ Definition comp_step_def:
       return  = Return (
         Struct
         [reset_clocks;
-         Var «wait_set»; Var «input_set»;
+         Var «wait_set»;
          Var «wake_up_at»; Label (toString loc)]) in
     decs [
         («wait_set»,  case tclks of [] => Const 0w | _ => Const 1w);
-        («input_set», case tclks of [] => Const 1w | _ => Const 0w);
         («wake_up_at», Const (-1w))]
          (nested_seq
           [update_wakeup_time («wake_up_at»,«sys_time») wait_exps;
@@ -157,13 +164,13 @@ End
 
 
 Definition comp_terms_def:
-  (comp_terms (vname, clks:mlstring list) [] = Skip) ∧
-  (comp_terms (vname,clks) (t::ts) =
+  (comp_terms fcomp (vname,clks:mlstring list) [] = Skip) ∧
+  (comp_terms fcomp (vname,clks) (t::ts) =
    let cds = conditions_of t
    in
    If (comp_conditions (vname, clks) cds)
-      (comp_step clks t)
-      (comp_terms (vname,clks) ts))
+      (fcomp clks t)
+      (comp_terms fcomp (vname,clks) ts))
 End
 
 
@@ -172,7 +179,7 @@ Definition comp_location_def:
   let n = LENGTH clks in
     (toString loc,
      [(«sys_time», One); («clks», gen_shape n)],
-     comp_terms («clks»,clks) ts)
+     comp_terms comp_step («clks»,clks) ts)
 End
 
 
@@ -189,98 +196,10 @@ Definition comp_def:
 End
 
 
-
 (*
-Definition min_of_def:
-  (min_of ([]:'a exp list) = Skip) ∧
-  (min_of (e::es) =
-    Seq (If (Cmp Less e (Var «wake_up_at»))
-         (Assign «wake_up_at» e) Skip)
-        (min_of es))
-End
-
-Definition update_wake_up_time_def:
-  update_wake_up_time v1 v2 wts =
-    Seq (min_of wts)
-        (Assign «wake_up_at» (Op Add [Var «wake_up_at»; Var «sys_time»]))
-End
+  ¬ (is_input ∨ (wait_set ∧ ¬ (sys_time < wake_up_at))) =
+  ¬is_input  ∧ (¬wait_set ∨ (sys_time < wake_up_at))
 *)
-
-
-
-Definition comp_init_terms_def:
-  (comp_init_terms [] = Skip) ∧
-  (comp_init_terms (t::ts) = Skip)
-End
-
-(*
-Definition comp_terms_def:
-  (comp_terms clks [] = Skip) ∧
-  (comp_terms clks (t::ts) =
-   If (comp_conditions (conditions_of t))
-        (comp_step clks t)
-        (comp_terms clks ts))
-End
-*)
-
-
-Definition task_controller_def:
-  task_controller init_loc init_tms n =
-     decs
-      [(«location»,Label (toString init_loc));
-       («wait_set»,Const 0w);
-       («input_set»,Const 0w);
-       («sys_time»,Const 0w);
-       («wake_up_at»,Const 0w);
-       («task_ret»,
-        Struct (Struct (empty_consts n) :: MAP Var
-                [«wait_set»; «input_set»;
-                 «wake_up_at»; «location»]));
-       («ptr1»,Const 0w);
-       («len1»,Const 0w);
-       («ptr2»,Const ffi_buffer_address);
-       («len2»,Const ffi_buffer_size)
-      ]
-      (nested_seq
-       [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
-        Assign «sys_time» (Load One (Var «ptr2»));
-
-
-        comp_init_terms init_tms
-        (* set wait_set, input_set and wake_up_at *)
-
-
-
-
-        init_wtime (tinv_of init_tm);
-        (* initialise clocks to the system time *)
-        Assign «task_ret»
-               (Struct (mk_clks n «sys_time» :: MAP Var
-                        [«wait_set»; «input_set»; «wake_up_at»; «location»]));
-
-
-         While (Const 1w)
-               (nested_seq [ (* wait_set and input_set are mutually exclusive *)
-                   While (Op Or
-                          [Op And [Var «wait_set»;
-                                   Cmp Less (Var «sys_time») (Var «wake_up_at»)];
-                           Op And [Var «input_set»;
-                                   Var «input_arrived»]])
-                   (nested_seq [
-                       ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
-                       Assign «sys_time» (Load One (Var «ptr2»));
-                       ExtCall «get_input_flag» «ptr1» «len1» «ptr2» «len2»;
-                       Assign «input_arrived» (Load One (Var «ptr2»))]);
-                   Call (Ret «task_ret» NONE)
-                        (Var «location»)
-                        [Var «sys_time»;
-                         Field 0 (Var «task_ret») (* elapsed time clock variables *)]
-                 ])
-        ])
-End
-
-
-
 
 
 (* either implement it or return from the task *)
@@ -292,26 +211,33 @@ End
 *)
 
 (*
-  init_loc: initial state
-  init_wset: inital wake time enable flag
-  init_inset: inital input time enable flag
-  init_wtime: normalised initial wait time
-  n : number of clocks
+  External functions:
+  get_time, check_input
 *)
 
 
+Definition poll_def:
+  poll =
+    Op And [(*Not*) Var «is_input»;
+            Op Or
+               [(* Not *) Var «wait_set»;
+                Cmp Less (Var «sys_time») (Var «wake_up_at»)]]
+End
+
+
 Definition task_controller_def:
-  task_controller init_loc init_tm n =
+  task_controller init_loc init_wake_up n =
      decs
       [(«location»,Label (toString init_loc));
-       («wait_set»,Const (n2w (wait_set init_tm)));
-       («input_set»,Const (n2w (input_set init_tm)));
+       («wait_set»,
+        case init_wake_up of NONE => Const 0w | _ => Const 1w);
+       («wake_up_at»,
+        case init_wake_up of NONE => Const 0w | SOME n => Const (n2w n));
+       («is_input»,Const 0w);
        («sys_time»,Const 0w);
-       («wake_up_at»,Const 0w);
        («task_ret»,
         Struct (Struct (empty_consts n) :: MAP Var
-                [«wait_set»; «input_set»;
-                 «wake_up_at»; «location»]));
+                [«wait_set»; «wake_up_at»; «location»]));
        («ptr1»,Const 0w);
        («len1»,Const 0w);
        («ptr2»,Const ffi_buffer_address);
@@ -320,68 +246,57 @@ Definition task_controller_def:
       (nested_seq
        [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
         Assign «sys_time» (Load One (Var «ptr2»));
-
-        init_wtime (tinv_of init_tm);
-        (* initialise clocks to the system time *)
         Assign «task_ret»
                (Struct (mk_clks n «sys_time» :: MAP Var
-                        [«wait_set»; «input_set»; «wake_up_at»; «location»]));
-
+                        [«wait_set»; «wake_up_at»; «location»]));
 
          While (Const 1w)
-               (nested_seq [ (* wait_set and input_set are mutually exclusive *)
-                   While (Op Or
-                          [Op And [Var «wait_set»;
-                                   Cmp Less (Var «sys_time») (Var «wake_up_at»)];
-                           Op And [Var «input_set»;
-                                   Var «input_arrived»]])
-                   (nested_seq [
-                       ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
-                       Assign «sys_time» (Load One (Var «ptr2»));
-                       ExtCall «get_input_flag» «ptr1» «len1» «ptr2» «len2»;
-                       Assign «input_arrived» (Load One (Var «ptr2»))]);
-                   Call (Ret «task_ret» NONE)
-                        (Var «location»)
-                        [Var «sys_time»;
-                         Field 0 (Var «task_ret») (* elapsed time clock variables *)]
+               (nested_seq [
+                   negate  «wait_set»;
+                   (* can be optimised, i.e. return the negated wait_set from the function call *)
+                   ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
+                   Assign  «sys_time» (Load One (Var «ptr2»));
+                   ExtCall «check_input» «ptr1» «len1» «ptr2» «len2»;
+                   Assign  «is_input» (Load One (Var «ptr2»));
+                   negate  «is_input»;
+                   While (Op And [Var «is_input»; (* Not *)
+                                  Op Or
+                                  [Var «wait_set»; (* Not *)
+                                   Cmp Less (Var «sys_time») (Var «wake_up_at»)]])
+                     (nested_seq [
+                         ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
+                         Assign  «sys_time» (Load One (Var «ptr2»));
+                         ExtCall «check_input» «ptr1» «len1» «ptr2» «len2»;
+                         Assign  «is_input» (Load One (Var «ptr2»))]);
+                   nested_seq [
+                       Call (Ret «task_ret» NONE) (Var «location»)
+                       [Var «sys_time»; Field 0 (Var «task_ret»)
+                                        (* elapsed time clock variables *)];
+                       Assign «wait_set»   (Field 1 (Var «task_ret»));
+                       Assign «wake_up_at» (Field 2 (Var «task_ret»));
+                       Assign «location»   (Field 3 (Var «task_ret»))
+                     ]
                  ])
         ])
 End
 
 
+Definition ohd_def:
+  (ohd [] = (0:num,[])) ∧
+  (ohd (x::xs) = x)
+End
+
 Definition start_controller_def:
-  start_controller prog =
+  start_controller (ta_prog:program) =
   let
-    terms = MAP SND prog;
-    (* the first term of the *)
-    init_term = init_term_of terms;
-    (* init_loc is set to zero, in timeLang *)
+    prog = FST ta_prog;
+    init_loc = FST (ohd prog);
+    init_wake_up = SND ta_prog;
     n = number_of_clks prog
   in
-    task_controller init_loc init_term n
+    task_controller init_loc init_wake_up n
 End
 
-
-(*
- min_of wait_time_exps;
- Assign «wake_up_at» (Op Add [Var «wake_up_at»; Var «sys_time»]
- *)
-
-(*
-  Remaining is init_wtime
-*)
-
-
-(*
-  TODISC: what is the maximum time we support?
-*)
-
-(*
-Definition indices_of_def:
-  indices_of xs ys =
-   mapPartial (λx. INDEX_OF x xs) ys
-End
-*)
 
 
 val _ = export_theory();
