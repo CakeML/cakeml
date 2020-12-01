@@ -25,6 +25,30 @@ Definition code_installed_def:
 End
 
 (*
+  ta_prog = (prog, init_wtime) ∧
+  res = NONE would ensure that the FFI returned with the correct results
+*)
+
+Theorem time_to_pan_compiler_correct:
+  step prog label s s' ∧
+  code_installed prog t.code ∧
+  evaluate (start_controller (prog,wtime), t) = (res, t') ∧
+  res = NONE ⇒
+    something
+Proof
+  ho_match_mp_tac step_ind >>
+  rw [] >>
+  fs [step_def]
+
+QED
+
+
+
+
+
+
+
+(*
   timeSem permits:
   1. a delay transition with no ioaction
   2. action transition, (input or output), time does not pass in these transitions
@@ -38,66 +62,90 @@ End
      1. input trigger: break the loop, call the function
      2. output transtion: happens only within the call
         (I think), signal the output
+
+  pickTerm and evalTerm are also relevant
+  time semantics only talk about delay, input, but also pick term and evaluate term
+  I think while loop related conditions should come from pickterm and evalterm
 *)
-
-
 
 
 (*
- what are input and output
-
+  what is the difference between step_ind and step_strongind
+  the induction rule is phrased differently (step_ind)
+   step _ _ _ _ => step' _ _ _
 *)
 
 
+Theorem foo:
+  ∀prog label st st'.
+    step prog label st st' ⇒
+    (∀t wtime s res s'.
+       prog ≠ [] ⇒
+       evaluate (start_controller (prog,wtime), s) = (res, s'))
+Proof
 
-(*
-(!p st d.
-    st.waitTime = NONE /\
-    (0:num) <= d ==>
-    step p (LDelay d) st
-         (mkStore
-          (delay_clocks (st.clocks) d)
-          st.location
-          NONE
-          NONE
-          NONE))
-*)
+QED
+
 
 
 
 Theorem abc:
-  ∀prog label st st' ta_prog.
-    step prog label st st' ∧
-     prog = FST ta_prog ⇒ step' a0
+  ∀prog label st st'.
+    step prog label st st' ⇒
+     step prog label st st'
 Proof
   ho_match_mp_tac step_ind >>
-  rw [] >> fs []
+  rw [] >>
+  fs [step_def]
+
+QED
+
+
+
+
+Theorem abc:
+  ∀prog label st st'.
+    step prog label st st' ⇒
+    (∀t wtime s res s'.
+       prog ≠ [] ⇒
+       evaluate (start_controller (prog,wtime), s) = (res, s'))
+Proof
+  ho_match_mp_tac step_ind >>
+  rw [] >>
+  fs [] >>
+
+  fs [start_controller_def] >>
+  fs [task_controller_def] >>
+  fs [] >>
+
+
+
+
+
 
 
 QED
 
 
 
-(*
-
-  try setting up an induction theorem:
-
-
-
-
-
-*)
-
-
+Theorem abc:
+  ∀prog label st st'.
+    step prog label st st' ⇒
+    (∀t.
+       label = (LDelay t) ⇒
+       evaluate (start_controller (prog,init_wake_time),s) = (res,t))
+Proof
+  ho_match_mp_tac step_ind >>
+  rw [] >> fs [] >>
 
 
+
+QED
 
 
 (*
   step (FST prog) label st st' ∧
   evaluate (start_controller prog,s) = (res,t)
-
-
 *)
 
 

@@ -13,27 +13,6 @@ Datatype:
         | LAction ioAction
 End
 
-
-(*
-   in our discussion, Magnus mentioned that its better to
-   replace 'consumed' and 'output' components of state to
-   something  ioAction : ioAction
-
-   ; consumed : ioAction option
-   ; output   : effect option ⇒ ioAction : ioAction
-
-
-Datatype:
-  store =
-  <| clocks   : clock |-> time
-   ; location : loc
-   ; ioAction : ioAction option
-     (* without option mayby, not sure *)
-   ; waitTime : time option
-  |>
-End
-*)
-
 Datatype:
   store =
   <| clocks   : clock |-> time
@@ -147,7 +126,6 @@ Inductive evalTerm:
                           ; waitTime := calculate_wtime st clks diffs|>)
                clks))
 End
-
 
 Inductive pickTerm:
   (!st cnds in_signal clks dest diffs tms st'.
