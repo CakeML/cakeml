@@ -58,7 +58,8 @@ QED
 
 
 (*
-  ioaction in
+  ioaction of timeSem state represents the triggered action or action generated to
+  reach to a particular state
 *)
 
 
