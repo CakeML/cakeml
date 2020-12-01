@@ -29,8 +29,21 @@ End
   res = NONE would ensure that the FFI returned with the correct results
 *)
 
+(*
+  about ioAction:
+  should be none in the beginning
+
+  state relations:
+  we can set up intitial wait time for s
+*)
+
 Theorem time_to_pan_compiler_correct:
   step prog label s s' ∧
+  prog ≠ [] ∧
+  s.waitTime = wtime ∧
+  s.location = FST (ohd prog) ∧
+  (FDOM s.clocks) = set (clks_of prog) ∧
+  s.ioAction = NONE ∧
   code_installed prog t.code ∧
   evaluate (start_controller (prog,wtime), t) = (res, t') ∧
   res = NONE ⇒
@@ -44,8 +57,9 @@ QED
 
 
 
-
-
+(*
+  ioaction in
+*)
 
 
 (*

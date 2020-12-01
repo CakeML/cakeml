@@ -14,7 +14,7 @@ Datatype:
 End
 
 Datatype:
-  store =
+  state =
   <| clocks   : clock |-> time
    ; location : loc
    ; ioAction : ioAction option
@@ -31,8 +31,8 @@ Definition minusT_def:
   minusT (t1:time) (t2:time) = t1 - t2
 End
 
-Definition mkStore_def:
-  mkStore cks loc io wt =
+Definition mkState_def:
+  mkState cks loc io wt =
   <| clocks   := cks
    ; location := loc
    ; ioAction := io
@@ -50,7 +50,7 @@ End
 
 
 Definition resetClocks_def:
-  resetClocks (st:store) cvs =
+  resetClocks (st:state) cvs =
   let reset_cvs = MAP (λx. (x,0:time)) cvs in
       st with clocks := st.clocks |++ reset_cvs
 End
@@ -159,7 +159,7 @@ Inductive step:
     st.waitTime = NONE /\
     (0:num) <= d ==>
     step p (LDelay d) st
-         (mkStore
+         (mkState
           (delay_clocks (st.clocks) d)
           st.location
           NONE
@@ -169,7 +169,7 @@ Inductive step:
     st.waitTime = SOME w /\
     0 <= d /\ d < w ==>
     step p (LDelay d) st
-         (mkStore
+         (mkState
           (delay_clocks (st.clocks) d)
           st.location
           NONE
