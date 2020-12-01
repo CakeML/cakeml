@@ -38,8 +38,11 @@ Datatype:
   store =
   <| clocks   : clock |-> time
    ; location : loc
+   ; ioAction : ioAction option
+   (*
    ; consumed : in_signal option
    ; output   : out_signal option
+   *)
    ; waitTime : time option
   |>
 End
@@ -50,11 +53,10 @@ Definition minusT_def:
 End
 
 Definition mkStore_def:
-  mkStore cks loc act out wt =
+  mkStore cks loc io wt =
   <| clocks   := cks
    ; location := loc
-   ; consumed := act
-   ; output   := out
+   ; ioAction := io
    ; waitTime := wt
   |>
 End
@@ -62,8 +64,7 @@ End
 Definition resetOutput_def:
   resetOutput st =
   st with
-  <| consumed := NONE
-   ; output   := NONE
+  <| ioAction := NONE
    ; waitTime := NONE
   |>
 End
@@ -128,11 +129,10 @@ Inductive evalTerm:
                   dest
                   diffs)
               (resetClocks
-               (st with  <| consumed := SOME in_signal
+               (st with  <| ioAction := SOME (Input in_signal)
                           ; location := dest
                           ; waitTime := calculate_wtime st clks diffs|>)
                clks)) /\
-
   (∀st out_signal cnds clks dest diffs.
      EVERY (λck. ck IN FDOM st.clocks) clks ==>
      evalTerm st NONE
@@ -142,7 +142,7 @@ Inductive evalTerm:
                   dest
                   diffs)
               (resetClocks
-               (st with  <| output   := SOME out_signal
+               (st with  <| ioAction := SOME (Output out_signal)
                           ; location := dest
                           ; waitTime := calculate_wtime st clks diffs|>)
                clks))
@@ -185,7 +185,6 @@ Inductive step:
           (delay_clocks (st.clocks) d)
           st.location
           NONE
-          NONE
           NONE)) /\
 
   (!p st d w.
@@ -196,21 +195,18 @@ Inductive step:
           (delay_clocks (st.clocks) d)
           st.location
           NONE
-          NONE
           (SOME (w - d)))) /\
 
   (!p st tms st' in_signal.
       ALOOKUP p st.location = SOME tms /\
       pickTerm (resetOutput st) (SOME in_signal) tms st' /\
-      st'.consumed = SOME in_signal /\
-      st'.output = NONE ==>
+      st'.ioAction = SOME (Input in_signal) ==>
       step p (LAction (Input in_signal)) st st') /\
 
   (!p st tms st' out_signal.
       ALOOKUP p st.location = SOME tms /\
       pickTerm (resetOutput st) NONE tms st' /\
-      st'.consumed = NONE /\
-      st'.output = SOME out_signal ==>
+      st'.ioAction = SOME (Output out_signal) ==>
       step p (LAction (Output out_signal)) st st')
 End
 
