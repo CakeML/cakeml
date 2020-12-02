@@ -318,14 +318,14 @@ val _ = Datatype `progs =
    ; stack_prog : (num # 'a stackLang$prog) list
    ; cur_bm : 'a word list
    ; lab_prog : 'a sec list
-   ; target_prog : word8 list # 'a word list
+   ; target_prog : (word8 list # 'a word list) option
    |>`;
 
 val empty_progs_def = Define `
   empty_progs = <| env_id := (0, 0); source_prog := []; flat_prog := [];
     clos_prog := ([], []); bvl_prog := []; bvi_prog := [];
     data_prog := []; word_prog := []; stack_prog := []; cur_bm := [];
-    lab_prog := []; target_prog := ([], []) |>`;
+    lab_prog := []; target_prog := SOME ([], []) |>`;
 
 Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp) list``
 
@@ -413,8 +413,8 @@ val compile_inc_progs_def = Define`
         reg_count2 p in
     let ps = ps with <| lab_prog := p |> in
     let target = lab_to_target$compile c.lab_conf (p:'a prog) in
-    let ps = ps with <| target_prog := case target of NONE => ([], [])
-        | SOME (bytes, _) => (bytes, c.word_conf.bitmaps) |> in
+    let ps = ps with <| target_prog := OPTION_MAP
+        (\(bytes, _). (bytes, c.word_conf.bitmaps)) target |> in
     let c = c with lab_conf updated_by (case target of NONE => I
         | SOME (_, c') => K c') in
     (c, ps)`;
@@ -2571,7 +2571,6 @@ Theorem state_co_inc_compile_has_flat_comp:
   compile c prog = SOME (b,bm,c') ==>
   state_co (\c (env_id,decs). inc_compile env_id c decs) (cake_orac c' src config_tuple1 g) =
   pure_co (MAP (flat_pattern$compile_dec c.source_conf.pattern_cfg)) o
-  pure_co flat_elim$remove_flat_prog o
   state_co (\c (env_id,decs). inc_compile_prog env_id c decs) (cake_orac c' src config_tuple1 g)
 Proof
   simp [FUN_EQ_THM, state_co_def, pure_co_def, UNCURRY]
@@ -2583,76 +2582,405 @@ Proof
   \\ drule_then (simp o single) cake_orac_config_eqs
 QED
 
-Theorem source_precond:
-  compile c prog = SOME (b,bm,c') /\
-  THE (prim_sem_env (ffi:'ffi ffi_state)) = (s, env) /\
+val _ = Datatype `backend_eval_config =
+  <| decode_v : semanticPrimitives$v -> ('a config) option
+   ; encode_v : 'a config -> semanticPrimitives$v
+  |>`;
+
+Definition match_decode_config_def:
+  match_decode_config ec c v = (ec.decode_v v = SOME c)
+End
+
+Definition eval_config_compile_def:
+  eval_config_compile ec x = let (env_id, c_v, decs) = x in
+  case ec.decode_v c_v of
+    NONE => NONE
+  | SOME c' => let (c'', ps) = compile_inc_progs c' (env_id, decs) in
+    OPTION_MAP (\(bs, ws). (match_decode_config ec c'', bs,
+            MAP data_to_word_gcProof$upper_w2w (DROP (LENGTH c'.word_conf.bitmaps) ws)))
+        ps.target_prog
+End
+
+Definition eval_config_cfg_compile_def:
+  eval_config_cfg_compile ec x = let (env_id, c_v, decs) = x in
+  case ec.decode_v c_v of
+  | SOME c' => let (c'', ps) = compile_inc_progs c' (env_id, decs) in
+    ec.encode_v c''
+End
+
+Theorem eval_config_compilers_equiv:
+  eval_config_compile ec args = SOME res ==>
+  ?cfg prog. res = (match_decode_config ec cfg, prog) /\
+  eval_config_cfg_compile ec args = ec.encode_v cfg
+Proof
+  PairCases_on `args`
+  \\ simp [eval_config_compile_def, option_case_eq, eval_config_cfg_compile_def]
+  \\ rw [UNCURRY]
+  \\ metis_tac []
+QED
+
+Definition eval_config_to_eval_state_def:
+  eval_config_to_eval_state c ec = EvalDecs
+  <| compiler := eval_config_compile ec
+   ; compiler_state := match_decode_config ec c
+   ; env_id_counter := (0, 0, 1)
+  |>
+End
+
+Definition K_same_type_def:
+  (K_same_type : 'a -> 'a -> 'a) x y = x
+End
+
+Definition eval_config_to_interp_def:
+  eval_config_to_interp ec = source_to_flatProof$oracle_interpretation_decode_state_fupd
+    (K_same_type (\v. case ec.decode_v v of
+        NONE => NONE
+      | SOME c => SOME (config_tuple1 c)
+    )) ARB
+End
+
+Definition add_eval_state_def:
+  add_eval_state NONE c s0 = s0 /\
+  add_eval_state (SOME ev) c s0 =
+    s0 with <| eval_state := SOME (eval_config_to_eval_state c ev) |>
+End
+
+Theorem add_eval_state_ffi:
+  (add_eval_state opt_ev c s0).ffi = s0.ffi
+Proof
+  Cases_on `opt_ev` \\ simp [add_eval_state_def]
+QED
+
+Definition opt_eval_config_wf_def:
+  opt_eval_config_wf (SOME ec) = (!cfg. ec.decode_v (ec.encode_v cfg) = SOME cfg) /\
+  opt_eval_config_wf NONE = T
+End
+
+Definition backend_from_data_tuple_cc_def:
+  backend_from_data_tuple_cc (c : 'a config) cfg =
+    OPTION_MAP (I ## MAP data_to_word_gcProof$upper_w2w ## I) o
+      (λprogs.
+        (λ(bm0,cfg) progs.
+          (λ(progs,fs,bm).
+            OPTION_MAP
+              (λ(bytes,cfg).
+                (bytes, DROP (LENGTH bm0) bm,bm,cfg))
+              (compile cfg
+                (MAP prog_to_section
+                  (MAP
+                    (prog_comp c.stack_conf.reg_names)
+                    (MAP
+                      (prog_comp c.stack_conf.jump
+                        c.lab_conf.asm_conf.addr_offset
+                        (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3)))
+                      (MAP prog_comp progs))))))
+           (compile_word_to_stack ((c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3))-2) progs bm0))
+              cfg (MAP (λp. full_compile_single c.lab_conf.asm_conf.two_reg_arith (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 5))
+              c.word_to_word_conf.reg_alg
+              c.lab_conf.asm_conf (p,NONE)) progs)) o
+              MAP (compile_part (ensure_fp_conf_ok c.lab_conf.asm_conf c.data_conf))
+End
+
+Definition backend_from_flat_tuple_cc_def:
+  backend_from_flat_tuple_cc (c : 'a config) =
+    backendProps$pure_cc flat_to_closProof$inc_compile_decs
+      (clos_to_bvlProof$compile_common_inc c.clos_conf
+         (backendProps$pure_cc (clos_to_bvlProof$compile_inc c.clos_conf.max_app)
+           (bvl_to_bviProof$full_cc c.bvl_conf (backendProps$pure_cc bvi_to_data_compile_prog
+             (backend_from_data_tuple_cc c)))))
+End
+
+Theorem known_cc_eq_state_cc_inc:
+  clos_knownProof$known_cc kc cc =
+  state_cc (known_compile_inc (known_static_conf kc)) cc
+Proof
+  Cases_on `kc`
+  \\ simp [clos_knownProofTheory.known_cc_def, known_compile_inc_def, known_static_conf_def]
+  \\ simp [pure_cc_def, state_cc_def, UNCURRY, known_compile_inc_def]
+  \\ rw [FUN_EQ_THM, FORALL_PROD]
+  \\ simp [clos_to_bvlProofTheory.kcompile_inc_uncurry, clos_knownTheory.reset_inline_factor_def]
+  \\ simp [known_reset_spt |> Q.SPEC `kc with inline_factor updated_by g`
+        |> SIMP_RULE (srw_ss ()) []]
+QED
+
+Theorem known_compile_inc_retreive_spt:
+  known_compile_inc (known_static_conf kcfg1)
+    (clos_knownProof$option_val_approx_spt kcfg2) p = (spt, p') /\
+  IS_SOME kcfg2 = IS_SOME kcfg1 ==>
+  clos_knownProof$option_val_approx_spt (option_upd_val_spt spt kcfg2) = spt
+Proof
+  simp [clos_knownProofTheory.option_val_approx_spt_def, option_upd_val_spt_def]
+  \\ CASE_TAC
+  \\ rw []
+  \\ fs [known_static_conf_def, known_compile_inc_def]
+  \\ rw [option_upd_val_spt_def]
+QED
+
+Theorem backend_from_flat_tuple_cc_eq_compile_inc_progs:
+  ((^cake_orac_config_inv_f) c') = ((^cake_orac_config_inv_f) c) /\
+  src_cfg = c'.source_conf /\
   c.source_conf.pattern_cfg = prim_src_config.pattern_cfg ==>
-  source_to_flatProof$precondition NONE s env prim_src_config
-    (mk_flat_install_conf cc
-        (cake_orac c' (ARB "TODO syntax oracle") (SND o config_tuple1) (\ps. ps.flat_prog)))
-    prog
+  backend_from_flat_tuple_cc c (SND (config_tuple1 c'))
+    (MAP (flat_pattern$compile_dec prim_src_config.pattern_cfg)
+      (SND (inc_compile_prog env_id src_cfg decs))) =
+  let (c'', ps) = compile_inc_progs c' (env_id, decs) in
+    OPTION_MAP (\(bs, ws). (bs,
+        MAP data_to_word_gcProof$upper_w2w (DROP (LENGTH c'.word_conf.bitmaps) ws),
+        SND (config_tuple1 c''))) ps.target_prog
+Proof
+  disch_tac
+  \\ simp [compile_inc_progs_def, pure_cc_def, state_cc_def,
+    clos_to_bvl_compile_inc_def, clos_to_bvlProofTheory.compile_common_inc_def,
+    known_cc_eq_state_cc_inc, bvl_to_bviProofTheory.full_cc_def, bvl_to_bvi_compile_inc_all_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [config_tuple1_def, config_tuple2_def]
+  \\ rveq \\ fs []
+  \\ imp_res_tac source_compile_pattern_cfg
+  \\ rfs []
+  \\ fs [source_to_flatTheory.inc_compile_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ CASE_TAC
+  \\ fs [compile_no_stubs_def, stack_namesTheory.compile_def]
+  \\ simp [backend_from_flat_tuple_cc_def, pure_cc_def, state_cc_def,
+    backend_from_data_tuple_cc_def,
+    clos_to_bvlProofTheory.compile_common_inc_def, known_cc_eq_state_cc_inc,
+    bvl_to_bviProofTheory.full_cc_def, compile_no_stubs_def, stack_namesTheory.compile_def]
+  \\ simp [pairTheory.PAIR_MAP]
+  \\ simp [UNCURRY]
+  \\ imp_res_tac known_compile_inc_retreive_spt
+  \\ simp []
+  \\ every_case_tac \\ simp []
+QED
+
+Triviality compile_inc_progs_src_env:
+  (SND (compile_inc_progs c env_decs)).env_id = FST env_decs /\
+  (SND (compile_inc_progs c env_decs)).source_prog = SND env_decs
+Proof
+  simp [compile_inc_progs_def, UNCURRY]
+QED
+
+Theorem cake_orac_eq_I:
+  !f g. cake_orac c syntax f g = (f ## g) o cake_orac c syntax I I
+Proof
+  simp [FUN_EQ_THM, cake_orac_def, UNCURRY]
+QED
+
+Theorem cake_orac_cfg_f_eq_I:
+  !f g. cake_orac c syntax f g = (f ## I) o cake_orac c syntax I g
+Proof
+  simp [FUN_EQ_THM, cake_orac_def, UNCURRY]
+QED
+
+Theorem mk_orac_st_eq_cake_orac:
+  ~ semantics_prog (s1 with eval_state := SOME (eval_config_to_eval_state c ev)) env decs Fail /\
+  s1.refs = [] /\
+  nsAll (K concrete_v) env.v /\
+  opt_eval_config_wf (SOME ev)
+  ==>
+  ? orac_st syntax config_vs configs.
+  source_evalProof$mk_orac_st (eval_config_cfg_compile ev)
+        (ev.encode_v c)
+        (s1 with eval_state := SOME (eval_config_to_eval_state c ev))
+	env decs = SOME (EvalOracle orac_st) /\
+  orac_st.oracle = (\j. (FST (syntax j), config_vs j, SND (syntax j))) /\
+  (!j. ev.decode_v (config_vs j) = SOME (configs j)) /\
+  cake_orac c syntax I (\ps. (ps.env_id,ps.source_prog)) =
+    (\j. (I (configs j), syntax j)) /\
+  (!j. configs (SUC j) = FST (compile_inc_progs (configs j) (syntax j))) /\
+  configs 0 = c
+Proof
+  simp [Once cake_orac_eq_I]
+  \\ rw []
+  \\ drule source_evalProofTheory.mk_orac_st_orac_wf
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspecl_then [`eval_config_cfg_compile ev`, `ev.encode_v c`] mp_tac)
+  \\ simp [source_evalProofTheory.init_eval_state_def, eval_config_to_eval_state_def]
+  \\ rw []
+  \\ fs [eval_config_to_eval_state_def]
+  \\ rveq \\ fs []
+  \\ fs [match_decode_config_def, opt_eval_config_wf_def]
+  \\ qexists_tac `(I ## SND) o orac_st.oracle`
+  \\ qexists_tac `FST o SND o orac_st.oracle`
+  \\ qexists_tac `THE o ev.decode_v o FST o SND o orac_st.oracle`
+  \\ simp [FUN_EQ_THM, quantHeuristicsTheory.SOME_THE_EQ_SYM]
+  \\ (rpt (reverse conj_asm1_tac)
+    >- (
+    rw []
+    \\ rpt (first_x_assum (qspec_then `j` mp_tac))
+    \\ simp [eval_config_cfg_compile_def, eval_config_compile_def, UNCURRY, option_case_eq]
+    \\ fs [IS_SOME_EXISTS]
+    \\ rw []
+    \\ fs [match_decode_config_def, pairTheory.PAIR_MAP]
+    \\ fs [Q.ISPEC `FST (SND (_.oracle _))` (Q.SPEC `_` EQ_SYM_EQ)]
+  ))
+  \\ Induct
+  \\ simp [cake_orac_0, compile_inc_progs_src_env, Q.SPEC `(x, y)` PAIR_FST_SND_EQ]
+  \\ rpt (first_x_assum (fn t => (qspec_then `j` mp_tac t \\ qspec_then `0` mp_tac t)))
+  \\ fs [IS_SOME_EXISTS]
+  \\ simp [eval_config_cfg_compile_def, eval_config_compile_def, UNCURRY]
+  \\ rw [match_decode_config_def] \\ simp []
+  \\ fs [match_decode_config_def, cake_orac_SUC, UNCURRY]
+  \\ rveq \\ fs []
+  \\ fs [match_decode_config_def]
+  \\ simp [UNCURRY]
+  \\ fs [pairTheory.PAIR_MAP]
+  \\ rveq \\ fs []
+  \\ simp [compile_inc_progs_src_env]
+QED
+
+Theorem source_eval_semantics:
+  ~ semantics_prog (add_eval_state ev c' s0) env prog Fail /\
+  compile (c : 'a config) prog = SOME (b,bm,c') /\
+  compile prim_src_config prog = (src_c', p') /\
+  THE (prim_sem_env (ffi:'ffi ffi_state)) = (s0, env) /\
+  opt_eval_config_wf ev /\
+  c.source_conf = prim_src_config ==>
+  ? syntax_oracle.
+  semantics_prog (add_eval_state ev c' s0) env prog (flatSem$semantics
+    (mk_flat_install_conf
+        (backend_from_flat_tuple_cc c)
+        (cake_orac c' syntax_oracle (SND o config_tuple1) (\ps. ps.flat_prog)))
+    s0.ffi p')
 Proof
   rw []
-  \\ simp [source_to_flatProofTheory.precondition_def,
-        source_to_flatProofTheory.precondition1_def]
-  \\ srw_tac[QUANT_INST_ss[pair_default_qp,record_default_qp]][]
-  \\ simp [flat_patternProofTheory.install_conf_rel_def]
-  \\ simp [GSYM PULL_EXISTS, source_to_flatProofTheory.orac_rel_def, mk_flat_install_conf_def]
-  \\ simp [GSYM cake_orac_eqs]
-  \\ drule state_co_inc_compile_has_flat_comp
-  \\ simp [Q.prove (`?y. f x = f y`, metis_tac [])]
+  \\ qabbrev_tac `es = source_evalProof$mk_orac_st (eval_config_cfg_compile (THE ev))
+        ((THE ev).encode_v c') (add_eval_state ev c' s0) env prog`
+  \\ qexists_tac `(I ## SND) o ((source_evalProof$orac_s es).oracle)`
+  \\ fs [Q.ISPEC `compile prim_src_config _` PAIR_FST_SND_EQ]
+  \\ rveq \\ fs []
+  \\ reverse (qsuff_tac `flat_patternProof$install_conf_rel
+        prim_src_config.pattern_cfg
+        (mk_flat_install_conf
+            (pure_cc (MAP (flat_pattern$compile_dec prim_src_config.pattern_cfg))
+                (backend_from_flat_tuple_cc c))
+            (state_co (λc (env_id,decs). inc_compile_prog env_id c decs)
+                (cake_orac c' ((I ## SND) ∘ (source_evalProof$orac_s es).oracle)
+                    config_tuple1 (\ps. (ps.env_id, ps.source_prog)))))
+        (mk_flat_install_conf (backend_from_flat_tuple_cc c)
+            (cake_orac c' ((I ## SND) ∘ (source_evalProof$orac_s es).oracle)
+                (SND ∘ config_tuple1) (λps. ps.flat_prog)))`)
+  >- (
+    simp [flat_patternProofTheory.install_conf_rel_def, mk_flat_install_conf_def]
+    \\ fs [markerTheory.Abbrev_def]
+    \\ drule state_co_inc_compile_has_flat_comp
+    \\ simp [GSYM source_to_flat_orac_eq]
+  )
+  \\ disch_tac
+  \\ qabbrev_tac `the_ev = THE ev`
+  \\ Cases_on `ev` \\ fs []
+  >- (
+    fs [add_eval_state_def]
+    \\ irule source_to_flatProofTheory.compile_semantics
+    \\ simp []
+    \\ qexists_tac `NONE`
+    \\ simp [source_to_flatProofTheory.precondition_def]
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ simp [source_to_flatProofTheory.precondition1_def]
+    \\ fs [prim_sem_env_eq]
+    \\ rveq \\ fs []
+    \\ EVAL_TAC
+  )
+  \\ fs [add_eval_state_def]
+  \\ drule_then irule source_evalProofTheory.oracle_semantics_prog
+  \\ simp [PULL_EXISTS]
+  \\ qexists_tac `eval_config_cfg_compile the_ev`
+  \\ qexists_tac `the_ev.encode_v c'`
+  \\ simp [CONJ_ASSOC]
+  \\ conj_asm1_tac
+  >- (
+    simp [source_evalProofTheory.init_eval_state_def, eval_config_to_eval_state_def]
+    \\ fs [prim_sem_env_eq, GSYM namespaceTheory.nsEmpty_def]
+    \\ rw []
+    \\ imp_res_tac eval_config_compilers_equiv
+    \\ fs [match_decode_config_def, opt_eval_config_wf_def]
+  )
+  \\ irule (source_to_flatProofTheory.compile_semantics
+        |> Q.INST [`s` |-> `_ with <| eval_state := _|>`] |> SIMP_RULE (srw_ss ()) []
+  )
+  \\ conj_tac
+  >- (
+    fs [markerTheory.Abbrev_def]
+    \\ disch_tac
+    \\ drule_then drule
+        (source_evalProofTheory.oracle_semantics_prog
+            |> Q.INST [`s1` |-> `_ with <| eval_state := _|>`] |> SIMP_RULE (srw_ss ()) []
+        )
+    \\ rveq \\ fs []
+  )
+  \\ qexists_tac `SOME (eval_config_to_interp the_ev)`
+  \\ simp [source_to_flatProofTheory.precondition_def]
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ simp [source_to_flatProofTheory.precondition1_def]
+  \\ drule mk_orac_st_eq_cake_orac
+  \\ simp []
+  \\ disch_tac \\ fs []
+  \\ fs [Q.ISPEC `config_tuple1` cake_orac_cfg_f_eq_I, source_evalProofTheory.orac_s_def]
+  \\ fs [o_DEF, ETA_THM]
+  \\ fs [Q.ISPEC `SOME _` EQ_SYM_EQ]
+  \\ conj_tac
+  >- (
+    fs [markerTheory.Abbrev_def]
+    \\ rveq \\ fs []
+    \\ simp [source_to_flatProofTheory.src_orac_step_invs_def]
+    \\ fs [Q.ISPEC `SOME _` EQ_SYM_EQ]
+    \\ fs [eval_config_to_interp_def, K_same_type_def]
+    \\ simp [config_tuple1_def]
+    \\ simp [compile_inc_progs_def, UNCURRY]
+    \\ simp [source_to_flatTheory.inc_compile_def, UNCURRY]
+  )
+  \\ conj_tac
+  >- (
+    fs [markerTheory.Abbrev_def]
+    \\ rveq \\ fs []
+    \\ simp [source_to_flatProofTheory.orac_rel_def]
+    \\ qexists_tac `eval_config_compile the_ev`
+    \\ simp [source_to_flatProofTheory.orac_rel_inner_def, mk_flat_install_conf_def]
+    \\ simp [eval_config_to_interp_def, K_same_type_def]
+    \\ simp [state_co_def, UNCURRY]
+    \\ simp [GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE, IS_SOME_EXISTS]
+    \\ conj_tac
+    >- (
+      fs [source_evalProofTheory.mk_orac_st_def, source_evalProofTheory.insert_oracle_def]
+      \\ fs [eval_config_to_eval_state_def]
+      \\ rveq \\ fs []
+    )
+    \\ simp [eval_config_compile_def, UNCURRY, pairTheory.PAIR_MAP, PULL_EXISTS]
+    \\ simp [pure_cc_def, UNCURRY]
+    \\ rw []
+    \\ DEP_REWRITE_TAC [backend_from_flat_tuple_cc_eq_compile_inc_progs]
+    \\ conj_tac
+    >- (
+      simp [config_tuple1_def]
+      \\ qmatch_asmsub_abbrev_tac `cake_orac cfg_0`
+      \\ fs [Q.ISPEC `cake_orac _ _ _ _` EQ_SYM_EQ]
+      \\ fs [cake_orac_def, FUN_EQ_THM, UNCURRY]
+      \\ drule cake_orac_config_eqs
+      \\ simp []
+    )
+    \\ simp [UNCURRY, PULL_EXISTS]
+    \\ csimp [match_decode_config_def]
+  )
+  \\ conj_tac
+  >- (
+    simp [source_to_flatProofTheory.src_orac_next_cfg_def]
+    \\ fs [markerTheory.Abbrev_def]
+    \\ rveq \\ fs []
+    \\ simp [source_to_flatProofTheory.src_orac_next_cfg_inner_def,
+        eval_config_to_interp_def, K_same_type_def]
+    \\ simp [config_tuple1_def]
+    \\ fs [backendTheory.compile_def, compile_tap_def, source_to_flatTheory.compile_def]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ imp_res_tac attach_bitmaps_SOME
+    \\ fs [Q.ISPEC `compile_prog _.source_conf _` PAIR_FST_SND_EQ]
+    \\ rveq \\ fs []
+  )
+  \\ simp [source_evalProofTheory.mk_orac_st_def, eval_config_to_eval_state_def,
+        source_evalProofTheory.insert_oracle_def, source_to_flatProofTheory.init_eval_state_ok_def]
   \\ fs [prim_sem_env_eq]
   \\ rveq \\ fs []
   \\ EVAL_TAC
 QED
-
-Triviality source_semantics:
-  ! cc.
-  ¬ semantics_prog s env prog Fail /\
-  compile prim_src_config prog = (src_c', p') /\
-  compile c prog = SOME (b, bm, c') /\
-  THE (prim_sem_env (ffi:'ffi ffi_state)) = (s, env) /\
-  c.source_conf = prim_src_config ==>
-  semantics_prog s env prog (flatSem$semantics
-    (mk_flat_install_conf cc
-        (cake_orac c' (ARB "TODO syntax oracle") (SND o config_tuple1) (\ps. ps.flat_prog)))
-    s.ffi p')
-Proof
-  rw []
-  \\ drule_then drule source_precond
-  \\ simp []
-  \\ disch_then (qspec_then `cc` assume_tac)
-  \\ drule_then drule source_to_flatProofTheory.compile_semantics
-  \\ simp []
-QED
-
-Triviality source_semantics_cc = source_semantics
-  |> Q.SPEC `
-    backendProps$pure_cc flat_to_closProof$inc_compile_decs
-      (clos_to_bvlProof$compile_common_inc (c:'a config).clos_conf
-         (backendProps$pure_cc (clos_to_bvlProof$compile_inc c.clos_conf.max_app)
-           (bvl_to_bviProof$full_cc c.bvl_conf (backendProps$pure_cc bvi_to_data_compile_prog
-             (λcfg. OPTION_MAP (I ## MAP data_to_word_gcProof$upper_w2w ## I) o
-                    (λprogs.
-                      (λ(bm0,cfg) progs.
-                        (λ(progs,fs,bm).
-                          OPTION_MAP
-                            (λ(bytes,cfg).
-                              (bytes, DROP (LENGTH bm0) bm,bm,cfg))
-                            (compile cfg
-                              (MAP prog_to_section
-                                (MAP
-                                  (prog_comp c.stack_conf.reg_names)
-                                  (MAP
-                                    (prog_comp c.stack_conf.jump
-                                      c.lab_conf.asm_conf.addr_offset
-                                      (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3)))
-                                    (MAP prog_comp progs))))))
-                         (compile_word_to_stack ((c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3))-2) progs bm0))
-                            cfg (MAP (λp. full_compile_single c.lab_conf.asm_conf.two_reg_arith (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 5))
-                            c.word_to_word_conf.reg_alg
-                            c.lab_conf.asm_conf (p,NONE)) progs)) o
-                            MAP (compile_part (ensure_fp_conf_ok c.lab_conf.asm_conf c.data_conf)))))))`
 
 Theorem flat_semantics:
   let co = cake_orac c' syn (SND o config_tuple1) (\ps. ps.flat_prog) in
@@ -2675,9 +3003,11 @@ QED
 Theorem compile_correct':
 
   compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
-   let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
+   let (s0,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
+   let s = add_eval_state ev c' s0 in
    ¬semantics_prog s env prog Fail ∧
    backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
+   opt_eval_config_wf ev ∧
    installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names ffi (heap_regs c.stack_conf.reg_names) mc ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit'
@@ -2696,10 +3026,14 @@ Proof
   fs [] >>
   rpt (pairarg_tac >> fs []) >>
 
-  drule_then (drule_then (drule_then drule)) source_semantics_cc >>
+  fs [Abbr `s`] >>
+
+  drule_then drule source_eval_semantics >>
+  simp [] >>
+  disch_then drule >>
 
   fs[primSemEnvTheory.prim_sem_env_eq] >>
-  qpat_x_assum`_ = s`(assume_tac o Abbrev_intro o SYM) >>
+  qpat_x_assum`_ = s0`(assume_tac o Abbrev_intro o SYM) >>
   qpat_x_assum`_ = env`(assume_tac o Abbrev_intro o SYM) >>
 
 
@@ -2714,6 +3048,8 @@ Proof
     simp[EXTENSION,IN_DEF] >>
     metis_tac[semantics_prog_deterministic] ) >>
   qunabbrev_tac`sem2` >>
+
+  fs [backend_from_flat_tuple_cc_def] >>
 
   drule_then drule (SIMP_RULE bool_ss [LET_DEF] flat_semantics)
   \\ impl_tac >- (
@@ -2743,7 +3079,7 @@ Proof
     rpt (qsubpat_x_assum kall_tac `patSem$semantics []`)
     \\ conj_tac
     >- (
-      fs[flatSemTheory.initial_state_def,Abbr`s`,
+      fs[flatSemTheory.initial_state_def,Abbr`s0`,
          cake_orac_eqs] )
     \\ drule_then irule cake_orac_clos_syntax_oracle_ok
     \\ unabbrev_all_tac
@@ -2758,7 +3094,7 @@ Proof
   simp[from_bvl_def] >>
   pairarg_tac \\ fs[] \\ strip_tac \\
   fs[from_bvi_def] \\
-  `s.ffi = ffi` by simp[Abbr`s`] \\ pop_assum SUBST_ALL_TAC \\ fs[] \\
+  `s0.ffi = ffi` by simp[Abbr`s0`] \\ pop_assum SUBST_ALL_TAC \\ fs[] \\
   qmatch_goalsub_abbrev_tac`bvlSem$semantics _ _ co cc`
   \\ Q.ISPEC_THEN `co` (old_drule o GEN_ALL) (Q.GEN `co` bvl_to_bvi_compile_semantics2)
   \\ disch_then(qspec_then`ffi`mp_tac)
@@ -3021,6 +3357,7 @@ Proof
           (once_rewrite_tac [dataPropsTheory.semantics_zero_limits] \\ simp[])
     \\ simp[Abbr`TODO_cc`,Abbr`TODO_cc'`, FUN_EQ_THM]
     \\ rpt gen_tac
+    \\ simp [backend_from_data_tuple_cc_def]
     \\ AP_TERM_TAC
     \\ simp[Abbr`kkk`,Abbr`stk`]
     \\ simp[ensure_fp_conf_ok_def]
@@ -3306,7 +3643,7 @@ Proof
        \\ once_rewrite_tac [dataPropsTheory.semantics_zero_limits]
        \\ fs [extend_with_resource_limit'_def])
     \\ simp[Abbr`foo1`,Abbr`foo2`]
-    \\ simp[FUN_EQ_THM, ensure_fp_conf_ok_def]
+    \\ simp[backend_from_data_tuple_cc_def, FUN_EQ_THM, ensure_fp_conf_ok_def]
     \\ rpt gen_tac \\ AP_TERM_TAC
     \\ qhdtm_assum`stack_to_labProof$full_make_init`(mp_tac o Q.AP_TERM`FST`)
     \\ simp_tac std_ss []
@@ -3393,7 +3730,7 @@ Proof
     \\ `foo1 = foo2 /\ orac1 = orac2` suffices_by metis_tac []
     \\ simp[Abbr`foo1`,Abbr`foo2`,Abbr`orac1`,Abbr`orac2`,FUN_EQ_THM,
         Abbr `data_oracle`]
-    \\ simp [GSYM simple_orac_eqs, ensure_fp_conf_ok_def]
+    \\ simp [GSYM simple_orac_eqs, ensure_fp_conf_ok_def, backend_from_data_tuple_cc_def]
     \\ rpt gen_tac \\ AP_TERM_TAC
     \\ AP_THM_TAC
     \\ simp[EVAL``(word_to_stackProof$make_init a b c e).compile``]
@@ -3422,6 +3759,10 @@ Proof
   fs [extend_with_resource_limit'_def]
 QED
 
+Triviality compile_correct_no_eval =
+  compile_correct' |> Q.INST [`ev` |-> `NONE`]
+    |> SIMP_RULE bool_ss [add_eval_state_def, opt_eval_config_wf_def]
+
 Theorem compile_correct:
   compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -3434,7 +3775,7 @@ Theorem compile_correct:
 Proof
   rw [] \\ pairarg_tac \\ fs [] \\ rw []
   \\ match_mp_tac SUBSET_TRANS
-  \\ mp_tac compile_correct' \\ fs []
+  \\ mp_tac compile_correct_no_eval \\ fs []
   \\ strip_tac \\ asm_exists_tac
   \\ fs [extend_with_resource_limit'_SUBSET]
 QED
@@ -3460,7 +3801,7 @@ Theorem compile_correct_is_safe_for_space:
   semantics_prog s env prog
 Proof
   rw [] \\ pairarg_tac \\ fs [] \\ rw []
-  \\ mp_tac compile_correct' \\ fs []
+  \\ mp_tac compile_correct_no_eval \\ fs []
   \\ fs [extend_with_resource_limit'_def]
   \\ `?x. semantics_prog s env prog = { x }` by metis_tac [semantics_prog_sing]
   \\ fs [SUBSET_DEF,EXTENSION]

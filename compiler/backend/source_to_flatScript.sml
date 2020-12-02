@@ -495,10 +495,11 @@ val compile_def = Define `
     let p' = compile_flat c'.pattern_cfg p' in
     (c', p')`;
 
+(* note that flat_elim is always disabled in the eval/incremental case *)
 val inc_compile_def = Define `
   inc_compile env_id c p =
     let (c', p') = inc_compile_prog env_id c p in
-    let p' = compile_flat c'.pattern_cfg p' in
+    let p' = MAP (flat_pattern$compile_dec c'.pattern_cfg) p' in
     (c', p')`;
 
 val _ = export_theory();

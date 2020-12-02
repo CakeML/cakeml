@@ -4909,19 +4909,19 @@ QED
 
 Definition precondition1_def:
   precondition1 interp s1 env1 conf eval_conf prog ⇔
+  src_orac_step_invs interp s1.eval_state ∧
+  orac_rel interp s1.eval_state eval_conf ∧
+  (case src_orac_next_cfg interp s1.eval_state of
+    | NONE => T
+    | SOME cfg => cfg = FST (compile_prog conf prog)) ∧
   conf.next.vidx = 0 ∧
   s1.refs = [] ∧
   init_global_env_inv init_genv conf.mod_env env1 ∧
-  orac_rel interp s1.eval_state eval_conf ∧
   init_eval_state_ok s1.eval_state ∧
   idx_prev init_genv_next conf.next ∧
   EVERY (\(_, stamp). case stamp of TypeStamp cn t => t < s1.next_type_stamp
     | ExnStamp cn => cn < s1.next_exn_stamp) init_genv_els ∧
-  src_orac_step_invs interp s1.eval_state ∧
-  conf.envs = empty_config.envs ∧
-  (case src_orac_next_cfg interp s1.eval_state of
-    | NONE => T
-    | SOME cfg => cfg = FST (compile_prog conf prog))
+  conf.envs = empty_config.envs
 End
 
 Theorem precondition1_change_clock:
@@ -5355,7 +5355,8 @@ Theorem inc_compile_esgc_free:
 Proof
   rw [inc_compile_def]
   \\ rpt (pairarg_tac \\ fs [])
-  \\ metis_tac [inc_compile_prog_esgc_free, compile_flat_esgc_free, SND]
+  \\ irule flat_patternProofTheory.compile_decs_esgc_free
+  \\ metis_tac [inc_compile_prog_esgc_free, SND]
 QED
 
 Theorem compile_no_Mat:
@@ -5498,9 +5499,9 @@ Theorem inc_compile_globals_BAG_ALL_DISTINCT:
 Proof
   rw []
   \\ fs [inc_compile_def, inc_compile_prog_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ rveq \\ fs []
-  \\ irule compile_flat_BAG_ALL_DISTINCT
+  \\ rpt (pairarg_tac \\ full_simp_tac bool_ss [UNCURRY_DEF])
+  \\ simp_tac bool_ss [FST, SND, flat_patternProofTheory.compile_decs_elist_globals]
+  \\ rw []
   \\ fs [glob_alloc_def, op_gbag_def, store_env_id_def, FILTER_APPEND,
         elist_globals_append, env_id_tuple_def]
   \\ imp_res_tac compile_decs_elist_globals
@@ -5508,7 +5509,6 @@ Proof
   \\ irule listTheory.ALL_DISTINCT_MAP_INJ
   \\ fs [all_distinct_count_list]
 QED
-
 
 Theorem SUB_BAG_IMP:
   (B1 <= B2) ==> x ⋲ B1 ==> x ⋲ B2
@@ -5521,14 +5521,14 @@ QED
 
 (* not sure if this variant of the inc. compiler is the one we need *)
 Theorem monotonic_globals_state_co_compile:
-  source_to_flat$compile conf prog = (conf',p) ∧ FST (FST (orac 0)) = conf' ∧
-  is_state_oracle (\c (env_id, decs). source_to_flat$inc_compile env_id c decs) orac ⇒
+  compile conf prog = (conf',p) ∧ FST (FST (orac 0)) = conf' ∧
+  is_state_oracle (\c (env_id, decs). inc_compile env_id c decs) orac ⇒
   oracle_monotonic
     (SET_OF_BAG ∘ elist_globals ∘ MAP flatProps$dest_Dlet ∘
       FILTER flatProps$is_Dlet ∘ SND) $<
     (SET_OF_BAG (elist_globals (MAP flatProps$dest_Dlet
       (FILTER flatProps$is_Dlet p))))
-    (state_co (\c (env_id, decs). source_to_flat$inc_compile env_id c decs) orac)
+    (state_co (\c (env_id, decs). inc_compile env_id c decs) orac)
 Proof
   rw []
   \\ irule (Q.ISPEC `\c. c.next.vidx` oracle_monotonic_state)
@@ -5538,16 +5538,20 @@ Proof
   \\ rveq \\ fs []
   \\ conj_tac
   \\ rpt (disch_tac ORELSE gen_tac)
+  \\ TRY (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ simp [flat_patternProofTheory.compile_decs_elist_globals]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ imp_res_tac compile_decs_elist_globals
   \\ imp_res_tac compile_decs_num_bindings
   \\ fs []
   \\ rpt (disch_tac ORELSE gen_tac)
-  \\ drule (MATCH_MP SUB_BAG_IMP (compile_flat_sub_bag))
-  \\ simp [glob_alloc_def, alloc_env_ref_def, flatPropsTheory.op_gbag_def]
-  \\ simp [FILTER_APPEND, store_env_id_def, elist_globals_append,
+  \\ fs [glob_alloc_def, alloc_env_ref_def, flatPropsTheory.op_gbag_def]
+  \\ TRY (drule (MATCH_MP SUB_BAG_IMP (compile_flat_sub_bag)))
+  \\ fs [FILTER_APPEND, store_env_id_def, elist_globals_append,
         env_id_tuple_def, op_gbag_def]
+  \\ rfs []
   \\ fs [Q.ISPEC `FST (FST _)` (Q.SPEC `x` EQ_SYM_EQ)]
   \\ rw [] \\ fs []
   \\ fs [IN_LIST_TO_BAG, MEM_MAP, MEM_COUNT_LIST]

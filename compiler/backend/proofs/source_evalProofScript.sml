@@ -1810,22 +1810,22 @@ QED
    source and record oracle events. Each oracle position will be a
    recorded event, if there exists a sufficient clock input so that
    enough events are recorded. The oracle is padded out with dummy
-   data, using an additional compiler (which for proof purposes may
-   be set up to succeed in cases where the real compiler may fail).
+   data, using an additional semi-compiler that only returns
+   configuration (we don't need the compiled binaries), and which
+   for proof purposes may be set up to succeed in cases where the
+   real compiler might fail.
 *)
 Definition mk_eval_oracle_def:
-  mk_eval_oracle compiler st0 s env decs n =
+  mk_eval_oracle cfg_compiler st0 s env decs n =
     case (OLEAST k. ?s' res.
       evaluate_decs (s with clock := k) env decs = (s', res) /\
         n < FST (FST ((orac_s (s'.eval_state)).oracle 0))
     ) of
     | NONE => if n = 0
         then ((0, 0), st0, [])
-        else let (env_id, s_v, decs) = mk_eval_oracle compiler st0 s
+        else let (env_id, s_v, decs) = mk_eval_oracle cfg_compiler st0 s
                 env decs (n - 1) in
-            (case compiler (env_id, s_v, decs) of
-              | (s_v2, _, _) => ((0, 0), s_v2, [])
-            )
+            ((0, 0), cfg_compiler (env_id, s_v, decs), [])
     | SOME k =>
       let (s', _) = evaluate_decs (s with clock := k) env decs in
         (orac_s s'.eval_state).oracle (n + 1)
@@ -1907,11 +1907,11 @@ QED
 
 Theorem mk_eval_oracle_extended_wf:
   s_rel init_eds s t /\
-  (! args res. comp_f args = SOME res ==> FST res (FST (comp_f2 args))) /\
+  (! args res. comp_f args = SOME res ==> FST res (cfg_comp args)) /\
   (! n t' res. evaluate_decs (t with clock := n) env decs = (t', res) ==>
     recorded_orac_wf comp_f (orac_s t'.eval_state).oracle)
   ==>
-  orac_extended_wf comp_f (mk_eval_oracle comp_f2 st0 t env decs)
+  orac_extended_wf comp_f (mk_eval_oracle cfg_comp st0 t env decs)
 Proof
   rw [orac_extended_wf_def]
   \\ simp [Once mk_eval_oracle_def]
@@ -1925,7 +1925,7 @@ Proof
     \\ simp []
   )
   >- (
-    `orac_agrees (mk_eval_oracle comp_f2 st0 t env decs) s'.eval_state`
+    `orac_agrees (mk_eval_oracle cfg_comp st0 t env decs) s'.eval_state`
       by ( metis_tac [mk_eval_oracle_agrees] )
     \\ fs [orac_agrees_def]
     \\ every_case_tac \\ fs []
@@ -1941,16 +1941,16 @@ QED
    attempt to start with genuine recorded data.
 *)
 Definition mk_dummy_orac_def:
-  mk_dummy_orac compiler st0 (0 : num) =
+  mk_dummy_orac cfg_compiler st0 (0 : num) =
     (((0, 0), st0, []) : compiler_args) /\
-  mk_dummy_orac compiler st0 (SUC j) =
-    ((0, 0), FST (compiler (mk_dummy_orac compiler st0 j)), [])
+  mk_dummy_orac cfg_compiler st0 (SUC j) =
+    ((0, 0), cfg_compiler (mk_dummy_orac cfg_compiler st0 j), [])
 End
 
 Definition mk_orac_st_def:
-  mk_orac_st compiler st0 s env decs = (case s.eval_state of
+  mk_orac_st cfg_compiler st0 s env decs = (case s.eval_state of
     | NONE => SOME (EvalOracle <|
-      oracle := mk_dummy_orac compiler st0 ;
+      oracle := mk_dummy_orac cfg_compiler st0 ;
       custom_do_eval := K (K NONE) ;
       envs := [[]]; generation := 0 |>)
     | SOME (EvalOracle _) => NONE
@@ -1959,7 +1959,7 @@ Definition mk_orac_st_def:
       oracle := K ((0,0),Conv NONE [],[]);
       custom_do_eval := do_eval_record eds.compiler eds.compiler_state;
       envs := [[]]; generation := 0|> in
-    let orac = mk_eval_oracle compiler st0
+    let orac = mk_eval_oracle cfg_compiler st0
         (s with eval_state := SOME es_record) env decs in
     insert_oracle eds.compiler orac (SOME es_record)
   )
@@ -2057,7 +2057,7 @@ Theorem evaluate_prog_with_clock_mk_orac_st:
   s1.refs = [] /\
   nsAll (K concrete_v) env.v /\
   (case s1.eval_state of SOME (EvalDecs eds) =>
-    (! args res. eds.compiler args = SOME res ==> FST res (FST (c args)))
+    (! args res. eds.compiler args = SOME res ==> FST res (c args))
     | _ => T)
   ==>
   ?res'.
@@ -2115,32 +2115,36 @@ Proof
 QED
 
 Theorem oracle_semantics_prog:
-  semantics_prog s1 env decs outcome /\
-  outcome <> Fail /\
+  ~ semantics_prog s1 env decs Fail /\
+  semantics_prog (s1 with eval_state := mk_orac_st c st0 s1 env decs)
+    env decs outcome /\
   init_eval_state s1.eval_state /\
   s1.refs = [] /\
   (case s1.eval_state of SOME (EvalDecs eds) =>
-    (! args res. eds.compiler args = SOME res ==> FST res (FST (c args)))
+    (! args res. eds.compiler args = SOME res ==> FST res (c args))
     | _ => T) /\
-  nsAll (K concrete_v) env.v ==>
-  semantics_prog (s1 with eval_state := mk_orac_st c st0 s1 env decs)
-    env decs outcome
+  nsAll (K concrete_v) env.v
+  ==>
+  semantics_prog s1 env decs outcome
 Proof
-  Cases_on `outcome` \\ rw []
-  \\ fs [semantics_prog_def]
-  >- (
-    qsubterm_then `evaluate_prog_with_clock (_ with eval_state := _)` mp_tac
+  rw []
+  \\ qsubterm_then `(_ with eval_state := _)` mp_tac
         (GEN_ALL evaluate_prog_with_clock_mk_orac_st)
-    \\ simp []
-    \\ fs [PAIR_FST_SND_EQ]
+  \\ simp [PAIR_FST_SND_EQ]
+  \\ Cases_on `outcome` \\ fs [semantics_prog_def]
+  >- (
+    fs [PAIR_FST_SND_EQ]
+    \\ rw [] \\ fs []
   )
   >- (
-    drule evaluate_prog_with_clock_mk_orac_st
+    disch_then (qspec_then `k` mp_tac)
+    \\ rw [PAIR_FST_SND_EQ]
+    \\ qexists_tac `k`
+    \\ imp_res_tac result_rel_IMP_cases \\ fs [] \\ fs []
+  )
+  >- (
+    qexists_tac `k`
     \\ simp []
-    \\ disch_then (qspecl_then [`st0`, `c`] mp_tac)
-    \\ rw []
-    \\ asm_exists_tac
-    \\ imp_res_tac result_rel_IMP_cases \\ fs []
   )
 QED
 
@@ -2183,7 +2187,7 @@ Theorem mk_eval_oracle_wf:
   let orac = mk_eval_oracle total_c st0 s2 env decs in
   (!j. let next_st = FST (SND (orac (SUC j))) in
     (?r. eds.compiler (orac j) = SOME r /\ FST r next_st) \/
-    next_st = FST (total_c (orac j)))
+    next_st = total_c (orac j))
 Proof
   rw []
   \\ Q.ISPECL_THEN [`st0`, `s2`, `SUC j`, `env`, `decs`, `total_c`]
@@ -2212,35 +2216,15 @@ Proof
   \\ fs [ADD1]
 QED
 
-Theorem semantics_prog_Fail_unique:
-  semantics_prog st env prog Fail /\
-  semantics_prog st env prog outcome ==>
-  outcome = Fail
-Proof
-  rw [] \\ Cases_on `outcome` \\ fs [semantics_prog_def]
-  >- (
-    fs [PAIR_FST_SND_EQ]
-  )
-  >- (
-    rveq \\ fs []
-    \\ fs [evaluate_prog_with_clock_def]
-    \\ rpt (pairarg_tac \\ fs [])
-    \\ rveq \\ fs []
-    \\ dxrule_then drule evaluate_decs_clock_determ
-    \\ simp []
-    \\ every_case_tac
-    \\ fs []
-  )
-QED
-
-(* Syntactic well-formedness of the infinite oracle, such as it is. Each
-   state is constructed by calling the compiler on the previous state.
-   However, the compiler is partial, and to construct a more well-formed
-   oracle we permit a second compiler to be supplied, which can succeed
-   more often. *)
+(* Syntactic well-formedness of the infinite oracle. Each state is
+   constructed by calling the compiler on the previous state. The
+   compiler must be phrased as partial, so to construct a further
+   well-formed oracle a second total compiler parameter is available.
+   (These will be instantiated with two variants of the one compiler
+   when this is used in backendProof.)
+*)
 Theorem mk_orac_st_orac_wf:
-  semantics_prog s1 env decs outcome /\
-  outcome <> Fail /\
+  ~ semantics_prog s1 env decs Fail /\
   init_eval_state s1.eval_state /\
   s1.refs = [] /\
   nsAll (K concrete_v) env.v ==>
@@ -2253,7 +2237,7 @@ Theorem mk_orac_st_orac_wf:
   (!j. let next_st = FST (SND (orac (SUC j))) in
   (? eds r. s1.eval_state = SOME (EvalDecs eds) /\
     eds.compiler (orac j) = SOME r /\ FST r next_st) \/
-  next_st = FST (total_c (orac j)))
+  next_st = total_c (orac j))
 Proof
   rw [mk_orac_st_def]
   \\ every_case_tac \\ fs [init_eval_state_def]
@@ -2267,13 +2251,6 @@ Proof
   \\ drule_then (qsubterm_then `mk_eval_oracle _ _ _ _ _` mp_tac)
         mk_eval_oracle_init_wf
   \\ simp [UNCURRY]
-  \\ impl_keep_tac
-  >- (
-    strip_tac
-    \\ dxrule_then drule semantics_prog_Fail_unique
-    \\ simp []
-  )
-  \\ simp []
   \\ drule_then (qsubterm_then `mk_eval_oracle _ _ _ _ _` mp_tac)
         mk_eval_oracle_wf
   \\ simp []
