@@ -18,10 +18,6 @@ Datatype:
   <| clocks   : clock |-> time
    ; location : loc
    ; ioAction : ioAction option
-   (*
-   ; consumed : in_signal option
-   ; output   : out_signal option
-   *)
    ; waitTime : time option
   |>
 End
@@ -50,11 +46,17 @@ End
 
 
 Definition resetClocks_def:
+  resetClocks clks cvars_vals =
+    clks |++ MAP (λx. (x,0:time)) cvars_vals
+End
+
+(*
+Definition resetClocks_def:
   resetClocks (st:state) cvs =
   let reset_cvs = MAP (λx. (x,0:time)) cvs in
       st with clocks := st.clocks |++ reset_cvs
 End
-
+*)
 
 (* TODO: rephrase this def *)
 
@@ -95,7 +97,10 @@ End
 
 Definition calculate_wtime_def:
   calculate_wtime st clks diffs =
-    list_min_option (MAP (evalDiff (resetClocks st clks)) diffs)
+  let
+    st = st with clocks := resetClocks st.clocks clks
+  in
+    list_min_option (MAP (evalDiff st) diffs)
 End
 
 Inductive evalTerm:
@@ -107,11 +112,10 @@ Inductive evalTerm:
                   clks
                   dest
                   diffs)
-              (resetClocks
-               (st with  <| ioAction := SOME (Input in_signal)
-                          ; location := dest
-                          ; waitTime := calculate_wtime st clks diffs|>)
-               clks)) /\
+              (st with  <| clocks   := resetClocks st.clocks clks
+                         ; ioAction := SOME (Input in_signal)
+                         ; location := dest
+                         ; waitTime := calculate_wtime st clks diffs|>)) /\
   (∀st out_signal cnds clks dest diffs.
      EVERY (λck. ck IN FDOM st.clocks) clks ==>
      evalTerm st NONE
@@ -120,13 +124,16 @@ Inductive evalTerm:
                   clks
                   dest
                   diffs)
-              (resetClocks
-               (st with  <| ioAction := SOME (Output out_signal)
-                          ; location := dest
-                          ; waitTime := calculate_wtime st clks diffs|>)
-               clks))
+              (st with  <| clocks   := resetClocks st.clocks clks
+                         ; ioAction := SOME (Output out_signal)
+                         ; location := dest
+                         ; waitTime := calculate_wtime st clks diffs|>))
 End
 
+(* try to understand more *)
+(* should have input and output as parameter *)
+
+(* if statement *)
 Inductive pickTerm:
   (!st cnds in_signal clks dest diffs tms st'.
     EVERY (λcnd. evalCond st cnd) cnds /\

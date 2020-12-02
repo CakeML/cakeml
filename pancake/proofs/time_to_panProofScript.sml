@@ -11,6 +11,85 @@ val _ = new_theory "time_to_panProof";
 val _ = set_grammar_ancestry
         ["timeSem", "panSem", "time_to_pan"];
 
+(* :timeSem$state -> num option -> term -> timeSem$state -> bool *)
+Theorem comp_term_correct:
+  evalTerm s ioAction (Tm io cnds tclks dest wt) s' ∧
+  EVERY (λck. ck IN FDOM s.clocks) tclks ∧
+  FLOOKUP t.locals «location» = SOME (ValLabel loc) ∧
+  FLOOKUP t.locals «sys_time» = SOME (ValWord systime) ∧
+  (* clkvals and tclks follow some order *)
+  FLOOKUP t.locals «task_ret» = SOME (Struct [Struct clkvals; wset; wtime;lc]) ∧
+  FLOOKUP t.code loc =
+    SOME ([(«sys_time», One); («clks», gen_shape n)],
+          comp_terms comp_step («clks»,clks) tms) ∧
+  (* assume that comp_conditions (vname, clks) cds holds for the current state
+     so that I get to reason about comp_term then *) ∧
+  evaluate (Call (Ret «task_ret» NONE) (Var «location»)
+            [Var «sys_time»; Field 0 (Var «task_ret»)]) =
+  (Return ARB,t')
+Proof
+QED
+
+(*
+   FLOOKUP st_code (toString loc) =
+      SOME ([(«sys_time», One); («clks», gen_shape n)],
+            comp_terms comp_step («clks»,clks) tms)
+*)
+
+
+(* :timeSem$state -> num option -> term -> timeSem$state -> bool *)
+Theorem comp_term_correct:
+  evalTerm s ioAction (Tm io cnds tclks dest wt) s' ∧
+  EVERY (λck. ck IN FDOM s.clocks) tclks ∧
+  (* is it derivable from the def of evalTerm *)
+  FLOOKUP t.locals «location» = SOME (ValLabel loc) ∧
+  FLOOKUP t.locals «sys_time» = SOME (ValWord systime) ∧
+  (* clkvals and tclks follow some order *)
+  FLOOKUP t.locals «task_ret» = SOME (Struct [Struct clkvals; wset; wtime;lc]) ∧
+  FLOOKUP t.code loc = SOME ARB
+
+Proof
+QED
+
+
+  t.code = code is installed for the term ∧
+
+
+
+
+
+
+  Call (Ret «task_ret» NONE) (Var «location»)
+       [Var «sys_time»; Field 0 (Var «task_ret»)
+        (* elapsed time clock variables *)]
+
+
+
+
+Proof
+
+
+QED
+
+
+
+
+
+(* ioAction and io are related *)
+
+Theorem comp_term_correct:
+  evalTerm s ioAction (Tm io cnds tclks loc wt) t ∧
+  comp_term clks (Tm io cnds tclks loc wt) = Return (Struct [])
+Proof
+  ho_match_mp_tac step_ind >>
+  rw [] >>
+  fs [step_def]
+
+QED
+
+
+
+
 
 Definition code_installed_def:
   code_installed prog st_code <=>
@@ -39,7 +118,7 @@ End
 
 Theorem time_to_pan_compiler_correct:
   step prog label s s' ∧
-  prog ≠ [] ∧
+  (* prog ≠ [] ∧ *)
   s.waitTime = wtime ∧
   s.location = FST (ohd prog) ∧
   (FDOM s.clocks) = set (clks_of prog) ∧
@@ -56,6 +135,19 @@ Proof
 QED
 
 
+
+Theorem time_to_pan_compiler_correct:
+  step prog label s s' ∧
+  s.waitTime = wtime ∧
+  s.location = FST (ohd prog) ∧
+  (FDOM s.clocks) = set (clks_of prog) ∧
+  s.ioAction = NONE ∧
+  code_installed prog t.code ⇒
+  ∃ck. evaluate (main_while_loop, t with clock := t.clock + ck) =
+       evaluate (main_while_loop, t') ∧
+       state_rel s' t'
+Proof
+QED
 
 (*
   ioaction of timeSem state represents the triggered action or action generated to
