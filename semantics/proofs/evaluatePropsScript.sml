@@ -678,6 +678,10 @@ Proof
   \\ fs [is_clock_io_mono_def] \\ rfs []
 QED
 
+Theorem evaluate_case_eqs = LIST_CONJ
+  [pair_case_eq, result_case_eq, error_result_case_eq, bool_case_eq,
+    option_case_eq, list_case_eq, exp_or_val_case_eq, match_result_case_eq]
+
 Theorem evaluate_set_next_stamps:
   (∀(s0:'a state) env xs s1 res.
      evaluate s0 env xs = (s1,res) ==>
@@ -918,10 +922,6 @@ Proof
   \\ assume_tac (is_clock_io_mono_evaluate |> CONJUNCT2 |> CONJUNCT2 |> SPEC_ALL)
   \\ rfs [is_clock_io_mono_def]
 QED
-
-Theorem evaluate_case_eqs = LIST_CONJ
-  [pair_case_eq, result_case_eq, error_result_case_eq, bool_case_eq,
-    option_case_eq, list_case_eq, exp_or_val_case_eq, match_result_case_eq]
 
 Theorem combine_dec_result_eq_Rerr:
   combine_dec_result env r = Rerr e <=> r = Rerr e
