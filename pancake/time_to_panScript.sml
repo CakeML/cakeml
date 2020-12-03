@@ -10,67 +10,105 @@ val _ = set_grammar_ancestry
         ["pan_common", "mlint", "timeLang", "panLang"];
 
 
-Definition ffi_buffer_address_def:
-  ffi_buffer_address = 4000w:'a word
+Definition ffiBufferAddr_def:
+  ffiBufferAddr = 4000w:'a word
 End
 
 
-Definition ffi_buffer_size_def:
-  ffi_buffer_size = 16w:'a word
+Definition ffiBufferSize_def:
+  ffiBufferSize = 16w:'a word
 End
 
 
-Definition empty_consts_def:
-  empty_consts n = GENLIST (λ_. Const 0w) n
+Definition emptyConsts_def:
+  emptyConsts n = GENLIST (λ_. Const 0w) n
 End
 
 
-Definition gen_shape_def:
-  gen_shape n = Comb (GENLIST (λ_. One) n)
+Definition genShape_def:
+  genShape n = Comb (GENLIST (λ_. One) n)
 End
 
 
-Definition mk_clks_def:
-  mk_clks n vname = Struct (GENLIST (λ_. Var vname) n)
+Definition mkStruct_def:
+  mkStruct n vname = Struct (GENLIST (λ_. Var vname) n)
 End
 
 
-Definition to_num_def:
-  (to_num NONE     = 0:num) ∧
-  (to_num (SOME n) = n)
+Definition toNum_def:
+  (toNum NONE     = 0:num) ∧
+  (toNum (SOME n) = n)
 End
 
 
-Definition indice_of_def:
-  indice_of xs =
-  to_num o (λx. INDEX_OF x xs)
+Definition indiceOf_def:
+  indiceOf xs = toNum o (λx. INDEX_OF x xs)
 End
 
-Definition indices_of_def:
-  indices_of xs ys =
-   MAP (indice_of xs) ys
-End
-
-Definition destruct_def:
-  destruct e xs =
-    MAP (λx. Field x e) xs
+Definition indicesOf_def:
+  indicesOf xs ys = MAP (indiceOf xs) ys
 End
 
 
-Definition mk_struct_def:
-  mk_struct n (v1,v2) indices =
-    Struct (
-      MAPi (λn e.
-             if (MEM n indices)
-             then (Var v1)
-             else Field n (Var v2))
-      (GENLIST I n))
+Definition resetClocks_def:
+  resetClocks v n ns =
+  MAPi (λn e.
+         if (MEM n ns)
+         then (Const 0w)
+         else Field n (Var v))
+       (GENLIST I n)
 End
 
 
-Definition wait_times_def:
-  wait_times vname =
-    list$MAP2 (λt e. Op Sub [Op Add [Const (n2w t); Var vname]; e])
+Definition waitTimes_def:
+  waitTimes =
+    list$MAP2 (λt e. Op Sub [Const (n2w t); e])
+End
+
+
+Definition minOf_def:
+  (minOf v ([]:'a exp list) = Skip) ∧
+  (minOf v (e::es) =
+    Seq (If (Cmp Less e (Var v))
+         (Assign v e) Skip)
+        (minOf v es))
+End
+
+
+Definition compTerm_def:
+  compTerm (clks:mlstring list) (Tm io cnds tclks loc wt) =
+  let n = LENGTH clks;
+      termClks = indicesOf clks tclks;
+      waitClks = indicesOf clks (MAP SND wt);
+      return  = Return
+                (Struct
+                 [Var «resetClks»; Var «waitSet»;
+                  Var «wakeUpAt»; Label (toString loc)])
+  in
+    decs [
+        («waitSet»,   case tclks of [] => Const 0w | _ => Const 1w);
+        («wakeUpAt»,  Const (-1w));
+        («refTime» ,  mkStruct n «sysTime»);
+        («normClks»,  Op Sub [Var «clks»; Var «refTime»]);
+        («resetClks», Struct (resetClocks «normClks» n termClks))
+      ]
+         (nested_seq
+          [minOf «wakeUpAt» (waitTimes (MAP FST wt)
+                             (MAP (λn. Field n (Var «resetClks»)) waitClks));
+           Assign «wakeUpAt» (Op Add [Var «wakeUpAt»; Var «sysTime»]);
+           Assign «resetClks» (Op Add [Var «resetClks»; Var «refTime»]);
+           case io of
+           | (Input insig)   => return
+           | (Output outsig) =>
+               decs
+               [(«ptr1»,Const 0w);
+                («len1»,Const 0w);
+                («ptr2»,Const ffiBufferAddr);
+                («len2»,Const ffiBufferSize)
+               ] (Seq
+                  (ExtCall (strlit (toString outsig)) «ptr1» «len1» «ptr2» «len2»)
+                  return)
+          ])
 End
 
 
@@ -79,15 +117,6 @@ Definition negate_def:
   If  (Cmp Equal (Var vname) (Const 0w))
       (Assign vname (Const 1w))
       (Assign vname (Const 0w))
-End
-
-
-Definition min_of_def:
-  (min_of v ([]:'a exp list) = Skip) ∧
-  (min_of v (e::es) =
-    Seq (If (Cmp Less e (Var v))
-         (Assign v e) Skip)
-        (min_of v es))
 End
 
 (* calibrate wait time with system time *)
@@ -126,21 +155,74 @@ Definition comp_conditions_def:
 End
 
 
-Definition comp_step_def:
-  comp_step (clks:mlstring list) (Tm io cnds tclks loc wt) =
+Definition reset_clocks_def:
+  reset_clocks clks (v1,v2) ns =
+    mk_struct (LENGTH clks) (v1,v2) ns
+End
+
+(*
+Definition destruct_def:
+  destruct e xs =
+    MAP (λx. Field x e) xs
+End
+*)
+
+(*
+  normalisedClocks:
+  Op Sub [Var «clks» - Var «systemTime»]
+  resetClocks:
+  reset_clocks «normalisedClocks» clks_of_term
+  clks_of_wait should be the same
+  and then wait_times should not take systemTime
+*)
+
+
+(*
+   (* reset clks of the term to the system time *)
+   rclocks =  reset_clocks clks («sys_time»,«clks») clks_of_term;
+
+*)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Definition comp_term_def:
+  comp_term (clks:mlstring list) (Tm io cnds tclks loc wt) =
   let clks_of_term = indices_of clks tclks;
       clks_of_wait = indices_of clks (MAP SND wt);
 
       (* reset clks of the term to the system time *)
-      reset_clocks = mk_struct (LENGTH clks) («sys_time»,«clks») clks_of_term;
+      rclocks = reset_clocks clks («sys_time»,«clks») clks_of_term;
 
       (* wait-time should be calculated after resetting the clocks *)
-      clks_of_wait = destruct reset_clocks clks_of_wait;
+      clks_of_wait = MAP (λx. Field x rclocks) clks_of_wait;
       wait_exps = wait_times «sys_time» (MAP FST wt) clks_of_wait;
 
       return  = Return (
         Struct
-        [reset_clocks;
+        [rclocks;
          Var «wait_set»;
          Var «wake_up_at»; Label (toString loc)]) in
     decs [
@@ -179,7 +261,7 @@ Definition comp_location_def:
   let n = LENGTH clks in
     (toString loc,
      [(«sys_time», One); («clks», gen_shape n)],
-     comp_terms comp_step («clks»,clks) ts)
+     comp_terms comp_term («clks»,clks) ts)
 End
 
 
