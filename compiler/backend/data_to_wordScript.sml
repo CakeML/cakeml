@@ -1030,15 +1030,8 @@ val def = assign_Define `
 val def = assign_Define `
   assign_SetGlobalsPtr (c:data_to_word$config) (l:num) (dest:num) v1 =
       (Seq (Set Globals (Var (adjust_var v1)))
-      (Seq (Set GlobReal (Op Add
-        [Lookup CurrHeap;
-          let k = shift (:'a) in
-          if k <= c.pad_bits + 1 then
-            Shift Lsr (Var (adjust_var v1)) (shift_length c - k)
-          else
-            Shift Lsl (Shift Lsr (Var (adjust_var v1)) (shift_length c)) k
-        ]))
-        (Assign (adjust_var dest) Unit)),l)
+      (Seq (Set GlobReal (real_addr c (adjust_var v1)))
+           (Assign (adjust_var dest) Unit)),l)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `

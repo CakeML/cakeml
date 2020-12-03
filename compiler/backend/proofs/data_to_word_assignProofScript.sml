@@ -11862,11 +11862,11 @@ Proof
   \\ pop_assum (fn th => assume_tac th THEN mp_tac th)
   \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
   \\ every_case_tac \\ fs [] \\ rpt var_eq_tac
-  \\ fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
+  \\ ‘isWord h’ by
+   (fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
          adjust_var_11,libTheory.the_def,set_var_def,
          wordSemTheory.set_store_def,code_oracle_rel_def,FLOOKUP_UPDATE]
-  \\ ‘isWord h’ by
-   (full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ drule0 (GEN_ALL word_ml_inv_get_vars_IMP)
     \\ disch_then drule0
     \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
@@ -11874,27 +11874,40 @@ Proof
     \\ gvs [word_ml_inv_def,abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
     \\ fs [word_addr_def,isWord_def])
   \\ Cases_on ‘h’ \\ fs [isWord_def]
-  \\ ‘∃curr. FLOOKUP t.store CurrHeap = SOME (Word curr)’ by
-       fs [heap_in_memory_store_def]
+  \\ rename [‘_ = SOME (Word www)’]
+  \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm,option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ disch_then drule0 \\ fs []
+  \\ imp_res_tac get_vars_1_IMP \\ fs []
+  \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
+  \\ strip_tac
+  \\ drule_all memory_rel_RefPtr_IMP' \\ strip_tac
+  \\ ‘word_exp (set_store Globals (Word www) t) (real_addr c (adjust_var y)) =
+      word_exp t (real_addr c (adjust_var y))’ by cheat
+  \\ first_assum (mp_then (Pos last) mp_tac get_real_addr_lemma)
+  \\ gvs []
+  \\ disch_then (qspec_then ‘adjust_var y’ mp_tac)
+  \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
+  \\ fs [wordSemTheory.set_store_def]
   \\ fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
          adjust_var_11,libTheory.the_def,set_var_def,word_sh_def,
          wordSemTheory.set_store_def,code_oracle_rel_def,FLOOKUP_UPDATE]
-  \\ IF_CASES_TAC THEN1
-   (qsuff_tac ‘F’ \\ rewrite_tac []
-    \\ pop_assum mp_tac \\ fs [good_dimindex_def,shift_def])
+  \\ rw [] \\ rw [] \\ fs []
   \\ fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
          adjust_var_11,libTheory.the_def,set_var_def,word_sh_def,
          wordSemTheory.set_store_def,code_oracle_rel_def,FLOOKUP_UPDATE,
-         wordSemTheory.the_words_def,word_op_def]
+         wordSemTheory.the_words_def,word_op_def,memory_rel_def]
   \\ rw [] \\ fs [option_le_max_right]
   \\ qexists_tac ‘heap’
   \\ qexists_tac ‘limit’
-  \\ qexists_tac ‘a’
+  \\ qexists_tac ‘a'’
   \\ qexists_tac ‘sp’
   \\ qexists_tac ‘sp1’
   \\ qexists_tac ‘gens’
   \\ fs [heap_in_memory_store_def,FLOOKUP_UPDATE,glob_real_inv_def]
   \\ fs [the_global_def,libTheory.the_def]
+  \\ gvs [get_real_simple_addr_def]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ drule0 (GEN_ALL word_ml_inv_get_vars_IMP)
   \\ disch_then drule0

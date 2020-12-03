@@ -4631,9 +4631,11 @@ Theorem get_real_addr_get_addr:
     heap_lookup n heap = SOME anything /\
     FLOOKUP st CurrHeap = SOME (Word (curr:'a word)) /\
     good_dimindex (:'a) ==>
+    get_real_simple_addr c st (get_addr c n w) = SOME (curr + n2w n * bytes_in_word) ∧
     get_real_addr c st (get_addr c n w) = SOME (curr + n2w n * bytes_in_word)
 Proof
-  fs [X_LE_DIV] \\ fs [get_addr_def,get_real_addr_def] \\ strip_tac
+  fs [X_LE_DIV] \\ fs [get_addr_def,get_real_addr_def,get_real_simple_addr_def]
+  \\ strip_tac
   \\ imp_res_tac heap_lookup_LESS \\ fs []
   \\ `w2n ((n2w n):'a word) * 2 ** shift_length c < dimword (:'a)` by
    (`n < dimword (:'a)` by
@@ -4642,11 +4644,12 @@ Proof
     \\ match_mp_tac LESS_LESS_EQ_TRANS
     \\ once_rewrite_tac [CONJ_COMM]
     \\ asm_exists_tac \\ fs [])
-  \\ reverse IF_CASES_TAC THEN1
+  \\ conj_asm1_tac THEN1
    (drule lsl_lsr \\ fs [get_lowerbits_LSL_shift_length]
     \\ fs [] \\ rw []
     \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw []
     \\ rfs [WORD_MUL_LSL,word_mul_n2w,shift_def,bytes_in_word_def])
+  \\ reverse IF_CASES_TAC THEN1 fs []
   \\ fs []
   \\ `get_lowerbits c w ⋙ (shift_length c − shift (:α)) = 0w` by
     (Cases_on `w` \\ srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss]
@@ -6912,7 +6915,9 @@ Theorem memory_rel_ValueArray_IMP:
     lookup p refs = SOME (ValueArray vals) /\ good_dimindex (:'a) ==>
     ?w a x.
       v = Word w /\ w ' 0 /\ word_bit 3 x /\ ~word_bit 2 x /\ ~word_bit 4 x /\
-      get_real_addr c st w = SOME a /\ m a = Word x /\ a IN dm /\
+      get_real_simple_addr c st w = SOME a /\
+      get_real_addr c st w = SOME a /\
+      m a = Word x /\ a IN dm /\
       decode_length c x = n2w (LENGTH vals) /\
       LENGTH vals < 2 ** (dimindex (:'a) − 4)
 Proof
@@ -7271,7 +7276,9 @@ Theorem memory_rel_ByteArray_IMP:
      v = Word w /\ w ' 0 /\
      make_byte_header c fl (LENGTH vals) = x /\
      ~(word_bit 3 x) /\ (word_bit 4 x ⇔ ¬fl) /\ word_bit 2 x /\
-     get_real_addr c st w = SOME a /\ m a = Word x /\ a IN dm /\
+     get_real_simple_addr c st w = SOME a /\
+     get_real_addr c st w = SOME a /\
+     m a = Word x /\ a IN dm /\
      (!i. i < LENGTH vals ==>
           mem_load_byte_aux m dm be (a + bytes_in_word + n2w i) =
           SOME (EL i vals)) /\
@@ -7568,7 +7575,10 @@ Theorem memory_rel_RefPtr_IMP':
     get_real_simple_addr c st w = SOME a ∧
     m a = Word (x:'a word) ∧ a ∈ dm
 Proof
-  cheat
+  strip_tac \\ drule memory_rel_RefPtr_IMP_lemma \\ strip_tac
+  \\ Cases_on `res` \\ fs []
+  THEN1 (rpt_drule memory_rel_ValueArray_IMP \\ rw [] \\ fs [])
+  THEN1 (rpt_drule memory_rel_ByteArray_IMP \\ rw [] \\ fs [])
 QED
 
 Theorem memory_rel_RefPtr_IMP:
@@ -7579,10 +7589,7 @@ Theorem memory_rel_RefPtr_IMP:
       (word_bit 3 x <=> ~word_bit 2 x) /\
       get_real_addr c st w = SOME a /\ m a = Word x /\ a IN dm
 Proof
-  strip_tac \\ drule memory_rel_RefPtr_IMP_lemma \\ strip_tac
-  \\ Cases_on `res` \\ fs []
-  THEN1 (rpt_drule memory_rel_ValueArray_IMP \\ rw [] \\ fs [])
-  THEN1 (rpt_drule memory_rel_ByteArray_IMP \\ rw [] \\ fs [])
+  rw [] \\ drule_all memory_rel_RefPtr_IMP' \\ rw [] \\ fs []
 QED
 
 Theorem Smallnum_bits:
