@@ -5119,7 +5119,6 @@ Theorem memory_rel_Update':
         ((x + bytes_in_word + bytes_in_word * n2w index =+ w) m) dm
         ((h,w)::(RefPtr nn,ptr)::vars)
 Proof
-  cheat (*
   rewrite_tac [CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM]
   \\ fs [memory_rel_def,PULL_EXISTS] \\ rw []
@@ -5135,7 +5134,7 @@ Proof
   \\ fs [heap_in_memory_store_def]
   \\ rpt_drule get_real_addr_get_addr \\ fs []
   \\ disch_then kall_tac
-  \\ `word_addr c v'' = Word (n2w (4 * index)) /\ n = LENGTH l` by
+  \\ `n = LENGTH l` by
    (qpat_x_assum `abs_ml_inv _ _ _ _ _ _` kall_tac
     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
     \\ clean_tac
@@ -5148,13 +5147,7 @@ Proof
     \\ fs [FLOOKUP_DEF,RefBlock_def] \\ strip_tac \\ clean_tac
     \\ imp_res_tac heap_lookup_SPLIT
     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
-    \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
-    \\ `small_int (:α) (&index)` by
-     (fs [small_int_def,intLib.COOPER_CONV ``-&n <= &k:int``]
-      \\ fs [labPropsTheory.good_dimindex_def,dimword_def]
-      \\ rw [] \\ rfs [] \\ fs [] \\ NO_TAC)
-    \\ fs [] \\ clean_tac \\ fs [word_addr_def]
-    \\ fs [Smallnum_def,GSYM word_mul_n2w,word_ml_inv_num_lemma] \\ NO_TAC)
+    \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR])
   \\ fs [] \\ fs [get_real_offset_thm]
   \\ fs [GSYM RefBlock_def]
   \\ imp_res_tac heap_lookup_SPLIT \\ fs [] \\ clean_tac
@@ -5174,7 +5167,7 @@ Proof
   \\ fs [el_length_def,SUM_APPEND]
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ SEP_R_TAC \\ fs []
-  \\ SEP_W_TAC \\ fs [AC STAR_ASSOC STAR_COMM] *)
+  \\ SEP_W_TAC \\ fs [AC STAR_ASSOC STAR_COMM]
 QED
 
 Theorem memory_rel_Update:
