@@ -90,6 +90,21 @@ val thm = ASSUME (first is_forall assums)
 val pat = ...
 *)
 
+fun select_goals pats : list_tactic = fn goals => let
+    fun m pat t = can (find_term (can (match_term pat))) t
+    fun do_sel [] idx_goals = idx_goals
+      | do_sel (pat :: pats) idx_goals = let
+        val (mgoal, rest) = partition (m pat o snd o snd) idx_goals
+        val (masm, rest) = partition (exists (m pat) o fst o snd) rest
+      in mgoal @ masm @ do_sel pats rest end
+    val new_ord = do_sel pats (enumerate 0 goals)
+  in (map snd new_ord,
+    map snd o sort (fn (i, _) => fn (j, _) => i < j) o zip (map fst new_ord)
+  )
+  end
+
+fun then_select_goals pats tac : tactic = tac THEN_LT (select_goals pats)
+
 end (* struct *)
 
 

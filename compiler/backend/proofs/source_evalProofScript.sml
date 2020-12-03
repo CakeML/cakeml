@@ -1512,34 +1512,38 @@ Theorem evaluate_is_record_forward:
     recorded_orac_wf f (orac_s s'.eval_state).oracle)
   )
 Proof
+  then_select_goals [``Case [App _ _]``] (
   ho_match_mp_tac (name_ind_cases [] terminationTheory.full_evaluate_ind)
   \\ rpt conj_tac
+  )
   \\ rpt (gen_tac ORELSE disch_tac)
   \\ fs [terminationTheory.full_evaluate_def]
   \\ rveq \\ fs []
   \\ fs []
   \\ simp [record_forward_refl]
-  \\ TRY (rename [`Case [App _ _]`]
-    \\ Cases_on `op = Eval` \\ Cases_on `op = Opapp` \\ fs []
+  >- (
+    Cases_on `op = Eval` \\ Cases_on `op = Opapp` \\ fs []
     \\ full_simp_tac bool_ss [do_eval_res_def, bool_case_eq, pair_case_eq,
-        option_case_eq, result_case_eq]
+        option_case_eq, result_case_eq, dec_clock_def]
     \\ rveq \\ full_simp_tac bool_ss [PAIR_EQ]
-    \\ rveq \\ fs []
+    \\ fs [] \\ rveq \\ fs []
+    \\ fs [error_result_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ] \\ rveq \\ fs []
+    \\ TRY (drule_then (drule_then assume_tac) insert_do_eval)
+    \\ fs [GSYM PULL_FORALL]
+    \\ TRY (drule_then (drule_then assume_tac) insert_declare_env)
+    \\ fs [GSYM PULL_FORALL, reset_env_generation_orac_eqs]
+    \\ rpt (drule_then irule record_forward_trans_sym)
+    \\ simp [record_forward_refl]
   )
   \\ fs [pair_case_eq, option_case_eq, result_case_eq] \\ rveq \\ fs []
   \\ rpt (drule_then irule record_forward_trans_sym)
   \\ simp [record_forward_refl]
+  \\ TRY (drule_then (drule_then assume_tac) insert_declare_env \\ fs [GSYM PULL_FORALL])
   \\ fs [bool_case_eq] \\ rveq \\ fs []
   \\ simp [record_forward_refl]
-  \\ fs [dec_clock_def, do_eval_res_def]
+  \\ fs [dec_clock_def]
   \\ eval_cases_tac
   \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ]
-  \\ rpt (drule_then irule record_forward_trans_sym)
-  \\ simp [record_forward_refl]
-  \\ TRY (drule_then (drule_then assume_tac) insert_do_eval)
-  \\ fs [GSYM PULL_FORALL]
-  \\ TRY (drule_then (drule_then assume_tac) insert_declare_env)
-  \\ fs [GSYM PULL_FORALL, reset_env_generation_orac_eqs]
   \\ rpt (drule_then irule record_forward_trans_sym)
   \\ simp [record_forward_refl]
 QED
