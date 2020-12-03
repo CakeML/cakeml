@@ -80,10 +80,44 @@ Definition compTerm_def:
   let n = LENGTH clks;
       termClks = indicesOf clks tclks;
       waitClks = indicesOf clks (MAP SND wt);
-      return  = Return
-                (Struct
-                 [Var «resetClks»; Var «waitSet»;
-                  Var «wakeUpAt»; Label (toString loc)])
+      return   = Return
+                 (Struct
+                  [Var «resetClks»; Var «waitSet»;
+                   Var «wakeUpAt»; Label (toString loc)])
+  in
+    decs [
+        («waitSet»,   case tclks of [] => Const 0w | _ => Const 1w);
+        («wakeUpAt»,  Const (-1w));
+        («resetClks», Struct (resetClocks «clks» n termClks))
+      ]
+         (nested_seq
+          [minOf «wakeUpAt» (waitTimes (MAP FST wt)
+                             (MAP (λn. Field n (Var «resetClks»)) waitClks));
+           case io of
+           | (Input insig)   => return
+           | (Output outsig) =>
+               decs
+               [(«ptr1»,Const 0w);
+                («len1»,Const 0w);
+                («ptr2»,Const ffiBufferAddr);
+                («len2»,Const ffiBufferSize)
+               ] (Seq
+                  (ExtCall (strlit (toString outsig)) «ptr1» «len1» «ptr2» «len2»)
+                  return)
+          ])
+End
+
+
+(*
+Definition compTerm_def:
+  compTerm (clks:mlstring list) (Tm io cnds tclks loc wt) =
+  let n = LENGTH clks;
+      termClks = indicesOf clks tclks;
+      waitClks = indicesOf clks (MAP SND wt);
+      return   = Return
+                 (Struct
+                  [Var «resetClks»; Var «waitSet»;
+                   Var «wakeUpAt»; Label (toString loc)])
   in
     decs [
         («waitSet»,   case tclks of [] => Const 0w | _ => Const 1w);
@@ -110,8 +144,10 @@ Definition compTerm_def:
                   return)
           ])
 End
+*)
 
 
+(*
 Definition negate_def:
   negate vname =
   If  (Cmp Equal (Var vname) (Const 0w))
@@ -379,6 +415,6 @@ Definition start_controller_def:
     task_controller init_loc init_wake_up n
 End
 
-
+*)
 
 val _ = export_theory();
