@@ -168,12 +168,6 @@ Proof
   Cases_on `p` \\ simp []
 QED
 
-Theorem combine_dec_result_eq_Rerr:
-  combine_dec_result env r = Rerr e <=> r = Rerr e
-Proof
-  Cases_on `r` \\ simp [combine_dec_result_def]
-QED
-
 val s = mk_var ("s", ``: 'ffi semanticPrimitives$state``);
 
 (* first step. switch over to recording semantics and move envs
@@ -982,18 +976,6 @@ Proof
   simp [abort_def] \\ every_case_tac \\ simp []
 QED
 
-Definition Case_def:
-  Case X <=> T
-End
-
-Theorem elim_Case:
-  (Case X /\ Y) = Y /\
-  (Y /\ Case X) = Y /\
-  (Case X ==> Y) = Y
-Proof
-  simp [Case_def]
-QED
-
 val case_const = ``Case``
 fun is_app_case t = is_comb t andalso same_const case_const (rator t)
 
@@ -1044,7 +1026,6 @@ val eval_simulation_setup = setup (`
   evaluate s env exps = (s', res) /\
   s_rel init_eds s t /\
   env_rel (v_rel (orac_s t.eval_state)) env env' /\
-  Case exps /\
   res <> Rerr (Rabort Rtype_error) ==>
   ? es' t' res'.
   evaluate t env' exps = (t', res') /\
@@ -1061,7 +1042,6 @@ val eval_simulation_setup = setup (`
   env_rel (v_rel es) env env' /\
   v_rel es x y /\
   v_rel es err_x err_y /\
-  Case pes /\
   res <> Rerr (Rabort Rtype_error) ==>
   ?es' t' res'.
   evaluate_match t env' y pes err_y = (t', res') /\
@@ -1075,7 +1055,6 @@ val eval_simulation_setup = setup (`
   evaluate_decs s env decs = (s', res) /\
   s_rel init_eds s t /\
   env_rel (v_rel (orac_s t.eval_state)) env env' /\
-  Case (Dlet, decs) /\
   res <> Rerr (Rabort Rtype_error) ==>
   ?es' t' res'.
   evaluate_decs t env' decs = (t', res') /\
@@ -1085,11 +1064,12 @@ val eval_simulation_setup = setup (`
   es_forward (orac_s t.eval_state) es' /\
   (~ abort res' ==> es_stack_forward (orac_s t.eval_state) es'))
   `,
-  ho_match_mp_tac terminationTheory.full_evaluate_ind
+  ho_match_mp_tac (name_ind_cases [``()``, ``()``, ``Dlet``] terminationTheory.full_evaluate_ind)
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
   \\ fs [terminationTheory.full_evaluate_def]
-  \\ fs [elim_Case]
+  (* FIXME: tweak name_ind_cases to skip dummy patterns *)
+  \\ fs [Q.prove (`Case ((), x) = Case (x)`, simp [markerTheory.Case_def])]
   \\ rveq \\ fs []
   );
 
@@ -1148,7 +1128,7 @@ Proof
 QED
 
 Triviality eval_simulation_Denv:
-  ^(#get_goal eval_simulation_setup `Case (_, [Denv _])`)
+  ^(#get_goal eval_simulation_setup `Case (Dlet, [Denv _])`)
 Proof
   rw []
   \\ eval_cases_tac
@@ -1322,7 +1302,7 @@ Proof
   \\ TRY ( (
     (* big hammer for similar cases *)
     eval_cases_tac
-    \\ fs [elim_Case]
+    \\ fs []
     \\ insts_tac
     \\ fs [do_con_check_def, build_conv_def, do_log_def, do_if_def]
     \\ TRY (drule_then (drule_then assume_tac) can_pmatch_all)
@@ -1504,7 +1484,6 @@ Triviality record_forward_trans_sym
 Theorem evaluate_is_record_forward:
   (! ^s env exps s' res.
   evaluate s env exps = (s', res) /\
-  Case exps /\
   is_record f init_s s.eval_state
   ==>
   is_record f init_s s'.eval_state /\
@@ -1533,12 +1512,12 @@ Theorem evaluate_is_record_forward:
     recorded_orac_wf f (orac_s s'.eval_state).oracle)
   )
 Proof
-  ho_match_mp_tac terminationTheory.full_evaluate_ind
+  ho_match_mp_tac (name_ind_cases [] terminationTheory.full_evaluate_ind)
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
   \\ fs [terminationTheory.full_evaluate_def]
   \\ rveq \\ fs []
-  \\ fs [elim_Case]
+  \\ fs []
   \\ simp [record_forward_refl]
   \\ TRY (rename [`Case [App _ _]`]
     \\ Cases_on `op = Eval` \\ Cases_on `op = Opapp` \\ fs []
@@ -1592,7 +1571,6 @@ val insert_oracle_correct_setup = setup (
   is_record f init_s s.eval_state /\
   orac_agrees orac s'.eval_state /\
   orac_extended_wf f orac /\
-  Case (Let, exps) /\
   res <> Rerr (Rabort Rtype_error)
   ==>
   evaluate (s with eval_state updated_by insert_oracle f orac) env exps =
@@ -1604,7 +1582,6 @@ val insert_oracle_correct_setup = setup (
   is_record f init_s s.eval_state /\
   orac_agrees orac s'.eval_state /\
   orac_extended_wf f orac /\
-  Case (Mat, pes) /\
   res <> Rerr (Rabort Rtype_error)
   ==>
   evaluate_match (s with eval_state updated_by insert_oracle f orac)
@@ -1617,22 +1594,18 @@ val insert_oracle_correct_setup = setup (
   is_record f init_s s.eval_state /\
   orac_agrees orac s'.eval_state /\
   orac_extended_wf f orac /\
-  Case (Dlet, decs) /\
   res <> Rerr (Rabort Rtype_error)
   ==>
   evaluate_decs (s with eval_state updated_by insert_oracle f orac) env decs =
   (s' with eval_state updated_by insert_oracle f orac, res)
   )`,
-  ho_match_mp_tac terminationTheory.full_evaluate_ind
+  ho_match_mp_tac (name_ind_cases [``Let``, ``Mat``, ``Dlet``] terminationTheory.full_evaluate_ind)
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
   \\ fs [terminationTheory.full_evaluate_def]
-  \\ fs [elim_Case]
+  \\ fs []
   \\ rveq \\ fs []
   );
-
-Triviality evaluate_is_record_forward2 =
-  evaluate_is_record_forward |> REWRITE_RULE [elim_Case]
 
 Triviality insert_oracle_correct_App:
   ^(#get_goal insert_oracle_correct_setup `Case (_, [App _ _])`)
@@ -1645,7 +1618,7 @@ Proof
     eval_cases_tac
     \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] \\ rveq \\ fs []
     \\ fs [dec_clock_def]
-    \\ imp_res_simp_tac evaluate_is_record_forward2
+    \\ imp_res_simp_tac evaluate_is_record_forward
     \\ agrees_impl_tac
     \\ simp []
   )
@@ -1658,7 +1631,7 @@ Proof
     \\ rpt (disch_then drule)
     \\ disch_then (qspecl_then [`orac`, `init_s`, `f`] mp_tac)
     \\ rw []
-    \\ imp_res_simp_tac evaluate_is_record_forward2
+    \\ imp_res_simp_tac evaluate_is_record_forward
     \\ fs [bool_case_eq] \\ rveq \\ fs []
     >- (
       agrees_impl_tac
@@ -1669,7 +1642,7 @@ Proof
     \\ fs [result_case_eq, option_case_eq, pair_case_eq] \\ rveq \\ fs []
     \\ fs [error_result_case_eq] \\ rveq \\ fs []
     \\ fs [reset_env_generation_orac_eqs]
-    \\ imp_res_simp_tac evaluate_is_record_forward2
+    \\ imp_res_simp_tac evaluate_is_record_forward
     \\ imp_res_simp_tac insert_declare_env
     \\ agrees_impl_tac
     \\ simp [reset_env_generation_orac_eqs]
@@ -1698,9 +1671,9 @@ Proof
     \\ eval_cases_tac
     \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, combine_dec_result_eq_Rerr]
     \\ rveq \\ fs []
-    \\ imp_res_simp_tac evaluate_is_record_forward2
+    \\ imp_res_simp_tac evaluate_is_record_forward
     \\ fs []
-    \\ imp_res_simp_tac evaluate_is_record_forward2
+    \\ imp_res_simp_tac evaluate_is_record_forward
     \\ agrees_impl_tac
     \\ simp []
   ) \\ NO_TAC)
@@ -1791,10 +1764,10 @@ Proof
   \\ eval_cases_tac
   \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, dec_clock_def]
   \\ rveq \\ fs []
-  \\ imp_res_simp_tac evaluate_is_record_forward2
+  \\ imp_res_simp_tac evaluate_is_record_forward
   \\ fs []
   \\ TRY (drule_then imp_res_simp_tac insert_do_eval \\ fs [])
-  \\ imp_res_simp_tac evaluate_is_record_forward2
+  \\ imp_res_simp_tac evaluate_is_record_forward
   \\ fs []
   \\ TRY (drule_then imp_res_simp_tac insert_declare_env)
   \\ TRY (drule_then (drule_then assume_tac) less_sub_1_cases \\ fs [])
@@ -1852,7 +1825,7 @@ Proof
     \\ disch_then drule
     \\ rw []
     \\ fs []
-    \\ imp_res_simp_tac evaluate_is_record_forward2
+    \\ imp_res_simp_tac evaluate_is_record_forward
     \\ fs [record_forward_def]
     \\ imp_res_tac is_record_IMP
     \\ fs []
@@ -1865,7 +1838,7 @@ Proof
     \\ disch_then drule
     \\ rw []
     \\ fs []
-    \\ imp_res_simp_tac evaluate_is_record_forward2
+    \\ imp_res_simp_tac evaluate_is_record_forward
     \\ fs [record_forward_def]
     \\ imp_res_tac is_record_IMP
     \\ fs []
@@ -1881,7 +1854,7 @@ Proof
   \\ `is_record init_eds.compiler init_eds.compiler_state
         (SOME (EvalOracle orac_s'))`
     by (simp [is_record_def] )
-  \\ imp_res_simp_tac evaluate_is_record_forward2
+  \\ imp_res_simp_tac evaluate_is_record_forward
   \\ imp_res_simp_tac is_record_IMP
   \\ fs []
   \\ rw []
@@ -1989,67 +1962,6 @@ Definition init_eval_state_def:
   )
 End
 
-val eval_no_eval_simulation_setup = setup (`
-  (! ^s env exps s' res.
-  evaluate s env exps = (s', res) /\
-  s.eval_state = NONE /\
-  Case exps /\
-  res <> Rerr (Rabort Rtype_error) ==>
-  s'.eval_state = NONE /\
-  evaluate (s with eval_state := es) env exps = (s' with eval_state := es, res))
-  /\
-  (! ^s env x pes err_x s' res.
-  evaluate_match s env x pes err_x = (s', res) /\
-  s.eval_state = NONE /\
-  Case pes /\
-  res <> Rerr (Rabort Rtype_error) ==>
-  s'.eval_state = NONE /\
-  evaluate_match (s with eval_state := es) env x pes err_x =
-    (s' with eval_state := es, res))
-  /\
-  (! ^s env decs s' res.
-  evaluate_decs s env decs = (s', res) /\
-  s.eval_state = NONE /\
-  Case (Dlet, decs) /\
-  res <> Rerr (Rabort Rtype_error) ==>
-  s'.eval_state = NONE /\
-  evaluate_decs (s with eval_state := es) env decs = (s' with eval_state := es, res))
-  `,
-  ho_match_mp_tac terminationTheory.full_evaluate_ind
-  \\ rpt conj_tac
-  \\ rpt (gen_tac ORELSE disch_tac)
-  \\ fs [terminationTheory.full_evaluate_def]
-  \\ fs [elim_Case]
-  \\ rveq \\ fs []
-  );
-
-Triviality eval_no_eval_simulation_App:
-  ^(#get_goal eval_no_eval_simulation_setup `Case ([App _ _])`)
-Proof
-  rpt disch_tac
-  \\ rpt (MAP_FIRST (dxrule_then (strip_assume_tac o SIMP_RULE bool_ss []))
-    [hd (RES_CANON pair_case_eq), hd (RES_CANON result_case_eq), hd (RES_CANON bool_case_eq)]
-  )
-  \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ]
-  \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
-  \\ fs [bool_case_eq, do_eval_res_def, Q.ISPEC `(a, b)` EQ_SYM_EQ]
-  \\ rfs [Q.SPECL [`vs`, `NONE`] do_eval_def]
-  \\ fs [dec_clock_def]
-  \\ eval_cases_tac
-QED
-
-Theorem eval_no_eval_simulation:
-  ^(#concl eval_no_eval_simulation_setup ())
-Proof
-  #init eval_no_eval_simulation_setup [eval_no_eval_simulation_App]
-  \\ TRY ((
-    rw []
-    \\ eval_cases_tac
-    \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, combine_dec_result_eq_Rerr, declare_env_def]
-    \\ NO_TAC
-  ))
-QED
-
 Theorem evaluate_prog_with_clock_mk_orac_st:
   evaluate_prog_with_clock s1 env k decs = (ffi, res) /\
   res <> Rerr (Rabort Rtype_error) /\
@@ -2072,7 +1984,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   >- (
     imp_res_tac eval_no_eval_simulation
-    \\ rfs [Case_def]
+    \\ rfs []
     \\ rveq \\ fs []
     \\ rveq \\ fs []
   )
@@ -2085,14 +1997,14 @@ Proof
     by ( fs [is_record_def, markerTheory.Abbrev_def] )
   \\ drule_then (qspec_then `k` assume_tac) s_rel_clock2
   \\ drule_then drule (List.last (CONJUNCTS eval_simulation))
-  \\ simp [Case_def]
+  \\ simp []
   \\ disch_then (qspec_then `env` mp_tac)
   \\ simp [env_rel_concrete_v]
   \\ disch_tac \\ fs []
   \\ drule (List.last (CONJUNCTS insert_oracle_correct))
   \\ simp []
   \\ disch_then (drule_then (qsubterm_then `evaluate_decs _ _` mp_tac))
-  \\ simp [Case_def]
+  \\ simp []
   \\ reverse impl_tac
   >- (
     rw []
@@ -2108,7 +2020,7 @@ Proof
   >- (
     drule_then irule mk_eval_oracle_extended_wf
     \\ rw []
-    \\ imp_res_simp_tac evaluate_is_record_forward2
+    \\ imp_res_simp_tac evaluate_is_record_forward
     \\ rfs [markerTheory.Abbrev_def]
     \\ fs [recorded_orac_wf_def |> Q.SPECL [`c`, `K x`]]
   )
@@ -2172,7 +2084,7 @@ Proof
   \\ qpat_x_assum `~ _` mp_tac
   \\ simp [semantics_prog_def, evaluate_prog_with_clock_def]
   \\ disch_then (qspec_then `n` mp_tac)
-  \\ simp [elim_Case, env_rel_concrete_v]
+  \\ simp [env_rel_concrete_v]
   \\ rw [s_rel_def]
   \\ fs []
   \\ rfs []
@@ -2204,7 +2116,7 @@ Proof
   \\ qpat_x_assum `~ _` mp_tac
   \\ simp [semantics_prog_def, evaluate_prog_with_clock_def]
   \\ disch_then (qspec_then `n` mp_tac)
-  \\ simp [elim_Case, env_rel_concrete_v]
+  \\ simp [env_rel_concrete_v]
   \\ rw []
   \\ qpat_x_assum `s_rel init_eds _ _` mp_tac
   \\ rw [s_rel_def, recorded_orac_wf_def]

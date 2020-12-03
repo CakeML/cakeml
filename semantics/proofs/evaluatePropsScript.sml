@@ -879,6 +879,63 @@ Proof
   \\ rfs [is_clock_io_mono_def]
 QED
 
+Theorem evaluate_case_eqs = LIST_CONJ
+  [pair_case_eq, result_case_eq, error_result_case_eq, bool_case_eq,
+    option_case_eq, list_case_eq, exp_or_val_case_eq, match_result_case_eq]
+
+Theorem combine_dec_result_eq_Rerr:
+  combine_dec_result env r = Rerr e <=> r = Rerr e
+Proof
+  Cases_on `r` \\ simp [combine_dec_result_def]
+QED
+
+Theorem eval_no_eval_simulation:
+  (! (s:'ffi state) env exps s' res.
+  evaluate s env exps = (s', res) /\
+  s.eval_state = NONE /\
+  res <> Rerr (Rabort Rtype_error) ==>
+  s'.eval_state = NONE /\
+  evaluate (s with eval_state := es) env exps = (s' with eval_state := es, res))
+  /\
+  (! (s:'ffi state) env x pes err_x s' res.
+  evaluate_match s env x pes err_x = (s', res) /\
+  s.eval_state = NONE /\
+  res <> Rerr (Rabort Rtype_error) ==>
+  s'.eval_state = NONE /\
+  evaluate_match (s with eval_state := es) env x pes err_x =
+    (s' with eval_state := es, res))
+  /\
+  (! (s:'ffi state) env decs s' res.
+  evaluate_decs s env decs = (s', res) /\
+  s.eval_state = NONE /\
+  res <> Rerr (Rabort Rtype_error) ==>
+  s'.eval_state = NONE /\
+  evaluate_decs (s with eval_state := es) env decs = (s' with eval_state := es, res))
+Proof
+  ho_match_mp_tac (name_ind_cases [] terminationTheory.full_evaluate_ind)
+  \\ rpt conj_tac
+  \\ rpt (gen_tac ORELSE disch_tac)
+  \\ fs [terminationTheory.full_evaluate_def]
+  \\ rveq \\ fs []
+  (* useful for development
+  \\ TRY (rename [`Case ([App _ _])`] ORELSE cheat)
+  *)
+  \\ TRY (rename [`Case ([App _ _])`]
+    \\ rpt (MAP_FIRST (dxrule_then (strip_assume_tac o SIMP_RULE bool_ss []))
+      [hd (RES_CANON pair_case_eq), hd (RES_CANON result_case_eq), hd (RES_CANON bool_case_eq)]
+    )
+    \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ]
+    \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
+    \\ fs [bool_case_eq, do_eval_res_def, Q.ISPEC `(a, b)` EQ_SYM_EQ]
+    \\ rfs [Q.SPECL [`vs`, `NONE`] do_eval_def]
+    \\ fs [dec_clock_def]
+    \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
+  )
+  \\ fs [evaluate_case_eqs]
+  \\ rveq \\ fs []
+  \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, combine_dec_result_eq_Rerr, declare_env_def]
+QED
+
 Theorem same_type_sym:
   same_type t1 t2 ==> same_type t2 t1
 Proof

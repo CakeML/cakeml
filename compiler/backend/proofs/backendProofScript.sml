@@ -2782,7 +2782,7 @@ Theorem mk_orac_st_eq_cake_orac:
   source_evalProof$mk_orac_st (eval_config_cfg_compile ev)
         (ev.encode_v c)
         (s1 with eval_state := SOME (eval_config_to_eval_state c ev))
-	env decs = SOME (EvalOracle orac_st) /\
+        env decs = SOME (EvalOracle orac_st) /\
   orac_st.oracle = (\j. (FST (syntax j), config_vs j, SND (syntax j))) /\
   (!j. ev.decode_v (config_vs j) = SOME (configs j)) /\
   cake_orac c syntax I (\ps. (ps.env_id,ps.source_prog)) =
