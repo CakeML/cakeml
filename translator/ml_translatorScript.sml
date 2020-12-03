@@ -29,7 +29,8 @@ val empty_state_def = Define`
        the monadic translator must be used for FFI calls *)
     ffi := initial_ffi_state ARB ();
     next_type_stamp := 0;
-    next_exn_stamp := 0|>`;
+    next_exn_stamp := 0;
+    eval_state := NONE|>`;
 
 val Eval_def = Define `
   Eval env exp P =
@@ -142,21 +143,28 @@ Theorem evaluate_empty_state_IMP:
    eval_rel (s:'ffi state) env exp (s with refs := s.refs ++ refs') x
 Proof
   rw [eval_rel_def]
-  \\ drule (INST_TYPE[alpha|->oneSyntax.one_ty,beta|->``:'ffi``]
-              (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro))
-  \\ disch_then (qspec_then `s with <| clock := ck1;
-                   next_type_stamp := 0; next_exn_stamp := 0; |>` mp_tac)
+  \\ dxrule_then (qspec_then `s.ffi` mp_tac) (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro)
+  \\ rw []
   \\ fs [empty_state_def]
-  \\ strip_tac
-  \\ drule (CONJUNCT1 evaluate_set_next_type_stamp)
-  \\ disch_then (qspec_then `s.next_type_stamp` mp_tac) \\ fs [] \\ rw []
-  \\ drule (CONJUNCT1 evaluate_set_next_exn_stamp)
-  \\ disch_then (qspec_then `s.next_exn_stamp` mp_tac) \\ fs [] \\ rw []
-  \\ `(s with <|clock := ck1; next_type_stamp := s.next_type_stamp;
-                next_exn_stamp := s.next_exn_stamp|>) =
-      (s with clock := ck1)` by fs [state_component_equality]
-  \\ fs [] \\ qexists_tac `ck1` \\ fs []
-  \\ fs [state_component_equality]
+  \\ dxrule (CONJUNCT1 evaluate_set_next_stamps)
+  \\ simp []
+  \\ disch_then (qspec_then `s.next_type_stamp` mp_tac o CONJUNCT1)
+  \\ rw []
+  \\ dxrule (CONJUNCT1 evaluate_set_next_stamps)
+  \\ simp []
+  \\ disch_then (qspec_then `s.next_exn_stamp` mp_tac o CONJUNCT2)
+  \\ rw []
+  \\ dxrule (CONJUNCT1 eval_no_eval_simulation)
+  \\ simp []
+  \\ disch_then (qspec_then `s.eval_state` mp_tac)
+  \\ rw []
+  \\ qexists_tac `ck1`
+  \\ qexists_tac `ck2`
+  \\ dxrule_then irule (Q.prove (`(a = b) /\ a = c /\ b = d ==> c = d`, rw []))
+  \\ simp [state_component_equality]
+  \\ rpt AP_THM_TAC
+  \\ AP_TERM_TAC
+  \\ simp [state_component_equality]
 QED
 
 Theorem Eval_Arrow:

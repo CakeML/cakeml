@@ -678,6 +678,46 @@ Proof
   \\ fs [is_clock_io_mono_def] \\ rfs []
 QED
 
+Theorem evaluate_set_next_stamps:
+  (∀(s0:'a state) env xs s1 res.
+     evaluate s0 env xs = (s1,res) ==>
+     (s1.next_type_stamp = s0.next_type_stamp ==>
+        !k. evaluate (s0 with next_type_stamp := k) env xs =
+            (s1 with next_type_stamp := k,res)) ∧
+     (s1.next_exn_stamp = s0.next_exn_stamp ==>
+        !k. evaluate (s0 with next_exn_stamp := k) env xs =
+            (s1 with next_exn_stamp := k,res))) ∧
+  (∀(s0:'a state) env v pes errv s1 res.
+     evaluate_match s0 env v pes errv = (s1,res) ==>
+     (s1.next_type_stamp = s0.next_type_stamp ==>
+        !k. evaluate_match (s0 with next_type_stamp := k) env v pes errv =
+            (s1 with next_type_stamp := k,res)) ∧
+     (s1.next_exn_stamp = s0.next_exn_stamp ==>
+        !k. evaluate_match (s0 with next_exn_stamp := k) env v pes errv =
+            (s1 with next_exn_stamp := k,res))) ∧
+  (∀(s0:'a state) env ds s1 res.
+     evaluate_decs s0 env ds = (s1,res) ==>
+     (s1.next_type_stamp = s0.next_type_stamp ==>
+        !k. evaluate_decs (s0 with next_type_stamp := k) env ds =
+            (s1 with next_type_stamp := k,res)) ∧
+     (s1.next_exn_stamp = s0.next_exn_stamp ==>
+        !k. evaluate_decs (s0 with next_exn_stamp := k) env ds =
+            (s1 with next_exn_stamp := k,res)))
+Proof
+  ho_match_mp_tac full_evaluate_ind
+  \\ fs [full_evaluate_def]
+  \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac \\ rpt gen_tac
+  \\ strip_tac
+  \\ fs [evaluate_case_eqs, dec_clock_def, do_eval_res_def]
+  \\ rveq \\ fs []
+  \\ fs [Q.ISPEC `(_, _)` EQ_SYM_EQ]
+  \\ rveq \\ fs []
+  \\ imp_res_tac evaluate_next_type_stamp_mono
+  \\ imp_res_tac evaluate_next_exn_stamp_mono
+  \\ rw []
+  \\ fs [build_tdefs_def]
+QED
+
 Theorem call_FFI_return_unchanged:
   call_FFI ffi s conf bytes = FFI_return ffi bytes' <=>
   (s = "" /\ bytes' = bytes)
