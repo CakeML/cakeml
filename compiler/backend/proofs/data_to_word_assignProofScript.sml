@@ -8467,7 +8467,7 @@ Theorem word_exp_insert:
       word_exp t (real_addr c m)))
 Proof
   fs [wordSemTheory.word_exp_def,real_addr_def]
-  \\ IF_CASES_TAC \\ fs []
+  \\ rpt (IF_CASES_TAC \\ fs [])
   \\ fs [wordSemTheory.word_exp_def,real_addr_def] \\ fs [lookup_insert]
 QED
 

@@ -968,6 +968,10 @@ Proof
   (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
   every_case_tac \\ fs [] \\ metis_tac [cs_delete_if_set])
 
+  >- (** OpCurrHeap **)
+  (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
+  every_case_tac \\ fs [] \\ metis_tac [cs_delete_if_set])
+
   >- (** MustTerminate **)
   (rpt (rpt gen_tac \\ DISCH_TAC) \\ fs [const_fp_loop_def] \\ pairarg_tac \\
   fs [] \\ qpat_x_assum `_ = p'` (assume_tac o GSYM) \\ fs [evaluate_def] \\
@@ -998,6 +1002,7 @@ Proof
     \\ (* Otherwise *)
     (rpt (pairarg_tac \\ fs []) \\ every_case_tac \\ rw [evaluate_def] \\
     res_tac \\ fs [lookup_inter_eq] \\ every_case_tac \\ rw []))
+
   >- (** Call **)
   (rpt (rpt gen_tac \\ DISCH_TAC) \\ fs [const_fp_loop_def, evaluate_def] \\
   qpat_x_assum `_ = (res, s')` mp_tac \\
@@ -1038,6 +1043,7 @@ Proof
     >- (imp_res_tac evaluate_consts \\ imp_res_tac pop_env_gc_fun \\
        fs [set_var_def, push_env_gc_fun])
     >- rw[])
+
   >- (** FFI **)
   (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
   every_case_tac \\ fs [] \\
@@ -1195,9 +1201,9 @@ val Seq_assoc_no_inst = Q.prove(`
   every_case_tac>>fs[])
 
 Theorem compile_exp_no_inst:
-    ∀prog.
-  every_inst (inst_ok_less ac) prog ⇒
-  every_inst (inst_ok_less ac) (compile_exp prog)
+  ∀prog.
+    every_inst (inst_ok_less ac) prog ⇒
+    every_inst (inst_ok_less ac) (compile_exp prog)
 Proof
   fs[compile_exp_def]>>
   metis_tac[simp_if_no_inst,Seq_assoc_no_inst,every_inst_def,

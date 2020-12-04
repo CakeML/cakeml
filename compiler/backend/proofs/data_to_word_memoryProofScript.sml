@@ -4616,9 +4616,12 @@ val get_real_addr_def = Define `
     let k = shift (:α) in
       case FLOOKUP st CurrHeap of
       | SOME (Word curr) =>
-          if k <= conf.pad_bits + 1
-          then SOME (curr + (w >>> (shift_length conf - k)))
-          else SOME (curr + (w >>> (shift_length conf) << k))
+          if k = shift_length conf ∧ conf.len_bits = 0 ∧ conf.tag_bits = 0
+          then SOME (curr + w - 1w)
+          else
+            if k <= conf.pad_bits + 1
+            then SOME (curr + (w >>> (shift_length conf - k)))
+            else SOME (curr + (w >>> (shift_length conf) << k))
       | _ => NONE`
 
 val get_real_offset_def = Define `
@@ -4632,6 +4635,15 @@ Definition get_real_simple_addr_def:
     | SOME (Word curr) => SOME (curr + w ⋙ shift_length conf ≪ shift (:α))
     | _ => NONE
 End
+
+Triviality or_1:
+  ∀w. (0 -- 0) w ‖ 1w = 1w :'a word
+Proof
+  fs [fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA,word_lsl_def,
+      word_0,word_bits_def]
+  \\ once_rewrite_tac [wordsTheory.word_index_n2w] \\ fs []
+  \\ rw [] \\ eq_tac \\ rw []
+QED
 
 Theorem get_real_addr_get_addr:
    heap_length heap <= dimword (:'a) DIV 2 ** shift_length c /\
@@ -4651,6 +4663,23 @@ Proof
     \\ match_mp_tac LESS_LESS_EQ_TRANS
     \\ once_rewrite_tac [CONJ_COMM]
     \\ asm_exists_tac \\ fs [])
+  \\ IF_CASES_TAC
+  THEN1
+   (Cases_on ‘w’
+    \\ fs [get_lowerbits_def,small_shift_length_def,or_1]
+    \\ ‘0w = n2w n ≪ shift_length c && 1w’ by
+     (fs [fcpTheory.CART_EQ,word_and_def,fcpTheory.FCP_BETA,word_lsl_def,word_0]
+      \\ rewrite_tac [word_1comp_def]
+      \\ once_rewrite_tac [wordsTheory.word_index_n2w] \\ fs []
+      \\ gvs [good_dimindex_def,shift_def])
+    \\ drule (GSYM WORD_ADD_OR)
+    \\ pop_assum kall_tac
+    \\ fs []
+    \\ gvs [WORD_MUL_LSL,bytes_in_word_def,word_mul_n2w,good_dimindex_def,
+            dimword_def,shift_def]
+    \\ qpat_x_assum ‘_ = shift_length _’ (assume_tac o GSYM)
+    \\ fs [])
+  \\ pop_assum kall_tac
   \\ conj_asm1_tac THEN1
    (drule lsl_lsr \\ fs [get_lowerbits_LSL_shift_length]
     \\ fs [] \\ rw []

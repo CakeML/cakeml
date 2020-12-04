@@ -125,6 +125,8 @@ val comp_def = Define `
     | Set name r =>
         if name = CurrHeap then move (k+2) r
         else Inst (Mem Store r (Addr (k+1) (store_offset name)))
+    | OpCurrHeap op r n =>
+        Inst (Arith (Binop op r n (Reg (k+2))))
     (* remove stack operations *)
     | StackFree n => stack_free k n
     | StackAlloc n => stack_alloc jump k n

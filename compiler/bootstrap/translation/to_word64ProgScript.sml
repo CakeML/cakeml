@@ -250,6 +250,7 @@ val _ = translate (spec64 wordLangTheory.max_var_def)
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 
 val _ = translate (asmTheory.offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.aligned_bitwise_and] |> conv64)
+val _ = translate (is_Lookup_CurrHeap_pmatch |> conv64)
 val res = translate_no_ind (inst_select_exp_pmatch |> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
 
 val ind_lemma = Q.prove(
