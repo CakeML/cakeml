@@ -4663,6 +4663,11 @@ Proof
     \\ match_mp_tac LESS_LESS_EQ_TRANS
     \\ once_rewrite_tac [CONJ_COMM]
     \\ asm_exists_tac \\ fs [])
+  \\ conj_asm1_tac THEN1
+   (drule lsl_lsr \\ fs [get_lowerbits_LSL_shift_length]
+    \\ fs [] \\ rw []
+    \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw []
+    \\ rfs [WORD_MUL_LSL,word_mul_n2w,shift_def,bytes_in_word_def])
   \\ IF_CASES_TAC
   THEN1
    (Cases_on ‘w’
@@ -4680,11 +4685,6 @@ Proof
     \\ qpat_x_assum ‘_ = shift_length _’ (assume_tac o GSYM)
     \\ fs [])
   \\ pop_assum kall_tac
-  \\ conj_asm1_tac THEN1
-   (drule lsl_lsr \\ fs [get_lowerbits_LSL_shift_length]
-    \\ fs [] \\ rw []
-    \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw []
-    \\ rfs [WORD_MUL_LSL,word_mul_n2w,shift_def,bytes_in_word_def])
   \\ reverse IF_CASES_TAC THEN1 fs []
   \\ fs []
   \\ `get_lowerbits c w ⋙ (shift_length c − shift (:α)) = 0w` by
