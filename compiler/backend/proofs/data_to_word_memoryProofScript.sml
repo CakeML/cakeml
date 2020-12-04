@@ -4626,6 +4626,13 @@ val get_real_offset_def = Define `
     if dimindex (:'a) = 32
     then SOME (w + bytes_in_word) else SOME (w << 1 + bytes_in_word)`
 
+Definition get_real_simple_addr_def:
+  get_real_simple_addr conf st (w:'a word) =
+    case FLOOKUP st CurrHeap of
+    | SOME (Word curr) => SOME (curr + w ⋙ shift_length conf ≪ shift (:α))
+    | _ => NONE
+End
+
 Theorem get_real_addr_get_addr:
    heap_length heap <= dimword (:'a) DIV 2 ** shift_length c /\
     heap_lookup n heap = SOME anything /\
@@ -7557,13 +7564,6 @@ Proof
      \\ qexists_tac `RefPtr p` \\ fs [get_refs_def])
   \\ fs [SUBSET_DEF,domain_lookup]
 QED
-
-Definition get_real_simple_addr_def:
-  get_real_simple_addr conf st (w:'a word) =
-    case FLOOKUP st CurrHeap of
-    | SOME (Word curr) => SOME (curr + w ⋙ shift_length conf ≪ shift (:α))
-    | _ => NONE
-End
 
 Theorem memory_rel_RefPtr_IMP':
   memory_rel c be ts refs sp st m dm ((RefPtr p,v)::vars) ∧

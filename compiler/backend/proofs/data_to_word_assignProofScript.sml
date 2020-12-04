@@ -11884,7 +11884,9 @@ Proof
   \\ strip_tac
   \\ drule_all memory_rel_RefPtr_IMP' \\ strip_tac
   \\ ‘word_exp (set_store Globals (Word www) t) (real_addr c (adjust_var y)) =
-      word_exp t (real_addr c (adjust_var y))’ by cheat
+      word_exp t (real_addr c (adjust_var y))’ by
+      (rw[wordSemTheory.set_store_def,wordSemTheory.word_exp_def,real_addr_def]>>
+      simp[FLOOKUP_UPDATE])
   \\ first_assum (mp_then (Pos last) mp_tac get_real_addr_lemma)
   \\ gvs []
   \\ disch_then (qspec_then ‘adjust_var y’ mp_tac)
