@@ -41,9 +41,28 @@ Definition toNum_def:
 End
 
 
+(*
+  difficult for reasoning
+
 Definition indiceOf_def:
   indiceOf xs = toNum o (λx. INDEX_OF x xs)
 End
+*)
+
+(*
+  enumerate already exists in miscTheory
+*)
+
+Definition flipEnum_def:
+  (flipEnum (n:num) [] = []) ∧
+  (flipEnum n (x::xs) = (x,n) :: flipEnum (n+1) xs)
+End
+
+
+Definition indiceOf_def:
+  indiceOf xs = toNum o (ALOOKUP (flipEnum 0 xs))
+End
+
 
 Definition indicesOf_def:
   indicesOf xs ys = MAP (indiceOf xs) ys

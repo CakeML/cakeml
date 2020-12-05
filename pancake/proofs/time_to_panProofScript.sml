@@ -12,15 +12,6 @@ val _ = set_grammar_ancestry
         ["timeSem", "panSem", "pan_commonProps", "time_to_pan"];
 
 
-(*
-Definition clk_rel_def:
-  clk_rel clks s t <=>
-    EVERY (λck. ck IN FDOM s.clocks) clks ∧
-    FLOOKUP t.locals «clk» =
-    SOME (Struct (MAP (ValWord o n2w o THE o (FLOOKUP s.clocks)) clks))
-End
-*)
-
 Definition clk_rel_def:
   clk_rel clks vname s t <=>
     EVERY (λck. ck IN FDOM s.clocks) clks ∧
@@ -103,11 +94,112 @@ Proof
 QED
 
 
+Theorem flip_enum_not_mem_alookup:
+  ∀xs x n.
+    ~MEM x xs ⇒
+    ALOOKUP (flipEnum n xs) x = NONE
+Proof
+  Induct >>
+  rw [] >>
+  fs [flipEnum_def]
+QED
+
+
+Theorem flip_enum_mem_alookup:
+  ∀xs x n.
+    MEM x xs ⇒
+    ∃m.
+      ALOOKUP (flipEnum n xs) x = SOME m ∧
+      n <= m ∧ m < n + LENGTH xs
+Proof
+  Induct >>
+  rw [] >>
+  fs [flipEnum_def] >>
+  fs [flipEnum_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  last_x_assum drule >>
+  disch_then (qspec_then ‘n+1’ mp_tac) >>
+  strip_tac >> fs []
+QED
+
+
+
+Theorem foo:
+  ∀ck clks.
+    MEM ck clks ⇒
+    indiceOf clks ck < LENGTH clks
+Proof
+  rw [] >>
+  fs [indiceOf_def] >>
+
+
+
+
+
+        , INDEX_OF_def] >>
+
+
+
+
+  fs [indiceOf_def, toNum_def] >>
+
+
+QED
+
+
+
+
+
+
+Theorem foo:
+  ∀clks ck.
+    MEM ck clks ⇒
+    THE (INDEX_OF ck clks) < LENGTH clks
+Proof
+
+
+
+
+  Induct >>
+  rw [] >>
+  fs [indiceOf_def]
+  >- fs [INDEX_OF_def, INDEX_FIND_def] >>
+  fs [INDEX_OF_def, INDEX_FIND_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  last_x_assum drule >>
+  strip_tac >>
+  cheat
+QED
+
+
+
+
+Theorem foo:
+  ∀ck clks.
+    MEM ck clks ⇒
+    indiceOf clks ck < LENGTH clks
+Proof
+  rw [] >>
+  fs [indiceOf_def, INDEX_OF_def] >>
+
+
+
+
+  fs [indiceOf_def, toNum_def] >>
+
+
+QED
+
+
+
+(*
+  EVERY (λ(t,c). c IN FDOM s.clocks) wt
+*)
 
 Theorem calculate_wait_times_eq:
   ∀clks s t wt .
     clk_rel clks «resetClks» s t ∧
-    EVERY (λ(t,c). c IN FDOM s.clocks) wt ⇒
+    EVERY (λ(t,c). MEM c clks) wt ⇒
     MAP (eval t)
         (waitTimes (MAP FST wt)
          (MAP (λn. Field n (Var «resetClks»)) (indicesOf clks (MAP SND wt)))) =
@@ -115,12 +207,7 @@ Theorem calculate_wait_times_eq:
 Proof
   rw [] >>
   fs [MAP_EQ_EVERY2] >>
-  rw []
-  >- fs [waitTimes_def, indicesOf_def] >>
-  fs [LIST_REL_EL_EQN] >>
-  rw []
-  >- fs [waitTimes_def, indicesOf_def] >>
-  fs [waitTimes_def, indicesOf_def] >>
+  rw [waitTimes_def, indicesOf_def, LIST_REL_EL_EQN] >>
   qmatch_goalsub_abbrev_tac ‘MAP2 ff xs ys’ >>
   ‘EL n (MAP2 ff xs ys) =
    ff (EL n xs) (EL n ys)’ by (
@@ -142,21 +229,30 @@ Proof
     fs []) >>
   fs [] >>
   pop_assum kall_tac >>
-  fs [Abbr ‘gg’] >>
+  fs [Abbr ‘gg’, Abbr ‘ff’] >>
   cases_on ‘EL n wt’ >> fs [] >>
-  fs [Abbr ‘ff’] >>
+
+
+
+
   (* first start with timeSem *)
-  fs [evalDiff_def] >>
-  fs [evalExpr_def] >>
-  fs [EVERY_EL] >>
+  fs [evalDiff_def, evalExpr_def, EVERY_EL] >>
   last_x_assum drule >>
-  fs [FDOM_FLOOKUP] >>
-  strip_tac >> fs [] >>
-  fs [minusT_def] >>
-  fs [eval_def] >>
-  fs [OPT_MMAP_def] >>
-  fs [eval_def] >>
+  fs [] >> strip_tac >>
   fs [clk_rel_def] >>
+  fs [EVERY_MEM] >>
+  last_x_assum drule >>
+  strip_tac >>
+  fs [FDOM_FLOOKUP] >>
+  fs [minusT_def] >>
+  fs [eval_def, OPT_MMAP_def] >>
+  fs [eval_def] >>
+
+  fs [clk_rel_def] >>
+
+
+
+
   (* r needs to be related with clks *)
   ‘indiceOf clks r < LENGTH clks’ by cheat >>
   fs [] >>
