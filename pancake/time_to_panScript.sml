@@ -86,16 +86,29 @@ End
 
 
 Definition minOf_def:
+  (minOf v _ [] = Skip) ∧
+  (minOf v 0 (e::es) =
+    Seq (Assign v e)
+        (minOf v (SUC 0) es)) ∧
+  (minOf v n (e::es) =
+    Seq (If (Cmp Less e (Var v)) (Assign v e) Skip)
+        (minOf v n es))
+End
+
+
+(*
+
+Definition minOf_def:
   (minOf v ([]:'a exp list) = Skip) ∧
   (minOf v (e::es) =
     Seq (If (Cmp Less e (Var v))
          (Assign v e) Skip)
         (minOf v es))
 End
-
+*)
 
 Definition compTerm_def:
-  compTerm (clks:mlstring list) (Tm io cnds tclks loc wt) =
+  (compTerm (clks:mlstring list) (Tm io cnds tclks loc wt)) : 'a prog=
   let n = LENGTH clks;
       termClks = indicesOf clks tclks;
       waitClks = indicesOf clks (MAP SND wt);
@@ -105,13 +118,13 @@ Definition compTerm_def:
                    Var «wakeUpAt»; Label (toString loc)])
   in
     decs [
-        («waitSet»,   case tclks of [] => Const 0w | _ => Const 1w);
-        («wakeUpAt»,  Const (-1w));
+        («waitSet»,   case wt of [] => Const 0w | _ => Const 1w);
+        («wakeUpAt»,  Const (n2w (2 ** dimindex (:α))));
         («resetClks», Struct (resetClocks «clks» n termClks))
       ]
          (nested_seq
-          [minOf «wakeUpAt» (waitTimes (MAP FST wt)
-                             (MAP (λn. Field n (Var «resetClks»)) waitClks));
+          [minOf «wakeUpAt» 0 (waitTimes (MAP FST wt)
+                               (MAP (λn. Field n (Var «resetClks»)) waitClks));
            case io of
            | (Input insig)   => return
            | (Output outsig) =>

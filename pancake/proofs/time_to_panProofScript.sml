@@ -268,6 +268,33 @@ Proof
   fs [] >> strip_tac >> rfs [flookup_thm]
 QED
 
+(* specify it in terms of invariants *)
+
+
+Theorem min_of_eq:
+  ∀es t ns t' res.
+    «wakeUpAt» IN FDOM t.locals ∧
+
+
+
+
+    FLOOKUP t.locals «wakeUpAt» =
+    SOME (ValWord ((n2w:num -> α word) (2 ** dimindex (:α)))) ∧
+    LENGTH es = LENGTH ns ∧
+    MAP (eval t) es = MAP (SOME ∘ ValWord ∘ (n2w:num -> α word)) ns ∧
+    evaluate (minOf «wakeUpAt» es, t) = (res, t') ⇒
+    res = NONE ∧
+    FLOOKUP t'.locals «wakeUpAt» = (SOME ∘ ValWord)
+                                   (case es of
+                                    | [] => (n2w:num -> α word) (2 ** dimindex (:α))
+                                    | _  => ((n2w:num -> α word) (THE (list_min_option ns))))
+Proof
+
+QED
+
+
+
+
 
 (*
   next theorem should be about min_of
@@ -275,22 +302,66 @@ QED
 *)
 
 
-(*
-  EVERY (λe. ∃n. eval t e = SOME (ValWord (n2w n))) es ∧
-*)
-
-
-Theorem abc:
-  ∀t es ns t' res.
-    FLOOKUP t.locals «wakeUpAt» = SOME (ValWord (-1w)) ∧
-    MAP (eval t) es = MAP (SOME ∘ ValWord ∘ n2w) ns ∧
+Theorem min_of_eq:
+  ∀es t ns t' res.
+    FLOOKUP t.locals «wakeUpAt» =
+    SOME (ValWord ((n2w:num -> α word) (2 ** dimindex (:α)))) ∧
+    LENGTH es = LENGTH ns ∧
+    MAP (eval t) es = MAP (SOME ∘ ValWord ∘ (n2w:num -> α word)) ns ∧
     evaluate (minOf «wakeUpAt» es, t) = (res, t') ⇒
     res = NONE ∧
     FLOOKUP t'.locals «wakeUpAt» = (SOME ∘ ValWord)
                                    (case es of
-                                    | [] => (-1w)
-                                    | _ => (n2w (THE (list_min_option ns))))
+                                    | [] => (n2w:num -> α word) (2 ** dimindex (:α))
+                                    | _  => ((n2w:num -> α word) (THE (list_min_option ns))))
 Proof
+  Induct >>
+  rpt gen_tac >>
+  strip_tac >> fs []
+  >- (
+    fs [minOf_def] >>
+    fs [evaluate_def]) >>
+  cases_on ‘ns’ >> fs [] >>
+  fs [minOf_def] >>
+  fs [evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rewrite_tac [eval_def] >>
+  rfs [] >>
+  fs [asmTheory.word_cmp_def] >>
+  reverse TOP_CASE_TAC
+  >- cheat >>
+  fs [evaluate_def] >>
+  fs [is_valid_value_def] >>
+  fs [shape_of_def] >>
+  strip_tac >> fs [] >> rveq >> fs [] >>
+  last_x_assum (qspecl_then [‘t’] mp_tac) >>
+  fs [] >>
+  disch_then (qspecl_then [‘t''’] mp_tac) >>
+  fs [] >>
+  (* not quite right *)
+QED
+
+
+
+
+
+
+
+
+
+  )
+
+
+
+  strip_tac >>
+
+  fs []
+
+  rw [] >>
+  fs [] >>
+
+
 
 QED
 
