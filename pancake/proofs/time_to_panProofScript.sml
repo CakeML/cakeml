@@ -270,25 +270,96 @@ QED
 
 (* specify it in terms of invariants *)
 
+Theorem min_of_eq:
+  ∀es n t ns t' res v.
+    (* «wakeUpAt» IN FDOM t.locals ∧ *)
+    FLOOKUP t.locals «wakeUpAt» = SOME v ∧  shape_of v = One ∧
+    evaluate (minOf «wakeUpAt» n es, t) = (res, t') ∧
+    MAP (eval t) es = MAP (SOME ∘ ValWord ∘ (n2w:num -> α word)) ns ⇒
+    res = NONE ∧
+    (es = [] ⇒
+     FLOOKUP t'.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt») ∧
+    (es ≠ [] ∧ n = 0 ⇒
+     FLOOKUP t'.locals «wakeUpAt» =
+     SOME (ValWord ((n2w:num -> α word) (THE (list_min_option ns)))))
+Proof
+  Induct >>
+  rpt gen_tac >>
+  strip_tac >>
+  fs []
+  >- (
+   fs [minOf_def] >>
+   fs [evaluate_def]) >>
+  cases_on ‘ns’ >> fs [] >>
+  fs [minOf_def] >>
+  conj_tac >- cheat >>
+  rw [] >>
+  fs [evaluate_def] >>
+  pairarg_tac >> fs [] >>
+  rfs [] >>
+  fs [is_valid_value_def] >>
+  rfs [] >>
+  rfs [shape_of_def] >>
+  rveq >> rfs [] >> fs [] >>
+  fs [list_min_option_def] >>
+  last_x_assum
+  (qspecl_then
+   [‘1’, ‘t with locals := t.locals |+ («wakeUpAt» ,ValWord (n2w h'))’] mp_tac) >>
+  rfs [] >>
+  fs [FLOOKUP_UPDATE] >>
+  fs [shape_of_def] >>
+  disch_then (qspec_then ‘t''’ mp_tac) >>
+  rfs [] >>
+  impl_tac >- cheat >>
+  fs [] >> rfs [] >>
+  strip_tac >>
+  cases_on ‘es’ >>
+  fs []
+  >- cheat >>
+
+
+
+  rfs []
+
+
+
+
+
+  rfs [flookup_thm] >>
+
+
+
+
+
+  rw [] >>
+  fs [] >>
+
+QED
+
+
+
 
 Theorem min_of_eq:
   ∀es t ns t' res.
-    «wakeUpAt» IN FDOM t.locals ∧
-
-
-
-
-    FLOOKUP t.locals «wakeUpAt» =
-    SOME (ValWord ((n2w:num -> α word) (2 ** dimindex (:α)))) ∧
+    «wakeUpAt» IN (FDOM t.locals) ∧
+    es ≠ [] ∧
+    evaluate (minOf «wakeUpAt» 0 es, t) = (res, t') ∧
     LENGTH es = LENGTH ns ∧
-    MAP (eval t) es = MAP (SOME ∘ ValWord ∘ (n2w:num -> α word)) ns ∧
-    evaluate (minOf «wakeUpAt» es, t) = (res, t') ⇒
+    MAP (eval t) es = MAP (SOME ∘ ValWord ∘ (n2w:num -> α word)) ns ⇒
     res = NONE ∧
-    FLOOKUP t'.locals «wakeUpAt» = (SOME ∘ ValWord)
-                                   (case es of
-                                    | [] => (n2w:num -> α word) (2 ** dimindex (:α))
-                                    | _  => ((n2w:num -> α word) (THE (list_min_option ns))))
+    FLOOKUP t'.locals «wakeUpAt» =
+      SOME (ValWord ((n2w:num -> α word) (THE (list_min_option ns))))
 Proof
+  Induct >>
+  rpt gen_tac >>
+  strip_tac >>
+  fs [] >>
+  cases_on ‘ns’ >> fs [] >>
+
+
+
+  rw [] >>
+  fs [] >>
 
 QED
 

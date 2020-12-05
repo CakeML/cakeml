@@ -87,6 +87,20 @@ End
 
 Definition minOf_def:
   (minOf v _ [] = Skip) ∧
+  (minOf v n (e::es) =
+   if n = 0 then
+     Seq (Assign v e)
+         (minOf v (SUC 0) es)
+  else
+    Seq (If (Cmp Less e (Var v)) (Assign v e) Skip)
+        (minOf v n es))
+End
+
+
+(*
+
+Definition minOf_def:
+  (minOf v _ [] = Skip) ∧
   (minOf v 0 (e::es) =
     Seq (Assign v e)
         (minOf v (SUC 0) es)) ∧
@@ -94,6 +108,7 @@ Definition minOf_def:
     Seq (If (Cmp Less e (Var v)) (Assign v e) Skip)
         (minOf v n es))
 End
+*)
 
 
 (*
@@ -107,6 +122,9 @@ Definition minOf_def:
 End
 *)
 
+(* («wakeUpAt»,  Const (n2w (2 ** dimindex (:α)))); *)
+
+
 Definition compTerm_def:
   (compTerm (clks:mlstring list) (Tm io cnds tclks loc wt)) : 'a prog=
   let n = LENGTH clks;
@@ -119,7 +137,7 @@ Definition compTerm_def:
   in
     decs [
         («waitSet»,   case wt of [] => Const 0w | _ => Const 1w);
-        («wakeUpAt»,  Const (n2w (2 ** dimindex (:α))));
+        («wakeUpAt»,  Const 0w);
         («resetClks», Struct (resetClocks «clks» n termClks))
       ]
          (nested_seq
