@@ -30,6 +30,14 @@ Definition reset_vals_def:
 End
 
 
+Definition valid_wtimes_def:
+  valid_wtimes (clks:mlstring |-> num) wt =
+  EVERY (λ(t,c).
+          c IN FDOM clks ⇒
+          THE (FLOOKUP clks c) ≤ t) wt
+End
+
+
 Theorem length_reset_vals_eq:
   ∀ns vs.
     LENGTH (reset_vals vs ns) = LENGTH vs
@@ -123,74 +131,68 @@ Proof
 QED
 
 
+Theorem flip_enum_alookup_range:
+  ∀xs x n m.
+    ALOOKUP (flipEnum n xs) x = SOME m ⇒
+    n <= m ∧ m < n + LENGTH xs
+Proof
+  Induct >>
+  rpt gen_tac >>
+  strip_tac >>
+  fs [flipEnum_def] >>
+  FULL_CASE_TAC >> fs [] >>
+  last_x_assum drule >>
+  fs []
+QED
 
-Theorem foo:
+
+Theorem indice_of_mem_lt_length:
   ∀ck clks.
     MEM ck clks ⇒
     indiceOf clks ck < LENGTH clks
 Proof
   rw [] >>
   fs [indiceOf_def] >>
-
-
-
-
-
-        , INDEX_OF_def] >>
-
-
-
-
-  fs [indiceOf_def, toNum_def] >>
-
-
+  drule flip_enum_mem_alookup >>
+  disch_then (qspec_then ‘0:num’ mp_tac) >>
+  strip_tac >> rfs [] >>
+  fs [toNum_def]
 QED
 
 
-
-
-
-
-Theorem foo:
-  ∀clks ck.
-    MEM ck clks ⇒
-    THE (INDEX_OF ck clks) < LENGTH clks
+Theorem alookup_flip_num_el:
+  ∀xs x n m.
+    ALOOKUP (flipEnum n xs) x = SOME m ⇒
+    EL (m - n) xs = x
 Proof
-
-
-
-
-  Induct >>
-  rw [] >>
-  fs [indiceOf_def]
-  >- fs [INDEX_OF_def, INDEX_FIND_def] >>
-  fs [INDEX_OF_def, INDEX_FIND_def] >>
-  TOP_CASE_TAC >> fs [] >>
-  last_x_assum drule >>
-  strip_tac >>
-  cheat
+  Induct >> rw []
+  >- fs [flipEnum_def] >>
+  fs [flipEnum_def] >>
+  FULL_CASE_TAC >> fs [] >>
+  drule flip_enum_alookup_range >>
+  strip_tac >> fs [] >>
+  cases_on ‘m − n’ >>
+  fs [] >>
+  last_x_assum (qspecl_then [‘x’, ‘n+1’, ‘m’] mp_tac) >>
+  fs [] >>
+  fs [ADD1, SUB_PLUS]
 QED
 
 
-
-
-Theorem foo:
-  ∀ck clks.
-    MEM ck clks ⇒
-    indiceOf clks ck < LENGTH clks
+Theorem mem_el_indice_of_eq:
+  ∀x xs.
+    MEM x xs ⇒
+    EL (indiceOf xs x) xs = x
 Proof
   rw [] >>
-  fs [indiceOf_def, INDEX_OF_def] >>
-
-
-
-
-  fs [indiceOf_def, toNum_def] >>
-
-
+  fs [indiceOf_def] >>
+  drule flip_enum_mem_alookup >>
+  disch_then (qspec_then ‘0:num’ mp_tac) >>
+  strip_tac >> rfs [] >>
+  fs [toNum_def] >>
+  drule alookup_flip_num_el >>
+  fs []
 QED
-
-
 
 (*
   EVERY (λ(t,c). c IN FDOM s.clocks) wt
@@ -199,7 +201,8 @@ QED
 Theorem calculate_wait_times_eq:
   ∀clks s t wt .
     clk_rel clks «resetClks» s t ∧
-    EVERY (λ(t,c). MEM c clks) wt ⇒
+    EVERY (λ(t,c). MEM c clks) wt ∧
+    valid_wtimes s.clocks wt ⇒
     MAP (eval t)
         (waitTimes (MAP FST wt)
          (MAP (λn. Field n (Var «resetClks»)) (indicesOf clks (MAP SND wt)))) =
@@ -231,11 +234,6 @@ Proof
   pop_assum kall_tac >>
   fs [Abbr ‘gg’, Abbr ‘ff’] >>
   cases_on ‘EL n wt’ >> fs [] >>
-
-
-
-
-  (* first start with timeSem *)
   fs [evalDiff_def, evalExpr_def, EVERY_EL] >>
   last_x_assum drule >>
   fs [] >> strip_tac >>
@@ -247,25 +245,27 @@ Proof
   fs [minusT_def] >>
   fs [eval_def, OPT_MMAP_def] >>
   fs [eval_def] >>
-
-  fs [clk_rel_def] >>
-
-
-
-
-  (* r needs to be related with clks *)
-  ‘indiceOf clks r < LENGTH clks’ by cheat >>
-  fs [] >>
+  drule indice_of_mem_lt_length >>
+  strip_tac >> fs [] >>
   qmatch_goalsub_abbrev_tac ‘EL m (MAP ff _)’ >>
   ‘EL m (MAP ff clks) = ff (EL m clks)’ by (
     match_mp_tac EL_MAP >>
     fs []) >>
   fs [Abbr ‘ff’, Abbr ‘m’] >>
   pop_assum kall_tac >>
-  ‘FLOOKUP s.clocks (EL (indiceOf clks r) clks) = SOME v’ by cheat >>
-  fs [] >>
+  ‘EL (indiceOf clks r) clks = r’ by (
+    match_mp_tac mem_el_indice_of_eq >>
+    fs []) >>
   fs [wordLangTheory.word_op_def] >>
-  cheat (* add assumptions *)
+  ‘n2w (q − v):'a word = n2w q − n2w v’ suffices_by fs [] >>
+  match_mp_tac n2w_sub >>
+  fs [valid_wtimes_def] >>
+  fs [EVERY_MEM] >>
+  qpat_x_assum ‘n < LENGTH wt’ assume_tac >>
+  drule EL_MEM >> rfs [] >>
+  strip_tac >>
+  last_x_assum (qspec_then ‘(q,r)’ mp_tac) >>
+  fs [] >> strip_tac >> rfs [flookup_thm]
 QED
 
 
