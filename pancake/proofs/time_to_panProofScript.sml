@@ -275,68 +275,24 @@ QED
 *)
 
 
+(*
+  EVERY (λe. ∃n. eval t e = SOME (ValWord (n2w n))) es ∧
+*)
 
 
-Theorem calculate_wait_times_eq:
-  ∀clks s t wt vs vs'.
-    clk_rel clks «resetClks» s t ∧
-    MAP (eval t)
-        (waitTimes (MAP FST wt)
-         (MAP (λn. Field n (Var «resetClks»)) (indicesOf clks (MAP SND wt)))) = MAP SOME vs  ∧
-    MAP (ValWord ∘ n2w ∘ evalDiff s) wt = vs' ⇒
-    vs = vs'
-Proof
-  rw [] >>
-  fs [MAP_EQ_EVERY2] >>
-
-
-
-QED
-
-
-
-
-Theorem calculate_wait_times_eq:
-  ∀clks s t wt n.
-    clk_rel clks «resetClks» s t ⇒
-    MAP (eval t)
-        (waitTimes (MAP FST wt)
-         (MAP (λn. Field n (Var «resetClks»)) (indicesOf clks (MAP SND wt)))) = SOME vs ∧
-    MAP (ValWord ∘ n2w ∘ evalDiff s) wt = vs' ⇒
-        vs = vs'
-Proof
-  rw [] >>
-
-
-QED
-
-
-Theorem calculate_wait_times_eq:
-  clk_rel clks s t ∧
-  FLOOKUP t.locals «resetClks» =
-  SOME (Struct (resetClocks «clks» (LENGTH clks) (indicesOf clks tclks))) ⇒
-    MAP (eval t)
-        (waitTimes (MAP FST wt)
-         (MAP (λn. Field n (Var «resetClks»)) (indicesOf clks (MAP SND wt)))) =
-    MAP (SOME ∘ (λw. ValWord w) ∘ n2w)
-        (MAP (evalDiff (s with clocks := resetClocks s.clocks tclks)) wt)
-Proof
-
-
-QED
-
-
-
-
-
-
-Theorem foo:
-
+Theorem abc:
+  ∀t es ns t' res.
+    FLOOKUP t.locals «wakeUpAt» = SOME (ValWord (-1w)) ∧
+    MAP (eval t) es = MAP (SOME ∘ ValWord ∘ n2w) ns ∧
+    evaluate (minOf «wakeUpAt» es, t) = (res, t') ⇒
+    res = NONE ∧
+    FLOOKUP t'.locals «wakeUpAt» = (SOME ∘ ValWord)
+                                   (case es of
+                                    | [] => (-1w)
+                                    | _ => (n2w (THE (list_min_option ns))))
 Proof
 
 QED
-
-
 
 
 (*
