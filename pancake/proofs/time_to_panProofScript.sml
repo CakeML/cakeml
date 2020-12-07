@@ -20,13 +20,14 @@ Definition clk_rel_def:
 End
 
 
-Definition reset_vals_def:
-  reset_vals xs ys =
-  MAPi (λn x.
-         if (MEM n ys)
-         then (ValWord 0w)
-         else x)
-       xs
+Definition valid_term_def:
+  valid_term clks (Tm io cnds tclks dest wt) =
+  let wclks = MAP SND wt
+  in
+    ALL_DISTINCT tclks ∧ ALL_DISTINCT wclks ∧
+    LENGTH tclks ≤ LENGTH clks ∧ LENGTH wclks ≤ LENGTH clks ∧
+    EVERY (λck. MEM ck clks) tclks ∧ EVERY (λck. MEM ck clks) wclks
+
 End
 
 
@@ -37,6 +38,23 @@ Definition valid_wtimes_def:
           THE (FLOOKUP clks c) ≤ t) wt
 End
 
+
+Definition valid_clk_var_def:
+  valid_clk_var clks fm vname clkvals ⇔
+    FLOOKUP fm vname = SOME (Struct clkvals) ∧
+    LENGTH clkvals = LENGTH clks ∧
+    EVERY (λv. ∃w. v = ValWord w) clkvals
+End
+
+
+Definition reset_vals_def:
+  reset_vals xs ys =
+  MAPi (λn x.
+         if (MEM n ys)
+         then (ValWord 0w)
+         else x)
+       xs
+End
 
 Definition resetClksVals_def:
   resetClksVals s tclks clks  =
@@ -53,6 +71,134 @@ Definition retVal_def:
                          | _ => n2w (THE (calculate_wtime s tclks wt)));
         ValLabel (toString dest)]
 End
+
+(*  indicesOf theorems *)
+
+Theorem flip_enum_not_mem_alookup:
+  ∀xs x n.
+    ~MEM x xs ⇒
+    ALOOKUP (flipEnum n xs) x = NONE
+Proof
+  Induct >>
+  rw [] >>
+  fs [flipEnum_def]
+QED
+
+
+Theorem flip_enum_mem_alookup:
+  ∀xs x n.
+    MEM x xs ⇒
+    ∃m.
+      ALOOKUP (flipEnum n xs) x = SOME m ∧
+      n <= m ∧ m < n + LENGTH xs
+Proof
+  Induct >>
+  rw [] >>
+  fs [flipEnum_def] >>
+  fs [flipEnum_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  last_x_assum drule >>
+  disch_then (qspec_then ‘n+1’ mp_tac) >>
+  strip_tac >> fs []
+QED
+
+
+Theorem indice_of_mem_lt_len:
+  ∀x xs.
+    MEM x xs ⇒
+    indiceOf xs x < LENGTH xs
+Proof
+  rw [] >>
+  fs [indiceOf_def] >>
+  drule flip_enum_mem_alookup >>
+  disch_then (qspec_then ‘0:num’ mp_tac) >>
+  strip_tac >> rfs [] >>
+  fs [toNum_def]
+QED
+
+Theorem flip_enum_alookup_range:
+  ∀xs x n m.
+    ALOOKUP (flipEnum n xs) x = SOME m ⇒
+    n <= m ∧ m < n + LENGTH xs
+Proof
+  Induct >>
+  rpt gen_tac >>
+  strip_tac >>
+  fs [flipEnum_def] >>
+  FULL_CASE_TAC >> fs [] >>
+  last_x_assum drule >>
+  fs []
+QED
+
+Theorem alookup_flip_num_el:
+  ∀xs x n m.
+    ALOOKUP (flipEnum n xs) x = SOME m ⇒
+    EL (m - n) xs = x
+Proof
+  Induct >> rw []
+  >- fs [flipEnum_def] >>
+  fs [flipEnum_def] >>
+  FULL_CASE_TAC >> fs [] >>
+  drule flip_enum_alookup_range >>
+  strip_tac >> fs [] >>
+  cases_on ‘m − n’ >>
+  fs [] >>
+  last_x_assum (qspecl_then [‘x’, ‘n+1’, ‘m’] mp_tac) >>
+  fs [] >>
+  fs [ADD1, SUB_PLUS]
+QED
+
+
+Theorem mem_el_indice_of_eq:
+  ∀x xs.
+    MEM x xs ⇒
+    EL (indiceOf xs x) xs = x
+Proof
+  rw [] >>
+  fs [indiceOf_def] >>
+  drule flip_enum_mem_alookup >>
+  disch_then (qspec_then ‘0:num’ mp_tac) >>
+  strip_tac >> rfs [] >>
+  fs [toNum_def] >>
+  drule alookup_flip_num_el >>
+  fs []
+QED
+
+(* not exactly quite true, why I need it *)
+
+(*
+Theorem abc:
+  ∀ys xs.
+    EVERY (λck. MEM ck xs) ys ⇒
+    LENGTH (indicesOf xs ys) ≤ LENGTH xs
+Proof
+  rw [] >>
+  fs [indicesOf_def] >>
+
+  qmatch_goalsub_abbrev_tac ‘LENGTH is ≤ _’ >>
+  pop_assum(mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [‘ys’, ‘xs’, ‘is’] >>
+  Induct >> rw [] >>
+  fs [] >>
+  fs [indicesOf_def] >>
+  cases_on ‘ys’ >> fs [] >>
+  rveq >> rfs [] >> fs [] >>
+  cheat
+QED
+
+
+
+pop_assum(assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def])
+
+  Induct >> rw [] >>
+  fs [indicesOf_def] >>
+  fs [ADD1] >>
+
+
+QED
+*)
+
 
 
 Theorem length_reset_vals_eq:
@@ -118,99 +264,6 @@ Proof
   fs [reset_vals_not_indice_same]
 QED
 
-
-Theorem flip_enum_not_mem_alookup:
-  ∀xs x n.
-    ~MEM x xs ⇒
-    ALOOKUP (flipEnum n xs) x = NONE
-Proof
-  Induct >>
-  rw [] >>
-  fs [flipEnum_def]
-QED
-
-
-Theorem flip_enum_mem_alookup:
-  ∀xs x n.
-    MEM x xs ⇒
-    ∃m.
-      ALOOKUP (flipEnum n xs) x = SOME m ∧
-      n <= m ∧ m < n + LENGTH xs
-Proof
-  Induct >>
-  rw [] >>
-  fs [flipEnum_def] >>
-  fs [flipEnum_def] >>
-  TOP_CASE_TAC >> fs [] >>
-  last_x_assum drule >>
-  disch_then (qspec_then ‘n+1’ mp_tac) >>
-  strip_tac >> fs []
-QED
-
-
-Theorem flip_enum_alookup_range:
-  ∀xs x n m.
-    ALOOKUP (flipEnum n xs) x = SOME m ⇒
-    n <= m ∧ m < n + LENGTH xs
-Proof
-  Induct >>
-  rpt gen_tac >>
-  strip_tac >>
-  fs [flipEnum_def] >>
-  FULL_CASE_TAC >> fs [] >>
-  last_x_assum drule >>
-  fs []
-QED
-
-
-Theorem indice_of_mem_lt_length:
-  ∀ck clks.
-    MEM ck clks ⇒
-    indiceOf clks ck < LENGTH clks
-Proof
-  rw [] >>
-  fs [indiceOf_def] >>
-  drule flip_enum_mem_alookup >>
-  disch_then (qspec_then ‘0:num’ mp_tac) >>
-  strip_tac >> rfs [] >>
-  fs [toNum_def]
-QED
-
-
-Theorem alookup_flip_num_el:
-  ∀xs x n m.
-    ALOOKUP (flipEnum n xs) x = SOME m ⇒
-    EL (m - n) xs = x
-Proof
-  Induct >> rw []
-  >- fs [flipEnum_def] >>
-  fs [flipEnum_def] >>
-  FULL_CASE_TAC >> fs [] >>
-  drule flip_enum_alookup_range >>
-  strip_tac >> fs [] >>
-  cases_on ‘m − n’ >>
-  fs [] >>
-  last_x_assum (qspecl_then [‘x’, ‘n+1’, ‘m’] mp_tac) >>
-  fs [] >>
-  fs [ADD1, SUB_PLUS]
-QED
-
-
-Theorem mem_el_indice_of_eq:
-  ∀x xs.
-    MEM x xs ⇒
-    EL (indiceOf xs x) xs = x
-Proof
-  rw [] >>
-  fs [indiceOf_def] >>
-  drule flip_enum_mem_alookup >>
-  disch_then (qspec_then ‘0:num’ mp_tac) >>
-  strip_tac >> rfs [] >>
-  fs [toNum_def] >>
-  drule alookup_flip_num_el >>
-  fs []
-QED
-
 (*
   EVERY (λ(t,c). c IN FDOM s.clocks) wt
 *)
@@ -262,7 +315,7 @@ Proof
   fs [minusT_def] >>
   fs [eval_def, OPT_MMAP_def] >>
   fs [eval_def] >>
-  drule indice_of_mem_lt_length >>
+  drule indice_of_mem_lt_len >>
   strip_tac >> fs [] >>
   qmatch_goalsub_abbrev_tac ‘EL m (MAP ff _)’ >>
   ‘EL m (MAP ff clks) = ff (EL m clks)’ by (
@@ -285,6 +338,7 @@ Proof
   fs [] >> strip_tac >> rfs [flookup_thm]
 QED
 
+
 Theorem min_of_eq:
   ∀es t ns t' res v.
     FLOOKUP t.locals «wakeUpAt» = SOME v ∧  shape_of v = One ∧
@@ -300,24 +354,22 @@ Proof
   cheat
 QED
 
+
+
+
 (* ignore the If for the time being *)
-
-
-
 Theorem comp_term_correct:
   ∀clks s t n cnds tclks dest wt s' clkvals t' loc.
     clk_rel clks «clks» s t ∧
     evalTerm s (SOME n)
              (Tm (Input n) cnds tclks dest wt) s' ∧
-    ALL_DISTINCT tclks ∧ ALL_DISTINCT clks ∧
-    EVERY (λck. MEM ck clks) tclks ∧
-    ALL_DISTINCT (MAP SND wt) ∧
-    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    LENGTH clkvals = LENGTH clks ∧
-    EVERY (λv. ∃w. v = ValWord w) clkvals ∧
+    valid_term clks (Tm (Input n) cnds tclks dest wt) ∧
+    valid_wtimes s.clocks wt ∧
+    valid_clk_var clks t.locals «clks» clkvals ∧
     FLOOKUP t.locals «location» = SOME (ValLabel loc) ∧
+    t.clock ≠ 0 ∧
     FLOOKUP t.code loc =
-    SOME ([(«clks», genShape n)],
+    SOME ([(«clks», genShape (LENGTH clks))],
           compTerm clks (Tm (Input n) cnds tclks dest wt)) ⇒
       evaluate
       (Call (Ret «task_ret» NONE) (Var «location») [Var «clks»], t) = (NONE, t') ∧
@@ -327,7 +379,83 @@ Theorem comp_term_correct:
 Proof
   rpt gen_tac >>
   strip_tac >>
+  fs [evaluate_def] >>
+  once_rewrite_tac [eval_def] >>
+  fs [] >>
+  fs [OPT_MMAP_def] >>
+  once_rewrite_tac [eval_def] >>
+  fs [] >>
+  fs [lookup_code_def] >>
+  pop_assum kall_tac >>
+  ‘genShape (LENGTH clks) = shape_of (Struct clkvals)’ by (
+    fs [genShape_def ,shape_of_def] >>
+    fs [GENLIST_eq_MAP] >>
+    rw [] >>
+    fs [EVERY_MEM] >>
+    first_x_assum (qspec_then ‘EL n' clkvals’ mp_tac) >>
+    impl_tac
+    >- (
+      ‘n' < LENGTH clkvals’ by fs [] >>
+      drule EL_MEM >> fs []) >>
+    strip_tac >>
+    fs [shape_of_def]) >>
+  fs [compTerm_def] >>
+  cases_on ‘wt’ >> fs []
+  >- (
+   fs [panLangTheory.decs_def] >>
+   fs [evaluate_def] >>
+   fs [eval_def] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >> rveq >>
+   rfs [] >> fs [] >>
+   qmatch_asmsub_abbrev_tac ‘OPT_MMAP (λa. eval stNew a) _’ >>
+   ‘OPT_MMAP (λa. eval stNew a)
+      (resetClocks «clks» (LENGTH clks) (indicesOf clks tclks)) =
+    SOME (reset_vals clkvals (indicesOf clks tclks))’ by (
+     match_mp_tac opt_mmap_reset_clocks_eq_reset_vals >>
+     fs [Abbr ‘stNew’] >>
+     fs [FLOOKUP_UPDATE] >>
+     fs [GSYM FUPDATE_EQ_FUPDATE_LIST] >>
+     fs [FLOOKUP_UPDATE] >>
+     fs []
+
+
+
+     )
+
+
+
+
+
+
+      )
+
+
+
+    )
+
+
+
+
+
+
+  TOP_CASE_TAC
+  >- fs [eval_def] >>
+  pop_assum mp_tac >>
+
+
+
+
+
   fs [evalTerm_cases] >>
+  rveq >> fs [] >>
+
+
+
+
+
+
+
 QED
 
 

@@ -26,7 +26,7 @@ End
 
 
 Definition genShape_def:
-  genShape n = Comb (GENLIST (λ_. One) n)
+  genShape n = Comb (GENLIST (λn. One) n)
 End
 
 
@@ -50,6 +50,7 @@ End
 
 (*
   enumerate already exists in miscTheory
+  to rethink why I am not using MAPi
 *)
 
 Definition flipEnum_def:
