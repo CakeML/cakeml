@@ -12,6 +12,15 @@ val _ = set_grammar_ancestry
         ["timeSem", "panSem", "pan_commonProps", "time_to_pan"];
 
 
+
+(*
+Definition clk_rel_def:
+  clk_rel clks vname s t <=>
+    SOME (Struct (MAP (ValWord o n2w o THE o (FLOOKUP s.clocks)) clks))
+End
+*)
+
+
 Definition clk_rel_def:
   clk_rel clks vname s t <=>
     EVERY (λck. ck IN FDOM s.clocks) clks ∧
@@ -19,6 +28,7 @@ Definition clk_rel_def:
     SOME (Struct (MAP (ValWord o n2w o THE o (FLOOKUP s.clocks)) clks))
 End
 
+(* first two lines could go *)
 
 Definition valid_term_def:
   valid_term clks (Tm io cnds tclks dest wt) =
@@ -30,7 +40,7 @@ Definition valid_term_def:
 
 End
 
-
+(* should be reflected in timeSem *)
 Definition valid_wtimes_def:
   valid_wtimes (clks:mlstring |-> num) wt =
   EVERY (λ(t,c).
@@ -46,7 +56,7 @@ Definition valid_clk_var_def:
     EVERY (λv. ∃w. v = ValWord w) clkvals
 End
 
-
+(* should be identical to resetClks *)
 Definition reset_vals_def:
   reset_vals xs ys =
   MAPi (λn x.
@@ -71,6 +81,26 @@ Definition retVal_def:
                          | _ => n2w (THE (calculate_wtime s tclks wt)));
         ValLabel (toString dest)]
 End
+
+
+Definition defined_task_ret_def:
+   defined_task_ret fm vname n =
+   ∃vs ws wt loc.
+     FLOOKUP fm vname =
+     SOME (Struct (Struct vs :: MAP ValWord [ws; wt; loc])) ∧
+     EVERY (λv. ∃w. v = ValWord w) vs ∧
+     LENGTH vs = n
+End
+
+
+
+(*
+  («task_ret»,
+  Struct (Struct (empty_consts n) :: MAP Var
+  [«wait_set»; «wake_up_at»; «location»]));
+*)
+
+
 
 (*  indicesOf theorems *)
 
@@ -355,8 +385,6 @@ Proof
 QED
 
 
-
-
 (* ignore the If for the time being *)
 Theorem comp_term_correct:
   ∀clks s t n cnds tclks dest wt s' clkvals t' loc.
@@ -366,8 +394,9 @@ Theorem comp_term_correct:
     valid_term clks (Tm (Input n) cnds tclks dest wt) ∧
     valid_wtimes s.clocks wt ∧
     valid_clk_var clks t.locals «clks» clkvals ∧
+    defined_task_ret t.locals «task_ret» (LENGTH clks) ∧
     FLOOKUP t.locals «location» = SOME (ValLabel loc) ∧
-    t.clock ≠ 0 ∧
+    t.clock ≠ 0 ∧ (toString dest) IN FDOM t.code ∧
     FLOOKUP t.code loc =
     SOME ([(«clks», genShape (LENGTH clks))],
           compTerm clks (Tm (Input n) cnds tclks dest wt)) ⇒
@@ -384,7 +413,7 @@ Proof
   fs [] >>
   fs [OPT_MMAP_def] >>
   once_rewrite_tac [eval_def] >>
-  fs [] >>
+  fs [valid_clk_var_def] >>
   fs [lookup_code_def] >>
   pop_assum kall_tac >>
   ‘genShape (LENGTH clks) = shape_of (Struct clkvals)’ by (
@@ -417,6 +446,40 @@ Proof
      fs [FLOOKUP_UPDATE] >>
      fs [GSYM FUPDATE_EQ_FUPDATE_LIST] >>
      fs [FLOOKUP_UPDATE] >>
+     fs [indicesOf_def] >>
+     fs [valid_term_def]) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   pairarg_tac >> fs [] >> rveq >> rfs [] >>
+   fs [waitTimes_def, minOf_def] >>
+   fs [panLangTheory.nested_seq_def] >>
+   fs [evaluate_def] >>
+   pairarg_tac >> fs [] >> rveq >> rfs [] >>
+   fs [eval_def] >>
+   qmatch_asmsub_abbrev_tac ‘OPT_MMAP (λa. eval stNewer a) _’ >>
+   fs [OPT_MMAP_def] >>
+   fs [eval_def] >>
+   fs [Abbr ‘stNewer’, FLOOKUP_UPDATE, dec_clock_def, FDOM_FLOOKUP] >>
+   rfs [] >>
+   fs [panSemTheory.shape_of_def] >>
+   fs [panLangTheory.size_of_shape_def] >>
+   ‘SUM
+    (MAP (λa. size_of_shape a)
+     (MAP (λa. shape_of a)
+      (reset_vals clkvals (indicesOf clks tclks)))) ≤ 29’ by cheat >>
+   fs [] >> pop_assum kall_tac >>
+   rveq >> fs [] >> rfs [] >> rveq >>
+   fs [is_valid_value_def] >>
+
+
+
+
+
+
+   ‘OPT_MMAP (λa. eval stNewer a)
+    (resetClocks «clks» (LENGTH clks) (indicesOf clks tclks)) =
+    SOME (reset_vals clkvals (indicesOf clks tclks))’
+
      fs []
 
 
