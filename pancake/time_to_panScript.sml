@@ -40,7 +40,6 @@ Definition toNum_def:
   (toNum (SOME n) = n)
 End
 
-
 (*
   difficult for reasoning
 
@@ -86,6 +85,71 @@ End
 
 
 Definition minOf_def:
+  (minOf v [] = Skip) ∧
+  (minOf v (e::es) = Seq (Assign v e) (minOf' v es)) ∧
+
+  (minOf' v [] = minOf v []) ∧ (* to enable m. defs *)
+  (minOf' v (e::es) =
+    Seq (If (Cmp Less e (Var v)) (Assign v e) Skip)
+        (minOf' v es))
+Termination
+  cheat
+End
+
+
+Definition compTerm_def:
+  (compTerm (clks:mlstring list) (Tm io cnds tclks loc wt)) : 'a prog=
+  let n = LENGTH clks;
+      termClks = indicesOf clks tclks;
+      waitClks = indicesOf clks (MAP SND wt);
+      return   = Return
+                 (Struct
+                  [Var «resetClks»; Var «waitSet»;
+                   Var «wakeUpAt»; Label (toString loc)])
+  in
+    decs [
+        («waitSet»,   case wt of [] => Const 0w | _ => Const 1w);
+        («wakeUpAt»,  Const 0w);
+        («resetClks», Struct (resetClocks «clks» n termClks))
+      ]
+         (nested_seq
+          [minOf «wakeUpAt» (waitTimes (MAP FST wt)
+                             (MAP (λn. Field n (Var «resetClks»)) waitClks));
+           case io of
+           | (Input insig)   => return
+           | (Output outsig) =>
+               decs
+               [(«ptr1»,Const 0w);
+                («len1»,Const 0w);
+                («ptr2»,Const ffiBufferAddr);
+                («len2»,Const ffiBufferSize)
+               ] (Seq
+                  (ExtCall (strlit (toString outsig)) «ptr1» «len1» «ptr2» «len2»)
+                  return)
+          ])
+End
+
+
+
+
+
+
+
+
+(*
+Definition minOf_def:
+  (minOf v _ [] = Skip) ∧
+  (minOf v n (e::es) =
+   if n = 0 then
+     Seq (Assign v e)
+         (minOf v (SUC 0) es)
+  else
+    Seq (If (Cmp Less e (Var v)) (Assign v e) Skip)
+        (minOf v n es))
+End
+
+
+Definition minOf_def:
   (minOf v _ [] = Skip) ∧
   (minOf v n (e::es) =
    if n = 0 then
@@ -125,37 +189,6 @@ End
 (* («wakeUpAt»,  Const (n2w (2 ** dimindex (:α)))); *)
 
 
-Definition compTerm_def:
-  (compTerm (clks:mlstring list) (Tm io cnds tclks loc wt)) : 'a prog=
-  let n = LENGTH clks;
-      termClks = indicesOf clks tclks;
-      waitClks = indicesOf clks (MAP SND wt);
-      return   = Return
-                 (Struct
-                  [Var «resetClks»; Var «waitSet»;
-                   Var «wakeUpAt»; Label (toString loc)])
-  in
-    decs [
-        («waitSet»,   case wt of [] => Const 0w | _ => Const 1w);
-        («wakeUpAt»,  Const 0w);
-        («resetClks», Struct (resetClocks «clks» n termClks))
-      ]
-         (nested_seq
-          [minOf «wakeUpAt» 0 (waitTimes (MAP FST wt)
-                               (MAP (λn. Field n (Var «resetClks»)) waitClks));
-           case io of
-           | (Input insig)   => return
-           | (Output outsig) =>
-               decs
-               [(«ptr1»,Const 0w);
-                («len1»,Const 0w);
-                («ptr2»,Const ffiBufferAddr);
-                («len2»,Const ffiBufferSize)
-               ] (Seq
-                  (ExtCall (strlit (toString outsig)) «ptr1» «len1» «ptr2» «len2»)
-                  return)
-          ])
-End
 
 
 (*
@@ -465,6 +498,7 @@ Definition start_controller_def:
     task_controller init_loc init_wake_up n
 End
 
+*)
 *)
 
 val _ = export_theory();

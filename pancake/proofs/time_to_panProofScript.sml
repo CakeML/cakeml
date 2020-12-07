@@ -268,6 +268,26 @@ Proof
   fs [] >> strip_tac >> rfs [flookup_thm]
 QED
 
+Theorem min_of_eq:
+  ∀es t ns t' res v.
+    FLOOKUP t.locals «wakeUpAt» = SOME v ∧  shape_of v = One ∧
+    evaluate (minOf «wakeUpAt» es, t) = (res, t') ∧
+    MAP (eval t) es = MAP (SOME ∘ ValWord ∘ (n2w:num -> α word)) ns ⇒
+    res = NONE ∧
+    (es = [] ⇒
+     FLOOKUP t'.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt») ∧
+    (es ≠ [] ⇒
+     FLOOKUP t'.locals «wakeUpAt» =
+     SOME (ValWord ((n2w:num -> α word) (THE (list_min_option ns)))))
+Proof
+  cheat
+QED
+
+(* leave it for the time being, and add back the defs later *)
+
+
+
+
 (* specify it in terms of invariants *)
 
 Theorem min_of_eq:
@@ -339,305 +359,9 @@ QED
 
 
 
-Theorem min_of_eq:
-  ∀es t ns t' res.
-    «wakeUpAt» IN (FDOM t.locals) ∧
-    es ≠ [] ∧
-    evaluate (minOf «wakeUpAt» 0 es, t) = (res, t') ∧
-    LENGTH es = LENGTH ns ∧
-    MAP (eval t) es = MAP (SOME ∘ ValWord ∘ (n2w:num -> α word)) ns ⇒
-    res = NONE ∧
-    FLOOKUP t'.locals «wakeUpAt» =
-      SOME (ValWord ((n2w:num -> α word) (THE (list_min_option ns))))
-Proof
-  Induct >>
-  rpt gen_tac >>
-  strip_tac >>
-  fs [] >>
-  cases_on ‘ns’ >> fs [] >>
 
 
 
-  rw [] >>
-  fs [] >>
-
-QED
-
-
-
-
-
-(*
-  next theorem should be about min_of
-  that min_of are equal
-*)
-
-
-Theorem min_of_eq:
-  ∀es t ns t' res.
-    FLOOKUP t.locals «wakeUpAt» =
-    SOME (ValWord ((n2w:num -> α word) (2 ** dimindex (:α)))) ∧
-    LENGTH es = LENGTH ns ∧
-    MAP (eval t) es = MAP (SOME ∘ ValWord ∘ (n2w:num -> α word)) ns ∧
-    evaluate (minOf «wakeUpAt» es, t) = (res, t') ⇒
-    res = NONE ∧
-    FLOOKUP t'.locals «wakeUpAt» = (SOME ∘ ValWord)
-                                   (case es of
-                                    | [] => (n2w:num -> α word) (2 ** dimindex (:α))
-                                    | _  => ((n2w:num -> α word) (THE (list_min_option ns))))
-Proof
-  Induct >>
-  rpt gen_tac >>
-  strip_tac >> fs []
-  >- (
-    fs [minOf_def] >>
-    fs [evaluate_def]) >>
-  cases_on ‘ns’ >> fs [] >>
-  fs [minOf_def] >>
-  fs [evaluate_def] >>
-  pairarg_tac >> fs [] >>
-  pop_assum mp_tac >>
-  rewrite_tac [eval_def] >>
-  rfs [] >>
-  fs [asmTheory.word_cmp_def] >>
-  reverse TOP_CASE_TAC
-  >- cheat >>
-  fs [evaluate_def] >>
-  fs [is_valid_value_def] >>
-  fs [shape_of_def] >>
-  strip_tac >> fs [] >> rveq >> fs [] >>
-  last_x_assum (qspecl_then [‘t’] mp_tac) >>
-  fs [] >>
-  disch_then (qspecl_then [‘t''’] mp_tac) >>
-  fs [] >>
-  (* not quite right *)
-QED
-
-
-
-
-
-
-
-
-
-  )
-
-
-
-  strip_tac >>
-
-  fs []
-
-  rw [] >>
-  fs [] >>
-
-
-
-QED
-
-
-(*
-  waitTimes (MAP FST wt)
-  (MAP (λn. Field n (Var «resetClks»)) waitClks)
-*)
-
-
-
-Definition foo_def:
-  foo clks s <=>
-    MAP (panLang$Const o n2w o THE o (FLOOKUP s.clocks)) clks
-End
-
-
-Definition about_clocks_def:
-  about_clocks clks s t <=>
-    EVERY (λck. ck IN FDOM s) clks ∧
-    ∃vs. FLOOKUP t.locals «clk» = SOME (Struct vs) ∧
-         MAP (panLang$Const o n2w o THE o (FLOOKUP s.clocks)) clks = ARB
-End
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Theorem calculate_wait_times_eq:
-  MAP (eval t)
-  (wait_times «sys_time» (MAP FST wt)
-   (MAP
-    (λx.
-      Field x
-            (reset_clocks clks («sys_time» ,«clks» )
-             (indices_of clks tclks))) (indices_of clks (MAP SND wt)))) =
-  MAP (SOME ∘ (λw. ValWord w) ∘ n2w)
-      (MAP (evalDiff (s with clocks := resetClocks s.clocks tclks)) wt)
-Proof
-  rw [wait_times_def] >>
-  fs [MAP_EQ_EVERY2] >>
-  rw [] >>
-  fs []
-  >- fs [indices_of_def] >>
-  fs [LIST_REL_EL_EQN] >>
-  rw []
-  >- fs [indices_of_def] >>
-  ‘EL n (MAP (evalDiff (s with clocks := resetClocks s.clocks tclks)) wt) =
-   (evalDiff (s with clocks := resetClocks s.clocks tclks)) (EL n wt)’ by cheat >>
-  fs [] >>
-  pop_assum kall_tac >>
-  cases_on ‘EL n wt’ >> fs [] >>
-  fs [evalDiff_def] >>
-  fs [evalExpr_def] >>
-  cases_on ‘FLOOKUP (resetClocks s.clocks tclks) r’ >> fs []
-  >- cheat (* add an assumption to make it false *) >>
-  ‘EL n
-   (MAP2
-    (λt e. Op Sub [Op Add [Const (n2w t); Var «sys_time» ]; e])
-    (MAP FST wt)
-    (MAP
-     (λx.
-       Field x
-             (reset_clocks clks («sys_time» ,«clks» )
-              (indices_of clks tclks)))
-     (indices_of clks (MAP SND wt)))) =
-   (λt e. Op Sub [Op Add [Const (n2w t); Var «sys_time» ]; e])
-   (EL n (MAP FST wt)) (EL n (MAP
-                   (λx.
-                        Field x
-                          (reset_clocks clks («sys_time» ,«clks» )
-                             (indices_of clks tclks)))
-                   (indices_of clks (MAP SND wt))))’ by (
-    match_mp_tac EL_MAP2 >>
-    fs []) >>
-  fs [] >>
-  pop_assum kall_tac >>
-  fs [eval_def] >>
-  ‘EL n
-                (MAP
-                   (λx.
-                        Field x
-                          (reset_clocks clks («sys_time» ,«clks» )
-                             (indices_of clks tclks)))
-                   (indices_of clks (MAP SND wt))) =
-                   (λx. Field x (reset_clocks clks («sys_time» ,«clks» )
-                 (indices_of clks tclks))) (EL n (indices_of clks (MAP SND wt)))’
-    by (
-    match_mp_tac EL_MAP >>
-    fs []) >>
-  fs [] >>
-  pop_assum kall_tac >>
-  cases_on ‘OPT_MMAP (λa. eval t a)
-            [Op Add [Const (n2w (EL n (MAP FST wt))); Var «sys_time» ];
-             Field (EL n (indices_of clks (MAP SND wt)))
-                   (reset_clocks clks («sys_time» ,«clks» )
-                    (indices_of clks tclks))]’
-  >- cheat >> (* should prove that its wont happen, that systime and clocks are always defined *)
-  fs [] >>
-  ‘∃tt cc. x' = [ValWord tt; ValWord cc]’ by cheat >>
-  fs [] >>
-  fs [wordLangTheory.word_op_def] >>
-  fs [minusT_def] >>
-  ‘n2w (q − x) = n2w q - n2w x’ by cheat >>
-  fs [] >>
-
-
-
-
-
-
-
-  cases_on ‘x'’ >>
-  fs []
-
-
-  fs [OPT_MMAP_def, eval_def] >>
-
-
-
-
-    ) >>
-
-
-EL n
-                (MAP
-                   (λx.
-                        Field x
-                          (reset_clocks clks («sys_time» ,«clks» )
-                             (indices_of clks tclks)))
-                   (indices_of clks (MAP SND wt)))
-
-
-    ) >>
-  fs [] >>
-
-
-
-
-
-
-
-
-
-QED
-
-(*
-  to start by optimising wait_times
-  there should be a better way, to not add sys time
-
-*)
-
-Theorem calculate_wait_times_eq:
-  MAP (evalDiff (s with clocks := resetClocks s.clocks tclks)) wt = ts ∧
-  wait_times «sys_time» (MAP FST wt)
-             (MAP (λx. Field x (reset_clocks clks
-                                («sys_time» ,«clks» )
-                                (indices_of clks tclks)))
-              (indices_of clks (MAP SND wt))) = es ⇒
-  MAP (eval t) es = MAP (SOME o ValWord o n2w) ts
-Proof
-  rw [] >>
-
-
-QED
-
-
-(*
-  wait_times «sys_time» (MAP FST wt)
-*)
-
-(*
-calculate_wtime s tclks wt
-*)
-
-
-Theorem foo:
-  wait_times «sys_time» (MAP FST wt)
-    (MAP (λx.
-           Field x
-                 (reset_clocks clks
-                  («sys_time» ,«clks» )
-                  (indices_of clks tclks)))
-     (indices_of clks (MAP SND wt)))
-Proof
-  rw [] >>
-
-QED
 
 
 
