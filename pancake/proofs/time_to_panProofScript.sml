@@ -38,6 +38,23 @@ Definition valid_wtimes_def:
 End
 
 
+Definition resetClksVals_def:
+  resetClksVals s tclks clks  =
+  MAP (ValWord o n2w o THE o (FLOOKUP (resetClocks s.clocks tclks))) clks
+End
+
+
+Definition retVal_def:
+  retVal s tclks clks wt dest =
+    Struct [
+        Struct (resetClksVals s tclks clks);
+        ValWord (case wt of [] => 0w | _ => 1w);
+        ValWord (case wt of [] => 0w
+                         | _ => n2w (THE (calculate_wtime s tclks wt)));
+        ValLabel (toString dest)]
+End
+
+
 Theorem length_reset_vals_eq:
   ∀ns vs.
     LENGTH (reset_vals vs ns) = LENGTH vs
@@ -283,11 +300,112 @@ Proof
   cheat
 QED
 
+(* ignore the If for the time being *)
+
+
+
+Theorem comp_term_correct:
+  ∀clks s t n cnds tclks dest wt s' clkvals t' loc.
+    clk_rel clks «clks» s t ∧
+    evalTerm s (SOME n)
+             (Tm (Input n) cnds tclks dest wt) s' ∧
+    ALL_DISTINCT tclks ∧ ALL_DISTINCT clks ∧
+    EVERY (λck. MEM ck clks) tclks ∧
+    ALL_DISTINCT (MAP SND wt) ∧
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    LENGTH clkvals = LENGTH clks ∧
+    EVERY (λv. ∃w. v = ValWord w) clkvals ∧
+    FLOOKUP t.locals «location» = SOME (ValLabel loc) ∧
+    FLOOKUP t.code loc =
+    SOME ([(«clks», genShape n)],
+          compTerm clks (Tm (Input n) cnds tclks dest wt)) ⇒
+      evaluate
+      (Call (Ret «task_ret» NONE) (Var «location») [Var «clks»], t) = (NONE, t') ∧
+      FLOOKUP t'.locals «task_ret» = SOME (retVal s tclks clks wt dest) ∧
+      clk_rel clks «» s' t'
+      (* task resturn field *)
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  fs [evalTerm_cases] >>
+QED
+
+
+
+
+
+
+
+
+
+
+
+
+Theorem comp_term_correct:
+  ∀clks s t n cnds tclks dest wt s' clkvals t' loc.
+    clk_rel clks «clks» s t ∧
+    evalTerm s (SOME n)
+             (Tm (Input n) cnds tclks dest wt) s' ∧
+    ALL_DISTINCT tclks ∧ ALL_DISTINCT clks ∧
+    EVERY (λck. MEM ck clks) tclks ∧
+    ALL_DISTINCT (MAP SND wt) ∧
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    LENGTH clkvals = LENGTH clks ∧
+    EVERY (λv. ∃w. v = ValWord w) clkvals ∧
+    FLOOKUP t.locals «location» = SOME (ValLabel loc) ∧
+    FLOOKUP t.code loc =
+    SOME ([(«clks», genShape n)],
+          compTerm clks (Tm (Input n) cnds tclks dest wt)) ⇒
+      evaluate
+        (Call (Ret «task_ret» NONE) (Var «location») [Var «clks»], t) =
+      (SOME (Return (Struct [
+                        Struct (resetClksVals s tclks clks);
+                        ValWord (case wt of [] => 0w | _ => 1w);
+                        ValWord (case wt of [] => 0w
+                                         | _ => n2w (THE (calculate_wtime s tclks wt)));
+                        ValLabel (toString dest)])), t') ∧
+      clk_rel clks «» s' t'
+      (* task resturn field *)
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  fs [evalTerm_cases] >>
+QED
+
+(*
+  SOME (Struct (MAP (ValWord o n2w o THE o (FLOOKUP s.clocks)) clks))
+*)
+
+
+
+(* write about the code installed *)
+
+Theorem comp_term_correct:
+  ∀s n cnds tclks dest wt s' t clks stime clkvals t.
+    clk_rel clks «clks» s t ∧
+    evalTerm s (SOME n)
+             (Tm (Input n) cnds tclks dest wt) s' ∧
+    ALL_DISTINCT tclks ∧ ALL_DISTINCT clks ∧
+    EVERY (λck. MEM ck clks) tclks ∧
+    ALL_DISTINCT (MAP SND wt) ∧
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    LENGTH clkvals = LENGTH clks ∧
+    EVERY (λv. ∃w. v = ValWord w) clkvals ⇒
+      evaluate (comp_term clks (Tm (Input n) cnds tclks dest wt), t) =
+      (SOME (Return ARB), ARB t) ∧ clk_rel clks «clks» s' t'
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  fs [evalTerm_cases] >>
+
+
+
+QED
+
+
+
+
 (* leave it for the time being, and add back the defs later *)
-
-
-
-
 (* specify it in terms of invariants *)
 
 Theorem min_of_eq:
