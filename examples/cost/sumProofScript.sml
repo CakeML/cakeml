@@ -766,7 +766,7 @@ in
  \\ make_if
  \\ UNABBREV_ALL_TAC
  \\ strip_makespace
- \\ ntac 49 strip_assign
+ \\ ntac 47 strip_assign
  \\ make_tailcall
  \\ ntac 3
     (strip_call
@@ -788,7 +788,7 @@ in
   \\ REWRITE_TAC [to_shallow_def]
   \\ ntac 3
      (strip_makespace
-     \\ ntac 6 strip_assign
+     \\ ntac 4 strip_assign
      \\ make_tailcall)
   \\ ntac 31 strip_assign
   \\ strip_makespace

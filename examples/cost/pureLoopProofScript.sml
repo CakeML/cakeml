@@ -145,7 +145,7 @@ Proof
  \\ UNABBREV_ALL_TAC
  (* Continues after call *)
  \\ strip_makespace
- \\ ntac 49 strip_assign
+ \\ ntac 47 strip_assign
  (* Another tailcall *)
  \\ make_tailcall
  \\ strip_call
@@ -163,7 +163,7 @@ Proof
  \\ strip_assign
  \\ make_tailcall
  \\ strip_makespace
- \\ ntac 6 strip_assign
+ \\ ntac 4 strip_assign
  \\ make_tailcall
  \\ strip_assign
  (* Finally we reach our function call *)

@@ -446,7 +446,7 @@ end
 QED
 
 Theorem data_safe_all:
-   ∀ffi.
+  ∀ffi.
   backend_config_ok ^all_x64_conf
   ⇒ is_safe_for_space ffi
        all_x64_conf
@@ -502,7 +502,7 @@ in
  \\ make_if
  \\ UNABBREV_ALL_TAC
  \\ strip_makespace
- \\ ntac 49 strip_assign
+ \\ ntac 47 strip_assign
  \\ make_tailcall
  \\ ntac 2
     (strip_call
@@ -524,7 +524,7 @@ in
   \\ REWRITE_TAC [to_shallow_def]
   \\ ntac 2
      (strip_makespace
-     \\ ntac 6 strip_assign
+     \\ ntac 4 strip_assign
      \\ make_tailcall)
   \\ strip_makespace
   \\ ntac 17 strip_assign

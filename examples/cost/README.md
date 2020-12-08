@@ -1,5 +1,11 @@
 Preliminary data-cost examples
 
+[allProgScript.sml](allProgScript.sml):
+A data-cost example of a list sum function using fold
+
+[allProofScript.sml](allProofScript.sml):
+Prove of sum space consumption
+
 [costLib.sml](costLib.sml):
 Tactics and utilities for data-cost proofs
 
