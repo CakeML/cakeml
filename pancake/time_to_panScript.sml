@@ -19,14 +19,26 @@ Definition ffiBufferSize_def:
   ffiBufferSize = 16w:'a word
 End
 
+(*
+  trying to define it as a map instead of genlist,
+  for easier reasoning
 
 Definition emptyConsts_def:
   emptyConsts n = GENLIST (λ_. Const 0w) n
 End
+*)
 
+Definition emptyConsts_def:
+  emptyConsts xs = MAP (λ_. Const 0w) xs
+End
 
 Definition genShape_def:
   genShape n = Comb (GENLIST (λn. One) n)
+End
+
+Definition destruct_def:
+  destruct e xs =
+    MAP (λx. Field x e) xs
 End
 
 
@@ -35,23 +47,82 @@ Definition mkStruct_def:
 End
 
 
+Definition indicesOf_def:
+  indicesOf xs ys = MAP (λn. findi n xs) ys
+End
+
+
+Definition resetClocks_def:
+  resetClocks v clks tclks =
+  MAPi (λn e.
+         if (MEM e tclks)
+         then (Const 0w)
+         else Field n (Var v))
+       clks
+End
+
+
+Definition waitTimes_def:
+  waitTimes =
+    list$MAP2 (λt e. Op Sub [Const (n2w t); e])
+End
+
+
+Definition minOp_def:
+  (minOp v [] = Skip) ∧
+  (minOp v (e::es) =
+    Seq (If (Cmp Less e (Var v)) (Assign v e) Skip)
+        (minOp v es))
+End
+
+Definition minOf_def:
+  (minOf v [] = Skip) ∧
+  (minOf v (e::es) = Seq (Assign v e) (minOp v es))
+End
+
+
+Definition compTerm_def:
+  (compTerm (clks:mlstring list) (Tm io cnds tclks loc wt)) : 'a prog =
+  let waitClks = indicesOf clks (MAP SND wt);
+      return   = Return
+                 (Struct
+                  [Var «resetClks»; Var «waitSet»;
+                   Var «wakeUpAt»; Label (toString loc)])
+  in
+    decs [
+        («waitSet»,   case wt of [] => Const 0w | wt => Const 1w);
+        («wakeUpAt»,  Const 0w);
+        («resetClks», Struct (resetClocks «clks» clks tclks));
+        («waitTimes», Struct (emptyConsts wt))
+      ]
+         (nested_seq
+          [Assign «waitTimes»
+                  (Struct (
+                    waitTimes
+                     (MAP FST wt)
+                     (MAP (λn. Field n (Var «resetClks»)) waitClks)));
+           minOf «wakeUpAt» (destruct (Var «waitTimes») (GENLIST I (LENGTH wt)));
+           case io of
+           | (Input insig)   => return
+           | (Output outsig) =>
+               decs
+               [(«ptr1»,Const 0w);
+                («len1»,Const 0w);
+                («ptr2»,Const ffiBufferAddr);
+                («len2»,Const ffiBufferSize)
+               ] (Seq
+                  (ExtCall (strlit (toString outsig)) «ptr1» «len1» «ptr2» «len2»)
+                  return)
+          ])
+End
+
+
+(*
 Definition toNum_def:
   (toNum NONE     = 0:num) ∧
   (toNum (SOME n) = n)
 End
 
-(*
-  difficult for reasoning
-
-Definition indiceOf_def:
-  indiceOf xs = toNum o (λx. INDEX_OF x xs)
-End
-*)
-
-(*
-  enumerate already exists in miscTheory
-  to rethink why I am not using MAPi
-*)
 
 Definition flipEnum_def:
   (flipEnum (n:num) [] = []) ∧
@@ -78,13 +149,6 @@ Definition resetClocks_def:
        (GENLIST I n)
 End
 
-
-Definition waitTimes_def:
-  waitTimes =
-    list$MAP2 (λt e. Op Sub [Const (n2w t); e])
-End
-
-
 Definition minOf_def:
   (minOf v [] = Skip) ∧
   (minOf v (e::es) = Seq (Assign v e) (minOf' v es)) ∧
@@ -96,44 +160,7 @@ Definition minOf_def:
 Termination
   cheat
 End
-
-
-Definition compTerm_def:
-  (compTerm (clks:mlstring list) (Tm io cnds tclks loc wt)) : 'a prog=
-  let n = LENGTH clks;
-      termClks = indicesOf clks tclks;
-      waitClks = indicesOf clks (MAP SND wt);
-      return   = Return
-                 (Struct
-                  [Var «resetClks»; Var «waitSet»;
-                   Var «wakeUpAt»; Label (toString loc)])
-  in
-    decs [
-        («waitSet»,   case wt of [] => Const 0w | _ => Const 1w);
-        («wakeUpAt»,  Const 0w);
-        («resetClks», Struct (resetClocks «clks» n termClks))
-      ]
-         (nested_seq
-          [minOf «wakeUpAt» (waitTimes (MAP FST wt)
-                             (MAP (λn. Field n (Var «resetClks»)) waitClks));
-           case io of
-           | (Input insig)   => return
-           | (Output outsig) =>
-               decs
-               [(«ptr1»,Const 0w);
-                («len1»,Const 0w);
-                («ptr2»,Const ffiBufferAddr);
-                («len2»,Const ffiBufferSize)
-               ] (Seq
-                  (ExtCall (strlit (toString outsig)) «ptr1» «len1» «ptr2» «len2»)
-                  return)
-          ])
-End
-
-
-
-
-
+*)
 
 
 
@@ -148,21 +175,6 @@ Definition minOf_def:
     Seq (If (Cmp Less e (Var v)) (Assign v e) Skip)
         (minOf v n es))
 End
-
-
-Definition minOf_def:
-  (minOf v _ [] = Skip) ∧
-  (minOf v n (e::es) =
-   if n = 0 then
-     Seq (Assign v e)
-         (minOf v (SUC 0) es)
-  else
-    Seq (If (Cmp Less e (Var v)) (Assign v e) Skip)
-        (minOf v n es))
-End
-
-
-(*
 
 Definition minOf_def:
   (minOf v _ [] = Skip) ∧
@@ -173,10 +185,6 @@ Definition minOf_def:
     Seq (If (Cmp Less e (Var v)) (Assign v e) Skip)
         (minOf v n es))
 End
-*)
-
-
-(*
 
 Definition minOf_def:
   (minOf v ([]:'a exp list) = Skip) ∧
@@ -185,9 +193,16 @@ Definition minOf_def:
          (Assign v e) Skip)
         (minOf v es))
 End
-*)
 
 (* («wakeUpAt»,  Const (n2w (2 ** dimindex (:α)))); *)
+
+*)
+
+
+(*
+
+
+
 
 
 

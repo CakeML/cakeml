@@ -238,6 +238,31 @@ Proof
   fs [FLOOKUP_DEF]
 QED
 
+Theorem update_eq_zip_map_flookup:
+  ∀xs f n m.
+  n < LENGTH xs ⇒
+    FLOOKUP (f |++ ZIP (xs,MAP (λx. m) xs)) (EL n xs) =
+    SOME m
+Proof
+  Induct >> rw [FUPDATE_LIST_THM] >>
+  cases_on ‘n’ >>
+  fs [] >>
+  cases_on ‘~MEM h (MAP FST (ZIP (xs,MAP (λx. m) xs)))’
+  >- (
+    drule FUPDATE_FUPDATE_LIST_COMMUTES >>
+    disch_then (qspecl_then [‘m’, ‘f’] assume_tac) >>
+    fs [FLOOKUP_DEF]) >>
+  fs [] >>
+  fs [MEM_MAP] >> rveq >> fs [] >>
+  cases_on ‘y’ >> fs [] >>
+  ‘LENGTH xs = LENGTH (MAP (λx. m) xs)’ by fs [] >>
+  drule MEM_ZIP >>
+  disch_then (qspec_then ‘(q,r)’ mp_tac) >>
+  fs [] >>
+  strip_tac >> rveq >> fs []
+QED
+
+
 
 Theorem flookup_fupdate_zip_not_mem:
   ∀xs ys f n.

@@ -45,10 +45,20 @@ Definition resetOutput_def:
 End
 
 
+
+Definition resetClocks_def:
+  resetClocks fm xs =
+    fm |++ ZIP (xs,MAP (λx. 0:time) xs)
+End
+
+
+(*
 Definition resetClocks_def:
   resetClocks clks cvars_vals =
     clks |++ MAP (λx. (x,0:time)) cvars_vals
 End
+*)
+
 
 (*
 Definition resetClocks_def:
@@ -103,9 +113,13 @@ Definition calculate_wtime_def:
     list_min_option (MAP (evalDiff st) diffs)
 End
 
+
 Inductive evalTerm:
   (∀st in_signal cnds clks dest diffs.
-     EVERY (λck. ck IN FDOM st.clocks) clks ==>
+     EVERY (λck. ck IN FDOM st.clocks) clks ∧
+     EVERY (λ(t,c).
+             ∃v. FLOOKUP st.clocks c = SOME v ∧
+                 v ≤ t) diffs ==>
      evalTerm st (SOME in_signal)
               (Tm (Input in_signal)
                   cnds
@@ -117,7 +131,10 @@ Inductive evalTerm:
                          ; location := dest
                          ; waitTime := calculate_wtime st clks diffs|>)) /\
   (∀st out_signal cnds clks dest diffs.
-     EVERY (λck. ck IN FDOM st.clocks) clks ==>
+     EVERY (λck. ck IN FDOM st.clocks) clks ∧
+     EVERY (λ(t,c).
+             ∃v. FLOOKUP st.clocks c = SOME v ∧
+                 v ≤ t) diffs ==>
      evalTerm st NONE
               (Tm (Output out_signal)
                   cnds

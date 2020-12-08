@@ -3,22 +3,452 @@
 *)
 
 open preamble
-     timeSemTheory panSemTheory panPropsTheory
+     timeSemTheory panSemTheory
+     timePropsTheory panPropsTheory
      pan_commonPropsTheory time_to_panTheory
 
 val _ = new_theory "time_to_panProof";
 
 val _ = set_grammar_ancestry
-        ["timeSem", "panSem", "pan_commonProps", "time_to_pan"];
+        ["timeSem", "panSem",
+         "pan_commonProps", "timeProps",
+         "time_to_pan"];
 
 
+Definition equiv_val_def:
+  equiv_val fm xs v <=>
+    v = MAP (ValWord o n2w o THE o (FLOOKUP fm)) xs
+End
+
+
+Definition valid_clks_def:
+  valid_clks clks tclks wt <=>
+    EVERY (λck. MEM ck clks) tclks ∧
+    EVERY (λck. MEM ck clks) (MAP SND wt)
+End
+
+
+Definition resetClksVals_def:
+  resetClksVals fm xs ys  =
+    MAP
+    (ValWord o n2w o THE o
+     (FLOOKUP (resetClocks fm ys))) xs
+End
+
+
+Definition retVal_def:
+  retVal s clks tclks wt dest =
+    Struct [
+        Struct (resetClksVals s.clocks clks tclks);
+        ValWord (case wt of [] => 0w | _ => 1w);
+        ValWord (case wt of [] => 0w
+                         | _ => n2w (THE (calculate_wtime s tclks wt)));
+        ValLabel (toString dest)]
+End
+
+
+Definition clk_range_def:
+  clk_range clks ⇔
+    SUM (MAP (size_of_shape o shape_of) clks) ≤ 29
+End
+
+
+Definition restore_from_def:
+  (restore_from t lc [] = lc) ∧
+  (restore_from t lc (v::vs) =
+   restore_from t (res_var lc (v, FLOOKUP t.locals v)) vs)
+End
+
+Definition emptyVals_def:
+  emptyVals xs = MAP (λ_. ValWord 0w) xs
+End
+
+
+(* the genlist version *)
 
 (*
-Definition clk_rel_def:
-  clk_rel clks vname s t <=>
-    SOME (Struct (MAP (ValWord o n2w o THE o (FLOOKUP s.clocks)) clks))
-End
+Theorem eval_empty_const_eq_empty_vals:
+  ∀s n.
+    OPT_MMAP (λe. eval s e) (emptyConsts n) =
+    SOME (emptyVals n)
+Proof
+  rw [] >>
+  fs [opt_mmap_eq_some] >>
+  fs [MAP_EQ_EVERY2] >>
+  fs [emptyConsts_def, emptyVals_def] >>
+  fs [LIST_REL_EL_EQN] >>
+  fs [emptyConsts_def, emptyVals_def] >>
+  rw [] >>
+  fs [eval_def]
+QED
 *)
+
+Theorem eval_empty_const_eq_empty_vals:
+  ∀s n.
+    OPT_MMAP (λe. eval s e) (emptyConsts n) =
+    SOME (emptyVals (emptyConsts n))
+  (* could be any array of suitable length*)
+Proof
+  rw [] >>
+  fs [opt_mmap_eq_some] >>
+  fs [MAP_EQ_EVERY2] >>
+  fs [emptyConsts_def, emptyVals_def] >>
+  fs [LIST_REL_EL_EQN] >>
+  rw [] >>
+  fs [MAP_MAP_o] >>
+  qmatch_goalsub_abbrev_tac ‘MAP f _’ >>
+  ‘EL n' (MAP f n) = f (EL n' n)’ by (
+    match_mp_tac EL_MAP >>
+    fs []) >>
+  fs [Abbr ‘f’] >>
+  qmatch_goalsub_abbrev_tac ‘MAP f _’ >>
+  ‘EL n' (MAP f n) = f (EL n' n)’ by (
+    match_mp_tac EL_MAP >>
+    fs []) >>
+  fs [Abbr ‘f’] >>
+  fs [eval_def]
+QED
+
+
+Theorem opt_mmap_resetClocks_eq_resetClksVals:
+  ∀t clkvals s clks tclks.
+    EVERY (λck. ck IN FDOM s.clocks) clks ∧
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    equiv_val s.clocks clks clkvals ⇒
+    OPT_MMAP (λa. eval t a)
+             (resetClocks «clks» clks tclks) =
+    SOME (resetClksVals s.clocks clks tclks)
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  fs [opt_mmap_eq_some] >>
+  fs [MAP_EQ_EVERY2] >>
+  conj_tac
+  >- fs [resetClocks_def, resetClksVals_def] >>
+  fs [LIST_REL_EL_EQN] >>
+  conj_tac
+  >- fs [resetClocks_def, resetClksVals_def] >>
+  rw [] >>
+  fs [resetClocks_def] >>
+  TOP_CASE_TAC
+  >- (
+    ‘EL n (resetClksVals s.clocks clks tclks) = ValWord 0w’ by (
+    fs [resetClksVals_def] >>
+    qmatch_goalsub_abbrev_tac ‘MAP ff _’ >>
+    ‘EL n (MAP ff clks) = ff (EL n clks)’ by (
+      match_mp_tac EL_MAP >>
+      fs []) >>
+    fs [Abbr ‘ff’] >>
+    drule reset_clks_mem_flookup_zero >>
+    disch_then (qspec_then ‘s.clocks’ mp_tac) >>
+    fs []) >>
+   fs [eval_def]) >>
+  fs [equiv_val_def] >> rveq >> fs [] >>
+  fs [EVERY_MEM] >>
+  last_x_assum (qspec_then ‘EL n clks’ mp_tac) >>
+  impl_tac
+  >- (match_mp_tac EL_MEM >> fs []) >>
+  strip_tac >>
+  fs [FDOM_FLOOKUP] >>
+  ‘EL n (resetClksVals s.clocks clks tclks) = ValWord (n2w v)’ by (
+    fs [resetClksVals_def] >>
+    qmatch_goalsub_abbrev_tac ‘MAP ff _’ >>
+    ‘EL n (MAP ff clks) = ff (EL n clks)’ by (
+      match_mp_tac EL_MAP >>
+      fs []) >>
+    fs [Abbr ‘ff’] >>
+    drule reset_clks_not_mem_flookup_same >>
+    fs []) >>
+  fs [] >>
+  fs [eval_def] >>
+  qmatch_goalsub_abbrev_tac ‘MAP ff _’ >>
+  ‘EL n (MAP ff clks) = ff (EL n clks)’ by (
+    match_mp_tac EL_MAP >>
+    fs []) >>
+  fs [Abbr ‘ff’]
+QED
+
+
+Theorem clk_range_reset_clks_eq:
+  ∀s clks (clkvals:α v list) tclks.
+    EVERY (λck. ck IN FDOM s.clocks) clks ∧
+    equiv_val s.clocks clks clkvals ∧
+    clk_range clkvals  ⇒
+    clk_range ((resetClksVals s.clocks clks tclks):α v list)
+Proof
+  rw [] >>
+  fs [resetClksVals_def] >>
+  fs [equiv_val_def] >> rveq >> fs [] >>
+  fs [clk_range_def] >>
+  fs [MAP_MAP_o] >>
+  fs [SUM_MAP_FOLDL] >>
+  qmatch_asmsub_abbrev_tac ‘FOLDL ff _ _’ >>
+  qmatch_goalsub_abbrev_tac ‘FOLDL gg _ _’ >>
+  ‘FOLDL ff 0 clks = FOLDL gg 0 clks ’ by (
+    match_mp_tac FOLDL_CONG >>
+    fs [Abbr ‘ff’, Abbr ‘gg’] >> rw [shape_of_def]) >>
+  fs []
+QED
+
+
+Theorem calculate_wait_times_eq:
+  ∀t vname clkvals s clks wt.
+    FLOOKUP t.locals vname = SOME (Struct clkvals) ∧
+    EVERY (λck. ck IN FDOM s.clocks) clks ∧
+    equiv_val s.clocks clks clkvals ∧
+    EVERY (λck. MEM ck clks) (MAP SND wt) ∧
+    EVERY (λ(t,c). ∃v. FLOOKUP s.clocks c = SOME v ∧ v ≤ t) wt ⇒
+    OPT_MMAP (λe. eval t e)
+        (waitTimes (MAP FST wt)
+         (MAP (λn. Field n (Var vname)) (indicesOf clks (MAP SND wt)))) =
+    SOME (MAP (ValWord ∘ n2w ∘ evalDiff s) wt)
+Proof
+  rw [] >>
+  fs [opt_mmap_eq_some] >>
+  fs [MAP_EQ_EVERY2] >>
+  rw [waitTimes_def, indicesOf_def, LIST_REL_EL_EQN] >>
+  ‘SND (EL n wt) ∈ FDOM s.clocks’ by (
+    fs [EVERY_MEM] >>
+    first_x_assum (qspec_then ‘SND (EL n wt)’ mp_tac) >>
+    impl_tac
+    >- (
+      drule EL_MEM >>
+      fs [MEM_MAP] >>
+      metis_tac []) >>
+    strip_tac >>
+    last_x_assum drule >>
+    fs []) >>
+  qmatch_goalsub_abbrev_tac ‘MAP2 ff xs ys’ >>
+  ‘EL n (MAP2 ff xs ys) =
+   ff (EL n xs) (EL n ys)’ by (
+    match_mp_tac EL_MAP2 >>
+    fs [Abbr ‘xs’, Abbr ‘ys’]) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  fs [Abbr ‘xs’] >>
+  ‘EL n (MAP FST wt) = FST (EL n wt)’ by (
+    match_mp_tac EL_MAP >>
+    fs []) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  fs [Abbr ‘ys’] >>
+  fs [MAP_MAP_o] >>
+  qmatch_goalsub_abbrev_tac ‘EL n (MAP gg _)’ >>
+  ‘EL n (MAP gg wt) = gg (EL n wt)’ by (
+    match_mp_tac EL_MAP >>
+    fs []) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  qmatch_goalsub_abbrev_tac ‘MAP hh _’ >>
+  ‘EL n (MAP hh wt) = hh (EL n wt)’ by (
+    match_mp_tac EL_MAP >>
+    fs []) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  fs [Abbr ‘gg’, Abbr ‘ff’, Abbr ‘hh’] >>
+  cases_on ‘EL n wt’ >> fs [] >>
+  fs [evalDiff_def, evalExpr_def, EVERY_EL] >>
+  fs [FDOM_FLOOKUP] >>
+  fs [minusT_def] >>
+  fs [eval_def, OPT_MMAP_def] >>
+  fs [eval_def] >>
+  ‘findi r clks < LENGTH clkvals’ by (
+    fs [equiv_val_def] >>
+    match_mp_tac MEM_findi >>
+    res_tac >> fs [] >>
+    rfs [] >>
+    ‘EL n (MAP SND wt) = SND (EL n wt)’ by (
+      match_mp_tac EL_MAP >>
+      fs []) >>
+    rfs [] >> rveq >> fs []) >>
+  fs [] >>
+  rfs [equiv_val_def] >>
+  qmatch_goalsub_abbrev_tac ‘EL m (MAP ff _)’ >>
+  ‘EL m (MAP ff clks) = ff (EL m clks)’ by (
+    match_mp_tac EL_MAP >>
+    fs []) >>
+  fs [Abbr ‘ff’, Abbr ‘m’] >>
+  pop_assum kall_tac >>
+  last_x_assum drule >>
+  strip_tac >> fs [] >>
+  ‘EL (findi r clks) clks = r’ by (
+    match_mp_tac EL_findi >>
+    res_tac >> fs [] >>
+    rfs [] >>
+    ‘EL n (MAP SND wt) = SND (EL n wt)’ by (
+      match_mp_tac EL_MAP >>
+      fs []) >>
+    rfs [] >> rveq >> fs []) >>
+  fs [wordLangTheory.word_op_def] >>
+  ‘n2w (q − v):'a word = n2w q − n2w v’ suffices_by fs [] >>
+  match_mp_tac n2w_sub >> rveq >> fs [] >> rveq >> rfs [] >>
+  first_x_assum drule >>
+  fs []
+QED
+
+
+Theorem eval_term_clkvals_equiv_reset_clkvals:
+  ∀s io io' cnds tclks dest wt s' clks.
+    evalTerm s io
+             (Tm io' cnds tclks dest wt) s' ⇒
+    equiv_val s'.clocks clks (resetClksVals s.clocks clks tclks)
+Proof
+  rw [] >>
+  fs [evalTerm_cases] >>
+  rveq >> fs [] >>
+  fs [equiv_val_def] >>
+  fs [resetClksVals_def]
+QED
+
+
+Theorem comp_term_correct:
+  ∀s n cnds tclks dest wt s' t clkvals clks t'.
+    evalTerm s (SOME n)
+             (Tm (Input n) cnds tclks dest wt) s' ∧
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    clk_range clkvals ∧
+    EVERY (λck. ck IN FDOM s.clocks) clks ∧
+    equiv_val s.clocks clks clkvals ∧
+    valid_clks clks tclks wt ∧
+    t.clock ≠ 0 ∧ (toString dest) IN FDOM t.code ⇒
+      ∃t'. evaluate (compTerm clks (Tm (Input n) cnds tclks dest wt), t) =
+           (SOME (Return (retVal s clks tclks wt dest)), t') ∧
+           t' = t with locals :=
+                restore_from t FEMPTY [«waitTimes»; «resetClks» ; «wakeUpAt»; «waitSet»]
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  drule eval_term_clkvals_equiv_reset_clkvals >>
+  disch_then (qspec_then ‘clks’ assume_tac) >>
+  fs [evalTerm_cases] >>
+  rveq >> fs [] >>
+  fs [compTerm_def] >>
+  cases_on ‘wt’
+  >- ( (* wait set is disabled *)
+   fs [panLangTheory.decs_def] >>
+   fs [evaluate_def] >>
+   fs [eval_def] >>
+   pairarg_tac >> fs [] >>
+   pairarg_tac >> fs [] >> rveq >>
+   rfs [] >> fs [] >>
+   qmatch_asmsub_abbrev_tac ‘OPT_MMAP (λa. eval stInit a) _’ >>
+   ‘OPT_MMAP (λa. eval stInit a)
+      (resetClocks «clks» clks tclks) =
+    SOME (resetClksVals s.clocks clks tclks)’ by (
+     match_mp_tac opt_mmap_resetClocks_eq_resetClksVals >>
+     qexists_tac ‘clkvals’ >> rfs [] >>
+     fs [Abbr ‘stInit’] >>
+     rfs [FLOOKUP_UPDATE]) >>
+   fs [] >>
+   pop_assum kall_tac >>
+   pairarg_tac >> fs [] >> rveq >> rfs [] >>
+   fs [emptyConsts_def] >>
+   fs [OPT_MMAP_def] >>
+   pairarg_tac >> fs [] >> rveq >> rfs [] >>
+   fs [panLangTheory.nested_seq_def] >>
+   fs [evaluate_def] >>
+   pairarg_tac >> fs [] >> rveq >> rfs [] >>
+   fs [eval_def] >>
+   fs [indicesOf_def, waitTimes_def] >>
+   fs [destruct_def, minOf_def] >>
+   pop_assum mp_tac >>
+   rewrite_tac [OPT_MMAP_def] >>
+   strip_tac >>
+   fs [is_valid_value_def] >>
+   fs [FLOOKUP_UPDATE, FDOM_FLOOKUP] >>
+   pairarg_tac >> fs [] >> rveq >> rfs [] >>
+   fs [evaluate_def] >>
+   pairarg_tac >> fs [] >> rveq >> rfs [] >>
+   qmatch_asmsub_abbrev_tac ‘OPT_MMAP (λa. eval stReset a) _’ >>
+   fs [OPT_MMAP_def] >>
+   fs [eval_def] >>
+   fs [Abbr ‘stReset’, FLOOKUP_UPDATE, dec_clock_def, FDOM_FLOOKUP] >>
+   rfs [] >>
+   fs [panSemTheory.shape_of_def, panLangTheory.size_of_shape_def] >>
+   fs [GSYM FDOM_FLOOKUP] >>
+   drule clk_range_reset_clks_eq >>
+   disch_then (qspecl_then [‘clkvals’, ‘tclks’] mp_tac) >>
+   fs [] >> strip_tac >>
+   fs [clk_range_def, MAP_MAP_o, ETA_AX] >>
+   pop_assum kall_tac >>
+   rveq >> fs [] >> rfs [] >> rveq >> fs [] >>
+   fs [empty_locals_def, retVal_def] >>
+   fs [restore_from_def]) >>
+
+  (* some maintenance to replace h::t' to wt *)
+  qmatch_goalsub_abbrev_tac ‘LENGTH wt’ >>
+  ‘(case wt of [] => Const 0w | v2::v3 => Const 1w) =
+   (Const 1w): 'a panLang$exp’ by fs [Abbr ‘wt’] >>
+  fs [] >>
+  pop_assum kall_tac >>
+  fs [panLangTheory.decs_def] >>
+  fs [evaluate_def] >>
+  fs [eval_def] >>
+  pairarg_tac >> fs [] >>
+  pairarg_tac >> fs [] >> rveq >>
+  rfs [] >> fs [] >>
+  qmatch_asmsub_abbrev_tac ‘OPT_MMAP (λa. eval stInit a) _’ >>
+  ‘OPT_MMAP (λa. eval stInit a)
+   (resetClocks «clks» clks tclks) =
+   SOME (resetClksVals s.clocks clks tclks)’ by (
+    match_mp_tac opt_mmap_resetClocks_eq_resetClksVals >>
+    qexists_tac ‘clkvals’ >> rfs [] >>
+    fs [Abbr ‘stInit’] >>
+    rfs [FLOOKUP_UPDATE]) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  pairarg_tac >> fs [] >> rveq >> rfs [] >>
+  fs [eval_empty_const_eq_empty_vals] >>
+  pairarg_tac >> fs [] >> rveq >> rfs [] >>
+  fs [panLangTheory.nested_seq_def] >>
+  fs [evaluate_def] >>
+  pairarg_tac >> fs [] >> rveq >> rfs [] >>
+  qmatch_asmsub_abbrev_tac ‘eval stReset _’ >>
+  fs [eval_def] >>
+  (* waitimes eq eval diffs *)
+  ‘OPT_MMAP (λa. eval stReset a)
+   (waitTimes (MAP FST wt)
+    (MAP (λn. Field n (Var «resetClks» ))
+     (indicesOf clks (MAP SND wt)))) =
+   SOME (MAP ((λw. ValWord w) ∘ n2w ∘ evalDiff
+              (s with clocks := resetClocks s.clocks tclks)) wt)’ by (
+    match_mp_tac calculate_wait_times_eq >>
+    qexists_tac ‘resetClksVals s.clocks clks tclks’ >>
+    rfs [Abbr ‘stReset’] >>
+    rewrite_tac [FLOOKUP_UPDATE] >>
+    fs [] >>
+    fs [equiv_val_def] >>
+    last_x_assum assume_tac >>
+    drule fdom_reset_clks_eq_clks >>
+    strip_tac >>
+    rfs [valid_clks_def] >>
+    fs [EVERY_MEM] >>
+    rw [] >>
+    last_x_assum (qspec_then ‘e’ mp_tac) >>
+    fs [] >>
+    cases_on ‘e’ >> fs [] >>
+    strip_tac >>
+    fs [] >>
+    match_mp_tac flookup_reset_clks_leq >>
+    fs []) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  qmatch_asmsub_abbrev_tac ‘is_valid_value tt _ wtval’ >>
+  ‘is_valid_value tt «waitTimes» wtval’ by (
+    fs [Abbr ‘tt’, Abbr ‘wtval’] >>
+    fs [is_valid_value_def] >>
+    fs [FLOOKUP_UPDATE] >>
+    fs [panSemTheory.shape_of_def] >>
+    fs [emptyVals_def, emptyConsts_def] >>
+    fs [MAP_MAP_o, MAP_EQ_f] >>
+    rw [] >>
+    fs [shape_of_def]) >>
+  fs [] >>
+  pairarg_tac >> fs [] >> rveq >> fs [] >>
+  qmatch_asmsub_abbrev_tac ‘evaluate (_, stWait)’ >>
+  (* now about minOp evaluation *)
+
+
 
 
 Definition clk_rel_def:
@@ -28,7 +458,6 @@ Definition clk_rel_def:
     SOME (Struct (MAP (ValWord o n2w o THE o (FLOOKUP s.clocks)) clks))
 End
 
-(* first two lines could go *)
 
 Definition valid_term_def:
   valid_term clks (Tm io cnds tclks dest wt) =
@@ -64,11 +493,6 @@ Definition reset_vals_def:
          then (ValWord 0w)
          else x)
        xs
-End
-
-Definition resetClksVals_def:
-  resetClksVals s tclks clks  =
-  MAP (ValWord o n2w o THE o (FLOOKUP (resetClocks s.clocks tclks))) clks
 End
 
 
