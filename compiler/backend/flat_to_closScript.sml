@@ -10,10 +10,20 @@ val _ = new_theory"flat_to_clos"
 
 val _ = set_grammar_ancestry ["flatLang","closLang","backend_common"];
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
 Definition dest_pat_def:
   dest_pat [(Pvar v, h)] = SOME (v:string,h) /\
   dest_pat _ = NONE
 End
+
+Theorem dest_pat_pmatch:
+  dest_pat x =
+    case x of [(Pvar v, h)] => SOME (v:string,h) | _ => NONE
+Proof
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ every_case_tac \\ fs [dest_pat_def]
+QED
 
 Theorem dest_pat_thm:
   dest_pat pes = SOME (p_1,p_2) <=> pes = [(Pvar p_1, p_2)]
@@ -35,13 +45,29 @@ End
 
 Definition arg1_def:
   arg1 xs f =
-    case xs of [x] => f x | _ => closLang$Let None xs (Var None 0)
+    dtcase xs of [x] => f x | _ => closLang$Let None xs (Var None 0)
 End
+
+Theorem arg1_pmatch:
+  arg1 xs f =
+    case xs of [x] => f x | _ => closLang$Let None xs (Var None 0)
+Proof
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ every_case_tac \\ fs [arg1_def]
+QED
 
 Definition arg2_def:
   arg2 xs f =
-    case xs of [x; y] => f x y | _ => closLang$Let None xs (Var None 0)
+    dtcase xs of [x; y] => f x y | _ => closLang$Let None xs (Var None 0)
 End
+
+Theorem arg2_pmatch:
+  arg2 xs f =
+    case xs of [x; y] => f x y | _ => closLang$Let None xs (Var None 0)
+Proof
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ every_case_tac \\ fs [arg2_def]
+QED
 
 Definition AllocGlobals_def:
   AllocGlobals t n =
@@ -77,7 +103,7 @@ End
 
 Definition compile_op_def:
   compile_op t op xs =
-    case op of
+    dtcase op of
     | Opapp => arg2 xs (\x f. closLang$App t NONE f [x])
     | TagLenEq tag n => closLang$Op t (TagLenEq tag n) xs
     | LenEq n => closLang$Op t (LenEq n) xs
@@ -88,7 +114,7 @@ Definition compile_op_def:
                         (If t (Op t Less [Var t 0; Op None (Const 255) []])
                           (Raise t (Op t (Cons chr_tag) []))
                           (Var t 0)))
-    | Chopb chop => Op t (case chop of
+    | Chopb chop => Op t (dtcase chop of
                           | Lt => Less
                           | Gt => Greater
                           | Leq => LessEq
@@ -96,7 +122,7 @@ Definition compile_op_def:
     | Opassign => arg2 xs (\x y. Op t Update [x; Op None (Const 0) []; y])
     | Opref => Op t Ref xs
     | ConfigGC => Op t ConfigGC xs
-    | Opb l => Op t (case l of
+    | Opb l => Op t (dtcase l of
                      | Lt => Less
                      | Gt => Greater
                      | Leq => LessEq
@@ -175,6 +201,22 @@ Definition join_strings_def:
     else mlstring$concat [x; mlstring$strlit "_"; y]
 End
 
+Definition dest_nop_def:
+  dest_nop op e =
+    dtcase op of
+    | WordFromInt W8 => (dtcase e of [App _ Ord [x]] => SOME x | _ => NONE)
+    | Chr => (dtcase e of [App _ (WordToInt W8) [x]] => SOME x | _ => NONE)
+    | _ => NONE
+End
+
+Theorem dest_nop_thm:
+  dest_nop op es = SOME x ⇔
+    (∃t. op = WordFromInt W8 ∧ es = [App t Ord [x]]) ∨
+    (∃t. op = Chr ∧ es = [App t (WordToInt W8) [x]])
+Proof
+  Cases_on ‘op’ \\ fs [dest_nop_def] \\ every_case_tac \\ fs []
+QED
+
 Definition compile_def:
   (compile m [] = []) /\
   (compile m (x::y::xs) = compile m [x] ++ compile m (y::xs)) /\
@@ -182,10 +224,14 @@ Definition compile_def:
   (compile m [Lit t l] = [compile_lit t l]) /\
   (compile m [Var_local t v] = [Var t (findi (SOME v) m)]) /\
   (compile m [Con t n es] =
-     let tag = (case n of SOME (t,_) => t | _ => 0) in
+     let tag = (dtcase n of SOME (t,_) => t | _ => 0) in
        [Op t (Cons tag) (compile m (REVERSE es))]) /\
-  (compile m [App t op es] = [compile_op t op (compile m (REVERSE es))]) /\
-  (compile m [Fun t v e] = [Fn (mlstring$implode t) NONE NONE 1 (HD (compile (SOME v::m) [e]))]) /\
+  (compile m [App t op es] =
+     dtcase dest_nop op es of
+     | SOME e => compile m [e]
+     | NONE => [compile_op t op (compile m (REVERSE es))]) /\
+  (compile m [Fun t v e] =
+     [Fn (mlstring$implode t) NONE NONE 1 (HD (compile (SOME v::m) [e]))]) /\
   (compile m [If t x1 x2 x3] =
      [If t (HD (compile m [x1]))
            (HD (compile m [x2]))
@@ -194,7 +240,7 @@ Definition compile_def:
      [Let t (compile m [e1]) (HD (compile (vo::m) [e2]))]) /\
   (compile m [Mat t e pes] = [Op t (Const 0) []]) /\
   (compile m [Handle t e pes] =
-     case dest_pat pes of
+     dtcase dest_pat pes of
      | SOME (v,h) => [Handle t (HD (compile m [e])) (HD (compile (SOME v::m) [h]))]
      | _ => compile m [e]) /\
   (compile m [Letrec t funs e] =
@@ -207,6 +253,7 @@ Termination
   \\ `!funs f v x. MEM (f,v,x) funs ==> exp_size x < flatLang$exp1_size funs` by
     (Induct \\ fs [] \\ rw [] \\ fs [flatLangTheory.exp_size_def] \\ res_tac \\ fs [])
   \\ res_tac \\ fs [dest_pat_thm] \\ fs [flatLangTheory.exp_size_def]
+  \\ gvs [dest_nop_thm] \\ fs [flatLangTheory.exp_size_def]
 End
 
 Definition compile_decs_def:
