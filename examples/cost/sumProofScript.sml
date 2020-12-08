@@ -799,7 +799,7 @@ in
   \\ conj_tac >- (Cases \\ simp [] \\ IF_CASES_TAC \\ simp [])
   \\ UNABBREV_ALL_TAC
   \\ strip_call
-  \\ ntac 4 strip_assign
+  \\ ntac 2 strip_assign
   \\ open_tailcall
   \\ qmatch_goalsub_abbrev_tac ‘(bind _ _) st’
   \\ qabbrev_tac ‘vl = THE(sptree$lookup (0:num) st.locals)’
