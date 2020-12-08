@@ -200,17 +200,21 @@ val r = translate str_prefix_def
 Theorem HOL_STORE_init_precond:
    HOL_STORE init_refs
    {Mem (1+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
+                             ++some_chars_vector_refs
                              ++stderr_refs++init_type_constants_refs)))
         (Refv init_type_constants_v);
     Mem (2+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
+                             ++some_chars_vector_refs
                              ++stderr_refs++init_type_constants_refs
                              ++init_term_constants_refs)))
         (Refv init_term_constants_v);
     Mem (3+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
+                             ++some_chars_vector_refs
                              ++stderr_refs++init_type_constants_refs
                              ++init_term_constants_refs++init_axioms_refs)))
         (Refv init_axioms_v);
     Mem (4+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
+                             ++some_chars_vector_refs
                              ++stderr_refs++init_type_constants_refs
                              ++init_term_constants_refs++init_axioms_refs
                              ++init_context_refs)))
@@ -283,4 +287,3 @@ Theorem context_spec =
   mk_app_of_ArrowP (fetch "ml_hol_kernelProg" "context_v_thm");
 
 val _ = export_theory ();
-

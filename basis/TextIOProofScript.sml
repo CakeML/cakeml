@@ -1848,9 +1848,9 @@ Proof
     \\ xlet_auto_spec(SOME read_byte_STDIO_spec)
     \\ xsimpl \\ simp[bumpFD_0,FD_def] \\ xsimpl
     \\ xlet_auto \\ xsimpl
-    \\ xlet_auto \\ xsimpl
-    \\ xcon \\ xsimpl
-    \\ fs[ORD_BOUND,CHR_ORD,std_preludeTheory.OPTION_TYPE_def] )
+    \\ xapp \\ xsimpl
+    \\ asm_exists_tac \\ fs [CharProgTheory.some_char_thm]
+    \\ fs[ORD_BOUND,CHR_ORD,std_preludeTheory.OPTION_TYPE_def,CharProgTheory.fromByte_def])
   >- xsimpl
   \\ xsimpl
   \\ xcases
@@ -2355,16 +2355,16 @@ Proof
     \\ rveq \\ xlet_auto >- xsimpl
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- (xsimpl \\ fs[instream_buffered_inv_def])
-    \\ xlet_auto >- xsimpl
-    \\ xlet_auto >- (xsimpl \\ simp[w2n_lt_256])
-    \\ xcon \\ `bactive <> []`
-                by (fs[instream_buffered_inv_def]
-                    \\ fs[DROP_NIL])
+    \\ xlet_auto >- xsimpl \\ fs [CharProgTheory.fromByte_def]
+    \\ xapp
+    \\ `bactive <> []` by (fs[instream_buffered_inv_def] \\ fs[DROP_NIL])
     \\ xsimpl
+    \\ asm_exists_tac \\ fs [CharProgTheory.some_char_thm]
     \\ CASE_TAC
     >-(fs[])
     >-(xsimpl
       \\ fs[instream_buffered_inv_def, std_preludeTheory.OPTION_TYPE_def] \\ xsimpl
+      \\ ntac 2 strip_tac \\ fs []
       \\ reverse conj_tac
       >-(`h::t = (TAKE (w − r) (DROP r bcontent))` by fs[]
         \\ `t = DROP 1 (TAKE (w − r) (DROP r bcontent))`
