@@ -868,4 +868,57 @@ Proof
   fs []
 QED
 
+
+Theorem update_locals_not_vars_eval_eq:
+  ∀s e v n w.
+  ~MEM n (var_exp e) /\
+  eval s e = SOME v ==>
+  eval (s with locals := s.locals |+ (n,w)) e = SOME v
+Proof
+  ho_match_mp_tac eval_ind >>
+  rpt conj_tac >> rpt gen_tac >> strip_tac
+  >- fs [eval_def]
+  >- fs [eval_def, var_exp_def, FLOOKUP_UPDATE]
+  >- fs [eval_def]
+  >- (
+    rpt gen_tac >>
+    fs [var_exp_def] >>
+    strip_tac >>
+    cheat)
+  >- (
+    rpt gen_tac >>
+    strip_tac >>
+    fs [var_exp_def, eval_def] >>
+    cases_on ‘eval s e’ >>
+    fs [])
+  >- (
+   rpt gen_tac >>
+   strip_tac >> fs [var_exp_def] >>
+   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+   rveq >> fs [mem_load_def])
+  >- (
+   rpt gen_tac >>
+   strip_tac >> fs [var_exp_def] >>
+   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+   rveq >> fs [mem_load_def])
+  >- (
+   rpt gen_tac >>
+   strip_tac >> fs [var_exp_def, ETA_AX] >>
+   fs [eval_def, CaseEq "option", ETA_AX] >>
+   qexists_tac ‘ws’ >>
+   fs [opt_mmap_eq_some, ETA_AX,
+       MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+   rw [] >>
+   fs [MEM_FLAT, MEM_MAP] >>
+   metis_tac [EL_MEM]) >>
+(*
+  >- fs [var_exp_def, eval_def, CaseEq "option"]
+  rpt gen_tac >>
+  strip_tac >> fs [var_exp_def, ETA_AX] >>
+  fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+  rveq >> metis_tac [] *)
+  cheat
+QED
+
+
 val _ = export_theory();

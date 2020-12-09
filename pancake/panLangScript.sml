@@ -160,4 +160,23 @@ Definition decs_def:
 End
 
 
+Definition var_exp_def:
+  (var_exp (Const w) = ([]:mlstring list)) ∧
+  (var_exp (Var v) = [v]) ∧
+  (var_exp (Label f) = []) ∧
+  (var_exp (Struct es) = FLAT (MAP var_exp es)) ∧
+  (var_exp (Field i e) = var_exp e) ∧
+  (var_exp (Load sh e) = var_exp e) ∧
+  (var_exp (LoadByte e) = var_exp e) ∧
+  (var_exp (Op bop es) = FLAT (MAP var_exp es)) ∧
+  (var_exp (Cmp c e1 e2) = var_exp e1 ++ var_exp e2) ∧
+  (var_exp (Shift sh e num) = var_exp e)
+Termination
+  wf_rel_tac `measure (\e. exp_size ARB e)` >>
+  rpt strip_tac >>
+  imp_res_tac MEM_IMP_exp_size >>
+  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
+  decide_tac
+End
+
 val _ = export_theory();

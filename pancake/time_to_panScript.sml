@@ -36,11 +36,12 @@ Definition genShape_def:
   genShape n = Comb (GENLIST (λn. One) n)
 End
 
+(*
 Definition destruct_def:
   destruct e xs =
     MAP (λx. Field x e) xs
 End
-
+*)
 
 Definition mkStruct_def:
   mkStruct n vname = Struct (GENLIST (λ_. Var vname) n)
@@ -75,9 +76,10 @@ Definition minOp_def:
         (minOp v es))
 End
 
-Definition minOf_def:
-  (minOf v [] = Skip) ∧
-  (minOf v (e::es) = Seq (Assign v e) (minOp v es))
+
+Definition min_exp_def:
+  (min_exp v [] = Skip) ∧
+  (min_exp v (e::es) = Seq (Assign v e) (minOp v es))
 End
 
 
@@ -101,7 +103,8 @@ Definition compTerm_def:
                     waitTimes
                      (MAP FST wt)
                      (MAP (λn. Field n (Var «resetClks»)) waitClks)));
-           minOf «wakeUpAt» (destruct (Var «waitTimes») (GENLIST I (LENGTH wt)));
+           min_exp «wakeUpAt» (MAPi (λn wt. Field n (Var «waitTimes»)) wt);
+           (* for easier reasoning *)
            case io of
            | (Input insig)   => return
            | (Output outsig) =>
