@@ -13,6 +13,18 @@ val _ = set_grammar_ancestry
          "pan_commonProps"];
 
 
+Theorem list_min_option_some_mem:
+  ∀xs x.
+    list_min_option xs = SOME x ⇒
+    MEM x xs
+Proof
+  Induct >> rw [] >>
+  fs [list_min_option_def] >>
+  every_case_tac >> fs [] >> rveq >> rfs []
+QED
+
+
+
 Theorem fdom_reset_clks_eq_clks:
   ∀fm clks.
     EVERY (λck. ck IN FDOM fm) clks ⇒
