@@ -333,6 +333,16 @@ Proof
   fs [resetClksVals_def]
 QED
 
+Theorem word_lt_simp:
+  w < (n:'a word) /\ n < w ==> F
+Proof
+  rw [] >> fs [] >>
+  rw [] >>
+  fs [addressTheory.WORD_CMP_NORMALISE] >>
+  fs [WORD_LESS_EQ_CASES]
+QED
+
+
 
 Theorem evaluate_minop_eq:
   ∀es s vname n ns res t.
@@ -470,9 +480,15 @@ Proof
     qsuff_tac ‘h' = n’ >- fs [] >>
     qsuff_tac ‘h' ≤ n ∧ n ≤ h'’ >- fs [] >>
     ‘0w = (n2w n):'a word ∨
-                  0w < (n2w n):'a word ’ by cheat >>
+     0w < (n2w n):'a word’ by (
+      qpat_x_assum ‘0w ≤ (n2w n):'a word’ mp_tac >>
+      rewrite_tac [WORD_LESS_OR_EQ] >>
+      metis_tac []) >>
     ‘0w = (n2w h'):'a word ∨
-                   0w < (n2w h'):'a word ’ by cheat >>
+     0w < (n2w h'):'a word ’ by (
+      qpat_x_assum ‘0w ≤ (n2w h'):'a word’ mp_tac >>
+      rewrite_tac [WORD_LESS_OR_EQ] >>
+      metis_tac []) >>
     fs [] >> rveq >> rfs [] >> fs [] >>
     rfs [n2w_le] >>
     fs [GSYM WORD_NOT_LESS_EQUAL] >>
@@ -486,27 +502,58 @@ Proof
     impl_tac >- fs [] >>
     strip_tac >>
     ‘0w = (n2w n):'a word ∨
-                  0w < (n2w n):'a word ’ by cheat >>
+     0w < (n2w n):'a word’ by (
+      qpat_x_assum ‘0w ≤ (n2w n):'a word’ mp_tac >>
+      rewrite_tac [WORD_LESS_OR_EQ] >>
+      metis_tac []) >>
     ‘0w = (n2w x):'a word ∨
-                   0w < (n2w x):'a word ’ by cheat >>
+     0w < (n2w x):'a word ’ by (
+      qpat_x_assum ‘0w ≤ (n2w x):'a word’ mp_tac >>
+      rewrite_tac [WORD_LESS_OR_EQ] >>
+      metis_tac []) >>
     fs [] >> rveq >> rfs [] >> fs [] >>
     rfs [n2w_le] >>
     fs [GSYM WORD_NOT_LESS_EQUAL] >>
     fs [addressTheory.WORD_CMP_NORMALISE] >>
-    ‘x ≤ n’ by rfs [GSYM n2w_le] >>
-    qsuff_tac ‘n < x’ >- fs [] >>
-    cheat) >> cheat
-  (*
+    ‘0w = (n2w n):'a word ∨
+     0w < (n2w n):'a word’ by (
+      qpat_x_assum ‘0w ≤ (n2w n):'a word’ mp_tac >>
+      rewrite_tac [WORD_LESS_OR_EQ] >>
+      metis_tac []) >>
+    ‘0w = (n2w h'):'a word ∨
+     0w < (n2w h'):'a word ’ by (
+      qpat_x_assum ‘0w ≤ (n2w h'):'a word’ mp_tac >>
+      rewrite_tac [WORD_LESS_OR_EQ] >>
+      metis_tac []) >>
+    fs [] >> rveq >> rfs [] >> fs []
+    >- (imp_res_tac word_lt_simp >> gs []) >>
+    ‘n < h'’ by gs [n2w_lt] >>
+    ‘x <= n’ by  gs [n2w_le] >>
+    fs []) >>
   drule list_min_option_some_mem >>
   strip_tac >>
   fs [EVERY_MEM] >>
   first_x_assum (qspec_then ‘x’ mp_tac) >>
   impl_tac >- fs [] >>
   strip_tac >>
-  rfs [n2w_lt, n2w_le] >>
-  ‘h' = n’ by fs [] >> rveq >>
-  qsuff_tac ‘x ≤ h'’ >- fs []  >>
-  metis_tac [GSYM n2w_le] *)
+  fs [addressTheory.WORD_CMP_NORMALISE] >>
+  ‘0w = (n2w n):'a word ∨
+   0w < (n2w n):'a word’ by (
+    qpat_x_assum ‘0w ≤ (n2w n):'a word’ mp_tac >>
+    rewrite_tac [WORD_LESS_OR_EQ] >>
+    metis_tac []) >>
+  ‘0w = (n2w h'):'a word ∨
+   0w < (n2w h'):'a word ’ by (
+    qpat_x_assum ‘0w ≤ (n2w h'):'a word’ mp_tac >>
+    rewrite_tac [WORD_LESS_OR_EQ] >>
+    metis_tac []) >>
+  ‘0w = (n2w x):'a word ∨
+   0w < (n2w x):'a word ’ by (
+    qpat_x_assum ‘0w ≤ (n2w x):'a word’ mp_tac >>
+    rewrite_tac [WORD_LESS_OR_EQ] >>
+    metis_tac []) >>
+  fs [] >> rveq >> rfs [] >> fs [] >>
+  cheat
 QED
 
 
@@ -571,18 +618,31 @@ Proof
   strip_tac >>
   every_case_tac
   >- (
-   fs [NOT_LESS] >>
-   qsuff_tac ‘h' < x’ >- fs [] >>
-   rfs [n2w_lt] >>
-   cheat) >>
+    ‘0w = (n2w h'):'a word ∨
+     0w < (n2w h'):'a word ’ by (
+      qpat_x_assum ‘0w ≤ (n2w h'):'a word’ mp_tac >>
+      rewrite_tac [WORD_LESS_OR_EQ] >>
+      metis_tac []) >>
+    ‘0w = (n2w x):'a word ∨
+     0w < (n2w x):'a word ’ by (
+      qpat_x_assum ‘0w ≤ (n2w x):'a word’ mp_tac >>
+      rewrite_tac [WORD_LESS_OR_EQ] >>
+      metis_tac []) >>
+    fs [] >> rveq >> rfs [] >> fs []
+    >- (imp_res_tac word_lt_simp >> gs []) >>
+    fs [NOT_LESS] >>
+    qsuff_tac ‘h' < x’ >- fs [] >>
+    gs [n2w_lt]) >>
   ‘x MOD dimword (:α) = x ∧
    h' MOD dimword (:α) = h'’ by fs [LESS_MOD] >>
   fs [addressTheory.WORD_CMP_NORMALISE] >>
-  fs [WORD_LESS_OR_EQ] >>
-  qsuff_tac ‘x < h'’
-  >- fs [] >>
-  fs [GSYM n2w_lt] >>
-  cheat
+  fs [WORD_LESS_OR_EQ]
+  >- (
+    qsuff_tac ‘x < h'’
+    >- fs [] >>
+    gs [GSYM n2w_lt]) >>
+  rveq >>
+  imp_res_tac word_lt_simp >> gs []
 QED
 
 
@@ -695,10 +755,6 @@ Proof
    fs [eval_def] >>
    fs [Abbr ‘stReset’, FLOOKUP_UPDATE, dec_clock_def, FDOM_FLOOKUP] >>
    rfs [] >>
-
-
-
-
    fs [panSemTheory.shape_of_def, panLangTheory.size_of_shape_def] >>
    fs [GSYM FDOM_FLOOKUP] >>
    drule clk_range_reset_clks_eq >>
@@ -835,14 +891,27 @@ Proof
     fs []) >>
    rfs [valid_clks_def] >>
    rfs [EVERY_MEM] >>
-   ‘MEM r clks’ by cheat >>
+   ‘MEM r clks’ by (
+     ‘MEM r (MAP SND wt)’ by (
+       fs [MEM_MAP] >>
+       qexists_tac ‘(q,r)’ >> fs []) >>
+     res_tac >> gs []) >>
    res_tac >> rfs [] >>
    drule reset_clks_not_mem_flookup_same >>
    disch_then (qspec_then ‘tclks’ mp_tac) >>
    rfs [] >>
    strip_tac >>
    fs [minusT_def] >>
-   cheat (* should be easy *)) >>
+   last_x_assum (qspec_then ‘(q,r)’ mp_tac) >>
+   fs [] >>
+   strip_tac >>
+   drule n2w_sub >>
+   fs [] >>
+   strip_tac >>
+  (* WORD_SUB_LE (* for first conj *) *)
+   conj_tac >- cheat >>
+   last_x_assum (qspec_then ‘(q,r)’ mp_tac) >>
+   fs []) >>
   strip_tac >> fs [] >>
   ‘es ≠ []’ by fs [Abbr ‘wt’, Abbr ‘es’] >>
   fs [] >>
