@@ -3760,6 +3760,14 @@ Proof
   \\ Cases_on `x'` \\ fs [gen_starts_in_store_def]
 QED
 
+Theorem glob_real_inv:
+  glob_real_inv c other (SOME w)
+                        (SOME (glob_real c other w)) ⇔ isWord w
+Proof
+  Cases_on ‘w’ \\ fs [isWord_def,glob_real_def]
+  \\ fs [glob_real_inv_def]
+QED
+
 Theorem word_gc_fun_lemma_Simple = Q.prove(`
   abs_ml_inv c (v::MAP FST stack) refs (hs,heap,be,a,sp,sp1,gens) limit ts /\
     good_dimindex (:'a) /\
@@ -3803,9 +3811,17 @@ Theorem word_gc_fun_lemma_Simple = Q.prove(`
   \\ rev_full_simp_tac(srw_ss())[heap_length_APPEND,heap_length_heap_expand]
   \\ `heap_length heap2 + (heap_length heap - heap_length heap2) =
       heap_length heap` by decide_tac \\ full_simp_tac(srw_ss())[]
-  \\ fs [word_gc_fun_assum_def,isWord_def]
+  \\ fs [word_gc_fun_assum_def,isWord_def,glob_real_inv]
   \\ imp_res_tac gen_starts_in_store_IMP_SOME_Word
-  \\ CCONTR_TAC \\ fs [] \\ rfs [isWord_def]) |> GEN_ALL
+  \\ CCONTR_TAC \\ fs [] \\ gvs [isWord_def,glob_real_inv_def]
+  \\ fs [full_gc_def,copying_gcTheory.gc_move_list_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ gvs []
+  \\ Cases_on ‘h’ \\ fs [word_addr_def,isWord_def]
+  \\ rename [‘Data aa’] \\ Cases_on ‘aa’ \\ fs [word_addr_def,isWord_def]
+  \\ fs [word_full_gc_def,word_gc_move_roots_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ gvs []
+  \\ fs [word_gc_move_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ fs []) \\ gvs []) |> GEN_ALL
   |> SIMP_RULE (srw_ss()) [LET_DEF,PULL_EXISTS,GSYM CONJ_ASSOC] |> SPEC_ALL;
 
 val do_partial_def = Define `
@@ -3999,7 +4015,7 @@ Theorem word_gc_fun_lemma = Q.prove(`
     \\ rpt strip_tac \\ rveq \\ fs []
     \\ fs [word_gc_fun_def,MAP_ZIP]
     \\ fs [heap_in_memory_store_def,FLOOKUP_UPDATE,FUPDATE_LIST,
-           FAPPLY_FUPDATE_THM,word_gc_fun_assum_def]
+           FAPPLY_FUPDATE_THM,word_gc_fun_assum_def,glob_real_inv_def]
     \\ fs [FLOOKUP_DEF,isWord_def,theWord_def]
     \\ imp_res_tac gen_starts_in_store_IMP_SOME_Word
     \\ CCONTR_TAC \\ fs [] \\ rfs [isWord_def])
@@ -4071,6 +4087,14 @@ Theorem word_gc_fun_lemma = Q.prove(`
            heap_length_heap_expand]
     \\ fs [GSYM PULL_EXISTS]
     \\ qmatch_goalsub_rename_tac `s2.old`
+    \\ conj_asm1_tac THEN1 fs [glob_real_inv_def,isWord_def]
+    \\ ‘isWord (word_addr c h')’ by
+     (Cases_on ‘word_addr c v'’ \\ Cases_on ‘word_addr c h'’ \\ fs [isWord_def]
+      \\ fs [word_gen_gc_partial_full_def,word_gen_gc_partial_def,
+             word_gen_gc_partial_move_roots_def,word_gen_gc_partial_move_def]
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ fs [AllCaseEqs()] \\ gvs [])
+    \\ fs [glob_real_inv]
     \\ conj_asm1_tac THEN1
      (qpat_x_assum `word_gen_gc_can_do_partial _ s` mp_tac
       \\ simp [word_gen_gc_can_do_partial_def,theWord_def]
@@ -4189,7 +4213,7 @@ Theorem word_gc_fun_lemma = Q.prove(`
   \\ qexists_tac `k9`
   \\ qexists_tac `LENGTH xs1 - k9` \\ fs []
   \\ fs [GSYM WORD_LEFT_ADD_DISTRIB,word_add_n2w]
-  \\ asm_rewrite_tac [ADD_ASSOC]
+  \\ asm_rewrite_tac [ADD_ASSOC,glob_real_inv]
   \\ fs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
   \\ drule word_heap_eq_word_list \\ strip_tac
   \\ fs [word_list_exists_def,SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
@@ -4201,6 +4225,15 @@ Theorem word_gc_fun_lemma = Q.prove(`
   \\ imp_res_tac gen_starts_in_store_IMP
   \\ Cases_on `GenStart ∈ FDOM s` \\ fs [isWord_def]
   \\ fs [gen_starts_in_store_def,isWord_def]
+  \\ fs [glob_real_inv_def,isWord_def]
+  \\ conj_tac
+  THEN1
+   (fs [word_gen_gc_def,word_gen_gc_move_roots_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ fs [word_gen_gc_move_def,AllCaseEqs()]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ rpt (qpat_x_assum ‘Word _ = word_addr _ _’ (assume_tac o GSYM))
+    \\ fs [isWord_def])
   \\ conj_tac THEN1 (Cases_on `l` \\ fs [])
   \\ rpt strip_tac \\ fs [theWord_def]
   \\ qpat_x_assum `new_trig _ _ _ = _` mp_tac
@@ -4467,6 +4500,7 @@ val init_store_ok_def = Define `
     ?limit curr.
       limit <= max_heap_limit (:'a) c /\
       FLOOKUP store Globals = SOME (Word 0w) /\
+      FLOOKUP store GlobReal = SOME (Word curr) /\
       FLOOKUP store GenStart = SOME (Word 0w) ∧
       FLOOKUP store CurrHeap = SOME (Word curr) ∧
       FLOOKUP store OtherHeap = FLOOKUP store EndOfHeap ∧
@@ -4554,7 +4588,8 @@ Proof
     \\ fs [isRef_def,heap_lookup_def])
   \\ CASE_TAC \\ fs []
   \\ fs [heap_in_memory_store_def,heap_length_heap_expand,word_heap_heap_expand]
-  \\ fs [FLOOKUP_DEF]
+  \\ fs [glob_real_inv_def]
+  \\ fs [FLOOKUP_DEF,EVAL “Smallnum 0”]
   \\ fs [byte_aligned_def,bytes_in_word_def,labPropsTheory.good_dimindex_def,
          word_mul_n2w]
   \\ simp_tac bool_ss [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``)]

@@ -615,6 +615,7 @@ val store_name_to_display_def = Define `
     | OtherHeap => empty_item «OtherHeap»
     | AllocSize => empty_item «AllocSize»
     | Globals => empty_item «Globals»
+    | GlobReal => empty_item «GlobReal»
     | Handler => empty_item «Handler»
     | GenStart => empty_item «GenStart»
     | CodeBuffer => empty_item «CodeBuffer»

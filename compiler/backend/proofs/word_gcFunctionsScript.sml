@@ -197,6 +197,7 @@ val word_gc_fun_assum_def = Define `
     isWord (s ' HeapLength) /\
     isWord (s ' GenStart) /\
     isWord (s ' EndOfHeap) /\
+    isWord (s ' Globals) /\
     good_dimindex (:'a) /\
     conf.len_size <> 0 /\
     conf.len_size + 2 < dimindex (:'a) /\
@@ -397,6 +398,11 @@ val word_gen_gc_def = Define `
                                  (new,i,pa,ib,pb,new_end,curr,m,dm) in
       (roots,i,pa,ib,pb,m,c1 /\ c2)`;
 
+val glob_real_def = Define `
+  (glob_real c curr (Word (w:'a word)) =
+     Word (curr + (w >>> (shift_length c) << shift (:α)))) ∧
+  (glob_real c curr w = w)`;
+
 val word_gc_fun_def = Define `
   (word_gc_fun (conf:data_to_word$config)):'a gc_fun_type = \(roots,m,dm,s).
      let c1 = word_gc_fun_assum conf s in
@@ -418,7 +424,8 @@ val word_gc_fun_def = Define `
                          (NextFree, Word pa1);
                          (TriggerGC, Word (new + len));
                          (EndOfHeap, Word (new + len));
-                         (Globals, HD roots1)] in
+                         (Globals, HD roots1);
+                         (GlobReal, glob_real conf new (HD roots1))] in
            if c1 /\ c2 then SOME (TL roots1,m1,s1) else NONE)
        | Generational gen_sizes =>
         if ~c1 then NONE else
@@ -436,6 +443,7 @@ val word_gc_fun_def = Define `
                            (GenStart, Word (pa1 - old));
                            (TriggerGC, Word (pa1 + new_trig (endh - pa1) a gen_sizes));
                            (Globals, HD roots1);
+                           (GlobReal, glob_real conf old (HD roots1));
                            (Temp 0w, Word 0w);
                            (Temp 1w, Word 0w)] in
            let c3 = (a <=+ endh - pa1 /\ a <=+ new_trig (endh - pa1) a gen_sizes) in
@@ -451,6 +459,7 @@ val word_gc_fun_def = Define `
                            (TriggerGC, Word (pa1 + new_trig (pb1 - pa1) a gen_sizes));
                            (EndOfHeap, Word pb1);
                            (Globals, HD roots1);
+                           (GlobReal, glob_real conf new (HD roots1));
                            (Temp 0w, Word 0w);
                            (Temp 1w, Word 0w);
                            (Temp 2w, Word 0w);
@@ -733,6 +742,13 @@ Proof
   simp_tac std_ss [FORALL_PROD]
   \\ rewrite_tac [word_gen_gc_def]
   \\ fs [word_gen_gc_partial_def]
+QED
+
+Theorem glob_real_has_fp_ops[simp]:
+   glob_real (conf with <| has_fp_ops := b1; has_fp_tern := b2 |>) x y =
+   glob_real conf x y
+Proof
+  Cases_on ‘y’ \\ fs [glob_real_def]
 QED
 
 Theorem word_gc_fun_has_fp_ops[simp]:

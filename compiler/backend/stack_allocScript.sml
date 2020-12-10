@@ -453,6 +453,12 @@ val word_gc_code_def = Define `
                move 8 1;
                word_gc_move_code conf;
                Set Globals 5;
+               move 7 5;
+               right_shift_inst 7 (shift_length conf);
+               left_shift_inst 7 (word_shift (:'a));
+               Get 9 OtherHeap;
+               add_inst 7 9;
+               Set GlobReal 7;
                const_inst 7 0w;
                StackLoadAny 9 8;
                move 8 7;
@@ -490,6 +496,12 @@ val word_gc_code_def = Define `
                move 6 3;
                word_gen_gc_partial_move_code conf;
                Set Globals 5;
+               move 8 5;
+               right_shift_inst 8 (shift_length conf);
+               left_shift_inst 8 (word_shift (:'a));
+               Get 9 CurrHeap;
+               add_inst 8 9;
+               Set GlobReal 8;
                const_inst 8 0w;
                StackLoadAny 9 8;
                word_gen_gc_partial_move_roots_bitmaps_code conf;
@@ -550,6 +562,12 @@ val word_gc_code_def = Define `
                move 8 1;
                word_gen_gc_move_code conf;
                Set Globals 5;
+               move 7 5;
+               Get 9 OtherHeap;
+               right_shift_inst 7 (shift_length conf);
+               left_shift_inst 7 (word_shift (:'a));
+               add_inst 7 9;
+               Set GlobReal 7;
                const_inst 7 0w;
                StackLoadAny 9 8;
                move 8 7;
