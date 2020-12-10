@@ -120,6 +120,7 @@ Definition compTerm_def:
 End
 
 
+
 (*
 Definition toNum_def:
   (toNum NONE     = 0:num) ∧
