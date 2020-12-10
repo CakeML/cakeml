@@ -343,7 +343,6 @@ Proof
 QED
 
 
-
 Theorem evaluate_minop_eq:
   ∀es s vname n ns res t.
     FLOOKUP s.locals vname = SOME (ValWord (n2w n)) ∧
@@ -553,7 +552,10 @@ Proof
     rewrite_tac [WORD_LESS_OR_EQ] >>
     metis_tac []) >>
   fs [] >> rveq >> rfs [] >> fs [] >>
-  cheat
+  TRY (
+    gs [WORD_LESS_OR_EQ] >>
+    imp_res_tac word_lt_simp >> gs [] >> NO_TAC) >>
+  gs [n2w_lt, n2w_le]
 QED
 
 
@@ -765,7 +767,6 @@ Proof
    rveq >> fs [] >> rfs [] >> rveq >> fs [] >>
    fs [empty_locals_def, retVal_def] >>
    fs [restore_from_def]) >>
-
   (* some maintenance to replace h::t' to wt *)
   qmatch_goalsub_abbrev_tac ‘emptyConsts wt’ >>
   ‘(case wt of [] => Const 0w | v2::v3 => Const 1w) =
@@ -908,8 +909,28 @@ Proof
    drule n2w_sub >>
    fs [] >>
    strip_tac >>
-  (* WORD_SUB_LE (* for first conj *) *)
-   conj_tac >- cheat >>
+   conj_tac
+   >- (
+    ‘(n2w n):'a word ≤ n2w q’ by (
+      gs [] >>
+      last_x_assum (qspec_then ‘(q,r)’ mp_tac) >>
+      fs [] >>
+      strip_tac >>
+      ‘0w = (n2w n):'a word ∨
+       0w < (n2w n):'a word ’ by (
+        qpat_x_assum ‘0w ≤ (n2w n):'a word’ mp_tac >>
+        rewrite_tac [WORD_LESS_OR_EQ] >>
+        metis_tac []) >>
+      ‘0w = (n2w q):'a word ∨
+       0w < (n2w q):'a word ’ by (
+        qpat_x_assum ‘0w ≤ (n2w q):'a word’ mp_tac >>
+        rewrite_tac [WORD_LESS_OR_EQ] >>
+        metis_tac []) >>
+      fs [] >> rveq >> rfs [] >> fs [] >>
+      fs [n2w_le]) >>
+    drule WORD_SUB_LE >>
+    disch_then (qspec_then ‘n2w q:'a word’ mp_tac) >>
+    fs []) >>
    last_x_assum (qspec_then ‘(q,r)’ mp_tac) >>
    fs []) >>
   strip_tac >> fs [] >>
@@ -974,10 +995,10 @@ QED
 
 
 Theorem comp_output_term_correct:
-  ∀s n cnds tclks dest wt s' t (clkvals:'a v list) clks
+  ∀s out cnds tclks dest wt s' t (clkvals:'a v list) clks
    ffi_name nffi nbytes bytes.
     evalTerm s NONE
-             (Tm (Output n) cnds tclks dest wt) s' ∧
+             (Tm (Output out) cnds tclks dest wt) s' ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
     clk_range clkvals ∧
     EVERY
@@ -986,16 +1007,16 @@ Theorem comp_output_term_correct:
     EVERY (λ(t,c). 0w ≤ (n2w t):'a word ∧ t < dimword (:α)) wt ∧
     equiv_val s.clocks clks clkvals ∧
     valid_clks clks tclks wt ∧
-    t.clock ≠ 0 ∧ (toString dest) IN FDOM t.code /\
-    well_behaved_ffi (strlit (toString n)) t nffi nbytes bytes (dimword (:α)) ⇒
-      evaluate (compTerm clks (Tm (Output n) cnds tclks dest wt), t) =
+    t.clock ≠ 0 ∧ (toString dest) IN FDOM t.code ∧
+    well_behaved_ffi (strlit (toString out)) t nffi nbytes bytes (dimword (:α)) ⇒
+      evaluate (compTerm clks (Tm (Output out) cnds tclks dest wt), t) =
       (SOME (Return (retVal s clks tclks wt dest)),
        t with
        <|locals :=
          restore_from t FEMPTY [«len2»; «ptr2»; «len1»; «ptr1»;
                                 «waitTimes»; «resetClks»; «wakeUpAt»; «waitSet»];
          memory := write_bytearray 4000w nbytes t.memory t.memaddrs t.be;
-         ffi := nffi_state t nffi n bytes nbytes|>)
+         ffi := nffi_state t nffi out bytes nbytes|>)
 Proof
   rpt gen_tac >>
   strip_tac >>
@@ -1007,7 +1028,6 @@ Proof
   rveq >> fs [] >>
   fs [compTerm_def] >>
   cases_on ‘wt’
-
   >- ( (* wait set is disabled *)
    fs [panLangTheory.decs_def] >>
    fs [evaluate_def, eval_def] >>
@@ -1085,7 +1105,6 @@ Proof
    rveq >> fs [] >> rfs [] >> rveq >> fs [] >>
    fs [empty_locals_def, retVal_def] >>
    fs [nffi_state_def, restore_from_def]) >>
-
   (* some maintenance to replace h::t' to wt *)
   qmatch_goalsub_abbrev_tac ‘emptyConsts wt’ >>
   ‘(case wt of [] => Const 0w | v2::v3 => Const 1w) =
@@ -1093,10 +1112,14 @@ Proof
   fs [] >>
   pop_assum kall_tac >>
   fs [panLangTheory.decs_def] >>
-  fs [evaluate_def] >>
+  fs [Once evaluate_def] >> rveq >> fs [] >>
   fs [eval_def] >>
-  pairarg_tac >> fs [] >>
-  pairarg_tac >> fs [] >> rveq >>
+  pairarg_tac >> fs [] >> rveq >> rfs [] >>
+  fs [Once evaluate_def] >> rveq >> fs [] >>
+  fs [eval_def] >>
+  pairarg_tac >> fs [] >> rveq >> rfs [] >>
+  fs [Once evaluate_def] >> rveq >> fs [] >>
+  fs [eval_def] >>
   rfs [] >> fs [] >>
   qmatch_asmsub_abbrev_tac ‘OPT_MMAP (λa. eval stInit a) _’ >>
   ‘OPT_MMAP (λa. eval stInit a)
@@ -1109,25 +1132,17 @@ Proof
   fs [] >>
   pop_assum kall_tac >>
   pairarg_tac >> fs [] >> rveq >> rfs [] >>
+  fs [Once evaluate_def] >> rveq >> fs [] >>
+  fs [eval_def] >>
   fs [eval_empty_const_eq_empty_vals] >>
   pairarg_tac >> fs [] >> rveq >> rfs [] >>
   fs [panLangTheory.nested_seq_def] >>
-  fs [evaluate_def] >>
+  fs [Once evaluate_def] >> rveq >> fs [] >>
+  fs [eval_def] >>
   pairarg_tac >> fs [] >> rveq >> rfs [] >>
+  fs [Once evaluate_def] >> rveq >> fs [] >>
   qmatch_asmsub_abbrev_tac ‘eval stReset _’ >>
   fs [eval_def] >>
-
-
-
-
-
-
-
-
-
-
-
-
   (* waitimes eq eval diffs *)
   ‘OPT_MMAP (λa. eval stReset a)
    (waitTimes (MAP FST wt)
@@ -1223,21 +1238,105 @@ Proof
     fs []) >>
    rfs [valid_clks_def] >>
    rfs [EVERY_MEM] >>
-   ‘MEM r clks’ by cheat >>
+   ‘MEM r clks’ by (
+     ‘MEM r (MAP SND wt)’ by (
+       fs [MEM_MAP] >>
+       qexists_tac ‘(q,r)’ >> fs []) >>
+     res_tac >> gs []) >>
    res_tac >> rfs [] >>
    drule reset_clks_not_mem_flookup_same >>
    disch_then (qspec_then ‘tclks’ mp_tac) >>
    rfs [] >>
    strip_tac >>
    fs [minusT_def] >>
-   cheat (* should be easy *)) >>
+   last_x_assum (qspec_then ‘(q,r)’ mp_tac) >>
+   fs [] >>
+   strip_tac >>
+   drule n2w_sub >>
+   fs [] >>
+   strip_tac >>
+   conj_tac
+   >- (
+    ‘(n2w n):'a word ≤ n2w q’ by (
+      gs [] >>
+      last_x_assum (qspec_then ‘(q,r)’ mp_tac) >>
+      fs [] >>
+      strip_tac >>
+      ‘0w = (n2w n):'a word ∨
+       0w < (n2w n):'a word ’ by (
+        qpat_x_assum ‘0w ≤ (n2w n):'a word’ mp_tac >>
+        rewrite_tac [WORD_LESS_OR_EQ] >>
+        metis_tac []) >>
+      ‘0w = (n2w q):'a word ∨
+       0w < (n2w q):'a word ’ by (
+        qpat_x_assum ‘0w ≤ (n2w q):'a word’ mp_tac >>
+        rewrite_tac [WORD_LESS_OR_EQ] >>
+        metis_tac []) >>
+      fs [] >> rveq >> rfs [] >> fs [] >>
+      fs [n2w_le]) >>
+    drule WORD_SUB_LE >>
+    disch_then (qspec_then ‘n2w q:'a word’ mp_tac) >>
+    fs []) >>
+   last_x_assum (qspec_then ‘(q,r)’ mp_tac) >>
+   fs []) >>
   strip_tac >> fs [] >>
   ‘es ≠ []’ by fs [Abbr ‘wt’, Abbr ‘es’] >>
-  fs [] >>
+  fs [] >> rveq >> rfs [] >>
+  fs [Once evaluate_def] >> rveq >> fs [] >>
+  pairarg_tac >> fs [] >> rveq >> rfs [] >>
+  fs [Once evaluate_def] >> rveq >> fs [] >>
+  fs [eval_def] >>
+  pairarg_tac >> fs [] >> rveq >> rfs [] >>
+  fs [Once evaluate_def] >> rveq >> fs [] >>
+  fs [eval_def] >>
+  pairarg_tac >> fs [] >> rveq >> rfs [] >>
+  fs [Once evaluate_def] >> rveq >> fs [] >>
+  fs [eval_def] >>
+  pairarg_tac >> fs [] >> rveq >> rfs [] >>
+  fs [Once evaluate_def] >> rveq >> fs [] >>
+  fs [eval_def] >>
+  pairarg_tac >> fs [] >> rveq >> rfs [] >>
+  fs [Once evaluate_def] >> rveq >> fs [] >>
   pairarg_tac >> fs [] >> rveq >> rfs [] >>
   unabbrev_all_tac >> fs [] >> rveq >> rfs [] >>
-  fs [OPT_MMAP_def, eval_def, FLOOKUP_UPDATE] >>
-  rfs [FDOM_FLOOKUP] >>
+  drule ffi_eval_state_thm >>
+  disch_then
+  (qspecl_then
+   [‘t.locals |+ («waitSet» ,ValWord 1w) |+
+     («wakeUpAt» ,ValWord 0w) |+
+     («resetClks» ,Struct (resetClksVals s.clocks clks tclks)) |+
+     («waitTimes» ,
+      Struct (ValWord
+              (n2w
+               (evalDiff
+                (s with clocks := resetClocks s.clocks tclks) h))::
+              MAP
+              ((λw. ValWord w) ∘ n2w ∘
+               evalDiff
+               (s with clocks := resetClocks s.clocks tclks)) t')) |+
+     («wakeUpAt» ,
+      ValWord
+      (n2w
+       (THE
+        (list_min_option
+         (evalDiff
+          (s with clocks := resetClocks s.clocks tclks) h::
+          MAP
+          (evalDiff
+           (s with
+            clocks := resetClocks s.clocks tclks)) t')))))’,
+    ‘res''’,
+    ‘s1’] mp_tac) >>
+  impl_tac >- fs [] >>
+  strip_tac >> fs [] >> rveq >> fs [] >>
+  pop_assum kall_tac >>
+  fs [ffi_return_state_def] >>
+  fs [evaluate_def] >>
+  fs [eval_def] >>
+  qmatch_asmsub_abbrev_tac ‘OPT_MMAP (λa. eval stReset a) _’ >>
+  fs [OPT_MMAP_def] >>
+  fs [eval_def] >>
+  fs [Abbr ‘stReset’, FLOOKUP_UPDATE, dec_clock_def, FDOM_FLOOKUP] >>
   rfs [] >>
   fs [panLangTheory.size_of_shape_def, panSemTheory.shape_of_def] >>
   fs [MAP_MAP_o] >>
@@ -1259,9 +1358,9 @@ Proof
   rveq >> fs [] >> rveq >> rfs [] >>
   fs [restore_from_def] >>
   fs [retVal_def] >>
-  fs [calculate_wtime_def]
+  fs [calculate_wtime_def] >>
+  fs [nffi_state_def]
 QED
-
 
 
 
