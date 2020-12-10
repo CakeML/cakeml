@@ -302,8 +302,8 @@ Theorem evaluate_minop_eq:
     FLOOKUP s.locals vname = SOME (ValWord (n2w n)) ∧
     (∀n. n < LENGTH es ⇒ ~MEM vname (var_exp (EL n es))) ∧
     MAP (eval s) es = MAP (SOME ∘ ValWord ∘ (n2w:num -> α word)) ns ∧
-    0w < (n2w n):'a word ∧ n < dimword (:α) ∧
-    EVERY (λn. 0w < (n2w n):'a word ∧ n < dimword (:α)) ns ∧
+    0w ≤ (n2w n):'a word ∧ n < dimword (:α) ∧
+    EVERY (λn. 0w ≤ (n2w n):'a word ∧ n < dimword (:α)) ns ∧
     evaluate (minOp vname es,s) = (res,t) ⇒
     res = NONE ∧
     t = s with locals:= s.locals |+
@@ -374,24 +374,33 @@ Proof
     strip_tac >>
     cases_on ‘h' < x’ >> fs []
     >- (
-     fs [minOption_def] >>
+    fs [minOption_def] >>
      ‘~(n2w n < n2w h')’ by (
        fs [] >>
        fs [addressTheory.WORD_CMP_NORMALISE] >>
        fs [WORD_LESS_OR_EQ]) >>
      fs [] >>
-     qsuff_tac ‘(n2w h'):'a word < n2w x’ >- fs [] >>
-     fs [n2w_lt]) >>
+    qsuff_tac ‘(n2w h'):'a word < n2w x’ >- fs [] >>
+    fs [WORD_LESS_OR_EQ] >>
+    fs [n2w_lt]) >>
     fs [minOption_def] >>
     ‘~((n2w h'):'a word < n2w x)’ by (
       fs [addressTheory.WORD_CMP_NORMALISE] >>
-      fs [NOT_LESS, n2w_le]) >>
+      fs [NOT_LESS, WORD_LESS_OR_EQ, n2w_le]) >>
     fs [] >>
     ‘~((n2w n):'a word < n2w x)’ by (
       fs [addressTheory.WORD_CMP_NORMALISE] >>
+      ‘0w = (n2w x):'a word ∨
+                    0w < (n2w x):'a word ’ by rfs [WORD_LESS_OR_EQ] >>
+      ‘0w = (n2w n):'a word ∨
+                    0w < (n2w n):'a word ’ by rfs [WORD_LESS_OR_EQ] >>
+      ‘0w = (n2w h'):'a word ∨
+                    0w < (n2w h'):'a word ’ by rfs [WORD_LESS_OR_EQ] >>
+      fs [] >> rveq >> rfs [] >> fs []
+      >- fs [GSYM WORD_NOT_LESS_EQUAL] >>
       qsuff_tac ‘x ≤ n’ >- fs [n2w_le] >>
       ‘x ≤ h'’ by fs [n2w_le] >>
-      ‘h' < n’ by rfs [n2w_lt] >>
+      ‘h' < n’ by fs [GSYM n2w_lt] >>
       rfs []) >>
     fs []) >>
   fs [evaluate_def] >>
@@ -423,7 +432,15 @@ Proof
   >- (
     qsuff_tac ‘h' = n’ >- fs [] >>
     qsuff_tac ‘h' ≤ n ∧ n ≤ h'’ >- fs [] >>
-    rfs [n2w_le])
+    ‘0w = (n2w n):'a word ∨
+                  0w < (n2w n):'a word ’ by cheat >>
+    ‘0w = (n2w h'):'a word ∨
+                   0w < (n2w h'):'a word ’ by cheat >>
+    fs [] >> rveq >> rfs [] >> fs [] >>
+    rfs [n2w_le] >>
+    fs [GSYM WORD_NOT_LESS_EQUAL] >>
+    fs [addressTheory.WORD_CMP_NORMALISE] >>
+    fs [GSYM n2w_le])
   >- (
     drule list_min_option_some_mem >>
     strip_tac >>
@@ -431,9 +448,18 @@ Proof
     first_x_assum (qspec_then ‘x’ mp_tac) >>
     impl_tac >- fs [] >>
     strip_tac >>
+    ‘0w = (n2w n):'a word ∨
+                  0w < (n2w n):'a word ’ by cheat >>
+    ‘0w = (n2w x):'a word ∨
+                   0w < (n2w x):'a word ’ by cheat >>
+    fs [] >> rveq >> rfs [] >> fs [] >>
+    rfs [n2w_le] >>
+    fs [GSYM WORD_NOT_LESS_EQUAL] >>
+    fs [addressTheory.WORD_CMP_NORMALISE] >>
     ‘x ≤ n’ by rfs [GSYM n2w_le] >>
     qsuff_tac ‘n < x’ >- fs [] >>
-    rfs [n2w_lt]) >>
+    cheat) >> cheat
+  (*
   drule list_min_option_some_mem >>
   strip_tac >>
   fs [EVERY_MEM] >>
@@ -443,7 +469,7 @@ Proof
   rfs [n2w_lt, n2w_le] >>
   ‘h' = n’ by fs [] >> rveq >>
   qsuff_tac ‘x ≤ h'’ >- fs []  >>
-  metis_tac [GSYM n2w_le]
+  metis_tac [GSYM n2w_le] *)
 QED
 
 
@@ -452,7 +478,7 @@ Theorem evaluate_min_exp_eq:
     FLOOKUP s.locals vname = SOME (ValWord v) ∧
     (∀n. n < LENGTH es ⇒ ~MEM vname (var_exp (EL n es))) ∧
     MAP (eval s) es = MAP (SOME ∘ ValWord ∘ (n2w:num -> α word)) ns ∧
-    EVERY (λn. 0w < (n2w n):'a word ∧ n < dimword (:α)) ns ∧
+    EVERY (λn. 0w ≤ (n2w n):'a word ∧ n < dimword (:α)) ns ∧
     evaluate (min_exp vname es,s) = (res,t) ⇒
     res = NONE ∧
     (es = [] ⇒ t = s) ∧
@@ -510,14 +536,16 @@ Proof
   >- (
    fs [NOT_LESS] >>
    qsuff_tac ‘h' < x’ >- fs [] >>
-   rfs [n2w_lt]) >>
+   rfs [n2w_lt] >>
+   cheat) >>
   ‘x MOD dimword (:α) = x ∧
    h' MOD dimword (:α) = h'’ by fs [LESS_MOD] >>
   fs [addressTheory.WORD_CMP_NORMALISE] >>
   fs [WORD_LESS_OR_EQ] >>
   qsuff_tac ‘x < h'’
   >- fs [] >>
-  fs [GSYM n2w_lt]
+  fs [GSYM n2w_lt] >>
+  cheat
 QED
 
 
@@ -525,7 +553,7 @@ Theorem every_conj_spec:
   ∀fm xs.
     EVERY
     (λck. ∃n. FLOOKUP fm ck = SOME n ∧
-              0w < (n2w n):'a word ∧ n < dimword (:α)) xs ⇒
+              0w ≤ (n2w n):'a word ∧ n < dimword (:α)) xs ⇒
     EVERY (λck. ck IN FDOM fm) xs
 Proof
   rw [] >>
@@ -536,6 +564,34 @@ Proof
 QED
 
 
+Theorem shape_of_resetClksVals_eq:
+  ∀fm (clks:mlstring list) (tclks:mlstring list) (clkvals:'a v list).
+    EVERY (λv. ∃w. v = ValWord w) clkvals /\
+    LENGTH clks = LENGTH clkvals ⇒
+    MAP ((λa. size_of_shape a) ∘ (λa. shape_of a))
+        ((resetClksVals fm clks tclks):'a v list) =
+    MAP ((λa. size_of_shape a) ∘ (λa. shape_of a)) clkvals
+Proof
+  rw [] >>
+  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+  fs [resetClksVals_def] >>
+  rw [] >> fs [] >>
+  qmatch_goalsub_abbrev_tac ‘MAP f _’ >>
+  ‘EL n (MAP f clks) = f (EL n clks)’ by (
+    match_mp_tac EL_MAP >>
+    fs []) >>
+  fs [Abbr ‘f’] >>
+  pop_assum kall_tac >>
+  fs [EVERY_MEM] >>
+  drule EL_MEM >>
+  strip_tac >>
+  last_x_assum drule >>
+  strip_tac >> fs [] >>
+  fs [panSemTheory.shape_of_def]
+QED
+
+
+
 Theorem comp_input_term_correct:
   ∀s n cnds tclks dest wt s' t (clkvals:'a v list) clks.
     evalTerm s (SOME n)
@@ -544,9 +600,8 @@ Theorem comp_input_term_correct:
     clk_range clkvals ∧
     EVERY
       (λck. ∃n. FLOOKUP s.clocks ck = SOME n ∧
-                0w < (n2w n):'a word ∧ n < dimword (:α))
-      clks ∧
-    (* EVERY (λck. ck IN FDOM s.clocks) clks ∧ *)
+                0w ≤ (n2w n):'a word ∧ n < dimword (:α)) clks ∧
+    EVERY (λ(t,c). 0w ≤ (n2w t):'a word ∧ t < dimword (:α)) wt ∧
     equiv_val s.clocks clks clkvals ∧
     valid_clks clks tclks wt ∧
     t.clock ≠ 0 ∧ (toString dest) IN FDOM t.code ⇒
@@ -725,7 +780,29 @@ Proof
       match_mp_tac EL_MAP >>
       fs []) >>
     fs [Abbr ‘ff’]) >>
-   cheat (* for tomorrow *)) >>
+   fs [EVERY_MAP, EVERY_MEM] >>
+   gen_tac >>
+   strip_tac >>
+   cases_on ‘x’ >>
+   fs [evalDiff_def, evalExpr_def] >>
+   cases_on ‘MEM r tclks’
+   >- (
+    drule reset_clks_mem_flookup_zero >>
+    disch_then (qspec_then ‘s.clocks’ assume_tac) >>
+    fs [] >>
+    fs [minusT_def] >>
+    first_x_assum (qspec_then ‘(q,r)’ mp_tac) >>
+    fs []) >>
+   rfs [valid_clks_def] >>
+   rfs [EVERY_MEM] >>
+   ‘MEM r clks’ by cheat >>
+   res_tac >> rfs [] >>
+   drule reset_clks_not_mem_flookup_same >>
+   disch_then (qspec_then ‘tclks’ mp_tac) >>
+   rfs [] >>
+   strip_tac >>
+   fs [minusT_def] >>
+   cheat (* should be easy *)) >>
   strip_tac >> fs [] >>
   ‘es ≠ []’ by fs [Abbr ‘wt’, Abbr ‘es’] >>
   fs [] >>
@@ -735,17 +812,19 @@ Proof
   rfs [FDOM_FLOOKUP] >>
   rfs [] >>
   fs [panLangTheory.size_of_shape_def, panSemTheory.shape_of_def] >>
-  fs [MAP_MAP_o]
-
-
-
-
-
-
-  ‘SUM
-   (MAP (λa. size_of_shape a)
-    (MAP (λa. shape_of a) (resetClksVals s.clocks clks tclks))) +
-   3 ≤ 32’ by cheat >>
+  fs [MAP_MAP_o] >>
+  qmatch_asmsub_abbrev_tac ‘SUM ss’ >>
+  ‘ss =
+   MAP ((λa. size_of_shape a) ∘ (λa. shape_of a)) clkvals’ by (
+    fs [Abbr ‘ss’] >>
+    match_mp_tac shape_of_resetClksVals_eq >>
+    rfs [equiv_val_def] >>
+    fs [EVERY_MEM] >>
+    rw [] >>
+    fs [MEM_MAP]) >>
+  rfs [clk_range_def] >>
+  qmatch_asmsub_abbrev_tac ‘ss = tt’ >>
+  ‘SUM ss + 3 ≤ 32’ by fs [ETA_AX] >>
   fs [] >>
   pop_assum kall_tac >>
   fs [empty_locals_def] >>
@@ -754,6 +833,18 @@ Proof
   fs [retVal_def] >>
   fs [calculate_wtime_def]
 QED
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
