@@ -421,15 +421,29 @@ Proof
   every_case_tac >> fs [] >>
   fs [addressTheory.WORD_CMP_NORMALISE]
   >- (
-    ‘h' = n’ by cheat >>
-    fs [])
+    qsuff_tac ‘h' = n’ >- fs [] >>
+    qsuff_tac ‘h' ≤ n ∧ n ≤ h'’ >- fs [] >>
+    rfs [n2w_le])
   >- (
-    ‘x ≤ h'’ by cheat >>
-    fs []) >>
-  ‘h' = n’ by cheat >>
-  rveq >>
-  ‘x ≤ h'’ by cheat >>
-  fs []
+    drule list_min_option_some_mem >>
+    strip_tac >>
+    fs [EVERY_MEM] >>
+    first_x_assum (qspec_then ‘x’ mp_tac) >>
+    impl_tac >- fs [] >>
+    strip_tac >>
+    ‘x ≤ n’ by rfs [GSYM n2w_le] >>
+    qsuff_tac ‘n < x’ >- fs [] >>
+    rfs [n2w_lt]) >>
+  drule list_min_option_some_mem >>
+  strip_tac >>
+  fs [EVERY_MEM] >>
+  first_x_assum (qspec_then ‘x’ mp_tac) >>
+  impl_tac >- fs [] >>
+  strip_tac >>
+  rfs [n2w_lt, n2w_le] >>
+  ‘h' = n’ by fs [] >> rveq >>
+  qsuff_tac ‘x ≤ h'’ >- fs []  >>
+  metis_tac [GSYM n2w_le]
 QED
 
 
