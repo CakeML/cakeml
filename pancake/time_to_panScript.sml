@@ -19,32 +19,9 @@ Definition ffiBufferSize_def:
   ffiBufferSize = 16w:'a word
 End
 
-(*
-  trying to define it as a map instead of genlist,
-  for easier reasoning
-
-Definition emptyConsts_def:
-  emptyConsts n = GENLIST (λ_. Const 0w) n
-End
-*)
 
 Definition emptyConsts_def:
   emptyConsts xs = MAP (λ_. Const 0w) xs
-End
-
-Definition genShape_def:
-  genShape n = Comb (GENLIST (λn. One) n)
-End
-
-(*
-Definition destruct_def:
-  destruct e xs =
-    MAP (λx. Field x e) xs
-End
-*)
-
-Definition mkStruct_def:
-  mkStruct n vname = Struct (GENLIST (λ_. Var vname) n)
 End
 
 
@@ -72,14 +49,14 @@ End
 Definition minOp_def:
   (minOp v [] = Skip) ∧
   (minOp v (e::es) =
-    Seq (If (Cmp Less e (Var v)) (Assign v e) Skip)
+    Seq (If (Cmp Lower e (Var v)) (Assign v e) Skip)
         (minOp v es))
 End
 
 
-Definition min_exp_def:
-  (min_exp v [] = Skip) ∧
-  (min_exp v (e::es) = Seq (Assign v e) (minOp v es))
+Definition minExp_def:
+  (minExp v [] = Skip) ∧
+  (minExp v (e::es) = Seq (Assign v e) (minOp v es))
 End
 
 
@@ -88,13 +65,13 @@ Definition compTerm_def:
   let waitClks = indicesOf clks (MAP SND wt);
       return   = Return
                  (Struct
-                  [Var «resetClks»; Var «waitSet»;
+                  [Var «newClks»;  Var «waitSet»;
                    Var «wakeUpAt»; Label (toString loc)])
   in
     decs [
         («waitSet»,   case wt of [] => Const 0w | wt => Const 1w);
         («wakeUpAt»,  Const 0w);
-        («resetClks», Struct (resetClocks «clks» clks tclks));
+        («newClks»,   Struct (resetClocks «clks» clks tclks));
         («waitTimes», Struct (emptyConsts wt))
       ]
          (nested_seq
@@ -102,9 +79,8 @@ Definition compTerm_def:
                   (Struct (
                     waitTimes
                      (MAP FST wt)
-                     (MAP (λn. Field n (Var «resetClks»)) waitClks)));
-           min_exp «wakeUpAt» (MAPi (λn wt. Field n (Var «waitTimes»)) wt);
-           (* for easier reasoning *)
+                     (MAP (λn. Field n (Var «newClks»)) waitClks)));
+           minExp «wakeUpAt» (MAPi (λn wt. Field n (Var «waitTimes»)) wt);
            case io of
            | (Input insig)   => return
            | (Output outsig) =>
@@ -120,134 +96,112 @@ Definition compTerm_def:
 End
 
 
+Definition compExp_def:
+  (compExp _ _ (ELit t) = Const (n2w t)) ∧
+  (compExp clks vname (EClock clk) =
+     Field (findi clk clks) (Var vname)) ∧
+  (compExp clks vname (ESub e1 e2) =
+     Op Sub [compExp clks vname e1;
+             compExp clks vname e2])
+End
+
+
+Definition compCondition_def:
+  (compCondition clks vname (CndLt e1 e2) =
+     Cmp Lower
+         (compExp clks vname e1)
+         (compExp clks vname e2)) ∧
+  (compCondition clks vname (CndLe e1 e2) =
+     Op Or [Cmp Lower
+                (compExp clks vname e1)
+                (compExp clks vname e2);
+            Cmp Equal
+                (compExp clks vname e1)
+                (compExp clks vname e2)])
+End
+
+
+Definition compConditions_def:
+  (compConditions clks vname [] = Const 1w) ∧
+  (compConditions clks vname cs =
+     Op And (MAP (compCondition clks vname) cs))
+End
+
+
+Definition compTerms_def:
+  (compTerms clks vname [] = Skip) ∧
+  (compTerms clks vname (t::ts) =
+   let cds = termConditions t
+   in
+   If (compConditions clks vname cds)
+      (compTerm clks t)
+      (compTerms clks vname ts))
+End
+
+
 
 (*
-Definition toNum_def:
-  (toNum NONE     = 0:num) ∧
-  (toNum (SOME n) = n)
+(* REPLICATE *)
+Definition genShape_def:
+  genShape n = Comb (GENLIST (λn. One) n)
 End
 
-
-Definition flipEnum_def:
-  (flipEnum (n:num) [] = []) ∧
-  (flipEnum n (x::xs) = (x,n) :: flipEnum (n+1) xs)
-End
-
-
-Definition indiceOf_def:
-  indiceOf xs = toNum o (ALOOKUP (flipEnum 0 xs))
-End
-
-
-Definition indicesOf_def:
-  indicesOf xs ys = MAP (indiceOf xs) ys
-End
-
-
-Definition resetClocks_def:
-  resetClocks v n ns =
-  MAPi (λn e.
-         if (MEM n ns)
-         then (Const 0w)
-         else Field n (Var v))
-       (GENLIST I n)
-End
-
-Definition minOf_def:
-  (minOf v [] = Skip) ∧
-  (minOf v (e::es) = Seq (Assign v e) (minOf' v es)) ∧
-
-  (minOf' v [] = minOf v []) ∧ (* to enable m. defs *)
-  (minOf' v (e::es) =
-    Seq (If (Cmp Less e (Var v)) (Assign v e) Skip)
-        (minOf' v es))
-Termination
-  cheat
+(*
+Definition destruct_def:
+  destruct e xs =
+    MAP (λx. Field x e) xs
 End
 *)
 
+Definition mkStruct_def:
+  mkStruct n vname = Struct (GENLIST (λ_. Var vname) n)
+End
+
+
 
 
 (*
-Definition minOf_def:
-  (minOf v _ [] = Skip) ∧
-  (minOf v n (e::es) =
-   if n = 0 then
-     Seq (Assign v e)
-         (minOf v (SUC 0) es)
-  else
-    Seq (If (Cmp Less e (Var v)) (Assign v e) Skip)
-        (minOf v n es))
-End
-
-Definition minOf_def:
-  (minOf v _ [] = Skip) ∧
-  (minOf v 0 (e::es) =
-    Seq (Assign v e)
-        (minOf v (SUC 0) es)) ∧
-  (minOf v n (e::es) =
-    Seq (If (Cmp Less e (Var v)) (Assign v e) Skip)
-        (minOf v n es))
-End
-
-Definition minOf_def:
-  (minOf v ([]:'a exp list) = Skip) ∧
-  (minOf v (e::es) =
-    Seq (If (Cmp Less e (Var v))
-         (Assign v e) Skip)
-        (minOf v es))
-End
-
-(* («wakeUpAt»,  Const (n2w (2 ** dimindex (:α)))); *)
-
+  FLOOKUP t.locals «clks» = SOME (Struct clkvals)
+  toString dest IN FDOM t.code
 *)
 
-
-(*
-
-
-
-
-
-
-
-(*
-Definition compTerm_def:
-  compTerm (clks:mlstring list) (Tm io cnds tclks loc wt) =
-  let n = LENGTH clks;
-      termClks = indicesOf clks tclks;
-      waitClks = indicesOf clks (MAP SND wt);
-      return   = Return
-                 (Struct
-                  [Var «resetClks»; Var «waitSet»;
-                   Var «wakeUpAt»; Label (toString loc)])
-  in
-    decs [
-        («waitSet»,   case tclks of [] => Const 0w | _ => Const 1w);
-        («wakeUpAt»,  Const (-1w));
-        («refTime» ,  mkStruct n «sysTime»);
-        («normClks»,  Op Sub [Var «clks»; Var «refTime»]);
-        («resetClks», Struct (resetClocks «normClks» n termClks))
-      ]
-         (nested_seq
-          [minOf «wakeUpAt» (waitTimes (MAP FST wt)
-                             (MAP (λn. Field n (Var «resetClks»)) waitClks));
-           Assign «wakeUpAt» (Op Add [Var «wakeUpAt»; Var «sysTime»]);
-           Assign «resetClks» (Op Add [Var «resetClks»; Var «refTime»]);
-           case io of
-           | (Input insig)   => return
-           | (Output outsig) =>
-               decs
-               [(«ptr1»,Const 0w);
-                («len1»,Const 0w);
-                («ptr2»,Const ffiBufferAddr);
-                («len2»,Const ffiBufferSize)
-               ] (Seq
-                  (ExtCall (strlit (toString outsig)) «ptr1» «len1» «ptr2» «len2»)
-                  return)
-          ])
+Definition comp_terms_def:
+  (comp_terms fcomp (vname,clks:mlstring list) [] = Skip) ∧
+  (comp_terms fcomp (vname,clks) (t::ts) =
+   let cds = conditions_of t
+   in
+   If (comp_conditions (vname, clks) cds)
+      (fcomp clks t)
+      (comp_terms fcomp (vname,clks) ts))
 End
-*)
+
+
+
+
+
+
+
+Definition comp_location_def:
+  comp_location clks (loc, ts) =
+  let n = LENGTH clks in
+    (toString loc,
+     [(«clks», gen_shape n)],
+     comp_terms comp_term («clks»,clks) ts)
+End
+
+
+Definition comp_prog_def:
+  (comp_prog clks [] = []) ∧
+  (comp_prog clks (p::ps) =
+     comp_location clks p :: comp_prog clks ps)
+End
+
+
+Definition comp_def:
+  comp prog =
+    comp_prog (clks_of prog) prog
+End
+
 
 
 (*
@@ -275,13 +229,6 @@ Definition comp_exp_def:
 End
 
 (* compile conditions of time *)
-Definition comp_condition_def:
-  (comp_condition var (CndLt e1 e2) =
-    Cmp Less (comp_exp var e1) (comp_exp var e2)) ∧
-  (comp_condition var (CndLe e1 e2) =
-    Op Or [Cmp Less  (comp_exp var e1) (comp_exp var e2);
-           Cmp Equal (comp_exp var e1) (comp_exp var e2)])
-End
 
 (*
    TODISC:
@@ -383,38 +330,6 @@ Definition comp_term_def:
           ])
 End
 
-
-Definition comp_terms_def:
-  (comp_terms fcomp (vname,clks:mlstring list) [] = Skip) ∧
-  (comp_terms fcomp (vname,clks) (t::ts) =
-   let cds = conditions_of t
-   in
-   If (comp_conditions (vname, clks) cds)
-      (fcomp clks t)
-      (comp_terms fcomp (vname,clks) ts))
-End
-
-
-Definition comp_location_def:
-  comp_location clks (loc, ts) =
-  let n = LENGTH clks in
-    (toString loc,
-     [(«sys_time», One); («clks», gen_shape n)],
-     comp_terms comp_term («clks»,clks) ts)
-End
-
-
-Definition comp_prog_def:
-  (comp_prog clks [] = []) ∧
-  (comp_prog clks (p::ps) =
-   comp_location clks p :: comp_prog clks ps)
-End
-
-
-Definition comp_def:
-  comp prog =
-    comp_prog (clks_of prog) prog
-End
 
 
 (*
@@ -519,6 +434,6 @@ Definition start_controller_def:
 End
 
 *)
-*)
 
+*)
 val _ = export_theory();

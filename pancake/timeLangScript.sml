@@ -59,40 +59,40 @@ Type program = ``:(loc # term list) list``
 Type program = ``:(loc # term list) list # time option``
 
 (* functions for compiler *)
-Definition conditions_of_def:
-  (conditions_of (Tm _ cs _ _ _) = cs)
+Definition termConditions_def:
+  (termConditions (Tm _ cs _ _ _) = cs)
 End
 
-Definition clks_of_term_def:
-  clks_of_term (Tm _ _ clks _ _) = clks
+Definition termClks_def:
+  termClks (Tm _ _ clks _ _) = clks
 End
 
-Definition clks_accum_def:
-  (clks_accum ac [] = ac) ∧
-  (clks_accum ac (clk::clks) =
+Definition accumClks_def:
+  (accumClks ac [] = ac) ∧
+  (accumClks ac (clk::clks) =
    if MEM clk ac
-   then clks_accum ac clks
-   else clks_accum (clk::ac) clks)
+   then accumClks ac clks
+   else accumClks (clk::ac) clks)
 End
 
-Definition clks_of_def:
-  clks_of prog =
+Definition clksOf_def:
+  clksOf prog =
   let tms = FLAT (MAP SND prog) in
-     clks_accum [] (FLAT (MAP clks_of_term tms))
+     accumClks [] (FLAT (MAP termClks tms))
 End
 
-Definition number_of_clks_def:
-  number_of_clks prog = LENGTH (clks_of prog)
+Definition nClks_def:
+  nClks prog = LENGTH (clksOf prog)
 End
 
 
-Definition tinv_of_def:
-  tinv_of (Tm _ _ _ _ tes) = MAP FST tes
+Definition termInvs_def:
+  termInvs (Tm _ _ _ _ tes) = MAP FST tes
 End
 
-Definition init_term_of_def:
-  (init_term_of (t::ts) = t) ∧
-  (init_term_of [] = [])
+Definition initTerm_def:
+  (initTerm (t::ts) = t) ∧
+  (initTerm [] = [])
 End
 
 (*
@@ -102,18 +102,18 @@ Definition init_term_of_def:
 End
 *)
 
-Definition init_loc_def:
-  init_loc = 0:num
+Definition initLoc_def:
+  initLoc = 0:num
 End
 
-Definition wait_set_def:
-  (wait_set (Tm _ _ _ _ []) = 0:num) ∧
-  (wait_set _ = 1:num)
+Definition waitSet_def:
+  (waitSet (Tm _ _ _ _ []) = 0:num) ∧
+  (waitSet _ = 1:num)
 End
 
-Definition input_set_def:
-  (input_set (Tm _ _ _ _ []) = 1:num) ∧
-  (input_set _ = 0:num)
+Definition inputSet_def:
+  (inputSet (Tm _ _ _ _ []) = 1:num) ∧
+  (inputSet _ = 0:num)
 End
 
 
