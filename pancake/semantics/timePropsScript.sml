@@ -13,6 +13,16 @@ val _ = set_grammar_ancestry
          "pan_commonProps"];
 
 
+Theorem eval_term_inpput_ios_same:
+  ∀s m n cnds tclks dest wt s'.
+    evalTerm s (SOME m) (Tm (Input n) cnds tclks dest wt) s' ⇒
+    m = n
+Proof
+  rw [] >>
+  fs [evalTerm_cases]
+QED
+
+
 Theorem list_min_option_some_mem:
   ∀xs x.
     list_min_option xs = SOME x ⇒
@@ -22,7 +32,6 @@ Proof
   fs [list_min_option_def] >>
   every_case_tac >> fs [] >> rveq >> rfs []
 QED
-
 
 
 Theorem fdom_reset_clks_eq_clks:

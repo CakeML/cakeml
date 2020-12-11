@@ -47,9 +47,27 @@ Definition retVal_def:
 End
 
 
-Definition clk_range_def:
-  clk_range clks ⇔
+Definition clk_vals_range_def:
+  clk_vals_range clks ⇔
     SUM (MAP (size_of_shape o shape_of) clks) ≤ 29
+End
+
+
+(* n is there to make 'a appear *)
+Definition clk_range_def:
+  clk_range fm clks (n:'a word) ⇔
+    EVERY
+      (λck. ∃n. FLOOKUP fm ck = SOME n ∧
+                0w ≤ (n2w n):'a word ∧
+                n < dimword (:'a)) clks
+End
+
+
+Definition time_range_def:
+  time_range wt (n:'a word) ⇔
+    EVERY (λ(t,c).
+            0w ≤ (n2w t):'a word ∧
+            t < dimword (:α)) wt
 End
 
 
@@ -202,17 +220,17 @@ Proof
 QED
 
 
-Theorem clk_range_reset_clks_eq:
+Theorem clk_vals_range_reset_clks_eq:
   ∀s clks (clkvals:α v list) tclks.
     EVERY (λck. ck IN FDOM s.clocks) clks ∧
     equiv_val s.clocks clks clkvals ∧
-    clk_range clkvals  ⇒
-    clk_range ((resetClksVals s.clocks clks tclks):α v list)
+    clk_vals_range clkvals  ⇒
+    clk_vals_range ((resetClksVals s.clocks clks tclks):α v list)
 Proof
   rw [] >>
   fs [resetClksVals_def] >>
   fs [equiv_val_def] >> rveq >> fs [] >>
-  fs [clk_range_def] >>
+  fs [clk_vals_range_def] >>
   fs [MAP_MAP_o] >>
   fs [SUM_MAP_FOLDL] >>
   qmatch_asmsub_abbrev_tac ‘FOLDL ff _ _’ >>
@@ -695,11 +713,9 @@ Theorem comp_input_term_correct:
     evalTerm s (SOME n)
              (Tm (Input n) cnds tclks dest wt) s' ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    clk_range clkvals ∧
-    EVERY
-      (λck. ∃n. FLOOKUP s.clocks ck = SOME n ∧
-                0w ≤ (n2w n):'a word ∧ n < dimword (:α)) clks ∧
-    EVERY (λ(t,c). 0w ≤ (n2w t):'a word ∧ t < dimword (:α)) wt ∧
+    clk_vals_range clkvals ∧
+    clk_range s.clocks clks (0w:'a word) ∧
+    time_range wt (0w:'a word) ∧
     equiv_val s.clocks clks clkvals ∧
     valid_clks clks tclks wt ∧
     t.clock ≠ 0 ∧ (toString dest) IN FDOM t.code ⇒
@@ -710,6 +726,7 @@ Theorem comp_input_term_correct:
 Proof
   rpt gen_tac >>
   strip_tac >>
+  fs [clk_range_def, time_range_def] >>
   drule every_conj_spec >>
   strip_tac >>
   drule eval_term_clkvals_equiv_reset_clkvals >>
@@ -759,10 +776,10 @@ Proof
    rfs [] >>
    fs [panSemTheory.shape_of_def, panLangTheory.size_of_shape_def] >>
    fs [GSYM FDOM_FLOOKUP] >>
-   drule clk_range_reset_clks_eq >>
+   drule clk_vals_range_reset_clks_eq >>
    disch_then (qspecl_then [‘clkvals’, ‘tclks’] mp_tac) >>
    fs [] >> strip_tac >>
-   fs [clk_range_def, MAP_MAP_o, ETA_AX] >>
+   fs [clk_vals_range_def, MAP_MAP_o, ETA_AX] >>
    pop_assum kall_tac >>
    rveq >> fs [] >> rfs [] >> rveq >> fs [] >>
    fs [empty_locals_def, retVal_def] >>
@@ -952,7 +969,7 @@ Proof
     fs [EVERY_MEM] >>
     rw [] >>
     fs [MEM_MAP]) >>
-  rfs [clk_range_def] >>
+  rfs [clk_vals_range_def] >>
   qmatch_asmsub_abbrev_tac ‘ss = tt’ >>
   ‘SUM ss + 3 ≤ 32’ by fs [ETA_AX] >>
   fs [] >>
@@ -1000,11 +1017,9 @@ Theorem comp_output_term_correct:
     evalTerm s NONE
              (Tm (Output out) cnds tclks dest wt) s' ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    clk_range clkvals ∧
-    EVERY
-      (λck. ∃n. FLOOKUP s.clocks ck = SOME n ∧
-                0w ≤ (n2w n):'a word ∧ n < dimword (:α)) clks ∧
-    EVERY (λ(t,c). 0w ≤ (n2w t):'a word ∧ t < dimword (:α)) wt ∧
+    clk_vals_range clkvals ∧
+    clk_range s.clocks clks (0w:'a word) ∧
+    time_range wt (0w:'a word) ∧
     equiv_val s.clocks clks clkvals ∧
     valid_clks clks tclks wt ∧
     t.clock ≠ 0 ∧ (toString dest) IN FDOM t.code ∧
@@ -1020,6 +1035,7 @@ Theorem comp_output_term_correct:
 Proof
   rpt gen_tac >>
   strip_tac >>
+  fs [clk_range_def, time_range_def] >>
   drule every_conj_spec >>
   strip_tac >>
   drule eval_term_clkvals_equiv_reset_clkvals >>
@@ -1097,10 +1113,10 @@ Proof
    rfs [] >>
    fs [panSemTheory.shape_of_def, panLangTheory.size_of_shape_def] >>
    fs [GSYM FDOM_FLOOKUP] >>
-   drule clk_range_reset_clks_eq >>
+   drule clk_vals_range_reset_clks_eq >>
    disch_then (qspecl_then [‘clkvals’, ‘tclks’] mp_tac) >>
    fs [] >> strip_tac >>
-   fs [clk_range_def, MAP_MAP_o, ETA_AX] >>
+   fs [clk_vals_range_def, MAP_MAP_o, ETA_AX] >>
    pop_assum kall_tac >>
    rveq >> fs [] >> rfs [] >> rveq >> fs [] >>
    fs [empty_locals_def, retVal_def] >>
@@ -1349,7 +1365,7 @@ Proof
     fs [EVERY_MEM] >>
     rw [] >>
     fs [MEM_MAP]) >>
-  rfs [clk_range_def] >>
+  rfs [clk_vals_range_def] >>
   qmatch_asmsub_abbrev_tac ‘ss = tt’ >>
   ‘SUM ss + 3 ≤ 32’ by fs [ETA_AX] >>
   fs [] >>
@@ -1362,6 +1378,49 @@ Proof
   fs [nffi_state_def]
 QED
 
+
+Theorem comp_term_correct:
+  ∀s io ioAct cnds tclks dest wt s' t (clkvals:'a v list) clks.
+    evalTerm s io
+             (Tm ioAct cnds tclks dest wt) s' ∧
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    clk_vals_range clkvals ∧
+    clk_range s.clocks clks (0w:'a word) ∧
+    time_range wt (0w:'a word) ∧
+    equiv_val s.clocks clks clkvals ∧
+    valid_clks clks tclks wt ∧
+    t.clock ≠ 0 ∧ (toString dest) IN FDOM t.code ⇒
+    case (io,ioAct) of
+     | (SOME _,Input n) =>
+         evaluate (compTerm clks (Tm (Input n) cnds tclks dest wt), t) =
+         (SOME (Return (retVal s clks tclks wt dest)),
+          t with locals :=
+          restore_from t FEMPTY [«waitTimes»; «resetClks»; «wakeUpAt»; «waitSet»])
+     | (NONE, Output out) =>
+         (∀nffi nbytes bytes.
+            well_behaved_ffi (strlit (toString out)) t nffi nbytes bytes (dimword (:α)) ⇒
+            evaluate (compTerm clks (Tm (Output out) cnds tclks dest wt), t) =
+            (SOME (Return (retVal s clks tclks wt dest)),
+             t with
+               <|locals :=
+                 restore_from t FEMPTY [«len2»; «ptr2»; «len1»; «ptr1»;
+                                        «waitTimes»; «resetClks»; «wakeUpAt»; «waitSet»];
+                 memory := write_bytearray 4000w nbytes t.memory t.memaddrs t.be;
+                 ffi := nffi_state t nffi out bytes nbytes|>))
+     | (_,_) => F
+Proof
+  rw [] >>
+  cases_on ‘ioAct’ >>
+  cases_on ‘io’ >>
+  fs [] >>
+  TRY (fs[evalTerm_cases] >> NO_TAC)
+  >- (
+    drule eval_term_inpput_ios_same >>
+    strip_tac >> rveq >>
+    imp_res_tac comp_input_term_correct) >>
+  imp_res_tac comp_output_term_correct
+
+QED
 
 
 val _ = export_theory();
