@@ -16,6 +16,7 @@ val _ = set_grammar_ancestry["stack_rawcall","stackLang","stackSem","stackProps"
 Overload good_dimindex[local] = ``labProps$good_dimindex``
 Overload comp[local] = ``stack_rawcall$comp``
 Overload compile[local] = ``stack_rawcall$compile``
+Type prog[pp] = “:α stackLang$prog”
 
 Definition state_ok_def:
   state_ok i code <=>
@@ -157,6 +158,8 @@ Proof
    (rename [`Get`] \\ simple_case)
   THEN1
    (rename [`Set`] \\ simple_case)
+  THEN1
+   (rename [`OpCurrHeap`] \\ simple_case)
   THEN1
    (rename [`Tick`] \\ simple_case)
   THEN1
@@ -939,27 +942,5 @@ Proof
   \\ Cases_on `lookup dest i` \\ fs []  \\ rw []
   \\ simp [stack_get_handler_labels_def]
 QED
-
-(*
-Theorem get_code_labels_comp:
-  !i p.
-    get_code_labels (comp i p) = get_code_labels p /\
-    get_code_labels (comp_top i p) = get_code_labels p
-Proof
-  recInduct comp_ind \\ rpt gen_tac \\ strip_tac
-  \\ Cases_on `p` \\ fs [] \\ simp [comp_top_def]
-  \\ simp [Once comp_def]
-  \\ TRY (fs [get_code_labels_def] \\ NO_TAC)
-  THEN1 (every_case_tac \\ fs [get_code_labels_def])
-  \\ reverse conj_asm2_tac THEN1 fs [get_code_labels_def]
-  \\ rename [`comp_seq p1 p2`]
-  \\ Cases_on `comp_seq p1 p2 i (Seq (comp i p1) (comp i p2)) =
-               Seq (comp i p1) (comp i p2)` \\ simp []
-  \\ drule comp_seq_neq_IMP \\ strip_tac \\ rveq \\ fs []
-  \\ fs [comp_seq_def,dest_case_def,CaseEq"option",CaseEq"bool"]
-  \\ Cases_on `lookup dest i` \\ fs []  \\ rw []
-  \\ simp [get_code_labels_def]
-QED
-*)
 
 val _ = export_theory();

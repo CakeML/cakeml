@@ -438,7 +438,9 @@ Theorem data_to_bvi_do_app:
        res = data_to_bvi_v pres ∧
        state_rel s1 s2
 Proof
-  Cases_on `op`
+  strip_tac
+  \\ ‘∃this_is_case. this_is_case op’ by (qexists_tac ‘K T’ \\ fs [])
+  \\ Cases_on `op`
   \\ ntac 2 (fs [ do_app_aux_def
                 , bvlSemTheory.do_app_def
                 , bviSemTheory.do_app_def
@@ -493,6 +495,13 @@ Proof
         ,FLOOKUP_UPDATE
         ,data_to_bvi_v_Unit
         ,data_to_bvi_v_Boolv]
+  >- (qpat_x_assum ‘SOME _ = _’ (assume_tac o GSYM) \\ fs []
+      \\ Cases_on ‘z’ \\ fs [data_to_bvi_ref_def] \\ gvs [] \\ gs [EL_MAP])
+  >- (qpat_x_assum ‘SOME _ = _’ (assume_tac o GSYM) \\ fs []
+      \\ Cases_on ‘z’ \\ fs [data_to_bvi_ref_def] \\ gvs []
+      \\ gs [EL_MAP,lookup_insert]
+      \\ conj_tac THEN1 EVAL_TAC
+      \\ rw [] \\ fs [data_to_bvi_ref_def,LUPDATE_MAP])
   >- METIS_TAC [data_to_bvi_v_def]
   >- (Cases_on `z`
      \\ Cases_on `t.tstamps`
@@ -504,6 +513,8 @@ Proof
   >- (`Num i < LENGTH l`
       by ((drule o GEN_ALL o GSYM) integerTheory.NUM_LT \\ strip_tac \\ fs [])
       \\ Cases_on `z` \\ fs [data_to_bvi_ref_def]
+      \\ rw [EL_MAP] \\ fs [] \\ rw [EL_MAP] \\ fs [])
+  >- (Cases_on `z` \\ fs [data_to_bvi_ref_def]
       \\ rw [EL_MAP] \\ fs [] \\ rw [EL_MAP] \\ fs [])
   >- (Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def])
   >- (Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def])

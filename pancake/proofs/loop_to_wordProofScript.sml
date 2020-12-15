@@ -42,7 +42,6 @@ Definition state_rel_def:
     code_rel s.code t.code
 End
 
-(* TOASK: l is only being used in comp? *)
 val goal =
   ``λ(prog, s). ∀res s1 t ctxt retv l.
       evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
@@ -683,7 +682,6 @@ Proof
          >> conj_tac >- fs [lookup_fromList2,lookup_fromList]
          >> simp [Abbr‘ctxt2’,domain_make_ctxt,set_fromNumSet,
                   domain_difference,domain_toNumSet]
-         >> reverse conj_tac >- fs [SUBSET_DEF]
          >> match_mp_tac locals_rel_make_ctxt
          >> fs [IN_DISJOINT,set_fromNumSet,domain_difference,
                 domain_toNumSet,GSYM IMP_DISJ_THM])
@@ -697,7 +695,6 @@ Proof
        >> conj_tac >- fs [lookup_fromList2,lookup_fromList]
        >> simp [Abbr‘ctxt2’,domain_make_ctxt,set_fromNumSet,
                 domain_difference,domain_toNumSet]
-       >> reverse conj_tac >- fs [SUBSET_DEF]
        >> match_mp_tac locals_rel_make_ctxt
        >> fs [IN_DISJOINT,set_fromNumSet,domain_difference,
               domain_toNumSet,GSYM IMP_DISJ_THM])
@@ -752,7 +749,6 @@ Proof
        >> conj_tac >- fs [lookup_fromList2,lookup_fromList]
        >> simp [Abbr‘ctxt2’,domain_make_ctxt,set_fromNumSet,
                 domain_difference,domain_toNumSet]
-       >> reverse conj_tac >- fs [SUBSET_DEF]
        >> match_mp_tac locals_rel_make_ctxt
        >> fs [IN_DISJOINT,set_fromNumSet,domain_difference,
               domain_toNumSet,GSYM IMP_DISJ_THM])
@@ -766,7 +762,6 @@ Proof
      >> conj_tac >- fs [lookup_fromList2,lookup_fromList]
      >> simp [Abbr‘ctxt2’,domain_make_ctxt,set_fromNumSet,
               domain_difference,domain_toNumSet]
-     >> reverse conj_tac >- fs [SUBSET_DEF]
      >> match_mp_tac locals_rel_make_ctxt
      >> fs [IN_DISJOINT,set_fromNumSet,domain_difference,
             domain_toNumSet,GSYM IMP_DISJ_THM])
@@ -881,67 +876,65 @@ Proof
     >> pop_assum mp_tac >> rewrite_tac [IMP_DISJ_THM]
     >> IF_CASES_TAC >> fs []
     >> fs [Abbr‘tt’] >> metis_tac [])
+  >> qpat_x_assum ‘∀x. _’ (assume_tac o REWRITE_RULE [IMP_DISJ_THM])
+  >> rename [‘loopSem$set_var hvar w _’]
+  >> Cases_on ‘evaluate (x1',set_var hvar w (st with locals := inter s.locals x1))’
+  >> fs []
+  >> Cases_on ‘q = SOME Error’ >- fs [cut_res_def] >> fs []
+  >> fs [pop_env_def,Abbr‘tt’] >> fs [call_env_def,push_env_def]
+  >> rename [‘SOME (find_var _ _,p1,l8)’]
+  >> PairCases_on ‘l8’ >> fs [call_env_def,push_env_def]
+  >> pairarg_tac >> fs [dec_clock_def,loopSemTheory.dec_clock_def]
+  >> pop_assum mp_tac
+  >> pairarg_tac >> fs [dec_clock_def,loopSemTheory.dec_clock_def]
+  >> Cases_on ‘res1’ >> fs [] >> rveq >> fs []
+  >> qpat_x_assum ‘∀x. _’ mp_tac
+  >> simp [jump_exc_def]
+  >> qmatch_goalsub_abbrev_tac ‘LASTN n1 xs1’
+  >> ‘LASTN n1 xs1 = xs1’  by
+    (qsuff_tac ‘n1 = LENGTH xs1’ >> fs [LASTN_LENGTH_ID]
+     >> unabbrev_all_tac >> fs [])
+  >> fs [] >> fs [Abbr‘n1’,Abbr‘xs1’] >> strip_tac >> rveq >> fs []
+  >> ‘t1.locals = fromAList l ∧
+      t1.stack = t.stack ∧ t1.handler = t.handler’ by fs [state_component_equality]
+  >> reverse IF_CASES_TAC >- (imp_res_tac env_to_list_IMP >> fs [] >> rfs [])
+  >> strip_tac >> fs []
+  >> pop_assum mp_tac >> fs [set_var_def]
+  >> fs [cut_res_def]
+  >> qmatch_goalsub_abbrev_tac ‘wordSem$evaluate (_,tt)’ >> strip_tac
+  >> first_x_assum (qspecl_then [‘tt’,‘ctxt’,‘retv’,‘(l0,l1 + 1)’] mp_tac)
+  >> impl_tac >-
+   (fs [loopSemTheory.set_var_def,state_rel_def,Abbr‘tt’]
+    >> qpat_x_assum ‘_ SUBSET domain ctxt’ mp_tac
+    >> simp [loopLangTheory.acc_vars_def]
+    >> once_rewrite_tac [acc_vars_acc]
+    >> once_rewrite_tac [acc_vars_acc] >> fs [] >> strip_tac
+    >> qpat_x_assum ‘no_Loops (Call _ _ _ _)’ mp_tac
+    >> simp [no_Loops_def,every_prog_def,no_Loop_def] >> strip_tac
+    >> imp_res_tac env_to_list_IMP >> fs []
+    >> fs [lookup_insert]
+    >> imp_res_tac find_var_neq_0 >> fs []
+    >> imp_res_tac cut_env_mk_new_cutset_IMP >> fs []
+    >> match_mp_tac locals_rel_insert >> fs [locals_rel_def])
+  >> fs [] >> strip_tac
+  >> Cases_on ‘q’ >> fs [] >> rveq >> fs []
   >-
-   (qpat_x_assum ‘∀x. _’ (assume_tac o REWRITE_RULE [IMP_DISJ_THM])
-    >> rename [‘loopSem$set_var hvar w _’]
-    >> Cases_on ‘evaluate (x1',set_var hvar w (st with locals := inter s.locals x1))’
-    >> fs []
-    >> Cases_on ‘q = SOME Error’ >- fs [cut_res_def] >> fs []
-    >> fs [pop_env_def,Abbr‘tt’] >> fs [call_env_def,push_env_def]
-    >> rename [‘SOME (find_var _ _,p1,l8)’]
-    >> PairCases_on ‘l8’ >> fs [call_env_def,push_env_def]
-    >> pairarg_tac >> fs [dec_clock_def,loopSemTheory.dec_clock_def]
-    >> pop_assum mp_tac
-    >> pairarg_tac >> fs [dec_clock_def,loopSemTheory.dec_clock_def]
-    >> Cases_on ‘res1’ >> fs [] >> rveq >> fs []
-    >> qpat_x_assum ‘∀x. _’ mp_tac
-    >> simp [jump_exc_def]
-    >> qmatch_goalsub_abbrev_tac ‘LASTN n1 xs1’
-    >> ‘LASTN n1 xs1 = xs1’  by
-       (qsuff_tac ‘n1 = LENGTH xs1’ >> fs [LASTN_LENGTH_ID]
-        >> unabbrev_all_tac >> fs [])
-    >> fs [] >> fs [Abbr‘n1’,Abbr‘xs1’] >> strip_tac >> rveq >> fs []
-    >> ‘t1.locals = fromAList l ∧
-        t1.stack = t.stack ∧ t1.handler = t.handler’ by fs [state_component_equality]
-    >> reverse IF_CASES_TAC >- (imp_res_tac env_to_list_IMP >> fs [] >> rfs [])
-    >> strip_tac >> fs []
-    >> pop_assum mp_tac >> fs [set_var_def]
-    >> fs [cut_res_def]
-    >> qmatch_goalsub_abbrev_tac ‘wordSem$evaluate (_,tt)’ >> strip_tac
-    >> first_x_assum (qspecl_then [‘tt’,‘ctxt’,‘retv’,‘(l0,l1 + 1)’] mp_tac)
-    >> impl_tac >-
-     (fs [loopSemTheory.set_var_def,state_rel_def,Abbr‘tt’]
-      >> qpat_x_assum ‘_ SUBSET domain ctxt’ mp_tac
-      >> simp [loopLangTheory.acc_vars_def]
-      >> once_rewrite_tac [acc_vars_acc]
-      >> once_rewrite_tac [acc_vars_acc] >> fs [] >> strip_tac
-      >> qpat_x_assum ‘no_Loops (Call _ _ _ _)’ mp_tac
-      >> simp [no_Loops_def,every_prog_def,no_Loop_def] >> strip_tac
-      >> imp_res_tac env_to_list_IMP >> fs []
-      >> fs [lookup_insert]
-      >> imp_res_tac find_var_neq_0 >> fs []
-      >> imp_res_tac cut_env_mk_new_cutset_IMP >> fs []
-      >> match_mp_tac locals_rel_insert >> fs [locals_rel_def])
-    >> fs [] >> strip_tac
-    >> Cases_on ‘q’ >> fs [] >> rveq >> fs []
-    >-
-     (rename [‘cut_state names s9’]
-      >> fs [loopSemTheory.cut_state_def]
-      >> Cases_on ‘domain names ⊆ domain s9.locals’ >> fs []
-      >> imp_res_tac state_rel_IMP >> fs []
-      >> IF_CASES_TAC
-      >> fs [flush_state_def] >> rveq >> fs [] >> fs [state_rel_def,dec_clock_def]
-      >> fs [loopSemTheory.dec_clock_def,Abbr‘tt’]
-      >> fs [locals_rel_def,lookup_inter_alt])
-    >> pop_assum (assume_tac o REWRITE_RULE [IMP_DISJ_THM])
-    >> Cases_on ‘x’ >> fs []
-    >- fs [Abbr‘tt’]
-    >> rveq >> fs []
-    >> pop_assum mp_tac
-    >> fs [Abbr‘tt’,jump_exc_def]
-    >> metis_tac [])
+   (rename [‘cut_state names s9’]
+    >> fs [loopSemTheory.cut_state_def]
+    >> Cases_on ‘domain names ⊆ domain s9.locals’ >> fs []
+    >> imp_res_tac state_rel_IMP >> fs []
+    >> IF_CASES_TAC
+    >> fs [flush_state_def] >> rveq >> fs [] >> fs [state_rel_def,dec_clock_def]
+    >> fs [loopSemTheory.dec_clock_def,Abbr‘tt’]
+    >> fs [locals_rel_def,lookup_inter_alt])
+  >> pop_assum (assume_tac o REWRITE_RULE [IMP_DISJ_THM])
+  >> Cases_on ‘x’ >> fs []
+  >- fs [Abbr‘tt’]
+  >> rveq >> fs []
+  >> pop_assum mp_tac
+  >> fs [Abbr‘tt’,jump_exc_def]
+  >> metis_tac []
 QED
-
 
 Theorem compile_FFI:
   ^(get_goal "loopLang$FFI")
@@ -979,7 +972,6 @@ Proof
   >> asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
-(* Proof for loop_to_word compiler *)
 Theorem state_rel_with_clock:
   state_rel s t ==>
   state_rel (s with clock := k) (t with clock := k)
@@ -1425,7 +1417,6 @@ Proof
   cases_on ‘r’ >> fs []
 QED
 
-
 Theorem lookup_prog_some_lookup_compile_prog:
   !prog name params body. lookup name (fromAList prog) = SOME (params,body) ==>
   lookup name (fromAList (compile_prog prog)) =
@@ -1440,7 +1431,6 @@ Proof
   fs [lookup_insert] >>
   TOP_CASE_TAC >> fs []
 QED
-
 
 Theorem fstate_rel_imp_semantics:
   !s t loop_code start prog.
@@ -1477,6 +1467,5 @@ Proof
   cases_on ‘r'’ >> fs [] >>
   rveq >> fs [EVERY_DEF]
 QED
-
 
 val _ = export_theory();

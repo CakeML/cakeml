@@ -7,7 +7,7 @@
   stack frame.
 *)
 open preamble asmTheory wordLangTheory stackLangTheory parmoveTheory
-     word_allocTheory
+     word_allocTheory mlstringTheory
 
 val _ = new_theory "word_to_stack";
 
@@ -252,6 +252,9 @@ val comp_def = Define `
      let (xs,x) = wReg1 v1 kf in
        (wStackLoad xs (SeqStackFree (FST (SND kf)) (Return x 1)),bs)) /\
   (comp (Raise v) bs kf = (Call NONE (INL raise_stub_location) NONE,bs)) /\
+  (comp (OpCurrHeap b dst src) bs kf =
+     let (xs,src_r) = wReg1 src kf in
+       (wStackLoad xs (wRegWrite1 (\dst_r. OpCurrHeap b dst_r src_r) dst kf),bs)) /\
   (comp (Tick) bs kf = (Tick,bs)) /\
   (comp (MustTerminate p1) gs kf = comp p1 gs kf) /\
   (comp (Seq p1 p2) bs kf =
@@ -349,5 +352,9 @@ val compile_def = Define `
     let sfs = fromAList (MAP (λ((i,_),n). (i,n)) (ZIP (progs,fs))) in
       (<| bitmaps := bitmaps;
           stack_frame_size := sfs |>, 0::fs, (raise_stub_location,raise_stub k) :: progs)`
+
+val stub_names_def = Define`
+  stub_names () = [
+    (raise_stub_location,mlstring$strlit "_Raise")]`
 
 val _ = export_theory();

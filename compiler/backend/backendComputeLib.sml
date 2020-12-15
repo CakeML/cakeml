@@ -525,6 +525,7 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.comp_def
     ,data_to_wordTheory.compile_part_def
     ,data_to_wordTheory.stubs_def
+    ,data_to_wordTheory.stub_names_def
     ,data_to_wordTheory.compile_def
       (* word_bignum *)
     ,word_bignumTheory.mc_cmp_code_def
@@ -630,6 +631,7 @@ val add_backend_compset = computeLib.extend_compset
       (* ---- wordLang inst_select and inst flattening ---- *)
     ,word_instTheory.three_to_two_reg_def
     ,word_instTheory.pull_exp_def
+    ,word_instTheory.is_Lookup_CurrHeap_def
     ,word_instTheory.inst_select_def
     ,word_instTheory.inst_select_exp_def
     ,word_instTheory.flatten_exp_def
@@ -733,6 +735,7 @@ val add_backend_compset = computeLib.extend_compset
     ,word_to_stackTheory.StackArgs_def
     ,word_to_stackTheory.comp_def
     ,word_to_stackTheory.raise_stub_def
+    ,word_to_stackTheory.stub_names_def
     ,word_to_stackTheory.compile_prog_def
     ,word_to_stackTheory.compile_word_to_stack_def
     ,word_to_stackTheory.compile_def
@@ -748,6 +751,7 @@ val add_backend_compset = computeLib.extend_compset
     ,stack_allocTheory.comp_def
     ,stack_allocTheory.next_lab_def
     ,stack_allocTheory.stubs_def
+    ,stack_allocTheory.stub_names_def
     ,stack_allocTheory.SetNewTrigger_def
     ,stack_allocTheory.word_gc_code_def
     ,stack_allocTheory.word_gc_partial_or_full_def
@@ -777,6 +781,7 @@ val add_backend_compset = computeLib.extend_compset
     ,stack_removeTheory.upshift_def
     ,stack_removeTheory.compile_def
     ,stack_removeTheory.init_stubs_def
+    ,stack_removeTheory.stub_names_def
     ,stack_removeTheory.init_code_def
     ,stack_removeTheory.store_init_def
     ,stack_removeTheory.init_memory_def
@@ -871,6 +876,7 @@ val add_backend_compset = computeLib.extend_compset
     ,lab_to_targetTheory.list_add_if_fresh_def
     ,lab_to_targetTheory.get_ffi_index_def
     ,lab_to_targetTheory.sec_length_def
+    ,lab_to_targetTheory.get_symbols_def
     ,lab_to_targetTheory.zero_labs_acc_of_def
     ,lab_to_targetTheory.line_get_zero_labs_acc_def
     ,lab_to_targetTheory.sec_get_zero_labs_acc_def

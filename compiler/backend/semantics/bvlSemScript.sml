@@ -166,6 +166,15 @@ val do_app_def = Define `
              then Rval (EL (Num i) xs, s)
              else Error)
          | _ => Error)
+    | (ElemAt n,[Block tag xs]) =>
+        if n < LENGTH xs then Rval (EL n xs, s) else Error
+    | (ElemAt n,[RefPtr ptr]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ValueArray xs) =>
+            (if n < LENGTH xs
+             then Rval (EL n xs, s)
+             else Error)
+         | _ => Error)
     | (ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
          | (SOME xs, SOME ys) => Rval (list_to_v (xs ++ ys),s)

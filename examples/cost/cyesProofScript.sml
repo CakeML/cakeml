@@ -673,7 +673,7 @@ Proof
  \\ UNABBREV_ALL_TAC
  (* Continues after call *)
  \\ strip_makespace
- \\ ntac 49 strip_assign
+ \\ ntac 47 strip_assign
  \\ make_tailcall
  \\ ntac 5
     (strip_call
@@ -697,7 +697,7 @@ Proof
   \\ make_tailcall
   \\ ntac 5
      (strip_makespace
-     \\ ntac 6 strip_assign
+     \\ ntac 4 strip_assign
      \\ make_tailcall)
   \\ strip_assign
   \\ ho_match_mp_tac data_safe_bind_some

@@ -6,5 +6,8 @@ all: yes$(SUFF)
 yes$(SUFF): yes.o yes_ffi.o
 	$(CC) $(LDFLAGS) $< yes_ffi.o $(LOADLIBES) $(LDLIBS) -o $@
 
+lcgLoop$(SUFF): lcgLoop.o yes_ffi.o
+	$(CC) $(LDFLAGS) $< yes_ffi.o $(LOADLIBES) $(LDLIBS) -o $@
+
 clean:
 	$(RM) yes_ffi.o yes.o yes$(SUFF)

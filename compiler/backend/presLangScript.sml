@@ -2,10 +2,11 @@
   Functions for converting various intermediate languages
   into displayLang representations.
 *)
-open preamble astTheory mlintTheory
+open preamble astTheory mlintTheory mloptionTheory
 open flatLangTheory closLangTheory
      displayLangTheory source_to_flatTheory
-     dataLangTheory wordLangTheory;
+     dataLangTheory wordLangTheory labLangTheory
+     stackLangTheory;
 
 val _ = new_theory"presLang";
 
@@ -361,6 +362,7 @@ val clos_op_to_display_def = Define `
     | LengthByteVec => empty_item (strlit "LengthByteVec")
     | DerefByteVec => empty_item (strlit "DerefByteVec")
     | TagLenEq n1 n2 => item_with_nums (strlit "TagLenEq") [n1; n2]
+    | ElemAt num => item_with_num (strlit "ElemAt") num
     | LenEq num => item_with_num (strlit "LenEq") num
     | TagEq num => item_with_num (strlit "TagEq") num
     | Ref => empty_item (strlit "Ref")
@@ -504,34 +506,12 @@ val data_prog_to_display_def  = Define `
     | Tick => empty_item (strlit "Tick")`;
 
 val data_progs_to_display_def = Define`
-  data_progs_to_display ps = list_to_display
+  data_progs_to_display (ps, names) = list_to_display
     (\(n1, n2, prog). displayLang$Tuple [num_to_display n1;
+        String (getOpt (sptree$lookup n1 names) (strlit "_unmatched"));
         num_to_display n2; data_prog_to_display prog]) ps`;
 
-(* stackLang *)
-
-val store_name_to_display_def = Define `
-  store_name_to_display st = case st of
-    | NextFree => empty_item (strlit "NextFree")
-    | EndOfHeap => empty_item (strlit "EndOfHeap")
-    | TriggerGC => empty_item (strlit "TriggerGC")
-    | HeapLength => empty_item (strlit "HeapLength")
-    | ProgStart => empty_item (strlit "ProgStart")
-    | BitmapBase => empty_item (strlit "BitmapBase")
-    | CurrHeap => empty_item (strlit "CurrHeap")
-    | OtherHeap => empty_item (strlit "OtherHeap")
-    | AllocSize => empty_item (strlit "AllocSize")
-    | Globals => empty_item (strlit "Globals")
-    | Handler => empty_item (strlit "Handler")
-    | GenStart => empty_item (strlit "GenStart")
-    | CodeBuffer => empty_item (strlit "CodeBuffer")
-    | CodeBufferEnd => empty_item (strlit "CodeBufferEnd")
-    | BitmapBuffer => empty_item (strlit "BitmapBuffer")
-    | BitmapBufferEnd => empty_item (strlit "BitmapBufferEnd")
-    | Temp n => item_with_num (strlit "Temp") (w2n n)`;
-
 (* asm *)
-(* also, yuck. programming with python now *)
 
 val asm_binop_to_display_def = Define `
   asm_binop_to_display op = case op of
@@ -571,6 +551,17 @@ val asm_memop_to_display_def = Define `
     | Store => empty_item (strlit "Store")
     | Store8 => empty_item (strlit "Store8")`;
 
+val asm_cmp_to_display_def = Define`
+  asm_cmp_to_display op = case op of
+    | Equal => empty_item «Equal»
+    | Lower => empty_item «Lower»
+    | Less => empty_item «Less»
+    | Test => empty_item «Test»
+    | NotEqual => empty_item «NotEqual»
+    | NotLower => empty_item «NotLower»
+    | NotLess => empty_item «NotLess»
+    | NotTest => empty_item «NotTest»`
+
 val asm_fp_to_display_def = Define `
   asm_fp_to_display op = case op of
     | FPLess n1 n2 n3 => item_with_nums (strlit "FPLess") [n1; n2; n3]
@@ -598,6 +589,132 @@ val asm_inst_to_display_def = Define `
     | Mem mop r addr => Item NONE (strlit "Mem") [asm_memop_to_display mop;
         num_to_display r; asm_addr_to_display addr]
     | FP fp => Item NONE (strlit "FP") [asm_fp_to_display fp]`;
+
+val asm_asm_to_display_def = Define `
+  asm_asm_to_display inst = case inst of
+    | Inst i => asm_inst_to_display i
+    | Jump w => item_with_num «Jump» (w2n w)
+    | JumpCmp c r to w => Item NONE «JumpCmp»
+      [asm_cmp_to_display c; num_to_display r; asm_reg_imm_to_display to;
+       num_to_display (w2n w)]
+    | Call w => item_with_num «Call» (w2n w)
+    | JumpReg r => item_with_num «JumpReg>» r
+    | Loc r w => item_with_nums «Loc» [r; w2n w]`
+
+(* stackLang *)
+
+val store_name_to_display_def = Define `
+  store_name_to_display st = case st of
+    | NextFree => empty_item «NextFree»
+    | EndOfHeap => empty_item «EndOfHeap»
+    | TriggerGC => empty_item «TriggerGC»
+    | HeapLength => empty_item «HeapLength»
+    | ProgStart => empty_item «ProgStart»
+    | BitmapBase => empty_item «BitmapBase»
+    | CurrHeap => empty_item «CurrHeap»
+    | OtherHeap => empty_item «OtherHeap»
+    | AllocSize => empty_item «AllocSize»
+    | Globals => empty_item «Globals»
+    | GlobReal => empty_item «GlobReal»
+    | Handler => empty_item «Handler»
+    | GenStart => empty_item «GenStart»
+    | CodeBuffer => empty_item «CodeBuffer»
+    | CodeBufferEnd => empty_item «CodeBufferEnd»
+    | BitmapBuffer => empty_item «BitmapBuffer»
+    | BitmapBufferEnd => empty_item «BitmapBufferEnd»
+    | Temp n => item_with_num «Temp» (w2n n)`;
+
+val stack_prog_to_display_def = Define`
+  stack_prog_to_display prog = case prog of
+    | stackLang$Skip => empty_item «Skip»
+    | Inst i => asm_inst_to_display i
+    | Get n sn => Item NONE «Get» [num_to_display n;
+        store_name_to_display sn]
+    | Set sn n => Item NONE «Set» [store_name_to_display sn;
+        num_to_display n]
+    | OpCurrHeap b n1 n2 => Item NONE «OpCurrHeap»
+        [asm_binop_to_display b; num_to_display n1; num_to_display n2]
+    | Call rh tgt eh => Item NONE «Call»
+        [(case rh of
+            | NONE => empty_item «Tail»
+            | SOME (p,lr,l1,l2) => Item NONE «Return»
+              [num_to_display lr; num_to_display l1; num_to_display l2;
+               stack_prog_to_display p]);
+         (case tgt of
+            | INL l => item_with_num «Direct» l
+            | INR r => item_with_num «Reg» r);
+         (case eh of
+            | NONE => empty_item «NoHandle»
+            | SOME (p,l1,l2) => Item NONE «Handle»
+              [num_to_display l1; num_to_display l2; stack_prog_to_display p])]
+    | Seq x y => Item NONE «Seq»
+        [stack_prog_to_display x; stack_prog_to_display y]
+    | If c n to x y => Item NONE «If»
+        [asm_cmp_to_display c; num_to_display n;
+         asm_reg_imm_to_display to; stack_prog_to_display x;
+         stack_prog_to_display y]
+    | While c n to x => Item NONE «While»
+        [asm_cmp_to_display c; num_to_display n;
+         asm_reg_imm_to_display to; stack_prog_to_display x]
+    | JumpLower n1 n2 n3 => item_with_nums «JumpLower» [n1; n2; n3]
+    | Alloc n => item_with_num «Alloc» n
+    | Raise n => item_with_num «Raise» n
+    | Return n1 n2 => item_with_nums «Return» [n1; n2]
+    | FFI nm cp cl ap al ra => Item NONE «FFI»
+        (string_imp nm :: MAP num_to_display [cp; cl; ap; al; ra])
+    | Tick => empty_item «Tick»
+    | LocValue n1 n2 n3 => item_with_nums «LocValue» [n1; n2; n3]
+    | Install n1 n2 n3 n4 n5 => item_with_nums «Install»
+        [n1; n2; n3; n4; n5]
+    | CodeBufferWrite n1 n2 => item_with_nums «CodeBufferWrite»
+        [n1; n2]
+    | DataBufferWrite n1 n2 => item_with_nums «DataBufferWrite»
+        [n1; n2]
+    | RawCall n => item_with_num «RawCall» n
+    | StackAlloc n => item_with_num «StackAlloc» n
+    | StackFree n => item_with_num «StackFree» n
+    | StackStore n m => item_with_nums «StackStore» [n; m]
+    | StackStoreAny n m => item_with_nums «StackStoreAny» [n; m]
+    | StackLoad n m => item_with_nums «StackLoad» [n; m]
+    | StackLoadAny n m => item_with_nums «StackLoadAny» [n; m]
+    | StackGetSize n => item_with_num «RawCall» n
+    | StackSetSize n => item_with_num «RawCall» n
+    | BitmapLoad n m => item_with_nums «BitmapLoad» [n; m]
+    | Halt n => item_with_num «Halt» n`;
+
+val stack_progs_to_display_def = Define`
+  stack_progs_to_display (ps,names) = list_to_display
+    (\(n1, prog). displayLang$Tuple [num_to_display n1;
+        String (getOpt (sptree$lookup n1 names) «NOT FOUND»);
+        stack_prog_to_display prog]) ps`;
+
+(* labLang *)
+
+val lab_asm_to_display_def = Define`
+  lab_asm_to_display la = case la of
+    | labLang$Jump (Lab s n) => item_with_nums «Jump» [s; n]
+    | JumpCmp c r ri (Lab s n) => Item NONE «JumpCmp»
+      [asm_cmp_to_display c; num_to_display r;
+       asm_reg_imm_to_display ri; num_to_display s; num_to_display n]
+    | Call (Lab s n) => item_with_nums «Call» [s; n]
+    | LocValue r (Lab s n) => item_with_nums «LocValue» [r; s; n]
+    | CallFFI name => Item NONE «CallFFI» [string_imp name]
+    | Install => empty_item «Install»
+    | Halt => empty_item «Halt»`
+
+val lab_line_to_display_def = Define`
+  lab_line_to_display line = case line of
+    | Label se nu le => item_with_nums «Label» [se; nu; le]
+    | Asm aoc enc len => (case aoc of
+      | Asmi i => Item NONE «Asm» [asm_asm_to_display i]
+      | Cbw r1 r2 => item_with_nums «Cbw» [r1; r2])
+    | LabAsm la pos enc len => lab_asm_to_display la`
+
+val lab_secs_to_display_def = Define`
+  lab_secs_to_display (ss,names) = list_to_display (\sec.
+    case sec of Section n lines => displayLang$Tuple [num_to_display n;
+        String (getOpt (sptree$lookup n names) «NOT FOUND»);
+        list_to_display lab_line_to_display lines]) ss`
 
 (* wordLang *)
 
@@ -648,6 +765,8 @@ val word_prog_to_display_def = tDefine "word_prog_to_display" `
     [word_prog_to_display_ret a; option_to_display num_to_display b;
         list_to_display num_to_display c;
         word_prog_to_display_handler d]) /\
+  (word_prog_to_display (OpCurrHeap b n1 n2) = Item NONE «OpCurrHeap»
+    [asm_binop_to_display b; num_to_display n1; num_to_display n2]) /\
   (word_prog_to_display (Seq prog1 prog2) = Item NONE (strlit "Seq")
     [word_prog_to_display prog1; word_prog_to_display prog2]) /\
   (word_prog_to_display (If cmp n reg p1 p2) = Item NONE (strlit "If")
@@ -687,8 +806,9 @@ val word_prog_to_display_def = tDefine "word_prog_to_display" `
 ;
 
 val word_progs_to_display_def = Define`
-  word_progs_to_display ps = list_to_display
+  word_progs_to_display (ps,names) = list_to_display
     (\(n1, n2, prog). displayLang$Tuple [num_to_display n1;
+        String (getOpt (sptree$lookup n1 names) (strlit "NOT FOUND"));
         num_to_display n2; word_prog_to_display prog]) ps`;
 
 (* Function to construct general functions from a language to JSON. Call with
@@ -757,5 +877,11 @@ val tap_data_lang_def = Define `
 
 val tap_word_def = Define `
   tap_word conf v = add_tap conf (strlit "word") word_progs_to_display v`;
+
+val tap_stack_def = Define `
+  tap_stack conf v = add_tap conf (strlit "stack") stack_progs_to_display v`;
+
+val tap_lab_def = Define `
+  tap_lab conf v = add_tap conf (strlit "lab") lab_secs_to_display v`;
 
 val _ = export_theory();
