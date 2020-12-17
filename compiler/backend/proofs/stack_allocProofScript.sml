@@ -465,7 +465,8 @@ val word_gc_fun_thm = Q.prove(
               Word
                 (theWord (s ' OtherHeap) +
                  theWord (s ' HeapLength)));
-             (Globals,w1)]
+             (Globals,w1);
+             (GlobReal,glob_real conf (theWord (s ' OtherHeap)) w1)]
       in
         if word_gc_fun_assum conf s /\ c2 then SOME (ws2,m1,s1) else NONE`,
   full_simp_tac(srw_ss())[word_gc_fun_lemma,LET_THM]
@@ -540,7 +541,8 @@ val gc_thm = Q.prove(
              Word
                (theWord (s.store ' OtherHeap) +
                 theWord (s.store ' HeapLength)));
-            (Globals,w1)] in
+            (Globals,w1);
+            (GlobReal,glob_real conf (theWord (s.store ' OtherHeap)) w1)] in
        if word_gc_fun_assum conf s.store /\ c2 then SOME (s with
                        <|stack := unused ++ stack; store := s1;
                          regs := FEMPTY; memory := m1|>) else NONE`,
@@ -1514,6 +1516,7 @@ Proof
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs []
 QED
 
+
 Theorem alloc_correct_lemma_Simple:
    alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
     s.gc_fun = word_gc_fun conf /\ conf.gc_kind = Simple /\
@@ -1585,11 +1588,19 @@ Proof
   \\ `s.stack_space < LENGTH s.stack` by
    (CCONTR_TAC \\ fs [NOT_LESS]
     \\ imp_res_tac DROP_LENGTH_TOO_LONG
-    \\ fs [word_gc_move_roots_bitmaps_def,enc_stack_def] \\ NO_TAC)
+    \\ full_simp_tac std_ss [word_gc_move_roots_bitmaps_def,enc_stack_def])
+  \\ ‘∃globw. w1 = Word globw’ by
+   (fs [word_gc_fun_assum_def]
+    \\ fs [FAPPLY_FUPDATE_THM,isWord_thm] \\ fs []
+    \\ fs [word_gc_move_def,AllCaseEqs()] \\ gvs []
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ TRY (qpat_x_assum ‘_ = s.store ' Globals’ (assume_tac o GSYM))
+    \\ gvs [])
+  \\ pop_assum (full_simp_tac bool_ss o single)
   \\ abbrev_under_exists ``s4:('a,'c,'b)stackSem$state``
    (qexists_tac `ck` \\ fs []
     \\ unabbrev_all_tac \\ fs [] \\ tac
-    \\ fs [FAPPLY_FUPDATE_THM]
+    \\ fs [FAPPLY_FUPDATE_THM,isWord_thm]
     \\ qpat_abbrev_tac `(s4:('a,'c,'b)stackSem$state) = _`)
   \\ qpat_x_assum `word_gc_move_roots_bitmaps _ _ = _` assume_tac
   \\ drule LESS_EQ_LENGTH
@@ -1612,7 +1623,7 @@ Proof
   \\ abbrev_under_exists ``s5:('a,'c,'b)stackSem$state``
    (qexists_tac `ck+ck'` \\ fs []
     \\ unabbrev_all_tac \\ fs [] \\ tac
-    \\ fs [FAPPLY_FUPDATE_THM]
+    \\ fs [FAPPLY_FUPDATE_THM,isWord_thm]
     \\ qpat_abbrev_tac `(s5:('a,'c,'b)stackSem$state) = _`)
   \\ drule (GEN_ALL word_gc_move_loop_code_thm
            |> REWRITE_RULE [GSYM AND_IMP_INTRO])
@@ -1639,7 +1650,7 @@ Proof
   \\ rpt (qpat_x_assum `evaluate _ = _` kall_tac)
   \\ qpat_x_assum `_ = t.store` (fn th => fs [GSYM th])
   \\ `TAKE t.stack_space (ys1 ++ ys2) = ys1` by metis_tac [TAKE_LENGTH_APPEND]
-  \\ fs [fmap_EXT,EXTENSION]
+  \\ fs [fmap_EXT,EXTENSION,glob_real_def]
   \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
   \\ fs [SUBMAP_DEF] \\ rw [] \\ fs [] \\ eq_tac \\ strip_tac \\ fs []
 QED
@@ -1680,6 +1691,7 @@ val word_gc_fun_thm = Q.prove(
                 (TriggerGC,Word (pa1 + new_trig (theWord (s ' EndOfHeap) - pa1)
                                          (theWord (s ' AllocSize)) gen_sizes));
                 (Globals,HD roots1);
+                (GlobReal,glob_real conf (theWord (s ' CurrHeap)) (HD roots1));
                 (Temp 0w,Word 0w); (Temp 1w,Word 0w)])
           else NONE)
          ((λ(roots,i,pa,m,c1).
@@ -1737,6 +1749,7 @@ val word_gc_fun_thm = Q.prove(
               (GenStart,Word (pa3 − theWord (s ' OtherHeap)));
               (TriggerGC,Word (pa3 + new_trig (pb3 - pa3) a gen_sizes));
               (EndOfHeap,Word pb3); (Globals,w1);
+              (GlobReal,glob_real conf (theWord (s ' OtherHeap)) w1);
               (Temp 0w,Word 0w);
               (Temp 1w,Word 0w);
               (Temp 2w,Word 0w);
@@ -1839,6 +1852,7 @@ val gc_thm = Q.prove(
                     (theWord (s.store ' EndOfHeap) - b1)
                     (theWord (s.store ' AllocSize)) gen_sizes));
                  (Globals,w1);
+                 (GlobReal,glob_real conf (theWord (s.store ' CurrHeap)) w1);
                  (Temp 0w,Word 0w);
                  (Temp 1w,Word 0w)] in
        let c6 = ((theWord (s.store ' AllocSize) ≤₊
@@ -1877,6 +1891,7 @@ val gc_thm = Q.prove(
                    (pb3 - pa3) (theWord (s.store ' AllocSize)) gen_sizes));
                 (EndOfHeap,Word pb3);
                 (Globals,w1);
+                (GlobReal,glob_real conf (theWord (s.store ' OtherHeap)) w1);
                 (Temp 0w, Word 0w);
                 (Temp 1w, Word 0w);
                 (Temp 2w, Word 0w);
@@ -4508,7 +4523,7 @@ Proof
   \\ fs [set_store_def] \\ IF_CASES_TAC THEN1 (fs [] \\ rw [] \\ fs [])
   \\ fs [FAPPLY_FUPDATE_THM]
   \\ IF_CASES_TAC THEN1 (fs [] \\ rw [] \\ fs [])
-  \\ IF_CASES_TAC THEN1
+  \\ IF_CASES_TAC THEN1 (* do_partial is true *)
    (rpt (pairarg_tac \\ fs [])
     \\ reverse IF_CASES_TAC THEN1 rw [] \\ fs []
     \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST,has_space_def]
@@ -4520,6 +4535,7 @@ Proof
         isWord (s.store ' HeapLength) /\
         isWord (s.store ' TriggerGC) /\
         isWord (s.store ' EndOfHeap) /\
+        isWord (s.store ' Globals) /\
         good_dimindex (:'a) /\
         conf.len_size + 2 < dimindex (:'a) /\
         shift_length conf < dimindex (:'a) /\
@@ -4535,12 +4551,14 @@ Proof
     \\ rename1 `s.store ' HeapLength = Word len`
     \\ rename1 `s.store ' TriggerGC = Word trig`
     \\ rename1 `s.store ' EndOfHeap = Word endh`
+    \\ rename1 `s.store ' Globals = Word globw`
     \\ fs [word_gc_code_def]
     \\ `FLOOKUP s.store OtherHeap = SOME (Word other) /\
         FLOOKUP s.store CurrHeap = SOME (Word curr) /\
         FLOOKUP s.store HeapLength = SOME (Word len) /\
         FLOOKUP s.store TriggerGC = SOME (Word trig) /\
-        FLOOKUP s.store EndOfHeap = SOME (Word endh)` by fs [FLOOKUP_DEF]
+        FLOOKUP s.store EndOfHeap = SOME (Word endh) /\
+        FLOOKUP s.store Globals = SOME (Word globw)` by fs [FLOOKUP_DEF]
     \\ `!ck xs ys. evaluate
           (word_gc_partial_or_full gen_sizes xs ys,
            s with
@@ -4578,9 +4596,17 @@ Proof
     \\ `s.stack_space < LENGTH s.stack` by
      (CCONTR_TAC \\ fs [NOT_LESS]
       \\ imp_res_tac DROP_LENGTH_TOO_LONG
-      \\ fs [word_gen_gc_partial_move_roots_bitmaps_def,enc_stack_def] \\ NO_TAC)
+      \\ full_simp_tac std_ss
+            [word_gen_gc_partial_move_roots_bitmaps_def,enc_stack_def])
     \\ fs [] \\ tac
     \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,theWord_def]
+    \\ ‘∃globw2. w1 = Word globw2’ by
+      (fs [word_gc_fun_assum_def]
+      \\ fs [FAPPLY_FUPDATE_THM,isWord_thm] \\ fs []
+      \\ fs [word_gen_gc_partial_move_def,AllCaseEqs()] \\ gvs []
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ TRY (qpat_x_assum ‘_ = s.store ' Globals’ (assume_tac o GSYM))
+      \\ gvs [])
     \\ abbrev_under_exists ``s4:('a,'c,'b)stackSem$state``
      (qexists_tac `ck` \\ fs []
       \\ unabbrev_all_tac \\ fs [] \\ tac
@@ -4702,7 +4728,7 @@ Proof
     \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
     \\ qpat_x_assum `_ = t.store` (fn th => fs [GSYM th])
     \\ `TAKE t.stack_space (ys1 ++ ys2) = ys1` by metis_tac [TAKE_LENGTH_APPEND]
-    \\ fs [fmap_EXT,EXTENSION]
+    \\ fs [fmap_EXT,EXTENSION,glob_real_def]
     \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
     \\ fs [SUBMAP_DEF] \\ rw [] \\ fs [] \\ eq_tac \\ strip_tac \\ fs [])
   \\ pairarg_tac \\ fs []
@@ -4718,6 +4744,7 @@ Proof
       isWord (s.store ' HeapLength) /\
       isWord (s.store ' TriggerGC) /\
       isWord (s.store ' EndOfHeap) /\
+      isWord (s.store ' Globals) /\
       good_dimindex (:'a) /\
       conf.len_size + 2 < dimindex (:'a) /\
       shift_length conf < dimindex (:'a) /\
@@ -4733,12 +4760,14 @@ Proof
   \\ rename1 `s.store ' HeapLength = Word len`
   \\ rename1 `s.store ' TriggerGC = Word trig`
   \\ rename1 `s.store ' EndOfHeap = Word endh`
+  \\ rename1 `s.store ' Globals = Word globw`
   \\ fs [word_gc_code_def]
   \\ `FLOOKUP s.store OtherHeap = SOME (Word other) /\
       FLOOKUP s.store CurrHeap = SOME (Word curr) /\
       FLOOKUP s.store HeapLength = SOME (Word len) /\
       FLOOKUP s.store TriggerGC = SOME (Word trig) /\
-      FLOOKUP s.store EndOfHeap = SOME (Word endh)` by fs [FLOOKUP_DEF]
+      FLOOKUP s.store EndOfHeap = SOME (Word endh) /\
+      FLOOKUP s.store Globals = SOME (Word globw)` by fs [FLOOKUP_DEF]
   \\ `!ck xs ys. evaluate
         (word_gc_partial_or_full gen_sizes xs ys,
          s with
@@ -4774,12 +4803,19 @@ Proof
   \\ `s.stack_space < LENGTH s.stack` by
    (CCONTR_TAC \\ fs [NOT_LESS]
     \\ imp_res_tac DROP_LENGTH_TOO_LONG
-    \\ fs [word_gen_gc_move_roots_bitmaps_def,enc_stack_def] \\ NO_TAC)
+    \\ full_simp_tac std_ss [word_gen_gc_move_roots_bitmaps_def,enc_stack_def])
   \\ ntac 3 tac1
+  \\ ‘∃globw2. w1 = Word globw2’ by
+      (fs [word_gc_fun_assum_def]
+      \\ fs [FAPPLY_FUPDATE_THM,isWord_thm] \\ fs []
+      \\ fs [word_gen_gc_move_def,AllCaseEqs()] \\ gvs []
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ TRY (qpat_x_assum ‘_ = s.store ' Globals’ (assume_tac o GSYM))
+      \\ gvs [])
   \\ abbrev_under_exists ``s4:('a,'c,'b)stackSem$state``
    (qexists_tac `ck` \\ fs []
     \\ unabbrev_all_tac \\ fs [] \\ tac
-    \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF] \\ tac
+    \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,set_store_def] \\ tac
     \\ qpat_abbrev_tac `(s4:('a,'c,'b)stackSem$state) = _`)
   \\ qpat_x_assum `word_gen_gc_move_roots_bitmaps _ _ = _` assume_tac
   \\ drule LESS_EQ_LENGTH
@@ -4802,7 +4838,8 @@ Proof
   \\ abbrev_under_exists ``s5:('a,'c,'b)stackSem$state``
    (qexists_tac `ck+ck'` \\ fs []
     \\ unabbrev_all_tac \\ fs [] \\ tac
-    \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF] \\ tac
+    \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,set_store_def] \\ tac
+    \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,set_store_def] \\ tac
     \\ qpat_abbrev_tac `(s5:('a,'c,'b)stackSem$state) = _`)
   \\ drule (GEN_ALL word_gen_gc_move_loop_code_thm
            |> REWRITE_RULE [GSYM AND_IMP_INTRO])
@@ -4838,7 +4875,7 @@ Proof
   \\ rpt (qpat_x_assum `evaluate _ = _` kall_tac)
   \\ qpat_x_assum `_ = t.store` (fn th => fs [GSYM th])
   \\ `TAKE t.stack_space (ys1 ++ ys2) = ys1` by metis_tac [TAKE_LENGTH_APPEND]
-  \\ fs [fmap_EXT,EXTENSION]
+  \\ fs [fmap_EXT,EXTENSION,glob_real_def]
   \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
   \\ fs [SUBMAP_DEF] \\ rw [] \\ fs [] \\ eq_tac \\ strip_tac \\ fs []
 QED

@@ -1295,12 +1295,8 @@ Proof
    full_simp_tac (srw_ss()++ARITH_ss) [NOT_LESS, NOT_LESS_EQUAL]
    >- (
      Q.ISPECL_THEN [`REVERSE args2`, `n - LENGTH l`] mp_tac TAKE_LENGTH_TOO_LONG >>
-     srw_tac[][] >>
-     full_simp_tac (srw_ss()++ARITH_ss) [])
-   >- (
-     Q.ISPECL_THEN [`REVERSE args2`, `n - LENGTH l`] mp_tac DROP_LENGTH_TOO_LONG >>
-     srw_tac[][] >>
-     full_simp_tac (srw_ss()++ARITH_ss) []) >>
+     impl_tac THEN1 fs [] >>
+     disch_then (rewrite_tac o single) >> fs []) >>
    CCONTR_TAC >>
    full_simp_tac(srw_ss())[] >>
    srw_tac[][] >>
@@ -1313,15 +1309,10 @@ Proof
  srw_tac[][] >>
  simp [TAKE_APPEND, DROP_APPEND] >>
  full_simp_tac (srw_ss()++ARITH_ss) [NOT_LESS, NOT_LESS_EQUAL] >>
- srw_tac[][]
- >- (
-   Q.ISPECL_THEN [`REVERSE args2`, `q - LENGTH l`] mp_tac TAKE_LENGTH_TOO_LONG >>
-   srw_tac[][] >>
-   full_simp_tac (srw_ss()++ARITH_ss) [])
- >- (
-   Q.ISPECL_THEN [`REVERSE args2`, `q - LENGTH l`] mp_tac DROP_LENGTH_TOO_LONG >>
-   srw_tac[][] >>
-   full_simp_tac (srw_ss()++ARITH_ss) [])
+ srw_tac[][] >>
+ Q.ISPECL_THEN [`REVERSE args2`, `q - LENGTH l`] mp_tac TAKE_LENGTH_TOO_LONG >>
+ impl_tac THEN1 fs [] >>
+ disch_then (rewrite_tac o single) >> fs []
 QED
 
 Theorem evaluate_app_append:

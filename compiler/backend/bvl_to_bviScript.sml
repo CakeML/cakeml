@@ -209,8 +209,8 @@ local val compile_op_quotation = `
     dtcase op of
     | Const i => (dtcase c1 of [] => compile_int i
                   | _ => Let [Op (Const 0) c1] (compile_int i))
-    | Global n => Op El (c1++[compile_int(&(n+1)); Op GlobalsPtr []])
-    | SetGlobal n => Op Update (c1++[compile_int(&(n+1)); Op GlobalsPtr []])
+    | Global n => Op (Global (n+1)) c1
+    | SetGlobal n => Op (SetGlobal (n+1)) c1
     | AllocGlobal =>
         (dtcase c1 of [] => Call 0 (SOME AllocGlobal_location) [] NONE
          | _ => Let [Op (Const 0) c1] (Call 0 (SOME AllocGlobal_location) [] NONE))

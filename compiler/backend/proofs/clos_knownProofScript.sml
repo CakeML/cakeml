@@ -4008,8 +4008,8 @@ val known_correct0 = Q.prove(
   THEN1
    (say "evaluate_app NIL"
     \\ fs [evaluate_def, v_rel_app_NONE] \\ rveq \\ fs [])
-  THEN1
-   (say "evaluate_app CONS"
+  THEN
+    say "evaluate_app CONS"
     \\ fs [evaluate_def]
     \\ fs [dec_clock_def, ADD1]
     \\ `t0.max_app = s0.max_app /\ s0.clock = t0.clock` by fs [state_rel_def]
@@ -4128,8 +4128,7 @@ val known_correct0 = Q.prove(
             \\ qmatch_goalsub_abbrev_tac `evaluate_app _ _ next_args2 _ = _`
             \\ `next_args1 = []` by fs [Abbr `next_args1`, DROP_NIL]
             \\ `next_args2 = []` by fs [Abbr `next_args2`, DROP_NIL]
-            \\ fs [Abbr `next_args1`, Abbr `next_args2`]
-            \\ rveq \\ simp [])
+            \\ rveq \\ simp [] \\ gvs [])
           \\ first_x_assum match_mp_tac
           \\ qexists_tac `NONE` \\ simp []
           \\ patresolve `evaluate (_, _, state1) = _` hd evaluate_changed_globals
@@ -4261,6 +4260,7 @@ val known_correct0 = Q.prove(
           \\ qmatch_goalsub_abbrev_tac `evaluate_app _ _ next_args2 _ = _`
           \\ `next_args1 = []` by fs [Abbr `next_args1`, DROP_NIL]
           \\ `next_args2 = []` by fs [Abbr `next_args2`, DROP_NIL]
+          \\ gvs []
           \\ fs [Abbr `next_args1`, Abbr `next_args2`]
           \\ rw [])
         \\ first_x_assum match_mp_tac
@@ -4322,8 +4322,7 @@ val known_correct0 = Q.prove(
                      by (fs [NOT_LESS_EQUAL, LIST_REL_EL_EQN]
                          \\ first_x_assum (qpat_assum `i < _` o mp_then (Pos hd) mp_tac)
                          \\ simp [f_rel_def]))
-          \\ fs [bool_case_eq] \\ rveq
-          \\ qexists_tac `t0 with clock := 0`
+          \\ fs [bool_case_eq] \\ rveq \\ gvs []
           \\ fs [CONV_RULE (LHS_CONV SYM_CONV) REVERSE_EQ_NIL]
           \\ fs [DROP_NIL, NOT_LESS, ADD1, GREATER_EQ]
           \\ imp_res_tac LESS_EQUAL_ANTISYM \\ fs []
@@ -4459,7 +4458,7 @@ val known_correct0 = Q.prove(
           \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
           \\ imp_res_tac evaluate_SING \\ rveq \\ fs [] \\ rveq \\ fs []
           \\ fs [CONV_RULE (LHS_CONV SYM_CONV) REVERSE_EQ_NIL, DROP_NIL]
-          \\ simp [DROP_LENGTH_TOO_LONG])))));
+          \\ simp [DROP_LENGTH_TOO_LONG]))));
 
 Theorem semantics_known:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY co

@@ -242,7 +242,7 @@ Proof
   >> qhdtm_x_assum `null_index` (mp_tac o PURE_ONCE_REWRITE_RULE [null_index_def])
   >> rw[] >> Cases_on `n ≥ strlen s`
   >> Cases_on `s` >> fs[GREATER_EQ]
-  >> imp_res_tac DROP_LENGTH_TOO_LONG >> fs[]
+  >> imp_res_tac DROP_LENGTH_TOO_LONG >> asm_rewrite_tac[] >> fs[]
   >> `n < STRLEN s'` by fs[]
   >> imp_res_tac DROP_CONS_EL >> fs[]
 QED
@@ -351,7 +351,7 @@ Proof
   >> qhdtm_x_assum `null_index_w` (mp_tac o PURE_ONCE_REWRITE_RULE [null_index_w_def])
   >> rw[] >> Cases_on `n ≥ LENGTH s`
   >> fs[GREATER_EQ]
-  >> imp_res_tac DROP_LENGTH_TOO_LONG >> fs[]
+  >> imp_res_tac DROP_LENGTH_TOO_LONG >> asm_rewrite_tac[] >> fs[]
   >> `n < LENGTH s` by fs[]
   >> imp_res_tac DROP_CONS_EL >> fs[]
 QED

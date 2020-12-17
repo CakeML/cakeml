@@ -1268,6 +1268,22 @@ Proof
   \\ simp [state_component_equality]
 QED
 
+Theorem dest_nop_thm:
+  dest_nop op es = SOME x ⇔
+    (∃t. op = WordFromInt W8 ∧ es = [App t Ord [x]]) ∨
+    (∃t. op = Chr ∧ es = [App t (WordToInt W8) [x]])
+Proof
+  Cases_on ‘op’ \\ fs [dest_nop_def] \\ every_case_tac \\ fs []
+QED
+
+Theorem compile_single_DEEP_INTRO:
+  !P. (!exp'. flat_to_clos$compile m [exp] = [exp'] ==> P [exp']) ==>
+  P (flat_to_clos$compile m [exp])
+Proof
+  qspecl_then [`m`, `[exp]`] assume_tac LENGTH_compile
+  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
+QED
+
 Theorem compile_App:
   ^(get_goal "flatLang$App")
 Proof
@@ -1281,8 +1297,7 @@ Proof
   \\ strip_tac
   \\ Cases_on `op = Opapp` \\ fs []
   THEN1
-   (
-    fs [compile_op_def] \\ rveq
+   (fs [compile_op_def,dest_nop_def] \\ rveq
     \\ reverse (fs [result_case_eq] \\ rveq \\ fs [] \\ rveq \\ fs [])
     THEN1
      (Cases_on `compile m (REVERSE es)` \\ fs [arg2_def]
@@ -1369,7 +1384,7 @@ Proof
     \\ fs [o_DEF])
   \\ Cases_on `op = Eval`
   THEN1 (
-    simp [compile_op_def, evaluate_def]
+    simp [compile_op_def, evaluate_def, dest_nop_def]
     \\ fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs []
     \\ drule (Q.INST [`ys` |-> `REVERSE zs`] do_eval_install)
     \\ simp []
@@ -1388,19 +1403,41 @@ Proof
     \\ simp [evaluate_append, compile_def, evaluate_def, do_app_def]
     \\ simp [v_rel_def, Unitv_def]
   )
-  \\ reverse (fs [result_case_eq])
-  \\ rveq \\ fs [] \\ rveq \\ fs []
-  THEN1 (drule compile_op_evaluates_args \\ fs [])
-  \\ fs [option_case_eq,pair_case_eq] \\ rveq \\ fs []
-  \\ rename [`state_rel s1 t1`,`LIST_REL v_rel vs ws`,`_ = SOME (s2,res2)`]
-  \\ qmatch_goalsub_rename_tac `compile_op tt op cexps`
-  \\ drule EVERY2_REVERSE
-  \\ qmatch_goalsub_rename_tac `LIST_REL _ vvs`
-  \\ fs [] \\ rw []
-  \\ match_mp_tac (GEN_ALL compile_op_correct)
-  \\ rpt (asm_exists_tac \\ fs [])
-  \\ imp_res_tac evaluate_IMP_LENGTH
-  \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+  \\ Cases_on ‘dest_nop op es’
+  THEN1
+   (reverse (fs [result_case_eq])
+    \\ rveq \\ fs [] \\ rveq \\ fs []
+    THEN1 (drule compile_op_evaluates_args \\ fs [])
+    \\ fs [option_case_eq,pair_case_eq] \\ rveq \\ fs []
+    \\ rename [`state_rel s1 t1`,`LIST_REL v_rel vs ws`,`_ = SOME (s2,res2)`]
+    \\ qmatch_goalsub_rename_tac `compile_op tt op cexps`
+    \\ drule EVERY2_REVERSE
+    \\ qmatch_goalsub_rename_tac `LIST_REL _ vvs`
+    \\ fs [] \\ rw []
+    \\ match_mp_tac (GEN_ALL compile_op_correct)
+    \\ rpt (asm_exists_tac \\ fs [])
+    \\ imp_res_tac evaluate_IMP_LENGTH
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+  \\ gvs [dest_nop_thm] \\ gvs [AllCaseEqs(),PULL_EXISTS]
+  \\ qpat_x_assum ‘_ = (_,_)’ mp_tac
+  \\ simp [Once compile_def,dest_nop_def,compile_op_def]
+  \\ fs [arg1_def]
+  \\ DEEP_INTRO_TAC compile_single_DEEP_INTRO \\ ntac 2 strip_tac
+  \\ last_x_assum mp_tac
+  \\ last_x_assum mp_tac
+  \\ fs [flatSemTheory.evaluate_def,AllCaseEqs(),PULL_EXISTS]
+  \\ fs [flatSemTheory.do_app_def,AllCaseEqs(),PULL_EXISTS]
+  THEN1
+   (rw [] \\ fs [] \\ gvs []
+    \\ qpat_x_assum ‘v_rel _ _’ mp_tac
+    \\ once_rewrite_tac [v_rel_cases] \\ fs []
+    \\ rw [] \\ gvs [integer_wordTheory.i2w_pos,ORD_BOUND])
+  \\ Cases \\ fs [do_word_to_int_def] \\ strip_tac \\ gvs []
+  \\ ‘w2n c < dimword (:8)’ by fs [w2n_lt] \\ fs []
+  \\ ‘¬(&w2n c > 255i)’ by intLib.COOPER_TAC \\ fs[]
+  \\ rw [] \\ fs [] \\ gvs []
+  \\ qpat_x_assum ‘v_rel _ _’ mp_tac
+  \\ once_rewrite_tac [v_rel_cases] \\ fs []
 QED
 
 Theorem compile_Dlet:
@@ -1620,14 +1657,6 @@ Proof
   Cases_on `xs` \\ simp []
 QED
 
-Theorem compile_single_DEEP_INTRO:
-  !P. (!exp'. flat_to_clos$compile m [exp] = [exp'] ==> P [exp']) ==>
-  P (flat_to_clos$compile m [exp])
-Proof
-  qspecl_then [`m`, `[exp]`] assume_tac LENGTH_compile
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
-QED
-
 Theorem elist_globals_empty:
    !es. closProps$elist_globals es = {||} <=>
         !e. MEM e es ==> set_globals e = {||}
@@ -1643,6 +1672,11 @@ Proof
   \\ simp [compile_def, elist_globals_REVERSE]
   \\ rw []
   \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM]
+  \\ gvs [dest_nop_thm]
+  \\ TRY
+    (rename [‘dest_nop op es’] \\ reverse (Cases_on ‘dest_nop op es’) \\ fs []
+     THEN1 (gvs [dest_nop_thm] \\ fs [flatPropsTheory.op_gbag_def])
+     \\ last_x_assum kall_tac)
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
     \\ simp [compile_lit_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
@@ -1657,6 +1691,7 @@ Proof
     DEEP_INTRO_TAC compile_single_DEEP_INTRO
     \\ rw [] \\ fs []
   )
+  \\ fs [dest_nop_def]
   \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)
   \\ simp [arg1_def, arg2_def]
   \\ EVERY_CASE_TAC
@@ -1711,6 +1746,10 @@ Proof
   \\ simp [EVERY_REVERSE]
   \\ rw []
   \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM]
+  \\ TRY
+    (rename [‘dest_nop op es’] \\ reverse (Cases_on ‘dest_nop op es’) \\ fs []
+     THEN1 (gvs [dest_nop_thm])
+     \\ last_x_assum kall_tac)
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
     \\ simp [compile_lit_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
@@ -1725,6 +1764,7 @@ Proof
     DEEP_INTRO_TAC compile_single_DEEP_INTRO
     \\ rw [] \\ fs []
   )
+  \\ fs [dest_nop_def]
   \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)
   \\ simp [arg1_def, arg2_def]
   \\ EVERY_CASE_TAC
@@ -1771,6 +1811,8 @@ Proof
   \\ simp ([compile_def] @ props_defs)
   \\ simp [contains_App_SOME_APPEND, EVERY_REVERSE]
   \\ rw []
+  \\ TRY
+    (rename [‘dest_nop op es’] \\ reverse (Cases_on ‘dest_nop op es’) \\ fs [])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
     \\ simp [compile_lit_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
@@ -1779,6 +1821,7 @@ Proof
   \\ TRY (qmatch_goalsub_abbrev_tac `AllocGlobals _ n` \\ Induct_on `n`
     \\ simp [Once AllocGlobals_def]
     \\ rw props_defs)
+  \\ fs [dest_nop_def]
   \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)
   \\ simp [arg1_def, arg2_def]
   \\ EVERY_CASE_TAC

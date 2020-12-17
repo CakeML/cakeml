@@ -2780,28 +2780,28 @@ val compile_exps_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC
       \\ Q.UNABBREV_TAC `b3` \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
-    \\ Cases_on`∃n. op = Global n` \\ full_simp_tac(srw_ss())[] THEN1 (
+    \\ Cases_on`∃n. op = Global n` \\ full_simp_tac(srw_ss())[]
+    THEN1 (
          note_tac "Global" >> simp[compile_op_def] >>
          full_simp_tac(srw_ss())[bEvalOp_def] >>
          Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[] >>
          imp_res_tac evaluate_IMP_LENGTH >>
-         full_simp_tac(srw_ss())[LENGTH_NIL] >>
+         full_simp_tac(srw_ss())[LENGTH_NIL] >> gvs [] >>
          simp[iEval_def,compile_int_thm] >>
          Q.LIST_EXISTS_TAC[`t2`,`b2`,`c`] >>
          simp[iEvalOp_def,do_app_aux_def] >>
          BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
          simp[bEvalOp_def] >>
          full_simp_tac(srw_ss())[closSemTheory.get_global_def] >>
-         imp_res_tac bvlPropsTheory.evaluate_IMP_LENGTH >> full_simp_tac(srw_ss())[LENGTH_NIL] >>
+         gvs [AllCaseEqs(),PULL_EXISTS] >>
+         imp_res_tac bvlPropsTheory.evaluate_IMP_LENGTH >>
+         full_simp_tac(srw_ss())[LENGTH_NIL] >>
          full_simp_tac(srw_ss())[bEval_def] >> rpt var_eq_tac >>
          full_simp_tac(srw_ss())[iEval_def] >> rpt var_eq_tac >>
          last_x_assum mp_tac >>
          simp[Once state_rel_def] >> strip_tac >>
          simp[LENGTH_REPLICATE,ADD1] >>
-         simp[EL_CONS,PRE_SUB1] >>
-         reverse IF_CASES_TAC >>
-         every_case_tac >> fsrw_tac[ARITH_ss][] >>
-         rpt var_eq_tac >>
+         simp[EL_CONS,PRE_SUB1,GSYM ADD1] >>
          simp[EL_APPEND1,EL_MAP,libTheory.the_def,bvl_to_bvi_with_clock,bvl_to_bvi_id] >>
          MATCH_MP_TAC (GEN_ALL bv_ok_IMP_adjust_bv_eq) >>
          qexists_tac`r.refs`>>simp[] >>
