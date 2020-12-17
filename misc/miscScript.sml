@@ -59,14 +59,7 @@ Theorem revdroprev:
    ∀l n.
      n ≤ LENGTH l ⇒ (REVERSE (DROP n (REVERSE l)) = TAKE (LENGTH l - n) l)
 Proof
-  ho_match_mp_tac listTheory.SNOC_INDUCT >> simp[] >> rpt strip_tac >>
-  rename1 `n ≤ SUC (LENGTH l)` >>
-  `n = 0 ∨ ∃m. n = SUC m` by (Cases_on `n` >> simp[]) >> simp[]
-  >- simp[TAKE_APPEND2] >>
-  simp[TAKE_APPEND1] >>
-  `LENGTH l + 1 - SUC m = LENGTH l - m`
-     suffices_by (disch_then SUBST_ALL_TAC >> simp[]) >>
-  simp[]
+  fs [GSYM BUTLASTN_def,BUTLASTN_TAKE]
 QED
 
 Theorem revtakerev:

@@ -7,7 +7,7 @@ open preamble
      Word8ArrayProofTheory TextIOProgTheory MarshallingProgTheory MarshallingTheory
      integerTheory int_arithTheory;
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "TAKE_LENGTH_ID_rwt2", "TAKE_LENGTH_ID_rwt2"];
 
 val _ = new_theory"TextIOProof";
 
@@ -7143,7 +7143,8 @@ Proof
   \\ imp_res_tac splitlines_next
   \\ rveq
   \\ `pos < LENGTH content`
-  by ( CCONTR_TAC \\ fs[NOT_LESS,GSYM GREATER_EQ,GSYM DROP_NIL] )
+  by ( CCONTR_TAC \\ full_simp_tac std_ss[NOT_LESS,GSYM GREATER_EQ,GSYM DROP_NIL]
+       \\ gvs[])
   \\ fs[DROP_DROP_T]
   \\ pairarg_tac \\ fs[implode_def,STRING_TYPE_def,std_preludeTheory.OPTION_TYPE_def] \\ rveq
   \\ xmatch

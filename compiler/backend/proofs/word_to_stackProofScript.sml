@@ -1020,7 +1020,6 @@ val evaluate_wLive = Q.prove(
   \\ fsrw_tac[][wf_def]
   \\ fsrw_tac[] [stack_rel_def,stack_rel_aux_def,abs_stack_def]
   \\ Cases_on `DROP t.stack_space t.stack` \\ fsrw_tac[] []
-  THEN1 (fsrw_tac[] [DROP_NIL,DECIDE ``m>=n<=>n<=m:num``] \\ `F` by decide_tac)
   \\ fsrw_tac[] [LUPDATE_def,abs_stack_def]
   \\ conj_tac THEN1
    (mp_tac (Q.SPEC `env` env_to_list_K_I_IMP)

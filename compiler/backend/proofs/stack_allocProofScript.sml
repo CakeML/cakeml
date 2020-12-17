@@ -1516,6 +1516,7 @@ Proof
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs []
 QED
 
+
 Theorem alloc_correct_lemma_Simple:
    alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
     s.gc_fun = word_gc_fun conf /\ conf.gc_kind = Simple /\
@@ -1587,7 +1588,7 @@ Proof
   \\ `s.stack_space < LENGTH s.stack` by
    (CCONTR_TAC \\ fs [NOT_LESS]
     \\ imp_res_tac DROP_LENGTH_TOO_LONG
-    \\ fs [word_gc_move_roots_bitmaps_def,enc_stack_def] \\ NO_TAC)
+    \\ full_simp_tac std_ss [word_gc_move_roots_bitmaps_def,enc_stack_def])
   \\ ‘∃globw. w1 = Word globw’ by
    (fs [word_gc_fun_assum_def]
     \\ fs [FAPPLY_FUPDATE_THM,isWord_thm] \\ fs []
@@ -4595,7 +4596,8 @@ Proof
     \\ `s.stack_space < LENGTH s.stack` by
      (CCONTR_TAC \\ fs [NOT_LESS]
       \\ imp_res_tac DROP_LENGTH_TOO_LONG
-      \\ fs [word_gen_gc_partial_move_roots_bitmaps_def,enc_stack_def] \\ NO_TAC)
+      \\ full_simp_tac std_ss
+            [word_gen_gc_partial_move_roots_bitmaps_def,enc_stack_def])
     \\ fs [] \\ tac
     \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,theWord_def]
     \\ ‘∃globw2. w1 = Word globw2’ by
@@ -4801,7 +4803,7 @@ Proof
   \\ `s.stack_space < LENGTH s.stack` by
    (CCONTR_TAC \\ fs [NOT_LESS]
     \\ imp_res_tac DROP_LENGTH_TOO_LONG
-    \\ fs [word_gen_gc_move_roots_bitmaps_def,enc_stack_def] \\ NO_TAC)
+    \\ full_simp_tac std_ss [word_gen_gc_move_roots_bitmaps_def,enc_stack_def])
   \\ ntac 3 tac1
   \\ ‘∃globw2. w1 = Word globw2’ by
       (fs [word_gc_fun_assum_def]
