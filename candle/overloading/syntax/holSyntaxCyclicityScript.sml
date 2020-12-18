@@ -1785,7 +1785,7 @@ Proof
       >> fs[]
       >> Q.ISPEC_THEN `rs` mp_tac TAKE_LENGTH_ID
       >> ASM_REWRITE_TAC[]
-      >> fs[]
+      >> fs[] \\ gvs []
     )
     >> fs[ADD_EQ_SUB,LESS_OR_EQ]
     >> Cases_on `0 < i`
