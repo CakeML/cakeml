@@ -102,26 +102,6 @@ Proof
   Induct_on `ys` \\ fs [FORALL_PROD,BOTTOM_UP_OPT_def]
 QED
 
-Theorem eval_rel_alt2:
-  (eval_rel s1 env e s2 x ⇔
-  (?ck s2'. evaluate (s1 with clock := ck) env [e] = (s2', Rval [x]) 
-    ∧ (s2 = s2' with clock := s1.clock)))
-  ∧
-  (eval_list_rel s1 env es s2 xs ⇔
-  (?ck s2'. evaluate (s1 with clock := ck) env es = (s2', Rval xs) 
-    ∧ (s2 = s2' with clock := s1.clock)))
-  ∧
-  (eval_match_rel s1 env v pats err_v s2 x ⇔
-  (?ck s2'. evaluate_match (s1 with clock := ck) env v pats err_v = (s2', Rval [x]) 
-    ∧ (s2 = s2' with clock := s1.clock)))
-Proof
-  simp [eval_rel_def, eval_list_rel_def, eval_match_rel_def]
-  \\ rw [] \\ EQ_TAC \\ rw []
-  \\ simp []
-  \\ TRY (asm_exists_tac \\ simp [state_component_equality] \\ NO_TAC)
-  \\ TRY (qexists_tac `ck` \\ simp [state_component_equality] \\ NO_TAC)
-QED
-
 val s = ``s:'ffi semanticPrimitives$state``
 
 Theorem evaluate_two_steps_clock:
