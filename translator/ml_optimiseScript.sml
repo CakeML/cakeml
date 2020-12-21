@@ -102,33 +102,67 @@ Proof
   Induct_on `ys` \\ fs [FORALL_PROD,BOTTOM_UP_OPT_def]
 QED
 
+Theorem eval_rel_alt2:
+  (eval_rel s1 env e s2 x ⇔
+  (?ck s2'. evaluate (s1 with clock := ck) env [e] = (s2', Rval [x]) 
+    ∧ (s2 = s2' with clock := s1.clock)))
+  ∧
+  (eval_list_rel s1 env es s2 xs ⇔
+  (?ck s2'. evaluate (s1 with clock := ck) env es = (s2', Rval xs) 
+    ∧ (s2 = s2' with clock := s1.clock)))
+  ∧
+  (eval_match_rel s1 env v pats err_v s2 x ⇔
+  (?ck s2'. evaluate_match (s1 with clock := ck) env v pats err_v = (s2', Rval [x]) 
+    ∧ (s2 = s2' with clock := s1.clock)))
+Proof
+  simp [eval_rel_def, eval_list_rel_def, eval_match_rel_def]
+  \\ rw [] \\ EQ_TAC \\ rw []
+  \\ simp []
+  \\ TRY (asm_exists_tac \\ simp [state_component_equality] \\ NO_TAC)
+  \\ TRY (qexists_tac `ck` \\ simp [state_component_equality] \\ NO_TAC)
+QED
+
 val s = ``s:'ffi semanticPrimitives$state``
 
-local
-  val assum =
-    ``(!x ^s env s1 r. eval_rel ^s env x s1 r ==>
-                       eval_rel ^s env (f x) s1 r)``
-in
-  fun lemma () =
-    fetch "-" "BOTTOM_UP_OPT_ind"
-    |> Q.SPECL [`\g x. ^assum ==>
-                   !s s1 r env. eval_rel ^s env x s1 r ==>
-                            eval_rel ^s env (BOTTOM_UP_OPT f x) s1 r`]
-    |> Q.SPECL [`\g xs. ^assum ==>
-                   !s s1 r env. eval_list_rel ^s env xs s1 r ==>
-                            eval_list_rel ^s env (BOTTOM_UP_OPT_LIST f xs) s1 r`]
-    |> Q.SPECL [`\g pats. ^assum ==>
-                   !s s1 r v r w env. eval_match_rel ^s env v pats w s1 r ==>
-                            eval_match_rel s env v (BOTTOM_UP_OPT_PAT f pats) w s1 r`]
-    |> CONV_RULE (DEPTH_CONV BETA_CONV)
-    |> UNDISCH |> CONJUNCT1 |> DISCH_ALL;
-end
-
-Theorem BOTTOM_UP_OPT_THM:
-  ^((snd o dest_imp o concl) (lemma ()))
+Theorem evaluate_two_steps_clock:
+  evaluate st1 env1 xs1 = (st2 with clock := ck2, Rval v2) /\
+  evaluate (st2 with clock := ck3) env2 xs2 = (st3, Rval v3) ==>
+  ? n_ck1 n_ck2 n_ck3.
+  evaluate (st1 with clock := n_ck1) env1 xs1 = (st2 with clock := n_ck2, Rval v2) /\
+  evaluate (st2 with clock := n_ck2) env2 xs2 = (st3 with clock := n_ck3, Rval v3)
 Proof
-  match_mp_tac (lemma()) \\ rpt strip_tac
-  \\ pop_assum mp_tac
+  rw []
+  \\ dxrule_then (qspec_then `ck2` mp_tac) evaluate_add_to_clock
+  \\ dxrule_then (qspec_then `ck3` mp_tac) evaluate_add_to_clock
+  \\ rw []
+  \\ metis_tac []
+QED
+
+Theorem evaluate_and_match_clock:
+  evaluate st1 env1 xs1 = (st2 with clock := ck2, Rval v2) /\
+  evaluate_match (st2 with clock := ck3) env2 m2 p2 exn2 = (st3, Rval v3) ==>
+  ? n_ck1 n_ck2 n_ck3.
+  evaluate (st1 with clock := n_ck1) env1 xs1 = (st2 with clock := n_ck2, Rval v2) /\
+  evaluate_match (st2 with clock := n_ck2) env2 m2 p2 exn2 = (st3 with clock := n_ck3, Rval v3)
+Proof
+  rw []
+  \\ dxrule_then (qspec_then `ck3` mp_tac) evaluate_add_to_clock
+  \\ dxrule_then (qspec_then `ck2` mp_tac) evaluate_match_add_to_clock
+  \\ rw []
+  \\ metis_tac []
+QED
+
+Triviality BOTTOM_UP_OPT_THM1:
+  (!x ^s env s1 r. eval_rel ^s env x s1 r ==> eval_rel ^s env (f x) s1 r) ==>
+  (!g x s s1 r env. g = f /\ eval_rel ^s env x s1 r ==> eval_rel ^s env (BOTTOM_UP_OPT f x) s1 r) /\
+  (!g xs s s1 r env. g = f /\ eval_list_rel ^s env xs s1 r ==>
+    eval_list_rel ^s env (BOTTOM_UP_OPT_LIST f xs) s1 r) /\
+  (!g pats s s1 r v r w env. g = f /\ eval_match_rel ^s env v pats w s1 r ==>
+    eval_match_rel s env v (BOTTOM_UP_OPT_PAT f pats) w s1 r)
+Proof
+  disch_tac
+  \\ ho_match_mp_tac (fetch "-" "BOTTOM_UP_OPT_ind")
+  \\ rpt strip_tac
   \\ simp [eval_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM],
            eval_list_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM],
            eval_match_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM]] \\ fs []
@@ -171,21 +205,27 @@ Proof
     \\ disch_then (qspec_then `st1.clock+1` assume_tac)
     \\ asm_exists_tac \\ fs []
     \\ fs [evaluateTheory.dec_clock_def,state_component_equality])
-    THEN1 (* App Eval *)
-     (rename1 `_ = (st1,Rval vs)`
-      \\ qpat_x_assum `(_,_) = _` (strip_assume_tac o GSYM)
-      \\ fs [list_case_eq,option_case_eq,bool_case_eq,pair_case_eq,result_case_eq]
-      \\ rveq \\ fs [PULL_EXISTS]
-      \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
-            ((st1 with clock := s.clock) with clock := st1.clock,Rval [envv; dsv])`
-               by fs [state_component_equality]
-      \\ first_x_assum drule \\ fs []
-      \\ strip_tac
-      \\ drule evaluate_set_clock
-      \\ disch_then (qspec_then `st1.clock` mp_tac) \\ fs []
-      \\ strip_tac \\ fs []
-      \\ qexists_tac `ck1''` \\ fs []
-      \\ fs [state_component_equality])
+  THEN1 (* App Eval *)
+   (
+    fs [evaluateTheory.do_eval_res_def, Q.ISPEC `(_, _)` EQ_SYM_EQ]
+    \\ fs [list_case_eq,option_case_eq,bool_case_eq,pair_case_eq,result_case_eq]
+    \\ rveq \\ fs [PULL_EXISTS]
+    \\ `? st_x ck_x. st' = (st_x with clock := ck_x) /\ st_x.clock = s.clock`
+      by (qexists_tac `st' with clock := s.clock` \\ simp [state_component_equality])
+    \\ fs []
+    \\ first_x_assum drule
+    \\ rw []
+    \\ dxrule_then (qspec_then `ck_x` mp_tac) evaluate_add_to_clock
+    \\ rw []
+    \\ asm_exists_tac
+    \\ simp []
+    \\ dxrule_then (qspec_then `ck2` mp_tac) evaluate_decs_add_to_clock
+    \\ rw [evaluateTheory.dec_clock_def]
+   )
+  THEN1
+   (
+   fs [error_result_case_eq]
+   )
   THEN1 (* App other *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
@@ -194,122 +234,96 @@ Proof
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ asm_exists_tac \\ fs [])
   THEN1 (* do_log *)
-   (rename1 `_ = SOME v4` \\ reverse (Cases_on `v4`) \\ fs [] \\ rveq \\ fs []
+   (
+    imp_res_tac evaluate_sing
+    \\ reverse (fs [exp_or_val_case_eq]) \\ rveq \\ fs []
     THEN1
-     (imp_res_tac evaluate_sing \\ rveq \\ fs []
-      \\ first_x_assum drule \\ fs [] \\ strip_tac \\ asm_exists_tac \\ fs []
-      \\ `do_log l v (BOTTOM_UP_OPT f x2) = SOME (Val r)` by
-           (fs [do_log_def] \\ rw [do_log_def] \\ fs [bool_case_eq] \\ rfs [])
-      \\ fs [state_component_equality])
-    \\ rename1 `_ = (st1,Rval v1)`
-    \\ imp_res_tac evaluate_sing \\ rveq \\ fs []
-    \\ rename1 `_ = (st1,Rval [v1])`
-    \\ `evaluate (s with clock := ck1) env [x1] =
-          ((st1 with clock := s1.clock) with clock := st1.clock,Rval [v1])`
-             by fs [state_component_equality]
-    \\ first_x_assum drule \\ simp [] \\ strip_tac \\ rveq \\ fs []
-    \\ `x2 = e` by fs [do_log_def,bool_case_eq] \\ rveq \\ fs []
-    \\ qpat_x_assum `evaluate st1 env [e] = _` assume_tac
-    \\ `evaluate (st1 with clock := st1.clock) env [e] =
-            ((s1 with clock := st1.clock) with clock := ck2,Rval [r])` by
-     (`st1 with clock := st1.clock = st1` by fs [state_component_equality] \\ fs [])
-    \\ first_x_assum drule \\ fs [] \\ strip_tac
-    \\ drule evaluate_add_to_clock \\ fs []
-    \\ disch_then (qspec_then `ck2'` assume_tac)
-    \\ qpat_x_assum `evaluate _ _ [BOTTOM_UP_OPT f x1] = _` assume_tac
-    \\ drule evaluate_add_to_clock \\ fs []
-    \\ disch_then (qspec_then `ck1''` assume_tac)
-    \\ asm_exists_tac \\ fs []
-    \\ `do_log l v1 (BOTTOM_UP_OPT f e) = SOME (Exp (BOTTOM_UP_OPT f e))` by
-         (fs [do_log_def] \\ rw [do_log_def] \\ fs [bool_case_eq] \\ rfs [])
-    \\ fs [] \\ fs [state_component_equality])
-  THEN1 (* do_if *)
-   (imp_res_tac evaluate_sing \\ rveq \\ fs []
-    \\ rename1 `evaluate (s with clock := ck1) env [x1] = (st5,Rval [v5])`
-    \\ rveq \\ fs []
-    \\ `evaluate (s with clock := ck1) env [x1] =
-          ((st5 with clock := s.clock) with clock := st5.clock,Rval [v5])` by
-         fs [state_component_equality]
-    \\ first_x_assum drule \\ fs [] \\ strip_tac
-    \\ fs [do_if_def,bool_case_eq] \\ rveq \\ fs []
-    \\ `evaluate (st5 with clock := st5.clock) env [e] =
-           ((s1 with clock := st5.clock) with clock := ck2,Rval [r])` by fs []
-    \\ first_x_assum drule \\ fs [] \\ strip_tac
-    \\ drule evaluate_add_to_clock \\ fs []
-    \\ disch_then (qspec_then `ck2'` assume_tac)
-    \\ qpat_x_assum `evaluate _ _ [BOTTOM_UP_OPT f x1] = _` assume_tac
-    \\ drule evaluate_add_to_clock \\ fs []
-    \\ disch_then (qspec_then `ck1''` assume_tac)
-    \\ asm_exists_tac \\ fs [state_component_equality])
-  THEN1 (* Mat *)
-   (imp_res_tac evaluate_sing \\ rveq \\ fs []
-    \\ rename1 `evaluate (s with clock := ck1) env [x1] = (st5,Rval [v5])`
-    \\ rveq \\ fs []
-    \\ `evaluate (s with clock := ck1) env [x1] =
-          ((st5 with clock := s.clock) with clock := st5.clock,Rval [v5])` by
-         fs [state_component_equality]
-    \\ first_x_assum drule \\ fs [] \\ strip_tac
-    \\ `evaluate_match (st5 with clock := st5.clock) env v5 ys bind_exn_v =
-           ((s1 with clock := st5.clock) with clock := ck2,Rval [r])` by
-               (simp [] \\ fs [state_component_equality])
-    \\ first_x_assum drule \\ fs [] \\ strip_tac
-    \\ drule evaluate_match_add_to_clock \\ fs []
-    \\ disch_then (qspec_then `ck2'` assume_tac)
-    \\ qpat_x_assum `evaluate _ _ [BOTTOM_UP_OPT f x1] = _` assume_tac
-    \\ drule evaluate_add_to_clock \\ fs []
-    \\ disch_then (qspec_then `ck1''` assume_tac)
+     (
+      fs [do_log_def, bool_case_eq] \\ rveq \\ fs []
+      \\ first_x_assum drule
+      \\ rw []
+      \\ asm_exists_tac
+      \\ simp []
+      \\ irule_at Any EQ_REFL
+     )
+    \\ fs [do_log_def, bool_case_eq] \\ rveq \\ fs []
+    \\ `? st_x ck_x. st' = (st_x with clock := ck_x) /\ st_x.clock = s.clock`
+      by (qexists_tac `st' with clock := s.clock` \\ simp [state_component_equality])
+    \\ fs []
+    \\ rpt (first_x_assum drule \\ rw [])
+    \\ dxrule_then dxrule evaluate_two_steps_clock
+    \\ rw []
     \\ asm_exists_tac
-    \\ fs [state_component_equality,MAP_FST_BOTTOM_UP_OPT_PAT])
+    \\ simp []
+    \\ simp [state_component_equality]
+   )
+  THEN1 (* do_if *)
+   (
+    imp_res_tac evaluate_sing
+    \\ fs [do_if_def, bool_case_eq] \\ rveq \\ fs []
+    \\ `? st_x ck_x. st' = (st_x with clock := ck_x) /\ st_x.clock = s.clock`
+      by (qexists_tac `st' with clock := s.clock` \\ simp [state_component_equality])
+    \\ fs []
+    \\ rpt (first_x_assum drule \\ rw [])
+    \\ dxrule_then dxrule evaluate_two_steps_clock
+    \\ rw []
+    \\ asm_exists_tac
+    \\ simp []
+    \\ simp [state_component_equality]
+  )
+  THEN1 (* Mat *)
+   (
+    imp_res_tac evaluate_sing \\ rveq \\ fs []
+    \\ `? st_x ck_x. st' = (st_x with clock := ck_x) /\ st_x.clock = s.clock`
+      by (qexists_tac `st' with clock := s.clock` \\ simp [state_component_equality])
+    \\ fs [Q.ISPEC `(_, _)` EQ_SYM_EQ]
+    \\ rpt (first_x_assum drule \\ rw [])
+    \\ dxrule_then dxrule evaluate_and_match_clock
+    \\ rw []
+    \\ asm_exists_tac
+    \\ simp []
+    \\ simp [state_component_equality,MAP_FST_BOTTOM_UP_OPT_PAT]
+   )
   THEN1 (* Let *)
    (imp_res_tac evaluate_sing \\ rveq \\ fs [] \\ rveq \\ fs []
-    \\ rename1 `evaluate (s with clock := ck1) env [x1] = (st5,Rval [v5])`
-    \\ rveq \\ fs []
-    \\ `evaluate (s with clock := ck1) env [x1] =
-          ((st5 with clock := s.clock) with clock := st5.clock,Rval [v5])` by
-         fs [state_component_equality]
-    \\ first_x_assum drule \\ fs [] \\ strip_tac
-    \\ `evaluate (st5 with clock := st5.clock)
-           (env with v := nsOptBind name v5 env.v) [x2] =
-           ((s1 with clock := st5.clock) with clock := ck2,Rval [r])` by
-               (simp [] \\ fs [state_component_equality])
-    \\ first_x_assum drule \\ fs [] \\ strip_tac
-    \\ drule evaluate_add_to_clock \\ fs []
-    \\ disch_then (qspec_then `ck2'` assume_tac)
-    \\ qpat_x_assum `evaluate _ _ [BOTTOM_UP_OPT f x1] = _` assume_tac
-    \\ drule evaluate_add_to_clock \\ fs []
-    \\ disch_then (qspec_then `ck1''` assume_tac)
-    \\ asm_exists_tac \\ fs [state_component_equality])
+    \\ `? st_x ck_x. st' = (st_x with clock := ck_x) /\ st_x.clock = s.clock`
+      by (qexists_tac `st' with clock := s.clock` \\ simp [state_component_equality])
+    \\ fs [Q.ISPEC `(_, _)` EQ_SYM_EQ]
+    \\ rpt (first_x_assum drule \\ rw [])
+    \\ dxrule_then dxrule evaluate_two_steps_clock
+    \\ rw []
+    \\ asm_exists_tac
+    \\ simp []
+    \\ simp [state_component_equality]
+   )
   THEN1 (* cons *)
-   (ntac 2 (pop_assum mp_tac)
+   (
+    ntac 2 (pop_assum mp_tac)
     \\ once_rewrite_tac [evaluate_cons]
     \\ fs [pair_case_eq,result_case_eq] \\ strip_tac
     \\ rveq \\ fs []
     \\ imp_res_tac evaluate_sing \\ rveq \\ fs [] \\ rveq \\ fs []
-    \\ rename1 `evaluate (s with clock := ck1) env [x1] = (st5,Rval [v5])`
-    \\ rveq \\ fs [] \\ rpt strip_tac
-    \\ `evaluate (s with clock := ck1) env [x1] =
-          ((st5 with clock := s.clock) with clock := st5.clock,Rval [v5])` by
-         fs [state_component_equality]
-    \\ qpat_x_assum `!x. _` kall_tac
-    \\ first_x_assum drule \\ fs [] \\ strip_tac
-    \\ `evaluate (st5 with clock := st5.clock) env ys =
-           ((s1 with clock := st5.clock) with clock := ck2,Rval vs')` by
-               (simp [] \\ fs [state_component_equality])
-    \\ first_x_assum drule \\ fs [] \\ strip_tac
-    \\ drule evaluate_add_to_clock \\ fs []
-    \\ disch_then (qspec_then `ck2'` assume_tac)
-    \\ qpat_x_assum `evaluate _ _ [BOTTOM_UP_OPT f x1] = _` assume_tac
-    \\ drule evaluate_add_to_clock \\ fs []
-    \\ disch_then (qspec_then `ck1''` assume_tac)
-    \\ asm_exists_tac \\ fs [state_component_equality]
-    \\ qexists_tac `s1 with clock := ck2' + ck2''` \\ fs [])
+    \\ `? st_x ck_x. s' = (st_x with clock := ck_x) /\ st_x.clock = s.clock`
+      by (qexists_tac `s' with clock := s.clock` \\ simp [state_component_equality])
+    \\ fs []
+    \\ rpt (first_x_assum drule \\ rw [])
+    \\ qpat_x_assum `evaluate _ _ [_ (BOTTOM_UP_OPT _ _)] = _` kall_tac
+    \\ dxrule_then dxrule evaluate_two_steps_clock
+    \\ rw []
+    \\ asm_exists_tac
+    \\ simp []
+    \\ simp [state_component_equality]
+   )
   THEN1 (* match *)
-   (ntac 2 (pop_assum (mp_tac o GSYM))
-    \\ CASE_TAC \\ fs []
-    THEN1 (rw [] \\ first_x_assum drule \\ fs [] \\ fs [])
-    THEN1 (rw [] \\ last_x_assum drule \\ fs [] \\ fs []))
+   (
+    fs [Q.ISPEC `(_, _)` EQ_SYM_EQ, match_result_case_eq]
+    \\ fsrw_tac [SATISFY_ss] []
+   )
 QED
 
+Theorem BOTTOM_UP_OPT_THM = BOTTOM_UP_OPT_THM1
+    |> UNDISCH_ALL |> CONJUNCTS |> hd |> SIMP_RULE bool_ss []
+    |> DISCH_ALL
 
 (* rewrite optimisation: (fn x => exp) y --> let x = y in exp *)
 
