@@ -6829,7 +6829,7 @@ Proof
     \\ fs [make_even_def]
     \\ CASE_TAC \\ fs []
   )
-  \\ fs [seqTheory.LT_SUC]
+  \\ fs [prim_recTheory.LESS_THM]
   \\ rw [] \\ fs []
   \\ first_x_assum drule
   \\ rw []
@@ -7125,7 +7125,7 @@ Proof
     \\ ntac 2 (res_tac \\ fs [])
     \\ irule arithmeticTheory.LESS_SUC_EQ_COR
     \\ CCONTR_TAC \\ fs [Q.ISPEC `SUC n` EQ_SYM_EQ, arithmeticTheory.GREATER_EQ]
-    \\ fs [seqTheory.LE_SUC]
+    \\ fs [LE]
     \\ rfs [EVEN]
   )
   \\ simp [backendPropsTheory.FST_state_co]
@@ -7928,7 +7928,7 @@ Proof
   \\ rw [] \\ fs [arithmeticTheory.GREATER_DEF]
   \\ fs [MEM_MAP]
   \\ rpt (first_x_assum (drule_then assume_tac))
-  \\ Cases_on `n` \\ fs [seqTheory.LT_SUC, EVEN]
+  \\ Cases_on `n` \\ fs [prim_recTheory.LESS_THM, EVEN]
   \\ rveq \\ fs []
 QED
 
