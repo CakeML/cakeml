@@ -718,9 +718,7 @@ Proof
   `MEM (QSORT $<= (SET_TO_LIST t)) (choose (COUNT_LIST n) k)` by
     (qspecl_then [`COUNT_LIST n`,`k`,`QSORT $<= (SET_TO_LIST t)`] mp_tac choose_complete>>
     simp[]>>impl_tac>-
-      (CONJ_TAC >-
-        metis_tac[PERM_LENGTH]>>
-      simp[EVERY_MEM,QSORT_MEM]>>
+      (simp[EVERY_MEM,QSORT_MEM]>>
       fs[SUBSET_DEF,LENGTH_COUNT_LIST])>>
     qmatch_goalsub_abbrev_tac`MEM aa _ ⇒ MEM bb _`>>
     `aa=bb` by
