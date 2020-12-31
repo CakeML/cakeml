@@ -1572,7 +1572,7 @@ Proof
         (!j. j <= i ==> n_f (FST (FST (orac j))) <= n_f (FST (FST (orac i))))`
   by (
     Induct \\ fs [is_state_oracle_def]
-    \\ fs [PAIR_FST_SND_EQ, seqTheory.LE_SUC]
+    \\ fs [PAIR_FST_SND_EQ, LE]
     \\ rw [] \\ fs []
     \\ metis_tac [LESS_EQ_TRANS]
   )
@@ -1596,7 +1596,7 @@ Proof
   \\ `!i. (!j. j <= i ==> n_f (orac j) <= n_f (orac i))`
   by (
     Induct \\ fs []
-    \\ simp [seqTheory.LE_SUC]
+    \\ simp [LE]
     \\ rw [] \\ simp []
     \\ metis_tac [LESS_EQ_TRANS]
   )
