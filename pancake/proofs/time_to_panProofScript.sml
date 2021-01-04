@@ -1253,16 +1253,19 @@ QED
 
 
 Theorem comp_exp_correct:
-  ∀s e n clks t clkvals.
+  ∀s e n clks t:('a,'b)panSem$state clkvals.
     evalExpr s e = SOME n ∧
     EVERY (λck. MEM ck clks) (exprClks [] e) ∧
     (* EVERY (λck. ∃n. FLOOKUP s.clocks ck = SOME n) clks ∧ *)
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
     equiv_val s.clocks clks clkvals ⇒
-      eval t (compExp clks «clks» e) = SOME (ValWord (n2w n))
+    eval t (compExp clks «clks» e) = SOME (ValWord (n2w n))
 Proof
   ho_match_mp_tac evalExpr_ind >>
-  rw [] >> fs [] >>
+  rpt gen_tac >>
+  strip_tac >>
+  rpt gen_tac >>
+  strip_tac >>
   cases_on ‘e’ >> fs []
   >- (
     fs [evalExpr_def] >>
@@ -1270,9 +1273,6 @@ Proof
     fs [eval_def])
   >- (
     fs [evalExpr_def, timeLangTheory.exprClks_def] >>
-    (*
-    gs [EVERY_MEM] >>
-    res_tac >> gs [] >> *)
     fs [compExp_def] >>
     fs [equiv_val_def] >> rveq >> gs [] >>
     fs [eval_def] >>
@@ -1330,6 +1330,51 @@ Proof
 QED
 
 
+Theorem comp_condition_correct:
+  ∀s cnd t clks.
+    evalCond s cnd ⇒
+    ∃n. eval t (compCondition clks «clks» cnd) = SOME (ValWord n) ∧
+        n ≠ 0w
+Proof
+  rw [] >>
+  cases_on ‘cnd’ >>
+  fs [evalCond_def]
+  >- (
+   every_case_tac >> fs [] >>
+   fs [compCondition_def] >>
+   fs [eval_def, OPT_MMAP_def] >>
+   dxrule comp_exp_correct >>
+   disch_then
+   (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
+   impl_tac >- cheat >>
+   strip_tac >>
+   dxrule comp_exp_correct >>
+   disch_then
+   (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
+   impl_tac >- cheat >>
+   strip_tac >>
+   gs [] >>
+   fs [asmTheory.word_cmp_def] >>
+   cheat) >>
+  every_case_tac >> fs [] >>
+  fs [compCondition_def] >>
+  fs [eval_def, OPT_MMAP_def] >>
+  dxrule comp_exp_correct >>
+  disch_then
+  (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
+  impl_tac >- cheat >>
+  strip_tac >>
+  dxrule comp_exp_correct >>
+  disch_then
+  (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
+  impl_tac >- cheat >>
+  strip_tac >>
+  gs [] >>
+  fs [asmTheory.word_cmp_def] >>
+  fs [word_lo_n2w] >>
+ (* add these assumptions *)
+ (("arithmetic", "LESS_MOD"), (⊢ ∀n k. k < n ⇒ k MOD n = k, Thm)),
+QED
 
 
 Theorem bar:

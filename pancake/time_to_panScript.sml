@@ -104,7 +104,6 @@ Definition compExp_def:
      Op Sub [compExp clks vname e1;
              compExp clks vname e2])
 End
-(*
 
 Definition compCondition_def:
   (compCondition clks vname (CndLt e1 e2) =
@@ -120,7 +119,7 @@ Definition compCondition_def:
                 (compExp clks vname e2)])
 End
 
-
+(*
 Definition compConditions_def:
   (compConditions clks vname [] = Const 1w) ∧
   (compConditions clks vname cs =
