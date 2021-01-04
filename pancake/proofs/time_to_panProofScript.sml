@@ -52,21 +52,17 @@ Definition clk_vals_range_def:
     SUM (MAP (size_of_shape o shape_of) clks) ≤ 29
 End
 
-(* remove 0w ≤ (n2w n):'a word ∧ *)
 
-(* n is there to make 'a appear *)
 Definition clk_range_def:
-  clk_range fm clks (n:'a word) ⇔
+  clk_range fm clks (m:num) ⇔
     EVERY
       (λck. ∃n. FLOOKUP fm ck = SOME n ∧
-                n < dimword (:'a)) clks
+                n < m) clks
 End
 
-(* remove 0w ≤ (n2w n):'a word ∧ *)
 Definition time_range_def:
-  time_range wt (n:'a word) ⇔
-    EVERY (λ(t,c).
-            t < dimword (:α)) wt
+  time_range wt (m:num) ⇔
+    EVERY (λ(t,c). t < m) wt
 End
 
 
@@ -85,7 +81,6 @@ Definition minOption_def:
   (minOption (x:'a word) NONE = x) ∧
   (minOption x (SOME (y:num)) =
     if x <₊ n2w y then x else n2w y)
-  (* word_min is not quite the same *)
 End
 
 
@@ -153,13 +148,13 @@ Proof
 QED
 
 
-Theorem opt_mmap_resetClocks_eq_resetClksVals:
+Theorem opt_mmap_resetTermClocks_eq_resetClksVals:
   ∀t clkvals s clks tclks.
     EVERY (λck. ck IN FDOM s.clocks) clks ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
     equiv_val s.clocks clks clkvals ⇒
     OPT_MMAP (λa. eval t a)
-             (resetClocks «clks» clks tclks) =
+             (resetTermClocks «clks» clks tclks) =
     SOME (resetClksVals s.clocks clks tclks)
 Proof
   rpt gen_tac >>
@@ -167,12 +162,12 @@ Proof
   fs [opt_mmap_eq_some] >>
   fs [MAP_EQ_EVERY2] >>
   conj_tac
-  >- fs [resetClocks_def, resetClksVals_def] >>
+  >- fs [resetTermClocks_def, resetClksVals_def] >>
   fs [LIST_REL_EL_EQN] >>
   conj_tac
-  >- fs [resetClocks_def, resetClksVals_def] >>
+  >- fs [resetTermClocks_def, resetClksVals_def] >>
   rw [] >>
-  fs [resetClocks_def] >>
+  fs [resetTermClocks_def] >>
   TOP_CASE_TAC
   >- (
     ‘EL n (resetClksVals s.clocks clks tclks) = ValWord 0w’ by (
@@ -543,7 +538,7 @@ QED
 
 
 Theorem every_conj_spec:
-  ∀fm xs.
+  ∀fm xs w.
     EVERY
     (λck. ∃n. FLOOKUP fm ck = SOME n ∧
               n < dimword (:α)) xs ⇒
@@ -590,8 +585,8 @@ Theorem comp_input_term_correct:
              (Tm (Input n) cnds tclks dest wt) s' ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
     clk_vals_range clkvals ∧
-    clk_range s.clocks clks (0w:'a word) ∧
-    time_range wt (0w:'a word) ∧
+    clk_range s.clocks clks (dimword (:'a))∧
+    time_range wt (dimword (:'a)) ∧
     equiv_val s.clocks clks clkvals ∧
     valid_clks clks tclks wt ∧
     toString dest IN FDOM t.code ⇒
@@ -620,9 +615,9 @@ Proof
    rfs [] >> fs [] >>
    qmatch_asmsub_abbrev_tac ‘OPT_MMAP (λa. eval stInit a) _’ >>
    ‘OPT_MMAP (λa. eval stInit a)
-      (resetClocks «clks» clks tclks) =
+      (resetTermClocks «clks» clks tclks) =
     SOME (resetClksVals s.clocks clks tclks)’ by (
-     match_mp_tac opt_mmap_resetClocks_eq_resetClksVals >>
+     match_mp_tac opt_mmap_resetTermClocks_eq_resetClksVals >>
      qexists_tac ‘clkvals’ >> rfs [] >>
      fs [Abbr ‘stInit’] >>
      rfs [FLOOKUP_UPDATE]) >>
@@ -674,9 +669,9 @@ Proof
   rfs [] >> fs [] >>
   qmatch_asmsub_abbrev_tac ‘OPT_MMAP (λa. eval stInit a) _’ >>
   ‘OPT_MMAP (λa. eval stInit a)
-   (resetClocks «clks» clks tclks) =
+   (resetTermClocks «clks» clks tclks) =
    SOME (resetClksVals s.clocks clks tclks)’ by (
-    match_mp_tac opt_mmap_resetClocks_eq_resetClksVals >>
+    match_mp_tac opt_mmap_resetTermClocks_eq_resetClksVals >>
     qexists_tac ‘clkvals’ >> rfs [] >>
     fs [Abbr ‘stInit’] >>
     rfs [FLOOKUP_UPDATE]) >>
@@ -869,8 +864,8 @@ Theorem comp_output_term_correct:
              (Tm (Output out) cnds tclks dest wt) s' ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
     clk_vals_range clkvals ∧
-    clk_range s.clocks clks (0w:'a word) ∧
-    time_range wt (0w:'a word) ∧
+    clk_range s.clocks clks (dimword (:'a)) ∧
+    time_range wt (dimword (:'a)) ∧
     equiv_val s.clocks clks clkvals ∧
     valid_clks clks tclks wt ∧
     toString dest IN FDOM t.code ∧
@@ -903,9 +898,9 @@ Proof
    rfs [] >> fs [] >>
    qmatch_asmsub_abbrev_tac ‘OPT_MMAP (λa. eval stInit a) _’ >>
    ‘OPT_MMAP (λa. eval stInit a)
-      (resetClocks «clks» clks tclks) =
+      (resetTermClocks «clks» clks tclks) =
     SOME (resetClksVals s.clocks clks tclks)’ by (
-     match_mp_tac opt_mmap_resetClocks_eq_resetClksVals >>
+     match_mp_tac opt_mmap_resetTermClocks_eq_resetClksVals >>
      qexists_tac ‘clkvals’ >> rfs [] >>
      fs [Abbr ‘stInit’] >>
      rfs [FLOOKUP_UPDATE]) >>
@@ -990,9 +985,9 @@ Proof
   rfs [] >> fs [] >>
   qmatch_asmsub_abbrev_tac ‘OPT_MMAP (λa. eval stInit a) _’ >>
   ‘OPT_MMAP (λa. eval stInit a)
-   (resetClocks «clks» clks tclks) =
+   (resetTermClocks «clks» clks tclks) =
    SOME (resetClksVals s.clocks clks tclks)’ by (
-    match_mp_tac opt_mmap_resetClocks_eq_resetClksVals >>
+    match_mp_tac opt_mmap_resetTermClocks_eq_resetClksVals >>
     qexists_tac ‘clkvals’ >> rfs [] >>
     fs [Abbr ‘stInit’] >>
     rfs [FLOOKUP_UPDATE]) >>
@@ -1211,8 +1206,8 @@ Theorem comp_term_correct:
              (Tm ioAct cnds tclks dest wt) s' ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
     clk_vals_range clkvals ∧
-    clk_range s.clocks clks (0w:'a word) ∧
-    time_range wt (0w:'a word) ∧
+    clk_range s.clocks clks (dimword (:'a)) ∧
+    time_range wt (dimword (:'a)) ∧
     equiv_val s.clocks clks clkvals ∧
     valid_clks clks tclks wt ∧
     toString dest IN FDOM t.code ⇒
@@ -1248,14 +1243,6 @@ Proof
   imp_res_tac comp_output_term_correct
 
 QED
-
-
-
-
-
-
-
-
 
 
 

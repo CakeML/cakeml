@@ -30,8 +30,8 @@ Definition indicesOf_def:
 End
 
 
-Definition resetClocks_def:
-  resetClocks v clks tclks =
+Definition resetTermClocks_def:
+  resetTermClocks v clks tclks =
   MAPi (λn e.
          if (MEM e tclks)
          then (Const 0w)
@@ -71,7 +71,7 @@ Definition compTerm_def:
     decs [
         («waitSet»,   case wt of [] => Const 0w | wt => Const 1w);
         («wakeUpAt»,  Const 0w);
-        («newClks»,   Struct (resetClocks «clks» clks tclks));
+        («newClks»,   Struct (resetTermClocks «clks» clks tclks));
         («waitTimes», Struct (emptyConsts wt))
       ]
          (nested_seq
@@ -127,6 +127,8 @@ Definition compConditions_def:
      Op And (MAP (compCondition clks vname) cs))
 End
 
+(*
+(* from here *)
 
 Definition compTerms_def:
   (compTerms clks vname [] = Skip) ∧
@@ -137,6 +139,30 @@ Definition compTerms_def:
       (compTerm clks t)
       (compTerms clks vname ts))
 End
+
+
+Definition comp_location_def:
+  comp_location clks (loc, ts) =
+  let n = LENGTH clks in
+    (toString loc,
+     [(«clks», gen_shape n)],
+     comp_terms comp_term («clks»,clks) ts)
+End
+
+
+Definition comp_prog_def:
+  (comp_prog clks [] = []) ∧
+  (comp_prog clks (p::ps) =
+     comp_location clks p :: comp_prog clks ps)
+End
+*)
+
+Definition comp_def:
+  comp prog =
+    comp_prog (clks_of prog) prog
+End
+
+
 
 
 
