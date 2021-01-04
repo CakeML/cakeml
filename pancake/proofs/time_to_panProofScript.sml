@@ -239,7 +239,7 @@ Theorem calculate_wait_times_eq:
     OPT_MMAP (λe. eval t e)
         (waitTimes (MAP FST wt)
          (MAP (λn. Field n (Var vname)) (indicesOf clks (MAP SND wt)))) =
-    SOME (MAP (ValWord ∘ n2w ∘ evalDiff s) wt)
+    SOME (MAP (ValWord ∘ n2w ∘ THE ∘ evalDiff s) wt)
 Proof
   rw [] >>
   fs [opt_mmap_eq_some] >>
@@ -318,6 +318,9 @@ Proof
       fs []) >>
     rfs [] >> rveq >> fs []) >>
   fs [wordLangTheory.word_op_def] >>
+  first_x_assum drule >>
+  fs [] >>
+  strip_tac >>
   ‘n2w (q − v):'a word = n2w q − n2w v’ suffices_by fs [] >>
   match_mp_tac n2w_sub >> rveq >> fs [] >> rveq >> rfs [] >>
   first_x_assum drule >>
@@ -690,7 +693,7 @@ Proof
    (waitTimes (MAP FST wt)
     (MAP (λn. Field n (Var «newClks» ))
      (indicesOf clks (MAP SND wt)))) =
-   SOME (MAP ((λw. ValWord w) ∘ n2w ∘ evalDiff
+   SOME (MAP ((λw. ValWord w) ∘ n2w ∘ THE ∘ evalDiff
               (s with clocks := resetClocks s.clocks tclks)) wt)’ by (
     match_mp_tac calculate_wait_times_eq >>
     qexists_tac ‘resetClksVals s.clocks clks tclks’ >>
@@ -732,7 +735,7 @@ Proof
   disch_then (
     qspecl_then [
         ‘es’,
-        ‘MAP (evalDiff (s with clocks := resetClocks s.clocks tclks)) wt’,
+        ‘MAP (THE o evalDiff (s with clocks := resetClocks s.clocks tclks)) wt’,
         ‘res''’, ‘s1'’] mp_tac) >>
   impl_tac
   >- (
@@ -1010,7 +1013,7 @@ Proof
    (waitTimes (MAP FST wt)
     (MAP (λn. Field n (Var «newClks» ))
      (indicesOf clks (MAP SND wt)))) =
-   SOME (MAP ((λw. ValWord w) ∘ n2w ∘ evalDiff
+   SOME (MAP ((λw. ValWord w) ∘ n2w ∘ THE ∘ evalDiff
               (s with clocks := resetClocks s.clocks tclks)) wt)’ by (
     match_mp_tac calculate_wait_times_eq >>
     qexists_tac ‘resetClksVals s.clocks clks tclks’ >>
@@ -1052,7 +1055,7 @@ Proof
   disch_then (
     qspecl_then [
         ‘es’,
-        ‘MAP (evalDiff (s with clocks := resetClocks s.clocks tclks)) wt’,
+        ‘MAP (THE ∘ evalDiff (s with clocks := resetClocks s.clocks tclks)) wt’,
         ‘res''’, ‘s1'’] mp_tac) >>
   impl_tac
   >- (
@@ -1143,23 +1146,28 @@ Proof
      («wakeUpAt» ,ValWord 0w) |+
      («newClks» ,Struct (resetClksVals s.clocks clks tclks)) |+
      («waitTimes» ,
-      Struct (ValWord
-              (n2w
-               (evalDiff
-                (s with clocks := resetClocks s.clocks tclks) h))::
-              MAP
-              ((λw. ValWord w) ∘ n2w ∘
-               evalDiff
-               (s with clocks := resetClocks s.clocks tclks)) t')) |+
+      Struct
+      (ValWord
+       (n2w
+        (THE
+         (evalDiff
+          (s with clocks := resetClocks s.clocks tclks) h)))::
+       MAP
+       ((λw. ValWord w) ∘ n2w ∘ THE ∘
+        evalDiff
+        (s with clocks := resetClocks s.clocks tclks)) t')) |+
      («wakeUpAt» ,
       ValWord
       (n2w
        (THE
         (list_min_option
-         (evalDiff
-          (s with clocks := resetClocks s.clocks tclks) h::
-          MAP
+         (THE
           (evalDiff
+           (s with clocks := resetClocks s.clocks tclks)
+           h)::
+          MAP
+          (THE ∘
+           evalDiff
            (s with
             clocks := resetClocks s.clocks tclks)) t')))))’,
     ‘res''’,
@@ -1246,9 +1254,9 @@ QED
 
 Theorem comp_exp_correct:
   ∀s e n clks t clkvals.
-    evalExpr s e = n ∧
+    evalExpr s e = SOME n ∧
     EVERY (λck. MEM ck clks) (exprClks [] e) ∧
-    EVERY (λck. ∃n. FLOOKUP s.clocks ck = SOME n) clks ∧
+    (* EVERY (λck. ∃n. FLOOKUP s.clocks ck = SOME n) clks ∧ *)
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
     equiv_val s.clocks clks clkvals ⇒
       eval t (compExp clks «clks» e) = SOME (ValWord (n2w n))
@@ -1261,10 +1269,10 @@ Proof
     fs [compExp_def] >>
     fs [eval_def])
   >- (
-    fs [] >>
     fs [evalExpr_def, timeLangTheory.exprClks_def] >>
+    (*
     gs [EVERY_MEM] >>
-    res_tac >> gs [] >>
+    res_tac >> gs [] >> *)
     fs [compExp_def] >>
     fs [equiv_val_def] >> rveq >> gs [] >>
     fs [eval_def] >>
@@ -1282,6 +1290,12 @@ Proof
       match_mp_tac EL_findi >>
       gs []) >>
     fs []) >>
+  qpat_x_assum ‘evalExpr _ _ = _’ mp_tac >>
+  rewrite_tac [Once evalExpr_def] >>
+  fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  strip_tac >>
   qpat_x_assum ‘EVERY _ (exprClks [] _)’ mp_tac >>
   once_rewrite_tac [timeLangTheory.exprClks_def] >>
   fs [] >>
@@ -1306,9 +1320,13 @@ Proof
   rewrite_tac [compExp_def] >>
   fs [eval_def] >>
   gs [OPT_MMAP_def] >>
-  (* specific to evalExpr, should be proved in timeProps*)
-  cheat
-
+  fs [wordLangTheory.word_op_def] >>
+  match_mp_tac EQ_SYM >>
+  rewrite_tac [Once evalExpr_def] >>
+  fs [minusT_def] >>
+  rveq >> gs [] >>
+  drule n2w_sub >>
+  fs []
 QED
 
 

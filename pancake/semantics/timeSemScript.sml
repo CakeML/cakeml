@@ -23,10 +23,6 @@ Datatype:
 End
 
 
-Definition minusT_def:
-  minusT (t1:time) (t2:time) = t1 - t2
-End
-
 Definition mkState_def:
   mkState cks loc io wt =
   <| clocks   := cks
@@ -83,15 +79,22 @@ Definition delay_clocks_def:
 End
 
 
+Definition minusT_def:
+  minusT (t1:time) (t2:time) = t1 - t2
+End
+
+
 Definition evalExpr_def:
   evalExpr st e =
   case e of
-  | ELit t => t
-  | ESub e1 e2 => minusT (evalExpr st e1) (evalExpr st e2)
-  | EClock c =>
-      case FLOOKUP st.clocks c of
-      | NONE => 0
-      | SOME t => t
+  | ELit t => SOME t
+  | EClock c => FLOOKUP st.clocks c
+  | ESub e1 e2 =>
+      case (evalExpr st e1, evalExpr st e2) of
+      | SOME t1,SOME t2 =>
+                  if t2 ≤ t1 then SOME (minusT t1 t2)
+                  else NONE
+      | _=> NONE
 End
 
 (*
@@ -106,10 +109,24 @@ Definition evalExpr_def:
 End
 *)
 
+(*
 Definition evalCond_def:
   (evalCond st (CndLe e1 e2) = (evalExpr st e1 <= evalExpr st e2)) /\
   (evalCond st (CndLt e1 e2) = (evalExpr st e1 < evalExpr st e2))
 End
+*)
+
+Definition evalCond_def:
+  (evalCond st (CndLe e1 e2) =
+    case (evalExpr st e1,evalExpr st e2) of
+    | SOME t1,SOME t2 => t1 ≤ t2
+    | _ => F) ∧
+  (evalCond st (CndLt e1 e2) =
+    case (evalExpr st e1,evalExpr st e2) of
+    | SOME t1,SOME t2 => t1 < t2
+    | _ => F)
+End
+
 
 Definition evalDiff_def:
   evalDiff st ((t,c): time # clock) =
@@ -122,7 +139,7 @@ Definition calculate_wtime_def:
   let
     st = st with clocks := resetClocks st.clocks clks
   in
-    list_min_option (MAP (evalDiff st) diffs)
+    list_min_option (MAP (THE o evalDiff st) diffs)
 End
 
 
