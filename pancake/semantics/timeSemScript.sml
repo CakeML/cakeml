@@ -82,6 +82,19 @@ Definition delay_clocks_def:
                             (fmap_to_alist fm))
 End
 
+
+Definition evalExpr_def:
+  evalExpr st e =
+  case e of
+  | ELit t => t
+  | ESub e1 e2 => minusT (evalExpr st e1) (evalExpr st e2)
+  | EClock c =>
+      case FLOOKUP st.clocks c of
+      | NONE => 0
+      | SOME t => t
+End
+
+(*
 Definition evalExpr_def:
   (evalExpr st (ELit t) = t) ∧
   (evalExpr st (ESub e1 e2) =
@@ -91,6 +104,7 @@ Definition evalExpr_def:
      | NONE => 0
      | SOME t => t)
 End
+*)
 
 Definition evalCond_def:
   (evalCond st (CndLe e1 e2) = (evalExpr st e1 <= evalExpr st e2)) /\

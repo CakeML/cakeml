@@ -104,7 +104,7 @@ Definition compExp_def:
      Op Sub [compExp clks vname e1;
              compExp clks vname e2])
 End
-
+(*
 
 Definition compCondition_def:
   (compCondition clks vname (CndLt e1 e2) =
@@ -126,6 +126,7 @@ Definition compConditions_def:
   (compConditions clks vname cs =
      Op And (MAP (compCondition clks vname) cs))
 End
+*)
 
 (*
 (* from here *)
@@ -155,16 +156,13 @@ Definition comp_prog_def:
   (comp_prog clks (p::ps) =
      comp_location clks p :: comp_prog clks ps)
 End
-*)
 
 Definition comp_def:
   comp prog =
     comp_prog (clks_of prog) prog
 End
 
-
-
-
+*)
 
 (*
 (* REPLICATE *)

@@ -98,4 +98,53 @@ Proof
   fs []
 QED
 
+
+Theorem exprClks_accumulates:
+  ∀xs e ys.
+    EVERY (λck. MEM ck ys) (exprClks xs e) ⇒
+    EVERY (λck. MEM ck ys) xs
+Proof
+  ho_match_mp_tac exprClks_ind >>
+  rw [] >>
+  cases_on ‘e’
+  >- fs [Once exprClks_def]
+  >- (
+   gs [] >>
+   fs [exprClks_def] >>
+   every_case_tac >> fs []) >>
+  gs [] >>
+  pop_assum mp_tac >>
+  once_rewrite_tac [exprClks_def] >>
+  fs []
+QED
+
+
+Theorem exprClks_sublist_accum:
+  ∀xs e ck ys.
+    MEM ck (exprClks xs e) ∧
+    EVERY (λx. MEM x ys) xs ⇒
+    MEM ck (exprClks ys e)
+Proof
+  ho_match_mp_tac exprClks_ind >>
+  rw [] >>
+  gs [] >>
+  cases_on ‘e’
+  >- fs [Once exprClks_def, EVERY_MEM]
+  >- (
+    gs [] >>
+    fs [exprClks_def] >>
+    every_case_tac >> gs [EVERY_MEM]) >>
+  gs [] >>
+  once_rewrite_tac [exprClks_def] >>
+  fs [] >>
+  first_x_assum match_mp_tac >>
+  conj_tac
+  >- (
+    qpat_x_assum ‘MEM ck _’ mp_tac >>
+    rewrite_tac [Once exprClks_def] >>
+    fs []) >>
+  fs [EVERY_MEM]
+QED
+
+
 val _ = export_theory();

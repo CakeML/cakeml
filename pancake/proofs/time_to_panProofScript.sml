@@ -585,7 +585,7 @@ Theorem comp_input_term_correct:
              (Tm (Input n) cnds tclks dest wt) s' ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
     clk_vals_range clkvals ∧
-    clk_range s.clocks clks (dimword (:'a))∧
+    clk_range s.clocks clks (dimword (:'a)) ∧
     time_range wt (dimword (:'a)) ∧
     equiv_val s.clocks clks clkvals ∧
     valid_clks clks tclks wt ∧
@@ -1241,11 +1241,152 @@ Proof
     strip_tac >> rveq >>
     imp_res_tac comp_input_term_correct) >>
   imp_res_tac comp_output_term_correct
+QED
+
+
+Theorem comp_exp_correct:
+  ∀s e n clks t clkvals.
+    evalExpr s e = n ∧
+    EVERY (λck. MEM ck clks) (exprClks [] e) ∧
+    EVERY (λck. ∃n. FLOOKUP s.clocks ck = SOME n) clks ∧
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    equiv_val s.clocks clks clkvals ⇒
+      eval t (compExp clks «clks» e) = SOME (ValWord (n2w n))
+Proof
+  ho_match_mp_tac evalExpr_ind >>
+  rw [] >> fs [] >>
+  cases_on ‘e’ >> fs []
+  >- (
+    fs [evalExpr_def] >>
+    fs [compExp_def] >>
+    fs [eval_def])
+  >- (
+    fs [] >>
+    fs [evalExpr_def, timeLangTheory.exprClks_def] >>
+    gs [EVERY_MEM] >>
+    res_tac >> gs [] >>
+    fs [compExp_def] >>
+    fs [equiv_val_def] >> rveq >> gs [] >>
+    fs [eval_def] >>
+    ‘findi m clks < LENGTH clks’ by (
+      match_mp_tac MEM_findi >>
+      gs []) >>
+    fs [] >>
+    qmatch_goalsub_abbrev_tac ‘EL nn (MAP ff _)’ >>
+    ‘EL nn (MAP ff clks) = ff (EL nn clks)’ by (
+      match_mp_tac EL_MAP >>
+      fs []) >>
+    fs [Abbr ‘ff’, Abbr ‘nn’] >>
+    pop_assum kall_tac >>
+    ‘EL (findi m clks) clks = m’ by (
+      match_mp_tac EL_findi >>
+      gs []) >>
+    fs []) >>
+  qpat_x_assum ‘EVERY _ (exprClks [] _)’ mp_tac >>
+  once_rewrite_tac [timeLangTheory.exprClks_def] >>
+  fs [] >>
+  strip_tac >>
+  ‘EVERY (λck. MEM ck clks) (exprClks [] e0) ∧
+   EVERY (λck. MEM ck clks) (exprClks [] e')’ by (
+    drule exprClks_accumulates >>
+    fs [] >>
+    strip_tac >>
+    fs [EVERY_MEM] >>
+    rw [] >>
+    fs [] >>
+    drule exprClks_sublist_accum >>
+    fs []) >>
+  fs [] >>
+  last_x_assum drule >>
+  last_x_assum drule >>
+  fs [] >>
+  disch_then (qspecl_then [‘t’, ‘clkvals’] assume_tac) >>
+  disch_then (qspecl_then [‘t’, ‘clkvals’] assume_tac) >>
+  gs [] >>
+  rewrite_tac [compExp_def] >>
+  fs [eval_def] >>
+  gs [OPT_MMAP_def] >>
+  (* specific to evalExpr, should be proved in timeProps*)
+  cheat
 
 QED
 
 
 
 
+Theorem bar:
+  evalExpr s e = n ∧
+  FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+  clk_vals_range clkvals ∧
+  clk_range s.clocks clks (dimword (:'a)) ∧
+  time_range wt (dimword (:'a)) ∧
+  equiv_val s.clocks clks clkvals ∧
+  ⇒
+  eval t (compExp clks «clks» e) = SOME v ∧
+  val_rel n v
+Proof
+
+QED
+
+
+
+
+Theorem bar:
+  evalCond st cnd ∧
+  eval s (compCondition clks «clks» cnd) ⇒
+  something
+Proof
+
+QED
+
+
+
+
+Definition val_rel_def:
+  val_rel n v = ARB
+End
+
+
+
+
+
+Theorem foo:
+  EVERY (λcnd. evalCond st cnd) cnds ⇒
+  something
+Proof
+
+QED
+
+
+
+
+Theorem abc:
+  pickTerm st (SOME is)
+  (Tm (Input is) cnds tclks dest wt :: tms) st' ⇒
+    something
+Proof
+  rw [] >>
+  fs [Once pickTerm_cases]
+
+
+QED
+
+evalTerm_cases
+pickTerm_cases
+
+
+ fs [evalTerm_cases] >>
+
+(* pickTerm (resetOutput st) (SOME in_signal) tms st' *)
+(* pickTerm (resetOutput st) NONE tms st' *)
+
+
+Definition resetOutput_def:
+  resetOutput st =
+  st with
+  <| ioAction := NONE
+   ; waitTime := NONE
+  |>
+End
 
 val _ = export_theory();

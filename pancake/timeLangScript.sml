@@ -72,6 +72,19 @@ Definition accumClks_def:
    else accumClks (clk::ac) clks)
 End
 
+
+Definition exprClks_def:
+  exprClks clks e =
+  case e of
+  | ELit t => clks
+  | EClock clk =>
+     if MEM clk clks then clks else clk::clks
+  | ESub e1 e2 =>
+     exprClks (exprClks clks e1) e2
+End
+
+
+(*
 Definition exprClks_def:
   (exprClks clks (ELit time) = clks) ∧
   (exprClks clks (EClock clk) =
@@ -79,7 +92,7 @@ Definition exprClks_def:
   (exprClks clks (ESub e1 e2) =
      exprClks (exprClks clks e1) e2)
 End
-
+*)
 
 Definition clksOfExprs_def:
   clksOfExprs es = FOLDL exprClks [] es
