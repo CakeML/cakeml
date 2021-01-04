@@ -63,9 +63,6 @@ Definition termConditions_def:
   (termConditions (Tm _ cs _ _ _) = cs)
 End
 
-Definition termClks_def:
-  termClks (Tm _ _ clks _ _) = clks
-End
 
 Definition accumClks_def:
   (accumClks ac [] = ac) ∧
@@ -74,6 +71,41 @@ Definition accumClks_def:
    then accumClks ac clks
    else accumClks (clk::ac) clks)
 End
+
+Definition exprClks_def:
+  (exprClks clks (ELit time) = clks) ∧
+  (exprClks clks (EClock clk) =
+     if MEM clk clks then clks else clk::clks) ∧
+  (exprClks clks (ESub e1 e2) =
+     exprClks (exprClks clks e1) e2)
+End
+
+
+Definition clksOfExprs_def:
+  clksOfExprs es = FOLDL exprClks [] es
+End
+
+
+Definition destCond_def:
+  (destCond (CndLe e1 e2) = [e1; e2]) ∧
+  (destCond (CndLt e1 e2) = [e1; e2])
+End
+
+
+Definition condClks_def:
+  condClks cd = clksOfExprs (destCond cd)
+End
+
+
+Definition condsClks_def:
+  condsClks cds = clksOfExprs (FLAT (MAP destCond cds))
+End
+
+
+Definition termClks_def:
+  termClks (Tm _ _ clks _ _) = clks
+End
+
 
 Definition clksOf_def:
   clksOf prog =

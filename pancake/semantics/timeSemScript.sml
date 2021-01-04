@@ -147,7 +147,7 @@ End
 
 
 Inductive pickTerm:
-  (* when each condition is true true and input signals match with the first term *)
+  (* when each condition is true and input signals match with the first term *)
   (!st cnds in_signal clks dest diffs tms st'.
     EVERY (λcnd. evalCond st cnd) cnds /\
     evalTerm st (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs) st' ==>
