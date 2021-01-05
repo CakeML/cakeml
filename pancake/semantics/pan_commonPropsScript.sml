@@ -760,5 +760,4 @@ Proof
   fs [MAX_DEF]
 QED
 
-
 val _ = export_theory();

@@ -1456,20 +1456,20 @@ Proof
   (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
   impl_tac
   >- (
-  fs [] >>
-  drule exprClks_accumulates >>
-  fs []) >>
+    fs [] >>
+    drule exprClks_accumulates >>
+    fs []) >>
   strip_tac >>
   dxrule comp_exp_correct >>
   disch_then
   (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
   impl_tac
   >- (
-  fs [EVERY_MEM] >>
-  rw [] >>
-  fs [] >>
-  drule exprClks_sublist_accum >>
-  fs []) >>
+    fs [EVERY_MEM] >>
+    rw [] >>
+    fs [] >>
+    drule exprClks_sublist_accum >>
+    fs []) >>
   strip_tac >>
   fs [compCondition_def] >>
   fs [eval_def, OPT_MMAP_def] >>
@@ -1479,50 +1479,122 @@ Proof
 QED
 
 
-
-
-Theorem bar:
-  evalExpr s e = n ∧
-  FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-  clk_vals_range clkvals ∧
-  clk_range s.clocks clks (dimword (:'a)) ∧
-  time_range wt (dimword (:'a)) ∧
-  equiv_val s.clocks clks clkvals ∧
-  ⇒
-  eval t (compExp clks «clks» e) = SOME v ∧
-  val_rel n v
+(*
+Theorem map_comp_conditions_true_correct:
+  ∀cnds s (t:('a,'b) panSem$state) clks clkvals.
+    EVERY (λcnd. evalCond s cnd) cnds ∧
+    EVERY
+    (λcnd.
+      EVERY (λe. case (evalExpr s e) of
+                 | SOME n => n < dimword (:α)
+                 | _ => F) (destCond cnd)) cnds ∧
+    EVERY
+    (λcnd. EVERY (λck. MEM ck clks) (condClks cnd)) cnds ∧
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    equiv_val s.clocks clks clkvals ⇒
+    MAP (eval t o compCondition clks «clks») cnds =
+    REPLICATE (LENGTH cnds) (SOME (ValWord 1w))
 Proof
+  Induct
+  >- rw [] >>
+  rpt gen_tac >>
+  strip_tac >>
+  fs [] >>
+  drule comp_condition_true_correct >>
+  fs [] >>
+  disch_then drule_all >>
+  strip_tac >>
+  last_x_assum match_mp_tac >>
+  gs [] >>
+  qexists_tac ‘s’ >>
+  gs []
+QED
+*)
 
+Theorem map_comp_conditions_true_correct:
+  ∀cnds s (t:('a,'b) panSem$state) clks clkvals.
+    EVERY (λcnd. evalCond s cnd) cnds ∧
+    EVERY
+    (λcnd.
+      EVERY (λe. case (evalExpr s e) of
+                 | SOME n => n < dimword (:α)
+                 | _ => F) (destCond cnd)) cnds ∧
+    EVERY
+    (λcnd. EVERY (λck. MEM ck clks) (condClks cnd)) cnds ∧
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    equiv_val s.clocks clks clkvals ⇒
+    MAP (eval t o compCondition clks «clks») cnds =
+    MAP (SOME o (λx. ValWord 1w)) cnds
+Proof
+  Induct
+  >- rw [] >>
+  rpt gen_tac >>
+  strip_tac >>
+  fs [] >>
+  drule comp_condition_true_correct >>
+  fs [] >>
+  disch_then drule_all >>
+  strip_tac >>
+  last_x_assum match_mp_tac >>
+  gs [] >>
+  qexists_tac ‘s’ >>
+  gs []
+QED
+
+
+Theorem comp_conditions_true_correct:
+  ∀cnds s (t:('a,'b) panSem$state) clks clkvals.
+    EVERY (λcnd. evalCond s cnd) cnds ∧
+    EVERY
+    (λcnd.
+      EVERY (λe. case (evalExpr s e) of
+                 | SOME n => n < dimword (:α)
+                 | _ => F) (destCond cnd)) cnds ∧
+    EVERY
+    (λcnd. EVERY (λck. MEM ck clks) (condClks cnd)) cnds ∧
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    equiv_val s.clocks clks clkvals ⇒
+    eval t (compConditions clks «clks» cnds) = SOME (ValWord 1w)
+Proof
+  rw [] >>
+  drule map_comp_conditions_true_correct >>
+  gs [] >>
+  disch_then drule_all >>
+  strip_tac >>
+  pop_assum mp_tac >>
+  rpt (pop_assum kall_tac) >>
+  MAP_EVERY qid_spec_tac [‘t’,‘clks’,‘cnds’] >>
+  Induct >> rw []
+  >- (
+    fs [compConditions_def] >>
+    fs [eval_def]) >>
+  fs [compConditions_def] >>
+  fs [eval_def, OPT_MMAP_def] >>
+  fs [GSYM MAP_MAP_o] >>
+  fs [GSYM opt_mmap_eq_some] >>
+  ‘MAP (λx. ValWord 1w) cnds =
+   REPLICATE (LENGTH cnds) (ValWord 1w)’ by (
+    once_rewrite_tac [GSYM map_replicate] >>
+    once_rewrite_tac [GSYM map_replicate] >>
+    once_rewrite_tac [GSYM map_replicate] >>
+    rewrite_tac  [MAP_MAP_o] >>
+    rewrite_tac [MAP_EQ_EVERY2] >>
+    fs [LIST_REL_EL_EQN] >>
+    rw [] >> fs [] >>
+    ‘EL n (REPLICATE (LENGTH cnds) (1:num)) = 1’ by (
+      match_mp_tac EL_REPLICATE >>
+      fs []) >>
+    fs []) >>
+  fs [] >>
+  rewrite_tac [ETA_AX] >>
+  gs [] >>
+  fs [wordLangTheory.word_op_def] >>
+  cheat
 QED
 
 
 
 
-Theorem bar:
-  evalCond st cnd ∧
-  eval s (compCondition clks «clks» cnd) ⇒
-  something
-Proof
-
-QED
-
-
-
-
-Definition val_rel_def:
-  val_rel n v = ARB
-End
-
-
-
-
-
-Theorem foo:
-  EVERY (λcnd. evalCond st cnd) cnds ⇒
-  something
-Proof
-
-QED
 
 
 

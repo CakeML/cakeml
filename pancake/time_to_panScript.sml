@@ -121,11 +121,22 @@ End
 
 (*
 Definition compConditions_def:
+  compConditions clks vname cnds =
+   case cnds of
+   | [] => Const 1w
+   | c::cs => Op And
+                 (compCondition clks vname c ::
+                  compConditions clks vname cs)
+End
+*)
+
+
+Definition compConditions_def:
   (compConditions clks vname [] = Const 1w) ∧
   (compConditions clks vname cs =
      Op And (MAP (compCondition clks vname) cs))
 End
-*)
+
 
 (*
 (* from here *)
