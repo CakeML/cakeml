@@ -1331,7 +1331,7 @@ Proof
 QED
 
 
-Theorem comp_condition_correct:
+Theorem comp_condition_true_correct:
   ∀s cnd (t:('a,'b) panSem$state) clks clkvals.
     evalCond s cnd ∧
     EVERY (λe. case (evalExpr s e) of
@@ -1406,6 +1406,79 @@ Proof
   fs [asmTheory.word_cmp_def] >>
   gs [word_lo_n2w]
 QED
+
+
+Theorem comp_condition_false_correct:
+  ∀s cnd (t:('a,'b) panSem$state) clks clkvals.
+    ~(evalCond s cnd) ∧
+    EVERY (λe. case (evalExpr s e) of
+               | SOME n => n < dimword (:α)
+               | _ => F) (destCond cnd) ∧
+    EVERY (λck. MEM ck clks) (condClks cnd) ∧
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    equiv_val s.clocks clks clkvals ⇒
+    eval t (compCondition clks «clks» cnd) = SOME (ValWord 0w)
+Proof
+  rw [] >>
+  cases_on ‘cnd’ >>
+  fs [evalCond_def, timeLangTheory.condClks_def,
+      timeLangTheory.destCond_def, timeLangTheory.clksOfExprs_def] >>
+  every_case_tac >> fs []
+  >- (
+   dxrule comp_exp_correct >>
+   disch_then
+   (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
+   impl_tac
+   >- (
+     fs [] >>
+     drule exprClks_accumulates >>
+     fs []) >>
+   strip_tac >>
+   dxrule comp_exp_correct >>
+   disch_then
+   (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [EVERY_MEM] >>
+    rw [] >>
+    fs [] >>
+    drule exprClks_sublist_accum >>
+    fs []) >>
+   strip_tac >>
+   fs [compCondition_def] >>
+   fs [eval_def, OPT_MMAP_def] >>
+   gs [] >>
+   fs [asmTheory.word_cmp_def] >>
+   gs [word_lo_n2w] >>
+   fs [wordLangTheory.word_op_def]) >>
+  dxrule comp_exp_correct >>
+  disch_then
+  (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
+  impl_tac
+  >- (
+  fs [] >>
+  drule exprClks_accumulates >>
+  fs []) >>
+  strip_tac >>
+  dxrule comp_exp_correct >>
+  disch_then
+  (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
+  impl_tac
+  >- (
+  fs [EVERY_MEM] >>
+  rw [] >>
+  fs [] >>
+  drule exprClks_sublist_accum >>
+  fs []) >>
+  strip_tac >>
+  fs [compCondition_def] >>
+  fs [eval_def, OPT_MMAP_def] >>
+  gs [] >>
+  fs [asmTheory.word_cmp_def] >>
+  gs [word_lo_n2w]
+QED
+
+
 
 
 Theorem bar:
