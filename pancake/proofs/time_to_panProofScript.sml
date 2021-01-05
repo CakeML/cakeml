@@ -1479,38 +1479,6 @@ Proof
 QED
 
 
-(*
-Theorem map_comp_conditions_true_correct:
-  ∀cnds s (t:('a,'b) panSem$state) clks clkvals.
-    EVERY (λcnd. evalCond s cnd) cnds ∧
-    EVERY
-    (λcnd.
-      EVERY (λe. case (evalExpr s e) of
-                 | SOME n => n < dimword (:α)
-                 | _ => F) (destCond cnd)) cnds ∧
-    EVERY
-    (λcnd. EVERY (λck. MEM ck clks) (condClks cnd)) cnds ∧
-    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    equiv_val s.clocks clks clkvals ⇒
-    MAP (eval t o compCondition clks «clks») cnds =
-    REPLICATE (LENGTH cnds) (SOME (ValWord 1w))
-Proof
-  Induct
-  >- rw [] >>
-  rpt gen_tac >>
-  strip_tac >>
-  fs [] >>
-  drule comp_condition_true_correct >>
-  fs [] >>
-  disch_then drule_all >>
-  strip_tac >>
-  last_x_assum match_mp_tac >>
-  gs [] >>
-  qexists_tac ‘s’ >>
-  gs []
-QED
-*)
-
 Theorem map_comp_conditions_true_correct:
   ∀cnds s (t:('a,'b) panSem$state) clks clkvals.
     EVERY (λcnd. evalCond s cnd) cnds ∧
@@ -1672,19 +1640,43 @@ Proof
 QED
 
 
+Theorem pickTerm_true_imp_evalTerm:
+  ∀s io tms s'.
+    pickTerm s io tms s' ⇒
+    ∃tm. MEM tm tms ∧ EVERY (λcnd. evalCond s cnd) (termConditions tm) ∧
+         case tm of
+         | Tm (Input n) cnds tclks dest wt =>
+             evalTerm s (SOME n) (Tm (Input n) cnds tclks dest wt) s'
+         | Tm (Output out) cnds tclks dest wt =>
+             evalTerm s NONE (Tm (Output out) cnds tclks dest wt) s'
+Proof
+  ho_match_mp_tac pickTerm_ind >>
+  rw [] >> fs []
+  >- (
+  qexists_tac ‘Tm (Input in_signal) cnds clks dest diffs'’ >>
+  fs [timeLangTheory.termConditions_def])
+  >- (
+  qexists_tac ‘Tm (Output out_signal) cnds clks dest diffs'’ >>
+  fs [timeLangTheory.termConditions_def]) >>
+  qexists_tac ‘tm’ >> fs []
+QED
+
+
+(* when any condition is false, but there is a matching term, then we can append the
+   list with the false term  *)
+Theorem foo:
+  ∀s io cnds tclks dest wt s' t (clkvals:'a v list) clks tms.
+    ~(EVERY (λcnd. evalCond s cnd) cnds) ∧
+    pickTerm s event tms s' ⇒
+    evaluate (compTerms clks «clks» (Tm io cnds tclks dest wt::tms), t) =
+    (ARB, ARB)
+Proof
+QED
 
 
 
 
 
-
-
-
-evalTerm_cases
-pickTerm_cases
-
-
- fs [evalTerm_cases] >>
 
 (* pickTerm (resetOutput st) (SOME in_signal) tms st' *)
 (* pickTerm (resetOutput st) NONE tms st' *)

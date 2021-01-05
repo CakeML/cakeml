@@ -190,7 +190,7 @@ Inductive pickTerm:
     evalTerm st NONE (Tm (Output out_signal) cnds clks dest diffs) st' ==>
     pickTerm st NONE (Tm (Output out_signal) cnds clks dest diffs :: tms) st') /\
 
-  (* when each condition is false, but there is a matching term, then we can append the
+  (* when any condition is false, but there is a matching term, then we can append the
      list with the false term  *)
   (!st cnds event ioAction clks dest diffs tms st'.
     ~(EVERY (λcnd. evalCond st cnd) cnds) /\
