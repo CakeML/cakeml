@@ -1,3 +1,4 @@
+
 (*
   Correctness proof for --
 *)
@@ -1252,11 +1253,11 @@ Proof
 QED
 
 
+(* EVERY (λck. ∃n. FLOOKUP s.clocks ck = SOME n) clks ∧ *)
 Theorem comp_exp_correct:
   ∀s e n clks t:('a,'b)panSem$state clkvals.
     evalExpr s e = SOME n ∧
     EVERY (λck. MEM ck clks) (exprClks [] e) ∧
-    (* EVERY (λck. ∃n. FLOOKUP s.clocks ck = SOME n) clks ∧ *)
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
     equiv_val s.clocks clks clkvals ⇒
     eval t (compExp clks «clks» e) = SOME (ValWord (n2w n))
@@ -1331,49 +1332,79 @@ QED
 
 
 Theorem comp_condition_correct:
-  ∀s cnd t clks.
-    evalCond s cnd ⇒
-    ∃n. eval t (compCondition clks «clks» cnd) = SOME (ValWord n) ∧
-        n ≠ 0w
+  ∀s cnd (t:('a,'b) panSem$state) clks clkvals.
+    evalCond s cnd ∧
+    EVERY (λe. case (evalExpr s e) of
+               | SOME n => n < dimword (:α)
+               | _ => F) (destCond cnd) ∧
+    EVERY (λck. MEM ck clks) (condClks cnd) ∧
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    equiv_val s.clocks clks clkvals ⇒
+    eval t (compCondition clks «clks» cnd) = SOME (ValWord 1w)
 Proof
   rw [] >>
   cases_on ‘cnd’ >>
-  fs [evalCond_def]
+  fs [evalCond_def, timeLangTheory.condClks_def,
+      timeLangTheory.destCond_def, timeLangTheory.clksOfExprs_def] >>
+  every_case_tac >> fs [] >>
+  qpat_x_assum ‘_ < dimword (:α)’ mp_tac >>
+  qpat_x_assum ‘_ < dimword (:α)’ assume_tac >>
+  strip_tac >>
+  dxrule LESS_MOD >>
+  dxrule LESS_MOD >>
+  strip_tac >> strip_tac
   >- (
-   every_case_tac >> fs [] >>
+   dxrule comp_exp_correct >>
+   disch_then
+   (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
+   impl_tac
+   >- (
+     fs [] >>
+     drule exprClks_accumulates >>
+     fs []) >>
+   strip_tac >>
+   dxrule comp_exp_correct >>
+   disch_then
+   (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
+   impl_tac
+   >- (
+    fs [EVERY_MEM] >>
+    rw [] >>
+    fs [] >>
+    drule exprClks_sublist_accum >>
+    fs []) >>
+   strip_tac >>
    fs [compCondition_def] >>
    fs [eval_def, OPT_MMAP_def] >>
-   dxrule comp_exp_correct >>
-   disch_then
-   (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
-   impl_tac >- cheat >>
-   strip_tac >>
-   dxrule comp_exp_correct >>
-   disch_then
-   (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
-   impl_tac >- cheat >>
-   strip_tac >>
    gs [] >>
    fs [asmTheory.word_cmp_def] >>
-   cheat) >>
-  every_case_tac >> fs [] >>
+   gs [word_lo_n2w] >>
+   gs [LESS_OR_EQ, wordLangTheory.word_op_def]) >>
+  dxrule comp_exp_correct >>
+  disch_then
+  (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
+  impl_tac
+  >- (
+  fs [] >>
+  drule exprClks_accumulates >>
+  fs []) >>
+  strip_tac >>
+  dxrule comp_exp_correct >>
+  disch_then
+  (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
+  impl_tac
+  >- (
+  fs [EVERY_MEM] >>
+  rw [] >>
+  fs [] >>
+  drule exprClks_sublist_accum >>
+  fs []) >>
+  strip_tac >>
   fs [compCondition_def] >>
   fs [eval_def, OPT_MMAP_def] >>
-  dxrule comp_exp_correct >>
-  disch_then
-  (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
-  impl_tac >- cheat >>
-  strip_tac >>
-  dxrule comp_exp_correct >>
-  disch_then
-  (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
-  impl_tac >- cheat >>
-  strip_tac >>
   gs [] >>
   fs [asmTheory.word_cmp_def] >>
-  fs [word_lo_n2w] >>
- (* add these assumptions *)
- (("arithmetic", "LESS_MOD"), (⊢ ∀n k. k < n ⇒ k MOD n = k, Thm)),
+  gs [word_lo_n2w]
 QED
 
 
