@@ -1595,8 +1595,6 @@ QED
 (*
   rw [] >>
   fs [Once pickTerm_cases]
-  >- (
-  (* when each condition is true and input signals match with the first term *)
 *)
 
 (* when each condition is true and input signals match with the first term *)
@@ -1632,6 +1630,55 @@ Proof
   drule_all comp_input_term_correct >>
   fs []
 QED
+
+(* when each condition is true and output signals match with the first term *)
+Theorem pickTerm_output_cons_correct:
+  ∀s out cnds tclks dest wt s' t (clkvals:'a v list) clks
+   ffi_name nffi nbytes bytes tms.
+    EVERY (λcnd. evalCond s cnd) cnds ∧
+    evalTerm s NONE (Tm (Output out) cnds tclks dest wt) s' ∧
+    EVERY
+    (λcnd.
+      EVERY (λe. case (evalExpr s e) of
+                 | SOME n => n < dimword (:α)
+                 | _ => F) (destCond cnd)) cnds ∧
+    EVERY
+    (λcnd. EVERY (λck. MEM ck clks) (condClks cnd)) cnds ∧
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    equiv_val s.clocks clks clkvals ∧
+    clk_vals_range clkvals ∧
+    clk_range s.clocks clks (dimword (:'a)) ∧
+    time_range wt (dimword (:'a)) ∧
+    valid_clks clks tclks wt ∧
+    toString dest IN FDOM t.code ∧
+    well_behaved_ffi (strlit (toString out)) t nffi nbytes bytes (dimword (:α)) ⇒
+    evaluate (compTerms clks «clks» (Tm (Output out) cnds tclks dest wt::tms), t) =
+    (SOME (Return (retVal s clks tclks wt dest)),
+       t with
+       <|locals :=
+         restore_from t FEMPTY [«len2»; «ptr2»; «len1»; «ptr1»;
+                                «waitTimes»; «newClks»; «wakeUpAt»; «waitSet»];
+         memory := write_bytearray 4000w nbytes t.memory t.memaddrs t.be;
+         ffi := nffi_state t nffi out bytes nbytes|>)
+Proof
+  rw [] >>
+  drule_all comp_conditions_true_correct >>
+  strip_tac >>
+  fs [compTerms_def] >>
+  once_rewrite_tac [evaluate_def] >>
+  fs [timeLangTheory.termConditions_def] >>
+  drule_all comp_output_term_correct >>
+  fs []
+QED
+
+
+
+
+
+
+
+
+
 
 evalTerm_cases
 pickTerm_cases
