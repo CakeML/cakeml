@@ -20,8 +20,18 @@ Definition ffiBufferSize_def:
 End
 
 
+Definition genShape_def:
+  genShape n = Comb (REPLICATE n One)
+End
+
+
+Definition mkClks_def:
+  mkClks vname n = REPLICATE n (Var vname)
+End
+
+
 Definition emptyConsts_def:
-  emptyConsts xs = MAP (λ_. Const 0w) xs
+  emptyConsts n = REPLICATE n (Const 0w)
 End
 
 
@@ -69,10 +79,10 @@ Definition compTerm_def:
                    Var «wakeUpAt»; Label (toString loc)])
   in
     decs [
-        («waitSet»,   case wt of [] => Const 0w | wt => Const 1w);
+        («waitSet»,   case wt of [] => Const 1w | wt => Const 0w); (* not waitSet *)
         («wakeUpAt»,  Const 0w);
         («newClks»,   Struct (resetTermClocks «clks» clks tclks));
-        («waitTimes», Struct (emptyConsts wt))
+        («waitTimes», Struct (emptyConsts (LENGTH wt)))
       ]
          (nested_seq
           [Assign «waitTimes»
@@ -147,35 +157,94 @@ Definition compTerms_def:
       (compTerms clks vname ts))
 End
 
-(*
-
-Definition comp_location_def:
-  comp_location clks (loc, ts) =
+Definition compLocation_def:
+  compLocation clks (loc,ts) =
   let n = LENGTH clks in
     (toString loc,
-     [(«clks», gen_shape n)],
-     comp_terms comp_term («clks»,clks) ts)
+     [(«clks», genShape n)],
+     compTerms clks «clks» ts)
 End
 
-
-Definition comp_prog_def:
-  (comp_prog clks [] = []) ∧
-  (comp_prog clks (p::ps) =
-     comp_location clks p :: comp_prog clks ps)
+Definition compProg_def:
+  (compProg clks [] = []) ∧
+  (compProg clks (p::ps) =
+    compLocation clks p :: compProg clks ps)
 End
 
 Definition comp_def:
   comp prog =
-    comp_prog (clks_of prog) prog
+    compProg (clksOf prog) prog
 End
-
-*)
 
 (*
-(* REPLICATE *)
-Definition genShape_def:
-  genShape n = Comb (GENLIST (λn. One) n)
+  («task_ret»,
+  Struct (Struct (empty_consts n) :: MAP Var
+  [«wait_set»; «wake_up_at»; «location»]));
+*)
+
+Definition task_controller_def:
+  task_controller initLoc initWakeUp clksLength =
+     decs
+      [(«loc», Label (toString initLoc));
+       («waitSet»,
+        case initWakeUp of NONE => Const 1w | _ => Const 0w);  (* not waitSet *)
+       («wakeUpAt»,
+        case initWakeUp of NONE => Const 0w | SOME n => Const (n2w n));
+       («isInput», Const 1w); (* not isInput, active low *)
+       («ptr1», Const 0w);
+       («len1», Const 0w);
+       («ptr2», Const ffiBufferAddr);
+       («len2», Const ffiBufferSize);
+       («sysTime», Const 0w);
+       («taskRet»,
+        Struct [Struct (emptyConsts clksLength);
+                Var «waitSet»;
+                Var «wakeUpAt»;
+                Var «loc»])
+      ]
+      (nested_seq
+       [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
+        Assign «sysTime» (Load One (Var «ptr2»));
+        Assign «taskRet» (Struct
+                          [Struct (mkClks «sysTime» clksLength);
+                           Var «waitSet»;
+                           Var «wakeUpAt»;
+                           Var «loc»]);
+        While (Const 1w)
+              (nested_seq [
+                  ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
+                  Assign  «sysTime» (Load One (Var «ptr2»));
+                  ExtCall «check_input» «ptr1» «len1» «ptr2» «len2»;
+                  Assign  «isInput» (Load One (Var «ptr2»));
+                  (* negate  «isInput»; *)
+                  While (Op And [Var «isInput»; (* Not *)
+                                 Op Or
+                                 [Var «waitSet»; (* Not *)
+                                  Cmp Lower (Var «sysTime») (Var «wakeUpAt»)]])
+                    (nested_seq [
+                        ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
+                        Assign  «sysTime» (Load One (Var «ptr2»));
+                        ExtCall «check_input» «ptr1» «len1» «ptr2» «len2»;
+                        Assign  «isInput» (Load One (Var «ptr2»))]);
+                  nested_seq [
+                      Call (Ret «taskRet» NONE) (Var «loc»)
+                      [Struct (MAP2
+                               (λx y. Op Sub [x;y])
+                               (mkClks «sysTime» clksLength)
+                               (destruct (Field 0 (Var «taskRet»))))
+                       (* elapsed time clock variables *)];
+                      Assign «waitSet»  (Field 1 (Var «taskRet»));
+                      Assign «wakeUpAt» (Field 2 (Var «taskRet»));
+                      Assign «loc»      (Field 3 (Var «taskRet»))
+                    ]
+                 ])
+        ])
 End
+
+
+
+
+(*
 
 (*
 Definition destruct_def:
@@ -299,30 +368,6 @@ End
    rclocks =  reset_clocks clks («sys_time»,«clks») clks_of_term;
 
 *)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 Definition comp_term_def:

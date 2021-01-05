@@ -1665,12 +1665,17 @@ QED
 (* when any condition is false, but there is a matching term, then we can append the
    list with the false term  *)
 Theorem foo:
-  ∀s io cnds tclks dest wt s' t (clkvals:'a v list) clks tms.
+  ∀s event io cnds tclks dest wt s' t (clkvals:'a v list) clks tms.
     ~(EVERY (λcnd. evalCond s cnd) cnds) ∧
     pickTerm s event tms s' ⇒
     evaluate (compTerms clks «clks» (Tm io cnds tclks dest wt::tms), t) =
-    (ARB, ARB)
+    evaluate (compTerms clks «clks» tm, t)
 Proof
+  rw [] >>
+  drule pickTerm_true_imp_evalTerm >>
+  strip_tac >>
+  fs [] >>
+  (* we can go on, but first I should see what kind of lemmas are needed *)
 QED
 
 
