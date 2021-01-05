@@ -241,9 +241,6 @@ Definition task_controller_def:
         ])
 End
 
-
-
-
 (*
 
 (*

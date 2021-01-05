@@ -41,7 +41,7 @@ Definition retVal_def:
   retVal s clks tclks wt dest =
     Struct [
         Struct (resetClksVals s.clocks clks tclks);
-        ValWord (case wt of [] => 0w | _ => 1w);
+        ValWord (case wt of [] => 1w | _ => 0w);
         ValWord (case wt of [] => 0w
                          | _ => n2w (THE (calculate_wtime s tclks wt)));
         ValLabel (toString dest)]
@@ -121,12 +121,10 @@ Definition nffi_state_def:
         [IO_event (toString n) [] (ZIP (bytes,nbytes))]|>
 End
 
-
 Theorem eval_empty_const_eq_empty_vals:
   ∀s n.
     OPT_MMAP (λe. eval s e) (emptyConsts n) =
     SOME (emptyVals (emptyConsts n))
-  (* could be any array of suitable length *)
 Proof
   rw [] >>
   fs [opt_mmap_eq_some] >>
@@ -134,20 +132,14 @@ Proof
   fs [emptyConsts_def, emptyVals_def] >>
   fs [LIST_REL_EL_EQN] >>
   rw [] >>
-  fs [MAP_MAP_o] >>
-  qmatch_goalsub_abbrev_tac ‘MAP f _’ >>
-  ‘EL n' (MAP f n) = f (EL n' n)’ by (
-    match_mp_tac EL_MAP >>
+  ‘EL n' (REPLICATE n ((Const 0w):'a panLang$exp)) = Const 0w’ by (
+    match_mp_tac EL_REPLICATE >>
     fs []) >>
-  fs [Abbr ‘f’] >>
-  qmatch_goalsub_abbrev_tac ‘MAP f _’ >>
-  ‘EL n' (MAP f n) = f (EL n' n)’ by (
-    match_mp_tac EL_MAP >>
+  ‘EL n' (REPLICATE n (ValWord 0w)) = ValWord 0w’ by (
+    match_mp_tac EL_REPLICATE >>
     fs []) >>
-  fs [Abbr ‘f’] >>
   fs [eval_def]
 QED
-
 
 Theorem opt_mmap_resetTermClocks_eq_resetClksVals:
   ∀t clkvals s clks tclks.
@@ -660,9 +652,9 @@ Proof
    fs [empty_locals_def, retVal_def] >>
    fs [restore_from_def]) >>
   (* some maintenance to replace h::t' to wt *)
-  qmatch_goalsub_abbrev_tac ‘emptyConsts wt’ >>
-  ‘(case wt of [] => Const 0w | v2::v3 => Const 1w) =
-   (Const 1w): 'a panLang$exp’ by fs [Abbr ‘wt’] >>
+  qmatch_goalsub_abbrev_tac ‘emptyConsts (LENGTH wt)’ >>
+  ‘(case wt of [] => Const 1w | v2::v3 => Const 0w) =
+   (Const 0w): 'a panLang$exp’ by fs [Abbr ‘wt’] >>
   fs [] >>
   pop_assum kall_tac >>
   fs [panLangTheory.decs_def] >>
@@ -724,7 +716,7 @@ Proof
     fs [FLOOKUP_UPDATE] >>
     fs [panSemTheory.shape_of_def] >>
     fs [emptyVals_def, emptyConsts_def] >>
-    fs [MAP_MAP_o, MAP_EQ_f] >>
+    fs [MAP_MAP_o, GSYM MAP_K_REPLICATE, MAP_EQ_f] >>
     rw [] >>
     fs [shape_of_def]) >>
   fs [] >>
@@ -944,7 +936,7 @@ Proof
    pairarg_tac >> fs [] >> rveq >> rfs [] >>
    drule ffi_eval_state_thm >>
    disch_then (qspecl_then
-               [‘t.locals |+ («waitSet» ,ValWord 0w) |+
+               [‘t.locals |+ («waitSet» ,ValWord 1w) |+
                  («wakeUpAt» ,ValWord 0w) |+
                  («newClks» ,Struct (resetClksVals s.clocks clks tclks)) |+
                  («waitTimes» ,Struct [])’,
@@ -972,9 +964,9 @@ Proof
    fs [empty_locals_def, retVal_def] >>
    fs [nffi_state_def, restore_from_def]) >>
   (* some maintenance to replace h::t' to wt *)
-  qmatch_goalsub_abbrev_tac ‘emptyConsts wt’ >>
-  ‘(case wt of [] => Const 0w | v2::v3 => Const 1w) =
-   (Const 1w): 'a panLang$exp’ by fs [Abbr ‘wt’] >>
+  qmatch_goalsub_abbrev_tac ‘emptyConsts (LENGTH wt)’ >>
+  ‘(case wt of [] => Const 1w | v2::v3 => Const 0w) =
+   (Const 0w): 'a panLang$exp’ by fs [Abbr ‘wt’] >>
   fs [] >>
   pop_assum kall_tac >>
   fs [panLangTheory.decs_def] >>
@@ -1044,7 +1036,7 @@ Proof
     fs [FLOOKUP_UPDATE] >>
     fs [panSemTheory.shape_of_def] >>
     fs [emptyVals_def, emptyConsts_def] >>
-    fs [MAP_MAP_o, MAP_EQ_f] >>
+    fs [MAP_MAP_o, GSYM MAP_K_REPLICATE, MAP_EQ_f] >>
     rw [] >>
     fs [shape_of_def]) >>
   fs [] >>
@@ -1143,7 +1135,7 @@ Proof
   drule ffi_eval_state_thm >>
   disch_then
   (qspecl_then
-   [‘t.locals |+ («waitSet» ,ValWord 1w) |+
+   [‘t.locals |+ («waitSet» ,ValWord 0w) |+
      («wakeUpAt» ,ValWord 0w) |+
      («newClks» ,Struct (resetClksVals s.clocks clks tclks)) |+
      («waitTimes» ,
