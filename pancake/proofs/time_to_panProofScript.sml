@@ -16,6 +16,19 @@ val _ = set_grammar_ancestry
          "time_to_pan"];
 
 
+Definition code_installed_def:
+  code_installed prog code <=>
+  ∀loc tms.
+    MEM (loc,tms) prog ⇒
+    let clks = clksOf prog;
+        n = LENGTH clks
+    in
+      FLOOKUP code (toString loc) =
+      SOME ([(«clks», genShape n)],
+            compTerms clks «clks» tms)
+End
+
+
 Definition equiv_val_def:
   equiv_val fm xs v <=>
     v = MAP (ValWord o n2w o THE o (FLOOKUP fm)) xs
@@ -1668,23 +1681,68 @@ Proof
   strip_tac >>
   fs [] >>
   (* we can go on, but first I should see what kind of lemmas are needed *)
+  cheat
+QED
+
+
+Definition state_rel_def:
+  state_rel s t ⇔
+  s.clocks = ARB t ∧
+  eval t (Var «loc») = SOME (ValLabel (toString s.location)) ∧
+  s.ioAction = ARB ∧
+  case s.waitTime of
+  | NONE   => eval t (Field 2 (Var «taskRet»)) = SOME (ValWord 0w)
+  | SOME n => eval t (Field 2 (Var «taskRet»)) = SOME (ValWord (n2w n))
+
+End
+
+
+Theorem time_to_pan_compiler_correct:
+  ∀prog label s s' t wt res t'.
+    step prog label s s' ∧
+    state_rel s t ∧
+    code_installed prog t.code ∧
+    evaluate (start_controller (prog,wt), t) = (res, t') ⇒
+    state_rel s' t' ∧ res = ARB
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  fs [step_cases] >> rveq >> gs []
+  >- (
+  fs [start_controller_def] >>
+  fs [task_controller_def] >>
+  fs [panLangTheory.decs_def] >>
+  fs [evaluate_def, eval_def]
+
+
+
+
+
+    fs [mkState_def] >>
+    fs [delay_clocks_def] >>
+
+
+
+
+  )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 QED
 
 
 
-
-
-
-(* pickTerm (resetOutput st) (SOME in_signal) tms st' *)
-(* pickTerm (resetOutput st) NONE tms st' *)
-
-
-Definition resetOutput_def:
-  resetOutput st =
-  st with
-  <| ioAction := NONE
-   ; waitTime := NONE
-  |>
-End
 
 val _ = export_theory();
