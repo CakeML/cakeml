@@ -1592,22 +1592,45 @@ Proof
   cheat
 QED
 
-
-
-
-
-
-
-
-Theorem abc:
-  pickTerm st (SOME is)
-  (Tm (Input is) cnds tclks dest wt :: tms) st' ⇒
-    something
-Proof
+(*
   rw [] >>
   fs [Once pickTerm_cases]
+  >- (
+  (* when each condition is true and input signals match with the first term *)
+*)
 
-
+(* when each condition is true and input signals match with the first term *)
+Theorem pickTerm_input_cons_correct:
+  ∀s n cnds tclks dest wt s' t (clkvals:'a v list) clks tms.
+    EVERY (λcnd. evalCond s cnd) cnds ∧
+    evalTerm s (SOME n) (Tm (Input n) cnds tclks dest wt) s' ∧
+    EVERY
+    (λcnd.
+      EVERY (λe. case (evalExpr s e) of
+                 | SOME n => n < dimword (:α)
+                 | _ => F) (destCond cnd)) cnds ∧
+    EVERY
+    (λcnd. EVERY (λck. MEM ck clks) (condClks cnd)) cnds ∧
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    equiv_val s.clocks clks clkvals ∧
+    clk_vals_range clkvals ∧
+    clk_range s.clocks clks (dimword (:'a)) ∧
+    time_range wt (dimword (:'a)) ∧
+    valid_clks clks tclks wt ∧
+    toString dest IN FDOM t.code ⇒
+    evaluate (compTerms clks «clks» (Tm (Input n) cnds tclks dest wt::tms), t) =
+    (SOME (Return (retVal s clks tclks wt dest)),
+     t with locals :=
+     restore_from t FEMPTY [«waitTimes»; «newClks»; «wakeUpAt»; «waitSet»])
+Proof
+  rw [] >>
+  drule_all comp_conditions_true_correct >>
+  strip_tac >>
+  fs [compTerms_def] >>
+  once_rewrite_tac [evaluate_def] >>
+  fs [timeLangTheory.termConditions_def] >>
+  drule_all comp_input_term_correct >>
+  fs []
 QED
 
 evalTerm_cases

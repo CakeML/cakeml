@@ -137,10 +137,6 @@ Definition compConditions_def:
      Op And (MAP (compCondition clks vname) cs))
 End
 
-
-(*
-(* from here *)
-
 Definition compTerms_def:
   (compTerms clks vname [] = Skip) ∧
   (compTerms clks vname (t::ts) =
@@ -151,6 +147,7 @@ Definition compTerms_def:
       (compTerms clks vname ts))
 End
 
+(*
 
 Definition comp_location_def:
   comp_location clks (loc, ts) =
