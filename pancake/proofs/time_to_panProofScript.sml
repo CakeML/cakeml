@@ -1526,10 +1526,6 @@ Proof
   cheat
 QED
 
-(*
-  rw [] >>
-  fs [Once pickTerm_cases]
-*)
 
 (* when each condition is true and input signals match with the first term *)
 Theorem pickTerm_input_cons_correct:
@@ -1628,39 +1624,6 @@ Proof
 QED
 
 
-(* when any condition is false, but there is a matching term, then we can append the
-   list with the false term  *)
-Theorem foo:
-  ∀s event io cnds tclks dest wt s' t (clkvals:'a v list) clks tms.
-    ~(EVERY (λcnd. evalCond s cnd) cnds) ∧
-    pickTerm s event tms s' ⇒
-    evaluate (compTerms clks «clks» (Tm io cnds tclks dest wt::tms), t) =
-    evaluate (compTerms clks «clks» tm, t)
-Proof
-  rw [] >>
-  drule pickTerm_true_imp_evalTerm >>
-  strip_tac >>
-  fs [] >>
-  (* we can go on, but first I should see what kind of lemmas are needed *)
-  cheat
-QED
-
-
-
-Definition wtVal_def:
-  wtVal wt =
-    ValWord (case wt of
-             | NONE => 1w
-             | SOME _ => 0w)
-End
-
-Definition wtStimeVal_def:
-  wtStimeVal stime wt =
-    ValWord (case wt of
-             | NONE => 0w
-             | SOME wt => stime + n2w wt)
-End
-
 
 Definition code_installed_def:
   code_installed prog code <=>
@@ -1674,6 +1637,7 @@ Definition code_installed_def:
             compTerms clks «clks» tms)
 End
 
+
 Definition clocks_rel_def:
   clocks_rel sclocks tlocals prog n ⇔
   ∃(clkwords:'a word list).
@@ -1684,6 +1648,35 @@ Definition clocks_rel_def:
       maxClksSize clkvals ∧
       clk_range sclocks clks (dimword (:'a))
 End
+
+
+(*
+Definition clocks_rel_def:
+  clocks_rel sclocks tlocals prog (sysTime:num) ⇔
+  ∃nclks.
+    let clks = clksOf prog;
+        clkvals = MAP (λn. ValWord (n2w n)) nclks in
+      FLOOKUP tlocals «clks» = SOME (Struct clkvals) ∧
+      equiv_val sclocks clks (MAP (λn. ValWord (n2w sysTime - n2w n)) nclks) ∧
+      maxClksSize clkvals ∧
+      clk_range sclocks clks (dimword (:'a))
+End
+*)
+
+Definition wtVal_def:
+  wtVal wt =
+    ValWord (case wt of
+             | NONE => 1w
+             | SOME _ => 0w)
+End
+
+Definition wtStimeVal_def:
+  wtStimeVal sysTime wt =
+    ValWord (case wt of
+             | NONE => 0w
+             | SOME wt => sysTime + n2w wt)
+End
+
 
 Definition state_rel_def:
   state_rel prog s t ⇔
@@ -1732,16 +1725,23 @@ Proof
 QED
 
 
-Theorem bar:
-  ffi_vars t.locals ∧
-  FLOOKUP t.locals «sysTime» = SOME (ValWord stime)
-  evaluate
-  (ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»,t) = (res,t') ⇒
-  t = ARB t'
-Proof
-
-
-QED
+Definition mono_sysTime_def:
+  mono_sysTime (s:('a, 'b)panSem$state) (r:('a, 'b)panSem$state) =
+  ∀f res t g res' stime.
+    evaluate (f,s) = (res, t) ∧
+    evaluate (g,t) = (res', r) ∧
+    FLOOKUP s.locals «sysTime» = SOME (ValWord stime) ⇒
+    ∃nffi nbytes bytes nstime.
+      well_behaved_ffi «get_time» t nffi nbytes bytes (dimword (:α)) ∧
+      mem_load One ffiBufferAddr t.memaddrs
+               (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be) =
+      SOME (ValWord (n2w nstime)) ∧
+      stime ≤ ((n2w nstime):'a word) ∧ nstime < dimword (:α)
+      (* 4 ≤ LENGTH nbytes *)
+      (*
+      (∃n. ARB nbytes = Word (n2w n) ∧
+           stime ≤ n ∧ n < dimword (:α)) *)
+End
 
 Theorem foo:
   ∀prog d s (t:('a, 'b)panSem$state) res t' nbytes bytes nffi.
@@ -1754,14 +1754,10 @@ Theorem foo:
     state_rel prog s t ∧
     ffi_vars t.locals ∧
     code_installed prog t.code ∧
-
-
-    (* this should be tru for all reachable states between t and t' *)
+    mono_sysTime t t' ∧
+    (*
     well_behaved_ffi «get_time» t nffi nbytes bytes (dimword (:α)) ∧
-    nbytes ≠ [] ∧ HD nbytes = Word w ∧ (systime of t is smaller than HD,
-                                       and HD is smaller than 'a)
-
-
+    *)
     evaluate (task_controller (nClks prog), t) = (res, t') ⇒
     state_rel prog
               (mkState
@@ -1782,17 +1778,47 @@ Proof
     fs [panLangTheory.nested_seq_def] >>
     fs [Once evaluate_def] >>
     pairarg_tac >> gs [] >>
-    (* qpat_x_assum ‘_ = (res,t')’ kall_tac >> *)
+    ‘evaluate (Skip, t) = (NONE,t)’ by rewrite_tac [evaluate_def]  >>
+    qpat_x_assum ‘mono_sysTime _ _’ assume_tac >>
+    fs [mono_sysTime_def] >>
+    first_x_assum drule >>
+    first_x_assum kall_tac >>
+    disch_then (qspecl_then [‘task_controller (nClks prog)’, ‘res’,
+                             ‘stime’] mp_tac) >>
+    gs [] >>
+    impl_tac >- cheat >>
+    strip_tac >>
     drule ffi_eval_state_thm >>
-    disch_then (qspecl_then [‘ntffi’, ‘nSysTime’, ‘tBytes’] mp_tac) >>
+
+    disch_then (qspecl_then [‘nffi’, ‘nbytes’, ‘bytes’] mp_tac) >>
     gs [] >>
     strip_tac >>
     fs [] >>
     pop_assum kall_tac >>
     pop_assum kall_tac >>
     fs [] >>
+    qpat_x_assum ‘_= (res,t')’ mp_tac >>
+    once_rewrite_tac [evaluate_def] >>
+    strip_tac >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    once_rewrite_tac [evaluate_def] >>
 
-    pop_assum kall_tac >>
+    fs [ffi_return_state_def] >>
+    fs [eval_def] >>
+    gs [ffiBufferAddr_def] >>
+    gs [is_valid_value_def, shape_of_def] >>
+    strip_tac >> rveq >> gs [] >>
+    qmatch_asmsub_abbrev_tac ‘evaluate (_, nst)=  (res,t')’ >>
+    qpat_x_assum ‘_= (res,t')’ mp_tac >>
+    once_rewrite_tac [evaluate_def] >>
+    strip_tac >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    (* state rel is not preserved, rather systime and is_input has some relation with time Sem *)
+
+
 
     fs [Once evaluate_def] >>
     pairarg_tac >> gs [] >>
@@ -1859,6 +1885,35 @@ Proof
 QED
 
 
+(* when any condition is false, but there is a matching term, then we can append the
+   list with the false term  *)
+Theorem foo:
+  ∀s event io cnds tclks dest wt s' t (clkvals:'a v list) clks tms.
+    ~(EVERY (λcnd. evalCond s cnd) cnds) ∧
+    pickTerm s event tms s' ⇒
+    evaluate (compTerms clks «clks» (Tm io cnds tclks dest wt::tms), t) =
+    evaluate (compTerms clks «clks» tm, t)
+Proof
+  rw [] >>
+  drule pickTerm_true_imp_evalTerm >>
+  strip_tac >>
+  fs [] >>
+  (* we can go on, but first I should see what kind of lemmas are needed *)
+  cheat
+QED
+
+
+
+Theorem bar:
+  ffi_vars t.locals ∧
+  FLOOKUP t.locals «sysTime» = SOME (ValWord stime)
+  evaluate
+  (ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»,t) = (res,t') ⇒
+  t = ARB t'
+Proof
+
+
+QED
 
 
 val _ = export_theory();
