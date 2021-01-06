@@ -61,8 +61,8 @@ Definition retVal_def:
 End
 
 
-Definition clk_vals_range_def:
-  clk_vals_range clks ⇔
+Definition maxClksSize_def:
+  maxClksSize clks ⇔
     SUM (MAP (size_of_shape o shape_of) clks) ≤ 29
 End
 
@@ -87,9 +87,19 @@ Definition restore_from_def:
 End
 
 Definition emptyVals_def:
-  emptyVals xs = MAP (λ_. ValWord 0w) xs
+  emptyVals n = REPLICATE n (ValWord 0w)
 End
 
+Definition constVals_def:
+  constVals n v = REPLICATE n v
+End
+
+
+(*
+Definition emptyVals_def:
+  emptyVals xs = MAP (λ_. ValWord 0w) xs
+End
+*)
 
 Definition minOption_def:
   (minOption (x:'a word) NONE = x) ∧
@@ -134,10 +144,11 @@ Definition nffi_state_def:
         [IO_event (toString n) [] (ZIP (bytes,nbytes))]|>
 End
 
+
 Theorem eval_empty_const_eq_empty_vals:
   ∀s n.
     OPT_MMAP (λe. eval s e) (emptyConsts n) =
-    SOME (emptyVals (emptyConsts n))
+    SOME (emptyVals n)
 Proof
   rw [] >>
   fs [opt_mmap_eq_some] >>
@@ -213,17 +224,17 @@ Proof
 QED
 
 
-Theorem clk_vals_range_reset_clks_eq:
+Theorem maxClksSize_reset_clks_eq:
   ∀s clks (clkvals:α v list) tclks.
     EVERY (λck. ck IN FDOM s.clocks) clks ∧
     equiv_val s.clocks clks clkvals ∧
-    clk_vals_range clkvals  ⇒
-    clk_vals_range ((resetClksVals s.clocks clks tclks):α v list)
+    maxClksSize clkvals  ⇒
+    maxClksSize ((resetClksVals s.clocks clks tclks):α v list)
 Proof
   rw [] >>
   fs [resetClksVals_def] >>
   fs [equiv_val_def] >> rveq >> fs [] >>
-  fs [clk_vals_range_def] >>
+  fs [maxClksSize_def] >>
   fs [MAP_MAP_o] >>
   fs [SUM_MAP_FOLDL] >>
   qmatch_asmsub_abbrev_tac ‘FOLDL ff _ _’ >>
@@ -587,13 +598,12 @@ Proof
   fs [panSemTheory.shape_of_def]
 QED
 
-
 Theorem comp_input_term_correct:
   ∀s n cnds tclks dest wt s' t (clkvals:'a v list) clks.
     evalTerm s (SOME n)
              (Tm (Input n) cnds tclks dest wt) s' ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    clk_vals_range clkvals ∧
+    maxClksSize clkvals ∧
     clk_range s.clocks clks (dimword (:'a)) ∧
     time_range wt (dimword (:'a)) ∧
     equiv_val s.clocks clks clkvals ∧
@@ -656,10 +666,10 @@ Proof
    rfs [] >>
    fs [panSemTheory.shape_of_def, panLangTheory.size_of_shape_def] >>
    fs [GSYM FDOM_FLOOKUP] >>
-   drule clk_vals_range_reset_clks_eq >>
+   drule maxClksSize_reset_clks_eq >>
    disch_then (qspecl_then [‘clkvals’, ‘tclks’] mp_tac) >>
    fs [] >> strip_tac >>
-   fs [clk_vals_range_def, MAP_MAP_o, ETA_AX] >>
+   fs [maxClksSize_def, MAP_MAP_o, ETA_AX] >>
    pop_assum kall_tac >>
    rveq >> fs [] >> rfs [] >> rveq >> fs [] >>
    fs [empty_locals_def, retVal_def] >>
@@ -824,7 +834,7 @@ Proof
     fs [EVERY_MEM] >>
     rw [] >>
     fs [MEM_MAP]) >>
-  rfs [clk_vals_range_def] >>
+  rfs [maxClksSize_def] >>
   qmatch_asmsub_abbrev_tac ‘ss = tt’ >>
   ‘SUM ss + 3 ≤ 32’ by fs [ETA_AX] >>
   fs [] >>
@@ -872,7 +882,7 @@ Theorem comp_output_term_correct:
     evalTerm s NONE
              (Tm (Output out) cnds tclks dest wt) s' ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    clk_vals_range clkvals ∧
+    maxClksSize clkvals ∧
     clk_range s.clocks clks (dimword (:'a)) ∧
     time_range wt (dimword (:'a)) ∧
     equiv_val s.clocks clks clkvals ∧
@@ -968,10 +978,10 @@ Proof
    rfs [] >>
    fs [panSemTheory.shape_of_def, panLangTheory.size_of_shape_def] >>
    fs [GSYM FDOM_FLOOKUP] >>
-   drule clk_vals_range_reset_clks_eq >>
+   drule maxClksSize_reset_clks_eq >>
    disch_then (qspecl_then [‘clkvals’, ‘tclks’] mp_tac) >>
    fs [] >> strip_tac >>
-   fs [clk_vals_range_def, MAP_MAP_o, ETA_AX] >>
+   fs [maxClksSize_def, MAP_MAP_o, ETA_AX] >>
    pop_assum kall_tac >>
    rveq >> fs [] >> rfs [] >> rveq >> fs [] >>
    fs [empty_locals_def, retVal_def] >>
@@ -1200,7 +1210,7 @@ Proof
     fs [EVERY_MEM] >>
     rw [] >>
     fs [MEM_MAP]) >>
-  rfs [clk_vals_range_def] >>
+  rfs [maxClksSize_def] >>
   qmatch_asmsub_abbrev_tac ‘ss = tt’ >>
   ‘SUM ss + 3 ≤ 32’ by fs [ETA_AX] >>
   fs [] >>
@@ -1219,7 +1229,7 @@ Theorem comp_term_correct:
     evalTerm s io
              (Tm ioAct cnds tclks dest wt) s' ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    clk_vals_range clkvals ∧
+    maxClksSize clkvals ∧
     clk_range s.clocks clks (dimword (:'a)) ∧
     time_range wt (dimword (:'a)) ∧
     equiv_val s.clocks clks clkvals ∧
@@ -1584,7 +1594,7 @@ Theorem pickTerm_input_cons_correct:
     (λcnd. EVERY (λck. MEM ck clks) (condClks cnd)) cnds ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
     equiv_val s.clocks clks clkvals ∧
-    clk_vals_range clkvals ∧
+    maxClksSize clkvals ∧
     clk_range s.clocks clks (dimword (:'a)) ∧
     time_range wt (dimword (:'a)) ∧
     valid_clks clks tclks wt ∧
@@ -1619,7 +1629,7 @@ Theorem pickTerm_output_cons_correct:
     (λcnd. EVERY (λck. MEM ck clks) (condClks cnd)) cnds ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
     equiv_val s.clocks clks clkvals ∧
-    clk_vals_range clkvals ∧
+    maxClksSize clkvals ∧
     clk_range s.clocks clks (dimword (:'a)) ∧
     time_range wt (dimword (:'a)) ∧
     valid_clks clks tclks wt ∧
@@ -1684,9 +1694,78 @@ Proof
   cheat
 QED
 
+(*
+ (∀ck n. FLOOKUP s.clocks ck = SOME n ⇒ n < dimword (:'a)) ∧
+*)
+
+Definition locals_rel_def:
+  locals_rel sclocks tlocals prog ⇔
+  let clks = clksOf prog in
+    ∃n (clkwords:'a word list).
+       let clkvals = MAP (λn. ValWord n) clkwords in
+         FLOOKUP tlocals «systime» = SOME (ValWord n) ∧
+         FLOOKUP tlocals «clks» = SOME (Struct clkvals) ∧
+         equiv_val sclocks clks (MAP (λw. ValWord (n - w)) clkwords) ∧
+         maxClksSize clkvals ∧
+         clk_range sclocks clks (dimword (:'a))
+End
+
+
+
+
+  let clks = clksOf prog in
+    clk_range s.clocks clks (dimword (:'a)) ∧
+  ∃(clkvals:'a v list).
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    maxClksSize clkvals ∧
+
+
+
+  s.clocks = ARB t ∧
+  eval t (Var «loc») = SOME (ValLabel (toString s.location)) ∧
+  s.ioAction = ARB ∧
+  case s.waitTime of
+  | NONE   => eval t (Field 2 (Var «taskRet»)) = SOME (ValWord 0w)
+  | SOME n => eval t (Field 2 (Var «taskRet»)) = SOME (ValWord (n2w n))
+
+End
+
+
+
 
 Definition state_rel_def:
-  state_rel s t ⇔
+  state_rel s t prog «clks» subf systime ⇔
+  let clks = clksOf prog in
+    clk_range s.clocks clks (dimword (:'a)) ∧
+  ∃(clkvals:'a v list).
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    maxClksSize clkvals ∧
+    equiv_val s.clocks clks (subf systime clkvals) ∧
+
+
+  s.clocks = ARB t ∧
+  eval t (Var «loc») = SOME (ValLabel (toString s.location)) ∧
+  s.ioAction = ARB ∧
+  case s.waitTime of
+  | NONE   => eval t (Field 2 (Var «taskRet»)) = SOME (ValWord 0w)
+  | SOME n => eval t (Field 2 (Var «taskRet»)) = SOME (ValWord (n2w n))
+
+End
+
+
+
+(* prog shuold be an arg *)
+Definition state_rel_def:
+  state_rel s t clks «clks» subf systime ⇔
+  (∀ck n. FLOOKUP s.clocks ck = SOME n ⇒ n < dimword (:'a)) ∧
+  (* clk_range s.clocks clks (dimword (:'a)) ∧ *)
+  (* here clocks are with sys time *)
+  ∃(clkvals:'a v list).
+    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+    maxClksSize clkvals ∧
+    equiv_val s.clocks clks (subf systime clkvals) ∧
+
+
   s.clocks = ARB t ∧
   eval t (Var «loc») = SOME (ValLabel (toString s.location)) ∧
   s.ioAction = ARB ∧
