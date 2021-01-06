@@ -1694,62 +1694,30 @@ Proof
   cheat
 QED
 
-(*
- (∀ck n. FLOOKUP s.clocks ck = SOME n ⇒ n < dimword (:'a)) ∧
-*)
-
-Definition locals_rel_def:
-  locals_rel sclocks tlocals prog ⇔
-  let clks = clksOf prog in
-    ∃n (clkwords:'a word list).
-       let clkvals = MAP (λn. ValWord n) clkwords in
-         FLOOKUP tlocals «systime» = SOME (ValWord n) ∧
-         FLOOKUP tlocals «clks» = SOME (Struct clkvals) ∧
-         equiv_val sclocks clks (MAP (λw. ValWord (n - w)) clkwords) ∧
-         maxClksSize clkvals ∧
-         clk_range sclocks clks (dimword (:'a))
+Definition clocks_rel_def:
+  clocks_rel sclocks tlocals prog n ⇔
+  ∃(clkwords:'a word list).
+    let clks = clksOf prog;
+        clkvals = MAP (λn. ValWord n) clkwords in
+      FLOOKUP tlocals «clks» = SOME (Struct clkvals) ∧
+      equiv_val sclocks clks (MAP (λw. ValWord (n - w)) clkwords) ∧
+      maxClksSize clkvals ∧
+      clk_range sclocks clks (dimword (:'a))
 End
-
-
-
-
-  let clks = clksOf prog in
-    clk_range s.clocks clks (dimword (:'a)) ∧
-  ∃(clkvals:'a v list).
-    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    maxClksSize clkvals ∧
-
-
-
-  s.clocks = ARB t ∧
-  eval t (Var «loc») = SOME (ValLabel (toString s.location)) ∧
-  s.ioAction = ARB ∧
-  case s.waitTime of
-  | NONE   => eval t (Field 2 (Var «taskRet»)) = SOME (ValWord 0w)
-  | SOME n => eval t (Field 2 (Var «taskRet»)) = SOME (ValWord (n2w n))
-
-End
-
-
 
 
 Definition state_rel_def:
-  state_rel s t prog «clks» subf systime ⇔
-  let clks = clksOf prog in
-    clk_range s.clocks clks (dimword (:'a)) ∧
-  ∃(clkvals:'a v list).
-    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    maxClksSize clkvals ∧
-    equiv_val s.clocks clks (subf systime clkvals) ∧
-
-
-  s.clocks = ARB t ∧
-  eval t (Var «loc») = SOME (ValLabel (toString s.location)) ∧
+  state_rel s t prog ⇔
+  FLOOKUP t.locals «loc» = SOME (ValLabel (toString s.location)) ∧
   s.ioAction = ARB ∧
-  case s.waitTime of
-  | NONE   => eval t (Field 2 (Var «taskRet»)) = SOME (ValWord 0w)
-  | SOME n => eval t (Field 2 (Var «taskRet»)) = SOME (ValWord (n2w n))
-
+  ∃stime.
+    FLOOKUP t.locals «systime» = SOME (ValWord stime) ∧
+    clocks_rel s.clocks t.locals prog stime ∧
+    FLOOKUP t.locals «wakeUpAt» =
+    SOME (ValWord
+          (case s.waitTime of
+           | NONE => 0w
+           | SOME wt => stime + n2w wt))
 End
 
 
