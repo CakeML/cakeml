@@ -1,4 +1,3 @@
-
 (*
   Correctness proof for --
 *)
@@ -833,7 +832,7 @@ QED
 
 
 Theorem ffi_eval_state_thm:
-  !ffi_name s (res:'a result option) t bytes nffi nbytes.
+  !ffi_name s (res:'a result option) t nffi nbytes bytes.
     evaluate
     (ExtCall ffi_name «ptr1» «len1» «ptr2» «len2»,s) = (res,t)∧
     well_behaved_ffi ffi_name s nffi nbytes bytes (dimword (:α))  /\
@@ -855,6 +854,7 @@ Proof
   rveq >> fs [] >>
   gs [ffi_return_state_def]
 QED
+
 
 Theorem comp_output_term_correct:
   ∀s out cnds tclks dest wt s' t (clkvals:'a v list) clks
@@ -939,7 +939,7 @@ Proof
    pairarg_tac >> fs [] >> rveq >> rfs [] >>
    drule ffi_eval_state_thm >>
    disch_then (qspecl_then
-               [‘bytes’, ‘nffi’, ‘nbytes’] mp_tac) >>
+               [‘nffi’, ‘nbytes’, ‘bytes’] mp_tac) >>
    impl_tac
    >- (
     fs [FLOOKUP_UPDATE] >>
@@ -1135,7 +1135,7 @@ Proof
   unabbrev_all_tac >> fs [] >> rveq >> rfs [] >>
   drule ffi_eval_state_thm >>
   disch_then (qspecl_then
-              [‘bytes’, ‘nffi’, ‘nbytes’] mp_tac) >>
+              [‘nffi’, ‘nbytes’, ‘bytes’] mp_tac) >>
   impl_tac
   >- (
   fs [FLOOKUP_UPDATE] >>
@@ -1691,7 +1691,7 @@ Definition state_rel_def:
   s.ioAction = ARB (* should be about is_input *) ∧
   FLOOKUP t.locals «waitSet» = SOME (wtVal s.waitTime) ∧
   ∃stime.
-    FLOOKUP t.locals «systime» = SOME (ValWord stime) ∧
+    FLOOKUP t.locals «sysTime» = SOME (ValWord stime) ∧
     clocks_rel s.clocks t.locals prog stime ∧
     FLOOKUP t.locals «wakeUpAt» = SOME (wtStimeVal stime s.waitTime)
 End
@@ -1710,7 +1710,7 @@ Theorem state_rel_intro:
   s.ioAction = ARB (* should be about is_input *) ∧
   FLOOKUP t.locals «waitSet» = SOME (wtVal s.waitTime) ∧
   ∃stime.
-    FLOOKUP t.locals «systime» = SOME (ValWord stime) ∧
+    FLOOKUP t.locals «sysTime» = SOME (ValWord stime) ∧
     clocks_rel s.clocks t.locals prog stime ∧
     FLOOKUP t.locals «wakeUpAt» = SOME (wtStimeVal stime s.waitTime)
 Proof
@@ -1734,7 +1734,7 @@ QED
 
 Theorem bar:
   ffi_vars t.locals ∧
-  FLOOKUP t.locals «systime» = SOME (ValWord stime)
+  FLOOKUP t.locals «sysTime» = SOME (ValWord stime)
   evaluate
   (ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»,t) = (res,t') ⇒
   t = ARB t'
@@ -1744,7 +1744,7 @@ Proof
 QED
 
 Theorem foo:
-  ∀prog d s t res t'.
+  ∀prog d s (t:('a, 'b)panSem$state) res t' nbytes bytes nffi.
     step prog (LDelay d) s
          (mkState
           (delay_clocks (s.clocks) d)
@@ -1754,7 +1754,14 @@ Theorem foo:
     state_rel prog s t ∧
     ffi_vars t.locals ∧
     code_installed prog t.code ∧
+
+
+    (* this should be tru for all reachable states between t and t' *)
     well_behaved_ffi «get_time» t nffi nbytes bytes (dimword (:α)) ∧
+    nbytes ≠ [] ∧ HD nbytes = Word w ∧ (systime of t is smaller than HD,
+                                       and HD is smaller than 'a)
+
+
     evaluate (task_controller (nClks prog), t) = (res, t') ⇒
     state_rel prog
               (mkState
@@ -1775,9 +1782,48 @@ Proof
     fs [panLangTheory.nested_seq_def] >>
     fs [Once evaluate_def] >>
     pairarg_tac >> gs [] >>
-    qpat_x_assum ‘_ = (res,t')’ kall_tac >>
-    gs [evaluate_def]
+    (* qpat_x_assum ‘_ = (res,t')’ kall_tac >> *)
+    drule ffi_eval_state_thm >>
+    disch_then (qspecl_then [‘ntffi’, ‘nSysTime’, ‘tBytes’] mp_tac) >>
+    gs [] >>
+    strip_tac >>
+    fs [] >>
+    pop_assum kall_tac >>
+    pop_assum kall_tac >>
+    fs [] >>
 
+    pop_assum kall_tac >>
+
+    fs [Once evaluate_def] >>
+    pairarg_tac >> gs [] >>
+    pop_assum mp_tac >>
+    rewrite_tac [evaluate_def] >>
+    rewrite_tac [ffi_return_state_def] >>
+    fs [eval_def, ffiBufferAddr_def, mem_load_def] >>
+    ‘4000w ∈ t.memaddrs’ by cheat >>
+    fs [] >>
+    gs [is_valid_value_def] >>
+    ‘∃nstime.
+       write_bytearray 4000w nSysTime t.memory t.memaddrs t.be 4000w =
+       Word nstime’ by cheat >>
+    fs [] >>
+    fs [shape_of_def] >>
+    strip_tac >> fs [] >>
+
+
+
+    ‘∃sysTime xs. nSysTime = sysTime::xs’ by cheat >>
+    fs [] >>
+    fs [write_bytearray_def] >>
+    fs [mem_store_byte_def]
+
+
+
+
+
+
+
+    fs [ffi_return_state_def] >>
 
 
 
