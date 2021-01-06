@@ -169,6 +169,29 @@ Definition comp_def:
     compProg (clksOf prog) prog
 End
 
+
+Definition fieldsOf_def:
+  fieldsOf e n =
+    MAP (λn. Field n e) (GENLIST I n)
+End
+
+
+Definition normalisedClks_def:
+  normalisedClks v1 v2 n =
+  MAP2 (λx y. Op Sub [x;y])
+       (mkClks v1 n)
+       (fieldsOf (Var v2) n)
+End
+
+Definition adjustClks_def:
+  adjustClks systime (e:'a panLang$exp) v2 n =
+  MAP2 (λx y. if x = Const 0w then ((Var systime):'a panLang$exp)
+              else y)
+       (destruct e)
+       (fieldsOf (Var v2) n)
+End
+
+
 Definition task_controller_def:
   task_controller clksLength =
     nested_seq [
@@ -188,11 +211,10 @@ Definition task_controller_def:
                   Assign  «isInput» (Load One (Var «ptr2»))]);
         nested_seq [
             Call (Ret «taskRet» NONE) (Var «loc»)
-                  [Struct (MAP2
-                           (λx y. Op Sub [x;y])
-                           (mkClks «sysTime» clksLength)
-                           (destruct (Field 0 (Var «taskRet»))))
-                   (* elapsed time clock variables *)];
+                  [Struct (normalisedClks «sysTime» «clks» clksLength)];
+            Assign «clks»
+                   (Struct (adjustClks
+                            «sysTime» (Field 0 (Var «taskRet»)) «clks» clksLength));
             Assign «waitSet»  (Field 1 (Var «taskRet»));
             Assign «wakeUpAt»
                    (Op Add [Var «sysTime»; Field 2 (Var «taskRet»)]);
@@ -223,22 +245,29 @@ Definition start_controller_def:
      («len2», Const ffiBufferSize);
      («taskRet»,
       Struct [Struct (emptyConsts clksLength);
-              Const 0w; Const 0w; Const 0w])
+              Const 0w; Const 0w; Const 0w]);
+     («clks»,Struct (emptyConsts clksLength))
     ]
     (nested_seq
      [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
       Assign «sysTime» (Load One (Var «ptr2»));
+      Assign «clks» (Struct (mkClks «sysTime» clksLength));
       Assign «wakeUpAt»
              (case initWakeUp of
               | NONE => Const 0w
               | SOME n => Op Add [Var «sysTime»; Const (n2w n)]);
-      Assign «taskRet» (Struct
-                        [Struct (mkClks «sysTime» clksLength);
-                         Const 0w; Const 0w; Const 0w]);
       While (Const 1w)
             (task_controller clksLength)
      ])
 End
+
+(*
+Assign «taskRet» (Struct
+                        [Struct (mkClks «sysTime» clksLength);
+                         Const 0w; Const 0w; Const 0w]);
+*)
+
+
 
 
 (*
