@@ -16,19 +16,6 @@ val _ = set_grammar_ancestry
          "time_to_pan"];
 
 
-Definition code_installed_def:
-  code_installed prog code <=>
-  ∀loc tms.
-    MEM (loc,tms) prog ⇒
-    let clks = clksOf prog;
-        n = LENGTH clks
-    in
-      FLOOKUP code (toString loc) =
-      SOME ([(«clks», genShape n)],
-            compTerms clks «clks» tms)
-End
-
-
 Definition equiv_val_def:
   equiv_val fm xs v <=>
     v = MAP (ValWord o n2w o THE o (FLOOKUP fm)) xs
@@ -1694,6 +1681,19 @@ Proof
   cheat
 QED
 
+
+Definition code_installed_def:
+  code_installed prog code <=>
+  ∀loc tms.
+    MEM (loc,tms) prog ⇒
+    let clks = clksOf prog;
+        n = LENGTH clks
+    in
+      FLOOKUP code (toString loc) =
+      SOME ([(«clks», genShape n)],
+            compTerms clks «clks» tms)
+End
+
 Definition clocks_rel_def:
   clocks_rel sclocks tlocals prog n ⇔
   ∃(clkwords:'a word list).
@@ -1706,42 +1706,40 @@ Definition clocks_rel_def:
 End
 
 
+Definition wtVal_def:
+  wtVal wt =
+    ValWord (case wt of
+             | NONE => 1w
+             | SOME _ => 0w)
+End
+
+Definition wtStimeVal_def:
+  wtStimeVal stime wt =
+    ValWord (case wt of
+             | NONE => 0w
+             | SOME wt => stime + n2w wt)
+End
+
 Definition state_rel_def:
   state_rel s t prog ⇔
   FLOOKUP t.locals «loc» = SOME (ValLabel (toString s.location)) ∧
-  s.ioAction = ARB ∧
+  s.ioAction = ARB (* should be about is_input *) ∧
+  FLOOKUP t.locals «waitSet» = SOME (wtVal s.waitTime) ∧
   ∃stime.
     FLOOKUP t.locals «systime» = SOME (ValWord stime) ∧
     clocks_rel s.clocks t.locals prog stime ∧
-    FLOOKUP t.locals «wakeUpAt» =
-    SOME (ValWord
-          (case s.waitTime of
-           | NONE => 0w
-           | SOME wt => stime + n2w wt))
+    FLOOKUP t.locals «wakeUpAt» = SOME (wtStimeVal stime s.waitTime)
+End
+
+Definition ffi_vars_def:
+  ffi_vars tlocals  ⇔
+  FLOOKUP tlocals «ptr1» = SOME (ValWord 0w) ∧
+  FLOOKUP tlocals «len1» = SOME (ValWord 0w) ∧
+  FLOOKUP tlocals «ptr2» = SOME (ValWord ffiBufferAddr) ∧
+  FLOOKUP tlocals «len2» = SOME (ValWord ffiBufferSize)
 End
 
 
-
-(* prog shuold be an arg *)
-Definition state_rel_def:
-  state_rel s t clks «clks» subf systime ⇔
-  (∀ck n. FLOOKUP s.clocks ck = SOME n ⇒ n < dimword (:'a)) ∧
-  (* clk_range s.clocks clks (dimword (:'a)) ∧ *)
-  (* here clocks are with sys time *)
-  ∃(clkvals:'a v list).
-    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    maxClksSize clkvals ∧
-    equiv_val s.clocks clks (subf systime clkvals) ∧
-
-
-  s.clocks = ARB t ∧
-  eval t (Var «loc») = SOME (ValLabel (toString s.location)) ∧
-  s.ioAction = ARB ∧
-  case s.waitTime of
-  | NONE   => eval t (Field 2 (Var «taskRet»)) = SOME (ValWord 0w)
-  | SOME n => eval t (Field 2 (Var «taskRet»)) = SOME (ValWord (n2w n))
-
-End
 
 
 Theorem time_to_pan_compiler_correct:
