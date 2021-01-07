@@ -15,10 +15,185 @@ val _ = set_grammar_ancestry
          "time_to_pan"];
 
 
+
+Definition ffi_vars_def:
+  ffi_vars fm  ⇔
+  FLOOKUP fm «ptr1» = SOME (ValWord 0w) ∧
+  FLOOKUP fm «len1» = SOME (ValWord 0w) ∧
+  FLOOKUP fm «ptr2» = SOME (ValWord ffiBufferAddr) ∧
+  FLOOKUP fm «len2» = SOME (ValWord ffiBufferSize)
+End
+
+
+Definition read_sys_time_def:
+  read_sys_time (s:('a,'b) panSem$state) nbytes t ⇔
+  mem_load One ffiBufferAddr s.memaddrs
+           (write_bytearray ffiBufferAddr nbytes s.memory s.memaddrs s.be) =
+  SOME (ValWord (n2w t))
+End
+
+Definition well_behaved_ffi_def:
+  well_behaved_ffi ffi_name s nffi nbytes bytes (m:num) <=>
+  explode ffi_name ≠ "" /\ 16 < m /\
+  read_bytearray ffiBufferAddr 16
+                 (mem_load_byte s.memory s.memaddrs s.be) =
+  SOME bytes /\
+  s.ffi.oracle (explode ffi_name) s.ffi.ffi_state [] bytes =
+  Oracle_return nffi nbytes /\
+  LENGTH nbytes = LENGTH bytes
+End
+
+
+Definition mono_system_time_def:
+  mono_system_time (s:('a,'b) panSem$state) (r:('a,'b) panSem$state) =
+  ∀f res t g res' stime.
+    evaluate (f,s) = (res, t) ∧ evaluate (g,t) = (res', r) ∧
+    FLOOKUP s.locals «sysTime» = SOME (ValWord (n2w stime)) ∧
+    stime < dimword (:α) ⇒
+    ∃nffi nbytes bytes nstime.
+      well_behaved_ffi «get_time» t nffi nbytes bytes (dimword (:α)) ∧
+      read_sys_time t nbytes nstime ∧
+      stime ≤ nstime ∧ nstime < dimword (:α)
+End
+
+Theorem ffi_vars_intro:
+  ∀fm.
+    ffi_vars fm  ⇒
+    FLOOKUP fm «ptr1» = SOME (ValWord 0w) ∧
+    FLOOKUP fm «len1» = SOME (ValWord 0w) ∧
+    FLOOKUP fm «ptr2» = SOME (ValWord ffiBufferAddr) ∧
+    FLOOKUP fm «len2» = SOME (ValWord ffiBufferSize)
+Proof
+  rw [] >>
+  fs [ffi_vars_def]
+QED
+
+
+Theorem step_delay_comp_correct:
+  ∀prog d s s' (t:('a, 'b)panSem$state) stime res t' nbytes bytes nffi.
+    step prog (LDelay d) s s' ∧
+    s' = mkState (delay_clocks (s.clocks) d) s.location NONE NONE ∧
+    ffi_vars t.locals ∧
+    FLOOKUP s.locals «sysTime» = SOME (ValWord (n2w stime)) ∧ stime < dimword (:α) ∧
+    mono_sysTime t t' ⇒
+    evaluate (wait_input_time_limit, t) =
+    evaluate (wait_input_time_limit, ARB t)
+Proof
+
+QED
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Definition code_installed_def:
+  code_installed prog code <=>
+  ∀loc tms.
+    MEM (loc,tms) prog ⇒
+    let clks = clksOf prog;
+        n = LENGTH clks
+    in
+      FLOOKUP code (toString loc) =
+      SOME ([(«clks», genShape n)],
+            compTerms clks «clks» tms)
+End
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Definition equiv_val_def:
   equiv_val fm xs v <=>
     v = MAP (ValWord o n2w o THE o (FLOOKUP fm)) xs
 End
+
 
 
 Definition valid_clks_def:
@@ -1681,7 +1856,11 @@ End
 Definition state_rel_def:
   state_rel prog s t ⇔
   FLOOKUP t.locals «loc» = SOME (ValLabel (toString s.location)) ∧
-  s.ioAction = ARB (* should be about is_input *) ∧
+  FLOOKUP t.locals «isInput» =
+  SOME (ValLabel
+        case s.ioAction of
+        | NONE => 1w
+        | SOME _ => 0w) ∧
   FLOOKUP t.locals «waitSet» = SOME (wtVal s.waitTime) ∧
   ∃stime.
     FLOOKUP t.locals «sysTime» = SOME (ValWord stime) ∧
@@ -1742,6 +1921,128 @@ Definition mono_sysTime_def:
       (∃n. ARB nbytes = Word (n2w n) ∧
            stime ≤ n ∧ n < dimword (:α)) *)
 End
+
+
+Theorem foo:
+  ∀prog d s (t:('a, 'b)panSem$state) res t' nbytes bytes nffi.
+    step prog (LDelay d) s
+         (mkState
+          (delay_clocks (s.clocks) d)
+          s.location
+          NONE
+          NONE) ∧
+    state_rel prog s t ∧
+    ffi_vars t.locals ∧
+    code_installed prog t.code ∧
+    mono_sysTime t t' ⇒
+    evaluate (task_controller (nClks prog), t) =
+    evaluate (task_controller (nClks prog), ARB t)
+(* I will need a while theorem *)
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  drule state_rel_intro >>
+  drule ffi_vars_intro >>
+  strip_tac >>
+  strip_tac >>
+  fs [step_cases] >> rveq >> gs []
+  >- (
+    fs [task_controller_def] >>
+    fs [panLangTheory.nested_seq_def] >>
+    fs [Once evaluate_def] >>
+    pairarg_tac >> gs [] >>
+    ‘evaluate (Skip, t) = (NONE,t)’ by rewrite_tac [evaluate_def]  >>
+    qpat_x_assum ‘mono_sysTime _ _’ assume_tac >>
+    fs [mono_sysTime_def] >>
+    first_x_assum drule >>
+    first_x_assum kall_tac >>
+    disch_then (qspecl_then [‘task_controller (nClks prog)’, ‘res’,
+                             ‘stime’] mp_tac) >>
+    gs [] >>
+    impl_tac >- cheat >>
+    strip_tac >>
+    drule ffi_eval_state_thm >>
+
+    disch_then (qspecl_then [‘nffi’, ‘nbytes’, ‘bytes’] mp_tac) >>
+    gs [] >>
+    strip_tac >>
+    fs [] >>
+    pop_assum kall_tac >>
+    pop_assum kall_tac >>
+    fs [] >>
+    qpat_x_assum ‘_= (res,t')’ mp_tac >>
+    once_rewrite_tac [evaluate_def] >>
+    strip_tac >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    once_rewrite_tac [evaluate_def] >>
+
+    fs [ffi_return_state_def] >>
+    fs [eval_def] >>
+    gs [ffiBufferAddr_def] >>
+    gs [is_valid_value_def, shape_of_def] >>
+    strip_tac >> rveq >> gs [] >>
+    qmatch_asmsub_abbrev_tac ‘evaluate (_, nst)=  (res,t')’ >>
+    qpat_x_assum ‘_= (res,t')’ mp_tac >>
+    once_rewrite_tac [evaluate_def] >>
+    strip_tac >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    (* state rel is not preserved, rather systime and is_input has some relation with time Sem *)
+
+
+
+    fs [Once evaluate_def] >>
+    pairarg_tac >> gs [] >>
+    pop_assum mp_tac >>
+    rewrite_tac [evaluate_def] >>
+    rewrite_tac [ffi_return_state_def] >>
+    fs [eval_def, ffiBufferAddr_def, mem_load_def] >>
+    ‘4000w ∈ t.memaddrs’ by cheat >>
+    fs [] >>
+    gs [is_valid_value_def] >>
+    ‘∃nstime.
+       write_bytearray 4000w nSysTime t.memory t.memaddrs t.be 4000w =
+       Word nstime’ by cheat >>
+    fs [] >>
+    fs [shape_of_def] >>
+    strip_tac >> fs [] >>
+
+
+
+    ‘∃sysTime xs. nSysTime = sysTime::xs’ by cheat >>
+    fs [] >>
+    fs [write_bytearray_def] >>
+    fs [mem_store_byte_def]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Theorem foo:
   ∀prog d s (t:('a, 'b)panSem$state) res t' nbytes bytes nffi.

@@ -192,6 +192,21 @@ Definition adjustClks_def:
 End
 
 
+
+Definition wait_input_time_limit_def:
+  wait_input_time_limit =
+    While (Op And [Var «isInput»; (* Not *)
+                   Op Or
+                   [Var «waitSet»; (* Not *)
+                    Cmp Lower (Var «sysTime») (Var «wakeUpAt»)]])
+          (nested_seq [
+              ExtCall «check_input» «ptr1» «len1» «ptr2» «len2» ;
+              Assign  «isInput» (Load One (Var «ptr2»)) ;
+              ExtCall «get_time» «ptr1» «len1» «ptr2» «len2» ;
+              Assign  «sysTime» (Load One (Var «ptr2»))])
+End
+
+
 Definition task_controller_def:
   task_controller clksLength =
     nested_seq [
@@ -200,15 +215,7 @@ Definition task_controller_def:
         ExtCall «check_input» «ptr1» «len1» «ptr2» «len2»;
         Assign  «isInput» (Load One (Var «ptr2»));
         (* negate  «isInput»; *)
-        While (Op And [Var «isInput»; (* Not *)
-                       Op Or
-                       [Var «waitSet»; (* Not *)
-                        Cmp Lower (Var «sysTime») (Var «wakeUpAt»)]])
-              (nested_seq [
-                  ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
-                  Assign  «sysTime» (Load One (Var «ptr2»));
-                  ExtCall «check_input» «ptr1» «len1» «ptr2» «len2»;
-                  Assign  «isInput» (Load One (Var «ptr2»))]);
+        wait_input_time_limit;
         nested_seq [
             Call (Ret «taskRet» NONE) (Var «loc»)
                   [Struct (normalisedClks «sysTime» «clks» clksLength)];
