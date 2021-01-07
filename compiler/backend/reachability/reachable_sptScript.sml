@@ -46,7 +46,7 @@ val close_spt_def = tDefine "close_spt" `
     close_spt (reachable :num_set) (seen :num_set) (tree :num_set spt) =
         let to_look = difference seen reachable in
         let new_sets = inter tree to_look in
-            if new_sets = LN then reachable else
+            if new_sets = LN then seen else
                 let new_set = spt_fold union LN new_sets in
                     close_spt (union reachable to_look) (union seen new_set)
                         tree
@@ -75,9 +75,8 @@ val wf_set_tree_def = Define `
 
 val is_adjacent_def = Define `
     is_adjacent tree x y =
-    ∃ aSetx aSety.
-        ( lookup x tree = SOME aSetx ) ∧ ( lookup y aSetx = SOME () ) ∧
-        ( lookup y tree = SOME aSety )
+    ∃ aSetx.
+        ( lookup x tree = SOME aSetx ) ∧ ( lookup y aSetx = SOME () )
 `;
 
 val is_reachable_def = Define `

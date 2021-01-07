@@ -209,6 +209,28 @@ Proof
         metis_tac[]
 QED
 
+Theorem superdomain_rewrite:
+  ∀tree.
+    domain (superdomain tree) =
+    {n | ∃k aSet. lookup k tree = SOME aSet ∧ n ∈ domain aSet}
+Proof
+  rw[EXTENSION] >> eq_tac >> rw[]
+  >- (irule superdomain_inverse_thm >> simp[]) >>
+  CCONTR_TAC >> drule superdomain_not_in_thm >>
+  simp[] >> goal_assum drule >> simp[]
+QED
+
+Theorem domain_spt_fold_union_eq:
+  ∀y tree. domain (spt_fold union y tree) = domain y ∪ domain (superdomain tree)
+Proof
+  rw[EXTENSION, domain_lookup, lookup_spt_fold_union_STRONG] >>
+  eq_tac >> rw[] >> simp[]
+  >- (imp_res_tac superdomain_thm >> gvs[SUBSET_DEF, domain_lookup]) >>
+  DISJ2_TAC >>
+  qspecl_then [`x`,`tree`] assume_tac superdomain_inverse_thm >>
+  gvs[domain_lookup] >> goal_assum drule >> simp[]
+QED
+
 (**************************** OTHER LEMMAS *****************************)
 
 Theorem domain_superdomain_num_set_tree_union:
@@ -277,14 +299,14 @@ QED
 (************************** ADJACENCY/REACHABILITY ***************************)
 
 Theorem adjacent_domain:
-     ∀ tree x y . is_adjacent tree x y ⇒ x ∈ domain tree ∧ y ∈ domain tree
+     ∀ tree x y . is_adjacent tree x y ⇒ x ∈ domain tree
 Proof
     rw[is_adjacent_def] >> rw[domain_lookup]
 QED
 
 Theorem reachable_domain:
      ∀ tree x y . is_reachable tree x y
-  ⇒ (x = y ∨ (x ∈ domain tree ∧ y ∈ domain tree))
+  ⇒ (x = y ∨ x ∈ domain tree)
 Proof
     simp[is_reachable_def] >> strip_tac >> ho_match_mp_tac RTC_INDUCT_RIGHT1 >>
     metis_tac[adjacent_domain]
@@ -306,7 +328,7 @@ Theorem is_adjacent_num_set_tree_union:
 Proof
     rw[is_adjacent_def] >> imp_res_tac lookup_domain_num_set_tree_union >>
     first_x_assum (qspec_then `t2` mp_tac) >> rw[] >>
-    first_x_assum (qspec_then `t2` mp_tac) >> rw[] >>
+    goal_assum drule >>
     fs[SUBSET_DEF, domain_lookup]
 QED
 
@@ -338,150 +360,97 @@ QED
 
 (**************************** MAIN LEMMAS *****************************)
 
-Theorem close_spt_thm:
-     ∀ reachable seen tree closure (roots : num set) .
-        (wf reachable) ∧ (wf seen) ∧ (wf_set_tree tree) ∧
-        (close_spt reachable seen tree = closure) ∧
-        (subspt reachable seen) ∧
-        (roots ⊆ domain (seen)) ∧
-        (domain seen ⊆ domain tree) ∧
-        (∀ k . k ∈ domain (seen)
-            ⇒ (∃ n . (n ∈ roots) ∧ (is_reachable tree n k))) ∧
-        (∀ k . k ∈ domain (reachable)
-            ⇒ (∀ a . (is_adjacent tree k a) ⇒ a ∈ domain (seen)))
-      ⇒ (domain closure = {a | ∃ n . (is_reachable tree n a) ∧ (n ∈ roots)})
+Theorem is_reachable_LHS_NOTIN:
+  ∀tree n x. is_reachable tree n x ∧ n ∉ domain tree ⇒ n = x
 Proof
-    recInduct close_spt_ind >> rw[] >>
-    once_rewrite_tac [close_spt_def] >> simp[] >> fs[wf_set_tree_def] >>
-    IF_CASES_TAC
+  rw[is_reachable_def] >> gvs[Once RTC_CASES1, is_adjacent_def, domain_lookup]
+QED
+
+Theorem rtc_is_adjacent2:
+  ∀r s tree.
+    (∀k. k ∈ r ⇒ ∀n. is_adjacent tree k n ⇒ n ∈ s) ∧
+    (∀l. l ∈ s ∧ l ∉ r ⇒ l ∉ domain tree) ∧
+    r ⊆ s
+  ⇒ ∀x y. (is_adjacent tree)꙳ x y ⇒ x ∈ r ⇒ y ∈ s
+Proof
+  rpt gen_tac >> strip_tac >>
+  ho_match_mp_tac RTC_INDUCT_RIGHT1 >> fs[SUBSET_DEF] >>
+  rw[] >> gvs[] >>
+  reverse (Cases_on `y ∈ r`)
+  >- (res_tac >> gvs[is_adjacent_def, domain_lookup]) >>
+  metis_tac[]
+QED
+
+Theorem close_spt_thm:
+  ∀ reachable seen tree closure (roots : num set) .
+    close_spt reachable seen tree = closure ∧
+    subspt reachable seen ∧
+    roots ⊆ domain seen ∧
+    (∀ k . k ∈ domain seen
+        ⇒ ∃ n . n ∈ roots ∧ is_reachable tree n k) ∧
+    (∀ k . k ∈ domain reachable
+        ⇒ ∀ a . is_adjacent tree k a ⇒ a ∈ domain seen)
+  ⇒ domain closure = {a | ∃ n . (is_reachable tree n a) ∧ (n ∈ roots)}
+Proof
+  recInduct close_spt_ind >> rw[] >>
+  once_rewrite_tac [close_spt_def] >> simp[] >> fs[wf_set_tree_def] >>
+  IF_CASES_TAC
+  >- (
+    gvs[] >>
+    imp_res_tac inter_eq_LN  >>
+    imp_res_tac subspt_domain >>
+    fs[SUBSET_DEF, EXTENSION, IN_DISJOINT, domain_difference] >>
+    gvs[superdomain_rewrite] >>
+    rw[] >> eq_tac >> rw[] >- metis_tac[] >>
+    `∀x. x ∈ domain seen ∧ x ∉ domain reachable ⇒ x ∉ domain tree` by
+      metis_tac[] >>
+    reverse (Cases_on `n ∈ domain reachable`)
     >- (
-        imp_res_tac inter_eq_LN  >>
-        imp_res_tac subspt_domain >>
-        fs[SUBSET_DEF, EXTENSION, IN_DISJOINT, domain_difference] >>
-        `domain reachable = domain seen` by (
-            fs[EXTENSION] >> rw[] >> EQ_TAC >> fs[] >> metis_tac[]) >>
-        imp_res_tac num_set_domain_eq >>
-        fs[] >> rveq >> rw[] >> EQ_TAC >> rw[]
-        >- (qpat_x_assum `∀ k . k ∈ domain seen ⇒ _` (qspec_then `x` mp_tac) >>
-            reverse(impl_tac) >> rw[] >> metis_tac[])
-        >> (imp_res_tac reachable_domain >> rveq >> fs[] >>
-            res_tac >>
-            qspecl_then [`domain reachable`, `domain reachable`, `tree`] mp_tac
-                (rtc_is_adjacent |> GEN_ALL) >>
-            strip_tac >> fs[] >>
-            fs[is_reachable_def] >>
-            res_tac)
-        )
-    >- (
-        fs[] >>
-        first_x_assum match_mp_tac >>
-        fs[wf_union, wf_difference, subspt_domain, domain_union] >>
-        fs[SUBSET_DEF] >>
-        rw[] >> fs[]
-        >- (
-            match_mp_tac wf_union >>
-            fs[] >>
-            match_mp_tac wf_spt_fold_tree >>
-            fs[wf_inter, wf_def] >>
-            fs[lookup_inter] >>
-            rw[] >> EVERY_CASE_TAC >> fs[] >>
-            rveq >>
-            fs[subspt_lookup] >>
-            res_tac >>
-            metis_tac[]
-            )
-        >-  metis_tac[]
-        >-  metis_tac[]
-        >- (
-            qspecl_then [`tree`, `LN`] mp_tac domain_spt_fold_union >>
-            fs[domain_def] >>
-            impl_tac
-            >- (rw[] >> res_tac >> fs[SUBSET_DEF])
-            >- (rw[] >>
-                qspecl_then
-                    [`inter tree (difference seen reachable)`, `tree`, `LN`]
-                    mp_tac subspt_domain_spt_fold_union >>
-                rw[] >> fs[SUBSET_DEF] >>
-                first_x_assum mp_tac >> impl_tac >> fs[] >>
-                fs[subspt_lookup, lookup_inter, domain_difference] >> rw[] >>
-                EVERY_CASE_TAC >> fs[])
-            )
-        >- (
-            fs[domain_lookup] >>
-            imp_res_tac lookup_spt_fold_union >>
-            fs[lookup_def] >>
-            fs[lookup_inter] >>
-            EVERY_CASE_TAC >> fs[] >>
-            rveq >>
-            fs[lookup_difference] >> EVERY_CASE_TAC >> fs[] >>
-            res_tac >>
-            qexists_tac `v'` >> fs[]
-            )
-        >- (
-            fs[domain_lookup] >>
-            imp_res_tac lookup_spt_fold_union >>
-            fs[lookup_def] >>
-            fs[lookup_inter] >>
-            EVERY_CASE_TAC >> fs[] >>
-            rveq >>
-            fs[lookup_difference] >> EVERY_CASE_TAC >> fs[] >>
-            res_tac >>
-            qexists_tac `n` >> fs[] >>
-            fs[is_reachable_def] >>
-            simp[Once RTC_CASES2] >>
-            DISJ2_TAC >>
-            qexists_tac `n1` >> fs[] >>
-            fs[is_adjacent_def]
-            )
-        >-  metis_tac[]
-        >- (
-            Cases_on `a ∈ domain seen` >> fs[] >>
-            Cases_on `a ∈ domain reachable` >> rfs[]
-            >-  metis_tac[]
-            >>  `a ∈ domain tree` by fs[is_adjacent_def, domain_lookup] >>
-                `k ∈ domain tree` by fs[is_adjacent_def, domain_lookup] >>
-                `k ∈ domain (inter tree (difference seen reachable))` by
-                    fs[domain_inter, domain_difference] >>
-                fs[is_adjacent_def] >>
-                fs[domain_lookup] >>
-                qspecl_then
-                    [`inter tree (difference seen reachable)`, `LN`, `a`]
-                    mp_tac (GSYM lookup_spt_fold_union_STRONG) >>
-                fs[lookup_def] >> strip_tac >>
-                fs[lookup_inter] >> EVERY_CASE_TAC >> fs[] >>
-                rveq >> fs[] >>
-                fs[EQ_IMP_THM] >>
-                first_x_assum match_mp_tac >>
-                fs[lookup_difference] >>
-                qexists_tac `k` >> fs[]
-            )
+      `n ∉ domain tree` by metis_tac[] >>
+      drule_all is_reachable_LHS_NOTIN >> strip_tac >> gvs[]
+      ) >>
+    irule rtc_is_adjacent2 >>
+    goal_assum (drule_at Any) >>
+    goal_assum (drule_at Any) >>
+    gvs[SUBSET_DEF, is_reachable_def] >>
+    metis_tac[]
+    ) >>
+  first_x_assum irule >> fs[wf_union] >> rw[]
+  >- (
+    gvs[domain_union, domain_difference] >- metis_tac[] >>
+    Cases_on `k ∈ domain reachable` >- metis_tac[] >>
+    gvs[domain_spt_fold_union_eq, superdomain_rewrite, lookup_inter] >>
+    DISJ2_TAC >>
+    gvs[is_adjacent_def, lookup_difference] >>
+    qexists_tac `k` >> gvs[domain_lookup] >>
+    IF_CASES_TAC >> gvs[] >>
+    Cases_on `lookup k reachable` >> gvs[]
+    )
+  >- (
+    gvs[domain_union, domain_spt_fold_union_eq,
+        superdomain_rewrite, lookup_inter, lookup_difference] >>
+    EVERY_CASE_TAC >> gvs[domain_lookup] >>
+    first_x_assum drule >> strip_tac >>
+    goal_assum drule >> gvs[is_reachable_def] >>
+    simp[Once RTC_CASES2] >> DISJ2_TAC >> goal_assum drule >>
+    gvs[is_adjacent_def]
+    )
+  >- gvs[domain_union, domain_spt_fold_union_eq,
+        SUBSET_DEF, superdomain_rewrite]
+  >- (
+    gvs[subspt_lookup, lookup_union, lookup_difference] >> rw[] >>
+    EVERY_CASE_TAC >> gvs[]
     )
 QED
 
-val closure_spt_lemma =
-    close_spt_thm |> Q.SPECL [`LN`, `start:num_set`, `tree`]
-        |> SIMP_RULE std_ss [
-            GSYM closure_spt_def, wf_def, wf_insert,
-            subspt_def, domain_def, NOT_IN_EMPTY,
-            domain_insert, SUBSET_DEF
-           ]
-        |> Q.SPECL[`domain (start:num_set)`]
-        |> SIMP_RULE std_ss [
-                ConseqConvTheory.AND_CLAUSES_XX,
-                ConseqConvTheory.IMP_CLAUSES_XX,
-                IN_SING, Once is_reachable_def, RTC_REFL, AND_CLAUSES
-           ] |> GEN_ALL
-;
-
 Theorem closure_spt_thm:
-     ∀ tree start . wf start ∧ (wf_set_tree tree) ∧
-    (domain start ⊆ domain tree)
-  ⇒ domain (closure_spt start tree) =
-        {a | ∃ n . is_reachable tree n a ∧ n ∈ domain start}
+  ∀ tree start.
+    domain (closure_spt start tree) =
+    {a | ∃ n . is_reachable tree n a ∧ n ∈ domain start}
 Proof
-    rw[] >> assume_tac closure_spt_lemma >> rw[] >> fs[wf_set_tree_def] >>
-    first_x_assum match_mp_tac >> reverse(rw[]) >> res_tac >> fs[SUBSET_DEF] >>
-    qexists_tac `k` >> fs[]
+  rw[closure_spt_def] >>
+  assume_tac close_spt_thm >> gvs[] >> pop_assum irule >> gvs[] >>
+  rw[] >> goal_assum drule >> simp[is_reachable_def]
 QED
 
 val _ = export_theory();
