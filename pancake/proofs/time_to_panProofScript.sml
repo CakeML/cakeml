@@ -14,181 +14,6 @@ val _ = set_grammar_ancestry
          "pan_commonProps", "timeProps",
          "time_to_pan"];
 
-
-
-Definition ffi_vars_def:
-  ffi_vars fm  ⇔
-  FLOOKUP fm «ptr1» = SOME (ValWord 0w) ∧
-  FLOOKUP fm «len1» = SOME (ValWord 0w) ∧
-  FLOOKUP fm «ptr2» = SOME (ValWord ffiBufferAddr) ∧
-  FLOOKUP fm «len2» = SOME (ValWord ffiBufferSize)
-End
-
-
-Definition read_sys_time_def:
-  read_sys_time (s:('a,'b) panSem$state) nbytes t ⇔
-  mem_load One ffiBufferAddr s.memaddrs
-           (write_bytearray ffiBufferAddr nbytes s.memory s.memaddrs s.be) =
-  SOME (ValWord (n2w t))
-End
-
-Definition well_behaved_ffi_def:
-  well_behaved_ffi ffi_name s nffi nbytes bytes (m:num) <=>
-  explode ffi_name ≠ "" /\ 16 < m /\
-  read_bytearray ffiBufferAddr 16
-                 (mem_load_byte s.memory s.memaddrs s.be) =
-  SOME bytes /\
-  s.ffi.oracle (explode ffi_name) s.ffi.ffi_state [] bytes =
-  Oracle_return nffi nbytes /\
-  LENGTH nbytes = LENGTH bytes
-End
-
-
-Definition mono_system_time_def:
-  mono_system_time (s:('a,'b) panSem$state) (r:('a,'b) panSem$state) =
-  ∀f res t g res' stime.
-    evaluate (f,s) = (res, t) ∧ evaluate (g,t) = (res', r) ∧
-    FLOOKUP s.locals «sysTime» = SOME (ValWord (n2w stime)) ∧
-    stime < dimword (:α) ⇒
-    ∃nffi nbytes bytes nstime.
-      well_behaved_ffi «get_time» t nffi nbytes bytes (dimword (:α)) ∧
-      read_sys_time t nbytes nstime ∧
-      stime ≤ nstime ∧ nstime < dimword (:α)
-End
-
-Theorem ffi_vars_intro:
-  ∀fm.
-    ffi_vars fm  ⇒
-    FLOOKUP fm «ptr1» = SOME (ValWord 0w) ∧
-    FLOOKUP fm «len1» = SOME (ValWord 0w) ∧
-    FLOOKUP fm «ptr2» = SOME (ValWord ffiBufferAddr) ∧
-    FLOOKUP fm «len2» = SOME (ValWord ffiBufferSize)
-Proof
-  rw [] >>
-  fs [ffi_vars_def]
-QED
-
-
-Theorem step_delay_comp_correct:
-  ∀prog d s s' (t:('a, 'b)panSem$state) stime res t' nbytes bytes nffi.
-    step prog (LDelay d) s s' ∧
-    s' = mkState (delay_clocks (s.clocks) d) s.location NONE NONE ∧
-    ffi_vars t.locals ∧
-    FLOOKUP s.locals «sysTime» = SOME (ValWord (n2w stime)) ∧ stime < dimword (:α) ∧
-    mono_sysTime t t' ⇒
-    evaluate (wait_input_time_limit, t) =
-    evaluate (wait_input_time_limit, ARB t)
-Proof
-
-QED
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Definition code_installed_def:
-  code_installed prog code <=>
-  ∀loc tms.
-    MEM (loc,tms) prog ⇒
-    let clks = clksOf prog;
-        n = LENGTH clks
-    in
-      FLOOKUP code (toString loc) =
-      SOME ([(«clks», genShape n)],
-            compTerms clks «clks» tms)
-End
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 Definition equiv_val_def:
   equiv_val fm xs v <=>
     v = MAP (ValWord o n2w o THE o (FLOOKUP fm)) xs
@@ -1800,6 +1625,270 @@ QED
 
 
 
+Definition active_low_def:
+  (active_low NONE = 1w) ∧
+  (active_low (SOME _) = 0w)
+End
+
+
+Definition add_time_def:
+  (add_time t NONE = 0w) ∧
+  (add_time t (SOME n) = n2w t + n2w n)
+End
+
+
+Definition ffi_vars_def:
+  ffi_vars fm  ⇔
+  FLOOKUP fm «ptr1» = SOME (ValWord 0w) ∧
+  FLOOKUP fm «len1» = SOME (ValWord 0w) ∧
+  FLOOKUP fm «ptr2» = SOME (ValWord ffiBufferAddr) ∧
+  FLOOKUP fm «len2» = SOME (ValWord ffiBufferSize)
+End
+
+
+Definition vars_rel_def:
+  vars_rel s t ⇔
+  FLOOKUP t.locals «loc» = SOME (ValLabel (toString s.location)) ∧
+  FLOOKUP t.locals «isInput» = SOME (ValWord (active_low s.ioAction)) ∧
+  FLOOKUP t.locals «waitSet» = SOME (ValWord (active_low s.waitTime)) ∧
+  (∃n. FLOOKUP t.locals «sysTime» = SOME (ValWord n)) ∧
+  (∃n. FLOOKUP t.locals «wakeUpAt» = SOME (ValWord n)) ∧
+  ffi_vars t.locals
+End
+
+
+Definition foo_def:
+  foo p d s s' t t'  ⇔
+  step p (LDelay d) s s' ∧
+  vars_rel s t ∧ vars_rel s' t' ∧
+  (∀t. t.getTime < d ⇒ isInput has not happened)
+End
+
+
+
+
+
+
+
+Definition well_behaved_ffi_def:
+  well_behaved_ffi ffi_name s nffi nbytes bytes (m:num) <=>
+  explode ffi_name ≠ "" /\ 16 < m /\
+  read_bytearray ffiBufferAddr 16
+                 (mem_load_byte s.memory s.memaddrs s.be) =
+  SOME bytes /\
+  s.ffi.oracle (explode ffi_name) s.ffi.ffi_state [] bytes =
+  Oracle_return nffi nbytes /\
+  LENGTH nbytes = LENGTH bytes
+End
+
+
+Definition read_sys_time_def:
+  read_sys_time (s:('a,'b) panSem$state) nbytes t ⇔
+  mem_load One ffiBufferAddr s.memaddrs
+           (write_bytearray ffiBufferAddr nbytes s.memory s.memaddrs s.be) =
+  SOME (ValWord (n2w t))
+End
+
+
+Definition mono_system_time_def:
+  mono_system_time (s:('a,'b) panSem$state) (r:('a,'b) panSem$state) =
+  ∀f res t g res' stime.
+    evaluate (f,s) = (res, t) ∧ evaluate (g,t) = (res', r) ∧
+    FLOOKUP s.locals «sysTime» = SOME (ValWord (n2w stime)) ∧
+    stime < dimword (:α) ⇒
+    ∃nffi nbytes bytes nstime.
+      well_behaved_ffi «get_time» t nffi nbytes bytes (dimword (:α)) ∧
+      read_sys_time t nbytes nstime ∧
+      stime ≤ nstime ∧ nstime < dimword (:α)
+End
+
+
+Definition check_input_ffi_correct_def:
+  is_input_ffi_correct (s:('a,'b) panSem$state) (r:('a,'b) panSem$state) =
+  ∀f res t g res' n.
+    evaluate (f,s) = (res, t) ∧ evaluate (g,t) = (res', r) ∧
+    FLOOKUP s.locals «isInput» = SOME (ValWord n) ⇒
+    ∃nffi nbytes bytes m.
+      well_behaved_ffi «check_input» t nffi nbytes bytes (dimword (:α)) ∧
+      read_sys_time t nbytes m ∧
+      (m = 0 ∨ m = 1) ∧
+      m < dimword (:α)
+End
+
+
+Definition label_not_missed_def:
+  label_not_missed (s:('a,'b) panSem$state) (r:('a,'b) panSem$state) (LDelay d) =
+   ∃t f res g res' stime nffi nbytes bytes nstime.
+     evaluate (f,s) = (res, t) ∧ evaluate (g,t) = (res', r) ∧
+     FLOOKUP s.locals «sysTime» = SOME (ValWord (n2w stime)) ∧
+     stime < dimword (:α) ∧
+     well_behaved_ffi «get_time» t nffi nbytes bytes (dimword (:α)) ∧
+     read_sys_time t nbytes nstime ∧
+     stime ≤ nstime ∧ nstime < dimword (:α) ∧
+     nstime - stime = d
+End
+
+
+Theorem ffi_vars_intro:
+  ∀fm.
+    ffi_vars fm  ⇒
+    FLOOKUP fm «ptr1» = SOME (ValWord 0w) ∧
+    FLOOKUP fm «len1» = SOME (ValWord 0w) ∧
+    FLOOKUP fm «ptr2» = SOME (ValWord ffiBufferAddr) ∧
+    FLOOKUP fm «len2» = SOME (ValWord ffiBufferSize)
+Proof
+  rw [] >>
+  fs [ffi_vars_def]
+QED
+
+Definition ioaction_rel_def:
+  ioaction_rel s s' t t' =
+    step p l s s' ∧
+    s'.ioAction = NONE ∧
+
+End
+
+
+Theorem step_delay_comp_correct:
+  ∀prog d s s' (t:('a, 'b)panSem$state) stime res t'.
+    step prog (LDelay d) s s' ∧
+    s' = mkState (delay_clocks (s.clocks) d) s.location NONE NONE ∧
+    ARB s s' t t' ∧ (* input never occurs *)
+    ffi_vars t.locals ∧
+    FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w stime)) ∧ stime < dimword (:α) ∧
+    FLOOKUP t.locals «isInput» = SOME (ValWord (active_low s.ioAction)) ∧
+    FLOOKUP t.locals «waitSet» = SOME (ValWord (active_low s.waitTime)) ∧
+    FLOOKUP t.locals «wakeUpAt» = SOME (system_wait_time (n2w stime) s.waitTime) ∧
+    is_input_ffi_correct t t' ∧
+    evaluate (wait_input_time_limit, t) = (res, t') ⇒
+    res = ARB ∧ t' = ARB t
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  drule ffi_vars_intro >>
+  strip_tac >>
+  fs [step_cases] >> rveq >> gs []
+  >- (
+    qpat_x_assum ‘_ = (res,t')’ assume_tac >>
+    fs [wait_input_time_limit_def] >>
+    fs [Once evaluate_def] >>
+    fs [active_low_def] >>
+
+
+
+
+
+
+  )
+
+
+
+QED
+
+
+
+
+
+
+
+
+
+
+
+
+
+Definition label_not_missed_def:
+  (label_not_missed (s:('a,'b) panSem$state) (r:('a,'b) panSem$state) (LDelay d) =
+   ∃t f res g res' stime nffi nbytes bytes nstime.
+     evaluate (f,s) = (res, t) ∧ evaluate (g,t) = (res', r) ∧
+     FLOOKUP s.locals «sysTime» = SOME (ValWord (n2w stime)) ∧
+     stime < dimword (:α) ∧
+     well_behaved_ffi «get_time» t nffi nbytes bytes (dimword (:α)) ∧
+     read_sys_time t nbytes nstime ∧
+     stime ≤ nstime ∧ nstime < dimword (:α) ∧
+     nstime - stime = d
+End
+
+
+
+
+
+Definition code_installed_def:
+  code_installed prog code <=>
+  ∀loc tms.
+    MEM (loc,tms) prog ⇒
+    let clks = clksOf prog;
+        n = LENGTH clks
+    in
+      FLOOKUP code (toString loc) =
+      SOME ([(«clks», genShape n)],
+            compTerms clks «clks» tms)
+End
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Definition code_installed_def:
   code_installed prog code <=>
   ∀loc tms.
@@ -1838,30 +1927,12 @@ Definition clocks_rel_def:
 End
 *)
 
-Definition wtVal_def:
-  wtVal wt =
-    ValWord (case wt of
-             | NONE => 1w
-             | SOME _ => 0w)
-End
-
-Definition wtStimeVal_def:
-  wtStimeVal sysTime wt =
-    ValWord (case wt of
-             | NONE => 0w
-             | SOME wt => sysTime + n2w wt)
-End
-
 
 Definition state_rel_def:
   state_rel prog s t ⇔
   FLOOKUP t.locals «loc» = SOME (ValLabel (toString s.location)) ∧
-  FLOOKUP t.locals «isInput» =
-  SOME (ValLabel
-        case s.ioAction of
-        | NONE => 1w
-        | SOME _ => 0w) ∧
-  FLOOKUP t.locals «waitSet» = SOME (wtVal s.waitTime) ∧
+  FLOOKUP t.locals «isInput» = SOME (ValLabel (active_low s.ioAction)) ∧
+  FLOOKUP t.locals «waitSet» = SOME (ValWord (active_low s.waitTime)) ∧
   ∃stime.
     FLOOKUP t.locals «sysTime» = SOME (ValWord stime) ∧
     clocks_rel s.clocks t.locals prog stime ∧

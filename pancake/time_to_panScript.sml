@@ -192,7 +192,6 @@ Definition adjustClks_def:
 End
 
 
-
 Definition wait_input_time_limit_def:
   wait_input_time_limit =
     While (Op And [Var «isInput»; (* Not *)
@@ -210,23 +209,20 @@ End
 Definition task_controller_def:
   task_controller clksLength =
     nested_seq [
-        ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
-        Assign  «sysTime» (Load One (Var «ptr2»));
-        ExtCall «check_input» «ptr1» «len1» «ptr2» «len2»;
-        Assign  «isInput» (Load One (Var «ptr2»));
-        (* negate  «isInput»; *)
         wait_input_time_limit;
-        nested_seq [
-            Call (Ret «taskRet» NONE) (Var «loc»)
-                  [Struct (normalisedClks «sysTime» «clks» clksLength)];
-            Assign «clks»
-                   (Struct (adjustClks
-                            «sysTime» (Field 0 (Var «taskRet»)) «clks» clksLength));
-            Assign «waitSet»  (Field 1 (Var «taskRet»));
-            Assign «wakeUpAt»
-                   (Op Add [Var «sysTime»; Field 2 (Var «taskRet»)]);
-            Assign «loc»  (Field 3 (Var «taskRet»))
-          ]
+        Call (Ret «taskRet» NONE) (Var «loc»)
+             [Struct (normalisedClks «sysTime» «clks» clksLength)];
+        Assign «clks»
+               (Struct (adjustClks
+                        «sysTime» (Field 0 (Var «taskRet»)) «clks» clksLength));
+        Assign «waitSet»  (Field 1 (Var «taskRet»));
+        Assign «wakeUpAt»
+               (Op Add [Var «sysTime»; Field 2 (Var «taskRet»)]);
+        Assign «loc»  (Field 3 (Var «taskRet»));
+        ExtCall «get_time» «ptr1» «len1» «ptr2» «len2» ;
+        Assign  «sysTime» (Load One (Var «ptr2»)) ;
+        ExtCall «check_input» «ptr1» «len1» «ptr2» «len2» ;
+        Assign  «isInput» (Load One (Var «ptr2»))
       ]
 End
 
@@ -263,80 +259,13 @@ Definition start_controller_def:
              (case initWakeUp of
               | NONE => Const 0w
               | SOME n => Op Add [Var «sysTime»; Const (n2w n)]);
+      ExtCall «check_input» «ptr1» «len1» «ptr2» «len2» ;
+      Assign  «isInput» (Load One (Var «ptr2»));
       While (Const 1w)
             (task_controller clksLength)
      ])
 End
 
-(*
-Assign «taskRet» (Struct
-                        [Struct (mkClks «sysTime» clksLength);
-                         Const 0w; Const 0w; Const 0w]);
-*)
-
-
-
-
-(*
-Definition task_controller_def:
-  task_controller initLoc initWakeUp clksLength =
-     decs
-      [(«loc», Label (toString initLoc));
-       («waitSet»,
-        case initWakeUp of NONE => Const 1w | _ => Const 0w);  (* not waitSet *)
-       («isInput», Const 1w); (* not isInput, active low *)
-       («wakeUpAt», Const 0w);
-       («sysTime», Const 0w);
-       («ptr1», Const 0w);
-       («len1», Const 0w);
-       («ptr2», Const ffiBufferAddr);
-       («len2», Const ffiBufferSize);
-       («taskRet»,
-        Struct [Struct (emptyConsts clksLength);
-                Const 0w; Const 0w; Const 0w])
-      ]
-      (nested_seq
-       [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
-        Assign «sysTime» (Load One (Var «ptr2»));
-        Assign «wakeUpAt»
-               (case initWakeUp of
-                | NONE => Const 0w
-                | SOME n => Op Add [Var «sysTime»; Const (n2w n)]);
-        Assign «taskRet» (Struct
-                          [Struct (mkClks «sysTime» clksLength);
-                           Const 0w; Const 0w; Const 0w]);
-        While (Const 1w)
-              (nested_seq [
-                  ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
-                  Assign  «sysTime» (Load One (Var «ptr2»));
-                  ExtCall «check_input» «ptr1» «len1» «ptr2» «len2»;
-                  Assign  «isInput» (Load One (Var «ptr2»));
-                  (* negate  «isInput»; *)
-                  While (Op And [Var «isInput»; (* Not *)
-                                 Op Or
-                                 [Var «waitSet»; (* Not *)
-                                  Cmp Lower (Var «sysTime») (Var «wakeUpAt»)]])
-                    (nested_seq [
-                        ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
-                        Assign  «sysTime» (Load One (Var «ptr2»));
-                        ExtCall «check_input» «ptr1» «len1» «ptr2» «len2»;
-                        Assign  «isInput» (Load One (Var «ptr2»))]);
-                  nested_seq [
-                      Call (Ret «taskRet» NONE) (Var «loc»)
-                      [Struct (MAP2
-                               (λx y. Op Sub [x;y])
-                               (mkClks «sysTime» clksLength)
-                               (destruct (Field 0 (Var «taskRet»))))
-                       (* elapsed time clock variables *)];
-                      Assign «waitSet»  (Field 1 (Var «taskRet»));
-                      Assign «wakeUpAt»
-                             (Op Add [Var «sysTime»; Field 2 (Var «taskRet»)]);
-                      Assign «loc»      (Field 3 (Var «taskRet»))
-                    ]
-                 ])
-        ])
-End
-*)
 
 
 val _ = export_theory();
