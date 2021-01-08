@@ -14,7 +14,7 @@ val grammar_ancestry =
 val _ = set_grammar_ancestry grammar_ancestry;
 
 
-(**************************** ANALYSIS LEMMAS *****************************)
+(************************** LEMMAS ***************************)
 
 Theorem is_pure_EVERY_aconv:
      ∀ es . EVERY (λ a . is_pure a) es = EVERY is_pure es
@@ -22,46 +22,6 @@ Proof
     Induct >> fs[]
 QED
 
-Theorem wf_find_loc_wf_find_locL:
-     (∀ e locs . find_loc  e = locs ⇒ wf locs) ∧
-    (∀ l locs . find_locL l = locs ⇒ wf locs)
-Proof
-    ho_match_mp_tac find_loc_ind >> rw[find_loc_def, wf_union] >> rw[wf_def] >>
-    Cases_on `dest_GlobalVarInit op` >> fs[wf_insert]
-QED
-
-Theorem wf_find_locL:
-     ∀ l . wf(find_locL l)
-Proof
-    metis_tac[wf_find_loc_wf_find_locL]
-QED
-
-Theorem wf_find_loc:
-     ∀ e . wf(find_loc e)
-Proof
-    metis_tac[wf_find_loc_wf_find_locL]
-QED
-
-Theorem wf_find_lookups_wf_find_lookupsL:
-     (∀ e lookups . find_lookups e = lookups ⇒ wf lookups) ∧
-    (∀ l lookups . find_lookupsL l = lookups ⇒ wf lookups)
-Proof
-    ho_match_mp_tac find_lookups_ind >>
-    rw[find_lookups_def, wf_union] >> rw[wf_def] >>
-    Cases_on `dest_GlobalVarLookup op` >> fs[wf_insert]
-QED
-
-Theorem wf_find_lookupsL:
-     ∀ l . wf(find_lookupsL l)
-Proof
-    metis_tac[wf_find_lookups_wf_find_lookupsL]
-QED
-
-Theorem wf_find_lookups:
-     ∀ e . wf(find_lookups e)
-Proof
-    metis_tac[wf_find_lookups_wf_find_lookupsL]
-QED
 
 Theorem find_lookupsL_MEM:
      ∀ e es . MEM e es ⇒ domain (find_lookups e) ⊆ domain (find_lookupsL es)
@@ -95,93 +55,6 @@ Proof
        fs[inter_union_empty]
 QED
 
-Theorem wf_analyse_exp:
-     ∀ e roots tree . analyse_exp e = (roots, tree) ⇒ (wf roots) ∧ (wf tree)
-Proof
-    simp[analyse_exp_def] >> rw[] >>
-    metis_tac[
-        wf_def, wf_map, wf_union, wf_find_loc, wf_find_lookups_wf_find_lookupsL]
-QED
-
-Theorem analyse_exp_domain:
-     ∀ e roots tree . analyse_exp e = (roots, tree)
-  ⇒ (domain roots ⊆ domain tree)
-Proof
-    simp[analyse_exp_def] >> rw[] >> rw[domain_def, domain_map]
-QED
-
-(**************************** ELIMINATION LEMMAS *****************************)
-
-Theorem keep_Dlet:
-     ∀ (reachable:num_set) h . ¬ keep reachable h ⇒ ∃ x . h = Dlet x
-Proof
-   Cases_on `h` >> rw[keep_def]
-QED
-
-Theorem wf_code_analysis_union:
-     ∀ r3 r2 r1 t1 t2 t3. wf r1 ∧ wf r2
-        ∧ code_analysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒  wf r3
-Proof
-    rw[code_analysis_union_def] >> rw[wf_union]
-QED
-
-Theorem wf_code_analysis_union_strong:
-     ∀ r3:num_set r2 r1 (t1:num_set num_map) t2 t3.
-        wf r1 ∧ wf r2 ∧ wf t1 ∧ wf t2 ∧
-        code_analysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒  wf r3 ∧ wf t3
-Proof
-    rw[code_analysis_union_def] >> rw[wf_union] >>
-    imp_res_tac wf_num_set_tree_union >> fs[]
-QED
-
-Theorem domain_code_analysis_union:
-     ∀ r1:num_set r2 r3 (t1:num_set num_map) t2 t3 .
-    domain r1 ⊆ domain t1 ∧ domain r2 ⊆ domain t2 ∧
-    code_analysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒ domain r3 ⊆ domain t3
-Proof
-    rw[code_analysis_union_def] >> rw[domain_union] >>
-    rw[domain_num_set_tree_union] >> fs[SUBSET_DEF]
-QED
-
-Theorem wf_code_analysis_union:
-     ∀ r3 r2 r1 t1 t2 t3. wf r1 ∧ wf r2
-        ∧ code_analysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒  wf r3
-Proof
-    rw[code_analysis_union_def] >> rw[wf_union]
-QED
-
-Theorem wf_code_analysis_union_strong:
-     ∀ r3:num_set r2 r1 (t1:num_set num_map) t2 t3.
-        wf r1 ∧ wf r2 ∧ wf t1 ∧ wf t2 ∧
-        code_analysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒  wf r3 ∧ wf t3
-Proof
-    rw[code_analysis_union_def] >> rw[wf_union] >>
-    imp_res_tac wf_num_set_tree_union >> fs[]
-QED
-
-Theorem domain_code_analysis_union:
-     ∀ r1:num_set r2 r3 (t1:num_set num_map) t2 t3 .
-    domain r1 ⊆ domain t1 ∧ domain r2 ⊆ domain t2 ∧
-    code_analysis_union (r1, t1) (r2, t2) = (r3, t3) ⇒ domain r3 ⊆ domain t3
-Proof
-    rw[code_analysis_union_def] >> rw[domain_union] >>
-    rw[domain_num_set_tree_union] >> fs[SUBSET_DEF]
-QED
-
-Theorem analyse_code_thm:
-     ∀ code root tree . analyse_code code = (root, tree)
-    ⇒ (wf root) ∧ (domain root ⊆ domain tree)
-Proof
-    Induct
-    >-(rw[analyse_code_def] >> rw[wf_def])
-    >> Cases_on `h` >> simp[analyse_code_def] >> Cases_on `analyse_exp e` >>
-       Cases_on `analyse_code code` >>
-       first_x_assum (qspecl_then [`q'`, `r'`] mp_tac) >> simp[] >>
-       qspecl_then [`e`, `q`, `r`] mp_tac wf_analyse_exp >> simp[] >> rw[]
-       >- imp_res_tac wf_code_analysis_union
-       >> qspecl_then [`e`, `q`, `r`] mp_tac analyse_exp_domain >> rw[] >>
-          imp_res_tac domain_code_analysis_union
-QED
 
 (************************** DEFINITIONS ***************************)
 
@@ -1497,19 +1370,16 @@ Proof
           imp_res_tac evaluate_dec_state_unchanged >> fs[]
           )
         >>  reverse(EVERY_CASE_TAC) >> fs[] >> rveq >>
-            imp_res_tac keep_Dlet >> rveq >>
+            Cases_on `h` >> gvs[keep_def] >>
             fs[Once evaluate_dec_def] >> EVERY_CASE_TAC >> fs[] >>
             rveq >> rw[UNION_EMPTY]
-            >- (drule evaluate_sing_notKeep_flat_state_rel >> fs[] >>
+            >- (drule evaluate_sing_notKeep_flat_state_rel >> fs[keep_def] >>
                 strip_tac >>
                 pop_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
                 strip_tac >> fs[])
             >>  first_x_assum match_mp_tac >> fs[] >> asm_exists_tac >> fs[] >>
                 imp_res_tac decs_closed_reduce >> fs[] >>
-                drule evaluate_sing_notKeep_flat_state_rel >> fs[] >>
-                disch_then drule >>
-                disch_then drule >>
-                fs [flat_state_rel_def]
+                drule evaluate_sing_notKeep_flat_state_rel >> fs[keep_def]
 QED
 
 Theorem flat_removal_thm:
