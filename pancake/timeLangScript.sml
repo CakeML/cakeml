@@ -140,12 +140,6 @@ Definition initTerm_def:
   (initTerm [] = [])
 End
 
-(*
-Definition init_term_of_def:
-  (init_term_of ((t::ts)::tss) = t) ∧
-  (init_term_of [] = Tm (Input 0) [] [] 0 [])
-End
-*)
 
 Definition initLoc_def:
   initLoc = 0:num

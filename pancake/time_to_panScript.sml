@@ -192,38 +192,45 @@ Definition adjustClks_def:
 End
 
 
+Definition check_input_time_def:
+  check_input_time =
+    nested_seq [
+        ExtCall «check_input» «ptr1» «len1» «ptr2» «len2» ;
+        Assign  «isInput» (Load One (Var «ptr2»)) ;
+        ExtCall «get_time» «ptr1» «len1» «ptr2» «len2» ;
+        Assign  «sysTime» (Load One (Var «ptr2»))]
+End
+
+
 Definition wait_input_time_limit_def:
   wait_input_time_limit =
     While (Op And [Var «isInput»; (* Not *)
                    Op Or
                    [Var «waitSet»; (* Not *)
                     Cmp Lower (Var «sysTime») (Var «wakeUpAt»)]])
-          (nested_seq [
-              ExtCall «check_input» «ptr1» «len1» «ptr2» «len2» ;
-              Assign  «isInput» (Load One (Var «ptr2»)) ;
-              ExtCall «get_time» «ptr1» «len1» «ptr2» «len2» ;
-              Assign  «sysTime» (Load One (Var «ptr2»))])
+          check_input_time
+
 End
 
 
 Definition task_controller_def:
   task_controller clksLength =
-    nested_seq [
+  let
+    rt = Var «taskRet» ;
+    nClks     = Field 0 rt;
+    nWaitSet  = Field 1 rt;
+    nwakeUpAt = Field 2 rt;
+    nloc      = Field 3 rt
+  in
+    (nested_seq [
         wait_input_time_limit;
         Call (Ret «taskRet» NONE) (Var «loc»)
              [Struct (normalisedClks «sysTime» «clks» clksLength)];
-        Assign «clks»
-               (Struct (adjustClks
-                        «sysTime» (Field 0 (Var «taskRet»)) «clks» clksLength));
-        Assign «waitSet»  (Field 1 (Var «taskRet»));
-        Assign «wakeUpAt»
-               (Op Add [Var «sysTime»; Field 2 (Var «taskRet»)]);
-        Assign «loc»  (Field 3 (Var «taskRet»));
-        ExtCall «get_time» «ptr1» «len1» «ptr2» «len2» ;
-        Assign  «sysTime» (Load One (Var «ptr2»)) ;
-        ExtCall «check_input» «ptr1» «len1» «ptr2» «len2» ;
-        Assign  «isInput» (Load One (Var «ptr2»))
-      ]
+        Assign «clks» (Struct (adjustClks «sysTime» nClks «clks» clksLength));
+        Assign «waitSet» nWaitSet ;
+        Assign «wakeUpAt» (Op Add [Var «sysTime»; nwakeUpAt]);
+        Assign «loc» nloc;
+        check_input_time])
 End
 
 
@@ -252,17 +259,15 @@ Definition start_controller_def:
      («clks»,Struct (emptyConsts clksLength))
     ]
     (nested_seq
-     [ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»;
-      Assign «sysTime» (Load One (Var «ptr2»));
-      Assign «clks» (Struct (mkClks «sysTime» clksLength));
-      Assign «wakeUpAt»
-             (case initWakeUp of
-              | NONE => Const 0w
-              | SOME n => Op Add [Var «sysTime»; Const (n2w n)]);
-      ExtCall «check_input» «ptr1» «len1» «ptr2» «len2» ;
-      Assign  «isInput» (Load One (Var «ptr2»));
-      While (Const 1w)
-            (task_controller clksLength)
+     [
+       check_input_time;
+       Assign «clks» (Struct (mkClks «sysTime» clksLength));
+       Assign «wakeUpAt»
+              (case initWakeUp of
+               | NONE => Const 0w
+               | SOME n => Op Add [Var «sysTime»; Const (n2w n)]);
+       While (Const 1w)
+             (task_controller clksLength)
      ])
 End
 
