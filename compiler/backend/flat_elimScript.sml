@@ -275,7 +275,7 @@ val remove_unreachable_def = Define `
 val remove_flat_prog_def = Define `
     remove_flat_prog code =
         let (r, t) = analyse_code code in
-        let reachable = closure_spt r (mk_wf_set_tree t) in
+        let reachable = closure_spt r t in
         remove_unreachable reachable code
 `
 

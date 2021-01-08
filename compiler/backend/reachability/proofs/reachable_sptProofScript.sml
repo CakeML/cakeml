@@ -320,6 +320,17 @@ Proof
     rw[SUBSET_DEF, domain_lookup]
 QED
 
+Theorem is_reachable_num_set_tree_union:
+     ∀ t1 t2 n m .
+        is_reachable t1 n m
+      ⇒ is_reachable (num_set_tree_union t1 t2) n m
+Proof
+    simp[is_reachable_def] >> strip_tac >> strip_tac >>
+    ho_match_mp_tac RTC_INDUCT_RIGHT1 >> rw[] >>
+    simp[Once RTC_CASES2] >> disj2_tac >> qexists_tac `m` >> fs[] >>
+    imp_res_tac is_adjacent_num_set_tree_union >> fs[]
+QED
+
 Theorem is_reachable_wf_set_tree_num_set_tree_union:
      ∀ t1 t2 n m .
         is_reachable (mk_wf_set_tree t1) n m
