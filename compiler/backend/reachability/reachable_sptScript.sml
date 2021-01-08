@@ -42,29 +42,40 @@ val mk_wf_set_tree_def = Define `
         let t' = union t (map (K LN) (superdomain t)) in mk_wf (map (mk_wf) t')
 `
 
-val close_spt_def = tDefine "close_spt" `
-    close_spt (reachable :num_set) (seen :num_set) (tree :num_set spt) =
-        let to_look = difference seen reachable in
-        let new_sets = inter tree to_look in
-            if new_sets = LN then seen else
-                let new_set = spt_fold union LN new_sets in
-                    close_spt (union reachable to_look) (union seen new_set)
-                        tree
-    `
-    (
-        WF_REL_TAC `measure (λ (r, _, t) . size (difference t r))` >>
-        rw[] >>
-        match_mp_tac size_diff_less >>
-        fs[domain_union, domain_difference] >>
-        fs[inter_eq_LN, IN_DISJOINT, domain_difference] >>
-        qexists_tac `x` >>
-        fs[]
-    )
+Theorem superdomain_rewrite:
+  ∀tree.
+    domain (superdomain tree) =
+    {n | ∃k aSet. lookup k tree = SOME aSet ∧ n ∈ domain aSet}
+Proof
+  rw[EXTENSION] >> eq_tac >> rw[] >>
+  fs[superdomain_def, domain_lookup,
+     lookup_spt_fold_union_STRONG, lookup_def] >>
+  goal_assum drule >> simp[]
+QED
 
-val close_spt_ind = theorem "close_spt_ind";
+Theorem domain_spt_fold_union_eq:
+  ∀y tree. domain (spt_fold union y tree) = domain y ∪ domain (superdomain tree)
+Proof
+  simp[superdomain_rewrite] >>
+  rw[EXTENSION, domain_lookup, lookup_spt_fold_union_STRONG]
+QED
 
-val closure_spt_def = Define
-    `closure_spt start tree = close_spt LN start tree`;
+Definition closure_spt_def:
+  closure_spt (reachable: num_set) tree =
+    let sets = inter tree reachable in
+    let nodes = spt_fold union LN sets in
+    if subspt nodes reachable then reachable
+    else closure_spt (union reachable nodes) tree
+Termination
+  WF_REL_TAC `measure (λ (r,t). size (difference (superdomain t) r))` >> rw[] >>
+  gvs[subspt_domain, SUBSET_DEF] >>
+  irule size_diff_less >>
+  fs[domain_union, domain_difference, domain_spt_fold_union_eq,
+     GSYM MEMBER_NOT_EMPTY] >>
+  goal_assum drule >> simp[] >>
+  gvs[superdomain_rewrite, lookup_inter] >>
+  EVERY_CASE_TAC >> gvs[] >> goal_assum drule >> simp[]
+End
 
 val wf_set_tree_def = Define `
     wf_set_tree tree ⇔
