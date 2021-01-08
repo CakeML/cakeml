@@ -1219,7 +1219,6 @@ Proof
 QED
 
 
-(* EVERY (λck. ∃n. FLOOKUP s.clocks ck = SOME n) clks ∧ *)
 Theorem comp_exp_correct:
   ∀s e n clks t:('a,'b)panSem$state clkvals.
     evalExpr s e = SOME n ∧
@@ -1624,12 +1623,43 @@ Proof
 QED
 
 
+(* when any condition is false, but there is a matching term, then we can append the
+   list with the false term  *)
+Theorem pickTerm_last_cases:
+  ∀s event io cnds tclks dest wt s' t (clkvals:'a v list) clks tms.
+    ~(EVERY (λcnd. evalCond s cnd) cnds) ∧
+    pickTerm s event tms s' ⇒
+    evaluate (compTerms clks «clks» (Tm io cnds tclks dest wt::tms), t) =
+    evaluate (compTerms clks «clks» tm, t)
+Proof
+  rw [] >>
+  drule pickTerm_true_imp_evalTerm >>
+  strip_tac >>
+  fs [] >>
+  (* we can go on, but first I should see what kind of lemmas are needed *)
+  cheat
+QED
+
+
+(* Step Proofs *)
+
+Definition code_installed_def:
+  code_installed code prog <=>
+  ∀loc tms.
+    MEM (loc,tms) prog ⇒
+    let clks = clksOf prog;
+        n = LENGTH clks
+    in
+      FLOOKUP code (toString loc) =
+      SOME ([(«clks», genShape n)],
+            compTerms clks «clks» tms)
+End
+
 
 Definition active_low_def:
   (active_low NONE = 1w) ∧
   (active_low (SOME _) = 0w)
 End
-
 
 Definition add_time_def:
   (add_time t NONE = 0w) ∧
@@ -1648,12 +1678,12 @@ End
 
 Definition vars_rel_def:
   vars_rel s t ⇔
+  ffi_vars t.locals ∧
   FLOOKUP t.locals «loc» = SOME (ValLabel (toString s.location)) ∧
   FLOOKUP t.locals «isInput» = SOME (ValWord (active_low s.ioAction)) ∧
   FLOOKUP t.locals «waitSet» = SOME (ValWord (active_low s.waitTime)) ∧
   (∃n. FLOOKUP t.locals «sysTime» = SOME (ValWord n)) ∧
-  (∃n. FLOOKUP t.locals «wakeUpAt» = SOME (ValWord n)) ∧
-  ffi_vars t.locals
+  (∃n. FLOOKUP t.locals «wakeUpAt» = SOME (ValWord n))
 End
 
 
@@ -1664,22 +1694,6 @@ Definition foo_def:
   (∀t. t.getTime < d ⇒ isInput has not happened)
 End
 
-
-
-
-
-
-
-Definition well_behaved_ffi_def:
-  well_behaved_ffi ffi_name s nffi nbytes bytes (m:num) <=>
-  explode ffi_name ≠ "" /\ 16 < m /\
-  read_bytearray ffiBufferAddr 16
-                 (mem_load_byte s.memory s.memaddrs s.be) =
-  SOME bytes /\
-  s.ffi.oracle (explode ffi_name) s.ffi.ffi_state [] bytes =
-  Oracle_return nffi nbytes /\
-  LENGTH nbytes = LENGTH bytes
-End
 
 
 Definition read_sys_time_def:
@@ -1772,134 +1786,10 @@ Proof
     qpat_x_assum ‘_ = (res,t')’ assume_tac >>
     fs [wait_input_time_limit_def] >>
     fs [Once evaluate_def] >>
-    fs [active_low_def] >>
-
-
-
-
-
-
-  )
-
-
-
+    fs [active_low_def] >> cheat) >>
+  cheat
 QED
 
-
-
-
-
-
-
-
-
-
-
-
-
-Definition label_not_missed_def:
-  (label_not_missed (s:('a,'b) panSem$state) (r:('a,'b) panSem$state) (LDelay d) =
-   ∃t f res g res' stime nffi nbytes bytes nstime.
-     evaluate (f,s) = (res, t) ∧ evaluate (g,t) = (res', r) ∧
-     FLOOKUP s.locals «sysTime» = SOME (ValWord (n2w stime)) ∧
-     stime < dimword (:α) ∧
-     well_behaved_ffi «get_time» t nffi nbytes bytes (dimword (:α)) ∧
-     read_sys_time t nbytes nstime ∧
-     stime ≤ nstime ∧ nstime < dimword (:α) ∧
-     nstime - stime = d
-End
-
-
-
-
-
-Definition code_installed_def:
-  code_installed prog code <=>
-  ∀loc tms.
-    MEM (loc,tms) prog ⇒
-    let clks = clksOf prog;
-        n = LENGTH clks
-    in
-      FLOOKUP code (toString loc) =
-      SOME ([(«clks», genShape n)],
-            compTerms clks «clks» tms)
-End
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Definition code_installed_def:
-  code_installed prog code <=>
-  ∀loc tms.
-    MEM (loc,tms) prog ⇒
-    let clks = clksOf prog;
-        n = LENGTH clks
-    in
-      FLOOKUP code (toString loc) =
-      SOME ([(«clks», genShape n)],
-            compTerms clks «clks» tms)
-End
 
 
 Definition clocks_rel_def:
@@ -2089,32 +1979,6 @@ Proof
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 Theorem foo:
   ∀prog d s (t:('a, 'b)panSem$state) res t' nbytes bytes nffi.
     step prog (LDelay d) s
@@ -2190,102 +2054,8 @@ Proof
     pairarg_tac >> fs [] >>
     (* state rel is not preserved, rather systime and is_input has some relation with time Sem *)
 
-
-
-    fs [Once evaluate_def] >>
-    pairarg_tac >> gs [] >>
-    pop_assum mp_tac >>
-    rewrite_tac [evaluate_def] >>
-    rewrite_tac [ffi_return_state_def] >>
-    fs [eval_def, ffiBufferAddr_def, mem_load_def] >>
-    ‘4000w ∈ t.memaddrs’ by cheat >>
-    fs [] >>
-    gs [is_valid_value_def] >>
-    ‘∃nstime.
-       write_bytearray 4000w nSysTime t.memory t.memaddrs t.be 4000w =
-       Word nstime’ by cheat >>
-    fs [] >>
-    fs [shape_of_def] >>
-    strip_tac >> fs [] >>
-
-
-
-    ‘∃sysTime xs. nSysTime = sysTime::xs’ by cheat >>
-    fs [] >>
-    fs [write_bytearray_def] >>
-    fs [mem_store_byte_def]
-
-
-
-
-
-
-
-    fs [ffi_return_state_def] >>
-
-
-
-    fs [panLangTheory.decs_def] >>
-    fs [evaluate_def, eval_def]
-
-
-
-
-
-    fs [mkState_def] >>
-    fs [delay_clocks_def] >>
-
-
-
-
-  )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    cheat
 
 QED
-
-
-(* when any condition is false, but there is a matching term, then we can append the
-   list with the false term  *)
-Theorem foo:
-  ∀s event io cnds tclks dest wt s' t (clkvals:'a v list) clks tms.
-    ~(EVERY (λcnd. evalCond s cnd) cnds) ∧
-    pickTerm s event tms s' ⇒
-    evaluate (compTerms clks «clks» (Tm io cnds tclks dest wt::tms), t) =
-    evaluate (compTerms clks «clks» tm, t)
-Proof
-  rw [] >>
-  drule pickTerm_true_imp_evalTerm >>
-  strip_tac >>
-  fs [] >>
-  (* we can go on, but first I should see what kind of lemmas are needed *)
-  cheat
-QED
-
-
-
-Theorem bar:
-  ffi_vars t.locals ∧
-  FLOOKUP t.locals «sysTime» = SOME (ValWord stime)
-  evaluate
-  (ExtCall «get_time» «ptr1» «len1» «ptr2» «len2»,t) = (res,t') ⇒
-  t = ARB t'
-Proof
-
-
-QED
-
 
 val _ = export_theory();
