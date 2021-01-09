@@ -759,6 +759,8 @@ QED
 Type num_set = ``:unit spt``
 Type num_map = ``:'a spt``
 
+Theorem subspt_eq[compute] = subspt_eq;
+
 Theorem toAList_domain:
     ∀x. MEM x (MAP FST (toAList t)) ⇔ x ∈ domain t
 Proof
