@@ -188,7 +188,7 @@ val compile_exp_def = tDefine"compile_exp"`
                 (Let None (SOME "r") (App None (GlobalVarLookup 0) [])
                     (flatLang$App None (El 0) [Var_local None "r"])))]
     else
-    if op = EnvId then (case es of
+    if op = Env_id then (case es of
       | [_] => HD (compile_exps t env es)
       (* possible only if one of es raises an exception *)
       | _ => App None (El 0) (compile_exps t env es)

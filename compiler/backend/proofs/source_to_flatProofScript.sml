@@ -826,7 +826,7 @@ val do_app = time Q.prove (
     SND s1 = s1_i1.ffi ∧
     genv_c_ok genv.c ∧
     op ≠ AallocEmpty ∧
-    op ≠ EnvId
+    op ≠ Env_id
     ⇒
      ∃r_i1 s2_i1.
        LIST_REL (sv_rel genv) (FST s2) (TL s2_i1.refs) ∧
@@ -3993,7 +3993,7 @@ Proof
     fs [evaluateTheory.dec_clock_def, dec_clock_def] >>
     metis_tac (SUBSET_TRANS :: trans_thms)
   )
-  \\ Cases_on `op = EnvId`
+  \\ Cases_on `op = Env_id`
   >- (
     fs [option_case_eq, pair_case_eq, result_rel_eqns]
     \\ rw []
