@@ -1335,29 +1335,39 @@ Definition clocks_rel_def:
 End
 
 
+Definition check_input_will_work_def:
+  check_input_will_work s t =
+    ∀n ffi nffi nbytes bytes m.
+      well_behaved_ffi «check_input» (FUNPOW (λt. t with ffi := ffi ) n t) nffi nbytes bytes (m:num) ∧
+      mem_load One ffiBufferAddr t.memaddrs
+               (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be) =
+      SOME (ValWord (active_low s.ioAction))
+End
+
+
+Definition get_time_will_work_def:
+  get_time_will_work (t:('a,'b) panSem$state) =
+    ∀n ffi nffi nbytes bytes m.
+      well_behaved_ffi «get_time» (FUNPOW (λt. t with ffi := ffi ) n t) nffi nbytes bytes (m:num) ∧
+      ?tm tm'.
+        mem_load One ffiBufferAddr t.memaddrs t.memory = SOME (ValWord (n2w tm)) /\
+        mem_load One ffiBufferAddr t.memaddrs
+                 (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be) =
+        SOME (ValWord (n2w tm')) /\
+        tm <= tm' /\ tm' < dimword (:α)
+End
+
+
 Definition state_rel_def:
-  state_rel clks s (t:('a, 'b) panSem$state) stime ⇔
+  state_rel clks s s' (t:('a, 'b) panSem$state) stime ⇔
     equiv_labels t.locals «loc» s.location ∧
-    equiv_flags  t.locals «isInput» s.ioAction ∧
+    equiv_flags  t.locals «isInput» s'.ioAction ∧
     equiv_flags  t.locals «waitSet» s.waitTime ∧
     FLOOKUP t.locals «wakeUpAt» = add_time stime s.waitTime ∧
     LENGTH clks ≤ 29 ∧ clk_range s.clocks clks (dimword (:'a)) ∧
-    clocks_rel clks t.locals s.clocks stime
-End
-
-(* from here, think about the FFI *)
-
-
-
-
-(* clks = clksOf prog *)
-
-  clock_rel s t
-
-  ∃stime.
-    FLOOKUP t.locals «sysTime» = SOME (ValWord stime) ∧
-    clocks_rel s.clocks t.locals prog stime ∧
-    FLOOKUP t.locals «wakeUpAt» = SOME (wtStimeVal stime s.waitTime)
+    clocks_rel clks t.locals s.clocks stime ∧
+    check_input_works s' t ∧
+    get_time_works t
 End
 
 
