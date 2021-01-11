@@ -171,7 +171,7 @@ QED
 Theorem AST_OP_TYPE_eq_enc:
   !l v. AST_OP_TYPE l v <=> v = enc_op l
 Proof
-  Induct \\ fs [AST_OP_TYPE_def,enc_op_def,type_num_defs,
+  Induct \\ fs [AST_OP_TYPE_def,enc_op_def,type_num_defs,nat_to_v_def,
     AST_OPB_TYPE_eq_enc, AST_OPN_TYPE_eq_enc, AST_OPW_TYPE_eq_enc,
     AST_SHIFT_TYPE_eq_enc, AST_WORD_SIZE_TYPE_eq_enc,
     FPSEM_FP_UOP_TYPE_eq_enc, FPSEM_FP_BOP_TYPE_eq_enc,

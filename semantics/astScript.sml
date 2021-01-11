@@ -128,7 +128,7 @@ val _ = Hol_datatype `
   (* Evaluate new code in a given env *)
   | Eval
   (* Get the identifier of an env object *)
-  | EnvId`;
+  | Env_id`;
 
 
 (* Logical operations *)

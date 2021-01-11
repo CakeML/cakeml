@@ -853,7 +853,7 @@ val _ = Define `
 
   (enc_op Eval=  (Conv (SOME (TypeStamp "Eval" op_type_num)) []))
 /\
-  (enc_op EnvId=  (Conv (SOME (TypeStamp "EnvId" op_type_num)) []))
+  (enc_op Env_id =  (Conv (SOME (TypeStamp "Env_id" op_type_num)) []))
 /\
   (enc_op (FFI x_15)=    
  (Conv (SOME (TypeStamp "Ffi" op_type_num)) [Litv (StrLit x_15)]))
@@ -1685,9 +1685,9 @@ val _ = Define `
             )
         | _ => NONE
         )
-    | (EnvId, [Env env (gen, id)]) => SOME ((s, t),
+    | (Env_id, [Env env (gen, id)]) => SOME ((s, t),
             Rval (Conv NONE [nat_to_v gen; nat_to_v id]))
-    | (EnvId, [Conv NONE [gen; id]]) => SOME ((s, t),
+    | (Env_id, [Conv NONE [gen; id]]) => SOME ((s, t),
             Rval (Conv NONE [gen; id]))
      | _ => NONE
   )))`;
