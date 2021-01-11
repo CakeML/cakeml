@@ -485,7 +485,7 @@ QED
 Theorem fv_MAPi:
    ∀l x f. fv x (MAPi f l) ⇔ ∃n. n < LENGTH l ∧ fv x [f n (EL n l)]
 Proof
-  Induct >> simp[fv_def] >> simp[] >> dsimp[indexedListsTheory.LT_SUC]
+  Induct >> simp[fv_def] >> simp[] >> dsimp[arithmeticTheory.LT_SUC]
 QED
 
 Theorem fv_GENLIST_Var:

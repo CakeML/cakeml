@@ -180,7 +180,7 @@ Theorem MEM_enumerate_EL:
   !xs i x. MEM x (enumerate i xs) = (?j. j < LENGTH xs /\ x = (i + j, EL j xs))
 Proof
   Induct \\ rw [miscTheory.enumerate_def]
-  \\ simp [indexedListsTheory.LT_SUC]
+  \\ simp [arithmeticTheory.LT_SUC]
   \\ EQ_TAC \\ rw []
   \\ simp [EL_CONS, ADD1]
   \\ simp [GSYM ADD1]

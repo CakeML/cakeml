@@ -67,13 +67,14 @@ Proof
   res_tac
 QED
 
-val renumber_code_locs_distinct_lemma = Q.prove(
-  `(∀n es. SORTED $< (code_locs (SND (renumber_code_locs_list n es))) ∧
+Theorem renumber_code_locs_distinct_lemma[local]:
+   (∀n es. SORTED $< (code_locs (SND (renumber_code_locs_list n es))) ∧
             EVERY ($<= n) (code_locs (SND (renumber_code_locs_list n es))) ∧
             EVERY ($> (FST (renumber_code_locs_list n es))) (code_locs (SND (renumber_code_locs_list n es)))) ∧
     (∀n e. SORTED $< (code_locs [SND (renumber_code_locs n e)]) ∧
             EVERY ($<= n) (code_locs [SND (renumber_code_locs n e)]) ∧
-            EVERY ($> (FST (renumber_code_locs n e))) (code_locs [SND (renumber_code_locs n e)]))`,
+            EVERY ($> (FST (renumber_code_locs n e))) (code_locs [SND (renumber_code_locs n e)]))
+Proof
   ho_match_mp_tac renumber_code_locs_ind >>
   simp[renumber_code_locs_def,code_locs_def,pairTheory.UNCURRY] >>
   srw_tac[][] >> rpt (CHANGED_TAC tac >> full_simp_tac(srw_ss())[]) >> srw_tac[][] >>
@@ -107,8 +108,7 @@ val renumber_code_locs_distinct_lemma = Q.prove(
     imp_res_tac renumber_code_locs_imp_inc >>
     srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
     NO_TAC) >>
-  fs[times_add_o,GSYM MAP_GENLIST,
-     MATCH_MP sorted_map transitive_LESS,
+  fs[times_add_o,GSYM MAP_GENLIST,sorted_map,
      SORTED_inv_image_LESS_PLUS,
      SORTED_GENLIST_TIMES] >>
   Cases_on `renumber_code_locs_list n (MAP SND fns)` >>
@@ -121,7 +121,8 @@ val renumber_code_locs_distinct_lemma = Q.prove(
   srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
   srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][MAP_ZIP] >>
   rev_full_simp_tac(srw_ss())[MAP_ZIP] >>
-  srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][MAP_ZIP]);
+  srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][MAP_ZIP]
+QED
 
 Theorem renumber_code_locs_distinct:
    ∀n e. ALL_DISTINCT (code_locs [SND (renumber_code_locs n e)]) ∧
