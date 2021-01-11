@@ -1296,352 +1296,83 @@ Proof
 QED
 
 
-Theorem comp_condition_true_correct:
-  ∀s cnd (t:('a,'b) panSem$state) clks clkvals.
-    evalCond s cnd ∧
-    EVERY (λe. case (evalExpr s e) of
-               | SOME n => n < dimword (:α)
-               | _ => F) (destCond cnd) ∧
-    EVERY (λck. MEM ck clks) (condClks cnd) ∧
-    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    equiv_val s.clocks clks clkvals ⇒
-    eval t (compCondition clks «clks» cnd) = SOME (ValWord 1w)
+Definition active_low_def:
+  (active_low NONE = 1w) ∧
+  (active_low (SOME _) = 0w)
+End
+
+
+Definition add_time_def:
+  (add_time t NONE     = SOME (ValWord 0w)) ∧
+  (add_time t (SOME n) = SOME (ValWord (t + n2w n)))
+End
+
+
+Definition equiv_labels_def:
+  equiv_labels fm v sloc ⇔
+    FLOOKUP fm v = SOME (ValLabel (toString sloc))
+End
+
+
+Definition equiv_flags_def:
+  equiv_flags fm v n ⇔
+    FLOOKUP fm v = SOME (ValWord (active_low n))
+End
+
+Definition clkvals_rel_def:
+  clkvals_rel fm xs ys z <=>
+    MAP2 (λx y. x + y) (MAP (n2w o THE o (FLOOKUP fm)) xs) ys =
+    REPLICATE (LENGTH ys) z
+End
+
+
+Definition clocks_rel_def:
+  clocks_rel clks tlocals sclocks stime ⇔
+  ∃(clkwords:'a word list).
+    FLOOKUP tlocals «clks» =
+     SOME (Struct (MAP ValWord clkwords)) ∧
+    clkvals_rel sclocks clks clkwords stime
+End
+
+
+Definition state_rel_def:
+  state_rel clks s (t:('a, 'b) panSem$state) stime ⇔
+    equiv_labels t.locals «loc» s.location ∧
+    equiv_flags  t.locals «isInput» s.ioAction ∧
+    equiv_flags  t.locals «waitSet» s.waitTime ∧
+    FLOOKUP t.locals «wakeUpAt» = add_time stime s.waitTime ∧
+    LENGTH clks ≤ 29 ∧ clk_range s.clocks clks (dimword (:'a)) ∧
+    clocks_rel clks t.locals s.clocks stime
+End
+
+(* from here, think about the FFI *)
+
+
+
+
+(* clks = clksOf prog *)
+
+  clock_rel s t
+
+  ∃stime.
+    FLOOKUP t.locals «sysTime» = SOME (ValWord stime) ∧
+    clocks_rel s.clocks t.locals prog stime ∧
+    FLOOKUP t.locals «wakeUpAt» = SOME (wtStimeVal stime s.waitTime)
+End
+
+
+(* say that max number of clocks in prog are less then or equal to 29 *)
+(* and also ∧
+      clk_range sclocks clks (dimword (:'a)) *)
+
+
+
+Theorem step_dely:
+  step p (LDelay d) s s' ∧
+  state_rel s t ==>
+  something = something
 Proof
-  rw [] >>
-  cases_on ‘cnd’ >>
-  fs [evalCond_def, timeLangTheory.condClks_def,
-      timeLangTheory.destCond_def, timeLangTheory.clksOfExprs_def] >>
-  every_case_tac >> fs [] >>
-  qpat_x_assum ‘_ < dimword (:α)’ mp_tac >>
-  qpat_x_assum ‘_ < dimword (:α)’ assume_tac >>
-  strip_tac >>
-  dxrule LESS_MOD >>
-  dxrule LESS_MOD >>
-  strip_tac >> strip_tac
-  >- (
-   dxrule comp_exp_correct >>
-   disch_then
-   (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
-   impl_tac
-   >- (
-     fs [] >>
-     drule exprClks_accumulates >>
-     fs []) >>
-   strip_tac >>
-   dxrule comp_exp_correct >>
-   disch_then
-   (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
-   impl_tac
-   >- (
-    fs [EVERY_MEM] >>
-    rw [] >>
-    fs [] >>
-    drule exprClks_sublist_accum >>
-    fs []) >>
-   strip_tac >>
-   fs [compCondition_def] >>
-   fs [eval_def, OPT_MMAP_def] >>
-   gs [] >>
-   fs [asmTheory.word_cmp_def] >>
-   gs [word_lo_n2w] >>
-   gs [LESS_OR_EQ, wordLangTheory.word_op_def]) >>
-  dxrule comp_exp_correct >>
-  disch_then
-  (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
-  impl_tac
-  >- (
-  fs [] >>
-  drule exprClks_accumulates >>
-  fs []) >>
-  strip_tac >>
-  dxrule comp_exp_correct >>
-  disch_then
-  (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
-  impl_tac
-  >- (
-  fs [EVERY_MEM] >>
-  rw [] >>
-  fs [] >>
-  drule exprClks_sublist_accum >>
-  fs []) >>
-  strip_tac >>
-  fs [compCondition_def] >>
-  fs [eval_def, OPT_MMAP_def] >>
-  gs [] >>
-  fs [asmTheory.word_cmp_def] >>
-  gs [word_lo_n2w]
 QED
-
-
-Theorem comp_condition_false_correct:
-  ∀s cnd (t:('a,'b) panSem$state) clks clkvals.
-    ~(evalCond s cnd) ∧
-    EVERY (λe. case (evalExpr s e) of
-               | SOME n => n < dimword (:α)
-               | _ => F) (destCond cnd) ∧
-    EVERY (λck. MEM ck clks) (condClks cnd) ∧
-    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    equiv_val s.clocks clks clkvals ⇒
-    eval t (compCondition clks «clks» cnd) = SOME (ValWord 0w)
-Proof
-  rw [] >>
-  cases_on ‘cnd’ >>
-  fs [evalCond_def, timeLangTheory.condClks_def,
-      timeLangTheory.destCond_def, timeLangTheory.clksOfExprs_def] >>
-  every_case_tac >> fs []
-  >- (
-   dxrule comp_exp_correct >>
-   disch_then
-   (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
-   impl_tac
-   >- (
-     fs [] >>
-     drule exprClks_accumulates >>
-     fs []) >>
-   strip_tac >>
-   dxrule comp_exp_correct >>
-   disch_then
-   (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
-   impl_tac
-   >- (
-    fs [EVERY_MEM] >>
-    rw [] >>
-    fs [] >>
-    drule exprClks_sublist_accum >>
-    fs []) >>
-   strip_tac >>
-   fs [compCondition_def] >>
-   fs [eval_def, OPT_MMAP_def] >>
-   gs [] >>
-   fs [asmTheory.word_cmp_def] >>
-   gs [word_lo_n2w] >>
-   fs [wordLangTheory.word_op_def]) >>
-  dxrule comp_exp_correct >>
-  disch_then
-  (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
-  impl_tac
-  >- (
-    fs [] >>
-    drule exprClks_accumulates >>
-    fs []) >>
-  strip_tac >>
-  dxrule comp_exp_correct >>
-  disch_then
-  (qspecl_then [‘clks’, ‘t’, ‘clkvals’] mp_tac) >>
-  impl_tac
-  >- (
-    fs [EVERY_MEM] >>
-    rw [] >>
-    fs [] >>
-    drule exprClks_sublist_accum >>
-    fs []) >>
-  strip_tac >>
-  fs [compCondition_def] >>
-  fs [eval_def, OPT_MMAP_def] >>
-  gs [] >>
-  fs [asmTheory.word_cmp_def] >>
-  gs [word_lo_n2w]
-QED
-
-
-Theorem map_comp_conditions_true_correct:
-  ∀cnds s (t:('a,'b) panSem$state) clks clkvals.
-    EVERY (λcnd. evalCond s cnd) cnds ∧
-    EVERY
-    (λcnd.
-      EVERY (λe. case (evalExpr s e) of
-                 | SOME n => n < dimword (:α)
-                 | _ => F) (destCond cnd)) cnds ∧
-    EVERY
-    (λcnd. EVERY (λck. MEM ck clks) (condClks cnd)) cnds ∧
-    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    equiv_val s.clocks clks clkvals ⇒
-    MAP (eval t o compCondition clks «clks») cnds =
-    MAP (SOME o (λx. ValWord 1w)) cnds
-Proof
-  Induct
-  >- rw [] >>
-  rpt gen_tac >>
-  strip_tac >>
-  fs [] >>
-  drule comp_condition_true_correct >>
-  fs [] >>
-  disch_then drule_all >>
-  strip_tac >>
-  last_x_assum match_mp_tac >>
-  gs [] >>
-  qexists_tac ‘s’ >>
-  gs []
-QED
-
-
-Theorem comp_conditions_true_correct:
-  ∀cnds s (t:('a,'b) panSem$state) clks clkvals.
-    EVERY (λcnd. evalCond s cnd) cnds ∧
-    EVERY
-    (λcnd.
-      EVERY (λe. case (evalExpr s e) of
-                 | SOME n => n < dimword (:α)
-                 | _ => F) (destCond cnd)) cnds ∧
-    EVERY
-    (λcnd. EVERY (λck. MEM ck clks) (condClks cnd)) cnds ∧
-    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    equiv_val s.clocks clks clkvals ⇒
-    eval t (compConditions clks «clks» cnds) = SOME (ValWord 1w)
-Proof
-  rw [] >>
-  drule map_comp_conditions_true_correct >>
-  gs [] >>
-  disch_then drule_all >>
-  strip_tac >>
-  pop_assum mp_tac >>
-  rpt (pop_assum kall_tac) >>
-  MAP_EVERY qid_spec_tac [‘t’,‘clks’,‘cnds’] >>
-  Induct >> rw []
-  >- (
-    fs [compConditions_def] >>
-    fs [eval_def]) >>
-  fs [compConditions_def] >>
-  fs [eval_def, OPT_MMAP_def] >>
-  fs [GSYM MAP_MAP_o] >>
-  fs [GSYM opt_mmap_eq_some] >>
-  ‘MAP (λx. ValWord 1w) cnds =
-   REPLICATE (LENGTH cnds) (ValWord 1w)’ by (
-    once_rewrite_tac [GSYM map_replicate] >>
-    once_rewrite_tac [GSYM map_replicate] >>
-    once_rewrite_tac [GSYM map_replicate] >>
-    rewrite_tac  [MAP_MAP_o] >>
-    rewrite_tac [MAP_EQ_EVERY2] >>
-    fs [LIST_REL_EL_EQN] >>
-    rw [] >> fs [] >>
-    ‘EL n (REPLICATE (LENGTH cnds) (1:num)) = 1’ by (
-      match_mp_tac EL_REPLICATE >>
-      fs []) >>
-    fs []) >>
-  fs [] >>
-  rewrite_tac [ETA_AX] >>
-  gs [] >>
-  fs [wordLangTheory.word_op_def] >>
-  cheat
-QED
-
-
-(* when each condition is true and input signals match with the first term *)
-Theorem pickTerm_input_cons_correct:
-  ∀s n cnds tclks dest wt s' t (clkvals:'a v list) clks tms.
-    EVERY (λcnd. evalCond s cnd) cnds ∧
-    evalTerm s (SOME n) (Tm (Input n) cnds tclks dest wt) s' ∧
-    EVERY
-    (λcnd.
-      EVERY (λe. case (evalExpr s e) of
-                 | SOME n => n < dimword (:α)
-                 | _ => F) (destCond cnd)) cnds ∧
-    EVERY
-    (λcnd. EVERY (λck. MEM ck clks) (condClks cnd)) cnds ∧
-    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    equiv_val s.clocks clks clkvals ∧
-    maxClksSize clkvals ∧
-    clk_range s.clocks clks (dimword (:'a)) ∧
-    time_range wt (dimword (:'a)) ∧
-    valid_clks clks tclks wt ∧
-    toString dest IN FDOM t.code ⇒
-    evaluate (compTerms clks «clks» (Tm (Input n) cnds tclks dest wt::tms), t) =
-    (SOME (Return (retVal s clks tclks wt dest)),
-     t with locals :=
-     restore_from t FEMPTY [«waitTimes»; «newClks»; «wakeUpAt»; «waitSet»])
-Proof
-  rw [] >>
-  drule_all comp_conditions_true_correct >>
-  strip_tac >>
-  fs [compTerms_def] >>
-  once_rewrite_tac [evaluate_def] >>
-  fs [timeLangTheory.termConditions_def] >>
-  drule_all comp_input_term_correct >>
-  fs []
-QED
-
-(* when each condition is true and output signals match with the first term *)
-Theorem pickTerm_output_cons_correct:
-  ∀s out cnds tclks dest wt s' t (clkvals:'a v list) clks
-   ffi_name nffi nbytes bytes tms.
-    EVERY (λcnd. evalCond s cnd) cnds ∧
-    evalTerm s NONE (Tm (Output out) cnds tclks dest wt) s' ∧
-    EVERY
-    (λcnd.
-      EVERY (λe. case (evalExpr s e) of
-                 | SOME n => n < dimword (:α)
-                 | _ => F) (destCond cnd)) cnds ∧
-    EVERY
-    (λcnd. EVERY (λck. MEM ck clks) (condClks cnd)) cnds ∧
-    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    equiv_val s.clocks clks clkvals ∧
-    maxClksSize clkvals ∧
-    clk_range s.clocks clks (dimword (:'a)) ∧
-    time_range wt (dimword (:'a)) ∧
-    valid_clks clks tclks wt ∧
-    toString dest IN FDOM t.code ∧
-    well_behaved_ffi (strlit (toString out)) t nffi nbytes bytes (dimword (:α)) ⇒
-    evaluate (compTerms clks «clks» (Tm (Output out) cnds tclks dest wt::tms), t) =
-    (SOME (Return (retVal s clks tclks wt dest)),
-       t with
-       <|locals :=
-         restore_from t FEMPTY [«len2»; «ptr2»; «len1»; «ptr1»;
-                                «waitTimes»; «newClks»; «wakeUpAt»; «waitSet»];
-         memory := write_bytearray 4000w nbytes t.memory t.memaddrs t.be;
-         ffi := nffi_state t nffi out bytes nbytes|>)
-Proof
-  rw [] >>
-  drule_all comp_conditions_true_correct >>
-  strip_tac >>
-  fs [compTerms_def] >>
-  once_rewrite_tac [evaluate_def] >>
-  fs [timeLangTheory.termConditions_def] >>
-  drule_all comp_output_term_correct >>
-  fs []
-QED
-
-
-Theorem pickTerm_true_imp_evalTerm:
-  ∀s io tms s'.
-    pickTerm s io tms s' ⇒
-    ∃tm. MEM tm tms ∧ EVERY (λcnd. evalCond s cnd) (termConditions tm) ∧
-         case tm of
-         | Tm (Input n) cnds tclks dest wt =>
-             evalTerm s (SOME n) (Tm (Input n) cnds tclks dest wt) s'
-         | Tm (Output out) cnds tclks dest wt =>
-             evalTerm s NONE (Tm (Output out) cnds tclks dest wt) s'
-Proof
-  ho_match_mp_tac pickTerm_ind >>
-  rw [] >> fs []
-  >- (
-  qexists_tac ‘Tm (Input in_signal) cnds clks dest diffs'’ >>
-  fs [timeLangTheory.termConditions_def])
-  >- (
-  qexists_tac ‘Tm (Output out_signal) cnds clks dest diffs'’ >>
-  fs [timeLangTheory.termConditions_def]) >>
-  qexists_tac ‘tm’ >> fs []
-QED
-
-
-(* when any condition is false, but there is a matching term, then we can append the
-   list with the false term  *)
-Theorem pickTerm_last_cases:
-  ∀s event io cnds tclks dest wt s' t (clkvals:'a v list) clks tms.
-    ~(EVERY (λcnd. evalCond s cnd) cnds) ∧
-    pickTerm s event tms s' ⇒
-    evaluate (compTerms clks «clks» (Tm io cnds tclks dest wt::tms), t) =
-    evaluate (compTerms clks «clks» tm, t)
-Proof
-  rw [] >>
-  drule pickTerm_true_imp_evalTerm >>
-  strip_tac >>
-  fs [] >>
-  (* we can go on, but first I should see what kind of lemmas are needed *)
-  cheat
-QED
-
-
-(* Step Proofs *)
 
 Definition code_installed_def:
   code_installed code prog <=>
@@ -2057,5 +1788,19 @@ Proof
     cheat
 
 QED
+
+(*
+  panLang: sysTime   0 1 2 3 4 5 6 7 8 9
+                                 |
+
+  panLang: clockA        |
+
+  timeLang: clockA in semantics is 4
+
+  panLang.clockA + timeLang.clockA = panLang.sysTime
+*)
+
+
+
 
 val _ = export_theory();
