@@ -2860,7 +2860,7 @@ Definition adj_orac_rel_def:
   adj_orac_rel cc f s1 s2 ⇔
      (!n x y. s1.compile_oracle n = (x, y) ==>
         OPTION_MAP (I ## (I ## f)) (s1.compile x y) = cc (f x) y) /\
-     s2 = <| 
+     s2 = <|
       globals := s1.globals; refs := s1.refs;
       ffi := s1.ffi; clock := s1.clock;
       compile := cc;
