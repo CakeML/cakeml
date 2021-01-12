@@ -1720,7 +1720,7 @@ Theorem ALL_DISJOINT_CONS:
   (ALL_DISJOINT (x :: y :: zs) = (DISJOINT x y ∧ ALL_DISJOINT (x ∪ y :: zs)))
 Proof
   simp [ALL_DISJOINT_DEF, GSYM DISJOINT_DEF]
-  \\ simp [indexedListsTheory.LT_SUC, satTheory.AND_IMP]
+  \\ simp [arithmeticTheory.LT_SUC, satTheory.AND_IMP]
   \\ simp [DISJ_IMP_THM, IMP_CONJ_THM, FORALL_AND_THM, PULL_EXISTS]
   \\ simp [LEFT_AND_OVER_OR]
   \\ simp [DISJ_IMP_THM, IMP_CONJ_THM, FORALL_AND_THM, PULL_EXISTS]

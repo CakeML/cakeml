@@ -858,7 +858,7 @@ Theorem recorded_orac_wf_step:
       else orac j)
 Proof
   simp [recorded_orac_wf_def, compiler_agrees_def]
-  \\ simp [GSYM ADD1, seqTheory.LT_SUC]
+  \\ simp [GSYM ADD1, prim_recTheory.LESS_THM]
   \\ every_case_tac \\ fs []
   \\ rw [] \\ fs []
 QED
