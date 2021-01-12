@@ -1296,6 +1296,20 @@ Proof
 QED
 
 
+
+Definition code_installed_def:
+  code_installed code prog <=>
+  ∀loc tms.
+    MEM (loc,tms) prog ⇒
+    let clks = clksOf prog;
+        n = LENGTH clks
+    in
+      FLOOKUP code (toString loc) =
+      SOME ([(«clks», genShape n)],
+            compTerms clks «clks» tms)
+End
+
+
 Definition active_low_def:
   (active_low NONE = 1w) ∧
   (active_low (SOME _) = 0w)
@@ -1335,19 +1349,22 @@ Definition clocks_rel_def:
 End
 
 
-Definition check_input_will_work_def:
-  check_input_will_work s t =
-    ∀n ffi nffi nbytes bytes m.
+Definition check_input_works_def:
+  check_input_works s t =
+  ∀n.
+    ?ffi nffi nbytes bytes m.
       well_behaved_ffi «check_input» (FUNPOW (λt. t with ffi := ffi ) n t) nffi nbytes bytes (m:num) ∧
       mem_load One ffiBufferAddr t.memaddrs
                (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be) =
       SOME (ValWord (active_low s.ioAction))
 End
 
-
-Definition get_time_will_work_def:
-  get_time_will_work (t:('a,'b) panSem$state) =
-    ∀n ffi nffi nbytes bytes m.
+(* this is not quite right *)
+(* pass stime from here *)
+Definition get_time_works_def:
+  get_time_works (t:('a,'b) panSem$state) =
+  ∀n.
+    ?ffi nffi nbytes bytes m.
       well_behaved_ffi «get_time» (FUNPOW (λt. t with ffi := ffi ) n t) nffi nbytes bytes (m:num) ∧
       ?tm tm'.
         mem_load One ffiBufferAddr t.memaddrs t.memory = SOME (ValWord (n2w tm)) /\
@@ -1358,17 +1375,344 @@ Definition get_time_will_work_def:
 End
 
 
+Definition ffi_vars_def:
+  ffi_vars fm  ⇔
+  FLOOKUP fm «ptr1» = SOME (ValWord 0w) ∧
+  FLOOKUP fm «len1» = SOME (ValWord 0w) ∧
+  FLOOKUP fm «ptr2» = SOME (ValWord ffiBufferAddr) ∧
+  FLOOKUP fm «len2» = SOME (ValWord ffiBufferSize)
+End
+
+
 Definition state_rel_def:
-  state_rel clks s s' (t:('a, 'b) panSem$state) stime ⇔
+  state_rel clks s s' (t:('a, 'b) panSem$state) ⇔
     equiv_labels t.locals «loc» s.location ∧
     equiv_flags  t.locals «isInput» s'.ioAction ∧
     equiv_flags  t.locals «waitSet» s.waitTime ∧
-    FLOOKUP t.locals «wakeUpAt» = add_time stime s.waitTime ∧
+    (?tm.
+      tm < dimword (:'a) /\
+      let stime = (n2w tm):'a word in
+        FLOOKUP t.locals «sysTime» = SOME (ValWord stime) ∧
+        FLOOKUP t.locals «wakeUpAt» = add_time stime s.waitTime ∧
+        clocks_rel clks t.locals s.clocks stime) ∧
     LENGTH clks ≤ 29 ∧ clk_range s.clocks clks (dimword (:'a)) ∧
-    clocks_rel clks t.locals s.clocks stime ∧
     check_input_works s' t ∧
-    get_time_works t
+    get_time_works t /\
+    ffi_vars t.locals
 End
+
+Definition word_of_def:
+  word_of (SOME (ValWord w)) = w /\
+  word_of _ = 0w
+End
+
+
+Definition upd_delay_def:
+  upd_delay t d m nffi =
+  t with
+    <| locals := t.locals |++
+                  [(«isInput» ,ValWord 1w);
+                   («sysTime» ,ValWord (word_of (FLOOKUP t.locals «sysTime») + n2w d))]
+     ; memory := m
+     ; ffi := nffi
+     |>
+End
+
+
+Theorem foo:
+  !prog d s s' t.
+    step prog (LDelay d) s s' /\
+    state_rel (clksOf prog) s s' t  ==>
+    ?w.
+      eval t wait = SOME (ValWord w) /\
+      w ≠ 0w
+Proof
+  rw [] >>
+  fs [state_rel_def] >>
+  fs [step_cases, mkState_def]
+  >- (
+    fs [equiv_flags_def, active_low_def] >>
+    fs [wait_def] >>
+    fs [eval_def, OPT_MMAP_def] >>
+    gs [add_time_def, active_low_def,
+        wordLangTheory.word_op_def] >>
+    TOP_CASE_TAC >>
+    fs []) >>
+  rveq >> gs [] >>
+  fs [equiv_flags_def, active_low_def] >>
+  fs [wait_def] >>
+  fs [eval_def, OPT_MMAP_def] >>
+  gs [add_time_def] >>
+  cheat (* later *)
+QED
+
+
+Theorem step_delay_eval_wait_not_zero:
+  !prog d s t.
+    step prog (LDelay d) s (mkState (delay_clocks (s.clocks) d) s.location NONE NONE) /\
+    equiv_flags t.locals «isInput» (NONE:ioAction option) ∧
+    equiv_flags t.locals «waitSet» s.waitTime /\
+    (?tm. FLOOKUP t.locals «sysTime» = SOME (ValWord tm)) ∧
+    (?tm. FLOOKUP t.locals «wakeUpAt» = SOME (ValWord tm)) ==>
+    ?w.
+      eval t wait = SOME (ValWord w) /\
+      w ≠ 0w
+Proof
+  rw [] >>
+  fs [step_cases, mkState_def] >>
+  fs [equiv_flags_def, active_low_def] >>
+  fs [wait_def] >>
+  fs [eval_def, OPT_MMAP_def] >>
+  gs [active_low_def,
+      wordLangTheory.word_op_def] >>
+  TOP_CASE_TAC >>
+  fs []
+QED
+
+
+Theorem foo:
+  check_input_works s t ∧ get_time_works t /\
+  ffi_vars t.locals /\
+  (?io. FLOOKUP t.locals «isInput» = SOME (ValWord io)) ==>
+  evaluate (check_input_time,t) = (NONE,ARB t)
+Proof
+  rw [] >>
+  fs [ffi_vars_def] >>
+  fs [check_input_time_def] >>
+  fs [panLangTheory.nested_seq_def] >>
+  fs [evaluate_def] >>
+  rpt (pairarg_tac >> rveq >> gs []) >>
+  fs [read_bytearray_def] >>
+
+
+  gs [check_input_works_def] >>
+  last_x_assum (qspec_then ‘0’ assume_tac) >>
+  fs [] >>
+  fs [well_behaved_ffi_def] >>
+  fs [ffiBufferSize_def] >>
+  ‘16 MOD dimword (:α) = 16’ by cheat >> fs [] >>
+  fs [ffiTheory.call_FFI_def] >>
+  rveq >> fs [] >>
+  gs [eval_def, is_valid_value_def, shape_of_def] >>
+  rveq >> gs [] >>
+  gs [FLOOKUP_UPDATE, read_bytearray_def] >>
+
+
+  gs [get_time_works_def] >>
+  last_x_assum (qspec_then ‘0’ assume_tac) >>
+  fs [] >>
+  fs [well_behaved_ffi_def] >>
+  fs [ffiBufferSize_def] >>
+  ‘16 MOD dimword (:α) = 16’ by cheat >> fs [] >>
+  fs [ffiTheory.call_FFI_def] >>
+  rveq >> fs [] >>
+  gs [eval_def, is_valid_value_def, shape_of_def] >>
+  rveq >> gs [] >>
+  gs [FLOOKUP_UPDATE, read_bytearray_def] >>
+
+
+  gs []
+
+fs[well_behaved_ffi_def]
+
+QED
+
+
+Theorem step_dely:
+  !p t prog d s s'.
+    p = wait_input_time_limit /\
+    step prog (LDelay d) s s' ∧
+    s' = mkState (delay_clocks (s.clocks) d) s.location NONE NONE /\
+    state_rel (clksOf prog) s s' t /\
+    code_installed t.code prog ==>
+    ?m nffi.
+      evaluate (p, t) =
+      evaluate (p, upd_delay t d m nffi) /\
+      state_rel (clksOf prog) s s' (upd_delay t d m nffi) /\
+      code_installed (upd_delay t d m nffi).code prog
+Proof
+  recInduct panSemTheory.evaluate_ind >>
+  rw [] >>
+  TRY (
+    fs [wait_input_time_limit_def, panLangTheory.nested_seq_def] >>
+    NO_TAC) >>
+  fs [wait_input_time_limit_def] >>
+  rveq >> gs [] >>
+  qmatch_goalsub_rename_tac ‘evaluate (_, t) =  _’ >>
+  qmatch_asmsub_rename_tac ‘step _ _ s _’ >>
+  drule step_delay_eval_wait_not_zero >>
+  disch_then (qspec_then ‘t’ mp_tac) >>
+  impl_tac
+  >- (
+    gs [state_rel_def, mkState_def] >>
+    cheat) >>
+  strip_tac >>
+  fs [] >>
+  rewrite_tac [Once evaluate_def] >>
+  gs [] >>
+  TOP_CASE_TAC >> gs []
+  >- (
+   qexists_tac ‘t.memory’ >>
+   qexists_tac ‘t.ffi’ >>
+   fs [Once evaluate_def] >>
+   drule step_delay_eval_wait_not_zero >>
+   disch_then (qspec_then ‘upd_delay t d t.memory t.ffi’ mp_tac) >>
+   impl_tac
+   >- (
+    gs [state_rel_def, mkState_def] >>
+    cheat) >>
+   strip_tac >>
+   gs [] >>
+   fs [upd_delay_def] >>
+   fs [empty_locals_def] >>
+   conj_tac >- cheat >>
+   cheat) >>
+  pairarg_tac >> gs [] >>
+
+
+  )
+
+  >-
+
+
+  drule step_delay_eval_wait_not_zero >>
+
+
+  rewrite_tac [Once eval_def] >>
+  fs [OPT_MMAP_def] >>
+  fs [eval_def]
+
+
+
+
+
+  TOP_CASE_TAC
+  >- cheat >>
+  gs [] >>
+  reverse TOP_CASE_TAC
+  >- cheat >>
+  gs [] >>
+  reverse TOP_CASE_TAC
+  >- cheat >>
+  gs [] >>
+  ‘c ≠ 0w’ by cheat >>
+  gs [] >>
+  ‘t.clock <> 0’ by cheat >> gs [] >>
+  pairarg_tac >> gs [] >>
+  ‘res = NONE’ by cheat >>
+  gs [] >>
+
+
+  gs [foo] >>
+  first_x_assum drule >>
+  impl_tac >- cheat >>
+  strip_tac >>
+  gs [] >>
+
+
+  once_rewrite_tac [evaluate_def] >>
+
+
+
+QED
+
+Theorem foo:
+  !e p.
+    check_input_time <> While e p
+Proof
+  rw [check_input_time_def, panLangTheory.nested_seq_def]
+QED
+
+
+Theorem step_dely:
+  !p t prog d s s'.
+    p = wait_input_time_limit /\
+    step prog (LDelay d) s s' ∧
+    s' = mkState (delay_clocks (s.clocks) d) s.location NONE NONE /\
+    state_rel (clksOf prog) s s' t /\
+    code_installed t.code prog ==>
+    ?m nffi.
+      evaluate (p, t) =
+      evaluate (p, upd_delay t d m nffi) /\
+      state_rel (clksOf prog) s s' (upd_delay t d m nffi) /\
+      code_installed (upd_delay t d m nffi).code prog
+Proof
+  recInduct panSemTheory.evaluate_ind >>
+  rw [] >>
+  TRY (
+    fs [wait_input_time_limit_def, panLangTheory.nested_seq_def] >>
+    NO_TAC) >>
+  fs [wait_input_time_limit_def] >>
+  rveq >> gs [] >>
+
+
+
+
+
+  once_rewrite_tac [evaluate_def] >>
+  TOP_CASE_TAC
+  >- cheat >>
+  gs [] >>
+  reverse TOP_CASE_TAC
+  >- cheat >>
+  gs [] >>
+  reverse TOP_CASE_TAC
+  >- cheat >>
+  gs [] >>
+  ‘c ≠ 0w’ by cheat >>
+  gs [] >>
+  ‘s.clock <> 0’ by cheat >> gs [] >>
+  pairarg_tac >> gs [] >>
+  ‘res = NONE’ by cheat >>
+  gs [foo] >>
+  first_x_assum drule >>
+  impl_tac >- cheat >>
+  strip_tac >>
+  gs [] >>
+
+
+  once_rewrite_tac [evaluate_def] >>
+
+
+
+
+
+
+
+
+
+
+  rewrite_tac [Once evaluate_def] >>
+  TOP_CASE_TAC
+  >- cheat >>
+  gs [] >>
+  reverse TOP_CASE_TAC
+  >- cheat >>
+  gs [] >>
+  reverse TOP_CASE_TAC
+  >- cheat >>
+  gs [] >>
+  ‘c ≠ 0w’ by cheat >>
+  gs [] >>
+  ‘s.clock <> 0’ by cheat >> gs [] >>
+  pairarg_tac >> gs [] >>
+  ‘res = NONE’ by cheat >>
+  gs [foo] >>
+  first_x_assum drule >>
+  impl_tac >- cheat >>
+  strip_tac >>
+  gs [] >>
+  once_rewrite_tac [evaluate_def] >>
+
+
+
+
+
+
+QED
+
+
+
 
 
 (* say that max number of clocks in prog are less then or equal to 29 *)
@@ -1376,25 +1720,35 @@ End
       clk_range sclocks clks (dimword (:'a)) *)
 
 
-
 Theorem step_dely:
-  step p (LDelay d) s s' ∧
-  state_rel s t ==>
-  something = something
+  !p t prog d s s'.
+    p = task_controller (nClks prog) /\
+    step prog (LDelay d) s s' ∧
+    s' = mkState (delay_clocks (s.clocks) d) s.location NONE NONE /\
+    state_rel (clksOf prog) s s' t /\
+    code_installed t.code prog ==>
+    ?m nffi.
+      evaluate (p, t) =
+      evaluate (p, upd_delay t d m nffi) /\
+      state_rel (clksOf prog) s s' (upd_delay t d m nffi) /\
+      code_installed (upd_delay t d m nffi).code prog
 Proof
+  recInduct panSemTheory.evaluate_ind >>
+  rw [] >>
+
+
+
+  TRY (
+    fs [task_controller_def, panLangTheory.nested_seq_def] >>
+    NO_TAC)
+
+
+
+
 QED
 
-Definition code_installed_def:
-  code_installed code prog <=>
-  ∀loc tms.
-    MEM (loc,tms) prog ⇒
-    let clks = clksOf prog;
-        n = LENGTH clks
-    in
-      FLOOKUP code (toString loc) =
-      SOME ([(«clks», genShape n)],
-            compTerms clks «clks» tms)
-End
+
+
 
 
 Definition active_low_def:

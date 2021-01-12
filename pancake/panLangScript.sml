@@ -179,6 +179,7 @@ Termination
   decide_tac
 End
 
+
 Definition destruct_def:
   (destruct (Struct es) = es) /\
   (destruct _ = [])

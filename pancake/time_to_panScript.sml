@@ -201,14 +201,18 @@ Definition check_input_time_def:
         Assign  «sysTime» (Load One (Var «ptr2»))]
 End
 
+Definition wait_def:
+  wait =
+    Op And [Var «isInput»; (* Not *)
+            Op Or
+            [Var «waitSet»; (* Not *)
+             Cmp Lower (Var «sysTime») (Var «wakeUpAt»)]]
+End
+
 
 Definition wait_input_time_limit_def:
   wait_input_time_limit =
-    While (Op And [Var «isInput»; (* Not *)
-                   Op Or
-                   [Var «waitSet»; (* Not *)
-                    Cmp Lower (Var «sysTime») (Var «wakeUpAt»)]])
-          check_input_time
+    While wait check_input_time
 End
 
 
