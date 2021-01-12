@@ -1359,21 +1359,43 @@ Definition check_input_works_def:
       SOME (ValWord (active_low s.ioAction))
 End
 
-(* this is not quite right *)
-(* pass stime from here *)
+
 Definition get_time_works_def:
   get_time_works (t:('a,'b) panSem$state) =
   ∀n.
     ?ffi nffi nbytes bytes m.
       well_behaved_ffi «get_time» (FUNPOW (λt. t with ffi := ffi ) n t) nffi nbytes bytes (m:num) ∧
       ?tm tm'.
-        mem_load One ffiBufferAddr t.memaddrs t.memory = SOME (ValWord (n2w tm)) /\
+        FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w tm)) ∧
         mem_load One ffiBufferAddr t.memaddrs
                  (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be) =
         SOME (ValWord (n2w tm')) /\
         tm <= tm' /\ tm' < dimword (:α)
 End
 
+
+Definition ffi_works_def:
+  ffi_works s (t:('a,'b) panSem$state) =
+    ?bytes nffi nbytes bytes' nffi' nbytes' tm tm'.
+      read_bytearray ffiBufferAddr 16
+                     (mem_load_byte t.memory t.memaddrs t.be) = SOME bytes ∧
+      t.ffi.oracle "check_input" t.ffi.ffi_state [] bytes = Oracle_return nffi nbytes ∧
+      LENGTH nbytes = LENGTH bytes ∧
+      mem_load One ffiBufferAddr t.memaddrs
+               (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be) =
+      SOME (ValWord (active_low s.ioAction)) ∧
+      read_bytearray ffiBufferAddr 16
+                     (mem_load_byte
+                      (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be)
+                      t.memaddrs t.be) = SOME bytes' ∧
+      t.ffi.oracle "get_time" nffi [] bytes' = Oracle_return nffi' nbytes' ∧
+      LENGTH nbytes' = LENGTH nbytes ∧
+      FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w tm)) ∧
+      mem_load One ffiBufferAddr t.memaddrs
+               (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be) =
+      SOME (ValWord (n2w tm')) /\
+      tm <= tm' /\ tm' < dimword (:α)
+End
 
 Definition ffi_vars_def:
   ffi_vars fm  ⇔
@@ -1480,22 +1502,72 @@ Proof
   fs [ffi_vars_def] >>
   fs [check_input_time_def] >>
   fs [panLangTheory.nested_seq_def] >>
-  fs [evaluate_def] >>
-  rpt (pairarg_tac >> rveq >> gs []) >>
+  rewrite_tac [evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> rveq >> gs [] >>
   fs [read_bytearray_def] >>
-
-
   gs [check_input_works_def] >>
   last_x_assum (qspec_then ‘0’ assume_tac) >>
   fs [] >>
   fs [well_behaved_ffi_def] >>
   fs [ffiBufferSize_def] >>
   ‘16 MOD dimword (:α) = 16’ by cheat >> fs [] >>
-  fs [ffiTheory.call_FFI_def] >>
-  rveq >> fs [] >>
+  qpat_x_assum ‘_ = (res,s1)’ mp_tac >>
+
+
+
+  rewrite_tac [Once ffiTheory.call_FFI_def] >>
+  fs [] >>
+  strip_tac >>
+  rveq >> gs [] >>
+  pairarg_tac >> rveq >> gs [] >>
   gs [eval_def, is_valid_value_def, shape_of_def] >>
   rveq >> gs [] >>
-  gs [FLOOKUP_UPDATE, read_bytearray_def] >>
+  gs [FLOOKUP_UPDATE] >>
+
+  gs [read_bytearray_def] >>
+
+  gs [get_time_works_def] >>
+  last_x_assum (qspec_then ‘0’ assume_tac) >>
+  fs [] >>
+  fs [well_behaved_ffi_def] >>
+  (*
+  read_bytearray ffiBufferAddr 16
+                 (mem_load_byte t.memory t.memaddrs t.be) = SOME bytes' *)
+  (*
+  read_bytearray ffiBufferAddr 16
+  (mem_load_byte
+  (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs
+  t.be) t.memaddrs t.be) *)
+  TOP_CASE_TAC
+  >- cheat >>
+  gs [] >>
+
+
+  rewrite_tac [Once ffiTheory.call_FFI_def] >>
+  fs [] >>
+
+
+ (*
+   t.ffi.oracle "get_time" t.ffi.ffi_state [] bytes =
+   Oracle_return nffi' nbytes'
+
+
+   t.ffi.oracle "get_time" nffi [] x
+ *)
+
+
+
+
+  pairarg_tac >> rveq >> gs [] >>
+
+
+
+
+
+
+  gs [read_bytearray_def] >>
+
 
 
   gs [get_time_works_def] >>
