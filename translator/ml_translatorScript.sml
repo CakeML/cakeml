@@ -143,28 +143,8 @@ Theorem evaluate_empty_state_IMP:
    eval_rel (s:'ffi state) env exp (s with refs := s.refs ++ refs') x
 Proof
   rw [eval_rel_def]
-  \\ dxrule_then (qspec_then `s.ffi` mp_tac) (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro)
-  \\ rw []
-  \\ fs [empty_state_def]
-  \\ dxrule (CONJUNCT1 evaluate_set_next_stamps)
-  \\ simp []
-  \\ disch_then (qspec_then `s.next_type_stamp` mp_tac o CONJUNCT1)
-  \\ rw []
-  \\ dxrule (CONJUNCT1 evaluate_set_next_stamps)
-  \\ simp []
-  \\ disch_then (qspec_then `s.next_exn_stamp` mp_tac o CONJUNCT2)
-  \\ rw []
-  \\ dxrule (CONJUNCT1 eval_no_eval_simulation)
-  \\ simp []
-  \\ disch_then (qspec_then `s.eval_state` mp_tac)
-  \\ rw []
-  \\ qexists_tac `ck1`
-  \\ qexists_tac `ck2`
-  \\ dxrule_then irule (Q.prove (`(a = b) /\ a = c /\ b = d ==> c = d`, rw []))
-  \\ simp [state_component_equality]
-  \\ rpt AP_THM_TAC
-  \\ AP_TERM_TAC
-  \\ simp [state_component_equality]
+  \\ dxrule_then (qspec_then `s` mp_tac) evaluatePropsTheory.evaluate_ffi_etc_intro
+  \\ simp [empty_state_def]
 QED
 
 Theorem Eval_Arrow:

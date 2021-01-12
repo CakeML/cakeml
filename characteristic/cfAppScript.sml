@@ -568,21 +568,18 @@ Proof
   \\ first_x_assum drule
   \\ fs[evaluate_ck_def]
   \\ fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS]
-  \\ disch_then( qspec_then`ARB with
-        <| refs := refs; next_type_stamp := 0
-                       ; next_exn_stamp := 0 |>` mp_tac)
+  \\ disch_then( qspec_then`empty_state with <| refs := refs; ffi := ffi_st_x |>` mp_tac)
   \\ rw [] \\ instantiate
   \\ rename1 `SPLIT (st2heap p st1) _`
-  \\ drule (CONJUNCT1 evaluate_ffi_intro |> INST_TYPE [beta|->``:unit``]) \\ fs []
-  \\ disch_then (qspec_then
-       `empty_state with <| clock := ck ;refs := refs |>` mp_tac) \\ fs []
+  \\ drule_then (qspec_then `empty_state with <| clock := ck ;refs := refs |>` mp_tac)
+    (INST_TYPE [beta |-> ``:'z``] evaluate_ffi_etc_intro)
+  \\ simp [EVAL ``empty_state.eval_state``]
   \\ qsuff_tac `?refs1. st1.refs = refs ++ refs1 /\
-                        st1.ffi = ARB.ffi`
+                        st1.ffi = ffi_st_x`
   THEN1
    (fs [ml_progTheory.eval_rel_def] \\ rw []
     \\ qexists_tac `refs1`
-    \\ qexists_tac `ck` \\ fs [state_component_equality]
-    \\ rfs [ml_translatorTheory.empty_state_def])
+    \\ qexists_tac `ck1` \\ fs [state_component_equality])
   \\ imp_res_tac evaluate_refs_length_mono \\ fs []
   \\ imp_res_tac evaluate_io_events_mono_imp
   \\ fs[io_events_mono_def]

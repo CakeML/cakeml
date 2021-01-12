@@ -976,6 +976,41 @@ Proof
   \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, combine_dec_result_eq_Rerr, declare_env_def]
 QED
 
+Theorem evaluate_ffi_etc_intro:
+  evaluate s0 env xs = (s1, res) /\
+  (!outcome. res <> Rerr (Rabort (Rffi_error outcome))) /\
+  s1.ffi = s0.ffi /\
+  s1.next_type_stamp = s0.next_type_stamp /\
+  s1.next_exn_stamp = s0.next_exn_stamp /\
+  s0.eval_state = NONE /\
+  res <> Rerr (Rabort Rtype_error) /\
+  s.refs = s0.refs
+  ==>
+  ?ck1 ck2. evaluate (s with clock := ck1) env xs =
+    (s with <| refs := s1.refs; clock := ck2 |>, res)
+Proof
+  rw []
+  \\ dxrule_then (qspec_then `s.ffi` mp_tac) (CONJUNCT1 evaluate_ffi_intro)
+  \\ rw []
+  \\ dxrule (CONJUNCT1 evaluate_set_next_stamps)
+  \\ simp []
+  \\ disch_then (qspec_then `s.next_type_stamp` mp_tac o CONJUNCT1)
+  \\ rw []
+  \\ dxrule (CONJUNCT1 evaluate_set_next_stamps)
+  \\ simp []
+  \\ disch_then (qspec_then `s.next_exn_stamp` mp_tac o CONJUNCT2)
+  \\ rw []
+  \\ dxrule (CONJUNCT1 eval_no_eval_simulation)
+  \\ simp []
+  \\ disch_then (qspec_then `s.eval_state` mp_tac)
+  \\ rw []
+  \\ qexists_tac `s0.clock`
+  \\ qexists_tac `s1.clock`
+  \\ dxrule_then irule (Q.prove (`(evaluate a x y = b) /\ a = c /\ b = d
+    ==> evaluate c x y = d`, rw []))
+  \\ simp [state_component_equality]
+QED
+
 Theorem same_type_sym:
   same_type t1 t2 ==> same_type t2 t1
 Proof
