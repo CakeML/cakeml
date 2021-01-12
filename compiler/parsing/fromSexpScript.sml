@@ -679,7 +679,7 @@ val sexpop_def = Define`
   if s = "Aupdate_unsafe" then SOME Aupdate_unsafe else
   if s = "ConfigGC" then SOME ConfigGC else
   if s = "Eval" then SOME Eval else
-  if s = "EnvId" then SOME EnvId else NONE) ∧
+  if s = "Env_id" then SOME Env_id else NONE) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_STR s')) =
      if s = "FFI" then OPTION_MAP FFI (decode_control s') else NONE
    ) ∧
@@ -1277,7 +1277,7 @@ val opsexp_def = Define`
   (opsexp Aupdate_unsafe = SX_SYM "Aupdate_unsafe") ∧
   (opsexp ConfigGC = SX_SYM "ConfigGC") ∧
   (opsexp Eval = SX_SYM "Eval") ∧
-  (opsexp EnvId = SX_SYM "EnvId") ∧
+  (opsexp Env_id = SX_SYM "Env_id") ∧
   (opsexp (FFI s) = SX_CONS (SX_SYM "FFI") (SEXSTR s))`;
 
 Theorem sexpop_opsexp[simp]:

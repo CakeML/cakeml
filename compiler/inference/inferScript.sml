@@ -406,7 +406,7 @@ val op_to_string_def = Define `
 (op_to_string Aupdate_unsafe = (implode "Aupdate_unsafe", 3)) ∧
 (op_to_string ConfigGC = (implode "ConfigGC", 2)) ∧
 (op_to_string Eval = (implode "Eval", 6)) ∧
-(op_to_string EnvId = (implode "EnvId", 1)) ∧
+(op_to_string Env_id = (implode "Env_id", 1)) ∧
 (op_to_string ListAppend = (implode "ListAppend", 2)) ∧
 (op_to_string (FFI _) = (implode "FFI", 2))`;
 
@@ -540,7 +540,7 @@ constrain_op l op ts =
    | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Aw8update_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Eval, _) => failwith l (implode "Unsafe ops do not have a type")
-   | (EnvId, _) => failwith l (implode "Unsafe ops do not have a type")
+   | (Env_id, _) => failwith l (implode "Unsafe ops do not have a type")
    | _ => failwith l (op_n_args_msg op (LENGTH ts))
 End
 
