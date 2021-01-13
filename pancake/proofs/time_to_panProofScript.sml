@@ -1348,7 +1348,85 @@ Definition clocks_rel_def:
     clkvals_rel sclocks clks clkwords stime
 End
 
+Definition ffi_works_def:
+  ffi_works io (t:('a,'b) panSem$state) =
+  !n lc m ffi.
+    let t = FUNPOW
+            (λt. t with
+                   <| memory := m
+                    ; locals := lc
+                    ; ffi := ffi
+                   |>)
+            n t
+    in
+      ?bytes nffi nbytes bytes' nffi' nbytes' tm d.
+        16 < dimword (:α) /\
+        read_bytearray ffiBufferAddr 16
+                       (mem_load_byte t.memory t.memaddrs t.be) = SOME bytes ∧
+        t.ffi.oracle "check_input" t.ffi.ffi_state [] bytes = Oracle_return nffi nbytes ∧
+        LENGTH nbytes = LENGTH bytes ∧
+        mem_load One ffiBufferAddr t.memaddrs
+                 (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be) =
+        SOME (ValWord (active_low io)) ∧
+        (?io. FLOOKUP t.locals «isInput» = SOME (ValWord io)) ∧
 
+
+        read_bytearray ffiBufferAddr 16
+                       (mem_load_byte
+                        (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be)
+                        t.memaddrs t.be) = SOME bytes' ∧
+        t.ffi.oracle "get_time" nffi [] bytes' = Oracle_return nffi' nbytes' ∧
+        LENGTH nbytes' = LENGTH bytes' ∧
+        FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w tm)) ∧
+        tm < dimword (:α) ∧
+        mem_load One ffiBufferAddr t.memaddrs
+                 (write_bytearray ffiBufferAddr nbytes'
+                  (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs
+                   t.be) t.memaddrs t.be) =
+        SOME (ValWord (n2w (tm + d))) ∧
+        tm + d < dimword (:α)
+End
+
+
+(*
+Definition ffi_works_def:
+  ffi_works io (t:('a,'b) panSem$state) =
+    ?bytes nffi nbytes bytes' nffi' nbytes' tm d.
+      16 < dimword (:α) /\
+      read_bytearray ffiBufferAddr 16
+                     (mem_load_byte t.memory t.memaddrs t.be) = SOME bytes ∧
+      t.ffi.oracle "check_input" t.ffi.ffi_state [] bytes = Oracle_return nffi nbytes ∧
+      LENGTH nbytes = LENGTH bytes ∧
+      mem_load One ffiBufferAddr t.memaddrs
+               (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be) =
+      SOME (ValWord (active_low io)) ∧
+      (?io. FLOOKUP t.locals «isInput» = SOME (ValWord io)) ∧
+
+
+      read_bytearray ffiBufferAddr 16
+                     (mem_load_byte
+                      (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be)
+                      t.memaddrs t.be) = SOME bytes' ∧
+      t.ffi.oracle "get_time" nffi [] bytes' = Oracle_return nffi' nbytes' ∧
+      LENGTH nbytes' = LENGTH bytes' ∧
+      FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w tm)) ∧
+      tm < dimword (:α) ∧
+      mem_load One ffiBufferAddr t.memaddrs
+               (write_bytearray ffiBufferAddr nbytes'
+                (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs
+                 t.be) t.memaddrs t.be) =
+      SOME (ValWord (n2w (tm + d))) ∧
+      tm + d < dimword (:α)
+End
+*)
+
+(*
+   SOME (ValWord (n2w tm')) ∧
+   (*  be very clear of what you want to say here *)
+   tm <= tm' ∧ tm < dimword (:α) ∧ tm' < dimword (:α)
+*)
+
+(*
 Definition check_input_works_def:
   check_input_works s t =
   ∀n.
@@ -1372,30 +1450,7 @@ Definition get_time_works_def:
         SOME (ValWord (n2w tm')) /\
         tm <= tm' /\ tm' < dimword (:α)
 End
-
-
-Definition ffi_works_def:
-  ffi_works s (t:('a,'b) panSem$state) =
-    ?bytes nffi nbytes bytes' nffi' nbytes' tm tm'.
-      read_bytearray ffiBufferAddr 16
-                     (mem_load_byte t.memory t.memaddrs t.be) = SOME bytes ∧
-      t.ffi.oracle "check_input" t.ffi.ffi_state [] bytes = Oracle_return nffi nbytes ∧
-      LENGTH nbytes = LENGTH bytes ∧
-      mem_load One ffiBufferAddr t.memaddrs
-               (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be) =
-      SOME (ValWord (active_low s.ioAction)) ∧
-      read_bytearray ffiBufferAddr 16
-                     (mem_load_byte
-                      (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be)
-                      t.memaddrs t.be) = SOME bytes' ∧
-      t.ffi.oracle "get_time" nffi [] bytes' = Oracle_return nffi' nbytes' ∧
-      LENGTH nbytes' = LENGTH nbytes ∧
-      FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w tm)) ∧
-      mem_load One ffiBufferAddr t.memaddrs
-               (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be) =
-      SOME (ValWord (n2w tm')) /\
-      tm <= tm' /\ tm' < dimword (:α)
-End
+*)
 
 Definition ffi_vars_def:
   ffi_vars fm  ⇔
@@ -1418,16 +1473,37 @@ Definition state_rel_def:
         FLOOKUP t.locals «wakeUpAt» = add_time stime s.waitTime ∧
         clocks_rel clks t.locals s.clocks stime) ∧
     LENGTH clks ≤ 29 ∧ clk_range s.clocks clks (dimword (:'a)) ∧
+    ffi_works s'.ioAction t ∧ ffi_vars t.locals
+    (*
     check_input_works s' t ∧
-    get_time_works t /\
-    ffi_vars t.locals
+    get_time_works t *)
 End
 
+
+Definition systime_of_def:
+  systime_of t =
+   case FLOOKUP t.locals «sysTime» of
+   | SOME (ValWord t) => w2n t
+   | _ => 0
+End
+
+
+Definition upd_delay_def:
+  upd_delay t d m nffi =
+  t with
+    <| locals := t.locals |++
+                  [(«isInput» ,ValWord 1w);
+                   («sysTime» ,ValWord (n2w (systime_of t + d)))]
+     ; memory := m
+     ; ffi := nffi
+     |>
+End
+
+(*
 Definition word_of_def:
   word_of (SOME (ValWord w)) = w /\
   word_of _ = 0w
 End
-
 
 Definition upd_delay_def:
   upd_delay t d m nffi =
@@ -1439,11 +1515,272 @@ Definition upd_delay_def:
      ; ffi := nffi
      |>
 End
+*)
+
+
+Theorem check_input_time_neq_while:
+  check_input_time <> While wait check_input_time
+Proof
+  rw [check_input_time_def, panLangTheory.nested_seq_def]
+QED
+
+
+Theorem add_time_lemma:
+  !a b.
+    ∃c. add_time a b = SOME (ValWord c)
+Proof
+  rw [] >>
+  cases_on ‘b’ >>
+  fs [add_time_def]
+QED
+
+
+Theorem evaluate_check_input_time:
+  !io t.
+    ffi_works io (t:('a,'b) panSem$state) ∧
+    ffi_vars t.locals ==>
+    ?ffi mem d.
+      evaluate (check_input_time, t) =
+      (NONE,
+       t with <| ffi := ffi;
+                 memory := mem;
+                 locals := t.locals |+
+                            («isInput» ,ValWord (active_low io)) |+
+                            («sysTime» ,ValWord (n2w (systime_of t + d)))
+              |>) ∧
+      systime_of t + d < dimword (:α)
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  fs [ffi_vars_def] >>
+  fs [ffi_works_def] >>
+  last_x_assum (qspecl_then [‘0’, ‘t.locals’, ‘t.memory’, ‘t.ffi’] assume_tac) >>
+  fs [] >>
+  ‘16 MOD dimword (:α) = 16’ by (match_mp_tac LESS_MOD >> fs []) >>
+  fs [check_input_time_def] >>
+  fs [panLangTheory.nested_seq_def] >>
+  rewrite_tac [evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> rveq >> gs [] >>
+  fs [read_bytearray_def] >>
+  fs [ffiBufferSize_def] >>
+  gs [] >>
+  qpat_x_assum ‘_ = (res,s1)’ mp_tac >>
+  (* calling check_input *)
+  rewrite_tac [Once ffiTheory.call_FFI_def] >>
+  fs [] >>
+  strip_tac >>
+  rveq >> gs [] >>
+  pairarg_tac >> rveq >> gs [] >>
+  gs [eval_def, is_valid_value_def, shape_of_def] >>
+  rveq >> gs [] >>
+  gs [FLOOKUP_UPDATE] >>
+  (* calling get_time *)
+  gs [read_bytearray_def] >>
+  rewrite_tac [Once ffiTheory.call_FFI_def] >>
+  gs [] >>
+  gs [FLOOKUP_UPDATE] >>
+  gs [shape_of_def] >>
+  rveq >> gs [] >>
+  qmatch_goalsub_abbrev_tac ‘t with <|
+                               locals := _;
+                               memory := m;
+                               ffi := f |>’ >>
+  qexists_tac ‘f’ >>
+  qexists_tac ‘m’ >>
+  qexists_tac ‘d’ >>
+  fs [Abbr ‘m’, Abbr ‘f’] >>
+  gs [systime_of_def]
+QED
+
+
+Theorem step_delay_eval_wait_not_zero:
+  !prog d s t.
+    step prog (LDelay d) s (mkState (delay_clocks (s.clocks) d) s.location NONE NONE) ∧
+    equiv_flags t.locals «isInput» (NONE:ioAction option) ∧
+    equiv_flags t.locals «waitSet» s.waitTime ∧
+    (?tm. FLOOKUP t.locals «sysTime» = SOME (ValWord tm)) ∧
+    (?tm. FLOOKUP t.locals «wakeUpAt» = SOME (ValWord tm)) ==>
+    ?w.
+      eval t wait = SOME (ValWord w) ∧
+      w ≠ 0w
+Proof
+  rw [] >>
+  fs [step_cases, mkState_def] >>
+  fs [equiv_flags_def, active_low_def] >>
+  fs [wait_def] >>
+  fs [eval_def, OPT_MMAP_def] >>
+  gs [active_low_def,
+      wordLangTheory.word_op_def] >>
+  TOP_CASE_TAC >>
+  fs []
+QED
+
+Theorem ffi_work_dec_clock:
+  !io t.
+    ffi_works io t ==>
+    ffi_works io (dec_clock t)
+Proof
+  rw [] >>
+  fs [dec_clock_def] >>
+  fs [ffi_works_def] >>
+  rw [] >>
+  gs [] >>
+  pop_assum (qspecl_then
+             [‘n’, ‘lc’, ‘m’, ‘ffi’] assume_tac) >>
+  fs [] >>
+  qexists_tac ‘bytes’ >>
+  gs [] >>
+  cheat
+QED
+
+Theorem systime_clock_upd:
+  !t ck.
+    systime_of (t with clock := ck) =
+    systime_of t
+Proof
+  rw [] >>
+  fs [systime_of_def]
+QED
+
+Theorem foo:
+  !t lc m ffi n.
+    (FUNPOW
+     (λt. t with <|locals := lc; memory := m; ffi := ffi|>) n t).be =
+    t.be /\
+    (FUNPOW
+     (λt. t with <|locals := lc; memory := m; ffi := ffi|>) n t).memaddrs =
+    t.memaddrs /\
+    (FUNPOW
+     (λt. t with <|locals := lc; memory := m; ffi := ffi|>) n t).memory =
+    m /\
+    (FUNPOW
+     (λt. t with <|locals := lc; memory := m; ffi := ffi|>) n t).ffi =
+    ffi /\
+    (FUNPOW
+     (λt. t with <|locals := lc; memory := m; ffi := ffi|>) n t).locals =
+    lc
+Proof
+  cheat
+QED
+
+
+Theorem step_dely:
+  !p t prog d s s'.
+    p = wait_input_time_limit ∧
+    step prog (LDelay d) s s' ∧
+    s.waitTime = NONE ∧
+    s' = mkState (delay_clocks (s.clocks) d) s.location NONE NONE ∧
+    state_rel (clksOf prog) s s' t ∧
+    code_installed t.code prog ==>
+    ?m nffi.
+      evaluate (p, t) =
+      evaluate (p, upd_delay t d m nffi) ∧
+      state_rel (clksOf prog) s s' (upd_delay t d m nffi) ∧
+      code_installed (upd_delay t d m nffi).code prog
+Proof
+  recInduct panSemTheory.evaluate_ind >>
+  rw [] >>
+  TRY (
+    fs [wait_input_time_limit_def, panLangTheory.nested_seq_def] >>
+    NO_TAC) >>
+  fs [wait_input_time_limit_def] >>
+  rveq >> gs [] >>
+  fs [check_input_time_neq_while] >>
+  qpat_x_assum ‘T’ kall_tac >>
+  qmatch_goalsub_rename_tac ‘evaluate (_, t) =  _’ >>
+  qmatch_asmsub_rename_tac ‘step _ _ s _’ >>
+  drule step_delay_eval_wait_not_zero >>
+  disch_then (qspec_then ‘t’ mp_tac) >>
+  impl_tac
+  >- gs [state_rel_def, mkState_def, add_time_lemma] >>
+  strip_tac >>
+  fs [] >>
+  rewrite_tac [Once evaluate_def] >>
+  gs [] >>
+  reverse TOP_CASE_TAC >> gs []
+  (* t.clock ≠ 0 *)
+  >- (
+    ‘ffi_works (NONE:ioAction option) t’ by
+     gs [state_rel_def, mkState_def] >>
+    drule ffi_work_dec_clock >>
+    strip_tac >>
+    drule evaluate_check_input_time >>
+    impl_tac >- gs [state_rel_def, ffi_vars_def, dec_clock_def] >>
+    strip_tac >>
+    fs [] >>
+    qpat_x_assum ‘T’ kall_tac >>
+    fs [active_low_def] >>
+    (* renaming intermediate delay *)
+    qmatch_asmsub_rename_tac ‘id + _ < dimword (:α)’ >>
+    last_x_assum
+    (qspecl_then
+     [‘prog’, ‘d - id’,
+      ‘mkState
+       (delay_clocks (s.clocks) id)
+       s.location
+       NONE
+       NONE’] mp_tac) >>
+    impl_tac
+    >- (
+      gs [dec_clock_def] >>
+      conj_tac
+      >- (
+        rewrite_tac [step_cases] >>
+        fs [mkState_def]) >>
+      gs [mkState_def, state_rel_def] >>
+      gs [equiv_labels_def, equiv_flags_def, FLOOKUP_UPDATE] >>
+      gs [FLOOKUP_UPDATE, active_low_def] >>
+      conj_tac
+      >- (
+      qexists_tac ‘id + systime_of t’ >> gs [systime_clock_upd] >>
+      fs [] >>
+      fs [add_time_def] >>
+      gs [clocks_rel_def] >>
+      qexists_tac ‘clkwords’ >>
+      gs [FLOOKUP_UPDATE] >>
+      gs [delay_clocks_def] >>
+      gs [clkvals_rel_def] >>
+      gs [systime_of_def] >>
+      cheat) >>
+      conj_tac
+      >- (
+        gs [clk_range_def, delay_clocks_def] >>
+        cheat) >>
+      gs [ffi_vars_def, FLOOKUP_UPDATE] >>
+      qpat_x_assum ‘ffi_works NONE t’ kall_tac >>
+      qpat_x_assum ‘ffi_works NONE _’ assume_tac >>
+      gs [ffi_works_def] >>
+      rw [] >> gs [] >>
+      first_x_assum (qspecl_then [‘n’, ‘lc’, ‘m’, ‘ffi'’] assume_tac) >>
+      fs [foo] >>
+      qexists_tac ‘tm'’ >>
+      qexists_tac ‘d'’ >>
+      gs []) >>
+    strip_tac >>
+    fs [] >>
+    rewrite_tac [upd_delay_def] >>
+    fs [dec_clock_def] >>
+    rewrite_tac [FUPDATE_LIST_THM] >>
+    rewrite_tac [systime_of_def] >>
+    gs [FLOOKUP_UPDATE] >>
+    qexists_tac ‘m’ >>
+    qexists_tac ‘nffi’ >>
+    conj_tac
+    >- (
+    gs [state_rel_def] >>
+    ‘(id + tm') MOD dimword (:α) + (d − id) =
+     tm' + d’ by cheat >>
+    fs [] >>
+    cheat) >>
+    cheat) >>
+  cheat
+QED
 
 
 Theorem foo:
   !prog d s s' t.
-    step prog (LDelay d) s s' /\
+    step prog (LDelay d) s s' ∧
     state_rel (clksOf prog) s s' t  ==>
     ?w.
       eval t wait = SOME (ValWord w) /\
@@ -1469,27 +1806,54 @@ Proof
 QED
 
 
-Theorem step_delay_eval_wait_not_zero:
-  !prog d s t.
-    step prog (LDelay d) s (mkState (delay_clocks (s.clocks) d) s.location NONE NONE) /\
-    equiv_flags t.locals «isInput» (NONE:ioAction option) ∧
-    equiv_flags t.locals «waitSet» s.waitTime /\
-    (?tm. FLOOKUP t.locals «sysTime» = SOME (ValWord tm)) ∧
-    (?tm. FLOOKUP t.locals «wakeUpAt» = SOME (ValWord tm)) ==>
-    ?w.
-      eval t wait = SOME (ValWord w) /\
-      w ≠ 0w
+
+
+
+
+
+Theorem foo:
+  ffi_works s t ∧
+  ffi_vars t.locals /\
+  (?io. FLOOKUP t.locals «isInput» = SOME (ValWord io)) ==>
+  evaluate (check_input_time,t) = (NONE,ARB t)
 Proof
   rw [] >>
-  fs [step_cases, mkState_def] >>
-  fs [equiv_flags_def, active_low_def] >>
-  fs [wait_def] >>
-  fs [eval_def, OPT_MMAP_def] >>
-  gs [active_low_def,
-      wordLangTheory.word_op_def] >>
-  TOP_CASE_TAC >>
-  fs []
-QED
+  fs [ffi_vars_def] >>
+  fs [check_input_time_def] >>
+  fs [panLangTheory.nested_seq_def] >>
+  rewrite_tac [evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> rveq >> gs [] >>
+  fs [read_bytearray_def] >>
+  gs [ffi_works_def] >>
+  fs [ffiBufferSize_def] >>
+  ‘16 MOD dimword (:α) = 16’ by cheat >> gs [] >>
+  qpat_x_assum ‘_ = (res,s1)’ mp_tac >>
+
+  rewrite_tac [Once ffiTheory.call_FFI_def] >>
+  fs [] >>
+  strip_tac >>
+  rveq >> gs [] >>
+  pairarg_tac >> rveq >> gs [] >>
+  gs [eval_def, is_valid_value_def, shape_of_def] >>
+  rveq >> gs [] >>
+  gs [FLOOKUP_UPDATE] >>
+  gs [read_bytearray_def] >>
+  rewrite_tac [Once ffiTheory.call_FFI_def] >>
+  gs [] >>
+  gs [FLOOKUP_UPDATE] >>
+  gs [shape_of_def] >>
+  rveq >> gs [] >>
+
+ (*
+   t.ffi.oracle "get_time" t.ffi.ffi_state [] bytes =
+   Oracle_return nffi' nbytes'
+
+
+   t.ffi.oracle "get_time" nffi [] x
+ *)
+
+
 
 
 Theorem foo:
@@ -2236,6 +2600,133 @@ QED
   panLang.clockA + timeLang.clockA = panLang.sysTime
 *)
 
+
+Theorem evaluate_check_input_time:
+  !io t tm.
+    ffi_works io (t:('a,'b) panSem$state) ∧
+    ffi_vars t.locals ∧
+    (?io. FLOOKUP t.locals «isInput» = SOME (ValWord io)) ==>
+    ?ffi mem tm.
+      evaluate (check_input_time,t) =
+      (NONE,
+       t with <| ffi := ffi;
+                 memory := mem;
+                 locals := t.locals |+
+                            («isInput» ,ValWord (active_low io)) |+
+                            («sysTime» ,ValWord (n2w tm))
+              |>) ∧
+      tm < dimword (:α) ∧
+      (!stime.
+        FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w stime)) ==>
+        stime ≤ tm)
+
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  fs [ffi_vars_def] >>
+  fs [check_input_time_def] >>
+  fs [panLangTheory.nested_seq_def] >>
+  rewrite_tac [evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> rveq >> gs [] >>
+  fs [read_bytearray_def] >>
+  gs [ffi_works_def] >>
+  fs [ffiBufferSize_def] >>
+  ‘16 MOD dimword (:α) = 16’ by (match_mp_tac LESS_MOD >> fs [])>>
+  gs [] >>
+  qpat_x_assum ‘_ = (res,s1)’ mp_tac >>
+  (* calling check_input *)
+  rewrite_tac [Once ffiTheory.call_FFI_def] >>
+  fs [] >>
+  strip_tac >>
+  rveq >> gs [] >>
+  pairarg_tac >> rveq >> gs [] >>
+  gs [eval_def, is_valid_value_def, shape_of_def] >>
+  rveq >> gs [] >>
+  gs [FLOOKUP_UPDATE] >>
+  (* calling get_time *)
+  gs [read_bytearray_def] >>
+  rewrite_tac [Once ffiTheory.call_FFI_def] >>
+  gs [] >>
+  gs [FLOOKUP_UPDATE] >>
+  gs [shape_of_def] >>
+  rveq >> gs [] >>
+  qmatch_goalsub_abbrev_tac ‘t with <|
+                               locals := _;
+                               memory := m;
+                               ffi := f |>’ >>
+  qexists_tac ‘f’ >>
+  qexists_tac ‘m’ >>
+  qexists_tac ‘tm'’ >>
+  fs [Abbr ‘m’, Abbr ‘f’] >>
+  rw [] >>
+  ‘stime MOD dimword (:α) = stime’ by (
+    match_mp_tac LESS_MOD >> gs [] >> cheat) >>
+  fs []
+QED
+
+Theorem evaluate_check_input_time:
+  !io t tm.
+    ffi_works io (t:('a,'b) panSem$state) ∧
+    ffi_vars t.locals ∧
+    FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w tm)) ∧
+    tm < dimword (:α) ∧
+    (?io. FLOOKUP t.locals «isInput» = SOME (ValWord io)) ==>
+    ?ffi mem d.
+      evaluate (check_input_time, t) =
+      (NONE,
+       t with <| ffi := ffi;
+                 memory := mem;
+                 locals := t.locals |+
+                            («isInput» ,ValWord (active_low io)) |+
+                            («sysTime» ,ValWord (n2w (tm + d)))
+              |>) ∧
+      tm + d < dimword (:α)
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  fs [ffi_vars_def] >>
+
+  fs [ffi_works_def] >>
+  ‘tm' MOD dimword (:α) = tm'’ by (
+    match_mp_tac LESS_MOD >> gs []) >>
+  fs [] >> rveq >> gs [] >>
+  ‘16 MOD dimword (:α) = 16’ by (match_mp_tac LESS_MOD >> fs []) >>
+
+  fs [check_input_time_def] >>
+  fs [panLangTheory.nested_seq_def] >>
+  rewrite_tac [evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> rveq >> gs [] >>
+  fs [read_bytearray_def] >>
+  fs [ffiBufferSize_def] >>
+  gs [] >>
+  qpat_x_assum ‘_ = (res,s1)’ mp_tac >>
+  (* calling check_input *)
+  rewrite_tac [Once ffiTheory.call_FFI_def] >>
+  fs [] >>
+  strip_tac >>
+  rveq >> gs [] >>
+  pairarg_tac >> rveq >> gs [] >>
+  gs [eval_def, is_valid_value_def, shape_of_def] >>
+  rveq >> gs [] >>
+  gs [FLOOKUP_UPDATE] >>
+  (* calling get_time *)
+  gs [read_bytearray_def] >>
+  rewrite_tac [Once ffiTheory.call_FFI_def] >>
+  gs [] >>
+  gs [FLOOKUP_UPDATE] >>
+  gs [shape_of_def] >>
+  rveq >> gs [] >>
+  qmatch_goalsub_abbrev_tac ‘t with <|
+                               locals := _;
+                               memory := m;
+                               ffi := f |>’ >>
+  qexists_tac ‘f’ >>
+  qexists_tac ‘m’ >>
+  qexists_tac ‘d’ >>
+  fs [Abbr ‘m’, Abbr ‘f’]
+QED
 
 
 
