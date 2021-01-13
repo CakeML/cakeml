@@ -8,8 +8,6 @@ developers/bin
 semantics/ffi
 semantics
 semantics/proofs
-semantics/alt_semantics
-semantics/alt_semantics/proofs
 
 # translator
 basis/pure
@@ -112,6 +110,10 @@ unverified/sexpr-bootstrap/x64/32:cake-unverified-x64-32.tar.gz
 
 # build benchmarks and report (must come after sexp bootstrap)
 compiler/benchmarks
+
+# temporary location
+semantics/alt_semantics
+semantics/alt_semantics/proofs
 
 # compiler HOL bootstrap
 compiler/bootstrap/compilation/x64/64:cake-x64-64.tar.gz
