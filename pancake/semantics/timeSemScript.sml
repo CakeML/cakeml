@@ -73,7 +73,7 @@ Definition list_min_option_def:
 End
 
 Definition delay_clocks_def:
-  delay_clocks fm (d:num) = fm |++
+  delay_clocks fm (d:num) = FEMPTY |++
                             (MAP (λ(x,y). (x,y+d))
                             (fmap_to_alist fm))
 End

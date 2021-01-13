@@ -1616,23 +1616,53 @@ Proof
   fs []
 QED
 
+Theorem ffi_upd_be_memaddrs:
+  !n t lc m ffi.
+    (FUNPOW
+     (λt. t with <|locals := lc; memory := m; ffi := ffi|>) n t).be = t.be /\
+    (FUNPOW
+     (λt. t with <|locals := lc; memory := m; ffi := ffi|>) n t).memaddrs = t.memaddrs
+Proof
+  Induct >>
+  rw [] >>
+  fs [FUNPOW]
+QED
+
+Theorem ffi_upd_mem_ffi_lc:
+  !n t lc m ffi.
+    (FUNPOW
+     (λt. t with <|locals := lc; memory := m; ffi := ffi|>) n t).memory =
+    (case n of 0 => t.memory | _ => m) /\
+    (FUNPOW
+     (λt. t with <|locals := lc; memory := m; ffi := ffi|>) n t).ffi =
+    (case n of 0 => t.ffi | _ => ffi) /\
+    (FUNPOW
+     (λt. t with <|locals := lc; memory := m; ffi := ffi|>) n t).locals =
+    (case n of 0 => t.locals | _ => lc)
+Proof
+  Induct >>
+  rw [] >>
+  fs [FUNPOW] >>
+  every_case_tac >>
+  fs []
+QED
+
+
 Theorem ffi_work_dec_clock:
   !io t.
     ffi_works io t ==>
     ffi_works io (dec_clock t)
 Proof
-  rw [] >>
-  fs [dec_clock_def] >>
-  fs [ffi_works_def] >>
-  rw [] >>
-  gs [] >>
+  rw [dec_clock_def, ffi_works_def] >>
+  gs [ffi_upd_be_memaddrs] >>
   pop_assum (qspecl_then
              [‘n’, ‘lc’, ‘m’, ‘ffi’] assume_tac) >>
-  fs [] >>
-  qexists_tac ‘bytes’ >>
-  gs [] >>
-  cheat
+  fs [ffi_upd_mem_ffi_lc] >>
+  qexists_tac ‘tm’ >>
+  qexists_tac ‘d’ >>
+  gs []
 QED
+
 
 Theorem systime_clock_upd:
   !t ck.
@@ -1643,25 +1673,42 @@ Proof
   fs [systime_of_def]
 QED
 
+
 Theorem foo:
-  !t lc m ffi n.
-    (FUNPOW
-     (λt. t with <|locals := lc; memory := m; ffi := ffi|>) n t).be =
-    t.be /\
-    (FUNPOW
-     (λt. t with <|locals := lc; memory := m; ffi := ffi|>) n t).memaddrs =
-    t.memaddrs /\
-    (FUNPOW
-     (λt. t with <|locals := lc; memory := m; ffi := ffi|>) n t).memory =
-    m /\
-    (FUNPOW
-     (λt. t with <|locals := lc; memory := m; ffi := ffi|>) n t).ffi =
-    ffi /\
-    (FUNPOW
-     (λt. t with <|locals := lc; memory := m; ffi := ffi|>) n t).locals =
-    lc
+  !xs ys fm a b.
+    EVERY (λx. ∃n. FLOOKUP fm x = SOME n) xs /\
+    LENGTH xs = LENGTH ys /\
+    MAP2 (λx y. x + y)
+         (MAP ((n2w :num -> α word) ∘ THE ∘ FLOOKUP fm) xs)
+         (ys :α word list) =
+    REPLICATE (LENGTH ys) ((n2w :num -> α word) a) /\
+    b + a < dimword (:α) ==>
+    MAP2 (λx y. x + y)
+         (MAP
+          ((n2w :num -> α word) ∘ THE ∘
+           FLOOKUP (FEMPTY |++ MAP (λ(x,y). (x,b + y)) (fmap_to_alist fm)))
+          xs)
+         ys =
+    REPLICATE (LENGTH ys) ((n2w :num -> α word) (b + a))
 Proof
-  cheat
+  Induct >> rw [] >>
+  cases_on ‘ys’ >>
+  fs [] >>
+  once_rewrite_tac [GSYM word_add_n2w] >>
+  qpat_x_assum ‘_ + _ = _’ (assume_tac o GSYM) >>
+  gs [] >>
+  ‘FLOOKUP (FEMPTY |++ MAP (λ(x,y). (x,b + y)) (fmap_to_alist fm))
+   h = SOME (b + n)’ by (
+    match_mp_tac mem_to_flookup >>
+    ‘MAP FST (MAP (λ(x,y). (x,b + y)) (fmap_to_alist fm)) =
+     MAP FST (fmap_to_alist fm)’ by fs [map_fst] >>
+    fs [ALL_DISTINCT_fmap_to_alist_keys] >>
+    fs [MEM_MAP] >>
+    qexists_tac ‘(h,n)’ >>
+    fs []) >>
+  fs [] >>
+  once_rewrite_tac [GSYM word_add_n2w] >>
+  fs []
 QED
 
 
@@ -1733,16 +1780,18 @@ Proof
       gs [FLOOKUP_UPDATE, active_low_def] >>
       conj_tac
       >- (
-      qexists_tac ‘id + systime_of t’ >> gs [systime_clock_upd] >>
-      fs [] >>
-      fs [add_time_def] >>
-      gs [clocks_rel_def] >>
-      qexists_tac ‘clkwords’ >>
-      gs [FLOOKUP_UPDATE] >>
-      gs [delay_clocks_def] >>
-      gs [clkvals_rel_def] >>
-      gs [systime_of_def] >>
-      cheat) >>
+        qexists_tac ‘id + systime_of t’ >> gs [systime_clock_upd] >>
+        fs [] >>
+        fs [add_time_def, clocks_rel_def] >>
+        qexists_tac ‘clkwords’ >>
+        gs [FLOOKUP_UPDATE, delay_clocks_def,
+            clkvals_rel_def, systime_of_def] >>
+        match_mp_tac foo >>
+        fs [] >>
+        fs [clk_range_def] >>
+        drule every_conj_spec >>
+        strip_tac >> fs [FDOM_FLOOKUP] >>
+        cheat (* add assumption *)) >>
       conj_tac
       >- (
         gs [clk_range_def, delay_clocks_def] >>
@@ -1752,9 +1801,30 @@ Proof
       qpat_x_assum ‘ffi_works NONE _’ assume_tac >>
       gs [ffi_works_def] >>
       rw [] >> gs [] >>
-      first_x_assum (qspecl_then [‘n’, ‘lc’, ‘m’, ‘ffi'’] assume_tac) >>
-      fs [foo] >>
+      fs [ffi_upd_mem_ffi_lc, ffi_upd_be_memaddrs] >>
+      cases_on ‘n’ >> gs []
+      >- (
+        first_x_assum (qspecl_then [‘1’, ‘lc’, ‘mem'’, ‘ffi’] assume_tac) >>
+        gs [] >>
+        gs [FLOOKUP_UPDATE] >>
+        gs [systime_of_def] >>
+
+
+
+        qexists_tac ‘id + tm’ >>
+        gs [] >>
+        qexists_tac ‘d' - id’ >>
+        gs [] >>
+        fs [ADD_ASSOC] >>
+
+
+
+
+      ) >>
+      first_x_assum (qspecl_then [‘1’, ‘lc’, ‘m’, ‘ffi'’] assume_tac) >>
+      gs [] >>
       qexists_tac ‘tm'’ >>
+      gs [] >>
       qexists_tac ‘d'’ >>
       gs []) >>
     strip_tac >>
