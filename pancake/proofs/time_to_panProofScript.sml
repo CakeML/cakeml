@@ -1474,9 +1474,9 @@ End
 Definition upd_delay_def:
   upd_delay t d m nffi =
   t with
-    <| locals := t.locals |++
-                  [(«isInput» ,ValWord 1w);
-                   («sysTime» ,ValWord (n2w (systime_of t + d)))]
+    <| locals := t.locals |+
+                 («isInput» ,ValWord 1w) |+
+                 («sysTime» ,ValWord (n2w (systime_of t + d)))
      ; memory := m
      ; ffi := nffi
      |>
@@ -1576,6 +1576,27 @@ Proof
   fs []
 QED
 
+Theorem step_delay_eval_upd_delay_wait_not_zero:
+  !prog d s t.
+    step prog (LDelay d) s (mkState (delay_clocks (s.clocks) d) s.location NONE NONE) ∧
+    equiv_flags t.locals «isInput» (NONE:ioAction option) ∧
+    equiv_flags t.locals «waitSet» s.waitTime ∧
+    (?tm. FLOOKUP t.locals «sysTime» = SOME (ValWord tm)) ∧
+    (?tm. FLOOKUP t.locals «wakeUpAt» = SOME (ValWord tm)) ==>
+    ?w.
+      eval (upd_delay t d t.memory t.ffi) wait = SOME (ValWord w) ∧
+      w ≠ 0w
+Proof
+  rw [] >>
+  fs [step_cases, mkState_def] >>
+  fs [equiv_flags_def, active_low_def] >>
+  fs [wait_def, upd_delay_def] >>
+  fs [eval_def, OPT_MMAP_def, FLOOKUP_UPDATE] >>
+  gs [active_low_def,
+      wordLangTheory.word_op_def] >>
+  TOP_CASE_TAC >>
+  fs []
+QED
 
 Theorem ffi_will_work_dec_clock:
   !io t.
@@ -1635,18 +1656,22 @@ QED
 
 
 Theorem step_delay:
-  !p t prog d s s'.
+  !p (t:('a,'b) panSem$state) prog d s s'.
     p = wait_input_time_limit ∧
     step prog (LDelay d) s s' ∧
     s.waitTime = NONE ∧
     s' = mkState (delay_clocks (s.clocks) d) s.location NONE NONE ∧
     state_rel (clksOf prog) s s' t ∧
+    systime_of t + d < dimword (:α) /\
     code_installed t.code prog ==>
     ?ck m nffi.
       evaluate (p, t) =
       evaluate (p, upd_delay (clk_consumed t ck) d m nffi) ∧
-      state_rel (clksOf prog) s s' (upd_delay (clk_consumed t ck) d m nffi) ∧
-      code_installed (upd_delay (clk_consumed t ck) d m nffi).code prog
+      code_installed (upd_delay (clk_consumed t ck) d m nffi).code prog ∧
+      (if t.clock <> 0 then
+         state_rel (clksOf prog) s s' (upd_delay (clk_consumed t ck) d m nffi)
+       else T)
+
 Proof
   recInduct panSemTheory.evaluate_ind >>
   rw [] >>
@@ -1674,19 +1699,19 @@ Proof
     qexists_tac ‘t.memory’ >>
     qexists_tac ‘t.ffi’ >>
     fs [clk_consumed_def] >>
+    ‘t with clock := 0 = t’ by fs [state_component_equality] >>
+    fs [] >>
+    pop_assum kall_tac >>
     fs [Once evaluate_def] >>
-    ‘eval (upd_delay (t with clock := 0) d t.memory t.ffi) wait =
-     SOME (ValWord w)’ by cheat >>
+    drule step_delay_eval_upd_delay_wait_not_zero >>
+    disch_then (qspec_then ‘t’ mp_tac) >>
+    impl_tac
+    >- gs [state_rel_def, mkState_def, add_time_lemma] >>
+    strip_tac >>
     fs [] >>
     fs [upd_delay_def] >>
     fs [empty_locals_def] >>
-    conj_tac
-    >- gs [state_component_equality] >>
-    gs [state_rel_def] >>
-    gs [equiv_labels_def, equiv_flags_def,
-        FLOOKUP_UPDATE, FUPDATE_LIST_THM,
-        active_low_def, mkState_def] >>
-    cheat) >>
+    gs [state_component_equality]) >>
   (* t.clock ≠ 0 *)
   ‘ffi_will_work (NONE:ioAction option) t’ by
     gs [state_rel_def, mkState_def] >>
@@ -1721,24 +1746,17 @@ Proof
       >- (
         rewrite_tac [step_cases] >>
         fs [mkState_def]) >>
-      conj_tac >- gs [mkState_def] >>
       gs [mkState_def] >>
       ‘delay_clocks (delay_clocks s.clocks id) (d − id) =
        delay_clocks s.clocks d’ by cheat >>
       fs [] >>
       pop_assum kall_tac >>
       gs [state_rel_def] >>
-      conj_tac
-      >- gs [Abbr ‘nt’, equiv_labels_def, FLOOKUP_UPDATE] >>
-      conj_tac
-      >- gs [Abbr ‘nt’, equiv_flags_def, FLOOKUP_UPDATE, active_low_def] >>
-      conj_tac
-      >- gs [Abbr ‘nt’, equiv_flags_def, FLOOKUP_UPDATE, active_low_def] >>
+      gs [Abbr ‘nt’, equiv_flags_def, equiv_labels_def,
+          FLOOKUP_UPDATE, active_low_def] >>
+      gs [systime_of_def, FLOOKUP_UPDATE] >>
       conj_tac
       >- (
-        fs [Abbr ‘nt’] >>
-        fs [systime_of_def] >>
-        gs [FLOOKUP_UPDATE] >>
         qexists_tac ‘id + tm’ >>
         gs [] >>
         gs [add_time_def] >>
@@ -1756,7 +1774,7 @@ Proof
         drule every_conj_spec >>
         fs [FDOM_FLOOKUP]) >>
       reverse conj_tac
-      >- gs [Abbr ‘nt’, ffi_vars_def, FLOOKUP_UPDATE] >>
+      >- gs [ffi_vars_def, FLOOKUP_UPDATE] >>
       gs [clk_range_def] >>
       gs [EVERY_MEM] >>
       rw [] >> gs [] >>
@@ -1778,21 +1796,51 @@ Proof
       cheat) >>
     strip_tac >>
     fs [] >>
-    qexists_tac ‘ck’ >>
+    qexists_tac ‘ck + 1’ >>
     qexists_tac ‘m’ >>
     qexists_tac ‘nffi’ >>
     ‘upd_delay (clk_consumed nt ck) (d − id) m nffi =
-     upd_delay (clk_consumed t ck) d m nffi’ by (
+     upd_delay (clk_consumed t (ck + 1)) d m nffi’ by (
       gs [Abbr ‘nt’, upd_delay_def, dec_clock_def, systime_of_def,
-          FLOOKUP_UPDATE] >>
+          clk_consumed_def, FLOOKUP_UPDATE] >>
       gs [state_rel_def] >>
       fs [state_component_equality] >>
-      fs [FUPDATE_LIST_THM] >>
-      fs [FUPDATE_EQ] >>
+      fs [FLOOKUP_UPDATE] >>
       cheat) >>
     fs [] >>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     fs [upd_delay_def] >>
-    gs [state_rel_def, clk_consumed] >>
+    gs [state_rel_def, clk_consumed_def] >>
     gs [equiv_labels_def, equiv_flags_def,
         FLOOKUP_UPDATE, FUPDATE_LIST_THM,
         active_low_def, mkState_def] >>
