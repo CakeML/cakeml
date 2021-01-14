@@ -192,6 +192,19 @@ Definition adjustClks_def:
 End
 
 
+
+Definition check_input_time_def:
+  check_input_time =
+    nested_seq [
+        ExtCall «get_ffi» «ptr1» «len1» «ptr2» «len2» ;
+        Assign  «isInput» (Load One (Var «ptr2»)) ;
+        Assign  «sysTime» (Load One
+                           (Op Add [Var «ptr2»;
+                                    Const bytes_in_word]))
+      ]
+End
+
+(*
 Definition check_input_time_def:
   check_input_time =
     nested_seq [
@@ -200,6 +213,7 @@ Definition check_input_time_def:
         ExtCall «get_time» «ptr1» «len1» «ptr2» «len2» ;
         Assign  «sysTime» (Load One (Var «ptr2»))]
 End
+*)
 
 Definition wait_def:
   wait =
