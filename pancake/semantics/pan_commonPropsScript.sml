@@ -760,4 +760,36 @@ Proof
   fs [MAX_DEF]
 QED
 
+Theorem fm_update_diff_vars:
+  a ≠ b ==>
+  fm
+  |+ (a ,a')
+  |+ (b ,b')
+  |+ (a ,a')
+  |+ (b ,b'') =
+  fm
+  |+ (a ,a')
+  |+ (b ,b'')
+Proof
+  rw [] >>
+  ‘fm
+  |+ (a ,a')
+  |+ (b ,b')
+  |+ (a ,a')
+  |+ (b ,b'') =
+  fm
+  |+ (a ,a')
+  |+ (b ,b')
+  |+ (b ,b'')
+  |+ (a ,a')’ by (
+    match_mp_tac FUPDATE_COMMUTES >>
+    fs []) >>
+  fs [] >>
+  ‘fm |+ (a,a') |+ (b,b'') |+ (a,a') =
+   fm |+ (a,a') |+ (a,a') |+ (b,b'')’ by (
+    match_mp_tac FUPDATE_COMMUTES >>
+    fs []) >>
+  fs []
+QED
+
 val _ = export_theory();

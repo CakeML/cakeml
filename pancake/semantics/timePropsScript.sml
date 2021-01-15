@@ -146,5 +146,18 @@ Proof
   fs [EVERY_MEM]
 QED
 
+Theorem bar:
+  n ≤ m ⇒
+  delay_clocks (delay_clocks fm n) (m − n) =
+  delay_clocks fm m
+Proof
+  rw [] >>
+  fs [delay_clocks_def] >>
+  ‘MAP (λ(x,y). (x,m + y − n))
+          (fmap_to_alist
+           (FEMPTY |++ MAP (λ(x,y). (x,n + y)) (fmap_to_alist fm))) =
+   MAP (λ(x,y). (x,m + y)) (fmap_to_alist fm)’ by cheat >>
+  fs []
+QED
 
 val _ = export_theory();
