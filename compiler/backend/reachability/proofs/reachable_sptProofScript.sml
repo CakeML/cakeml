@@ -1,5 +1,5 @@
 (*
-  Proofs of various closure operations for num_map and num_set
+  Proof of correctness of closure operation over num_set num_maps
 *)
 
 open preamble reachable_sptTheory

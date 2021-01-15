@@ -1,5 +1,5 @@
 (*
-  Implementation of various closure operations for num_map and num_set
+  Implementation of closure operation over num_set num_maps
 *)
 
 open preamble sptreeTheory
