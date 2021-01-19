@@ -110,13 +110,13 @@ val ptr_bits_def = Define `
 val real_addr_def = Define `
   (real_addr (conf:data_to_word$config) r): 'a wordLang$exp =
     let k = shift (:'a) in
-      if k <= conf.pad_bits + 1 then
-        Op Add [Lookup CurrHeap;
-                Shift Lsr (Var r) (shift_length conf - k)]
+    let l = shift_length conf in
+      if k = l ∧ conf.len_bits = 0 ∧ conf.tag_bits = 0 then
+        Op Add [Lookup CurrHeap; Op Sub [Var r; Const 1w]]
+      else if k <= conf.pad_bits + 1 then
+        Op Add [Lookup CurrHeap; Shift Lsr (Var r) (l - k)]
       else
-        Op Add [Lookup CurrHeap;
-                Shift Lsl (Shift Lsr (Var r)
-                  (shift_length conf)) k]`
+        Op Add [Lookup CurrHeap; Shift Lsl (Shift Lsr (Var r) l) k]`
 
 val real_offset_def = Define `
   (real_offset (conf:data_to_word$config) r): 'a wordLang$exp =
@@ -1029,8 +1029,22 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
-  assign_SetGlobalsPtr (l:num) (dest:num) v1 =
+  assign_SetGlobalsPtr (c:data_to_word$config) (l:num) (dest:num) v1 =
       (Seq (Set Globals (Var (adjust_var v1)))
+      (Seq (Set GlobReal (real_addr c (adjust_var v1)))
+           (Assign (adjust_var dest) Unit)),l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_Global (c:data_to_word$config) n (l:num) (dest:num) =
+      (Assign (adjust_var dest) (Load (Op Add [Lookup GlobReal;
+                                               Const (bytes_in_word * n2w (n+1))])),l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_SetGlobal (c:data_to_word$config) n (l:num) (dest:num) v1 =
+      (Seq (Store (Op Add [Lookup GlobReal; Const (bytes_in_word * n2w (n+1))])
+                  (adjust_var v1))
            (Assign (adjust_var dest) Unit),l)
       : 'a wordLang$prog # num`;
 
@@ -1039,6 +1053,14 @@ val def = assign_Define `
                          (Assign (adjust_var dest)
                             (Load (Op Add [real_addr c (adjust_var v1);
                                            real_offset c (adjust_var v2)])),l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_ElemAt (c:data_to_word$config) n (l:num) (dest:num) v1 =
+                         (Assign (adjust_var dest)
+                            (Load (Op Add [real_addr c (adjust_var v1);
+                                           Const (bytes_in_word +
+                                                  bytes_in_word * n2w n)])),l)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -1854,8 +1876,8 @@ val def = assign_Define `
                Assign (adjust_var dest) (Op Add [ShiftVar Lsl 3 4; Const 2w])],l)))
       : 'a wordLang$prog # num`;
 
-  val def = assign_Define `
-    assign_FP_top fpt (c:data_to_word$config) (secn:num)
+val def = assign_Define `
+  assign_FP_top fpt (c:data_to_word$config) (secn:num)
               (l:num) (dest:num) (names:num_set option) v1 v2 v3 =
        (if ~c.has_fp_ops \/ ~c.has_fp_tern then (GiveUp,l) else
         if dimindex(:'a) = 64 then
@@ -1970,8 +1992,11 @@ val assign_def = Define `
     dtcase op of
     | Const i => assign_Const i l dest
     | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
-    | SetGlobalsPtr => arg1 args (assign_SetGlobalsPtr l dest) (Skip,l)
+    | SetGlobalsPtr => arg1 args (assign_SetGlobalsPtr c l dest) (Skip,l)
+    | SetGlobal n => arg1 args (assign_SetGlobal c n l dest) (Skip,l)
+    | Global n => assign_Global c n l dest
     | El => arg2 args (assign_El c l dest) (Skip,l)
+    | ElemAt n => arg1 args (assign_ElemAt c n l dest) (Skip,l)
     | DerefByte => arg2 args (assign_DerefByte c l dest) (Skip,l)
     | Update => arg3 args (assign_Update c l dest) (Skip,l)
     | UpdateByte => arg3 args (assign_UpdateByte c l dest) (Skip,l)
@@ -2225,6 +2250,41 @@ val stubs_def = Define`
     (ByteCopyNew_location,4n,ByteCopyNew_code data_conf);
     (Dummy_location,0,Skip)
   ] ++ generated_bignum_stubs Bignum_location`;
+
+val stub_names_def = Define`
+  stub_names () = [
+    (FromList_location,«_FromList»);
+    (FromList1_location,«_FromList1»);
+    (RefByte_location,«_RefByte»);
+    (RefArray_location,«_RefArray»);
+    (Replicate_location,«_Replicate»);
+    (AnyArith_location,«_AnyArith»);
+    (Add_location,«_Add»);
+    (Sub_location,«_Sub»);
+    (Mul_location,«_Mul»);
+    (Div_location,«_Div»);
+    (Mod_location,«_Mod»);
+    (Compare1_location,«_Compare1»);
+    (Compare_location,«_Compare»);
+    (Equal1_location,«_Equal1»);
+    (Equal_location,«_Equal»);
+    (LongDiv1_location,«_LongDiv1»);
+    (LongDiv_location,«_LongDiv»);
+    (Install_location,«_Install»);
+    (InstallCode_location,«_InstallCode»);
+    (InstallData_location,«_InstallData»);
+    (Append_location,«_Append»);
+    (AppendMainLoop_location,«_AppendMainLoop»);
+    (AppendLenLoop_location,«_AppendLenLoop»);
+    (AppendFastLoop_location,«_AppendFastLoop»);
+    (MemCopy_location,«_MemCopy»);
+    (ByteCopy_location,«_ByteCopy»);
+    (ByteCopyAdd_location,«_ByteCopyAdd»);
+    (ByteCopySub_location,«_ByteCopySub»);
+    (ByteCopyNew_location,«_ByteCopyNew»);
+    (Dummy_location,«_Dummy»)
+  ] ++ GENLIST (\i. (i + Bignum_location, «_Bignum»))
+    (data_num_stubs - Bignum_location)`;
 
 Theorem check_stubs_length:
    word_num_stubs + LENGTH (stubs (:α) c) = data_num_stubs

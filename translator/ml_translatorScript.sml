@@ -110,6 +110,27 @@ val PreImpEval_def = Define`
 
 (* Theorems *)
 
+Theorem AppReturns_thm:
+  AppReturns P cl Q ⇔
+    ∀v. P v ⇒
+        ∃env exp.
+          do_opapp [cl;v] = SOME (env,exp) ∧
+          ∀refs.
+            ∃refs' u.
+              eval_rel (empty_state with refs := refs) env exp
+                       (empty_state with refs := refs++refs') u ∧
+              Q u
+Proof
+  fs [AppReturns_def] \\ eq_tac \\ rw []
+  \\ first_x_assum drule
+  \\ Cases_on ‘cl’ \\ fs [do_opapp_def,AllCaseEqs()]
+  \\ rename [‘find_recfun x1 x2’]
+  \\ Cases_on ‘find_recfun x1 x2’ \\ fs []
+  \\ PairCases_on ‘x’ \\ fs []
+  \\ rename [‘ALL_DISTINCT xx’]
+  \\ Cases_on ‘ALL_DISTINCT xx’ \\ fs []
+QED
+
 local
   val Eval_lemma = prove(
     ``∀env exp P.
@@ -375,12 +396,14 @@ val EqualityType_def = Define `
     (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> ((v1 = v2) = (x1 = x2))) /\
     (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> types_match v1 v2)`;
 
-val Eq_lemma = Q.prove(
-  `n < dimword (:'a) /\ dimindex (:α) <= k ==>
-    (n * 2n ** (k − dimindex (:α))) < 2 ** k`,
+Triviality Eq_lemma:
+   n < dimword (:'a) /\ dimindex (:α) <= k ==>
+    (n * 2n ** (k − dimindex (:α))) < 2 ** k
+Proof
   fs [dimword_def] \\ rw []
   \\ fs [LESS_EQ_EXISTS] \\ rw [] \\ fs [EXP_ADD]
-  \\ simp_tac std_ss [Once MULT_COMM] \\ fs []);
+  \\ simp_tac std_ss [Once MULT_COMM] \\ fs []
+QED
 
 Theorem EqualityType_NUM_BOOL:
   EqualityType NUM /\ EqualityType INT /\

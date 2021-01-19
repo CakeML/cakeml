@@ -1,4 +1,4 @@
-Correctness proofs of reachability operations
+Proof of correctness of closure operation over next-step sptrees
 
 [reachable_sptProofScript.sml](reachable_sptProofScript.sml):
-Proofs of various closure operations for num_map and num_set
+Proof of correctness of closure operation over num_set num_maps

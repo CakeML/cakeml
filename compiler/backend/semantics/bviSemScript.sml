@@ -61,6 +61,31 @@ val do_app_aux_def = Define `
         (case xs of
          | [RefPtr p] => SOME (SOME (Unit, s with global := SOME p))
          | _ => NONE)
+    | (Global n, xs) =>
+        (case xs of
+         | [] => (case s.global of
+                   | SOME ptr =>
+                       (case FLOOKUP s.refs ptr of
+                        | SOME (ValueArray xs) =>
+                            (if n < LENGTH xs
+                             then SOME (SOME (EL n xs, s))
+                             else NONE)
+                        | _ => NONE)
+                   | NONE => NONE)
+         | _ => NONE)
+    | (SetGlobal n, xs) =>
+        (case xs of
+         | [x] => (case s.global of
+                   | SOME ptr =>
+                       (case FLOOKUP s.refs ptr of
+                        | SOME (ValueArray xs) =>
+                            (if n < LENGTH xs
+                             then SOME (SOME (Unit, s with refs := s.refs |+
+                                               (ptr, ValueArray (LUPDATE x n xs)) ))
+                             else NONE)
+                        | _ => NONE)
+                   | NONE => NONE)
+         | _ => NONE)
     | (FromList n, xs) =>
         (case xs of
          | [len;lv] =>
@@ -79,8 +104,6 @@ val do_app_aux_def = Define `
                   (ptr, ByteArray f (REPLICATE (Num i) (i2w b)))))
             else NONE
           | _ => NONE)
-    | (Global n, _) => NONE
-    | (SetGlobal n, _) => NONE
     | (AllocGlobal, _) => NONE
     | (String _, _) => NONE
     | (FromListByte, _) => NONE

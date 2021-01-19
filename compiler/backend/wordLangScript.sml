@@ -46,6 +46,7 @@ val _ = Datatype `
        | Raise num
        | Return num num
        | Tick
+       | OpCurrHeap binop num num (* special case compiled well in stackLang *)
        | LocValue num num        (* assign v1 := Loc v2 0 *)
        | Install num num num num num_set (* code buffer start, length of new code,
                                       data buffer start, length of new data, cut-set *)
@@ -141,6 +142,7 @@ val every_var_def = Define `
     (P num ∧ every_name P numset)) ∧
   (every_var P (Raise num) = P num) ∧
   (every_var P (Return num1 num2) = (P num1 ∧ P num2)) ∧
+  (every_var P (OpCurrHeap _ num1 num2) = (P num1 ∧ P num2)) ∧
   (every_var P Tick = T) ∧
   (every_var P (Set n exp) = every_var_exp P exp) ∧
   (every_var P p = T)`
@@ -245,6 +247,7 @@ val max_var_def = Define `
   (max_var (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
     list_max (ptr1::len1::ptr2::len2::MAP FST (toAList numset))) ∧
   (max_var (Raise num) = num) ∧
+  (max_var (OpCurrHeap _ num1 num2) = MAX num1 num2) ∧
   (max_var (Return num1 num2) = MAX num1 num2) ∧
   (max_var Tick = 0) ∧
   (max_var (LocValue r l1) = r) ∧

@@ -3,7 +3,7 @@
   load/store operations.
 *)
 
-open preamble stackLangTheory
+open preamble stackLangTheory mlstringTheory
 
 val _ = new_theory "stack_remove";
 
@@ -20,8 +20,8 @@ val word_offset_def = Define `
 
 val store_list_def = Define `
   store_list = [NextFree; EndOfHeap; HeapLength; OtherHeap; TriggerGC;
-                AllocSize; Handler; Globals; ProgStart; BitmapBase; GenStart;
-                CodeBuffer; CodeBufferEnd; BitmapBuffer; BitmapBufferEnd;
+                AllocSize; Handler; Globals; GlobReal; ProgStart; BitmapBase;
+                GenStart; CodeBuffer; CodeBufferEnd; BitmapBuffer; BitmapBufferEnd;
                 Temp 00w; Temp 01w; Temp 02w; Temp 03w; Temp 04w;
                 Temp 05w; Temp 06w; Temp 07w; Temp 08w; Temp 09w;
                 Temp 10w; Temp 11w; Temp 12w; Temp 13w; Temp 14w;
@@ -125,6 +125,8 @@ val comp_def = Define `
     | Set name r =>
         if name = CurrHeap then move (k+2) r
         else Inst (Mem Store r (Addr (k+1) (store_offset name)))
+    | OpCurrHeap op r n =>
+        Inst (Arith (Binop op r n (Reg (k+2))))
     (* remove stack operations *)
     | StackFree n => stack_free k n
     | StackAlloc n => stack_alloc jump k n
@@ -195,6 +197,7 @@ val store_init_def = Define `
   store_init gen_gc (k:num) =
     (K (INL 0w)) =++
       [(CurrHeap,INR (k+2));
+       (GlobReal,INR (k+2));
        (NextFree,INR (k+2));
        (TriggerGC,INR (if gen_gc then k+2 else 2));
        (EndOfHeap,INR 2);
@@ -271,6 +274,12 @@ val init_stubs_def = Define `
     [(0n,Seq (init_code gen_gc max_heap k) (Call NONE (INL start) NONE));
      (1n,halt_inst 0w);
      (2n,halt_inst 2w)]`
+
+val stub_names_def = Define`
+  stub_names () = [
+    (0n,mlstring$strlit "_Init");
+    (1n,mlstring$strlit "_Halt0");
+    (2n,mlstring$strlit "_Halt2")]`
 
 Theorem check_init_stubs_length:
    LENGTH (init_stubs gen_gc max_heap k start) + 1 (* gc *) =

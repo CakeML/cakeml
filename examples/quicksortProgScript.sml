@@ -754,13 +754,6 @@ Proof
       unabbrev_all_tac >>
       simp [GSYM CONJ_ASSOC] >>
       conj_tac
-      (* If the upper partition is empty, there is a good blocker. Here, the
-       * upper partition cannot be empty *)
-      >- (
-        rw [] >>
-        drule DROP_EMPTY >>
-        rw []) >>
-      conj_tac
       (* The pivot is not less than the new lower partition *)
       >- (
         simp [EVERY_EL] >>

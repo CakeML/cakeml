@@ -34,8 +34,7 @@ val toList_aux_thm = Q.prove (
   rw [] \\
   ONCE_REWRITE_TAC [toList_aux_def] \\
   IF_CASES_TAC THEN1
-    (Cases_on `vec` \\
-     fs [length_def,GSYM DROP_NIL]) \\
+    (Cases_on `vec` \\ fs [length_def]) \\
   fs [] \\
   Cases_on `vec` \\
   fs [sub_def, length_def, DROP_EL_CONS]
@@ -101,8 +100,7 @@ val less_than_length_thm = Q.prove (
   rw[] \\
   qexists_tac`HD (DROP n xs)` \\
   qexists_tac`TL (DROP n xs)` \\
-  Cases_on`DROP n xs` \\ fs[]
-  >- fs[DROP_NIL] \\
+  Cases_on`DROP n xs` \\ fs[] \\
   metis_tac[TAKE_DROP,APPEND_ASSOC,CONS_APPEND]
 );
 

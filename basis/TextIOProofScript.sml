@@ -7,7 +7,7 @@ open preamble
      Word8ArrayProofTheory TextIOProgTheory MarshallingProgTheory MarshallingTheory
      integerTheory int_arithTheory;
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "TAKE_LENGTH_ID_rwt2", "TAKE_LENGTH_ID_rwt2"];
 
 val _ = new_theory"TextIOProof";
 
@@ -1848,9 +1848,9 @@ Proof
     \\ xlet_auto_spec(SOME read_byte_STDIO_spec)
     \\ xsimpl \\ simp[bumpFD_0,FD_def] \\ xsimpl
     \\ xlet_auto \\ xsimpl
-    \\ xlet_auto \\ xsimpl
-    \\ xcon \\ xsimpl
-    \\ fs[ORD_BOUND,CHR_ORD,std_preludeTheory.OPTION_TYPE_def] )
+    \\ xapp \\ xsimpl
+    \\ asm_exists_tac \\ fs [CharProgTheory.some_char_thm]
+    \\ fs[ORD_BOUND,CHR_ORD,std_preludeTheory.OPTION_TYPE_def,CharProgTheory.fromByte_def])
   >- xsimpl
   \\ xsimpl
   \\ xcases
@@ -2355,16 +2355,16 @@ Proof
     \\ rveq \\ xlet_auto >- xsimpl
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- (xsimpl \\ fs[instream_buffered_inv_def])
-    \\ xlet_auto >- xsimpl
-    \\ xlet_auto >- (xsimpl \\ simp[w2n_lt_256])
-    \\ xcon \\ `bactive <> []`
-                by (fs[instream_buffered_inv_def]
-                    \\ fs[DROP_NIL])
+    \\ xlet_auto >- xsimpl \\ fs [CharProgTheory.fromByte_def]
+    \\ xapp
+    \\ `bactive <> []` by (fs[instream_buffered_inv_def] \\ fs[DROP_NIL])
     \\ xsimpl
+    \\ asm_exists_tac \\ fs [CharProgTheory.some_char_thm]
     \\ CASE_TAC
     >-(fs[])
     >-(xsimpl
       \\ fs[instream_buffered_inv_def, std_preludeTheory.OPTION_TYPE_def] \\ xsimpl
+      \\ ntac 2 strip_tac \\ fs []
       \\ reverse conj_tac
       >-(`h::t = (TAKE (w − r) (DROP r bcontent))` by fs[]
         \\ `t = DROP 1 (TAKE (w − r) (DROP r bcontent))`
@@ -7143,7 +7143,8 @@ Proof
   \\ imp_res_tac splitlines_next
   \\ rveq
   \\ `pos < LENGTH content`
-  by ( CCONTR_TAC \\ fs[NOT_LESS,GSYM GREATER_EQ,GSYM DROP_NIL] )
+  by ( CCONTR_TAC \\ full_simp_tac std_ss[NOT_LESS,GSYM GREATER_EQ,GSYM DROP_NIL]
+       \\ gvs[])
   \\ fs[DROP_DROP_T]
   \\ pairarg_tac \\ fs[implode_def,STRING_TYPE_def,std_preludeTheory.OPTION_TYPE_def] \\ rveq
   \\ xmatch

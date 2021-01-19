@@ -659,6 +659,31 @@ val do_app_aux_def = Define `
                   | SOME p => Rval (RefPtr p, s)
                   | NONE => Error)
          | _ => Error)
+    | (Global n,xs) =>
+        (case xs of
+         | [] => (case s.global of
+                  | SOME ptr =>
+                      (case lookup ptr s.refs of
+                       | SOME (ValueArray xs) =>
+                           (if n < LENGTH xs
+                            then Rval (EL n xs, s)
+                            else Error)
+                       | _ => Error)
+                  | NONE => Error)
+         | _ => Error)
+    | (SetGlobal n,xs) =>
+        (case xs of
+         | [x] => (case s.global of
+                   | SOME ptr =>
+                       (case lookup ptr s.refs of
+                        | SOME (ValueArray xs) =>
+                            (if n < LENGTH xs
+                             then Rval (Unit, s with refs := insert ptr
+                                          (ValueArray (LUPDATE x n xs)) s.refs)
+                             else Error)
+                        | _ => Error)
+                   | NONE => Error)
+         | _ => Error)
     | (SetGlobalsPtr,xs) =>
         (case xs of
          | [RefPtr p] => Rval (Unit, s with global := SOME p)
@@ -686,8 +711,6 @@ val do_app_aux_def = Define `
                   (ByteArray f (REPLICATE (Num i) (i2w b))) s.refs|>)
             else Rerr (Rabort Rtype_error)
           | _ => Rerr (Rabort Rtype_error))
-    | (Global n, _)      => Rerr (Rabort Rtype_error)
-    | (SetGlobal n, _)   => Rerr (Rabort Rtype_error)
     | (AllocGlobal, _)   => Rerr (Rabort Rtype_error)
     | (String _, _)      => Rerr (Rabort Rtype_error)
     | (FromListByte, _)  => Rerr (Rabort Rtype_error)
@@ -716,6 +739,15 @@ val do_app_aux_def = Define `
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
              then Rval (EL (Num i) xs, s)
+             else Error)
+         | _ => Error)
+    | (ElemAt n,[Block _ tag xs]) =>
+        if n < LENGTH xs then Rval (EL n xs, s) else Error
+    | (ElemAt n,[RefPtr ptr]) =>
+        (case lookup ptr s.refs of
+         | SOME (ValueArray xs) =>
+            (if n < LENGTH xs
+             then Rval (EL n xs, s)
              else Error)
          | _ => Error)
     | (ListAppend,[x1;x2]) =>

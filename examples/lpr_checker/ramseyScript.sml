@@ -718,9 +718,7 @@ Proof
   `MEM (QSORT $<= (SET_TO_LIST t)) (choose (COUNT_LIST n) k)` by
     (qspecl_then [`COUNT_LIST n`,`k`,`QSORT $<= (SET_TO_LIST t)`] mp_tac choose_complete>>
     simp[]>>impl_tac>-
-      (CONJ_TAC >-
-        metis_tac[PERM_LENGTH]>>
-      simp[EVERY_MEM,QSORT_MEM]>>
+      (simp[EVERY_MEM,QSORT_MEM]>>
       fs[SUBSET_DEF,LENGTH_COUNT_LIST])>>
     qmatch_goalsub_abbrev_tac`MEM aa _ ⇒ MEM bb _`>>
     `aa=bb` by
@@ -847,27 +845,27 @@ QED
 (* Ramsey number 3 is 6 *)
 
 val lpr = ``[
-  Delete []; PR 41 [-12; -14; -15] NONE [39; 38; 40; 17] LN; Delete [17];
-  PR 42 [-9; -14; -15] NONE [35; 36; 40; 14] LN; Delete [14];
-  PR 43 [-5; -14; -15] NONE [30; 29; 40; 8] LN; Delete [40; 8];
-  PR 44 [-14; -15] NONE [43; 42; 4; 41; 13; 7; 21] LN;
-  Delete [43; 42; 41; 21]; PR 45 [9; 5; 14] NONE [15; 4; 9; 22] LN;
-  Delete [22]; PR 46 [12; 5; 14] NONE [18; 7; 9; 25] LN; Delete [25];
-  PR 47 [5; -15] NONE [44; 45; 36; 46; 39; 33; 12] LN; Delete [45; 46; 12];
-  PR 48 [-12; -15] NONE [47; 30; 27; 39; 6] LN; Delete [39; 6];
-  PR 49 [-9; -15] NONE [36; 47; 24; 30; 3] LN; Delete [36; 47; 30; 3];
-  PR 50 [-15] NONE [49; 48; 13; 44; 15; 18; 31] LN;
-  Delete [49; 48; 44; 31]; PR 51 [12; 9] NONE [50; 19; 16; 13; 32] LN;
-  Delete [13; 32]; PR 52 [14; 9] NONE [50; 20; 16; 15; 34] LN;
-  Delete [15; 34]; PR 53 [-5; -12; -14] NONE [27; 29; 38; 5] LN;
-  Delete [5]; PR 54 [9] NONE [50; 51; 52; 16; 53; 10; 23; 4] LN;
+  Delete []; PR 41 [-12; -14; -15] NONE [39; 38; 40; 17] []; Delete [17];
+  PR 42 [-9; -14; -15] NONE [35; 36; 40; 14] []; Delete [14];
+  PR 43 [-5; -14; -15] NONE [30; 29; 40; 8] []; Delete [40; 8];
+  PR 44 [-14; -15] NONE [43; 42; 4; 41; 13; 7; 21] [];
+  Delete [43; 42; 41; 21]; PR 45 [9; 5; 14] NONE [15; 4; 9; 22] [];
+  Delete [22]; PR 46 [12; 5; 14] NONE [18; 7; 9; 25] []; Delete [25];
+  PR 47 [5; -15] NONE [44; 45; 36; 46; 39; 33; 12] []; Delete [45; 46; 12];
+  PR 48 [-12; -15] NONE [47; 30; 27; 39; 6] []; Delete [39; 6];
+  PR 49 [-9; -15] NONE [36; 47; 24; 30; 3] []; Delete [36; 47; 30; 3];
+  PR 50 [-15] NONE [49; 48; 13; 44; 15; 18; 31] [];
+  Delete [49; 48; 44; 31]; PR 51 [12; 9] NONE [50; 19; 16; 13; 32] [];
+  Delete [13; 32]; PR 52 [14; 9] NONE [50; 20; 16; 15; 34] [];
+  Delete [15; 34]; PR 53 [-5; -12; -14] NONE [27; 29; 38; 5] [];
+  Delete [5]; PR 54 [9] NONE [50; 51; 52; 16; 53; 10; 23; 4] [];
   Delete [51; 52; 16; 53; 23; 4];
-  PR 55 [-12; -14] NONE [54; 33; 35; 38; 11] LN; Delete [38; 11];
-  PR 56 [5; 12] NONE [50; 10; 19; 7; 26] LN; Delete [7; 26];
-  PR 57 [-14] NONE [54; 55; 35; 56; 24; 29; 2] LN;
-  Delete [55; 35; 56; 29; 2]; PR 59 [12] NONE [50; 57; 20; 18; 19; 37] LN;
-  Delete [18; 19; 37]; PR 61 [-5] NONE [54; 59; 33; 24; 27; 1] LN;
-  Delete [33; 24; 27; 1]; PR 65 [] NONE [50; 57; 20; 61; 9; 10; 28] LN
+  PR 55 [-12; -14] NONE [54; 33; 35; 38; 11] []; Delete [38; 11];
+  PR 56 [5; 12] NONE [50; 10; 19; 7; 26] []; Delete [7; 26];
+  PR 57 [-14] NONE [54; 55; 35; 56; 24; 29; 2] [];
+  Delete [55; 35; 56; 29; 2]; PR 59 [12] NONE [50; 57; 20; 18; 19; 37] [];
+  Delete [18; 19; 37]; PR 61 [-5] NONE [54; 59; 33; 24; 27; 1] [];
+  Delete [33; 24; 27; 1]; PR 65 [] NONE [50; 57; 20; 61; 9; 10; 28] []
   ]``;
 
 val thm = EVAL ``check_lpr_unsat ^lpr (ramsey_lpr 3 6)``

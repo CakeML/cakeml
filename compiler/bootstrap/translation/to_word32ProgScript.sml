@@ -251,6 +251,7 @@ val _ = translate (spec32 wordLangTheory.max_var_def)
 val _ = translate (conv32_RHS integer_wordTheory.WORD_LEi)
 
 val _ = translate (asmTheory.offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.aligned_bitwise_and] |> conv32)
+val _ = translate (is_Lookup_CurrHeap_pmatch |> conv32)
 val res = translate_no_ind (inst_select_exp_pmatch |> conv32 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv32)
 
 val ind_lemma = Q.prove(
@@ -486,12 +487,24 @@ val _ = translate(LongDiv_code_def|> inline_simp |> conv32)
 
 val _ = translate (word_bignumTheory.generated_bignum_stubs_eq |> inline_simp |> conv32)
 
+val _ = translate data_to_wordTheory.stub_names_def
+val _ = translate word_to_stackTheory.stub_names_def
+val _ = translate stack_allocTheory.stub_names_def
+val _ = translate stack_removeTheory.stub_names_def
 val res = translate (data_to_wordTheory.compile_def
                      |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv32_RHS);
 
 (* translate some 32/64 specific parts of the tap/explorer
    that can't be translated in explorerProgScript *)
 val res = translate (presLangTheory.tap_word_def |> conv32);
+val res = translate (presLangTheory.store_name_to_display_def |> conv32);
+val res = translate (presLangTheory.stack_prog_to_display_def |> conv32);
+val res = translate (presLangTheory.stack_progs_to_display_def |> conv32);
+val res = translate (presLangTheory.tap_stack_def |> conv32);
+val res = translate (presLangTheory.lab_asm_to_display_def |> conv32);
+val res = translate (presLangTheory.lab_line_to_display_def |> conv32);
+val res = translate (presLangTheory.lab_secs_to_display_def |> conv32);
+val res = translate (presLangTheory.tap_lab_def |> conv32);
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

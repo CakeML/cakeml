@@ -1,7 +1,7 @@
-Generic reachability operations
+Generic closure operation over next-step sptrees (num_set num_maps)
 
 [proofs](proofs):
-Correctness proofs of reachability operations
+Proof of correctness of closure operation over next-step sptrees
 
 [reachable_sptScript.sml](reachable_sptScript.sml):
-Implementation of various closure operations for num_map and num_set
+Implementation of closure operation over num_set num_maps

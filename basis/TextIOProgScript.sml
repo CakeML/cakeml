@@ -251,7 +251,7 @@ in input0 off len 0 end
 val _ = ml_prog_update open_local_in_block;
 
 val _ = (append_prog o process_topdecs)`
-  fun input1 fd = Some (Char.chr(Word8.toInt(read_byte (get_in fd)))) handle EndOfFile => None`
+  fun input1 fd = Char.some(Char.fromByte(read_byte (get_in fd))) handle EndOfFile => None`
 
 val _ = ml_prog_update open_local_block;
 
@@ -498,7 +498,7 @@ val _ = (append_prog o process_topdecs)`
           else
             let val readat = (!rref) in
               rref := (!rref) + 1;
-              Some (Char.chr (Word8.toInt (Word8Array.sub surplus readat)))
+              Char.some (Char.fromByte (Word8Array.sub surplus readat))
             end`;
 
 val _ = ml_prog_update open_local_in_block;

@@ -10,6 +10,14 @@ library, as a thin wrapper around the relevant system calls.
 This directory contains the end-to-end correctness theorem for the
 64-bit version of the CakeML compiler.
 
+[sexprBootstrap32Script.sml](sexprBootstrap32Script.sml):
+Produces an sexp print-out of the bootstrap translated compiler
+definition for the 32-bit version of the compiler.
+
+[sexprBootstrap64Script.sml](sexprBootstrap64Script.sml):
+Produces an sexp print-out of the bootstrap translated compiler
+definition for the 64-bit version of the compiler.
+
 [test-hello.cml](test-hello.cml):
 A hello world program used for testing that the bootstrapped
 compiler was built succesfully.

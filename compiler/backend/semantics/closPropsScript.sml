@@ -485,7 +485,7 @@ QED
 Theorem fv_MAPi:
    ∀l x f. fv x (MAPi f l) ⇔ ∃n. n < LENGTH l ∧ fv x [f n (EL n l)]
 Proof
-  Induct >> simp[fv_def] >> simp[] >> dsimp[indexedListsTheory.LT_SUC]
+  Induct >> simp[fv_def] >> simp[] >> dsimp[arithmeticTheory.LT_SUC]
 QED
 
 Theorem fv_GENLIST_Var:
@@ -1295,12 +1295,8 @@ Proof
    full_simp_tac (srw_ss()++ARITH_ss) [NOT_LESS, NOT_LESS_EQUAL]
    >- (
      Q.ISPECL_THEN [`REVERSE args2`, `n - LENGTH l`] mp_tac TAKE_LENGTH_TOO_LONG >>
-     srw_tac[][] >>
-     full_simp_tac (srw_ss()++ARITH_ss) [])
-   >- (
-     Q.ISPECL_THEN [`REVERSE args2`, `n - LENGTH l`] mp_tac DROP_LENGTH_TOO_LONG >>
-     srw_tac[][] >>
-     full_simp_tac (srw_ss()++ARITH_ss) []) >>
+     impl_tac THEN1 fs [] >>
+     disch_then (rewrite_tac o single) >> fs []) >>
    CCONTR_TAC >>
    full_simp_tac(srw_ss())[] >>
    srw_tac[][] >>
@@ -1313,15 +1309,10 @@ Proof
  srw_tac[][] >>
  simp [TAKE_APPEND, DROP_APPEND] >>
  full_simp_tac (srw_ss()++ARITH_ss) [NOT_LESS, NOT_LESS_EQUAL] >>
- srw_tac[][]
- >- (
-   Q.ISPECL_THEN [`REVERSE args2`, `q - LENGTH l`] mp_tac TAKE_LENGTH_TOO_LONG >>
-   srw_tac[][] >>
-   full_simp_tac (srw_ss()++ARITH_ss) [])
- >- (
-   Q.ISPECL_THEN [`REVERSE args2`, `q - LENGTH l`] mp_tac DROP_LENGTH_TOO_LONG >>
-   srw_tac[][] >>
-   full_simp_tac (srw_ss()++ARITH_ss) [])
+ srw_tac[][] >>
+ Q.ISPECL_THEN [`REVERSE args2`, `q - LENGTH l`] mp_tac TAKE_LENGTH_TOO_LONG >>
+ impl_tac THEN1 fs [] >>
+ disch_then (rewrite_tac o single) >> fs []
 QED
 
 Theorem evaluate_app_append:
@@ -2260,7 +2251,8 @@ Proof
   \\ Cases_on `opp = Length \/ (?b. opp = BoundsCheckByte b) \/
                opp = BoundsCheckArray \/ opp = LengthByte \/
                opp = DerefByteVec \/ opp = DerefByte \/
-               opp = GlobalsPtr \/ opp = SetGlobalsPtr \/ opp = El`
+               opp = GlobalsPtr \/ opp = SetGlobalsPtr \/
+               opp = El \/ (?n. opp = ElemAt n)`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq]

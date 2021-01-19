@@ -265,7 +265,7 @@ val translate_def = Define`
 
 val translate_aux_thm = Q.prove (
   `!f s n len. (n + len = strlen s) ==> (translate_aux f s n len = MAP f (DROP n (explode s)))`,
-  Cases_on `s` \\ Induct_on `len` \\ rw [translate_aux_def, strlen_def, explode_def] >-
+  Cases_on `s` \\ Induct_on `len` \\ rw [translate_aux_def, strlen_def, explode_def] \\
   rw [DROP_LENGTH_NIL] \\
   rw [strsub_def, DROP_EL_CONS]
 );
@@ -773,13 +773,13 @@ Proof
   Cases >>
   Cases >>
   simp [mlstring_lt_def, compare_def, compare_aux_spec] >>
-  rpt (qpat_abbrev_tac `x = STRLEN _`) >>
+  qmatch_goalsub_abbrev_tac ‘if x < x' then _ else _’ >>
   rw []
   >- (
     `TAKE x s' ≤ s'` by metis_tac [take_prefix, string_prefix_le] >>
     fs [string_le_def] >>
     `x ≠ x'` by decide_tac >>
-    metis_tac [LENGTH_TAKE, LESS_OR_EQ])
+    unabbrev_all_tac >> fs [])
   >- metis_tac [string_lt_remove_take, TAKE_LENGTH_ID]
   >- metis_tac [string_lt_take_mono, TAKE_LENGTH_ID]
   >- metis_tac [take_prefix, string_prefix_le, LENGTH_TAKE, LESS_OR_EQ, string_lt_antisym, string_le_def]

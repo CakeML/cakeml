@@ -675,6 +675,7 @@ Proof
   >- tac
   >- tac
   >- tac
+  >- tac
   >- (tac>>imp_res_tac mem_store_const>>full_simp_tac(srw_ss())[])
   >- DECIDE_TAC
   >- `F`by DECIDE_TAC
@@ -1484,6 +1485,13 @@ Proof
     rpt strip_tac>>
     HINT_EXISTS_TAC>>
     full_simp_tac(srw_ss())[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl])
+  >-(*OpCurrHeap*)
+    (fs[evaluate_def]>>every_case_tac>>
+    fs[set_var_def,s_key_eq_refl]>>
+    full_simp_tac(srw_ss())[set_store_def,s_key_eq_refl]>>
+    rpt strip_tac>>
+    HINT_EXISTS_TAC>>
+    full_simp_tac(srw_ss())[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl])
   >-(*Store*)
     (full_simp_tac(srw_ss())[evaluate_def]>>every_case_tac>>
     full_simp_tac(srw_ss())[mem_store_def,state_component_equality,s_key_eq_refl]>>
@@ -2200,6 +2208,8 @@ Proof
   >-
     (fs[]>>every_case_tac>>fs[set_store_def,state_component_equality])
   >-
+    (fs[]>>every_case_tac>>fs[set_store_def,state_component_equality])
+  >-
     (fs[]>>every_case_tac>>fs[set_store_def,state_component_equality,mem_store_perm])
   >-
     (qexists_tac`perm`>>
@@ -2477,11 +2487,11 @@ Proof
 QED
 
 Theorem locals_rel_word_exp:
-    ∀s exp w.
-  every_var_exp (λx. x < temp) exp ∧
-  word_exp s exp = SOME w ∧
-  locals_rel temp s.locals loc ⇒
-  word_exp (s with locals:=loc) exp = SOME w
+  ∀s exp w.
+    every_var_exp (λx. x < temp) exp ∧
+    word_exp s exp = SOME w ∧
+    locals_rel temp s.locals loc ⇒
+    word_exp (s with locals:=loc) exp = SOME w
 Proof
   ho_match_mp_tac word_exp_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[word_exp_def,every_var_exp_def,locals_rel_def]
@@ -2573,19 +2583,19 @@ val locals_rel_cut_env = Q.prove(`
 (*Extra temporaries not mentioned in program
   do not affect evaluation*)
 
-val srestac = qpat_x_assum`A=res`sym_sub_tac>>full_simp_tac(srw_ss())[]
+val srestac = qpat_x_assum`A=res`sym_sub_tac>>full_simp_tac(srw_ss())[];
 
 Theorem locals_rel_evaluate_thm:
-    ∀prog st res rst loc temp.
-  evaluate (prog,st) = (res,rst) ∧
-  res ≠ SOME Error ∧
-  every_var (λx.x < temp) prog ∧
-  locals_rel temp st.locals loc ⇒
-  ∃loc'.
-  evaluate (prog,st with locals:=loc) = (res,rst with locals:=loc') ∧
-  case res of
-    NONE => locals_rel temp rst.locals loc'
-  |  SOME _ => rst.locals = loc'
+  ∀prog st res rst loc temp.
+    evaluate (prog,st) = (res,rst) ∧
+    res ≠ SOME Error ∧
+    every_var (λx.x < temp) prog ∧
+    locals_rel temp st.locals loc ⇒
+    ∃loc'.
+      evaluate (prog,st with locals:=loc) = (res,rst with locals:=loc') ∧
+      case res of
+      | NONE => locals_rel temp rst.locals loc'
+      | SOME _ => rst.locals = loc'
 Proof
   completeInduct_on`prog_size (K 0) prog`>>
   rpt strip_tac>>
@@ -2761,6 +2771,12 @@ Proof
     (IF_CASES_TAC>>full_simp_tac(srw_ss())[call_env_def,flush_state_def,state_component_equality,dec_clock_def]>>
     srestac>>full_simp_tac(srw_ss())[]>>metis_tac[])
   >-
+    (gvs[every_var_def,word_exp_def,AllCaseEqs(),the_words_def]>>
+     fs [PULL_EXISTS,state_component_equality,set_var_def] >>
+     imp_res_tac locals_rel_get_var>>
+     fs [get_var_def] \\ res_tac \\ fs [] >>
+     fs [locals_rel_def,lookup_insert])
+  >-
     (rw[]>>fs[set_var_def,state_component_equality]>>rveq>>fs[]>>
     qpat_x_assum`A=rst.locals` sym_sub_tac>>
     metis_tac[locals_rel_set_var])
@@ -2913,10 +2929,11 @@ val two_reg_inst_def = Define`
   (two_reg_inst _ ⇔ T)`
 
 (* Recursor over instructions *)
-val every_inst_def = Define`
+Definition every_inst_def:
   (every_inst P (Inst i) ⇔ P i) ∧
   (every_inst P (Seq p1 p2) ⇔ (every_inst P p1 ∧ every_inst P p2)) ∧
   (every_inst P (If cmp r1 ri c1 c2) ⇔ every_inst P c1 ∧ every_inst P c2) ∧
+  (every_inst P (OpCurrHeap bop r1 r2) ⇔ P (Arith (Binop bop r1 r2 (Reg r2)))) ∧
   (every_inst P (MustTerminate p) ⇔ every_inst P p) ∧
   (every_inst P (Call ret dest args handler)
     ⇔ (case ret of
@@ -2925,7 +2942,8 @@ val every_inst_def = Define`
       (case handler of
         NONE => T
       | SOME (n,h,l1,l2) => every_inst P h))) ∧
-  (every_inst P prog ⇔ T)`
+  (every_inst P prog ⇔ T)
+End
 
 (* Every instruction is well-formed, including the jump hidden in If *)
 val full_inst_ok_less_def = Define`
@@ -3373,6 +3391,8 @@ Proof
    every_case_tac >> fs [set_vars_def] >> rveq >> fs [state_fn_updates])
   >- (
    every_case_tac >> fs [set_vars_def] >> rveq >> fs [state_fn_updates])
+  >- (
+   every_case_tac >> fs [set_store_def] >> rveq >> fs [state_fn_updates])
   >- (
    every_case_tac >> fs [set_store_def] >> rveq >> fs [state_fn_updates])
   >- (
@@ -3925,6 +3945,10 @@ Proof
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
     \\ imp_res_tac assign_const \\ fs [set_var_def])
   THEN1 (* Set *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
+    \\ fs [set_var_def])
+  THEN1 (* OpCurrHeap *)
    (fs [wordSemTheory.evaluate_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
     \\ fs [set_var_def])
