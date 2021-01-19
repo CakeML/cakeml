@@ -214,44 +214,6 @@ val analyse_code_def = Define `
     analyse_code (_::cs) = analyse_code cs
 `
 
-(*
-
-(**************************** REACHABILITY FUNS *****************************)
-
-
-val superdomain_def = Define `
-    superdomain (t:num_set num_map) = spt_fold union LN t
-`
-
-val mk_wf_set_tree_def = Define `
-    mk_wf_set_tree t =
-        let t' = union t (map (K LN) (superdomain t)) in mk_wf (map (mk_wf) t')
-`
-
-Definition close_spt_def:
-    close_spt (reachable :num_set) (seen :num_set) (tree :num_set spt) =
-        let to_look = difference seen reachable in
-        let new_sets = inter tree to_look in
-            if new_sets = LN then reachable else
-                let new_set = spt_fold union LN new_sets in
-                    close_spt (union reachable to_look) (union seen new_set)
-                        tree
-Termination
-        WF_REL_TAC `measure (λ (r, _, t) . size (difference t r))` >>
-        rw[] >>
-        match_mp_tac size_diff_less >>
-        fs[domain_union, domain_difference] >>
-        fs[inter_eq_LN, IN_DISJOINT, domain_difference] >>
-        qexists_tac `x` >>
-        fs[]
-End
-
-val close_spt_ind = theorem "close_spt_ind";
-
-val closure_spt_def = Define
-    `closure_spt start tree = close_spt LN start tree`;
-
-*)
 
 (**************************** REMOVAL FUNCTIONS *****************************)
 
@@ -275,7 +237,7 @@ val remove_unreachable_def = Define `
 val remove_flat_prog_def = Define `
     remove_flat_prog code =
         let (r, t) = analyse_code code in
-        let reachable = closure_spt r (mk_wf_set_tree t) in
+        let reachable = closure_spt r t in
         remove_unreachable reachable code
 `
 

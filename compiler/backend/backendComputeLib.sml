@@ -699,6 +699,10 @@ val add_backend_compset = computeLib.extend_compset
     ,sptreeTheory.spt_fold_def
     ,sptreeTheory.mapi_def
     ,sptreeTheory.mapi0_def
+    ,sptreeTheory.subspt_eq
+    ,sptreeTheory.spt_left_def
+    ,sptreeTheory.spt_center_def
+    ,sptreeTheory.spt_right_def
     ]
   ,computeLib.Tys
     [ (* ---- stackLang ---- *)

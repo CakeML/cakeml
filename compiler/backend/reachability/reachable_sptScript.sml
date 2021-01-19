@@ -1,5 +1,5 @@
 (*
-  Implementation of various closure operations for num_map and num_set
+  Implementation of closure operation over num_set num_maps
 *)
 
 open preamble sptreeTheory
@@ -33,51 +33,29 @@ val num_set_tree_union_def = Define `
                 (num_set_tree_union t2 t2'))
 `;
 
-val superdomain_def = Define `
-    superdomain (t:num_set num_map) = spt_fold union LN t
-`
-
-val mk_wf_set_tree_def = Define `
-    mk_wf_set_tree t =
-        let t' = union t (map (K LN) (superdomain t)) in mk_wf (map (mk_wf) t')
-`
-
-val close_spt_def = tDefine "close_spt" `
-    close_spt (reachable :num_set) (seen :num_set) (tree :num_set spt) =
-        let to_look = difference seen reachable in
-        let new_sets = inter tree to_look in
-            if new_sets = LN then reachable else
-                let new_set = spt_fold union LN new_sets in
-                    close_spt (union reachable to_look) (union seen new_set)
-                        tree
-    `
-    (
-        WF_REL_TAC `measure (λ (r, _, t) . size (difference t r))` >>
-        rw[] >>
-        match_mp_tac size_diff_less >>
-        fs[domain_union, domain_difference] >>
-        fs[inter_eq_LN, IN_DISJOINT, domain_difference] >>
-        qexists_tac `x` >>
-        fs[]
-    )
-
-val close_spt_ind = theorem "close_spt_ind";
-
-val closure_spt_def = Define
-    `closure_spt start tree = close_spt LN start tree`;
-
-val wf_set_tree_def = Define `
-    wf_set_tree tree ⇔
-        (∀ x  y . (lookup x tree = SOME y) ⇒ domain y ⊆ domain tree) ∧
-        (∀ n x . lookup n tree = SOME x ⇒ wf x) ∧
-        wf tree
-`
+Definition closure_spt_def:
+  closure_spt (reachable: num_set) tree =
+    let sets = inter tree reachable in
+    let nodes = spt_fold union LN sets in
+    if subspt nodes reachable then reachable
+    else closure_spt (union reachable nodes) tree
+Termination
+  WF_REL_TAC `measure (λ (r,t). size (difference (spt_fold union LN t) r))` >>
+  rw[] >>
+  gvs[subspt_domain, SUBSET_DEF] >>
+  irule size_diff_less >>
+  gvs[domain_union, domain_spt_fold_union_num_set, lookup_inter] >>
+  EVERY_CASE_TAC >> gvs[] >>
+  simp[PULL_EXISTS, GSYM CONJ_ASSOC] >>
+  goal_assum drule >> goal_assum drule >> simp[] >>
+  goal_assum (drule_at Any) >>
+  qexists_tac `k` >> simp[]
+End
 
 val is_adjacent_def = Define `
     is_adjacent tree x y =
-    ∃ aSetx aSety.
-        ( lookup x tree = SOME aSetx ) ∧ ( lookup y aSetx = SOME () ) ∧
-        ( lookup y tree = SOME aSety )
+    ∃ aSetx.
+        ( lookup x tree = SOME aSetx ) ∧ ( lookup y aSetx = SOME () )
 `;
 
 val is_reachable_def = Define `
