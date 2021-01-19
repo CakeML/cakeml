@@ -6,6 +6,8 @@ open preamble
      timeSemTheory panSemTheory
      timePropsTheory panPropsTheory
      pan_commonPropsTheory time_to_panTheory
+     multiwordTheory
+
 
 val _ = new_theory "time_to_panProof";
 
@@ -18,7 +20,6 @@ Definition equiv_val_def:
   equiv_val fm xs v <=>
     v = MAP (ValWord o n2w o THE o (FLOOKUP fm)) xs
 End
-
 
 
 Definition valid_clks_def:
@@ -1353,10 +1354,51 @@ Definition clocks_rel_def:
   ∃ns.
     FLOOKUP tlocals «clks» =
     SOME (Struct (MAP (ValWord o n2w) ns)) ∧
-    (* EVERY (\n. n <= stime) ns /\ *)
     LENGTH clks = LENGTH ns /\
     clkvals_rel sclocks clks ns stime
 End
+
+
+Type time = ``:num -> num``
+
+Type time_ffi = ``:time ffi_state``
+
+Type time_oracle = ``:string -> time oracle_function``
+
+Type pan_state = ``:('a, time) panSem$state``
+
+
+Definition time_seq_def:
+  time_seq (f:num -> num) =
+    ∀n. f n ≤ f (SUC n)
+End
+
+
+Definition nffi_def:
+  nffi (f:num -> num) =
+   λn. f (n+1)
+End
+
+Overload k2mw = “multiword$k2mw”
+
+Definition nffi_def:
+  nbytes (f:num -> num) n =
+    (k2mw n (f 0)):word8 list
+End
+
+(* n = dimindex (:α) DIV 8 *)
+Definition build_ffi_def:
+  build_ffi (seq:time) =
+     <| oracle    :=
+        (λs f conf bytes.
+          if s = "get_time"
+          then Oracle_return (nffi f) (nbytes f (LENGTH bytes))
+          else Oracle_final FFI_failed)
+      ; ffi_state := seq
+      ; io_events := [] |> : time_ffi
+End
+
+
 
 
 Definition ffi_works_def:
@@ -1377,72 +1419,7 @@ Definition ffi_works_def:
         tm < dimword (:α) ∧  tm + d < dimword (:α)
 End
 
-(*
-Definition next_state_def:
-  next_state t =
-  @nt.
-    ?bytes nffi nbytes.
-      let
-        nmem = write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be
-      in
-        nt = t with <| ffi := nffi; memory := nmem |> /\
-        read_bytearray ffiBufferAddr 16
-                       (mem_load_byte t.memory t.memaddrs t.be) = SOME bytes /\
-        call_FFI t.ffi "get_ffi" [] bytes = FFI_return nffi nbytes
-End
 
-
-Definition ffi_works_def:
-  ffi_works io (t:('a,'b) panSem$state) =
-  let
-    t' = next_state t
-  in
-    mem_load One ffiBufferAddr t'.memaddrs t'.memory =
-    SOME (ValWord (active_low io)) /\
-    (?tm d.
-      FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w tm)) ∧
-      mem_load One (ffiBufferAddr + bytes_in_word) t'.memaddrs t'.memory =
-      SOME (ValWord (n2w (tm + d))) ∧
-      tm < dimword (:α) ∧ tm + d < dimword (:α))
-End
-
-Definition ffi_will_work_def:
-  ffi_will_work io t =
-    !n. ffi_works io (FUNPOW next_state n t)
-End
-
-*)
-(*
-Definition ffi_works_def:
-  ffi_works io (t:('a,'b) panSem$state) =
-    ?bytes nffi nbytes bytes' nffi' nbytes' tm d.
-      16 < dimword (:α) /\
-      read_bytearray ffiBufferAddr 16
-                     (mem_load_byte t.memory t.memaddrs t.be) = SOME bytes ∧
-      t.ffi.oracle "check_input" t.ffi.ffi_state [] bytes = Oracle_return nffi nbytes ∧
-      LENGTH nbytes = LENGTH bytes ∧
-      mem_load One ffiBufferAddr t.memaddrs
-               (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be) =
-      SOME (ValWord (active_low io)) ∧
-      (?io. FLOOKUP t.locals «isInput» = SOME (ValWord io)) ∧
-
-
-      read_bytearray ffiBufferAddr 16
-                     (mem_load_byte
-                      (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs t.be)
-                      t.memaddrs t.be) = SOME bytes' ∧
-      t.ffi.oracle "get_time" nffi [] bytes' = Oracle_return nffi' nbytes' ∧
-      LENGTH nbytes' = LENGTH bytes' ∧
-      FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w tm)) ∧
-      tm < dimword (:α) ∧
-      mem_load One ffiBufferAddr t.memaddrs
-               (write_bytearray ffiBufferAddr nbytes'
-                (write_bytearray ffiBufferAddr nbytes t.memory t.memaddrs
-                 t.be) t.memaddrs t.be) =
-      SOME (ValWord (n2w (tm + d))) ∧
-      tm + d < dimword (:α)
-End
-*)
 
 Definition ffi_vars_def:
   ffi_vars fm  ⇔
@@ -1451,6 +1428,7 @@ Definition ffi_vars_def:
   FLOOKUP fm «ptr2» = SOME (ValWord ffiBufferAddr) ∧
   FLOOKUP fm «len2» = SOME (ValWord ffiBufferSize)
 End
+
 
 
 Definition state_rel_def:
@@ -1466,9 +1444,27 @@ Definition state_rel_def:
         FLOOKUP t.locals «wakeUpAt» = add_time stime s.waitTime ∧
         clocks_rel clks t.locals s.clocks tm) ∧
     LENGTH clks ≤ 29 ∧ clk_range s.clocks clks (dimword (:'a)) ∧
-    (!(t:('a, 'b) panSem$state). ffi_works io t) ∧ ffi_vars t.locals
+    ffi_vars t.locals
 End
 
+
+(*
+Definition state_rel_def:
+  state_rel clks s io (t:('a, 'b) panSem$state) ⇔
+    equiv_labels t.locals «loc» s.location ∧
+    equiv_flags  t.locals «isInput» io ∧
+    equiv_flags  t.locals «waitSet» s.waitTime ∧
+    16 < dimword (:α) /\ (* move it around later *)
+    (?tm.
+      tm < dimword (:'a) /\
+      let stime = (n2w tm):'a word in
+        FLOOKUP t.locals «sysTime» = SOME (ValWord stime) ∧
+        FLOOKUP t.locals «wakeUpAt» = add_time stime s.waitTime ∧
+        clocks_rel clks t.locals s.clocks tm) ∧
+    LENGTH clks ≤ 29 ∧ clk_range s.clocks clks (dimword (:'a)) ∧
+    (!(t:('a, 'b) panSem$state). ffi_works io t) ∧ ffi_vars t.locals
+End
+*)
 
 Definition systime_of_def:
   systime_of t =
@@ -1507,13 +1503,10 @@ Proof
   fs [add_time_def]
 QED
 
-(*
-We could instantiate the oracle to always return the result from an infinite sequence.
-*)
 
 Theorem evaluate_check_input_time:
   !io (t:('a,'b) panSem$state).
-    (!t. ffi_works io (t:('a,'b) panSem$state)) ∧
+    always_ffi io check_input_time t ∧
     ffi_vars t.locals ∧
     (?io. FLOOKUP t.locals «isInput» = SOME (ValWord io)) ∧
     16 < dimword (:α) ==>
@@ -1527,24 +1520,21 @@ Theorem evaluate_check_input_time:
                  |>
       in
         evaluate (check_input_time, t) = (NONE,nt) ∧
-        (!t. ffi_works io (t:('a,'b) panSem$state)) ∧
-        (* trivially true *)
         systime_of t + d < dimword (:α)
 Proof
   rpt gen_tac >>
   strip_tac >>
   fs [ffi_vars_def] >>
-  fs [ffi_works_def] >>
-  last_x_assum (qspecl_then [‘t’] assume_tac) >>
-  fs [] >>
   ‘16 MOD dimword (:α) = 16’ by (match_mp_tac LESS_MOD >> fs []) >>
+  fs [always_ffi_def, ffi_works_def] >>
   fs [check_input_time_def] >>
   fs [panLangTheory.nested_seq_def] >>
   rewrite_tac [evaluate_def] >>
-  fs [] >>
+
+  gs [] >>
   pairarg_tac >> rveq >> gs [] >>
   fs [read_bytearray_def] >>
-  fs [ffiBufferSize_def] >>
+  gs [ffiBufferSize_def] >>
   gs [] >>
   qpat_x_assum ‘_ = (res,s1)’ mp_tac >>
   (* calling get_ffi *)
@@ -1673,7 +1663,8 @@ Theorem step_delay:
     s.waitTime = NONE ∧
     s' = mkState (delay_clocks (s.clocks) d) s.location NONE NONE ∧
     state_rel (clksOf prog) s s'.ioAction t ∧
-    systime_of t + d < dimword (:α) /\
+    always_ffi s'.ioAction p t ∧
+    systime_of t + d < dimword (:α) ∧
     code_installed t.code prog ==>
     ?ck m nffi.
       evaluate (p, t) =
@@ -1790,11 +1781,15 @@ Proof
       first_x_assum (qspec_then ‘ck’ assume_tac) >>
       gs []) >>
     gs [ffi_vars_def, FLOOKUP_UPDATE]) >>
-  (* t.clock ≠ 0 *)
-  ‘∀t. ffi_works (NONE:ioAction option) t’ by
-    gs [state_rel_def, mkState_def] >>
+
+
+
+
+  ‘always_ffi
+   (mkState (delay_clocks s.clocks d) s.location NONE NONE).ioAction
+   check_input_time (dec_clock t)’ by cheat >>
   drule evaluate_check_input_time >>
-  disch_then (qspec_then ‘dec_clock t’ mp_tac) >>
+  gs [] >>
   impl_tac
   >- gs [state_rel_def, ffi_vars_def, dec_clock_def, equiv_flags_def] >>
   strip_tac >>
