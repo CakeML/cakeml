@@ -251,12 +251,13 @@ Proof
    \\ rveq \\ fs[type_correct_def, v_eq_def]
 QED
 
+(*
 Theorem approxEnv_construct:
   ∀ E1 Gamma A fVars.
     (∀ x. ~ (x  IN domain fVars) ⇒ E1 x = NONE) ∧
     (∀ x. x IN domain fVars ⇒ Gamma (Var x) = SOME M64) ∧
     (∀ x. x IN domain fVars ⇒ ∃ v. E1 x = SOME v) ∧
-    (∀ x v. E1 x = SOME v ⇒ (normalizes (:52 # 11) v ∨ v = 0)) ⇒
+    (∀ x v. E1 x = SOME v ⇒ (binary_ieeeTheory.float_is_finite (float_to_fp64 (round roundTiesToEven v)))) ==>
     approxEnv E1
               Gamma A fVars LN
               (toREnv
@@ -284,6 +285,7 @@ Proof
                   (assume_tac o SIMP_RULE std_ss [] o GEN_ALL) closest_such_0
   \\ fs[binary_ieeeTheory.zero_to_real, MachineTypeTheory.computeError_def]
 QED
+*)
 
 Theorem buildFloVerTypeMap_is_64Bit:
   ∀ floverVars. is64BitEnv (buildFloVerTypeMap floverVars)
@@ -1362,14 +1364,6 @@ Proof
   \\ rveq \\ fs[v_word_eq_def, fpSemTheory.compress_word_def]
 QED
 
-Definition fpNormalOrZero_def:
-  fpNormalOrZero v =
-  case v of
-  | [FP_WordTree fp] => normal_or_zero (fp64_to_real (compress_word fp))
-  | [Litv (Word64 w)] => normal_or_zero (fp64_to_real w)
-  | _ => T
-End
-
 Triviality ast_exp6_size_APPEND:
   ast$exp6_size (es1 ++ es2) = exp6_size es1 + exp6_size es2
 Proof
@@ -1444,6 +1438,7 @@ Termination
   \\ fs[ast_exp6_size_REVERSE]
 End
 
+(*
 Theorem evaluate_fine_eval_expr_valid:
   ∀ varMap f theCmd freshId (st:'ffi semanticPrimitives$state) env E fVars.
     toFloVerExp varMap f = SOME theCmd ∧
@@ -1607,7 +1602,6 @@ Proof
    \\ rpt (disch_then drule \\ fs[freevars_def]))
 QED
 
-
 Theorem evaluate_fine_bstep_valid:
   ∀ varMap freshId f theIds freshId2 theCmd (st:'ffi semanticPrimitives$state) env E fVars.
     toFloVerCmd varMap freshId f = SOME (theIds, freshId2, theCmd) ∧
@@ -1730,6 +1724,7 @@ Proof
   \\ drule (INST_TYPE [“:'ffi” |-> “:unit”] evaluate_fine_bstep_valid)
   \\ rpt (disch_then drule \\ fs[state_component_equality, fpState_component_equality])
 QED
+*)
 
 Theorem buildFloVerTypeMap_correct:
   ∀ floverVars x.
@@ -2043,8 +2038,6 @@ Theorem CakeML_FloVer_infer_error:
   ∀ env theVars vs e body
   theCmd P theBounds.
     checkErrorbounds_succeeds (e,theVars,body,P,theCmd,theBounds) ∧
-    (* evaluation does not run into subnormal numbers *)
-    evaluate_fine empty_state (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] ∧
     is_precond_sound theVars vs P ⇒
   ∃ iv err r fp fp2.
     (* the analysis result returned contains an error bound *)
@@ -2220,26 +2213,6 @@ Proof
    \\ disch_then (qspec_then ‘env’ assume_tac)
    \\ fs[mkFloVerPre_def])
   \\ impl_tac
-  >- (
-    drule evaluate_fine_bstep_noopt
-    \\ rpt (disch_then drule)
-    \\ disch_then irule
-    \\ qexists_tac ‘λ (x,y). MEM (x,y) varMap’ \\ rpt conj_tac
-    >- (rpt strip_tac \\ ‘MEM (x',y) varMap’ by fs[IN_DEF] \\ res_tac \\ fs[ids_unique_def])
-    >- (
-     rpt strip_tac
-     \\ ‘∃ y. MEM (x',y) varMap’
-      by (imp_res_tac toFloVerCmd_freeVars_freevars
-          \\ fs[freevars_def]
-          \\ pop_assum imp_res_tac
-          \\ fs[ids_unique_def]
-          \\ res_tac \\ fs[] \\ rveq
-          \\ imp_res_tac lookupCMLVar_mem
-          \\ fsrw_tac [SATISFY_ss] [])
-      \\ fs[ids_unique_def] \\ res_tac
-      \\ unabbrev_all_tac \\ rveq \\ fs[IN_DEF] \\ rveq \\ fs[])
-    \\ unabbrev_all_tac \\ fs[sem_env_component_equality])
-  \\ impl_tac
   (* invariant of the translation to FloVer: noDowncastFun is true *)
   >- (
     irule toFloVerCmd_noDowncastFun
@@ -2322,8 +2295,6 @@ End
 Theorem CakeML_FloVer_sound_error:
   ∀ decl P err theVars vs body env.
   isOkError_succeeds (decl,P,err,theVars,body) ∧
-  evaluate_fine empty_state
-    (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] ∧
   is_precond_sound theVars vs P ⇒
   ∃ r fp.
     (* the CakeML code returns a valid floating-point word *)
@@ -2351,6 +2322,9 @@ Proof
   \\ imp_res_tac CakeML_FloVer_infer_error
   \\ pop_assum mp_tac \\ simp[checkErrorbounds_succeeds_def]
   \\ disch_then drule
+  \\ disch_then (qspecl_then [‘cmd’, ‘bounds’, ‘env’] mp_tac)
+  \\ impl_tac
+  >- (fs[])
   \\ strip_tac \\ fs[]
   \\ irule REAL_LE_TRANS \\ rfs[] \\ asm_exists_tac \\ fs[]
 QED
