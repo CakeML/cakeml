@@ -20,8 +20,9 @@ Definition ffiBufferAddr_def:
 End
 
 
+
 Definition ffiBufferSize_def:
-  ffiBufferSize = 16w:'a word
+  ffiBufferSize =  (bytes_in_word + 1w): 'a word
 End
 
 
@@ -192,7 +193,6 @@ Definition adjustClks_def:
 End
 
 
-
 Definition check_input_time_def:
   check_input_time =
     nested_seq [
@@ -208,10 +208,10 @@ End
 Definition check_input_time_def:
   check_input_time =
     nested_seq [
-        ExtCall «check_input» «ptr1» «len1» «ptr2» «len2» ;
-        Assign  «isInput» (Load One (Var «ptr2»)) ;
         ExtCall «get_time» «ptr1» «len1» «ptr2» «len2» ;
-        Assign  «sysTime» (Load One (Var «ptr2»))]
+        Assign  «sysTime» (Load One (Var «ptr2»)) ;
+        ExtCall «check_input» «ptr1» «len1» «ptr2» «len2» ;
+        Assign  «isInput» (Load One (Var «ptr2»))]
 End
 *)
 
