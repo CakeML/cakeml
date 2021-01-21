@@ -1420,6 +1420,52 @@ Proof
   cheat
 QED
 
+
+Theorem step_delay_eval_wait_not_zero:
+  !prog d s t.
+    step prog (LDelay d) s (mkState (delay_clocks (s.clocks) d) s.location NONE NONE) ∧
+    equiv_flags t.locals «isInput» (NONE:ioAction option) ∧
+    equiv_flags t.locals «waitSet» s.waitTime ∧
+    (?tm. FLOOKUP t.locals «sysTime» = SOME (ValWord tm)) ∧
+    (?tm. FLOOKUP t.locals «wakeUpAt» = SOME (ValWord tm)) ==>
+    ?w.
+      eval t wait = SOME (ValWord w) ∧
+      w ≠ 0w
+Proof
+  rw [] >>
+  fs [step_cases, mkState_def] >>
+  fs [equiv_flags_def, active_low_def] >>
+  fs [wait_def] >>
+  fs [eval_def, OPT_MMAP_def] >>
+  gs [active_low_def,
+      wordLangTheory.word_op_def] >>
+  TOP_CASE_TAC >>
+  fs []
+QED
+
+
+
+Theorem step_delay_eval_wait_not_zero:
+  !t.
+    equiv_flags t.locals «isInput» NONE ∧
+    equiv_flags t.locals «waitSet» NONE ∧
+    (?tm. FLOOKUP t.locals «sysTime» = SOME (ValWord tm)) ∧
+    (?tm. FLOOKUP t.locals «wakeUpAt» = SOME (ValWord tm)) ==>
+    ?w.
+      eval t wait = SOME (ValWord w) ∧
+      w ≠ 0w
+Proof
+  rw [] >>
+  fs [equiv_flags_def, active_low_def] >>
+  fs [wait_def] >>
+  fs [eval_def, OPT_MMAP_def] >>
+  gs [active_low_def,
+      wordLangTheory.word_op_def] >>
+  TOP_CASE_TAC >>
+  fs []
+QED
+
+
 Theorem step_delay:
   !prog d s s' (t:('a,time_input) panSem$state).
     step prog (LDelay d) s s' ∧
@@ -1471,50 +1517,39 @@ Proof
                  ‘mkState (delay_clocks s.clocks d') s.location NONE NONE’,
                  ‘t’] mp_tac) >>
   fs [] >>
+  impl_tac
+  >- (
+    gs [mkState_def] >>
+    fs [step_cases, mkState_def]) >>
+  strip_tac >>
+  (* not as complicated as it seems *)
+  qexists_tac ‘ck’ >>
+  fs [] >>
+  fs [wait_input_time_limit_def] >>
+  rewrite_tac [Once evaluate_def] >>
+  ‘(mkState (delay_clocks s.clocks d') s.location NONE NONE).ioAction = NONE’ by
+    fs [mkState_def] >>
+  fs [] >>
+  pop_assum kall_tac >>
+  ‘equiv_flags t'.locals «isInput» (NONE:ioAction option)’ by cheat >>
+  drule step_delay_eval_wait_not_zero >>
   impl_tac >- cheat >>
   strip_tac >>
-
-
-
-
-
-  )
-
-
-
-
-    )
-
-
-
-
-  (*
-    FST (t.ffi.ffi_state cycles) = d + FST (t.ffi.ffi_state 0) ∧
-
-    FST (t.ffi.ffi_state (SUC cycles)) = d + FST (t.ffi.ffi_state 0)
-
-
-
-*)
-
-
-
-
-
-
-  fs [step_cases]
+  gs [] >>
+  TOP_CASE_TAC >> fs []
   >- (
-
-
-
-
-
-
-
+    qexists_tac ‘t'’ >>
+    rewrite_tac [Once evaluate_def] >>
+    gs [] >>
+    cheat (* maybe should not end up here*)) >>
+  pairarg_tac >> fs [] >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once check_input_time_def] >>
+  fs [panLangTheory.nested_seq_def] >>
+  (* start from here *)
   cheat) >>
   cheat
 QED
-
 
 
 
