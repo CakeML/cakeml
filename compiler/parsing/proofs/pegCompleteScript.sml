@@ -6,6 +6,8 @@ open preamble
      pegTheory grammarTheory pegSoundTheory
      gramTheory gramPropsTheory cmlPEGTheory
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "pegComplete"
 val _ = set_grammar_ancestry ["pegSound"]
 

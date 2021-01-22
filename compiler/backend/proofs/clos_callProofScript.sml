@@ -6,6 +6,8 @@ open preamble backendPropsTheory match_goal
      closSemTheory closPropsTheory
      clos_callTheory db_varsTheory
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory"clos_callProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]

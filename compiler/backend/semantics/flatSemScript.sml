@@ -4,6 +4,8 @@
 open preamble flatLangTheory;
 open semanticPrimitivesPropsTheory;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "flatSem";
 
 (* The values of flatLang differ from source semantic values in that

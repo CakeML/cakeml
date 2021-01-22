@@ -3,6 +3,8 @@
 *)
 open preamble wordsTheory wordsLib integer_wordTheory gc_sharedTheory gen_gcTheory;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "gen_gc_partial";
 
 val _ = ParseExtras.temp_loose_equality();

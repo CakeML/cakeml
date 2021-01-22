@@ -3,6 +3,8 @@
 *)
 open preamble data_liveTheory dataSemTheory dataPropsTheory;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory"data_liveProof";
 
 val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="dataSem"};

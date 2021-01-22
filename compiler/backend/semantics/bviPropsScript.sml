@@ -4,6 +4,8 @@
 open preamble bviSemTheory;
 local open bvlPropsTheory in end;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory"bviProps";
 
 Theorem initial_state_simp[simp]:
