@@ -28,6 +28,7 @@ val startup =
        "     .globl  cdecl(cml_stack)";
        "     .globl  cdecl(cml_stackend)";
        "cdecl(cml_main):";
+       "     la      a0,cake_main           # arg1: entry address";
        "     ld      a1,cdecl(cml_heap)     # arg2: first address of heap";
        "     la      t3,cake_bitmaps";
        "     sd      t3, 0(a1)              # store bitmap pointer";

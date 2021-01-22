@@ -30,10 +30,13 @@ val startup =
        "cdecl(cml_main):";
        "     ldr    x0,=cake_main            /* arg1: entry address */";
        "     ldr    x1,=cdecl(cml_heap)      /* arg2: first address of heap */";
+       "     ldr    x1,[x1]";
        "     ldr    x2,=cake_bitmaps";
        "     str    x2,[x1]                  /* store bitmap pointer */";
        "     ldr    x2,=cdecl(cml_stack)     /* arg3: first address of stack */";
-       "     ldr    x3,=cdecl(cml_stackend)  /* arg4: first address past the stack */ ";
+       "     ldr    x2,[x2]";
+       "     ldr    x3,=cdecl(cml_stackend)  /* arg4: first address past the stack */";
+       "     ldr    x3,[x3]";
        "     b      cake_main";
        "     .ltorg";
        ""])`` |> EVAL |> concl |> rand
