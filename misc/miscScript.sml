@@ -3882,7 +3882,9 @@ Proof
   Induct \\ Cases_on `t2` \\ fs [eq_shape_def,copy_shape_def]
   \\ rpt strip_tac \\ TRY (first_x_assum match_mp_tac)
   \\ TRY (match_mp_tac eq_shape_copy_shape) \\ fs []
-  \\ rw [] \\ fs [eq_shape_def] \\ fs [EXTENSION]
+  \\ rw [] \\ pop_assum mp_tac
+  \\ rewrite_tac [DE_MORGAN_THM] \\ strip_tac
+  \\ fs [eq_shape_def] \\ fs [EXTENSION]
   \\ TRY (first_assum (qspec_then `0` mp_tac) \\ simp_tac std_ss [])
   \\ rw [] \\ first_assum (qspec_then `2 * x + 2` mp_tac)
   \\ first_x_assum (qspec_then `2 * x + 1` mp_tac)
