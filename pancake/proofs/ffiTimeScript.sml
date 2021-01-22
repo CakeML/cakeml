@@ -32,15 +32,22 @@ End
 
 
 Definition build_ffi_def:
-  build_ffi (seq:time_input) =
+  build_ffi (seq:time_input) io =
      <| oracle    :=
         (λs f conf bytes.
           if s = "get_ffi"
           then Oracle_return (next_ffi f) (ntime_input f (LENGTH bytes))
           else Oracle_final FFI_failed)
       ; ffi_state := seq
-      ; io_events := [] |> : time_input_ffi
+      ; io_events := io|> : time_input_ffi
 End
 
+(*
+[IO_event "get_ffi" []
+               (ZIP
+                (bytes,
+                 k2mw (LENGTH bytes − 1) (FST (t'.ffi.ffi_state 0)) ++
+                      [if SND (t'.ffi.ffi_state 0) then 0w:word8 else 1w]))]
+*)
 
 val _ = export_theory();

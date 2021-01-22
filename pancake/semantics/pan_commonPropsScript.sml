@@ -792,4 +792,12 @@ Proof
   fs []
 QED
 
+Theorem fmap_to_alist_eq_fm:
+  ∀fm.
+    FEMPTY |++ MAP (λ(x,y). (x,y)) (fmap_to_alist fm) = fm
+Proof
+  cheat
+QED
+
+
 val _ = export_theory();
