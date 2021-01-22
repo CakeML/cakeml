@@ -1395,6 +1395,7 @@ Definition state_rel_def:
     mem_config t.memory t.memaddrs t.be ∧
     dimindex (:α) DIV 8 + 1 <  dimword (:α) ∧
     ffiBufferAddr ∈ t.memaddrs ∧
+    ffiBufferAddr + bytes_in_word ∈ t.memaddrs ∧
     LENGTH clks ≤ 29 ∧
     clock_bound s.clocks clks (dimword (:'a)) ∧
     let
@@ -1440,6 +1441,11 @@ Definition ffi_call_ffi_def:
 
 End
 
+
+Definition nexts_ffi_def:
+  nexts_ffi m (f:num -> (num # bool)) =
+  λn. f (n+m)
+End
 
 Theorem state_rel_imp_time_seq_ffi:
   ∀cks io s t.
@@ -1553,6 +1559,7 @@ Proof
   gs [mem_call_ffi_def, ffi_call_ffi_def]
 QED
 
+
 Theorem evaluate_assign_load:
   ∀dst trgt (t :('a, time_input) panSem$state) res t' adr tm w.
     evaluate (Assign dst (Load One (Var trgt)),t) = (res,t') ∧
@@ -1569,6 +1576,27 @@ Proof
   strip_tac >>
   gs [evaluate_def, eval_def] >>
   gs [mem_load_def] >>
+  gs [is_valid_value_def, shape_of_def]
+QED
+
+
+Theorem evaluate_assign_load_next_address:
+  ∀dst trgt (t :('a, time_input) panSem$state) res t' adr tm w.
+    evaluate (Assign dst
+              (Load One (Op Add [Var trgt ; Const bytes_in_word])),t) = (res,t') ∧
+    FLOOKUP t.locals trgt = SOME (ValWord adr) ∧
+    FLOOKUP t.locals dst = SOME (ValWord tm) ∧
+    t.memory (adr + bytes_in_word) = Word w ∧
+    adr + bytes_in_word ∈ t.memaddrs ⇒
+      res = NONE ∧
+      t' = t with locals :=
+           t.locals |+
+            (dst, ValWord w)
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  gs [evaluate_def, eval_def, OPT_MMAP_def] >>
+  gs [mem_load_def, wordLangTheory.word_op_def] >>
   gs [is_valid_value_def, shape_of_def]
 QED
 
@@ -1617,7 +1645,6 @@ Proof
     gs [] >>
     qexists_tac ‘d - d'’ >>
     gs []) >>
-
 
 
   (* splitting step, for instantiating s' *)
@@ -1693,8 +1720,6 @@ Proof
     pop_assum kall_tac >>
     pop_assum kall_tac >>
 
-
-
     drule state_rel_imp_ffi_vars >>
     strip_tac >>
     fs [ffi_vars_def] >>
@@ -1726,6 +1751,95 @@ Proof
     pairarg_tac >> fs [] >>
     qmatch_asmsub_abbrev_tac
     ‘evaluate (Assign «isInput» _, nnt)’ >>
+    ‘nt.memory (ffiBufferAddr +  bytes_in_word) =
+     Word 1w’ by cheat >>
+    drule evaluate_assign_load_next_address >>
+    gs [] >>
+    gs [equiv_flags_def, active_low_def] >>
+
+    disch_then (qspecl_then
+                [‘ffiBufferAddr’, ‘1w’,
+                 ‘1w’] mp_tac) >>
+    impl_tac
+    >- (
+      gs [Abbr ‘nnt’,Abbr ‘nt’] >>
+      gs [state_rel_def, FLOOKUP_UPDATE]) >>
+    strip_tac >>
+    gs [] >>
+    pop_assum kall_tac >>
+    pop_assum kall_tac >>
+    rewrite_tac [Once evaluate_def] >>
+    fs [] >>
+    strip_tac >> fs [] >>
+    rveq >> gs [] >>
+    fs [Abbr ‘nnt’, Abbr ‘nt’] >>
+    qmatch_goalsub_abbrev_tac ‘evaluate (_, nt)’ >>
+    qexists_tac ‘nt’ >>
+    fs [] >>
+    gs [Abbr ‘nt’] >>
+    gs [state_rel_def, mkState_def] >>
+    conj_tac
+    >- gs [equivs_def, equiv_labels_def, equiv_flags_def,
+           FLOOKUP_UPDATE] >>
+    conj_tac
+    >- gs [ffi_vars_def, FLOOKUP_UPDATE] >>
+    conj_tac
+    >- (
+      gs [mem_config_def, mem_call_ffi_def] >>
+      cheat) >>
+    conj_tac
+    >- (
+      gs [clock_bound_def, delay_clocks_def] >>
+      cheat) >>
+    pairarg_tac >> gs [] >>
+    conj_tac
+    >- (
+      fs [ffi_call_ffi_def, build_ffi_def] >>
+      fs [ffiTheory.ffi_state_component_equality] >>
+      cheat) >>
+    conj_tac
+    >- (
+      gs [ffi_call_ffi_def, time_seq_def] >>
+      rw [] >> fs [] >>
+      cheat) >>
+    cheat) >>
+  cheat
+QED
+
+
+    )
+
+
+    )
+
+
+
+
+    )
+
+
+
+
+
+
+
+
+
+
+    fs [nexts_ffi_def] >>
+    gs [] >>
+
+
+    ‘t'.ffi.ffi_state = nexts_ffi cycles t.ffi.ffi_state’ by cheat >>
+
+
+
+
+
+
+
+
+
 
 
 
