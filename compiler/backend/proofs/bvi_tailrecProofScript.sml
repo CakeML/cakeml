@@ -13,6 +13,7 @@ open preamble bviSemTheory bviPropsTheory bvi_tailrecTheory
 *)
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "bvi_tailrecProof";
 

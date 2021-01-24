@@ -565,6 +565,7 @@ Proof
   \\ imp_res_tac bvlPropsTheory.do_app_change_clock_err
   \\ fs[bvi_to_bvl_def,bvl_to_bvi_def]
   \\ fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs []
+  \\ fs [state_component_equality]
 QED
 
 Theorem evaluate_add_clock:

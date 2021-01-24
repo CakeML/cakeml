@@ -4568,8 +4568,8 @@ Proof
   \\ `LFLATTEN (fromList (REPLICATE a1 [||])) = [||]`
       by(rw[LFLATTEN_EQ_NIL,every_LNTH,LNTH_fromList,EL_REPLICATE])
   \\ fs[]
-  \\ qpat_x_assum `LLENGTH _ = SOME _` mp_tac
-  \\ simp[SimpL ``$==>``,Once LGENLIST_NONE_UNFOLD]
+  \\ qpat_x_assum `LLENGTH _ = SOME _`
+       (mp_tac o ONCE_REWRITE_RULE [LGENLIST_NONE_UNFOLD])
   \\ fs[LLENGTH_LGENLIST]
   \\ fs[]
   \\ rw[LLENGTH_APPEND]

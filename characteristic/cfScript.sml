@@ -791,7 +791,7 @@ Proof
   try_finally (
     CONV_TAC quantHeuristicsTools.OR_NOT_CONV \\
     strip_tac \\ rw [] \\ fs []
-  ) \\
+  ) \\ TRY (CCONTR_TAC \\ fs [] \\ NO_TAC) \\
   progress_then
     (qspecl_then [`insts'`, `wildcards'`] assume_tac)
     (fst (CONJ_PAIR (v_of_pat_insts_unique))) \\

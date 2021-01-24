@@ -15,6 +15,7 @@ local open word_to_stackProofTheory data_to_word_gcProofTheory in end
 val _ = new_theory"stack_to_labProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 

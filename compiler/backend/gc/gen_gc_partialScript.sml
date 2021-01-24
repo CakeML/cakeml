@@ -3062,7 +3062,6 @@ Theorem partial_gc_IMP:
                           ?xs l d. MEM (DataElement xs l d) curr /\ c.isRef d)
 Proof
   fs [partial_gc_def] \\ CASE_TAC \\ fs []
-  THEN1 (CCONTR_TAC \\ rw [] \\ fs [] \\ rveq \\ fs [])
   \\ CASE_TAC \\ CASE_TAC
   \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ rveq \\ fs []
   \\ `?s4. gc_move_data c (state' with <|r2 := []; r1 := refs'|>) = s4` by fs []

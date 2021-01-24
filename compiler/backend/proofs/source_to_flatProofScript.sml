@@ -804,7 +804,8 @@ val do_app = Q.prove (
   simp [astOp_to_flatOp_def]
   >- ((* Opn *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      fs [AllCaseEqs()] \\ CCONTR_TAC \\ fs [] \\ gvs [])
   >- ((* Opb *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
