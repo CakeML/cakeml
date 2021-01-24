@@ -2517,6 +2517,90 @@ Proof
   >> fs[sum_case_def,LR_TYPE_SUBST_cases,tvars_def,tyvars_TYPE_SUBST]
 QED
 
+Theorem mg_sol_ext_geq_tyvars_p0[local]:
+  !rs pqs q ρ' ctxt.
+  let qn = SND (EL (PRE (LENGTH pqs)) pqs) ;
+      rn_qn = LR_TYPE_SUBST (EL (PRE (LENGTH rs)) rs) qn ;
+      p = LR_TYPE_SUBST ρ' rn_qn
+  in
+    mg_sol_seq rs pqs
+    /\ 0 < LENGTH rs
+    /\ EVERY (UNCURRY (dependency ctxt)) pqs
+    /\ monotone (dependency ctxt)
+    /\ wf_pqs [(p,q)]
+    ==> ?rs'.
+      mg_sol_seq rs' pqs
+      /\ LR_TYPE_SUBST (EL (PRE (LENGTH rs)) rs) (SND (EL (PRE (LENGTH pqs)) pqs))
+        = LR_TYPE_SUBST (EL (PRE (LENGTH rs')) rs') (SND (EL (PRE (LENGTH pqs)) pqs))
+      /\ let r' = FV (LR_TYPE_SUBST (EL 0 rs') (FST $ EL 0 pqs)) ;
+          s' = FV (LR_TYPE_SUBST (EL (PRE $ LENGTH rs') rs') (SND $ EL (PRE $ LENGTH pqs) pqs)) ;
+          c' = FV (LR_TYPE_SUBST ρ' $ LR_TYPE_SUBST (EL (PRE $ LENGTH rs') rs') (SND $ EL (PRE $ LENGTH pqs) pqs))
+         in NULL $ list_inter (list_complement r' s') (LIST_UNION s' c')
+Proof
+  BasicProvers.LET_ELIM_TAC
+  >> qabbrev_tac `p0 = FST (EL 0 pqs)`
+  >> qabbrev_tac `r0_p0 = LR_TYPE_SUBST (EL 0 rs) p0`
+  >> qabbrev_tac `t = FV rn_qn`
+  >> qabbrev_tac `r = FV r0_p0`
+  >> qabbrev_tac `c = FV p`
+  >> qspecl_then [`r`,`t`,`c`] assume_tac renn_disj_dom_s
+  >> qspecl_then [`r`,`t`,`c`] assume_tac renn_disj_dom_img2
+  >> `is_const_or_type p0 /\ is_const_or_type r0_p0 /\ is_const_or_type qn /\ is_const_or_type rn_qn` by (
+    unabbrev_all_tac
+    >> ntac 2 $ irule_at Any LR_TYPE_SUBST_type_preserving
+    >> imp_res_tac mg_sol_seq_LENGTH
+    >> drule mg_sol_seq_is_const_or_type
+    >> fs[]
+  )
+  >> qspecl_then [`r`,`t`,`c`,`rn_qn`] mp_tac renn_ID_LR_TYPE_SUBST
+  >> impl_tac
+  >- (qunabbrev_tac `t` >> fs[SUBSET_REFL,list_subset_set])
+  >> qmatch_goalsub_abbrev_tac `LR_TYPE_SUBST (renn R C) _`
+  >> strip_tac
+  >> drule_then (qspec_then `ρ'` assume_tac) $ GSYM LR_TYPE_SUBST_FILTER_SND_tyvars
+  >> qmatch_asmsub_abbrev_tac `LR_TYPE_SUBST _ _ = LR_TYPE_SUBST ρ'' _`
+  >> drule_then (qspec_then `renn R C` assume_tac) mg_sol_seq_var_renaming
+  >> rw[markerTheory.Abbrev_def]
+  >> fs[renn_var_renaming]
+  >> goal_assum drule
+  >> ONCE_REWRITE_TAC[GSYM EL]
+  >> fs[GSYM LR_TYPE_SUBST_compose,EL_MAP]
+  >> rw[NULL_FILTER,list_inter_def,holSyntaxRenamingTheory.list_complement_MEM,DISJ_EQ_IMP]
+  >> rfs[FV_LR_TYPE_SUBST]
+  >> qspecl_then [`R`,`C`,`x`] assume_tac renn_Tyvars_TYPE_SUBST
+  >> gvs[tyvars_def]
+  >> Cases_on `MEM x t`
+  >- (
+    qspecl_then [`R`,`C`,`x`] mp_tac renn_ID
+    >> map_every qunabbrev_tac [`R`,`C`]
+    >> rw[holSyntaxRenamingTheory.list_complement_MEM]
+  )
+  >> `MEM x R` by fs[Abbr`R`,holSyntaxRenamingTheory.list_complement_MEM]
+  >> Cases_on `MEM x C`
+  >- (
+    `MEM x c` by gs[Abbr`C`,Abbr`R`,holSyntaxRenamingTheory.list_complement_MEM]
+    >> qspecl_then [`R`,`C`] mp_tac renn_disj_dom_img3
+    >> ONCE_REWRITE_TAC[holSyntaxRenamingTheory.NULL_list_inter_COMM]
+    >> REWRITE_TAC[NULL_FILTER,Once list_inter_def,holSyntaxRenamingTheory.list_inter_set]
+    >> disch_then $ qspec_then `Tyvar a` mp_tac
+    >> impl_tac
+    >- (
+      fs[o_DEF,MEM_MAP,holSyntaxRenamingTheory.list_inter_set]
+      >> rpt $ goal_assum $ drule_at Any
+      >> fs[]
+    )
+    >> fs[MEM_Tyvar_MAP_Tyvar]
+  )
+  >> qspecl_then [`R`,`C`,`x`] mp_tac renn_ID
+  >> impl_tac
+  >- (
+    map_every qunabbrev_tac [`R`,`C`]
+    >> rw[holSyntaxRenamingTheory.list_complement_MEM,set_LIST_UNION]
+  )
+  >> strip_tac
+  >> gvs[]
+QED
+
 Theorem var_renaming_FV_LENGTH:
   !p s.  is_const_or_type p
   /\ var_renaming s
@@ -2639,6 +2723,82 @@ Proof
   >> dep_rewrite.DEP_REWRITE_TAC[EL_MAP,GSYM LR_TYPE_SUBST_compose,equal_ts_on_FV]
   >> imp_res_tac sol_seq_is_const_or_type_FST
   >> fs[]
+QED
+
+Theorem mg_sol_ext_geq_NOT_leq:
+  !rs pqs p q s ctxt. mg_sol_seq rs pqs
+  /\ 0 < LENGTH rs
+  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  /\ monotone (dependency ctxt)
+  /\ p = LR_TYPE_SUBST s (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs)))
+  /\ ~is_instance_LR p (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs)))
+  /\ wf_pqs [(p,q)]
+  /\ dependency ctxt p q
+  ==>
+  ?r. mg_sol_seq ((MAP (λs. MAP (TYPE_SUBST r ## I) s ++ r) rs)++[[]]) (pqs++[(p,q)])
+  /\ sol_seq_measure (LR_TYPE_SUBST (EL 0 rs) (FST $ EL 0 pqs))
+        (LR_TYPE_SUBST ((λs. MAP (TYPE_SUBST r ## I) s ++ r) (EL 0 rs)) (FST $ EL 0 pqs))
+Proof
+  rpt strip_tac
+  >> VAR_EQ_TAC
+  >> imp_res_tac mg_sol_seq_LENGTH
+  >> drule $ ONCE_REWRITE_RULE[CONJ_COMM] mg_solution'
+  >> ntac 2 $ disch_then drule
+  >> dxrule $ SIMP_RULE(bool_ss++LET_ss) [] mg_sol_ext_geq_tyvars_p0
+  >> `rs <> [] /\ pqs <> []` by (CCONTR_TAC >> gs[])
+  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LAST_EL,LR_TYPE_SUBST_type_preserving]
+  >> fs[]
+  >> disch_then $ drule_all_then strip_assume_tac
+  >> disch_then $ drule (* mg_solution' *)
+  >> ntac 2 $ pop_assum mp_tac
+  >> drule_then strip_assume_tac mg_sol_seq_LENGTH
+  >> `rs' <> []` by (CCONTR_TAC >> fs[])
+  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LAST_EL,LR_TYPE_SUBST_type_preserving]
+  >> drule mg_sol_seq_is_const_or_type
+  >> rw[IMP_CONJ_THM,FORALL_AND_THM]
+  >> qmatch_asmsub_abbrev_tac `NULL $ list_inter (list_complement r' s') (LIST_UNION s' c')`
+  >> dxrule_at Any is_instance_LR_NOT_is_instance_LR
+  >> impl_tac
+  >- (
+    match_mp_tac is_instance_LR_simps
+    >> match_mp_tac LR_TYPE_SUBST_type_preserving
+    >> fs[LAST_EL]
+  )
+  >> drule mg_sol_ext_geq
+  >> rpt $ disch_then $ drule_at Any
+  >> disch_then $ qspec_then `s` mp_tac
+  >> asm_rewrite_tac[]
+  >> rpt strip_tac
+  >> qexists_tac `(MAP (TYPE_SUBST r ## I) es ++ r)`
+  >> conj_tac
+  >- (
+    rpt (PRED_ASSUM (exists (curry op = "LAST")
+      o map (fst o dest_const) o find_terms is_const) mp_tac)
+    >> dep_rewrite.DEP_REWRITE_TAC[LAST_EL,equal_ts_on_FV,LR_TYPE_SUBST_type_preserving]
+    >> rw[]
+    >> drule_then (drule_then match_mp_tac)  mg_sols_equal_ts_on
+    >> fs[]
+    >> rw[]
+    >> Cases_on `i < LENGTH pqs`
+    >- (
+      first_x_assum drule
+      >> dep_rewrite.DEP_REWRITE_TAC[EL_MAP,EL_APPEND1,equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose]
+      >> rw[]
+      >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_compose,MAP_MAP_o,MAP_APPEND,o_DEF,LR_TYPE_SUBST_type_preserving]
+      >> fs[]
+    )
+    >> dep_rewrite.DEP_REWRITE_TAC[EL_MAP,EL_APPEND2]
+    >> gs[NOT_LESS,LESS_OR_EQ,equal_ts_on_refl]
+  )
+  >> first_assum $ qspec_then `0` $ mp_tac o ONCE_REWRITE_RULE[equal_ts_on_symm]
+  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,equal_ts_on_FV]
+  >> conj_asm1_tac
+  >- (REWRITE_TAC[GSYM EL] >> fs[])
+  >> rw[]
+  >> drule_then match_mp_tac var_renaming_sol_seq_measure
+  >> gs[LR_TYPE_SUBST_type_preserving]
+  >> qmatch_asmsub_abbrev_tac `mg_sol_seq (rs'' ++ _) _`
+  >> cheat (* TODO *)
 QED
 
 (* Lemma 5.11, Kunčar 2015 *)
