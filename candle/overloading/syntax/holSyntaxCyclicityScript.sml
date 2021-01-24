@@ -1588,6 +1588,71 @@ Proof
   >> fs[el_map_count,Abbr`P`]
 QED
 
+Theorem mg_solution''[local]:
+  !rs rs' pqs es es' i ctxt. mg_sol_seq rs pqs /\ mg_sol_seq rs' pqs
+  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  /\ monotone (dependency ctxt)
+  /\ SUC i < LENGTH pqs
+  /\ equal_ts_on (EL i rs) (MAP (TYPE_SUBST es ## I) (EL i rs') ++ es) (FV (FST (EL i pqs)))
+  /\ equal_ts_on (EL (SUC i) rs) (MAP (TYPE_SUBST es' ## I) (EL (SUC i) rs') ++ es') (FV (FST (EL (SUC i) pqs)))
+  /\ var_renaming es /\ var_renaming es'
+  ==> equal_ts_on es es' (FV (LR_TYPE_SUBST (EL (SUC i) rs') (FST (EL (SUC i) pqs))))
+Proof
+  rw[]
+  >> imp_res_tac $ cj 1 $ REWRITE_RULE[IMP_CONJ_THM,FORALL_AND_THM] $
+    cj 1 $ REWRITE_RULE[EQ_IMP_THM] mg_sol_seq_def
+  >> gs[sol_seq_def]
+  >> `i < LENGTH pqs` by fs[]
+  >> imp_res_tac mg_sol_seq_is_const_or_type
+  >> ntac 2 $ first_x_assum $ drule_then assume_tac
+  >> drule_then (qspec_then `FV (SND (EL (SUC i) pqs))` mp_tac) equal_ts_on_subset
+  >> impl_tac >- (rev_drule_all FV_SND_SUBSET_FST >> fs[])
+  >> rev_drule_then (qspec_then `FV (SND (EL i pqs))` mp_tac) equal_ts_on_subset
+  >> impl_tac >- (drule_all FV_SND_SUBSET_FST >> fs[])
+  >> ntac 2 $ qpat_x_assum `equal_ts_on _ _ _` mp_tac
+  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV]
+  >> gs[GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving]
+QED
+
+(* TODO replace uses of mg_solutions with mg_solution' *)
+(* our stronger version of 5.4 *)
+Theorem mg_solution':
+  !rs rs' pqs ctxt.
+    mg_sol_seq rs pqs /\ mg_sol_seq rs' pqs
+    /\ EVERY (UNCURRY (dependency ctxt)) pqs
+    /\ monotone (dependency ctxt)
+    ==> ?es. var_renaming es /\
+      !i. i < LENGTH rs ==>
+      equal_ts_on (EL i rs) (MAP (TYPE_SUBST es ## I) (EL i rs') ++ es) (FV $ FST $ EL i pqs)
+Proof
+  rpt strip_tac
+  >> drule_then assume_tac mg_sol_seq_is_const_or_type
+  >> rev_drule_then (drule_then assume_tac) mg_solution
+  >> imp_res_tac mg_sol_seq_LENGTH
+  >> reverse $ Cases_on `0 < LENGTH pqs`
+  >- (qexists_tac `[]` >> fs[var_renaming_nil])
+  >> first_assum $ drule_then assume_tac
+  >> fs[FORALL_AND_THM,IMP_CONJ_THM]
+  >> first_assum $ drule
+  >> dep_rewrite.DEP_ONCE_REWRITE_TAC[equiv_ts_on_FV]
+  >> rw[]
+  >> goal_assum drule
+  >> Induct
+  >- fs[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose]
+  >> strip_tac
+  >> first_x_assum drule
+  >> rw[equiv_ts_on_FV]
+  >> pop_assum mp_tac
+  >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_compose,GSYM equal_ts_on_FV]
+  >> fs[]
+  >> rw[]
+  >> rev_drule_then drule mg_solution''
+  >> rpt $ disch_then $ drule
+  >> pop_assum mp_tac
+  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose,equal_ts_on_FV,LR_TYPE_SUBST_type_preserving]
+  >> fs[]
+QED
+
 (* Definition 5.5, Kunčar 2015 *)
 Definition path_starting_at_def:
   path_starting_at ctxt k rs pqs =
