@@ -7,6 +7,8 @@ open preamble ml_translatorTheory ml_translatorLib ml_progLib
      CommandLineProofTheory TextIOProofTheory
      runtimeFFITheory RuntimeProofTheory
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory"basis_ffi";
 
 (*---------------------------------------------------------------------------*)
