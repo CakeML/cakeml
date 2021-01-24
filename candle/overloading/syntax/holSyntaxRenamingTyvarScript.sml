@@ -451,6 +451,64 @@ Proof
   >> fs[MAP_MAP_o,SWAP_SWAP_INVOL]
 QED
 
+Theorem rename_bij_inj_MEM[local]:
+  !s x x'. rename_bij s
+  /\ REV_ASSOCD x s x = REV_ASSOCD x' s x'
+  /\ MEM x (MAP SND s)
+  ==> x = x'
+Proof
+  rw[MEM_MAP]
+  >> drule_all_then strip_assume_tac rename_bij_MEM_REV_ASSOCD
+  >> Cases_on `MEM x' (MAP SND s)`
+  >- (
+    fs[MEM_MAP]
+    >> drule_all_then strip_assume_tac rename_bij_MEM_REV_ASSOCD
+    >> gs[]
+    >> drule_then strip_assume_tac rename_bij_ALL_DISTINCT_FST
+    >> dxrule_then match_mp_tac ALL_DISTINCT_FST_MEMs
+    >> rename[`SND yy`]
+    >> PairCases_on `yy`
+    >> gs[]
+    >> rename[`SND yy'`]
+    >> PairCases_on `yy'`
+    >> gs[]
+    >> rpt $ goal_assum drule
+  )
+  >> drule $ cj 2 rename_bij_def_imps
+  >> rw[EVERY_MEM]
+  >> first_x_assum drule
+  >> drule_then imp_res_tac rename_bij_NOT_MEM_REV_ASSOCD
+  >> imp_res_tac $
+  Ho_Rewrite.REWRITE_RULE[SET_EQ_SUBSET,SUBSET_DEF] $
+  cj 1 rename_bij_def_imps
+  >> first_x_assum $ drule_at Concl
+  >> imp_res_tac $ Q.ISPEC `FST` MEM_MAP_f
+  >> gs[]
+QED
+
+Theorem rename_bij_inj_NOT_MEM[local]:
+  !s x x'. rename_bij s
+  /\ REV_ASSOCD x s x = REV_ASSOCD x' s x'
+  /\ ~MEM x' (MAP SND s)
+  ==> x = x'
+Proof
+  rw[]
+  >> Cases_on `MEM x (MAP SND s)`
+  >- (drule_all rename_bij_inj_MEM >> fs[])
+  >> drule_then imp_res_tac rename_bij_NOT_MEM_REV_ASSOCD
+  >> fs[]
+QED
+
+Theorem rename_bij_inj:
+  !s x x'. rename_bij s
+  /\ REV_ASSOCD x s x = REV_ASSOCD x' s x'
+  ==> x = x'
+Proof
+  rw[]
+  >> Cases_on `MEM x (MAP SND s)`
+  >> metis_tac[rename_bij_inj_MEM,rename_bij_inj_NOT_MEM]
+QED
+
 (* TODO move *)
 Theorem INSERT_DELETE':
   x ∉ A ∧ x INSERT A = B ⇒ A = B DELETE x
@@ -620,6 +678,57 @@ Proof
   rw[var_renaming_eq,MEM_MAP,EVERY_MEM]
   >> first_x_assum (drule_then strip_assume_tac)
   >> fs[]
+QED
+
+Theorem var_renaming_TYPE_SUBST_Tyvar:
+  !s m x. var_renaming s
+  /\ TYPE_SUBST s (Tyvar m) = x
+  ==> ?b. x = Tyvar b
+Proof
+  rw[]
+  >> Cases_on `MEM (Tyvar m) $ MAP SND s`
+  >- (
+    fs[MEM_MAP]
+    >> rename[`MEM y _`]
+    >> PairCases_on `y`
+    >> fs[]
+    >> rveq
+    >> drule_all var_renaming_MEM_REV_ASSOCD
+    >> drule_all_then strip_assume_tac $ cj 3 var_renaming_Tyvar_imp
+    >> fs[]
+  )
+  >> fs[var_renaming_NOT_MEM_REV_ASSOCD_IMP]
+QED
+
+Theorem var_renaming_inj:
+  !s x x'. var_renaming s
+  /\ TYPE_SUBST s x = TYPE_SUBST s x'
+  ==> x = x'
+Proof
+  gen_tac
+  >> ho_match_mp_tac type_ind
+  >> fs[]
+  >> rw[]
+  >- (
+    drule_then (qspec_then `m` assume_tac) var_renaming_TYPE_SUBST_Tyvar
+    >> Cases_on `x'`
+    >> gs[var_renaming_def]
+    >> drule_then (qspecl_then [`Tyvar m`,`Tyvar m'`] mp_tac) rename_bij_inj
+    >> fs[]
+  )
+  >> Cases_on `x'`
+  >- (
+    drule_then (qspec_then `m'` assume_tac) var_renaming_TYPE_SUBST_Tyvar
+    >> gs[var_renaming_def]
+  )
+  >> gs[MAP_EQ_EVERY2,EVERY_MEM,LIST_REL_EL_EQN]
+  >> match_mp_tac LIST_EQ
+  >> rw[]
+  >> first_x_assum $ drule_then assume_tac
+  >> rename[`x < LENGTH _`]
+  >> `MEM (EL x l) l` by fs[EL_MEM]
+  >> first_x_assum $ drule_then assume_tac
+  >> rw[]
 QED
 
 Theorem var_renaming_MEM_ineq:
