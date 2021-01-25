@@ -6,6 +6,8 @@ open asmLib x64_stepLib x64_targetTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val () = new_theory "x64_targetProof"
 
 val () = wordsLib.guess_lengths()
