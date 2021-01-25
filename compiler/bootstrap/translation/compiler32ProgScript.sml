@@ -9,7 +9,7 @@ open compilerTheory
      ml_translatorLib ml_translatorTheory;
 open cfLib basis;
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory"compiler32Prog";
 

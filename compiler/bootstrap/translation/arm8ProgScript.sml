@@ -8,7 +8,7 @@ open x64ProgTheory
 open arm8_targetTheory arm8Theory;
 open inliningLib;
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "arm8Prog"
 
