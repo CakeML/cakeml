@@ -166,7 +166,7 @@ val iter_count = “10000000:int”
 
 val call_code = Parse.Term ‘
 [Dlet unknown_loc (Pvar "it")
-(Let (SOME "u") (Con NONE [])
+(Let (SOME "u") (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))])
  (Let (SOME "strArgs")
   (App Opapp [Var (Short "reader3"); Var (Short "u")])
   (Mat (Var (Short "strArgs"))
@@ -179,13 +179,13 @@ val call_code = Parse.Term ‘
         (App Opapp [Var (Short "intToFP"); Var (Short "d3s")])
         (Let (SOME "b")
          (Fun "x"
-          (Let NONE
+          (Let (SOME "y")
            (App Opapp [
               App Opapp [
                 App Opapp [Var (Short "rigidBody"); Var (Short "d1")];
                 Var (Short "d2")];
               Var (Short "d3")])
-           (Con NONE [])))
+           (Var (Short "y"))))
          (App Opapp [
             App Opapp [
               App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];

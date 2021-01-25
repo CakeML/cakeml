@@ -87,7 +87,7 @@ End
 Definition matchesFPexp_def:
   (matchesFPexp (Word w1) e s =
     case e of
-    | Lit (Word64 w2) =>
+    | App FpFromWord [Lit (Word64 w2)] =>
       if (w1 = w2) then SOME s else NONE
     | _ => NONE) /\
   (matchesFPexp (Var n) e s =
@@ -138,7 +138,7 @@ End
 
 (* Instantiate a given fp_pattern with a substitution into an expression *)
 Definition appFPexp_def:
-  appFPexp (Word w) s = SOME (Lit (Word64 w)) /\
+  appFPexp (Word w) s = SOME (App FpFromWord [Lit (Word64 w)]) /\
   appFPexp (Var n) s = substLookup s n /\
   appFPexp (Unop u p) s = (do e <- appFPexp p s; return (App (FP_uop u) [e]); od) /\
   appFPexp (Binop op p1 p2) s =
