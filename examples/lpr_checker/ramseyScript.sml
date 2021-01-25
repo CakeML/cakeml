@@ -708,7 +708,7 @@ Proof
   `ALL_DISTINCT (QSORT $<= (SET_TO_LIST t))` by
      (pop_assum (assume_tac o GSYM o MATCH_MP ALL_DISTINCT_PERM)>>
      fs[])>>
-  `LENGTH (SET_TO_LIST t) = k` by fs[SET_TO_LIST_CARD]>>
+  `∃k. LENGTH (SET_TO_LIST t) = k` by fs[]>>
   `SORTED $< (QSORT $<= (SET_TO_LIST t))` by
     (`SORTED $<= (QSORT $<= (SET_TO_LIST t))` by
           (match_mp_tac QSORT_SORTED>>
@@ -728,6 +728,7 @@ Proof
     simp[])>>
   simp[GSYM EXISTS_OR_THM]>>
   qexists_tac`QSORT $<= (SET_TO_LIST t)`>>simp[]>>
+  drule SET_TO_LIST_CARD >> strip_tac >> fs [] >>
   Cases_on`b`>>fs[]
   >-
     (DISJ2_TAC>>
