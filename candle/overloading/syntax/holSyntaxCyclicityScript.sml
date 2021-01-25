@@ -2756,7 +2756,7 @@ Proof
   >> dep_rewrite.DEP_REWRITE_TAC[GSYM LAST_EL,LR_TYPE_SUBST_type_preserving]
   >> drule mg_sol_seq_is_const_or_type
   >> rw[IMP_CONJ_THM,FORALL_AND_THM]
-  >> qmatch_asmsub_abbrev_tac `NULL $ list_inter (list_complement r' s') (LIST_UNION s' c')`
+  >> qmatch_asmsub_abbrev_tac `NULL $ list_inter (list_complement _ _) (LIST_UNION _ c')`
   >> dxrule_at Any is_instance_LR_NOT_is_instance_LR
   >> impl_tac
   >- (
@@ -2797,7 +2797,46 @@ Proof
   >> rw[]
   >> drule_then match_mp_tac var_renaming_sol_seq_measure
   >> gs[LR_TYPE_SUBST_type_preserving]
+  >> rpt (PRED_ASSUM (exists (curry op = "rs")
+    o map (fst o dest_var) o find_terms is_var) kall_tac)
+  >> rpt (PRED_ASSUM (exists (curry op = "LAST")
+    o map (fst o dest_const) o find_terms is_const) mp_tac)
+  >> ONCE_REWRITE_TAC[equal_ts_on_symm]
+  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,LAST_EL]
+  >> rw[LR_TYPE_SUBST_type_preserving]
+  >> qpat_x_assum `LR_TYPE_SUBST s _ = _` kall_tac
+  >> qmatch_goalsub_abbrev_tac `sol_seq_measure r0_p0 _`
+  >> qmatch_asmsub_abbrev_tac `sol_seq_measure rn_qn _`
   >> qmatch_asmsub_abbrev_tac `mg_sol_seq (rs'' ++ _) _`
+  >> `set (FV rn_qn) ⊆ set (FV r0_p0)` by (
+    map_every qunabbrev_tac [`rn_qn`,`r0_p0`]
+    >> ONCE_REWRITE_TAC[GSYM EL]
+    >> match_mp_tac sol_seq_FV_LR_TYPE_SUBST_SND_j_FST_i
+    >> rpt $ goal_assum $ drule_at Any
+    >> fs[mg_sol_seq_def]
+  )
+  >> `is_const_or_type rn_qn /\ is_const_or_type r0_p0` by (
+    map_every qunabbrev_tac [`rn_qn`,`r0_p0`]
+    >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_type_preserving]
+    >> ONCE_REWRITE_TAC[GSYM EL]
+    >> fs[]
+  )
+  >> drule_at Any $ Ho_Rewrite.REWRITE_RULE[AND_IMP_INTRO,PULL_FORALL] CARD_SUBSET
+  >> strip_tac
+  >> fs[sol_seq_measure_def,Once DISJ_COMM,type_size_LR_TYPE_SUBST]
+  >> TRY (
+    qmatch_asmsub_abbrev_tac `type_size_LR rn_qn < type_size_LR (LR_TYPE_SUBST r rn_qn)`
+    >> drule_then (qspec_then `r` assume_tac) type_size_LR_TYPE_SUBST
+    >> qspecl_then [`rn_qn`,`r0_p0`] mp_tac type_size_LR_FV
+    >> fs[]
+  )
+  >> rw[DISJ_EQ_IMP]
+  >> rfs[NOT_LESS]
+  >> dxrule LESS_EQUAL_ANTISYM
+  >> rw[type_size_LR_TYPE_SUBST]
+  >> qpat_x_assum `LENGTH _ < LENGTH _` mp_tac
+  >> dep_rewrite.DEP_REWRITE_TAC[GSYM ALL_DISTINCT_CARD_LIST_TO_SET,FV_ALL_DISTINCT,LR_TYPE_SUBST_type_preserving]
+  >> rw[]
   >> cheat (* TODO *)
 QED
 
