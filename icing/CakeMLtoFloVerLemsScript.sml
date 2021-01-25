@@ -11,6 +11,8 @@ open ExpressionsTheory CommandsTheory IEEE_connectionTheory;
 open CakeMLtoFloVerTheory;
 open preamble;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "CakeMLtoFloVerLems";
 
 Definition freevars_def:

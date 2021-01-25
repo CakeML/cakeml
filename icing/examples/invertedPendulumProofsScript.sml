@@ -123,11 +123,7 @@ val invertedPendulum_pre = invertedPendulum_pre_def |> concl |> rhs;
 
 Definition invertedPendulum_side_def:
   invertedPendulum_side w1 w2 w3 w4 =
-   (evaluate_fine empty_state
-     (invertedPendulum_env with v :=
-      extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3;w4]) (invertedPendulum_env).v)
-     [^body] ∧
-     (is_precond_sound ^fvars [w1; w2; w3;w4] ^invertedPendulum_pre))
+    (is_precond_sound ^fvars [w1; w2; w3;w4] ^invertedPendulum_pre)
 End
 
 Definition invertedPendulum_real_fun_def:
@@ -163,8 +159,8 @@ Proof
   \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ fs[] \\ rveq
   \\ first_assum (mp_then Any mp_tac CakeML_FloVer_infer_error)
   \\ fs[checkErrorbounds_succeeds_def, PULL_EXISTS]
-  \\ qpat_x_assum ‘evaluate_fine _ _ _’ mp_tac
-  \\ qmatch_goalsub_abbrev_tac ‘evaluate_fine empty_state _ [invertedPendulum_body]’
+  \\ qpat_x_assum ‘toFloVerCmd _ _ _ = SOME _’ mp_tac
+  \\ qmatch_goalsub_abbrev_tac ‘toFloVerCmd _ _ invertedPendulum_body = _’
   \\ disch_then assume_tac
   \\ disch_then (qspecl_then
                  [‘invertedPendulum_env’,

@@ -8,6 +8,8 @@ open icing_rewriterTheory source_to_sourceTheory fpOptTheory fpOptPropsTheory
      local open ml_progTheory in end;
 open preamble;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "source_to_sourceProofs";
 
 (**
@@ -1626,9 +1628,10 @@ Theorem do_app_v_sim:
   v_sim v1 v2 ⇒
     case do_app x op v1 of
     | NONE => do_app x op v2 = NONE
-    | SOME ((sv1, y), r1) => ∃sv2 r2. do_app x op v2 = SOME ((sv2, y), r2) ∧
-                               LIST_REL (sv_rel v_sim1) sv1 sv2 ∧ (isPureOp op ⇒ sv1 = sv2) ∧
-                               noopt_sim (list_result r1) (list_result r2)
+    | SOME ((sv1, y), r1) =>
+        ∃sv2 r2. do_app x op v2 = SOME ((sv2, y), r2) ∧
+                 LIST_REL (sv_rel v_sim1) sv1 sv2 ∧ (isPureOp op ⇒ sv1 = sv2) ∧
+                 noopt_sim (list_result r1) (list_result r2)
 Proof
   rw[v_sim_LIST_REL]
   \\ TOP_CASE_TAC
@@ -1685,6 +1688,7 @@ Proof
   \\ pop_assum(strip_assume_tac o REWRITE_RULE[semanticPrimitivesPropsTheory.do_app_cases])
   \\ rveq \\ fs[] \\ simp[do_app_def] \\ rveq \\ fs[]
   \\ TRY(rpt (TOP_CASE_TAC \\ fs[]) \\ NO_TAC)
+  >- ( Cases_on ‘n2 = 0’ \\ fs[])
   >- ( imp_res_tac do_eq_v_sim1 \\ fs[] )
   >- (
     imp_res_tac fp_translate_v_sim1 \\ fs[]

@@ -120,11 +120,7 @@ val rigidBody_pre = rigidBody_pre_def |> concl |> rhs;
 
 Definition rigidBody_side_def:
   rigidBody_side w1 w2 w3 =
-   (evaluate_fine empty_state
-     (rigidBody_env with v :=
-      extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) (rigidBody_env).v)
-     [^body] ∧
-     (is_precond_sound ^fvars [w1; w2; w3] ^rigidBody_pre))
+     (is_precond_sound ^fvars [w1; w2; w3] ^rigidBody_pre)
 End
 
 Definition rigidBody_real_fun_def:
@@ -159,8 +155,8 @@ Proof
   \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ fs[] \\ rveq
   \\ first_assum (mp_then Any mp_tac CakeML_FloVer_infer_error)
   \\ fs[checkErrorbounds_succeeds_def, PULL_EXISTS]
-  \\ qpat_x_assum ‘evaluate_fine _ _ _’ mp_tac
-  \\ qmatch_goalsub_abbrev_tac ‘evaluate_fine empty_state _ [rigidBody_body]’
+  \\ qpat_x_assum ‘toFloVerCmd _ _ _ = SOME _’ mp_tac
+  \\ qmatch_goalsub_abbrev_tac ‘toFloVerCmd _ _ rigidBody_body = _’
   \\ disch_then assume_tac
   \\ disch_then (qspecl_then
                  [‘rigidBody_env’,

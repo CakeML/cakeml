@@ -118,12 +118,7 @@ val doppler_opt = theAST_opt |> concl |> rhs;
 val doppler_pre = doppler_pre_def |> concl |> rhs;
 
 Definition doppler_side_def:
-  doppler_side w1 w2 w3 =
-   (evaluate_fine empty_state
-     (doppler_env with v :=
-      extend_env_with_vars (REVERSE ^fvars) (REVERSE [w1;w2;w3]) (doppler_env).v)
-     [^body] ∧
-     (is_precond_sound ^fvars [w1; w2; w3] ^doppler_pre))
+  doppler_side w1 w2 w3 = (is_precond_sound ^fvars [w1; w2; w3] ^doppler_pre)
 End
 
 Definition doppler_real_fun_def:
@@ -158,8 +153,8 @@ Proof
   \\ rpt (gen_tac ORELSE (disch_then assume_tac)) \\ fs[] \\ rveq
   \\ first_assum (mp_then Any mp_tac CakeML_FloVer_infer_error)
   \\ fs[checkErrorbounds_succeeds_def, PULL_EXISTS]
-  \\ qpat_x_assum ‘evaluate_fine _ _ _’ mp_tac
-  \\ qmatch_goalsub_abbrev_tac ‘evaluate_fine empty_state _ [doppler_body]’
+  \\ qpat_x_assum ‘toFloVerCmd _ _ _ = SOME _’ mp_tac
+  \\ qmatch_goalsub_abbrev_tac ‘toFloVerCmd _ _ doppler_body = _’
   \\ disch_then assume_tac
   \\ disch_then (qspecl_then
                  [‘doppler_env’,

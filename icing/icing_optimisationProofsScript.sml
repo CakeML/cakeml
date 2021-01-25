@@ -17,6 +17,8 @@ open fpValTreeTheory fpSemPropsTheory fpOptTheory fpOptPropsTheory
 
 open preamble;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "icing_optimisationProofs";
 
 val state_eqs = [state_component_equality, fpState_component_equality];
