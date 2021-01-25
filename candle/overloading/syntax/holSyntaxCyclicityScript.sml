@@ -1527,6 +1527,18 @@ Proof
   fs[is_const_or_type_eq,PULL_EXISTS,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM,FORALL_AND_THM,FV_def,tvars_def,LR_TYPE_SUBST_def,INST_def,INST_CORE_def,var_renaming_tyvars_comm]
 QED
 
+(* Comment to Definition 5.3, Kunčar 2015 *)
+Theorem FV_SND_SUBSET_FST:
+  !ctxt pqs i.
+  EVERY (UNCURRY (dependency ctxt)) pqs
+  /\ monotone (dependency ctxt)
+  /\ i < LENGTH pqs ==> set (FV (SND (EL i pqs))) ⊆ set (FV (FST (EL i pqs)))
+Proof
+  rw[monotone_def,EVERY_MEM,ELIM_UNCURRY,list_subset_set]
+  >> rpt $ first_x_assum match_mp_tac
+  >> fs[EL_MEM]
+QED
+
 (* Lemma 5.4, Kunčar 2015 *)
 Theorem mg_solution:
   !rs rs' pqs.
@@ -1813,18 +1825,6 @@ Definition composable_dep_def:
     \/
     ~has_common_instance (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs))) p
 End
-
-(* Comment to Definition 5.3, Kunčar 2015 *)
-Theorem FV_SND_SUBSET_FST:
-  !ctxt pqs i.
-  EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
-  /\ i < LENGTH pqs ==> set (FV (SND (EL i pqs))) ⊆ set (FV (FST (EL i pqs)))
-Proof
-  rw[monotone_def,EVERY_MEM,ELIM_UNCURRY,list_subset_set]
-  >> rpt $ first_x_assum match_mp_tac
-  >> fs[EL_MEM]
-QED
 
 Theorem sol_mon_prop:
   !rs rs' pqs ctxt es.
