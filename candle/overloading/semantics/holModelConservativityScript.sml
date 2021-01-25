@@ -6464,7 +6464,7 @@ Proof
                      dxrule extends_APPEND_NIL >>
                      simp[extends_NIL_CONS_extends,updates_cases,constspec_ok_def,is_reserved_name_def] >> simp[DISJ_IMP_THM,FORALL_AND_THM] >>
                      rw[] >> res_tac >>
-                     simp[]) >>
+                     fs[]) >>
                   fs[] >>
                   qpat_x_assum `MEM _ _` (strip_assume_tac o REWRITE_RULE [MEM_SPLIT]) >>
                   rveq >> fs[]) >>
