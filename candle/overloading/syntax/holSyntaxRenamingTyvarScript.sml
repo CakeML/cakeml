@@ -5,6 +5,8 @@ open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheor
      holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
      holSyntaxRenamingTheory
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory"holSyntaxRenamingTyvar"
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
