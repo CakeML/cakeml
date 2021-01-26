@@ -13,6 +13,7 @@ local open gen_gcTheory in end
 val _ = new_theory "data_to_word_assignProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 

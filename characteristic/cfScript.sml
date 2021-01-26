@@ -9,6 +9,8 @@ open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
 open cfNormaliseTheory cfAppTheory
 open cfTacticsBaseLib
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "cf"
 
 val _ = set_grammar_ancestry
@@ -789,7 +791,7 @@ Proof
   try_finally (
     CONV_TAC quantHeuristicsTools.OR_NOT_CONV \\
     strip_tac \\ rw [] \\ fs []
-  ) \\
+  ) \\ TRY (CCONTR_TAC \\ fs [] \\ NO_TAC) \\
   progress_then
     (qspecl_then [`insts'`, `wildcards'`] assume_tac)
     (fst (CONJ_PAIR (v_of_pat_insts_unique))) \\

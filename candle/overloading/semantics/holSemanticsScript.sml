@@ -5,6 +5,8 @@
 *)
 open HolKernel boolLib boolSimps bossLib holSyntaxTheory holSyntaxExtraTheory setSpecTheory
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory"holSemantics"
 
 val _ = Parse.hide "mem";

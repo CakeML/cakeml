@@ -8,6 +8,8 @@ open preamble flat_patternTheory
      pattern_semanticsTheory
 local open bagSimps in end
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "flat_patternProof"
 
 val _ = set_grammar_ancestry ["flat_pattern",

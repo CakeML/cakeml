@@ -5,6 +5,8 @@ open preamble sptreeTheory flatLangTheory flat_elimTheory
      flatSemTheory flatPropsTheory reachable_sptTheory
      reachable_sptProofTheory
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "flat_elimProof";
 
 val grammar_ancestry =

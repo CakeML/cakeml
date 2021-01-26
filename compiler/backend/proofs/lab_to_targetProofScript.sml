@@ -4923,7 +4923,8 @@ Proof
   >> IF_CASES_TAC
   >- (
     Cases_on`h`>>full_simp_tac(srw_ss())[enc_line_def]
-    >> rev_full_simp_tac(srw_ss())[enc_sec_def] >> full_simp_tac(srw_ss())[])
+    >> rev_full_simp_tac(srw_ss())[enc_sec_def] >> full_simp_tac(srw_ss())[]
+    >> metis_tac [])
   >> IF_CASES_TAC
   >- ( Cases_on`h`>>full_simp_tac(srw_ss())[enc_line_def,LET_THM] )
   >> IF_CASES_TAC

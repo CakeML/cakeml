@@ -12,6 +12,7 @@ local open flat_elimProofTheory flat_patternProofTheory in end
 val _ = new_theory "source_to_flatProof";
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val grammar_ancestry =
@@ -852,7 +853,8 @@ Proof
   simp [astOp_to_flatOp_def, astTheory.getOpClass_def]
   >- ((* Opn *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      fs [AllCaseEqs()] \\ CCONTR_TAC \\ fs [] \\ gvs [])
   >- ((* Opb *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])

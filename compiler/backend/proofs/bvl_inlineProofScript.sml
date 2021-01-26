@@ -7,6 +7,8 @@ open preamble backendPropsTheory
      bvl_inlineTheory
 local open bvl_handleProofTheory in end
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory"bvl_inlineProof";
 
 val _ = set_grammar_ancestry [ "bvlSem", "bvlProps", "bvl_inline" ];

@@ -15,6 +15,7 @@ val _ = new_theory"stack_removeProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val word_shift_def = backend_commonTheory.word_shift_def

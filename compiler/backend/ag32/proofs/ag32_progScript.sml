@@ -5,6 +5,8 @@
 open preamble
 open set_sepTheory progTheory ag32Theory temporal_stateTheory
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val () = new_theory "ag32_prog"
 
 Theorem v2w_F_T: (* TODO: move *)
@@ -114,12 +116,13 @@ val ag32_proj''_11 = prove(
   \\ rename [`x <> y`]
   \\ PairCases_on `x`
   \\ PairCases_on `y`
-  \\ full_simp_tac bool_ss [PAIR_EQ]
+  \\ full_simp_tac pure_ss [PAIR_EQ,DE_MORGAN_THM]
   THEN1
    (`~((?x. aState x IN ag32_proj'' (x0,x1,x2) s) =
        (?x. aState x IN ag32_proj'' (y0,y1,y2) s'))` by
       (Q.PAT_X_ASSUM `ag32_proj'' _ _ = ag32_proj'' _ _` (K ALL_TAC)
-       \\ full_simp_tac bool_ss [IN_ag32_proj] \\ metis_tac [])
+       \\ full_simp_tac bool_ss [IN_ag32_proj]
+        \\ metis_tac [])
     \\ fs [EXTENSION] \\ metis_tac [])
   THEN1
    (`?a. (a IN y1) <> (a IN x1)` by metis_tac [EXTENSION]

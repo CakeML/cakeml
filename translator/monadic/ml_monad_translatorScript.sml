@@ -2750,6 +2750,7 @@ Proof
     \\ `same_type p_2 t` by metis_tac [same_type_trans,same_type_sym]
     \\ fs []
     \\ CCONTR_TAC \\ fs []
+    \\ Cases_on ‘LENGTH vars = LENGTH p_1'’ \\ fs []
     THEN1
      (fs [] \\ drule pmatch_list_MAP_Pvar
       \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ CCONTR_TAC \\ fs [])
