@@ -3120,20 +3120,8 @@ Proof
   >> fs[REWRITE_RULE[GSYM NULL_EQ] LAST_EL,EL_FRONT,REWRITE_RULE[GSYM NULL_EQ]LENGTH_FRONT]
 QED
 
-Theorem leq_NOT_geq:
-  !rs pqs ctxt.
-  1 < LENGTH rs
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
-  /\ composable_dep ctxt
-  /\ sol_seq rs pqs
-  /\ ~has_mg_sol_leq (FRONT pqs) (FST (LAST pqs))
-    ==> has_mg_sol_geq (FRONT pqs) (FST (LAST pqs))
-Proof
-  rw[EQ_IMP_THM]
-  >> drule_then drule leq_geq_monotone_composable
-  >> fs[]
-QED
+Theorem leq_NOT_geq =
+  Ho_Rewrite.REWRITE_RULE[DISJ_EQ_IMP,AND_IMP_INTRO] leq_geq_monotone_composable
 
 (* Definition 5.14 *)
 Definition seq_asc_def:
@@ -4828,60 +4816,6 @@ Proof
   >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_compose]
   >> fs[]
   >> irule_at Any EQ_REFL
-QED
-
-(* any extension of a mg_sol_seq with last step geq expansion
- * is equivalent to another *)
-Theorem mg_sol_seq_geq_SUC_equiv_ts_on:
-  !pqs rs ctxt i.
-  has_mg_sol_geq (TAKE i pqs) (FST (EL i pqs))
-  /\ mg_sol_seq rs (TAKE i pqs)
-  /\ LENGTH pqs = SUC i
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ wf_pqs pqs
-  /\ monotone (dependency ctxt)
-  ==>
-  ?rs' r. mg_sol_seq (MAP (λs. MAP (TYPE_SUBST r ## I) s ++ r) rs' ++ [[]]) pqs
-    /\ LR_TYPE_SUBST r (LR_TYPE_SUBST (EL (PRE i) rs') (SND $ EL (PRE i) pqs)) = FST $ EL i pqs
-    /\ !j. j < i ==> equiv_ts_on (EL j rs') (EL j rs) (FV (FST (EL j pqs)))
-Proof
-  rw[has_mg_sol_geq_def,is_instance_LR_eq]
-  >> `LENGTH rs' = i /\ LENGTH rs = i` by fs[mg_sol_seq_def,sol_seq_def,LENGTH_TAKE]
-  >> rev_drule_then (drule_then assume_tac) mg_solution
-  >> rev_dxrule $ ONCE_REWRITE_RULE[EQ_SYM_EQ] mg_sol_ext_geq
-  >> rpt $ disch_then $ drule_at Any
-  >> disch_then $ qspec_then `SND $ EL i pqs` mp_tac
-  >> rfs[EL_TAKE,is_instance_LR_eq,EVERY_TAKE]
-  >> impl_tac
-  >- (
-    fs[wf_pqs_def,EVERY_TAKE,ELIM_UNCURRY,o_DEF,EVERY_MEM,IMP_CONJ_THM,FORALL_AND_THM]
-    >> first_x_assum match_mp_tac
-    >> fs[EL_MEM]
-  )
-  >> qmatch_goalsub_abbrev_tac `mg_sol_seq _ take_SUC`
-  >> `take_SUC = pqs` by (
-    CONV_TAC $ RHS_CONV $ ONCE_REWRITE_CONV $ single $ GSYM TAKE_LENGTH_ID
-    >> asm_rewrite_tac[]
-    >> fs[PAIR,Abbr`take_SUC`,ADD1,TAKE_SUM]
-    >> dep_rewrite.DEP_REWRITE_TAC[TAKE1,EL_DROP]
-    >> fs[NOT_NIL_EQ_LENGTH_NOT_0]
-  )
-  >> VAR_EQ_TAC
-  >> pop_assum kall_tac
-  >> rw[]
-  >> goal_assum drule
-  >> rpt strip_tac >> fs[]
-  >> qpat_x_assum `LR_TYPE_SUBST _ _ = FST _` $ REWRITE_TAC o single o GSYM
-  >> qpat_x_assum `equal_ts_on _ _ _` mp_tac
-  >> dep_rewrite.DEP_REWRITE_TAC[LAST_EL,equal_ts_on_FV,LR_TYPE_SUBST_type_preserving]
-  >> fs[NOT_NIL_EQ_LENGTH_NOT_0,wf_pqs_def,EVERY_MEM,EL_TAKE,ELIM_UNCURRY,IMP_CONJ_THM,FORALL_AND_THM,EL_MEM]
-QED
-
-Theorem equiv_ts_on_is_instance_LR_eq:
-  equiv_ts_on s r (FV t) /\ is_const_or_type t ==>
-  (is_instance_LR t' (LR_TYPE_SUBST s t) <=> is_instance_LR t' (LR_TYPE_SUBST r t))
-Proof
-  metis_tac[is_instance_LR_eq,LR_TYPE_SUBST_type_preserving,LR_TYPE_SUBST_compose,equiv_ts_on_FV,equiv_ts_on_symm]
 QED
 
 Theorem mg_sol_ext_geq_NOT_leq_measure:
