@@ -123,13 +123,6 @@ Definition nffi_state_def:
         [IO_event (toString n) [] (ZIP (bytes,nbytes))]|>
 End
 
-
-Definition clk_consumed_def:
-  clk_consumed t ck =
-    t with clock := t.clock - ck
-End
-
-
 Theorem eval_empty_const_eq_empty_vals:
   ∀s n.
     OPT_MMAP (λe. eval s e) (emptyConsts n) =
@@ -1323,13 +1316,30 @@ Definition ffi_vars_def:
 End
 
 
+Definition time_vars_def:
+  time_vars fm  ⇔
+  (∃st. FLOOKUP fm «sysTime»  = SOME (ValWord st)) ∧
+  (∃wt. FLOOKUP fm «wakeUpAt» = SOME (ValWord wt))
+End
+
+
+(* for easier reasoning *)
+Definition clkvals_rel_def:
+  clkvals_rel fm xs ys (n:num) ⇔
+    MAP (λ(x,y). y + THE (FLOOKUP fm x)) (ZIP (xs,ys)) =
+    MAP (λx. n) ys ∧
+    EVERY (\x. THE (FLOOKUP fm x) <= n) xs
+End
+
+
+(*
 Definition clkvals_rel_def:
   clkvals_rel fm xs ys (n:num) ⇔
     (MAP2 (λx y. THE (FLOOKUP fm x) + y) xs ys =
      REPLICATE (LENGTH ys) n) ∧
     EVERY (\x. THE (FLOOKUP fm x) <= n) xs
 End
-
+*)
 
 Definition clocks_rel_def:
   clocks_rel sclocks tlocals clks stime ⇔
@@ -1392,6 +1402,27 @@ Definition state_rel_def:
   state_rel clks io s (t:('a,time_input) panSem$state) ⇔
     equivs t.locals s.location s.waitTime io ∧
     ffi_vars t.locals ∧
+    time_vars t.locals ∧
+    mem_config t.memory t.memaddrs t.be ∧
+    dimindex (:α) DIV 8 + 1 <  dimword (:α) ∧
+    ffiBufferAddr ∈ t.memaddrs ∧
+    ffiBufferAddr + bytes_in_word ∈ t.memaddrs ∧
+    LENGTH clks ≤ 29 ∧
+    clock_bound s.clocks clks (dimword (:'a)) ∧
+    let
+      ffi = t.ffi.ffi_state;
+      io_events = t.ffi.io_events;
+      (tm,io_flg) = ffi 0
+    in
+      t.ffi = build_ffi ffi io_events ∧ time_seq ffi (dimword (:'a)) ∧
+      clocks_rel s.clocks t.locals clks tm
+End
+
+(*
+Definition state_rel_def:
+  state_rel clks io s (t:('a,time_input) panSem$state) ⇔
+    equivs t.locals s.location s.waitTime io ∧
+    ffi_vars t.locals ∧
     mem_config t.memory t.memaddrs t.be ∧
     dimindex (:α) DIV 8 + 1 <  dimword (:α) ∧
     ffiBufferAddr ∈ t.memaddrs ∧
@@ -1409,15 +1440,15 @@ Definition state_rel_def:
       FLOOKUP t.locals «wakeUpAt» = add_time stime s.waitTime ∧
       clocks_rel s.clocks t.locals clks tm
 End
-
+*)
 
 Definition delay_rep_def:
-  delay_rep m (d:num) (seq:time_input) =
-    ∃cycles.
-      FST (seq cycles) = d + FST (seq 0) ∧
-      FST (seq cycles) < m ∧
-      ∀i. i < cycles ⇒ ¬SND (seq i)
+  delay_rep m (d:num) (seq:time_input) cycles ⇔
+    FST (seq cycles) = d + FST (seq 0) ∧
+    FST (seq cycles) < m ∧
+    ∀i. i ≤ cycles ⇒ ¬SND (seq i)
 End
+
 
 Definition mem_call_ffi_def:
   mem_call_ffi mem adrs be bytes ffi  =
@@ -1521,9 +1552,7 @@ Theorem state_rel_imp_systime_defined:
     state_rel clks io s t ==>
     ∃tm. FLOOKUP t.locals «sysTime» = SOME (ValWord tm)
 Proof
-  rw [state_rel_def] >>
-  pairarg_tac >>
-  fs []
+  rw [state_rel_def, time_vars_def]
 QED
 
 
@@ -1600,6 +1629,791 @@ Proof
   gs [is_valid_value_def, shape_of_def]
 QED
 
+Theorem time_seq_add_holds:
+  ∀f m p.
+    time_seq f m ⇒
+    time_seq (λn. f (p + n)) m
+Proof
+  rw [time_seq_def] >>
+  fs [] >>
+  last_x_assum (qspec_then ‘p + n’ assume_tac) >>
+  fs [ADD_SUC]
+QED
+
+
+Theorem map2_fmap_to_alist_thm:
+  !xs (ys:num list) fm a b.
+    EVERY (λx. ∃n. FLOOKUP fm x = SOME n) xs /\
+    LENGTH xs = LENGTH ys /\
+    MAP2 (λx y. y + THE (FLOOKUP fm x)) xs ys =
+    REPLICATE (LENGTH ys) a ==>
+    MAP2 (λx y.
+           y +
+           THE
+           (FLOOKUP
+            (FEMPTY |++
+             MAP (λ(x,y). (x,b + y)) (fmap_to_alist fm)) x))
+         xs ys =
+    REPLICATE (LENGTH ys) (b + a)
+Proof
+  Induct >> rw [] >>
+  cases_on ‘ys’ >>
+  fs [] >>
+  qpat_x_assum ‘_ + _ = _’ (assume_tac o GSYM) >>
+  gs [] >>
+  ‘FLOOKUP (FEMPTY |++ MAP (λ(x,y). (x,b + y)) (fmap_to_alist fm))
+   h = SOME (b + n)’ by (
+    match_mp_tac mem_to_flookup >>
+    ‘MAP FST (MAP (λ(x,y). (x,b + y)) (fmap_to_alist fm)) =
+     MAP FST (fmap_to_alist fm)’ by fs [map_fst] >>
+    fs [ALL_DISTINCT_fmap_to_alist_keys] >>
+    fs [MEM_MAP] >>
+    qexists_tac ‘(h,n)’ >>
+    fs []) >>
+  fs []
+QED
+
+
+Theorem step_delay:
+  !cycles prog d s s' (t:('a,time_input) panSem$state) ck_extra.
+    step prog (LDelay d) s s' ∧
+    state_rel (clksOf prog) s'.ioAction s t ∧
+    code_installed t.code prog ∧
+    delay_rep (dimword (:α)) d (t.ffi.ffi_state) cycles ==>
+    ?ck t'.
+      evaluate (wait_input_time_limit, t with clock := t.clock + ck) =
+      evaluate (wait_input_time_limit, t' with clock := t'.clock + ck_extra) ∧
+      code_installed t'.code prog ∧
+      state_rel (clksOf prog) s'.ioAction s' t' ∧
+      t'.ffi.ffi_state = nexts_ffi cycles (t.ffi.ffi_state) ∧
+      t'.ffi.oracle = t.ffi.oracle
+Proof
+  Induct_on ‘cycles’ >>
+  fs []
+  >- (
+    rw [] >>
+    fs [delay_rep_def] >>
+    ‘d = 0’ by fs [] >>
+    fs [] >>
+    pop_assum kall_tac >>
+    fs [step_cases] >>
+    fs [delay_clocks_def, mkState_def] >>
+    rveq >> gs [] >>
+    fs [fmap_to_alist_eq_fm] >>
+    qexists_tac ‘ck_extra’ >> fs [] >>
+    qexists_tac ‘t’ >> fs [] >>
+    gs [state_rel_def, nexts_ffi_def, GSYM ETA_AX]) >>
+  rw [] >>
+  ‘∃sd. sd ≤ d ∧ delay_rep (dimword (:α)) sd t.ffi.ffi_state cycles’ by (
+    fs [delay_rep_def] >>
+    imp_res_tac state_rel_imp_time_seq_ffi >>
+    ‘FST (t.ffi.ffi_state 0) ≤ FST (t.ffi.ffi_state cycles)’ by (
+      match_mp_tac time_seq_mono >>
+      qexists_tac ‘(dimword (:α))’ >>
+      fs []) >>
+    fs [time_seq_def] >>
+    first_x_assum (qspec_then ‘cycles’ mp_tac) >>
+    first_x_assum (qspec_then ‘cycles’ mp_tac) >>
+    strip_tac >> strip_tac >>
+    gs [] >>
+    qexists_tac ‘d - d'’ >>
+    gs []) >>
+  (* splitting step, for instantiating s' *)
+  qpat_x_assum ‘step _ _ _ _’ mp_tac >>
+  rewrite_tac [step_cases] >>
+  strip_tac >>
+  fs [] >> rveq
+  >- (
+    ‘step prog (LDelay sd) s
+     (mkState (delay_clocks s.clocks sd) s.location NONE NONE)’ by (
+      gs [mkState_def] >>
+      fs [step_cases, mkState_def]) >>
+    last_x_assum drule >>
+    (* ck_extra *)
+    disch_then (qspecl_then [‘t’, ‘ck_extra + 1’] mp_tac) >>
+    impl_tac >- gs [mkState_def] >>
+    strip_tac >> fs [] >>
+    ‘(mkState (delay_clocks s.clocks d) s.location NONE NONE).ioAction =
+     NONE’ by fs [mkState_def] >>
+    fs [] >>
+    pop_assum kall_tac >>
+    ‘(mkState (delay_clocks s.clocks sd) s.location NONE NONE).ioAction =
+     NONE’ by fs [mkState_def] >>
+    fs [] >>
+    pop_assum kall_tac >>
+    qexists_tac ‘ck’ >>
+    fs [] >>
+    fs [wait_input_time_limit_def] >>
+    rewrite_tac [Once evaluate_def] >>
+    ‘equiv_flags t'.locals «isInput» (NONE:ioAction option)’ by
+      gs [state_rel_def, equivs_def] >>
+    drule step_delay_eval_wait_not_zero >>
+    impl_tac
+    >- gs [state_rel_def, mkState_def, equivs_def, time_vars_def] >>
+    strip_tac >>
+    gs [eval_upd_clock_eq] >>
+    (* evaluating the function *)
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    fs [dec_clock_def] >>
+    ‘state_rel (clksOf prog) (NONE:ioAction option)
+     (mkState (delay_clocks s.clocks sd) s.location NONE NONE)
+     (t' with clock := ck_extra + t'.clock)’ by gs [state_rel_def] >>
+    qpat_x_assum ‘state_rel _ _ _ t'’ kall_tac >>
+
+    rewrite_tac [Once check_input_time_def] >>
+    fs [panLangTheory.nested_seq_def] >>
+    rewrite_tac [Once evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    drule state_rel_imp_mem_config >>
+    rewrite_tac [Once mem_config_def] >>
+    strip_tac >>
+    drule evaluate_ext_call >>
+    disch_then drule >>
+    impl_tac
+    >- (
+      gs [state_rel_def] >>
+      pairarg_tac >> gs []) >>
+    strip_tac >> gs [] >>
+    pop_assum kall_tac >>
+    pop_assum kall_tac >>
+    drule state_rel_imp_ffi_vars >>
+    strip_tac >>
+   (* until here *)
+    pop_assum mp_tac >>
+    rewrite_tac [Once ffi_vars_def] >>
+    strip_tac >>
+    drule state_rel_imp_systime_defined >>
+    strip_tac >>
+    (* reading systime *)
+    rewrite_tac [Once evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    qmatch_asmsub_abbrev_tac ‘evaluate (Assign «sysTime» _, nt)’ >>
+    ‘nt.memory ffiBufferAddr = Word (n2w (FST(t'.ffi.ffi_state 0)))’ by (
+      fs [Abbr ‘nt’] >>
+      fs [mem_call_ffi_def] >>
+      drule read_bytearray_LENGTH >>
+      strip_tac >> fs [] >>
+      fs [ffiBufferSize_def] >>
+      cheat) >>
+    drule evaluate_assign_load >>
+    gs [] >>
+    disch_then (qspecl_then
+                [‘ffiBufferAddr’, ‘tm’,
+                 ‘n2w (FST (t'.ffi.ffi_state 0))’] mp_tac) >>
+    impl_tac
+    >- (
+      gs [Abbr ‘nt’] >>
+      fs [state_rel_def]) >>
+    strip_tac >> fs [] >>
+    pop_assum kall_tac >>
+    pop_assum kall_tac >>
+
+
+
+    (* reading input *)
+    rewrite_tac [Once evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    qmatch_asmsub_abbrev_tac ‘evaluate (Assign «isInput» _, nnt)’ >>
+
+
+    ‘nnt.memory (ffiBufferAddr +  bytes_in_word) =
+     Word (if SND (t'.ffi.ffi_state 0) then 0w else 1w)’ by cheat >>
+    gs [] >>
+    drule evaluate_assign_load_next_address >>
+    gs [] >>
+    disch_then (qspecl_then
+                [‘ffiBufferAddr’, ‘1w’,
+                 ‘1w’] mp_tac) >>
+    impl_tac
+    >- (
+      gs [Abbr ‘nnt’,Abbr ‘nt’, equiv_flags_def, active_low_def] >>
+      gs [state_rel_def, FLOOKUP_UPDATE] >>
+      gs [delay_rep_def, nexts_ffi_def]) >>
+    strip_tac >>
+    gs [] >>
+    pop_assum kall_tac >>
+    pop_assum kall_tac >>
+    rewrite_tac [Once evaluate_def] >>
+    fs [] >>
+    strip_tac >> fs [] >>
+    rveq >> gs [] >>
+    fs [Abbr ‘nnt’, Abbr ‘nt’] >>
+    qmatch_goalsub_abbrev_tac ‘evaluate (_, nt)’ >>
+    qexists_tac ‘nt with clock := t'.clock’ >>
+    fs [] >>
+    gs [Abbr ‘nt’] >>
+    reverse conj_tac
+    >- (
+      fs [ffi_call_ffi_def] >>
+      fs [nexts_ffi_def, next_ffi_def] >>
+      fs [ADD1]) >>
+    (* proving state rel *)
+    gs [state_rel_def, mkState_def] >>
+    conj_tac
+    (* equivs *)
+    >- gs [equivs_def, equiv_labels_def, equiv_flags_def,
+           FLOOKUP_UPDATE, active_low_def] >>
+    conj_tac
+    >- gs [ffi_vars_def, FLOOKUP_UPDATE] >>
+    conj_tac
+    >- gs [time_vars_def, FLOOKUP_UPDATE] >>
+    conj_tac
+    >- (
+      gs [mem_config_def, mem_call_ffi_def] >>
+      cheat) >>
+    conj_tac
+    >- (
+      (* clock_bound *)
+      qpat_x_assum ‘clock_bound s.clocks _ _’ assume_tac >>
+      gs [clock_bound_def] >>
+      fs [EVERY_MEM] >>
+      rw [] >>
+      first_x_assum drule >>
+      strip_tac >>
+      fs [] >>
+      fs [delay_clocks_def] >>
+      qexists_tac ‘d+n’ >>
+      gs [] >>
+      conj_tac
+      >- (
+        match_mp_tac mem_to_flookup >>
+        ‘MAP FST (MAP (λ(x,y). (x,d + y)) (fmap_to_alist s.clocks)) =
+         MAP FST (fmap_to_alist s.clocks)’ by fs [map_fst] >>
+        fs [ALL_DISTINCT_fmap_to_alist_keys] >>
+        fs [MEM_MAP] >>
+        qexists_tac ‘(ck',n)’ >>
+        fs []) >>
+      gs [delay_rep_def] >>
+      last_x_assum assume_tac >>
+      pairarg_tac >> fs [] >>
+      fs [clocks_rel_def, clkvals_rel_def] >>
+      gs [EVERY_MEM] >>
+      first_x_assum (qspec_then ‘ck'’ assume_tac) >>
+      gs []) >>
+    pairarg_tac >> gs [] >>
+    conj_tac
+    >- (
+      fs [ffi_call_ffi_def, build_ffi_def] >>
+      fs [ffiTheory.ffi_state_component_equality] >>
+      last_x_assum assume_tac >>
+      pairarg_tac >>
+      fs []) >>
+    conj_tac
+    >- (
+     (* time_seq holds *)
+      gs [ffi_call_ffi_def,
+          nexts_ffi_def, next_ffi_def] >>
+      last_x_assum mp_tac >>
+      pairarg_tac >> gs [] >>
+      strip_tac >>
+      drule time_seq_add_holds >>
+      disch_then (qspec_then ‘cycles + 1’ mp_tac) >>
+      fs []) >>
+    qpat_x_assum ‘_ (nexts_ffi _ _ _)’ assume_tac >>
+    pairarg_tac >> fs [] >>
+    fs [nexts_ffi_def] >>
+    gs [clocks_rel_def, FLOOKUP_UPDATE] >>
+    qexists_tac ‘ns’ >>
+    fs [] >>
+    fs [clkvals_rel_def] >>
+    conj_tac
+    >- (
+      fs [MAP_EQ_EVERY2] >>
+      fs [LIST_REL_EL_EQN] >>
+      rw [] >>
+      pairarg_tac >> fs [] >>
+      last_x_assum drule >>
+      fs [] >>
+      strip_tac >>
+      (* shortcut *)
+      ‘∃xn.
+         THE (FLOOKUP (delay_clocks s.clocks sd) x) = xn + sd’ by cheat >>
+      ‘∃xn.
+         THE (FLOOKUP (delay_clocks s.clocks d) x) = xn + d’ by cheat >>
+      fs [] >>
+      ‘xn = xn'’ by cheat >>
+      rveq >>
+      pop_assum kall_tac >>
+      pop_assum kall_tac >>
+      ‘tm' = sd + (xn + y) + (d - sd)’ by cheat >>
+      fs []) >>
+    fs [EVERY_MEM] >>
+    rw [] >>
+    first_x_assum (qspec_then ‘x’ assume_tac) >>
+    gs [] >>
+    ‘?y. FLOOKUP s.clocks x = SOME y’ by (
+      gs [clock_bound_def] >>
+      gs [EVERY_MEM] >>
+      rw [] >> gs [] >>
+      last_x_assum (qspec_then ‘x’ assume_tac) >>
+      gs []) >>
+    fs [delay_clocks_def] >>
+    (*
+    ‘FLOOKUP
+     (FEMPTY |++ MAP (λ(x,y). (x,sd + y)) (fmap_to_alist s.clocks)) x =
+     SOME (sd + y)’ by (
+      match_mp_tac mem_to_flookup >>
+      ‘MAP FST (MAP (λ(x,y). (x,sd + y)) (fmap_to_alist s.clocks)) =
+       MAP FST (fmap_to_alist s.clocks)’ by fs [map_fst] >>
+      fs [ALL_DISTINCT_fmap_to_alist_keys] >>
+      fs [MEM_MAP] >>
+      qexists_tac ‘(x,y)’ >>
+      fs []) >> *)
+    cheat) >>
+  cheat
+QED
+
+
+Theorem foo:
+  !xs (ys:num list) fm a b.
+    EVERY (λx. ∃n. FLOOKUP fm x = SOME n) xs /\
+    LENGTH xs = LENGTH ys /\
+    EVERY () =
+    REPLICATE (LENGTH ys) a ==>
+    MAP2 (λx y.
+           y +
+           THE
+           (FLOOKUP
+            (FEMPTY |++
+             MAP (λ(x,y). (x,b + y)) (fmap_to_alist fm)) x))
+         xs ys =
+    REPLICATE (LENGTH ys) (b + a)
+Proof
+  Induct >> rw [] >>
+  cases_on ‘ys’ >>
+  fs [] >>
+  qpat_x_assum ‘_ + _ = _’ (assume_tac o GSYM) >>
+  gs [] >>
+  ‘FLOOKUP (FEMPTY |++ MAP (λ(x,y). (x,b + y)) (fmap_to_alist fm))
+   h = SOME (b + n)’ by (
+    match_mp_tac mem_to_flookup >>
+    ‘MAP FST (MAP (λ(x,y). (x,b + y)) (fmap_to_alist fm)) =
+     MAP FST (fmap_to_alist fm)’ by fs [map_fst] >>
+    fs [ALL_DISTINCT_fmap_to_alist_keys] >>
+    fs [MEM_MAP] >>
+    qexists_tac ‘(h,n)’ >>
+    fs []) >>
+  fs []
+QED
+
+
+
+
+
+
+
+      match_mp_tac map2_fmap_to_alist_thm >>
+      fs [] >>
+      fs [clock_bound_def] >>
+      drule every_conj_spec >>
+      fs [FDOM_FLOOKUP]) >>
+    gs [EVERY_MEM] >>
+    rw [] >>
+    first_x_assum (qspec_then ‘x’ assume_tac) >>
+    gs [] >>
+    ‘?y. FLOOKUP s.clocks x = SOME y’ by (
+      gs [clock_bound_def] >>
+      gs [EVERY_MEM] >>
+      rw [] >> gs [] >>
+      last_x_assum (qspec_then ‘x’ assume_tac) >>
+      gs []) >>
+    ‘FLOOKUP
+     (FEMPTY |++ MAP (λ(x,y). (x,d + y)) (fmap_to_alist s.clocks)) x =
+     SOME (d + y)’ by (
+      match_mp_tac mem_to_flookup >>
+      ‘MAP FST (MAP (λ(x,y). (x,d + y)) (fmap_to_alist s.clocks)) =
+       MAP FST (fmap_to_alist s.clocks)’ by fs [map_fst] >>
+      fs [ALL_DISTINCT_fmap_to_alist_keys] >>
+      fs [MEM_MAP] >>
+      qexists_tac ‘(x,y)’ >>
+      fs []) >>
+    fs []
+
+
+
+
+
+
+
+  ) >>
+  cheat
+QED
+
+
+
+
+
+
+
+
+
+
+
+
+Theorem step_delay:
+  !cycles prog d s s' (t:('a,time_input) panSem$state) ck_extra.
+    step prog (LDelay d) s s' ∧
+    state_rel (clksOf prog) s'.ioAction s t ∧
+    code_installed t.code prog ∧
+    delay_rep (dimword (:α)) d (t.ffi.ffi_state) cycles ==>
+    ?ck t'.
+      evaluate (wait_input_time_limit, t with clock := t.clock + ck) =
+      evaluate (wait_input_time_limit, t' with clock := t'.clock + ck_extra) ∧
+      code_installed t'.code prog ∧
+      state_rel (clksOf prog) s'.ioAction s' t' ∧
+      t'.ffi.ffi_state = nexts_ffi cycles (t.ffi.ffi_state) ∧
+      t'.ffi.oracle = t.ffi.oracle
+Proof
+  Induct_on ‘cycles’ >>
+  fs []
+  >- (
+    rw [] >>
+    fs [delay_rep_def] >>
+    ‘d = 0’ by fs [] >>
+    fs [] >>
+    pop_assum kall_tac >>
+    fs [step_cases] >>
+    fs [delay_clocks_def, mkState_def] >>
+    rveq >> gs [] >>
+    fs [fmap_to_alist_eq_fm] >>
+    qexists_tac ‘ck_extra’ >> fs [] >>
+    qexists_tac ‘t’ >> fs [] >>
+    gs [state_rel_def, nexts_ffi_def, GSYM ETA_AX]) >>
+  rw [] >>
+  ‘∃sd. sd ≤ d ∧ delay_rep (dimword (:α)) sd t.ffi.ffi_state cycles’ by (
+    fs [delay_rep_def] >>
+    imp_res_tac state_rel_imp_time_seq_ffi >>
+    ‘FST (t.ffi.ffi_state 0) ≤ FST (t.ffi.ffi_state cycles)’ by (
+      match_mp_tac time_seq_mono >>
+      qexists_tac ‘(dimword (:α))’ >>
+      fs []) >>
+    fs [time_seq_def] >>
+    first_x_assum (qspec_then ‘cycles’ mp_tac) >>
+    first_x_assum (qspec_then ‘cycles’ mp_tac) >>
+    strip_tac >> strip_tac >>
+    gs [] >>
+    qexists_tac ‘d - d'’ >>
+    gs []) >>
+  (* splitting step, for instantiating s' *)
+  qpat_x_assum ‘step _ _ _ _’ mp_tac >>
+  rewrite_tac [step_cases] >>
+  strip_tac >>
+  fs [] >> rveq
+  >- (
+    ‘step prog (LDelay sd) s
+     (mkState (delay_clocks s.clocks sd) s.location NONE NONE)’ by (
+      gs [mkState_def] >>
+      fs [step_cases, mkState_def]) >>
+    last_x_assum drule >>
+
+    (* instantiating the right variable *)
+    (* ck_extra *)
+    disch_then (qspecl_then [‘t’, ‘ck_extra + 1’] mp_tac) >>
+    impl_tac >- gs [mkState_def] >>
+    strip_tac >> fs [] >>
+    ‘(mkState (delay_clocks s.clocks d) s.location NONE NONE).ioAction =
+     NONE’ by fs [mkState_def] >>
+    fs [] >>
+    pop_assum kall_tac >>
+    ‘(mkState (delay_clocks s.clocks sd) s.location NONE NONE).ioAction =
+     NONE’ by fs [mkState_def] >>
+    fs [] >>
+    pop_assum kall_tac >>
+
+
+    qexists_tac ‘ck’ >>
+    fs [] >>
+
+
+
+    fs [wait_input_time_limit_def] >>
+    rewrite_tac [Once evaluate_def] >>
+    ‘equiv_flags t'.locals «isInput» (NONE:ioAction option)’ by
+      gs [state_rel_def, equivs_def] >>
+    drule step_delay_eval_wait_not_zero >>
+    impl_tac
+    >- (
+      gs [state_rel_def, mkState_def, equivs_def] >>
+      pairarg_tac >> gs [] >>
+      fs [add_time_def]) >>
+    strip_tac >>
+    gs [eval_upd_clock_eq] >>
+    (* evaluating the function *)
+    pairarg_tac >> fs [] >>
+    pop_assum mp_tac >>
+    fs [dec_clock_def] >>
+    (*
+    ‘t' with clock := t'.clock = t'’ by fs [state_component_equality]  >>
+    fs [] >>
+    pop_assum kall_tac >>
+    *)
+    ‘state_rel (clksOf prog) (NONE:ioAction option)
+     (mkState (delay_clocks s.clocks sd) s.location NONE NONE)
+     (t' with clock := ck_extra + t'.clock)’ by gs [state_rel_def] >>
+    qpat_x_assum ‘state_rel _ _ _ t'’ kall_tac >>
+
+    rewrite_tac [Once check_input_time_def] >>
+    fs [panLangTheory.nested_seq_def] >>
+    rewrite_tac [Once evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    drule state_rel_imp_mem_config >>
+    rewrite_tac [Once mem_config_def] >>
+    strip_tac >>
+
+
+    drule evaluate_ext_call >>
+    disch_then drule >>
+    impl_tac
+    >- (
+      gs [state_rel_def] >>
+      pairarg_tac >> gs []) >>
+    strip_tac >> gs [] >>
+    pop_assum kall_tac >>
+    pop_assum kall_tac >>
+    drule state_rel_imp_ffi_vars >>
+    strip_tac >>
+   (* until here *)
+    pop_assum mp_tac >>
+    rewrite_tac [Once ffi_vars_def] >>
+    strip_tac >>
+    drule state_rel_imp_systime_defined >>
+    strip_tac >>
+    (* reading systime *)
+    rewrite_tac [Once evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    qmatch_asmsub_abbrev_tac ‘evaluate (Assign «sysTime» _, nt)’ >>
+    ‘nt.memory ffiBufferAddr = Word (n2w (FST(t'.ffi.ffi_state 0)))’ by (
+      fs [Abbr ‘nt’] >>
+      fs [mem_call_ffi_def] >>
+      drule read_bytearray_LENGTH >>
+      strip_tac >> fs [] >>
+      fs [ffiBufferSize_def] >>
+      cheat) >>
+    drule evaluate_assign_load >>
+    gs [] >>
+    disch_then (qspecl_then
+                [‘ffiBufferAddr’, ‘tm’,
+                 ‘n2w (FST (t'.ffi.ffi_state 0))’] mp_tac) >>
+    impl_tac
+    >- (
+      gs [Abbr ‘nt’] >>
+      fs [state_rel_def]) >>
+    strip_tac >> fs [] >>
+    pop_assum kall_tac >>
+    pop_assum kall_tac >>
+
+
+
+    (* reading input *)
+    rewrite_tac [Once evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    qmatch_asmsub_abbrev_tac ‘evaluate (Assign «isInput» _, nnt)’ >>
+
+
+    ‘nnt.memory (ffiBufferAddr +  bytes_in_word) =
+     Word (if SND (t'.ffi.ffi_state 0) then 0w else 1w)’ by cheat >>
+    gs [] >>
+    drule evaluate_assign_load_next_address >>
+    gs [] >>
+    disch_then (qspecl_then
+                [‘ffiBufferAddr’, ‘1w’,
+                 ‘1w’] mp_tac) >>
+    impl_tac
+    >- (
+      gs [Abbr ‘nnt’,Abbr ‘nt’, equiv_flags_def, active_low_def] >>
+      gs [state_rel_def, FLOOKUP_UPDATE] >>
+      gs [delay_rep_def, nexts_ffi_def]) >>
+    strip_tac >>
+    gs [] >>
+    pop_assum kall_tac >>
+    pop_assum kall_tac >>
+    rewrite_tac [Once evaluate_def] >>
+    fs [] >>
+    strip_tac >> fs [] >>
+    rveq >> gs [] >>
+    fs [Abbr ‘nnt’, Abbr ‘nt’] >>
+    qmatch_goalsub_abbrev_tac ‘evaluate (_, nt)’ >>
+    qexists_tac ‘nt with clock := t'.clock’ >>
+    fs [] >>
+    gs [Abbr ‘nt’] >>
+    reverse conj_tac
+    >- (
+      fs [ffi_call_ffi_def] >>
+      fs [nexts_ffi_def, next_ffi_def] >>
+      fs [ADD1]) >>
+    (* proving state rel *)
+    gs [state_rel_def, mkState_def] >>
+    conj_tac
+    (* equivs *)
+    >- gs [equivs_def, equiv_labels_def, equiv_flags_def,
+           FLOOKUP_UPDATE, active_low_def] >>
+    conj_tac
+    >- gs [ffi_vars_def, FLOOKUP_UPDATE] >>
+    conj_tac
+    >- (
+      gs [mem_config_def, mem_call_ffi_def] >>
+      cheat) >>
+    conj_tac
+    >- (
+      (* clock_bound *)
+      qpat_x_assum ‘clock_bound s.clocks _ _’ assume_tac >>
+      gs [clock_bound_def] >>
+      fs [EVERY_MEM] >>
+      rw [] >>
+      first_x_assum drule >>
+      strip_tac >>
+      fs [] >>
+      fs [delay_clocks_def] >>
+      qexists_tac ‘d+n’ >>
+      gs [] >>
+      conj_tac
+      >- (
+        match_mp_tac mem_to_flookup >>
+        ‘MAP FST (MAP (λ(x,y). (x,d + y)) (fmap_to_alist s.clocks)) =
+         MAP FST (fmap_to_alist s.clocks)’ by fs [map_fst] >>
+        fs [ALL_DISTINCT_fmap_to_alist_keys] >>
+        fs [MEM_MAP] >>
+        qexists_tac ‘(ck',n)’ >>
+        fs []) >>
+      gs [delay_rep_def] >>
+      last_x_assum assume_tac >>
+      pairarg_tac >> fs [] >>
+      fs [clocks_rel_def, clkvals_rel_def] >>
+      gs [EVERY_MEM] >>
+      first_x_assum (qspec_then ‘ck'’ assume_tac) >>
+      gs []) >>
+    pairarg_tac >> gs [] >>
+    conj_tac
+    >- (
+      fs [ffi_call_ffi_def, build_ffi_def] >>
+      fs [ffiTheory.ffi_state_component_equality] >>
+      last_x_assum assume_tac >>
+      pairarg_tac >>
+      fs []) >>
+    conj_tac
+    >- (
+     (* time_seq holds *)
+      gs [ffi_call_ffi_def,
+          nexts_ffi_def, next_ffi_def] >>
+      last_x_assum mp_tac >>
+      pairarg_tac >> gs [] >>
+      strip_tac >>
+      drule time_seq_add_holds >>
+      disch_then (qspec_then ‘cycles + 1’ mp_tac) >>
+      fs []) >>
+    conj_tac
+    >- (
+      fs [nexts_ffi_def] >>
+      fs [FLOOKUP_UPDATE] >>
+      fs [ffi_call_ffi_def] >>
+      gs [next_ffi_def] >>
+
+
+
+
+
+
+    )
+
+
+
+
+
+    cheat) >>
+  cheat
+QED
+
+
+
+
+
+
+
+
+
+
+Theorem about_write_bytearray:
+  byte_aligned adr ∧
+  m adr = Word 0w ⇒
+    write_bytearray (adr:32 word) [a;b;c;d] m adrs be adr =
+    Word (word_of_bytes be adr [a;b;c;d])
+Proof
+  rw [] >>
+  fs [byte_align_aligned] >>
+  fs [write_bytearray_def] >>
+  TOP_CASE_TAC >> fs []
+  >- cheat >>
+  FULL_CASE_TAC >> fs []
+  >- cheat >>
+  FULL_CASE_TAC >> fs []
+  >- cheat >>
+  FULL_CASE_TAC >> fs []
+  >- cheat >>
+  (* tail recusrive *)
+  gs [mem_store_byte_def] >>
+  ‘byte_align (adr + 3w) = adr’ by cheat >>
+  ‘byte_align (adr + 2w) = adr’ by cheat >>
+  ‘byte_align (adr + 1w) = adr’ by cheat >>
+  gs [] >> rveq >>
+  gs [UPDATE_APPLY] >> rveq >>
+  gs [UPDATE_APPLY] >> rveq >>
+  gs [UPDATE_APPLY] >> rveq >>
+  gs [UPDATE_APPLY] >>
+  fs [word_of_bytes_def]
+QED
+
+Theorem foo:
+  byte_aligned adr ∧
+  LENGTH bs = dimindex (:α) DIV 8 ⇒
+    write_bytearray (adr:'a word) bs m adrs be adr =
+    Word (word_of_bytes be adr bs)
+Proof
+ cheat
+QED
+
+
+(*
+Theorem foo:
+  byte_aligned adr ∧
+  (∃w. m adr = Word w) ⇒
+    write_bytearray (adr:32 word) [a;b;c;d] m adrs be adr =
+    Word (word_of_bytes be adr [a;b;c;d])
+Proof
+  rw [] >>
+  fs [byte_align_aligned] >>
+  fs [write_bytearray_def] >>
+  TOP_CASE_TAC >> fs []
+  >- cheat >>
+  FULL_CASE_TAC >> fs []
+  >- cheat >>
+  FULL_CASE_TAC >> fs []
+  >- cheat >>
+  FULL_CASE_TAC >> fs []
+  >- cheat >>
+  (* tail recusrive *)
+  gs [mem_store_byte_def] >>
+  ‘byte_align (adr + 3w) = adr’ by cheat >>
+  ‘byte_align (adr + 2w) = adr’ by cheat >>
+  ‘byte_align (adr + 1w) = adr’ by cheat >>
+  gs [] >> rveq >>
+  gs [UPDATE_APPLY] >> rveq >>
+  gs [UPDATE_APPLY] >> rveq >>
+  gs [UPDATE_APPLY] >> rveq >>
+  gs [UPDATE_APPLY] >>
+  fs [word_of_bytes_def] >>
+  cheat
+QED
+*)
+
+
+
 
 Theorem step_delay:
   !prog d s s' (t:('a,time_input) panSem$state).
@@ -1611,7 +2425,9 @@ Theorem step_delay:
       evaluate (wait_input_time_limit, t with clock := t.clock + ck) =
       evaluate (wait_input_time_limit, t') ∧
       code_installed t'.code prog ∧
-      state_rel (clksOf prog) s'.ioAction s' t'
+      state_rel (clksOf prog) s'.ioAction s' t' ∧
+      ~SND (t'.ffi.ffi_state 0)
+
 Proof
   simp [delay_rep_def, PULL_EXISTS] >>
   Induct_on ‘cycles’ >>
@@ -1671,11 +2487,12 @@ Proof
      NONE’ by fs [mkState_def] >>
     fs [] >>
     pop_assum kall_tac >>
-    (* time out should be dealt here *)
+    (* assuming not time-out case here for the time being *)
+    ‘evaluate (wait_input_time_limit,t with clock := ck + 1 + t.clock) =
+     evaluate (wait_input_time_limit,t' with clock := t'.clock + 1)’ by cheat >>
+    qpat_x_assum ‘_ = evaluate (wait_input_time_limit,t')’ kall_tac >>
 
-
-    (* not as complicated as it seems *)
-    qexists_tac ‘ck’ >>
+    qexists_tac ‘ck + 1’ >>
     fs [] >>
     fs [wait_input_time_limit_def] >>
     rewrite_tac [Once evaluate_def] >>
@@ -1688,17 +2505,11 @@ Proof
       pairarg_tac >> gs [] >>
       fs [add_time_def]) >>
     strip_tac >>
-    gs [] >>
-
-
-
-    TOP_CASE_TAC >> fs []
-    (* TimeOut case *)
-    >- cheat >>
+    gs [eval_upd_clock_eq] >>
     pairarg_tac >> fs [] >>
     pop_assum mp_tac >>
-    ‘dec_clock t' = t'’ by cheat >>
-    (* horrible assumption, but anyway*)
+    fs [dec_clock_def] >>
+    ‘t' with clock := t'.clock = t'’ by fs [state_component_equality]  >>
     fs [] >>
     pop_assum kall_tac >>
 
@@ -1730,9 +2541,15 @@ Proof
     rewrite_tac [Once evaluate_def] >>
     fs [] >>
     pairarg_tac >> fs [] >>
-    qmatch_asmsub_abbrev_tac
-    ‘evaluate (Assign «sysTime» _, nt)’ >>
-    ‘nt.memory ffiBufferAddr = Word (n2w (FST(t'.ffi.ffi_state 0)))’ by cheat >>
+    qmatch_asmsub_abbrev_tac ‘evaluate (Assign «sysTime» _, nt)’ >>
+
+    ‘nt.memory ffiBufferAddr = Word (n2w (FST(t'.ffi.ffi_state 0)))’ by (
+      fs [Abbr ‘nt’] >>
+      fs [mem_call_ffi_def] >>
+      drule read_bytearray_LENGTH >>
+      strip_tac >> fs [] >>
+      fs [ffiBufferSize_def] >>
+      cheat) >>
     drule evaluate_assign_load >>
     gs [] >>
     disch_then (qspecl_then
@@ -1751,8 +2568,11 @@ Proof
     pairarg_tac >> fs [] >>
     qmatch_asmsub_abbrev_tac
     ‘evaluate (Assign «isInput» _, nnt)’ >>
+
+
     ‘nt.memory (ffiBufferAddr +  bytes_in_word) =
-     Word 1w’ by cheat >>
+     Word (if SND (t'.ffi.ffi_state 0) then 0w else 1w)’ by cheat >>
+    gs [] >>
     drule evaluate_assign_load_next_address >>
     gs [] >>
     gs [equiv_flags_def, active_low_def] >>
@@ -1777,6 +2597,17 @@ Proof
     qexists_tac ‘nt’ >>
     fs [] >>
     gs [Abbr ‘nt’] >>
+    reverse conj_tac
+    >- (
+      fs [ffi_call_ffi_def] >>
+      fs [next_ffi_def] >>
+      cheat)
+
+
+    )
+
+
+
     gs [state_rel_def, mkState_def] >>
     conj_tac
     >- gs [equivs_def, equiv_labels_def, equiv_flags_def,
@@ -2013,39 +2844,6 @@ Theorem systime_clock_upd:
 Proof
   rw [] >>
   fs [systime_of_def]
-QED
-
-
-Theorem map2_fmap_to_alist_thm:
-  !xs (ys:num list) fm a b.
-    EVERY (λx. ∃n. FLOOKUP fm x = SOME n) xs /\
-    LENGTH xs = LENGTH ys /\
-    MAP2 (λx y. y + THE (FLOOKUP fm x)) xs ys =
-    REPLICATE (LENGTH ys) a ==>
-    MAP2 (λx y.
-           y +
-           THE
-           (FLOOKUP
-            (FEMPTY |++
-             MAP (λ(x,y). (x,b + y)) (fmap_to_alist fm)) x))
-         xs ys =
-    REPLICATE (LENGTH ys) (b + a)
-Proof
-  Induct >> rw [] >>
-  cases_on ‘ys’ >>
-  fs [] >>
-  qpat_x_assum ‘_ + _ = _’ (assume_tac o GSYM) >>
-  gs [] >>
-  ‘FLOOKUP (FEMPTY |++ MAP (λ(x,y). (x,b + y)) (fmap_to_alist fm))
-   h = SOME (b + n)’ by (
-    match_mp_tac mem_to_flookup >>
-    ‘MAP FST (MAP (λ(x,y). (x,b + y)) (fmap_to_alist fm)) =
-     MAP FST (fmap_to_alist fm)’ by fs [map_fst] >>
-    fs [ALL_DISTINCT_fmap_to_alist_keys] >>
-    fs [MEM_MAP] >>
-    qexists_tac ‘(h,n)’ >>
-    fs []) >>
-  fs []
 QED
 
 
