@@ -5171,15 +5171,17 @@ Proof
     >> disch_then $ dep_rewrite.DEP_REWRITE_TAC o single
     >> fs[LR_TYPE_SUBST_type_preserving]
   )
+  >> rpt (PRED_ASSUM (exists (curry op = "P")
+    o map (fst o dest_var) o find_terms is_var) kall_tac)
   >> Cases_on `
-    ?kk. !i. kk < i ==> 
+    ?kk. !i. kk < i ==>
       type_size_LR (LR_TYPE_SUBST (HD (ρ (g i))) (FST (THE (LHD pqs))))
       = type_size_LR (LR_TYPE_SUBST (HD (ρ (SUC (g i)))) (FST (THE (LHD pqs))))
   `
   (* contradiction to finitely many type variables *)
   >- (
     fs[FORALL_AND_THM,IMP_CONJ_THM]
-    >> `!i l. kk < i ==> 
+    >> `!i l. kk < i ==>
         LENGTH (FV (LR_TYPE_SUBST (HD (ρ (g $ i + l))) (FST (THE (LHD pqs))))) + l <=
         LENGTH (FV (LR_TYPE_SUBST (HD (ρ (g $ i))) (FST (THE (LHD pqs)))))
     ` by (
@@ -5209,7 +5211,161 @@ Proof
     >> disch_then $ qspec_then `SUC $ LENGTH b` mp_tac
     >> fs[]
   )
-  >> cheat
+  >> rpt (PRED_ASSUM (exists (curry op = "ll")
+    o map (fst o dest_var) o find_terms is_var) kall_tac)
+  >> qabbrev_tac `l = λi. type_size_LR (LR_TYPE_SUBST (HD (ρ (g i))) (FST (THE (LHD pqs))))`
+  >> qabbrev_tac `r = λi. type_size_LR (LR_TYPE_SUBST (HD (ρ (SUC $ g i))) (FST (THE (LHD pqs))))`
+  >> qabbrev_tac `Q = λk i. k < i /\ l i < r i /\ !i'. i' < i /\ k < i' ==> l i' = r i'`
+  >> fs[Once WOP_eq]
+  >> `!k. ?i. Q k i` by (
+    rpt strip_tac
+    >> first_x_assum $ qspec_then `k` strip_assume_tac
+    >> qunabbrev_tac `Q`
+    >> fs[AC CONJ_ASSOC CONJ_COMM]
+    >> goal_assum drule
+    >> rename[`k < i`]
+    >> qpat_x_assum `!i. sol_seq_measure _ _` $ qspec_then `i` assume_tac o cj 1 o REWRITE_RULE[sol_seq_measure_def]
+    >> map_every qunabbrev_tac [`r`,`l`]
+    >> fs[]
+  )
+  >> qpat_x_assum `!x. ?y. _ /\ _` kall_tac
+  >> qpat_x_assum `!i. sol_seq_measure _ _` kall_tac
+  >> fs[FORALL_AND_THM,IMP_CONJ_THM]
+  >> qpat_x_assum `!i. LENGTH _ = _` kall_tac
+  >> `!k i. Q k i ==> k < i /\ l i < r i /\ !i'. k < i' /\ i' < i ==> r i' = l i'` by fs[Abbr`Q`]
+  >> qabbrev_tac `fQ = λk. SOME $ @k'. Q k k'`
+  >> qspecl_then [`0n`,`fQ`] assume_tac
+    $ SIMP_RULE (bool_ss ++ LET_ss) []
+    $ CONV_RULE (RESORT_FORALL_CONV rev) LUNFOLD_f_iter
+  >> qabbrev_tac `ll' = LUNFOLD (OPTION_MAP (λx. (x,x)) o fQ) 0`
+  >> `!n. IS_SOME (LNTH n ll')` by (
+    Induct
+    >- (map_every qunabbrev_tac [`ll'`,`fQ`] >> fs[])
+    >> rename[`LNTH (SUC n) ll'`]
+    >> fs[IS_SOME_EXISTS,PULL_EXISTS,Abbr`fQ`]
+    >> first_x_assum drule
+    >> fs[]
+  )
+  >> `~LFINITE ll'` by (
+    rw[LFINITE_LNTH_NONE]
+    >> rename[`LNTH n ll'`]
+    >> first_x_assum $ qspec_then `n` mp_tac
+    >> rw[IS_SOME_EXISTS]
+    >> fs[]
+  )
+  >> qabbrev_tac `gQ = λj. THE (LNTH j ll')`
+  >> `!i j k. Q k i /\ Q k j ==> i = j` by (
+    rw[]
+    >> first_assum $ dxrule_then mp_tac
+    >> first_x_assum $ dxrule_then strip_assume_tac
+    >> CCONTR_TAC
+    >> gs[LESS_OR_EQ,NOT_NUM_EQ]
+  )
+  >> fs[FORALL_AND_THM,IMP_CONJ_THM]
+  >> qpat_assum `!x. ?y. _` $ qspec_then `0` strip_assume_tac
+  >> qmatch_asmsub_rename_tac `Q 0 k`
+  >> `k = @k. Q 0 k` by (
+    first_x_assum $ drule_then match_mp_tac
+    >> metis_tac[SELECT_THM]
+  )
+  >> `!i. gQ i < gQ (SUC i)` by (
+    strip_tac
+    >> fs[Abbr`gQ`,Abbr`fQ`]
+    >> first_x_assum match_mp_tac
+    >> metis_tac[SELECT_THM]
+  )
+  >> `Q 0 $ gQ 0` by (
+    fs[Abbr`gQ`,Abbr`ll'`,Abbr`fQ`]
+    >> metis_tac[SELECT_THM]
+  )
+  >> first_assum $ dxrule_then $ drule_then assume_tac
+  >> `!i. 0 < gQ i` by (
+    Induct
+    >- (
+      first_x_assum match_mp_tac
+      >> fs[]
+    )
+    >> match_mp_tac LESS_TRANS
+    >> goal_assum drule
+    >> fs[]
+  )
+  >> `!k. Q (gQ k) (gQ $ SUC k)` by (
+    gen_tac
+    >> rename[`Q (gQ kk) _`]
+    >> qpat_x_assum `!k. ?k'. _` $ qspec_then `gQ kk` mp_tac
+    >> qspec_then `λk'. Q (THE (LNTH kk ll')) k'` mp_tac SELECT_THM
+    >> fs[Abbr`gQ`,Abbr`fQ`]
+  )
+  >> `!i j. l (gQ $ SUC i) + j <= l (gQ $ SUC i + j)` by (
+    gen_tac
+    >> Induct >- fs[]
+    >> match_mp_tac LESS_EQ_TRANS
+    >> qmatch_assum_abbrev_tac `_ <= b:num`
+    >> qexists_tac `SUC b`
+    >> fs[Abbr`b`,GSYM LESS_EQ]
+    >> first_assum $ qspec_then `i+j` assume_tac
+    >> qpat_x_assum `!k i. _ ==> l _ < _` $ drule_then assume_tac
+    >> match_mp_tac LESS_LESS_EQ_TRANS
+    >> ONCE_REWRITE_TAC[ADD_COMM]
+    >> fs[GSYM SUC_ADD_SYM]
+    >> goal_assum dxrule
+    >> first_x_assum $ qspec_then `SUC(i+j)` assume_tac
+    >> qpat_x_assum `!k i. _ ==> _` $ dxrule_then mp_tac
+    >> qpat_x_assum `!i. gQ _ < _` $ qspec_then `SUC i + j` mp_tac
+    >> qpat_x_assum `!i. l _ = r _` $ Ho_Rewrite.REWRITE_TAC o single o GSYM
+    >> rpt $ pop_assum kall_tac
+    >> fs[GSYM SUC_ADD_SYM]
+    >> qmatch_goalsub_rename_tac `a < b`
+    >> Induct_on `b - a`
+    >> fs[AND_IMP_INTRO]
+    >> rw[]
+    >> dxrule_then assume_tac $ cj 1 $ REWRITE_RULE[EQ_IMP_THM,Once LESS_OR_EQ] LESS_EQ
+    >> fs[]
+    >> match_mp_tac LESS_EQ_TRANS
+    >> first_x_assum $ irule_at (Pos $ el 2)
+    >> goal_assum $ drule_at Any
+    >> fs[]
+  )
+  >> rpt (PRED_ASSUM (exists (curry op = "Q")
+    o map (fst o dest_var) o find_terms is_var) kall_tac)
+  >> qabbrev_tac `κ = type_size_LR (LR_TYPE_SUBST (THE (LHD rs)) (FST $ THE $ LHD pqs))`
+  >> first_x_assum $ qspecl_then [`0`,`SUC κ`] mp_tac
+  >> qunabbrev_tac `l`
+  >> fs[NOT_LESS_EQUAL]
+  >> qmatch_goalsub_abbrev_tac `type_size_LR (LR_TYPE_SUBST (HD (ρ $ g index)) _) < _`
+  >> drule_then (qspec_then `g index` assume_tac) sol_seq_inf_sol_seq_LTAKE
+  >> qpat_x_assum `!i. mg_sol_seq _ _` $ qspec_then `g index` assume_tac
+  >> imp_res_tac mg_sol_seq_LENGTH
+  >> drule_then (drule_then strip_assume_tac) $
+    cj 2 $ REWRITE_RULE[FORALL_AND_THM,IMP_CONJ_THM,EQ_IMP_THM] mg_sol_seq_def
+  >> first_x_assum $ qspec_then `0` mp_tac
+  >> impl_keep_tac
+  >- fs[NOT_LFINITE_LENGTH]
+  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose]
+  >> fs[LNTH]
+  >> conj_asm1_tac
+  >- (
+    fs[wf_pqs_inf_def,sol_seq_inf_def]
+    >> qspecl_then [`pqs`,`0`] assume_tac $
+      Ho_Rewrite.REWRITE_RULE[PULL_FORALL] NOT_LFINITE_LNTH
+    >> rfs[]
+    >> drule_all every_LNTH
+    >> fs[LNTH]
+  )
+  >> REWRITE_TAC[GSYM EL]
+  >> qspecl_then [`rs`,`0`] (mp_tac o CONV_RULE SWAP_FORALL_CONV) EL_LTAKE_LDROP_LNTH
+  >> disch_then $ qspec_then `0` mp_tac
+  >> fs[]
+  >> disch_then kall_tac
+  >> qunabbrev_tac `κ`
+  >> fs[LNTH]
+  >> disch_then $ REWRITE_TAC o single o GSYM
+  >> qmatch_goalsub_abbrev_tac `type_size_LR b < _`
+  >> match_mp_tac LESS_EQ_LESS_TRANS
+  >> qexists_tac `type_size_LR $ LR_TYPE_SUBST (HD es) b`
+  >> qunabbrev_tac `b`
+  >> dep_rewrite.DEP_REWRITE_TAC[type_size_LR_TYPE_SUBST,LR_TYPE_SUBST_type_preserving]
+  >> fs[]
 QED
 
 (* Definition 6.1 *)
