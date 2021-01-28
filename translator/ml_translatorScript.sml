@@ -24,7 +24,7 @@ val _ = augment_srw_ss [rewrites [getOpClass_def]];
 
 (* Definitions *)
 
-val empty_state_def = Define`
+Definition empty_state_def:
   empty_state = <|
     clock := 0;
     refs := empty_store;
@@ -38,7 +38,8 @@ val empty_state_def = Define`
       opts := \x.[];
       assertions := no_assertions;
       real_sem := F |>
-    |>`;
+    |>
+End
 
 val Eval_def = Define `
   Eval env exp P =
