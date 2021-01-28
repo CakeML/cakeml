@@ -1295,6 +1295,22 @@ Proof
   intLib.COOPER_TAC
 QED
 
+Theorem CARD_BIGUNION_BOUNDED_SETS_LESS:
+  ∀n s.
+    FINITE s ∧ (∀e. e ∈ s ⇒ FINITE e ∧ CARD e ≤ n) ∧
+    e ∈ s ∧ CARD e < n
+    ⇒
+    CARD (BIGUNION s) < CARD s * n
+Proof
+  strip_tac >> simp[GSYM AND_IMP_INTRO] >>
+  ho_match_mp_tac FINITE_INDUCT >>
+  rw[CARD_UNION_EQN,MULT_CLAUSES,DISJ_IMP_THM,FORALL_AND_THM] >>
+  res_tac >>
+  gvs[] >>
+  drule_all CARD_BIGUNION_BOUNDED_SETS >>
+  intLib.COOPER_TAC
+QED
+
 Theorem is_instance_NOT_is_instance_imp':
   !t t'. is_instance t t' /\ ~(is_instance t' t)
   ==> CARD (set (tyvars t')) < CARD (set (tyvars t))
@@ -2736,6 +2752,145 @@ Proof
   >> fs[]
 QED
 
+Theorem type1_size'_eqn:
+  type1_size' l = LENGTH l + SUM (MAP type_size' l)
+Proof
+  Induct_on ‘l’ >>
+  rw[type_size'_def]
+QED
+
+Theorem TYPE_SUBST_type_size_intr:
+  ∀σ t.
+  type_size' (TYPE_SUBST σ t) = type_size' t ⇒
+  ∀x. MEM x (tyvars t) ⇒
+      (∃z. TYPE_SUBST σ (Tyvar x) = Tyvar z) ∨
+      (∃tc. TYPE_SUBST σ (Tyvar x) = Tyapp tc [])
+Proof
+  ho_match_mp_tac TYPE_SUBST_ind >>
+  rw[tyvars_def,type_size'_def,MEM_FOLDR_LIST_UNION]
+  >- (Cases_on ‘REV_ASSOCD (Tyvar σ') σ (Tyvar σ')’ >>
+      gvs[] >> Cases_on ‘l’ >> gvs[type_size'_def])
+  >- (‘∀z. MEM z tys ⇒ type_size' (TYPE_SUBST σ z) = type_size' z’
+        by(qpat_x_assum ‘_ = _’ mp_tac >>
+           rpt(pop_assum kall_tac) >>
+           rw[type1_size'_eqn,MAP_MAP_o,o_DEF] >>
+           rw[EQ_LESS_EQ,type_size_TYPE_SUBST] >>
+           spose_not_then strip_assume_tac >>
+           gvs[NOT_LESS_EQUAL] >>
+           gvs[MEM_SPLIT,SUM_APPEND] >>
+           ‘SUM (MAP type_size' l1) ≤ SUM (MAP (λa. type_size' (TYPE_SUBST σ a)) l1)’
+             by(match_mp_tac SUM_MAP_same_LE >>
+                rw[EVERY_MEM,type_size_TYPE_SUBST]) >>
+           ‘SUM (MAP type_size' l2) ≤ SUM (MAP (λa. type_size' (TYPE_SUBST σ a)) l2)’
+             by(match_mp_tac SUM_MAP_same_LE >>
+                rw[EVERY_MEM,type_size_TYPE_SUBST]) >>
+           DECIDE_TAC) >>
+      pop_assum drule >>
+      strip_tac >>
+      res_tac >>
+      gvs[])
+QED
+
+Theorem TYPE_SUBST_type_size_intr':
+  ∀σ t.
+  (∀x. MEM x (tyvars t) ⇒
+      (∃z. TYPE_SUBST σ (Tyvar x) = Tyvar z) ∨
+      (∃tc. TYPE_SUBST σ (Tyvar x) = Tyapp tc [])) ⇒
+  type_size' (TYPE_SUBST σ t) = type_size' t
+Proof
+  ho_match_mp_tac TYPE_SUBST_ind >>
+  rw[tyvars_def,type_size'_def,MEM_FOLDR_LIST_UNION] >>
+  rw[type_size'_def] >>
+  gvs[PULL_EXISTS] >>
+  gvs[type1_size'_eqn,MAP_MAP_o,o_DEF] >>
+  rw[EQ_LESS_EQ]
+  >- (match_mp_tac SUM_MAP_same_LE >>
+      rw[EVERY_MEM] >>
+      res_tac >>
+      simp[])
+  >- (match_mp_tac SUM_MAP_same_LE >>
+      rw[MEM_MAP,type_size_TYPE_SUBST])
+QED
+
+Theorem type_size_invariant_CARD_LESS_EQ:
+  type_size' (TYPE_SUBST σ t) = type_size' t ⇒
+  CARD(set(tyvars(TYPE_SUBST σ t))) ≤ CARD(set(tyvars t))
+Proof
+  rw[tyvars_TYPE_SUBST_alt] >>
+  match_mp_tac LESS_EQ_TRANS >>
+  irule_at (Pos hd) CARD_BIGUNION_BOUNDED_SETS >>
+  simp[PULL_EXISTS] >>
+  qexists_tac ‘1’ >>
+  conj_tac
+  >- (rpt strip_tac >>
+      drule_all TYPE_SUBST_type_size_intr >>
+      rw[] >> rw[tyvars_def])
+  >- (simp[] >>
+      match_mp_tac CARD_IMAGE >>
+      rw[])
+QED
+
+Theorem type_size_invariant_CARD_less_IFF:
+  type_size' (TYPE_SUBST σ t) = type_size' t ⇒
+  (CARD(set(tyvars(TYPE_SUBST σ t))) < CARD(set(tyvars t))
+   ⇔
+   (∃x m. MEM x (tyvars t) ∧ TYPE_SUBST σ (Tyvar x) = Tyapp m []) ∨
+   (∃x y z. MEM x (tyvars t) ∧ MEM y (tyvars t) ∧ x ≠ y ∧
+            TYPE_SUBST σ (Tyvar x) = TYPE_SUBST σ (Tyvar y)))
+Proof
+  rpt strip_tac >>
+  rw[] >>
+  drule type_size_invariant_CARD_LESS_EQ >>
+  drule TYPE_SUBST_type_size_intr >>
+  pop_assum kall_tac >>
+  rpt strip_tac >>
+  rw[EQ_IMP_THM]
+  >- (rw[DISJ_EQ_IMP] >>
+      gvs[tyvars_TYPE_SUBST_alt] >>
+      qmatch_asmsub_abbrev_tac ‘IMAGE a1’ >>
+      ‘CARD (BIGUNION (IMAGE a1 (set (tyvars t)))) =
+       CARD (IMAGE a1 (set (tyvars t)))’
+        by(match_mp_tac (CARD_BIGUNION_SAME_SIZED_SETS |> SPEC “SUC 0” |> SIMP_RULE std_ss []) >>
+           simp[PULL_EXISTS] >>
+           rw[Abbr ‘a1’] >>
+           res_tac >> gvs[tyvars_def]) >>
+      pop_assum SUBST_ALL_TAC >>
+      ‘¬INJ a1 (set(tyvars t)) (𝕌(:mlstring set))’
+        by(spose_not_then strip_assume_tac >>
+           drule INJ_CARD_IMAGE_EQ >>
+           simp[]) >>
+      gvs[INJ_DEF,Abbr ‘a1’] >>
+      res_tac >> gvs[tyvars_def] >>
+      metis_tac[])
+  >- (gvs[tyvars_TYPE_SUBST_alt] >>
+      match_mp_tac LESS_LESS_EQ_TRANS >>
+      irule_at (Pos hd) CARD_BIGUNION_BOUNDED_SETS_LESS >>
+      simp[PULL_EXISTS] >>
+      qexists_tac ‘1’ >>
+      qexists_tac ‘x’ >>
+      simp[] >>
+      conj_tac >- (rw[] >> res_tac >> gvs[tyvars_def]) >>
+      simp[tyvars_def] >>
+      simp[CARD_IMAGE])
+  >- (gvs[tyvars_TYPE_SUBST_alt] >>
+      match_mp_tac LESS_EQ_LESS_TRANS >>
+      irule_at (Pos hd) CARD_BIGUNION_BOUNDED_SETS >>
+      simp[PULL_EXISTS] >>
+      qexists_tac ‘1’ >>
+      simp[] >>
+      conj_tac >- (rw[] >> res_tac >> gvs[tyvars_def]) >>
+      qmatch_goalsub_abbrev_tac ‘IMAGE a1’ >>
+      ‘CARD (IMAGE a1 (set(tyvars t))) ≤ CARD(set(tyvars t)) ∧
+       CARD (IMAGE a1 (set(tyvars t))) ≠ CARD(set(tyvars t))’
+        suffices_by DECIDE_TAC >>
+      simp[CARD_IMAGE] >>
+      spose_not_then strip_assume_tac >>
+      unabbrev_all_tac >>
+      drule_at (Pos last) CARD_IMAGE_EQ_BIJ >>
+      simp[BIJ_DEF,INJ_DEF] >>
+      metis_tac[])
+QED
+
 Theorem mg_sol_ext_geq_NOT_leq:
   !rs pqs p q s ctxt. mg_sol_seq rs pqs
   /\ 0 < LENGTH rs
@@ -2848,7 +3003,17 @@ Proof
   >> qpat_x_assum `LENGTH _ < LENGTH _` mp_tac
   >> dep_rewrite.DEP_REWRITE_TAC[GSYM ALL_DISTINCT_CARD_LIST_TO_SET,FV_ALL_DISTINCT,LR_TYPE_SUBST_type_preserving]
   >> rw[]
-  >> cheat (* TODO *)
+  >> ntac 2 (qhdtm_x_assum ‘is_const_or_type’ mp_tac)
+  >> rw[is_const_or_type_eq]
+  >> gvs[LR_TYPE_SUBST_def,FV_def,INST_def,INST_CORE_def,tvars_def,type_size_LR_def]
+  >> rename1 ‘set (tyvars ty) ⊆ set (tyvars ty')’
+  >> rename1 ‘TYPE_SUBST σ ty'’
+  >> ‘type_size' (TYPE_SUBST σ ty) = type_size' ty’
+       by(match_mp_tac TYPE_SUBST_type_size_intr' >>
+          drule TYPE_SUBST_type_size_intr >>
+          metis_tac[SUBSET_THM])
+  >> gvs[type_size_invariant_CARD_less_IFF]
+  >> metis_tac[SUBSET_THM]
 QED
 
 (* Lemma 5.11, Kunčar 2015 *)

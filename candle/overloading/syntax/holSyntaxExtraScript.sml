@@ -2119,6 +2119,15 @@ Proof
   metis_tac[]
 QED
 
+Theorem tyvars_TYPE_SUBST_alt:
+  ∀ty tyin. set (tyvars (TYPE_SUBST tyin ty)) =
+             BIGUNION (IMAGE (set o tyvars o TYPE_SUBST tyin o Tyvar) (set(tyvars ty)))
+Proof
+  rw[tyvars_TYPE_SUBST] >>
+  rw[EXTENSION,PULL_EXISTS,EQ_IMP_THM,PULL_FORALL] >>
+  metis_tac[]
+QED
+
 Theorem tyvars_TYPE_SUBST_mono:
  !x y s. set (tyvars x) ⊆ set (tyvars y)
   ==> set (tyvars (TYPE_SUBST s x)) ⊆ set (tyvars (TYPE_SUBST s y))
