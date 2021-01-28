@@ -5,7 +5,8 @@
 open compilerTheory fromSexpTheory cfTacticsLib ml_translatorLib;
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
 open source_to_sourceTheory source_to_sourceProofsTheory CakeMLtoFloVerTheory
-     CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory
+     CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory fpSemPropsTheory
+     pureExpsTheory
      icing_optimisationsLib dopplerProgCompTheory dopplerProgErrorTheory
      cfSupportTheory;
 open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith sptreeTheory;

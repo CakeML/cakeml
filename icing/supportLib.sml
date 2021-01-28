@@ -12,12 +12,15 @@ open astToSexprLib fromSexpTheory basis_ffiTheory cfHeapsBaseTheory basis;
 open preamble;
 
 fun mk_local_opt_thm (th1:thm) (th2:thm) =
-    th1
-    |> SIMP_RULE std_ss [th2]
-    |> REWRITE_RULE  [HD, opt_pass_decs_unfold, opt_pass_fun_unfold, opt_pass_scope_unfold,
-                    opt_pass_let_unfold , th2]
-    |> SIMP_RULE std_ss [locationTheory.unknown_loc_def, TypeBase.one_one_of “:ast$exp”,
-     TypeBase.one_one_of “:ast$dec”, TypeBase.one_one_of “:'a list”]
+  th1
+    |> REWRITE_RULE [th2]
+    |> REWRITE_RULE [opt_pass_with_plans_decs_unfold, opt_pass_decs_unfold,
+                     opt_pass_fun_unfold, opt_pass_with_plans_fun_unfold,
+                     opt_pass_scope_unfold, opt_pass_with_plans_scope_unfold,
+                     locationTheory.unknown_loc_def, HD]
+    |> SIMP_RULE std_ss [TypeBase.one_one_of “:ast$exp”,
+                         TypeBase.one_one_of “:ast$dec”,
+                         TypeBase.one_one_of “:'a list”];
 
 local
   val heap_thms = [COMMANDLINE_precond, STDIO_precond];

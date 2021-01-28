@@ -5,7 +5,7 @@
 structure icing_optimisationsLib =
 struct
 
-open source_to_sourceProofsTheory listTheory Portable;
+open floatToRealProofsTheory source_to_sourceProofsTheory listTheory Portable;
 open preamble;
 
 local

@@ -618,6 +618,29 @@ Proof
   Cases_on `l` >> fs[fp_translate_def]
 QED
 
+val choice_mono =
+  (CONJUNCT1 evaluate_fp_opts_inv) |> SPEC_ALL |> UNDISCH |> CONJUNCTS |> el 3 |> DISCH_ALL;
+
+Theorem evaluate_add_choices:
+  (∀ (s1:'a semanticPrimitives$state) env e s2 r choices.
+    evaluate s1 env e = (s2, r) ==>
+    evaluate (s1 with fp_state := s1.fp_state with choices := choices) env e =
+      (s2 with fp_state:= s2.fp_state with choices := choices + s2.fp_state.choices - s1.fp_state.choices,r)) ∧
+  (∀ (s1:'a semanticPrimitives$state) env v pes errv s2 r choices.
+    evaluate_match s1 env v pes errv = (s2, r) ==>
+     evaluate_match (s1 with fp_state := s1.fp_state with choices := choices) env v pes errv =
+      (s2 with fp_state:=s2.fp_state with choices:= choices + s2.fp_state.choices - s1.fp_state.choices,r))
+Proof
+  ho_match_mp_tac evaluate_ind \\ rw[]
+  \\ rfs[evaluate_def] \\ rveq
+  \\ qpat_x_assum `_ = (_,_)` mp_tac
+  \\ rpt (TOP_CASE_TAC \\ fs[])
+  \\ rpt strip_tac \\ rveq
+  \\ simp[semanticPrimitivesTheory.state_component_equality,semanticPrimitivesTheory.fpState_component_equality]
+  \\ imp_res_tac choice_mono \\ simp[]
+  \\ res_tac \\ fs[dec_clock_def, shift_fp_opts_def]
+QED
+
 (** UNUSED STUFF BEGINS HERE
 
 Theorem compress_word_valid:

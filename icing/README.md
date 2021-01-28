@@ -15,6 +15,15 @@ Support lemmas for CF reasoning
 [examples](examples):
 Case studies for the Marzipan optimizer
 
+[floatToRealProofsScript.sml](floatToRealProofsScript.sml):
+Proofs about translation from float computations to real number computations
+
+[floatToRealScript.sml](floatToRealScript.sml):
+Define a translation from float computations to real number computations
+
+[icingTacticsLib.sml](icingTacticsLib.sml):
+Tactic library specific to Icing
+
 [icing_optimisationProofsScript.sml](icing_optimisationProofsScript.sml):
 Correctness proofs for Icing optimisations supported by CakeML
 Each optimisation is defined in icing_optimisationsScript.
@@ -45,6 +54,10 @@ Shows that matchesExpr e p = SOME s ==> appExpr p s = SOME e
 Implementation of the source to source floating-point rewriter
 This file defines the basic rewriter, used by the optimisation pass later.
 Correctness proofs are in icing_rewriterProofsScript.
+
+[pureExpsScript.sml](pureExpsScript.sml):
+predicate to check whether an expression is pure, i.e. does not use memory
+or the FFI
 
 [source_to_sourceProofsScript.sml](source_to_sourceProofsScript.sml):
 Correctness proofs for floating-point optimizations

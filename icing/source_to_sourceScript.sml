@@ -43,6 +43,39 @@ Proof
   fs[extend_conf_def]
 QED
 
+(* Datatype for opt_path into a tree value. Here is the leaf node meaning that the
+  rewrite should be applied *)
+Datatype:
+  opt_path = Left opt_path | Right opt_path
+             | Center opt_path
+             | ListIndex (num # opt_path)
+             | Here
+End
+
+Type fp_plan = “: (opt_path # (fp_pat # fp_pat) list) list”
+
+Definition MAP_plan_to_path_def:
+  MAP_plan_to_path (to_path: opt_path -> opt_path) (plan: fp_plan) =
+    MAP (λ (path, rws). (to_path path, rws)) plan
+End
+
+Definition left_def:
+  left path = Left path
+End
+
+Definition right_def:
+  right path = Right path
+End
+
+Definition center_def:
+  center path = Center path
+End
+
+Definition listIndex_def:
+  listIndex i path = ListIndex (i, path)
+End
+
+
 (** Optimisation pass starts below **)
 
 (** Step 1:
@@ -103,35 +136,456 @@ Termination
       \\ first_x_assum (qspec_then `mod` assume_tac) \\ fs[])
 End
 
-(* Datatype for opt_path into a tree value. Here is the leaf node meaning that the
-  rewrite should be applied *)
-val _ = Hol_datatype ‘
-         opt_path =   Left of opt_path | Right of opt_path | Center of opt_path | ListIndex of (num # opt_path) | Here’;
+Definition perform_rewrites_def:
+  (* Make sure not to optimise away the FpOptimise or Let *)
+  perform_rewrites (cfg: config) Here rewrites (FpOptimise sc e) = FpOptimise sc e ∧
+  perform_rewrites (cfg: config) Here rewrites (Let so e1 e2) = Let so e1 e2 ∧
 
-Type fp_plan = “: (opt_path # (fp_pat # fp_pat) list) list”
+  (* Otherwise, we may optimise everything if we are at the end of the path *)
+  perform_rewrites cfg Here rewrites e = (if (cfg.canOpt) then (rewriteFPexp rewrites e) else e) ∧
 
-Definition MAP_plan_to_path_def:
-  MAP_plan_to_path (to_path: opt_path -> opt_path) (plan: fp_plan) = MAP (λ (path, rws). (to_path path, rws)) plan
+  (* If we are not at the end of the path, further navigate through the AST *)
+  perform_rewrites cfg (Left _) rewrites (Lit l) = Lit l ∧
+  perform_rewrites cfg (Left _) rewrites (Var x) = Var x ∧
+  perform_rewrites cfg (Center path) rewrites (Raise e) =
+    Raise (perform_rewrites cfg path rewrites e) ∧
+  (* We cannot support "Handle" expressions because we must be able to reorder exceptions *)
+  perform_rewrites cfg path rewrites (Handle e pes) = Handle e pes ∧
+  perform_rewrites cfg (ListIndex (i, path)) rewrites (Con mod exps) =
+    Con mod (MAPi (λ n e. (if (n = i) then (perform_rewrites cfg path rewrites e) else e)) exps) ∧
+  (* TODO: Why is this not optimized? *)
+  perform_rewrites cfg (Left _) rewrites (Fun s e) = Fun s e ∧
+  perform_rewrites cfg (ListIndex (i, path)) rewrites (App op exps) =
+    App op (MAPi (λ n e. (if (n = i) then (perform_rewrites cfg path rewrites e) else e)) exps) ∧
+  perform_rewrites cfg (Left path) rewrites (Log lop e2 e3) =
+    Log lop (perform_rewrites cfg path rewrites e2) e3 ∧
+  perform_rewrites cfg (Right path) rewrites (Log lop e2 e3) =
+    Log lop e2 (perform_rewrites cfg path rewrites e3) ∧
+  perform_rewrites cfg (Left path) rewrites (If e1 e2 e3) =
+    If (perform_rewrites cfg path rewrites e1) e2 e3 ∧
+  perform_rewrites cfg (Center path) rewrites (If e1 e2 e3) =
+    If e1 (perform_rewrites cfg path rewrites e2) e3 ∧
+  perform_rewrites cfg (Right path) rewrites (If e1 e2 e3) =
+    If e1 e2 (perform_rewrites cfg path rewrites e3) ∧
+  perform_rewrites cfg (Left path) rewrites (Mat e pes) = Mat (perform_rewrites cfg path rewrites e) pes ∧
+  perform_rewrites cfg (ListIndex (i, path)) rewrites (Mat e pes) =
+    Mat e (MAPi (λ n (p, e'). (if (n = i) then (p, (perform_rewrites cfg path rewrites e')) else (p, e'))) pes) ∧
+  perform_rewrites cfg (Left path) rewrites (Let so e1 e2) =
+    Let so (perform_rewrites cfg path rewrites e1) e2 ∧
+  perform_rewrites cfg (Right path) rewrites (Let so e1 e2) =
+    Let so e1 (perform_rewrites cfg path rewrites e2) ∧
+  perform_rewrites cfg (Center path) rewrites (Letrec ses e) =
+    Letrec ses (perform_rewrites cfg path rewrites e) ∧
+  perform_rewrites cfg (Center path) rewrites (Tannot e t) =
+    Tannot (perform_rewrites cfg path rewrites e) t ∧
+  perform_rewrites cfg (Center path) rewrites (Lannot e l) =
+    Lannot (perform_rewrites cfg path rewrites e) l ∧
+  perform_rewrites cfg (Center path) rewrites (FpOptimise sc e) =
+    FpOptimise sc (perform_rewrites (cfg with canOpt := if sc = Opt then T else F) path rewrites e) ∧
+  perform_rewrites cfg _ _ e = e
 End
 
-Definition left_def:
-  left path = Left path
+Definition optimise_with_plan_def:
+  optimise_with_plan cfg [] e = e ∧
+  optimise_with_plan cfg ((path, rewrites)::rest) e = optimise_with_plan cfg rest (
+    perform_rewrites (cfg with optimisations := rewrites) path rewrites e)
 End
 
-Definition right_def:
-  right path = Right path
+(**
+  Step 2: Lifting of optimise to expression lists
+  stos_pass walks over a list of expressions and calls optimise on
+  function bodies
+**)
+Definition stos_pass_def:
+  stos_pass cfg [] = [] ∧
+  stos_pass cfg (e1::e2::es) =
+    (stos_pass cfg [e1]) ++ (stos_pass cfg (e2::es))  ∧
+  stos_pass cfg [Fun s e] =
+    [Fun s (HD (stos_pass cfg [e]))] ∧
+  stos_pass cfg [e] = [optimise cfg e]
 End
 
-Definition center_def:
-  center path = Center path
+Definition stos_pass_with_plans_def:
+  stos_pass_with_plans cfg plans [] = [] ∧
+  stos_pass_with_plans cfg (plan1::plan2::rest) (e1::es) =
+    (stos_pass_with_plans cfg [plan1] [e1]) ++
+    (stos_pass_with_plans cfg (plan2::rest) es) ∧
+  stos_pass_with_plans cfg plans [Fun s e] =
+    [Fun s (HD (stos_pass_with_plans cfg plans [e]))] ∧
+  stos_pass_with_plans cfg [plan] [e] = [optimise_with_plan cfg plan e] ∧
+  stos_pass_with_plans _ _ exps = exps
 End
 
-Definition listIndex_def:
-  listIndex i path = ListIndex (i, path)
+(* Step 3: Disallow further optimisations *)
+Definition no_optimisations_def:
+  no_optimisations cfg (Lit l) = Lit l /\
+  no_optimisations cfg (Var x) = Var x /\
+  no_optimisations (cfg:config) (Raise e) =
+    Raise (no_optimisations cfg e) /\
+  no_optimisations cfg (Handle e pes) =
+    Handle (no_optimisations cfg e) (MAP (\ (p,e). (p, no_optimisations cfg e)) pes) /\
+  no_optimisations cfg (Con mod exps) =
+    Con mod (MAP (no_optimisations cfg) exps) /\
+  no_optimisations cfg (Fun s e) = Fun s e ∧
+  no_optimisations cfg (App op exps) = App op (MAP (no_optimisations cfg) exps) /\
+  no_optimisations cfg (Log lop e2 e3) =
+    Log lop (no_optimisations cfg e2) (no_optimisations cfg e3) /\
+  no_optimisations cfg (If e1 e2 e3) =
+    If (no_optimisations cfg e1) (no_optimisations cfg e2) (no_optimisations cfg e3) /\
+  no_optimisations cfg (Mat e pes) =
+    Mat (no_optimisations cfg e) (MAP (\ (p,e). (p, no_optimisations cfg e)) pes) /\
+  no_optimisations cfg (Let so e1 e2) =
+    Let so (no_optimisations cfg e1) (no_optimisations cfg e2) /\
+  no_optimisations cfg (Letrec ses e) =
+    Letrec ses (no_optimisations cfg e) /\
+  no_optimisations cfg (Tannot e t) =
+    Tannot (no_optimisations cfg e) t /\
+  no_optimisations cfg (Lannot e l) =
+    Lannot (no_optimisations cfg e) l /\
+  no_optimisations cfg (FpOptimise sc e) = FpOptimise NoOpt (no_optimisations cfg e)
+Termination
+  WF_REL_TAC `measure (\ (c,e). exp_size e)` \\ fs[]
+  \\ rpt conj_tac
+  >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
+  >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
+  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[])
+  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
+      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+      \\ first_x_assum (qspec_then `mod` assume_tac) \\ fs[])
 End
 
-Definition canonicalize_sub_def:
+Definition no_optimise_pass_def:
+  no_optimise_pass cfg [] = [] ∧
+  no_optimise_pass cfg (e1::e2::es) =
+    (no_optimise_pass cfg [e1]) ++ (no_optimise_pass cfg (e2::es))  ∧
+  no_optimise_pass cfg [Fun s e] =
+    [Fun s (HD (no_optimise_pass cfg [e]))] ∧
+  no_optimise_pass cfg [e] = [no_optimisations cfg e]
+End
+
+(**
+  stos_pass_decs: Lift stos_pass to declarations
+**)
+Definition stos_pass_decs_def:
+  stos_pass_decs cfg [] = [] ∧
+  stos_pass_decs cfg (d1::d2::ds) =
+    (stos_pass_decs cfg [d1] ++ stos_pass_decs cfg (d2::ds)) ∧
+  stos_pass_decs cfg [Dlet loc p e] =
+    [Dlet loc p (HD (stos_pass cfg [e]))] ∧
+  (* No Dletrec support for now -- stos_pass_decs cfg [Dletrec ls exps] =
+    [Dletrec ls (MAP (λ (fname, param, e). (fname, param, HD (stos_pass cfg [e]))) exps)] ∧ *)
+  stos_pass_decs cfg [d] = [d]
+End
+
+Definition stos_pass_with_plans_decs_def:
+  stos_pass_with_plans_decs cfg plans [] = [] ∧
+  stos_pass_with_plans_decs cfg (plans1::plans2::rest) (d1::ds) =
+    (stos_pass_with_plans_decs cfg [plans1] [d1] ++ stos_pass_with_plans_decs cfg (plans2::rest) (ds)) ∧
+  stos_pass_with_plans_decs cfg [plans1] [Dlet loc p e] =
+    [Dlet loc p (HD (stos_pass_with_plans cfg [plans1] [e]))] ∧
+  stos_pass_with_plans_decs cfg plans [d] = [d]
+End
+
+Definition no_opt_decs_def:
+  no_opt_decs cfg [] = [] ∧
+  no_opt_decs cfg (e1::e2::es) =
+    (no_opt_decs cfg [e1] ++ no_opt_decs cfg (e2::es)) ∧
+  no_opt_decs cfg [Dlet loc p e] =
+    [Dlet loc p (HD (no_optimise_pass cfg [e]))] ∧
+  no_opt_decs cfg [Dletrec ls exps] =
+    [Dletrec ls (MAP (λ (fname, param, e). (fname, param, HD (no_optimise_pass cfg [e]))) exps)] ∧
+  no_opt_decs cfg [d] = [d]
+End
+
+Definition gather_constants_exp_def:
+  gather_constants_exp (Lit (Word64 w)) = [w] ∧
+  gather_constants_exp (FpOptimise sc e) = gather_constants_exp e ∧
+  gather_constants_exp (Lit l) = [] ∧
+  gather_constants_exp (Var x) = [] ∧
+  gather_constants_exp (Raise e) = gather_constants_exp e ∧
+  gather_constants_exp (Handle e pes) =
+    (gather_constants_exp e) ++
+    (FLAT (MAP (λ (p,e). gather_constants_exp e) pes)) ∧
+  gather_constants_exp (Con mod exps) =
+    FLAT (MAP gather_constants_exp exps) ∧
+  gather_constants_exp (Fun s e) = gather_constants_exp e ∧
+  gather_constants_exp (App op exps) = FLAT (MAP gather_constants_exp exps) ∧
+  gather_constants_exp (Log lop e2 e3) =
+    (gather_constants_exp e2) ++ (gather_constants_exp e3) ∧
+  gather_constants_exp (If e1 e2 e3) =
+    (gather_constants_exp e1) ++ (gather_constants_exp e2) ++
+    (gather_constants_exp e3) ∧
+  gather_constants_exp (Mat e pes) =
+    (gather_constants_exp e) ++
+    FLAT ((MAP (λ (p,e). gather_constants_exp e) pes)) ∧
+  gather_constants_exp (Let so e1 e2) =
+    (gather_constants_exp e1) ++ (gather_constants_exp e2) ∧
+  gather_constants_exp (Letrec ses e) =
+    (gather_constants_exp e) ∧
+  gather_constants_exp (Tannot e t) =
+    (gather_constants_exp e) ∧
+  gather_constants_exp (Lannot e l) =
+    (gather_constants_exp e)
+Termination
+  WF_REL_TAC ‘measure (λ e. exp_size e)’ \\ fs[]
+  \\ rpt conj_tac
+  \\ fs[astTheory.exp_size_def]
+  \\ TRY (
+    Induct_on `pes` \\ fs[astTheory.exp_size_def]
+    \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+    \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[] \\ NO_TAC
+    )
+  \\ TRY (
+    Induct_on `exps` \\ fs[astTheory.exp_size_def]
+    \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+    \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[] \\ NO_TAC
+    )
+  \\ rpt strip_tac
+  \\ fs[astTheory.exp_size_def, astTheory.lit_size_def, char_size_def, astTheory.lop_size_def,
+        fpValTreeTheory.fp_opt_size_def]
+  \\ ‘∀ x l. MEM x l ⇒ exp_size x ≤ exp6_size l’ by (
+    rpt strip_tac
+    \\ Induct_on ‘l’ \\ fs[]
+    \\ rpt strip_tac
+    \\ fs[astTheory.exp_size_def]
+    )
+  \\ pop_assum imp_res_tac \\ fs[]
+End
+
+Definition gather_used_identifiers_pat_def:
+  gather_used_identifiers_pat Pany = [] ∧
+  gather_used_identifiers_pat (Pvar v) = [v] ∧
+  gather_used_identifiers_pat (Plit _) = [] ∧
+  gather_used_identifiers_pat (Pref p) = gather_used_identifiers_pat p ∧
+  gather_used_identifiers_pat (Ptannot p _) = gather_used_identifiers_pat p ∧
+  gather_used_identifiers_pat (Pcon (SOME id) pats) =
+    (let used_in_pats = FLAT (MAP gather_used_identifiers_pat pats) in
+       case id of
+       | (Short v) => v::used_in_pats
+       | (Long m (Short v)) => m::v::used_in_pats) ∧
+  gather_used_identifiers_pat (Pcon NONE pats) =
+    FLAT (MAP gather_used_identifiers_pat pats)
+Termination
+  WF_REL_TAC ‘measure (λ p. pat_size p)’ \\ fs[]
+  \\ rpt conj_tac
+  \\ fs[astTheory.pat_size_def]
+  \\ Induct_on ‘pats’ \\ rpt strip_tac \\ fs[astTheory.pat_size_def]
+  \\ ‘∀ x l. MEM x l ⇒ pat_size x ≤ pat1_size l’ by (
+    rpt strip_tac
+    \\ Induct_on ‘l’ \\ fs[]
+    \\ rpt strip_tac
+    \\ fs[astTheory.pat_size_def]
+    )
+  \\ pop_assum imp_res_tac \\ fs[]
+End
+
+Definition gather_used_identifiers_exp_def:
+  gather_used_identifiers_exp (FpOptimise sc e) =
+    gather_used_identifiers_exp e ∧
+  gather_used_identifiers_exp (Lit l) = [] ∧
+  gather_used_identifiers_exp (Var x) =
+    (case x of
+     | Short v => [v]
+     | Long m (Short v) => [m; v]) ∧
+  gather_used_identifiers_exp (Raise e) = gather_used_identifiers_exp e ∧
+  gather_used_identifiers_exp (Handle e pes) =
+    (gather_used_identifiers_exp e) ++
+    (FLAT (MAP (λ (p,e). (gather_used_identifiers_pat p) ++
+                         (gather_used_identifiers_exp e)) pes)) ∧
+  gather_used_identifiers_exp (Con mod exps) =
+    FLAT (MAP gather_used_identifiers_exp exps) ∧
+  gather_used_identifiers_exp (Fun s e) = [s] ++ gather_used_identifiers_exp e ∧
+  gather_used_identifiers_exp (App op exps) =
+    FLAT (MAP gather_used_identifiers_exp exps) ∧
+  gather_used_identifiers_exp (Log lop e2 e3) =
+    (gather_used_identifiers_exp e2) ++ (gather_used_identifiers_exp e3) ∧
+  gather_used_identifiers_exp (If e1 e2 e3) =
+    (gather_used_identifiers_exp e1) ++ (gather_used_identifiers_exp e2) ++
+    (gather_used_identifiers_exp e3) ∧
+  gather_used_identifiers_exp (Mat e pes) =
+    (gather_used_identifiers_exp e) ++
+    FLAT ((MAP (λ (p,e). (gather_used_identifiers_pat p) ++
+                         gather_used_identifiers_exp e) pes)) ∧
+  gather_used_identifiers_exp (Let so e1 e2) =
+    (let expression_identifiers =
+         (gather_used_identifiers_exp e1) ++ (gather_used_identifiers_exp e2) in
+       case so of
+       | NONE => expression_identifiers
+       | SOME n => n::expression_identifiers) ∧
+  gather_used_identifiers_exp (Letrec ses e) =
+    FLAT (MAP (λ (n, p, _). [n; p]) ses) ++ (gather_used_identifiers_exp e) ∧
+  gather_used_identifiers_exp (Tannot e t) =
+    (gather_used_identifiers_exp e) ∧
+  gather_used_identifiers_exp (Lannot e l) =
+    (gather_used_identifiers_exp e)
+Termination
+  WF_REL_TAC ‘measure (λ e. exp_size e)’ \\ fs[]
+  \\ rpt conj_tac
+  \\ fs[astTheory.exp_size_def]
+  \\ TRY (
+    Induct_on `pes` \\ fs[astTheory.exp_size_def]
+    \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+    \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[] \\ NO_TAC
+    )
+  \\ TRY (
+    Induct_on `exps` \\ fs[astTheory.exp_size_def]
+    \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+    \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[] \\ NO_TAC
+    )
+  \\ rpt strip_tac
+  \\ fs[astTheory.exp_size_def, astTheory.lit_size_def, char_size_def, astTheory.lop_size_def,
+        fpValTreeTheory.fp_opt_size_def]
+  \\ ‘∀ x l. MEM x l ⇒ exp_size x ≤ exp6_size l’ by (
+    rpt strip_tac
+    \\ Induct_on ‘l’ \\ fs[]
+    \\ rpt strip_tac
+    \\ fs[astTheory.exp_size_def]
+    )
+  \\ pop_assum imp_res_tac \\ fs[]
+End
+
+Definition gather_constants_decs_def:
+  gather_constants_decs (d1::d2::rest) =
+    (gather_constants_decs [d1]) ++ (gather_constants_decs (d2::rest)) ∧
+  gather_constants_decs [Dlet loc p e] = gather_constants_exp e ∧
+  gather_constants_decs [Dletrec ls exps] =
+    FLAT (MAP (λ (_, _, e). gather_constants_exp e) exps) ∧
+  gather_constants_decs [] = []
+End
+
+Definition gather_used_identifiers_decs_def:
+  gather_used_identifiers_decs (d1::d2::rest) =
+    (gather_used_identifiers_decs [d1]) ++
+    (gather_used_identifiers_decs (d2::rest)) ∧
+  gather_used_identifiers_decs [Dlet loc p e] = gather_used_identifiers_exp e ∧
+  gather_used_identifiers_decs [Dletrec ls exps] =
+    FLAT (MAP (λ (_, _, e). gather_used_identifiers_exp e) exps) ∧
+  gather_used_identifiers_decs [] = []
+End
+
+Definition generate_unique_name_def:
+  generate_unique_name identifiers base =
+    FIND (λ x. ~ MEM x identifiers)
+         (GENLIST (λ i. STRCAT (STRCAT base "_") (toString i)) (LENGTH identifiers + 1))
+End
+
+Definition constants_to_variable_names_def:
+  constants_to_variable_names identifiers [] (al: (word64 # string) list) = al ∧
+  constants_to_variable_names identifiers ((c: word64)::rest) al =
+  case ALOOKUP al c of
+    | NONE =>
+        (case generate_unique_name identifiers "const" of
+         | SOME name => constants_to_variable_names (name::identifiers) rest ((c, name)::al)
+         (* This will never happen *)
+         | NONE => constants_to_variable_names identifiers rest al)
+    | SOME name => constants_to_variable_names (name::identifiers) rest al
+End
+
+(**
+  Walk over an AST and replace constants by variables that globally allocate
+  their value
+**)
+Definition replace_constants_exp_def:
+  replace_constants_exp al (Lit (Word64 w)) =
+    (case (ALOOKUP al w) of
+    | NONE => Lit (Word64 w)
+    | SOME v => (Var (Short v))) ∧
+  replace_constants_exp al (FpOptimise sc e) =
+    FpOptimise sc (replace_constants_exp al e) ∧
+  replace_constants_exp al (Lit l) = (Lit l) ∧
+  replace_constants_exp al (Var x) = (Var x) ∧
+  replace_constants_exp al (Raise e) = Raise (replace_constants_exp al e) ∧
+  replace_constants_exp al (Handle e pes) =
+    Handle (replace_constants_exp al e)
+           (MAP (λ (p,e). (p, replace_constants_exp al e)) pes) ∧
+  replace_constants_exp al (Con mod exps) =
+    Con mod (MAP (replace_constants_exp al) exps) ∧
+  replace_constants_exp al (Fun s e) = Fun s (replace_constants_exp al e) ∧
+  replace_constants_exp al (App op exps) =
+    App op (MAP (replace_constants_exp al) exps) ∧
+  replace_constants_exp al (Log lop e2 e3) =
+    Log lop (replace_constants_exp al e2) (replace_constants_exp al e3) ∧
+  replace_constants_exp al (If e1 e2 e3) =
+    If (replace_constants_exp al e1) (replace_constants_exp al e2) (replace_constants_exp al e3) ∧
+  replace_constants_exp al (Mat e pes) =
+    Mat (replace_constants_exp al e) ((MAP (λ (p,e). (p, replace_constants_exp al e)) pes)) ∧
+  replace_constants_exp al (Let so e1 e2) =
+    Let so (replace_constants_exp al e1) (replace_constants_exp al e2) ∧
+  replace_constants_exp al (Letrec ses e) =
+    Letrec ses (replace_constants_exp al e) ∧
+  replace_constants_exp al (Tannot e t) =
+    Tannot (replace_constants_exp al e) t ∧
+  replace_constants_exp al (Lannot e l) =
+    Lannot (replace_constants_exp al e) l
+Termination
+  WF_REL_TAC ‘measure (λ (al, e). exp_size e)’ \\ fs[]
+  \\ rpt conj_tac
+  \\ fs[astTheory.exp_size_def]
+  \\ TRY (
+    Induct_on `pes` \\ fs[astTheory.exp_size_def]
+    \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+    \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[] \\ NO_TAC
+    )
+  \\ TRY (
+    Induct_on `exps` \\ fs[astTheory.exp_size_def]
+    \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
+    \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[] \\ NO_TAC
+    )
+  \\ rpt strip_tac
+  \\ fs[astTheory.exp_size_def, astTheory.lit_size_def, char_size_def, astTheory.lop_size_def,
+        fpValTreeTheory.fp_opt_size_def]
+  \\ ‘∀ x l. MEM x l ⇒ exp_size x ≤ exp6_size l’ by (
+    rpt strip_tac
+    \\ Induct_on ‘l’ \\ fs[]
+    \\ rpt strip_tac
+    \\ fs[astTheory.exp_size_def]
+    )
+  \\ pop_assum imp_res_tac \\ fs[]
+End
+
+(**
+  Walk over a list of declarations and replace constants by a variable
+**)
+Definition replace_constants_decs_def:
+  replace_constants_decs al [] = [] ∧
+  replace_constants_decs al (d1::d2::rest) =
+    (replace_constants_decs al [d1]) ++ (replace_constants_decs al (d2::rest)) ∧
+  replace_constants_decs al [Dlet loc p e] =
+    [Dlet loc p (replace_constants_exp al e)] ∧
+  replace_constants_decs al [Dletrec ls exps] =
+    [Dletrec ls (MAP (λ (x, y, e). (x, y, replace_constants_exp al e)) exps)]
+End
+
+(**
+  Given a list of constants, create declarations for them
+**)
+Definition create_fp_constants_decs_def:
+  create_fp_constants_decs [] = [] ∧
+  create_fp_constants_decs ((w, n)::rest) =
+  let declaration = Dlet location$unknown_loc (Pvar n) (Lit (Word64 w)) in
+    declaration::(create_fp_constants_decs rest)
+End
+
+(**
+  Move floating-point constants into decl-nodes and reuse the variables
+**)
+Definition lift_fp_constants_decs_def:
+  lift_fp_constants decs =
+    let identifiers = gather_used_identifiers_decs decs;
+        constants = gather_constants_decs decs in
+      let al = constants_to_variable_names identifiers constants [] in
+        let replaced_decs = replace_constants_decs al decs in
+        create_fp_constants_decs al ++ replaced_decs
+End
+
 (* Canonicalize sub to add and mul times -1.0 *)
+Definition canonicalize_sub_def:
   canonicalize_sub e =
     case e of
     | (App (FP_bop FP_Sub) [e1; e2]) =>
@@ -256,31 +710,6 @@ Termination
   )
 End
 
-
-Theorem test__canonicalize = EVAL (
-  Parse.Term ‘
-   canonicalize no_fp_opt_conf (
-     (FpOptimise Opt
-      (App (FP_bop FP_Add) [
-         App (FP_bop FP_Add) [
-             App (FP_bop FP_Add) [
-                 App (FP_bop FP_Add) [
-                     Var (Short "c");
-                     Var (Short "d")
-                   ];
-                 Var (Short "b")
-               ];
-             App (FP_bop FP_Mul) [
-                 Var (Short "x");
-                 Var (Short "y")
-               ]
-           ];
-         Var (Short "a")
-        ])
-     )
-     )
-  ’);
-
 Definition post_order_dfs_for_plan_def:
   post_order_dfs_for_plan (f: config -> exp -> (exp # fp_plan) option) (cfg: config) (FpOptimise sc e) = (
   let (e_can, plan: fp_plan) = post_order_dfs_for_plan f (cfg with canOpt := if sc = Opt then T else F) e in
@@ -368,92 +797,36 @@ Termination
   )
 End
 
-
-Definition perform_rewrites_def:
-  (* Make sure not to optimise away the FpOptimise or Let *)
-  perform_rewrites (cfg: config) Here rewrites (FpOptimise sc e) = FpOptimise sc e ∧
-  perform_rewrites (cfg: config) Here rewrites (Let so e1 e2) = Let so e1 e2 ∧
-
-  (* Otherwise, we may optimise everything if we are at the end of the path *)
-  perform_rewrites cfg Here rewrites e = (if (cfg.canOpt) then (rewriteFPexp rewrites e) else e) ∧
-
-  (* If we are not at the end of the path, further navigate through the AST *)
-  perform_rewrites cfg (Left _) rewrites (Lit l) = Lit l ∧
-  perform_rewrites cfg (Left _) rewrites (Var x) = Var x ∧
-  perform_rewrites cfg (Center path) rewrites (Raise e) =
-    Raise (perform_rewrites cfg path rewrites e) ∧
-  (* We cannot support "Handle" expressions because we must be able to reorder exceptions *)
-  perform_rewrites cfg path rewrites (Handle e pes) = Handle e pes ∧
-  perform_rewrites cfg (ListIndex (i, path)) rewrites (Con mod exps) =
-    Con mod (MAPi (λ n e. (if (n = i) then (perform_rewrites cfg path rewrites e) else e)) exps) ∧
-  (* TODO: Why is this not optimized? *)
-  perform_rewrites cfg (Left _) rewrites (Fun s e) = Fun s e ∧
-  perform_rewrites cfg (ListIndex (i, path)) rewrites (App op exps) =
-    App op (MAPi (λ n e. (if (n = i) then (perform_rewrites cfg path rewrites e) else e)) exps) ∧
-  perform_rewrites cfg (Left path) rewrites (Log lop e2 e3) =
-    Log lop (perform_rewrites cfg path rewrites e2) e3 ∧
-  perform_rewrites cfg (Right path) rewrites (Log lop e2 e3) =
-    Log lop e2 (perform_rewrites cfg path rewrites e3) ∧
-  perform_rewrites cfg (Left path) rewrites (If e1 e2 e3) =
-    If (perform_rewrites cfg path rewrites e1) e2 e3 ∧
-  perform_rewrites cfg (Center path) rewrites (If e1 e2 e3) =
-    If e1 (perform_rewrites cfg path rewrites e2) e3 ∧
-  perform_rewrites cfg (Right path) rewrites (If e1 e2 e3) =
-    If e1 e2 (perform_rewrites cfg path rewrites e3) ∧
-  perform_rewrites cfg (Left path) rewrites (Mat e pes) = Mat (perform_rewrites cfg path rewrites e) pes ∧
-  perform_rewrites cfg (ListIndex (i, path)) rewrites (Mat e pes) =
-    Mat e (MAPi (λ n (p, e'). (if (n = i) then (p, (perform_rewrites cfg path rewrites e')) else (p, e'))) pes) ∧
-  perform_rewrites cfg (Left path) rewrites (Let so e1 e2) =
-    Let so (perform_rewrites cfg path rewrites e1) e2 ∧
-  perform_rewrites cfg (Right path) rewrites (Let so e1 e2) =
-    Let so e1 (perform_rewrites cfg path rewrites e2) ∧
-  perform_rewrites cfg (Center path) rewrites (Letrec ses e) =
-    Letrec ses (perform_rewrites cfg path rewrites e) ∧
-  perform_rewrites cfg (Center path) rewrites (Tannot e t) =
-    Tannot (perform_rewrites cfg path rewrites e) t ∧
-  perform_rewrites cfg (Center path) rewrites (Lannot e l) =
-    Lannot (perform_rewrites cfg path rewrites e) l ∧
-  perform_rewrites cfg (Center path) rewrites (FpOptimise sc e) =
-    FpOptimise sc (perform_rewrites (cfg with canOpt := if sc = Opt then T else F) path rewrites e) ∧
-  perform_rewrites cfg _ _ e = e
-End
-
-Definition optimise_with_plan_def:
-  optimise_with_plan cfg [] e = e ∧
-  optimise_with_plan cfg ((path, rewrites)::rest) e = optimise_with_plan cfg rest (
-    perform_rewrites (cfg with optimisations := rewrites) path rewrites e)
-End
-
-
 Definition optimise_linear_interpolation_def:
   optimise_linear_interpolation cfg e =
-  post_order_dfs_for_plan (λ cfg e.
-                             (* Does it match  *)
-                             case (matchesFPexp (Binop FP_Add
-                                                 (Binop FP_Mul
-                                                  (Var 0)
-                                                  (Binop FP_Sub
-                                                   (Word (4607182418800017408w: word64))
-                                                   (Var 1)))
-                                                 (Binop FP_Mul
-                                                  (Var 2)
-                                                  (Var 1))) e []) of
-                             | SOME _ =>
-                                 let plan = [
-                                     (ListIndex (0, Here), [fp_comm_gen FP_Mul;
-                                                            fp_undistribute_gen FP_Mul FP_Sub;
-                                                            fp_comm_gen FP_Mul;
-                                                            fp_sub_add ]);
-                                     (Here, [fp_assoc_gen FP_Add]);
-                                     (ListIndex (1, Here), [fp_neg_push_mul_r]);
-                                     (ListIndex (1, ListIndex (0, Here)), [fp_comm_gen FP_Mul]);
-                                     (ListIndex (1, Here), [fp_distribute_gen FP_Mul FP_Add]);
-                                     (ListIndex (1, (ListIndex (0, Here))), [fp_comm_gen FP_Add; fp_add_sub]);
-                                     (ListIndex (0, Here), [fp_comm_gen FP_Mul; fp_times_one]);
-                                     (ListIndex (1, Here), [fp_comm_gen FP_Mul])
-                                   ] in
-                                   SOME (optimise_with_plan cfg plan e, plan)
-                             | NONE => NONE) cfg e
+  post_order_dfs_for_plan
+    (λ cfg e.
+      (* Does it match  *)
+      case (matchesFPexp (Binop FP_Add
+                          (Binop FP_Mul
+                           (Var 0)
+                           (Binop FP_Sub
+                            (Word (4607182418800017408w: word64))
+                            (Var 1)))
+                          (Binop FP_Mul
+                           (Var 2)
+                           (Var 1))) e []) of
+      | SOME _ =>
+          let plan = [
+              (ListIndex (0, Here), [fp_comm_gen FP_Mul;
+                                     fp_undistribute_gen FP_Mul FP_Sub;
+                                     fp_comm_gen FP_Mul;
+                                     fp_sub_add ]);
+              (Here, [fp_assoc_gen FP_Add]);
+              (ListIndex (1, Here), [fp_neg_push_mul_r]);
+              (ListIndex (1, ListIndex (0, Here)), [fp_comm_gen FP_Mul]);
+              (ListIndex (1, Here), [fp_distribute_gen FP_Mul FP_Add]);
+              (ListIndex (1, (ListIndex (0, Here))), [fp_comm_gen FP_Add; fp_add_sub]);
+              (ListIndex (0, Here), [fp_comm_gen FP_Mul; fp_times_one]);
+              (ListIndex (1, Here), [fp_comm_gen FP_Mul])
+            ] in
+            SOME (optimise_with_plan cfg plan e, plan)
+            | NONE => NONE) cfg e
 End
 
 (*
@@ -468,21 +841,6 @@ Definition top_level_multiplicants_def:
                               | App (FP_bop FP_Mul) [e1; e2] => [e1; e2]
                               | _ => [e]
 End
-
-Theorem test__top_level_multiplicants = EVAL (
-  Parse.Term ‘
-  top_level_multiplicants (App (FP_bop FP_Mul) [
-                               App (FP_bop FP_Add) [Var (Short "x"); Lit (Word64 0w)];
-                               (App (FP_bop FP_Mul) [
-                                   Var (Short "y");
-                                   App (FP_bop FP_Mul) [
-                                       (Var (Short "a"));
-                                       (Lit (Word64 7w))
-                                     ]
-                                 ]
-                               )
-                             ])
-  ’)
 
 Definition remove_first_def:
   remove_first [] a = [] ∧
@@ -530,37 +888,6 @@ Definition move_multiplicants_to_right_def:
     | _ => (updated_e, plan)
 End
 
-
-Theorem test__move_multiplicants_to_right = EVAL (
-  Parse.Term ‘
-   move_multiplicants_to_right (no_fp_opt_conf with canOpt := T) [(Var (Short "d")); (Var (Short "b"))] (
-     (App (FP_bop FP_Mul) [
-         Var (Short "a");
-         App (FP_bop FP_Mul) [
-             Var (Short "b");
-             App (FP_bop FP_Mul) [
-                 Var (Short "c");
-                 App (FP_bop FP_Mul) [
-                     Var (Short "d");
-                     Var (Short "e")
-                   ]
-               ]
-           ]
-       ])
-     )
-  ’);
-
-Theorem test__move_multiplicants_to_right2 = EVAL (
-  Parse.Term ‘
-   move_multiplicants_to_right (no_fp_opt_conf with canOpt := T) [(Var (Short "x3")); (Var (Short "x3")); (Var (Short "x3"))] (
-     (
-       App (FP_bop FP_Mul)
-           [Var (Short "x3");
-            App (FP_bop FP_Mul) [Var (Short "x3"); Var (Short "x3")]]
-     )
-     )
-  ’);
-
 Definition canonicalize_for_distributivity_local_def:
   canonicalize_for_distributivity_local cfg e =
   case e of
@@ -568,18 +895,16 @@ Definition canonicalize_for_distributivity_local_def:
       if (op = FP_Add ∨ op = FP_Sub)
       then
         let multiplicants1 = top_level_multiplicants e1;
-            multiplicants2 = top_level_multiplicants e2 in
-          let common_multiplicants = intersect_lists multiplicants1 multiplicants2
-          in
-            let (e1_to_right, e1_plan) =
-                move_multiplicants_to_right cfg common_multiplicants e1;
-                (e2_to_right, e2_plan) =
-                move_multiplicants_to_right cfg common_multiplicants e2
-            in
-              let updated_e = App (FP_bop op) [e1_to_right; e2_to_right];
-                  plan = (MAP_plan_to_path (listIndex 0) e1_plan)
-                         ++ (MAP_plan_to_path (listIndex 1) e2_plan) in
-                SOME (updated_e, plan)
+            multiplicants2 = top_level_multiplicants e2;
+            common_multiplicants = intersect_lists multiplicants1 multiplicants2;
+            (e1_to_right, e1_plan) =
+              move_multiplicants_to_right cfg common_multiplicants e1;
+            (e2_to_right, e2_plan) =
+              move_multiplicants_to_right cfg common_multiplicants e2;
+            updated_e = App (FP_bop op) [e1_to_right; e2_to_right];
+            plan = (MAP_plan_to_path (listIndex 0) e1_plan)
+                   ++ (MAP_plan_to_path (listIndex 1) e2_plan) in
+          SOME (updated_e, plan)
       else
         NONE
   | _ => NONE
@@ -587,83 +912,27 @@ End
 
 Definition canonicalize_for_distributivity_def:
   canonicalize_for_distributivity cfg e =
-  post_order_dfs_for_plan (λ cfg e.
-                             case e of
-                             | App (FP_bop op) [e1; e2] =>
-                                 if (op = FP_Add ∨ op = FP_Sub)
-                                 then
-                                   let multiplicants1 = top_level_multiplicants e1;
-                                       multiplicants2 = top_level_multiplicants e2 in
-                                     let common_multiplicants = intersect_lists multiplicants1 multiplicants2
-                                     in
-                                       let (e1_to_right, e1_plan) =
-                                           move_multiplicants_to_right cfg common_multiplicants e1;
-                                           (e2_to_right, e2_plan) =
-                                           move_multiplicants_to_right cfg common_multiplicants e2
-                                       in
-                                         let updated_e = App (FP_bop op) [e1_to_right; e2_to_right];
-                                             plan = (MAP_plan_to_path (listIndex 0) e1_plan)
-                                                    ++ (MAP_plan_to_path (listIndex 1) e2_plan) in
-                                           SOME (updated_e, plan)
-                                 else
-                                   NONE
-                             | _ => NONE) cfg e
+  post_order_dfs_for_plan
+    (λ cfg e.
+      case e of
+      | App (FP_bop op) [e1; e2] =>
+          if (op = FP_Add ∨ op = FP_Sub)
+          then
+            let multiplicants1 = top_level_multiplicants e1;
+                multiplicants2 = top_level_multiplicants e2;
+                common_multiplicants = intersect_lists multiplicants1 multiplicants2;
+                (e1_to_right, e1_plan) =
+                  move_multiplicants_to_right cfg common_multiplicants e1;
+                (e2_to_right, e2_plan) =
+                  move_multiplicants_to_right cfg common_multiplicants e2;
+                updated_e = App (FP_bop op) [e1_to_right; e2_to_right];
+                plan = (MAP_plan_to_path (listIndex 0) e1_plan)
+                       ++ (MAP_plan_to_path (listIndex 1) e2_plan) in
+              SOME (updated_e, plan)
+          else
+            NONE
+      | _ => NONE) cfg e
 End
-
-
-Theorem test__canonicalize_for_distributivity = EVAL (
-  Parse.Term ‘
-   canonicalize_for_distributivity no_fp_opt_conf (
-     (FpOptimise Opt
-      (App (FP_bop FP_Add)
-        [App (FP_bop FP_Mul)
-         [Var (Short "x3");
-          App (FP_bop FP_Mul)
-              [Var (Short "x3");
-               App (FP_bop FP_Mul)
-                   [Var (Short "x3"); Var (Short "x3")]]];
-         App (FP_bop FP_Add)
-             [App (FP_bop FP_Mul)
-              [Var (Short "x3");
-               App (FP_bop FP_Mul)
-                   [Var (Short "x3"); Var (Short "x3")]];
-              App (FP_bop FP_Add)
-                  [App (FP_bop FP_Mul)
-                   [Var (Short "x3"); Var (Short "x3")];
-                   App (FP_bop FP_Add)
-                       [Var (Short "x3");
-                        App FpFromWord
-                            [Lit (Word64 0x4010000000000000w)]]]]])
-      )
-     )
-     ’);
-
-Theorem test__canonicalize_for_distributivity2 = EVAL (
-  Parse.Term ‘
-   let e = (FpOptimise Opt
-            (App (FP_bop FP_Add)
-             [App (FP_bop FP_Mul)
-              [Var (Short "x3");
-               App (FP_bop FP_Mul)
-                   [Var (Short "x3");
-                    App (FP_bop FP_Mul)
-                        [Var (Short "x3"); Var (Short "x3")]]];
-              App (FP_bop FP_Add)
-                  [App (FP_bop FP_Mul)
-                   [Var (Short "x3");
-                    App (FP_bop FP_Mul)
-                        [Var (Short "x3"); Var (Short "x3")]];
-                   App (FP_bop FP_Add)
-                       [App (FP_bop FP_Mul)
-                        [Var (Short "x3"); Var (Short "x3")];
-                        App (FP_bop FP_Add)
-                            [Var (Short "x3");
-                             App FpFromWord
-                                 [Lit (Word64 0x4010000000000000w)]]]]])
-           ) in
-     let (_, plan) = canonicalize_for_distributivity no_fp_opt_conf e in
-       optimise_with_plan no_fp_opt_conf plan e
-  ’);
 
 Definition apply_distributivity_local_def:
   apply_distributivity_local cfg e =
@@ -676,121 +945,69 @@ Definition apply_distributivity_local_def:
              ∧ e1_2 = App (FP_bop op'') [e2_1;e2_2])
          then
            (let plan = [(ListIndex (1, Here), [fp_times_one_reverse; fp_comm_gen FP_Mul]);
-                        (Here, [fp_distribute_gen op' op])] in
-              let optimized = optimise_with_plan cfg plan can_e in
-                SOME (optimized, can_plan ++ plan)
-           )
+                        (Here, [fp_distribute_gen op' op])];
+                optimized = optimise_with_plan cfg plan can_e in
+              SOME (optimized, can_plan ++ plan))
          else (if ((op = FP_Add ∨ op = FP_Sub) ∧ (op' = FP_Mul ∨ op' = FP_Div) ∧ op'' = op')
                then
-                 (let plan = [(Here, [fp_distribute_gen op' op])] in
-                    let optimized = optimise_with_plan cfg plan can_e in
-                      SOME (optimized, can_plan ++ plan)
-                 )
+                 (let plan = [(Here, [fp_distribute_gen op' op])];
+                      optimized = optimise_with_plan cfg plan can_e in
+                    SOME (optimized, can_plan ++ plan))
                else NONE)
      | App (FP_bop op) [
          App (FP_bop op') [e1_1; e1_2];
-         e2
-       ] => if ((op = FP_Add ∨ op = FP_Sub) ∧ op' = FP_Mul ∧ e1_2 = e2)
+         e2] =>
+         if ((op = FP_Add ∨ op = FP_Sub) ∧ op' = FP_Mul ∧ e1_2 = e2)
             then
               (let plan = [(ListIndex (1, Here), [fp_times_one_reverse; fp_comm_gen op']);
-                           (Here, [fp_distribute_gen op' op])] in
-                 let optimized = optimise_with_plan cfg plan can_e in
-                   SOME (optimized, can_plan ++ plan)
-              )
+                           (Here, [fp_distribute_gen op' op])];
+                   optimized = optimise_with_plan cfg plan can_e in
+                 SOME (optimized, can_plan ++ plan))
             else NONE
      | _ => NONE)
 End
 
 Definition apply_distributivity_def:
   apply_distributivity cfg e =
-  post_order_dfs_for_plan (λ cfg e.
-                             case e of
-                             | App (FP_bop FP_Add) [e1; App (FP_bop FP_Add) [e2_1; e2_2]] =>
-                                 (let e1_new = App (FP_bop FP_Add) [e1; e2_1];
-                                      e2_new = e2_2;
-                                      pre_plan = [(Here, [fp_assoc2_gen FP_Add])] in
-                                    (let (e1_can, e1_plan) = (canonicalize_for_distributivity cfg e1_new);
-                                         (e2_can, e2_plan) = (canonicalize_for_distributivity cfg e2_new) in
-                                       case (apply_distributivity_local cfg e1_can) of
-                                       | SOME (e1_can_dist, e1_dist_plan) =>
-                                           (case (apply_distributivity_local cfg e2_can) of
-                                            | SOME (e2_can_dist, e2_dist_plan) =>
-                                                (let e_here = App (FP_bop FP_Add) [e1_can_dist; e2_can_dist];
-                                                     plan_here = pre_plan
-                                                                 ++ (MAP_plan_to_path (listIndex 0) e1_plan)
-                                                                 ++ (MAP_plan_to_path (listIndex 1) e2_plan)
-                                                                 ++ (MAP_plan_to_path (listIndex 0) e1_dist_plan)
-                                                                 ++ (MAP_plan_to_path (listIndex 1) e2_dist_plan) in
-                                                   let (e_here_can, e_here_can_plan) = canonicalize_for_distributivity cfg e_here in
-                                                     (case apply_distributivity_local cfg e_here of
-                                                      | SOME (e_here_local, e_here_local_plan) =>
-                                                          SOME (e_here_local, plan_here ++ e_here_can_plan ++ e_here_local_plan)
-                                                      | NONE => SOME (e_here, plan_here)))
-                                            | NONE => (let e_here = App (FP_bop FP_Add) [e1_can_dist; e2_can];
-                                                           plan_here = pre_plan
-                                                                       ++ (MAP_plan_to_path (listIndex 0) e1_plan)
-                                                                       ++ (MAP_plan_to_path (listIndex 1) e2_plan)
-                                                                       ++ (MAP_plan_to_path (listIndex 0) e1_dist_plan) in
-                                                         let (e_here_can, e_here_can_plan) = canonicalize_for_distributivity cfg e_here in
-                                                           (case apply_distributivity_local cfg e_here of
-                                                            | SOME (e_here_local, e_here_local_plan) =>
-                                                                SOME (e_here_local, plan_here ++ e_here_can_plan ++ e_here_local_plan)
-                                                            | NONE => SOME (e_here, plan_here)))
-                                           )
-                                       | NONE => apply_distributivity_local cfg e
-                                    ))
-                             | _ => apply_distributivity_local cfg e
-                          ) cfg e
+  post_order_dfs_for_plan
+    (λ cfg e.
+      case e of
+      | App (FP_bop FP_Add) [e1; App (FP_bop FP_Add) [e2_1; e2_2]] =>
+          (let e1_new = App (FP_bop FP_Add) [e1; e2_1];
+               e2_new = e2_2;
+               pre_plan = [(Here, [fp_assoc2_gen FP_Add])];
+               (e1_can, e1_plan) = (canonicalize_for_distributivity cfg e1_new);
+               (e2_can, e2_plan) = (canonicalize_for_distributivity cfg e2_new) in
+             case (apply_distributivity_local cfg e1_can) of
+             | SOME (e1_can_dist, e1_dist_plan) =>
+                 (case (apply_distributivity_local cfg e2_can) of
+                  | SOME (e2_can_dist, e2_dist_plan) =>
+                      (let e_here = App (FP_bop FP_Add) [e1_can_dist; e2_can_dist];
+                           plan_here = pre_plan
+                                       ++ (MAP_plan_to_path (listIndex 0) e1_plan)
+                                       ++ (MAP_plan_to_path (listIndex 1) e2_plan)
+                                       ++ (MAP_plan_to_path (listIndex 0) e1_dist_plan)
+                                       ++ (MAP_plan_to_path (listIndex 1) e2_dist_plan);
+                           (e_here_can, e_here_can_plan) =
+                             canonicalize_for_distributivity cfg e_here in
+                         (case apply_distributivity_local cfg e_here of
+                          | SOME (e_here_local, e_here_local_plan) =>
+                              SOME (e_here_local, plan_here ++ e_here_can_plan ++ e_here_local_plan)
+                          | NONE => SOME (e_here, plan_here)))
+                  | NONE =>
+                      (let e_here = App (FP_bop FP_Add) [e1_can_dist; e2_can];
+                           plan_here = pre_plan
+                                       ++ (MAP_plan_to_path (listIndex 0) e1_plan)
+                                       ++ (MAP_plan_to_path (listIndex 1) e2_plan)
+                                       ++ (MAP_plan_to_path (listIndex 0) e1_dist_plan);
+                           (e_here_can, e_here_can_plan) = canonicalize_for_distributivity cfg e_here in
+                         (case apply_distributivity_local cfg e_here of
+                          | SOME (e_here_local, e_here_local_plan) =>
+                              SOME (e_here_local, plan_here ++ e_here_can_plan ++ e_here_local_plan)
+                          | NONE => SOME (e_here, plan_here))))
+             | NONE => apply_distributivity_local cfg e)
+      | _ => apply_distributivity_local cfg e) cfg e
 End
-
-Theorem test__apply_distributivity = EVAL (
-  Parse.Term ‘
-   apply_distributivity no_fp_opt_conf (
-     (FpOptimise Opt
-      (App (FP_bop FP_Add)
-           [App (FP_bop FP_Mul)
-              [App (FP_bop FP_Add)
-                 [App (FP_bop FP_Mul)
-                    [App (FP_bop FP_Add)
-                       [App (FP_bop FP_Mul)
-                          [Var (Short "x3"); Var (Short "x3")];
-                        App (FP_bop FP_Add)
-                          [Var (Short "x3");
-                           App FpFromWord [Lit (Word64 0x3FF0000000000000w)]]];
-                     Var (Short "x3")];
-                  App FpFromWord [Lit (Word64 0x3FF0000000000000w)]];
-               Var (Short "x3")];
-            App FpFromWord [Lit (Word64 0x4010000000000000w)]])
-     )
-     )
-  ’);
-
-Theorem test__apply_distributivity2 = EVAL (
-  Parse.Term ‘
-   let e = (FpOptimise Opt
-            (App (FP_bop FP_Add)
-             [App (FP_bop FP_Mul)
-              [Var (Short "x3");
-               App (FP_bop FP_Mul)
-                   [Var (Short "x3");
-                    App (FP_bop FP_Mul)
-                        [Var (Short "x3"); Var (Short "x3")]]];
-              App (FP_bop FP_Add)
-                  [App (FP_bop FP_Mul)
-                   [Var (Short "x3");
-                    App (FP_bop FP_Mul)
-                        [Var (Short "x3"); Var (Short "x3")]];
-                   App (FP_bop FP_Add)
-                       [App (FP_bop FP_Mul)
-                        [Var (Short "x3"); Var (Short "x3")];
-                        App (FP_bop FP_Add)
-                            [Var (Short "x3");
-                             App FpFromWord
-                                 [Lit (Word64 0x4010000000000000w)]]]]])) in
-     let (_, plan) = apply_distributivity no_fp_opt_conf e in
-       optimise_with_plan no_fp_opt_conf plan e
-  ’);
-
 
 Definition try_rewrite_with_each_def:
   try_rewrite_with_each [] e = (e, []) ∧
@@ -891,225 +1108,10 @@ Definition generate_plan_decs_def:
   generate_plan_decs cfg [d] = []
 End
 
-(**
-  Step 2: Lifting of optimise to expression lists
-  stos_pass walks over a list of expressions and calls optimise on
-  function bodies
-**)
-Definition stos_pass_def:
-  stos_pass cfg [] = [] ∧
-  stos_pass cfg (e1::e2::es) =
-    (stos_pass cfg [e1]) ++ (stos_pass cfg (e2::es))  ∧
-  stos_pass cfg [Fun s e] =
-    [Fun s (HD (stos_pass cfg [e]))] ∧
-  stos_pass cfg [e] = [optimise cfg e]
-End
+val _ = export_theory();
 
-Definition stos_pass_with_plans_def:
-  stos_pass_with_plans cfg plans [] = [] ∧
-  stos_pass_with_plans cfg (plan1::rest) (e1::e2::es) =
-    (stos_pass_with_plans cfg [plan1] [e1]) ++ (stos_pass_with_plans cfg rest (e2::es)) ∧
-  stos_pass_with_plans cfg plans [Fun s e] = [Fun s (HD (stos_pass_with_plans cfg plans [e]))] ∧
-  stos_pass_with_plans cfg [plan] [e] = [optimise_with_plan cfg plan e] ∧
-  stos_pass_with_plans _ _ exps = exps
-End
-
-(* Step 3: Disallow further optimisations *)
-Definition no_optimisations_def:
-  no_optimisations cfg (Lit l) = Lit l /\
-  no_optimisations cfg (Var x) = Var x /\
-  no_optimisations (cfg:config) (Raise e) =
-    Raise (no_optimisations cfg e) /\
-  no_optimisations cfg (Handle e pes) =
-    Handle (no_optimisations cfg e) (MAP (\ (p,e). (p, no_optimisations cfg e)) pes) /\
-  no_optimisations cfg (Con mod exps) =
-    Con mod (MAP (no_optimisations cfg) exps) /\
-  no_optimisations cfg (Fun s e) = Fun s e ∧
-  no_optimisations cfg (App op exps) = App op (MAP (no_optimisations cfg) exps) /\
-  no_optimisations cfg (Log lop e2 e3) =
-    Log lop (no_optimisations cfg e2) (no_optimisations cfg e3) /\
-  no_optimisations cfg (If e1 e2 e3) =
-    If (no_optimisations cfg e1) (no_optimisations cfg e2) (no_optimisations cfg e3) /\
-  no_optimisations cfg (Mat e pes) =
-    Mat (no_optimisations cfg e) (MAP (\ (p,e). (p, no_optimisations cfg e)) pes) /\
-  no_optimisations cfg (Let so e1 e2) =
-    Let so (no_optimisations cfg e1) (no_optimisations cfg e2) /\
-  no_optimisations cfg (Letrec ses e) =
-    Letrec ses (no_optimisations cfg e) /\
-  no_optimisations cfg (Tannot e t) =
-    Tannot (no_optimisations cfg e) t /\
-  no_optimisations cfg (Lannot e l) =
-    Lannot (no_optimisations cfg e) l /\
-  no_optimisations cfg (FpOptimise sc e) = FpOptimise NoOpt (no_optimisations cfg e)
-Termination
-  WF_REL_TAC `measure (\ (c,e). exp_size e)` \\ fs[]
-  \\ rpt conj_tac
-  >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
-  >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
-  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[])
-  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `mod` assume_tac) \\ fs[])
-End
-
-Definition no_optimise_pass_def:
-  no_optimise_pass cfg [] = [] ∧
-  no_optimise_pass cfg (e1::e2::es) =
-    (no_optimise_pass cfg [e1]) ++ (no_optimise_pass cfg (e2::es))  ∧
-  no_optimise_pass cfg [Fun s e] =
-    [Fun s (HD (no_optimise_pass cfg [e]))] ∧
-  no_optimise_pass cfg [e] = [no_optimisations cfg e]
-End
-
-(**
-  stos_pass_decs: Lift stos_pass to declarations
-**)
-Definition stos_pass_decs_def:
-  stos_pass_decs cfg [] = [] ∧
-  stos_pass_decs cfg (d1::d2::ds) =
-    (stos_pass_decs cfg [d1] ++ stos_pass_decs cfg (d2::ds)) ∧
-  stos_pass_decs cfg [Dlet loc p e] =
-    [Dlet loc p (HD (stos_pass cfg [e]))] ∧
-  (* No Dletrec support for now -- stos_pass_decs cfg [Dletrec ls exps] =
-    [Dletrec ls (MAP (λ (fname, param, e). (fname, param, HD (stos_pass cfg [e]))) exps)] ∧ *)
-  stos_pass_decs cfg [d] = [d]
-End
-
-Definition stos_pass_with_plans_decs_def:
-  stos_pass_with_plans_decs cfg plans [] = [] ∧
-  stos_pass_with_plans_decs cfg (plans1::rest) (d1::d2::ds) =
-    (stos_pass_with_plans_decs cfg [plans1] [d1] ++ stos_pass_with_plans_decs cfg rest (d2::ds)) ∧
-  stos_pass_with_plans_decs cfg [plans1] [Dlet loc p e] =
-    [Dlet loc p (HD (stos_pass_with_plans cfg [plans1] [e]))] ∧
-  stos_pass_with_plans_decs cfg plans [d] = [d]
-End
-
-Definition no_opt_decs_def:
-  no_opt_decs cfg [] = [] ∧
-  no_opt_decs cfg (e1::e2::es) =
-    (no_opt_decs cfg [e1] ++ no_opt_decs cfg (e2::es)) ∧
-  no_opt_decs cfg [Dlet loc p e] =
-    [Dlet loc p (HD (no_optimise_pass cfg [e]))] ∧
-  no_opt_decs cfg [Dletrec ls exps] =
-    [Dletrec ls (MAP (λ (fname, param, e). (fname, param, HD (no_optimise_pass cfg [e]))) exps)] ∧
-  no_opt_decs cfg [d] = [d]
-End
-
-
-val test_code =
-(** REPLACE AST BELOW THIS LINE **)
-“[Dlet unknown_loc (Pvar "out2")
-(Fun "x1" (Fun "x2" (Fun "x3" 
-(FpOptimise Opt
-(App (FP_bop FP_Add)
-  [
-    (App (FP_bop FP_Add)
-    [
-      (App (FP_bop FP_Add)
-      [
-        (App (FP_bop FP_Add)
-        [
-          (App (FP_bop FP_Mul)
-          [
-            (App (FP_bop FP_Mul)
-            [
-              (App (FP_bop FP_Mul)
-              [
-                Var (Short  "x3");
-                Var (Short  "x3")
-              ]);
-              Var (Short  "x3")
-            ]);
-            Var (Short  "x3")
-          ]);
-          (App (FP_bop FP_Mul)
-          [
-            (App (FP_bop FP_Mul)
-            [
-              Var (Short  "x3");
-              Var (Short  "x3")
-            ]);
-            Var (Short  "x3")
-          ])
-        ]);
-        (App (FP_bop FP_Mul)
-        [
-          Var (Short  "x3");
-          Var (Short  "x3")
-        ])
-      ]);
-      Var (Short  "x3")
-    ]);
-    (App FpFromWord [Lit (Word64 (4616189618054758400w:word64))])
-  ])))))]”
-
-Definition theAST_def:
-  theAST =
-  ^test_code
-End
-
-(** Optimizations to be applied by Icing **)
-Definition theOpts_def:
-  theOpts = extend_conf no_fp_opt_conf
-  [
-    fp_comm_gen FP_Add;
-    fp_fma_intro
-  ]
-End
-
-Theorem theAST_plan = EVAL (Parse.Term ‘generate_plan_decs theOpts theAST’);
-
-(** The code below stores in theorem theAST_opt the optimized version of the AST
-    from above and in errorbounds_AST the inferred FloVer roundoff error bounds
- **)
-Theorem theAST_opt =
-  EVAL
-    (Parse.Term ‘
-      (no_opt_decs theOpts (stos_pass_with_plans_decs theOpts (generate_plan_decs theOpts theAST) theAST))’);
-
-
-Theorem only_opt_body = EVAL (
-  Parse.Term ‘
-   compose_plan_generation [
-       canonicalize;
-      (* apply_distributivity; *)
-     ] (
-     (FpOptimise Opt
-      (App (FP_bop FP_Add)
-       [
-         (App (FP_bop FP_Mul)
-          [
-            (App (FP_bop FP_Mul)
-             [
-               (App (FP_bop FP_Mul)
-                [
-                  Var (Short  "x3");
-                  Var (Short  "x3")
-                ]);
-               Var (Short  "x3")
-             ]);
-            Var (Short  "x3")
-          ]);
-         (App (FP_bop FP_Mul)
-          [
-            (App (FP_bop FP_Mul)
-             [
-               Var (Short  "x3");
-               Var (Short  "x3")
-             ]);
-            Var (Short  "x3")
-          ])
-       ])
-     )
-     ) theOpts’
-  );
-
+(** UNUSED **)
+(*
 Definition linear_interpolation_def:
      linear_interpolation = FpOptimise Opt
      (App (FP_bop FP_Add)
@@ -1131,345 +1133,178 @@ Definition linear_interpolation_def:
       ])
 End
 
-Theorem opt_linint_test_only_opt = EVAL (
+Theorem test__canonicalize = EVAL (
   Parse.Term ‘
-     (optimise_linear_interpolation theOpts linear_interpolation)
+   canonicalize no_fp_opt_conf (
+     (FpOptimise Opt
+      (App (FP_bop FP_Add) [
+         App (FP_bop FP_Add) [
+             App (FP_bop FP_Add) [
+                 App (FP_bop FP_Add) [
+                     Var (Short "c");
+                     Var (Short "d")
+                   ];
+                 Var (Short "b")
+               ];
+             App (FP_bop FP_Mul) [
+                 Var (Short "x");
+                 Var (Short "y")
+               ]
+           ];
+         Var (Short "a")
+        ])
+     )
+     )
+  ’);
+
+Theorem test__top_level_multiplicants = EVAL (
+  Parse.Term ‘
+  top_level_multiplicants (App (FP_bop FP_Mul) [
+                               App (FP_bop FP_Add) [Var (Short "x"); Lit (Word64 0w)];
+                               (App (FP_bop FP_Mul) [
+                                   Var (Short "y");
+                                   App (FP_bop FP_Mul) [
+                                       (Var (Short "a"));
+                                       (Lit (Word64 7w))
+                                     ]
+                                 ]
+                               )
+                             ])
+  ’)
+
+
+Theorem test__move_multiplicants_to_right = EVAL (
+  Parse.Term ‘
+   move_multiplicants_to_right (no_fp_opt_conf with canOpt := T) [(Var (Short "d")); (Var (Short "b"))] (
+     (App (FP_bop FP_Mul) [
+         Var (Short "a");
+         App (FP_bop FP_Mul) [
+             Var (Short "b");
+             App (FP_bop FP_Mul) [
+                 Var (Short "c");
+                 App (FP_bop FP_Mul) [
+                     Var (Short "d");
+                     Var (Short "e")
+                   ]
+               ]
+           ]
+       ])
+     )
   ’);
 
 
-Definition gather_constants_exp_def:
-  gather_constants_exp (Lit (Word64 w)) = [w] ∧
-  gather_constants_exp (FpOptimise sc e) = gather_constants_exp e ∧
-  gather_constants_exp (Lit l) = [] ∧
-  gather_constants_exp (Var x) = [] ∧
-  gather_constants_exp (Raise e) = gather_constants_exp e ∧
-  gather_constants_exp (Handle e pes) =
-    (gather_constants_exp e) ++ (FLAT (MAP (λ (p,e). gather_constants_exp e) pes)) ∧
-  gather_constants_exp (Con mod exps) =
-    FLAT (MAP gather_constants_exp exps) ∧
-  gather_constants_exp (Fun s e) = gather_constants_exp e ∧
-  gather_constants_exp (App op exps) = FLAT (MAP gather_constants_exp exps) ∧
-  gather_constants_exp (Log lop e2 e3) =
-    (gather_constants_exp e2) ++ (gather_constants_exp e3) ∧
-  gather_constants_exp (If e1 e2 e3) =
-    (gather_constants_exp e1) ++ (gather_constants_exp e2) ++ (gather_constants_exp e3) ∧
-  gather_constants_exp (Mat e pes) =
-    (gather_constants_exp e) ++ FLAT ((MAP (λ (p,e). gather_constants_exp e) pes)) ∧
-  gather_constants_exp (Let so e1 e2) =
-    (gather_constants_exp e1) ++ (gather_constants_exp e2) ∧
-  gather_constants_exp (Letrec ses e) =
-    (gather_constants_exp e) ∧
-  gather_constants_exp (Tannot e t) =
-    (gather_constants_exp e) ∧
-  gather_constants_exp (Lannot e l) =
-    (gather_constants_exp e)
-Termination
-  WF_REL_TAC ‘measure (λ e. exp_size e)’ \\ fs[]
-  \\ rpt conj_tac
-  \\ fs[astTheory.exp_size_def]
-  \\ TRY (
-    Induct_on `pes` \\ fs[astTheory.exp_size_def]
-    \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-    \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[] \\ NO_TAC
-    )
-  \\ TRY (
-    Induct_on `exps` \\ fs[astTheory.exp_size_def]
-    \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-    \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[] \\ NO_TAC
-    )
-  \\ rpt strip_tac
-  \\ fs[astTheory.exp_size_def, astTheory.lit_size_def, char_size_def, astTheory.lop_size_def,
-        fpValTreeTheory.fp_opt_size_def]
-  \\ ‘∀ x l. MEM x l ⇒ exp_size x ≤ exp6_size l’ by (
-    rpt strip_tac
-    \\ Induct_on ‘l’ \\ fs[]
-    \\ rpt strip_tac
-    \\ fs[astTheory.exp_size_def]
-    )
-  \\ pop_assum imp_res_tac \\ fs[]
-End
+Theorem test__move_multiplicants_to_right2 = EVAL (
+  Parse.Term ‘
+   move_multiplicants_to_right (no_fp_opt_conf with canOpt := T) [(Var (Short "x3")); (Var (Short "x3")); (Var (Short "x3"))] (
+     (
+       App (FP_bop FP_Mul)
+           [Var (Short "x3");
+            App (FP_bop FP_Mul) [Var (Short "x3"); Var (Short "x3")]]
+     )
+     )
+  ’);
 
-Definition gather_used_identifiers_pat_def:
-  gather_used_identifiers_pat Pany = [] ∧
-  gather_used_identifiers_pat (Pvar v) = [v] ∧
-  gather_used_identifiers_pat (Plit _) = [] ∧
-  gather_used_identifiers_pat (Pref p) = gather_used_identifiers_pat p ∧
-  gather_used_identifiers_pat (Ptannot p _) = gather_used_identifiers_pat p ∧
-  gather_used_identifiers_pat (Pcon (SOME id) pats) =
-    (let used_in_pats = FLAT (MAP gather_used_identifiers_pat pats) in
-      case id of | (Short v) => v::used_in_pats | (Long m (Short v)) => m::v::used_in_pats) ∧
-  gather_used_identifiers_pat (Pcon NONE pats) = FLAT (MAP gather_used_identifiers_pat pats)
-Termination
-  WF_REL_TAC ‘measure (λ p. pat_size p)’ \\ fs[]
-  \\ rpt conj_tac
-  \\ fs[astTheory.pat_size_def]
-  \\ Induct_on ‘pats’ \\ rpt strip_tac \\ fs[astTheory.pat_size_def]
-  \\ ‘∀ x l. MEM x l ⇒ pat_size x ≤ pat1_size l’ by (
-    rpt strip_tac
-    \\ Induct_on ‘l’ \\ fs[]
-    \\ rpt strip_tac
-    \\ fs[astTheory.pat_size_def]
-    )
-  \\ pop_assum imp_res_tac \\ fs[]
-End
+Theorem test__canonicalize_for_distributivity = EVAL (
+  Parse.Term ‘
+   canonicalize_for_distributivity no_fp_opt_conf (
+     (FpOptimise Opt
+      (App (FP_bop FP_Add)
+        [App (FP_bop FP_Mul)
+         [Var (Short "x3");
+          App (FP_bop FP_Mul)
+              [Var (Short "x3");
+               App (FP_bop FP_Mul)
+                   [Var (Short "x3"); Var (Short "x3")]]];
+         App (FP_bop FP_Add)
+             [App (FP_bop FP_Mul)
+              [Var (Short "x3");
+               App (FP_bop FP_Mul)
+                   [Var (Short "x3"); Var (Short "x3")]];
+              App (FP_bop FP_Add)
+                  [App (FP_bop FP_Mul)
+                   [Var (Short "x3"); Var (Short "x3")];
+                   App (FP_bop FP_Add)
+                       [Var (Short "x3");
+                        App FpFromWord
+                            [Lit (Word64 0x4010000000000000w)]]]]])
+      )
+     )
+     ’);
 
-Definition gather_used_identifiers_exp_def:
-  gather_used_identifiers_exp (FpOptimise sc e) = gather_used_identifiers_exp e ∧
-  gather_used_identifiers_exp (Lit l) = [] ∧
-  gather_used_identifiers_exp (Var x) = (case x of
-    | Short v => [v]
-    | Long m (Short v) => [m; v]) ∧
-  gather_used_identifiers_exp (Raise e) = gather_used_identifiers_exp e ∧
-  gather_used_identifiers_exp (Handle e pes) =
-    (gather_used_identifiers_exp e)
-    ++
-    (FLAT (MAP (λ (p,e). (gather_used_identifiers_pat p) ++ (gather_used_identifiers_exp e)) pes)) ∧
-  gather_used_identifiers_exp (Con mod exps) =
-    FLAT (MAP gather_used_identifiers_exp exps) ∧
-  gather_used_identifiers_exp (Fun s e) = [s] ++ gather_used_identifiers_exp e ∧
-  gather_used_identifiers_exp (App op exps) = FLAT (MAP gather_used_identifiers_exp exps) ∧
-  gather_used_identifiers_exp (Log lop e2 e3) =
-    (gather_used_identifiers_exp e2) ++ (gather_used_identifiers_exp e3) ∧
-  gather_used_identifiers_exp (If e1 e2 e3) =
-    (gather_used_identifiers_exp e1) ++ (gather_used_identifiers_exp e2) ++ (gather_used_identifiers_exp e3) ∧
-  gather_used_identifiers_exp (Mat e pes) =
-    (gather_used_identifiers_exp e)
-    ++
-    FLAT ((MAP (λ (p,e). (gather_used_identifiers_pat p) ++ gather_used_identifiers_exp e) pes)) ∧
-  gather_used_identifiers_exp (Let so e1 e2) =
-    (let expression_identifiers =
-         (gather_used_identifiers_exp e1) ++ (gather_used_identifiers_exp e2) in
-       case so of
-       | NONE => expression_identifiers
-       | SOME n => n::expression_identifiers) ∧
-  gather_used_identifiers_exp (Letrec ses e) =
-    FLAT (MAP (λ (n, p, _). [n; p]) ses) ++ (gather_used_identifiers_exp e) ∧
-  gather_used_identifiers_exp (Tannot e t) =
-    (gather_used_identifiers_exp e) ∧
-  gather_used_identifiers_exp (Lannot e l) =
-    (gather_used_identifiers_exp e)
-Termination
-  WF_REL_TAC ‘measure (λ e. exp_size e)’ \\ fs[]
-  \\ rpt conj_tac
-  \\ fs[astTheory.exp_size_def]
-  \\ TRY (
-    Induct_on `pes` \\ fs[astTheory.exp_size_def]
-    \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-    \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[] \\ NO_TAC
-    )
-  \\ TRY (
-    Induct_on `exps` \\ fs[astTheory.exp_size_def]
-    \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-    \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[] \\ NO_TAC
-    )
-  \\ rpt strip_tac
-  \\ fs[astTheory.exp_size_def, astTheory.lit_size_def, char_size_def, astTheory.lop_size_def,
-        fpValTreeTheory.fp_opt_size_def]
-  \\ ‘∀ x l. MEM x l ⇒ exp_size x ≤ exp6_size l’ by (
-    rpt strip_tac
-    \\ Induct_on ‘l’ \\ fs[]
-    \\ rpt strip_tac
-    \\ fs[astTheory.exp_size_def]
-    )
-  \\ pop_assum imp_res_tac \\ fs[]
-End
-
-Definition gather_constants_decs_def:
-  gather_constants_decs (d1::d2::rest) = (gather_constants_decs [d1]) ++ (gather_constants_decs (d2::rest)) ∧
-  gather_constants_decs [Dlet loc p e] = gather_constants_exp e ∧
-  gather_constants_decs [Dletrec ls exps] = FLAT (MAP (λ (_, _, e). gather_constants_exp e) exps) ∧
-  gather_constants_decs [] = []
-End
-
-Definition gather_used_identifiers_decs_def:
-  gather_used_identifiers_decs (d1::d2::rest) = (gather_used_identifiers_decs [d1])
-                                                ++ (gather_used_identifiers_decs (d2::rest)) ∧
-  gather_used_identifiers_decs [Dlet loc p e] = gather_used_identifiers_exp e ∧
-  gather_used_identifiers_decs [Dletrec ls exps] = FLAT (MAP (λ (_, _, e). gather_used_identifiers_exp e) exps) ∧
-  gather_used_identifiers_decs [] = []
-End
-
-Definition generate_unique_name_def:
-  generate_unique_name identifiers base = FIND (λ x. ~ MEM x identifiers)
-                                               (GENLIST (λ i. STRCAT (STRCAT base "_") (toString i)) (LENGTH identifiers + 1))
-End
-
-Definition constants_to_variable_names_def:
-  constants_to_variable_names identifiers [] (al: (word64 # string) list) = al ∧
-  constants_to_variable_names identifiers ((c: word64)::rest) al =
-  case ALOOKUP al c of NONE =>
-                         (case generate_unique_name identifiers "const" of
-                            | SOME name => constants_to_variable_names (name::identifiers) rest ((c, name)::al)
-                            (* This will never happen *)
-                            | NONE => constants_to_variable_names identifiers rest al)
-                    | SOME name => constants_to_variable_names (name::identifiers) rest al
-End
-
-Definition replace_constants_exp_def:
-  replace_constants_exp al (Lit (Word64 w)) =
-    (case (ALOOKUP al w) of
-    | NONE => Lit (Word64 w)
-    | SOME v => (Var (Short v))) ∧
-  replace_constants_exp al (FpOptimise sc e) = FpOptimise sc (replace_constants_exp al e) ∧
-  replace_constants_exp al (Lit l) = (Lit l) ∧
-  replace_constants_exp al (Var x) = (Var x) ∧
-  replace_constants_exp al (Raise e) = Raise (replace_constants_exp al e) ∧
-  replace_constants_exp al (Handle e pes) =
-    Handle (replace_constants_exp al e)  (MAP (λ (p,e). (p, replace_constants_exp al e)) pes) ∧
-  replace_constants_exp al (Con mod exps) =
-    Con mod (MAP (replace_constants_exp al) exps) ∧
-  replace_constants_exp al (Fun s e) = Fun s (replace_constants_exp al e) ∧
-  replace_constants_exp al (App op exps) = App op (MAP (replace_constants_exp al) exps) ∧
-  replace_constants_exp al (Log lop e2 e3) =
-    Log lop (replace_constants_exp al e2) (replace_constants_exp al e3) ∧
-  replace_constants_exp al (If e1 e2 e3) =
-    If (replace_constants_exp al e1) (replace_constants_exp al e2) (replace_constants_exp al e3) ∧
-  replace_constants_exp al (Mat e pes) =
-    Mat (replace_constants_exp al e) ((MAP (λ (p,e). (p, replace_constants_exp al e)) pes)) ∧
-  replace_constants_exp al (Let so e1 e2) =
-    Let so (replace_constants_exp al e1) (replace_constants_exp al e2) ∧
-  replace_constants_exp al (Letrec ses e) =
-    Letrec ses (replace_constants_exp al e) ∧
-  replace_constants_exp al (Tannot e t) =
-    Tannot (replace_constants_exp al e) t ∧
-  replace_constants_exp al (Lannot e l) =
-    Lannot (replace_constants_exp al e) l
-Termination
-  WF_REL_TAC ‘measure (λ (al, e). exp_size e)’ \\ fs[]
-  \\ rpt conj_tac
-  \\ fs[astTheory.exp_size_def]
-  \\ TRY (
-    Induct_on `pes` \\ fs[astTheory.exp_size_def]
-    \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-    \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[] \\ NO_TAC
-    )
-  \\ TRY (
-    Induct_on `exps` \\ fs[astTheory.exp_size_def]
-    \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-    \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[] \\ NO_TAC
-    )
-  \\ rpt strip_tac
-  \\ fs[astTheory.exp_size_def, astTheory.lit_size_def, char_size_def, astTheory.lop_size_def,
-        fpValTreeTheory.fp_opt_size_def]
-  \\ ‘∀ x l. MEM x l ⇒ exp_size x ≤ exp6_size l’ by (
-    rpt strip_tac
-    \\ Induct_on ‘l’ \\ fs[]
-    \\ rpt strip_tac
-    \\ fs[astTheory.exp_size_def]
-    )
-  \\ pop_assum imp_res_tac \\ fs[]
-End
+Theorem test__canonicalize_for_distributivity2 = EVAL (
+  Parse.Term ‘
+   let e = (FpOptimise Opt
+            (App (FP_bop FP_Add)
+             [App (FP_bop FP_Mul)
+              [Var (Short "x3");
+               App (FP_bop FP_Mul)
+                   [Var (Short "x3");
+                    App (FP_bop FP_Mul)
+                        [Var (Short "x3"); Var (Short "x3")]]];
+              App (FP_bop FP_Add)
+                  [App (FP_bop FP_Mul)
+                   [Var (Short "x3");
+                    App (FP_bop FP_Mul)
+                        [Var (Short "x3"); Var (Short "x3")]];
+                   App (FP_bop FP_Add)
+                       [App (FP_bop FP_Mul)
+                        [Var (Short "x3"); Var (Short "x3")];
+                        App (FP_bop FP_Add)
+                            [Var (Short "x3");
+                             App FpFromWord
+                                 [Lit (Word64 0x4010000000000000w)]]]]])
+           ) in
+     let (_, plan) = canonicalize_for_distributivity no_fp_opt_conf e in
+       optimise_with_plan no_fp_opt_conf plan e
+  ’);
 
 
-Definition replace_constants_decs_def:
-  replace_constants_decs al [] = [] ∧
-  replace_constants_decs al (d1::d2::rest) = (replace_constants_decs al [d1])
-                                             ++ (replace_constants_decs al (d2::rest)) ∧
-  replace_constants_decs al [Dlet loc p e] = [Dlet loc p (replace_constants_exp al e)] ∧
-  replace_constants_decs al [Dletrec ls exps] = [
-      Dletrec ls (MAP (λ (x, y, e). (x, y, replace_constants_exp al e)) exps)
-    ]
-End
+Theorem test__apply_distributivity2 = EVAL (
+  Parse.Term ‘
+   let e = (FpOptimise Opt
+            (App (FP_bop FP_Add)
+             [App (FP_bop FP_Mul)
+              [Var (Short "x3");
+               App (FP_bop FP_Mul)
+                   [Var (Short "x3");
+                    App (FP_bop FP_Mul)
+                        [Var (Short "x3"); Var (Short "x3")]]];
+              App (FP_bop FP_Add)
+                  [App (FP_bop FP_Mul)
+                   [Var (Short "x3");
+                    App (FP_bop FP_Mul)
+                        [Var (Short "x3"); Var (Short "x3")]];
+                   App (FP_bop FP_Add)
+                       [App (FP_bop FP_Mul)
+                        [Var (Short "x3"); Var (Short "x3")];
+                        App (FP_bop FP_Add)
+                            [Var (Short "x3");
+                             App FpFromWord
+                                 [Lit (Word64 0x4010000000000000w)]]]]])) in
+     let (_, plan) = apply_distributivity no_fp_opt_conf e in
+       optimise_with_plan no_fp_opt_conf plan e
+  ’);
 
-Definition create_fp_constants_decs_def:
-  create_fp_constants_decs [] = [] ∧
-  create_fp_constants_decs ((w, n)::rest) =
-  let declaration = Dlet (Locs <|row := 0; col := 0; offset := 0|> <|row := 0; col := 0; offset := 0|>) (Pvar n) (Lit (Word64 w)) in
-    declaration::(create_fp_constants_decs rest)
-End
+Theorem test__apply_distributivity = EVAL (
+  Parse.Term ‘
+   apply_distributivity no_fp_opt_conf (
+     (FpOptimise Opt
+      (App (FP_bop FP_Add)
+           [App (FP_bop FP_Mul)
+              [App (FP_bop FP_Add)
+                 [App (FP_bop FP_Mul)
+                    [App (FP_bop FP_Add)
+                       [App (FP_bop FP_Mul)
+                          [Var (Short "x3"); Var (Short "x3")];
+                        App (FP_bop FP_Add)
+                          [Var (Short "x3");
+                           App FpFromWord [Lit (Word64 0x3FF0000000000000w)]]];
+                     Var (Short "x3")];
+                  App FpFromWord [Lit (Word64 0x3FF0000000000000w)]];
+               Var (Short "x3")];
+            App FpFromWord [Lit (Word64 0x4010000000000000w)]])
+     )
+     )
+  ’);
 
-Definition lift_fp_constants_decs_def:
-  lift_fp_constants decs =
-    let identifiers = gather_used_identifiers_decs decs;
-        constants = gather_constants_decs decs in
-      let al = constants_to_variable_names identifiers constants [] in
-        let replaced_decs = replace_constants_decs al decs in
-        create_fp_constants_decs al ++ replaced_decs
-End
-
-Theorem theAST_lifted =
-  EVAL
-    (Parse.Term ‘
-      lift_fp_constants (
-        (no_opt_decs theOpts (stos_pass_with_plans_decs theOpts (generate_plan_decs theOpts theAST) theAST)))’);
-
-(**
-  Translation from floats to reals, needed for correctness proofs, thus we
-  define it here
-**)
-Definition getRealCmp_def:
-  getRealCmp (FP_Less) = Real_Less ∧
-  getRealCmp (FP_LessEqual) = Real_LessEqual ∧
-  getRealCmp (FP_Greater) = Real_Greater ∧
-  getRealCmp (FP_GreaterEqual) = Real_GreaterEqual ∧
-  getRealCmp (FP_Equal) = Real_Equal
-End
-
-Definition getRealUop_def:
-  getRealUop (FP_Abs) = Real_Abs ∧
-  getRealUop (FP_Neg) = Real_Neg ∧
-  getRealUop (FP_Sqrt) = Real_Sqrt
-End
-
-Definition getRealBop_def:
-  getRealBop (FP_Add) = Real_Add ∧
-  getRealBop (FP_Sub) = Real_Sub ∧
-  getRealBop (FP_Mul) = Real_Mul ∧
-  getRealBop (FP_Div) = Real_Div
-End
-
-Definition realify_def:
-  realify (Lit (Word64 w)) = Lit (Word64 w) (* RealFromFP added in App case *)∧
-  realify (Lit l) = Lit l ∧
-  realify (Var x) = Var x ∧
-  realify (Raise e) = Raise (realify e) ∧
-  realify (Handle e pes) =
-    Handle (realify e) (MAP (\ (p,e). (p, realify e)) pes) ∧
-  realify (Con mod exps) = Con mod (MAP realify exps) ∧
-  realify (Fun s e) = Fun s (realify e) ∧
-  realify (App op exps) =
-    (let exps_real = MAP realify exps in
-     case op of
-     | FpFromWord => App  RealFromFP exps_real
-     | FP_cmp cmp => App (Real_cmp (getRealCmp cmp)) exps_real
-     | FP_uop uop => App (Real_uop (getRealUop uop)) exps_real
-     | FP_bop bop => App (Real_bop (getRealBop bop)) exps_real
-     | FP_top _ =>
-     (case exps of
-      | [e1; e2; e3] => App (Real_bop (Real_Add)) [
-                          App (Real_bop (Real_Mul)) [realify e2; realify e3]; realify e1]
-      | _ => App op exps_real) (* malformed expression, return garbled output *)
-     | _ => App op exps_real) ∧
-  realify (Log lop e2 e3) =
-    Log lop (realify e2) (realify e3) ∧
-  realify (If e1 e2 e3) =
-    If (realify e1) (realify e2) (realify e3) ∧
-  realify (Mat e pes) =
-    Mat (realify e) (MAP (λ(p,e). (p, realify e)) pes) ∧
-  realify (Let so e1 e2) =
-    Let so (realify e1) (realify e2) ∧
-  realify (Letrec ses e) =
-    Letrec (MAP (λ (s1,s2,e). (s1, s2, realify e)) ses) (realify e) ∧
-  realify (Tannot e t) = Tannot (realify e) t ∧
-  realify (Lannot e l) = Lannot (realify e) l ∧
-  realify (FpOptimise sc e) = FpOptimise sc (realify e)
-Termination
-  wf_rel_tac ‘measure exp_size’ \\ fs[astTheory.exp_size_def] \\ rpt conj_tac
-  >- (Induct_on `ses` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
-  >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
-  >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
-  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[])
-  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `mod` assume_tac) \\ fs[])
-End
-
-val _ = export_theory();
+*)
