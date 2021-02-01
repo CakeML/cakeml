@@ -22,7 +22,7 @@ End
 
 
 Definition ffiBufferSize_def:
-  ffiBufferSize =  (bytes_in_word + 1w): 'a word
+  ffiBufferSize =  (bytes_in_word + bytes_in_word): 'a word
 End
 
 
