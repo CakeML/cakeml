@@ -16,6 +16,76 @@ val _ = new_theory "invertedPendulumProofs";
 
 val _ = translation_extends "invertedPendulumProgComp";
 
+Theorem list_forall_cons:
+  ∀ P l x.
+    (∀ y. MEM y l ⇒ P y) ∧
+    P x ⇒
+    (∀ y. MEM y (x::l) ⇒ P y)
+Proof
+  Induct_on ‘l’ \\ fs[]
+  \\ rpt strip_tac \\ rveq \\ fs[]
+QED
+
+Theorem list_forall_snoc:
+  ∀ P l x.
+    (∀ y. MEM y l ⇒ P y) ∧
+    P x ⇒
+    (∀ y. MEM y (l ++ [x]) ⇒ P y)
+Proof
+  Induct_on ‘l’ \\ fs[]
+  \\ rpt strip_tac \\ rveq \\ fs[]
+QED
+
+Theorem list_forall_empty:
+  ∀ P.
+    (∀ y. MEM y NIL ⇒ P y)
+Proof
+  fs[]
+QED
+
+fun flatMap (ll:'a list list) =
+  case ll of [] => []
+  | l1 :: ls => l1 @ flatMap ls
+
+fun dedup l =
+  case l of
+  [] => []
+  | l1::ls =>
+      let val lclean = dedup ls in
+        if (List.exists (fn x => x = l1) lclean)
+        then lclean
+        else l1::lclean
+      end;
+
+val thePlan_def = EVAL “HD ^(theAST_plan |> concl |> rhs)”
+val hotRewrites = thePlan_def |> concl |> rhs |> listSyntax.dest_list |> #1
+                       |> map (#2 o dest_pair)
+                       |> map (#1 o listSyntax.dest_list)
+                       |> flatMap
+                       |> map (fn t => DB.apropos_in t (DB.thy "icing_optimisations"))
+                       |> flatMap
+                       |> map (#2 o #1)
+                       |> dedup
+                       |> List.foldl (fn (elem, acc) => acc ^ " " ^ elem ^ " ;") "Used rewrites:"
+
+val _ = adjoin_to_theory
+        { sig_ps = NONE,
+          struct_ps =
+          SOME (fn _ => PP.add_string hotRewrites)};
+
+EVAL “LENGTH (HD ^(theAST_plan |> concl |> rhs))”
+theAST_plan
+
+theAST_opt
+
+        Q.ISPEC ‘λ (path, rws). ∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
+         is_perform_rewrites_correct rws st1 st2 env cfg e r path’ list_forall_empty
+
+
+
+       EVAL “MAP (λ (x,y). y) ^(theAST_plan |> concl |> rhs)”
+    [Q.SPEC ‘FP_Mul’ fp_comm_gen_correct]
+
 (** Build a backwards simulation theorem for the optimisations and show that they are real-valued ids **)
 Theorem invertedPendulum_opts_icing_correct =
   mk_opt_correct_thm [Q.SPEC ‘FP_Add’ fp_comm_gen_correct, fp_fma_intro_correct];

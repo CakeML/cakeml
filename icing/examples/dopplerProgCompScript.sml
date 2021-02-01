@@ -34,40 +34,30 @@ End
   Define the CakeML source AST as a polyML/HOL4 declaration
 **)
 val doppler =
-(** REPLACE AST BELOW THIS LINE **)
 “[Dlet unknown_loc (Pvar "doppler")
   (Fun "u" (Fun "v" (Fun "t"
   (** Numerical kernel **)
   (FpOptimise Opt
    (Let (SOME "t1")
-    (App (FP_bop FP_Add)
-     [
+     (App (FP_bop FP_Add) [
        (App FpFromWord [Lit (Word64 (4644537666646730342w:word64))]);
-       (App (FP_bop FP_Mul)
-        [
-          (App FpFromWord [Lit (Word64 (4603579539098121011w:word64))]);
-          Var (Short  "t")
+       (App (FP_bop FP_Mul) [
+         (App FpFromWord [Lit (Word64 (4603579539098121011w:word64))]);
+         Var (Short  "t") ])
+       ]) (* let bound val end *)
+     (App (FP_bop FP_Div) [
+       (App (FP_bop FP_Mul) [
+         (App (FP_uop FP_Neg) [Var (Short "t1")]);
+         Var (Short "v") ]);
+       (App (FP_bop FP_Mul) [
+         (App (FP_bop FP_Add) [
+           Var (Short "t1");
+           Var (Short "u") ]);
+         (App (FP_bop FP_Add) [
+           Var (Short "t1");
+           Var (Short "u")])
         ])
-     ])
-    (App (FP_bop FP_Div)
-     [
-       (App (FP_bop FP_Mul)
-        [
-          (App (FP_uop FP_Neg)
-           [Var (Short "t1")]);
-          Var (Short "v")
-        ]);
-       (App (FP_bop FP_Mul)
-        [
-          (App (FP_bop FP_Add)
-           [Var (Short "t1");
-            Var (Short "u")]);
-          (App (FP_bop FP_Add)
-           [Var (Short "t1");
-            Var (Short "u")])
-        ])
-     ])
-   )))))]”
+     ]))))))]”;
 
 Definition theAST_def:
   theAST =
@@ -78,10 +68,53 @@ End
 Definition theOpts_def:
   theOpts = extend_conf no_fp_opt_conf
   [
-    fp_comm_gen FP_Add;
+    (Binop FP_Mul (Binop FP_Add (Var 0) (Var 1)) (Var 2),
+     Binop FP_Add (Binop FP_Mul (Var 0) (Var 2)) (Binop FP_Mul (Var 1) (Var 2)));
     fp_fma_intro
   ]
 End
+
+fun flatMap (ll:'a list list) =
+  case ll of [] => []
+  | l1 :: ls => l1 @ flatMap ls
+
+fun dedup l =
+  case l of
+  [] => []
+  | l1::ls =>
+      let val lclean = dedup ls in
+        if (List.exists (fn x => x = l1) lclean)
+        then lclean
+        else l1::lclean
+      end;
+
+Theorem theAST_plan = EVAL (Parse.Term ‘generate_plan_decs theOpts theAST’);
+
+val thePlan_def = EVAL “HD ^(theAST_plan |> concl |> rhs)”
+val hotRewrites = thePlan_def |> concl |> rhs |> listSyntax.dest_list |> #1
+                       |> map (#2 o dest_pair)
+                       |> map (#1 o listSyntax.dest_list)
+                       |> flatMap
+                       |> map (fn t => DB.apropos_in t (DB.thy "icing_optimisations"))
+                       |> flatMap
+                       |> map (#2 o #1)
+                       |> dedup
+                       |> List.foldl (fn (elem, acc) => acc ^ " " ^ elem ^ " ;") "Used rewrites:"
+
+val _ = adjoin_to_theory
+        { sig_ps =
+          SOME (fn _ => PP.add_string
+                    ("val hotRewrites = \""^hotRewrites^"\";")),
+          struct_ps = NONE };
+
+(** The code below stores in theorem theAST_opt the optimized version of the AST
+    from above and in errorbounds_AST the inferred FloVer roundoff error bounds
+ **)
+Theorem theAST_opt =
+  EVAL
+    (Parse.Term ‘
+      (no_opt_decs theOpts
+       (stos_pass_with_plans_decs theOpts (generate_plan_decs theOpts theAST) theAST))’);
 
 (** The code below stores in theorem theAST_opt the optimized version of the AST
     from above and in errorbounds_AST the inferred FloVer roundoff error bounds
@@ -188,7 +221,7 @@ End
 val _ =
   supportLib.write_code_to_file true theAST_def theAST_opt
 (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
-    (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^main))’)
+    (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
     "doppler";
 
 val _ = export_theory();

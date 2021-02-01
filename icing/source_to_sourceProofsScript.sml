@@ -950,13 +950,33 @@ Proof
   \\ Induct_on ‘l’ \\ fs[miscTheory.enumerate_def]
 QED
 
+Definition is_perform_rewrites_correct_def:
+  is_perform_rewrites_correct rws (st1:'a semanticPrimitives$state) st2 env cfg e r path ⇔
+    evaluate st1 env [perform_rewrites cfg path rws e] = (st2, Rval r) ∧
+    (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
+    st1.fp_state.canOpt ≠ Strict ∧
+    (~ st1.fp_state.real_sem) ⇒
+    ∃ fpOpt choices fpOptR choicesR.
+      evaluate (st1 with fp_state :=
+                  st1.fp_state with
+                     <| rws := st1.fp_state.rws ++ rws;
+                        opts := fpOpt;
+                        choices := choices |>) env [e] =
+      (st2 with fp_state :=
+         st2.fp_state with
+            <| rws := st2.fp_state.rws ++ rws;
+               opts := fpOptR;
+               choices := choicesR |>,
+       Rval r)
+End
+
 local
   (* exp goal *)
   val P0 =
   “λ (e:ast$exp).
      ∀ (st1: 'a semanticPrimitives$state) st2 env cfg rws r path.
-     (∀ (st1:'a semanticPrimitives$state) st2 env exps r part.
-       (∀x. MEM x part ⇒ MEM x rws) ⇒ is_rewriteFPexp_list_correct part st1 st2 env exps r) ∧
+     (∀ (st1:'a semanticPrimitives$state) st2 env exps r.
+       is_rewriteFPexp_list_correct rws st1 st2 env exps r) ∧
      (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
      st1.fp_state.canOpt ≠ Strict ∧
      ~st1.fp_state.real_sem ∧
@@ -983,8 +1003,8 @@ local
   val P3 =
   Parse.Term (‘λ (l:(pat # exp) list).
      ∀ (st1: 'a semanticPrimitives$state) st2 env cfg rws r v err_v path i.
-     (∀ (st1:'a semanticPrimitives$state) st2 env exps r part.
-        (∀x. MEM x part ⇒ MEM x rws) ⇒ is_rewriteFPexp_list_correct part st1 st2 env exps r) ∧
+     (∀ (st1:'a semanticPrimitives$state) st2 env exps r.
+        is_rewriteFPexp_list_correct rws st1 st2 env exps r) ∧
      (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
      st1.fp_state.canOpt ≠ Strict ∧
      ~st1.fp_state.real_sem ∧
@@ -1034,8 +1054,8 @@ Triviality lift_P6_perform_rws_REVERSE:
   ∀ es.
     ^P6 es ⇒
     ∀ (st1: 'a semanticPrimitives$state) st2 env cfg rws r path i m.
-    (∀ (st1:'a semanticPrimitives$state) st2 env exps r part.
-       (∀x. MEM x part ⇒ MEM x rws) ⇒ is_rewriteFPexp_list_correct part st1 st2 env exps r) ∧
+    (∀ (st1:'a semanticPrimitives$state) st2 env exps r.
+       is_rewriteFPexp_list_correct rws st1 st2 env exps r) ∧
     (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
     st1.fp_state.canOpt ≠ Strict ∧
     ~st1.fp_state.real_sem ∧
@@ -1059,8 +1079,8 @@ Proof
   \\ fs[] \\ rveq
   \\ ‘∀e. MEM e es ⇒
           ∀(st1 :α semanticPrimitives$state) (st2 :α semanticPrimitives$state) env cfg rws r path.
-            (∀ (st1:'a semanticPrimitives$state) st2 env exps r part.
-               (∀x. MEM x part ⇒ MEM x rws) ⇒ is_rewriteFPexp_list_correct part st1 st2 env exps r)  ∧
+            (∀ (st1:'a semanticPrimitives$state) st2 env exps r.
+               is_rewriteFPexp_list_correct rws st1 st2 env exps r)  ∧
             (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
             st1.fp_state.canOpt ≠ Strict ∧ ~st1.fp_state.real_sem ∧
             evaluate st1 env
@@ -1115,8 +1135,8 @@ Triviality lift_P6_perform_rws:
   ∀ es.
     ^P6 es ⇒
     ∀ (st1: 'a semanticPrimitives$state) st2 env cfg rws r path i m.
-    (∀ (st1:'a semanticPrimitives$state) st2 env exps r part.
-       (∀x. MEM x part ⇒ MEM x rws) ⇒ is_rewriteFPexp_list_correct part st1 st2 env exps r) ∧
+    (∀ (st1:'a semanticPrimitives$state) st2 env exps r.
+       is_rewriteFPexp_list_correct rws st1 st2 env exps r) ∧
     (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
     st1.fp_state.canOpt ≠ Strict ∧
     ~st1.fp_state.real_sem ∧
@@ -1153,8 +1173,8 @@ Proof
   \\ fs[] \\ rveq
   \\ ‘∀e. MEM e es ⇒
           ∀(st1 :α semanticPrimitives$state) (st2 :α semanticPrimitives$state) env cfg rws r path.
-            (∀ (st1:'a semanticPrimitives$state) st2 env exps r part.
-               (∀x. MEM x part ⇒ MEM x rws) ⇒ is_rewriteFPexp_list_correct part st1 st2 env exps r) ∧
+            (∀ (st1:'a semanticPrimitives$state) st2 env exps r.
+               is_rewriteFPexp_list_correct rws st1 st2 env exps r) ∧
             (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
             st1.fp_state.canOpt ≠ Strict ∧ ~st1.fp_state.real_sem ∧
             evaluate st1 env
@@ -2058,6 +2078,27 @@ Proof
   (* Case: ?? *)
   >- fs[evaluate_def]
 QED
+
+Theorem is_rewriteFPexp_correct_lift_perform_rewrites:
+  ∀ rws.
+    (∀ (st1 st2:'a semanticPrimitives$state) env e r.
+       is_rewriteFPexp_list_correct rws st1 st2 env e r) ⇒
+    (∀ path (st1 st2:'a semanticPrimitives$state) env cfg e r.
+       is_perform_rewrites_correct rws st1 st2 env (cfg with optimisations := rws) e r path)
+Proof
+  rpt strip_tac
+  \\ simp[is_perform_rewrites_correct_def]
+  \\ assume_tac (List.nth ((CONJ_LIST 7 (SIMP_RULE std_ss [] perform_rewrites_correct)), 6))
+  \\ qspec_then ‘[e]’ mp_tac (SIMP_RULE std_ss [] lift_P6_perform_rws)
+  \\ impl_tac
+  >- (first_x_assum (qspec_then ‘[e]’ mp_tac) \\ fs[])
+  \\ pop_assum kall_tac \\ rpt strip_tac
+  \\ first_x_assum (qspecl_then [‘st1’,‘st2’,‘env’,‘cfg’,‘rws’,‘r’, ‘path’, ‘0’, ‘0’] mp_tac)
+  \\ impl_tac
+  >- (rpt conj_tac \\ fs[miscTheory.enumerate_def])
+  \\ rpt strip_tac \\ fsrw_tac [SATISFY_ss] []
+QED
+
 end;
 
 Theorem REVERSE_no_optimisations:
@@ -2090,26 +2131,6 @@ Proof
    \\ pop_assum (fs o single))
   \\ rpt strip_tac \\ fsrw_tac [SATISFY_ss] []
 QED
-
-Definition is_perform_rewrites_correct_def:
-  is_perform_rewrites_correct rws (st1:'a semanticPrimitives$state) st2 env cfg e r path ⇔
-    evaluate st1 env [perform_rewrites cfg path rws e] = (st2, Rval r) ∧
-    (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
-    st1.fp_state.canOpt ≠ Strict ∧
-    (~ st1.fp_state.real_sem) ⇒
-    ∃ fpOpt choices fpOptR choicesR.
-      evaluate (st1 with fp_state :=
-                  st1.fp_state with
-                     <| rws := st1.fp_state.rws ++ rws;
-                        opts := fpOpt;
-                        choices := choices |>) env [e] =
-      (st2 with fp_state :=
-         st2.fp_state with
-            <| rws := st2.fp_state.rws ++ rws;
-               opts := fpOptR;
-               choices := choicesR |>,
-       Rval r)
-End
 
 Theorem is_optimise_with_plan_correct_lift_sing:
   ∀ plan.

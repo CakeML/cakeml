@@ -1,13 +1,13 @@
 (**
-  Doppler program proofs
+  RigidBody program proofs
 **)
 
 open compilerTheory fromSexpTheory cfTacticsLib ml_translatorLib;
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
 open source_to_sourceTheory source_to_sourceProofsTheory CakeMLtoFloVerTheory
-     CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory
+     fpSemPropsTheory CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory
      icing_optimisationsLib rigidBodyProgCompTheory rigidBodyProgErrorTheory
-     cfSupportTheory;
+     cfSupportTheory pureExpsTheory;
 open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
 open astToSexprLib fromSexpTheory basis_ffiTheory cfHeapsBaseTheory basis;
 open preamble supportLib;

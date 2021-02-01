@@ -381,6 +381,94 @@ fun fp_rws_append_opt t =
     |> map (Q.SPEC `[^t]`) |> map GEN_ALL
     |> LIST_CONJ;
 
+    (*
+Theorem fp_times_one_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_times_one] st1 st2 env e r
+Proof
+  rw[is_rewriteFPexp_correct_def]
+  \\ REVERSE (qspecl_then [`e`] strip_assume_tac fp_times_one_cases)
+  >- (
+   fs[]
+   \\ extend_eval_tac ‘evaluate st1 _ _ = _’ ‘[fp_times_one]’
+   \\ strip_tac
+   \\ pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_add_choices))
+   \\ disch_then (qspec_then ‘st1.fp_state.choices’ assume_tac)
+   \\ fsrw_tac [SATISFY_ss] [])
+  \\ pop_assum (fs o single)
+  \\ qpat_x_assum `_ = App _ _` (fs o single)
+  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
+         Once terminationTheory.evaluate_def, Once evaluate_cons, evaluate_case_case]
+  \\ ntac 2 (simp[Once terminationTheory.evaluate_def, evaluate_case_case, astTheory.getOpClass_def])
+  \\ simp[Once do_app_def]
+         (* MARKER *)
+  \\ ntac 4 (TOP_CASE_TAC \\ fs[])
+  \\ imp_res_tac evaluate_sing \\ rveq \\ fs[]
+  \\ simp[do_app_def, CaseEq"option", CaseEq"v", CaseEq"prod"]
+  \\ rpt strip_tac \\ rveq \\ fs[] \\ rveq
+  \\ rename [‘evaluate st1 env [e1] = (st2, Rval [v1])’,
+             ‘evaluate st2 env [e2] = (st3, Rval [v2])’]
+  \\ ‘st3.fp_state.canOpt = FPScope Opt’ by fp_inv_tac
+  \\ fs[]
+  \\ ‘st2 = st1 with fp_state := st2.fp_state ∧
+      st3 = st1 with fp_state := st3.fp_state’
+    by (imp_res_tac isPureExp_same_ffi \\ fs[isPureExp_def]
+        \\ res_tac \\ fs[state_component_equality])
+  \\ qpat_assum `evaluate _ _ [e1] = _`
+                (mp_then Any mp_tac isPureExp_evaluate_change_oracle)
+  \\ fs[isPureExp_def]
+  \\ disch_then (
+     qspecl_then [
+       ‘fp_comm_gen fpBop’,
+       ‘st1 with fp_state := st1.fp_state with choices :=
+          st1.fp_state.choices + (st3.fp_state.choices - st2.fp_state.choices)’,
+       ‘λ x. if (x = 0)
+        then [RewriteApp Here (LENGTH st1.fp_state.rws + 1)] ++
+        (case do_fprw (Rval (FP_WordTree (fp_bop fpBop w1 w2)))
+         (st3.fp_state.opts 0) st3.fp_state.rws of
+         | NONE => [] | SOME r_opt => st3.fp_state.opts x)
+        else []’] mp_tac)
+  \\ impl_tac >- fp_inv_tac
+  \\ strip_tac
+  \\ qpat_assum `evaluate _ _ [e2] = _`
+                (mp_then Any mp_tac isPureExp_evaluate_change_oracle)
+  \\ fs[isPureExp_def]
+  \\ disch_then (
+     qspecl_then [
+       ‘fp_comm_gen fpBop’,
+       ‘st1’, ‘oracle’] mp_tac)
+  \\ impl_tac >- fp_inv_tac
+  \\ strip_tac
+  \\ ‘st2.fp_state.rws = st1.fp_state.rws’ by fp_inv_tac
+  \\ pop_assum (fs o single)
+  \\ pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_add_choices))
+  \\ disch_then (qspec_then ‘st1.fp_state.choices’ assume_tac)
+  \\ qexists_tac ‘oracle'’ \\ qexists_tac ‘st1.fp_state.choices’
+  \\ simp[evaluate_def]
+  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
+          Once evaluate_cons, evaluate_case_case]
+  \\ fs state_eqs
+  \\ simp([do_app_def, shift_fp_opts_def] @ state_eqs)
+  \\ rpt conj_tac
+  >- fp_inv_tac
+  >- (fp_inv_tac \\ fs[FUN_EQ_THM])
+  >- fp_inv_tac
+  \\ qpat_x_assum `_ = Rval _` (fs o single o GSYM)
+  \\ simp[do_fprw_def, rwAllWordTree_def, nth_len]
+  \\ simp[EVAL ``rwFp_pathWordTree (fp_comm_gen fpBop) Here (fp_bop fpBop w2 w1)``,
+        instWordTree_def, substLookup_def]
+  \\ Cases_on `rwAllWordTree (st3.fp_state.opts 0) st3.fp_state.rws (fp_bop fpBop w1 w2)`
+  \\ fs[rwAllWordTree_def, fpValTreeTheory.fp_bop_def]
+  \\ imp_res_tac rwAllWordTree_append_opt
+  \\ first_x_assum (qspec_then `[fp_comm_gen fpBop]` assume_tac)
+  \\ `st3.fp_state.rws = st1.fp_state.rws` by fp_inv_tac
+  \\ fs[]
+  cheat
+QED
+*)
+
+(** real number equivalences **)
+
 Theorem isPureExp_realify:
   (∀e.
     isPureExp e ⇒
@@ -686,7 +774,6 @@ Proof
   \\ EVAL_TAC
 QED
 
-
 Theorem fp_assoc_gen_real_id:
   ∀ fpBop st1 st2 env e r.
     fpBop ≠ FP_Sub ∧
@@ -975,7 +1062,6 @@ Proof
                 realTheory.real_div]
 QED
 
-
 Theorem fp_undistribute_gen_real_id:
 ∀ fpBopOuter fpBopInner st1 st2 env e r.
     fpBopOuter ≠ FP_Mul ∧
@@ -1019,7 +1105,6 @@ Proof
   \\ metis_tac [realTheory.REAL_ADD_RDISTRIB, realTheory.REAL_SUB_RDISTRIB, realTheory.REAL_DIV_ADD,
                 realTheory.real_div]
 QED
-
 
 Theorem fp_plus_zero_real_id:
   ∀ st1 st2 env e r.
@@ -1201,10 +1286,11 @@ Proof
   \\ fs[]
 QED
 
+Theorem fp_comm_gen_correct_unfold = REWRITE_RULE [fp_comm_gen_def] fp_comm_gen_correct;
+
 fun rename_each [] = ALL_TAC
 | rename_each [first] = qmatch_asmsub_rename_tac first \\ qpat_x_assum first mp_tac \\ strip_tac
 | rename_each (first::rest) = qmatch_asmsub_rename_tac first \\ qpat_x_assum first mp_tac \\ rename_each rest \\ strip_tac
-
 
 Theorem fp_assoc_gen_correct:
   ∀ fpBop st1 st2 env e r.
@@ -1487,91 +1573,17 @@ Proof
     )
   )
 QED
-(*
-  \\ rename_each [‘fp_translate v3 = SOME (FP_WordTree w3_temp)’,
-                  ‘fp_translate v1op2 = SOME (FP_WordTree w1op2_temp)’,
-                  ‘fp_translate v2 = SOME (FP_WordTree w2_temp)’,
-                  ‘fp_translate v1 = SOME (FP_WordTree w1_temp)’]
-  \\ rename_each [‘fp_translate v3 = SOME (FP_WordTree w3)’,
-                  ‘fp_translate v1op2 = SOME (FP_WordTree w1op2)’,
-                  ‘fp_translate v2 = SOME (FP_WordTree w2)’,
-                  ‘fp_translate v1 = SOME (FP_WordTree w1)’]
-  \\ qpat_assum ‘evaluate _ _ [e1] = _’
-                  (mp_then Any mp_tac isPureExp_evaluate_change_oracle)
-  \\ disch_then (
-     qspecl_then [
-         ‘fp_assoc2_gen fpBop’,
-         ‘st1 with fp_state := st1.fp_state with
-                                  <| opts := st1N.fp_state.opts;
-                                     choices :=
-                                     st1.fp_state.choices +
-                                     (st1N.fp_state.choices - st1.fp_state.choices) +
-                                     (st1.fp_state.choices + (st2N.fp_state.choices - st1N.fp_state.choices)) - st1.fp_state.choices |>’,
-         ‘λ x. if (x = 1) then
-                 [RewriteApp Here (LENGTH st1.fp_state.rws + 1)]
-                 ++
-                 (case
-                 do_fprw (Rval (FP_WordTree (fp_bop fpBop w1 w2)))
-                         (st3N.fp_state.opts 0) st3N.fp_state.rws of
-                 | NONE => []
-                 | SOME _ =>
-                     (MAP (λ x. case x of | RewriteApp p id => RewriteApp (Left p) id) (st3N.fp_state.opts 0)))
-                 ++
-                 (case
-                 do_fprw (Rval (FP_WordTree (fp_bop fpBop w1op2 w3)))
-                         (st3N.fp_state.opts 1) st3N.fp_state.rws
-                 of
-                 | NONE => []
-                 | SOME _ => st3N.fp_state.opts 1)
-               else []’
-       ] mp_tac)
-  \\ fs[isPureExp_def]
-  \\ strip_tac
-  \\ ‘~st2N.fp_state.real_sem’ by fp_inv_tac \\ fs[]
-  \\ qpat_assum ‘evaluate _ _ [e2] = _’
-                (mp_then Any mp_tac isPureExp_evaluate_change_oracle)
-  \\ disch_then (
-    qspecl_then [
-        ‘fp_assoc2_gen fpBop’,
-        ‘st1’,
-        ‘oracle’] mp_tac)
-  \\ fs[isPureExp_def]
-  \\ impl_tac >- fp_inv_tac
-  \\ strip_tac
-  \\ pop_assum (mp_then Any (qspec_then ‘st1.fp_state.choices + (st1N.fp_state.choices − st1.fp_state.choices)’ assume_tac) (CONJUNCT1 evaluate_add_choices))
-  \\ qpat_assum ‘evaluate _ _ [e3] = _’
-                (mp_then Any mp_tac isPureExp_evaluate_change_oracle)
-  \\ disch_then (
-    qspecl_then [
-        ‘fp_assoc2_gen fpBop’,
-        ‘st1’,
-        ‘oracle'’] mp_tac)
-  \\ fs[isPureExp_def]
-  \\ strip_tac
-  \\ pop_assum (mp_then Any (qspec_then ‘st1.fp_state.choices’ assume_tac) (CONJUNCT1 evaluate_add_choices))
-  \\ qexists_tac ‘oracle''’
-  \\ qexists_tac ‘st1.fp_state.choices’
-  \\ simp[evaluate_def]
-  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
-          Once evaluate_cons, evaluate_case_case]
-  \\ fs (shift_fp_opts_def :: state_eqs)
-  \\ pop_assum kall_tac
-  \\ ‘st1.fp_state.rws = st1N.fp_state.rws’ by fp_inv_tac
-  \\ pop_assum (fs o single)
-  (*\\ pop_assum kall_tac *)
-  \\ ‘st1N.fp_state.rws = st2N.fp_state.rws’ by fp_inv_tac
-  \\ pop_assum (fs o single)
-  \\ simp[do_app_def]
-  \\ simp[Once do_fprw_def, rwAllWordTree_def, fp_translate_def]
-  \\ simp[Once do_fprw_def, rwAllWordTree_def, fp_translate_def]
-  \\ fs state_eqs
-  \\ Cases_on ‘rwAllWordTree (oracle 0) (st2N.fp_state.rws ++ [fp_assoc2_gen fpBop]) (fp_bop fpBop w2 w3)’
-  \\ fs[]
-  >- (
-  simp[evaluate_def]
-  )
+
+Theorem fp_assoc_gen_correct_unfold = REWRITE_RULE [fp_assoc_gen_def] fp_assoc_gen_correct;
+
+Theorem fp_assoc2_gen_correct:
+  ∀ fpBop st1 st2 env e r.
+    is_rewriteFPexp_correct [fp_assoc2_gen fpBop] st1 st2 env e r
+Proof
+  cheat
 QED
-*)
+
+Theorem fp_assoc2_gen_correct_unfold = REWRITE_RULE [fp_assoc2_gen_def] fp_assoc2_gen_correct;
 
 Theorem fp_fma_intro_correct:
   ∀ st1 st2 env e r.
@@ -1658,6 +1670,8 @@ Proof
   \\ `st4.fp_state.rws = st1.fp_state.rws` by fp_inv_tac
   \\ fs[]
 QED
+
+Theorem fp_fma_intro_correct_unfold = REWRITE_RULE [fp_fma_intro_def] fp_fma_intro_correct;
 
 Theorem fp_sub_add_correct:
   ∀ st1 st2 env e r.
@@ -1786,6 +1800,36 @@ Proof
   \\ disch_then (fn th => first_x_assum (fn ithm => mp_then Any assume_tac ithm th))
   \\ fs[]
 QED
+
+Theorem fp_sub_add_correct_unfold = REWRITE_RULE [fp_sub_add_def] fp_sub_add_correct;
+
+Theorem fp_add_sub_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_add_sub] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_add_sub_correct_unfold = REWRITE_RULE [fp_add_sub_def] fp_add_sub_correct;
+
+Theorem fp_times_minus_one_neg_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_times_minus_one_neg] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_times_minus_one_neg_correct_unfold =
+        REWRITE_RULE [fp_times_minus_one_neg_def] fp_times_minus_one_neg_correct;
+
+Theorem fp_neg_times_minus_one_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_neg_times_minus_one] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_neg_times_minus_one_correct_unfold = REWRITE_RULE [fp_neg_times_minus_one_def] fp_neg_times_minus_one_correct;
 
 Theorem fp_neg_push_mul_r_correct:
   ∀ st1 st2 env e r.
@@ -2021,5 +2065,118 @@ Proof
   \\ irule rwAllWordTree_chaining_exact
   \\ fs[]
 QED
+
+Theorem fp_neg_push_mul_r_correct_unfold =
+        REWRITE_RULE [fp_neg_push_mul_r_def] fp_neg_push_mul_r_correct;
+
+Theorem fp_times_two_to_add_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_times_two_to_add] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_times_two_to_add_correct_unfold =
+        REWRITE_RULE [fp_times_two_to_add_def] fp_times_two_to_add_correct;
+
+Theorem fp_times_three_to_add_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_times_three_to_add] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_times_three_to_add_correct_unfold =
+        REWRITE_RULE [fp_times_three_to_add_def] fp_times_three_to_add_correct;
+
+Theorem fp_times_zero_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_times_zero] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_times_zero_correct_unfold =
+        REWRITE_RULE [fp_times_zero_def] fp_times_zero_correct;
+
+Theorem fp_plus_zero_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_plus_zero] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_plus_zero_correct_unfold =
+        REWRITE_RULE [fp_plus_zero_def] fp_plus_zero_correct;
+
+Theorem fp_times_one_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_times_one] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_times_one_correct_unfold =
+        REWRITE_RULE [fp_times_one_def] fp_times_one_correct;
+
+Theorem fp_times_one_reverse_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_times_one_reverse] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_times_one_reverse_correct_unfold =
+        REWRITE_RULE [fp_times_one_reverse_def] fp_times_one_reverse_correct;
+
+Theorem fp_times_into_div_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_times_into_div] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_times_into_div_correct_unfold =
+        REWRITE_RULE [fp_times_into_div_def] fp_times_into_div_correct;
+
+Theorem fp_same_sub_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_same_sub] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_same_sub_correct_unfold =
+        REWRITE_RULE [fp_same_sub_def] fp_same_sub_correct;
+
+Theorem fp_same_div_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_same_div] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_same_div_correct_unfold =
+        REWRITE_RULE [fp_same_div_def] fp_same_div_correct;
+
+Theorem fp_distribute_gen_correct:
+  ∀ fpBop1 fpBop2 st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_distribute_gen fpBop1 fpBop2] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_distribute_gen_correct_unfold =
+        REWRITE_RULE [fp_distribute_gen_def] fp_distribute_gen_correct;
+
+Theorem fp_undistribute_gen_correct:
+  ∀ fpBop1 fpBop2 st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_undistribute_gen fpBop1 fpBop2] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_undistribute_gen_correct_unfold =
+        REWRITE_RULE [fp_undistribute_gen_def] fp_undistribute_gen_correct;
 
 val _ = export_theory ();

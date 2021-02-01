@@ -1022,82 +1022,89 @@ End
 
 Definition peephole_optimise_def:
   peephole_optimise cfg e =
-  post_order_dfs_for_plan (λ (cfg: config) e.
-                             let (rewritten, plan) = try_rewrite_with_each [
-                                 fp_neg_push_mul_r;
-                                 fp_times_minus_one_neg;
-                                 fp_fma_intro;
-                                 fp_add_sub;
-                                 fp_times_two_to_add;
-                                 fp_times_three_to_add;
-                                 fp_times_zero;
-                                 fp_plus_zero;
-                                 fp_times_one;
-                                 fp_same_sub;
-                                 fp_same_div
-                               ] e in
-                               if (plan = []) then NONE else SOME (rewritten, plan)
-                          ) cfg e
+  post_order_dfs_for_plan
+    (λ (cfg: config) e.
+      let (rewritten, plan) =
+          try_rewrite_with_each [
+              fp_neg_push_mul_r;
+              fp_times_minus_one_neg;
+              fp_fma_intro;
+              fp_add_sub;
+              fp_times_two_to_add;
+              fp_times_three_to_add;
+              fp_times_zero;
+              fp_plus_zero;
+              fp_times_one;
+              fp_same_sub;
+              fp_same_div
+            ] e
+      in
+        if (plan = []) then NONE else SOME (rewritten, plan)) cfg e
 End
 
 Definition compose_plan_generation_def:
   compose_plan_generation [] e = (λ cfg. (e, [])) ∧
   compose_plan_generation ((generator: config -> exp -> (exp # fp_plan))::rest) e =
   (λ cfg.
-     let (updated_e, plan) = (generator cfg e) in
-        let (final_e, rest_plan) = ((compose_plan_generation rest updated_e) cfg) in
-        (final_e, plan ++ rest_plan)
-  )
+     let (updated_e, plan) = (generator cfg e);
+         (final_e, rest_plan) = ((compose_plan_generation rest updated_e) cfg)
+     in
+       if (updated_e = e)
+       then if (final_e = e)
+            then (e, [])
+            else (final_e, rest_plan)
+       else
+        (final_e, plan ++ rest_plan))
 End
-
 
 Definition balance_expression_tree_def:
   balance_expression_tree cfg e =
-  post_order_dfs_for_plan (λ (cfg: config) e.
-                             case e of
-                             | (App (FP_bop op) [a; App (FP_bop op') [b; App (FP_bop op'') [c; d]]]) =>
-                                 (if (op = op') ∧ (op' = op'') then
-                                   (let plan = [(Here, [fp_assoc2_gen op])] in
-                                      let optimized = optimise_with_plan cfg plan e in
-                                        SOME (optimized, plan)
-                                   )
-                                 else
-                                   NONE)
-                             | _ => NONE
-                          ) cfg e
+  post_order_dfs_for_plan
+    (λ (cfg: config) e.
+      case e of
+      | (App (FP_bop op) [a; App (FP_bop op') [b; App (FP_bop op'') [c; d]]]) =>
+          (if (op = op') ∧ (op' = op'') then
+             (let plan = [(Here, [fp_assoc2_gen op])];
+                  optimized = optimise_with_plan cfg plan e in
+                SOME (optimized, plan))
+           else NONE)
+      | _ => NONE) cfg e
 End
 
 Definition phase_repeater_def:
   phase_repeater 0 (generator: config -> exp -> (exp # fp_plan)) = generator ∧
-  phase_repeater (SUC fuel) generator = (λ cfg e.
-                                           let (e_upd, plan) = generator cfg e in
-                                             if (e_upd ≠ e) then
-                                               let (e_final, rest_plan) = (phase_repeater fuel generator) cfg e_upd in
-                                                 (e_final, plan ++ rest_plan)
-                                             else (e_upd, plan)
-                                        )
+  phase_repeater (SUC fuel) generator =
+    (λ cfg e.
+      let (e_upd, plan) = generator cfg e in
+        if (e_upd ≠ e) then
+          let (e_final, rest_plan) = (phase_repeater fuel generator) cfg e_upd in
+            (e_final, plan ++ rest_plan)
+        else (e, []))
 End
 
 (**
-We generate the plan for a single expression. This will get more complicated than only canonicalization.
+We generate the plan for a single expression. This will get more complicated
+than only canonicalization.
 **)
 Definition generate_plan_exp_def:
-  generate_plan_exp (cfg: config) (e: exp) = SND (compose_plan_generation [
-                                                     canonicalize;
-                                                     (phase_repeater 100 apply_distributivity);
-                                                     canonicalize;
-                                                     optimise_linear_interpolation;
-                                                     canonicalize;
-                                                     peephole_optimise;
-                                                     canonicalize;
-                                                     balance_expression_tree
-                                                   ] e cfg)
+  generate_plan_exp (cfg: config) (e: exp) =
+    SND (compose_plan_generation [
+            canonicalize;
+            (phase_repeater 100 apply_distributivity);
+            canonicalize;
+            optimise_linear_interpolation;
+            canonicalize;
+            peephole_optimise;
+            canonicalize;
+            balance_expression_tree
+          ] e cfg)
 End
 
 Definition generate_plan_exps_def:
   generate_plan_exps cfg [] = [] ∧
   generate_plan_exps cfg [Fun s e] = generate_plan_exps cfg [e] ∧
-  generate_plan_exps cfg (e1::(e2::es)) = (generate_plan_exps cfg [e1]) ++ (generate_plan_exps cfg (e2::es)) ∧
+  generate_plan_exps cfg (e1::(e2::es)) =
+    (generate_plan_exps cfg [e1]) ++ (generate_plan_exps cfg (e2::es)) ∧
   generate_plan_exps cfg [e] = generate_plan_exp cfg e
 End
 

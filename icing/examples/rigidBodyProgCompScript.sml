@@ -17,14 +17,14 @@ val _ = translation_extends "cfSupport";
 
 (** Precondition **)
 val rigidBody_pre =
-“λ (x:(string,string) id).
- if x = (Short "x1")
- then ((- 15/1, 15/1):real#real)
- else if x = Short "x2"
- then ((- 15/1, 15/1))
- else if x = Short "x3"
- then ((- 15/1, 15/1))
- else (0,0)”
+  “λ (x:(string,string) id).
+    if x = (Short "x1")
+    then ((- 15/1, 15/1):real#real)
+    else if x = Short "x2"
+    then ((- 15/1, 15/1))
+    else if x = Short "x3"
+    then ((- 15/1, 15/1))
+    else (0,0)”;
 
 Definition rigidBody_pre_def:
   rigidBody_pre = ^rigidBody_pre
@@ -34,66 +34,37 @@ End
   Define the CakeML source AST as a polyML/HOL4 declaration
 **)
 val rigidBody =
-(** REPLACE AST BELOW THIS LINE **)
 “[Dlet unknown_loc (Pvar "rigidBody")
 (Fun "x1" (Fun "x2" (Fun "x3" (FpOptimise Opt
-(App (FP_bop FP_Sub)
-  [
-    (App (FP_bop FP_Add)
-    [
-      (App (FP_bop FP_Sub)
-      [
-        (App (FP_bop FP_Add)
-        [
-          (App (FP_bop FP_Mul)
-          [
-            (App (FP_bop FP_Mul)
-            [
-              (App (FP_bop FP_Mul)
-              [
-                (App FpFromWord [Lit (Word64 (4611686018427387904w:word64))]);
-                Var (Short  "x1")
-              ]);
-              Var (Short  "x2")
-            ]);
-            Var (Short  "x3")
-          ]);
-          (App (FP_bop FP_Mul)
-          [
-            (App (FP_bop FP_Mul)
-            [
-              (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))]);
-              Var (Short  "x3")
-            ]);
-            Var (Short  "x3")
-          ])
-        ]);
-        (App (FP_bop FP_Mul)
-        [
-          (App (FP_bop FP_Mul)
-          [
-            (App (FP_bop FP_Mul)
-            [
-              Var (Short  "x2");
-              Var (Short  "x1")
-            ]);
-            Var (Short  "x2")
-          ]);
-          Var (Short  "x3")
-        ])
-      ]);
-      (App (FP_bop FP_Mul)
-      [
-        (App (FP_bop FP_Mul)
-        [
-          (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))]);
-          Var (Short  "x3")
-        ]);
-        Var (Short  "x3")
-      ])
-    ]);
-    Var (Short  "x2")
-  ])))))]”
+(App (FP_bop FP_Sub) [
+  (App (FP_bop FP_Add) [
+    (App (FP_bop FP_Sub) [
+      (App (FP_bop FP_Add) [
+        (App (FP_bop FP_Mul) [
+          (App (FP_bop FP_Mul) [
+            (App (FP_bop FP_Mul) [
+              (App FpFromWord [Lit (Word64 (4611686018427387904w:word64))]);
+              Var (Short  "x1") ]);
+            Var (Short  "x2") ]);
+          Var (Short  "x3") ]);
+        (App (FP_bop FP_Mul) [
+          (App (FP_bop FP_Mul) [
+            (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))]);
+            Var (Short  "x3") ]);
+          Var (Short  "x3") ]) ]);
+      (App (FP_bop FP_Mul) [
+        (App (FP_bop FP_Mul) [
+          (App (FP_bop FP_Mul) [
+            Var (Short  "x2");
+            Var (Short  "x1") ]);
+        Var (Short  "x2") ]);
+        Var (Short  "x3") ]) ]);
+    (App (FP_bop FP_Mul) [
+      (App (FP_bop FP_Mul) [
+        (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))]);
+        Var (Short  "x3") ]);
+      Var (Short  "x3") ]) ]);
+    Var (Short  "x2") ])))))]”
 
 Definition theAST_def:
   theAST =
@@ -109,14 +80,45 @@ Definition theOpts_def:
   ]
 End
 
+fun flatMap (ll:'a list list) =
+  case ll of [] => []
+  | l1 :: ls => l1 @ flatMap ls
+
+fun dedup l =
+  case l of
+  [] => []
+  | l1::ls =>
+      let val lclean = dedup ls in
+        if (List.exists (fn x => x = l1) lclean)
+        then lclean
+        else l1::lclean
+      end;
+
+Theorem theAST_plan = EVAL (Parse.Term ‘generate_plan_decs theOpts theAST’);
+
+val thePlan_def = EVAL “HD ^(theAST_plan |> concl |> rhs)”
+val hotRewrites = thePlan_def |> concl |> rhs |> listSyntax.dest_list |> #1
+                       |> map (#2 o dest_pair)
+                       |> map (#1 o listSyntax.dest_list)
+                       |> flatMap
+                       |> map (fn t => DB.apropos_in t (DB.thy "icing_optimisations"))
+                       |> flatMap
+                       |> map (#2 o #1)
+                       |> dedup
+                       |> List.foldl (fn (elem, acc) => acc ^ " " ^ elem ^ " ;") "Used rewrites:"
+
+val _ = adjoin_to_theory
+        { sig_ps = (SOME (fn _ => PP.add_string ("val hotRewrites = \""^hotRewrites^"\";"))),
+          struct_ps = NONE };
+
 (** The code below stores in theorem theAST_opt the optimized version of the AST
     from above and in errorbounds_AST the inferred FloVer roundoff error bounds
  **)
 Theorem theAST_opt =
   EVAL
     (Parse.Term ‘
-      (source_to_source$no_opt_decs theOpts (source_to_source$stos_pass_decs theOpts
-       theAST))’);
+      (no_opt_decs theOpts
+       (stos_pass_with_plans_decs theOpts (generate_plan_decs theOpts theAST) theAST))’);
 
 val rigidBody_opt = theAST_opt |> concl |> rhs;
 
@@ -214,7 +216,7 @@ End
 val _ =
   supportLib.write_code_to_file true theAST_def theAST_opt
 (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
-    (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^main))’)
+    (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
     "rigidBody";
 
 val _ = export_theory();
