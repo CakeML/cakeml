@@ -513,7 +513,7 @@ end
         do ... od = SOME ()
    which matches optionTheory.OPTION_BIND_EQUALS_OPTION, putting
    an existential into our rewrite thereby *)
-val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β,γ)peg``)
+val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β,γ,δ)peg``)
                       [cmlPEG_def, combinTheory.K_DEF,
                        finite_mapTheory.FUPDATE_LIST_THM] rules_t
 
@@ -558,7 +558,7 @@ Theorem cmlPEG_exec_thm[compute] =
     |> LIST_CONJ;
 
 val test1 = time EVAL ``peg_exec cmlPEG (pnt nErel) (map_loc [IntT 3; StarT;
-IntT 4; SymbolT "/"; IntT (-2); SymbolT ">"; AlphaT "x"] 0) [] done failed``
+IntT 4; SymbolT "/"; IntT (-2); SymbolT ">"; AlphaT "x"] 0) [] [] done failed``
 
 val frange_image = Q.prove(
   `FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)`,
@@ -790,10 +790,11 @@ in
 end
 val NTS_in_PEG_exprs = let
   val exprs_th' = REWRITE_RULE [pnt_def] PEG_exprs
+                                           |> INST_TYPE [alpha |-> “:string”]
   val exprs_t = rhs (concl exprs_th')
   val nt = mk_thy_const{Thy = "peg", Name = "nt",
                         Ty = ``:MMLnonT inf -> (mlptree list -> mlptree list) ->
-                                (token,MMLnonT,mlptree list) pegsym``}
+                                (token,MMLnonT,mlptree list,string) pegsym``}
   val I_t = mk_thy_const{Thy = "combin", Name = "I",
                          Ty = ``:mlptree list -> mlptree list``}
   fun p t = let
