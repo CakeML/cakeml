@@ -7,6 +7,8 @@ open preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "word_instProof";
 
 val _ = set_grammar_ancestry ["wordLang", "wordProps", "word_inst", "wordSem"];

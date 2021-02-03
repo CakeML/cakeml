@@ -9,6 +9,8 @@ open preamble
   ag32_memoryProofTheory
 local open blastLib basis_ffiTheory in end
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory"ag32_basis_ffiProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]

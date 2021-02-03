@@ -6,7 +6,7 @@ open preamble ml_translatorLib ml_translatorTheory
      sexp_parserProgTheory std_preludeTheory
 local open backendTheory in end
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "to_word64Prog"
 

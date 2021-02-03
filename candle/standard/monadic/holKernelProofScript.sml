@@ -4,6 +4,8 @@
 *)
 open preamble mlstringTheory ml_monadBaseTheory holKernelTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "holKernelProof";
 
 val _ = ParseExtras.temp_loose_equality();

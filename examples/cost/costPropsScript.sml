@@ -6,6 +6,8 @@ open preamble basis compilationLib;
 open backendProofTheory backendPropsTheory;
 open dataSemTheory data_monadTheory dataLangTheory;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "costProps"
 
 (* Overload monad_unitbind[local] = ``bind`` *)

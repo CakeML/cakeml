@@ -4,40 +4,15 @@
 
 open preamble wordLangTheory
      word_elimTheory wordSemTheory wordPropsTheory
-     flat_elimProofTheory reachable_sptTheory reachable_sptProofTheory
+     reachable_sptTheory reachable_sptProofTheory
 
 val _ = new_theory "word_elimProof";
 val _ = set_grammar_ancestry
-  ["wordLang", "word_elim", "wordSem", "wordProps",
-   "flat_elimProof", "reachable_spt"];
+  ["wordLang", "word_elim", "wordSem", "wordProps", "reachable_spt"];
 val _ = Parse.hide"mem";
 val _ = Parse.bring_to_front_overload"domain"{Thy="sptree",Name="domain"};
 
 (**************************** ANALYSIS LEMMAS *****************************)
-
-Theorem wf_find_word_ref:
-     ∀ prog tree . find_word_ref prog = tree ⇒ wf tree
-Proof
-    recInduct find_word_ref_ind >>
-    rw[find_word_ref_def, wf_union, wf_def, wf_insert] >>
-    TRY(CASE_TAC) >> rw[wf_def, wf_insert]
-    >- (Cases_on `ret` >> Cases_on `handler` >> fs[wf_union, wf_def] >>
-        PairCases_on `x` >> fs[] >> TRY(PairCases_on `x'`) >>
-        fs[wf_union, wf_insert])
-    >- (Cases_on `ret` >> Cases_on `handler` >>
-        fs[wf_union, wf_insert, wf_def] >>
-        PairCases_on `x'` >> fs[wf_union, wf_insert, wf_def] >>
-        PairCases_on `x''` >>
-        fs[wf_insert, wf_union, wf_def])
-QED
-
-Theorem wf_analyse_word_code:
-     ∀ l t . analyse_word_code l = t ⇒ wf t
-Proof
-    Induct >- (rw[analyse_word_code_def] >> rw[wf_def])
-    >> Cases_on `h` >> Cases_on `r` >> rw[analyse_word_code_def] >>
-        rw[wf_insert]
-QED
 
 Theorem lookup_analyse_word_code:
      ∀ code n arity prog. ALOOKUP code n = SOME (arity, prog)
@@ -45,14 +20,6 @@ Theorem lookup_analyse_word_code:
 Proof
     Induct >> fs[FORALL_PROD] >> fs[analyse_word_code_def] >>
     fs[lookup_insert] >> rw[]
-QED
-
-Theorem remove_word_code_thm:
-     ∀ n reachable v l . n ∈ domain reachable ∧ MEM (n, v) l
-    ⇒ MEM (n, v) (remove_word_code reachable l)
-Proof
-    Induct_on `l` >> rw[] >> fs[remove_word_code_def] >> fs[domain_lookup] >>
-    Cases_on `IS_SOME (lookup (FST h) reachable)` >> fs[]
 QED
 
 Theorem remove_word_code_thm:
@@ -68,23 +35,6 @@ Proof
     >- (Induct_on `l` >> rw[] >> fs[domain_lookup, IS_SOME_EXISTS])
     >- (fs[MEM_MAP, MEM_FILTER] >> qexists_tac `y` >> rw[])
 QED
-
-Theorem analyse_word_code_reachable_thm:
-     ∀ (code : (num, num # α prog) alist) t start n tree.
-    analyse_word_code code = t ∧  start = insert n () (LN:num_set) ∧
-        domain start ⊆ domain tree ∧ tree = mk_wf_set_tree t
-    ⇒ domain (closure_spt start tree) =
-        {a | ∃ n . is_reachable tree n a ∧ n ∈ domain start}
-Proof
-    rw[] >> fs[domain_insert] >>
-    qspecl_then
-        [`mk_wf_set_tree (analyse_word_code code)`, `insert n () LN`]
-        mp_tac closure_spt_thm >>
-    `wf_set_tree(mk_wf_set_tree (analyse_word_code code))` by
-        metis_tac[mk_wf_set_tree_thm] >> rw[] >>
-    rw[wf_insert, wf_def]
-QED
-
 
 
 (**************************** no_install *****************************)
@@ -172,12 +122,6 @@ val dest_word_loc_def = Define `
     (dest_word_loc (_:'a word_loc) = NONE)
 `
 
-Theorem dest_word_loc_thm:
-     ∀ wl n1 . dest_word_loc wl = SOME n1 ⇒ ∃ n0 . wl = Loc n1 n0
-Proof
-    Cases_on `wl` >> fs[dest_word_loc_def]
-QED
-
 val dest_result_loc_def = Define `
     (dest_result_loc (SOME (Result w (Loc n n0))) = {n}) ∧
     (dest_result_loc (SOME (Exception w (Loc n n0))) = {n}) ∧
@@ -199,26 +143,21 @@ val get_locals_def = Define ` (* locals : ('a word_loc) num_map *)
                 | NONE => t)
 `
 
-Theorem get_locals_thm:
-     ∀ t n1 n0 locs .
-        (∃ n . lookup n (t:('a word_loc) num_map) = SOME (Loc n1 n0)) ∧
-        locs = get_locals t ⇒ n1 ∈ domain locs
-Proof
-    Induct >> rw[lookup_def, get_locals_def, dest_word_loc_def, domain_union]
-    >- (fs[lookup_def] >> Cases_on `EVEN n` >> fs[] >> metis_tac[])
-    >- (Cases_on `dest_word_loc a` >> fs[] >> rw[domain_union] >>
-        fs[lookup_def] >>
-        Cases_on `n = 0` >> fs[] >> rveq >> fs[dest_word_loc_def] >>
-        Cases_on `a` >> fs[dest_word_loc_def] >> Cases_on `EVEN n` >> fs[] >>
-        metis_tac[])
-QED
-
 Theorem domain_get_locals_lookup:
      ∀ n t . n ∈ domain (get_locals t) ⇔ ∃ k n1 . lookup k t = SOME (Loc n n1)
 Proof
     rw[] >> reverse (EQ_TAC) >> rw[]
-    >- (match_mp_tac get_locals_thm >> fs[PULL_EXISTS] >> qexists_tac `t` >>
-        qexists_tac `n1` >> qexists_tac `k` >> fs[])
+    >- (
+      pop_assum mp_tac >> map_every qid_spec_tac [`n`,`k`,`t`] >>
+      Induct >> rw[lookup_def, get_locals_def, dest_word_loc_def, domain_union]
+      >- metis_tac[]
+      >- metis_tac[] >>
+      Cases_on `dest_word_loc a` >> fs[] >> rw[domain_union] >>
+      fs[lookup_def] >>
+      Cases_on `n = 0` >> fs[] >> rveq >> fs[dest_word_loc_def] >>
+      Cases_on `a` >> fs[dest_word_loc_def] >> Cases_on `EVEN n` >> fs[] >>
+      metis_tac[]
+      )
     >> Induct_on `t`
         >- rw[get_locals_def, domain_def]
         >- (rw[get_locals_def, domain_def, lookup_def] >>
@@ -496,7 +435,7 @@ val code_rel_def = Define`
 val code_closed_def = Define`
     code_closed reachable c1 ⇔ ∃ code1 . c1 = fromAList code1 ∧
         ∀ n m . n ∈ domain reachable ∧
-        is_reachable (mk_wf_set_tree (analyse_word_code code1)) n m ⇒
+        is_reachable (analyse_word_code code1) n m ⇒
         m ∈ domain reachable
 `
 
@@ -539,12 +478,6 @@ val word_state_rel_def = Define `
 
 (**************************** OTHER LEMMAS *****************************)
 
-Theorem EL_APPEND:
-     ∀ n x e x1 . EL n x = e ∧ n < LENGTH x ⇒ EL n (x ⧺ [x1]) = e
-Proof
-    Induct_on `x` >> rw[Once EL] >> Cases_on `n` >> rw[]
-QED
-
 Theorem ALOOKUP_ZIP_SUCCESS:
      ∀ x y k v . LENGTH x = LENGTH y
     ⇒ ALOOKUP (ZIP (x, y)) k = SOME v ⇒ MEM v y
@@ -572,10 +505,9 @@ Theorem get_vars_get_locals:
      ∀ args s x n n1. get_vars args s = SOME x ∧ MEM (Loc n n1) x
     ⇒ n ∈ domain (get_locals s.locals)
 Proof
-    ASSUME_TAC get_vars_locals >>
-    strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >>
-    first_x_assum (qspecl_then [`args`, `s`, `x`, `Loc n n1`] mp_tac) >>
-    rw[] >> fs[] >> imp_res_tac get_locals_thm >> metis_tac[]
+    rw[] >> drule_all get_vars_locals >> strip_tac >>
+    irule (iffRL domain_get_locals_lookup) >>
+    goal_assum drule
 QED
 
 Theorem get_locals_fromList2:
@@ -598,10 +530,9 @@ Proof
         fs[lookup_fromList2, lookup_fromList] >>
         qpat_x_assum `k DIV 2 < LENGTH ys ∧ _ ⇒ _` kall_tac >>
         imp_res_tac EVEN_EXISTS >> rveq >> fs[EVEN_DOUBLE] >>
-        `2 * m DIV 2 = m` by (once_rewrite_tac [MULT_COMM] >>
-        fs[MULT_DIV]) >> fs[] >>
-        imp_res_tac EL_APPEND >> `LENGTH (h::ys) = SUC (LENGTH ys)` by
-            (Induct_on `ys` >> rw[]) >> fs[]
+        `2 * m DIV 2 = m` by (
+          once_rewrite_tac [MULT_COMM] >> fs[MULT_DIV]) >> fs[] >>
+        Cases_on `m` >> gvs[EL_APPEND_EQN]
 QED
 
 Theorem get_locals_fromList2_FRONT:
@@ -667,7 +598,7 @@ Proof
 QED
 
 Theorem remove_word_code_MAP_FST_lemma:
-     ∀ reachable:num_set (l: (ctor_id, ctor_id # α prog) alist) .
+     ∀ reachable:num_set (l: (num,num # α prog) alist) .
         MAP FST (FILTER (λx. IS_SOME (lookup (FST x) reachable)) l) =
             FILTER (λx. IS_SOME (lookup x reachable)) (MAP FST l)
 Proof
@@ -1041,13 +972,15 @@ Proof
         qmatch_asmsub_rename_tac`_ = SOME p` >>
         PairCases_on `p` >> fs[] >> Cases_on `ret` >> fs[]
         >- (Cases_on `handler` >> fs[] >> Cases_on `s.clock = 0` >> fs[]
-            >- (fs[call_env_def, flush_state_def, fromList2_def] >> rw[word_state_rel_def] >>
+            >- (fs[call_env_def, flush_state_def, fromList2_def] >>
+                rw[word_state_rel_def] >>
                 rw[find_loc_state_def, domain_union,
                     get_locals_def, get_stack_def] >>
                 fs[domain_find_loc_state, SUBSET_DEF, dest_result_loc_def])
             >- (`word_state_rel reachable (call_env p0 p2 (dec_clock s))
                 (call_env p0 p2 (dec_clock removed_state))` by (
-                    rw[word_state_rel_def, call_env_def, flush_state_def, dec_clock_def] >>
+                    rw[word_state_rel_def, call_env_def,
+                       flush_state_def, dec_clock_def] >>
                     fs[find_loc_state_def, domain_union,
                         domain_find_loc_state] >>
                     fs[add_ret_loc_def] >>
@@ -1111,13 +1044,7 @@ Proof
                                 SOME aSetx ∧ x ∈ domain aSetx` by (
                                 rfs[lookup_fromAList] >>
                                 drule lookup_analyse_word_code >> fs[]) >>
-                            drule lookup_mk_wf_set_tree >> rw[] >>
-                            asm_exists_tac >> fs[] >> fs[domain_lookup] >>
-                            `wf_set_tree (mk_wf_set_tree
-                                (analyse_word_code code1))`
-                                by metis_tac[mk_wf_set_tree_thm] >>
-                            fs[wf_set_tree_def] >> last_x_assum drule >>
-                            fs[SUBSET_DEF, domain_lookup])
+                            asm_exists_tac >> fs[] >> fs[domain_lookup])
                         >- (fs[find_word_ref_def] >>
                             rename1 `n ∈ domain reachable` >>
                             rename1 `get_vars _ _ = SOME z` >>
@@ -1131,13 +1058,7 @@ Proof
                                 Cases_on `ALOOKUP code1 n` >> fs[] >>
                                 Cases_on `x'` >> fs[] >>
                                 drule lookup_analyse_word_code >> fs[]) >>
-                            drule lookup_mk_wf_set_tree >> rw[] >>
-                            asm_exists_tac >> fs[] >> fs[domain_lookup] >>
-                            `wf_set_tree (mk_wf_set_tree
-                                (analyse_word_code code1))`
-                                by metis_tac[mk_wf_set_tree_thm] >>
-                            fs[wf_set_tree_def] >> last_x_assum drule >>
-                            fs[SUBSET_DEF, domain_lookup]))
+                            asm_exists_tac >> fs[] >> fs[domain_lookup]))
                )
            )
         >> qmatch_asmsub_rename_tac`add_ret_loc (SOME l)`
@@ -1145,7 +1066,8 @@ Proof
             fs[cut_env_def] >> Cases_on `domain l1 ⊆ domain s.locals` >>
             fs[] >>
             Cases_on `s.clock = 0` >> fs[]
-            >- (fs[call_env_def, flush_state_def, fromList2_def] >> rw[word_state_rel_def] >>
+            >- (fs[call_env_def, flush_state_def, fromList2_def] >>
+                rw[word_state_rel_def] >>
                 rw[find_loc_state_def, domain_union,
                     get_locals_def, get_stack_def] >>
                 fs[domain_find_loc_state, SUBSET_DEF, dest_result_loc_def] >>
@@ -1172,59 +1094,25 @@ Proof
                             (qspecl_then [`n`, `x`] mp_tac) >>
                         reverse(impl_tac) >> fs[] >> fs[is_reachable_def] >>
                         match_mp_tac RTC_SINGLE >> fs[is_adjacent_def] >>
-                        `wf_set_tree(mk_wf_set_tree
-                            (analyse_word_code code1))` by
-                            metis_tac[mk_wf_set_tree_thm] >>
-                        fs[wf_set_tree_def] >>
-                        qexists_tac `find_word_ref p1` >>
-                        fs[lookup_analyse_word_code] >>
-                        `lookup n (analyse_word_code code1) =
-                            SOME (find_word_ref p1)` by
-                            fs[lookup_fromAList, lookup_analyse_word_code] >>
-                        imp_res_tac lookup_mk_wf_set_tree >>
-                        `wf (find_word_ref p1) ∧ wf y` by
-                            metis_tac[wf_find_word_ref] >>
-                        `y = find_word_ref p1` by (
-                            fs[spt_eq_thm, domain_lookup, EXTENSION] >> rw[] >>
-                            Cases_on `lookup n' y` >> fs[] >>
-                            Cases_on `lookup n' (find_word_ref p1)` >>
-                            fs[] >> rfs[] >>
-                            qpat_x_assum `∀ x . lookup _ _ = _ ⇔ _`
-                                (qspec_then `n'` mp_tac) >> rw[] >> fs[]) >>
-                        rveq >>
-                        fs[domain_lookup, SUBSET_DEF] >> metis_tac[])
+                        fs[domain_lookup, lookup_fromAList] >>
+                        goal_assum (drule_at Any) >>
+                        irule lookup_analyse_word_code >>
+                        goal_assum drule)
                     >- (Cases_on `lookup x' s.code` >> fs[] >> Cases_on `x''` >>
                         fs[] >> rw[SUBSET_DEF] >>
                         qpat_x_assum `∀ n m . n ∈ _ ∧ _ ⇒ _`
                             (qspecl_then [`x'`, `x''`] mp_tac) >>
                         reverse(impl_tac) >> fs[] >>
                         fs[is_reachable_def] >> match_mp_tac RTC_SINGLE >>
-                        fs[is_adjacent_def] >>
-                        `wf_set_tree(mk_wf_set_tree
-                            (analyse_word_code code1))` by
-                            metis_tac[mk_wf_set_tree_thm] >>
-                        fs[wf_set_tree_def] >> qexists_tac `find_word_ref p1` >>
-                        fs[lookup_analyse_word_code] >>
-                        `lookup x' (analyse_word_code code1) =
-                            SOME (find_word_ref p1)` by
-                            (match_mp_tac lookup_analyse_word_code >>
-                            qexists_tac `SUC (LENGTH x)` >>
-                            metis_tac[lookup_fromAList]) >>
-                        imp_res_tac lookup_mk_wf_set_tree >>
-                        `wf (find_word_ref p1) ∧ wf y` by
-                            metis_tac[wf_find_word_ref] >>
-                        `y = find_word_ref p1` by
-                            (fs[spt_eq_thm, domain_lookup, EXTENSION] >> rw[] >>
-                                Cases_on `lookup n y` >> fs[] >>
-                                Cases_on `lookup n (find_word_ref p1)` >> fs[] >>
-                                rfs[] >>
-                                qpat_x_assum `∀ x . lookup _ _ = _ ⇔ _`
-                                    (qspec_then `n` mp_tac) >> rw[] >> fs[]) >>
-                            rveq >>
-                        fs[domain_lookup, SUBSET_DEF] >> metis_tac[]) ) >>
+                        fs[is_adjacent_def, domain_lookup] >>
+                        goal_assum (drule_at Any) >>
+                        irule lookup_analyse_word_code >>
+                        metis_tac[lookup_fromAList])
+                        ) >>
                 `code_closed reachable (call_env p0 p2 (push_env
                     (inter s.locals l1) handler (dec_clock s))).code` by (
-                    fs[call_env_def, flush_state_def, dec_clock_def] >> Cases_on `handler` >>
+                    fs[call_env_def, flush_state_def, dec_clock_def] >>
+                    Cases_on `handler` >>
                     TRY(PairCases_on `x'` >> fs[]) >>
                     fs[push_env_def, env_to_list_def] ) >>
                 `word_state_rel reachable (call_env p0 p2 (push_env
@@ -1241,7 +1129,8 @@ Proof
                         imp_res_tac MEM_FRONT >> fs[] >>
                         qspecl_then [`args`, `s`, `x`, `n`, `n0`] mp_tac
                             get_vars_get_locals >> rw[] >> fs[SUBSET_DEF]) >>
-                      fs[dec_clock_def, call_env_def, flush_state_def] >> Cases_on `handler`
+                      fs[dec_clock_def, call_env_def, flush_state_def] >>
+                      Cases_on `handler`
                       >- (fs[push_env_def, env_to_list_def] >>
                           fs[word_state_rel_def, domain_find_loc_state] >> rw[]
                           >- (rw[SUBSET_DEF] >> fs[domain_get_locals_lookup] >>
@@ -1264,14 +1153,16 @@ Proof
                     (inter s.locals l1) handler (dec_clock s)))` >> fs[] >>
                 Cases_on `q` >> fs[] >> Cases_on `x'` >> fs[] >>
                 `r.gc_fun = s.gc_fun` by (
-                    fs[call_env_def, flush_state_def, dec_clock_def] >> Cases_on `handler` >>
+                    fs[call_env_def, flush_state_def, dec_clock_def] >>
+                    Cases_on `handler` >>
                     fs[push_env_def, env_to_list_def]
                     >- (drule evaluate_consts >> fs[]) >> PairCases_on `x'` >>
                     fs[push_env_def, env_to_list_def]
                     >> drule evaluate_consts >> fs[] ) >>
                 `gc_no_new_locs (call_env p0 p2 (push_env (inter s.locals l1)
                     handler (dec_clock s))).gc_fun` by (
-                    fs[call_env_def, flush_state_def, dec_clock_def] >> Cases_on `handler` >>
+                    fs[call_env_def, flush_state_def, dec_clock_def] >>
+                    Cases_on `handler` >>
                     fs[push_env_def, env_to_list_def] >>
                     PairCases_on `x'` >> fs[push_env_def, env_to_list_def] )
                 >- (Cases_on `w ≠ Loc l3 l4` >> fs[] >> fs[pop_env_def] >>
@@ -1294,7 +1185,8 @@ Proof
                             locals_size := lsz;
                             stack := t|>)`] mp_tac) >>
                         reverse(impl_tac) >> fs[set_var_def] >>
-                        `r.code = s.code` by (fs[call_env_def, flush_state_def, dec_clock_def] >>
+                        `r.code = s.code` by (
+                            fs[call_env_def, flush_state_def, dec_clock_def] >>
                             Cases_on `handler`
                             >- (fs[push_env_def, env_to_list_def] >>
                                 imp_res_tac no_install_evaluate_const_code >>
@@ -1337,7 +1229,8 @@ Proof
                                 locals_size := lsz;
                                 handler := q|>)`] mp_tac) >>
                         reverse(impl_tac) >> fs[set_var_def] >>
-                        `r.code = s.code` by (fs[call_env_def, flush_state_def, dec_clock_def] >>
+                        `r.code = s.code` by (
+                        fs[call_env_def, flush_state_def, dec_clock_def] >>
                         Cases_on `handler`
                             >- (fs[push_env_def, env_to_list_def] >>
                                 imp_res_tac no_install_evaluate_const_code >>
@@ -1373,9 +1266,9 @@ Proof
                         first_x_assum (qspecl_then [`reachable`, `n_state`]
                             mp_tac) >>
                         reverse(impl_tac) >- (rw[] >> fs[])
-                        >> fs[call_env_def, flush_state_def, push_env_def, dec_clock_def,
-                                env_to_list_def, word_state_rel_def,
-                                domain_find_loc_state] >>
+                        >> fs[call_env_def, flush_state_def, push_env_def,
+                              dec_clock_def, env_to_list_def,
+                              word_state_rel_def, domain_find_loc_state] >>
                         rw[] >> `n_state.code = removed_state.code` by
                             (fs[Abbr `n_state`]) >> rveq >> fs[])
                     >- (PairCases_on `x'` >> fs[] >>
@@ -1426,7 +1319,9 @@ Proof
             (mem_load_byte_aux s.memory s.mdomain s.be)` >> fs[] >>
         simp[case_eq_thms]
         \\ reverse strip_tac \\ fs[word_state_rel_def, cut_env_def]
-          \\ rveq \\ fs[call_env_def, flush_state_def,dest_result_loc_def,domain_find_loc_state]
+          \\ rveq
+          \\ fs[call_env_def, flush_state_def,dest_result_loc_def,
+                domain_find_loc_state]
           \\ fs[get_memory_write_bytearray_lemma]
         >- EVAL_TAC
         \\ fs[SUBSET_DEF]
@@ -1536,7 +1431,8 @@ Proof
     >- ( (* Tick *)
         simp[wordSemTheory.evaluate_def] >>
         Cases_on `s.clock = 0` >> fs[]
-        >- (fs[call_env_def, flush_state_def, fromList2_def] >> rw[word_state_rel_def] >>
+        >- (fs[call_env_def, flush_state_def, fromList2_def] >>
+            rw[word_state_rel_def] >>
             rw[find_loc_state_def, domain_union,
                 get_locals_def, get_stack_def] >>
             fs[domain_find_loc_state, SUBSET_DEF, dest_result_loc_def])
@@ -1686,8 +1582,7 @@ Theorem word_removal_thm:
         result ≠ SOME Error ∧ state.code = fromAList code1 ∧
         domain (find_loc_state state) ⊆ domain reachable ∧
         gc_no_new_locs state.gc_fun ∧
-        reachable = closure_spt (insert start () LN)
-                        (mk_wf_set_tree (analyse_word_code code1)) ∧
+        reachable = closure_spt (insert start () LN) (analyse_word_code code1) ∧
         ALL_DISTINCT (MAP FST code1) ∧ no_install_code state.code
         ⇒ ∃ s .
             wordSem$evaluate (Call NONE (SOME start) [0] NONE,
@@ -1700,53 +1595,44 @@ Proof
     pop_assum (qspecl_then [`reachable`,
         `state' with code := fromAList(remove_word_code reachable code1)`]
         mp_tac) >>
-    reverse(impl_tac) >- metis_tac[]
-    >>  qspecl_then [`code1`, `analyse_word_code code1`,
-                     `insert start () LN`, `start`,
-            `mk_wf_set_tree (analyse_word_code code1)`]
-            mp_tac analyse_word_code_reachable_thm >>
-        reverse(impl_tac >> rw[])
-        >- (fs[code_closed_def] >> qexists_tac `code1` >>
-            fs[] >> fs[is_reachable_def] >>
-            metis_tac[RTC_TRANSITIVE, transitive_def])
-        >- (fs[find_word_ref_def, is_reachable_def, RTC_REFL])
-        >- (fs[no_install_code_def] >> rw[] >> first_x_assum match_mp_tac >>
-            qexists_tac `k` >>
-            qexists_tac `n` >> fs[] >> fs[lookup_fromAList] >>
-            imp_res_tac ALOOKUP_MEM >>
-            imp_res_tac remove_word_code_thm >>
-            metis_tac[ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME])
-        >- fs[no_install_def]
-        >- (fs[word_state_rel_def, code_rel_def, lookup_fromAList] >>
-            fs[EXTENSION, SUBSET_DEF] >> rw[] >>
-            res_tac >> rename1 `closure_spt x y` >>
-            Cases_on `ALOOKUP code1 n` >> fs[]
-                >- (fs[ALOOKUP_NONE] >>
-                    drule remove_word_code_thm_FST >> rw[] >>
-                    pop_assum (qspecl_then [`n`, `closure_spt x y`] mp_tac) >>
-                    rw[])
-                >- (imp_res_tac ALOOKUP_MEM >> drule remove_word_code_thm >>
-                    rw[] >>
-                    pop_assum (qspecl_then [`n`, `closure_spt x y`] mp_tac) >>
-                    rw[] >> res_tac >>
-                    `ALL_DISTINCT (MAP FST
-                        (remove_word_code (closure_spt x y) code1))` by (
-                        fs[remove_word_code_def] >>
-                        `MAP FST (FILTER (λx'. IS_SOME (lookup (FST x')
-                            (closure_spt x y))) code1)
-                            = FILTER (λx'. IS_SOME (lookup x'
-                            (closure_spt x y))) (MAP FST code1)` by
-                            metis_tac[remove_word_code_MAP_FST_lemma] >>
-                        fs[FILTER_ALL_DISTINCT]
-                    ) >> fs[ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME])
-            )
-        >- (fs[evaluate_def, get_vars_def, bad_dest_args_def,
-                add_ret_loc_def, find_code_def] >>
-            Cases_on `lookup start (fromAList code1)` >> fs[] >>
-            fs[get_var_def] >> EVERY_CASE_TAC >> fs[] >>
-            fs[lookup_fromAList] >> drule lookup_analyse_word_code >> rw[] >>
-            fs[domain_lookup] >>
-            drule lookup_mk_wf_set_tree >> rw[] >> fs[])
+    reverse(impl_tac) >- metis_tac[] >>
+    qspecl_then [`analyse_word_code code1`,`insert start () LN`]
+      mp_tac closure_spt_thm >>
+    reverse (rw[])
+    >- (fs[code_closed_def] >> qexists_tac `code1` >>
+        fs[] >> fs[is_reachable_def] >>
+        metis_tac[RTC_TRANSITIVE, transitive_def])
+    >- (fs[find_word_ref_def, is_reachable_def, RTC_REFL])
+    >- (fs[no_install_code_def] >> rw[] >> first_x_assum match_mp_tac >>
+        qexists_tac `k` >>
+        qexists_tac `n` >> fs[] >> fs[lookup_fromAList] >>
+        imp_res_tac ALOOKUP_MEM >>
+        imp_res_tac remove_word_code_thm >>
+        metis_tac[ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME])
+    >- fs[no_install_def]
+    >- (fs[word_state_rel_def, code_rel_def, lookup_fromAList] >>
+        fs[EXTENSION, SUBSET_DEF] >> rw[] >>
+        res_tac >> rename1 `closure_spt x y` >>
+        Cases_on `ALOOKUP code1 n` >> fs[]
+            >- (fs[ALOOKUP_NONE] >>
+                drule remove_word_code_thm_FST >> rw[] >>
+                pop_assum (qspecl_then [`n`, `closure_spt x y`] mp_tac) >>
+                rw[])
+            >- (imp_res_tac ALOOKUP_MEM >> drule remove_word_code_thm >>
+                rw[] >>
+                pop_assum (qspecl_then [`n`, `closure_spt x y`] mp_tac) >>
+                rw[] >> res_tac >>
+                `ALL_DISTINCT (MAP FST
+                    (remove_word_code (closure_spt x y) code1))` by (
+                    fs[remove_word_code_def] >>
+                    `MAP FST (FILTER (λx'. IS_SOME (lookup (FST x')
+                        (closure_spt x y))) code1)
+                        = FILTER (λx'. IS_SOME (lookup x'
+                        (closure_spt x y))) (MAP FST code1)` by
+                        metis_tac[remove_word_code_MAP_FST_lemma] >>
+                    fs[FILTER_ALL_DISTINCT]
+                ) >> fs[ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME])
+        )
 QED
 
 val _ = export_theory();

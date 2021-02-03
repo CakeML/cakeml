@@ -17,6 +17,8 @@ local open holKernelPmatchTheory in end
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "ml_hol_kernelProg";
 val _ = translation_extends "basisProg"
 

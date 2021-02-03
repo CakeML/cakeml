@@ -13,6 +13,8 @@ local open primSemEnvTheory in end;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "typeSound";
 
 val type_num_defs = LIST_CONJ [

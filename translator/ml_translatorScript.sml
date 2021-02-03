@@ -21,7 +21,7 @@ Type state = ``:'ffi semanticPrimitives$state``
 
 (* Definitions *)
 
-val empty_state_def = Define`
+Definition empty_state_def:
   empty_state = <|
     clock := 0;
     refs := empty_store;
@@ -30,7 +30,8 @@ val empty_state_def = Define`
     ffi := initial_ffi_state ARB ();
     next_type_stamp := 0;
     next_exn_stamp := 0;
-    eval_state := NONE|>`;
+    eval_state := NONE|>
+End
 
 val Eval_def = Define `
   Eval env exp P =

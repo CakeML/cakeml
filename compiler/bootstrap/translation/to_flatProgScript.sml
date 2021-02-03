@@ -94,6 +94,7 @@ val res = translate source_to_flatTheory.compile_prog_def;
 (* flat_elim                                                                 *)
 (* ------------------------------------------------------------------------- *)
 
+val res = translate sptreeTheory.subspt_eq;
 val res = translate flat_elimTheory.remove_flat_prog_def;
 
 (* ------------------------------------------------------------------------- *)

@@ -13,7 +13,7 @@ val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
 val _ = new_theory "data_to_word_memoryProof";
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 

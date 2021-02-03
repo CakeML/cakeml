@@ -8,7 +8,7 @@ open ag32_targetTheory ag32Theory;
 open inliningLib;
 local open arm7ProgTheory in end;
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "ag32Prog"
 
