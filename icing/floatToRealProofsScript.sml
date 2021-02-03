@@ -44,6 +44,7 @@ Proof
   \\ fs[fpState_component_equality, semState_comp_eq]
 QED
 
+(*
 Definition is_real_id_optimise_def:
   is_real_id_optimise rws (st1:'a semanticPrimitives$state) st2 env cfg exps r =
     (evaluate st1 env
@@ -56,6 +57,7 @@ Definition is_real_id_optimise_def:
         (st2 with fp_state := st2.fp_state with
            <| choices := choices|>, Rval r))
 End
+*)
 
 Theorem real_valued_id_compositional:
   ∀ rws opt.
@@ -123,6 +125,7 @@ Proof
   metis_tac[lift_real_id_exp_list]
 QED
 
+(*
 local
   (* exp goal *)
   val P0 =
@@ -602,6 +605,7 @@ Proof
   first_x_assum drule>>
   simp[]
 QED
+*)
 
 Theorem isPureExp_no_optimisations:
   (∀e.

@@ -5,7 +5,7 @@ open icing_rewriterTheory source_to_sourceTheory fpOptTheory fpOptPropsTheory
      fpSemPropsTheory semanticPrimitivesTheory evaluateTheory
      semanticsTheory semanticsPropsTheory pureExpsTheory floatToRealTheory
      floatToRealProofsTheory evaluatePropsTheory terminationTheory
-     fpSemPropsTheory mllistTheory;
+     fpSemPropsTheory mllistTheory optPlannerTheory;
      local open ml_progTheory in end;
 open icingTacticsLib preamble;
 
@@ -194,6 +194,7 @@ Proof
   \\ disch_then irule
 QED
 
+(*
 Definition is_optimise_correct_def:
   is_optimise_correct rws (st1:'a semanticPrimitives$state) st2 env cfg exps r =
     (evaluate st1 env
@@ -207,28 +208,33 @@ Definition is_optimise_correct_def:
         (st2 with fp_state := st2.fp_state with
            <| rws := st2.fp_state.rws ++ rws; opts := fpOptR; choices := choicesR |>, Rval r))
 End
+*)
 
 Definition is_optimise_with_plan_correct_def:
   is_optimise_with_plan_correct (st1:'a semanticPrimitives$state) st2 env cfg plan exps r =
   (evaluate st1 env
-   (MAP (optimise_with_plan cfg plan) exps) = (st2, Rval r) ∧
+   (MAP (λ e. FST (optimise_with_plan cfg plan e)) exps) = (st2, Rval r) ∧
    (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
    st1.fp_state.canOpt ≠ Strict ∧
    (~ st1.fp_state.real_sem) ⇒
    ∃ fpOpt choices fpOptR choicesR.
      evaluate (st1 with fp_state := st1.fp_state with
-                                       <| rws := st1.fp_state.rws ++ FLAT (MAP SND plan);
+                                       <| rws := st1.fp_state.rws ++
+                                                 FLAT (MAP (λ x. case x of |Apply (path, rws) => rws) plan);
                                           opts := fpOpt; choices := choices |>) env exps =
      (st2 with fp_state := st2.fp_state with
-                              <| rws := st2.fp_state.rws ++ FLAT (MAP SND plan);
+                              <| rws := st2.fp_state.rws ++
+                                        FLAT (MAP (λ x. case x of |Apply (path, rws) => rws) plan);
                                  opts := fpOptR; choices := choicesR |>, Rval r))
 End
 
+(*
 Theorem MAP_FST_optimise:
   MAP FST (MAP (\ (p, e). (p, optimise cfg e)) l) = MAP FST l
 Proof
   Induct_on `l` \\ fs[] \\ rpt strip_tac \\ PairCases_on `h` \\ fs[]
 QED
+*)
 
 Theorem Map_FST_optimise_with_plan:
   MAP FST (MAP (\ (p, e). (p, optimise_with_plan cfg plan e)) l) = MAP FST l
@@ -236,6 +242,7 @@ Proof
   Induct_on ‘l’ \\ fs[] \\ rpt strip_tac \\ PairCases_on ‘h’ \\ fs[]
 QED
 
+(*
 Theorem optimise_empty_sing:
   ∀ cfg e. optimise (cfg with optimisations := []) e = e
 Proof
@@ -266,13 +273,15 @@ QED
   \\ first_x_assum irule \\ rpt strip_tac
   \\ res_tac
 QED *)
+*)
 
 Theorem optimise_with_plan_empty_sing:
-  ∀ cfg e. optimise_with_plan cfg [] e = e
+  ∀ cfg e. optimise_with_plan cfg [] e = (e, Success)
 Proof
   fs[optimise_with_plan_def]
 QED
 
+(*
 Theorem optimise_empty:
   ∀ exps cfg. MAP (optimise (cfg with optimisations := [])) exps = exps
 Proof
@@ -280,24 +289,27 @@ Proof
   >- (EVAL_TAC)
   \\ rpt strip_tac \\ fs[optimise_def, optimise_empty_sing]
 QED
+*)
 
 Theorem optimise_with_plan_empty:
-  ∀ exps cfg. MAP (optimise_with_plan cfg []) exps = exps
+  ∀ exps cfg. MAP (λ e. FST (optimise_with_plan cfg [] e)) exps = exps
 Proof
   Induct_on ‘exps’ \\ rpt strip_tac
   >- (EVAL_TAC)
   \\ rpt strip_tac \\ fs[optimise_with_plan_def, optimise_with_plan_empty_sing]
 QED
 
+(*
 Theorem optimise_pat_empty:
   ∀ pl cfg. MAP (λ (p,e). (p, optimise (cfg with optimisations := []) e)) pl = pl
 Proof
   Induct_on ‘pl’ \\ rpt strip_tac >- (EVAL_TAC)
   \\ fs[] \\ Cases_on ‘h’ \\ fs[optimise_empty_sing]
 QED
+*)
 
 Theorem optimise_with_plan_pat_empty:
-  ∀ pl cfg. MAP (λ (p,e). (p, optimise_with_plan cfg [] e)) pl = pl
+  ∀ pl cfg. MAP (λ (p,e). (p, FST (optimise_with_plan cfg [] e))) pl = pl
 Proof
   Induct_on ‘pl’ \\ rpt strip_tac >- (EVAL_TAC)
   \\ fs[] \\ Cases_on ‘h’ \\ fs[optimise_with_plan_empty_sing]
@@ -322,6 +334,7 @@ Proof
   \\ Cases_on ‘h’ \\ fs[] \\ Cases_on ‘r’ \\ fs[]
 QED
 
+(*
 local
   (* exp goal *)
   val P0 =
@@ -824,6 +837,7 @@ Proof
   \\ fs[evaluate_def]
 QED
 end;
+*)
 
 Theorem MEM_for_all_MAPi:
   ∀ (P: α -> α -> bool) (f: α -> α) (g: α -> α) l l'.
@@ -2108,6 +2122,7 @@ Proof
   Induct_on `exps` \\ fs[]
 QED
 
+(*
 Theorem is_optimise_correct_lift:
   (∀ (st1:'a semanticPrimitives$state) st2 env exps r.
     is_rewriteFPexp_list_correct rws st1 st2 env exps r) ⇒
@@ -2131,16 +2146,19 @@ Proof
    \\ pop_assum (fs o single))
   \\ rpt strip_tac \\ fsrw_tac [SATISFY_ss] []
 QED
+*)
 
 Theorem is_optimise_with_plan_correct_lift_sing:
   ∀ plan.
     (∀ rws path.
-       MEM (path, rws) plan ⇒
+       MEM (Apply (path, rws)) plan ⇒
        ∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
          is_perform_rewrites_correct rws st1 st2 env cfg e r path) ⇒
     (∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
        is_optimise_with_plan_correct st1 st2 env cfg plan [e] r)
 Proof
+  cheat (* FIXME: Incorrect statement with new infrastructure *)
+  (*
   Induct_on ‘plan’
   \\ rpt strip_tac
   \\ simp[is_optimise_with_plan_correct_def]
@@ -2193,12 +2211,13 @@ Proof
   \\ qexistsl_tac [‘fpOpt''’, ‘choices'’, ‘fpOpt2’, ‘choicesR'’]
   \\ simp[semState_comp_eq, fpState_component_equality]
   \\ ‘st1.fp_state.rws = st2.fp_state.rws’ by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
+*)
 QED
 
 Theorem is_optimise_with_plan_correct_lift:
   ∀ plan.
     (∀ rws path.
-       MEM (path, rws) plan ⇒
+       MEM (Apply (path, rws)) plan ⇒
        ∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
          is_perform_rewrites_correct rws st1 st2 env cfg e r path) ⇒
     (∀ (st1:'a semanticPrimitives$state) st2 env cfg exps r.
@@ -2230,25 +2249,31 @@ Proof
   \\ fs[semState_comp_eq, fpState_component_equality]
 QED
 
+(*
 Theorem stos_pass_sing[simp]:
   [ HD (stos_pass cfg [e]) ] = stos_pass cfg [e]
 Proof
   Cases_on ‘e’ \\ simp[stos_pass_def]
 QED
+*)
 
 Theorem stos_pass_with_plans_sing[simp]:
   [ HD (stos_pass_with_plans cfg [plan] [e]) ] = stos_pass_with_plans cfg [plan] [e]
 Proof
   Cases_on ‘e’ \\ simp[stos_pass_with_plans_def]
+  \\ cheat (* needs lemmas *)
 QED
 
+(*
 Theorem opt_pass_decs_unfold:
   no_opt_decs cfg (stos_pass_decs cfg [Dlet loc p e]) =
   [Dlet loc p (HD (no_optimise_pass cfg (stos_pass cfg [e])))]
 Proof
   simp[stos_pass_decs_def, no_opt_decs_def, HD]
 QED
+*)
 
+(*
 Theorem stos_pass_with_plans_empty[simp]:
   ∀ cfg es. stos_pass_with_plans cfg [] es = es
 Proof
@@ -2278,8 +2303,8 @@ Proof
 QED
 
 Theorem opt_pass_with_plans_decs_unfold:
-  no_opt_decs cfg (stos_pass_with_plans_decs cfg plans [Dlet loc p e]) =
-  [Dlet loc p (HD (no_optimise_pass cfg (stos_pass_with_plans cfg plans [e])))]
+  MAP (λ (x,y). (no_opt_decs cfg [x], y)) (stos_pass_with_plans_decs cfg plans [Dlet loc p e]) =
+  (λ (e_opt, res). [(Dlet loc p e_opt, res)]) (HD (no_optimise_pass cfg (stos_pass_with_plans cfg plans [e])))
 Proof
   Cases_on ‘plans’
   \\ simp[stos_pass_with_plans_decs_def, no_opt_decs_def, HD,
@@ -2423,6 +2448,7 @@ Proof
   \\ fs[]
   )
 QED
+*)
 
 Theorem genlist_is_all_distinct:
   ∀ f i. (∀ a b. a ≠ b ⇒ f a ≠ f b) ⇒ ALL_DISTINCT (GENLIST f i)
@@ -3574,6 +3600,7 @@ Inductive res_sim:
    v_list_sim (v1::vs1) (v2::vs2) cfg st1)
 End
 
+(*
 Definition is_stos_pass_correct_def :
   is_stos_pass_correct rws (st1:'a semanticPrimitives$state) st2 env cfg exps r1 =
     (evaluate st1 env
@@ -3595,6 +3622,7 @@ Theorem stos_pass_cons:
 Proof
   Cases_on ‘es’ \\ fs[stos_pass_def]
 QED
+*)
 
 Theorem v_list_sim_append:
   v_list_sim (vs1 ++ vs2) (vs1 ++ vs3) cfg st1 =
@@ -3613,6 +3641,7 @@ Proof
   \\ disch_then (qspecl_then [‘h’, ‘h’] mp_tac) \\ fs[]
 QED
 
+(*
 Theorem res_sim_swap:
   (∀ vs1 vs2 cfg (st1:'a semanticPrimitives$state).
   res_sim vs1 vs2 cfg st1 ⇒
@@ -3654,7 +3683,9 @@ Proof
   \\ qexists_tac ‘fpOpt'’ \\ qexists_tac ‘choices'’
   \\ fs[Once res_sim_rules, semState_comp_eq, fpState_component_equality]
 QED
+*)
 
+(*
 local
   val optimise_case = fn t =>
    TOP_CASE_TAC \\ fs[]
@@ -3743,5 +3774,6 @@ Proof
   \\ optimise_case ‘[FpOptimise f e]’
 QED
 end;
+*)
 
 val _ = export_theory ();
