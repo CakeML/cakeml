@@ -14,6 +14,8 @@ in end
 
 val _ = new_theory"replProg";
 
+(*
+
 val _ = set_grammar_ancestry[
   "infer_t","infer",
   "tokenUtils","cmlPtreeConversion","cmlParse",
@@ -260,3 +262,6 @@ val main_ast = process_topdecs`
       val u = TextIO.print welcome_banner
       val u = TextIO.print prompt
 
+*)
+
+val _ = export_theory();
