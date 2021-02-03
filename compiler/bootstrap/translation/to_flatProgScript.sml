@@ -88,13 +88,34 @@ val res = translate listTheory.DROP_def;
 val res = translate sumTheory.ISL;
 val res = translate sumTheory.ISR;
 
+val res = translate source_to_flatTheory.alloc_tags1_def;
+val res = translate (DefnBase.one_line_ify NONE terminationTheory.nsMap_def);
+val res = translate source_to_flatTheory.alloc_tags_def;
+val res = translate source_to_flatTheory.alloc_env_ref_def;
+val res = translate source_to_flatTheory.glob_alloc_def;
+
+val res = translate source_to_flatTheory.compile_decs_def;
 val res = translate source_to_flatTheory.compile_prog_def;
+
+val _ = (length (hyp res) = 0)
+        orelse failwith "Unproved side condition: source_to_flat_compile_prog";
 
 (* ------------------------------------------------------------------------- *)
 (* flat_elim                                                                 *)
 (* ------------------------------------------------------------------------- *)
 
 val res = translate sptreeTheory.subspt_eq;
+
+(*
+val res = translate EXISTS_DEF;
+
+translate $ DefnBase.one_line_ify NONE flat_elimTheory.has_Eval_def
+
+translate $ DefnBase.one_line_ify NONE flat_elimTheory.has_Eval_dec_def
+
+print_find "has_Eval_dec_def"
+*)
+
 val res = translate flat_elimTheory.remove_flat_prog_def;
 
 (* ------------------------------------------------------------------------- *)

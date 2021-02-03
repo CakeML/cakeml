@@ -3880,7 +3880,7 @@ Proof
     \\ goal_assum (first_assum o mp_then (Pat `s_rel`) mp_tac)
     \\ simp []
     \\ rpt (CASE_TAC \\ fs [])
-    \\ fs [compile_exp_def, evaluate_def]
+    \\ gvs [compile_exp_def, evaluate_def]
   )
   \\ Cases_on `op = Eval`
   >- (
