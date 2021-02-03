@@ -18,7 +18,7 @@ val _ = new_theory "dopplerProgComp";
 val _ = translation_extends "cfSupport";
 
 (** Precondition **)
-val doppler_pre =
+val theAST_pre =
 “λ (x:(string,string) id).
  if x = (Short "u")
  then ((- 100/1, 100/1):real#real)
@@ -28,14 +28,12 @@ val doppler_pre =
  then (- 30/1, 50/1)
  else (0,0)”
 
-Definition doppler_pre_def:
-  doppler_pre = ^doppler_pre
-End
+val theAST_pre_def = Define ‘theAST_pre = ^theAST_pre’;
 
 (**
   Define the CakeML source AST as a polyML/HOL4 declaration
 **)
-val doppler =
+val theAST =
 “[Dlet unknown_loc (Pvar "doppler")
   (Fun "u" (Fun "v" (Fun "t"
   (** Numerical kernel **)
@@ -61,20 +59,10 @@ val doppler =
         ])
      ]))))))]”;
 
-Definition theAST_def:
-  theAST =
-  ^doppler
-End
+val theAST_def = Define ‘theAST = ^theAST’;
 
 (** Optimizations to be applied by Icing **)
-Definition theOpts_def:
-  theOpts = extend_conf no_fp_opt_conf
-  [
-    (Binop FP_Mul (Binop FP_Add (Var 0) (Var 1)) (Var 2),
-     Binop FP_Add (Binop FP_Mul (Var 0) (Var 2)) (Binop FP_Mul (Var 1) (Var 2)));
-    fp_fma_intro
-  ]
-End
+val theOpts_def = Define ‘theOpts = no_fp_opt_conf’
 
 fun flatMap (ll:'a list list) =
   case ll of [] => []
@@ -90,7 +78,7 @@ fun dedup l =
         else l1::lclean
       end;
 
-Theorem theAST_plan = EVAL (Parse.Term ‘generate_plan_decs theOpts theAST’);
+val theAST_plan = save_thm ("theAST_plan", EVAL (Parse.Term ‘generate_plan_decs theOpts theAST’));
 
 val thePlan_def = EVAL “HD ^(theAST_plan |> concl |> rhs)”
 (*
@@ -114,25 +102,19 @@ val _ = adjoin_to_theory
 (** The code below stores in theorem theAST_opt the optimized version of the AST
     from above and in errorbounds_AST the inferred FloVer roundoff error bounds
  **)
-Theorem theAST_opt =
+val theAST_opt = save_thm ("theAST_opt",
   EVAL
     (Parse.Term ‘
       (no_opt_decs theOpts
-       (MAP FST (stos_pass_with_plans_decs theOpts (generate_plan_decs theOpts theAST) theAST)))’);
+       (MAP FST (stos_pass_with_plans_decs theOpts (generate_plan_decs theOpts theAST) theAST)))’));
 
 val doppler_opt = theAST_opt |> concl |> rhs;
 
-Definition theProg_def:
-  theProg = ^doppler
-End
+val theProg_def = Define ‘theProg = ^theAST’
 
-Definition theOptProg_def:
-  theOptProg = ^doppler_opt
-End
+val theOptProg_def = Define ‘theOptProg = ^doppler_opt’;
 
-Definition theErrBound_def:
-  theErrBound = inv (2 pow (10))
-End
+val theErrBound_def = Define ‘theErrBound = inv (2 pow (10))’;
 
 val main =
 “[Dlet unknown_loc (Pvar "main")
@@ -209,9 +191,7 @@ val _ = append_prog (theOptProg_def |> concl |> rhs)
 
 val _ = append_prog main;
 
-Definition doppler_env_def :
-  doppler_env = ^doppler_env
-End
+val doppler_env_def = Define ‘doppler_env = ^doppler_env’;
 
 (*
 val _ =

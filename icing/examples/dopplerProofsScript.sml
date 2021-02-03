@@ -116,10 +116,10 @@ QED
 
 val doppler_opt = theAST_opt |> concl |> rhs;
 
-val doppler_pre = doppler_pre_def |> concl |> rhs;
+val theAST_pre = theAST_pre_def |> concl |> rhs;
 
 Definition doppler_side_def:
-  doppler_side w1 w2 w3 = (is_precond_sound ^fvars [w1; w2; w3] ^doppler_pre)
+  doppler_side w1 w2 w3 = (is_precond_sound ^fvars [w1; w2; w3] ^theAST_pre)
 End
 
 Definition doppler_real_fun_def:
@@ -161,7 +161,7 @@ Proof
                  [‘doppler_env’,
                   ‘Fun "u" (Fun "v" (Fun "t" doppler_body))’] mp_tac)
   \\ unabbrev_all_tac
-  \\ fs[stripFuns_def, doppler_pre_def]
+  \\ fs[stripFuns_def, theAST_pre_def]
   \\ strip_tac
   \\ simp[semanticPrimitivesTheory.do_opapp_def, doppler_v_def]
   \\ reverse conj_tac
