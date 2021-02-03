@@ -21,7 +21,7 @@ val _ = computeLib.add_funs [realTheory.REAL_INV_1OVER,
 Theorem errorbounds_AST =
   EVAL (Parse.Term
        ‘isOkError ^(concl theAST_opt |> rhs) doppler_pre theErrBound’);
-
+(*
 Theorem errorbound_opt =
   EVAL (Parse.Term
        ‘getError ^(concl theAST_opt |> rhs) doppler_pre theErrBound’);
@@ -64,5 +64,6 @@ val doppler_unopt =
 Theorem errorbound_unopt =
   EVAL (Parse.Term
        ‘getError ^(doppler_unopt) doppler_pre theErrBound’);
+*)
 
 val _ = export_theory();

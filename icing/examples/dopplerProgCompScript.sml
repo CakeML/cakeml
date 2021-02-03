@@ -6,8 +6,10 @@
 (* INCLUDES, do not change those *)
 open astTheory cfTacticsLib ml_translatorLib;
 open basis_ffiTheory cfHeapsBaseTheory basis;
-open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
-open floatToRealProofsTheory source_to_sourceTheory CakeMLtoFloVerTheory cfSupportTheory;
+open RealIntervalInferenceTheory ErrorIntervalInferenceTheory
+     CertificateCheckerTheory;
+open floatToRealProofsTheory source_to_sourceTheory CakeMLtoFloVerTheory
+     cfSupportTheory optPlannerTheory;
 open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
 open preamble;
 
@@ -91,6 +93,7 @@ fun dedup l =
 Theorem theAST_plan = EVAL (Parse.Term ‘generate_plan_decs theOpts theAST’);
 
 val thePlan_def = EVAL “HD ^(theAST_plan |> concl |> rhs)”
+(*
 val hotRewrites = thePlan_def |> concl |> rhs |> listSyntax.dest_list |> #1
                        |> map (#2 o dest_pair)
                        |> map (#1 o listSyntax.dest_list)
@@ -106,6 +109,7 @@ val _ = adjoin_to_theory
           SOME (fn _ => PP.add_string
                     ("val hotRewrites = \""^hotRewrites^"\";")),
           struct_ps = NONE };
+*)
 
 (** The code below stores in theorem theAST_opt the optimized version of the AST
     from above and in errorbounds_AST the inferred FloVer roundoff error bounds
@@ -114,16 +118,7 @@ Theorem theAST_opt =
   EVAL
     (Parse.Term ‘
       (no_opt_decs theOpts
-       (stos_pass_with_plans_decs theOpts (generate_plan_decs theOpts theAST) theAST))’);
-
-(** The code below stores in theorem theAST_opt the optimized version of the AST
-    from above and in errorbounds_AST the inferred FloVer roundoff error bounds
- **)
-Theorem theAST_opt =
-  EVAL
-    (Parse.Term ‘
-      (source_to_source$no_opt_decs theOpts (source_to_source$stos_pass_decs theOpts
-       theAST))’);
+       (MAP FST (stos_pass_with_plans_decs theOpts (generate_plan_decs theOpts theAST) theAST)))’);
 
 val doppler_opt = theAST_opt |> concl |> rhs;
 
@@ -218,10 +213,12 @@ Definition doppler_env_def :
   doppler_env = ^doppler_env
 End
 
+(*
 val _ =
   supportLib.write_code_to_file true theAST_def theAST_opt
 (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
     (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
     "doppler";
+*)
 
 val _ = export_theory();
