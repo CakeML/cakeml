@@ -7,10 +7,10 @@ open preamble basis
   TODO: add this to INCLUDES as necessary, depending where this file ends up
   val () = loadPath := "../compiler/inference/" :: !loadPath;
   val () = loadPath := "../compiler/parsing/" :: !loadPath;
-*)
 local open lexer_funTheory cmlParseTheory
            infer_tTheory inferTheory
 in end
+*)
 
 val _ = new_theory"replProg";
 
