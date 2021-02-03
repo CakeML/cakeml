@@ -1448,6 +1448,14 @@ Proof
 QED
 
 
+Theorem state_rel_imp_equivs:
+  ∀cks s t.
+    state_rel cks s (t:('a,time_input) panSem$state) ⇒
+    equivs t.locals s.location s.waitTime
+Proof
+  rw [state_rel_def]
+QED
+
 Theorem time_seq_mono:
   ∀m n f a.
     n ≤ m ∧
@@ -1801,7 +1809,7 @@ Definition mem_read_ffi_results_def:
 End
 
 
-Theorem step_delay:
+Theorem step_delay_loop:
   !cycles prog d s s' w (t:('a,time_input) panSem$state) ck_extra.
     step prog (LDelay d) s s' ∧
     state_rel (clksOf prog) s t ∧
@@ -2514,5 +2522,278 @@ Proof
   gs [ADD1]
 QED
 
+
+Theorem evaluate_seq_fst:
+  evaluate (p, t) = evaluate (p, t') ⇒
+  evaluate (Seq p q, t) = evaluate (Seq p q, t')
+Proof
+  rw [] >>
+  fs [evaluate_def]
+QED
+
+Theorem step_delay:
+  !cycles prog d s s' w (t:('a,time_input) panSem$state) ck_extra.
+    step prog (LDelay d) s s' ∧
+    state_rel (clksOf prog) s t ∧
+    code_installed t.code prog ∧
+    delay_rep (dimword (:α)) d t.ffi.ffi_state cycles ∧
+    wakeup_rel t.locals (dimword (:α)) s.waitTime t.ffi.ffi_state cycles ∧
+    mem_read_ffi_results (:α) t.ffi.ffi_state cycles ∧
+    FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
+    FLOOKUP t.locals «sysTime» =
+      SOME (ValWord (n2w (FST (t.ffi.ffi_state 0)))) ∧
+    labProps$good_dimindex (:'a) ==>
+    ?ck t'.
+      evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
+      evaluate (task_controller (nClks prog), t' with clock := t'.clock + ck_extra) ∧
+      code_installed t'.code prog ∧
+      state_rel (clksOf prog) s' t' ∧
+      t'.ffi.ffi_state = nexts_ffi cycles t.ffi.ffi_state ∧
+      t'.ffi.oracle = t.ffi.oracle ∧
+      FLOOKUP t'.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt» ∧
+      FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
+      FLOOKUP t'.locals «sysTime»  =
+        SOME (ValWord (n2w (FST (t.ffi.ffi_state (cycles - 1)))))
+Proof
+  rw [] >>
+  fs [task_controller_def] >>
+  fs [panLangTheory.nested_seq_def] >>
+  qmatch_goalsub_abbrev_tac ‘evaluate (Seq _ q, _)’ >>
+  imp_res_tac step_delay_loop >>
+  first_x_assum (qspec_then ‘ck_extra’ assume_tac) >>
+  fs [] >>
+  drule evaluate_seq_fst >>
+  disch_then (qspec_then ‘q’ assume_tac) >>
+  qexists_tac ‘ck’ >> fs [] >>
+  qexists_tac ‘t'’ >> fs []
+QED
+
+
+(*
+Definition output_rep_def:
+  output_rep m wt (seq:time_input) ⇔
+    FST (seq 0) = wt ∧
+    FST (seq 0) < m ∧
+    ¬SND (seq 0)
+End
+*)
+
+Definition output_rel_def:
+  (output_rel fm m NONE (seq:time_input) = T) ∧
+  (output_rel fm m (SOME wt) seq =
+    ∃st.
+      FLOOKUP fm «wakeUpAt» = SOME (ValWord (n2w (wt + st))) ∧
+      FST (seq 0) = wt + st ∧
+      FST (seq 0) < m ∧
+      ¬SND (seq 0))
+End
+
+Theorem step_delay_eval_wait_zero:
+  !t st.
+    FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
+    FLOOKUP t.locals «waitSet» = SOME (ValWord 0w) ∧
+    FLOOKUP t.locals «sysTime» = SOME (ValWord st) ∧
+    FLOOKUP t.locals «wakeUpAt» = SOME (ValWord st) ==>
+    ?w.
+      eval t wait = SOME (ValWord w) ∧
+      w = 0w
+Proof
+  rw [] >>
+  fs [wait_def, eval_def, OPT_MMAP_def] >>
+  gs [wordLangTheory.word_op_def] >>
+  fs [asmTheory.word_cmp_def]
+QED
+
+
+Theorem eval_normalisedClks:
+  ∀t st ns.
+    FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w st)) ∧
+    FLOOKUP t.locals «clks» = SOME (Struct (MAP (ValWord o n2w) ns)) ∧
+    EVERY (λn. n ≤ st) ns ⇒
+      OPT_MMAP (eval t) (normalisedClks «sysTime» «clks» (LENGTH ns)) =
+      SOME (MAP2 (λx y. ValWord (n2w (x-y))) (REPLICATE (LENGTH ns) st) ns)
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  fs [normalisedClks_def] >>
+  fs [opt_mmap_eq_some] >>
+  fs [MAP_EQ_EVERY2] >>
+  conj_tac
+  >- fs [mkClks_def, fieldsOf_def] >>
+  fs [LIST_REL_EL_EQN] >>
+  conj_tac
+  >- fs [mkClks_def, fieldsOf_def] >>
+  rw [] >>
+  qmatch_goalsub_abbrev_tac ‘MAP2 ff xs ys’ >>
+  ‘EL n (MAP2 ff xs ys) = ff (EL n xs) (EL n ys)’ by (
+    match_mp_tac EL_MAP2 >>
+    fs []) >>
+  unabbrev_all_tac >>
+  gs [] >>
+  qmatch_goalsub_abbrev_tac ‘MAP2 ff xs ys’ >>
+  ‘EL n (MAP2 ff xs ys) = ff (EL n xs) (EL n ys)’ by (
+    match_mp_tac EL_MAP2 >>
+    unabbrev_all_tac >>
+    gs [mkClks_def]) >>
+  unabbrev_all_tac >>
+  gs [] >>
+  fs [mkClks_def, fieldsOf_def] >>
+  qmatch_goalsub_abbrev_tac ‘MAP ff xs’ >>
+  ‘EL n (MAP ff xs) = ff (EL n xs)’ by (
+    match_mp_tac EL_MAP >>
+    unabbrev_all_tac >>
+    gs [mkClks_def]) >>
+  fs [] >>
+  unabbrev_all_tac >>
+  ‘EL n (GENLIST I (LENGTH ns)) = I n’ by (
+    match_mp_tac EL_GENLIST >>
+    gs []) >>
+  fs [] >>
+  ‘EL n (REPLICATE (LENGTH ns) (Var «sysTime»)) = Var «sysTime»’ by (
+    match_mp_tac EL_REPLICATE >>
+    gs []) >>
+  fs [] >>
+  ‘EL n (REPLICATE (LENGTH ns) st) = st’ by (
+    match_mp_tac EL_REPLICATE >>
+    gs []) >>
+  fs [] >>
+  gs [eval_def,  OPT_MMAP_def] >>
+  qmatch_goalsub_abbrev_tac ‘MAP ff xs’ >>
+  ‘EL n (MAP ff xs) = ff (EL n xs)’ by (
+    match_mp_tac EL_MAP >>
+    unabbrev_all_tac >>
+    gs []) >>
+  unabbrev_all_tac >>
+  gs [] >>
+  fs [wordLangTheory.word_op_def] >>
+  fs [EVERY_MEM] >>
+  first_x_assum (qspec_then ‘EL n ns’ mp_tac) >>
+  gs [MEM_EL] >>
+  impl_tac >- metis_tac [] >>
+  strip_tac >>
+  drule n2w_sub >>
+  strip_tac >> fs []
+QED
+
+Theorem genshape_eq_shape_of:
+  ∀ys x zs.
+    LENGTH ys = LENGTH zs ⇒
+    genShape (LENGTH ys) =
+      shape_of (Struct
+                (MAP2 (λx y. ValWord (n2w (x − y)))
+                 (REPLICATE (LENGTH ys) x) zs))
+Proof
+  rw [] >>
+  fs [genShape_def] >>
+  fs [shape_of_def] >>
+  ‘REPLICATE (LENGTH ys) One = MAP (λx. One) (GENLIST I (LENGTH ys))’ by (
+    fs [MAP_GENLIST] >>
+    fs [REPLICATE_GENLIST] >>
+    fs [seqTheory.K_PARTIAL]) >>
+  gs [] >>
+  fs [MAP_EQ_EVERY2] >>
+  fs [LIST_REL_EL_EQN] >>
+  rw [] >>
+  qmatch_goalsub_abbrev_tac ‘MAP2 ff xs _’ >>
+  ‘EL n (MAP2 ff xs zs) = ff (EL n xs) (EL n zs)’ by (
+    match_mp_tac EL_MAP2 >>
+    unabbrev_all_tac >>
+    gs [mkClks_def]) >>
+  unabbrev_all_tac >>
+  gs [shape_of_def]
+QED
+
+
+(* I think we should have two scenerios *)
+(* lets start when systime is equal to wakehup time,
+    this way we will not have to execute the while loop
+ *)
+
+Theorem output_step:
+  !prog os s s' w (t:('a,time_input) panSem$state) st ns.
+    step prog (LAction (Output os)) s s' ∧
+    state_rel (clksOf prog) s t ∧
+    code_installed t.code prog ∧
+    output_rel t.locals (dimword (:α)) s.waitTime t.ffi.ffi_state ∧
+    FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
+    FLOOKUP t.locals «waitSet» = SOME (ValWord 0w) ∧
+    (* for the time being  *)
+    FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w st)) ∧
+    FLOOKUP t.locals «wakeUpAt» = SOME (ValWord (n2w st)) ∧
+    FLOOKUP t.locals «clks» =
+    SOME (Struct (MAP ((λw. ValWord w) ∘ n2w) ns)) ∧
+    EVERY (λn. n ≤ st) ns ∧
+    LENGTH ns = nClks prog ∧
+    labProps$good_dimindex (:'a) ==>
+    ?ck t'.
+      evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
+      ARB t
+Proof
+  rw [] >>
+  fs [step_cases] >>
+  fs [task_controller_def] >>
+  fs [panLangTheory.nested_seq_def] >>
+  qmatch_goalsub_abbrev_tac ‘evaluate (Seq _ q, _)’ >>
+  fs [evaluate_def] >>
+  qexists_tac ‘1’ >>
+  pairarg_tac >>
+  fs [] >>
+  fs [wait_input_time_limit_def] >>
+  fs [Once evaluate_def] >>
+  fs [eval_upd_clock_eq] >>
+  drule step_delay_eval_wait_zero >>
+  disch_then (qspec_then ‘n2w st’ mp_tac) >>
+  fs [] >>
+  strip_tac >>
+  fs [] >> rveq >> gs [] >>
+  fs [Abbr ‘q’] >>
+  qmatch_goalsub_abbrev_tac ‘evaluate (Seq _ q, _)’ >>
+  (* location will come from equivs: state_rel *)
+  imp_res_tac state_rel_imp_equivs >>
+  fs [equivs_def] >>
+  qmatch_asmsub_abbrev_tac
+  ‘FLOOKUP _ «loc» = SOME (ValLabel loc)’ >>
+  fs [code_installed_def] >>
+  drule ALOOKUP_MEM >>
+  strip_tac >>
+  last_x_assum drule >>
+  strip_tac >>
+  (* evaluation *)
+  fs [Once evaluate_def] >>
+  pairarg_tac >>
+  fs [] >>
+  fs [Once evaluate_def, eval_upd_clock_eq] >>
+  gs [Once eval_def, eval_upd_clock_eq] >>
+  imp_res_tac eval_normalisedClks >>
+  gs [] >>
+  fs [OPT_MMAP_def] >>
+  fs [Once eval_def] >>
+  ‘(λa. eval (t with clock := t.clock + 1) a) =
+   eval (t with clock := t.clock + 1)’ by metis_tac [ETA_AX] >>
+  fs [] >>
+  pop_assum kall_tac >>
+  assume_tac
+  (INST_TYPE [``:'a``|->``:'a``,
+              ``:'b``|->``:time_input``] opt_mmap_eval_upd_clock_eq) >>
+  first_x_assum
+  (qspecl_then
+   [‘normalisedClks «sysTime» «clks» (nClks prog)’, ‘t’, ‘1’] assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  pop_assum kall_tac >>
+  gs [lookup_code_def] >>
+  fs [timeLangTheory.nClks_def] >>
+  ‘LENGTH (clksOf prog) = LENGTH ns’ by gs [] >>
+  drule (INST_TYPE
+         [``:'a``|->``:'mlstring``,
+          ``:'b``|->``:'a``] genshape_eq_shape_of) >>
+  disch_then (qspec_then ‘st’ assume_tac) >>
+  rfs [] >>
+  fs [] >>
+  pop_assum kall_tac >>
+  pop_assum kall_tac >>
+
+  cheat
+QED
 
 val _ = export_theory();
