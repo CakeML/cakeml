@@ -63,6 +63,13 @@ Definition termConditions_def:
   (termConditions (Tm _ cs _ _ _) = cs)
 End
 
+Definition termWaitTimes_def:
+  (termWaitTimes (Tm _ _ _ _ wt) = wt)
+End
+
+Definition termDest_def:
+  (termDest (Tm _ _ _ loc _) = loc)
+End
 
 Definition accumClks_def:
   (accumClks ac [] = ac) ∧
