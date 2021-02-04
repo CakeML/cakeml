@@ -68,6 +68,6 @@ Definition theErrBound_def:
   theErrBound = inv (2 pow (10))
 End
 
-val x = do_stuff theAST_def theAST_pre_def;
+val x = define_benchmark theAST_def theAST_pre_def;
 
 val _ = export_theory();

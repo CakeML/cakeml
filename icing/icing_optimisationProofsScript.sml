@@ -1287,6 +1287,8 @@ Proof
 QED
 
 Theorem fp_comm_gen_correct_unfold = REWRITE_RULE [fp_comm_gen_def] fp_comm_gen_correct;
+Theorem fp_comm_gen_correct_unfold_add = REWRITE_RULE [icing_optimisationsTheory.fp_comm_gen_def] (Q.SPEC ‘FP_Add’ fp_comm_gen_correct);
+Theorem fp_comm_gen_correct_unfold_mul = REWRITE_RULE [icing_optimisationsTheory.fp_comm_gen_def] (Q.SPEC ‘FP_Mul’ fp_comm_gen_correct);
 
 fun rename_each [] = ALL_TAC
 | rename_each [first] = qmatch_asmsub_rename_tac first \\ qpat_x_assum first mp_tac \\ strip_tac

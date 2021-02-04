@@ -1540,12 +1540,129 @@ Proof
   Induct_on `exps` \\ fs[]
 QED
 
+Theorem is_optimise_with_plan_correct_lift_sing:
+  ∀ plan.
+    (∀ rws path.
+       MEM (Apply (path, rws)) plan ⇒
+       ∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
+         is_perform_rewrites_correct rws st1 st2 env (cfg with optimisations := rws) e r path) ⇒
+    (∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
+       is_optimise_with_plan_correct plan st1 st2 env cfg [e] r)
+Proof
+  Induct_on ‘plan’
+  \\ rpt strip_tac
+  \\ simp[is_optimise_with_plan_correct_def]
+  >- (
+    rpt strip_tac
+    \\ fs[optimise_with_plan_def]
+    \\ qexistsl_tac [‘st1.fp_state.opts’, ‘st1.fp_state.choices’,
+                     ‘st2.fp_state.opts’, ‘st2.fp_state.choices’]
+    \\ ‘st1 with
+        fp_state :=
+        st1.fp_state with
+           <|rws := st1.fp_state.rws; opts := st1.fp_state.opts;
+             choices := st1.fp_state.choices|> = st1’ by simp[semState_comp_eq, fpState_component_equality]
+    \\ ‘st2 with
+        fp_state :=
+        st2.fp_state with
+           <|rws := st2.fp_state.rws; opts := st2.fp_state.opts;
+             choices := st2.fp_state.choices|> = st2’ by simp[semState_comp_eq, fpState_component_equality]
+    \\ simp[semState_comp_eq, fpState_component_equality])
+  \\ Cases_on ‘h’
+  \\ simp[optimise_with_plan_def]
+  >~ [‘Expected e’]
+  >- (
+    COND_CASES_TAC \\ rveq \\ fs[is_optimise_with_plan_correct_def]
+    \\ rpt strip_tac
+    >- (res_tac \\ asm_exists_tac \\ fs[])
+    \\ first_assum $ mp_then Any assume_tac (CONJUNCT1 (prep evaluate_fp_rws_up))
+    \\ pop_assum $ qspec_then ‘st1.fp_state.rws ++ FLAT (MAP (λ x. case x of |Apply (_, rws) => rws |_ => []) plan)’ strip_assume_tac
+    \\ pop_assum mp_tac \\ impl_tac >- fs[]
+    \\ strip_tac
+    \\ ‘st1.fp_state.rws = st2.fp_state.rws’ by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
+    \\ first_x_assum $ mp_then Any assume_tac (CONJUNCT1 evaluate_add_choices)
+    \\ first_x_assum (qspec_then ‘st1.fp_state.choices’ assume_tac)
+    \\ rfs[semState_comp_eq, fpState_component_equality]
+    \\ asm_exists_tac \\ fs[])
+  >~ [‘Label s’]
+  >- (fs[is_optimise_with_plan_correct_def] \\ rpt strip_tac
+      \\ res_tac \\ asm_exists_tac \\ fs[])
+  >~ [‘Apply p’]
+  \\ Cases_on ‘p’
+  \\ simp[optimise_with_plan_def]
+  \\ COND_CASES_TAC \\ fs[]
+  >- (
+    rpt strip_tac
+    \\ first_assum $ mp_then Any assume_tac (CONJUNCT1 (prep evaluate_fp_rws_up))
+    \\ pop_assum $ qspec_then ‘st1.fp_state.rws ++ r' ++ FLAT (MAP (λ x. case x of |Apply (_, rws) => rws |_ => []) plan)’ strip_assume_tac
+    \\ pop_assum mp_tac \\ impl_tac >- fs[SUBSET_DEF]
+    \\ strip_tac
+    \\ ‘st1.fp_state.rws = st2.fp_state.rws’ by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
+    \\ first_x_assum $ mp_then Any assume_tac (CONJUNCT1 evaluate_add_choices)
+    \\ first_x_assum (qspec_then ‘st1.fp_state.choices’ assume_tac)
+    \\ rfs[semState_comp_eq, fpState_component_equality]
+    \\ asm_exists_tac \\ fs[])
+  \\ COND_CASES_TAC \\ fs[]
+  >- (
+    rpt strip_tac \\ rfs[is_perform_rewrites_correct_def] \\ rveq
+    \\ qpat_assum `evaluate _ _ _ = _` (fn th => first_x_assum (fn thm => mp_then Any assume_tac thm th))
+    \\ rfs[] \\ asm_exists_tac \\ fs[])
+  \\ Cases_on ‘optimise_with_plan cfg plan (perform_rewrites (cfg with optimisations := r') q r' e)’
+  \\ fs[]
+  \\ COND_CASES_TAC \\ fs[] \\ rveq
+  >- (
+    rpt strip_tac
+    \\ first_assum $ mp_then Any assume_tac (CONJUNCT1 (prep evaluate_fp_rws_up))
+    \\ pop_assum $ qspec_then ‘st1.fp_state.rws ++ r' ++ FLAT (MAP (λ x. case x of |Apply (_, rws) => rws |_ => []) plan)’ strip_assume_tac
+    \\ pop_assum mp_tac \\ impl_tac >- fs[SUBSET_DEF]
+    \\ strip_tac
+    \\ ‘st1.fp_state.rws = st2.fp_state.rws’ by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
+    \\ first_x_assum $ mp_then Any assume_tac (CONJUNCT1 evaluate_add_choices)
+    \\ first_x_assum (qspec_then ‘st1.fp_state.choices’ assume_tac)
+    \\ rfs[semState_comp_eq, fpState_component_equality]
+    \\ asm_exists_tac \\ fs[])
+  \\ rpt strip_tac
+  \\ first_x_assum (qspecl_then [‘r'’, ‘q’] mp_tac) \\ fs[] \\ strip_tac
+  \\ fs[is_optimise_with_plan_correct_def]
+  \\ last_x_assum (qspecl_then [‘st1’, ‘st2’, ‘env’, ‘cfg’, ‘perform_rewrites (cfg with optimisations := r') q r' e’, ‘r’] mp_tac)
+  \\ impl_tac \\ fs[]
+  \\ strip_tac
+  \\ fs[is_perform_rewrites_correct_def]
+  \\ pop_assum (fn th => first_x_assum (fn thm => mp_then Any mp_tac thm th)
+                \\ assume_tac th)
+  \\ impl_tac
+  \\ fs[semState_comp_eq, fpState_component_equality]
+  \\ strip_tac
+  \\ qspecl_then [‘(st1 with
+                    fp_state :=
+                    st1.fp_state with
+                       <|rws := st1.fp_state.rws ++
+                                FLAT (MAP (λ x. case x of
+                                                |Apply (_, rws) => rws
+                                                |_ => []) plan) ++ r';
+                           opts := fpOpt'; choices := choices'|>)’,
+                    ‘env’, ‘[e]’] strip_assume_tac (CONJUNCT1 evaluate_fp_rws_up)
+  \\ fs[]
+  \\ rfs[]
+  \\ pop_assum (qspec_then ‘st1.fp_state.rws ++ r' ++
+                             FLAT (MAP (λ x. case x of
+                                             |Apply (_, rws) => rws
+                                             |_ => []) plan)’
+                mp_tac)
+  \\ impl_tac
+  >- (fs[GSYM UNION_ASSOC, CONJUNCT1 SUBSET_UNION, Once UNION_COMM, SUBSET_DEF])
+  \\ disch_then strip_assume_tac
+  \\ qexistsl_tac [‘fpOpt''’, ‘choices'’, ‘fpOpt2’, ‘choicesR'’]
+  \\ simp[semState_comp_eq, fpState_component_equality]
+  \\ ‘st1.fp_state.rws = st2.fp_state.rws’ by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
+QED
+
 Theorem is_optimise_with_plan_correct_lift:
   ∀ plan.
     (∀ rws path.
        MEM (Apply (path, rws)) plan ⇒
        ∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
-         is_perform_rewrites_correct rws st1 st2 env cfg e r path) ⇒
+         is_perform_rewrites_correct rws st1 st2 env (cfg with optimisations := rws) e r path) ⇒
     (∀ (st1:'a semanticPrimitives$state) st2 env cfg exps r.
        is_optimise_with_plan_correct plan st1 st2 env cfg exps r)
 Proof
@@ -1553,9 +1670,7 @@ Proof
   \\ Induct_on ‘exps’
   \\ simp[is_optimise_with_plan_correct_def]
   \\ rpt strip_tac
-  >- (
-  rveq \\ simp[semState_comp_eq, fpState_component_equality]
-  )
+  >- (rveq \\ simp[semState_comp_eq, fpState_component_equality])
   \\ drule is_optimise_with_plan_correct_lift_sing
   \\ strip_tac
   \\ simp[Once evaluate_cons]
@@ -3733,72 +3848,6 @@ Theorem opt_pass_let_unfold:
   [no_optimisations cfg (optimise cfg (Let x e1 e2))]
 Proof
   simp[stos_pass_def, optimise_def, no_optimise_pass_def]
-QED
-
-Theorem is_optimise_with_plan_correct_lift_sing:
-  ∀ plan.
-    (∀ rws path.
-       MEM (Apply (path, rws)) plan ⇒
-       ∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
-         is_perform_rewrites_correct rws st1 st2 env cfg e r path) ⇒
-    (∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
-       is_optimise_with_plan_correct plan st1 st2 env cfg [e] r)
-Proof
-  (* FIXME: Incorrect statement with new infrastructure *)
-  (*
-  Induct_on ‘plan’
-  \\ rpt strip_tac
-  \\ simp[is_optimise_with_plan_correct_def]
-  >- (
-  rpt strip_tac
-  \\ fs[optimise_with_plan_def]
-  \\ qexistsl_tac [‘st1.fp_state.opts’, ‘st1.fp_state.choices’,
-                   ‘st2.fp_state.opts’, ‘st2.fp_state.choices’]
-  \\ ‘st1 with
-           fp_state :=
-             st1.fp_state with
-             <|rws := st1.fp_state.rws; opts := st1.fp_state.opts;
-               choices := st1.fp_state.choices|> = st1’ by simp[semState_comp_eq, fpState_component_equality]
-  \\ ‘st2 with
-           fp_state :=
-             st2.fp_state with
-             <|rws := st2.fp_state.rws; opts := st2.fp_state.opts;
-               choices := st2.fp_state.choices|> = st2’ by simp[semState_comp_eq, fpState_component_equality]
-  \\ simp[semState_comp_eq, fpState_component_equality]
-  )
-  \\ Cases_on ‘h’
-  \\ simp[optimise_with_plan_def]
-  \\ rpt strip_tac
-  \\ last_x_assum mp_tac \\ impl_tac
-  >- metis_tac [MEM]
-  \\ simp[is_optimise_with_plan_correct_def]
-  \\ rpt (disch_then (fn th => first_assum ( fn ith => mp_then Any mp_tac th ith )))
-  \\ strip_tac
-  \\ first_x_assum (qspecl_then [‘r'’, ‘q’] mp_tac) \\ impl_tac \\ fs[MEM]
-  \\ simp[is_perform_rewrites_correct_def]
-  \\ rpt (disch_then (fn th => first_assum ( fn ith => mp_then Any mp_tac th ith )))
-  \\ fs[semState_comp_eq, fpState_component_equality]
-  \\ strip_tac
-  \\ qspecl_then [‘(st1 with
-                    fp_state :=
-                    st1.fp_state with
-                       <|rws := st1.fp_state.rws ++ FLAT (MAP SND plan) ++ r';
-                         opts := fpOpt'; choices := choices'|>)’,
-                  ‘env’, ‘[e]’] strip_assume_tac (CONJUNCT1 evaluate_fp_rws_up)
-  \\ fs[]
-  \\ pop_assum drule
-  \\ disch_then (qspec_then ‘st1.fp_state.rws ++ r' ++ FLAT (MAP SND plan)’ strip_assume_tac)
-  \\ rfs[]
-  \\ ‘set st1.fp_state.rws ⊆ set st1.fp_state.rws ∪ set r' ∪ set (FLAT (MAP SND plan))’ by (
-    fs[GSYM UNION_ASSOC, CONJUNCT1 SUBSET_UNION] )
-  \\ ‘set r' ⊆ set st1.fp_state.rws ∪ set r' ∪ set (FLAT (MAP SND plan))’ by (
-    simp[Once UNION_COMM, UNION_ASSOC, CONJUNCT1 SUBSET_UNION]
-    )
-  \\ fs[]
-  \\ qexistsl_tac [‘fpOpt''’, ‘choices'’, ‘fpOpt2’, ‘choicesR'’]
-  \\ simp[semState_comp_eq, fpState_component_equality]
-  \\ ‘st1.fp_state.rws = st2.fp_state.rws’ by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
-*)
 QED
 
 (*

@@ -227,7 +227,7 @@ struct
                 App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];
                 Var (Short "u")]; Var (Short "b")]))))))])))]’;
 
-  fun do_stuff theAST_def theAST_pre_def =
+  fun define_benchmark theAST_def theAST_pre_def =
   let
     val theAST = theAST_def |> concl |> rhs
     val theAST_pre = theAST_pre_def |> concl |> rhs
@@ -298,88 +298,11 @@ struct
     EVAL (Parse.Term
        ‘isOkError ^(concl theAST_opt |> rhs) theAST_pre theErrBound’))
   val local_opt_thm = save_thm ("local_opt_thm", mk_local_opt_thm theAST_opt theAST_def);
+  val _ =
+   supportLib.write_code_to_file true theAST_def theAST_opt
+  (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
+  (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
+    (stringSyntax.fromHOLstring fname);
   in () end;
-(*
-val _ =
-  supportLib.write_code_to_file true theAST_def theAST_opt
-(Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
-    (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
-    "doppler";
-*)
-
-  fun define_benchmark theAST theAST_pre benchmarking =
-    let
-      val theAST_pre_term = theAST_pre |> concl |> rhs
-      val theAST_term = theAST |> concl |> rhs
-      val numArgs = EVAL “LENGTH (FST (SND (getDeclLetParts theAST)))” |> concl
-                    |> rhs
-                    |> numSyntax.dest_numeral
-                    |>  Arbnumcore.toInt
-      val (theMain, theCall) =
-        if numArgs = 1 then (main1, call1_code)
-        else if numArgs = 2 then (main2, call2_code)
-        else if numArgs = 3 then (main3, call3_code)
-        else if numArgs = 4 then (main4, call4_code)
-        else raise ERR "Too many arguments" ""
-      val thePlan = EVAL (Parse.Term ‘generate_plan_decs no_fp_opt_conf theAST’)
-      val thePlan_simpl = EVAL (Parse.Term ‘FLAT
-                                            (MAP (FOLDL (λ acc x. case x of | Apply (pth, rws) => acc ++ [(pth, rws)] |_ => acc) []) ^(thePlan |> concl |> rhs))’)
-      val theAST_plan = save_thm ("theAST_plan", thePlan)
-      val hotRewrites = thePlan_simpl |> concl |> rhs |> listSyntax.dest_list |> #1
-                       |> map (#2 o dest_pair)
-                       |> map (#1 o listSyntax.dest_list)
-                       |> flatMap
-                       |> map (fn t => DB.apropos_in t (DB.thy "icing_optimisations"))
-                       |> flatMap
-                       |> map (#2 o #1)
-                       |> dedup
-                       |> List.foldl (fn (elem, acc) => acc ^ " " ^ elem ^ " ;") "Used rewrites:"
-       (* val _ = adjoin_to_theory
-               { sig_ps =
-                 SOME (fn _ => PP.add_string
-                                 ("val hotRewrites = \""^hotRewrites^"\";")),
-                 struct_ps = NONE } *)
-       val theAST_optimized = save_thm ("theAST_optimized", EVAL (Parse.Term ‘(stos_pass_with_plans_decs theOpts (generate_plan_decs theOpts theAST) theAST)’))
-       val opt_result = theAST_optimized |> concl |> rhs |> listSyntax.dest_list |> #1
-                        |> hd |> dest_pair |> #2
-       val theAST_opt_nop = save_thm ("theAST_opt_nop",
-                                      EVAL (Parse.Term ‘
-                                             (no_opt_decs theOpts
-       (MAP FST (stos_pass_with_plans_decs theOpts (generate_plan_decs theOpts theAST) theAST)))’))
-       val _ =  if (Term.compare(opt_result, Parse.Term ‘source_to_source$Success’) = EQUAL)
-                then print("Succesfully applied optimisations")
-                else print ("Optimisation failed with "^Parse.term_to_string opt_result)
-       val theProg_def = bossLib.Define ‘theProg = ^theAST_term’
-       val theOptProg_def = bossLib.Define ‘theOptProg = ^(theAST_opt_nop |> concl |> rhs)’
-      val theBenchmarkMain_def = bossLib.Define ‘theBenchmarkMain = (HD (^iter_code)) :: (^theCall)’
-      val st_no_doppler = get_ml_prog_state ();
-      val theAST_env = st_no_doppler
-                          |> ml_progLib.clean_state
-                          |> ml_progLib.remove_snocs
-                          |> ml_progLib.get_env
-      val theAST_env_def = bossLib.Define ‘theAST_env = ^theAST_env’
-      val _ = append_prog (theOptProg_def |> concl |> rhs)
-      val _ = append_prog main3;
-      (* FIXME val _ =
-        supportLib.write_code_to_file true theAST_def theAST_opt
-                  (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
-                  (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
-                  "doppler"; *)
-      (* val _ = computeLib.del_funs [sptreeTheory.subspt_def]; *)
-      val _ = computeLib.add_funs [realTheory.REAL_INV_1OVER,
-                                   binary_ieeeTheory.float_to_real_def,
-                                   binary_ieeeTheory.float_tests,
-                                   sptreeTheory.subspt_eq,
-                                   sptreeTheory.lookup_def];
-      (* val errorbounds_AST = save_thm ("errorbounds_AST",
-        EVAL (Parse.Term
-          ‘isOkError ^(concl theAST_opt_nop |> rhs) doppler_pre theErrBound’))
-      val errorbound_opt = save_thm ("errorbound_opt",
-        EVAL (Parse.Term
-          ‘getError ^(concl theAST_opt_nop |> rhs) doppler_pre theErrBound’))
-      val errorbound_unopt = save_thm ("errorbound_unopt",
-        EVAL (Parse.Term
-          ‘getError ^theAST_term doppler_pre theErrBound’)) *)
-      in () end;
 
 end;
