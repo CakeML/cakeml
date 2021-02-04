@@ -188,6 +188,8 @@ val res = translate (parse_top_config_def |> SIMP_RULE (srw_ss()) []);
   Note: ffi_asm is translated multiple times...
 *)
 
+val res = translate backendTheory.prim_src_config_eq;
+
 (* ag32 *)
 val res = translate ag32_configTheory.ag32_names_def;
 val res = translate export_ag32Theory.ag32_export_def;

@@ -189,6 +189,8 @@ val res = translate (parse_top_config_def |> SIMP_RULE (srw_ss()) []);
   Note: ffi_asm is translated multiple times...
 *)
 
+val res = translate backendTheory.prim_src_config_eq;
+
 (* x64 *)
 val res = translate x64_configTheory.x64_names_def;
 val res = translate export_x64Theory.ffi_asm_def;
