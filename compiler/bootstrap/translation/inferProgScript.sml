@@ -6,7 +6,7 @@ open preamble parserProgTheory
      ml_translatorLib ml_translatorTheory
      semanticPrimitivesTheory inferPropsTheory
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "inferProg"
 
@@ -310,7 +310,7 @@ val pr_CASE = Q.prove(
 
 val op_apply = Q.prove(
   `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21
-        x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41 x42 x43 x44 x45 x46) y =
+        x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41 x42 x43 x44 x45 x46 x47 x48) y =
          (ast$op_CASE op
             (* Opn 1 *)
             (\z. x1 z y)
@@ -403,11 +403,11 @@ val op_apply = Q.prove(
             (* ConfigGC *)
             (x45 y)
             (* FFI *)
-            (\z. x46 z y))`,
+            (\z. x46 z y)
             (* Eval *)
-            (x43 y)
+            (x47 y)
             (* EnvLookup *)
-            (x44 y))`,
+            (x48 y))`,
   Cases THEN SRW_TAC [] []);
 
 val list_apply = Q.prove(
