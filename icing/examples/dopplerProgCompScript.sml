@@ -18,49 +18,53 @@ val _ = new_theory "dopplerProgComp";
 val _ = translation_extends "cfSupport";
 
 (** Precondition **)
-val theAST_pre =
-“λ (x:(string,string) id).
- if x = (Short "u")
- then ((- 100/1, 100/1):real#real)
- else if x = Short "v"
- then (20/1, 20000/1)
- else if x = Short "t"
- then (- 30/1, 50/1)
- else (0,0)”
-
-val theAST_pre_def = Define ‘theAST_pre = ^theAST_pre’;
+Definition theAST_pre_def:
+  theAST_pre =
+    λ (x:(string,string) id).
+      if x = (Short "u")
+      then ((- 100/1, 100/1):real#real)
+      else if x = Short "v"
+      then (20/1, 20000/1)
+      else if x = Short "t"
+      then (- 30/1, 50/1)
+      else (0,0)
+End
 
 (**
   Define the CakeML source AST as a polyML/HOL4 declaration
 **)
-val theAST =
-“[Dlet unknown_loc (Pvar "doppler")
-  (Fun "u" (Fun "v" (Fun "t"
-  (** Numerical kernel **)
-  (FpOptimise Opt
-   (Let (SOME "t1")
-     (App (FP_bop FP_Add) [
-       (App FpFromWord [Lit (Word64 (4644537666646730342w:word64))]);
-       (App (FP_bop FP_Mul) [
-         (App FpFromWord [Lit (Word64 (4603579539098121011w:word64))]);
-         Var (Short  "t") ])
-       ]) (* let bound val end *)
-     (App (FP_bop FP_Div) [
-       (App (FP_bop FP_Mul) [
-         (App (FP_uop FP_Neg) [Var (Short "t1")]);
-         Var (Short "v") ]);
-       (App (FP_bop FP_Mul) [
+Definition theAST_def:
+  theAST =
+    [Dlet unknown_loc (Pvar "doppler")
+     (Fun "u" (Fun "v" (Fun "t"
+     (** Numerical kernel **)
+       (FpOptimise Opt
+        (Let (SOME "t1")
          (App (FP_bop FP_Add) [
-           Var (Short "t1");
-           Var (Short "u") ]);
-         (App (FP_bop FP_Add) [
-           Var (Short "t1");
-           Var (Short "u")])
-        ])
-     ]))))))]”;
+             (App FpFromWord [Lit (Word64 (4644537666646730342w:word64))]);
+             (App (FP_bop FP_Mul) [
+                 (App FpFromWord [Lit (Word64 (4603579539098121011w:word64))]);
+                 Var (Short  "t") ])
+           ]) (* let bound val end *)
+         (App (FP_bop FP_Div) [
+             (App (FP_bop FP_Mul) [
+                 (App (FP_uop FP_Neg) [Var (Short "t1")]);
+                 Var (Short "v") ]);
+             (App (FP_bop FP_Mul) [
+                 (App (FP_bop FP_Add) [
+                     Var (Short "t1");
+                     Var (Short "u") ]);
+                 (App (FP_bop FP_Add) [
+                     Var (Short "t1");
+                     Var (Short "u")])
+               ])
+           ]))))))]
+End
 
-val theAST_def = Define ‘theAST = ^theAST’;
+Definition theErrBound_def:
+  theErrBound = inv (2 pow (10))
+End
 
-val x = do_stuff theAST theAST_pre;
+val x = do_stuff theAST_def theAST_pre_def;
 
 val _ = export_theory();
