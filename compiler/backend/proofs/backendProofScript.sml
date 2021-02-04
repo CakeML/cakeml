@@ -52,15 +52,6 @@ Proof
   rfs[labPropsTheory.good_dimindex_def] \\ rfs []
 QED
 
-Definition prim_src_config_def:
-  prim_src_config =
-    let (_, next, env, _, _) = compile_decs [] 1n empty_config.next empty_env
-        ARB prim_types_program in
-    (empty_config with <| next := next; mod_env := env |>)
-End
-
-Theorem prim_src_config_eq = EVAL ``prim_src_config``
-
 (* -- *)
 
 val backend_config_ok_def = Define`
