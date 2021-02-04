@@ -71,6 +71,24 @@ Definition termDest_def:
   (termDest (Tm _ _ _ loc _) = loc)
 End
 
+
+Definition terms_out_signals_def:
+  (terms_out_signals [] = []) ∧
+  (terms_out_signals (Tm (Output out) _ _ _ _::tms) =
+   out :: terms_out_signals tms) ∧
+  (terms_out_signals (Tm (Input _) _ _ _ _::tms) =
+   terms_out_signals tms)
+End
+
+
+Definition terms_in_signals_def:
+  (terms_in_signals [] = []) ∧
+  (terms_in_signals (Tm (Input i) _ _ _ _::tms) =
+   i :: terms_in_signals tms) ∧
+  (terms_in_signals (Tm (Output _) _ _ _ _::tms) =
+   terms_in_signals tms)
+End
+
 Definition accumClks_def:
   (accumClks ac [] = ac) ∧
   (accumClks ac (clk::clks) =

@@ -180,36 +180,39 @@ End
 Inductive pickTerm:
   (* when each condition is true and input signals match with the first term *)
   (!st cnds in_signal clks dest diffs tms st'.
-    EVERY (λcnd. evalCond st cnd) cnds /\
+    EVERY (λcnd. evalCond st cnd) cnds ∧
     evalTerm st (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs) st' ==>
-    pickTerm st (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs :: tms) st') /\
+    pickTerm st (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs :: tms) st') ∧
 
   (* when each condition is true and output signals match with the first term *)
   (!st cnds out_signal clks dest diffs tms st'.
-    EVERY (λcnd. evalCond st cnd) cnds /\
+    EVERY (λcnd. evalCond st cnd) cnds ∧
     evalTerm st NONE (Tm (Output out_signal) cnds clks dest diffs) st' ==>
-    pickTerm st NONE (Tm (Output out_signal) cnds clks dest diffs :: tms) st') /\
+    pickTerm st NONE (Tm (Output out_signal) cnds clks dest diffs :: tms) st') ∧
 
   (* when any condition is false, but there is a matching term, then we can append the
      list with the false term  *)
   (!st cnds event ioAction clks dest diffs tms st'.
-    ~(EVERY (λcnd. evalCond st cnd) cnds) /\
+    (* new *)
+    EVERY (λcnd. EVERY (λe. ∃t. evalExpr st e = SOME t) (destCond cnd)) cnds ∧
+    ~(EVERY (λcnd. evalCond st cnd) cnds) ∧
     pickTerm st event tms st' ==>
-    pickTerm st event (Tm ioAction cnds clks dest diffs :: tms) st') /\
+    pickTerm st event (Tm ioAction cnds clks dest diffs :: tms) st') ∧
 
    (* when the input event does not match, but there is a matching term, then we can append the
       list with the false term *)
   (!st cnds event in_signal clks dest diffs tms st'.
-    event <> SOME in_signal /\
+    event <> SOME in_signal ∧
     pickTerm st event tms st' ==>
-    pickTerm st event (Tm (Input in_signal) cnds clks dest diffs :: tms) st') /\
+    pickTerm st event (Tm (Input in_signal) cnds clks dest diffs :: tms) st') ∧
 
   (* we can also append this in case of any SOME event with an output term *)
   (!st cnds event out_signal clks dest diffs tms st'.
-    event <> NONE /\
+    event <> NONE ∧
     pickTerm st event tms st' ==>
     pickTerm st event (Tm (Output out_signal) cnds clks dest diffs :: tms) st')
 End
+
 
 Inductive step:
   (!p st d.
