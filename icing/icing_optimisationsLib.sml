@@ -8,6 +8,7 @@ struct
 open floatToRealProofsTheory source_to_sourceProofsTheory listTheory Portable;
 open preamble;
 
+(*
 local
   fun mk_single_rewriteFPexp_correct_thm th1 th2 =
     let
@@ -141,5 +142,6 @@ in
   |> mk_real_id_list_thm
   |> mk_real_id_optimise_thm
 end;
+*)
 
 end

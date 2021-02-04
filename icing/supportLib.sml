@@ -7,16 +7,16 @@ struct
 open compilerTheory fromSexpTheory cfTacticsLib ml_translatorLib;
 open source_to_sourceTheory source_to_sourceProofsTheory CakeMLtoFloVerTheory
      CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory
-     icing_optimisationsLib cfSupportTheory;
+     cfSupportTheory;
 open astToSexprLib fromSexpTheory basis_ffiTheory cfHeapsBaseTheory basis;
-open preamble;
+open icing_optimisationsLib preamble;
 
 fun mk_local_opt_thm (th1:thm) (th2:thm) =
   th1
     |> REWRITE_RULE [th2]
-    |> REWRITE_RULE [opt_pass_with_plans_decs_unfold, opt_pass_decs_unfold,
-                     opt_pass_fun_unfold, opt_pass_with_plans_fun_unfold,
-                     opt_pass_scope_unfold, opt_pass_with_plans_scope_unfold,
+    |> REWRITE_RULE [opt_pass_with_plans_decs_unfold,
+                     stos_pass_with_plans_fun_unfold,
+                     opt_pass_with_plans_scope_unfold,
                      locationTheory.unknown_loc_def, HD]
     |> SIMP_RULE std_ss [TypeBase.one_one_of “:ast$exp”,
                          TypeBase.one_one_of “:ast$dec”,

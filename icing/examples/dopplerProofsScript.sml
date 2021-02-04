@@ -7,25 +7,16 @@ open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateChecker
 open source_to_sourceTheory source_to_sourceProofsTheory CakeMLtoFloVerTheory
      CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory fpSemPropsTheory
      pureExpsTheory
-     icing_optimisationsLib dopplerProgCompTheory dopplerProgErrorTheory
-     cfSupportTheory;
+     (* icing_optimisationsLib *) dopplerProgCompTheory cfSupportTheory;
 open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith sptreeTheory;
 open astToSexprLib fromSexpTheory basis_ffiTheory cfHeapsBaseTheory basis;
-open preamble supportLib;
+open preamble;
 
 val _ = new_theory "dopplerProofs";
 
 val _ = translation_extends "dopplerProgComp";
 
-(** Build a backwards simulation theorem for the optimisations and show that they are real-valued ids **)
-Theorem doppler_opts_icing_correct =
-  mk_opt_correct_thm [Q.SPEC ‘FP_Add’ fp_comm_gen_correct, fp_fma_intro_correct];
-
-Theorem doppler_opts_real_id =
-  mk_real_id_thm [SIMP_RULE (srw_ss()) [] (Q.SPEC ‘FP_Add’ fp_comm_gen_real_id), fma_intro_real_id];
-
-val st = get_ml_prog_state ();
-
+(** Integrated in automation:
 val local_opt_run_thm = mk_local_opt_thm theAST_opt theAST_def;
 
 val (fname, fvars, body) =
@@ -37,6 +28,16 @@ val (_, fvars_before, body_before) =
   EVAL (Parse.Term ‘getDeclLetParts ^(theAST_def |> concl |> rhs)’)
   |> concl |> rhs |> dest_pair
   |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
+*)
+
+(** Build a backwards simulation theorem for the optimisations and show that they are real-valued ids **)
+Theorem doppler_opts_icing_correct =
+  mk_opt_correct_thm [Q.SPEC ‘FP_Add’ fp_comm_gen_correct, fp_fma_intro_correct];
+
+Theorem doppler_opts_real_id =
+  mk_real_id_thm [SIMP_RULE (srw_ss()) [] (Q.SPEC ‘FP_Add’ fp_comm_gen_real_id), fma_intro_real_id];
+
+val st = get_ml_prog_state ();
 
 Definition doppler_real_spec_def:
   doppler_real_spec (w1, w2, w3) = real_spec_prog ^body doppler_env ^fvars [w1;w2;w3]

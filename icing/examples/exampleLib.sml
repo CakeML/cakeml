@@ -8,6 +8,7 @@ struct
   open FloverMapTheory RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
   open floatToRealProofsTheory source_to_sourceTheory CakeMLtoFloVerTheory cfSupportTheory optPlannerTheory;
   open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
+  open supportLib;
 
   fun flatMap (ll:'a list list) =
     case ll of [] => []
@@ -232,18 +233,9 @@ struct
     val theAST_pre = theAST_pre_def |> concl |> rhs
     (** Optimizations to be applied by Icing **)
     val theOpts_def = Define ‘theOpts = no_fp_opt_conf’
-    val numArgs = EVAL “LENGTH (FST (SND (getDeclLetParts theAST)))” |> concl
-                  |> rhs
-                  |> numSyntax.dest_numeral
-                  |>  Arbnumcore.toInt
-    val (theMain, call_code) =
-      if numArgs = 1 then (main1, call1_code)
-      else if numArgs = 2 then (main2, call2_code)
-      else if numArgs = 3 then (main3, call3_code)
-      else if numArgs = 4 then (main4, call4_code)
-      else raise ERR "Too many arguments" ""
-    val theAST_plan = save_thm ("theAST_plan", EVAL (Parse.Term ‘generate_plan_decs theOpts theAST’));
-    val thePlan_def = EVAL “HD ^(theAST_plan |> concl |> rhs)”
+    val theAST_plan_def = Define ‘theAST_plan = generate_plan_decs theOpts theAST’
+    val theAST_plan_result = save_thm ("theAST_plan_result", EVAL (Parse.Term ‘theAST_plan’));
+    val thePlan_def = EVAL “HD ^(theAST_plan_result |> concl |> rhs)”
     val hotRewrites = thePlan_def |> concl |> rhs |> listSyntax.dest_list |> #1
                       |> map (fn t => EVAL “case ^t of | Apply (_, rws) => rws | _ => [] ”
                                 |> concl |> rhs |> listSyntax.dest_list |> #1)
@@ -264,8 +256,25 @@ struct
   val theAST_opt = save_thm ("theAST_opt",
     EVAL
       (Parse.Term ‘
-        (no_opt_decs theOpts
-         (MAP FST (stos_pass_with_plans_decs theOpts (generate_plan_decs theOpts theAST) theAST)))’));
+        (no_opt_decs theOpts (MAP FST (stos_pass_with_plans_decs theOpts theAST_plan theAST)))’));
+    val (fname_opt, fvars_opt, body_opt) =
+      EVAL (Parse.Term ‘getDeclLetParts ^(theAST_opt |> concl |> rhs)’)
+      |> concl |> rhs |> dest_pair
+      |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
+    val (fname, fvars, body) =
+      EVAL (Parse.Term ‘getDeclLetParts theAST’)
+      |> concl |> rhs |> dest_pair
+      |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
+    val numArgs = EVAL “LENGTH ^fvars” |> concl
+                  |> rhs
+                  |> numSyntax.dest_numeral
+                  |>  Arbnumcore.toInt
+    val (theMain, call_code) =
+      if numArgs = 1 then (main1, call1_code)
+      else if numArgs = 2 then (main2, call2_code)
+      else if numArgs = 3 then (main3, call3_code)
+      else if numArgs = 4 then (main4, call4_code)
+      else raise ERR "Too many arguments" ""
   val doppler_opt = theAST_opt |> concl |> rhs;
   val theProg_def = Define ‘theProg = ^theAST’
   val theOptProg_def = Define ‘theOptProg = ^doppler_opt’;
@@ -288,6 +297,7 @@ struct
   val errorbounds_AST = save_thm ("errorbounds_AST",
     EVAL (Parse.Term
        ‘isOkError ^(concl theAST_opt |> rhs) theAST_pre theErrBound’))
+  val local_opt_thm = save_thm ("local_opt_thm", mk_local_opt_thm theAST_opt theAST_def);
   in () end;
 (*
 val _ =

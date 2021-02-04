@@ -55,6 +55,9 @@ Implementation of the source to source floating-point rewriter
 This file defines the basic rewriter, used by the optimisation pass later.
 Correctness proofs are in icing_rewriterProofsScript.
 
+[optPlannerScript.sml](optPlannerScript.sml):
+Unverified optimisation planners
+
 [pureExpsScript.sml](pureExpsScript.sml):
 predicate to check whether an expression is pure, i.e. does not use memory
 or the FFI
