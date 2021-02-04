@@ -66,7 +66,7 @@ End
 
 (* check if expression is pure in that it does not make any visible changes
     (other than writing to globals) *)
-Definition is_pure_def1:
+Definition is_pure_def:
     (is_pure (Handle t e pes) = is_pure e) ∧
     (is_pure (Lit t l) = T) ∧
     (is_pure (Con t id_option es) = EVERY is_pure es) ∧
@@ -85,28 +85,31 @@ Termination
   fs [exp1_size, exp3_size, exp6_size, MEM_SPLIT, SUM_APPEND, exp_size_def]
 End
 
-Theorem is_pure_def = CONV_RULE (DEPTH_CONV ETA_CONV) is_pure_def1
+Theorem is_pure_def1 = CONV_RULE (DEPTH_CONV ETA_CONV) is_pure_def
 
-Definition has_Eval_def1:
-  (has_Eval (Handle t e pes) = (has_Eval e ∨ EXISTS has_Eval (MAP SND pes))) ∧
-  (has_Eval (Con t id_option es) = EXISTS has_Eval es) ∧
-  (has_Eval (Fun t name body) = has_Eval body) ∧
-  (has_Eval (App t op es) = (op = Eval ∨ EXISTS has_Eval es)) ∧
-  (has_Eval (If t e1 e2 e3) = (has_Eval e1 ∨ has_Eval e2 ∨ has_Eval e3)) ∧
-  (has_Eval (Mat t e pes) = (has_Eval e ∨ EXISTS has_Eval (MAP SND pes))) ∧
-  (has_Eval (Let t opt e1 e2) = (has_Eval e1 ∨ has_Eval e2)) ∧
-  (has_Eval (Letrec t funs e) = (has_Eval e ∨
-        EXISTS has_Eval (MAP (SND o SND) funs))) ∧
-  (has_Eval (Raise t e) = has_Eval e) ∧
-  (has_Eval _ = F)
+Definition has_Eval_def:
+  (has_Eval (App t op es) ⇔ op = Eval ∨ has_Eval_list es) ∧
+  (has_Eval (Mat _ e pes) ⇔ has_Eval e ∨ has_Eval_pats pes) ∧
+  (has_Eval (Letrec _ funs e) ⇔ has_Eval e ∨ has_Eval_funs funs) ∧
+  (has_Eval (Raise _ e) ⇔ has_Eval e) ∧
+  (has_Eval (Handle _ e pes) ⇔ has_Eval e ∨ has_Eval_pats pes) ∧
+  (has_Eval (Con _ _ es) ⇔ has_Eval_list es) ∧
+  (has_Eval (Fun _ _ e) ⇔ has_Eval e) ∧
+  (has_Eval (If _ e1 e2 e3) ⇔ has_Eval e1 ∨ has_Eval e2 ∨ has_Eval e3) ∧
+  (has_Eval (Let _ _ e1 e2) ⇔ has_Eval e1 ∨ has_Eval e2) ∧
+  (has_Eval _ ⇔ F) ∧
+  (has_Eval_list [] ⇔ F) ∧
+  (has_Eval_list (e::es) ⇔ has_Eval e ∨ has_Eval_list es) ∧
+  (has_Eval_pats [] ⇔ F) ∧
+  (has_Eval_pats ((p,e)::pes) ⇔ has_Eval e ∨ has_Eval_pats pes) ∧
+  (has_Eval_funs [] ⇔ F) ∧
+  (has_Eval_funs ((_,_,e)::fs) ⇔ has_Eval e ∨ has_Eval_funs fs)
 Termination
-  WF_REL_TAC `measure (λe. exp_size e)`
-  \\ rw [exp_size_def]
-  \\ fs [MEM_MAP, EXISTS_PROD]
-  \\ fs [exp1_size, exp3_size, exp6_size, MEM_SPLIT, SUM_APPEND, exp_size_def]
+  wf_rel_tac `inv_image $< (\x. case x of INL e => exp_size e
+                                | INR (INL es) => exp6_size es
+                                | INR (INR (INL pes)) => exp3_size pes
+                                | INR (INR (INR funs)) => exp1_size funs)`
 End
-
-Theorem has_Eval_def = CONV_RULE (DEPTH_CONV ETA_CONV) has_Eval_def1
 
 val dest_GlobalVarInit_def = Define `
     dest_GlobalVarInit (GlobalVarInit n) = SOME n ∧

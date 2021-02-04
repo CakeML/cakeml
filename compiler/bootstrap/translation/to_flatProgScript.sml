@@ -105,17 +105,6 @@ val _ = (length (hyp res) = 0)
 (* ------------------------------------------------------------------------- *)
 
 val res = translate sptreeTheory.subspt_eq;
-
-(*
-val res = translate EXISTS_DEF;
-
-translate $ DefnBase.one_line_ify NONE flat_elimTheory.has_Eval_def
-
-translate $ DefnBase.one_line_ify NONE flat_elimTheory.has_Eval_dec_def
-
-print_find "has_Eval_dec_def"
-*)
-
 val res = translate flat_elimTheory.remove_flat_prog_def;
 
 (* ------------------------------------------------------------------------- *)
@@ -145,7 +134,7 @@ val dec_side = Q.prove(
 
 val res = translate rich_listTheory.COUNT_LIST_compute;
 
-val res = translate flat_patternTheory.compile_decs_def;
+val res = translate flat_patternTheory.compile_dec_def;
 
 (* ------------------------------------------------------------------------- *)
 (* source_to_flat                                                            *)

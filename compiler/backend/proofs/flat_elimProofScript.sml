@@ -717,6 +717,28 @@ Proof
   \\ fs []
 QED
 
+Theorem has_Eval_def[local]:
+  (has_Eval (Handle _ e pes) = (has_Eval e ∨ EXISTS has_Eval (MAP SND pes))) ∧
+  (has_Eval (Con _ _ es) = EXISTS has_Eval es) ∧
+  (has_Eval (Fun _ _ e) = has_Eval e) ∧
+  (has_Eval (App t op es) = (op = Eval ∨ EXISTS has_Eval es)) ∧
+  (has_Eval (If t e1 e2 e3) = (has_Eval e1 ∨ has_Eval e2 ∨ has_Eval e3)) ∧
+  (has_Eval (Mat t e pes) = (has_Eval e ∨ EXISTS has_Eval (MAP SND pes))) ∧
+  (has_Eval (Let _ opt e1 e2) = (has_Eval e1 ∨ has_Eval e2)) ∧
+  (has_Eval (Letrec _ funs e) = (has_Eval e ∨ EXISTS has_Eval (MAP (SND o SND) funs))) ∧
+  (has_Eval (Raise _ e) = has_Eval e) ∧
+  (has_Eval (Var_local _ _) = F) ∧
+  (has_Eval (Lit _ v) = F)
+Proof
+  ‘∀es. has_Eval_list es <=> EXISTS has_Eval es’ by
+     (Induct \\ fs [flat_elimTheory.has_Eval_def])
+  \\ ‘∀pes. has_Eval_pats pes <=> EXISTS has_Eval (MAP SND pes)’ by
+     (Induct \\ fs [flat_elimTheory.has_Eval_def,FORALL_PROD])
+  \\ ‘∀pes. has_Eval_funs pes <=> EXISTS has_Eval (MAP (SND o SND) pes)’ by
+     (Induct \\ fs [flat_elimTheory.has_Eval_def,FORALL_PROD])
+  \\ rw [] \\ simp [Once flat_elimTheory.has_Eval_def]
+QED
+
 (******** EVALUATE INDUCTION ********)
 
 val evaluate_exp_ind = evaluate_ind
@@ -1245,7 +1267,7 @@ Proof
     fs[evaluate_def] >> Cases_on `evaluate env state' [e]` >> fs[] >>
     Cases_on `r` >> fs[] >>
     first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
-    fs[is_pure_def]
+    fs[is_pure_def1]
     )
   >- ( (* Handle *)
     rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
@@ -1255,13 +1277,13 @@ Proof
     Cases_on `r` >> fs[]
     >- (rveq >>
         first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
-        fs[is_pure_def] >> strip_tac >>
+        fs[is_pure_def1] >> strip_tac >>
         qpat_x_assum `isEmpty _` mp_tac >>
         simp[Once find_loc_def] >>
         strip_tac >>
         qpat_x_assum `isEmpty _ ⇒ _` match_mp_tac >> fs[] >>
         imp_res_tac inter_union_empty)
-    >- (fs[is_pure_def] >>
+    >- (fs[is_pure_def1] >>
         qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
         strip_tac >>
         `isEmpty(inter (find_locL (MAP SND pes)) reachable) ∧
@@ -1280,7 +1302,7 @@ Proof
       first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
       fs[] >>
       strip_tac >> rveq >>
-      fs[is_pure_def, find_v_globals_def] >> fs[EVERY_REVERSE] >>
+      fs[is_pure_def1, find_v_globals_def] >> fs[EVERY_REVERSE] >>
       simp[Once find_v_globalsL_REVERSE] >> fs[] >>
       rfs[v_has_Eval_def, EVERY_REVERSE] >>
       qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
@@ -1290,7 +1312,7 @@ Proof
     >- (
       first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
       fs[] >>
-      rveq >> fs[is_pure_def] >> fs[EVERY_REVERSE] >>
+      rveq >> fs[is_pure_def1] >> fs[EVERY_REVERSE] >>
       once_rewrite_tac [(GSYM NOT_EXISTS)] >>
       once_rewrite_tac [GSYM NOT_EVERY] >> fs[] >>
       qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
@@ -1306,7 +1328,7 @@ Proof
     Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
     Cases_on `r` >>
     fs[has_Eval_def] >>
-    fs[is_pure_def, EVERY_REVERSE] >> rveq >>
+    fs[is_pure_def1, EVERY_REVERSE] >> rveq >>
     fs[find_loc_EVERY_isEmpty, v_has_Eval_def, EVERY_REVERSE] >>
     qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
     strip_tac >>
@@ -1330,7 +1352,7 @@ Proof
     strip_tac >> fs[evaluate_def] >>
     rveq >>
     fs[find_v_globals_def, domain_union,
-        find_env_globals_def, is_pure_def, v_has_Eval_def, has_Eval_def] >>
+        find_env_globals_def, is_pure_def1, v_has_Eval_def, has_Eval_def] >>
     fs[find_loc_def, EVERY_MAP, o_DEF]
     )
   >- ( (* App *)
@@ -1338,16 +1360,16 @@ Proof
     SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
     fs[evaluate_def] >>
     Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
-    fs[is_pure_def] >> qpat_x_assum `isEmpty _` mp_tac >>
+    fs[is_pure_def1] >> qpat_x_assum `isEmpty _` mp_tac >>
     simp[Once find_loc_def] >>
     strip_tac >> fs[] >> fs[EVERY_REVERSE] >> fs[find_loc_EVERY_isEmpty] >>
     Cases_on `r` >> fs[]
     >- (
-      Cases_on `op = Opapp` >> fs[is_pure_def, dest_GlobalVarInit_def] >>
+      Cases_on `op = Opapp` >> fs[is_pure_def1, dest_GlobalVarInit_def] >>
       first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
       strip_tac >>
       Cases_on `op` >>
-      fs[is_pure_def, dest_GlobalVarInit_def, do_app_def] >>
+      fs[is_pure_def1, dest_GlobalVarInit_def, do_app_def] >>
       rfs [has_Eval_def] >>
       fs[] >> imp_res_tac inter_insert_empty >>
       EVERY_CASE_TAC >> fs[] >> rveq >> fs[] >>
@@ -1366,7 +1388,7 @@ Proof
       once_rewrite_tac [(GSYM NOT_EXISTS)] >>
       once_rewrite_tac [GSYM NOT_EVERY] >> fs[] >>
       Cases_on `op` >>
-      fs[is_pure_def, dest_GlobalVarInit_def] >>
+      fs[is_pure_def1, dest_GlobalVarInit_def] >>
       imp_res_tac inter_insert_empty
       )
     )
@@ -1374,7 +1396,7 @@ Proof
     rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
     SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
     fs[evaluate_def] >> Cases_on `evaluate env state' [e1]` >> fs[] >>
-    fs[is_pure_def, has_Eval_def] >>
+    fs[is_pure_def1, has_Eval_def] >>
     qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
     strip_tac >>
     `isEmpty (inter (find_loc e1) reachable) ∧
@@ -1402,7 +1424,7 @@ Proof
     SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
     fs[evaluate_def] >>
     Cases_on `evaluate env state' [e]` >> fs[] >>
-    fs[is_pure_def, has_Eval_def] >>
+    fs[is_pure_def1, has_Eval_def] >>
     qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
     strip_tac >>
     `isEmpty (inter (find_locL (MAP SND pes)) reachable) ∧
@@ -1426,8 +1448,8 @@ Proof
     rpt gen_tac >> strip_tac >> qpat_assum `flat_state_rel _ _ _` mp_tac >>
     SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac >>
     fs[evaluate_def] >>
-    Cases_on `evaluate env state' [e1]` >> fs[is_pure_def, has_Eval_def] >>
-    fs[is_pure_def] >> qpat_x_assum `isEmpty _ ` mp_tac >>
+    Cases_on `evaluate env state' [e1]` >> fs[is_pure_def1, has_Eval_def] >>
+    fs[is_pure_def1] >> qpat_x_assum `isEmpty _ ` mp_tac >>
     simp[Once find_loc_def] >>
     strip_tac >>
     fs[inter_union_empty] >>
@@ -1456,7 +1478,7 @@ Proof
     fs[evaluate_def] >> Cases_on `ALL_DISTINCT (MAP FST funs)` >> fs[] >>
     first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
     fs[] >>
-    strip_tac >> fs[is_pure_def, has_Eval_def] >> rfs[] >>
+    strip_tac >> fs[is_pure_def1, has_Eval_def] >> rfs[] >>
     qpat_x_assum `isEmpty _` mp_tac >> simp[Once find_loc_def] >>
     strip_tac >>
     first_x_assum irule >>
