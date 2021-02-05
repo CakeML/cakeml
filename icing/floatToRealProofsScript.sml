@@ -44,11 +44,22 @@ Proof
   \\ fs[fpState_component_equality, semState_comp_eq]
 QED
 
-(*
-Definition is_real_id_optimise_def:
-  is_real_id_optimise rws (st1:'a semanticPrimitives$state) st2 env cfg exps r =
-    (evaluate st1 env
-             (MAP realify (MAP (optimise (cfg with optimisations := rws)) exps)) = (st2, Rval r) ∧
+Definition is_real_id_perform_rewrites_def:
+  is_real_id_perform_rewrites rws (st1:'a semanticPrimitives$state) st2 env cfg e r path ⇔
+    (evaluate st1 env [realify (perform_rewrites cfg path rws e)] = (st2, Rval r) ∧
+    (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
+    st1.fp_state.canOpt ≠ Strict ∧
+    st1.fp_state.real_sem ⇒
+    ∃ choices.
+      evaluate st1 env [realify e] =
+        (st2 with fp_state := st2.fp_state with
+           <| choices := choices|>, Rval r))
+End
+
+Definition is_real_id_optimise_with_plan_def:
+  is_real_id_optimise_with_plan plan (st1:'a semanticPrimitives$state) st2 env cfg exps r =
+  (evaluate st1 env
+   (MAP realify (MAP (λ e. FST (optimise_with_plan cfg plan e)) exps)) = (st2, Rval r) ∧
     (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
     st1.fp_state.canOpt ≠ Strict ∧
     st1.fp_state.real_sem ⇒
@@ -57,7 +68,19 @@ Definition is_real_id_optimise_def:
         (st2 with fp_state := st2.fp_state with
            <| choices := choices|>, Rval r))
 End
-*)
+
+Definition is_real_id_stos_pass_with_plan_def:
+  is_real_id_stos_pass_with_plans plans (st1:'a semanticPrimitives$state) st2 env cfg exps r =
+    (evaluate st1 env
+             (MAP realify (MAP FST (stos_pass_with_plans cfg plans exps))) = (st2, Rval r) ∧
+    (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
+    st1.fp_state.canOpt ≠ Strict ∧
+    st1.fp_state.real_sem ⇒
+    ∃ choices.
+      evaluate st1 env (MAP realify exps) =
+        (st2 with fp_state := st2.fp_state with
+           <| choices := choices|>, Rval r))
+End
 
 Theorem real_valued_id_compositional:
   ∀ rws opt.
@@ -123,6 +146,308 @@ Theorem lift_real_id_exp_list_strong:
   is_real_id_list rws st1 st2 env exps r
 Proof
   metis_tac[lift_real_id_exp_list]
+QED
+
+val path_goal = “(λ path.
+       ∀ rws.
+         (∀ (st1:'a semanticPrimitives$state) st2 env exps r.
+            is_real_id_list rws st1 st2 env exps r) ⇒
+         (∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
+            is_real_id_perform_rewrites rws st1 st2 env (cfg with optimisations := rws) e r path)) ”
+val num_path_goal =
+“(λ (n:num, path).
+    ∀ rws.
+      (∀ (st1:'a semanticPrimitives$state) st2 env exps r.
+         is_real_id_list rws st1 st2 env exps r) ⇒
+      (∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
+         is_real_id_perform_rewrites rws st1 st2 env (cfg with optimisations := rws) e r path)) ”
+
+val simple_goal_tac =
+  qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+  \\ simp[evaluate_def]
+  \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+  \\ fs[is_real_id_perform_rewrites_def]
+  \\ pop_assum (fn th => first_x_assum (fn ithm => mp_then Any mp_tac ithm th) \\ assume_tac th)
+  \\ impl_tac \\ fs[]
+  \\ strip_tac \\ fs[]
+  \\ TRY (TOP_CASE_TAC \\ fs[])
+  \\ fsrw_tac [SATISFY_ss] [semanticPrimitivesTheory.state_component_equality,semanticPrimitivesTheory.fpState_component_equality]
+  \\ disch_then (fn th => mp_then Any assume_tac (CONJUNCT1 evaluate_add_choices) th ORELSE
+                 mp_then Any assume_tac (CONJUNCT2 evaluate_add_choices) th)
+  \\ fs[semanticPrimitivesTheory.state_component_equality,
+        semanticPrimitivesTheory.fpState_component_equality];
+
+val trivial_goal_tac =
+  qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+  \\ simp[evaluate_def]
+  \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+  \\ fs[is_real_id_perform_rewrites_def]
+  \\ strip_tac
+  \\ qpat_assum ‘evaluate _ _ [realify (perform_rewrites _ _ _ _)] = _’
+                (fn th => first_x_assum (fn ithm => mp_then Any mp_tac ithm th))
+  \\ impl_tac \\ fs[]
+  \\ imp_res_tac evaluate_fp_opts_inv \\ fs[];
+
+val quick_tac =
+  res_tac \\ fs[is_real_id_perform_rewrites_def]
+  \\ res_tac
+\\ fs[realify_def,
+      semanticPrimitivesTheory.state_component_equality,
+      semanticPrimitivesTheory.fpState_component_equality];
+
+Theorem is_real_id_list_perform_rewrites_lift:
+  (∀ rws.
+     (∀ (st1:'a semanticPrimitives$state) st2 env exps r.
+        is_real_id_list rws st1 st2 env exps r) ⇒
+     (∀ path (st1:'a semanticPrimitives$state) st2 env cfg e r.
+        is_real_id_perform_rewrites rws st1 st2 env (cfg with optimisations := rws) e r path))
+Proof
+  mp_tac (Q.SPECL [‘^path_goal’, ‘^num_path_goal’] opt_path_induction)
+  \\ impl_tac
+  >- (
+    conj_tac
+    \\ rpt strip_tac \\ res_tac
+    \\ rw[is_real_id_perform_rewrites_def]
+    \\ Cases_on ‘e’ \\ fs[Once perform_rewrites_def, realify_def]
+    \\ fsrw_tac [SATISFY_ss] [semanticPrimitivesTheory.state_component_equality,semanticPrimitivesTheory.fpState_component_equality]
+    >- (
+    qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+    \\ simp[evaluate_def]
+    \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+    \\ fs[is_real_id_perform_rewrites_def]
+    \\ pop_assum (fn th => first_x_assum (fn ithm => mp_then Any mp_tac ithm th) \\ assume_tac th)
+    \\ impl_tac \\ fs[]
+    \\ strip_tac \\ fs[]
+    \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+    \\ fsrw_tac [SATISFY_ss] [semanticPrimitivesTheory.state_component_equality,semanticPrimitivesTheory.fpState_component_equality]
+    \\ disch_then (mp_then Any assume_tac (CONJUNCT1 evaluate_add_choices))
+    \\ fs[semanticPrimitivesTheory.state_component_equality,
+          semanticPrimitivesTheory.fpState_component_equality])
+    >- simple_goal_tac
+    >- simple_goal_tac
+    >- simple_goal_tac
+    >- (
+    qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+    \\ simp[evaluate_def]
+    \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+    \\ fs[is_real_id_perform_rewrites_def]
+    \\ ntac 2 (TOP_CASE_TAC \\ fs[]) \\ rpt strip_tac \\ rveq \\ fs[]
+    \\ qpat_x_assum `do_log _ _ _ = SOME _` mp_tac
+    \\ simp[do_log_def] \\ TOP_CASE_TAC \\ fs[] \\ rveq \\ fs[]
+    \\ rpt strip_tac \\ rveq
+    \\ fsrw_tac [SATISFY_ss] [semanticPrimitivesTheory.state_component_equality,semanticPrimitivesTheory.fpState_component_equality]
+    \\ qpat_assum ‘evaluate _ _ [realify (perform_rewrites _ _ _ _)] = _’
+                  (fn th => first_x_assum (fn ithm => mp_then Any mp_tac ithm th))
+    \\ impl_tac \\ fs[]
+    \\ imp_res_tac evaluate_fp_opts_inv \\ fs[])
+    >- (
+    qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+    \\ simp[evaluate_def]
+    \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+    \\ fs[is_real_id_perform_rewrites_def]
+    \\ TOP_CASE_TAC \\ fs[] \\ rpt strip_tac \\ rveq \\ fs[]
+    \\ qpat_x_assum `do_if _ _ _ = SOME _` mp_tac
+    \\ simp[do_if_def] \\ TOP_CASE_TAC \\ fs[] \\ rveq \\ fs[]
+    \\ rpt strip_tac \\ rveq
+    \\ fsrw_tac [SATISFY_ss] [semanticPrimitivesTheory.state_component_equality,semanticPrimitivesTheory.fpState_component_equality]
+    \\ qpat_assum ‘evaluate _ _ [realify (perform_rewrites _ _ _ _)] = _’
+                  (fn th => first_x_assum (fn ithm => mp_then Any mp_tac ithm th))
+    \\ impl_tac \\ fs[]
+    \\ imp_res_tac evaluate_fp_opts_inv \\ fs[])
+    >- trivial_goal_tac
+    >- trivial_goal_tac
+    >- (
+    qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+    \\ simp[evaluate_def]
+    \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+    \\ fs[is_real_id_perform_rewrites_def]
+    \\ TOP_CASE_TAC \\ fs[] \\ rpt strip_tac \\ rveq \\ fs[]
+    \\ qpat_x_assum `do_if _ _ _ = SOME _` mp_tac
+    \\ simp[do_if_def] \\ TOP_CASE_TAC \\ fs[] \\ rveq \\ fs[]
+    \\ rpt strip_tac \\ rveq
+    \\ fsrw_tac [SATISFY_ss] [semanticPrimitivesTheory.state_component_equality,semanticPrimitivesTheory.fpState_component_equality]
+    \\ qpat_assum ‘evaluate _ _ [realify (perform_rewrites _ _ _ _)] = _’
+                  (fn th => first_x_assum (fn ithm => mp_then Any mp_tac ithm th))
+    \\ impl_tac \\ fs[]
+    \\ imp_res_tac evaluate_fp_opts_inv \\ fs[])
+    >- (
+    qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+    \\ simp[evaluate_def]
+    \\ res_tac
+    \\ TOP_CASE_TAC \\ fs[is_real_id_perform_rewrites_def]
+    \\ rpt strip_tac \\ rveq
+    \\ qpat_assum ‘evaluate _ _ [realify (perform_rewrites _ _ _ _)] = _’
+                  (fn th => first_x_assum (fn ithm => mp_then Any mp_tac ithm th))
+    \\ impl_tac \\ fs[]
+    \\ imp_res_tac evaluate_fp_opts_inv \\ fs[])
+    >- (
+    qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+    \\ simp[evaluate_def]
+    \\ res_tac \\ fs[is_real_id_perform_rewrites_def]
+    \\ rpt strip_tac \\ rveq
+    \\ qpat_assum ‘evaluate _ _ [realify (perform_rewrites _ _ _ _)] = _’
+                  (fn th => first_x_assum (fn ithm => mp_then Any mp_tac ithm th))
+    \\ impl_tac \\ fs[])
+    >- (
+    qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+    \\ simp[evaluate_def]
+    \\ res_tac \\ fs[is_real_id_perform_rewrites_def]
+    \\ rpt strip_tac \\ rveq
+    \\ qpat_assum ‘evaluate _ _ [realify (perform_rewrites _ _ _ _)] = _’
+                  (fn th => first_x_assum (fn ithm => mp_then Any mp_tac ithm th))
+    \\ impl_tac \\ fs[])
+    >- (trivial_goal_tac
+        \\ strip_tac
+        \\ fs[semanticPrimitivesTheory.state_component_equality,semanticPrimitivesTheory.fpState_component_equality])
+    >- (
+    qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+    \\ Cases_on ‘p’ \\ fs[perform_rewrites_def, realify_def]
+    \\ simp[evaluate_def]
+    \\ ntac 4 (TOP_CASE_TAC \\ fs[])
+    \\ rpt strip_tac \\ rveq \\ fs[]
+    (* Needs lifting lemma *)
+    \\ cheat)
+    >- (
+    qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+    \\ Cases_on ‘p’ \\ fs[perform_rewrites_def, realify_def]
+    \\ Cases_on ‘o'’ \\ fs[]
+    \\ simp[evaluate_def, astTheory.getOpClass_def]
+    \\ cheat
+    (* Needs lifting lemma
+    \\ ntac 5 (TOP_CASE_TAC \\ fs[])
+    \\ rpt strip_tac \\ rveq \\ fs[]
+    \\ cheat) *))
+    >- (
+    qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+    \\ Cases_on ‘p’ \\ fs[perform_rewrites_def, realify_def]
+    \\ simp[evaluate_def]
+    \\ ntac 3 (TOP_CASE_TAC \\ fs[])
+    \\ rpt strip_tac \\ rveq \\ fs[]
+    (* Needs lifting lemma *)
+    \\ cheat)
+    >- (
+    qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+    \\ TOP_CASE_TAC
+    \\ fs[semanticPrimitivesTheory.state_component_equality,semanticPrimitivesTheory.fpState_component_equality]
+    \\ strip_tac \\ fs[is_real_id_list_def]
+    \\ first_x_assum $ qspecl_then [‘st1’, ‘st2’, ‘env’, ‘[Lit l]’, ‘r’] mp_tac
+    \\ impl_tac \\ fs[])
+    >- (
+    qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+    \\ TOP_CASE_TAC \\ fs[realify_def]
+    \\ fs[semanticPrimitivesTheory.state_component_equality,semanticPrimitivesTheory.fpState_component_equality]
+    \\ strip_tac \\ fs[is_real_id_list_def]
+    \\ first_x_assum $ qspecl_then [‘st1’, ‘st2’, ‘env’, ‘[Var i]’, ‘r’] mp_tac
+    \\ impl_tac \\ fs[realify_def])
+    >- (
+    qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+    \\ TOP_CASE_TAC \\ fs[realify_def]
+    \\ fs[semanticPrimitivesTheory.state_component_equality,semanticPrimitivesTheory.fpState_component_equality]
+    \\ strip_tac \\ fs[is_real_id_list_def]
+    \\ first_x_assum $ qspecl_then [‘st1’, ‘st2’, ‘env’, ‘[App o' l]’, ‘r’] mp_tac
+    \\ impl_tac \\ fs[realify_def])
+    >- (
+    res_tac \\ fs[is_real_id_perform_rewrites_def]
+    \\ res_tac
+    \\ fs[realify_def, semanticPrimitivesTheory.state_component_equality,semanticPrimitivesTheory.fpState_component_equality])
+    \\ quick_tac)
+  \\ rpt strip_tac \\ fs[]
+QED
+
+Theorem is_real_id_perform_rewrites_optimise_with_plan_lift_sing:
+  ∀ plan.
+  (∀ rws pth.
+     MEM (Apply (pth, rws)) plan ⇒
+     (∀ (st1:'a semanticPrimitives$state) st2 env cfg exps r.
+        is_real_id_perform_rewrites rws st1 st2 env cfg exps r pth)) ⇒
+  (∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
+     is_real_id_optimise_with_plan plan st1 st2 env cfg [e] r)
+Proof
+  Induct_on ‘plan’ \\ fs[]
+  >- fs[is_real_id_optimise_with_plan_def, optimise_with_plan_def,
+         semanticPrimitivesTheory.state_component_equality,
+         semanticPrimitivesTheory.fpState_component_equality]
+  \\ rpt strip_tac
+  \\ Cases_on ‘h’ \\ fs[is_real_id_optimise_with_plan_def]
+  >~ [‘Label s’]
+  >- (fs[optimise_with_plan_def]
+      \\ rpt strip_tac \\ res_tac
+      \\ fs[semanticPrimitivesTheory.state_component_equality,
+         semanticPrimitivesTheory.fpState_component_equality])
+  >~ [‘Expected e’]
+  >- (fs[optimise_with_plan_def]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ fs[semanticPrimitivesTheory.state_component_equality,
+         semanticPrimitivesTheory.fpState_component_equality])
+  >~ [‘Apply p’]
+  \\ Cases_on ‘p’ \\ fs[optimise_with_plan_def]
+  \\ COND_CASES_TAC \\ fs[]
+  \\ fs[semanticPrimitivesTheory.state_component_equality,
+        semanticPrimitivesTheory.fpState_component_equality]
+  \\ COND_CASES_TAC \\ fs[]
+  >- (
+    rpt strip_tac \\ fs[is_real_id_perform_rewrites_def] \\ res_tac
+    \\ fs[])
+  \\ Cases_on ‘(optimise_with_plan cfg plan
+                      (perform_rewrites (cfg with optimisations := r') q r' e))’
+  \\ fs[] \\ COND_CASES_TAC
+  \\ fs[semanticPrimitivesTheory.state_component_equality,
+        semanticPrimitivesTheory.fpState_component_equality]
+  \\ rpt strip_tac
+  \\ first_x_assum $
+       qspecl_then [‘st1’, ‘st2’, ‘env’, ‘cfg’,
+                    ‘perform_rewrites (cfg with optimisations := r') q r' e’, ‘r’]
+       mp_tac
+  \\ fs[] \\ strip_tac
+  \\ first_x_assum $ qspecl_then [‘r'’, ‘q’] mp_tac
+  \\ impl_tac \\ fs[]
+  \\ strip_tac \\ fs[is_real_id_perform_rewrites_def]
+  \\ res_tac \\ fs[]
+QED
+
+Theorem is_real_id_perform_rewrites_optimise_with_plan_lift:
+  ∀ plan.
+  (∀ rws pth.
+     MEM (Apply (pth, rws)) plan ⇒
+     (∀ (st1:'a semanticPrimitives$state) st2 env cfg exps r.
+        is_real_id_perform_rewrites rws st1 st2 env cfg exps r pth)) ⇒
+  (∀ (st1:'a semanticPrimitives$state) st2 env cfg exps r.
+     is_real_id_optimise_with_plan plan st1 st2 env cfg exps r)
+Proof
+  ntac 2 strip_tac
+  \\ Induct_on ‘exps’ \\ fs[is_real_id_optimise_with_plan_def]
+  >- fs[optimise_with_plan_def,
+        semanticPrimitivesTheory.state_component_equality,
+        semanticPrimitivesTheory.fpState_component_equality]
+  \\ drule is_real_id_perform_rewrites_optimise_with_plan_lift_sing
+  \\ rpt strip_tac
+  \\ simp[Once evaluate_cons]
+  \\ qpat_x_assum ‘evaluate _ _ _ = _’ $ mp_tac
+  \\ simp[Once evaluate_cons, CaseEq"prod", CaseEq"result"]
+  \\ rpt strip_tac \\ rveq
+  \\ first_x_assum (qspecl_then [‘st1’, ‘s'’, ‘env’, ‘cfg’, ‘h’, ‘vs’] strip_assume_tac)
+  \\ first_x_assum (qspecl_then [‘s'’, ‘s''’, ‘env’, ‘cfg’, ‘vs'’] strip_assume_tac)
+  \\ fs[is_real_id_optimise_with_plan_def]
+  \\ rfs[] \\ fs[]
+  \\ pop_assum mp_tac  \\ impl_tac
+  >- (imp_res_tac evaluate_fp_opts_inv \\ fs[])
+  \\ strip_tac
+  \\ qpat_x_assum ‘evaluate _ _ (MAP realify exps) = _’
+                  (mp_then Any mp_tac (CONJUNCT1 evaluate_add_choices))
+  \\ disch_then (qspec_then ‘choices’ assume_tac)
+  \\ fs[semState_comp_eq, fpState_component_equality]
+QED
+
+Theorem stos_pass_with_plans_correct:
+  ∀ plans.
+    (∀ plan.
+    MEM plan plans ⇒
+      ∀ exps (st1:'a semanticPrimitives$state) st2 env cfg r.
+         is_real_id_optimise_with_plan plan st1 st2 env cfg exps r) ⇒
+  ∀ exps (st1:'a semanticPrimitives$state) st2 env cfg r.
+   is_real_id_stos_pass_with_plans plans st1 st2 env cfg exps r
+Proof
+  cheat
 QED
 
 (*

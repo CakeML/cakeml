@@ -671,13 +671,7 @@ Proof
   >- (
   REVERSE (Cases_on ‘path’) \\ fs[perform_rewrites_def]
   (* Case: Here *)
-  >- (
-    Cases_on ‘cfg.canOpt’ \\ fs[]
-    (* Case: Does rewrite *)
-    >- fs[is_rewriteFPexp_list_correct_def]
-    (* Case: Does not rewrite *)
-    >- no_change_tac ‘If e e0 e1’
-    )
+  >- (no_change_tac ‘If e e0 e1’)
   (* Case: ListIndex _ *)
   >- no_change_tac ‘If e e0 e1’
   (* Case: Center *)
@@ -809,13 +803,7 @@ Proof
   >- (
   REVERSE (Cases_on ‘path’) \\ fs[perform_rewrites_def]
   (* Case: Here *)
-  >- (
-    Cases_on ‘cfg.canOpt’ \\ fs[]
-    (* Case: Does rewrite *)
-    >- fs[is_rewriteFPexp_list_correct_def]
-    (* Case: Does not rewrite *)
-    >- no_change_tac ‘Log l e e0’
-    )
+  >- no_change_tac ‘Log l e e0’
   (* Case: ListIndex _ *)
   >- no_change_tac ‘Log l e e0’
   (* Case: Center *)
@@ -973,40 +961,24 @@ Proof
   \\ qpat_x_assum ‘∀ st1 st2 env cfg rws r path.
                      _ ∧ _ ∧ _ ∧ _ ∧ evaluate _ _ [perform_rewrites _ _ _ e] = _ ⇒ _’ drule
   \\ rpt (disch_then drule)
-  \\ fs[]
-  )
+  \\ fs[])
   (* Case: ?? *)
   >- (
   rveq
   \\ qpat_x_assum ‘∀ e. MEM e l ⇒ ∀ st1 st2 env cfg rws r path.
                                     _ ∧ _ ∧ _ ∧ _ ∧ evaluate _ _ [perform_rewrites _ _ _ _] = _ ⇒ _’ drule
   \\ rpt (disch_then drule)
-  \\ fs[]
-  )
+  \\ fs[])
   (* Case: Handle e l *)
   >- (
   REVERSE (Cases_on ‘path’) \\ fs[perform_rewrites_def]
-  (* Case: Here *)
-  >- (
-    Cases_on ‘cfg.canOpt’ \\ fs[]
-    (* Does rewrite *)
-    >- fs[is_rewriteFPexp_list_correct_def]
-    (* Does not rewrite *)
-    >- no_change_tac ‘Handle e l’
-  )
   \\ no_change_tac ‘Handle e l’
   )
   (* Case: Mat e l *)
   >- (
   REVERSE (Cases_on ‘path’) \\ fs[perform_rewrites_def]
   (* Case: Here *)
-  >- (
-    Cases_on ‘cfg.canOpt’ \\ fs[]
-    (* Does rewrite *)
-    >- fs[is_rewriteFPexp_list_correct_def]
-    (* Does not rewrite *)
-    >- no_change_tac ‘Mat e l’
-    )
+  >- no_change_tac ‘Mat e l’
   (* Case: ListIndex p *)
   >- (
     Cases_on ‘p’ \\ fs[perform_rewrites_def]
@@ -1113,20 +1085,12 @@ Proof
       qpat_x_assum ‘evaluate _ _ [r'] = _’ (mp_then Any mp_tac (CONJUNCT1 evaluate_add_choices))
       \\ disch_then (qspec_then ‘choicesR’ assume_tac)
       \\ fs[semState_comp_eq, fpState_component_equality]
-      )
-    )
-  )
+      )))
   (* Case: Tannot e a *)
   >- (
   REVERSE (Cases_on ‘path’) \\ fs[perform_rewrites_def]
   (* Case: Here *)
-  >- (
-    Cases_on ‘cfg.canOpt’ \\ fs[]
-    (* Does rewrite *)
-    >- fs[is_rewriteFPexp_list_correct_def]
-    (* Does not rewrite *)
-    >- no_change_tac ‘Tannot e a’
-    )
+  >- no_change_tac ‘Tannot e a’
   >- no_change_tac ‘Tannot e a’
   >- (
     qpat_x_assum ‘evaluate _ _ [Tannot _ _] = _’ (
@@ -1177,32 +1141,18 @@ Proof
   qpat_x_assum ‘∀ st1 st2 env cfg rws r path.
                   _ ∧ _ ∧ _ ∧ _ ∧ evaluate _ _ [perform_rewrites _ _ _ e] = _ ⇒ _’ drule
   \\ rpt (disch_then drule)
-  \\ fs[]
-  )
+  \\ fs[])
   (* Case: Fun s e *)
   >- (
   REVERSE (Cases_on ‘path’) \\ fs[perform_rewrites_def]
   (* Case: Here *)
-  >- (
-    Cases_on ‘cfg.canOpt’ \\ fs[]
-    (* Does rewrite *)
-    >- fs[is_rewriteFPexp_list_correct_def]
-    (* Does not rewrite *)
-    >- no_change_tac ‘Fun s e’
-    )
   \\ no_change_tac ‘Fun s e’
   )
   (* Case: Lannot e l *)
   >- (
   REVERSE (Cases_on ‘path’) \\ fs[perform_rewrites_def]
   (* Case: Here *)
-  >- (
-    Cases_on ‘cfg.canOpt’ \\ fs[]
-    (* Does rewrite *)
-    >- fs[is_rewriteFPexp_list_correct_def]
-    (* Does not rewrite *)
-    >- no_change_tac ‘Lannot e l’
-    )
+  >- no_change_tac ‘Lannot e l’
   >- no_change_tac ‘Lannot e l’
   >- (
     qpat_x_assum ‘evaluate _ _ [Lannot _ _] = _’ (
@@ -1215,26 +1165,18 @@ Proof
     \\ fs[evaluate_def]
     \\ qexistsl_tac [‘fpOpt’, ‘choices’, ‘fpOptR’, ‘choicesR’] \\ fs[]
     )
-  \\ no_change_tac ‘Lannot e a’
-  )
+  \\ no_change_tac ‘Lannot e a’)
   (* Case: ?? *)
   >- (
   qpat_x_assum ‘∀ st1 st2 env cfg rws r path.
                   _ ∧ _ ∧ _ ∧ _ ∧ evaluate _ _ [perform_rewrites _ _ _ e] = _ ⇒ _’ drule
   \\ rpt (disch_then drule)
-  \\ fs[]
-  )
+  \\ fs[])
   (* Case: Raise e *)
   >- (
   REVERSE (Cases_on ‘path’) \\ fs[perform_rewrites_def]
   (* Case: Here *)
-  >- (
-    Cases_on ‘cfg.canOpt’ \\ fs[]
-    (* Does rewrite *)
-    >- fs[is_rewriteFPexp_list_correct_def]
-    (* Does not rewrite *)
-    >- no_change_tac ‘Raise e’
-    )
+  >- no_change_tac ‘Raise e’
   (* ListIndex _ *)
   >- no_change_tac ‘Raise e’
   (* Center *)
@@ -1347,14 +1289,7 @@ Proof
   (* Case: Con o' l *)
   >- (
   REVERSE (Cases_on ‘path’) \\ fs[perform_rewrites_def]
-  (* Case: Here *)
-  >- (
-    Cases_on ‘cfg.canOpt’ \\ fs[]
-    (* Does rewrite *)
-    >- fs[is_rewriteFPexp_list_correct_def]
-    (* Does not rewrite *)
-    >- no_change_tac ‘Con o' l’
-    )
+  >- no_change_tac ‘Con o' l’
   (* Case: ListIndex p *)
   >- (
     Cases_on ‘p’ \\ fs[perform_rewrites_def]
@@ -1396,14 +1331,7 @@ Proof
   (* Case: Letrec l e *)
   >- (
   REVERSE (Cases_on ‘path’) \\ fs[perform_rewrites_def]
-  (* Case: Here *)
-  >- (
-    Cases_on ‘cfg.canOpt’ \\ fs[]
-    (* Does rewrite *)
-    >- fs[is_rewriteFPexp_list_correct_def]
-    (* Does not rewrite *)
-    >- no_change_tac ‘Letrec l e’
-    )
+  >- no_change_tac ‘Letrec l e’
   (* Case: ListIndex _ *)
   >- no_change_tac ‘Letrec l e’
   (* Case: Center *)

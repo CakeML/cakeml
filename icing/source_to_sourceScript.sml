@@ -153,13 +153,14 @@ End
 
 (** Optimisation pass starts below **)
 Definition perform_rewrites_def:
-  (* Make sure not to optimise away the FpOptimise or Let *)
-  perform_rewrites (cfg: config) Here rewrites (FpOptimise sc e) = FpOptimise sc e ∧
-  perform_rewrites (cfg: config) Here rewrites (Let so e1 e2) = Let so e1 e2 ∧
-
-  (* Otherwise, we may optimise everything if we are at the end of the path *)
-  perform_rewrites cfg Here rewrites e = (if (cfg.canOpt) then (rewriteFPexp rewrites e) else e) ∧
-
+  perform_rewrites (cfg: config) Here rewrites (Var x) =
+    (if (cfg.canOpt) then (rewriteFPexp rewrites (Var x)) else (Var x)) ∧
+  perform_rewrites (cfg: config) Here rewrites (Lit l) =
+    (if (cfg.canOpt) then (rewriteFPexp rewrites (Lit l)) else (Lit l)) ∧
+  perform_rewrites (cfg: config) Here rewrites (App op exps) =
+    (if (cfg.canOpt) then (rewriteFPexp rewrites (App op exps)) else (App op exps)) ∧
+  (* Make sure not to optimise away anything else (WAS: the FpOptimise or Let) *)
+  perform_rewrites (cfg: config) Here rewrites e = e ∧
   (* If we are not at the end of the path, further navigate through the AST *)
   perform_rewrites cfg (Left _) rewrites (Lit l) = Lit l ∧
   perform_rewrites cfg (Left _) rewrites (Var x) = Var x ∧
