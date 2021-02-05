@@ -303,6 +303,14 @@ struct
   (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
   (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
     (stringSyntax.fromHOLstring fname);
+  (* Plan correctness theorem *)
+  val plan_list = theAST_plan_result |> concl |> rhs (* Get the actual plan *)
+                   |> listSyntax.dest_list (* get the single plan *)
+                   |> (fn (ts, tp) => if (length ts <> 1) then raise ERR "Too many plans constructed" ""
+                                        else hd ts)
+                   |> listSyntax.dest_list (* extract the plan as a list *)
+                   |> #1 (* take the list, ignore type *)
+  val stos_pass_correct_thm = save_thm ("stos_pass_correct_thm", mk_stos_pass_correct_thm plan_list)
   in () end;
 
 end;

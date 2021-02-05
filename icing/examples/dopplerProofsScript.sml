@@ -28,11 +28,19 @@ val (_, fvars_before, body_before) =
   EVAL (Parse.Term ‘getDeclLetParts ^(theAST_def |> concl |> rhs)’)
   |> concl |> rhs |> dest_pair
   |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
-*)
+
+val plan_list = theAST_plan_result |> concl |> rhs (* Get the actual plan *)
+                   |> listSyntax.dest_list (* get the single plan *)
+                   |> (fn (ts, tp) => if (length ts <> 1) then raise ERR "Too many plans constructed" ""
+                                        else hd ts)
+                   |> listSyntax.dest_list (* extract the plan as a list *)
+                   |> #1 (* take the list, ignore type *)
 
 (** Build a backwards simulation theorem for the optimisations and show that they are real-valued ids **)
 Theorem doppler_opts_icing_correct =
   mk_opt_correct_thm [Q.SPEC ‘FP_Add’ fp_comm_gen_correct, fp_fma_intro_correct];
+
+*)
 
 Theorem doppler_opts_real_id =
   mk_real_id_thm [SIMP_RULE (srw_ss()) [] (Q.SPEC ‘FP_Add’ fp_comm_gen_real_id), fma_intro_real_id];

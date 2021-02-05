@@ -3039,14 +3039,81 @@ QED
 *)
 
 Theorem stos_pass_with_plans_correct:
-  ∀ exps (st1:'a semanticPrimitives$state) st2 env cfg r.
+  ∀ plans.
     (∀ plan.
     MEM plan plans ⇒
       ∀ exps (st1:'a semanticPrimitives$state) st2 env cfg r.
          is_optimise_with_plan_correct plan st1 st2 env cfg exps r) ⇒
+  ∀ exps (st1:'a semanticPrimitives$state) st2 env cfg r.
    is_stos_pass_with_plans_correct plans st1 st2 env cfg exps r
 Proof
   cheat
+QED
+
+(* Lemmas needed to automate proof generation *)
+Theorem is_perform_rewrites_correct_empty_plan:
+  ∀ rws path.
+    MEM (Apply (path, rws)) [] ⇒
+    ∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
+      is_perform_rewrites_correct rws st1 st2 env (cfg with optimisations := rws) e r path
+Proof
+  rpt strip_tac \\ fs[]
+QED
+
+Theorem is_perform_rewrites_correct_cons:
+  ∀ rwsNew pathNew plan.
+  (∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
+      is_perform_rewrites_correct rwsNew st1 st2 env (cfg with optimisations := rwsNew) e r pathNew) ⇒
+  (∀ rws path.
+     MEM (Apply (path, rws)) plan ⇒
+    ∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
+      is_perform_rewrites_correct rws st1 st2 env (cfg with optimisations := rws) e r path) ⇒
+  (∀ rws path.
+     MEM (Apply (path, rws)) (Apply (pathNew, rwsNew)::plan) ⇒
+    ∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
+      is_perform_rewrites_correct rws st1 st2 env (cfg with optimisations := rws) e r path)
+Proof
+  rpt strip_tac \\ fs[]
+QED
+
+Theorem is_perform_rewrites_correct_label:
+  ∀ s plan.
+  (∀ rws path.
+     MEM (Apply (path, rws)) plan ⇒
+    ∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
+      is_perform_rewrites_correct rws st1 st2 env (cfg with optimisations := rws) e r path) ⇒
+  (∀ rws path.
+     MEM (Apply (path, rws)) (Label s::plan) ⇒
+    ∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
+      is_perform_rewrites_correct rws st1 st2 env (cfg with optimisations := rws) e r path)
+Proof
+  rpt strip_tac \\ fs[]
+QED
+
+Theorem is_perform_rewrites_correct_expected:
+  ∀ e plan.
+  (∀ rws path.
+     MEM (Apply (path, rws)) plan ⇒
+    ∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
+      is_perform_rewrites_correct rws st1 st2 env (cfg with optimisations := rws) e r path) ⇒
+  (∀ rws path.
+     MEM (Apply (path, rws)) (Expected e::plan) ⇒
+    ∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
+      is_perform_rewrites_correct rws st1 st2 env (cfg with optimisations := rws) e r path)
+Proof
+  rpt strip_tac \\ fs[]
+QED
+
+Theorem is_optimise_with_plan_correct_sing:
+  ∀ sing_plan.
+    (∀ (st1:'a semanticPrimitives$state) st2 env cfg exps r.
+    is_optimise_with_plan_correct sing_plan st1 st2 env cfg exps r) ⇒
+    (∀ plan.
+       MEM plan [sing_plan] ⇒
+       ∀ exps (st1:'a semanticPrimitives$state) st2 env cfg r.
+       is_optimise_with_plan_correct plan st1 st2 env cfg exps r)
+Proof
+  rpt strip_tac \\ fs[]
 QED
 
 (*
