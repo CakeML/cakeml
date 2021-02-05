@@ -675,7 +675,7 @@ Proof
  \\ strip_makespace
  \\ ntac 47 strip_assign
  \\ make_tailcall
- \\ ntac 5
+ \\ ntac 6
     (strip_call
     \\ ntac 9 strip_assign
     \\ make_if
@@ -684,7 +684,7 @@ Proof
   \\ ntac 9 strip_assign
   \\ make_if
   \\ ntac 6 strip_assign
-  \\ ntac 6
+  \\ ntac 7
      (open_tailcall
      \\ ntac 4 strip_assign
      \\ make_if
@@ -694,6 +694,9 @@ Proof
   \\ make_if
   \\ Q.UNABBREV_TAC `rest_call`
   \\ strip_assign
+  \\ make_tailcall
+  \\ strip_makespace
+  \\ ntac 3 strip_assign
   \\ make_tailcall
   \\ ntac 5
      (strip_makespace

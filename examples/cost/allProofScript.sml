@@ -24,7 +24,7 @@ val all_x64_conf = (rand o rator o lhs o concl) all_thm
 val _ = install_naming_overloads "allProg";
 val _ = write_to_file all_data_prog_def;
 
-val foldl_body = ``lookup_foldl (fromAList all_data_prog)``
+val foldl_body = ``lookup_List_foldl (fromAList all_data_prog)``
            |> (REWRITE_CONV [all_data_code_def] THENC EVAL)
            |> concl |> rhs |> rand |> rand
 
@@ -192,7 +192,7 @@ Theorem foldl_evaluate:
     (* Sizes *)
     size_of_stack s.stack = SOME sstack ∧
     s.locals_size = SOME lsize ∧
-    lookup_foldl s.stack_frame_sizes = SOME lsize ∧
+    lookup_List_foldl s.stack_frame_sizes = SOME lsize ∧
     s.stack_max = SOME smax ∧
     s.space = 0 ∧
     (* Arguments *)
@@ -209,7 +209,7 @@ Theorem foldl_evaluate:
     sstack + lsize < s.limits.stack_limit ∧
     size_of_heap s ≤ s.limits.heap_limit ∧
     (* Code *)
-    lookup_foldl s.code      = SOME (3,foldl_body) ∧
+    lookup_List_foldl s.code      = SOME (3,foldl_body) ∧
     lookup_all_clos_0 s.code = SOME (3,all_clos_0_body) ∧
     lookup_all_0 s.code      = SOME (2,all_0_body) ∧
     (* Invariants *)
@@ -452,7 +452,7 @@ Theorem data_safe_all:
        all_x64_conf
        all_prog
        (* (s_size,h_size) *)
-       (56,78) (* Tightest values *)
+       (56,81) (* Tightest values *)
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -504,13 +504,13 @@ in
  \\ strip_makespace
  \\ ntac 47 strip_assign
  \\ make_tailcall
- \\ ntac 2
+ \\ ntac 3
     (strip_call
     \\ ntac 9 strip_assign
     \\ make_if
     \\ UNABBREV_ALL_TAC)
  \\ ntac 6 strip_assign
- \\ ntac 2
+ \\ ntac 3
     (open_tailcall
     \\ ntac 4 strip_assign
     \\ make_if
@@ -522,6 +522,9 @@ in
   \\ simp []
   \\ IF_CASES_TAC >- (simp [data_safe_def,size_of_def,frame_lookup] \\ EVAL_TAC)
   \\ REWRITE_TAC [to_shallow_def]
+  \\ strip_makespace
+  \\ ntac 3 strip_assign
+  \\ make_tailcall
   \\ ntac 2
      (strip_makespace
      \\ ntac 4 strip_assign
