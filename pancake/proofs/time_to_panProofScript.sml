@@ -1834,26 +1834,6 @@ Definition out_signals_ffi_def:
           (terms_out_signals tms)
 End
 
-(*
-Theorem comp_input_term_correct:
-  ∀s n cnds tclks dest wt s' t (clkvals:'a v list) clks.
-    evalTerm s (SOME n)
-             (Tm (Input n) cnds tclks dest wt) s' ∧
-    FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
-    maxClksSize clkvals ∧
-    clock_bound s.clocks clks (dimword (:'a)) ∧
-    time_range wt (dimword (:'a)) ∧
-    equiv_val s.clocks clks clkvals ∧
-    valid_clks clks tclks wt ∧
-    toString dest IN FDOM t.code ⇒
-      evaluate (compTerm clks (Tm (Input n) cnds tclks dest wt), t) =
-      (SOME (Return (retVal s clks tclks wt dest)),
-       t with locals :=
-       restore_from t FEMPTY [«waitTimes»; «newClks»; «wakeUpAt»; «waitSet»])
-Proof
-QED
-*)
-
 
 Theorem pick_term_thm:
   ∀s e tms s'.
@@ -1948,6 +1928,7 @@ Proof
     cases_on ‘e’ >> fs []
     >- (
       rw [] >>
+      fs [] >>
       last_x_assum (qspecl_then [‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
       gs [] >>
       impl_tac
@@ -1975,6 +1956,7 @@ Proof
       gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
           timeLangTheory.termConditions_def]) >>
     rw [] >>
+    fs [] >>
     last_x_assum (qspecl_then [‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
     gs [] >>
     impl_tac
@@ -2002,7 +1984,232 @@ Proof
   rpt gen_tac
   >- (
     strip_tac >>
+    rw [] >>
+    gs [] >>
+    cheat) >>
+  cheat
+QED
+
+
+
+(*
+  pickTerm s NONE (Tm (Input in_signal) cnds clks dest diffs'::tms) s'
+  pickTerm s NONE tms s'
+
+  evaluate
+  (If
+  (compConditions clks' «clks» cnds)
+    (compTerm clks' (Tm (Input in_signal) cnds clks dest diffs'))
+    (compTerms clks' «clks» tms),t)
+*)
+
+
+Theorem pick_term_thm:
+  ∀s e tms s'.
+    pickTerm s e tms s' ⇒
+    pickTerm s e tms s' ⇒
+    (∀(t :('a, 'b) panSem$state) clks clkvals.
+       conds_eval_lt_dimword (:'a) s tms ∧
+       conds_clks_mem_clks clks tms ∧
+       terms_time_range (:'a) tms ∧
+       terms_valid_clocks clks tms ∧
+       locs_in_code t.code tms ∧
+       FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+       equiv_val s.clocks clks clkvals ∧
+       maxClksSize clkvals ∧
+       clock_bound s.clocks clks (dimword (:'a)) ∧
+       out_signals_ffi t tms ⇒
+       (e = NONE ⇒
+        ∃out cnds tclks dest wt.
+          MEM (Tm (Output out) cnds tclks dest wt) tms ∧
+          ∃bytes nbytes nffi.
+            evaluate (compTerms clks «clks» tms, t) =
+            (SOME (Return (retVal s clks tclks wt dest)),
+             t with
+               <|locals :=
+                 restore_from t FEMPTY [«len2»; «ptr2»; «len1»; «ptr1»;
+                                        «waitTimes»; «newClks»; «wakeUpAt»; «waitSet»];
+                 memory := write_bytearray 4000w nbytes t.memory t.memaddrs t.be;
+                 ffi := nffi_state t nffi out bytes nbytes|>)) ∧
+       (∀n. e = SOME n ⇒
+            ∃cnds tclks dest wt.
+              MEM (Tm (Input n) cnds tclks dest wt) tms ∧
+              evaluate (compTerms clks «clks» tms, t) =
+              (SOME (Return (retVal s clks tclks wt dest)),
+               t with locals :=
+               restore_from t FEMPTY [«waitTimes»; «newClks»; «wakeUpAt»; «waitSet»])))
+Proof
+  ho_match_mp_tac pickTerm_ind >>
+  rpt gen_tac >>
+  strip_tac >>
+  rpt gen_tac
+  >- (
+    strip_tac >>
+    strip_tac >>
     fs [] >>
+    rw [] >>
+    MAP_EVERY qexists_tac
+              [‘cnds’, ‘clks’, ‘dest’, ‘diffs'’] >>
+    fs [] >>
+    match_mp_tac pickTerm_input_cons_correct >>
+    qexists_tac ‘s'’ >>
+    qexists_tac ‘clkvals’ >>
+    gs [] >>
+    conj_tac
+    >- gs [conds_eval_lt_dimword_def, timeLangTheory.termConditions_def] >>
+    conj_tac
+    >- gs [conds_clks_mem_clks_def, timeLangTheory.termConditions_def] >>
+    conj_tac
+    >- gs [terms_time_range_def, timeLangTheory.termWaitTimes_def] >>
+    conj_tac
+    >- gs [terms_valid_clocks_def, timeLangTheory.termClks_def,
+           timeLangTheory.termWaitTimes_def] >>
+    gs [locs_in_code_def, timeLangTheory.termDest_def]) >>
+  strip_tac >>
+  rpt gen_tac
+  >- (
+    strip_tac >>
+    strip_tac >>
+    fs [] >>
+    rw [] >>
+    MAP_EVERY qexists_tac
+              [‘out_signal’, ‘cnds’, ‘clks’, ‘dest’, ‘diffs'’] >>
+    fs [] >>
+    match_mp_tac pickTerm_output_cons_correct >>
+    qexists_tac ‘s'’ >>
+    qexists_tac ‘clkvals’ >>
+    qexists_tac ‘ffi_name’ >>
+    gs [] >>
+    conj_tac
+    >- gs [conds_eval_lt_dimword_def, timeLangTheory.termConditions_def] >>
+    conj_tac
+    >- gs [conds_clks_mem_clks_def, timeLangTheory.termConditions_def] >>
+    conj_tac
+    >- gs [terms_time_range_def, timeLangTheory.termWaitTimes_def] >>
+    conj_tac
+    >- gs [terms_valid_clocks_def, timeLangTheory.termClks_def,
+           timeLangTheory.termWaitTimes_def] >>
+    conj_tac
+    >- gs [locs_in_code_def, timeLangTheory.termDest_def] >>
+    gs [out_signals_ffi_def, timeLangTheory.terms_out_signals_def]) >>
+  strip_tac >>
+  rpt gen_tac
+  >- (
+    strip_tac >>
+    strip_tac >>
+    fs [] >>
+    cases_on ‘e’ >> fs []
+    >- (
+      rw [] >>
+      ‘pickTerm s NONE tms s'’ by (
+        gs [Once pickTerm_cases] >>
+        rveq >> gs [] >>
+        fs [EXISTS_MEM] >>
+        gs [EVERY_MEM]) >>
+      fs [] >>
+      last_x_assum (qspecl_then [‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+      gs [] >>
+      impl_tac
+      >- (
+      gs [conds_eval_lt_dimword_def, conds_clks_mem_clks_def,
+          terms_time_range_def, terms_valid_clocks_def,
+          locs_in_code_def, out_signals_ffi_def] >>
+      cases_on ‘ioAction’ >>
+      gs [timeLangTheory.terms_out_signals_def]) >>
+      strip_tac >>
+      MAP_EVERY qexists_tac
+                [‘out’, ‘cnds'’, ‘tclks’, ‘dest'’, ‘wt’] >>
+      fs [] >>
+      MAP_EVERY qexists_tac
+                [‘bytes’, ‘nbytes’, ‘nffi’] >>
+      (* we can have a separate theorem *)
+      fs [compTerms_def] >>
+      fs [Once evaluate_def] >>
+      fs [timeLangTheory.termConditions_def] >>
+      ‘eval t (compConditions clks' «clks» cnds) = SOME (ValWord 0w)’
+        suffices_by fs [] >>
+      match_mp_tac comp_conditions_false_correct >>
+      gs [] >>
+      qexists_tac ‘s’ >>
+      gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
+          timeLangTheory.termConditions_def]) >>
+    rw [] >>
+    ‘pickTerm s (SOME x) tms s'’ by (
+      gs [Once pickTerm_cases] >>
+      rveq >> gs [] >>
+      fs [EXISTS_MEM] >>
+      gs [EVERY_MEM]) >>
+    fs [] >>
+    last_x_assum (qspecl_then [‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+    gs [] >>
+    impl_tac
+    >- (
+    gs [conds_eval_lt_dimword_def, conds_clks_mem_clks_def,
+        terms_time_range_def, terms_valid_clocks_def,
+        locs_in_code_def, out_signals_ffi_def] >>
+    cases_on ‘ioAction’ >>
+    gs [timeLangTheory.terms_out_signals_def]) >>
+    strip_tac >>
+    MAP_EVERY qexists_tac
+              [‘cnds'’, ‘tclks’, ‘dest'’, ‘wt’] >>
+    fs [] >>
+    fs [compTerms_def] >>
+    fs [Once evaluate_def] >>
+    fs [timeLangTheory.termConditions_def] >>
+    ‘eval t (compConditions clks' «clks» cnds) = SOME (ValWord 0w)’
+      suffices_by fs [] >>
+    match_mp_tac comp_conditions_false_correct >>
+    gs [] >>
+    qexists_tac ‘s’ >>
+    gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
+        timeLangTheory.termConditions_def]) >>
+  strip_tac >>
+  rpt gen_tac
+  >- (
+    strip_tac >>
+    strip_tac >>
+    fs [] >>
+    rw [] >>
+    gs []
+    >- (
+    ‘pickTerm s NONE tms s'’ by
+       fs [Once pickTerm_cases] >>
+    fs [] >>
+    fs [compTerms_def] >>
+
+
+
+    reverse (cases_on ‘EVERY (λcnd. evalCond s cnd) cnds’)
+    >- (
+      fs [] >>
+      ‘pickTerm s NONE tms s'’ by (
+        gs [Once pickTerm_cases] >>
+        rveq >> gs [] >>
+        fs [EXISTS_MEM] >>
+        gs [EVERY_MEM]) >>
+
+
+
+      )
+
+
+
+
+
+
+    ‘pickTerm s NONE tms s'’ by cheat >>
+    fs [] >>
+    cheat) >>
+    cheat) >>
+  cheat
+QED
+
+
+
+    )
+
+
+
     cheat) >>
   strip_tac >>
   gs [] >>
