@@ -1577,6 +1577,8 @@ Proof
 QED
 
 Theorem fp_assoc_gen_correct_unfold = REWRITE_RULE [fp_assoc_gen_def] fp_assoc_gen_correct;
+Theorem fp_assoc_gen_correct_unfold_add = REWRITE_RULE [icing_optimisationsTheory.fp_assoc_gen_def] (Q.SPEC ‘FP_Add’ fp_assoc_gen_correct);
+Theorem fp_assoc_gen_correct_unfold_mul = REWRITE_RULE [icing_optimisationsTheory.fp_assoc_gen_def] (Q.SPEC ‘FP_Mul’ fp_assoc_gen_correct);
 
 Theorem fp_assoc2_gen_correct:
   ∀ fpBop st1 st2 env e r.
@@ -1586,6 +1588,10 @@ Proof
 QED
 
 Theorem fp_assoc2_gen_correct_unfold = REWRITE_RULE [fp_assoc2_gen_def] fp_assoc2_gen_correct;
+Theorem fp_assoc2_gen_correct_unfold_add =
+  REWRITE_RULE [reverse_tuple_def, fp_assoc_gen_def, fp_assoc2_gen_def] (Q.SPEC ‘FP_Add’ fp_assoc2_gen_correct);
+Theorem fp_assoc2_gen_correct_unfold_mul =
+  REWRITE_RULE [reverse_tuple_def, fp_assoc_gen_def, fp_assoc2_gen_def] (Q.SPEC ‘FP_Mul’ fp_assoc2_gen_correct);
 
 Theorem fp_fma_intro_correct:
   ∀ st1 st2 env e r.
@@ -2170,6 +2176,7 @@ QED
 
 Theorem fp_distribute_gen_correct_unfold =
         REWRITE_RULE [fp_distribute_gen_def] fp_distribute_gen_correct;
+Theorem fp_distribute_gen_correct_unfold_add = REWRITE_RULE [icing_optimisationsTheory.fp_distribute_gen_def] (Q.SPECL [‘FP_Mul’, ‘FP_Add’] fp_distribute_gen_correct);
 
 Theorem fp_undistribute_gen_correct:
   ∀ fpBop1 fpBop2 st1 st2 env e r.

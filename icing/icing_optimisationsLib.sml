@@ -94,10 +94,15 @@ fun mk_plan_correct_thm plan_list :(term * thm)=
           val corr_thms:thm list = rand p1
             |> dest_pair |> #2 (* extract the rewrites *)
             |> listSyntax.dest_list |> #1
-            |> map (fn t => DB.apropos_in t (DB.thy "icing_optimisationProofs")) (* Look up correctness theorems *)
+            |> map (fn t => (t, DB.apropos_in t (DB.thy "icing_optimisationProofs"))) (* Look up correctness theorems *)
+            |> map (fn (t, thms) =>
+                (print_term t; print (":\n"); map (fn d => print_thm (#1 (#2 d))) thms; thms))
             |> map (fn datas => if (length datas <> 1)
-                      then raise Feedback.mk_HOL_ERR "" "" "Too many matching theorems"
+                      then if (length datas = 0)
+                          then raise Feedback.mk_HOL_ERR "" "" "Not enough matching theorems"
+                          else raise Feedback.mk_HOL_ERR "" "" "Too many matching theorems"
                       else #1 (#2 (hd datas)))
+
             (* |> (fn datas => if (length datas <> 1) then raise ERR "Too many matching theorems" ""
                             else datas)*)
           (* Join the theorems into a single theorem about each of them*)
