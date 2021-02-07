@@ -102,19 +102,6 @@ Definition well_behaved_ffi_def:
 End
 
 
-(*
-Definition well_behaved_ffi_def:
-  well_behaved_ffi ffi_name s nffi nbytes bytes n (m:num) <=>
-  explode ffi_name ≠ "" /\ n < m /\
-  read_bytearray ffiBufferAddr n
-                 (mem_load_byte s.memory s.memaddrs s.be) =
-  SOME bytes /\
-  s.ffi.oracle (explode ffi_name) s.ffi.ffi_state [] bytes =
-  Oracle_return nffi nbytes /\
-  LENGTH nbytes = LENGTH bytes
-End
-*)
-
 Definition ffi_return_state_def:
   ffi_return_state s ffi_name bytes nbytes nffi =
   s with
@@ -147,7 +134,7 @@ Definition code_installed_def:
       FLOOKUP code (toString loc) =
       SOME ([(«clks», genShape n);
              («event», One)],
-            compTerms clks «clks» tms)
+            compTerms clks «clks» «event» tms)
 End
 
 
@@ -164,7 +151,8 @@ Definition time_vars_def:
   time_vars fm ⇔
   (∃st. FLOOKUP fm «sysTime»  = SOME (ValWord st)) ∧
   (∃wt. FLOOKUP fm «wakeUpAt» = SOME (ValWord wt)) ∧
-  (∃io. FLOOKUP fm «isInput»  = SOME (ValWord io))
+  (∃io. FLOOKUP fm «event»    = SOME (ValWord io)) ∧
+  (∃i.  FLOOKUP fm «isInput»  = SOME (ValWord i))
 End
 
 
@@ -215,7 +203,7 @@ Definition equivs_def:
 End
 
 Definition time_seq_def:
-  time_seq (f:num -> num # bool) m ⇔
+  time_seq (f:num -> num # num) m ⇔
   (∀n. ∃d. FST (f (SUC n)) = FST (f n) + d) ∧
   (∀n. FST (f n) < m)
 End
@@ -248,18 +236,27 @@ Definition state_rel_def:
 End
 
 Definition nexts_ffi_def:
-  nexts_ffi m (f:num -> (num # bool)) =
+  nexts_ffi m (f:num -> (num # num)) =
   λn. f (n+m)
 End
+
 
 
 Definition delay_rep_def:
   delay_rep m (d:num) (seq:time_input) cycles ⇔
     FST (seq cycles) = d + FST (seq 0) ∧
     FST (seq cycles) < m ∧
-    ∀i. i < cycles ⇒ ¬SND (seq i)
+    ∀i. i < cycles ⇒ SND (seq i) = 0
 End
 
+(*
+Definition delay_rep_def:
+  delay_rep m (d:num) (seq:time_input) cycles ⇔
+    FST (seq cycles) = d + FST (seq 0) ∧
+    FST (seq cycles) < m ∧
+    ∀i. i < cycles ⇒ ¬SND (seq i)
+End
+*)
 
 Definition wakeup_rel_def:
   (wakeup_rel fm m NONE (seq:time_input) cycles = T) ∧
@@ -1606,7 +1603,7 @@ Proof
   cheat
 QED
 
-
+(*
 Theorem pickTerm_output_cons_correct:
   ∀s out cnds tclks dest wt s' t (clkvals:'a v list) clks
    ffi_name nffi nbytes bytes tms.
@@ -1681,8 +1678,7 @@ Proof
   drule_all comp_input_term_correct >>
   fs []
 QED
-
-
+*)
 
 Theorem comp_condition_false_correct:
   ∀s cnd (t:('a,'b) panSem$state) clks clkvals.
@@ -1835,7 +1831,7 @@ Definition out_signals_ffi_def:
           (terms_out_signals tms)
 End
 
-
+(*
 Theorem pick_term_thm:
   ∀s e tms s'.
     pickTerm s e tms s' ⇒
@@ -1990,7 +1986,7 @@ Proof
     cheat) >>
   cheat
 QED
-
+*)
 
 (* step theorems *)
 
@@ -2110,11 +2106,11 @@ Proof
 QED
 
 Definition mem_call_ffi_def:
-  mem_call_ffi (:α) mem adrs be ffi  =
+  mem_call_ffi (:α) mem adrs be (ffi: (num -> num # num)) =
     write_bytearray
     ffiBufferAddr
     (get_bytes (:α) be ((n2w (FST (ffi 0))):'a word) ++
-     get_bytes (:α) be (if SND (ffi (0:num)) then 0w else (1w:'a word)))
+     get_bytes (:α) be ((n2w (SND (ffi 0))):'a word))
     mem adrs be
 End
 
@@ -2127,9 +2123,8 @@ Definition ffi_call_ffi_def:
           [IO_event "get_ffi" []
            (ZIP
             (bytes,
-             get_bytes (:α) be ((n2w (FST (ffi.ffi_state 0))):'a word) ++
-                       get_bytes (:α) be
-                       (if SND (ffi.ffi_state (0:num)) then 0w else (1w:'a word))))]|>
+             get_bytes (:α) be ((n2w (FST (ffi.ffi_state (0:num)))):'a word) ++
+             get_bytes (:α) be ((n2w (SND (ffi.ffi_state 0))):'a word)))]|>
 
 End
 
@@ -2191,11 +2186,11 @@ QED
 
 
 Theorem evaluate_assign_load_next_address:
-  ∀dst trgt (t :('a, time_input) panSem$state) res t' adr tm w.
+  ∀dst trgt (t :('a, time_input) panSem$state) res t' adr w.
     evaluate (Assign dst
               (Load One (Op Add [Var trgt ; Const bytes_in_word])),t) = (res,t') ∧
     FLOOKUP t.locals trgt = SOME (ValWord adr) ∧
-    FLOOKUP t.locals dst = SOME (ValWord tm) ∧
+    (∃tm. FLOOKUP t.locals dst = SOME (ValWord tm)) ∧
     t.memory (adr + bytes_in_word) = Word w ∧
     adr + bytes_in_word ∈ t.memaddrs ⇒
       res = NONE ∧
@@ -2209,6 +2204,31 @@ Proof
   gs [mem_load_def, wordLangTheory.word_op_def] >>
   gs [is_valid_value_def, shape_of_def]
 QED
+
+
+Theorem evaluate_assign_compare_next_address:
+  ∀dst trgt (t :('a, time_input) panSem$state) res t' adr n.
+    evaluate (Assign dst
+              (Cmp Equal
+               (Load One (Op Add [Var trgt ; Const bytes_in_word]))
+               (Const n)),t) = (res,t') ∧
+    FLOOKUP t.locals trgt = SOME (ValWord adr) ∧
+    (∃tm. FLOOKUP t.locals dst = SOME (ValWord tm)) ∧
+    t.memory (adr + bytes_in_word) = Word n ∧
+    adr + bytes_in_word ∈ t.memaddrs ⇒
+      res = NONE ∧
+      t' = t with locals :=
+           t.locals |+
+            (dst, ValWord 1w)
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  gs [evaluate_def, eval_def, OPT_MMAP_def] >>
+  gs [mem_load_def, wordLangTheory.word_op_def] >>
+  gs [is_valid_value_def, shape_of_def] >>
+  fs [asmTheory.word_cmp_def]
+QED
+
 
 Theorem time_seq_add_holds:
   ∀f m p.
@@ -2358,7 +2378,6 @@ Proof
 QED
 
 
-
 Definition mem_read_ffi_results_def:
   mem_read_ffi_results  (:'a) ffi (cycles:num) ⇔
   ∀i (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state).
@@ -2370,7 +2389,7 @@ Definition mem_read_ffi_results_def:
     t'.memory ffiBufferAddr =
     Word (n2w (FST (nexts_ffi i ffi 0))) ∧
     t'.memory (bytes_in_word + ffiBufferAddr) =
-    Word (if SND (nexts_ffi i ffi 0) then 0w else 1w)
+    Word (n2w (SND (nexts_ffi i ffi 0)))
 End
 
 
@@ -2539,13 +2558,13 @@ Proof
     strip_tac >> fs [] >>
     pop_assum kall_tac >>
     pop_assum kall_tac >>
-    (* reading input *)
+    (* reading input to the variable event *)
     rewrite_tac [Once evaluate_def] >>
     fs [] >>
     pairarg_tac >> fs [] >>
-    qmatch_asmsub_abbrev_tac ‘evaluate (Assign «isInput» _, nnt)’ >>
+    qmatch_asmsub_abbrev_tac ‘evaluate (Assign «event» _, nnt)’ >>
     ‘nnt.memory (ffiBufferAddr +  bytes_in_word) =
-     Word (if SND (t'.ffi.ffi_state 0) then 0w else 1w)’ by (
+     Word (n2w (SND(t'.ffi.ffi_state 0)))’ by (
       fs [Abbr ‘nnt’, Abbr ‘nt’] >>
       qpat_x_assum ‘mem_read_ffi_results _ _ _’ assume_tac >>
       gs [mem_read_ffi_results_def] >>
@@ -2563,12 +2582,37 @@ Proof
     drule evaluate_assign_load_next_address >>
     gs [] >>
     disch_then (qspecl_then
-                [‘ffiBufferAddr’, ‘1w’,
-                 ‘1w’] mp_tac) >>
+                [‘ffiBufferAddr’,
+                 ‘n2w (SND (nexts_ffi cycles t.ffi.ffi_state 0))’] mp_tac) >>
     impl_tac
     >- (
       gs [Abbr ‘nnt’,Abbr ‘nt’, active_low_def] >>
-      gs [state_rel_def, FLOOKUP_UPDATE] >>
+      gs [state_rel_def, time_vars_def, FLOOKUP_UPDATE] >>
+      gs [delay_rep_def, nexts_ffi_def]) >>
+    strip_tac >>
+    gs [] >>
+    pop_assum kall_tac >>
+    pop_assum kall_tac >>
+    (* isInput *)
+    rewrite_tac [Once evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    qmatch_asmsub_abbrev_tac ‘evaluate (Assign «isInput» _, nnnt)’ >>
+    ‘nnnt.memory (ffiBufferAddr +  bytes_in_word) =
+     Word (n2w (SND(t'.ffi.ffi_state 0)))’ by fs [Abbr ‘nnnt’] >>
+    gs [] >>
+    ‘nnnt.memory (ffiBufferAddr +  bytes_in_word) = Word 0w’ by (
+      gs [delay_rep_def] >>
+      last_x_assum (qspec_then ‘cycles’ mp_tac) >>
+      fs [nexts_ffi_def]) >>
+    fs [] >>
+    drule evaluate_assign_compare_next_address >>
+    gs [] >>
+    disch_then (qspecl_then [‘ffiBufferAddr’] mp_tac) >>
+    impl_tac
+    >- (
+      gs [Abbr ‘nnnt’, Abbr ‘nnt’,Abbr ‘nt’, active_low_def] >>
+      gs [state_rel_def, time_vars_def, FLOOKUP_UPDATE] >>
       gs [delay_rep_def, nexts_ffi_def]) >>
     strip_tac >>
     gs [] >>
@@ -2578,7 +2622,8 @@ Proof
     fs [] >>
     strip_tac >> fs [] >>
     rveq >> gs [] >>
-    fs [Abbr ‘nnt’, Abbr ‘nt’] >>
+    unabbrev_all_tac >>
+    gs [] >>
     qmatch_goalsub_abbrev_tac ‘evaluate (_, nt)’ >>
     qexists_tac ‘nt with clock := t'.clock’ >>
     fs [] >>
@@ -2744,6 +2789,10 @@ Proof
     qpat_x_assum ‘sd ≤ d’ assume_tac >>
     gs [delay_rep_def] >>
     gs [ADD1]) >>
+
+
+
+
   ‘step prog (LDelay sd) s
    (mkState (delay_clocks s.clocks sd) s.location NONE (SOME (w - sd)))’ by (
     gs [mkState_def] >>
@@ -2872,44 +2921,67 @@ Proof
                ‘n2w (FST (t'.ffi.ffi_state 0))’] mp_tac) >>
   impl_tac
   >- (
-    gs [Abbr ‘nt’] >>
-    fs [state_rel_def]) >>
+  gs [Abbr ‘nt’] >>
+  fs [state_rel_def]) >>
   strip_tac >> fs [] >>
   pop_assum kall_tac >>
   pop_assum kall_tac >>
-  (* reading input *)
+  (* reading input to the variable event *)
   rewrite_tac [Once evaluate_def] >>
   fs [] >>
   pairarg_tac >> fs [] >>
-  qmatch_asmsub_abbrev_tac ‘evaluate (Assign «isInput» _, nnt)’ >>
-
+  qmatch_asmsub_abbrev_tac ‘evaluate (Assign «event» _, nnt)’ >>
   ‘nnt.memory (ffiBufferAddr +  bytes_in_word) =
-     Word (if SND (t'.ffi.ffi_state 0) then 0w else 1w)’ by (
-      fs [Abbr ‘nnt’, Abbr ‘nt’] >>
-
-      qpat_x_assum ‘mem_read_ffi_results _ _ _’ assume_tac >>
-      gs [mem_read_ffi_results_def] >>
-      qmatch_asmsub_abbrev_tac ‘evaluate (ExtCall _ _ _ _ _, _) = (_, ft)’ >>
-      last_x_assum
-      (qspecl_then
-       [‘cycles’,
-        ‘t' with clock := ck_extra + t'.clock’,
-        ‘ft’] mp_tac)>>
-      impl_tac
-      >- gs [Abbr ‘ft’] >>
-      strip_tac >>
-      gs [Abbr ‘ft’]) >>
-    gs [] >>
+   Word (n2w (SND(t'.ffi.ffi_state 0)))’ by (
+    fs [Abbr ‘nnt’, Abbr ‘nt’] >>
+    qpat_x_assum ‘mem_read_ffi_results _ _ _’ assume_tac >>
+    gs [mem_read_ffi_results_def] >>
+    qmatch_asmsub_abbrev_tac ‘evaluate (ExtCall _ _ _ _ _, _) = (_, ft)’ >>
+    last_x_assum
+    (qspecl_then
+     [‘cycles’,
+      ‘t' with clock := ck_extra + t'.clock’,
+      ‘ft’] mp_tac)>>
+    impl_tac
+    >- gs [Abbr ‘ft’] >>
+    strip_tac >>
+    gs [Abbr ‘ft’]) >>
+  gs [] >>
   drule evaluate_assign_load_next_address >>
   gs [] >>
   disch_then (qspecl_then
-              [‘ffiBufferAddr’, ‘1w’,
-               ‘1w’] mp_tac) >>
+              [‘ffiBufferAddr’,
+               ‘n2w (SND (nexts_ffi cycles t.ffi.ffi_state 0))’] mp_tac) >>
   impl_tac
   >- (
-    gs [Abbr ‘nnt’,Abbr ‘nt’, active_low_def] >>
-    gs [state_rel_def, FLOOKUP_UPDATE] >>
-    gs [delay_rep_def, nexts_ffi_def]) >>
+  gs [Abbr ‘nnt’,Abbr ‘nt’, active_low_def] >>
+  gs [state_rel_def, time_vars_def, FLOOKUP_UPDATE] >>
+  gs [delay_rep_def, nexts_ffi_def]) >>
+  strip_tac >>
+  gs [] >>
+  pop_assum kall_tac >>
+  pop_assum kall_tac >>
+  (* isInput *)
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  qmatch_asmsub_abbrev_tac ‘evaluate (Assign «isInput» _, nnnt)’ >>
+  ‘nnnt.memory (ffiBufferAddr +  bytes_in_word) =
+   Word (n2w (SND(t'.ffi.ffi_state 0)))’ by fs [Abbr ‘nnnt’] >>
+  gs [] >>
+  ‘nnnt.memory (ffiBufferAddr +  bytes_in_word) = Word 0w’ by (
+    gs [delay_rep_def] >>
+    last_x_assum (qspec_then ‘cycles’ mp_tac) >>
+    fs [nexts_ffi_def]) >>
+  fs [] >>
+  drule evaluate_assign_compare_next_address >>
+  gs [] >>
+  disch_then (qspecl_then [‘ffiBufferAddr’] mp_tac) >>
+  impl_tac
+  >- (
+  gs [Abbr ‘nnnt’, Abbr ‘nnt’,Abbr ‘nt’, active_low_def] >>
+  gs [state_rel_def, time_vars_def, FLOOKUP_UPDATE] >>
+  gs [delay_rep_def, nexts_ffi_def]) >>
   strip_tac >>
   gs [] >>
   pop_assum kall_tac >>
@@ -2918,7 +2990,8 @@ Proof
   fs [] >>
   strip_tac >> fs [] >>
   rveq >> gs [] >>
-  fs [Abbr ‘nnt’, Abbr ‘nt’] >>
+  unabbrev_all_tac >>
+  gs [] >>
   qmatch_goalsub_abbrev_tac ‘evaluate (_, nt)’ >>
   qexists_tac ‘nt with clock := t'.clock’ >>
   fs [] >>

@@ -6,16 +6,14 @@ open preamble
 val _ = new_theory "ffiTime";
 
 val _ = set_grammar_ancestry
-        ["panSem",
-         "multiword"];
+        ["panSem"];
 
-Type time_input = ``:num -> num # bool``
 
+Type time_input = ``:num -> num # num``
+(* Type time_input = ``:num -> num # bool`` *)
 Type time_input_ffi = ``:time_input ffi_state``
 
 Type pan_state = ``:('a, time_input) panSem$state``
-
-Overload k2mw = “multiword$k2mw”
 
 
 Definition get_bytes_def:
@@ -28,6 +26,17 @@ End
 
 
 Definition time_input_def:
+  time_input (:'a) be (f:num -> num # num) =
+  let
+    t = n2w (FST (f 0)):'a word;
+    b = n2w (SND (f 0)):'a word;
+  in
+    get_bytes (:'a) be t ++
+    get_bytes (:'a) be b
+End
+
+(*
+Definition time_input_def:
   time_input (:'a) be (f:num -> num # bool) =
   let
     t = n2w (FST (f 0)):'a word;
@@ -36,9 +45,9 @@ Definition time_input_def:
     get_bytes (:'a) be t ++
     get_bytes (:'a) be b
 End
-
+*)
 Definition next_ffi_def:
-  next_ffi (f:num -> (num # bool)) =
+  next_ffi (f:num -> (num # num)) =
     λn. f (n+1)
 End
 
