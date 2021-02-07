@@ -71,6 +71,10 @@ Definition termDest_def:
   (termDest (Tm _ _ _ loc _) = loc)
 End
 
+Definition termAction_def:
+  (termAction (Tm io _ _ _ _) = io)
+End
+
 
 Definition terms_out_signals_def:
   (terms_out_signals [] = []) ∧

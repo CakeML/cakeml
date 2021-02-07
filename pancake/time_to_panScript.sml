@@ -10,6 +10,7 @@ val _ = new_theory "time_to_pan"
 val _ = set_grammar_ancestry
         ["pan_common", "mlint", "timeLang", "panLang"];
 
+
 Definition ohd_def:
   (ohd [] = (0:num,[])) ∧
   (ohd (x::xs) = x)
@@ -141,22 +142,44 @@ Definition compConditions_def:
      Op And (MAP (compCondition clks vname) cs))
 End
 
+
+Definition compAction_def:
+  (compAction (Output _) = Const 0w) ∧
+  (compAction (Input n)  = Const (n2w (n + 1)))
+End
+
+
+Definition event_match_def:
+  event_match vname act = Cmp Equal (Var vname) (compAction act)
+End
+
+
+Definition pick_term_def:
+  pick_term clks cname ename cds act =
+    Op And
+       [compConditions clks cname cds;
+        event_match ename act]
+End
+
 Definition compTerms_def:
-  (compTerms clks vname [] = Skip) ∧
-  (compTerms clks vname (t::ts) =
-   let cds = termConditions t
+  (compTerms clks cname ename [] = Skip) ∧
+  (compTerms clks cname ename (t::ts) =
+   let
+     cds = termConditions t;
+     act = termAction t
    in
-   If (compConditions clks vname cds)
-      (compTerm clks t)
-      (compTerms clks vname ts))
+     If (pick_term clks cname ename cds act)
+     (compTerm clks t)
+     (compTerms clks cname ename ts))
 End
 
 Definition compLocation_def:
   compLocation clks (loc,ts) =
   let n = LENGTH clks in
     (toString loc,
-     [(«clks», genShape n)],
-     compTerms clks «clks» ts)
+     [(«clks», genShape n);
+      («event», One)],
+     compTerms clks «clks» «event» ts)
 End
 
 Definition compProg_def:
@@ -193,6 +216,31 @@ Definition adjustClks_def:
 End
 
 
+
+(* isInput is 1 when there is no input
+   ffi is zero when no input,
+   and if input then it should be a number
+   Cmp (Var «event»)
+*)
+
+Definition check_input_time_def:
+  check_input_time =
+  let time =  Load One (Var «ptr2»);
+      input = Load One
+                   (Op Add [Var «ptr2»;
+                            Const bytes_in_word])
+  in
+    nested_seq [
+        ExtCall «get_ffi» «ptr1» «len1» «ptr2» «len2» ;
+        Assign  «sysTime» time ;
+        Assign  «event»   input;
+        Assign  «isInput» (Cmp Equal input (Const 0w))
+      ]
+End
+
+
+
+(*
 Definition check_input_time_def:
   check_input_time =
     nested_seq [
@@ -203,6 +251,7 @@ Definition check_input_time_def:
                                     Const bytes_in_word]))
       ]
 End
+*)
 
 (*
 Definition check_input_time_def:
@@ -242,7 +291,8 @@ Definition task_controller_def:
     (nested_seq [
         wait_input_time_limit;
         Call (Ret «taskRet» NONE) (Var «loc»)
-             [Struct (normalisedClks «sysTime» «clks» clksLength)];
+             [Struct (normalisedClks «sysTime» «clks» clksLength);
+             Var «event»];
         Assign «clks» (Struct (adjustClks «sysTime» nClks «clks» clksLength));
         Assign «waitSet» nWaitSet ;
         Assign «wakeUpAt» (Op Add [Var «sysTime»; nwakeUpAt]);
@@ -263,6 +313,7 @@ Definition start_controller_def:
     [(«loc», Label (toString initLoc));
      («waitSet»,
       case initWakeUp of NONE => Const 1w | _ => Const 0w);  (* not waitSet *)
+     («event», Const 0w);
      («isInput», Const 1w); (* not isInput, active low *)
      («wakeUpAt», Const 0w);
      («sysTime», Const 0w);
