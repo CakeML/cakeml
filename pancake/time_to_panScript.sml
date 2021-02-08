@@ -238,8 +238,6 @@ Definition check_input_time_def:
       ]
 End
 
-
-
 (*
 Definition check_input_time_def:
   check_input_time =
