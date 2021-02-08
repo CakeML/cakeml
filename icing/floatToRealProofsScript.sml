@@ -153,14 +153,14 @@ val path_goal = “(λ path.
          (∀ (st1:'a semanticPrimitives$state) st2 env exps r.
             is_real_id_list rws st1 st2 env exps r) ⇒
          (∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
-            is_real_id_perform_rewrites rws st1 st2 env (cfg with optimisations := rws) e r path)) ”
+            is_real_id_perform_rewrites rws st1 st2 env cfg e r path)) ”
 val num_path_goal =
 “(λ (n:num, path).
     ∀ rws.
       (∀ (st1:'a semanticPrimitives$state) st2 env exps r.
          is_real_id_list rws st1 st2 env exps r) ⇒
       (∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
-         is_real_id_perform_rewrites rws st1 st2 env (cfg with optimisations := rws) e r path)) ”
+         is_real_id_perform_rewrites rws st1 st2 env cfg e r path)) ”
 
 val simple_goal_tac =
   qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
@@ -200,7 +200,7 @@ Theorem is_real_id_list_perform_rewrites_lift:
      (∀ (st1:'a semanticPrimitives$state) st2 env exps r.
         is_real_id_list rws st1 st2 env exps r) ⇒
      (∀ path (st1:'a semanticPrimitives$state) st2 env cfg e r.
-        is_real_id_perform_rewrites rws st1 st2 env (cfg with optimisations := rws) e r path))
+        is_real_id_perform_rewrites rws st1 st2 env cfg e r path))
 Proof
   mp_tac (Q.SPECL [‘^path_goal’, ‘^num_path_goal’] opt_path_induction)
   \\ impl_tac
@@ -387,22 +387,25 @@ Proof
   \\ COND_CASES_TAC \\ fs[]
   >- (
     rpt strip_tac \\ fs[is_real_id_perform_rewrites_def] \\ res_tac
-    \\ fs[])
+    \\ fs[semanticPrimitivesTheory.state_component_equality,
+        semanticPrimitivesTheory.fpState_component_equality])
   \\ Cases_on ‘(optimise_with_plan cfg plan
-                      (perform_rewrites (cfg with optimisations := r') q r' e))’
+                      (perform_rewrites cfg q r' e))’
   \\ fs[] \\ COND_CASES_TAC
   \\ fs[semanticPrimitivesTheory.state_component_equality,
         semanticPrimitivesTheory.fpState_component_equality]
   \\ rpt strip_tac
   \\ first_x_assum $
        qspecl_then [‘st1’, ‘st2’, ‘env’, ‘cfg’,
-                    ‘perform_rewrites (cfg with optimisations := r') q r' e’, ‘r’]
+                    ‘perform_rewrites cfg q r' e’, ‘r’]
        mp_tac
   \\ fs[] \\ strip_tac
   \\ first_x_assum $ qspecl_then [‘r'’, ‘q’] mp_tac
   \\ impl_tac \\ fs[]
   \\ strip_tac \\ fs[is_real_id_perform_rewrites_def]
-  \\ res_tac \\ fs[]
+  \\ res_tac
+  \\ fs[semanticPrimitivesTheory.state_component_equality,
+        semanticPrimitivesTheory.fpState_component_equality]
 QED
 
 Theorem is_real_id_perform_rewrites_optimise_with_plan_lift:
@@ -438,7 +441,7 @@ Proof
   \\ fs[semState_comp_eq, fpState_component_equality]
 QED
 
-Theorem stos_pass_with_plans_correct:
+Theorem stos_pass_with_plans_real_id:
   ∀ plans.
     (∀ plan.
     MEM plan plans ⇒
@@ -1009,5 +1012,72 @@ Theorem realify_no_optimisations_comm:
 Proof
   metis_tac [realify_no_optimisations_commutes_IMP]
 QED
+
+(* Lemmas needed to automate proof generation *)
+Theorem is_perform_rewrites_id_empty_plan:
+  ! rws path.
+    MEM (Apply (path, rws)) [] ==>
+    ! (st1:'a semanticPrimitives$state) st2 env cfg e r.
+      is_real_id_perform_rewrites rws st1 st2 env cfg e r path
+Proof
+  rpt strip_tac \\ fs[]
+QED
+
+Theorem is_perform_rewrites_correct_cons_real_id:
+  ! rwsNew pathNew plan.
+  (! (st1:'a semanticPrimitives$state) st2 env cfg e r.
+      is_real_id_perform_rewrites rwsNew st1 st2 env cfg e r pathNew) ==>
+  (! rws path.
+     MEM (Apply (path, rws)) plan ==>
+    ! (st1:'a semanticPrimitives$state) st2 env cfg e r.
+      is_real_id_perform_rewrites rws st1 st2 env cfg e r path) ==>
+  (! rws path.
+     MEM (Apply (path, rws)) (Apply (pathNew, rwsNew)::plan) ==>
+    ! (st1:'a semanticPrimitives$state) st2 env cfg e r.
+      is_real_id_perform_rewrites rws st1 st2 env cfg e r path)
+Proof
+  rpt strip_tac \\ fs[]
+QED
+
+Theorem is_perform_rewrites_correct_label_real_id:
+  ! s plan.
+  (! rws path.
+     MEM (Apply (path, rws)) plan ==>
+    ! (st1:'a semanticPrimitives$state) st2 env cfg e r.
+      is_real_id_perform_rewrites rws st1 st2 env cfg e r path) ==>
+  (! rws path.
+     MEM (Apply (path, rws)) (Label s::plan) ==>
+    ! (st1:'a semanticPrimitives$state) st2 env cfg e r.
+      is_real_id_perform_rewrites rws st1 st2 env cfg e r path)
+Proof
+  rpt strip_tac \\ fs[]
+QED
+
+Theorem is_perform_rewrites_correct_expected_real_id:
+  ! e plan.
+  (! rws path.
+     MEM (Apply (path, rws)) plan ==>
+    ! (st1:'a semanticPrimitives$state) st2 env cfg e r.
+      is_real_id_perform_rewrites rws st1 st2 env cfg e r path) ==>
+  (! rws path.
+     MEM (Apply (path, rws)) (Expected e::plan) ==>
+    ! (st1:'a semanticPrimitives$state) st2 env cfg e r.
+      is_real_id_perform_rewrites rws st1 st2 env cfg e r path)
+Proof
+  rpt strip_tac \\ fs[]
+QED
+
+Theorem is_optimise_with_plan_correct_sing_real_id:
+  ! sing_plan.
+    (! (st1:'a semanticPrimitives$state) st2 env cfg exps r.
+    is_real_id_optimise_with_plan sing_plan st1 st2 env cfg exps r) ==>
+    (! plan.
+       MEM plan [sing_plan] ==>
+       ! exps (st1:'a semanticPrimitives$state) st2 env cfg r.
+       is_real_id_optimise_with_plan plan st1 st2 env cfg exps r)
+Proof
+  rpt strip_tac \\ fs[]
+QED
+
 
 val _ = export_theory();

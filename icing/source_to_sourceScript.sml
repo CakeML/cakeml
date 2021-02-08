@@ -210,7 +210,7 @@ Definition optimise_with_plan_def:
     then optimise_with_plan cfg plan e
     else (e, FailExpect ("Not correct expression" , e_opt))) ∧
   optimise_with_plan cfg (Apply (path, rewrites)::rest) e =
-  let e_opt = perform_rewrites (cfg with optimisations := rewrites) path rewrites e in
+  let e_opt = perform_rewrites cfg path rewrites e in
     if e = e_opt then (e, FailOpt ("Single app", path, rewrites))
     else if (rest = [])
     then (e_opt, Success)
@@ -222,9 +222,13 @@ End
 
 Definition stos_pass_with_plans_def:
   stos_pass_with_plans cfg plans [] = [] ∧
+  stos_pass_with_plans cfg [] exps = MAP (λ e. (e, Success)) exps ∧
   stos_pass_with_plans cfg (plan1::plan2::rest) (e1::es) =
     (stos_pass_with_plans cfg [plan1] [e1]) ++
     (stos_pass_with_plans cfg (plan2::rest) es) ∧
+  stos_pass_with_plans cfg (plan1::plans) (e1::e2::es) =
+    (stos_pass_with_plans cfg [plan1] [e1]) ++
+    (stos_pass_with_plans cfg plans (e2::es)) ∧
   stos_pass_with_plans cfg plans [Fun s e] =
   (let (e_opt, res) = HD (stos_pass_with_plans cfg plans [e]) in
       [(Fun s e_opt, res)]) ∧

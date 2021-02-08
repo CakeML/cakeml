@@ -5,8 +5,10 @@ structure exampleLib =
 struct
   open astTheory cfTacticsLib ml_translatorLib;
   open basis_ffiTheory cfHeapsBaseTheory basis;
-  open FloverMapTheory RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
-  open floatToRealProofsTheory source_to_sourceTheory CakeMLtoFloVerTheory cfSupportTheory optPlannerTheory;
+  open FloverMapTheory RealIntervalInferenceTheory ErrorIntervalInferenceTheory
+       CertificateCheckerTheory;
+  open floatToRealProofsTheory source_to_sourceTheory CakeMLtoFloVerTheory
+       cfSupportTheory optPlannerTheory icing_realIdProofsTheory;
   open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
   open supportLib;
 
@@ -227,7 +229,7 @@ struct
                 App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];
                 Var (Short "u")]; Var (Short "b")]))))))])))]’;
 
-  fun define_benchmark theAST_def theAST_pre_def =
+  fun define_benchmark theAST_def theAST_pre_def checkError =
   let
     val theAST = theAST_def |> concl |> rhs
     val theAST_pre = theAST_pre_def |> concl |> rhs
@@ -294,9 +296,11 @@ struct
                              binary_ieeeTheory.float_tests,
                              sptreeTheory.subspt_eq,
                              sptreeTheory.lookup_def];
-  val errorbounds_AST = save_thm ("errorbounds_AST",
-    EVAL (Parse.Term
-       ‘isOkError ^(concl theAST_opt |> rhs) theAST_pre theErrBound’))
+  val errorbounds_AST = if checkError
+    then save_thm ("errorbounds_AST",
+        EVAL (Parse.Term
+          ‘isOkError ^(concl theAST_opt |> rhs) theAST_pre theErrBound’))
+    else CONJ_COMM
   val local_opt_thm = save_thm ("local_opt_thm", mk_local_opt_thm theAST_opt theAST_def);
   val _ =
    supportLib.write_code_to_file true theAST_def theAST_opt
