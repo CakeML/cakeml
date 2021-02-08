@@ -24,7 +24,7 @@ val sum_x64_conf = (rand o rator o lhs o concl) sum_thm
 val _ = install_naming_overloads "sumProg";
 val _ = write_to_file sum_data_prog_def;
 
-val foldl_body = ``lookup_foldl (fromAList sum_data_prog)``
+val foldl_body = ``lookup_List_foldl (fromAList sum_data_prog)``
            |> (REWRITE_CONV [sum_data_code_def] THENC EVAL)
            |> concl |> rhs |> rand |> rand
 
@@ -404,7 +404,7 @@ Theorem foldl_evaluate:
     (* Sizes *)
     size_of_stack s.stack = SOME sstack ∧
     s.locals_size = SOME lsize ∧
-    lookup_foldl s.stack_frame_sizes = SOME lsize ∧
+    lookup_List_foldl s.stack_frame_sizes = SOME lsize ∧
     s.stack_max = SOME smax ∧
     s.space = 0 ∧
     (* Arguments *)
@@ -424,7 +424,7 @@ Theorem foldl_evaluate:
     bigest_num_size s.limits il + sum_heap_size s acc il ≤ s.limits.heap_limit ∧
     foldadd_limit_ok s.limits acc il ∧
     (* Code *)
-    lookup_foldl s.code      = SOME (3,foldl_body) ∧
+    lookup_List_foldl s.code = SOME (3,foldl_body) ∧
     lookup_Int_+_clos s.code = SOME (3,Int_plus_clos_body) ∧
     lookup_Int_+ s.code      = SOME (2,Int_plus_body) ∧
     (* Invariants *)
@@ -716,7 +716,7 @@ Theorem data_safe_sum:
        sum_x64_conf
        sum_prog
        (* (s_size,h_size) *)
-       (56,108)
+       (56,112)
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -768,13 +768,13 @@ in
  \\ strip_makespace
  \\ ntac 47 strip_assign
  \\ make_tailcall
- \\ ntac 3
+ \\ ntac 4
     (strip_call
     \\ ntac 9 strip_assign
     \\ make_if
      \\ UNABBREV_ALL_TAC)
   \\ ntac 6 strip_assign
-  \\ ntac 3
+  \\ ntac 4
      (open_tailcall
      \\ ntac 4 strip_assign
      \\ make_if
@@ -786,6 +786,9 @@ in
   \\ simp []
   \\ IF_CASES_TAC >- (simp [data_safe_def,size_of_def,frame_lookup] \\ EVAL_TAC)
   \\ REWRITE_TAC [to_shallow_def]
+  \\ strip_makespace
+  \\ ntac 3 strip_assign
+  \\ make_tailcall
   \\ ntac 3
      (strip_makespace
      \\ ntac 4 strip_assign

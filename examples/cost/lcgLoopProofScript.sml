@@ -2557,7 +2557,7 @@ val lcgLoop_x64_conf = (rand o rator o lhs o concl) lcgLoop_thm
 Theorem data_safe_lcgLoop:
   ∀ffi.
   backend_config_ok ^lcgLoop_x64_conf
-  ⇒ is_safe_for_space ffi ^lcgLoop_x64_conf ^lcgLoop (65,171)
+  ⇒ is_safe_for_space ffi ^lcgLoop_x64_conf ^lcgLoop (65,175)
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -2608,7 +2608,7 @@ in
  \\ strip_makespace
  \\ ntac 47 strip_assign
  \\ make_tailcall
- \\ ntac 11
+ \\ ntac 12
     (strip_call
     \\ ntac 9 strip_assign
     \\ make_if
@@ -2618,7 +2618,7 @@ in
  \\ ntac 9 strip_assign
  \\ make_if
  \\ ntac 6 strip_assign
- \\ ntac 12
+ \\ ntac 13
     (open_tailcall
      \\ ntac 4 strip_assign
      \\ make_if
@@ -2628,6 +2628,9 @@ in
   \\ make_if
   \\ Q.UNABBREV_TAC `rest_call`
   \\ strip_assign
+  \\ make_tailcall
+  \\ strip_makespace
+  \\ ntac 3 strip_assign
   \\ make_tailcall
   \\ ntac 11
      (strip_makespace
@@ -2653,9 +2656,9 @@ in
   \\ simp[frame_lookup]
   \\ EVAL_TAC
   \\ rw [] >>
-  `(x = 0) ∨ (x = 1)` by
+  `(x = 0) ∨ (x = 1) ∨ (x = 2)` by
     (qmatch_asmsub_abbrev_tac`lookup x ss`>>
-    `domain ss = {0; 1}` by
+    `domain ss = {0; 1; 2}` by
       (simp[Abbr`ss`]>>EVAL_TAC)>>
     `x ∈ domain ss` by
       simp[domain_lookup]>>
