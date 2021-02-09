@@ -759,8 +759,6 @@ QED
 Type num_set = ``:unit spt``
 Type num_map = ``:'a spt``
 
-Theorem subspt_eq[compute] = subspt_eq;
-
 Theorem toAList_domain:
     ∀x. MEM x (MAP FST (toAList t)) ⇔ x ∈ domain t
 Proof
@@ -3973,109 +3971,6 @@ Proof
     >- (qexists_tac `n * 2` >> fs[] >> once_rewrite_tac [MULT_COMM] >>
         rw[EVEN_DOUBLE, MULT_DIV])
     >- (qexists_tac `n DIV 2` >> fs[])
-QED
-
-Theorem wf_spt_fold_union_num_set:
-  ∀ tree : num_set num_map y : num_set.
-    (∀ n x . (lookup n tree = SOME x) ⇒ wf x) ∧ wf y
-  ⇒ wf(spt_fold union y tree)
-Proof
-  Induct >> rw[] >> fs[spt_fold_def, wf_def]
-  >- metis_tac[lookup_def, wf_union]
-  >- (
-    last_x_assum irule >> last_x_assum (irule_at Any) >> simp[] >>
-    gvs[lookup_def] >> rw[] >>
-    last_x_assum irule
-    >- (
-      qexists_tac `2 * n + 2` >>
-      simp[EVEN_ADD, EVEN_DOUBLE] >>
-      once_rewrite_tac [MULT_COMM] >> simp[DIV_MULT]
-      )
-    >- (
-      qexists_tac `2 * n + 1` >>
-      simp[EVEN_ADD, EVEN_DOUBLE] >>
-      once_rewrite_tac [MULT_COMM] >> simp[MULT_DIV]
-      )
-    )
-  >- (
-    last_x_assum irule >> irule_at Any wf_union >>
-    last_x_assum (irule_at Any) >> simp[] >> rw[] >>
-    last_x_assum irule >> simp[lookup_def]
-    >- (
-      qexists_tac `2 * n + 2` >>
-      simp[EVEN_ADD, EVEN_DOUBLE] >>
-      once_rewrite_tac [MULT_COMM] >> simp[DIV_MULT]
-      )
-    >- (qexists_tac `0` >> simp[])
-    >- (
-      qexists_tac `2 * n + 1` >>
-      simp[EVEN_ADD, EVEN_DOUBLE] >>
-      once_rewrite_tac [MULT_COMM] >> simp[MULT_DIV]
-      )
-    )
-QED
-
-Theorem lookup_spt_fold_union_num_set:
-  ∀ tree y n.
-    lookup n (spt_fold union y tree) =
-    if lookup n y = SOME () then SOME ()
-    else if ∃m s. lookup m tree = SOME s ∧ lookup n s = SOME () then SOME ()
-    else NONE
-Proof
-  Induct >> rw[] >> gvs[spt_fold_def, lookup_def, lookup_union]
-  >- (Cases_on `lookup n y` >> gvs[])
-  >- (CASE_TAC >> gvs[])
-  >- (CASE_TAC >> gvs[] >> Cases_on `lookup n y` >> gvs[])
-  >- (IF_CASES_TAC >> gvs[] >> FULL_CASE_TAC >> gvs[] >> metis_tac[])
-  >- (
-    IF_CASES_TAC >> gvs[]
-    >- (
-      first_x_assum (qspecl_then [`(m + 1) * 2`,`s`] mp_tac) >>
-      simp[EVEN_DOUBLE] >> simp[LEFT_ADD_DISTRIB] >>
-      once_rewrite_tac[MULT_COMM] >> simp[DIV_MULT]
-      )
-    >- (
-      CCONTR_TAC >> gvs[] >>
-      last_x_assum (qspecl_then [`m * 2 + 1`,`s`] mp_tac) >>
-      simp[EVEN_DOUBLE, EVEN_ADD] >>
-      once_rewrite_tac[MULT_COMM] >> simp[MULT_DIV]
-      )
-    )
-  >- (IF_CASES_TAC >> gvs[] >> FULL_CASE_TAC >> gvs[])
-  >- (
-    Cases_on `m = 0` >> gvs[] >>
-    IF_CASES_TAC >> gvs[] >>
-    Cases_on `lookup n a` >> gvs[] >>
-    FULL_CASE_TAC >> metis_tac[]
-    )
-  >- (
-    IF_CASES_TAC >> gvs[] >>
-    Cases_on `lookup n a` >> gvs[]
-    >- (
-      first_x_assum (qspecl_then [`(m + 1) * 2`,`s`] mp_tac) >>
-      simp[EVEN_DOUBLE] >> simp[LEFT_ADD_DISTRIB] >>
-      once_rewrite_tac[MULT_COMM] >> simp[DIV_MULT]
-      )
-    >- metis_tac[]
-    >- (
-      CCONTR_TAC >> gvs[] >>
-      last_x_assum (qspecl_then [`m * 2 + 1`,`s`] mp_tac) >>
-      simp[EVEN_DOUBLE, EVEN_ADD] >>
-      once_rewrite_tac[MULT_COMM] >> simp[MULT_DIV]
-      )
-    )
-QED
-
-Theorem domain_spt_fold_union_num_set:
-  ∀ tree : num_set num_map y : num_set .
-    domain (spt_fold union y tree) =
-    domain y ∪
-    {n | ∃k aSet. lookup k tree = SOME aSet ∧ n ∈ domain aSet}
-Proof
-  rw[EXTENSION] >> eq_tac >> rw[] >>
-  gvs[domain_lookup, lookup_spt_fold_union_num_set] >>
-  EVERY_CASE_TAC >> gvs[] >>
-  metis_tac[]
 QED
 
 (* END TODO *)
