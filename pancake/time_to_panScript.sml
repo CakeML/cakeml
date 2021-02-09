@@ -295,7 +295,7 @@ Definition task_controller_def:
         Assign «waitSet» nWaitSet ;
         Assign «wakeUpAt» (Op Add [Var «sysTime»; nwakeUpAt]);
         Assign «loc» nloc;
-        check_input_time])
+        Assign «isInput» (Const 1w)])
 End
 
 
@@ -336,7 +336,5 @@ Definition start_controller_def:
              (task_controller clksLength)
      ])
 End
-
-
 
 val _ = export_theory();

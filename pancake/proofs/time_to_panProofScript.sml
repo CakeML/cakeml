@@ -1552,6 +1552,15 @@ Proof
   gs []
 QED
 
+Theorem and_ones_eq_one:
+  ∀n. word_op And (1w::REPLICATE n 1w) = SOME 1w
+Proof
+  Induct >>
+  rw [] >>
+  fs [wordLangTheory.word_op_def]
+QED
+
+
 
 Theorem comp_conditions_true_correct:
   ∀cnds s (t:('a,'b) panSem$state) clks clkvals.
@@ -1599,8 +1608,7 @@ Proof
   fs [] >>
   rewrite_tac [ETA_AX] >>
   gs [] >>
-  fs [wordLangTheory.word_op_def] >>
-  cheat
+  metis_tac [and_ones_eq_one]
 QED
 
 
@@ -1776,20 +1784,99 @@ Theorem comp_conditions_false_correct:
     equiv_val s.clocks clks clkvals ⇒
     eval t (compConditions clks «clks» cnds) = SOME (ValWord 0w)
 Proof
-  Induct >>
-  rw [] >>
+  Induct
+  >- (
+    rw [] >>
+    fs []) >>
+  rpt gen_tac >>
+  strip_tac >>
   fs []
   >- (
-    imp_res_tac comp_condition_false_correct >>
+  imp_res_tac comp_condition_false_correct >>
+  cases_on ‘EVERY (λcnd. evalCond s cnd) cnds’
+  >- (
+    imp_res_tac comp_conditions_true_correct >>
     fs [compConditions_def] >>
-    fs [eval_def] >>
-    fs [OPT_MMAP_def] >>
-    cheat) >>
+    gs [eval_def, OPT_MMAP_def, ETA_AX] >>
+    pop_assum mp_tac >>
+    rpt (pop_assum kall_tac) >>
+    MAP_EVERY qid_spec_tac [‘t’,‘clks’,‘cnds’] >>
+    Induct >> rw []
+    >- (
+      fs [compConditions_def] >>
+      fs [OPT_MMAP_def, eval_def, wordLangTheory.word_op_def]) >>
+    gs [compConditions_def, eval_def, OPT_MMAP_def] >>
+    every_case_tac >> gs [] >>
+    rveq >> gs [] >>
+    every_case_tac >> gs [wordLangTheory.word_op_def] >>
+    rveq >> gs [] >>
+    metis_tac [EVERY_NOT_EXISTS]) >>
+  fs []  >>
+  last_x_assum drule_all >>
+  strip_tac >>
+  drule comp_condition_false_correct >>
+  disch_then drule_all >>
+  strip_tac >>
   fs [compConditions_def] >>
-  cheat
+  fs [OPT_MMAP_def, eval_def, wordLangTheory.word_op_def] >>
+  pop_assum mp_tac >>
+  rpt (pop_assum kall_tac) >>
+  MAP_EVERY qid_spec_tac [‘t’,‘clks’,‘cnds’] >>
+  Induct >> rw []
+  >- (
+    fs [compConditions_def] >>
+    fs [OPT_MMAP_def, eval_def, wordLangTheory.word_op_def]) >>
+  gs [compConditions_def, eval_def, OPT_MMAP_def] >>
+  every_case_tac >> gs [] >>
+  rveq >> gs [] >>
+  every_case_tac >> gs [wordLangTheory.word_op_def] >>
+  rveq >> gs [] >>
+  metis_tac [EVERY_NOT_EXISTS]) >>
+  last_x_assum drule_all >>
+  strip_tac >>
+  cases_on ‘evalCond s h’
+  >- (
+    drule comp_condition_true_correct >>
+    disch_then drule_all >>
+    strip_tac >>
+    fs [compConditions_def] >>
+    fs [OPT_MMAP_def, eval_def, wordLangTheory.word_op_def] >>
+    pop_assum kall_tac >>
+    pop_assum kall_tac >>
+    pop_assum mp_tac >>
+    rpt (pop_assum kall_tac) >>
+    MAP_EVERY qid_spec_tac [‘t’,‘clks’,‘cnds’] >>
+    Induct >> rw []
+    >- (
+    fs [compConditions_def] >>
+    fs [OPT_MMAP_def, eval_def, wordLangTheory.word_op_def]) >>
+    gs [compConditions_def, eval_def, OPT_MMAP_def] >>
+    every_case_tac >> gs [] >>
+    rveq >> gs [] >>
+    every_case_tac >> gs [wordLangTheory.word_op_def] >>
+    rveq >> gs [] >>
+    metis_tac [EVERY_NOT_EXISTS]) >>
+  drule comp_condition_false_correct >>
+  disch_then drule_all >>
+  strip_tac >>
+  fs [compConditions_def] >>
+  fs [OPT_MMAP_def, eval_def, wordLangTheory.word_op_def] >>
+  pop_assum kall_tac >>
+  pop_assum kall_tac >>
+  pop_assum mp_tac >>
+  rpt (pop_assum kall_tac) >>
+  MAP_EVERY qid_spec_tac [‘t’,‘clks’,‘cnds’] >>
+  Induct >> rw []
+  >- (
+  fs [compConditions_def] >>
+  fs [OPT_MMAP_def, eval_def, wordLangTheory.word_op_def]) >>
+  gs [compConditions_def, eval_def, OPT_MMAP_def] >>
+  every_case_tac >> gs [] >>
+  rveq >> gs [] >>
+  every_case_tac >> gs [wordLangTheory.word_op_def] >>
+  rveq >> gs [] >>
+  metis_tac [EVERY_NOT_EXISTS]
 QED
-
-
 
 Definition conds_eval_lt_dimword_def:
   conds_eval_lt_dimword (:'a) s tms =
@@ -1833,6 +1920,13 @@ Definition locs_in_code_def:
           ) tms
 End
 
+Definition input_terms_actions_def:
+  input_terms_actions (:'a) tms =
+    EVERY (λn. n+1 < dimword (:'a))
+          (terms_in_signals tms)
+End
+
+
 Definition out_signals_ffi_def:
   out_signals_ffi (t :('a, 'b) panSem$state) tms =
     EVERY (λout.
@@ -1855,6 +1949,7 @@ Theorem pick_term_thm:
        equiv_val s.clocks clks clkvals ∧
        maxClksSize clkvals ∧
        clock_bound s.clocks clks (dimword (:'a)) ∧
+       input_terms_actions (:'a) tms ∧
        out_signals_ffi t tms ⇒
        (e = NONE ∧
         FLOOKUP t.locals «event» = SOME (ValWord 0w) ⇒
@@ -1943,9 +2038,10 @@ Proof
       >- (
       gs [conds_eval_lt_dimword_def, conds_clks_mem_clks_def,
           terms_time_range_def, terms_valid_clocks_def,
-          locs_in_code_def, out_signals_ffi_def] >>
+          locs_in_code_def, out_signals_ffi_def, input_terms_actions_def] >>
       cases_on ‘ioAction’ >>
-      gs [timeLangTheory.terms_out_signals_def]) >>
+      gs [timeLangTheory.terms_out_signals_def,
+          timeLangTheory.terms_in_signals_def]) >>
       strip_tac >>
       MAP_EVERY qexists_tac
                 [‘out’, ‘cnds'’, ‘tclks’, ‘dest'’, ‘wt’] >>
@@ -1978,9 +2074,10 @@ Proof
     >- (
     gs [conds_eval_lt_dimword_def, conds_clks_mem_clks_def,
         terms_time_range_def, terms_valid_clocks_def,
-        locs_in_code_def, out_signals_ffi_def] >>
+        locs_in_code_def, out_signals_ffi_def, input_terms_actions_def] >>
     cases_on ‘ioAction’ >>
-    gs [timeLangTheory.terms_out_signals_def]) >>
+    gs [timeLangTheory.terms_out_signals_def,
+        timeLangTheory.terms_in_signals_def]) >>
     strip_tac >>
     MAP_EVERY qexists_tac
               [‘cnds'’, ‘tclks’, ‘dest'’, ‘wt’] >>
@@ -2015,8 +2112,8 @@ Proof
       >- (
         gs [conds_eval_lt_dimword_def, conds_clks_mem_clks_def,
             terms_time_range_def, terms_valid_clocks_def,
-            locs_in_code_def, out_signals_ffi_def] >>
-        gs [timeLangTheory.terms_out_signals_def]) >>
+            locs_in_code_def, out_signals_ffi_def, input_terms_actions_def] >>
+        gs [timeLangTheory.terms_out_signals_def, timeLangTheory.terms_in_signals_def]) >>
       strip_tac >>
       MAP_EVERY qexists_tac
                 [‘out’,‘cnds'’, ‘tclks’, ‘dest'’, ‘wt’] >>
@@ -2040,7 +2137,7 @@ Proof
         gs [asmTheory.word_cmp_def] >>
         ‘(in_signal + 1) MOD dimword (:α) = in_signal + 1’ by (
           match_mp_tac LESS_MOD >>
-          gs []) >>
+          gs [input_terms_actions_def, timeLangTheory.terms_in_signals_def]) >>
         fs [] >>
         fs [wordLangTheory.word_op_def] >>
         metis_tac []) >>
@@ -2058,37 +2155,110 @@ Proof
       gs [asmTheory.word_cmp_def] >>
       ‘(in_signal + 1) MOD dimword (:α) = in_signal + 1’ by (
         match_mp_tac LESS_MOD >>
-        gs []) >>
+        gs [input_terms_actions_def, timeLangTheory.terms_in_signals_def]) >>
         fs [] >>
       fs [wordLangTheory.word_op_def] >>
       metis_tac []) >>
-
-
-
-
-
-      )
-
-
-
-
-
-
-
-
-
-
-    )
-
-
-
-
-
-
-    cheat) >>
-  cheat
+    last_x_assum (qspecl_then [‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+    gs [] >>
+    impl_tac
+    >- (
+    gs [conds_eval_lt_dimword_def, conds_clks_mem_clks_def,
+        terms_time_range_def, terms_valid_clocks_def,
+        locs_in_code_def, out_signals_ffi_def, input_terms_actions_def] >>
+    gs [timeLangTheory.terms_out_signals_def, timeLangTheory.terms_in_signals_def]) >>
+    strip_tac >>
+    MAP_EVERY qexists_tac
+              [‘cnds'’, ‘tclks’, ‘dest'’, ‘wt’] >>
+    fs [] >>
+    fs [compTerms_def] >>
+    fs [pick_term_def] >>
+    fs [timeLangTheory.termConditions_def,
+        timeLangTheory.termAction_def] >>
+    fs [event_match_def, compAction_def] >>
+    once_rewrite_tac [evaluate_def] >>
+    fs [eval_def, OPT_MMAP_def] >>
+    cases_on ‘EVERY (λcnd. evalCond s cnd) cnds’
+    >- (
+    drule comp_conditions_true_correct >>
+    disch_then (qspecl_then [‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+    impl_tac
+    >- (
+      gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
+          timeLangTheory.termConditions_def]) >>
+    strip_tac >> fs [] >>
+    gs [asmTheory.word_cmp_def] >>
+    ‘(in_signal + 1) MOD dimword (:α) = in_signal + 1’ by (
+      match_mp_tac LESS_MOD >>
+      gs [input_terms_actions_def, timeLangTheory.terms_in_signals_def]) >>
+    fs [] >>
+    fs [wordLangTheory.word_op_def] >>
+    metis_tac []) >>
+    drule comp_conditions_false_correct >>
+    disch_then (qspecl_then [‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+    impl_tac
+      >- (
+    gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
+        timeLangTheory.termConditions_def] >>
+    gs [EVERY_MEM] >>
+    rw [] >>
+    res_tac  >> gs [] >>
+    every_case_tac >> gs []) >>
+    strip_tac >> fs [] >>
+    gs [asmTheory.word_cmp_def] >>
+    ‘(in_signal + 1) MOD dimword (:α) = in_signal + 1’ by (
+      match_mp_tac LESS_MOD >>
+      gs [input_terms_actions_def, timeLangTheory.terms_in_signals_def]) >>
+    fs [] >>
+    fs [wordLangTheory.word_op_def] >>
+    metis_tac []) >>
+  strip_tac >>
+  rw [] >>
+  gs [] >>
+  last_x_assum (qspecl_then [‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+  gs [] >>
+  impl_tac
+  >- (
+  gs [conds_eval_lt_dimword_def, conds_clks_mem_clks_def,
+      terms_time_range_def, terms_valid_clocks_def,
+      locs_in_code_def, out_signals_ffi_def, input_terms_actions_def] >>
+  gs [timeLangTheory.terms_out_signals_def, timeLangTheory.terms_in_signals_def]) >>
+  strip_tac >>
+  MAP_EVERY qexists_tac
+            [‘cnds'’, ‘tclks’, ‘dest'’, ‘wt’] >>
+  fs [] >>
+  fs [compTerms_def] >>
+  fs [pick_term_def] >>
+  fs [timeLangTheory.termConditions_def,
+      timeLangTheory.termAction_def] >>
+  fs [event_match_def, compAction_def] >>
+  once_rewrite_tac [evaluate_def] >>
+  fs [eval_def, OPT_MMAP_def] >>
+  cases_on ‘EVERY (λcnd. evalCond s cnd) cnds’
+  >- (
+  drule comp_conditions_true_correct >>
+  disch_then (qspecl_then [‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+  impl_tac
+  >- (
+    gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
+        timeLangTheory.termConditions_def]) >>
+  strip_tac >> fs [] >>
+  gs [asmTheory.word_cmp_def] >>
+  fs [wordLangTheory.word_op_def]) >>
+  drule comp_conditions_false_correct >>
+  disch_then (qspecl_then [‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+  impl_tac
+  >- (
+  gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
+      timeLangTheory.termConditions_def] >>
+  gs [EVERY_MEM] >>
+  rw [] >>
+  res_tac  >> gs [] >>
+  every_case_tac >> gs []) >>
+  strip_tac >> fs [] >>
+  gs [asmTheory.word_cmp_def] >>
+  fs [wordLangTheory.word_op_def]
 QED
-
 
 (* step theorems *)
 
@@ -3345,6 +3515,7 @@ Proof
 QED
 
 
+(*
 Theorem eval_normalisedClks:
   ∀t st ns.
     FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w st)) ∧
@@ -3414,14 +3585,92 @@ Proof
   drule n2w_sub >>
   strip_tac >> fs []
 QED
+*)
+
+Theorem eval_normalisedClks:
+  ∀t st ns.
+    FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w st)) ∧
+    FLOOKUP t.locals «clks» = SOME (Struct (MAP (ValWord o n2w) ns)) ∧
+    EVERY (λn. n ≤ st) ns ⇒
+      OPT_MMAP (eval t) (normalisedClks «sysTime» «clks» (LENGTH ns)) =
+      SOME (MAP (λ(x,y). ValWord (n2w (x-y))) (ZIP (REPLICATE (LENGTH ns) st,ns)))
+     (* MAP is better for reasoning than MAP2*)
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  fs [normalisedClks_def] >>
+  fs [opt_mmap_eq_some] >>
+  fs [MAP_EQ_EVERY2] >>
+  conj_tac
+  >- fs [mkClks_def, fieldsOf_def] >>
+  fs [LIST_REL_EL_EQN] >>
+  conj_tac
+  >- fs [mkClks_def, fieldsOf_def] >>
+  rw [] >>
+  qmatch_goalsub_abbrev_tac ‘MAP2 ff xs ys’ >>
+  ‘EL n (MAP2 ff xs ys) = ff (EL n xs) (EL n ys)’ by (
+    match_mp_tac EL_MAP2 >>
+    fs []) >>
+  unabbrev_all_tac >>
+  gs [] >>
+  qmatch_goalsub_abbrev_tac ‘MAP ff (ZIP (xs,ys))’ >>
+  ‘EL n (MAP ff (ZIP (xs,ys))) = ff (EL n (ZIP (xs,ys)))’ by (
+    match_mp_tac EL_MAP >>
+    unabbrev_all_tac >>
+    gs [mkClks_def]) >>
+  unabbrev_all_tac >>
+  gs [] >>
+  fs [mkClks_def, fieldsOf_def] >>
+  ‘EL n (ZIP (REPLICATE (LENGTH ns) st,ns)) =
+   (EL n (REPLICATE (LENGTH ns) st),EL n ns)’ by (
+    match_mp_tac EL_ZIP >>
+    fs []) >>
+  fs [] >>
+  qmatch_goalsub_abbrev_tac ‘MAP ff xs’ >>
+  ‘EL n (MAP ff xs) = ff (EL n xs)’ by (
+    match_mp_tac EL_MAP >>
+    unabbrev_all_tac >>
+    gs [mkClks_def]) >>
+  fs [] >>
+  unabbrev_all_tac >>
+  ‘EL n (GENLIST I (LENGTH ns)) = I n’ by (
+    match_mp_tac EL_GENLIST >>
+    gs []) >>
+  fs [] >>
+  ‘EL n (REPLICATE (LENGTH ns) (Var «sysTime»)) = Var «sysTime»’ by (
+    match_mp_tac EL_REPLICATE >>
+    gs []) >>
+  fs [] >>
+  ‘EL n (REPLICATE (LENGTH ns) st) = st’ by (
+    match_mp_tac EL_REPLICATE >>
+    gs []) >>
+  fs [] >>
+  gs [eval_def,  OPT_MMAP_def] >>
+  qmatch_goalsub_abbrev_tac ‘MAP ff xs’ >>
+  ‘EL n (MAP ff xs) = ff (EL n xs)’ by (
+    match_mp_tac EL_MAP >>
+    unabbrev_all_tac >>
+    gs []) >>
+  unabbrev_all_tac >>
+  gs [] >>
+  fs [wordLangTheory.word_op_def] >>
+  fs [EVERY_MEM] >>
+  first_x_assum (qspec_then ‘EL n ns’ mp_tac) >>
+  gs [MEM_EL] >>
+  impl_tac >- metis_tac [] >>
+  strip_tac >>
+  drule n2w_sub >>
+  strip_tac >> fs []
+QED
+
 
 Theorem genshape_eq_shape_of:
   ∀ys x zs.
     LENGTH ys = LENGTH zs ⇒
     genShape (LENGTH ys) =
       shape_of (Struct
-                (MAP2 (λx y. ValWord (n2w (x − y)))
-                 (REPLICATE (LENGTH ys) x) zs))
+                (MAP (λ(x,y). ValWord (n2w (x − y)))
+                 (ZIP (REPLICATE (LENGTH ys) x,zs))))
 Proof
   rw [] >>
   fs [genShape_def] >>
@@ -3434,12 +3683,17 @@ Proof
   fs [MAP_EQ_EVERY2] >>
   fs [LIST_REL_EL_EQN] >>
   rw [] >>
-  qmatch_goalsub_abbrev_tac ‘MAP2 ff xs _’ >>
-  ‘EL n (MAP2 ff xs zs) = ff (EL n xs) (EL n zs)’ by (
-    match_mp_tac EL_MAP2 >>
+  qmatch_goalsub_abbrev_tac ‘MAP ff (ZIP (xs,_))’ >>
+  ‘EL n (MAP ff (ZIP (xs,zs))) = ff (EL n (ZIP (xs,zs)))’ by (
+    match_mp_tac EL_MAP >>
     unabbrev_all_tac >>
     gs [mkClks_def]) >>
   unabbrev_all_tac >>
+  fs [] >>
+  ‘EL n (ZIP (REPLICATE (LENGTH zs) x,zs)) =
+   (EL n (REPLICATE (LENGTH zs) x), EL n zs)’ by (
+    match_mp_tac EL_ZIP >>
+    fs []) >>
   gs [shape_of_def]
 QED
 
@@ -3448,6 +3702,50 @@ QED
 (* lets start when systime is equal to wakeup time,
     this way we will not have to execute the while loop
 *)
+
+(*
+evaluate
+          (Seq
+             (Assign «clks»
+                (Struct
+                   (adjustClks «sysTime» (Field 0 (Var «taskRet» )) «clks»
+                      (LENGTH (clksOf prog)))))
+             (Seq (Assign «waitSet» (Field 1 (Var «taskRet» )))
+                (Seq
+                   (Assign «wakeUpAt»
+                      (Op Add [Var «sysTime» ; Field 2 (Var «taskRet» )]))
+                   (Seq (Assign «loc» (Field 3 (Var «taskRet» )))
+                      (Seq check_input_time Skip)))),
+           t with
+           <|locals :=
+               t.locals |+
+               («taskRet» ,retVal (resetOutput s) (clksOf prog) tclks wt dest);
+             memory := write_bytearray 4000w nbytes t.memory t.memaddrs t.be;
+             clock := t.clock;
+             ffi :=
+               nffi_state
+                 (t with
+                  <|locals :=
+                      FEMPTY |++
+                      [(«clks» ,
+                        Struct
+                          (MAP2 (λx y. ValWord (n2w (x − y)))
+                             (REPLICATE (LENGTH (clksOf prog)) st) ns));
+                       («event» ,ValWord 0w)]; clock := t.clock|>) nffi out
+                 bytes nbytes|>) = ARB t
+*)
+
+(*
+      code_installed t'.code prog ∧
+      state_rel (clksOf prog) s' t' ∧
+      t'.ffi.ffi_state = nexts_ffi cycles t.ffi.ffi_state ∧
+      t'.ffi.oracle = t.ffi.oracle ∧
+      FLOOKUP t'.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt» ∧
+      FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
+      FLOOKUP t'.locals «sysTime»  =
+      SOME (ValWord (n2w (FST (t.ffi.ffi_state (cycles - 1)))))
+*)
+
 
 Theorem output_step:
   !prog os s s' w (t:('a,time_input) panSem$state) st ns.
@@ -3461,17 +3759,29 @@ Theorem output_step:
     (* for the time being  *)
     FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w st)) ∧
     FLOOKUP t.locals «wakeUpAt» = SOME (ValWord (n2w st)) ∧
+    FST (t.ffi.ffi_state 0) = st (* for state_rel *) ∧
     FLOOKUP t.locals «clks» =
     SOME (Struct (MAP ((λw. ValWord w) ∘ n2w) ns)) ∧
     EVERY (λn. n ≤ st) ns ∧
     LENGTH ns = nClks prog ∧
-    labProps$good_dimindex (:'a) ==>
+    labProps$good_dimindex (:'a) ∧
+    (∀tms.
+       ALOOKUP prog s.location = SOME tms ⇒
+       conds_eval_lt_dimword (:α) (resetOutput s) tms ∧
+       conds_clks_mem_clks (clksOf prog) tms ∧ terms_time_range (:α) tms ∧
+       terms_valid_clocks (clksOf prog) tms ∧ locs_in_code t.code tms ∧
+       out_signals_ffi t tms) ⇒
     ?ck t'.
       evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
-      ARB t
+      (NONE, t') ∧
+      code_installed t'.code prog ∧
+      state_rel (clksOf prog) s' t'
+      (* some props of state t' *)
 Proof
   rw [] >>
   fs [step_cases] >>
+  qmatch_asmsub_abbrev_tac
+  ‘FLOOKUP _ «sysTime» = SOME (ValWord (n2w st))’ >>
   fs [task_controller_def] >>
   fs [panLangTheory.nested_seq_def] >>
   qmatch_goalsub_abbrev_tac ‘evaluate (Seq _ q, _)’ >>
@@ -3537,6 +3847,118 @@ Proof
   pop_assum kall_tac >>
   pop_assum kall_tac >>
   fs [shape_of_def] >>
+  fs [dec_clock_def] >>
+  qmatch_asmsub_abbrev_tac ‘(«clks» ,Struct nclks)’ >>
+  qmatch_asmsub_abbrev_tac ‘evaluate (_, nt)’ >>
+  drule  (INST_TYPE [``:'a``|->``:'a``,
+                     ``:'b``|->``:time_input``] pick_term_thm) >>
+  fs [] >>
+  disch_then (qspecl_then [‘nt’, ‘clksOf prog’,
+                           ‘nclks’] mp_tac) >>
+  impl_tac
+  >- (
+    gs [Abbr ‘nt’] >>
+    res_tac >> gs [] >>
+    conj_tac
+    >- (
+      match_mp_tac mem_to_flookup >>
+      fs []) >>
+    conj_tac
+    >- (
+    fs [resetOutput_def] >>
+    fs [Abbr ‘nclks’] >>
+    fs [equiv_val_def] >>
+    fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+    rw [] >>
+    qmatch_goalsub_abbrev_tac ‘EL _ (ZIP (xs,_))’ >>
+    ‘EL n (ZIP (xs,ns)) = (EL n xs, EL n ns)’ by (
+      match_mp_tac EL_ZIP >>
+      unabbrev_all_tac >>
+      fs []) >>
+    fs [Abbr ‘xs’] >>
+    ‘EL n (REPLICATE (LENGTH (clksOf prog)) st) = st’ by (
+      match_mp_tac EL_REPLICATE >>
+      fs []) >>
+    fs [] >>
+
+
+
+    gs [state_rel_def] >>
+    pairarg_tac >>
+    unabbrev_all_tac >>
+    fs [] >>
+    qpat_x_assum ‘clocks_rel _ _ _ _’ assume_tac >>
+
+
+
+    gs [clocks_rel_def, clkvals_rel_def] >>
+    rveq >> gs [] >>
+    fs [EVERY_MEM] >>
+    fs [MAP_EQ_EVERY2] >>
+    fs [LIST_REL_EL_EQN] >>
+    qpat_x_assum ‘∀n. n < LENGTH ns' ⇒ _’ mp_tac >>
+    disch_then (qspec_then ‘n’ mp_tac) >>
+    fs [] >>
+    strip_tac >>
+    ‘EL n (ZIP (clksOf prog,ns')) =
+     (EL n (clksOf prog), EL n ns')’ by (
+      match_mp_tac EL_ZIP >>
+      fs []) >>
+    fs [] >>
+    first_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
+    impl_tac >- metis_tac [MEM_EL] >>
+    strip_tac >> fs [] >>
+    ‘THE (FLOOKUP s.clocks (EL n (clksOf prog))) =
+     tm - EL n ns'’ by fs [] >>
+    fs [] >>
+    ‘EL n ns = EL n ns'’ by (
+      first_x_assum (qspec_then ‘n’ mp_tac) >>
+      fs [] >>
+      ‘EL n ns MOD dimword (:α) = EL n ns’ (
+        match_mp_tac LESS_MOD >>
+        gs [time_seq_def] >>
+        last_x_assum (qspec_then ‘0’ assume_tac) >>
+        gs [] >>
+        first_x_assum (qspec_then ‘EL n ns’ mp_tac) >>
+        fs [EL_MEM]) >>
+      fs [] >>
+      strip_tac >>
+
+        )
+
+      ) >>
+    fs [])
+
+
+
+
+
+      rveq >> gs [] >>
+      ‘ns = ns'’ by cheat >>
+      rveq >> fs [] >>
+      ‘tm = st’ by cheat >>
+      rveq >> gs [] >>
+      qpat_x_assum ‘_ = MAP (λx. st) ns’ assume_tac >>
+
+
+
+
+    )
+
+
+
+  ) >>
+  impl_tac
+  >- cheat >>
+  strip_tac >>
+  fs [] >>
+  ‘is_valid_value t.locals «taskRet»
+   ((retVal (resetOutput s) (clksOf prog) tclks wt dest):'a v)’ by cheat >>
+  fs [] >>
+  gs [set_var_def] >> rveq >> gs []  >>
+  fs [Abbr ‘q’] >>
+  unabbrev_all_tac >>
+  fs []
 
 
 
