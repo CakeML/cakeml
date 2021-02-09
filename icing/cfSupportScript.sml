@@ -34,6 +34,63 @@ Definition real_spec_prog_def:
 End
 
 (**
+  fun reader1 u =
+  let
+  val cl = CommandLine.arguments ();
+  val cst1 = List.hd cl;
+  in (cst1) end;
+**)
+Definition reader1_def:
+  reader1 =
+    [Dletrec
+     unknown_loc
+     [("reader1","u",
+       Let (SOME "a") (Con NONE [])
+           (Let (SOME "cl")
+            (App Opapp
+             [Var (Long "CommandLine" (Short "arguments"));
+              Var (Short "a")])
+            (Let (SOME "cst1")
+             (App Opapp
+              [Var (Long "List" (Short "hd")); Var (Short "cl")])
+             (Var (Short "cst1")))))]]
+End
+
+val _ = append_prog (reader1_def |> concl |> rhs);
+
+(**
+  process_topdecs ‘fun reader2 u =
+  let
+  val cl = CommandLine.arguments ();
+  val cst1 = List.hd cl;
+  val cst2 = List.hd (List.tl cl);
+  in (cst1, cst2) end;’
+**)
+Definition reader2_def:
+  reader2 =
+  [Dletrec
+   unknown_loc
+   [("reader2","u",
+     Let (SOME "a") (Con NONE [])
+         (Let (SOME "cl")
+          (App Opapp
+           [Var (Long "CommandLine" (Short "arguments"));
+            Var (Short "a")])
+          (Let (SOME "cst1")
+           (App Opapp
+            [Var (Long "List" (Short "hd")); Var (Short "cl")])
+           (Let (SOME "b")
+            (App Opapp
+             [Var (Long "List" (Short "tl")); Var (Short "cl")])
+            (Let (SOME "cst2")
+             (App Opapp
+              [Var (Long "List" (Short "hd")); Var (Short "b")])
+             (Con NONE [Var (Short "cst1"); Var (Short "cst2")]))))))]]
+End
+
+val _ = append_prog (reader2_def |> concl |> rhs);
+
+(**
    fun reader3 u =
    let
    val cl = CommandLine.arguments ();
@@ -45,8 +102,7 @@ End
 Definition reader3_def:
   reader3 =
   [Dletrec
-   (Locs <|row := 2; col := 4; offset := 0|>
-    <|row := 8; col := 30; offset := 0|>)
+   unknown_loc
    [("reader3","u",
      Let (SOME "a") (Con NONE [])
          (Let (SOME "cl")

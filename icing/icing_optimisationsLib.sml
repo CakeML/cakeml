@@ -191,7 +191,7 @@ local
 fun mk_plan_correct_thm plan_list :(term * thm)=
   case plan_list of
     (* Base case: Empty plan -> No plan used in correctness theorem *)
-    [] => (“[]:opt_step list”, is_perform_rewrites_correct_empty_plan)
+    [] => (“[]:opt_step list”, is_real_id_perform_rewrites_empty)
   | p1 :: ps => (* Cons case *)
       let
         (* Recursive call *)
@@ -255,6 +255,7 @@ fun mk_plan_correct_thm plan_list :(term * thm)=
         in (full_plan, final_perform_rw_thm)
         end
         end;
+
   in
   fun mk_stos_pass_real_id_thm plan_list =
     let

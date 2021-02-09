@@ -438,7 +438,6 @@ fun fp_rws_append_opt t =
     |> map (Q.SPEC `[^t]`) |> map GEN_ALL
     |> LIST_CONJ;
 
-    (*
 Theorem fp_times_one_correct:
   ∀ st1 st2 env e r.
    is_rewriteFPexp_correct [fp_times_one] st1 st2 env e r
@@ -458,35 +457,31 @@ Proof
          Once terminationTheory.evaluate_def, Once evaluate_cons, evaluate_case_case]
   \\ ntac 2 (simp[Once terminationTheory.evaluate_def, evaluate_case_case, astTheory.getOpClass_def])
   \\ simp[Once do_app_def]
-         (* MARKER *)
-  \\ ntac 4 (TOP_CASE_TAC \\ fs[])
-  \\ imp_res_tac evaluate_sing \\ rveq \\ fs[]
-  \\ simp[do_app_def, CaseEq"option", CaseEq"v", CaseEq"prod"]
-  \\ rpt strip_tac \\ rveq \\ fs[] \\ rveq
-  \\ rename [‘evaluate st1 env [e1] = (st2, Rval [v1])’,
-             ‘evaluate st2 env [e2] = (st3, Rval [v2])’]
-  \\ ‘st3.fp_state.canOpt = FPScope Opt’ by fp_inv_tac
-  \\ fs[]
-  \\ ‘st2 = st1 with fp_state := st2.fp_state ∧
-      st3 = st1 with fp_state := st3.fp_state’
-    by (imp_res_tac isPureExp_same_ffi \\ fs[isPureExp_def]
-        \\ res_tac \\ fs[state_component_equality])
   \\ qpat_assum `evaluate _ _ [e1] = _`
                 (mp_then Any mp_tac isPureExp_evaluate_change_oracle)
   \\ fs[isPureExp_def]
   \\ disch_then (
      qspecl_then [
-       ‘fp_comm_gen fpBop’,
+       ‘fp_times_one’,
        ‘st1 with fp_state := st1.fp_state with choices :=
-          st1.fp_state.choices + (st3.fp_state.choices - st2.fp_state.choices)’,
+          st1.fp_state.choices’,
        ‘λ x. if (x = 0)
-        then [RewriteApp Here (LENGTH st1.fp_state.rws + 1)] ++
-        (case do_fprw (Rval (FP_WordTree (fp_bop fpBop w1 w2)))
-         (st3.fp_state.opts 0) st3.fp_state.rws of
-         | NONE => [] | SOME r_opt => st3.fp_state.opts x)
+        then [RewriteApp Here (LENGTH st1.fp_state.rws + 1)]
         else []’] mp_tac)
   \\ impl_tac >- fp_inv_tac
+  \\ simp state_eqs
+  \\ strip_tac \\ pop_assum mp_tac
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate st1New _ _ = _’
   \\ strip_tac
+  \\ qexistsl_tac [‘oracle’, ‘st1.fp_state.choices’]
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate st1Upd _ _’
+  \\ ‘st1New = st1Upd’
+     by (unabbrev_all_tac \\ fs state_eqs)
+  \\ pop_assum (fs o single)
+  \\ unabbrev_all_tac \\ imp_res_tac evaluate_sing
+  \\ rveq
+  \\ fs[do_app_def]
+
   \\ qpat_assum `evaluate _ _ [e2] = _`
                 (mp_then Any mp_tac isPureExp_evaluate_change_oracle)
   \\ fs[isPureExp_def]

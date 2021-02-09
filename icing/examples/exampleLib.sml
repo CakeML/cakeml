@@ -32,7 +32,7 @@ struct
 
   val iter_count = “10000000:int”
 
-  val main1 =
+  fun main1 fname =
     “[Dlet unknown_loc (Pvar "main")
       (Fun "a"
        (Let (SOME "u") (Con NONE [])
@@ -43,14 +43,14 @@ struct
             (Let (SOME "d1")
              (App Opapp [Var (Short "intToFP"); Var (Short "d1s")])
                 (Let (SOME "x" )
-                  (App Opapp [Var (Short "doppler"); Var (Short "d1")])
+                  (App Opapp [Var (Short ^fname); Var (Short "d1")])
                 (Let (SOME "y")
                  (App FpToWord [Var (Short "x")])
                  (App Opapp [
                      Var (Short "printer");
                      Var (Short "y")])))))]))))]”;
 
-  val main2 =
+  fun main2 fname =
     “[Dlet unknown_loc (Pvar "main")
       (Fun "a"
        (Let (SOME "u") (Con NONE [])
@@ -64,7 +64,7 @@ struct
               (App Opapp [Var (Short "intToFP"); Var (Short "d2s")])
                 (Let (SOME "x" )
                   (App Opapp [
-                          App Opapp [Var (Short "doppler"); Var (Short "d1")];
+                          App Opapp [Var (Short ^fname); Var (Short "d1")];
                         Va  r (Short "d2")])
                 (Let (SOME "y")
                  (App FpToWord [Var (Short "x")])
@@ -72,7 +72,7 @@ struct
                      Var (Short "printer");
                      Var (Short "y")]))))))]))))]”;
 
-  val main3 =
+  fun main3 fname =
     “[Dlet unknown_loc (Pvar "main")
       (Fun "a"
        (Let (SOME "u") (Con NONE [])
@@ -89,7 +89,7 @@ struct
                (Let (SOME "x" )
                 (App Opapp [
                     App Opapp [
-                        App Opapp [Var (Short "doppler"); Var (Short "d1")];
+                        App Opapp [Var (Short ^fname); Var (Short "d1")];
                         Var (Short "d2")];
                     Var (Short "d3")])
                 (Let (SOME "y")
@@ -98,7 +98,7 @@ struct
                      Var (Short "printer");
                      Var (Short "y")])))))))]))))]”;
 
-    val main4 =
+  fun main4 fname =
   “[Dlet unknown_loc (Pvar "main")
     (Fun "a"
      (Let (SOME "u") (Con NONE [])
@@ -118,7 +118,7 @@ struct
               (App Opapp [
                  App Opapp [
                    App Opapp [
-                     App Opapp [Var (Short "nn1Layer"); Var (Short "d1")];
+                     App Opapp [Var (Short ^fname); Var (Short "d1")];
                      Var (Short "d2")];
                    Var (Short "d3")];
                  Var (Short "d4")])
@@ -128,7 +128,7 @@ struct
                  Var (Short "printer");
                  Var (Short "y")])))))))]))))]”;
 
-  val call1_code = Parse.Term ‘
+  fun call1_code fname = Parse.Term ‘
     [Dlet unknown_loc (Pvar "it")
      (Let (SOME "u") (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))])
       (Let (SOME "strArgs")
@@ -141,14 +141,14 @@ struct
                (Fun "x"
                (Let (SOME "y")
                 (App Opapp [
-                          Var (Short "doppler"); Var (Short "d1")])
+                          Var (Short ^fname); Var (Short "d1")])
                 (Var (Short "y"))))
               (App Opapp [
                   App Opapp [
                       App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];
                       Var (Short "u")]; Var (Short "b")]))))])))]’;
 
-  val call2_code = Parse.Term ‘
+  fun call2_code fname = Parse.Term ‘
     [Dlet unknown_loc (Pvar "it")
      (Let (SOME "u") (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))])
       (Let (SOME "strArgs")
@@ -163,7 +163,7 @@ struct
               (Fun "x"
                (Let (SOME "y")
                 (App Opapp [
-                          App Opapp [Var (Short "doppler"); Var (Short "d1")];
+                          App Opapp [Var (Short ^fname); Var (Short "d1")];
                         Var (Short "d2")])
                 (Var (Short "y"))))
               (App Opapp [
@@ -171,7 +171,7 @@ struct
                       App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];
                       Var (Short "u")]; Var (Short "b")])))))])))]’;
 
-  val call3_code = Parse.Term ‘
+  fun call3_code fname = Parse.Term ‘
     [Dlet unknown_loc (Pvar "it")
      (Let (SOME "u") (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))])
       (Let (SOME "strArgs")
@@ -189,7 +189,7 @@ struct
                (Let (SOME "y")
                 (App Opapp [
                     App Opapp [
-                        App Opapp [Var (Short "doppler"); Var (Short "d1")];
+                        App Opapp [Var (Short ^fname); Var (Short "d1")];
                         Var (Short "d2")];
                     Var (Short "d3")])
                 (Var (Short "y"))))
@@ -198,7 +198,7 @@ struct
                       App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];
                       Var (Short "u")]; Var (Short "b")]))))))])))]’;
 
-  val call4_code = Parse.Term ‘
+  fun call4_code fname = Parse.Term ‘
       [Dlet unknown_loc (Pvar "it")
   (Let (SOME "u") (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))])
    (Let (SOME "strArgs")
@@ -219,7 +219,7 @@ struct
              (App Opapp [
              App Opapp [
                 App Opapp [
-                  App Opapp [Var (Short "nn1Layer"); Var (Short "d1")];
+                  App Opapp [Var (Short ^fname); Var (Short "d1")];
                   Var (Short "d2")];
                 Var (Short "d3")];
                 Var (Short "d4")])
@@ -271,12 +271,12 @@ struct
                   |> rhs
                   |> numSyntax.dest_numeral
                   |>  Arbnumcore.toInt
-    val (theMain, call_code) =
-      if numArgs = 1 then (main1, call1_code)
-      else if numArgs = 2 then (main2, call2_code)
-      else if numArgs = 3 then (main3, call3_code)
-      else if numArgs = 4 then (main4, call4_code)
-      else raise ERR "Too many arguments" ""
+    val (theMain, call_code, reader_def) =
+      if numArgs = 1 then (main1 fname, call1_code fname, reader1_def)
+      else if numArgs = 2 then (main2 fname, call2_code fname, reader2_def)
+      else if numArgs = 3 then (main3 fname, call3_code fname, reader3_def)
+      else if numArgs = 4 then (main4 fname, call4_code fname, reader4_def)
+      else raise ERR ("Too many arguments:"^(Int.toString numArgs)) ""
   val doppler_opt = theAST_opt |> concl |> rhs;
   val theProg_def = Define ‘theProg = ^theAST’
   val theOptProg_def = Define ‘theOptProg = ^doppler_opt’;
@@ -304,9 +304,9 @@ struct
   val local_opt_thm = save_thm ("local_opt_thm", mk_local_opt_thm theAST_opt theAST_def);
   val _ =
    supportLib.write_code_to_file true theAST_def theAST_opt
-  (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
-  (Parse.Term ‘APPEND ^(reader3_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
-    (stringSyntax.fromHOLstring fname);
+  (Parse.Term ‘APPEND ^(reader_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
+  (Parse.Term ‘APPEND ^(reader_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
+    (stringSyntax.fromHOLstring fname) numArgs;
   (* Plan correctness theorem *)
   val plan_list = theAST_plan_result |> concl |> rhs (* Get the actual plan *)
                    |> listSyntax.dest_list (* get the single plan *)
@@ -315,6 +315,7 @@ struct
                    |> listSyntax.dest_list (* extract the plan as a list *)
                    |> #1 (* take the list, ignore type *)
   val stos_pass_correct_thm = save_thm ("stos_pass_correct_thm", mk_stos_pass_correct_thm plan_list)
+  val stos_pass_real_id_thm = save_thm ("stos_pass_real_id_thm", mk_stos_pass_real_id_thm plan_list)
   in () end;
 
 end;

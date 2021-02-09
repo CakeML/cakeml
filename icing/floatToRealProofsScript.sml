@@ -82,6 +82,15 @@ Definition is_real_id_stos_pass_with_plan_def:
            <| choices := choices|>, Rval r))
 End
 
+Theorem is_real_id_perform_rewrites_empty:
+  ∀ rws path.
+    MEM (Apply (path, rws)) [] ⇒
+    ∀ st1 st2 env cfg exps r.
+      is_real_id_perform_rewrites rws st1 st2 env cfg exps r path
+Proof
+  fs[]
+QED
+
 Theorem real_valued_id_compositional:
   ∀ rws opt.
    (∀ (st1 st2:'a semanticPrimitives$state) env e r.
