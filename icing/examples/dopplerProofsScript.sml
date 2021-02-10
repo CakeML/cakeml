@@ -6,7 +6,7 @@ open compilerTheory fromSexpTheory cfTacticsLib ml_translatorLib;
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
 open source_to_sourceTheory source_to_sourceProofsTheory CakeMLtoFloVerTheory
      CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory fpSemPropsTheory
-     pureExpsTheory
+     pureExpsTheory icing_realIdProofsTheory
      (* icing_optimisationsLib *) dopplerProgCompTheory cfSupportTheory;
 open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith sptreeTheory;
 open astToSexprLib fromSexpTheory basis_ffiTheory cfHeapsBaseTheory basis;

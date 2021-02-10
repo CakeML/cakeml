@@ -7,7 +7,7 @@ open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateChecker
 open source_to_sourceTheory source_to_sourceProofsTheory CakeMLtoFloVerTheory
      CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory
      icing_optimisationsLib invertedPendulumProgCompTheory
-     invertedPendulumProgErrorTheory cfSupportTheory;
+     cfSupportTheory;
 open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
 open astToSexprLib fromSexpTheory basis_ffiTheory cfHeapsBaseTheory basis;
 open preamble supportLib;

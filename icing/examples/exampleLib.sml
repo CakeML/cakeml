@@ -314,8 +314,8 @@ struct
                                         else hd ts)
                    |> listSyntax.dest_list (* extract the plan as a list *)
                    |> #1 (* take the list, ignore type *)
-  val stos_pass_correct_thm = save_thm ("stos_pass_correct_thm", mk_stos_pass_correct_thm plan_list)
-  val stos_pass_real_id_thm = save_thm ("stos_pass_real_id_thm", mk_stos_pass_real_id_thm plan_list)
+  (* val stos_pass_correct_thm = save_thm ("stos_pass_correct_thm", mk_stos_pass_correct_thm plan_list)
+  val stos_pass_real_id_thm = save_thm ("stos_pass_real_id_thm", mk_stos_pass_real_id_thm plan_list) *)
   in () end;
 
 end;
