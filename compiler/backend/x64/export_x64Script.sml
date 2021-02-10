@@ -27,6 +27,7 @@ val startup =
        "     .globl  cdecl(cml_heap)";
        "     .globl  cdecl(cml_stack)";
        "     .globl  cdecl(cml_stackend)";
+       "     .type   cml_main, function";
        "cdecl(cml_main):";
        "     pushq   %rbp                        # push base pointer";
        "     movq    %rsp, %rbp                  # save stack pointer";

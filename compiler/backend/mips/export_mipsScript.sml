@@ -27,6 +27,7 @@ val startup =
        "     .globl  cdecl(cml_heap)";
        "     .globl  cdecl(cml_stack)";
        "     .globl  cdecl(cml_stackend)";
+       "     .type   cml_main, function";
        "cdecl(cml_main):";
        "     dla     $a0,cake_main           # arg1: entry address";
        "     ld      $a1,cdecl(cml_heap)     # arg2: first address of heap";
