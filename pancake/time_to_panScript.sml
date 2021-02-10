@@ -215,8 +215,6 @@ Definition adjustClks_def:
        (fieldsOf (Var v2) n)
 End
 
-
-
 (* isInput is 1 when there is no input
    ffi is zero when no input,
    and if input then it should be a number
@@ -295,7 +293,8 @@ Definition task_controller_def:
         Assign «waitSet» nWaitSet ;
         Assign «wakeUpAt» (Op Add [Var «sysTime»; nwakeUpAt]);
         Assign «loc» nloc;
-        Assign «isInput» (Const 1w)])
+        Assign «isInput» (Const 1w);
+        Assign «event» (Const 0w)])
 End
 
 
