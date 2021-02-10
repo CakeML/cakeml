@@ -206,7 +206,15 @@ Definition normalisedClks_def:
        (mkClks v1 n)
        (fieldsOf (Var v2) n)
 End
-
+(*
+Definition adjustClks_def:
+  adjustClks v1 v2 n =
+  MAP2 (λx y. Op Add [x;y])
+       (mkClks v1 n)
+       (fieldsOf (Var v2) n)
+End
+*)
+(*
 Definition adjustClks_def:
   adjustClks systime (e:'a panLang$exp) v2 n =
   MAP2 (λx y. if x = Const 0w then ((Var systime):'a panLang$exp)
@@ -214,7 +222,7 @@ Definition adjustClks_def:
        (destruct e)
        (fieldsOf (Var v2) n)
 End
-
+*)
 (* isInput is 1 when there is no input
    ffi is zero when no input,
    and if input then it should be a number
@@ -275,6 +283,31 @@ Definition wait_input_time_limit_def:
 End
 
 
+
+Definition task_controller_def:
+  task_controller clksLength =
+  let
+    rt = Var «taskRet» ;
+    nClks     = Field 0 rt;
+    nWaitSet  = Field 1 rt;
+    nwakeUpAt = Field 2 rt;
+    nloc      = Field 3 rt
+  in
+    (nested_seq [
+        wait_input_time_limit;
+        Call (Ret «taskRet» NONE) (Var «loc»)
+             [Struct (normalisedClks «sysTime» «clks» clksLength);
+             Var «event»];
+        Assign «clks» nClks;
+        Assign «clks» (Struct (normalisedClks «sysTime» «clks» clksLength));
+        Assign «waitSet» nWaitSet ;
+        Assign «wakeUpAt» (Op Add [Var «sysTime»; nwakeUpAt]);
+        Assign «loc» nloc;
+        Assign «isInput» (Const 1w);
+        Assign «event» (Const 0w)])
+End
+
+(*
 Definition task_controller_def:
   task_controller clksLength =
   let
@@ -296,8 +329,7 @@ Definition task_controller_def:
         Assign «isInput» (Const 1w);
         Assign «event» (Const 0w)])
 End
-
-
+*)
 Definition start_controller_def:
   start_controller (ta_prog:program) =
   let
