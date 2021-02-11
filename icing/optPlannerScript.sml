@@ -661,19 +661,21 @@ Definition apply_distributivity_local_def:
      | App (FP_bop op) [
          App (FP_bop op') [e1_1;e1_2];
          App (FP_bop op'') [e2_1;e2_2]] =>
-         if ((op = FP_Add ∨ op = FP_Sub) ∧ op' = FP_Mul
-             ∧ e1_2 = App (FP_bop op'') [e2_1;e2_2])
-         then
-           (let plan = [Apply (ListIndex (1, Here), [fp_times_one_reverse; fp_comm_gen FP_Mul]);
-                        Apply (Here, [fp_distribute_gen op' op])];
-                optimized = optimise_with_plan cfg plan can_e in
-              SOME (optimized, can_plan ++ plan))
-         else (if ((op = FP_Add ∨ op = FP_Sub) ∧ (op' = FP_Mul ∨ op' = FP_Div) ∧ op'' = op')
-               then
-                 (let plan = [Apply (Here, [fp_distribute_gen op' op])];
-                      optimized = optimise_with_plan cfg plan can_e in
-                    SOME (optimized, can_plan ++ plan))
-               else NONE)
+         if (e1_2 = e2_2) then (* Check that we can distribute correctly *)
+           if ((op = FP_Add ∨ op = FP_Sub) ∧ op' = FP_Mul
+               ∧ e1_2 = App (FP_bop op'') [e2_1;e2_2])
+           then
+             (let plan = [Apply (ListIndex (1, Here), [fp_times_one_reverse; fp_comm_gen FP_Mul]);
+                          Apply (Here, [fp_distribute_gen op' op])];
+                  optimized = optimise_with_plan cfg plan can_e in
+                SOME (optimized, can_plan ++ plan))
+           else if ((op = FP_Add ∨ op = FP_Sub) ∧ (op' = FP_Mul ∨ op' = FP_Div) ∧ op'' = op')
+           then
+             (let plan = [Apply (Here, [fp_distribute_gen op' op])];
+                  optimized = optimise_with_plan cfg plan can_e in
+                SOME (optimized, can_plan ++ plan))
+           else NONE
+         else NONE
      | App (FP_bop op) [
          App (FP_bop op') [e1_1; e1_2];
          e2] =>
@@ -778,7 +780,7 @@ Definition compose_plan_generation_def:
             then (e, [])
             else (final_e, rest_plan)
        else
-        (final_e, (Label name) :: plan ++ [Label (STRCAT name " end")] ++ rest_plan)
+        (final_e, (Label name) :: plan ++ [Expected updated_e; Label (STRCAT name " end")] ++ rest_plan)
 End
 
 Definition balance_expression_tree_def:

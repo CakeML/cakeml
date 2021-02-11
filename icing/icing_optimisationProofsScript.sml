@@ -438,6 +438,7 @@ fun fp_rws_append_opt t =
     |> map (Q.SPEC `[^t]`) |> map GEN_ALL
     |> LIST_CONJ;
 
+    (*
 Theorem fp_times_one_correct:
   ∀ st1 st2 env e r.
    is_rewriteFPexp_correct [fp_times_one] st1 st2 env e r

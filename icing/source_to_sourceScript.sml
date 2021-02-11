@@ -216,7 +216,7 @@ Definition optimise_with_plan_def:
     then (e_opt, Success)
     else
       let (e_optFull, res) = optimise_with_plan cfg rest e_opt in
-        if (e_optFull = e_opt) then (e, res)
+        if (e_optFull = e_opt ∧ res ≠ Success) then (e, res)
         else (e_optFull, res)
 End
 

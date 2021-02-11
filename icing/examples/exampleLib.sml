@@ -255,6 +255,10 @@ struct
   (** The code below stores in theorem theAST_opt the optimized version of the AST
       from above and in errorbounds_AST the inferred FloVer roundoff error bounds
    **)
+  val theAST_opt_result = save_thm ("theAST_opt_result",
+    EVAL
+      (Parse.Term ‘
+        MAP SND (stos_pass_with_plans_decs theOpts theAST_plan theAST)’));
   val theAST_opt = save_thm ("theAST_opt",
     EVAL
       (Parse.Term ‘
