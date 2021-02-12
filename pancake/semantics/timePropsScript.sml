@@ -22,6 +22,15 @@ Proof
   fs [evalTerm_cases]
 QED
 
+Theorem eval_term_clocks_reset:
+  ∀s io n cnds tclks dest wt s' ck t.
+    FLOOKUP s.clocks ck = SOME t ∧
+    evalTerm s io (Tm n cnds tclks dest wt) s' ⇒
+    (FLOOKUP s.clocks ck = SOME t ∨ FLOOKUP s.clocks ck = SOME 0)
+Proof
+  rw [] >>
+  fs [evalTerm_cases]
+QED
 
 Theorem list_min_option_some_mem:
   ∀xs x.
@@ -144,20 +153,6 @@ Proof
     rewrite_tac [Once exprClks_def] >>
     fs []) >>
   fs [EVERY_MEM]
-QED
-
-Theorem bar:
-  n ≤ m ⇒
-  delay_clocks (delay_clocks fm n) (m − n) =
-  delay_clocks fm m
-Proof
-  rw [] >>
-  fs [delay_clocks_def] >>
-  ‘MAP (λ(x,y). (x,m + y − n))
-          (fmap_to_alist
-           (FEMPTY |++ MAP (λ(x,y). (x,n + y)) (fmap_to_alist fm))) =
-   MAP (λ(x,y). (x,m + y)) (fmap_to_alist fm)’ by cheat >>
-  fs []
 QED
 
 val _ = export_theory();

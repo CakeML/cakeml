@@ -28,8 +28,8 @@ End
 Definition time_input_def:
   time_input (:'a) be (f:num -> num # num) =
   let
-    t = n2w (FST (f 0)):'a word;
-    b = n2w (SND (f 0)):'a word;
+    t = n2w (FST (f 1)):'a word;
+    b = n2w (SND (f 1)):'a word;
   in
     get_bytes (:'a) be t ++
     get_bytes (:'a) be b
