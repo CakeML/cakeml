@@ -296,7 +296,7 @@ Definition canonicalize_sub_def:
   canonicalize_sub e =
     case e of
     | (App (FP_bop FP_Sub) [e1; e2]) =>
-        (App (FP_bop FP_Add) [e1; rewriteFPexp [fp_neg_times_minus_one] e2],
+        (App (FP_bop FP_Add) [e1; rewriteFPexp [fp_neg_times_minus_one] (App (FP_uop FP_Neg) [e2])],
          [Apply (Here, [fp_sub_add]);
           Apply (ListIndex (1, Here),  [fp_neg_times_minus_one])])
     | _ => (e, [])
@@ -320,7 +320,7 @@ Definition canonicalize_app_def:
          else (canonicalize_sub e))
     (* Canonicalize constants to the rhs *)
     | (App (FP_bop op) [App FpFromWord [l]; e2]) =>
-        (if (op ≠ FP_Sub ∧ op ≠ FP_Div) then
+        (if (op ≠ FP_Sub ∧ op ≠ FP_Div ∧ (App FpFromWord [l] ≠ e2)) then
            (rewriteFPexp [fp_comm_gen op] e, [Apply (Here, [fp_comm_gen op])])
          else (e, []))
     | (App (FP_bop FP_Sub) [e1; e2]) =>
@@ -571,8 +571,9 @@ Definition intersect_lists_def:
   intersect_lists _ [] = [] ∧
   intersect_lists [] _ = [] ∧
   intersect_lists (a::rest) right =
-  case MEM a right of T => a::(intersect_lists rest (remove_first right a))
-                   | F => intersect_lists rest right
+    if MEM a right then
+      a::(intersect_lists rest (remove_first right a))
+    else intersect_lists rest right
 End
 
 Definition move_multiplicants_to_right_def:
@@ -581,30 +582,40 @@ Definition move_multiplicants_to_right_def:
   (case e of
    | (App (FP_bop FP_Mul) [e1; e2]) =>
        if (m = e1) then
-         let plan =  [Apply (Here, [fp_comm_gen FP_Mul])] in
-           let commuted = FST (optimise_with_plan cfg plan e) in
-             (commuted, plan)
+         let plan = [Apply (Here, [fp_comm_gen FP_Mul])];
+         res_plan = optimise_with_plan cfg plan e in
+           if SND res_plan = Success then
+             (FST res_plan, plan)
+           else (e, [])
        else (
-         if (m = e2) then
-           let local_plan = [Apply (Here, [fp_assoc2_gen FP_Mul])] in
+         let local_plan = [Apply (Here, [fp_assoc2_gen FP_Mul])] in
+           if (m = e2 ∧ SND(optimise_with_plan cfg local_plan e) = Success) then
              (FST (optimise_with_plan cfg local_plan e), local_plan)
-         else
-           let local_plan = [Apply (Here, [fp_assoc2_gen FP_Mul])];
-               (updated_e2, downstream_plan) = move_multiplicants_to_right cfg [m] e2 in
-             let updated_e = App (FP_bop FP_Mul) [e1; updated_e2] in
-               (FST (optimise_with_plan cfg local_plan updated_e),
+           else
+           let (updated_e2, downstream_plan) = move_multiplicants_to_right cfg [m] e2;
+               updated_e = App (FP_bop FP_Mul) [e1; updated_e2];
+               update_opt = optimise_with_plan cfg local_plan updated_e in
+               if SND update_opt = Success then
+               (FST update_opt,
                 (MAP_plan_to_path (listIndex 1) downstream_plan) ++ local_plan)
+               else
+                 (updated_e, MAP_plan_to_path (listIndex 1) downstream_plan)
          )
    | _ => (e, [])) ∧
   move_multiplicants_to_right cfg (m1::m2::rest) e =
   let (updated_e, plan) = move_multiplicants_to_right cfg [m1] e in
     case updated_e of
     | (App (FP_bop FP_Mul) [e1; e2]) =>
-        (let (updated_e1, other_plan) = move_multiplicants_to_right cfg (m2::rest) e1 in
-           let left_plan = MAP_plan_to_path (listIndex 0) other_plan;
-               local_plan = [Apply (Here, [fp_assoc_gen FP_Mul]); Apply (ListIndex (1, Here), [fp_comm_gen FP_Mul]) ] in
-             let final_e = FST (optimise_with_plan cfg local_plan (App (FP_bop FP_Mul) [updated_e1; e2])) in
-               (final_e, plan ++ left_plan ++ local_plan))
+        (let (updated_e1, other_plan) = move_multiplicants_to_right cfg (m2::rest) e1;
+             left_plan = MAP_plan_to_path (listIndex 0) other_plan;
+             local_plan = [Apply (Here, [fp_assoc_gen FP_Mul]);
+                           Apply (ListIndex (1, Here), [fp_comm_gen FP_Mul]) ];
+             new_e = App (FP_bop FP_Mul) [updated_e1; e2];
+             final_e = optimise_with_plan cfg local_plan new_e;
+         in
+           if SND final_e = Success
+           then (FST final_e, plan ++ left_plan ++ local_plan)
+           else (new_e, plan ++ left_plan))
     | _ => (updated_e, plan)
 End
 

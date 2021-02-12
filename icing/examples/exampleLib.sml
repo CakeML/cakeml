@@ -65,7 +65,7 @@ struct
                 (Let (SOME "x" )
                   (App Opapp [
                           App Opapp [Var (Short ^fname); Var (Short "d1")];
-                        Va  r (Short "d2")])
+                        Var (Short "d2")])
                 (Let (SOME "y")
                  (App FpToWord [Var (Short "x")])
                  (App Opapp [
@@ -127,6 +127,145 @@ struct
               (App Opapp [
                  Var (Short "printer");
                  Var (Short "y")])))))))]))))]”;
+
+  fun main6 fname =
+  “[Dlet unknown_loc (Pvar "main")
+    (Fun "a"
+     (Let (SOME "u") (Con NONE [])
+     (Let (SOME "strArgs")
+      (App Opapp [Var (Short "reader6"); Var (Short "u")])
+      (Mat (Var (Short "strArgs"))
+       [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pcon NONE [Pvar "d3s";
+         Pcon NONE [Pvar "d4s"; Pcon NONE [Pvar "d5s"; Pvar "d6s"]]]]]),
+         (Let (SOME "d1")
+          (App Opapp [Var (Short "intToFP"); Var (Short "d1s")])
+          (Let (SOME "d2")
+           (App Opapp [Var (Short "intToFP"); Var (Short "d2s")])
+           (Let (SOME "d3")
+            (App Opapp [Var (Short "intToFP"); Var (Short "d3s")])
+            (Let (SOME "d4")
+             (App Opapp [Var (Short "intToFP"); Var (Short "d4s")])
+             (Let (SOME "d5")
+              (App Opapp [Var (Short "intToFP"); Var (Short "d5s")])
+             (Let (SOME "d6")
+              (App Opapp [Var (Short "intToFP"); Var (Short "d6s")])
+             (Let (SOME "x" )
+              (App Opapp [
+                 App Opapp [
+                   App Opapp [
+                     App Opapp [
+                       App Opapp [
+                         App Opapp [Var (Short ^fname); Var (Short "d1")];
+                         Var (Short "d2")];
+                       Var (Short "d3")];
+                     Var (Short "d4")];
+                   Var (Short "d5")];
+                 Var (Short "d6")])
+             (Let (SOME "y")
+              (App FpToWord [Var (Short "x")])
+              (App Opapp [
+                 Var (Short "printer");
+                 Var (Short "y")])))))))))]))))]”;
+
+  fun main8 fname =
+  “[Dlet unknown_loc (Pvar "main")
+    (Fun "a"
+     (Let (SOME "u") (Con NONE [])
+     (Let (SOME "strArgs")
+      (App Opapp [Var (Short "reader8"); Var (Short "u")])
+      (Mat (Var (Short "strArgs"))
+       [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pcon NONE [Pvar "d3s";
+         Pcon NONE [Pvar "d4s"; Pcon NONE [Pvar "d5s"; Pcon NONE [Pvar "d6s";
+         Pcon NONE [Pvar "d7s"; Pvar "d8s"]]]]]]]),
+         (Let (SOME "d1")
+          (App Opapp [Var (Short "intToFP"); Var (Short "d1s")])
+          (Let (SOME "d2")
+           (App Opapp [Var (Short "intToFP"); Var (Short "d2s")])
+           (Let (SOME "d3")
+            (App Opapp [Var (Short "intToFP"); Var (Short "d3s")])
+            (Let (SOME "d4")
+             (App Opapp [Var (Short "intToFP"); Var (Short "d4s")])
+             (Let (SOME "d5")
+              (App Opapp [Var (Short "intToFP"); Var (Short "d5s")])
+             (Let (SOME "d6")
+              (App Opapp [Var (Short "intToFP"); Var (Short "d6s")])
+              (Let (SOME "d7")
+               (App Opapp [Var (Short "intToFP"); Var (Short "d7s")])
+                (Let (SOME "d8")
+                 (App Opapp [Var (Short "intToFP"); Var (Short "d8s")])
+             (Let (SOME "x" )
+              (App Opapp [
+                 App Opapp [
+                   App Opapp [
+                     App Opapp [
+                       App Opapp [
+                         App Opapp [
+                           App Opapp [
+                             App Opapp [Var (Short ^fname); Var (Short "d1")];
+                             Var (Short "d2")];
+                           Var (Short "d3")];
+                         Var (Short "d4")];
+                       Var (Short "d5")];
+                     Var (Short "d6")];
+                   Var (Short "d7")];
+                 Var (Short "d8")])
+             (Let (SOME "y")
+              (App FpToWord [Var (Short "x")])
+              (App Opapp [
+                 Var (Short "printer");
+                 Var (Short "y")])))))))))))]))))]”;
+
+  fun main9 fname =
+  “[Dlet unknown_loc (Pvar "main")
+    (Fun "a"
+     (Let (SOME "u") (Con NONE [])
+     (Let (SOME "strArgs")
+      (App Opapp [Var (Short "reader9"); Var (Short "u")])
+      (Mat (Var (Short "strArgs"))
+       [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pcon NONE [Pvar "d3s";
+         Pcon NONE [Pvar "d4s"; Pcon NONE [Pvar "d5s"; Pcon NONE [Pvar "d6s";
+         Pcon NONE [Pvar "d7s"; Pcon NONE [Pvar "d8s"; Pvar "d9s"]]]]]]]]),
+         (Let (SOME "d1")
+          (App Opapp [Var (Short "intToFP"); Var (Short "d1s")])
+          (Let (SOME "d2")
+           (App Opapp [Var (Short "intToFP"); Var (Short "d2s")])
+           (Let (SOME "d3")
+            (App Opapp [Var (Short "intToFP"); Var (Short "d3s")])
+            (Let (SOME "d4")
+             (App Opapp [Var (Short "intToFP"); Var (Short "d4s")])
+             (Let (SOME "d5")
+              (App Opapp [Var (Short "intToFP"); Var (Short "d5s")])
+             (Let (SOME "d6")
+              (App Opapp [Var (Short "intToFP"); Var (Short "d6s")])
+              (Let (SOME "d7")
+               (App Opapp [Var (Short "intToFP"); Var (Short "d7s")])
+                (Let (SOME "d8")
+                 (App Opapp [Var (Short "intToFP"); Var (Short "d8s")])
+                  (Let (SOME "d9")
+                   (App Opapp [Var (Short "intToFP"); Var (Short "d9s")])
+             (Let (SOME "x" )
+              (App Opapp [
+                 App Opapp [
+                   App Opapp [
+                     App Opapp [
+                       App Opapp [
+                         App Opapp [
+                           App Opapp [
+                             App Opapp [
+                               App Opapp [Var (Short ^fname); Var (Short "d1")];
+                               Var (Short "d2")];
+                             Var (Short "d3")];
+                           Var (Short "d4")];
+                         Var (Short "d5")];
+                       Var (Short "d6")];
+                     Var (Short "d7")];
+                   Var (Short "d8")];
+                 Var (Short "d9")])
+             (Let (SOME "y")
+              (App FpToWord [Var (Short "x")])
+              (App Opapp [
+                 Var (Short "printer");
+                 Var (Short "y")]))))))))))))]))))]”;
 
   fun call1_code fname = Parse.Term ‘
     [Dlet unknown_loc (Pvar "it")
@@ -229,6 +368,148 @@ struct
                 App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];
                 Var (Short "u")]; Var (Short "b")]))))))])))]’;
 
+  fun call6_code fname = Parse.Term ‘
+      [Dlet unknown_loc (Pvar "it")
+  (Let (SOME "u") (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))])
+   (Let (SOME "strArgs")
+    (App Opapp [Var (Short "reader6"); Var (Short "u")])
+    (Mat (Var (Short "strArgs"))
+       [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pcon NONE [Pvar "d3s";
+         Pcon NONE [Pvar "d4s"; Pcon NONE [Pvar "d5s"; Pvar "d6s"]]]]]),
+         (Let (SOME "d1")
+          (App Opapp [Var (Short "intToFP"); Var (Short "d1s")])
+          (Let (SOME "d2")
+           (App Opapp [Var (Short "intToFP"); Var (Short "d2s")])
+           (Let (SOME "d3")
+            (App Opapp [Var (Short "intToFP"); Var (Short "d3s")])
+            (Let (SOME "d4")
+             (App Opapp [Var (Short "intToFP"); Var (Short "d4s")])
+             (Let (SOME "d5")
+              (App Opapp [Var (Short "intToFP"); Var (Short "d5s")])
+             (Let (SOME "d6")
+              (App Opapp [Var (Short "intToFP"); Var (Short "d6s")])
+          (Let (SOME "b")
+           (Fun "x"
+            (Let (SOME "y")
+             (App Opapp [
+             App Opapp [
+                App Opapp [
+                  App Opapp [
+                    App Opapp [
+                      App Opapp [Var (Short ^fname); Var (Short "d1")];
+                      Var (Short "d2")];
+                    Var (Short "d3")];
+                    Var (Short "d4")];
+                  Var (Short "d5")];
+                Var (Short "d6")])
+             (Var (Short "y"))))
+           (App Opapp [
+              App Opapp [
+                App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];
+                Var (Short "u")]; Var (Short "b")]))))))))])))]’;
+
+  fun call8_code fname = Parse.Term ‘
+      [Dlet unknown_loc (Pvar "it")
+  (Let (SOME "u") (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))])
+   (Let (SOME "strArgs")
+    (App Opapp [Var (Short "reader8"); Var (Short "u")])
+    (Mat (Var (Short "strArgs"))
+       [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pcon NONE [Pvar "d3s";
+         Pcon NONE [Pvar "d4s"; Pcon NONE [Pvar "d5s"; Pcon NONE [Pvar "d6s";
+         Pcon NONE [Pvar "d7s"; Pvar "d8s"]]]]]]]),
+         (Let (SOME "d1")
+          (App Opapp [Var (Short "intToFP"); Var (Short "d1s")])
+          (Let (SOME "d2")
+           (App Opapp [Var (Short "intToFP"); Var (Short "d2s")])
+           (Let (SOME "d3")
+            (App Opapp [Var (Short "intToFP"); Var (Short "d3s")])
+            (Let (SOME "d4")
+             (App Opapp [Var (Short "intToFP"); Var (Short "d4s")])
+             (Let (SOME "d5")
+              (App Opapp [Var (Short "intToFP"); Var (Short "d5s")])
+             (Let (SOME "d6")
+              (App Opapp [Var (Short "intToFP"); Var (Short "d6s")])
+              (Let (SOME "d7")
+               (App Opapp [Var (Short "intToFP"); Var (Short "d7s")])
+                (Let (SOME "d8")
+                 (App Opapp [Var (Short "intToFP"); Var (Short "d8s")])
+          (Let (SOME "b")
+           (Fun "x"
+            (Let (SOME "y")
+              (App Opapp [
+                 App Opapp [
+                   App Opapp [
+                     App Opapp [
+                       App Opapp [
+                         App Opapp [
+                           App Opapp [
+                             App Opapp [Var (Short ^fname); Var (Short "d1")];
+                             Var (Short "d2")];
+                           Var (Short "d3")];
+                         Var (Short "d4")];
+                       Var (Short "d5")];
+                     Var (Short "d6")];
+                   Var (Short "d7")];
+                 Var (Short "d8")])
+               (Var (Short "y"))))
+           (App Opapp [
+              App Opapp [
+                App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];
+                Var (Short "u")]; Var (Short "b")]))))))))))])))]’;
+
+  fun call9_code fname = Parse.Term ‘
+      [Dlet unknown_loc (Pvar "it")
+  (Let (SOME "u") (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))])
+   (Let (SOME "strArgs")
+    (App Opapp [Var (Short "reader9"); Var (Short "u")])
+    (Mat (Var (Short "strArgs"))
+       [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pcon NONE [Pvar "d3s";
+         Pcon NONE [Pvar "d4s"; Pcon NONE [Pvar "d5s"; Pcon NONE [Pvar "d6s";
+         Pcon NONE [Pvar "d7s"; Pcon NONE [Pvar "d8s"; Pvar "d9s"]]]]]]]]),
+         (Let (SOME "d1")
+          (App Opapp [Var (Short "intToFP"); Var (Short "d1s")])
+          (Let (SOME "d2")
+           (App Opapp [Var (Short "intToFP"); Var (Short "d2s")])
+           (Let (SOME "d3")
+            (App Opapp [Var (Short "intToFP"); Var (Short "d3s")])
+            (Let (SOME "d4")
+             (App Opapp [Var (Short "intToFP"); Var (Short "d4s")])
+             (Let (SOME "d5")
+              (App Opapp [Var (Short "intToFP"); Var (Short "d5s")])
+             (Let (SOME "d6")
+              (App Opapp [Var (Short "intToFP"); Var (Short "d6s")])
+              (Let (SOME "d7")
+               (App Opapp [Var (Short "intToFP"); Var (Short "d7s")])
+                (Let (SOME "d8")
+                 (App Opapp [Var (Short "intToFP"); Var (Short "d8s")])
+                  (Let (SOME "d9")
+                   (App Opapp [Var (Short "intToFP"); Var (Short "d9s")])
+          (Let (SOME "b")
+           (Fun "x"
+            (Let (SOME "y")
+              (App Opapp [
+                 App Opapp [
+                   App Opapp [
+                     App Opapp [
+                       App Opapp [
+                         App Opapp [
+                           App Opapp [
+                             App Opapp [
+                               App Opapp [Var (Short ^fname); Var (Short "d1")];
+                               Var (Short "d2")];
+                             Var (Short "d3")];
+                           Var (Short "d4")];
+                         Var (Short "d5")];
+                       Var (Short "d6")];
+                     Var (Short "d7")];
+                   Var (Short "d8")];
+                 Var (Short "d9")])
+               (Var (Short "y"))))
+           (App Opapp [
+              App Opapp [
+                App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];
+                Var (Short "u")]; Var (Short "b")])))))))))))])))]’;
+
   fun define_benchmark theAST_def theAST_pre_def checkError =
   let
     val theAST = theAST_def |> concl |> rhs
@@ -259,6 +540,10 @@ struct
     EVAL
       (Parse.Term ‘
         MAP SND (stos_pass_with_plans_decs theOpts theAST_plan theAST)’));
+  val _ = if Term.compare (theAST_opt_result |> concl |> rhs,“[source_to_source$Success]”) <> EQUAL
+          then raise ERR ("Failed optimization with error:"^
+                          (Parse.thm_to_string theAST_opt_result)) ""
+          else ()
   val theAST_opt = save_thm ("theAST_opt",
     EVAL
       (Parse.Term ‘
@@ -280,6 +565,9 @@ struct
       else if numArgs = 2 then (main2 fname, call2_code fname, reader2_def)
       else if numArgs = 3 then (main3 fname, call3_code fname, reader3_def)
       else if numArgs = 4 then (main4 fname, call4_code fname, reader4_def)
+      else if numArgs = 6 then (main6 fname, call6_code fname, reader6_def)
+      else if numArgs = 8 then (main8 fname, call8_code fname, reader8_def)
+      else if numArgs = 9 then (main9 fname, call9_code fname, reader9_def)
       else raise ERR ("Too many arguments:"^(Int.toString numArgs)) ""
   val doppler_opt = theAST_opt |> concl |> rhs;
   val theProg_def = Define ‘theProg = ^theAST’

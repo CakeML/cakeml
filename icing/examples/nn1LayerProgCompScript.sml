@@ -4,20 +4,15 @@
 **)
 
 (* INCLUDES, do not change those *)
-open astTheory ml_translatorLib;
-open basis_ffiTheory cfHeapsBaseTheory basis;
-open RealIntervalInferenceTheory ErrorIntervalInferenceTheory CertificateCheckerTheory;
-open source_to_sourceTheory CakeMLtoFloVerTheory cfSupportTheory;
-open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
-open preamble;
+open exampleLib preamble;
 
 val _ = new_theory "nn1LayerProgComp";
 
 val _ = translation_extends "cfSupport";
 
 (** Precondition **)
-val nn1Layer_pre =
-“λ (x:(string,string) id).
+Definition theAST_pre_def:
+  theAST_pre = λ (x:(string,string) id).
  if x = Short "x1"
  then ((- (48/100), 48/100):(real#real))
  else if x = Short "x2"
@@ -26,19 +21,15 @@ val nn1Layer_pre =
  then (- 24/1, 24/1)
  else if x = Short "x4"
  then (-10/1, 10/1)
- else (0,0)”
-
-Definition nn1Layer_pre_def:
-  nn1Layer_pre = ^nn1Layer_pre
+ else (0,0)
 End
+
 
 (**
   Define the CakeML source AST as a polyML/HOL4 declaration
 **)
-val nn1Layer =
-(** REPLACE AST BELOW THIS LINE **)
-“[
-Dlet unknown_loc (Pvar "nn1Layer")
+Definition theAST_def:
+  theAST = [Dlet unknown_loc (Pvar "nn1Layer")
 (Fun "x1" (Fun "x2" (Fun "x3" (Fun "x4" (FpOptimise Opt
 (Let (SOME "dot1")
   (App (FP_bop FP_Add)
@@ -112,172 +103,13 @@ Dlet unknown_loc (Pvar "nn1Layer")
       [
         Var (Short  "dot1");
         Var (Short  "dot2")
-      ]))))))))]”;
-
-Definition theAST_def:
-  theAST =
-  ^nn1Layer
+      ]))))))))]
 End
-
-(** Optimizations to be applied by Icing **)
-Definition theOpts_def:
-  theOpts = extend_conf no_fp_opt_conf
-  [
-    fp_sub_add;
-    fp_comm_gen FP_Add;
-    fp_neg_push_mul_r;
-    fp_fma_intro
-  ]
-End
-
-fun flatMap (ll:'a list list) =
-  case ll of [] => []
-  | l1 :: ls => l1 @ flatMap ls
-
-fun dedup l =
-  case l of
-  [] => []
-  | l1::ls =>
-      let val lclean = dedup ls in
-        if (List.exists (fn x => x = l1) lclean)
-        then lclean
-        else l1::lclean
-      end;
-
-Theorem theAST_plan = EVAL (Parse.Term ‘generate_plan_decs theOpts theAST’);
-
-val thePlan_def = EVAL “HD ^(theAST_plan |> concl |> rhs)”
-val hotRewrites = thePlan_def |> concl |> rhs |> listSyntax.dest_list |> #1
-                       |> map (#2 o dest_pair)
-                       |> map (#1 o listSyntax.dest_list)
-                       |> flatMap
-                       |> map (fn t => DB.apropos_in t (DB.thy "icing_optimisations"))
-                       |> flatMap
-                       |> map (#2 o #1)
-                       |> dedup
-                       |> List.foldl (fn (elem, acc) => acc ^ " " ^ elem ^ " ;") "Used rewrites:";
-
-val _ = adjoin_to_theory
-        { sig_ps =
-          SOME (fn _ => PP.add_string
-                    ("val hotRewrites = \""^hotRewrites^"\";")),
-          struct_ps = NONE };
-
-
-(** The code below stores in theorem theAST_opt the optimized version of the AST
-    from above and in errorbounds_AST the inferred FloVer roundoff error bounds
- **)
-Theorem theAST_opt =
-  EVAL
-    (Parse.Term ‘
-      (no_opt_decs theOpts
-       (stos_pass_with_plans_decs theOpts (generate_plan_decs theOpts theAST) theAST))’);
-
-val nn1Layer_opt = theAST_opt |> concl |> rhs;
 
 Definition theErrBound_def:
   theErrBound = inv (2 pow (10))
 End
 
-Definition theProg_def:
-  theProg = ^nn1Layer
-End
-
-Definition theOptProg_def:
-  theOptProg = ^nn1Layer_opt
-End
-
-val main =
-“[Dlet unknown_loc (Pvar "main")
-  (Fun "a"
-   (Let (SOME "u") (Con NONE [])
-   (Let (SOME "strArgs")
-    (App Opapp [Var (Short "reader4"); Var (Short "u")])
-    (Mat (Var (Short "strArgs"))
-     [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pcon NONE [Pvar "d3s"; Pvar "d4s"]]]),
-       (Let (SOME "d1")
-        (App Opapp [Var (Short "intToFP"); Var (Short "d1s")])
-        (Let (SOME "d2")
-         (App Opapp [Var (Short "intToFP"); Var (Short "d2s")])
-         (Let (SOME "d3")
-          (App Opapp [Var (Short "intToFP"); Var (Short "d3s")])
-          (Let (SOME "d4")
-           (App Opapp [Var (Short "intToFP"); Var (Short "d4s")])
-           (Let (SOME "x" )
-            (App Opapp [
-               App Opapp [
-                 App Opapp [
-                   App Opapp [Var (Short "nn1Layer"); Var (Short "d1")];
-                   Var (Short "d2")];
-                 Var (Short "d3")];
-               Var (Short "d4")])
-           (Let (SOME "y")
-            (App FpToWord [Var (Short "x")])
-            (App Opapp [
-               Var (Short "printer");
-               Var (Short "y")])))))))]))))]”;
-
-val iter_code = process_topdecs ‘
- fun iter n s f =
-     if (n = 0) then s else iter (n-1) (f s) f;’
-
-val iter_count = “10000000:int”
-
-val call_code = Parse.Term ‘
-[Dlet unknown_loc (Pvar "it")
-(Let (SOME "u") (App FpFromWord [Lit (Word64 (4613937818241073152w:word64))])
- (Let (SOME "strArgs")
-  (App Opapp [Var (Short "reader4"); Var (Short "u")])
-  (Mat (Var (Short "strArgs"))
-     [(Pcon NONE [Pvar "d1s"; Pcon NONE [Pvar "d2s"; Pcon NONE [Pvar "d3s"; Pvar "d4s"]]]),
-       (Let (SOME "d1")
-        (App Opapp [Var (Short "intToFP"); Var (Short "d1s")])
-        (Let (SOME "d2")
-         (App Opapp [Var (Short "intToFP"); Var (Short "d2s")])
-         (Let (SOME "d3")
-          (App Opapp [Var (Short "intToFP"); Var (Short "d3s")])
-          (Let (SOME "d4")
-           (App Opapp [Var (Short "intToFP"); Var (Short "d4s")])
-        (Let (SOME "b")
-         (Fun "x"
-          (Let (SOME "y")
-           (App Opapp [
-           App Opapp [
-              App Opapp [
-                App Opapp [Var (Short "nn1Layer"); Var (Short "d1")];
-                Var (Short "d2")];
-              Var (Short "d3")];
-              Var (Short "d4")])
-           (Var (Short "y"))))
-         (App Opapp [
-            App Opapp [
-              App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];
-              Var (Short "u")]; Var (Short "b")]))))))])))]’;
-
-Definition theBenchmarkMain_def:
-  theBenchmarkMain =
-  (HD (^iter_code)) :: (^call_code)
-End
-
-val st_no_nn1Layer = get_ml_prog_state ();
-
-val nn1Layer_env = st_no_nn1Layer
-  |> ml_progLib.clean_state
-  |> ml_progLib.remove_snocs
-  |> ml_progLib.get_env;
-
-val _ = append_prog (theOptProg_def |> concl |> rhs)
-
-val _ = append_prog main;
-
-Definition nn1Layer_env_def:
-  nn1Layer_env = ^nn1Layer_env
-End
-
-val _ =
-  supportLib.write_code_to_file true theAST_def theAST_opt
-(Parse.Term ‘APPEND ^(reader4_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
-    (Parse.Term ‘APPEND ^(reader4_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
-    "nn1Layer";
+val x = define_benchmark theAST_def theAST_pre_def true;
 
 val _ = export_theory();
