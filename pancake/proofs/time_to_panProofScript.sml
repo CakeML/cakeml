@@ -4191,7 +4191,18 @@ Proof
       imp_res_tac eval_term_clocks_reset >>
       gs [resetOutput_def] >>
       res_tac >> gs [] >>
-      cheat) >>
+      gs [evalTerm_cases] >>
+      rveq >> gs [resetClocks_def] >>
+      cases_on ‘MEM ck tclks’
+      >- (
+        qexists_tac ‘0’ >>
+        fs [MEM_EL] >>
+        metis_tac [update_eq_zip_map_flookup]) >>
+      qexists_tac ‘n’ >>
+      qpat_x_assum ‘_ = SOME n’ (assume_tac o GSYM) >>
+      fs [] >>
+      match_mp_tac flookup_fupdate_zip_not_mem >>
+      gs []) >>
     pairarg_tac >> gs [] >> rveq >> gs [] >>
     rw []
     >- (
@@ -4208,9 +4219,6 @@ Proof
     gs [clocks_rel_def, FLOOKUP_UPDATE, nffi_state_def] >>
     fs [Abbr ‘rrtv’] >>
     fs [nffi_state_def, Abbr ‘nnt’, ffi_call_ffi_def, next_ffi_def] >>
-
-
-
     qexists_tac ‘MAP (λck. (nt + wt) - THE (FLOOKUP s'.clocks ck)) (clksOf prog)’ >>
     gs [] >>
     conj_tac
@@ -4240,10 +4248,23 @@ Proof
       fs [Abbr ‘ff’, Abbr ‘xs’] >>
       TOP_CASE_TAC >> gs []
       >- (
-      ‘FLOOKUP s'.clocks (EL n (clksOf prog)) = SOME 0’ by cheat >>
-      gs []) >>
-      ‘FLOOKUP s.clocks (EL n (clksOf prog)) = SOME x ∧
-       FLOOKUP s'.clocks (EL n (clksOf prog)) = SOME x’ by cheat >>
+        ‘FLOOKUP s'.clocks (EL n (clksOf prog)) = SOME 0’ by (
+        gs [evalTerm_cases, resetOutput_def, resetClocks_def, MEM_EL] >>
+        metis_tac [update_eq_zip_map_flookup]) >>
+        gs []) >>
+      ‘?x. FLOOKUP s.clocks (EL n (clksOf prog)) = SOME x ∧
+           FLOOKUP s'.clocks (EL n (clksOf prog)) = SOME x’ by (
+        gs [evalTerm_cases, resetOutput_def, resetClocks_def, MEM_EL] >>
+        gs [clock_bound_def, EVERY_MEM] >>
+        last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
+        impl_tac
+        >- metis_tac [MEM_EL] >>
+        strip_tac >>
+        gs [] >>
+        qpat_x_assum ‘_ = SOME n''’ (assume_tac o GSYM) >>
+        fs [] >>
+        match_mp_tac flookup_fupdate_zip_not_mem >>
+        gs [MEM_EL]) >>
       gs []) >>
     gs [clkvals_rel_def] >>
     conj_tac
@@ -4261,12 +4282,64 @@ Proof
         match_mp_tac EL_MAP >>
         fs [Abbr ‘xs’]) >>
       fs [Abbr ‘ff’, Abbr ‘xs’] >>
-      cheat) >>
-    cheat) >>
+      ‘THE (FLOOKUP s'.clocks (EL n (clksOf prog))) <= nt + wt’ by (
+        gs [evalTerm_cases, resetOutput_def, resetClocks_def, MEM_EL] >>
+        cases_on ‘MEM (EL n (clksOf prog)) tclks’
+        >- (
+          fs [MEM_EL] >>
+          ‘FLOOKUP (s.clocks |++ ZIP (tclks,MAP (λx. 0) tclks))
+           (EL n'' tclks) = SOME 0’ by
+            metis_tac [update_eq_zip_map_flookup]>>
+          fs []) >>
+        gs [clock_bound_def, EVERY_MEM] >>
+        last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
+        impl_tac
+        >- metis_tac [MEM_EL] >>
+        strip_tac >>
+        gs [] >>
+        ‘FLOOKUP (s.clocks |++ ZIP (tclks,MAP (λx. 0) tclks))
+         (EL n (clksOf prog)) = SOME n''’ by (
+          qpat_x_assum ‘_ = SOME n''’ (assume_tac o GSYM) >>
+          fs [] >>
+          match_mp_tac flookup_fupdate_zip_not_mem >>
+          gs [MEM_EL]) >>
+        fs [] >>
+        last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
+        impl_tac >- metis_tac [MEM_EL] >>
+        gs []) >>
+      gs []) >>
+    fs [EVERY_MEM] >>
+    rw [] >>
+    gs [evalTerm_cases, resetOutput_def, resetClocks_def, MEM_EL] >>
+    cases_on ‘MEM (EL n (clksOf prog)) tclks’
+    >- (
+    fs [MEM_EL] >>
+    ‘FLOOKUP (s.clocks |++ ZIP (tclks,MAP (λx. 0) tclks))
+     (EL n'' tclks) = SOME 0’ by
+      metis_tac [update_eq_zip_map_flookup]>>
+    fs []) >>
+    gs [clock_bound_def, EVERY_MEM] >>
+    last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
+    impl_tac
+    >- metis_tac [MEM_EL] >>
+    strip_tac >>
+    gs [] >>
+    ‘FLOOKUP (s.clocks |++ ZIP (tclks,MAP (λx. 0) tclks))
+     (EL n (clksOf prog)) = SOME n''’ by (
+      qpat_x_assum ‘_ = SOME n''’ (assume_tac o GSYM) >>
+      fs [] >>
+      match_mp_tac flookup_fupdate_zip_not_mem >>
+      gs [MEM_EL]) >>
+    fs [] >>
+    last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
+    impl_tac >- metis_tac [MEM_EL] >>
+    gs []) >>
   fs [nffi_state_def, Abbr ‘nnt’] >>
   gs [task_ret_defined_def, FLOOKUP_UPDATE, Abbr ‘rtv’, resetOutput_def,
       resetClksVals_def] >>
   fs [EVERY_MAP] >>
+  qexists_tac ‘0’ >>
+  gs [] >>
   cheat
 QED
 
