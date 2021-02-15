@@ -8,77 +8,103 @@ open preamble pegTheory cmlPEGTheory gramTheory gramPropsTheory
 val _ = new_theory "pegSound";
 val _ = set_grammar_ancestry ["cmlPEG", "gramProps"]
 
-val d = let
-  val d0 = TypeBase.distinct_of ``:(α,β,γ)pegsym``
-in
-  CONJ d0 (GSYM d0)
-end
-val i = TypeBase.one_one_of ``:(α,β,γ)pegsym``
-
 infix >*
 fun t1 >* t2 = (t1 >> conj_tac) >- t2
 
+Theorem Success_COND_Failure[simp]:
+  Success i r ≠ if P then Failure fl1 fe1 else Failure fl2 fe2
+Proof
+  simp[AllCaseEqs()]
+QED
+
+Theorem Success_rmax_Failure[simp]:
+  (Success i r = rmax (Failure fl fe) t ⇔ t = Success i r) ∧
+  (Success i r = rmax t (Failure fl fe) ⇔ t = Success i r) ∧
+  (rmax (Failure fl fe) t = Success i r ⇔ t = Success i r) ∧
+  (rmax t (Failure fl fe) = Success i r ⇔ t = Success i r)
+Proof
+  Cases_on ‘t’ >> simp[EQ_SYM_EQ]
+QED
+
 Theorem peg_eval_choicel_NIL[simp]:
-   peg_eval G (i0, choicel []) x = (x = NONE)
+   peg_eval G (i0, choicel []) x ⇔ x = Failure (sloc i0) G.notFAIL
 Proof
   simp[choicel_def, Once peg_eval_cases]
 QED
 
+Theorem peg_TF:
+  (∃i' r. peg_eval G (i,e) (Success i' r))  ⇒
+  ¬peg_eval G (i,e) (Failure fl fe)
+Proof
+  metis_tac[peg_deterministic, TypeBase.distinct_of “:(α,β,γ)pegresult”]
+QED
+
+Theorem peg_FT:
+  (∃fl fe. peg_eval G (i,e) (Failure fl fe)) ⇒
+  ¬peg_eval G (i,e) (Success i' r)
+Proof
+  metis_tac[peg_deterministic, TypeBase.distinct_of “:(α,β,γ)pegresult”]
+QED
+
 Theorem peg_eval_choicel_CONS:
    ∀x. peg_eval G (i0, choicel (h::t)) x ⇔
-          peg_eval G (i0, h) x ∧ x <> NONE ∨
-          peg_eval G (i0,h) NONE ∧ peg_eval G (i0, choicel t) x
+         (∃i r. peg_eval G (i0, h) (Success i r) ∧ x = Success i r) ∨
+         (∃fl fe tR. peg_eval G (i0,h) (Failure fl fe) ∧
+                     peg_eval G (i0, choicel t) tR ∧
+                     x = rmax (Failure fl fe) tR)
 Proof
   simp[choicel_def, SimpLHS, Once peg_eval_cases] >>
-  simp[sumID_def, pairTheory.FORALL_PROD, optionTheory.FORALL_OPTION]
+  dsimp[EQ_IMP_THM, DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS,
+        FORALL_result, EXISTS_result, AllCaseEqs()] >>
+  SRW_TAC[SatisfySimps.SATISFY_ss][peg_TF, sumID_def, peg_FT]
 QED
 
 Theorem peg_eval_seql_NIL[simp]:
-   peg_eval G (i0, seql [] f) x ⇔ (x = SOME(i0,f []))
+   peg_eval G (i0, seql [] f) x ⇔ (x = Success i0 (f []))
 Proof
-  simp[seql_def, pegf_def] >> simp[Once peg_eval_cases]
+  simp[seql_def, pegf_def] >> csimp[Once peg_eval_cases]
 QED
 
 Theorem peg_eval_try:
    ∀x. peg_eval G (i0, try s) x ⇔
-         peg_eval G (i0, s) NONE ∧ x = SOME(i0,[]) ∨
-         ∃i r. peg_eval G (i0, s) (SOME(i,r)) ∧ x = SOME(i,r)
+         (∃fl fe. peg_eval G (i0, s) (Failure fl fe) ∧ x = Success i0 []) ∨
+         ∃i r. peg_eval G (i0, s) (Success i r) ∧ x = Success i r
 Proof
   simp[Once peg_eval_cases, try_def, SimpLHS, choicel_def,
-       peg_eval_choice] >> simp[sumID_def] >> metis_tac[]
+       peg_eval_choice] >> simp[sumID_def, EXISTS_result] >>
+  metis_tac[]
 QED
 
 Theorem peg_eval_seql_CONS:
    ∀x. peg_eval G (i0, seql (h::t) f) x ⇔
-          peg_eval G (i0, h) NONE ∧ x = NONE ∨
-          (∃rh i1. peg_eval G (i0,h) (SOME(i1,rh)) ∧
-                   peg_eval G (i1, seql t I) NONE ∧ x = NONE) ∨
-          (∃rh i1 i rt. peg_eval G (i0, h) (SOME(i1,rh)) ∧
-                        peg_eval G (i1, seql t I) (SOME(i,rt)) ∧
-                        x = SOME(i,f(rh ++ rt)))
+         (∃fl fe. peg_eval G (i0, h) (Failure fl fe) ∧ x = Failure fl fe) ∨
+         (∃rh i1 fl fe.
+            peg_eval G (i0,h) (Success i1 rh) ∧
+            peg_eval G (i1, seql t I) (Failure fl fe) ∧ x = Failure fl fe) ∨
+         (∃rh i1 i rt. peg_eval G (i0, h) (Success i1 rh) ∧
+                       peg_eval G (i1, seql t I) (Success i rt) ∧
+                       x = Success i (f(rh ++ rt)))
 Proof
   simp[seql_def, pegf_def] >>
   simp[SimpLHS, Once peg_eval_cases] >>
-  simp[optionTheory.FORALL_OPTION, pairTheory.FORALL_PROD] >>
-  conj_tac
-  >- (simp[peg_eval_seq_NONE] >> metis_tac[]) >>
-  simp[peg_eval_seq_SOME] >> dsimp[] >> metis_tac[]
+  csimp[FORALL_result, peg_eval_seq_NONE, peg_eval_seq_SOME, PULL_EXISTS] >>
+  metis_tac[]
 QED
 
-val peg_eval_choicel_SING = save_thm(
-  "peg_eval_choicel_SING",
+Theorem peg_eval_choicel_SING =
   CONJ
-    (``peg_eval G (i0, choicel [sym]) (SOME x)``
-       |> SIMP_CONV (srw_ss()) [peg_eval_choicel_CONS, peg_eval_choicel_NIL])
-    (``peg_eval G (i0, choicel [sym]) NONE``
-       |> SIMP_CONV (srw_ss()) [peg_eval_choicel_CONS, peg_eval_choicel_NIL]));
+    (``peg_eval G (i0, choicel [sym]) (Success i r)``
+       |> SIMP_CONV (srw_ss()) [peg_eval_choicel_CONS, peg_eval_choicel_NIL,
+                                AllCaseEqs()])
+    (``peg_eval G (i0, choicel [sym]) (Failure fl fe)``
+       |> SIMP_CONV (srw_ss()) [peg_eval_choicel_CONS, peg_eval_choicel_NIL,
+                                AllCaseEqs()]);
 
 Theorem not_peg0_LENGTH_decreases:
-   ¬peg0 G s ⇒ peg_eval G (i0, s) (SOME(i,r)) ⇒ LENGTH i < LENGTH i0
+   ¬peg0 G s ⇒ peg_eval G (i0, s) (Success i r) ⇒ LENGTH i < LENGTH i0
 Proof
   metis_tac[peg_eval_suffix', lemma4_1a]
 QED
-
 
 val _ = augment_srw_ss [rewrites [
   peg_eval_seql_CONS, peg_eval_tok_SOME, tokeq_def, bindNT_def, mktokLf_def,
@@ -86,37 +112,41 @@ val _ = augment_srw_ss [rewrites [
   try_def]]
 
 Theorem peg_eval_tokSymP[simp]:
-  peg_eval G (i0, tokSymP P) (SOME (i, r)) ⇔
+  peg_eval G (i0, tokSymP P) (Success i r) ⇔
   ∃h s. FST h = SymbolT s ∧ P s ∧ i0 = h::i ∧ r = mktokLf h
 Proof
   simp[tokSymP_def, PULL_EXISTS] >> metis_tac[]
 QED
 
 Theorem peg_eval_TypeDec_wrongtok:
-   FST tk ≠ DatatypeT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nTypeDec) f) (SOME x)
+   FST tk ≠ DatatypeT ⇒
+   ¬peg_eval cmlPEG (tk::i, nt (mkNT nTypeDec) f) (Success i' r)
 Proof
   simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
        peg_TypeDec_def, peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME]
 QED
 
 Theorem peg_eval_TypeAbbrevDec_wrongtok:
-   FST tk ≠ TypeT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nTypeAbbrevDec) f) (SOME x)
+   FST tk ≠ TypeT ⇒
+   ¬peg_eval cmlPEG (tk::i, nt (mkNT nTypeAbbrevDec) f) (Success i' r)
 Proof
   simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
        peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME]
 QED
 
 Theorem peg_eval_LetDec_wrongtok:
-   FST tk = SemicolonT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nLetDec) f) (SOME x)
+   FST tk = SemicolonT ⇒
+   ¬peg_eval cmlPEG (tk::i, nt (mkNT nLetDec) f) (Success i' r)
 Proof
   simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
        peg_TypeDec_def, peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME,
-       peg_eval_choicel_CONS, peg_eval_seql_CONS]
+       peg_eval_choicel_CONS, peg_eval_seql_CONS, rmax_EQ_Success,
+       AllCaseEqs()]
 QED
 
 Theorem peg_eval_nUQConstructor_wrongtok:
    (∀s. FST t ≠ AlphaT s) ⇒
-    ¬peg_eval cmlPEG (t::i, nt (mkNT nUQConstructorName) f) (SOME x)
+    ¬peg_eval cmlPEG (t::i, nt (mkNT nUQConstructorName) f) (Success i' r)
 Proof
   simp[Once peg_eval_cases, cmlpeg_rules_applied,
        peg_eval_tok_SOME,
@@ -125,43 +155,44 @@ QED
 
 Theorem peg_eval_nConstructor_wrongtok:
    (∀s. FST t ≠ AlphaT s) ∧ (∀s1 s2. FST t ≠ LongidT s1 s2) ⇒
-    ¬peg_eval cmlPEG (t::i, nt (mkNT nConstructorName) f) (SOME x)
+   ¬peg_eval cmlPEG (t::i, nt (mkNT nConstructorName) f) (Success i' r)
 Proof
   simp[Once peg_eval_cases, cmlpeg_rules_applied, peg_eval_tok_SOME,
        peg_eval_choicel_CONS, peg_eval_seq_NONE, pegf_def, pnt_def,
-       peg_eval_nUQConstructor_wrongtok, peg_eval_seq_SOME] >>
+       peg_eval_nUQConstructor_wrongtok, peg_eval_seq_SOME,
+       EXISTS_PROD, rmax_EQ_Success] >>
   Cases_on `t` >> simp[]
 QED
 
 Theorem peg_eval_nV_wrongtok:
    (∀s. FST t ≠ AlphaT s) ∧ (∀s. FST t ≠ SymbolT s) ⇒
-    ¬peg_eval cmlPEG (t::i, nt (mkNT nV) f) (SOME x)
+    ¬peg_eval cmlPEG (t::i, nt (mkNT nV) f) (Success i' r)
 Proof
   simp[Once peg_eval_cases, cmlpeg_rules_applied, peg_V_def,
        peg_eval_seq_NONE, peg_eval_choice]
 QED
 
 Theorem peg_eval_nFQV_wrongtok:
-   (∀s. FST t ≠ AlphaT s) ∧ (∀s. FST t ≠ SymbolT s) ∧ (∀s1 s2. FST t ≠ LongidT s1 s2) ⇒
-    ¬peg_eval cmlPEG (t::i, nt (mkNT nFQV) f) (SOME x)
+   (∀s. FST t ≠ AlphaT s) ∧ (∀s. FST t ≠ SymbolT s) ∧
+   (∀s1 s2. FST t ≠ LongidT s1 s2) ⇒
+    ¬peg_eval cmlPEG (t::i, nt (mkNT nFQV) f) (Success i' r)
 Proof
   simp[Once peg_eval_cases, cmlpeg_rules_applied,
        peg_eval_seq_NONE, peg_eval_choice, peg_eval_nV_wrongtok] >>
   Cases_on `t` >> simp[peg_longV_def]
 QED
 
-Theorem peg_eval_rpt_never_NONE:
-   ¬peg_eval G (i, rpt sym f) NONE
+Theorem peg_eval_rpt_never_NONE[simp]:
+   ¬peg_eval G (i, rpt sym f) (Failure fl fe)
 Proof
   simp[Once peg_eval_cases]
 QED
-val _ = export_rewrites ["peg_eval_rpt_never_NONE"]
 
 val pegsym_to_sym_def = Define`
   (pegsym_to_sym (tok P f) = if f = mktokLf then { TK t | P t } else ∅) ∧
   pegsym_to_sym (nt N f) = { NT N } ∧
   pegsym_to_sym _ = {}
-`
+`;
 
 Theorem valid_ptree_mkNd[simp]:
    valid_ptree G (mkNd N subs) ⇔
@@ -240,17 +271,17 @@ QED
 
 Theorem peg_linfix_correct_lemma:
    ∀UpperN sym sepsym i0 i pts.
-      peg_eval cmlPEG (i0, peg_linfix UpperN sym sepsym) (SOME(i,pts)) ⇒
+      peg_eval cmlPEG (i0, peg_linfix UpperN sym sepsym) (Success i pts) ⇒
       (∀i0' i pts s.
          s ∈ {sym;sepsym} ⇒
          LENGTH i0' < LENGTH i0 ⇒
-         peg_eval cmlPEG (i0',s) (SOME(i,pts)) ⇒
+         peg_eval cmlPEG (i0',s) (Success i pts) ⇒
          ∃pt. pts = [pt] ∧ ptree_head pt ∈ pegsym_to_sym s ∧
               valid_lptree cmlG pt ∧
               MAP (TK ## I) i0' = real_fringe pt ++ MAP (TK ## I) i) ∧
       (∀i pts s.
          s ∈ {sym; sepsym} ⇒
-         peg_eval cmlPEG (i0, s) (SOME(i,pts)) ⇒
+         peg_eval cmlPEG (i0, s) (Success i pts) ⇒
          ∃pt. pts = [pt] ∧ ptree_head pt ∈ pegsym_to_sym s ∧
               valid_lptree cmlG pt ∧
               MAP (TK ## I) i0 = real_fringe pt ++ MAP (TK ## I) i) ∧
@@ -265,9 +296,9 @@ Theorem peg_linfix_correct_lemma:
 Proof
   rpt strip_tac >> qpat_x_assum `peg_eval X Y Z` mp_tac >>
   simp[peg_linfix_def, peg_eval_rpt, peg_eval_seq_SOME] >>
-  rpt strip_tac >> rveq >>
-  asm_match `peg_eval cmlPEG (i0, sym) (SOME(i1,r1))` >>
-  first_assum (qspecl_then [`i1`, `r1`, `sym`] mp_tac) >> simp_tac(srw_ss())[]>>
+  rpt strip_tac >> rveq >> simp[AllCaseEqs(), PULL_EXISTS] >>
+  rename [‘peg_eval cmlPEG (i0, sym) (Success i1 r1)’] >>
+  first_assum (drule_at (Pos (el 2))) >> simp_tac(srw_ss())[]>>
   ASM_REWRITE_TAC[] >> disch_then (qxchl[`rpt1`] strip_assume_tac) >> simp[] >>
   rveq >>
   qpat_x_assum `peg_eval_list X Y Z` mp_tac >>
@@ -280,7 +311,7 @@ Proof
   ntac 2 (pop_assum (CHANGED_TAC o SUBST1_TAC)) >> ntac 2 (pop_assum mp_tac) >>
   pop_assum mp_tac >> simp[AND_IMP_INTRO, GSYM CONJ_ASSOC] >>
   map_every qid_spec_tac [`acc`, `i2`,`i`, `l`] >>
-  Induct >- simp[Once peg_eval_cases, mk_linfix_def] >>
+  Induct >- simp[Once peg_eval_cases, mk_linfix_def, PULL_EXISTS] >>
   simp[Once peg_eval_cases] >>
   simp[peg_eval_seq_SOME, GSYM LEFT_EXISTS_AND_THM, GSYM RIGHT_EXISTS_AND_THM,
        GSYM LEFT_FORALL_IMP_THM, GSYM RIGHT_FORALL_IMP_THM] >>
@@ -310,7 +341,7 @@ Proof
 QED
 
 Theorem length_no_greater:
-   peg_eval G (i0, sym) (SOME(i,r)) ⇒ LENGTH i ≤ LENGTH i0
+   peg_eval G (i0, sym) (Success i r) ⇒ LENGTH i ≤ LENGTH i0
 Proof
   metis_tac[peg_eval_suffix',
             DECIDE ``x ≤ y:num ⇔ x < y ∨ x = y``]
@@ -328,7 +359,8 @@ Proof
 QED
 
 Theorem peg_eval_nTyOp_wrongtok:
-   FST tk = LparT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nTyOp) f) (SOME x)
+   FST tk = LparT ⇒
+   ¬peg_eval cmlPEG (tk::i, nt (mkNT nTyOp) f) (Success i' r)
 Proof
   simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG] >>
   simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG]
