@@ -5401,6 +5401,19 @@ Proof
   >> irule_at Any $ cj 2 has_type_rules
 QED
 
+Theorem dependency_props':
+  !p q. subst_clos (dependency ctxt) p q ==>
+  is_const_or_type p /\ is_const_or_type q /\
+  (ISR p ==> welltyped $ OUTR p) /\ (ISR q ==> welltyped $ OUTR q)
+Proof
+  ntac 2 Cases
+  >> rw[subst_clos_def]
+  >> imp_res_tac dependency_props
+  >> fs[LR_TYPE_SUBST_type_preserving,INST_def,INST_CORE_def]
+  >> rw[is_const_or_type_eq]
+  >> gvs[is_const_or_type_eq,INST_def,INST_CORE_def]
+QED
+
 Theorem dependency_subst_clos_LR_TYPE_SUBST':
   !a b rho ctxt. subst_clos (dependency ctxt) a b
   ==> subst_clos (dependency ctxt) (LR_TYPE_SUBST rho a) (LR_TYPE_SUBST rho b)
@@ -5446,8 +5459,50 @@ Proof
     >> `?rs pqs. sol_seq_inf rs pqs /\ every (UNCURRY (dependency ctxt)) pqs
       /\ !i. ?n. i < n /\ LNTH i pqs = LNTH n pqs
     ` by (
-       `?rs pqs. sol_seq_inf rs pqs /\ every (UNCURRY (dependency ctxt)) pqs` by (
-       cheat
+      `?rs pqs. sol_seq_inf rs pqs /\ every (UNCURRY (dependency ctxt)) pqs` by (
+        fs[prim_recTheory.WF_IFF_WELLFOUNDED,prim_recTheory.wellfounded_def,terminating_def]
+        >> qabbrev_tac `Q = λ(rs,pq) n.  dependency ctxt (FST pq) (SND pq)
+            /\ LR_TYPE_SUBST rs (FST pq) = f n /\ LR_TYPE_SUBST rs (SND pq) = f $ SUC n
+            /\ is_const_or_type (FST pq) /\ is_const_or_type (SND pq)`
+        >> `!n. ?rspq. Q rspq n` by (
+          rw[Abbr`Q`,EXISTS_PROD]
+          >> rename[`SUC n`]
+          >> first_x_assum $ qspec_then `n` assume_tac
+          >> imp_res_tac dependency_props'
+          >> gvs[is_const_or_type_eq,subst_clos_def]
+          >> imp_res_tac dependency_props
+          >> gvs[LR_TYPE_SUBST_cases,INST_def,INST_CORE_def,is_const_or_type_eq]
+          >> goal_assum $ drule_at Any
+          >> fs[LR_TYPE_SUBST_cases]
+          >> rpt $ irule_at Any EQ_REFL
+        )
+        >> `!n. Q (@rspq. Q rspq n) n` by metis_tac[]
+        >> qpat_x_assum `!n. ?rspq. _` kall_tac
+        >> `!n pq rs. Q (@rspq. Q rspq n) n ==> pq = SND (@rspq. Q rspq n)
+            ==> rs = FST (@rspq. Q rspq n) ==> dependency ctxt (FST pq) (SND pq)
+            /\ LR_TYPE_SUBST rs (FST pq) = f n /\ LR_TYPE_SUBST rs (SND pq) = f $ SUC n
+            /\ is_const_or_type (FST pq) /\ is_const_or_type (SND pq)` by (
+            gvs[FORALL_AND_THM,IMP_CONJ_THM,AND_IMP_INTRO,ELIM_UNCURRY]
+            >> rpt conj_tac
+            >> gen_tac
+            >> rename[`n:num`]
+            >> first_x_assum $ qspec_then `n` mp_tac
+            >> fs[Abbr`Q`,ELIM_UNCURRY]
+        )
+        >> qexists_tac `LMAP (λn. FST $ @rspq. Q rspq n) (LGENLIST I NONE)`
+        >> qexists_tac `LMAP (λn. SND $ @rspq. Q rspq n) (LGENLIST I NONE)`
+        >> conj_tac
+        >- (
+          rw[sol_seq_inf_def,LNTH_LMAP,LGENLIST_num,wf_pqs_inf_def,every_LNTH,LNTH_LMAP]
+          >- (
+            qmatch_goalsub_abbrev_tac `SUC _`
+            >> rename[`SUC n:num`]
+            >> first_assum $ qspec_then `n` mp_tac
+            >> first_x_assum $ qspec_then `SUC n` mp_tac >> fs[]
+          )
+          >> fs[FORALL_AND_THM,AND_IMP_INTRO]
+        )
+        >> fs[every_LNTH,LNTH_LMAP,LGENLIST_num,ELIM_UNCURRY]
       )
       >> drule_at Any finite_repeats
       >> impl_keep_tac
