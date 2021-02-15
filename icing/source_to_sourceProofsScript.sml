@@ -45,8 +45,7 @@ QED
 Definition freeVars_fp_bound_def:
   freeVars_fp_bound e env =
     ∀ x. x IN FV e ⇒
-         ∃ r fp. nsLookup env.v x = SOME r ∧
-                 fp_translate r = SOME (FP_WordTree fp)
+         ∃ fp. nsLookup env.v x = SOME (FP_WordTree fp)
 End
 
 (* Correctness definition for rewriteFPexp
@@ -69,8 +68,7 @@ End
 Definition freeVars_list_fp_bound_def:
   freeVars_list_fp_bound exps env =
     ∀ x. x IN FV_list exps ⇒
-         ∃ r fp. nsLookup env.v x = SOME r ∧
-                 fp_translate r = SOME (FP_WordTree fp)
+         ∃ fp. nsLookup env.v x = SOME (FP_WordTree fp)
 End
 
 Definition is_rewriteFPexp_list_correct_def:
@@ -150,7 +148,7 @@ Proof
   \\ impl_tac
   >- (fs[freeVars_fp_bound_def]
       \\ qspecl_then [‘opt1’, ‘opt0’, ‘e’, ‘x'’, ‘x’, ‘[]’,
-                      ‘λ x. ∃r fp. nsLookup env.v x = SOME r ∧ fp_translate r = SOME (FP_WordTree fp)’]
+                      ‘λ x. ∃ fp. nsLookup env.v x = SOME (FP_WordTree fp)’]
                      mp_tac match_preserves_FV
       \\ impl_tac \\ fs[substLookup_def])
   \\ strip_tac \\ pop_assum mp_tac
@@ -435,8 +433,7 @@ Proof
   \\ TOP_CASE_TAC \\ fs[]
   >- res_tac
   \\ qspecl_then [‘r’, ‘q’, ‘e’, ‘x'’, ‘x’, ‘[]’,
-                  ‘λ x. ∃ r fp. nsLookup env.v x = SOME r ∧
-                                fp_translate r = SOME (FP_WordTree fp)’] mp_tac match_preserves_FV
+                  ‘λ x. ∃ fp. nsLookup env.v x = SOME (FP_WordTree fp)’] mp_tac match_preserves_FV
   \\ impl_tac \\ fs[substLookup_def]
   \\ rpt strip_tac
   \\ Cases_on ‘rewriteFPexp rws x' = x'’ \\ fs[]
@@ -868,14 +865,12 @@ Theorem freeVars_list_from_fv_bound:
   (∀ e env.
      (∀ x. x IN FV e  ⇒
           ∃r fp.
-            nsLookup env.v x = SOME r ∧
-            fp_translate r = SOME (FP_WordTree fp)) ⇒
+            nsLookup env.v x = SOME (FP_WordTree fp)) ⇒
     ∀ (st1:'a semanticPrimitives$state) st2. freeVars_arithExp_bound st1 st2 e env) ∧
   ∀ es env.
     (∀x. x ∈ FV_list es ⇒
          ∃r fp.
-           nsLookup env.v x = SOME r ∧
-           fp_translate r = SOME (FP_WordTree fp)) ⇒
+           nsLookup env.v x = SOME (FP_WordTree fp)) ⇒
     ∀ (st1:'a semanticPrimitives$state) st2. freeVars_list_arithExp_bound st1 st2 es env
 Proof
   (* TODO: Use freeVars_arithExp_bound_ind *)
@@ -889,7 +884,7 @@ Theorem freeVars_list_from_arithExp:
 Proof
   Cases_on ‘isFpArithExp (App op es)’ \\ fs[freeVars_fp_bound_def]
   \\ rpt strip_tac
-  \\ imp_res_tac (CONJUNCT2 freeVars_list_from_fv_bound)
+  \\ irule (CONJUNCT2 freeVars_list_from_fv_bound)
   \\ fs[]
 QED
 

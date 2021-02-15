@@ -13,22 +13,20 @@ val _ = new_theory "icing_rewriterProofs";
 Theorem isFpArithExp_matched_evaluates:
   (∀ e env.
     isFpArithExp e ∧
-    (∀ x. x IN FV (e) ⇒ ∃ r fp. nsLookup env.v x = SOME r ∧
-                                fp_translate r = SOME (FP_WordTree fp)) ⇒
+    (∀ x. x IN FV (e) ⇒ ∃ r fp. nsLookup env.v x = SOME (FP_WordTree fp)) ⇒
     ∀ (st:'a semanticPrimitives$state). ∃ st2 r fp. evaluate st env [e] = (st2, Rval [r]) ∧
-    fp_translate r = SOME (FP_WordTree fp)) ∧
+    r = (FP_WordTree fp)) ∧
   (∀ exps subst env.
      isFpArithExpList exps ∧
-    (∀ x. x IN FV_list exps ⇒ ∃ r fp. nsLookup env.v x = SOME r ∧
-                                fp_translate r = SOME (FP_WordTree fp)) ⇒
+    (∀ x. x IN FV_list exps ⇒ ∃ r fp. nsLookup env.v x = SOME (FP_WordTree fp)) ⇒
      ∀ e. MEM e exps ⇒
           ∀ (st:'a semanticPrimitives$state).
             ∃ st2 r fp. evaluate st env [e] = (st2, Rval [r]) ∧
-    fp_translate r = SOME (FP_WordTree fp))
+    r = FP_WordTree fp)
 Proof
   ho_match_mp_tac isFpArithExp_ind
   \\ rpt strip_tac \\ fs[isFpArithExp_def]
-  >- (fs[evaluate_def, fp_translate_def])
+  >- fs[evaluate_def]
   >- (fs[evaluate_def, fp_translate_def, astTheory.getOpClass_def,
          astTheory.isFpBool_def, semanticPrimitivesTheory.do_app_def])
   >- (
@@ -265,18 +263,18 @@ Proof
 QED
 
 Theorem rewriteFPexp_returns_fp:
+  ∀ (st:'a semanticPrimitives$state) st2 e lhs rhs env eOpt r.
   (∀ x.
      x IN FV (e) ⇒
      ∃ r fp.
-       nsLookup env.v x = SOME r ∧
-       fp_translate r = SOME (FP_WordTree fp)) ∧
+       nsLookup env.v x = SOME (FP_WordTree fp)) ∧
   isPureExp e ∧
   isFpArithExp e ∧
   rewriteFPexp [(lhs,rhs)] e = eOpt ∧
   evaluate st env [eOpt] = (st2, Rval [r]) ⇒
-  ∃ fp. fp_translate r = SOME (FP_WordTree fp)
+  ∃ fp. r = (FP_WordTree fp)
 Proof
-  gs[rewriteFPexp_def] \\ rpt (TOP_CASE_TAC \\ fs[])
+  rpt gen_tac \\ gs[rewriteFPexp_def] \\ rpt (TOP_CASE_TAC \\ fs[])
   \\ rpt strip_tac \\ rveq
   >~ [‘appFPexp rhs subst = SOME eOpt’]
   >- (
@@ -285,20 +283,17 @@ Proof
          \\ rpt (disch_then drule) \\ fs[])
     \\ ‘∀ x. x IN FV eOpt ⇒
              ∃ r fp.
-               nsLookup env.v x = SOME r ∧
-               fp_translate r = SOME (FP_WordTree fp)’
+               nsLookup env.v x = SOME (FP_WordTree fp)’
       by (
       qspecl_then [‘rhs’, ‘lhs’, ‘e’, ‘eOpt’, ‘subst’, ‘[]’,
-                   ‘λ x. ∃ r fp. nsLookup env.v x = SOME r ∧ fp_translate r = SOME (FP_WordTree fp)’]
+                   ‘λ x. ∃ r fp. nsLookup env.v x = SOME (FP_WordTree fp)’]
         mp_tac match_preserves_FV
       \\ impl_tac \\ fs[substLookup_def])
     \\ drule $ CONJUNCT1 isFpArithExp_matched_evaluates
-    \\ disch_then drule
-    \\ disch_then (qspec_then ‘st’ strip_assume_tac)
+    \\ disch_then (qspecl_then [‘env’, ‘st’] strip_assume_tac)
     \\ gs[])
   \\ drule $ CONJUNCT1 isFpArithExp_matched_evaluates
-  \\ disch_then drule
-  \\ disch_then (qspec_then ‘st’ strip_assume_tac)
+  \\ disch_then (qspecl_then [‘env’, ‘st’] strip_assume_tac)
   \\ gs[]
 QED
 

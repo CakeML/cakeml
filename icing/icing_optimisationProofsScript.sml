@@ -444,11 +444,12 @@ Proof
    \\ fsrw_tac [SATISFY_ss] [])
   \\ imp_res_tac evaluate_sing
   \\ pop_assum (fs o single)
-  \\ ‘∃ fp. fp_translate v = SOME (FP_WordTree fp)’
+  \\ ‘∃ fp. v = FP_WordTree fp’
      by (fs[freeVars_fp_bound_def]
          \\ mp_tac (GEN_ALL icing_rewriterProofsTheory.rewriteFPexp_returns_fp)
-         \\ disch_then $ qspecl_then [‘st2’, ‘st1’, ‘SND(fp_times_one)’, ‘v’,
-                                      ‘FST(fp_times_one)’, ‘env’, ‘e1’, ‘e’] mp_tac
+         \\ disch_then $ qspecl_then [‘st1’, ‘st2’, ‘e’, ‘FST(fp_times_one)’,
+                                      ‘SND(fp_times_one)’, ‘env’, ‘e1’, ‘v’]
+                       mp_tac
          \\ impl_tac \\ gs[isFpArithExp_def, isPureExp_def])
   \\ qpat_x_assum `_ = App _ _` (fs o single)
   \\ qpat_x_assum `_ = e1` (fs o single)
@@ -482,7 +483,8 @@ Proof
   \\ pop_assum (fs o single)
   \\ unabbrev_all_tac \\ imp_res_tac evaluate_sing
   \\ rveq
-  \\ fs ([do_app_def, fp_translate_def, do_fprw_def, shift_fp_opts_def] @ state_eqs)
+  \\ fs ([do_app_def, fp_translate_def, do_fprw_def, shift_fp_opts_def])
+  \\ rveq \\ fs state_eqs
   \\ rpt conj_tac
   >- fp_inv_tac
   >- fp_inv_tac
@@ -492,14 +494,10 @@ Proof
   \\ simp[EVAL ``rwFp_pathWordTree fp_times_one Here
                  (fp_bop FP_Mul fp (Fp_const 0x3FF0000000000000w))``,
         instWordTree_def, substLookup_def]
-  \\ Cases_on `rwAllWordTree (st3.fp_state.opts 0) st3.fp_state.rws (fp_bop fpBop w1 w2)`
-  \\ fs[rwAllWordTree_def, fpValTreeTheory.fp_bop_def]
-  \\ imp_res_tac rwAllWordTree_append_opt
-  \\ first_x_assum (qspec_then `[fp_comm_gen fpBop]` assume_tac)
-  \\ `st3.fp_state.rws = st1.fp_state.rws` by fp_inv_tac
-  \\ fs[]
-  cheat
 QED
+
+Theorem fp_times_one_correct_unfold =
+        REWRITE_RULE [fp_times_one_def] fp_times_one_correct;
 
 (**
   Optimisation simulation proofs
@@ -1418,16 +1416,6 @@ QED
 
 Theorem fp_plus_zero_correct_unfold =
         REWRITE_RULE [fp_plus_zero_def] fp_plus_zero_correct;
-
-Theorem fp_times_one_correct:
-  ∀ st1 st2 env e r.
-   is_rewriteFPexp_correct [fp_times_one] st1 st2 env e r
-Proof
-  cheat
-QED
-
-Theorem fp_times_one_correct_unfold =
-        REWRITE_RULE [fp_times_one_def] fp_times_one_correct;
 
 Theorem fp_times_one_reverse_correct:
   ∀ st1 st2 env e r.
