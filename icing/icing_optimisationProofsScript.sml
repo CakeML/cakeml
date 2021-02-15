@@ -429,6 +429,17 @@ fun fp_rws_append_opt t =
     |> map (Q.SPEC `[^t]`) |> map GEN_ALL
     |> LIST_CONJ;
 
+Theorem fp_times_minus_one_neg_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_times_minus_one_neg] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_times_minus_one_neg_correct_unfold =
+        REWRITE_RULE [fp_times_minus_one_neg_def] fp_times_minus_one_neg_correct;
+
+
 Theorem fp_times_one_correct:
   ∀ st1 st2 env e r.
    is_rewriteFPexp_correct [fp_times_one] st1 st2 env e r
@@ -1097,18 +1108,6 @@ Proof
 QED
 
 Theorem fp_sub_add_correct_unfold = REWRITE_RULE [fp_sub_add_def] fp_sub_add_correct;
-
-Theorem fp_times_minus_one_neg_correct:
-  ∀ st1 st2 env e r.
-   is_rewriteFPexp_correct [fp_times_minus_one_neg] st1 st2 env e r
-Proof
-  cheat
-QED
-
-Theorem fp_times_minus_one_neg_correct_unfold =
-        REWRITE_RULE [fp_times_minus_one_neg_def] fp_times_minus_one_neg_correct;
-
-Theorem fp_neg_times_minus_one_correct_unfold = REWRITE_RULE [fp_neg_times_minus_one_def] fp_neg_times_minus_one_correct;
 
 Theorem fp_neg_push_mul_r_correct:
   ∀ st1 st2 env e r.
