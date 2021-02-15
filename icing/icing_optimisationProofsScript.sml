@@ -880,19 +880,6 @@ Theorem fp_assoc_gen_correct_unfold = REWRITE_RULE [fp_assoc_gen_def] fp_assoc_g
 Theorem fp_assoc_gen_correct_unfold_add = REWRITE_RULE [icing_optimisationsTheory.fp_assoc_gen_def] (Q.SPEC ‘FP_Add’ fp_assoc_gen_correct);
 Theorem fp_assoc_gen_correct_unfold_mul = REWRITE_RULE [icing_optimisationsTheory.fp_assoc_gen_def] (Q.SPEC ‘FP_Mul’ fp_assoc_gen_correct);
 
-Theorem fp_assoc2_gen_correct:
-  ∀ fpBop st1 st2 env e r.
-    is_rewriteFPexp_correct [fp_assoc2_gen fpBop] st1 st2 env e r
-Proof
-  cheat
-QED
-
-Theorem fp_assoc2_gen_correct_unfold = REWRITE_RULE [fp_assoc2_gen_def] fp_assoc2_gen_correct;
-Theorem fp_assoc2_gen_correct_unfold_add =
-  REWRITE_RULE [reverse_tuple_def, fp_assoc_gen_def, fp_assoc2_gen_def] (Q.SPEC ‘FP_Add’ fp_assoc2_gen_correct);
-Theorem fp_assoc2_gen_correct_unfold_mul =
-  REWRITE_RULE [reverse_tuple_def, fp_assoc_gen_def, fp_assoc2_gen_def] (Q.SPEC ‘FP_Mul’ fp_assoc2_gen_correct);
-
 Theorem fp_fma_intro_correct:
   ∀ st1 st2 env e r.
    is_rewriteFPexp_correct [fp_fma_intro] st1 st2 env e r
@@ -1111,15 +1098,6 @@ QED
 
 Theorem fp_sub_add_correct_unfold = REWRITE_RULE [fp_sub_add_def] fp_sub_add_correct;
 
-Theorem fp_add_sub_correct:
-  ∀ st1 st2 env e r.
-   is_rewriteFPexp_correct [fp_add_sub] st1 st2 env e r
-Proof
-  cheat
-QED
-
-Theorem fp_add_sub_correct_unfold = REWRITE_RULE [fp_add_sub_def] fp_add_sub_correct;
-
 Theorem fp_times_minus_one_neg_correct:
   ∀ st1 st2 env e r.
    is_rewriteFPexp_correct [fp_times_minus_one_neg] st1 st2 env e r
@@ -1129,13 +1107,6 @@ QED
 
 Theorem fp_times_minus_one_neg_correct_unfold =
         REWRITE_RULE [fp_times_minus_one_neg_def] fp_times_minus_one_neg_correct;
-
-Theorem fp_neg_times_minus_one_correct:
-  ∀ st1 st2 env e r.
-   is_rewriteFPexp_correct [fp_neg_times_minus_one] st1 st2 env e r
-Proof
-  cheat
-QED
 
 Theorem fp_neg_times_minus_one_correct_unfold = REWRITE_RULE [fp_neg_times_minus_one_def] fp_neg_times_minus_one_correct;
 
@@ -1397,16 +1368,6 @@ QED
 Theorem fp_times_three_to_add_correct_unfold =
         REWRITE_RULE [fp_times_three_to_add_def] fp_times_three_to_add_correct;
 
-Theorem fp_times_zero_correct:
-  ∀ st1 st2 env e r.
-   is_rewriteFPexp_correct [fp_times_zero] st1 st2 env e r
-Proof
-  cheat
-QED
-
-Theorem fp_times_zero_correct_unfold =
-        REWRITE_RULE [fp_times_zero_def] fp_times_zero_correct;
-
 Theorem fp_plus_zero_correct:
   ∀ st1 st2 env e r.
    is_rewriteFPexp_correct [fp_plus_zero] st1 st2 env e r
@@ -1416,46 +1377,6 @@ QED
 
 Theorem fp_plus_zero_correct_unfold =
         REWRITE_RULE [fp_plus_zero_def] fp_plus_zero_correct;
-
-Theorem fp_times_one_reverse_correct:
-  ∀ st1 st2 env e r.
-   is_rewriteFPexp_correct [fp_times_one_reverse] st1 st2 env e r
-Proof
-  cheat
-QED
-
-Theorem fp_times_one_reverse_correct_unfold =
-        REWRITE_RULE [fp_times_one_reverse_def] fp_times_one_reverse_correct;
-
-Theorem fp_times_into_div_correct:
-  ∀ st1 st2 env e r.
-   is_rewriteFPexp_correct [fp_times_into_div] st1 st2 env e r
-Proof
-  cheat
-QED
-
-Theorem fp_times_into_div_correct_unfold =
-        REWRITE_RULE [fp_times_into_div_def] fp_times_into_div_correct;
-
-Theorem fp_same_sub_correct:
-  ∀ st1 st2 env e r.
-   is_rewriteFPexp_correct [fp_same_sub] st1 st2 env e r
-Proof
-  cheat
-QED
-
-Theorem fp_same_sub_correct_unfold =
-        REWRITE_RULE [fp_same_sub_def] fp_same_sub_correct;
-
-Theorem fp_same_div_correct:
-  ∀ st1 st2 env e r.
-   is_rewriteFPexp_correct [fp_same_div] st1 st2 env e r
-Proof
-  cheat
-QED
-
-Theorem fp_same_div_correct_unfold =
-        REWRITE_RULE [fp_same_div_def] fp_same_div_correct;
 
 Theorem fp_distribute_gen_correct:
   ∀ fpBop1 fpBop2 st1 st2 env e r.
@@ -1467,15 +1388,5 @@ QED
 Theorem fp_distribute_gen_correct_unfold =
         REWRITE_RULE [fp_distribute_gen_def] fp_distribute_gen_correct;
 Theorem fp_distribute_gen_correct_unfold_add = REWRITE_RULE [icing_optimisationsTheory.fp_distribute_gen_def] (Q.SPECL [‘FP_Mul’, ‘FP_Add’] fp_distribute_gen_correct);
-
-Theorem fp_undistribute_gen_correct:
-  ∀ fpBop1 fpBop2 st1 st2 env e r.
-   is_rewriteFPexp_correct [fp_undistribute_gen fpBop1 fpBop2] st1 st2 env e r
-Proof
-  cheat
-QED
-
-Theorem fp_undistribute_gen_correct_unfold =
-        REWRITE_RULE [fp_undistribute_gen_def] fp_undistribute_gen_correct;
 
 val _ = export_theory ();
