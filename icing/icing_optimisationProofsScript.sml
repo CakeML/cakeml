@@ -284,6 +284,7 @@ Theorem fp_times_minus_one_neg_cases:
     (∃ e1.
       e = (App (FP_bop FP_Mul) [e1; App FpFromWord [Lit (Word64 13830554455654793216w)]]) ∧
       isPureExp (App (FP_bop FP_Mul) [e1; App FpFromWord [Lit (Word64 13830554455654793216w)]]) ∧
+      isFpArithExp (App (FP_bop FP_Mul) [e1; App FpFromWord [Lit (Word64 13830554455654793216w)]]) ∧
       rewriteFPexp [fp_times_minus_one_neg] e = App (FP_uop FP_Neg) [e1]) ∨
     (rewriteFPexp [fp_times_minus_one_neg] e = e)
 Proof
@@ -310,7 +311,7 @@ Theorem fp_times_two_to_add_cases:
   ∀ e.
     (∃ e1 e2.
        e = App (FP_bop FP_Mul) [e1; App FpFromWord [Lit (Word64 4611686018427387904w)]] ∧
-       isPureExp e ∧
+       isPureExp e ∧ isFpArithExp e ∧
        rewriteFPexp [fp_times_two_to_add] e  =
        App (FP_bop FP_Add) [e1; e1]) ∨
     (rewriteFPexp [fp_times_two_to_add] e = e)
@@ -327,7 +328,7 @@ Theorem fp_times_three_to_add_cases:
   ∀ e.
     (∃ e1 e2.
        e = App (FP_bop FP_Mul) [e1; App FpFromWord [Lit (Word64 4613937818241073152w)]] ∧
-       isPureExp e ∧
+       isPureExp e ∧ isFpArithExp e ∧
        rewriteFPexp [fp_times_three_to_add] e  =
        App (FP_bop FP_Add) [App (FP_bop FP_Add) [e1; e1]; e1]) ∨
     (rewriteFPexp [fp_times_three_to_add] e = e)
@@ -344,7 +345,7 @@ Theorem fp_plus_zero_cases:
   ∀ e.
     (∃ e1.
       e = (App (FP_bop FP_Add) [e1; App FpFromWord [Lit (Word64 0w)]]) ∧
-      isPureExp e ∧
+      isPureExp e ∧ isFpArithExp e ∧
       rewriteFPexp [fp_plus_zero] e = e1) ∨
     (rewriteFPexp [fp_plus_zero] e = e)
 Proof
@@ -429,16 +430,468 @@ fun fp_rws_append_opt t =
     |> map (Q.SPEC `[^t]`) |> map GEN_ALL
     |> LIST_CONJ;
 
-Theorem fp_times_minus_one_neg_correct:
+Theorem evaluate_rewrite_hoisting:
+  (∀ e1 (st1:'a semanticPrimitives$state) env st2 v fp.
+     st1.fp_state.canOpt = FPScope Opt ∧
+    evaluate st1 env [e1] = (st2, Rval [v]) ∧
+    fp_translate v = SOME (FP_WordTree fp) ∧
+    isPureExp e1 ∧ isFpArithExp e1 ⇒
+    ∃ vUnOpt fpUnOpt sched choices.
+      evaluate (st1 with fp_state:= st1.fp_state with opts:= λ x. []) env [e1] =
+      (st2 with fp_state := st2.fp_state with <| opts := λ x. []; choices := choices |>, Rval [vUnOpt]) ∧
+      fp_translate vUnOpt = SOME (FP_WordTree fpUnOpt) ∧
+      do_fprw (Rval (FP_WordTree fpUnOpt)) sched st1.fp_state.rws = SOME (Rval (FP_WordTree fp))) ∧
+  (∀ es env fps.
+    isPureExpList es ∧ isFpArithExpList es ⇒
+    ∀ (st1:'a semanticPrimitives$state) st2 e v fp.
+      MEM e es ⇒
+      st1.fp_state.canOpt = FPScope Opt ∧
+      evaluate st1 env [e] = (st2, Rval [v]) ∧
+      fp_translate v = SOME (FP_WordTree fp)⇒
+      ∃ vUnOpt fpUnOpt sched choices.
+        evaluate (st1 with fp_state:= st1.fp_state with opts:= λ x. []) env [e] =
+        (st2 with fp_state := st2.fp_state with <| opts := λ x. []; choices := choices |>, Rval [vUnOpt]) ∧
+        fp_translate vUnOpt = SOME (FP_WordTree fpUnOpt) ∧
+        do_fprw (Rval (FP_WordTree fpUnOpt)) sched st1.fp_state.rws = SOME (Rval (FP_WordTree fp)))
+Proof
+  ho_match_mp_tac isFpArithExp_ind \\ rpt strip_tac
+  \\ TRY (qpat_x_assum `isPureExp _` mp_tac \\ simp[isPureExp_def])
+  \\ TRY (qpat_x_assum `isFpArithExp _` mp_tac \\ simp[isFpArithExp_def])
+  >- (
+    fs[terminationTheory.evaluate_def, CaseEq"option"] \\ rveq
+    \\ fs state_eqs \\ qexistsl_tac [‘[]’] \\ fs[do_fprw_def, rwAllWordTree_def])
+  >- (
+    fs[terminationTheory.evaluate_def, CaseEq"option", astTheory.getOpClass_def,
+       do_app_def]
+    \\ rveq \\ rpt strip_tac
+    \\ fs state_eqs \\ qexistsl_tac [‘[]’] \\ fs[do_fprw_def, rwAllWordTree_def])
+  >- (
+  fs[quantHeuristicsTheory.LIST_LENGTH_1] \\ rpt strip_tac \\ rveq
+  \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
+  \\ simp[terminationTheory.evaluate_def, CaseEq"option",
+          astTheory.getOpClass_def, do_app_def, CaseEq"result"]
+  \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+  \\ imp_res_tac evaluate_sing \\ rveq \\ gs[]
+  \\ strip_tac \\ fs[CaseEq"option", CaseEq"prod", CaseEq"v", astTheory.isFpBool_def]
+  \\ rveq
+  \\ rename1 ‘evaluate st1 env [_] = (st2, _)’
+  \\ ‘st2.fp_state.canOpt = FPScope Opt’ by fp_inv_tac
+  \\ gs[PULL_EXISTS]
+  \\ first_x_assum  (fn ith => qpat_x_assum `evaluate _ _ _ = _`
+                      (fn th => mp_then Any mp_tac ith th))
+  \\ rpt (disch_then drule) \\ strip_tac
+  \\ fs ([shift_fp_opts_def] @ state_eqs)
+  \\ rveq
+  \\ qexists_tac ‘FP_WordTree (fp_uop e1 fpUnOpt)’
+  \\ qexists_tac ‘fp_uop e1 fpUnOpt’ \\ fs[fp_translate_def, GSYM PULL_EXISTS]
+  \\ fs[do_fprw_def, CaseEq "option"]
+  \\ first_x_assum $ mp_then Any assume_tac rwAllWordTree_comp_unop
+  \\ first_x_assum $ qspec_then ‘e1’ strip_assume_tac
+  \\ qexists_tac ‘insts_new ++ (case do_fprw
+                                 (Rval (FP_WordTree (fp_uop e1 w1))) (st2.fp_state.opts 0)
+                                 st2.fp_state.rws of
+                            | NONE => []
+                            | SOME _ => (st2.fp_state.opts 0))’(* TODO *)
+  \\ qexists_tac ‘st2 with
+         fp_state :=
+           st2.fp_state with <|opts := (λx. []); choices := choices|>’
+  \\ fs state_eqs
+  \\ fs[do_fprw_def, rwAllWordTree_def]
+  \\ Cases_on ‘rwAllWordTree (st2.fp_state.opts 0) st2.fp_state.rws (fp_uop e1 w1)’
+  \\ fs[] \\ rveq \\ fs[fp_uop_def, fp_translate_def]
+  \\ irule rwAllWordTree_chaining_exact
+  \\ asm_exists_tac \\ fs[] \\ rveq  \\ fs[rwAllWordTree_def]
+  \\ fp_inv_tac)
+  >- (
+  fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rpt strip_tac \\ rveq
+  \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
+  \\ simp[terminationTheory.evaluate_def, CaseEq"option",
+          astTheory.getOpClass_def, do_app_def, CaseEq"result", evaluate_case_case]
+  \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+  \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+  \\ imp_res_tac evaluate_sing \\ rveq \\ gs[]
+  \\ strip_tac \\ fs[CaseEq"option", CaseEq"prod", CaseEq"v", astTheory.isFpBool_def]
+  \\ rveq
+  \\ rename1 ‘evaluate st1 env [e2] = (st2, _)’
+  \\ rename1 ‘evaluate st2 env [e1] = (st3, _)’
+  \\ ‘st2.fp_state.canOpt = FPScope Opt’ by fp_inv_tac
+  \\ ‘st3.fp_state.canOpt = FPScope Opt’ by fp_inv_tac
+  \\ gs[]
+  \\ first_assum  (fn ith => qpat_x_assum `evaluate _ _ _ = _`
+                      (fn th => mp_then Any mp_tac ith th))
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspec_then ‘w1’ mp_tac) \\ impl_tac \\ fs[]
+  \\ strip_tac
+  \\ first_assum  (fn ith => qpat_x_assum `evaluate _ _ [e2] = _`
+                      (fn th => mp_then Any mp_tac ith th))
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspec_then ‘w2’ mp_tac) \\ impl_tac \\ fs[]
+  \\ strip_tac
+  \\ fs ([shift_fp_opts_def] @ state_eqs)
+  \\ fs[PULL_EXISTS]
+  \\ qexists_tac ‘FP_WordTree (fp_bop v1 fpUnOpt fpUnOpt')’
+  \\ qexists_tac ‘fp_bop v1 fpUnOpt fpUnOpt'’
+  \\ fs[fp_translate_def, do_fprw_def, CaseEq"option"]
+  \\ first_x_assum $ mp_then Any mp_tac rwAllWordTree_comp_right
+  \\ first_x_assum $ mp_then Any mp_tac rwAllWordTree_comp_left
+  \\ disch_then (qspecl_then [‘v1’, ‘fpUnOpt'’] mp_tac)
+  \\ qmatch_goalsub_abbrev_tac ‘rwAllWordTree sched_e2 _ (Fp_bop v1 _ _) = _’
+  \\ strip_tac
+  \\ disch_then (qspecl_then [‘v1’, ‘w1’] mp_tac)
+  \\ qmatch_goalsub_abbrev_tac ‘rwAllWordTree sched_e1 _ (Fp_bop v1 _ _) = _’
+  \\ strip_tac \\ rveq \\ gs[]
+  \\ rveq \\ gs[]
+  \\ qexists_tac ‘sched_e2 ++ sched_e1 ++
+                  (case rwAllWordTree (st3.fp_state.opts 0) st3.fp_state.rws
+                                      (fp_bop v1 w1 w2) of
+                   | NONE => []
+                   | SOME _ => (st3.fp_state.opts 0))’
+  \\ qpat_x_assum `evaluate _ _ [e1] = _` $ mp_then Any mp_tac $ CONJUNCT1 evaluate_add_choices
+  \\ disch_then (qspec_then ‘choices'’ assume_tac)
+  \\ fs state_eqs
+  \\ qexists_tac ‘choices + choices' - st2.fp_state.choices +1’ (* TODO *)
+  \\ qexists_tac ‘st2 with
+         fp_state :=
+           st2.fp_state with <|opts := (λx. []); choices := choices'|>’
+  \\ rpt conj_tac
+  \\ fs state_eqs
+  \\ fs[rwAllWordTree_def]
+  \\ irule rwAllWordTree_chaining_exact
+  \\ qexists_tac ‘Fp_bop v1 w1 w2’ \\ conj_tac
+  \\ TRY (irule rwAllWordTree_chaining_exact \\ fs[fp_bop_def]
+          \\ fp_inv_tac \\ NO_TAC)
+  \\ TOP_CASE_TAC \\ fs[fp_bop_def, rwAllWordTree_def, fp_translate_def]
+  \\ rveq \\ fs[fp_translate_def] \\ fp_inv_tac)
+  >- ( cheat ) (* TODO *)
+  >- (fs[])
+  \\ fs[]
+  >- (rveq \\ res_tac \\ gs[isFpArithExp_def, isPureExp_def])
+  \\ fs[isFpArithExp_def, isPureExp_def]
+QED
+
+(**
+  Optimisation simulation proofs
+  In combination with the automation from icing_optimisationsLib and the
+  correctness proofs from source_to_sourceProofs, we automatically
+  construct backwards simulation proofs for a run of the optimiser
+**)
+Theorem fp_times_two_to_add_correct:
   ∀ st1 st2 env e r.
-   is_rewriteFPexp_correct [fp_times_minus_one_neg] st1 st2 env e r
+   is_rewriteFPexp_correct [fp_times_two_to_add] st1 st2 env e r
+Proof
+  rw[is_rewriteFPexp_correct_def]
+  \\ REVERSE (qspecl_then [`e`] strip_assume_tac fp_times_two_to_add_cases)
+  >- (
+   fs[]
+   \\ extend_eval_tac ‘evaluate st1 _ _ = _’ ‘[fp_times_two_to_add]’
+   \\ strip_tac
+   \\ pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_add_choices))
+   \\ disch_then (qspec_then ‘st1.fp_state.choices’ assume_tac)
+   \\ fsrw_tac [SATISFY_ss] [])
+  \\ imp_res_tac evaluate_sing
+  \\ pop_assum (fs o single)
+  \\ ‘∃ fp. v = FP_WordTree fp’
+     by (fs[freeVars_fp_bound_def]
+         \\ mp_tac (GEN_ALL icing_rewriterProofsTheory.rewriteFPexp_returns_fp)
+         \\ disch_then $ qspecl_then [‘st1’, ‘st2’, ‘e’, ‘FST(fp_times_two_to_add)’,
+                                      ‘SND(fp_times_two_to_add)’, ‘env’, ‘App (FP_bop FP_Add) [e1; e1]’, ‘v’]
+                       mp_tac
+         \\ impl_tac \\ gs[isFpArithExp_def, isPureExp_def])
+  \\ qpat_x_assum `_ = App _ _` (fs o single)
+  \\ rveq
+  \\ qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
+         Once terminationTheory.evaluate_def, Once evaluate_cons, evaluate_case_case]
+  \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+  \\ imp_res_tac evaluate_sing \\ rveq
+  \\ fs[do_app_def] \\ ntac 3 (TOP_CASE_TAC \\ fs[])
+  \\ ‘q.fp_state.canOpt = FPScope Opt’ by fp_inv_tac
+  \\ gs[] \\ rpt strip_tac
+  \\ gs[CaseEq"prod"] \\ rveq
+  \\ rename [‘evaluate st1 env [e1] = (st2, Rval [v])’,
+             ‘evaluate st2 env [e1] = (st3, Rval v2)’]
+  \\ imp_res_tac evaluate_sing \\ rveq \\ gs[REVERSE_DEF, APPEND]
+  \\ rveq
+  \\ rename [‘evaluate st1 env [e1] = (st2, Rval [v1])’,
+             ‘evaluate st2 env [e1] = (st3, Rval [v2])’]
+  \\ ‘st3 = st1 with fp_state := st3.fp_state ∧
+      st2 = st1 with fp_state := st2.fp_state’
+    by (imp_res_tac isPureExp_same_ffi \\ fs[isPureExp_def]
+        \\ res_tac
+        \\ fs[state_component_equality, shift_fp_opts_def, CaseEq"option", CaseEq"v"])
+  \\ ‘st3.fp_state.canOpt = FPScope Opt’ by fp_inv_tac
+  \\ gs[]
+  \\ Cases_on ‘fp_translate v1’ \\ gs[CaseEq"v"] \\ rveq
+  \\ Cases_on ‘fp_translate v2’ \\ gs[CaseEq"v"] \\ rveq
+  \\ ntac 2 (qpat_x_assum ‘evaluate _ _ [e1] = _’ $ mp_then Any mp_tac (CONJUNCT1 evaluate_rewrite_hoisting))
+  \\ disch_then $ qspec_then ‘w2’ mp_tac \\ impl_tac
+  >- (fp_inv_tac \\ fs[isPureExp_def, isFpArithExp_def])
+  \\ strip_tac
+  \\ disch_then $ qspec_then ‘w1’ mp_tac \\ impl_tac
+  >- (fp_inv_tac \\ fs[isPureExp_def, isFpArithExp_def])
+  \\ strip_tac
+  \\ rpt $ qpat_x_assum ‘evaluate _ _ [e1] = _’ mp_tac
+  \\ qpat_assum ‘st3 = _’ (once_rewrite_tac o single )
+  \\ qpat_assum ‘st2 = _’ (once_rewrite_tac o single)
+  \\ simp state_eqs \\ rpt strip_tac
+  \\ ‘st2.fp_state.rws = st1.fp_state.rws’ by (fp_inv_tac)
+  \\ ‘vUnOpt = vUnOpt'’
+     by (rpt $ qpat_x_assum ‘evaluate _ _ [e1] = _’ mp_tac
+         \\ qmatch_goalsub_abbrev_tac ‘evaluate st1Upd _ _ = _’
+         \\ strip_tac
+         \\ qmatch_goalsub_abbrev_tac ‘evaluate st1Upd2 _ _ = _’
+         \\ strip_tac
+         \\ pop_assum $ mp_then Any mp_tac (CONJUNCT1 evaluate_add_choices)
+         \\ disch_then (qspec_then ‘st1.fp_state.choices’ assume_tac)
+         \\ ‘st1Upd2 with fp_state := st1Upd2.fp_state with choices :=
+             st1.fp_state.choices = st1Upd’
+            by (unabbrev_all_tac \\ fs state_eqs
+                \\ fp_inv_tac \\ fs[FUN_EQ_THM])
+         \\ gs[])
+  \\ rveq
+  \\ ntac 2 $ qpat_x_assum ‘do_fprw _ _ _ = _’ mp_tac
+  \\ simp[do_fprw_def, CaseEq"option"]
+  \\ rpt strip_tac
+  \\ first_x_assum $ mp_then Any mp_tac rwAllWordTree_comp_left
+  \\ first_x_assum $ mp_then Any mp_tac rwAllWordTree_comp_right
+  \\ disch_then (qspecl_then [‘FP_Add’, ‘w1’] mp_tac)
+  \\ qmatch_goalsub_abbrev_tac ‘rwAllWordTree sched2 _ _ = SOME _’
+  \\ strip_tac
+  \\ disch_then (qspecl_then [‘FP_Add’, ‘fpUnOpt’] mp_tac)
+  \\ qmatch_goalsub_abbrev_tac ‘rwAllWordTree sched1 _ _ = SOME _’
+  \\ strip_tac
+  \\ qpat_assum `evaluate _ _ [e1] = _`
+                (mp_then Any mp_tac isPureExp_evaluate_change_oracle)
+  \\ fs[isPureExp_def]
+  \\ disch_then (
+     qspecl_then [
+       ‘fp_times_two_to_add’,
+       ‘st1 with fp_state := st1.fp_state with choices :=
+          st1.fp_state.choices’,
+       ‘λ x. if (x = 0)
+             then [RewriteApp Here (LENGTH st1.fp_state.rws + 1)] ++ sched1 ++ sched2 ++
+             case do_fprw (Rval (FP_WordTree (fp_bop FP_Add w1 w2)))
+                          (st3.fp_state.opts 0) st3.fp_state.rws of
+             | NONE => []
+             | SOME _ => st3.fp_state.opts 0
+             else []’] mp_tac)
+  \\ impl_tac >- fp_inv_tac
+  \\ strip_tac \\ fs state_eqs
+  \\ simp[terminationTheory.evaluate_def, astTheory.isFpBool_def, astTheory.getOpClass_def,
+         semanticPrimitivesTheory.do_app_def]
+  \\ qexists_tac ‘oracle’ \\ qexists_tac ‘st1.fp_state.choices’
+  \\ pop_assum mp_tac \\ qmatch_goalsub_abbrev_tac ‘evaluate st1Upd _ _ = _’
+  \\ strip_tac
+  \\ ‘st1Upd = st1Upd with <| refs := st1.refs; ffi := st1.ffi|>’
+    by (unabbrev_all_tac \\ fs state_eqs)
+  \\ pop_assum (rewrite_tac o single o GSYM)
+  \\ fs state_eqs
+  \\ fs([fp_translate_def, shift_fp_opts_def] @ state_eqs) \\ rveq
+  \\ rpt conj_tac
+  >- (unabbrev_all_tac \\ fp_inv_tac)
+  >- (fp_inv_tac \\ fs[FUN_EQ_THM])
+  >- fp_inv_tac
+  \\ simp[do_fprw_def, rwAllWordTree_def, nth_len]
+  \\ simp[EVAL ``rwFp_pathWordTree fp_times_two_to_add Here
+                 (fp_bop FP_Mul fpUnOpt (Fp_const 0x4000000000000000w))``,
+          instWordTree_def, substLookup_def]
+  \\ qmatch_goalsub_abbrev_tac ‘rwAllWordTree (sched1 ++ sched2 ++ sched3) _’
+  \\ ‘rwAllWordTree (sched1 ++ sched2 ++ sched3)
+      (st1.fp_state.rws ++ [fp_times_two_to_add]) (Fp_bop FP_Add fpUnOpt fpUnOpt) =
+      SOME fp’ suffices_by gs[]
+  \\ irule rwAllWordTree_chaining_exact
+  \\ qexists_tac ‘Fp_bop FP_Add w1 w2’ \\ conj_tac
+  >- (irule rwAllWordTree_chaining_exact
+      \\ qexists_tac ‘Fp_bop FP_Add w1 fpUnOpt’ \\ conj_tac
+      \\ imp_res_tac rwAllWordTree_append_opt
+      \\ rpt (first_x_assum (qspec_then `[fp_times_two_to_add]` assume_tac))
+      \\ fs[])
+  \\ unabbrev_all_tac \\ fs[do_fprw_def, CaseEq"option"] \\ rveq
+  \\ gs[rwAllWordTree_def, fp_bop_def]
+  \\ ‘st1.fp_state.rws = st3.fp_state.rws’ by fp_inv_tac
+  \\ imp_res_tac rwAllWordTree_append_opt
+  \\ first_x_assum (qspec_then `[fp_times_two_to_add]` assume_tac)
+  \\ gs[]
+QED
+
+Theorem fp_times_two_to_add_correct_unfold =
+        REWRITE_RULE [fp_times_two_to_add_def] fp_times_two_to_add_correct;
+
+Theorem fp_times_three_to_add_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_times_three_to_add] st1 st2 env e r
 Proof
   cheat
 QED
 
+Theorem fp_times_three_to_add_correct_unfold =
+        REWRITE_RULE [fp_times_three_to_add_def] fp_times_three_to_add_correct;
+
+Theorem fp_plus_zero_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_plus_zero] st1 st2 env e r
+Proof
+  rw[is_rewriteFPexp_correct_def]
+  \\ REVERSE (qspecl_then [`e`] strip_assume_tac fp_plus_zero_cases)
+  >- (
+   fs[]
+   \\ extend_eval_tac ‘evaluate st1 _ _ = _’ ‘[fp_plus_zero]’
+   \\ strip_tac
+   \\ pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_add_choices))
+   \\ disch_then (qspec_then ‘st1.fp_state.choices’ assume_tac)
+   \\ fsrw_tac [SATISFY_ss] [])
+  \\ imp_res_tac evaluate_sing
+  \\ pop_assum (fs o single)
+  \\ ‘∃ fp. v = FP_WordTree fp’
+     by (fs[freeVars_fp_bound_def]
+         \\ mp_tac (GEN_ALL icing_rewriterProofsTheory.rewriteFPexp_returns_fp)
+         \\ disch_then $ qspecl_then [‘st1’, ‘st2’, ‘e’, ‘FST(fp_plus_zero)’,
+                                      ‘SND(fp_plus_zero)’, ‘env’, ‘e1’, ‘v’]
+                       mp_tac
+         \\ impl_tac \\ gs[isFpArithExp_def, isPureExp_def])
+  \\ qpat_x_assum `_ = App _ _` (fs o single)
+  \\ qpat_x_assum `_ = e1` (fs o single)
+  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
+         Once terminationTheory.evaluate_def, Once evaluate_cons, evaluate_case_case]
+  \\ ‘st2 = st1 with fp_state := st2.fp_state’
+    by (imp_res_tac isPureExp_same_ffi \\ fs[isPureExp_def]
+        \\ res_tac \\ fs[state_component_equality])
+  \\ ntac 2 (simp[Once terminationTheory.evaluate_def, evaluate_case_case, astTheory.getOpClass_def])
+  \\ simp[Once do_app_def]
+  \\ qpat_assum `evaluate _ _ [e1] = _`
+                (mp_then Any mp_tac isPureExp_evaluate_change_oracle)
+  \\ fs[isPureExp_def]
+  \\ disch_then (
+     qspecl_then [
+       ‘fp_plus_zero’,
+       ‘st1 with fp_state := st1.fp_state with choices :=
+          st1.fp_state.choices’,
+       ‘λ x. if (x = 0)
+        then [RewriteApp Here (LENGTH st1.fp_state.rws + 1)]
+        else []’] mp_tac)
+  \\ impl_tac >- fp_inv_tac
+  \\ simp state_eqs
+  \\ strip_tac \\ pop_assum mp_tac
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate st1New _ _ = _’
+  \\ strip_tac
+  \\ qexistsl_tac [‘oracle’, ‘st1.fp_state.choices’]
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate st1Upd _ _’
+  \\ ‘st1New = st1Upd’
+     by (unabbrev_all_tac \\ fs state_eqs)
+  \\ pop_assum (fs o single)
+  \\ unabbrev_all_tac \\ imp_res_tac evaluate_sing
+  \\ rveq
+  \\ fs ([do_app_def, fp_translate_def, do_fprw_def, shift_fp_opts_def])
+  \\ rveq \\ fs state_eqs
+  \\ rpt conj_tac
+  >- fp_inv_tac
+  >- fp_inv_tac
+  >- (fp_inv_tac \\ fs[FUN_EQ_THM])
+  >- fp_inv_tac
+  \\ simp[do_fprw_def, rwAllWordTree_def, nth_len]
+  \\ simp[EVAL ``rwFp_pathWordTree fp_plus_zero Here
+                 (fp_bop FP_Add fp (Fp_const 0w))``,
+        instWordTree_def, substLookup_def]
+QED
+
+Theorem fp_plus_zero_correct_unfold =
+        REWRITE_RULE [fp_plus_zero_def] fp_plus_zero_correct;
+
+Theorem fp_distribute_gen_correct:
+  ∀ fpBop1 fpBop2 st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_distribute_gen fpBop1 fpBop2] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_distribute_gen_correct_unfold =
+        REWRITE_RULE [fp_distribute_gen_def] fp_distribute_gen_correct;
+Theorem fp_distribute_gen_correct_unfold_add = REWRITE_RULE [icing_optimisationsTheory.fp_distribute_gen_def] (Q.SPECL [‘FP_Mul’, ‘FP_Add’] fp_distribute_gen_correct);
+
+Theorem fp_times_minus_one_neg_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_times_minus_one_neg] st1 st2 env e r
+Proof
+  rw[is_rewriteFPexp_correct_def]
+  \\ REVERSE (qspecl_then [`e`] strip_assume_tac fp_times_minus_one_neg_cases)
+  >- (
+   fs[]
+   \\ extend_eval_tac ‘evaluate st1 _ _ = _’ ‘[fp_times_minus_one_neg]’
+   \\ strip_tac
+   \\ pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_add_choices))
+   \\ disch_then (qspec_then ‘st1.fp_state.choices’ assume_tac)
+   \\ fsrw_tac [SATISFY_ss] [])
+  \\ imp_res_tac evaluate_sing
+  \\ pop_assum (fs o single)
+  \\ ‘∃ fp. v = FP_WordTree fp’
+     by (fs[freeVars_fp_bound_def]
+         \\ mp_tac (GEN_ALL icing_rewriterProofsTheory.rewriteFPexp_returns_fp)
+         \\ disch_then $ qspecl_then [‘st1’, ‘st2’, ‘e’, ‘FST(fp_times_minus_one_neg)’,
+                                      ‘SND(fp_times_minus_one_neg)’, ‘env’, ‘App (FP_uop FP_Neg) [e1]’, ‘v’]
+                       mp_tac
+         \\ impl_tac \\ gs[isFpArithExp_def, isPureExp_def])
+  \\ qpat_x_assum `_ = App _ _` (fs o single)
+  \\ rveq
+  \\ qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
+         Once terminationTheory.evaluate_def, Once evaluate_cons, evaluate_case_case]
+  \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+  \\ imp_res_tac evaluate_sing \\ rveq
+  \\ fs[do_app_def] \\ ntac 3 (TOP_CASE_TAC \\ fs[])
+  \\ ‘q.fp_state.canOpt = FPScope Opt’ by fp_inv_tac
+  \\ gs[] \\ rpt strip_tac
+  \\ rename1 ‘evaluate st1 env [e1] = (st3, Rval [v])’
+  \\ ‘st3 = st1 with fp_state := st3.fp_state ∧
+      st2 = st1 with fp_state := st2.fp_state’
+    by (imp_res_tac isPureExp_same_ffi \\ fs[isPureExp_def]
+        \\ res_tac
+        \\ fs[state_component_equality, shift_fp_opts_def, CaseEq"option", CaseEq"v"])
+  \\ ntac 3(simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
+                 Once terminationTheory.evaluate_def, Once evaluate_cons,
+                 evaluate_case_case, do_app_def])
+  \\ qpat_assum `evaluate _ _ [e1] = _`
+                (mp_then Any mp_tac isPureExp_evaluate_change_oracle)
+  \\ fs[isPureExp_def]
+  \\ Cases_on ‘fp_translate v’ \\ gs[CaseEq"v"] \\ rveq
+  \\ disch_then (
+     qspecl_then [
+       ‘fp_times_minus_one_neg’,
+       ‘st1 with fp_state := st1.fp_state with choices :=
+          st1.fp_state.choices’,
+       ‘λ x. if (x = 0)
+        then [RewriteApp Here (LENGTH st1.fp_state.rws + 1)] ++
+             (case do_fprw (Rval (FP_WordTree (fp_uop FP_Neg w1)))
+                           (st3.fp_state.opts 0) st3.fp_state.rws of
+              | NONE => [] | SOME r_opt => st3.fp_state.opts x)
+        else []’] mp_tac)
+  \\ impl_tac >- fp_inv_tac
+  \\ strip_tac \\ fs state_eqs
+  \\ qexists_tac ‘oracle’ \\ qexists_tac ‘st1.fp_state.choices’
+  \\ pop_assum mp_tac \\ qmatch_goalsub_abbrev_tac ‘evaluate st1Upd _ _ = _’
+  \\ strip_tac
+  \\ ‘st1Upd = st1Upd with <| refs := st1.refs; ffi := st1.ffi|>’
+    by (unabbrev_all_tac \\ fs state_eqs)
+  \\ pop_assum (rewrite_tac o single o GSYM)
+  \\ fs state_eqs
+  \\ fs([fp_translate_def, shift_fp_opts_def] @ state_eqs) \\ rveq
+  \\ rpt conj_tac
+  >- fp_inv_tac
+  >- (fp_inv_tac \\ fs[FUN_EQ_THM])
+  >- fp_inv_tac
+  \\ simp[do_fprw_def, rwAllWordTree_def, nth_len]
+  \\ simp[EVAL ``rwFp_pathWordTree fp_times_minus_one_neg Here
+          (fp_bop FP_Mul w1 (Fp_const 0xBFF0000000000000w))``,
+          instWordTree_def, substLookup_def]
+  \\ ‘st1.fp_state.rws = st3.fp_state.rws’ by fp_inv_tac
+  \\ fs[do_fprw_def, CaseEq"option"] \\ rveq
+  \\ gs[rwAllWordTree_def, fp_uop_def]
+  \\ imp_res_tac rwAllWordTree_append_opt
+  \\ first_x_assum (qspec_then `[fp_times_minus_one_neg]` assume_tac)
+  \\ gs[]
+QED
+
 Theorem fp_times_minus_one_neg_correct_unfold =
         REWRITE_RULE [fp_times_minus_one_neg_def] fp_times_minus_one_neg_correct;
-
 
 Theorem fp_times_one_correct:
   ∀ st1 st2 env e r.
@@ -510,12 +963,6 @@ QED
 Theorem fp_times_one_correct_unfold =
         REWRITE_RULE [fp_times_one_def] fp_times_one_correct;
 
-(**
-  Optimisation simulation proofs
-  In combination with the automation from icing_optimisationsLib and the
-  correctness proofs from source_to_sourceProofs, we automatically
-  construct backwards simulation proofs for a run of the optimiser
-**)
 
 Theorem fp_comm_gen_correct:
   ∀ fpBop (st1 st2:'a semanticPrimitives$state) env e res.
@@ -1346,46 +1793,5 @@ QED
 
 Theorem fp_neg_push_mul_r_correct_unfold =
         REWRITE_RULE [fp_neg_push_mul_r_def] fp_neg_push_mul_r_correct;
-
-Theorem fp_times_two_to_add_correct:
-  ∀ st1 st2 env e r.
-   is_rewriteFPexp_correct [fp_times_two_to_add] st1 st2 env e r
-Proof
-  cheat
-QED
-
-Theorem fp_times_two_to_add_correct_unfold =
-        REWRITE_RULE [fp_times_two_to_add_def] fp_times_two_to_add_correct;
-
-Theorem fp_times_three_to_add_correct:
-  ∀ st1 st2 env e r.
-   is_rewriteFPexp_correct [fp_times_three_to_add] st1 st2 env e r
-Proof
-  cheat
-QED
-
-Theorem fp_times_three_to_add_correct_unfold =
-        REWRITE_RULE [fp_times_three_to_add_def] fp_times_three_to_add_correct;
-
-Theorem fp_plus_zero_correct:
-  ∀ st1 st2 env e r.
-   is_rewriteFPexp_correct [fp_plus_zero] st1 st2 env e r
-Proof
-  cheat
-QED
-
-Theorem fp_plus_zero_correct_unfold =
-        REWRITE_RULE [fp_plus_zero_def] fp_plus_zero_correct;
-
-Theorem fp_distribute_gen_correct:
-  ∀ fpBop1 fpBop2 st1 st2 env e r.
-   is_rewriteFPexp_correct [fp_distribute_gen fpBop1 fpBop2] st1 st2 env e r
-Proof
-  cheat
-QED
-
-Theorem fp_distribute_gen_correct_unfold =
-        REWRITE_RULE [fp_distribute_gen_def] fp_distribute_gen_correct;
-Theorem fp_distribute_gen_correct_unfold_add = REWRITE_RULE [icing_optimisationsTheory.fp_distribute_gen_def] (Q.SPECL [‘FP_Mul’, ‘FP_Add’] fp_distribute_gen_correct);
 
 val _ = export_theory ();
