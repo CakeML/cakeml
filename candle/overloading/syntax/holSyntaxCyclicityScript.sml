@@ -5380,6 +5380,152 @@ Proof
   >> fs[less_opt_cases]
 QED
 
+Theorem dependency_props:
+  dependency ctxt p q ==>
+  is_const_or_type p /\ is_const_or_type q /\
+  (ISR p ==> welltyped $ OUTR p) /\ (ISR q ==> welltyped $ OUTR q)
+Proof
+  rw[dependency_cases,is_const_or_type_eq]
+  >> imp_res_tac allCInsts_is_Const
+  >> fs[welltyped_def]
+  >> irule_at Any $ cj 2 has_type_rules
+QED
+
+Theorem dependency_subst_clos_LR_TYPE_SUBST':
+  !a b rho ctxt. subst_clos (dependency ctxt) a b
+  ==> subst_clos (dependency ctxt) (LR_TYPE_SUBST rho a) (LR_TYPE_SUBST rho b)
+Proof
+  ntac 2 Cases
+  >> rw[subst_clos_def,LR_TYPE_SUBST_cases]
+  >> imp_res_tac dependency_props
+  >> gvs[is_const_or_type_eq,TYPE_SUBST_compose,INST_def,INST_CORE_def,LR_TYPE_SUBST_cases,subst_clos_def]
+  >> goal_assum $ drule_at Any
+  >> fs[INST_CORE_def,INST_def]
+  >> rpt $ irule_at Any EQ_REFL
+QED
+
+Theorem dependency_TC_subst_clos_LR_TYPE_SUBST:
+  !rho ctxt a b. TC (subst_clos (dependency ctxt)) a b
+  ==> TC (subst_clos (dependency ctxt)) (LR_TYPE_SUBST rho a) (LR_TYPE_SUBST rho b)
+Proof
+  ntac 2 gen_tac
+  >> ho_match_mp_tac TC_INDUCT
+  >> conj_tac >- fs[dependency_subst_clos_LR_TYPE_SUBST',TC_SUBSET]
+  >> rpt strip_tac
+  >> irule $ REWRITE_RULE[transitive_def]TC_TRANSITIVE
+  >> rpt $ goal_assum drule
+QED
+
+Theorem LR_TYPE_SUBST_type_preserving_FUNPOW:
+  !p s n. is_const_or_type p ==> is_const_or_type $ FUNPOW (LR_TYPE_SUBST s) n p
+Proof
+  ntac 2 gen_tac >> Induct >> fs[LR_TYPE_SUBST_type_preserving,FUNPOW_SUC]
+QED
+
+(* Lemma 5.17 *)
+Theorem cyclic_eq_not_terminating:
+  !ctxt. monotone (dependency ctxt)
+  /\ composable_dep ctxt
+  /\ FINITE $ rel_to_reln (dependency ctxt)
+  ==>
+  (~ (terminating $ TC $ subst_clos (dependency ctxt)) <=> cyclic_dep ctxt)
+Proof
+  rw[EQ_IMP_THM]
+  >- (
+    cheat
+  )
+  >> fs[cyclic_dep_def,is_instance_LR_eq,path_starting_at_def]
+  >> qhdtm_x_assum `equiv_ts_on` mp_tac
+  >> dep_rewrite.DEP_REWRITE_TAC[equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
+  >> qhdtm_x_assum `wf_pqs` $ assume_tac o REWRITE_RULE[wf_pqs_def,EVERY_MEM,ELIM_UNCURRY]
+  >> fs[FORALL_AND_THM,IMP_CONJ_THM]
+  >> strip_tac
+  >> rename[`var_renaming e`]
+  >> dxrule_then (qspec_then `e` assume_tac) sol_seq_TYPE_SUBST
+  >> qmatch_assum_abbrev_tac `sol_seq rs' _`
+  >> qpat_x_assum `FST _ = LR_TYPE_SUBST _ _` mp_tac
+  >> fs[LR_TYPE_SUBST_compose]
+  >> qmatch_goalsub_abbrev_tac `LR_TYPE_SUBST rs'0`
+  >> `rs'0 = HD rs'` by (fs[Abbr`rs'0`,Abbr`rs'`] >> REWRITE_TAC[GSYM EL] >> fs[EL_MAP])
+  >> qpat_x_assum `Abbrev (rs'0 = _)` kall_tac
+  >> VAR_EQ_TAC
+  >> `!x y. x = y ==> LR_TYPE_SUBST e x = LR_TYPE_SUBST e y` by rw[]
+  >> pop_assum $ dxrule_then mp_tac
+  >> imp_res_tac sol_seq_LENGTH
+  >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_compose]
+  >> qmatch_goalsub_abbrev_tac `LR_TYPE_SUBST s' _ = LR_TYPE_SUBST rs'n _`
+  >> `rs'n = EL (PRE $ LENGTH pqs) rs'` by (fs[Abbr`rs'n`,Abbr`rs'`,EL_MAP])
+  >> qpat_x_assum `Abbrev (rs'n = _)` kall_tac
+  >> VAR_EQ_TAC
+  >> first_assum $ irule_at Any
+  >> rw[EL_MEM]
+  >> ntac 2 $ qhdtm_x_assum `Abbrev` kall_tac
+  >> `(TC $ subst_clos (dependency ctxt)) (FST $ HD pqs) (LR_TYPE_SUBST s' (FST (HD pqs)))` by (
+    `!i. i < LENGTH pqs ==>
+      (TC $ subst_clos (dependency ctxt))
+        (LR_TYPE_SUBST (EL i rs') (FST $ EL i pqs))
+        (LR_TYPE_SUBST (EL i rs') (SND $ EL i pqs))` by (
+      rpt strip_tac
+      >> match_mp_tac TC_SUBSET
+      >> rpt $ qpat_x_assum `is_const_or_type _` kall_tac
+      >> fs[path_starting_at_def,EVERY_MEM,ELIM_UNCURRY,wf_pqs_def]
+      >> drule_then assume_tac EL_MEM
+      >> ntac 3 $ first_x_assum $ drule_then strip_assume_tac
+      >> fs[is_const_or_type_eq,subst_clos_def,LR_TYPE_SUBST_cases]
+      >> rfs[]
+      >> goal_assum $ drule_at Any
+      >> fs[INST_CORE_def,INST_def]
+      >> rpt $ irule_at Any EQ_REFL
+    )
+    >> qpat_x_assum `LR_TYPE_SUBST s' _ = LR_TYPE_SUBST _ _` $ REWRITE_TAC o single
+    >> qhdtm_x_assum `FST` $ ONCE_REWRITE_TAC o single
+    >> drule $ cj 3 $ Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,IMP_CONJ_THM,FORALL_AND_THM] sol_seq_def
+    >> dxrule $ cj 1 $ Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,IMP_CONJ_THM,FORALL_AND_THM] sol_seq_def
+    >> qpat_x_assum `0n < _` mp_tac
+    >> qpat_x_assum `!i. _ ==> TC _ _ _` mp_tac
+    >> qhdtm_x_assum `EVERY` mp_tac
+    >> asm_rewrite_tac[]
+    >> POP_ASSUM_LIST $ map_every kall_tac
+    >> Induct_on `LENGTH pqs`
+    >> rw[]
+    >> rename[`SUC v`]
+    >> Cases_on `v` >> fs[]
+    >- (
+      match_mp_tac TC_SUBSET
+      >> `0 < LENGTH pqs` by fs[]
+      >> dxrule_then assume_tac EL_MEM
+      >> fs[EVERY_MEM,ELIM_UNCURRY,wf_pqs_def]
+      >> ntac 2 $ first_x_assum $ drule_then assume_tac
+      >> fs[is_const_or_type_eq,subst_clos_def,LR_TYPE_SUBST_cases]
+      >> rfs[]
+      >> goal_assum $ drule_at Any
+      >> fs[INST_CORE_def,INST_def]
+      >> rpt $ irule_at Any EQ_REFL
+    )
+    >> first_x_assum $ qspec_then `FRONT pqs` mp_tac
+    >> REWRITE_TAC[AND_IMP_INTRO]
+    >> dep_rewrite.DEP_REWRITE_TAC[FRONT_TAKE_PRE]
+    >> conj_asm1_tac >- (CCONTR_TAC >> fs[NULL_EQ])
+    >> impl_tac
+    >- (
+      fs[EVERY_TAKE,wf_pqs_def]
+      >> rpt strip_tac
+      >> dep_rewrite.DEP_REWRITE_TAC[EL_TAKE]
+      >> rpt $ first_assum $ irule_at Any
+      >> fs[]
+    )
+    >> qhdtm_x_assum `SUC` $ assume_tac o GSYM >> fs[]
+    >> REWRITE_TAC[GSYM EL]
+    >> fs[EL_TAKE,SUC_PRE]
+    >> strip_tac >> match_mp_tac $ cj 2 TC_RULES >> goal_assum dxrule
+    >> fs[]
+  )
+  >> fs[prim_recTheory.WF_IFF_WELLFOUNDED,prim_recTheory.wellfounded_def,terminating_def]
+  >> map_every (fn x => qhdtm_x_assum x kall_tac) [`FST`,`LR_TYPE_SUBST`]
+  >> qexists_tac `λn. FUNPOW (LR_TYPE_SUBST s') n (FST $ HD pqs)`
+  >> Induct >> fs[FUNPOW_SUC,dependency_TC_subst_clos_LR_TYPE_SUBST]
+QED
+
 (* Definition 6.1 *)
 Definition LR_orth_def:
   (LR_orth (INL p) (INL q) = orth_ty p q)
