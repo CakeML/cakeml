@@ -149,23 +149,7 @@ Theorem fp_assoc_gen_cases:
       App (FP_bop fpBop) [e1; (App (FP_bop fpBop) [e2; e3])]) \/
     (rewriteFPexp [fp_assoc_gen fpBop] e = e)
 Proof
-  rpt gen_tac \\ Cases_on `e`
-  \\ fs[fp_assoc_gen_def, rewriteFPexp_def, isPureExp_def, matchesFPexp_def]
-  \\ rename1 `App op els`
-  \\ Cases_on `op` \\ fs[isPureOp_def]
-  \\ Cases_on ‘els’ \\ fs[]
-  \\ Cases_on ‘t’ \\ fs[]
-  \\ Cases_on ‘t'’ \\ fs[]
-  \\ Cases_on ‘fpBop = f’ \\ fs[]
-  \\ Cases_on ‘isPureExpList [h;h']’ \\ fs[isPureExp_def]
-  \\ Cases_on ‘h’ \\ fs[]
-  \\ Cases_on ‘o'’ \\ fs[]
-  \\ Cases_on ‘l’ \\ fs[]
-  \\ Cases_on ‘t’ \\ fs[]
-  \\ Cases_on ‘t'’ \\ fs[]
-  \\ fs[isPureExp_def]
-  \\ Cases_on ‘f = f'’ \\ fs[] \\ rveq
-  \\ EVAL_TAC
+  prove_cases_thm fp_assoc_gen_def
 QED
 
 Theorem fp_assoc2_gen_cases:
@@ -181,6 +165,10 @@ Proof
   \\ fs[fp_assoc2_gen_def, reverse_tuple_def, fp_assoc_gen_def, rewriteFPexp_def, isPureExp_def, matchesFPexp_def]
   \\ rename1 `App op els`
   \\ Cases_on `op` \\ fs[isPureOp_def]
+  \\ Cases_on ‘isPureExpList els ∧
+      isFpArithPat (Binop fpBop (Var 0) (Binop fpBop (Var 1) (Var 2))) ∧
+      isFpArithPat (Binop fpBop (Binop fpBop (Var 0) (Var 1)) (Var 2)) ∧
+      isFpArithExp (App (FP_bop f) els)’ \\ fs[]
   \\ Cases_on ‘els’ \\ fs[]
   \\ Cases_on ‘t’ \\ fs[]
   \\ Cases_on ‘t'’ \\ fs[]
@@ -251,6 +239,7 @@ Theorem fp_times_zero_cases:
     (∃ e1.
       e = (App (FP_bop FP_Mul) [e1; App FpFromWord [Lit (Word64 0w)]]) ∧
       isPureExp (App (FP_bop FP_Mul) [e1; App FpFromWord [Lit (Word64 0w)]]) ∧
+      isFpArithExp e ∧
       rewriteFPexp [fp_times_zero] e =
         (App FpFromWord [Lit (Word64 0w)])) ∨
     (rewriteFPexp [fp_times_zero] e = e)
@@ -266,6 +255,7 @@ Theorem fp_times_one_cases:
     (∃ e1.
       e = (App (FP_bop FP_Mul) [e1; App FpFromWord [Lit (Word64 4607182418800017408w)]]) ∧
       isPureExp (App (FP_bop FP_Mul) [e1; App FpFromWord [Lit (Word64 4607182418800017408w)]]) ∧
+      isFpArithExp e ∧
       rewriteFPexp [fp_times_one] e = e1) ∨
     (rewriteFPexp [fp_times_one] e = e)
 Proof
@@ -282,6 +272,7 @@ Theorem fp_times_one_reverse_cases:
     (∃ e1.
       e = e1 ∧
       isPureExp e ∧
+      isFpArithExp e ∧
       rewriteFPexp [fp_times_one_reverse] e = (App (FP_bop FP_Mul) [e1; App FpFromWord [Lit (Word64 4607182418800017408w)]])) ∨
     (rewriteFPexp [fp_times_one_reverse] e = e)
 Proof
@@ -438,7 +429,6 @@ fun fp_rws_append_opt t =
     |> map (Q.SPEC `[^t]`) |> map GEN_ALL
     |> LIST_CONJ;
 
-    (*
 Theorem fp_times_one_correct:
   ∀ st1 st2 env e r.
    is_rewriteFPexp_correct [fp_times_one] st1 st2 env e r
@@ -452,10 +442,21 @@ Proof
    \\ pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_add_choices))
    \\ disch_then (qspec_then ‘st1.fp_state.choices’ assume_tac)
    \\ fsrw_tac [SATISFY_ss] [])
+  \\ imp_res_tac evaluate_sing
   \\ pop_assum (fs o single)
+  \\ ‘∃ fp. fp_translate v = SOME (FP_WordTree fp)’
+     by (fs[freeVars_fp_bound_def]
+         \\ mp_tac (GEN_ALL icing_rewriterProofsTheory.rewriteFPexp_returns_fp)
+         \\ disch_then $ qspecl_then [‘st2’, ‘st1’, ‘SND(fp_times_one)’, ‘v’,
+                                      ‘FST(fp_times_one)’, ‘env’, ‘e1’, ‘e’] mp_tac
+         \\ impl_tac \\ gs[isFpArithExp_def, isPureExp_def])
   \\ qpat_x_assum `_ = App _ _` (fs o single)
+  \\ qpat_x_assum `_ = e1` (fs o single)
   \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
          Once terminationTheory.evaluate_def, Once evaluate_cons, evaluate_case_case]
+  \\ ‘st2 = st1 with fp_state := st2.fp_state’
+    by (imp_res_tac isPureExp_same_ffi \\ fs[isPureExp_def]
+        \\ res_tac \\ fs[state_component_equality])
   \\ ntac 2 (simp[Once terminationTheory.evaluate_def, evaluate_case_case, astTheory.getOpClass_def])
   \\ simp[Once do_app_def]
   \\ qpat_assum `evaluate _ _ [e1] = _`
@@ -481,34 +482,15 @@ Proof
   \\ pop_assum (fs o single)
   \\ unabbrev_all_tac \\ imp_res_tac evaluate_sing
   \\ rveq
-  \\ fs[do_app_def]
-
-  \\ qpat_assum `evaluate _ _ [e2] = _`
-                (mp_then Any mp_tac isPureExp_evaluate_change_oracle)
-  \\ fs[isPureExp_def]
-  \\ disch_then (
-     qspecl_then [
-       ‘fp_comm_gen fpBop’,
-       ‘st1’, ‘oracle’] mp_tac)
-  \\ impl_tac >- fp_inv_tac
-  \\ strip_tac
-  \\ ‘st2.fp_state.rws = st1.fp_state.rws’ by fp_inv_tac
-  \\ pop_assum (fs o single)
-  \\ pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_add_choices))
-  \\ disch_then (qspec_then ‘st1.fp_state.choices’ assume_tac)
-  \\ qexists_tac ‘oracle'’ \\ qexists_tac ‘st1.fp_state.choices’
-  \\ simp[evaluate_def]
-  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
-          Once evaluate_cons, evaluate_case_case]
-  \\ fs state_eqs
-  \\ simp([do_app_def, shift_fp_opts_def] @ state_eqs)
+  \\ fs ([do_app_def, fp_translate_def, do_fprw_def, shift_fp_opts_def] @ state_eqs)
   \\ rpt conj_tac
+  >- fp_inv_tac
   >- fp_inv_tac
   >- (fp_inv_tac \\ fs[FUN_EQ_THM])
   >- fp_inv_tac
-  \\ qpat_x_assum `_ = Rval _` (fs o single o GSYM)
   \\ simp[do_fprw_def, rwAllWordTree_def, nth_len]
-  \\ simp[EVAL ``rwFp_pathWordTree (fp_comm_gen fpBop) Here (fp_bop fpBop w2 w1)``,
+  \\ simp[EVAL ``rwFp_pathWordTree fp_times_one Here
+                 (fp_bop FP_Mul fp (Fp_const 0x3FF0000000000000w))``,
         instWordTree_def, substLookup_def]
   \\ Cases_on `rwAllWordTree (st3.fp_state.opts 0) st3.fp_state.rws (fp_bop fpBop w1 w2)`
   \\ fs[rwAllWordTree_def, fpValTreeTheory.fp_bop_def]
@@ -518,7 +500,6 @@ Proof
   \\ fs[]
   cheat
 QED
-*)
 
 (**
   Optimisation simulation proofs

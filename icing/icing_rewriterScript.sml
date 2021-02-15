@@ -98,12 +98,37 @@ Definition appFPexp_def:
   appFPexp (Optimise sc p) s = NONE
 End
 
+Definition isFpArithPat_def:
+  isFpArithPat (Word w) = T ∧
+  isFpArithPat (Var n) = T ∧
+  isFpArithPat (Unop u p) = isFpArithPat p ∧
+  isFpArithPat (Binop b p1 p2) = (isFpArithPat p1 ∧ isFpArithPat p2) ∧
+  isFpArithPat (Terop t p1 p2 p3) =
+    (isFpArithPat p1 ∧ isFpArithPat p2 ∧ isFpArithPat p3) ∧
+  isFpArithPat (Cmp _ _ _) = F ∧
+  isFpArithPat (Optimise _ p) = isFpArithPat p
+End
+
+Definition isFpArithExp_def:
+  isFpArithExp (Var x) = T ∧
+  isFpArithExp (App FpFromWord [Lit (Word64 w)]) = T ∧
+  isFpArithExp (App (FP_uop _) exps) = (LENGTH exps = 1 ∧ isFpArithExpList exps) ∧
+  isFpArithExp (App (FP_bop _) exps) = (LENGTH exps = 2 ∧ isFpArithExpList exps) ∧
+  isFpArithExp (App (FP_top _) exps) = (LENGTH exps = 3 ∧ isFpArithExpList exps) ∧
+  (* isFpArithExp (Let x e1 e2) = (isFpArithExp e1 ∧ isFpArithExp e2) ∧ *)
+  isFpArithExp _ = F ∧
+  isFpArithExpList [] = T ∧
+  isFpArithExpList (e1 :: es) = (isFpArithExp e1 ∧ isFpArithExpList es)
+Termination
+  wf_rel_tac ‘measure (λ x. case x of |INR exps => exp6_size exps |INL e => exp_size e)’
+End
+
 (* rewriteExp: Recursive, expression rewriting function applying all rewrites that match.
   A non-matching rewrite is silently ignored *)
 Definition rewriteFPexp_def:
   rewriteFPexp ([]:fp_rw list) (e:exp) = e /\
   rewriteFPexp ((lhs,rhs)::rwtl) e =
-    if (isPureExp e)
+    if (isPureExp e ∧ isFpArithPat lhs ∧ isFpArithPat rhs ∧ isFpArithExp e)
     then
       (case matchesFPexp lhs e [] of
       |  SOME subst =>

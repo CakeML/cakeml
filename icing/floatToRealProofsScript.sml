@@ -104,7 +104,7 @@ Proof
   \\ qpat_x_assum `_ = (_, _)` mp_tac
   \\ PairCases_on `opt` \\ simp[rewriteFPexp_def]
   \\ reverse TOP_CASE_TAC \\ fs[]
-  >- (fs[fpState_component_equality, semState_comp_eq])
+  \\ fs[fpState_component_equality, semState_comp_eq]
   \\ ntac 2 (TOP_CASE_TAC \\ fs[])
   \\ strip_tac
   \\ last_x_assum (first_assum o mp_then Any mp_tac) \\ fs[]
@@ -341,13 +341,6 @@ Proof
     \\ strip_tac \\ fs[is_real_id_list_def]
     \\ first_x_assum $ qspecl_then [‘st1’, ‘st2’, ‘env’, ‘[Lit l]’, ‘r’] mp_tac
     \\ impl_tac \\ fs[])
-    >- (
-    qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
-    \\ TOP_CASE_TAC \\ fs[realify_def]
-    \\ fs[semanticPrimitivesTheory.state_component_equality,semanticPrimitivesTheory.fpState_component_equality]
-    \\ strip_tac \\ fs[is_real_id_list_def]
-    \\ first_x_assum $ qspecl_then [‘st1’, ‘st2’, ‘env’, ‘[Var i]’, ‘r’] mp_tac
-    \\ impl_tac \\ fs[realify_def])
     >- (
     qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
     \\ TOP_CASE_TAC \\ fs[realify_def]
@@ -1087,6 +1080,5 @@ Theorem is_optimise_with_plan_correct_sing_real_id:
 Proof
   rpt strip_tac \\ fs[]
 QED
-
 
 val _ = export_theory();

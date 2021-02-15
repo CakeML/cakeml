@@ -1,7 +1,8 @@
 (*
   Correctness proofs for floating-point optimizations
 *)
-open icing_rewriterTheory source_to_sourceTheory fpOptTheory fpOptPropsTheory
+open icing_rewriterTheory icing_rewriterProofsTheory source_to_sourceTheory
+     fpOptTheory fpOptPropsTheory
      fpSemPropsTheory semanticPrimitivesTheory evaluateTheory
      semanticsTheory semanticsPropsTheory pureExpsTheory floatToRealTheory
      floatToRealProofsTheory evaluatePropsTheory terminationTheory
@@ -41,10 +42,11 @@ Proof
   Induct_on `l` \\ fs[fpOptTheory.nth_def, ADD1]
 QED
 
-Definition isRealValuedID_rewriteFPexp_def:
-  isRealValuedID_rewriteFPexp ((s,t):fp_pat#fp_pat) (st1:'a semanticPrimitives$state) st2 env e r <=>
-  evaluate st1 env [realify (rewriteFPexp [(s,t)] e)] = (st2, Rval [Real r]) ==>
-  evaluate st1 env [realify e] = (st2, Rval [Real r])
+Definition freeVars_fp_bound_def:
+  freeVars_fp_bound e env =
+    ∀ x. x IN FV e ⇒
+         ∃ r fp. nsLookup env.v x = SOME r ∧
+                 fp_translate r = SOME (FP_WordTree fp)
 End
 
 (* Correctness definition for rewriteFPexp
@@ -53,6 +55,7 @@ End
 Definition is_rewriteFPexp_correct_def:
   is_rewriteFPexp_correct rws (st1:'a semanticPrimitives$state) st2 env e r =
     (evaluate st1 env [rewriteFPexp rws e] = (st2, Rval r) /\
+     freeVars_fp_bound e env ∧
      st1.fp_state.canOpt = FPScope Opt /\
      st1.fp_state.real_sem = F ==>
      ? fpOpt choices fpOptR choicesR.
@@ -63,9 +66,17 @@ Definition is_rewriteFPexp_correct_def:
            <| rws := st2.fp_state.rws ++ rws; opts := fpOptR; choices := choicesR |>, Rval r))
 End
 
+Definition freeVars_list_fp_bound_def:
+  freeVars_list_fp_bound exps env =
+    ∀ x. x IN FV_list exps ⇒
+         ∃ r fp. nsLookup env.v x = SOME r ∧
+                 fp_translate r = SOME (FP_WordTree fp)
+End
+
 Definition is_rewriteFPexp_list_correct_def:
   is_rewriteFPexp_list_correct rws (st1:'a semanticPrimitives$state) st2 env exps r =
     (evaluate st1 env (MAP (rewriteFPexp rws) exps) = (st2, Rval r) /\
+     freeVars_list_fp_bound exps env ∧
      st1.fp_state.canOpt = FPScope Opt /\
      st1.fp_state.real_sem = F ==>
      ? fpOpt choices fpOptR choicesR.
@@ -108,11 +119,11 @@ Proof
   rw[is_rewriteFPexp_correct_def]
   \\ qpat_x_assum `_ = (_, _)` mp_tac
   \\ PairCases_on `opt` \\ simp[rewriteFPexp_def]
-  \\ reverse TOP_CASE_TAC \\ fs[]
+  \\ reverse TOP_CASE_TAC
   >- (
     rpt strip_tac
     \\ first_x_assum (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
-    \\ first_x_assum (qspecl_then [`[(opt0, opt1)] ++ rws`, `g`] assume_tac) \\ fs[]
+    \\ first_x_assum (qspecl_then [`[(opt0, opt1)] ++ rws`, `g`] strip_assume_tac)
     \\ qexists_tac ‘fpOpt’ \\ qexists_tac ‘st1.fp_state.choices’
     \\ fs[semState_comp_eq, fpState_component_equality, choices_simp])
   \\ TOP_CASE_TAC \\ fs[]
@@ -136,6 +147,13 @@ Proof
   \\ rpt strip_tac \\ fs[]
   \\ first_x_assum drule \\ fs[state_component_equality, fpState_component_equality]
   \\ fs[PULL_EXISTS] \\ rpt gen_tac
+  \\ impl_tac
+  >- (fs[freeVars_fp_bound_def]
+      \\ qspecl_then [‘opt1’, ‘opt0’, ‘e’, ‘x'’, ‘x’, ‘[]’,
+                      ‘λ x. ∃r fp. nsLookup env.v x = SOME r ∧ fp_translate r = SOME (FP_WordTree fp)’]
+                     mp_tac match_preserves_FV
+      \\ impl_tac \\ fs[substLookup_def])
+  \\ strip_tac \\ pop_assum mp_tac
   \\ qmatch_goalsub_abbrev_tac `evaluate st1N env [_] = (st2N, Rval r2)`
   \\ rpt strip_tac
   \\ first_x_assum (qspecl_then [`st1N`, `st2N`, `env`, `e`, `r2`] assume_tac)
@@ -167,12 +185,15 @@ Proof
   \\ rpt strip_tac \\ rveq
   \\ first_assum (qspecl_then [`st1`, `q`, `env`, `h`, `a`] impl_subgoal_tac)
   \\ simp[Once evaluate_cons] \\ fs[] \\ rveq
+  >- (fs[freeVars_fp_bound_def, freeVars_list_fp_bound_def])
   \\ first_x_assum (mp_then Any assume_tac (CONJUNCT1 optUntil_evaluate_ok))
   \\ last_x_assum drule
   \\ disch_then drule
   \\ disch_then assume_tac \\ fs[]
   \\ first_x_assum impl_subgoal_tac
-  \\ TRY (imp_res_tac evaluate_fp_opts_inv \\ fs[] \\ NO_TAC)
+  >- (conj_tac
+      >- (fs[freeVars_fp_bound_def, freeVars_list_fp_bound_def])
+      \\ imp_res_tac evaluate_fp_opts_inv \\ fs[])
   \\ fs[]
   \\ first_x_assum (qspec_then `fpOpt'` assume_tac) \\ fs[]
   \\ qexists_tac `optUntil (choicesR - choices) fpOpt fpOpt'`
@@ -192,50 +213,6 @@ Theorem lift_rewriteFPexp_correct_list:
 Proof
   rpt strip_tac \\ drule lift_rewriteFPexp_correct_list_strong
   \\ disch_then irule
-QED
-
-Definition is_optimise_with_plan_correct_def:
-  is_optimise_with_plan_correct plan (st1:'a semanticPrimitives$state) st2 env cfg exps r =
-  (evaluate st1 env
-   (MAP (λ e. FST (optimise_with_plan cfg plan e)) exps) = (st2, Rval r) /\
-   (cfg.canOpt <=> st1.fp_state.canOpt = FPScope Opt) /\
-   st1.fp_state.canOpt <> Strict /\
-   (~ st1.fp_state.real_sem) ==>
-   let theRws = FLAT (MAP (λ x. case x of |Apply (_, rws) => rws |_ => []) plan) in
-   ? fpOpt choices fpOptR choicesR.
-     evaluate (st1 with fp_state := st1.fp_state with
-                                       <| rws := st1.fp_state.rws ++ theRws;
-                                          opts := fpOpt; choices := choices |>) env exps =
-     (st2 with fp_state := st2.fp_state with
-                              <| rws := st2.fp_state.rws ++ theRws;
-                                 opts := fpOptR; choices := choicesR |>, Rval r))
-End
-
-Theorem Map_FST_optimise_with_plan:
-  MAP FST (MAP (\ (p, e). (p, optimise_with_plan cfg plan e)) l) = MAP FST l
-Proof
-  Induct_on ‘l’ \\ fs[] \\ rpt strip_tac \\ PairCases_on ‘h’ \\ fs[]
-QED
-
-Theorem optimise_with_plan_empty_sing:
-  ! cfg e. optimise_with_plan cfg [] e = (e, Success)
-Proof
-  fs[optimise_with_plan_def]
-QED
-
-Theorem optimise_with_plan_empty:
-  ! exps cfg. MAP (λ e. FST (optimise_with_plan cfg [] e)) exps = exps
-Proof
-  Induct_on ‘exps’ \\ rpt strip_tac
-  >- (EVAL_TAC)
-  \\ rpt strip_tac \\ fs[optimise_with_plan_def, optimise_with_plan_empty_sing]
-QED
-
-Theorem optimise_with_plan_pat_empty:
-  ! pl cfg. MAP (λ (p,e). (p, FST (optimise_with_plan cfg [] e))) pl = pl
-Proof
-  Induct_on ‘pl’ \\ rpt strip_tac >- (EVAL_TAC)
-  \\ fs[] \\ Cases_on ‘h’ \\ fs[optimise_with_plan_empty_sing]
 QED
 
 Theorem fpState_upd_id:
@@ -382,9 +359,227 @@ Proof
   \\ Induct_on ‘l’ \\ fs[miscTheory.enumerate_def]
 QED
 
+Definition freeVars_arithExp_bound_def:
+  freeVars_arithExp_bound (st1:'a semanticPrimitives$state) st2 (Raise e) env =
+    freeVars_arithExp_bound st1 st2 e env ∧
+  freeVars_arithExp_bound st1 st2 (Handle e l) env =
+    freeVars_arithExp_bound st1 st2 e env ∧
+  freeVars_arithExp_bound st1 st2 (Con op l) env =
+    freeVars_list_arithExp_bound st1 st2 l env ∧
+  freeVars_arithExp_bound st1 st2 (Var i) env = T ∧
+  freeVars_arithExp_bound st1 st2 (Lit l) env = F ∧
+  freeVars_arithExp_bound st1 st2 (Fun s e) env = (* TODO: Is this fine? *)
+    freeVars_arithExp_bound st1 st2 e env ∧
+  freeVars_arithExp_bound st1 st2 (App op l) env =
+    (if isFpArithExp (App op l) then
+      freeVars_fp_bound (App op l) env
+    else freeVars_list_arithExp_bound st1 st2 l env) ∧
+  freeVars_arithExp_bound st1 st2 (Log lop e1 e2) env =
+    (freeVars_arithExp_bound st1 st2 e1 env ∧
+     freeVars_arithExp_bound st1 st2 e2 env) ∧
+  freeVars_arithExp_bound st1 st2 (If e1 e2 e3) env =
+    (freeVars_arithExp_bound st1 st2 e1 env ∧
+     freeVars_arithExp_bound st1 st2 e2 env ∧
+     freeVars_arithExp_bound st1 st2 e3 env) ∧
+  freeVars_arithExp_bound st1 st2 (Mat e l) env =
+    (freeVars_arithExp_bound st1 st2 e env ∧
+     freeVars_matchExp_bound st1 st2 l env) ∧
+  freeVars_arithExp_bound st1 st2 (Let x e1 e2) env = (* TODO: Same as Fun case ? *)
+    (freeVars_arithExp_bound st1 st2 e1 env ∧
+     ∀ r.
+       evaluate st1 env [e1] = (st2, Rval r) ⇒
+       ∀ st1 st2.
+       freeVars_arithExp_bound st1 st2 e2 (env with v := nsOptBind x (HD r) env.v)) ∧
+  freeVars_arithExp_bound st1 st2 (Letrec l e) env =
+    freeVars_arithExp_bound st1 st2 e (env with v := build_rec_env l env env.v)∧
+  freeVars_arithExp_bound st1 st2 (Tannot e t) env =
+    freeVars_arithExp_bound st1 st2 e env ∧
+  freeVars_arithExp_bound st1 st2 (Lannot e l) env =
+    freeVars_arithExp_bound st1 st2 e env ∧
+  freeVars_arithExp_bound st1 st2 (FpOptimise sc e) env =
+    freeVars_arithExp_bound st1 st2 e env
+  ∧
+  freeVars_list_arithExp_bound st1 st2 [] env = T ∧
+  freeVars_list_arithExp_bound st1 st2 (e::es) env =
+    (freeVars_arithExp_bound st1 st2 e env ∧ freeVars_list_arithExp_bound st1 st2 es env)
+  ∧
+  freeVars_matchExp_bound st1 st2 [] env = T ∧
+  freeVars_matchExp_bound st1 st2 ((p,e)::ls) env =
+    ((∀ a v.
+        pmatch env.c st1.refs p v [] = Match a ⇒
+        ∀ (st1:'a semanticPrimitives$state) st2.
+          freeVars_arithExp_bound st1 st2 e (env with v := nsAppend (alist_to_ns a) env.v))
+     ∧
+     (∀ v. pmatch env.c st1.refs p v [] = No_match ⇒
+           ∀ (st1:'a semanticPrimitives$state) st2.
+             freeVars_matchExp_bound st1 st2 ls env))
+Termination
+  wf_rel_tac ‘measure (λ x. case x of |INR (INL (_, _, l, _)) => exp6_size l
+                                   | INR (INR (_, _, es, _)) => exp3_size es
+                                   | INL(_, _, e,_) => exp_size e)’
+End
+
+Theorem rewriteFPexp_freeVars_fp_bound:
+  ∀ rws e env.
+    rewriteFPexp rws e ≠ e ∧
+    freeVars_fp_bound e env ⇒
+    freeVars_fp_bound (rewriteFPexp rws e) env
+Proof
+  Induct_on ‘rws’ \\ fs[rewriteFPexp_def]
+  \\ rpt strip_tac \\ fs[freeVars_fp_bound_def]
+  \\ imp_res_tac isFpArithExp_rewrite_preserved
+  \\ Cases_on ‘h’ \\ fs[rewriteFPexp_def]
+  \\ COND_CASES_TAC \\ fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  >- res_tac
+  \\ TOP_CASE_TAC \\ fs[]
+  >- res_tac
+  \\ qspecl_then [‘r’, ‘q’, ‘e’, ‘x'’, ‘x’, ‘[]’,
+                  ‘λ x. ∃ r fp. nsLookup env.v x = SOME r ∧
+                                fp_translate r = SOME (FP_WordTree fp)’] mp_tac match_preserves_FV
+  \\ impl_tac \\ fs[substLookup_def]
+  \\ rpt strip_tac
+  \\ Cases_on ‘rewriteFPexp rws x' = x'’ \\ fs[]
+  \\ first_x_assum drule
+  \\ rpt (disch_then drule) \\ gs[]
+QED
+
+local
+  val exp_goal =
+“λ (st1:'a semanticPrimitives$state) st2 e env.
+  ∀ cfg path rws.
+  freeVars_arithExp_bound st1 st2 e env ∧
+     perform_rewrites cfg path rws e ≠ e ⇒
+    freeVars_arithExp_bound st1 st2 (perform_rewrites cfg path rws e) env”
+val list_goal =
+“λ (st1:'a semanticPrimitives$state) st2 es env.
+  ∀ cfg path rws i.
+    freeVars_list_arithExp_bound st1 st2 es env ∧
+    (MAPi
+     (λn e.
+       if n = i then perform_rewrites cfg path rws e
+       else e) es) ≠ es ⇒
+       freeVars_list_arithExp_bound
+       st1 st2
+       (MAPi (λ n e.
+               if n = i then perform_rewrites cfg path rws e else e) es) env”
+val match_goal =
+“λ (st1:'a semanticPrimitives$state) st2 pes env.
+  ∀ cfg path rws i.
+    freeVars_matchExp_bound st1 st2 pes env ∧
+     T (* TODO *) ⇒
+        freeVars_matchExp_bound
+          st1 st2
+          (MAPi (λ n (p,e).
+                  if n = i then (p, perform_rewrites cfg path rws e) else (p,e)) pes) env”
+val simple_case_tac =
+    gs[] \\ Cases_on ‘path’ \\ gs[perform_rewrites_def]
+    \\ rpt strip_tac \\ gs[freeVars_arithExp_bound_def];
+in
+
+Theorem freeVars_arithExp_lift_rewrite:
+  (∀ (st1:'a semanticPrimitives$state) st2 exp env.
+     ^exp_goal st1 st2 exp env)
+  ∧
+  (∀ (st1:'a semanticPrimitives$state) st2 es env.
+     ^list_goal st1 st2 es env)
+  ∧
+  (∀ (st1:'a semanticPrimitives$state) st2 pes env.
+     ^match_goal st1 st2 pes env)
+Proof
+  qspecl_then [‘^exp_goal’, ‘^list_goal’, ‘^match_goal’] mp_tac freeVars_arithExp_bound_ind
+  \\ reverse impl_tac
+  >- (rpt strip_tac \\ metis_tac[])
+  \\ rpt strip_tac \\ rpt conj_tac
+  >~ [‘App op es’]
+  >- (
+    simple_case_tac
+    >- (
+      Cases_on ‘p’ \\ gs[perform_rewrites_def]
+      \\ Cases_on ‘isFpArithExp (App op es)’ \\ gs[]
+      >- ((* TODO: Needs lifting lemma from freeVars_fp_bound ⇒ freeVars_list... *)
+        cheat )
+      \\ simp[Once freeVars_arithExp_bound_def]
+      \\ rpt strip_tac \\ Cases_on ‘op’ \\ fs[isFpArithExp_def]
+      (* TODO, maybe prove lemma ∃ *)
+      \\ cheat)
+    \\ TOP_CASE_TAC \\ gs[]
+    \\ ‘isFpArithExp (App op es) ∧ isFpArithExp (rewriteFPexp rws (App op es))’
+      by (imp_res_tac isFpArithExp_rewrite_preserved \\ gs[])
+    \\ res_tac
+    \\ Cases_on ‘rewriteFPexp rws (App op es)’ \\ gs[isFpArithExp_def, freeVars_arithExp_bound_def]
+    \\ imp_res_tac rewriteFPexp_freeVars_fp_bound
+    \\ first_x_assum (qspec_then ‘rws’ mp_tac)
+    \\ gs[])
+  >~ [‘Con op l’]
+  >- (
+    simple_case_tac
+    \\ Cases_on ‘p’
+    \\ gs[perform_rewrites_def, freeVars_arithExp_bound_def])
+  >~ [‘Raise e’]
+  >- simple_case_tac
+  >~ [‘Handle e l’]
+  >- simple_case_tac
+  >~ [‘Var x’]
+  >- simple_case_tac
+  >~ [‘Lit l’]
+  >- simple_case_tac
+  >~ [‘Fun s e’]
+  >- simple_case_tac
+  >~ [‘Log lop e1 e2’]
+  >- simple_case_tac
+  >~ [‘If e1 e2 e3’]
+  >- simple_case_tac
+  >~ [‘Mat e l’]
+  >- (simple_case_tac
+    \\ Cases_on ‘p’
+    \\ gs[perform_rewrites_def, freeVars_arithExp_bound_def])
+  >~ [‘Let x e1 e2’]
+  >- (simple_case_tac
+      \\ cheat) (* Needs backwards sim *)
+  >~ [‘Letrec l e’]
+  >- simple_case_tac
+  >~ [‘Tannot e t’]
+  >- simple_case_tac
+  >~ [‘Lannot e t’]
+  >- simple_case_tac
+  >~ [‘FpOptimise sc e’]
+  >- simple_case_tac
+  (* empty list *)
+  >- (gs[freeVars_arithExp_bound_def])
+  (* List cons *)
+  >- (
+    simp[] \\ rpt strip_tac
+    \\ Cases_on ‘i = 0’ \\ gs[freeVars_arithExp_bound_def]
+    >- (qmatch_goalsub_abbrev_tac ‘MAPi perform_rw es’
+        \\ ‘perform_rw = λ n e. if (SUC n) = 0 then perform_rewrites cfg path rws e else e’
+          by (unabbrev_all_tac \\ fs[FUN_EQ_THM])
+        \\ ‘(λ n e. if (SUC n) = 0 then perform_rewrites cfg path rws e else e) = λ n e. e’
+           by (fs[FUN_EQ_THM])
+        \\ fs[])
+    >- (
+      qmatch_goalsub_abbrev_tac ‘MAPi perform_rw es’
+      \\ ‘perform_rw = λ n e. if (SUC n) = 0 then perform_rewrites cfg path rws e else e’
+        by (unabbrev_all_tac \\ fs[FUN_EQ_THM])
+      \\ ‘(λ n e. if (SUC n) = 0 then perform_rewrites cfg path rws e else e) = λ n e. e’
+        by (fs[FUN_EQ_THM])
+      \\ fs[])
+    \\ qmatch_goalsub_abbrev_tac ‘MAPi perform_rw es’
+    \\ ‘perform_rw = λ n e. if n = i-1 then perform_rewrites cfg path rws e else e’
+      by (unabbrev_all_tac \\ fs[FUN_EQ_THM]
+          \\ rpt strip_tac \\ Cases_on ‘n = i -1’ \\ fs[])
+    \\ pop_assum (gs o single))
+  (* empty match *)
+  >- (gs[freeVars_arithExp_bound_def])
+  (* Match cons case, TODO *)
+  \\ cheat
+QED
+end;
+
 Definition is_perform_rewrites_correct_def:
   is_perform_rewrites_correct rws (st1:'a semanticPrimitives$state) st2 env cfg e r path <=>
     evaluate st1 env [perform_rewrites cfg path rws e] = (st2, Rval r) /\
+    (∀ (st1:'a semanticPrimitives$state) st2. freeVars_arithExp_bound st1 st2 e env) ∧
     (cfg.canOpt <=> st1.fp_state.canOpt = FPScope Opt) /\
     st1.fp_state.canOpt <> Strict /\
     (~ st1.fp_state.real_sem) ==>
@@ -409,6 +604,7 @@ local
      ! (st1: 'a semanticPrimitives$state) st2 env cfg rws r path.
      (! (st1:'a semanticPrimitives$state) st2 env exps r.
        is_rewriteFPexp_list_correct rws st1 st2 env exps r) /\
+    (∀ (st1:'a semanticPrimitives$state) st2. freeVars_arithExp_bound st1 st2 e env) ∧
      (cfg.canOpt <=> st1.fp_state.canOpt = FPScope Opt) /\
      st1.fp_state.canOpt <> Strict /\
      ~st1.fp_state.real_sem /\
@@ -437,6 +633,8 @@ local
      ! (st1: 'a semanticPrimitives$state) st2 env cfg rws r v err_v path i.
      (! (st1:'a semanticPrimitives$state) st2 env exps r.
         is_rewriteFPexp_list_correct rws st1 st2 env exps r) /\
+    (∀ (st1:'a semanticPrimitives$state) st2.
+        freeVars_matchExp_bound st1 st2 l env) ∧
      (cfg.canOpt <=> st1.fp_state.canOpt = FPScope Opt) /\
      st1.fp_state.canOpt <> Strict /\
      ~st1.fp_state.real_sem /\
@@ -488,6 +686,7 @@ Triviality lift_P6_perform_rws_REVERSE:
     ! (st1: 'a semanticPrimitives$state) st2 env cfg rws r path i m.
     (! (st1:'a semanticPrimitives$state) st2 env exps r.
        is_rewriteFPexp_list_correct rws st1 st2 env exps r) /\
+    (∀ (st1:'a semanticPrimitives$state) st2. freeVars_list_arithExp_bound st1 st2 es env) ∧
     (cfg.canOpt <=> st1.fp_state.canOpt = FPScope Opt) /\
     st1.fp_state.canOpt <> Strict /\
     ~st1.fp_state.real_sem /\
@@ -513,6 +712,7 @@ Proof
           !(st1 :'a semanticPrimitives$state) (st2 :'a semanticPrimitives$state) env cfg rws r path.
             (! (st1:'a semanticPrimitives$state) st2 env exps r.
                is_rewriteFPexp_list_correct rws st1 st2 env exps r)  /\
+            (∀ (st1:'a semanticPrimitives$state) st2. freeVars_arithExp_bound st1 st2 e env) ∧
             (cfg.canOpt <=> st1.fp_state.canOpt = FPScope Opt) /\
             st1.fp_state.canOpt <> Strict /\ ~st1.fp_state.real_sem /\
             evaluate st1 env
@@ -536,21 +736,20 @@ Proof
     )
   \\ qpat_x_assum ‘(!e. MEM e es ==> _) ==> _’ drule
   \\ disch_then (qspecl_then [‘st1’, ‘s'’, ‘env’, ‘cfg’, ‘rws’, ‘vs’, ‘path’, ‘i’, ‘m + 1’] strip_assume_tac)
-  \\ rfs[]
+  \\ rfs[freeVars_arithExp_bound_def]
   \\ Cases_on ‘m = i’ \\ fs[] \\ rveq
   >- (
   qpat_x_assum ‘!e. e = h \/ MEM e es ==> _’ (qspec_then ‘h’ strip_assume_tac) \\ fs[]
   \\ pop_assum (qspecl_then [‘s'’, ‘s''’, ‘env’, ‘cfg’, ‘rws’, ‘vs'’, ‘path’] strip_assume_tac)
   \\ ‘(cfg.canOpt <=> s'.fp_state.canOpt = FPScope Opt) /\ s'.fp_state.canOpt <> Strict /\
       ~s'.fp_state.real_sem’ by (imp_res_tac evaluate_fp_opts_inv \\ fs[]) \\ fs[]
-  \\ qpat_x_assum ‘_ /\ evaluate _ _ [perform_rewrites _ _ _ _] = _ ==> _’ imp_res_tac
+  \\ gs[]
   \\ optUntil_tac ‘evaluate _ _ (REVERSE es) = _’ ‘fpOpt'’
   \\ qexistsl_tac [‘optUntil (choicesR - choices) fpOpt fpOpt'’, ‘choices’] \\ fs[]
-  \\ ntac 2 (pop_assum kall_tac)
+  \\ pop_assum kall_tac
   \\ drule (CONJUNCT1 evaluate_add_choices)
   \\ disch_then (qspec_then ‘choicesR’ strip_assume_tac)
-  \\ fs[semState_comp_eq, fpState_component_equality]
-  )
+  \\ fs[semState_comp_eq, fpState_component_equality])
   >- (
   qpat_x_assum ‘evaluate _ _ [h] = _’ (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
   \\ pop_assum (qspecl_then [‘rws’, ‘s''.fp_state.opts’] strip_assume_tac)
@@ -569,6 +768,7 @@ Triviality lift_P6_perform_rws:
     ! (st1: 'a semanticPrimitives$state) st2 env cfg rws r path i m.
     (! (st1:'a semanticPrimitives$state) st2 env exps r.
        is_rewriteFPexp_list_correct rws st1 st2 env exps r) /\
+    (∀ (st1:'a semanticPrimitives$state) st2. freeVars_list_arithExp_bound st1 st2 es env) ∧
     (cfg.canOpt <=> st1.fp_state.canOpt = FPScope Opt) /\
     st1.fp_state.canOpt <> Strict /\
     ~st1.fp_state.real_sem /\
@@ -607,6 +807,7 @@ Proof
           !(st1 :'a semanticPrimitives$state) (st2 :'a semanticPrimitives$state) env cfg rws r path.
             (! (st1:'a semanticPrimitives$state) st2 env exps r.
                is_rewriteFPexp_list_correct rws st1 st2 env exps r) /\
+            (∀ (st1:'a semanticPrimitives$state) st2. freeVars_arithExp_bound st1 st2 e env) ∧
             (cfg.canOpt <=> st1.fp_state.canOpt = FPScope Opt) /\
             st1.fp_state.canOpt <> Strict /\ ~st1.fp_state.real_sem /\
             evaluate st1 env
@@ -634,22 +835,23 @@ Proof
       /\ s'.fp_state.canOpt <> Strict /\ ~s'.fp_state.real_sem’ by (
     imp_res_tac evaluate_fp_opts_inv \\ fs[]
     )
-  \\ fs[]
+  \\ fs[freeVars_arithExp_bound_def]
   \\ Cases_on ‘m = i’ \\ fs[] \\ rveq
   >- (
   qpat_x_assum ‘!e. e = h \/ MEM e es ==> _’ (qspec_then ‘h’ strip_assume_tac) \\ fs[]
   \\ pop_assum (qspecl_then [‘st1’, ‘s'’, ‘env’, ‘cfg’, ‘rws’, ‘vs’, ‘path’] strip_assume_tac)
-  \\ rfs[]
-  \\ optUntil_tac ‘evaluate _ _ [h] = _’ ‘fpOpt’
-  \\ qexistsl_tac [‘optUntil (choicesR' - choices') fpOpt' fpOpt’, ‘choices'’]
+  \\ gs[]
+  \\ optUntil_tac ‘evaluate _ _ [h] = _’ ‘fpOpt'’
+  \\ qexistsl_tac [‘optUntil (choicesR - choices) fpOpt fpOpt'’, ‘choices’]
   \\ fs[semState_comp_eq, fpState_component_equality]
   \\ pop_assum kall_tac
   \\ drule (CONJUNCT1 evaluate_add_choices)
-  \\ disch_then (qspec_then ‘choicesR'’ strip_assume_tac)
+  \\ disch_then (qspec_then ‘choicesR’ strip_assume_tac)
   \\ fs[semState_comp_eq, fpState_component_equality]
   )
   >- (
-  qpat_x_assum ‘evaluate _ _ [h] = _’ (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
+  gs[]
+  \\ qpat_x_assum ‘evaluate _ _ [h] = _’ (mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
   \\ pop_assum (qspecl_then [‘rws’, ‘fpOpt’] strip_assume_tac)
   \\ drule (CONJUNCT1 evaluate_add_choices)
   \\ disch_then (qspec_then ‘st1.fp_state.choices’ strip_assume_tac)
@@ -662,16 +864,46 @@ Proof
   )
 QED
 
+Theorem freeVars_list_from_fv_bound:
+  (∀ e env.
+     (∀ x. x IN FV e  ⇒
+          ∃r fp.
+            nsLookup env.v x = SOME r ∧
+            fp_translate r = SOME (FP_WordTree fp)) ⇒
+    ∀ (st1:'a semanticPrimitives$state) st2. freeVars_arithExp_bound st1 st2 e env) ∧
+  ∀ es env.
+    (∀x. x ∈ FV_list es ⇒
+         ∃r fp.
+           nsLookup env.v x = SOME r ∧
+           fp_translate r = SOME (FP_WordTree fp)) ⇒
+    ∀ (st1:'a semanticPrimitives$state) st2. freeVars_list_arithExp_bound st1 st2 es env
+Proof
+  (* TODO: Use freeVars_arithExp_bound_ind *)
+  cheat
+QED
+
+Theorem freeVars_list_from_arithExp:
+  (∀ (st1:'a semanticPrimitives$state) st2. if isFpArithExp (App op es) then freeVars_fp_bound (App op es) env
+              else freeVars_list_arithExp_bound st1 st2 es env) ⇒
+  (∀ (st1:'a semanticPrimitives$state) st2. freeVars_list_arithExp_bound st1 st2 es env)
+Proof
+  Cases_on ‘isFpArithExp (App op es)’ \\ fs[freeVars_fp_bound_def]
+  \\ rpt strip_tac
+  \\ imp_res_tac (CONJUNCT2 freeVars_list_from_fv_bound)
+  \\ fs[]
+QED
+
 Theorem perform_rewrites_correct:
   (! e. ^P0 e) /\ (! l. ^P1 l) /\ (! p. ^P2 p) /\ (! l. ^P3 l) /\ (! p. ^P4 p)
   /\ (! p. ^P5 p) /\ (! l. ^P6 l)
 Proof
-  irule ind_thm \\ rpt strip_tac \\ fs[perform_rewrites_def] \\ rpt strip_tac
+  irule ind_thm \\ rpt strip_tac
+  \\ fs[perform_rewrites_def, freeVars_arithExp_bound_def] \\ rpt strip_tac
   (* Case: If e e0 e1 *)
   >- (
   REVERSE (Cases_on ‘path’) \\ fs[perform_rewrites_def]
   (* Case: Here *)
-  >- (no_change_tac ‘If e e0 e1’)
+  >- no_change_tac ‘If e e0 e1’
   (* Case: ListIndex _ *)
   >- no_change_tac ‘If e e0 e1’
   (* Case: Center *)
@@ -685,7 +917,7 @@ Proof
     (* HD v = Boolv T *)
     >- (
       qpat_x_assum ‘! st1 st2 env cfg rws r path.
-                      _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e0] = _ ==> _’ drule
+                      _ ∧ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e0] = _ ==> _’ drule
       \\ disch_then (qspecl_then [‘st'’, ‘st2’, ‘env’, ‘cfg’, ‘[v']’, ‘o'’] strip_assume_tac) \\ rfs[]
       \\ ‘(st1.fp_state.canOpt = FPScope Opt <=>
            st'.fp_state.canOpt = FPScope Opt) /\ st'.fp_state.canOpt <> Strict /\
@@ -755,7 +987,7 @@ Proof
     (* HD v = Boolv F *)
     >- (
       qpat_x_assum ‘! st1 st2 env cfg rws r path.
-                      _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e1] = _ ==> _’ drule
+                      _ ∧ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e1] = _ ==> _’ drule
       \\ disch_then (qspecl_then [‘st'’, ‘st2’, ‘env’, ‘cfg’, ‘[v']’, ‘o'’] strip_assume_tac) \\ rfs[]
       \\ ‘(st1.fp_state.canOpt = FPScope Opt <=>
            st'.fp_state.canOpt = FPScope Opt) /\ st'.fp_state.canOpt <> Strict /\
@@ -782,8 +1014,10 @@ Proof
                    assume_tac o SIMP_RULE bool_ss [evaluate_def, CaseEq"prod", CaseEq"result"])
     \\ fs[] \\ rveq
     \\ qpat_x_assum ‘! st1 st2 env cfg rws r path.
-                       _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
+                       _ ∧ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
     \\ rpt (disch_then drule)
+    \\ disch_then (qspecl_then [‘st1’, ‘st'’, ‘env’, ‘cfg’, ‘v’, ‘o'’] mp_tac)
+    \\ impl_tac >- fs[]
     \\ strip_tac
     \\ Cases_on ‘do_if (HD v) e0 e1’ \\ fs[]
     \\ qpat_x_assum ‘evaluate _ _ [x] = _’ (
@@ -820,7 +1054,7 @@ Proof
     (* l = And /\ v = Boolv T and l = Or /\ v = Boolv F *)
     \\ TRY (
       qpat_x_assum ‘! st1 st2 env cfg rws r path.
-                      _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e0] = _ ==> _’ drule
+                      _ ∧ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e0] = _ ==> _’ drule
       \\ disch_then (qspecl_then [‘st'’, ‘st2’, ‘env’, ‘cfg’, ‘r’, ‘o'’] strip_assume_tac) \\ rfs[]
       \\ ‘(st1.fp_state.canOpt = FPScope Opt <=>
            st'.fp_state.canOpt = FPScope Opt) /\ st'.fp_state.canOpt <> Strict /\
@@ -874,8 +1108,10 @@ Proof
                    assume_tac o SIMP_RULE bool_ss [evaluate_def, CaseEq"prod", CaseEq"result"])
     \\ fs[] \\ rveq
     \\ qpat_x_assum ‘! st1 st2 env cfg rws r path.
-                       _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
+                       _ ∧ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
     \\ rpt (disch_then drule)
+    \\ disch_then (qspecl_then [‘st1’, ‘st'’, ‘env’, ‘cfg’, ‘v1’, ‘o'’] mp_tac)
+    \\ impl_tac >- fs[]
     \\ strip_tac
     \\ Cases_on ‘do_log l (HD v1) e0’ \\ fs[]
     \\ Cases_on ‘x’ \\ fs[]
@@ -914,14 +1150,17 @@ Proof
                    assume_tac o SIMP_RULE bool_ss [evaluate_def, CaseEq"prod", CaseEq"result"])
     \\ fs[] \\ rveq
     \\ qpat_x_assum ‘! st1 st2 env cfg rws r path.
-                       _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e0] = _ ==> _’ drule
+                       _ /\ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e0] = _ ==> _’ drule
     \\ disch_then (
       qspecl_then [
           ‘st'’, ‘st2’, ‘(env with v := nsOptBind o' (HD v) env.v)’, ‘cfg’, ‘r’, ‘o''’
-        ] strip_assume_tac) \\ rfs[]
-    \\ ‘(st1.fp_state.canOpt = FPScope Opt <=>
-           st'.fp_state.canOpt = FPScope Opt) /\ st'.fp_state.canOpt <> Strict /\
-          ~st'.fp_state.real_sem’ by (imp_res_tac evaluate_fp_opts_inv \\ fs[]) \\ fs[]
+        ] mp_tac)
+    \\ impl_tac
+    >- (
+      rpt conj_tac
+      >- (first_x_assum (qspecl_then [‘st1’, ‘st'’] mp_tac) \\ gs[])
+      \\ imp_res_tac evaluate_fp_opts_inv \\ gs[])
+    \\ strip_tac \\ gs[]
     \\ qpat_x_assum ‘evaluate _ _ [e] = _’ (
                       mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
     \\ first_x_assum (qspecl_then [‘rws’, ‘fpOpt’] assume_tac) \\ fs[]
@@ -940,8 +1179,11 @@ Proof
                    assume_tac o SIMP_RULE bool_ss [evaluate_def, CaseEq"prod", CaseEq"result"])
     \\ fs[] \\ rveq
     \\ qpat_x_assum ‘! st1 st2 env cfg rws r path.
-                       _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
+                       _ /\ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
     \\ rpt (disch_then drule)
+    \\ disch_then (qspecl_then [‘st1’, ‘st'’, ‘env’, ‘cfg’, ‘v’, ‘o''’] mp_tac)
+    \\ impl_tac
+    >- (rpt conj_tac \\ imp_res_tac evaluate_fp_opts_inv \\ gs[])
     \\ strip_tac
     \\ fs[evaluate_def]
     \\ qpat_x_assum ‘evaluate _ _ [e0] = _’ (
@@ -959,14 +1201,14 @@ Proof
   >- (
   rveq
   \\ qpat_x_assum ‘! st1 st2 env cfg rws r path.
-                     _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
+                     _ /\ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
   \\ rpt (disch_then drule)
   \\ fs[])
   (* Case: ?? *)
   >- (
   rveq
   \\ qpat_x_assum ‘! e. MEM e l ==> ! st1 st2 env cfg rws r path.
-                                    _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ _] = _ ==> _’ drule
+                                    _ /\ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ _] = _ ==> _’ drule
   \\ rpt (disch_then drule)
   \\ fs[])
   (* Case: Handle e l *)
@@ -993,13 +1235,14 @@ Proof
                       (p, perform_rewrites cfg r' rws e')
                     else (p,e'))) l) (HD v)’ \\ fs[]
     \\ qpat_x_assum ‘! st1 st2 env cfg rws r v err_v path i.
-                       _ /\ _ /\ _ /\ _ /\ evaluate_match _ _ _ _ _ = _ ==> _’ drule
+                       _ /\ _ /\ _ /\ _ /\ _ /\ evaluate_match _ _ _ _ _ = _ ==> _’ drule
     \\ disch_then (qspecl_then [
-                      ‘st'’, ‘st2’, ‘env’, ‘cfg’, ‘r’, ‘HD v’, ‘bind_exn_v’, ‘r'’, ‘q’ ] strip_assume_tac)
-    \\ rfs[]
-    \\ ‘(st1.fp_state.canOpt = FPScope Opt <=>
-         st'.fp_state.canOpt = FPScope Opt) /\ st'.fp_state.canOpt <> Strict /\
-        ~st'.fp_state.real_sem’ by (imp_res_tac evaluate_fp_opts_inv \\ fs[]) \\ fs[]
+                      ‘st'’, ‘st2’, ‘env’, ‘cfg’, ‘r’, ‘HD v’, ‘bind_exn_v’, ‘r'’, ‘q’ ] mp_tac)
+    \\ impl_tac
+    >- (imp_res_tac evaluate_fp_opts_inv \\ gs[]
+        \\ rpt strip_tac \\ first_x_assum $ qspecl_then [‘st1'’, ‘st2'’] mp_tac
+        \\ strip_tac \\ first_x_assum drule \\ disch_then drule \\ gs[])
+    \\ strip_tac
     \\ fs[evaluate_def]
     \\ qpat_x_assum ‘evaluate _ _ [e] = _’ (
                       mp_then Any assume_tac (prep (CONJUNCT1 evaluate_fp_rws_append)))
@@ -1062,8 +1305,11 @@ Proof
                    assume_tac o SIMP_RULE bool_ss [evaluate_def, CaseEq"prod", CaseEq"result"])
     \\ fs[] \\ rveq
     \\ qpat_x_assum ‘! st1 st2 env cfg rws r path.
-                       _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
+                       _ /\ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
     \\ rpt (disch_then drule)
+    \\ disch_then (qspecl_then [‘st1’, ‘st'’, ‘env’, ‘cfg’, ‘v’, ‘o'’] mp_tac)
+    \\ impl_tac
+    >- (imp_res_tac evaluate_fp_opts_inv \\ gs[])
     \\ strip_tac
     \\ fs[evaluate_def]
     \\ Cases_on ‘can_pmatch_all env.c st'.refs (MAP FST l) (HD v)’ \\ fs[]
@@ -1097,7 +1343,7 @@ Proof
                    assume_tac o SIMP_RULE bool_ss [evaluate_def, CaseEq"prod", CaseEq"result"])
     \\ fs[] \\ rveq
     \\ qpat_x_assum ‘! st1 st2 env cfg rws r path.
-                       _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
+                       _ /\ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
     \\ rpt (disch_then drule)
     \\ strip_tac
     \\ fs[evaluate_def]
@@ -1125,7 +1371,7 @@ Proof
     \\ Cases_on ‘r'’ \\ fs[] \\ rveq \\ fs[]
     \\ Cases_on ‘st1.fp_state.canOpt = Strict’ \\ fs[]
     \\ qpat_x_assum ‘! st1 st2 env cfg rws r path.
-                       _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
+                       _ /\ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
     \\ disch_then (qspecl_then [‘st1 with fp_state := st1.fp_state with canOpt := FPScope f’,
                                ‘q’, ‘env’, ‘cfg with canOpt := (f = Opt)’,
                                ‘a’, ‘o'’] strip_assume_tac)
@@ -1139,7 +1385,7 @@ Proof
   (* Case: ?? *)
   >- (
   qpat_x_assum ‘! st1 st2 env cfg rws r path.
-                  _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
+                  _ /\ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
   \\ rpt (disch_then drule)
   \\ fs[])
   (* Case: Fun s e *)
@@ -1159,7 +1405,7 @@ Proof
                    assume_tac o SIMP_RULE bool_ss [evaluate_def, CaseEq"prod", CaseEq"result"])
     \\ fs[] \\ rveq
     \\ qpat_x_assum ‘! st1 st2 env cfg rws r path.
-                       _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
+                       _ /\ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
     \\ rpt (disch_then drule)
     \\ strip_tac
     \\ fs[evaluate_def]
@@ -1169,7 +1415,7 @@ Proof
   (* Case: ?? *)
   >- (
   qpat_x_assum ‘! st1 st2 env cfg rws r path.
-                  _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
+                  _ /\ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ drule
   \\ rpt (disch_then drule)
   \\ fs[])
   (* Case: Raise e *)
@@ -1193,21 +1439,34 @@ Proof
   (* Case: Here *)
   >- (
     Cases_on ‘cfg.canOpt’ \\ fs[]
-    (* Does rewrite *)
-    >- fs[is_rewriteFPexp_list_correct_def]
     (* Does not rewrite *)
-    >- no_change_tac ‘Var i’
+    \\ no_change_tac ‘Var i’
     )
   \\ no_change_tac ‘Var i’
   )
   (* Case: App o' l *)
   >- (
-  REVERSE (Cases_on ‘path’) \\ fs[perform_rewrites_def]
+  imp_res_tac freeVars_list_from_arithExp
+  \\ REVERSE (Cases_on ‘path’) \\ fs[perform_rewrites_def]
   (* Case: Here *)
   >- (
     Cases_on ‘cfg.canOpt’ \\ fs[]
     (* Does rewrite *)
-    >- fs[is_rewriteFPexp_list_correct_def]
+    >- (
+      fs[is_rewriteFPexp_list_correct_def]
+      \\ Cases_on ‘isFpArithExp (App o' l)’
+      >- (res_tac \\ first_x_assum (qspecl_then [‘[App o' l]’, ‘env’] mp_tac)
+          \\ res_tac
+          \\ impl_tac \\ fs[freeVars_list_fp_bound_def, freeVars_fp_bound_def])
+      \\ Cases_on ‘rws’ \\ fs[rewriteFPexp_def]
+      >- (qexists_tac ‘st1.fp_state.opts’ \\ qexists_tac ‘st1.fp_state.choices’
+          \\ qmatch_goalsub_abbrev_tac ‘evaluate st1N _ _ = _’
+          \\ ‘st1N = st1’ by (unabbrev_all_tac
+                              \\ fs[semState_comp_eq, fpState_component_equality])
+          \\ gs[] \\ fs[semState_comp_eq, fpState_component_equality])
+      \\ PairCases_on ‘h’ \\ fs[rewriteFPexp_def]
+      \\ qmatch_goalsub_abbrev_tac ‘st1.fp_state.rws ++ rws’
+      \\ no_change_tac ‘App o' l’)
     (* Does not rewrite *)
     >- no_change_tac ‘App o' l’
     )
@@ -1233,8 +1492,7 @@ Proof
     \\ rfs[] \\ pop_assum drule
     \\ disch_then (qspecl_then [‘st1’, ‘st'’, ‘env’, ‘cfg’, ‘rws’, ‘vs’, ‘r'’, ‘q’, ‘0’]
                    strip_assume_tac) \\ rfs[]
-    \\ fs[GSYM MAP_REVERSE]
-    \\ rfs[]
+    \\ fs[GSYM MAP_REVERSE] \\ rfs[]
     \\ fs[evaluate_def]
     \\ Cases_on ‘getOpClass o'’ \\ fs[]
     (* Case: getOpClass o' = FunApp *)
@@ -1342,7 +1600,7 @@ Proof
     \\ Cases_on ‘ALL_DISTINCT (MAP (λ(x,y,z). x) l)’ \\ fs[]
     \\ fs[evaluate_def]
     \\ qpat_x_assum ‘! st1 st2 env cfg rws r path.
-                       _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ mp_tac
+                       _ /\ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ e] = _ ==> _’ mp_tac
     \\ disch_then (qspecl_then [‘st1’, ‘st2’, ‘(env with v := build_rec_env l env env.v)’,
                                 ‘cfg’, ‘rws’, ‘r’, ‘o'’] strip_assume_tac)
     \\ rfs[]
@@ -1351,19 +1609,20 @@ Proof
     )
   \\ no_change_tac ‘Letrec l e’
   )
-  (* Case: Lit l *)
+  (* was Case: Lit l
   >- (
   REVERSE (Cases_on ‘path’) \\ fs[perform_rewrites_def]
   (* Case: Here *)
   >- (
     Cases_on ‘cfg.canOpt’ \\ fs[]
     (* Does rewrite *)
-    >- fs[is_rewriteFPexp_list_correct_def]
+    >- (fs[is_rewriteFPexp_list_correct_def]
+        \\ first_x_assum irule \\ fs[freeVars_list_fp_bound_def])
     (* Does not rewrite *)
     >- no_change_tac ‘Lit l’
     )
   \\ no_change_tac ‘Lit l’
-  )
+  ) *)
   (* Case: ?? *)
   >- fs[]
   (* Case: ?? *)
@@ -1373,8 +1632,7 @@ Proof
   Cases_on ‘p’ \\ Cases_on ‘i = 0’ \\ fs[]
   \\ fs[o_DEF]
   >- (
-    ‘!l: (pat # exp) list. MAPi (λ x (n, e'). (n, e')) l = l’ by (
-      Induct \\ fs[]
+    ‘!l: (pat # exp) list. MAPi (λ x (n, e'). (n, e')) l = l’ by (Induct \\ fs[]
       \\ fs[FORALL_PROD, o_DEF]
       )
     \\ fs[evaluate_def]
@@ -1391,10 +1649,16 @@ Proof
       )
     >- (
       qpat_x_assum ‘! st1 st2 env cfg rws r path.
-                       _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ r'] = _ ==> _’ mp_tac
+                       _ /\ _ /\ _ /\ _ /\ _ /\ evaluate _ _ [perform_rewrites _ _ _ r'] = _ ==> _’ mp_tac
       \\ disch_then (qspecl_then [‘st1’, ‘st2’, ‘(env with v := nsAppend (alist_to_ns a) env.v)’,
-                                  ‘cfg’, ‘rws’, ‘r’, ‘path’] strip_assume_tac)
-      \\ rfs[]
+                                  ‘cfg’, ‘rws’, ‘r’, ‘path’] mp_tac)
+      \\ impl_tac
+      >- (
+        gs[freeVars_arithExp_bound_def] \\ rpt strip_tac
+        \\ first_x_assum $ qspec_then ‘st1’ strip_assume_tac
+        \\ first_x_assum $ qspecl_then [‘a’, ‘v’] mp_tac
+        \\ fs[])
+      \\ strip_tac
       \\ qexistsl_tac [‘fpOpt’, ‘choices’]
       \\ fs[semState_comp_eq, fpState_component_equality]
       )
@@ -1415,11 +1679,21 @@ Proof
       \\ pop_assum (rewrite_tac o single)
       \\ rpt strip_tac \\ unabbrev_all_tac
       \\ qpat_x_assum ‘!st1 st2 env cfg rws r v err_v path i.
-                      _ /\ _ /\ _ /\ _ /\ evaluate_match _ _ _ _ _ = _ ==> _’ (
+                      _ /\ _ /\ _ /\ _ /\ _ /\ evaluate_match _ _ _ _ _ = _ ==> _’ (
                         qspecl_then [
                             ‘st1’, ‘st2’, ‘env’, ‘cfg’, ‘rws’, ‘r’, ‘v’, ‘err_v’, ‘path’, ‘i - 1’
-                          ] strip_assume_tac
+                          ] mp_tac
                         )
+      \\ impl_tac
+      >- (
+        gs[freeVars_arithExp_bound_def] \\ rpt strip_tac
+        \\ first_x_assum $ qspec_then ‘st1’ strip_assume_tac
+        \\ first_x_assum $ qspec_then ‘v’ strip_assume_tac
+        \\ fs[])
+      >- (
+        gs[] \\ rpt strip_tac
+        \\ first_x_assum $ qspecl_then [‘st1'’, ‘p’, ‘r'’, ‘v’, ‘a’] mp_tac
+        \\ fs[])
       \\ rfs[]
       \\ qexistsl_tac [‘fpOpt’, ‘choices’]
       \\ fs[semState_comp_eq, fpState_component_equality]
@@ -1455,7 +1729,7 @@ Proof
   \\ pop_assum kall_tac \\ rpt strip_tac
   \\ first_x_assum (qspecl_then [‘st1’,‘st2’,‘env’,‘cfg’,‘rws’,‘r’, ‘path’, ‘0’, ‘0’] mp_tac)
   \\ impl_tac
-  >- (rpt conj_tac \\ fs[miscTheory.enumerate_def])
+  >- (rpt conj_tac \\ fs[miscTheory.enumerate_def, freeVars_arithExp_bound_def])
   \\ rpt strip_tac \\ fsrw_tac [SATISFY_ss] []
 QED
 
@@ -1466,6 +1740,51 @@ Theorem REVERSE_no_optimisations:
   MAP (no_optimisations cfg) (REVERSE exps)
 Proof
   Induct_on `exps` \\ fs[]
+QED
+
+Definition is_optimise_with_plan_correct_def:
+  is_optimise_with_plan_correct plan (st1:'a semanticPrimitives$state) st2 env cfg exps r =
+  (evaluate st1 env
+   (MAP (λ e. FST (optimise_with_plan cfg plan e)) exps) = (st2, Rval r) /\
+   (∀ (st1:'a semanticPrimitives$state) st2. freeVars_list_arithExp_bound st1 st2 exps env) ∧
+   (cfg.canOpt <=> st1.fp_state.canOpt = FPScope Opt) /\
+   st1.fp_state.canOpt <> Strict /\
+   (~ st1.fp_state.real_sem) ==>
+   let theRws = FLAT (MAP (λ x. case x of |Apply (_, rws) => rws |_ => []) plan) in
+   ? fpOpt choices fpOptR choicesR.
+     evaluate (st1 with fp_state := st1.fp_state with
+                                       <| rws := st1.fp_state.rws ++ theRws;
+                                          opts := fpOpt; choices := choices |>) env exps =
+     (st2 with fp_state := st2.fp_state with
+                              <| rws := st2.fp_state.rws ++ theRws;
+                                 opts := fpOptR; choices := choicesR |>, Rval r))
+End
+
+Theorem Map_FST_optimise_with_plan:
+  MAP FST (MAP (\ (p, e). (p, optimise_with_plan cfg plan e)) l) = MAP FST l
+Proof
+  Induct_on ‘l’ \\ fs[] \\ rpt strip_tac \\ PairCases_on ‘h’ \\ fs[]
+QED
+
+Theorem optimise_with_plan_empty_sing:
+  ! cfg e. optimise_with_plan cfg [] e = (e, Success)
+Proof
+  fs[optimise_with_plan_def]
+QED
+
+Theorem optimise_with_plan_empty:
+  ! exps cfg. MAP (λ e. FST (optimise_with_plan cfg [] e)) exps = exps
+Proof
+  Induct_on ‘exps’ \\ rpt strip_tac
+  >- (EVAL_TAC)
+  \\ rpt strip_tac \\ fs[optimise_with_plan_def, optimise_with_plan_empty_sing]
+QED
+
+Theorem optimise_with_plan_pat_empty:
+  ! pl cfg. MAP (λ (p,e). (p, FST (optimise_with_plan cfg [] e))) pl = pl
+Proof
+  Induct_on ‘pl’ \\ rpt strip_tac >- (EVAL_TAC)
+  \\ fs[] \\ Cases_on ‘h’ \\ fs[optimise_with_plan_empty_sing]
 QED
 
 Theorem is_optimise_with_plan_correct_lift_sing:
@@ -1534,10 +1853,10 @@ Proof
   >- (
     rpt strip_tac \\ rfs[is_perform_rewrites_correct_def] \\ rveq
     \\ qpat_assum `evaluate _ _ _ = _` (fn th => first_x_assum (fn thm => mp_then Any assume_tac thm th))
-    \\ rfs[] \\ asm_exists_tac \\ fs[])
+    \\ rfs[freeVars_arithExp_bound_def] \\ asm_exists_tac \\ fs[])
   \\ Cases_on ‘optimise_with_plan cfg plan (perform_rewrites cfg q r' e)’
-  \\ fs[]
-  \\ COND_CASES_TAC \\ fs[] \\ rveq
+  \\ fs[freeVars_arithExp_bound_def]
+  \\ COND_CASES_TAC \\ rveq
   >- (
     rpt strip_tac
     \\ first_assum $ mp_then Any assume_tac (CONJUNCT1 (prep evaluate_fp_rws_up))
@@ -1550,10 +1869,16 @@ Proof
     \\ rfs[semState_comp_eq, fpState_component_equality]
     \\ asm_exists_tac \\ fs[])
   \\ rpt strip_tac
-  \\ first_x_assum (qspecl_then [‘r'’, ‘q’] mp_tac) \\ fs[] \\ strip_tac
-  \\ fs[is_optimise_with_plan_correct_def]
-  \\ last_x_assum (qspecl_then [‘st1’, ‘st2’, ‘env’, ‘cfg’, ‘perform_rewrites cfg q r' e’, ‘r’] mp_tac)
-  \\ impl_tac \\ fs[]
+  \\ first_x_assum (qspecl_then [‘r'’, ‘q’] mp_tac) \\ impl_tac >- fs[]
+  \\ strip_tac
+  \\ last_x_assum $ qspecl_then [‘st1’, ‘st2’, ‘env’, ‘cfg’,
+                                 ‘perform_rewrites cfg q r' e’, ‘r’] mp_tac
+  \\ simp[is_optimise_with_plan_correct_def]
+  \\ impl_tac
+  >- (fs[]
+      \\ rpt strip_tac \\ last_x_assum (qspecl_then [‘st1'’, ‘st2'’] assume_tac)
+      \\ imp_res_tac (SIMP_RULE std_ss [] (CONJUNCT1 freeVars_arithExp_lift_rewrite))
+      \\ fs[freeVars_arithExp_bound_def])
   \\ strip_tac
   \\ fs[is_perform_rewrites_correct_def]
   \\ pop_assum (fn th => first_x_assum (fn thm => mp_then Any mp_tac thm th)
@@ -1578,7 +1903,7 @@ Proof
                                              |_ => []) plan)’
                 mp_tac)
   \\ impl_tac
-  >- (fs[GSYM UNION_ASSOC, CONJUNCT1 SUBSET_UNION, Once UNION_COMM, SUBSET_DEF])
+  \\ fs[GSYM UNION_ASSOC, CONJUNCT1 SUBSET_UNION, Once UNION_COMM, SUBSET_DEF]
   \\ disch_then strip_assume_tac
   \\ qexistsl_tac [‘fpOpt''’, ‘choices'’, ‘fpOpt2’, ‘choicesR'’]
   \\ simp[semState_comp_eq, fpState_component_equality]
@@ -1604,13 +1929,15 @@ Proof
   \\ simp[Once evaluate_cons]
   \\ qpat_x_assum ‘evaluate _ _ _ = _’ ( assume_tac o SIMP_RULE bool_ss [Once evaluate_cons, CaseEq"prod", CaseEq"result"] )
   \\ fs[] \\ rveq
-  \\ first_x_assum (qspecl_then [‘st1’, ‘s'’, ‘env’, ‘cfg’, ‘h’, ‘vs’] strip_assume_tac)
-  \\ first_x_assum (qspecl_then [‘s'’, ‘s''’, ‘env’, ‘cfg’, ‘vs'’] strip_assume_tac)
-  \\ fs[is_optimise_with_plan_correct_def]
-  \\ rfs[] \\ fs[]
-  \\ ‘(st1.fp_state.canOpt = FPScope Opt <=> s'.fp_state.canOpt = FPScope Opt) /\
-        s'.fp_state.canOpt <> Strict /\ ~s'.fp_state.real_sem’ by (imp_res_tac evaluate_fp_opts_inv \\ fs[])
-  \\ fs[]
+  \\ first_x_assum (qspecl_then [‘st1’, ‘s'’, ‘env’, ‘cfg’, ‘h’, ‘vs’] mp_tac)
+  \\ simp[is_optimise_with_plan_correct_def] \\ impl_tac
+  >- (rpt strip_tac \\ fs[freeVars_arithExp_bound_def])
+  \\ strip_tac
+  \\ first_x_assum (qspecl_then [‘s'’, ‘s''’, ‘env’, ‘cfg’, ‘vs'’] mp_tac)
+  \\ simp[is_optimise_with_plan_correct_def] \\ impl_tac
+  >- (rpt strip_tac \\ fs[freeVars_arithExp_bound_def]
+      \\ imp_res_tac evaluate_fp_opts_inv \\ fs[])
+  \\ strip_tac
   \\ optUntil_tac ‘evaluate _ _ [h] = _’ ‘fpOpt'’
   \\ qexistsl_tac [‘optUntil (choicesR - choices) fpOpt fpOpt'’, ‘choices’] \\ fs[]
   \\ qpat_x_assum ‘evaluate _ _ exps = _’ (mp_then Any mp_tac (CONJUNCT1 evaluate_add_choices))
@@ -2907,6 +3234,7 @@ Definition is_stos_pass_with_plans_correct_def :
   is_stos_pass_with_plans_correct plans (st1:'a semanticPrimitives$state) st2 env cfg exps r1 =
     (evaluate st1 env
              (MAP FST (stos_pass_with_plans cfg plans exps)) = (st2, Rval r1) /\
+     (∀ (st1:'a semanticPrimitives$state) st2.freeVars_list_arithExp_bound st1 st2 exps env) ∧
      (cfg.canOpt <=> st1.fp_state.canOpt = FPScope Opt) /\
      (st1.fp_state.canOpt <> Strict) /\
      (~ st1.fp_state.real_sem) ==>
@@ -3005,7 +3333,8 @@ QED
 val solve_tac =
   qpat_assum `evaluate _ _ [FST (optimise_with_plan _ _ _)] = _`
        (fn th => first_x_assum (fn ith => mp_then Any mp_tac ith th))
-  \\ impl_tac \\ fs[]
+  \\ impl_tac \\ fs[Once freeVars_arithExp_bound_def]
+  \\ TRY(fs[Once freeVars_arithExp_bound_def] \\ NO_TAC)
   \\ strip_tac \\ pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_rws_append))
   \\ disch_then (qspec_then ‘FLAT_plans’ assume_tac)
   \\ first_x_assum (qspec_then ‘LENGTH t + exp6_size t'’ mp_tac)
@@ -3070,6 +3399,7 @@ Proof
   \\ rewrite_tac[is_stos_pass_with_plans_correct_def]
   \\ disch_then (fn ith => last_assum (mp_then Any mp_tac ith))
   \\ impl_tac \\ fs[]
+  >- (rpt strip_tac \\ fs[freeVars_arithExp_bound_def])
   \\ strip_tac \\ pop_assum mp_tac
   \\ pop_assum (mp_then Any mp_tac (CONJUNCT1 (prep evaluate_fp_rws_up)))
   \\ disch_then (qspec_then ‘q.fp_state.rws ++ FLAT_h ++ FLAT_plans’ mp_tac) \\ impl_tac
@@ -3091,7 +3421,7 @@ Proof
   >- (last_x_assum (qspec_then ‘h’ mp_tac) \\ fs[])
   \\ rewrite_tac [is_stos_pass_with_plans_correct_def]
   \\ rpt (disch_then (fn ith => first_assum $ mp_then Any mp_tac ith))
-  \\ impl_tac \\ fs[]
+  \\ impl_tac \\ fs[freeVars_arithExp_bound_def]
   \\ strip_tac \\ qexistsl_tac [‘fpOpt’, ‘choices'’]
   \\ fs[semState_comp_eq, fpState_component_equality]
   \\ fs[Once res_sim_cases]
@@ -3099,7 +3429,10 @@ Proof
   \\ qexists_tac ‘st’ \\ fs[] \\ imp_res_tac evaluate_fp_opts_inv \\ fs[])
   >- solve_tac
   >- solve_tac
-  >- solve_tac
+  >- (
+    qpat_assum `evaluate _ _ [FST (optimise_with_plan _ _ _)] = _`
+      (fn th => first_x_assum (fn ith => mp_then Any mp_tac ith th))
+    \\ impl_tac \\ fs[freeVars_arithExp_bound_def])
   >- solve_tac
   >- solve_tac
   >- solve_tac
