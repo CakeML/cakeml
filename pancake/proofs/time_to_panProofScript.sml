@@ -2794,7 +2794,7 @@ End
 
 
 Theorem step_delay_loop:
-  !cycles prog d s s' w (t:('a,time_input) panSem$state) ck_extra.
+  !cycles prog d s s' (t:('a,time_input) panSem$state) ck_extra.
     step prog (LDelay d) s s' ∧
     state_rel (clksOf prog) s t ∧
     code_installed t.code prog ∧
@@ -3540,7 +3540,7 @@ QED
 
 
 Theorem step_delay:
-  !cycles prog d s s' w (t:('a,time_input) panSem$state) ck_extra.
+  !cycles prog d s s' (t:('a,time_input) panSem$state) ck_extra.
     step prog (LDelay d) s s' ∧
     state_rel (clksOf prog) s t ∧
     code_installed t.code prog ∧
@@ -4407,7 +4407,7 @@ Definition output_rel_def:
 End
 
 Theorem step_output:
-  !prog os s s' w (t:('a,time_input) panSem$state) ns.
+  !prog os s s' w (t:('a,time_input) panSem$state).
     step prog (LAction (Output os)) s s' ∧
     state_rel (clksOf prog) s t ∧
     well_formed_terms prog s t ∧
@@ -4965,37 +4965,92 @@ QED
 
 
 Theorem step_thm:
-  step prog label s s' ∧
-  state_rel (clksOf prog) s t ∧
-  code_installed t.code prog ∧
-  labProps$good_dimindex (:'a) ∧
-  FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
-  FLOOKUP t.locals «event»   = SOME (ValWord 0w) ⇒
+  !prog label s s' w (t:('a,time_input) panSem$state) ck_extra.
+    step prog label s s' ∧
+    state_rel (clksOf prog) s t ∧
+    code_installed t.code prog ∧
+    labProps$good_dimindex (:'a) ⇒
     case label of
     | LDelay d =>
         ∀cycles.
           delay_rep (dimword (:α)) d t.ffi.ffi_state cycles ∧
           wakeup_rel t.locals (dimword (:α)) s.waitTime t.ffi.ffi_state cycles ∧
-          mem_read_ffi_results (:α) t.ffi.ffi_state cycles ⇒
-           ?ck t'.
-             evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
-             evaluate (task_controller (nClks prog), t' with clock := t'.clock + ck_extra) ∧
-             code_installed t'.code prog ∧
-             state_rel (clksOf prog) s' t' ∧
-             t'.ffi.ffi_state = nexts_ffi cycles t.ffi.ffi_state ∧
-             t'.ffi.oracle = t.ffi.oracle ∧
-             FLOOKUP t'.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt» ∧
-             FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
-             (0 < cycles ⇒
-              FLOOKUP t'.locals «sysTime»  =
-              SOME (ValWord (n2w (FST (t.ffi.ffi_state (cycles - 1)))))) ∧
-             (cycles = 0 ⇒ FLOOKUP t'.locals «sysTime» = FLOOKUP t.locals «sysTime»)
-    | _ => F
-
-
-
+          mem_read_ffi_results (:α) t.ffi.ffi_state cycles ∧
+          FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ⇒
+          ?ck t'.
+            evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
+            evaluate (task_controller (nClks prog), t' with clock := t'.clock + ck_extra) ∧
+            code_installed t'.code prog ∧
+            state_rel (clksOf prog) s' t' ∧
+            t'.ffi.ffi_state = nexts_ffi cycles t.ffi.ffi_state ∧
+            t'.ffi.oracle = t.ffi.oracle ∧
+            FLOOKUP t'.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt» ∧
+            FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
+            FLOOKUP t'.locals «sysTime»  =
+            SOME (ValWord (n2w (FST (t.ffi.ffi_state cycles))))
+    | LAction (Input i) =>
+        well_formed_terms prog s t ∧
+        input_rel t.locals (dimword (:α)) i t.ffi.ffi_state ∧
+        FLOOKUP t.locals «isInput» = SOME (ValWord 0w) ∧
+        task_ret_defined t.locals (nClks prog) ⇒
+        ?ck t'.
+          evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
+          (NONE, t') ∧
+          code_installed t'.code prog ∧
+          state_rel (clksOf prog) s' t' ∧
+          t'.ffi.ffi_state = t.ffi.ffi_state ∧
+          t'.ffi.oracle = t.ffi.oracle ∧
+          FLOOKUP t'.locals «sysTime» = FLOOKUP t.locals «sysTime» ∧
+          FLOOKUP t'.locals «event»   = SOME (ValWord 0w) ∧
+          FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
+          task_ret_defined t'.locals (nClks prog) ∧
+          (∃wt.
+             FLOOKUP t'.locals «wakeUpAt» =
+             SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) + wt))) ∧
+             FST (t.ffi.ffi_state 0) + wt < dimword (:α))
+    | LAction (Output os) =>
+        well_formed_terms prog s t ∧
+        output_rel t.locals (dimword (:α)) s.waitTime t.ffi.ffi_state ∧
+        FLOOKUP t.locals «event»   = SOME (ValWord 0w) ∧
+        FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
+        FLOOKUP t.locals «waitSet» = SOME (ValWord 0w) ∧
+        task_ret_defined t.locals (nClks prog) ⇒
+        ?ck t'.
+          evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
+          (NONE, t') ∧
+          code_installed t'.code prog ∧
+          state_rel (clksOf prog) s' t' ∧
+          t'.ffi.ffi_state = t.ffi.ffi_state ∧
+          t'.ffi.oracle = t.ffi.oracle ∧
+          FLOOKUP t'.locals «sysTime» = FLOOKUP t.locals «sysTime» ∧
+          FLOOKUP t'.locals «event»   = SOME (ValWord 0w) ∧
+          FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
+          task_ret_defined t'.locals (nClks prog) ∧
+          (∃wt.
+             FLOOKUP t'.locals «wakeUpAt» =
+             SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) + wt))) ∧
+             FST (t.ffi.ffi_state 0) + wt < dimword (:α))
 Proof
+  rw [] >>
+  cases_on ‘label’ >>
+  fs []
+  >- (
+    rw [] >>
+    drule_all step_delay >>
+    disch_then (qspec_then ‘ck_extra’ mp_tac) >>
+    fs []) >>
+  cases_on ‘i’
+  >- (
+    fs [] >>
+    rw [] >>
+    drule_all step_input >>
+    disch_then (qspec_then ‘ck_extra’ mp_tac) >>
+    fs []) >>
+  fs [] >>
+  rw [] >>
+  drule_all step_output >>
+  disch_then (qspec_then ‘ck_extra’ mp_tac) >>
+  fs []
 QED
-
 
 val _ = export_theory();
