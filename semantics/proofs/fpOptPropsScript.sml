@@ -382,7 +382,6 @@ Proof
   \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, maybe_map_def]
 QED
 
-  (*
 Theorem rwAllWordTree_comp_terop_c:
   ! v vres v1 v2 insts rws t.
     rwAllWordTree insts rws v = SOME vres ==>
@@ -397,7 +396,6 @@ Proof
   \\ qexists_tac `(RewriteApp (Center f) n)::insts_new`
   \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, maybe_map_def]
 QED
-  *)
 
 Theorem rwAllWordTree_comp_scope_T:
   ! sc v vres insts rws t.
