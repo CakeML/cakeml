@@ -10,7 +10,7 @@ extensions.
 
 [holSyntaxCyclicityScript.sml](holSyntaxCyclicityScript.sml):
 Implementation of cyclicity check for function definitions
-based on Kunčar, CPP 2015
+based on [Kunčar, CPP 2015](https://doi.org/10.1145/2676724.2693175)
 
 [holSyntaxExtraScript.sml](holSyntaxExtraScript.sml):
 Some lemmas about the syntactic functions.

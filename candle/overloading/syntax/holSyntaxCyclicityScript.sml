@@ -1,6 +1,6 @@
 (*
  Implementation of cyclicity check for function definitions
- based on Kunčar, CPP 2015
+ based on [Kunčar, CPP 2015](https://doi.org/10.1145/2676724.2693175)
  *)
 open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheory
      holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
