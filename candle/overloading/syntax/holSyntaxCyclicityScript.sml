@@ -5386,8 +5386,41 @@ Theorem finite_repeats:
   /\ every s ll
   ==> ?k. !i. k < i ==> ?n. i < n /\ LNTH i ll = LNTH n ll
 Proof
-  rw[FINITE_WEAK_ENUMERATE,IN_DEF,ELIM_UNCURRY,rel_to_reln_def,every_LNTH]
-  >> cheat
+  rpt strip_tac >>
+  qspec_then `ll` assume_tac fromList_fromSeq >>
+  gvs[LFINITE_fromList] >>
+  qexists_tac `LEAST k.
+     ∀x. x ∈ s ∧ FINITE {i | f i = x} ⇒
+         MAX_SET {i | f i = x} < k` >>
+  strip_tac >>
+  numLib.LEAST_ELIM_TAC >>
+  conj_tac
+  >- (qexists_tac `SUC(MAX_SET{i | FINITE {i' | f i' = f i}})` >>
+      rw[GSYM arithmeticTheory.LESS_EQ_IFF_LESS_SUC] >>
+      match_mp_tac SUBSET_MAX_SET >>
+      rw[SUBSET_DEF] >>
+      match_mp_tac (MP_CANON SUBSET_FINITE) >>
+      qexists_tac `BIGUNION(IMAGE (λx. if FINITE {i | f i = x} then {i | f i = x} else {}) s)` >>
+      conj_tac >- (simp[FINITE_BIGUNION_EQ] >> rw[] >> rw[]) >>
+      rw[SUBSET_DEF,PULL_EXISTS] >>
+      qexists_tac `f x'` >> rw[] >>
+      gvs[IN_DEF]) >>
+  rw[] >>
+  `INFINITE {n | f n = f i}`
+    by(spose_not_then strip_assume_tac >>
+       first_assum(qspec_then `f i` mp_tac) >>
+       impl_tac >- (simp[IN_DEF,arithmeticTheory.NOT_LESS]) >>
+       strip_tac >>
+       drule in_max_set >>
+       disch_then(qspec_then `i` mp_tac) >>
+       impl_tac >- simp[] >>
+       strip_tac >>
+       DECIDE_TAC) >>
+  drule IN_INFINITE_NOT_FINITE >>
+  disch_then(qspec_then `count(SUC i)` mp_tac) >>
+  simp[GSYM arithmeticTheory.LESS_EQ_IFF_LESS_SUC] >>
+  simp[arithmeticTheory.NOT_LESS_EQUAL] >>
+  metis_tac[]
 QED
 
 Theorem dependency_props:
