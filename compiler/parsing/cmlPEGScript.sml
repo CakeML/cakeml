@@ -200,6 +200,10 @@ val ptPapply_def = Define`
 
 Definition cmlPEG_def[nocompute]:
   cmlPEG = <|
+    anyEOF := "Didn't expect an EOF";
+    tokFALSE := "Failed to see expected token";
+    tokEOF := "Failed to see expected token; saw EOF instead";
+    notFAIL := "Not combinator failed";
     start := pnt nTopLevelDecs;
     rules := FEMPTY |++
              [(mkNT nV, peg_V);
