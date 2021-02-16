@@ -5691,23 +5691,6 @@ Definition LR_orth_def:
   /\ (LR_orth _ _ = T)
 End
 
-Definition orth_dependency_def:
-  orth_dependency ctxt =
-  !p q p' q'.
-    dependency ctxt p q
-    /\ dependency ctxt p' q'
-    /\ ((ISR p /\ ISR p') ==>
-      ?c c' tm tm' ov ov' cl cl' prop prop'.
-        p = INR (Const c (typeof tm)) /\
-        p' = INR (Const c' (typeof tm')) /\
-        MEM (ConstSpec ov cl prop) ctxt /\
-        MEM (ConstSpec ov' cl' prop') ctxt /\
-        MEM (c,tm) cl /\ MEM (c',tm') cl' /\
-        (c,tm) <> (c',tm')
-    )
-    /\ p <> p' /\ q <> q' ==> LR_orth p p'
-End
-
 Theorem LR_orth_SYM:
   !p q. LR_orth p q = LR_orth q p
 Proof
@@ -5822,39 +5805,6 @@ Proof
          rw[orth_ty_def] >> Cases_on ‘ty’ >> rw[] >>
          spose_not_then strip_assume_tac >> gs[] >> rveq >>
          gs[MAP_EQ_EVERY2])
-QED
-
-Theorem orth_ctxt_orth_dependency:
-  !ctxt. extends_init ctxt /\ orth_ctxt ctxt ==> orth_dependency ctxt
-Proof
-  fs[orth_dependency_def]
-  >> ntac 2 strip_tac
-  >> fs[Once FORALL_SUM]
-  >> rpt conj_tac
-  >> ntac 2 strip_tac
-  >> fs[Once FORALL_SUM,LR_orth_simp]
-  >> rw[]
-  >> TRY $ match_mp_tac orth_ctxt_orth_dependency_INL
-  >> TRY $ match_mp_tac orth_ctxt_orth_dependency_INR
-  >> rpt $ goal_assum drule
-  >> fs[]
-QED
-
-(* Lemma 6.2 *)
-Theorem path_starting_at_equal:
-  !pqs pqs' rs rs' i n ctxt.
-  0 < LENGTH pqs' /\ n < LENGTH pqs'
-  /\ LENGTH pqs = LENGTH pqs'
-  /\ orth_dependency ctxt
-  /\ monotone (dependency ctxt)
-  /\ path_starting_at ctxt n rs pqs
-  /\ path_starting_at ctxt n rs' pqs'
-  /\ HD pqs = HD pqs'
-  /\ i < n ==>
-    EL i pqs = EL i pqs'
-    /\ equiv_ts_on (EL i rs) (EL i rs') (FV (FST (EL i pqs)))
-Proof
-  cheat
 QED
 
 (* Algorithm 1, Kunčar 2015 *)
