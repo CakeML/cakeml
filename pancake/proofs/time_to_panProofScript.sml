@@ -5053,4 +5053,104 @@ Proof
   fs []
 QED
 
+
+Definition action_rel_def:
+  (action_rel (Input i) s (t:('a,time_input) panSem$state) =
+   input_rel t.locals (dimword (:α)) i t.ffi.ffi_state) ∧
+  (action_rel (Output os) s t =
+   output_rel t.locals (dimword (:α)) s.waitTime t.ffi.ffi_state)
+End
+
+
+Definition ffi_rel_def:
+  (ffi_rel (LDelay d) s (t:('a,time_input) panSem$state) =
+   ∃cycles.
+     delay_rep (dimword (:α)) d t.ffi.ffi_state cycles ∧
+     wakeup_rel t.locals (dimword (:α)) s.waitTime t.ffi.ffi_state cycles ∧
+     mem_read_ffi_results (:α) t.ffi.ffi_state cycles) ∧
+  (ffi_rel (LAction act) s t = action_rel act s t)
+End
+
+
+Definition well_formness_def:
+  (well_formness (LDelay _) prog s (t:('a,time_input) panSem$state) = T) ∧
+  (well_formness (LAction _) prog s t =
+   (well_formed_terms prog s t ∧ task_ret_defined t.locals (nClks prog)))
+End
+
+
+Definition local_action_def:
+  (local_action (Input i) t =
+     FLOOKUP t.locals «isInput» = SOME (ValWord 0w)) ∧
+  (local_action (Output os) t =
+    (FLOOKUP t.locals «event»   = SOME (ValWord 0w) ∧
+     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
+     FLOOKUP t.locals «waitSet» = SOME (ValWord 0w)))
+End
+
+Definition local_state_def:
+  (local_state (LDelay _) t =
+     FLOOKUP t.locals «isInput» = SOME (ValWord 1w)) ∧
+  (local_state (LAction act) t = local_action act t)
+End
+
+Definition next_wakeup_def:
+  (next_wakeup (LDelay _) (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) =
+   (FLOOKUP t'.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt»)) ∧
+  (next_wakeup (LAction _) t t' =
+   (t'.ffi.ffi_state = t.ffi.ffi_state ∧
+    (∃wt.
+       FLOOKUP t'.locals «wakeUpAt» =
+       SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) + wt))) ∧
+       FST (t.ffi.ffi_state 0) + wt < dimword (:α))))
+End
+
+Definition event_state_def:
+  event_state t ⇔
+    FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
+    FLOOKUP t.locals «event»   =  SOME (ValWord 0w)
+End
+
+Theorem step_thm2:
+  !prog label s s' w (t:('a,time_input) panSem$state).
+    step prog label s s' ∧
+    state_rel (clksOf prog) s t ∧
+    ffi_rel label s t ∧
+    well_formness label prog s t ∧
+    local_state label t ∧
+    code_installed t.code prog ∧
+    labProps$good_dimindex (:'a) ⇒
+    ?ck t'.
+      evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
+      evaluate (task_controller (nClks prog), t') ∧
+      state_rel (clksOf prog) s' t' ∧
+      code_installed t'.code prog ∧
+      task_ret_defined t'.locals (nClks prog) ∧
+      next_wakeup label t t' ∧
+      event_state t'
+Proof
+  rw [] >>
+  cases_on ‘label’ >>
+  fs []
+  >- (
+    rw [] >>
+    drule_all step_delay >>
+    disch_then (qspec_then ‘ck_extra’ mp_tac) >>
+    fs []) >>
+  cases_on ‘i’
+  >- (
+    fs [] >>
+    rw [] >>
+    drule_all step_input >>
+    disch_then (qspec_then ‘ck_extra’ mp_tac) >>
+    fs []) >>
+  fs [] >>
+  rw [] >>
+  drule_all step_output >>
+  disch_then (qspec_then ‘ck_extra’ mp_tac) >>
+  fs []
+QED
+
+
+
 val _ = export_theory();

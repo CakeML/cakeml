@@ -26,10 +26,11 @@ Theorem eval_term_clocks_reset:
   ∀s io n cnds tclks dest wt s' ck t.
     FLOOKUP s.clocks ck = SOME t ∧
     evalTerm s io (Tm n cnds tclks dest wt) s' ⇒
-    (FLOOKUP s.clocks ck = SOME t ∨ FLOOKUP s.clocks ck = SOME 0)
+    (FLOOKUP s'.clocks ck = SOME t ∨ FLOOKUP s'.clocks ck = SOME 0)
 Proof
   rw [] >>
-  fs [evalTerm_cases]
+  fs [evalTerm_cases, resetClocks_def] >>
+  cheat
 QED
 
 Theorem list_min_option_some_mem:
