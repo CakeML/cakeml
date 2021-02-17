@@ -90,7 +90,7 @@ fun mk_plan_correct_thm plan_list :(term * thm)=
             |> listSyntax.dest_list |> #1
             |> map (fn t => (t, DB.apropos_in t (DB.thy "icing_optimisationProofs"))) (* Look up correctness theorems *)
             |> map (fn (t, thms) =>
-                (print_term t; print (":\n"); map (fn d => print_thm (#1 (#2 d))) thms; thms))
+                (print_term t; print (" has thm :\n"); map (fn d => print_thm (#1 (#2 d))) thms; print ("\n\n"); thms))
             |> map (fn datas => if (length datas <> 1)
                       then if (length datas = 0)
                           then raise Feedback.mk_HOL_ERR "" "" "Not enough matching theorems"
