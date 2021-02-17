@@ -14,9 +14,15 @@ val _ = new_theory "floatToRealProofs";
 
 (** Real-valued identitites preserve real semantics **)
 
+Definition freeVars_real_bound_def:
+  freeVars_real_bound e env =
+    ∀ x. x IN FV e ⇒ ∃ r. nsLookup env.v x = SOME (Real r)
+End
+
 Definition is_real_id_exp_def:
   is_real_id_exp rws (st1:'a semanticPrimitives$state) st2 env e r =
     (evaluate st1 env [realify (rewriteFPexp rws e)] = (st2, Rval r) ∧
+     freeVars_real_bound e env ∧
      st1.fp_state.canOpt = FPScope Opt ∧
      st1.fp_state.real_sem = T ⇒
     ∃ choices.
@@ -25,9 +31,15 @@ Definition is_real_id_exp_def:
            <| choices := choices|>, Rval r))
 End
 
+Definition freeVars_list_real_bound_def:
+  freeVars_list_real_bound es env =
+  ∀ x. x IN FV_list es ⇒ ∃ r. nsLookup env.v x = SOME (Real r)
+End
+
 Definition is_real_id_list_def:
   is_real_id_list rws (st1:'a semanticPrimitives$state) st2 env exps r =
     (evaluate st1 env (MAP realify (MAP (rewriteFPexp rws) exps)) = (st2, Rval r) ∧
+     freeVars_list_real_bound exps env ∧
      st1.fp_state.canOpt = FPScope Opt ∧
      st1.fp_state.real_sem = T ⇒
     ∃ choices.
@@ -44,16 +56,77 @@ Proof
   \\ fs[fpState_component_equality, semState_comp_eq]
 QED
 
+Definition freeVars_realExp_bound_def:
+  freeVars_realExp_bound (st1:'a semanticPrimitives$state) st2 (Raise e) env =
+    freeVars_realExp_bound st1 st2 e env ∧
+  freeVars_realExp_bound st1 st2 (Handle e l) env =
+    freeVars_realExp_bound st1 st2 e env ∧
+  freeVars_realExp_bound st1 st2 (Con op l) env =
+    freeVars_list_realExp_bound st1 st2 l env ∧
+  freeVars_realExp_bound st1 st2 (Var i) env = T ∧
+  freeVars_realExp_bound st1 st2 (Lit l) env = F ∧
+  freeVars_realExp_bound st1 st2 (Fun s e) env = (* TODO: Is this fine? *)
+    freeVars_realExp_bound st1 st2 e env ∧
+  freeVars_realExp_bound st1 st2 (App op l) env =
+    (if isFpArithExp (App op l) then
+      freeVars_real_bound (App op l) env
+    else freeVars_list_realExp_bound st1 st2 l env) ∧
+  freeVars_realExp_bound st1 st2 (Log lop e1 e2) env =
+    (freeVars_realExp_bound st1 st2 e1 env ∧
+     freeVars_realExp_bound st1 st2 e2 env) ∧
+  freeVars_realExp_bound st1 st2 (If e1 e2 e3) env =
+    (freeVars_realExp_bound st1 st2 e1 env ∧
+     freeVars_realExp_bound st1 st2 e2 env ∧
+     freeVars_realExp_bound st1 st2 e3 env) ∧
+  freeVars_realExp_bound st1 st2 (Mat e l) env =
+    (freeVars_realExp_bound st1 st2 e env ∧
+     freeVars_matchRealExp_bound st1 st2 l env) ∧
+  freeVars_realExp_bound st1 st2 (Let x e1 e2) env = (* TODO: Same as Fun case ? *)
+    (freeVars_realExp_bound st1 st2 e1 env ∧
+     ∀ r.
+       evaluate st1 env [e1] = (st2, Rval r) ⇒
+       ∀ st1 st2.
+       freeVars_realExp_bound st1 st2 e2 (env with v := nsOptBind x (HD r) env.v)) ∧
+  freeVars_realExp_bound st1 st2 (Letrec l e) env =
+    freeVars_realExp_bound st1 st2 e (env with v := build_rec_env l env env.v)∧
+  freeVars_realExp_bound st1 st2 (Tannot e t) env =
+    freeVars_realExp_bound st1 st2 e env ∧
+  freeVars_realExp_bound st1 st2 (Lannot e l) env =
+    freeVars_realExp_bound st1 st2 e env ∧
+  freeVars_realExp_bound st1 st2 (FpOptimise sc e) env =
+    freeVars_realExp_bound st1 st2 e env
+  ∧
+  freeVars_list_realExp_bound st1 st2 [] env = T ∧
+  freeVars_list_realExp_bound st1 st2 (e::es) env =
+    (freeVars_realExp_bound st1 st2 e env ∧ freeVars_list_realExp_bound st1 st2 es env)
+  ∧
+  freeVars_matchRealExp_bound st1 st2 [] env = T ∧
+  freeVars_matchRealExp_bound st1 st2 ((p,e)::ls) env =
+    ((∀ a v.
+        pmatch env.c st1.refs p v [] = Match a ⇒
+        ∀ (st1:'a semanticPrimitives$state) st2.
+          freeVars_realExp_bound st1 st2 e (env with v := nsAppend (alist_to_ns a) env.v))
+     ∧
+     (∀ v. pmatch env.c st1.refs p v [] = No_match ⇒
+           ∀ (st1:'a semanticPrimitives$state) st2.
+             freeVars_matchRealExp_bound st1 st2 ls env))
+Termination
+  wf_rel_tac ‘measure (λ x. case x of |INR (INL (_, _, l, _)) => exp6_size l
+                                   | INR (INR (_, _, es, _)) => exp3_size es
+                                   | INL(_, _, e,_) => exp_size e)’
+End
+
 Definition is_real_id_perform_rewrites_def:
   is_real_id_perform_rewrites rws (st1:'a semanticPrimitives$state) st2 env cfg e r path ⇔
     (evaluate st1 env [realify (perform_rewrites cfg path rws e)] = (st2, Rval r) ∧
-    (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
-    st1.fp_state.canOpt ≠ Strict ∧
-    st1.fp_state.real_sem ⇒
-    ∃ choices.
-      evaluate st1 env [realify e] =
-        (st2 with fp_state := st2.fp_state with
-           <| choices := choices|>, Rval r))
+     (∀ (st1:'a semanticPrimitives$state) st2. freeVars_realExp_bound  st1 st2 e env) ∧
+     (cfg.canOpt ⇔ st1.fp_state.canOpt = FPScope Opt) ∧
+     st1.fp_state.canOpt ≠ Strict ∧
+     st1.fp_state.real_sem ⇒
+     ∃ choices.
+       evaluate st1 env [realify e] =
+       (st2 with fp_state := st2.fp_state with
+                                <| choices := choices|>, Rval r))
 End
 
 Definition is_real_id_optimise_with_plan_def:
@@ -443,17 +516,17 @@ Proof
   \\ fs[semState_comp_eq, fpState_component_equality]
 QED
 
-Theorem stos_pass_with_plans_real_id:
-  ∀ plans.
-    (∀ plan.
-    MEM plan plans ⇒
-      ∀ exps (st1:'a semanticPrimitives$state) st2 env cfg r.
-         is_real_id_optimise_with_plan plan st1 st2 env cfg exps r) ⇒
-  ∀ exps (st1:'a semanticPrimitives$state) st2 env cfg r.
-   is_real_id_stos_pass_with_plans plans st1 st2 env cfg exps r
-Proof
-  cheat
-QED
+(* Theorem stos_pass_with_plans_real_id: *)
+(*   ∀ plans. *)
+(*     (∀ plan. *)
+(*     MEM plan plans ⇒ *)
+(*       ∀ exps (st1:'a semanticPrimitives$state) st2 env cfg r. *)
+(*          is_real_id_optimise_with_plan plan st1 st2 env cfg exps r) ⇒ *)
+(*   ∀ exps (st1:'a semanticPrimitives$state) st2 env cfg r. *)
+(*    is_real_id_stos_pass_with_plans plans st1 st2 env cfg exps r *)
+(* Proof *)
+(*   unnecessary *)
+(* QED *)
 
 (*
 local

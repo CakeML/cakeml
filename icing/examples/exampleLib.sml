@@ -673,12 +673,23 @@ struct
       val freeVars_list_body = store_thm ("freeVars_list_body",
         Parse.Term ‘
         ∀ (st1:unit semanticPrimitives$state) st2.
-          freeVars_list_arithExp_bound
-            st1 st2 [^body]
+          freeVars_plan_bound st1 st2
             (theAST_env with v :=
-             extend_env_with_vars (REVERSE ^fvars) (REVERSE ^argList) (theAST_env).v)’,
+             extend_env_with_vars (REVERSE ^fvars) (REVERSE ^argList) (theAST_env).v)
+            no_fp_opt_conf
+            (HD theAST_plan)
+            ^body’,
         rpt strip_tac
-        \\ gs[freeVars_arithExp_bound_def, icing_rewriterTheory.isFpArithExp_def,
+        \\ gs[theAST_plan_result, freeVars_plan_bound_def, freeVars_arithExp_bound_def, EVERYi_def]
+        \\  rpt conj_tac
+        (* Non-let goals automatically solved *)
+        \\ rpt (gs[freeVars_fp_bound_def, extend_env_with_vars_def, EVERYi_def]
+        \\  qmatch_goalsub_abbrev_tac ‘freeVars_arithExp_bound st1 st2 theAST_env_new _ _ rewrittenExp’
+        \\ qpat_x_assum ‘Abbrev(rewrittenExp = _)’ (assume_tac o EVAL_RULE)
+        \\ unabbrev_all_tac \\ gs[freeVars_arithExp_bound_def]
+        \\ gs[freeVars_fp_bound_def, extend_env_with_vars_def])
+        \\ rpt strip_tac \\ gs[ml_progTheory.nsLookup_nsBind_compute])
+        (*\\ gs[freeVars_arithExp_bound_def, icing_rewriterTheory.isFpArithExp_def,
               freeVars_fp_bound_def]
         \\ rpt conj_tac
         (* Non-let goals are automatically solved *)
@@ -702,7 +713,7 @@ struct
         (* use the theorem to prove the conclusion *)
         \\ TRY (rpt strip_tac \\ imp_res_tac evaluatePropsTheory.evaluate_sing \\ gs[]
                 \\ rveq \\ gs[extend_env_with_vars_def, namespaceTheory.nsOptBind_def] \\ NO_TAC)
-        )
+        ) *)
       val theAST_opt_backward_sim = store_thm ("theAST_opt_backward_sim",
         Parse.Term ‘theAST_opt_float_option_noopt ^args = SOME w ⇒
         theAST_float_returns ^args (compress_word w)’,
