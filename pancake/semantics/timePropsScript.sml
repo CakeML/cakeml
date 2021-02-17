@@ -22,6 +22,7 @@ Proof
   fs [evalTerm_cases]
 QED
 
+
 Theorem eval_term_clocks_reset:
   ∀s io n cnds tclks dest wt s' ck t.
     FLOOKUP s.clocks ck = SOME t ∧
@@ -30,8 +31,18 @@ Theorem eval_term_clocks_reset:
 Proof
   rw [] >>
   fs [evalTerm_cases, resetClocks_def] >>
-  cheat
+  rveq >> gs [] >>(
+  cases_on ‘MEM ck tclks’
+  >- (
+    gs [MEM_EL] >>
+    metis_tac [update_eq_zip_map_flookup]) >>
+  last_x_assum (assume_tac o GSYM) >>
+  gs [] >>
+  disj1_tac >>
+  match_mp_tac flookup_fupdate_zip_not_mem >>
+  gs [])
 QED
+
 
 Theorem list_min_option_some_mem:
   ∀xs x.
