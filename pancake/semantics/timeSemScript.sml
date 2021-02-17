@@ -242,10 +242,10 @@ Inductive step:
       step p (LAction (Input in_signal)) st st') /\
 
   (!p st tms st' out_signal.
-      ALOOKUP p st.location = SOME tms /\
-      pickTerm (resetOutput st) NONE tms st' /\
-      st'.ioAction = SOME (Output out_signal) ==>
-      step p (LAction (Output out_signal)) st st')
+    ALOOKUP p st.location = SOME tms /\
+    pickTerm (resetOutput st) NONE tms st' /\
+    st'.ioAction = SOME (Output out_signal) ==>
+    step p (LAction (Output out_signal)) st st')
 End
 
 
