@@ -21,17 +21,17 @@ Definition theAST_def:
       (FpOptimise Opt
         (Let (SOME "p")
         (App FpFromWord [Lit (Word64 (4719966430336909312w:word64))])
-                  (Let (SOME "a")
+        (          (Let (SOME "a")
           (App FpFromWord [Lit (Word64 (4600895393720208196w:word64))])
-                      (Let (SOME "b")
+          (            (Let (SOME "b")
             (App FpFromWord [Lit (Word64 (4541426232537668655w:word64))])
-                          (Let (SOME "t")
+            (              (Let (SOME "t")
               (App FpFromWord [Lit (Word64 (4643985272004935680w:word64))])
-                              (Let (SOME "n")
+              (                (Let (SOME "n")
                 (App FpFromWord [Lit (Word64 (4652007308841189376w:word64))])
-                                  (Let (SOME "k")
+                (                  (Let (SOME "k")
                   (App FpFromWord [Lit (Word64 (4265103357012230254w:word64))])
-                  (App (FP_bop FP_Sub)
+                  ((App (FP_bop FP_Sub)
                     [
                       (App (FP_bop FP_Mul)
                       [
@@ -75,12 +75,13 @@ Definition theAST_def:
                         ]);
                         Var (Short  "t")
                       ])
-                    ])))))))))]
+                    ])))))))))))))))]
 End
+
 Definition theErrBound_def:
   theErrBound = inv (2 pow (10))
 End
 
-val x = define_benchmark theAST_def theAST_pre_def false;
+val x = define_benchmark theAST_def theAST_pre_def true;
 
 val _ = export_theory()

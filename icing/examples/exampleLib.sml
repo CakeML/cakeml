@@ -8,9 +8,12 @@ struct
   open FloverMapTheory RealIntervalInferenceTheory ErrorIntervalInferenceTheory
        CertificateCheckerTheory;
   open floatToRealProofsTheory source_to_sourceTheory CakeMLtoFloVerTheory
+       source_to_sourceProofsTheory
        cfSupportTheory optPlannerTheory icing_realIdProofsTheory;
   open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
   open supportLib;
+
+  val logErrors = ref true;
 
   fun flatMap (ll:'a list list) =
     case ll of [] => []
@@ -588,8 +591,36 @@ struct
                              binary_ieeeTheory.float_tests,
                              sptreeTheory.subspt_eq,
                              sptreeTheory.lookup_def];
-  val errorbounds_AST = if checkError
-    then save_thm ("errorbounds_AST",
+  val errorbounds_AST =
+    if ((!logErrors) andalso checkError) then
+      let
+        val error_thm_opt =
+           EVAL (Parse.Term  ‘getErrorbounds ^(concl theAST_opt |> rhs) theAST_pre’)
+         val (bounds, cmd) =
+           EVAL (Parse.Term ‘case ^(error_thm_opt |> concl |> rhs) of
+                     |(SOME (bounds, cmd, _), _) => (bounds,cmd)’)
+                     |> concl |> rhs |> dest_pair
+         val theBound =
+           EVAL (Parse.Term ‘case FloverMapTree_find (getRetExp (toRCmd ^cmd)) ^bounds of
+                             |SOME ((lo,hi),e)  => e’)
+         val theAST_opt_bound_def = Define ‘theAST_opt_bound = ^(theBound |> concl |> rhs)’
+         val error_thm_unopt =
+           EVAL (Parse.Term  ‘getErrorbounds ^(concl theAST_def |> rhs) theAST_pre’)
+         val (bounds_unopt, cmd_unopt) =
+           EVAL (Parse.Term ‘case ^(error_thm_unopt |> concl |> rhs) of
+                     |(SOME (bounds, cmd, _), _) => (bounds,cmd)’)
+                     |> concl |> rhs |> dest_pair
+         val theBound =
+           EVAL (Parse.Term ‘case FloverMapTree_find (getRetExp (toRCmd ^cmd_unopt)) ^bounds_unopt of
+                             |SOME ((lo,hi),e)  => e’)
+         val theAST_unopt_bound_def = Define ‘theAST_unopt_bound = ^(theBound |> concl |> rhs)’
+      in
+        store_thm ("errorbounds_AST",
+          Parse.Term(‘isOkError ^(concl theAST_opt |> rhs) theAST_pre theErrBound = (SOME T, NONE)’),
+          simp[isOkError_def, error_thm_opt] \\ EVAL_TAC)
+       end
+    else if checkError then
+      save_thm ("errorbounds_AST",
         EVAL (Parse.Term
           ‘isOkError ^(concl theAST_opt |> rhs) theAST_pre theErrBound’))
     else CONJ_COMM

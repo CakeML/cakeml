@@ -31,7 +31,7 @@ Definition theAST_def:
             ]);
             Var (Short  "x2")
           ])
-                  (Let (SOME "p1")
+        (          (Let (SOME "p1")
           (App (FP_bop FP_Sub)
             [
               (App (FP_bop FP_Add)
@@ -41,7 +41,7 @@ Definition theAST_def:
               ]);
               Var (Short  "x0")
             ])
-                      (Let (SOME "p2")
+          (            (Let (SOME "p2")
             (App (FP_bop FP_Sub)
               [
                 (App (FP_bop FP_Add)
@@ -51,7 +51,7 @@ Definition theAST_def:
                 ]);
                 Var (Short  "x1")
               ])
-            (App (FP_bop FP_Add)
+            ((App (FP_bop FP_Add)
               [
                 (App (FP_bop FP_Add)
                 [
@@ -59,12 +59,13 @@ Definition theAST_def:
                   Var (Short  "p1")
                 ]);
                 Var (Short  "p2")
-              ]))))))))]
+              ])))))))))))]
 End
+
 Definition theErrBound_def:
   theErrBound = inv (2 pow (10))
 End
 
-val x = define_benchmark theAST_def theAST_pre_def false;
+val x = define_benchmark theAST_def theAST_pre_def true;
 
 val _ = export_theory()

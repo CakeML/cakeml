@@ -61,7 +61,7 @@ Definition theAST_def:
               ])
             ])
           ])
-                  (Let (SOME "v1")
+        (          (Let (SOME "v1")
           (App (FP_bop FP_Mul)
             [
               (App (FP_bop FP_Mul)
@@ -95,7 +95,7 @@ Definition theAST_def:
                 ])
               ])
             ])
-                      (Let (SOME "v0")
+          (            (Let (SOME "v0")
             (App (FP_bop FP_Mul)
               [
                 (App (FP_bop FP_Mul)
@@ -129,7 +129,7 @@ Definition theAST_def:
                   ])
                 ])
               ])
-            (App (FP_bop FP_Add)
+            ((App (FP_bop FP_Add)
               [
                 (App FpFromWord [Lit (Word64 (0w:word64))]);
                 (App (FP_bop FP_Add)
@@ -157,13 +157,13 @@ Definition theAST_def:
                     ])
                   ])
                 ])
-              ]))))))))))))))]
+              ])))))))))))))))))]
 End
 
 Definition theErrBound_def:
   theErrBound = inv (2 pow (10))
 End
 
-val x = define_benchmark theAST_def theAST_pre_def false;
+val x = define_benchmark theAST_def theAST_pre_def true;
 
 val _ = export_theory()

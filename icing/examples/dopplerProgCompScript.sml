@@ -4,13 +4,6 @@
 **)
 
 (* INCLUDES, do not change those *)
-open astTheory cfTacticsLib ml_translatorLib;
-open basis_ffiTheory cfHeapsBaseTheory basis;
-open RealIntervalInferenceTheory ErrorIntervalInferenceTheory
-     CertificateCheckerTheory;
-open floatToRealProofsTheory source_to_sourceTheory CakeMLtoFloVerTheory
-     cfSupportTheory optPlannerTheory;
-open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
 open exampleLib preamble;
 
 val _ = new_theory "dopplerProgComp";

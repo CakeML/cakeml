@@ -186,27 +186,6 @@ Definition theErrBound_def:
   theErrBound = inv (2 pow (10))
 End
 
-val x = define_benchmark theAST_def theAST_pre_def false;
-
-(*
-Definition drop_def:
-  drop 0 xs = xs ∧
-  drop (SUC n) [] = [] ∧
-  drop (SUC n) (x::xs) = drop n xs
-End
-
-Definition take_def:
-  take 0 xs = [] ∧
-  take (SUC n) [] = [] ∧
-  take (SUC n) (x::xs) = x:: (take n xs)
-End
-
-val theBody =
-  EVAL (Parse.Term ‘case HD theAST of |Dlet _ _ (Fun _ (Fun _ (Fun _ (Fun _ (Fun _ (Fun _ e)))))) => e’) |> concl |> rhs;
-
-EVAL “take 47 (drop 0 (HD theAST_plan))”
-
-EVAL (Parse.Term ‘stos_pass_with_plans theOpts [take 47 (HD theAST_plan)] [^theBody]’)
-*)
+val x = define_benchmark theAST_def theAST_pre_def true;
 
 val _ = export_theory()

@@ -34,7 +34,7 @@ Definition theAST_def:
             ]);
             (App FpFromWord [Lit (Word64 (4622382067542392832w:word64))])
           ])
-                  (Let (SOME "b")
+        (          (Let (SOME "b")
           (App (FP_bop FP_Sub)
             [
               (App (FP_bop FP_Add)
@@ -48,7 +48,7 @@ Definition theAST_def:
               ]);
               (App FpFromWord [Lit (Word64 (4619567317775286272w:word64))])
             ])
-          (App (FP_bop FP_Add)
+          ((App (FP_bop FP_Add)
             [
               (App (FP_bop FP_Mul)
               [
@@ -60,12 +60,13 @@ Definition theAST_def:
                 Var (Short  "b");
                 Var (Short  "b")
               ])
-            ]))))))]
+            ]))))))))]
 End
+
 Definition theErrBound_def:
   theErrBound = inv (2 pow (10))
 End
 
-val x = define_benchmark theAST_def theAST_pre_def false;
+val x = define_benchmark theAST_def theAST_pre_def true;
 
 val _ = export_theory()

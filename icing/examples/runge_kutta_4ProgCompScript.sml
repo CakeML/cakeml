@@ -23,17 +23,17 @@ Definition theAST_def:
       (FpOptimise Opt
         (Let (SOME "sixieme")
         (App FpFromWord [Lit (Word64 (0w:word64))])
-                  (Let (SOME "eps")
+        (          (Let (SOME "eps")
           (App FpFromWord [Lit (Word64 (4572414629676717179w:word64))])
-                      (Let (SOME "k")
+          (            (Let (SOME "k")
             (App FpFromWord [Lit (Word64 (4608083138725491507w:word64))])
-                          (Let (SOME "v_1")
+            (              (Let (SOME "v_1")
               (App (FP_bop FP_Sub)
                 [
                   Var (Short  "c");
                   Var (Short  "y_n")
                 ])
-                              (Let (SOME "k1")
+              (                (Let (SOME "k1")
                 (App (FP_bop FP_Mul)
                   [
                     (App (FP_bop FP_Mul)
@@ -43,7 +43,7 @@ Definition theAST_def:
                     ]);
                     Var (Short  "v_1")
                   ])
-                                  (Let (SOME "v_2")
+                (                  (Let (SOME "v_2")
                   (App (FP_bop FP_Sub)
                     [
                       Var (Short  "c");
@@ -61,7 +61,7 @@ Definition theAST_def:
                         ])
                       ])
                     ])
-                                      (Let (SOME "k2")
+                  (                    (Let (SOME "k2")
                     (App (FP_bop FP_Mul)
                       [
                         (App (FP_bop FP_Mul)
@@ -71,7 +71,7 @@ Definition theAST_def:
                         ]);
                         Var (Short  "v_2")
                       ])
-                                          (Let (SOME "v_3")
+                    (                      (Let (SOME "v_3")
                       (App (FP_bop FP_Sub)
                         [
                           Var (Short  "c");
@@ -89,7 +89,7 @@ Definition theAST_def:
                             ])
                           ])
                         ])
-                                              (Let (SOME "k3")
+                      (                        (Let (SOME "k3")
                         (App (FP_bop FP_Mul)
                           [
                             (App (FP_bop FP_Mul)
@@ -99,7 +99,7 @@ Definition theAST_def:
                             ]);
                             Var (Short  "v_3")
                           ])
-                                                  (Let (SOME "v_4")
+                        (                          (Let (SOME "v_4")
                           (App (FP_bop FP_Sub)
                             [
                               Var (Short  "c");
@@ -113,7 +113,7 @@ Definition theAST_def:
                                 ])
                               ])
                             ])
-                                                      (Let (SOME "k4")
+                          (                            (Let (SOME "k4")
                             (App (FP_bop FP_Mul)
                               [
                                 (App (FP_bop FP_Mul)
@@ -123,7 +123,7 @@ Definition theAST_def:
                                 ]);
                                 Var (Short  "v_4")
                               ])
-                            (App (FP_bop FP_Add)
+                            ((App (FP_bop FP_Add)
                               [
                                 Var (Short  "y_n");
                                 (App (FP_bop FP_Mul)
@@ -155,13 +155,13 @@ Definition theAST_def:
                                     Var (Short  "k4")
                                   ])
                                 ])
-                              ]))))))))))))))))]
+                              ])))))))))))))))))))))))))))]
 End
 
 Definition theErrBound_def:
   theErrBound = inv (2 pow (10))
 End
 
-val x = define_benchmark theAST_def theAST_pre_def false;
+val x = define_benchmark theAST_def theAST_pre_def true;
 
 val _ = export_theory()

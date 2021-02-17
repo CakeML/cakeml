@@ -22,31 +22,31 @@ Definition theAST_def:
       (FpOptimise Opt
         (Let (SOME "ki")
         (App FpFromWord [Lit (Word64 (4604390727463002985w:word64))])
-                  (Let (SOME "kp")
+        (          (Let (SOME "kp")
           (App FpFromWord [Lit (Word64 (4621510283244524588w:word64))])
-                      (Let (SOME "kd")
+          (            (Let (SOME "kd")
             (App FpFromWord [Lit (Word64 (4613589689989877413w:word64))])
-                          (Let (SOME "i_0")
+            (              (Let (SOME "i_0")
               (App FpFromWord [Lit (Word64 (0w:word64))])
-                              (Let (SOME "dt")
+              (                (Let (SOME "dt")
                 (App FpFromWord [Lit (Word64 (4596373779694328218w:word64))])
-                                  (Let (SOME "invdt")
+                (                  (Let (SOME "invdt")
                   (App FpFromWord [Lit (Word64 (4617315517961601024w:word64))])
-                                      (Let (SOME "eold")
+                  (                    (Let (SOME "eold")
                     (App FpFromWord [Lit (Word64 (0w:word64))])
-                                          (Let (SOME "e_1")
+                    (                      (Let (SOME "e_1")
                       (App (FP_bop FP_Sub)
                         [
                           Var (Short  "c");
                           Var (Short  "m")
                         ])
-                                              (Let (SOME "p_1")
+                      (                        (Let (SOME "p_1")
                         (App (FP_bop FP_Mul)
                           [
                             Var (Short  "kp");
                             Var (Short  "e_1")
                           ])
-                                                  (Let (SOME "i_1")
+                        (                          (Let (SOME "i_1")
                           (App (FP_bop FP_Add)
                             [
                               Var (Short  "i_0");
@@ -60,7 +60,7 @@ Definition theAST_def:
                                 Var (Short  "e_1")
                               ])
                             ])
-                                                      (Let (SOME "d_1")
+                          (                            (Let (SOME "d_1")
                             (App (FP_bop FP_Mul)
                               [
                                 (App (FP_bop FP_Mul)
@@ -74,7 +74,7 @@ Definition theAST_def:
                                   Var (Short  "eold")
                                 ])
                               ])
-                                                          (Let (SOME "r_1")
+                            (                              (Let (SOME "r_1")
                               (App (FP_bop FP_Add)
                                 [
                                   (App (FP_bop FP_Add)
@@ -84,7 +84,7 @@ Definition theAST_def:
                                   ]);
                                   Var (Short  "d_1")
                                 ])
-                              (App (FP_bop FP_Add)
+                              ((App (FP_bop FP_Add)
                                 [
                                   Var (Short  "m");
                                   (App (FP_bop FP_Mul)
@@ -92,12 +92,13 @@ Definition theAST_def:
                                     (App FpFromWord [Lit (Word64 (4576918229304087675w:word64))]);
                                     Var (Short  "r_1")
                                   ])
-                                ]))))))))))))))))]
+                                ]))))))))))))))))))))))))))))]
 End
+
 Definition theErrBound_def:
   theErrBound = inv (2 pow (10))
 End
 
-val x = define_benchmark theAST_def theAST_pre_def false;
+val x = define_benchmark theAST_def theAST_pre_def true;
 
 val _ = export_theory()

@@ -26,31 +26,31 @@ Definition theAST_def:
             Var (Short  "b");
             Var (Short  "b")
           ])
-                  (Let (SOME "b4")
+        (          (Let (SOME "b4")
           (App (FP_bop FP_Mul)
             [
               Var (Short  "b2");
               Var (Short  "b2")
             ])
-                      (Let (SOME "b6")
+          (            (Let (SOME "b6")
             (App (FP_bop FP_Mul)
               [
                 Var (Short  "b4");
                 Var (Short  "b2")
               ])
-                          (Let (SOME "b8")
+            (              (Let (SOME "b8")
               (App (FP_bop FP_Mul)
                 [
                   Var (Short  "b4");
                   Var (Short  "b4")
                 ])
-                              (Let (SOME "a2")
+              (                (Let (SOME "a2")
                 (App (FP_bop FP_Mul)
                   [
                     Var (Short  "a");
                     Var (Short  "a")
                   ])
-                                  (Let (SOME "firstexpr")
+                (                  (Let (SOME "firstexpr")
                   (App (FP_bop FP_Sub)
                     [
                       (App (FP_bop FP_Sub)
@@ -76,7 +76,7 @@ Definition theAST_def:
                       ]);
                       (App FpFromWord [Lit (Word64 (4611686018427387904w:word64))])
                     ])
-                  (App (FP_bop FP_Add)
+                  ((App (FP_bop FP_Add)
                     [
                       (App (FP_bop FP_Add)
                       [
@@ -108,12 +108,13 @@ Definition theAST_def:
                           Var (Short  "b")
                         ])
                       ])
-                    ]))))))))))]
+                    ]))))))))))))))))]
 End
+
 Definition theErrBound_def:
   theErrBound = inv (2 pow (10))
 End
 
-val x = define_benchmark theAST_def theAST_pre_def false;
+val x = define_benchmark theAST_def theAST_pre_def true;
 
 val _ = export_theory()
