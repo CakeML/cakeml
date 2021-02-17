@@ -3544,14 +3544,6 @@ Definition infin_or_leq_def:
     (~LFINITE ll \/ (LFINITE ll /\ k <= THE (LLENGTH ll) /\ P))
 End
 
-(*
-Theorem not_infin_or_leq[simp]:
-  !ll k. ~infin_or_leq ll (SUC k) T = (LFINITE ll /\ THE (LLENGTH ll) <= k)
-Proof
-  rw[infin_or_leq_def,EQ_IMP_THM,NOT_LESS]
-QED
-*)
-
 Theorem LNTH_EL_LTAKE:
   !ll n k.
   infin_or_leq ll k T /\ n < k ==> LNTH n ll = SOME (EL n (THE (LTAKE k ll)))
