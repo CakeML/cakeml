@@ -560,14 +560,14 @@ struct
                   |> rhs
                   |> numSyntax.dest_numeral
                   |>  Arbnumcore.toInt
-    val (theMain, call_code, reader_def) =
-      if numArgs = 1 then (main1 fname, call1_code fname, reader1_def)
-      else if numArgs = 2 then (main2 fname, call2_code fname, reader2_def)
-      else if numArgs = 3 then (main3 fname, call3_code fname, reader3_def)
-      else if numArgs = 4 then (main4 fname, call4_code fname, reader4_def)
-      else if numArgs = 6 then (main6 fname, call6_code fname, reader6_def)
-      else if numArgs = 8 then (main8 fname, call8_code fname, reader8_def)
-      else if numArgs = 9 then (main9 fname, call9_code fname, reader9_def)
+    val (theMain, call_code, reader_def, reader_spec) =
+      if numArgs = 1 then (main1 fname, call1_code fname, reader1_def, reader1_spec)
+      else if numArgs = 2 then (main2 fname, call2_code fname, reader2_def, reader2_spec)
+      else if numArgs = 3 then (main3 fname, call3_code fname, reader3_def, reader3_spec)
+      else if numArgs = 4 then (main4 fname, call4_code fname, reader4_def, reader4_spec)
+      else if numArgs = 6 then (main6 fname, call6_code fname, reader6_def, reader6_spec)
+      else if numArgs = 8 then (main8 fname, call8_code fname, reader8_def, reader8_spec)
+      else if numArgs = 9 then (main9 fname, call9_code fname, reader9_def, reader9_spec)
       else raise ERR ("Too many arguments:"^(Int.toString numArgs)) ""
   val doppler_opt = theAST_opt |> concl |> rhs;
   val theProg_def = Define ‘theProg = ^theAST’
@@ -606,8 +606,8 @@ struct
                                         else hd ts)
                    |> listSyntax.dest_list (* extract the plan as a list *)
                    |> #1 (* take the list, ignore type *)
-  (* val stos_pass_correct_thm = save_thm ("stos_pass_correct_thm", mk_stos_pass_correct_thm plan_list)
-  val stos_pass_real_id_thm = save_thm ("stos_pass_real_id_thm", mk_stos_pass_real_id_thm plan_list) *)
+  val stos_pass_correct_thm = save_thm ("stos_pass_correct_thm", mk_stos_pass_correct_thm plan_list)
+  val stos_pass_real_id_thm = save_thm ("stos_pass_real_id_thm", mk_stos_pass_real_id_thm plan_list)
   in () end;
 
 end;

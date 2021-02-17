@@ -131,11 +131,12 @@ fun mk_plan_correct_thm plan_list :(term * thm)=
       val plan_correct_optimise_with_plan =
         MP (Q.SPEC ‘^thePlan’ is_optimise_with_plan_correct_lift)
            plan_correct_perform_rewrites
-      val stos_pass_correct_with_plan =
+      (* val stos_pass_correct_with_plan =
         MP (Q.SPEC ‘[^thePlan]’ stos_pass_with_plans_correct)
           (MP (Q.SPEC ‘^thePlan’ is_optimise_with_plan_correct_sing)
               plan_correct_optimise_with_plan)
-    in stos_pass_correct_with_plan
+    in stos_pass_correct_with_plan *)
+    in plan_correct_optimise_with_plan
     end;
 end;
 
@@ -263,11 +264,12 @@ fun mk_plan_correct_thm plan_list :(term * thm)=
       val plan_correct_optimise_with_plan =
         MP (Q.SPEC ‘^thePlan’ is_real_id_perform_rewrites_optimise_with_plan_lift)
            plan_correct_perform_rewrites
-      val stos_pass_correct_with_plan =
+      (* val stos_pass_correct_with_plan =
         MP (Q.SPEC ‘[^thePlan]’ stos_pass_with_plans_real_id)
           (MP (Q.SPEC ‘^thePlan’ is_optimise_with_plan_correct_sing_real_id)
               plan_correct_optimise_with_plan)
-    in stos_pass_correct_with_plan
+    in stos_pass_correct_with_plan *)
+    in plan_correct_optimise_with_plan
     end;
 end;
 

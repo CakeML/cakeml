@@ -893,7 +893,7 @@ Definition reader9_def:
   [Dletrec
    (Locs <|row := 1; col := 17; offset := 0|>
     <|row := 13; col := 78; offset := 0|>)
-   [("reader8","u",
+   [("reader9","u",
      Let (SOME "a") (Con NONE [])
          (Let (SOME "cl")
           (App Opapp
@@ -1662,6 +1662,53 @@ Proof
   \\ fs[set_sepTheory.SEP_EXISTS] \\ qexists_tac ‘emp’ \\ fs[emp_def]
 QED
 
+Theorem reader1_spec:
+  2 = LENGTH cl ∧
+  UNIT_TYPE () uv ⇒
+  app p ^(fetch_v "reader1" st)
+  [uv]
+  (STDIO fs * COMMANDLINE cl)
+  (POSTv uv. &(STRING_TYPE (HD(TL cl)) uv) * STDIO fs)
+Proof
+  xcf "reader1" st
+  \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
+  \\ ‘~ NULL cl’ by fs[wfcl_def,NULL_EQ]
+  \\ xlet_auto >- xsimpl
+  \\ ‘cl ≠ []’ by (Cases_on ‘cl’ \\ fs[])
+  \\ ‘TL cl ≠ []’ by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[])
+  \\ xlet_auto_spec (SOME hd_spec)
+  >- (xsimpl)
+  \\ xcon \\ xsimpl
+QED
+
+Theorem reader2_spec:
+  3 = LENGTH cl ∧
+  UNIT_TYPE () uv ⇒
+  app p ^(fetch_v "reader2" st)
+  [uv]
+  (STDIO fs * COMMANDLINE cl)
+  (POSTv uv. &(PAIR_TYPE STRING_TYPE STRING_TYPE (HD(TL cl), (HD (TL (TL cl)))) uv) * STDIO fs)
+Proof
+  xcf "reader2" st
+  \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
+  \\ ‘~ NULL cl’ by fs[wfcl_def,NULL_EQ]
+  \\ xlet_auto >- xsimpl
+  \\ ‘cl ≠ []’ by (Cases_on ‘cl’ \\ fs[])
+  \\ ‘TL cl ≠ []’ by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[])
+  \\ xlet_auto_spec (SOME hd_spec)
+  >- (xsimpl)
+  \\ xlet_auto_spec (SOME tl_spec) >- (xsimpl)
+  \\ ‘TL (TL cl) ≠ []’
+     by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[])
+  \\ xlet_auto_spec (SOME hd_spec) >- (xsimpl)
+  \\ xcon \\ xsimpl
+  \\ fs[PAIR_TYPE_def]
+QED
+
 Theorem reader3_spec:
   4 = LENGTH cl ∧
   UNIT_TYPE () uv ⇒
@@ -1733,6 +1780,241 @@ Proof
      by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[]
          \\ Cases_on ‘t’ \\ fs[] \\ Cases_on ‘t'’ \\ fs[])
   \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xcon \\ xsimpl
+  \\ fs[PAIR_TYPE_def]
+QED
+
+Theorem reader6_spec:
+  7 = LENGTH cl ∧
+  UNIT_TYPE () uv ⇒
+  app p ^(fetch_v "reader6" st)
+  [uv]
+  (STDIO fs * COMMANDLINE cl)
+  (POSTv uv.
+    &(PAIR_TYPE STRING_TYPE
+      (PAIR_TYPE STRING_TYPE
+       (PAIR_TYPE STRING_TYPE
+        (PAIR_TYPE STRING_TYPE
+        (PAIR_TYPE STRING_TYPE STRING_TYPE))))
+       (HD(TL cl),
+        (HD (TL (TL cl)),
+         (HD (TL (TL (TL cl))),
+          (HD (TL (TL (TL (TL cl)))),
+           (HD (TL (TL (TL (TL (TL cl))))),
+            HD (TL (TL (TL (TL (TL (TL cl)))))))))))
+       uv) * STDIO fs)
+Proof
+  xcf "reader6" st
+  \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ fs [quantHeuristicsTheory.LIST_LENGTH_7]
+  \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull \\ gs[])
+  \\ ‘~ NULL cl’ by fs[wfcl_def,NULL_EQ]
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xcon \\ xsimpl
+  \\ fs[PAIR_TYPE_def]
+QED
+
+Theorem reader8_spec:
+  9 = LENGTH cl ∧
+  UNIT_TYPE () uv ⇒
+  app p ^(fetch_v "reader8" st)
+  [uv]
+  (STDIO fs * COMMANDLINE cl)
+  (POSTv uv.
+    &(PAIR_TYPE STRING_TYPE
+      (PAIR_TYPE STRING_TYPE
+       (PAIR_TYPE STRING_TYPE
+        (PAIR_TYPE STRING_TYPE
+         (PAIR_TYPE STRING_TYPE
+          (PAIR_TYPE STRING_TYPE
+           (PAIR_TYPE STRING_TYPE STRING_TYPE))))))
+       (HD(TL cl),
+        (HD (TL (TL cl)),
+         (HD (TL (TL (TL cl))),
+          (HD (TL (TL (TL (TL cl)))),
+           (HD (TL (TL (TL (TL (TL cl))))),
+            (HD (TL (TL (TL (TL (TL (TL cl)))))),
+             (HD (TL (TL (TL (TL (TL (TL (TL cl))))))),
+              HD (TL (TL (TL (TL (TL (TL (TL (TL cl)))))))))))))))
+       uv) * STDIO fs)
+Proof
+  xcf "reader8" st
+  \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
+  \\ xlet_auto_spec (SOME CommandLine_arguments_spec) >- (xcon \\ xsimpl)
+  \\ ‘∃ e1 e2 e3 e4 e5 e6 e7 e8 e9. cl = [e1; e2; e3; e4; e5; e6; e7; e8; e9]’
+    by (Cases_on ‘cl’ \\ fs[] \\ Cases_on ‘t’ \\ fs[]
+        \\ Cases_on ‘t'’ \\ fs[] \\ Cases_on ‘t’ \\ fs[]
+        \\ Cases_on ‘t'’ \\ fs[] \\ Cases_on ‘t’ \\ fs[]
+        \\ Cases_on ‘t'’ \\ fs[] \\ Cases_on ‘t’ \\ fs[]
+        \\ Cases_on ‘t'’ \\ fs[] \\ Cases_on ‘t’ \\ fs[])
+  \\ reverse(Cases_on`wfcl cl`)
+  >- (fs[COMMANDLINE_def] \\ xpull_core \\ rpt strip_tac
+      >- (rewrite_tac[Once cf_let_def] \\ simp[local_is_local])
+      \\ gs[])
+  \\ ‘~ NULL cl’ by fs[wfcl_def,NULL_EQ]
+  \\ xlet_auto_spec (SOME CommandLine_arguments_spec)
+  >- (qexists_tac ‘STDIO fs’ \\ xsimpl)
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xcon \\ xsimpl
+  \\ fs[PAIR_TYPE_def]
+QED
+
+Theorem reader9_spec:
+  10 = LENGTH cl ∧
+  UNIT_TYPE () uv ⇒
+  app p ^(fetch_v "reader9" st)
+  [uv]
+  (STDIO fs * COMMANDLINE cl)
+  (POSTv uv.
+    &(PAIR_TYPE STRING_TYPE
+      (PAIR_TYPE STRING_TYPE
+       (PAIR_TYPE STRING_TYPE
+        (PAIR_TYPE STRING_TYPE
+         (PAIR_TYPE STRING_TYPE
+          (PAIR_TYPE STRING_TYPE
+           (PAIR_TYPE STRING_TYPE
+            (PAIR_TYPE STRING_TYPE STRING_TYPE)))))))
+       (HD(TL cl),
+        (HD (TL (TL cl)),
+         (HD (TL (TL (TL cl))),
+          (HD (TL (TL (TL (TL cl)))),
+           (HD (TL (TL (TL (TL (TL cl))))),
+            (HD (TL (TL (TL (TL (TL (TL cl)))))),
+             (HD (TL (TL (TL (TL (TL (TL (TL cl))))))),
+              (HD (TL (TL (TL (TL (TL (TL (TL (TL cl)))))))),
+               HD (TL (TL (TL (TL (TL (TL (TL (TL (TL cl)))))))))))))))))
+       uv) * STDIO fs)
+Proof
+  xcf "reader9" st
+  \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
+  \\ xlet_auto_spec (SOME CommandLine_arguments_spec) >- (xcon \\ xsimpl)
+  \\ imp_res_tac quantHeuristicsTheory.LIST_LENGTH_10
+  \\ reverse(Cases_on`wfcl cl`)
+  >- (fs[COMMANDLINE_def] \\ xpull_core \\ rpt strip_tac
+      >- (rewrite_tac[Once cf_let_def] \\ simp[local_is_local])
+      \\ gs[])
+  \\ ‘~ NULL cl’ by fs[wfcl_def,NULL_EQ]
+  \\ xlet_auto_spec (SOME CommandLine_arguments_spec)
+  >- (qexists_tac ‘STDIO fs’ \\ xsimpl)
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME tl_spec) >- xsimpl
+  \\ xlet_auto_spec (SOME hd_spec) >- xsimpl
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xcon \\ xsimpl
