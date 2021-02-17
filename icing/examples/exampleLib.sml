@@ -778,7 +778,7 @@ struct
                  (emp)
                  (POSTv v.
                   &DOUBLE_RES result v)) ∧
-          theAST_float_returns (w1,w2,w3) (compress_word (THE result)) ∧
+          theAST_float_returns ^args (compress_word (THE result)) ∧
           real$abs (fp64_to_real (compress_word (THE result)) - theAST_real_spec ^args) ≤ theErrBound’,
         rpt gen_tac \\ simp[app_def, theAST_side_def, is_Double_def]
         \\ rpt (disch_then assume_tac)
