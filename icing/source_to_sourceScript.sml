@@ -153,8 +153,8 @@ End
 
 (** Optimisation pass starts below **)
 Definition perform_rewrites_def:
-  perform_rewrites (cfg: config) Here rewrites (Lit l) =
-    (if (cfg.canOpt) then (rewriteFPexp rewrites (Lit l)) else (Lit l)) ∧
+  perform_rewrites (cfg: config) Here rewrites (Lit l) = Lit l ∧
+    (* (if (cfg.canOpt) then (rewriteFPexp rewrites (Lit l)) else (Lit l)) ∧ *)
   perform_rewrites (cfg: config) Here rewrites (App op exps) =
     (if (cfg.canOpt) then (rewriteFPexp rewrites (App op exps)) else (App op exps)) ∧
   perform_rewrites (cfg: config) Here rewrites (Var x) = Var x ∧
