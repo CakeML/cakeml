@@ -4013,9 +4013,9 @@ Proof
     gs [out_signals_ffi_def, well_behaved_ffi_def]) >>
   impl_tac
   >- (
-  fs [Abbr ‘nnt’] >>
-  match_mp_tac mem_to_flookup >>
-  fs []) >>
+    fs [Abbr ‘nnt’] >>
+    match_mp_tac mem_to_flookup >>
+    fs []) >>
   strip_tac >> fs [] >>
   qmatch_asmsub_abbrev_tac
   ‘is_valid_value rt _ rtv’ >>
@@ -4224,17 +4224,7 @@ Proof
       gs [resetOutput_def] >>
       res_tac >> gs [] >>
       gs [evalTerm_cases] >>
-      rveq >> gs [resetClocks_def] >>
-      cases_on ‘MEM ck tclks’
-      >- (
-        qexists_tac ‘0’ >>
-        fs [MEM_EL] >>
-        metis_tac [update_eq_zip_map_flookup]) >>
-      qexists_tac ‘n’ >>
-      qpat_x_assum ‘_ = SOME n’ (assume_tac o GSYM) >>
-      fs [] >>
-      match_mp_tac flookup_fupdate_zip_not_mem >>
-      gs []) >>
+      rveq >> gs [resetClocks_def]) >>
     pairarg_tac >> gs [] >> rveq >> gs [] >>
     rw []
     >- (
@@ -4405,6 +4395,13 @@ Definition output_rel_def:
       st < m ∧
       SND (seq 0) = 0)
 End
+
+(*
+   write thoughts about the output step,
+   we can impose that all terms always have a wait time,
+   and then we can have the wait
+   ‘∃tt. s.waitTime = SOME tt’ as invariants
+*)
 
 Theorem step_output:
   !prog os s s' w (t:('a,time_input) panSem$state).
