@@ -79,31 +79,37 @@ Theorem isFpArithExp_matched_evaluates_real:
     (∀ x. x IN FV (e) ⇒ ∃ r. nsLookup env.v x = SOME (Real r)) ⇒
     ∀ (st:'a semanticPrimitives$state).
       st.fp_state.real_sem ⇒
-      ∃ st2 r rn. evaluate st env [realify e] = (st2, Rval [r]) ∧
-    r = Real rn) ∧
+      ∃ choices r rn.
+        evaluate st env [realify e] =
+        (st with fp_state := st.fp_state with choices := choices, Rval [r]) ∧
+        r = Real rn) ∧
   (∀ exps subst env.
      isFpArithExpList exps ∧
     (∀ x. x IN FV_list exps ⇒ ∃ r. nsLookup env.v x = SOME (Real r)) ⇒
      ∀ e. MEM e exps ⇒
           ∀ (st:'a semanticPrimitives$state).
             st.fp_state.real_sem ⇒
-            ∃ st2 r rn. evaluate st env [realify e] = (st2, Rval [r]) ∧
-    r = Real rn)
+            ∃ choices r rn.
+              evaluate st env [realify e] =
+              (st with fp_state := st.fp_state with choices := choices, Rval [r]) ∧
+              r = Real rn)
 Proof
   ho_match_mp_tac isFpArithExp_ind
   \\ rpt strip_tac \\ fs[isFpArithExp_def, realify_def]
-  >- fs[evaluate_def]
+  >- fs[evaluate_def, fpState_component_equality, semanticPrimitivesTheory.state_component_equality]
   >- (fs[evaluate_def, fp_translate_def, astTheory.getOpClass_def,
+         fpState_component_equality,
+         semanticPrimitivesTheory.state_component_equality,
          astTheory.isFpBool_def, semanticPrimitivesTheory.do_app_def])
   >- (
     Cases_on ‘exps’ \\ fs[] \\ rveq
     \\ simp[Once evaluate_def, astTheory.getOpClass_def, astTheory.isFpBool_def]
     \\ first_x_assum (qspec_then ‘env’ mp_tac) \\ impl_tac
     >- (fs[])
-    \\ disch_then $ qspec_then ‘st’ strip_assume_tac \\ fs[do_app_def]
-    \\ res_tac \\ gs[]
-    \\ ‘st2.fp_state.real_sem’ by (imp_res_tac evaluate_fp_opts_inv \\ gs[])
-    \\ gs[])
+    \\ disch_then $ qspec_then ‘st’ mp_tac \\ fs[do_app_def]
+    \\ strip_tac
+    \\ gs[fpState_component_equality,
+         semanticPrimitivesTheory.state_component_equality])
   >- (
     fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rveq
     \\ simp[Once evaluate_def, astTheory.getOpClass_def, astTheory.isFpBool_def]
@@ -115,11 +121,10 @@ Proof
     \\ simp[Once evaluate_cons]
     \\ pop_assum $ qspec_then ‘st’ mp_tac \\ impl_tac \\ fs[]
     \\ strip_tac \\ gs[]
-    \\ first_x_assum $ qspec_then ‘st2’ mp_tac \\ impl_tac \\ fs[]
-    >- (imp_res_tac evaluate_fp_opts_inv \\ gs[])
+    \\ first_x_assum $ qspec_then ‘st with fp_state := st.fp_state with choices := choices’ mp_tac \\ impl_tac \\ fs[]
     \\ rpt strip_tac
-    \\ fs[do_app_def]
-    \\ imp_res_tac evaluate_fp_opts_inv \\ gs[])
+    \\ fs[do_app_def, fpState_component_equality,
+         semanticPrimitivesTheory.state_component_equality])
   >- (
     fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rveq
     \\ simp[Once evaluate_def, astTheory.getOpClass_def, astTheory.isFpBool_def]
@@ -133,14 +138,14 @@ Proof
     \\ last_x_assum $ qspec_then ‘st’ mp_tac \\ impl_tac \\ fs[]
     \\ rpt strip_tac \\ gs[]
     \\ simp[Once evaluate_def, Once evaluate_cons]
-    \\ first_x_assum $ qspec_then ‘st2’ mp_tac \\ impl_tac \\ fs[]
-    >- (imp_res_tac evaluate_fp_opts_inv \\ gs[])
+    \\ first_x_assum $ qspec_then ‘st with fp_state := st.fp_state with choices := choices’ mp_tac
+    \\ impl_tac \\ fs[]
     \\ rpt strip_tac \\ gs[]
-    \\ first_x_assum $ qspec_then ‘st2'’ mp_tac \\ impl_tac \\ fs[]
-    >- (imp_res_tac evaluate_fp_opts_inv \\ gs[])
+    \\ first_x_assum $ qspec_then ‘st with fp_state := st.fp_state with choices := choices'’ mp_tac
+    \\ impl_tac \\ fs[]
     \\ rpt strip_tac \\ gs[]
-    \\ fs[do_app_def, astTheory.getOpClass_def]
-    \\ imp_res_tac evaluate_fp_opts_inv \\ gs[])
+    \\ fs[do_app_def, astTheory.getOpClass_def, fpState_component_equality,
+         semanticPrimitivesTheory.state_component_equality])
 QED
 
 Theorem isFpArithExp_all_lookup:
