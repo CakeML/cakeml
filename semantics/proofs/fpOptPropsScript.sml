@@ -583,6 +583,17 @@ Proof
   \\ imp_res_tac nth_app \\ fs[]
 QED
 
+Theorem rwAllBoolTree_append_opt:
+  ! sched rws1 rws2 v r.
+    rwAllBoolTree sched rws1 v = SOME r ==>
+    rwAllBoolTree sched (rws1 ++ rws2) v = SOME r
+Proof
+  Induct_on `sched` \\ fs[rwAllBoolTree_def] \\ rpt gen_tac
+  \\ Cases_on `h` \\ fs[rwAllBoolTree_def]
+  \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+  \\ imp_res_tac nth_app \\ fs[]
+QED
+
 Theorem do_fprw_up:
   ! v sched1 rws1 rws2 x.
     do_fprw v sched1 rws1 = x /\
