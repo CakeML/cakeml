@@ -4,7 +4,7 @@
 *)
 open icing_rewriterTheory source_to_sourceTheory fpOptTheory fpOptPropsTheory
      fpSemPropsTheory semanticPrimitivesTheory evaluateTheory
-     semanticsTheory semanticsPropsTheory
+     semanticsTheory semanticsPropsTheory floatToRealTheory
      evaluatePropsTheory terminationTheory fpSemPropsTheory;
 open preamble;
 
@@ -71,20 +71,76 @@ Proof
     \\ COND_CASES_TAC \\ fs[fp_translate_def]
     \\ TOP_CASE_TAC \\ fs[fp_translate_def, do_fprw_def, CaseEq"option"]
     \\ rveq \\ fs[fp_translate_def])
-  (* Let case :
-  \\ simp[Once evaluate_def]
-  \\ last_x_assum (qspec_then ‘env’ mp_tac) \\ impl_tac
-  >- (fs[])
-  \\ disch_then $ qspec_then ‘st’ strip_assume_tac \\ fs[]
-  \\ first_x_assum (qspec_then ‘env with v := nsOptBind x r env.v’ mp_tac)
-  \\ impl_tac
-  >- (rpt strip_tac \\ fs[]
-      \\ Cases_on ‘x’ \\ fs[namespaceTheory.nsOptBind_def]
-      \\ Cases_on ‘x'’ \\ fs[ml_progTheory.nsLookup_nsBind_compute]
-      \\ TOP_CASE_TAC \\ fs[]
-      \\ Cases_on ‘r’ \\ fs[fp_translate_def])
-  \\ disch_then $ qspec_then ‘st2’ strip_assume_tac
-  \\ fs[] *)
+QED
+
+Theorem isFpArithExp_matched_evaluates_real:
+  (∀ e env.
+    isFpArithExp e ∧
+    (∀ x. x IN FV (e) ⇒ ∃ r. nsLookup env.v x = SOME (Real r)) ⇒
+    ∀ (st:'a semanticPrimitives$state).
+      st.fp_state.real_sem ⇒
+      ∃ st2 r rn. evaluate st env [realify e] = (st2, Rval [r]) ∧
+    r = Real rn) ∧
+  (∀ exps subst env.
+     isFpArithExpList exps ∧
+    (∀ x. x IN FV_list exps ⇒ ∃ r. nsLookup env.v x = SOME (Real r)) ⇒
+     ∀ e. MEM e exps ⇒
+          ∀ (st:'a semanticPrimitives$state).
+            st.fp_state.real_sem ⇒
+            ∃ st2 r rn. evaluate st env [realify e] = (st2, Rval [r]) ∧
+    r = Real rn)
+Proof
+  ho_match_mp_tac isFpArithExp_ind
+  \\ rpt strip_tac \\ fs[isFpArithExp_def, realify_def]
+  >- fs[evaluate_def]
+  >- (fs[evaluate_def, fp_translate_def, astTheory.getOpClass_def,
+         astTheory.isFpBool_def, semanticPrimitivesTheory.do_app_def])
+  >- (
+    Cases_on ‘exps’ \\ fs[] \\ rveq
+    \\ simp[Once evaluate_def, astTheory.getOpClass_def, astTheory.isFpBool_def]
+    \\ first_x_assum (qspec_then ‘env’ mp_tac) \\ impl_tac
+    >- (fs[])
+    \\ disch_then $ qspec_then ‘st’ strip_assume_tac \\ fs[do_app_def]
+    \\ res_tac \\ gs[]
+    \\ ‘st2.fp_state.real_sem’ by (imp_res_tac evaluate_fp_opts_inv \\ gs[])
+    \\ gs[])
+  >- (
+    fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rveq
+    \\ simp[Once evaluate_def, astTheory.getOpClass_def, astTheory.isFpBool_def]
+    \\ first_x_assum (qspec_then ‘env’ mp_tac) \\ impl_tac
+    >- (fs[] \\ metis_tac[])
+    \\ disch_then (fn th => qspec_then ‘e1’ strip_assume_tac th
+                   \\ qspec_then ‘e2’ strip_assume_tac th)
+    \\ fs[]
+    \\ simp[Once evaluate_cons]
+    \\ pop_assum $ qspec_then ‘st’ mp_tac \\ impl_tac \\ fs[]
+    \\ strip_tac \\ gs[]
+    \\ first_x_assum $ qspec_then ‘st2’ mp_tac \\ impl_tac \\ fs[]
+    >- (imp_res_tac evaluate_fp_opts_inv \\ gs[])
+    \\ rpt strip_tac
+    \\ fs[do_app_def]
+    \\ imp_res_tac evaluate_fp_opts_inv \\ gs[])
+  >- (
+    fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rveq
+    \\ simp[Once evaluate_def, astTheory.getOpClass_def, astTheory.isFpBool_def]
+    \\ first_x_assum (qspec_then ‘env’ mp_tac) \\ impl_tac
+    >- (fs[] \\ metis_tac[])
+    \\ disch_then (fn th => qspec_then ‘e1’ strip_assume_tac th
+                   \\ qspec_then ‘e2’ strip_assume_tac th
+                   \\ qspec_then ‘e3’ strip_assume_tac th)
+    \\ fs[]
+    \\ simp[Once evaluate_cons]
+    \\ last_x_assum $ qspec_then ‘st’ mp_tac \\ impl_tac \\ fs[]
+    \\ rpt strip_tac \\ gs[]
+    \\ simp[Once evaluate_def, Once evaluate_cons]
+    \\ first_x_assum $ qspec_then ‘st2’ mp_tac \\ impl_tac \\ fs[]
+    >- (imp_res_tac evaluate_fp_opts_inv \\ gs[])
+    \\ rpt strip_tac \\ gs[]
+    \\ first_x_assum $ qspec_then ‘st2'’ mp_tac \\ impl_tac \\ fs[]
+    >- (imp_res_tac evaluate_fp_opts_inv \\ gs[])
+    \\ rpt strip_tac \\ gs[]
+    \\ fs[do_app_def, astTheory.getOpClass_def]
+    \\ imp_res_tac evaluate_fp_opts_inv \\ gs[])
 QED
 
 Theorem isFpArithExp_all_lookup:
@@ -266,7 +322,7 @@ Theorem rewriteFPexp_returns_fp:
   ∀ (st:'a semanticPrimitives$state) st2 e lhs rhs env eOpt r.
   (∀ x.
      x IN FV (e) ⇒
-     ∃ r fp.
+     ∃ fp.
        nsLookup env.v x = SOME (FP_WordTree fp)) ∧
   isPureExp e ∧
   isFpArithExp e ∧
@@ -297,49 +353,41 @@ Proof
   \\ gs[]
 QED
 
-        (*
-Theorem matchesFPexp_cases:
-  ∀ e lhs init subst eSub.
+Theorem rewriteFPexp_returns_real:
+  ∀ (st:'a semanticPrimitives$state) st2 e lhs rhs env eOpt r.
+  (∀ x.
+     x IN FV (e) ⇒
+     ∃ r.
+       nsLookup env.v x = SOME (Real r)) ∧
+  isPureExp e ∧
   isFpArithExp e ∧
-  (∀ x. substLookup init x = SOME eSub ⇒
-        (∃ op es. eSub = App op es) ∨
-        (∃ x. eSub = Var x)) ∧
-  matchesFPexp lhs e init = SOME subst ⇒
-  ∀ x. substLookup subst x = SOME eSub ⇒
-        (∃ op es. eSub = App op es) ∨
-        (∃ x. eSub = Var x)
+  rewriteFPexp [(lhs,rhs)] e = eOpt ∧
+  st.fp_state.real_sem ∧
+  evaluate st env [realify eOpt] = (st2, Rval [r]) ⇒
+  ∃ rn. r = Real rn
 Proof
-  Induct_on ‘lhs’
-  \\ gs[matchesFPexp_def, CaseEq"exp", CaseEq"op", CaseEq"list", CaseEq"option", CaseEq"lit"]
-  \\ rpt strip_tac \\ rveq \\ gs[]
+  rpt gen_tac \\ gs[rewriteFPexp_def] \\ rpt (TOP_CASE_TAC \\ fs[])
+  \\ rpt strip_tac \\ rveq
+  >~ [‘appFPexp rhs subst = SOME eOpt’]
   >- (
-    gs[substLookup_substAdd_alt]
-    \\ reverse (Cases_on ‘n = x’) \\ gs[] \\ rveq
-    >- (res_tac \\ gs[])
-    \\ Cases_on ‘e’ \\ gs[isFpArithExp_def]
-                         (* TODO *)
-                         )
-  >- (res_tac \\ gs[])
-  >- (
-
-Theorem rewriteFPexp_cases:
-  ∀ rws e. rewriteFPexp rws (Lit l) ≠ e ⇒
-  (∃ op es. rewriteFPexp rws e = App op es) ∨
-  (∃ x. rewriteFPexp rws e = Var x)
-Proof
-  Induct_on ‘rws’ \\ gs[rewriteFPexp_def]
-  \\ rpt strip_tac \\ Cases_on ‘h’ \\ gs[rewriteFPexp_def]
-  \\ pop_assum mp_tac \\ COND_CASES_TAC \\ gs[]
-  \\ ntac 2 (TOP_CASE_TAC \\ gs[])
-  \\ strip_tac
-  \\ Cases_on ‘rewriteFPexp rws x' = x'’ \\ rveq \\ gs[]
-  \\ Cases_on ‘r’ \\ gs[appFPexp_def]
-  \\ fs[CaseEq "option"] \\ rveq
-  >~ [‘substLookup subst x = SOME e’]
-  >- (
-
-  \\ TRY (DISJ1_TAC \\ fs[] \\ NO_TAC)
-        *)
+    ‘isFpArithExp eOpt’
+     by (drule isFpArithExp_match_preserved
+         \\ rpt (disch_then drule) \\ fs[])
+    \\ ‘∀ x. x IN FV eOpt ⇒
+             ∃ r.
+               nsLookup env.v x = SOME (Real r)’
+      by (
+      qspecl_then [‘rhs’, ‘lhs’, ‘e’, ‘eOpt’, ‘subst’, ‘[]’,
+                   ‘λ x. ∃ r. nsLookup env.v x = SOME (Real r)’]
+        mp_tac match_preserves_FV
+      \\ impl_tac \\ fs[substLookup_def])
+    \\ drule $ CONJUNCT1 isFpArithExp_matched_evaluates_real
+    \\ disch_then (qspecl_then [‘env’, ‘st’] strip_assume_tac)
+    \\ gs[])
+  \\ drule $ CONJUNCT1 isFpArithExp_matched_evaluates_real
+  \\ disch_then (qspecl_then [‘env’, ‘st’] strip_assume_tac)
+  \\ gs[]
+QED
 
 Theorem matchExpr_preserving:
   ! p.

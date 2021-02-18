@@ -2,7 +2,7 @@
   Define a translation from float computations to real number computations
 *)
 open semanticPrimitivesTheory evaluateTheory terminationTheory
-     icing_rewriterTheory icing_optimisationsTheory fpOptTheory fpValTreeTheory;
+     fpOptTheory fpValTreeTheory;
 
 open preamble;
 
@@ -53,7 +53,7 @@ Definition realify_def:
      (case exps of
       | [e1; e2; e3] => App (Real_bop (Real_Add)) [
                           App (Real_bop (Real_Mul)) [realify e2; realify e3]; realify e1]
-      | _ => App op exps_real) (* malformed expression, return garbled output *)
+      | _ => App op []) (* malformed expression, return garbled output *)
      | _ => App op exps_real) ∧
   realify (Log lop e2 e3) =
     Log lop (realify e2) (realify e3) ∧

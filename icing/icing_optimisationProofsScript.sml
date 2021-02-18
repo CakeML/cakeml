@@ -101,26 +101,6 @@ Proof
   \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, maybe_map_def]
 QED
 
-Theorem evaluate_case_case:
-  (case
-  (case evaluate st1 env es of
-   | (st2, Rval r) => f st2 r
-   | (st2, Rerr e) => (st2, Rerr e)) of
-  | (st2, Rval r) => g st2 r
-  | (st2, Rerr e) => (st2, Rerr e)) =
-  case evaluate st1 env es of
-  | (st2, Rerr e) => (st2, Rerr e)
-  | (st2, Rval r) =>
-  (case f st2 r of
-   | (st2, Rerr e) => (st2, Rerr e)
-   | (st2, Rval r) =>
-   g st2 r)
-Proof
-  TOP_CASE_TAC \\ pop_assum mp_tac
-  \\ ntac 2 TOP_CASE_TAC \\ fs[]
-  \\ strip_tac \\ rveq \\ fs[]
-QED
-
 (**
   Case theorems for application of each rewrite
   They allow to do a case-distinction on whether the rewrite fired or not in the
