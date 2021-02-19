@@ -637,10 +637,14 @@ struct
                                         else hd ts)
                    |> listSyntax.dest_list (* extract the plan as a list *)
                    |> #1 (* take the list, ignore type *)
-  val stos_pass_correct_thm = save_thm ("stos_pass_correct_thm", mk_stos_pass_correct_thm plan_list)
-  val stos_pass_real_id_thm = save_thm ("stos_pass_real_id_thm", mk_stos_pass_real_id_thm plan_list)
+  val stos_pass_correct_thm =
+    if (not (!logErrors)) then save_thm ("stos_pass_correct_thm", mk_stos_pass_correct_thm plan_list)
+    else CONJ_COMM
+  val stos_pass_real_id_thm =
+    if (not (!logErrors)) then save_thm ("stos_pass_real_id_thm", mk_stos_pass_real_id_thm plan_list)
+    else CONJ_COMM
   val main_spec_thm =
-    if (not checkError) then CONJ_COMM
+    if (not checkError orelse !logErrors) then CONJ_COMM
     else
       let
       val st = get_ml_prog_state ();
