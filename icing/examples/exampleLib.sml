@@ -605,7 +605,7 @@ struct
                              |SOME ((lo,hi),e)  => e’)
          val theAST_opt_bound_def = Define ‘theAST_opt_bound = ^(theBound |> concl |> rhs)’
          val error_thm_unopt =
-           EVAL (Parse.Term  ‘getErrorbounds ^(concl theAST_def |> rhs) theAST_pre’)
+           EVAL (Parse.Term  ‘getErrorbounds (no_opt_decs no_fp_opt_conf ^(concl theAST_def |> rhs)) theAST_pre’)
          val (bounds_unopt, cmd_unopt) =
            EVAL (Parse.Term ‘case ^(error_thm_unopt |> concl |> rhs) of
                      |(SOME (bounds, cmd, _), _) => (bounds,cmd)’)
