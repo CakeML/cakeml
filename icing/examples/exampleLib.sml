@@ -13,7 +13,7 @@ struct
   open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
   open supportLib;
 
-  val logErrors = ref true;
+  val logErrors = ref false;
 
   fun flatMap (ll:'a list list) =
     case ll of [] => []
@@ -773,9 +773,9 @@ struct
         \\ impl_tac
         >- (
          unabbrev_all_tac
-         \\ fs[empty_state_def, theOpts_def, extend_conf_def, no_fp_opt_conf_def,
-               theAST_env_def, stos_pass_with_plans_def, theAST_plan_result]
-         \\ assume_tac freeVars_list_body \\ gs[theAST_env_def])
+         \\ assume_tac freeVars_list_body
+         \\ gs[empty_state_def, theOpts_def, extend_conf_def, no_fp_opt_conf_def,
+               theAST_env_def, stos_pass_with_plans_def, theAST_plan_result])
         \\ rpt strip_tac
         \\ unabbrev_all_tac
         \\ fs[empty_state_def, semanticPrimitivesTheory.state_component_equality, theAST_env_def]
