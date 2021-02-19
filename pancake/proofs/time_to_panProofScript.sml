@@ -1,4 +1,4 @@
-(*
+st(*
   Correctness proof for --
 *)
 
@@ -15,6 +15,7 @@ val _ = set_grammar_ancestry
         ["timeSem", "panSem", "ffiTime",
          "pan_commonProps", "timeProps",
          "time_to_pan"];
+
 
 Definition equiv_val_def:
   equiv_val fm xs v <=>
@@ -2792,7 +2793,6 @@ Definition mem_read_ffi_results_def:
 End
 
 
-
 Theorem step_delay_loop:
   !cycles prog d s s' (t:('a,time_input) panSem$state) ck_extra.
     step prog (LDelay d) s s' ∧
@@ -2802,6 +2802,7 @@ Theorem step_delay_loop:
     wakeup_rel t.locals (dimword (:α)) s.waitTime t.ffi.ffi_state cycles ∧
     mem_read_ffi_results (:α) t.ffi.ffi_state cycles ∧
     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
+    FLOOKUP t.locals «event» =  SOME (ValWord 0w) ∧
     labProps$good_dimindex (:'a) ==>
     ?ck t'.
       evaluate (wait_input_time_limit, t with clock := t.clock + ck) =
@@ -2810,8 +2811,11 @@ Theorem step_delay_loop:
       state_rel (clksOf prog) s' t' ∧
       t'.ffi.ffi_state = nexts_ffi cycles t.ffi.ffi_state ∧
       t'.ffi.oracle = t.ffi.oracle ∧
+      t'.code = t.code ∧
       FLOOKUP t'.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt» ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
+      FLOOKUP t'.locals «event» =  SOME (ValWord 0w) ∧
+      FLOOKUP t'.locals «taskRet» = FLOOKUP t.locals «taskRet» ∧
       FLOOKUP t'.locals «sysTime»  =
         SOME (ValWord (n2w (FST (t.ffi.ffi_state cycles))))
 Proof
@@ -3548,6 +3552,7 @@ Theorem step_delay:
     wakeup_rel t.locals (dimword (:α)) s.waitTime t.ffi.ffi_state cycles ∧
     mem_read_ffi_results (:α) t.ffi.ffi_state cycles ∧
     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
+    FLOOKUP t.locals «event» =  SOME (ValWord 0w) ∧
     labProps$good_dimindex (:'a) ==>
     ?ck t'.
       evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
@@ -3556,8 +3561,11 @@ Theorem step_delay:
       state_rel (clksOf prog) s' t' ∧
       t'.ffi.ffi_state = nexts_ffi cycles t.ffi.ffi_state ∧
       t'.ffi.oracle = t.ffi.oracle ∧
+      t'.code = t.code ∧
       FLOOKUP t'.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt» ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
+      FLOOKUP t'.locals «event» =  SOME (ValWord 0w) ∧
+      FLOOKUP t'.locals «taskRet» = FLOOKUP t.locals «taskRet» ∧
       FLOOKUP t'.locals «sysTime»  =
         SOME (ValWord (n2w (FST (t.ffi.ffi_state cycles))))
 Proof
@@ -3836,7 +3844,7 @@ Definition input_rel_def:
 End
 
 Theorem step_input:
-  !prog i s s' w (t:('a,time_input) panSem$state) ns.
+  !prog i s s' (t:('a,time_input) panSem$state).
     step prog (LAction (Input i)) s s' ∧
     state_rel (clksOf prog) s t ∧
     well_formed_terms prog s t ∧
@@ -4121,8 +4129,6 @@ Proof
     gs [clkvals_rel_def, MAP_EQ_EVERY2, LIST_REL_EL_EQN, EVERY_MEM] >>
     first_x_assum (qspec_then ‘ck’ assume_tac) >>
     gs []) >>
-
-
   drule_all eval_normalisedClks >>
   strip_tac >>
   gs [] >>
@@ -4404,7 +4410,7 @@ End
 *)
 
 Theorem step_output:
-  !prog os s s' w (t:('a,time_input) panSem$state).
+  !prog os s s' (t:('a,time_input) panSem$state).
     step prog (LAction (Output os)) s s' ∧
     state_rel (clksOf prog) s t ∧
     well_formed_terms prog s t ∧
@@ -4414,6 +4420,7 @@ Theorem step_output:
     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
     FLOOKUP t.locals «waitSet» = SOME (ValWord 0w) ∧
     task_ret_defined t.locals (nClks prog) ∧
+    (∃tt. s.waitTime = SOME tt) ∧
     labProps$good_dimindex (:'a)  ⇒
     ?ck t'.
       evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
@@ -4433,11 +4440,8 @@ Theorem step_output:
 Proof
   rw [] >>
   fs [] >>
-  fs [step_cases] >>
-  ‘∃tt. s.waitTime = SOME tt’ by cheat >>
-  fs [] >>
-  fs [task_controller_def] >>
-  fs [panLangTheory.nested_seq_def] >>
+  fs [step_cases, task_controller_def,
+      panLangTheory.nested_seq_def] >>
   qmatch_goalsub_abbrev_tac ‘evaluate (Seq _ q, _)’ >>
   rewrite_tac [Once evaluate_def] >>
   fs [] >>
@@ -4793,17 +4797,7 @@ Proof
       gs [resetOutput_def] >>
       res_tac >> gs [] >>
       gs [evalTerm_cases] >>
-      rveq >> gs [resetClocks_def] >>
-      cases_on ‘MEM ck tclks’
-      >- (
-        qexists_tac ‘0’ >>
-        fs [MEM_EL] >>
-        metis_tac [update_eq_zip_map_flookup]) >>
-      qexists_tac ‘n’ >>
-      qpat_x_assum ‘_ = SOME n’ (assume_tac o GSYM) >>
-      fs [] >>
-      match_mp_tac flookup_fupdate_zip_not_mem >>
-      gs []) >>
+      rveq >> gs [resetClocks_def]) >>
     pairarg_tac >> gs [] >> rveq >> gs [] >>
     rw []
     >- (
@@ -4960,9 +4954,9 @@ Proof
   gs [word_add_n2w]
 QED
 
-
+(*
 Theorem step_thm:
-  !prog label s s' w (t:('a,time_input) panSem$state) ck_extra.
+  !prog label s s' (t:('a,time_input) panSem$state) ck_extra.
     step prog label s s' ∧
     state_rel (clksOf prog) s t ∧
     code_installed t.code prog ∧
@@ -5011,7 +5005,8 @@ Theorem step_thm:
         FLOOKUP t.locals «event»   = SOME (ValWord 0w) ∧
         FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
         FLOOKUP t.locals «waitSet» = SOME (ValWord 0w) ∧
-        task_ret_defined t.locals (nClks prog) ⇒
+        task_ret_defined t.locals (nClks prog) ∧
+        (∃tt. s.waitTime = SOME tt) ⇒
         ?ck t'.
           evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
           (NONE, t') ∧
@@ -5045,10 +5040,30 @@ Proof
     fs []) >>
   fs [] >>
   rw [] >>
-  drule_all step_output >>
-  disch_then (qspec_then ‘ck_extra’ mp_tac) >>
+  drule step_output >>
+  disch_then (qspec_then ‘t’ mp_tac) >>
   fs []
 QED
+*)
+
+(*
+  !prog label s s' w (t:('a,time_input) panSem$state).
+    step prog label s s' ∧
+    state_rel (clksOf prog) s t ∧
+    ffi_rel label s t ∧
+    well_formness label prog s t ∧
+    local_state label t ∧
+    code_installed t.code prog ∧
+    labProps$good_dimindex (:'a) ⇒
+    ?ck t'.
+      evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
+      evaluate (task_controller (nClks prog), t') ∧
+      state_rel (clksOf prog) s' t' ∧
+      code_installed t'.code prog ∧
+      task_ret_defined t'.locals (nClks prog) ∧
+      next_wakeup label t t' ∧
+      event_state t'
+*)
 
 
 Definition action_rel_def:
@@ -5068,17 +5083,17 @@ Definition ffi_rel_def:
   (ffi_rel (LAction act) s t = action_rel act s t)
 End
 
-
+(*
 Definition well_formness_def:
   (well_formness (LDelay _) prog s (t:('a,time_input) panSem$state) = T) ∧
   (well_formness (LAction _) prog s t =
    (well_formed_terms prog s t ∧ task_ret_defined t.locals (nClks prog)))
 End
-
+*)
 
 Definition local_action_def:
   (local_action (Input i) t =
-     FLOOKUP t.locals «isInput» = SOME (ValWord 0w)) ∧
+     (FLOOKUP t.locals «isInput» = SOME (ValWord 0w))) ∧
   (local_action (Output os) t =
     (FLOOKUP t.locals «event»   = SOME (ValWord 0w) ∧
      FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
@@ -5087,7 +5102,8 @@ End
 
 Definition local_state_def:
   (local_state (LDelay _) t =
-     FLOOKUP t.locals «isInput» = SOME (ValWord 1w)) ∧
+   (FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
+    FLOOKUP t.locals «event» = SOME (ValWord 0w))) ∧
   (local_state (LAction act) t = local_action act t)
 End
 
@@ -5108,46 +5124,185 @@ Definition event_state_def:
     FLOOKUP t.locals «event»   =  SOME (ValWord 0w)
 End
 
-Theorem step_thm2:
-  !prog label s s' w (t:('a,time_input) panSem$state).
-    step prog label s s' ∧
+
+Theorem step_delay_weaker:
+  !prog d s s' (t:('a,time_input) panSem$state).
+    step prog (LDelay d) s s' ∧
     state_rel (clksOf prog) s t ∧
-    ffi_rel label s t ∧
-    well_formness label prog s t ∧
-    local_state label t ∧
     code_installed t.code prog ∧
-    labProps$good_dimindex (:'a) ⇒
+    ffi_rel (LDelay d) s t ∧
+    local_state (LDelay d) t ∧
+    code_installed t.code prog ∧
+    labProps$good_dimindex (:'a) ∧
+    (* extra assumptions *)
+    task_ret_defined t.locals (nClks prog) ∧
+    well_formed_terms prog s t ⇒
     ?ck t'.
       evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
       evaluate (task_controller (nClks prog), t') ∧
       state_rel (clksOf prog) s' t' ∧
       code_installed t'.code prog ∧
+      next_wakeup (LDelay d) t t' ∧
+      event_state t' ∧
       task_ret_defined t'.locals (nClks prog) ∧
-      next_wakeup label t t' ∧
-      event_state t'
+      well_formed_terms prog s' t'
 Proof
   rw [] >>
-  cases_on ‘label’ >>
-  fs []
+  fs [ffi_rel_def] >>
+  drule step_delay >>
+  disch_then (qspecl_then [‘cycles’, ‘t’, ‘0’] mp_tac) >>
+  impl_tac
+  >- gs [local_state_def] >>
+  strip_tac >>
+  qexists_tac ‘ck’ >>
+  qexists_tac ‘t'’ >>
+  gs [] >>
+  ‘t' with clock := t'.clock = t'’ by
+    fs [state_component_equality] >>
+  gs [next_wakeup_def, event_state_def, local_state_def] >>
+  gs [task_ret_defined_def] >>
+  fs [step_cases]
   >- (
-    rw [] >>
-    drule_all step_delay >>
-    disch_then (qspec_then ‘ck_extra’ mp_tac) >>
-    fs []) >>
-  cases_on ‘i’
-  >- (
-    fs [] >>
-    rw [] >>
-    drule_all step_input >>
-    disch_then (qspec_then ‘ck_extra’ mp_tac) >>
-    fs []) >>
-  fs [] >>
+    gs [well_formed_terms_def, mkState_def] >>
+    gen_tac >>
+    strip_tac >>
+    first_x_assum drule >>
+    strip_tac >>
+    gs [resetOutput_def] >>
+    conj_tac
+    >- (
+      gs [conds_eval_lt_dimword_def] >>
+      gs [EVERY_MEM] >>
+      rw [] >>
+      first_x_assum drule_all >>
+      gs []  >>
+      TOP_CASE_TAC >> gs [] >>
+      strip_tac >>
+      cheat) >>
+    (* this is complicated *)
+    conj_tac
+    >- cheat >>
+    cheat) >>
+  cheat
+QED
+
+Theorem step_input_weaker:
+  !prog i s s' (t:('a,time_input) panSem$state).
+    step prog (LAction (Input i)) s s' ∧
+    state_rel (clksOf prog) s t ∧
+    code_installed t.code prog ∧
+    ffi_rel (LAction (Input i)) s t ∧
+    local_state (LAction (Input i)) t ∧
+    code_installed t.code prog ∧
+    labProps$good_dimindex (:'a) ∧
+    (* extra assumptions *)
+    task_ret_defined t.locals (nClks prog) ∧
+    well_formed_terms prog s t ⇒
+    ?ck t'.
+      evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
+      (NONE, t') ∧
+      state_rel (clksOf prog) s' t' ∧
+      code_installed t'.code prog ∧
+      next_wakeup (LAction (Input i)) t t' ∧
+      event_state t' ∧
+      task_ret_defined t'.locals (nClks prog) ∧
+      well_formed_terms prog s' t'
+Proof
   rw [] >>
-  drule_all step_output >>
-  disch_then (qspec_then ‘ck_extra’ mp_tac) >>
-  fs []
+  fs [ffi_rel_def] >>
+  drule step_input >>
+  disch_then (qspec_then ‘t’ mp_tac) >>
+  impl_tac
+  >- gs [action_rel_def, local_state_def, local_action_def] >>
+  strip_tac >>
+  qexists_tac ‘ck’ >>
+  qexists_tac ‘t'’ >>
+  gs [] >>
+  conj_tac
+  >- (
+    gs [next_wakeup_def] >>
+    qexists_tac ‘wt’ >> gs []) >>
+  conj_tac
+  >- gs [event_state_def] >>
+  gs [well_formed_terms_def]  >>
+  gen_tac >>
+  strip_tac >>
+  (* need more assumptions *)
+  cheat
 QED
 
 
+Theorem step_output_weaker:
+  !prog os s s' (t:('a,time_input) panSem$state).
+    step prog (LAction (Output os)) s s' ∧
+    state_rel (clksOf prog) s t ∧
+    code_installed t.code prog ∧
+    ffi_rel (LAction (Output os)) s t ∧
+    local_state (LAction (Output os)) t ∧
+    code_installed t.code prog ∧
+    labProps$good_dimindex (:'a) ∧
+    (* should be rephrased *)
+    (∃tt. s.waitTime = SOME tt) ∧
+    (* extra assumptions *)
+    task_ret_defined t.locals (nClks prog) ∧
+    well_formed_terms prog s t ⇒
+    ?ck t'.
+      evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
+      (NONE, t') ∧
+      state_rel (clksOf prog) s' t' ∧
+      code_installed t'.code prog ∧
+      next_wakeup (LAction (Output os)) t t' ∧
+      event_state t' ∧
+      task_ret_defined t'.locals (nClks prog) ∧
+      well_formed_terms prog s' t'
+Proof
+  rw [] >>
+  fs [ffi_rel_def] >>
+  drule step_output >>
+  disch_then (qspec_then ‘t’ mp_tac) >>
+  impl_tac
+  >- gs [action_rel_def, local_state_def, local_action_def] >>
+  strip_tac >>
+  qexists_tac ‘ck’ >>
+  qexists_tac ‘t'’ >>
+  gs [] >>
+  conj_tac
+  >- (
+    gs [next_wakeup_def] >>
+    qexists_tac ‘wt’ >> gs []) >>
+  conj_tac
+  >- gs [event_state_def] >>
+  gs [well_formed_terms_def]  >>
+  gen_tac >>
+  strip_tac >>
+  (* need more assumptions *)
+  cheat
+QED
+
+
+(*
+Definition next_wakeup_def:
+  (next_wakeup (LDelay _) (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) =
+   (FLOOKUP t'.locals «waitSet» = SOME (ValWord 0w) ∧
+    FLOOKUP t'.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt»)) ∧
+  (next_wakeup (LAction _) t t' =
+   (t'.ffi.ffi_state = t.ffi.ffi_state ∧
+    FLOOKUP t'.locals «waitSet» = SOME (ValWord 0w) ∧
+    (∃wt.
+       FLOOKUP t'.locals «wakeUpAt» =
+       SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) + wt))) ∧
+       FST (t.ffi.ffi_state 0) + wt < dimword (:α))))
+End
+
+
+Definition eventual_wakeup_def:
+  eventual_wakeup prog <=>
+  let tms = FLAT (MAP SND prog) in
+    EVERY (λtm.
+            ∃h t. termWaitTimes tm = h::t)
+          tms
+End
+
+*)
 
 val _ = export_theory();
