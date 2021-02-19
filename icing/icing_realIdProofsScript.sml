@@ -253,18 +253,63 @@ Theorem fp_neg_times_minus_one_real_id:
   ∀ st1 st2 env e r.
     is_real_id_exp [fp_neg_times_minus_one] st1 st2 env e r
 Proof
-  cheat
+  rpt strip_tac
+  \\ fs[is_real_id_exp_def]
+  \\ qspecl_then [‘e’] strip_assume_tac (ONCE_REWRITE_RULE [DISJ_COMM] fp_neg_times_minus_one_cases)
+  \\ fs[state_component_equality,fpState_component_equality]
+  \\ rpt strip_tac
+  \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
+  \\ simp[SimpL “$==>”, realify_def, evaluate_def, astTheory.getOpClass_def,
+          evaluate_case_case, do_app_def]
+  \\ ntac 2 (TOP_CASE_TAC \\ gs[])
+  \\ ‘q.fp_state.real_sem’ by (imp_res_tac evaluate_fp_opts_inv \\ gs[])
+  \\ gs[] \\ imp_res_tac evaluate_sing \\ rveq \\ gs[]
+  \\ ‘st1 with <|refs := st1.refs; ffi := st1.ffi|> = st1’ by fs[state_component_equality]
+  \\ pop_assum (fs o single)
+  \\ Cases_on ‘v’ \\ gs[] \\ rpt strip_tac \\ rveq \\ gs[]
+  \\ gs[realify_def, evaluate_def, astTheory.getOpClass_def, do_app_def]
+  \\ gs[state_component_equality, fpState_component_equality]
+  \\ gs[machine_ieeeTheory.fp64_to_real_def, float_to_real_def, realOpsTheory.real_uop_def,
+        realOpsTheory.real_bop_def, getRealUop_def, getRealBop_def,
+        machine_ieeeTheory.fp64_to_float_def]
+  \\ gs[realTheory.real_div, realTheory.REAL_MUL_LZERO, realTheory.REAL_ADD_RID,
+        realTheory.REAL_MUL_RID, realTheory.REAL_MUL_RINV, realTheory.REAL_MUL_RNEG]
 QED
 
 Theorem fp_neg_times_minus_one_real_id_unfold =
-        SIMP_RULE std_ss [icing_optimisationsTheory.fp_neg_times_minus_one_def]
+        SIMP_RULE std_ss [icing_optimisationsTheory.fp_neg_times_minus_one_def,
+                          reverse_tuple_def, fp_times_minus_one_neg_def]
                   fp_neg_times_minus_one_real_id;
 
 Theorem fp_times_two_to_add_real_id:
   ∀ st1 st2 env e r.
     is_real_id_exp [fp_times_two_to_add] st1 st2 env e r
 Proof
-  cheat
+  rpt strip_tac
+  \\ fs[is_real_id_exp_def]
+  \\ qspecl_then [‘e’] strip_assume_tac (ONCE_REWRITE_RULE [DISJ_COMM] fp_times_two_to_add_cases)
+  \\ fs[state_component_equality,fpState_component_equality]
+  \\ rpt strip_tac
+  \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
+  \\ simp[SimpL “$==>”, realify_def, evaluate_def, astTheory.getOpClass_def,
+          evaluate_case_case, do_app_def]
+  \\ ntac 4 (TOP_CASE_TAC \\ gs[])
+  \\ ‘q.fp_state.real_sem’ by (imp_res_tac evaluate_fp_opts_inv \\ gs[])
+  \\ gs[] \\ imp_res_tac evaluate_sing \\ rveq \\ gs[]
+  \\ ‘st1 = q ∧ q = q'’ by (imp_res_tac evaluate_realify_state  \\ gs[isPureExp_def])
+  \\ rveq
+  \\ Cases_on ‘v’ \\ gs[] \\ rpt strip_tac \\ rveq
+  \\ gs[realify_def, evaluate_def, astTheory.getOpClass_def, do_app_def]
+  \\ ‘q with <|refs := q.refs; ffi := q.ffi|> = q’ by fs[state_component_equality]
+  \\ pop_assum (fs o single)
+  \\ gs[state_component_equality, fpState_component_equality] \\ rpt strip_tac
+  \\ rveq \\ gs[]
+  \\ gs[machine_ieeeTheory.fp64_to_real_def, float_to_real_def, realOpsTheory.real_uop_def,
+        realOpsTheory.real_bop_def, getRealUop_def, getRealBop_def,
+        machine_ieeeTheory.fp64_to_float_def]
+  \\ gs[realTheory.real_div, realTheory.REAL_MUL_LZERO, realTheory.REAL_ADD_RID,
+        realTheory.REAL_MUL_RID, realTheory.REAL_MUL_RINV, realTheory.REAL_MUL_RNEG]
+  \\ RealArith.REAL_ASM_ARITH_TAC
 QED
 
 Theorem fp_times_two_to_add_real_id_unfold =
@@ -275,7 +320,32 @@ Theorem fp_times_three_to_add_real_id:
   ∀ st1 st2 env e r.
     is_real_id_exp [fp_times_three_to_add] st1 st2 env e r
 Proof
-  cheat
+  rpt strip_tac
+  \\ fs[is_real_id_exp_def]
+  \\ qspecl_then [‘e’] strip_assume_tac (ONCE_REWRITE_RULE [DISJ_COMM] fp_times_three_to_add_cases)
+  \\ fs[state_component_equality,fpState_component_equality]
+  \\ rpt strip_tac
+  \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
+  \\ simp[SimpL “$==>”, realify_def, evaluate_def, astTheory.getOpClass_def,
+          evaluate_case_case, do_app_def]
+  \\ ntac 6 (TOP_CASE_TAC \\ gs[])
+  \\ ‘q''.fp_state.real_sem’ by (imp_res_tac evaluate_fp_opts_inv \\ gs[])
+  \\ gs[] \\ imp_res_tac evaluate_sing \\ rveq \\ gs[]
+  \\ ‘st1 = q ∧ q = q' ∧ q' = q''’
+    by (imp_res_tac evaluate_realify_state  \\ gs[isPureExp_def])
+  \\ rveq \\ gs[] \\ rveq
+  \\ Cases_on ‘v’ \\ gs[] \\ rpt strip_tac \\ rveq
+  \\ gs[realify_def, evaluate_def, astTheory.getOpClass_def, do_app_def]
+  \\ ‘q with <|refs := q.refs; ffi := q.ffi|> = q’ by fs[state_component_equality]
+  \\ pop_assum (fs o single)
+  \\ gs[state_component_equality, fpState_component_equality] \\ rpt strip_tac
+  \\ rveq \\ gs[]
+  \\ gs[machine_ieeeTheory.fp64_to_real_def, float_to_real_def, realOpsTheory.real_uop_def,
+        realOpsTheory.real_bop_def, getRealUop_def, getRealBop_def,
+        machine_ieeeTheory.fp64_to_float_def]
+  \\ gs[realTheory.real_div, realTheory.REAL_MUL_LZERO, realTheory.REAL_ADD_RID,
+        realTheory.REAL_MUL_RID, realTheory.REAL_MUL_RINV, realTheory.REAL_MUL_RNEG]
+  \\ RealArith.REAL_ASM_ARITH_TAC
 QED
 
 Theorem fp_times_three_to_add_real_id_unfold =
@@ -286,7 +356,32 @@ Theorem fp_times_minus_one_neg_real_id:
   ∀ st1 st2 env e r.
     is_real_id_exp [fp_times_minus_one_neg] st1 st2 env e r
 Proof
-  cheat
+  rpt strip_tac
+  \\ fs[is_real_id_exp_def]
+  \\ qspecl_then [‘e’] strip_assume_tac (ONCE_REWRITE_RULE [DISJ_COMM] fp_times_minus_one_neg_cases)
+  \\ fs[state_component_equality,fpState_component_equality]
+  \\ rpt strip_tac
+  \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
+  \\ simp[SimpL “$==>”, realify_def, evaluate_def, astTheory.getOpClass_def,
+          evaluate_case_case, do_app_def]
+  \\ ntac 2 (TOP_CASE_TAC \\ gs[])
+  \\ ‘q.fp_state.real_sem’ by (imp_res_tac evaluate_fp_opts_inv \\ gs[])
+  \\ gs[] \\ imp_res_tac evaluate_sing \\ rveq \\ gs[]
+  \\ ‘st1 = q’
+    by (imp_res_tac evaluate_realify_state  \\ gs[isPureExp_def])
+  \\ rveq \\ gs[] \\ rveq
+  \\ Cases_on ‘v’ \\ gs[] \\ rpt strip_tac \\ rveq
+  \\ gs[realify_def, evaluate_def, astTheory.getOpClass_def, do_app_def]
+  \\ ‘q with <|refs := q.refs; ffi := q.ffi|> = q’ by fs[state_component_equality]
+  \\ pop_assum (fs o single)
+  \\ gs[state_component_equality, fpState_component_equality] \\ rpt strip_tac
+  \\ rveq \\ gs[]
+  \\ gs[machine_ieeeTheory.fp64_to_real_def, float_to_real_def, realOpsTheory.real_uop_def,
+        realOpsTheory.real_bop_def, getRealUop_def, getRealBop_def,
+        machine_ieeeTheory.fp64_to_float_def]
+  \\ gs[realTheory.real_div, realTheory.REAL_MUL_LZERO, realTheory.REAL_ADD_RID,
+        realTheory.REAL_MUL_RID, realTheory.REAL_MUL_RINV, realTheory.REAL_MUL_RNEG]
+  \\ RealArith.REAL_ASM_ARITH_TAC
 QED
 
 Theorem fp_times_minus_one_neg_real_id_unfold =

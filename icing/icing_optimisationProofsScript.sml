@@ -714,7 +714,8 @@ Proof
 QED
 
 Theorem fp_neg_times_minus_one_correct_unfold =
-        REWRITE_RULE [fp_neg_times_minus_one_def] fp_neg_times_minus_one_correct;
+        REWRITE_RULE [fp_neg_times_minus_one_def, reverse_tuple_def,
+                      fp_times_minus_one_neg_def] fp_neg_times_minus_one_correct;
 
 Theorem fp_distribute_gen_correct:
   ∀ fpBop1 fpBop2 st1 st2 env e r.
