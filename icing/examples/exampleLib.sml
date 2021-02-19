@@ -720,31 +720,24 @@ struct
         \\ unabbrev_all_tac \\ gs[freeVars_arithExp_bound_def]
         \\ gs[freeVars_fp_bound_def, extend_env_with_vars_def])
         \\ rpt strip_tac \\ gs[ml_progTheory.nsLookup_nsBind_compute])
-        (*\\ gs[freeVars_arithExp_bound_def, icing_rewriterTheory.isFpArithExp_def,
-              freeVars_fp_bound_def]
-        \\ rpt conj_tac
-        (* Non-let goals are automatically solved *)
-        \\ TRY (gs[extend_env_with_vars_def] \\ NO_TAC)
-        (* Remainder: let-goals *)
-        \\ rpt strip_tac
-        (* Let-goals not reasoning about let-bound variable *)
-        \\ TRY (gs[extend_env_with_vars_def,namespaceTheory.nsOptBind_def] \\ NO_TAC)
-        \\ rveq
-        \\ qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
-        \\ qmatch_goalsub_abbrev_tac ‘evaluate theState theEnv [theExp] = _’
-        \\ ‘isFpArithExp theExp’ by (unabbrev_all_tac \\ EVAL_TAC)
-        \\ first_x_assum $ mp_then Any mp_tac (INST_TYPE [“:'a” |-> “:unit”]
-                (CONJUNCT1 icing_rewriterProofsTheory.isFpArithExp_matched_evaluates))
-        \\ disch_then (qspecl_then [‘theEnv’, ‘theState’] mp_tac)
-        \\ impl_tac
-        (* free variables must be bound *)
-        \\ TRY (rpt strip_tac \\ rename1 ‘x IN FV theExp’ \\ unabbrev_all_tac
-                \\ gs[extend_env_with_vars_def, namespaceTheory.nsOptBind_def]
-                \\ NO_TAC)
-        (* use the theorem to prove the conclusion *)
-        \\ TRY (rpt strip_tac \\ imp_res_tac evaluatePropsTheory.evaluate_sing \\ gs[]
-                \\ rveq \\ gs[extend_env_with_vars_def, namespaceTheory.nsOptBind_def] \\ NO_TAC)
-        ) *)
+      val freeVars_real_list_body = store_thm ("freeVars_list_body",
+        Parse.Term ‘
+        ∀ (st1:unit semanticPrimitives$state) st2.
+          freeVars_realPlan_bound st1 st2
+            (theAST_env with v :=
+             toRspace (extend_env_with_vars (REVERSE ^fvars) (REVERSE ^argList) (theAST_env).v))
+            no_fp_opt_conf []
+            ^body’,
+        rpt strip_tac
+        \\ gs[theAST_plan_result, freeVars_realPlan_bound_def, freeVars_realExp_bound_def, EVERYi_def]
+        \\  rpt conj_tac
+        (* Non-let goals automatically solved *)
+        \\ rpt (gs[freeVars_real_bound_def, extend_env_with_vars_def, EVERYi_def]
+        \\  qmatch_goalsub_abbrev_tac ‘freeVars_arithExp_bound st1 st2 theAST_env_new _ _ rewrittenExp’
+        \\ qpat_x_assum ‘Abbrev(rewrittenExp = _)’ (assume_tac o EVAL_RULE)
+        \\ unabbrev_all_tac \\ gs[freeVars_realExp_bound_def]
+        \\ gs[freeVars_real_bound_def, extend_env_with_vars_def])
+        \\ rpt strip_tac \\ gs[ml_progTheory.nsLookup_nsBind_compute])
       val theAST_opt_backward_sim = store_thm ("theAST_opt_backward_sim",
         Parse.Term ‘theAST_opt_float_option_noopt ^args = SOME w ⇒
         theAST_float_returns ^args (compress_word w)’,
@@ -850,7 +843,9 @@ struct
          \\ disch_then (qspecl_then [‘NoOpt’, ‘empty_state.fp_state.choices’] mp_tac)
          \\ impl_tac \\ unabbrev_all_tac
          >- (EVAL_TAC)
-         \\ qmatch_goalsub_abbrev_tac ‘evaluate emptyWithReals realEnv [realify (FST (optimise_with_plan theOpts thePlan e_init))] = _’
+         \\ qmatch_goalsub_abbrev_tac
+              ‘evaluate emptyWithReals realEnv
+                [realify (FST (optimise_with_plan theOpts thePlan e_init))] = _’
          \\ strip_tac
          \\ fs[is_real_id_optimise_with_plan_def]
          \\ first_x_assum (
@@ -862,7 +857,8 @@ struct
           imp_res_tac evaluate_realify_state
           \\ qpat_x_assum `isPureExp _ ⇒ _ = _` mp_tac
           \\ impl_tac >- EVAL_TAC
-          \\ strip_tac \\ fs[theOpts_def, no_fp_opt_conf_def])
+          \\ strip_tac \\ gs[theOpts_def, no_fp_opt_conf_def]
+          \\ assume_tac freeVars_real_list_body \\ gs[no_fp_opt_conf_def])
          \\ strip_tac \\ rveq
          \\ irule REAL_LE_TRANS \\ asm_exists_tac \\ fs[])
         \\ ntac (numArgs-1)
