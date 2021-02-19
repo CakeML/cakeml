@@ -1932,13 +1932,13 @@ QED
 
 Theorem fp_assoc2_gen_correct_unfold =
         REWRITE_RULE [reverse_tuple_def, fp_assoc2_gen_def, fp_assoc_gen_def]
-                     fp_assoc_gen_correct;
+                     fp_assoc2_gen_correct;
 Theorem fp_assoc2_gen_correct_unfold_add =
         REWRITE_RULE [reverse_tuple_def, fp_assoc2_gen_def, fp_assoc_gen_def]
-                     (Q.SPEC ‘FP_Add’ fp_assoc_gen_correct);
+                     (Q.SPEC ‘FP_Add’ fp_assoc2_gen_correct);
 Theorem fp_assoc2_gen_correct_unfold_mul =
         REWRITE_RULE [reverse_tuple_def, fp_assoc2_gen_def, fp_assoc_gen_def]
-                     (Q.SPEC ‘FP_Mul’ fp_assoc_gen_correct);
+                     (Q.SPEC ‘FP_Mul’ fp_assoc2_gen_correct);
 
 Theorem fp_fma_intro_correct:
   ∀ st1 st2 env e r.

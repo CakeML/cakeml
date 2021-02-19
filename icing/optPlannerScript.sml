@@ -295,10 +295,10 @@ End
 Definition canonicalize_sub_def:
   canonicalize_sub e =
     case e of
-    | (App (FP_bop FP_Sub) [e1; e2]) =>
+    (* | (App (FP_bop FP_Sub) [e1; e2]) =>
         (App (FP_bop FP_Add) [e1; rewriteFPexp [fp_neg_times_minus_one] (App (FP_uop FP_Neg) [e2])],
          [Apply (Here, [fp_sub_add]);
-          Apply (ListIndex (1, Here),  [fp_neg_times_minus_one])])
+          Apply (ListIndex (1, Here),  [fp_neg_times_minus_one])]) *)
     | _ => (e, [])
 End
 
