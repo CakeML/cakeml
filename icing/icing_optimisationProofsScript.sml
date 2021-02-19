@@ -630,6 +630,92 @@ QED
   correctness proofs from source_to_sourceProofs, we automatically
   construct backwards simulation proofs for a run of the optimiser
 **)
+Theorem fp_neg_times_minus_one_correct:
+  ∀ st1 st2 env e r.
+   is_rewriteFPexp_correct [fp_neg_times_minus_one] st1 st2 env e r
+Proof
+  cheat (*
+  rw[is_rewriteFPexp_correct_def]
+  \\ REVERSE (qspecl_then [`e`] strip_assume_tac fp_neg_times_minus_one_cases)
+  >- (
+   fs[]
+   \\ extend_eval_tac ‘evaluate st1 _ _ = _’ ‘[fp_neg_times_minus_one]’
+   \\ strip_tac
+   \\ pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_add_choices))
+   \\ disch_then (qspec_then ‘st1.fp_state.choices’ assume_tac)
+   \\ fsrw_tac [SATISFY_ss] [])
+  \\ imp_res_tac evaluate_sing
+  \\ pop_assum (fs o single)
+  \\ ‘∃ fp. v = FP_WordTree fp’
+     by (fs[freeVars_fp_bound_def]
+         \\ mp_tac (GEN_ALL icing_rewriterProofsTheory.rewriteFPexp_returns_fp)
+         \\ disch_then $ qspecl_then [‘st1’, ‘st2’, ‘e’, ‘FST(fp_neg_times_minus_one)’,
+                                      ‘SND(fp_neg_times_minus_one)’, ‘env’, ‘App (FP_uop FP_Neg) [e1]’, ‘v’]
+                       mp_tac
+         \\ impl_tac \\ gs[isFpArithExp_def, isPureExp_def])
+  \\ qpat_x_assum `_ = App _ _` (fs o single)
+  \\ rveq
+  \\ qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
+         Once terminationTheory.evaluate_def, Once evaluate_cons, evaluate_case_case]
+  \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+  \\ imp_res_tac evaluate_sing \\ rveq
+  \\ fs[do_app_def] \\ ntac 3 (TOP_CASE_TAC \\ fs[])
+  \\ ‘q.fp_state.canOpt = FPScope Opt’ by fp_inv_tac
+  \\ gs[] \\ rpt strip_tac
+  \\ rename1 ‘evaluate st1 env [e1] = (st3, Rval [v])’
+  \\ ‘st3 = st1 with fp_state := st3.fp_state ∧
+      st2 = st1 with fp_state := st2.fp_state’
+    by (imp_res_tac isPureExp_same_ffi \\ fs[isPureExp_def]
+        \\ res_tac
+        \\ fs[state_component_equality, shift_fp_opts_def, CaseEq"option", CaseEq"v"])
+  \\ ntac 3(simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
+                 Once terminationTheory.evaluate_def, Once evaluate_cons,
+                 evaluate_case_case, do_app_def])
+  \\ qpat_assum `evaluate _ _ [e1] = _`
+                (mp_then Any mp_tac isPureExp_evaluate_change_oracle)
+  \\ fs[isPureExp_def]
+  \\ Cases_on ‘fp_translate v’ \\ gs[CaseEq"v"] \\ rveq
+  \\ disch_then (
+     qspecl_then [
+       ‘fp_neg_times_minus_one’,
+       ‘st1 with fp_state := st1.fp_state with choices :=
+          st1.fp_state.choices’,
+       ‘λ x. if (x = 0)
+        then [RewriteApp Here (LENGTH st1.fp_state.rws + 1)] ++
+             (case do_fprw (Rval (FP_WordTree (fp_uop FP_Neg w1)))
+                           (st3.fp_state.opts 0) st3.fp_state.rws of
+              | NONE => [] | SOME r_opt => st3.fp_state.opts x)
+        else []’] mp_tac)
+  \\ impl_tac >- fp_inv_tac
+  \\ strip_tac \\ fs state_eqs
+  \\ qexists_tac ‘oracle’ \\ qexists_tac ‘st1.fp_state.choices’
+  \\ pop_assum mp_tac \\ qmatch_goalsub_abbrev_tac ‘evaluate st1Upd _ _ = _’
+  \\ strip_tac
+  \\ ‘st1Upd = st1Upd with <| refs := st1.refs; ffi := st1.ffi|>’
+    by (unabbrev_all_tac \\ fs state_eqs)
+  \\ pop_assum (rewrite_tac o single o GSYM)
+  \\ fs state_eqs
+  \\ fs([fp_translate_def, shift_fp_opts_def] @ state_eqs) \\ rveq
+  \\ rpt conj_tac
+  >- fp_inv_tac
+  >- (fp_inv_tac \\ fs[FUN_EQ_THM])
+  >- fp_inv_tac
+  \\ simp[do_fprw_def, rwAllWordTree_def, nth_len]
+  \\ simp[EVAL ``rwFp_pathWordTree fp_neg_times_minus_one Here
+          (fp_bop FP_Mul w1 (Fp_const 0xBFF0000000000000w))``,
+          instWordTree_def, substLookup_def]
+  \\ ‘st1.fp_state.rws = st3.fp_state.rws’ by fp_inv_tac
+  \\ fs[do_fprw_def, CaseEq"option"] \\ rveq
+  \\ gs[rwAllWordTree_def, fp_uop_def]
+  \\ imp_res_tac rwAllWordTree_append_opt
+  \\ first_x_assum (qspec_then `[fp_neg_times_minus_one]` assume_tac)
+  \\ gs[] *)
+QED
+
+Theorem fp_neg_times_minus_one_correct_unfold =
+        REWRITE_RULE [fp_neg_times_minus_one_def] fp_neg_times_minus_one_correct;
+
 Theorem fp_distribute_gen_correct:
   ∀ fpBop1 fpBop2 st1 st2 env e r.
    is_rewriteFPexp_correct [fp_distribute_gen fpBop1 fpBop2] st1 st2 env e r
@@ -1374,7 +1460,6 @@ QED
 
 Theorem fp_times_one_correct_unfold =
         REWRITE_RULE [fp_times_one_def] fp_times_one_correct;
-
 
 Theorem fp_comm_gen_correct:
   ∀ fpBop (st1 st2:'a semanticPrimitives$state) env e res.

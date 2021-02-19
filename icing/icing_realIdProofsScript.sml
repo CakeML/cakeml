@@ -249,6 +249,49 @@ QED
   error of the real-valued semantics of the initial program, and
   the floating-point semantics of the optimised program later
 **)
+Theorem fp_neg_times_minus_one_real_id:
+  ∀ st1 st2 env e r.
+    is_real_id_exp [fp_neg_times_minus_one] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_neg_times_minus_one_real_id_unfold =
+        SIMP_RULE std_ss [icing_optimisationsTheory.fp_neg_times_minus_one_def]
+                  fp_neg_times_minus_one_real_id;
+
+Theorem fp_times_two_to_add_real_id:
+  ∀ st1 st2 env e r.
+    is_real_id_exp [fp_times_two_to_add] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_times_two_to_add_real_id_unfold =
+        SIMP_RULE std_ss [icing_optimisationsTheory.fp_times_two_to_add_def]
+                  fp_times_two_to_add_real_id;
+
+Theorem fp_times_three_to_add_real_id:
+  ∀ st1 st2 env e r.
+    is_real_id_exp [fp_times_three_to_add] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_times_three_to_add_real_id_unfold =
+        SIMP_RULE std_ss [icing_optimisationsTheory.fp_times_three_to_add_def]
+                  fp_times_three_to_add_real_id;
+
+Theorem fp_times_minus_one_neg_real_id:
+  ∀ st1 st2 env e r.
+    is_real_id_exp [fp_times_minus_one_neg] st1 st2 env e r
+Proof
+  cheat
+QED
+
+Theorem fp_times_minus_one_neg_real_id_unfold =
+        SIMP_RULE std_ss [icing_optimisationsTheory.fp_times_minus_one_neg_def]
+                  fp_times_minus_one_neg_real_id;
 
 Theorem fp_comm_gen_real_id:
   ∀ fpBop st1 st2 env e r.
