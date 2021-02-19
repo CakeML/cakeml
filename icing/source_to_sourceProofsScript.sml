@@ -20,6 +20,52 @@ val _ = new_theory "source_to_sourceProofs";
 val choice_mono =
   (CONJUNCT1 evaluate_fp_opts_inv) |> SPEC_ALL |> UNDISCH |> CONJUNCTS |> el 3 |> DISCH_ALL;
 
+(* TODO: Move *)
+Theorem nsMap_nsBind:
+  nsMap f (nsBind x v env) = nsBind x (f v) (nsMap f env)
+Proof
+  Cases_on ‘env’ \\ gs[namespaceTheory.nsBind_def, terminationTheory.nsMap_def]
+QED
+
+(* TODO: Move *)
+Theorem list_result_rw:
+  ∀ schedule st1 fp.
+    list_result (
+      case do_fprw (Rval (FP_WordTree fp)) schedule st1.fp_state.rws
+      of
+        NONE => Rval (FP_WordTree fp)
+      | SOME r_opt => r_opt) =
+    Rval [FP_WordTree
+          (case rwAllWordTree schedule st1.fp_state.rws fp of
+             NONE => fp
+           | SOME r_opt => r_opt)]
+Proof
+  rpt strip_tac \\ gs[semanticPrimitivesTheory.do_fprw_def, CaseEq"option"]
+  \\ Cases_on ‘rwAllWordTree schedule st1.fp_state.rws fp’ \\ gs[]
+QED
+
+(* TODO: Move *)
+Theorem list_result_cond_rw:
+  ∀ schedule st1 fp.
+    list_result (
+      if st1.fp_state.canOpt = FPScope Opt then
+      (case do_fprw (Rval (FP_WordTree fp)) schedule st1.fp_state.rws
+      of
+        NONE => Rval (FP_WordTree fp)
+      | SOME r_opt => r_opt)
+      else Rval (FP_WordTree fp)) =
+    Rval [FP_WordTree
+          (if st1.fp_state.canOpt = FPScope Opt then
+            (case rwAllWordTree schedule st1.fp_state.rws fp of
+               NONE => fp
+             | SOME r_opt => r_opt)
+          else fp)]
+Proof
+  rpt strip_tac \\ gs[semanticPrimitivesTheory.do_fprw_def]
+  \\ COND_CASES_TAC \\ gs[CaseEq"option"]
+  \\ Cases_on ‘rwAllWordTree schedule st1.fp_state.rws fp’ \\ gs[]
+QED
+
 Theorem fp_state_opts_eq[local]:
   fps with <| rws := rwsN; opts := fps.opts |> = fps with <| rws := rwsN |>
 Proof
