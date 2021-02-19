@@ -14,7 +14,7 @@ open semanticPrimitivesTheory evaluatePropsTheory;
 open fpValTreeTheory fpSemPropsTheory fpOptTheory fpOptPropsTheory
      icing_optimisationsTheory icing_rewriterTheory source_to_sourceProofsTheory
      floatToRealTheory floatToRealProofsTheory icing_optimisationProofsTheory
-     pureExpsTheory terminationTheory binary_ieeeTheory;
+     pureExpsTheory terminationTheory binary_ieeeTheory realLib realTheory RealArith;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -297,18 +297,19 @@ Proof
   \\ ‘q.fp_state.real_sem’ by (imp_res_tac evaluate_fp_opts_inv \\ gs[])
   \\ gs[] \\ imp_res_tac evaluate_sing \\ rveq \\ gs[]
   \\ ‘st1 = q ∧ q = q'’ by (imp_res_tac evaluate_realify_state  \\ gs[isPureExp_def])
-  \\ rveq
+  \\ rveq \\ gs[] \\ rveq
   \\ Cases_on ‘v’ \\ gs[] \\ rpt strip_tac \\ rveq
   \\ gs[realify_def, evaluate_def, astTheory.getOpClass_def, do_app_def]
   \\ ‘q with <|refs := q.refs; ffi := q.ffi|> = q’ by fs[state_component_equality]
   \\ pop_assum (fs o single)
   \\ gs[state_component_equality, fpState_component_equality] \\ rpt strip_tac
   \\ rveq \\ gs[]
+  \\ gs[EVAL “fp64_to_real 0x4000000000000000w”]
   \\ gs[machine_ieeeTheory.fp64_to_real_def, float_to_real_def, realOpsTheory.real_uop_def,
         realOpsTheory.real_bop_def, getRealUop_def, getRealBop_def,
         machine_ieeeTheory.fp64_to_float_def]
-  \\ gs[realTheory.real_div, realTheory.REAL_MUL_LZERO, realTheory.REAL_ADD_RID,
-        realTheory.REAL_MUL_RID, realTheory.REAL_MUL_RINV, realTheory.REAL_MUL_RNEG]
+  \\ gs[realTheory.REAL_MUL_LZERO, realTheory.REAL_ADD_RID,
+        realTheory.REAL_MUL_RID, realTheory.REAL_MUL_RINV, realTheory.REAL_MUL_RNEG, REAL_OF_NUM_POW]
   \\ RealArith.REAL_ASM_ARITH_TAC
 QED
 
@@ -408,11 +409,8 @@ Proof
   imp_res_tac evaluate_sing>>fs[]>>
   Cases_on`fpBop`>>fs[floatToRealTheory.getRealBop_def,do_app_def]>>
   every_case_tac>>simp[state_component_equality,fpState_component_equality] >>
-  simp[realOpsTheory.real_bop_def]
-  >-
-    metis_tac[realTheory.REAL_ADD_COMM]
-  >-
-    metis_tac[realTheory.REAL_MUL_COMM]
+  simp[realOpsTheory.real_bop_def] >>
+  metis_tac[realTheory.REAL_ADD_COMM]
 QED
 
 Theorem fp_comm_gen_real_id_unfold_add = SIMP_RULE std_ss [fp_bop_distinct, icing_optimisationsTheory.fp_comm_gen_def] (Q.SPEC ‘FP_Add’ fp_comm_gen_real_id);
@@ -449,9 +447,8 @@ Proof
   strip_tac>>rveq>>simp[]>>
   simp[state_component_equality,fpState_component_equality]>>
   EVAL_TAC>>simp[]>>
-  Cases_on`fpBop`>>fs[floatToRealTheory.getRealBop_def]
-  >- metis_tac[realTheory.REAL_ADD_ASSOC]
-  >- metis_tac[realTheory.REAL_MUL_ASSOC]
+  Cases_on`fpBop`>>fs[floatToRealTheory.getRealBop_def] >>
+  metis_tac[realTheory.REAL_ADD_ASSOC]
 QED
 
 Theorem fp_assoc_gen_real_id_unfold_add = SIMP_RULE std_ss [fp_bop_distinct, icing_optimisationsTheory.fp_assoc_gen_def] (Q.SPEC ‘FP_Add’ fp_assoc_gen_real_id);
@@ -712,6 +709,7 @@ Proof
   \\ fs[realOpsTheory.real_bop_def, floatToRealTheory.getRealBop_def]
   \\ Cases_on ‘fpBopOuter’ \\ fs[floatToRealTheory.getRealBop_def]
   \\ Cases_on ‘fpBopInner’ \\ fs[floatToRealTheory.getRealBop_def]
+  \\ TRY (REAL_ASM_ARITH_TAC)
   \\ metis_tac [realTheory.REAL_ADD_RDISTRIB, realTheory.REAL_SUB_RDISTRIB, realTheory.REAL_DIV_ADD,
                 realTheory.real_div]
 QED
@@ -759,8 +757,8 @@ Proof
   \\ fs[realOpsTheory.real_bop_def, floatToRealTheory.getRealBop_def]
   \\ Cases_on ‘fpBopOuter’ \\ fs[floatToRealTheory.getRealBop_def]
   \\ Cases_on ‘fpBopInner’ \\ fs[floatToRealTheory.getRealBop_def]
-  \\ metis_tac [realTheory.REAL_ADD_RDISTRIB, realTheory.REAL_SUB_RDISTRIB, realTheory.REAL_DIV_ADD,
-                realTheory.real_div]
+  \\ TRY REAL_ASM_ARITH_TAC
+  \\ simp[REAL_ADD_LDISTRIB, REAL_SUB_LDISTRIB, real_div]
 QED
 
 Theorem fp_undistribute_gen_real_id_unfold =
