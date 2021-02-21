@@ -665,6 +665,11 @@ Definition canonicalize_for_distributivity_def:
       | _ => NONE) cfg e
 End
 
+Definition isVar_def:
+  isVar ((Var _):ast$exp) = T ∧
+  isVar _ = F
+End
+
 Definition apply_distributivity_local_def:
   apply_distributivity_local cfg e =
   (let (can_e, can_plan) = canonicalize_for_distributivity cfg e in
@@ -690,7 +695,7 @@ Definition apply_distributivity_local_def:
      | App (FP_bop op) [
          App (FP_bop op') [e1_1; e1_2];
          e2] =>
-         if ((op = FP_Add ∨ op = FP_Sub) ∧ op' = FP_Mul ∧ e1_2 = e2)
+         if ((op = FP_Add ∨ op = FP_Sub) ∧ op' = FP_Mul ∧ e1_2 = e2 ∧ ~isVar(e2))
             then
               (let plan = [Apply (ListIndex (1, Here), [fp_times_one_reverse; fp_comm_gen op']);
                            Apply (Here, [fp_distribute_gen op' op])];
