@@ -129,6 +129,18 @@ Proof
   \\ Cases \\rw[REV_ASSOCD]
 QED
 
+Theorem REV_ASSOCD_drop_prefix:
+  !pfx x s d. ~MEM x (MAP SND pfx) ⇒ REV_ASSOCD x (pfx ++ s) d = REV_ASSOCD x s d
+Proof
+  Induct >> rw[REV_ASSOCD_def]
+QED
+
+Theorem REV_ASSOCD_NOT_MEM_drop:
+  !s x. ~MEM x (MAP SND s) ==> REV_ASSOCD x s x = x
+Proof
+  Induct >> rw[REV_ASSOCD_def]
+QED
+
 Theorem REV_ASSOCD_self_append:
   !l. REV_ASSOCD x (MAP (f ## I) l ++ l) y = REV_ASSOCD x (MAP (f ## I) l) y
 Proof
@@ -319,10 +331,7 @@ QED
 Theorem TYPE_SUBST_drop_prefix:
   !l pfx a. ~MEM (Tyvar a) (MAP SND pfx) ==> TYPE_SUBST (pfx++l) (Tyvar a) = TYPE_SUBST l (Tyvar a)
 Proof
-  Induct_on `pfx`
-  >> rw[REV_ASSOCD_drop]
-  >> Cases_on `h`
-  >> fs[REV_ASSOCD_def]
+  gen_tac >> Induct >> rw[TYPE_SUBST_def,REV_ASSOCD_drop_prefix]
 QED
 
 Theorem TYPE_SUBST_drop_all:
@@ -414,6 +423,38 @@ Proof
   >> imp_res_tac TYPE_SUBST_drop_prefix
   >> first_x_assum (qspec_then `[(q,Tyvar a)]++sfx` assume_tac)
   >> fs[REV_ASSOCD_def]
+QED
+
+Theorem type_size_TYPE_SUBST:
+  !t s. type_size' t <= type_size' (TYPE_SUBST s t)
+Proof
+  ho_match_mp_tac type_ind
+  >> conj_tac
+  >- (
+    rw[type_size'_def]
+    >> Cases_on `MEM (Tyvar m) (MAP SND s)`
+    >- (
+      dxrule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
+      >> Cases_on `b`
+      >> fs[type_size'_def]
+    )
+    >> fs[REV_ASSOCD_NOT_MEM_drop,type_size'_def]
+  )
+  >> fs[type_size'_def]
+  >> Induct
+  >- fs[type_size'_def]
+  >> rw[type_size'_def]
+  >> fs[]
+  >> rpt(first_x_assum (qspec_then `s` assume_tac))
+  >> rw[ADD_MONO_LESS_EQ]
+QED
+
+Theorem type_size_TYPE_SUBST':
+  !s l1. SUM (MAP type_size' l1) <= SUM (MAP type_size' (MAP (λa. TYPE_SUBST s a) l1))
+Proof
+  rw[]
+  >> qspec_then `Tyapp m l1` mp_tac type_size_TYPE_SUBST
+  >> fs[type_size'_def,type1_size'_SUM_MAP]
 QED
 
 Theorem TYPE_SUBST_drop_suffix:
@@ -2075,6 +2116,15 @@ Theorem tyvars_TYPE_SUBST:
 Proof
   ho_match_mp_tac type_ind >> simp[tyvars_def] >>
   simp[EXTENSION,EVERY_MEM,MEM_FOLDR_LIST_UNION,PULL_EXISTS,MEM_MAP] >> rw[] >>
+  metis_tac[]
+QED
+
+Theorem tyvars_TYPE_SUBST_alt:
+  ∀ty tyin. set (tyvars (TYPE_SUBST tyin ty)) =
+             BIGUNION (IMAGE (set o tyvars o TYPE_SUBST tyin o Tyvar) (set(tyvars ty)))
+Proof
+  rw[tyvars_TYPE_SUBST] >>
+  rw[EXTENSION,PULL_EXISTS,EQ_IMP_THM,PULL_FORALL] >>
   metis_tac[]
 QED
 
@@ -5481,7 +5531,8 @@ End
 
 Theorem clean_tysubst_prop:
   (!s. ALL_DISTINCT (MAP SND (clean_tysubst s)))
-  /\ (!s. EVERY (λ(y,x). (?a. Tyvar a = x /\ x <> y)) (clean_tysubst s))
+  /\ (!s. EVERY (λx. ?a. SND x = Tyvar a) (clean_tysubst s))
+  /\ (!s. EVERY (UNCURRY $<>) (clean_tysubst s))
 Proof
   strip_tac
   >- (
@@ -5489,136 +5540,211 @@ Proof
     >> Cases >> Cases_on `r` >> rw[ALL_DISTINCT_APPEND,clean_tysubst_def]
     >> rw[MAP_SND_FILTER_NEQ,MEM_FILTER,FILTER_ALL_DISTINCT]
   )
-  >> Induct >- rw[clean_tysubst_def]
+  >> strip_tac
+  >> Induct >> fs[clean_tysubst_def]
   >> Cases >> Cases_on `r`
   >> rw[clean_tysubst_def,EVERY_FILTER_IMP]
 QED
 
-Theorem clean_tysubst_eq[local]:
-  (!s1 s2 a b tys. clean_tysubst (s1++[(a,Tyapp b tys)]++s2) = clean_tysubst (s1++s2))
-  /\ (!s1 s2 s3 a b c. a <> Tyvar b ==> clean_tysubst (s1++[(a,Tyvar b)]++s2++[(c,Tyvar b)]++s3) = clean_tysubst (s1++[(a,Tyvar b)]++s2++s3))
+val clean_tysubst_prop_conj = CONJUNCTS clean_tysubst_prop
+Theorem clean_tysubst_prop_deprecated:
+  (λx. ?a. SND x = Tyvar a) = (λ(x,y). ?a. y = Tyvar a)
 Proof
-  strip_tac
-  >- (
-    Induct >- (strip_tac >> Cases >> rw[clean_tysubst_def])
-    >> Cases >> Cases_on `r` >> fs[clean_tysubst_def]
-  )
-  >> Induct (* on s1 *)
-  >- (
-    Induct (* on s2 *)
-    >- rw[clean_tysubst_def,FILTER_IDEM]
-    >> Cases >> Cases_on `r`
-    >- (
-      rw[clean_tysubst_def]
-      >- (fs[] >> first_x_assum drule >> rw[clean_tysubst_def]
-        >> CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
-        >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
-        >> rw[]
-      )
-      >> FULL_CASE_TAC >> rw[clean_tysubst_def]
-      >- (
-        first_x_assum (qspecl_then [`s3`,`a`,`b`,`c`] mp_tac)
-        >> rw[clean_tysubst_def]
-        >> CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
-        >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
-        >> rw[]
-      )
-      >> rw[FILTER_IDEM]
-      >> first_x_assum drule
-      >> fs[clean_tysubst_def]
-    )
-    >> rw[clean_tysubst_def]
-    >> first_x_assum drule
-    >> fs[clean_tysubst_def]
-  )
-  >> Cases >> Cases_on `r`
-  >> rw[clean_tysubst_def]
+  fs[LAMBDA_PROD]
 QED
 
-Theorem clean_tysubst_FILTER_eq[local]:
-  (!s1 s2 a b. a <> Tyvar b ==> clean_tysubst (s1++[(a,Tyvar b)]++s2)
-  = clean_tysubst (s1++[(a,Tyvar b)]++FILTER (λ(y,x). x <> Tyvar b) s2))
+Theorem clean_tysubst_ALL_DISTINCT_MAP_SND =
+  el 1 clean_tysubst_prop_conj
+Theorem clean_tysubst_SND_Tyvar =
+  el 2 clean_tysubst_prop_conj
+Theorem clean_tysubst_ineq =
+  el 3 clean_tysubst_prop_conj
+
+Theorem clean_tysubst_FILTER_eq:
+  !s.  ALL_DISTINCT (MAP SND s)
+  ∧ EVERY (λx. ∃a. SND x = Tyvar a) s
+  ⇒ clean_tysubst s = FILTER (UNCURRY $<>) s
 Proof
-  Induct
-  >- (
-    Induct
-    >- fs[]
-    >> Cases >> Cases_on `r`
-    >- (
-      rw[clean_tysubst_def]
-      >- (
-        first_x_assum drule
-        >> rw[clean_tysubst_def]
-        >> CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
-        >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
-        >> rw[]
-      )
-      >- (
-        first_x_assum drule
-        >> rw[clean_tysubst_def,FILTER_IDEM]
-      )
-      >- (
-        first_x_assum drule
-        >> rw[clean_tysubst_def]
-        >> CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
-        >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [FILTER_COMM]))
-        >> rw[]
-      )
-      >> first_x_assum drule
-      >> rw[clean_tysubst_def,FILTER_IDEM]
-    )
-    >> fs[clean_tysubst_def]
+  ho_match_mp_tac clean_tysubst_ind
+  >> rw[clean_tysubst_def,FILTER_COMM]
+  >> qmatch_goalsub_abbrev_tac`FILTER _ (FILTER P _)`
+  >> `EVERY P s` by (
+    rw[Abbr`P`,EVERY_MEM,ELIM_UNCURRY]
+    >> qpat_x_assum `~MEM _ (MAP SND _)` mp_tac
+    >> imp_res_tac (Q.ISPEC `SND` MEM_MAP_f)
+    >> rw[Once MONO_NOT_EQ]
     >> fs[]
   )
-  >> Cases >> Cases_on `r`
-  >> rpt strip_tac
-  >> (
-    RULE_ASSUM_TAC GSYM
-    >> fs[clean_tysubst_def]
-  )
+  >> fs[GSYM FILTER_EQ_ID]
 QED
 
-Theorem clean_tysubst_NOT_MEM_MAP_SND:
-  !s x. ~MEM x (MAP SND s) ==> ~MEM x (MAP SND (clean_tysubst s))
+Theorem clean_tysubst_APPEND:
+  !s s'. clean_tysubst (s ++ s') = clean_tysubst s
+    ++ FILTER (λx. ¬MEM (SND x) (MAP SND s)) (clean_tysubst s')
 Proof
-  Induct
+  ho_match_mp_tac clean_tysubst_ind
+  >> rw[clean_tysubst_def,FILTER_APPEND,FILTER_FILTER,FILTER_EQ,ELIM_UNCURRY]
+  >> imp_res_tac (REWRITE_RULE[EVERY_MEM] clean_tysubst_prop)
+  >> fs[ELIM_UNCURRY]
+QED
+
+Theorem clean_tysubst_NOT_MEM:
+  !x s s'. IS_PREFIX s (s' ++ [x]) ∧ ¬MEM x (clean_tysubst s)
+  ⇒ UNCURRY $= x ∨ (?m l. SND x = Tyapp m l) ∨  MEM (SND x) (MAP SND s')
+Proof
+  Cases
+  >> rw[IS_PREFIX_APPEND,DISJ_EQ_IMP] >> fs[clean_tysubst_APPEND]
+  >> qpat_x_assum `~MEM _ (FILTER (λx. _ ∧ _) _)` kall_tac
+  >> Cases_on `r`
+  >> fs[MEM_FILTER,clean_tysubst_def]
+QED
+
+Theorem clean_tysubst_id:
+  !s. ALL_DISTINCT (MAP SND s)
+  ∧ EVERY (λx. ∃a. SND x = Tyvar a) s
+  ∧ EVERY (UNCURRY $<>) s
+  ⇒ clean_tysubst s = s
+Proof
+  ho_match_mp_tac clean_tysubst_ind
+  >> rw[clean_tysubst_def,FILTER_EQ_ID]
+  >> rw[EVERY_MEM]
+  >> imp_res_tac (Q.ISPEC `SND` MEM_MAP_f)
+  >> CCONTR_TAC
+  >> fs[UNCURRY]
+QED
+
+Theorem clean_tysubst_SUBSET:
+  !s. set (clean_tysubst s) ⊆ set s
+Proof
+  ho_match_mp_tac clean_tysubst_ind
+  >> rw[clean_tysubst_def,MEM_FILTER]
+  >> fs[Once INSERT_SING_UNION]
+  >> match_mp_tac SUBSET_TRANS
+  >> goal_assum (first_assum o mp_then Any mp_tac)
+  >> rw[SUBSET_UNION,MEM_FILTER,SUBSET_DEF,MEM_MAP]
+QED
+
+Theorem clean_tysubst_FST_SND_SUBSET:
+  (!s. set (MAP FST (clean_tysubst s)) ⊆ set (MAP FST s))
+  ∧ !s. set (MAP SND (clean_tysubst s)) ⊆ set (MAP SND s)
+Proof
+  conj_tac
+  >> gen_tac
+  >> qspec_then `s` assume_tac clean_tysubst_SUBSET
+  >> fs[SUBSET_DEF]
+  >> gen_tac >> disch_then (strip_assume_tac o REWRITE_RULE[MEM_MAP])
+  >> rveq
+  >> first_x_assum (drule_then assume_tac)
+  >> imp_res_tac (Q.ISPEC `FST:type#type->type` MEM_MAP_f)
+  >> imp_res_tac (Q.ISPEC `SND:type#type->type` MEM_MAP_f)
+QED
+
+Theorem clean_tysubst_NOT_MEM_MAP_SND =
+  REWRITE_RULE[Once MONO_NOT_EQ,SUBSET_DEF] (CONJUNCT2 clean_tysubst_FST_SND_SUBSET)
+
+Theorem clean_tysubst_FILTER_SND:
+  !P s. clean_tysubst (FILTER (P o SND) s) = FILTER (P o SND) (clean_tysubst s)
+Proof
+  CONV_TAC SWAP_FORALL_CONV
+  >> Induct >- fs[clean_tysubst_def]
+  >> PairCases >> rename1`(h0,h1)` >> reverse (Cases_on `h1`)
+  >> rw[clean_tysubst_def]
+  >> TRY (
+    qmatch_asmsub_abbrev_tac `P _`
+    >> fs[Once EQ_SYM_EQ,FILTER_FILTER,CONJ_COMM,ELIM_UNCURRY]
+  )
+  >> qpat_x_assum `!P. _ = _` (assume_tac o GSYM)
+  >> rw[FILTER_EQ,EQ_IMP_THM]
+  >> CCONTR_TAC >> fs[]
+QED
+
+Theorem clean_tysubst_FILTER[local] =
+  Q.SPEC `λx. x ≠ Tyvar m` clean_tysubst_FILTER_SND
+  |> SIMP_RULE(srw_ss())[LAMBDA_PROD,o_DEF]
+  |> GSYM |> GEN_ALL
+
+Theorem clean_tysubst_APPEND' =
+  REWRITE_RULE[Q.SPEC `λx. ¬MEM x (MAP SND s)` clean_tysubst_FILTER_SND
+  |> SIMP_RULE(srw_ss())[o_DEF] |> GSYM] clean_tysubst_APPEND
+
+
+(* TODO move to misc *)
+Theorem is_subseq_FILTER_IMP:
+  !s s' P. is_subseq s s'⇒ is_subseq s (FILTER P s')
+Proof
+  fs[GSYM PULL_FORALL]
+  >> ho_match_mp_tac is_subseq_ind
+  >> rw[]
+  >> FULL_CASE_TAC
+  >> fs[is_subseq_def]
+  >> qmatch_goalsub_abbrev_tac `FILTER P _`
+  >> first_x_assum (drule_then (qspec_then `P` mp_tac))
+  >> fs[is_subseq_cons]
+QED
+
+Theorem is_subseq_FILTER =
+  Q.SPECL [`s`,`s`] is_subseq_FILTER_IMP |> GEN_ALL
+  |> REWRITE_RULE[is_subseq_refl]
+
+Theorem clean_tysubst_is_subseq:
+  !s. is_subseq s (clean_tysubst s)
+Proof
+  Induct >> fs[clean_tysubst_def]
+  >> PairCases >> rename1`(_,h)` >> reverse (Cases_on `h`)
+  >> fs[clean_tysubst_def,is_subseq_cons]
+  >> FULL_CASE_TAC
+  >> fs[is_subseq_cons,is_subseq_FILTER,is_subseq_cons,is_subseq_FILTER_IMP,is_subseq_def]
+QED
+
+Theorem clean_tysubst_is_subseq:
+  !s1 s2. ?r1 r2. clean_tysubst (s1 ++ s2) = r1 ++ r2
+    ∧ is_subseq s1 r1 ∧ is_subseq s2 r2
+Proof
+  strip_tac
+  >> completeInduct_on`LENGTH s1`
+  >> Cases >> fs[clean_tysubst_is_subseq]
+  >> strip_tac
+  >> PairCases_on `h` >> reverse (Cases_on `h1`)
+  >- (
+    fs[clean_tysubst_def,PULL_FORALL]
+    >> strip_tac >> rename1`t ++ s`
+    >> first_x_assum (qspecl_then [`t`,`s`] mp_tac)
+    >> rw[]
+    >> goal_assum drule
+    >> fs[is_subseq_cons]
+  )
+  >> fs[clean_tysubst_def,PULL_FORALL]
+  >> FULL_CASE_TAC
+  >- (
+    strip_tac
+    >> qmatch_goalsub_abbrev_tac `FILTER P _`
+    >> qmatch_goalsub_abbrev_tac `l1 ++ l2`
+    >> first_x_assum (qspecl_then [`l1`,`l2`] mp_tac)
+    >> rw[]
+    >> qmatch_asmsub_rename_tac `_ = r1 ++ r2`
+    >> map_every qexists_tac [`FILTER P r1`,`FILTER P r2`]
+    >> fs[GSYM FILTER_APPEND,is_subseq_FILTER_IMP,is_subseq_cons]
+  )
+  >> strip_tac
+  >> qmatch_goalsub_abbrev_tac `FILTER P _`
+  >> qmatch_goalsub_abbrev_tac `l1 ++ l2`
+  >> Q.REFINE_EXISTS_TAC `(_,_)::_`
+  >> first_x_assum (qspecl_then [`l1`,`l2`] mp_tac)
+  >> rw[is_subseq_def]
+  >> qmatch_asmsub_rename_tac `_ = r1 ++ r2`
+  >> map_every qexists_tac [`FILTER P r1`,`FILTER P r2`]
+  >> fs[GSYM FILTER_APPEND,is_subseq_FILTER_IMP,is_subseq_cons]
+QED
+
+Theorem clean_tysubst_idem:
+  !s. clean_tysubst (clean_tysubst s) = clean_tysubst s
+Proof
+  Induct >- fs[clean_tysubst_def]
+  >> PairCases >> reverse (Cases_on `h1`)
   >- fs[clean_tysubst_def]
-  >> Cases >> Cases_on `r`
-  >> rw[clean_tysubst_def,MAP_SND_FILTER_NEQ,MEM_FILTER]
-QED
-
-Theorem clean_tysubst_ALL_DISTINCT_MAP_SND:
-!s. ALL_DISTINCT (MAP SND (clean_tysubst s))
-Proof
-  Induct
-  >- rw[clean_tysubst_def]
-  >> Cases_on `h` >> Cases_on `r`
-  >- (
-    rw[clean_tysubst_def,MAP_SND_FILTER_NEQ]
-    >- (match_mp_tac FILTER_ALL_DISTINCT >> fs[])
-    >- rw[MEM_FILTER]
-    >> (match_mp_tac FILTER_ALL_DISTINCT >> fs[])
-  )
-  >> rw[clean_tysubst_def]
-QED
-
-Theorem clean_tysubst_non_triv:
-  !s. EVERY (λ(y,x). (?a. Tyvar a = x /\ x <> y)) (clean_tysubst s)
-Proof
-  Induct
-  >- rw[clean_tysubst_def]
-  >> Cases_on `h` >> Cases_on `r`
-  >- (
-    rw[clean_tysubst_def]
-    >> (match_mp_tac EVERY_FILTER_IMP >> fs[])
-  )
-  >> rw[clean_tysubst_def]
-QED
-
-Theorem REV_ASSOCD_NOT_MEM_drop:
-  !s x. ~MEM x (MAP SND s) ==> REV_ASSOCD x s x = x
-Proof
-  Induct >> rw[REV_ASSOCD_def]
+  >> rw[clean_tysubst_def] THEN_LT USE_SG_THEN ASSUME_TAC 1 2
+  >- fs[GSYM clean_tysubst_FILTER]
+  >> fs[FILTER_IDEM]
 QED
 
 Theorem clean_tysubst_TYPE_SUBST_eq:
@@ -5627,24 +5753,23 @@ Proof
   fs[TYPE_SUBST_tyvars]
   >> CONV_TAC SWAP_FORALL_CONV
   >> Induct
-  >- rw[clean_tysubst_def,EVERY_DEF]
-  >> Cases >> Cases_on `r`
+  >- rw[clean_tysubst_def]
+  >> PairCases >> Cases_on `h1`
   >- (
     rw[clean_tysubst_def,REV_ASSOCD_def]
     >> fs[REV_ASSOCD_FILTER]
-    >> first_x_assum match_mp_tac
-    >> asm_exists_tac
+    >> first_x_assum drule
     >> fs[]
   )
   >> rw[REV_ASSOCD_def,clean_tysubst_def]
-  >> first_x_assum match_mp_tac
-  >> asm_exists_tac
+  >> first_x_assum drule
   >> fs[]
 QED
 
 Theorem clean_tysubst_wlog:
   !s. ?s'. ALL_DISTINCT (MAP SND s')
-  /\ EVERY (λ(y,x). (?a. Tyvar a = x /\ x <> y)) s'
+  /\ EVERY (λx. ?a. SND x = Tyvar a) s'
+  /\ EVERY (UNCURRY $<>) s'
   /\ !ty. TYPE_SUBST s ty = TYPE_SUBST s' ty
 Proof
   strip_tac
@@ -5652,7 +5777,7 @@ Proof
   >> rw[clean_tysubst_prop,GSYM clean_tysubst_TYPE_SUBST_eq]
 QED
 
-Theorem TYPE_SUBST_FILTER_tyvars:
+Theorem TYPE_SUBST_FILTER_SND_tyvars:
   !ty s. TYPE_SUBST s ty = TYPE_SUBST (FILTER (λ(x,y). ?a. Tyvar a = y /\ MEM a (tyvars ty)) s) ty
 Proof
   CONV_TAC SWAP_FORALL_CONV
@@ -5664,7 +5789,7 @@ Proof
   >> rw[REV_ASSOCD_def,TYPE_SUBST_def]
 QED
 
-Theorem TYPE_SUBST_FILTER_tyvars2:
+Theorem TYPE_SUBST_FILTER_SND_tyvars2:
   !ty s. TYPE_SUBST s ty
   = TYPE_SUBST (FILTER (λx. MEM (SND x) (MAP Tyvar (tyvars ty))) s) ty
 Proof
@@ -5682,14 +5807,24 @@ Proof
   >> fs[MEM_MAP]
 QED
 
+Theorem TYPE_SUBST_FILTER_SND_tyvars2':
+  !ty s. TYPE_SUBST s ty
+  = TYPE_SUBST (FILTER ((λx. MEM x (MAP Tyvar (tyvars ty))) o SND) s) ty
+Proof
+  fs[Once TYPE_SUBST_FILTER_SND_tyvars2,o_DEF]
+QED
+
+Theorem TYPE_SUBST_FILTER_SND_tyvars3 =
+  REWRITE_RULE[TYPE_SUBST_tyvars] TYPE_SUBST_FILTER_SND_tyvars2
+  |> PURE_REWRITE_RULE[GSYM TYPE_SUBST_def]
+
 Theorem orth_ty_instances:
   !(ty1:type) ty2. ty1 # ty2 ==> !s s'. (TYPE_SUBST s ty1) # (TYPE_SUBST s' ty2)
 Proof
   rw[orth_ty_def,TYPE_SUBST_compose]
   >> first_x_assum (qspec_then `ty` mp_tac)
   >> strip_tac
-  >- (DISJ1_TAC >> fs[])
-  >> (DISJ2_TAC >> fs[])
+  >> fs[]
 QED
 
 Theorem orth_ty_instance1:
@@ -5729,8 +5864,8 @@ Proof
     >> qexists_tac `s`
     >> rw[]
   )
-  >> (qspecl_then [`ty2`,`i'`] assume_tac) TYPE_SUBST_FILTER_tyvars
-  >> (qspecl_then [`ty1`,`i`] assume_tac) TYPE_SUBST_FILTER_tyvars
+  >> (qspecl_then [`ty2`,`i'`] assume_tac) TYPE_SUBST_FILTER_SND_tyvars
+  >> (qspecl_then [`ty1`,`i`] assume_tac) TYPE_SUBST_FILTER_SND_tyvars
   >> qmatch_asmsub_abbrev_tac `TYPE_SUBST (FILTER p1 i) ty1`
   >> qmatch_asmsub_abbrev_tac `TYPE_SUBST (FILTER p2 i') ty2`
   >> qexists_tac `(FILTER p1 i) ++ (FILTER p2 i')`
@@ -5751,36 +5886,9 @@ Proof
     >> rveq
     >> fs[]
   )
-  >> PURE_ONCE_REWRITE_TAC[TYPE_SUBST_FILTER_tyvars]
+  >> PURE_ONCE_REWRITE_TAC[TYPE_SUBST_FILTER_SND_tyvars]
   >> rw[FILTER_APPEND,FILTER_IDEM,FILTER_COMM]
   >> fs[]
-QED
-
-Theorem type_size[local]:
-  !t s. type_size' t <= type_size' (TYPE_SUBST s t)
-Proof
-  ho_match_mp_tac type_ind
-  >> rw[type_size'_def]
-  >- (
-    Cases_on `MEM (Tyvar m) (MAP SND s)`
-    >- (
-      imp_res_tac MEM_SPLIT_APPEND_SND_first
-      >> imp_res_tac TYPE_SUBST_drop_prefix
-      >> pop_assum (qspec_then `[(q,Tyvar m)]++sfx` assume_tac)
-      >> fs[REV_ASSOCD_def]
-      >> Cases_on `q`
-      >> fs[type_size'_def]
-    )
-    >> imp_res_tac REV_ASSOCD_NOT_MEM_drop
-    >> fs[type_size'_def]
-  )
-  >> fs[type1_size'_SUM_MAP]
-  >> Induct_on `l`
-  >- fs[type_size'_def]
-  >> rw[type_size'_def]
-  >> fs[]
-  >> first_x_assum (qspec_then `s` assume_tac)
-  >> rw[ADD_MONO_LESS_EQ]
 QED
 
 
@@ -5819,22 +5927,27 @@ Theorem renaming_clean_tysubst:
 Proof
   Induct
   >- fs[renaming_def,clean_tysubst_def]
+  >> PairCases
   >> rpt strip_tac
-  >> fs[renaming_def]
-  >> pairarg_tac
-  >> fs[clean_tysubst_def,EVERY_MEM,MEM_FILTER,ELIM_UNCURRY]
-  >> rveq
-  >> rw[]
-  >> fs[MEM_FILTER]
+  >> fs[renaming_def,clean_tysubst_def]
+  >> rw[EVERY_APPEND,EVERY_FILTER_IMP]
 QED
 
 Theorem non_triv_renaming_clean_tysubst:
   !s. renaming s ==> non_triv_renaming (clean_tysubst s)
 Proof
-  rw[renaming_clean_tysubst,non_triv_renaming_def]
-  >> (qspec_then `s` assume_tac) (CONJUNCT1 clean_tysubst_prop) >> fs[]
-  >> (qspec_then `s` mp_tac) (CONJUNCT2 clean_tysubst_prop)
-  >> match_mp_tac MONO_EVERY
+  fs[renaming_clean_tysubst,non_triv_renaming_def,clean_tysubst_prop]
+QED
+
+Theorem non_triv_renaming_clean_tysubst_id:
+  !s. non_triv_renaming s ⇒ clean_tysubst s = s
+Proof
+  rpt strip_tac
+  >> match_mp_tac clean_tysubst_id
+  >> fs[non_triv_renaming_def,renaming_def]
+  >> qpat_x_assum `EVERY (UNCURRY $<>) s` kall_tac
+  >> qpat_x_assum `EVERY _ _` mp_tac
+  >> match_mp_tac EVERY_MONOTONIC
   >> fs[ELIM_UNCURRY,PULL_EXISTS]
 QED
 
@@ -6865,6 +6978,51 @@ Proof
   >> goal_assum (first_assum o mp_then Any mp_tac)
 QED
 
+Theorem type_size_TYPE_SUBST_LESS:
+  !t s a m l. MEM a (tyvars t)
+    /\ TYPE_SUBST s (Tyvar a) = Tyapp m l /\ 0 < LENGTH l
+    ==> type_size' t < type_size' (TYPE_SUBST s t)
+Proof
+  ho_match_mp_tac type_ind
+  >> conj_tac
+  >- (
+    rw[type_size'_def,tyvars_def]
+    >> Cases_on `MEM (Tyvar a) (MAP SND s)`
+    >- (
+      dxrule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
+      >> Cases_on `b`
+      >> gvs[type_size'_def]
+      >> fs[]
+      >> Cases_on `l`
+      >> fs[type_size'_def,type1_size'_SUM_MAP]
+    )
+    >> fs[REV_ASSOCD_NOT_MEM_drop,type_size'_def]
+  )
+  >> rw[type_size'_def,GSYM subtype_at_tyvars,PULL_EXISTS,EVERY_MEM]
+  >> qmatch_assum_rename_tac `subtype_at _ p = SOME _`
+  >> Cases_on `p` >> fs[subtype_at_def]
+  >> qmatch_assum_rename_tac `subtype_at _ (h::t) = SOME _`
+  >> Cases_on `h`
+  >> fs[subtype_at_def,type1_size'_SUM_MAP]
+  >> `MEM (EL r l) l` by fs[EL_MEM]
+  >> first_x_assum drule
+  >> rpt $ disch_then $ drule_at Any
+  >> rw[]
+  >> fs[MEM_SPLIT]
+  >> qpat_x_assum `_ = _ ++ _` $ ONCE_REWRITE_TAC o single
+  >> fs[MAP_APPEND,SUM_APPEND]
+  >> ONCE_REWRITE_TAC[ADD_ASSOC]
+  >> qmatch_goalsub_abbrev_tac `A + B`
+  >> qmatch_assum_abbrev_tac `B < B'`
+  >> match_mp_tac LESS_LESS_EQ_TRANS
+  >> qexists_tac `A + B'`
+  >> fs[LESS_MONO_ADD]
+  >> unabbrev_all_tac
+  >> qmatch_goalsub_abbrev_tac `A + B <= (A' + B')`
+  >> `A <= A' /\ B <= B'` by (unabbrev_all_tac >> fs[type_size_TYPE_SUBST'])
+  >> fs[]
+QED
+
 Theorem subtype_at_MEM:
   !e l m. MEM e l ==> ?n. subtype_at (Tyapp m l) [n] = SOME e
 Proof
@@ -7170,7 +7328,7 @@ QED
 
 Theorem subtype_has_leaf'[local]:
   !x y p q. (!p. is_subtype_leaf x p \/ is_subtype_leaf y p ==> subtype_at x p = subtype_at y p)
-  /\ subtype_at x p = NONE /\ IS_SOME (subtype_at y (p ⧺ q)) ==> (NONE = subtype_at y p)
+  /\ subtype_at x p = NONE /\ IS_SOME (subtype_at y (p ++ q)) ==> (NONE = subtype_at y p)
 Proof
   CCONTR_TAC
   >> fs[is_subtype_leaf_def]
@@ -12693,6 +12851,28 @@ Proof
   rw[SET_EQ_SUBSET,SUBSET_DEF,MEM_FOLDR_LIST_UNION,MEM_FLAT,MEM_MAP] >> metis_tac[]
 QED
 
+Theorem tyvars_Tyapp:
+  !m l. set (tyvars (Tyapp m l)) = set (FLAT (MAP tyvars l))
+Proof
+  gen_tac >> Induct >> rw[tyvars_def,set_foldr_list_union]
+QED
+
+Theorem TYPE_SUBST_instance_tyvars:
+  !t t' s s'.  TYPE_SUBST s t = t'
+  /\ (∀x. MEM x (tyvars t) ⇒ TYPE_SUBST s (Tyvar x) = TYPE_SUBST s' (Tyvar x))
+  ⇒ TYPE_SUBST s' t = t'
+Proof
+  ho_match_mp_tac type_ind
+  >> conj_tac >- fs[tyvars_def]
+  >> rw[tyvars_Tyapp,MEM_FLAT,PULL_EXISTS,EVERY_MEM,MEM_MAP]
+  >> match_mp_tac LIST_EQ
+  >> rw[EVERY_MEM,EL_MAP]
+  >> rename[`EL x l`]
+  >> `MEM (EL x l) l` by fs[EL_MEM]
+  >> rpt (first_x_assum $ drule_then assume_tac)
+  >> fs[]
+QED
+
 Theorem tydepth_TYPE_SUBST:
   tydepth c ty = 0 ==>
   tydepth c (TYPE_SUBST sigma ty) =
@@ -14794,6 +14974,34 @@ Proof
   imp_res_tac TC_RTC >>
   goal_assum drule >>
   simp[subtype1_cases]
+QED
+
+(* Hiding this under a definition so it won't obstruct drules later *)
+Definition extends_init_def:
+  extends_init ctxt = (ctxt extends init_ctxt)
+End
+
+Theorem dependency_FV_mono:
+  ∀x y. ctxt extends [] /\ dependency ctxt x y
+  ⇒ set (FV y) ⊆ set (FV x)
+Proof
+  rw[dependency_cases,FV_def,SUBSET_DEF]
+  >> fs[]
+  >> TRY (drule_then strip_assume_tac allCInsts_is_Const >> rveq)
+  >> fs[tvars_def,tyvars_def,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS]
+  >> TRY (drule_all_then assume_tac allCInsts_tyvars
+    ORELSE drule_all_then assume_tac MEM_tyvars_allTypes
+    ORELSE drule_all_then assume_tac MEM_tyvars_allTypes')
+  >> ASM_REWRITE_TAC[]
+  >> qpat_x_assum `MEM (ConstSpec _ _ _) ctxt` (strip_assume_tac o ONCE_REWRITE_RULE[MEM_SPLIT])
+  >> rveq
+  >> dxrule_then assume_tac extends_APPEND_NIL
+  >> dxrule_then assume_tac extends_NIL_CONS_updates
+  >> fs[updates_cases]
+  >> imp_res_tac (Q.ISPEC `SND:mlstring # term -> term ` MEM_MAP_f)
+  >> qpat_x_assum `EVERY _ _` (drule_then strip_assume_tac o REWRITE_RULE[EVERY_MEM])
+  >> imp_res_tac WELLTYPED_LEMMA
+  >> fs[]
 QED
 
 val _ = export_theory()
