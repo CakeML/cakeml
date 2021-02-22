@@ -52,6 +52,7 @@ fun aconv_mod_locs t1 t2 =
   |  _ => false
 
 val result_t = ``Result``
+val success_t = “Success”
 fun parsetest0 nt sem s opt = let
   val s_t = stringSyntax.lift_string bool s
   val _ = print ("**********\nLexing "^s^"\n")
@@ -60,7 +61,7 @@ fun parsetest0 nt sem s opt = let
   val _ = print ("Lexes to : " ^ term_to_string ttoks ^ "\n")
   val _ = print ("Parsing\n")
   val evalth = time EVAL
-                    ``peg_exec cmlPEG (nt (mkNT ^nt) I) ^t [] done failed``
+                    ``peg_exec cmlPEG (nt (mkNT ^nt) I) ^t [] [] done failed``
   val r = rhs (concl evalth)
   fun diag(s,t) = let
     fun pp (s,t) =
@@ -76,10 +77,9 @@ fun parsetest0 nt sem s opt = let
 
 in
   if same_const (rator r) result_t then
-    if optionSyntax.is_some (rand r) then let
-      val pair = rand (rand r)
-      val remaining_input = pair |> rator |> rand
-      val res = pair |> rand |> rator |> rand
+    if same_const (rand r |> strip_comb |> #1) success_t then let
+      val remaining_input = r |> rand |> lhand
+      val res = r |> rand |> rand |> lhand
     in
       if listSyntax.is_nil remaining_input then let
         val _ = diag ("EVAL to: ", res)
@@ -113,7 +113,7 @@ in
         end
         else die ("Fringe not preserved!", ttoks)
       end
-      else die ("REMAINING INPUT:", pair)
+      else die ("REMAINING INPUT:", remaining_input)
     end
     else die ("FAILED:", r)
   else die ("NO RESULT:", r)
