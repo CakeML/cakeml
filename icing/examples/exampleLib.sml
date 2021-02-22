@@ -596,28 +596,36 @@ struct
       let
         val error_thm_opt =
            EVAL (Parse.Term  ‘getErrorbounds ^(concl theAST_opt |> rhs) theAST_pre’)
-         val (bounds, cmd) =
-           EVAL (Parse.Term ‘case ^(error_thm_opt |> concl |> rhs) of
+         val (bounds, cmd, success_opt) =
+           (EVAL (Parse.Term ‘case ^(error_thm_opt |> concl |> rhs) of
                      |(SOME (bounds, cmd, _), _) => (bounds,cmd)’)
-                     |> concl |> rhs |> dest_pair
+                     |> concl |> rhs |> dest_pair |> (fn (x,y) => (x,y,true)))
+            handle (HOL_ERR _) => (“0:num”, “0:num”, false)
          val theBound =
-           EVAL (Parse.Term ‘case FloverMapTree_find (getRetExp (toRCmd ^cmd)) ^bounds of
-                             |SOME ((lo,hi),e)  => e’)
+            if success_opt then
+              EVAL (Parse.Term ‘case FloverMapTree_find (getRetExp (toRCmd ^cmd)) ^bounds of
+                                |SOME ((lo,hi),e)  => e’)
+            else EVAL (Parse.Term ‘0:real’)
          val theAST_opt_bound_def = Define ‘theAST_opt_bound = ^(theBound |> concl |> rhs)’
          val error_thm_unopt =
            EVAL (Parse.Term  ‘getErrorbounds (no_opt_decs no_fp_opt_conf ^(concl theAST_def |> rhs)) theAST_pre’)
-         val (bounds_unopt, cmd_unopt) =
-           EVAL (Parse.Term ‘case ^(error_thm_unopt |> concl |> rhs) of
+         val (bounds_unopt, cmd_unopt, success) =
+           (EVAL (Parse.Term ‘case ^(error_thm_unopt |> concl |> rhs) of
                      |(SOME (bounds, cmd, _), _) => (bounds,cmd)’)
-                     |> concl |> rhs |> dest_pair
+                     |> concl |> rhs |> dest_pair |> (fn (x,y) => (x,y,true))
+            handle (HOL_ERR _) => (“0:num”, “0:num”, false))
          val theBound =
-           EVAL (Parse.Term ‘case FloverMapTree_find (getRetExp (toRCmd ^cmd_unopt)) ^bounds_unopt of
-                             |SOME ((lo,hi),e)  => e’)
+            if success then
+              EVAL (Parse.Term ‘case FloverMapTree_find (getRetExp (toRCmd ^cmd_unopt)) ^bounds_unopt of
+                                |SOME ((lo,hi),e)  => e’)
+            else EVAL (Parse.Term ‘0:real’)
          val theAST_unopt_bound_def = Define ‘theAST_unopt_bound = ^(theBound |> concl |> rhs)’
       in
+        if success_opt then
         store_thm ("errorbounds_AST",
           Parse.Term(‘isOkError ^(concl theAST_opt |> rhs) theAST_pre theErrBound = (SOME T, NONE)’),
           simp[isOkError_def, error_thm_opt] \\ EVAL_TAC)
+        else CONJ_COMM
        end
     else if checkError then
       save_thm ("errorbounds_AST",

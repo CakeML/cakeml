@@ -805,7 +805,7 @@ Definition balance_expression_tree_def:
     (λ (cfg: config) e.
       case e of
       | (App (FP_bop op) [a; App (FP_bop op') [b; App (FP_bop op'') [c; d]]]) =>
-          (if (op = op') ∧ (op' = op'') then
+          (if (op = op') ∧ (op' = op'') ∧ (op = FP_Add ∨ op = FP_Mul) then
              (let plan = [Apply (Here, [fp_assoc2_gen op])];
                   optimized = FST (optimise_with_plan cfg plan e) in
                 SOME (optimized, plan))
@@ -834,7 +834,7 @@ Definition generate_plan_exp_def:
             (canonicalize, "Canonical Form");
             ((phase_repeater 100 apply_distributivity), "Distributivity");
             (canonicalize, "Canonical Form");
-            (optimise_linear_interpolation, "Linear Interpolation");
+            (* (optimise_linear_interpolation, "Linear Interpolation"); *)
             (canonicalize, "Canonical Form");
             (peephole_optimise, "Peephole Optimisations");
             (canonicalize, "Canonical Form");

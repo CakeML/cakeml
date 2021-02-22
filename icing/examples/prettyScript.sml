@@ -4,7 +4,6 @@
 open semanticPrimitivesTheory terminationTheory;
 open source_to_sourceProofsTheory CakeMLtoFloVerTheory CakeMLtoFloVerProofsTheory;
 open FloverMapTheory;
-open dopplerProofsTheory nn1LayerProofsTheory;
 open realTheory;
 open bossLib preamble;
 
@@ -144,21 +143,47 @@ Proof
   simp[K_DEF]
 QED
 
-Definition cfgAndScopeAgree_def:
-  cfgAndScopeAgree cfg fps = (cfg.canOpt <=> fps.canOpt = FPScope Opt)
+Overload is_performRewrites_correct = “is_perform_rewrites_correct”
+
+Definition notInStrictMode_def:
+  notInStrictMode fps = (fps.canOpt ≠ Strict)
 End
 
-Definition optimize_def:
-  optimize cfg exps = MAP (source_to_source$optimise cfg) exps
+Definition flagAndScopeAgree_def:
+  flagAndScopeAgree flag fps = (flag.canOpt <=> fps.canOpt = FPScope Opt)
 End
 
-Theorem optimize_correct:
-  K T ^(is_optimise_correct_def
-  |> SIMP_RULE (srw_ss()) [GSYM noRealsAllowed_def, GSYM noStrictExecution_def,
-                           GSYM cfgAndScopeAgree_def,
-                           GSYM appendOptsAndOracle_def,
-                           GSYM optimize_def
-                          ] |> SPEC_ALL |> concl |> rhs)
+
+Theorem performRewrites_correct_def:
+  K T ^(is_perform_rewrites_correct_def
+        |> SIMP_RULE (srw_ss()) [GSYM noRealsAllowed_def, GSYM canOptimize_def,
+                                 GSYM appendOptsAndOracle_def, GSYM notInStrictMode_def,
+                                 GSYM flagAndScopeAgree_def]
+        |> SPEC_ALL
+        |> GEN “cfg:source_to_source$config” |> SPEC “canOpt:source_to_source$config” |> concl |> rhs)
+Proof
+  simp[K_DEF]
+QED
+
+Overload optimiseWithPlan = “optimise_with_plan”
+
+Definition optimiseWithPlan_def:
+  optimiseWithPlan cfg plan exps = MAP (λ e. FST (optimise_with_plan cfg plan e)) exps
+End
+
+Definition getRws_def:
+  getRws plan = FLAT (MAP (λ x. case x of |Apply (_, rws) => rws |_ => []) plan)
+End
+
+Theorem optimize_with_plan_correct:
+  K T ^(is_optimise_with_plan_correct_def
+        |> SIMP_RULE (srw_ss()) [GSYM noRealsAllowed_def, GSYM canOptimize_def,
+                                 GSYM appendOptsAndOracle_def, GSYM notInStrictMode_def,
+                                 GSYM flagAndScopeAgree_def, GSYM optimiseWithPlan_def,
+                                 GSYM getRws_def, LET_THM]
+        |> SPEC_ALL
+        |> GEN “cfg:source_to_source$config” |> SPEC “canOpt:source_to_source$config”
+        |> concl |> rhs)
 Proof
   simp[K_DEF]
 QED
@@ -168,8 +193,11 @@ Theorem rewrite_correct_chaining =
 
 Overload is_rewrite_correct = “is_rewriteFPexp_list_correct”
 
-Theorem optimize_correct_lift =
-  is_optimise_correct_lift |> GEN_ALL |> SIMP_RULE std_ss [];
+Theorem optimize_with_plan_correct_lift =
+  is_optimise_with_plan_correct_lift |> GEN_ALL |> SIMP_RULE std_ss [];
+
+Theorem perform_rewrites_correct_lift =
+  is_rewriteFPexp_correct_lift_perform_rewrites |> GEN_ALL |> SIMP_RULE std_ss [];
 
 Overload noOpts = “no_optimisations cfg”
 
@@ -205,6 +233,7 @@ Theorem toFloVerCmd_definition =
   toFloVerCmd_def
 *)
 
+(*
 Definition noSubnormalsInEval_def:
   noSubnormalsInEval st env theVars vs body =
   evaluate_fine st (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v)
@@ -295,5 +324,6 @@ Datatype:
      canOpt : scopeAnnotation;
      choices : num |>
 End
+**)
 
 val _ = export_theory();
