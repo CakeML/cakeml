@@ -7,7 +7,7 @@
   Removes unreachable functions from the code.
 *)
 
-open preamble sptreeTheory reachable_sptTheory wordLangTheory
+open preamble sptreeTheory spt_closureTheory wordLangTheory
 
 val _ = new_theory "word_elim";
 
