@@ -241,6 +241,7 @@ Inductive step:
       st'.ioAction = SOME (Input in_signal) ==>
       step p (LAction (Input in_signal)) st st') /\
 
+  (* st has zero wakeup time *)
   (!p st tms st' out_signal.
     ALOOKUP p st.location = SOME tms /\
     pickTerm (resetOutput st) NONE tms st' /\

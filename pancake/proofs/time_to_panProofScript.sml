@@ -1,4 +1,4 @@
-st(*
+(*
   Correctness proof for --
 *)
 
@@ -5302,7 +5302,112 @@ Definition eventual_wakeup_def:
             ∃h t. termWaitTimes tm = h::t)
           tms
 End
-
 *)
+
+(* taken from the conclusion of individual step thorems *)
+Definition next_ffi_state_def:
+  (next_ffi_state (LDelay d) ffi (t:('a,time_input) panSem$state) ⇔
+   ∀cycles.
+     delay_rep (dimword (:α)) d ffi cycles ⇒
+     t.ffi.ffi_state = nexts_ffi cycles ffi) ∧
+  (next_ffi_state (LAction _) ffi t ⇔ t.ffi.ffi_state = ffi)
+End
+
+(* pancake state only take ffi behaviour into account *)
+Definition ffi_rels_def:
+  (ffi_rels [] prog s (t:('a,time_input) panSem$state) ⇔ T) ∧
+  (ffi_rels (label::labels) prog s t ⇔
+   ∃ffi'.
+     ffi_rel label s t ffi' ∧
+     ∀s' t'.
+       step prog label s s' ∧
+       t'.ffi = ffi' ⇒
+       ffi_rels labels prog s' t')
+End
+
+Definition always_def:
+  always clksLength =
+  While (Const 1w)
+        (task_controller clksLength)
+End
+
+
+(* start from here *)
+(*
+ While (Const 1w)
+             (task_controller clksLength)
+*)
+(* should we talk about number of states, more like a trace
+   sts: list of reachable timeSem state
+   ts: list of states,
+
+   what exactly do we need∃ *)
+Theorem foo:
+  ∀prog s s' labels (t:('a,time_input) panSem$state).
+    stepTrace prog s s' labels ∧
+    state_rel (clksOf prog) s t ∧
+    code_installed t.code prog ∧
+    ffi_rels labels prog s t ∧
+    labProps$good_dimindex (:'a) ∧
+    (* everything is declared *)
+    (* add more updates later *) ⇒
+    ?ck t'.
+      evaluate (always (nClks prog), t with clock := t.clock + ck) =
+      evaluate (always (nClks prog), t') ∧
+      state_rel (clksOf prog) s' t' ∧
+      code_installed t'.code prog
+Proof
+QED
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 val _ = export_theory();
