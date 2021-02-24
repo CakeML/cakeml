@@ -3539,7 +3539,7 @@ QED
 Theorem step_delay:
   !cycles prog d m n s s' (t:('a,time_input) panSem$state) ck_extra.
     step prog (LDelay d) m n s s' ∧
-    m = dimword (:α) ∧ n = FST (t.ffi.ffi_state 0)
+    m = dimword (:α) ∧ n = FST (t.ffi.ffi_state 0) ∧
     state_rel (clksOf prog) s t ∧
     code_installed t.code prog ∧
     delay_rep d t.ffi.ffi_state cycles ∧
@@ -3567,9 +3567,10 @@ Proof
   fs [task_controller_def] >>
   fs [panLangTheory.nested_seq_def] >>
   qmatch_goalsub_abbrev_tac ‘evaluate (Seq _ q, _)’ >>
-  imp_res_tac step_delay_loop >>
-  first_x_assum (qspec_then ‘ck_extra’ assume_tac) >>
+  drule step_delay_loop >>
+  disch_then (qspecl_then [‘cycles’, ‘t’, ‘ck_extra’] mp_tac) >>
   fs [] >>
+  strip_tac >>
   drule evaluate_seq_fst >>
   disch_then (qspec_then ‘q’ assume_tac) >>
   qexists_tac ‘ck’ >> fs [] >>
