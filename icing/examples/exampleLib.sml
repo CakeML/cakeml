@@ -5,13 +5,14 @@ structure exampleLib =
 struct
   open astTheory cfTacticsLib ml_translatorLib;
   open basis_ffiTheory cfHeapsBaseTheory basis;
+  open data_monadTheory compilationLib;
   open FloverMapTheory RealIntervalInferenceTheory ErrorIntervalInferenceTheory
        CertificateCheckerTheory;
   open floatToRealProofsTheory source_to_sourceTheory CakeMLtoFloVerTheory
        source_to_sourceProofsTheory
        cfSupportTheory optPlannerTheory icing_realIdProofsTheory;
-  open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith;
-  open supportLib;
+  open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith sptreeTheory;
+  open supportLib preamble;
 
   val logErrors = ref false;
 
@@ -512,6 +513,135 @@ struct
               App Opapp [
                 App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];
                 Var (Short "u")]; Var (Short "b")])))))))))))])))]’;
+
+(** Debugging:
+fun get_names_for thy_name =
+  let
+    fun find_def name = DB.find name |> filter (fn ((x,_),_) => x = thy_name)
+                        |> map snd |> first (fn (x,y) => y = Def) |> fst
+    val bvi_def = find_def "bvi_names_def"
+    val bvl_def = find_def "bvl_names_def"
+    val raw_names = bvi_def
+      |> CONV_RULE (RAND_CONV (REWRITE_CONV  [bvl_def] THENC EVAL))
+      |> concl |> dest_eq |> snd
+    fun extract_name tm = let
+      val (x,y) = pairSyntax.dest_pair tm
+      in (numSyntax.int_of_term x,
+          y |> rand |> stringSyntax.fromHOLstring) end
+    fun find_variant n k used =
+      let
+        val n1 = n ^ "_" ^ int_to_string k
+      in
+        if mem n1 used then find_variant n (k+1) used else n1
+      end
+    fun find_good_name n used =
+      if mem n used then find_variant n 0 used else n
+    fun avoid_same_name already_used [] = []
+      | avoid_same_name already_used ((i,n)::rest) =
+      let
+        val n1 = find_good_name n already_used
+      in
+        (i,n1)::avoid_same_name (n1::already_used) rest
+      end
+    fun find_dups [] = []
+      | find_dups (x::xs) =
+          if mem x xs then x :: find_dups (filter (fn y => not (x = y)) xs)
+          else find_dups xs
+  in
+    toAList_def |> REWRITE_RULE [FUN_EQ_THM] |> ISPEC raw_names
+      |> concl |> rand |> EVAL |> concl |> rand
+      |> listSyntax.dest_list |> fst
+      |> map extract_name |> sort (fn (x,_) => fn (y,_) => x <= y)
+      |> (fn xs => avoid_same_name (find_dups (map snd xs)) xs)
+  end
+
+local
+  val lookup_pat = “(sptree$lookup n _) :(num # dataLang$prog) option” |> rator
+  val lookup2_pat = “sptree$lookup n (_:num sptree$num_map)” |> rator
+  val tailcall_pat = “data_monad$tailcall (SOME n)”
+  val call_pat = “λret. data_monad$call ret (SOME n)”
+  val Call_pat = “λret. dataLang$Call ret (SOME n)”
+  val Label_pat = “closLang$Label n”
+  val CodePtr_pat = “dataSem$CodePtr n”
+  val n_name_pairs = ref ([]: (int * string) list)
+in
+  fun install_naming_overloads thy_name =
+    let
+      val num_name_pairs = get_names_for thy_name
+      fun install_overload (n,name) = let
+        val num = numSyntax.term_of_int n
+        val n_var = free_vars lookup_pat |> hd
+        val ss = subst [n_var |-> num]
+        val _ = overload_on ("lookup_" ^ name, ss lookup_pat)
+        val _ = overload_on ("lookup_" ^ name, ss lookup2_pat)
+        val _ = overload_on ("tailcall_" ^ name, ss tailcall_pat)
+        val _ = overload_on ("call_" ^ name, ss call_pat)
+        val _ = overload_on ("Call_" ^ name, ss Call_pat)
+        val _ = overload_on ("Label_" ^ name, ss Label_pat)
+        val _ = overload_on ("CodePtr_" ^ name, ss CodePtr_pat)
+        in () end
+      val _ = map install_overload num_name_pairs
+      val _ = (n_name_pairs := num_name_pairs)
+    in () end handle HOL_ERR _ => failwith "Unable to install overloads"
+  fun int_to_name i = snd (first (fn (j,n) => i = j) (!n_name_pairs))
+  fun name_to_int n = fst (first (fn (j,m) => n = m) (!n_name_pairs))
+  fun all_names() = rev (!n_name_pairs)
+end
+
+fun output_code out prog_def = let
+  val cs = prog_def |> concl |> rand |> listSyntax.dest_list |> fst
+  fun out_entry x = let
+    val (name,arity_body) = pairSyntax.dest_pair x
+    val (arity,body) = pairSyntax.dest_pair arity_body
+    val s = “s:(unit,unit) dataSem$state”
+    val lookup = “lookup ^name (^s).code” |> rator
+    val body_tm = “to_shallow ^body ^s” |> rator |> EVAL |> concl |> rand
+    fun str_drop n s = String.substring(s,n,size(s)-n)
+    val indent = String.translate (fn c => if c = #"\n" then "\n  " else String.implode [c])
+    val lookup_str = "\n" ^ str_drop 7 (term_to_string lookup)
+    val arity_str = “GENLIST I ^arity” |> EVAL |> concl |> rand |> term_to_string
+    val body_str = term_to_string body_tm
+    val _ = out (lookup_str ^ " " ^ arity_str ^ " =")
+    val _ = out (indent ("\n" ^ body_str))
+    val _ = out "\n"
+    in () end
+  in List.app out_entry cs end
+
+fun write_to_file prog_def = let
+  val c = prog_def |> concl |> dest_eq |> fst |> dest_const |> fst
+  val filename = c ^ ".txt"
+  val f = TextIO.openOut filename
+  val _ = output_code (curry TextIO.output f) prog_def
+  val _ = TextIO.closeOut f
+  val _ = print ("Program pretty printed to " ^ filename ^ "\n")
+  in () end
+
+val _ = intermediate_prog_prefix := "rigidBody_unopt_";
+val backend_config_def = arm7_backend_config_def
+val cbv_to_bytes = cbv_to_bytes_arm7
+val name = "rigidBodyUnoptProg"
+val prog_def = (Parse.Term ‘
+  APPEND ^(reader_def |> concl |> rhs)
+  (APPEND ^(intToFP_def |> concl |> rhs)
+  (APPEND ^(printer_def |> concl |> rhs)
+  (APPEND ^(theAST_def |> concl |> rhs)
+  ^(theBenchmarkMain_def |> concl |> rhs))))’)
+  |> EVAL |> concl |> rhs |> REFL
+
+val cs = compilation_compset()
+val conf_def = backend_config_def
+val data_prog_name = (!intermediate_prog_prefix) ^ "data_prog"
+val to_data_thm = compile_to_data cs conf_def prog_def data_prog_name
+val _ = save_thm((!intermediate_prog_prefix) ^ "to_data_thm", to_data_thm)
+val data_prog_def = definition(mk_abbrev_name data_prog_name)
+
+Overload monad_unitbind[local] = ``data_monad$bind``
+Overload return[local] = ``data_monad$return``
+val _ = monadsyntax.temp_add_monadsyntax()
+val _ = install_naming_overloads "scratch";
+
+val _ = write_to_file data_prog_def;
+**)
 
   fun define_benchmark theAST_def theAST_pre_def checkError =
   let

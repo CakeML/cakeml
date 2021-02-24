@@ -4,7 +4,7 @@
 **)
 
 (* INCLUDES, do not change those *)
-open exampleLib preamble;
+open exampleLib;
 
 val _ = new_theory "nn1LayerProgComp";
 

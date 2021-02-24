@@ -837,8 +837,9 @@ Definition generate_plan_exp_def:
             (* (optimise_linear_interpolation, "Linear Interpolation"); *)
             (canonicalize, "Canonical Form");
             (peephole_optimise, "Peephole Optimisations");
-            (canonicalize, "Canonical Form");
-            (balance_expression_tree, "Balance Trees")
+            (* (canonicalize, "Canonical Form");*)
+            (balance_expression_tree, "Balance Trees");
+            (* (peephole_optimise, "Peephole to undo bad decisions")*)
           ] e cfg)
 End
 
