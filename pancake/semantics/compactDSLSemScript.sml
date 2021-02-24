@@ -256,52 +256,54 @@ Inductive pickTerm:
     pickTerm st m event (Tm (Output out_signal) cnds clks dest diffs :: tms) st')
 End
 
-
+(* n would be FST (seq 0), or may be systime time *)
 Inductive step:
-  (!p m st d.
-    st.waitTime = NONE /\
-    (0:num) <= d ∧ d < m ∧
-    max_clocks (delay_clocks (st.clocks) d) m ⇒
-    step p (LDelay d) m st
+  (!p m n st d.
+    st.waitTime = NONE ∧
+    d + n < m ∧
+    max_clocks (delay_clocks (st.clocks) (d + n)) m ⇒
+    step p (LDelay d) m n st
          (mkState
           (delay_clocks (st.clocks) d)
           st.location
           NONE
           NONE)) /\
 
-  (!p m st d w.
+  (!p m n st d w.
     st.waitTime = SOME w ∧
-    0 <= d /\ d < w ∧ w < m ∧
-    max_clocks (delay_clocks (st.clocks) d) m ⇒
-    step p (LDelay d) m st
+    0 <= d /\ d < w ∧ w + n < m ∧
+    max_clocks (delay_clocks (st.clocks) (d + n)) m ⇒
+    step p (LDelay d) m n st
          (mkState
           (delay_clocks (st.clocks) d)
           st.location
           NONE
           (SOME (w - d)))) /\
 
-  (!p m st tms st' in_signal.
+  (!p m n st tms st' in_signal.
       ALOOKUP p st.location = SOME tms ∧
-      pickTerm (resetOutput st) m (SOME in_signal) tms st' ∧
+      n < m ∧
+      pickTerm (resetOutput st) (m - n) (SOME in_signal) tms st' ∧
       st'.ioAction = SOME (Input in_signal) ⇒
-      step p (LAction (Input in_signal)) m st st') ∧
+      step p (LAction (Input in_signal)) m n st st') ∧
 
-  (!p m st tms st' out_signal.
+  (!p m n st tms st' out_signal.
     ALOOKUP p st.location = SOME tms ∧
     st.waitTime = SOME 0 ∧
-    pickTerm (resetOutput st) m NONE tms st' ∧
+    n < m ∧
+    pickTerm (resetOutput st) (m - n) NONE tms st' ∧
     st'.ioAction = SOME (Output out_signal) ⇒
-    step p (LAction (Output out_signal)) m st st')
+    step p (LAction (Output out_signal)) m n st st')
 End
 
 
 Inductive stepTrace:
-  (!p m st.
-    stepTrace p m st st []) /\
-  (!p lbl m st st' st'' tr.
-    step p lbl m st st' /\
-    stepTrace p m st' st'' tr ==>
-    stepTrace p m st st'' (lbl::tr))
+  (!p m n st.
+    stepTrace p m n st st []) /\
+  (!p lbl m n st st' st'' tr.
+    step p lbl m n st st' /\
+    stepTrace p m n st' st'' tr ==>
+    stepTrace p m n st st'' (lbl::tr))
 End
 
 val _ = export_theory();

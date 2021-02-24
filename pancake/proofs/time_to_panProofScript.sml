@@ -55,13 +55,19 @@ Definition maxClksSize_def:
 End
 
 
+Definition defined_clocks_def:
+  defined_clocks fm clks ⇔
+    EVERY
+      (λck. ∃n. FLOOKUP fm ck = SOME n) clks
+End
+
+
 Definition clock_bound_def:
   clock_bound fm clks (m:num) ⇔
     EVERY
       (λck. ∃n. FLOOKUP fm ck = SOME n ∧
                 n < m) clks
 End
-
 
 Definition restore_from_def:
   (restore_from t lc [] = lc) ∧
@@ -210,7 +216,7 @@ Definition state_rel_def:
     ffi_vars t.locals ∧  time_vars t.locals ∧
     mem_config t.memory t.memaddrs t.be ∧
     LENGTH clks ≤ 29 ∧
-    clock_bound s.clocks clks (dimword (:'a)) ∧
+    defined_clocks s.clocks clks ∧
     let
       ffi = t.ffi.ffi_state;
       io_events = t.ffi.io_events;
@@ -2330,7 +2336,6 @@ Proof
 QED
 
 
-
 (* step theorems *)
 
 Theorem state_rel_imp_time_seq_ffi:
@@ -3495,8 +3500,8 @@ QED
 
 
 Theorem step_delay:
-  !cycles prog d s s' (t:('a,time_input) panSem$state) ck_extra.
-    step prog (LDelay d) s s' ∧
+  !cycles prog d m s s' (t:('a,time_input) panSem$state) ck_extra.
+    step prog (LDelay d) m s s' ∧
     state_rel (clksOf prog) s t ∧
     code_installed t.code prog ∧
     delay_rep (dimword (:α)) d t.ffi.ffi_state cycles ∧
