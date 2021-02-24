@@ -5,8 +5,11 @@
 open preamble
      timeLangTheory
 
-val _ = new_theory "timeSem";
+val _ = new_theory "compactDSLSem";
 
+(*
+   LENGTH clks ≤ 29
+*)
 
 Datatype:
   label = LDelay time
@@ -45,23 +48,6 @@ Definition resetClocks_def:
     fm |++ ZIP (xs,MAP (λx. 0:time) xs)
 End
 
-
-(*
-Definition resetClocks_def:
-  resetClocks clks cvars_vals =
-    clks |++ MAP (λx. (x,0:time)) cvars_vals
-End
-*)
-
-
-(*
-Definition resetClocks_def:
-  resetClocks (st:state) cvs =
-  let reset_cvs = MAP (λx. (x,0:time)) cvs in
-      st with clocks := st.clocks |++ reset_cvs
-End
-*)
-
 (* TODO: rephrase this def *)
 
 Definition list_min_option_def:
@@ -83,6 +69,15 @@ Definition minusT_def:
   minusT (t1:time) (t2:time) = t1 - t2
 End
 
+(*
+Definition limit_def:
+  limit (m:num) n =
+  if n < m then SOME n
+  else NONE
+End
+*)
+
+(* inner case for generating induction theorem *)
 
 Definition evalExpr_def:
   evalExpr st e =
@@ -97,24 +92,6 @@ Definition evalExpr_def:
       | _=> NONE
 End
 
-(*
-Definition evalExpr_def:
-  (evalExpr st (ELit t) = t) ∧
-  (evalExpr st (ESub e1 e2) =
-    minusT (evalExpr st e1) (evalExpr st e2)) ∧
-  (evalExpr st (EClock c) =
-    case FLOOKUP st.clocks c of
-     | NONE => 0
-     | SOME t => t)
-End
-*)
-
-(*
-Definition evalCond_def:
-  (evalCond st (CndLe e1 e2) = (evalExpr st e1 <= evalExpr st e2)) /\
-  (evalCond st (CndLt e1 e2) = (evalExpr st e1 < evalExpr st e2))
-End
-*)
 
 Definition evalCond_def:
   (evalCond st (CndLe e1 e2) =
@@ -142,6 +119,19 @@ Definition calculate_wtime_def:
     list_min_option (MAP (THE o evalDiff st) diffs)
 End
 
+(*
+Definition clock_bound_def:
+  clock_bound fm clks (m:num) ⇔
+    EVERY
+      (λck. ∃n. FLOOKUP fm ck = SOME n ∧
+                n < m) clks
+End
+
+Definition time_range_def:
+  time_range wt (m:num) ⇔
+    EVERY (λ(t,c). t < m) wt
+End
+*)
 
 Inductive evalTerm:
   (∀st in_signal cnds clks dest diffs.
@@ -176,59 +166,100 @@ Inductive evalTerm:
                          ; waitTime := calculate_wtime st clks diffs|>))
 End
 
-
-Inductive pickTerm:
-  (* when each condition is true and input signals match with the first term *)
-  (!st cnds in_signal clks dest diffs tms st'.
-    EVERY (λcnd. evalCond st cnd) cnds ∧
-    evalTerm st (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs) st' ==>
-    pickTerm st (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs :: tms) st') ∧
-
-  (* when each condition is true and output signals match with the first term *)
-  (!st cnds out_signal clks dest diffs tms st'.
-    EVERY (λcnd. evalCond st cnd) cnds ∧
-    evalTerm st NONE (Tm (Output out_signal) cnds clks dest diffs) st' ==>
-    pickTerm st NONE (Tm (Output out_signal) cnds clks dest diffs :: tms) st') ∧
-
-  (* when any condition is false, but there is a matching term, then we can append the
-     list with the false term  *)
-  (!st cnds event ioAction clks dest diffs tms st'.
-    (* new *)
-    EVERY (λcnd. EVERY (λe. ∃t. evalExpr st e = SOME t) (destCond cnd)) cnds ∧
-    ~(EVERY (λcnd. evalCond st cnd) cnds) ∧
-    pickTerm st event tms st' ==>
-    pickTerm st event (Tm ioAction cnds clks dest diffs :: tms) st') ∧
-
-   (* when the input event does not match, but there is a matching term, then we can append the
-      list with the false term *)
-  (!st cnds event in_signal clks dest diffs tms st'.
-    event <> SOME in_signal ∧
-    pickTerm st event tms st' ==>
-    pickTerm st event (Tm (Input in_signal) cnds clks dest diffs :: tms) st') ∧
-
-  (* we can also append this in case of any SOME event with an output term *)
-  (!st cnds event out_signal clks dest diffs tms st'.
-    event <> NONE ∧
-    pickTerm st event tms st' ==>
-    pickTerm st event (Tm (Output out_signal) cnds clks dest diffs :: tms) st')
+Definition max_clocks_def:
+  max_clocks fm (m:num) ⇔
+  ∀ck.
+    ∃n. FLOOKUP fm ck = SOME n ⇒
+        n < m
 End
 
 
+Definition conds_eval_lt_dimword_def:
+  conds_eval_lt_dimword m s tms =
+    EVERY (λtm.
+            EVERY (λcnd.
+                    EVERY (λe. case (evalExpr s e) of
+                               | SOME n => n < m
+                               | _ => F) (destCond cnd))
+                  (termConditions tm)
+          ) tms
+End
+
+
+Definition time_range_def:
+  time_range wt (m:num) ⇔
+    EVERY (λ(t,c). t < m) wt
+End
+
+Definition terms_time_range_def:
+  terms_time_range m tms =
+    EVERY (λtm.
+            time_range (termWaitTimes tm) m
+          ) tms
+End
+
+
+Definition input_terms_actions_def:
+  input_terms_actions m tms =
+    EVERY (λn. n+1 < m)
+          (terms_in_signals tms)
+End
+
+Inductive pickTerm:
+  (!st m cnds in_signal clks dest diffs tms st'.
+    EVERY (λcnd. evalCond st cnd) cnds ∧
+    conds_eval_lt_dimword m st (Tm (Input in_signal) cnds clks dest diffs::tms) ∧
+    max_clocks st.clocks m ∧
+    terms_time_range m (Tm (Input in_signal) cnds clks dest diffs::tms)  ∧
+    input_terms_actions m (Tm (Input in_signal) cnds clks dest diffs::tms) ∧
+    evalTerm st (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs) st' ==>
+    pickTerm st m (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs::tms) st') ∧
+
+  (!st m cnds out_signal clks dest diffs tms st'.
+    EVERY (λcnd. evalCond st cnd) cnds ∧
+    conds_eval_lt_dimword m st (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
+    max_clocks st.clocks m ∧
+    terms_time_range m (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
+    input_terms_actions m (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
+    evalTerm st NONE (Tm (Output out_signal) cnds clks dest diffs) st' ==>
+    pickTerm st m NONE (Tm (Output out_signal) cnds clks dest diffs::tms) st') ∧
+
+  (!st m cnds event ioAction clks dest diffs tms st'.
+    EVERY (λcnd. EVERY (λe. ∃t. evalExpr st e = SOME t) (destCond cnd)) cnds ∧
+    ~(EVERY (λcnd. evalCond st cnd) cnds) ∧
+    pickTerm st m event tms st' ==>
+    pickTerm st m event (Tm ioAction cnds clks dest diffs :: tms) st') ∧
+
+  (!st m cnds event in_signal clks dest diffs tms st'.
+    event <> SOME in_signal ∧
+    pickTerm st m event tms st' ==>
+    pickTerm st m event (Tm (Input in_signal) cnds clks dest diffs :: tms) st') ∧
+
+  (!st m cnds event out_signal clks dest diffs tms st'.
+    event <> NONE ∧
+    pickTerm st m event tms st' ==>
+    pickTerm st m event (Tm (Output out_signal) cnds clks dest diffs :: tms) st')
+End
+
+(*
 Inductive step:
-  (!p st d.
+  (!p st m d.
     st.waitTime = NONE /\
-    (0:num) <= d ==>
-    step p (LDelay d) st
+    (0:num) <= d ∧
+    d < m ∧
+    ==>
+    step p (LDelay d) st m
          (mkState
           (delay_clocks (st.clocks) d)
           st.location
           NONE
           NONE)) /\
 
-  (!p st d w.
+  (!p st m d w.
     st.waitTime = SOME w /\
-    0 <= d /\ d < w ==>
-    step p (LDelay d) st
+    0 <= d /\ d < w ∧
+    w < m ==>
+    step p (LDelay d) st m
          (mkState
           (delay_clocks (st.clocks) d)
           st.location
@@ -240,7 +271,8 @@ Inductive step:
       pickTerm (resetOutput st) (SOME in_signal) tms st' /\
       st'.ioAction = SOME (Input in_signal) ==>
       step p (LAction (Input in_signal)) st st') /\
-(* st has zero wakeup t *)
+
+  (* st has zero wakeup time *)
   (!p st tms st' out_signal.
     ALOOKUP p st.location = SOME tms /\
     pickTerm (resetOutput st) NONE tms st' /\
@@ -257,5 +289,5 @@ Inductive stepTrace:
     stepTrace p st' st'' tr ==>
     stepTrace p st st'' (lbl::tr))
 End
-
+*)
 val _ = export_theory();

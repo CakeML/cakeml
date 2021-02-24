@@ -3,13 +3,13 @@
 *)
 
 open preamble
-     timeLangTheory timeSemTheory
+     timeLangTheory compactDSLSemTheory
      pan_commonPropsTheory
 
 val _ = new_theory "timeProps";
 
 val _ = set_grammar_ancestry
-        ["timeLang","timeSem",
+        ["timeLang","compactDSLSem",
          "pan_commonProps"];
 
 
@@ -82,7 +82,7 @@ Theorem reset_clks_mem_flookup_zero:
     FLOOKUP (resetClocks fm clks) ck = SOME 0
 Proof
   rw [] >>
-  fs [timeSemTheory.resetClocks_def] >>
+  fs [compactDSLSemTheory.resetClocks_def] >>
   fs [MEM_EL] >> rveq >>
   match_mp_tac update_eq_zip_map_flookup >> fs []
 QED
@@ -96,7 +96,7 @@ Theorem reset_clks_not_mem_flookup_same:
     FLOOKUP (resetClocks fm clks) ck = SOME v
 Proof
   rw [] >>
-  fs [timeSemTheory.resetClocks_def] >>
+  fs [compactDSLSemTheory.resetClocks_def] >>
   last_x_assum (mp_tac o GSYM) >>
   fs [] >>
   strip_tac >>

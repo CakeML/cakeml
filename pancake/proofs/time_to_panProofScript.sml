@@ -3,7 +3,7 @@
 *)
 
 open preamble
-     timeSemTheory panSemTheory
+     compactDSLSemTheory panSemTheory
      timePropsTheory panPropsTheory
      pan_commonPropsTheory time_to_panTheory
      labPropsTheory ffiTimeTheory
@@ -12,7 +12,7 @@ open preamble
 val _ = new_theory "time_to_panProof";
 
 val _ = set_grammar_ancestry
-        ["timeSem", "panSem", "ffiTime",
+        ["compactDSLSem", "panSem", "ffiTime",
          "pan_commonProps", "timeProps",
          "time_to_pan"];
 
@@ -60,11 +60,6 @@ Definition clock_bound_def:
     EVERY
       (λck. ∃n. FLOOKUP fm ck = SOME n ∧
                 n < m) clks
-End
-
-Definition time_range_def:
-  time_range wt (m:num) ⇔
-    EVERY (λ(t,c). t < m) wt
 End
 
 
@@ -1874,17 +1869,6 @@ Proof
   metis_tac [EVERY_NOT_EXISTS]
 QED
 
-Definition conds_eval_lt_dimword_def:
-  conds_eval_lt_dimword (:'a) s tms =
-    EVERY (λtm.
-            EVERY (λcnd.
-                    EVERY (λe. case (evalExpr s e) of
-                               | SOME n => n < dimword (:α)
-                               | _ => F) (destCond cnd))
-                  (termConditions tm)
-          ) tms
-End
-
 
 Definition conds_clks_mem_clks_def:
   conds_clks_mem_clks clks tms =
@@ -1892,13 +1876,6 @@ Definition conds_clks_mem_clks_def:
             EVERY (λcnd.
                     EVERY (λck. MEM ck clks) (condClks cnd))
                   (termConditions tm)
-          ) tms
-End
-
-Definition terms_time_range_def:
-  terms_time_range (:'a) tms =
-    EVERY (λtm.
-            time_range (termWaitTimes tm) (dimword (:'a))
           ) tms
 End
 
@@ -1929,12 +1906,6 @@ Definition locs_in_code_def:
           ) tms
 End
 
-Definition input_terms_actions_def:
-  input_terms_actions (:'a) tms =
-    EVERY (λn. n+1 < dimword (:'a))
-          (terms_in_signals tms)
-End
-
 
 Definition out_signals_ffi_def:
   out_signals_ffi (t :('a, 'b) panSem$state) tms =
@@ -1946,19 +1917,17 @@ End
 
 
 Theorem pick_term_thm:
-  ∀s e tms s'.
-    pickTerm s e tms s' ⇒
+  ∀s m e tms s'.
+    pickTerm s m e tms s' ⇒
     (∀(t :('a, 'b) panSem$state) clks clkvals.
-       conds_eval_lt_dimword (:'a) s tms ∧
+       m = dimword (:α) ∧
        conds_clks_mem_clks clks tms ∧
-       terms_time_range (:'a) tms ∧
        terms_valid_clocks clks tms ∧
        locs_in_code t.code tms ∧
        FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
+       EVERY (λck. ∃n. FLOOKUP s.clocks ck = SOME n) clks ∧
        equiv_val s.clocks clks clkvals ∧
        maxClksSize clkvals ∧
-       clock_bound s.clocks clks (dimword (:'a)) ∧
-       input_terms_actions (:'a) tms ∧
        out_signals_ffi t tms ⇒
        (e = NONE ∧
         FLOOKUP t.locals «event» = SOME (ValWord 0w) ⇒
@@ -1967,7 +1936,6 @@ Theorem pick_term_thm:
           EVERY (λcnd. evalCond s cnd) cnds ∧
           evalTerm s NONE
                    (Tm (Output out) cnds tclks dest wt) s' ∧
-          (* (∃tt. s.waitTime = SOME tt) ∧ *)
           ∃bytes nbytes.
             evaluate (compTerms clks «clks» «event» tms, t) =
             (SOME (Return (retVal s clks tclks wt dest)),
@@ -2009,6 +1977,8 @@ Proof
     conj_tac
     >- gs [conds_clks_mem_clks_def, timeLangTheory.termConditions_def] >>
     conj_tac
+    >- cheat >>
+    conj_tac
     >- gs [terms_time_range_def, timeLangTheory.termWaitTimes_def] >>
     conj_tac
     >- gs [terms_valid_clocks_def, timeLangTheory.termClks_def,
@@ -2031,6 +2001,8 @@ Proof
     >- gs [conds_eval_lt_dimword_def, timeLangTheory.termConditions_def] >>
     conj_tac
     >- gs [conds_clks_mem_clks_def, timeLangTheory.termConditions_def] >>
+    conj_tac
+    >- cheat >>
     conj_tac
     >- gs [terms_time_range_def, timeLangTheory.termWaitTimes_def] >>
     conj_tac
@@ -2074,7 +2046,8 @@ Proof
         gs [] >>
         qexists_tac ‘s’ >>
         gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
-            timeLangTheory.termConditions_def]) >>
+            timeLangTheory.termConditions_def] >>
+        cheat) >>
       gs [eval_def, OPT_MMAP_def] >>
       fs [timeLangTheory.termAction_def] >>
       cases_on ‘ioAction’ >>
@@ -2107,7 +2080,8 @@ Proof
       gs [] >>
       qexists_tac ‘s’ >>
       gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
-          timeLangTheory.termConditions_def]) >>
+          timeLangTheory.termConditions_def] >>
+      cheat) >>
     gs [eval_def, OPT_MMAP_def] >>
     fs [timeLangTheory.termAction_def] >>
     cases_on ‘ioAction’ >>
@@ -2148,12 +2122,14 @@ Proof
         impl_tac
         >- (
           gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
-              timeLangTheory.termConditions_def]) >>
+              timeLangTheory.termConditions_def] >>
+          cheat) >>
         strip_tac >> fs [] >>
         gs [asmTheory.word_cmp_def] >>
         ‘(in_signal + 1) MOD dimword (:α) = in_signal + 1’ by (
           match_mp_tac LESS_MOD >>
-          gs [input_terms_actions_def, timeLangTheory.terms_in_signals_def]) >>
+          gs [input_terms_actions_def, timeLangTheory.terms_in_signals_def] >>
+          cheat) >>
         fs [] >>
         fs [wordLangTheory.word_op_def] >>
         metis_tac []) >>
