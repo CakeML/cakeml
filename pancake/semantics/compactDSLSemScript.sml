@@ -169,20 +169,25 @@ End
 Definition max_clocks_def:
   max_clocks fm (m:num) ⇔
   ∀ck.
-    ∃n. FLOOKUP fm ck = SOME n ⇒
+    ∃n. FLOOKUP fm ck = SOME n ∧
         n < m
 End
 
 
+Definition tm_conds_eval_limit_def:
+  tm_conds_eval_limit m s tm =
+    EVERY (λcnd.
+            EVERY (λe. case (evalExpr s e) of
+                       | SOME n => n < m
+                       | _ => F) (destCond cnd))
+          (termConditions tm)
+End
+
+
+
 Definition conds_eval_lt_dimword_def:
   conds_eval_lt_dimword m s tms =
-    EVERY (λtm.
-            EVERY (λcnd.
-                    EVERY (λe. case (evalExpr s e) of
-                               | SOME n => n < m
-                               | _ => F) (destCond cnd))
-                  (termConditions tm)
-          ) tms
+    EVERY (tm_conds_eval_limit m s) tms
 End
 
 
@@ -191,13 +196,16 @@ Definition time_range_def:
     EVERY (λ(t,c). t < m) wt
 End
 
-Definition terms_time_range_def:
-  terms_time_range m tms =
-    EVERY (λtm.
-            time_range (termWaitTimes tm) m
-          ) tms
+
+Definition term_time_range_def:
+  term_time_range m tm =
+    time_range (termWaitTimes tm) m
 End
 
+Definition terms_time_range_def:
+  terms_time_range m tms =
+    EVERY (term_time_range m) tms
+End
 
 Definition input_terms_actions_def:
   input_terms_actions m tms =
@@ -220,23 +228,31 @@ Inductive pickTerm:
     conds_eval_lt_dimword m st (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
     max_clocks st.clocks m ∧
     terms_time_range m (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
-    input_terms_actions m (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
+    input_terms_actions m tms ∧
     evalTerm st NONE (Tm (Output out_signal) cnds clks dest diffs) st' ==>
     pickTerm st m NONE (Tm (Output out_signal) cnds clks dest diffs::tms) st') ∧
 
   (!st m cnds event ioAction clks dest diffs tms st'.
     EVERY (λcnd. EVERY (λe. ∃t. evalExpr st e = SOME t) (destCond cnd)) cnds ∧
     ~(EVERY (λcnd. evalCond st cnd) cnds) ∧
+    tm_conds_eval_limit m st (Tm ioAction cnds clks dest diffs) ∧
+    term_time_range m (Tm ioAction cnds clks dest diffs) ∧
+    input_terms_actions m [(Tm ioAction cnds clks dest diffs)] ∧
     pickTerm st m event tms st' ==>
     pickTerm st m event (Tm ioAction cnds clks dest diffs :: tms) st') ∧
 
   (!st m cnds event in_signal clks dest diffs tms st'.
     event <> SOME in_signal ∧
+    tm_conds_eval_limit m st (Tm (Input in_signal) cnds clks dest diffs) ∧
+    term_time_range m (Tm (Input in_signal) cnds clks dest diffs) ∧
+    in_signal + 1 < m ∧
     pickTerm st m event tms st' ==>
     pickTerm st m event (Tm (Input in_signal) cnds clks dest diffs :: tms) st') ∧
 
   (!st m cnds event out_signal clks dest diffs tms st'.
     event <> NONE ∧
+    tm_conds_eval_limit m st (Tm (Output out_signal) cnds clks dest diffs) ∧
+    term_time_range m (Tm (Output out_signal) cnds clks dest diffs) ∧
     pickTerm st m event tms st' ==>
     pickTerm st m event (Tm (Output out_signal) cnds clks dest diffs :: tms) st')
 End
