@@ -1978,7 +1978,13 @@ Proof
     conj_tac
     >- gs [conds_clks_mem_clks_def, timeLangTheory.termConditions_def] >>
     conj_tac
-    >- gs [clock_bound_def, max_clocks_def, EVERY_MEM] >>
+    >- (
+      gs [clock_bound_def, max_clocks_def, EVERY_MEM] >>
+      rw [] >>
+      first_x_assum drule >>
+      strip_tac >> gs [] >>
+      last_x_assum drule >>
+      gs []) >>
     conj_tac
     >- gs [terms_time_range_def, term_time_range_def,
            timeLangTheory.termWaitTimes_def] >>
@@ -2005,7 +2011,13 @@ Proof
     conj_tac
     >- gs [conds_clks_mem_clks_def, timeLangTheory.termConditions_def] >>
     conj_tac
-    >- gs [clock_bound_def, max_clocks_def, EVERY_MEM] >>
+    >- (
+      gs [clock_bound_def, max_clocks_def, EVERY_MEM] >>
+      rw [] >>
+      first_x_assum drule >>
+      strip_tac >> gs [] >>
+      last_x_assum drule >>
+      gs []) >>
     conj_tac
     >- gs [terms_time_range_def, term_time_range_def,
            timeLangTheory.termWaitTimes_def] >>
@@ -2262,8 +2274,8 @@ QED
 
 
 Theorem pick_term_dest_eq:
-  ∀s e tms s'.
-    pickTerm s e tms s' ⇒
+  ∀s m e tms s'.
+    pickTerm s m e tms s' ⇒
     (e = NONE ⇒
      ∀out cnds tclks dest wt.
        MEM (Tm (Output out) cnds tclks dest wt) tms ∧
@@ -2317,53 +2329,8 @@ Proof
   metis_tac [EVERY_NOT_EXISTS]
 QED
 
-(*
-Theorem pick_term_dest_eq:
-  ∀s e tms s'.
-    pickTerm s e tms s' ⇒
-    (e = NONE ⇒
-     ∀out cnds tclks dest wt.
-       MEM (Tm (Output out) cnds tclks dest wt) tms ∧
-       EVERY (λcnd. evalCond s cnd) cnds ∧
-       evalTerm s NONE (Tm (Output out) cnds tclks dest wt) s' ⇒
-       dest = s'.location) ∧
-    (∀n.
-       e = SOME n ⇒
-       ∀cnds tclks dest wt.
-         MEM (Tm (Input n) cnds tclks dest wt) tms ∧
-         EVERY (λcnd. evalCond s cnd) cnds ∧
-         evalTerm s (SOME n) (Tm (Input n) cnds tclks dest wt) s' ⇒
-         dest = s'.location)
-Proof
-  ho_match_mp_tac pickTerm_ind >>
-  rpt gen_tac >>
-  strip_tac >>
-  rpt gen_tac
-  >- (
-    strip_tac >>
-    fs [] >>
-    rw [] >>
-    fs [evalTerm_cases]) >>
-  strip_tac >>
-  rpt gen_tac
-  >- (
-    strip_tac >>
-    fs [] >>
-    rw [] >>
-    fs [evalTerm_cases]) >>
-  strip_tac >>
-  rpt gen_tac
-  >- (
-   strip_tac >>
-   cases_on ‘e’ >> fs [] >>
-   rw [] >> fs [] >>
-   metis_tac [EVERY_NOT_EXISTS]) >>
-  strip_tac >>
-  cases_on ‘e’ >> fs [] >>
-  rw [] >> fs [] >>
-  metis_tac [EVERY_NOT_EXISTS]
-QED
-*)
+
+
 (* step theorems *)
 
 Theorem state_rel_imp_time_seq_ffi:

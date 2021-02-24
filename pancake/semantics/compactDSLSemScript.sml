@@ -168,9 +168,9 @@ End
 
 Definition max_clocks_def:
   max_clocks fm (m:num) ⇔
-  ∀ck.
-    ∃n. FLOOKUP fm ck = SOME n ∧
-        n < m
+  ∀ck n.
+    FLOOKUP fm ck = SOME n ⇒
+    n < m
 End
 
 
@@ -182,7 +182,6 @@ Definition tm_conds_eval_limit_def:
                        | _ => F) (destCond cnd))
           (termConditions tm)
 End
-
 
 
 Definition conds_eval_lt_dimword_def:
@@ -257,53 +256,52 @@ Inductive pickTerm:
     pickTerm st m event (Tm (Output out_signal) cnds clks dest diffs :: tms) st')
 End
 
-(*
+
 Inductive step:
-  (!p st m d.
+  (!p m st d.
     st.waitTime = NONE /\
-    (0:num) <= d ∧
-    d < m ∧
-    ==>
-    step p (LDelay d) st m
+    (0:num) <= d ∧ d < m ∧
+    max_clocks (delay_clocks (st.clocks) d) m ⇒
+    step p (LDelay d) m st
          (mkState
           (delay_clocks (st.clocks) d)
           st.location
           NONE
           NONE)) /\
 
-  (!p st m d w.
-    st.waitTime = SOME w /\
-    0 <= d /\ d < w ∧
-    w < m ==>
-    step p (LDelay d) st m
+  (!p m st d w.
+    st.waitTime = SOME w ∧
+    0 <= d /\ d < w ∧ w < m ∧
+    max_clocks (delay_clocks (st.clocks) d) m ⇒
+    step p (LDelay d) m st
          (mkState
           (delay_clocks (st.clocks) d)
           st.location
           NONE
           (SOME (w - d)))) /\
 
-  (!p st tms st' in_signal.
-      ALOOKUP p st.location = SOME tms /\
-      pickTerm (resetOutput st) (SOME in_signal) tms st' /\
-      st'.ioAction = SOME (Input in_signal) ==>
-      step p (LAction (Input in_signal)) st st') /\
+  (!p m st tms st' in_signal.
+      ALOOKUP p st.location = SOME tms ∧
+      pickTerm (resetOutput st) m (SOME in_signal) tms st' ∧
+      st'.ioAction = SOME (Input in_signal) ⇒
+      step p (LAction (Input in_signal)) m st st') ∧
 
-  (* st has zero wakeup time *)
-  (!p st tms st' out_signal.
-    ALOOKUP p st.location = SOME tms /\
-    pickTerm (resetOutput st) NONE tms st' /\
-    st'.ioAction = SOME (Output out_signal) ==>
-    step p (LAction (Output out_signal)) st st')
+  (!p m st tms st' out_signal.
+    ALOOKUP p st.location = SOME tms ∧
+    st.waitTime = SOME 0 ∧
+    pickTerm (resetOutput st) m NONE tms st' ∧
+    st'.ioAction = SOME (Output out_signal) ⇒
+    step p (LAction (Output out_signal)) m st st')
 End
 
 
 Inductive stepTrace:
-  (!p st.
-    stepTrace p st st []) /\
-  (!p lbl st st' st'' tr.
-    step p lbl st st' /\
-    stepTrace p st' st'' tr ==>
-    stepTrace p st st'' (lbl::tr))
+  (!p m st.
+    stepTrace p m st st []) /\
+  (!p lbl m st st' st'' tr.
+    step p lbl m st st' /\
+    stepTrace p m st' st'' tr ==>
+    stepTrace p m st st'' (lbl::tr))
 End
-*)
+
 val _ = export_theory();
