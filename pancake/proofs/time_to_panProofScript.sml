@@ -3897,6 +3897,14 @@ Definition input_rel_def:
      n = input - 1 ∧ input <> 0
 End
 
+(*
+ FLOOKUP t'.locals «wakeUpAt» =
+        SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) +
+          case s'.waitTime of
+          | NONE => 0
+          | SOME wt => wt)))
+*)
+
 Theorem step_input:
   !prog i m n s s' (t:('a,time_input) panSem$state).
     step prog (LAction (Input i)) m n s s' ∧
@@ -3920,7 +3928,6 @@ Theorem step_input:
       FLOOKUP t'.locals «event»   = SOME (ValWord 0w) ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
       task_ret_defined t'.locals (nClks prog) ∧
-      (* update this later *)
       (∃wt.
          FLOOKUP t'.locals «wakeUpAt» =
          SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) + wt))) ∧
@@ -4426,20 +4433,19 @@ Proof
     last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
     impl_tac >- metis_tac [MEM_EL] >>
     gs []) >>
-
-
-
   fs [nffi_state_def, Abbr ‘nnt’] >>
   gs [task_ret_defined_def, FLOOKUP_UPDATE, Abbr ‘rtv’, resetOutput_def,
       resetClksVals_def] >>
   fs [EVERY_MAP] >>
-
-  gs [well_formed_terms_def, terms_wtimes_ffi_bound_def] >>
+  ‘terms_wtimes_ffi_bound (dimword (:α) − (tm + 1))
+   (s with <|ioAction := NONE; waitTime := NONE|>) tms’ by
+    gs [Once pickTerm_cases] >>
+  gs [terms_wtimes_ffi_bound_def] >>
   gs [EVERY_MEM] >>
   last_x_assum (qspec_then ‘Tm (Input (io_flg − 1)) cnds tclks dest wt’ mp_tac) >>
   gs [timeLangTheory.termClks_def, timeLangTheory.termWaitTimes_def, resetOutput_def] >>
   strip_tac >>
-  cases_on ‘wt’
+  cases_on ‘wt’ >> gs []
   >- (
     qexists_tac ‘0’ >>
     gs []) >>
