@@ -619,6 +619,99 @@ Proof
   \\ gs[result_cond_rw] \\ rveq \\ gs[]
 QED
 
+Theorem isDoubleExp_evaluates_real:
+  (∀ e env (st1:'a semanticPrimitives$state) st2 r.
+     isDoubleExp e ∧
+     freeVars_real_bound e env ∧
+     evaluate st1 env [realify e] = (st2, Rval r) ⇒
+     ∃ rn. r = [Real rn])
+  ∧
+  (∀ exps env (st1:'a semanticPrimitives$state) st2 r.
+     isDoubleExpList exps ∧
+     freeVars_list_real_bound exps env ⇒
+     ∀ e. MEM e exps ⇒
+     evaluate st1 env [realify e] = (st2, Rval r) ⇒
+     ∃ rn. r = [Real rn])
+Proof
+  ho_match_mp_tac isDoubleExp_ind
+  \\ rpt strip_tac \\ fs[isDoubleExp_def, realify_def]
+  >- (gs[evaluate_def, freeVars_real_bound_def] \\ rveq \\ gs[])
+  >- (
+    qpat_x_assum `evaluate _ _ _ = _` mp_tac
+    \\ gs[evaluate_def, CaseEq"result", CaseEq"prod"]
+    \\ rpt strip_tac \\ rveq
+    \\ last_x_assum (qspecl_then [‘env’, ‘st1’, ‘st'’, ‘v’] mp_tac)
+    \\ impl_tac >- gs[freeVars_real_bound_def]
+    \\ strip_tac \\ rveq
+    \\ qpat_x_assum `evaluate _ (env with v := _) _ = _`
+         (fn th => first_x_assum (fn ith => mp_then Any mp_tac ith th))
+    \\ impl_tac
+    >- (
+      Cases_on ‘x’ \\ gs[namespaceTheory.nsOptBind_def, freeVars_real_bound_def]
+      \\ rpt strip_tac \\ rename1 ‘nsBind y _ env.v’ \\ rename1 ‘x IN FV e2’
+      \\ Cases_on ‘x = Short y’ \\ gs[ml_progTheory.nsLookup_nsBind_compute])
+    \\ strip_tac \\ gs[])
+  >- (
+    gs[evaluate_def, CaseEq"prod", CaseEq"result", do_app_def,
+       astTheory.getOpClass_def, astTheory.isFpBool_def]
+    \\ Cases_on ‘st1.fp_state.real_sem’ \\ gs[]
+    \\ rveq \\ gs[])
+  >~ [‘FpOptimise sc e’]
+  >- (
+    qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+    \\ gs[evaluate_def, CaseEq"prod", CaseEq"result", do_app_def,
+          astTheory.getOpClass_def, astTheory.isFpBool_def, CaseEq"list"]
+    \\ strip_tac \\ gs[freeVars_real_bound_def] \\ rveq
+    \\ qpat_x_assum `evaluate _ _ _ = _`
+         (fn th => first_x_assum (fn ith => mp_then Any mp_tac ith th))
+    \\ impl_tac
+    >- gs[]
+    \\ strip_tac \\ gs[do_fpoptimise_def])
+  >~ [‘freeVars_list_real_bound (e::exps)’, ‘evaluate st1 env [realify e2] = (st2, Rval r)’]
+  >- (
+    rveq \\ res_tac \\ pop_assum mp_tac \\ gs[freeVars_real_bound_def, freeVars_list_real_bound_def])
+  >~ [‘freeVars_list_real_bound (e::exps)’, ‘MEM e2 exps’]
+  >- (
+    ‘freeVars_list_real_bound exps env’ by (gs[freeVars_list_real_bound_def])
+    \\ res_tac \\ gs[])
+  >~ [‘freeVars_real_bound (App (FP_top t_op) exps) env’]
+  >- (
+    qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+    \\ gs[evaluate_def, CaseEq"prod", CaseEq"result", do_app_def,
+          astTheory.getOpClass_def, astTheory.isFpBool_def, CaseEq"list"]
+    \\ TOP_CASE_TAC \\ gs[CaseEq"prod"]
+    >- (gs[evaluate_def, CaseEq"prod", CaseEq"result", do_app_def,
+           astTheory.getOpClass_def, astTheory.isFpBool_def, CaseEq"list"])
+    \\ TOP_CASE_TAC \\ gs[CaseEq"prod"]
+    >- (gs[evaluate_def, CaseEq"prod", CaseEq"result", do_app_def,
+           astTheory.getOpClass_def, astTheory.isFpBool_def, CaseEq"list"])
+    \\ TOP_CASE_TAC \\ gs[CaseEq"prod"]
+    >- (gs[evaluate_def, CaseEq"prod", CaseEq"result", do_app_def,
+           astTheory.getOpClass_def, astTheory.isFpBool_def, CaseEq"list"])
+    \\ TOP_CASE_TAC \\ gs[CaseEq"prod"]
+    \\ gs[evaluate_def, CaseEq"prod", CaseEq"result", do_app_def,
+          astTheory.getOpClass_def, astTheory.isFpBool_def, CaseEq"list"]
+    \\ rpt strip_tac \\ rveq \\ gs[]
+    \\ pop_assum mp_tac \\ COND_CASES_TAC \\ gs[]
+    \\ TOP_CASE_TAC \\ gs[]
+    \\ pop_assum (fn th => rpt strip_tac \\ mp_tac th)
+    \\ rpt (TOP_CASE_TAC \\ gs[]) \\ rpt strip_tac \\ rveq
+    \\ qpat_x_assum ‘(if _ then _ else _)= (_, Rval _)’ mp_tac
+    \\ COND_CASES_TAC \\ gs[]
+    \\ TOP_CASE_TAC \\ gs[]
+    \\ pop_assum (fn th => rpt strip_tac \\ mp_tac th)
+    \\ rpt (TOP_CASE_TAC \\ gs[]) \\ rpt strip_tac \\ rveq
+    \\ gs[])
+  \\ qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+  \\ gs[evaluate_def, CaseEq"prod", CaseEq"result", do_app_def,
+       astTheory.getOpClass_def, astTheory.isFpBool_def, CaseEq"list"]
+  \\ rpt strip_tac \\ pop_assum mp_tac
+  \\ ntac 2 (TOP_CASE_TAC \\ gs[CaseEq"prod"])
+  \\ pop_assum (fn th => rpt strip_tac \\ mp_tac th)
+  \\ rpt (TOP_CASE_TAC \\ gs[]) \\ rpt strip_tac \\ rveq
+  \\ gs[result_cond_rw] \\ rveq \\ gs[]
+QED
+
 Theorem EVERYi_T:
   EVERYi (λ n x. T) ls
 Proof
@@ -646,6 +739,30 @@ Proof
     \\ pop_assum (simp o single) \\ gs[EVERYi_T])
   \\ ‘(λ n e. n = i ⇒ freeVars_arithExp_bound st1 st2 env cfg path e) o SUC =
      (λ n e. n = i-1 ⇒ freeVars_arithExp_bound st1 st2 env cfg path e)’
+     by (gs[FUN_EQ_THM] \\ rpt strip_tac \\ EQ_TAC \\ gs[]
+         \\ rpt strip_tac \\ rveq \\ gs[])
+  \\ pop_assum $ gs o single
+QED
+
+Theorem EVERYi_lift_MEM_real:
+  ∀ exps cfg (st2:'a semanticPrimitives$state) st1 path cfg.
+  (∀ e.
+     MEM e exps ⇒
+     ∀ (st2:'a semanticPrimitives$state) st1 path cfg.
+       freeVars_realExp_bound st1 st2 env cfg path e) ⇒
+  ∀ i.
+    EVERYi (λ n e. n = i ⇒ freeVars_realExp_bound st1 st2 env cfg path e) exps
+Proof
+  Induct_on ‘exps’ \\ gs[EVERYi_def]
+  \\ rpt strip_tac \\ gs[]
+  \\ Cases_on ‘i = 0’ \\ gs[]
+  >- (
+    ‘(λ n e. n = i ⇒ freeVars_realExp_bound st1 st2 env cfg path e) o SUC = (λ n e. T)’
+     by (rveq \\ gs[FUN_EQ_THM])
+    \\ rveq
+    \\ pop_assum (simp o single) \\ gs[EVERYi_T])
+  \\ ‘(λ n e. n = i ⇒ freeVars_realExp_bound st1 st2 env cfg path e) o SUC =
+     (λ n e. n = i-1 ⇒ freeVars_realExp_bound st1 st2 env cfg path e)’
      by (gs[FUN_EQ_THM] \\ rpt strip_tac \\ EQ_TAC \\ gs[]
          \\ rpt strip_tac \\ rveq \\ gs[])
   \\ pop_assum $ gs o single
@@ -713,6 +830,71 @@ Proof
     \\ last_x_assum irule
     \\ gs[freeVars_fp_bound_def, freeVars_list_fp_bound_def])
   \\ ‘freeVars_list_fp_bound exps env’ by gs[freeVars_list_fp_bound_def]
+  \\ res_tac \\ first_x_assum irule
+QED
+
+Theorem isDoubleExp_freeVars_realExp_bound:
+  (∀ e env.
+     isDoubleExp e ∧
+     freeVars_real_bound e env ⇒
+     ∀ (st1:'a semanticPrimitives$state) st2 cfg path.
+       freeVars_realExp_bound st1 st2 env cfg path e)
+  ∧
+  (∀ exps env.
+     isDoubleExpList exps ∧
+     freeVars_list_real_bound exps env ⇒
+     ∀ e. MEM e exps ⇒
+          ∀ (st1:'a semanticPrimitives$state) st2 cfg path.
+            freeVars_realExp_bound st1 st2 env cfg path e)
+Proof
+  ho_match_mp_tac isDoubleExp_ind
+  \\ rpt strip_tac \\ gs[isDoubleExp_def]
+  >- (Cases_on ‘path’ \\ gs[freeVars_realExp_bound_def])
+  >- (
+    Cases_on ‘path’ \\ gs[freeVars_realExp_bound_def]
+    >- (first_x_assum irule \\ gs[freeVars_real_bound_def])
+    \\ rpt strip_tac \\ first_x_assum irule
+    \\ gs[freeVars_real_bound_def]
+    \\ rpt strip_tac \\ rename1 ‘y IN FV e2’
+    \\ Cases_on ‘x’ \\ gs[namespaceTheory.nsOptBind_def]
+    \\ rename1 ‘nsBind x (HD v) env.v’
+    \\ Cases_on ‘y = Short x’ \\ rveq \\ gs[]
+    \\ imp_res_tac evaluate_sing \\ rveq \\ gs[]
+    \\ ‘∃ rn. v' = Real rn’
+       by (drule (CONJUNCT1 isDoubleExp_evaluates_real)
+           \\ disch_then (qspecl_then [‘env’, ‘st1’, ‘st2’, ‘[v']’] mp_tac)
+           \\ impl_tac \\ gs[freeVars_real_bound_def])
+    \\ rveq \\ gs[])
+  >- (
+    Cases_on ‘path’ \\ gs[freeVars_realExp_bound_def]
+    \\ Cases_on ‘p’ \\ gs[freeVars_realExp_bound_def, EVERYi_def]
+    \\ rpt strip_tac \\ Cases_on ‘r’ \\ gs[freeVars_realExp_bound_def])
+  >- (
+    Cases_on ‘path’ \\ gs[freeVars_realExp_bound_def]
+    \\ Cases_on ‘p’ \\ gs[freeVars_realExp_bound_def]
+    \\ ‘freeVars_list_real_bound exps env’
+      by gs[freeVars_real_bound_def, freeVars_list_real_bound_def]
+    \\ res_tac \\ gs[EVERYi_lift_MEM_real])
+  >- (
+    Cases_on ‘path’ \\ gs[freeVars_realExp_bound_def]
+    \\ Cases_on ‘p’ \\ gs[freeVars_realExp_bound_def]
+    \\ ‘freeVars_list_real_bound exps env’
+      by gs[freeVars_real_bound_def, freeVars_list_real_bound_def]
+    \\ res_tac \\ gs[EVERYi_lift_MEM_real])
+  >- (
+    Cases_on ‘path’ \\ gs[freeVars_realExp_bound_def]
+    \\ Cases_on ‘p’ \\ gs[freeVars_realExp_bound_def]
+    \\ ‘freeVars_list_real_bound exps env’
+      by gs[freeVars_real_bound_def, freeVars_list_real_bound_def]
+    \\ res_tac \\ gs[EVERYi_lift_MEM_real])
+  >- (
+    Cases_on ‘path’ \\ gs[freeVars_realExp_bound_def]
+    \\ first_x_assum irule \\ gs[freeVars_real_bound_def])
+  >- (
+    rveq \\ gs[]
+    \\ last_x_assum irule
+    \\ gs[freeVars_real_bound_def, freeVars_list_real_bound_def])
+  \\ ‘freeVars_list_real_bound exps env’ by gs[freeVars_list_real_bound_def]
   \\ res_tac \\ first_x_assum irule
 QED
 
@@ -1369,15 +1551,76 @@ Definition isDoubleExpPlan_def:
     (isDoubleExp e ∧ isDoubleExpPlan (perform_rewrites cfg path rewrites e) cfg plan)
 End
 
+Theorem freeVars_MAPi_perform_rewrites:
+  ∀ exps x i cfg path rws e.
+    (∀ e. MEM e exps ⇒ ∀ x. x IN FV (perform_rewrites cfg path rws e) ⇒ x IN FV e) ∧
+    x IN FV_list (MAPi (λ n e. if n = i then perform_rewrites cfg path rws e else e) exps) ⇒
+    x IN FV_list exps
+Proof
+  Induct_on ‘exps’ \\ gs[]
+  \\ rpt strip_tac
+  >- (Cases_on ‘i=0’ \\ gs[])
+  \\ Cases_on ‘i = 0’ \\ rveq \\ gs[]
+  >- (
+    ‘(λ n e. if n = 0 then perform_rewrites cfg path rws e else e) o SUC = λ n e. e’
+     by (gs[FUN_EQ_THM])
+    \\ pop_assum $ gs o single)
+  \\ ‘(λ n e. if n = i then perform_rewrites cfg path rws e else e) o SUC =
+      λ n e. if n = i-1 then perform_rewrites cfg path rws e else e’
+      by (gs[FUN_EQ_THM] \\ rpt strip_tac \\ COND_CASES_TAC \\ gs[])
+  \\ pop_assum $ gs o single
+  \\ DISJ2_TAC
+  \\ res_tac
+  \\ first_x_assum irule \\ gs[]
+QED
+
+Theorem freeVars_MAPi_perform_rewrites_pes:
+  ∀ pes x i cfg path rws e.
+    (∀ p e. MEM (p,e) pes ⇒ ∀ x. x IN FV (perform_rewrites cfg path rws e) ⇒ x IN FV e) ∧
+    x IN FV_pes (MAPi (λ n (p,e). if n = i then (p,perform_rewrites cfg path rws e) else (p,e)) pes) ⇒
+    x IN FV_pes pes
+Proof
+  Induct_on ‘pes’ \\ gs[]
+  \\ rpt strip_tac \\ Cases_on ‘h’ \\ gs[]
+  \\ Cases_on ‘i = 0’ \\ rveq \\ gs[]
+  >- (
+    ‘(λ n (p:pat,e). if n = 0 then (p,perform_rewrites cfg path rws e) else (p,e)) o SUC = λ n (p,e). (p,e)’
+     by (gs[FUN_EQ_THM])
+    \\ pop_assum $ gs o single
+    \\ DISJ2_TAC
+    \\ ‘MAPi (λ n (p,e). (p,e)) pes = pes’
+       by (rpt $ pop_assum kall_tac \\ Induct_on ‘pes’ \\ gs[] \\ rpt strip_tac \\ gs[FUN_EQ_THM]
+           >- (Cases_on ‘h’ \\ gs[])
+           \\ pop_assum (fn th => simp [SimpR “$=”, Once (GSYM th)])
+           \\ AP_THM_TAC \\ AP_TERM_TAC \\ gs[FUN_EQ_THM])
+    \\ pop_assum $ gs o single)
+  \\ ‘(λ n (p:pat,e). if n = i then (p, perform_rewrites cfg path rws e) else (p,e)) o SUC =
+      λ n (p:pat,e). if n = i-1 then (p, perform_rewrites cfg path rws e) else (p,e)’
+      by (gs[FUN_EQ_THM] \\ rpt strip_tac \\ Cases_on ‘x'’ \\ gs[] \\ COND_CASES_TAC \\ gs[])
+  \\ pop_assum $ gs o single
+  \\ DISJ2_TAC
+  \\ res_tac
+  \\ first_x_assum irule \\ gs[]
+  \\ rpt strip_tac \\ res_tac
+QED
+
 Theorem perform_rewrites_freeVars:
   ∀ cfg path rws e x. x IN FV (perform_rewrites cfg path rws e) ⇒ x IN FV e
 Proof
-  cheat
-QED
-  (* ho_match_mp_tac perform_rewrites_ind
+  ho_match_mp_tac perform_rewrites_ind
   \\ rpt strip_tac \\ gs[perform_rewrites_def]
-  >- (Cases_on ‘cfg.canOpt’ \\ gs[]
-match_preserves_FV_lookup *)
+  >- (
+    Cases_on ‘cfg.canOpt’ \\ gs[]
+    \\ qspecl_then [‘rws’, ‘App op exps’, ‘rewriteFPexp rws (App op exps)’,
+                    ‘λ x. x IN FV (App op exps)’]
+                   mp_tac
+                   rewrite_preserves_FV
+    \\ impl_tac \\ gs[])
+  >- (imp_res_tac freeVars_MAPi_perform_rewrites)
+  >- (imp_res_tac freeVars_MAPi_perform_rewrites)
+  \\ imp_res_tac freeVars_MAPi_perform_rewrites_pes
+  \\ gs[]
+QED
 
 Theorem isDoubleExpPlan_freeVars_plan_bound_def:
   ∀ plan e env cfg.
@@ -1386,9 +1629,7 @@ Theorem isDoubleExpPlan_freeVars_plan_bound_def:
     ∀ (st1:'a semanticPrimitives$state) st2.
       freeVars_plan_bound st1 st2 env cfg plan e
 Proof
-  cheat
-QED
-  (* Induct_on ‘plan’ \\ gs[freeVars_plan_bound_def]
+  Induct_on ‘plan’ \\ gs[freeVars_plan_bound_def]
   \\ rpt strip_tac \\ Cases_on ‘h’ \\ gs[freeVars_plan_bound_def, isDoubleExpPlan_def]
   \\ Cases_on ‘p’ \\ gs[freeVars_plan_bound_def, isDoubleExpPlan_def]
   \\ conj_tac
@@ -1398,9 +1639,36 @@ QED
   \\ first_x_assum $ qspec_then ‘e_opt’ mp_tac
   \\ disch_then (qspecl_then [‘env’, ‘cfg’] mp_tac)
   \\ impl_tac
-  >- (gs[freeVars_fp_bound_def] \\ rpt strip_tac \\ unabbrev_all_tac
-  \\ first_x_assum drule
-  \\ gs[] *)
+  >- (
+    gs[freeVars_fp_bound_def] \\ rpt strip_tac \\ unabbrev_all_tac
+    \\ imp_res_tac perform_rewrites_freeVars
+    \\ res_tac \\ gs[])
+  \\ strip_tac \\ gs[]
+QED
+
+Theorem isDoubleExpPlan_freeVars_realPlan_bound_def:
+  ∀ plan e env cfg.
+    freeVars_real_bound e env ∧
+    isDoubleExpPlan e cfg plan ⇒
+    ∀ (st1:'a semanticPrimitives$state) st2.
+      freeVars_realPlan_bound st1 st2 env cfg plan e
+Proof
+  Induct_on ‘plan’ \\ gs[freeVars_realPlan_bound_def]
+  \\ rpt strip_tac \\ Cases_on ‘h’ \\ gs[freeVars_realPlan_bound_def, isDoubleExpPlan_def]
+  \\ Cases_on ‘p’ \\ gs[freeVars_realPlan_bound_def, isDoubleExpPlan_def]
+  \\ conj_tac
+  >- (drule (CONJUNCT1 isDoubleExp_freeVars_realExp_bound)
+      \\ disch_then drule \\ gs[])
+  \\ qmatch_goalsub_abbrev_tac ‘freeVars_realPlan_bound _ _ _ _ _ e_opt’
+  \\ first_x_assum $ qspec_then ‘e_opt’ mp_tac
+  \\ disch_then (qspecl_then [‘env’, ‘cfg’] mp_tac)
+  \\ impl_tac
+  >- (
+    gs[freeVars_real_bound_def] \\ rpt strip_tac \\ unabbrev_all_tac
+    \\ imp_res_tac perform_rewrites_freeVars
+    \\ res_tac \\ gs[])
+  \\ strip_tac \\ gs[]
+QED
 
 Definition is_optimise_with_plan_correct_def:
   is_optimise_with_plan_correct plan (st1:'a semanticPrimitives$state) st2 env cfg exps r =

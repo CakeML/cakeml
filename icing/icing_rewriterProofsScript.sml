@@ -277,6 +277,25 @@ Proof
   \\ rpt strip_tac \\ res_tac \\ fs[]
 QED
 
+Theorem rewrite_preserves_FV:
+  ∀ rws e eNew P.
+  (∀ x. x IN FV e ⇒ P x) ∧
+  rewriteFPexp rws e = eNew ⇒
+  ∀ x. x IN FV eNew ⇒ P x
+Proof
+  Induct_on ‘rws’ \\ gs[rewriteFPexp_def]
+  \\ rpt strip_tac \\ Cases_on ‘h’ \\ gs[rewriteFPexp_def]
+  \\ pop_assum mp_tac \\ COND_CASES_TAC \\ gs[]
+  \\ TOP_CASE_TAC \\ gs[]
+  >- (first_x_assum $ qspecl_then [‘e’, ‘P’] mp_tac \\ impl_tac \\ gs[])
+  \\ TOP_CASE_TAC \\ gs[]
+  >- (first_x_assum $ qspecl_then [‘e’, ‘P’] mp_tac \\ impl_tac \\ gs[])
+  \\ strip_tac
+  \\ first_x_assum $ qspecl_then [‘x''’, ‘P’] mp_tac \\ impl_tac \\ gs[]
+  \\ qspecl_then [‘r’, ‘q’, ‘e’, ‘x''’, ‘x'’, ‘[]’, ‘P’]  mp_tac match_preserves_FV
+  \\ impl_tac \\ gs[substLookup_def]
+QED
+
 Theorem isFpArithExp_match_preserved:
   ∀ rhs lhs e subst eNew.
     isFpArithExp e ∧

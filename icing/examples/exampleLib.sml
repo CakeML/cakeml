@@ -616,10 +616,10 @@ fun write_to_file prog_def = let
   val _ = print ("Program pretty printed to " ^ filename ^ "\n")
   in () end
 
-val _ = intermediate_prog_prefix := "rigidBody_unopt_";
+val _ = intermediate_prog_prefix := "test03_unopt_";
 val backend_config_def = arm7_backend_config_def
 val cbv_to_bytes = cbv_to_bytes_arm7
-val name = "rigidBodyUnoptProg"
+val name = "test03UnoptProg"
 val prog_def = (Parse.Term ‘
   APPEND ^(reader_def |> concl |> rhs)
   (APPEND ^(intToFP_def |> concl |> rhs)
@@ -638,7 +638,7 @@ val data_prog_def = definition(mk_abbrev_name data_prog_name)
 Overload monad_unitbind[local] = ``data_monad$bind``
 Overload return[local] = ``data_monad$return``
 val _ = monadsyntax.temp_add_monadsyntax()
-val _ = install_naming_overloads "scratch";
+val _ = install_naming_overloads "test01_sum3ProgComp";
 
 val _ = write_to_file data_prog_def;
 **)
@@ -835,15 +835,17 @@ val _ = write_to_file data_prog_def;
       val theAST_float_returns_def =
         Define ‘
         theAST_float_returns ^args w ⇔
-        ∃ fpOpts st2 fp.
+        (∃ fpOpts st2 fp.
           let theOpts = FLAT (MAP (λ x. case x of |Apply (_, rws) => rws |_ => []) (HD theAST_plan)) in
-            evaluate (empty_state with fp_state :=
+            (evaluate (empty_state with fp_state :=
                       empty_state.fp_state with
                                  <| rws := theOpts ; opts := fpOpts; canOpt := FPScope NoOpt |>)
                      (theAST_env with v :=
                       extend_env_with_vars (REVERSE ^fvars) (REVERSE ^argList) (theAST_env).v)
-                     [^body] = (st2, Rval [FP_WordTree fp]) ∧ compress_word fp = w’
-      val _ = computeLib.add_funs [list_result_rw, list_result_cond_rw]
+                     [^body] = (st2, Rval [FP_WordTree fp])) ∧ (compress_word fp = w))’
+      val body_doubleExpPlan = store_thm ("body_doubleExpPlan",
+        Parse.Term ‘isDoubleExpPlan ^body no_fp_opt_conf (HD theAST_plan)’,
+          EVAL_TAC);
       val freeVars_list_body = store_thm ("freeVars_list_body",
         Parse.Term ‘
         ∀ (st1:unit semanticPrimitives$state) st2.
@@ -853,26 +855,9 @@ val _ = write_to_file data_prog_def;
             no_fp_opt_conf
             (HD theAST_plan)
             ^body’,
-        rpt strip_tac
-        \\ gs[theAST_plan_result, freeVars_plan_bound_def, freeVars_arithExp_bound_def, EVERYi_def]
-        \\  rpt conj_tac
-        (* Non-let goals automatically solved *)
-        \\ rpt (
-          gs[freeVars_fp_bound_def, extend_env_with_vars_def, EVERYi_def]
-          \\  qmatch_goalsub_abbrev_tac ‘freeVars_arithExp_bound st1 st2 theAST_env_new _ _ rewrittenExp’
-          \\ qpat_x_assum ‘Abbrev(rewrittenExp = _)’ (assume_tac o EVAL_RULE)
-          \\ unabbrev_all_tac \\ gs[freeVars_arithExp_bound_def]
-          \\ rpt strip_tac \\ gs[freeVars_fp_bound_def, EVERYi_def]
-          \\ rpt (qpat_x_assum `evaluate _ _ _ = _` (fn th => mp_tac (EVAL_RULE th)) )
-          \\ rpt strip_tac \\ rveq
-          \\ gs[freeVars_fp_bound_def, extend_env_with_vars_def])
-        \\ rpt strip_tac \\ gs[freeVars_arithExp_bound_def, freeVars_fp_bound_def, EVERYi_def]
-        \\ rpt (qpat_x_assum `_ = (_, Rval _)` (fn th => mp_tac (EVAL_RULE th)) )
-        \\ rpt strip_tac \\ rveq
-        \\ gs[freeVars_fp_bound_def, namespaceTheory.nsOptBind_def, NULL, listTheory.REV_DEF,
-              semanticPrimitivesTheory.fp_translate_def,
-              ml_progTheory.nsLookup_nsBind_compute,extend_env_with_vars_def, list_result_cond_rw]
-        \\ rveq \\ gs[])
+        irule isDoubleExpPlan_freeVars_plan_bound_def \\ conj_tac
+        \\ gs[body_doubleExpPlan, freeVars_fp_bound_def, extend_env_with_vars_def]
+        \\ rpt strip_tac \\ gs[])
       val freeVars_real_list_body = store_thm ("freeVars_real_list_body",
         Parse.Term ‘
         ∀ (st1:unit semanticPrimitives$state) st2.
@@ -881,28 +866,9 @@ val _ = write_to_file data_prog_def;
              toRspace (extend_env_with_vars (REVERSE ^fvars) (REVERSE ^argList) (theAST_env).v))
            no_fp_opt_conf (HD theAST_plan)
             ^body’,
-        rpt strip_tac
-        \\ gs[theAST_plan_result, freeVars_realPlan_bound_def,
-              freeVars_realExp_bound_def, EVERYi_def, toRspace_def, extend_env_with_vars_def]
-        \\  rpt conj_tac
-        (* Non-let goals automatically solved *)
-        \\ rpt (gs[freeVars_real_bound_def, extend_env_with_vars_def, EVERYi_def,
-                   nsMap_nsBind]
-        \\  qmatch_goalsub_abbrev_tac ‘freeVars_realExp_bound _ _ theAST_env_new _ _ rewrittenExp’
-        \\ qpat_x_assum ‘Abbrev(rewrittenExp = _)’ (assume_tac o EVAL_RULE)
-        \\ unabbrev_all_tac \\ gs[freeVars_realExp_bound_def]
-        \\ rpt strip_tac \\ gs[freeVars_real_bound_def, EVERYi_def]
-        \\ rpt (qpat_x_assum `evaluate _ _ _ = _` (fn th => mp_tac (EVAL_RULE th)) )
-        \\ rpt (COND_CASES_TAC \\ gs[semanticPrimitivesTheory.do_app_def])
-        \\ rpt strip_tac \\ rveq
-        \\ gs[freeVars_realExp_bound_def, freeVars_real_bound_def, extend_env_with_vars_def])
-        \\ rpt strip_tac \\ gs[freeVars_real_bound_def, EVERYi_def]
-        \\ rpt (qpat_x_assum `evaluate _ _ _ = _` (fn th => mp_tac (EVAL_RULE th)) )
-        \\ rpt (COND_CASES_TAC \\ gs[semanticPrimitivesTheory.do_app_def])
-        \\ rpt strip_tac \\ rveq
-        \\ rpt strip_tac \\ gs[freeVars_real_bound_def,
-            ml_progTheory.nsLookup_nsBind_compute, namespaceTheory.nsOptBind_def,
-            toRspace_def, nsMap_nsBind])
+        irule isDoubleExpPlan_freeVars_realPlan_bound_def \\ conj_tac
+        \\ gs[body_doubleExpPlan, freeVars_real_bound_def, extend_env_with_vars_def, toRspace_def]
+        \\ rpt strip_tac \\ gs[nsMap_nsBind])
       val theAST_opt_backward_sim = store_thm ("theAST_opt_backward_sim",
         Parse.Term ‘theAST_opt_float_option_noopt ^args = SOME w ⇒
         theAST_float_returns ^args (compress_word w)’,
