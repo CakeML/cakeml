@@ -1915,6 +1915,7 @@ End
   we could phrase this at the term's diff level instead of
   calculate_wtime, or may be thats fine
 *)
+(*
 Definition terms_wtimes_ffi_bound_def:
   terms_wtimes_ffi_bound (:'a) s tms n =
     EVERY (λtm.
@@ -1923,7 +1924,7 @@ Definition terms_wtimes_ffi_bound_def:
             | SOME wt => n + wt <  dimword (:'a)
           ) tms
 End
-
+*)
 Definition locs_in_code_def:
   locs_in_code fm tms =
     EVERY (λtm.
@@ -1944,7 +1945,7 @@ End
 Theorem pick_term_thm:
   ∀s m e tms s'.
     pickTerm s m e tms s' ⇒
-    (∀(t :('a, 'b) panSem$state) clks clkvals n.
+    (∀(t :('a, 'b) panSem$state) clks clkvals.
        m < dimword (:α) ∧
        (* might not be necessary *)
        conds_clks_mem_clks clks tms ∧
@@ -2329,18 +2330,23 @@ Theorem pick_term_dest_eq:
        (case wt of [] => s'.waitTime = NONE | _ => ∃nt. s'.waitTime = SOME nt)) ∧
     (∀n.
        e = SOME n ⇒
-       ∀cnds tclks dest wt.
-         MEM (Tm (Input n) cnds tclks dest wt) tms ∧
-         EVERY (λcnd. evalCond s cnd) cnds ∧
-         evalTerm s (SOME n) (Tm (Input n) cnds tclks dest wt) s' ⇒
-         dest = s'.location ∧
-         (case wt of [] => s'.waitTime = NONE | _ => ∃nt. s'.waitTime = SOME nt))
+       n+1 < m ∧
+       (∀cnds tclks dest wt.
+          MEM (Tm (Input n) cnds tclks dest wt) tms ∧
+          EVERY (λcnd. evalCond s cnd) cnds ∧
+          evalTerm s (SOME n) (Tm (Input n) cnds tclks dest wt) s' ⇒
+          dest = s'.location ∧
+          (case wt of [] => s'.waitTime = NONE | _ => ∃nt. s'.waitTime = SOME nt)))
 Proof
   ho_match_mp_tac pickTerm_ind >>
   rpt gen_tac >>
   strip_tac >>
   rpt gen_tac
   >- (
+    strip_tac >>
+    fs [] >>
+    conj_tac
+    >- gs [input_terms_actions_def, timeLangTheory.terms_in_signals_def] >>
     strip_tac >>
     fs [] >>
     rw [] >>
@@ -3894,7 +3900,7 @@ End
 Theorem step_input:
   !prog i m n s s' (t:('a,time_input) panSem$state).
     step prog (LAction (Input i)) m n s s' ∧
-    m = dimword (:α) ∧
+    m = dimword (:α) - 1 ∧
     n = FST (t.ffi.ffi_state 0) ∧
     state_rel (clksOf prog) s t ∧
     well_formed_terms prog s t ∧
@@ -3913,12 +3919,12 @@ Theorem step_input:
       FLOOKUP t'.locals «sysTime» = FLOOKUP t.locals «sysTime» ∧
       FLOOKUP t'.locals «event»   = SOME (ValWord 0w) ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
-      task_ret_defined t'.locals (nClks prog)  (*∧
+      task_ret_defined t'.locals (nClks prog) ∧
       (* update this later *)
       (∃wt.
          FLOOKUP t'.locals «wakeUpAt» =
          SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) + wt))) ∧
-         FST (t.ffi.ffi_state 0) + wt < dimword (:α)) *)
+         FST (t.ffi.ffi_state 0) + wt < dimword (:α))
 Proof
   rw [] >>
   fs [] >>
@@ -4025,7 +4031,7 @@ Proof
                      ``:'b``|->``:time_input``] pick_term_thm) >>
   fs [] >>
   disch_then (qspecl_then [‘nnt’, ‘clksOf prog’,
-                           ‘nclks’, ‘tm’] mp_tac) >>
+                           ‘nclks’] mp_tac) >>
   impl_tac
   >- (
     gs [Abbr ‘nnt’] >>
@@ -4076,7 +4082,9 @@ Proof
   >- (
     fs [Abbr ‘nnt’] >>
     conj_tac
-    >- cheat >>
+    >- (
+      drule pick_term_dest_eq >>
+      gs []) >>
     (* from pick_term theorem  *)
     match_mp_tac mem_to_flookup >>
     fs []) >>
@@ -4264,6 +4272,8 @@ Proof
       gs [equivs_def, FLOOKUP_UPDATE] >>
       drule pick_term_dest_eq >>
       simp [] >>
+      strip_tac >>
+      pop_assum mp_tac >>
       disch_then drule >>
       gs [] >>
       strip_tac >>
@@ -4416,10 +4426,14 @@ Proof
     last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
     impl_tac >- metis_tac [MEM_EL] >>
     gs []) >>
+
+
+
   fs [nffi_state_def, Abbr ‘nnt’] >>
   gs [task_ret_defined_def, FLOOKUP_UPDATE, Abbr ‘rtv’, resetOutput_def,
       resetClksVals_def] >>
   fs [EVERY_MAP] >>
+
   gs [well_formed_terms_def, terms_wtimes_ffi_bound_def] >>
   gs [EVERY_MEM] >>
   last_x_assum (qspec_then ‘Tm (Input (io_flg − 1)) cnds tclks dest wt’ mp_tac) >>

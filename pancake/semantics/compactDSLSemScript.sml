@@ -212,6 +212,20 @@ Definition input_terms_actions_def:
           (terms_in_signals tms)
 End
 
+(*
+  terms_wtimes_ffi_bound (:'a) s tms (FST (t.ffi.ffi_state 0))
+*)
+
+Definition terms_wtimes_ffi_bound_def:
+  terms_wtimes_ffi_bound m s tms =
+    EVERY (λtm.
+            case calculate_wtime (resetOutput s) (termClks tm) (termWaitTimes tm) of
+            | NONE => T
+            | SOME wt => wt < m
+          ) tms
+End
+
+
 Inductive pickTerm:
   (!st m cnds in_signal clks dest diffs tms st'.
     EVERY (λcnd. evalCond st cnd) cnds ∧
@@ -219,7 +233,8 @@ Inductive pickTerm:
     max_clocks st.clocks m ∧
     terms_time_range m (Tm (Input in_signal) cnds clks dest diffs::tms)  ∧
     input_terms_actions m (Tm (Input in_signal) cnds clks dest diffs::tms) ∧
-    evalTerm st (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs) st' ==>
+    terms_wtimes_ffi_bound m st (Tm (Input in_signal) cnds clks dest diffs::tms) ∧
+    evalTerm st (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs) st' ⇒
     pickTerm st m (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs::tms) st') ∧
 
   (!st m cnds out_signal clks dest diffs tms st'.
@@ -228,7 +243,8 @@ Inductive pickTerm:
     max_clocks st.clocks m ∧
     terms_time_range m (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
     input_terms_actions m tms ∧
-    evalTerm st NONE (Tm (Output out_signal) cnds clks dest diffs) st' ==>
+    terms_wtimes_ffi_bound m st (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
+    evalTerm st NONE (Tm (Output out_signal) cnds clks dest diffs) st' ⇒
     pickTerm st m NONE (Tm (Output out_signal) cnds clks dest diffs::tms) st') ∧
 
   (!st m cnds event ioAction clks dest diffs tms st'.
@@ -237,24 +253,28 @@ Inductive pickTerm:
     tm_conds_eval_limit m st (Tm ioAction cnds clks dest diffs) ∧
     term_time_range m (Tm ioAction cnds clks dest diffs) ∧
     input_terms_actions m [(Tm ioAction cnds clks dest diffs)] ∧
-    pickTerm st m event tms st' ==>
+    terms_wtimes_ffi_bound m st (Tm ioAction cnds clks dest diffs :: tms) ∧
+    pickTerm st m event tms st' ⇒
     pickTerm st m event (Tm ioAction cnds clks dest diffs :: tms) st') ∧
 
   (!st m cnds event in_signal clks dest diffs tms st'.
     event <> SOME in_signal ∧
     tm_conds_eval_limit m st (Tm (Input in_signal) cnds clks dest diffs) ∧
     term_time_range m (Tm (Input in_signal) cnds clks dest diffs) ∧
+    terms_wtimes_ffi_bound m st (Tm (Input in_signal) cnds clks dest diffs :: tms) ∧
     in_signal + 1 < m ∧
-    pickTerm st m event tms st' ==>
+    pickTerm st m event tms st' ⇒
     pickTerm st m event (Tm (Input in_signal) cnds clks dest diffs :: tms) st') ∧
 
   (!st m cnds event out_signal clks dest diffs tms st'.
     event <> NONE ∧
     tm_conds_eval_limit m st (Tm (Output out_signal) cnds clks dest diffs) ∧
     term_time_range m (Tm (Output out_signal) cnds clks dest diffs) ∧
-    pickTerm st m event tms st' ==>
+    terms_wtimes_ffi_bound m st (Tm (Output out_signal) cnds clks dest diffs :: tms) ∧
+    pickTerm st m event tms st' ⇒
     pickTerm st m event (Tm (Output out_signal) cnds clks dest diffs :: tms) st')
 End
+
 
 (* n would be FST (seq 0), or may be systime time *)
 Inductive step:

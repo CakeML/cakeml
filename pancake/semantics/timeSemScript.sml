@@ -216,7 +216,7 @@ End
 
 Inductive step:
   (!p st d.
-    st.waitTime = NONE /\
+    st.waitTime = NONE ∧
     (0:num) <= d ==>
     step p (LDelay d) st
          (mkState
@@ -226,14 +226,14 @@ Inductive step:
           NONE)) /\
 
   (!p st d w.
-    st.waitTime = SOME w /\
+    st.waitTime = SOME w ∧
     0 <= d /\ d < w ==>
     step p (LDelay d) st
          (mkState
           (delay_clocks (st.clocks) d)
           st.location
           NONE
-          (SOME (w - d)))) /\
+          (SOME (w - d)))) ∧
 
   (!p st tms st' in_signal.
       ALOOKUP p st.location = SOME tms /\
