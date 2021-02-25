@@ -4462,9 +4462,10 @@ Proof
 QED
 
 
+(* we can simplify this later, i.e. wt+nt is simply st *)
 Definition output_rel_def:
-  (output_rel fm m NONE (seq:time_input) = T) ∧
-  (output_rel fm m (SOME wt) seq =
+  (output_rel fm NONE (seq:time_input) = T) ∧
+  (output_rel fm (SOME wt) seq =
    let
      st = FST (seq 0)
    in
@@ -4472,29 +4473,22 @@ Definition output_rel_def:
       FLOOKUP fm «sysTime»  = SOME (ValWord (n2w st)) ∧
       FLOOKUP fm «wakeUpAt» = SOME (ValWord (n2w (wt + nt))) ∧
       st = wt + nt ∧
-      st < m ∧
       SND (seq 0) = 0)
 End
 
-(*
-   write thoughts about the output step,
-   we can impose that all terms always have a wait time,
-   and then we can have the wait
-   ‘∃tt. s.waitTime = SOME tt’ as invariants
-*)
-
 Theorem step_output:
-  !prog os s s' (t:('a,time_input) panSem$state).
-    step prog (LAction (Output os)) s s' ∧
+  !prog os m it s s' (t:('a,time_input) panSem$state).
+    step prog (LAction (Output os)) m it s s' ∧
+    m = dimword (:α) - 1 ∧
+    it = FST (t.ffi.ffi_state 0) ∧
     state_rel (clksOf prog) s t ∧
     well_formed_terms prog s t ∧
     code_installed t.code prog ∧
-    output_rel t.locals (dimword (:α)) s.waitTime t.ffi.ffi_state ∧
+    output_rel t.locals s.waitTime t.ffi.ffi_state ∧
     FLOOKUP t.locals «event»   = SOME (ValWord 0w) ∧
     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
     FLOOKUP t.locals «waitSet» = SOME (ValWord 0w) ∧
     task_ret_defined t.locals (nClks prog) ∧
-    (∃tt. s.waitTime = SOME tt) ∧
     labProps$good_dimindex (:'a)  ⇒
     ?ck t'.
       evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
@@ -4627,32 +4621,34 @@ Proof
       match_mp_tac mem_to_flookup >>
       fs []) >>
     conj_tac
-    >- (
-    fs [resetOutput_def, Abbr ‘nclks’] >>
-    gs [clkvals_rel_def, equiv_val_def] >>
-    fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-    rw [] >>
-    first_x_assum (qspec_then ‘n’ mp_tac) >>
-    fs [] >>
-    strip_tac >>
-    qmatch_goalsub_abbrev_tac ‘EL _ (ZIP (xs,_))’ >>
-    ‘EL n (ZIP (xs,ns)) = (EL n xs, EL n ns)’ by (
-      match_mp_tac EL_ZIP >>
-      unabbrev_all_tac >>
-      fs []) >>
-    fs [Abbr ‘xs’] >>
-    ‘EL n (REPLICATE (LENGTH ns) (nt + wt)) = nt + wt’ by (
-      match_mp_tac EL_REPLICATE >>
-      fs []) >>
-    fs [] >>
-    ‘EL n (ZIP (clksOf prog,ns)) = (EL n (clksOf prog), EL n ns)’ by (
-      match_mp_tac EL_ZIP >>
-      unabbrev_all_tac >>
-      fs []) >>
-    fs []) >>
+    >- gs [resetOutput_def, defined_clocks_def] >>
     conj_tac
     >- (
-      gs [Abbr ‘nclks’, clock_bound_def, maxClksSize_def] >>
+      fs [resetOutput_def, Abbr ‘nclks’] >>
+      gs [clkvals_rel_def, equiv_val_def] >>
+      fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+      rw [] >>
+      first_x_assum (qspec_then ‘n’ mp_tac) >>
+      fs [] >>
+      strip_tac >>
+      qmatch_goalsub_abbrev_tac ‘EL _ (ZIP (xs,_))’ >>
+      ‘EL n (ZIP (xs,ns)) = (EL n xs, EL n ns)’ by (
+        match_mp_tac EL_ZIP >>
+        unabbrev_all_tac >>
+        fs []) >>
+      fs [Abbr ‘xs’] >>
+      ‘EL n (REPLICATE (LENGTH ns) (nt + wt)) = nt + wt’ by (
+        match_mp_tac EL_REPLICATE >>
+        fs []) >>
+      fs [] >>
+      ‘EL n (ZIP (clksOf prog,ns)) = (EL n (clksOf prog), EL n ns)’ by (
+        match_mp_tac EL_ZIP >>
+        unabbrev_all_tac >>
+        fs []) >>
+      fs []) >>
+    conj_tac
+    >- (
+      gs [Abbr ‘nclks’, defined_clocks_def, maxClksSize_def] >>
       fs [MAP_MAP_o] >>
       fs [SUM_MAP_FOLDL] >>
       ‘LENGTH (REPLICATE (LENGTH ns) (nt + wt)) = LENGTH ns’ by fs [] >>
@@ -4759,14 +4755,13 @@ Proof
       rw [] >>
       last_x_assum drule >>
       gs [valid_clks_def, timeLangTheory.termClks_def, EVERY_MEM]) >>
-    gs [state_rel_def, clock_bound_def, EVERY_MEM] >>
-    rw [] >> res_tac >> gs []) >>
+    gs [state_rel_def, defined_clocks_def, EVERY_MEM]) >>
   ‘EVERY (λn. n ≤ nt + wt)
    (MAP (λck.
           if MEM ck tclks then 0 else THE (FLOOKUP s.clocks  ck)) (clksOf prog))’ by (
     gs [EVERY_MAP, EVERY_MEM] >>
     rw [] >>
-    gs [state_rel_def, clock_bound_def, EVERY_MEM] >>
+    gs [state_rel_def, defined_clocks_def, EVERY_MEM] >>
     rw [] >> res_tac >> gs [] >>
     gs [clkvals_rel_def, MAP_EQ_EVERY2, LIST_REL_EL_EQN, EVERY_MEM] >>
     first_x_assum (qspec_then ‘ck’ assume_tac) >>
@@ -4860,18 +4855,16 @@ Proof
       fs[mem_call_ffi_def] >>
       cheat)
     >- (
-      gs [clock_bound_def] >>
+      gs [defined_clocks_def] >>
       fs [EVERY_MEM] >>
       rw [] >>
-      gs [state_rel_def, clock_bound_def] >>
+      gs [state_rel_def, defined_clocks_def] >>
       last_x_assum drule >>
       fs [] >>
       strip_tac >>
       imp_res_tac eval_term_clocks_reset >>
       gs [resetOutput_def] >>
-      res_tac >> gs [] >>
-      gs [evalTerm_cases] >>
-      rveq >> gs [resetClocks_def]) >>
+      res_tac >> gs []) >>
     pairarg_tac >> gs [] >> rveq >> gs [] >>
     rw []
     >- (
@@ -4900,7 +4893,7 @@ Proof
         unabbrev_all_tac >>
         fs []) >>
       fs [Abbr ‘xs’] >>
-      ‘EL n (REPLICATE (LENGTH ns) (nt + wt)) = nt + wt’ by (
+      ‘EL n (REPLICATE (LENGTH ns) tm) = tm’ by (
         match_mp_tac EL_REPLICATE >>
         fs []) >>
       fs [] >>
@@ -4920,11 +4913,15 @@ Proof
         ‘FLOOKUP s'.clocks (EL n (clksOf prog)) = SOME 0’ by (
         gs [evalTerm_cases, resetOutput_def, resetClocks_def, MEM_EL] >>
         metis_tac [update_eq_zip_map_flookup]) >>
+        gs [] >>
+        ‘EL n (REPLICATE (LENGTH ns) (nt + wt)) = nt + wt’ by (
+          match_mp_tac EL_REPLICATE >>
+          gs []) >>
         gs []) >>
       ‘?x. FLOOKUP s.clocks (EL n (clksOf prog)) = SOME x ∧
            FLOOKUP s'.clocks (EL n (clksOf prog)) = SOME x’ by (
         gs [evalTerm_cases, resetOutput_def, resetClocks_def, MEM_EL] >>
-        gs [clock_bound_def, EVERY_MEM] >>
+        gs [defined_clocks_def, EVERY_MEM] >>
         last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
         impl_tac
         >- metis_tac [MEM_EL] >>
@@ -4934,6 +4931,10 @@ Proof
         fs [] >>
         match_mp_tac flookup_fupdate_zip_not_mem >>
         gs [MEM_EL]) >>
+      gs [] >>
+      ‘EL n (REPLICATE (LENGTH ns) (nt + wt)) = nt + wt’ by (
+        match_mp_tac EL_REPLICATE >>
+        gs []) >>
       gs []) >>
     gs [clkvals_rel_def] >>
     conj_tac
