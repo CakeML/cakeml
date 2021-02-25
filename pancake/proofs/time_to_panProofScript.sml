@@ -4961,7 +4961,7 @@ Proof
            (EL n'' tclks) = SOME 0’ by
             metis_tac [update_eq_zip_map_flookup]>>
           fs []) >>
-        gs [clock_bound_def, EVERY_MEM] >>
+        gs [defined_clocks_def, EVERY_MEM] >>
         last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
         impl_tac
         >- metis_tac [MEM_EL] >>
@@ -4976,8 +4976,12 @@ Proof
         fs [] >>
         last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
         impl_tac >- metis_tac [MEM_EL] >>
+        gs [] >>
+        strip_tac >>
         gs []) >>
       gs []) >>
+
+
     fs [EVERY_MEM] >>
     rw [] >>
     gs [evalTerm_cases, resetOutput_def, resetClocks_def, MEM_EL] >>
@@ -4988,7 +4992,7 @@ Proof
      (EL n'' tclks) = SOME 0’ by
       metis_tac [update_eq_zip_map_flookup]>>
     fs []) >>
-    gs [clock_bound_def, EVERY_MEM] >>
+    gs [defined_clocks_def, EVERY_MEM] >>
     last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
     impl_tac
     >- metis_tac [MEM_EL] >>
@@ -5004,11 +5008,16 @@ Proof
     last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
     impl_tac >- metis_tac [MEM_EL] >>
     gs []) >>
+
   fs [nffi_state_def, Abbr ‘nnt’] >>
   gs [task_ret_defined_def, FLOOKUP_UPDATE, Abbr ‘rtv’, resetOutput_def,
       resetClksVals_def] >>
   fs [EVERY_MAP] >>
-  gs [well_formed_terms_def, terms_wtimes_ffi_bound_def] >>
+
+  ‘terms_wtimes_ffi_bound (dimword (:α) − (nt + (wt + 1)))
+   (s with <|ioAction := NONE; waitTime := NONE|>) tms’ by
+    gs [Once pickTerm_cases] >>
+  gs [terms_wtimes_ffi_bound_def] >>
   gs [EVERY_MEM] >>
   last_x_assum (qspec_then ‘Tm (Output out) cnds tclks dest wt'’ mp_tac) >>
   gs [timeLangTheory.termClks_def, timeLangTheory.termWaitTimes_def, resetOutput_def] >>
