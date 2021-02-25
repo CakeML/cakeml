@@ -1935,6 +1935,8 @@ Theorem pick_term_thm:
     pickTerm s m e tms s' ⇒
     (∀(t :('a, 'b) panSem$state) clks clkvals n.
        m = dimword (:α) - n ∧
+       n < dimword (:α) ∧
+       (* might not be necessary *)
        conds_clks_mem_clks clks tms ∧
        terms_valid_clocks clks tms ∧
        locs_in_code t.code tms ∧
@@ -3885,12 +3887,12 @@ Theorem step_input:
       FLOOKUP t'.locals «sysTime» = FLOOKUP t.locals «sysTime» ∧
       FLOOKUP t'.locals «event»   = SOME (ValWord 0w) ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
-      task_ret_defined t'.locals (nClks prog) ∧
+      task_ret_defined t'.locals (nClks prog)  (*∧
       (* update this later *)
       (∃wt.
          FLOOKUP t'.locals «wakeUpAt» =
          SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) + wt))) ∧
-         FST (t.ffi.ffi_state 0) + wt < dimword (:α))
+         FST (t.ffi.ffi_state 0) + wt < dimword (:α)) *)
 Proof
   rw [] >>
   fs [] >>
@@ -4247,20 +4249,16 @@ Proof
       gs [mem_config_def] >>
       fs[mem_call_ffi_def])
     >- (
-    cheat
-    (*
-      gs [clock_bound_def] >>
+      gs [defined_clocks_def] >>
       fs [EVERY_MEM] >>
       rw [] >>
-      gs [state_rel_def, clock_bound_def] >>
+      gs [state_rel_def, defined_clocks_def] >>
       last_x_assum drule >>
       fs [] >>
       strip_tac >>
       imp_res_tac eval_term_clocks_reset >>
       gs [resetOutput_def] >>
-      res_tac >> gs [] >>
-      gs [evalTerm_cases] >>
-      rveq >> gs [resetClocks_def] *) ) >>
+      res_tac >> gs []) >>
     pairarg_tac >> gs [] >> rveq >> gs [] >>
     rw []
     >- (
@@ -4312,9 +4310,8 @@ Proof
         gs []) >>
       ‘?x. FLOOKUP s.clocks (EL n (clksOf prog)) = SOME x ∧
            FLOOKUP s'.clocks (EL n (clksOf prog)) = SOME x’ by (
-        cheat(*
         gs [evalTerm_cases, resetOutput_def, resetClocks_def, MEM_EL] >>
-        gs [clock_bound_def, EVERY_MEM] >>
+        gs [defined_clocks_def, EVERY_MEM] >>
         last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
         impl_tac
         >- metis_tac [MEM_EL] >>
@@ -4323,13 +4320,11 @@ Proof
         qpat_x_assum ‘_ = SOME n''’ (assume_tac o GSYM) >>
         fs [] >>
         match_mp_tac flookup_fupdate_zip_not_mem >>
-        gs [MEM_EL] *) ) >>
+        gs [MEM_EL]) >>
       gs []) >>
     gs [clkvals_rel_def] >>
     conj_tac
     >- (
-    cheat
-    (*
       gs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
       rw [] >> gs [] >>
       qmatch_goalsub_abbrev_tac ‘EL _ (ZIP (xs,ys))’ >>
@@ -4352,7 +4347,7 @@ Proof
            (EL n'' tclks) = SOME 0’ by
             metis_tac [update_eq_zip_map_flookup]>>
           fs []) >>
-        gs [clock_bound_def, EVERY_MEM] >>
+        gs [defined_clocks_def, EVERY_MEM] >>
         last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
         impl_tac
         >- metis_tac [MEM_EL] >>
@@ -4368,7 +4363,7 @@ Proof
         last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
         impl_tac >- metis_tac [MEM_EL] >>
         gs []) >>
-      gs [] *)) >>
+      gs []) >>
     fs [EVERY_MEM] >>
     rw [] >>
     gs [evalTerm_cases, resetOutput_def, resetClocks_def, MEM_EL] >>
@@ -4379,7 +4374,7 @@ Proof
      (EL n'' tclks) = SOME 0’ by
       metis_tac [update_eq_zip_map_flookup]>>
     fs []) >>
-    gs [clock_bound_def, EVERY_MEM] >>
+    gs [defined_clocks_def, EVERY_MEM] >>
     last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
     impl_tac
     >- metis_tac [MEM_EL] >>
