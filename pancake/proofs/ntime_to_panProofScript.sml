@@ -11,6 +11,15 @@ val _ = new_theory "ntime_to_panProof";
 val _ = set_grammar_ancestry
         ["time_to_panProof"];
 
+
+Definition well_formed_code_def:
+  well_formed_code prog code <=>
+  ∀loc tms.
+    ALOOKUP prog loc = SOME tms ⇒
+    well_formed_terms prog loc code
+End
+
+
 Definition local_action_def:
   (local_action (Input i) t =
      (FLOOKUP t.locals «isInput» = SOME (ValWord 0w))) ∧
@@ -83,6 +92,9 @@ Definition always_def:
         (task_controller clksLength)
 End
 
+(*
+  well_formed_terms prog s.location t.code ∧
+*)
 
 Theorem foo:
   ∀prog s s' labels (t:('a,time_input) panSem$state).
@@ -91,12 +103,15 @@ Theorem foo:
               (FST (t.ffi.ffi_state 0)) s s' labels ∧
     state_rel (clksOf prog) s t ∧
     code_installed t.code prog ∧
+    well_formed_code prog code ∧
     ffi_rels prog labels s t ∧
     labProps$good_dimindex (:'a) ∧
     local_state HD labels t ∧
     (* we shoud be able to prove that this stays as an invariant
        after each invocation of the task *)
-    (* should we assume that labels are non-empty *) ⇒
+    (* should we assume that labels are non-empty *) ∧
+
+    ⇒
     ?ck t'.
       evaluate (always (nClks prog), t with clock := t.clock + ck) =
       evaluate (always (nClks prog), t') ∧
