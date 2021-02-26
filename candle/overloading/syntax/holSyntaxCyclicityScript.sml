@@ -1683,6 +1683,51 @@ Proof
   >> fs[is_instance_simps,Once EQ_SYM_EQ]
 QED
 
+(* lifting of instance_subst
+ * instance_subst_LR p p' <=>  p' <= p *)
+Definition instance_subst_LR_def:
+  (instance_subst_LR (INR (Const m ty1)) (INR (Const m' ty2)) =
+    if m = m' then OPTION_MAP FST (instance_subst [(ty2,ty1)] [] [])
+    else NONE)
+  /\ (instance_subst_LR (INL ty1) (INL ty2) =
+    OPTION_MAP FST (instance_subst [(ty2,ty1)] [] []))
+  /\ (instance_subst_LR _ _ = NONE)
+End
+
+Theorem instance_subst_LR_simps[simp]:
+  !x y z a. instance_subst_LR (INR x) (INL y) = NONE
+  /\ instance_subst_LR (INL y) (INR x) = NONE
+Proof
+  rpt Cases >> fs[instance_subst_LR_def]
+QED
+
+Theorem instance_subst_LR_imp:
+  !x z a. instance_subst_LR (INR x) (INR z) = SOME a
+    ==> ?m ty ty'. x = Const m ty /\ z = Const m ty'
+Proof
+  rpt Cases >> fs[instance_subst_LR_def]
+QED
+
+Theorem instance_subst_LR_eq:
+  (!p p' e. instance_subst_LR p p' = SOME e ==> p' = LR_TYPE_SUBST e p)
+  /\ (!p p'. IS_SOME (instance_subst_LR p p') <=> is_instance_LR p p')
+Proof
+  strip_tac
+  >> ntac 2 Cases
+  >> rpt strip_tac
+  >> fs[is_instance_LR_def,instance_subst_LR_def,LR_TYPE_SUBST_cases]
+  >- metis_tac[instance_subst_soundness,PAIR]
+  >- (
+    imp_res_tac instance_subst_LR_imp
+    >> gvs[instance_subst_LR_def,LR_TYPE_SUBST_cases]
+    >> metis_tac[instance_subst_soundness,PAIR]
+  )
+  >- fs[IS_SOME_EXISTS,instance_subst_completeness]
+  >> rw[EQ_IMP_THM,IS_SOME_EXISTS,instance_subst_completeness,instance_subst_LR_def]
+  >> imp_res_tac instance_subst_LR_imp
+  >> gs[instance_subst_LR_def]
+QED
+
 (* Definition 5.6, Kunčar 2015 *)
 Definition cyclic_dep_def:
   cyclic_dep ctxt =
@@ -4919,6 +4964,53 @@ Proof
   >> qexists_tac `λn. FUNPOW (LR_TYPE_SUBST s') n (FST $ HD pqs)`
   >> Induct >> fs[FUNPOW_SUC,dependency_TC_subst_clos_LR_TYPE_SUBST]
 QED
+
+Definition monotone_compute_def:
+  monotone_compute dep = EVERY (λ(p,q). list_subset (FV (q)) (FV (p))) dep
+End
+
+Theorem monotone_compute_eq:
+  !ctxt. monotone_compute (dependency_compute ctxt) <=> monotone (dependency ctxt)
+Proof
+  rw[monotone_compute_def,monotone_def,EVERY_MEM,DEPENDENCY_EQUIV,FORALL_PROD,list_subset_set]
+QED
+
+(*
+ * dep_ext dep dephd deptl
+ * extends every pair (p,q) in deptl by one dependency step from dep
+ *)
+(* TODO also check for composable! *)
+Definition dep_ext_def:
+  (dep_ext dep dephd [] = INL dephd)
+  /\ (dep_ext dep dephd ((p,q)::deptl) =
+      (* compute possible extensions of (p,q) *)
+      let pqs_ts = MAP (λpq. (pq, instance_subst_LR (FST pq) q)) dep ;
+          dep'' = MAP (λ(pq,s). (p, LR_TYPE_SUBST (THE s) (SND pq))) $
+            FILTER (IS_SOME o SND) pqs_ts ;
+          cycles = FILTER (UNCURRY is_instance_LR_compute) dep''
+      in case NULL cycles of
+            | T => dep_ext dep (dephd ++ dep'') deptl
+            | F => INR (HD cycles)) (* cycle found *)
+End
+
+(* algorithm to check cyclicity
+ * returns (T, SOME (p,ρ p)) - if cyclic
+ *         (T, NONE) - maybe cyclic
+ *         (F, NONE) - not cyclic
+ * dep   = dependency relation
+ * depth = search depth
+ *)
+Definition cyclic_def:
+  (cyclic 0 dep dep' = SOME (INR dep')) (* maybe cyclic, returns the dependencies *)
+  /\ (cyclic (SUC depth) dep dep' =
+    case dep_ext dep [] dep' of
+        | INR ex => SOME (INL ex)  (* cycle found *)
+        | INL dep'' =>
+            case dep' = dep'' of
+               | T => NONE (* dep' unchanged: not cyclic *)
+               | F => cyclic depth dep dep'') (* next breadth *)
+End
+
 
 (* Definition 6.1 *)
 Definition LR_orth_def:
