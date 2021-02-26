@@ -20,6 +20,14 @@ Definition well_formed_code_def:
 End
 
 
+Definition out_ffi_def:
+  out_ffi prog (t:('a,time_input) panSem$state) <=>
+  ∀tms loc.
+    ALOOKUP prog loc = SOME tms ⇒
+    out_signals_ffi t tms
+End
+
+
 Definition local_action_def:
   (local_action (Input i) t =
      (FLOOKUP t.locals «isInput» = SOME (ValWord 0w))) ∧
@@ -92,9 +100,6 @@ Definition always_def:
         (task_controller clksLength)
 End
 
-(*
-  well_formed_terms prog s.location t.code ∧
-*)
 
 Theorem foo:
   ∀prog s s' labels (t:('a,time_input) panSem$state).
@@ -103,15 +108,15 @@ Theorem foo:
               (FST (t.ffi.ffi_state 0)) s s' labels ∧
     state_rel (clksOf prog) s t ∧
     code_installed t.code prog ∧
-    well_formed_code prog code ∧
+    well_formed_code prog t.code ∧
+    out_ffi prog t ∧
     ffi_rels prog labels s t ∧
     labProps$good_dimindex (:'a) ∧
-    local_state HD labels t ∧
+    local_state (HD labels) t ∧
     (* we shoud be able to prove that this stays as an invariant
        after each invocation of the task *)
-    (* should we assume that labels are non-empty *) ∧
-
-    ⇒
+    (* should we assume that labels are non-empty *)
+    task_ret_defined t.locals (nClks prog) ⇒
     ?ck t'.
       evaluate (always (nClks prog), t with clock := t.clock + ck) =
       evaluate (always (nClks prog), t') ∧
