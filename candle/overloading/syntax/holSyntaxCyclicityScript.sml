@@ -14,13 +14,6 @@ val _ = Parse.add_infix("#", 401, Parse.NONASSOC)
 Overload "#" = ``$orth_ty``
 Overload "#" = ``$orth_ci``
 
-(* contraposition of an equivalence *)
-(* TODO replace with REWRITE_RULE[Once MONO_NOT_EQ] *)
-fun ccontr_equiv(x) =
-  let val (a,b) = EQ_IMP_RULE (SPEC_ALL x)
-  in GEN_ALL (IMP_ANTISYM_RULE (CONTRAPOS b) (CONTRAPOS a)) end;
-
-
 Theorem WOP_eq[local]:
   ∀P. (∃(n:num). P n) <=> ∃n. P n ∧ ∀m. m < n ⇒ ¬P m
 Proof

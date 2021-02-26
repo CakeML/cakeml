@@ -6332,8 +6332,18 @@ Proof
   >> fs[normalise_tyvars_rec_def]
 QED
 
+Definition unify_types_measure:
+  unify_types_measure = λ((tytups:(type,type)alist),(sigma:(type,type)alist)).
+    let
+      dist_tyvar = CARD (BIGUNION (set (MAP (UNCURRY $UNION) (MAP (W $## (set o $tyvars)) tytups))))
+;
+      acc_type_size = SUM (MAP ((UNCURRY $+) o (W $## $type_size')) tytups);
+      num_shape = LENGTH (FILTER (λx. case x of (Tyapp _ _, Tyvar _) => T | _ => F) tytups)
+    in (dist_tyvar, acc_type_size, num_shape)
+End
+
 (* Unify two types and return two type substitutions as a certificate *)
-val unify_types_def = Hol_defn "unify_types" `
+Definition unify_types_def:
   (unify_types [] sigma = SOME sigma)
   /\ (unify_types ((Tyapp a atys, Tyapp b btys)::l) sigma =
     if a = b /\ LENGTH atys = LENGTH btys
@@ -6355,21 +6365,10 @@ val unify_types_def = Hol_defn "unify_types" `
       l' = MAP (subst_a ## subst_a) l;
       sigma' = MAP (subst_a ## I) sigma
     in unify_types l' ((ty, Tyvar a)::sigma') (* variable elimination *)
-  )`;
-
-Definition unify_types_measure:
-  unify_types_measure = λ((tytups:(type,type)alist),(sigma:(type,type)alist)).
-    let
-      dist_tyvar = CARD (BIGUNION (set (MAP (UNCURRY $UNION) (MAP (W $## (set o $tyvars)) tytups))))
-;
-      acc_type_size = SUM (MAP ((UNCURRY $+) o (W $## $type_size')) tytups);
-      num_shape = LENGTH (FILTER (λx. case x of (Tyapp _ _, Tyvar _) => T | _ => F) tytups)
-    in (dist_tyvar, acc_type_size, num_shape)
-End
-
-val (unify_types_def,unify_types_ind) = Defn.tprove(
-  unify_types_def,
-  WF_REL_TAC `inv_image (prim_rec$< LEX (prim_rec$< LEX prim_rec$<)) unify_types_measure`
+  )
+Termination
+  WF_REL_TAC `inv_image (prim_rec$< LEX (prim_rec$< LEX prim_rec$<))
+    unify_types_measure`
   >> strip_tac
   (* decomposition rule *)
   >- (
@@ -6558,7 +6557,7 @@ val (unify_types_def,unify_types_ind) = Defn.tprove(
       >> fs[]
     )
     >> qunabbrev_tac `aa`
-    >> fs[]
+    >> fs[UNION_ASSOC]
   )
   (* trivial rule (for variables) *)
   >- (
@@ -6590,7 +6589,7 @@ val (unify_types_def,unify_types_ind) = Defn.tprove(
     )
     >> simp[type_size'_def]
   )
-);
+End
 
 Theorem MEM_ZIP_EQTUP_MAP[local]:
   !l1 l2 f. LENGTH l1 = LENGTH l2
