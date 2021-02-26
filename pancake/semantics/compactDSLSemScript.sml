@@ -316,7 +316,18 @@ Inductive step:
     step p (LAction (Output out_signal)) m n st st')
 End
 
+Inductive stepTrace:
+  (!p m st.
+    stepTrace p m st st [] []) ∧
 
+  (!p lbl m n st st' st'' ns tr.
+    step p lbl m n st st' ∧
+    LENGTH ns = LENGTH tr ∧
+    stepTrace p m st' st'' ns tr ⇒
+    stepTrace p m st st'' (n::ns) (lbl::tr))
+End
+
+(*
 Inductive stepTrace:
   (!p m n st.
     stepTrace p m n st st []) /\
@@ -325,5 +336,5 @@ Inductive stepTrace:
     stepTrace p m n st' st'' tr ==>
     stepTrace p m n st st'' (lbl::tr))
 End
-
+*)
 val _ = export_theory();
