@@ -317,6 +317,22 @@ Inductive step:
 End
 
 Inductive stepTrace:
+  (!p m n st.
+    stepTrace p m n st st []) ∧
+
+  (!p lbl m n st st' st'' tr.
+    step p lbl m n st st' ∧
+    stepTrace p m (case lbl of
+                   | LDelay d => d + n
+                   | LAction _ => n)
+              st' st'' tr ⇒
+    stepTrace p m n st st'' (lbl::tr))
+End
+
+
+
+(*
+Inductive stepTrace:
   (!p m st.
     stepTrace p m st st [] []) ∧
 
@@ -326,6 +342,7 @@ Inductive stepTrace:
     stepTrace p m st' st'' ns tr ⇒
     stepTrace p m st st'' (n::ns) (lbl::tr))
 End
+*)
 
 (*
 Inductive stepTrace:
