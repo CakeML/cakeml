@@ -27,7 +27,7 @@ Definition local_state_def:
   (local_state (LAction act) t = local_action act t)
 End
 
-
+(*
 Definition event_state_def:
   event_state t ⇔
     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
@@ -43,7 +43,7 @@ Definition next_ffi_state_def:
      t.ffi.ffi_state = nexts_ffi cycles ffi) ∧
   (next_ffi_state (LAction _) ffi t ⇔ t.ffi.ffi_state = ffi)
 End
-
+*)
 
 Definition action_rel_def:
   (action_rel (Input i) s (t:('a,time_input) panSem$state) =
@@ -66,14 +66,14 @@ Definition ffi_rel_def:
 End
 
 Definition ffi_rels_def:
-  (ffi_rels [] prog s (t:('a,time_input) panSem$state) ⇔ T) ∧
-  (ffi_rels (label::labels) prog s t ⇔
+  (ffi_rels prog [] s (t:('a,time_input) panSem$state) ⇔ T) ∧
+  (ffi_rels prog (label::labels) s t ⇔
    ∃ffi.
      ffi_rel label s t ffi ∧
      ∀s' (t':('a,time_input) panSem$state) m n.
        step prog label m n s s' ∧
        t'.ffi.ffi_state = ffi ⇒
-       ffi_rels labels prog s' t')
+       ffi_rels prog labels s' t')
 End
 
 
@@ -83,15 +83,20 @@ Definition always_def:
         (task_controller clksLength)
 End
 
+
 Theorem foo:
   ∀prog s s' labels (t:('a,time_input) panSem$state).
-    stepTrace prog s s' labels ∧
+    stepTrace prog
+              (dimword (:α) - 1)
+              (FST (t.ffi.ffi_state 0)) s s' labels ∧
     state_rel (clksOf prog) s t ∧
     code_installed t.code prog ∧
-    ffi_rels labels prog s t ∧
+    ffi_rels prog labels s t ∧
     labProps$good_dimindex (:'a) ∧
-    (* everything is declared *)
-    (* add more updates later *) ⇒
+    local_state HD labels t ∧
+    (* we shoud be able to prove that this stays as an invariant
+       after each invocation of the task *)
+    (* should we assume that labels are non-empty *) ⇒
     ?ck t'.
       evaluate (always (nClks prog), t with clock := t.clock + ck) =
       evaluate (always (nClks prog), t') ∧

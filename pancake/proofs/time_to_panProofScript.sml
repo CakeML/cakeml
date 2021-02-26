@@ -3765,28 +3765,22 @@ Proof
   gs [shape_of_def]
 QED
 
+
 Definition well_formed_terms_def:
-  well_formed_terms prog s (t:('a,time_input) panSem$state) <=>
+  well_formed_terms prog loc code <=>
   ∀tms.
-    ALOOKUP prog s.location = SOME tms ⇒
+    ALOOKUP prog loc = SOME tms ⇒
     conds_clks_mem_clks (clksOf prog) tms ∧
-    terms_valid_clocks (clksOf prog) tms ∧ locs_in_code t.code tms ∧
-    out_signals_ffi t tms
+    terms_valid_clocks (clksOf prog) tms ∧ locs_in_code code tms
 End
 
-(*
-Definition well_formed_terms_def:
-  well_formed_terms prog s (t:('a,time_input) panSem$state) <=>
+
+Definition out_ffi_def:
+  out_ffi prog loc (t:('a,time_input) panSem$state) <=>
   ∀tms.
-    ALOOKUP prog s.location = SOME tms ⇒
-    conds_eval_lt_dimword (:α) (resetOutput s) tms ∧
-    conds_clks_mem_clks (clksOf prog) tms ∧ terms_time_range (:α) tms ∧
-    terms_valid_clocks (clksOf prog) tms ∧ locs_in_code t.code tms ∧
-    out_signals_ffi t tms ∧
-    input_terms_actions (:α) tms ∧
-    terms_wtimes_ffi_bound (:'a) s tms (FST (t.ffi.ffi_state 0))
+    ALOOKUP prog loc = SOME tms ⇒
+    out_signals_ffi t tms
 End
-*)
 
 
 (* should stay as an invariant *)
@@ -3911,7 +3905,8 @@ Theorem step_input:
     m = dimword (:α) - 1 ∧
     n = FST (t.ffi.ffi_state 0) ∧
     state_rel (clksOf prog) s t ∧
-    well_formed_terms prog s t ∧
+    well_formed_terms prog s.location t.code ∧
+    out_ffi prog s.location t ∧
     code_installed t.code prog ∧
     input_rel t.locals i t.ffi.ffi_state ∧
     FLOOKUP t.locals «isInput» = SOME (ValWord 0w) ∧
@@ -4047,7 +4042,7 @@ Proof
   >- (
     gs [Abbr ‘nnt’] >>
     res_tac >> gs [] >> rveq >>
-    gs [well_formed_terms_def] >>
+    gs [well_formed_terms_def, out_ffi_def] >>
     conj_tac
     >- (
       match_mp_tac mem_to_flookup >>
@@ -4493,7 +4488,8 @@ Theorem step_output:
     m = dimword (:α) - 1 ∧
     it = FST (t.ffi.ffi_state 0) ∧
     state_rel (clksOf prog) s t ∧
-    well_formed_terms prog s t ∧
+    well_formed_terms prog s.location t.code ∧
+    out_ffi prog s.location t ∧
     code_installed t.code prog ∧
     output_rel t.locals s.waitTime t.ffi.ffi_state ∧
     FLOOKUP t.locals «event»   = SOME (ValWord 0w) ∧
@@ -4630,7 +4626,7 @@ Proof
   >- (
     gs [Abbr ‘nnt’] >>
     res_tac >> gs [] >> rveq >>
-    gs [well_formed_terms_def] >>
+    gs [well_formed_terms_def,  out_ffi_def] >>
     conj_tac
     >- (
       match_mp_tac mem_to_flookup >>
