@@ -11,24 +11,6 @@ val _ = new_theory "ntime_to_panProof";
 val _ = set_grammar_ancestry
         ["time_to_panProof"];
 
-
-Definition action_rel_def:
-  (action_rel (Input i) s (t:('a,time_input) panSem$state) =
-   input_rel t.locals i t.ffi.ffi_state) ∧
-  (action_rel (Output os) s t =
-   output_rel t.locals s.waitTime t.ffi.ffi_state)
-End
-
-
-Definition ffi_rel_def:
-  (ffi_rel (LDelay d) s (t:('a,time_input) panSem$state) =
-   ∃cycles.
-     delay_rep d t.ffi.ffi_state cycles ∧
-     wakeup_rel t.locals s.waitTime t.ffi.ffi_state cycles ∧
-     mem_read_ffi_results (:α) t.ffi.ffi_state cycles) ∧
-  (ffi_rel (LAction act) s t = action_rel act s t)
-End
-
 Definition local_action_def:
   (local_action (Input i) t =
      (FLOOKUP t.locals «isInput» = SOME (ValWord 0w))) ∧
@@ -52,6 +34,7 @@ Definition event_state_def:
     FLOOKUP t.locals «event»   =  SOME (ValWord 0w)
 End
 
+
 (* taken from the conclusion of individual step thorems *)
 Definition next_ffi_state_def:
   (next_ffi_state (LDelay d) ffi (t:('a,time_input) panSem$state) ⇔
@@ -61,17 +44,38 @@ Definition next_ffi_state_def:
   (next_ffi_state (LAction _) ffi t ⇔ t.ffi.ffi_state = ffi)
 End
 
-(* pancake state only take ffi behaviour into account *)
+
+Definition action_rel_def:
+  (action_rel (Input i) s (t:('a,time_input) panSem$state) =
+   input_rel t.locals i t.ffi.ffi_state) ∧
+  (action_rel (Output os) s t =
+   output_rel t.locals s.waitTime t.ffi.ffi_state)
+End
+
+(* add the resulting ffi' here *)
+Definition ffi_rel_def:
+  (ffi_rel (LDelay d) s (t:('a,time_input) panSem$state) ffi =
+   ∃cycles.
+     delay_rep d t.ffi.ffi_state cycles ∧
+     wakeup_rel t.locals s.waitTime t.ffi.ffi_state cycles ∧
+     mem_read_ffi_results (:α) t.ffi.ffi_state cycles ∧
+     ffi = nexts_ffi cycles t.ffi.ffi_state) ∧
+  (ffi_rel (LAction act) s t ffi =
+     (action_rel act s t ∧
+      ffi = t.ffi.ffi_state))
+End
+
 Definition ffi_rels_def:
   (ffi_rels [] prog s (t:('a,time_input) panSem$state) ⇔ T) ∧
   (ffi_rels (label::labels) prog s t ⇔
-   ∃ffi'.
-     ffi_rel label s t ffi' ∧
-     ∀s' t'.
-       step prog label s s' ∧
-       t'.ffi = ffi' ⇒
+   ∃ffi.
+     ffi_rel label s t ffi ∧
+     ∀s' (t':('a,time_input) panSem$state) m n.
+       step prog label m n s s' ∧
+       t'.ffi.ffi_state = ffi ⇒
        ffi_rels labels prog s' t')
 End
+
 
 Definition always_def:
   always clksLength =
