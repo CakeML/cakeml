@@ -3928,10 +3928,15 @@ Theorem step_input:
       FLOOKUP t'.locals «event»   = SOME (ValWord 0w) ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
       task_ret_defined t'.locals (nClks prog) ∧
-      (∃wt.
-         FLOOKUP t'.locals «wakeUpAt» =
-         SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) + wt))) ∧
-         FST (t.ffi.ffi_state 0) + wt < dimword (:α))
+      FLOOKUP t'.locals «wakeUpAt» =
+        SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) +
+          case s'.waitTime of
+          | NONE => 0
+          | SOME wt => wt))) ∧
+      (case s'.waitTime of
+       | SOME wt => FST (t.ffi.ffi_state 0) + wt < dimword (:α)
+       | _ => T)
+
 Proof
   rw [] >>
   fs [] >>
@@ -4447,7 +4452,11 @@ Proof
   strip_tac >>
   cases_on ‘wt’ >> gs []
   >- (
-    qexists_tac ‘0’ >>
+    ‘s'.waitTime = NONE’ by (
+      gs [Once pickTerm_cases] >>
+      rveq >> gs [] >>
+      gs [evalTerm_cases] >> rveq >>
+      gs [calculate_wtime_def, list_min_option_def]) >>
     gs []) >>
   fs [] >>
   qmatch_goalsub_abbrev_tac ‘n2w (THE (nwt))’ >>
@@ -4457,7 +4466,10 @@ Proof
     TOP_CASE_TAC >>
     gs []) >>
   gs [] >>
-  qexists_tac ‘t''’ >>
+  ‘s'.waitTime = nwt’ by (
+    gs [Abbr ‘nwt’, Once pickTerm_cases] >>
+    rveq >> gs [] >>
+    gs [evalTerm_cases]) >>
   gs [word_add_n2w]
 QED
 
@@ -4980,8 +4992,6 @@ Proof
         strip_tac >>
         gs []) >>
       gs []) >>
-
-
     fs [EVERY_MEM] >>
     rw [] >>
     gs [evalTerm_cases, resetOutput_def, resetClocks_def, MEM_EL] >>
