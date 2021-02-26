@@ -130,10 +130,11 @@ Definition noStrictExecution_def:
 End
 
 Definition appendOptsAndOracle_def:
-  appendOptsAndOracle fps rws fpOpts choices = fps with <| rws := fps.rws ++ rws; opts := fpOpts; choices := choices |>
+  appendOptsAndOracle st rws fpOpts choices = st with fp_state := st.fp_state with <| rws := st.fp_state.rws ++ rws; opts := fpOpts; choices := choices |>
 End
 
 Overload is_rewrite_correct = “is_rewriteFPexp_correct”
+Overload freeVarsBound = “freeVars_fp_bound”
 
 Theorem rewrite_correct_def:
   K T ^(is_rewriteFPexp_correct_def
@@ -143,7 +144,20 @@ Proof
   simp[K_DEF]
 QED
 
+Definition freeVars_fine_exp_def:
+  freeVars_fine_exp canOpt (st1:'a semanticPrimitives$state) e env path =
+  ∀ (st1:'a semanticPrimitives$state) st2. freeVars_arithExp_bound st1 st2 env canOpt path e
+End
+
+Overload freeVarsPathBound = “freeVars_fine_exp canOpt”
+
 Overload is_performRewrites_correct = “is_perform_rewrites_correct”
+
+Overload performRewrites = “perform_rewrites”
+Overload rewrite = “rewriteFPexp”
+
+Overload is_optimiseWithPlan_correct = “is_optimise_with_plan_correct”
+
 
 Definition notInStrictMode_def:
   notInStrictMode fps = (fps.canOpt ≠ Strict)
@@ -153,34 +167,43 @@ Definition flagAndScopeAgree_def:
   flagAndScopeAgree flag fps = (flag.canOpt <=> fps.canOpt = FPScope Opt)
 End
 
-
 Theorem performRewrites_correct_def:
   K T ^(is_perform_rewrites_correct_def
         |> SIMP_RULE (srw_ss()) [GSYM noRealsAllowed_def, GSYM canOptimize_def,
                                  GSYM appendOptsAndOracle_def, GSYM notInStrictMode_def,
-                                 GSYM flagAndScopeAgree_def]
+                                 GSYM flagAndScopeAgree_def,
+                                 GSYM freeVars_fine_exp_def]
+        |> REWRITE_RULE [GSYM freeVars_fine_exp_def]
         |> SPEC_ALL
         |> GEN “cfg:source_to_source$config” |> SPEC “canOpt:source_to_source$config” |> concl |> rhs)
 Proof
   simp[K_DEF]
 QED
 
-Overload optimiseWithPlan = “optimise_with_plan”
-
-Definition optimiseWithPlan_def:
-  optimiseWithPlan cfg plan exps = MAP (λ e. FST (optimise_with_plan cfg plan e)) exps
+Definition optimizeWithPlan_def:
+  optimizeWithPlan cfg plan exps = MAP (λ e. FST (optimise_with_plan cfg plan e)) exps
 End
 
 Definition getRws_def:
   getRws plan = FLAT (MAP (λ x. case x of |Apply (_, rws) => rws |_ => []) plan)
 End
 
+Definition freeVars_fine_def:
+  freeVars_fine canOpt (st1:'a semanticPrimitives$state) exps env plan =
+  (∀ e. MEM e exps ⇒ ∀ (st1:'a semanticPrimitives$state) st2. freeVars_plan_bound st1 st2 env canOpt plan e)
+End
+
+Overload freeVarsPlanBound = “freeVars_fine canOpt”
+
 Theorem optimize_with_plan_correct:
   K T ^(is_optimise_with_plan_correct_def
         |> SIMP_RULE (srw_ss()) [GSYM noRealsAllowed_def, GSYM canOptimize_def,
                                  GSYM appendOptsAndOracle_def, GSYM notInStrictMode_def,
-                                 GSYM flagAndScopeAgree_def, GSYM optimiseWithPlan_def,
-                                 GSYM getRws_def, LET_THM]
+                                 GSYM flagAndScopeAgree_def, GSYM optimizeWithPlan_def,
+                                 GSYM getRws_def, LET_THM,
+                                 GSYM freeVars_fine_def]
+        |> REWRITE_RULE [GSYM freeVars_fine_def]
+        |> SIMP_RULE (srw_ss()) []
         |> SPEC_ALL
         |> GEN “cfg:source_to_source$config” |> SPEC “canOpt:source_to_source$config”
         |> concl |> rhs)
@@ -193,11 +216,25 @@ Theorem rewrite_correct_chaining =
 
 Overload is_rewrite_correct = “is_rewriteFPexp_list_correct”
 
-Theorem optimize_with_plan_correct_lift =
-  is_optimise_with_plan_correct_lift |> GEN_ALL |> SIMP_RULE std_ss [];
+Definition elemOfPlan_def:
+  elemOfPlan (path,opts) plan = MEM (Apply (path, opts)) plan
+End
+
+Theorem optimize_with_plan_correct_lift:
+  ∀plan.
+    (∀ path opts.
+       elemOfPlan (path,opts) plan ⇒
+       ∀ (st1:'a semanticPrimitives$state) st2 env cfg e r.
+         is_performRewrites_correct opts st1 st2 env cfg e r path) ⇒
+    ∀ (st1:'a semanticPrimitives$state) st2 env cfg exps r.
+      is_optimise_with_plan_correct plan st1 st2 env cfg exps r
+Proof
+  simp[elemOfPlan_def] \\ rpt strip_tac \\ irule is_optimise_with_plan_correct_lift
+  \\ rpt strip_tac \\ gs[]
+QED
 
 Theorem perform_rewrites_correct_lift =
-  is_rewriteFPexp_correct_lift_perform_rewrites |> GEN_ALL |> SIMP_RULE std_ss [];
+  is_rewriteFPexp_correct_lift_perform_rewrites |> GEN_ALL |> SPEC “opts:(fp_pat # fp_pat) list” |> GEN_ALL |> SIMP_RULE std_ss [];
 
 Overload noOpts = “no_optimisations cfg”
 

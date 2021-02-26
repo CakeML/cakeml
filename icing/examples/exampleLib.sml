@@ -5,7 +5,7 @@ structure exampleLib =
 struct
   open astTheory cfTacticsLib ml_translatorLib;
   open basis_ffiTheory cfHeapsBaseTheory basis;
-  open data_monadTheory compilationLib;
+  (* open data_monadTheory compilationLib;*)
   open FloverMapTheory RealIntervalInferenceTheory ErrorIntervalInferenceTheory
        CertificateCheckerTheory;
   open floatToRealProofsTheory source_to_sourceTheory CakeMLtoFloVerTheory
@@ -835,14 +835,14 @@ val _ = write_to_file data_prog_def;
       val theAST_float_returns_def =
         Define ‘
         theAST_float_returns ^args w ⇔
-        (∃ fpOpts st2 fp.
+        ∃ fpOpts st2 fp.
           let theOpts = FLAT (MAP (λ x. case x of |Apply (_, rws) => rws |_ => []) (HD theAST_plan)) in
-            (evaluate (empty_state with fp_state :=
+            evaluate (empty_state with fp_state :=
                       empty_state.fp_state with
                                  <| rws := theOpts ; opts := fpOpts; canOpt := FPScope NoOpt |>)
                      (theAST_env with v :=
                       extend_env_with_vars (REVERSE ^fvars) (REVERSE ^argList) (theAST_env).v)
-                     [^body] = (st2, Rval [FP_WordTree fp])) ∧ (compress_word fp = w))’
+                     [^body] = (st2, Rval [FP_WordTree fp]) ∧ compress_word fp = w’
       val body_doubleExpPlan = store_thm ("body_doubleExpPlan",
         Parse.Term ‘isDoubleExpPlan ^body no_fp_opt_conf (HD theAST_plan)’,
           EVAL_TAC);
@@ -921,7 +921,8 @@ val _ = write_to_file data_prog_def;
         is_Double (w1::ws) (d1::ds) = (DOUBLE (Fp_const w1) d1 ∧ is_Double ws ds)’
       (* Load the necessary constants from the state *)
       val theAST_v = fetch_v (stringSyntax.fromHOLstring fname) st
-      val theAST_v_def = DB.find ((term_to_string theAST_v)^"_def") |> hd |> #2 |> #1
+      val theAST_v_def = DB.find_in ((term_to_string theAST_v)^"_def")
+                            (DB.thy (Theory.current_theory()))|> hd |> #2 |> #1
       val theAST_spec = store_thm ("theAST_spec",
         Parse.Term ‘
         theAST_side ^args ∧
