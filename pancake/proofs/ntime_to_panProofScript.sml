@@ -44,23 +44,11 @@ Definition local_state_def:
   (local_state (LAction act) t = local_action act t)
 End
 
-(*
-Definition event_state_def:
-  event_state t ⇔
-    FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
-    FLOOKUP t.locals «event»   =  SOME (ValWord 0w)
+Definition locals_def:
+  (locals [] t = T) ∧
+  (locals (lbl::lbls) t = local_state lbl t)
 End
 
-
-(* taken from the conclusion of individual step thorems *)
-Definition next_ffi_state_def:
-  (next_ffi_state (LDelay d) ffi (t:('a,time_input) panSem$state) ⇔
-   ∀cycles.
-     delay_rep d ffi cycles ⇒
-     t.ffi.ffi_state = nexts_ffi cycles ffi) ∧
-  (next_ffi_state (LAction _) ffi t ⇔ t.ffi.ffi_state = ffi)
-End
-*)
 
 Definition action_rel_def:
   (action_rel (Input i) s (t:('a,time_input) panSem$state) =
@@ -101,6 +89,18 @@ Definition always_def:
 End
 
 
+(* initialise it by an empty list *)
+Definition gen_max_times_def:
+  (gen_max_times [] n ns = ns) ∧
+  (gen_max_times (lbl::lbls) n ns =
+   let m =
+       case lbl of
+       | LDelay d => d + n
+       | LAction _ => n
+   in
+   m :: gen_max_times lbls m ns)
+End
+
 Definition steps_def:
   (steps prog [] m [] s [] ⇔ T) ∧
   (steps prog (lbl::lbls) m (n::ns) s (st::sts) ⇔
@@ -109,19 +109,141 @@ Definition steps_def:
 End
 
 (* ignoring clocks for the time-being *)
+
+(* taken from the conclusion of individual step thorems *)
+Definition next_ffi_state_def:
+  (next_ffi_state (LDelay d) ffi ffi' ⇔
+   ∀cycles.
+     delay_rep d ffi cycles ⇒
+     ffi' = nexts_ffi cycles ffi) ∧
+  (next_ffi_state (LAction _) ffi ffi' ⇔ ffi = ffi)
+End
+
+
+Definition nlocals_def:
+  (nlocals (LDelay d) fm ffi wt m ⇔
+    ∀cycles.
+      delay_rep d ffi cycles ⇒
+        FLOOKUP fm «wakeUpAt» = FLOOKUP fm «wakeUpAt» ∧
+        FLOOKUP fm «isInput»  = SOME (ValWord 1w) ∧
+        FLOOKUP fm «event»    = SOME (ValWord 0w) ∧
+        FLOOKUP fm «taskRet»  = FLOOKUP fm «taskRet» ∧
+        FLOOKUP fm «sysTime»  = SOME (ValWord (n2w (FST (ffi cycles))))) ∧
+  (nlocals (LAction _) fm ffi wt m ⇔
+    FLOOKUP fm «sysTime» = FLOOKUP fm «sysTime» ∧
+    FLOOKUP fm «event»   = SOME (ValWord 0w) ∧
+    FLOOKUP fm «isInput» = SOME (ValWord 1w) ∧
+    FLOOKUP fm «wakeUpAt» =
+    SOME (ValWord (n2w (FST (ffi 0) +
+       case wt of
+       | NONE => 0
+       | SOME wt => wt))) ∧
+    (case wt of
+     | SOME wt => FST (ffi 0) + wt < m
+     | _ => T))
+End
+
+
+Definition assumptions_def:
+  assumptions prog labels s (t:('a,time_input) panSem$state) ⇔
+    state_rel (clksOf prog) s t ∧
+    code_installed t.code prog ∧
+    well_formed_code prog t.code ∧
+    (* this is a bit complicated, state t *)
+    out_ffi prog t ∧
+    ffi_rels prog labels s t ∧
+    labProps$good_dimindex (:'a) ∧
+    locals labels t ∧
+    task_ret_defined t.locals (nClks prog)
+End
+
+
+
+Definition evaluate_rel_def:
+  (evaluate_rel prog lbl t nt ⇔
+   case lbl of
+   | LDelay d =>
+       evaluate (task_controller (nClks prog), t) =
+       evaluate (task_controller (nClks prog), nt)
+   | LAction _ =>
+       evaluate (task_controller (nClks prog), t) =
+       (NONE, nt))
+End
+
+
+Definition evaluations_def:
+  (evaluations prog [] t ⇔ T) ∧
+  (evaluations prog (lbl::lbls) t ⇔
+   ∃nt.
+     evaluate_rel prog lbl t nt ∧
+     evaluations prog lbls nt) ∧
+  (evaluations prog _ t ⇔ T)
+End
+
+Definition evaluation_invs_def:
+  (evaluation_inv prog [] s (t:('a,time_input) panSem$state) ⇔ T) ∧
+  (evaluation_inv prog (lbl::lbls) s t ⇔
+   ∀m n st nt.
+     step prog lbl m n s st ∧
+     evaluate_rel prog lbl t nt ⇒
+     state_rel (clksOf prog) st nt ∧
+     nt.code = t.code ∧
+     next_ffi_state lbl t.ffi.ffi_state nt.ffi.ffi_state ∧
+     nt.ffi.oracle = t.ffi.oracle ∧
+     nlocals lbl nt.locals (t.ffi.ffi_state) st.waitTime (dimword (:α)) ∧
+     task_ret_defined nt.locals (nClks prog) ∧
+     evaluation_inv prog lbls st nt)
+End
+
+
+Theorem steps_thm:
+  ∀labels prog st sts (t:('a,time_input) panSem$state).
+    steps prog labels (dimword (:α) - 1)
+          (gen_max_times labels (FST (t.ffi.ffi_state 0)) [])
+          st sts ∧
+    assumptions prog labels st t ⇒
+      evaluations prog labels t ∧
+      evaluation_inv prog labels st t
+Proof
+  cheat
+QED
+
+
+(*
+(*
+Definition event_state_def:
+  event_state t ⇔
+    FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
+    FLOOKUP t.locals «event»   =  SOME (ValWord 0w)
+End
+
 Definition evaluations_def:
   (evaluations prog t [] [] ⇔ T) ∧
   (evaluations prog t (lbl::lbls) (nt::nts) ⇔
-   (case lbl of
-    | LDelay d =>
-        evaluate (task_controller (nClks prog), t) =
-        evaluate (task_controller (nClks prog), nt)
-    | LAction _ =>
-        evaluate (task_controller (nClks prog), t) =
-        (NONE, nt)) ∧
-   evaluations prog nt lbls nts) ∧
+     evaluate_rel prog lbl t nt ∧
+     evaluations prog nt lbls nts) ∧
   (evaluations prog t _ _ ⇔ T)
 End
+
+Definition state_rels_def:
+  (state_rels prog [] s t ⇔ T) ∧
+  (state_rels prog (lbl::lbls) s t ⇔
+   ∀m n st nt.
+     step prog lbl m n s st ∧
+     evaluate_rel prog lbl t nt ⇒
+     state_rel (clksOf prog) st nt ∧
+     state_rels prog lbls st nt)
+End
+
+Definition always_code_installed_def:
+  (always_code_installed prog [] t ⇔ T) ∧
+  (always_code_installed prog (lbl::lbls) t ⇔
+   ∀nt.
+     evaluate_rel prog lbl t nt ⇒
+     code_installed nt.code prog ∧
+     always_code_installed prog lbls nt)
+End
+*)
 
 
 Theorem foo:
@@ -479,55 +601,6 @@ Theorem foo:
 Proof
 QED
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+*)
 
 val _ = export_theory();
