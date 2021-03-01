@@ -81,24 +81,17 @@ Definition ffi_rels_def:
        ffi_rels prog labels s' t')
 End
 
-
-Definition always_def:
-  always clksLength =
-  While (Const 1w)
-        (task_controller clksLength)
-End
-
-
 (* initialise it by an empty list *)
 Definition gen_max_times_def:
   (gen_max_times [] n ns = ns) ∧
   (gen_max_times (lbl::lbls) n ns =
+   n ::
    let m =
        case lbl of
        | LDelay d => d + n
        | LAction _ => n
    in
-   m :: gen_max_times lbls m ns)
+   gen_max_times lbls m ns)
 End
 
 Definition steps_def:
@@ -113,7 +106,7 @@ End
 (* taken from the conclusion of individual step thorems *)
 Definition next_ffi_state_def:
   (next_ffi_state (LDelay d) ffi ffi' ⇔
-   ∀cycles.
+   ∃cycles.
      delay_rep d ffi cycles ⇒
      ffi' = nexts_ffi cycles ffi) ∧
   (next_ffi_state (LAction _) ffi ffi' ⇔ ffi = ffi)
@@ -122,7 +115,7 @@ End
 
 Definition nlocals_def:
   (nlocals (LDelay d) fm ffi wt m ⇔
-    ∀cycles.
+    ∃cycles.
       delay_rep d ffi cycles ⇒
         FLOOKUP fm «wakeUpAt» = FLOOKUP fm «wakeUpAt» ∧
         FLOOKUP fm «isInput»  = SOME (ValWord 1w) ∧
@@ -158,7 +151,7 @@ Definition assumptions_def:
 End
 
 
-
+(*
 Definition evaluate_rel_def:
   (evaluate_rel prog lbl t nt ⇔
    case lbl of
@@ -179,13 +172,51 @@ Definition evaluations_def:
      evaluations prog lbls nt) ∧
   (evaluations prog _ t ⇔ T)
 End
+*)
+
+Definition always_def:
+  always clksLength =
+  While (Const 1w)
+        (task_controller clksLength)
+End
+
+
+Definition evaluations_def:
+  (evaluations prog [] s (t:('a,time_input) panSem$state) ⇔ T) ∧
+  (evaluations prog (lbl::lbls) s t ⇔
+   ∃ck nt.
+     evaluate (always (nClks prog), t with clock := t.clock + ck) =
+     evaluate (always (nClks prog), nt) ∧
+     ∃m n st.
+       step prog lbl m n s st ⇒
+       state_rel (clksOf prog) st nt ∧
+       nt.code = t.code ∧
+       next_ffi_state lbl t.ffi.ffi_state nt.ffi.ffi_state ∧
+       nt.ffi.oracle = t.ffi.oracle ∧
+       nlocals lbl nt.locals (t.ffi.ffi_state) st.waitTime (dimword (:α)) ∧
+       task_ret_defined nt.locals (nClks prog) ∧
+       evaluations prog lbls st nt)
+End
+
+
+(*
+Definition evaluations_def:
+  (evaluations prog [] t ⇔ T) ∧
+  (evaluations prog (lbl::lbls) t ⇔
+   ∃ck nt.
+     evaluate (always (nClks prog), t with clock := t.clock + ck) =
+     evaluate (always (nClks prog), nt) ∧
+     evaluations prog lbls nt)
+End
+
 
 Definition evaluation_invs_def:
   (evaluation_inv prog [] s (t:('a,time_input) panSem$state) ⇔ T) ∧
   (evaluation_inv prog (lbl::lbls) s t ⇔
-   ∀m n st nt.
+   ∃m n st nt.
      step prog lbl m n s st ∧
-     evaluate_rel prog lbl t nt ⇒
+     evaluate (always (nClks prog), t) =
+     evaluate (always (nClks prog), nt) ⇒
      state_rel (clksOf prog) st nt ∧
      nt.code = t.code ∧
      next_ffi_state lbl t.ffi.ffi_state nt.ffi.ffi_state ∧
@@ -194,6 +225,23 @@ Definition evaluation_invs_def:
      task_ret_defined nt.locals (nClks prog) ∧
      evaluation_inv prog lbls st nt)
 End
+*)
+
+Theorem ffi_rels_clock_upd:
+  ∀lbls prog s t ck.
+    ffi_rels prog lbls s t ⇒
+    ffi_rels prog lbls s (t with clock := ck)
+Proof
+  Induct >>
+  rw [] >>
+  gs [ffi_rels_def, ffi_rel_def] >>
+  cases_on ‘h’ >>
+  gs [ffi_rels_def, ffi_rel_def]
+  >- metis_tac [] >>
+  cases_on ‘i’ >>
+  gs [action_rel_def] >>
+  metis_tac []
+QED
 
 
 Theorem steps_thm:
@@ -201,11 +249,78 @@ Theorem steps_thm:
     steps prog labels (dimword (:α) - 1)
           (gen_max_times labels (FST (t.ffi.ffi_state 0)) [])
           st sts ∧
+    LENGTH sts = LENGTH labels ∧
     assumptions prog labels st t ⇒
-      evaluations prog labels t ∧
-      evaluation_inv prog labels st t
+      evaluations prog labels st t
 Proof
-  cheat
+  Induct
+  >- (
+    rpt gen_tac >>
+    strip_tac >>
+    fs [evaluations_def]) >>
+  rpt gen_tac >>
+  strip_tac >>
+  cases_on ‘sts’ >>
+  fs [] >>
+  fs [gen_max_times_def] >>
+  cases_on ‘h’ >> gs []
+  >- ((* delay step *)
+    gs [steps_def] >>
+    gs [assumptions_def, locals_def, ffi_rels_def, ffi_rel_def,
+        local_state_def] >>
+    rveq >> gs [] >>
+    drule step_delay >>
+    gs [] >>
+    disch_then (qspecl_then [‘cycles’, ‘t’, ‘0’] mp_tac) >>
+    impl_tac
+    >- gs [] >>
+    strip_tac >>
+    gs [evaluations_def] >>
+    qexists_tac ‘ck+1’ >>
+    gs [always_def] >>
+    once_rewrite_tac [panSemTheory.evaluate_def] >>
+    gs [panSemTheory.eval_def] >>
+    gs [panSemTheory.dec_clock_def] >>
+    qexists_tac ‘t'' with clock := t''.clock + 1’ >>
+    gs [] >>
+    MAP_EVERY qexists_tac [‘dimword (:α) − 1’,‘FST (t.ffi.ffi_state 0)’,‘h'’] >>
+    gs [] >>
+    conj_asm1_tac
+    >- gs [state_rel_def] >>
+    conj_asm1_tac
+    >- (
+      gs [next_ffi_state_def] >>
+      qexists_tac ‘cycles’ >>
+      gs []) >>
+    conj_asm1_tac
+    >- (
+      gs [nlocals_def] >>
+      qexists_tac ‘cycles’ >>
+      gs []) >>
+    conj_asm1_tac
+    >- cheat >>
+    last_x_assum match_mp_tac >>
+    gs [] >>
+    qexists_tac ‘t'’ >>
+    gs [] >>
+    conj_tac
+    >- (
+      gs [nexts_ffi_def] >>
+      gs [delay_rep_def]) >>
+    conj_tac
+    >- cheat >>
+    first_x_assum drule_all >>
+    strip_tac >>
+    drule ffi_rels_clock_upd >>
+    disch_then (qspec_then ‘t''.clock + 1’ assume_tac) >>
+    gs [] >>
+
+
+
+    )
+
+
+
 QED
 
 
