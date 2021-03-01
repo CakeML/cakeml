@@ -101,6 +101,29 @@ Definition always_def:
 End
 
 
+Definition steps_def:
+  (steps prog [] m [] s [] ⇔ T) ∧
+  (steps prog (lbl::lbls) m (n::ns) s (st::sts) ⇔
+    step prog lbl m n s st ∧ steps prog lbls m ns st sts) ∧
+  (steps prog _ m _ s _ ⇔ T)
+End
+
+(* ignoring clocks for the time-being *)
+Definition evaluations_def:
+  (evaluations prog t [] [] ⇔ T) ∧
+  (evaluations prog t (lbl::lbls) (nt::nts) ⇔
+   (case lbl of
+    | LDelay d =>
+        evaluate (task_controller (nClks prog), t) =
+        evaluate (task_controller (nClks prog), nt)
+    | LAction _ =>
+        evaluate (task_controller (nClks prog), t) =
+        (NONE, nt)) ∧
+   evaluations prog nt lbls nts) ∧
+  (evaluations prog t _ _ ⇔ T)
+End
+
+
 Theorem foo:
   ∀prog s s' labels (t:('a,time_input) panSem$state).
     stepTrace prog
