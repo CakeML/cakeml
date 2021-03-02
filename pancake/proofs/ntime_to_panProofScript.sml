@@ -28,28 +28,6 @@ Definition out_ffi_def:
 End
 
 
-Definition local_action_def:
-  (local_action (Input i) t =
-     (FLOOKUP t.locals «isInput» = SOME (ValWord 0w))) ∧
-  (local_action (Output os) t =
-    (FLOOKUP t.locals «event»   = SOME (ValWord 0w) ∧
-     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
-     FLOOKUP t.locals «waitSet» = SOME (ValWord 0w)))
-End
-
-Definition local_state_def:
-  (local_state (LDelay _) t =
-   (FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
-    FLOOKUP t.locals «event» = SOME (ValWord 0w))) ∧
-  (local_state (LAction act) t = local_action act t)
-End
-
-Definition locals_def:
-  (locals [] t = T) ∧
-  (locals (lbl::lbls) t = local_state lbl t)
-End
-
-
 Definition action_rel_def:
   (action_rel (Input i) s (t:('a,time_input) panSem$state) =
    input_rel t.locals i t.ffi.ffi_state) ∧
@@ -79,6 +57,48 @@ Definition ffi_rels_def:
        step prog label m n s s' ∧
        t'.ffi.ffi_state = ffi ⇒
        ffi_rels prog labels s' t')
+End
+
+(*
+Definition local_action_def:
+  (local_action (Input i) t =
+     (FLOOKUP t.locals «isInput» = SOME (ValWord 0w))) ∧
+  (local_action (Output os) t =
+    (FLOOKUP t.locals «event»   = SOME (ValWord 0w) ∧
+     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
+     FLOOKUP t.locals «waitSet» = SOME (ValWord 0w)))
+End
+
+Definition local_state_def:
+  (local_state (LDelay _) t =
+   (FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
+    FLOOKUP t.locals «event» = SOME (ValWord 0w))) ∧
+  (local_state (LAction act) t = local_action act t)
+End
+
+Definition locals_def:
+  (locals [] t = T) ∧
+  (locals (lbl::lbls) t = local_state lbl t)
+End
+*)
+
+Definition locals_def:
+  locals t ⇔
+    FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
+    FLOOKUP t.locals «event» = SOME (ValWord 0w)
+End
+
+Definition assumptions_def:
+  assumptions prog labels s (t:('a,time_input) panSem$state) ⇔
+    state_rel (clksOf prog) s t ∧
+    code_installed t.code prog ∧
+    well_formed_code prog t.code ∧
+    (* this is a bit complicated, state t *)
+    out_ffi prog t ∧
+    ffi_rels prog labels s t ∧
+    labProps$good_dimindex (:'a) ∧
+    locals t ∧
+    task_ret_defined t.locals (nClks prog)
 End
 
 (* initialise it by an empty list *)
@@ -137,43 +157,6 @@ Definition nlocals_def:
 End
 
 
-Definition assumptions_def:
-  assumptions prog labels s (t:('a,time_input) panSem$state) ⇔
-    state_rel (clksOf prog) s t ∧
-    code_installed t.code prog ∧
-    well_formed_code prog t.code ∧
-    (* this is a bit complicated, state t *)
-    out_ffi prog t ∧
-    ffi_rels prog labels s t ∧
-    labProps$good_dimindex (:'a) ∧
-    locals labels t ∧
-    task_ret_defined t.locals (nClks prog)
-End
-
-
-(*
-Definition evaluate_rel_def:
-  (evaluate_rel prog lbl t nt ⇔
-   case lbl of
-   | LDelay d =>
-       evaluate (task_controller (nClks prog), t) =
-       evaluate (task_controller (nClks prog), nt)
-   | LAction _ =>
-       evaluate (task_controller (nClks prog), t) =
-       (NONE, nt))
-End
-
-
-Definition evaluations_def:
-  (evaluations prog [] t ⇔ T) ∧
-  (evaluations prog (lbl::lbls) t ⇔
-   ∃nt.
-     evaluate_rel prog lbl t nt ∧
-     evaluations prog lbls nt) ∧
-  (evaluations prog _ t ⇔ T)
-End
-*)
-
 Definition always_def:
   always clksLength =
   While (Const 1w)
@@ -198,34 +181,6 @@ Definition evaluations_def:
        evaluations prog lbls st nt)
 End
 
-
-(*
-Definition evaluations_def:
-  (evaluations prog [] t ⇔ T) ∧
-  (evaluations prog (lbl::lbls) t ⇔
-   ∃ck nt.
-     evaluate (always (nClks prog), t with clock := t.clock + ck) =
-     evaluate (always (nClks prog), nt) ∧
-     evaluations prog lbls nt)
-End
-
-
-Definition evaluation_invs_def:
-  (evaluation_inv prog [] s (t:('a,time_input) panSem$state) ⇔ T) ∧
-  (evaluation_inv prog (lbl::lbls) s t ⇔
-   ∃m n st nt.
-     step prog lbl m n s st ∧
-     evaluate (always (nClks prog), t) =
-     evaluate (always (nClks prog), nt) ⇒
-     state_rel (clksOf prog) st nt ∧
-     nt.code = t.code ∧
-     next_ffi_state lbl t.ffi.ffi_state nt.ffi.ffi_state ∧
-     nt.ffi.oracle = t.ffi.oracle ∧
-     nlocals lbl nt.locals (t.ffi.ffi_state) st.waitTime (dimword (:α)) ∧
-     task_ret_defined nt.locals (nClks prog) ∧
-     evaluation_inv prog lbls st nt)
-End
-*)
 
 Theorem ffi_rels_clock_upd:
   ∀lbls prog s t ck.
@@ -266,8 +221,7 @@ Proof
   cases_on ‘h’ >> gs []
   >- ((* delay step *)
     gs [steps_def] >>
-    gs [assumptions_def, locals_def, ffi_rels_def, ffi_rel_def,
-        local_state_def] >>
+    gs [assumptions_def, locals_def, ffi_rels_def, ffi_rel_def] >>
     rveq >> gs [] >>
     drule step_delay >>
     gs [] >>
@@ -298,7 +252,7 @@ Proof
       qexists_tac ‘cycles’ >>
       gs []) >>
     conj_asm1_tac
-    >- cheat >>
+    >- gs [task_ret_defined_def] >>
     last_x_assum match_mp_tac >>
     gs [] >>
     qexists_tac ‘t'’ >>
@@ -308,21 +262,124 @@ Proof
       gs [nexts_ffi_def] >>
       gs [delay_rep_def]) >>
     conj_tac
+    (* out_ffi cheat *)
     >- cheat >>
     first_x_assum drule_all >>
     strip_tac >>
     drule ffi_rels_clock_upd >>
     disch_then (qspec_then ‘t''.clock + 1’ assume_tac) >>
+    gs []) >>
+  cases_on ‘i’ >>
+  gs []
+  >- (
+    (* delay input *)
+    gs [steps_def] >>
+    gs [assumptions_def, locals_def, ffi_rels_def, ffi_rel_def] >>
+    rveq >> gs [] >>
+    (* we need to traverse while loop once, to read the ffi *)
+
+
+
+
+    drule step_input >>
     gs [] >>
+    disch_then (qspecl_then [‘cycles’, ‘t’, ‘0’] mp_tac) >>
+    impl_tac
+    >- gs [] >>
+    strip_tac >>
+    gs [evaluations_def] >>
+    qexists_tac ‘ck+1’ >>
+    gs [always_def] >>
+    once_rewrite_tac [panSemTheory.evaluate_def] >>
+    gs [panSemTheory.eval_def] >>
+    gs [panSemTheory.dec_clock_def] >>
+    qexists_tac ‘t'' with clock := t''.clock + 1’ >>
+    gs [] >>
+    MAP_EVERY qexists_tac [‘dimword (:α) − 1’,‘FST (t.ffi.ffi_state 0)’,‘h'’] >>
+    gs [] >>
+    conj_asm1_tac
+    >- gs [state_rel_def] >>
+    conj_asm1_tac
+    >-
 
 
 
-    )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  )
+
 
 
 
 QED
 
+
+(*
+Definition evaluations_def:
+  (evaluations prog [] t ⇔ T) ∧
+  (evaluations prog (lbl::lbls) t ⇔
+   ∃ck nt.
+     evaluate (always (nClks prog), t with clock := t.clock + ck) =
+     evaluate (always (nClks prog), nt) ∧
+     evaluations prog lbls nt)
+End
+
+
+Definition evaluation_invs_def:
+  (evaluation_inv prog [] s (t:('a,time_input) panSem$state) ⇔ T) ∧
+  (evaluation_inv prog (lbl::lbls) s t ⇔
+   ∃m n st nt.
+     step prog lbl m n s st ∧
+     evaluate (always (nClks prog), t) =
+     evaluate (always (nClks prog), nt) ⇒
+     state_rel (clksOf prog) st nt ∧
+     nt.code = t.code ∧
+     next_ffi_state lbl t.ffi.ffi_state nt.ffi.ffi_state ∧
+     nt.ffi.oracle = t.ffi.oracle ∧
+     nlocals lbl nt.locals (t.ffi.ffi_state) st.waitTime (dimword (:α)) ∧
+     task_ret_defined nt.locals (nClks prog) ∧
+     evaluation_inv prog lbls st nt)
+End
+*)
+
+
+(*
+Definition evaluate_rel_def:
+  (evaluate_rel prog lbl t nt ⇔
+   case lbl of
+   | LDelay d =>
+       evaluate (task_controller (nClks prog), t) =
+       evaluate (task_controller (nClks prog), nt)
+   | LAction _ =>
+       evaluate (task_controller (nClks prog), t) =
+       (NONE, nt))
+End
+
+
+Definition evaluations_def:
+  (evaluations prog [] t ⇔ T) ∧
+  (evaluations prog (lbl::lbls) t ⇔
+   ∃nt.
+     evaluate_rel prog lbl t nt ∧
+     evaluations prog lbls nt) ∧
+  (evaluations prog _ t ⇔ T)
+End
+*)
 
 (*
 (*

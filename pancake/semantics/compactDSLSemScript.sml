@@ -225,54 +225,54 @@ Definition terms_wtimes_ffi_bound_def:
           ) tms
 End
 
-
+(* max is dimword *)
 Inductive pickTerm:
-  (!st m cnds in_signal clks dest diffs tms st'.
+  (!st max m cnds in_signal clks dest diffs tms st'.
     EVERY (λcnd. evalCond st cnd) cnds ∧
     conds_eval_lt_dimword m st (Tm (Input in_signal) cnds clks dest diffs::tms) ∧
     max_clocks st.clocks m ∧
     terms_time_range m (Tm (Input in_signal) cnds clks dest diffs::tms)  ∧
-    input_terms_actions m (Tm (Input in_signal) cnds clks dest diffs::tms) ∧
+    input_terms_actions max (Tm (Input in_signal) cnds clks dest diffs::tms) ∧
     terms_wtimes_ffi_bound m st (Tm (Input in_signal) cnds clks dest diffs::tms) ∧
     evalTerm st (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs) st' ⇒
-    pickTerm st m (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs::tms) st') ∧
+    pickTerm st max m (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs::tms) st') ∧
 
-  (!st m cnds out_signal clks dest diffs tms st'.
+  (!st max m cnds out_signal clks dest diffs tms st'.
     EVERY (λcnd. evalCond st cnd) cnds ∧
     conds_eval_lt_dimword m st (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
     max_clocks st.clocks m ∧
     terms_time_range m (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
-    input_terms_actions m tms ∧
+    input_terms_actions max tms ∧
     terms_wtimes_ffi_bound m st (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
     evalTerm st NONE (Tm (Output out_signal) cnds clks dest diffs) st' ⇒
-    pickTerm st m NONE (Tm (Output out_signal) cnds clks dest diffs::tms) st') ∧
+    pickTerm st max m NONE (Tm (Output out_signal) cnds clks dest diffs::tms) st') ∧
 
-  (!st m cnds event ioAction clks dest diffs tms st'.
+  (!st max m cnds event ioAction clks dest diffs tms st'.
     EVERY (λcnd. EVERY (λe. ∃t. evalExpr st e = SOME t) (destCond cnd)) cnds ∧
     ~(EVERY (λcnd. evalCond st cnd) cnds) ∧
     tm_conds_eval_limit m st (Tm ioAction cnds clks dest diffs) ∧
     term_time_range m (Tm ioAction cnds clks dest diffs) ∧
-    input_terms_actions m [(Tm ioAction cnds clks dest diffs)] ∧
+    input_terms_actions max [(Tm ioAction cnds clks dest diffs)] ∧
     terms_wtimes_ffi_bound m st (Tm ioAction cnds clks dest diffs :: tms) ∧
-    pickTerm st m event tms st' ⇒
-    pickTerm st m event (Tm ioAction cnds clks dest diffs :: tms) st') ∧
+    pickTerm st max m event tms st' ⇒
+    pickTerm st max m event (Tm ioAction cnds clks dest diffs :: tms) st') ∧
 
-  (!st m cnds event in_signal clks dest diffs tms st'.
+  (!st max m cnds event in_signal clks dest diffs tms st'.
     event <> SOME in_signal ∧
     tm_conds_eval_limit m st (Tm (Input in_signal) cnds clks dest diffs) ∧
     term_time_range m (Tm (Input in_signal) cnds clks dest diffs) ∧
     terms_wtimes_ffi_bound m st (Tm (Input in_signal) cnds clks dest diffs :: tms) ∧
-    in_signal + 1 < m ∧
-    pickTerm st m event tms st' ⇒
-    pickTerm st m event (Tm (Input in_signal) cnds clks dest diffs :: tms) st') ∧
+    in_signal + 1 < max ∧
+    pickTerm st max m event tms st' ⇒
+    pickTerm st max m event (Tm (Input in_signal) cnds clks dest diffs :: tms) st') ∧
 
-  (!st m cnds event out_signal clks dest diffs tms st'.
+  (!st max m cnds event out_signal clks dest diffs tms st'.
     event <> NONE ∧
     tm_conds_eval_limit m st (Tm (Output out_signal) cnds clks dest diffs) ∧
     term_time_range m (Tm (Output out_signal) cnds clks dest diffs) ∧
     terms_wtimes_ffi_bound m st (Tm (Output out_signal) cnds clks dest diffs :: tms) ∧
-    pickTerm st m event tms st' ⇒
-    pickTerm st m event (Tm (Output out_signal) cnds clks dest diffs :: tms) st')
+    pickTerm st max m event tms st' ⇒
+    pickTerm st max m event (Tm (Output out_signal) cnds clks dest diffs :: tms) st')
 End
 
 
@@ -303,7 +303,7 @@ Inductive step:
   (!p m n st tms st' in_signal.
       ALOOKUP p st.location = SOME tms ∧
       n < m ∧
-      pickTerm (resetOutput st) (m - n) (SOME in_signal) tms st' ∧
+      pickTerm (resetOutput st) m (m - n) (SOME in_signal) tms st' ∧
       st'.ioAction = SOME (Input in_signal) ⇒
       step p (LAction (Input in_signal)) m n st st') ∧
 
@@ -311,7 +311,7 @@ Inductive step:
     ALOOKUP p st.location = SOME tms ∧
     st.waitTime = SOME 0 ∧
     n < m ∧
-    pickTerm (resetOutput st) (m - n) NONE tms st' ∧
+    pickTerm (resetOutput st) m (m - n) NONE tms st' ∧
     st'.ioAction = SOME (Output out_signal) ⇒
     step p (LAction (Output out_signal)) m n st st')
 End
