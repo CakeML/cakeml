@@ -287,22 +287,25 @@ Inductive step:
           (delay_clocks (st.clocks) d)
           st.location
           NONE
-          NONE)) /\
+          NONE)) ∧
 
   (!p m n st d w.
     st.waitTime = SOME w ∧
-    0 <= d /\ d < w ∧ w + n < m ∧
+    0 ≤ d /\ d < w ∧ w + n < m ∧
     max_clocks (delay_clocks (st.clocks) (d + n)) m ⇒
     step p (LDelay d) m n st
          (mkState
           (delay_clocks (st.clocks) d)
           st.location
           NONE
-          (SOME (w - d)))) /\
+          (SOME (w - d)))) ∧
 
   (!p m n st tms st' in_signal.
       ALOOKUP p st.location = SOME tms ∧
       n < m ∧
+      (case st.waitTime of
+       | NONE => T
+       | SOME wt => wt ≠ 0) ∧
       pickTerm (resetOutput st) m (m - n) (SOME in_signal) tms st' ∧
       st'.ioAction = SOME (Input in_signal) ⇒
       step p (LAction (Input in_signal)) m n st st') ∧
