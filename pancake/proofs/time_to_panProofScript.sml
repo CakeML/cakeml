@@ -3965,6 +3965,8 @@ Theorem step_input:
     well_formed_terms prog s.location t.code ∧
     out_ffi_next prog s.location t ∧
     code_installed t.code prog ∧
+    (* we can update the input_rel to take t.ffi.ffi_state, but this
+    is also fine*)
     input_rel t.locals i (next_ffi t.ffi.ffi_state) ∧
     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
     mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
