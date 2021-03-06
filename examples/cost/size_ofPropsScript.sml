@@ -1073,4 +1073,52 @@ Proof
   rw [sane_heap_def] \\ metis_tac [size_of_perm_gen]
 QED
 
+Theorem all_blocks_MEM_aux:
+  ∀vs x y.
+    MEM x (all_blocks vs) ∧
+    MEM y (all_blocks [x])
+    ⇒ MEM y (all_blocks vs)
+Proof
+  ho_match_mp_tac all_blocks_ind
+  \\ rw[all_blocks_def]
+  \\ gs[all_blocks_def]
+  \\ metis_tac []
+QED
+
+Theorem all_blocks_v_size:
+  ∀vs x. MEM x (all_blocks vs) ⇒ v_size x ≤ v1_size vs
+Proof
+  ho_match_mp_tac all_blocks_ind
+  \\ rw[all_blocks_def,v_size_def]
+  \\ gs[all_blocks_def,v_size_def]
+  \\ first_x_assum drule \\ rw[]
+QED
+
+Theorem all_blocks_no_self_containment:
+  ∀vs ts tag. ¬MEM (Block ts tag vs) (all_blocks vs)
+Proof
+  rw[] \\ goal_assum (mp_then Any assume_tac all_blocks_v_size o SIMP_RULE std_ss [])
+  \\ gs[v_size_def]
+QED
+
+Theorem sane_heap_block_MEM:
+  ∀refs ts tag vs tag0 vs0.
+    sane_heap refs [Block ts tag vs]
+    ⇒ ¬MEM (Block ts tag0 vs0) (all_blocks vs)
+Proof
+  rw[sane_heap_block_cons] \\ CCONTR_TAC \\ gs[]
+  \\ first_x_assum (qspecl_then [‘tag0’,‘vs0’] assume_tac)
+  \\ gs[] \\ rveq \\ gs[all_blocks_no_self_containment]
+QED
+
+Definition no_ptrs_list_def:
+  (no_ptrs_list [] = T) ∧
+  (no_ptrs_list [RefPtr p] = F) ∧
+  (no_ptrs_list [Block ts tag l] = no_ptrs_list l) ∧
+  (no_ptrs_list [x] = T) ∧
+  (no_ptrs_list (v::vs) = no_ptrs_list [v] ∧ no_ptrs_list vs)
+Termination
+  WF_REL_TAC `(inv_image (measure v1_size) I)`
+End
+
 val _ = export_theory();
