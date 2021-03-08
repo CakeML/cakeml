@@ -4774,6 +4774,7 @@ Definition output_rel_def:
       SND (seq 0) = 0)
 End
 
+
 Theorem step_output:
   !prog os m it s s' (t:('a,time_input) panSem$state).
     step prog (LAction (Output os)) m it s s' ∧
@@ -5158,8 +5159,15 @@ Proof
       unabbrev_all_tac >>
       gs [mem_config_def] >>
       fs[mem_call_ffi_def] >>
-
-      cheat)
+      conj_tac >> (
+        fs [ffiBufferAddr_def] >>
+        match_mp_tac write_bytearray_update_byte >>
+        gs [labPropsTheory.good_dimindex_def] >>
+        gs [byte_align_def, byte_aligned_def, align_def, aligned_def, bytes_in_word_def] >>
+        gs [dimword_def] >>
+        EVAL_TAC >>
+        rveq >> gs [] >>
+        EVAL_TAC))
     >- (
       gs [defined_clocks_def] >>
       fs [EVERY_MEM] >>
@@ -5347,8 +5355,6 @@ Proof
     gs [evalTerm_cases]) >>
   gs [word_add_n2w]
 QED
-
-
 
 
 val _ = export_theory();

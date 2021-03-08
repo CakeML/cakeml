@@ -922,11 +922,11 @@ QED
 
 
 Theorem write_bytearray_update_byte:
-  ∀bytes ad m adrs be.
+  ∀bytes ad ad' m adrs be.
     byte_aligned ad ∧
     (∃w. m ad = Word w) ⇒
     ∃w.
-      write_bytearray ad bytes m adrs be
+      write_bytearray ad' bytes m adrs be
                       ad = Word w
 Proof
   Induct >>
@@ -937,6 +937,8 @@ Proof
   every_case_tac >> gs [] >>
   rveq >> gs [] >>
   gs [byte_align_aligned] >>
+  fs [APPLY_UPDATE_THM] >>
+  every_case_tac >> gs [] >>
   fs [APPLY_UPDATE_THM]
 QED
 
