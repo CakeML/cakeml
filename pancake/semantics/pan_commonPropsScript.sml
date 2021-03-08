@@ -792,11 +792,19 @@ Proof
   fs []
 QED
 
+
 Theorem fmap_to_alist_eq_fm:
   ∀fm.
     FEMPTY |++ MAP (λ(x,y). (x,y)) (fmap_to_alist fm) = fm
 Proof
-  cheat
+  rw [] >>
+  gs [MAP_values_fmap_to_alist] >>
+  gs [FUPDATE_LIST_EQ_APPEND_REVERSE] >>
+  ‘alist_to_fmap (REVERSE (fmap_to_alist fm)) =
+   alist_to_fmap (fmap_to_alist fm)’ by (
+    match_mp_tac ALL_DISTINCT_alist_to_fmap_REVERSE >>
+    fs [ALL_DISTINCT_fmap_to_alist_keys]) >>
+  gs []
 QED
 
 

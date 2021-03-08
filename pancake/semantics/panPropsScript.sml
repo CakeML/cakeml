@@ -921,4 +921,23 @@ Proof
 QED
 
 
+Theorem write_bytearray_update_byte:
+  ∀bytes ad m adrs be.
+    byte_aligned ad ∧
+    (∃w. m ad = Word w) ⇒
+    ∃w.
+      write_bytearray ad bytes m adrs be
+                      ad = Word w
+Proof
+  Induct >>
+  rw [] >>
+  gs [panSemTheory.write_bytearray_def] >>
+  TOP_CASE_TAC >> gs [] >>
+  gs [mem_store_byte_def] >>
+  every_case_tac >> gs [] >>
+  rveq >> gs [] >>
+  gs [byte_align_aligned] >>
+  fs [APPLY_UPDATE_THM]
+QED
+
 val _ = export_theory();

@@ -5158,6 +5158,7 @@ Proof
       unabbrev_all_tac >>
       gs [mem_config_def] >>
       fs[mem_call_ffi_def] >>
+
       cheat)
     >- (
       gs [defined_clocks_def] >>
@@ -5346,6 +5347,8 @@ Proof
     gs [evalTerm_cases]) >>
   gs [word_add_n2w]
 QED
+
+
 
 
 val _ = export_theory();
