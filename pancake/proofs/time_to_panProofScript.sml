@@ -3946,6 +3946,20 @@ Definition out_ffi_next_def:
 End
 
 
+
+Definition wait_time_locals_def:
+  wait_time_locals (:α) fm swt ffi =
+  ∃wt st.
+    FLOOKUP fm «wakeUpAt» = SOME (ValWord (n2w (wt + st))) ∧
+    wt + st < dimword (:α) ∧
+    case swt of
+    | NONE => T
+    | SOME swt =>
+        swt ≠ 0:num ⇒
+        FST (ffi (0:num)) < wt + st
+End
+
+(*
 Definition wait_time_locals_def:
   (wait_time_locals (:α) fm NONE ffi ⇔ T) ∧
   (wait_time_locals (:α) fm (SOME wt) ffi ⇔
@@ -3953,7 +3967,7 @@ Definition wait_time_locals_def:
        FST (ffi (0:num)) < n ∧
        n < dimword (:α))
 End
-
+*)
 
 Theorem step_input:
   !prog i m n s s' (t:('a,time_input) panSem$state).
@@ -3962,11 +3976,12 @@ Theorem step_input:
     n = FST (t.ffi.ffi_state 0) ∧
     state_rel (clksOf prog) s t ∧
     wait_time_locals (:α) t.locals s.waitTime t.ffi.ffi_state ∧
+    (* wait_time_locals (:α) t.locals s.waitTime t.ffi.ffi_state ∧ *)
     well_formed_terms prog s.location t.code ∧
     out_ffi_next prog s.location t ∧
     code_installed t.code prog ∧
     (* we can update the input_rel to take t.ffi.ffi_state, but this
-    is also fine*)
+    is also fine *)
     input_rel t.locals i (next_ffi t.ffi.ffi_state) ∧
     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
     mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
@@ -3979,6 +3994,7 @@ Theorem step_input:
       state_rel (clksOf prog) s' t' ∧
       t'.ffi.ffi_state = next_ffi t.ffi.ffi_state ∧
       t'.ffi.oracle = t.ffi.oracle ∧
+      t'.code = t.code ∧
       FLOOKUP t'.locals «sysTime» = FLOOKUP t.locals «sysTime» ∧
       FLOOKUP t'.locals «event»   = SOME (ValWord 0w) ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
@@ -4012,15 +4028,18 @@ Proof
     match_mp_tac step_wait_delay_eval_wait_not_zero >>
     gs [state_rel_def, equivs_def, active_low_def, time_vars_def] >>
     gs [wait_time_locals_def] >>
+    rveq >> gs [] >>
     qexists_tac ‘w2n st’ >>
     gs [n2w_w2n] >>
-    qexists_tac ‘w2n wt’ >>
-    gs [n2w_w2n] >>
-    gs [wait_time_locals_def] >>
-    first_x_assum (qspec_then ‘w2n wt’ mp_tac) >>
-    impl_tac >- gs [n2w_w2n] >>
-    strip_tac >>
-    pairarg_tac >> gs []) >>
+    qexists_tac ‘st' + wt'’ >>
+    ‘x ≠ 0’ by gs [step_cases] >>
+    gs [] >>
+    gs [input_rel_def, next_ffi_def] >>
+    ‘FST (t.ffi.ffi_state 1) MOD dimword (:α) = FST (t.ffi.ffi_state 0)’ suffices_by
+      gs [] >>
+    gs [state_rel_def] >>
+    pairarg_tac >> gs [] >>
+    gs [input_time_rel_def]) >>
   gs [eval_upd_clock_eq] >>
   gs [dec_clock_def] >>
   (* evaluating the function *)
@@ -4776,6 +4795,7 @@ Theorem step_output:
       state_rel (clksOf prog) s' t' ∧
       t'.ffi.ffi_state = t.ffi.ffi_state ∧
       t'.ffi.oracle = t.ffi.oracle ∧
+      t'.code = t.code ∧
       FLOOKUP t'.locals «sysTime» = FLOOKUP t.locals «sysTime» ∧
       FLOOKUP t'.locals «event»   = SOME (ValWord 0w) ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧

@@ -61,28 +61,6 @@ Definition ffi_rels_def:
        ffi_rels prog labels s' t')
 End
 
-(*
-Definition local_action_def:
-  (local_action (Input i) t =
-     (FLOOKUP t.locals «isInput» = SOME (ValWord 0w))) ∧
-  (local_action (Output os) t =
-    (FLOOKUP t.locals «event»   = SOME (ValWord 0w) ∧
-     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
-     FLOOKUP t.locals «waitSet» = SOME (ValWord 0w)))
-End
-
-Definition local_state_def:
-  (local_state (LDelay _) t =
-   (FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
-    FLOOKUP t.locals «event» = SOME (ValWord 0w))) ∧
-  (local_state (LAction act) t = local_action act t)
-End
-
-Definition locals_def:
-  (locals [] t = T) ∧
-  (locals (lbl::lbls) t = local_state lbl t)
-End
-*)
 
 Definition event_inv_def:
   event_inv fm ⇔
@@ -90,6 +68,14 @@ Definition event_inv_def:
     FLOOKUP fm «event» = SOME (ValWord 0w)
 End
 
+(*
+Definition wakup_time_bound_def:
+  wakup_time_bound (:'a) fm ⇔
+    ∃wt.
+      FLOOKUP fm «wakeUpAt» = SOME (ValWord (n2w wt)) ∧
+      wt < dimword (:α)
+End
+*)
 Definition assumptions_def:
   assumptions prog labels s (t:('a,time_input) panSem$state) ⇔
     state_rel (clksOf prog) s t ∧
@@ -100,6 +86,8 @@ Definition assumptions_def:
     ffi_rels prog labels s t ∧
     labProps$good_dimindex (:'a) ∧
     event_inv t.locals ∧
+    (* wakup_time_bound (:α) t.locals ∧ *)
+    wait_time_locals (:α) t.locals s.waitTime t.ffi.ffi_state ∧
     task_ret_defined t.locals (nClks prog)
 End
 
@@ -173,9 +161,10 @@ Definition evaluations_def:
        state_rel (clksOf prog) st nt ∧
        event_inv nt.locals ∧
        nt.code = t.code ∧
-       next_ffi_state lbl t.ffi.ffi_state nt.ffi.ffi_state ∧
+       next_ffi_state lbl t.ffi.ffi_state nt.ffi.ffi_state  ∧
        nt.ffi.oracle = t.ffi.oracle ∧
        nlocals lbl nt.locals (t.ffi.ffi_state) st.waitTime (dimword (:α)) ∧
+       wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
        task_ret_defined nt.locals (nClks prog) ∧
        evaluations prog lbls st nt)
 End
@@ -251,6 +240,24 @@ Proof
       qexists_tac ‘cycles’ >>
       gs []) >>
     conj_asm1_tac
+    >- (
+      gs [wait_time_locals_def] >>
+      qexists_tac ‘wt’ >>
+      qexists_tac ‘st'’ >>
+      gs [] >>
+      cases_on ‘st.waitTime’
+      >- gs [compactDSLSemTheory.step_cases, compactDSLSemTheory.mkState_def] >>
+      fs [wakeup_rel_def] >>
+      fs [nexts_ffi_def] >>
+      ‘(st' + wt) MOD dimword (:α) = st' + wt’ by (
+        match_mp_tac LESS_MOD >>
+        gs []) >>
+      ‘(x + FST (t.ffi.ffi_state 0)) MOD dimword (:α) =
+       x + FST (t.ffi.ffi_state 0)’ by (
+        match_mp_tac LESS_MOD >>
+        gs [compactDSLSemTheory.step_cases]) >>
+      TOP_CASE_TAC >> gs []) >>
+    conj_asm1_tac
     >- gs [task_ret_defined_def] >>
     last_x_assum match_mp_tac >>
     gs [] >>
@@ -283,8 +290,21 @@ Proof
       gs [compactDSLSemTheory.step_cases] >>
       gs [well_formed_code_def] >>
       fs [action_rel_def] >>
+      (* out_ffi cheat *)
       cheat) >>
     strip_tac >>
+    ‘FST (next_ffi t.ffi.ffi_state 0) = FST (t.ffi.ffi_state 0)’ by (
+      gs [state_rel_def] >>
+      pairarg_tac >> gs [] >>
+      gs [input_time_rel_def] >>
+      pairarg_tac >> gs [] >>
+      gs [input_time_eq_def, has_input_def] >>
+      last_x_assum (qspec_then ‘0’ mp_tac) >>
+      impl_tac
+      >- (
+        gs [] >>
+        gs [action_rel_def, input_rel_def, ffiTimeTheory.next_ffi_def]) >>
+      gs [ffiTimeTheory.next_ffi_def]) >>
     gs [evaluations_def, event_inv_def] >>
     qexists_tac ‘ck+1’ >>
     gs [always_def] >>
@@ -292,30 +312,61 @@ Proof
     gs [panSemTheory.eval_def] >>
     gs [panSemTheory.dec_clock_def] >>
     qexists_tac ‘t''’ >>
-    fs []
+    fs [] >>
     MAP_EVERY qexists_tac [‘dimword (:α) − 1’,‘FST (t.ffi.ffi_state 0)’,‘h'’] >>
     gs [] >>
     conj_asm1_tac
-    >- gs [state_rel_def] >>
-    conj_asm1_tac
-    >- cheat >>
-    conj_asm1_tac
     >- gs [next_ffi_state_def] >>
     gs [nlocals_def] >>
+    conj_asm1_tac
+    >- (
+      cases_on ‘h'.waitTime’ >>
+      gs [wait_time_locals_def]
+      >- (
+       qexists_tac ‘0’ >>
+       qexists_tac ‘FST (t.ffi.ffi_state 0)’ >>
+       gs [compactDSLSemTheory.step_cases]) >>
+      qexists_tac ‘x’ >>
+      qexists_tac ‘FST (t.ffi.ffi_state 0)’ >>
+      gs []) >>
     last_x_assum match_mp_tac >>
     gs [] >>
     qexists_tac ‘t'’ >>
-    gs [next_ffi_def] >>
-    ‘FST (next_ffi t.ffi.ffi_state 0) = FST (t.ffi.ffi_state 0)’ by
-      cheat >>
-    gs [] >>
+    gs [ffiTimeTheory.next_ffi_def] >>
     conj_tac
     (* out_ffi cheat *)
     >- cheat >>
     first_x_assum drule >>
-    gs [action_rel_def]) >>
-  cheat
+    disch_then (qspec_then ‘t''’ mp_tac) >>
+    impl_tac
+    >- gs [action_rel_def, ffiTimeTheory.next_ffi_def] >>
+    gs []) >>
+
+
 QED
+
+(*
+Definition local_action_def:
+  (local_action (Input i) t =
+     (FLOOKUP t.locals «isInput» = SOME (ValWord 0w))) ∧
+  (local_action (Output os) t =
+    (FLOOKUP t.locals «event»   = SOME (ValWord 0w) ∧
+     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
+     FLOOKUP t.locals «waitSet» = SOME (ValWord 0w)))
+End
+
+Definition local_state_def:
+  (local_state (LDelay _) t =
+   (FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
+    FLOOKUP t.locals «event» = SOME (ValWord 0w))) ∧
+  (local_state (LAction act) t = local_action act t)
+End
+
+Definition locals_def:
+  (locals [] t = T) ∧
+  (locals (lbl::lbls) t = local_state lbl t)
+End
+*)
 
 
 (*
