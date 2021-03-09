@@ -19,15 +19,6 @@ Definition well_formed_code_def:
     well_formed_terms prog loc code
 End
 
-
-Definition out_ffi_def:
-  out_ffi prog (t:('a,time_input) panSem$state) <=>
-  ∀tms loc.
-    ALOOKUP prog loc = SOME tms ⇒
-    out_signals_ffi t tms
-End
-
-
 Definition action_rel_def:
   (action_rel (Input i) s (t:('a,time_input) panSem$state) ffi ⇔
     input_rel t.locals i (next_ffi t.ffi.ffi_state) ∧
@@ -68,25 +59,15 @@ Definition event_inv_def:
     FLOOKUP fm «event» = SOME (ValWord 0w)
 End
 
-(*
-Definition wakup_time_bound_def:
-  wakup_time_bound (:'a) fm ⇔
-    ∃wt.
-      FLOOKUP fm «wakeUpAt» = SOME (ValWord (n2w wt)) ∧
-      wt < dimword (:α)
-End
-*)
 Definition assumptions_def:
   assumptions prog labels s (t:('a,time_input) panSem$state) ⇔
-    state_rel (clksOf prog) s t ∧
+    state_rel (clksOf prog) (out_signals prog) s t ∧
     code_installed t.code prog ∧
     well_formed_code prog t.code ∧
-    (* this is a bit complicated, state t *)
-    out_ffi prog t ∧
     ffi_rels prog labels s t ∧
     labProps$good_dimindex (:'a) ∧
+    ~MEM "get_ffi" (out_signals prog) ∧
     event_inv t.locals ∧
-    (* wakup_time_bound (:α) t.locals ∧ *)
     wait_time_locals (:α) t.locals s.waitTime t.ffi.ffi_state ∧
     task_ret_defined t.locals (nClks prog)
 End
@@ -158,7 +139,8 @@ Definition evaluations_def:
      evaluate (always (nClks prog), nt) ∧
      ∃m n st.
        step prog lbl m n s st ⇒
-       state_rel (clksOf prog) st nt ∧
+       state_rel (clksOf prog) (out_signals prog) st nt ∧
+       ~MEM "get_ffi" (out_signals prog) ∧
        event_inv nt.locals ∧
        nt.code = t.code ∧
        next_ffi_state lbl t.ffi.ffi_state nt.ffi.ffi_state  ∧
@@ -267,9 +249,6 @@ Proof
     >- (
       gs [nexts_ffi_def] >>
       gs [delay_rep_def]) >>
-    conj_tac
-    (* out_ffi cheat *)
-    >- cheat >>
     first_x_assum drule_all >>
     strip_tac >>
     drule ffi_rels_clock_upd >>
@@ -289,9 +268,7 @@ Proof
     >- (
       gs [compactDSLSemTheory.step_cases] >>
       gs [well_formed_code_def] >>
-      fs [action_rel_def] >>
-      (* out_ffi cheat *)
-      cheat) >>
+      fs [action_rel_def]) >>
     strip_tac >>
     ‘FST (next_ffi t.ffi.ffi_state 0) = FST (t.ffi.ffi_state 0)’ by (
       gs [state_rel_def] >>
@@ -303,8 +280,8 @@ Proof
       impl_tac
       >- (
         gs [] >>
-        gs [action_rel_def, input_rel_def, ffiTimeTheory.next_ffi_def]) >>
-      gs [ffiTimeTheory.next_ffi_def]) >>
+        gs [action_rel_def, input_rel_def, next_ffi_def]) >>
+      gs [next_ffi_def]) >>
     gs [evaluations_def, event_inv_def] >>
     qexists_tac ‘ck+1’ >>
     gs [always_def] >>
@@ -332,14 +309,11 @@ Proof
     last_x_assum match_mp_tac >>
     gs [] >>
     qexists_tac ‘t'’ >>
-    gs [ffiTimeTheory.next_ffi_def] >>
-    conj_tac
-    (* out_ffi cheat *)
-    >- cheat >>
+    gs [next_ffi_def] >>
     first_x_assum drule >>
     disch_then (qspec_then ‘t''’ mp_tac) >>
     impl_tac
-    >- gs [action_rel_def, ffiTimeTheory.next_ffi_def] >>
+    >- gs [action_rel_def, next_ffi_def] >>
     gs []) >>
   (* output step *)
   gs [steps_def] >>
@@ -352,9 +326,7 @@ Proof
   >- (
     gs [compactDSLSemTheory.step_cases] >>
     gs [well_formed_code_def] >>
-    gs [action_rel_def] >>
-    (* out_ffi cheat *)
-    cheat) >>
+    gs [action_rel_def]) >>
   strip_tac >>
   gs [evaluations_def, event_inv_def] >>
   qexists_tac ‘ck+1’ >>
@@ -383,14 +355,13 @@ Proof
   last_x_assum match_mp_tac >>
   gs [] >>
   qexists_tac ‘t'’ >>
-  gs [ffiTimeTheory.next_ffi_def] >>
-  conj_tac
-  (* out_ffi cheat *)
-  >- cheat >>
+  gs [next_ffi_def] >>
   first_x_assum drule >>
   disch_then (qspec_then ‘t''’ mp_tac) >>
   impl_tac
-  >- gs [action_rel_def, ffiTimeTheory.next_ffi_def] >>
+  >- gs [action_rel_def, next_ffi_def] >>
   gs []
 QED
+
+
 val _ = export_theory();

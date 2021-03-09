@@ -3866,14 +3866,6 @@ Definition well_formed_terms_def:
     terms_valid_clocks (clksOf prog) tms ∧ locs_in_code code tms
 End
 
-(*
-Definition out_ffi_def:
-  out_ffi prog loc (t:('a,time_input) panSem$state) <=>
-  ∀tms.
-    ALOOKUP prog loc = SOME tms ⇒
-    out_signals_ffi t tms
-End
-*)
 
 (* should stay as an invariant *)
 Definition task_ret_defined_def:
@@ -3984,22 +3976,6 @@ Proof
   fs []
 QED
 
-(*
-Definition out_ffi_next_def:
-  out_ffi_next prog loc (t:('a,time_input) panSem$state) =
-  ∀bytes.
-    read_bytearray
-    ffiBufferAddr (w2n (ffiBufferSize:'a word))
-    (mem_load_byte t.memory t.memaddrs t.be) = SOME bytes ⇒
-    out_ffi prog loc
-            (t with
-             <|memory :=
-               mem_call_ffi (:α) t.memory t.memaddrs t.be t.ffi.ffi_state;
-               ffi := ffi_call_ffi (:α) t.be t.ffi bytes|>)
-End
-*)
-
-
 Definition wait_time_locals_def:
   wait_time_locals (:α) fm swt ffi =
   ∃wt st.
@@ -4023,7 +3999,6 @@ Theorem step_input:
     wait_time_locals (:α) t.locals s.waitTime t.ffi.ffi_state ∧
     (* wait_time_locals (:α) t.locals s.waitTime t.ffi.ffi_state ∧ *)
     well_formed_terms prog s.location t.code ∧
-    (* out_ffi_next prog s.location t ∧ *)
     code_installed t.code prog ∧
     (* we can update the input_rel to take t.ffi.ffi_state, but this
     is also fine *)
@@ -4104,7 +4079,6 @@ Proof
                     (mem_load_byte t.memory t.memaddrs t.be) = SOME bytes’ by (
     match_mp_tac read_bytearray_some_bytes_for_ffi >>
     gs []) >>
-  (* gs [out_ffi_next_def] >> *)
   drule evaluate_ext_call >>
   disch_then (qspecl_then [‘out_signals prog’, ‘bytes’] mp_tac) >>
   impl_tac
@@ -4865,7 +4839,6 @@ Theorem step_output:
     it = FST (t.ffi.ffi_state 0) ∧
     state_rel (clksOf prog) (out_signals prog) s t ∧
     well_formed_terms prog s.location t.code ∧
-    (* out_ffi prog s.location t ∧ *)
     code_installed t.code prog ∧
     output_rel t.locals s.waitTime t.ffi.ffi_state ∧
     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
