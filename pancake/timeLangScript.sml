@@ -185,4 +185,12 @@ Definition inputSet_def:
 End
 
 
+Definition out_signals_def:
+  out_signals prog =
+  let
+    tms = FLAT (MAP SND prog)
+  in
+    MAP toString (terms_out_signals tms)
+End
+
 val _ = export_theory();

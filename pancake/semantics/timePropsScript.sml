@@ -167,4 +167,29 @@ Proof
   fs [EVERY_MEM]
 QED
 
+
+Theorem terms_out_signals_append:
+  ∀xs ys.
+    terms_out_signals (xs ++ ys) =
+    terms_out_signals xs ++ terms_out_signals ys
+Proof
+  Induct >> rw [] >>
+  gs [timeLangTheory.terms_out_signals_def] >>
+  cases_on ‘h’ >> gs [] >>
+  cases_on ‘i’ >> gs [timeLangTheory.terms_out_signals_def]
+QED
+
+
+Theorem terms_out_signals_prog:
+  ∀xs x out.
+    MEM x xs ∧
+    MEM out (terms_out_signals x) ⇒
+    MEM out (terms_out_signals (FLAT xs))
+Proof
+  Induct >> rw [] >>
+  gs [timeLangTheory.terms_out_signals_def] >>
+  gs [terms_out_signals_append] >>
+  metis_tac []
+QED
+
 val _ = export_theory();
