@@ -290,7 +290,7 @@ Definition start_controller_def:
      («len2», Const ffiBufferSize);
      («taskRet»,
       Struct [Struct (emptyConsts clksLength);
-              Const 0w; Const 0w; Const 0w]);
+              Const 0w; Const 0w; Label «»]);
      («clks»,Struct (emptyConsts clksLength))
     ]
     (nested_seq
@@ -299,7 +299,7 @@ Definition start_controller_def:
        Assign «clks» (Struct (mkClks «sysTime» clksLength));
        Assign «wakeUpAt»
               (case initWakeUp of
-               | NONE => Const 0w
+               | NONE => Var «sysTime»
                | SOME n => Op Add [Var «sysTime»; Const (n2w n)]);
        always clksLength
      ])
