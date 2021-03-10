@@ -206,28 +206,6 @@ Definition normalisedClks_def:
        (mkClks v1 n)
        (fieldsOf (Var v2) n)
 End
-(*
-Definition adjustClks_def:
-  adjustClks v1 v2 n =
-  MAP2 (λx y. Op Add [x;y])
-       (mkClks v1 n)
-       (fieldsOf (Var v2) n)
-End
-*)
-(*
-Definition adjustClks_def:
-  adjustClks systime (e:'a panLang$exp) v2 n =
-  MAP2 (λx y. if x = Const 0w then ((Var systime):'a panLang$exp)
-              else y)
-       (destruct e)
-       (fieldsOf (Var v2) n)
-End
-*)
-(* isInput is 1 when there is no input
-   ffi is zero when no input,
-   and if input then it should be a number
-   Cmp (Var «event»)
-*)
 
 Definition check_input_time_def:
   check_input_time =
@@ -243,30 +221,6 @@ Definition check_input_time_def:
         Assign  «isInput» (Cmp Equal input (Const 0w))
       ]
 End
-
-(*
-Definition check_input_time_def:
-  check_input_time =
-    nested_seq [
-        ExtCall «get_ffi» «ptr1» «len1» «ptr2» «len2» ;
-        Assign  «sysTime» (Load One (Var «ptr2»)) ;
-        Assign  «isInput» (Load One
-                           (Op Add [Var «ptr2»;
-                                    Const bytes_in_word]))
-      ]
-End
-*)
-
-(*
-Definition check_input_time_def:
-  check_input_time =
-    nested_seq [
-        ExtCall «get_time» «ptr1» «len1» «ptr2» «len2» ;
-        Assign  «sysTime» (Load One (Var «ptr2»)) ;
-        ExtCall «check_input» «ptr1» «len1» «ptr2» «len2» ;
-        Assign  «isInput» (Load One (Var «ptr2»))]
-End
-*)
 
 Definition wait_def:
   wait =
@@ -307,29 +261,13 @@ Definition task_controller_def:
         Assign «event» (Const 0w)])
 End
 
-(*
-Definition task_controller_def:
-  task_controller clksLength =
-  let
-    rt = Var «taskRet» ;
-    nClks     = Field 0 rt;
-    nWaitSet  = Field 1 rt;
-    nwakeUpAt = Field 2 rt;
-    nloc      = Field 3 rt
-  in
-    (nested_seq [
-        wait_input_time_limit;
-        Call (Ret «taskRet» NONE) (Var «loc»)
-             [Struct (normalisedClks «sysTime» «clks» clksLength);
-             Var «event»];
-        Assign «clks» (Struct (adjustClks «sysTime» nClks «clks» clksLength));
-        Assign «waitSet» nWaitSet ;
-        Assign «wakeUpAt» (Op Add [Var «sysTime»; nwakeUpAt]);
-        Assign «loc» nloc;
-        Assign «isInput» (Const 1w);
-        Assign «event» (Const 0w)])
+
+Definition always_def:
+  always clksLength =
+  While (Const 1w)
+        (task_controller clksLength)
 End
-*)
+
 Definition start_controller_def:
   start_controller (ta_prog:program) =
   let
@@ -363,8 +301,7 @@ Definition start_controller_def:
               (case initWakeUp of
                | NONE => Const 0w
                | SOME n => Op Add [Var «sysTime»; Const (n2w n)]);
-       While (Const 1w)
-             (task_controller clksLength)
+       always clksLength
      ])
 End
 
