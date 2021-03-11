@@ -267,7 +267,7 @@ Inductive step:
 
   (!p m n st d w.
     st.waitTime = SOME w ∧
-    (* 0 ≤ d /\*) d < w ∧ w + n < m ∧
+    d < w ∧ w + n < m ∧
     max_clocks (delay_clocks (st.clocks) (d + n)) m ⇒
     step p (LDelay d) m n st
          (mkState

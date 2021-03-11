@@ -277,8 +277,7 @@ Definition input_time_rel_def:
     !n. input_time_eq (f n) (f (n+1))
 End
 
-(* TODO: see about defined_clocks from semantics *)
-(* change get_time_input to get_time_input*)
+
 Definition state_rel_def:
   state_rel clks outs s (t:('a,time_input) panSem$state) ⇔
     equivs t.locals s.location s.waitTime ∧
@@ -5499,10 +5498,11 @@ Definition event_inv_def:
 End
 
 Definition assumptions_def:
-  assumptions prog labels s (t:('a,time_input) panSem$state) ⇔
+  assumptions prog labels n s (t:('a,time_input) panSem$state) ⇔
     state_rel (clksOf prog) (out_signals prog) s t ∧
     code_installed t.code prog ∧
     well_formed_code prog t.code ∧
+    n = FST (t.ffi.ffi_state 0) ∧
     ffi_rels prog labels s t ∧
     labProps$good_dimindex (:'a) ∧
     ~MEM "get_time_input" (out_signals prog) ∧
@@ -5580,19 +5580,22 @@ Proof
   metis_tac []
 QED
 
-(* TODO:
-  steps prog labels (dimword (:α) - 1) n st sts
-  (* in assumptions: n = FST (t.ffi.ffi_state 0)
-  remove:  LENGTH sts = LENGTH labels  after updating steps *)
-*)
+Theorem steps_sts_length_eq_lbls:
+  ∀lbls prog m n st sts.
+    steps prog lbls m n st sts ⇒
+    LENGTH sts = LENGTH lbls
+Proof
+  Induct >>
+  rw [] >>
+  cases_on ‘sts’ >>
+  gs [steps_def] >>
+  res_tac >> gs []
+QED
 
 Theorem steps_thm:
-  ∀labels prog st sts (t:('a,time_input) panSem$state).
-    steps prog labels (dimword (:α) - 1)
-          (gen_max_times labels (FST (t.ffi.ffi_state 0)) [])
-          st sts ∧
-    LENGTH sts = LENGTH labels ∧
-    assumptions prog labels st t ⇒
+  ∀labels prog n st sts (t:('a,time_input) panSem$state).
+    steps prog labels (dimword (:α) - 1) n st sts ∧
+    assumptions prog labels n st t ⇒
       evaluations prog labels st t
 Proof
   Induct
@@ -5602,9 +5605,13 @@ Proof
     fs [evaluations_def]) >>
   rpt gen_tac >>
   strip_tac >>
+  ‘LENGTH sts = LENGTH (h::labels')’ by
+    metis_tac [steps_sts_length_eq_lbls] >>
   cases_on ‘sts’ >>
   fs [] >>
-  fs [gen_max_times_def] >>
+  ‘n = FST (t.ffi.ffi_state 0)’ by
+    gs [assumptions_def] >>
+  rveq >> gs [] >>
   cases_on ‘h’ >> gs []
   >- ((* delay step *)
     gs [steps_def] >>
