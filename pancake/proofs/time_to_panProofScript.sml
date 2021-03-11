@@ -5542,27 +5542,23 @@ Definition nlocals_def:
      | _ => T))
 End
 
-(* TODO: use sts here *)
 Definition evaluations_def:
-  (evaluations prog [] s (t:('a,time_input) panSem$state) ⇔ T) ∧
-  (evaluations prog (lbl::lbls) s t ⇔
+  (evaluations prog [] [] (t:('a,time_input) panSem$state) ⇔ T) ∧
+  (evaluations prog (lbl::lbls) (st::sts) t ⇔
    ∃ck nt.
      evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
      evaluate (time_to_pan$always (nClks prog), nt) ∧
-     ∃m n st.
-       step prog lbl m n s st ⇒
-       state_rel (clksOf prog) (out_signals prog) st nt ∧
-       ~MEM "get_time_input" (out_signals prog) ∧
-       event_inv nt.locals ∧
-       nt.code = t.code ∧
-       next_ffi_state lbl t.ffi.ffi_state nt.ffi.ffi_state  ∧
-       nt.ffi.oracle = t.ffi.oracle ∧
-       nlocals lbl nt.locals (t.ffi.ffi_state) st.waitTime (dimword (:α)) ∧
-       wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
-       task_ret_defined nt.locals (nClks prog) ∧
-       evaluations prog lbls st nt)
+     state_rel (clksOf prog) (out_signals prog) st nt ∧
+     ~MEM "get_time_input" (out_signals prog) ∧
+     event_inv nt.locals ∧
+     nt.code = t.code ∧
+     next_ffi_state lbl t.ffi.ffi_state nt.ffi.ffi_state  ∧
+     nt.ffi.oracle = t.ffi.oracle ∧
+     nlocals lbl nt.locals (t.ffi.ffi_state) st.waitTime (dimword (:α)) ∧
+     wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
+     task_ret_defined nt.locals (nClks prog) ∧
+     evaluations prog lbls sts nt)
 End
-
 
 Theorem ffi_rels_clock_upd:
   ∀lbls prog s t ck.
@@ -5592,17 +5588,19 @@ Proof
   res_tac >> gs []
 QED
 
+
 Theorem steps_thm:
   ∀labels prog n st sts (t:('a,time_input) panSem$state).
     steps prog labels (dimword (:α) - 1) n st sts ∧
     assumptions prog labels n st t ⇒
-      evaluations prog labels st t
+      evaluations prog labels sts t
 Proof
   Induct
   >- (
     rpt gen_tac >>
     strip_tac >>
-    fs [evaluations_def]) >>
+    cases_on ‘sts’ >>
+    fs [evaluations_def, steps_def]) >>
   rpt gen_tac >>
   strip_tac >>
   ‘LENGTH sts = LENGTH (h::labels')’ by
@@ -5630,8 +5628,6 @@ Proof
     gs [panSemTheory.eval_def] >>
     gs [panSemTheory.dec_clock_def] >>
     qexists_tac ‘t'' with clock := t''.clock + 1’ >>
-    gs [] >>
-    MAP_EVERY qexists_tac [‘dimword (:α) − 1’,‘FST (t.ffi.ffi_state 0)’,‘h'’] >>
     gs [] >>
     conj_asm1_tac
     >- gs [state_rel_def] >>
@@ -5667,7 +5663,7 @@ Proof
     >- gs [task_ret_defined_def] >>
     last_x_assum match_mp_tac >>
     gs [] >>
-    qexists_tac ‘t'’ >>
+    qexists_tac ‘h'’ >>
     gs [] >>
     conj_tac
     >- (
@@ -5714,8 +5710,6 @@ Proof
     gs [panSemTheory.dec_clock_def] >>
     qexists_tac ‘t''’ >>
     fs [] >>
-    MAP_EVERY qexists_tac [‘dimword (:α) − 1’,‘FST (t.ffi.ffi_state 0)’,‘h'’] >>
-    gs [] >>
     conj_asm1_tac
     >- gs [next_ffi_state_def] >>
     gs [nlocals_def] >>
@@ -5732,7 +5726,7 @@ Proof
       gs []) >>
     last_x_assum match_mp_tac >>
     gs [] >>
-    qexists_tac ‘t'’ >>
+    qexists_tac ‘h'’ >>
     gs [next_ffi_def] >>
     first_x_assum drule >>
     disch_then (qspec_then ‘t''’ mp_tac) >>
@@ -5760,8 +5754,6 @@ Proof
   gs [panSemTheory.dec_clock_def] >>
   qexists_tac ‘t''’ >>
   fs [] >>
-  MAP_EVERY qexists_tac [‘dimword (:α) − 1’,‘FST (t.ffi.ffi_state 0)’,‘h'’] >>
-  gs [] >>
   conj_asm1_tac
   >- gs [next_ffi_state_def] >>
   gs [nlocals_def] >>
@@ -5778,7 +5770,7 @@ Proof
   gs []) >>
   last_x_assum match_mp_tac >>
   gs [] >>
-  qexists_tac ‘t'’ >>
+  qexists_tac ‘h'’ >>
   gs [next_ffi_def] >>
   first_x_assum drule >>
   disch_then (qspec_then ‘t''’ mp_tac) >>
