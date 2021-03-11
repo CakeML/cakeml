@@ -3,7 +3,7 @@
 *)
 
 open preamble
-     compactDSLSemTheory panSemTheory
+     timeSemTheory panSemTheory
      timePropsTheory panPropsTheory
      pan_commonPropsTheory time_to_panTheory
      labPropsTheory
@@ -12,7 +12,7 @@ open preamble
 val _ = new_theory "time_to_panProof";
 
 val _ = set_grammar_ancestry
-        ["compactDSLSem", "panSem",
+        ["timeSem", "panSem",
          "pan_commonProps", "timeProps",
          "time_to_pan"];
 
@@ -277,7 +277,8 @@ Definition input_time_rel_def:
     !n. input_time_eq (f n) (f (n+1))
 End
 
-
+(* TODO: see about defined_clocks from semantics *)
+(* change get_ffi to get_time_input*)
 Definition state_rel_def:
   state_rel clks outs s (t:('a,time_input) panSem$state) ⇔
     equivs t.locals s.location s.waitTime ∧
@@ -5510,25 +5511,6 @@ Definition assumptions_def:
     task_ret_defined t.locals (nClks prog)
 End
 
-(* initialise it by an empty list *)
-Definition gen_max_times_def:
-  (gen_max_times [] n ns = ns) ∧
-  (gen_max_times (lbl::lbls) n ns =
-   n ::
-   let m =
-       case lbl of
-       | LDelay d => d + n
-       | LAction _ => n
-   in
-   gen_max_times lbls m ns)
-End
-
-Definition steps_def:
-  (steps prog [] m [] s [] ⇔ T) ∧
-  (steps prog (lbl::lbls) m (n::ns) s (st::sts) ⇔
-    step prog lbl m n s st ∧ steps prog lbls m ns st sts) ∧
-  (steps prog _ m _ s _ ⇔ T)
-End
 
 
 (* taken from the conclusion of individual step thorems *)
@@ -5560,7 +5542,7 @@ Definition nlocals_def:
      | _ => T))
 End
 
-
+(* TODO: use sts here *)
 Definition evaluations_def:
   (evaluations prog [] s (t:('a,time_input) panSem$state) ⇔ T) ∧
   (evaluations prog (lbl::lbls) s t ⇔
@@ -5598,6 +5580,11 @@ Proof
   metis_tac []
 QED
 
+(* TODO:
+  steps prog labels (dimword (:α) - 1) n st sts
+  (* in assumptions: n = FST (t.ffi.ffi_state 0)
+  remove:  LENGTH sts = LENGTH labels  after updating steps *)
+*)
 
 Theorem steps_thm:
   ∀labels prog st sts (t:('a,time_input) panSem$state).
@@ -5868,6 +5855,7 @@ Definition init_clocks_def:
     EVERY
       (λck. FLOOKUP fm ck = SOME (0:num)) clks
 End
+
 
 Theorem timed_automata_correct:
   ∀labels prog st it sts (t:('a,time_input) panSem$state).
@@ -6181,111 +6169,9 @@ Proof
       gs [ffi_call_ffi_def, next_ffi_def] >>
       cheat) >>
     gs [task_ret_defined_def] >>
-    gs [FLOOKUP_UPDATE, emptyVals_def, ] >>
-
-
-    ) >>
-
-
-
-
-
-    )
-
-
-
-
-
-
-
-        gs [mkClks_def]) >>
-      unabbrev_all_tac >>
-      fs [] >>
-      ‘EL n (ZIP (REPLICATE (LENGTH zs) x,zs)) =
-       (EL n (REPLICATE (LENGTH zs) x), EL n zs)’ by (
-        match_mp_tac EL_ZIP >>
-        fs []) >>
-      gs [shape_of_def]
-
-
-
-
-        )
-
-
-
-      )
-
-
-
-
-
-
-
-        cases_on ‘st.waitTime’ >> gs [active_low_def]) >>
-
-      cases_on ‘prog’ >> gs [ohd_def] >>
-
-
-      , ffi_vars_def,
-          time_vars_def, mem_call_ffi_def, mem_config_def,
-          init_ffi_def, ffi_call_ffi_def, next_ffi_def] >>
-
-
-
-
-
-    )
-
-   gs [state_rel_def, event_inv_def, FLOOKUP_UPDATE]
-
-
-
-
-
-
-  ) >>
+    gs [FLOOKUP_UPDATE, emptyVals_def]) >>
   strip_tac >>
-
-
-
-
-          case st.waitTime of
-          | NONE => 1w
-          | SOME _ => (0w:'a word)))’ by (
-    unabbrev_all_tac >> gs [] >>
-    TOP_CASE_TAC >> gs [eval_def]) >>
-  unabbrev_all_tac >> gs [] >>
-  gs [] >>
-
-
-
-  gs [eval_def, FLOOKUP_UPDATE] >>
-
-
-
-
-
-
-  (* for the time being *)
-  ‘res' = NONE ∧ s1 = nnnnt’ by cheat >>
-  gs [] >>
-
-
-
-
-
-
-    ) >>
-
-
-
-
-
-
-
-
-
+  cheat
 QED
 
 
