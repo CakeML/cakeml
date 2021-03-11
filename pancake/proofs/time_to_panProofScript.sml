@@ -57,7 +57,7 @@ Definition build_ffi_def:
   build_ffi (:'a) be outs (seq:time_input) io =
      <| oracle    :=
         (λs f conf bytes.
-          if s = "get_ffi"
+          if s = "get_time_input"
           then Oracle_return (next_ffi f) (time_input (:'a) be f)
           else if MEM s outs
           then Oracle_return f (REPLICATE (w2n (ffiBufferSize:'a word)) 0w)
@@ -278,7 +278,7 @@ Definition input_time_rel_def:
 End
 
 (* TODO: see about defined_clocks from semantics *)
-(* change get_ffi to get_time_input*)
+(* change get_time_input to get_time_input*)
 Definition state_rel_def:
   state_rel clks outs s (t:('a,time_input) panSem$state) ⇔
     equivs t.locals s.location s.waitTime ∧
@@ -2572,7 +2572,7 @@ Definition ffi_call_ffi_def:
     ffi with
         <|ffi_state := next_ffi ffi.ffi_state;
           io_events := ffi.io_events ++
-          [IO_event "get_ffi" []
+          [IO_event "get_time_input" []
            (ZIP
             (bytes,
              get_bytes (:α) be ((n2w (FST (ffi.ffi_state (1:num)))):'a word) ++
@@ -2591,7 +2591,7 @@ QED
 
 Theorem evaluate_ext_call:
   ∀(t :('a, time_input) panSem$state) res t' outs bytes.
-    evaluate (ExtCall «get_ffi» «ptr1» «len1» «ptr2» «len2» ,t) = (res,t') ∧
+    evaluate (ExtCall «get_time_input» «ptr1» «len1» «ptr2» «len2» ,t) = (res,t') ∧
     read_bytearray ffiBufferAddr (w2n (ffiBufferSize:α word))
                    (mem_load_byte t.memory t.memaddrs t.be) = SOME bytes ∧
     t.ffi = build_ffi (:'a) t.be outs t.ffi.ffi_state t.ffi.io_events ∧
@@ -2861,7 +2861,7 @@ Definition mem_read_ffi_results_def:
     i < cycles ∧
     t.ffi.ffi_state = nexts_ffi i ffi ∧
     evaluate
-    (ExtCall «get_ffi» «ptr1» «len1» «ptr2» «len2» , t) =
+    (ExtCall «get_time_input» «ptr1» «len1» «ptr2» «len2» , t) =
     (NONE,t') ⇒
     t'.memory ffiBufferAddr =
     Word (n2w (FST (nexts_ffi i ffi 1))) ∧
@@ -3995,7 +3995,7 @@ Theorem step_input:
     step prog (LAction (Input i)) m n s s' ∧
     m = dimword (:α) - 1 ∧
     n = FST (t.ffi.ffi_state 0) ∧
-    ~MEM "get_ffi" (out_signals prog) ∧
+    ~MEM "get_time_input" (out_signals prog) ∧
     state_rel (clksOf prog) (out_signals prog) s t ∧
     wait_time_locals (:α) t.locals s.waitTime t.ffi.ffi_state ∧
     (* wait_time_locals (:α) t.locals s.waitTime t.ffi.ffi_state ∧ *)
@@ -4403,7 +4403,7 @@ Proof
       qexists_tac ‘tms’ >>
       gs [MEM_MAP] >>
       metis_tac []) >>
-    cases_on ‘toString out = "get_ffi"’ >>
+    cases_on ‘toString out = "get_time_input"’ >>
     gs []) >>
   impl_tac
   >- (
@@ -4836,7 +4836,7 @@ Theorem step_output:
   !prog os m it s s' (t:('a,time_input) panSem$state).
     step prog (LAction (Output os)) m it s s' ∧
     m = dimword (:α) - 1 ∧
-    ~MEM "get_ffi" (out_signals prog) ∧
+    ~MEM "get_time_input" (out_signals prog) ∧
     it = FST (t.ffi.ffi_state 0) ∧
     state_rel (clksOf prog) (out_signals prog) s t ∧
     well_formed_terms prog s.location t.code ∧
@@ -5054,7 +5054,7 @@ Proof
       qexists_tac ‘tms’ >>
       gs [MEM_MAP] >>
       metis_tac []) >>
-    cases_on ‘toString out = "get_ffi"’ >>
+    cases_on ‘toString out = "get_time_input"’ >>
     gs []) >>
   impl_tac
   >- (
@@ -5505,7 +5505,7 @@ Definition assumptions_def:
     well_formed_code prog t.code ∧
     ffi_rels prog labels s t ∧
     labProps$good_dimindex (:'a) ∧
-    ~MEM "get_ffi" (out_signals prog) ∧
+    ~MEM "get_time_input" (out_signals prog) ∧
     event_inv t.locals ∧
     wait_time_locals (:α) t.locals s.waitTime t.ffi.ffi_state ∧
     task_ret_defined t.locals (nClks prog)
@@ -5552,7 +5552,7 @@ Definition evaluations_def:
      ∃m n st.
        step prog lbl m n s st ⇒
        state_rel (clksOf prog) (out_signals prog) st nt ∧
-       ~MEM "get_ffi" (out_signals prog) ∧
+       ~MEM "get_time_input" (out_signals prog) ∧
        event_inv nt.locals ∧
        nt.code = t.code ∧
        next_ffi_state lbl t.ffi.ffi_state nt.ffi.ffi_state  ∧
@@ -5645,7 +5645,7 @@ Proof
       qexists_tac ‘st'’ >>
       gs [] >>
       cases_on ‘st.waitTime’
-      >- gs [compactDSLSemTheory.step_cases, compactDSLSemTheory.mkState_def] >>
+      >- gs [timeSemTheory.step_cases, timeSemTheory.mkState_def] >>
       fs [wakeup_rel_def] >>
       fs [nexts_ffi_def] >>
       ‘(st' + wt) MOD dimword (:α) = st' + wt’ by (
@@ -5654,7 +5654,7 @@ Proof
       ‘(x + FST (t.ffi.ffi_state 0)) MOD dimword (:α) =
        x + FST (t.ffi.ffi_state 0)’ by (
         match_mp_tac LESS_MOD >>
-        gs [compactDSLSemTheory.step_cases]) >>
+        gs [timeSemTheory.step_cases]) >>
       TOP_CASE_TAC >> gs []) >>
     conj_asm1_tac
     >- gs [task_ret_defined_def] >>
@@ -5683,7 +5683,7 @@ Proof
     disch_then (qspec_then ‘t’ mp_tac) >>
     impl_tac
     >- (
-      gs [compactDSLSemTheory.step_cases] >>
+      gs [timeSemTheory.step_cases] >>
       gs [well_formed_code_def] >>
       fs [action_rel_def]) >>
     strip_tac >>
@@ -5719,7 +5719,7 @@ Proof
       >- (
        qexists_tac ‘0’ >>
        qexists_tac ‘FST (t.ffi.ffi_state 0)’ >>
-       gs [compactDSLSemTheory.step_cases]) >>
+       gs [timeSemTheory.step_cases]) >>
       qexists_tac ‘x’ >>
       qexists_tac ‘FST (t.ffi.ffi_state 0)’ >>
       gs []) >>
@@ -5741,7 +5741,7 @@ Proof
   disch_then (qspec_then ‘t’ mp_tac) >>
   impl_tac
   >- (
-    gs [compactDSLSemTheory.step_cases] >>
+    gs [timeSemTheory.step_cases] >>
     gs [well_formed_code_def] >>
     gs [action_rel_def]) >>
   strip_tac >>
@@ -5765,7 +5765,7 @@ Proof
   >- (
     qexists_tac ‘0’ >>
     qexists_tac ‘FST (t.ffi.ffi_state 0)’ >>
-    gs [compactDSLSemTheory.step_cases]) >>
+    gs [timeSemTheory.step_cases]) >>
   qexists_tac ‘x’ >>
   qexists_tac ‘FST (t.ffi.ffi_state 0)’ >>
   gs []) >>
@@ -5792,7 +5792,7 @@ Definition evaluations_def:
      ∃m n st.
        step prog lbl m n s st ⇒
        state_rel (clksOf prog) (out_signals prog) st nt ∧
-       ~MEM "get_ffi" (out_signals prog) ∧
+       ~MEM "get_time_input" (out_signals prog) ∧
        event_inv nt.locals ∧
        nt.code = t.code ∧
        next_ffi_state lbl t.ffi.ffi_state nt.ffi.ffi_state  ∧
@@ -5879,7 +5879,7 @@ Theorem timed_automata_correct:
     time_seq t.ffi.ffi_state (dimword (:α)) ∧
     ffi_rels prog labels st t ∧
     labProps$good_dimindex (:'a) ∧
-    ~MEM "get_ffi" (out_signals prog) ⇒
+    ~MEM "get_time_input" (out_signals prog) ⇒
     ∃nt.
       evaluate (start_controller (prog,st.waitTime),t) =
       evaluate (always (nClks prog), nt) ∧
