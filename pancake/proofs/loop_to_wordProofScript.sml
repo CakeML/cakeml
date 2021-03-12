@@ -681,7 +681,7 @@ Proof
          >> qexists_tac ‘ctxt2’ >> qexists_tac ‘ll2’ >> fs []
          >> conj_tac >- fs [lookup_fromList2,lookup_fromList]
          >> simp [Abbr‘ctxt2’,domain_make_ctxt,set_fromNumSet,
-                  domain_difference,domain_toNumSet]
+                  domain_difference,domain_toNumSet, SUBSET_DEF]
          >> match_mp_tac locals_rel_make_ctxt
          >> fs [IN_DISJOINT,set_fromNumSet,domain_difference,
                 domain_toNumSet,GSYM IMP_DISJ_THM])
@@ -694,7 +694,7 @@ Proof
        >> qexists_tac ‘ctxt2’ >> qexists_tac ‘ll2’ >> fs []
        >> conj_tac >- fs [lookup_fromList2,lookup_fromList]
        >> simp [Abbr‘ctxt2’,domain_make_ctxt,set_fromNumSet,
-                domain_difference,domain_toNumSet]
+                domain_difference,domain_toNumSet, SUBSET_DEF]
        >> match_mp_tac locals_rel_make_ctxt
        >> fs [IN_DISJOINT,set_fromNumSet,domain_difference,
               domain_toNumSet,GSYM IMP_DISJ_THM])
@@ -748,7 +748,7 @@ Proof
        >> qexists_tac ‘ctxt2’ >> qexists_tac ‘ll2’ >> fs []
        >> conj_tac >- fs [lookup_fromList2,lookup_fromList]
        >> simp [Abbr‘ctxt2’,domain_make_ctxt,set_fromNumSet,
-                domain_difference,domain_toNumSet]
+                domain_difference,domain_toNumSet, SUBSET_DEF]
        >> match_mp_tac locals_rel_make_ctxt
        >> fs [IN_DISJOINT,set_fromNumSet,domain_difference,
               domain_toNumSet,GSYM IMP_DISJ_THM])
@@ -761,7 +761,7 @@ Proof
      >> qexists_tac ‘ctxt2’ >> qexists_tac ‘ll2’ >> fs []
      >> conj_tac >- fs [lookup_fromList2,lookup_fromList]
      >> simp [Abbr‘ctxt2’,domain_make_ctxt,set_fromNumSet,
-              domain_difference,domain_toNumSet]
+              domain_difference,domain_toNumSet, SUBSET_DEF]
      >> match_mp_tac locals_rel_make_ctxt
      >> fs [IN_DISJOINT,set_fromNumSet,domain_difference,
             domain_toNumSet,GSYM IMP_DISJ_THM])
