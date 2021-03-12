@@ -6,7 +6,6 @@ open preamble
      timeSemTheory panSemTheory
      timePropsTheory panPropsTheory
      pan_commonPropsTheory time_to_panTheory
-     labPropsTheory
 
 
 val _ = new_theory "time_to_panProof";
@@ -2602,7 +2601,7 @@ Theorem evaluate_ext_call:
 Proof
   rpt gen_tac >>
   strip_tac >>
-  fs [labPropsTheory.good_dimindex_def] >>
+  fs [good_dimindex_def] >>
   (fs [evaluate_def, ffi_vars_def, read_bytearray_def] >>
    gs [build_ffi_def, ffiTheory.call_FFI_def] >>
    gs [ffiTheory.ffi_state_component_equality] >>
@@ -2730,7 +2729,7 @@ Theorem read_bytearray_some_bytes_for_ffi:
                      (mem_load_byte m adrs be) = SOME bytes
 Proof
   rw [] >>
-  gs [labPropsTheory.good_dimindex_def]
+  gs [good_dimindex_def]
   >- (
     gs [ffiBufferSize_def, bytes_in_word_def] >>
     ‘8 MOD dimword (:α) = 8’ by gs [dimword_def] >>
@@ -4373,7 +4372,7 @@ Proof
     gs [] >>
     conj_tac
     >- gs [ffiBufferSize_def, bytes_in_word_def,
-           labPropsTheory.good_dimindex_def] >>
+           good_dimindex_def] >>
     gs [mem_call_ffi_def, ffi_call_ffi_def] >>
     qmatch_goalsub_abbrev_tac ‘mem_load_byte mm _ _’ >>
     ‘∃bytes.
@@ -5024,7 +5023,7 @@ Proof
     gs [] >>
     conj_tac
     >- gs [ffiBufferSize_def, bytes_in_word_def,
-           labPropsTheory.good_dimindex_def] >>
+           good_dimindex_def] >>
     gs [mem_call_ffi_def, ffi_call_ffi_def] >>
     qmatch_goalsub_abbrev_tac ‘mem_load_byte mm _ _’ >>
     ‘∃bytes.
@@ -5254,7 +5253,7 @@ Proof
       conj_tac >> (
         fs [ffiBufferAddr_def] >>
         match_mp_tac write_bytearray_update_byte >>
-        gs [labPropsTheory.good_dimindex_def] >>
+        gs [good_dimindex_def] >>
         gs [byte_align_def, byte_aligned_def, align_def, aligned_def, bytes_in_word_def] >>
         gs [dimword_def] >>
         EVAL_TAC >>
@@ -6102,7 +6101,7 @@ Proof
       conj_tac >> (
         fs [ffiBufferAddr_def] >>
         match_mp_tac write_bytearray_update_byte >>
-        gs [labPropsTheory.good_dimindex_def] >>
+        gs [good_dimindex_def] >>
         gs [byte_align_def, byte_aligned_def, align_def, aligned_def, bytes_in_word_def] >>
         gs [dimword_def] >>
         EVAL_TAC >>
