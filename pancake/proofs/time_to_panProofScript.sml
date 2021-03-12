@@ -2593,7 +2593,7 @@ Theorem evaluate_ext_call:
     read_bytearray ffiBufferAddr (w2n (ffiBufferSize:α word))
                    (mem_load_byte t.memory t.memaddrs t.be) = SOME bytes ∧
     t.ffi = build_ffi (:'a) t.be outs t.ffi.ffi_state t.ffi.io_events ∧
-    ffi_vars t.locals ∧ labProps$good_dimindex (:'a) ⇒
+    ffi_vars t.locals ∧ good_dimindex (:'a) ⇒
     res = NONE ∧
     t' = t with
            <| memory := mem_call_ffi (:α) t.memory t.memaddrs t.be t.ffi.ffi_state
@@ -2719,7 +2719,7 @@ QED
 (* good be more generic, but its a trivial theorem *)
 Theorem read_bytearray_some_bytes_for_ffi:
   ∀m adrs be.
-    labProps$good_dimindex (:'a) ∧
+    good_dimindex (:'a) ∧
     ffiBufferAddr ∈ adrs ∧
     bytes_in_word + ffiBufferAddr ∈ adrs ∧
     (∃w. m ffiBufferAddr = Word w) ∧
@@ -2881,7 +2881,7 @@ Theorem step_delay_loop:
     mem_read_ffi_results (:α) t.ffi.ffi_state cycles ∧
     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
     FLOOKUP t.locals «event» =  SOME (ValWord 0w) ∧
-    labProps$good_dimindex (:'a) ==>
+    good_dimindex (:'a) ==>
     ?ck t'.
       evaluate (wait_input_time_limit, t with clock := t.clock + ck) =
       evaluate (wait_input_time_limit, t' with clock := t'.clock + ck_extra) ∧
@@ -3683,7 +3683,7 @@ Theorem step_delay:
     mem_read_ffi_results (:α) t.ffi.ffi_state cycles ∧
     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
     FLOOKUP t.locals «event» =  SOME (ValWord 0w) ∧
-    labProps$good_dimindex (:'a) ==>
+    good_dimindex (:'a) ==>
     ?ck t'.
       evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
       evaluate (task_controller (nClks prog), t' with clock := t'.clock + ck_extra) ∧
@@ -4005,7 +4005,7 @@ Theorem step_input:
     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
     mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
     task_ret_defined t.locals (nClks prog) ∧
-    labProps$good_dimindex (:'a)  ⇒
+    good_dimindex (:'a)  ⇒
     ?ck t'.
       evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
       (NONE, t') ∧
@@ -4843,7 +4843,7 @@ Theorem step_output:
     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
     FLOOKUP t.locals «event»   = SOME (ValWord 0w) ∧
     task_ret_defined t.locals (nClks prog) ∧
-    labProps$good_dimindex (:'a)  ⇒
+    good_dimindex (:'a)  ⇒
     ?ck t'.
       evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
       (NONE, t') ∧
@@ -5503,7 +5503,7 @@ Definition assumptions_def:
     well_formed_code prog t.code ∧
     n = FST (t.ffi.ffi_state 0) ∧
     ffi_rels prog labels s t ∧
-    labProps$good_dimindex (:'a) ∧
+    good_dimindex (:'a) ∧
     ~MEM "get_time_input" (out_signals prog) ∧
     event_inv t.locals ∧
     wait_time_locals (:α) t.locals s.waitTime t.ffi.ffi_state ∧
@@ -5876,7 +5876,7 @@ Theorem timed_automata_correct:
     input_time_rel t.ffi.ffi_state ∧
     time_seq t.ffi.ffi_state (dimword (:α)) ∧
     ffi_rels prog labels st t ∧
-    labProps$good_dimindex (:'a) ∧
+    good_dimindex (:'a) ∧
     ~MEM "get_time_input" (out_signals prog) ⇒
     ∃nt.
       evaluate (start_controller (prog,st.waitTime),t) =
