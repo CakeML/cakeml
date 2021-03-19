@@ -3,20 +3,14 @@
   implementation. In particular, anything the article checker proves
   follows by logical inference in Candle's version of the HOL logic.
 *)
-open preamble ml_monadBaseTheory
-     holKernelTheory holKernelProofTheory
-     holSyntaxTheory holSyntaxExtraTheory
-     readerTheory reader_initTheory
-     TextIOProgTheory
+open preamble ml_monadBaseTheory holKernelTheory holKernelProofTheory
+     holSyntaxTheory holSyntaxExtraTheory readerTheory reader_initTheory
+     TextIOProgTheory;
 
 val _ = new_theory"readerProof";
 
-Overload monad_bind[local] = “st_ex_bind”
-Overload monad_unitbind[local] = “λx y. st_ex_bind x (λ z. y)”
-Overload monad_ignore_bind[local] = “λx y. st_ex_bind x (λz. y)”
-Overload return[local] = “st_ex_return”
-Overload failwith[local] = “raise_Fail”
-val _ = temp_add_monadsyntax()
+Overload return[local] = “st_ex_return”;
+Overload failwith[local] = “raise_Fail”;
 
 val case_eq_thms =
   CaseEqs ["prod", "exc", "hol_exn", "term", "thm",
@@ -860,10 +854,11 @@ QED
 (* ------------------------------------------------------------------------- *)
 
 Theorem PROP_APPEND_EXISTS[local] =
-  METIS_PROVE [APPEND] “P x y ⇒ ∃z. P (z ++ x) y”
+  METIS_PROVE [APPEND] “P x y ⇒ ∃z. P ((z: 'a list) ++ x) y”
 
 Theorem PROP_APPEND_EXISTS2[local] =
-  METIS_PROVE [APPEND] “P x y ∧ Q x w ⇒ ∃z. P (z ++ x) y ∧ Q (z ++ x) w”
+  METIS_PROVE [APPEND] “P x y ∧ Q x w ⇒
+                        ∃z. P ((z: 'a list) ++ x) y ∧ Q (z ++ x) w”
 
 fun fsp ths =
   fsrw_tac [SATISFY_ss]
@@ -1674,7 +1669,8 @@ Definition read_stdin_def:
       case readLines init_state
           (MAP (tokenize o str_prefix) (all_lines_inode fs stdin)) refs of
         (Success (s, _), refs) =>
-          (add_stdout fs' (msg_success s refs.the_context), refs, SOME s)
+          (add_stdout fs' (concat (append (msg_success s refs.the_context))),
+           refs, SOME s)
       | (Failure (Fail e), refs) =>
           (add_stderr fs' e, refs, NONE)
 End
@@ -1691,13 +1687,13 @@ Definition read_file_def:
              (FLAT (MAP (MAP tokenize o tokens is_newline)
                    (all_lines fs fnm))) refs of
         | (Success (s,_), refs) =>
-            (add_stdout fs (msg_success s refs.the_context), refs, SOME s)
+            (add_stdout fs (concat (append (msg_success s refs.the_context))),
+             refs, SOME s)
         | (Failure (Fail e), refs) =>
             (add_stderr fs e, refs, NONE))
      else
        (add_stderr fs (msg_bad_name fnm), refs, NONE))
 End
-
 
 Definition reader_main_def:
   reader_main fs refs cl =
@@ -1718,21 +1714,20 @@ Proof
   rw [READER_STATE_def, init_state_def, STATE_def, lookup_def]
 QED
 
-Definition flush_stdin_def:
+Definition flush_stdin_def[simp]:
   flush_stdin cl fs =
     case cl of
       [] => fastForwardFD fs 0
     | _ => fs
 End
 
-val _ = export_rewrites ["flush_stdin_def"];
-
 Theorem reader_proves:
   reader_main fs init_refs cl = (outp,refs,SOME s) ⇒
   (∀asl c.
      MEM (Sequent asl c) s.thms ⇒
        (thyof refs.the_context, asl) |- c) ∧
-  outp = add_stdout (flush_stdin cl fs) (msg_success s refs.the_context) ∧
+  outp = add_stdout (flush_stdin cl fs)
+                    (concat (append (msg_success s refs.the_context))) ∧
   refs.the_context extends init_ctxt
 Proof
   rw [reader_main_def, case_eq_thms, read_stdin_def, read_file_def,
@@ -1753,14 +1748,12 @@ QED
  * in the article without errors.
  * ------------------------------------------------------------------------- *)
 
-Definition input_exists_def:
+Definition input_exists_def[simp]:
   input_exists fs cl =
     case TL cl of
       [] => ∃inp. stdin fs inp 0
     | _ => hasFreeFD fs
 End
-
-val _ = export_rewrites ["input_exists_def"];
 
 Theorem readLines_Fail_not_empty:
   ∀st ls refs err refs'.
