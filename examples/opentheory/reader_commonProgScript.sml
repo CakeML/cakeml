@@ -154,6 +154,17 @@ val r = translate current_line_def;
 val r = translate lines_read_def;
 val r = translate next_line_def;
 val r = translate line_Fail_def;
+val r = translate strh_aux_def;
+
+Theorem strh_aux_side[local]:
+  ∀a b c. strh_aux_side a b c
+Proof
+  ho_match_mp_tac strh_aux_ind \\ rw []
+  \\ simp [Once (fetch "-" "strh_aux_side_def")]
+QED
+val _ = update_precondition strh_aux_side;
+
+val r = translate strh_def;
 val r = translate s2c_def;
 
 Theorem s2c_side[local]:

@@ -76,6 +76,19 @@ End
  * TODO: Maybe: hash string?
  *)
 
+Definition strh_aux_def:
+  strh_aux s a n =
+    if n ≥ strlen s then a else strh_aux s (13 * a + ORD (strsub s n)) (n + 1)
+Termination
+  WF_REL_TAC ‘measure (λ(s,a,n). strlen s - n)’
+End
+
+Definition strh_def:
+  strh s = strh_aux s 0 0
+End
+
+fun str_hash mls = rconc (EVAL “strh ^(mls)”);
+
 Definition s2c_def:
   s2c s =
     if strlen s = 0 then unknownc s else
@@ -86,41 +99,43 @@ Definition s2c_def:
           case fromString s of
             NONE => unknownc s
           | SOME i => intc i
-        else if s = «absTerm» then absTerm
-        else if s = «absThm» then absThm
-        else if s = «appTerm» then appTerm
-        else if s = «appThm» then appThm
-        else if s = «assume» then assume
-        else if s = «axiom» then axiom
-        else if s = «betaConv» then betaConv
-        else if s = «cons» then cons
-        else if s = «const» then const
-        else if s = «constTerm» then constTerm
-        else if s = «deductAntisym» then deductAntisym
-        else if s = «def» then def
-        else if s = «defineConst» then defineConst
-        else if s = «defineConstList» then defineConstList
-        else if s = «defineTypeOp» then defineTypeOp
-        else if s = «eqMp» then eqMp
-        else if s = «hdTl» then hdTl
-        else if s = «nil» then nil
-        else if s = «opType» then opType
-        else if s = «pop» then popc
-        else if s = «pragma» then pragma
-        else if s = «proveHyp» then proveHyp
-        else if s = «ref» then ref
-        else if s = «refl» then refl
-        else if s = «remove» then remove
-        else if s = «subst» then subst
-        else if s = «sym» then sym
-        else if s = «thm» then thm
-        else if s = «trans» then trans
-        else if s = «typeOp» then typeOp
-        else if s = «var» then var
-        else if s = «varTerm» then varTerm
-        else if s = «varType» then varType
-        else if s = «version» then version
-        else unknownc s
+        else
+          let h = strh s in
+            if h = ^(str_hash “«absTerm»”) then absTerm
+            else if h = ^(str_hash “«absThm»”) then absThm
+            else if h = ^(str_hash “«appTerm»”) then appTerm
+            else if h = ^(str_hash “«appThm»”) then appThm
+            else if h = ^(str_hash “«assume»”) then assume
+            else if h = ^(str_hash “«axiom»”) then axiom
+            else if h = ^(str_hash “«betaConv»”) then betaConv
+            else if h = ^(str_hash “«cons»”) then cons
+            else if h = ^(str_hash “«const»”) then const
+            else if h = ^(str_hash “«constTerm»”) then constTerm
+            else if h = ^(str_hash “«deductAntisym»”) then deductAntisym
+            else if h = ^(str_hash “«def»”) then def
+            else if h = ^(str_hash “«defineConst»”) then defineConst
+            else if h = ^(str_hash “«defineConstList»”) then defineConstList
+            else if h = ^(str_hash “«defineTypeOp»”) then defineTypeOp
+            else if h = ^(str_hash “«eqMp»”) then eqMp
+            else if h = ^(str_hash “«hdTl»”) then hdTl
+            else if h = ^(str_hash “«nil»”) then nil
+            else if h = ^(str_hash “«opType»”) then opType
+            else if h = ^(str_hash “«pop»”) then popc
+            else if h = ^(str_hash “«pragma»”) then pragma
+            else if h = ^(str_hash “«proveHyp»”) then proveHyp
+            else if h = ^(str_hash “«ref»”) then ref
+            else if h = ^(str_hash “«refl»”) then refl
+            else if h = ^(str_hash “«remove»”) then remove
+            else if h = ^(str_hash “«subst»”) then subst
+            else if h = ^(str_hash “«sym»”) then sym
+            else if h = ^(str_hash “«thm»”) then thm
+            else if h = ^(str_hash “«trans»”) then trans
+            else if h = ^(str_hash “«typeOp»”) then typeOp
+            else if h = ^(str_hash “«var»”) then var
+            else if h = ^(str_hash “«varTerm»”) then varTerm
+            else if h = ^(str_hash “«varType»”) then varType
+            else if h = ^(str_hash “«version»”) then version
+            else unknownc s
 End
 
 (*
