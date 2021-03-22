@@ -7473,13 +7473,13 @@ Proof
 QED
 
 Definition idempotent_def:
-  idempotent s = !ty. TYPE_SUBST s (TYPE_SUBST s ty) = TYPE_SUBST s ty
+  idempotent s = (TYPE_SUBST s o TYPE_SUBST s = TYPE_SUBST s)
 End
 
 Theorem idempotent_NIL:
   idempotent []
 Proof
-  fs[idempotent_def,TYPE_SUBST_NIL]
+  fs[idempotent_def,TYPE_SUBST_NIL,FUN_EQ_THM]
 QED
 
 Theorem idempotent_clean_tysubst:
@@ -7487,7 +7487,7 @@ Theorem idempotent_clean_tysubst:
     !ty. TYPE_SUBST (clean_tysubst s) (TYPE_SUBST (clean_tysubst s) ty)
       = TYPE_SUBST (clean_tysubst s) ty
 Proof
-  fs[idempotent_def,GSYM clean_tysubst_TYPE_SUBST_eq]
+  fs[idempotent_def,GSYM clean_tysubst_TYPE_SUBST_eq,FUN_EQ_THM]
 QED
 
 Theorem idempotent_thm:
@@ -7495,7 +7495,7 @@ Theorem idempotent_thm:
     !x. MEM (Tyvar x) (MAP SND $ clean_tysubst s)
     ==> ~MEM x (FLAT $ MAP tyvars $ MAP FST $ clean_tysubst s)
 Proof
-  fs[EQ_IMP_THM,idempotent_clean_tysubst]
+  fs[EQ_IMP_THM,idempotent_clean_tysubst,FUN_EQ_THM]
   >> rpt strip_tac
   >- (
     qmatch_asmsub_abbrev_tac `TYPE_SUBST s' _`
@@ -8143,12 +8143,16 @@ Theorem unify_types_complete_step[local]:
   /\ unifiable (TYPE_SUBST sigma ty1) (TYPE_SUBST sigma ty2)
   ==> ?s. unify_types l sigma = SOME s /\ idempotent s
     /\ clean_tysubst s = s
+    /\ !s'. TYPE_SUBST s' ty1 = TYPE_SUBST s' ty2
+          ==> is_instance (TYPE_SUBST s ty2) (TYPE_SUBST s' ty2)
 Proof
   ho_match_mp_tac unify_types_ind
   >> strip_tac
   >- (
     rw[unify_types_invariant_def,unify_types_def,idempotent_NIL]
-    >> fs[clean_tysubst_id,GSYM EVERY_MEM,EVERY_MAP]
+    >> fs[clean_tysubst_id,GSYM EVERY_MEM,EVERY_MAP,idempotent_def,FUN_EQ_THM]
+    >> first_x_assum $ drule_then strip_assume_tac
+    >> metis_tac[EQ_SYM_EQ]
   )
   >> strip_tac
   >- (
@@ -8194,30 +8198,34 @@ Proof
       >> rfs[GSYM TYPE_SUBST_def,Excl"TYPE_SUBST_def"]
     )
   )
-  >> drule unify_types_invariant_pres5 >> rw[]
-  >> first_x_assum $ dxrule_at_then Any irule
-  >> fs[unifiable_def,unify_types_invariant_def,tyvars_def,DISJ_IMP_THM,FORALL_AND_THM]
-  >> qmatch_goalsub_abbrev_tac `TYPE_SUBST ts ty1`
-  >> NTAC 4 (
-    qmatch_assum_abbrev_tac `MEM a (tyvars ty_a)`
-    >> qmatch_assum_abbrev_tac `TYPE_SUBST s (_ _ ty_a) = TYPE_SUBST _ (_ _ ty_ty)`
-      ORELSE qmatch_assum_abbrev_tac `TYPE_SUBST s (_ _ ty_ty) = TYPE_SUBST _ (_ _ ty_a)`
-    >> qexists_tac `s`
-    >> drule_then (qspec_then `s` assume_tac) subtype_at_TYPE_SUBST
-    >> rev_drule_then (qspec_then `s` assume_tac) subtype_at_TYPE_SUBST
-    >> `TYPE_SUBST s ty = TYPE_SUBST s (Tyvar a)` by rfs[]
-    >> drule_then assume_tac TYPE_SUBST_eating
-    >> `TYPE_SUBST ((ty,Tyvar a)::MAP (TYPE_SUBST [(ty,Tyvar a)] ## I) sigma)
-      = TYPE_SUBST [(ty,Tyvar a)] o TYPE_SUBST sigma` by (
-      rw[FUN_EQ_THM,TYPE_SUBST_compose,TYPE_SUBST_tyvars]
-      >> irule REV_ASSOCD_reorder
+  >- (
+    drule unify_types_invariant_pres5 >> rw[]
+    >> first_x_assum $ dxrule
+    >> fs[unifiable_def,unify_types_invariant_def,tyvars_def,DISJ_IMP_THM,FORALL_AND_THM]
+    >> qmatch_goalsub_abbrev_tac `TYPE_SUBST ts ty1`
+    >> ntac 4 (
+      qmatch_assum_abbrev_tac `MEM a (tyvars ty_a)`
+      >> qmatch_assum_abbrev_tac `TYPE_SUBST s (_ _ ty_a) = TYPE_SUBST _ (_ _ ty_ty)`
+        ORELSE qmatch_assum_abbrev_tac `TYPE_SUBST s (_ _ ty_ty) = TYPE_SUBST _ (_ _ ty_a)`
+      >> drule_then (qspec_then `s` assume_tac) subtype_at_TYPE_SUBST
+      >> rev_drule_then (qspec_then `s` assume_tac) subtype_at_TYPE_SUBST
+      >> `TYPE_SUBST s ty = TYPE_SUBST s (Tyvar a)` by rfs[]
+      >> drule_then assume_tac TYPE_SUBST_eating
+      >> `TYPE_SUBST ((ty,Tyvar a)::MAP (TYPE_SUBST [(ty,Tyvar a)] ## I) sigma)
+        = TYPE_SUBST [(ty,Tyvar a)] o TYPE_SUBST sigma` by (
+        rw[FUN_EQ_THM,TYPE_SUBST_compose,TYPE_SUBST_tyvars]
+        >> irule REV_ASSOCD_reorder
+        >> unabbrev_all_tac
+        >> fs[ALL_DISTINCT,MAP_MAP_o,o_PAIR_MAP,ALL_DISTINCT_APPEND]
+        >> CONV_TAC $ RHS_CONV $ ONCE_DEPTH_CONV $ REWR_CONV INSERT_SING_UNION
+        >> fs[AC UNION_ASSOC UNION_COMM]
+      )
       >> unabbrev_all_tac
-      >> fs[ALL_DISTINCT,MAP_MAP_o,o_PAIR_MAP,ALL_DISTINCT_APPEND]
-      >> CONV_TAC $ RHS_CONV $ ONCE_DEPTH_CONV $ REWR_CONV INSERT_SING_UNION
-      >> fs[AC UNION_ASSOC UNION_COMM]
+      >> fs[FUN_EQ_THM,idempotent_def]
+      >> impl_tac >- (qexists_tac `s` >> fs[])
+      >> strip_tac
+      >> rpt $ goal_assum drule
     )
-    >> unabbrev_all_tac
-    >> fs[FUN_EQ_THM]
   )
 QED
 
@@ -8239,6 +8247,8 @@ QED
 Theorem unify_types_props:
   !s ty1 ty2. unify_types [(ty1,ty2)] [] = SOME s
   ==> idempotent s /\ clean_tysubst s = s
+    /\ !s'. TYPE_SUBST s' ty1 = TYPE_SUBST s' ty2
+          ==> is_instance (TYPE_SUBST s ty2) (TYPE_SUBST s' ty2)
 Proof
   rpt gen_tac >> strip_tac
   >> qmatch_asmsub_abbrev_tac `unify_types l _`
