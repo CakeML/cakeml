@@ -38,7 +38,6 @@ val r = translate pp_margin_def;
 (* type printer *)
 
 val r = translate pp_tyop_aux_def;
-val r = translate pp_tyop_def;
 val r = translate pp_with_sep_def;
 val r = translate pp_type_def;
 
