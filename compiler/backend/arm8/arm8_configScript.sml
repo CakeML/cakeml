@@ -8,6 +8,7 @@ val _ = new_theory"arm8_config";
 val arm8_names_def = Define `
   arm8_names =
     (* source can use 30 regs (0-29),
+       target's r18 should be avoided (platform reserved),
        target's r26 must be avoided (extra encoding register),
        target's r31 must be avoided (stack pointer),
        source 0 must represent r30 (link register),
@@ -19,7 +20,9 @@ val arm8_names_def = Define `
      insert 3 2 o
      insert 4 3 o
      insert 26 4 o
-     (* Next one is for well-formedness only *)
+     insert 18 5 o
+     (* Next ones are for well-formedness only *)
+     insert 29 18 o
      insert 30 26) LN:num num_map`
 
 val arm8_names_def = save_thm("arm8_names_def[compute]",
