@@ -22,7 +22,6 @@ val arm8_names_def = Define `
      insert 18 4 o
      insert 25 29 o
      insert 26 25 o
-     (*insert 26 29 o*)
      (* Next ones are for well-formedness only *)
      insert 29 18 o
      insert 30 26) LN:num num_map`
