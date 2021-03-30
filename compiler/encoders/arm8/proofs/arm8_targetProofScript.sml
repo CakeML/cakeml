@@ -155,8 +155,8 @@ val lem13 = Q.prove(
 
 val lem14 = Q.prove(
    `!s state c: word64 n.
-      target_state_rel arm8_target s state /\ n <> 26 /\ n <> 31 /\ n < 32 /\
-      aligned 3 (c + s.regs n) ==> aligned 3 (c + state.REG (n2w n))`,
+      target_state_rel arm8_target s state /\ n <> 18 /\ n <> 26 /\ n <> 31 /\
+      n < 32 /\ aligned 3 (c + s.regs n) ==> aligned 3 (c + state.REG (n2w n))`,
    rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def]
    )
 
@@ -747,7 +747,9 @@ fun state_tac thms =
   fs ([asmPropsTheory.sym_target_state_rel, arm8_target_def,
        arm8_config, asmPropsTheory.all_pcs, arm8_ok_def, lem30,
        set_sepTheory.fun2set_eq] @ thms)
-  \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
+  \\ rewrite_tac [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
+  \\ fs []
+  \\ rw []
   \\ rfs []
 
 val shift_cases_tac =
