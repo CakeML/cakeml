@@ -330,6 +330,11 @@ in
               \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
               \\ fs [Abbr ‘f3’,size_of_def]
               \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
+              \\ qpat_x_assum ‘size_of _ (_::rest_v) _ _ = _’ mp_tac
+              \\ simp[Once size_of_cons,size_of_def] \\ rw[] \\ gs[] \\ rveq
+              \\ qpat_x_assum ‘size_of _ (_::rest_v) _ _ = _’ mp_tac
+              \\ simp[Once size_of_cons,size_of_def] \\ rw[] \\ gs[] \\ rveq
+              \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
               \\ rename1 ‘a1 + b1 ≤ a2 + b2’
               \\ ‘a1 ≤ a2 ∧ b1 ≤ b2’ suffices_by rw []
               \\ conj_tac
@@ -338,18 +343,18 @@ in
                   \\ fs [repbool_list_safe_def] \\ rveq
                   \\ fs [size_of_def]
                   \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
-                  \\ Cases_on ‘IS_SOME (lookup ts0 seen1)’
+                  \\ Cases_on ‘IS_SOME (lookup ts0 seen1')’
                   \\ fs [] \\ rveq \\ fs []
                   >- (drule_all repbool_list_size_of_rm
                       \\ disch_then (qspecl_then [‘s.limits’,‘refs1’] mp_tac)
                       \\ rw [])
                   \\ drule repbool_list_insert_ts
-                  \\ disch_then (qspecl_then [‘ts0’,‘refs1’,‘seen1’,‘s.limits’] mp_tac)
+                  \\ disch_then (qspecl_then [‘ts0’,‘refs1'’,‘seen1'’,‘s.limits’] mp_tac)
                   \\ fs [])
               \\ qunabbrev_tac ‘f1’ \\ fs [size_of_def]
-              \\ ‘lookup ts_f seen1 = lookup ts_f seen1'’
+              \\ ‘lookup ts_f seen1' = lookup ts_f seen1''’
                  by metis_tac [repbool_list_seen_MEM]
-              \\ ‘lookup ts_f seen1 = lookup ts_f seen1''’
+              \\ ‘lookup ts_f seen1' = lookup ts_f seen1’
                  by (irule repbool_list_seen_MEM
                      \\ ‘¬ MEM ts_f (ts0::z)’ by fs []
                      \\ asm_exists_tac \\ fs []
@@ -359,7 +364,7 @@ in
                      \\ metis_tac [])
               \\ ntac 2 (pop_assum mp_tac)
               \\ ntac 2 (disch_then (assume_tac o GSYM))
-              \\ fs [] \\ Cases_on ‘IS_SOME (lookup ts_f seen1)’
+              \\ fs [] \\ Cases_on ‘IS_SOME (lookup ts_f seen1')’
               \\ fs [])
           \\ fs [MAX_DEF,libTheory.the_def])
       \\ REWRITE_TAC[to_shallow_thm,to_shallow_def,foldl_body_def]
@@ -401,6 +406,9 @@ in
           \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
           \\ fs [size_of_def]
           \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
+          \\ qpat_x_assum ‘size_of _ (_::rest_v) _ _ = _’ mp_tac
+          \\ simp[Once size_of_cons,size_of_def] \\ rw[] \\ gs[] \\ rveq
+          \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
           \\ rename1 ‘a1 + b1 ≤ a2 + b2’
           \\ ‘a1 ≤ a2 ∧ b1 ≤ b2’ suffices_by rw []
           \\ conj_tac
@@ -409,18 +417,18 @@ in
               \\ fs [repbool_list_safe_def] \\ rveq
               \\ fs [size_of_def]
               \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
-              \\ Cases_on ‘IS_SOME (lookup ts0 seen1)’
+              \\ Cases_on ‘IS_SOME (lookup ts0 seen1')’
               \\ fs [] \\ rveq \\ fs []
               >- (drule_all repbool_list_size_of_rm
                   \\ disch_then (qspecl_then [‘s.limits’,‘refs1’] mp_tac)
                   \\ rw [])
               \\ drule repbool_list_insert_ts
-              \\ disch_then (qspecl_then [‘ts0’,‘refs1’,‘seen1’,‘s.limits’] mp_tac)
+              \\ disch_then (qspecl_then [‘ts0’,‘refs1'’,‘seen1'’,‘s.limits’] mp_tac)
               \\ fs [])
           \\ qunabbrev_tac ‘f1’ \\ fs [size_of_def]
-          \\ ‘lookup ts_f seen1 = lookup ts_f seen1'’
+          \\ ‘lookup ts_f seen1' = lookup ts_f seen1''’
             by metis_tac [repbool_list_seen_MEM]
-          \\ ‘lookup ts_f seen1 = lookup ts_f seen1''’
+          \\ ‘lookup ts_f seen1' = lookup ts_f seen1’
             by (irule repbool_list_seen_MEM
                 \\ ‘¬ MEM ts_f (ts0::z)’ by fs []
                 \\ asm_exists_tac \\ fs []
@@ -430,7 +438,7 @@ in
                 \\ metis_tac [])
           \\ ntac 2 (pop_assum mp_tac)
           \\ ntac 2 (disch_then (assume_tac o GSYM))
-          \\ fs [] \\ Cases_on ‘IS_SOME (lookup ts_f seen1)’
+          \\ fs [] \\ Cases_on ‘IS_SOME (lookup ts_f seen1')’
           \\ fs [])
       \\ fs [MAX_DEF,libTheory.the_def,size_of_stack_def])
   \\ REWRITE_TAC[to_shallow_thm,to_shallow_def,foldl_body_def]
