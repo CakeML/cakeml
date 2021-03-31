@@ -327,6 +327,18 @@ Proof
   \\ fs [wf_delete]
 QED
 
+Theorem wf_seen_size_of:
+  ∀lims vs refs seen n' refs' seen'.
+    wf seen ∧ (size_of lims vs refs seen = (n',refs',seen'))
+    ⇒ wf seen'
+Proof
+  ho_match_mp_tac size_of_ind \\ rw [size_of_def] \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ fs [wf_insert]
+QED
+
 Triviality size_of_insert_aux:
   ∀lims vs refs seen p x n refs' seen'.
     wf refs                 ∧

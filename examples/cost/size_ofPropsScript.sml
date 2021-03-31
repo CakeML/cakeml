@@ -85,6 +85,13 @@ Proof
   \\ fs []
 QED
 
+Theorem all_blocks_cons_simp:
+  ∀x xs ys. all_blocks (x::xs::ys) = all_blocks [x] ++ all_blocks (xs::ys)
+Proof
+  rw [] \\ qspecl_then [‘[x]’,‘xs::ys’] assume_tac all_blocks_append
+  \\ fs []
+QED
+
 Theorem size_of_cons:
   size_of lims (x::xs) refs seen =
     let (n1,refs1,seen1) = size_of lims xs refs seen in
@@ -1009,6 +1016,12 @@ Proof
   \\ metis_tac [sane_timestamps_APPEND_left]
 QED
 
+Theorem sane_timestamps_APPEND:
+  ∀xs ys. sane_timestamps (xs ++ ys) ⇒ sane_timestamps xs ∧ sane_timestamps ys
+Proof
+  metis_tac [sane_timestamps_APPEND_right,sane_timestamps_APPEND_left]
+QED
+
 Theorem sane_heap_PERM_eq:
   ∀s xs ys. PERM xs ys ⇒ (sane_heap s xs ⇔ sane_heap s ys)
 Proof
@@ -1052,6 +1065,26 @@ Proof
   \\ gs [sane_timestamps_cons]
   \\ ntac 3 strip_tac
   \\ first_x_assum irule \\ simp[]
+QED
+
+Theorem sane_heap_APPEND_right:
+  ∀s xs ys. sane_heap s (xs ++ ys) ⇒ sane_heap s ys
+Proof
+  rw [sane_heap_def,all_blocks_append]
+  \\ qmatch_asmsub_abbrev_tac ‘sane_timestamps (a ++ b ++ c)’
+  \\ ntac 3 (pop_assum kall_tac)
+  \\ irule sane_timestamps_APPEND_left
+  \\ qexists_tac ‘b’
+  \\ first_x_assum (mp_then Any irule sane_timestamps_PERM)
+  \\ SIMP_TAC (std_ss++permLib.PERM_SIMPLE_ss) []
+QED
+
+Theorem sane_heap_APPEND_left:
+  ∀s xs ys. sane_heap s (xs ++ ys) ⇒ sane_heap s xs
+Proof
+  rw[] \\ irule sane_heap_APPEND_right
+  \\ irule_at Any sane_heap_PERM
+  \\ metis_tac [PERM_APPEND]
 QED
 
 Theorem sane_heap_cons_simp:
@@ -1102,9 +1135,9 @@ Proof
 QED
 
 Theorem sane_heap_block_MEM:
-  ∀refs ts tag vs tag0 vs0.
+  ∀refs ts tag vs.
     sane_heap refs [Block ts tag vs]
-    ⇒ ¬MEM (Block ts tag0 vs0) (all_blocks vs)
+    ⇒ ∀tag0 vs0. ¬MEM (Block ts tag0 vs0) (all_blocks vs)
 Proof
   rw[sane_heap_block_cons] \\ CCONTR_TAC \\ gs[]
   \\ first_x_assum (qspecl_then [‘tag0’,‘vs0’] assume_tac)
@@ -1116,9 +1149,115 @@ Definition no_ptrs_list_def:
   (no_ptrs_list [RefPtr p] = F) ∧
   (no_ptrs_list [Block ts tag l] = no_ptrs_list l) ∧
   (no_ptrs_list [x] = T) ∧
-  (no_ptrs_list (v::vs) = no_ptrs_list [v] ∧ no_ptrs_list vs)
+  (no_ptrs_list (v::vs) = (no_ptrs_list [v] ∧ no_ptrs_list vs))
 Termination
   WF_REL_TAC `(inv_image (measure v1_size) I)`
 End
+
+Theorem size_of_seen_no_ptrs_list_ignore:
+  ∀lims vs refs seen ts n refs1 seen1.
+    (size_of lims vs refs seen = (n,refs1,seen1)) ∧
+    (∀tag l. ¬MEM (Block ts tag l) (all_blocks vs)) ∧
+    no_ptrs_list vs
+    ⇒ (size_of lims vs refs (insert ts () seen) = (n,refs1,insert ts () seen1))
+Proof
+  ho_match_mp_tac size_of_ind \\ fs [size_of_def,no_ptrs_list_def]
+  \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac \\ rpt gen_tac \\ strip_tac
+  >- (rpt (pairarg_tac \\ fs []) \\ rveq
+      \\ gs[all_blocks_cons_simp,MEM_APPEND,FORALL_AND_THM,no_ptrs_list_def]
+      \\ res_tac \\ gs[] \\ rveq \\ gs[])
+  >- (Cases_on ‘ts = ts'’ \\ gs[lookup_insert]
+      >-(Cases_on ‘lookup ts' seen’ \\ gs[]
+         \\ rpt (pairarg_tac \\ fs []) \\ rveq
+         \\ gs[MEM_APPEND,FORALL_AND_THM])
+      >- (Cases_on ‘lookup ts seen’ \\ gs[]
+          \\ rpt (pairarg_tac \\ fs []) \\ rveq
+          \\ first_x_assum drule
+          \\ simp[insert_swap]))
+QED
+
+Theorem sane_heap_cons_split:
+  ∀refs x xs.
+    sane_heap refs (x::xs) ⇒ sane_heap refs [x] ∧ sane_heap refs xs
+Proof
+  rw[]
+  >- (irule sane_heap_APPEND_left \\ simp[] \\ asm_exists_tac \\ simp[])
+  >- (irule sane_heap_APPEND_right \\ qexists_tac ‘[x]’ \\ simp[])
+QED
+
+Theorem sane_timestamps_smaller:
+  ∀l l'.
+    sane_timestamps l ∧
+    (∀x. MEM x l' ⇒ MEM x l)
+    ⇒ sane_timestamps l'
+Proof
+  Induct \\ rw[sane_timestamps_def,sane_timestamps_cons]
+  \\ first_assum dxrule \\ first_assum dxrule
+  \\ rw[] \\ metis_tac []
+QED
+
+Theorem toList_subspt_smaller:
+  ∀refs1 refs2 x.
+    subspt refs1 refs2 ∧
+    MEM x (toList refs1)
+    ⇒ MEM x (toList refs2)
+Proof
+  rw[MEM_toList,subspt_lookup] \\ metis_tac[]
+QED
+
+Theorem all_bs_refs_subspt_smaller:
+  ∀refs1 refs2 x.
+    subspt refs1 refs2 ∧
+    MEM x (all_bs_refs refs1)
+    ⇒ MEM x (all_bs_refs refs2)
+Proof
+  rw[all_bs_refs_def]
+  \\ drule toList_subspt_smaller
+  \\ qmatch_goalsub_abbrev_tac ‘MEM _ l1’
+  \\ qmatch_goalsub_abbrev_tac ‘MAP _ l2’
+  \\ rw[] \\ gs[MEM_FLAT,MEM_MAP] \\ rveq
+  \\ metis_tac[]
+QED
+
+Theorem sane_heap_refs_subspt:
+  ∀refs1 vs refs2.
+    subspt refs2 refs1 ∧
+    sane_heap refs1 vs
+    ⇒ sane_heap refs2 vs
+Proof
+  rw[sane_heap_def]
+  \\ irule sane_timestamps_smaller
+  \\ first_x_assum (irule_at Any)
+  \\ simp[MEM_APPEND] \\ rw[]
+  \\ metis_tac[all_bs_refs_subspt_smaller]
+QED
+
+Theorem size_of_seen_ts_cases:
+  ∀lims vs refs seen n refs1 seen1 ts tag x xs.
+    size_of lims vs refs seen = (n,refs1,seen1) ∧
+    IS_SOME(lookup ts seen1)
+    ⇒ IS_SOME(lookup ts seen) ∨
+      ∃tag l. MEM (Block ts tag l) (all_blocks vs) ∨
+              MEM (Block ts tag l) (all_bs_refs refs)
+Proof
+  ho_match_mp_tac size_of_ind \\ fs [size_of_def] \\ rw[] \\ simp[]
+  >- (rpt (pairarg_tac \\ fs []) \\ rveq
+      \\ simp[all_blocks_cons_simp]
+      \\ metis_tac[size_of_refs_subspt,all_bs_refs_subspt_smaller])
+  >- (Cases_on ‘lookup r refs’ \\ gs[] \\ Cases_on ‘x’ \\ gs[]
+     \\ rpt (pairarg_tac \\ fs []) \\ rveq
+     \\ first_x_assum drule \\ rw[] \\ simp[]
+      >- (simp[all_bs_refs_def,MEM_FLAT,MEM_MAP,MEM_toList]
+          \\ metis_tac[array_vals_def])
+      >- (gs[all_bs_refs_def,MEM_FLAT,MEM_MAP,MEM_toList]
+          \\ Cases_on ‘y’ \\ gs[array_vals_def] \\ rveq
+          \\ Cases_on ‘k = r’ \\ gs[lookup_delete]
+          \\ metis_tac[array_vals_def]))
+  >- (rpt (pairarg_tac \\ fs []) \\ rveq \\ gs[]
+      \\ first_x_assum drule \\ rw[] \\ simp[]
+      >- metis_tac[lookup_insert]
+      >- metis_tac[]
+      >- metis_tac[])
+QED
 
 val _ = export_theory();
