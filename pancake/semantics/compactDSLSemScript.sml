@@ -216,8 +216,7 @@ End
 
 Inductive step:
   (!p st d.
-    st.waitTime = NONE ∧
-    (0:num) <= d ==>
+    st.waitTime = NONE ==>
     step p (LDelay d) st
          (mkState
           (delay_clocks (st.clocks) d)
@@ -227,7 +226,7 @@ Inductive step:
 
   (!p st d w.
     st.waitTime = SOME w ∧
-    0 <= d /\ d < w ==>
+    d ≤ w ==>
     step p (LDelay d) st
          (mkState
           (delay_clocks (st.clocks) d)
