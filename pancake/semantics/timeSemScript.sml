@@ -150,6 +150,21 @@ Definition max_clocks_def:
 End
 
 
+Definition tm_conds_eval_def:
+  tm_conds_eval s tm =
+    EVERY (λcnd.
+            EVERY (λe. case (evalExpr s e) of
+                       | SOME n => T
+                       | _ => F) (destCond cnd))
+          (termConditions tm)
+End
+
+
+Definition tms_conds_eval_def:
+  tms_conds_eval s tms =
+    EVERY (tm_conds_eval s) tms
+End
+
 Definition tm_conds_eval_limit_def:
   tm_conds_eval_limit m s tm =
     EVERY (λcnd.

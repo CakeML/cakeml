@@ -52,20 +52,9 @@ Definition eval_term_def:
 End
 
 
-Definition eval_pick_term_def:
-  (eval_pick_term st i (tm::tms) =
-   case tm of
-   | Tm (Input in_signal) cnds clks dest difs =>
-       if in_signal = i ∧ EVERY (λcnd. evalCond st cnd) cnds
-       then eval_term st (SOME i) tm
-       else eval_pick_term st i tms
-   | _ => eval_pick_term st i tms) ∧
-  (eval_pick_term _ _ [] = NONE)
-End
-
-
 Definition machine_bounds_def:
   machine_bounds st max m tms ⇔
+    tms_conds_eval st tms ∧
     conds_eval_lt_dimword m st tms ∧
     terms_time_range m tms ∧
     input_terms_actions max tms ∧
@@ -73,6 +62,28 @@ Definition machine_bounds_def:
     max_clocks st.clocks m
 End
 
+Definition pick_eval_input_term_def:
+  (pick_eval_input_term st i (tm::tms) =
+   case tm of
+   | Tm (Input in_signal) cnds clks dest difs =>
+       if in_signal = i ∧
+          EVERY (λcnd. evalCond st cnd) cnds
+       then eval_term st (SOME i) tm
+       else pick_eval_input_term st i tms
+   | _ => pick_eval_input_term st i tms) ∧
+  (pick_eval_input_term _ _ [] = NONE)
+End
+
+Definition pick_eval_output_term_def:
+  (pick_eval_output_term st (tm::tms) =
+   case tm of
+   | Tm (Output out_signal) cnds clks dest difs =>
+       if EVERY (λcnd. evalCond st cnd) cnds
+       then (SOME out_signal, eval_term st NONE tm)
+       else pick_eval_output_term st tms
+   | _ => pick_eval_output_term st tms) ∧
+  (pick_eval_output_term _ [] = (NONE, NONE))
+End
 
 Definition eval_delay_def:
   eval_delay st =
@@ -87,8 +98,20 @@ Definition eval_input_def:
   case ALOOKUP prog st.location of
   | SOME tms =>
       if machine_bounds st m (m - n) tms
-      then (case eval_pick_term st i tms of
+      then (case pick_eval_input_term st i tms of
             | SOME st' => SOME (LAction (Input i), st')
+            | _ => NONE)
+      else NONE
+  | _ => NONE
+End
+
+Definition eval_output_def:
+  eval_output prog m n st =
+  case ALOOKUP prog st.location of
+  | SOME tms =>
+      if machine_bounds st m (m - n) tms
+      then (case pick_eval_output_term st tms of
+            | (SOME os, SOME st') => SOME (LAction (Output os), st')
             | _ => NONE)
       else NONE
   | _ => NONE
@@ -104,21 +127,12 @@ Definition eval_step_def:
        | Input i => eval_input prog m n i st)
   | SOME w =>
       if w = 0
-      then (case ALOOKUP prog st.location of
-            | SOME tms =>
-                if machine_bounds st m (m - n) tms
-                then SOME (LAction (Output ARB), ARB)
-                else NONE
-            | _ => NONE)
+      then eval_output prog m n st
       else
         (case or orn of
          | Delay => SOME (eval_delay st)
          | Input i => eval_input prog m n i st)
 End
-
-
-
-
 
 
 
