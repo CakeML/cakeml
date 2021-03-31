@@ -305,11 +305,11 @@ Definition start_controller_def:
      ])
 End
 
-
+(*
 Definition call_controller_def:
   call_controller prog =
     («start»,[],start_controller prog)
 End
-
+*)
 
 val _ = export_theory();

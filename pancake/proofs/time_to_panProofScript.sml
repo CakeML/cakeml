@@ -6107,27 +6107,58 @@ Proof
 QED
 
 
-(*
+Theorem foo:
+  ∀prog s t m n.
+    state_rel (clksOf prog) (out_signals prog) s t ⇒
+    ∃labels sts.
+      LENGTH labels = LENGTH sts ∧
+      labels ≠ [] ∧
+      steps prog labels m n s sts
+Proof
+QED
 
-Definition evaluations_def:
-  (evaluations prog [] s (t:('a,time_input) panSem$state) ⇔ T) ∧
-  (evaluations prog (lbl::lbls) s t ⇔
-   ∃ck nt.
-     evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
-     evaluate (time_to_pan$always (nClks prog), nt) ∧
-     ∃m n st.
-       step prog lbl m n s st ⇒
-       state_rel (clksOf prog) (out_signals prog) st nt ∧
-       ~MEM "get_time_input" (out_signals prog) ∧
-       event_inv nt.locals ∧
-       nt.code = t.code ∧
-       next_ffi_state lbl t.ffi.ffi_state nt.ffi.ffi_state  ∧
-       nt.ffi.oracle = t.ffi.oracle ∧
-       nlocals lbl nt.locals (t.ffi.ffi_state) st.waitTime (dimword (:α)) ∧
-       wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
-       task_ret_defined nt.locals (nClks prog) ∧
-       evaluations prog lbls st nt)
-End
+
+(*
+  steps to be taken:
+   1.
+   2.
+   3.
+
+*)
+
+
+
+
+
+
+(*
+top-level theorem:
+  to.ffi.io_events = [] /\ state_rel s0 t0 /\ sensible_ffi t0.ffi ==>
+  ?io_events.
+    semantics t0 start = Diverge io_events /\
+    ?labels ss.
+      steps prog labels m n s0 ss /\
+      contains_labels labels io_events /\
+      and_clock_goes_high labels m n (get_current_time t0)
+  where io_events is a list of IO_event ffi_name imm_in (ZIP (mut_in, mut_out))
+  LDelay 2   (current time is 5)
+    IO_event "get_time_input" "" [([_],[5,no_input])]
+    IO_event "get_time_input" "" [([_],[5,no_input])]
+    IO_event "get_time_input" "" [([_],[5,no_input])]
+    IO_event "get_time_input" "" [([_],[6,no_input])]
+    IO_event "get_time_input" "" [([_],[6,no_input])]
+  LAction (Output 33)
+    IO_event "get_time_input" "" [([_],[7,no_input])]
+    IO_event "make_output" [([33],[33])]
+  LDelay 1
+    IO_event "get_time_input" "" [([_],[7,no_input])]
+    IO_event "get_time_input" "" [([_],[7,no_input])]
+  LAction (Input 22)
+    IO_event "get_time_input" "" [([],[8,no_input])]
+    IO_event "get_time_input" "" [([],[8,no_input])]
+    IO_event "get_time_input" "" [([],[8,no_input])]
+    IO_event "get_time_input" "" [([],[8,no_input])]
+    IO_event "get_time_input" "" [([],[8,input_here])]
 *)
 
 
@@ -6181,6 +6212,21 @@ Definition init_clocks_def:
     EVERY
       (λck. FLOOKUP fm ck = SOME (0:num)) clks
 End
+
+
+(*
+  ~(MEM «start» (MAP FST prog)):
+  is not needed since code_installed converts a number to a string
+  for function name
+  Diverge: when the call results in a time out
+ *)
+Theorem foo:
+  code_installed t.code prog ∧
+  FLOOKUP t.code «start» = SOME ([], start_controller (prog,init_wt)) ⇒
+  semantics t start = Diverge ARB
+Proof
+
+QED
 
 
 Theorem timed_automata_correct:
