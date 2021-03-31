@@ -93,12 +93,26 @@ Definition eval_delay_def:
         ioAction := NONE|>)
 End
 
+
+Definition eval_delay_wtime_none_def:
+  eval_delay_wtime_none st m n =
+  if n + 1 < m ∧
+     max_clocks (delay_clocks (st.clocks) (n + 1)) m
+  then SOME
+       (LDelay 1 ,
+        st with
+           <|clocks := delay_clocks (st.clocks) 1;
+             ioAction := NONE|>)
+  else NONE
+End
+
+
 Definition eval_input_def:
   eval_input prog m n i st =
   case ALOOKUP prog st.location of
   | SOME tms =>
-      if machine_bounds st m (m - n) tms
-      then (case pick_eval_input_term st i tms of
+      if n < m ∧ machine_bounds (resetOutput st) m (m - n) tms
+      then (case pick_eval_input_term (resetOutput st) i tms of
             | SOME st' => SOME (LAction (Input i), st')
             | _ => NONE)
       else NONE
@@ -109,8 +123,8 @@ Definition eval_output_def:
   eval_output prog m n st =
   case ALOOKUP prog st.location of
   | SOME tms =>
-      if machine_bounds st m (m - n) tms
-      then (case pick_eval_output_term st tms of
+      if machine_bounds (resetOutput st) m (m - n) tms
+      then (case pick_eval_output_term (resetOutput st) tms of
             | (SOME os, SOME st') => SOME (LAction (Output os), st')
             | _ => NONE)
       else NONE
@@ -123,7 +137,7 @@ Definition eval_step_def:
   case st.waitTime of
   | NONE =>
       (case or orn of
-       | Delay => SOME (eval_delay st)
+       | Delay => eval_delay_wtime_none st m n
        | Input i => eval_input prog m n i st)
   | SOME w =>
       if w = 0
@@ -133,6 +147,139 @@ Definition eval_step_def:
          | Delay => SOME (eval_delay st)
          | Input i => eval_input prog m n i st)
 End
+
+Theorem pick_eval_input_term_imp_pickTerm:
+  ∀tms st m n i st'.
+    machine_bounds (resetOutput st) m (m − n) tms ∧
+    pick_eval_input_term (resetOutput st) i tms = SOME st' ⇒
+    pickTerm (resetOutput st) m (m − n) (SOME i) tms st' ∧
+    st'.ioAction = SOME (Input i)
+Proof
+  Induct >>
+  rpt gen_tac >>
+  strip_tac >>
+  gs []
+  >- gs [pick_eval_input_term_def] >>
+  gs [pick_eval_input_term_def] >>
+  cases_on ‘h’ >> gs [] >>
+  cases_on ‘i'’ >> gs []
+  >- (
+    FULL_CASE_TAC >> gs []
+    >- (
+      rewrite_tac [Once pickTerm_cases] >>
+      gs [] >>
+      gs [machine_bounds_def] >>
+      gs [eval_term_def, evalTerm_cases] >>
+      rveq >> gs [state_component_equality])
+    >- (
+      rewrite_tac [Once pickTerm_cases] >>
+      gs [] >>
+      last_x_assum (qspecl_then [‘st’, ‘m’, ‘n’, ‘i’, ‘st'’] mp_tac) >>
+      impl_tac
+      >- (
+        gs [] >>
+        gs [machine_bounds_def, tms_conds_eval_def, conds_eval_lt_dimword_def,
+            terms_time_range_def, input_terms_actions_def, terms_wtimes_ffi_bound_def,
+            terms_in_signals_def]) >>
+      strip_tac >>
+      gs [machine_bounds_def, terms_time_range_def,
+          conds_eval_lt_dimword_def, input_terms_actions_def,
+          terms_in_signals_def]) >>
+    rewrite_tac [Once pickTerm_cases] >>
+    gs [] >>
+    last_x_assum (qspecl_then [‘st’, ‘m’, ‘n’, ‘i’, ‘st'’] mp_tac) >>
+    impl_tac
+    >- (
+      gs [] >>
+      gs [machine_bounds_def, tms_conds_eval_def, conds_eval_lt_dimword_def,
+          terms_time_range_def, input_terms_actions_def, terms_wtimes_ffi_bound_def,
+          terms_in_signals_def]) >>
+    strip_tac >>
+    gs [machine_bounds_def, terms_time_range_def,
+        conds_eval_lt_dimword_def, input_terms_actions_def,
+        terms_in_signals_def, tms_conds_eval_def,  tm_conds_eval_def,
+        timeLangTheory.termConditions_def] >>
+    gs [EVERY_MEM] >>
+    disj2_tac >>
+    disj1_tac >>
+    rw [] >>
+    res_tac >> gs []  >>
+    FULL_CASE_TAC >> gs []) >>
+  rewrite_tac [Once pickTerm_cases] >>
+  gs [] >>
+  last_x_assum (qspecl_then [‘st’, ‘m’, ‘n’, ‘i’, ‘st'’] mp_tac) >>
+  impl_tac
+  >- (
+    gs [] >>
+    gs [machine_bounds_def, tms_conds_eval_def, conds_eval_lt_dimword_def,
+        terms_time_range_def, input_terms_actions_def, terms_wtimes_ffi_bound_def,
+        terms_in_signals_def]) >>
+  strip_tac >>
+  gs [machine_bounds_def, terms_time_range_def,
+      conds_eval_lt_dimword_def, input_terms_actions_def,
+      terms_in_signals_def]
+QED
+
+
+Theorem foo:
+  eval_step prog m n or orn st = SOME (label, st') ⇒
+  step prog label m n st st'
+Proof
+  rw [] >>
+  fs [eval_step_def] >>
+  cases_on ‘st.waitTime’ >> gs [] >>
+  cases_on ‘or orn’ >> gs []
+  >- (
+    gs [eval_delay_wtime_none_def] >>
+    rveq >>
+    gs [step_cases, mkState_def] >>
+    gs [state_component_equality])
+  >- (
+    gs [eval_input_def] >>
+    FULL_CASE_TAC >> gs [] >>
+    FULL_CASE_TAC >> gs [] >> rveq >> gs [] >>
+    qmatch_asmsub_rename_tac ‘ALOOKUP _ _ = SOME tms’ >>
+    imp_res_tac pick_eval_input_term_imp_pickTerm >>
+    gs [step_cases, mkState_def])
+  >- (
+  FULL_CASE_TAC >> gs []
+  >- (
+    gs [eval_output_def] >>
+    every_case_tac >> rveq >> gs [] >>
+    rveq >> gs [] >>
+    qmatch_asmsub_rename_tac ‘ALOOKUP _ _ = SOME tms’ >>
+
+
+
+    )
+
+
+
+
+
+  )
+
+
+
+
+
+
+    metis_tac [pick_eval_input_term_imp_pickTerm]
+
+
+
+
+
+
+  )
+
+
+
+
+
+QED
+
+
 
 
 
