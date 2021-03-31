@@ -151,7 +151,15 @@ Proof
  \\ strip_call
  \\ ntac 9 strip_assign
  \\ make_if
+ \\ UNABBREV_ALL_TAC
+ \\ strip_call
+ \\ ntac 9 strip_assign
+ \\ make_if
  \\ ntac 6 strip_assign
+ \\ open_tailcall
+ \\ ntac 4 strip_assign
+ \\ make_if
+ \\ ntac 2 strip_assign
  \\ open_tailcall
  \\ ntac 4 strip_assign
  \\ make_if
@@ -161,6 +169,9 @@ Proof
  \\ make_if
  \\ UNABBREV_ALL_TAC
  \\ strip_assign
+ \\ make_tailcall
+ \\ strip_makespace
+ \\ ntac 3 strip_assign
  \\ make_tailcall
  \\ strip_makespace
  \\ ntac 4 strip_assign
