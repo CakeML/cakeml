@@ -75,13 +75,6 @@ Proof
   fs[FUN_EQ_THM,SWAP_def,ELIM_UNCURRY]
 QED
 
-Theorem FST_SND_SWAP:
-  FST o SWAP = SND
-  /\ SND o SWAP = FST
-Proof
-  rw[FUN_EQ_THM,SWAP_def]
-QED
-
 Theorem MAP_INVOL:
   !f xs ys. INVOL f ==> (MAP f xs = ys) = (xs = MAP f ys)
 Proof
@@ -219,41 +212,6 @@ Theorem MEM_Tyvar_MAP_Tyvar:
   !l x. MEM (Tyvar x) (MAP Tyvar l) = MEM x l
 Proof
   match_mp_tac MEM_f_MAP_f_INJ
-  >> fs[]
-QED
-
-Theorem ALL_DISTINCT_FST_MEMs:
-  !x v w s. ALL_DISTINCT (MAP FST s)
-  /\ MEM (x,v) s /\ MEM (x,w) s
-  ==> v = w
-Proof
-  rw[]
-  >> qpat_x_assum `MEM _ s` (assume_tac o REWRITE_RULE[MEM_SPLIT])
-  >> fs[]
-  >> `~MEM x (MAP FST l1) /\ ~MEM x (MAP FST l2)` by (
-    imp_res_tac (Q.ISPEC `FST` MEM_MAP_f)
-    >> fs[ALL_DISTINCT_APPEND]
-  )
-  >> `~MEM (x,v) l1 /\ ~MEM (x,v) l2` by (
-    CCONTR_TAC
-    >> fs[]
-    >> imp_res_tac (Q.ISPEC `FST` MEM_MAP_f)
-    >> fs[]
-  )
-  >> fs[]
-QED
-
-Theorem ALL_DISTINCT_SND_MEMs:
-  !x v w s. ALL_DISTINCT (MAP SND s)
-  /\ MEM (v,x) s /\ MEM (w,x) s
-  ==> v = w
-Proof
-  ONCE_REWRITE_TAC[GSYM FST_SND_SWAP]
-  >> rw[GSYM MAP_MAP_o]
-  >> imp_res_tac (Q.ISPEC `SWAP` MEM_MAP_f)
-  >> fs[SWAP_def]
-  >> match_mp_tac ALL_DISTINCT_FST_MEMs
-  >> goal_assum (first_assum o mp_then Any mp_tac)
   >> fs[]
 QED
 
@@ -1867,6 +1825,7 @@ Proof
   )
 QED
 
+(*
 Theorem clean_tysubst_MEM:
   !pfx q q' x sfx. ~MEM (Tyvar x) (MAP SND pfx) /\ Tyvar x <> q
   /\ MEM (q,Tyvar x) (clean_tysubst (pfx ++ [(q',Tyvar x)] ++ sfx))
@@ -1885,6 +1844,7 @@ Proof
   >> asm_exists_tac
   >> fs[]
 QED
+*)
 
 Theorem clean_tysubst_NOT_MEM:
    !pfx a sfx q. ¬MEM (Tyvar a) (MAP SND pfx)

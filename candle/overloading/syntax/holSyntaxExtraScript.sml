@@ -20,6 +20,50 @@ Overload "#" = ``$orth_ci``
 val cpn_distinct = TypeBase.distinct_of ``:ordering``
 val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
 
+(* list properties *)
+
+Theorem FST_SND_SWAP:
+  FST o SWAP = SND
+  /\ SND o SWAP = FST
+Proof
+  rw[FUN_EQ_THM,SWAP_def]
+QED
+
+Theorem ALL_DISTINCT_FST_MEMs:
+  !x v w s. ALL_DISTINCT (MAP FST s)
+  /\ MEM (x,v) s /\ MEM (x,w) s
+  ==> v = w
+Proof
+  rw[]
+  >> qpat_x_assum `MEM _ s` (assume_tac o REWRITE_RULE[MEM_SPLIT])
+  >> fs[]
+  >> `~MEM x (MAP FST l1) /\ ~MEM x (MAP FST l2)` by (
+    imp_res_tac (Q.ISPEC `FST` MEM_MAP_f)
+    >> fs[ALL_DISTINCT_APPEND]
+  )
+  >> `~MEM (x,v) l1 /\ ~MEM (x,v) l2` by (
+    CCONTR_TAC
+    >> fs[]
+    >> imp_res_tac (Q.ISPEC `FST` MEM_MAP_f)
+    >> fs[]
+  )
+  >> fs[]
+QED
+
+Theorem ALL_DISTINCT_SND_MEMs:
+  !x v w s. ALL_DISTINCT (MAP SND s)
+  /\ MEM (v,x) s /\ MEM (w,x) s
+  ==> v = w
+Proof
+  ONCE_REWRITE_TAC[GSYM FST_SND_SWAP]
+  >> rw[GSYM MAP_MAP_o]
+  >> imp_res_tac (Q.ISPEC `SWAP` MEM_MAP_f)
+  >> fs[SWAP_def]
+  >> match_mp_tac ALL_DISTINCT_FST_MEMs
+  >> goal_assum (first_assum o mp_then Any mp_tac)
+  >> fs[]
+QED
+
 (* contraposition of an equivalence *)
 fun ccontr_equiv(x) =
   let val (a,b) = EQ_IMP_RULE (SPEC_ALL x)
@@ -224,6 +268,15 @@ Theorem TYPE_SUBST_Tyapp_ident:
   ==> !ty. MEM ty tys ==> TYPE_SUBST s ty = ty
 Proof
   rw[MEM_SPLIT] >> fs[ELIM_UNCURRY,APPEND_LENGTH_EQ]
+QED
+
+Theorem TYPE_SUBST_eq_id:
+  !ty s. TYPE_SUBST s ty = ty
+  <=> !x. MEM x (tyvars ty) ==> TYPE_SUBST s (Tyvar x) = Tyvar x
+Proof
+  rpt gen_tac
+  >> CONV_TAC $ LAND_CONV $ RAND_CONV $ REWR_CONV $ GSYM TYPE_SUBST_NIL
+  >> fs[TYPE_SUBST_tyvars,Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_def,EQ_SYM_EQ]
 QED
 
 Theorem TYPE_SUBST_reduce:
@@ -5077,12 +5130,6 @@ Proof
   >> metis_tac[UNION_ASSOC]
 QED
 
-Theorem MEM_MAP_f:
-  !f l a. MEM a l ==> MEM (f a) (MAP f l)
-Proof
-  rw[MEM_MAP] >> qexists_tac `a` >> fs[]
-QED
-
 Theorem normalise_tyvars_rec_domain:
   !ty chr. set (MAP SND (SND (normalise_tyvars_rec ty chr))) = set(MAP Tyvar (tyvars ty))
 Proof
@@ -5110,9 +5157,7 @@ Theorem normalise_tyvars_rec_domain_imp:
   (!ty chr x. MEM x (MAP SND (SND (normalise_tyvars_rec ty chr))) ==> MEM x (MAP Tyvar (tyvars ty)))
   /\ (!ty chr x. MEM x (MAP Tyvar (tyvars ty)) ==> MEM x (MAP SND (SND (normalise_tyvars_rec ty chr))))
 Proof
-  rw[]
-  >- ((qspecl_then [`ty`,`chr`] assume_tac) normalise_tyvars_rec_domain >> imp_res_tac set_MEM)
-  >> ((qspecl_then [`ty`,`chr`] assume_tac) (GSYM normalise_tyvars_rec_domain) >> imp_res_tac set_MEM)
+  rpt strip_tac >> qspecl_then [`ty`,`chr`] assume_tac normalise_tyvars_rec_domain >> fs[]
 QED
 
 Theorem TYPE_SUBST_replacing_all:
@@ -5155,6 +5200,22 @@ Proof
   >> rw[MEM_MAP]
   >> first_x_assum (qspec_then `f` assume_tac)
   >> fs[]
+QED
+
+Theorem ALL_DISTINCT_MAP_inj':
+  !l f. (!x y. MEM x l /\ MEM y l ==> (f x = f y <=> x = y))
+  ==> ALL_DISTINCT l = ALL_DISTINCT (MAP f l)
+Proof
+  Induct >> rw[MEM_MAP]
+  >> first_x_assum $ qspec_then `f` mp_tac
+  >> impl_tac
+  >- (rpt strip_tac >> fs[DISJ_IMP_THM])
+  >> fs[DISJ_IMP_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,FORALL_AND_THM,EQ_IMP_THM]
+  >> ntac 2 $ pop_assum kall_tac
+  >> rw[EQ_IMP_THM,DISJ_EQ_IMP]
+  >> spose_not_then assume_tac
+  >> first_x_assum $ drule_then $ drule_then assume_tac
+  >> gvs[]
 QED
 
 Theorem normalise_tyvars_rec_len:
@@ -5464,12 +5525,12 @@ Proof
   >> imp_res_tac normalise_tyvars_rec_chr_diff
   >> first_x_assum (qspecl_then [`ty2`,`ty1`] assume_tac)
   >> CCONTR_TAC
-  >> (qspecl_then [`ty1`,`chr1`] assume_tac) normalise_tyvars_rec_subst_snd_distinct
-  >> (qspecl_then [`ty2`,`chr2`] assume_tac) normalise_tyvars_rec_subst_snd_distinct
-  >> (qspecl_then [`ty1`,`chr1`] assume_tac) normalise_tyvars_rec_ineq
-  >> (qspecl_then [`ty2`,`chr2`] assume_tac) normalise_tyvars_rec_ineq
-  >> (qspecl_then [`ty1`,`chr1`] assume_tac) normalise_tyvars_rec_renames
-  >> (qspecl_then [`ty2`,`chr2`] assume_tac) normalise_tyvars_rec_renames
+  >> qspecl_then [`ty1`,`chr1`] assume_tac normalise_tyvars_rec_subst_snd_distinct
+  >> qspecl_then [`ty2`,`chr2`] assume_tac normalise_tyvars_rec_subst_snd_distinct
+  >> qspecl_then [`ty1`,`chr1`] assume_tac normalise_tyvars_rec_ineq
+  >> qspecl_then [`ty2`,`chr2`] assume_tac normalise_tyvars_rec_ineq
+  >> qspecl_then [`ty1`,`chr1`] assume_tac normalise_tyvars_rec_renames
+  >> qspecl_then [`ty2`,`chr2`] assume_tac normalise_tyvars_rec_renames
   >> fs[NULL_FILTER,list_inter_def,normalise_tyvars_rec_def,MEM_MAP,renaming_def]
   >> qmatch_assum_abbrev_tac `MEM _ (tyvars (TYPE_SUBST subst1 ty1))`
   >> qmatch_assum_abbrev_tac `MEM _ (tyvars (TYPE_SUBST subst2 ty2))`
@@ -5544,6 +5605,18 @@ Proof
   >> Induct >> fs[clean_tysubst_def]
   >> Cases >> Cases_on `r`
   >> rw[clean_tysubst_def,EVERY_FILTER_IMP]
+QED
+
+Theorem clean_tysubst_MEM:
+  !a x s. MEM (a, Tyvar x) (clean_tysubst s)
+  ==> TYPE_SUBST (clean_tysubst s) (Tyvar x) = a
+Proof
+  rpt strip_tac
+  >> drule_then assume_tac $ Q.ISPEC `SND` MEM_MAP_f
+  >> fs[Excl"TYPE_SUBST_def"]
+  >> dxrule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
+  >> dxrule_at_then Any (rev_dxrule_at Any) ALL_DISTINCT_SND_MEMs
+  >> fs[clean_tysubst_prop]
 QED
 
 val clean_tysubst_prop_conj = CONJUNCTS clean_tysubst_prop
@@ -8275,14 +8348,11 @@ Theorem unify_complete:
   !ty1 ty2. ~(ty1 # ty2) = IS_SOME (unify ty1 ty2)
 Proof
   rw[]
-  >> (qspecl_then [`ty1`,`ty2`,`#"a"`,`#"b"`] assume_tac) normalise_tyvars_rec_chr_diff2
-  >> (qspecl_then [`ty1`,`ty2`,`#"a"`,`#"b"`] assume_tac) orth_ty_normalise
+  >> qspecl_then [`ty1`,`ty2`,`#"a"`,`#"b"`] assume_tac normalise_tyvars_rec_chr_diff2
+  >> qspecl_then [`ty1`,`ty2`,`#"a"`,`#"b"`] assume_tac orth_ty_normalise
   >> fs[unify_def]
   >> pop_assum kall_tac
-  >> imp_res_tac (GSYM unifiable_orth_ty_equiv)
-  >> rpt (qpat_x_assum `_ ==> _` kall_tac)
-  >> fs[]
-  >> fs[unify_types_complete,ELIM_UNCURRY]
+  >> fs[GSYM unifiable_orth_ty_equiv,unify_types_complete,ELIM_UNCURRY]
   >> FULL_CASE_TAC
   >> fs[IS_SOME_DEF]
 QED
