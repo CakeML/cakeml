@@ -5261,6 +5261,68 @@ Proof
   rw[monotone_compute_def,monotone_def,EVERY_MEM,DEPENDENCY_EQUIV,FORALL_PROD,list_subset_set]
 QED
 
+(* composability check *)
+
+Overload continue = ``λx. SOME (SOME (x:(((type#type) list)#((type#type) list))))``;
+Overload ignore = ``NONE:(((type#type) list)#((type#type) list)) option option``;
+Overload uncomposable = ``SOME (NONE:(((type#type) list)#((type#type) list)) option)``;
+
+(* check if q is composable at a dependency p --> _
+* returns whether q p are non-strict instances of one-another *)
+Definition composable_one_def:
+  composable_one q p =
+    let s = unify q p
+    in case s of
+      | NONE => ignore
+      | SOME (s_q,s_p) =>
+    let s_p' = (* FILTER ((λx. MEM x $ MAP Tyvar (tyvars p)) o SND) $ *) clean_tysubst s_p ;
+        s_q' = (* FILTER ((λx. MEM x $ MAP Tyvar (tyvars q)) o SND) $ *) clean_tysubst s_q ;
+        sp_inv = invertible_on s_q' (tyvars q) ;
+        sq_inv = invertible_on s_q' (tyvars p)
+    in
+      if sp_inv /\ ~sq_inv
+      (* p is a strict instance of q, witnessed by (s_p'^-1) (s_q') q = p *)
+      then ignore
+      else if ~sp_inv /\ sq_inv
+      (* q is a strict instance of p, witnessed by q = (s_q'^-1) (s_p') p *)
+      then continue (s_p', inverse_on s_q' (tyvars q))
+      (* both are invertible *)
+      else uncomposable
+End
+
+Definition composable_one_LR_def:
+  composable_one_LR q p =
+    case (q,p) of
+       | (INL q', INL p') => composable_one q' p'
+       | (INR (Const c q'), INR (Const d p')) =>
+          if c = d then composable_one q' p' else ignore
+       | _ => ignore
+End
+
+(* composable_step q dep
+* = ISL $ one step extension of q by possible dep
+* = ISR $ witness for impossible extension
+*)
+Definition composable_step_def:
+  (composable_step _ [] dep' = INL dep')
+  /\ (composable_step q (p::dep) dep' =
+    case composable_one_LR q (FST p) of
+       | ignore => composable_step q dep dep'
+       | continue (sp, _) =>
+          composable_step q dep ((q, LR_TYPE_SUBST sp (SND p)) :: dep')
+       | uncomposable => INR (q, p) (* returns counter-example *)
+  )
+End
+
+Theorem composable_dep_composable_step:
+  ~composable_dep ctxt
+  <=> ?rs pqs. sol_seq rs pqs
+  /\ equiv_ts_on [] (HD rs) (FV $ FST $ HD $ pqs)
+  /\ ISR $ composable_step (SND $ LAST pqs) (dependency_compute ctxt) []
+Proof
+  fs[path_starting_at_def,composable_dep_def]
+QED
+
 (*
  * dep_ext dep dephd deptl
  * extends every pair (p,q) in deptl by one dependency step from dep
