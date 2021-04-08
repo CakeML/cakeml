@@ -2707,6 +2707,27 @@ Proof
 QED
 
 
+Theorem evaluate_if_compare_sys_time:
+  ∀v m n t res t'.
+    evaluate
+    (If (Cmp Equal (Var v) (Const (n2w m)))
+     (Return (Const 0w)) (Skip:'a panLang$prog),t) = (res,t') ∧
+    FLOOKUP t.locals v = SOME (ValWord (n2w n)) ∧
+    n < m ∧
+    n < dimword (:α) ∧ m < dimword (:α) ⇒
+    res = NONE ∧
+    t' = t
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  gs [evaluate_def, eval_def, asmTheory.word_cmp_def] >>
+  every_case_tac >> gs [eval_def, evaluate_def] >>
+  every_case_tac >> gs [shape_of_def, panLangTheory.size_of_shape_def]
+QED
+
+
+
+
 Theorem time_seq_add_holds:
   ∀f m p.
     time_seq f m ⇒
@@ -3126,6 +3147,18 @@ Proof
     gs [] >>
     pop_assum kall_tac >>
     pop_assum kall_tac >>
+    (* If statement *)
+    rewrite_tac [Once evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    drule evaluate_if_compare_sys_time >>
+    disch_then (qspec_then ‘FST (nexts_ffi cycles t.ffi.ffi_state 1)’ mp_tac) >>
+    impl_tac
+    >- (
+      unabbrev_all_tac >>
+      gs [FLOOKUP_UPDATE, nexts_ffi_def] >>
+      gs [delay_rep_def, ADD1]) >>
+    strip_tac >> rveq >> gs [] >>
     rewrite_tac [Once evaluate_def] >>
     fs [] >>
     strip_tac >> fs [] >>
@@ -3496,6 +3529,18 @@ Proof
     gs [] >>
     pop_assum kall_tac >>
     pop_assum kall_tac >>
+    (* If statement *)
+    rewrite_tac [Once evaluate_def] >>
+    fs [] >>
+    pairarg_tac >> fs [] >>
+    drule evaluate_if_compare_sys_time >>
+    disch_then (qspec_then ‘FST (nexts_ffi cycles t.ffi.ffi_state 1)’ mp_tac) >>
+    impl_tac
+    >- (
+      unabbrev_all_tac >>
+      gs [FLOOKUP_UPDATE, nexts_ffi_def] >>
+      gs [delay_rep_def, ADD1]) >>
+    strip_tac >> rveq >> gs [] >>
     rewrite_tac [Once evaluate_def] >>
     fs [] >>
     strip_tac >> fs [] >>
@@ -3672,7 +3717,6 @@ Proof
   strip_tac >>
   qexists_tac ‘ck’ >>
   gs [] >>
-
   fs [wait_input_time_limit_def] >>
   rewrite_tac [Once evaluate_def] >>
   drule step_wait_delay_eval_wait_not_zero >>
@@ -3814,6 +3858,18 @@ Proof
   gs [] >>
   pop_assum kall_tac >>
   pop_assum kall_tac >>
+   (* If statement *)
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  drule evaluate_if_compare_sys_time >>
+  disch_then (qspec_then ‘FST (nexts_ffi cycles t.ffi.ffi_state 1)’ mp_tac) >>
+    impl_tac
+  >- (
+  unabbrev_all_tac >>
+  gs [FLOOKUP_UPDATE, nexts_ffi_def] >>
+  gs [delay_rep_def, ADD1]) >>
+  strip_tac >> rveq >> gs [] >>
   rewrite_tac [Once evaluate_def] >>
   fs [] >>
   strip_tac >> fs [] >>
@@ -4515,6 +4571,24 @@ Proof
     gs [nexts_ffi_def, mem_config_def]) >>
   strip_tac >>
   gs [] >> rveq >> gs [] >>
+  (* If statement *)
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  drule evaluate_if_compare_sys_time >>
+  disch_then (qspec_then ‘FST (t.ffi.ffi_state 1)’ mp_tac) >>
+  impl_tac
+  >- (
+    unabbrev_all_tac >>
+    gs [FLOOKUP_UPDATE, nexts_ffi_def] >>
+    gs [step_cases, ADD1, state_rel_def, input_time_rel_def] >>
+    pairarg_tac >> gs [] >>
+    last_x_assum (qspec_then ‘0’ mp_tac) >>
+    gs [input_time_eq_def, has_input_def, input_rel_def, next_ffi_def] >>
+    strip_tac >>
+    drule LESS_MOD >>
+    strip_tac >> gs []) >>
+  strip_tac >> rveq >> gs [] >>
   rewrite_tac [Once evaluate_def] >>
   fs [] >>
   strip_tac >> fs [] >>
@@ -4980,8 +5054,6 @@ Proof
     >- (
       gs [Abbr ‘nnt’, FLOOKUP_UPDATE, nffi_state_def] >>
       gs [ffi_call_ffi_def, next_ffi_def]) >>
-
-
     gs [clocks_rel_def, FLOOKUP_UPDATE, nffi_state_def] >>
     fs [Abbr ‘rrtv’] >>
     fs [nffi_state_def, Abbr ‘nnt’, ffi_call_ffi_def, next_ffi_def] >>
@@ -6106,7 +6178,7 @@ Proof
   gs []
 QED
 
-
+(*
 Theorem foo:
   ∀prog s t m n.
     state_rel (clksOf prog) (out_signals prog) s t ⇒
@@ -6118,20 +6190,6 @@ Proof
 QED
 
 
-(*
-  steps to be taken:
-   1.
-   2.
-   3.
-
-*)
-
-
-
-
-
-
-(*
 top-level theorem:
   to.ffi.io_events = [] /\ state_rel s0 t0 /\ sensible_ffi t0.ffi ==>
   ?io_events.
@@ -6159,7 +6217,7 @@ top-level theorem:
     IO_event "get_time_input" "" [([],[8,no_input])]
     IO_event "get_time_input" "" [([],[8,no_input])]
     IO_event "get_time_input" "" [([],[8,input_here])]
-*)
+
 
 
 
@@ -6227,7 +6285,6 @@ Theorem foo:
 Proof
 
 QED
-
 
 Theorem timed_automata_correct:
   ∀labels prog st it sts (t:('a,time_input) panSem$state).
@@ -6545,7 +6602,7 @@ Proof
   strip_tac >>
   cheat
 QED
-
+*)
 
 
 

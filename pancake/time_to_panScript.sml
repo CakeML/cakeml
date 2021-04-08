@@ -207,6 +207,7 @@ Definition normalisedClks_def:
        (fieldsOf (Var v2) n)
 End
 
+
 Definition check_input_time_def:
   check_input_time =
   let time =  Load One (Var «ptr2»);
@@ -218,7 +219,9 @@ Definition check_input_time_def:
         ExtCall «get_time_input» «ptr1» «len1» «ptr2» «len2» ;
         Assign  «sysTime» time ;
         Assign  «event»   input;
-        Assign  «isInput» (Cmp Equal input (Const 0w))
+        Assign  «isInput» (Cmp Equal input (Const 0w));
+        If (Cmp Equal (Var «sysTime») (Const (n2w (dimword (:α) -1))))
+           (Return (Const 0w)) (Skip:'a prog)
       ]
 End
 
@@ -230,12 +233,10 @@ Definition wait_def:
              Cmp Lower (Var «sysTime») (Var «wakeUpAt»)]]
 End
 
-
 Definition wait_input_time_limit_def:
   wait_input_time_limit =
     While wait check_input_time
 End
-
 
 
 Definition task_controller_def:
