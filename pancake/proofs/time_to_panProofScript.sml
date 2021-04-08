@@ -4407,7 +4407,7 @@ Definition wait_time_locals_def:
         FST (ffi (0:num)) < wt + st
 End
 
-(* cheat about length *)
+
 Theorem step_input:
   !prog i m n s s' (t:('a,time_input) panSem$state).
     step prog (LAction (Input i)) m n s s' ∧
@@ -4823,7 +4823,12 @@ Proof
     reverse conj_tac
     >- (
       drule read_bytearray_LENGTH >>
-      gs [] >> cheat) >>
+      gs [] >>
+      strip_tac >>
+      gs [out_sig_bytes_def, ffiBufferSize_def,
+          length_get_bytes, bytes_in_word_def] >>
+      rewrite_tac [addressTheory.WORD_TIMES2] >>
+      gs [good_dimindex_def, dimword_def]) >>
     gs [ffiTheory.ffi_state_component_equality] >>
     ‘MEM tms (MAP SND prog)’ by (
       drule ALOOKUP_MEM >>
