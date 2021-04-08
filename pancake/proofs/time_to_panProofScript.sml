@@ -5414,13 +5414,6 @@ Proof
   pop_assum kall_tac >>
   qmatch_asmsub_abbrev_tac ‘(«clks» ,Struct nclks)’ >>
   qmatch_asmsub_abbrev_tac ‘evaluate (_, nnt)’ >>
-
-
-
-
-
-
-
   drule  (INST_TYPE [``:'a``|->``:'a``,
                      ``:'b``|->``:time_input``] pick_term_thm) >>
   fs [] >>
@@ -5491,7 +5484,12 @@ Proof
     reverse conj_tac
     >- (
       drule read_bytearray_LENGTH >>
-      gs [] >> cheat) >>
+      gs [] >>
+      strip_tac >>
+      gs [out_sig_bytes_def, ffiBufferSize_def,
+          length_get_bytes, bytes_in_word_def] >>
+      rewrite_tac [addressTheory.WORD_TIMES2] >>
+      gs [good_dimindex_def, dimword_def]) >>
     gs [ffiTheory.ffi_state_component_equality] >>
     ‘MEM tms (MAP SND prog)’ by (
       drule ALOOKUP_MEM >>
