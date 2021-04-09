@@ -155,8 +155,8 @@ End
 
 
 Definition eval_steps_def:
-  (eval_steps (0:num) prog m n or st (lbls, sts) = SOME (lbls, sts)) ∧
-  (eval_steps (SUC k) prog m n or st (lbls, sts) =
+  (eval_steps 0 prog m n or st = SOME ([],[])) ∧
+  (eval_steps (SUC k) prog m n or st =
    case eval_step prog m n or k st of
    | SOME (lbl, st') =>
        let n' =
@@ -164,7 +164,7 @@ Definition eval_steps_def:
            | LDelay d => d + n
            | LAction _ => n
        in
-         (case eval_steps k prog m n' or st' (lbls, sts) of
+         (case eval_steps k prog m n' or st' of
           | NONE => NONE
           | SOME (lbls', sts') => SOME (lbl::lbls', st'::sts'))
    | NONE => NONE)
@@ -357,7 +357,7 @@ QED
 
 Theorem eval_steps_imp_steps:
   ∀k prog m n or st labels sts.
-    eval_steps k prog m n or st ([],[]) = SOME (labels, sts) ⇒
+    eval_steps k prog m n or st = SOME (labels, sts) ⇒
     steps prog labels m n st sts
 Proof
   Induct >> rw []
