@@ -370,33 +370,4 @@ Proof
   res_tac >> gs []
 QED
 
-
-
-(*
-Plan:
-  - define new alt version of steps that separates input from output
-  - require that steps_eval is total
-  step_eval s or = SOME (s',labels)
-  step_eval s or = SOME (s',label) ==>
-  step label s s'
-  or is an oracle that answers the question: is there an input, is there delay?
-  the type of or is something like a sequence of optional inputs,
-  where SOME i means input i now and NONE means a delay of length 1
-    : num -> num option
-  perhaps num option is not descriptive enough, how about:
-Datatype:
-  input_or_delay = Delay (* always one in length *) | Input num
-End
-  steps_eval k s or -- runs step_eval for k iterations while propagating early failures
-  pick_eval (tm::tms)  =
-    case tm of
-    | Input in_signal =>
-        if ... then NONE else
-        if ... then SOME (...) else
-          pick_eval tms
-    | ...
-       timeFunSem instead of timeSem
-
-*)
-
 val _ = export_theory();
