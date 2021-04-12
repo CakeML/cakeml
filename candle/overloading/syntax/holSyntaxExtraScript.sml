@@ -5922,6 +5922,25 @@ Proof
   rw[EQ_IMP_THM,orth_ty_symm_imp]
 QED
 
+Theorem orth_ty_simp[simp]:
+  !ty:type. ~(ty # ty)
+Proof
+  fs[orth_ty_def]
+QED
+
+Theorem orth_ty_simp'[simp]:
+  !ty:type s. ~(ty # TYPE_SUBST s ty)
+Proof
+  rpt gen_tac >> irule $ ONCE_REWRITE_RULE[MONO_NOT_EQ] orth_ty_instance1
+  >> qmatch_goalsub_abbrev_tac `TYPE_SUBST s ty` >> qexists_tac `s` >> simp[]
+QED
+
+Theorem orth_ty_simp''[simp]:
+  !ty:type s. ~(TYPE_SUBST s ty # ty)
+Proof
+  ONCE_REWRITE_TAC[orth_ty_symm] >> simp[]
+QED
+
 Definition unifiable_def:
   unifiable ty1 ty2 = ?s. TYPE_SUBST s ty1 = TYPE_SUBST s ty2
 End
