@@ -1253,6 +1253,27 @@ Proof
   >> goal_assum drule
 QED
 
+Theorem invertible_on_normalise_tyvars_rec:
+  !ty chr. invertible_on (SND $ normalise_tyvars_rec ty chr) (tyvars ty)
+Proof
+  rw[invertible_on_eq']
+  >- (
+    dxrule_then assume_tac $ cj 2 $ REWRITE_RULE[EQ_IMP_THM] MEM_Tyvar_MAP_Tyvar
+    >> dxrule_then (qspec_then `chr` assume_tac) $ cj 2 $
+      REWRITE_RULE[GSYM SUBSET_ANTISYM_EQ,SUBSET_DEF,EQ_IMP_THM] normalise_tyvars_rec_domain
+    >> drule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
+    >> qspecl_then [`ty`,`chr`] assume_tac normalise_tyvars_rec_chr
+    >> fs[EVERY_MEM,MEM_MAP,ELIM_UNCURRY] >> res_tac >> gvs[]
+  )
+  >> imp_res_tac $ cj 2 $ REWRITE_RULE[EQ_IMP_THM] MEM_Tyvar_MAP_Tyvar
+  >> imp_res_tac $ cj 2 $ REWRITE_RULE[GSYM SUBSET_ANTISYM_EQ,SUBSET_DEF,EQ_IMP_THM] normalise_tyvars_rec_domain
+  >> ntac 2 $ first_x_assum $ qspec_then `chr` assume_tac
+  >> ntac 2 $ dxrule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
+  >> gvs[]
+  >> dxrule_at_then Any (dxrule_at Any) ALL_DISTINCT_FST_MEMs
+  >> fs[normalise_tyvars_rec_distinct_fst]
+QED
+
 Theorem invertible_on_eq:
   !s vars. ((!x. MEM x vars ==> ?y. TYPE_SUBST s (Tyvar x) = Tyvar y)
       /\ !x y. MEM x vars /\ MEM y vars
@@ -1269,6 +1290,23 @@ Proof
   >> imp_res_tac $ REWRITE_RULE[invertible_on_def] invertible_on_imp1
   >> fs[]
 QED
+
+Theorem invertible_on_tyvars':
+  !s ty. invertible_on s (tyvars ty) <=>
+      TYPE_SUBST (MAP (λx. (Tyvar x, TYPE_SUBST (clean_tysubst s) (Tyvar x))) $ tyvars ty)
+      (TYPE_SUBST s ty) = ty
+Proof
+  rpt gen_tac
+  >> ONCE_REWRITE_TAC[invertible_on_tyvars_Tyapp]
+  >> REWRITE_TAC[invertible_on_eq',invertible_on_eq]
+  >> dep_rewrite.DEP_REWRITE_TAC[tyvars_Tyapp_MAP_Tyvar,all_distinct_nub]
+  >> fs[nub_set,all_distinct_nub_id,all_distinct_nub,TYPE_SUBST_compose,Once TYPE_SUBST_eq_id]
+  >> fs[GSYM TYPE_SUBST_compose,Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_def]
+QED
+
+Definition inverse_on_def:
+  inverse_on s vars = FILTER ((λx. MEM x $ MAP Tyvar vars) o SND) $ clean_tysubst s
+End
 
 Theorem invertible_on_compute:
   !s vars. invertible_on s vars <=>
@@ -1402,6 +1440,15 @@ Proof
       >> gvs[]
     )
   )
+QED
+
+Theorem invertible_on_equiv_ts_on:
+  !s ty. invertible_on s (tyvars ty) = equiv_ts_on s [] (tyvars ty)
+Proof
+  rw[EQ_IMP_THM,equiv_ts_on_def]
+  >> fs[invertible_on_tyvars,equal_ts_on_tyvars]
+  >- (irule $ GSYM bij_props_var_renaming >> metis_tac[])
+  >> drule_then (irule_at Any) var_renaming_SWAP_id
 QED
 
 Theorem renaming_CARD_LESS_OR_EQ:
