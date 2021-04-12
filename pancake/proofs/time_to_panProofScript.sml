@@ -4408,6 +4408,52 @@ Definition wait_time_locals_def:
 End
 
 
+Definition io_event_dest_def:
+  io_event_dest (IO_event _ _ l) = MAP SND l
+End
+
+
+Definition ffi_value_def:
+  ffi_value l b ⇔
+   io_event_dest  (LAST l) = b
+End
+
+
+Definition label_eq_ffi_def:
+  label_eq_ffi (:'a) be (a,b) l ⇔
+  let
+    l = io_event_dest (LAST l);
+    ws = (words_of_bytes be l): 'a word list
+  in
+   (a,b) = (w2n (EL 0 ws), w2n (EL 1 ws) - 1)
+End
+
+(*
+Definition last_two_def:
+  last_two l b1 b2 =
+  let
+    len = LENGTH l;
+    m = len - 1;
+    n = len - 2
+  in
+    io_event_dest (EL n l) = b1 ∧
+    io_event_dest (EL m l) = b2
+End
+*)
+
+(*
+  last_two t'.ffi.io_events (time_input (:'a) t'.be ARB) (time_input (:'a) t'.be ARB)
+*)
+
+(*
+   t'.ffi.io_events =
+   t.ffi.io_events ++
+   [IO_event "get_time_input" []
+   (ZIP
+   (bytes, ARB))]∧
+   label_eq_ffi (:'a) t'.be (ARB, ARB) (io_event_dest (LAST t'.ffi.io_events))
+*)
+
 Theorem step_input:
   !prog i m n s s' (t:('a,time_input) panSem$state).
     step prog (LAction (Input i)) m n s s' ∧
@@ -4445,7 +4491,22 @@ Theorem step_input:
           | SOME wt => wt))) ∧
       (case s'.waitTime of
        | SOME wt => FST (t.ffi.ffi_state 0) + wt < dimword (:α)
-       | _ => T)
+       | _ => T) ∧
+      (∃bytes.
+         t'.ffi.io_events =
+         t.ffi.io_events ++
+          [IO_event "get_time_input" []
+           (ZIP (bytes, time_input (:α) t.be t.ffi.ffi_state))]) ∧
+      label_eq_ffi (:'a) t'.be (FST (t.ffi.ffi_state 0), i) t'.ffi.io_events
+
+
+      (*
+      ffi_value t'.ffi.io_events (time_input (:'a) t'.be t.ffi.ffi_state) *)
+      (*
+      last_two t'.ffi.io_events
+               (time_input (:'a) t'.be ARB)
+               (time_input (:'a) t'.be ARB) *)
+
 Proof
   rw [] >>
   fs [task_controller_def] >>
@@ -5238,6 +5299,22 @@ Proof
       rveq >> gs [] >>
       gs [evalTerm_cases] >> rveq >>
       gs [calculate_wtime_def, list_min_option_def]) >>
+    gs [ffi_value_def, io_event_dest_def] >>
+    conj_tac
+    >- (
+      qexists_tac ‘bytes’ >>
+      gs [time_input_def]) >>
+    gs [label_eq_ffi_def] >>
+    qmatch_goalsub_abbrev_tac ‘ZIP (_, nbytes)’ >>
+    gs [io_event_dest_def] >>
+    ‘MAP SND (ZIP (bytes,nbytes)) = nbytes’ by cheat >>
+    gs [] >>
+    ‘words_of_bytes t.be nbytes =
+     [(n2w (FST (t.ffi.ffi_state 1))):'a word;
+     n2w (SND (t.ffi.ffi_state 1))]’ by cheat >>
+    gs [] >>
+    ‘SND (t.ffi.ffi_state 1) MOD dimword (:α) =
+     SND (t.ffi.ffi_state 1)’ by cheat >>
     gs []) >>
   fs [] >>
   qmatch_goalsub_abbrev_tac ‘n2w (THE (nwt))’ >>
@@ -5251,7 +5328,25 @@ Proof
     gs [Abbr ‘nwt’, Once pickTerm_cases] >>
     rveq >> gs [] >>
     gs [evalTerm_cases]) >>
-  gs [word_add_n2w]
+  gs [word_add_n2w] >>
+  gs [ffi_value_def, io_event_dest_def] >>
+  (* repitition *)
+  conj_tac
+  >- (
+    qexists_tac ‘bytes’ >>
+    gs [time_input_def]) >>
+  gs [label_eq_ffi_def] >>
+  qmatch_goalsub_abbrev_tac ‘ZIP (_, nbytes)’ >>
+  gs [io_event_dest_def] >>
+  ‘MAP SND (ZIP (bytes,nbytes)) = nbytes’ by cheat >>
+  gs [] >>
+  ‘words_of_bytes t.be nbytes =
+   [(n2w (FST (t.ffi.ffi_state 1))):'a word;
+    n2w (SND (t.ffi.ffi_state 1))]’ by cheat >>
+  gs [] >>
+  ‘SND (t.ffi.ffi_state 1) MOD dimword (:α) =
+   SND (t.ffi.ffi_state 1)’ by cheat >>
+  gs []
 QED
 
 
@@ -5272,7 +5367,10 @@ End
 
 Definition out_sig_from_ffi_def:
   out_sig_from_ffi (:α) (IO_event s conf l) be =
-    w2n (word_of_bytes be (0w:'a word) (MAP SND l))
+  let
+    ws = (words_of_bytes be (MAP SND l)):'a word list
+  in
+    w2n (EL 0 ws)
 End
 
 
@@ -5891,9 +5989,23 @@ Proof
     gs [] >>
     gs [out_sig_from_ffi_def] >>
     ‘MAP SND (ZIP (bytes,out_sig_bytes (:α) t.be (toString os))) =
-     out_sig_bytes (:α) t.be (toString os)’ by cheat >>
+     out_sig_bytes (:α) t.be (toString os)’ by (
+      ‘LENGTH bytes = LENGTH (out_sig_bytes (:α) t.be (toString os))’ by (
+        (*
+        drule read_bytearray_LENGTH >>
+        gs [] >>
+        strip_tac >>
+        gs [out_sig_bytes_def, ffiBufferSize_def,
+            length_get_bytes, bytes_in_word_def] >>
+        rewrite_tac [addressTheory.WORD_TIMES2] >>
+        gs [good_dimindex_def, dimword_def]*)
+        cheat) >>
+      drule MAP_ZIP >>
+      gs []) >>
     gs [] >>
     gs [out_sig_bytes_def] >>
+    (*
+    (words_of_bytes be (get_bytes (:α) be x ++ get_bytes (:α) be y)) = [x,y] *)
     cheat) >>
   fs [] >>
   qmatch_goalsub_abbrev_tac ‘n2w (THE (nwt))’ >>
