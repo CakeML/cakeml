@@ -4092,6 +4092,46 @@ Proof
   fs [evaluate_def]
 QED
 
+Definition io_event_dest_def:
+  io_event_dest (IO_event _ _ l) = MAP SND l
+End
+
+(*
+  ios will be DROP from the io events
+*)
+Definition io_events_dest_def:
+  io_events_dest (:'a) be ios =
+  MAP
+    (MAP w2n o
+     (words_of_bytes: bool -> word8 list -> α word list) be o
+     io_event_dest)
+    ios
+End
+
+Definition io_events_eq_ffi_seq_def:
+  io_events_eq_ffi_seq seq cycles xs ⇔
+  LENGTH xs = cycles ∧
+  (∀i. i < cycles ⇒
+       EL i xs = seq (i+1))
+End
+
+(*
+(* this can be infered from above defs later if needed *)
+Definition delay_ffi_def:
+  delay_ffi xs ⇔
+  let
+    is = MAP FST xs;
+    ts = MAP SND xs
+  in
+    (∀i. MEM i is ⇒ i = 0) ∧
+    (∀m n.
+       m < LENGTH xs ∧
+       n < LENGTH xs ∧
+       n = m + 1 ⇒
+       EL m ts ≤ EL n ts)
+End
+*)
+
 Theorem step_delay:
   !cycles prog d m n s s' (t:('a,time_input) panSem$state) ck_extra.
     step prog (LDelay d) m n s s' ∧
@@ -4428,31 +4468,6 @@ Definition label_eq_ffi_def:
    (a,b) = (w2n (EL 0 ws), w2n (EL 1 ws) - 1)
 End
 
-(*
-Definition last_two_def:
-  last_two l b1 b2 =
-  let
-    len = LENGTH l;
-    m = len - 1;
-    n = len - 2
-  in
-    io_event_dest (EL n l) = b1 ∧
-    io_event_dest (EL m l) = b2
-End
-*)
-
-(*
-  last_two t'.ffi.io_events (time_input (:'a) t'.be ARB) (time_input (:'a) t'.be ARB)
-*)
-
-(*
-   t'.ffi.io_events =
-   t.ffi.io_events ++
-   [IO_event "get_time_input" []
-   (ZIP
-   (bytes, ARB))]∧
-   label_eq_ffi (:'a) t'.be (ARB, ARB) (io_event_dest (LAST t'.ffi.io_events))
-*)
 
 Theorem step_input:
   !prog i m n s s' (t:('a,time_input) panSem$state).
