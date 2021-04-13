@@ -4867,12 +4867,27 @@ Definition wait_time_locals_def:
         FST (ffi (0:num)) < wt + st
 End
 
-
-Definition io_event_dest_def:
-  io_event_dest (IO_event _ _ l) = MAP SND l
+Definition input_eq_ffi_seq_def:
+  input_eq_ffi_seq (seq:num -> num # num) xs ⇔
+  LENGTH xs = 2 ∧
+  (EL 0 xs, EL 1 xs) = seq 1
 End
 
 
+Definition input_io_events_rel_def:
+  input_io_events_rel (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) ⇔
+  (∃bytes.
+     LENGTH bytes = 2 * dimindex (:α) DIV 8 ∧
+     t'.ffi.io_events =
+     t.ffi.io_events ++
+      [mk_io_event (:α) t'.be bytes t.ffi.ffi_state]) ∧
+  (∃ns.
+     from_io_events (:'a) t.be t.ffi.io_events t'.ffi.io_events = [ns] ∧
+     input_eq_ffi_seq t.ffi.ffi_state ns)
+End
+
+
+(*
 Definition ffi_value_def:
   ffi_value l b ⇔
    io_event_dest  (LAST l) = b
@@ -4887,7 +4902,7 @@ Definition label_eq_ffi_def:
   in
    (a,b) = (w2n (EL 0 ws), w2n (EL 1 ws) - 1)
 End
-
+*)
 
 Theorem step_input:
   !prog i m n s s' (t:('a,time_input) panSem$state).
@@ -4919,6 +4934,7 @@ Theorem step_input:
       FLOOKUP t'.locals «event»   = SOME (ValWord 0w) ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
       task_ret_defined t'.locals (nClks prog) ∧
+      input_io_events_rel t t' ∧
       FLOOKUP t'.locals «wakeUpAt» =
         SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) +
           case s'.waitTime of
@@ -4926,21 +4942,7 @@ Theorem step_input:
           | SOME wt => wt))) ∧
       (case s'.waitTime of
        | SOME wt => FST (t.ffi.ffi_state 0) + wt < dimword (:α)
-       | _ => T) ∧
-      (∃bytes.
-         t'.ffi.io_events =
-         t.ffi.io_events ++
-          [IO_event "get_time_input" []
-           (ZIP (bytes, time_input (:α) t.be t.ffi.ffi_state))]) ∧
-      label_eq_ffi (:'a) t'.be (FST (t.ffi.ffi_state 0), i) t'.ffi.io_events
-
-
-      (*
-      ffi_value t'.ffi.io_events (time_input (:'a) t'.be t.ffi.ffi_state) *)
-      (*
-      last_two t'.ffi.io_events
-               (time_input (:'a) t'.be ARB)
-               (time_input (:'a) t'.be ARB) *)
+       | _ => T)
 
 Proof
   rw [] >>
@@ -5727,61 +5729,53 @@ Proof
   last_x_assum (qspec_then ‘Tm (Input (SND (t.ffi.ffi_state 1) − 1)) cnds tclks dest wt’ mp_tac) >>
   gs [timeLangTheory.termClks_def, timeLangTheory.termWaitTimes_def, resetOutput_def] >>
   strip_tac >>
-  cases_on ‘wt’ >> gs []
+  reverse conj_tac
   >- (
-    ‘s'.waitTime = NONE’ by (
+    cases_on ‘wt’ >> gs []
+    >- (
+      ‘s'.waitTime = NONE’ by (
       gs [Once pickTerm_cases] >>
       rveq >> gs [] >>
       gs [evalTerm_cases] >> rveq >>
       gs [calculate_wtime_def, list_min_option_def]) >>
-    gs [ffi_value_def, io_event_dest_def] >>
-    conj_tac
-    >- (
-      qexists_tac ‘bytes’ >>
-      gs [time_input_def]) >>
-    gs [label_eq_ffi_def] >>
-    qmatch_goalsub_abbrev_tac ‘ZIP (_, nbytes)’ >>
-    gs [io_event_dest_def] >>
-    ‘MAP SND (ZIP (bytes,nbytes)) = nbytes’ by cheat >>
+      gs []) >>
+    fs [] >>
+    qmatch_goalsub_abbrev_tac ‘n2w (THE (nwt))’ >>
+    ‘?t. nwt = SOME t’ by (
+      gs [Abbr ‘nwt’] >>
+      gs [calculate_wtime_def, list_min_option_def] >>
+      TOP_CASE_TAC >>
+      gs []) >>
     gs [] >>
-    ‘words_of_bytes t.be nbytes =
-     [(n2w (FST (t.ffi.ffi_state 1))):'a word;
-     n2w (SND (t.ffi.ffi_state 1))]’ by cheat >>
-    gs [] >>
-    ‘SND (t.ffi.ffi_state 1) MOD dimword (:α) =
-     SND (t.ffi.ffi_state 1)’ by cheat >>
-    gs []) >>
-  fs [] >>
-  qmatch_goalsub_abbrev_tac ‘n2w (THE (nwt))’ >>
-  ‘?t. nwt = SOME t’ by (
-    gs [Abbr ‘nwt’] >>
-    gs [calculate_wtime_def, list_min_option_def] >>
-    TOP_CASE_TAC >>
-    gs []) >>
-  gs [] >>
-  ‘s'.waitTime = nwt’ by (
-    gs [Abbr ‘nwt’, Once pickTerm_cases] >>
-    rveq >> gs [] >>
-    gs [evalTerm_cases]) >>
-  gs [word_add_n2w] >>
-  gs [ffi_value_def, io_event_dest_def] >>
-  (* repitition *)
-  conj_tac
+    ‘s'.waitTime = nwt’ by (
+      gs [Abbr ‘nwt’, Once pickTerm_cases] >>
+      rveq >> gs [] >>
+      gs [evalTerm_cases]) >>
+    gs [word_add_n2w]) >>
+  gs [input_io_events_rel_def] >>
+  conj_asm1_tac
   >- (
     qexists_tac ‘bytes’ >>
-    gs [time_input_def]) >>
-  gs [label_eq_ffi_def] >>
+    gs [mk_io_event_def, time_input_def] >>
+    cheat) >>
+  gs [from_io_events_def, DROP_LENGTH_APPEND, io_events_dest_def,
+      mk_io_event_def, io_event_dest_def, time_input_def] >>
   qmatch_goalsub_abbrev_tac ‘ZIP (_, nbytes)’ >>
-  gs [io_event_dest_def] >>
-  ‘MAP SND (ZIP (bytes,nbytes)) = nbytes’ by cheat >>
+  ‘LENGTH bytes' = LENGTH nbytes’ by (
+    fs [Abbr ‘nbytes’, length_get_bytes] >>
+    gs [good_dimindex_def]) >>
+  drule MAP_ZIP >>
   gs [] >>
+  strip_tac >>
   ‘words_of_bytes t.be nbytes =
-   [(n2w (FST (t.ffi.ffi_state 1))):'a word;
-    n2w (SND (t.ffi.ffi_state 1))]’ by cheat >>
-  gs [] >>
-  ‘SND (t.ffi.ffi_state 1) MOD dimword (:α) =
-   SND (t.ffi.ffi_state 1)’ by cheat >>
-  gs []
+   [n2w(FST (t.ffi.ffi_state 1)); (n2w(SND (t.ffi.ffi_state 1))):'a word]’ by (
+    fs [Abbr ‘nbytes’] >>
+    match_mp_tac words_of_bytes_get_bytes >>
+    gs []) >>
+  gs [input_eq_ffi_seq_def] >>
+  cases_on ‘t.ffi.ffi_state 1’ >> gs [] >>
+  gs [input_rel_def, step_cases, next_ffi_def] >>
+  cheat
 QED
 
 
