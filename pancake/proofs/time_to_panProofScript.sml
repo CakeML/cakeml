@@ -2932,6 +2932,121 @@ Definition mem_read_ffi_results_def:
     Word (n2w (SND (nexts_ffi i ffi 1)))
 End
 
+Definition io_event_dest_def:
+  io_event_dest (IO_event _ _ l) = MAP SND l
+End
+
+(*
+  ios will be DROP from the io events
+*)
+Definition io_events_dest_def:
+  io_events_dest (:'a) be ios =
+  MAP
+    (MAP w2n o
+     (words_of_bytes: bool -> word8 list -> α word list) be o
+     io_event_dest)
+    ios
+End
+
+
+Definition from_io_events_def:
+  from_io_events (:'a) be xs ys =
+    io_events_dest (:'a) be (DROP (LENGTH xs) ys)
+End
+
+
+Definition io_events_eq_ffi_seq_def:
+  io_events_eq_ffi_seq seq cycles xs ⇔
+  LENGTH xs = cycles ∧
+  EVERY (λx. LENGTH x = 2) xs ∧
+  (∀i. i < cycles ⇒
+       (EL 0 (EL i xs), EL 1 (EL i xs)) = seq (i+1))
+End
+
+
+Definition mk_io_event_def:
+  mk_io_event (:α) be bytes seq =
+    IO_event "get_time_input" []
+             (ZIP (bytes, time_input (:α) be seq))
+End
+
+
+Definition mk_io_events_def:
+  mk_io_events (:α) be (bytess:word8 list list) seqs =
+    MAP (λ(bytes,seq). mk_io_event (:α) be bytes seq)
+        (ZIP (bytess, seqs))
+End
+
+Definition gen_ffi_states_def:
+  gen_ffi_states seq cycles =
+    MAP (λm. (λn. seq (n + m)))
+        (GENLIST I cycles)
+End
+
+Definition ffi_io_events_rel_def:
+  ffi_io_events_rel (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) cycles ⇔
+  (∃bytess.
+     LENGTH bytess = cycles ∧
+     EVERY (λbtyes. LENGTH btyes = 2 * dimindex (:α) DIV 8) bytess ∧
+     t'.ffi.io_events =
+     t.ffi.io_events ++
+      mk_io_events (:α) t'.be bytess (gen_ffi_states t.ffi.ffi_state cycles)) ∧
+  io_events_eq_ffi_seq t.ffi.ffi_state cycles
+                       (from_io_events (:'a) t.be t.ffi.io_events t'.ffi.io_events)
+End
+
+Theorem words_of_bytes_get_byte:
+  ∀xs x be.
+    good_dimindex (:α) ∧
+    xs = get_bytes (:α) be x ⇒
+    words_of_bytes be xs = [x]
+Proof
+  Induct >>
+  rw []
+  >- gs [words_of_bytes_def, get_bytes_def, good_dimindex_def] >>
+  pop_assum (assume_tac o GSYM) >>
+  gs [] >>
+  gs [words_of_bytes_def] >>
+  gs [good_dimindex_def, bytes_in_word_def, dimword_def] >>
+  gs [get_bytes_def] >>
+  pop_assum (mp_tac o GSYM) >>
+  pop_assum (mp_tac o GSYM) >>
+  strip_tac >> strip_tac >>
+  gs [words_of_bytes_def] >>
+  gs [word_of_bytes_def] >>
+  cheat
+QED
+
+
+
+Theorem words_of_bytes_get_bytes:
+  ∀x y be.
+    good_dimindex (:α) ⇒
+    words_of_bytes be
+      (get_bytes (:α) be x ++
+       get_bytes (:α) be y) = [x;y]
+Proof
+  rw [] >>
+  ‘0 < w2n (bytes_in_word:'a word)’ by
+    gs [good_dimindex_def, bytes_in_word_def, dimword_def] >>
+  drule words_of_bytes_append >>
+  disch_then (qspecl_then
+              [‘be’, ‘get_bytes (:α) be x’, ‘get_bytes (:α) be y’] mp_tac) >>
+  impl_tac
+  >- (
+    gs [length_get_bytes] >>
+    gs [good_dimindex_def, bytes_in_word_def, dimword_def]) >>
+  strip_tac >>
+  gs [] >>
+  ‘words_of_bytes be (get_bytes (:α) be x) = [x]’ by (
+    match_mp_tac words_of_bytes_get_byte >>
+    gs []) >>
+  ‘words_of_bytes be (get_bytes (:α) be y) = [y]’ by (
+    match_mp_tac words_of_bytes_get_byte >>
+    gs []) >>
+  gs []
+QED
+
 
 Theorem step_delay_loop:
   !cycles prog d m n s s' (t:('a,time_input) panSem$state) ck_extra.
@@ -2954,12 +3069,14 @@ Theorem step_delay_loop:
       t'.ffi.ffi_state = nexts_ffi cycles t.ffi.ffi_state ∧
       t'.ffi.oracle = t.ffi.oracle ∧
       t'.code = t.code ∧
+      t'.be = t.be ∧
       FLOOKUP t'.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt» ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
       FLOOKUP t'.locals «event» =  SOME (ValWord 0w) ∧
       FLOOKUP t'.locals «taskRet» = FLOOKUP t.locals «taskRet» ∧
       FLOOKUP t'.locals «sysTime»  =
-        SOME (ValWord (n2w (FST (t.ffi.ffi_state cycles))))
+      SOME (ValWord (n2w (FST (t.ffi.ffi_state cycles)))) ∧
+      ffi_io_events_rel t t' cycles
 Proof
   Induct_on ‘cycles’ >>
   fs []
@@ -2976,7 +3093,10 @@ Proof
     qexists_tac ‘ck_extra’ >> fs [] >>
     qexists_tac ‘t’ >> fs [] >>
     gs [state_rel_def, nexts_ffi_def, GSYM ETA_AX] >>
-    pairarg_tac >> gs []) >>
+    pairarg_tac >> gs [] >>
+    gs [ffi_io_events_rel_def,
+        io_events_eq_ffi_seq_def, from_io_events_def, DROP_LENGTH_NIL,
+        io_events_dest_def, gen_ffi_states_def, mk_io_events_def]) >>
   rw [] >>
   ‘∃sd. sd ≤ d ∧
         delay_rep sd t.ffi.ffi_state cycles’ by (
@@ -3213,9 +3333,116 @@ Proof
     gs [Abbr ‘nt’] >>
     reverse conj_tac
     >- (
-      fs [ffi_call_ffi_def] >>
+      fs [ffi_io_events_rel_def, ffi_call_ffi_def] >>
       fs [nexts_ffi_def, next_ffi_def, FLOOKUP_UPDATE] >>
-      fs [ADD1]) >>
+      fs [ADD1] >>
+      conj_asm1_tac
+      >- (
+        qexists_tac ‘bytess ++ [bytes]’ >>
+        gs [] >>
+        drule read_bytearray_LENGTH >>
+        strip_tac >>
+        conj_asm1_tac
+        >- (
+          gs [ffiBufferSize_def, bytes_in_word_def] >>
+          gs [good_dimindex_def, dimword_def]) >>
+        gs [mk_io_events_def] >>
+        ‘gen_ffi_states t.ffi.ffi_state (LENGTH bytess + 1) =
+         gen_ffi_states t.ffi.ffi_state (LENGTH bytess) ++
+                        [(λn. t.ffi.ffi_state (n + LENGTH bytess))]’ by (
+          fs [gen_ffi_states_def] >>
+          gs [GSYM ADD1, GENLIST]) >>
+        gs [] >>
+        ‘LENGTH [bytes] = LENGTH [(λn. t.ffi.ffi_state (n + LENGTH bytess))] ∧
+         LENGTH bytess = LENGTH (gen_ffi_states t.ffi.ffi_state (LENGTH bytess))’ by
+          gs [gen_ffi_states_def] >>
+        drule ZIP_APPEND >>
+          disch_then (qspecl_then [‘[bytes]’,
+                                   ‘[(λn. t.ffi.ffi_state (n + LENGTH bytess))]’] mp_tac) >>
+        impl_tac
+        >- gs [] >>
+        strip_tac >>
+        pop_assum (assume_tac o GSYM) >>
+        gs [mk_io_event_def, time_input_def]) >>
+      (* proving io_events rel *)
+      gs [from_io_events_def] >>
+      rewrite_tac [GSYM APPEND_ASSOC] >>
+      gs [DROP_LENGTH_APPEND] >>
+      gs [mk_io_events_def, io_events_dest_def] >>
+      gs [MAP_MAP_o] >>
+      gs [io_events_eq_ffi_seq_def] >>
+      conj_asm1_tac
+      >- gs [gen_ffi_states_def] >>
+      conj_asm1_tac
+      >- (
+        gs [EVERY_MEM] >>
+        rw [] >> gs [] >>
+        gs [MEM_MAP] >>
+        drule MEM_ZIP2 >>
+        strip_tac >> gs [] >>
+        gs [mk_io_event_def, io_event_dest_def] >>
+        qmatch_goalsub_abbrev_tac ‘ZIP (nn, mm)’ >>
+        ‘LENGTH nn = LENGTH mm’ by (
+          fs [Abbr ‘nn’, Abbr ‘mm’] >>
+          first_x_assum (qspec_then ‘EL n bytess'’ mp_tac) >>
+          impl_tac
+          >- (
+            gs [MEM_EL] >>
+            metis_tac []) >>
+          strip_tac >> gs [] >>
+          gs [time_input_def, length_get_bytes] >>
+          gs [good_dimindex_def]) >>
+        ‘MAP SND (ZIP (nn,mm)) = mm’ by (
+          drule MAP_ZIP >>
+          gs []) >>
+        gs [] >>
+        gs [words_of_bytes_def] >>
+        ‘8 ≤ dimindex (:α)’ by gs [good_dimindex_def] >>
+        drule LENGTH_words_of_bytes >>
+        disch_then (qspecl_then [‘t.be’, ‘mm’] mp_tac) >>
+        strip_tac >> gs [] >>
+        gs [Abbr ‘mm’, time_input_def, length_get_bytes, bytes_in_word_def,
+            good_dimindex_def, dimword_def]) >>
+      rw [] >> gs [] >>
+      qpat_x_assum ‘MAP _ _ ++ _ = _’ (assume_tac o GSYM) >>
+      gs [GSYM MAP_MAP_o] >>
+      cases_on ‘i < LENGTH bytess’
+      >- (
+        last_x_assum (qspec_then ‘i’ mp_tac) >>
+        impl_tac >- gs [] >>
+        strip_tac >>
+        gs [EL_APPEND_EQN]) >>
+      gs [EL_APPEND_EQN] >>
+      ‘i − LENGTH bytess = 0’ by gs [] >>
+      simp [] >>
+      gs [io_event_dest_def] >>
+      qmatch_goalsub_abbrev_tac ‘ZIP (nn, mm)’ >>
+      ‘LENGTH nn = LENGTH mm’ by (
+        fs [Abbr ‘nn’, Abbr ‘mm’] >>
+        drule read_bytearray_LENGTH >>
+        strip_tac >>
+        gs [length_get_bytes, ffiBufferSize_def,
+            good_dimindex_def, bytes_in_word_def, dimword_def]) >>
+      ‘MAP SND (ZIP (nn,mm)) = mm’ by (
+        drule MAP_ZIP >>
+        gs []) >>
+      gs [Abbr ‘mm’] >>
+      qmatch_goalsub_abbrev_tac ‘get_bytes (:α) t.be aa ++ get_bytes (:α) t.be bb’ >>
+      ‘words_of_bytes t.be (get_bytes (:α) t.be aa ++ get_bytes (:α) t.be bb) =
+       [aa;bb]’ by (
+        match_mp_tac words_of_bytes_get_bytes >>
+        gs []) >>
+      gs [Abbr ‘aa’, Abbr ‘bb’] >>
+      gs [delay_rep_def] >>
+      cases_on ‘t.ffi.ffi_state (i+1)’ >> gs [] >>
+      last_x_assum (qspec_then ‘i+1’ mp_tac) >>
+      gs [] >>
+      strip_tac >>
+      qpat_x_assum ‘_ = d + FST (t.ffi.ffi_state 0)’ (mp_tac o GSYM) >>
+      gs [] >>
+      strip_tac >>
+      ‘LENGTH bytess = i’ by gs [] >>
+      simp []) >>
     (* proving state rel *)
     gs [state_rel_def, mkState_def] >>
     conj_tac
@@ -3595,10 +3822,117 @@ Proof
     gs [Abbr ‘nt’] >>
     reverse conj_tac
     >- (
-    fs [ffi_call_ffi_def] >>
+    fs [ffi_io_events_rel_def, ffi_call_ffi_def] >>
     fs [nexts_ffi_def, next_ffi_def] >>
     fs [FLOOKUP_UPDATE] >>
-    gs [ADD1]) >>
+    gs [ADD1] >>
+    conj_asm1_tac
+    >- (
+      qexists_tac ‘bytess ++ [bytes]’ >>
+      gs [] >>
+      drule read_bytearray_LENGTH >>
+      strip_tac >>
+      conj_asm1_tac
+      >- (
+        gs [ffiBufferSize_def, bytes_in_word_def] >>
+        gs [good_dimindex_def, dimword_def]) >>
+      gs [mk_io_events_def] >>
+      ‘gen_ffi_states t.ffi.ffi_state (LENGTH bytess + 1) =
+       gen_ffi_states t.ffi.ffi_state (LENGTH bytess) ++
+                      [(λn. t.ffi.ffi_state (n + LENGTH bytess))]’ by (
+        fs [gen_ffi_states_def] >>
+        gs [GSYM ADD1, GENLIST]) >>
+      gs [] >>
+      ‘LENGTH [bytes] = LENGTH [(λn. t.ffi.ffi_state (n + LENGTH bytess))] ∧
+       LENGTH bytess = LENGTH (gen_ffi_states t.ffi.ffi_state (LENGTH bytess))’ by
+        gs [gen_ffi_states_def] >>
+      drule ZIP_APPEND >>
+      disch_then (qspecl_then [‘[bytes]’,
+                               ‘[(λn. t.ffi.ffi_state (n + LENGTH bytess))]’] mp_tac) >>
+      impl_tac
+      >- gs [] >>
+      strip_tac >>
+      pop_assum (assume_tac o GSYM) >>
+      gs [mk_io_event_def, time_input_def]) >>
+    (* proving io_events rel *)
+    gs [from_io_events_def] >>
+    rewrite_tac [GSYM APPEND_ASSOC] >>
+    gs [DROP_LENGTH_APPEND] >>
+    gs [mk_io_events_def, io_events_dest_def] >>
+    gs [MAP_MAP_o] >>
+    gs [io_events_eq_ffi_seq_def] >>
+    conj_asm1_tac
+    >- gs [gen_ffi_states_def] >>
+    conj_asm1_tac
+    >- (
+      gs [EVERY_MEM] >>
+      rw [] >> gs [] >>
+      gs [MEM_MAP] >>
+      drule MEM_ZIP2 >>
+      strip_tac >> gs [] >>
+      gs [mk_io_event_def, io_event_dest_def] >>
+      qmatch_goalsub_abbrev_tac ‘ZIP (nn, mm)’ >>
+      ‘LENGTH nn = LENGTH mm’ by (
+        fs [Abbr ‘nn’, Abbr ‘mm’] >>
+        first_x_assum (qspec_then ‘EL n bytess'’ mp_tac) >>
+        impl_tac
+        >- (
+          gs [MEM_EL] >>
+          metis_tac []) >>
+        strip_tac >> gs [] >>
+        gs [time_input_def, length_get_bytes] >>
+        gs [good_dimindex_def]) >>
+      ‘MAP SND (ZIP (nn,mm)) = mm’ by (
+        drule MAP_ZIP >>
+        gs []) >>
+      gs [] >>
+      gs [words_of_bytes_def] >>
+      ‘8 ≤ dimindex (:α)’ by gs [good_dimindex_def] >>
+      drule LENGTH_words_of_bytes >>
+      disch_then (qspecl_then [‘t.be’, ‘mm’] mp_tac) >>
+      strip_tac >> gs [] >>
+      gs [Abbr ‘mm’, time_input_def, length_get_bytes, bytes_in_word_def,
+          good_dimindex_def, dimword_def]) >>
+    rw [] >> gs [] >>
+    qpat_x_assum ‘MAP _ _ ++ _ = _’ (assume_tac o GSYM) >>
+    gs [GSYM MAP_MAP_o] >>
+    cases_on ‘i < LENGTH bytess’
+    >- (
+      last_x_assum (qspec_then ‘i’ mp_tac) >>
+      impl_tac >- gs [] >>
+      strip_tac >>
+      gs [EL_APPEND_EQN]) >>
+    gs [EL_APPEND_EQN] >>
+    ‘i − LENGTH bytess = 0’ by gs [] >>
+    simp [] >>
+    gs [io_event_dest_def] >>
+    qmatch_goalsub_abbrev_tac ‘ZIP (nn, mm)’ >>
+    ‘LENGTH nn = LENGTH mm’ by (
+      fs [Abbr ‘nn’, Abbr ‘mm’] >>
+      drule read_bytearray_LENGTH >>
+      strip_tac >>
+      gs [length_get_bytes, ffiBufferSize_def,
+          good_dimindex_def, bytes_in_word_def, dimword_def]) >>
+    ‘MAP SND (ZIP (nn,mm)) = mm’ by (
+      drule MAP_ZIP >>
+      gs []) >>
+    gs [Abbr ‘mm’] >>
+    qmatch_goalsub_abbrev_tac ‘get_bytes (:α) t.be aa ++ get_bytes (:α) t.be bb’ >>
+    ‘words_of_bytes t.be (get_bytes (:α) t.be aa ++ get_bytes (:α) t.be bb) =
+     [aa;bb]’ by (
+      match_mp_tac words_of_bytes_get_bytes >>
+      gs []) >>
+    gs [Abbr ‘aa’, Abbr ‘bb’] >>
+    gs [delay_rep_def] >>
+    cases_on ‘t.ffi.ffi_state (i+1)’ >> gs [] >>
+    last_x_assum (qspec_then ‘i+1’ mp_tac) >>
+    gs [] >>
+    strip_tac >>
+    qpat_x_assum ‘_ = d + FST (t.ffi.ffi_state 0)’ (mp_tac o GSYM) >>
+    gs [] >>
+    strip_tac >>
+    ‘LENGTH bytess = i’ by gs [] >>
+    simp []) >>
     (* proving state rel *)
     gs [state_rel_def, mkState_def] >>
     conj_tac
@@ -3924,10 +4258,117 @@ Proof
   gs [Abbr ‘nt’] >>
   reverse conj_tac
   >- (
-  fs [ffi_call_ffi_def] >>
-  fs [nexts_ffi_def, next_ffi_def] >>
-  fs [FLOOKUP_UPDATE] >>
-  gs [ADD1]) >>
+    fs [ffi_io_events_rel_def, ffi_call_ffi_def] >>
+    fs [nexts_ffi_def, next_ffi_def] >>
+    fs [FLOOKUP_UPDATE] >>
+    gs [ADD1] >>
+    conj_asm1_tac
+    >- (
+      qexists_tac ‘bytess ++ [bytes]’ >>
+      gs [] >>
+      drule read_bytearray_LENGTH >>
+      strip_tac >>
+      conj_asm1_tac
+      >- (
+        gs [ffiBufferSize_def, bytes_in_word_def] >>
+        gs [good_dimindex_def, dimword_def]) >>
+      gs [mk_io_events_def] >>
+      ‘gen_ffi_states t.ffi.ffi_state (LENGTH bytess + 1) =
+       gen_ffi_states t.ffi.ffi_state (LENGTH bytess) ++
+                      [(λn. t.ffi.ffi_state (n + LENGTH bytess))]’ by (
+        fs [gen_ffi_states_def] >>
+        gs [GSYM ADD1, GENLIST]) >>
+      gs [] >>
+      ‘LENGTH [bytes] = LENGTH [(λn. t.ffi.ffi_state (n + LENGTH bytess))] ∧
+       LENGTH bytess = LENGTH (gen_ffi_states t.ffi.ffi_state (LENGTH bytess))’ by
+        gs [gen_ffi_states_def] >>
+      drule ZIP_APPEND >>
+      disch_then (qspecl_then [‘[bytes]’,
+                               ‘[(λn. t.ffi.ffi_state (n + LENGTH bytess))]’] mp_tac) >>
+      impl_tac
+      >- gs [] >>
+      strip_tac >>
+      pop_assum (assume_tac o GSYM) >>
+      gs [mk_io_event_def, time_input_def]) >>
+    (* proving io_events rel *)
+    gs [from_io_events_def] >>
+    rewrite_tac [GSYM APPEND_ASSOC] >>
+    gs [DROP_LENGTH_APPEND] >>
+    gs [mk_io_events_def, io_events_dest_def] >>
+    gs [MAP_MAP_o] >>
+    gs [io_events_eq_ffi_seq_def] >>
+    conj_asm1_tac
+    >- gs [gen_ffi_states_def] >>
+    conj_asm1_tac
+    >- (
+      gs [EVERY_MEM] >>
+      rw [] >> gs [] >>
+      gs [MEM_MAP] >>
+      drule MEM_ZIP2 >>
+      strip_tac >> gs [] >>
+      gs [mk_io_event_def, io_event_dest_def] >>
+      qmatch_goalsub_abbrev_tac ‘ZIP (nn, mm)’ >>
+      ‘LENGTH nn = LENGTH mm’ by (
+        fs [Abbr ‘nn’, Abbr ‘mm’] >>
+        first_x_assum (qspec_then ‘EL n bytess'’ mp_tac) >>
+        impl_tac
+        >- (
+          gs [MEM_EL] >>
+          metis_tac []) >>
+        strip_tac >> gs [] >>
+        gs [time_input_def, length_get_bytes] >>
+        gs [good_dimindex_def]) >>
+      ‘MAP SND (ZIP (nn,mm)) = mm’ by (
+        drule MAP_ZIP >>
+        gs []) >>
+      gs [] >>
+      gs [words_of_bytes_def] >>
+      ‘8 ≤ dimindex (:α)’ by gs [good_dimindex_def] >>
+      drule LENGTH_words_of_bytes >>
+      disch_then (qspecl_then [‘t.be’, ‘mm’] mp_tac) >>
+      strip_tac >> gs [] >>
+      gs [Abbr ‘mm’, time_input_def, length_get_bytes, bytes_in_word_def,
+          good_dimindex_def, dimword_def]) >>
+    rw [] >> gs [] >>
+    qpat_x_assum ‘MAP _ _ ++ _ = _’ (assume_tac o GSYM) >>
+    gs [GSYM MAP_MAP_o] >>
+    cases_on ‘i < LENGTH bytess’
+    >- (
+      last_x_assum (qspec_then ‘i’ mp_tac) >>
+      impl_tac >- gs [] >>
+      strip_tac >>
+      gs [EL_APPEND_EQN]) >>
+    gs [EL_APPEND_EQN] >>
+    ‘i − LENGTH bytess = 0’ by gs [] >>
+    simp [] >>
+    gs [io_event_dest_def] >>
+    qmatch_goalsub_abbrev_tac ‘ZIP (nn, mm)’ >>
+    ‘LENGTH nn = LENGTH mm’ by (
+      fs [Abbr ‘nn’, Abbr ‘mm’] >>
+      drule read_bytearray_LENGTH >>
+      strip_tac >>
+      gs [length_get_bytes, ffiBufferSize_def,
+          good_dimindex_def, bytes_in_word_def, dimword_def]) >>
+    ‘MAP SND (ZIP (nn,mm)) = mm’ by (
+      drule MAP_ZIP >>
+      gs []) >>
+    gs [Abbr ‘mm’] >>
+    qmatch_goalsub_abbrev_tac ‘get_bytes (:α) t.be aa ++ get_bytes (:α) t.be bb’ >>
+    ‘words_of_bytes t.be (get_bytes (:α) t.be aa ++ get_bytes (:α) t.be bb) =
+     [aa;bb]’ by (
+      match_mp_tac words_of_bytes_get_bytes >>
+      gs []) >>
+    gs [Abbr ‘aa’, Abbr ‘bb’] >>
+    gs [delay_rep_def] >>
+    cases_on ‘t.ffi.ffi_state (i+1)’ >> gs [] >>
+    last_x_assum (qspec_then ‘i+1’ mp_tac) >>
+    gs [] >>
+    strip_tac >>
+    qpat_x_assum ‘_ = d + FST (t.ffi.ffi_state 0)’ (mp_tac o GSYM) >>
+    gs [] >>
+    strip_tac >>
+    ‘LENGTH bytess = i’ by gs [] >>
+    simp []) >>
   (* proving state rel *)
   gs [state_rel_def, mkState_def] >>
   conj_tac
@@ -4092,28 +4533,6 @@ Proof
   fs [evaluate_def]
 QED
 
-Definition io_event_dest_def:
-  io_event_dest (IO_event _ _ l) = MAP SND l
-End
-
-(*
-  ios will be DROP from the io events
-*)
-Definition io_events_dest_def:
-  io_events_dest (:'a) be ios =
-  MAP
-    (MAP w2n o
-     (words_of_bytes: bool -> word8 list -> α word list) be o
-     io_event_dest)
-    ios
-End
-
-Definition io_events_eq_ffi_seq_def:
-  io_events_eq_ffi_seq seq cycles xs ⇔
-  LENGTH xs = cycles ∧
-  (∀i. i < cycles ⇒
-       EL i xs = seq (i+1))
-End
 
 (*
 (* this can be infered from above defs later if needed *)
@@ -4157,7 +4576,8 @@ Theorem step_delay:
       FLOOKUP t'.locals «event» =  SOME (ValWord 0w) ∧
       FLOOKUP t'.locals «taskRet» = FLOOKUP t.locals «taskRet» ∧
       FLOOKUP t'.locals «sysTime»  =
-        SOME (ValWord (n2w (FST (t.ffi.ffi_state cycles))))
+        SOME (ValWord (n2w (FST (t.ffi.ffi_state cycles)))) ∧
+      ffi_io_events_rel t t' cycles
 Proof
   rw [] >>
   fs [task_controller_def] >>
