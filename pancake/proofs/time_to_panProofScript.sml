@@ -4887,23 +4887,6 @@ Definition input_io_events_rel_def:
 End
 
 
-(*
-Definition ffi_value_def:
-  ffi_value l b ⇔
-   io_event_dest  (LAST l) = b
-End
-
-
-Definition label_eq_ffi_def:
-  label_eq_ffi (:'a) be (a,b) l ⇔
-  let
-    l = io_event_dest (LAST l);
-    ws = (words_of_bytes be l): 'a word list
-  in
-   (a,b) = (w2n (EL 0 ws), w2n (EL 1 ws) - 1)
-End
-*)
-
 Theorem step_input:
   !prog i m n s s' (t:('a,time_input) panSem$state).
     step prog (LAction (Input i)) m n s s' ∧
@@ -4979,6 +4962,9 @@ Proof
     gs [input_time_rel_def]) >>
   gs [eval_upd_clock_eq] >>
   gs [dec_clock_def] >>
+
+
+
   (* evaluating the function *)
   pairarg_tac >> fs [] >>
   pop_assum mp_tac >>
@@ -5004,8 +4990,6 @@ Proof
     pairarg_tac >> gs []) >>
   strip_tac >> gs [] >>
   rveq >> gs [] >>
-  pop_assum kall_tac >>
-  pop_assum kall_tac >>
   drule state_rel_imp_ffi_vars >>
   strip_tac >>
   pop_assum mp_tac >>
@@ -5757,7 +5741,10 @@ Proof
   >- (
     qexists_tac ‘bytes’ >>
     gs [mk_io_event_def, time_input_def] >>
-    cheat) >>
+    drule read_bytearray_LENGTH >>
+    strip_tac >>
+    gs [ffiBufferSize_def, good_dimindex_def,
+        bytes_in_word_def, dimword_def]) >>
   gs [from_io_events_def, DROP_LENGTH_APPEND, io_events_dest_def,
       mk_io_event_def, io_event_dest_def, time_input_def] >>
   qmatch_goalsub_abbrev_tac ‘ZIP (_, nbytes)’ >>
@@ -5775,7 +5762,8 @@ Proof
   gs [input_eq_ffi_seq_def] >>
   cases_on ‘t.ffi.ffi_state 1’ >> gs [] >>
   gs [input_rel_def, step_cases, next_ffi_def] >>
-  cheat
+  drule pick_term_dest_eq >>
+  simp []
 QED
 
 
