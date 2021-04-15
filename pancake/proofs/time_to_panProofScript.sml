@@ -56,10 +56,10 @@ Definition string_to_word_def:
     n2w o THE o fromNatString o implode
 End
 
-Definition out_sig_bytes_def:
-  out_sig_bytes (:'a) be s =
-    get_bytes (:'a) be ((string_to_word s):'a word) ++
-    get_bytes (:'a) be (0w:'a word)
+Definition output_bytes_def:
+  output_bytes (:'a) be s =
+    get_bytes (:'a) be (0w:'a word) ++
+    get_bytes (:'a) be ((string_to_word s):'a word)
 End
 
 Definition build_ffi_def:
@@ -69,7 +69,7 @@ Definition build_ffi_def:
           if s = "get_time_input"
           then Oracle_return (next_ffi f) (time_input (:'a) be f)
           else if MEM s outs
-          then Oracle_return f (out_sig_bytes (:'a) be s)
+          then Oracle_return f (output_bytes (:'a) be s)
           else Oracle_final FFI_failed)
       ; ffi_state := seq
       ; io_events := io|> : time_input_ffi
@@ -119,7 +119,7 @@ Definition retVal_def:
         ValWord (case wt of [] => 1w | _ => 0w);
         ValWord (case wt of [] => 0w
                          | _ => n2w (THE (calculate_wtime s tclks wt)));
-        ValLabel (toString dest)]
+        ValLabel (num_to_str dest)]
 End
 
 
@@ -174,8 +174,8 @@ Definition well_behaved_ffi_def:
     SOME bytes ∧
     s.ffi.oracle (explode ffi_name) s.ffi.ffi_state [] bytes =
     Oracle_return s.ffi.ffi_state
-                  (out_sig_bytes (:'a) s.be (explode ffi_name)) ∧
-    LENGTH bytes = LENGTH (out_sig_bytes (:'a) s.be (explode ffi_name))
+                  (output_bytes (:'a) s.be (explode ffi_name)) ∧
+    LENGTH bytes = LENGTH (output_bytes (:'a) s.be (explode ffi_name))
 End
 
 (*
@@ -209,7 +209,7 @@ Definition nffi_state_def:
     s.ffi with
      <|io_events :=
        s.ffi.io_events ++
-        [IO_event (toString n) [] (ZIP (bytes,nbytes))]|>
+        [IO_event (explode (num_to_str n)) [] (ZIP (bytes,nbytes))]|>
 End
 
 Definition code_installed_def:
@@ -219,7 +219,7 @@ Definition code_installed_def:
     let clks = clksOf prog;
         n = LENGTH clks
     in
-      FLOOKUP code (toString loc) =
+      FLOOKUP code (num_to_str loc) =
       SOME ([(«clks», genShape n);
              («event», One)],
             compTerms clks «clks» «event» tms)
@@ -278,7 +278,7 @@ End
 
 Definition equivs_def:
   equivs fm loc wt ⇔
-  FLOOKUP fm «loc» = SOME (ValLabel (toString loc)) ∧
+  FLOOKUP fm «loc» = SOME (ValLabel (num_to_str loc)) ∧
   FLOOKUP fm «waitSet» = SOME (ValWord (active_low wt))
 End
 
@@ -327,7 +327,7 @@ Definition state_rel_def:
       io_events = t.ffi.io_events;
       (tm,io_flg) = ffi 0
     in
-      t.ffi = build_ffi (:'a) t.be outs ffi io_events ∧
+      t.ffi = build_ffi (:'a) t.be (MAP explode outs) ffi io_events ∧
       input_time_rel ffi ∧
       time_seq ffi (dimword (:'a)) ∧
       FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w tm)) ∧
@@ -823,7 +823,7 @@ Theorem comp_input_term_correct:
     time_range wt m ∧
     equiv_val s.clocks clks clkvals ∧
     valid_clks clks tclks wt ∧
-    toString dest IN FDOM t.code ⇒
+    num_to_str dest IN FDOM t.code ⇒
       evaluate (compTerm clks (Tm (Input n) cnds tclks dest wt), t) =
       (SOME (Return (retVal s clks tclks wt dest)),
        t with locals :=
@@ -1062,6 +1062,14 @@ Proof
 QED
 
 
+Theorem length_get_bytes:
+  ∀w be.
+    LENGTH (get_bytes (:α) be w) = dimindex (:α) DIV 8
+Proof
+  rw [] >>
+  fs [get_bytes_def]
+QED
+
 Theorem ffi_eval_state_thm:
   !ffi_name s (res:'a result option) t nbytes bytes.
     evaluate
@@ -1074,8 +1082,9 @@ Theorem ffi_eval_state_thm:
     FLOOKUP s.locals «len2» = SOME (ValWord ffiBufferSize) ==>
     res = NONE ∧
     ∃bytes.
+      LENGTH bytes = 2 * (dimindex (:α) DIV 8) ∧
       t = ffi_return_state s ffi_name bytes
-                           (out_sig_bytes (:'a) s.be (explode ffi_name))
+                           (output_bytes (:'a) s.be (explode ffi_name))
 Proof
   rpt gen_tac >>
   strip_tac >>
@@ -1092,7 +1101,8 @@ Proof
   rveq >> gs[] >>
   qexists_tac ‘bytes’ >>
   gs [state_component_equality,
-      ffiTheory.ffi_state_component_equality]
+      ffiTheory.ffi_state_component_equality] >>
+  gs [output_bytes_def, length_get_bytes]
 QED
 
 Theorem comp_output_term_correct:
@@ -1106,19 +1116,20 @@ Theorem comp_output_term_correct:
     time_range wt m ∧
     equiv_val s.clocks clks clkvals ∧
     valid_clks clks tclks wt ∧
-    toString dest IN FDOM t.code ∧
-    well_behaved_ffi (strlit (toString out)) t
+    num_to_str dest IN FDOM t.code ∧
+    well_behaved_ffi (num_to_str out) t
                      (w2n (ffiBufferSize:'a word)) (dimword (:α)) ⇒
     ∃bytes.
+      LENGTH bytes = 2 * (dimindex (:α) DIV 8) ∧
       evaluate (compTerm clks (Tm (Output out) cnds tclks dest wt), t) =
       (SOME (Return (retVal s clks tclks wt dest)),
        t with
          <|locals :=
            restore_from t FEMPTY [«len2»; «ptr2»; «len1»; «ptr1»;
                                   «waitTimes»; «newClks»; «wakeUpAt»; «waitSet»];
-           memory := write_bytearray 4000w (out_sig_bytes (:'a) t.be (toString out))
+           memory := write_bytearray 4000w (output_bytes (:'a) t.be (explode(num_to_str out)))
                                      t.memory t.memaddrs t.be;
-           ffi := nffi_state t out bytes (out_sig_bytes (:'a) t.be (toString out))|>)
+           ffi := nffi_state t out bytes (output_bytes (:'a) t.be (explode(num_to_str out)))|>)
 Proof
   rpt gen_tac >>
   strip_tac >>
@@ -1187,7 +1198,6 @@ Proof
     fs [FLOOKUP_UPDATE] >>
     fs [well_behaved_ffi_def]) >>
    strip_tac >> fs [] >> rveq >> fs [] >>
-   pop_assum kall_tac >>
    fs [ffi_return_state_def] >>
    fs [evaluate_def] >>
    fs [eval_def] >>
@@ -1206,7 +1216,8 @@ Proof
    rveq >> fs [] >> rfs [] >> rveq >> fs [] >>
    fs [empty_locals_def, retVal_def] >>
    fs [nffi_state_def, restore_from_def] >>
-   metis_tac []) >>
+   qexists_tac ‘bytes’ >>
+   gs []) >>
   (* some maintenance to replace h::t' to wt *)
   qmatch_goalsub_abbrev_tac ‘emptyConsts (LENGTH wt)’ >>
   ‘(case wt of [] => Const 1w | v2::v3 => Const 0w) =
@@ -1384,7 +1395,6 @@ Proof
   fs [FLOOKUP_UPDATE] >>
   fs [well_behaved_ffi_def]) >>
   strip_tac >> fs [] >> rveq >> fs [] >>
-  pop_assum kall_tac >>
   fs [ffi_return_state_def] >>
   fs [evaluate_def] >>
   fs [eval_def] >>
@@ -1415,7 +1425,8 @@ Proof
   fs [retVal_def] >>
   fs [calculate_wtime_def] >>
   fs [nffi_state_def] >>
-  metis_tac []
+  qexists_tac ‘bytes’ >>
+  gs []
 QED
 
 
@@ -1430,7 +1441,7 @@ Theorem comp_term_correct:
     time_range wt m ∧
     equiv_val s.clocks clks clkvals ∧
     valid_clks clks tclks wt ∧
-    toString dest IN FDOM t.code ⇒
+    num_to_str dest IN FDOM t.code ⇒
     case (io,ioAct) of
      | (SOME _,Input n) =>
          evaluate (compTerm clks (Tm (Input n) cnds tclks dest wt), t) =
@@ -1439,18 +1450,19 @@ Theorem comp_term_correct:
           t with locals :=
           restore_from t FEMPTY [«waitTimes»; «newClks»; «wakeUpAt»; «waitSet»])
      | (NONE, Output out) =>
-         (well_behaved_ffi (strlit (toString out)) t
+         (well_behaved_ffi (num_to_str out) t
                            (w2n (ffiBufferSize:'a word)) (dimword (:α)) ⇒
           ∃bytes.
+            LENGTH bytes = 2 * (dimindex (:α) DIV 8) ∧
             evaluate (compTerm clks (Tm (Output out) cnds tclks dest wt), t) =
             (SOME (Return (retVal s clks tclks wt dest)),
              t with
                <|locals :=
                  restore_from t FEMPTY [«len2»; «ptr2»; «len1»; «ptr1»;
                                         «waitTimes»; «newClks»; «wakeUpAt»; «waitSet»];
-                 memory := write_bytearray 4000w (out_sig_bytes (:'a) t.be (toString out))
+                 memory := write_bytearray 4000w (output_bytes (:'a) t.be (explode(num_to_str out)))
                                            t.memory t.memaddrs t.be;
-                 ffi := nffi_state t out bytes (out_sig_bytes (:'a) t.be (toString out))|>))
+                 ffi := nffi_state t out bytes (output_bytes (:'a) t.be (explode(num_to_str out)))|>))
      | (_,_) => F
 Proof
   rw [] >>
@@ -1733,19 +1745,20 @@ Theorem pickTerm_output_cons_correct:
     time_range wt m ∧
     valid_clks clks tclks wt ∧
     FLOOKUP t.locals «event» = SOME (ValWord 0w) ∧
-    toString dest IN FDOM t.code ∧
-     well_behaved_ffi (strlit (toString out)) t
+    num_to_str dest IN FDOM t.code ∧
+     well_behaved_ffi (num_to_str out) t
                       (w2n (ffiBufferSize:'a word)) (dimword (:α)) ⇒
     ∃bytes.
+      LENGTH bytes = 2 * (dimindex (:α) DIV 8) ∧
       evaluate (compTerms clks «clks» «event» (Tm (Output out) cnds tclks dest wt::tms), t) =
       (SOME (Return (retVal s clks tclks wt dest)),
        t with
          <|locals :=
            restore_from t FEMPTY [«len2»; «ptr2»; «len1»; «ptr1»;
                                   «waitTimes»; «newClks»; «wakeUpAt»; «waitSet»];
-           memory := write_bytearray 4000w (out_sig_bytes (:'a) t.be (toString out))
+           memory := write_bytearray 4000w (output_bytes (:'a) t.be (explode(num_to_str out)))
                                      t.memory t.memaddrs t.be;
-           ffi := nffi_state t out bytes (out_sig_bytes (:'a) t.be (toString out))|>)
+           ffi := nffi_state t out bytes (output_bytes (:'a) t.be (explode(num_to_str out)))|>)
 Proof
   rw [] >>
   drule_all comp_conditions_true_correct >>
@@ -1782,7 +1795,7 @@ Theorem pickTerm_input_cons_correct:
     valid_clks clks tclks wt ∧
     FLOOKUP t.locals «event» = SOME (ValWord (n2w (n + 1))) ∧
     n + 1 < dimword (:α) ∧
-    toString dest IN FDOM t.code ⇒
+    num_to_str dest IN FDOM t.code ⇒
     evaluate (compTerms clks «clks» «event» (Tm (Input n) cnds tclks dest wt::tms), t) =
     (SOME (Return (retVal s clks tclks wt dest)),
      t with locals :=
@@ -2019,7 +2032,7 @@ End
 Definition locs_in_code_def:
   locs_in_code fm tms =
     EVERY (λtm.
-            toString (termDest tm) IN FDOM fm
+            num_to_str (termDest tm) IN FDOM fm
           ) tms
 End
 
@@ -2027,7 +2040,7 @@ End
 Definition out_signals_ffi_def:
   out_signals_ffi (t :('a, 'b) panSem$state) tms =
     EVERY (λout.
-            well_behaved_ffi (strlit (toString out)) t
+            well_behaved_ffi (num_to_str out) t
                              (w2n (ffiBufferSize:'a word)) (dimword (:α)))
           (terms_out_signals tms)
 End
@@ -2056,6 +2069,7 @@ Theorem pick_term_thm:
           evalTerm s NONE
                    (Tm (Output out) cnds tclks dest wt) s' ∧
           ∃bytes.
+            LENGTH bytes = 2 * (dimindex (:α) DIV 8) ∧
             evaluate (compTerms clks «clks» «event» tms, t) =
             (SOME (Return (retVal s clks tclks wt dest)),
              t with
@@ -2063,10 +2077,10 @@ Theorem pick_term_thm:
                  restore_from t FEMPTY [«len2»; «ptr2»; «len1»; «ptr1»;
                                         «waitTimes»; «newClks»; «wakeUpAt»; «waitSet»];
                  memory := write_bytearray 4000w
-                                           (out_sig_bytes (:'a) t.be (toString out))
+                                           (output_bytes (:'a) t.be (explode(num_to_str out)))
                                            t.memory t.memaddrs t.be;
                  ffi := nffi_state t out bytes
-                                   (out_sig_bytes (:'a) t.be (toString out))|>)) ∧
+                                   (output_bytes (:'a) t.be (explode(num_to_str out)))|>)) ∧
        (∀n. e = SOME n ∧ n+1 < dimword (:'a) ∧
             FLOOKUP t.locals «event» = SOME (ValWord (n2w (n+1))) ⇒
             ∃cnds tclks dest wt.
@@ -2622,14 +2636,6 @@ Definition ffi_call_ffi_def:
 
 End
 
-Theorem length_get_bytes:
-  ∀w be.
-    LENGTH (get_bytes (:α) be w) = dimindex (:α) DIV 8
-Proof
-  rw [] >>
-  fs [get_bytes_def]
-QED
-
 
 Theorem evaluate_ext_call:
   ∀(t :('a, time_input) panSem$state) res t' outs bytes.
@@ -2964,16 +2970,16 @@ Definition io_events_eq_ffi_seq_def:
 End
 
 
-Definition mk_io_event_def:
-  mk_io_event (:α) be bytes seq =
+Definition mk_ti_event_def:
+  mk_ti_event (:α) be bytes seq =
     IO_event "get_time_input" []
              (ZIP (bytes, time_input (:α) be seq))
 End
 
 
-Definition mk_io_events_def:
-  mk_io_events (:α) be (bytess:word8 list list) seqs =
-    MAP (λ(bytes,seq). mk_io_event (:α) be bytes seq)
+Definition mk_ti_events_def:
+  mk_ti_events (:α) be (bytess:word8 list list) seqs =
+    MAP (λ(bytes,seq). mk_ti_event (:α) be bytes seq)
         (ZIP (bytess, seqs))
 End
 
@@ -2990,7 +2996,7 @@ Definition ffi_io_events_rel_def:
      EVERY (λbtyes. LENGTH btyes = 2 * dimindex (:α) DIV 8) bytess ∧
      t'.ffi.io_events =
      t.ffi.io_events ++
-      mk_io_events (:α) t'.be bytess (gen_ffi_states t.ffi.ffi_state cycles)) ∧
+      mk_ti_events (:α) t'.be bytess (gen_ffi_states t.ffi.ffi_state cycles)) ∧
   io_events_eq_ffi_seq t.ffi.ffi_state cycles
                        (from_io_events (:'a) t.be t.ffi.io_events t'.ffi.io_events)
 End
@@ -3096,7 +3102,7 @@ Proof
     pairarg_tac >> gs [] >>
     gs [ffi_io_events_rel_def,
         io_events_eq_ffi_seq_def, from_io_events_def, DROP_LENGTH_NIL,
-        io_events_dest_def, gen_ffi_states_def, mk_io_events_def]) >>
+        io_events_dest_def, gen_ffi_states_def, mk_ti_events_def]) >>
   rw [] >>
   ‘∃sd. sd ≤ d ∧
         delay_rep sd t.ffi.ffi_state cycles’ by (
@@ -3204,7 +3210,7 @@ Proof
       match_mp_tac read_bytearray_some_bytes_for_ffi >>
       gs []) >>
     drule evaluate_ext_call >>
-    disch_then (qspecl_then [‘out_signals prog’,‘bytes’] mp_tac) >>
+    disch_then (qspecl_then [‘MAP explode (out_signals prog)’,‘bytes’] mp_tac) >>
     impl_tac
     >- (
       gs [state_rel_def] >>
@@ -3346,7 +3352,7 @@ Proof
         >- (
           gs [ffiBufferSize_def, bytes_in_word_def] >>
           gs [good_dimindex_def, dimword_def]) >>
-        gs [mk_io_events_def] >>
+        gs [mk_ti_events_def] >>
         ‘gen_ffi_states t.ffi.ffi_state (LENGTH bytess + 1) =
          gen_ffi_states t.ffi.ffi_state (LENGTH bytess) ++
                         [(λn. t.ffi.ffi_state (n + LENGTH bytess))]’ by (
@@ -3363,12 +3369,12 @@ Proof
         >- gs [] >>
         strip_tac >>
         pop_assum (assume_tac o GSYM) >>
-        gs [mk_io_event_def, time_input_def]) >>
+        gs [mk_ti_event_def, time_input_def]) >>
       (* proving io_events rel *)
       gs [from_io_events_def] >>
       rewrite_tac [GSYM APPEND_ASSOC] >>
       gs [DROP_LENGTH_APPEND] >>
-      gs [mk_io_events_def, io_events_dest_def] >>
+      gs [mk_ti_events_def, io_events_dest_def] >>
       gs [MAP_MAP_o] >>
       gs [io_events_eq_ffi_seq_def] >>
       conj_asm1_tac
@@ -3380,7 +3386,7 @@ Proof
         gs [MEM_MAP] >>
         drule MEM_ZIP2 >>
         strip_tac >> gs [] >>
-        gs [mk_io_event_def, io_event_dest_def] >>
+        gs [mk_ti_event_def, io_event_dest_def] >>
         qmatch_goalsub_abbrev_tac ‘ZIP (nn, mm)’ >>
         ‘LENGTH nn = LENGTH mm’ by (
           fs [Abbr ‘nn’, Abbr ‘mm’] >>
@@ -3693,7 +3699,7 @@ Proof
       match_mp_tac read_bytearray_some_bytes_for_ffi >>
       gs []) >>
     drule evaluate_ext_call >>
-    disch_then (qspecl_then [‘out_signals prog’,‘bytes’] mp_tac) >>
+    disch_then (qspecl_then [‘MAP explode (out_signals prog)’,‘bytes’] mp_tac) >>
     impl_tac
     >- (
     gs [state_rel_def] >>
@@ -3836,7 +3842,7 @@ Proof
       >- (
         gs [ffiBufferSize_def, bytes_in_word_def] >>
         gs [good_dimindex_def, dimword_def]) >>
-      gs [mk_io_events_def] >>
+      gs [mk_ti_events_def] >>
       ‘gen_ffi_states t.ffi.ffi_state (LENGTH bytess + 1) =
        gen_ffi_states t.ffi.ffi_state (LENGTH bytess) ++
                       [(λn. t.ffi.ffi_state (n + LENGTH bytess))]’ by (
@@ -3853,12 +3859,12 @@ Proof
       >- gs [] >>
       strip_tac >>
       pop_assum (assume_tac o GSYM) >>
-      gs [mk_io_event_def, time_input_def]) >>
+      gs [mk_ti_event_def, time_input_def]) >>
     (* proving io_events rel *)
     gs [from_io_events_def] >>
     rewrite_tac [GSYM APPEND_ASSOC] >>
     gs [DROP_LENGTH_APPEND] >>
-    gs [mk_io_events_def, io_events_dest_def] >>
+    gs [mk_ti_events_def, io_events_dest_def] >>
     gs [MAP_MAP_o] >>
     gs [io_events_eq_ffi_seq_def] >>
     conj_asm1_tac
@@ -3870,7 +3876,7 @@ Proof
       gs [MEM_MAP] >>
       drule MEM_ZIP2 >>
       strip_tac >> gs [] >>
-      gs [mk_io_event_def, io_event_dest_def] >>
+      gs [mk_ti_event_def, io_event_dest_def] >>
       qmatch_goalsub_abbrev_tac ‘ZIP (nn, mm)’ >>
       ‘LENGTH nn = LENGTH mm’ by (
         fs [Abbr ‘nn’, Abbr ‘mm’] >>
@@ -4129,7 +4135,7 @@ Proof
     match_mp_tac read_bytearray_some_bytes_for_ffi >>
     gs []) >>
   drule evaluate_ext_call >>
-  disch_then (qspecl_then [‘out_signals prog’,‘bytes’] mp_tac) >>
+  disch_then (qspecl_then [‘MAP explode (out_signals prog)’,‘bytes’] mp_tac) >>
   impl_tac
   >- (
   gs [state_rel_def] >>
@@ -4272,7 +4278,7 @@ Proof
       >- (
         gs [ffiBufferSize_def, bytes_in_word_def] >>
         gs [good_dimindex_def, dimword_def]) >>
-      gs [mk_io_events_def] >>
+      gs [mk_ti_events_def] >>
       ‘gen_ffi_states t.ffi.ffi_state (LENGTH bytess + 1) =
        gen_ffi_states t.ffi.ffi_state (LENGTH bytess) ++
                       [(λn. t.ffi.ffi_state (n + LENGTH bytess))]’ by (
@@ -4289,12 +4295,12 @@ Proof
       >- gs [] >>
       strip_tac >>
       pop_assum (assume_tac o GSYM) >>
-      gs [mk_io_event_def, time_input_def]) >>
+      gs [mk_ti_event_def, time_input_def]) >>
     (* proving io_events rel *)
     gs [from_io_events_def] >>
     rewrite_tac [GSYM APPEND_ASSOC] >>
     gs [DROP_LENGTH_APPEND] >>
-    gs [mk_io_events_def, io_events_dest_def] >>
+    gs [mk_ti_events_def, io_events_dest_def] >>
     gs [MAP_MAP_o] >>
     gs [io_events_eq_ffi_seq_def] >>
     conj_asm1_tac
@@ -4306,7 +4312,7 @@ Proof
       gs [MEM_MAP] >>
       drule MEM_ZIP2 >>
       strip_tac >> gs [] >>
-      gs [mk_io_event_def, io_event_dest_def] >>
+      gs [mk_ti_event_def, io_event_dest_def] >>
       qmatch_goalsub_abbrev_tac ‘ZIP (nn, mm)’ >>
       ‘LENGTH nn = LENGTH mm’ by (
         fs [Abbr ‘nn’, Abbr ‘mm’] >>
@@ -4788,7 +4794,7 @@ Theorem state_rel_intro:
       io_events = t.ffi.io_events;
       (tm,io_flg) = ffi 0
     in
-      t.ffi = build_ffi (:'a) t.be outs ffi io_events ∧
+      t.ffi = build_ffi (:'a) t.be (MAP explode outs) ffi io_events ∧
       input_time_rel ffi ∧
       time_seq ffi (dimword (:'a)) ∧
       FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w tm)) ∧
@@ -4880,7 +4886,7 @@ Definition input_io_events_rel_def:
      LENGTH bytes = 2 * dimindex (:α) DIV 8 ∧
      t'.ffi.io_events =
      t.ffi.io_events ++
-      [mk_io_event (:α) t'.be bytes t.ffi.ffi_state]) ∧
+      [mk_ti_event (:α) t'.be bytes t.ffi.ffi_state]) ∧
   (∃ns.
      from_io_events (:'a) t.be t.ffi.io_events t'.ffi.io_events = [ns] ∧
      input_eq_ffi_seq t.ffi.ffi_state ns)
@@ -4892,7 +4898,7 @@ Theorem step_input:
     step prog (LAction (Input i)) m n s s' ∧
     m = dimword (:α) - 1 ∧
     n = FST (t.ffi.ffi_state 0) ∧
-    ~MEM "get_time_input" (out_signals prog) ∧
+    ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
     state_rel (clksOf prog) (out_signals prog) s t ∧
     wait_time_locals (:α) t.locals s.waitTime t.ffi.ffi_state ∧
     (* wait_time_locals (:α) t.locals s.waitTime t.ffi.ffi_state ∧ *)
@@ -4962,9 +4968,6 @@ Proof
     gs [input_time_rel_def]) >>
   gs [eval_upd_clock_eq] >>
   gs [dec_clock_def] >>
-
-
-
   (* evaluating the function *)
   pairarg_tac >> fs [] >>
   pop_assum mp_tac >>
@@ -4983,7 +4986,7 @@ Proof
     match_mp_tac read_bytearray_some_bytes_for_ffi >>
     gs []) >>
   drule evaluate_ext_call >>
-  disch_then (qspecl_then [‘out_signals prog’, ‘bytes’] mp_tac) >>
+  disch_then (qspecl_then [‘MAP explode (out_signals prog)’, ‘bytes’] mp_tac) >>
   impl_tac
   >- (
     gs [state_rel_def] >>
@@ -5291,6 +5294,8 @@ Proof
     strip_tac >>
     gs [] >>
     conj_tac
+    >- gs [mlintTheory.num_to_str_thm] >>
+    conj_tac
     >- gs [ffiBufferSize_def, bytes_in_word_def,
            good_dimindex_def] >>
     gs [mem_call_ffi_def, ffi_call_ffi_def] >>
@@ -5307,7 +5312,7 @@ Proof
       drule read_bytearray_LENGTH >>
       gs [] >>
       strip_tac >>
-      gs [out_sig_bytes_def, ffiBufferSize_def,
+      gs [output_bytes_def, ffiBufferSize_def,
           length_get_bytes, bytes_in_word_def] >>
       rewrite_tac [addressTheory.WORD_TIMES2] >>
       gs [good_dimindex_def, dimword_def]) >>
@@ -5318,14 +5323,15 @@ Proof
       strip_tac >>
       qexists_tac ‘(s.location,tms)’ >>
       gs []) >>
-    ‘MEM (toString out) (out_signals prog)’ by (
+    ‘MEM (explode (toString out)) (MAP explode (out_signals prog))’ by (
       gs [timeLangTheory.out_signals_def] >>
       gs [MEM_MAP] >>
+      qexists_tac ‘out’ >> gs [] >>
       match_mp_tac terms_out_signals_prog >>
       qexists_tac ‘tms’ >>
       gs [MEM_MAP] >>
       metis_tac []) >>
-    cases_on ‘toString out = "get_time_input"’ >>
+    cases_on ‘explode (num_to_str out) = "get_time_input"’ >>
     gs []) >>
   impl_tac
   >- (
@@ -5740,13 +5746,13 @@ Proof
   conj_asm1_tac
   >- (
     qexists_tac ‘bytes’ >>
-    gs [mk_io_event_def, time_input_def] >>
+    gs [mk_ti_event_def, time_input_def] >>
     drule read_bytearray_LENGTH >>
     strip_tac >>
     gs [ffiBufferSize_def, good_dimindex_def,
         bytes_in_word_def, dimword_def]) >>
   gs [from_io_events_def, DROP_LENGTH_APPEND, io_events_dest_def,
-      mk_io_event_def, io_event_dest_def, time_input_def] >>
+      mk_ti_event_def, io_event_dest_def, time_input_def] >>
   qmatch_goalsub_abbrev_tac ‘ZIP (_, nbytes)’ >>
   ‘LENGTH bytes' = LENGTH nbytes’ by (
     fs [Abbr ‘nbytes’, length_get_bytes] >>
@@ -5781,13 +5787,31 @@ Definition output_rel_def:
       SND (seq 0) = 0)
 End
 
+Definition mk_out_event_def:
+  mk_out_event (:α) be bytes s =
+    IO_event s []
+             (ZIP (bytes, output_bytes (:'a) be s))
+End
 
-Definition out_sig_from_ffi_def:
-  out_sig_from_ffi (:α) (IO_event s conf l) be =
-  let
-    ws = (words_of_bytes be (MAP SND l)):'a word list
-  in
-    w2n (EL 0 ws)
+
+Definition output_eq_ffi_def:
+  output_eq_ffi (os:num) xs ⇔
+    LENGTH xs = 2 ∧
+    (EL 0 xs, EL 1 xs) = (0,os)
+End
+
+
+
+Definition output_io_events_rel_def:
+  output_io_events_rel os (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) ⇔
+  (∃(bytes:word8 list).
+     LENGTH bytes = 2 * dimindex (:α) DIV 8 ∧
+     t'.ffi.io_events =
+     t.ffi.io_events ++
+      [mk_out_event (:α) t'.be bytes (explode (num_to_str os))]) ∧
+  (∃ns.
+     from_io_events (:'a) t.be t.ffi.io_events t'.ffi.io_events = [ns] ∧
+     output_eq_ffi os ns)
 End
 
 
@@ -5795,7 +5819,7 @@ Theorem step_output:
   !prog os m it s s' (t:('a,time_input) panSem$state).
     step prog (LAction (Output os)) m it s s' ∧
     m = dimword (:α) - 1 ∧
-    ~MEM "get_time_input" (out_signals prog) ∧
+    ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
     it = FST (t.ffi.ffi_state 0) ∧
     state_rel (clksOf prog) (out_signals prog) s t ∧
     well_formed_terms prog s.location t.code ∧
@@ -5817,6 +5841,7 @@ Theorem step_output:
       FLOOKUP t'.locals «event»   = SOME (ValWord 0w) ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
       task_ret_defined t'.locals (nClks prog) ∧
+      output_io_events_rel os t t' ∧
       FLOOKUP t'.locals «wakeUpAt» =
       SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) +
          case s'.waitTime of
@@ -5824,9 +5849,7 @@ Theorem step_output:
          | SOME wt => wt))) ∧
       (case s'.waitTime of
        | SOME wt => FST (t.ffi.ffi_state 0) + wt < dimword (:α)
-       | _ => T) ∧
-      (* can also be phrased in EL *)
-     os = out_sig_from_ffi (:α) (LAST t'.ffi.io_events) t'.be
+       | _ => T)
 Proof
   rw [] >>
   fs [] >>
@@ -5985,6 +6008,8 @@ Proof
     strip_tac >>
     gs [] >>
     conj_tac
+    >- gs [mlintTheory.num_to_str_thm] >>
+    conj_tac
     >- gs [ffiBufferSize_def, bytes_in_word_def,
            good_dimindex_def] >>
     gs [mem_call_ffi_def, ffi_call_ffi_def] >>
@@ -6001,7 +6026,7 @@ Proof
       drule read_bytearray_LENGTH >>
       gs [] >>
       strip_tac >>
-      gs [out_sig_bytes_def, ffiBufferSize_def,
+      gs [output_bytes_def, ffiBufferSize_def,
           length_get_bytes, bytes_in_word_def] >>
       rewrite_tac [addressTheory.WORD_TIMES2] >>
       gs [good_dimindex_def, dimword_def]) >>
@@ -6012,14 +6037,15 @@ Proof
       strip_tac >>
       qexists_tac ‘(s.location,tms)’ >>
       gs []) >>
-    ‘MEM (toString out) (out_signals prog)’ by (
+    ‘MEM (explode (toString out)) (MAP explode (out_signals prog))’ by (
       gs [timeLangTheory.out_signals_def] >>
       gs [MEM_MAP] >>
+      qexists_tac ‘out’ >> gs [] >>
       match_mp_tac terms_out_signals_prog >>
       qexists_tac ‘tms’ >>
       gs [MEM_MAP] >>
       metis_tac []) >>
-    cases_on ‘toString out = "get_time_input"’ >>
+    cases_on ‘explode (num_to_str out) = "get_time_input"’ >>
     gs []) >>
   impl_tac
   >- (
@@ -6396,18 +6422,80 @@ Proof
   last_x_assum (qspec_then ‘Tm (Output os) cnds tclks dest wt'’ mp_tac) >>
   gs [timeLangTheory.termClks_def, timeLangTheory.termWaitTimes_def, resetOutput_def] >>
   strip_tac >>
-  cases_on ‘wt'’ >> gs []
+  reverse conj_tac
   >- (
-    ‘s'.waitTime = NONE’ by (
-      gs [Once pickTerm_cases] >>
-      rveq >> gs [] >>
-      gs [evalTerm_cases] >> rveq >>
-      gs [calculate_wtime_def, list_min_option_def]) >>
+    cases_on ‘wt'’ >> gs []
+    >- (
+      ‘s'.waitTime = NONE’ by (
+        gs [Once pickTerm_cases] >>
+        rveq >> gs [] >>
+        gs [evalTerm_cases] >> rveq >>
+        gs [calculate_wtime_def, list_min_option_def]) >>
+      gs []) >>
+    fs [] >>
+    qmatch_goalsub_abbrev_tac ‘n2w (THE (nwt))’ >>
+    ‘?t. nwt = SOME t’ by (
+      gs [Abbr ‘nwt’] >>
+      gs [calculate_wtime_def, list_min_option_def] >>
+      TOP_CASE_TAC >>
+      gs []) >>
     gs [] >>
-    gs [out_sig_from_ffi_def] >>
-    ‘MAP SND (ZIP (bytes,out_sig_bytes (:α) t.be (toString os))) =
-     out_sig_bytes (:α) t.be (toString os)’ by (
-      ‘LENGTH bytes = LENGTH (out_sig_bytes (:α) t.be (toString os))’ by (
+    ‘s'.waitTime = nwt’ by (
+      gs [Abbr ‘nwt’, Once pickTerm_cases] >>
+      rveq >> gs [] >>
+      gs [evalTerm_cases]) >>
+    gs [word_add_n2w]) >>
+  gs [output_io_events_rel_def] >>
+  conj_asm1_tac
+  >- (
+    qexists_tac ‘bytes’ >>
+    gs [mk_out_event_def] >>
+    gs [ffiBufferSize_def, good_dimindex_def,
+        bytes_in_word_def, dimword_def]) >>
+  gs [from_io_events_def, DROP_LENGTH_APPEND, io_events_dest_def,
+      mk_out_event_def, io_event_dest_def, output_bytes_def] >>
+  qmatch_goalsub_abbrev_tac ‘ZIP (_, nbytes)’ >>
+  ‘LENGTH bytes' = LENGTH nbytes’ by (
+    fs [Abbr ‘nbytes’, length_get_bytes] >>
+    gs [good_dimindex_def]) >>
+  drule MAP_ZIP >>
+  gs [] >>
+  strip_tac >>
+  ‘words_of_bytes t.be nbytes =
+   [0w; (string_to_word (explode (toString os))):'a word]’ by (
+    fs [Abbr ‘nbytes’] >>
+    match_mp_tac words_of_bytes_get_bytes >>
+    gs []) >>
+  gs [output_eq_ffi_def] >>
+  gs [string_to_word_def] >>
+  gs []
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+QED
+
+
+        (*
+
+        gs [out_sig_from_ffi_def] >>
+      ‘MAP SND (ZIP (bytes,out_sig_bytes (:α) t.be (num_to_str os))) =
+       out_sig_bytes (:α) t.be (num_to_str os)’ by (
+        ‘LENGTH bytes = LENGTH (out_sig_bytes (:α) t.be (num_to_str os))’ by (
         (*
         drule read_bytearray_LENGTH >>
         gs [] >>
@@ -6416,37 +6504,8 @@ Proof
             length_get_bytes, bytes_in_word_def] >>
         rewrite_tac [addressTheory.WORD_TIMES2] >>
         gs [good_dimindex_def, dimword_def]*)
-        cheat) >>
-      drule MAP_ZIP >>
-      gs []) >>
-    gs [] >>
-    gs [out_sig_bytes_def] >>
-    (*
-    (words_of_bytes be (get_bytes (:α) be x ++ get_bytes (:α) be y)) = [x,y] *)
-    cheat) >>
-  fs [] >>
-  qmatch_goalsub_abbrev_tac ‘n2w (THE (nwt))’ >>
-  ‘?t. nwt = SOME t’ by (
-    gs [Abbr ‘nwt’] >>
-    gs [calculate_wtime_def, list_min_option_def] >>
-    TOP_CASE_TAC >>
-    gs []) >>
-  gs [] >>
-  ‘s'.waitTime = nwt’ by (
-    gs [Abbr ‘nwt’, Once pickTerm_cases] >>
-    rveq >> gs [] >>
-    gs [evalTerm_cases]) >>
-  gs [word_add_n2w] >>
-  gs [out_sig_from_ffi_def] >>
-  gs [build_ffi_def] >>
-  unabbrev_all_tac >> gs [] >>
-  ‘MAP SND (ZIP (bytes,out_sig_bytes (:α) t.be (toString os))) =
-   out_sig_bytes (:α) t.be (toString os)’ by cheat >>
-  gs [] >>
-  gs [out_sig_bytes_def] >>
-  cheat
-QED
-
+        cheat
+        *)
 (* final theorem *)
 
 Definition well_formed_code_def:
@@ -6926,7 +6985,7 @@ Proof
   fs [panLangTheory.decs_def] >>
   once_rewrite_tac [evaluate_def] >>
   gs [eval_def] >>
-  ‘∃v1. FLOOKUP t.code (toString (FST (ohd prog))) = SOME v1’ by (
+  ‘∃v1. FLOOKUP t.code (num_to_str (FST (ohd prog))) = SOME v1’ by (
     cases_on ‘prog’ >>
     gs [ohd_def, code_installed_def] >>
     cases_on ‘h’ >> gs [] >> metis_tac []) >>

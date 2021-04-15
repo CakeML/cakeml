@@ -83,7 +83,7 @@ Definition compTerm_def:
       return   = Return
                  (Struct
                   [Var «newClks»;  Var «waitSet»;
-                   Var «wakeUpAt»; Label (toString loc)])
+                   Var «wakeUpAt»; Label (num_to_str loc)])
   in
     decs [
         («waitSet»,   case wt of [] => Const 1w | wt => Const 0w); (* not waitSet *)
@@ -107,7 +107,7 @@ Definition compTerm_def:
                 («ptr2»,Const ffiBufferAddr);
                 («len2»,Const ffiBufferSize)
                ] (Seq
-                  (ExtCall (strlit (toString outsig)) «ptr1» «len1» «ptr2» «len2»)
+                  (ExtCall (num_to_str outsig) «ptr1» «len1» «ptr2» «len2»)
                   return)
           ])
 End
@@ -176,7 +176,7 @@ End
 Definition compLocation_def:
   compLocation clks (loc,ts) =
   let n = LENGTH clks in
-    (toString loc,
+    (num_to_str loc,
      [(«clks», genShape n);
       («event», One)],
      compTerms clks «clks» «event» ts)
@@ -278,7 +278,7 @@ Definition start_controller_def:
     clksLength = nClks prog
   in
     decs
-    [(«loc», Label (toString initLoc));
+    [(«loc», Label (num_to_str initLoc));
      («waitSet»,
       case initWakeUp of NONE => Const 1w | _ => Const 0w);  (* not waitSet *)
      («event», Const 0w);

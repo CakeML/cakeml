@@ -3,11 +3,14 @@
 *)
 
 open preamble
-     stringTheory mlstringTheory
+     stringTheory mlstringTheory mlintTheory
 
 val _ = new_theory "timeLang";
 
 Overload CVar[inferior] = “strlit”
+
+val _ = set_grammar_ancestry
+        ["mlint"];
 
 (* location identifies TA-states *)
 Type loc = ``:num``
@@ -190,7 +193,7 @@ Definition out_signals_def:
   let
     tms = FLAT (MAP SND prog)
   in
-    MAP toString (terms_out_signals tms)
+    MAP num_to_str (terms_out_signals tms)
 End
 
 val _ = export_theory();

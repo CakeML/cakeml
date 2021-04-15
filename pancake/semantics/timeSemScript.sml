@@ -203,6 +203,12 @@ Definition input_terms_actions_def:
           (terms_in_signals tms)
 End
 
+Definition output_terms_actions_def:
+  output_terms_actions m tms =
+    EVERY (λn. n < m)
+          (terms_out_signals tms)
+End
+
 (*
   terms_wtimes_ffi_bound (:'a) s tms (FST (t.ffi.ffi_state 0))
 *)
@@ -224,6 +230,7 @@ Inductive pickTerm:
     max_clocks st.clocks m ∧
     terms_time_range m (Tm (Input in_signal) cnds clks dest diffs::tms)  ∧
     input_terms_actions max (Tm (Input in_signal) cnds clks dest diffs::tms) ∧
+    output_terms_actions max tms ∧
     terms_wtimes_ffi_bound m st (Tm (Input in_signal) cnds clks dest diffs::tms) ∧
     evalTerm st (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs) st' ⇒
     pickTerm st max m (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs::tms) st') ∧
@@ -234,6 +241,7 @@ Inductive pickTerm:
     max_clocks st.clocks m ∧
     terms_time_range m (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
     input_terms_actions max tms ∧
+    output_terms_actions max (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
     terms_wtimes_ffi_bound m st (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
     evalTerm st NONE (Tm (Output out_signal) cnds clks dest diffs) st' ⇒
     pickTerm st max m NONE (Tm (Output out_signal) cnds clks dest diffs::tms) st') ∧
@@ -244,6 +252,7 @@ Inductive pickTerm:
     tm_conds_eval_limit m st (Tm ioAction cnds clks dest diffs) ∧
     term_time_range m (Tm ioAction cnds clks dest diffs) ∧
     input_terms_actions max [(Tm ioAction cnds clks dest diffs)] ∧
+    output_terms_actions max [(Tm ioAction cnds clks dest diffs)] ∧
     terms_wtimes_ffi_bound m st (Tm ioAction cnds clks dest diffs :: tms) ∧
     pickTerm st max m event tms st' ⇒
     pickTerm st max m event (Tm ioAction cnds clks dest diffs :: tms) st') ∧
