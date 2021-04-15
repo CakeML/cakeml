@@ -57,7 +57,7 @@ QED
 Theorem functional_evaluate_match:
   s.eval_state = NONE ⇒
   (evaluate_match s env v pes errv = (s',list_result r) ⇔
-   evaluate_match T env s v pes errv (s',r))
+     evaluate_match T env s v pes errv (s',r))
 Proof
   rw[evaluate_run_eval_match,evaluate_eq_run_eval_list] >>
   Cases_on`run_eval_match env v pes errv s`>>rw[] >>
@@ -65,9 +65,9 @@ Proof
 QED
 
 Theorem evaluate_decs_eq_run_eval_decs:
-   ∀s env decs r tds s'.
-     (s.eval_state = NONE ⇒
-      evaluate_decs s env decs = run_eval_decs env s decs)
+  ∀s env decs r tds s'.
+    (s.eval_state = NONE ⇒
+     evaluate_decs s env decs = run_eval_decs env s decs)
 Proof
   recInduct evaluate_decs_ind >>
   rw[evaluate_decs_def,run_eval_dec_def,run_eval_dec_def] >>

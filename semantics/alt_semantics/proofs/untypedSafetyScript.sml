@@ -6,77 +6,85 @@
 
 open preamble;
 open libTheory astTheory bigStepTheory smallStepTheory semanticPrimitivesTheory
-open determTheory bigSmallEquivTheory
+open determTheory bigSmallEquivTheory bigStepPropsTheory
 open terminationTheory bigClockTheory;
 
 val _ = new_theory "untypedSafety";
 
-val untyped_safety_exp_step = Q.prove (
-`∀env s e c.
-  (e_step (env,s,e,c) = Estuck) =
-  ((?v. e = Val v) ∧ ((c = []) ∨ (?env. c = [(Craise (), env)])))`,
- rw [e_step_def, continue_def, push_def, return_def] >>
- cases_on `e` >>
- rw [] >|
- [cases_on `e'`,
-  cases_on `c`] >>
- rw [] >>
- every_case_tac >>
- fs [application_def, oneTheory.one, push_def, return_def] >>
- every_case_tac);
-
-val small_exp_safety1 = Q.prove (
-`!s env e r.
-  ¬(e_diverges env s e ∧ ?r. small_eval env s e [] r)`,
- rw [e_diverges_def, METIS_PROVE [] ``(~x ∨ ~y) = (y ⇒ ~x)``] >>
- cases_on `r` >>
- cases_on `r'` >>
- (TRY (Cases_on `e'`)) >>
- fs [small_eval_def, e_step_reln_def]
- >- (`∀s'' env'' e'' c''.
-        e_step (env',q,Val a,[]) ≠ Estep (env'',s'',e'',c'')`
-             by rw [e_step_def, continue_def] >>
-     metis_tac [])
- >- (`∀s'' env''' e''' c''.
-     e_step (env',q,Val a,[(Craise (),env'')]) ≠ Estep (env''',s'',e''',c'')`
-          by rw [push_def, e_step_def, continue_def] >>
-     metis_tac [])
- >- metis_tac [e_step_result_distinct]);
-
-val small_exp_safety2 = Q.prove (
-`!menv cenv s env e. e_diverges env s e ∨ ?r. small_eval env s e [] r`,
- rw [e_diverges_def, METIS_PROVE [] ``(x ∨ y) = (~x ⇒ y)``, e_step_reln_def] >>
- cases_on `e_step (env',s',e',c')` >>
- fs [untyped_safety_exp_step]
- >- (PairCases_on `p` >>
-     fs [])
- >- (qexists_tac `(s', Rerr (Rabort a))` >>
-     rw [small_eval_def] >>
-     metis_tac [])
- >- (qexists_tac `(s', Rval v)` >>
-     rw [small_eval_def] >>
-     metis_tac [])
- >- (qexists_tac `(s', Rerr (Rraise v))` >>
-     rw [small_eval_def] >>
-     metis_tac []));
-
-Theorem untyped_safety_exp:
- !s env e. (?r. small_eval env s e [] r) = ¬e_diverges env s e
+Theorem untyped_safety_exp_step:
+  ∀env s e c.
+    (e_step (env,s,e,c) = Estuck) =
+    ((?v. e = Val v) ∧ ((c = []) ∨ (?env. c = [(Craise (), env)])))
 Proof
-metis_tac [small_exp_safety2, small_exp_safety1]
+  rw [e_step_def, continue_def, push_def, return_def] >>
+  cases_on `e` >>
+  rw [] >|
+  [cases_on `e'`,
+   cases_on `c`] >>
+  rw [] >>
+  every_case_tac >>
+  fs [application_def, oneTheory.one, push_def, return_def] >>
+  every_case_tac
 QED
 
-val to_small_st_surj = Q.prove(
-  `∀s. ∃y. s = to_small_st y`,
-  srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][to_small_st_def]);
+Theorem small_exp_safety1:
+  !s env e r.
+    ¬(e_diverges env s e ∧ ?r. small_eval env s e [] r)
+Proof
+  rw [e_diverges_def, METIS_PROVE [] ``(~x ∨ ~y) = (y ⇒ ~x)``] >>
+  cases_on `r` >>
+  cases_on `r'` >>
+  (TRY (Cases_on `e'`)) >>
+  fs [small_eval_def, e_step_reln_def]
+  >- (`∀s'' env'' e'' c''.
+            e_step (env',q,Val a,[]) ≠ Estep (env'',s'',e'',c'')`
+         by rw [e_step_def, continue_def] >>
+        metis_tac [])
+  >- (`∀s'' env''' e''' c''.
+            e_step (env',q,Val a,[(Craise (),env'')]) ≠ Estep (env''',s'',e''',c'')`
+         by rw [push_def, e_step_def, continue_def] >>
+        metis_tac [])
+  >- metis_tac [e_step_result_distinct]
+QED
+
+Theorem small_exp_safety2:
+  !menv cenv s env e. e_diverges env s e ∨ ?r. small_eval env s e [] r
+Proof
+  rw [e_diverges_def, METIS_PROVE [] ``(x ∨ y) = (~x ⇒ y)``, e_step_reln_def] >>
+  cases_on `e_step (env',s',e',c')` >>
+  fs [untyped_safety_exp_step]
+  >- (PairCases_on `p` >>
+      fs [])
+  >- (qexists_tac `(s', Rerr (Rabort a))` >>
+      rw [small_eval_def] >>
+      metis_tac [])
+  >- (qexists_tac `(s', Rval v)` >>
+      rw [small_eval_def] >>
+      metis_tac [])
+  >- (qexists_tac `(s', Rerr (Rraise v))` >>
+      rw [small_eval_def] >>
+      metis_tac [])
+QED
+
+Theorem untyped_safety_exp:
+  !s env e. (?r. small_eval env s e [] r) = ¬e_diverges env s e
+Proof
+  metis_tac [small_exp_safety2, small_exp_safety1]
+QED
+
+Triviality to_small_st_surj:
+  ∀s. ∃y. s = to_small_st y
+Proof
+  srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][to_small_st_def]
+QED
 
 Theorem untyped_safety_decs:
   (!d (s:'a state) env.
-    s.eval_state = NONE ⇒
-    (∃r. evaluate_dec F env s d r) = ~dec_diverges env s d) ∧
+     s.eval_state = NONE ⇒
+     (∃r. evaluate_dec F env s d r) = ~dec_diverges env s d) ∧
   (!ds (s:'a state) env.
-    s.eval_state = NONE ⇒
-    (?r. evaluate_decs F env s ds r) = ~decs_diverges env s ds)
+     s.eval_state = NONE ⇒
+     (?r. evaluate_decs F env s ds r) = ~decs_diverges env s ds)
 Proof
   ho_match_mp_tac dec_induction >>
   rw [] >>
@@ -124,7 +132,7 @@ Proof
     eq_tac >> rw [] >>
     imp_res_tac evaluate_dec_eval_state >> fs [] >>
     metis_tac [result_nchotomy, decs_determ, PAIR_EQ,
-                  result_11, result_distinct])
+               result_11, result_distinct])
   >-
    (fs [EXISTS_PROD] >> fs [declare_env_def])
   >-
