@@ -60,7 +60,7 @@ simp [Once evaluate_dec_cases] >>
 fs [] >>
 rw [] >>
 metis_tac [big_exp_determ, result_11, result_distinct,PAIR_EQ,NOT_EXISTS,
-           NOT_EVERY, match_result_11, match_result_distinct, optionTheory.SOME_11]
+           NOT_EVERY, match_result_11, match_result_distinct, optionTheory.SOME_11,PAIR]
 QED
 
            (*

@@ -1607,7 +1607,7 @@ metis_tac[evaluate_ctxts_type_error]);
 
 val one_step_backward_type_error = Q.prove (
   `!env s e c.
-    (e_step (env,to_small_st s,e,c) = Eabort a)
+    (e_step (env,to_small_st s,e,c) = Eabort a) ∧ s.eval_state = NONE
     ⇒
     evaluate_state (env,to_small_st s,e,c)
       ((s with <| next_type_stamp := 0; next_exn_stamp := 0; clock := 0 |>),
@@ -1681,10 +1681,11 @@ srw_tac[][] >>
 metis_tac [one_step_backward]);
 
 val evaluate_state_no_ctxt = Q.prove (
-`!env s e r.
+`!env (s:'a state) e r.
   evaluate_state (env,to_small_st s,Exp e,[]) r
   ⇔
-  evaluate F env (s with <| next_type_stamp := 0; next_exn_stamp := 0; clock := 0 |>) e r`,
+  evaluate F env (s with <| next_type_stamp := 0; next_exn_stamp := 0; clock := 0;
+                            eval_state := NONE |>) e r`,
  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
  full_simp_tac(srw_ss())[to_small_st_def] >>
@@ -1693,10 +1694,11 @@ val evaluate_state_no_ctxt = Q.prove (
  simp[state_component_equality]);
 
 val evaluate_state_val_no_ctxt = Q.prove (
-`!env s e.
+`!env (s:'a state) e.
   evaluate_state (env,to_small_st s,Val e,[]) r
   ⇔
-  (r = (s with <| next_type_stamp := 0; next_exn_stamp := 0; clock := 0 |>, Rval e))`,
+  (r = (s with <| next_type_stamp := 0; next_exn_stamp := 0;
+                  clock := 0; eval_state := NONE |>, Rval e))`,
  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
  full_simp_tac(srw_ss())[to_small_st_def] >>
@@ -1705,10 +1707,11 @@ val evaluate_state_val_no_ctxt = Q.prove (
  full_simp_tac(srw_ss())[state_component_equality]);
 
 val evaluate_state_val_raise_ctxt = Q.prove (
-`!env s v env'.
+`!env (s:'a state) v env'.
   evaluate_state (env,to_small_st s,Val v,[(Craise (), env')]) r
   ⇔
-  (r = (s with <| next_type_stamp := 0; next_exn_stamp := 0; clock := 0 |>, Rerr (Rraise v)))`,
+  (r = (s with <| next_type_stamp := 0; next_exn_stamp := 0;
+                  clock := 0; eval_state := NONE |>, Rerr (Rraise v)))`,
  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
  srw_tac[][evaluate_ctxt_cases] >>
@@ -1725,10 +1728,12 @@ val evaluate_change_state = Q.prove(
 
 Theorem small_big_exp_equiv:
  !env s e s' r.
+  s.eval_state = NONE ⇒
   (small_eval env (to_small_st s) e [] (to_small_st s',r) ∧
-   s.clock = s'.clock ∧ s.next_type_stamp = s'.next_type_stamp ∧ s.next_exn_stamp= s'.next_exn_stamp)
-  ⇔
-  evaluate F env s e (s',r)
+   s.clock = s'.clock ∧ s.next_type_stamp = s'.next_type_stamp ∧
+   s.next_exn_stamp = s'.next_exn_stamp ∧ s.eval_state = s'.eval_state
+   ⇔
+   evaluate F env s e (s',r))
 Proof
  srw_tac[][] >>
  eq_tac
@@ -1767,6 +1772,8 @@ Proof
      metis_tac [evaluate_no_new_types_exns, FST, big_unclocked])
 QED
 
+
+
 (* ---------------------- Small step determinacy ------------------------- *)
 
 Theorem small_exp_determ:
@@ -1780,11 +1787,13 @@ Proof
  full_simp_tac(srw_ss())[to_small_st_def] >>
  PairCases_on `r1` >>
  PairCases_on `r2` >>
- pop_assum (qspecl_then [`env`, `<| ffi := SND s; refs := FST s; clock := 0; next_type_stamp := 0; next_exn_stamp := 0 |>`, `e`] mp_tac) >>
+ pop_assum (qspecl_then [`env`, `<| ffi := SND s; refs := FST s; clock := 0; next_type_stamp := 0; next_exn_stamp := 0; eval_state := NONE |>`, `e`] mp_tac) >>
  simp [] >>
  strip_tac >>
- first_assum (qspec_then `<| ffi := r11; refs := r10; clock := 0; next_type_stamp := 0; next_exn_stamp := 0 |>` mp_tac) >>
- first_assum (qspec_then `<| ffi := r21; refs := r20; clock := 0; next_type_stamp := 0; next_exn_stamp := 0 |>` mp_tac) >>
+ first_assum (qspec_then `<| ffi := r11; refs := r10; clock := 0;
+          next_type_stamp := 0; next_exn_stamp := 0; eval_state := NONE |>` mp_tac) >>
+ first_assum (qspec_then `<| ffi := r21; refs := r20; clock := 0;
+          next_type_stamp := 0; next_exn_stamp := 0; eval_state := NONE |>` mp_tac) >>
  pop_assum kall_tac >>
  simp [] >>
  strip_tac >>
@@ -1792,7 +1801,7 @@ Proof
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
  imp_res_tac big_exp_determ >>
- full_simp_tac(srw_ss())[]
+ full_simp_tac(srw_ss())[state_component_equality]
 QED
 
 val _ = export_theory ();

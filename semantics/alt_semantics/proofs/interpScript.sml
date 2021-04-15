@@ -353,6 +353,11 @@ val run_eval_dec_def = Define `
      Rval <| v := nsEmpty; c := build_tdefs st.next_type_stamp tds |>)
   else
     (st, Rerr (Rabort Rtype_error))) ∧
+(run_eval_dec env ^st (Denv n) =
+  case declare_env st.eval_state env of
+  | NONE => (st, Rerr (Rabort Rtype_error))
+  | SOME (x, es') => (( st with<| eval_state := es' |>),
+                      Rval <| v := (nsSing n x); c := nsEmpty |>)) ∧
 (run_eval_dec env ^st (Dtabbrev _ tvs tn t) =
   (st, Rval <| v := nsEmpty; c := nsEmpty |>)) ∧
 (run_eval_dec env ^st (Dexn _ cn ts) =

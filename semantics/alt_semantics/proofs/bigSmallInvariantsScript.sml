@@ -172,14 +172,13 @@ evaluate_ctxts s' cs res1 res2)
 evaluate_ctxts s ((Chandle ()  pes,env)::cs) (Rerr (Rraise v)) res2)`;
 
 val _ = Hol_reln ` (! env e c res bv ffi refs st.
-(evaluate F env <| ffi := ffi; clock :=(( 0 : num)); refs := refs; next_type_stamp :=(( 0 : num)); next_exn_stamp :=(( 0 : num)) |> e (st, res) /\
+(evaluate F env <| ffi := ffi; clock :=(( 0 : num)); refs := refs; next_type_stamp :=(( 0 : num)); next_exn_stamp :=(( 0 : num)); eval_state := NONE |> e (st, res) /\
 evaluate_ctxts st c res bv)
 ==>
 evaluate_state (env, (refs, ffi), Exp e, c) bv)
 
 /\ (! env ffi refs v c bv.
-(evaluate_ctxts <| ffi := ffi; clock :=(( 0 : num)); refs := refs; next_type_stamp :=(( 0 : num)); next_exn_stamp :=(( 0 : num)) |> c (Rval v) bv)
+(evaluate_ctxts <| ffi := ffi; clock :=(( 0 : num)); refs := refs; next_type_stamp :=(( 0 : num)); next_exn_stamp :=(( 0 : num)); eval_state := NONE |> c (Rval v) bv)
 ==>
 evaluate_state (env, (refs, ffi), Val v, c) bv)`;
 val _ = export_theory()
-
