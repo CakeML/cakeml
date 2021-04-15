@@ -358,7 +358,7 @@ QED
 Theorem eval_steps_imp_steps:
   ∀k prog m n or st labels sts.
     eval_steps k prog m n or st = SOME (labels, sts) ⇒
-    steps prog labels m n st sts
+    steps prog labels m n st sts ∧ k = LENGTH labels
 Proof
   Induct >> rw []
   >- fs [eval_steps_def, steps_def] >>

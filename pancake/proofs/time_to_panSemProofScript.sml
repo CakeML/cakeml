@@ -14,6 +14,66 @@ val _ = set_grammar_ancestry
          "time_to_panProof"];
 
 
+Datatype:
+  observed_io = ObsTime    num
+              | ObsInput   num
+              | ObsOutput  num
+End
+
+
+Definition recover_time_input_def:
+  recover_time_input (:'a) be l =
+  let ns =
+      MAP w2n
+          ((words_of_bytes: bool -> word8 list -> α word list) be (MAP SND l))
+  in
+    (EL 0 ns, EL 1 ns)
+End
+
+
+Definition decode_io_event_def:
+  decode_io_event (:'a) be (IO_event s conf l) =
+    if s ≠ "get_time_input" then (ObsOutput (toNum s))
+    else (
+      let
+        (time,input) = recover_time_input (:'a) be l
+      in
+        if input = 0 then (ObsTime time)
+        else (ObsInput input))
+End
+
+Definition decode_io_events_def:
+  decode_io_events (:'a) be ios =
+   MAP (decode_io_event (:'a) be) ios
+End
+
+
+
+(*
+ (("ASCIInumbers", "toString_toNum_cancel"),
+     (⊢ ∀n. toNum (toString n) = n, Thm))
+*)
+
+
+
+
+(*
+  thoughts:
+  write a func that decodes io_events
+
+*)
+
+
+
+
+(*
+   eval_steps (LENGTH labels) prog (dimword (:α) - 1) n or st =
+   SOME (labels, sts)
+*)
+
+
+
+
 (* forward style *)
 Theorem eval_steps_thm:
   ∀prog n or st labels sts (t:('a,time_input) panSem$state).
@@ -44,7 +104,12 @@ QED
 
 
 
-(*** THIS NEEDS FLIPPING ***)
+
+
+
+
+
+(*** to be flipped ***)
 (*
 eval_step prog m n or orn st = SOME (label, st') ⇒
  assumptions prog labels n st t ⇒
