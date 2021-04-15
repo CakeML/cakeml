@@ -3088,8 +3088,8 @@ Definition gen_ffi_states_def:
         (GENLIST I cycles)
 End
 
-Definition ffi_io_events_rel_def:
-  ffi_io_events_rel (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) cycles ⇔
+Definition delay_io_events_rel_def:
+  delay_io_events_rel (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) cycles ⇔
   (∃bytess.
      LENGTH bytess = cycles ∧
      EVERY (λbtyes. LENGTH btyes = 2 * dimindex (:α) DIV 8) bytess ∧
@@ -3128,7 +3128,7 @@ Theorem step_delay_loop:
       FLOOKUP t'.locals «taskRet» = FLOOKUP t.locals «taskRet» ∧
       FLOOKUP t'.locals «sysTime»  =
       SOME (ValWord (n2w (FST (t.ffi.ffi_state cycles)))) ∧
-      ffi_io_events_rel t t' cycles
+      delay_io_events_rel t t' cycles
 Proof
   Induct_on ‘cycles’ >>
   fs []
@@ -3146,7 +3146,7 @@ Proof
     qexists_tac ‘t’ >> fs [] >>
     gs [state_rel_def, nexts_ffi_def, GSYM ETA_AX] >>
     pairarg_tac >> gs [] >>
-    gs [ffi_io_events_rel_def,
+    gs [delay_io_events_rel_def,
         io_events_eq_ffi_seq_def, from_io_events_def, DROP_LENGTH_NIL,
         io_events_dest_def, gen_ffi_states_def, mk_ti_events_def]) >>
   rw [] >>
@@ -3385,7 +3385,7 @@ Proof
     gs [Abbr ‘nt’] >>
     reverse conj_tac
     >- (
-      fs [ffi_io_events_rel_def, ffi_call_ffi_def] >>
+      fs [delay_io_events_rel_def, ffi_call_ffi_def] >>
       fs [nexts_ffi_def, next_ffi_def, FLOOKUP_UPDATE] >>
       fs [ADD1] >>
       conj_asm1_tac
@@ -3874,7 +3874,7 @@ Proof
     gs [Abbr ‘nt’] >>
     reverse conj_tac
     >- (
-    fs [ffi_io_events_rel_def, ffi_call_ffi_def] >>
+    fs [delay_io_events_rel_def, ffi_call_ffi_def] >>
     fs [nexts_ffi_def, next_ffi_def] >>
     fs [FLOOKUP_UPDATE] >>
     gs [ADD1] >>
@@ -4310,7 +4310,7 @@ Proof
   gs [Abbr ‘nt’] >>
   reverse conj_tac
   >- (
-    fs [ffi_io_events_rel_def, ffi_call_ffi_def] >>
+    fs [delay_io_events_rel_def, ffi_call_ffi_def] >>
     fs [nexts_ffi_def, next_ffi_def] >>
     fs [FLOOKUP_UPDATE] >>
     gs [ADD1] >>
@@ -4629,7 +4629,7 @@ Theorem step_delay:
       FLOOKUP t'.locals «taskRet» = FLOOKUP t.locals «taskRet» ∧
       FLOOKUP t'.locals «sysTime»  =
         SOME (ValWord (n2w (FST (t.ffi.ffi_state cycles)))) ∧
-      ffi_io_events_rel t t' cycles
+      delay_io_events_rel t t' cycles
 Proof
   rw [] >>
   fs [task_controller_def] >>
@@ -6526,12 +6526,11 @@ Definition assumptions_def:
     n = FST (t.ffi.ffi_state 0) ∧
     ffi_rels prog labels s t ∧
     good_dimindex (:'a) ∧
-    ~MEM "get_time_input" (out_signals prog) ∧
+    ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
     event_inv t.locals ∧
     wait_time_locals (:α) t.locals s.waitTime t.ffi.ffi_state ∧
     task_ret_defined t.locals (nClks prog)
 End
-
 
 
 (* taken from the conclusion of individual step thorems *)
@@ -6563,6 +6562,25 @@ Definition nlocals_def:
      | _ => T))
 End
 
+
+
+Definition action_io_events_rel_def:
+  (action_io_events_rel (Input i) (t:('a,time_input) panSem$state) t' ⇔
+     input_io_events_rel t t') ∧
+  (action_io_events_rel (Output os) t t' ⇔
+     output_io_events_rel os t t')
+End
+
+
+Definition io_events_rel_def:
+  (io_events_rel (LDelay d) t t' ⇔
+     ∃cycles. delay_io_events_rel t t' cycles) ∧
+  (io_events_rel (LAction io) t t' ⇔
+     action_io_events_rel io t t')
+End
+
+
+
 Definition evaluations_def:
   (evaluations prog [] [] (t:('a,time_input) panSem$state) ⇔ T) ∧
   (evaluations prog (lbl::lbls) (st::sts) t ⇔
@@ -6570,13 +6588,14 @@ Definition evaluations_def:
      evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
      evaluate (time_to_pan$always (nClks prog), nt) ∧
      state_rel (clksOf prog) (out_signals prog) st nt ∧
-     ~MEM "get_time_input" (out_signals prog) ∧
+     ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
      event_inv nt.locals ∧
      nt.code = t.code ∧
      next_ffi_state lbl t.ffi.ffi_state nt.ffi.ffi_state  ∧
      nt.ffi.oracle = t.ffi.oracle ∧
      nlocals lbl nt.locals (t.ffi.ffi_state) st.waitTime (dimword (:α)) ∧
      wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
+     io_events_rel lbl t nt ∧
      task_ret_defined nt.locals (nClks prog) ∧
      evaluations prog lbls sts nt)
 End
@@ -6687,6 +6706,12 @@ Proof
         gs [delay_rep_def]) >>
       gs []) >>
     conj_asm1_tac
+    >- (
+      gs [io_events_rel_def] >>
+      qexists_tac ‘cycles’ >>
+      gs [delay_io_events_rel_def] >>
+      metis_tac []) >>
+    conj_asm1_tac
     >- gs [task_ret_defined_def] >>
     last_x_assum match_mp_tac >>
     gs [] >>
@@ -6751,6 +6776,8 @@ Proof
       qexists_tac ‘x’ >>
       qexists_tac ‘FST (t.ffi.ffi_state 0)’ >>
       gs []) >>
+    conj_asm1_tac
+    >-  gs [io_events_rel_def, action_io_events_rel_def] >>
     last_x_assum match_mp_tac >>
     gs [] >>
     qexists_tac ‘h'’ >>
@@ -6795,6 +6822,8 @@ Proof
   qexists_tac ‘x’ >>
   qexists_tac ‘FST (t.ffi.ffi_state 0)’ >>
   gs []) >>
+  conj_asm1_tac
+  >-  gs [io_events_rel_def, action_io_events_rel_def] >>
   last_x_assum match_mp_tac >>
   gs [] >>
   qexists_tac ‘h'’ >>
