@@ -1451,6 +1451,41 @@ Proof
   >> drule_then (irule_at Any) var_renaming_SWAP_id
 QED
 
+Theorem invertible_on_composition:
+  !r s vars. invertible_on (MAP (TYPE_SUBST s ## I) r ++ s) vars
+  <=> invertible_on r vars
+  /\ invertible_on s (FLAT (MAP tyvars (MAP (λx. TYPE_SUBST r $ Tyvar x) vars)))
+Proof
+  Ho_Rewrite.REWRITE_TAC[EQ_IMP_THM,FORALL_AND_THM,AND_IMP_INTRO]
+  >> reverse conj_tac
+  >- (
+    ONCE_REWRITE_TAC[invertible_on_tyvars_Tyapp]
+    >> rw[invertible_on_equiv_ts_on,equiv_ts_on_def,tyvars_Tyapp,equal_ts_on_def,MEM_FLAT,MEM_MAP,PULL_EXISTS,tyvars_def,Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_compose]
+    >> qmatch_goalsub_abbrev_tac `TYPE_SUBST s (TYPE_SUBST η _)`
+    >> qmatch_asmsub_abbrev_tac `TYPE_SUBST s _ = TYPE_SUBST η' _`
+    >> qexists_tac `clean_tysubst $ MAP (TYPE_SUBST η' ## I) η ++ η'`
+    >> rw[Excl"TYPE_SUBST_def",var_renaming_compose,
+      GSYM clean_tysubst_TYPE_SUBST_eq,GSYM TYPE_SUBST_compose,
+      Once TYPE_SUBST_tyvars,GSYM TYPE_SUBST_def]
+    >> metis_tac[]
+  )
+  >> rpt gen_tac >> strip_tac
+  >> conj_asm1_tac
+  >- (
+    fs[invertible_on_def,Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_compose]
+    >> qmatch_asmsub_abbrev_tac `TYPE_SUBST s' (TYPE_SUBST s (TYPE_SUBST _ _))`
+    >> qexists_tac `MAP (TYPE_SUBST s' ## I) s ++ s'` >> rpt strip_tac
+    >> fs[Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_compose]
+  )
+  >> simp[invertible_on_def,MEM_FLAT,MEM_MAP,Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_compose,PULL_EXISTS,tyvars_TYPE_SUBST,tyvars_def]
+  >> dxrule_then strip_assume_tac $ cj 1 invertible_on_imp1
+  >> fs[invertible_on_def,MEM_FLAT,MEM_MAP,Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_compose,PULL_EXISTS,tyvars_TYPE_SUBST,tyvars_def]
+  >> qmatch_asmsub_abbrev_tac `TYPE_SUBST s' (TYPE_SUBST s (TYPE_SUBST _ _))`
+  >> qexists_tac `MAP (TYPE_SUBST r ## I) s' ++ r` >> rpt strip_tac
+  >> ntac 2 $ first_x_assum $ drule_then strip_assume_tac
+  >> gvs[Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_def,GSYM TYPE_SUBST_compose,tyvars_def]
+QED
+
 Theorem renaming_CARD_LESS_OR_EQ:
   !s t. (!a. MEM a (tyvars t) ==> ?b. TYPE_SUBST s (Tyvar a) = Tyvar b)
   ==> CARD (set (tyvars (TYPE_SUBST s t))) <= CARD (set (tyvars t))
