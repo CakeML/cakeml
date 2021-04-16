@@ -6912,10 +6912,12 @@ Definition evaluations_def:
      evaluations prog lbls sts nt)
 End
 
+
 Theorem steps_io_event_thm:
   ∀labels prog n st sts (t:('a,time_input) panSem$state).
     steps prog labels (dimword (:α) - 1) n st sts ∧
-    assumptions prog labels n st t ⇒
+    assumptions prog labels n st t ∧
+    evaluations prog labels sts t ⇒
     ∃ck t' ios.
       evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
       evaluate (time_to_pan$always (nClks prog), t') ∧
@@ -6941,119 +6943,41 @@ Proof
   ‘n = FST (t.ffi.ffi_state 0)’ by
     gs [assumptions_def] >>
   rveq >> gs [] >>
-
-
-
+  gs [evaluations_def] >>
+  qexists_tac ‘ck’ >>
+  gs [] >>
+  gs [steps_def] >>
+  last_x_assum drule >>
+  disch_then (qspec_then ‘nt’ mp_tac) >>
+  impl_tac
+  >- cheat >>
+  strip_tac >> gs [] >>
+  (* for the time being *)
+  ‘ck' = 0’ by cheat >>
+  gs [] >>
+  ‘nt with clock := nt.clock = nt’ by cheat >>
+  gs [] >> gvs [] >>
+  qexists_tac ‘t''’ >>
+  gs [] >>
   cases_on ‘h’ >> gs []
-  >- ((* delay step *)
-    gs [steps_def] >>
-    gs [assumptions_def, event_inv_def, ffi_rels_def, ffi_rel_def] >>
-    rveq >> gs [] >>
-    drule step_delay >>
+  >- (
+    gs [io_events_rel_def, delay_io_events_rel_def] >>
+    cheat) >>
+  cases_on ‘i’ >> gs [] >>
+  gs [io_events_rel_def, action_io_events_rel_def,
+      input_io_events_rel_def, output_io_events_rel_def]
+  >- (
+    gs [decode_io_events_def, decode_io_event_def, mk_ti_event_def,
+        rem_delay_dup_def, recover_time_input_def] >>
+    qmatch_goalsub_abbrev_tac ‘EL 1 xs’ >>
+    ‘EL 1 xs ≠ 0’ by cheat >>
     gs [] >>
-    disch_then (qspecl_then [‘cycles’, ‘t’, ‘0’] mp_tac) >>
-    impl_tac
-    >- gs [] >>
-    strip_tac >>
-    gs [event_inv_def] >>
-    qexists_tac ‘ck+1’ >>
-    gs [always_def] >>
-    once_rewrite_tac [panSemTheory.evaluate_def] >>
-    gs [panSemTheory.eval_def] >>
-    gs [panSemTheory.dec_clock_def] >>
-    qexists_tac ‘t'' with clock := t''.clock + 1’ >>
-    gs [delay_io_events_rel_def] >>
-
-
-
-
-
-
-    conj_asm1_tac
-    >- gs [state_rel_def] >>
-    conj_asm1_tac
-    >- (
-      gs [next_ffi_state_def] >>
-      qexists_tac ‘cycles’ >>
-      gs []) >>
-    conj_asm1_tac
-    >- (
-      gs [nlocals_def] >>
-      qexists_tac ‘cycles’ >>
-      gs []) >>
-    conj_asm1_tac
-    >- (
-      gs [wait_time_locals_def] >>
-      qexists_tac ‘wt’ >>
-      qexists_tac ‘st'’ >>
-      gs [] >>
-      cases_on ‘st.waitTime’
-      >- gs [timeSemTheory.step_cases, timeSemTheory.mkState_def] >>
-      gs [step_cases] >>
-      rveq >> gs [] >>
-      fs [mkState_def] >>
-      cases_on ‘n < x’
-      >- (
-        fs [wakeup_rel_def] >>
-        fs [nexts_ffi_def] >>
-        ‘(st' + wt) MOD dimword (:α) = st' + wt’ by (
-          match_mp_tac LESS_MOD >>
-          gs []) >>
-        ‘(x + FST (t.ffi.ffi_state 0)) MOD dimword (:α) =
-         x + FST (t.ffi.ffi_state 0)’ by (
-          match_mp_tac LESS_MOD >>
-          gs [timeSemTheory.step_cases]) >>
-        gs [delay_rep_def]) >>
-      gs []) >>
-    conj_asm1_tac
-    >- (
-      gs [io_events_rel_def] >>
-      qexists_tac ‘cycles’ >>
-      gs [delay_io_events_rel_def] >>
-      metis_tac []) >>
-    conj_asm1_tac
-    >- gs [task_ret_defined_def] >>
-    last_x_assum match_mp_tac >>
+    gs [to_label_def] >>
+    ‘t.be = nt.be’ by cheat >>
     gs [] >>
-    qexists_tac ‘h'’ >>
-    gs [] >>
-    conj_tac
-    >- (
-      gs [nexts_ffi_def] >>
-      gs [delay_rep_def]) >>
-    first_x_assum drule_all >>
-    strip_tac >>
-    drule ffi_rels_clock_upd >>
-    disch_then (qspec_then ‘t''.clock + 1’ assume_tac) >>
-    gs [])
-
-
-
-
-
-
-  (*
-
-Definition evaluations_def:
-  (evaluations prog [] [] (t:('a,time_input) panSem$state) ⇔ T) ∧
-  (evaluations prog (lbl::lbls) (st::sts) t ⇔
-   ∃ck nt.
-     evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
-     evaluate (time_to_pan$always (nClks prog), nt) ∧
-     state_rel (clksOf prog) (out_signals prog) st nt ∧
-     ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
-     event_inv nt.locals ∧
-     nt.code = t.code ∧
-     next_ffi_state lbl t.ffi.ffi_state nt.ffi.ffi_state  ∧
-     nt.ffi.oracle = t.ffi.oracle ∧
-     nlocals lbl nt.locals (t.ffi.ffi_state) st.waitTime (dimword (:α)) ∧
-     wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
-     io_events_rel lbl t nt ∧
-     task_ret_defined nt.locals (nClks prog) ∧
-     evaluations prog lbls sts nt)
-End
-*)
-
+    (* from assumptions *)
+    cheat) >>
+  cheat
 QED
 
 
