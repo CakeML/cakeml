@@ -6499,11 +6499,11 @@ End
 
 
 Definition evaluations_def:
-  (evaluations prog [] [] (t:('a,time_input) panSem$state) ⇔ T) ∧
-  (evaluations prog (lbl::lbls) (st::sts) t ⇔
+  (evaluations prog [] [] s (t:('a,time_input) panSem$state) ⇔ T) ∧
+  (evaluations prog (lbl::lbls) (st::sts) s t ⇔
      case lbl of
      | LDelay d =>
-         evaluate_delay prog d st t lbls sts
+         evaluate_delay prog d s st t lbls sts
      | LAction act =>
         (case act of
          | Input i =>
@@ -6511,10 +6511,10 @@ Definition evaluations_def:
          | Output os =>
              evaluate_output prog os st t lbls sts)) ∧
 
-  (evaluate_delay prog d st (t:('a,time_input) panSem$state) lbls sts ⇔
+  (evaluate_delay prog d s st (t:('a,time_input) panSem$state) lbls sts ⇔
    ∀cycles.
      delay_rep d t.ffi.ffi_state cycles ∧
-     wakeup_rel t.locals st.waitTime t.ffi.ffi_state cycles ∧
+     wakeup_rel t.locals s.waitTime t.ffi.ffi_state cycles ∧
      mem_read_ffi_results (:α) t.ffi.ffi_state cycles ⇒
      ∃ck nt.
        evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
@@ -6532,7 +6532,7 @@ Definition evaluations_def:
        wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
        delay_io_events_rel t nt cycles ∧
        task_ret_defined nt.locals (nClks prog) ∧
-       evaluations prog lbls sts nt) ∧
+       evaluations prog lbls sts st nt) ∧
 
   (evaluate_input prog i st (t:('a,time_input) panSem$state) lbls sts ⇔
    input_rel t.locals i (next_ffi t.ffi.ffi_state) ∧
@@ -6555,7 +6555,7 @@ Definition evaluations_def:
      wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
      input_io_events_rel t nt ∧
      task_ret_defined nt.locals (nClks prog) ∧
-     evaluations prog lbls sts nt) ∧
+     evaluations prog lbls sts st nt) ∧
 
   (evaluate_output prog os st (t:('a,time_input) panSem$state) lbls sts ⇔
    output_rel t.locals t.ffi.ffi_state ⇒
@@ -6577,13 +6577,13 @@ Definition evaluations_def:
      wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
      output_io_events_rel os t nt ∧
      task_ret_defined nt.locals (nClks prog) ∧
-     evaluations prog lbls sts nt)
+     evaluations prog lbls sts st nt)
 Termination
  cheat
 End
 
 
-
+(*
 Definition evaluate_action_def:
   (evaluate_action prog (Input i) st (t:('a,time_input) panSem$state) nt lbls sts ⇔
    input_rel t.locals i (next_ffi t.ffi.ffi_state) ∧
@@ -6781,6 +6781,7 @@ Proof
   gs [action_rel_def] >>
   metis_tac []
 QED
+*)
 
 Theorem steps_sts_length_eq_lbls:
   ∀lbls prog m n st sts.
@@ -6798,8 +6799,8 @@ QED
 Theorem steps_thm:
   ∀labels prog n st sts (t:('a,time_input) panSem$state).
     steps prog labels (dimword (:α) - 1) n st sts ∧
-    assumptions prog labels n st t ⇒
-      evaluations prog labels sts t
+    assumptions prog n st t ⇒
+      evaluations prog labels sts st t
 Proof
   Induct
   >- (
@@ -6819,15 +6820,15 @@ Proof
   cases_on ‘h’ >> gs []
   >- ((* delay step *)
     gs [steps_def] >>
-    gs [assumptions_def, event_inv_def, ffi_rels_def, ffi_rel_def] >>
+    gs [assumptions_def, evaluations_def, event_inv_def] >>
     rveq >> gs [] >>
+    rw [] >>
     drule step_delay >>
     gs [] >>
     disch_then (qspecl_then [‘cycles’, ‘t’, ‘0’] mp_tac) >>
     impl_tac
     >- gs [] >>
     strip_tac >>
-    gs [evaluations_def, event_inv_def] >>
     qexists_tac ‘ck+1’ >>
     gs [always_def] >>
     once_rewrite_tac [panSemTheory.evaluate_def] >>
@@ -6837,16 +6838,6 @@ Proof
     gs [] >>
     conj_asm1_tac
     >- gs [state_rel_def] >>
-    conj_asm1_tac
-    >- (
-      gs [next_ffi_state_def] >>
-      qexists_tac ‘cycles’ >>
-      gs []) >>
-    conj_asm1_tac
-    >- (
-      gs [nlocals_def] >>
-      qexists_tac ‘cycles’ >>
-      gs []) >>
     conj_asm1_tac
     >- (
       gs [wait_time_locals_def] >>
@@ -6873,40 +6864,27 @@ Proof
       gs []) >>
     conj_asm1_tac
     >- (
-      gs [io_events_rel_def] >>
-      qexists_tac ‘cycles’ >>
       gs [delay_io_events_rel_def] >>
       metis_tac []) >>
     conj_asm1_tac
     >- gs [task_ret_defined_def] >>
     last_x_assum match_mp_tac >>
-    gs [] >>
-    qexists_tac ‘h'’ >>
-    gs [] >>
-    conj_tac
-    >- (
-      gs [nexts_ffi_def] >>
-      gs [delay_rep_def]) >>
-    first_x_assum drule_all >>
-    strip_tac >>
-    drule ffi_rels_clock_upd >>
-    disch_then (qspec_then ‘t''.clock + 1’ assume_tac) >>
-    gs []) >>
+    gs [nexts_ffi_def, delay_rep_def]) >>
   cases_on ‘i’ >>
   gs []
   >- (
     (* input step *)
     gs [steps_def] >>
-    gs [assumptions_def, event_inv_def, ffi_rels_def, ffi_rel_def] >>
+    gs [assumptions_def, evaluations_def, event_inv_def] >>
     rveq >> gs [] >>
+    rw [] >>
     drule step_input >>
     gs [] >>
     disch_then (qspec_then ‘t’ mp_tac) >>
     impl_tac
     >- (
       gs [timeSemTheory.step_cases] >>
-      gs [well_formed_code_def] >>
-      fs [action_rel_def]) >>
+      gs [well_formed_code_def]) >>
     strip_tac >>
     ‘FST (next_ffi t.ffi.ffi_state 0) = FST (t.ffi.ffi_state 0)’ by (
       gs [state_rel_def] >>
@@ -6918,9 +6896,8 @@ Proof
       impl_tac
       >- (
         gs [] >>
-        gs [action_rel_def, input_rel_def, next_ffi_def]) >>
+        gs [input_rel_def, next_ffi_def]) >>
       gs [next_ffi_def]) >>
-    gs [evaluations_def, event_inv_def] >>
     qexists_tac ‘ck+1’ >>
     gs [always_def] >>
     rewrite_tac [Once panSemTheory.evaluate_def] >>
@@ -6928,9 +6905,6 @@ Proof
     gs [panSemTheory.dec_clock_def] >>
     qexists_tac ‘t''’ >>
     fs [] >>
-    conj_asm1_tac
-    >- gs [next_ffi_state_def] >>
-    gs [nlocals_def] >>
     conj_asm1_tac
     >- (
       cases_on ‘h'.waitTime’ >>
@@ -6942,31 +6916,21 @@ Proof
       qexists_tac ‘x’ >>
       qexists_tac ‘FST (t.ffi.ffi_state 0)’ >>
       gs []) >>
-    conj_asm1_tac
-    >-  gs [io_events_rel_def, action_io_events_rel_def] >>
     last_x_assum match_mp_tac >>
-    gs [] >>
-    qexists_tac ‘h'’ >>
-    gs [next_ffi_def] >>
-    first_x_assum drule >>
-    disch_then (qspec_then ‘t''’ mp_tac) >>
-    impl_tac
-    >- gs [action_rel_def, next_ffi_def] >>
     gs []) >>
   (* output step *)
   gs [steps_def] >>
-  gs [assumptions_def, event_inv_def, ffi_rels_def, ffi_rel_def] >>
+  gs [assumptions_def, event_inv_def, evaluations_def, event_inv_def] >>
   rveq >> gs [] >>
+  rw [] >>
   drule step_output >>
   gs [] >>
   disch_then (qspec_then ‘t’ mp_tac) >>
   impl_tac
   >- (
     gs [timeSemTheory.step_cases] >>
-    gs [well_formed_code_def] >>
-    gs [action_rel_def]) >>
+    gs [well_formed_code_def]) >>
   strip_tac >>
-  gs [evaluations_def, event_inv_def] >>
   qexists_tac ‘ck+1’ >>
   gs [always_def] >>
   rewrite_tac [Once panSemTheory.evaluate_def] >>
@@ -6974,9 +6938,6 @@ Proof
   gs [panSemTheory.dec_clock_def] >>
   qexists_tac ‘t''’ >>
   fs [] >>
-  conj_asm1_tac
-  >- gs [next_ffi_state_def] >>
-  gs [nlocals_def] >>
   conj_asm1_tac
   >- (
   cases_on ‘h'.waitTime’ >>
@@ -6988,16 +6949,7 @@ Proof
   qexists_tac ‘x’ >>
   qexists_tac ‘FST (t.ffi.ffi_state 0)’ >>
   gs []) >>
-  conj_asm1_tac
-  >-  gs [io_events_rel_def, action_io_events_rel_def] >>
   last_x_assum match_mp_tac >>
-  gs [] >>
-  qexists_tac ‘h'’ >>
-  gs [next_ffi_def] >>
-  first_x_assum drule >>
-  disch_then (qspec_then ‘t''’ mp_tac) >>
-  impl_tac
-  >- gs [action_rel_def, next_ffi_def] >>
   gs []
 QED
 
