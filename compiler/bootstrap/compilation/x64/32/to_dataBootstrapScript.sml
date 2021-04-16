@@ -29,6 +29,8 @@ val _ = new_theory"to_dataBootstrap";
 
 val _ = Globals.max_print_depth := 20;
 
+val cs = compilationLib.compilation_compset();
+
 val init_conf_def = zDefine`
   init_conf = <|
     source_conf := prim_src_config;
