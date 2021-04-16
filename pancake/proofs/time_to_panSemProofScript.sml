@@ -47,6 +47,18 @@ Definition decode_io_events_def:
    MAP (decode_io_event (:'a) be) ios
 End
 
+Definition rem_delay_dup_def:
+  (rem_delay_dup [] = ARB) ∧
+  (rem_delay_dup (io::ios) =
+     case io of
+     |
+
+
+
+
+
+  )
+End
 
 
 (*
