@@ -6581,7 +6581,6 @@ Definition io_events_rel_def:
 End
 
 
-
 Definition evaluations_def:
   (evaluations prog [] [] (t:('a,time_input) panSem$state) ⇔ T) ∧
   (evaluations prog (lbl::lbls) (st::sts) t ⇔
@@ -6891,6 +6890,27 @@ Definition decode_io_events_def:
 End
 
 
+Definition evaluations_def:
+  (evaluations 0 n =
+   evaluate (time_to_pan$always , t) =
+   evaluate (time_to_pan$always (nClks prog), t)
+   ) ∧
+  (evaluations prog (lbl::lbls) (st::sts) t ⇔
+   ∃ck nt.
+     evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
+     evaluate (time_to_pan$always (nClks prog), nt) ∧
+     state_rel (clksOf prog) (out_signals prog) st nt ∧
+     ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
+     event_inv nt.locals ∧
+     nt.code = t.code ∧
+     next_ffi_state lbl t.ffi.ffi_state nt.ffi.ffi_state  ∧
+     nt.ffi.oracle = t.ffi.oracle ∧
+     nlocals lbl nt.locals (t.ffi.ffi_state) st.waitTime (dimword (:α)) ∧
+     wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
+     io_events_rel lbl t nt ∧
+     task_ret_defined nt.locals (nClks prog) ∧
+     evaluations prog lbls sts nt)
+End
 
 Theorem steps_io_event_thm:
   ∀labels prog n st sts (t:('a,time_input) panSem$state).
@@ -6904,6 +6924,114 @@ Theorem steps_io_event_thm:
       t.ffi.io_events ++ ios ∧
       decode_io_events (:'a) t.be ios = labels
 Proof
+  Induct
+  >- (
+    rpt gen_tac >>
+    strip_tac >>
+    cases_on ‘sts’ >>
+    fs [evaluations_def, steps_def] >>
+    MAP_EVERY qexists_tac [‘ck’, ‘t with clock := ck + t.clock’,‘[]’] >>
+    gs [decode_io_events_def, rem_delay_dup_def]) >>
+  rpt gen_tac >>
+  strip_tac >>
+  ‘LENGTH sts = LENGTH (h::labels')’ by
+    metis_tac [steps_sts_length_eq_lbls] >>
+  cases_on ‘sts’ >>
+  fs [] >>
+  ‘n = FST (t.ffi.ffi_state 0)’ by
+    gs [assumptions_def] >>
+  rveq >> gs [] >>
+
+
+
+  cases_on ‘h’ >> gs []
+  >- ((* delay step *)
+    gs [steps_def] >>
+    gs [assumptions_def, event_inv_def, ffi_rels_def, ffi_rel_def] >>
+    rveq >> gs [] >>
+    drule step_delay >>
+    gs [] >>
+    disch_then (qspecl_then [‘cycles’, ‘t’, ‘0’] mp_tac) >>
+    impl_tac
+    >- gs [] >>
+    strip_tac >>
+    gs [event_inv_def] >>
+    qexists_tac ‘ck+1’ >>
+    gs [always_def] >>
+    once_rewrite_tac [panSemTheory.evaluate_def] >>
+    gs [panSemTheory.eval_def] >>
+    gs [panSemTheory.dec_clock_def] >>
+    qexists_tac ‘t'' with clock := t''.clock + 1’ >>
+    gs [delay_io_events_rel_def] >>
+
+
+
+
+
+
+    conj_asm1_tac
+    >- gs [state_rel_def] >>
+    conj_asm1_tac
+    >- (
+      gs [next_ffi_state_def] >>
+      qexists_tac ‘cycles’ >>
+      gs []) >>
+    conj_asm1_tac
+    >- (
+      gs [nlocals_def] >>
+      qexists_tac ‘cycles’ >>
+      gs []) >>
+    conj_asm1_tac
+    >- (
+      gs [wait_time_locals_def] >>
+      qexists_tac ‘wt’ >>
+      qexists_tac ‘st'’ >>
+      gs [] >>
+      cases_on ‘st.waitTime’
+      >- gs [timeSemTheory.step_cases, timeSemTheory.mkState_def] >>
+      gs [step_cases] >>
+      rveq >> gs [] >>
+      fs [mkState_def] >>
+      cases_on ‘n < x’
+      >- (
+        fs [wakeup_rel_def] >>
+        fs [nexts_ffi_def] >>
+        ‘(st' + wt) MOD dimword (:α) = st' + wt’ by (
+          match_mp_tac LESS_MOD >>
+          gs []) >>
+        ‘(x + FST (t.ffi.ffi_state 0)) MOD dimword (:α) =
+         x + FST (t.ffi.ffi_state 0)’ by (
+          match_mp_tac LESS_MOD >>
+          gs [timeSemTheory.step_cases]) >>
+        gs [delay_rep_def]) >>
+      gs []) >>
+    conj_asm1_tac
+    >- (
+      gs [io_events_rel_def] >>
+      qexists_tac ‘cycles’ >>
+      gs [delay_io_events_rel_def] >>
+      metis_tac []) >>
+    conj_asm1_tac
+    >- gs [task_ret_defined_def] >>
+    last_x_assum match_mp_tac >>
+    gs [] >>
+    qexists_tac ‘h'’ >>
+    gs [] >>
+    conj_tac
+    >- (
+      gs [nexts_ffi_def] >>
+      gs [delay_rep_def]) >>
+    first_x_assum drule_all >>
+    strip_tac >>
+    drule ffi_rels_clock_upd >>
+    disch_then (qspec_then ‘t''.clock + 1’ assume_tac) >>
+    gs [])
+
+
+
+
+
+
   (*
 
 Definition evaluations_def:
@@ -7176,7 +7304,7 @@ Proof
   qmatch_asmsub_abbrev_tac ‘evaluate (Assign «event» _, nnt)’ >>
   ‘nnt.memory (ffiBufferAddr +  bytes_in_word) =
    Word (n2w (SND(t.ffi.ffi_state 0)))’ by (
-    fs [Abbr ‘nnt’] >>
+d    fs [Abbr ‘nnt’] >>
     qpat_x_assum ‘mem_read_ffi_results _ _ _’ assume_tac >>
     gs [mem_read_ffi_results_def] >>
     qmatch_asmsub_abbrev_tac ‘evaluate (ExtCall _ _ _ _ _, nt) = (_, ft)’ >>
