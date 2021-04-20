@@ -3043,6 +3043,11 @@ Definition to_delay_def:
 End
 
 
+Definition to_input_def:
+  (to_input (ObsInput n) = SOME (Input (n - 1))) ∧
+  (to_input _  = NONE)
+End
+
 Definition mem_read_ffi_results_def:
   mem_read_ffi_results  (:'a) ffi (cycles:num) ⇔
   ∀i (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state).
@@ -3140,7 +3145,6 @@ Definition delay_io_events_rel_def:
     io_events_eq_ffi_seq t.ffi.ffi_state cycles ios_to_nums ∧
     (∀n. n < LENGTH obs_ios ⇒
          EL n obs_ios = ObsTime (FST (t.ffi.ffi_state (n+1))))
-    (* (∀x. MEM x obs_ios ⇒ ∃n. x = ObsTime n) *)
 End
 
 Definition delay_ios_mono_def:
@@ -5016,6 +5020,8 @@ Theorem step_delay:
     mem_read_ffi_results (:α) t.ffi.ffi_state cycles ∧
     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
     FLOOKUP t.locals «event» =  SOME (ValWord 0w) ∧
+    t.ffi.io_events ≠ [] ∧
+    EL 0 (io_event_dest (:α) t.be (LAST t.ffi.io_events)) = FST (t.ffi.ffi_state 0) ∧
     good_dimindex (:'a) ==>
     ?ck t'.
       evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
@@ -5031,7 +5037,8 @@ Theorem step_delay:
       FLOOKUP t'.locals «taskRet» = FLOOKUP t.locals «taskRet» ∧
       FLOOKUP t'.locals «sysTime»  =
         SOME (ValWord (n2w (FST (t.ffi.ffi_state cycles)))) ∧
-      delay_io_events_rel t t' cycles
+      delay_io_events_rel t t' cycles ∧
+      obs_ios_are_label_delay d t t'
 Proof
   rw [] >>
   fs [task_controller_def] >>
@@ -5329,15 +5336,24 @@ End
 
 
 Definition input_io_events_rel_def:
-  input_io_events_rel (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) ⇔
+  input_io_events_rel i (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) ⇔
+  let
+    n = LENGTH t.ffi.io_events;
+    nios = DROP n t'.ffi.io_events;
+    ios_to_nums = from_io_events (:'a) t.be n t'.ffi.io_events;
+    obs_ios = decode_io_events (:'a) t'.be nios
+  in
   (∃bytes.
      LENGTH bytes = 2 * dimindex (:α) DIV 8 ∧
      t'.ffi.io_events =
      t.ffi.io_events ++
       [mk_ti_event (:α) t'.be bytes t.ffi.ffi_state]) ∧
   (∃ns.
-     from_io_events (:'a) t.be t.ffi.io_events t'.ffi.io_events = [ns] ∧
-     input_eq_ffi_seq t.ffi.ffi_state ns)
+     ios_to_nums = [ns] ∧
+     input_eq_ffi_seq t.ffi.ffi_state ns) ∧
+  LENGTH obs_ios = 1 ∧
+  EL 0 obs_ios = ObsInput (SND (t.ffi.ffi_state 1)) ∧
+  LAction (Input i) = LAction (THE (to_input (EL 0 obs_ios)))
 End
 
 
@@ -5371,7 +5387,7 @@ Theorem step_input:
       FLOOKUP t'.locals «event»   = SOME (ValWord 0w) ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
       task_ret_defined t'.locals (nClks prog) ∧
-      input_io_events_rel t t' ∧
+      input_io_events_rel i t t' ∧
       FLOOKUP t'.locals «wakeUpAt» =
         SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) +
           case s'.waitTime of
@@ -6189,26 +6205,34 @@ Proof
     strip_tac >>
     gs [ffiBufferSize_def, good_dimindex_def,
         bytes_in_word_def, dimword_def]) >>
-  gs [from_io_events_def, DROP_LENGTH_APPEND, io_events_dest_def,
-      mk_ti_event_def, io_event_dest_def, time_input_def] >>
-  qmatch_goalsub_abbrev_tac ‘ZIP (_, nbytes)’ >>
-  ‘LENGTH bytes' = LENGTH nbytes’ by (
-    fs [Abbr ‘nbytes’, length_get_bytes] >>
-    gs [good_dimindex_def]) >>
-  drule MAP_ZIP >>
-  gs [] >>
-  strip_tac >>
-  ‘words_of_bytes t.be nbytes =
-   [n2w(FST (t.ffi.ffi_state 1)); (n2w(SND (t.ffi.ffi_state 1))):'a word]’ by (
-    fs [Abbr ‘nbytes’] >>
-    match_mp_tac words_of_bytes_get_bytes >>
-    gs []) >>
-  gs [input_eq_ffi_seq_def] >>
-  cases_on ‘t.ffi.ffi_state 1’ >> gs [] >>
-  gs [input_rel_def, step_cases, next_ffi_def] >>
-  drule pick_term_dest_eq >>
-  simp []
+  conj_asm1_tac
+  >- (
+    gs [from_io_events_def, DROP_LENGTH_APPEND, io_events_dest_def,
+        mk_ti_event_def, io_event_dest_def, time_input_def] >>
+    qmatch_goalsub_abbrev_tac ‘ZIP (_, nbytes)’ >>
+    ‘LENGTH bytes' = LENGTH nbytes’ by (
+      fs [Abbr ‘nbytes’, length_get_bytes] >>
+      gs [good_dimindex_def]) >>
+    drule MAP_ZIP >>
+    gs [] >>
+    strip_tac >>
+    ‘words_of_bytes t.be nbytes =
+     [n2w(FST (t.ffi.ffi_state 1)); (n2w(SND (t.ffi.ffi_state 1))):'a word]’ by (
+      fs [Abbr ‘nbytes’] >>
+      match_mp_tac words_of_bytes_get_bytes >>
+      gs []) >>
+    gs [input_eq_ffi_seq_def] >>
+    cases_on ‘t.ffi.ffi_state 1’ >> gs [] >>
+    gs [input_rel_def, step_cases, next_ffi_def] >>
+    drule pick_term_dest_eq >>
+    simp []) >>
+  gs [from_io_events_def, DROP_LENGTH_APPEND, input_eq_ffi_seq_def] >>
+  gs [DROP_LENGTH_APPEND, decode_io_events_def, io_events_dest_def,
+      mk_ti_event_def, decode_io_event_def]  >>
+  cases_on ‘ t.ffi.ffi_state 1’ >> gs [] >>
+  gs [to_input_def]
 QED
+
 
 Definition output_rel_def:
   output_rel fm (seq: num -> num # num) =
