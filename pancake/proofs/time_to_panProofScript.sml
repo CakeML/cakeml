@@ -3023,6 +3023,20 @@ Proof
 QED
 
 
+Datatype:
+  observed_io = ObsTime    num
+              | ObsInput   num
+              | ObsOutput  num
+End
+
+
+Definition to_label_def:
+  (to_label (ObsTime n)   = LDelay n) ∧
+  (to_label (ObsInput n)  = LAction (Input n)) ∧
+  (to_label (ObsOutput n) = LAction (Output n))
+End
+
+
 Definition mem_read_ffi_results_def:
   mem_read_ffi_results  (:'a) ffi (cycles:num) ⇔
   ∀i (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state).
@@ -3038,25 +3052,40 @@ Definition mem_read_ffi_results_def:
 End
 
 Definition io_event_dest_def:
-  io_event_dest (IO_event _ _ l) = MAP SND l
+  io_event_dest (:'a) be (IO_event _ _ l) =
+  (MAP w2n o
+   (words_of_bytes: bool -> word8 list -> α word list) be o
+   MAP SND) l
 End
 
-(*
-  ios will be DROP from the io events
-*)
 Definition io_events_dest_def:
   io_events_dest (:'a) be ios =
-  MAP
-    (MAP w2n o
-     (words_of_bytes: bool -> word8 list -> α word list) be o
-     io_event_dest)
-    ios
+    MAP (io_event_dest (:'a) be) ios
 End
 
 
 Definition from_io_events_def:
-  from_io_events (:'a) be xs ys =
-    io_events_dest (:'a) be (DROP (LENGTH xs) ys)
+  from_io_events (:'a) be n ys =
+    io_events_dest (:'a) be (DROP n ys)
+End
+
+
+Definition decode_io_event_def:
+  decode_io_event (:'a) be (IO_event s conf l) =
+    if s ≠ "get_time_input" then (ObsOutput (toNum s))
+    else (
+      let
+        ti = io_event_dest (:'a) be (IO_event s conf l);
+        time  = EL 0 ti;
+        input = EL 1 ti
+      in
+        if input = 0 then (ObsTime time)
+        else (ObsInput input))
+End
+
+Definition decode_io_events_def:
+  decode_io_events (:'a) be ios =
+    MAP (decode_io_event (:'a) be) ios
 End
 
 
@@ -3090,15 +3119,28 @@ End
 
 Definition delay_io_events_rel_def:
   delay_io_events_rel (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) cycles ⇔
-  (∃bytess.
-     LENGTH bytess = cycles ∧
-     EVERY (λbtyes. LENGTH btyes = 2 * dimindex (:α) DIV 8) bytess ∧
-     t'.ffi.io_events =
-     t.ffi.io_events ++
-      mk_ti_events (:α) t'.be bytess (gen_ffi_states t.ffi.ffi_state cycles)) ∧
-  io_events_eq_ffi_seq t.ffi.ffi_state cycles
-                       (from_io_events (:'a) t.be t.ffi.io_events t'.ffi.io_events)
+  let
+    n = LENGTH t.ffi.io_events;
+    nios = DROP (LENGTH t.ffi.io_events) t'.ffi.io_events;
+    obs_ios = decode_io_events (:'a) t'.be nios;
+    ios_to_nums = from_io_events (:'a) t.be n t'.ffi.io_events
+  in
+    (∃bytess.
+       LENGTH bytess = cycles ∧
+       EVERY (λbtyes. LENGTH btyes = 2 * dimindex (:α) DIV 8) bytess ∧
+       t'.ffi.io_events =
+       t.ffi.io_events ++
+        mk_ti_events (:α) t'.be bytess (gen_ffi_states t.ffi.ffi_state cycles)) ∧
+    io_events_eq_ffi_seq t.ffi.ffi_state cycles ios_to_nums ∧
+    (∀x. MEM x obs_ios ⇒ ∃n. x = ObsTime n) ∧
+    (∀i j.
+       i < LENGTH obs_ios ∧ j < LENGTH obs_ios ∧ i < j ⇒
+       ∃n n'.
+         EL i obs_ios = ObsTime n ∧ EL j obs_ios = ObsTime n' ∧
+         n <= n')
 End
+
+
 
 Theorem step_delay_loop:
   !cycles prog d m n s s' (t:('a,time_input) panSem$state) ck_extra.
@@ -3130,7 +3172,28 @@ Theorem step_delay_loop:
       SOME (ValWord (n2w (FST (t.ffi.ffi_state cycles)))) ∧
       delay_io_events_rel t t' cycles
 Proof
-  Induct_on ‘cycles’ >>
+  cheat
+QED
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Induct_on ‘cycles’ >>
   fs []
   >- (
     rw [] >>
@@ -6885,12 +6948,6 @@ Proof
   gs []
 QED
 
-Datatype:
-  observed_io = ObsTime    num
-              | ObsInput   num
-              | ObsOutput  num
-End
-
 
 Definition recover_time_input_def:
   recover_time_input (:'a) be l =
@@ -6925,12 +6982,6 @@ Definition rem_delay_dup_def:
      | x => x::rem_delay_dup ios)
 End
 
-
-Definition to_label_def:
-  (to_label (ObsTime n)   = LDelay n) ∧
-  (to_label (ObsInput n)  = LAction (Input n)) ∧
-  (to_label (ObsOutput n) = LAction (Output n))
-End
 
 
 Definition decode_io_events_def:
