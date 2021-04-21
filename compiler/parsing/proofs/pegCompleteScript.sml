@@ -629,15 +629,21 @@ Proof
   simp[INSERT_COMM, INSERT_UNION_EQ]
 QED
 
+Theorem firstSet_nREPLCommand[simp]:
+  firstSet cmlG [NN nREPLCommand] = { REPLIDT s | T }
+Proof
+  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >> dsimp[Once EXTENSION]
+QED
+
 Theorem firstSet_nEseq[simp]:
-   firstSet cmlG (NN nEseq :: rest) = firstSet cmlG [NN nE]
+  firstSet cmlG (NN nEseq :: rest) = firstSet cmlG [NN nE]
 Proof
   simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   simp[firstSet_nE]
 QED
 
 Theorem NOTIN_firstSet_nE[simp]:
-   ValT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
+  ValT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
     StructureT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
     FunT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
     DatatypeT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
@@ -645,14 +651,15 @@ Theorem NOTIN_firstSet_nE[simp]:
     SemicolonT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
     RparT ∉ firstSet cmlG (NN nE :: rest) ∧
     RbrackT ∉ firstSet cmlG (NN nE :: rest) ∧
-    TypeT ∉ firstSet cmlG (NN nE :: rest)
+    TypeT ∉ firstSet cmlG (NN nE :: rest) ∧
+    REPLIDT s ∉ firstSet cmlG (NN nE :: rest)
 Proof
   simp[firstSet_nE, firstSet_nFQV] >>
   rpt (dsimp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, disjImpI])
 QED
 
 Theorem firstSetML_nE[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
+    mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
     mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
@@ -1681,6 +1688,8 @@ Definition stoppers_def[simp]:
   (stoppers nTopLevelDec =
      nestoppers DIFF ({LparT; BarT; StarT; AndT; OfT} ∪ {TyvarT s | T})) ∧
   (stoppers nTopLevelDecs = ∅) ∧
+  (stoppers nTopLevel = ∅) ∧
+  (stoppers nREPLCommand = ∅) ∧
   (stoppers nType = UNIV DIFF ({ArrowT; StarT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nTypeAbbrevDec =
      UNIV DIFF ({ArrowT; StarT} ∪ firstSet cmlG [NN nTyOp])) ∧
@@ -2974,6 +2983,21 @@ Proof
       simp[PEG_exprs] >> strip_tac >> rw[] >>
       ‘StructureT ∈ firstSet cmlG [NN nDecl]’
         by metis_tac [rfirstSet_nonempty_fringe] >> fs[])
+  >- (print_tac "nTopLevel" >> stdstart
+      >- (first_x_assum drule >>
+          disch_then (first_assum o mp_then (Pos (el 3)) mp_tac) >> simp[] >>
+          disch_then (fn th => disj1_tac >> irule th) >>
+          simp[NT_rank_def]) >>
+      first_x_assum drule >> simp[NT_rank_def] >> strip_tac >>
+      rename [‘real_fringe pt = MAP _ pfx’] >>
+      Cases_on ‘pfx’ >> fs[]
+      >- (simp[peg_eval_NT_NONE] >>
+          simp[cmlpeg_rules_applied, peg_eval_tok_NONE]) >>
+      rename [‘real_fringe pt = (TK ## I) tkl :: _’] >>
+      Cases_on ‘tkl’ >> fs[] >>
+      disj2_tac >> irule peg_respects_firstSets >> simp[] >>
+      drule_all rfirstSet_nonempty_fringe >> simp[] >> dsimp[] >>
+      rpt strip_tac >> rw[] >> fs[])
   >- (print_tac "nTbaseList" >> stdstart >> pmap_cases
       >- (rename [‘sfx = []’] >> Cases_on ‘sfx’ >> fs[]
           >- simp[not_peg0_peg_eval_NIL_NONE, peg0_nPTbase] >>
@@ -3104,6 +3128,10 @@ Proof
       simp[FDOM_cmlPEG, cmlpeg_rules_applied, MAP_EQ_SING] >>
       strip_tac >> fs[MAP_EQ_SING,peg_eval_tok_NONE] >> pmap_cases >>
       simp[mkNd_def])
+  >- (print_tac "nREPLCommand" >> stdstart >> pmap_cases >>
+      rename [‘valid_lptree _ pt’, ‘MAP _ tls = real_fringe pt’] >>
+      first_x_assum (qspecl_then [‘pt’, ‘nEbase’, ‘tls’, ‘[]’] mp_tac) >>
+      simp[])
   (*>- (print_tac "nREPLTop" >> simp[MAP_EQ_CONS] >> rw[] >>
       fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_APPEND, MAP_EQ_CONS] >> rw[]
       >- (simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, FDOM_cmlPEG] >>

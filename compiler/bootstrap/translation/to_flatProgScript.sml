@@ -61,10 +61,8 @@ val _ = (find_def_for_const := def_of_const);
 
 val _ = use_long_names:=true;
 
-(* translate source AST and use CakeML's string type for HOL's char list *)
+(* use CakeML's string type for HOL's char list *)
 val _ = ml_translatorLib.use_string_type true;
-val _ = register_type ``:ast$dec``;
-val _ = fetch "-" "AST_EXP_TYPE_def";
 
 (* ------------------------------------------------------------------------- *)
 (* source_to_flat                                                            *)
@@ -90,7 +88,17 @@ val res = translate listTheory.DROP_def;
 val res = translate sumTheory.ISL;
 val res = translate sumTheory.ISR;
 
+val res = translate source_to_flatTheory.alloc_tags1_def;
+val res = translate (DefnBase.one_line_ify NONE terminationTheory.nsMap_def);
+val res = translate source_to_flatTheory.alloc_tags_def;
+val res = translate source_to_flatTheory.alloc_env_ref_def;
+val res = translate source_to_flatTheory.glob_alloc_def;
+
+val res = translate source_to_flatTheory.compile_decs_def;
 val res = translate source_to_flatTheory.compile_prog_def;
+
+val _ = (length (hyp res) = 0)
+        orelse failwith "Unproved side condition: source_to_flat_compile_prog";
 
 (* ------------------------------------------------------------------------- *)
 (* flat_elim                                                                 *)
@@ -126,7 +134,7 @@ val dec_side = Q.prove(
 
 val res = translate rich_listTheory.COUNT_LIST_compute;
 
-val res = translate flat_patternTheory.compile_decs_def;
+val res = translate flat_patternTheory.compile_dec_def;
 
 (* ------------------------------------------------------------------------- *)
 (* source_to_flat                                                            *)

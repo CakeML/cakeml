@@ -76,7 +76,7 @@ Proof
   \\ rw []
   \\ Cases_on `dest_case p1 p2` \\ fs []
   \\ PairCases_on`x` \\ fs []
-  \\ fs [dest_case_def,CaseEq"prog",CaseEq"option",CaseEq"sum"]
+  \\ fs [dest_case_def,AllCaseEqs()]
   \\ rveq \\ fs []
 QED
 
@@ -586,7 +586,7 @@ Proof
   \\ fs [CaseEq"option",ALOOKUP_toAList]
   \\ fs [collect_info_def] \\ rw []
   \\ every_case_tac \\ fs [lookup_def]
-  \\ fs [seq_stack_alloc_def,CaseEq"prog"]
+  \\ fs [seq_stack_alloc_def,AllCaseEqs()]
   \\ fs [lookup_fromAList]
 QED
 
