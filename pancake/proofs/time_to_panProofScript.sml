@@ -5031,6 +5031,7 @@ Theorem step_delay:
       t'.ffi.ffi_state = nexts_ffi cycles t.ffi.ffi_state ∧
       t'.ffi.oracle = t.ffi.oracle ∧
       t'.code = t.code ∧
+      t'.be = t.be ∧
       FLOOKUP t'.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt» ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
       FLOOKUP t'.locals «event» =  SOME (ValWord 0w) ∧
@@ -5383,6 +5384,7 @@ Theorem step_input:
       t'.ffi.ffi_state = next_ffi t.ffi.ffi_state ∧
       t'.ffi.oracle = t.ffi.oracle ∧
       t'.code = t.code ∧
+      t'.be = t.be ∧
       FLOOKUP t'.locals «sysTime» = FLOOKUP t.locals «sysTime» ∧
       FLOOKUP t'.locals «event»   = SOME (ValWord 0w) ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
@@ -6297,6 +6299,7 @@ Theorem step_output:
       t'.ffi.ffi_state = t.ffi.ffi_state ∧
       t'.ffi.oracle = t.ffi.oracle ∧
       t'.code = t.code ∧
+      t'.be = t.be ∧
       FLOOKUP t'.locals «sysTime» = FLOOKUP t.locals «sysTime» ∧
       FLOOKUP t'.locals «event»   = SOME (ValWord 0w) ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
@@ -6973,6 +6976,7 @@ Definition evaluations_def:
        ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
        event_inv nt.locals ∧
        nt.code = t.code ∧
+       nt.be = t.be ∧
        nt.ffi.ffi_state = nexts_ffi cycles t.ffi.ffi_state ∧
        nt.ffi.oracle = t.ffi.oracle ∧
        FLOOKUP nt.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt» ∧
@@ -6995,6 +6999,7 @@ Definition evaluations_def:
      ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
      event_inv nt.locals ∧
      nt.code = t.code ∧
+     nt.be = t.be ∧
      nt.ffi.ffi_state = next_ffi t.ffi.ffi_state ∧
      nt.ffi.oracle = t.ffi.oracle ∧
      FLOOKUP nt.locals «wakeUpAt» =
@@ -7017,6 +7022,7 @@ Definition evaluations_def:
      ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
      event_inv nt.locals ∧
      nt.code = t.code ∧
+     nt.be = t.be ∧
      nt.ffi.ffi_state = t.ffi.ffi_state ∧
      nt.ffi.oracle = t.ffi.oracle ∧
      FLOOKUP nt.locals «wakeUpAt» =
@@ -7226,7 +7232,10 @@ Definition ffi_rel_def:
      delay_rep d t.ffi.ffi_state cycles ∧
      wakeup_rel t.locals s.waitTime t.ffi.ffi_state cycles ∧
      mem_read_ffi_results (:α) t.ffi.ffi_state cycles ∧
-     ffi = nexts_ffi cycles t.ffi.ffi_state) ∧
+     ffi = nexts_ffi cycles t.ffi.ffi_state ∧
+     t.ffi.io_events ≠ [] ∧
+     EL 0 (io_event_dest (:α) t.be (LAST t.ffi.io_events)) =
+     FST (t.ffi.ffi_state 0)) ∧
   (ffi_rel (LAction act) s t ffi =
      action_rel act s t ffi)
 End
@@ -7244,40 +7253,64 @@ Definition ffi_rels_def:
 End
 
 
+
 Definition decode_ios_def:
-  (decode_ios (:α) be [] [] _ = T) ∧
-  (decode_ios (:α) be (lbl::lbls) (n::ns) ios =
-   case lbl of
-   | LDelay d =>
-       let
-         m' = EL 0 (io_event_dest (:α) be (HD ios));
-         obs_delay = decode_io_event (:α) be (LAST (TAKE n (TL ios)))
-       in
-         ∃m.
-           obs_delay = ObsTime m ∧
-           d = m - m' ∧
-           SUM (n::ns) = LENGTH ios + 1 ∧
-           decode_ios (:α) be lbls ns (DROP n ios)
-   | LAction act =>
-       (case act of
-        | Input i =>
-            let
-              obs_input = decode_io_event (:α) be (EL 1 ios)
-            in
-              n = 1 ∧
-              SUM (n::ns) = LENGTH ios + 1 ∧
-              obs_input = ObsInput (i+1) ∧
-              decode_ios (:α) be lbls ns (DROP 1 ios)
-        | Output os =>
-            let
-              obs_output = decode_io_event (:α) be (EL 1 ios)
-            in
-              n = 1 ∧
-              SUM (n::ns) = LENGTH ios + 1 ∧
-              obs_output = ObsOutput os ∧
-              decode_ios (:α) be lbls ns (DROP 1 ios)))
+  (decode_ios (:α) be [] [] ios ⇔ LENGTH ios = 1) ∧
+  (decode_ios (:α) be (lbl::lbls) (n::ns) ios ⇔
+   SUM (n::ns) = LENGTH ios - 1 ∧
+   (case lbl of
+    | LDelay d =>
+        (if n = 0
+         then d = 0 ∧ decode_ios (:α) be lbls ns ios
+         else
+           let
+             m' = EL 0 (io_event_dest (:α) be (HD ios));
+             nios = TAKE n (TL ios);
+             obs_ios = decode_io_events (:'a) be nios;
+             m = THE (to_delay (EL (LENGTH obs_ios - 1) obs_ios))
+           in
+             d = m - m' ∧
+             decode_ios (:α) be lbls ns (DROP n ios))
+    | LAction act =>
+        (n = 1 ∧
+         decode_ios (:α) be lbls ns (DROP 1 ios) ∧
+         (case act of
+          | Input i =>
+              let
+                obs_io = decode_io_event (:α) be (EL 1 ios)
+              in
+                Input i = THE (to_input obs_io)
+          | Output os =>
+              decode_io_event (:α) be (EL 1 ios) = ObsOutput os))))
 End
 
+
+Theorem bar:
+  ∀labels ns ios be.
+    decode_ios (:α) be labels ns ios ∧
+    LENGTH labels = LENGTH ns  ⇒
+    SUM ns = LENGTH ios - 1
+Proof
+  Induct >>
+  rw [] >>
+  gs [decode_ios_def] >>
+  cases_on ‘ns’ >> gs [decode_ios_def]
+QED
+
+Theorem drop_length_eq_last:
+  ∀xs.
+    xs ≠ [] ⇒
+    DROP (LENGTH xs − 1) xs = [LAST xs]
+Proof
+  Induct >>
+  rw [] >>
+  cases_on ‘xs = []’ >> gs [LAST_CONS_cond] >>
+  ‘DROP (LENGTH xs) (h::xs) = DROP (LENGTH xs - 1) xs’ by (
+    match_mp_tac DROP_cons >>
+    gs [] >>
+    cases_on ‘xs’ >> gs []) >>
+  gs []
+QED
 
 
 Theorem steps_io_event_thm:
@@ -7292,8 +7325,9 @@ Theorem steps_io_event_thm:
       (* add something about the systime on t' *)
       t'.ffi.io_events =
       t.ffi.io_events ++ ios ∧
+      LENGTH labels = LENGTH ns ∧
+      t'.be = t.be ∧
       decode_ios (:α) t'.be labels ns (LAST t.ffi.io_events::ios)
-
 Proof
   rw [] >>
   gs [] >>
@@ -7306,8 +7340,10 @@ Proof
     rw [] >>
     cases_on ‘sts’ >>
     fs [evaluations_def, steps_def] >>
-    MAP_EVERY qexists_tac [‘ck’, ‘t with clock := ck + t.clock’,‘[]’] >>
-    gs [decode_io_events_def, rem_delay_dup_def]) >>
+    MAP_EVERY qexists_tac
+              [‘ck’, ‘t with clock := ck + t.clock’,
+               ‘[]’] >>
+    gs [decode_ios_def]) >>
   rw [] >>
   ‘LENGTH sts = LENGTH (h::labels')’ by
     metis_tac [steps_sts_length_eq_lbls] >>
@@ -7345,8 +7381,63 @@ Proof
     qexists_tac ‘t''’ >>
     gs [] >>
     gs [delay_io_events_rel_def] >>
-    cheat) >>
-  cases_on ‘i’ >> gs []
+    qexists_tac ‘cycles::ns’ >>
+    rewrite_tac [decode_ios_def] >>
+    gs [] >>
+    TOP_CASE_TAC
+    >- (
+      gs [mk_ti_events_def, gen_ffi_states_def] >>
+      gs [delay_rep_def] >>
+      drule bar >>
+      gs []) >>
+    conj_asm1_tac
+    >- (
+      drule bar >>
+      impl_tac >- gs [] >>
+      strip_tac >> gs [] >>
+      gs [mk_ti_events_def, gen_ffi_states_def]) >>
+    qmatch_asmsub_abbrev_tac ‘decode_ios _ _ _ ns nios’ >>
+    qmatch_goalsub_abbrev_tac ‘decode_ios _ _ _ ns nios'’ >>
+    ‘nios = nios'’ by (
+      gs [Abbr ‘nios’, Abbr ‘nios'’] >>
+      gs [DROP_APPEND] >>
+      qmatch_goalsub_abbrev_tac ‘DROP _ xs’ >>
+      ‘LENGTH xs = cycles’ by
+        gs [Abbr ‘xs’, mk_ti_events_def, gen_ffi_states_def] >>
+      gs [] >>
+      ‘cycles − (cycles + 1) = 0’ by gs [] >>
+      simp [] >>
+      pop_assum kall_tac >>
+      ‘xs ≠ []’ by (
+        CCONTR_TAC >>
+        gs [Abbr ‘xs’, mk_ti_events_def, gen_ffi_states_def]) >>
+      pop_assum mp_tac >>
+      pop_assum (assume_tac o GSYM) >>
+      strip_tac >> gs [] >>
+      ‘DROP (LENGTH xs − 1) xs = [LAST xs]’ by (
+        match_mp_tac drop_length_eq_last >>
+        gs []) >>
+      gs [] >>
+      cases_on ‘xs’ >- gs [] >>
+      simp [LAST_APPEND_CONS]) >>
+    qpat_x_assum ‘obs_ios_are_label_delay _ _ _’ mp_tac >>
+    gs [obs_ios_are_label_delay_def] >>
+    strip_tac >>
+    pop_assum mp_tac >>
+    impl_tac
+    >- (
+      CCONTR_TAC >>
+      gs [DROP_LENGTH_APPEND, mk_ti_events_def, gen_ffi_states_def, decode_io_events_def] >>
+      gs [ZIP_EQ_NIL]) >>
+    strip_tac >>
+    gs [DROP_LENGTH_APPEND] >>
+    qmatch_goalsub_abbrev_tac ‘TAKE _ (xs ++ _)’ >>
+    ‘TAKE cycles (xs ++ ios) = xs’ by (
+      ‘cycles = LENGTH xs’ by
+         gs [Abbr ‘xs’, mk_ti_events_def, gen_ffi_states_def] >>
+      gs [TAKE_LENGTH_APPEND]) >>
+    gs [Abbr ‘xs’]) >>
+  cases_on ‘i’
   >- (
     gs [ffi_rels_def, ffi_rel_def, action_rel_def] >>
     first_x_assum drule >>
@@ -7358,13 +7449,19 @@ Proof
     impl_tac
     >- (
       gs [assumptions_def] >>
-      gs [input_rel_def, state_rel_def] >>
-      pairarg_tac >> gs [] >> rveq >>
-      pairarg_tac >> gs [] >> rveq >>
-      gs [input_time_rel_def, input_time_eq_def, next_ffi_def] >>
-      last_x_assum (qspec_then ‘0’ mp_tac) >>
-      gs [has_input_def]) >>
-    strip_tac >>  gs [] >>
+      gs [nexts_ffi_def, input_rel_def] >>
+      qpat_x_assum ‘state_rel _ _ _ t’ assume_tac >>
+      gs [state_rel_def] >>
+      pairarg_tac >> gs [] >>
+      gs [input_time_rel_def] >>
+      gs [input_time_eq_def, has_input_def] >>
+      first_x_assum (qspec_then ‘0’ mp_tac) >>
+      impl_tac
+      >- (
+      gs [] >>
+      gs [input_rel_def, next_ffi_def]) >>
+      gs [next_ffi_def]) >>
+    strip_tac >> gs [] >>
     qexists_tac ‘ck’ >>
     gs [] >>
     (* for the time being *)
@@ -7373,17 +7470,17 @@ Proof
     ‘nt with clock := nt.clock = nt’ by fs [state_component_equality]  >>
     gs [] >> gvs [] >>
     qexists_tac ‘t''’ >>
+    gs [] >>
     gs [input_io_events_rel_def] >>
-    gs [decode_io_events_def, decode_io_event_def, mk_ti_event_def,
-        rem_delay_dup_def, recover_time_input_def] >>
-    qmatch_goalsub_abbrev_tac ‘EL 1 xs’ >>
-    ‘EL 1 xs ≠ 0’ by cheat >>
+    qexists_tac ‘1::ns’ >>
+    rewrite_tac [decode_ios_def] >>
     gs [] >>
-    gs [to_label_def] >>
-    ‘t.be = nt.be’ by cheat >>
-    gs [] >>
-    (* from assumptions *)
-    cheat) >>
+    conj_asm1_tac
+    >- (
+      drule bar >>
+      impl_tac >- gs [] >>
+      strip_tac >> gs []) >>
+    gs [to_input_def, DROP_LENGTH_APPEND, decode_io_events_def]) >>
   gs [ffi_rels_def, ffi_rel_def, action_rel_def] >>
   first_x_assum drule >>
   disch_then (qspec_then ‘nt’ mp_tac) >>
@@ -7393,7 +7490,7 @@ Proof
   disch_then (qspec_then ‘nt’ mp_tac) >>
   impl_tac
   >- gs [assumptions_def] >>
-  strip_tac >>  gs [] >>
+  strip_tac >> gs [] >>
   qexists_tac ‘ck’ >>
   gs [] >>
   (* for the time being *)
@@ -7402,15 +7499,17 @@ Proof
   ‘nt with clock := nt.clock = nt’ by fs [state_component_equality]  >>
   gs [] >> gvs [] >>
   qexists_tac ‘t''’ >>
+  gs [] >>
   gs [output_io_events_rel_def] >>
-  gs [decode_io_events_def, decode_io_event_def] >>
-  ‘explode (toString n) ≠ "get_time_input"’ by cheat >>
+  qexists_tac ‘1::ns’ >>
+  rewrite_tac [decode_ios_def] >>
   gs [] >>
-  gs [rem_delay_dup_def] >>
-  ‘t.be = nt.be’ by cheat >>
-  gs [] >>
-  gs [to_label_def] >>
-  cheat
+  conj_asm1_tac
+  >- (
+    drule bar >>
+    impl_tac >- gs [] >>
+    strip_tac >> gs []) >>
+  gs [to_input_def, DROP_LENGTH_APPEND, decode_io_events_def]
 QED
 
 (*
