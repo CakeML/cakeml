@@ -6262,10 +6262,16 @@ End
 
 Definition output_io_events_rel_def:
   output_io_events_rel os (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) ⇔
-  ∃(bytes:word8 list).
-     t'.ffi.io_events =
-     t.ffi.io_events ++
-      [IO_event (explode (num_to_str os)) [] (ZIP (bytes, bytes))]
+  let
+    n = LENGTH t.ffi.io_events;
+    nios = DROP n t'.ffi.io_events;
+    obs_ios = decode_io_events (:'a) t'.be nios
+  in
+    (∃(bytes:word8 list).
+       t'.ffi.io_events =
+       t.ffi.io_events ++
+        [IO_event (explode (num_to_str os)) [] (ZIP (bytes, bytes))]) ∧
+    obs_ios = [ObsOutput os]
 End
 
 
@@ -6891,7 +6897,22 @@ Proof
       gs [evalTerm_cases]) >>
     gs [word_add_n2w]) >>
   gs [output_io_events_rel_def] >>
-  metis_tac []
+  conj_tac
+  >- metis_tac [] >>
+  gs [DROP_LENGTH_APPEND] >>
+  gs [decode_io_events_def, decode_io_event_def] >>
+  ‘explode (toString os) ≠ "get_time_input"’ by (
+    gs [mlintTheory.num_to_str_thm] >>
+    assume_tac EVERY_isDigit_num_to_dec_string >>
+    pop_assum (qspec_then ‘os’ mp_tac) >>
+    gs [EVERY_MEM] >>
+    strip_tac >>
+    CCONTR_TAC >>
+    gs [isDigit_def] >>
+    qpat_x_assum ‘∀e. _ ⇒ _’ mp_tac >>
+    rw [] >>
+    qexists_tac ‘#"g"’ >> gs []) >>
+  gs [mlintTheory.num_to_str_thm, toString_toNum_cancel]
 QED
 
 Definition well_formed_code_def:
