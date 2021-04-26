@@ -569,6 +569,111 @@ Proof
   fs [state_component_equality]
 QED
 
+Theorem evaluate_clock_mono:
+  !p t res st.
+    evaluate (p,t) = (res,st) ⇒
+    st.clock ≤ t.clock
+Proof
+  recInduct evaluate_ind >> rw [] >>
+  TRY (fs [Once evaluate_def] >> NO_TAC) >>
+  TRY (
+  rename [‘Seq’] >>
+  fs [evaluate_def] >> pairarg_tac >> fs [] >>
+  fs [AllCaseEqs ()] >> rveq >> fs []) >>
+  TRY (
+  rename [‘ExtCall’] >>
+  fs [evaluate_def, AllCaseEqs (), empty_locals_def] >>
+  rveq >> fs []) >>
+  TRY (
+  rename [‘While’] >>
+  qpat_x_assum ‘evaluate (While _ _,_) = _’ mp_tac >>
+  once_rewrite_tac [evaluate_def] >>
+  every_case_tac >> gs [dec_clock_def,empty_locals_def] >>
+  TRY (gs [state_component_equality]) >>
+  TRY  (pairarg_tac >> fs [] >> rveq >> fs []) >>
+  every_case_tac >> gs [] >>
+  TRY strip_tac >> gs []) >>
+  TRY (
+  rename [‘Dec’] >>
+  fs [evaluate_def, AllCaseEqs ()] >>
+  pairarg_tac >> fs [] >> rveq >> fs []) >>
+  fs [evaluate_def, AllCaseEqs () ,
+      set_var_def, mem_store_def,
+      dec_clock_def, empty_locals_def] >> rveq >>
+  fs []
+QED
+
+
+Theorem evaluate_clock_sub:
+  !p t res st ck.
+    evaluate (p,t) = (res,st with clock := st.clock + ck) ∧
+    res <> SOME TimeOut ⇒
+    evaluate (p,t with clock := t.clock - ck) = (res,st)
+Proof
+  recInduct evaluate_ind >> rw [] >>
+  TRY (
+    rename [‘Seq’] >>
+    fs [evaluate_def] >> pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >> rveq >>
+    fs [AllCaseEqs ()] >> rveq >> fs []
+    >- (
+      first_x_assum (qspecl_then [‘s1' with clock := s1'.clock - ck’, ‘ck’] mp_tac) >>
+      impl_tac
+      >- (
+        gs [state_component_equality] >>
+        qpat_x_assum ‘evaluate (c2,s1') = _’ assume_tac >>
+        drule evaluate_clock_mono >>
+        strip_tac >> gs []) >>
+      gs []) >>
+    last_x_assum (qspecl_then [‘st’, ‘ck’] mp_tac) >>
+    impl_tac >- gs [] >>
+    strip_tac >> gs []) >>
+  TRY (
+    rename [‘Dec’] >>
+    fs [evaluate_def, eval_upd_clock_eq, AllCaseEqs ()]
+    >- gs [state_component_equality] >>
+    pairarg_tac >> fs [] >> rveq >> fs [] >>
+    pairarg_tac >> fs [] >> rveq >> fs [] >>
+    last_x_assum (qspecl_then [‘st'' with clock := st''.clock - ck’, ‘ck’] mp_tac) >>
+    impl_tac >- gs [state_component_equality] >>
+    gs [] >> strip_tac >>
+    rveq >> gs [state_component_equality]) >>
+  TRY (
+    rename [‘While’] >>
+    qpat_x_assum ‘evaluate (While _ _,_) = _’ mp_tac >>
+    once_rewrite_tac [evaluate_def] >>
+    gs [AllCaseEqs(), eval_upd_clock_eq] >>
+    rw [] >> gs [state_component_equality] >>
+    rw [] >> gs []
+    >- (
+      CCONTR_TAC >> gs [] >>
+      pairarg_tac >> fs [] >> rveq >> fs [] >>
+      cases_on ‘res'’ >> gs [] >>
+      cheat) >>
+    pairarg_tac >> fs [] >> rveq >> fs [] >>
+    pairarg_tac >> fs [] >> rveq >> fs [] >>
+    gs [] >> cheat) >>
+  TRY (
+    rename [‘Call’] >>
+    qpat_x_assum ‘evaluate (Call _ _ _,_) = _’ mp_tac >>
+    once_rewrite_tac [evaluate_def] >>
+    fs [dec_clock_def, eval_upd_clock_eq] >>
+    fs [] >>
+    fs [AllCaseEqs(), empty_locals_def, dec_clock_def,
+        set_var_def] >>
+    rveq >> fs [] >>
+    ‘OPT_MMAP (eval (st with clock := ck + st.clock)) argexps =
+     OPT_MMAP (eval st) argexps’ by fs [opt_mmap_eval_upd_clock_eq] >>
+    fs [] >>
+    strip_tac >> fs [] >> rveq >> fs [] >>
+    ‘st with clock := st.clock = st’ by gs [state_component_equality] >>
+    gs [] >> rveq >> gs [] >>
+    TRY (fs [state_component_equality] >> NO_TAC) >>
+    cheat) >>
+  gs [evaluate_def, AllCaseEqs ()] >> rveq >>
+  gs [eval_upd_clock_eq, state_component_equality, empty_locals_def, dec_clock_def]
+QED
+
 
 Theorem evaluate_io_events_mono:
    !exps s1 res s2.
@@ -941,5 +1046,25 @@ Proof
   every_case_tac >> gs [] >>
   fs [APPLY_UPDATE_THM]
 QED
+
+Theorem evaluate_clock_sub1:
+  !p t res st t' ck.
+    evaluate (p,t) = (res,st) /\ res <> SOME TimeOut ∧
+    evaluate (p,t with clock := ck + t.clock) =
+    evaluate (p,t') ⇒
+    evaluate (p,t) = evaluate (p,t' with clock := t'.clock - ck)
+Proof
+  rw [] >> gs [] >>
+  last_x_assum assume_tac >>
+  drule evaluate_add_clock_eq >>
+  disch_then (qspec_then ‘ck’ mp_tac) >>
+  gs [] >>
+  strip_tac >>
+  qpat_x_assum ‘_ = evaluate (p,t')’ kall_tac >>
+  once_rewrite_tac [EQ_SYM_EQ] >>
+  match_mp_tac evaluate_clock_sub >>
+  gs []
+QED
+
 
 val _ = export_theory();

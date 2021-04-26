@@ -7324,18 +7324,6 @@ Proof
   gs []
 QED
 
-
-Theorem evaluate_clock_sub:
-  !p t res st t' ck.
-    evaluate (p,t) = (res,st) /\ res <> SOME TimeOut ∧
-    evaluate (p,t with clock := ck + t.clock) =
-    evaluate (p,t') ⇒
-    evaluate (p,t) = evaluate (p,t' with clock := t'.clock - ck)
-Proof
-  cheat
-QED
-
-
 Theorem steps_io_event_thm:
   ∀labels prog n st sts (t:('a,time_input) panSem$state).
     steps prog labels (dimword (:α) - 1) n st sts ∧
