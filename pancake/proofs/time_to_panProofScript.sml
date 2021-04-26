@@ -7251,6 +7251,22 @@ Definition ffi_rel_def:
      action_rel act s t ffi)
 End
 
+Definition ffi_rels_def:
+  (ffi_rels prog [] s (t:('a,time_input) panSem$state) ⇔
+   ∃cycles.
+     FST (t.ffi.ffi_state cycles) = dimword (:α) -1 ∧
+     (∀i. i ≤ cycles ⇒ SND (t.ffi.ffi_state i) = 0) ∧
+     mem_read_ffi_results (:α) t.ffi.ffi_state cycles) ∧
+  (ffi_rels prog (label::labels) s t ⇔
+   ∃ffi.
+     ffi_rel label s t ffi ∧
+     ∀s' (t':('a,time_input) panSem$state) m n.
+       step prog label m n s s' ∧
+       t'.ffi.ffi_state = ffi ⇒
+       ffi_rels prog labels s' t')
+End
+
+(*
 (* mignt need adjustment *)
 Definition ffi_rels_def:
   (ffi_rels prog [] s (t:('a,time_input) panSem$state) ⇔ T) ∧
@@ -7262,7 +7278,7 @@ Definition ffi_rels_def:
        t'.ffi.ffi_state = ffi ⇒
        ffi_rels prog labels s' t')
 End
-
+*)
 
 (* TODO: change - to + :
          SUM (n::ns) + 1 = LENGTH ios *)
@@ -7337,7 +7353,9 @@ Theorem steps_io_event_thm:
       t.ffi.io_events ++ ios ∧
       LENGTH labels = LENGTH ns ∧
       t'.be = t.be ∧
-      decode_ios (:α) t'.be labels ns (LAST t.ffi.io_events::ios)
+      decode_ios (:α) t'.be labels ns (LAST t.ffi.io_events::ios) ∧
+      (* new addition *)
+      FLOOKUP  t.locals «waitSet» = SOME (ValWord 1w)
 Proof
   rw [] >>
   gs [] >>
@@ -7398,7 +7416,7 @@ Proof
         gs [] >>
         disch_then (qspec_then ‘ck’ mp_tac) >>
         gs []) >>
-      match_mp_tac evaluate_clock_sub >>
+      match_mp_tac evaluate_clock_sub1 >>
       gs [] >>
       cases_on ‘evaluate (always (nClks prog),nt)’ >>
       gs []) >>
@@ -7504,7 +7522,7 @@ Proof
         gs [] >>
         disch_then (qspec_then ‘ck’ mp_tac) >>
         gs []) >>
-      match_mp_tac evaluate_clock_sub >>
+      match_mp_tac evaluate_clock_sub1 >>
       gs [] >>
       cases_on ‘evaluate (always (nClks prog),nt)’ >>
       gs []) >>
@@ -7549,7 +7567,7 @@ Proof
       gs [] >>
       disch_then (qspec_then ‘ck’ mp_tac) >>
       gs []) >>
-    match_mp_tac evaluate_clock_sub >>
+    match_mp_tac evaluate_clock_sub1 >>
     gs [] >>
     cases_on ‘evaluate (always (nClks prog),nt)’ >>
     gs []) >>
@@ -7644,6 +7662,37 @@ Proof
   Induct >>
   gs [emptyVals_def, shape_of_def]
 QED
+
+
+Theorem timed_automata_correct:
+  ∀labels prog st it sts (t:('a,time_input) panSem$state).
+    steps prog labels
+          (dimword (:α) - 1) (FST (t.ffi.ffi_state 0)) st sts ∧
+    prog ≠ [] ∧ LENGTH (clksOf prog) ≤ 29 ∧
+    LENGTH sts = LENGTH labels ∧
+    st.location =  FST (ohd prog) ∧
+    init_clocks st.clocks (clksOf prog) ∧
+    code_installed t.code prog ∧
+    FLOOKUP t.code «start» =
+      SOME ([], start_controller (prog,st.waitTime)) ∧
+    well_formed_code prog t.code ∧
+    mem_config t.memory t.memaddrs t.be ∧
+    mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
+    t.ffi =
+    build_ffi (:'a) t.be (MAP explode (out_signals prog))
+              t.ffi.ffi_state t.ffi.io_events ∧
+    init_ffi t.ffi.ffi_state ∧
+    input_time_rel t.ffi.ffi_state ∧
+    time_seq t.ffi.ffi_state (dimword (:α)) ∧
+    ffi_rels prog labels st t ∧
+    good_dimindex (:'a) ∧
+    ~MEM "get_time_input" (MAP explode (out_signals prog)) ⇒
+    ∃ios.
+      semantics t «start» = Terminate Success ios
+Proof
+  cheat
+QED
+
 
 
 

@@ -620,7 +620,7 @@ QED
 Theorem evaluate_clock_sub:
   !p t res st ck.
     evaluate (p,t) = (res,st with clock := st.clock + ck) ∧
-    res <> SOME TimeOut (* ∧ ck ≤ t.clock *) ⇒
+    res <> SOME TimeOut ⇒
     evaluate (p,t with clock := t.clock - ck) = (res,st)
 Proof
   recInduct evaluate_ind >> rw [] >>
