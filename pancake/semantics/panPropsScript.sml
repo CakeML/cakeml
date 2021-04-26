@@ -499,6 +499,19 @@ Proof
   metis_tac [eval_upd_clock_eq]
 QED
 
+
+Theorem opt_mmap_eval_upd_clock_eq1:
+   !es s ck. OPT_MMAP (eval (s with clock := ck)) es =
+   OPT_MMAP (eval s) es
+Proof
+  rw [] >>
+  match_mp_tac IMP_OPT_MMAP_EQ >>
+  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+  rw [] >>
+  metis_tac [eval_upd_clock_eq]
+QED
+
+
 Theorem evaluate_add_clock_eq:
   !p t res st ck.
    evaluate (p,t) = (res,st) /\ res <> SOME TimeOut ==>
@@ -607,7 +620,7 @@ QED
 Theorem evaluate_clock_sub:
   !p t res st ck.
     evaluate (p,t) = (res,st with clock := st.clock + ck) ∧
-    res <> SOME TimeOut ⇒
+    res <> SOME TimeOut (* ∧ ck ≤ t.clock *) ⇒
     evaluate (p,t with clock := t.clock - ck) = (res,st)
 Proof
   recInduct evaluate_ind >> rw [] >>
@@ -648,28 +661,232 @@ Proof
     >- (
       CCONTR_TAC >> gs [] >>
       pairarg_tac >> fs [] >> rveq >> fs [] >>
-      cases_on ‘res'’ >> gs [] >>
-      cheat) >>
+      cases_on ‘res'’ >> gs []
+      >- (
+        imp_res_tac evaluate_clock_mono >>
+        gs [dec_clock_def]) >>
+      cases_on ‘x’ >> gs [] >>
+      imp_res_tac evaluate_clock_mono >>
+      gs [dec_clock_def]) >>
     pairarg_tac >> fs [] >> rveq >> fs [] >>
     pairarg_tac >> fs [] >> rveq >> fs [] >>
-    gs [] >> cheat) >>
+    gs [] >>
+    cases_on ‘res''’ >> gs [dec_clock_def]
+    >- (
+      first_x_assum (qspecl_then [‘s1' with clock := s1'.clock - ck’, ‘ck’] mp_tac) >>
+      impl_tac
+      >- (
+        gs [state_component_equality] >>
+        imp_res_tac evaluate_clock_mono >>
+        gs []) >>
+      strip_tac >> gs []) >>
+    cases_on ‘x’ >> gs [dec_clock_def] >> (
+    first_x_assum (qspecl_then [‘s1' with clock := s1'.clock - ck’, ‘ck’] mp_tac) >>
+    impl_tac
+    >- (
+      gs [state_component_equality] >>
+      imp_res_tac evaluate_clock_mono >>
+      gs []) >>
+    strip_tac >> gs [] >> rveq >> gs [state_component_equality])) >>
   TRY (
     rename [‘Call’] >>
     qpat_x_assum ‘evaluate (Call _ _ _,_) = _’ mp_tac >>
-    once_rewrite_tac [evaluate_def] >>
-    fs [dec_clock_def, eval_upd_clock_eq] >>
-    fs [] >>
-    fs [AllCaseEqs(), empty_locals_def, dec_clock_def,
-        set_var_def] >>
-    rveq >> fs [] >>
-    ‘OPT_MMAP (eval (st with clock := ck + st.clock)) argexps =
-     OPT_MMAP (eval st) argexps’ by fs [opt_mmap_eval_upd_clock_eq] >>
-    fs [] >>
-    strip_tac >> fs [] >> rveq >> fs [] >>
-    ‘st with clock := st.clock = st’ by gs [state_component_equality] >>
-    gs [] >> rveq >> gs [] >>
-    TRY (fs [state_component_equality] >> NO_TAC) >>
-    cheat) >>
+    once_rewrite_tac [evaluate_def] >> gs [] >>
+    TOP_CASE_TAC >> gs []
+    >- (
+      gs [AllCaseEqs(), eval_upd_clock_eq] >>
+      strip_tac >> gs []  >> rveq >>
+      gs [state_component_equality, eval_upd_clock_eq]) >>
+    reverse TOP_CASE_TAC >> gs []
+    >- (
+      gs [AllCaseEqs(), eval_upd_clock_eq] >>
+      strip_tac >> gs []  >> rveq >>
+      gs [state_component_equality, eval_upd_clock_eq]) >>
+    TOP_CASE_TAC >> gs []
+    >- (
+      gs [AllCaseEqs(), eval_upd_clock_eq] >>
+      strip_tac >> gs []  >> rveq >>
+      gs [state_component_equality, eval_upd_clock_eq]) >>
+    TOP_CASE_TAC >> gs []
+    >- (
+      gs [AllCaseEqs(), eval_upd_clock_eq] >>
+      strip_tac >> gs []  >> rveq >>
+      gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1] >>
+      ‘st with clock := st.clock = st’ by gs [state_component_equality] >>
+      gs []) >>
+    TOP_CASE_TAC >> gs []
+    >- (
+      gs [AllCaseEqs(), eval_upd_clock_eq] >>
+      strip_tac >> gs []  >> rveq >>
+      gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1] >>
+      ‘st with clock := st.clock = st’ by gs [state_component_equality] >>
+      gs []) >>
+    TOP_CASE_TAC >> gs [] >>
+    TOP_CASE_TAC >> gs [] >>
+    TOP_CASE_TAC >> gs [] >>
+    TOP_CASE_TAC >> gs []
+    >- (
+      strip_tac >> rveq >> gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1] >>
+      imp_res_tac evaluate_clock_mono >>
+      gs [dec_clock_def] >>
+      first_x_assum (qspecl_then [‘st’, ‘ck’] mp_tac) >>
+      impl_tac >- gs [] >>
+      strip_tac >> gs []) >>
+    TOP_CASE_TAC >> gs []
+    >- (
+      strip_tac >> rveq >>
+      gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def, dec_clock_def] >>
+      first_x_assum (qspecl_then [‘r' with clock := r'.clock - ck’, ‘ck’] mp_tac) >>
+      impl_tac
+      >- gs [state_component_equality] >>
+      strip_tac >> gs [] >>
+      imp_res_tac evaluate_clock_mono >>
+      gs [dec_clock_def, state_component_equality])
+    >- (
+      strip_tac >> rveq >>
+      gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def, dec_clock_def] >>
+      first_x_assum (qspecl_then [‘st’, ‘ck’] mp_tac) >>
+      impl_tac
+      >- gs [state_component_equality] >>
+      strip_tac >> gs [] >>
+      imp_res_tac evaluate_clock_mono >>
+      gs [dec_clock_def, state_component_equality])
+    >- (
+      strip_tac >> rveq >>
+      gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def, dec_clock_def] >>
+      first_x_assum (qspecl_then [‘st’, ‘ck’] mp_tac) >>
+      impl_tac
+      >- gs [state_component_equality] >>
+      strip_tac >> gs [] >>
+      imp_res_tac evaluate_clock_mono >>
+      gs [dec_clock_def, state_component_equality])
+    >- (
+      TOP_CASE_TAC >> gs []
+      >- (
+        strip_tac >> rveq >>
+        gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def, dec_clock_def] >>
+        first_x_assum (qspecl_then [‘r' with clock := r'.clock - ck’, ‘ck’] mp_tac) >>
+        impl_tac
+        >- gs [state_component_equality] >>
+        strip_tac >> gs [] >>
+        imp_res_tac evaluate_clock_mono >>
+        gs [dec_clock_def, state_component_equality]) >>
+      TOP_CASE_TAC >> gs []
+      >- (
+        strip_tac >> rveq >>
+        gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def,
+            dec_clock_def, set_var_def] >>
+        first_x_assum (qspecl_then [‘r' with clock := r'.clock - ck’, ‘ck’] mp_tac) >>
+        impl_tac
+        >- gs [state_component_equality] >>
+        strip_tac >> gs [] >>
+        imp_res_tac evaluate_clock_mono >>
+        gs [dec_clock_def, state_component_equality]) >>
+      strip_tac >> rveq >>
+      gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def,
+          dec_clock_def, set_var_def] >>
+      first_x_assum (qspecl_then [‘st’, ‘ck’] mp_tac) >>
+      impl_tac
+      >- gs [state_component_equality] >>
+      strip_tac >> gs [] >>
+      imp_res_tac evaluate_clock_mono >>
+      gs [dec_clock_def, state_component_equality])
+    >- (
+      TOP_CASE_TAC >> gs []
+      >- (
+        strip_tac >> rveq >>
+        gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def, dec_clock_def] >>
+        first_x_assum (qspecl_then [‘r' with clock := r'.clock - ck’, ‘ck’] mp_tac) >>
+        impl_tac
+        >- gs [state_component_equality] >>
+        strip_tac >> gs [] >>
+        imp_res_tac evaluate_clock_mono >>
+        gs [dec_clock_def, state_component_equality]) >>
+      TOP_CASE_TAC >> gs []
+      >- (
+        strip_tac >> rveq >>
+        gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def,
+            dec_clock_def, set_var_def] >>
+        first_x_assum (qspecl_then [‘r' with clock := r'.clock - ck’, ‘ck’] mp_tac) >>
+        impl_tac
+        >- gs [state_component_equality] >>
+        strip_tac >> gs [] >>
+        imp_res_tac evaluate_clock_mono >>
+        gs [dec_clock_def, state_component_equality]) >>
+      TOP_CASE_TAC >> gs [] >>
+      TOP_CASE_TAC >> gs []
+      >- (
+        TOP_CASE_TAC >> gs []
+        >- (
+          strip_tac >> rveq >>
+          gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def,
+              dec_clock_def, set_var_def] >>
+          first_x_assum (qspecl_then [‘st’, ‘ck’] mp_tac) >>
+          impl_tac
+          >- gs [state_component_equality] >>
+          strip_tac >> gs [] >>
+          imp_res_tac evaluate_clock_mono >>
+          gs [dec_clock_def, state_component_equality]) >>
+        reverse TOP_CASE_TAC >> gs []
+        >- (
+          strip_tac >> rveq >>
+          gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def,
+              dec_clock_def, set_var_def] >>
+          first_x_assum (qspecl_then [‘st’, ‘ck’] mp_tac) >>
+          impl_tac
+          >- gs [state_component_equality] >>
+          strip_tac >> gs [] >>
+          imp_res_tac evaluate_clock_mono >>
+          gs [dec_clock_def, state_component_equality])
+        >- (
+          strip_tac >> rveq >>
+          gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def,
+              dec_clock_def, set_var_def] >>
+          first_x_assum (qspecl_then [‘st’, ‘ck’] mp_tac) >>
+          impl_tac
+          >- gs [state_component_equality] >>
+          strip_tac >> gs [] >>
+          imp_res_tac evaluate_clock_mono >>
+          gs [dec_clock_def, state_component_equality]) >>
+        strip_tac >> rveq >>
+        gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def,
+            dec_clock_def, set_var_def] >>
+        last_x_assum (qspecl_then [‘r' with clock := r'.clock - ck’, ‘ck’] mp_tac) >>
+        impl_tac
+        >- (
+          gs [state_component_equality] >>
+          imp_res_tac evaluate_clock_mono >>
+          gs [dec_clock_def, state_component_equality]) >>
+        strip_tac >> gs [] >>
+        first_x_assum (qspecl_then [‘st’, ‘ck’] mp_tac) >>
+        impl_tac
+        >- gs [state_component_equality] >>
+        strip_tac >> gs [] >>
+        imp_res_tac evaluate_clock_mono >>
+        gs [dec_clock_def, state_component_equality]) >>
+      strip_tac >> rveq >>
+      gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def,
+          dec_clock_def, set_var_def] >>
+      last_x_assum (qspecl_then [‘r' with clock := r'.clock - ck’, ‘ck’] mp_tac) >>
+      impl_tac
+      >- (
+        gs [state_component_equality] >>
+        imp_res_tac evaluate_clock_mono >>
+        gs [dec_clock_def, state_component_equality]) >>
+      strip_tac >> gs [] >>
+      imp_res_tac evaluate_clock_mono >>
+      gs [dec_clock_def, state_component_equality]) >>
+    strip_tac >> rveq >>
+    gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def, dec_clock_def] >>
+    last_x_assum (qspecl_then [‘r' with clock := r'.clock - ck’, ‘ck’] mp_tac) >>
+    impl_tac
+    >- (
+      gs [state_component_equality] >>
+      imp_res_tac evaluate_clock_mono >>
+      gs [dec_clock_def, state_component_equality]) >>
+    strip_tac >> gs [] >>
+    imp_res_tac evaluate_clock_mono >>
+    gs [dec_clock_def, state_component_equality]) >>
   gs [evaluate_def, AllCaseEqs ()] >> rveq >>
   gs [eval_upd_clock_eq, state_component_equality, empty_locals_def, dec_clock_def]
 QED
