@@ -4,7 +4,7 @@
   and vice versa assuming that the FFI is implemented correctly.
 *)
 open preamble
-     ml_translatorTheory ml_translatorLib ml_progLib cfLib
+     ml_translatorTheory ml_translatorLib ml_progLib cfLib mlstringTheory
      Word64ProgTheory
      Word8ArrayProgTheory
      Word8ArrayProofTheory
@@ -57,28 +57,34 @@ Proof
   \\ blastLib.BBLAST_TAC
 QED
 
+Definition string2Double_def:
+  string2Double (s:string) (df:doubleFuns) = (df.fromString (explode (prepareString (strlit s))))
+End
+
 Theorem double_fromString_spec:
   ! s sv.
   STRING_TYPE (strlit s) sv ==>
   app (p:'ffi ffi_proj) Double_fromString_v [sv]
     (DoubleIO df)
-    (POSTv v. cond (WORD (df.fromString s) v) * DoubleIO df)
+    (POSTv v. cond (WORD (string2Double s df) v) * DoubleIO df)
 Proof
   xcf_with_def "Double.fromString" Double_fromString_v_def
   \\ reverse (Cases_on `doubleFuns_ok df`)
   >- (fs[DoubleIO_def] \\ xpull)
-  \\ ntac 2 (xlet_auto >- (fs[] \\ xsimpl))
+  \\ gs[string2Double_def]
+  \\ ntac 3 (xlet_auto >- (fs[] \\ xsimpl))
   \\ rename [`W8ARRAY iobuff`]
-  \\ xlet `POSTv v. W8ARRAY iobuff (into_bytes 8 (df.fromString s)) * DoubleIO df`
+  \\ xlet `POSTv v. W8ARRAY iobuff (into_bytes 8 (df.fromString (explode (prepareString (strlit s))))) * DoubleIO df`
   >- (fs[DoubleIO_def, IOx_def, double_ffi_part_def, IO_def, mk_ffi_next_def]
       \\ xpull \\ xffi \\ xsimpl
       \\ fs[STRING_TYPE_def] \\ rveq
-      \\ qexists_tac `MAP (n2w o ORD) s` \\ fs[MAP_MAP_o]
+      \\ qexists_tac `MAP (n2w o ORD) (explode (prepareString (strlit s)))` \\ fs[MAP_MAP_o]
       \\ qexists_tac `emp`
       \\ xsimpl
       \\ rewrite_tac [one_one_eq] \\ fs[]
       \\ conj_tac
-      >- (fs[MAP_CHR_w2n_n2w_ORD_id])
+      >- (fs[MAP_CHR_w2n_n2w_ORD_id, STRING_TYPE_def, prepareString_def] \\ TOP_CASE_TAC
+          \\ gs[STRING_TYPE_def, translate_thm, implode_def])
       \\ fs[mk_ffi_next_def, ffi_fromString_def]
       \\ xsimpl
       \\ rewrite_tac [one_one_eq] \\ fs[MAP_MAP_o, MAP_CHR_w2n_n2w_ORD_id])

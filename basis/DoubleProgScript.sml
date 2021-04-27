@@ -26,11 +26,18 @@ val _ = ml_prog_update open_local_block;
 
 val _ = ml_prog_update open_local_in_block;
 
+val replaceMLneg_def = Define ‘replaceMLneg x = if x = #"~" then #"-" else x’;
+val _ = translate replaceMLneg_def;
+
+val prepareString_def = Define ‘prepareString (s:mlstring) = if isPrefix (strlit "~") s then translate replaceMLneg s else s’
+val _ = translate prepareString_def;
+
 val _ = process_topdecs
   `fun fromString s =
     let
+      val sPrepped = preparestring s;
       val iobuff = Word8Array.array 8 (Word8.fromInt 0);
-      val _ = #(double_fromString) s iobuff;
+      val _ = #(double_fromString) sPrepped iobuff;
       val a = Word8Array.sub iobuff 0;
       val b = Word8Array.sub iobuff 1;
       val c = Word8Array.sub iobuff 2;
