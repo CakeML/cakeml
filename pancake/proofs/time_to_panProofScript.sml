@@ -3225,6 +3225,7 @@ Theorem step_delay_loop:
       t'.code = t.code ∧
       t'.be = t.be ∧
       FLOOKUP t'.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt» ∧
+      FLOOKUP t'.locals «waitSet» = FLOOKUP t.locals «waitSet» ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
       FLOOKUP t'.locals «event» =  SOME (ValWord 0w) ∧
       FLOOKUP t'.locals «taskRet» = FLOOKUP t.locals «taskRet» ∧
@@ -4992,23 +4993,6 @@ Proof
 QED
 
 
-(*
-(* this can be infered from above defs later if needed *)
-Definition delay_ffi_def:
-  delay_ffi xs ⇔
-  let
-    is = MAP FST xs;
-    ts = MAP SND xs
-  in
-    (∀i. MEM i is ⇒ i = 0) ∧
-    (∀m n.
-       m < LENGTH xs ∧
-       n < LENGTH xs ∧
-       n = m + 1 ⇒
-       EL m ts ≤ EL n ts)
-End
-*)
-
 Theorem step_delay:
   !cycles prog d m n s s' (t:('a,time_input) panSem$state) ck_extra.
     step prog (LDelay d) m n s s' ∧
@@ -5033,6 +5017,7 @@ Theorem step_delay:
       t'.code = t.code ∧
       t'.be = t.be ∧
       FLOOKUP t'.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt» ∧
+      FLOOKUP t'.locals «waitSet» = FLOOKUP t.locals «waitSet» ∧
       FLOOKUP t'.locals «isInput» = SOME (ValWord 1w) ∧
       FLOOKUP t'.locals «event» =  SOME (ValWord 0w) ∧
       FLOOKUP t'.locals «taskRet» = FLOOKUP t.locals «taskRet» ∧
@@ -7371,7 +7356,8 @@ Proof
     MAP_EVERY qexists_tac
               [‘0’, ‘t with clock := t.clock’,
                ‘[]’] >>
-    gs [decode_ios_def]) >>
+    gs [decode_ios_def] >>
+  ) >>
   rw [] >>
   ‘LENGTH sts = LENGTH (h::labels')’ by
     metis_tac [steps_sts_length_eq_lbls] >>
