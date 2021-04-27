@@ -6986,6 +6986,7 @@ Definition evaluations_def:
        nt.ffi.ffi_state = nexts_ffi cycles t.ffi.ffi_state ∧
        nt.ffi.oracle = t.ffi.oracle ∧
        FLOOKUP nt.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt» ∧
+       FLOOKUP nt.locals «waitSet» = FLOOKUP t.locals «waitSet» ∧
        FLOOKUP nt.locals «taskRet» = FLOOKUP t.locals «taskRet» ∧
        FLOOKUP nt.locals «sysTime»  =
        SOME (ValWord (n2w (FST (t.ffi.ffi_state cycles)))) ∧
@@ -7013,6 +7014,11 @@ Definition evaluations_def:
                          case st.waitTime of
                          | NONE => 0
                          | SOME wt => wt))) ∧
+     FLOOKUP nt.locals «waitSet» =
+        SOME (ValWord (n2w (
+          case st.waitTime of
+          | NONE => 1
+          | _ => 0))) ∧
      FLOOKUP nt.locals «sysTime» = FLOOKUP t.locals «sysTime» ∧
      wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
      input_io_events_rel i t nt ∧
@@ -7036,6 +7042,11 @@ Definition evaluations_def:
                          case st.waitTime of
                          | NONE => 0
                          | SOME wt => wt))) ∧
+     FLOOKUP nt.locals «waitSet» =
+        SOME (ValWord (n2w (
+          case st.waitTime of
+          | NONE => 1
+          | _ => 0))) ∧
      FLOOKUP nt.locals «sysTime» = FLOOKUP t.locals «sysTime» ∧
      wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
      output_io_events_rel os t nt ∧
