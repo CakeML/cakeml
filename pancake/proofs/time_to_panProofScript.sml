@@ -6300,6 +6300,11 @@ Theorem step_output:
          case s'.waitTime of
          | NONE => 0
          | SOME wt => wt))) ∧
+      FLOOKUP t'.locals «waitSet» =
+        SOME (ValWord (n2w (
+          case s'.waitTime of
+          | NONE => 1
+          | _ => 0))) ∧
       (case s'.waitTime of
        | SOME wt => FST (t.ffi.ffi_state 0) + wt < dimword (:α)
        | _ => T)
