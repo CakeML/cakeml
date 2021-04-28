@@ -7814,8 +7814,8 @@ Theorem steps_io_event_thm1:
   ∀labels prog n st sts (t:('a,time_input) panSem$state).
     steps prog labels (dimword (:α) - 1) n st sts ∧
     assumptions prog n st t ∧
-    ffi_rels prog labels st t (* ∧
-    FST (evaluate (time_to_pan$always (nClks prog), t)) ≠ SOME TimeOut *) ⇒
+    ffi_rels prog labels st t  ∧
+    FST (evaluate (time_to_pan$always (nClks prog), t)) ≠ SOME TimeOut ⇒
     ∃ck t' ns ios.
       evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
       (SOME (Return (ValWord 0w)),t') ∧
@@ -7864,7 +7864,7 @@ Proof
     last_x_assum drule >>
     disch_then (qspec_then ‘nt’ mp_tac) >>
     impl_tac
-    >- (cheat
+    >- (
       gs [assumptions_def] >>
       gs [nexts_ffi_def, delay_rep_def] >>
       conj_asm1_tac
@@ -7878,40 +7878,15 @@ Proof
       disch_then (qspec_then ‘ck’ mp_tac) >>
       gs []) >>
     strip_tac >>
-
-
-
-    qexists_tac ‘ck’ >>
+    cases_on ‘evaluate (always (nClks prog),t)’ >>
     gs [] >>
-    ‘evaluate (always (nClks prog),nt) =
-     (SOME (Return (ValWord 0w)),t'' with clock := t''.clock - ck')’ by (
-
-      evaluate_clock_sub
-
-
-
-      ‘FST (evaluate (always (nClks prog),nt)) ≠ SOME TimeOut’ by (
-        cases_on ‘evaluate (always (nClks prog),t)’ >>
-        gs [] >>
-        drule evaluate_add_clock_eq >>
-        gs [] >>
-        disch_then (qspec_then ‘ck’ mp_tac) >>
-        gs []) >>
-
-
-
-      drule evaluate_clock_sub1 >>
-
-
-
-
-
-
-
-      (*match_mp_tac evaluate_clock_sub1 >>
-      gs [] >>
-      cases_on ‘evaluate (always (nClks prog),nt)’ >>
-      gs [] *)) >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘ck’ assume_tac) >>
+    gs [] >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘ck'’ assume_tac) >>
     gs [] >>
     gs [delay_io_events_rel_def] >>
     qexists_tac ‘cycles::ns’ >>
@@ -7995,23 +7970,16 @@ Proof
       gs [] >>
       disch_then (qspec_then ‘ck’ mp_tac) >>
       gs []) >>
-    strip_tac >> gs [] >>
-    qexists_tac ‘ck’ >>
+    strip_tac >>
+    cases_on ‘evaluate (always (nClks prog),t)’ >>
     gs [] >>
-
-    ‘evaluate (always (nClks prog),nt) =
-     (SOME (Return (ValWord 0w)),t'' with clock := t''.clock - ck')’ by (
-      ‘FST (evaluate (always (nClks prog),nt)) ≠ SOME TimeOut’ by (
-        cases_on ‘evaluate (always (nClks prog),t)’ >>
-        gs [] >>
-        drule evaluate_add_clock_eq >>
-        gs [] >>
-        disch_then (qspec_then ‘ck’ mp_tac) >>
-        gs []) >> cheat
-      (*match_mp_tac evaluate_clock_sub1 >>
-      gs [] >>
-      cases_on ‘evaluate (always (nClks prog),nt)’ >>
-      gs [] *)) >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘ck’ assume_tac) >>
+    gs [] >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘ck'’ assume_tac) >>
     gs [] >>
     gs [input_io_events_rel_def] >>
     qexists_tac ‘1::ns’ >>
@@ -8034,22 +8002,16 @@ Proof
     gs [] >>
     disch_then (qspec_then ‘ck’ mp_tac) >>
     gs []) >>
-  strip_tac >> gs [] >>
-  qexists_tac ‘ck’ >>
+  strip_tac >>
+  cases_on ‘evaluate (always (nClks prog),t)’ >>
   gs [] >>
-  ‘evaluate (always (nClks prog),nt) =
-   (SOME (Return (ValWord 0w)),t'' with clock := t''.clock - ck')’ by (
-    ‘FST (evaluate (always (nClks prog),nt)) ≠ SOME TimeOut’ by (
-      cases_on ‘evaluate (always (nClks prog),t)’ >>
-      gs [] >>
-      drule evaluate_add_clock_eq >>
-      gs [] >>
-      disch_then (qspec_then ‘ck’ mp_tac) >>
-      gs []) >> cheat
-    (*match_mp_tac evaluate_clock_sub1 >>
-      gs [] >>
-      cases_on ‘evaluate (always (nClks prog),nt)’ >>
-      gs [] *)) >>
+  drule evaluate_add_clock_eq >>
+  gs [] >>
+  disch_then (qspec_then ‘ck’ assume_tac) >>
+  gs [] >>
+  drule evaluate_add_clock_eq >>
+  gs [] >>
+  disch_then (qspec_then ‘ck'’ assume_tac) >>
   gs [] >>
   gs [output_io_events_rel_def] >>
   qexists_tac ‘1::ns’ >>
