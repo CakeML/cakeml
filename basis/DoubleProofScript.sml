@@ -83,7 +83,7 @@ Proof
       \\ xsimpl
       \\ rewrite_tac [one_one_eq] \\ fs[]
       \\ conj_tac
-      >- (fs[MAP_CHR_w2n_n2w_ORD_id, STRING_TYPE_def, prepareString_def] \\ TOP_CASE_TAC
+      >- (fs[MAP_CHR_w2n_n2w_ORD_id, STRING_TYPE_def, prepareString_def]
           \\ gs[STRING_TYPE_def, translate_thm, implode_def])
       \\ fs[mk_ffi_next_def, ffi_fromString_def]
       \\ xsimpl

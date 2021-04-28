@@ -29,7 +29,7 @@ val _ = ml_prog_update open_local_in_block;
 val replaceMLneg_def = Define ‘replaceMLneg x = if x = #"~" then #"-" else x’;
 val _ = translate replaceMLneg_def;
 
-val prepareString_def = Define ‘prepareString (s:mlstring) = if isPrefix (strlit "~") s then translate replaceMLneg s else s’
+val prepareString_def = Define ‘prepareString (s:mlstring) = translate replaceMLneg s’
 val _ = translate prepareString_def;
 
 val _ = process_topdecs
