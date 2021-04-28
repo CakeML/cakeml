@@ -3230,7 +3230,7 @@ Proof
 QED
 
 Theorem step_delay_loop:
-  !cycles prog d m n s s' (t:('a,time_input) panSem$state) ck_extra.
+  !cycles prog d m n s s' (t:('a,time_input) panSem$state).
     step prog (LDelay d) m n s s' ∧
     m = dimword (:α) - 1 ∧
     n = FST (t.ffi.ffi_state 0) ∧
@@ -3243,8 +3243,9 @@ Theorem step_delay_loop:
     FLOOKUP t.locals «event» =  SOME (ValWord 0w) ∧
     good_dimindex (:'a) ==>
     ?ck t'.
-      evaluate (wait_input_time_limit, t with clock := t.clock + ck) =
-      evaluate (wait_input_time_limit, t' with clock := t'.clock + ck_extra) ∧
+      (∀ck_extra.
+         evaluate (wait_input_time_limit, t with clock := t.clock + ck + ck_extra) =
+         evaluate (wait_input_time_limit, t' with clock := t'.clock + ck_extra)) ∧
       code_installed t'.code prog ∧
       state_rel (clksOf prog) (out_signals prog) s' t' ∧
       t'.ffi.ffi_state = nexts_ffi cycles t.ffi.ffi_state ∧
@@ -3275,7 +3276,7 @@ Proof
     fs [delay_clocks_def, mkState_def] >>
     rveq >> gs [] >>
     fs [fmap_to_alist_eq_fm] >>
-    qexists_tac ‘ck_extra’ >> fs [] >>
+    qexists_tac ‘0’ >> fs [] >>
     qexists_tac ‘t’ >> fs [] >>
     gs [state_rel_def, nexts_ffi_def, GSYM ETA_AX] >>
     pairarg_tac >> gs [] >>
@@ -3338,8 +3339,8 @@ Proof
       strip_tac >>
       gs []) >>
     last_x_assum drule >>
-    (* ck_extra *)
-    disch_then (qspecl_then [‘ck_extra + 1’] mp_tac) >>
+    (* (* ck_extra *)
+    disch_then (qspecl_then [‘ck_extra + 1’] mp_tac) >> *)
     impl_tac
     >- (
       gs [mkState_def, wakeup_rel_def, mem_read_ffi_results_def] >>
@@ -3348,6 +3349,9 @@ Proof
       last_x_assum (qspecl_then [‘i’,‘t'’, ‘t''’] mp_tac) >>
       gs []) >>
     strip_tac >> fs [] >>
+
+
+
     ‘(mkState (delay_clocks s.clocks d) s.location NONE NONE).ioAction =
      NONE’ by fs [mkState_def] >>
     fs [] >>
@@ -3358,6 +3362,10 @@ Proof
     pop_assum kall_tac >>
     (* gs [evaluate_delay_def] >> *)
     qexists_tac ‘ck’ >>
+
+
+
+
     fs [] >>
     fs [wait_input_time_limit_def] >>
     rewrite_tac [Once evaluate_def] >>
@@ -5012,7 +5020,7 @@ Proof
   qpat_x_assum ‘delay_rep sd _ _’ assume_tac >>
   qpat_x_assum ‘sd ≤ d’ assume_tac >>
   gs [delay_rep_def] >>
-  gs [ADD1]
+  gs [ADD1] *)
 QED
 
 
@@ -5026,7 +5034,7 @@ QED
 
 
 Theorem step_delay:
-  !cycles prog d m n s s' (t:('a,time_input) panSem$state) ck_extra.
+  !cycles prog d m n s s' (t:('a,time_input) panSem$state).
     step prog (LDelay d) m n s s' ∧
     m = dimword (:α) - 1 ∧ n = FST (t.ffi.ffi_state 0) ∧
     state_rel (clksOf prog) (out_signals prog) s t ∧
@@ -5038,8 +5046,9 @@ Theorem step_delay:
     FLOOKUP t.locals «event» =  SOME (ValWord 0w) ∧
     good_dimindex (:'a) ==>
     ?ck t'.
-      evaluate (task_controller (nClks prog), t with clock := t.clock + ck) =
-      evaluate (task_controller (nClks prog), t' with clock := t'.clock + ck_extra) ∧
+      (∀ck_extra.
+         evaluate (task_controller (nClks prog), t with clock := t.clock + ck + ck_extra) =
+         evaluate (task_controller (nClks prog), t' with clock := t'.clock + ck_extra)) ∧
       code_installed t'.code prog ∧
       state_rel (clksOf prog) (out_signals prog) s' t' ∧
       t'.ffi.ffi_state = nexts_ffi cycles t.ffi.ffi_state ∧
@@ -5063,13 +5072,16 @@ Proof
   fs [panLangTheory.nested_seq_def] >>
   qmatch_goalsub_abbrev_tac ‘evaluate (Seq _ q, _)’ >>
   drule step_delay_loop >>
-  disch_then (qspecl_then [‘cycles’, ‘t’, ‘ck_extra’] mp_tac) >>
+  disch_then (qspecl_then [‘cycles’, ‘t’] mp_tac) >>
   fs [] >>
   strip_tac >>
+  qexists_tac ‘ck’ >> fs [] >>
+  qexists_tac ‘t'’ >> fs [] >>
+  rw [] >>
+  first_x_assum (qspec_then ‘ck_extra’ assume_tac) >>
   drule evaluate_seq_fst >>
   disch_then (qspec_then ‘q’ assume_tac) >>
-  qexists_tac ‘ck’ >> fs [] >>
-  qexists_tac ‘t'’ >> fs []
+  gs []
 QED
 
 
@@ -6970,7 +6982,7 @@ Proof
   rw [] >>
   drule step_delay >>
   gs [] >>
-  disch_then (qspecl_then [‘cycles’, ‘t’, ‘1’] mp_tac) >>
+  disch_then (qspecl_then [‘cycles’, ‘t’] mp_tac) >>
   impl_tac
   >- (
     gs [step_cases, mkState_def, wakeup_rel_def, delay_rep_def] >>
@@ -6982,7 +6994,9 @@ Proof
     >- gs [] >>
     gs []) >>
   strip_tac >> gs [] >>
-  qexists_tac ‘ck’ >> gs [] >>
+  first_x_assum (qspec_then ‘1’ mp_tac) >>
+  strip_tac >>
+  qexists_tac ‘ck +1’ >> gs [] >>
   qpat_x_assum ‘evaluate _ = evaluate _’ kall_tac >>
   fs [task_controller_def] >>
   fs [panLangTheory.nested_seq_def] >>
@@ -7169,8 +7183,9 @@ Definition evaluations_def:
      (∀i. i ≤ cycles ⇒ SND (t.ffi.ffi_state (i + 1)) = 0) ∧
      mem_read_ffi_results (:α) t.ffi.ffi_state (cycles + 1) ⇒
      ∃ck nt.
-       evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
-       (SOME (Return (ValWord 0w)),nt) ∧
+       (∀ck_extra.
+          evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck + ck_extra) =
+          (SOME (Return (ValWord 0w)), nt with clock := nt.clock + ck_extra)) ∧
        nt.be = t.be ∧
        (∃ios. nt.ffi.io_events = t.ffi.io_events ++ ios)) ∧
   (evaluations prog (lbl::lbls) (st::sts) s t ⇔
@@ -7192,8 +7207,9 @@ Definition evaluations_def:
      t.ffi.io_events ≠ [] ∧
      EL 0 (io_event_dest (:α) t.be (LAST t.ffi.io_events)) = FST (t.ffi.ffi_state 0) ⇒
      ∃ck nt.
-       evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
-       evaluate (time_to_pan$always (nClks prog), nt) ∧
+       (∀ck_extra.
+          evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck + ck_extra) =
+          evaluate (time_to_pan$always (nClks prog), nt with clock := nt.clock + ck_extra)) ∧
        state_rel (clksOf prog) (out_signals prog) st nt ∧
        ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
        event_inv nt.locals ∧
@@ -7216,8 +7232,9 @@ Definition evaluations_def:
    input_rel t.locals i (next_ffi t.ffi.ffi_state) ∧
    mem_read_ffi_results (:α) t.ffi.ffi_state 1 ⇒
    ∃ck nt.
-     evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
-     evaluate (time_to_pan$always (nClks prog), nt) ∧
+     (∀ck_extra.
+        evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck + ck_extra) =
+        evaluate (time_to_pan$always (nClks prog), nt with clock := nt.clock + ck_extra)) ∧
      state_rel (clksOf prog) (out_signals prog) st nt ∧
      ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
      event_inv nt.locals ∧
@@ -7231,10 +7248,10 @@ Definition evaluations_def:
                          | NONE => 0
                          | SOME wt => wt))) ∧
      FLOOKUP nt.locals «waitSet» =
-        SOME (ValWord (n2w (
-          case st.waitTime of
-          | NONE => 1
-          | _ => 0))) ∧
+     SOME (ValWord (n2w (
+                     case st.waitTime of
+                     | NONE => 1
+                     | _ => 0))) ∧
      FLOOKUP nt.locals «sysTime» = FLOOKUP t.locals «sysTime» ∧
      wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
      input_io_events_rel i t nt ∧
@@ -7244,8 +7261,9 @@ Definition evaluations_def:
   (evaluate_output prog os st (t:('a,time_input) panSem$state) lbls sts ⇔
    output_rel t.locals t.ffi.ffi_state ⇒
    ∃ck nt.
-     evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
-     evaluate (time_to_pan$always (nClks prog), nt) ∧
+     (∀ck_extra.
+        evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck + ck_extra) =
+        evaluate (time_to_pan$always (nClks prog), nt with clock := nt.clock + ck_extra)) ∧
      state_rel (clksOf prog) (out_signals prog) st nt ∧
      ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
      event_inv nt.locals ∧
@@ -7259,10 +7277,10 @@ Definition evaluations_def:
                          | NONE => 0
                          | SOME wt => wt))) ∧
      FLOOKUP nt.locals «waitSet» =
-        SOME (ValWord (n2w (
-          case st.waitTime of
-          | NONE => 1
-          | _ => 0))) ∧
+     SOME (ValWord (n2w (
+                     case st.waitTime of
+                     | NONE => 1
+                     | _ => 0))) ∧
      FLOOKUP nt.locals «sysTime» = FLOOKUP t.locals «sysTime» ∧
      wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
      output_io_events_rel os t nt ∧
@@ -7310,7 +7328,11 @@ Proof
     once_rewrite_tac [panSemTheory.evaluate_def] >>
     gs [panSemTheory.eval_def] >>
     gs [panSemTheory.dec_clock_def] >>
-    qexists_tac ‘ck + 1’ >> gs []) >>
+    qexists_tac ‘ck + 1’ >> gs [] >>
+    qexists_tac ‘nt’ >> gs [] >>
+    rw [] >>
+    drule evaluate_add_clock_eq >>
+    gs []) >>
   rpt gen_tac >>
   strip_tac >>
   ‘LENGTH sts = LENGTH (h::labels')’ by
@@ -7328,7 +7350,7 @@ Proof
     rw [] >>
     drule step_delay >>
     gs [] >>
-    disch_then (qspecl_then [‘cycles’, ‘t’, ‘0’] mp_tac) >>
+    disch_then (qspecl_then [‘cycles’, ‘t’] mp_tac) >>
     impl_tac
     >- gs [] >>
     strip_tac >>
@@ -7338,9 +7360,11 @@ Proof
     gs [panSemTheory.eval_def] >>
     gs [panSemTheory.dec_clock_def] >>
     qexists_tac ‘t'' with clock := t''.clock + 1’ >>
-    gs [] >>
+    conj_tac
+    >- rw [] >> gs [] >>
     conj_asm1_tac
     >- gs [state_rel_def] >>
+    gs [] >>
     conj_asm1_tac
     >- (
       gs [wait_time_locals_def] >>
@@ -7412,6 +7436,11 @@ Proof
     gs [panSemTheory.dec_clock_def] >>
     qexists_tac ‘t''’ >>
     fs [] >>
+    conj_tac
+    >- (
+      rw [] >>
+      drule evaluate_add_clock_eq >>
+      gs []) >>
     conj_asm1_tac
     >- (
       cases_on ‘h'.waitTime’ >>
@@ -7445,6 +7474,11 @@ Proof
   gs [panSemTheory.dec_clock_def] >>
   qexists_tac ‘t''’ >>
   fs [] >>
+  conj_tac
+  >- (
+    rw [] >>
+    drule evaluate_add_clock_eq >>
+    gs []) >>
   conj_asm1_tac
   >- (
   cases_on ‘h'.waitTime’ >>
@@ -7562,6 +7596,204 @@ Proof
     cases_on ‘xs’ >> gs []) >>
   gs []
 QED
+
+Theorem steps_io_event_thm1:
+  ∀labels prog n st sts (t:('a,time_input) panSem$state).
+    steps prog labels (dimword (:α) - 1) n st sts ∧
+    assumptions prog n st t ∧
+    ffi_rels prog labels st t (* ∧
+    FST (evaluate (time_to_pan$always (nClks prog), t)) ≠ SOME TimeOut *) ⇒
+    ∃ck t' ns ios.
+      evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
+      (SOME (Return (ValWord 0w)),t') ∧
+      t'.ffi.io_events =
+      t.ffi.io_events ++ ios ∧
+      LENGTH labels = LENGTH ns ∧
+      SUM ns ≤ LENGTH ios ∧
+      t'.be = t.be ∧
+      decode_ios (:α) t'.be labels ns
+                 (LAST t.ffi.io_events::
+                  TAKE (SUM ns) ios)
+Proof
+  rw [] >>
+  gs [] >>
+  drule_all steps_thm >>
+  strip_tac >>
+  rpt (pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [‘t’, ‘sts’, ‘st’, ‘n’, ‘prog’, ‘labels'’] >>
+  Induct
+  >- (
+    rw [] >>
+    cases_on ‘sts’ >>
+    fs [evaluations_def, steps_def] >>
+    gs [ffi_rels_def] >>
+    first_x_assum (qspec_then ‘cycles’ mp_tac) >>
+    impl_tac >- gs [] >>
+    strip_tac >>
+    first_x_assum (qspec_then ‘0’ mp_tac) >>
+    strip_tac >> gs [] >>
+    qexists_tac ‘ck’ >> gs [] >>
+    gs [decode_ios_def]) >>
+  rw [] >>
+  ‘LENGTH sts = LENGTH (h::labels')’ by
+    metis_tac [steps_sts_length_eq_lbls] >>
+  cases_on ‘sts’ >>
+  fs [] >>
+  ‘n = FST (t.ffi.ffi_state 0)’ by
+    gs [assumptions_def] >>
+  rveq >> gs [] >>
+  gs [evaluations_def, steps_def] >>
+  cases_on ‘h’ >> gs []
+  >- (
+    gs [ffi_rels_def, ffi_rel_def] >>
+    first_x_assum drule >>
+    gs [] >>
+    strip_tac >>
+    gs [] >>
+
+
+    last_x_assum drule >>
+    disch_then (qspec_then ‘nt’ mp_tac) >>
+    impl_tac
+    >- (
+      gs [assumptions_def] >>
+      gs [nexts_ffi_def, delay_rep_def] >>
+      first_x_assum match_mp_tac >>
+      metis_tac []) >>
+    strip_tac >>
+    first_x_assum (qspec_then ‘ck'’ assume_tac) >>
+    qexists_tac ‘ck + ck'’ >> gs [] >>
+    gs [delay_io_events_rel_def] >>
+    qexists_tac ‘cycles::ns’ >>
+    rewrite_tac [decode_ios_def] >>
+    gs [] >>
+    TOP_CASE_TAC
+    >- (
+      gs [mk_ti_events_def, gen_ffi_states_def] >>
+      gs [delay_rep_def] >>
+      drule bar >>
+      gs []) >>
+    conj_asm1_tac
+    >-  gs [mk_ti_events_def, gen_ffi_states_def] >>
+    conj_asm1_tac
+    >- gs [LENGTH_TAKE_EQ] >>
+    qmatch_asmsub_abbrev_tac ‘decode_ios _ _ _ ns nios’ >>
+    qmatch_goalsub_abbrev_tac ‘decode_ios _ _ _ ns nios'’ >>
+    ‘nios = nios'’ by (
+      gs [Abbr ‘nios’, Abbr ‘nios'’] >>
+      gs [TAKE_SUM] >>
+      qmatch_goalsub_abbrev_tac ‘TAKE _ (xs ++ _)’ >>
+      ‘cycles = LENGTH xs’ by
+        gs [Abbr ‘xs’, mk_ti_events_def, gen_ffi_states_def] >>
+      gs [TAKE_LENGTH_APPEND, DROP_LENGTH_APPEND] >>
+      gs [DROP_APPEND] >>
+      ‘LENGTH xs − 1 − LENGTH xs = 0’ by gs [] >>
+      simp [] >>
+      pop_assum kall_tac >>
+      ‘DROP (LENGTH xs − 1) xs = [LAST xs]’ by (
+        match_mp_tac drop_length_eq_last >>
+        gs []) >>
+      gs [] >>
+      cases_on ‘xs’ >- gs [] >>
+      simp [LAST_APPEND_CONS]) >>
+    qpat_x_assum ‘obs_ios_are_label_delay _ _ _’ mp_tac >>
+    gs [obs_ios_are_label_delay_def] >>
+    strip_tac >>
+    pop_assum mp_tac >>
+    impl_tac
+    >- (
+      CCONTR_TAC >>
+      gs [DROP_LENGTH_APPEND, mk_ti_events_def, gen_ffi_states_def, decode_io_events_def] >>
+      gs [ZIP_EQ_NIL]) >>
+    strip_tac >>
+    gs [] >>
+    qmatch_goalsub_abbrev_tac ‘TAKE _ (TAKE _ (xs ++ _))’ >>
+    ‘TAKE cycles (TAKE (cycles + SUM ns) (xs ++ ios)) =
+     xs’ by (
+      ‘cycles = LENGTH xs’ by
+         gs [Abbr ‘xs’, mk_ti_events_def, gen_ffi_states_def] >>
+      gs [] >>
+      gs [TAKE_SUM, TAKE_LENGTH_APPEND]) >>
+    gs [Abbr ‘xs’, DROP_LENGTH_APPEND]) >>
+  cases_on ‘i’
+  >- (
+    gs [ffi_rels_def, ffi_rel_def, action_rel_def] >>
+    first_x_assum drule >>
+    disch_then (qspec_then ‘nt’ mp_tac) >>
+    impl_tac >- gs [] >>
+    strip_tac >>
+    last_x_assum drule >>
+    disch_then (qspec_then ‘nt’ mp_tac) >>
+    impl_tac
+    >- (
+      gs [assumptions_def] >>
+      gs [nexts_ffi_def, input_rel_def] >>
+      qpat_x_assum ‘state_rel _ _ _ t’ assume_tac >>
+      gs [state_rel_def] >>
+      pairarg_tac >> gs [] >>
+      gs [input_time_rel_def] >>
+      gs [input_time_eq_def, has_input_def] >>
+      first_x_assum (qspec_then ‘0’ mp_tac) >>
+      impl_tac
+      >- (
+        gs [] >>
+        gs [input_rel_def, next_ffi_def]) >>
+      gs [next_ffi_def] >>
+      cases_on ‘evaluate (always (nClks prog),t)’ >>
+      gs [] >>
+      drule evaluate_add_clock_eq >>
+      gs [] >>
+      disch_then (qspec_then ‘ck’ mp_tac) >>
+      gs []) >>
+    strip_tac >>
+    cases_on ‘evaluate (always (nClks prog),t)’ >>
+    gs [] >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘ck’ assume_tac) >>
+    gs [] >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘ck'’ assume_tac) >>
+    gs [] >>
+    gs [input_io_events_rel_def] >>
+    qexists_tac ‘1::ns’ >>
+    rewrite_tac [decode_ios_def] >>
+    gs [] >>
+    gs [to_input_def, DROP_LENGTH_APPEND, decode_io_events_def]) >>
+  gs [ffi_rels_def, ffi_rel_def, action_rel_def] >>
+  first_x_assum drule >>
+  disch_then (qspec_then ‘nt’ mp_tac) >>
+  impl_tac >- gs [] >>
+  strip_tac >>
+  last_x_assum drule >>
+  disch_then (qspec_then ‘nt’ mp_tac) >>
+  impl_tac
+  >- (
+    gs [assumptions_def] >>
+    cases_on ‘evaluate (always (nClks prog),t)’ >>
+    gs [] >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘ck’ mp_tac) >>
+    gs []) >>
+  strip_tac >>
+  cases_on ‘evaluate (always (nClks prog),t)’ >>
+  gs [] >>
+  drule evaluate_add_clock_eq >>
+  gs [] >>
+  disch_then (qspec_then ‘ck’ assume_tac) >>
+  gs [] >>
+  drule evaluate_add_clock_eq >>
+  gs [] >>
+  disch_then (qspec_then ‘ck'’ assume_tac) >>
+  gs [] >>
+  gs [output_io_events_rel_def] >>
+  qexists_tac ‘1::ns’ >>
+  rewrite_tac [decode_ios_def] >>
+  gs [to_input_def, DROP_LENGTH_APPEND, decode_io_events_def]
+QED
+
 
 Theorem steps_io_event_thm:
   ∀labels prog n st sts (t:('a,time_input) panSem$state).
@@ -7809,217 +8041,6 @@ Proof
 QED
 
 
-
-Theorem steps_io_event_thm1:
-  ∀labels prog n st sts (t:('a,time_input) panSem$state).
-    steps prog labels (dimword (:α) - 1) n st sts ∧
-    assumptions prog n st t ∧
-    ffi_rels prog labels st t  ∧
-    FST (evaluate (time_to_pan$always (nClks prog), t)) ≠ SOME TimeOut ⇒
-    ∃ck t' ns ios.
-      evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
-      (SOME (Return (ValWord 0w)),t') ∧
-      t'.ffi.io_events =
-      t.ffi.io_events ++ ios ∧
-      LENGTH labels = LENGTH ns ∧
-      SUM ns ≤ LENGTH ios ∧
-      t'.be = t.be ∧
-      decode_ios (:α) t'.be labels ns
-                 (LAST t.ffi.io_events::
-                  TAKE (SUM ns) ios)
-Proof
-  rw [] >>
-  gs [] >>
-  drule_all steps_thm >>
-  strip_tac >>
-  rpt (pop_assum mp_tac) >>
-  MAP_EVERY qid_spec_tac [‘t’, ‘sts’, ‘st’, ‘n’, ‘prog’, ‘labels'’] >>
-  Induct
-  >- (
-    rw [] >>
-    cases_on ‘sts’ >>
-    fs [evaluations_def, steps_def] >>
-    gs [ffi_rels_def] >>
-    first_x_assum (qspec_then ‘cycles’ mp_tac) >>
-    impl_tac >- gs [] >>
-    strip_tac >>
-    qexists_tac ‘ck’ >> gs [] >>
-    gs [decode_ios_def]) >>
-  rw [] >>
-  ‘LENGTH sts = LENGTH (h::labels')’ by
-    metis_tac [steps_sts_length_eq_lbls] >>
-  cases_on ‘sts’ >>
-  fs [] >>
-  ‘n = FST (t.ffi.ffi_state 0)’ by
-    gs [assumptions_def] >>
-  rveq >> gs [] >>
-  gs [evaluations_def, steps_def] >>
-  cases_on ‘h’ >> gs []
-  >- (
-    gs [ffi_rels_def, ffi_rel_def] >>
-    first_x_assum drule >>
-    gs [] >>
-    strip_tac >>
-    gs [] >>
-    last_x_assum drule >>
-    disch_then (qspec_then ‘nt’ mp_tac) >>
-    impl_tac
-    >- (
-      gs [assumptions_def] >>
-      gs [nexts_ffi_def, delay_rep_def] >>
-      conj_asm1_tac
-      >- (
-        first_x_assum match_mp_tac >>
-        metis_tac []) >>
-      cases_on ‘evaluate (always (nClks prog),t)’ >>
-      gs [] >>
-      drule evaluate_add_clock_eq >>
-      gs [] >>
-      disch_then (qspec_then ‘ck’ mp_tac) >>
-      gs []) >>
-    strip_tac >>
-    cases_on ‘evaluate (always (nClks prog),t)’ >>
-    gs [] >>
-    drule evaluate_add_clock_eq >>
-    gs [] >>
-    disch_then (qspec_then ‘ck’ assume_tac) >>
-    gs [] >>
-    drule evaluate_add_clock_eq >>
-    gs [] >>
-    disch_then (qspec_then ‘ck'’ assume_tac) >>
-    gs [] >>
-    gs [delay_io_events_rel_def] >>
-    qexists_tac ‘cycles::ns’ >>
-    rewrite_tac [decode_ios_def] >>
-    gs [] >>
-    TOP_CASE_TAC
-    >- (
-      gs [mk_ti_events_def, gen_ffi_states_def] >>
-      gs [delay_rep_def] >>
-      drule bar >>
-      gs []) >>
-    conj_asm1_tac
-    >-  gs [mk_ti_events_def, gen_ffi_states_def] >>
-    conj_asm1_tac
-    >- gs [LENGTH_TAKE_EQ] >>
-    qmatch_asmsub_abbrev_tac ‘decode_ios _ _ _ ns nios’ >>
-    qmatch_goalsub_abbrev_tac ‘decode_ios _ _ _ ns nios'’ >>
-    ‘nios = nios'’ by (
-      gs [Abbr ‘nios’, Abbr ‘nios'’] >>
-      gs [TAKE_SUM] >>
-      qmatch_goalsub_abbrev_tac ‘TAKE _ (xs ++ _)’ >>
-      ‘cycles = LENGTH xs’ by
-        gs [Abbr ‘xs’, mk_ti_events_def, gen_ffi_states_def] >>
-      gs [TAKE_LENGTH_APPEND, DROP_LENGTH_APPEND] >>
-      gs [DROP_APPEND] >>
-      ‘LENGTH xs − 1 − LENGTH xs = 0’ by gs [] >>
-      simp [] >>
-      pop_assum kall_tac >>
-      ‘DROP (LENGTH xs − 1) xs = [LAST xs]’ by (
-        match_mp_tac drop_length_eq_last >>
-        gs []) >>
-      gs [] >>
-      cases_on ‘xs’ >- gs [] >>
-      simp [LAST_APPEND_CONS]) >>
-    qpat_x_assum ‘obs_ios_are_label_delay _ _ _’ mp_tac >>
-    gs [obs_ios_are_label_delay_def] >>
-    strip_tac >>
-    pop_assum mp_tac >>
-    impl_tac
-    >- (
-      CCONTR_TAC >>
-      gs [DROP_LENGTH_APPEND, mk_ti_events_def, gen_ffi_states_def, decode_io_events_def] >>
-      gs [ZIP_EQ_NIL]) >>
-    strip_tac >>
-    gs [] >>
-    qmatch_goalsub_abbrev_tac ‘TAKE _ (TAKE _ (xs ++ _))’ >>
-    ‘TAKE cycles (TAKE (cycles + SUM ns) (xs ++ ios)) =
-     xs’ by (
-      ‘cycles = LENGTH xs’ by
-         gs [Abbr ‘xs’, mk_ti_events_def, gen_ffi_states_def] >>
-      gs [] >>
-      gs [TAKE_SUM, TAKE_LENGTH_APPEND]) >>
-    gs [Abbr ‘xs’, DROP_LENGTH_APPEND]) >>
-  cases_on ‘i’
-  >- (
-    gs [ffi_rels_def, ffi_rel_def, action_rel_def] >>
-    first_x_assum drule >>
-    disch_then (qspec_then ‘nt’ mp_tac) >>
-    impl_tac >- gs [] >>
-    strip_tac >>
-    last_x_assum drule >>
-    disch_then (qspec_then ‘nt’ mp_tac) >>
-    impl_tac
-    >- (
-      gs [assumptions_def] >>
-      gs [nexts_ffi_def, input_rel_def] >>
-      qpat_x_assum ‘state_rel _ _ _ t’ assume_tac >>
-      gs [state_rel_def] >>
-      pairarg_tac >> gs [] >>
-      gs [input_time_rel_def] >>
-      gs [input_time_eq_def, has_input_def] >>
-      first_x_assum (qspec_then ‘0’ mp_tac) >>
-      impl_tac
-      >- (
-        gs [] >>
-        gs [input_rel_def, next_ffi_def]) >>
-      gs [next_ffi_def] >>
-      cases_on ‘evaluate (always (nClks prog),t)’ >>
-      gs [] >>
-      drule evaluate_add_clock_eq >>
-      gs [] >>
-      disch_then (qspec_then ‘ck’ mp_tac) >>
-      gs []) >>
-    strip_tac >>
-    cases_on ‘evaluate (always (nClks prog),t)’ >>
-    gs [] >>
-    drule evaluate_add_clock_eq >>
-    gs [] >>
-    disch_then (qspec_then ‘ck’ assume_tac) >>
-    gs [] >>
-    drule evaluate_add_clock_eq >>
-    gs [] >>
-    disch_then (qspec_then ‘ck'’ assume_tac) >>
-    gs [] >>
-    gs [input_io_events_rel_def] >>
-    qexists_tac ‘1::ns’ >>
-    rewrite_tac [decode_ios_def] >>
-    gs [] >>
-    gs [to_input_def, DROP_LENGTH_APPEND, decode_io_events_def]) >>
-  gs [ffi_rels_def, ffi_rel_def, action_rel_def] >>
-  first_x_assum drule >>
-  disch_then (qspec_then ‘nt’ mp_tac) >>
-  impl_tac >- gs [] >>
-  strip_tac >>
-  last_x_assum drule >>
-  disch_then (qspec_then ‘nt’ mp_tac) >>
-  impl_tac
-  >- (
-    gs [assumptions_def] >>
-    cases_on ‘evaluate (always (nClks prog),t)’ >>
-    gs [] >>
-    drule evaluate_add_clock_eq >>
-    gs [] >>
-    disch_then (qspec_then ‘ck’ mp_tac) >>
-    gs []) >>
-  strip_tac >>
-  cases_on ‘evaluate (always (nClks prog),t)’ >>
-  gs [] >>
-  drule evaluate_add_clock_eq >>
-  gs [] >>
-  disch_then (qspec_then ‘ck’ assume_tac) >>
-  gs [] >>
-  drule evaluate_add_clock_eq >>
-  gs [] >>
-  disch_then (qspec_then ‘ck'’ assume_tac) >>
-  gs [] >>
-  gs [output_io_events_rel_def] >>
-  qexists_tac ‘1::ns’ >>
-  rewrite_tac [decode_ios_def] >>
-  gs [to_input_def, DROP_LENGTH_APPEND, decode_io_events_def]
-QED
-
-
 Definition gen_max_times_def:
   (gen_max_times [] n ns = ns) ∧
   (gen_max_times (lbl::lbls) n ns =
@@ -8080,6 +8101,7 @@ Proof
   gs [emptyVals_def, shape_of_def]
 QED
 
+(* NEXT: do the tail call thing first *)
 
 Theorem timed_automata_correct:
   ∀labels prog st it sts (t:('a,time_input) panSem$state).
@@ -8104,47 +8126,26 @@ Theorem timed_automata_correct:
     ffi_rels prog labels st t ∧
     good_dimindex (:'a) ∧
     ~MEM "get_time_input" (MAP explode (out_signals prog)) ⇒
-    ∃ios.
-      semantics t «start» = Terminate Success ios
-Proof
-  cheat
-QED
-
-
-
-
-Theorem timed_automata_correct:
-  ∀labels prog st it sts (t:('a,time_input) panSem$state).
-    steps prog labels
-          (dimword (:α) - 1) (FST (t.ffi.ffi_state 0)) st sts ∧
-    prog ≠ [] ∧ LENGTH (clksOf prog) ≤ 29 ∧
-    LENGTH sts = LENGTH labels ∧
-    st.location =  FST (ohd prog) ∧
-    init_clocks st.clocks (clksOf prog) ∧
-    code_installed t.code prog ∧
-    «» ∈ FDOM t.code ∧
-    well_formed_code prog t.code ∧
-    mem_config t.memory t.memaddrs t.be ∧
-    mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
-    t.ffi =
-    build_ffi (:'a) t.be (MAP explode (out_signals prog))
-              t.ffi.ffi_state t.ffi.io_events ∧
-    init_ffi t.ffi.ffi_state ∧
-    input_time_rel t.ffi.ffi_state ∧
-    time_seq t.ffi.ffi_state (dimword (:α)) ∧
-    ffi_rels prog labels st t ∧
-    good_dimindex (:'a) ∧
-    ~MEM "get_time_input" (MAP explode (out_signals prog)) ⇒
-    ∃t' ns ios.
-      evaluate (start_controller (prog,st.waitTime),t) =
-      evaluate (always (nClks prog), t') ∧
-      t'.ffi.io_events =
-      t.ffi.io_events ++ ios ∧
+    ∃ios ns.
+      semantics t «start» = Terminate Success ios ∧
       LENGTH labels = LENGTH ns ∧
-      decode_ios (:α) t'.be labels ns (LAST t.ffi.io_events::ios)
+      SUM ns ≤ LENGTH ios ∧
+      decode_ios (:α) t.be labels ns
+                 (LAST t.ffi.io_events::
+                  TAKE (SUM ns) ios)
 Proof
   rw [] >>
-  (* ffi rel needs to be adjusted *)
+  gs [semantics_def] >>
+  ‘’
+  DEP_REWRITE_TAC [some_INTRO]
+
+
+
+
+
+
+
+
   fs [start_controller_def] >>
   fs [panLangTheory.decs_def] >>
   once_rewrite_tac [evaluate_def] >>
@@ -8468,5 +8469,46 @@ Proof
   cheat
 QED
 
+
+
+
+(*
+  cheat
+QED
+
+
+
+
+Theorem timed_automata_correct:
+  ∀labels prog st it sts (t:('a,time_input) panSem$state).
+    steps prog labels
+          (dimword (:α) - 1) (FST (t.ffi.ffi_state 0)) st sts ∧
+    prog ≠ [] ∧ LENGTH (clksOf prog) ≤ 29 ∧
+    LENGTH sts = LENGTH labels ∧
+    st.location =  FST (ohd prog) ∧
+    init_clocks st.clocks (clksOf prog) ∧
+    code_installed t.code prog ∧
+    «» ∈ FDOM t.code ∧
+    well_formed_code prog t.code ∧
+    mem_config t.memory t.memaddrs t.be ∧
+    mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
+    t.ffi =
+    build_ffi (:'a) t.be (MAP explode (out_signals prog))
+              t.ffi.ffi_state t.ffi.io_events ∧
+    init_ffi t.ffi.ffi_state ∧
+    input_time_rel t.ffi.ffi_state ∧
+    time_seq t.ffi.ffi_state (dimword (:α)) ∧
+    ffi_rels prog labels st t ∧
+    good_dimindex (:'a) ∧
+    ~MEM "get_time_input" (MAP explode (out_signals prog)) ⇒
+    ∃t' ns ios.
+      evaluate (start_controller (prog,st.waitTime),t) =
+      evaluate (always (nClks prog), t') ∧
+      t'.ffi.io_events =
+      t.ffi.io_events ++ ios ∧
+      LENGTH labels = LENGTH ns ∧
+      decode_ios (:α) t'.be labels ns (LAST t.ffi.io_events::ios)
+Proof
+*)
 
 val _ = export_theory();
