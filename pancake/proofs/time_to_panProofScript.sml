@@ -6989,10 +6989,11 @@ Theorem step_delay_until_max:
       nt.be = t.be ∧
       (∃ios. nt.ffi.io_events = t.ffi.io_events ++ ios)
 Proof
+  (*
   rw [] >>
   drule step_delay >>
   gs [] >>
-  disch_then (qspecl_then [‘cycles’, ‘t’] mp_tac) >>
+  disch_then (qspecl_then [‘cycles’, ‘t’, ‘ck0’] mp_tac) >>
   impl_tac
   >- (
     gs [step_cases, mkState_def, wakeup_rel_def, delay_rep_def] >>
@@ -7150,7 +7151,7 @@ Proof
     gs [ADD1]) >>
   unabbrev_all_tac >> gs [] >>
   rpt strip_tac >> gs [empty_locals_def] >> rveq >>
-  gs [ffi_call_ffi_def] >>
+  gs [ffi_call_ffi_def] >> *)
   cheat
 QED
 
@@ -7360,7 +7361,7 @@ Proof
     rw [] >>
     drule step_delay >>
     gs [] >>
-    disch_then (qspecl_then [‘cycles’, ‘t’] mp_tac) >>
+    disch_then (qspecl_then [‘cycles’, ‘t’, ‘0’] mp_tac) >>
     impl_tac
     >- gs [] >>
     strip_tac >>
@@ -7611,8 +7612,7 @@ Theorem steps_io_event_thm1:
   ∀labels prog n st sts (t:('a,time_input) panSem$state).
     steps prog labels (dimword (:α) - 1) n st sts ∧
     assumptions prog n st t ∧
-    ffi_rels prog labels st t (* ∧
-    FST (evaluate (time_to_pan$always (nClks prog), t)) ≠ SOME TimeOut *) ⇒
+    ffi_rels prog labels st t ⇒
     ∃ck t' ns ios.
       evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
       (SOME (Return (ValWord 0w)),t') ∧
@@ -7659,9 +7659,6 @@ Proof
     first_x_assum drule >>
     gs [] >>
     strip_tac >>
-    gs [] >>
-
-
     last_x_assum drule >>
     disch_then (qspec_then ‘nt’ mp_tac) >>
     impl_tac
@@ -7756,16 +7753,8 @@ Proof
       disch_then (qspec_then ‘ck’ mp_tac) >>
       gs []) >>
     strip_tac >>
-    cases_on ‘evaluate (always (nClks prog),t)’ >>
-    gs [] >>
-    drule evaluate_add_clock_eq >>
-    gs [] >>
-    disch_then (qspec_then ‘ck’ assume_tac) >>
-    gs [] >>
-    drule evaluate_add_clock_eq >>
-    gs [] >>
-    disch_then (qspec_then ‘ck'’ assume_tac) >>
-    gs [] >>
+    first_x_assum (qspec_then ‘ck'’ assume_tac) >>
+    qexists_tac ‘ck + ck'’ >> gs [] >>
     gs [input_io_events_rel_def] >>
     qexists_tac ‘1::ns’ >>
     rewrite_tac [decode_ios_def] >>
@@ -7788,16 +7777,8 @@ Proof
     disch_then (qspec_then ‘ck’ mp_tac) >>
     gs []) >>
   strip_tac >>
-  cases_on ‘evaluate (always (nClks prog),t)’ >>
-  gs [] >>
-  drule evaluate_add_clock_eq >>
-  gs [] >>
-  disch_then (qspec_then ‘ck’ assume_tac) >>
-  gs [] >>
-  drule evaluate_add_clock_eq >>
-  gs [] >>
-  disch_then (qspec_then ‘ck'’ assume_tac) >>
-  gs [] >>
+  first_x_assum (qspec_then ‘ck'’ assume_tac) >>
+  qexists_tac ‘ck + ck'’ >> gs [] >>
   gs [output_io_events_rel_def] >>
   qexists_tac ‘1::ns’ >>
   rewrite_tac [decode_ios_def] >>
