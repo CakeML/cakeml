@@ -7867,9 +7867,11 @@ Theorem timed_automata_correct:
     LENGTH sts = LENGTH labels ∧
     st.location =  FST (ohd prog) ∧
     init_clocks st.clocks (clksOf prog) ∧
+    (* merge these two into one *)
     code_installed t.code prog ∧
     FLOOKUP t.code «start» =
       SOME ([], start_controller (prog,st.waitTime)) ∧
+    «» ∈ FDOM t.code ∧
     well_formed_code prog t.code ∧
     mem_config t.memory t.memaddrs t.be ∧
     mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
@@ -7882,18 +7884,367 @@ Theorem timed_automata_correct:
     ffi_rels prog labels st t ∧
     good_dimindex (:'a) ∧
     ~MEM "get_time_input" (MAP explode (out_signals prog)) ⇒
-    ∃ios ns.
-      semantics t «start» = Terminate Success ios ∧
-      LENGTH labels = LENGTH ns ∧
-      SUM ns ≤ LENGTH ios ∧
-      decode_ios (:α) t.be labels ns
-                 (LAST t.ffi.io_events::
-                  TAKE (SUM ns) ios)
+    ∃t'.
+      evaluate
+      (TailCall (Label «start» ) [],t with clock := t.clock + 1) =
+      (SOME (Return (ValWord 0w)),t')
 Proof
   rw [] >>
+  once_rewrite_tac [evaluate_def] >>
+  gs [] >>
+  gs [eval_def, OPT_MMAP_def, lookup_code_def, dec_clock_def, FUPDATE_LIST] >>
+  qpat_x_assum ‘FLOOKUP t.code _ = _’  kall_tac >>
+  fs [start_controller_def, panLangTheory.decs_def] >>
+  once_rewrite_tac [evaluate_def] >>
+  gs [eval_def] >>
+  ‘∃v1. FLOOKUP t.code (num_to_str (FST (ohd prog))) = SOME v1’ by (
+    cases_on ‘prog’ >>
+    gs [ohd_def, code_installed_def] >>
+    cases_on ‘h’ >> gs [] >> metis_tac []) >>
+  gs [] >>
+  pairarg_tac >> gs [] >>
+  pop_assum mp_tac >>
+  once_rewrite_tac [evaluate_def] >>
+  qmatch_goalsub_abbrev_tac ‘eval tt q’ >>
+  ‘eval tt q =
+   SOME (ValWord (
+          case st.waitTime of
+          | NONE => 1w
+          | SOME _ => (0w:'a word)))’ by (
+    unabbrev_all_tac >> gs [] >>
+    TOP_CASE_TAC >> gs [eval_def]) >>
+  unabbrev_all_tac >> gs [] >>
+  gs [] >>
+  pairarg_tac >> gs [] >>
+  gs [evaluate_def, eval_def] >>
+  rpt (pairarg_tac >> gs []) >>
+  strip_tac >> rveq >> gs [] >>
+  qmatch_asmsub_abbrev_tac ‘eval tt _’ >>
+  ‘t.code =  tt.code’ by (
+    unabbrev_all_tac >> gs []) >>
+  fs [] >>
+  drule opt_mmap_empty_const >>
+  disch_then (qspec_then ‘nClks prog’ assume_tac) >>
+  gs [] >>
+  pop_assum kall_tac >>
+  pop_assum kall_tac >>
+  pairarg_tac >>
+  unabbrev_all_tac >> gs [] >>
+  rveq >> gs [] >>
+  qmatch_asmsub_abbrev_tac ‘eval tt _’ >>
+  gs [eval_empty_const_eq_empty_vals] >>
+  pairarg_tac >>
+  unabbrev_all_tac >> gs [] >>
+  rveq >> gs [] >>
+  gs [FLOOKUP_UPDATE] >>
+  gs [panLangTheory.nested_seq_def] >>
+  pop_assum mp_tac >>
+  once_rewrite_tac [evaluate_def] >>
+  gs [] >>
+  pairarg_tac >> rveq >> gs [] >>
+  fs [check_input_time_def] >>
+  fs [panLangTheory.nested_seq_def] >>
+  rewrite_tac [Once evaluate_def] >>
+  pop_assum mp_tac >>
+  once_rewrite_tac [evaluate_def] >>
+  gs [] >>
+  pairarg_tac >> rveq >> gs [] >>
+  qmatch_asmsub_abbrev_tac ‘evaluate (_, nt)’ >>
+  ‘∃bytes.
+     read_bytearray ffiBufferAddr (w2n (ffiBufferSize:'a word))
+                    (mem_load_byte nt.memory nt.memaddrs nt.be) = SOME bytes’ by (
+    match_mp_tac read_bytearray_some_bytes_for_ffi >>
+    gs [] >>
+    unabbrev_all_tac >> gs [mem_config_def]) >>
+  drule evaluate_ext_call >>
+  disch_then (qspecl_then [‘MAP explode (out_signals prog)’,‘bytes’] mp_tac) >>
+  gs [] >>
+  impl_tac
+  >- (
+    unabbrev_all_tac >> gs [ffi_vars_def, FLOOKUP_UPDATE]) >>
+  strip_tac >> rveq >> gs [] >>
+  pop_assum kall_tac >>
+  unabbrev_all_tac >> gs [] >>
+  (* reading systime *)
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  qmatch_asmsub_abbrev_tac ‘evaluate (Assign «sysTime» _, nt)’ >>
+  ‘nt.memory ffiBufferAddr = Word (n2w (FST(t.ffi.ffi_state 0)))’ by (
+    fs [Abbr ‘nt’] >>
+    gs [mem_call_ffi_def] >>
+    qpat_x_assum ‘mem_read_ffi_results _ _ _’ assume_tac >>
+    gs [mem_read_ffi_results_def] >>
+    qmatch_asmsub_abbrev_tac ‘evaluate (ExtCall _ _ _ _ _, nt) = (_, ft)’ >>
+    first_x_assum (qspecl_then [‘nt’, ‘ft’] mp_tac) >>
+    impl_tac
+    >- (
+      gs [Abbr ‘ft’, Abbr ‘nt’, nexts_ffi_def, ETA_AX] >> metis_tac []) >>
+    strip_tac >>
+    gs [Abbr ‘ft’, nexts_ffi_def, init_ffi_def]) >>
+  drule evaluate_assign_load >>
+  gs [] >>
+  disch_then (qspecl_then
+              [‘ffiBufferAddr’, ‘0w’,
+                 ‘n2w (FST (t.ffi.ffi_state 0))’] mp_tac) >>
+  impl_tac
+  >- (unabbrev_all_tac >> gs [FLOOKUP_UPDATE, mem_config_def]) >>
+  strip_tac >> unabbrev_all_tac >> rveq >> gs [] >>
+  pop_assum kall_tac >>
+  pop_assum kall_tac >>
+  (* reading input to the variable event *)
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  qmatch_asmsub_abbrev_tac ‘evaluate (Assign «event» _, nnt)’ >>
+  ‘nnt.memory (ffiBufferAddr +  bytes_in_word) =
+   Word (n2w (SND(t.ffi.ffi_state 0)))’ by (
+    fs [Abbr ‘nnt’] >>
+    qpat_x_assum ‘mem_read_ffi_results _ _ _’ assume_tac >>
+    gs [mem_read_ffi_results_def] >>
+    qmatch_asmsub_abbrev_tac ‘evaluate (ExtCall _ _ _ _ _, nt) = (_, ft)’ >>
+    last_x_assum (qspecl_then [‘nt’, ‘ft’] mp_tac) >>
+    impl_tac
+    >- (gs [Abbr ‘ft’, Abbr ‘nt’, nexts_ffi_def, ETA_AX] >> metis_tac []) >>
+    strip_tac >>
+    gs [Abbr ‘ft’, nexts_ffi_def, init_ffi_def]) >>
+  gs [] >>
+  drule evaluate_assign_load_next_address >>
+  gs [] >>
+  disch_then (qspecl_then
+              [‘ffiBufferAddr’,
+               ‘n2w (SND (t.ffi.ffi_state 0))’] mp_tac) >>
+  impl_tac
+  >- (unabbrev_all_tac >> gs [FLOOKUP_UPDATE, mem_config_def]) >>
+  strip_tac >>
+  unabbrev_all_tac >>
+  gs [] >> rveq >> gs [] >>
+  pop_assum kall_tac >>
+  pop_assum kall_tac >>
+  (* isInput *)
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  drule evaluate_assign_compare_next_address >>
+  gs [] >>
+  disch_then (qspecl_then [‘ffiBufferAddr’] mp_tac) >>
+  impl_tac
+  >- (
+    gs [FLOOKUP_UPDATE, mem_call_ffi_def] >>
+    qpat_x_assum ‘mem_read_ffi_results _ _ _’ assume_tac >>
+    gs [mem_read_ffi_results_def] >>
+    qmatch_asmsub_abbrev_tac ‘evaluate (ExtCall _ _ _ _ _, nt) = (_, ft)’ >>
+    first_x_assum (qspecl_then [‘nt’, ‘ft’] mp_tac) >>
+    impl_tac
+    >- (
+      gs [Abbr ‘ft’, Abbr ‘nt’, nexts_ffi_def, ETA_AX] >> metis_tac []) >>
+    strip_tac >>
+    gs [Abbr ‘ft’, nexts_ffi_def, init_ffi_def, mem_config_def]) >>
+  strip_tac >> rveq >> gs [] >>
+  pop_assum kall_tac >>
+  (* the new If statement *)
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  drule evaluate_if_compare_sys_time >>
+  disch_then (qspec_then ‘FST (t.ffi.ffi_state 0)’ mp_tac) >>
+  impl_tac
+  >- (
+    unabbrev_all_tac >>
+    gs [FLOOKUP_UPDATE] >>
+    cheat) >>
+  strip_tac >> rveq >> gs [] >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  strip_tac >> fs [] >>
+  rveq >> gs [] >>
+  pairarg_tac >> rveq >> gs [] >>
+  gs [eval_def, FLOOKUP_UPDATE] >>
+  qmatch_asmsub_abbrev_tac ‘eval nt _’ >>
+  ‘FLOOKUP nt.locals «sysTime» = SOME (ValWord (n2w (FST (t.ffi.ffi_state 0))))’ by
+    gs [Abbr ‘nt’,FLOOKUP_UPDATE] >>
+  drule eval_mkClks >>
+  disch_then (qspec_then ‘nClks prog’ assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  pop_assum kall_tac >>
+  fs [is_valid_value_def, FLOOKUP_UPDATE] >>
+  fs [panSemTheory.shape_of_def] >>
+  gs [replicate_shape_one] >>
+  unabbrev_all_tac >> rveq >> gs[] >>
+  pop_assum kall_tac >>
+  pop_assum kall_tac >>
+  pairarg_tac >> rveq >> gs [] >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  qmatch_goalsub_abbrev_tac ‘eval tt q’ >>
+  ‘eval tt q =
+   SOME (ValWord (n2w (
+          case st.waitTime of
+          | NONE => FST (t.ffi.ffi_state 0)
+          | SOME n => FST (t.ffi.ffi_state 0) + n)))’ by (
+    cases_on ‘st.waitTime’ >>
+    unabbrev_all_tac >>
+    gs [eval_def, FLOOKUP_UPDATE, OPT_MMAP_def,
+        wordLangTheory.word_op_def, word_add_n2w]) >>
+  gs [is_valid_value_def, FLOOKUP_UPDATE, shape_of_def] >>
+  strip_tac >> rveq >> gs [] >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> rveq >> gs [] >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  (* UNTIL here *)
+
+
+
+  (* steps_theorem *)
+  qmatch_asmsub_abbrev_tac ‘evaluate (_, nt)’ >>
+  ‘steps prog labels' (dimword (:α) − 1)
+   (FST (nt.ffi.ffi_state 0)) st sts’ by
+    gs [Abbr ‘nt’, init_ffi_def, ffi_call_ffi_def, next_ffi_def] >>
+  drule steps_io_event_thm >>
+  disch_then (qspec_then ‘nt’ mp_tac) >>
+  impl_tac
+  >- (
+    conj_tac
+    >- (
+      unabbrev_all_tac >> gs [assumptions_def] >> rveq >>
+      conj_tac
+      >- (
+        gs [state_rel_def] >>
+        pairarg_tac >> gs [] >>
+        gs [FLOOKUP_UPDATE, ffi_call_ffi_def, next_ffi_def, init_ffi_def,
+            ffi_vars_def, time_vars_def] >>
+        conj_tac
+        >- (
+          gs [equivs_def, FLOOKUP_UPDATE] >>
+          cases_on ‘st.waitTime’ >> gs [active_low_def]) >>
+        conj_tac
+        >- (
+         gs [mem_call_ffi_def, mem_config_def] >>
+         conj_tac >> (
+          fs [ffiBufferAddr_def] >>
+          match_mp_tac write_bytearray_update_byte >>
+          gs [good_dimindex_def] >>
+          gs [byte_align_def, byte_aligned_def, align_def, aligned_def, bytes_in_word_def] >>
+          gs [dimword_def] >>
+          EVAL_TAC >>
+          rveq >> gs [] >>
+          EVAL_TAC)) >>
+        conj_tac
+        >- (
+          gs [defined_clocks_def, init_clocks_def] >>
+          gs [EVERY_MEM]) >>
+        conj_tac
+        >- gs [build_ffi_def, ffiTheory.ffi_state_component_equality] >>
+        conj_tac
+        >- (
+          gs [input_time_rel_def] >>
+          rw [] >>
+          last_x_assum (qspec_then ‘n + 1’ mp_tac) >>
+          gs []) >>
+        conj_tac
+        >- (
+          gs [time_seq_def] >>
+          rw [] >>
+          gs [] >>
+          cases_on ‘n’ >> gs []
+          >- (
+            first_x_assum (qspec_then ‘1’ mp_tac) >>
+            gs []) >>
+          first_x_assum (qspec_then ‘SUC (SUC n')’ mp_tac) >>
+          gs [ADD1]) >>
+        gs [clocks_rel_def, FLOOKUP_UPDATE] >>
+        qexists_tac ‘REPLICATE (nClks prog) tm’ >>
+        gs [map_replicate, timeLangTheory.nClks_def] >>
+        gs [clkvals_rel_def, EVERY_MEM, init_clocks_def] >>
+        gs [GSYM MAP_K_REPLICATE] >>
+        gs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+        rw [] >>
+        qmatch_goalsub_abbrev_tac ‘EL _ (ZIP (xs,ys))’ >>
+        ‘EL n (ZIP (xs,ys)) = (EL n xs, EL n ys)’ by (
+          match_mp_tac EL_ZIP >>
+          unabbrev_all_tac >>
+          gs []) >>
+        unabbrev_all_tac >>
+        gs [] >>
+        gs [MEM_EL] >>
+        last_x_assum (qspec_then ‘EL n (clksOf prog)’ mp_tac) >>
+        impl_tac >- metis_tac [] >>
+        strip_tac >>
+        gs [EL_MAP]) >>
+      gs [event_inv_def, FLOOKUP_UPDATE, init_ffi_def] >>
+      conj_tac
+      >- (
+        gs [wait_time_locals_def, FLOOKUP_UPDATE] >>
+        cases_on ‘st.waitTime’ >> gs []
+        >- (
+          qexists_tac ‘0’ >>
+          qexists_tac ‘FST (t.ffi.ffi_state 1)’ >>
+          gs [] >>
+          (* from steps *)
+          cheat) >>
+        qexists_tac ‘x’ >>
+        qexists_tac ‘FST (t.ffi.ffi_state 1)’ >>
+        gs [ffi_call_ffi_def, next_ffi_def] >>
+        cheat) >>
+      gs [task_ret_defined_def] >>
+      gs [FLOOKUP_UPDATE, emptyVals_def]) >>
+    cheat) >>
+  strip_tac >>
+  gs [] >>
+  (* for the time being *)
+  ‘ck = 0’ by cheat >>
+  gs [] >>
+  ‘nt with clock := nt.clock = nt’ by cheat >>
+  gs []
+QED
+
+
+
+
+
+
+
+
+
+  strip_tac >>
+  cheat
+
+
+
+
+
+
+
   gs [semantics_def] >>
+  ‘∃k t'.
+     evaluate (TailCall (Label «start» ) [],t with clock := t.clock + 1) =
+     (SOME (Return (ValWord 0w)),t')’ by cheat >>
+  IF_CASES_TAC >> fs []
+  >- cheat >>
+
+
+
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  rw [] >> gs [] >>
+
+
+
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac
+  >- rw [] >>
+
+
+  fs []
+
+
+
+
   ‘’
-  DEP_REWRITE_TAC [some_INTRO]
+  DEP_REWRITE_TAC [some_intro]
 
 
 
