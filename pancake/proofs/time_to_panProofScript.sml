@@ -7195,7 +7195,11 @@ Definition evaluations_def:
      FST (t.ffi.ffi_state cycles) = dimword (:α) − 2 ∧
      FST (t.ffi.ffi_state (cycles + 1)) = dimword (:α) − 1 ∧
      (∀i. i ≤ cycles ⇒ SND (t.ffi.ffi_state (i + 1)) = 0) ∧
-     mem_read_ffi_results (:α) t.ffi.ffi_state (cycles + 1) ⇒
+     mem_read_ffi_results (:α) t.ffi.ffi_state (cycles + 1) ∧
+     (* un-necessary stronger, but its ok for the time-being *)
+     t.ffi.io_events ≠ [] ∧
+     HD (io_event_dest (:α) t.be (LAST t.ffi.io_events)) =
+     FST (t.ffi.ffi_state 0)⇒
      ∃ck nt.
        (∀ck_extra.
           evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck + ck_extra) =
@@ -7540,7 +7544,11 @@ Definition ffi_rels_def:
      FST (t.ffi.ffi_state cycles) = dimword (:α) − 2 ∧
      FST (t.ffi.ffi_state (cycles + 1)) = dimword (:α) − 1 ∧
      (∀i. i ≤ cycles ⇒ SND (t.ffi.ffi_state (i + 1)) = 0) ∧
-     mem_read_ffi_results (:α) t.ffi.ffi_state (cycles + 1)) ∧
+     mem_read_ffi_results (:α) t.ffi.ffi_state (cycles + 1) ∧
+     (* un-necessary stronger, but its ok for the time-being *)
+     t.ffi.io_events ≠ [] ∧
+     HD (io_event_dest (:α) t.be (LAST t.ffi.io_events)) =
+     FST (t.ffi.ffi_state 0)) ∧
   (ffi_rels prog (label::labels) s t ⇔
    ∃ffi.
      ffi_rel label s t ffi ∧
@@ -7584,7 +7592,7 @@ Definition decode_ios_def:
 End
 
 
-Theorem bar:
+Theorem decode_ios_length_eq_sum:
   ∀labels ns ios be.
     decode_ios (:α) be labels ns ios ∧
     LENGTH labels = LENGTH ns  ⇒
@@ -7681,7 +7689,7 @@ Proof
     >- (
       gs [mk_ti_events_def, gen_ffi_states_def] >>
       gs [delay_rep_def] >>
-      drule bar >>
+      drule decode_ios_length_eq_sum >>
       gs []) >>
     conj_asm1_tac
     >-  gs [mk_ti_events_def, gen_ffi_states_def] >>
