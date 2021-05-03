@@ -8283,9 +8283,70 @@ Proof
     gs [ffi_call_ffi_def] >>
     qexists_tac ‘ns’ >> gvs []) >>
   gs [semantics_def] >>
-  cheat
-
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  rw []
+  >- (
+    cases_on
+    ‘evaluate (TailCall (Label «start» ) [],t with clock := k')’ >>
+    gs [] >>
+    cases_on ‘q = SOME TimeOut’ >>
+    gs [] >>
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘k'’ assume_tac) >>
+    gs [] >>
+    strip_tac >>
+    strip_tac >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘ck + t.clock’ assume_tac) >>
+    gs [])
+  >- (
+    gs [] >>
+    first_x_assum (qspec_then ‘ck + t.clock’ assume_tac) >> gs [] >>
+    cases_on ‘r = SOME TimeOut’ >>
+    gs [] >>
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘k’ assume_tac) >>
+    gs [] >>
+    strip_tac >>
+    strip_tac >>
+    strip_tac >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘ck + t.clock’ assume_tac) >>
+    gs [] >> gvs [] >>
+    MAP_EVERY qexists_tac [‘io’, ‘ios’, ‘ns’] >>
+    gvs [state_component_equality])
+  >- (
+    cases_on
+    ‘evaluate (TailCall (Label «start» ) [],t with clock := k)’ >>
+    gs [] >>
+    cases_on ‘q = SOME TimeOut’ >>
+    gs [] >>
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘k’ assume_tac) >>
+    gs [] >>
+    strip_tac >>
+    strip_tac >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘ck + t.clock’ assume_tac) >>
+    gs []) >>
+  gs [] >>
+  qexists_tac ‘ck + t.clock’ >>
+  gs []
 QED
+
 
 
 val _ = export_theory();
