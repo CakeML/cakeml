@@ -8346,6 +8346,4 @@ Proof
   gs []
 QED
 
-
-
 val _ = export_theory();

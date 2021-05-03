@@ -150,21 +150,47 @@ Definition eval_step_def:
       else
         (case or orn of
          | Delay => eval_delay_wtime_some st m n w
-         | Input i => eval_input prog m n i st)
+         | Input i =>
+             if w + n < m
+             then eval_input prog m n i st
+             else NONE)
+End
+
+
+Definition eval_steps_delay_until_max_def:
+  (eval_steps_delay_until_max 0 m n st = SOME ([],[])) ∧
+  (eval_steps_delay_until_max (SUC k) m n st =
+   case eval_delay_wtime_none st m n of
+   | SOME (lbl, st') =>
+       (case eval_steps_delay_until_max k m (n + 1) st' of
+        | NONE => NONE
+        | SOME (lbls', sts') => SOME (lbl::lbls', st'::sts'))
+   | NONE => NONE)
 End
 
 
 Definition eval_steps_def:
-  (eval_steps 0 prog m n or st = SOME ([],[])) ∧
-  (eval_steps (SUC k) prog m n or st =
-   case eval_step prog m n or k st of
+  (eval_steps 0 prog m n or orn st =
+   case st.waitTime of
+     NONE =>
+       (if n = m - 1
+        then SOME ([],[])
+        else if n < m - 1
+        then
+          (case eval_steps_delay_until_max ((m - 1) - n) m n st of
+           | SOME (lbls, sts) => SOME (lbls, sts)
+           | _ => NONE)
+        else NONE)
+   | _ => NONE) ∧
+  (eval_steps (SUC k) prog m n or orn st =
+   case eval_step prog m n or orn st of
    | SOME (lbl, st') =>
        let n' =
            case lbl of
            | LDelay d => d + n
            | LAction _ => n
        in
-         (case eval_steps k prog m n' or st' of
+         (case eval_steps k prog m n' or (orn + 1) st' of
           | NONE => NONE
           | SOME (lbls', sts') => SOME (lbl::lbls', st'::sts'))
    | NONE => NONE)
@@ -338,7 +364,7 @@ Proof
     rveq >>
     gs [step_cases, mkState_def] >>
     gs [state_component_equality]) >>
-  FULL_CASE_TAC >> gs []
+  cases_on ‘x = 0’ >> gs []
   >- (
     gs [eval_output_def] >>
     every_case_tac >> rveq >> gs [] >>
@@ -354,14 +380,60 @@ Proof
   gs [step_cases, mkState_def]
 QED
 
-
 Theorem eval_steps_imp_steps:
-  ∀k prog m n or st labels sts.
-    eval_steps k prog m n or st = SOME (labels, sts) ⇒
-    steps prog labels m n st sts ∧ k = LENGTH labels
+  ∀k n prog m or orn st labels sts.
+    eval_steps_delay_until_max k m n st = SOME (labels,sts) ∧
+    k = (m - 1) - n ∧
+    n < m − 1 ∧
+    st.waitTime = NONE ⇒
+    steps prog labels m n st sts ∧
+    n < m - 1
 Proof
   Induct >> rw []
-  >- fs [eval_steps_def, steps_def] >>
+  >- gs [eval_steps_delay_until_max_def] >>
+  gs [eval_steps_delay_until_max_def] >>
+  every_case_tac >> gvs [] >>
+  gs [steps_def] >>
+  ‘q = LDelay 1’ by gs [eval_delay_wtime_none_def] >>
+  gs [] >>
+  conj_asm1_tac
+  >- (
+    gs [eval_delay_wtime_none_def] >>
+    rveq >>
+    gs [step_cases, mkState_def] >>
+    gs [state_component_equality]) >>
+  last_x_assum mp_tac >>
+  disch_then drule >>
+  disch_then (qspec_then ‘prog’ mp_tac) >>
+  impl_tac
+  >- gs []
+
+
+
+
+QED
+
+
+Theorem eval_steps_imp_steps:
+  ∀k prog m n or orn st labels sts.
+    eval_steps k prog m n or orn st = SOME (labels, sts) ⇒
+    steps prog labels m n st sts
+Proof
+  Induct >> rw []
+  >- (
+    fs [eval_steps_def, steps_def] >>
+    every_case_tac >> gvs []
+    >- gs [eval_steps_delay_until_max_def]
+    >-
+
+
+    , step_cases]
+
+
+
+
+
+    cheat) >>
   gs [eval_steps_def] >>
   every_case_tac >> gs [] >> rveq >> gs [] >>
   gs [steps_def] >>
