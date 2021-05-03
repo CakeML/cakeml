@@ -220,4 +220,28 @@ Proof
 QED
 
 
+
+Theorem step_wt_ffi_bounded:
+  ∀p lbl m n st st' w.
+    step p lbl m n st st' ∧
+    st.waitTime = SOME w  ⇒
+    w + n < m
+Proof
+  rw [] >>
+  gs [step_cases] >>
+  cheat
+QED
+
+
+Theorem steps_wt_ffi_bounded:
+  ∀lbls sts p m n st.
+    step p lbl m n st st' ∧
+    st.waitTime = SOME w  ⇒
+    w + n < m
+Proof
+  rw [] >>
+  gs [step_cases] >>
+  cheat
+QED
+
 val _ = export_theory();

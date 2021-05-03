@@ -292,7 +292,7 @@ Inductive step:
       n < m ∧
       (case st.waitTime of
        | NONE => T
-       | SOME wt => wt ≠ 0) ∧
+       | SOME wt => wt ≠ 0 ∧ wt + n < m) ∧
       pickTerm (resetOutput st) m (m - n) (SOME in_signal) tms st' ∧
       st'.ioAction = SOME (Input in_signal) ⇒
       step p (LAction (Input in_signal)) m n st st') ∧
