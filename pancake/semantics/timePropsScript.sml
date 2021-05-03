@@ -235,12 +235,14 @@ QED
 
 Theorem steps_wt_ffi_bounded:
   ∀lbls sts p m n st.
-    step p lbl m n st st' ∧
+    steps p lbls m n st sts ∧
     st.waitTime = SOME w  ⇒
     w + n < m
 Proof
+  Induct >>
   rw [] >>
-  gs [step_cases] >>
+  cases_on ‘sts’ >>
+  gs [steps_def, step_cases] >>
   cheat
 QED
 
