@@ -191,10 +191,16 @@ val next_sym_alt_def = tDefine "next_sym_alt" `
                    rest)
          else SOME (ErrorS, Locs loc loc, TL str)
        else
-         let (n,rest) = read_while isDigit str [] in
-           SOME (NumberS (&(num_from_dec_string_alt (c::n))),
-                 Locs loc (loc with col := loc.col + LENGTH n),
-                 rest)
+         if str ≠ "" ∧ c = #"0" ∧ HD str = #"x" then
+           let (n,rest) = read_while isHexDigit (TL str) [] in
+             SOME (NumberS (& num_from_hex_string_alt n),
+                   Locs loc (loc with col := loc.col + LENGTH n + 2),
+                   rest)
+         else
+           let (n,rest) = read_while isDigit str [] in
+             SOME (NumberS (&(num_from_dec_string_alt (c::n))),
+                   Locs loc (loc with col := loc.col + LENGTH n),
+                   rest)
      else if c = #"~" /\ str <> "" /\ isDigit (HD str) then (* read negative number *)
        let (n,rest) = read_while isDigit str [] in
          SOME (NumberS (0- &(num_from_dec_string_alt n)),
