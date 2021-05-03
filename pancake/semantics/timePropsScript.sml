@@ -198,4 +198,26 @@ Proof
   metis_tac []
 QED
 
+Theorem step_ffi_bounded:
+  ∀p lbl m n st st'.
+    step p lbl m n st st' ⇒
+    n < m
+Proof
+  rw [] >>
+  gs [step_cases]
+QED
+
+
+Theorem steps_ffi_bounded:
+  ∀lbls sts p m n st.
+    steps p lbls m n st sts ⇒
+    n < m
+Proof
+  Induct >>
+  rw [] >>
+  cases_on ‘sts’ >>
+  gs [steps_def, step_cases]
+QED
+
+
 val _ = export_theory();

@@ -7857,7 +7857,7 @@ Proof
   gs [emptyVals_def, shape_of_def]
 QED
 
-(* NEXT: do the tail call thing first *)
+
 
 Theorem timed_automata_correct:
   ∀labels prog st it sts (t:('a,time_input) panSem$state).
@@ -7894,6 +7894,7 @@ Proof
   gs [] >>
   gs [eval_def, OPT_MMAP_def, lookup_code_def, dec_clock_def, FUPDATE_LIST] >>
   qpat_x_assum ‘FLOOKUP t.code _ = _’  kall_tac >>
+  (* start contoller *)
   fs [start_controller_def, panLangTheory.decs_def] >>
   once_rewrite_tac [evaluate_def] >>
   gs [eval_def] >>
@@ -7937,6 +7938,7 @@ Proof
   unabbrev_all_tac >> gs [] >>
   rveq >> gs [] >>
   gs [FLOOKUP_UPDATE] >>
+  (* Decs are completed *)
   gs [panLangTheory.nested_seq_def] >>
   pop_assum mp_tac >>
   once_rewrite_tac [evaluate_def] >>
@@ -8052,7 +8054,8 @@ Proof
   >- (
     unabbrev_all_tac >>
     gs [FLOOKUP_UPDATE] >>
-    cheat) >>
+    drule steps_ffi_bounded >>
+    gs []) >>
   strip_tac >> rveq >> gs [] >>
   rewrite_tac [Once evaluate_def] >>
   fs [] >>
@@ -8095,7 +8098,7 @@ Proof
   pairarg_tac >> rveq >> gs [] >>
   rewrite_tac [Once evaluate_def] >>
   fs [] >>
-  (* UNTIL here *)
+  (* until always *)
 
 
 
