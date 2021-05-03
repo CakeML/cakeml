@@ -7823,12 +7823,12 @@ End
 
 
 Theorem opt_mmap_empty_const:
-  ∀t n.
-    «» ∈ FDOM t.code ⇒
+  ∀t prog v n.
+    FLOOKUP t.code (num_to_str (FST (ohd prog))) = SOME v ⇒
     OPT_MMAP (λa. eval t a)
              [Struct (emptyConsts n);
-              Const 0w; Const 0w; Label «»] =
-    SOME ([Struct (emptyVals n); ValWord 0w; ValWord 0w; ValLabel «»])
+              Const 0w; Const 0w; Label (toString (FST (ohd prog)))] =
+    SOME ([Struct (emptyVals n); ValWord 0w; ValWord 0w; ValLabel (toString (FST (ohd prog)))])
 Proof
   rw [] >>
   gs [opt_mmap_eq_some] >>
@@ -7871,7 +7871,7 @@ Definition locals_before_start_ctrl_def:
          («taskRet» ,
           Struct
           [Struct (emptyVals (nClks prog)); ValWord 0w; ValWord 0w;
-           ValLabel «»]) |+
+           ValLabel (toString (FST (ohd prog)))]) |+
          («clks» ,Struct (emptyVals (nClks prog))) |+
          («sysTime» ,ValWord (n2w (FST ffi))) |+
          («event» ,ValWord (n2w (SND ffi))) |+
@@ -7915,7 +7915,6 @@ Theorem timed_automata_correct:
     code_installed t.code prog ∧
     FLOOKUP t.code «start» =
       SOME ([], start_controller (prog,st.waitTime)) ∧
-    «» ∈ FDOM t.code ∧
     well_formed_code prog t.code ∧
     mem_config t.memory t.memaddrs t.be ∧
     mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧

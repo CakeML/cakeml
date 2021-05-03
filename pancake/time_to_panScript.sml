@@ -291,7 +291,7 @@ Definition start_controller_def:
      («len2», Const ffiBufferSize);
      («taskRet»,
       Struct [Struct (emptyConsts clksLength);
-              Const 0w; Const 0w; Label «»]);
+              Const 0w; Const 0w; Label (num_to_str initLoc)]);
      («clks»,Struct (emptyConsts clksLength))
     ]
     (nested_seq
