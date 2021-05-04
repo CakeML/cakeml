@@ -4729,6 +4729,12 @@ Definition normalise_tyvars_rec_def:
     in (TYPE_SUBST subst ty, subst))
 End
 
+Theorem normalise_tyvars_rec_FST_SND:
+  FST (normalise_tyvars_rec ty chr) = TYPE_SUBST (SND (normalise_tyvars_rec ty chr)) ty
+Proof
+  fs[normalise_tyvars_rec_def]
+QED
+
 Theorem distinct_varnames[local]:
   !ty chr n n0. n > n0 /\ n0 = list_max (MAP $strlen (tyvars ty))
   ==> ~MEM (strlit (REPLICATE n chr)) (tyvars ty)
@@ -4934,7 +4940,7 @@ Proof
   >> rw[normalise_tyvars_subst_def]
 QED
 
-Theorem normalise_tyvars_rec_distinct_fst[local]:
+Theorem normalise_tyvars_rec_distinct_fst:
   !ty chr. ALL_DISTINCT (MAP FST (SND (normalise_tyvars_rec ty chr)))
 Proof
   rw[normalise_tyvars_rec_def]
@@ -8375,6 +8381,10 @@ Proof
   >> FULL_CASE_TAC
   >> fs[IS_SOME_DEF]
 QED
+
+Theorem unify_complete' =
+    SIMP_RULE std_ss [FORALL_AND_THM] $ ONCE_REWRITE_RULE[MONO_NOT_EQ] $
+    REWRITE_RULE[EQ_IMP_THM] unify_complete
 
 Theorem TYPE_SUBST_Tyvar_eq[local]:
   !t s a ty. TYPE_SUBST s (Tyvar a) = TYPE_SUBST s ty

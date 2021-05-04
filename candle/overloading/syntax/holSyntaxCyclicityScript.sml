@@ -21,7 +21,6 @@ Proof
   >> goal_assum (first_assum o mp_then Any mp_tac)
 QED
 
-
 (* lemmata on lists *)
 
 Theorem ALL_DISTINCT_MAP_PAIR_FILTER:
@@ -991,6 +990,17 @@ Proof
   >> fs[TYPE_SUBST_drop_prefix,TYPE_SUBST_drop_all,Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_def]
 QED
 
+Theorem bij_props_equiv_ts_on:
+  !e e' t t'. TYPE_SUBST e t = t' /\ TYPE_SUBST e' t' = t
+  ==> equiv_ts_on e [] (tyvars t)
+Proof
+  rpt strip_tac
+  >> REWRITE_TAC[equiv_ts_on_tyvars,TYPE_SUBST_NIL]
+  >> ONCE_REWRITE_TAC[EQ_SYM_EQ]
+  >> irule bij_props_var_renaming
+  >> rpt $ goal_assum $ drule_at Any
+QED
+
 Theorem is_instance_NOT_is_instance_imp:
   !e t t'. TYPE_SUBST e t = t' /\ (!e'. TYPE_SUBST e' t' <> t)
   ==>
@@ -1124,6 +1134,14 @@ Proof
   >> fs[Once TYPE_SUBST_eq_id,TYPE_SUBST_compose,Excl"TYPE_SUBST_def"]
   >- SIMP_TAC std_ss [tyvars_def,invertible_on_def,MEM,GSYM TYPE_SUBST_compose]
   >> fs[tyvars_Tyapp,invertible_on_def,GSYM TYPE_SUBST_compose]
+QED
+
+Theorem invertible_on_FV:
+  !t s. is_const_or_type t ==>
+    (invertible_on s (FV t) <=> ?s'. LR_TYPE_SUBST s' (LR_TYPE_SUBST s t) = t)
+Proof
+  Cases
+  >> fs[is_const_or_type_eq,invertible_on_tyvars,FV_def,tvars_def,LR_TYPE_SUBST_cases,PULL_EXISTS]
 QED
 
 Theorem invertible_on_tyvars_Tyapp:
@@ -1310,13 +1328,13 @@ End
 
 Theorem invertible_on_compute:
   !s vars. invertible_on s vars <=>
-  let s' = FILTER ((λx. MEM x $ MAP Tyvar vars) o SND) $ clean_tysubst s
+  let s' = inverse_on s vars
   in (
     EVERY (λx. case x of (Tyvar a, Tyvar b) => T | _ => F) s'
     /\ ALL_DISTINCT (MAP FST s')
     /\ EVERY (λx. if (MEM x $ MAP FST s') then (MEM x $ MAP SND s') else T) (MAP Tyvar vars))
 Proof
-  rpt gen_tac >> dsimp[invertible_on_eq',EQ_IMP_THM,Excl"TYPE_SUBST_def"]
+  rpt gen_tac >> dsimp[invertible_on_eq',EQ_IMP_THM,Excl"TYPE_SUBST_def",inverse_on_def]
   >> strip_tac
   >- (
     conj_asm1_tac >- (
@@ -5343,11 +5361,142 @@ Proof
   rw[monotone_compute_def,monotone_def,EVERY_MEM,DEPENDENCY_EQUIV,FORALL_PROD,list_subset_set]
 QED
 
+(* proper instances *)
+
+Definition is_instance_strict_def:
+  is_instance_strict p q =
+    ?s. q = TYPE_SUBST s p /\ ~invertible_on s (tyvars p)
+End
+
+Theorem is_instance_strict_imp:
+  !p q. is_instance_strict p q ==> is_instance p q
+Proof
+  fs[is_instance_strict_def,PULL_EXISTS,is_instance_simps]
+QED
+
+Theorem orth_ty_NOT_is_instance:
+  !ty ty':type. ty # ty' ==> ~is_instance ty ty' /\ ~is_instance ty' ty
+Proof
+  rw[orth_ty_def,PULL_FORALL,DISJ_EQ_IMP]
+  >> CONV_TAC $ ONCE_DEPTH_CONV $ LAND_CONV $ ONCE_REWRITE_CONV $
+    single $ GSYM TYPE_SUBST_NIL
+  >> fs[EQ_SYM_EQ]
+QED
+
+Theorem orth_ty_NOT_is_instance_strict:
+  !ty ty':type. ty # ty' ==> ~is_instance_strict ty ty' /\ ~is_instance_strict ty' ty
+Proof
+  rpt gen_tac >> strip_tac
+  >> drule_then strip_assume_tac orth_ty_NOT_is_instance
+  >> drule_at Concl is_instance_strict_imp
+  >> rev_drule_at Concl is_instance_strict_imp
+  >> simp[]
+QED
+
+(*
+Theorem unify_is_instance_strict:
+  (is_instance p q /\ ~is_instance_strict q p)
+  <=> ?s_q s_p. unify p q = SOME (s_p, s_q) /\ ~equiv_ts_on s_p [] (tyvars p)
+    /\ equiv_ts_on s_q [] (tyvars q)
+Proof
+QED
+*)
+
+Definition is_instance_LR_strict_def:
+  (is_instance_LR_strict (INL ty) (INL ty') = is_instance_strict ty ty')
+  /\ (is_instance_LR_strict (INR (Const c ty)) (INR (Const d ty')) =
+    if c = d then is_instance_strict ty ty' else F)
+  /\ (is_instance_LR_strict _ _ = F)
+End
+
+val _ = Parse.add_infix("≥", 401, Parse.NONASSOC)
+Overload "≥" = ``$is_instance``
+Overload "≥" = ``$is_instance_LR``
+val _ = Parse.add_infix(">", 401, Parse.NONASSOC)
+Overload ">" = ``$is_instance_strict``
+Overload ">" = ``$is_instance_LR_strict``
+
+Theorem is_instance_LR_strict_imp:
+  !p q. is_instance_LR_strict p q /\ wf_pqs [(p,q)] ==> is_instance_LR p q
+Proof
+  dsimp[wf_pqs_def,is_const_or_type_eq,is_instance_LR_strict_def,is_instance_strict_imp,is_instance_LR_def]
+QED
+
+(* lifting of orth_ci and orth_ty *)
+
+Definition orth_LR_def:
+  (orth_LR (INL p) (INL q) = orth_ty p q)
+  /\ (orth_LR (INR (Const c ty1)) (INR (Const d ty2)) = orth_ci (Const c ty1) (Const d ty2))
+  /\ (orth_LR (INL _) (INR $ Const _ _) = T)
+  /\ (orth_LR (INR $ Const _ _) (INL _) = T)
+End
+Overload "#" = ``$orth_LR``
+
+(* lifting of unify *)
+
+Definition unify_LR_def:
+  (unify_LR (INL ty) (INL ty') = unify ty ty')
+  /\ (unify_LR (INR $ Const c ty) (INR $ Const d ty')
+    = if c = d then unify ty ty' else NONE)
+  /\ (unify_LR _ _ = NONE)
+End
+
+Theorem unify_LR_simps:
+  (!x y s. unify_LR (INR x) y = SOME s ==> ?c ty ty'. x = Const c ty /\ y = INR $ Const c ty')
+  /\ (!x y s. unify_LR (INL x) y = SOME s ==> ?ty. y = INL ty)
+  /\ (!x y s. unify_LR y (INR x) = SOME s ==> ?c ty ty'. x = Const c ty /\ y = INR $ Const c ty')
+  /\ (!x y s. unify_LR y (INL x) = SOME s ==> ?ty. y = INL ty)
+Proof
+  rpt conj_tac >> ntac 2 Cases >> strip_tac >> fs[unify_LR_def]
+  >> qmatch_goalsub_abbrev_tac `unify_LR (INR yy) _` >> Cases_on `yy` >> fs[unify_LR_def]
+  >> qmatch_goalsub_abbrev_tac `unify_LR _ (INR yy)` >> Cases_on `yy` >> fs[unify_LR_def]
+QED
+
+Theorem unify_LR_sound:
+  !p q s1 s2. unify_LR p q = SOME (s1, s2)
+  ==> LR_TYPE_SUBST s1 p = LR_TYPE_SUBST s2 q
+Proof
+  ntac 2 Cases
+  >> TRY (qmatch_goalsub_abbrev_tac `unify_LR (INR xx) _` >> Cases_on `xx`)
+  >> TRY (qmatch_goalsub_abbrev_tac `unify_LR _ (INR yy)` >> Cases_on `yy`)
+  >> fs[unify_LR_def,LR_TYPE_SUBST_cases,unify_sound]
+QED
+
+Theorem unify_LR_complete':
+  !p q. IS_SOME (unify_LR p q) <=>
+    case (p, q) of
+      | (INL ty, INL ty') => ~(ty # ty')
+      | (INR $ Const c ty, INR $ Const d ty') =>
+          if c = d then ~(ty # ty') else F
+      | _ => F
+Proof
+  dsimp[wf_pqs_def,is_const_or_type_eq,unify_LR_def,AND_IMP_INTRO,unify_complete]
+  >> ntac 2 Cases
+  >> TRY (qmatch_goalsub_abbrev_tac `unify_LR (INR xx) _` >> Cases_on `xx`)
+  >> TRY (qmatch_goalsub_abbrev_tac `unify_LR _ (INR yy)` >> Cases_on `yy`)
+  >> fs[DISJ_EQ_IMP,unify_LR_def,unify_complete]
+  >> FULL_CASE_TAC >> fs[EQ_IMP_THM,IS_SOME_DEF]
+QED
+
+Theorem unify_LR_complete:
+  !p q. is_const_or_type p /\ is_const_or_type q
+  ==> (IS_SOME (unify_LR p q) <=> ~orth_LR p q)
+Proof
+  dsimp[is_const_or_type_eq,unify_LR_complete',orth_LR_def,orth_ci_def]
+QED
+
+Theorem unify_LR_complete'':
+  !p q. is_const_or_type p /\ is_const_or_type q
+  ==> (orth_LR p q <=> unify_LR p q = NONE)
+Proof
+  metis_tac[option_CLAUSES,MONO_NOT_EQ,unify_LR_complete]
+QED
+
 (* composability check *)
 
-Overload continue = ``λx. SOME (SOME (x:(((type#type) list)#((type#type) list))))``;
-Overload ignore = ``NONE:(((type#type) list)#((type#type) list)) option option``;
-Overload uncomposable = ``SOME (NONE:(((type#type) list)#((type#type) list)) option)``;
+Datatype:
+  composability_result = continue ((type#type) list) | ignore | uncomposable
+End
 
 (* check if q is composable at a dependency p --> _
 * returns whether q p are non-strict instances of one-another *)
@@ -5357,19 +5506,20 @@ Definition composable_one_def:
     in case s of
       | NONE => ignore
       | SOME (s_q,s_p) =>
-    let s_p' = (* FILTER ((λx. MEM x $ MAP Tyvar (tyvars p)) o SND) $ *) clean_tysubst s_p ;
-        s_q' = (* FILTER ((λx. MEM x $ MAP Tyvar (tyvars q)) o SND) $ *) clean_tysubst s_q ;
-        sp_inv = invertible_on s_q' (tyvars q) ;
-        sq_inv = invertible_on s_q' (tyvars p)
+    let sp_inv = invertible_on s_p (tyvars p) ;
+        sq_inv = invertible_on s_q (tyvars q)
     in
       if sp_inv /\ ~sq_inv
-      (* p is a strict instance of q, witnessed by (s_p'^-1) (s_q') q = p *)
+      (* p is a strict instance of q, witnessed by (s_p^-1) (s_q) q = p *)
       then ignore
       else if ~sp_inv /\ sq_inv
-      (* q is a strict instance of p, witnessed by q = (s_q'^-1) (s_p') p *)
-      then continue (s_p', inverse_on s_q' (tyvars q))
-      (* both are invertible *)
-      else uncomposable
+      (* q is a strict instance of p, witnessed by q = (s_q^-1) (s_p) p *)
+      then continue s_p (*, inverse_on s_q (tyvars q)) *)
+      else if ~sp_inv /\ ~sq_inv
+      (* both are not invertible *)
+      then uncomposable
+      (* both are invertible, thus q = p modulo type variable renaming *)
+      else continue []
 End
 
 Definition composable_one_LR_def:
@@ -5381,46 +5531,618 @@ Definition composable_one_LR_def:
        | _ => ignore
 End
 
-(* composable_step q dep
+Theorem composable_one_LR_uncomposable':
+  !p q. is_const_or_type p
+  /\ is_const_or_type q
+  ==> (composable_one_LR q p = uncomposable
+    <=> case (q, p) of
+        | (INL q, INL p) =>
+            ?s_q s_p. unify q p = SOME (s_q, s_p) /\ ~equiv_ts_on s_p [] (tyvars p)
+            /\ ~equiv_ts_on s_q [] (tyvars q)
+        | (INR (Const c q), INR (Const d p)) =>
+            if c = d then
+            ?s_q s_p. unify q p = SOME (s_q, s_p) /\ ~equiv_ts_on s_p [] (tyvars p)
+            /\ ~equiv_ts_on s_q [] (tyvars q)
+            else F
+        | _ => F
+      )
+Proof
+  dsimp[is_const_or_type_eq,composable_one_LR_def,AllCaseEqs(),EQ_IMP_THM]
+  >> conj_asm2_tac
+  >- (
+    rw[IMP_CONJ_THM,AND_IMP_INTRO,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR]
+    >> qmatch_goalsub_abbrev_tac `m = m'`
+    >> Cases_on `m = m'` >> fs[]
+  )
+  >> rw[composable_one_def] >> fs[GSYM invertible_on_equiv_ts_on,AllCaseEqs()]
+QED
+
+Theorem composable_one_LR_continue':
+  !p q s. is_const_or_type p
+  /\ is_const_or_type q
+  ==> (composable_one_LR q p = continue s
+    <=> case (q, p) of
+        | (INL q, INL p) =>
+            ?s_q s_p. unify q p = SOME (s_q, s_p) /\ (
+              s = s_p /\ ~equiv_ts_on s_p [] (tyvars p) /\ equiv_ts_on s_q [] (tyvars q)
+              \/ (s = [] /\ equiv_ts_on s_p [] (tyvars p) /\ equiv_ts_on s_q [] (tyvars q)))
+        | (INR (Const c q), INR (Const d p)) =>
+            if c = d then
+            ?s_q s_p. unify q p = SOME (s_q, s_p) /\ (
+              s = s_p /\ ~equiv_ts_on s_p [] (tyvars p) /\ equiv_ts_on s_q [] (tyvars q)
+              \/ (s = [] /\ equiv_ts_on s_p [] (tyvars p) /\ equiv_ts_on s_q [] (tyvars q)))
+            else F
+        | _ => F
+      )
+Proof
+  dsimp[is_const_or_type_eq,composable_one_LR_def,AllCaseEqs(),EQ_IMP_THM]
+  >> conj_asm2_tac
+  >- (
+    rw[IMP_CONJ_THM,AND_IMP_INTRO,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR]
+    >> qmatch_goalsub_abbrev_tac `m = m'`
+    >> Cases_on `m = m'` >> fs[]
+  )
+  >> rw[composable_one_def] >> gs[GSYM invertible_on_equiv_ts_on,AllCaseEqs()]
+QED
+
+Theorem composable_one_LR_ignore':
+  !p q. is_const_or_type p
+  /\ is_const_or_type q
+  ==> (composable_one_LR q p = ignore
+    <=> case (q, p) of
+        | (INL q, INL p) =>
+            orth_ty q p \/
+            ?s_q s_p. unify q p = SOME (s_q, s_p) /\
+              equiv_ts_on s_p [] (tyvars p) /\ ~equiv_ts_on s_q [] (tyvars q)
+        | (INR (Const c q), INR (Const d p)) =>
+            if c = d then
+            orth_ty q p \/
+            ?s_q s_p. unify q p = SOME (s_q, s_p) /\
+              equiv_ts_on s_p [] (tyvars p) /\ ~equiv_ts_on s_q [] (tyvars q)
+            else T
+        | _ => T
+      )
+Proof
+  dsimp[is_const_or_type_eq,composable_one_LR_def,AllCaseEqs(),EQ_IMP_THM]
+  >> conj_asm2_tac
+  >> rw[composable_one_def,unify_complete']
+  >> fs[GSYM invertible_on_equiv_ts_on,AllCaseEqs(),unify_complete'] >> fs[]
+QED
+
+
+Theorem composable_one_LR_ignore:
+  !p q. is_const_or_type p /\ is_const_or_type q
+  ==> (composable_one_LR q p = ignore
+    <=> orth_LR q p \/
+            ?s_q s_p. unify_LR q p = SOME (s_q, s_p) /\
+              invertible_on s_p (FV p) /\ ~invertible_on s_q (FV q))
+Proof
+  dsimp[composable_one_LR_ignore',is_const_or_type_eq,orth_LR_def,FV_def,invertible_on_equiv_ts_on,unify_LR_def,orth_ci_def,tvars_def]
+  >> metis_tac[]
+QED
+
+Theorem composable_one_LR_continue:
+  !p q s. is_const_or_type p /\ is_const_or_type q
+  ==> (composable_one_LR q p = continue s
+    <=> ?s_q s_p. unify_LR q p = SOME (s_q, s_p) /\ (
+        s = s_p /\ ~invertible_on s_p (FV p) /\ invertible_on s_q (FV q)
+        \/ (s = [] /\ invertible_on s_p (FV p) /\ invertible_on s_q (FV q))))
+Proof
+  dsimp[composable_one_LR_continue',is_const_or_type_eq,orth_LR_def,FV_def,invertible_on_equiv_ts_on,unify_LR_def,orth_ci_def,tvars_def]
+  >> metis_tac[]
+QED
+
+Theorem composable_one_LR_uncomposable:
+  !p q. is_const_or_type p
+  /\ is_const_or_type q
+  ==> (composable_one_LR q p = uncomposable
+    <=>
+      ?s_q s_p. unify_LR q p = SOME (s_q, s_p)
+      /\ ~invertible_on s_p (FV p) /\ ~invertible_on s_q (FV q))
+Proof
+  dsimp[composable_one_LR_uncomposable',is_const_or_type_eq,orth_LR_def,FV_def,invertible_on_equiv_ts_on,unify_LR_def,orth_ci_def,tvars_def]
+  >> metis_tac[]
+QED
+
+Theorem unify_types_symm:
+  !ty ty' r. unify_types [(ty,ty')] [] = SOME r
+  ==> ?r'. unify_types [(ty',ty)] [] = SOME r'
+  /\ equiv_ts_on r r' (tyvars ty)
+  /\ equiv_ts_on r r' (tyvars ty')
+Proof
+  rpt strip_tac
+  >> `unifiable ty' ty` by (
+    imp_res_tac unify_types_sound >> metis_tac[unifiable_def]
+  )
+  >> dxrule_then strip_assume_tac $ cj 1 $ REWRITE_RULE[EQ_IMP_THM,IS_SOME_EXISTS] unify_types_complete
+  >> goal_assum $ drule_at Any
+  >> conj_asm1_tac
+  >- (
+    imp_res_tac unify_types_props
+    >> drule_then assume_tac unify_types_sound
+    >> first_x_assum $ drule_then (strip_assume_tac o GSYM) o GSYM
+    >> rev_drule_then (assume_tac o GSYM) unify_types_sound
+    >> first_x_assum $ drule_then strip_assume_tac
+    >> `equiv_ts_on i' [] (tyvars $ TYPE_SUBST x ty)` by (
+      irule bij_props_equiv_ts_on
+      >> fs[Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_def]
+      >> goal_assum $ drule
+    )
+    >> qpat_x_assum `TYPE_SUBST xx _ = TYPE_SUBST xx _` $
+      (fn x => qpat_x_assum `TYPE_SUBST xx _ = TYPE_SUBST xx _` $ (fn y => gs[x,y]))
+    >> fs[equiv_ts_on_tyvars]
+    >> goal_assum $ drule_at Any
+    >> fs[]
+  )
+  >> imp_res_tac unify_types_sound >> fs[equiv_ts_on_tyvars]
+  >> goal_assum $ drule_at Any >> fs[]
+QED
+
+Theorem unify_mgu:
+  !ty ty' r s r' s'. unify ty ty' = SOME (r,s)
+  /\ TYPE_SUBST r' ty = TYPE_SUBST s' ty'
+  ==> ?rr ss. TYPE_SUBST rr (TYPE_SUBST r ty) = TYPE_SUBST r' ty
+  /\ TYPE_SUBST ss (TYPE_SUBST s ty') = TYPE_SUBST s' ty'
+Proof
+  rw[unify_def] >> fs[ELIM_UNCURRY,IS_SOME_EXISTS,normalise_tyvars_rec_FST_SND]
+  >> qspecl_then [`ty`,`#"a"`] assume_tac invertible_on_normalise_tyvars_rec
+  >> qspecl_then [`ty'`,`#"b"`] assume_tac invertible_on_normalise_tyvars_rec
+  >> qmatch_asmsub_abbrev_tac `(TYPE_SUBST (SND tya) ty, TYPE_SUBST (SND ty'b) ty')`
+  >> qpat_x_assum `_ = r` $ fs o single o GSYM
+  >> qpat_x_assum `_ = s` $ fs o single o GSYM
+  >> gs[invertible_on_tyvars',GSYM invertible_on_equiv_ts_on,GSYM TYPE_SUBST_compose,equiv_ts_on_tyvars]
+  >> qmatch_asmsub_abbrev_tac `TYPE_SUBST tya_i (TYPE_SUBST _ ty) = ty`
+  >> qmatch_asmsub_abbrev_tac `TYPE_SUBST ty'b_i (TYPE_SUBST _ ty') = ty'`
+  >> drule_then strip_assume_tac unify_types_props
+  >> drule_then assume_tac unify_types_sound
+  >> fs[GSYM PULL_EXISTS,GSYM TYPE_SUBST_compose]
+  >> ONCE_REWRITE_TAC[EQ_SYM_EQ]
+  >> qmatch_asmsub_abbrev_tac `TYPE_SUBST ρ ty = TYPE_SUBST ρ' ty'`
+  >> qabbrev_tac `uni = MAP (λx. (TYPE_SUBST ρ (TYPE_SUBST tya_i x), x)) (MAP FST (SND tya))
+      ++ MAP (λx. (TYPE_SUBST ρ' (TYPE_SUBST ty'b_i x), x)) (MAP FST (SND ty'b))`
+  >> first_x_assum $ qspec_then `uni` mp_tac
+  >> `TYPE_SUBST uni (TYPE_SUBST (SND tya) ty) = TYPE_SUBST ρ ty` by (
+    REWRITE_TAC[TYPE_SUBST_compose,TYPE_SUBST_tyvars] >> rpt strip_tac
+    >> qunabbrev_tac `uni`
+    >> REWRITE_TAC[GSYM TYPE_SUBST_def,GSYM TYPE_SUBST_compose]
+    >> drule_then strip_assume_tac $ cj 2 $ REWRITE_RULE[EQ_IMP_THM] subtype_at_tyvars
+    >> drule_then (qspec_then `ρ` assume_tac) subtype_at_TYPE_SUBST
+    >> qmatch_asmsub_abbrev_tac `subtype_at _ p`
+    >> qpat_x_assum `TYPE_SUBST _ ty = TYPE_SUBST _ ty'` $
+      (qspec_then `p` assume_tac) o REWRITE_RULE[Once subtype_at_eq]
+    >> qpat_x_assum `TYPE_SUBST _ (TYPE_SUBST _ ty) = ty` $
+      drule_then assume_tac o REWRITE_RULE[Once TYPE_SUBST_eq_id,TYPE_SUBST_compose]
+    >> `MEM (Tyvar x) (MAP SND $ SND tya)` by
+      fs[Abbr`tya`,normalise_tyvars_rec_domain,MEM_Tyvar_MAP_Tyvar]
+    >> drule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
+    >> qmatch_asmsub_abbrev_tac `(b,Tyvar x)`
+    >> `?a. b = Tyvar a` by (
+      qspecl_then [`ty`,`#"a"`] strip_assume_tac $
+        SIMP_RULE (std_ss++LET_ss) [EVERY_MEM] normalise_tyvars_rec_chr
+      >> gs[MEM_MAP] >> first_x_assum $ drule_then assume_tac
+      >> gvs[ELIM_UNCURRY]
+    )
+    >> asm_rewrite_tac[Excl"TYPE_SUBST_def"]
+    >> dep_rewrite.DEP_REWRITE_TAC[TYPE_SUBST_drop_suffix]
+    >> conj_tac >- (
+      fs[MEM_MAP,PULL_EXISTS] >> goal_assum $ drule_at Any >> fs[]
+    )
+    >> ONCE_REWRITE_TAC[EQ_SYM_EQ]
+    >> irule TYPE_SUBST_MEM'
+    >> gvs[Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_compose,MAP_MAP_o,o_DEF,
+      ELIM_UNCURRY,ETA_THM,Abbr`tya`,normalise_tyvars_rec_distinct_fst]
+    >> simp[Excl"TYPE_SUBST_def",MEM_MAP]
+    >> goal_assum $ drule_at Any
+    >> fs[]
+  )
+  >> `TYPE_SUBST uni (TYPE_SUBST (SND ty'b) ty') = TYPE_SUBST ρ' ty'` by (
+    qpat_x_assum `TYPE_SUBST uni _ = _` kall_tac
+    >> REWRITE_TAC[TYPE_SUBST_compose,TYPE_SUBST_tyvars] >> rpt strip_tac
+    >> qunabbrev_tac `uni`
+    >> REWRITE_TAC[GSYM TYPE_SUBST_def,GSYM TYPE_SUBST_compose]
+    >> drule_then strip_assume_tac $ cj 2 $ REWRITE_RULE[EQ_IMP_THM] subtype_at_tyvars
+    >> qmatch_asmsub_abbrev_tac `subtype_at _ p`
+    >> drule_then (qspec_then `ρ'` assume_tac) subtype_at_TYPE_SUBST
+    >> qmatch_asmsub_abbrev_tac `subtype_at _ p`
+    >> qpat_x_assum `TYPE_SUBST _ ty = TYPE_SUBST _ ty'` $
+      (qspec_then `p` assume_tac) o REWRITE_RULE[Once subtype_at_eq]
+    >> qpat_x_assum `TYPE_SUBST _ (TYPE_SUBST _ ty') = ty'` $
+      drule_then assume_tac o REWRITE_RULE[Once TYPE_SUBST_eq_id,TYPE_SUBST_compose]
+    >> `MEM (Tyvar x) (MAP SND $ SND ty'b)` by
+      fs[Abbr`ty'b`,normalise_tyvars_rec_domain,MEM_Tyvar_MAP_Tyvar]
+    >> drule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
+    >> qmatch_asmsub_abbrev_tac `(b,Tyvar x)`
+    >> `?a. b = Tyvar a` by (
+      qspecl_then [`ty'`,`#"b"`] strip_assume_tac $
+        SIMP_RULE (std_ss++LET_ss) [EVERY_MEM] normalise_tyvars_rec_chr
+      >> gs[MEM_MAP] >> first_x_assum $ drule_then assume_tac
+      >> gvs[ELIM_UNCURRY]
+    )
+    >> asm_rewrite_tac[Excl"TYPE_SUBST_def"]
+    >> dep_rewrite.DEP_REWRITE_TAC[TYPE_SUBST_drop_prefix]
+    >> conj_tac >- (
+      qspecl_then [`ty`,`ty'`,`#"a"`,`#"b"`] assume_tac normalise_tyvars_rec_chr_diff
+      >> gs[MAP_MAP_o,o_DEF,ELIM_UNCURRY,ETA_THM,NULL_FILTER,list_inter_def]
+      >> first_x_assum irule
+      >> imp_res_tac $ Q.ISPEC `FST` MEM_MAP_f
+      >> fs[]
+    )
+    >> ONCE_REWRITE_TAC[EQ_SYM_EQ]
+    >> irule TYPE_SUBST_MEM'
+    >> gvs[Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_compose,MAP_MAP_o,o_DEF,
+      ELIM_UNCURRY,ETA_THM,Abbr`ty'b`,normalise_tyvars_rec_distinct_fst]
+    >> simp[Excl"TYPE_SUBST_def",MEM_MAP]
+    >> goal_assum $ drule_at Any
+    >> fs[]
+  )
+  >> asm_rewrite_tac[]
+QED
+
+(* composable_step q dep []
 * = ISL $ one step extension of q by possible dep
 * = ISR $ witness for impossible extension
 *)
 Definition composable_step_def:
-  (composable_step _ [] dep' = INL dep')
-  /\ (composable_step q (p::dep) dep' =
+  (composable_step _ [] step = INL step)
+  /\ (composable_step q (p::dep) step =
     case composable_one_LR q (FST p) of
-       | ignore => composable_step q dep dep'
-       | continue (sp, _) =>
-          composable_step q dep ((q, LR_TYPE_SUBST sp (SND p)) :: dep')
-       | uncomposable => INR (q, p) (* returns counter-example *)
+       | ignore => composable_step q dep step
+       | continue ρ =>
+          composable_step q dep (LR_TYPE_SUBST ρ (SND p) :: step)
+       | uncomposable => INR p (* returns a counter-example *)
   )
 End
 
-Theorem composable_dep_composable_step:
-  ~composable_dep ctxt
-  <=> ?rs pqs. sol_seq rs pqs
-  /\ equiv_ts_on [] (HD rs) (FV $ FST $ HD $ pqs)
-  /\ ISR $ composable_step (SND $ LAST pqs) (dependency_compute ctxt) []
+Definition composable_step_inv_def:
+  composable_step_inv q dep dep' steps = (
+    is_const_or_type q /\ wf_pqs dep
+    /\ ?done. dep = done ++ dep'
+    /\ (!x. MEM x steps <=>
+      ?p s_q s_p. MEM p done /\ unify_LR q $ FST p = SOME (s_q, s_p)
+        /\ invertible_on s_q (FV q)
+        /\ (~invertible_on s_p (FV $ FST p) ==> x = LR_TYPE_SUBST s_p $ SND p)
+        /\ (invertible_on s_p (FV $ FST p) ==> x = SND p)
+      )
+    /\ !p s_q s_p. MEM p done /\ unify_LR q $ FST p = SOME (s_q, s_p)
+      ==> (invertible_on s_q (FV q) \/ invertible_on s_p (FV $ FST p))
+  )
+End
+
+Definition composable_step_inv_INR_def:
+  composable_step_inv_INR q p dep = (
+    ?pre suff. dep = pre ++ [p] ++ suff
+    /\ (?s_q s_p. unify_LR q $ FST p = SOME (s_q, s_p)
+          /\ ~invertible_on s_q (FV q) /\ ~invertible_on s_p (FV $ FST p))
+    /\ EVERY (λp. ~(?s_q s_p. unify_LR q $ FST p = SOME (s_q, s_p)
+          /\ ~invertible_on s_q (FV q) /\ ~invertible_on s_p (FV $ FST p))) pre
+  )
+End
+
+Theorem composable_step_init:
+  !q dep res. is_const_or_type q /\ wf_pqs dep
+  ==> composable_step_inv q dep dep []
 Proof
-  fs[path_starting_at_def,composable_dep_def]
+  fs[composable_step_inv_def,wf_pqs_def]
 QED
+
+Theorem composable_step_prop_INL:
+  !dep q steps res. is_const_or_type q /\ wf_pqs dep
+  /\ composable_step q dep steps = INL res
+  ==> (!p s_q s_p. MEM p dep /\ unify_LR q $ FST p = SOME (s_q, s_p)
+      ==> (invertible_on s_q (FV q) \/ invertible_on s_p (FV $ FST p)))
+    /\ ?steps'. res = steps' ++ steps
+    /\ (!x. MEM x steps' <=>
+      ?p s_q s_p. MEM p dep /\ unify_LR q $ FST p = SOME (s_q, s_p)
+        /\ invertible_on s_q (FV q)
+        /\ (~invertible_on s_p (FV $ FST p) ==> x = LR_TYPE_SUBST s_p $ SND p)
+        /\ (invertible_on s_p (FV $ FST p) ==> x = SND p))
+Proof
+  Induct >- fs[composable_step_def]
+  >> PairCases >> rw[composable_step_def,AllCaseEqs(),wf_pqs_def]
+  >> fs[GSYM wf_pqs_def] >> first_x_assum $ dxrule_at Any >> dsimp[]
+  >> gs[composable_one_LR_ignore,unify_LR_complete'',composable_one_LR_continue]
+  >> metis_tac[LR_TYPE_SUBST_NIL]
+QED
+
+Theorem composable_step_imp_INL:
+  !dep' dep res q steps.
+  composable_step_inv q dep dep' steps
+  /\ composable_step q dep' steps = INL res
+  ==> composable_step_inv q dep [] res
+Proof
+  Induct >- fs[composable_step_inv_def,composable_step_def]
+  >> PairCases >> rpt strip_tac
+  >> drule_at_then Any assume_tac composable_step_prop_INL
+  >> gs[composable_step_inv_def,wf_pqs_def] >> fs[GSYM wf_pqs_def]
+  >> last_x_assum kall_tac
+  >> conj_tac >> dsimp[] >> metis_tac[]
+QED
+
+Theorem composable_step_imp_INL':
+  is_const_or_type q /\ wf_pqs dep
+  /\ composable_step q dep [] = INL res
+  ==> composable_step_inv q dep [] res
+Proof
+  rpt strip_tac
+  >> drule_at_then Any irule composable_step_imp_INL
+  >> fs[composable_step_init]
+QED
+
+Theorem composable_step_sound_INL =
+  GEN_ALL $ SIMP_RULE std_ss [
+    SIMP_RULE std_ss [PULL_EXISTS,APPEND_NIL] $
+      Q.SPECL [`q`,`dep`,`[]`,`res`] composable_step_inv_def
+  ] composable_step_imp_INL'
+
+Theorem composable_step_complete_INL':
+  !dep' dep q step. composable_step_inv q dep dep' step
+  /\ (!p s_p s_q. MEM p dep /\ unify_LR q (FST p) = SOME (s_q, s_p)
+    ==> invertible_on s_p (FV $ FST p) \/ invertible_on s_q (FV q))
+  ==> ?res. composable_step q dep' step = INL res
+Proof
+  Induct >- fs[composable_step_def] >> PairCases
+  >> rw[composable_step_def,AllCaseEqs(),PULL_EXISTS,EXISTS_OR_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM,FORALL_AND_THM]
+  >> qmatch_goalsub_abbrev_tac `composable_one_LR q h0`
+  >> Cases_on `composable_one_LR q h0` >> fs[]
+  >~ [`_ = ignore`] >- (
+    first_x_assum $ irule >> goal_assum $ drule_at Any
+    >> gs[composable_step_inv_def,wf_pqs_def,unify_LR_complete'']
+    >> conj_tac >> dsimp[] >> gs[composable_one_LR_ignore,unify_LR_complete'']
+  )
+  >~ [`_ = uncomposable`] >- (
+    last_x_assum kall_tac
+    >> gs[composable_one_LR_uncomposable,wf_pqs_def,composable_step_inv_def,
+      DISJ_IMP_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,FORALL_AND_THM]
+  )
+  >~ [`_ = continue ρ`] >- (
+    first_x_assum $ irule_at Any >> goal_assum $ drule_at Any
+    >> gs[composable_one_LR_continue,composable_step_inv_def,wf_pqs_def,
+      LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,FORALL_AND_THM,EXISTS_OR_THM,DISJ_IMP_THM]
+    >> metis_tac[LR_TYPE_SUBST_NIL]
+  )
+QED
+
+Theorem composable_step_complete_INL:
+  !dep q. is_const_or_type q ∧ wf_pqs dep
+    /\ (!p s_p s_q. MEM p dep /\ unify_LR q (FST p) = SOME (s_q, s_p) /\
+    ~invertible_on s_p (FV $ FST p) ==> invertible_on s_q (FV q))
+  ==> ?res. composable_step q dep [] = INL res
+Proof
+  rpt strip_tac >> irule composable_step_complete_INL'
+  >> irule_at Any composable_step_init >> metis_tac[]
+QED
+
+Theorem composable_step_sound_INR:
+  !dep p q steps. is_const_or_type q /\ wf_pqs dep
+  /\ composable_step q dep steps = INR p
+  ==> composable_step_inv_INR q p dep
+Proof
+  Induct >- fs[composable_step_def]
+  >> PairCases >> rw[composable_step_def,AllCaseEqs(),wf_pqs_def]
+  >> fs[GSYM wf_pqs_def]
+  >> TRY (first_x_assum $ dxrule_at (Pos $ last) >> dsimp[])
+  >> gs[composable_one_LR_uncomposable,composable_one_LR_ignore,composable_one_LR_continue]
+  >> rw[composable_step_inv_INR_def]
+  >~ [`q # h0`] >- (
+    dxrule_at_then Any assume_tac $ cj 1 $
+      Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,FORALL_AND_THM,AND_IMP_INTRO,IMP_CONJ_THM] unify_LR_complete''
+    >> Q.REFINE_EXISTS_TAC `_::_` >> fs[]
+    >> irule_at Any EQ_REFL >> fs[]
+  )
+  >~ [`[(h0,h1)]`] >- (qexists_tac `[]` >> fs[])
+  >> Q.REFINE_EXISTS_TAC `_::_` >> fs[]
+  >> irule_at Any EQ_REFL >> fs[]
+QED
+
+Triviality composable_step_INR_eq:
+  !dep q p steps. is_const_or_type q /\ wf_pqs dep
+  ==> (composable_step q dep steps = INR p <=> composable_step q dep [] = INR p)
+Proof
+  Induct >- fs[composable_step_def]
+  >> PairCases >> rpt strip_tac
+  >> gs[composable_step_def,AllCaseEqs(),wf_pqs_def]
+QED
+
+Theorem composable_step_complete_INR':
+  !dep p q. is_const_or_type q /\ wf_pqs dep
+  /\ composable_step_inv_INR q p dep
+  ==> ?p. composable_step q dep [] = INR p
+Proof
+  rpt strip_tac
+  >> drule_then drule $ cj 2 composable_step_sound_INL
+  >> fs[GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
+  >> disch_then $ mp_tac o ONCE_REWRITE_RULE[MONO_NOT_EQ]
+  >> fs[GSYM PULL_FORALL]
+  >> impl_tac >- (fs[composable_step_inv_INR_def] >> dsimp[])
+  >> metis_tac [sum_CASES]
+QED
+
+Theorem composable_step_complete_INR:
+  !dep p q steps. is_const_or_type q /\ wf_pqs dep
+  /\ composable_step_inv_INR q p dep
+  ==> composable_step q dep steps = INR p
+Proof
+  rpt strip_tac
+  >> drule_all_then strip_assume_tac composable_step_complete_INR'
+  >> drule_all_then strip_assume_tac composable_step_sound_INR
+  >> gvs[composable_step_INR_eq,composable_step_inv_INR_def,DISJ_EQ_IMP]
+  >> qmatch_asmsub_abbrev_tac `pre ++ [p'] ++ _ = pre' ++ [p] ++ _`
+  >> qpat_x_assum `_ ++ _ = _ ++ _` mp_tac
+  >> ONCE_REWRITE_TAC[GSYM APPEND_ASSOC] >> REWRITE_TAC[GSYM CONS_APPEND]
+  >> strip_tac
+  >> `~MEM p pre' /\ ~MEM p' pre` by (CCONTR_TAC >> gs[MEM_SPLIT])
+  >> `pre = pre'` by (
+    gvs[APPEND_EQ_APPEND] >> qmatch_asmsub_abbrev_tac `_::_ = l ++ _ ++ _`
+    >> Cases_on `l` >> gs[]
+  )
+  >> fs[]
+QED
+
+Theorem composable_step_eq_INL:
+  !dep q. is_const_or_type q ∧ wf_pqs dep
+  ==> (
+    (!p s_p s_q. MEM p dep /\ unify_LR q (FST p) = SOME (s_q, s_p)
+    ==> invertible_on s_p (FV $ FST p) \/ invertible_on s_q (FV q))
+  <=>
+    ?res. composable_step q dep [] = INL res
+    /\ !x. MEM x res <=>
+         ?p s_q s_p.
+           MEM p dep ∧ unify_LR q (FST p) = SOME (s_q,s_p) /\
+           invertible_on s_q (FV q) /\
+           (¬invertible_on s_p (FV (FST p)) ==> x = LR_TYPE_SUBST s_p (SND p)) /\
+           (invertible_on s_p (FV (FST p)) ==> x = SND p)
+  )
+Proof
+  rw[Once EQ_IMP_THM]
+  >- (
+    drule_then drule composable_step_complete_INL
+    >> impl_tac >- metis_tac[DISJ_EQ_IMP,AND_IMP_INTRO]
+    >> strip_tac
+    >> goal_assum $ drule_at Any
+    >> fs[composable_step_sound_INL]
+  )
+  >> metis_tac[composable_step_sound_INL]
+QED
+
+Theorem composable_step_eq_INR:
+  !dep p q steps. is_const_or_type q /\ wf_pqs dep
+  ==> (composable_step q dep steps = INR p <=> composable_step_inv_INR q p dep)
+Proof
+  rw[EQ_IMP_THM,composable_step_complete_INR]
+  >> drule_all composable_step_sound_INR >> simp[]
+QED
+
+(*****************************************************************************)
+
+Datatype: ext_step =
+    non_comp_step ((type+term) # (type+term) # (type+term) # (type+term))
+    | cyclic_step ((type+term) # (type+term) # (type+term) # (type+term))
+    | maybe_cyclic | acyclic int
+End
 
 (*
  * dep_ext dep dephd deptl
  * extends every pair (p,q) in deptl by one dependency step from dep
  *)
-(* TODO also check for composable! *)
-Definition dep_ext_def:
-  (dep_ext dep dephd [] = INL dephd)
-  /\ (dep_ext dep dephd ((p,q)::deptl) =
-      (* compute possible extensions of (p,q) *)
-      let pqs_ts = MAP (λpq. (pq, instance_subst_LR (FST pq) q)) dep ;
-          dep'' = MAP (λ(pq,s). (p, LR_TYPE_SUBST (THE s) (SND pq))) $
-            FILTER (IS_SOME o SND) pqs_ts ;
-          cycles = FILTER (UNCURRY is_instance_LR_compute) dep''
-      in case NULL cycles of
-            | T => dep_ext dep (dephd ++ dep'') deptl
-            | F => INR (HD cycles)) (* cycle found *)
+Definition dep_step_def:
+  (dep_step dep dephd [] = INL dephd)
+  /\ (dep_step dep dephd ((p,q)::deptl) =
+      case composable_step q dephd [] of
+      | INR q' => INR $ non_comp_step (p,q,q') (* not composable *)
+      | INL dep' =>
+          let
+            dep'' = MAP (λx. (p, x)) dep' ;
+            cycles = FILTER (UNCURRY is_instance_LR_compute) dep''
+          in case NULL cycles of
+          | F => INR $ cyclic_step (p,q,HD cycles) (* cycle found *)
+          | T => dep_step dep (dephd ++ dep'') deptl)
+End
+
+(* depth-limited expansion of the dependency relation *)
+Definition dep_steps_def:
+     (dep_steps dep k [] = acyclic k) (* longest dep chain of length k *)
+  /\ (dep_steps dep 0 _  = maybe_cyclic) (* reached given depth *)
+  /\ (dep_steps dep (SUC k) dep' =
+    case dep_step dep [] dep' of
+       | INL dep' => dep_steps dep k dep'
+       | INR x => x
+  )
+End
+
+
+dep_steps dep k dep = ...
+
+Definition composable_steps_inv_def:
+  composable_steps_inv dep k k' qs qs' steps steps'
+  =
+    wf_pqs dep
+    /\
+End
+
+Theorem composable_steps_inv_imp:
+  composable_steps_inv dep k qs qs' steps steps'
+  /\ composable_steps k qs' dep steps'
+  ==> composable_steps_inv dep k steps
+Proof
+
+QED
+
+
+Theorem composable_dep_composable_step:
+  !ctxt. monotone (dependency ctxt)
+  /\ FINITE $ UNCURRY (dependency ctxt)
+  ==>
+  (composable_dep ctxt /\ ~(terminating $ TC $ subst_clos $ dependency ctxt))
+  <=>
+  ?k. composable_steps k (dependency_compute ctxt)
+    (dependency_compute ctxt) [] = acyclic
+Proof
+  REWRITE_TAC[EQ_IMP_THM,cyclic_eq_not_terminating] >> rpt strip_tac
+  >> fs[path_starting_at_def,DEPENDENCY_EQUIV]
+QED
+
+
+Theorem composable_step_uncomposable:
+  !dep step q p. is_const_or_type q /\ wf_pqs dep
+    /\ EVERY is_const_or_type step
+  ==> (composable_step q dep step = INR p
+  <=> (
+    ?dep' dep''. dep = dep' ++ p::dep'' /\ common_strict_instance q (FST p)
+    /\ EVERY ($~ o common_strict_instance q o FST) dep'
+  ))
+Proof
+  Induct >- fs[composable_step_def]
+  >> PairCases >> ntac 2 gen_tac >> Cases
+  >> rw[AllCaseEqs(),wf_pqs_def]
+  >> rpt $ qhdtm_x_assum `is_const_or_type` mp_tac
+  >> rw[composable_step_def,is_const_or_type_eq] >> FULL_CASE_TAC
+
+  composable_one_LR_continue,composable_one_LR_ignore,wf_pqs_def,composable_step_def]
+  >> rw[is_const_or_type_eq]
+  >> gvs[unify_LR_def,GSYM invertible_on_equiv_ts_on,FV_def,tvars_def]
+  >> dsimp[]
+  >> dep_rewrite.DEP_REWRITE_TAC[composable_one_LR_uncomposable]
+  >> dsimp[is_const_or_type_def,GSYM invertible_on_equiv_ts_on]
+  >> rw[EQ_IMP_THM] >> gvs[unify_LR_def,tvars_def]
+  >~ [`composable_step _ _ _ = INR _`] >- (
+    qhdtm_x_assum `composable_step` mp_tac
+    >> qhdtm_x_assum `$!` $ dep_rewrite.DEP_REWRITE_TAC o single
+    >> simp[]
+    >> irule_at Any LR_TYPE_SUBST_type_preserving
+    >> rw[is_const_or_type_eq,tvars_def]
+  )
+  (* >~ [`unify_LR (INR _) qq`] *)
+  >- (
+    imp_res_tac unify_LR_simps >> gvs[]
+    >> fs[unify_LR_def,tvars_def]
+  )
+
+  >> qhdtm_x_assum `$!` $ dep_rewrite.DEP_REWRITE_TAC o single
+
+unify_LR_simps
+
+  >> qmatch_goalsub_abbrev_tac `composable_step q dep (_::step)`
+  >> first_x_assum $ qspecl_then [`step`,`q`] assume_tac
+  >>
+
+QED
+
+(*
+Definition dep_ext_inv:
+  (dep_ext_inv dep dephd deptl (INL dep'') =
+    EVERY ($~ o UNCURRY is_instance_LR_compute) dep
+    /\ EVERY ($~ o UNCURRY is_instance_LR_compute) dephd
+    /\ ?deptl'. dep'' = dephd ++ deptl''
+    /\
+  )
+  /\ (dep_ext_inv dep dephd deptl (INR pp') =
+    EVERY ($~ o UNCURRY is_instance_LR_compute) dep
+    /\ EVERY ($~ o UNCURRY is_instance_LR_compute) dephd
+    /\ ?pq xy. MEM xy dep /\ MEM pq deptl
+      /\ IS_SOME (instance_subst_LR (FST xy) (SND pq))
+      /\ LR_TYPE_SUBST (THE $ instance_subst_LR (FST xy) (SND pq)) (SND xy) = SND pp'
+      /\ FST pp' = FST pq
+  )
 End
 
 (* algorithm to check cyclicity
