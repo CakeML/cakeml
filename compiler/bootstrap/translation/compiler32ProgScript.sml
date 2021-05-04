@@ -9,7 +9,7 @@ open compilerTheory
      ml_translatorLib ml_translatorTheory;
 open cfLib basis;
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory"compiler32Prog";
 
@@ -187,6 +187,8 @@ val res = translate (parse_top_config_def |> SIMP_RULE (srw_ss()) []);
 (* Translations for each 32-bit target
   Note: ffi_asm is translated multiple times...
 *)
+
+val res = translate backendTheory.prim_src_config_eq;
 
 (* ag32 *)
 val res = translate ag32_configTheory.ag32_names_def;

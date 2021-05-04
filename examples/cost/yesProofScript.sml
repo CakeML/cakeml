@@ -47,8 +47,8 @@ Theorem data_safe_yes_code:
    2 ≤ s.limits.length_limit ∧
    (s.tstamps = SOME ts) ∧
    0 < ts ∧
-   (s.locals = fromList [RefPtr 2]) ∧
-   (lookup 2 s.refs = SOME (ByteArray T [121w])) ∧
+   (s.locals = fromList [RefPtr 3]) ∧
+   (lookup 3 s.refs = SOME (ByteArray T [121w])) ∧
    (s.code = fromAList yes_data_prog)
    ⇒ data_safe (evaluate (^printLoop_body, s))
 Proof
@@ -163,7 +163,7 @@ Proof
      \\ fs [FINITE_domain,domain_lookup]
      \\ Cases_on `lookup x s.refs` \\ fs []
      \\ asm_exists_tac \\ fs [])
-  \\ `p1 ≠ 2` by (CCONTR_TAC  \\ fs [])
+  \\ `p1 ≠ 3` by (CCONTR_TAC  \\ fs [])
   (* Prove we are safe for space up to this point *)
   \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe)  _`
   \\ `safe` by
@@ -383,7 +383,7 @@ Proof
   \\ rw [] \\ pop_assum (qspec_then `domain (insert p1 ARB s.refs)` assume_tac)
   \\ fs [FINITE_domain,domain_lookup] \\ Cases_on `lookup x (insert p1 ARB s.refs)`
   \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p1` \\ fs [lookup_insert])
-  \\ `2 ≠ p2` by (CCONTR_TAC  \\ fs [])
+  \\ `3 ≠ p2` by (CCONTR_TAC  \\ fs [])
   \\ ntac 8 strip_assign
   (* make_tailcall *)
   \\ ASM_REWRITE_TAC [ tailcall_def , find_code_def
@@ -404,7 +404,7 @@ Proof
   \\ rw [] \\ pop_assum (qspec_then `domain (insert p1 ARB s.refs)` assume_tac)
   \\ fs [FINITE_domain,domain_lookup] \\ Cases_on `lookup x (insert p1 ARB s.refs)`
   \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p1` \\ fs [lookup_insert])
-  \\ `2 ≠ p2` by (CCONTR_TAC  \\ fs [])
+  \\ `3 ≠ p2` by (CCONTR_TAC  \\ fs [])
   \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe)  _`
   (* Prove we are safe for space up to this point *)
   \\ `safe` by
@@ -571,7 +571,7 @@ Proof
      \\ fs [FINITE_domain,domain_lookup]
      \\ Cases_on `lookup x (insert p2 ARB (insert p1 ARB s.refs))`
      \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p2` \\ Cases_on `x = p1` \\ fs [lookup_insert])
-  \\ `2 ≠ p3` by (CCONTR_TAC  \\ fs [])
+  \\ `3 ≠ p3` by (CCONTR_TAC  \\ fs [])
   \\ strip_assign
   \\ fs [lookup_insert]
   (* Prove we are safe for space up to this point *)
@@ -749,8 +749,8 @@ Theorem data_safe_yes_code_shallow[local] =
 
 Theorem data_safe_yes_code_abort:
  ∀s ts.
-   (s.locals = fromList [RefPtr 2]) ∧
-   (lookup 2 s.refs = SOME (ByteArray T [121w])) ∧
+   (s.locals = fromList [RefPtr 3]) ∧
+   (lookup 3 s.refs = SOME (ByteArray T [121w])) ∧
    2 ≤ s.limits.length_limit ∧
    (s.stack_frame_sizes = yes_config.word_conf.stack_frame_size) ∧
    s.limits.arch_64_bit ∧
@@ -840,7 +840,7 @@ Proof
      \\ fs [FINITE_domain,domain_lookup]
      \\ Cases_on `lookup x s.refs` \\ fs []
      \\ asm_exists_tac \\ fs [])
-  \\ `p1 ≠ 2` by (CCONTR_TAC  \\ fs [])
+  \\ `p1 ≠ 3` by (CCONTR_TAC  \\ fs [])
   \\ IF_CASES_TAC >- simp [data_safe_def]
   \\ REWRITE_TAC [ push_env_def , to_shallow_def , to_shallow_thm]
   \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
@@ -911,7 +911,7 @@ Proof
     \\ rw [] \\ pop_assum (qspec_then `domain (insert p1 ARB s.refs)` assume_tac)
     \\ fs [FINITE_domain,domain_lookup] \\ Cases_on `lookup x (insert p1 ARB s.refs)`
     \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p1` \\ fs [lookup_insert])
-  \\ `2 ≠ p2` by (CCONTR_TAC  \\ fs [])
+  \\ `3 ≠ p2` by (CCONTR_TAC  \\ fs [])
   \\ ntac 8 strip_assign
   (* make_tailcall *)
   \\ ASM_REWRITE_TAC [ tailcall_def , find_code_def
@@ -932,7 +932,7 @@ Proof
   \\ rw [] \\ pop_assum (qspec_then `domain (insert p1 ARB s.refs)` assume_tac)
   \\ fs [FINITE_domain,domain_lookup] \\ Cases_on `lookup x (insert p1 ARB s.refs)`
   \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p1` \\ fs [lookup_insert])
-  \\ `2 ≠ p2` by (CCONTR_TAC  \\ fs [])
+  \\ `3 ≠ p2` by (CCONTR_TAC  \\ fs [])
   \\ IF_CASES_TAC >- simp [data_safe_def]
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
@@ -1026,7 +1026,7 @@ Proof
      \\ fs [FINITE_domain,domain_lookup]
      \\ Cases_on `lookup x (insert p2 ARB (insert p1 ARB s.refs))`
      \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p2` \\ Cases_on `x = p1` \\ fs [lookup_insert])
-  \\ `2 ≠ p3` by (CCONTR_TAC  \\ fs [])
+  \\ `3 ≠ p3` by (CCONTR_TAC  \\ fs [])
   \\ strip_assign
   \\ fs [lookup_insert]
   \\ reverse (Cases_on `call_FFI s.ffi "put_char" [121w; 10w] []`
@@ -1068,7 +1068,7 @@ Theorem data_safe_yes:
   ⇒ is_safe_for_space ffi
        yes_x64_conf
        yes_prog
-       (56,89)
+       (56,93)
 Proof
  let
   val code_lookup   = mk_code_lookup
@@ -1130,8 +1130,12 @@ Proof
   \\ strip_call
   \\ ntac 9 strip_assign
   \\ make_if
+  \\ Q.UNABBREV_TAC `rest_call`
+  \\ strip_call
+  \\ ntac 9 strip_assign
+  \\ make_if
   \\ ntac 6 strip_assign
-  \\ ntac 6
+  \\ ntac 7
      (open_tailcall
      \\ ntac 4 strip_assign
      \\ make_if
@@ -1141,6 +1145,9 @@ Proof
   \\ make_if
   \\ Q.UNABBREV_TAC `rest_call`
   \\ strip_assign
+  \\ make_tailcall
+  \\ strip_makespace
+  \\ ntac 3 strip_assign
   \\ make_tailcall
   \\ ntac 5
      (strip_makespace
@@ -1242,7 +1249,7 @@ val yes_safe_thm =
                     |> REWRITE_RULE [GSYM yes_prog_def
                                     ,GSYM yes_x64_conf_def]
                     |> Q.INST [`stack_limit` |-> `56`
-                              ,`heap_limit` |-> `89`]
+                              ,`heap_limit` |-> `93`]
                     |> INST_TYPE [``:'ffi`` |-> ``:unit``]
                     |> Q.INST [`ffi` |-> `sio_ffi_state`]
                     |> SIMP_RULE std_ss [prim_sem_env_yes,LET_DEF,not_fail,ELIM_UNCURRY]
@@ -1255,7 +1262,7 @@ val yes_safe_thm =
     end
 
 Theorem yes_has_space_for_dessert:
- (read_limits yes_x64_conf mc ms = (56,89)) ⇒
+ (read_limits yes_x64_conf mc ms = (56,93)) ⇒
       mc_conf_ok mc ∧ mc_init_ok yes_x64_conf mc ∧
       installed yes_code cbspace yes_data data_sp
         yes_config.lab_conf.ffi_names sio_ffi_state

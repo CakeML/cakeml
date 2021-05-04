@@ -59,14 +59,7 @@ Theorem revdroprev:
    ∀l n.
      n ≤ LENGTH l ⇒ (REVERSE (DROP n (REVERSE l)) = TAKE (LENGTH l - n) l)
 Proof
-  ho_match_mp_tac listTheory.SNOC_INDUCT >> simp[] >> rpt strip_tac >>
-  rename1 `n ≤ SUC (LENGTH l)` >>
-  `n = 0 ∨ ∃m. n = SUC m` by (Cases_on `n` >> simp[]) >> simp[]
-  >- simp[TAKE_APPEND2] >>
-  simp[TAKE_APPEND1] >>
-  `LENGTH l + 1 - SUC m = LENGTH l - m`
-     suffices_by (disch_then SUBST_ALL_TAC >> simp[]) >>
-  simp[]
+  fs [GSYM BUTLASTN_def,BUTLASTN_TAKE]
 QED
 
 Theorem revtakerev:
@@ -3887,7 +3880,9 @@ Proof
   Induct \\ Cases_on `t2` \\ fs [eq_shape_def,copy_shape_def]
   \\ rpt strip_tac \\ TRY (first_x_assum match_mp_tac)
   \\ TRY (match_mp_tac eq_shape_copy_shape) \\ fs []
-  \\ rw [] \\ fs [eq_shape_def] \\ fs [EXTENSION]
+  \\ rw [] \\ pop_assum mp_tac
+  \\ rewrite_tac [DE_MORGAN_THM] \\ strip_tac
+  \\ fs [eq_shape_def] \\ fs [EXTENSION]
   \\ TRY (first_assum (qspec_then `0` mp_tac) \\ simp_tac std_ss [])
   \\ rw [] \\ first_assum (qspec_then `2 * x + 2` mp_tac)
   \\ first_x_assum (qspec_then `2 * x + 1` mp_tac)
@@ -3976,180 +3971,6 @@ Proof
     >- (qexists_tac `n * 2` >> fs[] >> once_rewrite_tac [MULT_COMM] >>
         rw[EVEN_DOUBLE, MULT_DIV])
     >- (qexists_tac `n DIV 2` >> fs[])
-QED
-
-Theorem wf_spt_fold_tree:
-     ∀ tree : num_set num_map y : num_set.
-        wf tree ∧ (∀ n x . (lookup n tree = SOME x) ⇒ wf x) ∧ wf y
-      ⇒ wf(spt_fold union y tree)
-Proof
-    Induct >> rw[] >> fs[spt_fold_def]
-    >- (fs[wf_def] >> metis_tac[lookup_def, wf_union])
-    >> `wf(spt_fold union y tree)` by (
-            last_x_assum match_mp_tac >>
-            fs[] >> rw[]
-            >- fs[wf_def]
-            >> last_x_assum match_mp_tac >>
-               qexists_tac `2 * n + 2` >>
-               fs[lookup_def] >> fs[EVEN_DOUBLE, EVEN_ADD] >>
-               once_rewrite_tac[MULT_COMM] >> fs[DIV_MULT])
-    >> (last_x_assum match_mp_tac >> fs[] >> rw[]
-        >-  fs[wf_def]
-        >- (last_x_assum match_mp_tac >>
-            qexists_tac `2 * n + 1` >> fs[lookup_def, EVEN_DOUBLE, EVEN_ADD] >>
-            once_rewrite_tac[MULT_COMM] >> fs[MULT_DIV])
-        >>  `wf a` by (last_x_assum match_mp_tac >>
-                qexists_tac `0` >> fs[lookup_def]) >>
-            fs[wf_union])
-QED
-
-Theorem lookup_spt_fold_union:
-     ∀ tree : num_set num_map y : num_set n : num .
-        lookup n (spt_fold union y tree) = SOME ()
-      ⇒ lookup n y = SOME () ∨
-        ∃ n1 s . lookup n1 tree = SOME s ∧ lookup n s = SOME ()
-Proof
-    Induct >> rw[]
-    >-  fs[spt_fold_def]
-    >-  (fs[spt_fold_def, lookup_union] >> BasicProvers.EVERY_CASE_TAC >>
-        fs[] >>
-        DISJ2_TAC >>
-        qexists_tac `0` >> qexists_tac `a` >> fs[lookup_def])
-    >- (
-        fs[spt_fold_def] >>
-        res_tac
-        >- (
-            res_tac >> fs[]
-            >- (
-               DISJ2_TAC >>
-               fs[lookup_def] >>
-               qexists_tac `n1 * 2 + 2` >> qexists_tac `s` >>
-               fs[EVEN_DOUBLE, EVEN_ADD] >>
-               once_rewrite_tac[MULT_COMM] >>
-               fs[DIV_MULT]
-               )
-            >- (
-               DISJ2_TAC >>
-               fs[lookup_def] >>
-               qexists_tac `n1' * 2 + 2` >> qexists_tac `s'` >>
-               fs[EVEN_DOUBLE, EVEN_ADD] >>
-               once_rewrite_tac[MULT_COMM] >>
-               fs[DIV_MULT]
-               )
-            )
-        >- (
-            res_tac >> fs[] >>
-            DISJ2_TAC >>
-            fs[lookup_def] >>
-            qexists_tac `2 * n1 + 1` >> qexists_tac `s` >>
-            fs[EVEN_DOUBLE, EVEN_ADD] >>
-            once_rewrite_tac[MULT_COMM] >>
-            fs[MULT_DIV]
-            )
-        )
-    >- (
-        fs[spt_fold_def] >>
-        res_tac
-        >- (
-            fs[lookup_union] >>
-            BasicProvers.EVERY_CASE_TAC
-            >- (
-                res_tac >> fs[]
-                >- (
-                   DISJ2_TAC >>
-                   fs[lookup_def] >>
-                   qexists_tac `n1 * 2 + 2` >> qexists_tac `s` >>
-                   fs[EVEN_DOUBLE, EVEN_ADD] >>
-                   once_rewrite_tac[MULT_COMM] >>
-                   fs[DIV_MULT]
-                   )
-                >- (
-                   DISJ2_TAC >>
-                   fs[lookup_def] >>
-                   qexists_tac `n1' * 2 + 2` >> qexists_tac `s'` >>
-                   fs[EVEN_DOUBLE, EVEN_ADD] >>
-                   once_rewrite_tac[MULT_COMM] >>
-                   fs[DIV_MULT]
-                   )
-                )
-            >- (
-                DISJ2_TAC >>
-                qexists_tac `0` >> qexists_tac `a` >>
-                fs[lookup_def]
-                )
-            )
-        >- (
-            DISJ2_TAC >>
-            fs[lookup_def] >>
-            qexists_tac `2 * n1 + 1` >> qexists_tac `s` >>
-            fs[EVEN_DOUBLE, EVEN_ADD] >>
-            once_rewrite_tac[MULT_COMM] >>
-            fs[MULT_DIV]
-            )
-    )
-QED
-
-Theorem lookup_spt_fold_union_STRONG:
-     ∀ tree : num_set num_map y : num_set n : num .
-        lookup n (spt_fold union y tree) = SOME ()
-      <=> lookup n y = SOME () ∨
-        ∃ n1 s . lookup n1 tree = SOME s ∧ lookup n s = SOME ()
-Proof
-    Induct >> rw[] >> EQ_TAC >> fs[lookup_spt_fold_union] >> rw[] >>
-    fs[spt_fold_def, lookup_def, lookup_union]
-    >- (BasicProvers.EVERY_CASE_TAC >> fs[])
-    >- (BasicProvers.EVERY_CASE_TAC >> fs[]
-        >- (DISJ1_TAC >> DISJ2_TAC >>
-            qexists_tac `(n1 - 1) DIV 2` >> qexists_tac `s` >> fs[])
-        >- (DISJ2_TAC >>
-            qexists_tac `(n1 - 1) DIV 2` >> qexists_tac `s` >> fs[])
-        )
-    >- (BasicProvers.EVERY_CASE_TAC >> fs[])
-    >- (BasicProvers.EVERY_CASE_TAC >> fs[]
-        >- (rw[] >> fs[NOT_NONE_SOME])
-        >- (DISJ1_TAC >> DISJ2_TAC >>
-            qexists_tac `(n1 - 1) DIV 2` >> qexists_tac `s` >> fs[])
-        >- (DISJ2_TAC >>
-            qexists_tac `(n1 - 1) DIV 2` >> qexists_tac `s` >> fs[])
-        )
-QED
-
-Theorem subspt_domain_spt_fold_union:
-     ∀ t1 : num_set num_map t2 y : num_set .
-        subspt t1 t2
-      ⇒ domain (spt_fold union y t1) ⊆ domain (spt_fold union y t2)
-Proof
-    rw[SUBSET_DEF] >> fs[domain_lookup] >>
-    qspecl_then [`t1`, `y`] mp_tac lookup_spt_fold_union_STRONG >>
-    qspecl_then [`t2`, `y`] mp_tac lookup_spt_fold_union_STRONG >>
-    ntac 2 strip_tac >> res_tac
-    >- metis_tac[]
-    >> ntac 2 (first_x_assum kall_tac) >>
-       `lookup n1 t2 = SOME s` by fs[subspt_def, domain_lookup] >>
-       metis_tac[]
-QED
-
-Theorem domain_spt_fold_union:
-     ∀ tree : num_set num_map y : num_set .
-        (∀ k v . lookup k tree = SOME v ⇒ domain v ⊆ domain tree)
-      ⇒ domain (spt_fold union y tree) ⊆ domain y ∪ domain tree
-Proof
-    rw[] >> qspec_then `tree` mp_tac lookup_spt_fold_union >>
-    rw[] >> fs[SUBSET_DEF, domain_lookup] >> rw[] >> res_tac >> fs[] >>
-    metis_tac[]
-QED
-
-Theorem domain_spt_fold_union_LN:
-     ∀ tree : num_set num_map  .
-        (∀ k v . lookup k tree = SOME v ⇒ domain v ⊆ domain tree)
-      ⇔ domain (spt_fold union LN tree) ⊆ domain tree
-Proof
-    rw[] >> EQ_TAC >> rw[]
-    >- (drule domain_spt_fold_union >>
-        strip_tac >> first_x_assum (qspec_then `LN` mp_tac) >> fs[])
-    >- (qspec_then `tree` mp_tac lookup_spt_fold_union_STRONG >>
-        rw[] >> fs[SUBSET_DEF, domain_lookup, lookup_def] >> rw[] >>
-        metis_tac[])
 QED
 
 (* END TODO *)

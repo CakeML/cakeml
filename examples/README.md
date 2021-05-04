@@ -70,6 +70,9 @@ using CF.
 [quicksortProgScript.sml](quicksortProgScript.sml):
 In-place quick sort on a polymorphic array.
 
+[replProgScript.sml](replProgScript.sml):
+The CakeML REPL
+
 [sortProgScript.sml](sortProgScript.sml):
 Program to sort the lines in a file, built on top of the quick sort example.
 

@@ -7,7 +7,7 @@ open preamble
      ml_translatorLib ml_translatorTheory
 open cfLib basis
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory"compiler64Prog";
 
@@ -188,6 +188,8 @@ val res = translate (parse_top_config_def |> SIMP_RULE (srw_ss()) []);
 (* Translations for each 64-bit target
   Note: ffi_asm is translated multiple times...
 *)
+
+val res = translate backendTheory.prim_src_config_eq;
 
 (* x64 *)
 val res = translate x64_configTheory.x64_names_def;

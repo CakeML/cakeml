@@ -1737,11 +1737,29 @@ QED
 
 open mlintTheory;
 
-(*
 (* TODO: Mostly copied from mlintTheory *)
 val result = translate fromChar_unsafe_def;
 
-val result = translate fromChars_range_unsafe_def;
+val fromChars_range_unsafe_tail_def = Define`
+  fromChars_range_unsafe_tail l 0       str mul acc = acc ∧
+  fromChars_range_unsafe_tail l (SUC n) str mul acc =
+    fromChars_range_unsafe_tail l n str (mul * 10)  (acc + fromChar_unsafe (strsub str (l + n)) * mul)`;
+
+Theorem fromChars_range_unsafe_tail_eq:
+  ∀n l s mul acc.
+  fromChars_range_unsafe_tail l n s mul acc = (fromChars_range_unsafe l n s) * mul + acc
+Proof
+  Induct>>rw[fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]
+QED
+
+Theorem fromChars_range_unsafe_alt:
+  fromChars_range_unsafe l n s = fromChars_range_unsafe_tail l n s 1 0
+Proof
+  rw[fromChars_range_unsafe_tail_eq]
+QED
+
+val result = translate fromChars_range_unsafe_tail_def;
+val result = translate fromChars_range_unsafe_alt;
 
 val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
@@ -1763,13 +1781,14 @@ val result = translate parsingTheory.fromString_unsafe_def;
 
 val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
 val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
-val fromchars_range_unsafe_side_def = theorem"fromchars_range_unsafe_side_def";
+val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_side_def";
+val fromchars_range_unsafe_side_def = fetch "-" "fromchars_range_unsafe_side_def";
 
 Theorem fromchars_unsafe_side_thm:
    ∀n s. n ≤ LENGTH s ⇒ fromchars_unsafe_side n (strlit s)
 Proof
   completeInduct_on`n` \\ rw[]
-  \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def]
+  \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def,fromchars_range_unsafe_tail_side_def]
 QED
 
 val fromString_unsafe_side = Q.prove(
@@ -1780,10 +1799,16 @@ val fromString_unsafe_side = Q.prove(
   \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID]
   \\ match_mp_tac fromchars_unsafe_side_thm
   \\ rw[]) |> update_precondition;
-*)
 
 val _ = translate blanks_def;
 val _ = translate tokenize_def;
+
+val _ = translate tokenize_fast_def;
+
+val tokenize_fast_side = Q.prove(
+  `∀x. tokenize_fast_side x = T`,
+  EVAL_TAC >> fs[]) |> update_precondition;
+
 val _ = translate toks_def;
 val _ = translate parse_until_zero_def;
 val _ = translate parse_until_nn_def;
@@ -1902,7 +1927,7 @@ val r = translate nocheck_string_def;
 (* TODO: possibly make this dump every 10000 lines or so *)
 val check_unsat'' = process_topdecs `
   fun check_unsat'' fd lno fml ls carr earr =
-    case TextIO.b_inputLineTokens fd blanks tokenize of
+    case TextIO.b_inputLineTokens fd blanks tokenize_fast of
       None => (fml, ls)
     | Some l =>
     case parse_and_run_arr lno fml ls carr earr l of
@@ -1912,7 +1937,7 @@ val check_unsat'' = process_topdecs `
 val check_unsat''_def = Define`
   (check_unsat'' fd fml inds Clist earliest fs [] = STDIO (fastForwardFD fs fd)) ∧
   (check_unsat'' fd fml inds Clist earliest fs (ln::ls) =
-    case parse_and_run_list fml inds Clist earliest (toks ln) of
+    case parse_and_run_list fml inds Clist earliest (toks_fast ln) of
       NONE => STDIO (lineForwardFD fs fd)
     | SOME (fml', inds', Clist', earliest') =>
       check_unsat'' fd fml' inds' Clist' earliest' (lineForwardFD fs fd) ls)`
@@ -1921,7 +1946,7 @@ val check_unsat''_def = Define`
 val parse_and_run_file_list_def = Define`
   (parse_and_run_file_list [] fml inds Clist earliest = SOME (fml, inds)) ∧
   (parse_and_run_file_list (x::xs) fml inds Clist earliest =
-    case parse_and_run_list fml inds Clist earliest (toks x) of
+    case parse_and_run_list fml inds Clist earliest (toks_fast x) of
       NONE => NONE
     | SOME (fml', inds', Clist', earliest') => parse_and_run_file_list xs fml' inds' Clist' earliest')`
 
@@ -1934,7 +1959,7 @@ Theorem parse_and_run_file_list_eq:
 Proof
   Induct>>fs[parse_and_run_list_def,parse_lpr_def,parse_and_run_file_list_def,check_lpr_list_def]>>
   rw[]>>
-  every_case_tac>>fs[]>>
+  every_case_tac>>fs[toks_fast_def]>>
   simp[check_lpr_list_def]
 QED
 
@@ -1950,15 +1975,16 @@ QED
 
 val blanks_v_thm = theorem "blanks_v_thm";
 val tokenize_v_thm = theorem "tokenize_v_thm";
+val tokenize_fast_v_thm = theorem "tokenize_fast_v_thm";
 
 val b_inputLineTokens_specialize =
   b_inputLineTokens_spec_lines
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
-  |> Q.GEN `g` |> Q.ISPEC`tokenize`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
+  |> Q.GEN `g` |> Q.ISPEC`tokenize_fast`
+  |> Q.GEN `gv` |> Q.ISPEC`tokenize_fast_v`
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def] ;
+  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_fast_v_thm,blanks_def] ;
 
 Theorem check_unsat''_spec:
   !fd fdv lines fs fmlv fmlls fmllsv ls lsv Clist Carrv lno lnov Earrv earliest earliestv.
@@ -2022,7 +2048,7 @@ Proof
                 ARRAY fmlv fmllsv * W8ARRAY Carrv Clist * ARRAY Earrv earliestv *
                 STDIO (forwardFD fs fd k) *
                 INSTREAM_LINES fd fdv lines (forwardFD fs fd k) *
-                & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks h)) v)’
+                & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast h)) v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
       \\ qexists_tac ‘ARRAY fmlv fmllsv * W8ARRAY Carrv Clist * ARRAY Earrv earliestv ’
@@ -2030,7 +2056,7 @@ Proof
       \\ qexists_tac ‘fs’
       \\ qexists_tac ‘fd’ \\ xsimpl \\ fs []
       \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl
-      \\ simp[toks_def])
+      \\ simp[toks_fast_def])
   \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq \\ fs []
   \\ xmatch \\ fs []
   \\ xlet_auto >- (
@@ -2194,9 +2220,9 @@ Proof
             case
               parse_and_run_file_list (all_lines fs f) fmlls ls (REPLICATE n w8z) earliest
             of
-              NONE => resv = Conv (SOME (TypeStamp "Inl" 4)) [v0] ∧ ∃s. STRING_TYPE s v0
+              NONE => resv = Conv (SOME (TypeStamp "Inl" 23)) [v0] ∧ ∃s. STRING_TYPE s v0
             | SOME(fmlls',inds') =>
-              resv = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2]] ∧
+              resv = Conv (SOME (TypeStamp "Inr" 23)) [Conv NONE [v1; v2]] ∧
               v1 = fmlv' ∧
               LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls' fmllsv' ∧ LIST_TYPE NUM inds' v2
           )`
@@ -2255,14 +2281,13 @@ Proof
       qexists_tac `a2` >>
       qexists_tac `a1` >>
       qexists_tac `k` >>
-      qexists_tac `rest` >> xsimpl>>
-      metis_tac[])
+      qexists_tac `rest` >> xsimpl)
     >>
     xhandle`(POSTv v.
         SEP_EXISTS v1 v2 k rest.
          STDIO (forwardFD fss (nextFD fs) k) *
          INSTREAM_LINES (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
-         &(v = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2]]) *
+         &(v = Conv (SOME (TypeStamp "Inr" 23)) [Conv NONE [v1; v2]]) *
          (SEP_EXISTS fmllsv'.
            ARRAY v1 fmllsv' *
            &(unwrap_TYPE

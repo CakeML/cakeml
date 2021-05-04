@@ -8,6 +8,7 @@ open preamble mlstringTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory ho
 val _ = new_theory"holExtension"
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
@@ -258,11 +259,6 @@ Proof
          EVAL_TAC >> simp[])) >>
   metis_tac[]
 QED
-
-(* Hiding this under a definition so it won't obstruct drules later *)
-Definition extends_init_def:
-  extends_init ctxt = (ctxt extends init_ctxt)
-End
 
 Theorem consts_of_term_nonbuiltin_allCInsts:
   !trm c ty sig.

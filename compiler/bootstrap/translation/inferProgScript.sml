@@ -6,7 +6,7 @@ open preamble parserProgTheory
      ml_translatorLib ml_translatorTheory
      semanticPrimitivesTheory inferPropsTheory
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "inferProg"
 
@@ -308,103 +308,15 @@ val pr_CASE = Q.prove(
   `pair_CASE (x,y) f = f x y`,
   SRW_TAC [] []);
 
-val op_apply = Q.prove(
-  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21
-        x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41 x42 x43 x44 x45 x46) y =
-         (ast$op_CASE op
-            (* Opn 1 *)
-            (\z. x1 z y)
-            (* Opb 1 *)
-            (\z. x2 z y)
-            (* Opw 2 *)
-            (\z1 z2. x3 z1 z2 y)
-            (* Shift 3 *)
-            (\z1 z2 z3. x4 z1 z2 z3 y)
-            (* Equality 0 *)
-            (x5 y)
-            (* FP_cmp 1 *)
-            (\z. x6 z y)
-            (* FP_uop 1 *)
-            (\z. x7 z y)
-            (* FP_bop 1 *)
-            (\z. x8 z y)
-            (* FP_top 1 *)
-            (\z. x9 z y)
-            (* Opapp 0 *)
-            (x10 y)
-            (* Opassign 0 *)
-            (x11 y)
-            (* Opref 0 *)
-            (x12 y)
-            (* Opderef 0 *)
-            (x13 y)
-            (* Aw8alloc *)
-            (x14 y)
-            (* Aw8sub *)
-            (x15 y)
-            (* Aw8length*)
-            (x16 y)
-            (* Aw8update *)
-            (x17 y)
-            (* WfI 1 *)
-            (\z. x18 z y)
-            (* WtI 1 *)
-            (\z. x19 z y)
-            (* CopyStrStr *)
-            (x20 y)
-            (* CopyStrAw8 *)
-            (x21 y)
-            (* CopyAw8Str *)
-            (x22 y)
-            (* CopyAw8Aw8 *)
-            (x23 y)
-            (* Ord *)
-            (x24 y)
-            (* Chr *)
-            (x25 y)
-            (* Chopb 1 *)
-            (\z. x26 z y)
-            (* Implode *)
-            (x27 y)
-            (* Explode *)
-            (x28 y)
-            (* Strsub*)
-            (x29 y)
-            (* Strlen *)
-            (x30 y)
-            (* Strcat *)
-            (x31 y)
-            (* Vfromlist *)
-            (x32 y)
-            (* Vsub *)
-            (x33 y)
-            (* Vlength *)
-            (x34 y)
-            (* Aalloc *)
-            (x35 y)
-            (* AallocEmpty *)
-            (x36 y)
-            (* Asub *)
-            (x37 y)
-            (* Alength*)
-            (x38 y)
-            (* Aupdate *)
-            (x39 y)
-            (* Asub_unsafe *)
-            (x40 y)
-            (* Aupdate_unsafe *)
-            (x41 y)
-            (* Aw8sub_unsafe *)
-            (x42 y)
-            (* Aw8update_unsafe *)
-            (x43 y)
-            (* ListAppend *)
-            (x44 y)
-            (* ConfigGC *)
-            (x45 y)
-            (* FFI *)
-            (\z. x46 z y))`,
-  Cases THEN SRW_TAC [] []);
+val op_apply =
+  let
+    val ty = ``:ast$op``
+    val ty_def = {case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty}
+    val rthm = Prim_rec.prove_case_rand_thm ty_def
+    val f = concl rthm |> lhs |> rator
+    val rthm2 = GEN f rthm
+    val rthm3 = Q.ISPEC `\g. g (y : 'b)` rthm2
+  in BETA_RULE rthm3 |> Q.GEN ‘x’ end;
 
 val list_apply = Q.prove(
   `!op. (list_CASE op x1 x2) y =

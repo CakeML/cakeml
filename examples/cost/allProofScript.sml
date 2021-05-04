@@ -24,7 +24,7 @@ val all_x64_conf = (rand o rator o lhs o concl) all_thm
 val _ = install_naming_overloads "allProg";
 val _ = write_to_file all_data_prog_def;
 
-val foldl_body = ``lookup_foldl (fromAList all_data_prog)``
+val foldl_body = ``lookup_List_foldl (fromAList all_data_prog)``
            |> (REWRITE_CONV [all_data_code_def] THENC EVAL)
            |> concl |> rhs |> rand |> rand
 
@@ -192,7 +192,7 @@ Theorem foldl_evaluate:
     (* Sizes *)
     size_of_stack s.stack = SOME sstack ∧
     s.locals_size = SOME lsize ∧
-    lookup_foldl s.stack_frame_sizes = SOME lsize ∧
+    lookup_List_foldl s.stack_frame_sizes = SOME lsize ∧
     s.stack_max = SOME smax ∧
     s.space = 0 ∧
     (* Arguments *)
@@ -209,7 +209,7 @@ Theorem foldl_evaluate:
     sstack + lsize < s.limits.stack_limit ∧
     size_of_heap s ≤ s.limits.heap_limit ∧
     (* Code *)
-    lookup_foldl s.code      = SOME (3,foldl_body) ∧
+    lookup_List_foldl s.code      = SOME (3,foldl_body) ∧
     lookup_all_clos_0 s.code = SOME (3,all_clos_0_body) ∧
     lookup_all_0 s.code      = SOME (2,all_0_body) ∧
     (* Invariants *)
@@ -330,6 +330,11 @@ in
               \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
               \\ fs [Abbr ‘f3’,size_of_def]
               \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
+              \\ qpat_x_assum ‘size_of _ (_::rest_v) _ _ = _’ mp_tac
+              \\ simp[Once size_of_cons,size_of_def] \\ rw[] \\ gs[] \\ rveq
+              \\ qpat_x_assum ‘size_of _ (_::rest_v) _ _ = _’ mp_tac
+              \\ simp[Once size_of_cons,size_of_def] \\ rw[] \\ gs[] \\ rveq
+              \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
               \\ rename1 ‘a1 + b1 ≤ a2 + b2’
               \\ ‘a1 ≤ a2 ∧ b1 ≤ b2’ suffices_by rw []
               \\ conj_tac
@@ -338,18 +343,18 @@ in
                   \\ fs [repbool_list_safe_def] \\ rveq
                   \\ fs [size_of_def]
                   \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
-                  \\ Cases_on ‘IS_SOME (lookup ts0 seen1)’
+                  \\ Cases_on ‘IS_SOME (lookup ts0 seen1')’
                   \\ fs [] \\ rveq \\ fs []
                   >- (drule_all repbool_list_size_of_rm
                       \\ disch_then (qspecl_then [‘s.limits’,‘refs1’] mp_tac)
                       \\ rw [])
                   \\ drule repbool_list_insert_ts
-                  \\ disch_then (qspecl_then [‘ts0’,‘refs1’,‘seen1’,‘s.limits’] mp_tac)
+                  \\ disch_then (qspecl_then [‘ts0’,‘refs1'’,‘seen1'’,‘s.limits’] mp_tac)
                   \\ fs [])
               \\ qunabbrev_tac ‘f1’ \\ fs [size_of_def]
-              \\ ‘lookup ts_f seen1 = lookup ts_f seen1'’
+              \\ ‘lookup ts_f seen1' = lookup ts_f seen1''’
                  by metis_tac [repbool_list_seen_MEM]
-              \\ ‘lookup ts_f seen1 = lookup ts_f seen1''’
+              \\ ‘lookup ts_f seen1' = lookup ts_f seen1’
                  by (irule repbool_list_seen_MEM
                      \\ ‘¬ MEM ts_f (ts0::z)’ by fs []
                      \\ asm_exists_tac \\ fs []
@@ -359,7 +364,7 @@ in
                      \\ metis_tac [])
               \\ ntac 2 (pop_assum mp_tac)
               \\ ntac 2 (disch_then (assume_tac o GSYM))
-              \\ fs [] \\ Cases_on ‘IS_SOME (lookup ts_f seen1)’
+              \\ fs [] \\ Cases_on ‘IS_SOME (lookup ts_f seen1')’
               \\ fs [])
           \\ fs [MAX_DEF,libTheory.the_def])
       \\ REWRITE_TAC[to_shallow_thm,to_shallow_def,foldl_body_def]
@@ -401,6 +406,9 @@ in
           \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
           \\ fs [size_of_def]
           \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
+          \\ qpat_x_assum ‘size_of _ (_::rest_v) _ _ = _’ mp_tac
+          \\ simp[Once size_of_cons,size_of_def] \\ rw[] \\ gs[] \\ rveq
+          \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
           \\ rename1 ‘a1 + b1 ≤ a2 + b2’
           \\ ‘a1 ≤ a2 ∧ b1 ≤ b2’ suffices_by rw []
           \\ conj_tac
@@ -409,18 +417,18 @@ in
               \\ fs [repbool_list_safe_def] \\ rveq
               \\ fs [size_of_def]
               \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs []
-              \\ Cases_on ‘IS_SOME (lookup ts0 seen1)’
+              \\ Cases_on ‘IS_SOME (lookup ts0 seen1')’
               \\ fs [] \\ rveq \\ fs []
               >- (drule_all repbool_list_size_of_rm
                   \\ disch_then (qspecl_then [‘s.limits’,‘refs1’] mp_tac)
                   \\ rw [])
               \\ drule repbool_list_insert_ts
-              \\ disch_then (qspecl_then [‘ts0’,‘refs1’,‘seen1’,‘s.limits’] mp_tac)
+              \\ disch_then (qspecl_then [‘ts0’,‘refs1'’,‘seen1'’,‘s.limits’] mp_tac)
               \\ fs [])
           \\ qunabbrev_tac ‘f1’ \\ fs [size_of_def]
-          \\ ‘lookup ts_f seen1 = lookup ts_f seen1'’
+          \\ ‘lookup ts_f seen1' = lookup ts_f seen1''’
             by metis_tac [repbool_list_seen_MEM]
-          \\ ‘lookup ts_f seen1 = lookup ts_f seen1''’
+          \\ ‘lookup ts_f seen1' = lookup ts_f seen1’
             by (irule repbool_list_seen_MEM
                 \\ ‘¬ MEM ts_f (ts0::z)’ by fs []
                 \\ asm_exists_tac \\ fs []
@@ -430,7 +438,7 @@ in
                 \\ metis_tac [])
           \\ ntac 2 (pop_assum mp_tac)
           \\ ntac 2 (disch_then (assume_tac o GSYM))
-          \\ fs [] \\ Cases_on ‘IS_SOME (lookup ts_f seen1)’
+          \\ fs [] \\ Cases_on ‘IS_SOME (lookup ts_f seen1')’
           \\ fs [])
       \\ fs [MAX_DEF,libTheory.the_def,size_of_stack_def])
   \\ REWRITE_TAC[to_shallow_thm,to_shallow_def,foldl_body_def]
@@ -452,7 +460,7 @@ Theorem data_safe_all:
        all_x64_conf
        all_prog
        (* (s_size,h_size) *)
-       (56,78) (* Tightest values *)
+       (56,81) (* Tightest values *)
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -504,13 +512,13 @@ in
  \\ strip_makespace
  \\ ntac 47 strip_assign
  \\ make_tailcall
- \\ ntac 2
+ \\ ntac 3
     (strip_call
     \\ ntac 9 strip_assign
     \\ make_if
     \\ UNABBREV_ALL_TAC)
  \\ ntac 6 strip_assign
- \\ ntac 2
+ \\ ntac 3
     (open_tailcall
     \\ ntac 4 strip_assign
     \\ make_if
@@ -522,6 +530,9 @@ in
   \\ simp []
   \\ IF_CASES_TAC >- (simp [data_safe_def,size_of_def,frame_lookup] \\ EVAL_TAC)
   \\ REWRITE_TAC [to_shallow_def]
+  \\ strip_makespace
+  \\ ntac 3 strip_assign
+  \\ make_tailcall
   \\ ntac 2
      (strip_makespace
      \\ ntac 4 strip_assign

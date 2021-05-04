@@ -13,6 +13,8 @@ local open
   lab_to_targetTheory blastLib
 in end
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory"ag32_memory";
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]

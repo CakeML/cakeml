@@ -4,6 +4,8 @@
 open preamble bviTheory;
 local open backend_commonTheory bvlSemTheory in end;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory"bviSem";
 
 Overload num_stubs[local] = ``bvl_num_stubs``

@@ -919,7 +919,12 @@ Proof
    (fs [wordSemTheory.env_to_list_def,wordSemTheory.list_rearrange_def]
     \\ fs [EVAL ``(QSORT key_val_compare (toAList (insert 0 x LN)))``]
     \\ fs [EVAL ``count 1``] \\ rw []
-    \\ fs [BIJ_DEF,SURJ_DEF]) \\ fs []
+    \\ EVAL_TAC
+    \\ fs [BIJ_DEF,SURJ_DEF]
+    \\ first_x_assum (qspec_then`0` kall_tac)
+    \\ first_x_assum (qspec_then`0` mp_tac)
+    \\ EVAL_TAC \\ simp[])
+  \\ fs []
   \\ `dimindex (:'a) + 5 < dimword (:'a)` by
         (fs [dimword_def,good_dimindex_def] \\ NO_TAC)
   \\ qmatch_goalsub_abbrev_tac `evaluate (LongDiv_code c,t2)`
@@ -1080,7 +1085,12 @@ Proof
    (fs [wordSemTheory.env_to_list_def,wordSemTheory.list_rearrange_def]
     \\ fs [EVAL ``(QSORT key_val_compare (toAList (insert 0 ret_val LN)))``]
     \\ fs [EVAL ``count 1``] \\ rw []
-    \\ fs [BIJ_DEF,SURJ_DEF]) \\ fs []
+    \\ EVAL_TAC
+    \\ fs [BIJ_DEF,SURJ_DEF]
+    \\ first_x_assum (qspec_then`0` kall_tac)
+    \\ first_x_assum (qspec_then`0` mp_tac)
+    \\ EVAL_TAC \\ simp[])
+  \\ fs []
   THEN1
    (fs [wordSemTheory.pop_env_def,wordSemTheory.push_env_def]
     \\ fs [EVAL ``domain (fromAList [(0,ret_val)])``,wordSemTheory.set_var_def]
@@ -2249,8 +2259,9 @@ Proof
     \\ match_mp_tac LESS_LESS_EQ_TRANS \\ asm_exists_tac \\ fs []
     \\ fs [extract_stack_def]
     \\ ntac 2 (pairarg_tac \\ fs [])
-    \\ fs [Abbr`yy`,EVAL ``toList
-             (insert 2 (Number (&index))
+    \\ fs [Abbr`yy`]
+    \\ gs[EVAL ``toList
+             (insert 2 ((Number (&index)):dataSem$v)
                 (insert 1 (Number i2) (insert 0 (Number i1) LN)))``]
     \\ ntac 2 (pop_assum mp_tac)
     \\ once_rewrite_tac [size_of_cons] \\ simp [size_of_def]

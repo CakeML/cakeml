@@ -84,6 +84,10 @@ Part of the correctness proof for data_to_word
 [data_to_word_memoryProofScript.sml](data_to_word_memoryProofScript.sml):
 Part of the correctness proof for data_to_word
 
+[experimentalLib.sml](experimentalLib.sml):
+Some proof tools, mostly quite experimental, used in some of
+the proofs in this directory
+
 [flat_elimProofScript.sml](flat_elimProofScript.sml):
 Correctness proof for flatLang dead code elimination
 
@@ -98,6 +102,10 @@ Correctness proof for lab_filter
 
 [lab_to_targetProofScript.sml](lab_to_targetProofScript.sml):
 Correctness proof for lab_to_target
+
+[source_evalProofScript.sml](source_evalProofScript.sml):
+Proofs that the eval mode of the source semantics can
+be switched to one that includes an oracle.
 
 [source_to_flatProofScript.sml](source_to_flatProofScript.sml):
 Correctness proof for source_to_flat

@@ -3,6 +3,8 @@
 *)
 open preamble gc_sharedTheory wordsTheory wordsLib integer_wordTheory;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "copying_gc";
 
 val _ = ParseExtras.temp_loose_equality();

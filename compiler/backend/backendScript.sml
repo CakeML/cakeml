@@ -168,6 +168,15 @@ Proof
   rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]))
 QED
 
+Definition prim_src_config_def:
+  prim_src_config =
+    let (_, next, env, _, _) = compile_decs [] 1n empty_config.next empty_env
+        ARB prim_types_program in
+    (empty_config with <| next := next; mod_env := env |>)
+End
+
+Theorem prim_src_config_eq = EVAL ``prim_src_config``
+
 val prim_config_def = Define`
   prim_config =
     FST (to_flat <| source_conf := empty_config |> (prim_types_program))`;

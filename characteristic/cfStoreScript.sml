@@ -6,6 +6,8 @@ open set_sepTheory helperLib ConseqConv
 open semanticPrimitivesTheory ml_translatorTheory
 open cfHeapsTheory cfHeapsBaseLib
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "cfStore"
 
 

@@ -1,6 +1,9 @@
 Empty versions of the Lem libraries (which we don't use, but building
 with Lem requires)
 
+[lem_listScript.sml](lem_listScript.sml):
+Simple definitions of things lem expects
+
 [lem_list_extraScript.sml](lem_list_extraScript.sml):
 This is a file that is required for Lem to work.
 

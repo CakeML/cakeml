@@ -9,7 +9,7 @@ open arm7_targetTheory armTheory;
 open inliningLib;
 local open to_target32ProgTheory in end;
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "arm7Prog"
 
