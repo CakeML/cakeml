@@ -6,6 +6,7 @@ open preamble
      timeSemTheory panSemTheory
      timePropsTheory panPropsTheory
      pan_commonPropsTheory time_to_panTheory
+     timeFunSemTheory
 
 
 val _ = new_theory "time_to_panProof";
@@ -7904,11 +7905,10 @@ End
 
 
 Theorem timed_automata_correct:
-  ∀labels prog st it sts (t:('a,time_input) panSem$state).
+  ∀prog labels st sts (t:('a,time_input) panSem$state).
     steps prog labels
           (dimword (:α) - 1) (FST (t.ffi.ffi_state 0)) st sts ∧
     prog ≠ [] ∧ LENGTH (clksOf prog) ≤ 29 ∧
-    LENGTH sts = LENGTH labels ∧
     st.location =  FST (ohd prog) ∧
     init_clocks st.clocks (clksOf prog) ∧
     (* merge these two into one *)
@@ -8345,5 +8345,93 @@ Proof
   qexists_tac ‘ck + t.clock’ >>
   gs []
 QED
+
+Theorem timed_automata_functional_correct:
+  ∀k prog or st sts labels (t:('a,time_input) panSem$state).
+    timeFunSem$eval_steps k prog
+               (dimword (:α) - 1) (FST (t.ffi.ffi_state 0))
+               or st = SOME (labels, sts) ∧
+    prog ≠ [] ∧ LENGTH (clksOf prog) ≤ 29 ∧
+    st.location =  FST (ohd prog) ∧
+    init_clocks st.clocks (clksOf prog) ∧
+    code_installed t.code prog ∧
+    FLOOKUP t.code «start» =
+      SOME ([], start_controller (prog,st.waitTime)) ∧
+    well_formed_code prog t.code ∧
+    mem_config t.memory t.memaddrs t.be ∧
+    mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
+    t.ffi =
+    build_ffi (:'a) t.be (MAP explode (out_signals prog))
+              t.ffi.ffi_state t.ffi.io_events ∧
+    init_ffi t.ffi.ffi_state ∧
+    input_time_rel t.ffi.ffi_state ∧
+    time_seq t.ffi.ffi_state (dimword (:α)) ∧
+    ffi_rels_after_init prog labels st t ∧
+    good_dimindex (:'a) ∧
+    ~MEM "get_time_input" (MAP explode (out_signals prog)) ⇒
+    ∃io ios ns.
+      semantics t «start» = Terminate Success (t.ffi.io_events ++ io::ios) ∧
+      LENGTH labels = LENGTH ns ∧
+      SUM ns ≤ LENGTH ios ∧
+      decode_ios (:α) t.be labels ns
+                 (io::TAKE (SUM ns) ios)
+Proof
+  rw [] >>
+  dxrule eval_steps_imp_steps >>
+  strip_tac >>
+  metis_tac [timed_automata_correct]
+QED
+
+
+
+Theorem io_trace_impl_eval_steps:
+  ∀(t:('a,time_input) panSem$state) io ios prog st or k.
+    semantics t «start» = Terminate Success (t.ffi.io_events ++ io::ios) ∧
+    prog ≠ [] ∧ LENGTH (clksOf prog) ≤ 29 ∧
+    st.location =  FST (ohd prog) ∧
+    init_clocks st.clocks (clksOf prog) ∧
+    code_installed t.code prog ∧
+    FLOOKUP t.code «start» =
+      SOME ([], start_controller (prog,st.waitTime)) ∧
+    well_formed_code prog t.code ∧
+    mem_config t.memory t.memaddrs t.be ∧
+    mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
+    t.ffi =
+    build_ffi (:'a) t.be (MAP explode (out_signals prog))
+              t.ffi.ffi_state t.ffi.io_events ∧
+    init_ffi t.ffi.ffi_state ∧
+    input_time_rel t.ffi.ffi_state ∧
+    time_seq t.ffi.ffi_state (dimword (:α)) ∧
+    (* ffi_rels_after_init prog lbls st t ∧ *)
+    good_dimindex (:'a) ∧
+    ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
+    timeFunSem$eval_steps k prog
+                          (dimword (:α) - 1) (FST (t.ffi.ffi_state 0))
+                          or st ≠ NONE ⇒
+    ∃lbls sts ns.
+      timeFunSem$eval_steps k prog
+                            (dimword (:α) - 1) (FST (t.ffi.ffi_state 0))
+                            or st = SOME (lbls, sts) ∧
+      LENGTH lbls = LENGTH ns ∧
+      SUM ns ≤ LENGTH ios ∧
+      decode_ios (:α) t.be lbls ns
+                 (io::TAKE (SUM ns) ios)
+Proof
+  rw [] >>
+  gs [] >>
+  ‘∃lbls sts.
+     timeFunSem$eval_steps k prog (dimword (:α) − 1)
+                           (FST (t.ffi.ffi_state 0)) or st = SOME (lbls,sts)’ by (
+    gs [GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE] >>
+    cases_on ‘(timeFunSem$eval_steps k prog (dimword (:α) − 1)
+               (FST (t.ffi.ffi_state 0)) or st)’ >>
+    gs [IS_SOME_DEF] >>
+    cases_on ‘x’ >> gs []) >>
+  drule timed_automata_functional_correct >>
+  gs [] >>
+  impl_tac >- cheat >>
+  gs []
+QED
+
 
 val _ = export_theory();
