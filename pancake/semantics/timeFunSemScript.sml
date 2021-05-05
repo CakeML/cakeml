@@ -15,6 +15,11 @@ Datatype:
 End
 
 
+Definition next_oracle_def:
+  next_oracle (f:num -> input_delay) =
+    λn. f (n+1)
+End
+
 Definition eval_term_def:
   (eval_term st (SOME i)
                 (Tm (Input in_signal)
@@ -138,17 +143,17 @@ End
 
 
 Definition eval_step_def:
-  eval_step prog m n or orn st =
+  eval_step prog m n (or:num -> input_delay) st =
   case st.waitTime of
   | NONE =>
-      (case or orn of
+      (case or 0 of
        | Delay => eval_delay_wtime_none st m n
        | Input i => eval_input prog m n i st)
   | SOME w =>
       if w = 0
       then eval_output prog m n st
       else
-        (case or orn of
+        (case or 0 of
          | Delay => eval_delay_wtime_some st m n w
          | Input i =>
              if w + n < m
@@ -158,7 +163,10 @@ End
 
 
 Definition eval_steps_delay_until_max_def:
-  (eval_steps_delay_until_max 0 m n st = SOME ([],[])) ∧
+  (eval_steps_delay_until_max 0 m n st =
+   if n < m ∧ max_clocks (delay_clocks (st.clocks) n) m
+   then SOME ([],[])
+   else NONE) ∧
   (eval_steps_delay_until_max (SUC k) m n st =
    case eval_delay_wtime_none st m n of
    | SOME (lbl, st') =>
@@ -170,27 +178,22 @@ End
 
 
 Definition eval_steps_def:
-  (eval_steps 0 prog m n or orn st =
+  (eval_steps 0 prog m n _ st =
    case st.waitTime of
-     NONE =>
-       (if n = m - 1
-        then SOME ([],[])
-        else if n < m - 1
-        then
-          (case eval_steps_delay_until_max ((m - 1) - n) m n st of
-           | SOME (lbls, sts) => SOME (lbls, sts)
-           | _ => NONE)
-        else NONE)
+   | NONE =>
+       (case eval_steps_delay_until_max ((m - 1) - n) m n st of
+        | SOME (lbls, sts) => SOME (lbls, sts)
+        | _ => NONE)
    | _ => NONE) ∧
-  (eval_steps (SUC k) prog m n or orn st =
-   case eval_step prog m n or orn st of
+  (eval_steps (SUC k) prog m n or st =
+   case eval_step prog m n or st of
    | SOME (lbl, st') =>
        let n' =
            case lbl of
            | LDelay d => d + n
            | LAction _ => n
        in
-         (case eval_steps k prog m n' or (orn + 1) st' of
+         (case eval_steps k prog m n' (next_oracle or) st' of
           | NONE => NONE
           | SOME (lbls', sts') => SOME (lbl::lbls', st'::sts'))
    | NONE => NONE)
@@ -332,13 +335,13 @@ QED
 
 
 Theorem eval_step_imp_step:
-  eval_step prog m n or orn st = SOME (label, st') ⇒
+  eval_step prog m n or st = SOME (label, st') ⇒
   step prog label m n st st'
 Proof
   rw [] >>
   fs [eval_step_def] >>
   cases_on ‘st.waitTime’ >> gs [] >>
-  cases_on ‘or orn’ >> gs []
+  cases_on ‘or 0’ >> gs []
   >- (
     gs [eval_delay_wtime_none_def] >>
     rveq >>
@@ -380,17 +383,20 @@ Proof
   gs [step_cases, mkState_def]
 QED
 
+
 Theorem eval_steps_imp_steps:
-  ∀k n prog m or orn st labels sts.
+  ∀k n prog m st labels sts.
     eval_steps_delay_until_max k m n st = SOME (labels,sts) ∧
-    k = (m - 1) - n ∧
-    n < m − 1 ∧
+    k = m − (n + 1) ∧
     st.waitTime = NONE ⇒
-    steps prog labels m n st sts ∧
-    n < m - 1
+    steps prog labels m n st sts
 Proof
   Induct >> rw []
-  >- gs [eval_steps_delay_until_max_def] >>
+  >- (
+    gs [eval_steps_delay_until_max_def] >>
+    gs [steps_def, step_cases] >>
+    ‘n = m - 1’ by gs [] >>
+    rveq >> simp []) >>
   gs [eval_steps_delay_until_max_def] >>
   every_case_tac >> gvs [] >>
   gs [steps_def] >>
@@ -402,38 +408,32 @@ Proof
     rveq >>
     gs [step_cases, mkState_def] >>
     gs [state_component_equality]) >>
+  gvs [] >>
   last_x_assum mp_tac >>
   disch_then drule >>
   disch_then (qspec_then ‘prog’ mp_tac) >>
   impl_tac
-  >- gs []
-
-
-
-
+  >- (
+    gs [] >>
+    gs [eval_delay_wtime_none_def] >>
+    rveq >>
+    gs [step_cases, mkState_def] >>
+    gs [state_component_equality]) >>
+  gs []
 QED
 
 
 Theorem eval_steps_imp_steps:
-  ∀k prog m n or orn st labels sts.
-    eval_steps k prog m n or orn st = SOME (labels, sts) ⇒
+  ∀k prog m n or st labels sts.
+    eval_steps k prog m n or st = SOME (labels, sts) ⇒
     steps prog labels m n st sts
 Proof
   Induct >> rw []
   >- (
-    fs [eval_steps_def, steps_def] >>
-    every_case_tac >> gvs []
-    >- gs [eval_steps_delay_until_max_def]
-    >-
-
-
-    , step_cases]
-
-
-
-
-
-    cheat) >>
+    fs [eval_steps_def] >>
+    every_case_tac >> gvs [] >>
+    match_mp_tac eval_steps_imp_steps >>
+    qexists_tac ‘m-1-n’ >> gs []) >>
   gs [eval_steps_def] >>
   every_case_tac >> gs [] >> rveq >> gs [] >>
   gs [steps_def] >>

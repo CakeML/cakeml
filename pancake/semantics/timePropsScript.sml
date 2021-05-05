@@ -228,13 +228,12 @@ Theorem step_wt_ffi_bounded:
     w + n < m
 Proof
   rw [] >>
-  gs [step_cases] >>
-  cheat
+  gs [step_cases]
 QED
 
 
 Theorem steps_wt_ffi_bounded:
-  ∀lbls sts p m n st.
+  ∀lbls sts p m n st w.
     steps p lbls m n st sts ∧
     st.waitTime = SOME w  ⇒
     w + n < m
@@ -242,8 +241,19 @@ Proof
   Induct >>
   rw [] >>
   cases_on ‘sts’ >>
+  gs [steps_def, step_cases]
+QED
+
+Theorem steps_lbls_sts_len_eq:
+  ∀lbls sts p m n st.
+    steps p lbls m n st sts ⇒
+    LENGTH lbls = LENGTH sts
+Proof
+  Induct >>
+  rw [] >>
+  cases_on ‘sts’ >>
   gs [steps_def, step_cases] >>
-  cheat
+  res_tac >> gs []
 QED
 
 val _ = export_theory();

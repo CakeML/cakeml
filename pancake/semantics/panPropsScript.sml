@@ -1191,6 +1191,7 @@ Proof
 QED
 
 
+
 Theorem update_locals_not_vars_eval_eq:
   ∀s e v n w.
   ~MEM n (var_exp e) /\
@@ -1206,7 +1207,29 @@ Proof
     rpt gen_tac >>
     fs [var_exp_def] >>
     strip_tac >>
-    cheat)
+    rpt (pop_assum mp_tac) >>
+    MAP_EVERY qid_spec_tac [‘s’, ‘n’, ‘v’, ‘es’] >>
+    Induct >> rw []
+    >- gs [eval_def, OPT_MMAP_def] >>
+    gs [eval_def, OPT_MMAP_def] >>
+    every_case_tac >> gvs []
+    >- (
+      first_x_assum (qspec_then ‘h’ mp_tac) >>
+      impl_tac >- gs [] >>
+      strip_tac >> gs [])
+    >- (
+      last_x_assum (qspecl_then [‘Struct t’, ‘n’, ‘s’] mp_tac) >>
+      impl_tac >- metis_tac [] >>
+      strip_tac >> gs []) >>
+    conj_asm1_tac
+    >- (
+      first_x_assum (qspec_then ‘h’ mp_tac) >>
+      impl_tac >- gs [] >>
+      strip_tac >> gs []) >>
+    gvs [] >>
+    last_x_assum (qspecl_then [‘Struct t’, ‘n’, ‘s’] mp_tac) >>
+    impl_tac >- metis_tac [] >>
+    gs [])
   >- (
     rpt gen_tac >>
     strip_tac >>
@@ -1232,14 +1255,14 @@ Proof
        MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
    rw [] >>
    fs [MEM_FLAT, MEM_MAP] >>
-   metis_tac [EL_MEM]) >>
-(*
-  >- fs [var_exp_def, eval_def, CaseEq "option"]
-  rpt gen_tac >>
-  strip_tac >> fs [var_exp_def, ETA_AX] >>
-  fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
-  rveq >> metis_tac [] *)
-  cheat
+   metis_tac [EL_MEM])
+  >- (
+    rw [] >>
+    gs [var_exp_def, eval_def] >>
+    every_case_tac >> gvs []) >>
+  rw [] >>
+  gs [var_exp_def, eval_def] >>
+  every_case_tac >> gvs []
 QED
 
 

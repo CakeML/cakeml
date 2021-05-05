@@ -6,6 +6,7 @@ open preamble
      timeSemTheory panSemTheory
      timePropsTheory panPropsTheory
      pan_commonPropsTheory time_to_panTheory
+     timeFunSemTheory
 
 
 val _ = new_theory "time_to_panProof";
@@ -57,14 +58,6 @@ Definition string_to_word_def:
     n2w o THE o fromNatString o implode
 End
 
-(*
-Definition output_bytes_def:
-  output_bytes (:'a) be s =
-    get_bytes be (0w:'a word) ++
-    get_bytes be ((string_to_word s):'a word)
-End
-*)
-
 
 Definition build_ffi_def:
   build_ffi (:'a) be outs (seq:time_input) io =
@@ -79,20 +72,6 @@ Definition build_ffi_def:
       ; io_events := io|> : time_input_ffi
 End
 
-(*
-Definition build_ffi_def:
-  build_ffi (:'a) be outs (seq:time_input) io =
-     <| oracle    :=
-        (λs f conf bytes.
-          if s = "get_time_input"
-          then Oracle_return (next_ffi f) (time_input (:'a) be f)
-          else if MEM s outs
-          then Oracle_return f (REPLICATE (w2n (ffiBufferSize:'a word)) 0w)
-          else Oracle_final FFI_failed)
-      ; ffi_state := seq
-      ; io_events := io|> : time_input_ffi
-End
-*)
 (* End of FFI abstraction *)
 
 Definition equiv_val_def:
@@ -180,19 +159,6 @@ Definition well_behaved_ffi_def:
     Oracle_return s.ffi.ffi_state bytes
 End
 
-(*
-Definition well_behaved_ffi_def:
-  well_behaved_ffi ffi_name s n (m:num) <=>
-  explode ffi_name ≠ "" ∧ n < m ∧
-  ∃bytes nbytes.
-    read_bytearray ffiBufferAddr n
-                   (mem_load_byte s.memory s.memaddrs s.be) =
-    SOME bytes ∧
-    s.ffi.oracle (explode ffi_name) s.ffi.ffi_state [] bytes =
-    Oracle_return s.ffi.ffi_state nbytes ∧
-    LENGTH nbytes = LENGTH bytes
-End
-*)
 
 Definition ffi_return_state_def:
   ffi_return_state s ffi_name bytes =
@@ -341,14 +307,7 @@ Definition nexts_ffi_def:
   λn. f (n+m)
 End
 
-(*
-Definition delay_rep_def:
-  delay_rep (d:num) (seq:time_input) cycles ⇔
-    FST (seq cycles) = d + FST (seq 0) ∧
-    ∀i. i <= cycles ⇒ SND (seq i) = 0
-End
 
-*)
 Definition delay_rep_def:
   delay_rep (d:num) (seq:time_input) cycles ⇔
     FST (seq cycles) = d + FST (seq 0) ∧
@@ -367,6 +326,612 @@ Definition wakeup_rel_def:
      FLOOKUP fm «wakeUpAt» = SOME (ValWord (n2w swt)) ∧
      (∀i. i < cycles ⇒
           FST (seq i) < swt))
+End
+
+
+Definition conds_clks_mem_clks_def:
+  conds_clks_mem_clks clks tms =
+    EVERY (λtm.
+            EVERY (λcnd.
+                    EVERY (λck. MEM ck clks) (condClks cnd))
+                  (termConditions tm)
+          ) tms
+End
+
+Definition terms_valid_clocks_def:
+  terms_valid_clocks clks tms  =
+    EVERY (λtm.
+            valid_clks clks (termClks tm) (termWaitTimes tm)
+          ) tms
+End
+
+Definition locs_in_code_def:
+  locs_in_code fm tms =
+    EVERY (λtm.
+            num_to_str (termDest tm) IN FDOM fm
+          ) tms
+End
+
+
+Definition out_signals_ffi_def:
+  out_signals_ffi (t :('a, 'b) panSem$state) tms =
+    EVERY (λout.
+            well_behaved_ffi (num_to_str out) t
+                             (w2n (ffiBufferSize:'a word)) (dimword (:α)))
+          (terms_out_signals tms)
+End
+
+
+Definition mem_call_ffi_def:
+  mem_call_ffi (:α) mem adrs be (ffi: (num -> num # num)) =
+    write_bytearray
+    ffiBufferAddr
+    (get_bytes be ((n2w (FST (ffi 1))):'a word) ++
+     get_bytes be ((n2w (SND (ffi 1))):'a word))
+    mem adrs be
+End
+
+
+Definition ffi_call_ffi_def:
+  ffi_call_ffi (:α) be ffi bytes =
+    ffi with
+        <|ffi_state := next_ffi ffi.ffi_state;
+          io_events := ffi.io_events ++
+          [IO_event "get_time_input" []
+           (ZIP
+            (bytes,
+             get_bytes be ((n2w (FST (ffi.ffi_state (1:num)))):'a word) ++
+             get_bytes be ((n2w (SND (ffi.ffi_state 1))):'a word)))]|>
+
+End
+
+
+Datatype:
+  observed_io = ObsTime    num
+              | ObsInput   num
+              | ObsOutput  num
+End
+
+
+Definition to_label_def:
+  (to_label (ObsTime n)   = LDelay n) ∧
+  (to_label (ObsInput n)  = LAction (Input n)) ∧
+  (to_label (ObsOutput n) = LAction (Output n))
+End
+
+
+Definition to_delay_def:
+  (to_delay (ObsTime n) = SOME n) ∧
+  (to_delay _  = NONE)
+End
+
+
+Definition to_input_def:
+  (to_input (ObsInput n) = SOME (Input (n - 1))) ∧
+  (to_input _  = NONE)
+End
+
+Definition mem_read_ffi_results_def:
+  mem_read_ffi_results  (:'a) ffi (cycles:num) ⇔
+  ∀i (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state).
+    i < cycles ∧
+    t.ffi.ffi_state = nexts_ffi i ffi ∧
+    evaluate
+    (ExtCall «get_time_input» «ptr1» «len1» «ptr2» «len2» , t) =
+    (NONE,t') ⇒
+    t'.memory ffiBufferAddr =
+    Word (n2w (FST (nexts_ffi i ffi 1))) ∧
+    t'.memory (bytes_in_word + ffiBufferAddr) =
+    Word (n2w (SND (nexts_ffi i ffi 1)))
+End
+
+Definition io_event_dest_def:
+  io_event_dest (:'a) be (IO_event _ _ l) =
+  (MAP w2n o
+   (words_of_bytes: bool -> word8 list -> α word list) be o
+   MAP SND) l
+End
+
+Definition io_events_dest_def:
+  io_events_dest (:'a) be ios =
+    MAP (io_event_dest (:'a) be) ios
+End
+
+
+Definition from_io_events_def:
+  from_io_events (:'a) be n ys =
+    io_events_dest (:'a) be (DROP n ys)
+End
+
+
+Definition decode_io_event_def:
+  decode_io_event (:'a) be (IO_event s conf l) =
+    if s ≠ "get_time_input" then (ObsOutput (toNum s))
+    else (
+      let
+        ti = io_event_dest (:'a) be (IO_event s conf l);
+        time  = EL 0 ti;
+        input = EL 1 ti
+      in
+        if input = 0 then (ObsTime time)
+        else (ObsInput input))
+End
+
+Definition decode_io_events_def:
+  decode_io_events (:'a) be ios =
+    MAP (decode_io_event (:'a) be) ios
+End
+
+
+Definition io_events_eq_ffi_seq_def:
+  io_events_eq_ffi_seq seq cycles xs ⇔
+  LENGTH xs = cycles ∧
+  EVERY (λx. LENGTH x = 2) xs ∧
+  (∀i. i < cycles ⇒
+       (EL 0 (EL i xs), EL 1 (EL i xs)) = seq (i+1))
+End
+
+
+Definition mk_ti_event_def:
+  mk_ti_event (:α) be bytes seq =
+    IO_event "get_time_input" []
+             (ZIP (bytes, time_input (:α) be seq))
+End
+
+
+Definition mk_ti_events_def:
+  mk_ti_events (:α) be (bytess:word8 list list) seqs =
+    MAP (λ(bytes,seq). mk_ti_event (:α) be bytes seq)
+        (ZIP (bytess, seqs))
+End
+
+Definition gen_ffi_states_def:
+  gen_ffi_states seq cycles =
+    MAP (λm. (λn. seq (n + m)))
+        (GENLIST I cycles)
+End
+
+Definition delay_io_events_rel_def:
+  delay_io_events_rel (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) cycles ⇔
+  let
+    n = LENGTH t.ffi.io_events;
+    ios_to_nums = from_io_events (:'a) t.be n t'.ffi.io_events;
+    nios = DROP n t'.ffi.io_events;
+    obs_ios = decode_io_events (:'a) t'.be nios;
+  in
+    (∃bytess.
+       LENGTH bytess = cycles ∧
+       EVERY (λbtyes. LENGTH btyes = 2 * dimindex (:α) DIV 8) bytess ∧
+       t'.ffi.io_events =
+       t.ffi.io_events ++
+        mk_ti_events (:α) t'.be bytess (gen_ffi_states t.ffi.ffi_state cycles)) ∧
+    io_events_eq_ffi_seq t.ffi.ffi_state cycles ios_to_nums ∧
+    (∀n. n < LENGTH obs_ios ⇒
+         EL n obs_ios = ObsTime (FST (t.ffi.ffi_state (n+1))))
+End
+
+Definition delay_ios_mono_def:
+  delay_ios_mono obs_ios seq ⇔
+  ∀i j.
+    i < LENGTH obs_ios ∧ j < LENGTH obs_ios ∧ i < j ⇒
+    EL i obs_ios = ObsTime (FST (seq (i+1))) ∧
+    EL j obs_ios = ObsTime (FST (seq (j+1))) ∧
+    FST (seq (i+1)) ≤ FST (seq (j+1))
+End
+
+
+(* to remove cycles dependency *)
+Definition obs_ios_are_label_delay_def:
+  obs_ios_are_label_delay d (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) ⇔
+  let
+    n = LENGTH t.ffi.io_events;
+    nios = DROP n t'.ffi.io_events;
+    obs_ios = decode_io_events (:'a) t'.be nios;
+  in
+    delay_ios_mono obs_ios t.ffi.ffi_state ∧
+    (obs_ios ≠ [] ⇒
+     LDelay d = LDelay (THE (to_delay (EL (LENGTH obs_ios - 1) obs_ios)) -
+                        EL 0 (io_event_dest (:α) t.be (LAST t.ffi.io_events))))
+End
+
+
+Definition well_formed_terms_def:
+  well_formed_terms prog loc code <=>
+  ∀tms.
+    ALOOKUP prog loc = SOME tms ⇒
+    conds_clks_mem_clks (clksOf prog) tms ∧
+    terms_valid_clocks (clksOf prog) tms ∧ locs_in_code code tms
+End
+
+
+(* should stay as an invariant *)
+Definition task_ret_defined_def:
+  task_ret_defined (fm: mlstring |-> 'a v) n ⇔
+  ∃(vs:'a v list) v1 v2 v3.
+    FLOOKUP fm «taskRet» = SOME (
+      Struct [
+          Struct vs;
+          ValWord v1;
+          ValWord v2;
+          ValLabel v3
+        ]) ∧
+    EVERY (λv. ∃w. v = ValWord w) vs ∧
+    LENGTH vs = n
+End
+
+Definition input_rel_def:
+  input_rel fm n seq =
+   let
+     st = FST (seq (0:num));
+     input  = SND (seq 0)
+   in
+     FLOOKUP fm «sysTime»  = SOME (ValWord (n2w st)) ∧
+     FLOOKUP fm «event» = SOME (ValWord (n2w input)) ∧
+     n = input - 1 ∧ input <> 0
+End
+
+Definition wait_time_locals_def:
+  wait_time_locals (:α) fm swt ffi =
+  ∃wt st.
+    FLOOKUP fm «wakeUpAt» = SOME (ValWord (n2w (wt + st))) ∧
+    wt + st < dimword (:α) ∧
+    case swt of
+    | NONE => T
+    | SOME swt =>
+        swt ≠ 0:num ⇒
+        FST (ffi (0:num)) < wt + st
+End
+
+Definition input_eq_ffi_seq_def:
+  input_eq_ffi_seq (seq:num -> num # num) xs ⇔
+  LENGTH xs = 2 ∧
+  (EL 0 xs, EL 1 xs) = seq 1
+End
+
+
+Definition input_io_events_rel_def:
+  input_io_events_rel i (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) ⇔
+  let
+    n = LENGTH t.ffi.io_events;
+    nios = DROP n t'.ffi.io_events;
+    ios_to_nums = from_io_events (:'a) t.be n t'.ffi.io_events;
+    obs_ios = decode_io_events (:'a) t'.be nios
+  in
+  (∃bytes.
+     LENGTH bytes = 2 * dimindex (:α) DIV 8 ∧
+     t'.ffi.io_events =
+     t.ffi.io_events ++
+      [mk_ti_event (:α) t'.be bytes t.ffi.ffi_state]) ∧
+  (∃ns.
+     ios_to_nums = [ns] ∧
+     input_eq_ffi_seq t.ffi.ffi_state ns) ∧
+  LENGTH obs_ios = 1 ∧
+  EL 0 obs_ios = ObsInput (SND (t.ffi.ffi_state 1)) ∧
+  LAction (Input i) = LAction (THE (to_input (EL 0 obs_ios)))
+End
+
+
+Definition output_rel_def:
+  output_rel fm (seq: num -> num # num) =
+  let
+    st = FST (seq 0)
+  in
+    ∃wt nt.
+      FLOOKUP fm «sysTime»  = SOME (ValWord (n2w st)) ∧
+      FLOOKUP fm «wakeUpAt» = SOME (ValWord (n2w (wt + nt))) ∧
+      st = wt + nt ∧
+      SND (seq 0) = 0
+End
+
+Definition output_io_events_rel_def:
+  output_io_events_rel os (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) ⇔
+  let
+    n = LENGTH t.ffi.io_events;
+    nios = DROP n t'.ffi.io_events;
+    obs_ios = decode_io_events (:'a) t'.be nios
+  in
+    (∃(bytes:word8 list).
+       t'.ffi.io_events =
+       t.ffi.io_events ++
+        [IO_event (explode (num_to_str os)) [] (ZIP (bytes, bytes))]) ∧
+    obs_ios = [ObsOutput os]
+End
+
+Definition well_formed_code_def:
+  well_formed_code prog code <=>
+  ∀loc tms.
+    ALOOKUP prog loc = SOME tms ⇒
+    well_formed_terms prog loc code
+End
+
+
+Definition event_inv_def:
+  event_inv fm ⇔
+    FLOOKUP fm «isInput» = SOME (ValWord 1w) ∧
+    FLOOKUP fm «event» = SOME (ValWord 0w)
+End
+
+
+
+Definition assumptions_def:
+  assumptions prog n s (t:('a,time_input) panSem$state) ⇔
+    state_rel (clksOf prog) (out_signals prog) s t ∧
+    code_installed t.code prog ∧
+    well_formed_code prog t.code ∧
+    n = FST (t.ffi.ffi_state 0) ∧
+    good_dimindex (:'a) ∧
+    ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
+    event_inv t.locals ∧
+    wait_time_locals (:α) t.locals s.waitTime t.ffi.ffi_state ∧
+    task_ret_defined t.locals (nClks prog)
+End
+
+
+Definition evaluations_def:
+  (evaluations prog [] [] s (t:('a,time_input) panSem$state) ⇔
+   ∀cycles.
+     FST (t.ffi.ffi_state cycles) = dimword (:α) − 2 ∧
+     FST (t.ffi.ffi_state (cycles + 1)) = dimword (:α) − 1 ∧
+     (∀i. i ≤ cycles ⇒ SND (t.ffi.ffi_state (i + 1)) = 0) ∧
+     mem_read_ffi_results (:α) t.ffi.ffi_state (cycles + 1) ∧
+     (* un-necessary stronger, but its ok for the time-being *)
+     t.ffi.io_events ≠ [] ∧
+     HD (io_event_dest (:α) t.be (LAST t.ffi.io_events)) =
+     FST (t.ffi.ffi_state 0)⇒
+     ∃ck nt.
+       (∀ck_extra.
+          evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck + ck_extra) =
+          (SOME (Return (ValWord 0w)), nt with clock := nt.clock + ck_extra)) ∧
+       nt.be = t.be ∧
+       (∃ios. nt.ffi.io_events = t.ffi.io_events ++ ios)) ∧
+  (evaluations prog (lbl::lbls) (st::sts) s t ⇔
+     case lbl of
+     | LDelay d =>
+         evaluate_delay prog d s st t lbls sts
+     | LAction act =>
+        (case act of
+         | Input i =>
+             evaluate_input prog i st t lbls sts
+         | Output os =>
+             evaluate_output prog os st t lbls sts)) ∧
+
+  (evaluate_delay prog d s st (t:('a,time_input) panSem$state) lbls sts ⇔
+   ∀cycles.
+     delay_rep d t.ffi.ffi_state cycles ∧
+     wakeup_rel t.locals s.waitTime t.ffi.ffi_state cycles ∧
+     mem_read_ffi_results (:α) t.ffi.ffi_state cycles ∧
+     t.ffi.io_events ≠ [] ∧
+     EL 0 (io_event_dest (:α) t.be (LAST t.ffi.io_events)) = FST (t.ffi.ffi_state 0) ⇒
+     ∃ck nt.
+       (∀ck_extra.
+          evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck + ck_extra) =
+          evaluate (time_to_pan$always (nClks prog), nt with clock := nt.clock + ck_extra)) ∧
+       state_rel (clksOf prog) (out_signals prog) st nt ∧
+       ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
+       event_inv nt.locals ∧
+       nt.code = t.code ∧
+       nt.be = t.be ∧
+       nt.ffi.ffi_state = nexts_ffi cycles t.ffi.ffi_state ∧
+       nt.ffi.oracle = t.ffi.oracle ∧
+       FLOOKUP nt.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt» ∧
+       FLOOKUP nt.locals «waitSet» = FLOOKUP t.locals «waitSet» ∧
+       FLOOKUP nt.locals «taskRet» = FLOOKUP t.locals «taskRet» ∧
+       FLOOKUP nt.locals «sysTime»  =
+       SOME (ValWord (n2w (FST (t.ffi.ffi_state cycles)))) ∧
+       wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
+       delay_io_events_rel t nt cycles ∧
+       obs_ios_are_label_delay d t nt ∧
+       task_ret_defined nt.locals (nClks prog) ∧
+       evaluations prog lbls sts st nt) ∧
+
+  (evaluate_input prog i st (t:('a,time_input) panSem$state) lbls sts ⇔
+   input_rel t.locals i (next_ffi t.ffi.ffi_state) ∧
+   mem_read_ffi_results (:α) t.ffi.ffi_state 1 ⇒
+   ∃ck nt.
+     (∀ck_extra.
+        evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck + ck_extra) =
+        evaluate (time_to_pan$always (nClks prog), nt with clock := nt.clock + ck_extra)) ∧
+     state_rel (clksOf prog) (out_signals prog) st nt ∧
+     ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
+     event_inv nt.locals ∧
+     nt.code = t.code ∧
+     nt.be = t.be ∧
+     nt.ffi.ffi_state = next_ffi t.ffi.ffi_state ∧
+     nt.ffi.oracle = t.ffi.oracle ∧
+     FLOOKUP nt.locals «wakeUpAt» =
+     SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) +
+                         case st.waitTime of
+                         | NONE => 0
+                         | SOME wt => wt))) ∧
+     FLOOKUP nt.locals «waitSet» =
+     SOME (ValWord (n2w (
+                     case st.waitTime of
+                     | NONE => 1
+                     | _ => 0))) ∧
+     FLOOKUP nt.locals «sysTime» = FLOOKUP t.locals «sysTime» ∧
+     wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
+     input_io_events_rel i t nt ∧
+     task_ret_defined nt.locals (nClks prog) ∧
+     evaluations prog lbls sts st nt) ∧
+
+  (evaluate_output prog os st (t:('a,time_input) panSem$state) lbls sts ⇔
+   output_rel t.locals t.ffi.ffi_state ⇒
+   ∃ck nt.
+     (∀ck_extra.
+        evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck + ck_extra) =
+        evaluate (time_to_pan$always (nClks prog), nt with clock := nt.clock + ck_extra)) ∧
+     state_rel (clksOf prog) (out_signals prog) st nt ∧
+     ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
+     event_inv nt.locals ∧
+     nt.code = t.code ∧
+     nt.be = t.be ∧
+     nt.ffi.ffi_state = t.ffi.ffi_state ∧
+     nt.ffi.oracle = t.ffi.oracle ∧
+     FLOOKUP nt.locals «wakeUpAt» =
+     SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) +
+                         case st.waitTime of
+                         | NONE => 0
+                         | SOME wt => wt))) ∧
+     FLOOKUP nt.locals «waitSet» =
+     SOME (ValWord (n2w (
+                     case st.waitTime of
+                     | NONE => 1
+                     | _ => 0))) ∧
+     FLOOKUP nt.locals «sysTime» = FLOOKUP t.locals «sysTime» ∧
+     wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
+     output_io_events_rel os t nt ∧
+     task_ret_defined nt.locals (nClks prog) ∧
+     evaluations prog lbls sts st nt)
+Termination
+  cheat
+End
+
+Definition action_rel_def:
+  (action_rel (Input i) s (t:('a,time_input) panSem$state) ffi ⇔
+    input_rel t.locals i (next_ffi t.ffi.ffi_state) ∧
+    mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
+    ffi = next_ffi t.ffi.ffi_state) ∧
+  (action_rel (Output os) s t ffi ⇔
+    output_rel t.locals t.ffi.ffi_state ∧
+    ffi = t.ffi.ffi_state)
+End
+
+
+Definition ffi_rel_def:
+  (ffi_rel (LDelay d) s (t:('a,time_input) panSem$state) ffi =
+   ∃cycles.
+     delay_rep d t.ffi.ffi_state cycles ∧
+     wakeup_rel t.locals s.waitTime t.ffi.ffi_state cycles ∧
+     mem_read_ffi_results (:α) t.ffi.ffi_state cycles ∧
+     ffi = nexts_ffi cycles t.ffi.ffi_state ∧
+     t.ffi.io_events ≠ [] ∧
+     EL 0 (io_event_dest (:α) t.be (LAST t.ffi.io_events)) =
+     FST (t.ffi.ffi_state 0)) ∧
+  (ffi_rel (LAction act) s t ffi =
+     action_rel act s t ffi)
+End
+
+Definition ffi_rels_def:
+  (ffi_rels prog [] s (t:('a,time_input) panSem$state) ⇔
+   ∃cycles.
+     FST (t.ffi.ffi_state cycles) = dimword (:α) − 2 ∧
+     FST (t.ffi.ffi_state (cycles + 1)) = dimword (:α) − 1 ∧
+     (∀i. i ≤ cycles ⇒ SND (t.ffi.ffi_state (i + 1)) = 0) ∧
+     mem_read_ffi_results (:α) t.ffi.ffi_state (cycles + 1) ∧
+     (* un-necessary stronger, but its ok for the time-being *)
+     t.ffi.io_events ≠ [] ∧
+     HD (io_event_dest (:α) t.be (LAST t.ffi.io_events)) =
+     FST (t.ffi.ffi_state 0)) ∧
+  (ffi_rels prog (label::labels) s t ⇔
+   ∃ffi.
+     ffi_rel label s t ffi ∧
+     ∀s' (t':('a,time_input) panSem$state) m n.
+       step prog label m n s s' ∧
+       t'.ffi.ffi_state = ffi ⇒
+       ffi_rels prog labels s' t')
+End
+
+
+(* TODO: change - to + :
+         SUM (n::ns) + 1 = LENGTH ios *)
+Definition decode_ios_def:
+  (decode_ios (:α) be [] [] ios ⇔ LENGTH ios = 1) ∧
+  (decode_ios (:α) be (lbl::lbls) (n::ns) ios ⇔
+   SUM (n::ns) = LENGTH ios - 1 ∧
+   (case lbl of
+    | LDelay d =>
+        (if n = 0
+         then d = 0 ∧ decode_ios (:α) be lbls ns ios
+         else
+           let
+             m' = EL 0 (io_event_dest (:α) be (HD ios));
+             nios = TAKE n (TL ios);
+             obs_ios = decode_io_events (:'a) be nios;
+             m = THE (to_delay (EL (LENGTH obs_ios - 1) obs_ios))
+           in
+             d = m - m' ∧
+             decode_ios (:α) be lbls ns (DROP n ios))
+    | LAction act =>
+        (n = 1 ∧
+         decode_ios (:α) be lbls ns (DROP 1 ios) ∧
+         (case act of
+          | Input i =>
+              let
+                obs_io = decode_io_event (:α) be (EL 1 ios)
+              in
+                Input i = THE (to_input obs_io)
+          | Output os =>
+              decode_io_event (:α) be (EL 1 ios) = ObsOutput os))))
+End
+
+
+Definition gen_max_times_def:
+  (gen_max_times [] n ns = ns) ∧
+  (gen_max_times (lbl::lbls) n ns =
+   n ::
+   let m =
+       case lbl of
+       | LDelay d => d + n
+       | LAction _ => n
+   in
+   gen_max_times lbls m ns)
+End
+
+Definition init_clocks_def:
+  init_clocks fm clks ⇔
+    EVERY
+      (λck. FLOOKUP fm ck = SOME (0:num)) clks
+End
+
+Definition init_ffi_def:
+  init_ffi (f:num -> num # num) ⇔
+    f 0 =  f 1 ∧
+    SND (f 0) = 0
+End
+
+
+Definition locals_before_start_ctrl_def:
+  locals_before_start_ctrl prog wt ffi =
+  FEMPTY |+ («loc» ,ValLabel (toString (FST (ohd prog)))) |+
+         («waitSet» ,
+          ValWord (case wt of NONE => 1w | SOME v => 0w)) |+
+         («event» ,ValWord 0w) |+ («isInput» ,ValWord 1w) |+
+         («wakeUpAt» ,ValWord 0w) |+ («sysTime» ,ValWord 0w) |+
+         («ptr1» ,ValWord 0w) |+ («len1» ,ValWord 0w) |+
+         («ptr2» ,ValWord ffiBufferAddr) |+
+         («len2» ,ValWord ffiBufferSize) |+
+         («taskRet» ,
+          Struct
+          [Struct (emptyVals (nClks prog)); ValWord 0w; ValWord 0w;
+           ValLabel (toString (FST (ohd prog)))]) |+
+         («clks» ,Struct (emptyVals (nClks prog))) |+
+         («sysTime» ,ValWord (n2w (FST ffi))) |+
+         («event» ,ValWord (n2w (SND ffi))) |+
+         («isInput» ,ValWord 1w) |+
+         («clks» ,
+          Struct
+          (REPLICATE (nClks prog)
+           (ValWord (n2w (FST ffi))))) |+
+         («wakeUpAt» ,
+          ValWord
+          (n2w
+           (case wt of
+              NONE => FST ffi
+            | SOME n => n + FST ffi)))
+End
+
+Definition ffi_rels_after_init_def:
+  ffi_rels_after_init prog labels st (t:('a,time_input) panSem$state) ⇔
+  ∀bytes.
+    read_bytearray ffiBufferAddr (w2n (ffiBufferSize:'a word))
+                   (mem_load_byte t.memory t.memaddrs t.be) = SOME bytes ⇒
+    ffi_rels prog labels st
+             (t with
+              <|locals :=
+                locals_before_start_ctrl prog st.waitTime (t.ffi.ffi_state 0);
+                memory :=
+                mem_call_ffi (:α) t.memory t.memaddrs t.be t.ffi.ffi_state;
+                ffi := ffi_call_ffi (:α) t.be t.ffi bytes|>)
 End
 
 
@@ -2113,53 +2678,6 @@ Proof
 QED
 
 
-Definition conds_clks_mem_clks_def:
-  conds_clks_mem_clks clks tms =
-    EVERY (λtm.
-            EVERY (λcnd.
-                    EVERY (λck. MEM ck clks) (condClks cnd))
-                  (termConditions tm)
-          ) tms
-End
-
-Definition terms_valid_clocks_def:
-  terms_valid_clocks clks tms  =
-    EVERY (λtm.
-            valid_clks clks (termClks tm) (termWaitTimes tm)
-          ) tms
-End
-
-(*
-  we could phrase this at the term's diff level instead of
-  calculate_wtime, or may be thats fine
-*)
-(*
-Definition terms_wtimes_ffi_bound_def:
-  terms_wtimes_ffi_bound (:'a) s tms n =
-    EVERY (λtm.
-            case calculate_wtime (resetOutput s) (termClks tm) (termWaitTimes tm) of
-            | NONE => T
-            | SOME wt => n + wt <  dimword (:'a)
-          ) tms
-End
-*)
-Definition locs_in_code_def:
-  locs_in_code fm tms =
-    EVERY (λtm.
-            num_to_str (termDest tm) IN FDOM fm
-          ) tms
-End
-
-
-Definition out_signals_ffi_def:
-  out_signals_ffi (t :('a, 'b) panSem$state) tms =
-    EVERY (λout.
-            well_behaved_ffi (num_to_str out) t
-                             (w2n (ffiBufferSize:'a word)) (dimword (:α)))
-          (terms_out_signals tms)
-End
-
-
 Theorem pick_term_thm:
   ∀s max m e tms s'.
     pickTerm s max m e tms s' ⇒
@@ -2723,30 +3241,6 @@ Proof
   rw [state_rel_def]
 QED
 
-Definition mem_call_ffi_def:
-  mem_call_ffi (:α) mem adrs be (ffi: (num -> num # num)) =
-    write_bytearray
-    ffiBufferAddr
-    (get_bytes be ((n2w (FST (ffi 1))):'a word) ++
-     get_bytes be ((n2w (SND (ffi 1))):'a word))
-    mem adrs be
-End
-
-
-Definition ffi_call_ffi_def:
-  ffi_call_ffi (:α) be ffi bytes =
-    ffi with
-        <|ffi_state := next_ffi ffi.ffi_state;
-          io_events := ffi.io_events ++
-          [IO_event "get_time_input" []
-           (ZIP
-            (bytes,
-             get_bytes be ((n2w (FST (ffi.ffi_state (1:num)))):'a word) ++
-             get_bytes be ((n2w (SND (ffi.ffi_state 1))):'a word)))]|>
-
-End
-
-
 Theorem evaluate_ext_call:
   ∀(t :('a, time_input) panSem$state) res t' outs bytes.
     evaluate (ExtCall «get_time_input» «ptr1» «len1» «ptr2» «len2» ,t) = (res,t') ∧
@@ -3050,155 +3544,6 @@ Proof
     EVAL_TAC) >>
   fs [read_bytearray_def]
 QED
-
-
-Datatype:
-  observed_io = ObsTime    num
-              | ObsInput   num
-              | ObsOutput  num
-End
-
-
-Definition to_label_def:
-  (to_label (ObsTime n)   = LDelay n) ∧
-  (to_label (ObsInput n)  = LAction (Input n)) ∧
-  (to_label (ObsOutput n) = LAction (Output n))
-End
-
-
-Definition to_delay_def:
-  (to_delay (ObsTime n) = SOME n) ∧
-  (to_delay _  = NONE)
-End
-
-
-Definition to_input_def:
-  (to_input (ObsInput n) = SOME (Input (n - 1))) ∧
-  (to_input _  = NONE)
-End
-
-Definition mem_read_ffi_results_def:
-  mem_read_ffi_results  (:'a) ffi (cycles:num) ⇔
-  ∀i (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state).
-    i < cycles ∧
-    t.ffi.ffi_state = nexts_ffi i ffi ∧
-    evaluate
-    (ExtCall «get_time_input» «ptr1» «len1» «ptr2» «len2» , t) =
-    (NONE,t') ⇒
-    t'.memory ffiBufferAddr =
-    Word (n2w (FST (nexts_ffi i ffi 1))) ∧
-    t'.memory (bytes_in_word + ffiBufferAddr) =
-    Word (n2w (SND (nexts_ffi i ffi 1)))
-End
-
-Definition io_event_dest_def:
-  io_event_dest (:'a) be (IO_event _ _ l) =
-  (MAP w2n o
-   (words_of_bytes: bool -> word8 list -> α word list) be o
-   MAP SND) l
-End
-
-Definition io_events_dest_def:
-  io_events_dest (:'a) be ios =
-    MAP (io_event_dest (:'a) be) ios
-End
-
-
-Definition from_io_events_def:
-  from_io_events (:'a) be n ys =
-    io_events_dest (:'a) be (DROP n ys)
-End
-
-
-Definition decode_io_event_def:
-  decode_io_event (:'a) be (IO_event s conf l) =
-    if s ≠ "get_time_input" then (ObsOutput (toNum s))
-    else (
-      let
-        ti = io_event_dest (:'a) be (IO_event s conf l);
-        time  = EL 0 ti;
-        input = EL 1 ti
-      in
-        if input = 0 then (ObsTime time)
-        else (ObsInput input))
-End
-
-Definition decode_io_events_def:
-  decode_io_events (:'a) be ios =
-    MAP (decode_io_event (:'a) be) ios
-End
-
-
-Definition io_events_eq_ffi_seq_def:
-  io_events_eq_ffi_seq seq cycles xs ⇔
-  LENGTH xs = cycles ∧
-  EVERY (λx. LENGTH x = 2) xs ∧
-  (∀i. i < cycles ⇒
-       (EL 0 (EL i xs), EL 1 (EL i xs)) = seq (i+1))
-End
-
-
-Definition mk_ti_event_def:
-  mk_ti_event (:α) be bytes seq =
-    IO_event "get_time_input" []
-             (ZIP (bytes, time_input (:α) be seq))
-End
-
-
-Definition mk_ti_events_def:
-  mk_ti_events (:α) be (bytess:word8 list list) seqs =
-    MAP (λ(bytes,seq). mk_ti_event (:α) be bytes seq)
-        (ZIP (bytess, seqs))
-End
-
-Definition gen_ffi_states_def:
-  gen_ffi_states seq cycles =
-    MAP (λm. (λn. seq (n + m)))
-        (GENLIST I cycles)
-End
-
-Definition delay_io_events_rel_def:
-  delay_io_events_rel (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) cycles ⇔
-  let
-    n = LENGTH t.ffi.io_events;
-    ios_to_nums = from_io_events (:'a) t.be n t'.ffi.io_events;
-    nios = DROP n t'.ffi.io_events;
-    obs_ios = decode_io_events (:'a) t'.be nios;
-  in
-    (∃bytess.
-       LENGTH bytess = cycles ∧
-       EVERY (λbtyes. LENGTH btyes = 2 * dimindex (:α) DIV 8) bytess ∧
-       t'.ffi.io_events =
-       t.ffi.io_events ++
-        mk_ti_events (:α) t'.be bytess (gen_ffi_states t.ffi.ffi_state cycles)) ∧
-    io_events_eq_ffi_seq t.ffi.ffi_state cycles ios_to_nums ∧
-    (∀n. n < LENGTH obs_ios ⇒
-         EL n obs_ios = ObsTime (FST (t.ffi.ffi_state (n+1))))
-End
-
-Definition delay_ios_mono_def:
-  delay_ios_mono obs_ios seq ⇔
-  ∀i j.
-    i < LENGTH obs_ios ∧ j < LENGTH obs_ios ∧ i < j ⇒
-    EL i obs_ios = ObsTime (FST (seq (i+1))) ∧
-    EL j obs_ios = ObsTime (FST (seq (j+1))) ∧
-    FST (seq (i+1)) ≤ FST (seq (j+1))
-End
-
-
-(* to remove cycles dependency *)
-Definition obs_ios_are_label_delay_def:
-  obs_ios_are_label_delay d (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) ⇔
-  let
-    n = LENGTH t.ffi.io_events;
-    nios = DROP n t'.ffi.io_events;
-    obs_ios = decode_io_events (:'a) t'.be nios;
-  in
-    delay_ios_mono obs_ios t.ffi.ffi_state ∧
-    (obs_ios ≠ [] ⇒
-     LDelay d = LDelay (THE (to_delay (EL (LENGTH obs_ios - 1) obs_ios)) -
-                        EL 0 (io_event_dest (:α) t.be (LAST t.ffi.io_events))))
-End
 
 Theorem ffi_abs_mono:
   ∀j i (f:num -> num).
@@ -5238,29 +5583,6 @@ Proof
 QED
 
 
-Definition well_formed_terms_def:
-  well_formed_terms prog loc code <=>
-  ∀tms.
-    ALOOKUP prog loc = SOME tms ⇒
-    conds_clks_mem_clks (clksOf prog) tms ∧
-    terms_valid_clocks (clksOf prog) tms ∧ locs_in_code code tms
-End
-
-
-(* should stay as an invariant *)
-Definition task_ret_defined_def:
-  task_ret_defined (fm: mlstring |-> 'a v) n ⇔
-  ∃(vs:'a v list) v1 v2 v3.
-    FLOOKUP fm «taskRet» = SOME (
-      Struct [
-          Struct vs;
-          ValWord v1;
-          ValWord v2;
-          ValLabel v3
-        ]) ∧
-    EVERY (λv. ∃w. v = ValWord w) vs ∧
-    LENGTH vs = n
-End
 
 Theorem foldl_word_size_of:
   ∀xs ys n.
@@ -5331,16 +5653,6 @@ Proof
   fs []
 QED
 
-Definition input_rel_def:
-  input_rel fm n seq =
-   let
-     st = FST (seq (0:num));
-     input  = SND (seq 0)
-   in
-     FLOOKUP fm «sysTime»  = SOME (ValWord (n2w st)) ∧
-     FLOOKUP fm «event» = SOME (ValWord (n2w input)) ∧
-     n = input - 1 ∧ input <> 0
-End
 
 Triviality one_leq_suc:
   ∀n. 1 ≤ SUC n
@@ -5355,46 +5667,6 @@ Proof
   rw [] >>
   fs []
 QED
-
-Definition wait_time_locals_def:
-  wait_time_locals (:α) fm swt ffi =
-  ∃wt st.
-    FLOOKUP fm «wakeUpAt» = SOME (ValWord (n2w (wt + st))) ∧
-    wt + st < dimword (:α) ∧
-    case swt of
-    | NONE => T
-    | SOME swt =>
-        swt ≠ 0:num ⇒
-        FST (ffi (0:num)) < wt + st
-End
-
-Definition input_eq_ffi_seq_def:
-  input_eq_ffi_seq (seq:num -> num # num) xs ⇔
-  LENGTH xs = 2 ∧
-  (EL 0 xs, EL 1 xs) = seq 1
-End
-
-
-Definition input_io_events_rel_def:
-  input_io_events_rel i (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) ⇔
-  let
-    n = LENGTH t.ffi.io_events;
-    nios = DROP n t'.ffi.io_events;
-    ios_to_nums = from_io_events (:'a) t.be n t'.ffi.io_events;
-    obs_ios = decode_io_events (:'a) t'.be nios
-  in
-  (∃bytes.
-     LENGTH bytes = 2 * dimindex (:α) DIV 8 ∧
-     t'.ffi.io_events =
-     t.ffi.io_events ++
-      [mk_ti_event (:α) t'.be bytes t.ffi.ffi_state]) ∧
-  (∃ns.
-     ios_to_nums = [ns] ∧
-     input_eq_ffi_seq t.ffi.ffi_state ns) ∧
-  LENGTH obs_ios = 1 ∧
-  EL 0 obs_ios = ObsInput (SND (t.ffi.ffi_state 1)) ∧
-  LAction (Input i) = LAction (THE (to_input (EL 0 obs_ios)))
-End
 
 
 Theorem step_input:
@@ -6280,47 +6552,6 @@ Proof
 QED
 
 
-Definition output_rel_def:
-  output_rel fm (seq: num -> num # num) =
-  let
-    st = FST (seq 0)
-  in
-    ∃wt nt.
-      FLOOKUP fm «sysTime»  = SOME (ValWord (n2w st)) ∧
-      FLOOKUP fm «wakeUpAt» = SOME (ValWord (n2w (wt + nt))) ∧
-      st = wt + nt ∧
-      SND (seq 0) = 0
-End
-
-(*
-Definition mk_out_event_def:
-  mk_out_event (:α) be bytes s =
-    IO_event s []
-             (ZIP (bytes, output_bytes (:'a) be s))
-End
-
-Definition output_eq_ffi_def:
-  output_eq_ffi (os:num) xs ⇔
-    LENGTH xs = 2 ∧
-    (EL 0 xs, EL 1 xs) = (0,os)
-End
-*)
-
-Definition output_io_events_rel_def:
-  output_io_events_rel os (t:('a,time_input) panSem$state) (t':('a,time_input) panSem$state) ⇔
-  let
-    n = LENGTH t.ffi.io_events;
-    nios = DROP n t'.ffi.io_events;
-    obs_ios = decode_io_events (:'a) t'.be nios
-  in
-    (∃(bytes:word8 list).
-       t'.ffi.io_events =
-       t.ffi.io_events ++
-        [IO_event (explode (num_to_str os)) [] (ZIP (bytes, bytes))]) ∧
-    obs_ios = [ObsOutput os]
-End
-
-
 Theorem step_output:
   !prog os m it s s' (t:('a,time_input) panSem$state).
     step prog (LAction (Output os)) m it s s' ∧
@@ -7159,155 +7390,6 @@ Proof
 QED
 
 
-Definition well_formed_code_def:
-  well_formed_code prog code <=>
-  ∀loc tms.
-    ALOOKUP prog loc = SOME tms ⇒
-    well_formed_terms prog loc code
-End
-
-
-Definition event_inv_def:
-  event_inv fm ⇔
-    FLOOKUP fm «isInput» = SOME (ValWord 1w) ∧
-    FLOOKUP fm «event» = SOME (ValWord 0w)
-End
-
-
-
-Definition assumptions_def:
-  assumptions prog n s (t:('a,time_input) panSem$state) ⇔
-    state_rel (clksOf prog) (out_signals prog) s t ∧
-    code_installed t.code prog ∧
-    well_formed_code prog t.code ∧
-    n = FST (t.ffi.ffi_state 0) ∧
-    good_dimindex (:'a) ∧
-    ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
-    event_inv t.locals ∧
-    wait_time_locals (:α) t.locals s.waitTime t.ffi.ffi_state ∧
-    task_ret_defined t.locals (nClks prog)
-End
-
-
-Definition evaluations_def:
-  (evaluations prog [] [] s (t:('a,time_input) panSem$state) ⇔
-   ∀cycles.
-     FST (t.ffi.ffi_state cycles) = dimword (:α) − 2 ∧
-     FST (t.ffi.ffi_state (cycles + 1)) = dimword (:α) − 1 ∧
-     (∀i. i ≤ cycles ⇒ SND (t.ffi.ffi_state (i + 1)) = 0) ∧
-     mem_read_ffi_results (:α) t.ffi.ffi_state (cycles + 1) ∧
-     (* un-necessary stronger, but its ok for the time-being *)
-     t.ffi.io_events ≠ [] ∧
-     HD (io_event_dest (:α) t.be (LAST t.ffi.io_events)) =
-     FST (t.ffi.ffi_state 0)⇒
-     ∃ck nt.
-       (∀ck_extra.
-          evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck + ck_extra) =
-          (SOME (Return (ValWord 0w)), nt with clock := nt.clock + ck_extra)) ∧
-       nt.be = t.be ∧
-       (∃ios. nt.ffi.io_events = t.ffi.io_events ++ ios)) ∧
-  (evaluations prog (lbl::lbls) (st::sts) s t ⇔
-     case lbl of
-     | LDelay d =>
-         evaluate_delay prog d s st t lbls sts
-     | LAction act =>
-        (case act of
-         | Input i =>
-             evaluate_input prog i st t lbls sts
-         | Output os =>
-             evaluate_output prog os st t lbls sts)) ∧
-
-  (evaluate_delay prog d s st (t:('a,time_input) panSem$state) lbls sts ⇔
-   ∀cycles.
-     delay_rep d t.ffi.ffi_state cycles ∧
-     wakeup_rel t.locals s.waitTime t.ffi.ffi_state cycles ∧
-     mem_read_ffi_results (:α) t.ffi.ffi_state cycles ∧
-     t.ffi.io_events ≠ [] ∧
-     EL 0 (io_event_dest (:α) t.be (LAST t.ffi.io_events)) = FST (t.ffi.ffi_state 0) ⇒
-     ∃ck nt.
-       (∀ck_extra.
-          evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck + ck_extra) =
-          evaluate (time_to_pan$always (nClks prog), nt with clock := nt.clock + ck_extra)) ∧
-       state_rel (clksOf prog) (out_signals prog) st nt ∧
-       ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
-       event_inv nt.locals ∧
-       nt.code = t.code ∧
-       nt.be = t.be ∧
-       nt.ffi.ffi_state = nexts_ffi cycles t.ffi.ffi_state ∧
-       nt.ffi.oracle = t.ffi.oracle ∧
-       FLOOKUP nt.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt» ∧
-       FLOOKUP nt.locals «waitSet» = FLOOKUP t.locals «waitSet» ∧
-       FLOOKUP nt.locals «taskRet» = FLOOKUP t.locals «taskRet» ∧
-       FLOOKUP nt.locals «sysTime»  =
-       SOME (ValWord (n2w (FST (t.ffi.ffi_state cycles)))) ∧
-       wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
-       delay_io_events_rel t nt cycles ∧
-       obs_ios_are_label_delay d t nt ∧
-       task_ret_defined nt.locals (nClks prog) ∧
-       evaluations prog lbls sts st nt) ∧
-
-  (evaluate_input prog i st (t:('a,time_input) panSem$state) lbls sts ⇔
-   input_rel t.locals i (next_ffi t.ffi.ffi_state) ∧
-   mem_read_ffi_results (:α) t.ffi.ffi_state 1 ⇒
-   ∃ck nt.
-     (∀ck_extra.
-        evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck + ck_extra) =
-        evaluate (time_to_pan$always (nClks prog), nt with clock := nt.clock + ck_extra)) ∧
-     state_rel (clksOf prog) (out_signals prog) st nt ∧
-     ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
-     event_inv nt.locals ∧
-     nt.code = t.code ∧
-     nt.be = t.be ∧
-     nt.ffi.ffi_state = next_ffi t.ffi.ffi_state ∧
-     nt.ffi.oracle = t.ffi.oracle ∧
-     FLOOKUP nt.locals «wakeUpAt» =
-     SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) +
-                         case st.waitTime of
-                         | NONE => 0
-                         | SOME wt => wt))) ∧
-     FLOOKUP nt.locals «waitSet» =
-     SOME (ValWord (n2w (
-                     case st.waitTime of
-                     | NONE => 1
-                     | _ => 0))) ∧
-     FLOOKUP nt.locals «sysTime» = FLOOKUP t.locals «sysTime» ∧
-     wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
-     input_io_events_rel i t nt ∧
-     task_ret_defined nt.locals (nClks prog) ∧
-     evaluations prog lbls sts st nt) ∧
-
-  (evaluate_output prog os st (t:('a,time_input) panSem$state) lbls sts ⇔
-   output_rel t.locals t.ffi.ffi_state ⇒
-   ∃ck nt.
-     (∀ck_extra.
-        evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck + ck_extra) =
-        evaluate (time_to_pan$always (nClks prog), nt with clock := nt.clock + ck_extra)) ∧
-     state_rel (clksOf prog) (out_signals prog) st nt ∧
-     ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
-     event_inv nt.locals ∧
-     nt.code = t.code ∧
-     nt.be = t.be ∧
-     nt.ffi.ffi_state = t.ffi.ffi_state ∧
-     nt.ffi.oracle = t.ffi.oracle ∧
-     FLOOKUP nt.locals «wakeUpAt» =
-     SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) +
-                         case st.waitTime of
-                         | NONE => 0
-                         | SOME wt => wt))) ∧
-     FLOOKUP nt.locals «waitSet» =
-     SOME (ValWord (n2w (
-                     case st.waitTime of
-                     | NONE => 1
-                     | _ => 0))) ∧
-     FLOOKUP nt.locals «sysTime» = FLOOKUP t.locals «sysTime» ∧
-     wait_time_locals (:α) nt.locals st.waitTime nt.ffi.ffi_state ∧
-     output_io_events_rel os t nt ∧
-     task_ret_defined nt.locals (nClks prog) ∧
-     evaluations prog lbls sts st nt)
-Termination
-  cheat
-End
-
 
 Theorem steps_sts_length_eq_lbls:
   ∀lbls prog m n st sts.
@@ -7513,83 +7595,6 @@ Proof
 QED
 
 
-Definition action_rel_def:
-  (action_rel (Input i) s (t:('a,time_input) panSem$state) ffi ⇔
-    input_rel t.locals i (next_ffi t.ffi.ffi_state) ∧
-    mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
-    ffi = next_ffi t.ffi.ffi_state) ∧
-  (action_rel (Output os) s t ffi ⇔
-    output_rel t.locals t.ffi.ffi_state ∧
-    ffi = t.ffi.ffi_state)
-End
-
-
-Definition ffi_rel_def:
-  (ffi_rel (LDelay d) s (t:('a,time_input) panSem$state) ffi =
-   ∃cycles.
-     delay_rep d t.ffi.ffi_state cycles ∧
-     wakeup_rel t.locals s.waitTime t.ffi.ffi_state cycles ∧
-     mem_read_ffi_results (:α) t.ffi.ffi_state cycles ∧
-     ffi = nexts_ffi cycles t.ffi.ffi_state ∧
-     t.ffi.io_events ≠ [] ∧
-     EL 0 (io_event_dest (:α) t.be (LAST t.ffi.io_events)) =
-     FST (t.ffi.ffi_state 0)) ∧
-  (ffi_rel (LAction act) s t ffi =
-     action_rel act s t ffi)
-End
-
-Definition ffi_rels_def:
-  (ffi_rels prog [] s (t:('a,time_input) panSem$state) ⇔
-   ∃cycles.
-     FST (t.ffi.ffi_state cycles) = dimword (:α) − 2 ∧
-     FST (t.ffi.ffi_state (cycles + 1)) = dimword (:α) − 1 ∧
-     (∀i. i ≤ cycles ⇒ SND (t.ffi.ffi_state (i + 1)) = 0) ∧
-     mem_read_ffi_results (:α) t.ffi.ffi_state (cycles + 1) ∧
-     (* un-necessary stronger, but its ok for the time-being *)
-     t.ffi.io_events ≠ [] ∧
-     HD (io_event_dest (:α) t.be (LAST t.ffi.io_events)) =
-     FST (t.ffi.ffi_state 0)) ∧
-  (ffi_rels prog (label::labels) s t ⇔
-   ∃ffi.
-     ffi_rel label s t ffi ∧
-     ∀s' (t':('a,time_input) panSem$state) m n.
-       step prog label m n s s' ∧
-       t'.ffi.ffi_state = ffi ⇒
-       ffi_rels prog labels s' t')
-End
-
-
-(* TODO: change - to + :
-         SUM (n::ns) + 1 = LENGTH ios *)
-Definition decode_ios_def:
-  (decode_ios (:α) be [] [] ios ⇔ LENGTH ios = 1) ∧
-  (decode_ios (:α) be (lbl::lbls) (n::ns) ios ⇔
-   SUM (n::ns) = LENGTH ios - 1 ∧
-   (case lbl of
-    | LDelay d =>
-        (if n = 0
-         then d = 0 ∧ decode_ios (:α) be lbls ns ios
-         else
-           let
-             m' = EL 0 (io_event_dest (:α) be (HD ios));
-             nios = TAKE n (TL ios);
-             obs_ios = decode_io_events (:'a) be nios;
-             m = THE (to_delay (EL (LENGTH obs_ios - 1) obs_ios))
-           in
-             d = m - m' ∧
-             decode_ios (:α) be lbls ns (DROP n ios))
-    | LAction act =>
-        (n = 1 ∧
-         decode_ios (:α) be lbls ns (DROP 1 ios) ∧
-         (case act of
-          | Input i =>
-              let
-                obs_io = decode_io_event (:α) be (EL 1 ios)
-              in
-                Input i = THE (to_input obs_io)
-          | Output os =>
-              decode_io_event (:α) be (EL 1 ios) = ObsOutput os))))
-End
 
 
 Theorem decode_ios_length_eq_sum:
@@ -7797,31 +7802,6 @@ Proof
 QED
 
 
-Definition gen_max_times_def:
-  (gen_max_times [] n ns = ns) ∧
-  (gen_max_times (lbl::lbls) n ns =
-   n ::
-   let m =
-       case lbl of
-       | LDelay d => d + n
-       | LAction _ => n
-   in
-   gen_max_times lbls m ns)
-End
-
-Definition init_clocks_def:
-  init_clocks fm clks ⇔
-    EVERY
-      (λck. FLOOKUP fm ck = SOME (0:num)) clks
-End
-
-Definition init_ffi_def:
-  init_ffi (f:num -> num # num) ⇔
-    f 0 =  f 1 ∧
-    SND (f 0) = 0
-End
-
-
 Theorem opt_mmap_empty_const:
   ∀t prog v n.
     FLOOKUP t.code (num_to_str (FST (ohd prog))) = SOME v ⇒
@@ -7858,57 +7838,11 @@ Proof
 QED
 
 
-Definition locals_before_start_ctrl_def:
-  locals_before_start_ctrl prog wt ffi =
-  FEMPTY |+ («loc» ,ValLabel (toString (FST (ohd prog)))) |+
-         («waitSet» ,
-          ValWord (case wt of NONE => 1w | SOME v => 0w)) |+
-         («event» ,ValWord 0w) |+ («isInput» ,ValWord 1w) |+
-         («wakeUpAt» ,ValWord 0w) |+ («sysTime» ,ValWord 0w) |+
-         («ptr1» ,ValWord 0w) |+ («len1» ,ValWord 0w) |+
-         («ptr2» ,ValWord ffiBufferAddr) |+
-         («len2» ,ValWord ffiBufferSize) |+
-         («taskRet» ,
-          Struct
-          [Struct (emptyVals (nClks prog)); ValWord 0w; ValWord 0w;
-           ValLabel (toString (FST (ohd prog)))]) |+
-         («clks» ,Struct (emptyVals (nClks prog))) |+
-         («sysTime» ,ValWord (n2w (FST ffi))) |+
-         («event» ,ValWord (n2w (SND ffi))) |+
-         («isInput» ,ValWord 1w) |+
-         («clks» ,
-          Struct
-          (REPLICATE (nClks prog)
-           (ValWord (n2w (FST ffi))))) |+
-         («wakeUpAt» ,
-          ValWord
-          (n2w
-           (case wt of
-              NONE => FST ffi
-            | SOME n => n + FST ffi)))
-End
-
-Definition ffi_rels_after_init_def:
-  ffi_rels_after_init prog labels st (t:('a,time_input) panSem$state) ⇔
-  ∀bytes.
-    read_bytearray ffiBufferAddr (w2n (ffiBufferSize:'a word))
-                   (mem_load_byte t.memory t.memaddrs t.be) = SOME bytes ⇒
-    ffi_rels prog labels st
-             (t with
-              <|locals :=
-                locals_before_start_ctrl prog st.waitTime (t.ffi.ffi_state 0);
-                memory :=
-                mem_call_ffi (:α) t.memory t.memaddrs t.be t.ffi.ffi_state;
-                ffi := ffi_call_ffi (:α) t.be t.ffi bytes|>)
-End
-
-
 Theorem timed_automata_correct:
-  ∀labels prog st it sts (t:('a,time_input) panSem$state).
+  ∀prog labels st sts (t:('a,time_input) panSem$state).
     steps prog labels
           (dimword (:α) - 1) (FST (t.ffi.ffi_state 0)) st sts ∧
     prog ≠ [] ∧ LENGTH (clksOf prog) ≤ 29 ∧
-    LENGTH sts = LENGTH labels ∧
     st.location =  FST (ohd prog) ∧
     init_clocks st.clocks (clksOf prog) ∧
     (* merge these two into one *)
@@ -8345,5 +8279,93 @@ Proof
   qexists_tac ‘ck + t.clock’ >>
   gs []
 QED
+
+Theorem timed_automata_functional_correct:
+  ∀k prog or st sts labels (t:('a,time_input) panSem$state).
+    timeFunSem$eval_steps k prog
+               (dimword (:α) - 1) (FST (t.ffi.ffi_state 0))
+               or st = SOME (labels, sts) ∧
+    prog ≠ [] ∧ LENGTH (clksOf prog) ≤ 29 ∧
+    st.location =  FST (ohd prog) ∧
+    init_clocks st.clocks (clksOf prog) ∧
+    code_installed t.code prog ∧
+    FLOOKUP t.code «start» =
+      SOME ([], start_controller (prog,st.waitTime)) ∧
+    well_formed_code prog t.code ∧
+    mem_config t.memory t.memaddrs t.be ∧
+    mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
+    t.ffi =
+    build_ffi (:'a) t.be (MAP explode (out_signals prog))
+              t.ffi.ffi_state t.ffi.io_events ∧
+    init_ffi t.ffi.ffi_state ∧
+    input_time_rel t.ffi.ffi_state ∧
+    time_seq t.ffi.ffi_state (dimword (:α)) ∧
+    ffi_rels_after_init prog labels st t ∧
+    good_dimindex (:'a) ∧
+    ~MEM "get_time_input" (MAP explode (out_signals prog)) ⇒
+    ∃io ios ns.
+      semantics t «start» = Terminate Success (t.ffi.io_events ++ io::ios) ∧
+      LENGTH labels = LENGTH ns ∧
+      SUM ns ≤ LENGTH ios ∧
+      decode_ios (:α) t.be labels ns
+                 (io::TAKE (SUM ns) ios)
+Proof
+  rw [] >>
+  dxrule eval_steps_imp_steps >>
+  strip_tac >>
+  metis_tac [timed_automata_correct]
+QED
+
+
+
+Theorem io_trace_impl_eval_steps:
+  ∀(t:('a,time_input) panSem$state) io ios prog st or k.
+    semantics t «start» = Terminate Success (t.ffi.io_events ++ io::ios) ∧
+    prog ≠ [] ∧ LENGTH (clksOf prog) ≤ 29 ∧
+    st.location =  FST (ohd prog) ∧
+    init_clocks st.clocks (clksOf prog) ∧
+    code_installed t.code prog ∧
+    FLOOKUP t.code «start» =
+      SOME ([], start_controller (prog,st.waitTime)) ∧
+    well_formed_code prog t.code ∧
+    mem_config t.memory t.memaddrs t.be ∧
+    mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
+    t.ffi =
+    build_ffi (:'a) t.be (MAP explode (out_signals prog))
+              t.ffi.ffi_state t.ffi.io_events ∧
+    init_ffi t.ffi.ffi_state ∧
+    input_time_rel t.ffi.ffi_state ∧
+    time_seq t.ffi.ffi_state (dimword (:α)) ∧
+    (* ffi_rels_after_init prog lbls st t ∧ *)
+    good_dimindex (:'a) ∧
+    ~MEM "get_time_input" (MAP explode (out_signals prog)) ∧
+    timeFunSem$eval_steps k prog
+                          (dimword (:α) - 1) (FST (t.ffi.ffi_state 0))
+                          or st ≠ NONE ⇒
+    ∃lbls sts ns.
+      timeFunSem$eval_steps k prog
+                            (dimword (:α) - 1) (FST (t.ffi.ffi_state 0))
+                            or st = SOME (lbls, sts) ∧
+      LENGTH lbls = LENGTH ns ∧
+      SUM ns ≤ LENGTH ios ∧
+      decode_ios (:α) t.be lbls ns
+                 (io::TAKE (SUM ns) ios)
+Proof
+  rw [] >>
+  gs [] >>
+  ‘∃lbls sts.
+     timeFunSem$eval_steps k prog (dimword (:α) − 1)
+                           (FST (t.ffi.ffi_state 0)) or st = SOME (lbls,sts)’ by (
+    gs [GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE] >>
+    cases_on ‘(timeFunSem$eval_steps k prog (dimword (:α) − 1)
+               (FST (t.ffi.ffi_state 0)) or st)’ >>
+    gs [IS_SOME_DEF] >>
+    cases_on ‘x’ >> gs []) >>
+  drule timed_automata_functional_correct >>
+  gs [] >>
+  impl_tac >- cheat >>
+  gs []
+QED
+
 
 val _ = export_theory();

@@ -14,11 +14,58 @@ val _ = set_grammar_ancestry
          "time_to_panProof"];
 
 
+
+
+
 Datatype:
   observed_io = ObsTime    num
               | ObsInput   num
               | ObsOutput  num
 End
+
+
+
+
+Theorem timed_automata_correct:
+  ∀k prog or st sts labels (t:('a,time_input) panSem$state).
+    eval_steps k prog
+               (dimword (:α) - 1) (FST (t.ffi.ffi_state 0))
+               or st = SOME (labels, sts) ∧
+    prog ≠ [] ∧ LENGTH (clksOf prog) ≤ 29 ∧
+    LENGTH sts = LENGTH labels ∧
+    st.location =  FST (ohd prog) ∧
+    init_clocks st.clocks (clksOf prog) ∧
+    (* merge these two into one *)
+    code_installed t.code prog ∧
+    FLOOKUP t.code «start» =
+      SOME ([], start_controller (prog,st.waitTime)) ∧
+    well_formed_code prog t.code ∧
+    mem_config t.memory t.memaddrs t.be ∧
+    mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
+    t.ffi =
+    build_ffi (:'a) t.be (MAP explode (out_signals prog))
+              t.ffi.ffi_state t.ffi.io_events ∧
+    init_ffi t.ffi.ffi_state ∧
+    input_time_rel t.ffi.ffi_state ∧
+    time_seq t.ffi.ffi_state (dimword (:α)) ∧
+    ffi_rels_after_init prog labels st t ∧
+    good_dimindex (:'a) ∧
+    ~MEM "get_time_input" (MAP explode (out_signals prog)) ⇒
+    ∃io ios ns.
+      semantics t «start» = Terminate Success (t.ffi.io_events ++ io::ios) ∧
+      LENGTH labels = LENGTH ns ∧
+      SUM ns ≤ LENGTH ios ∧
+      decode_ios (:α) t.be labels ns
+                 (io::TAKE (SUM ns) ios)
+Proof
+  rw [] >>
+  dxrule eval_steps_imp_steps >>
+  strip_tac >>
+  metis_tac [timed_automata_correct]
+QED
+
+
+
 
 
 Definition recover_time_input_def:
