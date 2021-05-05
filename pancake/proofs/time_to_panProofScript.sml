@@ -7837,15 +7837,11 @@ Proof
   gs [emptyVals_def, shape_of_def]
 QED
 
-
-Theorem timed_automata_correct:
-  ∀prog labels st sts (t:('a,time_input) panSem$state).
-    steps prog labels
-          (dimword (:α) - 1) (FST (t.ffi.ffi_state 0)) st sts ∧
+Definition wf_prog_and_init_states_def:
+  wf_prog_and_init_states prog st (t:('a,time_input) panSem$state) ⇔
     prog ≠ [] ∧ LENGTH (clksOf prog) ≤ 29 ∧
     st.location =  FST (ohd prog) ∧
     init_clocks st.clocks (clksOf prog) ∧
-    (* merge these two into one *)
     code_installed t.code prog ∧
     FLOOKUP t.code «start» =
       SOME ([], start_controller (prog,st.waitTime)) ∧
@@ -7858,17 +7854,26 @@ Theorem timed_automata_correct:
     init_ffi t.ffi.ffi_state ∧
     input_time_rel t.ffi.ffi_state ∧
     time_seq t.ffi.ffi_state (dimword (:α)) ∧
-    ffi_rels_after_init prog labels st t ∧
+    t.ffi.io_events = [] ∧
     good_dimindex (:'a) ∧
-    ~MEM "get_time_input" (MAP explode (out_signals prog)) ⇒
+    ~MEM "get_time_input" (MAP explode (out_signals prog))
+End
+
+
+Theorem timed_automata_correct:
+  ∀prog labels st sts (t:('a,time_input) panSem$state).
+    steps prog labels
+          (dimword (:α) - 1) (FST (t.ffi.ffi_state 0)) st sts ∧
+    wf_prog_and_init_states prog st t ∧
+    ffi_rels_after_init prog labels st t ⇒
     ∃io ios ns.
-      semantics t «start» = Terminate Success (t.ffi.io_events ++ io::ios) ∧
+      semantics t «start» = Terminate Success (io::ios) ∧
       LENGTH labels = LENGTH ns ∧
       SUM ns ≤ LENGTH ios ∧
       decode_ios (:α) t.be labels ns
                  (io::TAKE (SUM ns) ios)
 Proof
-  rw [] >>
+  rw [wf_prog_and_init_states_def] >>
   ‘∃ck t' io ios ns.
      evaluate
      (TailCall (Label «start» ) [],t with clock := t.clock + ck) =
@@ -8285,26 +8290,10 @@ Theorem timed_automata_functional_correct:
     timeFunSem$eval_steps k prog
                (dimword (:α) - 1) (FST (t.ffi.ffi_state 0))
                or st = SOME (labels, sts) ∧
-    prog ≠ [] ∧ LENGTH (clksOf prog) ≤ 29 ∧
-    st.location =  FST (ohd prog) ∧
-    init_clocks st.clocks (clksOf prog) ∧
-    code_installed t.code prog ∧
-    FLOOKUP t.code «start» =
-      SOME ([], start_controller (prog,st.waitTime)) ∧
-    well_formed_code prog t.code ∧
-    mem_config t.memory t.memaddrs t.be ∧
-    mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
-    t.ffi =
-    build_ffi (:'a) t.be (MAP explode (out_signals prog))
-              t.ffi.ffi_state t.ffi.io_events ∧
-    init_ffi t.ffi.ffi_state ∧
-    input_time_rel t.ffi.ffi_state ∧
-    time_seq t.ffi.ffi_state (dimword (:α)) ∧
-    ffi_rels_after_init prog labels st t ∧
-    good_dimindex (:'a) ∧
-    ~MEM "get_time_input" (MAP explode (out_signals prog)) ⇒
+    wf_prog_and_init_states prog st t ∧
+    ffi_rels_after_init prog labels st t  ⇒
     ∃io ios ns.
-      semantics t «start» = Terminate Success (t.ffi.io_events ++ io::ios) ∧
+      semantics t «start» = Terminate Success (io::ios) ∧
       LENGTH labels = LENGTH ns ∧
       SUM ns ≤ LENGTH ios ∧
       decode_ios (:α) t.be labels ns
@@ -8318,9 +8307,15 @@ QED
 
 
 
+Definition labels_of_def:
+  labels_of k prog m n or st =
+  timeFunSem$eval_steps k prog m n or st = SOME
+End
+
+
+
 Theorem io_trace_impl_eval_steps:
-  ∀(t:('a,time_input) panSem$state) io ios prog st or k.
-    semantics t «start» = Terminate Success (t.ffi.io_events ++ io::ios) ∧
+  ∀(t:('a,time_input) panSem$state) prog st or k.
     prog ≠ [] ∧ LENGTH (clksOf prog) ≤ 29 ∧
     st.location =  FST (ohd prog) ∧
     init_clocks st.clocks (clksOf prog) ∧
@@ -8342,7 +8337,8 @@ Theorem io_trace_impl_eval_steps:
     timeFunSem$eval_steps k prog
                           (dimword (:α) - 1) (FST (t.ffi.ffi_state 0))
                           or st ≠ NONE ⇒
-    ∃lbls sts ns.
+    ∃io ios lbls sts ns.
+      semantics t «start» = Terminate Success (io::ios) ∧
       timeFunSem$eval_steps k prog
                             (dimword (:α) - 1) (FST (t.ffi.ffi_state 0))
                             or st = SOME (lbls, sts) ∧
