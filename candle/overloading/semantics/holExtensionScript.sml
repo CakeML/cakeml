@@ -260,11 +260,6 @@ Proof
   metis_tac[]
 QED
 
-(* Hiding this under a definition so it won't obstruct drules later *)
-Definition extends_init_def:
-  extends_init ctxt = (ctxt extends init_ctxt)
-End
-
 Theorem consts_of_term_nonbuiltin_allCInsts:
   !trm c ty sig.
   (c,ty) ∈ consts_of_term trm /\
