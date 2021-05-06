@@ -561,8 +561,11 @@ Theorem cmlPEG_exec_thm[compute] =
                                [sumTheory.INL_11]))
     |> LIST_CONJ;
 
-val test1 = time EVAL ``peg_exec cmlPEG (pnt nErel) (map_loc [IntT 3; StarT;
-IntT 4; SymbolT "/"; IntT (-2); SymbolT ">"; AlphaT "x"] 0) [] [] done failed``
+val test1 = time EVAL
+             “peg_exec cmlPEG (pnt nErel)
+              (map_loc [IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2);
+                        SymbolT ">"; AlphaT "x"] 0)
+              [] NONE [] done failed”
 
 val frange_image = Q.prove(
   `FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)`,

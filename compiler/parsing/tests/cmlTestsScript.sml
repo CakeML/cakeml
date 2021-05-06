@@ -61,7 +61,7 @@ fun parsetest0 nt sem s opt = let
   val _ = print ("Lexes to : " ^ term_to_string ttoks ^ "\n")
   val _ = print ("Parsing\n")
   val evalth = time EVAL
-                    ``peg_exec cmlPEG (nt (mkNT ^nt) I) ^t [] [] done failed``
+                   “peg_exec cmlPEG (nt (mkNT ^nt) I) ^t [] NONE [] done failed”
   val r = rhs (concl evalth)
   fun diag(s,t) = let
     fun pp (s,t) =
@@ -78,8 +78,10 @@ fun parsetest0 nt sem s opt = let
 in
   if same_const (rator r) result_t then
     if same_const (rand r |> strip_comb |> #1) success_t then let
-      val remaining_input = r |> rand |> lhand
-      val res = r |> rand |> rand |> lhand
+        val (_, args) = strip_comb (rand r)
+        val remaining_input = hd args
+        val resl = hd (tl args) (* should be singleton list *)
+        val res = lhand resl (* extract h of CONS h NIL *)
     in
       if listSyntax.is_nil remaining_input then let
         val _ = diag ("EVAL to: ", res)

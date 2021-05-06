@@ -11,10 +11,12 @@ val _ = new_theory "cmlParse"
 val _ = set_grammar_ancestry ["cmlPEG", "cmlPtreeConversion"]
 val _ = monadsyntax.temp_add_monadsyntax()
 
-Overload cmlpegexec = ``λn t. peg_exec cmlPEG (pnt n) t [] [] done failed``
+Overload cmlpegexec = ``λn t. peg_exec cmlPEG (pnt n) t [] NONE [] done failed``
 
 Definition destResult_def:
-  destResult (Result (Success [] x)) = Success [] x ∧
+  destResult (Result (Success [] x eo)) = Success [] x eo ∧
+  destResult (Result (Success ((_,l)::_) _ _)) =
+  Failure l "Expected to be at EOF" ∧
   destResult (Result (Failure fl fe)) = Failure fl fe ∧
   destResult _ = Failure unknown_loc "Something catastrophic happened"
 End
@@ -24,7 +26,7 @@ Definition pegresult_bind_def:
   pegresult_bind (f:α M) (g:α -> β M) : β M =
   λtoks.
     case f toks of
-      Success toks' x => g x toks'
+      Success toks' x eo => g x toks'
     | Failure fl fe => Failure fl fe
 End
 
@@ -32,7 +34,7 @@ Definition pegresult_choice_def:
   pegresult_choice (f : α M) (g : α M) : α M =
   λtoks.
     case f toks of
-      Success toks' x => Success toks' x
+      Success toks' x eo => Success toks' x eo
     | _ => g toks
 End
 
@@ -43,7 +45,7 @@ End
 
 Definition pegresult_guard_def:
   pegresult_guard b : unit M =
-  λtoks. if b then Success toks ()
+  λtoks. if b then Success toks () NONE
          else Failure (toks_to_loc toks) "Assert failure"
 End
 
@@ -54,14 +56,13 @@ val _ = monadsyntax.declare_monad (
    fail = SOME “K (Failure unknown_loc "Unknown error") : α M”,
    guard = SOME“pegresult_guard”,
    ignorebind = NONE,
-   unit = “flip Success”})
+   unit = “λa inp. Success inp a NONE”})
 val _ = monadsyntax.temp_enable_monad "pegresult"
 
 Definition optlift_def:
   optlift NONE : α M = (λtoks. Failure (toks_to_loc toks) "Option = NONE") ∧
-  optlift (SOME a) = λtoks. Success toks a
+  optlift (SOME a) = λtoks. Success toks a NONE
 End
-
 
 Definition cmlParseExpr_def:
   cmlParseExpr = do
@@ -72,18 +73,10 @@ Definition cmlParseExpr_def:
   od
 End
 
-Definition require_eof_def:
-  require_eof : unit M =
-  λtoks. case toks of
-           [] => Success toks ()
-         | ts => Failure (toks_to_loc ts) "Parse completed before EOF"
-End
-
 Definition parse_prog_def:
   parse_prog =
     do
       pts <- destResult o cmlpegexec nTopLevelDecs;
-      require_eof;
       pt <- optlift $ oHD pts;
       optlift $ ptree_TopLevelDecs pt;
     od
