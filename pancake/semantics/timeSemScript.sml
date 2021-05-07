@@ -306,39 +306,33 @@ Inductive step:
     step p (LAction (Output out_signal)) m n st st')
 End
 
+(*
+case s.waitTime of
+     | SOME w => w + n < m
+     | NONE => T
+*)
+
 Definition steps_def:
   (steps prog [] m n s [] ⇔
-   step prog (LDelay ((m - 1) - n)) m n s
+     n < m ∧ s.waitTime = NONE) ∧
+  (steps prog (lbl::lbls) m n s (st::sts) ⇔
+     step prog lbl m n s st ∧
+     let n' =
+         case lbl of
+         | LDelay d => d + n
+         | LAction _ => n
+     in
+       steps prog lbls m n' st sts) ∧
+  (steps prog _ m _ s _ ⇔ F)
+End
+
+(*
+ step prog (LDelay ((m - 1) - n)) m n s
         (mkState
          (delay_clocks (s.clocks) ((m - 1) - n))
          s.location
          NONE
-         NONE)) ∧
-  (steps prog (lbl::lbls) m n s (st::sts) ⇔
-   step prog lbl m n s st ∧
-   let n' =
-       case lbl of
-       | LDelay d => d + n
-       | LAction _ => n
-   in
-     steps prog lbls m n' st sts) ∧
-  (steps prog _ m _ s _ ⇔ F)
-End
-
-
-(*
-Definition steps_def:
-  (steps prog [] _ _ _ [] ⇔ T) ∧
-  (steps prog (lbl::lbls) m n s (st::sts) ⇔
-   step prog lbl m n s st ∧
-   let n' =
-       case lbl of
-       | LDelay d => d + n
-       | LAction _ => n
-   in
-     steps prog lbls m n' st sts) ∧
-  (steps prog _ m _ s _ ⇔ F)
-End
+         NONE)
 *)
 
 Inductive stepTrace:

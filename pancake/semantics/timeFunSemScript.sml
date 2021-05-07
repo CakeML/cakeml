@@ -162,6 +162,7 @@ Definition eval_step_def:
 End
 
 
+(*
 Definition eval_steps_delay_until_max_def:
   (eval_steps_delay_until_max 0 m n st =
    if n < m ∧ max_clocks (delay_clocks (st.clocks) n) m
@@ -175,16 +176,24 @@ Definition eval_steps_delay_until_max_def:
         | SOME (lbls', sts') => SOME (lbl::lbls', st'::sts'))
    | NONE => NONE)
 End
+*)
 
-
-Definition eval_steps_def:
-  (eval_steps 0 prog m n _ st =
+(*
+(* if m-1 = n then SOME ([],[])
+   else NONE *)
    case st.waitTime of
    | NONE =>
        (case eval_steps_delay_until_max ((m - 1) - n) m n st of
         | SOME (lbls, sts) => SOME (lbls, sts)
         | _ => NONE)
-   | _ => NONE) ∧
+   | _ => NONE
+*)
+
+Definition eval_steps_def:
+  (eval_steps 0 prog m n _ st =
+   if n < m ∧ st.waitTime = NONE
+   then SOME ([],[])
+   else NONE) ∧
   (eval_steps (SUC k) prog m n or st =
    case eval_step prog m n or st of
    | SOME (lbl, st') =>
@@ -385,55 +394,12 @@ QED
 
 
 Theorem eval_steps_imp_steps:
-  ∀k n prog m st labels sts.
-    eval_steps_delay_until_max k m n st = SOME (labels,sts) ∧
-    k = m − (n + 1) ∧
-    st.waitTime = NONE ⇒
-    steps prog labels m n st sts
-Proof
-  Induct >> rw []
-  >- (
-    gs [eval_steps_delay_until_max_def] >>
-    gs [steps_def, step_cases] >>
-    ‘n = m - 1’ by gs [] >>
-    rveq >> simp []) >>
-  gs [eval_steps_delay_until_max_def] >>
-  every_case_tac >> gvs [] >>
-  gs [steps_def] >>
-  ‘q = LDelay 1’ by gs [eval_delay_wtime_none_def] >>
-  gs [] >>
-  conj_asm1_tac
-  >- (
-    gs [eval_delay_wtime_none_def] >>
-    rveq >>
-    gs [step_cases, mkState_def] >>
-    gs [state_component_equality]) >>
-  gvs [] >>
-  last_x_assum mp_tac >>
-  disch_then drule >>
-  disch_then (qspec_then ‘prog’ mp_tac) >>
-  impl_tac
-  >- (
-    gs [] >>
-    gs [eval_delay_wtime_none_def] >>
-    rveq >>
-    gs [step_cases, mkState_def] >>
-    gs [state_component_equality]) >>
-  gs []
-QED
-
-
-Theorem eval_steps_imp_steps:
   ∀k prog m n or st labels sts.
     eval_steps k prog m n or st = SOME (labels, sts) ⇒
     steps prog labels m n st sts
 Proof
   Induct >> rw []
-  >- (
-    fs [eval_steps_def] >>
-    every_case_tac >> gvs [] >>
-    match_mp_tac eval_steps_imp_steps >>
-    qexists_tac ‘m-1-n’ >> gs []) >>
+  >- fs [eval_steps_def, steps_def] >>
   gs [eval_steps_def] >>
   every_case_tac >> gs [] >> rveq >> gs [] >>
   gs [steps_def] >>
