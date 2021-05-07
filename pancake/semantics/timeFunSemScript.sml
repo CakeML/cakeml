@@ -189,6 +189,11 @@ End
    | _ => NONE
 *)
 
+Definition set_oracle_def:
+  (set_oracle (Input _) (or:num -> input_delay) = next_oracle or) ∧
+  (set_oracle (Output _) or = or)
+End
+
 Definition eval_steps_def:
   (eval_steps 0 prog m n _ st =
    if n < m ∧ st.waitTime = NONE
@@ -198,11 +203,15 @@ Definition eval_steps_def:
    case eval_step prog m n or st of
    | SOME (lbl, st') =>
        let n' =
-           case lbl of
-           | LDelay d => d + n
-           | LAction _ => n
+             case lbl of
+             | LDelay d => d + n
+             | LAction _ => n;
+           noracle =
+             case lbl of
+             | LDelay _ => next_oracle or
+             | LAction act => set_oracle act or
        in
-         (case eval_steps k prog m n' (next_oracle or) st' of
+         (case eval_steps k prog m n' noracle st' of
           | NONE => NONE
           | SOME (lbls', sts') => SOME (lbl::lbls', st'::sts'))
    | NONE => NONE)
