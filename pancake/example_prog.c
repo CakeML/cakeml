@@ -1,9 +1,8 @@
-
-(*
+/*
   program for
    reading, preprocssing, writing,
    skipping until new characters are reached
- *)
+*/
 
 
 

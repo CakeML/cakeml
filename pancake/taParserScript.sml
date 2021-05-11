@@ -30,6 +30,8 @@ in
     end
 end
 
+Overload CVar = “strlit”
+
 val flashing_led_def =
       parseFile "flashing_led"
                 "ta_progs/flashing_led.out";
