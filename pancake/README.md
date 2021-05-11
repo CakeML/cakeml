@@ -53,8 +53,11 @@ Compilation from panLang to crepLang.
 [pan_to_crepScript.sml](pan_to_crepScript.sml):
 Compilation from panLang to crepLang.
 
+[pan_to_targetScript.sml](pan_to_targetScript.sml):
+Compiler from Pancake to machine code
+
 [pan_to_wordScript.sml](pan_to_wordScript.sml):
-Correctness proof for --
+Compiler from pan to word
 
 [proofs](proofs):
 Proofs files for compiling Pancake.
@@ -73,3 +76,6 @@ Abstract syntax for timeLang
 
 [time_to_panScript.sml](time_to_panScript.sml):
 Compilation from timeLang to panLang
+
+[time_to_targetScript.sml](time_to_targetScript.sml):
+Compiler from timeLang to machine code
