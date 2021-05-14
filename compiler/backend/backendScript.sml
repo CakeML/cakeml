@@ -130,6 +130,23 @@ val to_word_def = Define`
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   (c,p,names)`;
 
+val to_word_only_def = Define`
+  to_word_only c p =
+  let (c,p,names) = to_data c p in
+  let p = data_to_word$compile_to_word c.data_conf c.lab_conf.asm_conf p in
+  (c,p,names)`;
+
+Theorem to_word_thm:
+  to_word c p =
+  let (c,p,names) = to_word_only c p in
+  let (col,p) = compile c.word_to_word_conf c.lab_conf.asm_conf p in
+  let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
+  (c,p,names)
+Proof
+  fs [to_word_def,to_word_only_def,compile_to_word_def,data_to_wordTheory.compile_def]
+  \\ pairarg_tac \\ fs []
+QED
+
 val to_stack_def = Define`
   to_stack c p =
   let (c,p,names) = to_word c p in
