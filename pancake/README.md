@@ -74,6 +74,13 @@ Some sample timed automata (TA) programs.
 [timeLangScript.sml](timeLangScript.sml):
 Abstract syntax for timeLang
 
+[time_computationLib.sml](time_computationLib.sml):
+Library for in-logic compilation of CakeML abstract syntax producing machine
+code (for a variety of targets) using the CakeML compiler backend.
+
+[time_evalScript.sml](time_evalScript.sml):
+Evaluation of a timeLang program
+
 [time_to_panScript.sml](time_to_panScript.sml):
 Compilation from timeLang to panLang
 

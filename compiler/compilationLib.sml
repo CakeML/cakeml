@@ -983,7 +983,7 @@ val compile_x64 = compile x64_backend_config_def cbv_to_bytes_x64
 (*
 
 val (backend_config_def,cbv_to_bytes,name,prog_def) =
-    (x64_backend_config_def,cbv_to_bytes_x64,500,500,"hello",hello_prog_def)
+    (x64_backend_config_def,cbv_to_bytes_x64,"hello",hello_prog_def)
 
 *)
 
