@@ -123,6 +123,12 @@ val to_data_def = Define`
   let p = bvi_to_data$compile_prog p in
   (c,p,names)`;
 
+val to_word_0_def = Define`
+  to_word_0 c p =
+  let (c,p,names) = to_data c p in
+  let p = data_to_word$compile_0 c.data_conf c.lab_conf.asm_conf p in
+  (c,p,names)`;
+
 val to_word_def = Define`
   to_word c p =
   let (c,p,names) = to_data c p in
@@ -130,20 +136,14 @@ val to_word_def = Define`
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   (c,p,names)`;
 
-val to_word_only_def = Define`
-  to_word_only c p =
-  let (c,p,names) = to_data c p in
-  let p = data_to_word$compile_to_word c.data_conf c.lab_conf.asm_conf p in
-  (c,p,names)`;
-
 Theorem to_word_thm:
   to_word c p =
-  let (c,p,names) = to_word_only c p in
+  let (c,p,names) = to_word_0 c p in
   let (col,p) = compile c.word_to_word_conf c.lab_conf.asm_conf p in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   (c,p,names)
 Proof
-  fs [to_word_def,to_word_only_def,compile_to_word_def,data_to_wordTheory.compile_def]
+  fs [to_word_def,to_word_0_def,compile_0_def,data_to_wordTheory.compile_def]
   \\ pairarg_tac \\ fs []
 QED
 
@@ -219,11 +219,26 @@ val from_word_def = Define`
   let c = c with word_conf := c' in
   from_stack c names p`;
 
+val from_word_0_def = Define`
+  from_word_0 c names p =
+  let (col,prog) = word_to_word$compile c.word_to_word_conf c.lab_conf.asm_conf p in
+  let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
+  from_word c names prog`;
+
 val from_data_def = Define`
   from_data c names p =
   let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   from_word c names p`;
+
+Theorem from_data_thm:
+  from_data c names p =
+  let p = data_to_word$compile_0 c.data_conf c.lab_conf.asm_conf p in
+  from_word_0 c names p
+Proof
+  fs [from_data_def,data_to_wordTheory.compile_0_def,data_to_wordTheory.compile_def,
+      from_word_0_def]
+QED
 
 val from_bvi_def = Define`
   from_bvi c names p =
@@ -298,6 +313,51 @@ val to_livesets_def = Define`
     (get_clash_tree prog,heu_moves,spillcosts,get_forced c.lab_conf.asm_conf prog [])) p
   in
     ((reg_count,data),c',names,p)`
+
+val to_livesets_0_def = Define`
+  to_livesets_0 (c:α backend$config) (c':α backend$config,p,names: mlstring num_map) =
+  let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
+  let alg = word_conf.reg_alg in
+  let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
+  let p =
+    MAP (λ(name_num,arg_count,prog).
+    let prog = word_simp$compile_exp prog in
+    let maxv = max_var prog + 1 in
+    let inst_prog = inst_select asm_conf maxv prog in
+    let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
+    let rm_prog = FST(remove_dead ssa_prog LN) in
+    let prog = if two_reg_arith then three_to_two_reg rm_prog
+                                else rm_prog in
+     (name_num,arg_count,prog)) p in
+  let data = MAP (\(name_num,arg_count,prog).
+    let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
+    (get_clash_tree prog,heu_moves,spillcosts,get_forced c.lab_conf.asm_conf prog [])) p
+  in
+    ((reg_count,data),c',names,p)`
+
+Theorem to_data_conf_inv:
+  to_data c p = (c',p',names) ⇒
+  c'.data_conf = c.data_conf ∧
+  c'.word_conf = c.word_conf ∧
+  c'.stack_conf = c.stack_conf ∧
+  c'.lab_conf = c.lab_conf
+Proof
+  strip_tac
+  \\ fs [to_data_def] \\ rpt (pairarg_tac \\ gvs [])
+  \\ fs [to_bvi_def] \\ rpt (pairarg_tac \\ gvs [])
+  \\ fs [to_bvl_def] \\ rpt (pairarg_tac \\ gvs [])
+  \\ fs [to_clos_def] \\ rpt (pairarg_tac \\ gvs [])
+  \\ fs [to_flat_def] \\ rpt (pairarg_tac \\ gvs [])
+QED
+
+Theorem to_liveset_0_thm:
+  to_livesets c p = to_livesets_0 c (to_word_0 c p)
+Proof
+  fs [to_livesets_def,to_livesets_0_def,to_word_0_def]
+  \\ Cases_on ‘to_data c p’ \\ fs [] \\ PairCases_on ‘r’ \\ fs []
+  \\ fs [to_livesets_0_def,to_word_0_def,data_to_wordTheory.compile_0_def]
+  \\ imp_res_tac to_data_conf_inv \\ fs []
+QED
 
 val from_livesets_def = Define`
   from_livesets c ((k,data),c',names,p) =

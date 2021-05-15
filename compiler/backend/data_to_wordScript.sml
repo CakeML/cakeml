@@ -2305,8 +2305,8 @@ val compile_def = Define `
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) prog in
       word_to_word$compile word_conf (asm_conf:'a asm_config) p`;
 
-Definition compile_to_word_def:
-  compile_to_word data_conf asm_conf prog =
+Definition compile_0_def:
+  compile_0 data_conf asm_conf prog =
     let data_conf = (data_conf with
                       <| has_fp_ops := (1 < asm_conf.fp_reg_count);
                          has_fp_tern := (asm_conf.ISA = ARMv7 /\
