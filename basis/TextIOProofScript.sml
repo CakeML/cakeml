@@ -91,7 +91,7 @@ Proof
   rw[STDIO_def,STD_streams_def,SEP_CLAUSES,SEP_EXISTS_THM,STAR_COMM,STAR_ASSOC,cond_STAR] >>
   fs[Once STAR_COMM] >>
   imp_res_tac UNIQUE_IOFS >>
-  cases_on`fs1` >> cases_on`fs2` >> fs[IO_fs_numchars_fupd]
+  cases_on`fs1` >> cases_on`fs2` >> fs[recordtype_IO_fs_seldef_numchars_fupd_def]
 QED;
 
 (* weak injection theorem *)
@@ -112,7 +112,7 @@ Proof
      qmatch_assum_rename_tac`SPLIT s (u0, v0)` >>
      qexists_tac`u0` >> qexists_tac`v0` >> fs[] >>
      qexists_tac`u1` >> fs[PULL_EXISTS] >> qexists_tac`ll` >> fs[] >>
-     cases_on`fs1` >> cases_on`fs2` >> fs[IO_fs_numchars_fupd] >>
+     cases_on`fs1` >> cases_on`fs2` >> fs[recordtype_IO_fs_seldef_numchars_fupd_def] >>
      metis_tac[]
      ) >>
   fs[STDIO_def,STD_streams_def,STAR_def,SEP_EXISTS,cond_def] >>
@@ -121,7 +121,7 @@ Proof
   qmatch_assum_rename_tac`SPLIT s (u0, v0)` >>
   qexists_tac`u0` >> qexists_tac`v0` >> fs[] >>
   qexists_tac`u1` >> fs[PULL_EXISTS] >> qexists_tac`ll` >> fs[] >>
-  cases_on`fs1` >> cases_on`fs2` >> fs[IO_fs_numchars_fupd] >>
+  cases_on`fs1` >> cases_on`fs2` >> fs[recordtype_IO_fs_seldef_numchars_fupd_def] >>
   metis_tac[]
 QED;
 
@@ -956,9 +956,9 @@ Proof
         getNullTermStr_insert_atI, ORD_BOUND, ORD_eq_0,option_eq_some,
         dimword_8, MAP_MAP_o, o_DEF, char_BIJ,w82n_n2w8,LENGTH_n2w8,
         implode_explode, LENGTH_explode,closeFD_def,LUPDATE_def] >>
-     cases_on`fs` >> fs[IO_fs_infds_fupd] >>
+     cases_on`fs` >> fs[recordtype_IO_fs_seldef_infds_fupd_def] >>
      imp_res_tac ALOOKUP_NONE >> rw[] \\
-     fs[liveFS_def,IO_fs_infds_fupd,STRING_TYPE_def] \\ xsimpl >>
+     fs[liveFS_def,recordtype_IO_fs_seldef_infds_fupd_def,STRING_TYPE_def] \\ xsimpl >>
      qpat_abbrev_tac `new_events = events ++ _` >>
      qexists_tac `new_events` >> xsimpl) >>
   NTAC 3 (xlet_auto >- xsimpl) >>
@@ -1004,9 +1004,9 @@ Proof
         getNullTermStr_insert_atI, ORD_BOUND, ORD_eq_0,option_eq_some,
         dimword_8, MAP_MAP_o, o_DEF, char_BIJ,w82n_n2w8,LENGTH_n2w8,
         implode_explode, LENGTH_explode,closeFD_def,LUPDATE_def] >>
-     cases_on`fs` >> fs[IO_fs_infds_fupd] >>
+     cases_on`fs` >> fs[recordtype_IO_fs_seldef_infds_fupd_def] >>
      imp_res_tac ALOOKUP_NONE >> rw[] \\
-     fs[liveFS_def,IO_fs_infds_fupd,STRING_TYPE_def] \\ xsimpl >>
+     fs[liveFS_def,recordtype_IO_fs_seldef_infds_fupd_def,STRING_TYPE_def] \\ xsimpl >>
      qpat_abbrev_tac `new_events = events ++ _` >>
      qexists_tac `new_events` >> xsimpl) >>
   NTAC 3 (xlet_auto >- xsimpl) >>
