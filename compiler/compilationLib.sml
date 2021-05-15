@@ -160,6 +160,44 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
       ["flat_prog","clos_prog","bvl_prog","bvi_prog"]
   in to_data_thm end
 
+fun compile_to_word_0 data_prog_def to_data_thm lab_prog_name =
+  let
+    val cs = compilation_compset()
+    val () =
+      computeLib.extend_compset [
+        computeLib.Extenders [
+          arm7_targetLib.add_arm7_encode_compset,
+          arm8_targetLib.add_arm8_encode_compset,
+          mips_targetLib.add_mips_encode_compset,
+          riscv_targetLib.add_riscv_encode_compset,
+          ag32_targetLib.add_ag32_encode_compset,
+          x64_targetLib.add_x64_encode_compset],
+        computeLib.Defs [
+          arm7_backend_config_def, arm7_names_def,
+          arm8_backend_config_def, arm8_names_def,
+          mips_backend_config_def, mips_names_def,
+          riscv_backend_config_def, riscv_names_def,
+          ag32_backend_config_def, ag32_names_def,
+          x64_backend_config_def, x64_names_def,
+          data_prog_def
+          ]
+      ] cs
+    val eval = computeLib.CBV_CONV cs;
+
+    val to_data_tm = to_data_thm |> concl |> lhs
+    val conf_tm = to_data_tm |> rator |> rand
+    val prog_tm = to_data_tm |> rand
+
+    val to_word_0_thm = to_word_0_def
+                        |> INST_TYPE [beta|->alpha]
+                        |> ISPEC conf_tm |> SPEC prog_tm
+                        |> REWRITE_RULE [LET_THM]
+                        |> PURE_REWRITE_RULE [data_to_wordTheory.compile_0_def]
+                        |> CONV_RULE (RAND_CONV (RAND_CONV (REWR_CONV to_data_thm)))
+                        |> CONV_RULE (RAND_CONV (timez "data_to_word" eval))
+
+  in to_word_0_thm end;
+
 fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
   let
     val cs = compilation_compset()
