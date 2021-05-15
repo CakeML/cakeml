@@ -15,7 +15,8 @@ val option_case_eq =
 Theorem numchars_self:
    !fs. fs = fs with numchars := fs.numchars
 Proof
-  cases_on`fs` >> fs[fsFFITheory.IO_fs_numchars_fupd]
+  cases_on`fs` >>
+  fs[fsFFITheory.recordtype_IO_fs_seldef_numchars_fupd_def]
 QED
 
 (* we can actually open a file if the OS limit has not been reached and we can
@@ -767,7 +768,7 @@ Proof
   rw[liveFS_def,openFileFS_def, openFile_def] >>
   CASE_TAC >> fs[] >> CASE_TAC >> fs[] >>
   `r.numchars = fs.numchars` by
-    (cases_on`fs` >> cases_on`r` >> fs[IO_fs_infds_fupd]) >>
+    (cases_on`fs` >> cases_on`r` >> fs[fsFFITheory.recordtype_IO_fs_seldef_infds_fupd_def]) >>
   fs[]
 QED
 
