@@ -201,9 +201,7 @@ fun compile_to_word_0 data_prog_def to_data_thm =
 
   in to_word_0_thm end;
 
-(*
-
-fun compile_to_lab_new to_word_0_thm lab_prog_name =
+fun compile_to_lab_new conf_tm to_word_0_thm lab_prog_name =
   let
     val word_0_tm = to_word_0_thm |> concl |> rand
     val word_0_parts = helperLib.list_dest dest_pair word_0_tm
@@ -234,6 +232,7 @@ fun compile_to_lab_new to_word_0_thm lab_prog_name =
     val eval = computeLib.CBV_CONV cs;
     fun parl f = parlist (!num_threads) (!chunk_size) f
 
+    (* to_livesets_RHS partial expanded *)
     val to_livesets_0_thm0 =
       to_livesets_0_def |> ISPEC conf_tm |> SPECL (map (lhs o concl) word_0_abbrevs)
       |> (CONV_RULE o RAND_CONV)
@@ -282,14 +281,15 @@ fun compile_to_lab_new to_word_0_thm lab_prog_name =
 
     val thm1' = thm1 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM word_prog0_def)))
 
-    val to_livesets_thm1 =
+    (* to_livesets_0 expanded inst,ssa,two-reg *)
+    val to_livesets_0_thm1 =
       to_livesets_0_thm0
       |> CONV_RULE (RAND_CONV (
            RAND_CONV(REWR_CONV thm1') THENC
            BETA_CONV THENC
            REWR_CONV LET_THM))
 
-    val tm2 = to_livesets_thm1 |> rconc |> rand
+    val tm2 = to_livesets_0_thm1 |> rconc |> rand
     val (args,body) = tm2 |> rator |> rand |> dest_pabs
     val clash_fn_def = zDefine`clash_fn ^args = ^body`;
     val temp_defs = (mk_abbrev_name"clash_fn")::temp_defs;
@@ -317,19 +317,15 @@ fun compile_to_lab_new to_word_0_thm lab_prog_name =
       |> (RATOR_CONV(RAND_CONV(REWR_CONV(SYM clash_fn_eq))) THENC
           RAND_CONV(REWR_CONV word_prog0_def) THENC map_ths_conv ths)
 
-    (* --- up to here --- *)
-
-
-
-    val to_livesets_thm =
-      to_livesets_thm1
+    val to_livesets_0_thm =
+      to_livesets_0_thm1
       |> CONV_RULE (RAND_CONV (
            RAND_CONV(REWR_CONV thm2) THENC
            BETA_CONV THENC
            PATH_CONV"lrlr"eval))
 
     val oracles =
-      to_livesets_thm
+      to_livesets_0_thm
       |> rconc |> pairSyntax.dest_pair |> #1
       |> time_with_size term_size "external oracle" (reg_allocComputeLib.get_oracle reg_alloc.Irc)
 
@@ -340,7 +336,15 @@ fun compile_to_lab_new to_word_0_thm lab_prog_name =
         with col_oracle := oracle``
       |> eval |> rconc
 
-    val args = to_livesets_thm |> concl |> lhs |> strip_comb |> #2
+    (* config and prog *)
+    val args = to_word_0_thm' |> concl |> lhs |> strip_comb |> #2
+
+    (* to_livesets = to_word_0 + to_liveset_0 *)
+    val to_livesets_thm =
+      to_liveset_0_thm
+      |> Q.GENL[`c`,`p`] |> ISPECL args
+      |> CONV_RULE(PATH_CONV"rr"(REWR_CONV to_word_0_thm'))
+      |> CONV_RULE(PATH_CONV"r"(REWR_CONV to_livesets_0_thm))
 
     val word_prog1_def = mk_abbrev"word_prog1"(thm2 |> rconc);
     val temp_defs = (mk_abbrev_name"word_prog1") :: temp_defs
@@ -699,8 +703,6 @@ fun compile_to_lab_new to_word_0_thm lab_prog_name =
       val () = List.app delete_binding temp_defs
 
   in stack_to_lab_thm end
-
-*)
 
 fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
   let
@@ -1506,12 +1508,12 @@ fun compile backend_config_def cbv_to_bytes name prog_def =
     val _ = save_thm((!intermediate_prog_prefix) ^ "to_data_thm", to_data_thm)
     val data_prog_def = definition(mk_abbrev_name data_prog_name)
     val lab_prog_name = (!intermediate_prog_prefix) ^ "lab_prog"
-  (* new here:
     val to_word_0_thm = compile_to_word_0 data_prog_def to_data_thm
     val conf_tm = to_data_thm |> concl |> lhs |> rator |> rand
-    val stack_to_lab_thm = compile_to_lab conf_tm to_word_0_thm lab_prog_name
-  *)
-    val stack_to_lab_thm = compile_to_lab data_prog_def to_data_thm lab_prog_name
+
+    val stack_to_lab_thm = compile_to_lab_new conf_tm to_word_0_thm lab_prog_name
+
+    (* val stack_to_lab_thm = compile_to_lab data_prog_def to_data_thm lab_prog_name *)
     val lab_prog_def = definition(mk_abbrev_name lab_prog_name)
     val code_name = (!intermediate_prog_prefix) ^ "code"
     val data_name = (!intermediate_prog_prefix) ^ "data"
