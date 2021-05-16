@@ -435,8 +435,17 @@ Proof
   BasicProvers.EVERY_CASE_TAC>>fs[]
 QED
 
+Theorem compile_oracle_word_0:
+  compile c p =
+  let (c,p,names) = to_word_0 c p in
+  from_word_0 c names p
+Proof
+  simp[from_word_0_to_livesets_0, GSYM compile_oracle,to_liveset_0_thm]>>
+  pairarg_tac>>simp[]
+QED
+
 Theorem to_livesets_invariant:
-    wc.reg_alg = c.word_to_word_conf.reg_alg ⇒
+  wc.reg_alg = c.word_to_word_conf.reg_alg ⇒
   to_livesets (c with word_to_word_conf:=wc) p =
   let (rcm,c,p) = to_livesets c p in
     (rcm,c with word_to_word_conf:=wc,p)
@@ -449,6 +458,15 @@ Proof
      to_flat_def,to_livesets_def] >>
   unabbrev_all_tac>>fs[]>>
   rpt(rfs[]>>fs[])
+QED
+
+Theorem to_livesets_0_invariant:
+  (wc.reg_alg = c.word_to_word_conf.reg_alg) ⇒
+  (to_livesets_0 (c with word_to_word_conf:=wc,p,names) =
+  let (rcm,c,p) = to_livesets_0 (c,p,names) in
+    (rcm,c with word_to_word_conf:=wc,p))
+Proof
+  rw[FUN_EQ_THM,to_livesets_0_def]
 QED
 
 Theorem to_data_change_config:
@@ -466,6 +484,22 @@ Proof
   rw[to_data_def,to_bvi_def,to_bvl_def,to_clos_def,to_flat_def]
   \\ rpt (pairarg_tac \\ fs[]) \\ rw[] \\ fs[] \\ rfs[] \\ rveq \\ fs[] \\ rfs[] \\ rveq \\ fs[]
   \\ simp[config_component_equality]
+QED
+
+Theorem to_word_0_invariant:
+  (wc.reg_alg = c.word_to_word_conf.reg_alg) ⇒
+  ((to_word_0 (c with word_to_word_conf:=wc) p) =
+  let (c,p,names) = to_word_0 c p in
+    (c with word_to_word_conf:=wc,p,names))
+Proof
+  srw_tac[][FUN_EQ_THM,
+     to_data_def,
+     to_bvi_def,
+     to_bvl_def,
+     to_clos_def,
+     to_flat_def,to_livesets_def,to_word_0_def] >>
+  unabbrev_all_tac>>fs[]>>
+  rpt(rfs[]>>fs[])
 QED
 
 val _ = export_theory();
