@@ -234,7 +234,7 @@ fun compile_to_lab_new conf_tm to_word_0_thm lab_prog_name =
 
     (* to_livesets_RHS partial expanded *)
     val to_livesets_0_thm0 =
-      to_livesets_0_def |> ISPEC conf_tm |> SPECL (map (lhs o concl) word_0_abbrevs)
+      to_livesets_0_def |> ISPECL (map (lhs o concl) word_0_abbrevs)
       |> (CONV_RULE o RAND_CONV)
           (REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
            REWR_CONV LET_THM THENC BETA_CONV THENC

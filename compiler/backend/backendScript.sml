@@ -315,7 +315,7 @@ val to_livesets_def = Define`
     ((reg_count,data),c',names,p)`
 
 val to_livesets_0_def = Define`
-  to_livesets_0 (c:α backend$config) (c':α backend$config,p,names: mlstring num_map) =
+  to_livesets_0 (c:α backend$config,p,names: mlstring num_map) =
   let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
   let alg = word_conf.reg_alg in
   let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
@@ -333,12 +333,13 @@ val to_livesets_0_def = Define`
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
     (get_clash_tree prog,heu_moves,spillcosts,get_forced c.lab_conf.asm_conf prog [])) p
   in
-    ((reg_count,data),c',names,p)`
+    ((reg_count,data),c,names,p)`
 
 Theorem to_data_conf_inv:
   to_data c p = (c',p',names) ⇒
   c'.data_conf = c.data_conf ∧
   c'.word_conf = c.word_conf ∧
+  c'.word_to_word_conf = c.word_to_word_conf ∧
   c'.stack_conf = c.stack_conf ∧
   c'.lab_conf = c.lab_conf
 Proof
@@ -351,7 +352,7 @@ Proof
 QED
 
 Theorem to_liveset_0_thm:
-  to_livesets c p = to_livesets_0 c (to_word_0 c p)
+  to_livesets c p = to_livesets_0 (to_word_0 c p)
 Proof
   fs [to_livesets_def,to_livesets_0_def,to_word_0_def]
   \\ Cases_on ‘to_data c p’ \\ fs [] \\ PairCases_on ‘r’ \\ fs []
@@ -360,7 +361,7 @@ Proof
 QED
 
 val from_livesets_def = Define`
-  from_livesets c ((k,data),c',names,p) =
+  from_livesets ((k,data),c,names,p) =
   let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
   let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
   let alg = word_conf.reg_alg in
@@ -376,16 +377,27 @@ val from_livesets_def = Define`
             | Failure _ => prog (*cannot happen*)) in
           (name_num,arg_count,remove_must_terminate cp)
       | SOME col_prog => (name_num,arg_count,remove_must_terminate col_prog)) prog_with_oracles in
-  (* clarifying (for compilationLib) that the config changes in c'
-     are needed in the final returned config, but are limited to fields
-     that won't be read from this point. *)
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
-  let c = c with <| source_conf := c'.source_conf; clos_conf := c'.clos_conf;
-        bvl_conf := c'.bvl_conf |> in
   from_word c names p`;
 
+Theorem from_word_0_to_livesets_0:
+  from_word_0 c names p =
+  from_livesets (to_livesets_0 (c,p,names))
+Proof
+  rw[to_livesets_0_def,from_word_0_def,from_livesets_def]>>
+  simp[word_to_wordTheory.compile_def,next_n_oracle_def]>>
+  AP_TERM_TAC>>
+  match_mp_tac LIST_EQ>>
+  simp[MAP_MAP_o,EL_MAP,EL_ZIP]>>
+  rw[]>>
+  rpt(pairarg_tac>>fs[])>>
+  fs[full_compile_single_def,compile_single_def,word_allocTheory.word_alloc_def]>>
+  rveq>>fs[]>>
+  BasicProvers.EVERY_CASE_TAC>>fs[]
+QED
+
 Theorem compile_oracle:
-    from_livesets c (to_livesets c p) = compile c p
+    from_livesets (to_livesets c p) = compile c p
 Proof
   srw_tac[][FUN_EQ_THM,
      to_data_def,
@@ -403,9 +415,7 @@ Proof
   ntac 2 (pop_assum mp_tac)>>
   qpat_abbrev_tac`progs = MAP A B`>>
   qpat_abbrev_tac`progs' = MAP A B`>>
-  qsuff_tac `progs = progs'`>>rw[]>-(
-    AP_THM_TAC>>AP_TERM_TAC>>simp[config_component_equality]
-  )>>
+  qsuff_tac `progs = progs'`>>rw[]>>
   unabbrev_all_tac>>
   fs[next_n_oracle_def]>>
   rveq>>fs[]>>
