@@ -7598,19 +7598,6 @@ Definition sum_delays_def:
        mem_read_ffi_results (:α) ffi (n+1))
 End
 
-(*
-Definition sum_delays_def:
-  sum_delays (:α) lbls (ffi:time_input) ⇔
-    SUM (MAP (λlbl.
-               case lbl of
-               | LDelay d => d
-               | _ => 0) lbls) + FST (ffi 0) = dimword (:α) − 2 ∧
-    (∀n.
-       FST (ffi n) = dimword (:α) − 2 ⇒
-       ffi (n+1) = (dimword (:α) − 1, 0) ∧
-       mem_read_ffi_results (:α) ffi (n+1))
-End
-*)
 
 Theorem steps_io_event_thm:
   ∀labels prog n st sts (t:('a,time_input) panSem$state).
