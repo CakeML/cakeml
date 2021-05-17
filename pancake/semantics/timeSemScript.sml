@@ -321,7 +321,7 @@ Definition steps_def:
   (steps prog [] m n s [] ⇔
    n < m  ∧
    (case s.waitTime of
-    | SOME w => w ≠ 0 ∧ n + w < m
+    | SOME w => w ≠ 0 ∧ w + n < m
     | NONE => T)) ∧
   (steps prog (lbl::lbls) m n s (st::sts) ⇔
      step prog lbl m n s st ∧
