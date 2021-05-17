@@ -161,34 +161,6 @@ Definition eval_step_def:
              else NONE)
 End
 
-
-(*
-Definition eval_steps_delay_until_max_def:
-  (eval_steps_delay_until_max 0 m n st =
-   if n < m ∧ max_clocks (delay_clocks (st.clocks) n) m
-   then SOME ([],[])
-   else NONE) ∧
-  (eval_steps_delay_until_max (SUC k) m n st =
-   case eval_delay_wtime_none st m n of
-   | SOME (lbl, st') =>
-       (case eval_steps_delay_until_max k m (n + 1) st' of
-        | NONE => NONE
-        | SOME (lbls', sts') => SOME (lbl::lbls', st'::sts'))
-   | NONE => NONE)
-End
-*)
-
-(*
-(* if m-1 = n then SOME ([],[])
-   else NONE *)
-   case st.waitTime of
-   | NONE =>
-       (case eval_steps_delay_until_max ((m - 1) - n) m n st of
-        | SOME (lbls, sts) => SOME (lbls, sts)
-        | _ => NONE)
-   | _ => NONE
-*)
-
 Definition set_oracle_def:
   (set_oracle (Input _) (or:num -> input_delay) = next_oracle or) ∧
   (set_oracle (Output _) or = or)
@@ -196,7 +168,10 @@ End
 
 Definition eval_steps_def:
   (eval_steps 0 prog m n _ st =
-   if n < m ∧ st.waitTime = NONE
+   if n < m ∧
+      (case st.waitTime of
+       | SOME w => w ≠ 0
+       | NONE => T)
    then SOME ([],[])
    else NONE) ∧
   (eval_steps (SUC k) prog m n or st =

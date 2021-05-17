@@ -231,7 +231,7 @@ Proof
   gs [step_cases]
 QED
 
-
+(*
 Theorem steps_wt_ffi_bounded:
   ∀lbls sts p m n st w.
     steps p lbls m n st sts ∧
@@ -243,7 +243,7 @@ Proof
   cases_on ‘sts’ >>
   gs [steps_def, step_cases]
 QED
-
+*)
 
 Theorem steps_lbls_sts_len_eq:
   ∀lbls sts p m n st.

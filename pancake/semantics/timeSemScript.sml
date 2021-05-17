@@ -308,13 +308,21 @@ End
 
 (*
 case s.waitTime of
-     | SOME w => w + n < m
+     | SOME w => w ≠ m
      | NONE => T
+*)
+
+(*
+   (steps prog [] m n s [] ⇔
+     n < m ∧ s.waitTime ≠ SOME n)
 *)
 
 Definition steps_def:
   (steps prog [] m n s [] ⇔
-     n < m ∧ s.waitTime = NONE) ∧
+   n < m ∧
+   (case s.waitTime of
+    | SOME w => w ≠ 0
+    | NONE => T)) ∧
   (steps prog (lbl::lbls) m n s (st::sts) ⇔
      step prog lbl m n s st ∧
      let n' =

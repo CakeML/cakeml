@@ -230,7 +230,7 @@ Definition wait_def:
     Op And [Var «isInput»; (* Not *)
             Op Or
             [Var «waitSet»; (* Not *)
-             Cmp Lower (Var «sysTime») (Var «wakeUpAt»)]]
+             Cmp NotEqual (Var «sysTime») (Var «wakeUpAt»)]]
 End
 
 Definition wait_input_time_limit_def:
@@ -306,11 +306,5 @@ Definition start_controller_def:
      ])
 End
 
-(*
-Definition call_controller_def:
-  call_controller prog =
-    («start»,[],start_controller prog)
-End
-*)
 
 val _ = export_theory();
