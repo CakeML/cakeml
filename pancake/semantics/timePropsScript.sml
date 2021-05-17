@@ -201,7 +201,7 @@ QED
 Theorem step_ffi_bounded:
   ∀p lbl m n st st'.
     step p lbl m n st st' ⇒
-    n ≤ m
+    n < m
 Proof
   rw [] >>
   gs [step_cases]
@@ -212,7 +212,7 @@ QED
 Theorem steps_ffi_bounded:
   ∀lbls sts p m n st.
     steps p lbls m n st sts ⇒
-    n ≤ m
+    n < m
 Proof
   Induct >>
   rw [] >>
@@ -225,7 +225,7 @@ Theorem step_wt_ffi_bounded:
   ∀p lbl m n st st' w.
     step p lbl m n st st' ∧
     st.waitTime = SOME w  ⇒
-    w + n ≤ m
+    w + n < m
 Proof
   rw [] >>
   gs [step_cases]
@@ -236,7 +236,7 @@ Theorem steps_wt_ffi_bounded:
   ∀lbls sts p m n st w.
     steps p lbls m n st sts ∧
     st.waitTime = SOME w  ⇒
-    w + n ≤ m
+    w + n < m
 Proof
   Induct >>
   rw [] >>

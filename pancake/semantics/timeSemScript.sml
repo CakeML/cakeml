@@ -146,7 +146,7 @@ Definition max_clocks_def:
   max_clocks fm (m:num) ⇔
   ∀ck n.
     FLOOKUP fm ck = SOME n ⇒
-    n ≤ m
+    n < m
 End
 
 
@@ -169,7 +169,7 @@ Definition tm_conds_eval_limit_def:
   tm_conds_eval_limit m s tm =
     EVERY (λcnd.
             EVERY (λe. case (evalExpr s e) of
-                       | SOME n => n ≤ m
+                       | SOME n => n < m
                        | _ => F) (destCond cnd))
           (termConditions tm)
 End
@@ -183,7 +183,7 @@ End
 
 Definition time_range_def:
   time_range wt (m:num) ⇔
-    EVERY (λ(t,c). t ≤ m) wt
+    EVERY (λ(t,c). t < m) wt
 End
 
 
@@ -208,7 +208,7 @@ Definition terms_wtimes_ffi_bound_def:
     EVERY (λtm.
             case calculate_wtime (resetOutput s) (termClks tm) (termWaitTimes tm) of
             | NONE => T
-            | SOME wt => wt ≤ m
+            | SOME wt => wt < m
           ) tms
 End
 
@@ -267,8 +267,7 @@ End
 Inductive step:
   (!p m n st d.
     st.waitTime = NONE ∧
-    n < m ∧
-    d + n ≤ m ∧
+    d + n < m ∧
     max_clocks (delay_clocks (st.clocks) (d + n)) m ⇒
     step p (LDelay d) m n st
          (mkState
@@ -279,8 +278,7 @@ Inductive step:
 
   (!p m n st d w.
     st.waitTime = SOME w ∧
-    n < m ∧
-    d ≤ w ∧ w + n ≤ m ∧
+    d ≤ w ∧ w + n < m ∧
     max_clocks (delay_clocks (st.clocks) (d + n)) m ⇒
     step p (LDelay d) m n st
          (mkState
@@ -294,7 +292,7 @@ Inductive step:
       n < m ∧
       (case st.waitTime of
        | NONE => T
-       | SOME wt => wt ≠ 0 ∧ wt + n ≤ m) ∧
+       | SOME wt => wt ≠ 0 ∧ wt + n < m) ∧
       pickTerm (resetOutput st) m (m - n) (SOME in_signal) tms st' ∧
       st'.ioAction = SOME (Input in_signal) ⇒
       step p (LAction (Input in_signal)) m n st st') ∧
@@ -310,7 +308,7 @@ End
 
 (*
 case s.waitTime of
-     | SOME w => w ≠ m
+     | SOME w => w + n = m
      | NONE => T
 *)
 
@@ -321,9 +319,9 @@ case s.waitTime of
 
 Definition steps_def:
   (steps prog [] m n s [] ⇔
-   n < m ∧
+   n < m  ∧
    (case s.waitTime of
-    | SOME w => w ≠ 0 ∧ w + n ≤ m
+    | SOME w => w ≠ 0 ∧ n + w < m
     | NONE => T)) ∧
   (steps prog (lbl::lbls) m n s (st::sts) ⇔
      step prog lbl m n s st ∧

@@ -3831,6 +3831,9 @@ Proof
     rewrite_tac [Once evaluate_def] >>
     fs [] >>
     pairarg_tac >> fs [] >>
+
+
+
     drule evaluate_if_compare_sys_time >>
     disch_then (qspec_then ‘FST (nexts_ffi cycles t.ffi.ffi_state 1)’ mp_tac) >>
     impl_tac
