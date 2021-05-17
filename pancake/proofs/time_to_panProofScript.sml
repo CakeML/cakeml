@@ -574,7 +574,7 @@ Definition wait_time_locals_def:
   wait_time_locals (:α) fm swt ffi =
   ∃wt st.
     FLOOKUP fm «wakeUpAt» = SOME (ValWord (n2w (wt + st))) ∧
-    (* wt + st < dimword (:α) ∧ *)
+    wt + st < dimword (:α) ∧
     case swt of
     | NONE => T
     | SOME swt =>
@@ -910,18 +910,6 @@ Definition ffi_rels_after_init_def:
                 ffi := ffi_call_ffi (:α) t.be t.ffi bytes|>)
 End
 
-
-Definition sum_delays_def:
-  sum_delays (:α) lbls (ffi:time_input) ⇔
-    SUM (MAP (λlbl.
-               case lbl of
-               | LDelay d => d
-               | _ => 0) lbls) + FST (ffi 0) = dimword (:α) − 2 ∧
-    (∀n.
-       FST (ffi n) = dimword (:α) − 2 ⇒
-       ffi (n+1) = (dimword (:α) − 1, 0) ∧
-       mem_read_ffi_results (:α) ffi (n+1))
-End
 
 Theorem length_get_bytes:
   ∀w be.
@@ -5698,14 +5686,13 @@ Theorem step_input:
         SOME (ValWord (n2w (
           case s'.waitTime of
           | NONE => 1
-          | _ => 0))) (* ∧
+          | _ => 0))) ∧
       (case s'.waitTime of
        | SOME wt => FST (t.ffi.ffi_state 0) + wt < dimword (:α)
-       | _ => T) *)
+       | _ => T)
 
 Proof
-  cheat
-  (*rw [] >>
+  rw [] >>
   fs [task_controller_def] >>
   fs [panLangTheory.nested_seq_def] >>
   qmatch_goalsub_abbrev_tac ‘evaluate (Seq _ q, _)’ >>
@@ -6537,7 +6524,7 @@ Proof
   gs [DROP_LENGTH_APPEND, decode_io_events_def, io_events_dest_def,
       mk_ti_event_def, decode_io_event_def]  >>
   cases_on ‘ t.ffi.ffi_state 1’ >> gs [] >>
-  gs [to_input_def] *)
+  gs [to_input_def]
 QED
 
 
@@ -6578,13 +6565,12 @@ Theorem step_output:
         SOME (ValWord (n2w (
           case s'.waitTime of
           | NONE => 1
-          | _ => 0))) (* ∧
+          | _ => 0))) ∧
       (case s'.waitTime of
        | SOME wt => FST (t.ffi.ffi_state 0) + wt < dimword (:α)
-       | _ => T) *)
+       | _ => T)
 Proof
-  cheat
-  (* rw [] >>
+  rw [] >>
   fs [] >>
   fs [step_cases, task_controller_def,
       panLangTheory.nested_seq_def] >>
@@ -7186,7 +7172,6 @@ Proof
     rw [] >>
     qexists_tac ‘#"g"’ >> gs []) >>
   gs [mlintTheory.num_to_str_thm, toString_toNum_cancel]
-  *)
 QED
 
 
@@ -7441,9 +7426,6 @@ Proof
     gs [] >>
     conj_asm1_tac
     >- (
-      (*
-      wait_time_locals (:α) t.locals st.waitTime t.ffi.ffi_state
-      *)
       gs [wait_time_locals_def] >>
       qexists_tac ‘wt’ >>
       qexists_tac ‘st'’ >>
@@ -7454,24 +7436,19 @@ Proof
       rveq >> gs [] >>
       fs [mkState_def] >>
       strip_tac >>
-      reverse (cases_on ‘n < x’)
-      >- gs [] >>
-
-      fs [wakeup_rel_def] >>
-      fs [nexts_ffi_def] >>
-      cases_on ‘’ >>
-
-      ‘(st' + wt) MOD dimword (:α) = st' + wt’ by (
-        match_mp_tac LESS_MOD >>
-        gs []) >>
-      ‘(x + FST (t.ffi.ffi_state 0)) MOD dimword (:α) =
-       x + FST (t.ffi.ffi_state 0)’ by (
-        match_mp_tac LESS_MOD >>
-        gs [timeSemTheory.step_cases]) >>
-      gs [delay_rep_def]) >>
-
-
-
+      cases_on ‘n < x’
+      >- (
+        fs [wakeup_rel_def] >>
+        fs [nexts_ffi_def] >>
+        ‘(st' + wt) MOD dimword (:α) = st' + wt’ by (
+          match_mp_tac LESS_MOD >>
+          gs []) >>
+        ‘(x + FST (t.ffi.ffi_state 0)) MOD dimword (:α) =
+         x + FST (t.ffi.ffi_state 0)’ by (
+          match_mp_tac LESS_MOD >>
+          gs [timeSemTheory.step_cases]) >>
+        gs [delay_rep_def]) >>
+      gs []) >>
     conj_asm1_tac
     >- (
       gs [delay_io_events_rel_def] >>
@@ -7604,6 +7581,33 @@ Proof
     cases_on ‘xs’ >> gs []) >>
   gs []
 QED
+
+
+Definition sum_delays_def:
+  sum_delays (:α) lbls (ffi:time_input) ⇔
+    SUM (MAP (λlbl.
+               case lbl of
+               | LDelay d => d
+               | _ => 0) lbls) + FST (ffi 0) = dimword (:α) − 2 ∧
+    (∀n.
+       FST (ffi n) = dimword (:α) − 2 ⇒
+       ffi (n+1) = (dimword (:α) − 1, 0) ∧
+       mem_read_ffi_results (:α) ffi (n+1))
+End
+
+(*
+Definition sum_delays_def:
+  sum_delays (:α) lbls (ffi:time_input) ⇔
+    SUM (MAP (λlbl.
+               case lbl of
+               | LDelay d => d
+               | _ => 0) lbls) + FST (ffi 0) = dimword (:α) − 2 ∧
+    (∀n.
+       FST (ffi n) = dimword (:α) − 2 ⇒
+       ffi (n+1) = (dimword (:α) − 1, 0) ∧
+       mem_read_ffi_results (:α) ffi (n+1))
+End
+*)
 
 Theorem steps_io_event_thm:
   ∀labels prog n st sts (t:('a,time_input) panSem$state).

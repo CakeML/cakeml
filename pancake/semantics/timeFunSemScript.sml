@@ -376,7 +376,7 @@ Proof
   gs [step_cases, mkState_def]
 QED
 
-
+(*
 Theorem eval_steps_imp_steps:
   ∀k prog m n or st labels sts.
     eval_steps k prog m n or st = SOME (labels, sts) ⇒
@@ -391,5 +391,6 @@ Proof
   gs [] >>
   res_tac >> gs []
 QED
+*)
 
 val _ = export_theory();

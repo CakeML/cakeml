@@ -230,7 +230,7 @@ Definition wait_def:
     Op And [Var «isInput»; (* Not *)
             Op Or
             [Var «waitSet»; (* Not *)
-             Cmp NotEqual (Var «sysTime») (Var «wakeUpAt»)]]
+             Cmp Lower (Var «sysTime») (Var «wakeUpAt»)]]
 End
 
 Definition wait_input_time_limit_def:
