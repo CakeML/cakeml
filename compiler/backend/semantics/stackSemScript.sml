@@ -858,6 +858,16 @@ val semantics_def = Define `
          (build_lprefix_lub
            (IMAGE (λk. fromList (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))`;
 
+(* record accessors *)
+
+Definition read_stack_def:
+  read_stack s = (s:('a,'b,'c) stackSem$state).stack
+End
+
+Definition read_stack_space_def:
+  read_stack_space s = (s:('a,'b,'c) stackSem$state).stack_space
+End
+
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
