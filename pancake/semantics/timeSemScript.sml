@@ -213,6 +213,7 @@ Definition terms_wtimes_ffi_bound_def:
 End
 
 (* max is dimword *)
+(* m is m+n *)
 Inductive pickTerm:
   (!st max m cnds in_signal clks dest diffs tms st'.
     EVERY (λcnd. evalCond st cnd) cnds ∧
@@ -262,7 +263,7 @@ Inductive pickTerm:
     pickTerm st max m event (Tm (Output out_signal) cnds clks dest diffs :: tms) st')
 End
 
-
+(* m ≤ w + n *)
 (* n would be FST (seq 0), or may be systime time *)
 Inductive step:
   (!p m n st d.
@@ -278,7 +279,7 @@ Inductive step:
 
   (!p m n st d w.
     st.waitTime = SOME w ∧
-    d ≤ w ∧ w + n < m ∧
+    d ≤ w ∧ w < m ∧ d + n < m ∧
     max_clocks (delay_clocks (st.clocks) (d + n)) m ⇒
     step p (LDelay d) m n st
          (mkState
@@ -292,8 +293,8 @@ Inductive step:
       n < m ∧
       (case st.waitTime of
        | NONE => T
-       | SOME wt => wt ≠ 0 ∧ wt + n < m) ∧
-      pickTerm (resetOutput st) m (m - n) (SOME in_signal) tms st' ∧
+       | SOME wt => wt ≠ 0 ∧ wt < m) ∧
+      pickTerm (resetOutput st) m (m + n) (SOME in_signal) tms st' ∧
       st'.ioAction = SOME (Input in_signal) ⇒
       step p (LAction (Input in_signal)) m n st st') ∧
 
@@ -301,7 +302,7 @@ Inductive step:
     ALOOKUP p st.location = SOME tms ∧
     st.waitTime = SOME 0 ∧
     n < m ∧
-    pickTerm (resetOutput st) m (m - n) NONE tms st' ∧
+    pickTerm (resetOutput st) m (m + n) NONE tms st' ∧
     st'.ioAction = SOME (Output out_signal) ⇒
     step p (LAction (Output out_signal)) m n st st')
 End
@@ -321,7 +322,7 @@ Definition steps_def:
   (steps prog [] m n s [] ⇔
    n < m  ∧
    (case s.waitTime of
-    | SOME w => w ≠ 0 ∧ w + n < m
+    | SOME w => w ≠ n ∧ w < m
     | NONE => T)) ∧
   (steps prog (lbl::lbls) m n s (st::sts) ⇔
      step prog lbl m n s st ∧
