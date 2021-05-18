@@ -2555,8 +2555,7 @@ QED
 
 Definition mk_flat_install_conf_def:
   mk_flat_install_conf cc co =
-  flatSem$install_config_compile_fupd (K cc)
-    (flatSem$install_config_compile_oracle_fupd (K co) ARB)
+    <| compile := cc ; compile_oracle := co |>
 End
 
 Theorem state_co_inc_compile_has_flat_comp:
@@ -2624,11 +2623,11 @@ Definition K_same_type_def:
 End
 
 Definition eval_config_to_interp_def:
-  eval_config_to_interp ec = source_to_flatProof$oracle_interpretation_decode_state_fupd
-    (K_same_type (\v. case ec.decode_v v of
-        NONE => NONE
-      | SOME c => SOME (config_tuple1 c)
-    )) ARB
+  eval_config_to_interp ec =
+    source_to_flatProof$update_decode_state
+      (λv. case ec.decode_v v of
+           | NONE => NONE
+           | SOME c => SOME (config_tuple1 c)) ARB
 End
 
 Definition add_eval_state_def:
