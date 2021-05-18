@@ -12,7 +12,7 @@ val _ = temp_delsimps ["NORMEQ_CONV", "TAKE_LENGTH_ID_rwt2", "TAKE_LENGTH_ID_rwt
 val _ = new_theory"TextIOProof";
 
 val _ = translation_extends "TextIOProg";
-val _ = option_monadsyntax.temp_add_option_monadsyntax();
+val _ = preamble.option_monadsyntax.temp_add_option_monadsyntax();
 
 (* heap predicate for the file-system state *)
 
@@ -2106,6 +2106,60 @@ Theorem take_drop_append:
    TAKE y (DROP z l)
 Proof
   fs[take_drop_partition,GSYM DROP_DROP_T]
+QED
+
+Theorem b_openStdInSetBufferSize_spec:
+  ∀fs bsize bsizev bactive.
+     NUM bsize bsizev ⇒
+     app (p:'ffi ffi_proj) TextIO_b_openStdInSetBufferSize_v [bsizev]
+       (IOFS fs)
+       (POSTv is. INSTREAM_BUFFERED_FD [] 0 is * IOFS fs)
+Proof
+  xcf_with_def "TextIO.b_openStdInSetBufferSize_v_def" TextIO_b_openStdInSetBufferSize_v_def
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xlet `POSTv wr1. REF_NUM wr1 4 *
+                      (W8ARRAY v' (REPLICATE (MIN 65535 (MAX (bsize+4) 1028)) 48w)) *
+                      IOFS fs`
+  >-(xref \\ fs[REF_NUM_def, MIN_DEF] \\ xsimpl)
+  \\ xlet `POSTv rr1. REF_NUM rr1 4 *
+                        REF_NUM wr1 4 *
+                        (W8ARRAY v' (REPLICATE (MIN 65535 (MAX (bsize+4) 1028)) 48w)) *
+                        IOFS fs`
+  >-(xref \\ fs[REF_NUM_def,MIN_DEF] \\ xsimpl)
+  \\ xcon \\ fs[INSTREAM_BUFFERED_FD_def] \\ xsimpl
+  \\ map_every qexists_tac [`4`, `4`]
+  \\ fs[instream_buffered_inv_def,MAX_DEF] \\ xsimpl
+  \\ fs[INSTREAM_def,GSYM stdIn_def,stdin_v_thm]
+QED
+
+Theorem b_openStdIn_spec:
+  ∀fs uv.
+    UNIT_TYPE () uv ⇒
+    app (p:'ffi ffi_proj) TextIO_b_openStdIn_v [uv]
+       (IOFS fs)
+       (POSTv is. INSTREAM_BUFFERED_FD [] 0 is * IOFS fs)
+Proof
+  xcf_with_def "TextIO.b_openStdIn" TextIO_b_openStdIn_v_def
+  \\ xmatch \\ fs[UNIT_TYPE_def] \\ conj_tac
+  >- (xapp \\ fs[INT_NUM_EXISTS])
+  \\ EVAL_TAC \\ simp[]
+QED
+
+(* STDIO version *)
+Theorem b_openStdIn_STDIO_spec:
+   ∀uv fs.
+     UNIT_TYPE () uv ⇒
+     app (p:'ffi ffi_proj) TextIO_b_openStdIn_v [uv]
+       (STDIO fs)
+       (POSTv is. INSTREAM_BUFFERED_FD [] 0 is * STDIO fs)
+Proof
+ rw[STDIO_def] >> xpull >> xapp_spec b_openStdIn_spec >>
+ map_every qexists_tac [`emp`,`fs with numchars := ll`] >>
+ xsimpl >> rw[] >> qexists_tac`ll` >> fs[openFileFS_fupd_numchars] >> xsimpl
 QED
 
 Theorem b_openInSetBufferSize_spec:
@@ -6563,6 +6617,40 @@ Definition file_content_def:
     | SOME ino => ALOOKUP fs.inode_tbl (File ino)
 End
 
+Theorem b_openStdIn_spec_str:
+  ALOOKUP fs.infds 0 = SOME (UStream(strlit "stdin"),ReadMode,0) ∧
+  UNIT_TYPE () uv ⇒
+  app (p:'ffi ffi_proj) TextIO_b_openStdIn_v [uv]
+     (STDIO fs)
+     (POSTv is. STDIO fs * INSTREAM_STR 0 is (THE (ALOOKUP fs.inode_tbl (UStream(strlit "stdin")))) fs)
+Proof
+  rw[]
+  \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull )
+  \\ reverse(Cases_on`∃ll. wfFS (fs with numchars := ll)`) >- (fs[STDIO_def,IOFS_def] \\ xpull)
+  \\ `∃cnt. get_file_content fs 0 = SOME (cnt,0)`
+      by (simp[get_file_content_def, PULL_EXISTS]
+          \\ fs[STD_streams_def]
+          \\ last_x_assum(qspecl_then[`0`,`ReadMode`,`inp`]mp_tac)
+          \\ simp[] \\ strip_tac
+          \\ fs[wfFS_def]
+          \\ imp_res_tac ALOOKUP_MEM
+          \\ first_x_assum(qspec_then`0`mp_tac)
+          \\ simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+          \\ disch_then drule \\ strip_tac
+          \\ qmatch_goalsub_abbrev_tac`ALOOKUP aa bb = SOME _`
+          \\ Cases_on`ALOOKUP aa bb` \\ fs[Abbr`aa`,Abbr`bb`]
+          \\ imp_res_tac ALOOKUP_FAILS \\ fs[])
+  \\ rw [INSTREAM_STR_def,SEP_CLAUSES]
+  \\ match_mp_tac (MP_CANON app_wgframe)
+  \\ mp_tac (GEN_ALL b_openStdIn_STDIO_spec)
+  \\ disch_then drule
+  \\ disch_then (qspecl_then [‘p’,‘fs’] assume_tac)
+  \\ asm_exists_tac
+  \\ xsimpl
+  \\ fs [get_file_content_def,get_mode_def,STD_streams_def]
+  \\ rpt (pairarg_tac \\ gs[])
+QED
+
 Theorem b_openIn_spec_str:
   FILENAME s sv /\ hasFreeFD fs /\ file_content fs s = SOME text ==>
   app (p:'ffi ffi_proj) TextIO_b_openIn_v [sv]
@@ -6984,6 +7072,31 @@ Proof
   \\ fs [TOKENS_eq_tokens_sym,MAP_MAP_o]
 QED
 
+Theorem b_openStdIn_spec_lines:
+  ALOOKUP fs.infds 0 = SOME (UStream «stdin» ,ReadMode,0) ∧
+  UNIT_TYPE () uv ⇒
+  app (p:'ffi ffi_proj) TextIO_b_openStdIn_v [uv]
+     (STDIO fs)
+     (POSTv is.
+        STDIO fs *
+        INSTREAM_LINES 0 is (all_lines_inode fs (UStream(strlit "stdin"))) fs)
+Proof
+  reverse (Cases_on `consistentFS fs`) THEN1
+   (fs [STDIO_def,IOFS_def,wfFS_def] \\ rw [] \\ xpull
+    \\ fs [consistentFS_def] \\ metis_tac [])
+  \\ rw [INSTREAM_LINES_def,SEP_CLAUSES]
+  \\ match_mp_tac (MP_CANON app_wgframe)
+  \\ mp_tac (GEN_ALL b_openStdIn_spec_str)
+  \\ rpt (disch_then drule)
+  \\ fs [all_lines_def,file_content_def]
+  \\ disch_then (qspec_then `p` mp_tac)
+  \\ strip_tac \\ asm_exists_tac \\ asm_rewrite_tac []
+  \\ xsimpl
+  \\ fs [] \\ rw []
+  \\ qexists_tac `THE (ALOOKUP fs.inode_tbl (UStream (strlit "stdin")))`
+  \\ xsimpl \\ fs []
+QED
+
 Theorem b_openIn_spec_lines:
   FILENAME s sv /\ hasFreeFD fs /\ inFS_fname fs s ==>
   app (p:'ffi ffi_proj) TextIO_b_openIn_v [sv]
@@ -7172,6 +7285,47 @@ Proof
   \\ qexists_tac `[]`
   \\ qexists_tac `a`
   \\ xsimpl \\ fs [LIST_TYPE_def]
+QED
+
+Theorem b_inputAllTokensStdIn_spec:
+   (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f #"\n" ∧
+   ALOOKUP fs.infds 0 = SOME (UStream «stdin» ,ReadMode,0)
+   ⇒
+   app (p:'ffi ffi_proj) TextIO_b_inputAllTokensStdIn_v
+     [fv; gv]
+     (STDIO fs)
+     (POSTv sv.
+      &OPTION_TYPE (LIST_TYPE (LIST_TYPE a))
+                   (SOME(MAP (MAP g o tokens f) (all_lines_inode fs (UStream(strlit "stdin")))))
+                   sv
+      * SEP_EXISTS k. STDIO (forwardFD fs 0 k))
+Proof
+  xcf_with_def "TextIO.b_inputAllTokensStdIn" TextIO_b_inputAllTokensStdIn_v_def
+  \\ reverse (Cases_on `STD_streams fs`)
+  >- (fs [STDIO_def] \\ xpull)
+  \\ reverse (Cases_on`consistentFS fs`)
+  >- (fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def] \\ xpull \\ metis_tac[])
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto_spec (SOME b_openStdIn_spec_lines) \\ xsimpl
+  \\ xlet `(POSTv v.
+            SEP_EXISTS k.
+                STDIO (forwardFD fs 0 k) *
+                INSTREAM_LINES 0 is [] (forwardFD fs 0 k) *
+                & LIST_TYPE (LIST_TYPE a)
+                    (MAP (MAP g o tokens f) (all_lines_inode fs (UStream(strlit "stdin")))) v)`
+  THEN1
+   (xapp_spec b_inputAllTokens_spec
+    \\ qexists_tac `emp`
+    \\ qexists_tac `all_lines_inode fs (UStream(strlit"stdin"))`
+    \\ qexists_tac `g`
+    \\ qexists_tac `fs`
+    \\ qexists_tac `0`
+    \\ qexists_tac `f`
+    \\ qexists_tac `a`
+    \\ xsimpl \\ rw [])
+  \\ xcon \\ xsimpl
+  \\ fs [std_preludeTheory.OPTION_TYPE_def]
+  \\ qexists_tac ‘k’ \\ xsimpl
 QED
 
 Theorem b_inputAllTokensFrom_spec:
