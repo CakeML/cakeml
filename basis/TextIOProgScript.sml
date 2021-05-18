@@ -405,6 +405,21 @@ val _ = (append_prog o process_topdecs)`
 
 (*Buffered IO section*)
 
+(*Open a buffered stdin with a buffer size of bsize.
+  Force 1028 <= size < 256^2*)
+val _ =
+  process_topdecs`
+fun b_openStdInSetBufferSize bsize =
+      InstreamBuffered stdIn (Ref 4) (Ref 4)
+        (Word8Array.array (min 65535 (max (bsize+4) 1028))
+          (Word8.fromInt 48))
+` |> append_prog
+
+val _ =
+  process_topdecs`
+fun b_openStdIn () = b_openStdInSetBufferSize 4096
+` |> append_prog
+
 (*Open a buffered instream with a buffer size of bsize.
   Force 1028 <= size < 256^2*)
 val _ =
@@ -599,6 +614,15 @@ val _ = (append_prog o process_topdecs) `
       b_closeIn is; Some lines
     end handle BadFileName => None`;
 
+val _ = (append_prog o process_topdecs) `
+  fun b_inputLinesStdIn fname =
+    let
+      val is = b_openStdIn ()
+      val lines = b_inputLines is
+    in
+      Some lines
+    end`;
+
 val _ = (append_prog o process_topdecs)`
   fun b_inputAllTokens is f g =
     b_inputAllTokens_aux is f g []`;
@@ -611,6 +635,15 @@ val _ = (append_prog o process_topdecs) `
     in
       b_closeIn is; Some lines
     end handle BadFileName => None`;
+
+val _ = (append_prog o process_topdecs) `
+  fun b_inputAllTokensStdIn f g =
+    let
+      val is = b_openStdIn ()
+      val lines = b_inputAllTokens is f g
+    in
+      Some lines
+    end`;
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
