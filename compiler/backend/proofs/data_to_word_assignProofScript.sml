@@ -2225,7 +2225,6 @@ Proof
     \\ fs [GSYM bytes_in_word_def]
     \\ simp [FUN_EQ_THM,o_DEF,shift_seq_def,FORALL_PROD]
     \\ rewrite_tac [GSYM WORD_ADD_ASSOC]
-    \\ AP_TERM_TAC \\ fs []
     \\ rewrite_tac [WORD_ADD_ASSOC]
     \\ once_rewrite_tac [WORD_ADD_COMM]
     \\ rewrite_tac [WORD_ADD_ASSOC,wordsTheory.WORD_ADD_LINV]
