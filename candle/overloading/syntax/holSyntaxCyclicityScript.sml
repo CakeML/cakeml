@@ -601,9 +601,9 @@ QED
 (* various monotony properties (Lemma 5.2) *)
 
 Theorem sol_seq_FV_LR_TYPE_SUBST_SND_FST:
-  !pqs rs ctxt i.
-  monotone (dependency ctxt)
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  !pqs rs dep i.
+  monotone dep
+  /\ EVERY (UNCURRY dep) pqs
   /\ sol_seq rs pqs
   /\ i < LENGTH pqs ==>
       set(FV (LR_TYPE_SUBST (EL i rs) (SND (EL i pqs)))) ⊆ set(FV (LR_TYPE_SUBST (EL i rs) (FST (EL i pqs))))
@@ -616,9 +616,9 @@ Proof
 QED
 
 Theorem sol_seq_FV_LR_TYPE_SUBST_FST_j_SND_i:
-  !pqs rs ctxt i j.
-  monotone (dependency ctxt)
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  !pqs rs dep i j.
+  monotone dep
+  /\ EVERY (UNCURRY dep) pqs
   /\ sol_seq rs pqs
   /\ i < j /\ j < LENGTH pqs
   ==> set(FV (LR_TYPE_SUBST (EL j rs) (FST (EL j pqs)))) ⊆ set(FV (LR_TYPE_SUBST (EL i rs) (SND (EL i pqs))))
@@ -638,9 +638,9 @@ Proof
 QED
 
 Theorem sol_seq_FV_LR_TYPE_SUBST_LR_TYPE_SUBST_FST_j_SND_i:
-  !pqs rs ctxt i j s.
-  monotone (dependency ctxt)
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  !pqs rs dep i j s.
+  monotone dep
+  /\ EVERY (UNCURRY dep) pqs
   /\ sol_seq rs pqs
   /\ i < j /\ j < LENGTH pqs
   ==>
@@ -657,9 +657,9 @@ Proof
 QED
 
 Theorem sol_seq_FV_LR_TYPE_SUBST_FST_j_FST_i:
-  !pqs rs ctxt i j.
-  monotone (dependency ctxt)
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  !pqs rs dep i j.
+  monotone dep
+  /\ EVERY (UNCURRY dep) pqs
   /\ sol_seq rs pqs
   /\ i <= j /\ j < LENGTH pqs
   ==>
@@ -675,9 +675,9 @@ Proof
 QED
 
 Theorem sol_seq_FV_LR_TYPE_SUBST_LR_TYPE_SUBST_FST_j_FST_i:
-  !pqs rs ctxt i j s.
-  monotone (dependency ctxt)
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  !pqs rs dep i j s.
+  monotone dep
+  /\ EVERY (UNCURRY dep) pqs
   /\ sol_seq rs pqs
   /\ i <= j /\ j < LENGTH pqs
   ==>
@@ -694,9 +694,9 @@ Proof
 QED
 
 Theorem sol_seq_FV_LR_TYPE_SUBST_SND_j_SND_i:
-  !pqs rs ctxt i j.
-  monotone (dependency ctxt)
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  !pqs rs dep i j.
+  monotone dep
+  /\ EVERY (UNCURRY dep) pqs
   /\ sol_seq rs pqs
   /\ i <= j /\ j < LENGTH pqs
   ==>
@@ -713,9 +713,9 @@ Proof
 QED
 
 Theorem sol_seq_FV_LR_TYPE_SUBST_LR_TYPE_SUBST_SND_j_SND_i:
-  !pqs rs ctxt i j s.
-  monotone (dependency ctxt)
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  !pqs rs dep i j s.
+  monotone dep
+  /\ EVERY (UNCURRY dep) pqs
   /\ sol_seq rs pqs
   /\ i <= j /\ j < LENGTH pqs
   ==>
@@ -733,9 +733,9 @@ Proof
 QED
 
 Theorem sol_seq_FV_LR_TYPE_SUBST_SND_j_FST_i:
-  !pqs rs ctxt i j.
-  monotone (dependency ctxt)
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  !pqs rs dep i j.
+  monotone dep
+  /\ EVERY (UNCURRY dep) pqs
   /\ sol_seq rs pqs
   /\ i <= j /\ j < LENGTH pqs
   ==>
@@ -751,9 +751,9 @@ Proof
 QED
 
 Theorem sol_seq_FV_LR_TYPE_SUBST_LR_TYPE_SUBST_SND_j_FST_i:
-  !pqs rs ctxt i j s.
-  monotone (dependency ctxt)
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  !pqs rs dep i j s.
+  monotone dep
+  /\ EVERY (UNCURRY dep) pqs
   /\ sol_seq rs pqs
   /\ i <= j /\ j < LENGTH pqs
   ==>
@@ -1844,9 +1844,9 @@ QED
 
 (* Comment to Definition 5.3, Kunčar 2015 *)
 Theorem FV_SND_SUBSET_FST:
-  !ctxt pqs i.
-  EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
+  !dep pqs i.
+  EVERY (UNCURRY dep) pqs
+  /\ monotone dep
   /\ i < LENGTH pqs ==> set (FV (SND (EL i pqs))) ⊆ set (FV (FST (EL i pqs)))
 Proof
   rw[monotone_def,EVERY_MEM,ELIM_UNCURRY,list_subset_set]
@@ -1903,9 +1903,9 @@ Proof
 QED
 
 Theorem mg_solution''[local]:
-  !rs rs' pqs es es' i ctxt. mg_sol_seq rs pqs /\ mg_sol_seq rs' pqs
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
+  !rs rs' pqs es es' i dep. mg_sol_seq rs pqs /\ mg_sol_seq rs' pqs
+  /\ monotone dep
+  /\ EVERY (UNCURRY dep) pqs
   /\ SUC i < LENGTH pqs
   /\ equal_ts_on (EL i rs) (MAP (TYPE_SUBST es ## I) (EL i rs') ++ es) (FV (FST (EL i pqs)))
   /\ equal_ts_on (EL (SUC i) rs) (MAP (TYPE_SUBST es' ## I) (EL (SUC i) rs') ++ es') (FV (FST (EL (SUC i) pqs)))
@@ -1931,10 +1931,10 @@ QED
 (* TODO replace uses of mg_solutions with mg_solution' *)
 (* our stronger version of 5.4 *)
 Theorem mg_solution':
-  !rs rs' pqs ctxt.
+  !rs rs' pqs dep.
     mg_sol_seq rs pqs /\ mg_sol_seq rs' pqs
-    /\ EVERY (UNCURRY (dependency ctxt)) pqs
-    /\ monotone (dependency ctxt)
+    /\ monotone dep
+    /\ EVERY (UNCURRY dep) pqs
     ==> ?es. var_renaming es /\
       !i. i < LENGTH rs ==>
       equal_ts_on (EL i rs) (MAP (TYPE_SUBST es ## I) (EL i rs') ++ es) (FV $ FST $ EL i pqs)
@@ -1969,38 +1969,31 @@ QED
 
 (* Definition 5.5, Kunčar 2015 *)
 Definition path_starting_at_def:
-  path_starting_at ctxt k rs pqs =
+  path_starting_at dep k rs pqs =
   (
     wf_pqs pqs
     /\ k < LENGTH rs
     /\ LENGTH rs = LENGTH pqs
-    /\ EVERY (UNCURRY (dependency ctxt)) (DROP k pqs)
+    /\ EVERY (UNCURRY dep) (DROP k pqs)
     /\ equiv_ts_on [] (EL k rs) (FV (FST (EL k pqs)))
     /\ sol_seq (DROP k rs) (DROP k pqs)
   )
 End
 
 Theorem path_starting_at_shorten:
-  !k l rs pqs ctxt. k < l /\ l <= LENGTH pqs
-  /\ path_starting_at ctxt k rs pqs ==>
-  path_starting_at ctxt k (TAKE l rs) (TAKE l pqs)
+  !k l rs pqs dep. k < l /\ l <= LENGTH pqs
+  /\ path_starting_at dep k rs pqs ==>
+  path_starting_at dep k (TAKE l rs) (TAKE l pqs)
 Proof
   rw[path_starting_at_def,wf_pqs_def,EVERY_MEM,LENGTH_TAKE,TAKE_TAKE,EL_TAKE]
-  >- (
-    first_x_assum match_mp_tac
-    >> drule MEM_TAKE
-    >> fs[]
-  )
-  >- (
-    imp_res_tac MEM_DROP_TAKE
-    >> fs[]
-  )
+  >- (first_x_assum irule >> drule MEM_TAKE >> fs[])
+  >- (imp_res_tac MEM_DROP_TAKE >> fs[])
   >> fs[DROP_TAKE,sol_seq_TAKE]
 QED
 
 Theorem path_starting_at_0:
-  !k rs pqs ctxt. path_starting_at ctxt k rs pqs ==>
-  path_starting_at ctxt 0 (DROP k rs) (DROP k pqs)
+  !k rs pqs dep. path_starting_at dep k rs pqs ==>
+  path_starting_at dep 0 (DROP k rs) (DROP k pqs)
 Proof
   rw[path_starting_at_def,wf_pqs_def,HD_DROP,EVERY_MEM]
   >> first_x_assum match_mp_tac
@@ -2116,9 +2109,9 @@ QED
 
 (* Definition 5.6, Kunčar 2015 *)
 Definition cyclic_dep_def:
-  cyclic_dep ctxt =
+  cyclic_dep dep =
   (?pqs rs.
-    path_starting_at ctxt 0 rs pqs
+    path_starting_at dep 0 rs pqs
     /\ is_instance_LR (FST (EL 0 pqs)) (LR_TYPE_SUBST (EL (PRE $ LENGTH rs) rs) (SND (EL (PRE $ LENGTH pqs) pqs))))
 End
 
@@ -2175,9 +2168,8 @@ QED
 
 (* Definition 5.7, Kunčar 2015 *)
 Definition composable_dep_def:
-  composable_dep ctxt =
-  !pqs rs p q. dependency ctxt p q
-  /\ path_starting_at ctxt 0 rs pqs
+  composable_dep dep =
+  !pqs rs p q. dep p q /\ path_starting_at dep 0 rs pqs
   ==>
     is_instance_LR p (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs)))
     \/
@@ -2187,10 +2179,10 @@ Definition composable_dep_def:
 End
 
 Theorem sol_mon_prop:
-  !rs rs' pqs ctxt es.
+  !rs rs' pqs dep es.
   sol_seq rs' pqs
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
+  /\ EVERY (UNCURRY dep) pqs
+  /\ monotone dep
   /\ sol_seq rs pqs
   /\ LENGTH es = LENGTH rs
   /\ (!i. i < LENGTH rs ==>
@@ -2207,10 +2199,10 @@ Proof
 QED
 
 Theorem sol_mon_prop':
-  !i j rs rs' pqs ctxt es.
+  !i j rs rs' pqs dep es.
   sol_seq rs' pqs
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
+  /\ EVERY (UNCURRY dep) pqs
+  /\ monotone dep
   /\ sol_seq rs pqs
   /\ LENGTH es = LENGTH rs
   /\ j < LENGTH pqs
@@ -2221,18 +2213,18 @@ Theorem sol_mon_prop':
     equal_ts_on (MAP (TYPE_SUBST (EL i es) ## I) (EL i rs) ++ (EL i es)) (EL i rs') (FV (SND (EL i pqs)))
 Proof
   rpt strip_tac
-  >> qspecl_then [`TAKE j rs`,`TAKE j rs'`,`TAKE j pqs`,`ctxt`,`TAKE j es`] mp_tac sol_mon_prop
+  >> qspecl_then [`TAKE j rs`,`TAKE j rs'`,`TAKE j pqs`,`dep`,`TAKE j es`] mp_tac sol_mon_prop
   >> `LENGTH rs = LENGTH pqs /\ LENGTH rs' = LENGTH pqs` by fs[sol_seq_def]
   >> fs[LENGTH_TAKE,EVERY_TAKE,sol_seq_TAKE,EL_TAKE]
 QED
 
 Theorem id_sol_mg_sol_equiv:
-  !rs pqs ctxt.
+  !rs pqs dep.
   0 < LENGTH rs
   /\ equiv_ts_on [] (HD rs) (FV (FST (HD pqs)))
   /\ sol_seq rs pqs
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
+  /\ EVERY (UNCURRY dep) pqs
+  /\ monotone dep
   ==> mg_sol_seq rs pqs
 Proof
   rw[equiv_ts_on_def,Excl"EL",Excl"EL_restricted",GSYM EL]
@@ -2287,12 +2279,12 @@ Proof
 QED
 
 Theorem id_sol_mg_sol_equiv':
-  !rs pqs ctxt i.
+  !rs pqs dep i.
   0 < LENGTH rs /\ i < LENGTH rs
   /\ equiv_ts_on [] (EL i rs) (FV (FST (EL i pqs)))
   /\ sol_seq rs pqs
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
+  /\ EVERY (UNCURRY dep) pqs
+  /\ monotone dep
   ==> mg_sol_seq (DROP i rs) (DROP i pqs)
 Proof
   rpt strip_tac
@@ -2305,14 +2297,14 @@ QED
 
 (* Lemma 5.8, Kunčar 2015 *)
 Theorem sol_ex_non_orth:
-  !pqs rs rs' ctxt n k.
+  !pqs rs rs' dep n k.
   sol_seq rs pqs
   /\ LENGTH rs = SUC n
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ composable_dep ctxt
-  /\ monotone (dependency ctxt)
+  /\ EVERY (UNCURRY dep) pqs
+  /\ composable_dep dep
+  /\ monotone dep
   /\ mg_sol_seq rs' (TAKE n pqs)
-  /\ path_starting_at ctxt k rs' (TAKE n pqs)
+  /\ path_starting_at dep k rs' (TAKE n pqs)
   ==>
     is_instance_LR (LR_TYPE_SUBST (EL (PRE n) rs') (SND (EL (PRE n) pqs))) (FST (EL n pqs))
     \/
@@ -2357,7 +2349,7 @@ Proof
   >> rpt strip_tac
   >> gvs[]
   >> `LENGTH rs' <= LENGTH pqs` by fs[]
-  >> qspecl_then [`rs'`,`TAKE (LENGTH rs') rs`,`TAKE (LENGTH rs') pqs`,`ctxt`,`es`] mp_tac sol_mon_prop
+  >> qspecl_then [`rs'`,`TAKE (LENGTH rs') rs`,`TAKE (LENGTH rs') pqs`,`dep`,`es`] mp_tac sol_mon_prop
   >> fs[sol_seq_TAKE,EVERY_MEM,EVERY_TAKE,MEM_TAKE,ELIM_UNCURRY]
   >> strip_tac
   >> `PRE (LENGTH rs') < LENGTH rs'` by fs[prim_recTheory.LESS_SUC_REFL]
@@ -2393,10 +2385,10 @@ Proof
 QED
 
 Theorem mg_sol_ext_leq'[local]:
-  !rs pqs p q s ctxt. mg_sol_seq rs pqs
+  !rs pqs p q s dep. mg_sol_seq rs pqs
   /\ 0 < LENGTH rs
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
+  /\ EVERY (UNCURRY dep) pqs
+  /\ monotone dep
   /\ LR_TYPE_SUBST s p = LR_TYPE_SUBST (LAST rs) (SND (LAST pqs))
   /\ wf_pqs [(p,q)]
   ==> sol_seq (rs++[s]) (pqs++[(p,q)])
@@ -2420,10 +2412,10 @@ QED
 
 (* Lemma 5.9 *)
 Theorem mg_sol_ext_leq:
-  !rs pqs p q s ctxt. mg_sol_seq rs pqs
+  !rs pqs p q s dep. mg_sol_seq rs pqs
   /\ 0 < LENGTH rs
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
+  /\ EVERY (UNCURRY dep) pqs
+  /\ monotone dep
   /\ LR_TYPE_SUBST s p = LR_TYPE_SUBST (LAST rs) (SND (LAST pqs))
   /\ wf_pqs [(p,q)]
   ==> mg_sol_seq (rs++[s]) (pqs++[(p,q)])
@@ -2469,10 +2461,10 @@ Proof
 QED
 
 Theorem mg_sol_ext_geq'[local]:
-  !rs pqs p q ρ' ctxt. (mg_sol_seq rs pqs
+  !rs pqs p q ρ' dep. (mg_sol_seq rs pqs
   /\ 0 < LENGTH rs
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
+  /\ EVERY (UNCURRY dep) pqs
+  /\ monotone dep
   /\ EVERY (λx. MEM (SND x) (MAP Tyvar (FV (LR_TYPE_SUBST (EL (PRE (LENGTH rs)) rs) (SND (EL (PRE (LENGTH pqs)) pqs)))))) ρ'
   /\ p = LR_TYPE_SUBST ρ' (LR_TYPE_SUBST (EL (PRE (LENGTH rs)) rs) (SND (EL (PRE (LENGTH pqs)) pqs)))
   /\ wf_pqs [(p,q)])
@@ -2714,10 +2706,10 @@ QED
 
 (* Lemma 5.10 *)
 Theorem mg_sol_ext_geq:
-  !rs pqs p q s ctxt. mg_sol_seq rs pqs
+  !rs pqs p q s dep. mg_sol_seq rs pqs
   /\ 0 < LENGTH rs
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
+  /\ EVERY (UNCURRY dep) pqs
+  /\ monotone dep
   /\ p = LR_TYPE_SUBST s (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs)))
   /\ wf_pqs [(p,q)]
   ==> ?r. mg_sol_seq ((MAP (λs. MAP (TYPE_SUBST r ## I) s ++ r) rs)++[[]]) (pqs++[(p,q)])
@@ -2882,15 +2874,15 @@ Proof
 QED
 
 Theorem mg_sol_ext_geq_tyvars_p0[local]:
-  !rs pqs q ρ' ctxt.
+  !rs pqs q ρ' dep.
   let qn = SND (EL (PRE (LENGTH pqs)) pqs) ;
       rn_qn = LR_TYPE_SUBST (EL (PRE (LENGTH rs)) rs) qn ;
       p = LR_TYPE_SUBST ρ' rn_qn
   in
     mg_sol_seq rs pqs
     /\ 0 < LENGTH rs
-    /\ EVERY (UNCURRY (dependency ctxt)) pqs
-    /\ monotone (dependency ctxt)
+    /\ EVERY (UNCURRY dep) pqs
+    /\ monotone dep
     /\ wf_pqs [(p,q)]
     ==> ?rs'.
       mg_sol_seq rs' pqs
@@ -3055,9 +3047,9 @@ Proof
 QED
 
 Theorem sol_seq_equal_ts_on:
-  !rs rs' pqs ctxt. sol_seq rs pqs
-  /\ monotone (dependency ctxt)
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  !rs rs' pqs dep. sol_seq rs pqs
+  /\ monotone dep
+  /\ EVERY (UNCURRY dep) pqs
   /\ (!i. i < LENGTH pqs ==> equal_ts_on (EL i rs) (EL i rs') (FV (FST (EL i pqs))))
   /\ LENGTH rs' = LENGTH pqs
   ==> sol_seq rs' pqs
@@ -3080,9 +3072,9 @@ Proof
 QED
 
 Theorem mg_sols_equal_ts_on:
-  !rs rs' pqs ctxt. mg_sol_seq rs pqs
-  /\ monotone (dependency ctxt)
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  !rs rs' pqs dep. mg_sol_seq rs pqs
+  /\ monotone dep
+  /\ EVERY (UNCURRY dep) pqs
   /\ (!i. i < LENGTH pqs ==> equal_ts_on (EL i rs) (EL i rs') (FV (FST (EL i pqs))))
   /\ LENGTH rs' = LENGTH pqs
   ==> mg_sol_seq rs' pqs
@@ -3240,14 +3232,14 @@ Proof
 QED
 
 Theorem mg_sol_ext_geq_NOT_leq:
-  !rs pqs p q s ctxt. mg_sol_seq rs pqs
+  !rs pqs p q s dep. mg_sol_seq rs pqs
   /\ 0 < LENGTH rs
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
+  /\ EVERY (UNCURRY dep) pqs
+  /\ monotone dep
   /\ p = LR_TYPE_SUBST s (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs)))
   /\ ~is_instance_LR p (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs)))
   /\ wf_pqs [(p,q)]
-  /\ dependency ctxt p q
+  /\ dep p q
   ==>
   ?r. mg_sol_seq ((MAP (λs. MAP (TYPE_SUBST r ## I) s ++ r) rs)++[[]]) (pqs++[(p,q)])
   /\ sol_seq_measure (LR_TYPE_SUBST (EL 0 rs) (FST $ EL 0 pqs))
@@ -3366,13 +3358,13 @@ QED
 
 (* Lemma 5.11, Kunčar 2015 *)
 Theorem mg_sol_exists'[local]:
-  !rs pqs r pq ctxt. (
+  !rs pqs r pq dep. (
   sol_seq (r::rs) (pq::pqs)
-  /\ EVERY (UNCURRY (dependency ctxt)) (pq::pqs)
-  /\ monotone (dependency ctxt)
-  /\ composable_dep ctxt)
+  /\ EVERY (UNCURRY dep) (pq::pqs)
+  /\ monotone dep
+  /\ composable_dep dep)
   ==> ?rs' k. mg_sol_seq rs' (pq::pqs)
-    /\ path_starting_at ctxt k rs' (pq::pqs)
+    /\ path_starting_at dep k rs' (pq::pqs)
 Proof
   ho_match_mp_tac SNOC_INDUCT
   >> strip_tac
@@ -3465,14 +3457,14 @@ QED
 
 (* Lemma 5.11, Kunčar 2015 *)
 Theorem mg_sol_exists:
-  !rs pqs ctxt. (
+  !rs pqs dep. (
   0 < LENGTH rs
   /\ sol_seq rs pqs
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
-  /\ composable_dep ctxt)
+  /\ EVERY (UNCURRY dep) pqs
+  /\ monotone dep
+  /\ composable_dep dep)
   ==> ?rs' k. mg_sol_seq rs' pqs
-    /\ path_starting_at ctxt k rs' pqs
+    /\ path_starting_at dep k rs' pqs
 Proof
   rw[]
   >> `0 < LENGTH pqs` by fs[sol_seq_def]
@@ -3511,9 +3503,9 @@ val _ = Parse.add_infix("≽", 401, Parse.NONASSOC)
 Overload "≽" = ``λpqs p. has_mg_sol_geq pqs p``
 
 Theorem has_mg_sol_leq_imp:
-  !pqs p rs ctxt. has_mg_sol_leq pqs p /\ mg_sol_seq rs pqs
-  /\ monotone (dependency ctxt)
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  !pqs p rs dep. has_mg_sol_leq pqs p /\ mg_sol_seq rs pqs
+  /\ monotone dep
+  /\ EVERY (UNCURRY dep) pqs
   ==> is_instance_LR p (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs)))
 Proof
   rw[has_mg_sol_leq_def,is_instance_LR_eq,LR_TYPE_SUBST_type_preserving]
@@ -3540,9 +3532,9 @@ Proof
 QED
 
 Theorem has_mg_sol_geq_imp:
-  !pqs p rs ctxt. has_mg_sol_geq pqs p /\ mg_sol_seq rs pqs
-  /\ monotone (dependency ctxt)
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  !pqs p rs dep. has_mg_sol_geq pqs p /\ mg_sol_seq rs pqs
+  /\ monotone dep
+  /\ EVERY (UNCURRY dep) pqs
   ==> is_instance_LR (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs))) p
 Proof
   rw[has_mg_sol_geq_def,is_instance_LR_eq,LR_TYPE_SUBST_type_preserving]
@@ -3580,11 +3572,11 @@ QED
 
 (* Corollary 5.13 *)
 Theorem leq_geq_monotone_composable:
-  !rs pqs ctxt.
+  !rs pqs dep.
   1 < LENGTH rs
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
-  /\ composable_dep ctxt
+  /\ EVERY (UNCURRY dep) pqs
+  /\ monotone dep
+  /\ composable_dep dep
   /\ sol_seq rs pqs
   ==> has_mg_sol_leq (FRONT pqs) (FST (LAST pqs))
   \/ has_mg_sol_geq (FRONT pqs) (FST (LAST pqs))
@@ -3592,7 +3584,7 @@ Proof
   rw[]
   >> `LENGTH rs = LENGTH pqs` by fs[sol_seq_def]
   >> `1 < LENGTH pqs` by fs[]
-  >> qspecl_then [`TL (FRONT rs)`,`TL (FRONT pqs)`,`HD rs`,`HD pqs`,`ctxt`] mp_tac mg_sol_exists'
+  >> qspecl_then [`TL (FRONT rs)`,`TL (FRONT pqs)`,`HD rs`,`HD pqs`,`dep`] mp_tac mg_sol_exists'
   >> imp_res_tac CONS_FRONT
   >> ASM_REWRITE_TAC[]
   >> `~NULL pqs` by (CCONTR_TAC >> fs[NULL_EQ])
@@ -3601,7 +3593,7 @@ Proof
   >> disch_then (qspec_then `PRE (LENGTH rs)` assume_tac)
   >> rfs[EVERY_FRONT,REWRITE_RULE[GSYM NULL_EQ] TAKE_PRE_LENGTH]
   >> rw[]
-  >> qspecl_then [`pqs`,`rs`,`rs'`,`ctxt`,`PRE(LENGTH rs)`,`k`] mp_tac sol_ex_non_orth
+  >> qspecl_then [`pqs`,`rs`,`rs'`,`dep`,`PRE(LENGTH rs)`,`k`] mp_tac sol_ex_non_orth
   >> rw[REWRITE_RULE[GSYM NULL_EQ] TAKE_PRE_LENGTH,has_mg_sol_leq_def,has_mg_sol_geq_def]
   >- (
     DISJ2_TAC
@@ -3641,13 +3633,13 @@ End
 
 (* Corollary 5.15 *)
 Theorem seq_asc_mg_sol_path:
-  !pqs ctxt n.
-  EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
+  !pqs dep n.
+  EVERY (UNCURRY dep) pqs
+  /\ monotone dep
   /\ seq_asc pqs
   /\ 0 < n /\ n < LENGTH pqs
   ==> ?rs. mg_sol_seq rs (TAKE n pqs)
-  /\ path_starting_at ctxt 0 rs (TAKE n pqs)
+  /\ path_starting_at dep 0 rs (TAKE n pqs)
 Proof
   rw[seq_asc_def,has_mg_sol_leq_def]
   >> first_assum drule
@@ -4231,27 +4223,27 @@ QED
 
 (* Lemma 5.13 for infinite case *)
 Theorem leq_geq_monotone_composable_LTAKE[local]:
-  !pqs rs k ctxt.
-  monotone (dependency ctxt)
-  /\ composable_dep ctxt
-  /\ every (UNCURRY (dependency ctxt)) pqs
+  !pqs rs k dep.
+  monotone dep
+  /\ composable_dep dep
+  /\ every (UNCURRY dep) pqs
   /\ sol_seq_inf rs pqs
   ==>
   has_mg_sol_leq (THE (LTAKE (SUC k) pqs)) (FST (THE (LNTH (SUC k) pqs))) \/
   has_mg_sol_geq (THE (LTAKE (SUC k) pqs)) (FST (THE (LNTH (SUC k) pqs)))
 Proof
   rw[]
-  >> qspecl_then [`THE (LTAKE (SUC (SUC k)) rs)`,`THE (LTAKE (SUC (SUC k)) pqs)`,`ctxt`] mp_tac (REWRITE_RULE[DISJ_EQ_IMP,AND_IMP_INTRO] leq_geq_monotone_composable)
+  >> qspecl_then [`THE (LTAKE (SUC (SUC k)) rs)`,`THE (LTAKE (SUC (SUC k)) pqs)`,`dep`] mp_tac (REWRITE_RULE[DISJ_EQ_IMP,AND_IMP_INTRO] leq_geq_monotone_composable)
   >> `infin_or_leq rs (SUC (SUC k)) T /\ ~LFINITE pqs /\ ~LFINITE rs` by fs[infin_or_leq_def,sol_seq_inf_def]
   >> dxrule_then strip_assume_tac infin_or_leq_LENGTH_LTAKE_EQ
   >> fs[LTAKE_FRONT_LNTH_LAST,sol_seq_inf_sol_seq_LTAKE,every_LTAKE_EVERY',DISJ_EQ_IMP]
 QED
 
 Theorem leq_geq_monotone_composable_LTAKE_LDROP[local]:
-  !pqs rs k k' ctxt.
-  monotone (dependency ctxt)
-  /\ composable_dep ctxt
-  /\ every (UNCURRY (dependency ctxt)) pqs
+  !pqs rs k k' dep.
+  monotone dep
+  /\ composable_dep dep
+  /\ every (UNCURRY dep) pqs
   /\ sol_seq_inf rs pqs
   ==> has_mg_sol_leq (THE (LTAKE (SUC k') (THE (LDROP k pqs)))) (FST (THE (LNTH (SUC k') (THE (LDROP k pqs)))))
   \/ has_mg_sol_geq (THE (LTAKE (SUC k') (THE (LDROP k pqs)))) (FST (THE (LNTH (SUC k') (THE (LDROP k pqs)))))
@@ -4292,13 +4284,13 @@ QED
 (* any extension of a mg_sol_seq with last step leq expansion
  * is equivalent to the shorter solution *)
 Theorem mg_sol_seq_leq_SUC_equiv_ts_on:
-  !pqs rs ctxt i.
+  !pqs rs dep i.
   has_mg_sol_leq (TAKE i pqs) (FST (EL i pqs))
   /\ mg_sol_seq rs (TAKE i pqs)
   /\ LENGTH pqs = SUC i
-  /\ EVERY (UNCURRY (dependency ctxt)) pqs
+  /\ EVERY (UNCURRY dep) pqs
   /\ wf_pqs pqs
-  /\ monotone (dependency ctxt)
+  /\ monotone dep
   ==>
   ?rs'. mg_sol_seq rs' pqs
     /\ !j. j < i ==> equiv_ts_on (EL j rs') (EL j rs) (FV (FST (EL j pqs)))
@@ -4334,9 +4326,9 @@ QED
 (* unique extension of mg_sol_seq followed by leq,
  * up to equivalent type substitutions *)
 Theorem mg_sol_seq_leq_equiv_ts_on:
-  !pqs rs ctxt k.
-  EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
+  !pqs rs dep k.
+  EVERY (UNCURRY dep) pqs
+  /\ monotone dep
   /\ wf_pqs pqs
   /\ 0 < LENGTH pqs /\ k <= LENGTH pqs
   /\ (∀i. k <= i /\ i < LENGTH pqs ==> has_mg_sol_leq (TAKE i pqs) (FST (EL i pqs)))
@@ -4377,9 +4369,9 @@ Proof
 QED
 
 Theorem mg_sol_seq_leq_equiv_ts_on':
-  !pqs rs ctxt k.
-  EVERY (UNCURRY (dependency ctxt)) pqs
-  /\ monotone (dependency ctxt)
+  !pqs rs dep k.
+  EVERY (UNCURRY dep) pqs
+  /\ monotone dep
   /\ wf_pqs pqs
   /\ 0 < LENGTH pqs /\ k <= LENGTH pqs
   /\ (∀i. k <= i /\ i < LENGTH pqs ==> has_mg_sol_leq (TAKE i pqs) (FST (EL i pqs)))
@@ -4409,10 +4401,10 @@ Proof
 QED
 
 Theorem seq_k_asc_inf_seq_k_asc_inf_LDROP:
-  !ctxt pqs rs. monotone (dependency ctxt)
-  /\ composable_dep ctxt
+  !dep pqs rs. monotone dep
+  /\ composable_dep dep
   /\ sol_seq_inf rs pqs
-  /\ every (UNCURRY (dependency ctxt)) pqs
+  /\ every (UNCURRY dep) pqs
   /\ (?k. seq_k_asc_inf k pqs)
     ==> ?k. seq_asc_inf (THE (LDROP k pqs))
 Proof
@@ -4459,7 +4451,7 @@ Proof
     >> fs[]
   )
   >> rw[]
-  >> `EVERY (UNCURRY (dependency ctxt)) (THE (LTAKE (k + i) pqs))` by (
+  >> `EVERY (UNCURRY dep) (THE (LTAKE (k + i) pqs))` by (
     drule_then (qspec_then `k+i` strip_assume_tac) NOT_LFINITE_TAKE
     >> drule_all_then assume_tac every_LTAKE_EVERY
     >> fs[]
@@ -4472,7 +4464,7 @@ Proof
   )
   >> VAR_EQ_TAC
   >> qpat_x_assum `_ = THE $ LTAKE _ _` kall_tac
-  >> qspecl_then [`THE $ LTAKE (k + i) pqs`,`rors' ++ [[]]`,`ctxt`,`SUC k`] mp_tac mg_sol_seq_leq_equiv_ts_on
+  >> qspecl_then [`THE $ LTAKE (k + i) pqs`,`rors' ++ [[]]`,`dep`,`SUC k`] mp_tac mg_sol_seq_leq_equiv_ts_on
   >> impl_tac
   >- (
     drule_then (qspec_then `k+i` strip_assume_tac) NOT_LFINITE_TAKE
@@ -4562,10 +4554,10 @@ Proof
 QED
 
 Theorem mg_sol_ext_geq_NOT_leq_measure:
-  !rs pqs ctxt. mg_sol_seq rs (FRONT pqs)
+  !rs pqs dep. mg_sol_seq rs (FRONT pqs)
     /\ wf_pqs pqs
-    /\ monotone (dependency ctxt)
-    /\ EVERY (UNCURRY (dependency ctxt)) pqs
+    /\ monotone dep
+    /\ EVERY (UNCURRY dep) pqs
     /\ has_mg_sol_geq (FRONT pqs) (FST (LAST pqs))
     /\ ~has_mg_sol_leq (FRONT pqs) (FST (LAST pqs))
     /\ 1 < LENGTH pqs
@@ -4662,10 +4654,10 @@ QED
 
 (* Lemma 5.16 *)
 Theorem ascending_infinite_suffix:
-  !rs pqs ctxt.
-  monotone (dependency ctxt)
-  /\ composable_dep ctxt
-  /\ every (UNCURRY (dependency ctxt)) pqs
+  !rs pqs dep.
+  monotone dep
+  /\ composable_dep dep
+  /\ every (UNCURRY dep) pqs
   /\ sol_seq_inf rs pqs
   ==> ?k. seq_asc_inf (THE (LDROP k pqs))
 Proof
@@ -4682,7 +4674,7 @@ Proof
   >> `~LFINITE rs /\ ~LFINITE pqs` by fs[sol_seq_inf_def]
   >> drule EL_LTAKE_LDROP_LNTH
   >> disch_then $ qspec_then `0` assume_tac o CONV_RULE (RESORT_FORALL_CONV rev)
-  >> `!j. EVERY (UNCURRY (dependency ctxt)) $ THE $ LTAKE j pqs` by (
+  >> `!j. EVERY (UNCURRY dep) $ THE $ LTAKE j pqs` by (
     strip_tac
     >> drule_then match_mp_tac every_LTAKE_EVERY
     >> drule_then (qspec_then `j` strip_assume_tac) NOT_LFINITE_TAKE
@@ -4739,7 +4731,7 @@ Proof
     >> first_x_assum $ qspec_then `SUC $ g i` assume_tac
     >> drule mg_solution'
     >> imp_res_tac mg_sol_seq_LENGTH
-    >> qspecl_then [`ρ $ g i`,`THE (LTAKE (SUC (g i)) pqs)`,`ctxt`] mp_tac mg_sol_ext_geq_NOT_leq_measure
+    >> qspecl_then [`ρ $ g i`,`THE (LTAKE (SUC (g i)) pqs)`,`dep`] mp_tac mg_sol_ext_geq_NOT_leq_measure
     >> fs[LTAKE_FRONT_LNTH_LAST,NOT_LFINITE_LENGTH]
     >> impl_tac
     >- (
@@ -4817,7 +4809,7 @@ Proof
     >> qpat_assum `!i. mg_sol_seq _ _` $ qspec_then `g $ SUC i` assume_tac
     >> qpat_x_assum `!i. mg_sol_seq _ _` $ qspec_then `SUC $ g i` assume_tac
     >> imp_res_tac mg_sol_seq_LENGTH
-    >> qspecl_then [`THE $ LTAKE (g $ SUC i) pqs`,`ρ $ SUC $ g i`,`ctxt`,`SUC $ g i`] mp_tac mg_sol_seq_leq_equiv_ts_on'
+    >> qspecl_then [`THE $ LTAKE (g $ SUC i) pqs`,`ρ $ SUC $ g i`,`dep`,`SUC $ g i`] mp_tac mg_sol_seq_leq_equiv_ts_on'
     >> qspecl_then [`pqs`,`0`,`g $ SUC i`,`0`] mp_tac EL_LTAKE_LDROP_LNTH
     >> ONCE_REWRITE_TAC[GSYM EL]
     >> fs[LESS_EQ,NOT_LFINITE_LENGTH,TAKE_LTAKE_EQ_LTAKE_LTAKE,LNTH]
@@ -5009,18 +5001,6 @@ Proof
   >> fs[]
 QED
 
-Theorem dependency_subst_clos_LR_TYPE_SUBST:
-  !a b rho ctxt. is_const_or_type a /\ is_const_or_type b
-  /\ dependency ctxt a b
-  ==> subst_clos (dependency ctxt) (LR_TYPE_SUBST rho a) (LR_TYPE_SUBST rho b)
-Proof
-  rw[is_const_or_type_eq]
-  >> fs[is_const_or_type_eq,subst_clos_def,LR_TYPE_SUBST_cases]
-  >> goal_assum $ drule_at Any
-  >> fs[INST_CORE_def,INST_def]
-  >> rpt $ irule_at Any EQ_REFL
-QED
-
 Theorem list_max_mono_last:
   !ls. ~NULL ls /\ (!i j. EL i ls <= EL (SUC i) ls)
   ==> list_max ls = LAST ls
@@ -5107,71 +5087,87 @@ Proof
   >> irule_at Any $ cj 2 has_type_rules
 QED
 
-Theorem dependency_props':
-  !p q. subst_clos (dependency ctxt) p q ==>
+Definition wf_dep_def:
+  wf_dep dep  = !x y. dep x y ==> is_const_or_type x /\ is_const_or_type y
+End
+
+Theorem wf_dep_dependency_ctxt:
+  !ctxt. wf_dep (dependency ctxt)
+Proof
+  rw[wf_dep_def] >> dxrule dependency_props >> fs[]
+QED
+
+Theorem wf_dep_subst_clos:
+  !p q dep. wf_dep dep /\ subst_clos dep p q ==>
   is_const_or_type p /\ is_const_or_type q /\
   (ISR p ==> welltyped $ OUTR p) /\ (ISR q ==> welltyped $ OUTR q)
 Proof
   ntac 2 Cases
   >> rw[subst_clos_def]
-  >> imp_res_tac dependency_props
-  >> fs[LR_TYPE_SUBST_type_preserving,INST_def,INST_CORE_def]
-  >> rw[is_const_or_type_eq]
+  >> fs[LR_TYPE_SUBST_type_preserving,INST_def,INST_CORE_def,wf_dep_def,is_const_or_type_eq]
+  >> res_tac
   >> gvs[is_const_or_type_eq,INST_def,INST_CORE_def]
 QED
 
-Theorem dependency_subst_clos_LR_TYPE_SUBST':
-  !a b rho ctxt. subst_clos (dependency ctxt) a b
-  ==> subst_clos (dependency ctxt) (LR_TYPE_SUBST rho a) (LR_TYPE_SUBST rho b)
+Theorem wf_dep_subst_clos':
+  !dep. wf_dep dep ==> wf_dep $ subst_clos dep
+Proof
+  rpt strip_tac
+  >> dxrule wf_dep_subst_clos
+  >> rw[wf_dep_def] >> res_tac >> fs[]
+QED
+
+Theorem subst_clos_LR_TYPE_SUBST:
+  !a b rho dep. wf_dep dep /\ subst_clos dep a b
+  ==> subst_clos dep (LR_TYPE_SUBST rho a) (LR_TYPE_SUBST rho b)
 Proof
   ntac 2 Cases
-  >> rw[subst_clos_def,LR_TYPE_SUBST_cases]
-  >> imp_res_tac dependency_props
+  >> rw[subst_clos_def,LR_TYPE_SUBST_cases,wf_dep_def] >> res_tac
   >> gvs[is_const_or_type_eq,TYPE_SUBST_compose,INST_def,INST_CORE_def,LR_TYPE_SUBST_cases,subst_clos_def]
   >> goal_assum $ drule_at Any
   >> fs[INST_CORE_def,INST_def]
   >> rpt $ irule_at Any EQ_REFL
 QED
 
-Theorem dependency_TC_subst_clos_LR_TYPE_SUBST:
-  !rho ctxt a b. TC (subst_clos (dependency ctxt)) a b
-  ==> TC (subst_clos (dependency ctxt)) (LR_TYPE_SUBST rho a) (LR_TYPE_SUBST rho b)
+Theorem TC_subst_clos_LR_TYPE_SUBST:
+  !rho dep a b. TC (subst_clos dep) a b /\ wf_dep dep
+  ==> TC (subst_clos dep) (LR_TYPE_SUBST rho a) (LR_TYPE_SUBST rho b)
 Proof
-  ntac 2 gen_tac
+  ntac 2 gen_tac >> fs[GSYM AND_IMP_INTRO]
   >> ho_match_mp_tac TC_INDUCT
-  >> conj_tac >- fs[dependency_subst_clos_LR_TYPE_SUBST',TC_SUBSET]
-  >> rpt strip_tac
+  >> conj_tac >- fs[subst_clos_LR_TYPE_SUBST,TC_SUBSET]
+  >> rpt strip_tac >> gs[]
   >> irule $ REWRITE_RULE[transitive_def]TC_TRANSITIVE
   >> rpt $ goal_assum drule
 QED
 
 (* Lemma 5.17 *)
 Theorem cyclic_eq_not_terminating:
-  !ctxt. monotone (dependency ctxt)
-  /\ composable_dep ctxt
-  /\ FINITE $ UNCURRY (dependency ctxt)
+  !dep. monotone dep
+  /\ composable_dep dep
+  /\ wf_dep dep
+  /\ FINITE $ UNCURRY dep
   ==>
-  (~ (terminating $ TC $ subst_clos (dependency ctxt)) <=> cyclic_dep ctxt)
+  (~ (terminating $ TC $ subst_clos dep) <=> cyclic_dep dep)
 Proof
   rw[EQ_IMP_THM]
   >- (
     dxrule_then assume_tac $ ONCE_REWRITE_RULE[MONO_NOT_EQ] terminating_TC
-    >> `?rs pqs. sol_seq_inf rs pqs /\ every (UNCURRY (dependency ctxt)) pqs
+    >> `?rs pqs. sol_seq_inf rs pqs /\ every (UNCURRY dep) pqs
       /\ !i. ?n. i < n /\ LNTH i pqs = LNTH n pqs
     ` by (
-      `?rs pqs. sol_seq_inf rs pqs /\ every (UNCURRY (dependency ctxt)) pqs` by (
+      `?rs pqs. sol_seq_inf rs pqs /\ every (UNCURRY dep) pqs` by (
         fs[prim_recTheory.WF_IFF_WELLFOUNDED,prim_recTheory.wellfounded_def,terminating_def]
-        >> qabbrev_tac `Q = λ(rs,pq) n.  dependency ctxt (FST pq) (SND pq)
+        >> qabbrev_tac `Q = λ(rs,pq) n. dep (FST pq) (SND pq)
             /\ LR_TYPE_SUBST rs (FST pq) = f n /\ LR_TYPE_SUBST rs (SND pq) = f $ SUC n
             /\ is_const_or_type (FST pq) /\ is_const_or_type (SND pq)`
         >> `!n. ?rspq. Q rspq n` by (
           rw[Abbr`Q`,EXISTS_PROD]
           >> rename[`SUC n`]
           >> first_x_assum $ qspec_then `n` assume_tac
-          >> imp_res_tac dependency_props'
-          >> gvs[is_const_or_type_eq,subst_clos_def]
-          >> imp_res_tac dependency_props
-          >> gvs[LR_TYPE_SUBST_cases,INST_def,INST_CORE_def,is_const_or_type_eq]
+          >> drule_all_then strip_assume_tac wf_dep_subst_clos
+          >> gvs[is_const_or_type_eq,subst_clos_def,wf_dep_def,LR_TYPE_SUBST_cases,INST_def,INST_CORE_def]
+          >> res_tac >> gvs[LR_TYPE_SUBST_cases,INST_def,INST_CORE_def]
           >> goal_assum $ drule_at Any
           >> fs[LR_TYPE_SUBST_cases]
           >> rpt $ irule_at Any EQ_REFL
@@ -5179,7 +5175,7 @@ Proof
         >> `!n. Q (@rspq. Q rspq n) n` by metis_tac[]
         >> qpat_x_assum `!n. ?rspq. _` kall_tac
         >> `!n pq rs. Q (@rspq. Q rspq n) n ==> pq = SND (@rspq. Q rspq n)
-            ==> rs = FST (@rspq. Q rspq n) ==> dependency ctxt (FST pq) (SND pq)
+            ==> rs = FST (@rspq. Q rspq n) ==> dep (FST pq) (SND pq)
             /\ LR_TYPE_SUBST rs (FST pq) = f n /\ LR_TYPE_SUBST rs (SND pq) = f $ SUC n
             /\ is_const_or_type (FST pq) /\ is_const_or_type (SND pq)` by (
             gvs[FORALL_AND_THM,IMP_CONJ_THM,AND_IMP_INTRO,ELIM_UNCURRY]
@@ -5224,10 +5220,10 @@ Proof
     >> `0 < l` by fs[Abbr`l`]
     >> drule_then (qspec_then `SUC l` assume_tac) seq_asc_inf_seq_asc_LTAKE
     >> qmatch_assum_abbrev_tac `seq_asc pqs'`
-    >> qspecl_then [`pqs'`,`ctxt`,`PRE $ LENGTH pqs'`] mp_tac seq_asc_mg_sol_path
+    >> qspecl_then [`pqs'`,`dep`,`PRE $ LENGTH pqs'`] mp_tac seq_asc_mg_sol_path
     >> `~LFINITE pqs /\ LENGTH pqs' = SUC l` by
       fs[sol_seq_inf_def,Abbr`pqs'`,NOT_LFINITE_LENGTH,NOT_LFINITE_LDROP]
-    >> `!k'. EVERY (UNCURRY $ dependency ctxt) (THE (LTAKE k' (THE $ LDROP k pqs)))` by (
+    >> `!k'. EVERY (UNCURRY dep) (THE (LTAKE k' (THE $ LDROP k pqs)))` by (
       strip_tac
       >> irule every_LTAKE_EVERY
       >> irule_at Any every_THE_LDROP
@@ -5285,9 +5281,9 @@ Proof
   >> first_assum $ irule_at Any
   >> rw[EL_MEM]
   >> ntac 2 $ qhdtm_x_assum `Abbrev` kall_tac
-  >> `(TC $ subst_clos (dependency ctxt)) (FST $ HD pqs) (LR_TYPE_SUBST s' (FST (HD pqs)))` by (
+  >> `(TC $ subst_clos dep) (FST $ HD pqs) (LR_TYPE_SUBST s' (FST (HD pqs)))` by (
     `!i. i < LENGTH pqs ==>
-      (TC $ subst_clos (dependency ctxt))
+      (TC $ subst_clos dep)
         (LR_TYPE_SUBST (EL i rs') (FST $ EL i pqs))
         (LR_TYPE_SUBST (EL i rs') (SND $ EL i pqs))` by (
       rpt strip_tac
@@ -5348,7 +5344,7 @@ Proof
   >> fs[prim_recTheory.WF_IFF_WELLFOUNDED,prim_recTheory.wellfounded_def,terminating_def]
   >> map_every (fn x => qhdtm_x_assum x kall_tac) [`FST`,`LR_TYPE_SUBST`]
   >> qexists_tac `λn. FUNPOW (LR_TYPE_SUBST s') n (FST $ HD pqs)`
-  >> Induct >> fs[FUNPOW_SUC,dependency_TC_subst_clos_LR_TYPE_SUBST]
+  >> Induct >> fs[FUNPOW_SUC,TC_subst_clos_LR_TYPE_SUBST]
 QED
 
 Definition monotone_compute_def:
