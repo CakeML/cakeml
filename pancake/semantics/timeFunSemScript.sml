@@ -326,7 +326,7 @@ Proof
       timeLangTheory.termConditions_def]
 QED
 
-
+(*
 Theorem eval_step_imp_step:
   eval_step prog m n or st = SOME (label, st') ⇒
   step prog label m n st st'
@@ -391,6 +391,6 @@ Proof
   gs [] >>
   res_tac >> gs []
 QED
-
+*)
 
 val _ = export_theory();

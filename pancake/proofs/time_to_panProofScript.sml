@@ -238,12 +238,6 @@ Definition active_low_def:
 End
 
 
-Definition add_time_def:
-  (add_time t NONE     = SOME (ValWord 0w)) ∧
-  (add_time t (SOME n) = SOME (ValWord (t + n2w n)))
-End
-
-
 Definition equivs_def:
   equivs fm loc wt ⇔
   FLOOKUP fm «loc» = SOME (ValLabel (num_to_str loc)) ∧
@@ -574,7 +568,7 @@ Definition wait_time_locals_def:
   wait_time_locals (:α) fm swt ffi =
   ∃wt st.
     FLOOKUP fm «wakeUpAt» = SOME (ValWord (n2w (wt + st))) ∧
-    wt + st < dimword (:α) ∧
+    wt < dimword (:α) ∧ st < dimword (:α) ∧
     case swt of
     | NONE => T
     | SOME swt =>
@@ -650,7 +644,6 @@ Definition event_inv_def:
     FLOOKUP fm «isInput» = SOME (ValWord 1w) ∧
     FLOOKUP fm «event» = SOME (ValWord 0w)
 End
-
 
 
 Definition assumptions_def:
@@ -3160,13 +3153,27 @@ Proof
 QED
 
 
+Theorem mod_greater_neq:
+  tm = (tm + wt) MOD (k:num) ∧
+  tm < k ∧ wt < k ∧
+  k < tm + wt ⇒ F
+Proof
+  CCONTR_TAC >> gvs [] >>
+  ‘((tm + wt) - k) MOD k = (tm + wt) MOD k’ by
+    (irule SUB_MOD >> fs []) >>
+  pop_assum (fs o single o GSYM) >>
+  ‘tm + wt − k < k’ by gvs [] >>
+  fs []
+QED
+
+
 Theorem step_wait_delay_eval_wait_not_zero:
   !(t:('a,'b) panSem$state).
     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
     FLOOKUP t.locals «waitSet» = SOME (ValWord 0w) ∧
     (?tm. FLOOKUP t.locals «sysTime» = SOME (ValWord (n2w tm)) ∧
-          ?wt. FLOOKUP t.locals «wakeUpAt» = SOME (ValWord (n2w wt)) ∧
-               tm < wt ∧
+          ?wt. FLOOKUP t.locals «wakeUpAt» = SOME (ValWord (n2w (tm + wt))) ∧
+               tm < tm + wt ∧
                wt < dimword (:α) ∧
                tm < dimword (:α)) ==>
     ?w.
@@ -3187,7 +3194,15 @@ Proof
     match_mp_tac LESS_MOD >> fs []) >>
   ‘tm MOD dimword (:α) = tm’ by (
     match_mp_tac LESS_MOD >> fs []) >>
-  fs []
+  fs [] >> rveq >> gs [] >>
+  cases_on ‘tm + wt < dimword (:α)’
+  >- (
+    ‘(tm + wt) MOD dimword (:α) = tm + wt’ by (
+      match_mp_tac LESS_MOD >> fs []) >>
+    gs []) >>
+  gs [NOT_LESS] >>
+  gs [LESS_OR_EQ] >>
+  metis_tac [mod_greater_neq]
 QED
 
 
@@ -3831,9 +3846,6 @@ Proof
     rewrite_tac [Once evaluate_def] >>
     fs [] >>
     pairarg_tac >> fs [] >>
-
-
-
     drule evaluate_if_compare_sys_time >>
     disch_then (qspec_then ‘FST (nexts_ffi cycles t.ffi.ffi_state 1)’ mp_tac) >>
     impl_tac
@@ -4308,14 +4320,14 @@ Proof
     drule step_wait_delay_eval_wait_not_zero >>
     impl_tac
     >- (
-    conj_tac
-    >- gs [state_rel_def, mkState_def, equivs_def, active_low_def] >>
-    gs [] >>
-    gs [wakeup_rel_def, delay_rep_def] >>
-    qexists_tac ‘sd + FST (t.ffi.ffi_state 0)’ >>
-    gs [] >>
-    qexists_tac ‘w + FST (t.ffi.ffi_state 0)’ >>
-    gs []) >>
+      conj_tac
+      >- gs [state_rel_def, mkState_def, equivs_def, active_low_def] >>
+      gs [] >>
+      gs [wakeup_rel_def, delay_rep_def] >>
+      qexists_tac ‘sd + FST (t.ffi.ffi_state 0)’ >>
+      gs [] >>
+      qexists_tac ‘w - sd’ >>
+      gs []) >>
     strip_tac >>
     gs [eval_upd_clock_eq] >>
     (* evaluating the function *)
@@ -4858,7 +4870,7 @@ Proof
       gs [wakeup_rel_def, delay_rep_def] >>
       qexists_tac ‘sd + FST (t.ffi.ffi_state 0)’ >>
       gs [] >>
-      qexists_tac ‘w + FST (t.ffi.ffi_state 0)’ >>
+      qexists_tac ‘w - sd’ >>
       gs [] >>
       first_x_assum (qspec_then ‘cycles’ mp_tac) >>
       impl_tac >- gs [] >>
@@ -5691,7 +5703,7 @@ Theorem step_input:
           | NONE => 1
           | _ => 0))) ∧
       (case s'.waitTime of
-       | SOME wt => FST (t.ffi.ffi_state 0) + wt < dimword (:α)
+       | SOME wt => wt < dimword (:α)
        | _ => T)
 
 Proof
@@ -5718,10 +5730,15 @@ Proof
     rveq >> gs [] >>
     qexists_tac ‘w2n st’ >>
     gs [n2w_w2n] >>
-    qexists_tac ‘st' + wt'’ >>
+    qexists_tac ‘wt'’ >>
     ‘x ≠ 0’ by gs [step_cases] >>
     gs [] >>
     gs [input_rel_def, next_ffi_def] >>
+    gs [state_rel_def] >>
+    pairarg_tac >> gs [] >>
+    gs [input_time_rel_def] >>
+    gvs []
+
     ‘FST (t.ffi.ffi_state 1) MOD dimword (:α) = FST (t.ffi.ffi_state 0)’ suffices_by
       gs [] >>
     gs [state_rel_def] >>

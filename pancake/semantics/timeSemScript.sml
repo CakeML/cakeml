@@ -294,7 +294,7 @@ Inductive step:
       (case st.waitTime of
        | NONE => T
        | SOME wt => wt ≠ 0 ∧ wt < m) ∧
-      pickTerm (resetOutput st) m (m + n) (SOME in_signal) tms st' ∧
+      pickTerm (resetOutput st) m m (SOME in_signal) tms st' ∧
       st'.ioAction = SOME (Input in_signal) ⇒
       step p (LAction (Input in_signal)) m n st st') ∧
 
@@ -302,7 +302,7 @@ Inductive step:
     ALOOKUP p st.location = SOME tms ∧
     st.waitTime = SOME 0 ∧
     n < m ∧
-    pickTerm (resetOutput st) m (m + n) NONE tms st' ∧
+    pickTerm (resetOutput st) m m NONE tms st' ∧
     st'.ioAction = SOME (Output out_signal) ⇒
     step p (LAction (Output out_signal)) m n st st')
 End
