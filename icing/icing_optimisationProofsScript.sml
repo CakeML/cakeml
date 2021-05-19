@@ -1,9 +1,9 @@
 (*
-  Correctness proofs for Icing optimisations supported by CakeML
-  Each optimisation is defined in icing_optimisationsScript.
+  Correctness proofs for peephole optimisations supported by PrincessCake
+  Each optimisation is defined in icing_optimisationsScript.sml.
   This file proves the low-level correctness theorems for a single
-  application of the optimisation, as well as that optimisations
-  are real-valued identities.
+  application of the optimisation.
+  Real-valued identity proofs are in icing_realIdProofsScript.sml.
   The overall correctness proof for a particular run of the optimiser
   from source_to_sourceScript is build using the automation in
   icing_optimisationsLib and the general theorems from

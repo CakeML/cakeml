@@ -1,10 +1,8 @@
 (*
   Real-number identity proofs for Icing optimisations supported by CakeML
   Each optimisation is defined in icing_optimisationsScript.
-  This file proves the low-level correctness theorems for a single
-  application of the optimisation, as well as that optimisations
-  are real-valued identities.
-  The overall correctness proof for a particular run of the optimiser
+  This file proves that optimisations  are real-valued identities.
+  The overall real-number simluation proof for a particular run of the optimiser
   from source_to_sourceScript is build using the automation in
   icing_optimisationsLib and the general theorems from
   source_to_sourceProofsScript.

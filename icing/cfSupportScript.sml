@@ -1,5 +1,5 @@
 (**
-  Support lemmas for CF reasoning
+  Support lemmas for CF proofs in the end-to-end correctness theorems
 **)
 open basis_ffiTheory cfHeapsBaseTheory basis;
 open cfTacticsLib ml_translatorLib;

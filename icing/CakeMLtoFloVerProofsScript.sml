@@ -1,5 +1,6 @@
 (*
-  Central theorem about connection to FloVer
+  Main connection theorem relating FloVer's roundoff error bound
+  to CakeML floating-point kernel executions
 *)
 (* HOL4 *)
 open machine_ieeeTheory realTheory realLib RealArith;

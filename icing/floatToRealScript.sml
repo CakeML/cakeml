@@ -1,5 +1,6 @@
 (*
-  Define a translation from float computations to real number computations
+  Translation from CakeML floating-point computations to
+  CakeML real-number computations.
 *)
 open semanticPrimitivesTheory evaluateTheory terminationTheory
      fpOptTheory fpValTreeTheory;

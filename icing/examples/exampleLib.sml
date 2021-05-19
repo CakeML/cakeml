@@ -5,7 +5,7 @@ structure exampleLib =
 struct
   open astTheory cfTacticsLib ml_translatorLib;
   open basis_ffiTheory cfHeapsBaseTheory basis;
-  (* open data_monadTheory compilationLib;*)
+  open data_monadTheory compilationLib;
   open FloverMapTheory RealIntervalInferenceTheory ErrorIntervalInferenceTheory
        CertificateCheckerTheory;
   open floatToRealProofsTheory source_to_sourceTheory CakeMLtoFloVerTheory
@@ -514,7 +514,6 @@ struct
                 App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];
                 Var (Short "u")]; Var (Short "b")])))))))))))])))]’;
 
-(** Debugging:
 fun get_names_for thy_name =
   let
     fun find_def name = DB.find name |> filter (fn ((x,_),_) => x = thy_name)
@@ -616,32 +615,34 @@ fun write_to_file prog_def = let
   val _ = print ("Program pretty printed to " ^ filename ^ "\n")
   in () end
 
-val _ = intermediate_prog_prefix := "test03_unopt_";
-val backend_config_def = arm7_backend_config_def
-val cbv_to_bytes = cbv_to_bytes_arm7
-val name = "test03UnoptProg"
-val prog_def = (Parse.Term ‘
-  APPEND ^(reader_def |> concl |> rhs)
-  (APPEND ^(intToFP_def |> concl |> rhs)
-  (APPEND ^(printer_def |> concl |> rhs)
-  (APPEND ^(theAST_def |> concl |> rhs)
-  ^(theBenchmarkMain_def |> concl |> rhs))))’)
-  |> EVAL |> concl |> rhs |> REFL
+fun compile_to_data_code theAST_def reader_def intToFP_def printer_def theBenchmarkMain_def prefix =
+  let
+    val _ = intermediate_prog_prefix := prefix;
+    val backend_config_def = arm7_backend_config_def
+    val cbv_to_bytes = cbv_to_bytes_arm7
+    val name = prefix
+    val prog_def = (Parse.Term ‘
+      APPEND ^(reader_def |> concl |> rhs)
+      (APPEND ^(intToFP_def |> concl |> rhs)
+      (APPEND ^(printer_def |> concl |> rhs)
+      (APPEND ^(theAST_def |> concl |> rhs)
+      ^(theBenchmarkMain_def |> concl |> rhs))))’)
+      |> EVAL |> concl |> rhs |> REFL
 
-val cs = compilation_compset()
-val conf_def = backend_config_def
-val data_prog_name = (!intermediate_prog_prefix) ^ "data_prog"
-val to_data_thm = compile_to_data cs conf_def prog_def data_prog_name
-val _ = save_thm((!intermediate_prog_prefix) ^ "to_data_thm", to_data_thm)
-val data_prog_def = definition(mk_abbrev_name data_prog_name)
+    val cs = compilation_compset()
+    val conf_def = backend_config_def
+    val data_prog_name = (!intermediate_prog_prefix) ^ "data_prog"
+    val to_data_thm = compile_to_data cs conf_def prog_def data_prog_name
+    val _ = save_thm((!intermediate_prog_prefix) ^ "to_data_thm", to_data_thm)
+    val data_prog_def = definition(mk_abbrev_name data_prog_name)
 
-Overload monad_unitbind[local] = ``data_monad$bind``
-Overload return[local] = ``data_monad$return``
-val _ = monadsyntax.temp_add_monadsyntax()
-val _ = install_naming_overloads "test01_sum3ProgComp";
-
-val _ = write_to_file data_prog_def;
-**)
+    val _ = Parse.temp_overload_on ("monad_unitbind", “data_monad$bind”)
+    val _ = Parse.temp_overload_on ("return", “data_monad$return”)
+    val _ = monadsyntax.temp_add_monadsyntax()
+    val _ = install_naming_overloads (Theory.current_theory());
+  in
+    write_to_file data_prog_def
+end;
 
   fun define_benchmark theAST_def theAST_pre_def checkError =
   let
@@ -715,12 +716,16 @@ val _ = write_to_file data_prog_def;
   val _ = append_prog (theOptProg_def |> concl |> rhs)
   val _ = append_prog theMain;
   val theAST_env_def = Define ‘theAST_env = ^theAST_env’;
+  val _ = compile_to_data_code theProg_def reader_def intToFP_def printer_def theBenchmarkMain_def ((Theory.current_theory()) ^ "_unopt_")
+  val _ = compile_to_data_code theOptProg_def reader_def intToFP_def printer_def theBenchmarkMain_def ((Theory.current_theory()) ^ "_opt_")
+
   (* val _ = computeLib.del_funs [sptreeTheory.subspt_def]; *)
   val _ = computeLib.add_funs [realTheory.REAL_INV_1OVER,
                              binary_ieeeTheory.float_to_real_def,
                              binary_ieeeTheory.float_tests,
                              sptreeTheory.subspt_eq,
                              sptreeTheory.lookup_def];
+  (*
   val errorbounds_AST =
     if ((!logErrors) andalso checkError) then
       let
@@ -1192,7 +1197,7 @@ val _ = write_to_file data_prog_def;
         \\ qexists_tac ‘compress_word (THE (theAST_opt_float_option ^args))’ \\ fs[]
         \\ asm_exists_tac \\ fs[toString_def]
         )
-      in theAST_semantics_final end
+      in theAST_semantics_final end *)
   in () end;
 
 end;

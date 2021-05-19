@@ -1,7 +1,8 @@
 (*
-  Source to source optimiser, applying Icing optimizations
-  This file defines the high-level Icing optimisers.
-  Their general correctness theorems are proven in source_to_sourceProofsScript.
+  This file defines the PrincessCake optimiser as a source to source pass.
+  Function ‵stos_pass_with_plans‵ corresponds to ‵applyOpts‵
+  from the paper.
+  General correctness theorems are proven in source_to_sourceProofsScript.
   The optimiser definitions rely on the low-level functions from
   icing_rewriterScript implementing pattern matching and pattern instantiation.
 *)
@@ -43,8 +44,8 @@ Proof
   fs[extend_conf_def]
 QED
 
-(* Datatype for opt_path into a tree value. Here is the leaf node meaning that the
-  rewrite should be applied *)
+(* Datatype for opt_path into a tree value. Here is the leaf node meaning that
+  the rewrite should be applied *)
 Datatype:
   opt_path = Left opt_path | Right opt_path
              | Center opt_path
@@ -62,7 +63,9 @@ Type fp_plan = “: opt_step list”
 
 Definition MAP_plan_to_path_def:
   MAP_plan_to_path (to_path: opt_path -> opt_path) (plan: fp_plan) =
-    MAP (λ step. case step of | Apply (path, rws) => Apply (to_path path, rws) | x => x) plan
+    MAP (λ step. case step of
+                 | Apply (path, rws) => Apply (to_path path, rws)
+                 | x => x) plan
 End
 
 Definition left_def:

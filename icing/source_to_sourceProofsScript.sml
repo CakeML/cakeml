@@ -1,5 +1,9 @@
 (*
-  Correctness proofs for floating-point optimizations
+  Overall correctness proofs for optimisation functions
+  defined in source_to_sourceScript.sml.
+  To prove a particular run correct, they are combined
+  using the automation in icing_optimisationsLib.sml with
+  the local correctness theorems from icing_optimisationProofsScript.sml.
 *)
 open icing_rewriterTheory icing_rewriterProofsTheory source_to_sourceTheory
      fpOptTheory fpOptPropsTheory

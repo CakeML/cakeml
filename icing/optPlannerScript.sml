@@ -1,5 +1,7 @@
 (**
-  Unverified optimisation planners
+  Unverified optimisation planner.
+  Definitions in this file correspond to the function ‘planOpts’
+  from Section 5 of the PrincessCake paper.
 **)
 open semanticPrimitivesTheory evaluateTheory terminationTheory
      icing_rewriterTheory icing_optimisationsTheory fpOptTheory fpValTreeTheory
@@ -770,7 +772,7 @@ Definition peephole_optimise_def:
           try_rewrite_with_each [
               fp_neg_push_mul_r;
               fp_times_minus_one_neg;
-              fp_fma_intro;
+              (* fp_fma_intro; *)
               fp_add_sub;
               fp_times_two_to_add;
               fp_times_three_to_add;

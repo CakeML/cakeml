@@ -1,5 +1,5 @@
 (*
-  Tactic library specific to Icing
+  Tactic library for PrincessCake development
 *)
 structure icingTacticsLib =
 struct

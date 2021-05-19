@@ -1,5 +1,7 @@
 (*
-  Proofs about translation from float computations to real number computations
+  Proofs about translation from floating-point computations to real-number
+  computations. Needed to prove simulations in the end-to-end correctness
+  theorems.
 *)
 open icing_rewriterTheory source_to_sourceTheory fpOptTheory fpOptPropsTheory
      fpSemPropsTheory semanticPrimitivesTheory evaluateTheory

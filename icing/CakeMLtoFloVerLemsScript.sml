@@ -1,5 +1,7 @@
 (*
-  Lemmas for connection to FloVer
+  Lemmas for connection to FloVer,
+  the translation function is defined in CakeMLtoFloVerScript.sml, and the main
+  connection theorem in CakeMLtoFloVerProofsScript.sml
 *)
 (* HOL4 *)
 open machine_ieeeTheory realTheory realLib RealArith;

@@ -1,6 +1,6 @@
 (*
-  Library defining function mk_opt_correct_thms that builds an optimiser
-  correctness theorem for a list of rewriteFPexp_correct theorems
+  Library defining HOL4 automation that builds an optimiser
+  correctness theorem for an optimisation plan.
 *)
 structure icing_optimisationsLib =
 struct
