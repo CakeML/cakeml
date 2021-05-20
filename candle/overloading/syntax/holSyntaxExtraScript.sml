@@ -4069,9 +4069,11 @@ Proof
 QED
 
 Theorem DEPENDENCY_EQUIV:
-  !x y ctxt. MEM (x,y) (dependency_compute ctxt) = dependency ctxt x y
+  !ctxt. CURRY $ set (dependency_compute ctxt) = dependency ctxt
 Proof
-  rpt GEN_TAC >> EQ_TAC >> rw[DEPENDENCY_IMP1,DEPENDENCY_IMP2]
+  rw[FUN_EQ_THM,EQ_IMP_THM]
+  >> (irule DEPENDENCY_IMP2 ORELSE dxrule DEPENDENCY_IMP1)
+  >> fs[IN_DEF]
 QED
 
 (* extension is transitive *)
