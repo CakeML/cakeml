@@ -137,6 +137,14 @@ Theorem TYPE_SUBST_wlog_eq =
     ONCE_REWRITE_CONV $ single TYPE_SUBST_FILTER_SND_tyvars2'
   |> CONV_RULE SWAP_FORALL_CONV
 
+Theorem clean_tysubst_LR_TYPE_SUBST_eq:
+  !p s. is_const_or_type p
+  ==> LR_TYPE_SUBST s p = LR_TYPE_SUBST (clean_tysubst s) p
+Proof
+  rw[is_const_or_type_eq]
+  >> rw[GSYM clean_tysubst_TYPE_SUBST_eq,LR_TYPE_SUBST_cases,FV_def,sum_case_def,tvars_def]
+QED
+
 Theorem LR_TYPE_SUBST_wlog_eq:
   !p s. is_const_or_type p
   ==> LR_TYPE_SUBST s p =
@@ -278,6 +286,13 @@ Proof
   >> fs[var_renaming_SWAP_id,GSYM TYPE_SUBST_compose]
 QED
 
+Theorem var_renaming_SWAP_LR_id':
+  !s t t'. var_renaming s /\ is_const_or_type t /\ LR_TYPE_SUBST s t = t'
+  ==> t = LR_TYPE_SUBST (MAP SWAP s) t'
+Proof
+  rw[] >> fs[var_renaming_SWAP_LR_id]
+QED
+
 Theorem equiv_ts_on_symm:
   !s' s vars. equiv_ts_on s' s vars = equiv_ts_on s s' vars
 Proof
@@ -305,6 +320,23 @@ Proof
   rw[equiv_ts_on_def]
   >> qexists_tac `clean_tysubst (MAP (TYPE_SUBST η ## I) η' ++ η)`
   >> fs[var_renaming_compose,equal_ts_on_def,GSYM clean_tysubst_TYPE_SUBST_eq,GSYM TYPE_SUBST_compose]
+QED
+
+Theorem equiv_ts_on_compose:
+  !e s s' vars. var_renaming e
+  ==> equiv_ts_on s (MAP (TYPE_SUBST e ## I) s' ++ e) vars = equiv_ts_on s s' vars
+Proof
+  rw[equiv_ts_on_def,EQ_IMP_THM,equal_ts_on_def,GSYM TYPE_SUBST_def,Excl"TYPE_SUBST_def"]
+  >> fs[Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_compose,GSYM MAP_APPEND,Excl"MAP_APPEND"]
+  >- (
+    qmatch_goalsub_rename_tac `TYPE_SUBST η (TYPE_SUBST e _)`
+    >> qexists_tac `clean_tysubst $ MAP (TYPE_SUBST η ## I) e ++ η`
+    >> rw[var_renaming_compose,Excl"TYPE_SUBST_def",GSYM clean_tysubst_TYPE_SUBST_eq,TYPE_SUBST_compose]
+  )
+  >> qmatch_goalsub_rename_tac `TYPE_SUBST η (TYPE_SUBST s' _) = TYPE_SUBST _ (TYPE_SUBST e _)`
+  >> qexists_tac `clean_tysubst $ MAP (TYPE_SUBST η ## I) (MAP SWAP e) ++ η`
+  >> rw[var_renaming_compose,Excl"TYPE_SUBST_def",var_renaming_SWAP_IMP]
+  >> fs[Excl"TYPE_SUBST_def",GSYM clean_tysubst_TYPE_SUBST_eq,GSYM TYPE_SUBST_compose,var_renaming_SWAP_id]
 QED
 
 Theorem equal_ts_on_subset:
@@ -374,6 +406,18 @@ QED
 Definition wf_pqs_def:
   wf_pqs = EVERY (UNCURRY $/\ o (is_const_or_type ## is_const_or_type))
 End
+
+Triviality wf_pqs_APPEND:
+  wf_pqs (l ++ l') <=> wf_pqs l /\ wf_pqs l'
+Proof
+  fs[wf_pqs_def]
+QED
+
+Triviality wf_pqs_CONS:
+  wf_pqs (h::t) <=> is_const_or_type (FST h) /\ is_const_or_type (SND h) /\ wf_pqs t
+Proof
+  fs[wf_pqs_def,ELIM_UNCURRY,EQ_IMP_THM]
+QED
 
 (* Definition 5.3, Kunčar 2015
  * Solution to a sequence *)
@@ -476,6 +520,18 @@ Proof
   >> dep_rewrite.DEP_REWRITE_TAC[EL_MAP,GSYM LR_TYPE_SUBST_compose]
   >> ntac 2 $ qpat_x_assum `!x. _` $ irule_at Any
   >> fs[EL_MEM]
+QED
+
+Theorem sol_seq_var_renaming:
+  !rs pqs s. var_renaming s
+  /\ sol_seq (MAP (λx. MAP (TYPE_SUBST s ## I) x ++ s) rs) pqs
+  ==> sol_seq rs pqs
+Proof
+  rpt strip_tac
+  >> dxrule_then (qspec_then `MAP SWAP s` mp_tac) sol_seq_TYPE_SUBST
+  >> rw[sol_seq_def,LR_TYPE_SUBST_compose] >> gs[] >> first_x_assum drule
+  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,EL_MAP,var_renaming_SWAP_LR_id]
+  >> fs[wf_pqs_def,EVERY_MEM,MEM_EL,PULL_EXISTS,ELIM_UNCURRY]
 QED
 
 Theorem mg_sol_seq_var_renaming:
@@ -1469,6 +1525,12 @@ Proof
   >> drule_then (irule_at Any) var_renaming_SWAP_id
 QED
 
+Theorem invertible_on_equiv_ts_on_FV:
+  !s p. is_const_or_type p ==> invertible_on s (FV p) = equiv_ts_on s [] (FV p)
+Proof
+  rw[is_const_or_type_eq,FV_def] >> rw[tvars_def,invertible_on_equiv_ts_on]
+QED
+
 Theorem invertible_on_composition:
   !r s vars. invertible_on (MAP (TYPE_SUBST s ## I) r ++ s) vars
   <=> invertible_on r vars
@@ -1998,6 +2060,13 @@ Proof
   rw[path_starting_at_def,wf_pqs_def,HD_DROP,EVERY_MEM]
   >> first_x_assum match_mp_tac
   >> fs[EL_MEM,MEM_DROP]
+QED
+
+Theorem path_starting_at_var_renaming:
+  !k rs pqs dep e. var_renaming e /\ path_starting_at dep k rs pqs
+  ==> path_starting_at dep k (MAP (λx. MAP (TYPE_SUBST e ## I) x ++ e) rs) pqs
+Proof
+  rw[path_starting_at_def,GSYM MAP_DROP,sol_seq_TYPE_SUBST,EL_MAP,equiv_ts_on_compose]
 QED
 
 Definition instance_LR_compute_def:
@@ -5772,6 +5841,17 @@ Proof
     >> fs[]
   )
   >> asm_rewrite_tac[]
+QED
+
+Theorem unify_LR_mgu:
+  !ty ty' r s r' s'. unify_LR ty ty' = SOME (r,s) /\ wf_pqs [(ty,ty')]
+  /\ LR_TYPE_SUBST r' ty = LR_TYPE_SUBST s' ty'
+  ==> ?rr ss. LR_TYPE_SUBST rr (LR_TYPE_SUBST r ty) = LR_TYPE_SUBST r' ty
+  /\ LR_TYPE_SUBST ss (LR_TYPE_SUBST s ty') = LR_TYPE_SUBST s' ty'
+Proof
+  fs[wf_pqs_def,is_const_or_type_eq]
+  >> dsimp[unify_LR_def,unify_mgu,LR_TYPE_SUBST_cases]
+  >> metis_tac[unify_mgu]
 QED
 
 (* composable_step q dep []
