@@ -6093,26 +6093,163 @@ QED
 Datatype: ext_step =
     non_comp_step ((type+term) # (type+term) # (type+term) # (type+term))
     | cyclic_step ((type+term) # (type+term) # (type+term) # (type+term))
-    | maybe_cyclic | acyclic int
+    | maybe_cyclic | acyclic num
 End
 
 (*
- * dep_ext dep dephd deptl
- * extends every pair (p,q) in deptl by one dependency step from dep
+ * dep_step dep extend extended
+ * extends every pair (p,q) in ext by one dependency step from the relation dep
+ * and store it in extd (extended)
+ * intended usage: dep_step dep dep' [] = ...
  *)
 Definition dep_step_def:
-  (dep_step dep dephd [] = INL dephd)
-  /\ (dep_step dep dephd ((p,q)::deptl) =
-      case composable_step q dephd [] of
+  (dep_step dep [] res = INL res)
+  /\ (dep_step dep ((p,q)::ext) extd =
+      case composable_step q dep [] of
       | INR q' => INR $ non_comp_step (p,q,q') (* not composable *)
-      | INL dep' =>
+      | INL extd' =>
           let
-            dep'' = MAP (λx. (p, x)) dep' ;
-            cycles = FILTER (UNCURRY is_instance_LR_compute) dep''
+            extd'' = MAP (λx. (p, x)) extd' ;
+            cycles = FILTER (UNCURRY is_instance_LR_compute) extd''
           in case NULL cycles of
           | F => INR $ cyclic_step (p,q,HD cycles) (* cycle found *)
-          | T => dep_step dep (dephd ++ dep'') deptl)
+          | T => dep_step dep ext (extd ++ extd''))
 End
+
+Definition dep_step_inv_def:
+  dep_step_inv dep dep' rest dep'dep =
+  (wf_pqs dep /\ wf_pqs dep' /\ wf_pqs rest
+    /\ EVERY ($~ o UNCURRY is_instance_LR_compute) dep'
+    /\ EVERY (λx. ?rs pqs. path_starting_at (CURRY $ set dep) 0 rs pqs
+      /\ 0 < LENGTH pqs /\ FST x = FST $ HD pqs
+      /\ SND x = LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs)
+      ) rest
+  ==> (
+    wf_pqs dep'dep
+    /\ EVERY ($~ o UNCURRY is_instance_LR_compute) dep'dep
+    /\ EVERY (λx. ?rs pqs. path_starting_at (CURRY $ set dep) 0 rs pqs
+      /\ 0 < LENGTH pqs /\ FST x = FST $ HD pqs
+      /\ SND x = LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs)
+      ) dep'dep
+  ))
+End
+
+Theorem dep_step_inv_init:
+  !dep dep'. dep_step_inv dep dep' dep' []
+Proof
+  fs[dep_step_inv_def,wf_pqs_def]
+QED
+
+Theorem dep_step_inv_init':
+  !dep. dep_step_inv dep dep dep []
+Proof
+  fs[dep_step_inv_def]
+QED
+
+Theorem dep_step_inv_imp_INL':
+  !dep rest dep'dep dep' res. wf_pqs (dep ++ dep' ++ rest)
+  /\ EVERY ($~ o UNCURRY is_instance_LR_compute) dep'
+  /\ EVERY (λx. ?rs pqs. path_starting_at (CURRY $ set dep) 0 rs pqs
+    /\ 0 < LENGTH pqs /\ FST x = FST $ HD pqs
+    /\ SND x = LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs)
+    ) rest
+  /\ dep_step_inv dep dep' rest dep'dep
+  /\ dep_step dep rest dep'dep = INL res
+  ==> dep_step_inv dep dep' [] res
+Proof
+  ho_match_mp_tac dep_step_ind
+  >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,Excl"EVERY_DEF"]
+  >- fs[]
+  >> first_x_assum $ drule_then irule
+  >> gs[dep_step_inv_def,wf_pqs_APPEND,wf_pqs_CONS,o_DEF]
+  >> dxrule_at_then Any (drule_all_then strip_assume_tac) composable_step_sound_INL
+  >> conj_asm1_tac >- (
+    rw[wf_pqs_def,EVERY_MEM,EVERY_MAP]
+    >> qpat_x_assum `wf_pqs dep` $ imp_res_tac o REWRITE_RULE[EVERY_MEM,wf_pqs_def]
+    >> qmatch_assum_abbrev_tac `~xx ==> x = _` >> Cases_on `xx`
+    >> fs[LR_TYPE_SUBST_type_preserving,ELIM_UNCURRY]
+  )
+  >> rw[EVERY_MEM,EVERY_MAP]
+  >> qmatch_assum_rename_tac `path_starting_at _ 0 rs pqs`
+  >> qpat_assum `wf_pqs dep` $ imp_res_tac o REWRITE_RULE[EVERY_MEM,wf_pqs_def]
+  >> `~NULL pqs /\ ~NULL rs` by (CCONTR_TAC >> gvs[NULL_EQ,path_starting_at_def])
+  >> `is_const_or_type $ FST $ LAST pqs /\ is_const_or_type $ SND $ LAST pqs` by (
+    fs[wf_pqs_def,path_starting_at_def,EVERY_MEM,MEM_EL,NULL_EQ,LAST_EL,PULL_EXISTS,ELIM_UNCURRY]
+  )
+  >> dxrule unify_LR_sound
+  >> qpat_x_assum `invertible_on s_q _` mp_tac
+  >> dep_rewrite.DEP_REWRITE_TAC[invertible_on_equiv_ts_on_FV,LR_TYPE_SUBST_type_preserving]
+  >> rw[equiv_ts_on_FV,LR_TYPE_SUBST_NIL] >> rfs[]
+  >> qmatch_assum_abbrev_tac `~xx ==> x = _` >> Cases_on `xx` >> fs[]
+  >- (
+    drule_then (dxrule_at Any) var_renaming_SWAP_LR_id'
+    >> rw[LR_TYPE_SUBST_type_preserving]
+    >> qhdtm_x_assum `invertible_on` mp_tac
+    >> dep_rewrite.DEP_REWRITE_TAC[invertible_on_equiv_ts_on_FV,LR_TYPE_SUBST_type_preserving]
+    >> conj_asm1_tac >- fs[ELIM_UNCURRY]
+    >> rw[equiv_ts_on_FV,LR_TYPE_SUBST_NIL] >> gs[]
+    >> qpat_x_assum `LR_TYPE_SUBST (LAST rs) _ = _` $ mp_tac o GSYM
+    >> simp[LR_TYPE_SUBST_compose]
+    >> qmatch_goalsub_abbrev_tac `LR_TYPE_SUBST eee _ = _` >> strip_tac
+    >> `var_renaming $ MAP SWAP $ clean_tysubst eee` by fs[var_renaming_compose,Abbr`eee`,var_renaming_SWAP_IMP]
+    >> dxrule_all_then assume_tac path_starting_at_var_renaming
+    >> qmatch_asmsub_abbrev_tac `path_starting_at _ _ rs' _`
+    >> `var_renaming $ clean_tysubst eee` by fs[var_renaming_compose,Abbr`eee`,var_renaming_SWAP_IMP]
+    >> dxrule_then drule var_renaming_SWAP_LR_id'
+    >> drule_then (REWRITE_TAC o single) $ GSYM clean_tysubst_LR_TYPE_SUBST_eq
+    >> disch_then $ dxrule_then assume_tac
+    >> map_every qexists_tac [`rs' ++ [[]]`,`pqs ++ [p]`]
+    >> fs[path_starting_at_def,wf_pqs_APPEND,wf_pqs_CONS,ELIM_UNCURRY,LR_TYPE_SUBST_type_preserving,LR_TYPE_SUBST_NIL]
+    >> REWRITE_TAC[GSYM EL] >> dep_rewrite.DEP_REWRITE_TAC[EL_APPEND1] >> fs[GSYM CONJ_ASSOC]
+    >> conj_asm1_tac >- fs[wf_pqs_def] >> conj_tac >- fs[IN_DEF]
+    >> rw[sol_seq_def,wf_pqs_APPEND,wf_pqs_CONS]
+    >> Cases_on `SUC i < LENGTH pqs`
+    >- (dep_rewrite.DEP_REWRITE_TAC[EL_APPEND1] >> fs[sol_seq_def])
+    >> gs[NOT_LESS,LESS_OR_EQ]
+    >> qpat_assum `wf_pqs pqs` $ assume_tac o REWRITE_RULE[EVERY_MEM,wf_pqs_def,MEM_EL]
+    >> fs[LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose,EL_APPEND1,EL_APPEND2,sol_seq_def,EL_MAP,LR_TYPE_SUBST_NIL,Abbr`rs'`,NULL_EQ,LAST_EL,PULL_EXISTS,ELIM_UNCURRY,FORALL_AND_THM]
+  )
+  >> drule_then (dxrule_then assume_tac) path_starting_at_var_renaming
+  >> qmatch_asmsub_abbrev_tac `path_starting_at _ _ rs' _`
+  >> map_every qexists_tac [`rs' ++ [s_p]`,`pqs ++ [p]`]
+  >> fs[path_starting_at_def,wf_pqs_APPEND,wf_pqs_CONS,ELIM_UNCURRY,LR_TYPE_SUBST_type_preserving,LR_TYPE_SUBST_NIL]
+  >> REWRITE_TAC[GSYM EL] >> dep_rewrite.DEP_REWRITE_TAC[EL_APPEND1] >> fs[GSYM CONJ_ASSOC]
+  >> conj_asm1_tac >- fs[wf_pqs_def] >> conj_tac >- fs[IN_DEF]
+  >> rw[sol_seq_def,wf_pqs_APPEND,wf_pqs_CONS]
+  >> Cases_on `SUC i < LENGTH pqs`
+  >- (dep_rewrite.DEP_REWRITE_TAC[EL_APPEND1] >> fs[sol_seq_def])
+  >> gs[NOT_LESS,LESS_OR_EQ]
+  >> qpat_assum `wf_pqs pqs` $ assume_tac o REWRITE_RULE[EVERY_MEM,wf_pqs_def,MEM_EL]
+  >> qpat_x_assum `LR_TYPE_SUBST e _ = LR_TYPE_SUBST s_p (FST p)` $ assume_tac o GSYM
+  >> fs[LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose,EL_APPEND1,EL_APPEND2,sol_seq_def,EL_MAP,LR_TYPE_SUBST_NIL,Abbr`rs'`,NULL_EQ,LAST_EL,PULL_EXISTS,ELIM_UNCURRY,FORALL_AND_THM]
+QED
+
+Theorem dep_step_inv_imp_INL:
+  !dep dep' res. wf_pqs (dep ++ dep')
+  /\ EVERY ($~ o UNCURRY is_instance_LR_compute) dep'
+  /\ EVERY (λx. ?rs pqs. path_starting_at (CURRY $ set dep) 0 rs pqs
+    /\ 0 < LENGTH pqs /\ FST x = FST $ HD pqs
+    /\ SND x = LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs)
+    ) dep'
+  /\ dep_step dep dep' [] = INL res
+  ==> dep_step_inv dep dep' [] res
+Proof
+  rpt strip_tac
+  >> drule_at_then Any irule dep_step_inv_imp_INL'
+  >> fs[dep_step_inv_init,wf_pqs_APPEND]
+QED
+
+Theorem dep_step_inv_path_init:
+  !dep. wf_pqs dep
+  ==> EVERY (λx. ?rs pqs. path_starting_at (CURRY $ set dep) 0 rs pqs
+    /\ 0 < LENGTH pqs /\ FST x = FST $ HD pqs
+    /\ SND x = LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs)
+    ) dep
+Proof
+  rw[EVERY_MEM,path_starting_at_def]
+  >> map_every qexists_tac [`[[]]`,`[x]`]
+  >> fs[LR_TYPE_SUBST_NIL,equiv_ts_on_refl,sol_seq_def,wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,FORALL_AND_THM,IN_DEF]
+QED
 
 (* depth-limited expansion of the dependency relation *)
 Definition dep_steps_def:
