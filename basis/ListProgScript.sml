@@ -119,10 +119,11 @@ val _ = ml_prog_update open_local_block;
 val result = translate foldli_aux_def;
 val _ = ml_prog_update open_local_in_block;
 
-val result = next_ml_names := ["foldi"];
+val result = next_ml_names := ["foldli"];
 val result = translate foldli_def;
 
 val result = translate FOLDR;
+val result = next_ml_names := ["foldri"];
 val result = translate (FOLDRi_def |> REWRITE_RULE[o_DEF]);
 
 val result = translate EXISTS_DEF;
