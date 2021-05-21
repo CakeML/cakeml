@@ -198,6 +198,24 @@ Proof
   metis_tac []
 QED
 
+Theorem calculate_wtime_reset_output_eq:
+  calculate_wtime s clks difs = SOME wt ⇒
+  calculate_wtime (resetOutput s) clks difs = SOME wt
+Proof
+  rw [calculate_wtime_def, resetOutput_def] >>
+  gs [] >>
+  qmatch_asmsub_abbrev_tac ‘list_min_option xs’ >>
+  qmatch_goalsub_abbrev_tac ‘list_min_option ys’ >>
+  ‘xs = ys’ by (
+    unabbrev_all_tac >>
+    gs [MAP_EQ_f] >>
+    rw [] >> gs [] >>
+    cases_on ‘e’ >>
+    gs [evalDiff_def, evalExpr_def]) >>
+  gs []
+QED
+
+
 Theorem step_ffi_bounded:
   ∀p lbl m n st st'.
     step p lbl m n st st' ⇒
