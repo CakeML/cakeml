@@ -187,6 +187,12 @@ Proof
   \\ fs [lookup_insert] \\ rfs []
 QED
 
+val fields = TypeBase.fields_of “:('c,'ffi) dataSem$state”;
+
+Overload state_locals_fupd = (fields |> assoc "locals" |> #fupd);
+Overload state_stack_max_fupd = (fields |> assoc "stack_max" |> #fupd);
+Overload state_safe_for_space_fupd = (fields |> assoc "safe_for_space" |> #fupd);
+
 Theorem foldl_evaluate:
   ∀n s vl ts_f tag_f tag_acc tsl sstack lsize smax ts.
     (* Sizes *)
@@ -295,7 +301,7 @@ in
   \\ ‘safe’ by
      (qunabbrev_tac ‘safe’ \\ fs [size_of_stack_def,GREATER_DEF] \\ EVAL_TAC)
   \\ simp [] \\ ntac 2 (pop_assum kall_tac)
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ qunabbrev_tac ‘rest_call’
   \\ simp [move_def,lookup_def,set_var_def,lookup_insert]
   \\ IF_CASES_TAC
@@ -317,7 +323,7 @@ in
           >- (qmatch_goalsub_abbrev_tac ‘size_of_heap s'’
               \\ ‘size_of_heap s' ≤ size_of_heap s’ suffices_by fs []
               \\ qunabbrev_tac ‘s'’
-              \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+              \\ eval_goalsub_tac ``state_locals_fupd _ _``
               \\ simp [size_of_heap_def,stack_to_vs_def,toList_def,toListA_def]
               \\ qmatch_goalsub_abbrev_tac ‘f1::f2::Block 0 1 []::rest_v’
               \\ qmatch_goalsub_abbrev_tac ‘f1::rest::f3::rest_v’
@@ -393,7 +399,7 @@ in
       >- (qmatch_goalsub_abbrev_tac ‘size_of_heap s'’
           \\ ‘size_of_heap s' ≤ size_of_heap s’ suffices_by fs []
           \\ qunabbrev_tac ‘s'’
-          \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+          \\ eval_goalsub_tac ``state_locals_fupd _ _``
           \\ simp [size_of_heap_def,stack_to_vs_def,toList_def,toListA_def]
           \\ qmatch_goalsub_abbrev_tac ‘_ (size_of _ (f1::rest::_::rest_v) _ _) ≤
                                         _ (size_of _ (_::f2::_) _ _)’

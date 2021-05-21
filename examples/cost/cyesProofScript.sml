@@ -31,6 +31,14 @@ val printLoop_body =
   |> (REWRITE_CONV [cyes_data_prog_def] THENC EVAL)
   |> concl |> rand |> rand |> rand
 
+val fields = TypeBase.fields_of “:('c,'ffi) dataSem$state”;
+
+Overload state_refs_fupd = (fields |> assoc "refs" |> #fupd);
+Overload state_locals_fupd = (fields |> assoc "locals" |> #fupd);
+Overload state_stack_max_fupd = (fields |> assoc "stack_max" |> #fupd);
+Overload state_safe_for_space_fupd = (fields |> assoc "safe_for_space" |> #fupd);
+Overload state_peak_heap_length_fupd = (fields |> assoc "peak_heap_length" |> #fupd);
+
 Theorem data_safe_cyes_code:
   ∀s ts smax sstack lsize.
    s.safe_for_space ∧
@@ -99,7 +107,7 @@ Proof
   \\ ntac 2 strip_assign
   \\ strip_assign \\ fs []
   \\ ntac 3 (strip_assign \\ fs [])
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   (* strip_call *)
   \\ qmatch_goalsub_abbrev_tac (`bind _ rest_call2 _`)
   \\ ONCE_REWRITE_TAC [bind_def]
@@ -133,7 +141,7 @@ Proof
   \\ ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac)
   \\ IF_CASES_TAC >- simp [data_safe_def]
   \\ REWRITE_TAC [ push_env_def , to_shallow_def , to_shallow_thm]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   (* strip_assign *)
   \\ strip_assign
   \\ make_if
@@ -169,7 +177,7 @@ Proof
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
   \\ simp [LET_DEF]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ strip_assign
   \\ make_if
   \\ Q.UNABBREV_TAC `rest_call2`
@@ -178,7 +186,7 @@ Proof
   \\ Q.ABBREV_TAC `pred = ∃w. 0 = w2n (w:word8)`
   \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 0` \\ rw [])
   \\ fs [] \\ pop_assum kall_tac \\ pop_assum kall_tac
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ qmatch_goalsub_abbrev_tac (`bind _ rest_call2 _`)
   \\ ONCE_REWRITE_TAC [bind_def]
   \\ simp [ call_def     , find_code_def  , push_env_def
@@ -214,7 +222,7 @@ Proof
   \\ ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac)
   \\ IF_CASES_TAC >- simp [data_safe_def]
   \\ REWRITE_TAC [ push_env_def , to_shallow_def , to_shallow_thm]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   (* strip_assign *)
   \\ strip_assign
   \\ make_if
@@ -279,7 +287,7 @@ Proof
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
   \\ simp [LET_DEF]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ strip_assign
   \\ make_if
   \\ Q.UNABBREV_TAC `rest_call2`
@@ -289,7 +297,7 @@ Proof
   \\ Q.ABBREV_TAC `pred = ∃w. 0 = w2n (w:word8)`
   \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 0` \\ rw [])
   \\ fs [] \\ pop_assum kall_tac \\ pop_assum kall_tac
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ qmatch_goalsub_abbrev_tac `insert p2 _ (insert p1 _ s.refs)`
   \\ strip_assign
   \\ fs [lookup_insert]
@@ -396,7 +404,7 @@ Proof
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
   \\ simp [LET_DEF]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ ho_match_mp_tac data_safe_res
   \\ reverse conj_tac >- (rw [] \\ pairarg_tac \\ rw [])
   (* Make stack_max sane to look at *)
@@ -511,7 +519,7 @@ Proof
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
   \\ simp [LET_DEF]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ strip_assign
   \\ make_if
   \\ Q.UNABBREV_TAC `rest_call_1`
@@ -533,7 +541,7 @@ Proof
           , size_of_stack_frame_def]
   \\ IF_CASES_TAC >- simp []
   \\ REWRITE_TAC [ push_env_def , to_shallow_def , to_shallow_thm]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ strip_assign
   \\ make_if
   \\ strip_assign
@@ -557,7 +565,7 @@ Proof
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
   \\ simp[LET_THM]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ strip_assign
   \\ make_if
   \\ Q.UNABBREV_TAC `rest_call_1`
@@ -593,7 +601,7 @@ Proof
   \\ reverse (Cases_on `call_FFI s.ffi "put_char" [97w] []`) >- simp []
   \\ strip_assign (* \\ strip_assign *)
   \\ rw [return_def,lookup_def]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ Q.UNABBREV_TAC `rest_call`
   (*  make_tailcall *)
   \\ ASM_REWRITE_TAC [ tailcall_def , find_code_def
