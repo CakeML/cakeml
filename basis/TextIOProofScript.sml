@@ -7280,10 +7280,9 @@ Theorem b_inputAllTokens_spec:
      [is; fv; gv]
      (STDIO fs * INSTREAM_LINES fd is lines fs)
        (POSTv v.
-            SEP_EXISTS k.
-                STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES fd is [] (forwardFD fs fd k) *
-                & LIST_TYPE (LIST_TYPE a) (MAP (MAP g o tokens f) lines) v)
+          STDIO (fastForwardFD fs fd) *
+          INSTREAM_LINES fd is [] (fastForwardFD fs fd) *
+          & LIST_TYPE (LIST_TYPE a) (MAP (MAP g o tokens f) lines) v)
 Proof
   rw []
   \\ xcf_with_def "TextIO.b_inputAllTokens" TextIO_b_inputAllTokens_v_def
@@ -7298,7 +7297,24 @@ Proof
   \\ qexists_tac `f`
   \\ qexists_tac `[]`
   \\ qexists_tac `a`
-  \\ xsimpl \\ fs [LIST_TYPE_def]
+  \\ xsimpl
+  \\ conj_tac >- fs [LIST_TYPE_def]
+  \\ fs [INSTREAM_LINES_def,INSTREAM_STR_def]
+  \\ xsimpl \\ rw[] \\ gs[lines_of_def,implode_def] \\ rveq
+  \\ PairCases_on ‘z’
+  \\ qmatch_assum_rename_tac ‘get_file_content _ _ = SOME (c,off)’
+  \\ gs[] \\ rveq \\ simp [GSYM PULL_EXISTS]
+  \\ conj_tac
+  >- (qexists_tac ‘c’ \\ gs[get_file_content_def,fastForwardFD_def]
+      \\ PairCases_on ‘x'’
+      \\ qmatch_assum_rename_tac ‘ALOOKUP _ _ = SOME (ino,mode,off')’
+      \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP,MAX_DEF])
+  \\ conj_tac
+  >- (gs[get_mode_def,fastForwardFD_def,get_file_content_def]
+      \\ PairCases_on ‘z’
+      \\ qmatch_assum_rename_tac ‘ALOOKUP _ _ = SOME (ino,mode,off')’
+      \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP])
+  \\ xsimpl \\ simp[fastForwardFD_eq_forwardFD] \\ xsimpl
 QED
 
 Theorem b_inputAllTokensStdIn_spec:
@@ -7312,7 +7328,7 @@ Theorem b_inputAllTokensStdIn_spec:
       &OPTION_TYPE (LIST_TYPE (LIST_TYPE a))
                    (SOME(MAP (MAP g o tokens f) (all_lines_inode fs (UStream(strlit "stdin")))))
                    sv
-      * SEP_EXISTS k. STDIO (forwardFD fs 0 k))
+      * STDIO (fastForwardFD fs 0))
 Proof
   xcf_with_def "TextIO.b_inputAllTokensStdIn" TextIO_b_inputAllTokensStdIn_v_def
   \\ reverse (Cases_on `STD_streams fs`)
@@ -7322,9 +7338,8 @@ Proof
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto_spec (SOME b_openStdIn_spec_lines) \\ xsimpl
   \\ xlet `(POSTv v.
-            SEP_EXISTS k.
-                STDIO (forwardFD fs 0 k) *
-                INSTREAM_LINES 0 is [] (forwardFD fs 0 k) *
+                STDIO (fastForwardFD fs 0) *
+                INSTREAM_LINES 0 is [] (fastForwardFD fs 0) *
                 & LIST_TYPE (LIST_TYPE a)
                     (MAP (MAP g o tokens f) (all_lines_inode fs (UStream(strlit "stdin")))) v)`
   THEN1
@@ -7339,7 +7354,6 @@ Proof
     \\ xsimpl \\ rw [])
   \\ xcon \\ xsimpl
   \\ fs [std_preludeTheory.OPTION_TYPE_def]
-  \\ qexists_tac ‘k’ \\ xsimpl
 QED
 
 Theorem b_inputAllTokensFrom_spec:
@@ -7371,9 +7385,8 @@ Proof
   \\ unabbrev_all_tac
   \\ qabbrev_tac `fs1 = openFileFS fname fs ReadMode 0`
   \\ xlet `(POSTv v.
-            SEP_EXISTS k.
-                STDIO (forwardFD fs1 (nextFD fs) k) *
-                INSTREAM_LINES (nextFD fs) is [] (forwardFD fs1 (nextFD fs) k) *
+                STDIO (fastForwardFD fs1 (nextFD fs)) *
+                INSTREAM_LINES (nextFD fs) is [] (fastForwardFD fs1 (nextFD fs)) *
                 & LIST_TYPE (LIST_TYPE a)
                     (MAP (MAP g o tokens f) (all_lines fs fname)) v)`
   THEN1
@@ -7391,14 +7404,14 @@ Proof
    (xapp_spec b_closeIn_spec_lines
     \\ qexists_tac `emp`
     \\ qexists_tac `[]`
-    \\ qexists_tac `forwardFD fs1 (nextFD fs) k`
+    \\ qexists_tac `fastForwardFD fs1 (nextFD fs)`
     \\ qexists_tac `nextFD fs`
     \\ conj_tac THEN1
      (fs [forwardFD_def,Abbr`fs1`]
       \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
       \\ imp_res_tac fsFFIPropsTheory.STD_streams_nextFD \\ fs [])
-    \\ `validFileFD (nextFD fs) (forwardFD fs1 (nextFD fs) k).infds` by
-      (simp[validFileFD_forwardFD]>> simp[Abbr`fs1`]
+    \\ `validFileFD (nextFD fs) (fastForwardFD fs1 (nextFD fs)).infds` by
+      (simp[validFileFD_fastForwardFD]>> simp[Abbr`fs1`]
        \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
        \\ match_mp_tac validFileFD_nextFD \\ fs [])
     \\ xsimpl \\ rw [Abbr`fs1`,fsFFIPropsTheory.forwardFD_ADELKEY_same]
