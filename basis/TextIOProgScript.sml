@@ -615,12 +615,11 @@ val _ = (append_prog o process_topdecs) `
     end handle BadFileName => None`;
 
 val _ = (append_prog o process_topdecs) `
-  fun b_inputLinesStdIn fname =
+  fun b_inputLinesStdIn () =
     let
       val is = b_openStdIn ()
-      val lines = b_inputLines is
     in
-      Some lines
+      b_inputLines is
     end`;
 
 val _ = (append_prog o process_topdecs)`

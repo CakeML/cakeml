@@ -7609,4 +7609,34 @@ Proof
   \\ fs [std_preludeTheory.OPTION_TYPE_def]
 QED
 
+Theorem b_inputLinesStdIn_spec:
+  ALOOKUP fs.infds 0 = SOME (UStream «stdin» ,ReadMode,0)
+  ∧ UNIT_TYPE () uv
+  ⇒
+   app (p:'ffi ffi_proj) TextIO_b_inputLinesStdIn_v
+     [uv]
+     (STDIO fs)
+     (POSTv sv.
+       &(LIST_TYPE STRING_TYPE)
+          (all_lines_inode fs (UStream(strlit "stdin")))
+          sv
+       * STDIO (fastForwardFD fs 0))
+Proof
+  xcf_with_def "TextIO.b_inputLinesStdIn" TextIO_b_inputLinesStdIn_v_def
+  \\ reverse (Cases_on `STD_streams fs`)
+  >- (fs [STDIO_def] \\ xpull)
+  \\ reverse (Cases_on`consistentFS fs`)
+  >- (fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def] \\ xpull \\ metis_tac[])
+  \\ xmatch \\ xsimpl \\ fs[UNIT_TYPE_def]
+  \\ reverse conj_tac >- (EVAL_TAC \\ simp[])
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto_spec (SOME b_openStdIn_spec_lines) \\ xsimpl
+  \\ xapp_spec b_inputLines_spec
+  \\ qexists_tac `emp`
+  \\ qexists_tac `all_lines_inode fs (UStream (strlit "stdin"))`
+  \\ qexists_tac `fs`
+  \\ qexists_tac `0`
+  \\ xsimpl \\ rw []
+QED
+
 val _ = export_theory();
