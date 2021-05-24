@@ -8231,7 +8231,8 @@ Proof
        decode_ios (:α) t'.be labels' ns
                   (LAST nt.ffi.io_events::TAKE (SUM ns) ios)’ by (
       match_mp_tac steps_io_event_thm >>
-      MAP_EVERY qexists_tac [‘FST (t.ffi.ffi_state 0)’, ‘st’, ‘sts’] >>
+      MAP_EVERY qexists_tac [‘FST (t.ffi.ffi_state 0)’, ‘st’, ‘sts’,
+                             ‘(FST (t.ffi.ffi_state 0))’] >>
       gs [] >>
       conj_tac
       >- (
@@ -8306,21 +8307,6 @@ Proof
         (* event_inv *)
         conj_tac
         >- gs [event_inv_def, FLOOKUP_UPDATE] >>
-        conj_tac
-        >- (
-          gs [wait_time_locals_def, FLOOKUP_UPDATE] >>
-          cases_on ‘st.waitTime’ >> gs []
-          >- (
-            qexists_tac ‘0’ >>
-            qexists_tac ‘FST (t.ffi.ffi_state 1)’ >>
-            gs [] >>
-            drule steps_ffi_bounded >>
-            gs []) >>
-          qexists_tac ‘x’ >>
-          qexists_tac ‘FST (t.ffi.ffi_state 1)’ >>
-          gs [] >>
-          drule steps_wt_ffi_bounded >>
-          gs []) >>
         gs [task_ret_defined_def] >>
         gs [FLOOKUP_UPDATE, emptyVals_def]) >>
       unabbrev_all_tac >>
@@ -8632,7 +8618,6 @@ Proof
   strip_tac >>
   metis_tac [timed_automata_correct]
 QED
-
 
 
 Definition labels_of_def:

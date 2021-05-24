@@ -121,7 +121,7 @@ Definition eval_input_def:
   eval_input prog m n i st =
   case ALOOKUP prog st.location of
   | SOME tms =>
-      if n < m ∧ machine_bounds (resetOutput st) m (m - n) tms
+      if n < m ∧ machine_bounds (resetOutput st) m m tms
       then (case pick_eval_input_term (resetOutput st) i tms of
             | SOME st' => SOME (LAction (Input i), st')
             | _ => NONE)
@@ -133,7 +133,7 @@ Definition eval_output_def:
   eval_output prog m n st =
   case ALOOKUP prog st.location of
   | SOME tms =>
-      if n < m ∧ machine_bounds (resetOutput st) m (m - n) tms
+      if n < m ∧ machine_bounds (resetOutput st) m m tms
       then (case pick_eval_output_term (resetOutput st) tms of
             | (SOME os, SOME st') => SOME (LAction (Output os), st')
             | _ => NONE)
@@ -170,7 +170,7 @@ Definition eval_steps_def:
   (eval_steps 0 prog m n _ st =
    if n < m ∧
       (case st.waitTime of
-       | SOME w => w ≠ 0 ∧ w + n < m
+       | SOME w => w ≠ 0 ∧ w < m
        | NONE => T)
    then SOME ([],[])
    else NONE) ∧
@@ -194,10 +194,10 @@ End
 
 
 Theorem pick_eval_input_term_imp_pickTerm:
-  ∀tms st m n i st'.
-    machine_bounds (resetOutput st) m (m − n) tms ∧
+  ∀tms st m i st'.
+    machine_bounds (resetOutput st) m m tms ∧
     pick_eval_input_term (resetOutput st) i tms = SOME st' ⇒
-    pickTerm (resetOutput st) m (m − n) (SOME i) tms st' ∧
+    pickTerm (resetOutput st) m m (SOME i) tms st' ∧
     st'.ioAction = SOME (Input i)
 Proof
   Induct >>
@@ -219,7 +219,7 @@ Proof
     >- (
       rewrite_tac [Once pickTerm_cases] >>
       gs [] >>
-      last_x_assum (qspecl_then [‘st’, ‘m’, ‘n’, ‘i’, ‘st'’] mp_tac) >>
+      last_x_assum (qspecl_then [‘st’, ‘m’, ‘i’, ‘st'’] mp_tac) >>
       impl_tac
       >- (
         gs [] >>
@@ -232,7 +232,7 @@ Proof
           terms_in_signals_def]) >>
     rewrite_tac [Once pickTerm_cases] >>
     gs [] >>
-    last_x_assum (qspecl_then [‘st’, ‘m’, ‘n’, ‘i’, ‘st'’] mp_tac) >>
+    last_x_assum (qspecl_then [‘st’, ‘m’, ‘i’, ‘st'’] mp_tac) >>
     impl_tac
     >- (
       gs [] >>
@@ -252,7 +252,7 @@ Proof
     FULL_CASE_TAC >> gs []) >>
   rewrite_tac [Once pickTerm_cases] >>
   gs [] >>
-  last_x_assum (qspecl_then [‘st’, ‘m’, ‘n’, ‘i’, ‘st'’] mp_tac) >>
+  last_x_assum (qspecl_then [‘st’, ‘m’, ‘i’, ‘st'’] mp_tac) >>
   impl_tac
   >- (
     gs [] >>
@@ -267,10 +267,10 @@ QED
 
 
 Theorem pick_eval_output_term_imp_pickTerm:
-  ∀tms st m n os st'.
-    machine_bounds (resetOutput st) m (m − n) tms ∧
+  ∀tms st m os st'.
+    machine_bounds (resetOutput st) m m tms ∧
     pick_eval_output_term (resetOutput st) tms = (SOME os,SOME st') ⇒
-    pickTerm (resetOutput st) m (m − n) NONE tms st' ∧
+    pickTerm (resetOutput st) m m NONE tms st' ∧
     st'.ioAction = SOME (Output os)
 Proof
   Induct >>
@@ -293,7 +293,7 @@ Proof
       rveq >> gs [state_component_equality]) >>
     rewrite_tac [Once pickTerm_cases] >>
     gs [] >>
-    last_x_assum (qspecl_then [‘st’, ‘m’, ‘n’, ‘os’, ‘st'’] mp_tac) >>
+    last_x_assum (qspecl_then [‘st’, ‘m’, ‘os’, ‘st'’] mp_tac) >>
     impl_tac
     >- (
       gs [] >>
@@ -312,7 +312,7 @@ Proof
     FULL_CASE_TAC >> gs []) >>
   rewrite_tac [Once pickTerm_cases] >>
   gs [] >>
-  last_x_assum (qspecl_then [‘st’, ‘m’, ‘n’, ‘os’, ‘st'’] mp_tac) >>
+  last_x_assum (qspecl_then [‘st’, ‘m’, ‘os’, ‘st'’] mp_tac) >>
   impl_tac
   >- (
     gs [] >>
@@ -326,7 +326,7 @@ Proof
       timeLangTheory.termConditions_def]
 QED
 
-(*
+
 Theorem eval_step_imp_step:
   eval_step prog m n or st = SOME (label, st') ⇒
   step prog label m n st st'
@@ -391,6 +391,6 @@ Proof
   gs [] >>
   res_tac >> gs []
 QED
-*)
+
 
 val _ = export_theory();
