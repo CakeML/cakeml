@@ -7552,7 +7552,9 @@ Definition ffi_rel_def:
 End
 
 Definition ffi_rels_def:
-  (ffi_rels prog [] s (t:('a,time_input) panSem$state) ist ⇔ T) ∧
+  (ffi_rels prog [] s (t:('a,time_input) panSem$state) ist ⇔
+   wait_time_locals1 (:α) t.locals s.waitTime ist (FST (t.ffi.ffi_state 0)) ∧
+   ist < dimword (:α) − 1) ∧
   (ffi_rels prog (label::labels) s t ist ⇔
    ∃ffi.
      ffi_rel label s t ist ffi ∧
@@ -7768,8 +7770,6 @@ Proof
       gs [] >>
       ‘FLOOKUP t.locals «waitSet» = SOME (ValWord 0w)’ by
         gs [assumptions_def, state_rel_def, equivs_def, active_low_def] >>
-
-
       drule step_wait_delay_eval_wait_not_zero >>
       impl_tac
       >- (
@@ -7778,8 +7778,9 @@ Proof
         pairarg_tac >> gs [] >>
         qexists_tac ‘dimword (:α) − 2’ >>
         gs [] >>
+        gs [ffi_rels_def] >>
         gs [wait_time_locals1_def] >>
-        qexists_tac ‘st' + wt’ >>
+        qexists_tac ‘ist + wt- (dimword (:α) − 2)’ >>
         gs []) >>
       gs []) >>
     gs [eval_upd_clock_eq] >>
