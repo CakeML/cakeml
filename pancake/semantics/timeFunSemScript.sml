@@ -192,7 +192,7 @@ Definition eval_steps_def:
    | NONE => NONE)
 End
 
-
+(*
 Theorem pick_eval_input_term_imp_pickTerm:
   ∀tms st m i st'.
     machine_bounds (resetOutput st) m m tms ∧
@@ -391,6 +391,6 @@ Proof
   gs [] >>
   res_tac >> gs []
 QED
-
+*)
 
 val _ = export_theory();

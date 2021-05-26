@@ -162,7 +162,7 @@ Definition pick_term_def:
 End
 
 Definition compTerms_def:
-  (compTerms clks cname ename [] = Skip) ∧
+  (compTerms clks cname ename [] = Raise «panic» (Const 0w)) ∧
   (compTerms clks cname ename (t::ts) =
    let
      cds = termConditions t;
