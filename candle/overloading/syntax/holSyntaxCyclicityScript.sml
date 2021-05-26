@@ -6127,7 +6127,7 @@ Definition dep_step_def:
             extd'' = MAP (λx. (p, x)) extd' ;
             cycles = FILTER (UNCURRY is_instance_LR_compute) extd''
           in case NULL cycles of
-          | F => INR $ cyclic_step (p,q,HD cycles) (* cycle found *)
+          | F => INR $ cyclic_step (p,q,SND $ HD cycles) (* cycle found *)
           | T => dep_step dep ext (extd ++ extd''))
 End
 
@@ -6232,6 +6232,174 @@ Proof
   >> drule_at_then Any irule dep_step_complete_INL'
   >> fs[dep_step_inv_init,wf_pqs_APPEND]
 QED
+
+Theorem dep_step_inv_imp_INL':
+  !dep rest dep'dep dep' res. wf_pqs (dep ++ dep' ++ rest)
+  /\ EVERY ($~ o UNCURRY is_instance_LR_compute) (dep ++ dep')
+  /\ dep_step_inv dep dep' rest dep'dep
+  /\ dep_step dep rest dep'dep = INL res
+  ==> dep_step_inv dep dep' [] res
+Proof
+  ho_match_mp_tac dep_step_ind
+  >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,Excl"EVERY_DEF"]
+  >- asm_rewrite_tac[]
+  >> first_x_assum $ drule_then irule >> asm_rewrite_tac[]
+  >> gs[dep_step_inv_def,wf_pqs_APPEND,wf_pqs_CONS,o_DEF]
+  >> conj_asm1_tac >- (
+    dxrule_at_then Any (drule_all_then strip_assume_tac) composable_step_sound_INL
+    >> rw[wf_pqs_def,EVERY_MEM,EVERY_MAP]
+    >> qpat_x_assum `wf_pqs dep` $ imp_res_tac o REWRITE_RULE[EVERY_MEM,wf_pqs_def]
+    >> qmatch_assum_abbrev_tac `~xx ==> x = _` >> Cases_on `xx`
+    >> fs[LR_TYPE_SUBST_type_preserving,ELIM_UNCURRY]
+  )
+  >> dsimp[] >> gen_tac
+  >> qmatch_goalsub_abbrev_tac `(A \/ B) = (A \/ C)`
+  >> `B = C ==> (A \/ B) = (A \/ C)` by fs[]
+  >> first_x_assum irule >> unabbrev_all_tac
+  >> simp[MEM_MAP] >> ONCE_REWRITE_TAC[GSYM PAIR] >> simp[EQ_SYM_EQ]
+QED
+
+Theorem dep_step_inv_imp_cyclic_step:
+  !dep rest dep'dep dep' p q y. wf_pqs (dep ++ dep' ++ rest)
+  /\ dep_step_inv dep dep' rest dep'dep
+  /\ dep_step dep rest dep'dep = INR $ cyclic_step (p,q,y)
+	==> ?res. MEM (p,q) rest /\ composable_step q dep [] = INL res
+    /\ EXISTS (UNCURRY is_instance_LR_compute) (MAP (λx. (p,x)) res)
+	  /\ y = SND $ HD (FILTER (UNCURRY is_instance_LR_compute) (MAP (λx. (p,x)) res))
+Proof
+  ho_match_mp_tac dep_step_ind
+  >> reverse $ rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,Excl"EVERY_DEF"]
+  >- fs[o_DEF,Once EXISTS_NOT_EVERY]
+  >> dsimp[] >> disj2_tac >> first_x_assum $ drule_then irule
+  >> fs[dep_step_inv_def,wf_pqs_APPEND,wf_pqs_CONS,o_DEF] >> dsimp[]
+  >> qmatch_assum_rename_tac `dep' = init ++ [(p,q)] ++ rest`
+  >> qexists_tac `init ++ [(p,q)]` >> fs[wf_pqs_APPEND,wf_pqs_CONS]
+  >> conj_tac >- (
+    drule_at Any composable_step_sound_INL_is_const_or_type
+    >> rw[wf_pqs_def,EVERY_MEM,EVERY_MAP] >> fs[wf_pqs_APPEND,wf_pqs_CONS]
+  )
+  >> dsimp[] >> gen_tac
+  >> qmatch_goalsub_abbrev_tac `(A \/ B) = (A \/ C)`
+  >> `B = C ==> (A \/ B) = (A \/ C)` by fs[]
+  >> first_x_assum irule >> unabbrev_all_tac
+  >> simp[MEM_MAP] >> ONCE_REWRITE_TAC[GSYM PAIR] >> simp[EQ_SYM_EQ]
+QED
+
+Theorem dep_step_sound_cyclic_step:
+  !dep dep' p q y. wf_pqs (dep ++ dep')
+  /\ dep_step dep dep' [] = INR $ cyclic_step (p,q,y)
+	==> ?res. MEM (p,q) dep' /\ composable_step q dep [] = INL res
+    /\ EXISTS (UNCURRY is_instance_LR_compute) (MAP (λx. (p,x)) res)
+	  /\ y = SND $ HD (FILTER (UNCURRY is_instance_LR_compute) (MAP (λx. (p,x)) res))
+Proof
+  rpt strip_tac
+  >> drule_at_then Any irule dep_step_inv_imp_cyclic_step
+  >> irule_at Any dep_step_inv_init >> fs[wf_pqs_APPEND]
+QED
+
+Theorem dep_step_complete_cyclic_step':
+  !dep rest dep'dep dep' p q q' pre suf extd. wf_pqs (dep ++ dep')
+  /\ dep_step_inv dep dep' rest dep'dep
+  /\ EVERY ($~ o UNCURRY is_instance_LR_compute) (dep ++ dep')
+  /\ rest = pre ++ [(p,q)] ++ suf
+	/\ (!q. MEM q pre ==>
+		?extd. composable_step (SND q) dep [] = INL extd /\
+		EVERY (λx. ¬UNCURRY is_instance_LR_compute x) (MAP (λx. (FST q,x)) extd))
+	/\ composable_step q dep [] = INL extd
+  /\ EXISTS (UNCURRY is_instance_LR_compute) (MAP (λx. (p,x)) extd)
+  /\ q' = SND $ HD (FILTER (UNCURRY is_instance_LR_compute) (MAP (λx. (p,x)) extd))
+  ==> dep_step dep rest dep'dep = INR $ cyclic_step (p,q,q')
+Proof
+  ho_match_mp_tac dep_step_ind
+  >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM]
+  >> Cases_on `pre` >- gvs[dep_step_inv_def,Once EXISTS_NOT_EVERY,o_DEF]
+  >> Cases_on `h` >> gvs[o_DEF]
+  >> disj1_tac >> first_x_assum irule
+  >> fs[dep_step_inv_def,o_DEF,wf_pqs_APPEND,wf_pqs_CONS]
+  >> qmatch_assum_abbrev_tac `dep' = pree ++ t ++ _ ++ _`
+  >> dsimp[] >> qexists_tac `pree` >> fs[Abbr`pree`,wf_pqs_CONS,wf_pqs_APPEND]
+  >> conj_tac >- gvs[]
+	>> conj_tac >- (
+		rw[wf_pqs_def,EVERY_MEM,EVERY_MAP]
+		>> metis_tac[EVERY_MEM,PULL_FORALL,composable_step_sound_INL_is_const_or_type]
+	)
+  >> dsimp[] >> gen_tac
+  >> qmatch_goalsub_abbrev_tac `(A \/ B) = (A \/ C)`
+  >> `B = C ==> (A \/ B) = (A \/ C)` by fs[]
+  >> first_x_assum irule >> unabbrev_all_tac
+  >> simp[MEM_MAP] >> ONCE_REWRITE_TAC[GSYM PAIR] >> simp[EQ_SYM_EQ]
+QED
+
+Theorem dep_step_complete_cyclic_step =
+  GEN_ALL $ SIMP_RULE std_ss [dep_step_inv_init]
+    $ Q.SPECL [`dep`,`dep'`,`[]`,`dep'`] dep_step_complete_cyclic_step' ;
+
+Theorem dep_step_inv_imp_non_comp_step:
+  !dep rest dep'dep dep' p q q'. wf_pqs (dep ++ dep' ++ rest)
+  /\ dep_step_inv dep dep' rest dep'dep
+  /\ dep_step dep rest dep'dep = INR $ non_comp_step (p,q,q')
+	==> ?res. MEM (p,q) rest /\ composable_step q dep [] = INR q'
+Proof
+  ho_match_mp_tac dep_step_ind
+  >> fs[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,Excl"EVERY_DEF"]
+  >> ntac 2 (rpt gen_tac >> strip_tac) >> fs[dep_step_inv_def]
+  >> dsimp[] >> disj2_tac >> first_x_assum irule
+  >> fs[o_DEF,wf_pqs_APPEND,wf_pqs_CONS] >> dsimp[]
+  >> qmatch_assum_rename_tac `dep' = init ++ [(p,q)] ++ rest`
+  >> qexists_tac `init ++ [(p,q)]` >> fs[wf_pqs_APPEND,wf_pqs_CONS]
+  >> reverse conj_tac >- (
+    drule_at Any composable_step_sound_INL_is_const_or_type
+    >> rw[wf_pqs_def,EVERY_MEM,EVERY_MAP] >> fs[wf_pqs_APPEND,wf_pqs_CONS]
+  )
+  >> dsimp[] >> gen_tac
+  >> qmatch_goalsub_abbrev_tac `(A \/ B) = (A \/ C)`
+  >> `B = C ==> (A \/ B) = (A \/ C)` by fs[]
+  >> first_x_assum irule >> unabbrev_all_tac
+  >> simp[MEM_MAP] >> ONCE_REWRITE_TAC[GSYM PAIR] >> simp[EQ_SYM_EQ]
+QED
+
+Theorem dep_step_sound_non_comp_step:
+  !dep dep' p q q'. wf_pqs (dep ++ dep')
+  /\ dep_step dep dep' [] = INR $ non_comp_step (p,q,q')
+	==> ?res. MEM (p,q) dep' /\ composable_step q dep [] = INR q'
+Proof
+  rpt strip_tac
+  >> drule_at_then Any irule dep_step_inv_imp_non_comp_step
+  >> irule_at Any dep_step_inv_init >> fs[wf_pqs_APPEND]
+QED
+
+Theorem dep_step_complete_non_comp_step':
+  !dep rest dep'dep dep' p q q' pre suf. wf_pqs (dep ++ dep')
+  /\ dep_step_inv dep dep' rest dep'dep
+  /\ EVERY ($~ o UNCURRY is_instance_LR_compute) (dep ++ dep')
+  /\ rest = pre ++ [(p,q)] ++ suf
+	/\ (!q. MEM q pre ==>
+		?extd. composable_step (SND q) dep [] = INL extd /\
+		EVERY (λx. ¬UNCURRY is_instance_LR_compute x) (MAP (λx. (FST q,x)) extd))
+  /\ composable_step q dep [] = INR q'
+  ==> dep_step dep rest dep'dep = INR $ non_comp_step (p,q,q')
+Proof
+  ho_match_mp_tac dep_step_ind
+  >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM]
+  >> Cases_on `pre` >- gvs[] >> disj1_tac >> Cases_on `h` >> gvs[]
+  >> first_x_assum irule >> fs[dep_step_inv_def,o_DEF,wf_pqs_APPEND,wf_pqs_CONS]
+  >> qmatch_assum_abbrev_tac `dep' = pree ++ t ++ _ ++ _`
+  >> dsimp[] >> qexists_tac `pree` >> fs[Abbr`pree`,wf_pqs_CONS,wf_pqs_APPEND]
+  >> conj_tac >- gvs[]
+	>> conj_tac >- (
+		drule_at Any composable_step_sound_INL_is_const_or_type
+    >> rw[wf_pqs_def,EVERY_MEM,EVERY_MAP] >> fs[wf_pqs_APPEND,wf_pqs_CONS]
+	)
+  >> dsimp[] >> gen_tac
+  >> qmatch_goalsub_abbrev_tac `(A \/ B) = (A \/ C)`
+  >> `B = C ==> (A \/ B) = (A \/ C)` by fs[]
+  >> first_x_assum irule >> unabbrev_all_tac
+  >> simp[MEM_MAP] >> ONCE_REWRITE_TAC[GSYM PAIR] >> simp[EQ_SYM_EQ]
+QED
+
+Theorem dep_step_complete_non_comp_step =
+  GEN_ALL $ SIMP_RULE std_ss [dep_step_inv_init]
+    $ Q.SPECL [`dep`,`dep'`,`[]`,`dep'`] dep_step_complete_non_comp_step' ;
 
 Theorem dep_step_inv_path_init:
   !dep. wf_pqs dep
