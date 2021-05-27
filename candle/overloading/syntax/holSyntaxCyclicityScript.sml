@@ -6196,18 +6196,18 @@ Theorem dep_step_complete_INL':
   /\ EVERY ($~ o UNCURRY is_instance_LR_compute) (dep ++ dep')
 	/\ (!q. MEM q dep' ==>
 		?extd. composable_step (SND q) dep [] = INL extd /\
-		EVERY (λx. ¬UNCURRY is_instance_LR_compute x) (MAP (λx. (FST q,x)) extd))
+		EVERY ($~ o UNCURRY is_instance_LR_compute) (MAP (λx. (FST q,x)) extd))
   ==> ?res. dep_step dep rest dep'dep = INL res
 Proof
   ho_match_mp_tac dep_step_ind
   >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM]
   >> `?extd. composable_step q dep [] = INL extd
-		/\ EVERY (λx. ¬UNCURRY is_instance_LR_compute x) (MAP (λx. (p,x)) extd)` by (
+		/\ EVERY ($~ o UNCURRY is_instance_LR_compute) (MAP (λx. (p,x)) extd)` by (
 		PRED_ASSUM is_forall kall_tac
 		>> gs[dep_step_inv_def]
 	)
-	>> first_x_assum $ drule >> fs[] >> disch_then irule
-	>> goal_assum $ drule_at Any
+	>> first_x_assum $ drule >> fs[o_DEF] >> disch_then irule
+	>> goal_assum $ drule
 	>> fs[dep_step_inv_def,wf_pqs_APPEND,wf_pqs_CONS]
 	>> conj_tac >- (
 		drule_at Any composable_step_sound_INL_is_const_or_type
@@ -6215,8 +6215,7 @@ Proof
 	)
   >> dsimp[o_DEF] >> gen_tac
   >> qmatch_goalsub_abbrev_tac `(A \/ B) = (A \/ C)`
-  >> `B = C ==> (A \/ B) = (A \/ C)` by fs[]
-  >> first_x_assum irule >> unabbrev_all_tac
+  >> `B = C` suffices_by fs[] >> unabbrev_all_tac
   >> simp[MEM_MAP] >> ONCE_REWRITE_TAC[GSYM PAIR] >> simp[EQ_SYM_EQ]
 QED
 
@@ -6225,7 +6224,7 @@ Theorem dep_step_complete_INL:
   /\ EVERY ($~ o UNCURRY is_instance_LR_compute) (dep ++ dep')
 	/\ (!q. MEM q dep' ==>
 		?extd. composable_step (SND q) dep [] = INL extd /\
-		EVERY (λx. ¬UNCURRY is_instance_LR_compute x) (MAP (λx. (FST q,x)) extd))
+		EVERY ($~ o UNCURRY is_instance_LR_compute) (MAP (λx. (FST q,x)) extd))
   ==> ?res. dep_step dep dep' [] = INL res
 Proof
   rpt strip_tac
@@ -6254,8 +6253,7 @@ Proof
   )
   >> dsimp[] >> gen_tac
   >> qmatch_goalsub_abbrev_tac `(A \/ B) = (A \/ C)`
-  >> `B = C ==> (A \/ B) = (A \/ C)` by fs[]
-  >> first_x_assum irule >> unabbrev_all_tac
+  >> `B = C` suffices_by fs[] >> unabbrev_all_tac
   >> simp[MEM_MAP] >> ONCE_REWRITE_TAC[GSYM PAIR] >> simp[EQ_SYM_EQ]
 QED
 
@@ -6280,8 +6278,7 @@ Proof
   )
   >> dsimp[] >> gen_tac
   >> qmatch_goalsub_abbrev_tac `(A \/ B) = (A \/ C)`
-  >> `B = C ==> (A \/ B) = (A \/ C)` by fs[]
-  >> first_x_assum irule >> unabbrev_all_tac
+  >> `B = C` suffices_by fs[] >> unabbrev_all_tac
   >> simp[MEM_MAP] >> ONCE_REWRITE_TAC[GSYM PAIR] >> simp[EQ_SYM_EQ]
 QED
 
@@ -6304,7 +6301,7 @@ Theorem dep_step_complete_cyclic_step':
   /\ rest = pre ++ [(p,q)] ++ suf
 	/\ (!q. MEM q pre ==>
 		?extd. composable_step (SND q) dep [] = INL extd /\
-		EVERY (λx. ¬UNCURRY is_instance_LR_compute x) (MAP (λx. (FST q,x)) extd))
+		EVERY ($~ o UNCURRY is_instance_LR_compute) (MAP (λx. (FST q,x)) extd))
 	/\ composable_step q dep [] = INL extd
   /\ EXISTS (UNCURRY is_instance_LR_compute) (MAP (λx. (p,x)) extd)
   /\ q' = SND $ HD (FILTER (UNCURRY is_instance_LR_compute) (MAP (λx. (p,x)) extd))
@@ -6312,7 +6309,7 @@ Theorem dep_step_complete_cyclic_step':
 Proof
   ho_match_mp_tac dep_step_ind
   >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM]
-  >> Cases_on `pre` >- gvs[dep_step_inv_def,Once EXISTS_NOT_EVERY,o_DEF]
+  >> Cases_on `pre` >- gvs[dep_step_inv_def,Once EXISTS_NOT_EVERY]
   >> Cases_on `h` >> gvs[o_DEF]
   >> disj1_tac >> first_x_assum irule
   >> fs[dep_step_inv_def,o_DEF,wf_pqs_APPEND,wf_pqs_CONS]
@@ -6325,8 +6322,7 @@ Proof
 	)
   >> dsimp[] >> gen_tac
   >> qmatch_goalsub_abbrev_tac `(A \/ B) = (A \/ C)`
-  >> `B = C ==> (A \/ B) = (A \/ C)` by fs[]
-  >> first_x_assum irule >> unabbrev_all_tac
+  >> `B = C` suffices_by fs[] >> unabbrev_all_tac
   >> simp[MEM_MAP] >> ONCE_REWRITE_TAC[GSYM PAIR] >> simp[EQ_SYM_EQ]
 QED
 
@@ -6353,8 +6349,7 @@ Proof
   )
   >> dsimp[] >> gen_tac
   >> qmatch_goalsub_abbrev_tac `(A \/ B) = (A \/ C)`
-  >> `B = C ==> (A \/ B) = (A \/ C)` by fs[]
-  >> first_x_assum irule >> unabbrev_all_tac
+  >> `B = C` suffices_by fs[] >> unabbrev_all_tac
   >> simp[MEM_MAP] >> ONCE_REWRITE_TAC[GSYM PAIR] >> simp[EQ_SYM_EQ]
 QED
 
@@ -6375,13 +6370,13 @@ Theorem dep_step_complete_non_comp_step':
   /\ rest = pre ++ [(p,q)] ++ suf
 	/\ (!q. MEM q pre ==>
 		?extd. composable_step (SND q) dep [] = INL extd /\
-		EVERY (λx. ¬UNCURRY is_instance_LR_compute x) (MAP (λx. (FST q,x)) extd))
+		EVERY ($~ o UNCURRY is_instance_LR_compute) (MAP (λx. (FST q,x)) extd))
   /\ composable_step q dep [] = INR q'
   ==> dep_step dep rest dep'dep = INR $ non_comp_step (p,q,q')
 Proof
   ho_match_mp_tac dep_step_ind
   >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM]
-  >> Cases_on `pre` >- gvs[] >> disj1_tac >> Cases_on `h` >> gvs[]
+  >> Cases_on `pre` >- gvs[] >> disj1_tac >> Cases_on `h` >> gvs[o_DEF]
   >> first_x_assum irule >> fs[dep_step_inv_def,o_DEF,wf_pqs_APPEND,wf_pqs_CONS]
   >> qmatch_assum_abbrev_tac `dep' = pree ++ t ++ _ ++ _`
   >> dsimp[] >> qexists_tac `pree` >> fs[Abbr`pree`,wf_pqs_CONS,wf_pqs_APPEND]
@@ -6392,8 +6387,7 @@ Proof
 	)
   >> dsimp[] >> gen_tac
   >> qmatch_goalsub_abbrev_tac `(A \/ B) = (A \/ C)`
-  >> `B = C ==> (A \/ B) = (A \/ C)` by fs[]
-  >> first_x_assum irule >> unabbrev_all_tac
+  >> `B = C` suffices_by fs[] >> unabbrev_all_tac
   >> simp[MEM_MAP] >> ONCE_REWRITE_TAC[GSYM PAIR] >> simp[EQ_SYM_EQ]
 QED
 
