@@ -2196,48 +2196,27 @@ Definition has_common_instance_compute_def:
   /\ (has_common_instance_compute _ _ = F)
 End
 
-Definition has_common_instance_def:
-  (has_common_instance (INR c1:type+term) (INR c2:type+term) =
-    ?m ty1 ty2. c1 = Const m ty1 /\ c2 = Const m ty2 /\ ~(ty1 # ty2))
-  /\ (has_common_instance (INL ty1) (INL ty2) = ~(ty1 # ty2))
-  /\ (has_common_instance _ _ = F)
+(* lifting of orth_ci and orth_ty *)
+
+Definition orth_LR_def:
+  (orth_LR (INL p) (INL q) = orth_ty p q)
+  /\ (orth_LR (INR (Const c ty1)) (INR (Const d ty2)) = orth_ci (Const c ty1) (Const d ty2))
+  /\ (orth_LR (INL _) (INR $ Const _ _) = T)
+  /\ (orth_LR (INR $ Const _ _) (INL _) = T)
 End
+Overload "#" = ``$orth_LR``
 
-Theorem has_common_instance_equiv:
-  !ty1 ty2. has_common_instance ty1 ty2 = has_common_instance_compute ty1 ty2
-Proof
-  rpt Cases
-  >> REWRITE_TAC[has_common_instance_def,has_common_instance_compute_def,unify_complete]
-QED
-
-Theorem has_common_instance_is_instance_LR_equiv:
+Theorem orth_LR_is_instance_LR_equiv:
   !x y. is_const_or_type x /\ is_const_or_type y
-  ==> has_common_instance x y = ?t. is_const_or_type t /\ is_instance_LR x t /\ is_instance_LR y t
+  ==> ~orth_LR x y = ?t. is_const_or_type t /\ is_instance_LR x t /\ is_instance_LR y t
 Proof
-  rw[EQ_IMP_THM,is_const_or_type_eq]
-  >> fs[has_common_instance_def,is_instance_LR_def,orth_ty_def]
-  >> rveq
-  >> qmatch_asmsub_abbrev_tac `TYPE_SUBST s tt`
-  >> TRY (
-    qmatch_goalsub_abbrev_tac `is_instance_LR (INR (Const c _)) _`
-    >> qexists_tac `INR (Const c (TYPE_SUBST s tt))`
-  )
-  >> TRY (
-    qmatch_goalsub_abbrev_tac `is_instance_LR (INL ll) _`
-    >> qexists_tac `INL (TYPE_SUBST s tt)`
-  )
-  >> TRY (
-    qmatch_goalsub_abbrev_tac `is_instance red _`
-    >> qexists_tac `TYPE_SUBST s tt`
-  )
-  >> unabbrev_all_tac
-  >> fs[is_instance_LR_def]
-  >> rw[]
-  >> TRY (
-    qmatch_goalsub_abbrev_tac `is_instance ty _`
-    >> qexists_tac `i` >> fs[]
-  )
-  >> (qexists_tac `i'` >> fs[])
+  rw[EQ_IMP_THM,is_const_or_type_eq,PULL_EXISTS]
+  >> dsimp[]
+  >> gvs[orth_LR_def,LR_TYPE_SUBST_cases,orth_ci_def,orth_ty_def,is_instance_LR_def]
+  >> qmatch_asmsub_abbrev_tac `a = _`
+  >> qexists_tac `a` >> gvs[is_instance_simps]
+  >> qpat_x_assum `_ = _` $ fs o single o GSYM
+  >> fs[is_instance_simps]
 QED
 
 (* Definition 5.7, Kunčar 2015 *)
@@ -2249,7 +2228,7 @@ Definition composable_dep_def:
     \/
     is_instance_LR (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs))) p
     \/
-    ~has_common_instance (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs))) p
+    orth_LR (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs))) p
 End
 
 Theorem sol_mon_prop:
@@ -2434,28 +2413,22 @@ Proof
   >> qpat_assum `sol_seq rs _` $ qspec_then `PRE (LENGTH rs')` mp_tac o cj 3 o REWRITE_RULE[sol_seq_def]
   >> fs[GSYM LR_TYPE_SUBST_compose,equal_ts_on_FV]
   >> strip_tac
-  >> qmatch_asmsub_abbrev_tac `~has_common_instance fst snd`
-  >> `is_const_or_type fst` by (
-    unabbrev_all_tac
-    >> match_mp_tac LR_TYPE_SUBST_type_preserving
-    >> fs[sol_seq_def,wf_pqs_def,EVERY_MEM]
+  >> qmatch_asmsub_abbrev_tac `fst # snd`
+  >> `is_const_or_type fst /\ is_const_or_type snd` by (
+    imp_res_tac sol_seq_is_const_or_type
+    >> imp_res_tac sol_seq_LENGTH
+    >> unabbrev_all_tac >> fs[LR_TYPE_SUBST_type_preserving]
   )
-  >> `is_const_or_type snd` by (
-    unabbrev_all_tac
-    >> fs[sol_seq_def,wf_pqs_def,EVERY_MEM,MEM_TAKE,ELIM_UNCURRY,FORALL_AND_THM,IMP_CONJ_THM]
-  )
-  >> qpat_x_assum `~(has_common_instance _ _)` mp_tac
-  >> unabbrev_all_tac
+  >> qpat_x_assum `_ # _` mp_tac >> unabbrev_all_tac
   >> `0 < LENGTH rs'` by fs[]
-  >> fs[SUC_PRE]
-  >> gvs[]
-  >> qmatch_goalsub_abbrev_tac `~has_common_instance fst snd`
+  >> fs[SUC_PRE] >> gvs[]
+  >> qmatch_goalsub_abbrev_tac `fst # snd`
   >> qmatch_asmsub_abbrev_tac `LR_TYPE_SUBST sfst fst = LR_TYPE_SUBST ssnd snd`
-  >> fs[has_common_instance_is_instance_LR_equiv,Once DISJ_EQ_IMP]
-  >> disch_then $ qspec_then `LR_TYPE_SUBST ssnd snd` mp_tac
-  >> fs[LR_TYPE_SUBST_type_preserving,is_instance_LR_simps]
-  >> qpat_x_assum `LR_TYPE_SUBST sfst fst = _` $ REWRITE_TAC o single o GSYM
-  >> fs[is_instance_LR_simps]
+  >> `~(fst # snd)` by (
+    dsimp[orth_LR_is_instance_LR_equiv,EQ_SYM_EQ,is_instance_LR_eq]
+    >> goal_assum $ drule_at Any >> fs[LR_TYPE_SUBST_type_preserving]
+  )
+  >> fs[]
 QED
 
 Theorem mg_sol_ext_leq'[local]:
@@ -5491,16 +5464,6 @@ Theorem is_instance_LR_strict_imp:
 Proof
   dsimp[wf_pqs_def,is_const_or_type_eq,is_instance_LR_strict_def,is_instance_strict_imp,is_instance_LR_def]
 QED
-
-(* lifting of orth_ci and orth_ty *)
-
-Definition orth_LR_def:
-  (orth_LR (INL p) (INL q) = orth_ty p q)
-  /\ (orth_LR (INR (Const c ty1)) (INR (Const d ty2)) = orth_ci (Const c ty1) (Const d ty2))
-  /\ (orth_LR (INL _) (INR $ Const _ _) = T)
-  /\ (orth_LR (INR $ Const _ _) (INL _) = T)
-End
-Overload "#" = ``$orth_LR``
 
 (* lifting of unify *)
 
