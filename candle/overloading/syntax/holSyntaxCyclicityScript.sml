@@ -5401,7 +5401,7 @@ End
 Theorem monotone_compute_eq:
   !ctxt. monotone_compute (dependency_compute ctxt) <=> monotone (dependency ctxt)
 Proof
-  rw[monotone_compute_def,monotone_def,EVERY_MEM,DEPENDENCY_EQUIV,FORALL_PROD,list_subset_set]
+  rw[monotone_compute_def,EVERY_MEM,IN_DEF,monotone_def,GSYM DEPENDENCY_EQUIV,FORALL_PROD,list_subset_set]
 QED
 
 (* proper instances *)
