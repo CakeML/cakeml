@@ -8,7 +8,7 @@ open preamble
 val _ = new_theory "timeSem";
 
 Datatype:
-  panic = PanicOutput
+  panic = PanicTimeout
         | PanicInput in_signal
 End
 
@@ -321,6 +321,13 @@ Inductive step:
     st'.ioAction = SOME (Output out_signal) ⇒
     step p (LAction (Output out_signal)) m n st st') ∧
 
+  (!p m n st tms st'.
+    n < m ∧
+    ALOOKUP p st.location = SOME tms ∧
+    st.waitTime = SOME 0 ∧
+    pickTerm st m m NONE tms st' (LPanic PanicTimeout) ⇒
+    step p (LPanic PanicTimeout) m n st st') ∧
+
   (!p m n st tms st' in_signal.
     n < m ∧
     ALOOKUP p st.location = SOME tms ∧
@@ -328,14 +335,7 @@ Inductive step:
      | NONE => T
      | SOME wt => wt ≠ 0 ∧ wt < m) ∧
     pickTerm st m m (SOME in_signal) tms st' (LPanic (PanicInput in_signal)) ⇒
-    step p (LPanic (PanicInput in_signal)) m n st st') ∧
-
-  (!p m n st tms st'.
-    n < m ∧
-    ALOOKUP p st.location = SOME tms ∧
-    st.waitTime = SOME 0 ∧
-    pickTerm st m m NONE tms st' (LPanic PanicOutput) ⇒
-    step p (LPanic PanicOutput) m n st st')
+    step p (LPanic (PanicInput in_signal)) m n st st')
 End
 
 (*
