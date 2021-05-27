@@ -3315,14 +3315,6 @@ Proof
     fs [] >>
     fs [wordLangTheory.word_op_def] >>
     metis_tac []) >>
-
-
-
-
-
-
-
-
   strip_tac >>
   rpt gen_tac
   >- (
@@ -3428,15 +3420,16 @@ Proof
 QED
 
 
-
 Theorem pick_term_dest_eq:
   ∀s max m e tms s' lbl.
     pickTerm s max m e tms s' lbl ⇒
     (e = NONE ⇒
-     (case s'.waitTime of
-      | NONE => T
-      | SOME x => x < m) ∧
-   (∀out cnds tclks dest wt.
+     ((∀out.
+         lbl = LAction (Output out)) ⇒
+      (case s'.waitTime of
+       | NONE => T
+       | SOME x => x < m)) ∧
+     (∀out cnds tclks dest wt.
        MEM (Tm (Output out) cnds tclks dest wt) tms ∧
        EVERY (λcnd. evalCond s cnd) cnds ∧
        evalTerm s NONE (Tm (Output out) cnds tclks dest wt) s' ⇒
@@ -3444,10 +3437,11 @@ Theorem pick_term_dest_eq:
        (case wt of [] => s'.waitTime = NONE | _ => ∃nt. s'.waitTime = SOME nt))) ∧
     (∀n.
        e = SOME n ⇒
-       n+1 < max ∧
-       (case s'.waitTime of
-        | NONE => T
-        | SOME x => x < m) ∧
+       (lbl = LAction (Input n) ⇒
+        (case s'.waitTime of
+         | NONE => T
+         | SOME x => x < m) ∧
+        n+1 < max) ∧
        (∀cnds tclks dest wt.
           MEM (Tm (Input n) cnds tclks dest wt) tms ∧
           EVERY (λcnd. evalCond s cnd) cnds ∧
@@ -3455,7 +3449,6 @@ Theorem pick_term_dest_eq:
           dest = s'.location ∧
           (case wt of [] => s'.waitTime = NONE | _ => ∃nt. s'.waitTime = SOME nt)))
 Proof
-  (*
   ho_match_mp_tac pickTerm_ind >>
   rpt gen_tac >>
   strip_tac >>
@@ -3464,26 +3457,25 @@ Proof
     strip_tac >>
     fs [] >>
     conj_tac
-    >- gs [input_terms_actions_def, timeLangTheory.terms_in_signals_def] >>
-    reverse conj_tac
     >- (
-      strip_tac >>
-      fs [] >>
-      rw [] >>
+      gs [input_terms_actions_def, timeLangTheory.terms_in_signals_def] >>
+      TOP_CASE_TAC >>
+      gs [evalTerm_cases] >>
+      gs [terms_wtimes_ffi_bound_def, timeLangTheory.termClks_def,
+          timeLangTheory.termWaitTimes_def] >>
+      every_case_tac
+      >- (drule calculate_wtime_reset_output_eq >> gs []) >>
+      pop_assum mp_tac >>
+      pop_assum mp_tac >>
+      drule calculate_wtime_reset_output_eq >> gs []) >>
+    strip_tac >>
+    fs [] >>
+    rw [] >>
     fs [evalTerm_cases] >>
-      every_case_tac >>
-      fs [calculate_wtime_def, list_min_option_def] >>
-      every_case_tac >> gs [] >>
-      metis_tac []) >>
-    TOP_CASE_TAC >>
-    gs [evalTerm_cases] >>
-    gs [terms_wtimes_ffi_bound_def, timeLangTheory.termClks_def,
-        timeLangTheory.termWaitTimes_def] >>
-    every_case_tac
-    >- (drule calculate_wtime_reset_output_eq >> gs []) >>
-    pop_assum mp_tac >>
-    pop_assum mp_tac >>
-    drule calculate_wtime_reset_output_eq >> gs []) >>
+    every_case_tac >>
+    fs [calculate_wtime_def, list_min_option_def] >>
+    every_case_tac >> gs [] >>
+    metis_tac []) >>
   strip_tac >>
   rpt gen_tac
   >- (
@@ -3514,10 +3506,28 @@ Proof
    rw [] >> fs [] >>
    metis_tac [EVERY_NOT_EXISTS]) >>
   strip_tac >>
-  cases_on ‘e’ >> fs [] >>
-  rw [] >> fs [] >>
-  metis_tac [EVERY_NOT_EXISTS] *)
-  cheat
+  rpt gen_tac
+  >- (
+   strip_tac >>
+   cases_on ‘e’ >> fs [] >>
+   rw [] >> fs [] >>
+   metis_tac [EVERY_NOT_EXISTS]) >>
+  strip_tac >>
+  rpt gen_tac
+  >- (
+   strip_tac >>
+   cases_on ‘e’ >> fs [] >>
+   rw [] >> fs [] >>
+   metis_tac [EVERY_NOT_EXISTS]) >>
+  strip_tac >>
+  rpt gen_tac
+  >- (
+   strip_tac >>
+   gs [max_clocks_def] >>
+   rw [] >> fs [] >>
+   metis_tac [EVERY_NOT_EXISTS]) >>
+  strip_tac >>
+  rw [] >> fs []
 QED
 
 
