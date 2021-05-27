@@ -274,7 +274,8 @@ Inductive pickTerm:
     pickTerm st max m NONE [] st (LPanic PanicOutput)) ∧
 
   (!st max m in_signal.
-    max_clocks st.clocks m  ⇒
+    max_clocks st.clocks m ∧
+    in_signal + 1 < max ⇒
     pickTerm st max m (SOME in_signal) [] st (LPanic (PanicInput in_signal)))
 End
 
