@@ -16,7 +16,7 @@ read -n 1 -s -r -p "Press any key to continue"
 echo -e "\n"
 
 echo -e "Encoding the problem\n"
-echo $n | ~/satEncodingHOL/translation/compilation/nQueens_encoder > input_nqueens.txt
+echo $n | $(CAKEMLDIR)/examples/sat_encodings/translation/compilation/nQueens_encoder > input_nqueens.txt
 
 echo -e "Solving the problem\n"
 cat input_nqueens.txt | ~/lingeling/lingeling > output_nqueens.txt
@@ -38,4 +38,4 @@ echo "(sat" >> solution_nqueens.lisp
 cat output_nqueens.txt | grep '^v' | sed 's/v//' | sed 's/ 0//' | sed 's/^ //' | sed 's/ /\n/g' | sed 's/-/\(not /' | sed -e '/not [1-9]*/ s/$/\)/' >> solution_nqueens.lisp
 echo "))" >> solution_nqueens.lisp
 
-cat solution_nqueens.lisp | ~/satEncodingHOL/translation/compilation/nQueens_encoder
+cat solution_nqueens.lisp | $(CAKEMLDIR)/examples/sat_encodings/translation/compilation/nQueens_encoder
