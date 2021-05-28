@@ -11,10 +11,14 @@ echo -e "Finding solution for:\n"
 cat $file
 
 echo -e "\nEncoding the problem\n"
-cat $file | $(CAKEMLDIR)/examples/sat_encodings/translation/compilation/killerSudoku_encoder > input.txt
+cat $file | ../translation/compilation/killerSudoku_encoder > input.txt
 
 echo -e "Solving the problem\n"
-cat input.txt | ~/lingeling/lingeling > output.txt
+if ! [ -x "$(command -v lingeling)" ]; then
+  echo 'Error: lingeling SAT solver is not installed.' >&2
+  exit 1
+fi
+cat input.txt | lingeling > output.txt
 
 echo -e "Encoding the solution\n"
 echo "(" > temp.lisp
@@ -23,4 +27,4 @@ echo "(sat" >> temp.lisp
 cat output.txt | grep '^v' | sed 's/v//' | sed 's/ 0//' | sed 's/^ //' | sed 's/ /\n/g' | sed 's/-/\(not /' | sed -e '/not [1-9]*/ s/$/\)/' >> temp.lisp
 echo "))" >> temp.lisp
 
-cat temp.lisp | $(CAKEMLDIR)/examples/sat_encodings/translation/compilation/killerSudoku_encoder
+cat temp.lisp | ../translation/compilation/killerSudoku_encoder

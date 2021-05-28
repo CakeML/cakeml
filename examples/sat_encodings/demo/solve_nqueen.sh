@@ -16,10 +16,14 @@ read -n 1 -s -r -p "Press any key to continue"
 echo -e "\n"
 
 echo -e "Encoding the problem\n"
-echo $n | $(CAKEMLDIR)/examples/sat_encodings/translation/compilation/nQueens_encoder > input_nqueens.txt
+echo $n | ../translation/compilation/nQueens_encoder > input_nqueens.txt
 
 echo -e "Solving the problem\n"
-cat input_nqueens.txt | ~/lingeling/lingeling > output_nqueens.txt
+if ! [ -x "$(command -v lingeling)" ]; then
+  echo 'Error: lingeling SAT solver is not installed.' >&2
+  exit 1
+fi
+cat input_nqueens.txt | lingeling > output_nqueens.txt
 
 if cat output_nqueens.txt | grep -q 'UNSATISFIABLE'; then
     echo -e "The problem is UNSATISFIABLE\n"
@@ -38,4 +42,4 @@ echo "(sat" >> solution_nqueens.lisp
 cat output_nqueens.txt | grep '^v' | sed 's/v//' | sed 's/ 0//' | sed 's/^ //' | sed 's/ /\n/g' | sed 's/-/\(not /' | sed -e '/not [1-9]*/ s/$/\)/' >> solution_nqueens.lisp
 echo "))" >> solution_nqueens.lisp
 
-cat solution_nqueens.lisp | $(CAKEMLDIR)/examples/sat_encodings/translation/compilation/nQueens_encoder
+cat solution_nqueens.lisp | ../translation/compilation/nQueens_encoder
