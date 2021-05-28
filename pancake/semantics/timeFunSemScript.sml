@@ -20,6 +20,8 @@ Definition next_oracle_def:
     λn. f (n+1)
 End
 
+(* a well-formed program will not produce NONE in eval_term *)
+(* now returns (label, state) option *)
 Definition eval_term_def:
   (eval_term st (SOME i)
                 (Tm (Input in_signal)
@@ -32,10 +34,11 @@ Definition eval_term_def:
       EVERY (λ(t,c).
               ∃v. FLOOKUP st.clocks c = SOME v ∧
                   v ≤ t) difs
-   then SOME (st with  <| clocks   := resetClocks st.clocks clks
-                         ; ioAction := SOME (Input in_signal)
-                         ; location := dest
-                         ; waitTime := calculate_wtime st clks difs|>)
+   then SOME (LAction (Input in_signal),
+              st with  <| clocks   := resetClocks st.clocks clks
+                          ; ioAction := SOME (Input in_signal)
+                          ; location := dest
+                          ; waitTime := calculate_wtime st clks difs|>)
    else NONE) ∧
 
   (eval_term st NONE
@@ -48,10 +51,11 @@ Definition eval_term_def:
       EVERY (λ(t,c).
               ∃v. FLOOKUP st.clocks c = SOME v ∧
                   v ≤ t) difs
-   then SOME (st with  <| clocks   := resetClocks st.clocks clks
-                         ; ioAction := SOME (Output out_signal)
-                         ; location := dest
-                         ; waitTime := calculate_wtime st clks difs|>)
+   then SOME (LAction (Output out_signal),
+              st with  <| clocks   := resetClocks st.clocks clks
+                          ; ioAction := SOME (Output out_signal)
+                          ; location := dest
+                          ; waitTime := calculate_wtime st clks difs|>)
    else NONE) ∧
   (eval_term st _ _ = NONE)
 End
@@ -67,6 +71,7 @@ Definition machine_bounds_def:
     max_clocks st.clocks m
 End
 
+(* now returns (label, state) option *)
 Definition pick_eval_input_term_def:
   (pick_eval_input_term st i (tm::tms) =
    case tm of
@@ -76,7 +81,8 @@ Definition pick_eval_input_term_def:
        then eval_term st (SOME i) tm
        else pick_eval_input_term st i tms
    | _ => pick_eval_input_term st i tms) ∧
-  (pick_eval_input_term _ _ [] = NONE)
+  (pick_eval_input_term st i [] =
+   SOME (LPanic (PanicInput i), st))
 End
 
 Definition pick_eval_output_term_def:
@@ -84,10 +90,31 @@ Definition pick_eval_output_term_def:
    case tm of
    | Tm (Output out_signal) cnds clks dest difs =>
        if EVERY (λcnd. evalCond st cnd) cnds
-       then (SOME out_signal, eval_term st NONE tm)
+       then eval_term st NONE tm
        else pick_eval_output_term st tms
    | _ => pick_eval_output_term st tms) ∧
-  (pick_eval_output_term _ [] = (NONE, NONE))
+  (pick_eval_output_term st [] = SOME (LPanic PanicTimeout, st))
+End
+
+
+Definition eval_input_def:
+  eval_input prog m n i st =
+  case ALOOKUP prog st.location of
+  | SOME tms =>
+      if n < m ∧ machine_bounds (resetOutput st) m m tms
+      then pick_eval_input_term (resetOutput st) i tms
+      else NONE
+  | _ => NONE
+End
+
+Definition eval_output_def:
+  eval_output prog m n st =
+  case ALOOKUP prog st.location of
+  | SOME tms =>
+      if n < m ∧ machine_bounds (resetOutput st) m m tms
+      then pick_eval_output_term (resetOutput st) tms
+      else NONE
+  | _ => NONE
 End
 
 
@@ -105,7 +132,7 @@ End
 
 Definition eval_delay_wtime_some_def:
   eval_delay_wtime_some st m n w =
-  if 1 ≤ w ∧ w + n < m ∧
+  if 1 ≤ w ∧ w < m ∧ n + 1 < m ∧
      max_clocks (delay_clocks (st.clocks) (n + 1)) m
   then SOME
        (LDelay 1 ,
@@ -115,32 +142,6 @@ Definition eval_delay_wtime_some_def:
              ioAction := NONE|>)
   else NONE
 End
-
-
-Definition eval_input_def:
-  eval_input prog m n i st =
-  case ALOOKUP prog st.location of
-  | SOME tms =>
-      if n < m ∧ machine_bounds (resetOutput st) m m tms
-      then (case pick_eval_input_term (resetOutput st) i tms of
-            | SOME st' => SOME (LAction (Input i), st')
-            | _ => NONE)
-      else NONE
-  | _ => NONE
-End
-
-Definition eval_output_def:
-  eval_output prog m n st =
-  case ALOOKUP prog st.location of
-  | SOME tms =>
-      if n < m ∧ machine_bounds (resetOutput st) m m tms
-      then (case pick_eval_output_term (resetOutput st) tms of
-            | (SOME os, SOME st') => SOME (LAction (Output os), st')
-            | _ => NONE)
-      else NONE
-  | _ => NONE
-End
-
 
 Definition eval_step_def:
   eval_step prog m n (or:num -> input_delay) st =
@@ -156,11 +157,12 @@ Definition eval_step_def:
         (case or 0 of
          | Delay => eval_delay_wtime_some st m n w
          | Input i =>
-             if w + n < m
+             if w ≠ 0 ∧ w < m
              then eval_input prog m n i st
              else NONE)
 End
 
+(*
 Definition set_oracle_def:
   (set_oracle (Input _) (or:num -> input_delay) = next_oracle or) ∧
   (set_oracle (Output _) or = or)
@@ -191,6 +193,7 @@ Definition eval_steps_def:
           | SOME (lbls', sts') => SOME (lbl::lbls', st'::sts'))
    | NONE => NONE)
 End
+*)
 
 (*
 Theorem pick_eval_input_term_imp_pickTerm:
