@@ -716,6 +716,30 @@ Proof
   >> metis_tac[mapping_always_true_inductive_step]
 QED
 
+Theorem make_assignments_thm:
+  ∀xs w.
+    eval_cnf w (map_to_cnf xs) ∧ mapping_ok xs ⇒
+    make_assignments w xs = w
+Proof
+  Induct \\ fs [make_assignments_def,FORALL_PROD]
+  \\ fs [APPLY_UPDATE_THM,FUN_EQ_THM]
+  \\ rpt gen_tac \\ strip_tac
+  \\ first_x_assum (qspecl_then [‘w’] mp_tac)
+  \\ impl_tac
+  THEN1 (fs [mapping_ok_def,map_to_cnf_def,eval_cnf_def])
+  \\ rw [] \\ fs []
+  \\ rw [] \\ fs []
+  \\ fs [map_to_cnf_def,eval_cnf_def]
+  \\ rename [‘rhs_to_cnf x y’]
+  \\ Cases_on ‘y’ \\ fs []
+  \\ fs [eval_rhs_def]
+  \\ Cases_on ‘s’
+  \\ TRY (Cases_on ‘s0’)
+  \\ gvs [rhs_to_cnf_def,eval_cnf_def,eval_literal_def,replace_not_def,
+          eval_clause_def,negate_literal_def,replace_and_def,replace_or_def,
+          replace_impl_def,replace_iff_def]
+QED
+
 (* ------------- Main theorems ----------------------- *)
 
 Theorem constFree_to_cnf_preserves_sat_2:
@@ -885,6 +909,32 @@ Proof
   >> gs[eval_cnf_def, eval_clause_def]
 QED
 
+Theorem t_boolExp_to_cnf_imp_sat:
+  eval_cnf w (t_boolExp_to_cnf b) ⇒
+  eval_boolExp w b
+Proof
+  gvs [t_boolExp_to_cnf_preserves_sat]
+  \\ gvs [t_boolExp_to_cnf_def]
+  \\ reverse CASE_TAC \\ fs []
+  THEN1 (rw [] \\ gvs [eval_cnf_def,eval_clause_def])
+  \\ fs [constFree_to_cnf_def]
+  \\ pairarg_tac \\ fs []
+  \\ fs [eval_cnf_def] \\ strip_tac
+  \\ fs [t_boolExp_to_assignment_def,constFree_to_assignment_def]
+  \\ qsuff_tac ‘make_assignments w (append map') = w’ \\ fs []
+  \\ ‘get_fresh_name_constFree x ≤ get_fresh_name_constFree x’ by gs []
+  \\ drule_all mapping_created_ok \\ strip_tac
+  \\ drule_all make_assignments_thm \\ fs []
+QED
+
+Theorem t_boolExp_to_cnf_preserves_unsat:
+  unsat_boolExp b ⇔ unsat_cnf (t_boolExp_to_cnf b)
+Proof
+  eq_tac \\ rw [unsat_boolExp_def,unsat_cnf_def] \\ strip_tac
+  \\ imp_res_tac t_boolExp_to_cnf_imp_sat
+  \\ gvs [t_boolExp_to_cnf_preserves_sat]
+QED
+
 
 (* ----------------- Theorems for other encodings to cnf -------------------- *)
 
@@ -900,6 +950,23 @@ Proof
      t_boolExp_to_cnf_preserves_sat]
 QED
 
+Theorem t_pseudoBool_to_cnf_imp_sat:
+  eval_cnf w (t_pseudoBool_to_cnf b) ⇒
+  eval_pseudoBool w b
+Proof
+  rw [t_pseudoBool_to_cnf_def]
+  \\ imp_res_tac t_boolExp_to_cnf_imp_sat
+  \\ fs [pseudoBool_to_quant_preserves_sat, quant_to_boolExp_preserves_sat]
+QED
+
+Theorem t_pseudoBool_to_cnf_preserves_unsat:
+  unsat_pseudoBool b ⇔ unsat_cnf (t_pseudoBool_to_cnf b)
+Proof
+  fs [unsat_pseudoBool_def,t_pseudoBool_to_cnf_def,
+      GSYM t_boolExp_to_cnf_preserves_unsat, unsat_boolExp_def,
+      pseudoBool_to_quant_preserves_sat, quant_to_boolExp_preserves_sat]
+QED
+
 Theorem t_orderBool_to_cnf_preserves_sat:
   ∀ b w.
     eval_orderBool w b ⇔
@@ -909,6 +976,22 @@ Theorem t_orderBool_to_cnf_preserves_sat:
 Proof
   gs[orderBool_to_pseudoBool_preserves_sat, t_orderBool_to_cnf_def,
      t_orderBool_to_assignment_def, t_pseudoBool_to_cnf_preserves_sat]
+QED
+
+Theorem t_orderBool_to_cnf_imp_sat:
+  eval_cnf w (t_orderBool_to_cnf b) ⇒
+  eval_orderBool w b
+Proof
+  rw [t_orderBool_to_cnf_def]
+  \\ imp_res_tac t_pseudoBool_to_cnf_imp_sat
+  \\ fs [orderBool_to_pseudoBool_preserves_sat]
+QED
+
+Theorem t_orderBool_to_cnf_preserves_unsat:
+  unsat_orderBool b ⇔ unsat_cnf (t_orderBool_to_cnf b)
+Proof
+  fs [unsat_orderBool_def,t_orderBool_to_cnf_def, unsat_pseudoBool_def,
+      GSYM t_pseudoBool_to_cnf_preserves_unsat, orderBool_to_pseudoBool_preserves_sat]
 QED
 
 Theorem t_numBoolExp_to_cnf_preserves_sat:
@@ -964,6 +1047,5 @@ Proof
   >> imp_res_tac numVarAssignment_encoded_ok
   >> metis_tac[t_numBoolExtended_to_cnf_preserves_sat]
 QED
-
 
 val _ = export_theory();

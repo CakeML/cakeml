@@ -1,4 +1,4 @@
-Encodings of puzzles to CNF, to use as SAT-solver input.  
+Encodings of puzzles to CNF, to use as SAT-solver input.
 
 [boolExpToCnfScript.sml](boolExpToCnfScript.sml):
 Encoding from Boolean expressions to CNF.

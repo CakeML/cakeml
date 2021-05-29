@@ -154,6 +154,9 @@ Termination
   >> gs[pseudoBool_size']
 End
 
+Definition unsat_pseudoBool_def:
+  unsat_pseudoBool b ⇔ ∀w. ¬eval_pseudoBool w b
+End
 
 (* ----------------------- Encoding ---------------------------------- *)
 

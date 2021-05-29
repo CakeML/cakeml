@@ -100,6 +100,9 @@ Termination
   >> gs[orderBool_size']
 End
 
+Definition unsat_orderBool_def:
+  unsat_orderBool b ⇔ ∀w. ¬eval_orderBool w b
+End
 
 (* ----------------------- Encoding ---------------------------------- *)
 

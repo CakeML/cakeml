@@ -83,6 +83,10 @@ Definition eval_cnf_def:
    (eval_cnf w cnf1 ∧ eval_cnf w cnf2))
 End
 
+Definition unsat_cnf_def:
+  unsat_cnf c = ∀w. ¬ eval_cnf w c
+End
+
 Definition eval_nnf_def:
   (eval_nnf (w: assignment) NnfTrue = T) ∧
   (eval_nnf w NnfFalse = F) ∧
@@ -121,6 +125,9 @@ Definition eval_boolExp_def:
    (eval_boolExp w b1 ⇔ eval_boolExp w b2))
 End
 
+Definition unsat_boolExp_def:
+  unsat_boolExp b = ∀w. ¬ eval_boolExp w b
+End
 
 (* ----------------- Simplification functions -------------------------- *)
 
