@@ -7274,6 +7274,17 @@ Proof
   \\ rw[] \\ simp[MAX_DEF]
 QED
 
+Theorem fastForwardFD_same_infds[local]:
+  ∀fs n. MAP FST (fastForwardFD fs n).infds = MAP FST fs.infds
+Proof
+  rw[fastForwardFD_def]
+  \\ Cases_on ‘ALOOKUP fs.infds n’
+  \\ simp[libTheory.the_def]
+  \\ PairCases_on ‘x’ \\ simp[]
+  \\ Cases_on ‘ALOOKUP fs.inode_tbl x0’
+  \\ simp[libTheory.the_def]
+QED
+
 Theorem b_inputAllTokens_spec:
    (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f #"\n" ⇒
    app (p:'ffi ffi_proj) TextIO_b_inputAllTokens_v
@@ -7637,6 +7648,34 @@ Proof
   \\ qexists_tac `fs`
   \\ qexists_tac `0`
   \\ xsimpl \\ rw []
+QED
+
+Definition b_inputLinesStdIn_def:
+  b_inputLinesStdIn =
+    (\fs. (Success (all_lines_inode fs (UStream(strlit "stdin"))), fastForwardFD fs 0))
+End
+
+Theorem EvalM_b_inputLinesStdIn:
+   Eval env exp (UNIT_TYPE ()) /\
+    (nsLookup env.v (Long "TextIO" (Short "b_inputLinesStdIn")) =
+       SOME TextIO_b_inputLinesStdIn_v) ==>
+    EvalM F env st (App Opapp [Var (Long "TextIO" (Short "b_inputLinesStdIn")); exp])
+      (MONAD (LIST_TYPE STRING_TYPE) exc_ty b_inputLinesStdIn)
+      (MONAD_IO,p:'ffi ffi_proj)
+Proof
+  ho_match_mp_tac EvalM_from_app_unit
+  \\ rw[b_inputLinesStdIn_def]
+  \\ rw[MONAD_IO_def]
+  \\ xpull
+  \\ fs[SEP_CLAUSES]
+  \\ xapp_spec b_inputLinesStdIn_spec
+  \\ fs[]
+  \\ xsimpl
+  \\ qexistsl_tac [‘GC’,‘s’]
+  \\ rw[fastForwardFD_same_infds]
+  \\ xsimpl
+  (* An invariant stating that stdin is around and has not been read *)
+  \\ cheat
 QED
 
 val _ = export_theory();
