@@ -7383,6 +7383,7 @@ Theorem EvalM_b_inputAllTokensStdIn:
       (MONAD (OPTION_TYPE (LIST_TYPE (LIST_TYPE a))) exc_ty (b_inputAllTokensStdIn f g))
       (MONAD_IO,p:'ffi ffi_proj)
 Proof
+  (* TODO: Needs a version of EvalM_from_app that takes two arguments *)
   cheat
 QED
 
@@ -7693,7 +7694,7 @@ Proof
   \\ qexistsl_tac [‘GC’,‘s’]
   \\ rw[fastForwardFD_same_infds]
   \\ xsimpl
-  (* An invariant stating that stdin is around and has not been read *)
+  (* TODO: An assumption stating that stdin is around and has not been read *)
   \\ cheat
 QED
 

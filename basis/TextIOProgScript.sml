@@ -641,7 +641,7 @@ val _ = (append_prog o process_topdecs) `
       val is = b_openStdIn ()
       val lines = b_inputAllTokens is f g
     in
-      Some lines
+      Some lines (* TODO: remove the OPTION on the return value *)
     end`;
 
 val _ = ml_prog_update close_local_blocks;

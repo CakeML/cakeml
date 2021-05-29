@@ -381,7 +381,7 @@ Proof
   \\ FULL_CASE_TAC \\ fs [set_sepTheory.cond_def]
   \\ rw [evaluate_def, PULL_EXISTS]
   \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ cheat
+  \\ cheat (* Need some guidance on what is going on *)
   (* \\ rename1 `RET_TYPE r val` *)
   (* \\ qexists_tac `Rval [val]` \\ fs [PULL_EXISTS] *)
   (* \\ fs [UNIT_TYPE_def] *)
