@@ -7367,6 +7367,25 @@ Proof
   \\ fs [std_preludeTheory.OPTION_TYPE_def]
 QED
 
+Definition b_inputAllTokensStdIn_def:
+  b_inputAllTokensStdIn f g=
+  (\fs. (Success (SOME (MAP (MAP g o tokens f)
+                      (all_lines_inode fs (UStream(strlit "stdin"))))),
+         fastForwardFD fs 0))
+End
+
+Theorem EvalM_b_inputAllTokensStdIn:
+   Eval env exp_f ((CHAR --> BOOL) f) /\
+   Eval env exp_g ((STRING_TYPE --> (a:'a->v->bool)) g) /\
+    (nsLookup env.v (Long "TextIO" (Short "b_inputAllTokensStdIn")) =
+       SOME TextIO_b_inputAllTokensStdIn_v) ==>
+    EvalM F env st (App Opapp [Var (Long "TextIO" (Short "b_inputAllTokensStdIn")); exp_f; exp_g])
+      (MONAD (OPTION_TYPE (LIST_TYPE (LIST_TYPE a))) exc_ty (b_inputAllTokensStdIn f g))
+      (MONAD_IO,p:'ffi ffi_proj)
+Proof
+  cheat
+QED
+
 Theorem b_inputAllTokensFrom_spec:
    FILENAME fname fnamev ∧ hasFreeFD fs ∧
    (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f #"\n"
