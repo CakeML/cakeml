@@ -203,6 +203,9 @@ Definition eval_numBoolExp_def:
   eval_numBoolExp w w' (NLeqConst x n) = (w' x ≤ n)
 End
 
+Definition unsat_numBoolExp_def:
+  unsat_numBoolExp lim b = ∀w w'. (∀n. w' n ≤ lim) ⇒ ¬ eval_numBoolExp w w' b
+End
 
 (* ----------------------- Encoding ---------------------------------- *)
 

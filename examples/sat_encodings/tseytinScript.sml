@@ -994,7 +994,7 @@ Proof
       GSYM t_pseudoBool_to_cnf_preserves_unsat, orderBool_to_pseudoBool_preserves_sat]
 QED
 
-Theorem t_numBoolExp_to_cnf_preserves_sat:
+Theorem t_numBool_to_cnf_preserves_sat:
   ∀ e vList w w'.
     numVarList_ok vList ∧
     exp_numVarList_ok vList e ∧
@@ -1014,6 +1014,61 @@ Proof
   >> metis_tac[minimal_encode_assignment_def]
 QED
 
+Theorem t_numBool_to_cnf_imp_sat:
+  numVarList_ok vList ∧
+  exp_numVarList_ok vList e ⇒
+  eval_cnf w (t_numBool_to_cnf vList e) ⇒
+  eval_numBoolExp w (assignment_to_numVarAssignment w (create_numVarMap e vList)) e
+Proof
+  rw [t_numBool_to_cnf_def, numBool_to_orderBool_def]
+  \\ drule t_orderBool_to_cnf_imp_sat \\ strip_tac
+  \\ fs [eval_orderBool_def]
+  \\ drule numBool_to_orderBool_preserves_sat
+  \\ disch_then drule
+  \\ ‘numVarAssignment_ok (assignment_to_numVarAssignment w (create_numVarMap e vList))
+        (create_numVarMap e vList) ∧
+      encode_assignment w
+        (assignment_to_numVarAssignment w (create_numVarMap e vList))
+        (create_numVarMap e vList) = w’ by cheat
+  \\ disch_then drule \\ fs []
+  \\ fs [numBool_to_orderBool_def,eval_orderBool_def]
+QED
+
+Theorem imp_find_value_leq:
+  ∀xs. EVERY (λ(k,m). m ≤ n) xs ⇒ find_value w xs ≤ n
+Proof
+  Induct \\ fs [find_value_def, FORALL_PROD] \\ rw []
+QED
+
+Theorem t_numBool_to_cnf_preserves_unsat:
+  numVarList_ok vList ∧ exp_numVarList_ok vList e ∧
+  numVarMap_ok (create_numVarMap e vList) ⇒
+  (unsat_numBoolExp (SND vList) e ⇔ unsat_cnf (t_numBool_to_cnf vList e))
+Proof
+  rw [] \\ eq_tac \\ rw [unsat_numBoolExp_def,unsat_cnf_def] \\ strip_tac
+  THEN1
+   (drule t_numBool_to_cnf_imp_sat
+    \\ disch_then drule
+    \\ disch_then drule
+    \\ fs [] \\ CCONTR_TAC \\ fs []
+    \\ first_x_assum (qspec_then ‘w’ mp_tac) \\ fs []
+    \\ first_x_assum $ irule_at Any
+    \\ fs [assignment_to_numVarAssignment_def] \\ rw []
+    \\ CASE_TAC \\ fs [create_numVarMap_def]
+    \\ Cases_on ‘vList’ \\ fs []
+    \\ pop_assum mp_tac
+    \\ qspec_tac (‘get_fresh_boolVar e’,‘nn’)
+    \\ qid_spec_tac ‘q’
+    \\ Induct \\ fs [create_numVarMap_inner_def]
+    \\ rw [] \\ res_tac \\ fs []
+    \\ irule imp_find_value_leq \\ fs [EVERY_GENLIST])
+  \\ drule t_numBool_to_cnf_preserves_sat
+  \\ disch_then drule
+  \\ ‘minimal_numVarAssignment_ok w' vList’ by fs [minimal_numVarAssignment_ok_def]
+  \\ disch_then drule
+  \\ strip_tac \\ gvs []
+QED
+
 Theorem t_numBoolExtended_to_cnf_preserves_sat:
   ∀ e vList w w'.
     numVarList_ok vList ∧
@@ -1026,7 +1081,7 @@ Theorem t_numBoolExtended_to_cnf_preserves_sat:
 Proof
   rw[numBoolExtended_to_numBoolExp_preserves_sat, t_numBoolExtended_to_cnf_def,
      t_numBoolExtended_to_assignment_def]
-  >> metis_tac[t_numBoolExp_to_cnf_preserves_sat, numVarList_ok_lemma]
+  >> metis_tac[t_numBool_to_cnf_preserves_sat, numVarList_ok_lemma]
 QED
 
 Theorem t_numBoolRange_to_cnf_preserves_sat:
