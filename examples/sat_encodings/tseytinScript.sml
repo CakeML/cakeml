@@ -866,7 +866,7 @@ Proof
      [‘b’, ‘map'’, ‘w’, ‘l’, ‘get_fresh_name_constFree b’, ‘next'’, ‘[]’, ‘[]’]
      assume_tac constFree_to_cnf_preserves_sat_2
   >> gs[]
-QED
+QED                             (*  *)
 
 
 (* ------------------ Theorems for boolExp to cnf --------------- *)
@@ -1014,24 +1014,146 @@ Proof
   >> metis_tac[minimal_encode_assignment_def]
 QED
 
+Theorem imp_find_value_lt:
+  ∀xs. EVERY (λ(k,m). m < n) xs ∧ n ≠ 0 ⇒
+       find_value w xs < n
+Proof
+  Induct \\ fs [find_value_def, FORALL_PROD] \\ rw []
+QED
+
+Theorem find_value_le_lemma:
+  ∀n m p_2.
+    n < LENGTH p_2 ∧ EL n p_2 = (x,m) ∧ w x ∧
+    (∀i. i ≤ n ⇒ ∃y k. EL i p_2 = (y,k) ∧ k ≤ m) ⇒
+    find_value w p_2 ≤ m
+Proof
+  Induct_on ‘p_2’ \\ fs [] \\ strip_tac
+  \\ PairCases_on ‘h’ \\ fs [find_value_def]
+  \\ Cases \\ fs [] \\ rw []
+  THEN1 (first_x_assum (qspec_then ‘0’ mp_tac) \\ fs [])
+  \\ first_x_assum irule \\ fs []
+  \\ first_x_assum (irule_at (Pos last)) \\ rw []
+  \\ first_x_assum (qspec_then ‘SUC i’ mp_tac) \\ fs []
+QED
+
+Theorem MEM_encode_axioms:
+  eval_orderBool w (encode_axioms vMap) ∧ MEM (p_1,p_2) vMap ⇒
+  eval_orderAxiom w (MAP FST p_2)
+Proof
+  Induct_on ‘vMap’ \\ fs [FORALL_PROD] \\ rw []
+  \\ fs [encode_axioms_def,eval_orderBool_def]
+QED
+
+Theorem find_value_append_lemma:
+  eval_orderAxiom w (MAP FST ys1 ++ x::MAP FST t) ∧ ¬w x ⇒
+  find_value w (ys1 ++ (x,m)::t) = find_value w t ∧
+  eval_orderAxiom w (MAP FST t)
+Proof
+  Induct_on ‘ys1’ \\ fs [] \\ rw []
+  \\ gvs [find_value_def,eval_orderAxiom_def]
+  \\ PairCases_on ‘h’ \\ gvs [find_value_def]
+QED
+
+Theorem encode_assignment_cancel:
+  numVarMap_ok vMap ∧ exp_numVarMap_ok vMap e ∧
+  eval_orderBool w (encode_axioms vMap) ⇒
+  encode_assignment w
+    (assignment_to_numVarAssignment w vMap) vMap = w
+Proof
+  fs [encode_assignment_def,FUN_EQ_THM]
+  \\ rw [] \\ CASE_TAC \\ fs []
+  \\ rw [] \\ CASE_TAC \\ fs []
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs [invert_numVarMap_def]
+  \\ gvs [MEM_FLAT,MEM_MAP,EXISTS_PROD]
+  \\ fs [assignment_to_numVarAssignment_def]
+  \\ fs [numVarMap_ok_def]
+  \\ drule_all ALOOKUP_ALL_DISTINCT_MEM
+  \\ rw []
+  \\ ‘MAP SND p_2 = GENLIST I (LENGTH p_2)’ by
+   (fs [EVERY_MEM,MEM_MAP,EXISTS_PROD,PULL_EXISTS]
+    \\ first_x_assum irule \\ metis_tac [])
+  \\ drule_at Any el_genlist_lemma
+  \\ qpat_x_assum ‘MEM (x,r) p_2’ mp_tac
+  \\ simp [MEM_EL] \\ rw []
+  \\ qpat_x_assum ‘_  = EL n p_2’ (assume_tac o GSYM)
+  \\ first_x_assum drule \\ gvs []
+  \\ rw [] \\ gvs []
+  \\ ‘p_2 ≠ []’ by (strip_tac \\ gvs [])
+  \\ ‘∀i. i ≤ n ⇒ ∃y k. EL i p_2 = (y,k) ∧ k ≤ n’ by
+        (rw [] \\ drule_at (Pos last) el_genlist_lemma
+         \\ Cases_on ‘EL i p_2’ \\ fs []
+         \\ ‘i < LENGTH p_2’ by fs []
+         \\ disch_then drule \\ fs [])
+  \\ Cases_on ‘w x’ \\ fs []
+  THEN1 (drule_all find_value_le_lemma \\ fs [])
+  \\ fs [GSYM NOT_LESS]
+  \\ drule_all MEM_encode_axioms
+  \\ fs [NOT_LESS]
+  \\ ‘∀i. n < i ∧ i < LENGTH p_2 ⇒ ∃y k. EL i p_2 = (y,k) ∧ n < k’ by
+        (rw [] \\ drule_at (Pos last) el_genlist_lemma
+         \\ Cases_on ‘EL i p_2’ \\ fs []
+         \\ ‘i < LENGTH p_2’ by fs []
+         \\ disch_then drule \\ fs [])
+  \\ ‘n ≤ LENGTH p_2’ by fs []
+  \\ drule LESS_EQ_LENGTH
+  \\ rfs [] \\ strip_tac \\ gvs []
+  \\ ‘~NULL ys2’ by (Cases_on ‘ys2’ \\ fs [])
+  \\ gvs [EL_LENGTH_APPEND]
+  \\ Cases_on ‘ys2’ \\ gvs []
+  \\ strip_tac
+  \\ drule_all find_value_append_lemma \\ rw []
+  \\ ‘EVERY (λ(y,k). LENGTH ys1 < k) t’ by
+   (fs [EVERY_EL,FORALL_PROD] \\ rw []
+    \\ qpat_x_assum ‘∀x._’ kall_tac
+    \\ first_x_assum (qspec_then ‘LENGTH ys1 + SUC n’ mp_tac)
+    \\ fs [] \\ fs [EL_APPEND2] \\ rw [] \\ fs [])
+  \\ fs [GSYM PULL_FORALL]
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ qid_spec_tac ‘t’ \\ Induct \\ fs [eval_orderAxiom_def]
+  \\ fs [FORALL_PROD,find_value_def] \\ rw []
+QED
+
 Theorem t_numBool_to_cnf_imp_sat:
   numVarList_ok vList ∧
   exp_numVarList_ok vList e ⇒
   eval_cnf w (t_numBool_to_cnf vList e) ⇒
-  eval_numBoolExp w (assignment_to_numVarAssignment w (create_numVarMap e vList)) e
+  eval_numBoolExp w
+    (assignment_to_numVarAssignment w (create_numVarMap e vList)) e
 Proof
   rw [t_numBool_to_cnf_def, numBool_to_orderBool_def]
   \\ drule t_orderBool_to_cnf_imp_sat \\ strip_tac
   \\ fs [eval_orderBool_def]
   \\ drule numBool_to_orderBool_preserves_sat
   \\ disch_then drule
-  \\ ‘numVarAssignment_ok (assignment_to_numVarAssignment w (create_numVarMap e vList))
-        (create_numVarMap e vList) ∧
+  \\ qsuff_tac
+     ‘numVarAssignment_ok (assignment_to_numVarAssignment w
+        (create_numVarMap e vList)) (create_numVarMap e vList) ∧
       encode_assignment w
         (assignment_to_numVarAssignment w (create_numVarMap e vList))
-        (create_numVarMap e vList) = w’ by cheat
-  \\ disch_then drule \\ fs []
-  \\ fs [numBool_to_orderBool_def,eval_orderBool_def]
+        (create_numVarMap e vList) = w’
+  THEN1 (strip_tac \\ disch_then drule \\ fs []
+         \\ fs [numBool_to_orderBool_def,eval_orderBool_def])
+  \\ reverse (rw [])
+  THEN1
+   (drule_all (SIMP_RULE std_ss [] numVarMap_created_ok) \\ rw []
+    \\ irule encode_assignment_cancel
+    \\ fs [] \\ metis_tac [])
+  \\ rw [numVarAssignment_ok_def,EVERY_MEM,FORALL_PROD]
+  \\ fs [assignment_to_numVarAssignment_def]
+  \\ drule_all (SIMP_RULE std_ss [] numVarMap_created_ok)
+  \\ fs [numVarMap_ok_def] \\ strip_tac
+  \\ drule_all ALOOKUP_ALL_DISTINCT_MEM \\ rw []
+  \\ irule imp_find_value_lt
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS]
+  \\ first_x_assum drule
+  \\ rw [] THEN1 (CCONTR_TAC \\ fs [])
+  \\ drule_at Any el_genlist_lemma
+  \\ pop_assum mp_tac
+  \\ simp [MEM_EL] \\ rw []
+  \\ first_x_assum drule \\ fs []
+  \\ pop_assum (assume_tac o GSYM) \\ fs []
 QED
 
 Theorem imp_find_value_leq:
@@ -1041,9 +1163,9 @@ Proof
 QED
 
 Theorem t_numBool_to_cnf_preserves_unsat:
-  numVarList_ok vList ∧ exp_numVarList_ok vList e ∧
-  numVarMap_ok (create_numVarMap e vList) ⇒
-  (unsat_numBoolExp (SND vList) e ⇔ unsat_cnf (t_numBool_to_cnf vList e))
+  numVarList_ok vList ∧ exp_numVarList_ok vList e ⇒
+  (unsat_numBoolExp (SND vList) e ⇔
+   unsat_cnf (t_numBool_to_cnf vList e))
 Proof
   rw [] \\ eq_tac \\ rw [unsat_numBoolExp_def,unsat_cnf_def] \\ strip_tac
   THEN1
@@ -1082,6 +1204,32 @@ Proof
   rw[numBoolExtended_to_numBoolExp_preserves_sat, t_numBoolExtended_to_cnf_def,
      t_numBoolExtended_to_assignment_def]
   >> metis_tac[t_numBool_to_cnf_preserves_sat, numVarList_ok_lemma]
+QED
+
+Theorem t_numBool_to_cnf_imp_sat:
+  numVarList_ok vList ∧
+  extended_numVarList_ok vList e ∧
+  eval_cnf w (t_numBoolExtended_to_cnf vList e) ⇒
+  eval_numBoolExtended w (assignment_to_numVarAssignment w
+    (create_numVarMap (numBoolExtended_to_numBoolExp e) vList)) e
+Proof
+  rw [t_numBoolExtended_to_cnf_def,
+      extended_numVarList_ok_def]
+  \\ imp_res_tac numVarList_ok_lemma
+  \\ drule_all t_numBool_to_cnf_imp_sat
+  \\ fs [numBoolExtended_to_numBoolExp_preserves_sat]
+QED
+
+Theorem t_numBool_to_cnf_preserves_unsat:
+  numVarList_ok vList ∧ extended_numVarList_ok vList e ⇒
+  (unsat_numBoolExtended (SND vList) e ⇔
+   unsat_cnf (t_numBoolExtended_to_cnf vList e))
+Proof
+  rw [t_numBoolExtended_to_cnf_def]
+  \\ imp_res_tac numVarList_ok_lemma
+  \\ fs [GSYM t_numBool_to_cnf_preserves_unsat]
+  \\ fs [unsat_numBoolExp_def,unsat_numBoolExtended_def]
+  \\ fs [numBoolExtended_to_numBoolExp_preserves_sat]
 QED
 
 Theorem t_numBoolRange_to_cnf_preserves_sat:

@@ -204,7 +204,8 @@ Definition eval_numBoolExp_def:
 End
 
 Definition unsat_numBoolExp_def:
-  unsat_numBoolExp lim b = ∀w w'. (∀n. w' n ≤ lim) ⇒ ¬ eval_numBoolExp w w' b
+  unsat_numBoolExp lim b =
+    ∀w w'. (∀n. w' n ≤ lim) ⇒ ¬ eval_numBoolExp w w' b
 End
 
 (* ----------------------- Encoding ---------------------------------- *)

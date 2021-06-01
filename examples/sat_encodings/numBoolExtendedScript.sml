@@ -184,6 +184,9 @@ Definition eval_numBoolExtended_def:
   eval_numBoolExtended w w' (EConstGeq n x) = (n ≥ w' x)
 End
 
+Definition unsat_numBoolExtended_def:
+  unsat_numBoolExtended lim b = ∀w w'. (∀n. w' n ≤ lim) ⇒ ¬ eval_numBoolExtended w w' b
+End
 
 (* --------------------------- Encoding ------------------------------- *)
 
