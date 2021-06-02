@@ -1114,14 +1114,18 @@ Proof
   \\ fs [FORALL_PROD,find_value_def] \\ rw []
 QED
 
+Definition to_numExp_assignment_def:
+  to_numExp_assignment e vList w =
+    assignment_to_numVarAssignment w (create_numVarMap e vList)
+End
+
 Theorem t_numBool_to_cnf_imp_sat:
   numVarList_ok vList ∧
   exp_numVarList_ok vList e ⇒
   eval_cnf w (t_numBool_to_cnf vList e) ⇒
-  eval_numBoolExp w
-    (assignment_to_numVarAssignment w (create_numVarMap e vList)) e
+  eval_numBoolExp w (to_numExp_assignment e vList w) e
 Proof
-  rw [t_numBool_to_cnf_def, numBool_to_orderBool_def]
+  rw [t_numBool_to_cnf_def, numBool_to_orderBool_def, to_numExp_assignment_def]
   \\ drule t_orderBool_to_cnf_imp_sat \\ strip_tac
   \\ fs [eval_orderBool_def]
   \\ drule numBool_to_orderBool_preserves_sat
@@ -1172,7 +1176,7 @@ Proof
    (drule t_numBool_to_cnf_imp_sat
     \\ disch_then drule
     \\ disch_then drule
-    \\ fs [] \\ CCONTR_TAC \\ fs []
+    \\ fs [] \\ CCONTR_TAC \\ fs [to_numExp_assignment_def]
     \\ first_x_assum (qspec_then ‘w’ mp_tac) \\ fs []
     \\ first_x_assum $ irule_at Any
     \\ fs [assignment_to_numVarAssignment_def] \\ rw []
@@ -1206,21 +1210,25 @@ Proof
   >> metis_tac[t_numBool_to_cnf_preserves_sat, numVarList_ok_lemma]
 QED
 
-Theorem t_numBool_to_cnf_imp_sat:
+Definition to_numExtended_assignment_def:
+  to_numExtended_assignment vList e w =
+    to_numExp_assignment (numBoolExtended_to_numBoolExp e) vList w
+End
+
+Theorem t_numBoolExtended_to_cnf_imp_sat:
   numVarList_ok vList ∧
   extended_numVarList_ok vList e ∧
   eval_cnf w (t_numBoolExtended_to_cnf vList e) ⇒
-  eval_numBoolExtended w (assignment_to_numVarAssignment w
-    (create_numVarMap (numBoolExtended_to_numBoolExp e) vList)) e
+  eval_numBoolExtended w (to_numExtended_assignment vList e w) e
 Proof
   rw [t_numBoolExtended_to_cnf_def,
       extended_numVarList_ok_def]
   \\ imp_res_tac numVarList_ok_lemma
   \\ drule_all t_numBool_to_cnf_imp_sat
-  \\ fs [numBoolExtended_to_numBoolExp_preserves_sat]
+  \\ fs [numBoolExtended_to_numBoolExp_preserves_sat,to_numExtended_assignment_def]
 QED
 
-Theorem t_numBool_to_cnf_preserves_unsat:
+Theorem t_numBoolExtended_to_cnf_preserves_unsat:
   numVarList_ok vList ∧ extended_numVarList_ok vList e ⇒
   (unsat_numBoolExtended (SND vList) e ⇔
    unsat_cnf (t_numBoolExtended_to_cnf vList e))
@@ -1249,6 +1257,102 @@ Proof
   >> imp_res_tac exp_rangeList_encoded_ok
   >> imp_res_tac numVarAssignment_encoded_ok
   >> metis_tac[t_numBoolExtended_to_cnf_preserves_sat]
+QED
+
+Definition to_numRange_assignment_def:
+  to_numRange_assignment l e w =
+    to_numExtended_assignment (rangeList_to_numVarList l)
+      (numBoolRange_to_numBoolExtended l e) w
+End
+
+Theorem t_numBoolRange_to_cnf_imp_sat:
+  rangeList_ok l ∧
+  exp_rangeList_ok l e ∧
+  eval_cnf w (t_numBoolRange_to_cnf l e) ⇒
+  eval_numBoolRange w (to_numRange_assignment l e w) e ∧
+  within_range l (to_numRange_assignment l e w)
+Proof
+  strip_tac
+  \\ imp_res_tac rangeList_encoded_ok
+  \\ imp_res_tac exp_rangeList_encoded_ok
+  \\ fs [t_numBoolRange_to_cnf_def]
+  \\ drule_all t_numBoolExtended_to_cnf_imp_sat
+  \\ fs [to_numRange_assignment_def]
+  \\ match_mp_tac (METIS_PROVE [] “(b ⇒ (c = b) ∧ d) ⇒ b ⇒ c ∧ d”)
+  \\ strip_tac
+  \\ ‘numVarAssignment_range_ok
+          (to_numExtended_assignment (rangeList_to_numVarList l)
+             (numBoolRange_to_numBoolExtended l e) w) l’ by
+   (fs [numBoolRange_to_numBoolExtended_def,
+           eval_numBoolExtended_def]
+    \\ rename [‘numVarAssignment_range_ok w' _’]
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘l’
+    \\ Induct
+    \\ fs [numVarAssignment_range_ok_def,FORALL_PROD,
+           ranges_to_numBoolExtended_def,eval_numBoolExtended_def])
+  \\ conj_tac
+  THEN1 (irule numBoolRange_to_numBoolExtended_preserves_sat \\ fs [])
+  \\ fs [numVarAssignment_range_ok_def, within_range_def,EVERY_MEM,FORALL_PROD]
+  \\ fs [numVarAssignment_range_ok_def, within_range_def,EVERY_MEM,FORALL_PROD]
+QED
+
+Theorem t_numBoolRange_to_cnf_preserves_unsat:
+  rangeList_ok l ∧ exp_rangeList_ok l e ⇒
+  (unsat_numBoolRange l e ⇔
+   unsat_cnf (t_numBoolRange_to_cnf l e))
+Proof
+  strip_tac
+  \\ imp_res_tac rangeList_encoded_ok
+  \\ imp_res_tac exp_rangeList_encoded_ok
+  \\ rw [] \\ eq_tac \\ rw []
+  THEN1
+   (fs [unsat_cnf_def] \\ rpt strip_tac
+    \\ drule_all t_numBoolRange_to_cnf_imp_sat \\ strip_tac
+    \\ fs [unsat_numBoolRange_def]
+    \\ first_x_assum drule
+    \\ strip_tac \\ gvs [])
+  \\ fs [t_numBoolRange_to_cnf_def]
+  \\ drule_all (GSYM t_numBoolExtended_to_cnf_preserves_unsat)
+  \\ strip_tac \\ fs []
+  \\ pop_assum kall_tac
+  \\ fs [rangeList_to_numVarList_def]
+  \\ fs [unsat_numBoolExtended_def,unsat_numBoolRange_def]
+  \\ fs [within_range_def]
+  \\ rw [] \\ strip_tac
+  \\ drule numBoolRange_to_numBoolExtended_preserves_sat
+  \\ disch_then drule
+  \\ qabbrev_tac ‘fix = λ(w:num->num) v. MIN (get_highest_max l) (w v)’
+  \\ ‘∀v n m. MEM (v,n,m) l ⇒ m ≤ get_highest_max l’ by
+    (qid_spec_tac ‘l’ \\ Induct \\ fs [FORALL_PROD] \\ rw [] \\ fs [get_highest_max_def]
+     \\ res_tac \\ fs [])
+  \\ ‘eval_numBoolRange w (fix w') e’ by
+   (fs [Abbr‘fix’]
+    \\ qpat_x_assum ‘eval_numBoolRange w w' e’ mp_tac
+    \\ match_mp_tac (METIS_PROVE [] “b = c ⇒ b ⇒ c”)
+    \\ qpat_x_assum ‘exp_rangeList_ok l e’ mp_tac
+    \\ qabbrev_tac ‘k = get_highest_max l’
+    \\ ‘∀v m n. MEM (v,m,n) l ⇒ MIN k (w' v) = w' v ∧ w' v ≤ k’ by
+      (rw [] \\ res_tac \\ gvs [MIN_DEF])
+    \\ qid_spec_tac ‘e’ \\ Induct
+    \\ fs [eval_numBoolRange_def,exp_rangeList_ok_def]
+    \\ rpt strip_tac
+    \\ fs [MEM_MAP,EXISTS_PROD]
+    \\ res_tac \\ fs [])
+  \\ disch_then (qspecl_then [‘w’,‘fix w'’] mp_tac)
+  \\ impl_tac
+  THEN1
+   (fs [numVarAssignment_range_ok_def,EVERY_MEM,FORALL_PROD,Abbr‘fix’]
+    \\ rw [] \\ res_tac \\ fs []
+    \\ match_mp_tac LESS_EQ_TRANS \\ first_x_assum $ irule_at Any
+    \\ match_mp_tac LESS_EQ_TRANS \\ first_x_assum $ irule_at Any
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘l’ \\ Induct
+    \\ fs [FORALL_PROD] \\ rw []
+    \\ fs [get_highest_max_def])
+  \\ strip_tac \\ gvs []
+  \\ first_x_assum (qspecl_then [‘w’,‘fix w'’] mp_tac)
+  \\ fs [] \\ fs [Abbr‘fix’]
 QED
 
 val _ = export_theory();

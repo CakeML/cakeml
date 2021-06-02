@@ -158,6 +158,15 @@ Definition eval_numBoolRange_def:
   eval_numBoolRange w w' (RConstGeq n x) = (n ≥ w' x)
 End
 
+Definition within_range_def:
+  within_range l (w':num->num) =
+    ∀v m n. MEM (v,m,n) l ⇒ m ≤ w' v ∧ w' v ≤ n
+End
+
+Definition unsat_numBoolRange_def:
+  unsat_numBoolRange l e =
+    ∀w w'. within_range l w' ⇒ ¬eval_numBoolRange w w' e
+End
 
 (* ----------------- Encoding ----------------------------- *)
 
