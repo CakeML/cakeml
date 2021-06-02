@@ -3,7 +3,7 @@
   of natural numbers.
 *)
 
-open preamble miscTheory quantifierExpTheory boolExpToCnfTheory;
+open preamble miscTheory quantifierExpTheory boolExpToCnfTheory cnfTheory;
 
 val _ = new_theory "orderEncodingBool";
 
@@ -193,13 +193,36 @@ Proof
   >> gs[]
 QED
 
+Definition orderBool_to_assignment_def:
+  orderBool_to_assignment w b =
+  pseudoBool_to_assignment w (orderBool_to_pseudoBool b)
+End
+
 Theorem orderBool_to_cnf_preserves_sat:
-  ∀ exp w.
-    eval_orderBool w exp = eval_cnf w (orderBool_to_cnf exp)
+  ∀ b w.
+    eval_orderBool w b ⇔
+      eval_cnf
+      (orderBool_to_assignment w b)
+      (orderBool_to_cnf b)
 Proof
-  rw[pseudoBool_to_cnf_preserves_sat, orderBool_to_cnf_def,
-     orderBool_to_pseudoBool_preserves_sat]
+  gs[orderBool_to_pseudoBool_preserves_sat, orderBool_to_cnf_def,
+     orderBool_to_assignment_def, pseudoBool_to_cnf_preserves_sat]
 QED
 
+Theorem orderBool_to_cnf_imp_sat:
+  eval_cnf w (orderBool_to_cnf b) ⇒
+  eval_orderBool w b
+Proof
+  rw [orderBool_to_cnf_def]
+  \\ imp_res_tac pseudoBool_to_cnf_imp_sat
+  \\ fs [orderBool_to_pseudoBool_preserves_sat]
+QED
+
+Theorem orderBool_to_cnf_preserves_unsat:
+  unsat_orderBool b ⇔ unsat_cnf (orderBool_to_cnf b)
+Proof
+  fs [unsat_orderBool_def,orderBool_to_cnf_def, unsat_pseudoBool_def,
+      GSYM pseudoBool_to_cnf_preserves_unsat, orderBool_to_pseudoBool_preserves_sat]
+QED
 
 val _ = export_theory();

@@ -2,7 +2,7 @@
   Quantifiers over Boolean expressions and pseudo-Boolean constraints
 *)
 
-open preamble miscTheory boolExpToCnfTheory;
+open preamble miscTheory boolExpToCnfTheory cnfTheory;
 
 val _ = new_theory "quantifierExp";
 
@@ -301,7 +301,6 @@ Proof
   >> metis_tac[UPDATE_COMMUTES]
 QED
 
-
 Theorem quant_to_boolExp_preserves_sat:
   ∀b. eval_quant w b = eval_boolExp w (quant_to_boolExp b)
 Proof
@@ -381,17 +380,38 @@ Proof
          EQ_IMP_THM, EQ_LESS_EQ, GREATER_EQ]
 QED
 
+Definition pseudoBool_to_assignment_def:
+  pseudoBool_to_assignment w b =
+  boolExp_to_assignment w (quant_to_boolExp (pseudoBool_to_quant b))
+End
+
 Theorem pseudoBool_to_cnf_preserves_sat:
-  eval_pseudoBool w b = eval_cnf w (pseudoBool_to_cnf b)
+  ∀ b w.
+    eval_pseudoBool w b ⇔
+      eval_cnf
+      (pseudoBool_to_assignment w b)
+      (pseudoBool_to_cnf b)
 Proof
-  rw[boolExp_to_noImp_preserves_sat,
-     noImp_to_nnf_preserves_sat,
-     nnf_to_cnf_preserves_sat,
-     boolExp_to_cnf_def,
-     pseudoBool_to_cnf_def,
-     pseudoBool_to_quant_preserves_sat,
-     quant_to_boolExp_preserves_sat]
+  gs[pseudoBool_to_quant_preserves_sat, quant_to_boolExp_preserves_sat,
+     pseudoBool_to_cnf_def, pseudoBool_to_assignment_def,
+     boolExp_to_cnf_preserves_sat]
 QED
 
+Theorem pseudoBool_to_cnf_imp_sat:
+  eval_cnf w (pseudoBool_to_cnf b) ⇒
+  eval_pseudoBool w b
+Proof
+  rw [pseudoBool_to_cnf_def]
+  \\ imp_res_tac boolExp_to_cnf_imp_sat
+  \\ fs [pseudoBool_to_quant_preserves_sat, quant_to_boolExp_preserves_sat]
+QED
+
+Theorem pseudoBool_to_cnf_preserves_unsat:
+  unsat_pseudoBool b ⇔ unsat_cnf (pseudoBool_to_cnf b)
+Proof
+  fs [unsat_pseudoBool_def,pseudoBool_to_cnf_def,
+      GSYM boolExp_to_cnf_preserves_unsat, unsat_boolExp_def,
+      pseudoBool_to_quant_preserves_sat, quant_to_boolExp_preserves_sat]
+QED
 
 val _ = export_theory();

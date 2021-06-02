@@ -2,7 +2,7 @@
   Encode unordered sets to natural numbers
 *)
 
-open preamble miscTheory mlintTheory;
+open preamble miscTheory mlintTheory cnfTheory;
 open boolExpToCnfTheory quantifierExpTheory numBoolRangeTheory;
 
 val _ = new_theory "unorderedSets";
@@ -246,11 +246,10 @@ End
 
 Definition encode_assignment_unorderedSet_def:
   encode_assignment_unorderedSet w w' l e =
-  encode_assignment_numBoolRange
-  w
-  (elementVarAssignment_to_numVarAssignment w' l e)
-  (equation_to_rangeList e l)
-  (equation_to_numBoolRange l e)
+    numBoolRange_to_assignment w
+    (elementVarAssignment_to_numVarAssignment w' l e)
+    (equation_to_rangeList_inner l (get_varList e))
+    (equation_to_numBoolRange l e)
 End
 
 Definition numVarAssignment_to_elementVarAssignment_inner_def:
@@ -594,7 +593,7 @@ Proof
                  assume_tac equation_to_numBoolRange_preserves_sat
   >> gs[]
   >> rw[equation_to_cnf_def]
-  >> rw[encode_assignment_unorderedSet_def]
+  >> rw[(*encode_assignment_unorderedSet_def*)]
   >> rw[equation_to_rangeList_def]
   >> qspecl_then
      [‘equation_to_numBoolRange l e’,
@@ -605,8 +604,7 @@ Proof
   >> rw[]
   >- gs[varList_ok_lemma, rangeList_ok_lemma]
   >- gs[eq_varList_ok_lemma, exp_rangeList_ok_lemma]
-  >> gs[numVarAssignment_range_ok_lemma]
+  >> gs[numVarAssignment_range_ok_lemma, encode_assignment_unorderedSet_def]
 QED
-
 
 val _ = export_theory();

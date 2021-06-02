@@ -1,51 +1,12 @@
 (*
-  Encoding from Boolean expressions to CNF.
+  Encoding from boolExp to cnf using Tseytin transformation
 *)
 
-open preamble miscTheory ASCIInumbersTheory;
+open preamble miscTheory ASCIInumbersTheory cnfTheory;
 
 val _ = new_theory "boolExpToCnf";
 
-
-(* ----------------------- Types --------------------------------------- *)
-
-Type name = “:num”;
-Type literal = “:(name + name)”;
-
-Type assignment = “:name -> bool”;
-
-Datatype:
-  clause =
-    ClauseEmpty (* False *)
-  | ClauseLit literal
-  | ClauseOr clause clause
-End
-
-Datatype:
-  cnf =
-    CnfEmpty (* True *)
-  | CnfClause clause
-  | CnfAnd cnf cnf
-End
-
-Datatype:
-  nnf =
-    NnfTrue
-  | NnfFalse
-  | NnfLit literal
-  | NnfAnd nnf nnf
-  | NnfOr nnf nnf
-End
-
-Datatype:
-  noImp =
-    NoImpTrue
-  | NoImpFalse
-  | NoImpLit literal
-  | NoImpNot noImp
-  | NoImpAnd noImp noImp
-  | NoImpOr noImp noImp
-End
+(* --------------------------- Datatypes -------------------------------- *)
 
 Datatype:
   boolExp =
@@ -59,56 +20,69 @@ Datatype:
   | Iff boolExp boolExp
 End
 
-(* ----------------------- Satisfiability ------------------------------ *)
-
-Definition eval_literal_def:
-  eval_literal (w: assignment) l =
-  case l of
-    INL x => w x
-  | INR x => ¬ w x
+Datatype:
+  constFree =
+  | CLit literal
+  | CNot constFree
+  | CAnd constFree constFree
+  | COr constFree constFree
+  | CImpl constFree constFree
+  | CIff constFree constFree
 End
 
-Definition eval_clause_def:
-  (eval_clause (w: assignment) ClauseEmpty = F) ∧
-  (eval_clause w (ClauseLit l) =
-   eval_literal w l) ∧
-  (eval_clause w (ClauseOr c1 c2) =
-   (eval_clause w c1 ∨ eval_clause w c2))
+Datatype:
+  rhs =
+  | RNot literal
+  | RAnd literal literal
+  | ROr literal literal
+  | RImpl literal literal
+  | RIff literal literal
 End
 
-Definition eval_cnf_def:
-  (eval_cnf (w: assignment) CnfEmpty = T) ∧
-  (eval_cnf w (CnfClause c) = eval_clause w c) ∧
-  (eval_cnf w (CnfAnd cnf1 cnf2) =
-   (eval_cnf w cnf1 ∧ eval_cnf w cnf2))
+(* --------------------------- Well-formed -------------------------------- *)
+
+Definition bigger_than_literal_def:
+  bigger_than_literal (n:num) (INL x) = (n > x) ∧
+  bigger_than_literal n (INR y) = (n > y)
 End
 
-Definition unsat_cnf_def:
-  unsat_cnf c = ∀w. ¬ eval_cnf w c
+Definition num_bigger_than_rhs_def:
+  num_bigger_than_rhs (q:num) (RNot l) = bigger_than_literal q l ∧
+  num_bigger_than_rhs q (RAnd l1 l2) =
+  (bigger_than_literal q l1 ∧ bigger_than_literal q l2) ∧
+  num_bigger_than_rhs q (ROr l1 l2) =
+  (bigger_than_literal q l1 ∧ bigger_than_literal q l2) ∧
+  num_bigger_than_rhs q (RImpl l1 l2) =
+  (bigger_than_literal q l1 ∧ bigger_than_literal q l2) ∧
+  num_bigger_than_rhs q (RIff l1 l2) =
+  (bigger_than_literal q l1 ∧ bigger_than_literal q l2)
 End
 
-Definition eval_nnf_def:
-  (eval_nnf (w: assignment) NnfTrue = T) ∧
-  (eval_nnf w NnfFalse = F) ∧
-  (eval_nnf w (NnfLit l) = eval_literal w l) ∧
-  (eval_nnf w (NnfAnd nnf1 nnf2) =
-   (eval_nnf w nnf1 ∧ eval_nnf w nnf2)) ∧
-  (eval_nnf w (NnfOr nnf1 nnf2) =
-   (eval_nnf w nnf1 ∨ eval_nnf w nnf2))
+Definition mapping_ok_def:
+  (mapping_ok [] ⇔ T) ∧
+  (mapping_ok ((q, r)::xs) ⇔
+     (¬ MEM q (MAP FST xs) ∧ EVERY (λ q'. q > q') (MAP FST xs)) ∧
+     (num_bigger_than_rhs q r) ∧ mapping_ok xs)
 End
 
-Definition eval_noImp_def:
-  (eval_noImp (w: assignment) NoImpTrue = T) ∧
-  (eval_noImp w NoImpFalse = F) ∧
-  (eval_noImp w (NoImpLit l) =
-   eval_literal w l) ∧
-  (eval_noImp w (NoImpNot b) =
-   ¬ (eval_noImp w b)) ∧
-  (eval_noImp w (NoImpAnd b1 b2) =
-   (eval_noImp w b1 ∧ eval_noImp w b2)) ∧
-  (eval_noImp w (NoImpOr b1 b2) =
-   (eval_noImp w b1 ∨ eval_noImp w b2))
+Definition constFree_mapping_ok_def:
+  constFree_mapping_ok mapping (CLit (INL x)) =
+  ¬ MEM x (MAP FST mapping) ∧
+  constFree_mapping_ok mapping (CLit (INR x)) =
+  ¬ MEM x (MAP FST mapping) ∧
+  constFree_mapping_ok mapping (CNot b) =
+  constFree_mapping_ok mapping b ∧
+  constFree_mapping_ok mapping (CAnd b1 b2) =
+  (constFree_mapping_ok mapping b1 ∧ constFree_mapping_ok mapping b2) ∧
+  constFree_mapping_ok mapping (COr b1 b2) =
+  (constFree_mapping_ok mapping b1 ∧ constFree_mapping_ok mapping b2) ∧
+  constFree_mapping_ok mapping (CIff b1 b2) =
+  (constFree_mapping_ok mapping b1 ∧ constFree_mapping_ok mapping b2) ∧
+  constFree_mapping_ok mapping (CImpl b1 b2) =
+  (constFree_mapping_ok mapping b1 ∧ constFree_mapping_ok mapping b2)
 End
+
+(* --------------------------- Evaluation -------------------------------- *)
 
 Definition eval_boolExp_def:
   (eval_boolExp (w: assignment) True = T) ∧
@@ -129,233 +103,800 @@ Definition unsat_boolExp_def:
   unsat_boolExp b = ∀w. ¬ eval_boolExp w b
 End
 
-(* ----------------- Simplification functions -------------------------- *)
-
-Definition distr_def:
-  (distr CnfEmpty _ = CnfEmpty) ∧
-  (distr _ CnfEmpty = CnfEmpty) ∧
-  (distr (CnfAnd a b) c = CnfAnd (distr a c) (distr b c)) ∧
-  (distr a (CnfAnd b c) = CnfAnd (distr a b) (distr a c)) ∧
-  (distr (CnfClause a) (CnfClause b) = CnfClause (ClauseOr a b))
+Definition eval_constFree_def:
+  eval_constFree (w:assignment) (CLit l) = eval_literal w l ∧
+  eval_constFree w (CNot b) = ¬ eval_constFree w b ∧
+  eval_constFree w (CAnd b1 b2) =
+  (eval_constFree w b1 ∧ eval_constFree w b2) ∧
+  eval_constFree w (COr b1 b2) =
+  (eval_constFree w b1 ∨ eval_constFree w b2) ∧
+  eval_constFree w (CImpl b1 b2) =
+  (eval_constFree w b1 ⇒ eval_constFree w b2) ∧
+  eval_constFree w (CIff b1 b2) =
+  (eval_constFree w b1 ⇔ eval_constFree w b2)
 End
 
-Definition nnf_to_cnf_def:
-  (nnf_to_cnf NnfTrue = CnfEmpty) ∧
-  (nnf_to_cnf NnfFalse = CnfClause ClauseEmpty) ∧
-  (nnf_to_cnf (NnfLit l) = CnfClause (ClauseLit l)) ∧
-  (nnf_to_cnf (NnfAnd a b) = CnfAnd (nnf_to_cnf a) (nnf_to_cnf b)) ∧
-  (nnf_to_cnf (NnfOr a b) = distr (nnf_to_cnf a) (nnf_to_cnf b))
+
+(* --------------------------- Encoding -------------------------------- *)
+
+Definition boolExp_to_constFree_def:
+  boolExp_to_constFree True = INR T ∧
+  boolExp_to_constFree False = INR F ∧
+  boolExp_to_constFree (Lit l) = INL (CLit l) ∧
+  boolExp_to_constFree (Not b) =
+  (case boolExp_to_constFree b of
+   | INL b' => INL (CNot b')
+   | INR bv => INR (¬ bv)) ∧
+  boolExp_to_constFree (And b1 b2) =
+  (case (boolExp_to_constFree b1, boolExp_to_constFree b2) of
+   | (INL b1', INL b2') => INL (CAnd b1' b2')
+   | (INR F, _) => INR F
+   | (_, INR F) => INR F
+   | (b1', INR T) => b1'
+   | (INR T, b2') => b2') ∧
+  boolExp_to_constFree (Or b1 b2) =
+  (case (boolExp_to_constFree b1, boolExp_to_constFree b2) of
+   | (INL b1', INL b2') => INL (COr b1' b2')
+   | (INR T, _) => INR T
+   | (_, INR T) => INR T
+   | (b1', INR F) => b1'
+   | (INR F, b2') => b2') ∧
+  boolExp_to_constFree (Impl b1 b2) =
+  (case (boolExp_to_constFree b1, boolExp_to_constFree b2) of
+   | (INL b1', INL b2') => INL (CImpl b1' b2')
+   | (INR F, _) => INR T
+   | (_, INR T) => INR T
+   | (INR T, b2') => b2'
+   | (INL b1', INR F) => INL (CNot b1')) ∧
+  boolExp_to_constFree (Iff b1 b2) =
+  (case (boolExp_to_constFree b1, boolExp_to_constFree b2) of
+   | (INL b1', INL b2') => INL (CIff b1' b2')
+   | (INR T, b2') => b2'
+   | (b1', INR T) => b1'
+   | (INR F, INR F) => INR T
+   | (INR F, INL b2') => INL (CNot b2')
+   | (INL b1', INR F) => INL (CNot b1'))
 End
 
-Definition negate_literal_def:
-  negate_literal l =
-  case l of
-    INL x => INR x
-  | INR x => INL x
+Definition bind_def:
+  bind (next:num) b map =
+  (next + 1, INL next, Append (List [(next, b)]) map)
 End
 
-Definition noImp_to_nnf_def:
-  (noImp_to_nnf NoImpTrue = NnfTrue) ∧
-  (noImp_to_nnf NoImpFalse = NnfFalse) ∧
-  (noImp_to_nnf (NoImpLit l) = NnfLit l) ∧
-  (noImp_to_nnf (NoImpNot NoImpTrue) = NnfFalse) ∧
-  (noImp_to_nnf (NoImpNot NoImpFalse) = NnfTrue) ∧
-  (noImp_to_nnf (NoImpNot (NoImpLit l)) =
-   NnfLit (negate_literal l)) ∧
-  (noImp_to_nnf (NoImpNot (NoImpNot b)) = noImp_to_nnf b) ∧
-  (noImp_to_nnf (NoImpNot (NoImpAnd b1 b2)) =
-   NnfOr
-   (noImp_to_nnf (NoImpNot b1))
-   (noImp_to_nnf (NoImpNot b2))) ∧
-  (noImp_to_nnf (NoImpNot (NoImpOr b1 b2)) =
-   NnfAnd
-   (noImp_to_nnf (NoImpNot b1))
-   (noImp_to_nnf (NoImpNot b2))) ∧
-  (noImp_to_nnf (NoImpAnd b1 b2) =
-   NnfAnd (noImp_to_nnf b1) (noImp_to_nnf b2)) ∧
-  (noImp_to_nnf (NoImpOr b1 b2) =
-   NnfOr (noImp_to_nnf b1) (noImp_to_nnf b2))
+Definition constFree_to_cnf_inner_def:
+  constFree_to_cnf_inner next (CLit l) =
+  (next, l, Nil) ∧
+  constFree_to_cnf_inner next (CNot b) =
+  (let (next', l, map) = constFree_to_cnf_inner next b in
+     bind next' (RNot l) map) ∧
+  constFree_to_cnf_inner next (CAnd b1 b2) =
+  (let (next', l1, map1) = constFree_to_cnf_inner next b1 in
+     let (next'', l2, map2) = constFree_to_cnf_inner next' b2 in
+       bind next'' (RAnd l1 l2) (Append map2 map1)) ∧
+  constFree_to_cnf_inner next (COr b1 b2) =
+  (let (next', l1, map1) = constFree_to_cnf_inner next b1 in
+     let (next'', l2, map2) = constFree_to_cnf_inner next' b2 in
+       bind next'' (ROr l1 l2) (Append map2 map1)) ∧
+  constFree_to_cnf_inner next (CImpl b1 b2) =
+  (let (next', l1, map1) = constFree_to_cnf_inner next b1 in
+     let (next'', l2, map2) = constFree_to_cnf_inner next' b2 in
+       bind next'' (RImpl l1 l2) (Append map2 map1)) ∧
+  constFree_to_cnf_inner next (CIff b1 b2) =
+  (let (next', l1, map1) = constFree_to_cnf_inner next b1 in
+     let (next'', l2, map2) = constFree_to_cnf_inner next' b2 in
+       bind next'' (RIff l1 l2) (Append map2 map1))
 End
 
-Definition boolExp_to_noImp_def:
-  (boolExp_to_noImp True = NoImpTrue) ∧
-  (boolExp_to_noImp False = NoImpFalse) ∧
-  (boolExp_to_noImp (Lit l) = NoImpLit l) ∧
-  (boolExp_to_noImp (Not b) =
-   case (boolExp_to_noImp b) of
-     NoImpTrue => NoImpFalse
-   | NoImpFalse => NoImpTrue
-   | b' => (NoImpNot b')) ∧
-  (boolExp_to_noImp (And b1 b2) =
-   case (boolExp_to_noImp b1, boolExp_to_noImp b2) of
-     (NoImpFalse, _) => NoImpFalse
-   | (NoImpTrue, b2') => b2'
-   | (_, NoImpFalse) => NoImpFalse
-   | (b1', NoImpTrue) => b1'
-   | (b1', b2') => (NoImpAnd b1' b2')) ∧
-  (boolExp_to_noImp (Or b1 b2) =
-   case (boolExp_to_noImp b1, boolExp_to_noImp b2) of
-     (NoImpTrue, _) => NoImpTrue
-   | (NoImpFalse, b2') => b2'
-   | (_, NoImpTrue) => NoImpTrue
-   | (b1', NoImpFalse) => b1'
-   | (b1', b2') => (NoImpOr b1' b2')) ∧
-  (boolExp_to_noImp (Impl b1 b2) =
-   case (boolExp_to_noImp b1, boolExp_to_noImp b2) of
-     (NoImpFalse, _) => NoImpTrue
-   | (NoImpTrue, b2') => b2'
-   | (_, NoImpTrue) => NoImpTrue
-   | (b1', NoImpFalse) => (NoImpNot b1')
-   | (b1', b2') => (NoImpOr (NoImpNot b1') b2')) ∧
-  (boolExp_to_noImp (Iff b1 b2) =
-   case (boolExp_to_noImp b1, boolExp_to_noImp b2) of
-     (NoImpTrue, NoImpTrue) => NoImpTrue
-   | (NoImpFalse, NoImpFalse) => NoImpTrue
-   | (NoImpTrue, NoImpFalse) => NoImpFalse
-   | (NoImpFalse, NoImpTrue) => NoImpFalse
-   | (NoImpTrue, b2') => b2'
-   | (NoImpFalse, b2') => (NoImpNot b2')
-   | (b1', NoImpTrue) => b1'
-   | (b1', NoImpFalse) => (NoImpNot b1')
-   | (b1', b2') => NoImpOr
-                     (NoImpAnd b1' b2')
-                     (NoImpAnd (NoImpNot b1') (NoImpNot b2')))
+(* l1 ⇔ ¬ l2
+   (l1 ⇒ ¬ l2) ∧ (¬ l2 ⇒ l1)
+   (¬ l1 ∨ ¬ l2) ∧ (l2 ∨ l1) *)
+Definition replace_not_def:
+  replace_not l1 l2 =
+  CnfAnd
+  (CnfClause
+   (ClauseOr
+    (ClauseLit (negate_literal l1))
+    (ClauseLit (negate_literal l2))))
+  (CnfClause (ClauseOr (ClauseLit l2) (ClauseLit l1)))
+End
+
+(* l1 ⇔ (l2 ∧ l3)
+ (l1 ⇒ (l2 ∧ l3)) ∧ ((l2 ∧ l3) ⇒ l1)
+ (¬l1 ∨ (l2 ∧ l3)) ∧ (¬(l2 ∧ l3) ∨ l1)
+ (¬l1 ∨ l2) ∧ (¬l1 ∨ l3) ∧ (¬l2 ∨ ¬l3 ∨ l1)
+ *)
+Definition replace_and_def:
+  replace_and l1 l2 l3 =
+  CnfAnd
+  (CnfClause (ClauseOr (ClauseLit (negate_literal l1)) (ClauseLit l2)))
+  (CnfAnd
+   (CnfClause (ClauseOr (ClauseLit (negate_literal l1)) (ClauseLit l3)))
+   (CnfClause (ClauseOr
+               (ClauseLit (negate_literal l2))
+               (ClauseOr (ClauseLit (negate_literal l3)) (ClauseLit l1)))))
+End
+
+
+(* l1 ⇔ (l2 ∨ l3)
+ (l1 ⇒ (l2 ∨ l3)) ∧ ((l2 ∨ l3) ⇒ l1)
+ (¬l1 ∨ (l2 ∨ l3)) ∧ (¬(l2 ∨ l3) ∨ l1)
+ (¬l1 ∨ l2 ∨ l3) ∧ ((¬l2 ∧ ¬ l3) ∨ l1)
+ (¬l1 ∨ l2 ∨ l3) ∧ (¬l2 ∨ l1) ∧ (¬l3 ∨ l1))
+*)
+Definition replace_or_def:
+  replace_or l1 l2 l3 =
+  CnfAnd
+  (CnfClause (ClauseOr
+              (ClauseLit (negate_literal l1))
+              (ClauseOr (ClauseLit l2) (ClauseLit l3))))
+  (CnfAnd
+   (CnfClause (ClauseOr (ClauseLit (negate_literal l2)) (ClauseLit l1)))
+   (CnfClause (ClauseOr (ClauseLit (negate_literal l3)) (ClauseLit l1))))
+End
+
+(* l1 ⇔ (l2 ⇒ l3)
+ (l1 ⇒ (l2 ⇒ l3)) ∧ ((l2 ⇒ l3) ⇒ l1)
+ (¬l1 ∨ (l2 ⇒ l3)) ∧ (¬(l2 ⇒ l3) ∨ l1)
+ (¬l1 ∨ (¬l2 ∨ l3)) ∧ (¬(¬l2 ∨ l3) ∨ l1)
+ (¬l1 ∨ ¬l2 ∨ l3) ∧ (l2 ∧ ¬l3) ∨ l1)
+ (¬l1 ∨ ¬l2 ∨ l3) ∧ (l2 ∨ l1) ∧ (¬l3 ∨ l1)
+*)
+Definition replace_impl_def:
+  replace_impl l1 l2 l3 =
+  CnfAnd
+  (CnfClause (ClauseOr
+              (ClauseLit (negate_literal l1))
+              (ClauseOr (ClauseLit (negate_literal l2)) (ClauseLit l3))))
+  (CnfAnd
+   (CnfClause (ClauseOr (ClauseLit l2) (ClauseLit l1)))
+   (CnfClause (ClauseOr (ClauseLit (negate_literal l3)) (ClauseLit l1))))
+End
+
+(* l1 ⇔ (l2 ⇔ l3)
+ (l1 ⇒ (l2 ⇔ l3)) ∧ ((l2 ⇔ l3) ⇒ l1)
+ (¬l1 ∨ (l2 ⇔ l3)) ∧ (¬(l2 ⇔ l3) ∨ l1)
+ (¬l1 ∨ ((l2 ⇒ l3) ∧ (l3 ⇒ l2))) ∧ (¬((l2 ⇒ l3) ∧ (l3 ⇒ l2)) ∨ l1)
+ (¬l1 ∨ ((¬l2 ∨ l3) ∧ (¬l3 ∨ l2))) ∧ ((¬(¬l2 ∨ l3) ∨ ¬(¬l3 ∨ l2)) ∨ l1)
+ (¬l1 ∨ ¬l2 ∨ l3) ∧ (¬l1 ∨ ¬l3 ∨ l2) ∧ (((l2 ∧ ¬l3) ∨ (l3 ∧ ¬l2)) ∨ l1)
+ (¬l1 ∨ ¬l2 ∨ l3) ∧ (¬l1 ∨ ¬l3 ∨ l2) ∧ (((l2 ∧ ¬l3) ∨ l3) ∧ ((l2 ∧ ¬l3) ∨ ¬l2)) ∨ l1)
+ (¬l1 ∨ ¬l2 ∨ l3) ∧ (¬l1 ∨ ¬l3 ∨ l2) ∧ (((l2 ∨ l3) ∧ T ∧ T ∧ (¬l3 ∨ ¬l2)) ∨ l1)
+ (¬l1 ∨ ¬l2 ∨ l3) ∧ (¬l1 ∨ ¬l3 ∨ l2) ∧ (l2 ∨ l3 ∨ l1) ∧ (¬l3 ∨ ¬l2 ∨ l1)
+*)
+Definition replace_iff_def:
+  replace_iff l1 l2 l3 =
+  CnfAnd
+  (CnfClause (ClauseOr
+              (ClauseLit (negate_literal l1))
+              (ClauseOr
+               (ClauseLit (negate_literal l2)) (ClauseLit l3))))
+  (CnfAnd
+   (CnfClause (ClauseOr
+               (ClauseLit (negate_literal l1))
+               (ClauseOr
+                (ClauseLit (negate_literal l3)) (ClauseLit l2))))
+   (CnfAnd
+    (CnfClause (ClauseOr
+                (ClauseLit l2)
+                (ClauseOr
+                 (ClauseLit l3) (ClauseLit l1))))
+    (CnfClause (ClauseOr
+                (ClauseLit (negate_literal l3))
+                (ClauseOr
+                 (ClauseLit (negate_literal l2)) (ClauseLit l1))))))
+End
+
+Definition rhs_to_cnf_def:
+  rhs_to_cnf x (RNot l) = replace_not (INL x) l ∧
+  rhs_to_cnf x (RAnd l1 l2) = replace_and (INL x) l1 l2 ∧
+  rhs_to_cnf x (ROr l1 l2) = replace_or (INL x) l1 l2 ∧
+  rhs_to_cnf x (RImpl l1 l2) = replace_impl (INL x) l1 l2 ∧
+  rhs_to_cnf x (RIff l1 l2) = replace_iff (INL x) l1 l2
+End
+
+Definition map_to_cnf_def:
+  map_to_cnf [] = CnfEmpty ∧
+  map_to_cnf ((x, rhs)::map) =
+  CnfAnd (rhs_to_cnf x rhs) (map_to_cnf map)
+End
+
+Definition get_fresh_name_constFree_def:
+  get_fresh_name_constFree (CLit (INL x)) = x + 1 ∧
+  get_fresh_name_constFree (CLit (INR x)) = x + 1 ∧
+  get_fresh_name_constFree (CNot b) = get_fresh_name_constFree b ∧
+  get_fresh_name_constFree (CAnd b1 b2) =
+  MAX (get_fresh_name_constFree b1) (get_fresh_name_constFree b2) ∧
+  get_fresh_name_constFree (COr b1 b2) =
+  MAX (get_fresh_name_constFree b1) (get_fresh_name_constFree b2) ∧
+  get_fresh_name_constFree (CImpl b1 b2) =
+  MAX (get_fresh_name_constFree b1) (get_fresh_name_constFree b2) ∧
+  get_fresh_name_constFree (CIff b1 b2) =
+  MAX (get_fresh_name_constFree b1) (get_fresh_name_constFree b2)
+End
+
+
+(* ------------------- Encodings to cnf --------------------- *)
+
+Definition constFree_to_cnf_def:
+  constFree_to_cnf b =
+  let next = get_fresh_name_constFree b in
+    let (next', l, map) = constFree_to_cnf_inner next b in
+      CnfAnd (CnfClause (ClauseLit l)) (map_to_cnf (append map))
 End
 
 Definition boolExp_to_cnf_def:
-  boolExp_to_cnf b = nnf_to_cnf (noImp_to_nnf (boolExp_to_noImp b))
+  boolExp_to_cnf b =
+  case boolExp_to_constFree b of
+  | INL b' => constFree_to_cnf b'
+  | INR T => CnfEmpty
+  | INR F => CnfClause ClauseEmpty
 End
 
-(* ----------------------- Theorems ------------------------------------ *)
+(* -------------------- Encoding the assignment ---------------------- *)
 
-Theorem distr_preserves_sat:
-  ∀ b1 b2.
-    eval_cnf w (distr b1 b2) ⇔
-    (eval_cnf w b1 ∨ eval_cnf w b2)
+Definition eval_rhs_def:
+  eval_rhs w (RNot l) = ¬ eval_literal w l ∧
+  eval_rhs w (RAnd l1 l2) =
+  (eval_literal w l1 ∧ eval_literal w l2) ∧
+  eval_rhs w (ROr l1 l2) =
+  (eval_literal w l1 ∨ eval_literal w l2) ∧
+  eval_rhs w (RImpl l1 l2) =
+  (eval_literal w l1 ⇒ eval_literal w l2) ∧
+  eval_rhs w (RIff l1 l2) =
+  (eval_literal w l1 ⇔ eval_literal w l2)
+End
+
+Definition make_assignments_def:
+  make_assignments w [] = w ∧
+  make_assignments w ((n, rhs)::mapping) =
+  let w' = make_assignments w mapping in
+    ((n =+ eval_rhs w' rhs)w')
+End
+
+Definition constFree_to_assignment_def:
+  constFree_to_assignment w b =
+  let (next,l,map) = constFree_to_cnf_inner (get_fresh_name_constFree b) b in
+    make_assignments w (append map)
+End
+
+Definition boolExp_to_assignment_def:
+  boolExp_to_assignment w b =
+  case boolExp_to_constFree b of
+  | INL b' => constFree_to_assignment w b'
+  | INR _ => w
+End
+
+
+(* -------------------------------- Theorems ---------------------------- *)
+
+Theorem next_bigger_lemma:
+  ∀b next next' x map1.
+  constFree_to_cnf_inner next b = (next', x, map1) ⇒
+  next ≤ next'
 Proof
-  ho_match_mp_tac distr_ind
-  >> rpt strip_tac
-  >> rw[distr_def, eval_cnf_def, eval_clause_def]
+  Induct >> rw[]
+  >- gs[constFree_to_cnf_inner_def]
+  >- (gs[constFree_to_cnf_inner_def]
+      >> pairarg_tac >> gs[]
+      >> gs[bind_def]
+      >> last_x_assum
+         (qspecl_then [‘next’, ‘next''’, ‘l’, ‘map'’] assume_tac) >> gs[])
+  >> (gs[constFree_to_cnf_inner_def]
+      >> pairarg_tac >> gs[]
+      >> pairarg_tac >> gs[]
+      >> gvs[bind_def]
+      >> last_x_assum
+         (qspecl_then [‘next’, ‘next''’, ‘l1’, ‘map1'’] assume_tac) >> gs[]
+      >> last_x_assum
+         (qspecl_then [‘next''’, ‘next'''’, ‘l2’, ‘map2’] assume_tac) >> gs[])
+QED
+
+Definition next_range_def:
+  next_range n1 n2 = {(k:num) | n1 ≤ k ∧ k < n2}
+End
+
+Theorem make_assignment_not_mem:
+  ∀ xs ys next w.
+    ¬MEM next (MAP FST xs) ⇒
+    make_assignments w (xs ++ ys) next = make_assignments w ys next
+Proof
+  Induct >> rw[]
+  >> Cases_on ‘h’ >> gs[]
+  >> gs[make_assignments_def, APPLY_UPDATE_THM]
+QED
+
+Theorem make_assignment_not_mem_2:
+  ∀ xs next w.
+    ¬MEM next (MAP FST xs) ⇒
+    make_assignments w xs next = w next
+Proof
+  Induct >> rw[]
+  >- rw[make_assignments_def]
+  >> Cases_on ‘h’ >> gs[]
+  >> gs[make_assignments_def, APPLY_UPDATE_THM]
+QED
+
+Theorem mapping_range:
+  ∀ map1 next next' b l.
+    constFree_to_cnf_inner next b = (next',l,map1) ⇒
+    EVERY (λ x. x ∈ (next_range next next')) (MAP FST (append map1))
+Proof
+  Induct_on ‘b’ >> rw[]
+  >- gs[constFree_to_cnf_inner_def]
+  >- (gs[constFree_to_cnf_inner_def]
+      >> pairarg_tac >> gs[]
+      >> gvs[bind_def]
+      >> rw[]
+      >- (rw[next_range_def]
+          >> metis_tac[next_bigger_lemma])
+      >> last_x_assum
+         (qspecl_then [‘map'’, ‘next’, ‘next''’, ‘l'’] assume_tac) >> gs[]
+      >> gs[next_range_def]
+      >> gs[EVERY_MEM]
+      >> rw[]
+      >> last_x_assum (qspecl_then [‘x’] assume_tac) >> gs[])
+  >> (gs[constFree_to_cnf_inner_def]
+      >> pairarg_tac >> gs[]
+      >> pairarg_tac >> gs[]
+      >> gvs[bind_def]
+      >> rw[]
+      >- (gs[next_range_def]
+          >> imp_res_tac next_bigger_lemma
+          >> gs[])
+      >- (gs[next_range_def]
+          >> last_x_assum imp_res_tac
+          >> last_x_assum imp_res_tac
+          >> gs[EVERY_MEM]
+          >> rw[]
+          >- (first_x_assum (qspecl_then [‘x’] assume_tac) >> gs[]
+              >> imp_res_tac next_bigger_lemma
+              >> gs[])
+          >> first_x_assum (qspecl_then [‘x’] assume_tac) >> gs[])
+      >> gs[next_range_def]
+      >> last_x_assum imp_res_tac
+      >> last_x_assum imp_res_tac
+      >> gs[EVERY_MEM]
+      >> rw[]
+      >> last_x_assum (qspecl_then [‘x’] assume_tac) >> gs[]
+      >> imp_res_tac next_bigger_lemma
+      >> gs[])
+QED
+
+Theorem literal_smaller_than_next:
+  ∀ b next next' l map'.
+    constFree_to_cnf_inner next b = (next',l,map') ∧
+    get_fresh_name_constFree b ≤ next ⇒
+    bigger_than_literal next' l
+Proof
+  Induct >> rw[]
+  >- (gs[constFree_to_cnf_inner_def]
+      >> Cases_on ‘l’ >> gs[]
+      >> gs[bigger_than_literal_def, get_fresh_name_constFree_def])
+  >- (gs[constFree_to_cnf_inner_def, get_fresh_name_constFree_def]
+      >> pairarg_tac >> gs[]
+      >> gvs[bind_def, bigger_than_literal_def])
+  >> (gs[constFree_to_cnf_inner_def, get_fresh_name_constFree_def]
+      >> pairarg_tac >> gs[]
+      >> pairarg_tac >> gs[]
+      >> gvs[bind_def, bigger_than_literal_def])
+QED
+
+(* ------------------- Theorems about mapping_created_ok ------------------ *)
+
+Theorem mapping_ok_append:
+  ∀ mapping2 mapping1 next next' next''.
+    mapping_ok mapping1 ∧
+    mapping_ok mapping2 ∧
+    EVERY (λx. x ∈ next_range next next') (MAP FST mapping1) ∧
+    EVERY (λx. x ∈ next_range next' next'') (MAP FST mapping2) ∧
+    next ≤ next' ∧
+    next' ≤ next'' ⇒
+    mapping_ok (mapping2 ++ mapping1)
+Proof
+  Induct >> rw[]
+  >> Cases_on ‘h’ >> gs[]
+  >> gs[mapping_ok_def]
+  >> rw[]
+  >- (gs[next_range_def]
+      >> gs[EVERY_MEM]
+      >> qpat_x_assum ‘∀x. MEM x (MAP FST mapping1) ⇒ next ≤ x ∧ x < next'’
+                      (qspecl_then [‘q’] assume_tac) >> gs[])
+  >- (gs[next_range_def]
+      >> gs[EVERY_MEM]
+      >> rw[]
+      >> qpat_x_assum ‘∀x. MEM x (MAP FST mapping1) ⇒ next ≤ x ∧ x < next'’
+                      (qspecl_then [‘q'’] assume_tac) >> gs[])
+  >> last_x_assum irule >> rw[]
   >> metis_tac[]
 QED
 
-Theorem nnf_to_cnf_preserves_sat:
-  eval_nnf w b = eval_cnf w (nnf_to_cnf b)
+Theorem mapping_created_ok:
+  ∀ b map' next next' l.
+    get_fresh_name_constFree b ≤ next ∧
+    constFree_to_cnf_inner next b = (next',l,map') ⇒
+    mapping_ok (append map')
 Proof
-  Induct_on ‘b’
-  >> simp[eval_nnf_def, nnf_to_cnf_def,
-          eval_cnf_def, eval_clause_def,
-          distr_preserves_sat]
+  Induct >> rw[]
+  >- (Cases_on ‘s’ >> gs[]
+      >> gs[get_fresh_name_constFree_def, constFree_to_cnf_inner_def,
+            mapping_ok_def])
+  >- (gs[get_fresh_name_constFree_def]
+      >> gs[constFree_to_cnf_inner_def]
+      >> pairarg_tac >> gs[]
+      >> gvs[bind_def]
+      >> rw[mapping_ok_def]
+      >- (imp_res_tac mapping_range
+          >> gs[EVERY_MEM, next_range_def]
+          >> first_x_assum (qspecl_then [‘next''’] assume_tac) >> gs[])
+      >- (imp_res_tac mapping_range
+          >> gs[EVERY_MEM, next_range_def]
+          >> rw[]
+          >> last_x_assum (qspecl_then [‘q'’] assume_tac) >> gs[])
+      >- (rw[num_bigger_than_rhs_def]
+          >> irule literal_smaller_than_next
+          >> qexists_tac ‘b’
+          >> qexists_tac ‘map''’
+          >> qexists_tac ‘next’
+          >> gs[])
+      >> metis_tac[])
+  >> (gs[get_fresh_name_constFree_def]
+      >> gs[constFree_to_cnf_inner_def]
+      >> pairarg_tac >> gs[]
+      >> pairarg_tac >> gs[]
+      >> gvs[bind_def]
+      >> rw[mapping_ok_def]
+      >- (imp_res_tac mapping_range
+          >> gs[EVERY_MEM, next_range_def]
+          >> last_x_assum (qspecl_then [‘next'''’] assume_tac) >> gs[])
+      >- (imp_res_tac mapping_range
+          >> gs[EVERY_MEM, next_range_def]
+          >> first_x_assum (qspecl_then [‘next'''’] assume_tac) >> gs[]
+          >> imp_res_tac next_bigger_lemma >> gs[])
+      >- (imp_res_tac mapping_range
+          >> gs[EVERY_MEM, next_range_def]
+          >> rw[]
+          >> last_x_assum (qspecl_then [‘q'’] assume_tac) >> gs[])
+      >- (imp_res_tac mapping_range
+          >> gs[EVERY_MEM, next_range_def]
+          >> rw[]
+          >> first_x_assum (qspecl_then [‘q'’] assume_tac) >> gs[]
+          >> imp_res_tac next_bigger_lemma
+          >> gs[])
+      >- (rw[num_bigger_than_rhs_def]
+          >- (imp_res_tac literal_smaller_than_next
+              >> gs[]
+              >> imp_res_tac next_bigger_lemma
+              >> Cases_on ‘l1’ >> gs[bigger_than_literal_def])
+          >> imp_res_tac literal_smaller_than_next
+          >> gs[]
+          >> imp_res_tac next_bigger_lemma
+          >> gs[])
+      >> last_x_assum imp_res_tac
+      >> imp_res_tac next_bigger_lemma
+      >> last_x_assum
+         (qspecl_then [‘map2’, ‘next''’, ‘next'''’, ‘l2’] assume_tac) >> gs[]
+      >> imp_res_tac mapping_range
+      >> metis_tac[mapping_ok_append])
 QED
 
-Theorem negate_literal_thm:
-  eval_literal w (negate_literal l) ⇔ ¬ eval_literal w l
+(* -------------- Theorems about mappings_always_true ------------ *)
+
+Theorem one_mapping_true:
+  ∀ r q mapping w.
+    mapping_ok mapping ∧
+    num_bigger_than_rhs q r ∧
+    EVERY (λq'. q > q') (MAP FST mapping) ∧
+    ¬MEM q (MAP FST mapping) ⇒
+    eval_cnf (make_assignments w ((q,r)::mapping)) (rhs_to_cnf q r)
 Proof
-  Cases_on ‘l’
-  >> rw[negate_literal_def, eval_literal_def]
+  Induct >> rw[]
+  >- (rw[rhs_to_cnf_def]
+      >> rw[replace_not_def]
+      >> rw[make_assignments_def]
+      >> rw[eval_rhs_def]
+      >> rw[eval_cnf_def]
+      >> (rw[eval_clause_def]
+          >> Cases_on ‘s’ >> rw[]
+          >> (rw[negate_literal_def]
+              >> rw[eval_literal_def]
+              >> rewrite_tac[APPLY_UPDATE_THM]
+              >> gs[num_bigger_than_rhs_def]
+              >> gs[bigger_than_literal_def])))
+  >> (rw[rhs_to_cnf_def]
+      >> rw[replace_and_def, replace_or_def,
+            replace_impl_def, replace_iff_def]
+      >> rw[eval_cnf_def]
+      >> (rw[eval_clause_def]
+          >> rw[make_assignments_def]
+          >> rw[eval_rhs_def]
+          >> Cases_on ‘s’ >> rw[]
+          >> (Cases_on ‘s0’ >> rw[]
+              >> (rw[negate_literal_def]
+                  >> rw[eval_literal_def]
+                  >> rewrite_tac[APPLY_UPDATE_THM]
+                  >> gs[num_bigger_than_rhs_def]
+                  >> gs[bigger_than_literal_def]
+                  >> metis_tac[]))))
 QED
 
-Theorem noImpNot_thm:
-  ∀ b.
-    eval_nnf w (noImp_to_nnf (NoImpNot b)) ⇔
-      ¬ eval_nnf w (noImp_to_nnf b)
+Theorem eval_same:
+  ∀ r' q q' r v w.
+    num_bigger_than_rhs q' r' ∧
+    num_bigger_than_rhs q r ∧
+    q > q' ⇒
+    (eval_cnf w⦇q ↦ v⦈ (rhs_to_cnf q' r') ⇔
+       eval_cnf w (rhs_to_cnf q' r'))
 Proof
-  Induct
-  >> rw[noImp_to_nnf_def, eval_nnf_def, negate_literal_thm]
+  Induct >> rw[]
+  >- (rw[rhs_to_cnf_def]
+      >> gs[num_bigger_than_rhs_def]
+      >> Cases_on ‘s’ >> gs[]
+      >> (gs[bigger_than_literal_def]
+          >> rw[replace_not_def]
+          >> rw[eval_cnf_def, eval_clause_def, negate_literal_def,
+                eval_literal_def, APPLY_UPDATE_THM]))
+  >> (rw[rhs_to_cnf_def]
+      >> gs[num_bigger_than_rhs_def]
+      >> Cases_on ‘s’ >> gs[]
+      >> (Cases_on ‘s0’ >> gs[]
+          >> (gs[bigger_than_literal_def]
+              >> rw[replace_and_def, replace_or_def,
+                    replace_impl_def, replace_iff_def]
+              >> rw[eval_cnf_def, eval_clause_def, negate_literal_def,
+                    eval_literal_def, APPLY_UPDATE_THM])))
 QED
 
-Theorem noImp_to_nnf_preserves_sat:
-  eval_noImp w b = eval_nnf w (noImp_to_nnf b)
+Theorem mapping_always_true_inductive_step:
+  ∀ mapping q v w.
+    mapping_ok mapping ∧
+    num_bigger_than_rhs q r ∧
+    EVERY (λq'. q > q') (MAP FST mapping) ∧
+    ¬MEM q (MAP FST mapping) ⇒
+    (eval_cnf w⦇q ↦ v⦈ (map_to_cnf mapping) ⇔
+       eval_cnf w (map_to_cnf mapping))
 Proof
-  Induct_on ‘b’
-  >> rw[eval_noImp_def,
-        noImp_to_nnf_def,
-        eval_nnf_def,
-        noImpNot_thm]
+  Induct >> rw[]
+  >- rw[map_to_cnf_def, eval_cnf_def]
+  >> Cases_on ‘h’ >> gs[]
+  >> rw[map_to_cnf_def]
+  >> rw[eval_cnf_def]
+  >> last_x_assum (qspecl_then [‘q’, ‘v’, ‘w’] assume_tac)
+  >> gs[mapping_ok_def]
+  >> metis_tac[eval_same]
+QED
+
+Theorem mapping_always_true:
+  ∀ mapping w.
+    mapping_ok mapping ⇒
+    eval_cnf (make_assignments w mapping) (map_to_cnf mapping)
+Proof
+  Induct >> rw[]
+  >- rw[map_to_cnf_def, eval_cnf_def]
+  >> Cases_on ‘h’ >> gs[]
+  >> gs[mapping_ok_def]
+  >> gs[map_to_cnf_def]
+  >> rw[eval_cnf_def]
+  >- rw[one_mapping_true]
+  >> rw[make_assignments_def]
+  >> metis_tac[mapping_always_true_inductive_step]
+QED
+
+Theorem make_assignments_thm:
+  ∀xs w.
+    eval_cnf w (map_to_cnf xs) ∧ mapping_ok xs ⇒
+    make_assignments w xs = w
+Proof
+  Induct \\ fs [make_assignments_def,FORALL_PROD]
+  \\ fs [APPLY_UPDATE_THM,FUN_EQ_THM]
+  \\ rpt gen_tac \\ strip_tac
+  \\ first_x_assum (qspecl_then [‘w’] mp_tac)
+  \\ impl_tac
+  THEN1 (fs [mapping_ok_def,map_to_cnf_def,eval_cnf_def])
+  \\ rw [] \\ fs []
+  \\ rw [] \\ fs []
+  \\ fs [map_to_cnf_def,eval_cnf_def]
+  \\ rename [‘rhs_to_cnf x y’]
+  \\ Cases_on ‘y’ \\ fs []
+  \\ fs [eval_rhs_def]
+  \\ Cases_on ‘s’
+  \\ TRY (Cases_on ‘s0’)
+  \\ gvs [rhs_to_cnf_def,eval_cnf_def,eval_literal_def,replace_not_def,
+          eval_clause_def,negate_literal_def,replace_and_def,replace_or_def,
+          replace_impl_def,replace_iff_def]
+QED
+
+(* ------------- Main theorems ----------------------- *)
+
+Theorem constFree_to_cnf_preserves_sat_2:
+  ∀ b map' w l next next' xs ys.
+    constFree_to_cnf_inner next b = (next', l, map') ∧
+    get_fresh_name_constFree b ≤ next ∧
+    (DISJOINT (next_range next next') (set (MAP FST xs))) ∧
+    (DISJOINT (next_range next next') (set (MAP FST ys))) ∧
+    (DISJOINT (next_range 0 (get_fresh_name_constFree b)) (set (MAP FST xs))) ∧
+    (DISJOINT (next_range 0 (get_fresh_name_constFree b)) (set (MAP FST ys))) ⇒
+    (eval_constFree w b ⇔
+       eval_literal (make_assignments w (xs ++ append map' ++ ys)) l)
+Proof
+  Induct >> rw[]
+  >- (gs[constFree_to_cnf_inner_def]
+      >> gs[make_assignments_def]
+      >> rw[eval_constFree_def]
+      >> gvs[IN_DISJOINT, next_range_def]
+      >> Cases_on ‘l’ >> gvs[get_fresh_name_constFree_def]
+      >- (last_x_assum (qspecl_then [‘x’] mp_tac)
+          >> last_x_assum (qspecl_then [‘x’] mp_tac)
+          >> gvs[make_assignment_not_mem, make_assignment_not_mem_2,
+                 eval_literal_def])
+      >> last_x_assum (qspecl_then [‘y’] mp_tac)
+      >> last_x_assum (qspecl_then [‘y’] mp_tac)
+      >> gvs[make_assignment_not_mem, make_assignment_not_mem_2,
+             eval_literal_def])
+  >- (rw[eval_constFree_def]
+      >> gs[constFree_to_cnf_inner_def, get_fresh_name_constFree_def]
+      >> pairarg_tac >> gs[]
+      >> gvs[bind_def]
+      >> gvs[eval_literal_def]
+      >> gvs[IN_DISJOINT]
+      >> gvs[next_range_def]
+      >> qspecl_then
+         [‘xs’, ‘(next'',RNot l')::append map'' ++ ys’, ‘next''’, ‘w’]
+         assume_tac make_assignment_not_mem
+      >> last_x_assum (qspecl_then [‘next''’] assume_tac) >> gs[]
+      >- metis_tac[next_bigger_lemma]
+      >> rw[make_assignments_def]
+      >> rw[APPLY_UPDATE_THM]
+      >> rw[eval_rhs_def]
+      >> rw[eval_literal_def]
+      >> last_x_assum
+         (qspecl_then [‘map''’, ‘w’, ‘l'’, ‘next’, ‘next''’, ‘[]’, ‘ys’]
+          assume_tac)
+      >> gs[]
+      >> first_x_assum irule
+      >> rw[]
+      >> last_x_assum (qspecl_then [‘x’] assume_tac) >> gs[])
+  >> (rw[eval_constFree_def]
+      >> gs[constFree_to_cnf_inner_def, get_fresh_name_constFree_def]
+      >> pairarg_tac >> gs[]
+      >> pairarg_tac >> gs[]
+      >> gvs[bind_def]
+      >> imp_res_tac next_bigger_lemma
+      >> gvs[]
+      >> rw[eval_literal_def, SimpRHS]
+      >> gs[IN_DISJOINT]
+      >> gs[next_range_def]
+      >> last_x_assum (qspecl_then [‘next'''’] assume_tac) >> gs[]
+      >> asm_simp_tac std_ss[make_assignment_not_mem, GSYM APPEND_ASSOC]
+      >> rw[make_assignments_def]
+      >> rw[APPLY_UPDATE_THM]
+      >> rw[eval_rhs_def]
+      >> last_x_assum
+         (qspecl_then
+          [‘map1’, ‘w’, ‘l1’, ‘next’, ‘next''’, ‘append map2’, ‘ys’] mp_tac)
+      >> last_x_assum
+         (qspecl_then [‘map2’, ‘w’, ‘l2’, ‘next''’, ‘next'''’,
+                       ‘[]’, ‘append map1 ++ ys’] mp_tac)
+      >> gvs[]
+      >> impl_tac
+      >- (rw[]
+          >- (last_x_assum (qspecl_then [‘x’] assume_tac) >> gs[]
+              >> imp_res_tac mapping_range
+              >> gs[EVERY_MEM]
+              >> first_x_assum (qspecl_then [‘x’] assume_tac) >> gs[]
+              >> gs[next_range_def]
+              >> Cases_on ‘MEM x (MAP FST (append map1))’ >> gs[])
+          >> last_x_assum (qspecl_then [‘x’] assume_tac) >> gs[]
+          >- (first_x_assum (qspecl_then [‘x’] assume_tac) >> gs[]
+              >> imp_res_tac mapping_range
+              >> gs[EVERY_MEM]
+              >> first_x_assum (qspecl_then [‘x’] assume_tac)
+              >> gs[next_range_def])
+          >> imp_res_tac mapping_range
+          >> gs[EVERY_MEM]
+          >> gs[next_range_def]
+          >> first_x_assum (qspecl_then [‘x’] assume_tac) >> gs[]
+          >> Cases_on ‘MEM x (MAP FST (append map1))’ >> gs[])
+      >> strip_tac
+      >> impl_tac
+      >- (rw[]
+          >- (imp_res_tac mapping_range
+              >> gs[EVERY_MEM, next_range_def]
+              >> Cases_on ‘MEM x (MAP FST (append map2))’ >> gs[]
+              >> first_x_assum (qspecl_then [‘x’] assume_tac)
+              >> first_x_assum (qspecl_then [‘x’] assume_tac) >> gs[])
+          >- (last_x_assum (qspecl_then [‘x’] assume_tac) >> gs[])
+          >- (imp_res_tac mapping_range
+              >> gs[EVERY_MEM, next_range_def]
+              >> first_x_assum (qspecl_then [‘x’] assume_tac)
+              >> first_x_assum (qspecl_then [‘x’] assume_tac) >> gs[]
+              >> Cases_on ‘MEM x (MAP FST (append map2))’ >> gs[])
+          >> first_x_assum (qspecl_then [‘x’] assume_tac) >> gs[])
+      >> strip_tac
+      >> gvs[])
+QED
+
+Theorem constFree_to_cnf_preserves_sat:
+  ∀ b w.
+    eval_constFree w b ⇔
+      eval_cnf (constFree_to_assignment w b) (constFree_to_cnf b)
+Proof
+  rw[constFree_to_cnf_def]
+  >> pairarg_tac >> gvs[]
+  >> rw[constFree_to_assignment_def]
+  >> rw[eval_cnf_def, eval_clause_def]
+  >> qspecl_then [‘b’, ‘map'’, ‘get_fresh_name_constFree b’, ‘next'’, ‘l’]
+                 assume_tac mapping_created_ok
+  >> gs[mapping_always_true]
+  >> qspecl_then
+     [‘b’, ‘map'’, ‘w’, ‘l’, ‘get_fresh_name_constFree b’, ‘next'’, ‘[]’, ‘[]’]
+     assume_tac constFree_to_cnf_preserves_sat_2
+  >> gs[]
 QED
 
 
-Theorem boolExp_to_noImp_preserves_sat:
-  eval_boolExp w b = eval_noImp w (boolExp_to_noImp b)
+(* ------------------ Theorems for boolExp to cnf --------------- *)
+
+Theorem boolExp_to_constFree_preserves_sat:
+  ∀ b w.
+    eval_boolExp w b ⇔
+      case boolExp_to_constFree b of
+      | INL b' => eval_constFree w b'
+      | INR bv => bv
 Proof
-  Induct_on ‘b’
-  >> Cases_on‘boolExp_to_noImp b’
-  >> Cases_on‘boolExp_to_noImp b'’
-  >> rw[eval_boolExp_def,
-        boolExp_to_noImp_def,
-        eval_noImp_def]
-  >> metis_tac[]
+  Induct >> rw[]
+  >> TRY (rw[eval_boolExp_def, boolExp_to_constFree_def, eval_constFree_def]
+          >> NO_TAC)
+  >- (rw[eval_boolExp_def, boolExp_to_constFree_def]
+      >> Cases_on ‘boolExp_to_constFree b’ >> gs[]
+      >> rw[eval_constFree_def])
+  >> (rw[eval_boolExp_def, boolExp_to_constFree_def]
+      >> Cases_on ‘boolExp_to_constFree b’ >> gs[]
+      >- (Cases_on ‘boolExp_to_constFree b'’ >> gs[]
+          >> rw[eval_constFree_def])
+      >> rw[]
+      >> Cases_on ‘boolExp_to_constFree b'’ >> rw[]
+      >> rw[eval_constFree_def])
 QED
 
 Theorem boolExp_to_cnf_preserves_sat:
-  eval_boolExp w b = eval_cnf w (boolExp_to_cnf b)
+  ∀ b w.
+    eval_boolExp w b ⇔
+      eval_cnf
+      (boolExp_to_assignment w b)
+      (boolExp_to_cnf b)
 Proof
-  rw[boolExp_to_noImp_preserves_sat,
-     noImp_to_nnf_preserves_sat,
-     nnf_to_cnf_preserves_sat,
-     boolExp_to_cnf_def]
+  gs[boolExp_to_cnf_def]
+  >> gs[boolExp_to_constFree_preserves_sat]
+  >> rw[]
+  >> Cases_on ‘boolExp_to_constFree b’ >> rw[]
+  >- gs[constFree_to_cnf_preserves_sat, boolExp_to_assignment_def]
+  >- gs[eval_cnf_def]
+  >> gs[eval_cnf_def, eval_clause_def]
 QED
 
+Theorem boolExp_to_cnf_imp_sat:
+  eval_cnf w (boolExp_to_cnf b) ⇒
+  eval_boolExp w b
+Proof
+  gvs [boolExp_to_cnf_preserves_sat]
+  \\ gvs [boolExp_to_cnf_def]
+  \\ reverse CASE_TAC \\ fs []
+  THEN1 (rw [] \\ gvs [eval_cnf_def,eval_clause_def])
+  \\ fs [constFree_to_cnf_def]
+  \\ pairarg_tac \\ fs []
+  \\ fs [eval_cnf_def] \\ strip_tac
+  \\ fs [boolExp_to_assignment_def,constFree_to_assignment_def]
+  \\ qsuff_tac ‘make_assignments w (append map') = w’ \\ fs []
+  \\ ‘get_fresh_name_constFree x ≤ get_fresh_name_constFree x’ by gs []
+  \\ drule_all mapping_created_ok \\ strip_tac
+  \\ drule_all make_assignments_thm \\ fs []
+QED
 
-(* --------------------- Pretty printing ------------------------- *)
-
-Definition lit_to_str_def:
-  lit_to_str (INL l) = "b" ++ num_to_dec_string l ∧
-  lit_to_str (INR l) = "~b" ++ num_to_dec_string l
-End
-
-Definition clause_to_str_def:
-  clause_to_str ClauseEmpty = "False" ∧
-  clause_to_str (ClauseLit l) = lit_to_str l ∧
-  clause_to_str (ClauseOr b1 b2) =
-  clause_to_str b1 ++ " \\/ " ++ clause_to_str b2
-End
-
-Definition cnf_to_str_def:
-  cnf_to_str CnfEmpty = "True" ∧
-  cnf_to_str (CnfClause c) = clause_to_str c ∧
-  cnf_to_str (CnfAnd b1 b2) =
-  let b1_str =
-      case b1 of
-        (CnfClause (ClauseOr _ _)) => "(" ++ cnf_to_str b1 ++ ")"
-      | _ => cnf_to_str b1
-  in let b2_str =
-         case b2 of
-           (CnfClause (ClauseOr _ _)) => "(" ++ cnf_to_str b2 ++ ")"
-         | _ => cnf_to_str b2
-     in b1_str ++ " /\\ " ++ b2_str
-End
-
-Theorem example1 =
-        EVAL “cnf_to_str
-              (boolExp_to_cnf
-               (And
-                (Not (And
-                      (Lit (INL 2))
-                      (Lit (INR 1))))
-                (Or
-                 (Lit (INL 0))
-                 (Lit (INR 1)))))”;
-
-Theorem example2 =
-        EVAL “cnf_to_str
-              (boolExp_to_cnf
-               (And
-                (Lit (INL 0))
-                (And
-                 (Lit (INL 2))
-                 (And
-                  (Lit (INR 1))
-                  (Lit (INR 3))))))”;
-
-Theorem example3 =
-        EVAL “(boolExp_to_cnf
-               (Or
-                (Lit (INL 0))
-                (Or
-                 (Lit (INL 2))
-                 (Or
-                  (Lit (INR 1))
-                  (Lit (INR 3))))))”;
+Theorem boolExp_to_cnf_preserves_unsat:
+  unsat_boolExp b ⇔ unsat_cnf (boolExp_to_cnf b)
+Proof
+  eq_tac \\ rw [unsat_boolExp_def,unsat_cnf_def] \\ strip_tac
+  \\ imp_res_tac boolExp_to_cnf_imp_sat
+  \\ gvs [boolExp_to_cnf_preserves_sat]
+QED
 
 val _ = export_theory();

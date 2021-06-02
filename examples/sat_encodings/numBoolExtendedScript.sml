@@ -2,7 +2,7 @@
   Extend numBoolExp with more functionality
 *)
 
-open preamble miscTheory boolExpToCnfTheory numBoolExpTheory;
+open preamble miscTheory boolExpToCnfTheory numBoolExpTheory cnfTheory;
 
 val _ = new_theory "numBoolExtended";
 
@@ -274,6 +274,64 @@ Proof
   >> gs[extended_numVarList_ok_def]
 QED
 
+Definition numBoolExtended_to_cnf_def:
+  numBoolExtended_to_cnf l e =
+  let e' = numBoolExtended_to_numBoolExp e in
+    numBool_to_cnf l e'
+End
+
+Definition numBoolExtended_to_assignment_def:
+  numBoolExtended_to_assignment w w' l e =
+  numBoolExp_to_assignment w w' l (numBoolExtended_to_numBoolExp e)
+End
+
+Theorem numBoolExtended_to_cnf_preserves_sat:
+  ∀ e vList w w'.
+    numVarList_ok vList ∧
+    extended_numVarList_ok  vList e ∧
+    minimal_numVarAssignment_ok w' vList ⇒
+    (eval_numBoolExtended w w' e ⇔
+       eval_cnf
+       (numBoolExtended_to_assignment w w' vList e)
+       (numBoolExtended_to_cnf vList e))
+Proof
+  rw[numBoolExtended_to_numBoolExp_preserves_sat, numBoolExtended_to_cnf_def,
+     numBoolExtended_to_assignment_def]
+  >> metis_tac[numBool_to_cnf_preserves_sat, numVarList_ok_lemma]
+QED
+
+Definition to_numExtended_assignment_def:
+  to_numExtended_assignment vList e w =
+    to_numExp_assignment (numBoolExtended_to_numBoolExp e) vList w
+End
+
+Theorem numBoolExtended_to_cnf_imp_sat:
+  numVarList_ok vList ∧
+  extended_numVarList_ok vList e ∧
+  eval_cnf w (numBoolExtended_to_cnf vList e) ⇒
+  eval_numBoolExtended w (to_numExtended_assignment vList e w) e
+Proof
+  rw [numBoolExtended_to_cnf_def,
+      extended_numVarList_ok_def]
+  \\ imp_res_tac numVarList_ok_lemma
+  \\ drule_all numBool_to_cnf_imp_sat
+  \\ fs [numBoolExtended_to_numBoolExp_preserves_sat,to_numExtended_assignment_def]
+QED
+
+Theorem numBoolExtended_to_cnf_preserves_unsat:
+  numVarList_ok vList ∧ extended_numVarList_ok vList e ⇒
+  (unsat_numBoolExtended (SND vList) e ⇔
+   unsat_cnf (numBoolExtended_to_cnf vList e))
+Proof
+  rw [numBoolExtended_to_cnf_def]
+  \\ imp_res_tac numVarList_ok_lemma
+  \\ fs [GSYM numBool_to_cnf_preserves_unsat]
+  \\ fs [unsat_numBoolExp_def,unsat_numBoolExtended_def]
+  \\ fs [numBoolExtended_to_numBoolExp_preserves_sat]
+QED
+
+(*
+
 Theorem numBoolExtended_to_cnf_preserves_sat:
   ∀ e w w' l.
     numVarList_ok l ∧
@@ -294,7 +352,6 @@ Proof
   >> gs[numVarList_ok_lemma]
 QED
 
-
 (* ------------------------ Assignment theorems ------------------------- *)
 
 Theorem assignment_to_numVarAssignment_numBoolExtended_ok:
@@ -314,6 +371,6 @@ Proof
   >> rw[numVarList_ok_lemma]
 QED
 
-
+*)
 
 val _ = export_theory();

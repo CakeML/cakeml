@@ -2,7 +2,7 @@
   Add individual upper and lower bounds for each number variable
 *)
 
-open preamble miscTheory;
+open preamble miscTheory cnfTheory;
 open boolExpToCnfTheory numBoolExpTheory numBoolExtendedTheory;
 
 val _ = new_theory "numBoolRange";
@@ -386,6 +386,131 @@ Proof
   >> gs[first_not_highest]
 QED
 
+Definition numBoolRange_to_assignment_def:
+  numBoolRange_to_assignment w w' l e =
+  numBoolExtended_to_assignment
+  w w' (rangeList_to_numVarList l) (numBoolRange_to_numBoolExtended l e)
+End
+
+Theorem numBoolRange_to_cnf_preserves_sat:
+  ∀ e l w w'.
+    rangeList_ok l ∧
+    exp_rangeList_ok l e ∧
+    numVarAssignment_range_ok w' l ⇒
+    (eval_numBoolRange w w' e ⇔
+       eval_cnf
+       (numBoolRange_to_assignment w w' l e)
+       (numBoolRange_to_cnf l e))
+Proof
+  rw[]
+  >> imp_res_tac numBoolRange_to_numBoolExtended_preserves_sat >> gs[]
+  >> rw[numBoolRange_to_cnf_def, numBoolRange_to_assignment_def]
+  >> imp_res_tac rangeList_encoded_ok
+  >> imp_res_tac exp_rangeList_encoded_ok
+  >> imp_res_tac numVarAssignment_encoded_ok
+  >> metis_tac[numBoolExtended_to_cnf_preserves_sat]
+QED
+
+Definition to_numRange_assignment_def:
+  to_numRange_assignment l e w =
+    to_numExtended_assignment (rangeList_to_numVarList l)
+      (numBoolRange_to_numBoolExtended l e) w
+End
+
+Theorem numBoolRange_to_cnf_imp_sat:
+  rangeList_ok l ∧
+  exp_rangeList_ok l e ∧
+  eval_cnf w (numBoolRange_to_cnf l e) ⇒
+  eval_numBoolRange w (to_numRange_assignment l e w) e ∧
+  within_range l (to_numRange_assignment l e w)
+Proof
+  strip_tac
+  \\ imp_res_tac rangeList_encoded_ok
+  \\ imp_res_tac exp_rangeList_encoded_ok
+  \\ fs [numBoolRange_to_cnf_def]
+  \\ drule_all numBoolExtended_to_cnf_imp_sat
+  \\ fs [to_numRange_assignment_def]
+  \\ match_mp_tac (METIS_PROVE [] “(b ⇒ (c = b) ∧ d) ⇒ b ⇒ c ∧ d”)
+  \\ strip_tac
+  \\ ‘numVarAssignment_range_ok
+          (to_numExtended_assignment (rangeList_to_numVarList l)
+             (numBoolRange_to_numBoolExtended l e) w) l’ by
+   (fs [numBoolRange_to_numBoolExtended_def,
+           eval_numBoolExtended_def]
+    \\ rename [‘numVarAssignment_range_ok w' _’]
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘l’
+    \\ Induct
+    \\ fs [numVarAssignment_range_ok_def,FORALL_PROD,
+           ranges_to_numBoolExtended_def,eval_numBoolExtended_def])
+  \\ conj_tac
+  THEN1 (irule numBoolRange_to_numBoolExtended_preserves_sat \\ fs [])
+  \\ fs [numVarAssignment_range_ok_def, within_range_def,EVERY_MEM,FORALL_PROD]
+  \\ fs [numVarAssignment_range_ok_def, within_range_def,EVERY_MEM,FORALL_PROD]
+QED
+
+Theorem numBoolRange_to_cnf_preserves_unsat:
+  rangeList_ok l ∧ exp_rangeList_ok l e ⇒
+  (unsat_numBoolRange l e ⇔
+   unsat_cnf (numBoolRange_to_cnf l e))
+Proof
+  strip_tac
+  \\ imp_res_tac rangeList_encoded_ok
+  \\ imp_res_tac exp_rangeList_encoded_ok
+  \\ rw [] \\ eq_tac \\ rw []
+  THEN1
+   (fs [unsat_cnf_def] \\ rpt strip_tac
+    \\ drule_all numBoolRange_to_cnf_imp_sat \\ strip_tac
+    \\ fs [unsat_numBoolRange_def]
+    \\ first_x_assum drule
+    \\ strip_tac \\ gvs [])
+  \\ fs [numBoolRange_to_cnf_def]
+  \\ drule_all (GSYM numBoolExtended_to_cnf_preserves_unsat)
+  \\ strip_tac \\ fs []
+  \\ pop_assum kall_tac
+  \\ fs [rangeList_to_numVarList_def]
+  \\ fs [unsat_numBoolExtended_def,unsat_numBoolRange_def]
+  \\ fs [within_range_def]
+  \\ rw [] \\ strip_tac
+  \\ drule numBoolRange_to_numBoolExtended_preserves_sat
+  \\ disch_then drule
+  \\ qabbrev_tac ‘fix = λ(w:num->num) v. MIN (get_highest_max l) (w v)’
+  \\ ‘∀v n m. MEM (v,n,m) l ⇒ m ≤ get_highest_max l’ by
+    (qid_spec_tac ‘l’ \\ Induct \\ fs [FORALL_PROD] \\ rw [] \\ fs [get_highest_max_def]
+     \\ res_tac \\ fs [])
+  \\ ‘eval_numBoolRange w (fix w') e’ by
+   (fs [Abbr‘fix’]
+    \\ qpat_x_assum ‘eval_numBoolRange w w' e’ mp_tac
+    \\ match_mp_tac (METIS_PROVE [] “b = c ⇒ b ⇒ c”)
+    \\ qpat_x_assum ‘exp_rangeList_ok l e’ mp_tac
+    \\ qabbrev_tac ‘k = get_highest_max l’
+    \\ ‘∀v m n. MEM (v,m,n) l ⇒ MIN k (w' v) = w' v ∧ w' v ≤ k’ by
+      (rw [] \\ res_tac \\ gvs [MIN_DEF])
+    \\ qid_spec_tac ‘e’ \\ Induct
+    \\ fs [eval_numBoolRange_def,exp_rangeList_ok_def]
+    \\ rpt strip_tac
+    \\ fs [MEM_MAP,EXISTS_PROD]
+    \\ res_tac \\ fs [])
+  \\ disch_then (qspecl_then [‘w’,‘fix w'’] mp_tac)
+  \\ impl_tac
+  THEN1
+   (fs [numVarAssignment_range_ok_def,EVERY_MEM,FORALL_PROD,Abbr‘fix’]
+    \\ rw [] \\ res_tac \\ fs []
+    \\ match_mp_tac LESS_EQ_TRANS \\ first_x_assum $ irule_at Any
+    \\ match_mp_tac LESS_EQ_TRANS \\ first_x_assum $ irule_at Any
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘l’ \\ Induct
+    \\ fs [FORALL_PROD] \\ rw []
+    \\ fs [get_highest_max_def])
+  \\ strip_tac \\ gvs []
+  \\ first_x_assum (qspecl_then [‘w’,‘fix w'’] mp_tac)
+  \\ fs [] \\ fs [Abbr‘fix’]
+QED
+
+
+
+(*
+
 Theorem numBoolRange_to_cnf_preserves_sat:
   ∀ e l w w'.
     rangeList_ok l ∧
@@ -439,5 +564,6 @@ Proof
         exp_rangeList_encoded_ok, numVarAssignment_encoded_ok]
 QED
 
+*)
 
 val _ = export_theory();
