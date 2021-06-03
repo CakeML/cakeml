@@ -2047,24 +2047,36 @@ Definition path_starting_at_def:
   )
 End
 
+Theorem path_starting_at_LENGTH:
+  !dep k rs pqs. path_starting_at dep k rs pqs ==> k < LENGTH pqs /\ k < LENGTH rs
+Proof
+  rw[path_starting_at_def,sol_seq_def]
+QED
+
 Theorem path_starting_at_shorten:
   !k l rs pqs dep. k < l /\ l <= LENGTH pqs
   /\ path_starting_at dep k rs pqs ==>
   path_starting_at dep k (TAKE l rs) (TAKE l pqs)
 Proof
-  rw[path_starting_at_def,wf_pqs_def,EVERY_MEM,LENGTH_TAKE,TAKE_TAKE,EL_TAKE]
-  >- (first_x_assum irule >> drule MEM_TAKE >> fs[])
-  >- (imp_res_tac MEM_DROP_TAKE >> fs[])
-  >> fs[DROP_TAKE,sol_seq_TAKE]
+  rw[path_starting_at_def,LENGTH_TAKE,TAKE_TAKE,EL_TAKE]
+  >> fs[wf_pqs_def,EVERY_TAKE,DROP_TAKE,sol_seq_TAKE]
+QED
+
+Theorem path_starting_at_shorten':
+  !k dep. 0 < k ==>
+  ((!rs pqs. k = LENGTH pqs ==> ~path_starting_at dep 0 rs pqs)
+  <=> !k' rs pqs. k <= k' /\ k' = LENGTH pqs ==> ~path_starting_at dep 0 rs pqs)
+Proof
+  rw[EQ_IMP_THM,LESS_OR_EQ] >> fs[]
+  >> first_x_assum $ qspecl_then [`TAKE k rs`,`TAKE k pqs`] assume_tac
+  >> gs[LENGTH_TAKE] >> drule_at Concl path_starting_at_shorten >> fs[]
 QED
 
 Theorem path_starting_at_0:
   !k rs pqs dep. path_starting_at dep k rs pqs ==>
   path_starting_at dep 0 (DROP k rs) (DROP k pqs)
 Proof
-  rw[path_starting_at_def,wf_pqs_def,HD_DROP,EVERY_MEM]
-  >> first_x_assum match_mp_tac
-  >> fs[EL_MEM,MEM_DROP]
+  rw[path_starting_at_def,wf_pqs_def,HD_DROP,EVERY_DROP]
 QED
 
 Theorem path_starting_at_var_renaming:
@@ -2072,6 +2084,26 @@ Theorem path_starting_at_var_renaming:
   ==> path_starting_at dep k (MAP (λx. MAP (TYPE_SUBST e ## I) x ++ e) rs) pqs
 Proof
   rw[path_starting_at_def,GSYM MAP_DROP,sol_seq_TYPE_SUBST,EL_MAP,equiv_ts_on_compose]
+QED
+
+Theorem path_starting_at_not_is_instance_eq:
+  !dep k. (!pqs rs. path_starting_at dep k rs pqs
+  ==> ~is_instance_LR (FST $ HD pqs) (LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs)))
+  <=>
+  (!pqs rs. path_starting_at dep k rs pqs
+  ==> !i. k <= i /\ i < LENGTH pqs ==> ~is_instance_LR (FST $ HD pqs) (LR_TYPE_SUBST (EL i rs) (SND $ EL i pqs)))
+Proof
+  reverse $ rw[EQ_IMP_THM,LESS_EQ_IFF_LESS_SUC]
+  >> imp_res_tac $ cj 3 $ iffLR path_starting_at_def
+  >- (
+    imp_res_tac path_starting_at_LENGTH
+    >> dep_rewrite.DEP_REWRITE_TAC[LAST_EL]
+    >> fs[GSYM LENGTH_NOT_NULL,GSYM NULL_EQ]
+  )
+  >> rev_drule_then (dxrule_at Any) path_starting_at_shorten >> rw[]
+  >> first_x_assum dxrule >> REWRITE_TAC[GSYM EL]
+  >> dep_rewrite.DEP_REWRITE_TAC[LAST_EL,EL_TAKE]
+  >> fs[GSYM LENGTH_NOT_NULL,GSYM NULL_EQ,LAST_EL,EL_TAKE]
 QED
 
 Definition instance_LR_compute_def:
