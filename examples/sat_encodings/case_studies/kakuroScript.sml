@@ -4,7 +4,7 @@
 
 open preamble miscTheory ASCIInumbersTheory set_sepTheory;
 open quantifierExpTheory orderEncodingBoolTheory numBoolExpTheory;
-open numBoolExtendedTheory numBoolRangeTheory tseytinTheory;
+open numBoolExtendedTheory numBoolRangeTheory;
 open numberSudokuTheory killerSudokuTheory;
 
 val _ = new_theory "kakuro";
@@ -82,7 +82,7 @@ End
 
 Definition kakuro_to_cnf_def:
   kakuro_to_cnf (clues:clueList) =
-  t_numBoolRange_to_cnf
+  numBoolRange_to_cnf
   (get_kakuro_rangeList clues)
   (kakuro_to_numBoolRanges clues)
 End

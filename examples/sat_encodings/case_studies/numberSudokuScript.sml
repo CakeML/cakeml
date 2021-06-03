@@ -3,7 +3,7 @@
 *)
 
 open preamble miscTheory ASCIInumbersTheory set_sepTheory;
-open quantifierExpTheory numBoolRangeTheory tseytinTheory sudokuTheory;
+open quantifierExpTheory numBoolRangeTheory sudokuTheory;
 
 val _ = new_theory "numberSudoku";
 
@@ -116,11 +116,11 @@ Definition numberSudoku_to_cnf_def:
       numBoolRange_to_cnf l e
 End
 
-Definition t_numberSudoku_to_cnf_def:
-  t_numberSudoku_to_cnf (sudoku:sudoku) =
+Definition numberSudoku_to_cnf_def:
+  numberSudoku_to_cnf (sudoku:sudoku) =
   let e = ns_sudoku_to_numBoolRange sudoku in
     let l = get_sudoku_rangeList in
-      t_numBoolRange_to_cnf l e
+      numBoolRange_to_cnf l e
 End
 
 Definition cellAssignment_to_assignment_def:
@@ -138,9 +138,9 @@ Definition assignment_to_cellAssignment_def:
   w get_sudoku_rangeList (ns_sudoku_to_numBoolRange sudoku)
 End
 
-Definition t_numberSudoku_to_assignment_def:
-  t_numberSudoku_to_assignment (w:cellAssignment) (sudoku:sudoku) =
-  t_numBoolRange_to_assignment
+Definition numberSudoku_to_assignment_def:
+  numberSudoku_to_assignment (w:cellAssignment) (sudoku:sudoku) =
+  numBoolRange_to_assignment
   (λ _. F) w get_sudoku_rangeList (ns_sudoku_to_numBoolRange sudoku)
 End
 
@@ -553,25 +553,11 @@ Proof
   >> rw[create_row_col_block_lists_def]
   >> rw[ns_every_all_distinct_split]
   >- (rw[get_sudoku_with_pos_def]
-      >> rw[get_positions_lemma]
-      >> rw[get_positions_def]
-      >> rw[ns_every_all_distinct_def]
-      >> rw[exp_rangeList_ok_def]
-      >> (rw[ns_all_distinct_def, exp_rangeList_ok_def]
-          >> (rw[ns_not_member_def, exp_rangeList_ok_def]
-              >> rw[get_sudoku_rangeList_lemma, get_positions_def])))
+      >> rw[get_positions_lemma] >> EVAL_TAC)
   >- (rw[get_col_positions_lemma]
-      >> rw[get_col_positions_def]
-      >> rw[ns_every_all_distinct_def, exp_rangeList_ok_def]
-      >> (rw[ns_all_distinct_def, exp_rangeList_ok_def]
-          >> (rw[ns_not_member_def, exp_rangeList_ok_def]
-              >> rw[get_sudoku_rangeList_lemma, get_positions_def])))
+      >> rw[get_col_positions_def] >> EVAL_TAC)
   >> rw[get_block_positions_lemma]
-  >> rw[get_block_positions_def]
-  >> rw[ns_every_all_distinct_def, exp_rangeList_ok_def]
-  >> (rw[ns_all_distinct_def, exp_rangeList_ok_def]
-      >> (rw[ns_not_member_def, exp_rangeList_ok_def]
-          >> rw[get_sudoku_rangeList_lemma, get_positions_def]))
+  >> rw[get_block_positions_def] >> EVAL_TAC
 QED
 
 Theorem numberSudoku_to_numVarAssignment_range_ok:
@@ -591,41 +577,23 @@ Proof
          assignment_ok_def, get_positions_def]
 QED
 
+
 Theorem numberSudoku_to_cnf_preserves_sat:
   ∀ sudoku w.
     sudoku_ok sudoku ∧
     assignment_ok w sudoku ⇒
     (eval_sudoku w sudoku ⇔
        eval_cnf
-       (cellAssignment_to_assignment w sudoku)
+       (numberSudoku_to_assignment w sudoku)
        (numberSudoku_to_cnf sudoku))
-Proof
-  rw[numberSudoku_to_cnf_def, ns_sudoku_to_numBoolRange_preserves_sat,
-     cellAssignment_to_assignment_def]
-  >> irule numBoolRange_to_cnf_preserves_sat
-  >> rw[]
-  >- rw[numberSudoku_to_rangeList_ok]
-  >- rw[numberSudoku_to_exp_rangeList_ok]
-  >> metis_tac[numberSudoku_to_numVarAssignment_range_ok]
-QED
-
-
-Theorem t_numberSudoku_to_cnf_preserves_sat:
-  ∀ sudoku w.
-    sudoku_ok sudoku ∧
-    assignment_ok w sudoku ⇒
-    (eval_sudoku w sudoku ⇔
-       eval_cnf
-       (t_numberSudoku_to_assignment w sudoku)
-       (t_numberSudoku_to_cnf sudoku))
 Proof
   rw[]
   >> imp_res_tac ns_sudoku_to_numBoolRange_preserves_sat >> gs[]
-  >> rw[t_numberSudoku_to_cnf_def, t_numberSudoku_to_assignment_def]
+  >> rw[numberSudoku_to_cnf_def, numberSudoku_to_assignment_def]
   >> assume_tac numberSudoku_to_rangeList_ok
   >> imp_res_tac numberSudoku_to_exp_rangeList_ok
   >> imp_res_tac numberSudoku_to_numVarAssignment_range_ok
-  >> metis_tac [t_numBoolRange_to_cnf_preserves_sat]
+  >> metis_tac [numBoolRange_to_cnf_preserves_sat]
 QED
 
 
@@ -639,6 +607,7 @@ Proof
   rw[get_sudoku_rangeList_lemma]
 QED
 
+(*
 Theorem assignment_to_cellAssignment_ok:
   ∀ sudoku w p.
     sudoku_ok sudoku ∧
@@ -658,6 +627,6 @@ Proof
   >- rw[numberSudoku_to_exp_rangeList_ok]
   >> metis_tac[numberSudoku_to_numVarAssignment_range_ok]
 QED
-
+*)
 
 val _ = export_theory();

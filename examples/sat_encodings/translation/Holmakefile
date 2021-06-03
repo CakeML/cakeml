@@ -1,5 +1,5 @@
 INCLUDES = $(CAKEMLDIR)/examples/sat_encodings $(CAKEMLDIR)/examples/sat_encodings/case_studies $(CAKEMLDIR)/misc $(CAKEMLDIR)/translator \
-           $(HOLDIR)/examples/bootstrap
+            $(CAKEMLDIR)/examples $(HOLDIR)/examples/bootstrap
 
 
 all: $(DEFAULT_TARGETS) README.md

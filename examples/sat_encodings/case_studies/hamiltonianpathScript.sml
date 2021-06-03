@@ -2,7 +2,7 @@
   Encoding of Hamiltonain path problem
 *)
 
-open preamble miscTheory boolExpToCnfTheory quantifierExpTheory;
+open preamble miscTheory boolExpToCnfTheory quantifierExpTheory cnfTheory;
 
 val _ = new_theory "hamiltonianpath";
 

@@ -2,7 +2,7 @@
   Encoding of graph coloring problem
 *)
 
-open preamble miscTheory unorderedSetsTheory tseytinTheory;
+open preamble miscTheory unorderedSetsTheory;
 
 val _ = new_theory "graphColoring";
 
@@ -69,9 +69,9 @@ Definition graphColoring_to_cnf_def:
   (graphColoring_to_equation graph)
 End
 
-Definition t_graphColoring_to_cnf_def:
-  t_graphColoring_to_cnf (colors:colorList) graph =
-  t_equation_to_cnf
+Definition graphColoring_to_cnf_def:
+  graphColoring_to_cnf (colors:colorList) graph =
+  equation_to_cnf
   (colorList_to_setList colors)
   (graphColoring_to_equation graph)
 End

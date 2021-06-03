@@ -2,46 +2,18 @@
   Encoding program for the n-queens problem
 *)
 
-open preamble basis miscTheory set_sepTheory listTheory;
+open preamble basis miscTheory set_sepTheory listTheory cnfTheory;
 open boolExpToCnfTheory quantifierExpTheory orderEncodingBoolTheory;
 open nqueensTheory;
 open (* for parsing: *) parsingTheory source_valuesTheory;
-open tseytinTheory;
-open toCnfHelperTheory;
+open toCnfHelperTheory sat_encodersProgTheory;
 
 val _ = new_theory "nQueensEncoderProg";
 
-val _ = translation_extends "basisProg";
+val _ = translation_extends "sat_encodersProg";
 
-show_assums := true;
+val _ = show_assums := true;
 
-
-(* Tseytin *)
-val res = translate boolExp_to_constFree_def;
-val res = translate get_fresh_name_constFree_def;
-val res = translate bind_def;
-val res = translate constFree_to_cnf_inner_def;
-val res = translate negate_literal_def;
-val res = translate replace_not_def;
-val res = translate replace_or_def;
-val res = translate replace_and_def;
-val res = translate replace_impl_def;
-val res = translate replace_iff_def;
-val res = translate rhs_to_cnf_def;
-val res = translate map_to_cnf_def;
-val res = translate append_aux_def;
-val res = translate append_def;
-val res = translate constFree_to_cnf_def;
-val res = translate t_boolExp_to_cnf_def;
-val res = translate bool_to_quant_def;
-val res = translate replace_name_quant_def;
-val res = translate quant_to_boolExp_def;
-val res = translate none_of_list_to_quant_def;
-val res = translate most_one_to_quant_def;
-val res = translate pseudoBool_to_quant_def;
-val res = translate t_pseudoBool_to_cnf_def;
-
-(* n-queens *)
 val res = translate every_at_most_one_def;
 val res = translate get_rows_def;
 val res = translate get_cols_def;
@@ -54,11 +26,6 @@ val res = translate get_diagonals_def;
 val res = translate every_at_least_one_def;
 val res = translate nqueens_to_pseudoBool_def;
 val res = translate nqueens_to_cnf_def
-
-
-Definition from_str_def:
-  from_str s = head (parse (lexer s) (Num 0) [])
-End
 
 Definition from_v_to_num_def:
   from_v_to_num (Num n) = n ∧
@@ -126,39 +93,12 @@ Definition main_function_def:
     | _ => encode_to_output v_exp
 End
 
-val res = translate name_def;
-val res = translate head_def;
-val res = translate tail_def;
-val res = translate isNum_def;
-val res = translate v2list_def;
-val res = translate list_def;
-val res = translate quote_def;
-val res = translate parse_def;
-val res = translate end_line_def;
-val res = translate read_num_def;
-val res = translate (REWRITE_RULE [MEMBER_INTRO] lex_def);
-
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ fs [FORALL_PROD]
-  \\ gvs[MEMBER_def])
-  |> update_precondition;
-
-val res = translate lexer_def;
-val res = translate from_str_def;
-
+val res = translate from_v_to_num_def;
 val res = translate literal_to_output_def;
 val res = translate clause_to_output_def;
 val res = translate cnf_to_output_def;
 val res = translate get_max_var_def;
 val res = translate get_max_var_and_clauses_def;
-val res = translate from_v_to_num_def;
 val res = translate encode_to_output_def;
 val res = translate sat_to_assignment_inner_def;
 val res = translate sat_to_assignment_def;

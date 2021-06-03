@@ -3,7 +3,7 @@
 *)
 
 open preamble miscTheory ASCIInumbersTheory set_sepTheory;
-open quantifierExpTheory numBoolRangeTheory tseytinTheory;
+open quantifierExpTheory numBoolRangeTheory;
 open sudokuTheory numberSudokuTheory;
 
 val _ = new_theory "killerSudoku";
@@ -140,7 +140,7 @@ End
 
 Definition killerSudoku_to_cnf_def:
   killerSudoku_to_cnf (cages:cageList) =
-  t_numBoolRange_to_cnf
+  numBoolRange_to_cnf
   (get_killerSudoku_rangeList cages)
   (killerSudoku_to_numBoolRanges cages)
 End

@@ -15,6 +15,9 @@ Encoding program for the n-queens problem
 [numBoolRangeEncoderProgScript.sml](numBoolRangeEncoderProgScript.sml):
 Encoding program for the numBoolRange datatype
 
+[sat_encodersProgScript.sml](sat_encodersProgScript.sml):
+Translate of all to-CNF encoding functions
+
 [sudokuEncoderProgScript.sml](sudokuEncoderProgScript.sml):
 Encoding program for the sudoku puzzle
 

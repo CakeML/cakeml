@@ -2,7 +2,7 @@
   Encoding of n-queeens problem to cnf
 *)
 
-open preamble miscTheory boolExpToCnfTheory quantifierExpTheory tseytinTheory;
+open preamble miscTheory boolExpToCnfTheory quantifierExpTheory cnfTheory;
 
 val _ = new_theory "nqueens";
 
@@ -91,7 +91,7 @@ Definition nqueens_to_pseudoBool_def:
 End
 
 Definition nqueens_to_cnf_def:
-  nqueens_to_cnf (n:num) = t_pseudoBool_to_cnf (nqueens_to_pseudoBool n)
+  nqueens_to_cnf (n:num) = pseudoBool_to_cnf (nqueens_to_pseudoBool n)
 End
 
 
@@ -166,6 +166,5 @@ Proof
   >> gs[eval_every_exactly_one]
   >> metis_tac[]
 QED
-
 
 val _ = export_theory();
