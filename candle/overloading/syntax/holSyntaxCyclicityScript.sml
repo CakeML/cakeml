@@ -6229,7 +6229,7 @@ QED
 
 Datatype: ext_step =
     non_comp_step ((type+term) # (type+term) # (type+term) # (type+term))
-    | cyclic_step ((type+term) # (type+term) # (type+term) # (type+term))
+    | cyclic_step ((type+term) # (type+term) # (type+term))
     | maybe_cyclic | acyclic num
 End
 
