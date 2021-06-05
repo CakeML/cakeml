@@ -5869,15 +5869,116 @@ Proof
   >> asm_rewrite_tac[]
 QED
 
+Theorem unify_TYPE_SUBST:
+  !p s s' r. unify (TYPE_SUBST s p) p = SOME (r,s')
+  ==> equiv_ts_on [] r (tyvars (TYPE_SUBST s p)) /\ equiv_ts_on s s' (tyvars p)
+Proof
+  fs[IMP_CONJ_THM,FORALL_AND_THM]
+  >> conj_asm1_tac
+  >- (
+    rw[Once equiv_ts_on_symm,GSYM invertible_on_equiv_ts_on]
+    >> drule unify_mgu
+    >> gvs[unify_def,ELIM_UNCURRY,IS_SOME_EXISTS,GSYM TYPE_SUBST_compose,normalise_tyvars_rec_FST_SND,invertible_on_tyvars]
+    >> imp_res_tac unify_types_sound
+    >> qmatch_assum_abbrev_tac `unify_types [(TYPE_SUBST spa _,TYPE_SUBST nb _)] _ = _`
+    >> rw[GSYM PULL_EXISTS]
+    >> first_x_assum irule
+    >> irule_at Any TYPE_SUBST_NIL
+  )
+  >> rw[]
+  >> imp_res_tac unify_sound
+  >> first_x_assum $ drule
+  >> rw[equiv_ts_on_tyvars]
+QED
+
+Theorem unify_symm:
+  !ty ty' s s'. unify ty ty' = SOME (s,s')
+  ==> ?r r'. unify ty' ty = SOME (r',r)
+  /\ equiv_ts_on s r (tyvars ty)
+  /\ equiv_ts_on s' r' (tyvars ty')
+Proof
+  rpt strip_tac
+  >> `IS_SOME (unify ty' ty)` by (
+    fs[GSYM unify_complete,Once orth_ty_symm] >> fs[unify_complete]
+  )
+  >> fs[IS_SOME_EXISTS] >> Cases_on `x` >> gvs[]
+  >> reverse $ conj_asm1_tac
+  >- (
+    imp_res_tac unify_sound
+    >> fs[equiv_ts_on_tyvars]
+    >> irule_at Any EQ_REFL
+    >> asm_rewrite_tac[]
+  )
+  >> imp_res_tac unify_mgu
+  >> imp_res_tac unify_sound
+  >> ntac 2 $ first_x_assum $ drule o CONV_RULE (ONCE_DEPTH_CONV $ LAND_CONV SYM_CONV)
+  >> rw[GSYM PULL_EXISTS]
+  >> qmatch_assum_abbrev_tac `TYPE_SUBST ra a = b`
+  >> qmatch_assum_abbrev_tac `TYPE_SUBST rb b = a`
+  >> `equiv_ts_on rb [] (tyvars b)` by (
+    irule bij_props_equiv_ts_on
+    >> rpt $ goal_assum $ drule_at Any
+  )
+  >> `equiv_ts_on ra [] (tyvars a)` by (
+    irule bij_props_equiv_ts_on
+    >> rpt $ goal_assum $ drule_at Any
+  )
+  >> gs[equiv_ts_on_tyvars]
+  >> irule_at Any var_renaming_SWAP_IMP
+  >> goal_assum drule
+  >> fs[var_renaming_SWAP_id]
+QED
+
+Theorem unify_TYPE_SUBST':
+  !p s s' r. unify p (TYPE_SUBST s p) = SOME (s',r)
+  ==> equiv_ts_on [] r (tyvars (TYPE_SUBST s p)) /\ equiv_ts_on s s' (tyvars p)
+Proof
+  rw[] >> drule_then strip_assume_tac unify_symm
+  >- (
+    irule equiv_ts_on_trans
+    >> irule_at Any $ cj 1 unify_TYPE_SUBST
+    >> goal_assum drule
+    >> fs[equiv_ts_on_symm]
+  )
+  >> irule equiv_ts_on_trans
+  >> irule_at Any $ cj 2 unify_TYPE_SUBST
+  >> goal_assum drule
+  >> fs[equiv_ts_on_symm]
+QED
+
+Theorem unify_LR_symm:
+  !p p' s s'. unify_LR p p' = SOME (s,s') /\ wf_pqs [(p,p')]
+  ==> ?r r'. unify_LR p' p = SOME (r',r)
+  /\ equiv_ts_on s r (FV p)
+  /\ equiv_ts_on s' r' (FV p')
+Proof
+  dsimp[unify_LR_def,is_const_or_type_eq,wf_pqs_def,FV_def,tvars_def,unify_symm]
+QED
+
 Theorem unify_LR_mgu:
   !ty ty' r s r' s'. unify_LR ty ty' = SOME (r,s) /\ wf_pqs [(ty,ty')]
   /\ LR_TYPE_SUBST r' ty = LR_TYPE_SUBST s' ty'
   ==> ?rr ss. LR_TYPE_SUBST rr (LR_TYPE_SUBST r ty) = LR_TYPE_SUBST r' ty
   /\ LR_TYPE_SUBST ss (LR_TYPE_SUBST s ty') = LR_TYPE_SUBST s' ty'
 Proof
-  fs[wf_pqs_def,is_const_or_type_eq]
-  >> dsimp[unify_LR_def,unify_mgu,LR_TYPE_SUBST_cases]
+  dsimp[unify_LR_def,is_const_or_type_eq,wf_pqs_def,FV_def,tvars_def,LR_TYPE_SUBST_cases]
   >> metis_tac[unify_mgu]
+QED
+
+Theorem unify_LR_LR_TYPE_SUBST:
+  !p s s' r. is_const_or_type p
+  /\ unify_LR (LR_TYPE_SUBST s p) p = SOME (r,s')
+  ==> equiv_ts_on [] r (FV (LR_TYPE_SUBST s p)) /\ equiv_ts_on s s' (FV p)
+Proof
+  dsimp[is_const_or_type_eq,unify_LR_def,unify_TYPE_SUBST,LR_TYPE_SUBST_cases,FV_def,tvars_def]
+QED
+
+Theorem unify_LR_LR_TYPE_SUBST':
+  !p s s' r. is_const_or_type p
+  /\ unify_LR p (LR_TYPE_SUBST s p) = SOME (s',r)
+  ==> equiv_ts_on [] r (FV (LR_TYPE_SUBST s p)) /\ equiv_ts_on s s' (FV p)
+Proof
+  dsimp[is_const_or_type_eq,unify_LR_def,unify_TYPE_SUBST',LR_TYPE_SUBST_cases,FV_def,tvars_def]
 QED
 
 (* composable_step q dep []
