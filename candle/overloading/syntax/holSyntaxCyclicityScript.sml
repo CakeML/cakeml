@@ -2168,6 +2168,32 @@ Proof
   >> fs[is_instance_simps,Once EQ_SYM_EQ]
 QED
 
+Theorem is_instance_LR_simps':
+  !t. is_const_or_type t ==> is_instance_LR t t
+Proof
+  fs[is_instance_simps,LR_TYPE_SUBST_cases,is_const_or_type_eq,PULL_EXISTS,DISJ_IMP_THM,FORALL_AND_THM,is_instance_LR_eq]
+  >> fs[is_instance_simps,Once EQ_SYM_EQ]
+QED
+
+Theorem is_instance_LR_simps'':
+  !p q i. is_const_or_type p /\ is_const_or_type q
+    /\ is_instance_LR p q ==> is_instance_LR p (LR_TYPE_SUBST i q)
+Proof
+  dsimp[LR_TYPE_SUBST_cases,is_const_or_type_eq,PULL_EXISTS,DISJ_IMP_THM,FORALL_AND_THM,is_instance_LR_eq,TYPE_SUBST_compose]
+  >> rpt gen_tac >> irule_at Any EQ_REFL
+QED
+
+Theorem is_instance_LR_simps''':
+  !p q i. is_const_or_type p /\ is_const_or_type q /\ var_renaming i
+  ==> is_instance_LR p (LR_TYPE_SUBST i q) = is_instance_LR p q
+Proof
+  rw[EQ_IMP_THM,is_instance_LR_simps'',is_instance_LR_eq]
+  >> drule_all $ GSYM var_renaming_SWAP_LR_id'
+  >> disch_then $ fs o single o GSYM
+  >> fs[LR_TYPE_SUBST_compose]
+  >> irule_at Any EQ_REFL
+QED
+
 (* lifting of instance_subst
  * instance_subst_LR p p' <=>  p' <= p *)
 Definition instance_subst_LR_def:
