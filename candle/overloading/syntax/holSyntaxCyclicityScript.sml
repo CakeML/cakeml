@@ -5261,6 +5261,12 @@ Proof
   >> rpt $ goal_assum drule
 QED
 
+Theorem wf_dep_wf_pqs:
+  !dep. wf_dep (CURRY $ set dep) = wf_pqs dep
+Proof
+  rw[wf_pqs_def,wf_dep_def,EVERY_MEM,IN_DEF,ELIM_UNCURRY,FORALL_PROD]
+QED
+
 (* Lemma 5.17 *)
 Theorem cyclic_eq_not_terminating:
   !dep. monotone dep
