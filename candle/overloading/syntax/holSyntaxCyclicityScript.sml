@@ -6485,11 +6485,9 @@ Definition dep_step_inv_def:
   dep_step_inv dep dep' rest dep'dep = (
     wf_pqs dep'dep
     /\ wf_pqs (dep ++ dep' ++ rest)
-    /\ EVERY ($~ o UNCURRY is_instance_LR_compute) (dep ++ dep')
     /\ (!q. MEM q dep' ==>
         ?extd. composable_step (SND q) dep [] = INL extd /\
         EVERY ($~ o UNCURRY is_instance_LR_compute) (MAP (λx. (FST q,x)) extd))
-    /\ EVERY ($~ o UNCURRY is_instance_LR_compute) dep'dep
     /\ ?init. dep' = init ++ rest /\
       !x. MEM x dep'dep <=>
         ?q res. MEM q init /\ FST q = FST x
@@ -6585,7 +6583,6 @@ QED
 
 Theorem dep_step_eq_INL:
   !dep dep'. wf_pqs (dep ++ dep')
-  /\ EVERY ($~ o UNCURRY is_instance_LR_compute) (dep ++ dep')
   ==>
     (?x. dep_step dep dep' [] = INL x)
     = (!q. MEM q dep' ==>
@@ -6617,7 +6614,6 @@ QED
 
 Theorem dep_step_complete_cyclic_step:
   !dep rest dep'dep p q q' pre suf extd. wf_pqs dep
-  /\ EVERY ($~ o UNCURRY is_instance_LR_compute) dep
   /\ rest = pre ++ [(p,q)] ++ suf
   /\ (!q. MEM q pre ==>
     ?extd. composable_step (SND q) dep [] = INL extd /\
@@ -6649,7 +6645,6 @@ QED
 
 Theorem dep_step_complete_non_comp_step:
   !dep rest dep'dep p q q' pre suf. wf_pqs dep
-  /\ EVERY ($~ o UNCURRY is_instance_LR_compute) dep
   /\ rest = pre ++ [(p,q)] ++ suf
   /\ (!q. MEM q pre ==>
     ?extd. composable_step (SND q) dep [] = INL extd /\
