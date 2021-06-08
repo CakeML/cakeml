@@ -829,42 +829,4 @@ QED
 
 Theorem fp_times_one_real_id_unfold = REWRITE_RULE [fp_times_one_def] fp_times_one_real_id;
 
-Theorem fp_times_one_reverse_real_id:
-  ∀ st1 st2 env e r.
-    is_real_id_exp [fp_times_one_reverse] st1 st2 env e r
-Proof
-  rpt strip_tac
-  \\ fs[is_real_id_exp_def]
-  \\ qspecl_then [‘e’] strip_assume_tac (ONCE_REWRITE_RULE [DISJ_COMM] fp_times_one_reverse_cases)
-  \\ fs[state_component_equality,fpState_component_equality]
-  \\ rpt strip_tac
-  \\ qpat_x_assum ‘e = e1’ (fs o single o GSYM)
-  \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
-  \\ simp[SimpL “$==>”, realify_def, evaluate_def, astTheory.getOpClass_def,
-          evaluate_case_case, do_app_def]
-  \\ ntac 2 (TOP_CASE_TAC \\ gs[])
-  \\ ‘q.fp_state.real_sem’ by (imp_res_tac evaluate_fp_opts_inv \\ gs[])
-  \\ gs[] \\ imp_res_tac evaluate_sing \\ rveq \\ gs[]
-  \\ ‘st1 with <|refs := st1.refs; ffi := st1.ffi|> = st1’ by fs[state_component_equality]
-  \\ pop_assum (fs o single)
-  \\ ‘∃ choices r. evaluate st1 env [realify e] = (st1 with fp_state := st1.fp_state with choices := choices, Rval [Real r])’
-    by (
-    qspecl_then [‘e’, ‘env’] mp_tac
-    (CONJUNCT1 icing_rewriterProofsTheory.isFpArithExp_matched_evaluates_real)
-    \\ impl_tac
-    >- (gs[isFpArithExp_def, freeVars_real_bound_def] \\ imp_res_tac evaluate_fp_opts_inv \\ gs[])
-    \\ disch_then $ qspec_then ‘st1’ strip_assume_tac
-    \\ gs[state_component_equality,fpState_component_equality])
-  \\ gs[realify_def, evaluate_def, astTheory.getOpClass_def, do_app_def]
-  \\ gs[state_component_equality, fpState_component_equality] \\ rpt strip_tac
-  \\ rveq \\ gs[]
-  \\ fs[EVAL “(fp64_to_real 0x3FF0000000000000w)”]
-  \\ fs[EVAL “real_bop (getRealBop FP_Mul) r' (float_to_real <|Sign := (0w :word1); Exponent := (1023w :word11); Significand := (0w :52 word)|>)”]
-  \\ fs[float_to_real]
-  \\ fs[realTheory.real_div, realTheory.REAL_MUL_LZERO, realTheory.REAL_ADD_RID,
-        realTheory.REAL_MUL_RID, realTheory.REAL_MUL_RINV]
-QED
-
-Theorem fp_times_one_reverse_real_id_unfold = REWRITE_RULE [reverse_tuple_def, fp_times_one_def, fp_times_one_reverse_def] fp_times_one_reverse_real_id;
-
 val _ = export_theory();

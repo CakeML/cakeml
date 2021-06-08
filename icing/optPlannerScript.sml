@@ -430,8 +430,7 @@ End
 Definition post_order_dfs_for_plan_def:
   post_order_dfs_for_plan (f: config -> exp -> (exp # fp_plan) option) (cfg: config) (FpOptimise sc e) = (
   let (e_can, plan: fp_plan) = post_order_dfs_for_plan f (cfg with canOpt := if sc = Opt then T else F) e in
-    ((FpOptimise sc e_can),
-     MAP (λ step. case step of |Apply (path, rws) => Apply (Center path, rws) |_ => step) plan)
+    ((FpOptimise sc e_can), MAP_plan_to_path center plan)
   ) ∧
   post_order_dfs_for_plan f cfg (App op exps) = (
     let individuals = MAP (post_order_dfs_for_plan f cfg) exps in
@@ -643,6 +642,10 @@ Definition canonicalize_for_distributivity_local_def:
   | _ => NONE
 End
 
+(** Move all multiplicants into the same position to make distributivity easier
+    to apply
+    Replaces e.g. (x * y) + (z * x) -> (y * x) + (z * x)
+ **)
 Definition canonicalize_for_distributivity_def:
   canonicalize_for_distributivity cfg e =
   post_order_dfs_for_plan
@@ -672,6 +675,27 @@ Definition isVar_def:
   isVar _ = F
 End
 
+(** Locally apply one distributivity optimization **)
+(** Changes: 04/06/2021: Disabled corner case checks **)
+Definition apply_distributivity_local_def:
+  apply_distributivity_local cfg e =
+  (let (can_e, can_plan) = canonicalize_for_distributivity cfg e in
+     case can_e of
+     | App (FP_bop op) [
+         App (FP_bop op') [e1_1;e1_2];
+         App (FP_bop op'') [e2_1;e2_2]] =>
+         (** Simple case: (e11 op' e12) op (e21 op' e12) and op in {*,/}, op' in {+,-} **)
+         if ((op = FP_Add ∨ op = FP_Sub) ∧ (op' = FP_Mul ∨ op' = FP_Div) ∧
+              op'' = op' ∧ e1_2 = e2_2)
+         then
+           (let plan = [Apply (Here, [fp_distribute_gen op' op])];
+                optimized = optimise_with_plan cfg plan can_e in
+              SOME (optimized, can_plan ++ plan))
+         else NONE
+     | _ => NONE)
+End
+
+(** Old version with corner cases
 Definition apply_distributivity_local_def:
   apply_distributivity_local cfg e =
   (let (can_e, can_plan) = canonicalize_for_distributivity cfg e in
@@ -705,14 +729,20 @@ Definition apply_distributivity_local_def:
                  SOME (optimized, can_plan ++ plan))
             else NONE
      | _ => NONE)
-End
+End **)
 
+(** Exploit distributivity of * over + and - to reduce the total number
+    of operations.
+    Replaces (x * y) {+,-} (x * z) with x * (y {+,-} z)
+ **)
 Definition apply_distributivity_def:
   apply_distributivity cfg e =
   post_order_dfs_for_plan
     (λ cfg e.
       case e of
+      (* e = e1 + (e2_1 + e2_2) *)
       | App (FP_bop FP_Add) [e1; App (FP_bop FP_Add) [e2_1; e2_2]] =>
+          (* Reassociate into e = (e1 + e2_1) + e2_2 *)
           (let e1_new = App (FP_bop FP_Add) [e1; e2_1];
                e2_new = e2_2;
                pre_plan = [Apply (Here, [fp_assoc2_gen FP_Add])];
@@ -779,8 +809,7 @@ Definition peephole_optimise_def:
               fp_times_zero;
               fp_plus_zero;
               fp_times_one;
-              fp_same_sub;
-              fp_same_div
+              fp_same_sub
             ] e
       in
         if (plan = []) then NONE else SOME (rewritten, MAP (λ x. Apply x) plan)) cfg e

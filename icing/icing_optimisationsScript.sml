@@ -123,11 +123,6 @@ Definition fp_times_one_def:
   fp_times_one = (Binop FP_Mul (Var 0) (Word (4607182418800017408w: word64)), (Var 0))
 End
 
-Definition fp_times_one_reverse_def:
-  (* 4607182418800017408 is 1.0 in binary representation *)
-  fp_times_one_reverse = reverse_tuple fp_times_one
-End
-
 Definition fp_times_into_div_def:
   fp_times_into_div = (Binop FP_Mul (Binop FP_Div (Var 0) (Var 1)) (Var 2), Binop FP_Div (Binop FP_Mul (Var 0) (Var 2)) (Var 1))
 End
