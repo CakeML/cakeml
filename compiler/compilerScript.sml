@@ -53,7 +53,7 @@ val current_build_info_str_def = Define `
 
 (* ========================================================================= *)
 
-val _ = Datatype`
+Datatype:
   config =
     <| inferencer_config : inf_env
      ; backend_config : α backend$config
@@ -62,9 +62,28 @@ val _ = Datatype`
      ; skip_type_inference : bool
      ; only_print_types    : bool
      ; only_print_sexp     : bool
-     |>`;
+     |>
+End
 
-val _ = Datatype`compile_error = ParseError | TypeError mlstring | AssembleError | ConfigError mlstring`;
+Datatype:
+  compile_error = ParseError | TypeError mlstring | AssembleError | ConfigError mlstring
+End
+
+val help_string = ‘
+Usage:  cake [flags] < input_file > output_file
+’
+
+fun drop_until p [] = []
+  | drop_until p (x::xs) = if p x then x::xs else drop_until p xs;
+
+val help_string_tm =
+  help_string |> hd |> (fn QUOTE s => s) |> explode
+  |> drop_until (fn c => c = #"\n") |> tl |> implode
+  |> stringSyntax.fromMLstring;
+
+Definition help_string_def:
+  help_string = strlit ^help_string_tm
+End
 
 val locs_to_string_def = Define `
   (locs_to_string NONE = implode "unknown location") ∧
@@ -437,11 +456,13 @@ val parse_top_config_def = Define`
                get_err_str prelude;
                get_err_str typeinference])`
 
-(* Check for version flag
-   TODO: fix this
-*)
+(* Check for version flag *)
 val has_version_flag_def = Define `
   has_version_flag ls = MEM (strlit"--version") ls`
+
+(* Check for version help *)
+val has_help_flag_def = Define `
+  has_help_flag ls = MEM (strlit"--help") ls`
 
 val format_compiler_result_def = Define`
   format_compiler_result bytes_export (Failure err) =
@@ -498,7 +519,9 @@ val compile_64_def = Define`
 
 val full_compile_64_def = Define `
   full_compile_64 cl inp fs =
-    if has_version_flag cl then
+    if has_help_flag cl then
+      add_stdout fs help_string
+    else if has_version_flag cl then
       add_stdout fs current_build_info_str
     else
       let (out, err) = compile_64 cl inp in
@@ -535,7 +558,9 @@ val compile_32_def = Define`
 
 val full_compile_32_def = Define `
   full_compile_32 cl inp fs =
-    if has_version_flag cl then
+    if has_help_flag cl then
+      add_stdout fs help_string
+    else if has_version_flag cl then
       add_stdout fs current_build_info_str
     else
       let (out, err) = compile_32 cl inp in
