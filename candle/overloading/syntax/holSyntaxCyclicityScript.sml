@@ -5850,71 +5850,97 @@ Proof
   dsimp[unify_LR_def,is_const_or_type_eq,wf_pqs_def,FV_def,tvars_def,unify_symm]
 QED
 
-(* composable_dep *)
-
-Definition composable_until_def:
-  composable_until dep n =
-    (!rs pqs p s_q s_p. path_starting_at dep 0 rs pqs
-      /\ LENGTH pqs <= n
-      /\ UNCURRY dep p
-      /\ unify_LR (LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs)) (FST p) = SOME (s_q,s_p)
-      ==>
-        invertible_on s_q (FV $ LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs))
-        \/ invertible_on s_p (FV $ FST p))
+(* dep relation contains a type-substitutive path from x to y in k steps (k>0) *)
+Definition has_path_to_def:
+  has_path_to dep k x y =
+    ?rs pqs. path_starting_at dep 0 rs pqs
+      /\ x = FST $ HD pqs /\ y = LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs)
+      /\ k = LENGTH pqs
 End
 
-Theorem composable_dep_composable_until:
-  !dep. wf_dep dep ==> composable_dep dep = !n. composable_until dep n
+Theorem has_path_to_LENGTH:
+  !dep n x y. has_path_to dep n x y ==> 0 < n
 Proof
-  rw[EQ_IMP_THM,composable_dep_def,composable_until_def,ELIM_UNCURRY]
+  fs[has_path_to_def,PULL_EXISTS,path_starting_at_def]
+QED
+
+Theorem has_path_to_ONE:
+  !dep x y. has_path_to dep 1 x y
+    <=>
+    ?z s. wf_pqs [(x,y)] /\ dep x z /\ y = LR_TYPE_SUBST s z
+    /\ is_const_or_type z /\ equiv_ts_on [] s (FV x)
+Proof
+  rw[EQ_IMP_THM,has_path_to_def,path_starting_at_def,sol_seq_def,PULL_EXISTS]
   >- (
-    first_x_assum drule_all
-    >> drule_at Any $ Ho_Rewrite.REWRITE_RULE[IS_SOME_EXISTS,PULL_EXISTS,AND_IMP_INTRO,GSYM CONJ_ASSOC] $ iffLR unify_LR_complete
-    >> impl_keep_tac
-    >- (
-      dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_type_preserving,LAST_EL]
-      >> gs[path_starting_at_def,LR_TYPE_SUBST_type_preserving,wf_pqs_def,wf_dep_def,ELIM_UNCURRY,EVERY_MEM,FORALL_AND_THM,IMP_CONJ_THM,EL_MEM,GSYM LENGTH_NOT_NULL,GSYM NULL_EQ]
-      >> res_tac
-    )
-    >> imp_res_tac unify_LR_sound
-    >> rw[is_instance_LR_eq] >> rw[DISJ_EQ_IMP]
-    >- (
-      qpat_x_assum `LR_TYPE_SUBST _ (FST p) = _` $ assume_tac o GSYM
-      >> gs[invertible_on_equiv_ts_on_FV,equiv_ts_on_symm,unify_LR_LR_TYPE_SUBST]
-    )
-    >> qpat_x_assum `_ = (FST p)` $ assume_tac o GSYM
-    >> gs[unify_LR_LR_TYPE_SUBST',invertible_on_equiv_ts_on_FV,equiv_ts_on_symm]
+    Cases_on `pqs` >> gvs[ELIM_UNCURRY]
+    >> rpt $ goal_assum $ drule_at Any
+    >> dep_rewrite.DEP_REWRITE_TAC[LAST_EL]
+    >> conj_tac >- (CCONTR_TAC >> gs[])
+    >> fs[wf_pqs_def,LR_TYPE_SUBST_type_preserving,ELIM_UNCURRY]
   )
-  >> qmatch_goalsub_abbrev_tac `rs_pqs # p`
-  >> Cases_on `rs_pqs # p` >> fs[]
-  >> drule_at Any $ iffRL unify_LR_complete
-  >> unabbrev_all_tac
-  >> impl_keep_tac
+  >> map_every qexists_tac [`[s]`,`[(x,z)]`]
+  >> fs[wf_pqs_def,ELIM_UNCURRY,EVERY_MEM]
+QED
+
+Theorem has_path_to_ind_eq:
+  !k dep x y. wf_pqs dep /\ 0 < k ==>
+  has_path_to (CURRY (set dep)) (SUC k) x y
+  = (?s z' y'. MEM (z',y') dep /\ y = LR_TYPE_SUBST s y' /\
+    has_path_to (CURRY (set dep)) k x (LR_TYPE_SUBST s z'))
+Proof
+  rw[EQ_IMP_THM,has_path_to_def]
   >- (
-    conj_tac
-    >- (
-      irule LR_TYPE_SUBST_type_preserving
-      >> imp_res_tac path_starting_at_LENGTH
-      >> gs[LENGTH_NOT_NULL,NULL_EQ,LAST_EL,path_starting_at_def,wf_pqs_def,ELIM_UNCURRY,EVERY_MEM,FORALL_AND_THM,IMP_CONJ_THM]
-      >> fs[GSYM LENGTH_NOT_NULL,GSYM NULL_EQ,EL_MEM]
+    fs[PULL_EXISTS]
+    >> drule_then (drule_at_then Any $ irule_at Any) path_starting_at_shorten
+    >> REWRITE_TAC[GSYM EL]
+    >> fs[path_starting_at_def,EL_TAKE]
+    >> `MEM (FST $ LAST pqs,SND $ LAST pqs) dep` by (
+      fs[IN_DEF] >> qhdtm_x_assum `EVERY` $ irule o REWRITE_RULE[EVERY_MEM]
+      >> fs[MEM_EL] >> irule_at Any LAST_EL >> fs[GSYM LENGTH_NOT_NULL,GSYM NULL_EQ]
     )
-    >> gs[wf_dep_def,FORALL_AND_THM,IMP_CONJ_THM,ELIM_UNCURRY,EL_MEM]
-    >> res_tac
+    >> goal_assum dxrule
+    >> dep_rewrite.DEP_REWRITE_TAC[LAST_EL]
+    >> fs[GSYM LENGTH_NOT_NULL,GSYM NULL_EQ,EL_TAKE,sol_seq_def]
+    >> irule_at Any EQ_REFL
+    >> qpat_x_assum `SUC _ = LENGTH _` $ assume_tac o GSYM
+    >> fs[SUC_PRE]
   )
-  >> fs[IS_SOME_EXISTS]
-  >> disch_then $ qx_choose_then `x` strip_assume_tac >> PairCases_on `x`
-  >> imp_res_tac unify_LR_sound
-  >> fs[FORALL_PROD,LESS_OR_EQ,FORALL_AND_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM]
-  >> first_x_assum $ drule_all_then strip_assume_tac
+  >> map_every qexists_tac [`SNOC s rs`,`SNOC (z',y') pqs`]
+  >> fs[SNOC_APPEND,LAST_SNOC,path_starting_at_def]
+  >> qpat_x_assum `wf_pqs dep` $ imp_res_tac o REWRITE_RULE[EVERY_MEM,wf_pqs_def]
+  >> fs[wf_pqs_APPEND,wf_pqs_CONS,ELIM_UNCURRY,IN_DEF] >> REWRITE_TAC[GSYM EL]
+  >> fs[EL_APPEND1,sol_seq_def,wf_pqs_APPEND,wf_pqs_CONS]
+  >> rpt strip_tac >> Cases_on `SUC i < LENGTH pqs`
+  >- (dep_rewrite.DEP_REWRITE_TAC[EL_APPEND1] >> fs[])
+  >> gs[NOT_LESS,LESS_OR_EQ,EL_APPEND2]
+  >> qhdtm_x_assum `LR_TYPE_SUBST` mp_tac
+  >> dep_rewrite.DEP_REWRITE_TAC[LAST_EL]
+  >> fs[GSYM LENGTH_NOT_NULL,GSYM NULL_EQ]
+QED
+
+Theorem cyclic_dep_eq:
+  !dep. wf_dep dep ==> cyclic_dep dep =
+    ?n x y. has_path_to dep n x y /\ is_instance_LR x y
+Proof
+  rw[EQ_IMP_THM,cyclic_dep_def,DISJ_EQ_IMP,has_path_to_def,PULL_EXISTS]
+  >> goal_assum drule
+  >> imp_res_tac path_starting_at_LENGTH
+  >> gs[LENGTH_NOT_NULL,NULL_EQ,LAST_EL]
+QED
+
+Theorem has_path_to_is_const_or_type:
+  !dep n x y. has_path_to dep n x y ==> is_const_or_type x /\ is_const_or_type y
+Proof
+  rw[has_path_to_def,path_starting_at_def,wf_pqs_def,EVERY_MEM,LR_TYPE_SUBST_type_preserving,FORALL_AND_THM,IMP_CONJ_THM,ELIM_UNCURRY]
+  >> gs[]
   >- (
-    gs[invertible_on_equiv_ts_on_FV,Once equiv_ts_on_symm]
-    >> gs[equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
-    >> rw[LR_TYPE_SUBST_type_preserving,LR_TYPE_SUBST_compose,is_instance_LR_simps]
+    first_x_assum irule
+    >> REWRITE_TAC[GSYM EL]
+    >> fs[EL_MEM]
   )
-  >> gs[invertible_on_equiv_ts_on_FV,equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
-  >> drule_then (drule_then $ rev_drule) $ GSYM var_renaming_SWAP_LR_id'
-  >> disch_then $ ONCE_REWRITE_TAC o single o GSYM
-  >> fs[is_instance_LR_simps,LR_TYPE_SUBST_compose]
+  >> irule LR_TYPE_SUBST_type_preserving
+  >> gs[LAST_EL,NULL_EQ,LENGTH_NOT_NULL]
+  >> fs[EL_MEM,GSYM NULL_EQ,GSYM LENGTH_NOT_NULL]
 QED
 
 (* composability check *)
@@ -6313,6 +6339,121 @@ Theorem composable_step_eq_INR:
 Proof
   rw[EQ_IMP_THM,composable_step_complete_INR]
   >> drule_all composable_step_sound_INR >> simp[]
+QED
+
+(* composable_dep *)
+
+Definition composable_until_def:
+  composable_until dep n =
+    (!x y p s_q s_p k. has_path_to dep k x y /\ k <= n
+      /\ UNCURRY dep p
+      /\ unify_LR y (FST p) = SOME (s_q,s_p)
+      ==> invertible_on s_q (FV y) \/ invertible_on s_p (FV $ FST p))
+End
+
+Theorem composable_dep_composable_until:
+  !dep. wf_dep dep ==> composable_dep dep = !n. composable_until dep n
+Proof
+  rw[EQ_IMP_THM,composable_dep_def,composable_until_def,has_path_to_def,ELIM_UNCURRY,PULL_EXISTS]
+  >- (
+    first_x_assum drule_all
+    >> drule_at Any $ Ho_Rewrite.REWRITE_RULE[IS_SOME_EXISTS,PULL_EXISTS,AND_IMP_INTRO,GSYM CONJ_ASSOC] $ iffLR unify_LR_complete
+    >> impl_keep_tac
+    >- (
+      dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_type_preserving,LAST_EL]
+      >> gs[path_starting_at_def,LR_TYPE_SUBST_type_preserving,wf_pqs_def,wf_dep_def,ELIM_UNCURRY,EVERY_MEM,FORALL_AND_THM,IMP_CONJ_THM,EL_MEM,GSYM LENGTH_NOT_NULL,GSYM NULL_EQ]
+      >> res_tac
+    )
+    >> imp_res_tac unify_LR_sound
+    >> rw[is_instance_LR_eq] >> rw[DISJ_EQ_IMP]
+    >- (
+      qpat_x_assum `LR_TYPE_SUBST _ (FST p) = _` $ assume_tac o GSYM
+      >> gs[invertible_on_equiv_ts_on_FV,equiv_ts_on_symm,unify_LR_LR_TYPE_SUBST]
+    )
+    >> qpat_x_assum `_ = (FST p)` $ assume_tac o GSYM
+    >> gs[unify_LR_LR_TYPE_SUBST',invertible_on_equiv_ts_on_FV,equiv_ts_on_symm]
+  )
+  >> qmatch_goalsub_abbrev_tac `rs_pqs # p`
+  >> Cases_on `rs_pqs # p` >> fs[]
+  >> drule_at Any $ iffRL unify_LR_complete
+  >> unabbrev_all_tac
+  >> impl_keep_tac
+  >- (
+    conj_tac
+    >- (
+      irule LR_TYPE_SUBST_type_preserving
+      >> imp_res_tac path_starting_at_LENGTH
+      >> gs[LENGTH_NOT_NULL,NULL_EQ,LAST_EL,path_starting_at_def,wf_pqs_def,ELIM_UNCURRY,EVERY_MEM,FORALL_AND_THM,IMP_CONJ_THM]
+      >> fs[GSYM LENGTH_NOT_NULL,GSYM NULL_EQ,EL_MEM]
+    )
+    >> gs[wf_dep_def,FORALL_AND_THM,IMP_CONJ_THM,ELIM_UNCURRY,EL_MEM]
+    >> res_tac
+  )
+  >> fs[IS_SOME_EXISTS]
+  >> disch_then $ qx_choose_then `x` strip_assume_tac >> PairCases_on `x`
+  >> imp_res_tac unify_LR_sound
+  >> fs[FORALL_PROD,LESS_OR_EQ,FORALL_AND_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM]
+  >> first_x_assum $ drule_all_then strip_assume_tac
+  >- (
+    gs[invertible_on_equiv_ts_on_FV,Once equiv_ts_on_symm]
+    >> gs[equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
+    >> rw[LR_TYPE_SUBST_type_preserving,LR_TYPE_SUBST_compose,is_instance_LR_simps]
+  )
+  >> gs[invertible_on_equiv_ts_on_FV,equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
+  >> drule_then (drule_then $ rev_drule) $ GSYM var_renaming_SWAP_LR_id'
+  >> disch_then $ ONCE_REWRITE_TAC o single o GSYM
+  >> fs[is_instance_LR_simps,LR_TYPE_SUBST_compose]
+QED
+
+Theorem composable_until_SUC:
+  !dep n. wf_pqs dep
+  ==> composable_until (CURRY $ set dep) (SUC n)
+    = (
+      composable_until (CURRY $ set dep) n
+      /\ !x y. has_path_to (CURRY $ set dep) (SUC n) x y
+        ==> ?res. composable_step y dep [] = INL res
+    )
+Proof
+  rw[composable_until_def,EQ_IMP_THM]
+  >- (first_x_assum $ drule_then irule >> fs[])
+  >- (
+    irule composable_step_complete_INL
+    >> drule_then strip_assume_tac has_path_to_is_const_or_type
+    >> rw[IN_DEF]
+    >> first_x_assum $ drule_then $ drule_at Any
+    >> fs[IN_DEF]
+  )
+  >> dxrule_then strip_assume_tac $ iffLR LESS_OR_EQ
+  >~ [`k < SUC n`] >- (first_x_assum $ drule_then irule >> fs[])
+  >> gvs[]
+  >> first_x_assum $ drule_then strip_assume_tac
+  >> drule_at Any composable_step_sound_INL
+  >> drule_then strip_assume_tac has_path_to_is_const_or_type
+  >> rw[IN_DEF]
+QED
+
+Theorem composable_until_composable_step:
+  !n dep. wf_pqs dep
+  ==> composable_until (CURRY $ set dep) n
+    = !k x y. k <= n /\ has_path_to (CURRY $ set dep) k x y
+      ==> ?res. composable_step y dep [] = INL res
+Proof
+  Induct
+  >- fs[composable_until_def,has_path_to_def,path_starting_at_def]
+  >> rw[composable_until_SUC] >> fs[SimpRHS,LE]
+  >> dsimp[AC CONJ_ASSOC CONJ_COMM]
+QED
+
+Theorem composable_dep_eq:
+  !dep. wf_pqs dep
+  ==> composable_dep (CURRY $ set dep)
+    = !k x y. has_path_to (CURRY $ set dep) k x y
+        ==> ?res. composable_step y dep [] = INL res
+Proof
+  rw[composable_until_composable_step,wf_dep_wf_pqs,composable_dep_composable_until]
+  >> fs[GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
+  >> qho_match_abbrev_tac `_ = !k. P k`
+  >> fs[EQ_IMP_THM,LESS_OR_EQ]
 QED
 
 Datatype: ext_step =
