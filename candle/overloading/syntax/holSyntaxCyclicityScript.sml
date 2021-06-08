@@ -2284,14 +2284,6 @@ Definition cyclic_dep_def:
     /\ is_instance_LR (FST (EL 0 pqs)) (LR_TYPE_SUBST (EL (PRE $ LENGTH rs) rs) (SND (EL (PRE $ LENGTH pqs) pqs))))
 End
 
-Theorem cyclic_dep_eq:
-  !dep. cyclic_dep dep =
-  ?n pqs rs. n = LENGTH pqs /\ path_starting_at dep 0 rs pqs
-  /\ is_instance_LR (FST (EL 0 pqs)) (LR_TYPE_SUBST (EL (PRE (LENGTH rs)) rs) (SND (EL (PRE (LENGTH pqs)) pqs)))
-Proof
-  fs[cyclic_dep_def]
-QED
-
 (* Definition 5.7, Kunčar 2015 *)
 Definition composable_dep_def:
   composable_dep dep =
