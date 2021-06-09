@@ -21,6 +21,29 @@ open ag32_configTheory export_ag32Theory
 
 val _ = new_theory"compiler";
 
+val help_string = (* beginning of --help string *) ‘
+
+Usage:  cake [OPTIONS] < input_file > output_file
+
+The cake executable is usually invoked as shown above. The different
+OPTIONS are described in the OPTIONS listing below.
+
+One can also run the cake execuable as follows to print a listing of
+the type of each top-level bindings (including the bindings made in
+the standard basis library).
+
+Usage:  cake --types < input_file
+
+One can invoke the cake executable to print this help message (--help)
+or version information (--version) without an input_file:
+
+Usage:  cake --version
+Usage:  cake --help
+
+OPTIONS:
+
+’ (* end of --help string *)
+
 (* == Build info =========================================================== *)
 
 val current_version_tm = mlstring_from_proc "git" ["rev-parse", "HEAD"]
@@ -68,10 +91,6 @@ End
 Datatype:
   compile_error = ParseError | TypeError mlstring | AssembleError | ConfigError mlstring
 End
-
-val help_string = ‘
-Usage:  cake [flags] < input_file > output_file
-’
 
 fun drop_until p [] = []
   | drop_until p (x::xs) = if p x then x::xs else drop_until p xs;
