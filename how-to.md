@@ -20,9 +20,9 @@ logic of a theorem prover](https://cakeml.org/itp18-short.pdf).
 Running the CakeML compiler
 ---------------------------
 
-The bootstrapped CakeML compiler can be downloaded from the CakeML
-website: https://cakeml.org/download.html. Download the `tar.gz` file
-which contains among other things:
+The bootstrapped CakeML compiler can be downloaded from
+[github](https://github.com/CakeML/cakeml/releases).  Download the
+`tar.gz` file which contains among other things:
 
 - `cake.S` — the machine code for the bootstrapped CakeML compiler
 - `basis_ffi.c` — C code connecting the CakeML basis library to the OS
