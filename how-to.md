@@ -85,6 +85,52 @@ compiled and run as follows:
 The last run illustrates that CakeML's integer type is the unbounded
 mathematical integers (arbitrary precision integers).
 
+Configuring the CakeML compiler
+-------------------------------
+
+The default configuration of the CakeML compiler is usually the right
+one to use. However, the CakeML compiler supports a number of
+command-line options that can be used to tweak the default
+configuration. Type the following for an explanation of the
+command-line options.
+
+    $ ./cake --help
+
+When using the provided `Makefile`, one can specify command-line
+options by setting the `CAKEFLAGS` variable. The following example
+instructs the CakeML compiler to compile the factorial program with
+the `--gc=gen1000` option. This option tells the compiler to install
+the generational version of CakeML's GC with a nursery size of 1000
+machine words.
+
+    $ rm -f fac.cake ; export CAKEFLAGS='--gc=gen1000' ; make fac.cake
+
+Several command-line options can be given at the same time: one can
+specify that we want a 50000-word nursery and to use register
+allocator settings `3` as follows.
+
+    $ rm -f fac.cake ; export CAKEFLAGS='--gc=gen50000 --reg_alg=3' ; make fac.cake
+
+The default GC configuration is `--gc=simple`.
+
+Setting the size of the stack and heap
+--------------------------------------
+
+If program execution aborts with a message saying that the heap or
+stack space has been exhausted, then it might be worth trying to run
+the program with more heap or stack space.
+
+One can run the factorial program from above with 2048 MB of heap
+space and 512 MB of stack space by invoking it as follows:
+
+    $ export CML_HEAP_SIZE=2048 ; export CML_STACK_SIZE=512 ; ./fac.cake 50
+
+Observe that these variables `CML_HEAP_SIZE` and `CML_STACK_SIZE` are
+supplied to the _compiled_ CakeML program `fac.cake` rather than the
+CakeML compiler. Note that, since the CakeML compiler is just another
+CakeML program, the values of these environment variables also affect
+the compiler's execution.
+
 How CakeML differs from SML and OCaml
 -------------------------------------
 
