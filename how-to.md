@@ -187,6 +187,7 @@ examples. Note how `Some` and `None` differ from SML.
     (* some numbers *)
     0;
     1;
+    0xFF;   (* integer written in hex *)
     5000;
     ~5000;  (* a negative number *)
 
