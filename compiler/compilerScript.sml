@@ -42,6 +42,60 @@ Usage:  cake --help
 
 OPTIONS:
 
+  --reg_alg=N
+
+  --gc=G        specifies garbage collector type; here G is one of:
+                   none   - no garbage collector is used
+                   simple - a non-generational Cheney (default)
+                   genN   - a generational Cheney garbage collector is
+                            used; the size of the nursery generation is
+                            N machine words (example: --gc=gen5000)
+
+  --target=T    specifies that compilation should produce code for target
+                T, where T can be one of x64, arm8, mips, riscv for
+                the 64-bit compiler; for the 32-bit compiler T can be
+                one of arm7 and ag32.
+
+  --sexp=B      B can be either true or false; here false means that the
+                input will be parsed as normal CakeML concrete syntax;
+                true means that the input is parsed as an s-expression.
+
+  --print_sexp  causes the cake to print the given program in
+                s-expression format; with this option, the compiler
+                does not generate machine code.
+
+  --exclude_prelude=B   here B can be either true or false; the default
+                is false; setting this to true causes the compiler not
+                to include the standard basis library.
+
+  --skip_type_inference=B   here B can be either true or false; the
+                default is false; true will make the compiler skip
+                type inference. There are no gurantees of safety if
+                the type inferencer is skipped.
+
+  --explore
+
+ADDITIONAL OPTIONS:
+
+Optimisations can be configured using the following advanced options.
+
+  --jump=B   true means conditional jumps to be used for out-of-stack checks
+  --multi=B  true means clos_to_bvl phase is to use multi optimisation
+  --known=B  true means clos_to_bvl phase is to use known optimisation
+  --call=B   true means clos_to_bvl phase is to use call optimisation
+  --inline_factor=N  threshold used by for inliner pass
+  --max_app=N        max number of optimised curried applications
+  --max_body_size=N
+  --inline_size=N
+  --exp_cut=N
+  --split=N
+  --tag_bits=N
+  --len_bits=N
+  --pad_bits=N
+  --len_size=N
+  --emit_empty_ffi=B
+  --hash_size=N
+
 ’ (* end of --help string *)
 
 (* == Build info =========================================================== *)
