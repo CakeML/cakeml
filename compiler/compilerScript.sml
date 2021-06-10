@@ -42,7 +42,13 @@ Usage:  cake --help
 
 OPTIONS:
 
-  --reg_alg=N
+  --reg_alg=N   N is a natural number that specifies the register
+                allocation algorithm to use:
+                   0   - simple allocator, no spill heuristics
+                   1   - simple allocator, spill heuristics
+                   2   - IRC allocator, no spill heuristics (default)
+                   3   - IRC allocator, spill heuristics
+                   >=4 - linear scan allocator
 
   --gc=G        specifies garbage collector type; here G is one of:
                    none   - no garbage collector is used
@@ -93,8 +99,8 @@ Optimisations can be configured using the following advanced options.
   --len_bits=N
   --pad_bits=N
   --len_size=N
-  --emit_empty_ffi=B
-  --hash_size=N
+  --emit_empty_ffi=B  true emits debugging FFI calls for use with DEBUG_FFI
+  --hash_size=N  size of the memoization table used by instruction encoder
 
 ’ (* end of --help string *)
 
