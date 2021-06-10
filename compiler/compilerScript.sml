@@ -29,7 +29,7 @@ The cake executable is usually invoked as shown above. The different
 OPTIONS are described in the OPTIONS listing below.
 
 One can also run the cake execuable as follows to print a listing of
-the type of each top-level bindings (including the bindings made in
+the type of each top-level binding (including the bindings made in
 the standard basis library).
 
 Usage:  cake --types < input_file
@@ -79,7 +79,8 @@ OPTIONS:
                 type inference. There are no gurantees of safety if
                 the type inferencer is skipped.
 
-  --explore
+  --explore     outputs several intermediate forms of the compiled
+                program in JSON format
 
 ADDITIONAL OPTIONS:
 
@@ -89,16 +90,16 @@ Optimisations can be configured using the following advanced options.
   --multi=B  true means clos_to_bvl phase is to use multi optimisation
   --known=B  true means clos_to_bvl phase is to use known optimisation
   --call=B   true means clos_to_bvl phase is to use call optimisation
-  --inline_factor=N  threshold used by for inliner pass
-  --max_app=N        max number of optimised curried applications
-  --max_body_size=N
-  --inline_size=N
-  --exp_cut=N
-  --split=N
-  --tag_bits=N
-  --len_bits=N
-  --pad_bits=N
-  --len_size=N
+  --inline_factor=N  threshold used by for ClosLang inliner in known pass
+  --max_body_size=N  threshold used by for ClosLang inliner in known pass
+  --max_app=N   max number of optimised curried applications in multi pass
+  --inline_size=N  threshold used by for BVL inliner pass
+  --exp_cut=N  threshold for when to cut large expression into subfunctions
+  --split=B  true means main expression will be split at sequencing (;)
+  --tag_bits=N  number of tag bits in every pointer
+  --len_bits=N  number of length bits in every pointer
+  --pad_bits=N  number of zero padding in every pointer
+  --len_size=N  size of length field in heap object header cells
   --emit_empty_ffi=B  true emits debugging FFI calls for use with DEBUG_FFI
   --hash_size=N  size of the memoization table used by instruction encoder
 
