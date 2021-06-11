@@ -3,13 +3,15 @@
 *)
 open preamble basis compilationLib;
 open backendProofTheory backendPropsTheory;
-open costLib costPropsTheory;
+open costLib costPropsTheory size_ofPropsTheory;
 open dataSemTheory data_monadTheory dataLangTheory;
 open lcgLoopProgTheory;
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory "lcgLoopProof"
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 Overload monad_unitbind[local] = ``data_monad$bind``
 Overload return[local] = ``data_monad$return``
@@ -26,6 +28,14 @@ val coeff_bounds_def = Define`
   small_num T (&c) ∧
   small_num T (&m) ∧
   small_num T (&(a*m + c))`
+
+val fields = TypeBase.fields_of “:('c,'ffi) dataSem$state”;
+
+Overload state_refs_fupd = (fields |> assoc "refs" |> #fupd);
+Overload state_locals_fupd = (fields |> assoc "locals" |> #fupd);
+Overload state_stack_max_fupd = (fields |> assoc "stack_max" |> #fupd);
+Overload state_safe_for_space_fupd = (fields |> assoc "safe_for_space" |> #fupd);
+Overload state_peak_heap_length_fupd = (fields |> assoc "peak_heap_length" |> #fupd);
 
 Theorem size_of_Number_head_append:
   ∀ls.
@@ -165,7 +175,7 @@ Definition repchar_list_def:
   (repchar_list (Block ts _ [Number i; rest]) (l:num) (tsb:num) ⇔
     (0 ≤ i ∧ i ≤ 255 ∧ (* i reps a character *)
     ts < tsb ∧
-    l > 0 ∧ repchar_list rest (l-1) tsb)) ∧
+    l > 0 ∧ repchar_list rest (l-1) ts)) ∧
   (* nil *)
   (repchar_list (Block _ tag []) (l:num) tsb ⇔ (tag = 0)) ∧
   (* everything else *)
@@ -190,23 +200,6 @@ Proof
   qpat_x_assum`~small_num _ _` mp_tac>>
   simp[small_num_def]>>rw[]>>
   intLib.ARITH_TAC
-QED
-
-Theorem approx_of_repchar_list:
-  ∀blocks l tsb sl refs.
-  repchar_list blocks l tsb ⇒
-   (approx_of sl [blocks] refs ≤ 3*l)
-Proof
-  ho_match_mp_tac repchar_list_ind>>
-  rw[repchar_list_def]>>
-  fs[dataPropsTheory.approx_of_def]>>
-  rpt (pairarg_tac>>fs[])>>
-  every_case_tac>>fs[]>>
-  first_x_assum (qspecl_then [‘sl’,‘refs’] assume_tac)
-  >-rw[]>>
-  ‘small_num sl.arch_64_bit i’ suffices_by fs[]>>
-  ntac 2 (pop_assum kall_tac)>>fs [small_num_def]>>
-  rw[]>>intLib.ARITH_TAC
 QED
 
 (* TODO move to sptree *)
@@ -264,26 +257,66 @@ Proof
   rw[repchar_list_def]
 QED
 
+Theorem repchar_list_insert_ts:
+  ∀xs m ts_vl ts refs1 seen1 lims.
+    repchar_list xs m ts_vl ∧ ts_vl ≤ ts
+  ⇒ (size_of lims [xs] refs1 (insert ts () seen1) =
+     (λ(x,y,z). (x,y,insert ts () z)) (size_of lims [xs] refs1 seen1))
+Proof
+  ho_match_mp_tac repchar_list_ind >> rw[] >> fs[repchar_list_def] >>
+  fs[size_of_def] >>
+  simp[lookup_insert] >>
+  IF_CASES_TAC >- simp[] >>
+  rpt(pairarg_tac >> fs[] >> rveq) >>
+  ntac 2 (pop_assum mp_tac) >>
+  simp [Once insert_insert]
+QED
+
 Theorem repchar_list_more_seen:
   ∀block l ts refs seen a1 b1 c1.
   repchar_list block l ts ∧
   (size_of lims [block] refs seen = (a1,b1,c1)) ⇒
   (size_of lims [block] refs (insert ts () seen) = (a1,b1,insert ts () c1))
 Proof
-  ho_match_mp_tac repchar_list_ind>>rw[repchar_list_def]
-  >- (
-    fs[size_of_def,lookup_insert]>>
-    IF_CASES_TAC>>fs[]>>
-    rpt(pairarg_tac>>fs[])>>rveq>>fs[]>>
-    first_x_assum drule>>
-    `insert ts' () (insert ts () seen) = insert ts () (insert ts' () seen)` by
-      simp[insert_swap]>>
-    simp[])>>
-  fs[size_of_def]
+  rw[] \\ drule repchar_list_insert_ts
+  \\ disch_then (qspec_then ‘ts’ mp_tac) \\ simp[]
 QED
 
+Definition repchar_to_tsl_def:
+  (repchar_to_tsl (Block ts _ [Number i; rest]) = OPTION_MAP (CONS ts) (repchar_to_tsl rest)) ∧
+  (repchar_to_tsl (Block _ 0 []) = SOME []) ∧
+  (repchar_to_tsl _ = NONE)
+End
+
+Theorem repchar_list_to_tsl_SOME:
+  ∀l n ts. repchar_list l n ts ⇒ ∃tsl. repchar_to_tsl l = SOME tsl
+Proof
+  ho_match_mp_tac repchar_list_ind \\ rw [repchar_to_tsl_def,repchar_list_def]
+QED
+
+Definition repchar_list_safe_def:
+  (repchar_list_safe seen [] = T)
+∧ (repchar_list_safe seen (ts::tsl) =
+   ((∀ts0. MEM ts0 tsl ∧ IS_SOME (sptree$lookup ts seen) ⇒ IS_SOME (lookup ts0 seen)) ∧
+      repchar_list_safe seen tsl))
+End
+
+Definition repchar_safe_heap_def:
+  repchar_safe_heap s ivl =
+     let (_,_,seen) = size_of s.limits (FLAT (MAP extract_stack s.stack) ++
+                               global_to_vs s.global) s.refs LN
+     in repchar_list_safe seen ivl
+End
+
+Definition seen_of_heap_def:
+  seen_of_heap s =
+     let (_,_,seen) = size_of s.limits (stack_to_vs s) s.refs LN
+     in seen
+End
+
+
 Theorem n2l_acc_evaluate:
-  ∀k n s block sstack lsize sm acc ls l ts.
+  ∀k n s block sstack lsize sm acc ls l ts tsl.
   (size_of_stack s.stack = SOME sstack) ∧
   (s.locals_size = SOME lsize) ∧
   (s.stack_max = SOME sm) ∧
@@ -297,6 +330,9 @@ Theorem n2l_acc_evaluate:
   small_num T (&n) ∧
   n < 10**k ∧ k > 0 ∧
   repchar_list block l ts ∧
+  (repchar_to_tsl block = SOME tsl) ∧
+  repchar_safe_heap s tsl ∧
+  (∀ts'. ts ≤ ts' ⇒ IS_NONE (lookup ts' (seen_of_heap s))) ∧
   (size_of_heap s + 3 * k ≤ s.limits.heap_limit) ∧
   (lookup_hex s.code = SOME(1,hex_body)) ∧
   (lookup_n2l_acc s.code = SOME(2, n2l_acc_body)) ∧
@@ -318,8 +354,9 @@ Theorem n2l_acc_evaluate:
     clk0 ≤ s.clock ∧
    (
     (res = (Rerr(Rabort Rtimeout_error))) ∨
-    (∃vv. (res = Rval vv) ∧ repchar_list vv (k + l) ts0 ∧ (stk = s.stack))
-   )
+    (∃vv tsl. (res = Rval vv) ∧ repchar_list vv (k + l) ts0 ∧
+              (stk = s.stack) ∧ (repchar_to_tsl vv = SOME tsl) ∧
+              repchar_safe_heap s tsl) ∧ ts < ts0)
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -427,12 +464,20 @@ in
     simp[flush_state_def]>>
     reverse (rw [state_component_equality])>- (
       simp[repchar_list_def]>>
-      drule repchar_list_more_tsb>>
-      disch_then(qspec_then`ts+1` mp_tac)>>simp[]>>
-      strip_tac>>
       drule repchar_list_more>>
-      disch_then match_mp_tac>>
-      simp[])>>
+      disch_then (irule_at Any)>>
+      simp[repchar_to_tsl_def]>>
+      qpat_x_assum ‘repchar_safe_heap _ _’ mp_tac>>
+      gs[repchar_safe_heap_def,seen_of_heap_def,stack_to_vs_def]>>
+      rpt (pairarg_tac>>fs [])>>rveq>>
+      qmatch_asmsub_abbrev_tac ‘size_of _ (q1 ++ ll1 ++ ll2)’>>
+      qabbrev_tac ‘ll = ll1 ++ ll2’>>
+      ‘q1 ++ ll1 ++ ll2 = q1 ++ ll’ by simp [APPEND_ASSOC,Abbr‘ll’]>>
+      pop_assum (gs o single o Req0)>>
+      drule size_of_append>>rw[repchar_list_safe_def]>>
+      drule size_of_seen_pres>>
+      gs[IS_SOME_EXISTS,subspt_lookup]>>
+      disch_then drule>>gs[])>>
     simp[Once data_to_word_gcProofTheory.size_of_cons]>>
     pairarg_tac>>fs[]>>
     pairarg_tac>>fs[]>>
@@ -573,11 +618,12 @@ in
     rw[Once MAX_DEF]>>
     rfs [frame_lookup])>>
   qmatch_goalsub_abbrev_tac`(n2l_acc_body,ss)`>>
-  first_x_assum(qspec_then`k-1` mp_tac)>>simp[]>>
+  last_x_assum(qspec_then`k-1` mp_tac)>>simp[]>>
   disch_then(qspecl_then[`n DIV 10`, `ss`] mp_tac)>>
   simp[PULL_EXISTS,Abbr`ss`]>>
   fs[GSYM size_of_stack_def]>>
   disch_then(qspec_then`l+1` mp_tac)>>simp[]>>
+  simp[repchar_to_tsl_def]>>
   impl_tac >- (
     simp[GSYM n2l_acc_body_def]>>
     rfs[frame_lookup]>>
@@ -587,11 +633,50 @@ in
         (Cases_on`k`>>simp[EXP])>>
       simp[])>>
     CONJ_TAC>- (
-      simp[repchar_list_def]>>
-      CONJ_TAC >- intLib.ARITH_TAC>>
-      drule repchar_list_more_tsb>>
-      disch_then match_mp_tac>>
-      simp[])>>
+      simp[repchar_list_def]>> intLib.ARITH_TAC)>>
+    CONJ_TAC>- (
+      gs[repchar_safe_heap_def,seen_of_heap_def,stack_to_vs_def]>>
+      rpt (pairarg_tac>>fs [])>>rveq>>
+      qmatch_asmsub_abbrev_tac ‘size_of _ (q1 ++ ll1 ++ ll2)’>>
+      qabbrev_tac ‘ll = ll1 ++ ll2’>>
+      ‘q1 ++ ll1 ++ ll2 = q1 ++ ll’ by simp [APPEND_ASSOC,Abbr‘ll’]>>
+      pop_assum (gs o single o Req0)>>
+      drule size_of_append>>rw[repchar_list_safe_def]>>
+      drule size_of_seen_pres>>
+      gs[IS_SOME_EXISTS,subspt_lookup]>>
+      disch_then drule>>gs[])>>
+    CONJ_TAC>- (
+      rw[]>>first_assum (qspec_then ‘ts’ mp_tac)>>
+      first_x_assum (qspec_then ‘ts''’ mp_tac)>>
+      simp[seen_of_heap_def,stack_to_vs_def]>>
+      eval_goalsub_tac ``sptree$toList _ `` >>
+      rpt (pairarg_tac>>fs [])>>rveq>>
+      qmatch_asmsub_abbrev_tac ‘size_of _ (a1::a2::ll)’>>
+      qmatch_asmsub_abbrev_tac ‘size_of _ (block::b2::ll)’>>
+      qabbrev_tac‘bb = [block;b2]’>>
+      qabbrev_tac‘aa = [a1;a2]’>>
+      ‘block::b2::ll = bb ++ ll’ by simp[Abbr‘bb’]>>
+      pop_assum (gs o single o Req0)>>
+      ‘a1::a2::ll = aa ++ ll’ by simp[Abbr‘aa’]>>
+      pop_assum (gs o single o Req0)>>
+      imp_res_tac size_of_append>>gs[]>>rveq>>rw[]>>
+      ‘lookup ts seen0 = NONE’
+      by (CCONTR_TAC>>Cases_on‘lookup ts seen0’>>gs[]>>
+          drule size_of_seen_pres>>
+          gs[subspt_lookup]>>
+          first_x_assum (irule_at Any)>>
+          simp[])>>
+      gs[Abbr‘aa’,Abbr‘bb’,Abbr‘a1’,Abbr‘a2’,Abbr‘b2’]>>
+      gs[size_of_def]>>rpt (pairarg_tac>>fs [])>>rveq>>
+      `small_num s.limits.arch_64_bit (&(n MOD 10 + 48)) ∧
+       small_num s.limits.arch_64_bit (&n) ∧
+       small_num s.limits.arch_64_bit (&(n DIV 10))` by
+        (fs[small_num_def]>>
+         rw[]>>intLib.ARITH_TAC)>>
+      gs[size_of_Number_head]>>rveq>>
+      drule repchar_list_more_seen>>
+      disch_then (qspecl_then[‘s.limits’,‘refs0’,‘seen0’] mp_tac)>>
+      simp[lookup_insert])>>
     fs[size_of_heap_def,stack_to_vs_def]>>
     eval_goalsub_tac ``sptree$toList _ ``>>
     simp[Once data_to_word_gcProofTheory.size_of_cons]>>
@@ -613,7 +698,8 @@ in
     simp[])>>
   strip_tac>>simp[]>>
   rw [state_component_equality]>>
-  rfs[frame_lookup]
+  rfs[frame_lookup]>>
+  gs[repchar_safe_heap_def]
 end
 QED
 
@@ -747,7 +833,6 @@ in
   \\ qabbrev_tac `szh = (size_of s.limits (FLAT (MAP extract_stack s.stack) ++ global_to_vs s.global) s.refs LN)`
   \\ `?nn xx yy. szh = (nn,xx,yy)` by
     (PairCases_on`szh`>>fs[])
-
   \\ qabbrev_tac `szacc = size_of s.limits [block] xx yy `
   \\ `∃bn xn yn. szacc = (bn,xn,yn)` by
     (PairCases_on`szacc`>>fs[])>>
@@ -852,23 +937,18 @@ in
       rw[])>>
     rw[state_component_equality] >>
     simp[repchar_list_def]>>
-    drule repchar_list_more_tsb>>
-    disch_then(qspec_then`ts+1` mp_tac)>>simp[]>>
-    strip_tac>>
     drule repchar_list_more>>
     disch_then match_mp_tac>>
     simp[])>>
   (*  8 :≡ (Const 10,[],NONE); *)
   strip_assign>>
   simp[libTheory.the_def]>>
-
   (* preliminaries *)
   `small_num s.limits.arch_64_bit 10` by
     (fs[small_num_def])>>
   `small_num s.limits.arch_64_bit (&(n MOD 10 + 48))` by
     (fs[small_num_def]>>
     rw[]>>intLib.ARITH_TAC)>>
-
   (* 9 :≡ (Mod,[1; 8],SOME ⦕ 0; 1; 8 ⦖); *)
   (* strip_assign but don't expand locals>> *)
   strip_assign>>
@@ -1004,13 +1084,7 @@ in
         (Cases_on`k`>>simp[EXP])>>
       simp[])>>
     CONJ_TAC>- (
-      simp[repchar_list_def]>>
-      CONJ_TAC >- (
-        qpat_x_assum`PP` kall_tac>>
-        intLib.ARITH_TAC)>>
-      drule repchar_list_more_tsb>>
-      disch_then match_mp_tac>>
-      simp[])>>
+      simp[repchar_list_def]>>intLib.ARITH_TAC)>>
     `bignum_size s.limits.arch_64_bit (&(n DIV 10)) ≤
      bignum_size s.limits.arch_64_bit (&n)` by
       (match_mp_tac bignum_size_mono>>
@@ -1059,83 +1133,12 @@ in
 end
 QED
 
-Definition approx_of_heap_def[simp]:
-  approx_of_heap s = approx_of s.limits (stack_to_vs s) s.refs
-End
-
 val put_char_body = ``lookup_put_char (fromAList lcgLoop_data_prog)``
            |> (REWRITE_CONV [lcgLoop_data_code_def] THENC EVAL)
            |> concl |> rhs |> rand |> rand
 
 val put_char_body_def = Define`
     put_char_body = ^put_char_body`
-
-Definition no_ptrs_list_def:
-  (no_ptrs_list [] = T) ∧
-  (no_ptrs_list [RefPtr p] = F) ∧
-  (no_ptrs_list [Block ts tag l] = no_ptrs_list l) ∧
-  (no_ptrs_list [x] = T) ∧
-  (no_ptrs_list (v::vs) = no_ptrs_list [v] ∧ no_ptrs_list vs)
-Termination
-  WF_REL_TAC `(inv_image (measure v1_size) I)`
-End
-
-Theorem no_ptrs_list_approx_of_subspt:
-  ∀vs l refs.
-  no_ptrs_list vs ∧ subspt refs refs'
-  ⇒ (approx_of l vs refs = approx_of l vs refs')
-Proof
-  ho_match_mp_tac no_ptrs_list_ind>>
-  rw[no_ptrs_list_def]
-  >-
-    simp[dataPropsTheory.approx_of_def]
-  >- (
-    Cases_on`vs`
-    >- (
-      simp[Once dataPropsTheory.approx_of_def]>>
-      simp[Once dataPropsTheory.approx_of_def] )>>
-    fs[]>>
-    PURE_REWRITE_TAC[Once dataPropsTheory.approx_of_def,SimpLHS]>>
-    PURE_REWRITE_TAC[Once dataPropsTheory.approx_of_def,SimpRHS]>>
-    metis_tac[])
-  >- simp[dataPropsTheory.approx_of_def]
-  >- simp[dataPropsTheory.approx_of_def]
-  >- simp[dataPropsTheory.approx_of_def] >>
-  PURE_REWRITE_TAC[Once dataPropsTheory.approx_of_def,SimpLHS]>>
-  PURE_REWRITE_TAC[Once dataPropsTheory.approx_of_def,SimpRHS]>>
-  metis_tac[]
-QED
-
-Theorem no_ptrs_list_approx_of_insert:
-  ∀vs l refs.
-  no_ptrs_list vs
-  ⇒ (approx_of l vs refs = approx_of l vs (insert p x refs))
-Proof
-  ho_match_mp_tac no_ptrs_list_ind>>
-  rw[no_ptrs_list_def]
-  >-
-    simp[dataPropsTheory.approx_of_def]
-  >- (
-    Cases_on`vs`
-    >- (
-      simp[Once dataPropsTheory.approx_of_def]>>
-      simp[Once dataPropsTheory.approx_of_def] )>>
-    fs[]>>
-    PURE_REWRITE_TAC[Once dataPropsTheory.approx_of_def,SimpLHS]>>
-    PURE_REWRITE_TAC[Once dataPropsTheory.approx_of_def,SimpRHS]>>
-    metis_tac[])
-  >- simp[dataPropsTheory.approx_of_def]
-  >- simp[dataPropsTheory.approx_of_def]
-  >- simp[dataPropsTheory.approx_of_def] >>
-  PURE_REWRITE_TAC[Once dataPropsTheory.approx_of_def,SimpLHS]>>
-  PURE_REWRITE_TAC[Once dataPropsTheory.approx_of_def,SimpRHS]>>
-  metis_tac[]
-QED
-
-Definition no_ptrs_refs_def:
-  no_ptrs_refs refs =
-    ∀x l. (sptree$lookup x refs = SOME (ValueArray l)) ⇒ no_ptrs_list l
-End
 
 Theorem delete_insert:
   p ≠ r ∧ wf refs ⇒
@@ -1169,66 +1172,13 @@ Proof
   metis_tac[]
 QED
 
-Theorem closed_ptrs_approx_of:
-  ∀l vs refs.
-  closed_ptrs_list vs refs ∧ no_ptrs_refs refs ∧ (lookup p refs = NONE) ∧
-  wf refs
-  ⇒ (approx_of l vs refs = approx_of l vs (insert p x refs))
-Proof
-  ho_match_mp_tac dataPropsTheory.approx_of_ind>>
-  rw[dataPropsTheory.approx_of_def]>>
-  fs[closed_ptrs_def]
-  >- (
-    qpat_x_assum`_ _ refs` mp_tac>>
-    simp[Once closed_ptrs_list_cons])
-  >- (
-    fs[closed_ptrs_list_def]>>
-    TOP_CASE_TAC>>fs[]>>
-    simp[lookup_insert]>>
-    IF_CASES_TAC>>fs[]>>
-    TOP_CASE_TAC>>simp[]>>
-    simp[delete_insert]>>
-    match_mp_tac no_ptrs_list_approx_of_insert>>
-    fs[no_ptrs_refs_def]>>
-    metis_tac[])>>
-  fs[closed_ptrs_list_def]
-QED
-
-Theorem no_ptrs_list_imp_closed_ptrs_list:
-  ∀l refs.
-  no_ptrs_list l ⇒ closed_ptrs_list l refs
-Proof
-  ho_match_mp_tac no_ptrs_list_ind>>
-  rw[closed_ptrs_list_def,no_ptrs_list_def]>>
-  fs[]>>
-  simp[closed_ptrs_list_cons]
-QED
-
-Theorem no_ptrs_refs_imp_closed_ptrs_refs:
-  no_ptrs_refs refs ⇒ closed_ptrs_refs refs
-Proof
-  rw[no_ptrs_refs_def,closed_ptrs_refs_def]>>
-  first_x_assum drule>>
-  metis_tac[no_ptrs_list_imp_closed_ptrs_list]
-QED
-
-Theorem no_ptrs_imp_closed_ptrs:
-  closed_ptrs_list ls refs ∧
-  no_ptrs_refs refs ⇒
-  closed_ptrs ls refs
-Proof
-  rw[closed_ptrs_def]>>
-  metis_tac[no_ptrs_refs_imp_closed_ptrs_refs]
-QED
-
 Theorem put_char_evaluate:
   ∀s sstack lsize sm ts i.
   (size_of_stack s.stack = SOME sstack) ∧
   (s.locals_size = SOME lsize) ∧
   (s.stack_max = SOME sm) ∧
   (wf s.refs) ∧
-  (closed_ptrs_list (stack_to_vs s) s.refs) ∧
-  no_ptrs_refs s.refs ∧
+  (closed_ptrs (stack_to_vs s) s.refs) ∧
   0 ≤ i ∧ i ≤ 255 ∧
   (s.locals = fromList [Number i]) ∧
   (s.stack_frame_sizes = lcgLoop_config.word_conf.stack_frame_size) ∧
@@ -1261,9 +1211,11 @@ Theorem put_char_evaluate:
     ∨
     ((∃vv. (res = Rval vv)) ∧
      (stk = s.stack) ∧ (ts < ts0) ∧
-     closed_ptrs_list (stack_to_vs s) refs0 ∧ wf refs0 ∧ no_ptrs_refs refs0 ∧
-     (size_of_heap (s with refs := refs0) = size_of_heap s) ∧
-     (approx_of_heap (s with refs := refs0) = approx_of_heap s)))
+     closed_ptrs (stack_to_vs s) refs0 ∧ wf refs0 ∧
+     (∃p1 b1 l1 p2 b2 l2.
+        (refs0 = insert p1 (ByteArray b1 l1) (insert p2 (ByteArray b2 l2) s.refs)) ∧
+        p1 ≠ p2 ∧ IS_NONE (lookup p1 s.refs) ∧ IS_NONE (lookup p2 s.refs)) ∧
+     (size_of_heap (s with refs := refs0) = size_of_heap s)))
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -1310,7 +1262,7 @@ in
   \\ qmatch_goalsub_abbrev_tac `bind _ rest_mkspc _`
   \\ ASM_REWRITE_TAC [ bind_def, makespace_def, add_space_def]
   \\ eval_goalsub_tac ``dataSem$cut_env _ _`` \\ simp []
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ Q.UNABBREV_TAC `rest_mkspc`
   \\ still_safe
   \\ rename1`state_peak_heap_length_fupd (K pkheap1) _`
@@ -1396,7 +1348,7 @@ in
   \\ Q.ABBREV_TAC `pred = ∃w. 0 = w2n (w:word8)`
   \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 0` \\ rw [])
   \\ fs [] \\ pop_assum kall_tac \\ pop_assum kall_tac
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ still_safe
   >- (rfs [size_of_Number_head,small_num_def]
       \\ qmatch_asmsub_abbrev_tac ‘size_of _ (_::ll)’
@@ -1469,8 +1421,7 @@ in
   \\ still_safe
   >- (rfs [size_of_Number_head,small_num_def,insert_shadow]
       \\ qmatch_goalsub_abbrev_tac ‘size_of _ (a ++ b)’
-      \\ `closed_ptrs (a ++ b) s.refs` by
-        metis_tac[no_ptrs_imp_closed_ptrs,closed_ptrs_APPEND]
+      \\ `closed_ptrs (a ++ b) s.refs` by metis_tac[closed_ptrs_APPEND]
       \\ disch_then (mp_then Any drule_all size_of_insert)
       \\ qmatch_asmsub_abbrev_tac `insert p1 x s.refs`
       \\ disch_then (qspec_then ‘x’ assume_tac)
@@ -1521,7 +1472,7 @@ in
   \\ Q.ABBREV_TAC `pred = ∃w. 0 = w2n (w:word8)`
   \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 0` \\ rw [])
   \\ fs [] \\ pop_assum kall_tac \\ pop_assum kall_tac
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ qmatch_goalsub_abbrev_tac `insert p2 _ (insert p1 _ s.refs)`
   \\ simp []
   \\ `p1 ≠ p2` by
@@ -1556,8 +1507,7 @@ in
   \\ still_safe
   >- (rfs [size_of_Number_head,small_num_def,insert_shadow]
       \\ qmatch_goalsub_abbrev_tac ‘size_of _ (a ++ b)’
-      \\ `closed_ptrs (a ++ b) s.refs` by
-        metis_tac[no_ptrs_imp_closed_ptrs, closed_ptrs_APPEND]
+      \\ `closed_ptrs (a ++ b) s.refs` by metis_tac[closed_ptrs_APPEND]
       \\ disch_then (mp_then Any drule_all size_of_insert)
       \\ qmatch_asmsub_abbrev_tac `insert p1 x s.refs`
       \\ disch_then (qspec_then ‘x’ assume_tac)
@@ -1595,8 +1545,7 @@ in
       \\ disch_then (qspecl_then [‘p1’,‘ByteArray T x0’] mp_tac)
       \\ impl_tac >- (
         UNABBREV_ALL_TAC \\
-        fs [closed_ptrs_APPEND] \\
-        metis_tac[no_ptrs_imp_closed_ptrs,closed_ptrs_APPEND])
+        fs [closed_ptrs_APPEND])
       \\ disch_then (mp_then Any mp_tac size_of_insert)
       \\ disch_then (qspecl_then [‘p2’,‘ByteArray F []’] mp_tac)
       \\ impl_tac
@@ -1604,10 +1553,9 @@ in
           \\ conj_tac
           >- (
             irule closed_ptrs_refs_insert \\
-            fs[] \\
-            metis_tac[no_ptrs_refs_imp_closed_ptrs_refs])
+            fs[closed_ptrs_def])
           \\ UNABBREV_ALL_TAC \\ fs [closed_ptrs_APPEND]
-          \\  metis_tac[no_ptrs_imp_closed_ptrs,closed_ptrs_APPEND])
+          \\  metis_tac[closed_ptrs_APPEND])
       \\ rw [] \\ fs [] \\ rveq \\ fs []
       \\ rw [arch_size_def] \\ fs [lookup_insert,lookup_delete] \\ rfs []
       \\ rveq \\ fs []
@@ -1618,50 +1566,23 @@ in
   >- (simp [insert_shadow]
       \\ metis_tac [closed_ptrs_insert,
                     closed_ptrs_refs_insert,
-                    closed_ptrs_def, no_ptrs_imp_closed_ptrs])
-  >-  (fs[no_ptrs_refs_def]>>
-      rw[lookup_insert]>>
-      metis_tac[])
+                    closed_ptrs_def])
+  >- metis_tac[lookup_insert,insert_shadow]
   >- (fs [insert_shadow] \\ rpt (pairarg_tac \\ fs []) \\ rveq
       \\ fs [stack_to_vs_def]
       \\ qmatch_asmsub_abbrev_tac ‘size_of _ ll’
       \\ first_x_assum (mp_then Any mp_tac size_of_insert)
       \\ disch_then (qspecl_then [‘p1’,‘ByteArray T x0’] mp_tac)
       \\ impl_tac >- (
-        UNABBREV_ALL_TAC \\ fs [closed_ptrs_APPEND]
-        \\ metis_tac[no_ptrs_imp_closed_ptrs,closed_ptrs_APPEND])
+        UNABBREV_ALL_TAC \\ fs [closed_ptrs_APPEND])
       \\ disch_then (mp_then Any mp_tac size_of_insert)
       \\ disch_then (qspecl_then [‘p2’,‘ByteArray F l’] mp_tac)
       \\ impl_tac
       >- (fs [wf_insert,Abbr‘ll’]
           \\ metis_tac [closed_ptrs_insert,
                         closed_ptrs_refs_insert,
-                        closed_ptrs_def, no_ptrs_imp_closed_ptrs])
+                        closed_ptrs_def])
       \\ rw [] \\ rfs [] \\ rveq \\ fs [])
-  \\ fs [dataPropsTheory.approx_of_def,stack_to_vs_def]
-  \\ eval_goalsub_tac “sptree$toList _”
-  \\ qmatch_asmsub_abbrev_tac ‘closed_ptrs_list (a ++ b ++ c)’
-  \\ ‘closed_ptrs_list (b ++ c) s.refs’ by
-    metis_tac[closed_ptrs_APPEND,no_ptrs_imp_closed_ptrs,closed_ptrs_def]
-  \\ map_every Q.UNABBREV_TAC [‘a’,‘b’,‘c’]
-  \\ rw [dataPropsTheory.approx_of_def,stack_to_vs_def]
-  \\ qmatch_goalsub_abbrev_tac ‘approx_of _ (_::ll)’
-  \\ Cases_on ‘ll’ \\ fs [dataPropsTheory.approx_of_def,closed_ptrs_APPEND]
-  \\ fs [insert_shadow]
-  \\ drule_then (qspecl_then [‘ByteArray T x0’,‘p1’,‘s.limits’] mp_tac) closed_ptrs_approx_of \\ simp[]
-  \\ fs [] \\ rw []
-  \\ qpat_x_assum ‘lookup p2 (insert p1 (ByteArray T x0) s.refs) = _’
-                  (mp_then Any mp_tac closed_ptrs_approx_of)
-  \\ disch_then (qspecl_then [‘ByteArray F l’,‘s.limits’,‘h::t’] mp_tac)
-  \\ impl_tac
-  >- (
-    simp[]>> CONJ_TAC>- (
-      metis_tac [closed_ptrs_insert,
-                 closed_ptrs_refs_insert,
-                 closed_ptrs_def, no_ptrs_imp_closed_ptrs,closed_ptrs_APPEND])>>
-    fs[no_ptrs_refs_def]>>rw[lookup_insert]>>
-    metis_tac[])
-  \\ rw []
 end
 QED
 
@@ -1686,63 +1607,143 @@ val max_def = Define`
 
 val put_char_evaluate_max =put_char_evaluate |> PURE_REWRITE_RULE [GSYM max_def]
 
-Theorem closed_ptrs_list_more_refs:
-  ∀vs refs.
-  closed_ptrs_list vs refs ∧ subspt refs refs' ⇒
-  closed_ptrs_list vs refs'
+Theorem repchar_list_no_ptrs_list:
+  ∀blk l ts. repchar_list blk l ts ⇒ no_ptrs_list [blk]
 Proof
-  ho_match_mp_tac closed_ptrs_list_ind>>
-  rw[closed_ptrs_list_def]>>
-  fs[subspt_lookup,IS_SOME_EXISTS]>>
-  metis_tac[]
+  ho_match_mp_tac repchar_list_ind \\ rw[no_ptrs_list_def,repchar_list_def]
 QED
 
-Theorem approx_of_more_refs:
-  ∀lims vs refs refs'.
-  subspt refs refs' ∧ closed_ptrs_list vs refs ∧ no_ptrs_refs refs' ⇒
-  (approx_of lims vs refs = approx_of lims vs refs')
+Theorem repchar_list_size_of_rm:
+∀tsl ivl n ts limits refs seen.
+  repchar_list ivl n ts ∧
+  (repchar_to_tsl ivl = SOME tsl) ∧
+  (∀ts0. MEM ts0 tsl ⇒ IS_SOME (lookup ts0 seen))
+  ⇒ ∃refs1 seen1. size_of limits [ivl] refs seen = (0,refs1,seen1)
 Proof
-  ho_match_mp_tac dataPropsTheory.approx_of_ind>>
-  rw[dataPropsTheory.approx_of_def]
-  >- (
-    qpat_x_assum`closed_ptrs_list _ _` mp_tac>>
-    simp[Once closed_ptrs_list_cons]>>
-    rw[]>>
-    metis_tac[])
-  >- (
-    fs[closed_ptrs_list_def,IS_SOME_EXISTS]>>
-    `lookup r refs' = SOME x` by
-      (fs[subspt_lookup]>>
-      first_x_assum drule>>simp[])>>
-    simp[]>>
-    TOP_CASE_TAC>>
-    fs[no_ptrs_refs_def]>>
-    first_x_assum drule>>
-    strip_tac>>
-    drule no_ptrs_list_approx_of_subspt>>
-    disch_then match_mp_tac>>
-    fs[subspt_lookup,lookup_delete])>>
-  fs[closed_ptrs_list_def]
+  Induct \\ rw []
+  >- (Cases_on ‘ivl’ \\ fs [repchar_list_def]
+      \\ Cases_on ‘l’ \\ fs [repchar_list_def]
+      >- fs [size_of_def]
+      \\ rveq \\ rfs [repchar_to_tsl_def,size_of_def]
+      \\ Cases_on ‘t’  \\ fs [repchar_list_def]
+      \\ Cases_on ‘h’  \\ fs [repchar_list_def]
+      \\ Cases_on ‘t'’ \\ fs [repchar_list_def,repchar_to_tsl_def])
+  \\ Cases_on ‘ivl’ \\ fs [repchar_list_def]
+  \\ Cases_on ‘l’ \\ fs [repchar_list_def]
+  >- fs [size_of_def]
+  \\ rveq \\ rfs [repchar_to_tsl_def,size_of_def]
+  \\ Cases_on ‘t’  \\ fs [repchar_list_def]
+  \\ Cases_on ‘h'’  \\ fs [repchar_list_def]
+  \\ Cases_on ‘t'’ \\ fs [repchar_list_def,repchar_to_tsl_def]
+QED
+
+Definition extra_ByteArrays_def:
+  (extra_ByteArrays [] refs = refs)
+∧ (extra_ByteArrays ((p,b,l)::xs) refs = insert p (ByteArray b l) (extra_ByteArrays xs refs))
+End
+
+Theorem extra_ByteArrays_SNOC:
+  ∀ls p b l refs.
+    extra_ByteArrays (SNOC (p,b,l) ls) refs = extra_ByteArrays ls (insert p (ByteArray b l) refs)
+Proof
+  Induct \\ rw[extra_ByteArrays_def]
+  \\ PairCases_on‘h’ \\ rw[extra_ByteArrays_def]
+QED
+
+Theorem extra_ByteArrays_wf:
+  ∀ls refs. wf refs ⇒ wf (extra_ByteArrays ls refs)
+Proof
+  Induct \\ rw[extra_ByteArrays_def]
+  \\ PairCases_on‘h’ \\ rw[extra_ByteArrays_def,wf_insert]
+QED
+
+Theorem extra_ByteArrays_lookup:
+  ∀p ls refs.
+    ¬MEM p (MAP FST ls)
+    ⇒ (lookup p (extra_ByteArrays ls refs) = lookup p refs)
+Proof
+  Induct_on ‘ls’ \\ rw[extra_ByteArrays_def]
+  \\ PairCases_on‘h’ \\ gs[extra_ByteArrays_def,lookup_insert]
+QED
+
+Theorem extra_ByteArrays_lookup':
+  ∀p ls refs y.
+    ¬MEM p (MAP FST ls) ∧
+    (lookup p refs = y)
+    ⇒ (lookup p (extra_ByteArrays ls refs) = y)
+Proof
+  rw[extra_ByteArrays_lookup]
+QED
+
+Theorem extra_ByteArrays_closed_pointers_refs:
+  ∀ls refs.
+  closed_ptrs_refs refs ∧
+  (∀p. MEM p (MAP FST ls) ⇒ IS_NONE (lookup p refs)) ∧
+  ALL_DISTINCT (MAP FST ls)
+  ⇒ closed_ptrs_refs (extra_ByteArrays ls refs)
+Proof
+  Induct_on‘ls’ \\ rw[extra_ByteArrays_def]
+  \\ PairCases_on‘h’ \\ gs[extra_ByteArrays_def]
+  \\ irule closed_ptrs_refs_insert
+  \\ conj_tac >- metis_tac[]
+  \\ metis_tac[extra_ByteArrays_lookup']
+QED
+
+Theorem extra_ByteArrays_closed_pointers:
+∀vl refs ls.
+  closed_ptrs vl refs ∧
+  (∀p. MEM p (MAP FST ls) ⇒ IS_NONE (lookup p refs)) ∧
+  ALL_DISTINCT (MAP FST ls)
+  ⇒ closed_ptrs vl (extra_ByteArrays ls refs)
+Proof
+  ho_match_mp_tac closed_ptrs_list_ind
+  \\ rw [closed_ptrs_def,extra_ByteArrays_def]
+  \\ TRY(PairCases_on‘h’ \\ gs[extra_ByteArrays_def])
+  \\ fs [closed_ptrs_list_def]
+  >- metis_tac[IS_NONE_DEF,extra_ByteArrays_closed_pointers_refs]
+  >- (first_x_assum drule_all \\ gs[IS_SOME_EXISTS] \\ rw[]
+      \\ ‘¬MEM p (MAP FST ls)’
+         by (CCONTR_TAC \\ gs[])
+      \\ metis_tac[extra_ByteArrays_lookup'])
+QED
+
+Theorem size_of_extra_ByteArrays:
+∀lim vl refs seen n refs' seen' ls.
+  wf refs ∧ closed_ptrs vl refs ∧
+  (∀p. MEM p (MAP FST ls) ⇒ IS_NONE (lookup p refs)) ∧
+  ALL_DISTINCT (MAP FST ls) ∧
+  (size_of lim vl refs seen = (n,refs',seen'))
+  ⇒ (size_of lim vl (extra_ByteArrays ls refs) seen = (n,extra_ByteArrays ls refs',seen'))
+Proof
+  Induct_on ‘ls’ \\ rw[extra_ByteArrays_def]
+  \\ PairCases_on‘h’ \\ rw[extra_ByteArrays_def]
+  \\ irule size_of_insert \\ gs[]
+  \\ conj_tac >- gs[extra_ByteArrays_wf]
+  \\ conj_tac
+  >- metis_tac[extra_ByteArrays_lookup']
+  \\ irule extra_ByteArrays_closed_pointers
+  \\ metis_tac[IS_NONE_DEF]
 QED
 
 Theorem put_chars_evaluate:
-  ∀s block sstack lsize sm l ts.
+  ∀s block sstack lsize sm l ts tsl.
   (size_of_stack s.stack = SOME sstack) ∧
   (wf s.refs) ∧
-  (closed_ptrs_list (stack_to_vs s) s.refs) ∧
-  no_ptrs_refs s.refs ∧
+  (closed_ptrs (stack_to_vs s) s.refs) ∧
   (s.locals_size = SOME lsize) ∧
   (s.stack_max = SOME sm) ∧
   (s.locals = fromList [block]) ∧
   (s.stack_frame_sizes = lcgLoop_config.word_conf.stack_frame_size) ∧
   (lookup_put_chars s.stack_frame_sizes = SOME lsize) ∧
   (sm < s.limits.stack_limit) ∧
-  (approx_of_heap s + 5 ≤ s.limits.heap_limit) ∧
+  (size_of_heap s + 5 ≤ s.limits.heap_limit) ∧
   (lsize + sstack + 12 < s.limits.stack_limit) ∧
   (sstack + 15 < s.limits.stack_limit) ∧
   s.safe_for_space ∧
   s.limits.arch_64_bit ∧
   repchar_list block l ts ∧
+  (repchar_to_tsl block = SOME tsl) ∧
+  repchar_safe_heap s tsl ∧
   (s.code = fromAList lcgLoop_data_prog) ∧
   (s.tstamps = SOME ts) ∧
   1 < s.limits.length_limit
@@ -1767,9 +1768,12 @@ Theorem put_chars_evaluate:
     ∨
     ((∃vv. (res = Rval vv)) ∧
      (stk = s.stack) ∧
-     closed_ptrs_list (stack_to_vs s) refs0 ∧ wf refs0 ∧
-     no_ptrs_refs refs0 ∧
-     (approx_of_heap (s with refs := refs0) = approx_of_heap s)))
+     closed_ptrs (stack_to_vs s) refs0 ∧ wf refs0 ∧
+     (∃ls. (refs0 = extra_ByteArrays ls s.refs) ∧
+           (ALL_DISTINCT (MAP FST ls)) ∧
+           (∀p b l. MEM p (MAP FST ls) ⇒ IS_NONE (lookup p s.refs))) ∧
+     (ts ≤ ts0) ∧
+     (size_of_heap (s with refs := refs0) = size_of_heap s)))
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -1820,7 +1824,10 @@ in
       \\ eval_goalsub_tac “sptree$lookup 3 _”
       \\ simp [flush_state_def]
       \\ rw [state_component_equality]
-      \\ fs [stack_to_vs_def,max_def])
+      \\ fs [stack_to_vs_def,max_def]
+      \\ gs [toList_def,toListA_def]
+      \\ fs []
+      \\ qexists_tac ‘[]’ \\ simp[extra_ByteArrays_def])
   \\ rename1 ‘Block _ _ (chr0::str0)’
   \\ Cases_on ‘chr0’ \\ fs [repchar_list_def]
   \\ Cases_on ‘str0’ \\ fs [repchar_list_def]
@@ -1830,8 +1837,7 @@ in
   (* 5 :≡ (El,[0; 4],NONE); *)
   (* 6 :≡ (Const 1,[],NONE); *)
   (* 7 :≡ (El,[0; 6],NONE); *)
-  \\ ntac 4 strip_assign
-  \\ qmatch_goalsub_abbrev_tac ‘bind _ put_chars_rest’
+  \\ ntac 3 strip_assign
   (* call_put_char *)
   \\ simp [bind_def,call_def]
   \\ eval_goalsub_tac “dataSem$get_vars _ _” \\ fs []
@@ -1860,34 +1866,40 @@ in
   \\ Q.UNABBREV_TAC ‘s0’ \\ simp []
   \\ fs [size_of_stack_def,size_of_stack_frame_def]
   \\ impl_tac
-  >- (rw []
-      >- (
-          fs [stack_to_vs_def,closed_ptrs_list_append,extract_stack_def]
+  >- (conj_tac
+      >- (fs [stack_to_vs_def,closed_ptrs_APPEND,extract_stack_def]
           \\ eval_goalsub_tac “sptree$toList _”
           \\ eval_goalsub_tac “sptree$toList _”
-          \\ fs [closed_ptrs_list_def]
+          \\ fs [closed_ptrs_def,closed_ptrs_list_def]
           \\ irule closed_ptrs_repchar_list
           \\ asm_exists_tac \\ simp [])
       \\ fs [size_of_heap_def,stack_to_vs_def,extract_stack_def]
       \\ rpt (pairarg_tac \\ fs []) \\ rveq
-      \\ drule dataPropsTheory.size_of_approx_of
-      \\ rw []
-      \\ irule LESS_EQ_TRANS
-      \\ qmatch_asmsub_abbrev_tac ‘approx_of _ ll _ + 5’
-      \\ qexists_tac ‘approx_of s.limits ll  s.refs + 5’
-      \\ fs []
-      \\ irule LESS_EQ_TRANS \\ asm_exists_tac \\ fs []
-      \\ Q.UNABBREV_TAC ‘ll’
-      \\ eval_goalsub_tac “sptree$toList _”
-      \\ eval_goalsub_tac “sptree$toList _”
-      \\ eval_goalsub_tac “sptree$toList _”
-      \\ fs [dataPropsTheory.approx_of_def]
-      \\ ‘small_num s.limits.arch_64_bit i’
-        by (rw [small_num_def] \\ intLib.ARITH_TAC)
-      \\ fs [] \\ rfs []
-      \\ qmatch_goalsub_abbrev_tac ‘approx_of _ (_::ll)’
-      \\ Cases_on ‘ll’
-      \\ fs [dataPropsTheory.approx_of_def])
+      \\ qmatch_asmsub_abbrev_tac ‘size_of _ (q21 ++ q22 ++ ll1 ++ ll2)’
+      \\ qmatch_asmsub_abbrev_tac ‘size_of _ (q1 ++ ll1 ++ ll2)’
+      \\ qabbrev_tac ‘q2 = q21 ++ q22’
+      \\ qabbrev_tac ‘ll = ll1 ++ ll2’
+      \\ ‘q1 ++ ll1 ++ ll2 = q1 ++ ll’ by simp [APPEND_ASSOC,Abbr‘ll’]
+      \\ pop_assum (gs o single o Req0)
+      \\ ‘q2 ++ ll1 ++ ll2 = q2 ++ ll’ by simp [APPEND_ASSOC,Abbr‘ll’]
+      \\ pop_assum (gs o single o Req0)
+      \\ dxrule size_of_append \\ rw []
+      \\ dxrule size_of_append \\ rw []
+      \\ ntac 2 (pop_assum mp_tac)
+      \\ MAP_EVERY Q.UNABBREV_TAC [‘q1’,‘q2’,‘q21’,‘q22’]
+      \\ ntac 3 (eval_goalsub_tac “sptree$toList _”)
+      \\ ‘small_num T i’ by (fs [small_num_def] \\ intLib.ARITH_TAC)
+      \\ simp [size_of_def]
+      \\ rpt (pairarg_tac \\ fs []) \\ rveq
+      \\ simp [AND_IMP_INTRO] \\ rpt strip_tac \\ rveq
+      \\ drule repchar_list_insert_ts
+      \\ disch_then (qspecl_then [‘ts0’,‘refs0’,‘seen0’,‘s.limits’] assume_tac)
+      \\ gs[] \\ rveq
+      \\ Cases_on ‘lookup ts0 seen0’ \\ gs[] \\ rveq
+      \\ gs[repchar_to_tsl_def,repchar_safe_heap_def,repchar_list_safe_def]
+      \\ drule_all repchar_list_size_of_rm
+      \\ disch_then (qspecl_then [‘s.limits’,‘_''’] assume_tac)
+      \\ gs[])
   \\ rw [GSYM put_char_body_def] \\ simp []
   >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
           call_env_def,push_env_def,dec_clock_def,
@@ -1895,7 +1907,6 @@ in
       \\ rw [state_component_equality]
       \\ fs[max_def])
   \\ simp[call_env_def,push_env_def,dec_clock_def,pop_env_def,set_var_def]
-  \\ Q.UNABBREV_TAC ‘put_chars_rest’
   (* tailcall_put_chars [7] *)
   \\ simp [bind_def,tailcall_def]
   \\ eval_goalsub_tac “dataSem$get_vars _ _” \\ fs []
@@ -1909,54 +1920,93 @@ in
       \\ fs[max_def])
   \\ simp [call_env_def,push_env_def,dec_clock_def]
   \\ simp [frame_lookup]
-
-  (*
-  \\ qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K max1) _`
-  \\ ‘max1 = SOME (MAX sm (sstack + lsize + 12))’
-    by (Q.UNABBREV_TAC ‘max1’
-        \\ fs [small_num_def,size_of_stack_def]
-        \\ rw [MAX_DEF])
-  \\ ASM_REWRITE_TAC []
-  \\ ntac 2 (pop_assum kall_tac) *)
-
   \\ qmatch_goalsub_abbrev_tac ‘evaluate (_,s0)’
   \\ first_x_assum (qspec_then ‘l - 1’ mp_tac)
   \\ fs []
   \\ disch_then (qspecl_then [‘s0’] mp_tac)
   \\ fs [frame_lookup]
   \\ disch_then (qspecl_then [‘str0’,‘sstack’,‘3’,‘THE s0.stack_max’, ‘ts0'’] mp_tac)
+  \\ gs[repchar_to_tsl_def]
   \\ impl_tac
   >- (Q.UNABBREV_TAC ‘s0’ \\ simp []
       \\ fs [size_of_stack_def,size_of_stack_frame_def]
       \\ rw []
-      >- (
-          fs [stack_to_vs_def,closed_ptrs_list_append]
-          \\ eval_goalsub_tac “sptree$toList _”
-          \\ irule closed_ptrs_repchar_list
-          \\ metis_tac [])
+      >- (gs [stack_to_vs_def]
+          \\ qpat_x_assum ‘closed_ptrs _ _’ mp_tac
+          \\ ntac 2 (eval_goalsub_tac “sptree$toList _”)
+          \\ eval_goalsub_tac “extract_stack _”
+          \\ simp[closed_ptrs_APPEND])
       >- fs[frame_lookup]
       >- fs[max_def]
-      >- (fs [size_of_heap_def,stack_to_vs_def]
-          \\ rpt (pairarg_tac \\ fs []) \\ rveq
-          \\ qpat_x_assum ‘approx_of _ _ _ = approx_of _ _ _’ (ASSUME_TAC o EVAL_RULE)
-          \\ ‘small_num s.limits.arch_64_bit i’
-            by (rw [small_num_def] \\ intLib.ARITH_TAC)
-          \\ fs []
-          \\ eval_goalsub_tac “sptree$toList _”
-          \\ fs [dataPropsTheory.approx_of_def]
+      >- (qmatch_goalsub_abbrev_tac ‘state_refs_fupd (K refs0) _’
+          \\ pop_assum kall_tac
+          \\ qmatch_goalsub_abbrev_tac ‘size_of_heap ss’
+          \\ ‘size_of_heap ss ≤ size_of_heap s’ suffices_by gs[]
+          \\ qmatch_asmsub_abbrev_tac ‘size_of_heap sl = size_of_heap sr’
           \\ irule LESS_EQ_TRANS
-          \\ qmatch_asmsub_abbrev_tac ‘approx_of _ ll _ + 5’
-          \\ qexists_tac ‘approx_of s.limits ll  s.refs + 5’
-          \\ fs []
-          \\ Q.UNABBREV_TAC ‘ll’
-          \\ eval_goalsub_tac “sptree$toList _”
-          \\ fs [dataPropsTheory.approx_of_def]
-          \\ qmatch_goalsub_abbrev_tac ‘approx_of _ (_::ll)’
-          \\ Cases_on ‘ll’
-          \\ fs [dataPropsTheory.approx_of_def])
+          \\ qexists_tac ‘size_of_heap sl’
+          \\ simp[Abbr‘ss’,Abbr‘sl’,Abbr‘sr’]
+          (* Abbreviations and stuff *)
+          \\ fs [size_of_heap_def,stack_to_vs_def]
+          \\ qmatch_asmsub_abbrev_tac ‘size_of _ (q21 ++ q22 ++ ll1 ++ ll2)’
+          \\ qmatch_goalsub_abbrev_tac ‘size_of _ (q1 ++ ll1 ++ ll2)’
+          \\ qmatch_goalsub_abbrev_tac ‘_ ∧ _ ≤ _ (size_of _ (q3 ++ ll1 ++ ll2) s.refs _)’
+          \\ qabbrev_tac ‘q2 = q21 ++ q22’
+          \\ qabbrev_tac ‘ll = ll1 ++ ll2’
+          \\ ‘q1 ++ ll1 ++ ll2 = q1 ++ ll’ by simp [APPEND_ASSOC,Abbr‘ll’]
+          \\ pop_assum (gs o single o Req0)
+          \\ ‘q2 ++ ll1 ++ ll2 = q2 ++ ll’ by simp [APPEND_ASSOC,Abbr‘ll’]
+          \\ pop_assum (gs o single o Req0)
+          \\ ‘q3 ++ ll1 ++ ll2 = q3 ++ ll’ by simp [APPEND_ASSOC,Abbr‘ll’]
+          \\ pop_assum (gs o single o Req0)
+          \\ rpt (pairarg_tac \\ fs []) \\ rveq
+          \\ gs[repchar_safe_heap_def,repchar_list_safe_def]
+          \\ qpat_x_assum ‘Abbrev (ll = _)’ kall_tac
+          \\ conj_tac
+          >- (ntac 2 (qpat_x_assum ‘size_of _ _ s.refs _ = _’ kall_tac)
+              \\ dxrule size_of_append
+              \\ dxrule size_of_append
+              \\ UNABBREV_ALL_TAC \\ gs[]
+              \\ eval_goalsub_tac “sptree$toList _”
+              \\ eval_goalsub_tac “extract_stack _”
+              \\ ‘small_num T i’ by (fs [small_num_def] \\ intLib.ARITH_TAC)
+              \\ simp [size_of_def] \\ rw[]
+              \\ rpt (pairarg_tac \\ fs []) \\ rveq
+              \\ simp [AND_IMP_INTRO] \\ rpt strip_tac \\ rveq
+              \\ gs[])
+          >- (qpat_x_assum ‘size_of _ _ refs0 _ = _’ kall_tac
+              \\ dxrule size_of_append
+              \\ dxrule size_of_append
+              \\ UNABBREV_ALL_TAC
+              \\ ntac 2 (eval_goalsub_tac “sptree$toList _”)
+              \\ eval_goalsub_tac “extract_stack _”
+              \\ ‘small_num T i’ by (fs [small_num_def] \\ intLib.ARITH_TAC)
+              \\ simp [size_of_def] \\ rw[]
+              \\ rpt (pairarg_tac \\ fs []) \\ rveq
+              \\ simp [AND_IMP_INTRO] \\ rpt strip_tac \\ rveq
+              \\ gs[]
+              \\ drule repchar_list_insert_ts
+              \\ disch_then (qspecl_then [‘ts0’,‘refs0'’,‘seen0’,‘s.limits’] assume_tac)
+              \\ gs[] \\ rveq
+              \\ Cases_on ‘lookup ts0 seen0’ \\ gs[] \\ rveq
+              \\ drule_all repchar_list_size_of_rm
+              \\ disch_then (qspecl_then [‘s.limits’,‘_''''’] assume_tac)
+              \\ gs[]))
       >- (fs[max_def]>>rw [libTheory.the_def,MAX_DEF])
-      \\ irule repchar_list_more_tsb
-      \\ qexists_tac ‘ts’ \\ fs [])
+      >- (irule repchar_list_more_tsb
+          \\ first_x_assum (irule_at Any)
+          \\ gs[])
+      >- (gs[repchar_safe_heap_def,seen_of_heap_def,stack_to_vs_def,extract_stack_def]
+          \\ rpt (pairarg_tac \\ fs []) \\ rveq
+          \\ qmatch_asmsub_abbrev_tac ‘size_of _ ll’
+          \\ ‘closed_ptrs ll s.refs’ by gs[Abbr‘ll’,closed_ptrs_APPEND]
+          \\ drule_all size_of_insert
+          \\ disch_then (qspec_then ‘ByteArray b2 l2’ (mp_then Any mp_tac size_of_insert))
+          \\ simp[wf_insert] \\ disch_then (qspecl_then [‘p1’,‘ByteArray b1 l1’] mp_tac)
+          \\ impl_tac
+          >- metis_tac[lookup_insert,closed_ptrs_refs_insert,closed_ptrs_insert,closed_ptrs_def]
+          \\ gs[repchar_list_safe_def]))
+  \\ qmatch_asmsub_abbrev_tac ‘wf refs0’
   \\ rw [GSYM put_chars_body_def] \\ simp []
   >- (
     fs[state_component_equality,Abbr`s0`]>>
@@ -1970,7 +2020,7 @@ in
     pop_assum mp_tac>>
     simp[size_of_stack_def,max_def]>>
     `lsize = 3` by
-      (qpat_x_assum`lookup_put_chars s.stack_frame_sizes = SOME lsize` mp_tac>>
+      (qpat_x_assum`lookup_put_chars lcgLoop_config.word_conf.stack_frame_size = SOME lsize` mp_tac>>
       simp[frame_lookup])>>
     simp[])>>
   fs[state_component_equality,Abbr`s0`]>>
@@ -1985,21 +2035,49 @@ in
     qpat_x_assum`sm0' ≤ _` mp_tac >>
     simp[size_of_stack_def,max_def]>>
     `lsize = 3` by
-      (qpat_x_assum`lookup_put_chars s.stack_frame_sizes = SOME lsize` mp_tac>>
+      (qpat_x_assum`lookup_put_chars lcgLoop_config.word_conf.stack_frame_size = SOME lsize` mp_tac>>
       simp[frame_lookup])>>
     simp[])>>
   CONJ_TAC >-
-    metis_tac[closed_ptrs_list_more_refs]>>
-  simp[stack_to_vs_def]>>
-  match_mp_tac EQ_SYM>>
-  match_mp_tac approx_of_more_refs>>simp[]>>
-  eval_goalsub_tac``sptree$toList _``>>
-  qpat_x_assum`closed_ptrs_list _ _` kall_tac>>
-  qpat_x_assum`closed_ptrs_list _ _` kall_tac>>
-  qpat_x_assum`closed_ptrs_list _ _` mp_tac>>
-  simp[stack_to_vs_def]>>
-  eval_goalsub_tac``sptree$toList _``>>
-  simp[closed_ptrs_list_def,extract_stack_def]
+    (fs [stack_to_vs_def,closed_ptrs_APPEND,extract_stack_def]>>
+     eval_goalsub_tac “sptree$toList _”>>
+     fs [closed_ptrs_def,closed_ptrs_list_def]>>
+     irule closed_ptrs_repchar_list>>
+     asm_exists_tac>>simp [])>>
+  CONJ_TAC >-
+    (Q.UNABBREV_TAC ‘refs0’>>
+     qexists_tac‘SNOC (p2,b2,l2) (SNOC (p1,b1,l1) ls)’>>
+     simp[extra_ByteArrays_SNOC]>>
+     conj_tac
+     >- (simp[ALL_DISTINCT_SNOC,MAP_SNOC]>>
+         CCONTR_TAC>>gs[]>>
+         first_x_assum (pop_assum o mp_then Any assume_tac)>>
+         gs[lookup_insert])>>
+     rw[MAP_SNOC,MEM_MAP]>>simp[]>>PairCases_on‘y’>>simp[]>>
+     ‘MEM y0 (MAP FST ls)’
+      by (simp[MEM_MAP]>>first_x_assum (irule_at Any)>>simp[])>>
+     first_x_assum drule>>simp[lookup_insert]>>
+     IF_CASES_TAC>>simp[]>>IF_CASES_TAC>>simp[])>>
+  simp[stack_to_vs_def]>>qmatch_goalsub_abbrev_tac‘size_of _ ll’>>
+  Q.UNABBREV_TAC ‘refs0’>>simp[GSYM extra_ByteArrays_SNOC]>>
+  qmatch_goalsub_abbrev_tac‘extra_ByteArrays lss’>>
+  rpt (pairarg_tac>>fs [])>>rveq>>
+  pop_assum (mp_then Any mp_tac size_of_extra_ByteArrays)>>
+  disch_then (qspec_then‘lss’ mp_tac)>>
+  impl_tac
+  >- (simp[Abbr‘ll’,Abbr‘lss’]>>
+      conj_tac
+      >- (fs [stack_to_vs_def,closed_ptrs_APPEND,extract_stack_def]>>
+          eval_goalsub_tac “sptree$toList _”>>
+          fs [closed_ptrs_def,closed_ptrs_list_def]>>
+          irule closed_ptrs_repchar_list>>
+          asm_exists_tac>>simp [])>>
+      conj_tac>-metis_tac[lookup_insert]>>
+      simp[ALL_DISTINCT_APPEND]>>rw[]>>
+      CCONTR_TAC>>gs[]>>rveq>>
+      first_x_assum (pop_assum o mp_then Any assume_tac)>>
+      gs[lookup_insert])>>
+  simp[]
 end
 QED
 
@@ -2028,17 +2106,17 @@ Theorem data_safe_lcgLoop_code[local]:
   (s.locals_size = SOME lsize) ∧
   (lookup_lcgLoop s.stack_frame_sizes = SOME lsize) ∧
   (wf s.refs) ∧
-  (closed_ptrs_list (stack_to_vs s) s.refs) ∧
-  (no_ptrs_refs s.refs) ∧
+  (closed_ptrs (stack_to_vs s) s.refs) ∧
+  (* (no_ptrs_refs s.refs) ∧ *)
   (* (sstack + N1 (* 5 *) < s.limits.stack_limit) ∧ *)
   (sstack + lsize + 15 < s.limits.stack_limit) ∧
   (smax < s.limits.stack_limit) ∧
   s.limits.arch_64_bit ∧
   (size_of_heap s + 65 (* N3 *) ≤ s.limits.heap_limit) ∧
-  (approx_of_heap s + 65 (* N3 *) ≤ s.limits.heap_limit) ∧
   (s.locals = fromList [Number (&x); Number (&m); Number (&c); Number (&a)]) ∧
   (* N1, N2, N3 are TODO constants to fill *)
   (s.tstamps = SOME ts) ∧
+  (∀ts'. ts ≤ ts' ⇒ IS_NONE (lookup ts' (seen_of_heap s))) ∧
   (1 < s.limits.length_limit) ∧
   (coeff_bounds a c m ∧ x < m ) ∧
   (lookup_lcgLoop s.code = SOME (4,lcgLoop_body))
@@ -2131,7 +2209,7 @@ in
   \\ pop_assum kall_tac
   (* move 14 13 *)
   \\ simp [move_def,lookup_def,set_var_def]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   (* Exit if *)
   \\ Q.UNABBREV_TAC ‘if_rest_ass’
   (* make_space 3 ... *)
@@ -2171,6 +2249,7 @@ in
             call_env_def,push_env_def,dec_clock_def,
             size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
   \\ disch_then (qspec_then ‘1’ mp_tac)
+  \\ simp[repchar_to_tsl_def]
   \\ impl_tac
   >- (simp[code_lookup,frame_lookup,
           data_to_wordTheory.Compare_location_eq,
@@ -2185,6 +2264,28 @@ in
           \\ qexists_tac`m`>>simp[])
       \\ CONJ_TAC
       >- fs[small_num_def]
+      \\ CONJ_TAC
+      >- (simp[repchar_safe_heap_def,extract_stack_def]
+          \\ eval_goalsub_tac``size_of _ _ _``
+          \\ simp[size_of_Number_head]
+          \\ rpt (pairarg_tac \\ fs []) \\ rveq
+          \\ simp[repchar_list_safe_def])
+      \\ CONJ_TAC
+      >- (qmatch_goalsub_abbrev_tac ‘state_stack_max_fupd (K ff) _’
+          \\ pop_assum kall_tac
+          \\ rw[] \\ first_assum (qspec_then ‘ts’ mp_tac)
+          \\ first_x_assum (qspec_then ‘ts''’ mp_tac)
+          \\ simp[seen_of_heap_def,stack_to_vs_def,extract_stack_def]
+          \\ eval_goalsub_tac ``size_of _ _``
+          \\ eval_goalsub_tac ``sptree$toList _``
+          \\ eval_goalsub_tac ``sptree$toList _``
+          \\ simp[size_of_Number_head]
+          \\ rpt (pairarg_tac \\ fs []) \\ rveq
+          \\ rw[] \\ gs[Once size_of_cons]
+          \\ gs[size_of_def]
+          \\ rpt (pairarg_tac \\ fs []) \\ rveq
+          \\ gs[size_of_Number_head] \\ rveq
+          \\ simp[lookup_insert])
       \\ simp[size_of_heap_def]
       \\ eval_goalsub_tac``size_of _ _ _``
       \\ simp[Once data_to_word_gcProofTheory.size_of_cons]
@@ -2203,7 +2304,7 @@ in
   \\ strip_tac \\ simp[]
   >- simp[data_safe_def]
   \\ simp[pop_env_def,set_var_def]
-  \\ eval_goalsub_tac “dataSem$state_locals_fupd _ _”>>
+  \\ eval_goalsub_tac “state_locals_fupd _ _”>>
   (* call_put_chars (21,⦕ 1; 2; 3; 14 ⦖) [20] NONE; *)
   simp[Once bind_def]>>
   simp [ call_def      , find_code_def  , push_env_def
@@ -2231,33 +2332,46 @@ in
   simp[Abbr`ss`]>>
   qmatch_goalsub_abbrev_tac`evaluate(put_chars_body,ss)`>>
   disch_then(qspec_then`20` mp_tac)>>
+  ‘small_num T (&((c + a * x) MOD m))’
+      by (fs[small_num_def]>>irule LESS_TRANS>>
+          qexists_tac‘m’ >>simp[])>>
   impl_tac >- (
     simp[Abbr`ss`,stack_to_vs_def,extract_stack_def]>>
     eval_goalsub_tac``sptree$toList _``>>
     eval_goalsub_tac``sptree$toList _``>>
     CONJ_TAC>-
-      (fs[stack_to_vs_def,extract_stack_def,closed_ptrs_list_append,
-          closed_ptrs_list_def] >>
+      (gs[stack_to_vs_def,extract_stack_def,closed_ptrs_list_append,
+          closed_ptrs_list_def,closed_ptrs_def] >>
        drule_then MATCH_ACCEPT_TAC closed_ptrs_repchar_list) >>
     CONJ_TAC>-
         (simp[frame_lookup])>>
-    fs [dataPropsTheory.approx_of_def,stack_to_vs_def]>>
-    qpat_x_assum ‘approx_of _ _ _ + _ ≤ _’ mp_tac>>
-    eval_goalsub_tac``sptree$toList _``>> disch_tac>>
-    rfs [integerTheory.INT_MOD]>>
-    ‘small_num T (&((c + a * x) MOD m))’
-      by(qpat_x_assum ‘small_num T ((&(a * x) + &c) % &m)’ mp_tac >> simp[integerTheory.INT_ADD]) >>
-    fs []>> drule approx_of_repchar_list>>
-    disch_then (qspecl_then [‘s.limits’,‘s.refs’] assume_tac)>>
-    fs [dataPropsTheory.approx_of_def]>>  rfs []>>
-    qmatch_asmsub_abbrev_tac ‘approx_of _ ll _ + _ ≤ _’>>
-    irule LESS_EQ_TRANS >>qexists_tac ‘approx_of s.limits ll s.refs + 5 + 60’>>
-    fs[])>>
+    CONJ_TAC>-
+     (gs[size_of_heap_def,stack_to_vs_def,extract_stack_def]>>
+      eval_goalsub_tac``sptree$toList _`` >>
+      eval_goalsub_tac``sptree$toList _`` >>
+      qmatch_goalsub_abbrev_tac ‘size_of _ (aa ++ bb ++ cc ++ dd)’>>
+      qabbrev_tac ‘ll = bb ++ cc ++ dd’ >>
+      ‘aa ++ bb ++ cc ++ dd= aa ++ ll’ by simp[Abbr‘ll’]>>
+      pop_assum (gs o single o Req0)>>
+      rpt (pairarg_tac>>fs[])>>rveq>>
+      pop_assum mp_tac>>
+      eval_goalsub_tac``sptree$toList _`` >>simp[size_of_Number_head]>>
+      drule size_of_append>>rw[]>>
+      qpat_x_assum‘size_of _ (aa ++ ll) _ _ = _’ kall_tac>>
+      qunabbrev_tac‘ll’>>qunabbrev_tac‘bb’>>gs[]>>
+      gs[size_of_Number_head]>>rveq>>
+      qunabbrev_tac‘aa’>>drule_all size_of_repchar_list>>
+      rw[])>>
+    qpat_x_assum ‘repchar_safe_heap _ _’ mp_tac>>
+    gs[repchar_safe_heap_def,extract_stack_def]>>
+    eval_goalsub_tac``sptree$toList _`` >>
+    eval_goalsub_tac``sptree$toList _`` >>
+    gs[size_of_Number_head]>>rveq)>>
   strip_tac>>
   simp[]
   >- simp[data_safe_def]>>
   simp[pop_env_def,set_var_def] >>
-  eval_goalsub_tac “dataSem$state_locals_fupd _ _”>>
+  eval_goalsub_tac “state_locals_fupd _ _”>>
   (* tailcall_lcgLoop [14; 1; 2; 3] *)
   ASM_REWRITE_TAC [ tailcall_def , find_code_def
                   , get_vars_def , get_var_def
@@ -2289,81 +2403,51 @@ in
       simp[frame_lookup])>>
     simp[]>>
     CONJ_TAC>- (
-      fs[stack_to_vs_def,Abbr`ss`]>>
-      fs[stack_to_vs_def,extract_stack_def,closed_ptrs_list_append,
-          closed_ptrs_list_def] >>
-      EVAL_TAC) >>
+      gs[stack_to_vs_def,Abbr`ss`]>>
+      qpat_x_assum ‘closed_ptrs _ _’ mp_tac>>
+      simp[extract_stack_def]>>
+      ntac 3 (eval_goalsub_tac``sptree$toList _``) >>
+      simp[closed_ptrs_def,stack_to_vs_def,extract_stack_def,
+           closed_ptrs_list_append,closed_ptrs_list_def]) >>
     CONJ_TAC >-
       fs[max_def] >>
     CONJ_TAC >- (
-      qpat_x_assum ‘approx_of _ _ _ + _ ≤ _’ assume_tac >>
-      match_mp_tac LESS_EQ_TRANS >>
-      simp[Once CONJ_SYM] >>
-      goal_assum dxrule >>
-      simp[size_of_heap_def,stack_to_vs_def] >>
-      pairarg_tac >>
-      simp[] >>
-      drule_then assume_tac dataPropsTheory.size_of_approx_of >>
-      drule_then match_mp_tac LESS_EQ_TRANS >>
-      qmatch_goalsub_abbrev_tac ‘approx_of _ (a1 ++ _ ++ _)’ >>
-      pop_assum (mp_tac o PURE_REWRITE_RULE [markerTheory.Abbrev_def]) >>
-      CONV_TAC(LAND_CONV EVAL) >>
-      disch_then SUBST_ALL_TAC >>
-      simp[dataPropsTheory.approx_of_def] >>
-      qpat_x_assum ‘small_num T ((&(a * x) + &c) % &m)’ mp_tac >>
-      simp[integerTheory.INT_ADD] >>
-      strip_tac >>
-      dep_rewrite.DEP_REWRITE_TAC[approx_of_cons_Number] >>
-      simp[] >>
-      qmatch_goalsub_abbrev_tac ‘approx_of _ (a1 ++ _ ++ _)’ >>
-      pop_assum (mp_tac o PURE_REWRITE_RULE [markerTheory.Abbrev_def]) >>
-      CONV_TAC(LAND_CONV EVAL) >>
-      disch_then SUBST_ALL_TAC >>
-      simp[dataPropsTheory.approx_of_def] >>
-      dep_rewrite.DEP_REWRITE_TAC[approx_of_cons_Number] >>
-      simp[] >>
-      qmatch_goalsub_abbrev_tac ‘a1 ≤ a2’ >>
-      ‘a1 = a2’ suffices_by simp[] >>
-      MAP_EVERY qunabbrev_tac [‘a1’,‘a2’] >>
-      CONV_TAC SYM_CONV >>
-      match_mp_tac approx_of_more_refs >>
-      simp[] >>
-      fs[closed_ptrs_list_append,stack_to_vs_def]) >>
-    CONJ_TAC >- (
-      qpat_x_assum ‘approx_of _ _ _ + _ ≤ _’ assume_tac >>
-      match_mp_tac LESS_EQ_TRANS >>
-      simp[Once CONJ_SYM] >>
-      goal_assum dxrule >>
-      simp[size_of_heap_def,stack_to_vs_def] >>
-      qmatch_goalsub_abbrev_tac ‘approx_of _ (a1 ++ _ ++ _)’ >>
-      pop_assum (mp_tac o PURE_REWRITE_RULE [markerTheory.Abbrev_def]) >>
-      CONV_TAC(LAND_CONV EVAL) >>
-      disch_then SUBST_ALL_TAC >>
-      simp[dataPropsTheory.approx_of_def] >>
-      qpat_x_assum ‘small_num T ((&(a * x) + &c) % &m)’ mp_tac >>
-      simp[integerTheory.INT_ADD] >>
-      strip_tac >>
-      dep_rewrite.DEP_REWRITE_TAC[approx_of_cons_Number] >>
-      simp[] >>
-      qmatch_goalsub_abbrev_tac ‘approx_of _ (a1 ++ _ ++ _)’ >>
-      pop_assum (mp_tac o PURE_REWRITE_RULE [markerTheory.Abbrev_def]) >>
-      CONV_TAC(LAND_CONV EVAL) >>
-      disch_then SUBST_ALL_TAC >>
-      simp[dataPropsTheory.approx_of_def] >>
-      dep_rewrite.DEP_REWRITE_TAC[approx_of_cons_Number] >>
-      simp[] >>
-      qmatch_goalsub_abbrev_tac ‘a1 ≤ a2’ >>
-      ‘a1 = a2’ suffices_by simp[] >>
-      MAP_EVERY qunabbrev_tac [‘a1’,‘a2’] >>
-      CONV_TAC SYM_CONV >>
-      match_mp_tac approx_of_more_refs >>
-      simp[] >>
-      fs[closed_ptrs_list_append,stack_to_vs_def]) >>
-    EVAL_TAC)>>
+      qpat_x_assum ‘size_of_heap _ + 65 ≤ _’ mp_tac>>
+      simp[size_of_heap_def,stack_to_vs_def,extract_stack_def,Abbr‘ss’]>>
+      ntac 2 (eval_goalsub_tac``sptree$toList _``) >>
+      simp[size_of_Number_head] >>
+      qmatch_goalsub_abbrev_tac‘size_of _ ll’>>
+      rpt (pairarg_tac>>fs[])>>rveq>>
+      qspecl_then [‘s.limits’,‘ll’,‘s.refs’,‘LN’,‘n’,‘_'’]
+                  mp_tac size_of_extra_ByteArrays>>
+      simp[]>>disch_then (qspec_then‘ls’mp_tac)>>simp[]>>
+      impl_tac >-
+       (simp[] >> qpat_x_assum‘closed_ptrs _ s.refs’ mp_tac>>
+        simp[Abbr‘ll’,stack_to_vs_def,stack_to_vs_def]>>
+        eval_goalsub_tac``sptree$toList _`` >>
+        simp[closed_ptrs_APPEND])>>
+      rw[])>>
+    CONJ_TAC >- EVAL_TAC >>
+    rw[]>>last_assum (qspec_then ‘ts’ mp_tac)>>
+    last_x_assum (qspec_then ‘ts''’ mp_tac)>>
+    simp[seen_of_heap_def,stack_to_vs_def]>>
+    ntac 2 (eval_goalsub_tac ``sptree$toList _ ``) >>
+    simp[size_of_Number_head]>>
+    rpt (pairarg_tac>>fs [])>>rveq>>rw[]>>
+    qmatch_asmsub_abbrev_tac‘size_of _ ll’>>
+    qspecl_then [‘s.limits’,‘ll’,‘s.refs’,‘LN’,‘_'’]
+                  mp_tac size_of_extra_ByteArrays>>
+    simp[]>>disch_then (qspec_then‘ls’ mp_tac)>>simp[]>>
+    impl_tac >-
+     (simp[] >> qpat_x_assum‘closed_ptrs _ s.refs’ mp_tac>>
+      simp[Abbr‘ll’,stack_to_vs_def,stack_to_vs_def]>>
+      eval_goalsub_tac``sptree$toList _`` >>
+      simp[closed_ptrs_APPEND])>>
+    rw[])>>
   simp[to_shallow_thm]>>
-  eval_goalsub_tac “dataSem$state_locals_fupd _ _”>>
+  eval_goalsub_tac “state_locals_fupd _ _”>>
   strip_tac>>
-  eval_goalsub_tac “dataSem$state_locals_fupd _ _”>>
+  eval_goalsub_tac “state_locals_fupd _ _”>>
   pairarg_tac>>fs[]>>
   rw[]>>fs[data_safe_def]
 end
@@ -2372,6 +2456,7 @@ QED
 Theorem data_safe_lcgLoop_code_shallow[local] =
   data_safe_lcgLoop_code |> simp_rule [lcgLoop_body_def,to_shallow_thm,to_shallow_def];
 
+(* TODO: move to dataProps *)
 Theorem do_app_mono:
   (dataSem$do_app op xs s = Rval (r,s')) ⇒
   subspt s.code s'.code ∧
@@ -2390,6 +2475,7 @@ Proof
   \\ fs [] \\ fs [subspt_lookup,lookup_union]
 QED
 
+(* TODO: move to dataProps *)
 Theorem evaluate_mono:
   ∀prog s res s'.
     (dataSem$evaluate (prog,s) = (res,s')) ⇒
@@ -2496,7 +2582,7 @@ in
   drop_state>>
   (* move 14 13 *)
   simp [move_def,lookup_def,set_var_def]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``>>
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``>>
   (* Exit if *)
   Q.UNABBREV_TAC ‘if_rest_ass’ >>
   (* make_space 3 ... *)
@@ -2555,7 +2641,7 @@ val lcgLoop_x64_conf = (rand o rator o lhs o concl) lcgLoop_thm
 Theorem data_safe_lcgLoop:
   ∀ffi.
   backend_config_ok ^lcgLoop_x64_conf
-  ⇒ is_safe_for_space ffi ^lcgLoop_x64_conf ^lcgLoop (65,171)
+  ⇒ is_safe_for_space ffi ^lcgLoop_x64_conf ^lcgLoop (65,175)
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -2604,9 +2690,9 @@ in
  \\ UNABBREV_ALL_TAC
  (* Continues after call *)
  \\ strip_makespace
- \\ ntac 49 strip_assign
+ \\ ntac 47 strip_assign
  \\ make_tailcall
- \\ ntac 11
+ \\ ntac 12
     (strip_call
     \\ ntac 9 strip_assign
     \\ make_if
@@ -2616,7 +2702,7 @@ in
  \\ ntac 9 strip_assign
  \\ make_if
  \\ ntac 6 strip_assign
- \\ ntac 12
+ \\ ntac 13
     (open_tailcall
      \\ ntac 4 strip_assign
      \\ make_if
@@ -2627,9 +2713,12 @@ in
   \\ Q.UNABBREV_TAC `rest_call`
   \\ strip_assign
   \\ make_tailcall
+  \\ strip_makespace
+  \\ ntac 3 strip_assign
+  \\ make_tailcall
   \\ ntac 11
      (strip_makespace
-      \\ ntac 6 strip_assign
+      \\ ntac 4 strip_assign
       \\ make_tailcall)
   (* Place the arguments *)
   \\ ntac 4 strip_assign
@@ -2650,17 +2739,7 @@ in
   \\ rw [lookup_def,lookup_fromList,code_lookup]
   \\ simp[frame_lookup]
   \\ EVAL_TAC
-  \\ rw [] >>
-  `(x = 0) ∨ (x = 1)` by
-    (qmatch_asmsub_abbrev_tac`lookup x ss`>>
-    `domain ss = {0; 1}` by
-      (simp[Abbr`ss`]>>EVAL_TAC)>>
-    `x ∈ domain ss` by
-      simp[domain_lookup]>>
-    rfs[])>>
-  qpat_x_assum`_= SOME _` mp_tac>>
-  simp[]>> EVAL_TAC>>
-  disch_then sym_sub_tac>>EVAL_TAC
+  \\ rw [lookup_NONE_domain]
 end
 QED
 

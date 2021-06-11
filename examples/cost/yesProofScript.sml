@@ -10,9 +10,11 @@ open miniBasisProgTheory;
 open x64_configProofTheory;
 open yesProgTheory;
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory "yesProof"
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 Overload monad_unitbind[local] = ``data_monad$bind``
 Overload return[local] = ``data_monad$return``
@@ -27,6 +29,13 @@ val printLoop_body =
   “lookup_printLoop (fromAList yes_data_prog)”
   |> (REWRITE_CONV [yes_data_prog_def] THENC EVAL)
   |> concl |> rand |> rand |> rand
+
+val fields = TypeBase.fields_of “:('c,'ffi) dataSem$state”;
+
+Overload state_refs_fupd = (fields |> assoc "refs" |> #fupd);
+Overload state_locals_fupd = (fields |> assoc "locals" |> #fupd);
+Overload state_stack_max_fupd = (fields |> assoc "stack_max" |> #fupd);
+Overload state_safe_for_space_fupd = (fields |> assoc "safe_for_space" |> #fupd);
 
 Theorem data_safe_yes_code:
   ∀s ts smax sstack lsize.
@@ -45,8 +54,8 @@ Theorem data_safe_yes_code:
    2 ≤ s.limits.length_limit ∧
    (s.tstamps = SOME ts) ∧
    0 < ts ∧
-   (s.locals = fromList [RefPtr 2]) ∧
-   (lookup 2 s.refs = SOME (ByteArray T [121w])) ∧
+   (s.locals = fromList [RefPtr 3]) ∧
+   (lookup 3 s.refs = SOME (ByteArray T [121w])) ∧
    (s.code = fromAList yes_data_prog)
    ⇒ data_safe (evaluate (^printLoop_body, s))
 Proof
@@ -77,7 +86,7 @@ Proof
   \\ `safe` by (fs [Abbr `safe`, size_of_stack_def,GREATER_DEF] \\ EVAL_TAC)
   \\ ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac)
   (* Make stack_max sane to look at *)
-  \\ qmatch_goalsub_abbrev_tac `dataSem$state_stack_max_fupd (K max0) _`
+  \\ qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K max0) _`
   \\ `max0 = SOME (MAX smax (lsize + sstack + 6))` by
      (fs [Abbr `max0`,size_of_stack_def,GREATER_DEF,MAX_DEF])
   \\ ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac)
@@ -124,7 +133,7 @@ Proof
      \\ rw [] \\ fs [])
   \\ ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac)
   (* Make stack_max sane to look at *)
-  \\ qmatch_goalsub_abbrev_tac `dataSem$state_stack_max_fupd (K max0) _`
+  \\ qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K max0) _`
   \\ `max0 = SOME (MAX smax (lsize + sstack + 11))` by
      (fs [Abbr `max0`,size_of_stack_def,GREATER_DEF,MAX_DEF])
   \\ ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac)
@@ -140,7 +149,7 @@ Proof
   \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 10` \\ rw [])
   \\ fs [] \\ ntac 2 (pop_assum kall_tac)
   \\ ntac 6 (strip_assign \\ fs [])
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   (* strip_call *)
   \\ qmatch_goalsub_abbrev_tac (`bind _ rest_call2 _`)
   \\ ONCE_REWRITE_TAC [bind_def]
@@ -161,7 +170,7 @@ Proof
      \\ fs [FINITE_domain,domain_lookup]
      \\ Cases_on `lookup x s.refs` \\ fs []
      \\ asm_exists_tac \\ fs [])
-  \\ `p1 ≠ 2` by (CCONTR_TAC  \\ fs [])
+  \\ `p1 ≠ 3` by (CCONTR_TAC  \\ fs [])
   (* Prove we are safe for space up to this point *)
   \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe)  _`
   \\ `safe` by
@@ -192,7 +201,7 @@ Proof
   \\ ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac)
   \\ IF_CASES_TAC >- simp [data_safe_def]
   \\ REWRITE_TAC [ push_env_def , to_shallow_def , to_shallow_thm]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   (* strip_assign *)
   \\ strip_assign
   \\ make_if
@@ -248,7 +257,7 @@ Proof
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
   \\ simp [LET_DEF]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   (* Prove we are safe for space up to this point *)
   \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe)  _`
   \\ `safe` by
@@ -309,7 +318,7 @@ Proof
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
   \\ simp [LET_DEF]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ strip_assign
   \\ make_if
   \\ Q.UNABBREV_TAC `rest_call2`
@@ -318,7 +327,7 @@ Proof
   \\ Q.ABBREV_TAC `pred = ∃w. 0 = w2n (w:word8)`
   \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 0` \\ rw [])
   \\ fs [] \\ pop_assum kall_tac \\ pop_assum kall_tac
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ qmatch_goalsub_abbrev_tac (`bind _ rest_call2 _`)
   \\ ONCE_REWRITE_TAC [bind_def]
   \\ simp [ call_def     , find_code_def  , push_env_def
@@ -363,11 +372,11 @@ Proof
   \\ ASM_REWRITE_TAC [] \\ ntac 2 (pop_assum kall_tac)
   \\ IF_CASES_TAC >- simp [data_safe_def]
   \\ REWRITE_TAC [ push_env_def , to_shallow_def , to_shallow_thm]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   (* strip_assign *)
   \\ strip_assign
   \\ make_if
-  \\ qmatch_goalsub_abbrev_tac `dataSem$state_refs_fupd (K (insert p2 _ _)) _`
+  \\ qmatch_goalsub_abbrev_tac `state_refs_fupd (K (insert p2 _ _)) _`
   \\ fs [insert_shadow]
   \\ `lookup p2 s.refs = NONE` by
   (Q.UNABBREV_TAC `p2`
@@ -381,7 +390,7 @@ Proof
   \\ rw [] \\ pop_assum (qspec_then `domain (insert p1 ARB s.refs)` assume_tac)
   \\ fs [FINITE_domain,domain_lookup] \\ Cases_on `lookup x (insert p1 ARB s.refs)`
   \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p1` \\ fs [lookup_insert])
-  \\ `2 ≠ p2` by (CCONTR_TAC  \\ fs [])
+  \\ `3 ≠ p2` by (CCONTR_TAC  \\ fs [])
   \\ ntac 8 strip_assign
   (* make_tailcall *)
   \\ ASM_REWRITE_TAC [ tailcall_def , find_code_def
@@ -402,7 +411,7 @@ Proof
   \\ rw [] \\ pop_assum (qspec_then `domain (insert p1 ARB s.refs)` assume_tac)
   \\ fs [FINITE_domain,domain_lookup] \\ Cases_on `lookup x (insert p1 ARB s.refs)`
   \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p1` \\ fs [lookup_insert])
-  \\ `2 ≠ p2` by (CCONTR_TAC  \\ fs [])
+  \\ `3 ≠ p2` by (CCONTR_TAC  \\ fs [])
   \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe)  _`
   (* Prove we are safe for space up to this point *)
   \\ `safe` by
@@ -444,7 +453,7 @@ Proof
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
   \\ simp [LET_DEF]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ strip_assign
   \\ make_if
   \\ ntac 8 strip_assign
@@ -495,7 +504,7 @@ Proof
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
   \\ simp [LET_DEF]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ strip_assign
   \\ make_if
   \\ Q.UNABBREV_TAC `rest_call2`
@@ -505,7 +514,7 @@ Proof
   \\ Q.ABBREV_TAC `pred = ∃w. 0 = w2n (w:word8)`
   \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 0` \\ rw [])
   \\ fs [] \\ pop_assum kall_tac \\ pop_assum kall_tac
-  \\ qmatch_goalsub_abbrev_tac `dataSem$state_refs_fupd (K (insert p3 _ _)) _`
+  \\ qmatch_goalsub_abbrev_tac `state_refs_fupd (K (insert p3 _ _)) _`
   \\ qmatch_goalsub_abbrev_tac `insert _ (RefPtr pp3) _`
   \\ `pp3 = p3` by
      (rw [Abbr`pp3`,Abbr`p3`,least_from_def]
@@ -531,7 +540,7 @@ Proof
      \\ first_x_assum drule \\ rw[]
      \\ Cases_on `n` \\ fs [])
   \\ rveq \\ pop_assum kall_tac
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ `p3 ≠ p2` by
      (rw [Abbr `p3`,least_from_def]
      >- (CCONTR_TAC \\ fs [])
@@ -569,7 +578,7 @@ Proof
      \\ fs [FINITE_domain,domain_lookup]
      \\ Cases_on `lookup x (insert p2 ARB (insert p1 ARB s.refs))`
      \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p2` \\ Cases_on `x = p1` \\ fs [lookup_insert])
-  \\ `2 ≠ p3` by (CCONTR_TAC  \\ fs [])
+  \\ `3 ≠ p3` by (CCONTR_TAC  \\ fs [])
   \\ strip_assign
   \\ fs [lookup_insert]
   (* Prove we are safe for space up to this point *)
@@ -661,7 +670,7 @@ Proof
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
   \\ simp [LET_DEF]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ ho_match_mp_tac data_safe_res
   \\ reverse conj_tac >- (rw [] \\ pairarg_tac \\ rw [])
   (* Make stack_max sane to look at *)
@@ -747,8 +756,8 @@ Theorem data_safe_yes_code_shallow[local] =
 
 Theorem data_safe_yes_code_abort:
  ∀s ts.
-   (s.locals = fromList [RefPtr 2]) ∧
-   (lookup 2 s.refs = SOME (ByteArray T [121w])) ∧
+   (s.locals = fromList [RefPtr 3]) ∧
+   (lookup 3 s.refs = SOME (ByteArray T [121w])) ∧
    2 ≤ s.limits.length_limit ∧
    (s.stack_frame_sizes = yes_config.word_conf.stack_frame_size) ∧
    s.limits.arch_64_bit ∧
@@ -817,7 +826,7 @@ Proof
   \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 10` \\ rw [])
   \\ fs [] \\ ntac 2 (pop_assum kall_tac)
   \\ ntac 6 (strip_assign \\ fs [])
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   (* strip_call *)
   \\ qmatch_goalsub_abbrev_tac (`bind _ rest_call2 _`)
   \\ ONCE_REWRITE_TAC [bind_def]
@@ -838,10 +847,10 @@ Proof
      \\ fs [FINITE_domain,domain_lookup]
      \\ Cases_on `lookup x s.refs` \\ fs []
      \\ asm_exists_tac \\ fs [])
-  \\ `p1 ≠ 2` by (CCONTR_TAC  \\ fs [])
+  \\ `p1 ≠ 3` by (CCONTR_TAC  \\ fs [])
   \\ IF_CASES_TAC >- simp [data_safe_def]
   \\ REWRITE_TAC [ push_env_def , to_shallow_def , to_shallow_thm]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   (* strip_assign *)
   \\ strip_assign
   \\ make_if
@@ -856,7 +865,7 @@ Proof
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
   \\ simp [LET_DEF]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ strip_assign
   \\ make_if
   \\ ntac 6 strip_assign
@@ -869,7 +878,7 @@ Proof
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
   \\ simp [LET_DEF]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ strip_assign
   \\ make_if
   \\ Q.UNABBREV_TAC `rest_call2`
@@ -878,7 +887,7 @@ Proof
   \\ Q.ABBREV_TAC `pred = ∃w. 0 = w2n (w:word8)`
   \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 0` \\ rw [])
   \\ fs [] \\ pop_assum kall_tac \\ pop_assum kall_tac
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ qmatch_goalsub_abbrev_tac (`bind _ rest_call2 _`)
   \\ ONCE_REWRITE_TAC [bind_def]
   \\ simp [ call_def     , find_code_def  , push_env_def
@@ -891,11 +900,11 @@ Proof
           , size_of_stack_frame_def]
   \\ IF_CASES_TAC >- simp [data_safe_def]
   \\ REWRITE_TAC [ push_env_def , to_shallow_def , to_shallow_thm]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   (* strip_assign *)
   \\ strip_assign
   \\ make_if
-  \\ qmatch_goalsub_abbrev_tac `dataSem$state_refs_fupd (K (insert p2 _ _)) _`
+  \\ qmatch_goalsub_abbrev_tac `state_refs_fupd (K (insert p2 _ _)) _`
   \\ fs [insert_shadow]
   \\ `lookup p2 s.refs = NONE` by
     (Q.UNABBREV_TAC `p2`
@@ -909,7 +918,7 @@ Proof
     \\ rw [] \\ pop_assum (qspec_then `domain (insert p1 ARB s.refs)` assume_tac)
     \\ fs [FINITE_domain,domain_lookup] \\ Cases_on `lookup x (insert p1 ARB s.refs)`
     \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p1` \\ fs [lookup_insert])
-  \\ `2 ≠ p2` by (CCONTR_TAC  \\ fs [])
+  \\ `3 ≠ p2` by (CCONTR_TAC  \\ fs [])
   \\ ntac 8 strip_assign
   (* make_tailcall *)
   \\ ASM_REWRITE_TAC [ tailcall_def , find_code_def
@@ -930,12 +939,12 @@ Proof
   \\ rw [] \\ pop_assum (qspec_then `domain (insert p1 ARB s.refs)` assume_tac)
   \\ fs [FINITE_domain,domain_lookup] \\ Cases_on `lookup x (insert p1 ARB s.refs)`
   \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p1` \\ fs [lookup_insert])
-  \\ `2 ≠ p2` by (CCONTR_TAC  \\ fs [])
+  \\ `3 ≠ p2` by (CCONTR_TAC  \\ fs [])
   \\ IF_CASES_TAC >- simp [data_safe_def]
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
   \\ simp [LET_DEF]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ strip_assign
   \\ make_if
   \\ ntac 8 strip_assign
@@ -950,7 +959,7 @@ Proof
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
   \\ simp [LET_DEF]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ strip_assign
   \\ make_if
   \\ Q.UNABBREV_TAC `rest_call2`
@@ -960,7 +969,7 @@ Proof
   \\ Q.ABBREV_TAC `pred = ∃w. 0 = w2n (w:word8)`
   \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 0` \\ rw [])
   \\ fs [] \\ pop_assum kall_tac \\ pop_assum kall_tac
-  \\ qmatch_goalsub_abbrev_tac `dataSem$state_refs_fupd (K (insert p3 _ _)) _`
+  \\ qmatch_goalsub_abbrev_tac `state_refs_fupd (K (insert p3 _ _)) _`
   \\ qmatch_goalsub_abbrev_tac `insert _ (RefPtr pp3) _`
   \\ `pp3 = p3` by
      (rw [Abbr`pp3`,Abbr`p3`,least_from_def]
@@ -986,7 +995,7 @@ Proof
      \\ first_x_assum drule \\ rw[]
      \\ Cases_on `n` \\ fs [])
   \\ rveq \\ pop_assum kall_tac
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ `p3 ≠ p2` by
      (rw [Abbr `p3`,least_from_def]
      >- (CCONTR_TAC \\ fs [])
@@ -1024,7 +1033,7 @@ Proof
      \\ fs [FINITE_domain,domain_lookup]
      \\ Cases_on `lookup x (insert p2 ARB (insert p1 ARB s.refs))`
      \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p2` \\ Cases_on `x = p1` \\ fs [lookup_insert])
-  \\ `2 ≠ p3` by (CCONTR_TAC  \\ fs [])
+  \\ `3 ≠ p3` by (CCONTR_TAC  \\ fs [])
   \\ strip_assign
   \\ fs [lookup_insert]
   \\ reverse (Cases_on `call_FFI s.ffi "put_char" [121w; 10w] []`
@@ -1066,7 +1075,7 @@ Theorem data_safe_yes:
   ⇒ is_safe_for_space ffi
        yes_x64_conf
        yes_prog
-       (56,89)
+       (56,93)
 Proof
  let
   val code_lookup   = mk_code_lookup
@@ -1118,7 +1127,7 @@ Proof
  \\ UNABBREV_ALL_TAC
  (* Continues after call *)
  \\ strip_makespace
- \\ ntac 49 strip_assign
+ \\ ntac 47 strip_assign
  \\ make_tailcall
  \\ ntac 5
     (strip_call
@@ -1128,8 +1137,12 @@ Proof
   \\ strip_call
   \\ ntac 9 strip_assign
   \\ make_if
+  \\ Q.UNABBREV_TAC `rest_call`
+  \\ strip_call
+  \\ ntac 9 strip_assign
+  \\ make_if
   \\ ntac 6 strip_assign
-  \\ ntac 6
+  \\ ntac 7
      (open_tailcall
      \\ ntac 4 strip_assign
      \\ make_if
@@ -1140,9 +1153,12 @@ Proof
   \\ Q.UNABBREV_TAC `rest_call`
   \\ strip_assign
   \\ make_tailcall
+  \\ strip_makespace
+  \\ ntac 3 strip_assign
+  \\ make_tailcall
   \\ ntac 5
      (strip_makespace
-     \\ ntac 6 strip_assign
+     \\ ntac 4 strip_assign
      \\ make_tailcall)
   \\ ntac 2 strip_assign
   \\ strip_assign
@@ -1240,7 +1256,7 @@ val yes_safe_thm =
                     |> REWRITE_RULE [GSYM yes_prog_def
                                     ,GSYM yes_x64_conf_def]
                     |> Q.INST [`stack_limit` |-> `56`
-                              ,`heap_limit` |-> `89`]
+                              ,`heap_limit` |-> `93`]
                     |> INST_TYPE [``:'ffi`` |-> ``:unit``]
                     |> Q.INST [`ffi` |-> `sio_ffi_state`]
                     |> SIMP_RULE std_ss [prim_sem_env_yes,LET_DEF,not_fail,ELIM_UNCURRY]
@@ -1253,7 +1269,7 @@ val yes_safe_thm =
     end
 
 Theorem yes_has_space_for_dessert:
- (read_limits yes_x64_conf mc ms = (56,89)) ⇒
+ (read_limits yes_x64_conf mc ms = (56,93)) ⇒
       mc_conf_ok mc ∧ mc_init_ok yes_x64_conf mc ∧
       installed yes_code cbspace yes_data data_sp
         yes_config.lab_conf.ffi_names sio_ffi_state

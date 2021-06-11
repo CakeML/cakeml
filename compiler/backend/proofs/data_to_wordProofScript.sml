@@ -13,10 +13,12 @@ open preamble dataSemTheory dataPropsTheory
 open match_goal;
 local open backendTheory gen_gcTheory in end
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory "data_to_wordProof";
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = set_grammar_ancestry
   ["backend","dataLang","dataSem","data_to_word_gcProof","word_to_wordProof",
@@ -544,7 +546,7 @@ Theorem compile_correct:
       state_rel_ext x l1 l2 s t ==>
       ?ck t1 res1.
         (wordSem$evaluate (Call NONE (SOME start) [0] NONE,
-           (inc_clock ck t)) = (res1,t1)) /\
+           (wordProps$inc_clock ck t)) = (res1,t1)) /\
         option_le t1.stack_max s1.stack_max /\
         (res1 = SOME NotEnoughSpace ==>
            t1.ffi.io_events ≼ s1.ffi.io_events /\
@@ -610,7 +612,7 @@ Proof
   \\ disch_then (drule o ONCE_REWRITE_RULE [CONJ_COMM])
   \\ fs [] \\ strip_tac \\ fs []
   THEN1 (rveq \\ fs [] \\ every_case_tac \\ fs[])
-  \\ pairarg_tac \\ fs [inc_clock_def]
+  \\ pairarg_tac \\ fs [wordPropsTheory.inc_clock_def,data_to_word_gcProofTheory.inc_clock_def]
   \\ qexists_tac `clk`
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t6)`
   \\ qpat_x_assum `evaulate _ = _` mp_tac
@@ -1506,7 +1508,7 @@ Theorem data_to_word_compile_conventions:
     good_dimindex(:'a) ==>
   let (c,p) = compile data_conf wc ac prog in
   EVERY (λ(n,m,prog).
-    flat_exp_conventions (prog:'a prog) ∧
+    flat_exp_conventions (prog:'a wordLang$prog) ∧
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
     ((data_conf.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
     (data_conf.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
@@ -1566,13 +1568,13 @@ Proof
 QED
 
 Theorem ALL_DISTINCT_MAP_FST_stubs:
-   ALL_DISTINCT (MAP FST (stubs a c))
+   ALL_DISTINCT (MAP FST (data_to_word$stubs a c))
 Proof
   Cases_on`a` \\ EVAL_TAC
 QED
 
 Theorem MAP_FST_stubs_bound:
-   MEM n (MAP FST (stubs a c)) ⇒ n < data_num_stubs
+   MEM n (MAP FST (data_to_word$stubs a c)) ⇒ n < data_num_stubs
 Proof
   Cases_on`a` \\ EVAL_TAC
   \\ strip_tac \\ rveq \\ EVAL_TAC

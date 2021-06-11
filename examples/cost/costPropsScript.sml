@@ -6,6 +6,8 @@ open preamble basis compilationLib;
 open backendProofTheory backendPropsTheory;
 open dataSemTheory data_monadTheory dataLangTheory;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "costProps"
 
 (* Overload monad_unitbind[local] = ``bind`` *)
@@ -27,11 +29,54 @@ Proof
 QED
 
 Theorem size_of_Number_head:
-  ∀vs lims refs seen n b.
+  ∀vs lims refs seen n.
   small_num lims.arch_64_bit n ⇒
   (size_of lims (Number n::vs) refs seen = size_of lims vs refs seen)
 Proof
   Cases \\ rw [size_of_def] \\ pairarg_tac \\ fs []
+QED
+
+Theorem size_of_Number_gen:
+  ∀xs lim i refs seen n refs1 seen1.
+    (size_of lim (Number i::xs) refs seen = (n,refs1,seen1))
+    ⇒ ∃n1. (size_of lim xs refs seen = (n1,refs1,seen1)) ∧
+           (n = FST (size_of lim [Number i] LN LN) + n1)
+Proof
+  Cases \\ rw [size_of_def] \\ pairarg_tac \\ fs []
+QED
+
+Theorem size_of_Number_swap:
+  ∀x ys i lim refs seen n refs1 seen1.
+    (size_of lim (x::Number i::ys) refs seen = (n,refs1,seen1))
+    ⇔ (size_of lim (Number i::x::ys) refs seen = (n,refs1,seen1))
+Proof
+  rw [size_of_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  >- (drule size_of_Number_head
+      \\ disch_then (qspecl_then [‘ys’,‘refs’,‘seen’] mp_tac)
+      \\ strip_tac \\ Cases_on ‘ys’ \\ fs [size_of_def] \\ rveq \\ rfs [])
+  \\ drule size_of_Number_gen \\ strip_tac \\ rveq \\ fs [size_of_def]
+  \\ Cases_on ‘ys’ \\ fs [size_of_def]
+  \\ rveq \\ rfs []
+  \\ rveq \\ rfs []
+QED
+
+Theorem size_of_Number_swap_APPEND:
+  ∀xs ys i lim refs seen n refs1 seen1.
+    (size_of lim (xs ++ Number i::ys) refs seen = (n,refs1,seen1))
+    ⇔ (size_of lim (Number i::(xs ++ ys)) refs seen = (n,refs1,seen1))
+Proof
+  Induct \\ rw []
+  \\ ONCE_REWRITE_TAC [GSYM size_of_Number_swap]
+  \\ rw [size_of_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ first_assum (qspecl_then [‘ys’,‘i’,‘lim’,‘refs’,‘seen’,‘n1’,‘refs1'’,‘seen1'’] mp_tac)
+  \\ disch_then (drule o snd o EQ_IMP_RULE)
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac ‘h::rest’
+  \\ ‘∃r rs. rest = r :: rs’ by
+     (qunabbrev_tac ‘rest’ \\ Cases_on ‘xs’ \\ rw [])
+  \\ rw [size_of_def]
 QED
 
 Theorem size_of_seen_SUBSET:
@@ -62,6 +107,23 @@ Proof
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ ho_match_mp_tac SUBSET_TRANS
   \\ asm_exists_tac \\ fs []
+QED
+
+Theorem size_of_refs_subspt:
+  ∀lims vs refs seen n1 seen1 refs1.
+  (size_of lims vs refs seen = (n1,refs1,seen1))
+  ⇒ subspt refs1 refs
+Proof
+  ho_match_mp_tac size_of_ind \\ rw [size_of_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  >- (ho_match_mp_tac (GEN_ALL subspt_trans)
+     \\ asm_exists_tac \\ fs [])
+  \\ every_case_tac \\ fs []
+  \\ rveq \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ fs [subspt_delete]
+  \\ ho_match_mp_tac (GEN_ALL subspt_trans)
+  \\ asm_exists_tac \\ fs [subspt_delete]
 QED
 
 Theorem size_of_le_head:
@@ -263,6 +325,18 @@ Proof
   \\ every_case_tac \\ fs []
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ fs [wf_delete]
+QED
+
+Theorem wf_seen_size_of:
+  ∀lims vs refs seen n' refs' seen'.
+    wf seen ∧ (size_of lims vs refs seen = (n',refs',seen'))
+    ⇒ wf seen'
+Proof
+  ho_match_mp_tac size_of_ind \\ rw [size_of_def] \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ fs [wf_insert]
 QED
 
 Triviality size_of_insert_aux:
@@ -471,6 +545,45 @@ Proof
   \\ `wf (delete p (insert p x t))` by fs [wf_delete,wf_insert]
   \\ drule_then (qspec_then `t` drule) spt_eq_thm \\ rw []
   \\ Cases_on `n = p` \\ fs [lookup_delete,lookup_insert]
+QED
+
+(* Stolen from clos_to_bvlProof *)
+Theorem not_domain_lookup:
+   ∀x n. n ∉ domain x ⇔ (lookup n x = NONE)
+Proof
+  rw [] \\
+  fs [domain_lookup] \\ Cases_on `lookup n x` \\ fs []
+QED
+
+Theorem size_of_cons:
+  ∀lims x y refs seen n1 refs1 seen1.
+   (size_of lims (x::y) refs seen = (n1, refs1, seen1))
+   ⇔ ∃n0 n2 refs0 seen0.
+      (size_of lims y   refs seen   = (n0, refs0, seen0)) ∧
+      (size_of lims [x] refs0 seen0 = (n2, refs1, seen1)) ∧
+      (n1 = n0 + n2)
+Proof
+  rw []
+  \\ EQ_TAC
+  >- (Cases_on ‘y’ \\ fs [size_of_def]
+     \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [])
+  \\ rw [] \\ Cases_on ‘y’ \\ fs [size_of_def]
+QED
+
+Theorem size_of_append:
+  ∀x lims y refs seen n1 refs1 seen1.
+   (size_of lims (x ++ y) refs seen = (n1, refs1, seen1))
+   ⇒ ∃n0 n2 refs0 seen0.
+      (size_of lims y refs seen   = (n0, refs0, seen0)) ∧
+      (size_of lims x refs0 seen0 = (n2, refs1, seen1)) ∧
+      (n1 = n0 + n2)
+Proof
+  Induct \\ rw [size_of_def]
+  \\ (drule o GEN_ALL o fst o EQ_IMP_RULE o SPEC_ALL) size_of_cons \\ rw []
+  \\ first_x_assum drule
+  \\ rw [] \\ asm_exists_tac \\ fs []
+  \\ ONCE_REWRITE_TAC [size_of_cons]
+  \\ asm_exists_tac \\ fs []
 QED
 
 val _ = export_theory();

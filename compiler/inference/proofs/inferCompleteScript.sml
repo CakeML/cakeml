@@ -201,9 +201,8 @@ Proof
     Cases_on `nub fvs' = []` >>
     fs []
     >- (
-      simp [COUNT_LIST_def] >>
-      irule (CONJUNCT1 infer_type_subst_empty_check) >>
-      fs [nub_eq_nil])
+      simp [COUNT_LIST_def, nub_def] >>
+      irule (CONJUNCT1 infer_type_subst_empty_check) >> simp[])
     >- (
       irule check_t_infer_type_subst_dbs >>
       qexists_tac `0` >>

@@ -7,6 +7,10 @@ open basisProgTheory ArrayProofTheory
 
 val _ = new_theory "quicksortProg";
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 val _ = translation_extends"basisProg";
 
 (* TODO: move *)
@@ -750,13 +754,6 @@ Proof
       unabbrev_all_tac >>
       simp [GSYM CONJ_ASSOC] >>
       conj_tac
-      (* If the upper partition is empty, there is a good blocker. Here, the
-       * upper partition cannot be empty *)
-      >- (
-        rw [] >>
-        drule DROP_EMPTY >>
-        rw []) >>
-      conj_tac
       (* The pivot is not less than the new lower partition *)
       >- (
         simp [EVERY_EL] >>
@@ -866,7 +863,7 @@ Proof
         fs []
         >- full_simp_tac (std_ss++ARITH_ss) [GSYM LENGTH_NIL] >>
         fs [] >>
-        `new_lower + 1 ≠ LENGTH middle_vs` suffices_by intLib.ARITH_TAC >>
+        `new_lower + 1 ≠ LENGTH middle_vs` suffices_by fs [] >>
         `?n. n < LENGTH elems2' - 1 ∧ ~cmp (EL n elems2') pivot`
         by (
           fs [EXISTS_MEM, MEM_EL] >>
@@ -877,7 +874,7 @@ Proof
           metis_tac [LENGTH_FRONT, PRE_SUB1]) >>
         CCONTR_TAC >>
         fs [] >>
-        `n < new_lower` by intLib.ARITH_TAC >>
+        `n < new_lower` by fs [] >>
         metis_tac []) >>
       conj_asm2_tac
       >- (

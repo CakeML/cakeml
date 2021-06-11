@@ -4,7 +4,7 @@
 open preamble ml_translatorLib ml_translatorTheory to_closProgTheory
 local open backendTheory in end
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "to_bvlProg";
 val _ = translation_extends "to_closProg";
@@ -146,11 +146,22 @@ val r = translate bvl_constTheory.case_op_const_pmatch;
 val r = translate bvl_constTheory.SmartOp_flip_pmatch;
 (* val r = translate bvl_constTheory.SmartOp2_pmatch *) (* prove_EvalPatBind *)
 val r = translate bvl_constTheory.SmartOp2_def;
+
+Theorem bvl_const_smartop2_size:
+  bvl_const_smartop2_side v = T
+Proof
+  PairCases_on ‘v’
+  \\ fs [fetch "-" "bvl_const_smartop2_side_def"]
+  \\ Cases_on ‘v0 = El’ \\ fs []
+  \\ rw [] \\ intLib.COOPER_TAC
+QED
+
+val _ = update_precondition bvl_const_smartop2_size;
+
 val r = translate bvl_constTheory.SmartOp_pmatch;
 val r = translate bvl_constTheory.extract_pmatch;
 val r = translate bvl_constTheory.extract_list_def;
 val r = translate bvl_constTheory.delete_var_pmatch;
-
 val r = translate bvl_constTheory.compile_def;
 
 val bvl_const_compile_side = Q.prove(`

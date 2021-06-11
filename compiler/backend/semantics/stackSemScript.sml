@@ -142,7 +142,7 @@ val word_exp_def = tDefine "word_exp" `
   (WF_REL_TAC `measure (exp_size ARB o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC wordLangTheory.MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ DECIDE_TAC)
+   \\ DECIDE_TAC);
 
 val get_var_def = Define `
   get_var v (s:('a,'c,'ffi) stackSem$state) = FLOOKUP s.regs v`;
@@ -545,6 +545,11 @@ val evaluate_def = tDefine "evaluate" `
      case get_var v s of
      | SOME w => (NONE, set_store name w s)
      | NONE => (SOME Error, s)) /\
+  (evaluate (OpCurrHeap binop v src,s) =
+     if ¬s.use_store then (SOME Error,s) else
+     case word_exp s (Op binop [Var src; Lookup CurrHeap]) of
+     | SOME w => (NONE, set_var v (Word w) s)
+     | _ => (SOME Error, s)) /\
   (evaluate (Tick,s) =
      if s.clock = 0 then (SOME TimeOut,empty_env s)
                     else (NONE,dec_clock s)) /\
@@ -852,6 +857,16 @@ val semantics_def = Define `
       Diverge
          (build_lprefix_lub
            (IMAGE (λk. fromList (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))`;
+
+(* record accessors *)
+
+Definition read_stack_def:
+  read_stack s = (s:('a,'b,'c) stackSem$state).stack
+End
+
+Definition read_stack_space_def:
+  read_stack_space s = (s:('a,'b,'c) stackSem$state).stack_space
+End
 
 (* clean up *)
 

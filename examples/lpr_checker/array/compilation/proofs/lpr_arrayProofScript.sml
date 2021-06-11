@@ -55,110 +55,6 @@ val check_unsat_code_def = Define `
   check_unsat_code = (code, data, config)
   `;
 
-Theorem fml_rel_check_lpr_list:
-  ∀steps fml fmlls inds fmlls' inds' Clist.
-  fml_rel fml fmlls ∧
-  ind_rel fmlls inds ∧
-  EVERY ($= w8z) Clist ∧ wf_fml fml ∧
-  EVERY wf_lpr steps ∧
-  check_lpr_list steps fmlls inds Clist = SOME (fmlls', inds') ⇒
-  ind_rel fmlls' inds' ∧
-  ∃fml'. check_lpr steps fml = SOME fml' ∧
-    fml_rel fml' fmlls'
-Proof
-  Induct>>fs[check_lpr_list_def,check_lpr_def]>>
-  ntac 7 strip_tac>>
-  ntac 3 (TOP_CASE_TAC>>fs[])>>
-  strip_tac>>
-  drule  fml_rel_check_lpr_step_list>>
-  rpt (disch_then drule)>>
-  disch_then (qspec_then `h` mp_tac)>> simp[]>>
-  strip_tac>>
-  simp[]>>
-  first_x_assum match_mp_tac>>
-  asm_exists_tac>>fs[]>>
-  asm_exists_tac>>fs[]>>
-  asm_exists_tac>>fs[]>>
-  match_mp_tac check_lpr_step_wf_fml>>
-  metis_tac[]
-QED
-
-Theorem fml_rel_FOLDL_resize_update_list:
-  fml_rel x
-  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
-Proof
-  rw[fml_rel_def]>>
-  reverse(rw[])
-  >- (
-    CCONTR_TAC>>fs[]>>
-    `?y. lookup x' x = SOME y` by
-      (Cases_on`lookup x' x`>>fs[])>>
-    fs[GSYM MEM_toSortedAList]>>
-    fs[FOLDL_FOLDR_REVERSE]>>
-    `MEM (x',y) (REVERSE (toSortedAList x))` by
-      fs[MEM_REVERSE]>>
-    drule LENGTH_FOLDR_resize_update_list2>>
-    simp[]>>
-    metis_tac[])>>
-  `ALL_DISTINCT (MAP FST (toSortedAList x))` by
-    fs[ALL_DISTINCT_MAP_FST_toSortedAList]>>
-  drule FOLDL_resize_update_list_lookup>>
-  simp[ALOOKUP_toSortedAList]
-QED
-
-Theorem ind_rel_FOLDL_resize_update_list:
-  ind_rel
-  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
-  (MAP FST (toSortedAList x))
-Proof
-  simp[ind_rel_def,FOLDL_FOLDR_REVERSE]>>
-  `∀z. MEM z (MAP FST (toSortedAList x)) ⇔ MEM z (MAP FST (REVERSE (toSortedAList x)))` by
-    simp[MEM_MAP]>>
-  simp[]>>
-  qmatch_goalsub_abbrev_tac`MAP FST ls`>>
-  rpt(pop_assum kall_tac)>>
-  Induct_on`ls`>>rw[]
-  >-
-    metis_tac[EL_REPLICATE]>>
-  Cases_on`h`>>fs[]>>
-  fs[IS_SOME_EXISTS]>>
-  pop_assum mp_tac>>
-  simp[Once resize_update_list_def]>>
-  pop_assum mp_tac>>
-  simp[Once resize_update_list_def]>>
-  IF_CASES_TAC>>fs[]
-  >-
-    (simp[EL_LUPDATE]>>
-    strip_tac>>
-    IF_CASES_TAC>>simp[])
-  >>
-  simp[EL_LUPDATE]>>
-  IF_CASES_TAC>>simp[EL_APPEND_EQN]>>
-  IF_CASES_TAC>>simp[]>>
-  simp[EL_REPLICATE]
-QED
-
-Theorem check_lpr_unsat_list_sound:
-  check_lpr_unsat_list lpr
-    (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
-    (MAP FST (toSortedAList x)) Clist ∧
-  wf_fml x ∧ EVERY wf_lpr lpr ∧ EVERY ($= w8z) Clist ⇒
-  unsatisfiable (interp x)
-Proof
-  rw[check_lpr_unsat_list_def]>>
-  every_case_tac>>fs[]>>
-  assume_tac (fml_rel_FOLDL_resize_update_list |> INST_TYPE [alpha |-> ``:int list``])>>
-  assume_tac (ind_rel_FOLDL_resize_update_list |> INST_TYPE [alpha |-> ``:int list``])>>
-  drule fml_rel_check_lpr_list>>
-  rpt(disch_then drule)>>
-  strip_tac>>
-  drule check_lpr_sound>>
-  rpt(disch_then drule)>>
-  drule fml_rel_is_unsat_list  >>
-  rpt(disch_then drule)>>
-  metis_tac[is_unsat_sound,unsatisfiable_def]
-QED
-
 Theorem machine_code_sound:
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ⇒
   installed_x64 check_unsat_code (basis_ffi cl fs) mc ms ⇒
@@ -168,7 +64,7 @@ Theorem machine_code_sound:
   ∃out err.
     extract_fs fs (check_unsat_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-    if out = strlit "s UNSATISFIABLE\n" then
+    if out = strlit "s VERIFIED UNSAT\n" then
       (LENGTH cl = 3 ∨ LENGTH cl = 4) ∧ inFS_fname fs (EL 1 cl) ∧
       ∃mv fml.
         parse_dimacs (all_lines fs (EL 1 cl)) = SOME (mv,fml) ∧
@@ -255,7 +151,7 @@ Proof
     every_case_tac>>fs[]>>
     Cases_on`cl`>>fs[])>>
   (* the actual interesting case *)
-  qexists_tac`strlit "s UNSATISFIABLE\n"` >> qexists_tac`strlit ""`>> simp[]>>
+  qexists_tac`strlit "s VERIFIED UNSAT\n"` >> qexists_tac`strlit ""`>> simp[]>>
   CONJ_TAC >-
     metis_tac[STD_streams_stderr,add_stdo_nil]>>
   PURE_REWRITE_TAC[CONJ_ASSOC]>>
@@ -277,8 +173,8 @@ Theorem machine_code_sound_parse_print:
   wf_fml fml ∧ inFS_fname fs (EL 1 cl) ∧ all_lines fs (EL 1 cl) = print_dimacs fml ⇒
   ∃out err.
     extract_fs fs (check_unsat_io_events cl fs) = SOME (add_stdout (add_stderr fs err) out) ∧
-    (* Then if the output is "s UNSATISFIABLE" that formula was also unsatisfiable *)
-    if out = strlit "s UNSATISFIABLE\n" then
+    (* Then if the output is "s VERIFIED UNSAT\n" that formula was also unsatisfiable *)
+    if out = strlit "s VERIFIED UNSAT\n" then
       (LENGTH cl = 3 ∨ LENGTH cl = 4) ∧ unsatisfiable (interp fml)
     else
       if LENGTH cl = 2 then

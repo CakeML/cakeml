@@ -677,8 +677,7 @@ Proof
   rw[] >>
   simp[Once array_set_aux_def] >>
   fs[ml_monadBaseTheory.st_ex_ignore_bind_def,
-     ml_monadBaseTheory.st_ex_return_def]
-  >- fs[DROP_LENGTH_TOO_LONG] >>
+     ml_monadBaseTheory.st_ex_return_def] >>
   fs[fetch "-" "update_arr_def", ml_monadBaseTheory.Marray_update_def] >>
   fs[ADD1] >> rveq >>
   qspecl_then [`s.arr`,`n`,`h`,`Subscript`] assume_tac
@@ -733,8 +732,7 @@ Proof
   fs[ml_monadBaseTheory.st_ex_bind_def, ml_monadBaseTheory.st_ex_return_def,
      ml_monadBaseTheory.st_ex_ignore_bind_def] >>
   fs[fetch "-" "arr_sub_def", ml_monadBaseTheory.Marray_sub_def] >>
-  IF_CASES_TAC >> fs[]
-  >- (qspecl_then [`s.arr`, `n`] assume_tac DROP_LENGTH_TOO_LONG >> fs[]) >>
+  IF_CASES_TAC >> fs[] >>
   first_x_assum (qspec_then `s` mp_tac) >> strip_tac >> fs[] >>
   fs[NOT_GREATER_EQ, ADD1, LE_LT1] >>
   imp_res_tac (Msub_Success |> INST_TYPE [beta |-> ``:state_exn``]) >>
@@ -889,9 +887,9 @@ Proof
       rw[] >>
       fs[SORTED_APPEND_GEN] >>
       Cases_on `DROP lower final_state.arr = []` >> fs[] >>
-      Cases_on
-        `DROP (part_index + 1) (TAKE (upper + 1) final_state.arr) = []` >>
-      fs[HD_DROP, LAST_TAKE, EL_TAKE, EL_DROP] >>
+      Cases_on `DROP (part_index + 1) (TAKE (upper + 1) final_state.arr) = []`
+      THEN1 (fs [] >> fs [LENGTH_TAKE_EQ_MIN]) >>
+      fs [HD_DROP, LAST_TAKE, EL_TAKE, EL_DROP] >>
       (* TODO HOL simplification hangs without removing kall_tac below *)
       ntac 5 (first_x_assum kall_tac) >>
       rpt (qpat_x_assum `SORTED _ _` kall_tac) >>

@@ -43,7 +43,26 @@ open mlintTheory;
 (* TODO: Mostly copied from mlintTheory *)
 val result = translate fromChar_unsafe_def;
 
-val result = translate fromChars_range_unsafe_def;
+val fromChars_range_unsafe_tail_def = Define`
+  fromChars_range_unsafe_tail l 0       str mul acc = acc ∧
+  fromChars_range_unsafe_tail l (SUC n) str mul acc =
+    fromChars_range_unsafe_tail l n str (mul * 10)  (acc + fromChar_unsafe (strsub str (l + n)) * mul)`;
+
+Theorem fromChars_range_unsafe_tail_eq:
+  ∀n l s mul acc.
+  fromChars_range_unsafe_tail l n s mul acc = (fromChars_range_unsafe l n s) * mul + acc
+Proof
+  Induct>>rw[fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]
+QED
+
+Theorem fromChars_range_unsafe_alt:
+  fromChars_range_unsafe l n s = fromChars_range_unsafe_tail l n s 1 0
+Proof
+  rw[fromChars_range_unsafe_tail_eq]
+QED
+
+val result = translate fromChars_range_unsafe_tail_def;
+val result = translate fromChars_range_unsafe_alt;
 
 val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
@@ -65,13 +84,14 @@ val result = translate parsingTheory.fromString_unsafe_def;
 
 val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
 val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
-val fromchars_range_unsafe_side_def = theorem"fromchars_range_unsafe_side_def";
+val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_side_def";
+val fromchars_range_unsafe_side_def = fetch "-" "fromchars_range_unsafe_side_def";
 
 Theorem fromchars_unsafe_side_thm:
    ∀n s. n ≤ LENGTH s ⇒ fromchars_unsafe_side n (strlit s)
 Proof
   completeInduct_on`n` \\ rw[]
-  \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def]
+  \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def,fromchars_range_unsafe_tail_side_def]
 QED
 
 val fromString_unsafe_side = Q.prove(
@@ -84,6 +104,16 @@ val fromString_unsafe_side = Q.prove(
   \\ rw[]) |> update_precondition;
 
 val _ = translate blanks_def;
+val _ = translate tokenize_def;
+
+val _ = translate tokenize_fast_def;
+
+val tokenize_fast_side = Q.prove(
+  `∀x. tokenize_fast_side x = T`,
+  EVAL_TAC >> fs[]) |> update_precondition;
+
+val _ = translate toks_def;
+val _ = translate toks_fast_def;
 val _ = translate parse_until_zero_def;
 val _ = translate parse_until_nn_def;
 
@@ -100,21 +130,28 @@ val _ = translate parse_until_k_def;
 val _ = translate parse_clause_witness_def;
 
 val _ = translate parse_PR_hint_def;
-val _ = translate lit_from_int_def;
+
+(* val _ = translate lit_from_int_def;
 
 val lit_from_int_side_def = fetch "-" "lit_from_int_side_def"
 
 val lit_from_int_side = Q.prove(`
   !x. lit_from_int_side x ⇔ T`,
   rw[lit_from_int_side_def]>>
-  intLib.ARITH_TAC) |> update_precondition
+  intLib.ARITH_TAC) |> update_precondition *)
 
 val _ = translate parse_lprstep_def;
 
+val parse_lprstep_side_def = definition"parse_lprstep_side_def";
+
+val parse_lprstep_side = Q.prove(
+  `∀x. parse_lprstep_side x = T`,
+  rw[parse_lprstep_side_def] >>
+  fs[integerTheory.int_ge]) |> update_precondition;
+
 val parse_and_run_def = Define`
   parse_and_run fml l =
-  (* let _ = empty_ffi l in *)
-  case parse_lprstep (tokens blanks l) of
+  case parse_lprstep l of
     NONE => NONE
   | SOME lpr =>
     check_lpr_step lpr fml`
@@ -141,7 +178,7 @@ val check_unsat'' = process_topdecs `
     case TextIO.inputLine fd of
       None => (Some fml)
     | Some l =>
-    case parse_and_run fml l of
+    case parse_and_run fml (toks_fast l) of
       None => (TextIO.output TextIO.stdErr nocheck_string;None)
     | Some fml' => check_unsat'' fd fml'` |> append_prog;
 
@@ -149,7 +186,7 @@ val check_unsat''_def = Define`
   (check_unsat'' fd fml fs [] =
     STDIO (fastForwardFD fs fd)) ∧
   (check_unsat'' fd fml fs (ln::ls) =
-   case parse_and_run fml ln of
+   case parse_and_run fml (toks_fast ln) of
     NONE =>
       STDIO (add_stderr (lineForwardFD fs fd) nocheck_string)
    | SOME fml' =>
@@ -158,7 +195,7 @@ val check_unsat''_def = Define`
 val parse_and_run_file_def = Define`
   (parse_and_run_file [] fml = SOME fml) ∧
   (parse_and_run_file (x::xs) fml =
-    case parse_and_run fml x of
+    case parse_and_run fml (toks_fast x) of
       NONE => NONE
     | SOME fml' => parse_and_run_file xs fml')`
 
@@ -172,7 +209,7 @@ Theorem parse_and_run_file_eq:
 Proof
   Induct>>fs[parse_and_run_def,parse_lpr_def,parse_and_run_file_def,check_lpr_def]>>
   rw[]>>
-  every_case_tac>>fs[]>>
+  every_case_tac>>fs[toks_fast_def]>>
   simp[check_lpr_def]
 QED
 
@@ -237,7 +274,8 @@ Proof
     fs[GSYM linesFD_nil_lineFD_NONE,parse_and_run_file_def,OPTION_TYPE_def,check_unsat''_def]>>
     xsimpl)>>
   xlet_auto >- xsimpl>>
-  Cases_on`parse_and_run fml (implode x)`>>
+  xlet_auto >- xsimpl>>
+  Cases_on`parse_and_run fml (toks_fast (implode x))`>>
   fs[OPTION_TYPE_def]>>
   xmatch
   >- (
@@ -276,7 +314,7 @@ val check_unsat' = process_topdecs `
       None => ()
     | Some fml' =>
       if is_unsat fml' then
-        TextIO.print "s UNSATISFIABLE\n"
+        TextIO.print "s VERIFIED UNSAT\n"
       else
         TextIO.output TextIO.stdErr nocheck_string
   end
@@ -315,7 +353,7 @@ Theorem check_unsat'_spec:
       (case parse_lpr (all_lines fs f) of
        SOME lpr =>
          if check_lpr_unsat lpr fml then
-           add_stdout fs (strlit "s UNSATISFIABLE\n")
+           add_stdout fs (strlit "s VERIFIED UNSAT\n")
          else
            add_stderr fs nocheck_string
       | NONE => add_stderr fs nocheck_string)

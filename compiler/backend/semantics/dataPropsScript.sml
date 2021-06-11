@@ -5,6 +5,10 @@ open preamble dataLangTheory dataSemTheory semanticsPropsTheory backendPropsTheo
 
 val _ = new_theory"dataProps";
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 Definition approx_of_def:
   (approx_of lims [] refs = 0) /\
   (approx_of lims (x::y::ys) refs =

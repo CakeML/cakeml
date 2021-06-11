@@ -13,6 +13,7 @@ open preamble bviSemTheory bviPropsTheory bvi_tailrecTheory
 *)
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "bvi_tailrecProof";
 
@@ -1093,6 +1094,7 @@ Proof
   \\ rveq \\ fs[bvl_to_bvi_id]
   \\ fs[do_app_aux_def]
   \\ fs[state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def]
+  \\ fs[AllCaseEqs()]
 QED
 
 Theorem state_rel_do_app_err:
@@ -1110,6 +1112,7 @@ Proof
   \\ fs[bvlSemTheory.do_app_def]
   \\ TOP_CASE_TAC \\ fs[]
   \\ fs[case_eq_thms,do_app_aux_def]
+  \\ fs[AllCaseEqs()]
 QED
 
 Theorem do_app_to_op_state:

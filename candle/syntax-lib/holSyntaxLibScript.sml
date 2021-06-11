@@ -350,4 +350,12 @@ Proof
   simp[BIJ_DEF,INJ_DEF,MEM_MAP,PULL_EXISTS]
 QED
 
+Theorem mlstring_sort_nil:
+  !l. mlstring_sort l = [] ⇒ l = []
+Proof
+  fs[Once MONO_NOT_EQ,GSYM NULL_EQ,NOT_NULL_MEM,
+    REWRITE_RULE[pred_setTheory.EXTENSION,GSYM mlstring_sort_def]
+      set_MAP_implode_STRING_SORT_MAP_explode]
+QED
+
 val _ = export_theory()

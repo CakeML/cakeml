@@ -27,13 +27,17 @@ val startup =
        "     .globl  cdecl(cml_heap)";
        "     .globl  cdecl(cml_stack)";
        "     .globl  cdecl(cml_stackend)";
+       "     .type   cml_main, function";
        "cdecl(cml_main):";
        "     ldr    r0,=cake_main            /* arg1: entry address */";
        "     ldr    r1,=cdecl(cml_heap)      /* arg2: first address of heap */";
+       "     ldr    r1,[r1]";
        "     ldr    r2,=cake_bitmaps";
        "     str    r2,[r1]                  /* store bitmap pointer */";
        "     ldr    r2,=cdecl(cml_stack)     /* arg3: first address of stack */";
-       "     ldr    r3,=cdecl(cml_stackend)  /* arg4: first address past the stack */ ";
+       "     ldr    r2,[r2]";
+       "     ldr    r3,=cdecl(cml_stackend)  /* arg4: first address past the stack */";
+       "     ldr    r3,[r3]";
        "     b      cake_main";
        "     .ltorg";
        ""])`` |> EVAL |> concl |> rand
@@ -71,12 +75,13 @@ val ffi_code =
        ""])))`` |> EVAL |> concl |> rand
 
 val arm7_export_def = Define `
-  arm7_export ffi_names bytes (data:word32 list) =
+  arm7_export ffi_names bytes (data:word32 list) syms =
     SmartAppend
       (SmartAppend (List preamble)
       (SmartAppend (List (data_section ".long"))
       (SmartAppend (split16 (words_line (strlit"\t.long ") word_to_string) data)
       (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code))))
-      (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)`;
+      (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
+      (emit_symbols syms))`;
 
 val _ = export_theory ();

@@ -12,9 +12,12 @@ open preamble
      semanticsPropsTheory
 local open word_to_stackProofTheory data_to_word_gcProofTheory in end
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory"stack_to_labProof";
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val get_labels_def = stackSemTheory.get_labels_def;
 val get_reg_value_def = targetSemTheory.get_reg_value_def;
@@ -1163,6 +1166,10 @@ Proof
     full_simp_tac(srw_ss())[state_rel_def] ) >>
   conj_tac >- (
     rename [`Set`] >>
+    srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
+    full_simp_tac(srw_ss())[state_rel_def] ) >>
+  conj_tac >- (
+    rename [`OpCurrHeap`] >>
     srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
     full_simp_tac(srw_ss())[state_rel_def] ) >>
   conj_tac >- (
@@ -3041,6 +3048,10 @@ val good_code_def = Define`
       EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) (extract_labels p) ∧
       ALL_DISTINCT (extract_labels p)) code`;
 
+Definition contain_def:
+  contain b = Abbrev b
+End
+
 Theorem full_make_init_semantics:
    full_make_init stack_conf data_conf max_heap sp offset
     (bitmaps:'a word list) code t save_regs data_sp coracle = (s,opt) ∧
@@ -3070,8 +3081,9 @@ Theorem full_make_init_semantics:
    Abbrev (opt <> NONE /\ (semantics InitGlobals_location s ≠ Fail ⇒
    semantics t = semantics InitGlobals_location s))
 Proof
-  srw_tac[][full_make_init_def]
+  srw_tac[][full_make_init_def,GSYM contain_def]
   \\ last_x_assum mp_tac \\ LET_ELIM_TAC
+  \\ rewrite_tac [contain_def]
   (* Prove the syntactic things for the oracle sequences *)
   \\ `semantics 0 s2 ≠ Fail ⇒ semantics t = semantics 0 s2`
   by (

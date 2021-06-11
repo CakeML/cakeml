@@ -7,7 +7,11 @@ open closPropsTheory clos_knownTheory clos_knownPropsTheory closSemTheory
      closLangTheory db_varsTheory backendPropsTheory
 local open clos_letopProofTheory clos_ticksProofTheory clos_fvsProofTheory in end
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "clos_knownProof";
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = set_grammar_ancestry
   [ "closLang", "closSem", "closProps", "clos_known", "clos_knownProps" ];
@@ -2578,14 +2582,18 @@ val state_rel_def = Define `
     t.compile_oracle = state_co (compile_inc c) s.compile_oracle
 `;
 
+Triviality compile_inc_upd_inline_factor:
+  compile_inc (c with inline_factor := k) = compile_inc c
+Proof
+  simp [compile_inc_def, FUN_EQ_THM, FORALL_PROD, reset_inline_factor_def]
+QED
+
 Theorem state_rel_upd_inline_factor:
    state_rel (c with inline_factor := k) = state_rel c
 Proof
   simp [FUN_EQ_THM] \\ rw []
-  \\ eq_tac \\ strip_tac \\ fs [state_rel_def]
+  \\ fs [state_rel_def, compile_inc_upd_inline_factor]
   \\ fs [v_rel_upd_inline_factor, ref_rel_upd_inline_factor]
-  \\ simp [state_cc_def, state_co_def, LAMBDA_PROD,
-           compile_inc_def, reset_inline_factor_def]
 QED
 
 Theorem v_rel_subspt:
@@ -2961,6 +2969,7 @@ val known_correct0 = Q.prove(
       fv_max (LENGTH env1) xs /\
       LIST_REL (v_rel c (next_g s0)) env1 env2 /\
       unique_set_globals xs s0.compile_oracle /\
+      is_state_oracle (compile_inc c) s0.compile_oracle /\
       env1full = env1 ++ xenv1 /\
       res1 <> Rerr (Rabort Rtype_error) ==>
       ?res2 t.
@@ -2968,6 +2977,7 @@ val known_correct0 = Q.prove(
         result_rel (LIST_REL (v_rel c (next_g s))) (v_rel c (next_g s)) res1 res2 /\
         state_rel c (next_g s) s t /\
         state_globals_approx s (next_g s) /\
+        is_state_oracle (compile_inc c) s.compile_oracle /\
         oracle_gapprox_disjoint (next_g s) s.compile_oracle) /\
    (!lopt1 f1 args1 (s0:(val_approx num_map#'c,'ffi) closSem$state) res1 s lopt2 f2 args2 t0 c argsopt.
       evaluate_app lopt1 f1 args1 s0 = (res1, s) /\
@@ -2978,6 +2988,7 @@ val known_correct0 = Q.prove(
       oracle_state_sgc_free s0.compile_oracle /\
       co_every_Fn_vs_NONE s0.compile_oracle /\
       unique_set_globals [] s0.compile_oracle /\
+      is_state_oracle (compile_inc c) s0.compile_oracle /\
       LIST_REL (v_rel c (next_g s0)) args1 args2 /\
       state_rel c (next_g s0) s0 t0 /\
       state_globals_approx s0 (next_g s0) /\
@@ -2990,6 +3001,7 @@ val known_correct0 = Q.prove(
         result_rel (LIST_REL (v_rel c (next_g s))) (v_rel c (next_g s)) res1 res2 /\
         state_rel c (next_g s) s t /\
         state_globals_approx s (next_g s) /\
+        is_state_oracle (compile_inc c) s.compile_oracle /\
         oracle_gapprox_disjoint (next_g s) s.compile_oracle)`,
   ho_match_mp_tac (evaluate_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3`
                    |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
@@ -3326,58 +3338,32 @@ val known_correct0 = Q.prove(
           \\ pairarg_tac \\ fs[]
           \\ pairarg_tac \\ fs[]
           \\ fs[CaseEq"option",CaseEq"prod"] \\ rw[]
-          \\ qpat_assum`_ = FST (s1.compile_oracle 1)`(assume_tac o SYM) \\ fs[]
-          \\ fs[compile_inc_def]
-          \\ pairarg_tac \\ fs[] \\ rveq
-          \\ drule known_subspt
-          \\ qpat_x_assum`_ = (_,s1)`assume_tac
-          \\ drule evaluate_changed_globals
-          \\ fs[]
-          \\ strip_tac
-          \\ fs[shift_seq_def]
-          \\ fs[oracle_state_sgc_free_def]
-          \\ qpat_assum`∀n. globals_approx_sgc_free _`(qspec_then`n+1`mp_tac)
-          \\ qpat_x_assum`∀n. globals_approx_sgc_free _`(qspec_then`n`mp_tac)
-          \\ simp[globals_approx_sgc_free_def]
-          \\ fs[ssgc_free_def]
-          \\ first_x_assum(qspec_then`0`mp_tac)
-          \\ simp[]
-          \\ fs[oracle_gapprox_disjoint_def]
-          \\ qpat_x_assum`∀n. gapprox_disjoint _ _`(qspec_then`0`mp_tac)
-          \\ simp[gapprox_disjoint_def]
-          \\ srw_tac[DNF_ss][]
-          \\ first_x_assum match_mp_tac
-          \\ conj_tac >- metis_tac[]
-          \\ simp[BAG_ALL_DISTINCT_BAG_UNION]
-          \\ imp_res_tac unique_set_globals_shift_seq
-          \\ pop_assum kall_tac
-          \\ pop_assum(qspec_then`n`mp_tac)
-          \\ simp[unique_set_globals_def,elist_globals_append,BAG_ALL_DISTINCT_BAG_UNION,shift_seq_def]
-          \\ simp[first_n_exps_def]
-          \\ disch_then(qspec_then`1`mp_tac)
-          \\ simp[] \\ strip_tac
-          \\ simp[BAG_DISJOINT_BAG_IN]
-          \\ fs[IN_DISJOINT])
+          \\ drule_then drule oracle_gapprox_subspt_evaluate
+          \\ rw []
+          \\ drule_then (qspecl_then [`0`, `1`] mp_tac)
+              oracle_gapprox_subspt_alt
+          \\ simp [])
         \\ conj_tac
         THEN1
          (irule state_globals_approx_known_mglobals_disjoint
-          \\ fs [state_rel_def, state_co_def, LAMBDA_PROD, compile_inc_def, shift_seq_def]
-          \\ rfs [] \\ rpt (pairarg_tac \\ fs []) \\ rw []
-          \\ fs [next_g_def, shift_seq_def]
-          \\ rename1 `s1.compile_oracle 0 = ((pre_install_g, _), _, _)`
-          \\ fs [state_cc_def, compile_inc_def]
-          \\ rpt (pairarg_tac \\ fs []) \\ rw []
-          \\ goal_assum drule \\ simp []
-          \\ fs [state_oracle_mglobals_disjoint_def]
+          \\ simp [next_g_def, shift_seq_def]
+          \\ drule_then (qspec_then `0` mp_tac) is_state_oracle_k
+          \\ simp []
+          \\ disch_tac \\ fs []
+          \\ simp [compile_inc_def]
+          \\ pairarg_tac \\ fs []
+          \\ asm_exists_tac
+          \\ fs [state_oracle_mglobals_disjoint_def, next_g_def]
           \\ metis_tac [SND, FST])
+        \\ conj_tac
+        THEN1
+         (imp_res_tac is_state_oracle_shift)
         THEN1
          (match_mp_tac oracle_gapprox_disjoint_Install
-          \\ fs [state_rel_def, state_co_def, LAMBDA_PROD, compile_inc_def, shift_seq_def]
-          \\ rfs [] \\ rpt (pairarg_tac \\ fs []) \\ rw []
+          \\ imp_res_tac is_state_oracle_shift
           \\ fs [next_g_def, shift_seq_def]
-          \\ rename1 `s1.compile_oracle 0 = ((pre_install_g, _), eval_exp, _)`
-          \\ fs [state_cc_def, compile_inc_def]
-          \\ rpt (pairarg_tac \\ fs []) \\ rw []
+          \\ simp [compile_inc_def]
+          \\ rpt (pairarg_tac \\ fs [])
           \\ goal_assum drule \\ simp []
           \\ metis_tac [nil_unique_set_globals, unique_set_globals_evaluate]))
       \\ rveq \\ fs []
@@ -3385,15 +3371,14 @@ val known_correct0 = Q.prove(
                    known (reset_inline_factor c) exps1 [] (next_g s1) =
                      (eas, next_g (s1 with compile_oracle := shift_seq 1 s1.compile_oracle))`
          by (fs [state_rel_def] \\ rfs []
-             \\ fs [shift_seq_def, state_cc_def]
-             \\ rpt (pairarg_tac \\ fs []) \\ rveq
-             \\ fs [compile_inc_def] \\ pairarg_tac \\ fs []
-             \\ imp_res_tac known_sing_EQ_E \\ rveq
+             \\ simp [shift_seq_def, next_g_def]
+             \\ imp_res_tac is_state_oracle_shift
+             \\ simp [compile_inc_def]
+             \\ rpt (pairarg_tac \\ fs [])
              \\ fs [state_co_def] \\ rfs []
              \\ rpt (pairarg_tac \\ fs []) \\ rveq
              \\ fs [compile_inc_def] \\ rfs [] \\ rveq
-             \\ fs [compile_inc_def]
-             \\ simp [next_g_def])
+             )
       \\ qmatch_goalsub_abbrev_tac `evaluate (_, [], tgoal)`
       \\ fs [pair_case_eq]
       \\ first_x_assum drule
@@ -3403,6 +3388,7 @@ val known_correct0 = Q.prove(
       \\ reverse impl_tac
       THEN1
        (fs [result_case_eq] \\ strip_tac \\ rw [] \\ fs []
+        \\ fs [compile_inc_upd_inline_factor]
         \\ irule LIST_REL_IMP_LAST \\ simp []
         \\ metis_tac [LIST_REL_LENGTH, evaluate_IMP_LENGTH, NOT_NIL_EQ_LENGTH_NOT_0])
       \\ patresolve `evaluate (_, _, s0) = _` hd evaluate_IMP_shift_seq
@@ -3435,10 +3421,8 @@ val known_correct0 = Q.prove(
         \\ irule ref_rel_subspt
         \\ goal_assum (first_x_assum o mp_then Any mp_tac) \\ rw []
         \\ fs[state_cc_def]
-        \\ pairarg_tac \\ fs[]
-        \\ pairarg_tac \\ fs[]
+        \\ rpt (pairarg_tac \\ fs[])
         \\ fs[CaseEq"option",CaseEq"prod"] \\ rw[]
-        \\ qpat_assum`_ = FST (s0.compile_oracle _)`(assume_tac o SYM) \\ fs[]
         \\ fs[compile_inc_def]
         \\ pairarg_tac \\ fs[] \\ rveq
         \\ drule known_subspt
@@ -3450,6 +3434,7 @@ val known_correct0 = Q.prove(
         \\ qpat_x_assum`∀n. gapprox_disjoint _ _`(qspec_then`0`mp_tac)
         \\ simp[gapprox_disjoint_def]
         \\ srw_tac[DNF_ss][]
+        \\ rfs []
         \\ first_x_assum match_mp_tac
         \\ simp[BAG_ALL_DISTINCT_BAG_UNION]
         \\ imp_res_tac unique_set_globals_shift_seq
@@ -3509,6 +3494,7 @@ val known_correct0 = Q.prove(
         THEN1 (pop_assum (qspec_then `n + 1` assume_tac)
                \\ fs [first_n_exps_shift_seq, first_n_exps_def,
                       elist_globals_append, BAG_ALL_DISTINCT_BAG_UNION]))
+      THEN1 simp [compile_inc_upd_inline_factor, is_state_oracle_shift_imp]
       THEN1 fs [result_case_eq])
     \\ Cases_on `isGlobal opn /\ gO_destApx apx <> gO_None`
     THEN1
@@ -4024,8 +4010,8 @@ val known_correct0 = Q.prove(
   THEN1
    (say "evaluate_app NIL"
     \\ fs [evaluate_def, v_rel_app_NONE] \\ rveq \\ fs [])
-  THEN1
-   (say "evaluate_app CONS"
+  THEN
+    say "evaluate_app CONS"
     \\ fs [evaluate_def]
     \\ fs [dec_clock_def, ADD1]
     \\ `t0.max_app = s0.max_app /\ s0.clock = t0.clock` by fs [state_rel_def]
@@ -4121,7 +4107,7 @@ val known_correct0 = Q.prove(
                  \\ imp_res_tac evaluate_app_IMP_shift_seq
                  \\ imp_res_tac evaluate_IMP_shift_seq \\ fs []
                  \\ simp [next_g_def, shift_seq_def, oracle_gapprox_subspt_alt])
-          \\ simp [mglobals_disjoint_def]
+          \\ simp [mglobals_disjoint_def, compile_inc_upd_inline_factor]
           \\ fs [Abbr `fullenv1`]
           \\ impl_tac
           THEN1
@@ -4144,8 +4130,7 @@ val known_correct0 = Q.prove(
             \\ qmatch_goalsub_abbrev_tac `evaluate_app _ _ next_args2 _ = _`
             \\ `next_args1 = []` by fs [Abbr `next_args1`, DROP_NIL]
             \\ `next_args2 = []` by fs [Abbr `next_args2`, DROP_NIL]
-            \\ fs [Abbr `next_args1`, Abbr `next_args2`]
-            \\ rveq \\ simp [])
+            \\ rveq \\ simp [] \\ gvs [])
           \\ first_x_assum match_mp_tac
           \\ qexists_tac `NONE` \\ simp []
           \\ patresolve `evaluate (_, _, state1) = _` hd evaluate_changed_globals
@@ -4250,7 +4235,7 @@ val known_correct0 = Q.prove(
                   SIMP_RULE (srw_ss()) [EVERY_EL] th |> mp_tac)
                 \\ disch_then (qspec_then `ii` mp_tac)
                 \\ simp [Abbr `fullenv1`])
-        \\ simp []
+        \\ simp [compile_inc_upd_inline_factor]
         \\ impl_tac
         THEN1
          (fs [Abbr `state1`, next_g_def,
@@ -4277,6 +4262,7 @@ val known_correct0 = Q.prove(
           \\ qmatch_goalsub_abbrev_tac `evaluate_app _ _ next_args2 _ = _`
           \\ `next_args1 = []` by fs [Abbr `next_args1`, DROP_NIL]
           \\ `next_args2 = []` by fs [Abbr `next_args2`, DROP_NIL]
+          \\ gvs []
           \\ fs [Abbr `next_args1`, Abbr `next_args2`]
           \\ rw [])
         \\ first_x_assum match_mp_tac
@@ -4338,8 +4324,7 @@ val known_correct0 = Q.prove(
                      by (fs [NOT_LESS_EQUAL, LIST_REL_EL_EQN]
                          \\ first_x_assum (qpat_assum `i < _` o mp_then (Pos hd) mp_tac)
                          \\ simp [f_rel_def]))
-          \\ fs [bool_case_eq] \\ rveq
-          \\ qexists_tac `t0 with clock := 0`
+          \\ fs [bool_case_eq] \\ rveq \\ gvs []
           \\ fs [CONV_RULE (LHS_CONV SYM_CONV) REVERSE_EQ_NIL]
           \\ fs [DROP_NIL, NOT_LESS, ADD1, GREATER_EQ]
           \\ imp_res_tac LESS_EQUAL_ANTISYM \\ fs []
@@ -4386,7 +4371,7 @@ val known_correct0 = Q.prove(
           \\ simp [EVERY_REVERSE, EVERY_TAKE]
           \\ simp [set_globals_empty_unique_set_globals]
           \\ `s1 = s` by fs [case_eq_thms]
-          \\ simp []
+          \\ simp [compile_inc_upd_inline_factor]
           \\ fs [Abbr `fullenv1`]
           \\ simp [TAKE_LENGTH_ID_rwt]
           \\ rveq
@@ -4467,7 +4452,7 @@ val known_correct0 = Q.prove(
                  \\ Cases_on `loc` \\ simp []
                  THEN1 simp [LIST_REL_EL_EQN, EL_REPLICATE]
                  \\ simp [clos_gen_noinline_eq, LIST_REL_EL_EQN])
-          \\ simp []
+          \\ simp [compile_inc_upd_inline_factor]
           \\ unabbrev_all_tac
           \\ fs [next_g_def, state_oracle_mglobals_disjoint_def, mglobals_disjoint_def]
           \\ impl_tac THEN1 fs [result_case_eq]
@@ -4475,7 +4460,7 @@ val known_correct0 = Q.prove(
           \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
           \\ imp_res_tac evaluate_SING \\ rveq \\ fs [] \\ rveq \\ fs []
           \\ fs [CONV_RULE (LHS_CONV SYM_CONV) REVERSE_EQ_NIL, DROP_NIL]
-          \\ simp [DROP_LENGTH_TOO_LONG])))));
+          \\ simp [DROP_LENGTH_TOO_LONG]))));
 
 Theorem semantics_known:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY co
@@ -4487,6 +4472,7 @@ Theorem semantics_known:
    co_every_Fn_vs_NONE co /\
    oracle_gapprox_subspt co /\
    oracle_state_sgc_free co /\
+   is_state_oracle (compile_inc c) co /\
    unique_set_globals xs co /\
    EVERY esgc_free xs /\
    fv_max 0 xs /\

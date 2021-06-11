@@ -10,15 +10,24 @@ val _ = translation_extends"lpr_commonProg";
 
 (* Pure translation of parsing things *)
 val _ = translate parse_header_line_def;
+
+val parse_header_line_side = Q.prove(`
+   ∀x. parse_header_line_side x= T`,
+  rw[definition"parse_header_line_side_def"]>>
+  intLib.ARITH_TAC)
+  |> update_precondition;
+
 val _ = translate parse_clause_aux_def;
 val _ = translate parse_clause_def;
 
 (* NOTE: inefficient-ish version that reads all lines at once *)
 val _ = translate parsingTheory.build_fml_def;
+val _ = translate nocomment_line_def;
+val _ = translate parse_dimacs_toks_def;
 val _ = translate parse_dimacs_def;
 
 val usage_string_def = Define`
-  usage_string = strlit"Usage: cake_lpr <DIMCAS formula file> <Optional: LPR proof file for proof checking>\n"`;
+  usage_string = strlit"Usage: cake_lpr <DIMACS formula file> <Optional: LPR proof file for proof checking>\n"`;
 
 val r = translate usage_string_def;
 
@@ -52,7 +61,7 @@ val check_unsat_sem_def = Define`
           (case parse_lpr (all_lines fs (EL 2 cl)) of
             SOME lpr =>
               if check_lpr_unsat lpr fml then
-                add_stdout fs (strlit "s UNSATISFIABLE\n")
+                add_stdout fs (strlit "s VERIFIED UNSAT\n")
               else
                 add_stderr fs nocheck_string
            | NONE => add_stderr fs nocheck_string)

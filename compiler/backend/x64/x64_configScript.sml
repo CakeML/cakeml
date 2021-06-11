@@ -35,7 +35,6 @@ val x64_names_def = Define `
 val x64_names_def = save_thm("x64_names_def[compute]",
   CONV_RULE (RAND_CONV EVAL) x64_names_def);
 
-val source_conf = rconc(EVAL``prim_config.source_conf``)
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=2; col_oracle := λn. NONE |>``
@@ -43,11 +42,11 @@ val word_to_word_conf = ``<| reg_alg:=2; col_oracle := λn. NONE |>``
 val x64_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=F; has_longdiv:=T; has_fp_ops:=T; has_fp_tern:=F; call_empty_ffi:=F; gc_kind:=Simple|>``
 val x64_word_conf = ``<| bitmaps := []:64 word list; stack_frame_size := LN |>``
 val x64_stack_conf = ``<|jump:=T;reg_names:=x64_names|>``
-val x64_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;asm_conf:=x64_config;init_clock:=5;hash_size:=104729n|>``
+val x64_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=x64_config;init_clock:=5;hash_size:=104729n|>``
 
 val x64_backend_config_def = Define`
   x64_backend_config =
-             <|source_conf:=^(source_conf);
+             <|source_conf:=prim_src_config;
                clos_conf:=^(clos_conf);
                bvl_conf:=^(bvl_conf);
                data_conf:=^(x64_data_conf);
@@ -55,6 +54,7 @@ val x64_backend_config_def = Define`
                word_conf:=^(x64_word_conf);
                stack_conf:=^(x64_stack_conf);
                lab_conf:=^(x64_lab_conf);
+               symbols:=[];
                tap_conf:=default_tap_config
                |>`;
 

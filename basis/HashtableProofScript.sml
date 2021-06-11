@@ -66,7 +66,7 @@ val REF_ARRAY_def = Define `
 val HASHTABLE_def = Define
  `HASHTABLE a b hf cmp h v =
     SEP_EXISTS ur ar hfv vlv arr cmpv heuristic_size.
-      &(v = (Conv (SOME (TypeStamp "Hashtable" 8)) [ur; ar; hfv; cmpv]) /\
+      &(v = (Conv (SOME (TypeStamp "Hashtable" 27)) [ur; ar; hfv; cmpv]) /\
         (a --> NUM) hf hfv /\
         (a --> a --> ORDERING_TYPE) cmp cmpv /\
         TotOrd cmp /\

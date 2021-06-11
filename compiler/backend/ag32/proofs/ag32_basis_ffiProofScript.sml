@@ -9,9 +9,13 @@ open preamble
   ag32_memoryProofTheory
 local open blastLib basis_ffiTheory in end
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory"ag32_basis_ffiProof";
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 (* TODO: move *)
 

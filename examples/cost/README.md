@@ -1,5 +1,11 @@
 Preliminary data-cost examples
 
+[allProgScript.sml](allProgScript.sml):
+A data-cost example of a list sum function using fold
+
+[allProofScript.sml](allProofScript.sml):
+Prove of sum space consumption
+
 [costLib.sml](costLib.sml):
 Tactics and utilities for data-cost proofs
 
@@ -34,6 +40,15 @@ A data-cost example of a reverse
 
 [reverseProofScript.sml](reverseProofScript.sml):
 A data-cost example of a reverse (proofs)
+
+[size_ofPropsScript.sml](size_ofPropsScript.sml):
+Lemmas about size_of
+
+[sumProgScript.sml](sumProgScript.sml):
+A data-cost example of a list sum function using fold
+
+[sumProofScript.sml](sumProofScript.sml):
+Prove of sum space consumption
 
 [yesProgScript.sml](yesProgScript.sml):
 A data-cost example of a non-terminating function (cyes)

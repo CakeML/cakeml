@@ -27,13 +27,30 @@ val startup =
        "     .globl  cdecl(cml_heap)";
        "     .globl  cdecl(cml_stack)";
        "     .globl  cdecl(cml_stackend)";
+       "#ifndef __APPLE__";
+       "     .type   cml_main, function";
+       "#endif";
+       "";
+       ".macro _ldrel reg sym";
+       "#ifdef __APPLE__";
+       "adrp \\reg, \\sym@PAGE";
+       "add  \\reg, \\reg, \\sym@PAGEOFF";
+       "#else";
+       "adrp \\reg, \\sym";
+       "add  \\reg, \\reg, :lo12:\\sym";
+       "#endif";
+       ".endm";
+       "";
        "cdecl(cml_main):";
-       "     ldr    x0,=cake_main            /* arg1: entry address */";
-       "     ldr    x1,=cdecl(cml_heap)      /* arg2: first address of heap */";
-       "     ldr    x2,=cake_bitmaps";
+       "     _ldrel x0, cake_main            /* arg1: entry address */";
+       "     _ldrel x1, cdecl(cml_heap)      /* arg2: first address of heap */";
+       "     ldr    x1,[x1]";
+       "     _ldrel x2, cake_bitmaps";
        "     str    x2,[x1]                  /* store bitmap pointer */";
-       "     ldr    x2,=cdecl(cml_stack)     /* arg3: first address of stack */";
-       "     ldr    x3,=cdecl(cml_stackend)  /* arg4: first address past the stack */ ";
+       "     _ldrel x2, cdecl(cml_stack)     /* arg3: first address of stack */";
+       "     ldr    x2,[x2]";
+       "     _ldrel x3, cdecl(cml_stackend)  /* arg4: first address past the stack */";
+       "     ldr    x3,[x3]";
        "     b      cake_main";
        "     .ltorg";
        ""])`` |> EVAL |> concl |> rand
@@ -71,12 +88,13 @@ val ffi_code =
        ""])))`` |> EVAL |> concl |> rand
 
 val arm8_export_def = Define `
-  arm8_export ffi_names bytes (data:word64 list) =
+  arm8_export ffi_names bytes (data:word64 list) syms =
     SmartAppend
       (SmartAppend (List preamble)
       (SmartAppend (List (data_section ".quad"))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
       (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code))))
-      (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)`;
+      (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
+      (emit_symbols syms))`;
 
 val _ = export_theory ();

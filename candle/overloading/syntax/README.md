@@ -10,6 +10,7 @@ extensions.
 
 [holSyntaxCyclicityScript.sml](holSyntaxCyclicityScript.sml):
 Implementation of cyclicity check for function definitions
+based on [Kunčar, CPP 2015](https://doi.org/10.1145/2676724.2693175)
 
 [holSyntaxExtraScript.sml](holSyntaxExtraScript.sml):
 Some lemmas about the syntactic functions.
@@ -18,6 +19,9 @@ Some lemmas about the syntactic functions.
 Verification of `rename_apart`:
 `rename_apart r c` gives a function f, such that
 f(r) ∩ c = ∅ ,  f(r) ∩ r = ∅  and dom(f) = r ∩ c.
+
+[holSyntaxRenamingTyvarScript.sml](holSyntaxRenamingTyvarScript.sml):
+* Properties of RenamingTheory for our syntax
 
 [holSyntaxScript.sml](holSyntaxScript.sml):
 Defines the HOL inference system.

@@ -29,18 +29,17 @@ val arm7_names_def = Define `
 val arm7_names_def = save_thm("arm7_names_def",
   CONV_RULE (RAND_CONV EVAL) arm7_names_def);
 
-val source_conf = rconc(EVAL``prim_config.source_conf``)
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=2; col_oracle := λn. NONE |>``
 val arm7_data_conf = ``<| tag_bits:=0; len_bits:=0; pad_bits:=1; len_size:=20; has_div:=F; has_longdiv:=F; has_fp_ops:=T; has_fp_tern:=T; call_empty_ffi:=F; gc_kind:=Simple|>``
 val arm7_word_conf = ``<| bitmaps := []:32 word list; stack_frame_size := LN |>``
 val arm7_stack_conf = ``<|jump:=T;reg_names:=arm7_names|>``
-val arm7_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;asm_conf:=arm7_config;init_clock:=5;hash_size:=104729n|>``
+val arm7_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=arm7_config;init_clock:=5;hash_size:=104729n|>``
 
 val arm7_backend_config_def = Define`
   arm7_backend_config =
-             <|source_conf:=^(source_conf);
+             <|source_conf:=prim_src_config;
                clos_conf:=^(clos_conf);
                bvl_conf:=^(bvl_conf);
                data_conf:=^(arm7_data_conf);
@@ -48,6 +47,7 @@ val arm7_backend_config_def = Define`
                word_conf:=^(arm7_word_conf);
                stack_conf:=^(arm7_stack_conf);
                lab_conf:=^(arm7_lab_conf);
+               symbols:=[];
                tap_conf:=default_tap_config
                |>`;
 

@@ -230,7 +230,7 @@ typedef union {
 } double_bytes;
 
 // FFI calls for floating-point parsing
-void ffidouble_fromString (unsigned char *c, long clen, unsigned char *a, long alen) {
+void ffidouble_fromString (char *c, long clen, char *a, long alen) {
   double_bytes d;
   sscanf(c, "%lf",&d.d);
   assert (8 == alen);
@@ -239,7 +239,7 @@ void ffidouble_fromString (unsigned char *c, long clen, unsigned char *a, long a
   }
 }
 
-void ffidouble_toString (unsigned char *c, long clen, unsigned char *a, long alen) {
+void ffidouble_toString (char *c, long clen, char *a, long alen) {
   double_bytes d;
   assert (256 == alen);
   for (int i = 0; i < 8; i++){
@@ -253,7 +253,7 @@ void ffidouble_toString (unsigned char *c, long clen, unsigned char *a, long ale
   assert (bytes_written <= 255);
 }
 
-void main (int local_argc, char **local_argv) {
+int main (int local_argc, char **local_argv) {
 
   argc = local_argc;
   argv = local_argv;
@@ -288,10 +288,10 @@ void main (int local_argc, char **local_argv) {
     exit(3);
   }
 
-  if(cml_heap_sz + cml_stack_sz < cml_heap_sz)
+  if(cml_heap_sz + cml_stack_sz < 8192) // Global minimum heap/stack for CakeML. 4096 for 32-bit architectures
   {
     #ifdef STDERR_MEM_EXHAUST
-    fprintf(stderr,"Overflow in requested heap (%lu) + stack (%lu) size in bytes.\n",cml_heap_sz, cml_stack_sz);
+    fprintf(stderr,"Too small requested heap (%lu) + stack (%lu) size in bytes.\n",cml_heap_sz, cml_stack_sz);
     #endif
     exit(3);
   }
@@ -328,4 +328,6 @@ void main (int local_argc, char **local_argv) {
   cml_stackend = cml_stack + cml_stack_sz;
 
   cml_main(); // Passing control to CakeML
+
+  return 0;
 }

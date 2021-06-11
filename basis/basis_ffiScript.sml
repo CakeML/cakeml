@@ -7,6 +7,8 @@ open preamble ml_translatorTheory ml_translatorLib ml_progLib
      CommandLineProofTheory TextIOProofTheory
      runtimeFFITheory RuntimeProofTheory
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory"basis_ffi";
 
 (*---------------------------------------------------------------------------*)
@@ -420,7 +422,7 @@ Theorem STDIO_precond = Q.prove(`
   rw[STDIO_def,IOFS_precond,SEP_EXISTS_THM,SEP_CLAUSES] >>
   qexists_tac`fs.numchars` >>
   mp_tac (IOFS_precond |> DISCH_ALL |> GEN ``fs : IO_fs``)>>
-  cases_on`fs` >> fs[IO_fs_numchars_fupd]) |> UNDISCH_ALL |> curry save_thm "STDIO_precond";
+  cases_on`fs` >> fs[recordtype_IO_fs_seldef_numchars_fupd_def]) |> UNDISCH_ALL |> curry save_thm "STDIO_precond";
 
 Theorem RUNTIME_precond:
    RUNTIME {FFI_part (encode ()) (mk_ffi_next runtime_ffi_part)

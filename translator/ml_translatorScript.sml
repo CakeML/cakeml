@@ -21,7 +21,7 @@ Type state = ``:'ffi semanticPrimitives$state``
 
 (* Definitions *)
 
-val empty_state_def = Define`
+Definition empty_state_def:
   empty_state = <|
     clock := 0;
     refs := empty_store;
@@ -29,7 +29,9 @@ val empty_state_def = Define`
        the monadic translator must be used for FFI calls *)
     ffi := initial_ffi_state ARB ();
     next_type_stamp := 0;
-    next_exn_stamp := 0|>`;
+    next_exn_stamp := 0;
+    eval_state := NONE|>
+End
 
 val Eval_def = Define `
   Eval env exp P =
@@ -101,6 +103,27 @@ val PreImpEval_def = Define`
 
 (* Theorems *)
 
+Theorem AppReturns_thm:
+  AppReturns P cl Q ⇔
+    ∀v. P v ⇒
+        ∃env exp.
+          do_opapp [cl;v] = SOME (env,exp) ∧
+          ∀refs.
+            ∃refs' u.
+              eval_rel (empty_state with refs := refs) env exp
+                       (empty_state with refs := refs++refs') u ∧
+              Q u
+Proof
+  fs [AppReturns_def] \\ eq_tac \\ rw []
+  \\ first_x_assum drule
+  \\ Cases_on ‘cl’ \\ fs [do_opapp_def,AllCaseEqs()]
+  \\ rename [‘find_recfun x1 x2’]
+  \\ Cases_on ‘find_recfun x1 x2’ \\ fs []
+  \\ PairCases_on ‘x’ \\ fs []
+  \\ rename [‘ALL_DISTINCT xx’]
+  \\ Cases_on ‘ALL_DISTINCT xx’ \\ fs []
+QED
+
 local
   val Eval_lemma = prove(
     ``∀env exp P.
@@ -121,11 +144,8 @@ Theorem evaluate_empty_state_IMP:
    eval_rel (s:'ffi state) env exp (s with refs := s.refs ++ refs') x
 Proof
   rw [eval_rel_def]
-  \\ drule (INST_TYPE[alpha|->oneSyntax.one_ty,beta|->``:'ffi``]
-              (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro))
-  \\ disch_then (qspec_then `s with clock := ck1` mp_tac)
-  \\ fs [empty_state_def]
-  \\ strip_tac \\ asm_exists_tac \\ fs []
+  \\ dxrule_then (qspec_then `s` mp_tac) evaluatePropsTheory.evaluate_ffi_etc_intro
+  \\ simp [empty_state_def]
 QED
 
 Theorem Eval_Arrow:
@@ -344,7 +364,7 @@ val types_match_def = tDefine "types_match" `
  * when equality reaches unequal-length lists *)
   (types_match_list _ _ = F)`
   (WF_REL_TAC `measure (\x. case x of INL (v1,v2) => v_size v1 |
-                                      INR (vs1,vs2) => v7_size vs1)`);
+                                      INR (vs1,vs2) => v1_size vs1)`);
 
 val EqualityType_def = Define `
   EqualityType (abs:'a->v->bool) <=>
@@ -352,12 +372,14 @@ val EqualityType_def = Define `
     (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> ((v1 = v2) = (x1 = x2))) /\
     (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> types_match v1 v2)`;
 
-val Eq_lemma = Q.prove(
-  `n < dimword (:'a) /\ dimindex (:α) <= k ==>
-    (n * 2n ** (k − dimindex (:α))) < 2 ** k`,
+Triviality Eq_lemma:
+   n < dimword (:'a) /\ dimindex (:α) <= k ==>
+    (n * 2n ** (k − dimindex (:α))) < 2 ** k
+Proof
   fs [dimword_def] \\ rw []
   \\ fs [LESS_EQ_EXISTS] \\ rw [] \\ fs [EXP_ADD]
-  \\ simp_tac std_ss [Once MULT_COMM] \\ fs []);
+  \\ simp_tac std_ss [Once MULT_COMM] \\ fs []
+QED
 
 Theorem EqualityType_NUM_BOOL:
   EqualityType NUM /\ EqualityType INT /\
@@ -2239,8 +2261,8 @@ val ALL_DISTINCT_MAP_FST_ASHADOW = Q.prove(
 
 (* size lemmas *)
 
-val v7_size = Q.prove(
-  `!vs v. (MEM v vs ==> v_size v < v7_size vs)`,
+val v1_size = Q.prove(
+  `!vs v. (MEM v vs ==> v_size v < v1_size vs)`,
   Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
   \\ RES_TAC \\ DECIDE_TAC);
 
@@ -2291,6 +2313,7 @@ val type_names_eq = Q.prove(
                 | Dtype _ tds => MAP (\(tvs,tn,ctors). tn) tds
                 | Dtabbrev _ tvs tn t => []
                 | Dlocal _ _ => []
+                | Denv _ => []
                 | Dexn _ v10 v11 => []) ds))) ++ names`,
   Induct \\ fs [type_names_def] \\ Cases_on `h`
   \\ fs [type_names_def] \\ fs [FORALL_PROD,listTheory.MAP_EQ_f]);

@@ -4,9 +4,12 @@
 open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheory
      holSyntaxLibTheory holSyntaxTheory
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory"holSyntaxExtra"
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val cpn_distinct = TypeBase.distinct_of ``:ordering``
 val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``

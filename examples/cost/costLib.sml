@@ -97,12 +97,18 @@ fun mk_frame_lookup frame_tm frame_def = EVERY_lookup
   |> CONV_RULE (RAND_CONV EVAL)
   |> SIMP_RULE (srw_ss()) []
 
+val locals_fupd_pat = let
+  val locals_fupd =
+    TypeBase.updates_of ``:('a,'ffi) dataSem$state``
+    |> hd |> SPEC_ALL |> concl |> rator |> rand |> rator |> rator;
+  in ``^locals_fupd _ _`` end
+
 (* remove makespace bindings *)
 val strip_makespace =
   qmatch_goalsub_abbrev_tac `bind _ rest_mkspc _`
   \\ REWRITE_TAC [ bind_def, makespace_def, add_space_def]
   \\ eval_goalsub_tac ``dataSem$cut_env _ _`` \\ simp []
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac locals_fupd_pat
   \\ Q.UNABBREV_TAC `rest_mkspc`
 
 fun mk_strip_assign code_lookup frame_lookup =
@@ -127,6 +133,7 @@ fun mk_strip_assign code_lookup frame_lookup =
           , flush_state_def   , vs_depth_def      , eq_code_stack_max_def
           , lookup_insert     , semanticPrimitivesTheory.copy_array_def
           , size_of_stack_frame_def
+          , word_depthTheory.max_depth_def,data_to_wordTheory.AnyArith_call_tree_def
           , backend_commonTheory.small_enough_int_def ]
   \\ (fn (asm, goal) => let
         val pat   = ``sptree$lookup _ _``
@@ -134,7 +141,7 @@ fun mk_strip_assign code_lookup frame_lookup =
         val simps = map (PATH_CONV "lr" EVAL) terms
       in ONCE_REWRITE_TAC simps (asm,goal) end)
   \\ simp [frame_lookup]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac locals_fupd_pat
   \\ Q.UNABBREV_TAC `rest_ass`
 
 fun mk_open_tailcall code_lookup frame_lookup =
@@ -143,12 +150,15 @@ fun mk_open_tailcall code_lookup frame_lookup =
                   , lookup_def   , timeout_def
                   , flush_state_def]
   \\ simp [code_lookup,lookup_def,frame_lookup]
-  \\ IF_CASES_TAC >- (simp [data_safe_def,size_of_def,frame_lookup] \\ EVAL_TAC)
+  \\ IF_CASES_TAC >- (simp [data_safe_def,size_of_def,frame_lookup]
+                     \\ TRY (fs [size_of_stack_def,GREATER_DEF,state_component_equality]
+                            \\ EVAL_TAC \\ NO_TAC)
+                     \\ EVAL_TAC)
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def
                  , flush_state_def ]
   \\ simp []
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac locals_fupd_pat
 
 val close_tailcall =
   ho_match_mp_tac data_safe_res
@@ -168,15 +178,15 @@ fun mk_open_call code_lookup frame_lookup =
        , size_of_stack_frame_def]
   \\ IF_CASES_TAC >- (simp [data_safe_def,size_of_def,frame_lookup]
                      (* This deals with the symbolic cases *)
-                     \\ TRY (fs [size_of_stack_def,GREATER_DEF]
+                     \\ TRY (fs [size_of_stack_def,GREATER_DEF,state_component_equality]
                             \\ EVAL_TAC \\ NO_TAC)
                      \\ EVAL_TAC)
   \\ REWRITE_TAC [ push_env_def   , to_shallow_def
                  , to_shallow_thm , flush_state_def]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac locals_fupd_pat
 
 val close_call =
-  qmatch_goalsub_abbrev_tac `f (dataSem$state_locals_fupd _ _)`
+  qmatch_goalsub_abbrev_tac `f (^locals_fupd_pat)`
   \\ qmatch_goalsub_abbrev_tac `f s`
   \\ `data_safe (f s)` suffices_by
      (EVERY_CASE_TAC \\ rw [data_safe_def]
@@ -216,7 +226,7 @@ val make_if =
                  , backend_commonTheory.true_tag_def
                  , backend_commonTheory.false_tag_def]
   \\ simp [pop_env_def]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac locals_fupd_pat
 
 (* functions for making Call, lookup etc use function names *)
 

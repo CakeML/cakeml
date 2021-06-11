@@ -8,9 +8,11 @@ open costLib costPropsTheory;
 open dataSemTheory data_monadTheory dataLangTheory;
 open pureLoopProgTheory;
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
 val _ = new_theory "pureLoopProof"
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 Overload monad_unitbind[local] = ``data_monad$bind``
 Overload return[local] = ``data_monad$return``
@@ -143,9 +145,13 @@ Proof
  \\ UNABBREV_ALL_TAC
  (* Continues after call *)
  \\ strip_makespace
- \\ ntac 49 strip_assign
+ \\ ntac 47 strip_assign
  (* Another tailcall *)
  \\ make_tailcall
+ \\ strip_call
+ \\ ntac 9 strip_assign
+ \\ make_if
+ \\ UNABBREV_ALL_TAC
  \\ strip_call
  \\ ntac 9 strip_assign
  \\ make_if
@@ -157,11 +163,18 @@ Proof
  \\ open_tailcall
  \\ ntac 4 strip_assign
  \\ make_if
+ \\ ntac 2 strip_assign
+ \\ open_tailcall
+ \\ ntac 4 strip_assign
+ \\ make_if
  \\ UNABBREV_ALL_TAC
  \\ strip_assign
  \\ make_tailcall
  \\ strip_makespace
- \\ ntac 6 strip_assign
+ \\ ntac 3 strip_assign
+ \\ make_tailcall
+ \\ strip_makespace
+ \\ ntac 4 strip_assign
  \\ make_tailcall
  \\ strip_assign
  (* Finally we reach our function call *)

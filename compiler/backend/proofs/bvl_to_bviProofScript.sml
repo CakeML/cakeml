@@ -13,7 +13,7 @@ local open
   bvi_tailrecProofTheory
 in end;
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory"bvl_to_bviProof";
 
@@ -230,6 +230,12 @@ val do_app_ok_lemma = Q.prove(
     \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
     \\ fs [bv_ok_def,EVERY_EL,state_ok_def]
     \\ first_x_assum (qspec_then `n` mp_tac) \\ fs [])
+  \\ Cases_on `∃n. op = ElemAt n` THEN1
+   (full_simp_tac(srw_ss())[bvlSemTheory.do_app_def]
+    \\ BasicProvers.EVERY_CASE_TAC \\ rw [] \\ fs []
+    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
+    \\ fs [bv_ok_def,EVERY_EL,state_ok_def]
+    \\ first_x_assum (qspec_then `n'` mp_tac) \\ fs [])
   \\ Cases_on `op` \\ full_simp_tac(srw_ss())[bvlSemTheory.do_app_def]
   \\ BasicProvers.EVERY_CASE_TAC
   \\ TRY (full_simp_tac(srw_ss())[] \\ SRW_TAC [] [bv_ok_def]
@@ -1153,6 +1159,20 @@ val do_app_adjust = Q.prove(
   `?debug. debug () = op` by (qexists_tac `K op` \\ fs [])
   \\ SIMP_TAC std_ss [Once bEvalOp_def,iEvalOp_def,do_app_aux_def]
   \\ Cases_on `op = El` \\ fs [] THEN1
+   (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[adjust_bv_def,bEvalOp_def]
+    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs [] \\ rfs []
+    \\ rveq \\ fs [listTheory.SWAP_REVERSE_SYM] \\ rveq \\ fs []
+    \\ fs [EL_MAP]
+    \\ full_simp_tac(srw_ss())[adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id,
+         bEvalOp_def,EL_MAP] \\ SRW_TAC [] [] \\ fs []
+    \\ REPEAT STRIP_TAC \\ SRW_TAC [] [adjust_bv_def]
+    \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
+    \\ `FLOOKUP t2.refs (b2 n) = SOME(ValueArray(MAP (adjust_bv b2) l))` by (
+        full_simp_tac(srw_ss())[state_rel_def] >>
+        last_x_assum(qspec_then`n`mp_tac) >>
+        simp[] ) >> fs [CaseEq"bool"] >> rveq
+    \\ rfs [EL_MAP,bvl_to_bvi_id])
+  \\ Cases_on `∃i. op = ElemAt i` \\ fs [] THEN1
    (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[adjust_bv_def,bEvalOp_def]
     \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs [] \\ rfs []
     \\ rveq \\ fs [listTheory.SWAP_REVERSE_SYM] \\ rveq \\ fs []
@@ -2760,28 +2780,28 @@ val compile_exps_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC
       \\ Q.UNABBREV_TAC `b3` \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
-    \\ Cases_on`∃n. op = Global n` \\ full_simp_tac(srw_ss())[] THEN1 (
+    \\ Cases_on`∃n. op = Global n` \\ full_simp_tac(srw_ss())[]
+    THEN1 (
          note_tac "Global" >> simp[compile_op_def] >>
          full_simp_tac(srw_ss())[bEvalOp_def] >>
          Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[] >>
          imp_res_tac evaluate_IMP_LENGTH >>
-         full_simp_tac(srw_ss())[LENGTH_NIL] >>
+         full_simp_tac(srw_ss())[LENGTH_NIL] >> gvs [] >>
          simp[iEval_def,compile_int_thm] >>
          Q.LIST_EXISTS_TAC[`t2`,`b2`,`c`] >>
          simp[iEvalOp_def,do_app_aux_def] >>
          BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
          simp[bEvalOp_def] >>
          full_simp_tac(srw_ss())[closSemTheory.get_global_def] >>
-         imp_res_tac bvlPropsTheory.evaluate_IMP_LENGTH >> full_simp_tac(srw_ss())[LENGTH_NIL] >>
+         gvs [AllCaseEqs(),PULL_EXISTS] >>
+         imp_res_tac bvlPropsTheory.evaluate_IMP_LENGTH >>
+         full_simp_tac(srw_ss())[LENGTH_NIL] >>
          full_simp_tac(srw_ss())[bEval_def] >> rpt var_eq_tac >>
          full_simp_tac(srw_ss())[iEval_def] >> rpt var_eq_tac >>
          last_x_assum mp_tac >>
          simp[Once state_rel_def] >> strip_tac >>
          simp[LENGTH_REPLICATE,ADD1] >>
-         simp[EL_CONS,PRE_SUB1] >>
-         reverse IF_CASES_TAC >>
-         every_case_tac >> fsrw_tac[ARITH_ss][] >>
-         rpt var_eq_tac >>
+         simp[EL_CONS,PRE_SUB1,GSYM ADD1] >>
          simp[EL_APPEND1,EL_MAP,libTheory.the_def,bvl_to_bvi_with_clock,bvl_to_bvi_id] >>
          MATCH_MP_TAC (GEN_ALL bv_ok_IMP_adjust_bv_eq) >>
          qexists_tac`r.refs`>>simp[] >>

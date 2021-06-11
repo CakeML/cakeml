@@ -5,10 +5,14 @@ open preamble state_transformerTheory reg_allocTheory
 open sortingTheory;
 open ml_monadBaseTheory ml_monadBaseLib;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "reg_allocProof"
 
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 Overload monad_bind[local] = ``st_ex_bind``
 Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``

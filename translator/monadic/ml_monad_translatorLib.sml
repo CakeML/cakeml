@@ -3935,7 +3935,7 @@ local
   *)
   val st = translator_state;
 
-  val {export,segment_data} = ThyDataSexp.new {
+  val {export,segment_data,...} = ThyDataSexp.new {
     thydataty = "ml_monad_translator",
     merge = fn {old, new} => new,
     load = fn _ => (), other_tds = fn (t,_) => SOME t

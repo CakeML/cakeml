@@ -24,12 +24,18 @@ val evaluate_to_heap_def = Define `
   evaluate_to_heap st env exp p heap (r:res) <=>
     case r of
     | Val v => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rval [v]) /\
+                         st'.next_type_stamp = st.next_type_stamp /\
+                         st'.next_exn_stamp = st.next_exn_stamp /\
                          st2heap p st' = heap)
     | Exn e => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rerr (Rraise e)) /\
+                         st'.next_type_stamp = st.next_type_stamp /\
+                         st'.next_exn_stamp = st.next_exn_stamp /\
                          st2heap p st' = heap)
     | FFIDiv name conf bytes => (∃ck st'.
       evaluate_ck ck st env [exp]
       = (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged)))) /\
+      st'.next_type_stamp = st.next_type_stamp /\
+      st'.next_exn_stamp = st.next_exn_stamp /\
       st2heap p st' = heap)
     | Div io => (* all clocks produce timeout *)
                 (∀ck. ∃st'. evaluate_ck ck st env [exp] =
@@ -260,57 +266,6 @@ Proof
   fs [app_basic_def] \\ metis_tac []
 QED
 
-(*
-val evaluate_list_SING = Q.prove(
-  `bigStep$evaluate_list b env st [exp] (st', Rval [v]) <=>
-    bigStep$evaluate b env st exp (st', Rval v)`,
-  simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]
-  \\ once_rewrite_tac [CONJ_COMM]
-  \\ simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]);
-
-val evaluate_list_raise_SING = Q.prove(
-  `bigStep$evaluate_list b env st [exp] (st', Rerr (Rraise v)) <=>
-    bigStep$evaluate b env st exp (st', Rerr (Rraise v))`,
-  simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]
-  \\ eq_tac \\ fs [] \\ strip_tac
-  \\ pop_assum (assume_tac o
-                SIMP_RULE std_ss [Once bigStepTheory.evaluate_cases])
-  \\ fs []);
-
-Theorem app_basic_rel:
-   app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: res -> hprop) =
-    !(h_i: heap) (h_k: heap) (st: 'ffi state).
-      SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
-      ?env exp (r: res) (h_f: heap) (h_g: heap) (st': 'ffi state).
-        SPLIT3 (st2heap p st') (h_f, h_k, h_g) /\
-        Q r h_f /\
-        do_opapp [f;x] = SOME (env, exp) /\
-        case r of
-          | Val v' => bigStep$evaluate F env st exp (st', Rval v')
-          | Exn e  => bigStep$evaluate F env st exp (st', Rerr (Rraise e))
-Proof
-  fs [app_basic_def,evaluate_ck_def,evaluate_list_SING,evaluate_list_raise_SING,
-      funBigStepEquivTheory.functional_evaluate_list,
-      bigClockTheory.big_clocked_unclocked_equiv,PULL_EXISTS]
-  \\ rw [] \\ eq_tac \\ rw []
-  \\ first_x_assum drule \\ fs [] \\ strip_tac
-  \\ GEN_EXISTS_TAC "r" `r`
-  \\ Cases_on `r` \\ fs []
-  \\ rename1 `evaluate _ _ (_ with clock := ck) _ _` \\ fs []
-  \\ try_finally
-   (rename1 `SPLIT3 (st2heap p st1) (h_f,h_k,h_g)`
-    \\ qabbrev_tac `st2 = st1 with clock := st.clock`
-    \\ `SPLIT3 (st2heap p st2) (h_f,h_k,h_g)` by (fs [st2heap_def,Abbr `st2`] \\ NO_TAC)
-    \\ rpt (asm_exists_tac \\ fs []) \\ fs [Abbr `st2`]
-    \\ qexists_tac `ck - st1.clock`
-    \\ drule bigClockTheory.clocked_min_counter \\ fs [])
-  \\ try_finally
-   (rewrite_tac [CONJ_ASSOC] \\ once_rewrite_tac [CONJ_COMM]
-    \\ asm_exists_tac \\ fs []
-    \\ fs [st2heap_def] \\ asm_exists_tac \\ fs [])
-QED
-*)
-
 (* TODO: move to appropriate locations *)
 
 Theorem FFI_part_NOT_IN_store2heap:
@@ -382,55 +337,8 @@ open terminationTheory evaluatePropsTheory
 val dec_clock_def = evaluateTheory.dec_clock_def
 val evaluate_empty_state_IMP = ml_translatorTheory.evaluate_empty_state_IMP
 
-(*
-Theorem big_remove_clock:
-   ∀c ck env s e s' r.
-     evaluate ck env s e (s',r) ∧
-     r ≠ Rerr (Rabort Rtimeout_error)
-     ⇒
-     evaluate F env (s with clock := c) e (s' with clock := c,r)
-Proof
-  gen_tac \\ reverse Cases
-  >- (
-    rw[] \\
-    imp_res_tac bigClockTheory.big_unclocked \\
-    `∀s. s = s with clock := s.clock` by simp[state_component_equality] \\
-    metis_tac[bigClockTheory.big_unclocked] ) \\
-  rw[bigClockTheory.big_clocked_unclocked_equiv] \\
-  metis_tac[bigClockTheory.clocked_min_counter]
-QED
-*)
-
-Theorem evaluate_refs_length_mono:
-    (∀(s:'a state) env e s' r.
-     evaluate s env e = (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs) ∧
-  (∀(s:'a state) env v pes errv s' r.
-     evaluate_match s env v pes errv = (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs)
-Proof
-  ho_match_mp_tac evaluate_ind
-  \\ rw[] \\ fs[evaluate_def]
-  \\ every_case_tac \\ fs[] \\ rw[] \\ rfs[]
-  \\ fs[dec_clock_def]
-  \\ fs[semanticPrimitivesPropsTheory.do_app_cases] \\ rw[]
-  \\ fs[semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def]
-  \\ rw[]
-  \\ every_case_tac >> fs[] >> rveq >> fs[]
-QED
-
-(*
-Theorem big_refs_length_mono:
-   evaluate ck env s exp (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs
-Proof
-  Cases_on`ck`
-  \\ rw[funBigStepEquivTheory.functional_evaluate]
-  \\ fs[bigClockTheory.big_clocked_unclocked_equiv,funBigStepEquivTheory.functional_evaluate]
-  \\ imp_res_tac evaluate_refs_length_mono
-  \\ fs[]
-QED
-*)
-
 Theorem SPLIT_st2heap_length_leq:
-   SPLIT (st2heap p s') (st2heap p s, h_g) ∧
+  SPLIT (st2heap p s') (st2heap p s, h_g) ∧
    LENGTH s.refs ≤ LENGTH s'.refs ∧ s'.ffi = s.ffi ⇒
    s.refs ≼ s'.refs
 Proof
@@ -616,49 +524,8 @@ Proof
   \\ fs [] \\ asm_exists_tac \\ fs []
 QED
 
-(*
-Theorem SPLIT_st2heap_evaluate_ffi_same:
-   evaluate F env st exp (st',Rval res) ∧
-   SPLIT (st2heap p st') (st2heap p st, h_g) ⇒
-   st'.ffi = st.ffi
-Proof
-  rw[] \\ imp_res_tac SPLIT_st2heap_ffi
-  \\ fs[bigClockTheory.big_clocked_unclocked_equiv]
-  \\ fs[funBigStepEquivTheory.functional_evaluate]
-  \\ imp_res_tac evaluate_io_events_mono_imp
-  \\ fs[io_events_mono_def]
-  \\ `LENGTH st.ffi.io_events = LENGTH st'.ffi.io_events`
-        by metis_tac [LENGTH_FILTER_EQ_IMP_LENGTH_EQ]
-  \\ metis_tac [IS_PREFIX_LENGTH_ANTI]
-QED
-*)
-
-(*
-Theorem evaluate_imp_evaluate_empty_state:
-   evaluate F env s es (s',Rval r) ∧ s.refs ≼ s'.refs ∧ s'.ffi = s.ffi ∧
-   t = empty_state with <| refs := s.refs |> ∧
-   t' = empty_state with <| refs := s'.refs |>
-   ⇒
-   evaluate F env t es (t',Rval r)
-Proof
-  rw[Once bigClockTheory.big_clocked_unclocked_equiv]
-  \\ fs[funBigStepEquivTheory.functional_evaluate]
-  \\ drule (REWRITE_RULE[GSYM AND_IMP_INTRO](
-              INST_TYPE[beta|->oneSyntax.one_ty](
-                CONJUNCT1 evaluate_ffi_intro)))
-  \\ simp[]
-  \\ disch_then(qspec_then`empty_state with <| clock := c; refs := s.refs |>`mp_tac)
-  \\ simp[] \\ strip_tac
-  \\ `Rval [r] = list_result ((Rval r):(v,v) result)` by EVAL_TAC
-  \\ pop_assum SUBST_ALL_TAC
-  \\ fs[GSYM funBigStepEquivTheory.functional_evaluate]
-  \\ simp[bigClockTheory.big_clocked_unclocked_equiv]
-  \\ asm_exists_tac \\ fs[]
-QED
-*)
-
 Theorem Arrow_IMP_app_basic:
-   (Arrow a b) f v ==>
+  (Arrow a b) f v ==>
     !x v1.
       a x v1 ==>
       app_basic (p:'ffi ffi_proj) v v1 emp (POSTv v. &b (f x) v)
@@ -701,19 +568,18 @@ Proof
   \\ first_x_assum drule
   \\ fs[evaluate_ck_def]
   \\ fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS]
-  \\ disch_then( qspec_then`ARB with
-        <| refs := refs; |>` mp_tac)
+  \\ disch_then( qspec_then`empty_state with <| refs := refs; ffi := ffi_st_x |>` mp_tac)
   \\ rw [] \\ instantiate
   \\ rename1 `SPLIT (st2heap p st1) _`
-  \\ drule (CONJUNCT1 evaluate_ffi_intro |> INST_TYPE [beta|->``:unit``]) \\ fs []
-  \\ disch_then (qspec_then
-       `empty_state with <| clock := ck ;refs := refs |>` mp_tac) \\ fs []
+  \\ drule_then (qspec_then `empty_state with <| clock := ck ;refs := refs |>` mp_tac)
+    (INST_TYPE [beta |-> ``:'z``] evaluate_ffi_etc_intro)
+  \\ simp [EVAL ``empty_state.eval_state``]
   \\ qsuff_tac `?refs1. st1.refs = refs ++ refs1 /\
-                        st1.ffi = ARB.ffi`
+                        st1.ffi = ffi_st_x`
   THEN1
    (fs [ml_progTheory.eval_rel_def] \\ rw []
     \\ qexists_tac `refs1`
-    \\ qexists_tac `ck` \\ fs [state_component_equality])
+    \\ qexists_tac `ck1` \\ fs [state_component_equality])
   \\ imp_res_tac evaluate_refs_length_mono \\ fs []
   \\ imp_res_tac evaluate_io_events_mono_imp
   \\ fs[io_events_mono_def]

@@ -56,7 +56,7 @@ val check_ramsey_code_def = Define `
   `;
 
 Theorem print_dimacs_not_unsat:
-  concat (print_dimacs x) ≠ strlit "s UNSATISFIABLE\n"
+  concat (print_dimacs x) ≠ strlit "s VERIFIED UNSAT\n"
 Proof
   simp[print_dimacs_def,print_header_line_def]>>
   qmatch_goalsub_abbrev_tac` (strlit"p cnf " ^ a ^ b ^ c)`>>
@@ -73,7 +73,7 @@ Theorem machine_code_sound:
   ∃out err.
     extract_fs fs (check_ramsey_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-    if out = strlit "s UNSATISFIABLE\n" then
+    if out = strlit "s VERIFIED UNSAT\n" then
       ramsey_number 4 = 18
     else
       out = strlit "" ∨
@@ -105,7 +105,7 @@ Proof
   reverse IF_CASES_TAC>>fs[] >-
     (qexists_tac`strlit ""`>> simp[]>>
     metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-  qexists_tac`strlit "s UNSATISFIABLE\n"` >> qexists_tac`strlit ""`>> rw[]
+  qexists_tac`strlit "s VERIFIED UNSAT\n"` >> qexists_tac`strlit ""`>> rw[]
   >-
     metis_tac[STD_streams_stderr,add_stdo_nil]>>
   match_mp_tac ramsey_eq>>simp[not_is_ramsey_4_17]>>

@@ -10,6 +10,7 @@ val _ = new_theory "data_live";
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 val is_pure_def = Define `
+  (is_pure (SetGlobal _) = F) /\
   (is_pure SetGlobalsPtr = F) /\
   (is_pure Ref = F) /\
   (is_pure (RefByte _) = F) /\
@@ -48,7 +49,8 @@ Theorem is_pure_pmatch:
   !op.
   is_pure op =
     case op of
-      SetGlobalsPtr => F
+    | SetGlobal _ => F
+    | SetGlobalsPtr => F
     | Ref => F
     | RefByte _ => F
     | RefArray => F

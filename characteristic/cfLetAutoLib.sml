@@ -41,7 +41,7 @@ fun get_frame_thms () = !FRAME_THMS;
 
 fun new_exporter nm add =
     ThmSetData.new_exporter {
-      efns = {add = fn {named_thms,thy} => add thy named_thms,
+      efns = {add = fn {named_thm,thy} => add thy [named_thm],
               remove = fn _ => ()},
       settype = nm
     } |> #export
@@ -291,7 +291,8 @@ fun debug_set_app_spec app_spec = (debug_app_spec := app_spec)
 val (sep_imp_tm,mk_sep_imp,dest_sep_imp,is_sep_imp) = syntax_fns2 "set_sep" "SEP_IMP";
 (* -- *)
 (* semanticPrimitives syntax *)
-val (sem_env_c_tm,mk_sem_env_c,dest_sem_env_c,is_sem_env_c) = syntax_fns1 "semanticPrimitives" "sem_env_c";
+val (sem_env_c_tm,mk_sem_env_c,dest_sem_env_c,is_sem_env_c) = syntax_fns1 "semanticPrimitives" (TypeBasePure.mk_recordtype_fieldsel {fieldname="c",tyname="sem_env"});
+
 (* -- *)
 val set_sep_cond_hprop_tm =
   mk_thy_const{Name="cond",Thy="set_sep",Ty= bool --> cfHeapsBaseSyntax.hprop_ty}
