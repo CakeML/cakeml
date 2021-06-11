@@ -275,6 +275,16 @@ Proof
   fs[equal_ts_on_def,EQ_IMP_THM,Once EQ_SYM_EQ]
 QED
 
+Theorem equiv_ts_on_FV_subset:
+  !x y s. is_const_or_type x /\ is_const_or_type y /\ set (FV y) SUBSET set (FV x)
+  ==> equiv_ts_on s [] (FV x)
+    = ?s'. var_renaming s' /\ LR_TYPE_SUBST s x = LR_TYPE_SUBST s' x
+        /\ LR_TYPE_SUBST s y = LR_TYPE_SUBST s' y
+Proof
+  rw[equiv_ts_on_def,equal_ts_on_def,LR_TYPE_SUBST_tyvars,SUBSET_DEF,IN_DEF,Excl"TYPE_SUBST_def",EQ_IMP_THM]
+  >> metis_tac[]
+QED
+
 Theorem var_renaming_SWAP_LR_id:
   !s t. var_renaming s /\ is_const_or_type t
   ==> LR_TYPE_SUBST (MAP SWAP s) (LR_TYPE_SUBST s t) = t
