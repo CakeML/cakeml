@@ -6518,12 +6518,12 @@ Definition dep_step_inv_def:
     /\ wf_pqs (dep ++ dep' ++ rest)
     /\ (!q. MEM q dep' ==>
         ?extd. composable_step (SND q) dep [] = INL extd /\
-        EVERY ($~ o UNCURRY is_instance_LR_compute) (MAP (λx. (FST q,x)) extd))
+        EVERY ($~ o UNCURRY is_instance_LR) (MAP (λx. (FST q,x)) extd))
     /\ ?init. dep' = init ++ rest /\
       !x. MEM x dep'dep <=>
         ?q res. MEM q init /\ FST q = FST x
         /\ composable_step (SND q) dep [] = INL res /\ MEM (SND x) res
-        /\ EVERY ($~ o UNCURRY is_instance_LR_compute) $ MAP (λx. FST q, x) res)
+        /\ EVERY ($~ o UNCURRY is_instance_LR) $ MAP (λx. FST q, x) res)
 End
 
 Theorem dep_step_INL_imp:
@@ -6532,11 +6532,11 @@ Theorem dep_step_INL_imp:
     ==>
       !q. MEM q rest ==>
         ?extd. composable_step (SND q) dep [] = INL extd /\
-        EVERY ($~ o UNCURRY is_instance_LR_compute) (MAP (λx. (FST q,x)) extd)
+        EVERY ($~ o UNCURRY is_instance_LR) (MAP (λx. (FST q,x)) extd)
 Proof
   ho_match_mp_tac dep_step_ind
   >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,Excl"EVERY_DEF"]
-  >> fs[EVERY_DEF,o_DEF]
+  >> fs[EVERY_DEF,o_DEF,GSYM is_instance_LR_equiv]
   >> first_x_assum irule
   >> dxrule_at_then Any (drule_all_then strip_assume_tac) composable_step_sound_INL
   >> rw[wf_pqs_def,EVERY_MEM,EVERY_MAP]
@@ -6555,7 +6555,7 @@ Proof
   >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,Excl"EVERY_DEF"]
   >- asm_rewrite_tac[]
   >> first_x_assum $ drule_then irule >> asm_rewrite_tac[]
-  >> gs[dep_step_inv_def,wf_pqs_APPEND,wf_pqs_CONS,o_DEF]
+  >> gs[dep_step_inv_def,wf_pqs_APPEND,wf_pqs_CONS,o_DEF,GSYM is_instance_LR_equiv]
   >> conj_asm1_tac >- (
     dxrule_at_then Any (drule_all_then strip_assume_tac) composable_step_sound_INL
     >> rw[wf_pqs_def,EVERY_MEM,EVERY_MAP]
@@ -6572,10 +6572,10 @@ QED
 
 Theorem dep_step_sound_INL:
   !dep dep' res. wf_pqs (dep ++ dep')
-  /\ EVERY ($~ o UNCURRY is_instance_LR_compute) (dep ++ dep')
+  /\ EVERY ($~ o UNCURRY is_instance_LR) (dep ++ dep')
   /\ (!q. MEM q dep' ==>
       ?extd. composable_step (SND q) dep [] = INL extd /\
-      EVERY ($~ o UNCURRY is_instance_LR_compute) (MAP (λx. (FST q,x)) extd))
+      EVERY ($~ o UNCURRY is_instance_LR) (MAP (λx. (FST q,x)) extd))
   /\ dep_step dep dep' [] = INL res
   ==> dep_step_inv dep dep' [] res
 Proof
@@ -6590,9 +6590,9 @@ Theorem dep_step_complete_INL':
   ==> ?res. dep_step dep rest dep'dep = INL res
 Proof
   ho_match_mp_tac dep_step_ind
-  >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM]
+  >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,GSYM is_instance_LR_equiv]
   >> `?extd. composable_step q dep [] = INL extd
-    /\ EVERY ($~ o UNCURRY is_instance_LR_compute) (MAP (λx. (p,x)) extd)` by (
+    /\ EVERY ($~ o UNCURRY is_instance_LR) (MAP (λx. (p,x)) extd)` by (
     PRED_ASSUM is_forall kall_tac
     >> gs[dep_step_inv_def,FORALL_AND_THM,DISJ_IMP_THM]
   )
@@ -6618,7 +6618,7 @@ Theorem dep_step_eq_INL:
     (?x. dep_step dep dep' [] = INL x)
     = (!q. MEM q dep' ==>
         ?extd. composable_step (SND q) dep [] = INL extd /\
-        EVERY ($~ o UNCURRY is_instance_LR_compute) (MAP (λx. (FST q,x)) extd))
+        EVERY ($~ o UNCURRY is_instance_LR) (MAP (λx. (FST q,x)) extd))
 Proof
   rw[EQ_IMP_THM]
   >- (
@@ -6635,11 +6635,11 @@ Theorem dep_step_sound_cyclic_step:
   !dep rest dep'dep p q y. wf_pqs (dep ++ rest)
   /\ dep_step dep rest dep'dep = INR $ cyclic_step (p,q,y)
   ==> ?res. MEM (p,q) rest /\ composable_step q dep [] = INL res
-    /\ EXISTS (UNCURRY is_instance_LR_compute) (MAP (λx. (p,x)) res)
-    /\ y = SND $ HD (FILTER (UNCURRY is_instance_LR_compute) (MAP (λx. (p,x)) res))
+    /\ EXISTS (UNCURRY is_instance_LR) (MAP (λx. (p,x)) res)
+    /\ y = SND $ HD (FILTER (UNCURRY is_instance_LR) (MAP (λx. (p,x)) res))
 Proof
   ho_match_mp_tac dep_step_ind
-  >> reverse $ rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,Excl"EVERY_DEF"]
+  >> reverse $ rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,Excl"EVERY_DEF",GSYM is_instance_LR_equiv]
   >> fs[o_DEF,Once EXISTS_NOT_EVERY]
 QED
 
@@ -6648,14 +6648,14 @@ Theorem dep_step_complete_cyclic_step:
   /\ rest = pre ++ [(p,q)] ++ suf
   /\ (!q. MEM q pre ==>
     ?extd. composable_step (SND q) dep [] = INL extd /\
-    EVERY ($~ o UNCURRY is_instance_LR_compute) (MAP (λx. (FST q,x)) extd))
+    EVERY ($~ o UNCURRY is_instance_LR) (MAP (λx. (FST q,x)) extd))
   /\ composable_step q dep [] = INL extd
-  /\ EXISTS (UNCURRY is_instance_LR_compute) (MAP (λx. (p,x)) extd)
-  /\ q' = SND $ HD (FILTER (UNCURRY is_instance_LR_compute) (MAP (λx. (p,x)) extd))
+  /\ EXISTS (UNCURRY is_instance_LR) (MAP (λx. (p,x)) extd)
+  /\ q' = SND $ HD (FILTER (UNCURRY is_instance_LR) (MAP (λx. (p,x)) extd))
   ==> dep_step dep rest dep'dep = INR $ cyclic_step (p,q,q')
 Proof
   ho_match_mp_tac dep_step_ind
-  >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM]
+  >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,GSYM is_instance_LR_equiv]
   >> Cases_on `pre` >- gvs[dep_step_inv_def,Once EXISTS_NOT_EVERY]
   >> Cases_on `h` >> gvs[o_DEF]
   >> disj1_tac >> first_x_assum irule
@@ -6679,12 +6679,12 @@ Theorem dep_step_complete_non_comp_step:
   /\ rest = pre ++ [(p,q)] ++ suf
   /\ (!q. MEM q pre ==>
     ?extd. composable_step (SND q) dep [] = INL extd /\
-    EVERY ($~ o UNCURRY is_instance_LR_compute) (MAP (λx. (FST q,x)) extd))
+    EVERY ($~ o UNCURRY is_instance_LR) (MAP (λx. (FST q,x)) extd))
   /\ composable_step q dep [] = INR q'
   ==> dep_step dep rest dep'dep = INR $ non_comp_step (p,q,q')
 Proof
   ho_match_mp_tac dep_step_ind
-  >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM]
+  >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,GSYM is_instance_LR_equiv]
   >> Cases_on `pre` >- gvs[] >> disj1_tac >> Cases_on `h` >> gvs[o_DEF]
   >> first_x_assum irule >> fs[dep_step_inv_def,o_DEF,wf_pqs_APPEND,wf_pqs_CONS]
   >> rpt $ goal_assum drule
