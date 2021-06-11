@@ -2378,17 +2378,13 @@ Proof
   >> fs[LENGTH_TAKE,EVERY_TAKE,sol_seq_TAKE,EL_TAKE]
 QED
 
-Theorem id_sol_mg_sol_equiv:
-  !rs pqs dep.
-  0 < LENGTH rs
-  /\ equiv_ts_on [] (HD rs) (FV (FST (HD pqs)))
-  /\ sol_seq rs pqs
-  /\ EVERY (UNCURRY dep) pqs
-  /\ monotone dep
+Theorem path_starting_at_0_mg_sol:
+  !rs pqs dep. monotone dep
+  /\ path_starting_at dep 0 rs pqs
   ==> mg_sol_seq rs pqs
 Proof
-  rw[equiv_ts_on_def,Excl"EL",Excl"EL_restricted",GSYM EL]
-  >> match_mp_tac mg_sol_seq_var_renaming'
+  rw[equiv_ts_on_def,path_starting_at_def,Excl"EL",Excl"EL_restricted",GSYM EL]
+  >> irule mg_sol_seq_var_renaming'
   >> goal_assum $ drule_at Any
   >> rw[mg_sol_seq_def,sol_seq_TYPE_SUBST]
   >> rename1`sol_seq rs' pqs`
@@ -2396,44 +2392,39 @@ Proof
   >> qexists_tac `es`
   >> conj_asm1_tac >- fs[Abbr`es`]
   >> ho_match_mp_tac COMPLETE_INDUCTION
-  >> rw[]
-  >> Cases_on `i = 0`
+  >> Cases >> rw[AND_IMP_INTRO]
   >- (
     drule_then assume_tac sol_seq_is_const_or_type_FST
     >> fs[Abbr`es`,EL_REPLICATE,sol_seq_def,equal_ts_on_refl]
-    >> qpat_x_assum `equal_ts_on _ _ _` mp_tac
+    >> qhdtm_x_assum `equal_ts_on` mp_tac
     >> REWRITE_TAC[GSYM EL]
     >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,EL_MAP,LR_TYPE_SUBST_NIL]
-    >> rw[Once EQ_SYM_EQ]
+    >> fs[Once EQ_SYM_EQ,Excl"EL",Excl"EL_restricted",EL_REPLICATE]
   )
-  >> rpt(qpat_x_assum `sol_seq _ _` (fn x => mp_tac x >>
-    ((qspec_then `PRE i` mp_tac) ((GSYM o cj 3 o REWRITE_RULE[sol_seq_def]) x))))
-  >> rw[]
-  >> `i < LENGTH rs'` by fs[sol_seq_def]
-  >> rgs[NOT_ZERO_LT_ZERO,SUC_PRE]
-  >> `EL i es = EL (PRE i) es` by fs[EL_REPLICATE,Abbr`es`]
   >> imp_res_tac sol_seq_LENGTH
-  >> `PRE i < LENGTH pqs` by fs[]
   >> drule_then assume_tac sol_seq_is_const_or_type
+  >> drule_then (qspec_then `n` mp_tac) (GSYM $ cj 3 $ iffLR sol_seq_def)
+  >> rev_drule_then (qspec_then `n` mp_tac) (GSYM $ cj 3 $ iffLR sol_seq_def)
+  >> rw[]
+  >> `EL n es = EL (SUC n) es` by fs[EL_REPLICATE,Abbr`es`]
   >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,EL_MAP]
   >> fs[FORALL_AND_THM,IMP_CONJ_THM]
   >> drule sol_mon_prop'
   >> ntac 2 $ disch_then drule
   >> disch_then rev_drule
-  >> disch_then $ qspecl_then [`PRE i`,`i`] mp_tac
-  >> disch_then $ qspec_then `REPLICATE (LENGTH rs) $ MAP (TYPE_SUBST (HD rs') ## I) η ++ (HD rs')` mp_tac
+  >> qabbrev_tac `es' = REPLICATE (LENGTH rs) $ MAP (TYPE_SUBST (HD rs') ## I) η ++ (HD rs')`
+  >> disch_then $ qspecl_then [`n`,`SUC n`,`es'`] mp_tac
   >> impl_tac
   >- (
-    rw[EL_REPLICATE,Abbr`es`]
+    rw[EL_REPLICATE,Abbr`es`,Abbr`es'`]
     >> last_x_assum drule
     >> REWRITE_TAC[GSYM EL]
-    >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,EL_REPLICATE,GSYM TYPE_SUBST_compose,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,EL_MAP]
-    >> fs[]
-    >> disch_then $ ONCE_REWRITE_TAC o single o GSYM
-    >> dep_rewrite.DEP_REWRITE_TAC[TYPE_SUBST_compose,LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,EL_MAP]
+    >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,EL_REPLICATE,EL_MAP,TYPE_SUBST_compose,GSYM LR_TYPE_SUBST_compose]
+    >> rw[Once EQ_SYM_EQ]
+    >> dep_rewrite.DEP_REWRITE_TAC[TYPE_SUBST_compose,LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,MAP_APPEND]
     >> fs[]
   )
-  >> fs[EL_REPLICATE,Abbr`es`]
+  >> fs[EL_REPLICATE,Abbr`es`,Abbr`es'`]
   >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,EL_REPLICATE,TYPE_SUBST_compose,LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,EL_MAP]
   >> fs[]
 QED
@@ -2449,10 +2440,8 @@ Theorem id_sol_mg_sol_equiv':
 Proof
   rpt strip_tac
   >> imp_res_tac sol_seq_LENGTH
-  >> match_mp_tac id_sol_mg_sol_equiv
-  >> REWRITE_TAC[GSYM EL]
-  >> goal_assum $ drule_at Any
-  >> fs[EVERY_DROP,EL_DROP,sol_seq_DROP]
+  >> drule_then irule path_starting_at_0_mg_sol
+  >> fs[EVERY_DROP,EL_DROP,sol_seq_DROP,path_starting_at_def,sol_seq_def,wf_pqs_def]
 QED
 
 (* Lemma 5.8, Kunčar 2015 *)
