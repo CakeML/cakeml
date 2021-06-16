@@ -6,7 +6,7 @@ open integerTheory ml_progTheory
      astTheory semanticPrimitivesTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory
      fpSemTheory mlvectorTheory mlstringTheory
-     ml_translatorTheory miscTheory backend_commonTheory;
+     ml_translatorTheory miscTheory;
 open preamble;
 
 val _ = new_theory "num_list_enc_dec";
@@ -304,7 +304,7 @@ Definition fix_res_def:
     if LENGTH ns < LENGTH ns' then (x,ns) else (x,ns')
 End
 
-Triviality fix_res_IMP:
+Theorem fix_res_IMP:
   (x,ns2) = fix_res ns1 y ⇒ LENGTH ns2 ≤ LENGTH ns1
 Proof
   Cases_on ‘y’ \\ rw [fix_res_def]
@@ -505,210 +505,29 @@ Proof
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
 QED
 
-(* namespace -- instantiated to (string, string, 'a) *)
+(* encoding decoding from characters *)
 
-Definition namespace_enc_def:
-  namespace_enc e (Bind xs ys) =
-    (let ns1 = list_enc (prod_enc (list_enc char_enc) (list_enc char_enc)) xs in
-     let ns2 = namespace_enc_list e ys in
-       Append ns1 ns2) ∧
-  namespace_enc_list e [] = List [0] ∧
-  namespace_enc_list e ((m,x)::xs) =
-    Append (Append (List [1]) (e m))
-      (Append (namespace_enc e x) (namespace_enc_list e xs))
-Termination
-  WF_REL_TAC ‘measure (λx. case x of
-                           | INL (_,x) => namespace_size (K 0) (K 0) (K 0) x
-                           | INR (_,x) => namespace1_size (K 0) (K 0) (K 0) x)’
-End
+Overload CUT[local] = “30:num”
+Overload SHIFT[local] = “32:num”
 
-Definition namespace_dec_def:
-  namespace_dec d ns =
-    (if PRECONDITION (dec_ok d) then
-     if ns = [] then (Bind [] [],ns) else
-       let (xs,ns1) = list_dec (prod_dec (list_dec char_dec) (list_dec char_dec)) ns in
-       let (ys,ns2) = namespace_dec_list d ns1 in
-         (Bind xs ys,ns2)
-     else (Bind [] [],ns)) ∧
-  namespace_dec_list d ns =
-    if PRECONDITION (dec_ok d) then
-      case ns of
-      | [] => ([],ns)
-      | (n::rest) =>
-        if n = 0n then ([],rest) else
-          let (m,ns) = d rest in
-          let (x,ns) = fix_res ns (namespace_dec d ns) in
-          let (ys,ns) = namespace_dec_list d ns in
-            ((m,x)::ys,ns)
-    else ([],ns)
-Termination
-  WF_REL_TAC ‘measure (λx. case x of
-                           | INL (_,ns) => LENGTH ns
-                           | INR (_,ns) => LENGTH ns)’
-  \\ reverse (rw [] \\ imp_res_tac fix_res_IMP \\ fs [])
-  \\ TRY
-   (fs [PRECONDITION_def,dec_ok_def]
-    \\ rpt (qpat_x_assum ‘(_,_) = _’ (assume_tac o GSYM))
-    \\ first_x_assum (qspec_then ‘rest’ mp_tac) \\ fs [] \\ NO_TAC)
-  \\ Cases_on ‘ns’ \\ fs []
-  \\ fs [list_dec_def]
-  \\ pop_assum (assume_tac o GSYM)
-  \\ imp_res_tac list_dec'_length
-  \\ pop_assum mp_tac \\ impl_tac \\ fs []
-  \\ qsuff_tac ‘enc_dec_ok
-                (prod_enc (list_enc char_enc) (list_enc char_enc))
-                (prod_dec (list_dec char_dec) (list_dec char_dec))’
-  THEN1 (fs [enc_dec_ok_def])
-  \\ match_mp_tac prod_enc_dec_ok \\ fs []
-  \\ match_mp_tac list_enc_dec_ok \\ fs [char_enc_dec_ok]
-End
-
-Theorem dec_ok_namespace_dec:
-  dec_ok d ⇒ dec_ok (namespace_dec d)
+Triviality good_chars:
+  ORD #" " ≤ SHIFT ∧ SHIFT + CUT + CUT ≤ ORD #"\\"
 Proof
-  rw [] \\ simp [dec_ok_def]
-  \\ qsuff_tac ‘
-    (∀(d:num list -> α # num list) i.
-      dec_ok d ⇒ LENGTH (SND (namespace_dec d i)) ≤ LENGTH i) ∧
-    (∀(d:num list -> α # num list) i.
-      dec_ok d ⇒ LENGTH (SND (namespace_dec_list d i)) ≤ LENGTH i)’
-  THEN1 metis_tac [] \\ pop_assum kall_tac
-  \\ ho_match_mp_tac namespace_dec_ind \\ rw []
-  \\ once_rewrite_tac [namespace_dec_def]
-  \\ fs [ml_translatorTheory.PRECONDITION_def,UNCURRY]
-  \\ rw [] \\ fs []
-  THEN1
-   (Cases_on ‘list_dec (prod_dec (list_dec char_dec) (list_dec char_dec)) i’ \\ fs []
-    \\ ‘dec_ok (list_dec (prod_dec (list_dec char_dec) (list_dec char_dec)))’ by
-      metis_tac [list_enc_dec_ok, prod_enc_dec_ok, char_enc_dec_ok, enc_dec_ok_def]
-    \\ fs [dec_ok_def] \\ first_x_assum (qspec_then ‘i’ mp_tac) \\ fs [])
-  \\ Cases_on ‘i’ \\ fs []
-  \\ Cases_on ‘h=0’ \\ fs []
-  \\ Cases_on ‘d t’ \\ fs []
-  \\ Cases_on ‘namespace_dec d r’ \\ fs []
-  \\ Cases_on ‘fix_res r (q',r')’ \\ fs []
-  \\ match_mp_tac LESS_EQ_TRANS \\ asm_exists_tac \\ fs []
-  \\ imp_res_tac (GSYM fix_res_IMP)
-  \\ fs [dec_ok_def]
-  \\ first_x_assum (qspec_then ‘t’ mp_tac) \\ fs []
-QED
-
-Triviality fix_res_namespace_dec:
-  PRECONDITION (dec_ok d) ⇒
-  fix_res ns (namespace_dec d ns) = namespace_dec d ns
-Proof
-  metis_tac [dec_ok_namespace_dec,dec_ok_fix_res,
-             ml_translatorTheory.PRECONDITION_def]
-QED
-
-Theorem namespace_dec_def = namespace_dec_def
-  |> SIMP_RULE std_ss [fix_res_namespace_dec];
-
-Theorem namespace_dec_ind = namespace_dec_ind
-  |> SIMP_RULE std_ss [fix_res_namespace_dec,GSYM AND_IMP_INTRO]
-  |> SIMP_RULE bool_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC];
-
-Theorem namespace_enc_dec_ok:
-  enc_dec_ok e d ⇒
-  enc_dec_ok (namespace_enc e) (namespace_dec d)
-Proof
-  fs [enc_dec_ok_def,dec_ok_namespace_dec]
-  \\ strip_tac
-  \\ strip_tac \\ pop_assum mp_tac
-  \\ qid_spec_tac ‘x’
-  \\ qid_spec_tac ‘e’
-  \\ qsuff_tac ‘
-        (∀e x.
-            (∀x xs. d (append (e x) ++ xs) = (x,xs)) ⇒
-            ∀xs. namespace_dec d (append (namespace_enc e x) ++ xs) = (x,xs)) ∧
-        (∀e x.
-            (∀x xs. d (append (e x) ++ xs) = (x,xs)) ⇒
-            ∀xs. namespace_dec_list d (append (namespace_enc_list e x) ++ xs) = (x,xs))’
-  THEN1 metis_tac []
-  \\ ho_match_mp_tac namespace_enc_ind \\ rw [] \\ fs []
-  \\ fs [namespace_enc_def]
-  \\ once_rewrite_tac [namespace_dec_def] \\ fs []
-  \\ fs [ml_translatorTheory.PRECONDITION_def]
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ IF_CASES_TAC THEN1 fs [list_enc_def]
-  \\ pop_assum kall_tac
-  \\ ‘enc_dec_ok
-      (list_enc (prod_enc (list_enc char_enc) (list_enc char_enc)))
-      (list_dec (prod_dec (list_dec char_dec) (list_dec char_dec)))’ by
-    metis_tac [list_enc_dec_ok, prod_enc_dec_ok, char_enc_dec_ok, enc_dec_ok_def]
-  \\ fs [enc_dec_ok_def] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-QED
-
-(* tra *)
-
-Definition num_enc'_def:
-  num_enc' n = Tree n []
-End
-
-Definition num_dec'_def:
-  num_dec' (Tree n xs) = n
-End
-
-Theorem num_dec_enc'[simp]:
-  num_dec' (num_enc' n) = n
-Proof
-  fs [num_dec'_def,num_enc'_def]
-QED
-
-Definition tra_enc'_def:
-  tra_enc' None = Tree 0 [] ∧
-  tra_enc' (Union t1 t2) = Tree 1 [tra_enc' t1; tra_enc' t2] ∧
-  tra_enc' (Cons t n) = Tree 2 [tra_enc' t; num_enc' n] ∧
-  tra_enc' (SourceLoc n1 n2 n3 n4) =
-    Tree 3 [num_enc' n1; num_enc' n2; num_enc' n3; num_enc' n4]
-End
-
-Definition tra_dec'_def:
-  tra_dec' (Tree n xs) =
-    if n = 0 then None
-    else if n = 1 then
-      case xs of
-      | [x1;x2] => Union (tra_dec' x1) (tra_dec' x2)
-      | _ => None
-    else if n = 2 then
-      case xs of
-      | [x1;x2] => Cons (tra_dec' x1) (num_dec' x2)
-      | _ => None
-    else
-      case xs of
-      | [x1;x2;x3;x4] => SourceLoc (num_dec' x1) (num_dec' x2) (num_dec' x3) (num_dec' x4)
-      | _ => None
-End
-
-Definition tra_enc_def:
-  tra_enc = num_tree_enc o tra_enc'
-End
-
-Definition tra_dec_def:
-  tra_dec = (tra_dec' ## I) o num_tree_dec
-End
-
-Theorem tra_enc_dec_ok:
-  enc_dec_ok tra_enc tra_dec
-Proof
-  fs [tra_enc_def,tra_dec_def]
-  \\ match_mp_tac enc_dec_ok_o
-  \\ fs [num_tree_enc_dec_ok]
-  \\ Induct
-  \\ fs [tra_enc'_def,tra_dec'_def]
+  EVAL_TAC
 QED
 
 Definition enc_def:
   enc [] = [] ∧
-  enc (n::ns) = if n < 40n then CHR n :: enc ns
-                else CHR ((n MOD 40) + 40) :: enc ((n DIV 40)::ns)
+  enc (n::ns) = if n < CUT then CHR (n + SHIFT) :: enc ns
+                else CHR ((n MOD CUT) + SHIFT + CUT) :: enc ((n DIV CUT)::ns)
 End
 
 Definition dec_next_def:
   dec_next k l [] = (k,[]) ∧
   dec_next k l (n::ns) =
-    if ORD n < 40 then (k + l * ORD n, ns)
-    else dec_next (k + l * (ORD n - 40)) (l * 40) ns
+    let m = ORD n - SHIFT in
+      if m < CUT then (k + l * m, ns)
+      else dec_next (k + l * (m - CUT)) (l * CUT) ns
 End
 
 Triviality dec_next_LENGTH:
@@ -733,23 +552,24 @@ End
 
 Theorem dec_next_enc:
   ∀h l ns k.
-    dec_next k (40 ** l) (enc (h::ns)) = (k + (40 ** l) * h, enc ns)
+    dec_next k (CUT ** l) (enc (h::ns)) = (k + (CUT ** l) * h, enc ns)
 Proof
   completeInduct_on ‘h’ \\ rw []
   \\ simp [Once enc_def] \\ rw []
   \\ fs [dec_next_def,ORD_CHR]
-  THEN1 (‘h < 256’ by fs [] \\ fs [ORD_CHR])
-  \\ ‘ORD (CHR (h MOD 40 + 40)) = h MOD 40 + 40’ by
-   (‘h MOD 40 < 40’ by fs []
-    \\ ‘h MOD 40 + 40 < 256’ by decide_tac
+  THEN1 (‘h + SHIFT < 256’ by fs [] \\ simp [ORD_CHR])
+  \\ ‘ORD (CHR (h MOD CUT + SHIFT)) = h MOD CUT + SHIFT’ by
+   (‘h MOD CUT < CUT’ by fs []
+    \\ ‘h MOD CUT + SHIFT < 256’ by decide_tac
     \\ full_simp_tac std_ss [ORD_CHR])
   \\ fs []
-  \\ ‘h DIV 40 < h’ by fs []
+  \\ ‘h MOD CUT < CUT’ by fs []
+  \\ simp []
+  \\ ‘h DIV CUT < h’ by fs []
   \\ first_x_assum drule
   \\ disch_then (qspec_then ‘SUC l’ mp_tac) \\ fs [EXP]
   \\ disch_then kall_tac
-  \\ fs []
-  \\ ‘0 < 40n’ by fs []
+  \\ ‘0 < CUT’ by fs []
   \\ drule DIVISION
   \\ disch_then (qspec_then ‘h’ assume_tac)
   \\ once_rewrite_tac [EQ_SYM_EQ]
@@ -766,158 +586,5 @@ Proof
   \\ fs [] \\ completeInduct_on ‘h’
   \\ simp [Once enc_def] \\ rw []
 QED
-
-
-(*
-  closLang$exp (* rec *)
-  val_approx (* rec *)
-  bvl$exp (* rec *)
-  var_name
-
-  closLang$exp = Var tra num
-      | If tra exp exp exp
-      | Let tra (exp list) exp
-      | Raise tra exp
-      | Handle tra exp exp
-      | Tick tra exp
-      | Call tra num (* ticks *) num (* loc *) (exp list) (* args *)
-      | App tra (num option) exp (exp list)
-      | Fn mlstring (num option) (num list option) num exp
-      | Letrec (mlstring list) (num option) (num list option) ((num # exp) list) exp
-      | Op tra op (exp list)
-
-  bvl$exp = Var num
-      | If exp exp exp
-      | Let (exp list) exp
-      | Raise exp
-      | Handle exp exp
-      | Tick exp
-      | Call num (num option) (exp list)
-      | Op closLang$op (exp list)
-
-  val_approx =
-    ClosNoInline num num        (* location in code table, arity *)
-  | Clos num num exp num        (* loc, arity, body, body size *)
-  | Tuple num (val_approx list) (* conses or tuples *)
-  | Int int                     (* used to index tuples *)
-  | Other                       (* unknown *)
-  | Impossible`                 (* value 'returned' by Raise *)
-
-  var_name = Glob tra num | Local tra string
-
-------
-
-  <| source_conf : source_to_flat$config
-   ; clos_conf : clos_to_bvl$config
-   ; bvl_conf : bvl_to_bvi$config
-   ; data_conf : data_to_word$config
-   ; word_to_word_conf : word_to_word$config
-   ; word_conf : 'a word_to_stack$config
-   ; stack_conf : stack_to_lab$config
-   ; lab_conf : 'a lab_to_target$config
-   ; tap_conf : tap_config
-
-  source_to_flat$config =
-           <| next : next_indices
-            ; mod_env : environment
-            ; pattern_cfg : flat_pattern$config
-
-  where
-
-  next_indices = <| vidx : num; tidx : num; eidx : num |>
-
-  var_name = Glob tra num | Local tra string
-
-  environment =
-    <| c : (modN, conN, num # num option) namespace;
-       v : (modN, varN, var_name) namespace; |>
-
-  flat_pattern$config =
-  <| pat_heuristic : (* pattern_matching$branch list *) unit -> num ;  (* problem! *)
-    type_map : (num # num) list spt |>
-
-  clos_to_bvl$config =
-           <| next_loc : num
-            ; start : num
-            ; do_mti : bool
-            ; known_conf : clos_known$config option
-            ; do_call : bool
-            ; call_state : num_set # (num, num # closLang$exp) alist
-            ; max_app : num
-            |>
-
-  clos_known$config =
-           <| inline_max_body_size : num
-            ; inline_factor : num
-            ; initial_inline_factor : num
-            ; val_approx_spt : val_approx spt
-            |>`;
-
-  bvl_to_bvi$config =
-           <| inline_size_limit : num (* zero disables inlining *)
-            ; exp_cut : num (* huge number effectively disables exp splitting *)
-            ; split_main_at_seq : bool (* split main expression at Seqs *)
-            ; next_name1 : num (* there should be as many of       *)
-            ; next_name2 : num (* these as bvl_to_bvi_namespaces-1 *)
-            ; inlines : (num # bvl$exp) spt
-            |>
-
-  data_to_word$config = <| tag_bits : num (* in each pointer *)
-            ; len_bits : num (* in each pointer *)
-            ; pad_bits : num (* in each pointer *)
-            ; len_size : num (* size of length field in block header *)
-            ; has_div : bool (* Div available in target *)
-            ; has_longdiv : bool (* LongDiv available in target *)
-            ; has_fp_ops : bool (* can compile floating-point ops *)
-            ; has_fp_tern : bool (* can compile FMA *)
-            ; call_empty_ffi : bool (* emit (T) / omit (F) calls to FFI "" *)
-            ; gc_kind : gc_kind (* GC settings *) |>
-
-  word_to_word$config =
-  <| reg_alg : num
-   ; col_oracle : num -> (num num_map) option |>
-
-  word_to_stack$config = <| bitmaps : 'a word list ;
-                            stack_frame_size : num spt |>
-
-  stack_to_lab$config =
-  <| reg_names : num num_map
-   ; jump : bool (* whether to compile to JumpLower or If Lower ... in stack_remove*)
-   |>
-
-  lab_to_target$config =
-           <| labels : num num_map num_map
-            ; pos : num
-            ; asm_conf : 'a asm_config
-            ; init_clock : num
-            ; ffi_names : string list option
-            ; hash_size : num
-            |>
-
-  asm_config =
-    <| ISA            : architecture
-     ; encode         : 'a asm -> word8 list
-     ; big_endian     : bool
-     ; code_alignment : num
-     ; link_reg       : num option
-     ; avoid_regs     : num list
-     ; reg_count      : num
-     ; fp_reg_count   : num  (* set to 0 if float not available *)
-     ; two_reg_arith  : bool
-     ; valid_imm      : (binop + cmp) -> 'a word -> bool
-     ; addr_offset    : 'a word # 'a word
-     ; byte_offset    : 'a word # 'a word
-     ; jump_offset    : 'a word # 'a word
-     ; cjump_offset   : 'a word # 'a word
-     ; loc_offset     : 'a word # 'a word
-     |>
-
-  tap_config = Tap_Config
-    (* save filename prefix *) mlstring
-    (* bits which should be saved. the boolean indicates
-       the presence of a '*' suffix, and matches all suffixes *)
-    ((mlstring # bool) list)
-
-*)
 
 val _ = export_theory();
