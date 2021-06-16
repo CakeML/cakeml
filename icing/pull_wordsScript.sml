@@ -8,7 +8,7 @@ open semanticPrimitivesTheory evaluateTheory terminationTheory
 
 open preamble;
 
-val _ = new_theory "opt_enc";
+val _ = new_theory "pull_words";
 
 Triviality exp_size_lemma:
   (∀f n e l. MEM (f,n,e) l ⇒ exp_size e ≤ exp1_size l) ∧
