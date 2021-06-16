@@ -391,12 +391,12 @@ End
 
 Theorem pmatch_thm:
   (∀envc refs1 p v xs v1 ys refs2.
-     LIST_REL ref_rel refs2 refs1 ∧
+     LIST_REL ref_rel refs1 refs2 ∧
      v_rel v v1 ∧ match_rel (Match xs) (Match ys) ⇒
      match_rel (pmatch envc refs1 p v xs)
                (pmatch envc refs2 p v1 ys)) ∧
   (∀envc refs1 ps vs xs vs1 ys refs2.
-     LIST_REL ref_rel refs2 refs1 ∧
+     LIST_REL ref_rel refs1 refs2 ∧
      LIST_REL v_rel vs vs1 ∧ match_rel (Match xs) (Match ys) ⇒
      match_rel (pmatch_list envc refs1 ps vs xs)
                (pmatch_list envc refs2 ps vs1 ys))
@@ -741,7 +741,7 @@ Proof
    (gvs [evaluate_def,replace_constants_exp_def,gather_used_identifiers_exp_def]
     \\ gvs [CaseEq"bool"]
     \\ ‘env1.c = env.c’ by fs [env_rel_def] \\ fs []
-    \\ ‘LIST_REL ref_rel t.refs s.refs’ by fs [state_rel_def]
+    \\ ‘LIST_REL ref_rel s.refs t.refs’ by fs [state_rel_def]
     \\ drule $ CONJUNCT1 pmatch_thm
     \\ disch_then $ qspecl_then [‘env.c’,‘p’,‘v’,‘[]’,‘v1’,‘[]’] mp_tac
     \\ fs [] \\ strip_tac
