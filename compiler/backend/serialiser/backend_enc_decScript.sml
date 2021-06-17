@@ -16,9 +16,9 @@ val _ = new_theory "backend_enc_dec";
 
 val enc_dec_mapping =
   ref ([(“:bool”, “bool_enc'”, “bool_dec'”),
-        (“:num”, “num_enc'”, “num_dec'”),
-        (“:int”, “int_enc'”, “int_dec'”),
-        (“:char”, “chr_enc'”, “chr_dec'”)]);
+        (“:num”,  “num_enc'”,  “num_dec'” ),
+        (“:int”,  “int_enc'”,  “int_dec'” ),
+        (“:char”, “chr_enc'”,  “chr_dec'” )]);
 
 fun reg_enc_dec ty enc dec =
    (enc_dec_mapping := (ty,enc,dec) :: (!enc_dec_mapping));
@@ -270,6 +270,9 @@ Proof
   \\ fs [SF ETA_ss]
   \\ match_mp_tac list_enc'_mem \\ fs []
 QED
+
+val _ = reg_enc_dec “:val_approx” “val_approx_enc'” “val_approx_dec'”;
+
 
 
 (*

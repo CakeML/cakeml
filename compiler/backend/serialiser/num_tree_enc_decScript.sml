@@ -89,6 +89,14 @@ Proof
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
 QED
 
+Theorem imp_enc_dec_ok:
+  ∀e d.
+    (∀x. d (e x) = x) ⇒
+    enc_dec_ok (num_tree_enc ∘ e) ((d ## I) ∘ num_tree_dec)
+Proof
+  rw [] \\ irule enc_dec_ok_o \\ fs [num_tree_enc_dec_ok]
+QED
+
 Definition nth_def[simp]:
   nth n [] = Tree 0 [] ∧
   nth n (x::xs) = if n = 0 then x else nth (n-1n) xs
