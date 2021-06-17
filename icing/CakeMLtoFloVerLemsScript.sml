@@ -77,6 +77,10 @@ Theorem toFloVerExp_App_cases:
        (op = FP_uop FP_Neg ∧ exps = [e] ∧
        toFloVerExp varMap e = SOME fexp2 ∧
        fexp = Unop Neg fexp2)) ∨
+    (∃ e fexp2.
+       (op = FP_uop FP_Sqrt ∧ exps = [e] ∧
+       toFloVerExp varMap e = SOME fexp2 ∧
+       fexp = Unop Sqrt fexp2)) ∨
     (∃ e1 e2 bop theIds2 freshId2 fexp1 fexp2.
       (op = FP_bop bop ∧ exps = [e1; e2] ∧
        toFloVerExp varMap e1 = SOME fexp1 ∧
@@ -488,6 +492,10 @@ Proof
    \\ simp[Once usedVars_def, domain_union] \\ strip_tac
    \\ res_tac \\ fs[freevars_def])
   >- (
+   qpat_x_assum `x IN domain (usedVars _)` mp_tac
+   \\ simp[Once usedVars_def, domain_union] \\ strip_tac
+   \\ res_tac \\ fs[freevars_def])
+  >- (
    res_tac \\ fs[freevars_def])
 QED
 
@@ -516,6 +524,10 @@ Proof
     qpat_x_assum `x IN freevars _` mp_tac
     \\ simp[Once freevars_def] \\ strip_tac
     \\ res_tac \\ simp[Once usedVars_def])
+  >- (
+    qpat_x_assum `x IN freevars _` mp_tac
+    \\ simp[freevars_def] \\ strip_tac
+    \\ res_tac \\ simp[Once usedVars_def, domain_union])
   >- (
     qpat_x_assum `x IN freevars _` mp_tac
     \\ simp[freevars_def] \\ strip_tac

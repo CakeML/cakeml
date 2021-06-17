@@ -349,6 +349,17 @@ Proof
             getRealUop_def]
     \\ fs[do_app_def] \\ EVAL_TAC \\ fs[state_component_equality])
   >- (
+    rveq \\ rpt (qpat_x_assum ‘T’ kall_tac)
+    \\ fs[freevars_def]
+    \\ Cases_on ‘m1’ \\ fs[MachineTypeTheory.isCompat_def]
+    \\ ‘evaluate st env [realify e] = (st, Rval [Real v1])’
+      by (
+        last_x_assum drule \\ rpt (disch_then drule)
+        \\ fs[MachineTypeTheory.isCompat_def])
+    \\ simp[realify_def, evaluate_def, astTheory.getOpClass_def,
+            getRealUop_def]
+    \\ fs[do_app_def] \\ EVAL_TAC \\ fs[state_component_equality])
+  >- (
     rpt (qpat_x_assum ‘T’ kall_tac)
     \\ fs[freevars_def]
     \\ ‘m1 = REAL ∧ m2 = REAL’
@@ -590,6 +601,26 @@ Proof
           fpSemTheory.compress_word_def]
     \\ EVAL_TAC)
   >- (
+    fs[option_case_eq, pair_case_eq] \\ rveq
+    \\ rpt (qpat_x_assum ‘T’ kall_tac)
+    \\ fs[eval_expr_float_def, option_case_eq, freevars_def]
+    \\ rveq \\ fs[]
+    \\ ‘∃ vFC. evaluate st env [e] = (st, Rval [vFC]) ∧
+        v_word_eq vFC v’
+      by (
+        last_x_assum drule \\ rpt (disch_then drule)
+        \\ disch_then assume_tac \\ fs[])
+    \\ simp[evaluate_def, v_eq_def, astTheory.getOpClass_def,
+            semanticPrimitivesTheory.do_app_def]
+    \\ Cases_on ‘vFC’
+    \\ TRY (rename1 ‘v_word_eq (Litv l) v’ \\ Cases_on ‘l’)
+    \\ fs[v_word_eq_def] \\ rveq
+    \\ fs[v_word_eq_def, semanticPrimitivesTheory.fp_translate_def,
+          astTheory.isFpBool_def, fpValTreeTheory.fp_uop_def,
+          state_component_equality,
+          fpSemTheory.compress_word_def]
+    \\ EVAL_TAC)
+  >- (
     rveq \\ fs[]
     \\ rpt (qpat_x_assum ‘T’ kall_tac)
     \\ fs[eval_expr_float_def, option_case_eq, freevars_def]
@@ -806,6 +837,26 @@ Proof
             semanticPrimitivesTheory.do_app_def, fpSemTheory.compress_word_def,
             state_component_equality,
             v_word_eq_def])
+  >- (
+    fs[option_case_eq, pair_case_eq] \\ rveq
+    \\ rpt (qpat_x_assum ‘T’ kall_tac)
+    \\ fs[eval_expr_float_def, option_case_eq, freevars_def]
+    \\ rveq \\ fs[]
+    \\ ‘∃ vFC. evaluate st env [e] = (st, Rval [vFC]) ∧
+        v_word_eq vFC v’
+      by (
+        last_x_assum drule \\ rpt (disch_then drule)
+        \\ disch_then assume_tac \\ fs[])
+    \\ simp[evaluate_def, v_eq_def, astTheory.getOpClass_def,
+            semanticPrimitivesTheory.do_app_def]
+    \\ Cases_on ‘vFC’
+    \\ TRY (rename1 ‘v_word_eq (Litv l) v’ \\ Cases_on ‘l’)
+    \\ fs[v_word_eq_def] \\ rveq
+    \\ fs[v_word_eq_def, semanticPrimitivesTheory.fp_translate_def,
+          astTheory.isFpBool_def, fpValTreeTheory.fp_uop_def,
+          state_component_equality,
+          fpSemTheory.compress_word_def]
+    \\ EVAL_TAC)
   >- (
     fs[option_case_eq, pair_case_eq] \\ rveq
     \\ rpt (qpat_x_assum ‘T’ kall_tac)
@@ -1101,6 +1152,31 @@ Proof
           fpSemTheory.compress_word_def]
     \\ rveq
     \\ fs[fpSemTheory.compress_word_def, fpSemTheory.fp_uop_comp_def])
+  >- (
+    fs[option_case_eq, pair_case_eq] \\ rveq
+    \\ rpt (qpat_x_assum ‘T’ kall_tac)
+    \\ qpat_x_assum `evaluate st env _ = _` mp_tac
+    \\ simp[evaluate_def, option_case_eq, freevars_def,
+          astTheory.getOpClass_def, semanticPrimitivesTheory.do_app_def]
+    \\ ntac 5 (TOP_CASE_TAC \\ fs[])
+    \\ imp_res_tac evaluatePropsTheory.evaluate_sing
+    \\ rveq \\ fs[]
+    \\ rename1 ‘evaluate st env [e] = (st1, Rval [v1])’
+    \\ ‘st1.fp_state.canOpt = FPScope NoOpt’
+       by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv \\ fs[])
+    \\ simp[astTheory.isFpBool_def] \\ strip_tac \\ fs[] \\ rveq
+    \\ simp[eval_expr_float_def]
+    \\ fs[freevars_def]
+    \\ pop_assum kall_tac
+    \\ first_x_assum drule
+    \\ rpt (disch_then drule)
+    \\ strip_tac \\ fs[]
+    \\ every_case_tac \\ fs[] \\ rveq
+    \\ TRY (Cases_on ‘l’ \\ fs[])
+    \\ fs[v_word_eq_def, fpValTreeTheory.fp_uop_def, fp_translate_def,
+          fpSemTheory.compress_word_def]
+    \\ rveq
+    \\ fs[fpSemTheory.compress_word_def, fpSemTheory.fp_uop_comp_def, dmode_def])
   >- (
     rveq \\ fs[]
     \\ rpt (qpat_x_assum ‘T’ kall_tac)

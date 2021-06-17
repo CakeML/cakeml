@@ -78,6 +78,10 @@ Definition toFloVerExp_def:
    (case toFloVerExp ids e1 of
     | NONE => NONE
     | SOME fexp1 => SOME (Expressions$Unop Neg fexp1))
+   | (FP_uop FP_Sqrt, [e1]) =>
+   (case toFloVerExp ids e1 of
+    | NONE => NONE
+    | SOME fexp1 => SOME (Expressions$Unop Sqrt fexp1))
    | (FP_bop bop, [e1; e2]) =>
    (case toFloVerExp ids e1, toFloVerExp ids e2 of
     | (SOME fexp1, SOME fexp2) =>
