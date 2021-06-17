@@ -552,6 +552,14 @@ Proof
   >> rw[SWAP_def,ELIM_UNCURRY]
 QED
 
+Theorem var_renaming_SWAP_eq:
+  !s. var_renaming (MAP SWAP s) = var_renaming s
+Proof
+  rw[EQ_IMP_THM,var_renaming_SWAP_IMP]
+  >> imp_res_tac var_renaming_SWAP_IMP
+  >> fs[MAP_MAP_o,SWAP_def,o_DEF]
+QED
+
 Theorem var_renaming_MEM_TYPE_SUBST:
   !s x y. MEM (x,Tyvar y) s ∧ var_renaming s
   ⇒ TYPE_SUBST s (Tyvar y) = x
