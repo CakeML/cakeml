@@ -2410,6 +2410,63 @@ Proof
   >> fs[is_instance_simps]
 QED
 
+(* orthogonality of dependencies *)
+
+Definition orth_dep_def:
+  orth_dep dep = !p q p' q'. dep p q /\ dep p' q' ==> p = p' \/ p # p'
+End
+
+(* TODO: equality needs further assumptions as entailed from  ctxt extends []
+ * and exclusion of declarations *)
+(*
+Theorem orth_ctxt_orthogonal_dep:
+  !ctxt. orth_ctxt ctxt = orth_dep (dependency ctxt)
+Proof
+  rw[orth_ctxt_def,GSYM mlstring_sort_def]
+  >> rw[dependency_cases,orthogonal_dep_def,orth_LR_def]
+  >> imp_res_tac WELLTYPED_LEMMA
+  >> rw[Once DISJ_EQ_IMP,GSYM mlstring_sort_def]
+  >> TRY (
+    qmatch_goalsub_abbrev_tac `Const _ (typeof _) # Const _ (typeof _)`
+    >> first_x_assum irule >> rpt conj_tac >> rpt $ goal_assum drule >> fs[]
+    >> disj2_tac >> spose_not_then assume_tac >> gs[]
+  )
+  >> TRY (
+    qmatch_goalsub_abbrev_tac `Const _ _ # Const _ _`
+    >> qmatch_assum_abbrev_tac `nm <> nm':mlstring` >> fs[orth_ci_def]
+  )
+  >> TRY (
+    qmatch_goalsub_abbrev_tac `Tyapp _ (MAP Tyvar $ mlstring_sort _) # Tyapp _ (MAP Tyvar $ mlstring_sort _)`
+    >> first_x_assum irule >> rpt conj_tac >> rpt $ goal_assum drule >> fs[]
+    >> disj2_tac >> disj1_tac >> spose_not_then assume_tac >> gs[]
+  )
+  >> TRY (
+    qmatch_goalsub_abbrev_tac `Tyapp _ (MAP Tyvar _) # Tyapp _ (MAP Tyvar _)`
+    >> qmatch_assum_abbrev_tac `nm <> nm':mlstring`
+    >> fs[orth_ty_def,PULL_FORALL,DISJ_EQ_IMP]
+  )
+  >> cheat
+QED
+*)
+
+Theorem orth_dep_set:
+  !dep. orth_dep (CURRY $ set dep) =
+  !pq pq'. MEM pq dep /\ MEM pq' dep ==> FST pq = FST pq' \/ FST pq # FST pq'
+Proof
+  fs[orth_dep_def,IN_DEF,FORALL_PROD]
+QED
+
+(* split dependencies in declarations and definitions *)
+Definition dep_split_def:
+  dep_split decls defs <=>
+    wf_pqs decls /\ wf_pqs defs
+    /\ orth_dep (CURRY $ set decls) /\ orth_dep (CURRY $ set defs)
+    /\ ALL_DISTINCT $ MAP FST decls
+    (* every symbol is declared *)
+    /\ EVERY (λp. ?p'. MEM p' decls /\ is_instance_LR (FST p') (FST p)) defs
+    /\ EVERY (λx. ?ty. x = INL ty) $ MAP SND decls
+End
+
 (* Definition 5.6, Kunčar 2015 *)
 Definition cyclic_dep_def:
   cyclic_dep dep =
