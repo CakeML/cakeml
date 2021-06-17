@@ -2,14 +2,11 @@
   Encoders and decoders to/from types represented as prefixes of lists
   of natural numbers.
 *)
-open integerTheory ml_progTheory
-     astTheory semanticPrimitivesTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory
-     fpSemTheory mlvectorTheory mlstringTheory
-     ml_translatorTheory miscTheory;
-open preamble;
+open preamble integerTheory miscTheory namespaceTheory ml_translatorTheory;
 
 val _ = new_theory "num_list_enc_dec";
+
+(* definitions of what good enc/dec functions are *)
 
 Definition dec_ok_def:
   dec_ok dec ⇔
@@ -33,6 +30,19 @@ Theorem enc_dec_ok_o:
   enc_dec_ok (e ∘ g) ((f ## I) ∘ d)
 Proof
   fs [enc_dec_ok_def]
+QED
+
+(* misc *)
+
+Definition fix_res_def:
+  fix_res ns (x,ns') =
+    if LENGTH ns < LENGTH ns' then (x,ns) else (x,ns')
+End
+
+Theorem fix_res_IMP:
+  (x,ns2) = fix_res ns1 y ⇒ LENGTH ns2 ≤ LENGTH ns1
+Proof
+  Cases_on ‘y’ \\ rw [fix_res_def]
 QED
 
 (* unit *)
@@ -299,17 +309,6 @@ Definition spt_enc'_def:
     Append (List [3]) (Append (spt_enc' e t1) (Append (e x) (spt_enc' e t2)))
 End
 
-Definition fix_res_def:
-  fix_res ns (x,ns') =
-    if LENGTH ns < LENGTH ns' then (x,ns) else (x,ns')
-End
-
-Theorem fix_res_IMP:
-  (x,ns2) = fix_res ns1 y ⇒ LENGTH ns2 ≤ LENGTH ns1
-Proof
-  Cases_on ‘y’ \\ rw [fix_res_def]
-QED
-
 Definition spt_dec'_def:
   spt_dec' d ns =
     if PRECONDITION (dec_ok d) then
@@ -425,84 +424,138 @@ Proof
   \\ rw [] \\ fs [fromAList_toAList]
 QED
 
-(* num_tree *)
+(* namespace -- instantiated to (string, string, 'a) *)
 
-Datatype:
-  num_tree = Tree num (num_tree list)
-End
-
-Definition num_tree_enc'_def:
-  num_tree_enc' [] = List [] ∧
-  num_tree_enc' ((Tree k xs)::ts) =
-    Append (Append (List [k; LENGTH xs]) (num_tree_enc' xs))
-           (num_tree_enc' ts)
+Definition namespace_enc_def:
+  namespace_enc e (Bind xs ys) =
+    (let ns1 = list_enc (prod_enc (list_enc char_enc) (list_enc char_enc)) xs in
+     let ns2 = namespace_enc_list e ys in
+       Append ns1 ns2) ∧
+  namespace_enc_list e [] = List [0] ∧
+  namespace_enc_list e ((m,x)::xs) =
+    Append (Append (List [1]) (e m))
+      (Append (namespace_enc e x) (namespace_enc_list e xs))
 Termination
-  WF_REL_TAC ‘measure num_tree1_size’
+  WF_REL_TAC ‘measure (λx. case x of
+                           | INL (_,x) => namespace_size (K 0) (K 0) (K 0) x
+                           | INR (_,x) => namespace1_size (K 0) (K 0) (K 0) x)’
 End
 
-Definition num_tree_dec'_def:
-  num_tree_dec' c ns =
-    if c = 0 then ([],ns) else
-       case ns of
-       | [] => ([],ns)
-       | [t] => ([],ns)
-       | (t::l::ns) =>
-            let (ts1,ns1) = fix_res ns (num_tree_dec' l ns) in
-            let (ts2,ns2) = fix_res ns1 (num_tree_dec' (c-1) ns1) in
-              (Tree t ts1 :: ts2, ns2)
+Definition namespace_dec_def:
+  namespace_dec d ns =
+    (if PRECONDITION (dec_ok d) then
+     if ns = [] then (Bind [] [],ns) else
+       let (xs,ns1) = list_dec (prod_dec (list_dec char_dec) (list_dec char_dec)) ns in
+       let (ys,ns2) = namespace_dec_list d ns1 in
+         (Bind xs ys,ns2)
+     else (Bind [] [],ns)) ∧
+  namespace_dec_list d ns =
+    if PRECONDITION (dec_ok d) then
+      case ns of
+      | [] => ([],ns)
+      | (n::rest) =>
+        if n = 0n then ([],rest) else
+          let (m,ns) = d rest in
+          let (x,ns) = fix_res ns (namespace_dec d ns) in
+          let (ys,ns) = namespace_dec_list d ns in
+            ((m,x)::ys,ns)
+    else ([],ns)
 Termination
-  WF_REL_TAC ‘measure (LENGTH o SND)’
-  \\ rw [] \\ imp_res_tac fix_res_IMP  \\ fs []
+  WF_REL_TAC ‘measure (λx. case x of
+                           | INL (_,ns) => LENGTH ns
+                           | INR (_,ns) => LENGTH ns)’
+  \\ reverse (rw [] \\ imp_res_tac fix_res_IMP \\ fs [])
+  \\ TRY
+   (fs [PRECONDITION_def,dec_ok_def]
+    \\ rpt (qpat_x_assum ‘(_,_) = _’ (assume_tac o GSYM))
+    \\ first_x_assum (qspec_then ‘rest’ mp_tac) \\ fs [] \\ NO_TAC)
+  \\ Cases_on ‘ns’ \\ fs []
+  \\ fs [list_dec_def]
+  \\ pop_assum (assume_tac o GSYM)
+  \\ imp_res_tac list_dec'_length
+  \\ pop_assum mp_tac \\ impl_tac \\ fs []
+  \\ qsuff_tac ‘enc_dec_ok
+                (prod_enc (list_enc char_enc) (list_enc char_enc))
+                (prod_dec (list_dec char_dec) (list_dec char_dec))’
+  THEN1 (fs [enc_dec_ok_def])
+  \\ match_mp_tac prod_enc_dec_ok \\ fs []
+  \\ match_mp_tac list_enc_dec_ok \\ fs [char_enc_dec_ok]
 End
 
-Theorem dec_ok_num_tree_dec':
-  ∀l. dec_ok (num_tree_dec' l)
+Theorem dec_ok_namespace_dec:
+  dec_ok d ⇒ dec_ok (namespace_dec d)
 Proof
-  fs [dec_ok_def]
-  \\ ho_match_mp_tac num_tree_dec'_ind \\ rw []
-  \\ once_rewrite_tac [num_tree_dec'_def]
-  \\ rw [] \\ Cases_on ‘i’ \\ fs []
-  \\ Cases_on ‘t’ \\ fs [fix_res_def]
-  \\ Cases_on ‘num_tree_dec' h' t'’ \\ fs [fix_res_def]
-  \\ Cases_on ‘num_tree_dec' (l − 1) r’ \\ fs [fix_res_def]
+  rw [] \\ simp [dec_ok_def]
+  \\ qsuff_tac ‘
+    (∀(d:num list -> α # num list) i.
+      dec_ok d ⇒ LENGTH (SND (namespace_dec d i)) ≤ LENGTH i) ∧
+    (∀(d:num list -> α # num list) i.
+      dec_ok d ⇒ LENGTH (SND (namespace_dec_list d i)) ≤ LENGTH i)’
+  THEN1 metis_tac [] \\ pop_assum kall_tac
+  \\ ho_match_mp_tac namespace_dec_ind \\ rw []
+  \\ once_rewrite_tac [namespace_dec_def]
+  \\ fs [ml_translatorTheory.PRECONDITION_def,UNCURRY]
+  \\ rw [] \\ fs []
+  THEN1
+   (Cases_on ‘list_dec (prod_dec (list_dec char_dec) (list_dec char_dec)) i’ \\ fs []
+    \\ ‘dec_ok (list_dec (prod_dec (list_dec char_dec) (list_dec char_dec)))’ by
+      metis_tac [list_enc_dec_ok, prod_enc_dec_ok, char_enc_dec_ok, enc_dec_ok_def]
+    \\ fs [dec_ok_def] \\ first_x_assum (qspec_then ‘i’ mp_tac) \\ fs [])
+  \\ Cases_on ‘i’ \\ fs []
+  \\ Cases_on ‘h=0’ \\ fs []
+  \\ Cases_on ‘d t’ \\ fs []
+  \\ Cases_on ‘namespace_dec d r’ \\ fs []
+  \\ Cases_on ‘fix_res r (q',r')’ \\ fs []
+  \\ match_mp_tac LESS_EQ_TRANS \\ asm_exists_tac \\ fs []
+  \\ imp_res_tac (GSYM fix_res_IMP)
+  \\ fs [dec_ok_def]
+  \\ first_x_assum (qspec_then ‘t’ mp_tac) \\ fs []
 QED
 
-Theorem num_tree_dec'_def = num_tree_dec'_def
-  |> SIMP_RULE std_ss [MATCH_MP dec_ok_fix_res (SPEC_ALL dec_ok_num_tree_dec')];
-
-Theorem num_tree_dec'_ind = num_tree_dec'_ind
-  |> SIMP_RULE std_ss [MATCH_MP dec_ok_fix_res (SPEC_ALL dec_ok_num_tree_dec')];
-
-Definition num_tree_enc_def:
-  num_tree_enc t = num_tree_enc' [t]
-End
-
-Definition num_tree_dec_def:
-  num_tree_dec ns =
-    case num_tree_dec' 1 ns of
-    | ([],ns) => (Tree 0 [],ns)
-    | (t::ts,ns) => (t,ns)
-End
-
-Theorem dec_ok_num_tree_dec:
-  dec_ok num_tree_dec
+Triviality fix_res_namespace_dec:
+  PRECONDITION (dec_ok d) ⇒
+  fix_res ns (namespace_dec d ns) = namespace_dec d ns
 Proof
-  fs [dec_ok_def,num_tree_dec_def] \\ rw []
-  \\ mp_tac dec_ok_num_tree_dec' \\ fs [dec_ok_def]
-  \\ disch_then (qspecl_then [‘1’,‘i’] mp_tac) \\ rpt CASE_TAC  \\ fs []
+  metis_tac [dec_ok_namespace_dec,dec_ok_fix_res,
+             ml_translatorTheory.PRECONDITION_def]
 QED
 
-Theorem num_tree_enc_dec_ok:
-  enc_dec_ok num_tree_enc num_tree_dec
+Theorem namespace_dec_def = namespace_dec_def
+  |> SIMP_RULE std_ss [fix_res_namespace_dec];
+
+Theorem namespace_dec_ind = namespace_dec_ind
+  |> SIMP_RULE std_ss [fix_res_namespace_dec,GSYM AND_IMP_INTRO]
+  |> SIMP_RULE bool_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC];
+
+Theorem namespace_enc_dec_ok:
+  enc_dec_ok e d ⇒
+  enc_dec_ok (namespace_enc e) (namespace_dec d)
 Proof
-  fs [enc_dec_ok_def,dec_ok_num_tree_dec]
-  \\ fs [num_tree_enc_def,num_tree_dec_def] \\ rw []
-  \\ qsuff_tac
-    ‘∀ts xs. num_tree_dec' (LENGTH ts) (append (num_tree_enc' ts) ++ xs) = (ts,xs)’
-  THEN1 (disch_then (qspec_then ‘[x]’ mp_tac) \\ fs [])
-  \\ ho_match_mp_tac num_tree_enc'_ind \\ rw []
-  \\ once_rewrite_tac [num_tree_dec'_def] \\ fs [num_tree_enc'_def]
+  fs [enc_dec_ok_def,dec_ok_namespace_dec]
+  \\ strip_tac
+  \\ strip_tac \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘x’
+  \\ qid_spec_tac ‘e’
+  \\ qsuff_tac ‘
+        (∀e x.
+            (∀x xs. d (append (e x) ++ xs) = (x,xs)) ⇒
+            ∀xs. namespace_dec d (append (namespace_enc e x) ++ xs) = (x,xs)) ∧
+        (∀e x.
+            (∀x xs. d (append (e x) ++ xs) = (x,xs)) ⇒
+            ∀xs. namespace_dec_list d (append (namespace_enc_list e x) ++ xs) = (x,xs))’
+  THEN1 metis_tac []
+  \\ ho_match_mp_tac namespace_enc_ind \\ rw [] \\ fs []
+  \\ fs [namespace_enc_def]
+  \\ once_rewrite_tac [namespace_dec_def] \\ fs []
+  \\ fs [ml_translatorTheory.PRECONDITION_def]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ IF_CASES_TAC THEN1 fs [list_enc_def]
+  \\ pop_assum kall_tac
+  \\ ‘enc_dec_ok
+      (list_enc (prod_enc (list_enc char_enc) (list_enc char_enc)))
+      (list_dec (prod_dec (list_dec char_dec) (list_dec char_dec)))’ by
+    metis_tac [list_enc_dec_ok, prod_enc_dec_ok, char_enc_dec_ok, enc_dec_ok_def]
+  \\ fs [enc_dec_ok_def] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
 QED
 
 (* encoding decoding from characters *)
