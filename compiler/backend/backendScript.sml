@@ -381,4 +381,57 @@ Proof
   \\ simp[config_component_equality]
 QED
 
+val ensure_fp_conf_ok_def = Define `
+  ensure_fp_conf_ok asm_c c =
+  c with <|has_fp_ops := (1 < asm_c.fp_reg_count);
+          has_fp_tern := (asm_c.ISA = ARMv7 ∧ 2 < asm_c.fp_reg_count)|>`;
+
+Overload bvl_inline_compile_prog[local] = ``bvl_inline$compile_prog``
+Overload bvi_tailrec_compile_prog[local] = ``bvi_tailrec$compile_prog``
+Overload bvi_to_data_compile_prog[local] = ``bvi_to_data$compile_prog``
+Overload bvl_to_bvi_compile_prog[local] = ``bvl_to_bvi$compile_prog``
+Overload bvl_to_bvi_compile_inc[local] = ``bvl_to_bvi$compile_inc``
+Overload bvl_to_bvi_compile[local] = ``bvl_to_bvi$compile``
+Overload bvi_to_data_compile[local] = ``bvi_to_data$compile``
+Overload bvi_let_compile[local] = ``bvi_let$compile``
+Overload bvl_const_compile[local] = ``bvl_const$compile``
+Overload bvl_handle_compile[local] = ``bvl_handle$compile``
+Overload bvl_inline_compile_inc[local] = ``bvl_inline$compile_inc``
+Overload bvl_to_bvi_compile_exps[local] = ``bvl_to_bvi$compile_exps``
+Overload flat_to_clos_inc_compile[local] = ``flat_to_clos$inc_compile_decs``
+Overload stack_remove_prog_comp[local] = ``stack_remove$prog_comp``
+Overload stack_alloc_prog_comp[local] = ``stack_alloc$prog_comp``
+Overload stack_names_prog_comp[local] = ``stack_names$prog_comp``
+
+val backend_compile_inc_progs_def = Define`
+  backend_compile_inc_progs c p_tup =
+    let (env_id,p) = p_tup in
+    let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
+    let c = c with source_conf := c' in
+    let p = flat_to_clos_inc_compile p in
+    let (c',p) = clos_to_bvl_compile_inc c.clos_conf p in
+    let c = c with clos_conf := c' in
+    let (c', p) = bvl_to_bvi_compile_inc_all c.bvl_conf p in
+    let c = c with <| bvl_conf := c' |> in
+    let p = bvi_to_data_compile_prog p in
+    let asm_c = c.lab_conf.asm_conf in
+    let dc = ensure_fp_conf_ok asm_c c.data_conf in
+    let p = MAP (compile_part dc) p in
+    let reg_count1 = asm_c.reg_count - (5 + LENGTH asm_c.avoid_regs) in
+    let p = MAP (\p. full_compile_single asm_c.two_reg_arith reg_count1
+        c.word_to_word_conf.reg_alg asm_c (p, NONE)) p in
+    let bm0 = c.word_conf.bitmaps in
+    let (p, fs, bm) = compile_word_to_stack reg_count1 p bm0 in
+    let cur_bm = DROP (LENGTH bm0) bm in
+    let c = c with word_conf := <|bitmaps := bm|> in
+    let reg_count2 = asm_c.reg_count - (3 + LENGTH asm_c.avoid_regs) in
+    let p = stack_to_lab$compile_no_stubs
+        c.stack_conf.reg_names c.stack_conf.jump asm_c.addr_offset
+        reg_count2 p in
+    let target = lab_to_target$compile c.lab_conf (p:'a prog) in
+    let ps = OPTION_MAP (\(bytes, _). (bytes, c.word_conf.bitmaps)) target in
+    let c = c with lab_conf updated_by (case target of NONE => I
+        | SOME (_, c') => K c') in
+    (c, ps)`;
+
 val _ = export_theory();

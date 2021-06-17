@@ -169,7 +169,7 @@ Overload bvl_const_compile[local] = ``bvl_const$compile``
 Overload bvl_handle_compile[local] = ``bvl_handle$compile``
 Overload bvl_inline_compile_inc[local] = ``bvl_inline$compile_inc``
 Overload bvl_to_bvi_compile_exps[local] = ``bvl_to_bvi$compile_exps``
-Overload flat_to_clos_inc_compile[local] = ``flat_to_closProof$inc_compile_decs``
+Overload flat_to_clos_inc_compile[local] = ``flat_to_clos$inc_compile_decs``
 Overload stack_remove_prog_comp[local] = ``stack_remove$prog_comp``
 Overload stack_alloc_prog_comp[local] = ``stack_alloc$prog_comp``
 Overload stack_names_prog_comp[local] = ``stack_names$prog_comp``
@@ -321,55 +321,6 @@ val empty_progs_def = Define `
 
 Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp) list``
 
-val known_static_conf_def = Define `
-  known_static_conf kc = (case kc of NONE => NONE
-    | SOME kc => SOME (reset_inline_factor kc with val_approx_spt := LN))`;
-
-val known_compile_inc_def = Define`
-  known_compile_inc NONE spt p = (spt, p) /\
-  known_compile_inc (SOME c) spt p =
-    let (p : clos_prog) = clos_fvsProof$compile_inc p in
-    let (spt, p) = clos_knownProof$compile_inc c spt p in
-    let (p : clos_prog) = clos_ticksProof$compile_inc p in
-    let p = clos_letopProof$compile_inc p in
-    (spt, p)`;
-
-val option_upd_val_spt_def = Define`
-  option_upd_val_spt spt NONE = NONE /\
-  option_upd_val_spt spt (SOME kc) = SOME (kc with val_approx_spt := spt)`;
-
-val clos_to_bvl_compile_inc_def = Define`
-  clos_to_bvl_compile_inc c p =
-    let p = clos_to_bvlProof$cond_mti_compile_inc c.do_mti c.max_app p in
-    let (n, p) = closProps$ignore_table clos_numberProof$compile_inc
-        c.next_loc p in
-    let c = c with <| next_loc := n |> in
-    let spt = clos_knownProof$option_val_approx_spt c.known_conf in
-    let (spt, p) = known_compile_inc (known_static_conf c.known_conf) spt p in
-    let c = c with <| known_conf := option_upd_val_spt spt c.known_conf |> in
-    let (c', p) = clos_to_bvlProof$cond_call_compile_inc c.do_call
-        (FST c.call_state) p in
-    let c = c with <| call_state := (c', []) |> in
-    let p = clos_annotateProof$compile_inc p in
-    let p = clos_to_bvlProof$compile_inc c.max_app p in
-    (c, p)`;
-
-val bvl_to_bvi_compile_inc_all_def = Define `
-  bvl_to_bvi_compile_inc_all c p =
-    let (inl, p) = bvl_inline$compile_inc c.inline_size_limit
-        c.split_main_at_seq c.exp_cut c.inlines p in
-    let c = c with <| inlines := inl |> in
-    let (nn1, p) = bvl_to_bvi$compile_inc c.next_name1 p in
-    let c = c with <| next_name1 := nn1 |> in
-    let (nn2, p) = bvi_tailrec$compile_prog c.next_name2 p in
-    let c = c with <| next_name2 := nn2 |> in
-    (c, p)`;
-
-val ensure_fp_conf_ok_def = Define `
-  ensure_fp_conf_ok asm_c c =
-  c with <|has_fp_ops := (1 < asm_c.fp_reg_count);
-          has_fp_tern := (asm_c.ISA = ARMv7 ∧ 2 < asm_c.fp_reg_count)|>`;
-
 val compile_inc_progs_def = Define`
   compile_inc_progs c p_tup =
     let (env_id,p) = p_tup in
@@ -400,7 +351,7 @@ val compile_inc_progs_def = Define`
     let c = c with word_conf := <|bitmaps := bm|> in
     let ps = ps with <| stack_prog := p ; cur_bm := cur_bm |> in
     let reg_count2 = asm_c.reg_count - (3 + LENGTH asm_c.avoid_regs) in
-    let p = stack_to_labProof$compile_no_stubs
+    let p = stack_to_lab$compile_no_stubs
         c.stack_conf.reg_names c.stack_conf.jump asm_c.addr_offset
         reg_count2 p in
     let ps = ps with <| lab_prog := p |> in
@@ -426,7 +377,7 @@ val config_tuple2_def = Define`
 
 val config_tuple1_def = Define`
   config_tuple1 c = (c.source_conf, c.clos_conf.next_loc,
-    clos_knownProof$option_val_approx_spt c.clos_conf.known_conf,
+    clos_known$option_val_approx_spt c.clos_conf.known_conf,
     FST c.clos_conf.call_state, config_tuple2 c)`;
 
 Theorem cake_configs_eq:
@@ -477,14 +428,15 @@ Proof
   Cases_on `kc` \\ fs [clos_knownTheory.compile_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw []
-  \\ fs [known_static_conf_def, clos_knownTheory.reset_inline_factor_def]
+  \\ fs [clos_knownTheory.known_static_conf_def, clos_knownTheory.reset_inline_factor_def]
 QED
 
 Theorem known_option_upd_val_spt_eq:
   IS_SOME (option_upd_val_spt spt kc) = IS_SOME kc /\
   known_static_conf (option_upd_val_spt spt kc) = known_static_conf kc
 Proof
-  Cases_on `kc` \\ fs [known_static_conf_def, option_upd_val_spt_def,
+  Cases_on `kc` \\ fs [clos_knownTheory.known_static_conf_def,
+    clos_knownTheory.option_upd_val_spt_def,
     clos_knownTheory.reset_inline_factor_def]
 QED
 
@@ -525,8 +477,8 @@ Proof
   \\ fs [compile_inc_progs_def, backendTheory.compile_def,
             backendTheory.compile_tap_def, clos_to_bvlTheory.compile_def,
             clos_to_bvlTheory.compile_common_def,
-            clos_to_bvl_compile_inc_def, lab_to_targetTheory.compile_def,
-            bvl_to_bvi_compile_inc_all_def ]
+            clos_to_bvlTheory.clos_to_bvl_compile_inc_def, lab_to_targetTheory.compile_def,
+            bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def ]
   \\ rpt (pairarg_tac \\ fs [])
   \\ imp_res_tac attach_bitmaps_SOME \\ fs []
   \\ imp_res_tac known_compile_IS_SOME
@@ -564,7 +516,7 @@ QED
 Theorem known_reset_to_static_conf:
   known (reset_inline_factor kc) = known (THE (known_static_conf (SOME kc)))
 Proof
-  fs [known_static_conf_def, known_reset_spt]
+  fs [clos_knownTheory.known_static_conf_def, known_reset_spt]
 QED
 
 Theorem known_co_eq_state_co_inc:
@@ -573,14 +525,14 @@ Theorem known_co_eq_state_co_inc:
 Proof
   Cases_on `kc`
   >- (
-    simp [known_static_conf_def, known_compile_inc_def,
+    simp [clos_knownTheory.known_static_conf_def, clos_knownTheory.known_compile_inc_def,
         clos_knownProofTheory.known_co_def, FUN_EQ_THM, state_co_def]
   )
-  \\ simp [known_static_conf_def, known_compile_inc_def,
+  \\ simp [clos_knownTheory.known_static_conf_def, clos_knownTheory.known_compile_inc_def,
       clos_knownProofTheory.known_co_def, FUN_EQ_THM, state_co_def]
   \\ simp [pure_co_def, UNCURRY, clos_to_bvlProofTheory.kcompile_inc_uncurry]
   \\ simp [known_reset_to_static_conf]
-  \\ simp [known_static_conf_def, clos_knownTheory.reset_inline_factor_def]
+  \\ simp [clos_knownTheory.known_static_conf_def, clos_knownTheory.reset_inline_factor_def]
 QED
 
 Theorem cake_orac_eqs:
@@ -593,12 +545,12 @@ Theorem cake_orac_eqs:
   cake_orac c' src f1 (\ps. ps.clos_prog)
   /\ (
   compile c prog = SOME (b,bm,c') /\ clos_c = c.clos_conf ==>
-  pure_co (clos_to_bvlProof$compile_inc clos_c.max_app) o
-  pure_co clos_annotateProof$compile_inc o
-  state_co (clos_to_bvlProof$cond_call_compile_inc clos_c.do_call)
+  pure_co (clos_to_bvl$compile_inc clos_c.max_app) o
+  pure_co clos_annotate$compile_inc o
+  state_co (clos_call$cond_call_compile_inc clos_c.do_call)
     (clos_knownProof$known_co clos_c.known_conf
-      (state_co (closProps$ignore_table clos_numberProof$compile_inc)
-        (pure_co (clos_to_bvlProof$cond_mti_compile_inc clos_c.do_mti
+      (state_co (clos_number$ignore_table clos_number$compile_inc)
+        (pure_co (clos_mti$cond_mti_compile_inc clos_c.do_mti
                     clos_c.max_app) o
           cake_orac c' src (SND o config_tuple1) (\ps. ps.clos_prog)))) =
   cake_orac c' src config_tuple2 (\ps. ps.bvl_prog)
@@ -642,7 +594,7 @@ Theorem cake_orac_eqs:
       (LENGTH c.lab_conf.asm_conf.avoid_regs + 3) /\
     offs = c.lab_conf.asm_conf.addr_offset
     ==>
-  pure_co (stack_to_labProof$compile_no_stubs reg_nm jump offs sp ∘ FST) ∘
+  pure_co (stack_to_lab$compile_no_stubs reg_nm jump offs sp ∘ FST) ∘
   cake_orac c' src f5 (λps. (ps.stack_prog, ps.cur_bm)) =
   cake_orac c' src f5 (λps. ps.lab_prog)
   )
@@ -657,13 +609,13 @@ Proof
   \\ drule_then assume_tac cake_orac_config_eqs
   \\ fs []
   >- (
-    fs [clos_to_bvl_compile_inc_def,
+    fs [clos_to_bvlTheory.clos_to_bvl_compile_inc_def,
         config_tuple1_def]
     \\ rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
   )
   >- (
-    fs [bvl_to_bvi_compile_inc_all_def, config_tuple2_def]
+    fs [bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def, config_tuple2_def]
     \\ rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
   )
@@ -793,7 +745,7 @@ Proof
   rw []
   \\ pop_assum mp_tac
   \\ match_mp_tac backendPropsTheory.oracle_monotonic_subset
-  \\ simp [flat_to_closProofTheory.inc_compile_decs_def, closPropsTheory.elist_globals_append]
+  \\ simp [flat_to_closTheory.inc_compile_decs_def, closPropsTheory.elist_globals_append]
   \\ simp [PULL_FORALL, compile_decs_set_globals]
 QED
 
@@ -872,9 +824,9 @@ QED
 
 Theorem compile_no_stubs_wrap_pure_co:
   (λn. (let (c,p,b) = coracle n in
-    (c, stack_to_labProof$compile_no_stubs rn j offs sp p)))
+    (c, stack_to_lab$compile_no_stubs rn j offs sp p)))
     =
-  (pure_co (stack_to_labProof$compile_no_stubs rn j offs sp o FST) o coracle)
+  (pure_co (stack_to_lab$compile_no_stubs rn j offs sp o FST) o coracle)
 Proof
   rw [FUN_EQ_THM, pure_co_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -930,7 +882,7 @@ Theorem configs_nn2_MULT_namespaces:
 Proof
   Induct_on `n` \\ fs [cake_configs_def, state_orac_states_def]
   >- (qexists_tac `0` \\ simp [])
-  \\ simp [compile_inc_progs_def, bvl_to_bvi_compile_inc_all_def]
+  \\ simp [compile_inc_progs_def, bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
   \\ rw []
@@ -967,7 +919,7 @@ Theorem bvl_to_bvi_compile_inc_all_num_stubs_LE:
   bvl_num_stubs <= c.next_name2 ==>
   EVERY ($<= bvl_num_stubs) (MAP FST bvi)
 Proof
-  rw [EVERY_MEM, bvl_to_bvi_compile_inc_all_def]
+  rw [EVERY_MEM, bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
@@ -1065,7 +1017,7 @@ Proof
 QED
 
 Triviality SND_flat_to_clos_inc_compile =
-    REWRITE_CONV [flat_to_closProofTheory.inc_compile_decs_def]
+    REWRITE_CONV [flat_to_closTheory.inc_compile_decs_def]
         ``SND (flat_to_clos_inc_compile p)``
 
 Theorem is_state_oracle_cake_orac_to_comp:
@@ -1148,22 +1100,23 @@ Proof
   \\ REWRITE_TAC [state_co_eq_comp, o_ASSOC, known_co_eq_state_co_inc]
   \\ drule_then (drule_then irule) (GEN_ALL is_state_oracle_cake_orac_to_comp)
   \\ fs [state_co_fun_def, pure_co_def, config_tuple1_def,
-        clos_to_bvl_compile_inc_def]
+        clos_to_bvlTheory.clos_to_bvl_compile_inc_def]
   \\ rpt (gen_tac ORELSE disch_tac ORELSE (pairarg_tac \\ fs []))
   \\ fs [clos_to_bvlTheory.config_component_equality]
   \\ rveq \\ fs []
   \\ rveq \\ fs []
   >- (
-    fs [SPEC T clos_to_bvlProofTheory.cond_call_compile_inc_def]
+    fs [SPEC T clos_callTheory.cond_call_compile_inc_def]
     \\ rveq \\ fs []
     \\ fs [PAIR_FST_SND_EQ]
   )
   >- (
     fs [IS_SOME_EXISTS]
-    \\ rfs [known_static_conf_def, known_compile_inc_def, kcompile_inc_uncurry]
+    \\ rfs [clos_knownTheory.known_static_conf_def,
+            clos_knownTheory.known_compile_inc_def, kcompile_inc_uncurry]
     \\ fs [known_reset_to_static_conf]
-    \\ fs [known_static_conf_def, clos_knownTheory.reset_inline_factor_def,
-clos_knownProofTheory.option_val_approx_spt_def, option_upd_val_spt_def]
+    \\ fs [clos_knownTheory.known_static_conf_def, clos_knownTheory.reset_inline_factor_def,
+clos_knownTheory.option_val_approx_spt_def, clos_knownTheory.option_upd_val_spt_def]
     \\ fs [Q.ISPEC `SOME z` boolTheory.EQ_SYM_EQ]
   )
 QED
@@ -1201,7 +1154,7 @@ Theorem bvl_to_bvi_compile_inc_all_DISTINCT:
 Proof
   mp_tac (GEN_ALL ALL_DISTINCT_MAP_FST_SND_full_co
     |> Q.SPECL [`n`, `K ((c.inlines, c.next_name1, c.next_name2, cfg), p)`, `c`])
-  \\ simp [bvl_to_bvi_compile_inc_all_def, full_co_def]
+  \\ simp [bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def, full_co_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ simp [state_co_def]
   \\ rw []
@@ -1309,7 +1262,7 @@ Proof
   simp [cake_orac_def, compile_inc_progs_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw [] \\ rveq \\ fs []
-  \\ simp[compile_no_stubs_def, good_code_def]
+  \\ simp[stack_to_labTheory.compile_no_stubs_def, good_code_def]
   \\ irule prog_to_section_labels_ok
   \\ old_drule (Q.SPEC `i` (Q.GEN `n` cake_orac_stack_ALL_DISTINCT))
   \\ simp[MAP_MAP_o, o_DEF]
@@ -1623,7 +1576,7 @@ Proof
   \\ irule is_state_oracle_cake_orac_comp
   \\ rw []
   \\ simp [compile_inc_progs_def, state_co_fun_def,
-           bvl_to_bvi_compile_inc_all_def]
+           bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ fs [config_tuple2_def]
@@ -1762,7 +1715,7 @@ Proof
   \\ rw []
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
-  \\ simp [compile_no_stubs_def, MAP_prog_to_section_Section_num,
+  \\ simp [stack_to_labTheory.compile_no_stubs_def, MAP_prog_to_section_Section_num,
     MAP_MAP_o, o_DEF, Q.ISPEC `FST` ETA_THM]
 QED
 
@@ -1838,7 +1791,7 @@ Proof
         oracle_monotonic_handle_init_component)
     \\ conj_tac >- (
       simp [IN_PREIMAGE]
-      \\ rw [cake_orac_def, compile_inc_progs_def, bvl_to_bvi_compile_inc_all_def]
+      \\ rw [cake_orac_def, compile_inc_progs_def, bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def]
       \\ rpt (pairarg_tac \\ fs [])
       \\ rveq \\ fs []
       \\ CCONTR_TAC \\ fs []
@@ -1877,7 +1830,7 @@ Proof
       \\ TRY (qpat_x_assum `MEM _ (MAP FST (stubs _ _))` mp_tac)
       \\ EVAL_TAC \\ rw [] \\ simp []
     )
-    \\ rw [cake_orac_def, compile_inc_progs_def, bvl_to_bvi_compile_inc_all_def]
+    \\ rw [cake_orac_def, compile_inc_progs_def, bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def]
     \\ rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
     \\ simp [SUBSET_DEF, PULL_EXISTS, IN_PREIMAGE]
@@ -1901,7 +1854,7 @@ Proof
     \\ simp [IN_PREIMAGE]
     \\ conj_tac
     >- (
-      simp [compile_inc_progs_def, bvl_to_bvi_compile_inc_all_def]
+      simp [compile_inc_progs_def, bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def]
       \\ rpt (gen_tac ORELSE disch_tac)
       \\ rpt (pairarg_tac \\ fs [])
       \\ rveq \\ fs []
@@ -2056,12 +2009,12 @@ Proof
   simp [cake_orac_def, compile_inc_progs_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw [] \\ rveq \\ fs []
-  \\ simp[compile_no_stubs_def, good_code_def]
+  \\ simp[stack_to_labTheory.compile_no_stubs_def, good_code_def]
   \\ qmatch_goalsub_abbrev_tac`MAP prog_to_section ppg`
   \\ `stack_to_labProof$labels_ok (MAP prog_to_section ppg)`
   by (
     old_drule_then match_mp_tac (Q.GEN `cfg` lab_labels_ok_oracle)
-    \\ simp [cake_orac_def, compile_inc_progs_def, compile_no_stubs_def]
+    \\ simp [cake_orac_def, compile_inc_progs_def, stack_to_labTheory.compile_no_stubs_def]
   )
   \\ drule labels_ok_imp
   \\ simp[]
@@ -2150,7 +2103,7 @@ Proof
     \\ disch_tac
     \\ drule_then irule DISJOINT_SUBSET
     \\ simp [Abbr `ppg`]
-    \\ simp [cake_orac_def, compile_inc_progs_def, compile_no_stubs_def]
+    \\ simp [cake_orac_def, compile_inc_progs_def, stack_to_labTheory.compile_no_stubs_def]
     \\ qmatch_goalsub_abbrev_tac`MAP prog_to_section ps`
     \\ simp [labPropsTheory.get_code_labels_def]
     \\ simp [SUBSET_DEF, MEM_MAP, PULL_EXISTS]
@@ -2167,7 +2120,7 @@ Proof
     |> REWRITE_RULE [Once CONJ_COMM] |> GEN_ALL)
   \\ simp [GSYM PULL_EXISTS]
   \\ reverse impl_tac >- simp [SUBSET_DEF]
-  \\ simp [compile_no_stubs_def, Abbr `ppg`] \\ metis_tac []
+  \\ simp [stack_to_labTheory.compile_no_stubs_def, Abbr `ppg`] \\ metis_tac []
 QED
 
 Theorem oracle_stack_good_code:
@@ -2669,9 +2622,9 @@ End
 
 Definition backend_from_flat_tuple_cc_def:
   backend_from_flat_tuple_cc (c : 'a config) =
-    backendProps$pure_cc flat_to_closProof$inc_compile_decs
+    backendProps$pure_cc flat_to_clos$inc_compile_decs
       (clos_to_bvlProof$compile_common_inc c.clos_conf
-         (backendProps$pure_cc (clos_to_bvlProof$compile_inc c.clos_conf.max_app)
+         (backendProps$pure_cc (clos_to_bvl$compile_inc c.clos_conf.max_app)
            (bvl_to_bviProof$full_cc c.bvl_conf (backendProps$pure_cc bvi_to_data_compile_prog
              (backend_from_data_tuple_cc c)))))
 End
@@ -2681,8 +2634,9 @@ Theorem known_cc_eq_state_cc_inc:
   state_cc (known_compile_inc (known_static_conf kc)) cc
 Proof
   Cases_on `kc`
-  \\ simp [clos_knownProofTheory.known_cc_def, known_compile_inc_def, known_static_conf_def]
-  \\ simp [pure_cc_def, state_cc_def, UNCURRY, known_compile_inc_def]
+  \\ simp [clos_knownProofTheory.known_cc_def,
+           clos_knownTheory.known_compile_inc_def, clos_knownTheory.known_static_conf_def]
+  \\ simp [pure_cc_def, state_cc_def, UNCURRY, clos_knownTheory.known_compile_inc_def]
   \\ rw [FUN_EQ_THM, FORALL_PROD]
   \\ simp [clos_to_bvlProofTheory.kcompile_inc_uncurry, clos_knownTheory.reset_inline_factor_def]
   \\ simp [known_reset_spt |> Q.SPEC `kc with inline_factor updated_by g`
@@ -2691,15 +2645,15 @@ QED
 
 Theorem known_compile_inc_retreive_spt:
   known_compile_inc (known_static_conf kcfg1)
-    (clos_knownProof$option_val_approx_spt kcfg2) p = (spt, p') /\
+    (clos_known$option_val_approx_spt kcfg2) p = (spt, p') /\
   IS_SOME kcfg2 = IS_SOME kcfg1 ==>
-  clos_knownProof$option_val_approx_spt (option_upd_val_spt spt kcfg2) = spt
+  clos_known$option_val_approx_spt (option_upd_val_spt spt kcfg2) = spt
 Proof
-  simp [clos_knownProofTheory.option_val_approx_spt_def, option_upd_val_spt_def]
+  simp [clos_knownTheory.option_val_approx_spt_def, clos_knownTheory.option_upd_val_spt_def]
   \\ CASE_TAC
   \\ rw []
-  \\ fs [known_static_conf_def, known_compile_inc_def]
-  \\ rw [option_upd_val_spt_def]
+  \\ fs [clos_knownTheory.known_static_conf_def, clos_knownTheory.known_compile_inc_def]
+  \\ rw [clos_knownTheory.option_upd_val_spt_def]
 QED
 
 Theorem backend_from_flat_tuple_cc_eq_compile_inc_progs:
@@ -2716,8 +2670,10 @@ Theorem backend_from_flat_tuple_cc_eq_compile_inc_progs:
 Proof
   disch_tac
   \\ simp [compile_inc_progs_def, pure_cc_def, state_cc_def,
-    clos_to_bvl_compile_inc_def, clos_to_bvlProofTheory.compile_common_inc_def,
-    known_cc_eq_state_cc_inc, bvl_to_bviProofTheory.full_cc_def, bvl_to_bvi_compile_inc_all_def]
+    clos_to_bvlTheory.clos_to_bvl_compile_inc_def,
+    clos_to_bvlProofTheory.compile_common_inc_def,
+    known_cc_eq_state_cc_inc, bvl_to_bviProofTheory.full_cc_def,
+    bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [config_tuple1_def, config_tuple2_def]
   \\ rveq \\ fs []
@@ -2727,11 +2683,11 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ CASE_TAC
-  \\ fs [compile_no_stubs_def, stack_namesTheory.compile_def]
+  \\ fs [stack_to_labTheory.compile_no_stubs_def, stack_namesTheory.compile_def]
   \\ simp [backend_from_flat_tuple_cc_def, pure_cc_def, state_cc_def,
     backend_from_data_tuple_cc_def,
     clos_to_bvlProofTheory.compile_common_inc_def, known_cc_eq_state_cc_inc,
-    bvl_to_bviProofTheory.full_cc_def, compile_no_stubs_def, stack_namesTheory.compile_def]
+    bvl_to_bviProofTheory.full_cc_def, stack_to_labTheory.compile_no_stubs_def, stack_namesTheory.compile_def]
   \\ simp [pairTheory.PAIR_MAP]
   \\ simp [UNCURRY]
   \\ imp_res_tac known_compile_inc_retreive_spt
@@ -2975,12 +2931,12 @@ QED
 Theorem flat_semantics:
   let co = cake_orac c' syn (SND o config_tuple1) (\ps. ps.flat_prog) in
   let f_inst = mk_flat_install_conf
-        (pure_cc flat_to_closProof$inc_compile_decs cc)
+        (pure_cc flat_to_clos$inc_compile_decs cc)
         co in
   flatSem$semantics f_inst ffi ds <> Fail /\
   0 < cconf.max_app /\ flatProps$no_Mat_decs ds ==>
   closSem$semantics ffi cconf.max_app FEMPTY
-    (pure_co flat_to_closProof$inc_compile_decs o co) cc (compile_decs ds) =
+    (pure_co flat_to_clos$inc_compile_decs o co) cc (compile_decs ds) =
   flatSem$semantics f_inst ffi ds
 Proof
   rw []
@@ -3055,7 +3011,7 @@ Proof
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   simp[flatSemTheory.initial_state_def] >>
   qmatch_abbrev_tac`_ ⊆ _ { closSem$semantics _ _ _ co3 cc3 e3 }` >>
-  qmatch_asmsub_abbrev_tac`clos_to_bvlProof$compile_common_inc cf (pure_cc (clos_to_bvlProof$compile_inc _) cc)`
+  qmatch_asmsub_abbrev_tac`clos_to_bvlProof$compile_common_inc cf (pure_cc (clos_to_bvl$compile_inc _) cc)`
   \\ Q.ISPECL_THEN[`co3`,`cc`,`e3`,`ffi`,`cf`]mp_tac
        (Q.GENL[`co`,`cc`,`es`,`ffi`,`c`,`c'`,`prog`]clos_to_bvlProofTheory.compile_semantics)
   \\ simp[]

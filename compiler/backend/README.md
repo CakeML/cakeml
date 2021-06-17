@@ -230,9 +230,6 @@ into displayLang representations.
 This directory contains the correctness proofs for all of the
 different phases of the compiler backend.
 
-[reachability](reachability):
-Generic closure operation over next-step sptrees (num_set num_maps)
-
 [reg_alloc](reg_alloc):
 This directory contains the implementation of the register allocator
 and parallel-move algorithms.

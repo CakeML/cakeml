@@ -660,6 +660,31 @@ val compile_def = Define `
     let es2 = let_op es1 in
       (SOME (c with val_approx_spt := g), es2)`;
 
+val compile_inc_def = Define `
+  compile_inc c g (es,xs) =
+    let (eas, g') = known (reset_inline_factor c) es [] g in (g', MAP FST eas, xs)`;
+
+val known_static_conf_def = Define `
+  known_static_conf kc = (dtcase kc of NONE => NONE
+    | SOME kc => SOME (reset_inline_factor kc with val_approx_spt := LN))`;
+
+val known_compile_inc_def = Define`
+  known_compile_inc NONE spt p = (spt, p) /\
+  known_compile_inc (SOME c) spt p =
+    let (p : clos_prog) = clos_fvs$compile_inc p in
+    let (spt, p) = clos_known$compile_inc c spt p in
+    let (p : clos_prog) = clos_ticks$compile_inc p in
+    let p = clos_letop$compile_inc p in
+    (spt, p)`;
+
+val option_val_approx_spt_def = Define `
+  option_val_approx_spt kc = (dtcase kc of NONE => LN
+    | SOME kcfg => kcfg.val_approx_spt)`;
+
+val option_upd_val_spt_def = Define`
+  option_upd_val_spt spt NONE = NONE /\
+  option_upd_val_spt spt (SOME kc) = SOME (kc with val_approx_spt := spt)`;
+
 (*
 
 (* Trace starting points *)
