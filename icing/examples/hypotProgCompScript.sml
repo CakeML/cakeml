@@ -19,29 +19,29 @@ Definition theAST_def:
   theAST =
   [ Dlet unknown_loc (Pvar "hypot")
     (Fun "x1"(Fun "x2"
-      (FpOptimise Opt
-(App (FP_uop FP_Sqrt)
-        [
-          (App (FP_bop FP_Add)
-          [
-            (App (FP_bop FP_Mul)
-            [
-              Var (Short  "x1");
-              Var (Short  "x1")
-            ]);
-            (App (FP_bop FP_Mul)
-            [
-              Var (Short  "x2");
-              Var (Short  "x2")
-            ])
-          ])
-        ]))))]
+              (FpOptimise Opt
+               (App (FP_uop FP_Sqrt)
+                [
+                  (App (FP_bop FP_Add)
+                   [
+                     (App (FP_bop FP_Mul)
+                      [
+                        Var (Short  "x1");
+                        Var (Short  "x1")
+                      ]);
+                     (App (FP_bop FP_Mul)
+                      [
+                        Var (Short  "x2");
+                        Var (Short  "x2")
+                      ])
+                   ])
+                ]))))]
 End
 
 Definition theErrBound_def:
-  theErrBound = inv (2 pow (5))
+  theErrBound = (* inv *) (2 pow (5))
 End
 
-val x = define_benchmark theAST_def theAST_pre_def false;
+val x = define_benchmark theAST_def theAST_pre_def true;
 
 val _ = export_theory()
