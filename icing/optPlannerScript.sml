@@ -802,7 +802,7 @@ Definition peephole_optimise_def:
           try_rewrite_with_each [
               fp_neg_push_mul_r;
               fp_times_minus_one_neg;
-              (* fp_fma_intro; *)
+              fp_fma_intro;
               fp_add_sub;
               fp_times_two_to_add;
               fp_times_three_to_add;
@@ -874,17 +874,14 @@ Definition generate_plan_exp_def:
           ] e cfg)
 End
 
-Definition generate_plan_exps_def:
-  generate_plan_exps cfg [] = [] ∧
-  generate_plan_exps cfg [Fun s e] = generate_plan_exps cfg [e] ∧
-  generate_plan_exps cfg (e1::(e2::es)) =
-    (generate_plan_exps cfg [e1]) ++ (generate_plan_exps cfg (e2::es)) ∧
-  generate_plan_exps cfg [e] = generate_plan_exp cfg e
+Definition generate_plan_exp_top_def:
+  generate_plan_exp_top cfg (Fun s e) = generate_plan_exp_top cfg e ∧
+  generate_plan_exp_top cfg e = generate_plan_exp cfg e
 End
 
 Definition generate_plan_decs_def:
   generate_plan_decs cfg [] = [] ∧
-  generate_plan_decs cfg [Dlet loc p e] = [generate_plan_exps cfg [e]] ∧
+  generate_plan_decs cfg [Dlet loc p e] = [generate_plan_exp_top cfg e] ∧
   generate_plan_decs cfg (d1::(d2::ds)) = (generate_plan_decs cfg [d1]) ++ (generate_plan_decs cfg (d2::ds)) ∧
   generate_plan_decs cfg [d] = []
 End
