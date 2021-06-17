@@ -6606,6 +6606,36 @@ QED
 Theorem composable_len_ONE:
   !dep. wf_pqs dep /\ monotone (CURRY $ set dep)
   ==> composable_len (CURRY $ set dep) 1 =
+    !q p s_q s_p. MEM q dep /\ MEM p dep
+      /\ unify_LR (SND q) (FST p) = SOME (s_q, s_p)
+      ==> invertible_on s_q (FV $ SND q) \/ invertible_on s_p (FV $ FST p)
+Proof
+  rw[EQ_IMP_THM,has_path_to_ONE,composable_len_def,PULL_EXISTS,IN_DEF]
+  >- (
+    assume_tac var_renaming_nil
+    >> first_x_assum $ dxrule_at_then Any assume_tac
+    >> map_every PairCases_on [`p`,`q`]
+    >> fs[wf_pqs_CONS,FORALL_PROD,LR_TYPE_SUBST_NIL]
+    >> first_x_assum irule
+    >> dsimp[] >> rpt $ goal_assum $ drule_at Any
+    >> fs[wf_pqs_def,ELIM_UNCURRY,IN_DEF,EVERY_MEM]
+    >> res_tac
+    >> fs[LR_TYPE_SUBST_NIL]
+  )
+  >> first_x_assum $ rev_drule_then drule
+  >> drule_at Any unify_LR_LR_TYPE_SUBST_var_renaming
+  >> fs[wf_pqs_def,IN_DEF,ELIM_UNCURRY,EVERY_MEM]
+  >> rw[] >> reverse $ gvs[]
+  >- (drule equiv_ts_on_invertible_on_eq >> fs[])
+  >> qpat_x_assum `equiv_ts_on _ _ $ FV $ FST _` kall_tac
+  >> gs[invertible_on_equiv_ts_on_FV,LR_TYPE_SUBST_type_preserving]
+  >> drule_at Any equiv_ts_on_LR_TYPE_SUBST
+  >> fs[equiv_ts_on_symm]
+QED
+
+Theorem composable_len_ONE_compute:
+  !dep. wf_pqs dep /\ monotone (CURRY $ set dep)
+  ==> composable_len (CURRY $ set dep) 1 =
   EVERY (λq.
     EVERY (λp.
       case unify_LR (SND q) (FST p) of
@@ -6616,28 +6646,11 @@ Theorem composable_len_ONE:
     ) dep
   ) dep
 Proof
-  rw[EQ_IMP_THM,has_path_to_ONE,composable_len_def,PULL_EXISTS,EVERY_MEM,IN_DEF]
-  >- (
-    assume_tac var_renaming_nil
-    >> first_x_assum $ dxrule_at_then Any assume_tac
-    >> FULL_CASE_TAC >> qmatch_assum_abbrev_tac `_ = SOME x`
-    >> map_every PairCases_on [`p`,`x`,`q`]
-    >> fs[wf_pqs_CONS,FORALL_PROD,LR_TYPE_SUBST_NIL]
-    >> first_x_assum irule
-    >> dsimp[] >> rpt $ goal_assum $ drule_at Any
-    >> fs[wf_pqs_def,ELIM_UNCURRY,IN_DEF,EVERY_MEM]
-    >> res_tac
-    >> fs[LR_TYPE_SUBST_NIL]
-  )
+  dsimp[composable_len_ONE,EVERY_MEM,EQ_IMP_THM]
+  >> rpt strip_tac >> FULL_CASE_TAC >> gvs[AND_IMP_INTRO]
+  >- (FULL_CASE_TAC >> fs[])
   >> first_x_assum $ rev_drule_then drule
-  >> drule_at Any unify_LR_LR_TYPE_SUBST_var_renaming
-  >> fs[wf_pqs_CONS,wf_pqs_def,IN_DEF,ELIM_UNCURRY,EVERY_MEM]
-  >> rw[] >> FULL_CASE_TAC >> reverse $ gvs[]
-  >- (drule equiv_ts_on_invertible_on_eq >> fs[])
-  >> qpat_x_assum `equiv_ts_on _ _ $ FV $ FST _` kall_tac
-  >> gs[invertible_on_equiv_ts_on_FV,LR_TYPE_SUBST_type_preserving]
-  >> drule_at Any equiv_ts_on_LR_TYPE_SUBST
-  >> fs[equiv_ts_on_symm]
+  >> FULL_CASE_TAC
 QED
 
 Definition composable_until_def:
