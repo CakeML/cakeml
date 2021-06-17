@@ -247,6 +247,39 @@ QED
   error of the real-valued semantics of the initial program, and
   the floating-point semantics of the optimised program later
 **)
+Theorem fp_same_sub_real_id:
+  ∀ st1 st2 env e r.
+    is_real_id_exp [fp_same_sub] st1 st2 env e r
+Proof
+  rpt strip_tac
+  \\ fs[is_real_id_exp_def]
+  \\ qspecl_then [‘e’] strip_assume_tac (ONCE_REWRITE_RULE [DISJ_COMM] fp_same_sub_cases)
+  \\ fs[state_component_equality,fpState_component_equality]
+  \\ rpt strip_tac \\ qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
+  \\ simp[SimpL “$==>”, realify_def, evaluate_def, astTheory.getOpClass_def, do_app_def]
+  \\ rpt strip_tac \\ rveq
+  \\ fs[floatToRealTheory.realify_def, evaluate_def, astTheory.getOpClass_def]
+  \\ ‘∃ choices r. evaluate st1 env [realify e1] = (st1 with fp_state := st1.fp_state with choices := choices, Rval [Real r])’
+    by (
+    qspecl_then [‘e1’, ‘env’] mp_tac
+    (CONJUNCT1 icing_rewriterProofsTheory.isFpArithExp_matched_evaluates_real)
+    \\ impl_tac
+    >- (gs[isFpArithExp_def, freeVars_real_bound_def] \\ imp_res_tac evaluate_fp_opts_inv \\ gs[])
+    \\ disch_then $ qspec_then ‘st1’ strip_assume_tac
+    \\ gs[state_component_equality,fpState_component_equality])
+  \\ simp[evaluate_def, realify_def, astTheory.getOpClass_def, do_app_def]
+  \\ first_x_assum $ mp_then Any mp_tac $ CONJUNCT1 evaluate_add_choices
+  \\ disch_then $ qspec_then ‘choices’ assume_tac \\ gs[]
+  \\ ‘st1 with <|refs := st1.refs; ffi := st1.ffi|> = st1’ by fs[state_component_equality]
+  \\ pop_assum (fs o single)
+  \\ fs[EVAL “fp64_to_real 0w”]
+  \\ ‘float_to_real <|Sign := 0w: word1; Exponent := 0w: word11; Significand := 0w: 52 word|> = 0’
+    by fs[float_to_real]
+  \\ rw[]
+  \\ fs[state_component_equality, fpState_component_equality]
+  \\ fs[realOpsTheory.real_bop_def, floatToRealTheory.getRealBop_def]
+QED
+
 Theorem fp_neg_times_minus_one_real_id:
   ∀ st1 st2 env e r.
     is_real_id_exp [fp_neg_times_minus_one] st1 st2 env e r
