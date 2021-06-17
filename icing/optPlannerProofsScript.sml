@@ -4,7 +4,8 @@
 open semanticPrimitivesTheory evaluateTheory terminationTheory
      icing_rewriterTheory icing_optimisationsTheory
      icing_optimisationProofsTheory fpOptTheory fpValTreeTheory
-     optPlannerTheory source_to_sourceTheory source_to_sourceProofsTheory;
+     optPlannerTheory source_to_sourceTheory source_to_sourceProofsTheory
+     floatToRealProofsTheory icing_realIdProofsTheory;
 
 open preamble;
 
@@ -202,10 +203,8 @@ Theorem canonicalize_app_upper_bound:
     MEM (Apply (path, rws)) r  ∧
     MEM rw rws ⇒
     MEM rw [fp_neg_times_minus_one; fp_sub_add;
-            fp_comm_gen FP_Add; fp_comm_gen FP_Sub;
-            fp_comm_gen FP_Mul; fp_comm_gen FP_Div;
-            fp_assoc_gen FP_Add; fp_assoc_gen FP_Sub;
-            fp_assoc_gen FP_Mul; fp_assoc_gen FP_Div]
+            fp_comm_gen FP_Add; fp_comm_gen FP_Mul;
+            fp_assoc_gen FP_Add; fp_assoc_gen FP_Mul]
 Proof
   measureInduct_on ‘exp_size e’
   >> simp[Once canonicalize_app_def, CaseEq"op", CaseEq"list"]
@@ -238,10 +237,8 @@ Theorem canonicalize_upper_bound:
     MEM (Apply (path, rws)) (SND (canonicalize cfg e)) ⇒
     ∀ rw. MEM rw rws ⇒
           MEM rw [fp_neg_times_minus_one; fp_sub_add;
-                  fp_comm_gen FP_Add; fp_comm_gen FP_Sub;
-                  fp_comm_gen FP_Mul; fp_comm_gen FP_Div;
-                  fp_assoc_gen FP_Add; fp_assoc_gen FP_Sub;
-                  fp_assoc_gen FP_Mul; fp_assoc_gen FP_Div]
+                  fp_comm_gen FP_Add; fp_comm_gen FP_Mul;
+                  fp_assoc_gen FP_Add; fp_assoc_gen FP_Mul]
 Proof
   measureInduct_on  ‘exp_size e’
   >> Cases_on ‘e’ >> gs[canonicalize_def] >> rpt strip_tac
@@ -465,8 +462,8 @@ Theorem peephole_optimise_upper_bound:
     MEM (Apply (path, rws)) (SND (peephole_optimise cfg e)) ⇒
     ∀ rw. MEM rw rws ⇒
           MEM rw [fp_neg_push_mul_r; fp_times_minus_one_neg; fp_add_sub;
-                  fp_times_two_to_add; fp_times_three_to_add;
-                  fp_times_zero; fp_plus_zero; fp_times_one; fp_same_sub]
+                  fp_times_two_to_add; fp_times_three_to_add; fp_times_zero;
+                  fp_plus_zero; fp_times_one; fp_same_sub; fp_fma_intro]
 Proof
   simp[Once peephole_optimise_def]
   >> rpt gen_tac
@@ -477,7 +474,8 @@ Proof
                                 rw = fp_neg_push_mul_r ∨ rw = fp_times_minus_one_neg ∨
                                 rw = fp_add_sub ∨ rw = fp_times_two_to_add ∨
                                 rw = fp_times_three_to_add ∨ rw = fp_times_zero ∨
-                                rw = fp_plus_zero ∨ rw = fp_times_one ∨ rw = fp_same_sub’]
+                                rw = fp_plus_zero ∨ rw = fp_times_one ∨ rw = fp_same_sub ∨
+                                rw = fp_fma_intro’]
                  mp_tac postorder_upper_bound
   >> gs[]
   >> impl_tac
@@ -486,7 +484,7 @@ Proof
     >> rpt $ pop_assum kall_tac
     >> gs[] >> rpt strip_tac
     >> drule plan_app_rewrite_with_each_alt
-    >> rpt $ disch_then drule >> gs[])
+    >> rpt $ disch_then drule >> gs[] >> metis_tac[])
   >> Cases_on ‘post_order_dfs_for_plan peephole_app cfg e’ >> gs[]
   >> rpt $ disch_then drule >> gs[]
 QED
@@ -759,10 +757,32 @@ Proof
   >> conj_tac >> gs[]
 QED
 
-Theorem optPlanner_correct_single:
-  is_optimise_with_plan_correct (generate_plan_exp cfg e) st1 st2 env cfg [e] r
+Theorem is_real_id_exp_weakening:
+  (∀ rw. MEM rw rws2 ⇒
+         ∀ (st1:'a semanticPrimitives$state) st2 env e r.
+           is_real_id_exp [rw] st1 st2 env e r) ∧
+  (∀ rw. MEM rw rws1 ⇒ MEM rw rws2) ⇒
+  ∀ (st1:'a semanticPrimitives$state) st2 env e r.
+    is_real_id_exp rws1 st1 st2 env e r
 Proof
-  irule is_optimise_with_plan_correct_lift
+  Induct_on ‘rws1’ >> gs[empty_rw_real_id]
+  >> rpt strip_tac
+  >> ‘h :: rws1 = [h] ++ rws1’ by gs[]
+  >> pop_assum $ rewrite_tac o single
+  >> irule real_valued_id_compositional >> reverse conj_tac
+  >- (
+    first_x_assum $ qspec_then ‘h’ mp_tac >> gs[] >> strip_tac
+    >> first_x_assum drule >> gs[])
+  >> last_x_assum irule
+  >> conj_tac >> gs[]
+QED
+
+Theorem optPlanner_correct_float_single:
+  ∀ e st1 st2 env cfg exps r.
+    is_optimise_with_plan_correct (generate_plan_exp cfg e) st1 st2 env cfg exps r
+Proof
+  rpt strip_tac
+  >> irule is_optimise_with_plan_correct_lift
   >> rpt gen_tac >> strip_tac
   >> irule is_rewriteFPexp_correct_lift_perform_rewrites
   >> irule lift_rewriteFPexp_correct_list
@@ -774,7 +794,7 @@ Proof
   >> imp_res_tac peephole_optimise_upper_bound
   >> irule rewriteFPexp_weakening >> asm_exists_tac >> gs[]
   >> rpt strip_tac >> rveq
-  >> TRY (gs[fp_times_two_to_add_correct_unfold, fp_times_two_to_add_correct,
+  >> gs[fp_times_two_to_add_correct_unfold, fp_times_two_to_add_correct,
     fp_times_three_to_add_correct_unfold, fp_times_three_to_add_correct,
     fp_times_one_correct_unfold, fp_times_one_correct,
     fp_times_minus_one_neg_correct_unfold,
@@ -806,15 +826,59 @@ Proof
     fp_div_add_distribute_def, fp_distribute_gen_def, fp_comm_gen_def,
     fp_assoc_gen_def, fp_assoc2_gen_def, fp_add_sub_def,
     fp_add_comm_def, fp_add_assoc_def, fp_add_assoc2_def,
-    fp_times_zero_correct, fp_same_sub_correct] >> NO_TAC)
+    fp_times_zero_correct, fp_same_sub_correct]
 QED
 
-  (*
-Theorem optPlanner_correct:
-  is_optimise_with_plan_correct (generate_plan_exps cfg es) st1 st2 env cfg es r
+Theorem optPlanner_correct_real_single:
+  ∀ e st1 st2 env cfg exps r.
+  is_real_id_optimise_with_plan (generate_plan_exp cfg e) st1 st2 env cfg exps r
 Proof
-  irule is_optimise_with_plan_correct_lift
+  rpt gen_tac
+  >> irule is_real_id_perform_rewrites_optimise_with_plan_lift
+  >> rpt gen_tac >> strip_tac
+  >> irule is_real_id_list_perform_rewrites_lift
+  >> irule lift_real_id_exp_list_strong
+  >> first_x_assum $ mp_then Any assume_tac generate_plan_upper_bound_rws
+  >> gs[]
+  >> imp_res_tac balance_expression_tree_upper_bound
+  >> imp_res_tac canonicalize_upper_bound
+  >> imp_res_tac apply_distributivity_upper_bound
+  >> imp_res_tac peephole_optimise_upper_bound
+  >> irule is_real_id_exp_weakening >> asm_exists_tac >> gs[]
+  >> rpt strip_tac >> rveq
+  >> gs[fp_times_two_to_add_real_id_unfold, fp_times_two_to_add_real_id,
+    fp_times_three_to_add_real_id_unfold, fp_times_three_to_add_real_id,
+    fp_times_one_real_id_unfold, fp_times_one_real_id,
+    fp_times_minus_one_neg_real_id_unfold,
+    fp_times_minus_one_neg_real_id, fp_sub_add_real_id_unfold,
+    fp_sub_add_real_id, fp_plus_zero_real_id_unfold,
+    fp_plus_zero_real_id, fp_neg_times_minus_one_real_id_unfold,
+    fp_neg_times_minus_one_real_id, fp_neg_push_mul_r_real_id_unfold,
+    fp_neg_push_mul_r_real_id, fma_intro_real_id,
+    fma_intro_real_id, fp_distribute_gen_real_id_unfold,
+    Q.SPECL [‘FP_Sub’, ‘FP_Mul’] fp_distribute_gen_real_id,
+    Q.SPECL [‘FP_Add’, ‘FP_Div’] fp_distribute_gen_real_id,
+    Q.SPECL [‘FP_Sub’, ‘FP_Div’] fp_distribute_gen_real_id,
+    fp_comm_gen_real_id_unfold_mul, fp_comm_gen_real_id_unfold_add,
+    Q.SPEC ‘FP_Sub’ fp_comm_gen_real_id, fp_assoc_gen_real_id_unfold_mul,
+    fp_assoc_gen_real_id_unfold_add, fp_assoc_gen_real_id,
+    fp_assoc2_gen_real_id_unfold_mul, fp_assoc2_gen_real_id_unfold_add,
+    fp_assoc2_gen_real_id, fp_add_sub_real_id_unfold, fp_add_sub_real_id,
+    reverse_tuple_def, fp_undistribute_gen_def, fp_times_zero_def,
+    fp_times_two_to_add_def, fp_times_three_to_add_def,
+    fp_times_one_def,
+    fp_times_minus_one_neg_def, fp_times_into_div_def, fp_sub_add_def,
+    fp_same_sub_def, fp_plus_zero_def,
+    fp_neg_times_minus_one_def, fp_neg_push_mul_r_def,
+    fp_mul_sub_undistribute_def, fp_mul_sub_distribute_def,
+    fp_mul_comm_def, fp_mul_assoc_def, fp_mul_assoc2_def,
+    fp_mul_add_undistribute_def, fp_mul_add_distribute_def,
+    fp_fma_intro_def, fp_div_sub_undistribute_def,
+    fp_div_sub_distribute_def, fp_div_add_undistribute_def,
+    fp_div_add_distribute_def, fp_distribute_gen_def, fp_comm_gen_def,
+    fp_assoc_gen_def, fp_assoc2_gen_def, fp_add_sub_def,
+    fp_add_comm_def, fp_add_assoc_def, fp_add_assoc2_def,
+    fp_times_zero_real_id, fp_same_sub_real_id]
 QED
-*)
 
 val _ = export_theory();
