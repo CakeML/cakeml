@@ -2540,6 +2540,20 @@ Definition eval_config_compile_def:
         ps.target_prog
 End
 
+Theorem eval_config_compile_backend_compile_inc_progs:
+  eval_config_compile ec x = let (env_id, c_v, decs) = x in
+  case ec.decode_v c_v of
+    NONE => NONE
+  | SOME c' => let (c'', ps) = backend_compile_inc_progs c' (env_id, decs) in
+    OPTION_MAP (\(bs, ws). (match_decode_config ec c'', bs,
+            MAP data_to_word_gcProof$upper_w2w (DROP (LENGTH c'.word_conf.bitmaps) ws)))
+        ps
+Proof
+  PairCases_on ‘x’ \\ fs [eval_config_compile_def]
+  \\ TOP_CASE_TAC \\ fs [backend_compile_inc_progs_def,compile_inc_progs_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+QED
+
 Definition eval_config_cfg_compile_def:
   eval_config_cfg_compile ec x = let (env_id, c_v, decs) = x in
   case ec.decode_v c_v of
