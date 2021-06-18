@@ -2404,6 +2404,12 @@ Definition orth_LR_def:
 End
 Overload "#" = ``$orth_LR``
 
+Theorem orth_LR_symm:
+  !p q. is_const_or_type p /\ is_const_or_type q ==> orth_LR p q = orth_LR q p
+Proof
+  rw[is_const_or_type_eq] >> fs[orth_LR_def,orth_ty_symm,orth_ci_def,EQ_SYM_EQ]
+QED
+
 Theorem orth_LR_is_instance_LR_equiv:
   !x y. is_const_or_type x /\ is_const_or_type y
   ==> ~orth_LR x y = ?t. is_const_or_type t /\ is_instance_LR x t /\ is_instance_LR y t
@@ -2415,6 +2421,28 @@ Proof
   >> qexists_tac `a` >> gvs[is_instance_simps]
   >> qpat_x_assum `_ = _` $ fs o single o GSYM
   >> fs[is_instance_simps]
+QED
+
+Theorem orth_LR_var_renaming1:
+  !p q s. var_renaming s /\ is_const_or_type p /\ is_const_or_type q
+  ==> (LR_TYPE_SUBST s p # q) = (p # q)
+Proof
+  dsimp[EQ_IMP_THM,AND_IMP_INTRO]
+  >> ONCE_REWRITE_TAC[MONO_NOT_EQ]
+  >> rw[DISJ_EQ_IMP]
+  >> gs[orth_LR_is_instance_LR_equiv,LR_TYPE_SUBST_type_preserving,is_instance_LR_var_renaming,is_instance_LR_var_renaming']
+  >> goal_assum $ drule_at (Pos last)
+  >> fs[is_instance_LR_var_renaming,LR_TYPE_SUBST_type_preserving]
+QED
+
+Theorem orth_LR_var_renaming2:
+  !p q s. var_renaming s /\ is_const_or_type p /\ is_const_or_type q
+  ==> (p # LR_TYPE_SUBST s q) = (p # q)
+Proof
+  rpt strip_tac
+  >> irule_at Any EQ_TRANS >> irule_at Any orth_LR_symm
+  >> irule_at Any EQ_TRANS >> irule_at Any orth_LR_var_renaming1
+  >> fs[orth_LR_symm,LR_TYPE_SUBST_type_preserving]
 QED
 
 (* orthogonality of dependencies *)
