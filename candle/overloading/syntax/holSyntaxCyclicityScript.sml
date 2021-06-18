@@ -117,7 +117,7 @@ Proof
   >> fs[LR_TYPE_SUBST_cases,TYPE_SUBST_NIL]
 QED
 
-Theorem LR_TYPE_SUBST_type_preserving:
+Theorem LR_TYPE_SUBST_type_preserving[simp]:
   !t s. is_const_or_type t ==> is_const_or_type (LR_TYPE_SUBST s t)
 Proof
   rw[is_const_or_type_eq] >> fs[LR_TYPE_SUBST_cases]
@@ -462,7 +462,7 @@ Theorem equiv_trans:
 Proof
   rw[equiv_def]
   >> irule_at Any var_renaming_compose
-  >> fs[GSYM clean_tysubst_LR_TYPE_SUBST_eq,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving]
+  >> fs[GSYM clean_tysubst_LR_TYPE_SUBST_eq,GSYM LR_TYPE_SUBST_compose]
   >> irule_at Any EQ_REFL
   >> asm_rewrite_tac[]
 QED
@@ -617,7 +617,7 @@ Proof
   rpt strip_tac
   >> dxrule_then (qspec_then `MAP SWAP s` mp_tac) sol_seq_TYPE_SUBST
   >> rw[sol_seq_def,LR_TYPE_SUBST_compose] >> gs[] >> first_x_assum drule
-  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,EL_MAP,var_renaming_SWAP_LR_id]
+  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,EL_MAP,var_renaming_SWAP_LR_id]
   >> fs[wf_pqs_def,EVERY_MEM,MEM_EL,PULL_EXISTS,ELIM_UNCURRY]
 QED
 
@@ -631,7 +631,7 @@ Proof
   >> qexists_tac `MAP (λx. MAP (TYPE_SUBST x ## I) (MAP SWAP s) ++ x) es`
   >> rpt strip_tac >> fs[]
   >> first_x_assum $ drule
-  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,EL_MAP]
+  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,EL_MAP]
   >> `LENGTH rs = LENGTH pqs` by fs[sol_seq_def]
   >> conj_asm1_tac
   >- (fs[] >> drule_all sol_seq_is_const_or_type >> fs[])
@@ -639,8 +639,7 @@ Proof
   >> disch_then $ REWRITE_TAC o single o GSYM
   >> AP_TERM_TAC
   >> dep_rewrite.DEP_ONCE_REWRITE_TAC[LR_TYPE_SUBST_compose]
-  >> conj_asm1_tac
-  >- fs[LR_TYPE_SUBST_type_preserving]
+  >> conj_asm1_tac >- fs[]
   >> drule LR_TYPE_SUBST_NIL
   >> disch_then $ CONV_TAC o RHS_CONV o ONCE_REWRITE_CONV o single o GSYM
   >> rw[LR_TYPE_SUBST_tyvars,Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_compose,var_renaming_SWAP_id]
@@ -663,7 +662,7 @@ Proof
     >> rpt strip_tac
     >> rfs[]
     >> last_x_assum drule
-    >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,EL_MAP,var_renaming_SWAP_LR_id]
+    >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,EL_MAP,var_renaming_SWAP_LR_id]
     >> fs[]
   )
   >> fs[mg_sol_seq_def]
@@ -671,7 +670,7 @@ Proof
   >> qexists_tac `es`
   >> rw[]
   >> first_x_assum drule
-  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,EL_MAP,var_renaming_SWAP_LR_id]
+  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,EL_MAP,var_renaming_SWAP_LR_id]
   >> imp_res_tac sol_seq_LENGTH
   >> drule_then assume_tac sol_seq_is_const_or_type_FST
   >> fs[]
@@ -830,7 +829,6 @@ Proof
   rw[]
   >> match_mp_tac FV_LR_TYPE_SUBST_mono
   >> irule_at Any sol_seq_FV_LR_TYPE_SUBST_FST_j_FST_i
-  >> ntac 2 $ irule_at Any LR_TYPE_SUBST_type_preserving
   >> drule_then assume_tac sol_seq_is_const_or_type
   >> fs[]
   >> rpt $ goal_assum $ drule_at Any
@@ -869,7 +867,6 @@ Proof
   >> fs[SUBSET_REFL]
   >> match_mp_tac FV_LR_TYPE_SUBST_mono
   >> irule_at Any sol_seq_FV_LR_TYPE_SUBST_SND_j_SND_i
-  >> ntac 2 $ irule_at Any LR_TYPE_SUBST_type_preserving
   >> drule_then assume_tac sol_seq_is_const_or_type
   >> fs[]
   >> rpt $ goal_assum $ drule_at Any
@@ -907,7 +904,6 @@ Proof
   >> match_mp_tac FV_LR_TYPE_SUBST_mono
   >> irule_at Any sol_seq_FV_LR_TYPE_SUBST_SND_j_FST_i
   >> drule_then assume_tac sol_seq_is_const_or_type
-  >> ntac 2 $ irule_at Any LR_TYPE_SUBST_type_preserving
   >> fs[]
   >> rpt $ goal_assum $ drule_at Any
 QED
@@ -2086,7 +2082,7 @@ Proof
   >> impl_tac >- (drule_all FV_SND_SUBSET_FST >> fs[])
   >> ntac 2 $ qpat_x_assum `equal_ts_on _ _ _` mp_tac
   >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV]
-  >> rgs[GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving]
+  >> rgs[GSYM LR_TYPE_SUBST_compose]
 QED
 
 (* TODO replace uses of mg_solutions with mg_solution' *)
@@ -2124,7 +2120,7 @@ Proof
   >> rev_drule_then drule mg_solution''
   >> rpt $ disch_then $ drule
   >> pop_assum mp_tac
-  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose,equal_ts_on_FV,LR_TYPE_SUBST_type_preserving]
+  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose,equal_ts_on_FV]
   >> fs[]
 QED
 
@@ -2197,7 +2193,7 @@ Proof
   >> imp_res_tac path_starting_at_LENGTH
   >> fs[EL_MAP,Excl"EL",GSYM EL,Excl"EL_restricted"]
   >> drule_then assume_tac $ cj 3 $ iffLR path_starting_at_def
-  >> rw[equal_ts_on_FV,EL_MEM,LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose,EL_MAP,var_renaming_SWAP_LR_id]
+  >> rw[equal_ts_on_FV,EL_MEM,GSYM LR_TYPE_SUBST_compose,EL_MAP,var_renaming_SWAP_LR_id]
 QED
 
 Definition is_instance_LR_def:
@@ -2257,11 +2253,11 @@ Theorem is_instance_LR_var_renaming1:
   !p q s. var_renaming s /\ is_const_or_type p /\ is_const_or_type q
   ==> is_instance_LR (LR_TYPE_SUBST s p) q = is_instance_LR p q
 Proof
-  rw[EQ_IMP_THM,is_instance_LR_eq,LR_TYPE_SUBST_type_preserving]
+  rw[EQ_IMP_THM,is_instance_LR_eq]
   >- (rw[LR_TYPE_SUBST_compose] >> irule_at Any EQ_REFL)
   >> qmatch_goalsub_abbrev_tac `LR_TYPE_SUBST _ $ LR_TYPE_SUBST s _ = LR_TYPE_SUBST s' _`
   >> qexists_tac `MAP (TYPE_SUBST s' ## I) (MAP SWAP s) ++ s'`
-  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving]
+  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose]
   >> fs[var_renaming_SWAP_LR_id]
 QED
 
@@ -2280,7 +2276,7 @@ Theorem is_instance_LR_var_renaming12:
   !p q s. var_renaming s /\ is_const_or_type p /\ is_const_or_type q
   ==> is_instance_LR (LR_TYPE_SUBST s p) (LR_TYPE_SUBST s q) = is_instance_LR p q
 Proof
-  fs[is_instance_LR_var_renaming1,is_instance_LR_var_renaming2,LR_TYPE_SUBST_type_preserving]
+  fs[is_instance_LR_var_renaming1,is_instance_LR_var_renaming2]
 QED
 
 Theorem equiv_is_instance_LR:
@@ -2417,9 +2413,9 @@ Proof
   >> ONCE_REWRITE_TAC[MONO_NOT_EQ]
   >> rw[DISJ_EQ_IMP]
   >>
-  gs[orth_LR_is_instance_LR_equiv,LR_TYPE_SUBST_type_preserving,is_instance_LR_var_renaming1,is_instance_LR_var_renaming2]
+  gs[orth_LR_is_instance_LR_equiv,is_instance_LR_var_renaming1,is_instance_LR_var_renaming2]
   >> goal_assum $ drule_at (Pos last)
-  >> fs[is_instance_LR_var_renaming1,LR_TYPE_SUBST_type_preserving]
+  >> fs[is_instance_LR_var_renaming1]
 QED
 
 Theorem orth_LR_var_renaming2:
@@ -2429,7 +2425,7 @@ Proof
   rpt strip_tac
   >> irule_at Any EQ_TRANS >> irule_at Any orth_LR_symm
   >> irule_at Any EQ_TRANS >> irule_at Any orth_LR_var_renaming1
-  >> fs[orth_LR_symm,LR_TYPE_SUBST_type_preserving]
+  >> fs[orth_LR_symm]
 QED
 
 (* orthogonality of dependencies *)
@@ -2569,7 +2565,7 @@ Proof
     >> fs[Abbr`es`,EL_REPLICATE,sol_seq_def,equal_ts_on_refl]
     >> qhdtm_x_assum `equal_ts_on` mp_tac
     >> REWRITE_TAC[GSYM EL]
-    >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,EL_MAP,LR_TYPE_SUBST_NIL]
+    >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,EL_MAP,LR_TYPE_SUBST_NIL]
     >> fs[Once EQ_SYM_EQ,Excl"EL",Excl"EL_restricted",EL_REPLICATE]
   )
   >> imp_res_tac sol_seq_LENGTH
@@ -2578,7 +2574,7 @@ Proof
   >> rev_drule_then (qspec_then `n` mp_tac) (GSYM $ cj 3 $ iffLR sol_seq_def)
   >> rw[]
   >> `EL n es = EL (SUC n) es` by fs[EL_REPLICATE,Abbr`es`]
-  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,EL_MAP]
+  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,EL_MAP]
   >> fs[FORALL_AND_THM,IMP_CONJ_THM]
   >> drule sol_mon_prop'
   >> ntac 2 $ disch_then drule
@@ -2592,11 +2588,11 @@ Proof
     >> REWRITE_TAC[GSYM EL]
     >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,EL_REPLICATE,EL_MAP,TYPE_SUBST_compose,GSYM LR_TYPE_SUBST_compose]
     >> rw[Once EQ_SYM_EQ]
-    >> dep_rewrite.DEP_REWRITE_TAC[TYPE_SUBST_compose,LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,MAP_APPEND]
+    >> dep_rewrite.DEP_REWRITE_TAC[TYPE_SUBST_compose,LR_TYPE_SUBST_compose,MAP_APPEND]
     >> fs[]
   )
   >> fs[EL_REPLICATE,Abbr`es`,Abbr`es'`]
-  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,EL_REPLICATE,TYPE_SUBST_compose,LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,EL_MAP]
+  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,EL_REPLICATE,TYPE_SUBST_compose,LR_TYPE_SUBST_compose,EL_MAP]
   >> fs[]
 QED
 
@@ -2679,21 +2675,21 @@ Proof
   >> rev_drule_then (dxrule_then strip_assume_tac) sol_seq_is_const_or_type
   >> qpat_assum `sol_seq rs _` $ qspec_then `PRE (LENGTH rs')` mp_tac o cj 3 o REWRITE_RULE[sol_seq_def]
   >> fs[GSYM LR_TYPE_SUBST_compose,equal_ts_on_FV]
+  >> `0 < LENGTH rs'` by fs[]
+  >> fs[SUC_PRE] >> gvs[]
   >> strip_tac
   >> qmatch_asmsub_abbrev_tac `fst # snd`
   >> `is_const_or_type fst /\ is_const_or_type snd` by (
     imp_res_tac sol_seq_is_const_or_type
     >> imp_res_tac sol_seq_LENGTH
-    >> unabbrev_all_tac >> fs[LR_TYPE_SUBST_type_preserving]
+    >> unabbrev_all_tac >> fs[]
   )
-  >> qpat_x_assum `_ # _` mp_tac >> unabbrev_all_tac
-  >> `0 < LENGTH rs'` by fs[]
-  >> fs[SUC_PRE] >> gvs[]
-  >> qmatch_goalsub_abbrev_tac `fst # snd`
+  >> gvs[]
+  >> qpat_x_assum `_ # _` mp_tac
   >> qmatch_asmsub_abbrev_tac `LR_TYPE_SUBST sfst fst = LR_TYPE_SUBST ssnd snd`
   >> `~(fst # snd)` by (
     dsimp[orth_LR_is_instance_LR_equiv,EQ_SYM_EQ,is_instance_LR_eq]
-    >> goal_assum $ drule_at Any >> fs[LR_TYPE_SUBST_type_preserving]
+    >> goal_assum $ drule_at Any >> fs[]
   )
   >> fs[]
 QED
@@ -2803,7 +2799,6 @@ Proof
   >> drule_then (dxrule_then strip_assume_tac) mg_sol_seq_is_const_or_type
   >> `is_const_or_type rn_qn` by (
     qunabbrev_tac `rn_qn`
-    >> match_mp_tac LR_TYPE_SUBST_type_preserving
     >> fs[Abbr`qn`]
   )
   >> `is_const_or_type p` by fs[wf_pqs_def]
@@ -2892,7 +2887,7 @@ Proof
   >> `equal_ts_on (MAP (TYPE_SUBST (EL i eta_bar) ## I) ρ' ++ (EL i eta_bar)) (EL i es) (FV (LR_TYPE_SUBST (EL i rt) (FST (EL i pqs))))`
   suffices_by (
     first_x_assum $ qspec_then `i` mp_tac
-    >> dep_rewrite.DEP_REWRITE_TAC[EL_APPEND1,EL_MAP,EL_TAKE,equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving]
+    >> dep_rewrite.DEP_REWRITE_TAC[EL_APPEND1,EL_MAP,EL_TAKE,equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose]
     >> fs[]
     >> disch_then kall_tac
     >> disch_then $ REWRITE_TAC o single o GSYM
@@ -2918,7 +2913,6 @@ Proof
     >> qpat_x_assum `MEM _ (FV (LR_TYPE_SUBST _ _))` mp_tac
     >> rw[EL_MAP,GSYM LR_TYPE_SUBST_compose]
     >> drule MEM_FV_LR_TYPE_SUBST_renn_imp
-    >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_type_preserving]
     >> rw[Excl"TYPE_SUBST_def"]
     >> qspecl_then [`list_complement r t`,`LIST_UNION t c`,`Tyvar x`] mp_tac
       ((REWRITE_RULE[NULL_FILTER,list_inter_def] o ONCE_REWRITE_RULE[holSyntaxRenamingTheory.NULL_list_inter_COMM]) renn_disj_dom_img4)
@@ -2944,15 +2938,15 @@ Proof
       >> fs[EL_TAKE]
     )
     >> pop_assum mp_tac
-    >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose]
-    >> asm_rewrite_tac[]
+    >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose]
+    >> fs[]
     >> disch_then $ REWRITE_TAC o single
     >> qpat_assum `sol_seq _ (_ ++ [_])` $ qspec_then `i` mp_tac o cj 3 o REWRITE_RULE[sol_seq_def]
     >> dep_rewrite.DEP_ONCE_REWRITE_TAC[EL_APPEND1]
     >> fs[]
     >> disch_then $ REWRITE_TAC o single
     >> qpat_x_assum `equal_ts_on _ _ _` $ mp_tac
-    >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose]
+    >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose]
     >> qpat_x_assum `sol_seq (_ ++ _) _` assume_tac
     >> drule_then (irule_at Any) sol_seq_is_const_or_type_FST
     >> fs[]
@@ -2984,7 +2978,6 @@ Proof
     >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose,EL_MAP]
     >> asm_rewrite_tac[]
     >> match_mp_tac FV_SUBSET_LR_TYPE_SUBST_id
-    >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_type_preserving]
     >> fs[]
   )
   >> qpat_x_assum `LR_TYPE_SUBST _ rn_qn = rn_qn` $ mp_tac o GSYM
@@ -3042,15 +3035,13 @@ Proof
   >- (
     rw[EVERY_FILTER,wf_pqs_def]
     >> fs[wf_pqs_def]
-    >> rpt $ match_mp_tac LR_TYPE_SUBST_type_preserving
-    >> fs[]
   )
   >> qunabbrev_tac `f`
-  >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_FILTER_SND_tyvars,LR_TYPE_SUBST_type_preserving,LAST_EL]
+  >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_FILTER_SND_tyvars,LAST_EL]
   >> rw[]
   >> goal_assum drule
   >> qpat_x_assum `equal_ts_on _ _ _` mp_tac
-  >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_FILTER_SND_tyvars,equal_ts_on_FV,LR_TYPE_SUBST_type_preserving]
+  >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_FILTER_SND_tyvars,equal_ts_on_FV]
   >> fs[]
 QED
 
@@ -3217,7 +3208,6 @@ Proof
   >> qspecl_then [`r`,`t`,`c`] assume_tac renn_disj_dom_img2
   >> `is_const_or_type p0 /\ is_const_or_type r0_p0 /\ is_const_or_type qn /\ is_const_or_type rn_qn` by (
     unabbrev_all_tac
-    >> ntac 2 $ irule_at Any LR_TYPE_SUBST_type_preserving
     >> imp_res_tac mg_sol_seq_LENGTH
     >> drule mg_sol_seq_is_const_or_type
     >> fs[]
@@ -3345,7 +3335,7 @@ Proof
   >> qexists_tac `MAP (λx. MAP (TYPE_SUBST x ## I) (MAP SWAP s) ++ x) es`
   >> rpt strip_tac >> fs[]
   >> first_x_assum $ drule
-  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,EL_MAP]
+  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,EL_MAP]
   >> `LENGTH rs = LENGTH pqs` by fs[sol_seq_def]
   >> conj_asm1_tac
   >- (fs[] >> drule_all sol_seq_is_const_or_type >> fs[])
@@ -3354,7 +3344,7 @@ Proof
   >> AP_TERM_TAC
   >> dep_rewrite.DEP_ONCE_REWRITE_TAC[LR_TYPE_SUBST_compose]
   >> conj_asm1_tac
-  >- fs[LR_TYPE_SUBST_type_preserving]
+  >- fs[]
   >> drule LR_TYPE_SUBST_NIL
   >> disch_then $ CONV_TAC o RHS_CONV o ONCE_REWRITE_CONV o single o GSYM
   >> rw[LR_TYPE_SUBST_tyvars,Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_compose,var_renaming_SWAP_id]
@@ -3565,15 +3555,15 @@ Proof
   >> drule $ ONCE_REWRITE_RULE[CONJ_COMM] mg_solution'
   >> ntac 2 $ disch_then drule
   >> dxrule $ SIMP_RULE(bool_ss++LET_ss) [] mg_sol_ext_geq_tyvars_p0
-  >> `rs <> [] /\ pqs <> []` by (CCONTR_TAC >> rgs[])
-  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LAST_EL,LR_TYPE_SUBST_type_preserving]
+  >> `rs <> [] /\ pqs <> []` by (CCONTR_TAC >> gs[])
+  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LAST_EL]
   >> fs[]
   >> disch_then $ drule_all_then strip_assume_tac
   >> disch_then $ drule (* mg_solution' *)
   >> ntac 2 $ pop_assum mp_tac
   >> drule_then strip_assume_tac mg_sol_seq_LENGTH
   >> `rs' <> []` by (CCONTR_TAC >> fs[])
-  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LAST_EL,LR_TYPE_SUBST_type_preserving]
+  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LAST_EL]
   >> drule mg_sol_seq_is_const_or_type
   >> rw[IMP_CONJ_THM,FORALL_AND_THM]
   >> qmatch_asmsub_abbrev_tac `NULL $ list_inter (list_complement _ _) (LIST_UNION _ c')`
@@ -3581,7 +3571,6 @@ Proof
   >> impl_tac
   >- (
     match_mp_tac is_instance_LR_simps
-    >> match_mp_tac LR_TYPE_SUBST_type_preserving
     >> fs[LAST_EL]
   )
   >> drule mg_sol_ext_geq
@@ -3594,7 +3583,7 @@ Proof
   >- (
     rpt (PRED_ASSUM (exists (curry op = "LAST")
       o map (fst o dest_const) o find_terms is_const) mp_tac)
-    >> dep_rewrite.DEP_REWRITE_TAC[LAST_EL,equal_ts_on_FV,LR_TYPE_SUBST_type_preserving]
+    >> dep_rewrite.DEP_REWRITE_TAC[LAST_EL,equal_ts_on_FV]
     >> rw[]
     >> drule_then (drule_then match_mp_tac)  mg_sols_equal_ts_on
     >> fs[]
@@ -3604,26 +3593,26 @@ Proof
       first_x_assum drule
       >> dep_rewrite.DEP_REWRITE_TAC[EL_MAP,EL_APPEND1,equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose]
       >> rw[]
-      >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_compose,MAP_MAP_o,MAP_APPEND,o_DEF,LR_TYPE_SUBST_type_preserving]
+      >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_compose,MAP_MAP_o,MAP_APPEND,o_DEF]
       >> fs[]
     )
     >> dep_rewrite.DEP_REWRITE_TAC[EL_MAP,EL_APPEND2]
     >> rgs[NOT_LESS,LESS_OR_EQ,equal_ts_on_refl]
   )
   >> first_assum $ qspec_then `0` $ mp_tac o ONCE_REWRITE_RULE[equal_ts_on_symm]
-  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,equal_ts_on_FV]
+  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose,equal_ts_on_FV]
   >> conj_asm1_tac
   >- (REWRITE_TAC[GSYM EL] >> fs[])
   >> rw[]
   >> drule_then match_mp_tac var_renaming_sol_seq_measure
-  >> rgs[LR_TYPE_SUBST_type_preserving]
+  >> rgs[]
   >> rpt (PRED_ASSUM (exists (curry op = "rs")
     o map (fst o dest_var) o find_terms is_var) kall_tac)
   >> rpt (PRED_ASSUM (exists (curry op = "LAST")
     o map (fst o dest_const) o find_terms is_const) mp_tac)
   >> ONCE_REWRITE_TAC[equal_ts_on_symm]
   >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,LAST_EL]
-  >> rw[LR_TYPE_SUBST_type_preserving]
+  >> rw[]
   >> qpat_x_assum `LR_TYPE_SUBST s _ = _` kall_tac
   >> qmatch_goalsub_abbrev_tac `sol_seq_measure r0_p0 _`
   >> qmatch_asmsub_abbrev_tac `sol_seq_measure rn_qn _`
@@ -3637,7 +3626,6 @@ Proof
   )
   >> `is_const_or_type rn_qn /\ is_const_or_type r0_p0` by (
     map_every qunabbrev_tac [`rn_qn`,`r0_p0`]
-    >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_type_preserving]
     >> ONCE_REWRITE_TAC[GSYM EL]
     >> fs[]
   )
@@ -3655,7 +3643,7 @@ Proof
   >> dxrule LESS_EQUAL_ANTISYM
   >> rw[type_size_LR_TYPE_SUBST]
   >> qpat_x_assum `LENGTH _ < LENGTH _` mp_tac
-  >> dep_rewrite.DEP_REWRITE_TAC[GSYM ALL_DISTINCT_CARD_LIST_TO_SET,FV_ALL_DISTINCT,LR_TYPE_SUBST_type_preserving]
+  >> dep_rewrite.DEP_REWRITE_TAC[GSYM ALL_DISTINCT_CARD_LIST_TO_SET,FV_ALL_DISTINCT]
   >> rw[]
   >> ntac 2 (qhdtm_x_assum ‘is_const_or_type’ mp_tac)
   >> rw[is_const_or_type_eq]
@@ -3822,13 +3810,13 @@ Theorem has_mg_sol_leq_imp:
   /\ EVERY (UNCURRY dep) pqs
   ==> is_instance_LR p (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs)))
 Proof
-  rw[has_mg_sol_leq_def,is_instance_LR_eq,LR_TYPE_SUBST_type_preserving]
+  rw[has_mg_sol_leq_def,is_instance_LR_eq]
   >> fs[]
   >> imp_res_tac mg_sol_seq_is_const_or_type
   >> imp_res_tac mg_sol_seq_LENGTH
   >> qpat_x_assum `LR_TYPE_SUBST _ _ = _` mp_tac
   >> dep_rewrite.DEP_REWRITE_TAC[LAST_EL]
-  >> fs[NOT_NIL_EQ_LENGTH_NOT_0,LR_TYPE_SUBST_type_preserving]
+  >> fs[NOT_NIL_EQ_LENGTH_NOT_0]
   >> drule_then (rev_drule_then $ qspec_then `PRE (LENGTH pqs)` mp_tac) mg_solution
   >> `MEM (EL (PRE $ LENGTH pqs) pqs) pqs` by fs[EL_MEM]
   >> qpat_x_assum `EVERY _ _` $ dxrule_then assume_tac o REWRITE_RULE[EVERY_MEM]
@@ -3851,12 +3839,12 @@ Theorem has_mg_sol_geq_imp:
   /\ EVERY (UNCURRY dep) pqs
   ==> is_instance_LR (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs))) p
 Proof
-  rw[has_mg_sol_geq_def,is_instance_LR_eq,LR_TYPE_SUBST_type_preserving]
+  rw[has_mg_sol_geq_def,is_instance_LR_eq]
   >> fs[]
   >> imp_res_tac mg_sol_seq_is_const_or_type
   >> imp_res_tac mg_sol_seq_LENGTH
   >> dep_rewrite.DEP_REWRITE_TAC[LAST_EL]
-  >> fs[NOT_NIL_EQ_LENGTH_NOT_0,LR_TYPE_SUBST_type_preserving]
+  >> fs[NOT_NIL_EQ_LENGTH_NOT_0]
   >> drule_then (rev_drule_then $ qspec_then `PRE (LENGTH pqs)` mp_tac) mg_solution
   >> `MEM (EL (PRE $ LENGTH pqs) pqs) pqs` by fs[EL_MEM]
   >> qpat_x_assum `EVERY _ _` $ dxrule_then assume_tac o REWRITE_RULE[EVERY_MEM]
@@ -3868,7 +3856,7 @@ Proof
   >> strip_tac
   >> asm_rewrite_tac[]
   >> qexists_tac `MAP (TYPE_SUBST s ## I) (MAP SWAP e) ++ s`
-  >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose,var_renaming_SWAP_LR_id]
+  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose,var_renaming_SWAP_LR_id]
   >> fs[]
 QED
 
@@ -4011,7 +3999,7 @@ Proof
       >> fs[EVERY_TAKE,wf_pqs_def,ELIM_UNCURRY,EL_TAKE]
     )
     >> ntac 2 $ first_x_assum $ qspec_then `i'` mp_tac
-    >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose,equal_ts_on_FV,EL_MAP,EL_TAKE,EL_COUNT_LIST,LR_TYPE_SUBST_type_preserving,EL_APPEND1]
+    >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose,equal_ts_on_FV,EL_MAP,EL_TAKE,EL_COUNT_LIST,EL_APPEND1]
     >> fs[LENGTH_COUNT_LIST]
   )
   >> rw[path_starting_at_def,EVERY_TAKE]
@@ -4711,7 +4699,7 @@ Proof
     >> fs[EL_MEM]
   )
   >> disch_then $ drule_then strip_assume_tac
-  >> fs[var_renaming_type_size_LR,LR_TYPE_SUBST_type_preserving,var_renaming_FV_LENGTH]
+  >> fs[var_renaming_type_size_LR,var_renaming_FV_LENGTH]
 QED
 
 Theorem seq_k_asc_inf_seq_k_asc_inf_LDROP:
@@ -4821,7 +4809,7 @@ Proof
   >> rw[GSYM DROP_LTAKE_EQ_LTAKE_LDROP]
   >> goal_assum drule
   >> drule_then assume_tac sol_seq_inf_is_const_or_type
-  >> dep_rewrite.DEP_REWRITE_TAC[LNTH_THE_DROP,LAST_DROP,LR_TYPE_SUBST_type_preserving,LAST_EL]
+  >> dep_rewrite.DEP_REWRITE_TAC[LNTH_THE_DROP,LAST_DROP,LAST_EL]
   >> fs[DROP_NIL,NULL_EQ,infin_or_leq_def,FORALL_AND_THM,NOT_NIL_EQ_LENGTH_NOT_0,ADD1]
   >> conj_asm1_tac
   >- (
@@ -5091,7 +5079,7 @@ Proof
     >> first_x_assum $ qspec_then `0` mp_tac
     >> ntac 3 $ first_x_assum $ qspec_then `i` assume_tac
     >> fs[LESS_TRANS]
-    >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose,equal_ts_on_FV]
+    >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose,equal_ts_on_FV]
     >> conj_asm1_tac
     >- (
       fs[wf_pqs_inf_def,sol_seq_inf_def]
@@ -5104,7 +5092,7 @@ Proof
     >> rw[LNTH]
     >> drule_then match_mp_tac var_renaming_sol_seq_measure'
     >> qspecl_then [`pqs`,`0`,`SUC $ g i`,`0`] mp_tac EL_LTAKE_LDROP_LNTH
-    >> fs[LR_TYPE_SUBST_type_preserving,LNTH,LESS_TRANS]
+    >> fs[LNTH,LESS_TRANS]
     >> disch_then $ fs o single
   )
   >> `!i. type_size_LR (LR_TYPE_SUBST (HD (ρ (g $ SUC i))) (FST $ THE $ LHD pqs))
@@ -5150,7 +5138,7 @@ Proof
     >> imp_res_tac mg_sol_seq_LENGTH
     >> first_x_assum $ qspec_then `0` mp_tac
     >> fs[LTAKE_FRONT_LNTH_LAST,NOT_LFINITE_LENGTH,LESS_EQ,LNTH]
-    >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose]
+    >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose]
     >> conj_asm1_tac
     >- (
       fs[wf_pqs_inf_def,sol_seq_inf_def]
@@ -5165,7 +5153,7 @@ Proof
     >> disch_then $ dep_rewrite.DEP_REWRITE_TAC o single
     >> drule $ ONCE_REWRITE_RULE[CONJ_COMM] var_renaming_FV_LENGTH
     >> disch_then $ dep_rewrite.DEP_REWRITE_TAC o single
-    >> fs[LR_TYPE_SUBST_type_preserving]
+    >> fs[]
   )
   >> Cases_on `
     ?kk. !i. kk < i ==>
@@ -5288,7 +5276,7 @@ Proof
   )
   >> impl_keep_tac
   >- fs[NOT_LFINITE_LENGTH]
-  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose]
+  >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose]
   >> fs[LNTH]
   >> conj_asm1_tac
   >- (
@@ -5311,7 +5299,7 @@ Proof
   >> match_mp_tac LESS_EQ_LESS_TRANS
   >> qexists_tac `type_size_LR $ LR_TYPE_SUBST (HD es) b`
   >> qunabbrev_tac `b`
-  >> dep_rewrite.DEP_REWRITE_TAC[type_size_LR_TYPE_SUBST,LR_TYPE_SUBST_type_preserving]
+  >> dep_rewrite.DEP_REWRITE_TAC[type_size_LR_TYPE_SUBST]
   >> fs[]
 QED
 
@@ -5418,7 +5406,7 @@ Theorem wf_dep_subst_clos:
 Proof
   ntac 2 Cases
   >> rw[subst_clos_def]
-  >> fs[LR_TYPE_SUBST_type_preserving,INST_def,INST_CORE_def,wf_dep_def,is_const_or_type_eq]
+  >> fs[INST_def,INST_CORE_def,wf_dep_def,is_const_or_type_eq]
   >> res_tac
   >> gvs[is_const_or_type_eq,INST_def,INST_CORE_def]
 QED
@@ -6145,7 +6133,7 @@ Proof
     >> drule_all_then (irule_at Any) path_starting_at_var_renaming
     >> imp_res_tac $ cj 1 $ iffLR path_starting_at_def
     >> imp_res_tac path_starting_at_LENGTH
-    >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose,GSYM EL,LAST_MAP,EL_MAP]
+    >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose,GSYM EL,LAST_MAP,EL_MAP]
     >> conj_asm1_tac
     >- fs[Excl"EL",Excl"EL_restricted",EL_MEM,wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,FORALL_AND_THM,IMP_CONJ_THM,LAST_EL,GSYM LENGTH_NOT_NULL,GSYM NULL_EQ]
     >> gs[LENGTH_NOT_NULL,NULL_EQ,GSYM LAST_EL,var_renaming_SWAP_LR_id']
@@ -6153,7 +6141,7 @@ Proof
   >> drule_all_then (irule_at Any) path_starting_at_var_renaming
   >> imp_res_tac path_starting_at_LENGTH
   >> REWRITE_TAC[GSYM EL]
-  >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose,GSYM EL,LAST_MAP,EL_MAP]
+  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose,GSYM EL,LAST_MAP,EL_MAP]
   >> imp_res_tac $ cj 1 $ iffLR path_starting_at_def
   >> fs[Excl"EL",Excl"EL_restricted",EL_MEM,wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,FORALL_AND_THM,IMP_CONJ_THM,LAST_EL,GSYM LENGTH_NOT_NULL,GSYM NULL_EQ]
 QED
@@ -6173,7 +6161,7 @@ Proof
     >> fs[wf_pqs_CONS]
   )
   >> Cases_on `pqs` >> Cases_on `rs`
-  >> gvs[ELIM_UNCURRY,wf_pqs_def,LR_TYPE_SUBST_type_preserving]
+  >> gvs[ELIM_UNCURRY,wf_pqs_def]
   >> PairCases_on `h`
   >> qhdtm_assum `monotone` $ imp_res_tac o SIMP_RULE (srw_ss()) [monotone_def,CURRY_DEF,list_subset_set]
   >> dxrule_all equal_ts_on_subset
@@ -6219,7 +6207,7 @@ Theorem has_path_to_is_const_or_type:
   !dep n x y. has_path_to dep n x y ==> is_const_or_type x /\ is_const_or_type y
 Proof
   rw[has_path_to_def,path_starting_at_def,wf_pqs_def,EVERY_MEM,FORALL_AND_THM,IMP_CONJ_THM,ELIM_UNCURRY]
-  >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_type_preserving,LAST_EL,GSYM EL]
+  >> dep_rewrite.DEP_REWRITE_TAC[LAST_EL,GSYM EL]
   >> fs[EL_MEM,GSYM NULL_EQ,GSYM LENGTH_NOT_NULL,Excl"EL",Excl"EL_restricted"]
 QED
 
@@ -6238,7 +6226,7 @@ Proof
     )
     >> gs[LENGTH_NOT_NULL,NULL_EQ,LAST_EL,path_starting_at_def,Once equiv_ts_on_symm]
     >> fs[equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
-    >> gs[is_instance_LR_var_renaming1,LR_TYPE_SUBST_type_preserving]
+    >> gs[is_instance_LR_var_renaming1]
   )
   >> drule_then strip_assume_tac path_starting_at_norm
   >> drule_then assume_tac $ cj 1 $ iffLR path_starting_at_def
@@ -6248,8 +6236,7 @@ Proof
   >> imp_res_tac $ cj 3 $ iffLR path_starting_at_def
   >> gs[LENGTH_NOT_NULL,NULL_EQ,LAST_EL]
   >> gs[GSYM LENGTH_NOT_NULL,GSYM NULL_EQ,equal_ts_on_FV,EL_MEM,
-    LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose,
-    is_instance_LR_var_renaming2,EL_MEM,LR_TYPE_SUBST_type_preserving,
+    GSYM LR_TYPE_SUBST_compose,is_instance_LR_var_renaming2,
     Excl"EL",GSYM EL,Excl"EL_restricted"]
 QED
 
@@ -6536,7 +6523,7 @@ Proof
   >> res_tac
   >> qpat_x_assum `wf_pqs dep` $ imp_res_tac o REWRITE_RULE[EVERY_MEM,wf_pqs_def]
   >> qmatch_assum_abbrev_tac `~xx ==> x = _` >> Cases_on `xx`
-  >> fs[LR_TYPE_SUBST_type_preserving,ELIM_UNCURRY]
+  >> fs[ELIM_UNCURRY]
 QED
 
 Theorem composable_step_complete_INL':
@@ -6743,7 +6730,7 @@ Proof
   rpt strip_tac
   >> imp_res_tac unify_LR_sound
   >> gs[invertible_on_equiv_ts_on_FV,Once equiv_ts_on_symm]
-  >> gvs[equiv_ts_on_FV,LR_TYPE_SUBST_NIL,LR_TYPE_SUBST_type_preserving]
+  >> gvs[equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
   >> rw[LR_TYPE_SUBST_compose,is_instance_LR_simps]
 QED
 
@@ -6756,7 +6743,7 @@ Proof
   rpt strip_tac
   >> drule_then (assume_tac o GSYM) unify_LR_sound
   >> gs[invertible_on_equiv_ts_on_FV,Once equiv_ts_on_symm]
-  >> gvs[equiv_ts_on_FV,LR_TYPE_SUBST_type_preserving,LR_TYPE_SUBST_NIL]
+  >> gvs[equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
   >> rw[LR_TYPE_SUBST_compose,is_instance_LR_simps]
 QED
 
@@ -6769,8 +6756,8 @@ Proof
     >> drule_at Any $ Ho_Rewrite.REWRITE_RULE[IS_SOME_EXISTS,PULL_EXISTS,AND_IMP_INTRO,GSYM CONJ_ASSOC] $ iffLR unify_LR_complete
     >> impl_keep_tac
     >- (
-      dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_type_preserving,LAST_EL]
-      >> gs[path_starting_at_def,LR_TYPE_SUBST_type_preserving,wf_pqs_def,wf_dep_def,ELIM_UNCURRY,EVERY_MEM,FORALL_AND_THM,IMP_CONJ_THM,EL_MEM,GSYM LENGTH_NOT_NULL,GSYM NULL_EQ]
+      dep_rewrite.DEP_REWRITE_TAC[LAST_EL]
+      >> gs[path_starting_at_def,wf_pqs_def,wf_dep_def,ELIM_UNCURRY,EVERY_MEM,FORALL_AND_THM,IMP_CONJ_THM,EL_MEM,GSYM LENGTH_NOT_NULL,GSYM NULL_EQ]
       >> res_tac
     )
     >> imp_res_tac unify_LR_sound
@@ -6789,19 +6776,19 @@ Proof
   >> drule_then assume_tac $ cj 1 $ iffLR path_starting_at_def
   >> imp_res_tac path_starting_at_LENGTH
   >> gs[LENGTH_NOT_NULL,NULL_EQ,LAST_EL,wf_pqs_def,EVERY_MEM,ELIM_UNCURRY]
-  >> gs[GSYM LENGTH_NOT_NULL,GSYM NULL_EQ,equal_ts_on_FV,EL_MEM,LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving]
+  >> gs[GSYM LENGTH_NOT_NULL,GSYM NULL_EQ,equal_ts_on_FV,EL_MEM,GSYM LR_TYPE_SUBST_compose]
   >> imp_res_tac $ cj 3 $ iffLR path_starting_at_def
   >> qhdtm_assum `wf_dep` $ drule_then strip_assume_tac o REWRITE_RULE [wf_dep_def]
-  >> gs[is_instance_LR_var_renaming1,is_instance_LR_var_renaming2,orth_LR_var_renaming1,EL_MEM,LR_TYPE_SUBST_type_preserving]
+  >> gs[is_instance_LR_var_renaming1,is_instance_LR_var_renaming2,orth_LR_var_renaming1,EL_MEM]
   >> qpat_x_assum `!n:num. _` kall_tac
   >> qmatch_goalsub_abbrev_tac `rs_pqs # p`
   >> Cases_on `rs_pqs # p` >> fs[]
   >> drule_at Any $ iffRL unify_LR_complete
   >> unabbrev_all_tac
-  >> fs[IS_SOME_EXISTS,LR_TYPE_SUBST_type_preserving,EL_MEM]
+  >> fs[IS_SOME_EXISTS,EL_MEM]
   >> disch_then $ qx_choose_then `x` strip_assume_tac >> PairCases_on `x`
   >> disch_then $ drule_then strip_assume_tac
-  >> fs[unify_LR_invertible_on_is_instance_LR1,unify_LR_invertible_on_is_instance_LR2,LR_TYPE_SUBST_type_preserving,EL_MEM]
+  >> fs[unify_LR_invertible_on_is_instance_LR1,unify_LR_invertible_on_is_instance_LR2,EL_MEM]
 QED
 
 Theorem composable_until_SUC:
@@ -6923,7 +6910,7 @@ Proof
   >> rw[wf_pqs_def,EVERY_MEM,EVERY_MAP]
   >> qpat_x_assum `wf_pqs dep` $ imp_res_tac o REWRITE_RULE[EVERY_MEM,wf_pqs_def]
   >> qmatch_assum_abbrev_tac `~xx ==> x = _` >> Cases_on `xx`
-  >> fs[LR_TYPE_SUBST_type_preserving,ELIM_UNCURRY]
+  >> fs[ELIM_UNCURRY]
 QED
 
 Theorem dep_step_sound_INL':
@@ -6942,7 +6929,7 @@ Proof
     >> rw[wf_pqs_def,EVERY_MEM,EVERY_MAP]
     >> qpat_x_assum `wf_pqs dep` $ imp_res_tac o REWRITE_RULE[EVERY_MEM,wf_pqs_def]
     >> qmatch_assum_abbrev_tac `~xx ==> x = _` >> Cases_on `xx`
-    >> fs[LR_TYPE_SUBST_type_preserving,ELIM_UNCURRY]
+    >> fs[ELIM_UNCURRY]
   )
   >> dsimp[] >> gen_tac
   >> qmatch_goalsub_abbrev_tac `(A \/ B) = (A \/ C)`
@@ -7098,8 +7085,7 @@ Proof
   >> drule_then assume_tac $ cj 1 $ iffLR path_starting_at_def
   >> impl_keep_tac
   >- (
-    irule_at Any LR_TYPE_SUBST_type_preserving
-    >> fs[wf_pqs_def,EVERY_MEM,LAST_EL,LENGTH_NOT_NULL,NULL_EQ,ELIM_UNCURRY]
+    fs[wf_pqs_def,EVERY_MEM,LAST_EL,LENGTH_NOT_NULL,NULL_EQ,ELIM_UNCURRY]
     >> fs[GSYM LENGTH_NOT_NULL,GSYM NULL_EQ,EL_MEM]
   )
   >> disch_then $ fs o single
@@ -7114,7 +7100,7 @@ Proof
     >> fs[GSYM LR_TYPE_SUBST_compose,Excl"EL",Excl"EL_restricted",GSYM EL,EL_APPEND1,sol_seq_def,wf_pqs_CONS]
   )
   >> qmatch_asmsub_abbrev_tac `~xx` >> Cases_on `xx`
-  >> gvs[invertible_on_equiv_ts_on_FV,LR_TYPE_SUBST_type_preserving]
+  >> gvs[invertible_on_equiv_ts_on_FV]
   >- (
     Cases_on `p` >> fs[]
     >> qhdtm_assum `monotone` $ imp_res_tac o SIMP_RULE (srw_ss()) [monotone_def,CURRY_DEF,list_subset_set]
@@ -7151,8 +7137,7 @@ Proof
   >> drule_then assume_tac $ cj 1 $ iffLR path_starting_at_def
   >> impl_keep_tac
   >- (
-    irule_at Any LR_TYPE_SUBST_type_preserving
-    >> fs[wf_pqs_def,EVERY_MEM,LAST_EL,LENGTH_NOT_NULL,NULL_EQ,ELIM_UNCURRY]
+    fs[wf_pqs_def,EVERY_MEM,LAST_EL,LENGTH_NOT_NULL,NULL_EQ,ELIM_UNCURRY]
     >> fs[GSYM LENGTH_NOT_NULL,GSYM NULL_EQ,EL_MEM]
   )
   >> disch_then $ fs o single
@@ -7161,21 +7146,21 @@ Proof
   >> goal_assum $ drule_at Any
   >> qmatch_goalsub_abbrev_tac `uf = SOME _`
   >> `IS_SOME uf` by (
-    fs[Abbr`uf`,unify_LR_complete,orth_LR_is_instance_LR_equiv,LR_TYPE_SUBST_type_preserving]
-    >> metis_tac[is_instance_LR_refl,is_instance_LR_simps,LR_TYPE_SUBST_type_preserving]
+    fs[Abbr`uf`,unify_LR_complete,orth_LR_is_instance_LR_equiv]
+    >> metis_tac[is_instance_LR_refl,is_instance_LR_simps]
   )
   >> fs[IS_SOME_EXISTS,Abbr`uf`]
   >> qmatch_assum_abbrev_tac `_ = SOME xx` >> PairCases_on `xx`
   >> drule_at Any unify_LR_LR_TYPE_SUBST
   >> gs[GSYM PULL_EXISTS,invertible_on_equiv_ts_on_FV]
-  >> rw[GSYM equiv_ts_on_FV,EQ_SYM_EQ,equiv_ts_on_symm,LR_TYPE_SUBST_type_preserving]
+  >> rw[GSYM equiv_ts_on_FV,EQ_SYM_EQ,equiv_ts_on_symm]
   >> `set dep y'` by fs[path_starting_at_def]
   >> PairCases_on `y'`
   >> qhdtm_assum `monotone` $ imp_res_tac o SIMP_RULE (srw_ss()) [monotone_def,list_subset_set]
   >> qmatch_goalsub_abbrev_tac `~xx ==> _` >> Cases_on `xx` >> fs[]
   >- (
     irule_at Any var_renaming_compose
-    >> fs[GSYM clean_tysubst_LR_TYPE_SUBST_eq,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving]
+    >> fs[GSYM clean_tysubst_LR_TYPE_SUBST_eq,GSYM LR_TYPE_SUBST_compose]
     >> dxrule_all_then assume_tac equiv_ts_on_trans
     >> fs[Once equiv_ts_on_symm]
     >> dxrule_all equiv_ts_on_subset
@@ -7192,10 +7177,10 @@ Proof
   >> fs[Once equiv_ts_on_symm]
   >> rw[equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
   >> irule_at Any var_renaming_compose
-  >> fs[GSYM clean_tysubst_LR_TYPE_SUBST_eq,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving]
+  >> fs[GSYM clean_tysubst_LR_TYPE_SUBST_eq,GSYM LR_TYPE_SUBST_compose]
   >> qmatch_goalsub_abbrev_tac `LR_TYPE_SUBST (MAP SWAP s') (LR_TYPE_SUBST e _)`
   >> map_every qexists_tac [`MAP SWAP e`,`MAP SWAP (MAP SWAP s')`]
-  >> fs[var_renaming_SWAP_IMP,var_renaming_SWAP_LR_id,LR_TYPE_SUBST_type_preserving]
+  >> fs[var_renaming_SWAP_IMP,var_renaming_SWAP_LR_id]
 QED
 
 composable_dep_eq
