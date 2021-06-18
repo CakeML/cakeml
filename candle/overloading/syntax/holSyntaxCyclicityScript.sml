@@ -2180,6 +2180,26 @@ Proof
   rw[path_starting_at_def,GSYM MAP_DROP,sol_seq_TYPE_SUBST,EL_MAP,equiv_ts_on_compose]
 QED
 
+Theorem path_starting_at_norm:
+  !dep rs pqs. path_starting_at dep 0 rs pqs
+  ==> ?rs' s. path_starting_at dep 0 rs' pqs /\ var_renaming s
+    /\ equal_ts_on [] (HD rs') (FV $ FST $ HD pqs)
+    /\ !i. i < LENGTH pqs ==>
+    equal_ts_on (EL i rs) (MAP (TYPE_SUBST s ## I) (EL i rs') ++ s) (FV $ FST $ EL i pqs)
+    /\ equal_ts_on (EL i rs) (MAP (TYPE_SUBST s ## I) (EL i rs') ++ s) (FV $ SND $ EL i pqs)
+Proof
+  rw[]
+  >> drule_then assume_tac $ cj 5 $ iffLR path_starting_at_def
+  >> drule_then assume_tac $ cj 1 $ iffLR path_starting_at_def
+  >> gs[equiv_ts_on_def,EVERY_MEM,ELIM_UNCURRY,wf_pqs_def]
+  >> drule_all_then (irule_at Any) path_starting_at_var_renaming
+  >> drule_then (irule_at Any) var_renaming_SWAP_IMP
+  >> imp_res_tac path_starting_at_LENGTH
+  >> fs[EL_MAP,Excl"EL",GSYM EL,Excl"EL_restricted"]
+  >> drule_then assume_tac $ cj 3 $ iffLR path_starting_at_def
+  >> rw[equal_ts_on_FV,EL_MEM,LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose,EL_MAP,var_renaming_SWAP_LR_id]
+QED
+
 Definition is_instance_LR_def:
   (is_instance_LR (INR c1) (INR c2) =
     ?m ty1 ty2. c1 = Const m ty1 /\ c2 = Const m ty2 /\ is_instance ty1 ty2)
