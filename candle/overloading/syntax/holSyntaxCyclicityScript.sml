@@ -2238,7 +2238,7 @@ Proof
   >> fs[is_instance_simps,Once EQ_SYM_EQ]
 QED
 
-Theorem is_instance_LR_simps':
+Theorem is_instance_LR_refl:
   !t. is_const_or_type t ==> is_instance_LR t t
 Proof
   fs[is_instance_simps,LR_TYPE_SUBST_cases,is_const_or_type_eq,PULL_EXISTS,DISJ_IMP_THM,FORALL_AND_THM,is_instance_LR_eq]
@@ -2253,18 +2253,7 @@ Proof
   >> rpt gen_tac >> irule_at Any EQ_REFL
 QED
 
-Theorem is_instance_LR_simps''':
-  !p q i. var_renaming i /\ is_const_or_type p /\ is_const_or_type q
-  ==> is_instance_LR p (LR_TYPE_SUBST i q) = is_instance_LR p q
-Proof
-  rw[EQ_IMP_THM,is_instance_LR_simps'',is_instance_LR_eq]
-  >> drule_all $ GSYM var_renaming_SWAP_LR_id'
-  >> disch_then $ fs o single o GSYM
-  >> fs[LR_TYPE_SUBST_compose]
-  >> irule_at Any EQ_REFL
-QED
-
-Theorem is_instance_LR_var_renaming:
+Theorem is_instance_LR_var_renaming1:
   !p q s. var_renaming s /\ is_const_or_type p /\ is_const_or_type q
   ==> is_instance_LR (LR_TYPE_SUBST s p) q = is_instance_LR p q
 Proof
@@ -2276,25 +2265,22 @@ Proof
   >> fs[var_renaming_SWAP_LR_id]
 QED
 
-Theorem is_instance_LR_var_renaming' = is_instance_LR_simps'''
+Theorem is_instance_LR_var_renaming2:
+  !p q i. var_renaming i /\ is_const_or_type p /\ is_const_or_type q
+  ==> is_instance_LR p (LR_TYPE_SUBST i q) = is_instance_LR p q
+Proof
+  rw[EQ_IMP_THM,is_instance_LR_simps'',is_instance_LR_eq]
+  >> drule_all $ GSYM var_renaming_SWAP_LR_id'
+  >> disch_then $ fs o single o GSYM
+  >> fs[LR_TYPE_SUBST_compose]
+  >> irule_at Any EQ_REFL
+QED
 
-Theorem is_instance_LR_var_renaming'':
+Theorem is_instance_LR_var_renaming12:
   !p q s. var_renaming s /\ is_const_or_type p /\ is_const_or_type q
   ==> is_instance_LR (LR_TYPE_SUBST s p) (LR_TYPE_SUBST s q) = is_instance_LR p q
 Proof
-  rw[EQ_IMP_THM,is_instance_LR_eq,LR_TYPE_SUBST_type_preserving]
-  >- (
-    qhdtm_x_assum`LR_TYPE_SUBST` $ assume_tac o GSYM
-    >> drule_at_then Any drule_all var_renaming_SWAP_LR_id'
-    >> rw[LR_TYPE_SUBST_compose]
-    >> irule_at Any EQ_REFL
-  )
-  >> qmatch_goalsub_abbrev_tac `LR_TYPE_SUBST s (LR_TYPE_SUBST s' _)`
-  >> qabbrev_tac `s'oSWAPs = MAP (TYPE_SUBST s' ## I) (MAP SWAP s) ++ s'`
-  >> qexists_tac `MAP (TYPE_SUBST s ## I) s'oSWAPs ++ s`
-  >> unabbrev_all_tac
-  >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving]
-  >> fs[var_renaming_SWAP_LR_id]
+  fs[is_instance_LR_var_renaming1,is_instance_LR_var_renaming2,LR_TYPE_SUBST_type_preserving]
 QED
 
 Theorem equiv_is_instance_LR:
@@ -2302,7 +2288,7 @@ Theorem equiv_is_instance_LR:
   /\ equiv x y ==> is_instance_LR x y /\ is_instance_LR y x
 Proof
   rw[equiv_def]
-  >> fs[is_instance_LR_simps',is_instance_LR_var_renaming,is_instance_LR_var_renaming']
+  >> fs[is_instance_LR_refl,is_instance_LR_var_renaming1,is_instance_LR_var_renaming2]
 QED
 
 Theorem path_starting_at_not_is_instance_LR_eq:
@@ -2430,9 +2416,10 @@ Proof
   dsimp[EQ_IMP_THM,AND_IMP_INTRO]
   >> ONCE_REWRITE_TAC[MONO_NOT_EQ]
   >> rw[DISJ_EQ_IMP]
-  >> gs[orth_LR_is_instance_LR_equiv,LR_TYPE_SUBST_type_preserving,is_instance_LR_var_renaming,is_instance_LR_var_renaming']
+  >>
+  gs[orth_LR_is_instance_LR_equiv,LR_TYPE_SUBST_type_preserving,is_instance_LR_var_renaming1,is_instance_LR_var_renaming2]
   >> goal_assum $ drule_at (Pos last)
-  >> fs[is_instance_LR_var_renaming,LR_TYPE_SUBST_type_preserving]
+  >> fs[is_instance_LR_var_renaming1,LR_TYPE_SUBST_type_preserving]
 QED
 
 Theorem orth_LR_var_renaming2:
@@ -6251,7 +6238,7 @@ Proof
     )
     >> gs[LENGTH_NOT_NULL,NULL_EQ,LAST_EL,path_starting_at_def,Once equiv_ts_on_symm]
     >> fs[equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
-    >> gs[is_instance_LR_var_renaming,LR_TYPE_SUBST_type_preserving]
+    >> gs[is_instance_LR_var_renaming1,LR_TYPE_SUBST_type_preserving]
   )
   >> drule_then strip_assume_tac path_starting_at_norm
   >> drule_then assume_tac $ cj 1 $ iffLR path_starting_at_def
@@ -6262,7 +6249,7 @@ Proof
   >> gs[LENGTH_NOT_NULL,NULL_EQ,LAST_EL]
   >> gs[GSYM LENGTH_NOT_NULL,GSYM NULL_EQ,equal_ts_on_FV,EL_MEM,
     LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose,
-    is_instance_LR_var_renaming',EL_MEM,LR_TYPE_SUBST_type_preserving,
+    is_instance_LR_var_renaming2,EL_MEM,LR_TYPE_SUBST_type_preserving,
     Excl"EL",GSYM EL,Excl"EL_restricted"]
 QED
 
@@ -6805,7 +6792,7 @@ Proof
   >> gs[GSYM LENGTH_NOT_NULL,GSYM NULL_EQ,equal_ts_on_FV,EL_MEM,LR_TYPE_SUBST_type_preserving,GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving]
   >> imp_res_tac $ cj 3 $ iffLR path_starting_at_def
   >> qhdtm_assum `wf_dep` $ drule_then strip_assume_tac o REWRITE_RULE [wf_dep_def]
-  >> gs[is_instance_LR_var_renaming,is_instance_LR_var_renaming',is_instance_LR_var_renaming'',orth_LR_var_renaming1,EL_MEM,LR_TYPE_SUBST_type_preserving]
+  >> gs[is_instance_LR_var_renaming1,is_instance_LR_var_renaming2,orth_LR_var_renaming1,EL_MEM,LR_TYPE_SUBST_type_preserving]
   >> qpat_x_assum `!n:num. _` kall_tac
   >> qmatch_goalsub_abbrev_tac `rs_pqs # p`
   >> Cases_on `rs_pqs # p` >> fs[]
@@ -7175,7 +7162,7 @@ Proof
   >> qmatch_goalsub_abbrev_tac `uf = SOME _`
   >> `IS_SOME uf` by (
     fs[Abbr`uf`,unify_LR_complete,orth_LR_is_instance_LR_equiv,LR_TYPE_SUBST_type_preserving]
-    >> metis_tac[is_instance_LR_simps',is_instance_LR_simps,LR_TYPE_SUBST_type_preserving]
+    >> metis_tac[is_instance_LR_refl,is_instance_LR_simps,LR_TYPE_SUBST_type_preserving]
   )
   >> fs[IS_SOME_EXISTS,Abbr`uf`]
   >> qmatch_assum_abbrev_tac `_ = SOME xx` >> PairCases_on `xx`
