@@ -435,7 +435,7 @@ val empty_config_def = Define`
   empty_config =
     <| next := <| vidx := 0; tidx := 0; eidx := 0 |>;
         mod_env := empty_env;
-        pattern_cfg := flat_pattern$init_config (K 0);
+        pattern_cfg := flat_pattern$init_config 0;
         envs := <| next := 0; env_gens := LN |>
     |>`;
 

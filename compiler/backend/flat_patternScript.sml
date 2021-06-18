@@ -16,7 +16,7 @@ val _ = set_grammar_ancestry ["misc","flatLang","sptree",
     "pattern_semantics"];
 
 val _ = Datatype `config =
-  <| pat_heuristic : (* pattern_matching$branch list *) unit -> num |>`;
+  <| pat_heuristic : (* pattern_matching$branch list *) (* unit -> *) num |>`;
 
 Definition init_config_def:
   init_config ph = <| pat_heuristic := ph |>
@@ -308,4 +308,3 @@ Definition compile_dec_def:
 End
 
 val _ = export_theory()
-
