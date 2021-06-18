@@ -20,8 +20,26 @@ val enc_dec_mapping =
         (“:int”,  “int_enc'”,  “int_dec'” ),
         (“:char”, “chr_enc'”,  “chr_dec'” )]);
 
-fun reg_enc_dec ty enc dec =
+fun reg_enc_dec_only ty enc dec =
    (enc_dec_mapping := (ty,enc,dec) :: (!enc_dec_mapping));
+
+fun reg_enc_dec enc_dec_lemma = let
+  val enc_dec_lemma = SPEC_ALL enc_dec_lemma
+  val enc = enc_dec_lemma |> concl |> dest_eq |> fst |> rand |> rator
+  val dec = enc_dec_lemma |> concl |> dest_eq |> fst |> rator
+  val ty = dest_type (type_of enc) |> snd |> hd
+  val _ = reg_enc_dec_only ty enc dec
+  val th = MATCH_MP imp_enc_dec_ok (GEN_ALL enc_dec_lemma)
+  val e = th |> concl |> rator |> rand
+  val d = th |> concl |> rand
+  val e_name = enc |> dest_const |> fst |> explode |> butlast |> implode
+  val d_name = dec |> dest_const |> fst |> explode |> butlast |> implode
+  val e_def = mk_eq(mk_var(e_name,type_of e), e)
+    |> ANTIQUOTE |> single |> Define
+  val d_def = mk_eq(mk_var(d_name,type_of d), d)
+    |> ANTIQUOTE |> single |> Define
+  val th = th |> REWRITE_RULE [GSYM e_def,GSYM d_def]
+  in save_thm(e_name ^ "_dec_ok",th) end
 
 fun get_enc_dec_for ty =
   if can listSyntax.dest_list_type ty then
@@ -47,7 +65,7 @@ fun enc_dec_for ty = let
   val enc_tm = mk_var(enc_name,mk_type("fun",[ty,“:num_tree”]))
   val dec_name = name ^ "_dec'"
   val dec_tm = mk_var(dec_name,mk_type("fun",[“:num_tree”,ty]))
-  val _ = reg_enc_dec ty enc_tm dec_tm
+  val _ = reg_enc_dec_only ty enc_tm dec_tm
   val cs = TypeBase.constructors_of ty
   fun arg_types ty =
     let val (n,xs) = dest_type ty
@@ -87,13 +105,13 @@ fun define_enc_dec ty = let
   val dec_def = Define [ANTIQUOTE dec_def_tm] |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
   val (e,x) = enc_def |> CONJUNCTS |> hd |> concl |> dest_eq |> fst |> dest_comb
   val (d,_) = dec_def |> CONJUNCTS |> hd |> concl |> dest_eq |> fst |> dest_comb
-  val _ = reg_enc_dec ty e d
   val x = mk_var("x",type_of x)
   val goal = mk_forall(x,mk_eq(mk_comb(d,mk_comb(e,x)),x))
   val ty_n = type_to_string ty |> explode |> tl |> implode
              |> String.translate (fn c => if c = #"$" then "_" else implode [c])
   val lemma = prove(goal,Cases \\ fs [enc_def,dec_def])
   val _ = save_thm(ty_n ^ "_enc'_thm[simp]",lemma)
+  val _ = reg_enc_dec lemma
   in (enc_def,dec_def,lemma) end;
 
 (* tra *)
@@ -126,7 +144,7 @@ Proof
   Induct_on ‘x’ \\ fs [tra_enc'_def,Once tra_dec'_def]
 QED
 
-val _ = reg_enc_dec “:tra” “tra_enc'” “tra_dec'”;
+val _ = reg_enc_dec tra_enc'_thm;
 
 val res = define_enc_dec “:var_name”
 val res = define_enc_dec “:word_size”
@@ -182,8 +200,6 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-val _ = reg_enc_dec “:closLang$exp” “closLang_exp_enc'” “closLang_exp_dec'”;
-
 Theorem closLang_exp_enc'_thm[simp]:
   ∀x. closLang_exp_dec' (closLang_exp_enc' x) = x
 Proof
@@ -195,6 +211,8 @@ Proof
   \\ match_mp_tac pair_enc'_fst_snd
   \\ rename [‘MEM y ys’] \\ PairCases_on ‘y’ \\ gvs []
 QED
+
+val _ = reg_enc_dec closLang_exp_enc'_thm;
 
 (* BVL's exp *)
 
@@ -221,8 +239,6 @@ Termination
   \\ imp_res_tac MEM_num_tree_size \\ fs [num_tree_size_def]
 End
 
-val _ = reg_enc_dec “:bvl$exp” “bvl_exp_enc'” “bvl_exp_dec'”;
-
 Theorem bvl_exp_enc'_thm[simp]:
   ∀x. bvl_exp_dec' (bvl_exp_enc' x) = x
 Proof
@@ -232,6 +248,8 @@ Proof
   \\ fs [SF ETA_ss]
   \\ match_mp_tac list_enc'_mem \\ fs []
 QED
+
+val _ = reg_enc_dec bvl_exp_enc'_thm;
 
 (* val_approx *)
 
@@ -271,7 +289,7 @@ Proof
   \\ match_mp_tac list_enc'_mem \\ fs []
 QED
 
-val _ = reg_enc_dec “:val_approx” “val_approx_enc'” “val_approx_dec'”;
+val _ = reg_enc_dec val_approx_enc'_thm;
 
 
 
