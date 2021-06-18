@@ -2254,7 +2254,7 @@ Proof
 QED
 
 Theorem is_instance_LR_simps''':
-  !p q i. is_const_or_type p /\ is_const_or_type q /\ var_renaming i
+  !p q i. var_renaming i /\ is_const_or_type p /\ is_const_or_type q
   ==> is_instance_LR p (LR_TYPE_SUBST i q) = is_instance_LR p q
 Proof
   rw[EQ_IMP_THM,is_instance_LR_simps'',is_instance_LR_eq]
@@ -2265,7 +2265,7 @@ Proof
 QED
 
 Theorem is_instance_LR_var_renaming:
-  !p q s. is_const_or_type p /\ is_const_or_type q /\ var_renaming s
+  !p q s. var_renaming s /\ is_const_or_type p /\ is_const_or_type q
   ==> is_instance_LR (LR_TYPE_SUBST s p) q = is_instance_LR p q
 Proof
   rw[EQ_IMP_THM,is_instance_LR_eq,LR_TYPE_SUBST_type_preserving]
@@ -2276,23 +2276,10 @@ Proof
   >> fs[var_renaming_SWAP_LR_id]
 QED
 
-Theorem is_instance_LR_var_renaming':
-  !p q s. is_const_or_type p /\ is_const_or_type q /\ var_renaming s
-  ==> is_instance_LR p (LR_TYPE_SUBST s q) = is_instance_LR p q
-Proof
-  rw[EQ_IMP_THM,is_instance_LR_eq,LR_TYPE_SUBST_type_preserving]
-  >- (
-    qhdtm_x_assum`LR_TYPE_SUBST` $ assume_tac o GSYM
-    >> drule_at_then Any drule_all var_renaming_SWAP_LR_id'
-    >> rw[LR_TYPE_SUBST_compose]
-    >> irule_at Any EQ_REFL
-  )
-  >> fs[LR_TYPE_SUBST_compose]
-  >> irule_at Any EQ_REFL
-QED
+Theorem is_instance_LR_var_renaming' = is_instance_LR_simps'''
 
 Theorem is_instance_LR_var_renaming'':
-  !p q s. is_const_or_type p /\ is_const_or_type q /\ var_renaming s
+  !p q s. var_renaming s /\ is_const_or_type p /\ is_const_or_type q
   ==> is_instance_LR (LR_TYPE_SUBST s p) (LR_TYPE_SUBST s q) = is_instance_LR p q
 Proof
   rw[EQ_IMP_THM,is_instance_LR_eq,LR_TYPE_SUBST_type_preserving]
