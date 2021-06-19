@@ -363,10 +363,13 @@ val hint_earliest_def = Define`
   | SOME _ => earliest`
 
 val check_lpr_step_list_def = Define`
-  check_lpr_step_list step fml inds Clist earliest =
+  check_lpr_step_list mindel step fml inds Clist earliest =
   case step of
     Delete cl =>
-      SOME (list_delete_list cl fml, inds, Clist, earliest)
+      if EVERY ($< mindel) cl then
+        SOME (list_delete_list cl fml, inds, Clist, earliest)
+      else
+        NONE
   | PR n C w i0 ik =>
     let p = safe_hd C in
     let Clist = resize_Clist C Clist in
@@ -374,26 +377,35 @@ val check_lpr_step_list_def = Define`
       case is_PR_list fml inds Clist earliest p C w i0 ik of
         NONE => NONE
       | SOME (inds, Clist) =>
-        SOME (resize_update_list fml NONE (SOME C) n, sorted_insert n inds, Clist,
-          update_earliest earliest n C)`
-
-val is_unsat_list_def = Define`
-  is_unsat_list fml inds =
-  case reindex fml inds of
-    (_,inds') => MEM [] inds'`
+        if mindel < n then
+          SOME (resize_update_list fml NONE (SOME C) n, sorted_insert n inds, Clist,
+            update_earliest earliest n C)
+        else NONE`
 
 val check_lpr_list_def = Define`
-  (check_lpr_list [] fml inds Clist earliest = SOME (fml, inds)) ∧
-  (check_lpr_list (step::steps) fml inds Clist earliest =
-    case check_lpr_step_list step fml inds Clist earliest of
+  (check_lpr_list mindel [] fml inds Clist earliest = SOME (fml, inds)) ∧
+  (check_lpr_list mindel (step::steps) fml inds Clist earliest =
+    case check_lpr_step_list mindel step fml inds Clist earliest of
       NONE => NONE
-    | SOME (fml', inds', Clist',earliest') => check_lpr_list steps fml' inds' Clist' earliest')`
+    | SOME (fml', inds', Clist',earliest') => check_lpr_list mindel steps fml' inds' Clist' earliest')`
+
+val contains_clauses_list_def = Define`
+  contains_clauses_list fml inds cls =
+  case reindex fml inds of
+    (_,inds') => EVERY (λcl. MEM cl inds') cls`
 
 val check_lpr_unsat_list_def = Define`
   check_lpr_unsat_list lpr fml inds Clist earliest =
-  case check_lpr_list lpr fml inds Clist earliest of
+  case check_lpr_list 0 lpr fml inds Clist earliest of
     NONE => F
-  | SOME (fml', inds') => is_unsat_list fml' inds'`
+  | SOME (fml', inds') => contains_clauses_list fml' inds' [[]]`
+
+(* Checking satisfiability equivalence *)
+val check_lpr_sat_equiv_list_def = Define`
+  check_lpr_sat_equiv_list lpr fml inds Clist earliest mindel cls =
+  case check_lpr_list mindel lpr fml inds Clist earliest of
+    NONE => F
+  | SOME (fml', inds') => contains_clauses_list fml' inds' cls`
 
 (* prove that check_lpr_step_list implements check_lpr_step *)
 val fml_rel_def = Define`
@@ -1608,19 +1620,20 @@ Theorem fml_rel_check_lpr_step_list:
   EVERY ($= w8z) Clist ∧
   earliest_rel fmlls earliest ∧
   wf_fml fml ⇒
-  case check_lpr_step_list step fmlls inds Clist earliest of
+  case check_lpr_step_list mindel step fmlls inds Clist earliest of
     SOME (fmlls', inds', Clist', earliest') =>
     SORTED ($>=) inds' ∧
     EVERY ($= w8z) Clist' ∧
     ind_rel fmlls' inds' ∧
     earliest_rel fmlls' earliest' ∧
-    ∃fml'. check_lpr_step step fml = SOME fml' ∧ fml_rel fml' fmlls'
+    ∃fml'. check_lpr_step mindel step fml = SOME fml' ∧ fml_rel fml' fmlls'
   | NONE => T
 Proof
   simp[check_lpr_step_def,check_lpr_step_list_def]>>
   strip_tac>>
   Cases_on`step`>>simp[]
   >- (
+    IF_CASES_TAC>>simp[]>>
     CONJ_TAC >- metis_tac[ind_rel_list_delete_list]>>
     metis_tac[fml_rel_list_delete_list,earliest_rel_list_delete_list])>>
   rename1 `hint_earliest a b c`>>
@@ -1636,23 +1649,26 @@ Proof
   TOP_CASE_TAC>>simp[]>>
   TOP_CASE_TAC>>simp[]>>
   simp[safe_hd_def]>>
+  IF_CASES_TAC >> simp[]>>
   metis_tac[ind_rel_resize_update_list_sorted_insert,  SORTED_sorted_insert,
     fml_rel_resize_update_list,
     earliest_rel_resize_update_list0,
     earliest_rel_resize_update_list1, earliest_rel_resize_update_list2]
 QED
 
-Theorem fml_rel_is_unsat_list:
+Theorem fml_rel_contains_clauses_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
-  is_unsat_list fmlls inds ⇒
-  is_unsat fml
+  contains_clauses_list fmlls inds cls ⇒
+  contains_clauses fml cls
 Proof
-  simp[is_unsat_list_def,is_unsat_def,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
+  simp[contains_clauses_list_def,contains_clauses_def,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
   TOP_CASE_TAC>>rw[]>>
   drule reindex_characterize>>
   rw[]>>
+  fs[EVERY_MEM]>>rw[]>>first_x_assum drule>>
   fs[MEM_MAP,MEM_FILTER,list_lookup_def]>>
+  strip_tac>>
   Cases_on ‘LENGTH fmlls ≤ x’ >> fs [] >>
   fs[fml_rel_def]>>
   first_x_assum(qspec_then`x` assume_tac)>>rfs[]>>

@@ -285,18 +285,22 @@ QED
   parse strings as DIMACS
   For the DIMACS file, the *entire* file is read at once
 *)
-val build_fml_def = Define`
-  (build_fml maxvar (id:num) [] (acc:ccnf) = SOME acc) ∧
-  (build_fml maxvar id (s::ss) acc =
-    case parse_clause maxvar s of
-    NONE => NONE
-  | SOME cl => build_fml maxvar (id+1) ss (insert id cl acc))`
 
 (* lines which are not comments don't start with a single "c" *)
 val nocomment_line_def = Define`
   (nocomment_line (INL c::cs) = (c ≠ strlit "c")) ∧
   (nocomment_line _ = T)`
 
+(* Produces the list of clauses in order they are read *)
+val parse_dimacs_body_def = Define`
+  (parse_dimacs_body maxvar [] acc = SOME (REVERSE acc)) ∧
+  (parse_dimacs_body maxvar (s::ss) acc =
+    case parse_clause maxvar s of
+      NONE => NONE
+    | SOME cl => parse_dimacs_body maxvar ss (cl::acc)
+  )`
+
+(* Parse the dimacs as a list of clauses *)
 val parse_dimacs_toks_def = Define`
   parse_dimacs_toks tokss =
   let nocomments = FILTER nocomment_line tokss in
@@ -305,41 +309,76 @@ val parse_dimacs_toks_def = Define`
       (case parse_header_line s of
       SOME (vars,clauses) =>
          if LENGTH ss = clauses then
-          case build_fml vars 1 ss LN of NONE => NONE
-          | SOME acc => SOME (vars,acc)
+          case parse_dimacs_body vars ss []
+            of NONE => NONE
+          | SOME acc => SOME (vars,clauses,acc)
         else NONE
       | NONE => NONE)
   | [] => NONE`
 
+val build_fml_def = Define`
+  (build_fml (id:num) [] (acc:ccnf) = acc) ∧
+  (build_fml id (cl::cls) acc =
+    build_fml (id+1) cls (insert id cl acc))`
+
 val parse_dimacs_def = Define`
   parse_dimacs strs =
   let tokss = MAP toks strs in
-  parse_dimacs_toks tokss`
+  case parse_dimacs_toks tokss of
+    NONE => NONE
+  | SOME (nvars,nclauses,ls) =>
+    SOME(nvars, build_fml 1 ls LN)`
+
+Theorem parse_dimacs_body_wf_clauses:
+  ∀ss vars acc acc'.
+  parse_dimacs_body vars ss acc = SOME acc' ∧
+  EVERY wf_clause acc ⇒
+  EVERY wf_clause acc'
+Proof
+  Induct>>rw[parse_dimacs_body_def]>>
+  every_case_tac>>fs[EVERY_REVERSE]>>
+  first_x_assum drule>>simp[]>>
+  metis_tac[parse_clause_wf_clause]
+QED
 
 Theorem build_fml_wf_fml:
-  ∀ls mv id acc acc'.
-  wf_fml acc ∧ build_fml mv id ls acc = SOME acc' ⇒
+  ∀ls id acc acc'.
+  EVERY wf_clause ls ∧
+  wf_fml acc ∧ build_fml id ls acc = acc' ⇒
   wf_fml acc'
 Proof
   Induct>>rw[build_fml_def]>>fs[]>>
   every_case_tac>>fs[]>>
-  imp_res_tac parse_clause_wf_clause>>fs[]>>
-  metis_tac[wf_fml_insert,parse_clause_wf_clause,wf_clause_def,MEM_REVERSE]
+  first_x_assum match_mp_tac>>
+  metis_tac[wf_fml_insert,wf_clause_def]
+QED
+
+Theorem parse_dimacs_body_bound:
+  ∀ss vars acc acc'.
+  parse_dimacs_body vars ss acc = SOME acc' ∧
+  EVERY (EVERY (λi. Num (ABS i) <= vars)) acc ⇒
+  EVERY (EVERY (λi. Num (ABS i) <= vars)) acc'
+Proof
+  Induct>>rw[parse_dimacs_body_def]>>
+  every_case_tac>>fs[EVERY_REVERSE]>>
+  first_x_assum drule>>simp[]>>
+  disch_then match_mp_tac>>
+  rw[EVERY_MEM]>>
+  drule parse_clause_bound>>
+  fs[EVERY_MEM]
 QED
 
 Theorem build_fml_bound:
-  ∀ls mv id acc acc'.
-  build_fml mv id ls acc = SOME acc' ∧
-  (∀C. C ∈ values acc ⇒ EVERY (λi. Num (ABS i) <= mv) C) ⇒
-  (∀C. C ∈ values acc' ⇒ EVERY (λi. Num (ABS i) <= mv) C)
+  ∀ls id acc acc' vars.
+  build_fml id ls acc = acc' ∧
+  (∀C. C ∈ values acc ⇒ EVERY (λi. Num (ABS i) <= vars) C) ∧
+  EVERY (EVERY (λi. Num (ABS i) <= vars)) ls ⇒
+  (∀C. C ∈ values acc' ⇒ EVERY (λi. Num (ABS i) <= vars) C)
 Proof
   Induct>>rw[build_fml_def]>>fs[]>>
-  every_case_tac>>fs[]>>
-  imp_res_tac parse_clause_bound>>fs[]>>
-  first_x_assum drule>>
-  disch_then match_mp_tac>>fs[]>>
-  rw[]>>drule values_insert>>rw[]>>
-  metis_tac[]
+  last_x_assum(qspecl_then [`id+1`,`insert id h acc`,`vars`] mp_tac)>>
+  simp[]>>
+  metis_tac[values_insert]
 QED
 
 Theorem parse_dimacs_wf_bound:
@@ -349,35 +388,35 @@ Theorem parse_dimacs_wf_bound:
 Proof
   simp[parse_dimacs_def,parse_dimacs_toks_def]>>
   every_case_tac>>fs[]>>
-  strip_tac>>
-  CONJ_TAC>>
-  TRY(match_mp_tac build_fml_wf_fml)>>
-  TRY(match_mp_tac build_fml_bound)>>
-  qmatch_asmsub_abbrev_tac`build_fml a b c d`>>
-  qexists_tac`c`
-  >- (
-    qexists_tac`a`>>
-    qexists_tac`b`>>
-    qexists_tac`d`>>
-    unabbrev_all_tac>>fs[wf_fml_def,values_def,lookup_def])
-  >>
-    qexists_tac`b`>>
-    qexists_tac`d`>>
-    unabbrev_all_tac>>fs[wf_fml_def,values_def,lookup_def]
+  strip_tac>>fs[]>>rveq>>fs[]>>
+  drule parse_dimacs_body_wf_clauses>> simp[]>> strip_tac>>
+  drule parse_dimacs_body_bound>> simp[]>> strip_tac>>
+  CONJ_TAC>- (
+    drule build_fml_wf_fml>>simp[]>>
+    disch_then match_mp_tac>>
+    simp[wf_fml_def,values_def,lookup_def])>>
+  imp_res_tac build_fml_bound>>
+  fs[Once PULL_FORALL]>>
+  pop_assum match_mp_tac>>
+  simp[wf_fml_def,values_def,lookup_def]
 QED
 
 val max_lit_def = Define`
   (max_lit k [] = k) ∧
   (max_lit k (x::xs) = if k < ABS x then max_lit (ABS x) xs else max_lit k xs)`
 
-(* print a formula out to DIMACS *)
-val print_dimacs_def = Define`
-  print_dimacs fml =
-  let ls = MAP SND (toSortedAList fml) in
+val print_dimacs_toks_def = Define`
+  print_dimacs_toks ls =
   let len = LENGTH ls in
   let v = max_lit 0 (MAP (max_lit 0) ls) in
   print_header_line (Num v) len ::
   MAP print_clause ls`
+
+(* print a formula out to DIMACS *)
+val print_dimacs_def = Define`
+  print_dimacs fml =
+  let ls = MAP SND (toSortedAList fml) in
+  print_dimacs_toks ls`
 
 Theorem FILTER_print_clause:
   FILTER nocomment_line
@@ -394,27 +433,20 @@ Proof
   simp[tokens_blanks_toStdString,tokenize_def,nocomment_line_def]
 QED
 
-Theorem build_fml_MAP_print_clause:
-  ∀vs id acc.
-  EVERY (λc. EVERY (λl. Num (ABS l) ≤ mv) c) vs ∧
-  EVERY wf_clause vs ∧
+Theorem build_fml_inv:
+  ∀ls id acc.
+  EVERY wf_clause ls ∧
   (∀x. x ∈ domain acc ⇒ x < id)
   ⇒
-  ∃acc'.
-  build_fml mv id (MAP toks (MAP print_clause vs)) acc = SOME acc' ∧
-  values acc' = values acc ∪ set vs
+  values (build_fml id ls acc) = values acc ∪ set ls
 Proof
   Induct>>rw[build_fml_def]>>
-  drule parse_clause_print_clause>> rw[]>>
-  fs[]>>
   first_x_assum(qspecl_then[`id+1`,`insert id h acc`] mp_tac)>>
-  impl_tac>- (
-    rw[domain_insert]>>
-    fs[]>>
-    first_x_assum drule>>fs[])>>
-  rw[]>>
   simp[]>>
-  simp[values_def,lookup_insert,EXTENSION]>>
+  impl_tac >- (
+    rw[]>>fs[]>>
+    first_x_assum drule>>simp[])>>
+  rw[values_def,lookup_insert,EXTENSION]>>
   rw[EQ_IMP_THM]>>pop_assum mp_tac>>rw[]
   >- metis_tac[]
   >- (
@@ -423,6 +455,23 @@ Proof
     strip_tac>>DISJ1_TAC>>qexists_tac`n`>>
     fs[])
   >- metis_tac[]
+QED
+
+Theorem parse_dimacs_body_MAP_print_clause:
+  ∀vs acc.
+  EVERY (λc. EVERY (λl. Num (ABS l) ≤ mv) c) vs ∧
+  EVERY wf_clause vs
+  ⇒
+  ∃acc'.
+  parse_dimacs_body mv (MAP toks (MAP print_clause vs)) acc = SOME acc' ∧
+  set acc' = set acc ∪ set vs
+Proof
+  Induct>>rw[parse_dimacs_body_def]>>
+  drule parse_clause_print_clause>> rw[]>>
+  fs[]>>
+  first_x_assum(qspec_then `h::acc` assume_tac)>>fs[]>>
+  simp[EXTENSION]>>
+  metis_tac[]
 QED
 
 Theorem print_header_line_first:
@@ -476,35 +525,66 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem parse_dimacs_body_length:
+  ∀ss acc cls.
+  parse_dimacs_body mv ss acc = SOME cls ⇒
+  LENGTH cls = LENGTH ss + LENGTH acc
+Proof
+  Induct>>rw[parse_dimacs_body_def]>>
+  every_case_tac>>fs[]>>
+  first_x_assum drule>>
+  simp[]
+QED
+
+Theorem parse_dimacs_toks_print_dimacs_toks:
+  EVERY wf_clause cls ⇒
+  ∃mv cl cls'.
+  parse_dimacs_toks (MAP toks (print_dimacs_toks cls)) = SOME (mv,cl,cls') ∧
+  set cls = set cls'
+Proof
+  strip_tac>>simp[parse_dimacs_toks_def,print_dimacs_toks_def]>>
+  qmatch_goalsub_abbrev_tac`print_header_line a b`>>
+  simp[Once toks_def]>>
+  assume_tac print_header_line_first>>fs[]>>
+  pop_assum sym_sub_tac>>
+  `tokenize (strlit "p") = INL (strlit "p")` by EVAL_TAC>>
+  simp[nocomment_line_def]>>
+  simp[parse_header_line_print_header_line]>>
+  unabbrev_all_tac>>
+  simp[FILTER_print_clause]>>
+  qmatch_goalsub_abbrev_tac`parse_dimacs_body mv vs _`>>
+  qspecl_then [`cls`,`[]`] mp_tac parse_dimacs_body_MAP_print_clause>>
+  impl_tac >- (
+    simp[]>>
+    fs[Abbr`mv`,max_lit_max_lit_max])>>
+  rw[]>>
+  simp[]>>
+  metis_tac[]
+QED
+
 Theorem parse_dimacs_print_dimacs:
   wf_fml fml ⇒
   ∃mv fml'.
   parse_dimacs (print_dimacs fml) = SOME (mv, fml') ∧
   values fml = values fml'
 Proof
-  simp[parse_dimacs_def,print_dimacs_def,parse_dimacs_toks_def]>>
-  qmatch_goalsub_abbrev_tac`print_header_line a b`>>
-  simp[Once toks_def]>>
-  assume_tac print_header_line_first>>fs[]>>
-  pop_assum sym_sub_tac>>
-  `tokenize (strlit "p") = INL (strlit "p")` by
-    EVAL_TAC>>
-  simp[nocomment_line_def]>>
-  simp[parse_header_line_print_header_line]>>
-  unabbrev_all_tac>>
-  simp[FILTER_print_clause]>>
-  qmatch_goalsub_abbrev_tac`build_fml mv id (_ _ ( _ _ vs))`>>
-  strip_tac>>
-  qspecl_then [`vs`,`id`,`LN`] mp_tac build_fml_MAP_print_clause>>
-  impl_tac >- (
-    simp[]>>
-    CONJ_TAC >-
-      fs[Abbr`mv`,max_lit_max_lit_max]>>
-    fs[Abbr`vs`,EVERY_MAP,EVERY_MEM,wf_fml_def,values_def,FORALL_PROD,MEM_toSortedAList]>>
-    metis_tac[])>>
   rw[]>>
-  simp[]>>
-  fs[lookup_def,values_def,Abbr`vs`,EXTENSION,MEM_MAP,EXISTS_PROD,MEM_toSortedAList]
+  simp[print_dimacs_def,parse_dimacs_def]>>
+  qmatch_goalsub_abbrev_tac`print_dimacs_toks cls`>>
+  mp_tac parse_dimacs_toks_print_dimacs_toks>>
+  impl_tac >- (
+    fs[Abbr`cls`,wf_fml_def,values_def,EVERY_MEM,EVERY_MAP,FORALL_PROD]>>
+    metis_tac[MEM_toSortedAList])>>
+  rw[]>>simp[]>>
+  qmatch_goalsub_abbrev_tac`build_fml a b c`>>
+  qspecl_then ([`b`,`a`,`c`]) mp_tac build_fml_inv>>
+  impl_tac>- (
+    unabbrev_all_tac>>fs[]>>
+    fs[parse_dimacs_toks_def]>>
+    every_case_tac>>fs[]>>
+    drule parse_dimacs_body_wf_clauses>> simp[])>>
+  unabbrev_all_tac>>
+  fs[lookup_def,values_def,EXTENSION,MEM_MAP,EXISTS_PROD,MEM_toSortedAList]
 QED
 
 (* Parse a LPR clause with witness *)
@@ -737,6 +817,6 @@ val lprraw = ``[
 
 val lpr = rconc (EVAL ``THE (parse_lpr ^(lprraw))``);
 
-val check = rconc (EVAL``THE (check_lpr ^(lpr) (SND ^(cnf)))``);
+val check = rconc (EVAL``THE (check_lpr 0 ^(lpr) (SND ^(cnf)))``);
 
 val _ = export_theory ();
