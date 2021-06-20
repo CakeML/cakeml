@@ -2383,6 +2383,7 @@ Definition orth_LR_def:
   /\ (orth_LR (INR (Const c ty1)) (INR (Const d ty2)) = orth_ci (Const c ty1) (Const d ty2))
   /\ (orth_LR (INL _) (INR $ Const _ _) = T)
   /\ (orth_LR (INR $ Const _ _) (INL _) = T)
+  /\ (orth_LR _ _ = F)
 End
 Overload "#" = ``$orth_LR``
 
