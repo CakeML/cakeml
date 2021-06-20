@@ -8385,6 +8385,7 @@ Proof
 QED
 
 Theorem unify_complete' =
+    SIMP_RULE std_ss [GSYM FORALL_AND_THM,GSYM EQ_IMP_THM] $
     SIMP_RULE std_ss [FORALL_AND_THM] $ ONCE_REWRITE_RULE[MONO_NOT_EQ] $
     REWRITE_RULE[EQ_IMP_THM] unify_complete
 
