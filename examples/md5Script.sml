@@ -24,6 +24,8 @@ End
 Datatype:
   md5state = <| digest : w128 ; mlen : w64 ; buf : word8 list ;
                 buf_len : num (* LENGTH of buf *) |>
+  (* TODO: this implementation would be slightly better
+           if the content of buf was kept in reverse order *)
 End
 
 (*
@@ -445,17 +447,19 @@ Definition update_def:
     let mlen = state.mlen in
     let inputLen = LENGTH input in
     let needBytes = 64 - buf_len in
-    let (buf,buf_len,(i,digest)) =
-        (if inputLen >= needBytes then
-           let buf = buf ++ extract input 0 needBytes in
-           let digest = transform digest 0 buf in
-             ([],0,loop needBytes digest input inputLen)
-         else (buf,buf_len,(0,digest))) in
-    let k = inputLen-i in
-    let buf = buf ++ extract input i k in
-    let buf_len = buf_len + k in
-    let mlen = mul8add mlen inputLen in
-      <| buf := buf ; buf_len := buf_len ; digest := digest ; mlen := mlen  |>
+      if inputLen >= needBytes then
+        let buf = buf ++ TAKE needBytes input in
+        let digest = transform digest 0 buf in
+        let (i,digest) = loop needBytes digest input inputLen in
+        let buf_len = inputLen - i in
+        let buf = extract input i buf_len in
+        let mlen = mul8add mlen inputLen in
+          <| buf := buf ; buf_len := buf_len ; digest := digest ; mlen := mlen  |>
+      else
+        let buf = buf ++ input in
+        let buf_len = buf_len + inputLen in
+        let mlen = mul8add mlen inputLen in
+          <| buf := buf ; buf_len := buf_len ; digest := digest ; mlen := mlen  |>
 End
 
 (*
@@ -542,5 +546,46 @@ val _ = run_test "hi";
 val _ = run_test "there";
 val _ = run_test "This is a longer string.";
 val _ = run_test "Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut.";
+
+(*
+    Specialise update for taking only one input
+*)
+
+Definition update1_def:
+  update1 state (input:word8) =
+    let buf = state.buf in
+    let buf_len = state.buf_len in
+    let digest = state.digest in
+    let mlen = state.mlen in
+    let needBytes = 64 - buf_len in
+    let mlen = mul8add mlen 1 in
+      if 1 < needBytes then
+        let buf = buf ++ [input] in
+        let buf_len = buf_len + 1 in
+          <| buf := buf ; buf_len := buf_len ; digest := digest ; mlen := mlen  |>
+      else if needBytes = 1 then
+        let buf = buf ++ [input] in
+        let digest = transform digest 0 buf in
+        let buf_len = 0 in
+        let buf = [] in
+          <| buf := buf ; buf_len := buf_len ; digest := digest ; mlen := mlen  |>
+      else
+        let digest = transform digest 0 buf in
+        let buf_len = 1 in
+        let buf = [input] in
+          <| buf := buf ; buf_len := buf_len ; digest := digest ; mlen := mlen  |>
+End
+
+Theorem update1_thm:
+  update1 state input = update state [input]
+Proof
+  fs [update_def,update1_def]
+  \\ qabbrev_tac ‘n = 64 − state.buf_len’
+  \\ Cases_on ‘n’ \\ fs []
+  \\ once_rewrite_tac [loop_def] \\ fs []
+  THEN1 fs [extract_def]
+  \\ Cases_on ‘n'’ \\ fs []
+  \\ once_rewrite_tac [loop_def] \\ fs [extract_def]
+QED
 
 val _ = export_theory();
