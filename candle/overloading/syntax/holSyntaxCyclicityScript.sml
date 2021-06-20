@@ -6111,7 +6111,7 @@ Definition has_path_to_def:
 End
 
 Theorem has_path_to_simps[simp]:
-  ~has_path_to dep 0 x y
+  !dep x y. ~has_path_to dep 0 x y
 Proof
   fs[has_path_to_def,path_starting_at_def]
 QED
