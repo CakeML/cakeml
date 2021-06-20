@@ -326,8 +326,7 @@ val parse_dimacs_def = Define`
   let tokss = MAP toks strs in
   case parse_dimacs_toks tokss of
     NONE => NONE
-  | SOME (nvars,nclauses,ls) =>
-    SOME(nvars, build_fml 1 ls LN)`
+  | SOME (nvars, nclauses, ls) => SOME (build_fml 1 ls LN)`
 
 Theorem parse_dimacs_body_wf_clauses:
   ∀ss vars acc acc'.
@@ -381,23 +380,16 @@ Proof
   metis_tac[values_insert]
 QED
 
-Theorem parse_dimacs_wf_bound:
-  parse_dimacs strs = SOME (maxvars, fml) ⇒
-  wf_fml fml ∧
-  (∀C. C ∈ values fml ⇒ EVERY (λi. Num (ABS i) <= maxvars) C)
+Theorem parse_dimacs_wf:
+  parse_dimacs strs = SOME fml ⇒
+  wf_fml fml
 Proof
   simp[parse_dimacs_def,parse_dimacs_toks_def]>>
   every_case_tac>>fs[]>>
   strip_tac>>fs[]>>rveq>>fs[]>>
   drule parse_dimacs_body_wf_clauses>> simp[]>> strip_tac>>
-  drule parse_dimacs_body_bound>> simp[]>> strip_tac>>
-  CONJ_TAC>- (
-    drule build_fml_wf_fml>>simp[]>>
-    disch_then match_mp_tac>>
-    simp[wf_fml_def,values_def,lookup_def])>>
-  imp_res_tac build_fml_bound>>
-  fs[Once PULL_FORALL]>>
-  pop_assum match_mp_tac>>
+  drule build_fml_wf_fml>>simp[]>>
+  disch_then match_mp_tac>>
   simp[wf_fml_def,values_def,lookup_def]
 QED
 
@@ -564,8 +556,8 @@ QED
 
 Theorem parse_dimacs_print_dimacs:
   wf_fml fml ⇒
-  ∃mv fml'.
-  parse_dimacs (print_dimacs fml) = SOME (mv, fml') ∧
+  ∃fml'.
+  parse_dimacs (print_dimacs fml) = SOME fml' ∧
   values fml = values fml'
 Proof
   rw[]>>
@@ -799,7 +791,7 @@ val dimacsraw = ``[
 
 val cnf = rconc (EVAL ``THE (parse_dimacs ^(dimacsraw))``);
 
-val back = rconc (EVAL``print_dimacs (SND ^cnf)``);
+val back = rconc (EVAL``print_dimacs ^cnf``);
 
 val lprraw = ``[
   strlit"8 d 0";
@@ -817,6 +809,6 @@ val lprraw = ``[
 
 val lpr = rconc (EVAL ``THE (parse_lpr ^(lprraw))``);
 
-val check = rconc (EVAL``THE (check_lpr 0 ^(lpr) (SND ^(cnf)))``);
+val check = rconc (EVAL``THE (check_lpr 0 ^(lpr) ^(cnf))``);
 
 val _ = export_theory ();
