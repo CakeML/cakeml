@@ -6330,7 +6330,8 @@ Theorem composable_one_LR_continue:
         s = s_p /\ ~invertible_on s_p (FV p) /\ invertible_on s_q (FV q)
         \/ (s = [] /\ invertible_on s_p (FV p) /\ invertible_on s_q (FV q))))
 Proof
-  dsimp[composable_one_LR_continue',is_const_or_type_eq,orth_LR_def,FV_def,invertible_on_equiv_ts_on,unify_LR_def,orth_ci_def,tvars_def]
+  dsimp[is_const_or_type_eq,composable_one_LR_def,unify_LR_def,AllCaseEqs(),GSYM invertible_on_equiv_ts_on,FV_def,tvars_def]
+  >> dsimp[composable_one_def,AllCaseEqs()]
   >> metis_tac[]
 QED
 
@@ -6437,20 +6438,18 @@ Proof
   >> qmatch_goalsub_abbrev_tac `composable_one_LR q h0`
   >> Cases_on `composable_one_LR q h0` >> fs[]
   >~ [`_ = ignore`] >- (
-    first_x_assum $ irule >> goal_assum $ drule_at Any
-    >> gs[composable_step_inv_def,wf_pqs_def,unify_LR_complete'']
-    >> conj_tac >> dsimp[] >> gs[composable_one_LR_ignore,unify_LR_complete'']
+    first_x_assum irule >> goal_assum $ drule_at Any
+    >> gs[composable_step_inv_def,wf_pqs_def,unify_LR_complete'',invertible_on_equiv_ts_on_FV,composable_one_LR_ignore,unify_LR_complete'']
+    >> dsimp[AC DISJ_ASSOC DISJ_COMM]
   )
   >~ [`_ = uncomposable`] >- (
     last_x_assum kall_tac
-    >> gs[composable_one_LR_uncomposable,wf_pqs_def,composable_step_inv_def,
-      DISJ_IMP_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,FORALL_AND_THM]
+    >> gs[composable_one_LR_uncomposable,wf_pqs_def,composable_step_inv_def]
   )
   >~ [`_ = continue ρ`] >- (
     first_x_assum $ irule_at Any >> goal_assum $ drule_at Any
-    >> gs[composable_one_LR_continue,composable_step_inv_def,wf_pqs_def,
-      LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,FORALL_AND_THM,EXISTS_OR_THM,DISJ_IMP_THM]
-    >> metis_tac[LR_TYPE_SUBST_NIL]
+    >> gs[composable_one_LR_continue,composable_step_inv_def,wf_pqs_APPEND,wf_pqs_CONS,invertible_on_equiv_ts_on_FV]
+    >> dsimp[AC DISJ_ASSOC DISJ_COMM]
   )
 QED
 
@@ -6469,17 +6468,10 @@ Theorem composable_step_sound_INR:
   ==> composable_step_inv_INR q p dep
 Proof
   Induct >- fs[composable_step_def]
-  >> PairCases >> rw[composable_step_def,AllCaseEqs(),wf_pqs_def]
-  >> fs[GSYM wf_pqs_def]
-  >> TRY (first_x_assum $ dxrule_at (Pos $ last) >> dsimp[])
-  >> gs[composable_one_LR_uncomposable,composable_one_LR_ignore,composable_one_LR_continue]
-  >> rw[composable_step_inv_INR_def]
-  >~ [`q # h0`] >- (
-    dxrule_at_then Any assume_tac $ cj 1 $
-      Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,FORALL_AND_THM,AND_IMP_INTRO,IMP_CONJ_THM] unify_LR_complete''
-    >> Q.REFINE_EXISTS_TAC `_::_` >> fs[]
-    >> irule_at Any EQ_REFL >> fs[]
-  )
+  >> PairCases >> rw[composable_step_def,AllCaseEqs(),wf_pqs_APPEND,wf_pqs_CONS]
+  >> TRY (first_x_assum $ dxrule_at (Pos $ last))
+  >> gs[composable_one_LR_uncomposable,composable_one_LR_ignore,composable_one_LR_continue,composable_step_inv_INR_def,unify_LR_complete'']
+  >> rw[]
   >~ [`[(h0,h1)]`] >- (qexists_tac `[]` >> fs[])
   >> Q.REFINE_EXISTS_TAC `_::_` >> fs[]
   >> irule_at Any EQ_REFL >> fs[]
@@ -6506,7 +6498,7 @@ Proof
   >> disch_then $ mp_tac o ONCE_REWRITE_RULE[MONO_NOT_EQ]
   >> fs[GSYM PULL_FORALL]
   >> impl_tac >- (fs[composable_step_inv_INR_def] >> dsimp[])
-  >> metis_tac [sum_CASES]
+  >> metis_tac[sum_CASES]
 QED
 
 Theorem composable_step_complete_INR:
@@ -6541,11 +6533,11 @@ Theorem composable_step_eq_INL:
            invertible_on s_q (FV q) /\
            (¬invertible_on s_p (FV (FST p)) ==> x = LR_TYPE_SUBST s_p (SND p)) /\
            (invertible_on s_p (FV (FST p)) ==> x = SND p)
-  )
 Proof
   rw[Once EQ_IMP_THM]
   >- (
     drule_then drule composable_step_complete_INL
+    >> rw[] >> fs[composable_step_sound_INL]
   )
   >> fs[composable_step_sound_INL]
 QED
@@ -6818,15 +6810,12 @@ Proof
   >> gs[dep_step_inv_def,wf_pqs_APPEND,wf_pqs_CONS,o_DEF,GSYM is_instance_LR_equiv]
   >> conj_asm1_tac >- (
     dxrule_at_then Any (drule_all_then strip_assume_tac) composable_step_sound_INL
-    >> rw[wf_pqs_def,EVERY_MEM,EVERY_MAP]
-    >> qpat_x_assum `wf_pqs dep` $ imp_res_tac o REWRITE_RULE[EVERY_MEM,wf_pqs_def]
-    >> qmatch_assum_abbrev_tac `~xx ==> x = _` >> Cases_on `xx`
-    >> fs[ELIM_UNCURRY]
+    >> fs[wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,EVERY_MAP]
+    >> rw[] >> fs[]
   )
   >> dsimp[] >> gen_tac
   >> qmatch_goalsub_abbrev_tac `(A \/ B) = (A \/ C)`
-  >> `B = C ==> (A \/ B) = (A \/ C)` by fs[]
-  >> first_x_assum irule >> unabbrev_all_tac
+  >> `B = C` suffices_by fs[] >> unabbrev_all_tac
   >> simp[MEM_MAP] >> ONCE_REWRITE_TAC[GSYM PAIR] >> simp[EQ_SYM_EQ]
 QED
 
@@ -6856,7 +6845,7 @@ Proof
     PRED_ASSUM is_forall kall_tac
     >> gs[dep_step_inv_def,FORALL_AND_THM,DISJ_IMP_THM]
   )
-  >> goal_assum $ drule >> fs[o_DEF] >> first_x_assum $ irule
+  >> goal_assum drule >> fs[o_DEF] >> first_x_assum irule
   >> gs[dep_step_inv_def,wf_pqs_APPEND,wf_pqs_CONS]
   >> dsimp[o_DEF]
   >> qmatch_assum_abbrev_tac `_ = init ++ [(p,q)] ++ _`
@@ -7159,14 +7148,14 @@ Proof
       >> last_x_assum $ drule_then strip_assume_tac
       >> qhdtm_assum `wf_pqs` $ imp_res_tac o
         SIMP_RULE (srw_ss()) [EVERY_MEM,wf_pqs_def,IN_DEF,ELIM_UNCURRY]
-      >> fs[has_path_to_def,LR_TYPE_SUBST_type_preserving]
+      >> fs[has_path_to_def]
       >> goal_assum $ drule_at Any >> fs[IN_DEF]
       >> goal_assum $ drule
       >> qhdtm_assum `wf_pqs` $ imp_res_tac o
         SIMP_RULE (srw_ss()) [EVERY_MEM,wf_pqs_def,IN_DEF,ELIM_UNCURRY]
       >> `IS_SOME $ unify_LR (LR_TYPE_SUBST s z') z'` by (
-        fs[unify_LR_complete,orth_LR_is_instance_LR_equiv,LR_TYPE_SUBST_type_preserving]
-        >> metis_tac[is_instance_LR_simps',is_instance_LR_simps,LR_TYPE_SUBST_type_preserving]
+        fs[unify_LR_complete,orth_LR_is_instance_LR_equiv]
+        >> metis_tac[is_instance_LR_refl,is_instance_LR_simps]
       )
       >> fs[IS_SOME_EXISTS]
       >> qmatch_assum_abbrev_tac `_ = SOME xx` >> PairCases_on `xx`
