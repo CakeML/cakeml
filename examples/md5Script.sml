@@ -22,7 +22,8 @@ Datatype:
 End
 
 Datatype:
-  md5state = <| digest : w128 ; mlen : w64 ; buf : word8 list |>
+  md5state = <| digest : w128 ; mlen : w64 ; buf : word8 list ;
+                buf_len : num (* LENGTH of buf *) |>
 End
 
 (*
@@ -194,7 +195,8 @@ Definition init_def:
                          C := 0x98badcfew ;
                          D := 0x10325476w |> ;
             mlen := <| hi := 0w ; lo := 0w |>;
-            buf := [] |>
+            buf := [] ;
+            buf_len := 0 |>
 End
 
 (*
@@ -429,7 +431,7 @@ End
 Definition loop_def:
   loop (i:num) digest (input:word8 list) inputLen =
     if i + 63 < inputLen then
-      loop (i + 64) (transform digest i input) input  inputLen
+      loop (i + 64) (transform digest i input) input inputLen
     else (i,digest)
 Termination
   WF_REL_TAC ‘measure (λ(i,digest,input,inputLen). inputLen - i)’
@@ -438,19 +440,22 @@ End
 Definition update_def:
   update state (input:word8 list) =
     let buf = state.buf in
+    let buf_len = state.buf_len in
     let digest = state.digest in
     let mlen = state.mlen in
     let inputLen = LENGTH input in
-    let needBytes = 64 - LENGTH buf in
-    let (buf,(i,digest)) =
+    let needBytes = 64 - buf_len in
+    let (buf,buf_len,(i,digest)) =
         (if inputLen >= needBytes then
            let buf = buf ++ extract input 0 needBytes in
            let digest = transform digest 0 buf in
-             ([],loop needBytes digest input inputLen)
-         else (buf,(0,digest))) in
-    let buf = buf ++ extract input i (inputLen-i) in
+             ([],0,loop needBytes digest input inputLen)
+         else (buf,buf_len,(0,digest))) in
+    let k = inputLen-i in
+    let buf = buf ++ extract input i k in
+    let buf_len = buf_len + k in
     let mlen = mul8add mlen inputLen in
-      <| buf := buf ; digest := digest ; mlen := mlen  |>
+      <| buf := buf ; buf_len := buf_len ; digest := digest ; mlen := mlen  |>
 End
 
 (*
@@ -467,9 +472,10 @@ End
 Definition final_def:
   final state =
     let buf = state.buf in
+    let buf_len = state.buf_len in
     let mlen = state.mlen in
     let bits = packLittle [mlen.lo;mlen.hi] in
-    let index = LENGTH buf in
+    let index = buf_len in
     let padLen = (if index < 56 then 56 - index else 120 - index) in
     let state = update state (PADDING padLen) in
     let state = update state bits in
@@ -535,5 +541,6 @@ fun run_test str = let
 val _ = run_test "hi";
 val _ = run_test "there";
 val _ = run_test "This is a longer string.";
+val _ = run_test "Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut.";
 
 val _ = export_theory();
