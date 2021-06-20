@@ -6299,107 +6299,29 @@ Definition composable_one_def:
 End
 
 Definition composable_one_LR_def:
-  composable_one_LR q p =
-    case (q,p) of
-       | (INL q', INL p') => composable_one q' p'
-       | (INR (Const c q'), INR (Const d p')) =>
-          if c = d then composable_one q' p' else ignore
-       | _ => ignore
+  (composable_one_LR (INL q') (INL p') = composable_one q' p')
+  /\ (composable_one_LR (INR (Const c q')) (INR (Const d p')) =
+          if c = d then composable_one q' p' else ignore)
+  /\ (composable_one_LR _ _ = ignore)
 End
 
-Theorem composable_one_LR_uncomposable':
+Theorem composable_one_LR_ignore:
   !p q. is_const_or_type p
   /\ is_const_or_type q
-  ==> (composable_one_LR q p = uncomposable
-    <=> case (q, p) of
-        | (INL q, INL p) =>
-            ?s_q s_p. unify q p = SOME (s_q, s_p) /\ ~equiv_ts_on s_p [] (tyvars p)
-            /\ ~equiv_ts_on s_q [] (tyvars q)
-        | (INR (Const c q), INR (Const d p)) =>
-            if c = d then
-            ?s_q s_p. unify q p = SOME (s_q, s_p) /\ ~equiv_ts_on s_p [] (tyvars p)
-            /\ ~equiv_ts_on s_q [] (tyvars q)
-            else F
-        | _ => F
-      )
+  ==> (composable_one_LR q p = ignore
+    <=> orth_LR q p \/ ?s_q s_p. unify_LR q p = SOME (s_q, s_p) /\
+              equiv_ts_on s_p [] (FV p) /\ ~equiv_ts_on s_q [] (FV q))
 Proof
-  dsimp[is_const_or_type_eq,composable_one_LR_def,AllCaseEqs(),EQ_IMP_THM]
-  >> conj_asm2_tac
-  >- (
-    rw[IMP_CONJ_THM,AND_IMP_INTRO,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR]
-    >> qmatch_goalsub_abbrev_tac `m = m'`
-    >> Cases_on `m = m'` >> fs[]
-  )
-  >> rw[composable_one_def] >> fs[GSYM invertible_on_equiv_ts_on,AllCaseEqs()]
+  dsimp[is_const_or_type_eq,composable_one_LR_def,unify_LR_def,AllCaseEqs(),FV_def,tvars_def,orth_LR_def]
+  >> dsimp[composable_one_def,AllCaseEqs(),unify_complete',orth_ci_def,GSYM invertible_on_equiv_ts_on]
+  >> metis_tac[]
 QED
 
-Theorem composable_one_LR_continue':
-  !p q s. is_const_or_type p
-  /\ is_const_or_type q
-  ==> (composable_one_LR q p = continue s
-    <=> case (q, p) of
-        | (INL q, INL p) =>
-            ?s_q s_p. unify q p = SOME (s_q, s_p) /\ (
-              s = s_p /\ ~equiv_ts_on s_p [] (tyvars p) /\ equiv_ts_on s_q [] (tyvars q)
-              \/ (s = [] /\ equiv_ts_on s_p [] (tyvars p) /\ equiv_ts_on s_q [] (tyvars q)))
-        | (INR (Const c q), INR (Const d p)) =>
-            if c = d then
-            ?s_q s_p. unify q p = SOME (s_q, s_p) /\ (
-              s = s_p /\ ~equiv_ts_on s_p [] (tyvars p) /\ equiv_ts_on s_q [] (tyvars q)
-              \/ (s = [] /\ equiv_ts_on s_p [] (tyvars p) /\ equiv_ts_on s_q [] (tyvars q)))
-            else F
-        | _ => F
-      )
-Proof
-  dsimp[is_const_or_type_eq,composable_one_LR_def,AllCaseEqs(),EQ_IMP_THM]
-  >> conj_asm2_tac
-  >- (
-    rw[IMP_CONJ_THM,AND_IMP_INTRO,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR]
-    >> qmatch_goalsub_abbrev_tac `m = m'`
-    >> Cases_on `m = m'` >> fs[]
-  )
-  >> rw[composable_one_def] >> gs[GSYM invertible_on_equiv_ts_on,AllCaseEqs()]
-QED
 Definition composable_at_def:
   composable_at q p =
     !s_q s_p. unify_LR q p = SOME (s_q, s_p)
     ==> (invertible_on s_q (FV q) \/ invertible_on s_p (FV p))
 End
-
-Theorem composable_one_LR_ignore':
-  !p q. is_const_or_type p
-  /\ is_const_or_type q
-  ==> (composable_one_LR q p = ignore
-    <=> case (q, p) of
-        | (INL q, INL p) =>
-            orth_ty q p \/
-            ?s_q s_p. unify q p = SOME (s_q, s_p) /\
-              equiv_ts_on s_p [] (tyvars p) /\ ~equiv_ts_on s_q [] (tyvars q)
-        | (INR (Const c q), INR (Const d p)) =>
-            if c = d then
-            orth_ty q p \/
-            ?s_q s_p. unify q p = SOME (s_q, s_p) /\
-              equiv_ts_on s_p [] (tyvars p) /\ ~equiv_ts_on s_q [] (tyvars q)
-            else T
-        | _ => T
-      )
-Proof
-  dsimp[is_const_or_type_eq,composable_one_LR_def,AllCaseEqs(),EQ_IMP_THM]
-  >> conj_asm2_tac
-  >> rw[composable_one_def,unify_complete']
-  >> fs[GSYM invertible_on_equiv_ts_on,AllCaseEqs(),unify_complete'] >> fs[]
-QED
-
-Theorem composable_one_LR_ignore:
-  !p q. is_const_or_type p /\ is_const_or_type q
-  ==> (composable_one_LR q p = ignore
-    <=> orth_LR q p \/
-            ?s_q s_p. unify_LR q p = SOME (s_q, s_p) /\
-              invertible_on s_p (FV p) /\ ~invertible_on s_q (FV q))
-Proof
-  dsimp[is_const_or_type_eq,composable_one_LR_def,AllCaseEqs(),composable_at_def,unify_LR_def,composable_one_def,FV_def,tvars_def]
-  >> metis_tac[]
-QED
 
 Theorem composable_one_LR_continue:
   !p q s. is_const_or_type p /\ is_const_or_type q
@@ -6415,12 +6337,9 @@ QED
 Theorem composable_one_LR_uncomposable:
   !p q. is_const_or_type p
   /\ is_const_or_type q
-  ==> (composable_one_LR q p = uncomposable
-    <=>
-      ?s_q s_p. unify_LR q p = SOME (s_q, s_p)
-      /\ ~invertible_on s_p (FV p) /\ ~invertible_on s_q (FV q))
+  ==> (composable_one_LR q p = uncomposable <=> ~composable_at q p)
 Proof
-  dsimp[composable_one_LR_uncomposable',is_const_or_type_eq,orth_LR_def,FV_def,invertible_on_equiv_ts_on,unify_LR_def,orth_ci_def,tvars_def]
+  dsimp[is_const_or_type_eq,composable_one_LR_def,AllCaseEqs(),composable_at_def,unify_LR_def,composable_one_def,FV_def,tvars_def]
   >> metis_tac[]
 QED
 
