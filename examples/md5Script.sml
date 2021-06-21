@@ -410,7 +410,9 @@ Definition genlist_rev_def:
 End
 
 Definition extract_def:
-  extract vec s l = genlist_rev (λi. EL (s + i) vec) l
+  extract vec s l = genlist_rev (λi. case oEL (s + i) vec of
+                                     | NONE => 0w:word8
+                                     | SOME b => b) l
 End
 
 (*
@@ -592,9 +594,9 @@ Proof
   \\ qabbrev_tac ‘n = 64 − state.buf_len’
   \\ Cases_on ‘n’ \\ fs [take_rev_def]
   \\ once_rewrite_tac [loop_def] \\ fs []
-  THEN1 fs [extract_def,EVAL “genlist_rev f 1”]
+  THEN1 fs [extract_def,EVAL “genlist_rev f 1”,oEL_def]
   \\ Cases_on ‘n'’ \\ fs [extract_def,genlist_rev_def]
-  \\ once_rewrite_tac [loop_def] \\ fs [extract_def]
+  \\ once_rewrite_tac [loop_def] \\ fs [extract_def,oEL_def]
 QED
 
 val _ = export_theory();
