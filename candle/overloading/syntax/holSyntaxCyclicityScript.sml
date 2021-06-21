@@ -255,6 +255,36 @@ Proof
   rw[equiv_ts_on_def,equal_ts_on_FV,LR_TYPE_SUBST_cases,is_const_or_type_eq,GSYM LR_TYPE_SUBST_compose]
 QED
 
+Theorem equiv_ts_on_NIL_LR_TYPE_SUBST:
+  !t r s. is_const_or_type t
+  ==> equiv_ts_on (MAP (TYPE_SUBST s ## I) r ++ s) r (FV t)
+    = equiv_ts_on s [] (FV $ LR_TYPE_SUBST r t)
+Proof
+  rpt strip_tac >> fs[equiv_ts_on_FV,LR_TYPE_SUBST_compose]
+QED
+
+Theorem equal_ts_on_compose_NIL:
+  (!s' s vars. equal_ts_on s' (MAP (TYPE_SUBST s ## I) [] ++ s) vars = equal_ts_on s' s vars)
+  /\ !s' s vars. equal_ts_on s' (MAP (TYPE_SUBST [] ## I) s ++ []) vars = equal_ts_on s' s vars
+Proof
+  REWRITE_TAC[GSYM TYPE_SUBST_compose,TYPE_SUBST_NIL,equal_ts_on_def]
+QED
+
+Theorem equiv_ts_on_compose_NIL:
+  (!s' s vars. equiv_ts_on s' (MAP (TYPE_SUBST s ## I) [] ++ s) vars = equiv_ts_on s' s vars)
+  /\ !s' s vars. equiv_ts_on s' (MAP (TYPE_SUBST [] ## I) s ++ []) vars = equiv_ts_on s' s vars
+Proof
+  REWRITE_TAC[GSYM TYPE_SUBST_compose,TYPE_SUBST_NIL,equal_ts_on_def,equiv_ts_on_def]
+QED
+
+Theorem equiv_ts_on_FV_LR_TYPE_SUBST:
+  !r r' s t. is_const_or_type t
+  ==> equiv_ts_on r r' (FV $ LR_TYPE_SUBST s t)
+    = equiv_ts_on (MAP (TYPE_SUBST r ## I) s ++ r) (MAP (TYPE_SUBST r' ## I) s ++ r') (FV t)
+Proof
+  rw[GSYM LR_TYPE_SUBST_compose,equiv_ts_on_FV]
+QED
+
 Theorem equal_ts_on_refl:
   !s vars. equal_ts_on s s vars
 Proof
@@ -330,6 +360,16 @@ Proof
   rw[equiv_ts_on_def]
   >> qexists_tac `clean_tysubst (MAP (TYPE_SUBST η ## I) η' ++ η)`
   >> fs[var_renaming_compose,equal_ts_on_def,GSYM clean_tysubst_TYPE_SUBST_eq,GSYM TYPE_SUBST_compose]
+QED
+
+Theorem equiv_ts_on_trans_eq:
+  !s1 s2 s3 vars. equiv_ts_on s1 s2 vars
+  ==> equiv_ts_on s3 s1 vars = equiv_ts_on s3 s2 vars
+Proof
+  rw[EQ_IMP_THM]
+  >> irule equiv_ts_on_trans
+  >> goal_assum $ drule_at Any
+  >> fs[equiv_ts_on_symm]
 QED
 
 Theorem equiv_ts_on_compose:
@@ -439,6 +479,34 @@ Proof
   dsimp[is_const_or_type_eq,FV_def,tvars_def,sum_case_def,LR_TYPE_SUBST_cases]
   >> ACCEPT_TAC equiv_ts_on_TYPE_SUBST
 QED
+
+Theorem equiv_ts_on_var_renaming2:
+  !r s t. var_renaming s /\ is_const_or_type t
+  ==> equiv_ts_on r s (FV t) = equiv_ts_on r [] (FV t)
+Proof
+  rw[]
+  >> drule equiv_ts_on_compose
+  >> rw[equiv_ts_on_FV,LR_TYPE_SUBST_NIL,EQ_IMP_THM]
+  >> irule_at Any var_renaming_compose
+  >> fs[GSYM clean_tysubst_LR_TYPE_SUBST_eq,GSYM LR_TYPE_SUBST_compose]
+  >- (irule_at Any EQ_REFL >> asm_rewrite_tac[])
+  >> goal_assum drule
+  >> rev_drule_then (irule_at Any) var_renaming_SWAP_IMP
+  >> fs[var_renaming_SWAP_LR_id]
+QED
+
+Theorem equiv_ts_on_NIL_var_renaming1:
+  !s r t. var_renaming s /\ is_const_or_type t
+  ==> equiv_ts_on r [] (FV $ LR_TYPE_SUBST s t)
+    = equiv_ts_on (MAP (TYPE_SUBST r ## I) s ++ r) [] (FV t)
+Proof
+  rpt strip_tac
+  >> dep_rewrite.DEP_REWRITE_TAC[equiv_ts_on_FV_LR_TYPE_SUBST,equiv_ts_on_compose_NIL,equiv_ts_on_var_renaming2]
+  >> asm_rewrite_tac[]
+QED
+
+Theorem equiv_ts_on_NIL_var_renaming2 =
+  ONCE_REWRITE_RULE[equiv_ts_on_symm] equiv_ts_on_NIL_var_renaming1
 
 Definition equiv_def:
   equiv x y = ?s. var_renaming s /\ x = LR_TYPE_SUBST s y
@@ -6044,6 +6112,54 @@ Proof
   >> irule_at Any EQ_REFL >> fs[]
 QED
 
+Theorem unify_TYPE_SUBST_var_renaming':
+  !q p r_q r_p η. var_renaming η
+  /\ unify q p = SOME (r_q,r_p)
+  ==> ?s_q s_p r. unify (TYPE_SUBST η q) p = SOME (s_q,s_p)
+    /\ equiv_ts_on (MAP (TYPE_SUBST s_q ## I) η ++ s_q) r_q  (tyvars q)
+    /\ equiv_ts_on s_p r_p (tyvars p)
+Proof
+  rw[]
+  >> `IS_SOME (unify (TYPE_SUBST η q) p)` by (
+    gs[GSYM unify_complete,orth_ty_def,PULL_EXISTS]
+    >> drule unify_sound
+    >> drule $ GSYM var_renaming_SWAP_id
+    >> disch_then $ CONV_TAC o LAND_CONV o LAND_CONV o RAND_CONV o ONCE_DEPTH_CONV o REWR_CONV
+    >> rw[Once TYPE_SUBST_compose]
+    >> goal_assum drule
+  )
+  >> fs[IS_SOME_EXISTS,TYPE_SUBST_compose]
+  >> qmatch_assum_abbrev_tac `_ = SOME x` >> PairCases_on `x` >> fs[]
+  >> conj_asm1_tac
+  >- (
+    drule_then assume_tac unify_sound
+    >> fs[TYPE_SUBST_compose]
+    >> drule_at_then Any drule unify_mgu
+    >> rev_drule unify_sound
+    >> drule $ GSYM var_renaming_SWAP_id
+    >> disch_then $ CONV_TAC o LAND_CONV o LAND_CONV o RAND_CONV o ONCE_DEPTH_CONV o REWR_CONV
+    >> fs[Once TYPE_SUBST_compose] >> strip_tac
+    >> drule_then drule unify_mgu
+    >> gs[GSYM PULL_EXISTS,GSYM TYPE_SUBST_compose,var_renaming_SWAP_id]
+    >> rw[]
+    >> qmatch_assum_abbrev_tac `TYPE_SUBST ra a = b`
+    >> qmatch_assum_abbrev_tac `TYPE_SUBST rb b = a`
+    >> `equiv_ts_on rb [] (tyvars b)` by (
+      irule bij_props_equiv_ts_on
+      >> rpt $ goal_assum $ drule_at Any
+    )
+    >> `equiv_ts_on ra [] (tyvars a)` by (
+      irule bij_props_equiv_ts_on
+      >> rpt $ goal_assum $ drule_at Any
+    )
+    >> gs[equiv_ts_on_tyvars,GSYM TYPE_SUBST_compose]
+    >> irule_at Any EQ_REFL >> fs[]
+  )
+  >> imp_res_tac unify_sound
+  >> fs[equiv_ts_on_tyvars,GSYM TYPE_SUBST_compose]
+  >> irule_at Any EQ_REFL >> fs[]
+QED
+
 Theorem unify_LR_mgu:
   !ty ty' r s r' s'. unify_LR ty ty' = SOME (r,s) /\ wf_pqs [(ty,ty')]
   /\ LR_TYPE_SUBST r' ty = LR_TYPE_SUBST s' ty'
@@ -6052,17 +6168,6 @@ Theorem unify_LR_mgu:
 Proof
   dsimp[unify_LR_def,is_const_or_type_eq,wf_pqs_def,FV_def,tvars_def,LR_TYPE_SUBST_cases]
   >> metis_tac[unify_mgu]
-QED
-
-Theorem unify_LR_LR_TYPE_SUBST_var_renaming:
-  !q p r_q r_p η. wf_pqs [(q,p)] /\ var_renaming η
-  /\ unify_LR (LR_TYPE_SUBST η q) p = SOME (r_q,r_p)
-  ==> ?s_q s_p r. unify_LR q p = SOME (s_q,s_p)
-    /\ equiv_ts_on s_q (MAP (TYPE_SUBST r_q ## I) η ++ r_q) (FV q)
-    /\ equiv_ts_on s_p r_p (FV p)
-Proof
-  dsimp[unify_LR_def,is_const_or_type_eq,wf_pqs_CONS,FV_def,tvars_def,LR_TYPE_SUBST_cases]
-  >> metis_tac[unify_TYPE_SUBST_var_renaming]
 QED
 
 Theorem unify_LR_LR_TYPE_SUBST:
@@ -6088,6 +6193,81 @@ Theorem unify_LR_symm:
   /\ equiv_ts_on s' r' (FV p')
 Proof
   dsimp[unify_LR_def,is_const_or_type_eq,wf_pqs_def,FV_def,tvars_def,unify_symm]
+QED
+
+Theorem unify_LR_LR_TYPE_SUBST_var_renaming1:
+  !q p r_q r_p η. wf_pqs [(q,p)] /\ var_renaming η
+  /\ unify_LR (LR_TYPE_SUBST η q) p = SOME (r_q,r_p)
+  ==> ?s_q s_p r. unify_LR q p = SOME (s_q,s_p)
+    /\ equiv_ts_on s_q (MAP (TYPE_SUBST r_q ## I) η ++ r_q) (FV q)
+    /\ equiv_ts_on s_p r_p (FV p)
+Proof
+  dsimp[unify_LR_def,is_const_or_type_eq,wf_pqs_CONS,FV_def,tvars_def,LR_TYPE_SUBST_cases]
+  >> metis_tac[unify_TYPE_SUBST_var_renaming]
+QED
+
+Theorem unify_LR_LR_TYPE_SUBST_var_renaming1':
+  !q p r_q r_p η. wf_pqs [(q,p)] /\ var_renaming η
+  /\ unify_LR q p = SOME (r_q,r_p)
+  ==> ?s_q s_p r. unify_LR (LR_TYPE_SUBST η q) p = SOME (s_q,s_p)
+    /\ equiv_ts_on (MAP (TYPE_SUBST s_q ## I) η ++ s_q) r_q (FV q)
+    /\ equiv_ts_on s_p r_p (FV p)
+Proof
+  dsimp[unify_LR_def,is_const_or_type_eq,wf_pqs_CONS,FV_def,tvars_def,LR_TYPE_SUBST_cases]
+  >> metis_tac[unify_TYPE_SUBST_var_renaming']
+QED
+
+Theorem unify_LR_LR_TYPE_SUBST_var_renaming2:
+  !q p r_q r_p η. wf_pqs [(q,p)] /\ var_renaming η
+  /\ unify_LR q (LR_TYPE_SUBST η p) = SOME (r_q,r_p)
+  ==> ?s_q s_p r. unify_LR q p = SOME (s_q,s_p)
+    /\ equiv_ts_on s_p (MAP (TYPE_SUBST r_p ## I) η ++ r_p) (FV p)
+    /\ equiv_ts_on s_q r_q (FV q)
+Proof
+  rw[wf_pqs_CONS]
+  >> drule unify_LR_symm >> rw[wf_pqs_CONS]
+  >> drule_at_then Any (drule_at Any) unify_LR_LR_TYPE_SUBST_var_renaming1
+  >> rw[wf_pqs_CONS]
+  >> drule unify_LR_symm >> rw[wf_pqs_CONS] >> fs[]
+  >> conj_tac
+  >- (
+    gs[equiv_ts_on_FV_LR_TYPE_SUBST]
+    >> irule equiv_ts_on_trans >> simp[Once equiv_ts_on_symm]
+    >> goal_assum dxrule
+    >> irule equiv_ts_on_trans
+    >> goal_assum dxrule
+    >> simp[Once equiv_ts_on_symm]
+  )
+  >> irule equiv_ts_on_trans >> simp[Once equiv_ts_on_symm]
+  >> goal_assum dxrule
+  >> irule equiv_ts_on_trans
+  >> goal_assum dxrule
+  >> simp[Once equiv_ts_on_symm]
+QED
+
+Theorem unify_LR_LR_TYPE_SUBST_var_renaming2':
+  !q p r_q r_p η. wf_pqs [(q,p)] /\ var_renaming η
+  /\ unify_LR q p = SOME (r_q,r_p)
+  ==> ?s_q s_p r. unify_LR q (LR_TYPE_SUBST η p) = SOME (s_q,s_p)
+    /\ equiv_ts_on (MAP (TYPE_SUBST s_p ## I) η ++ s_p) r_p (FV p)
+    /\ equiv_ts_on s_q r_q (FV q)
+Proof
+  rw[wf_pqs_CONS]
+  >> drule unify_LR_symm >> rw[wf_pqs_CONS]
+  >> drule_at_then Any (drule_at Any) unify_LR_LR_TYPE_SUBST_var_renaming1'
+  >> rw[wf_pqs_CONS]
+  >> drule unify_LR_symm >> rw[wf_pqs_CONS] >> fs[]
+  >> conj_tac
+  >- (
+    gs[equiv_ts_on_FV_LR_TYPE_SUBST]
+    >> irule equiv_ts_on_trans >> simp[Once equiv_ts_on_symm] >> goal_assum dxrule
+    >> irule equiv_ts_on_trans >> goal_assum dxrule
+    >> simp[Once equiv_ts_on_symm]
+  )
+  >> irule equiv_ts_on_trans >> simp[Once equiv_ts_on_symm]
+  >> goal_assum dxrule >> irule equiv_ts_on_trans
+  >> goal_assum dxrule
+  >> simp[Once equiv_ts_on_symm]
 QED
 
 Theorem unify_LR_invertible_on:
@@ -6270,6 +6450,65 @@ QED
 
 (* composability check *)
 
+Definition composable_at_def:
+  composable_at q p =
+    !s_q s_p. unify_LR q p = SOME (s_q, s_p)
+    ==> (invertible_on s_q (FV q) \/ invertible_on s_p (FV p))
+End
+
+Theorem composable_at_var_renaming1:
+  !s q p. is_const_or_type q /\ is_const_or_type p /\ var_renaming s
+  ==> composable_at (LR_TYPE_SUBST s q) p = composable_at q p
+Proof
+  rw[composable_at_def,EQ_IMP_THM,invertible_on_equiv_ts_on_FV]
+  >- (
+    drule_at_then Any (drule_at Any) unify_LR_LR_TYPE_SUBST_var_renaming1'
+    >> rw[wf_pqs_CONS]
+    >> first_x_assum $ drule_then strip_assume_tac
+    >> gs[equiv_ts_on_NIL_var_renaming1,equiv_ts_on_NIL_var_renaming2]
+    >> gs[equiv_ts_on_FV_LR_TYPE_SUBST]
+    >- (disj1_tac >> metis_tac[equiv_ts_on_symm,equiv_ts_on_trans])
+    >> disj2_tac >> metis_tac[equiv_ts_on_symm,equiv_ts_on_trans]
+  )
+  >> drule_at_then Any (drule_at Any) unify_LR_LR_TYPE_SUBST_var_renaming1
+  >> rw[wf_pqs_CONS]
+  >> first_x_assum $ drule_then strip_assume_tac
+  >> gs[equiv_ts_on_NIL_var_renaming1,equiv_ts_on_NIL_var_renaming2]
+  >> gs[equiv_ts_on_FV_LR_TYPE_SUBST]
+  >- (disj1_tac >> metis_tac[equiv_ts_on_symm,equiv_ts_on_trans])
+  >> disj2_tac >> metis_tac[equiv_ts_on_symm,equiv_ts_on_trans]
+QED
+
+Theorem composable_at_var_renaming2:
+  !s q p. is_const_or_type q /\ is_const_or_type p /\ var_renaming s
+  ==> composable_at q (LR_TYPE_SUBST s p) = composable_at q p
+Proof
+  rw[composable_at_def,EQ_IMP_THM,invertible_on_equiv_ts_on_FV]
+  >- (
+    drule_at_then Any (drule_at Any) unify_LR_LR_TYPE_SUBST_var_renaming2'
+    >> rw[wf_pqs_CONS]
+    >> first_x_assum $ drule_then strip_assume_tac
+    >> gs[equiv_ts_on_NIL_var_renaming1,equiv_ts_on_NIL_var_renaming2]
+    >> gs[equiv_ts_on_FV_LR_TYPE_SUBST]
+    >- (disj1_tac >> metis_tac[equiv_ts_on_symm,equiv_ts_on_trans])
+    >> disj2_tac >> metis_tac[equiv_ts_on_symm,equiv_ts_on_trans]
+  )
+  >> drule_at_then Any (drule_at Any) unify_LR_LR_TYPE_SUBST_var_renaming2
+  >> rw[wf_pqs_CONS]
+  >> first_x_assum $ drule_then strip_assume_tac
+  >> gs[equiv_ts_on_NIL_var_renaming1,equiv_ts_on_NIL_var_renaming2]
+  >> gs[equiv_ts_on_FV_LR_TYPE_SUBST]
+  >- (disj1_tac >> metis_tac[equiv_ts_on_symm,equiv_ts_on_trans])
+  >> disj2_tac >> metis_tac[equiv_ts_on_symm,equiv_ts_on_trans]
+QED
+
+Theorem composable_at_var_renaming12:
+  !s q p. is_const_or_type q /\ is_const_or_type p /\ var_renaming s
+  ==> composable_at (LR_TYPE_SUBST s q) (LR_TYPE_SUBST s p) = composable_at q p
+Proof
+  rw[composable_at_var_renaming1,composable_at_var_renaming2]
+QED
+
 Datatype:
   composability_result = continue ((type#type) list) | ignore | uncomposable
 End
@@ -6316,12 +6555,6 @@ Proof
   >> dsimp[composable_one_def,AllCaseEqs(),unify_complete',orth_ci_def,GSYM invertible_on_equiv_ts_on]
   >> metis_tac[]
 QED
-
-Definition composable_at_def:
-  composable_at q p =
-    !s_q s_p. unify_LR q p = SOME (s_q, s_p)
-    ==> (invertible_on s_q (FV q) \/ invertible_on s_p (FV p))
-End
 
 Theorem composable_one_LR_continue:
   !p q s. is_const_or_type p /\ is_const_or_type q
@@ -6606,6 +6839,7 @@ Theorem path_starting_at_composable_step':
     /\ var_renaming s'
     /\ LR_TYPE_SUBST s' y = LR_TYPE_SUBST (LAST rs') (SND y')
     /\ LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs) = LR_TYPE_SUBST (LAST rs') (FST y')
+    /\ LR_TYPE_SUBST (HD rs) (FST $ HD pqs) = LR_TYPE_SUBST (HD rs') (FST $ HD pqs)
 Proof
   rw[EQ_IMP_THM]
   >- (
