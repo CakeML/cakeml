@@ -22,10 +22,9 @@ Datatype:
 End
 
 Datatype:
-  md5state = <| digest : w128 ; mlen : w64 ; buf : word8 list ;
+  md5state = <| digest : w128 ; mlen : w64 ;
+                buf : word8 list ; (* kept in reverse order *)
                 buf_len : num (* LENGTH of buf *) |>
-  (* TODO: this implementation would be slightly better
-           if the content of buf was kept in reverse order *)
 End
 
 (*
@@ -405,8 +404,13 @@ End
        end
 *)
 
+Definition genlist_rev_def:
+  genlist_rev f 0 = [] ∧
+  genlist_rev f (SUC n) = f n :: genlist_rev f n
+End
+
 Definition extract_def:
-  extract vec s l = GENLIST (λi. EL (s + i) vec) l
+  extract vec s l = genlist_rev (λi. EL (s + i) vec) l
 End
 
 (*
@@ -439,6 +443,11 @@ Termination
   WF_REL_TAC ‘measure (λ(i,digest,input,inputLen). inputLen - i)’
 End
 
+Definition take_rev_def:
+  take_rev n [] acc = acc ∧
+  take_rev n (x::xs) acc = if n = 0 then acc else take_rev (n-1:num) xs (x::acc)
+End
+
 Definition update_def:
   update state (input:word8 list) =
     let buf = state.buf in
@@ -448,15 +457,15 @@ Definition update_def:
     let inputLen = LENGTH input in
     let needBytes = 64 - buf_len in
       if inputLen >= needBytes then
-        let buf = buf ++ TAKE needBytes input in
-        let digest = transform digest 0 buf in
+        let buf = take_rev needBytes input buf in
+        let digest = transform digest 0 (REVERSE buf) in
         let (i,digest) = loop needBytes digest input inputLen in
         let buf_len = inputLen - i in
         let buf = extract input i buf_len in
         let mlen = mul8add mlen inputLen in
           <| buf := buf ; buf_len := buf_len ; digest := digest ; mlen := mlen  |>
       else
-        let buf = buf ++ input in
+        let buf = REVERSE input ++ buf in
         let buf_len = buf_len + inputLen in
         let mlen = mul8add mlen inputLen in
           <| buf := buf ; buf_len := buf_len ; digest := digest ; mlen := mlen  |>
@@ -560,17 +569,17 @@ Definition update1_def:
     let needBytes = 64 - buf_len in
     let mlen = mul8add mlen 1 in
       if 1 < needBytes then
-        let buf = buf ++ [input] in
+        let buf = input::buf in
         let buf_len = buf_len + 1 in
           <| buf := buf ; buf_len := buf_len ; digest := digest ; mlen := mlen  |>
       else if needBytes = 1 then
-        let buf = buf ++ [input] in
-        let digest = transform digest 0 buf in
+        let buf = input::buf in
+        let digest = transform digest 0 (REVERSE buf) in
         let buf_len = 0 in
         let buf = [] in
           <| buf := buf ; buf_len := buf_len ; digest := digest ; mlen := mlen  |>
       else
-        let digest = transform digest 0 buf in
+        let digest = transform digest 0 (REVERSE buf) in
         let buf_len = 1 in
         let buf = [input] in
           <| buf := buf ; buf_len := buf_len ; digest := digest ; mlen := mlen  |>
@@ -581,10 +590,10 @@ Theorem update1_thm:
 Proof
   fs [update_def,update1_def]
   \\ qabbrev_tac ‘n = 64 − state.buf_len’
-  \\ Cases_on ‘n’ \\ fs []
+  \\ Cases_on ‘n’ \\ fs [take_rev_def]
   \\ once_rewrite_tac [loop_def] \\ fs []
-  THEN1 fs [extract_def]
-  \\ Cases_on ‘n'’ \\ fs []
+  THEN1 fs [extract_def,EVAL “genlist_rev f 1”]
+  \\ Cases_on ‘n'’ \\ fs [extract_def,genlist_rev_def]
   \\ once_rewrite_tac [loop_def] \\ fs [extract_def]
 QED
 
