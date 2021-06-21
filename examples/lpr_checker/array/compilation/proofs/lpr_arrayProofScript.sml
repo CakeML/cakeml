@@ -55,100 +55,6 @@ val check_unsat_code_def = Define `
   check_unsat_code = (code, data, config)
   `;
 
-Theorem lookup_build_fml:
-  ∀ls n acc i.
-  lookup i (build_fml n ls acc) =
-  if n ≤ i ∧ i < n + LENGTH ls
-  then SOME (EL (i-n) ls)
-  else lookup i acc
-Proof
-  Induct>>rw[build_fml_def]
-  >- (
-    `i-n = SUC(i-(n+1))` by DECIDE_TAC>>
-    simp[])
-  >- fs[]
-  >- (
-    `i-n=0`by fs[]>>
-    simp[lookup_insert])>>
-  simp[lookup_insert]
-QED
-
-Theorem SORTED_range:
-  SORTED  $< ls ∧
-  (∀i. MEM i ls ⇔ a ≤ i ∧ i < b) ⇒
-  ls = GENLIST ($+ a) (b-a)
-Proof
-  rw[]>>
-  match_mp_tac (SORTED_PERM_EQ |> SIMP_RULE std_ss [PULL_FORALL,AND_IMP_INTRO])>>
-  qexists_tac`$<`>>
-  CONJ_ASM1_TAC>>
-  simp[antisymmetric_def]>>
-  CONJ_ASM1_TAC>-
-    simp[SORTED_GENLIST_PLUS]>>
-  fs[]>>
-  `irreflexive ($< : num -> num -> bool)` by
-    simp[irreflexive_def]>>
-  imp_res_tac SORTED_ALL_DISTINCT>>
-  rfs[]>>
-  match_mp_tac PERM_ALL_DISTINCT>>
-  fs[MEM_GENLIST]>>
-  rw[EQ_IMP_THM]>>
-  qexists_tac`x-a`>>simp[]
-QED
-
-Theorem MAP_FST_LIST_EQ:
-  ALL_DISTINCT (MAP FST l1) ∧
-  MAP FST l1 = MAP FST l2 ∧
-  (∀x. ALOOKUP l1 (x:num) = ALOOKUP l2 x)
-  ⇒ l1 = l2
-Proof
-  rw[]>>rw[LIST_EQ_REWRITE]>-
-    metis_tac[LENGTH_MAP]>>
-  `ALOOKUP l1 (FST (EL x l1)) = SOME (SND (EL x l1))` by
-    (match_mp_tac ALOOKUP_ALL_DISTINCT_EL>>
-    fs[])>>
-  `ALOOKUP l2 (FST (EL x l2)) = SOME (SND (EL x l2))` by
-    (match_mp_tac ALOOKUP_ALL_DISTINCT_EL>>
-    fs[]>>metis_tac[LENGTH_MAP])>>
-  rfs[LIST_EQ_REWRITE,EL_MAP,LENGTH_MAP]>>
-  fs[EL_MAP]>>
-  first_x_assum drule>>
-  Cases_on`EL x l1`>> Cases_on`EL x l2`>>fs[]
-QED
-
-Theorem ALOOKUP_enumerate:
-  ∀ls k x.
-  ALOOKUP (enumerate k ls) x =
-  if k ≤ x ∧ x < LENGTH ls + k then SOME (EL (x-k) ls) else NONE
-Proof
-  Induct>>rw[miscTheory.enumerate_def]>>
-  `x-k = SUC(x-(k+1))` by DECIDE_TAC>>
-  simp[]
-QED
-
-Theorem toSortedAList_build_fml_enumerate:
-  toSortedAList (build_fml 1 ls LN) = enumerate 1 ls
-Proof
-  `MAP FST (toSortedAList (build_fml 1 ls LN)) = GENLIST ($+ 1) (LENGTH ls+1 -1)` by
-    (match_mp_tac SORTED_range>>
-    simp[SORTED_toSortedAList,MEM_MAP,EXISTS_PROD,MEM_toSortedAList]>>
-    simp[lookup_build_fml,lookup_def])>>
-  match_mp_tac MAP_FST_LIST_EQ>>
-  fs[MAP_FST_enumerate]>>
-  CONJ_ASM1_TAC
-  >-(
-    pop_assum sym_sub_tac>>
-    simp[ALL_DISTINCT_MAP_FST_toSortedAList])>>
-  rw[]>>
-  simp[ALOOKUP_toSortedAList,lookup_build_fml,ALOOKUP_enumerate,lookup_def]
-QED
-
-Theorem MAP_SND_enumerate:
-  MAP SND (enumerate k ls) = ls
-Proof
-  rw[LIST_EQ_REWRITE,LENGTH_enumerate,EL_MAP,EL_enumerate]
-QED
-
 Theorem machine_code_sound:
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ⇒
   installed_x64 check_unsat_code (basis_ffi cl fs) mc ms ⇒
@@ -208,17 +114,12 @@ Proof
       Cases_on`cl`>>rfs[])>>
     TOP_CASE_TAC>>fs[]
     >- (
-      qexists_tac`strlit ""`>>simp[]>>
       qexists_tac`err`>>rw[]
       >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
       fs[parse_dimacs_def])>>
-    PairCases_on`x`>>fs[]>>
-    qexists_tac`concat (print_dimacs_toks x2)`>>
     qexists_tac`strlit ""` >>
     simp[STD_streams_stderr,add_stdo_nil]>>
-    simp[parse_dimacs_def,print_dimacs_def,toSortedAList_build_fml_enumerate,MAP_SND_enumerate]>>
-    simp[print_dimacs_toks_def]>>
-    simp[print_header_line_def]>>
+    simp[print_dimacs_def,print_header_line_def]>>
     qmatch_goalsub_abbrev_tac` (strlit"p cnf " ^ a ^ b ^ c)`>>
     qmatch_goalsub_abbrev_tac` _ :: d`>>
     EVAL_TAC)>>
@@ -260,10 +161,9 @@ Proof
     qexists_tac`strlit ""`>> simp[]>>
     CONJ_TAC >-
       metis_tac[STD_streams_stderr,add_stdo_nil]>>
-    fs[parse_dimacs_def]>>
-    fs[GSYM toSortedAList_build_fml_enumerate]>>
-    drule (check_lpr_unsat_list_sound)>>simp[]>>
-    disch_then match_mp_tac>>
+    simp[parse_dimacs_def]>>
+    match_mp_tac (GEN_ALL check_lpr_unsat_list_sound)>>
+    asm_exists_tac>>simp[]>>
     CONJ_TAC >- (
       match_mp_tac (GEN_ALL parse_dimacs_wf)>>simp[parse_dimacs_def]>>
       qexists_tac`all_lines fs h'`>>fs[])>>
@@ -323,20 +223,8 @@ Proof
     CONJ_TAC >-
       metis_tac[STD_streams_stderr,add_stdo_nil]>>
     fs[parse_dimacs_def]>>
-    fs[GSYM toSortedAList_build_fml_enumerate]>>
-    drule (check_lpr_sat_equiv_list_sound)>>simp[]>>
-    `IMAGE interp_cclause (set x2') =
-      interp (build_fml 1 x2' LN)` by
-      (simp[interp_def,values_def,lookup_build_fml]>>
-      AP_TERM_TAC>>
-      rw[EXTENSION,lookup_def]>>
-      simp[MEM_EL]>>
-      rw[EQ_IMP_THM]
-      >- (qexists_tac`n+1`>>simp[])>>
-      qexists_tac`n-1`>>simp[])>>
-    simp[]>>
-    rw[]>>fs[]>>
-    first_x_assum match_mp_tac>>
+    match_mp_tac (GEN_ALL check_lpr_sat_equiv_list_sound)>>
+    asm_exists_tac>>simp[]>>
     CONJ_TAC >- (
       match_mp_tac (GEN_ALL parse_dimacs_wf)>>simp[parse_dimacs_def]>>
       qexists_tac`all_lines fs h'`>>fs[])>>

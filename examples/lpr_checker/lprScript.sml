@@ -11,13 +11,35 @@ val _ = new_theory "lpr";
   Clauses are lists of integers where positive (>0) integers map to INL and negative (<0) map to INR
 
   In implementation, clauses must not contain 0
+
+  The ccnf type is the concrete "list"-based CNF representation
+
+  The tccnf type is the concrete "sptree"-based CNF representation used by LRAT/LPR checking
+  which adds an id to each clause
 *)
 Type lit = ``:int``;
 Type cclause = ``:lit list``;
-Type ccnf = ``:cclause spt``;
+Type ccnf = ``:cclause list``;
+Type tccnf = ``:cclause spt``;
+
+val interp_lit_def = Define`
+  interp_lit (l:lit) =
+  if l > 0 then INL (Num (ABS l))
+  else INR (Num (ABS l))`
+
+val interp_cclause_def = Define`
+  interp_cclause (ls:cclause) =
+  IMAGE interp_lit (set ls DIFF {0})`
+
+val interp_def = Define`
+  interp (fml:ccnf) =
+  IMAGE interp_cclause (set fml)`
 
 val values_def = Define`
   values s = {v | ∃n. lookup n s = SOME v}`
+
+val interp_spt_def = Define`
+  interp_spt (fml:tccnf) = IMAGE interp_cclause (values fml)`
 
 Theorem values_delete:
   values (delete h v) ⊆ values v
@@ -41,18 +63,6 @@ Proof
   rw[SUBSET_DEF]>>
   metis_tac[values_insert]
 QED
-
-val interp_lit_def = Define`
-  interp_lit (l:lit) =
-  if l > 0 then INL (Num (ABS l))
-  else INR (Num (ABS l))`
-
-val interp_cclause_def = Define`
-  interp_cclause (ls:cclause) =
-  IMAGE interp_lit (set ls DIFF {0})`
-
-val interp_def = Define`
-  interp (fml:ccnf) = IMAGE interp_cclause (values fml)`
 
 (* Implementation *)
 val _ = Datatype`
@@ -230,7 +240,7 @@ val wf_clause_def = Define`
   wf_clause (C:cclause) ⇔ ¬ MEM 0 C`
 
 val wf_fml_def = Define`
-  wf_fml (fml:ccnf) ⇔
+  wf_fml (fml:tccnf) ⇔
   ∀C. C ∈ values fml ⇒ wf_clause C`
 
 val wf_lpr_def = Define`
@@ -344,7 +354,7 @@ Theorem is_AT_imp_asymmetric_tautology:
   ∀is fml C.
   wf_fml fml ∧ wf_clause C ∧
   is_AT fml is C = SOME (INL ()) ⇒
-    asymmetric_tautology (interp fml) (interp_cclause C)
+    asymmetric_tautology (interp_spt fml) (interp_cclause C)
 Proof
   Induct>>fs[is_AT_def]>>
   ntac 4 strip_tac>>
@@ -356,7 +366,7 @@ Proof
     qmatch_goalsub_abbrev_tac`unsatisfiable fml'`>>
     `fml' = (interp_cclause x) INSERT fml'` by
       (match_mp_tac (GSYM ABSORPTION_RWT)>>
-      fs[Abbr`fml'`,values_def,interp_def]>>
+      fs[Abbr`fml'`,values_def,interp_spt_def]>>
       metis_tac[])>>
     pop_assum SUBST1_TAC>>
     match_mp_tac filter_unit_preserves_unsatisfiable>>
@@ -384,7 +394,7 @@ Proof
   qmatch_goalsub_abbrev_tac`unsatisfiable fml'`>>
   `(interp_cclause x) INSERT fml' = fml'` by
     (match_mp_tac ABSORPTION_RWT>>
-    fs[Abbr`fml'`,values_def,interp_def]>>
+    fs[Abbr`fml'`,values_def,interp_spt_def]>>
     metis_tac[])>>
   pop_assum (SUBST1_TAC  o SYM)>>
   match_mp_tac filter_unit_preserves_unsatisfiable>>
@@ -416,8 +426,8 @@ Theorem is_AT_imp_sat_implies:
     interp_cclause D = E ∪ interp_cclause C ∧
     wf_clause D ∧
     sat_implies
-      (interp_cclause D INSERT interp fml)
-      (interp_cclause C INSERT interp fml)
+      (interp_cclause D INSERT interp_spt fml)
+      (interp_cclause C INSERT interp_spt fml)
 Proof
   Induct>>fs[is_AT_def]>>
   rw[]
@@ -447,7 +457,7 @@ Proof
   strip_tac>>
   fs[satisfies_INSERT]>>
   `satisfies_clause w (interp_cclause x)` by
-    (fs[satisfies_def,interp_def,values_def]>>
+    (fs[satisfies_def,interp_spt_def,values_def]>>
     metis_tac[])>>
   CCONTR_TAC >> fs[]>>
   `interp_cclause x DIFF interp_cclause C = interp_cclause [h']` by
@@ -586,7 +596,7 @@ QED
 Theorem check_PR_sat_implies:
   check_PR fml w C ik (i,Ci) ∧ Ci ∈ values fml ∧
   wf_fml fml ∧ wf_clause C ∧ consistent_par (interp_cclause C) ⇒
-  sat_implies (par (IMAGE negate_literal (interp_cclause C)) (interp fml))
+  sat_implies (par (IMAGE negate_literal (interp_cclause C)) (interp_spt fml))
     (par
       (interp_cclause w ∪ (IMAGE negate_literal (interp_cclause C DIFF interp_cclause w)))
       {interp_cclause Ci})
@@ -603,7 +613,7 @@ Proof
       metis_tac[interp_lit_eq,negate_literal_interp_lit])>>
     fs[INTER_UNION_EMPTY,IMAGE_IMAGE]>>
     first_x_assum match_mp_tac>>
-    simp[PULL_EXISTS,interp_def]>>
+    simp[PULL_EXISTS,interp_spt_def]>>
     fs[EXTENSION]>>
     metis_tac[]) >>
   simp[]>>
@@ -689,9 +699,9 @@ QED
 
 Theorem sat_implies_values:
   (∀C. C ∈ values fml ⇒ sat_implies A (par w {interp_cclause C})) ⇒
-  sat_implies A (par w (interp fml))
+  sat_implies A (par w (interp_spt fml))
 Proof
-  rw[sat_implies_def,satisfies_def,interp_def,par_def]>>
+  rw[sat_implies_def,satisfies_def,interp_spt_def,par_def]>>
   metis_tac[]
 QED
 
@@ -736,7 +746,7 @@ Theorem is_PR_redundant:
       MEM p ww
     | NONE => T) ∧
   is_PR fml p C w i0 ik  ⇒
-  redundant (interp fml) (interp_cclause C)
+  redundant (interp_spt fml) (interp_cclause C)
 Proof
   simp[is_PR_def]>>
   strip_tac>>
@@ -822,26 +832,26 @@ QED
 
 (* Deletion preserves sat: if C is satisfiable, then deleting clauses from C keeps satisfiability *)
 Theorem delete_preserves_satisfiable:
-  satisfiable (interp C) ⇒ satisfiable (interp (delete n C))
+  satisfiable (interp_spt C) ⇒ satisfiable (interp_spt (delete n C))
 Proof
   match_mp_tac satisfiable_SUBSET>>
-  simp[interp_def]>>
+  simp[interp_spt_def]>>
   match_mp_tac IMAGE_SUBSET>>
   metis_tac[values_delete]
 QED
 
 Theorem delete_clauses_sound:
-  ∀l fml. satisfiable (interp fml) ⇒
-  satisfiable (interp (FOLDL (λa b. delete b a) fml l))
+  ∀l fml. satisfiable (interp_spt fml) ⇒
+  satisfiable (interp_spt (FOLDL (λa b. delete b a) fml l))
 Proof
   Induct>>simp[]>>
   rw[]>>metis_tac[delete_preserves_satisfiable]
 QED
 
 Theorem interp_insert:
-  interp (insert n p fml) ⊆ interp_cclause p INSERT interp fml
+  interp_spt (insert n p fml) ⊆ interp_cclause p INSERT interp_spt fml
 Proof
-  simp[interp_def,SUBSET_DEF,PULL_EXISTS]>>
+  simp[interp_spt_def,SUBSET_DEF,PULL_EXISTS]>>
   rw[]>>drule values_insert>>rw[]>>
   metis_tac[]
 QED
@@ -850,7 +860,7 @@ Theorem check_lpr_step_sound:
   ∀mindel lpr fml fml'.
   wf_fml fml ∧ wf_lpr lpr ∧
   check_lpr_step mindel lpr fml = SOME fml' ⇒
-  (satisfiable (interp fml) ⇒ satisfiable (interp fml'))
+  (satisfiable (interp_spt fml) ⇒ satisfiable (interp_spt fml'))
 Proof
   rw[check_lpr_step_def]>>
   qpat_x_assum `_ = SOME _`mp_tac>>
@@ -860,7 +870,7 @@ Proof
     metis_tac[delete_clauses_sound])
   >>
   rw[]>>
-  `redundant (interp fml) (interp_cclause l)` by
+  `redundant (interp_spt fml) (interp_cclause l)` by
     (match_mp_tac (GEN_ALL is_PR_redundant)>>
     simp[]>>
     PURE_REWRITE_TAC[Once CONJ_ASSOC]>>
@@ -919,13 +929,13 @@ Proof
   match_mp_tac wf_fml_insert>>fs[wf_lpr_def]
 QED
 
-(* The main theorem *)
+(* The main operational theorem about check_lpr *)
 Theorem check_lpr_sound:
   ∀mindel lpr fml.
   wf_fml fml ∧ EVERY wf_lpr lpr ⇒
   check_lpr mindel lpr fml = SOME fml' ⇒
   wf_fml fml' ∧
-  (satisfiable (interp fml) ⇒ satisfiable (interp fml'))
+  (satisfiable (interp_spt fml) ⇒ satisfiable (interp_spt fml'))
 Proof
   Induct_on`lpr` >> simp[check_lpr_def]>>
   ntac 3 strip_tac>>
@@ -940,24 +950,6 @@ Proof
   strip_tac>>
   first_x_assum drule>> simp[]>>
   metis_tac[]
-QED
-
-Theorem check_lpr_unsat_sound:
-  ∀lpr fml fml'.
-  wf_fml fml ∧ EVERY wf_lpr lpr ⇒
-  check_lpr_unsat lpr fml ⇒
-  unsatisfiable (interp fml)
-Proof
-  rw[check_lpr_unsat_def]>>
-  every_case_tac>>fs[]>>
-  `unsatisfiable (interp x)` by (
-    match_mp_tac empty_clause_imp_unsatisfiable>>
-    fs[contains_clauses_def]>>
-    fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList,interp_def,values_def]>>
-    qexists_tac`r`>>simp[interp_cclause_def]>>
-    metis_tac[])>>
-  drule check_lpr_sound>>
-  metis_tac[unsatisfiable_def]
 QED
 
 (* Theorems about mindel *)
@@ -1003,56 +995,132 @@ Proof
   metis_tac[]
 QED
 
+(* Build a tccnf from a ccnf *)
+val build_fml_def = Define`
+  (build_fml (id:num) [] = LN:tccnf) ∧
+  (build_fml id (cl::cls) =
+    insert id cl (build_fml (id+1) cls))`
+
+Theorem lookup_build_fml:
+  ∀ls n acc i.
+  lookup i (build_fml n ls) =
+  if n ≤ i ∧ i < n + LENGTH ls
+  then SOME (EL (i-n) ls)
+  else NONE
+Proof
+  Induct>>rw[build_fml_def,lookup_def,lookup_insert]>>
+  `i-n = SUC(i-(n+1))` by DECIDE_TAC>>
+  simp[]
+QED
+
+Theorem values_build_fml:
+  ∀ls id. values (build_fml id ls) = set ls
+Proof
+  Induct>>fs[build_fml_def,values_def,lookup_def]>>
+  fs[EXTENSION]>>
+  rw[lookup_insert]>>
+  rw[EQ_IMP_THM]
+  >- (
+    every_case_tac>>fs[]>>
+    metis_tac[])
+  >- metis_tac[] >>
+  first_x_assum(qspecl_then[`id+1`,`x`] mp_tac)>>
+  rw[]>>
+  fs[lookup_build_fml]>>
+  qexists_tac`n`>>simp[]
+QED
+
+Theorem interp_build_fml:
+  interp_spt (build_fml id fml) = interp fml
+Proof
+  simp[interp_spt_def,values_build_fml,interp_def]
+QED
+
+Theorem wf_fml_build_fml:
+  EVERY wf_clause ls ⇒
+  wf_fml (build_fml id ls)
+Proof
+  simp[wf_fml_def,values_build_fml,EVERY_MEM]
+QED
+
+(* Connect theorems to ccnf representation *)
+Theorem check_lpr_unsat_sound:
+  EVERY wf_clause fml ∧ EVERY wf_lpr lpr ∧
+  check_lpr_unsat lpr (build_fml id fml) ⇒
+  unsatisfiable (interp fml)
+Proof
+  rw[check_lpr_unsat_def]>>
+  every_case_tac>>fs[]>>
+  `unsatisfiable (interp_spt x)` by (
+    match_mp_tac empty_clause_imp_unsatisfiable>>
+    fs[contains_clauses_def]>>
+    fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList,interp_spt_def,values_def]>>
+    qexists_tac`r`>>simp[interp_cclause_def]>>
+    metis_tac[])>>
+  drule wf_fml_build_fml>>
+  disch_then (qspec_then`id` assume_tac)>>
+  drule check_lpr_sound>>
+  metis_tac[unsatisfiable_def,interp_build_fml]
+QED
+
+(* This theorem is unused *)
 Theorem check_lpr_sat_equiv_add:
-  ∀mindel lpr fml cls.
-  wf_fml fml ∧ EVERY wf_lpr lpr ∧
-  (∀n. n ∈ domain fml ⇒ n ≤ mindel) ∧
-  check_lpr_sat_equiv lpr fml mindel cls ⇒
+  EVERY wf_clause fml ∧ EVERY wf_lpr lpr ∧
+  id + LENGTH fml ≤ mindel ∧
+  check_lpr_sat_equiv lpr (build_fml id fml) mindel cls ⇒
   satisfiable (interp fml) ⇒
-  satisfiable ((IMAGE interp_cclause (set cls)) ∪ interp fml )
+  satisfiable (interp (fml ++ cls))
 Proof
   rw[check_lpr_sat_equiv_def]>>
   every_case_tac>>fs[contains_clauses_def]>>
+  drule wf_fml_build_fml>>
+  disch_then (qspec_then`id` assume_tac)>>
   drule check_lpr_sound>>
   rpt (disch_then drule)>>
-  simp[]>> rw[]>>
-  `interp fml ⊆ interp x` by (
+  fs[interp_build_fml]>>rw[]>>
+  `interp_spt (build_fml id fml) ⊆ interp_spt x` by (
     drule check_lpr_mindel>>
-    rw[interp_def,values_def,SUBSET_DEF]>>
-    fs[domain_lookup]>>
+    simp[lookup_build_fml]>>
+    rw[interp_build_fml,interp_def]>>
+    simp[interp_spt_def,values_def,SUBSET_DEF]>>
+    rw[]>>
+    fs[MEM_EL]>>
+    first_x_assum(qspec_then `n+id` mp_tac)>>simp[]>>
     metis_tac[])>>
-  `IMAGE interp_cclause (set cls) ⊆ interp x` by (
+  `IMAGE interp_cclause (set cls) ⊆ interp_spt x` by (
     rw[SUBSET_DEF]>>
     fs[EVERY_MEM,MEM_toAList,EXISTS_PROD,MEM_MAP]>>
     first_x_assum drule>>rw[]>>
-    fs[interp_def,values_def]>>
+    fs[interp_spt_def,values_def]>>
     metis_tac[])>>
   qpat_x_assum`satisfiable _` mp_tac>>
   match_mp_tac (satisfiable_SUBSET)>>
-  fs[]
+  fs[interp_build_fml, interp_def]
 QED
 
 Theorem check_lpr_sat_equiv_fml:
-  ∀mindel lpr fml cls.
-  wf_fml fml ∧ EVERY wf_lpr lpr ∧
-  check_lpr_sat_equiv lpr fml 0 cls ⇒
+  EVERY wf_clause fml ∧ EVERY wf_lpr lpr ∧
+  check_lpr_sat_equiv lpr (build_fml id fml) mindel fml2 ⇒
   satisfiable (interp fml) ⇒
-  satisfiable ((IMAGE interp_cclause (set cls)))
+  satisfiable (interp fml2)
 Proof
   rw[check_lpr_sat_equiv_def]>>
   every_case_tac>>fs[contains_clauses_def]>>
+  drule wf_fml_build_fml>>
+  disch_then (qspec_then`id` assume_tac)>>
   drule check_lpr_sound>>
   rpt (disch_then drule)>>
-  simp[]>> rw[]>>
-  `IMAGE interp_cclause (set cls) ⊆ interp x` by (
+  fs[interp_build_fml]>>
+  rw[]>>
+  `IMAGE interp_cclause (set fml2) ⊆ interp_spt x` by (
     rw[SUBSET_DEF]>>
     fs[EVERY_MEM,MEM_toAList,EXISTS_PROD,MEM_MAP]>>
     first_x_assum drule>>rw[]>>
-    fs[interp_def,values_def]>>
+    fs[interp_spt_def,values_def]>>
     metis_tac[])>>
   qpat_x_assum`satisfiable _` mp_tac>>
   match_mp_tac (satisfiable_SUBSET)>>
-  fs[]
+  fs[interp_def]
 QED
 
 val _ = export_theory ();

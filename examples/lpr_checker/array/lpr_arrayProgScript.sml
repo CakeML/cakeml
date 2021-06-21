@@ -42,6 +42,16 @@ Proof
   metis_tac[]
 QED
 
+Theorem ALOOKUP_enumerate:
+  ∀ls k x.
+  ALOOKUP (enumerate k ls) x =
+  if k ≤ x ∧ x < LENGTH ls + k then SOME (EL (x-k) ls) else NONE
+Proof
+  Induct>>rw[miscTheory.enumerate_def]>>
+  `x-k = SUC(x-(k+1))` by DECIDE_TAC>>
+  simp[]
+QED
+
 val _ = translation_extends"UnsafeProg";
 
 (* Pure translation of LPR checker *)
@@ -2770,22 +2780,22 @@ val tostdstring_side = Q.prove(
 
 val _ = translate print_clause_def;
 
-val _ = translate spt_center_def;
+(* val _ = translate spt_center_def;
 val _ = translate apsnd_cons_def;
 val _ = translate spt_centers_def;
 val _ = translate spt_right_def;
 val _ = translate spt_left_def;
 val _ = translate combine_rle_def;
 val _ = translate spts_to_alist_def;
-val _ = translate toSortedAList_def;
+val _ = translate toSortedAList_def; *)
 
 val _ = translate print_header_line_def;
 
-val _ = translate print_dimacs_toks_def;
+val _ = translate print_dimacs_def;
 
-val print_dimacs_toks_side = Q.prove(
-  `∀x. print_dimacs_toks_side x = T`,
-  rw[definition"print_dimacs_toks_side_def"]>>
+val print_dimacs_side = Q.prove(
+  `∀x. print_dimacs_side x = T`,
+  rw[definition"print_dimacs_side_def"]>>
   `0 ≤ 0:int` by fs[]>> drule max_lit_max_1>>
   simp[])
   |> update_precondition;
@@ -2972,7 +2982,7 @@ val check_unsat_1 = (append_prog o process_topdecs) `
   fun check_unsat_1 f1 =
   case parse_dimacs_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr (mv,(ncl,fml)) => TextIO.print_list (print_dimacs_toks fml)`
+  | Inr (mv,(ncl,fml)) => TextIO.print_list (print_dimacs fml)`
 
 val _ = translate miscTheory.enumerate_def;
 
@@ -3089,9 +3099,9 @@ QED
 val check_unsat_1_sem_def = Define`
   check_unsat_1_sem fs f1 err =
   if inFS_fname fs f1 then
-    (case parse_dimacs_toks (MAP toks (all_lines fs f1)) of
+    (case parse_dimacs (all_lines fs f1) of
       NONE => add_stderr fs err
-    | SOME (mv,cl,fml) => add_stdout fs (concat (print_dimacs_toks fml)))
+    | SOME fml => add_stdout fs (concat (print_dimacs fml)))
   else add_stderr fs err`
 
 Theorem check_unsat_1_spec:
@@ -3111,6 +3121,7 @@ Proof
   simp[check_unsat_1_sem_def]>>
   TOP_CASE_TAC>>fs[]
   >- (
+    simp[parse_dimacs_def]>>
     every_case_tac>>fs[SUM_TYPE_def,PAIR_TYPE_def]>>
     xmatch
     >- (
@@ -3611,35 +3622,38 @@ Proof
 QED
 
 Theorem fml_rel_FOLDL_resize_update_list:
-  fml_rel x
-  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
+  fml_rel (build_fml k fml)
+  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
 Proof
   rw[fml_rel_def]>>
-  reverse(rw[])
+  reverse IF_CASES_TAC
   >- (
+    fs[lookup_build_fml]>>
     CCONTR_TAC>>fs[]>>
-    `?y. lookup x' x = SOME y` by
-      (Cases_on`lookup x' x`>>fs[])>>
-    fs[GSYM MEM_toSortedAList]>>
+    `MEM x (MAP FST (enumerate k fml))` by
+      (fs[MAP_FST_enumerate,MEM_GENLIST]>>
+      intLib.ARITH_TAC)>>
+    fs[MEM_MAP]>>
     fs[FOLDL_FOLDR_REVERSE]>>
-    `MEM (x',y) (REVERSE (toSortedAList x))` by
+    `MEM y (REVERSE (enumerate k fml))` by
       fs[MEM_REVERSE]>>
     drule LENGTH_FOLDR_resize_update_list2>>
     simp[]>>
-    metis_tac[])>>
-  `ALL_DISTINCT (MAP FST (toSortedAList x))` by
-    fs[ALL_DISTINCT_MAP_FST_toSortedAList]>>
-  drule FOLDL_resize_update_list_lookup>>
-  simp[ALOOKUP_toSortedAList]
+    metis_tac[]) >>
+  DEP_REWRITE_TAC [FOLDL_resize_update_list_lookup]>>
+  simp[]>>
+  CONJ_TAC >-
+    simp[ALL_DISTINCT_MAP_FST_enumerate]>>
+  simp[lookup_build_fml,ALOOKUP_enumerate]
 QED
 
 Theorem ind_rel_FOLDL_resize_update_list:
   ind_rel
-  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
-  (REVERSE (MAP FST (toSortedAList x)))
+  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
+  (REVERSE (MAP FST (enumerate k fml)))
 Proof
   simp[ind_rel_def,FOLDL_FOLDR_REVERSE]>>
-  `∀z. MEM z (MAP FST (toSortedAList x)) ⇔ MEM z (MAP FST (REVERSE (toSortedAList x)))` by
+  `∀z. MEM z (MAP FST (enumerate k fml)) ⇔ MEM z (MAP FST (REVERSE (enumerate k fml)))` by
     simp[MEM_MAP]>>
   simp[]>>
   qmatch_goalsub_abbrev_tac`MAP FST ls`>>
@@ -3667,8 +3681,8 @@ QED
 
 Theorem earliest_rel_FOLDL_resize_update_list:
   earliest_rel
-  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
-  (FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) (toSortedAList x))
+  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
+  (FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) (enumerate k fml))
 Proof
   simp[FOLDL_FOLDR_REVERSE]>>
   qpat_abbrev_tac`lss = REVERSE _`>>
@@ -3682,12 +3696,12 @@ QED
 
 Theorem check_lpr_unsat_list_sound:
   check_lpr_unsat_list lpr
-    (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
-    (REVERSE (MAP FST (toSortedAList x)))
+    (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
+    (REVERSE (MAP FST (enumerate k fml)))
     Clist
-    (FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) (toSortedAList x)) ∧
-  wf_fml x ∧ EVERY wf_lpr lpr ∧ EVERY ($= w8z) Clist ⇒
-  unsatisfiable (interp x)
+    (FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) (enumerate k fml)) ∧
+  EVERY wf_clause fml ∧ EVERY wf_lpr lpr ∧ EVERY ($= w8z) Clist ⇒
+  unsatisfiable (interp fml)
 Proof
   rw[check_lpr_unsat_list_def]>>
   every_case_tac>>fs[]>>
@@ -3695,31 +3709,32 @@ Proof
   assume_tac (ind_rel_FOLDL_resize_update_list |> INST_TYPE [alpha |-> ``:int list``])>>
   assume_tac earliest_rel_FOLDL_resize_update_list>>
   drule fml_rel_check_lpr_list>>
-  `SORTED $>= (REVERSE (MAP FST (toSortedAList x)))` by
+  `SORTED $>= (REVERSE (MAP FST (enumerate k fml)))` by
     (DEP_REWRITE_TAC [SORTED_REVERSE]>>
-    simp[transitive_def]>>
-    `SORTED $< (MAP FST (toSortedAList x))` by fs[SORTED_toSortedAList]>>
-    drule SORTED_weaken>> disch_then match_mp_tac>>
-    simp[])>>
-  simp[]>>
+    simp[transitive_def,MAP_FST_enumerate]>>
+    match_mp_tac SORTED_weaken>>
+    qexists_tac `$<`>>simp[]>>
+    metis_tac[SORTED_GENLIST_PLUS])>>
+  drule wf_fml_build_fml>> disch_then (qspec_then`k` assume_tac)>>
   rpt(disch_then drule)>>
   strip_tac>>
-  match_mp_tac (check_lpr_unsat_sound |> SIMP_RULE std_ss [AND_IMP_INTRO])>>
+  match_mp_tac (check_lpr_unsat_sound |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
   simp[check_lpr_unsat_def]>>
   asm_exists_tac>>simp[]>>
+  qexists_tac`k`>>simp[]>>
   metis_tac[fml_rel_contains_clauses_list]
 QED
 
 Theorem check_lpr_sat_equiv_list_sound:
   check_lpr_sat_equiv_list lpr
-    (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (toSortedAList x))
-    (REVERSE (MAP FST (toSortedAList x)))
+    (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
+    (REVERSE (MAP FST (enumerate k fml)))
     Clist
-    (FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) (toSortedAList x))
-    0 clauses ∧
-  wf_fml x ∧ EVERY wf_lpr lpr ∧ EVERY ($= w8z) Clist ⇒
-  satisfiable (interp x) ⇒
-  satisfiable (IMAGE interp_cclause (set clauses))
+    (FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) (enumerate k fml))
+    0 fml2 ∧
+  EVERY wf_clause fml ∧ EVERY wf_lpr lpr ∧ EVERY ($= w8z) Clist ⇒
+  satisfiable (interp fml) ⇒
+  satisfiable (interp fml2)
 Proof
   rw[check_lpr_sat_equiv_list_def]>>
   every_case_tac>>fs[]>>
@@ -3727,19 +3742,23 @@ Proof
   assume_tac (ind_rel_FOLDL_resize_update_list |> INST_TYPE [alpha |-> ``:int list``])>>
   assume_tac earliest_rel_FOLDL_resize_update_list>>
   drule fml_rel_check_lpr_list>>
-  `SORTED $>= (REVERSE (MAP FST (toSortedAList x)))` by
+  `SORTED $>= (REVERSE (MAP FST (enumerate k fml)))` by
     (DEP_REWRITE_TAC [SORTED_REVERSE]>>
-    simp[transitive_def]>>
-    `SORTED $< (MAP FST (toSortedAList x))` by fs[SORTED_toSortedAList]>>
-    drule SORTED_weaken>> disch_then match_mp_tac>>
-    simp[])>>
+    simp[transitive_def,MAP_FST_enumerate]>>
+    match_mp_tac SORTED_weaken>>
+    qexists_tac `$<`>>simp[]>>
+    metis_tac[SORTED_GENLIST_PLUS])>>
+  drule wf_fml_build_fml>>
+  disch_then (qspec_then`k` assume_tac)>>
   simp[]>>
   rpt(disch_then drule)>>
   strip_tac>>
-  match_mp_tac (check_lpr_sat_equiv_fml |> SIMP_RULE std_ss [AND_IMP_INTRO])>>
+  match_mp_tac (check_lpr_sat_equiv_fml |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
   simp[check_lpr_sat_equiv_def]>>
   asm_exists_tac>>simp[]>>
   asm_exists_tac>>simp[]>>
+  qexists_tac`0`>>simp[]>>
+  qexists_tac`k`>>simp[]>>
   metis_tac[fml_rel_contains_clauses_list]
 QED
 
