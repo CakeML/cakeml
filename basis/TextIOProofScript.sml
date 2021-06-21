@@ -7374,18 +7374,17 @@ Definition b_inputAllTokensStdIn_def:
          fastForwardFD fs 0))
 End
 
-Theorem EvalM_b_inputAllTokensStdIn:
-   Eval env exp_f ((CHAR --> BOOL) f) /\
-   Eval env exp_g ((STRING_TYPE --> (a:'a->v->bool)) g) /\
-    (nsLookup env.v (Long "TextIO" (Short "b_inputAllTokensStdIn")) =
-       SOME TextIO_b_inputAllTokensStdIn_v) ==>
-    EvalM F env st (App Opapp [Var (Long "TextIO" (Short "b_inputAllTokensStdIn")); exp_f; exp_g])
-      (MONAD (OPTION_TYPE (LIST_TYPE (LIST_TYPE a))) exc_ty (b_inputAllTokensStdIn f g))
-      (MONAD_IO,p:'ffi ffi_proj)
-Proof
-  (* TODO: Needs a version of EvalM_from_app that takes two arguments *)
-  cheat
-QED
+(* Theorem EvalM_b_inputAllTokensStdIn: *)
+(*    Eval env exp_f ((CHAR --> BOOL) f) /\ *)
+(*    Eval env exp_g ((STRING_TYPE --> (a:'a->v->bool)) g) /\ *)
+(*     (nsLookup env.v (Long "TextIO" (Short "b_inputAllTokensStdIn")) = *)
+(*        SOME TextIO_b_inputAllTokensStdIn_v) ==> *)
+(*     EvalM F env st (App Opapp [App Opapp [Var (Long "TextIO" (Short "b_inputAllTokensStdIn")); exp_f]; exp_g]) *)
+(*       (MONAD (OPTION_TYPE (LIST_TYPE (LIST_TYPE a))) exc_ty (b_inputAllTokensStdIn f g)) *)
+(*       (MONAD_IO,p:'ffi ffi_proj) *)
+(* Proof *)
+(*   (* TODO: Needs a version of EvalM_from_app that takes two arguments *) *)
+(* QED *)
 
 Theorem b_inputAllTokensFrom_spec:
    FILENAME fname fnamev ∧ hasFreeFD fs ∧
@@ -7676,15 +7675,18 @@ Definition b_inputLinesStdIn_def:
 End
 
 Theorem EvalM_b_inputLinesStdIn:
-   Eval env exp (UNIT_TYPE ()) /\
-    (nsLookup env.v (Long "TextIO" (Short "b_inputLinesStdIn")) =
-       SOME TextIO_b_inputLinesStdIn_v) ==>
-    EvalM F env st (App Opapp [Var (Long "TextIO" (Short "b_inputLinesStdIn")); exp])
+   ALOOKUP st.infds 0 = SOME (UStream «stdin» ,ReadMode,0) ∧
+   (nsLookup env.v (Long "TextIO" (Short "b_inputLinesStdIn")) =
+    SOME TextIO_b_inputLinesStdIn_v) ⇒
+    EvalM F env st (App Opapp [Var (Long "TextIO" (Short "b_inputLinesStdIn")); Con NONE []])
       (MONAD (LIST_TYPE STRING_TYPE) exc_ty b_inputLinesStdIn)
       (MONAD_IO,p:'ffi ffi_proj)
 Proof
-  ho_match_mp_tac EvalM_from_app_unit
-  \\ rw[b_inputLinesStdIn_def]
+  rw[]
+  \\ irule EvalM_from_app_unit_gen
+  \\ rw[b_inputLinesStdIn_def,Eval_Val_UNIT]
+  \\ qexists_tac ‘λst. ALOOKUP st.infds 0 = SOME (UStream «stdin» ,ReadMode,0)’
+  \\ simp[]
   \\ rw[MONAD_IO_def]
   \\ xpull
   \\ fs[SEP_CLAUSES]
@@ -7694,8 +7696,6 @@ Proof
   \\ qexistsl_tac [‘GC’,‘s’]
   \\ rw[fastForwardFD_same_infds]
   \\ xsimpl
-  (* TODO: An assumption stating that stdin is around and has not been read *)
-  \\ cheat
 QED
 
 val _ = export_theory();
