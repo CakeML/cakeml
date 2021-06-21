@@ -7200,7 +7200,7 @@ Proof
   >> fs[dep_step_inv_def,wf_pqs_APPEND]
 QED
 
-Theorem dep_step_complete_INL':
+Theorem dep_step_complete_INL:
   !dep rest dep'dep dep'.
   dep_step_inv dep dep' rest dep'dep
   ==> ?res. dep_step dep rest dep'dep = INL res
@@ -7242,7 +7242,7 @@ Proof
     >> rpt $ goal_assum $ drule_at Any
     >> fs[wf_pqs_APPEND]
   )
-  >> irule dep_step_complete_INL'
+  >> irule dep_step_complete_INL
   >> fs[dep_step_inv_def,wf_pqs_APPEND]
   >> goal_assum $ drule_at Any >> fs[]
 QED
@@ -7273,10 +7273,7 @@ Proof
   ho_match_mp_tac dep_step_ind
   >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,GSYM is_instance_LR_equiv]
   >> Cases_on `pre` >- gvs[dep_step_inv_def,Once EXISTS_NOT_EVERY]
-  >> Cases_on `h` >> gvs[o_DEF]
-  >> disj1_tac >> first_x_assum irule
-  >> fs[dep_step_inv_def,o_DEF,wf_pqs_APPEND,wf_pqs_CONS]
-  >> rpt $ goal_assum drule
+  >> gvs[pair_case_eq,o_DEF]
 QED
 
 Theorem dep_step_sound_non_comp_step:
@@ -7301,9 +7298,8 @@ Theorem dep_step_complete_non_comp_step:
 Proof
   ho_match_mp_tac dep_step_ind
   >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,GSYM is_instance_LR_equiv]
-  >> Cases_on `pre` >- gvs[] >> disj1_tac >> Cases_on `h` >> gvs[o_DEF]
-  >> first_x_assum irule >> fs[dep_step_inv_def,o_DEF,wf_pqs_APPEND,wf_pqs_CONS]
-  >> rpt $ goal_assum drule
+  >> Cases_on `pre`
+  >> gvs[Once pair_case_eq,o_DEF]
 QED
 
 Theorem dep_step_inv_path_init:
