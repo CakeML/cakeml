@@ -556,7 +556,11 @@ fun run_test str = let
 val _ = run_test "hi";
 val _ = run_test "there";
 val _ = run_test "This is a longer string.";
-val _ = run_test "Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut. Mun mummoni mun mammani. Mun mammani muni mut.";
+val _ = run_test ("Mun mummoni mun mammani. Mun mammani muni mut." ^
+                  "Mun mummoni mun mammani. Mun mammani muni mut." ^
+                  "Mun mummoni mun mammani. Mun mammani muni mut." ^
+                  "Mun mummoni mun mammani. Mun mammani muni mut." ^
+                  "Mun mummoni mun mammani. Mun mammani muni mut.");
 
 (*
     Specialise update for taking only one input

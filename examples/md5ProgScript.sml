@@ -1,5 +1,5 @@
 (*
-  Implementation of Unix-style md5sum
+  Translate md5 function
 *)
 open preamble basis md5Theory;
 
