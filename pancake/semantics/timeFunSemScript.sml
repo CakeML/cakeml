@@ -143,6 +143,7 @@ Definition eval_delay_wtime_some_def:
   else NONE
 End
 
+(* rearrange the check on system time *)
 Definition eval_step_def:
   eval_step prog m n (or:num -> input_delay) st =
   case st.waitTime of

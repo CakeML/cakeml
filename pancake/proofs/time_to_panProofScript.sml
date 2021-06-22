@@ -588,17 +588,6 @@ Definition wakeup_shape_def:
      | SOME wt => wt ≤ wt')
 End
 
-(*
-Definition wakeup_shape_def:
-  wakeup_shape (fm: mlstring |-> 'a v) wt ist ⇔
-    FLOOKUP fm «wakeUpAt» =
-    SOME (ValWord (n2w
-                   (ist +
-                    case wt of
-                    | NONE => 0
-                    | SOME wt => wt)))
-End
-*)
 
 Definition wait_time_locals1_def:
   wait_time_locals1 (:α) fm swt ist nst =
@@ -620,44 +609,6 @@ Definition input_stime_rel_def:
    st < ist + wt)
 End
 
-
-(*
-Definition wait_time_locals_def:
-  wait_time_locals (:α) fm swt ffi =
-  ∃wt st.
-    FLOOKUP fm «wakeUpAt» = SOME (ValWord (n2w (wt + st))) ∧
-    wt < dimword (:α) ∧ st < dimword (:α) ∧
-    case swt of
-    | NONE => T
-    | SOME swt =>
-        swt ≠ 0:num ⇒
-        FST (ffi (0:num)) < wt + st
-End
-
-
-Definition wakeup_shape_def:
-  wakeup_shape (fm: mlstring |-> 'a v) st wt ⇔
-    FLOOKUP fm «wakeUpAt» =
-    SOME (ValWord (n2w
-                   (st +
-                    case wt of
-                    | NONE => 0
-                    | SOME wt => wt)))
-
-End
-
-Definition wait_time_locals1_def:
-  wait_time_locals1 (:α) fm swt st nst =
-  ∃wt.
-    FLOOKUP fm «wakeUpAt» = SOME (ValWord (n2w (wt + st))) ∧
-    wt < dimword (:α) - 1 ∧
-    case swt of
-    | NONE => T
-    | SOME swt =>
-        swt ≠ 0:num ⇒
-        nst < wt + st
-End
-*)
 
 Definition input_eq_ffi_seq_def:
   input_eq_ffi_seq (seq:num -> num # num) xs ⇔
@@ -8751,7 +8702,9 @@ Definition sum_delays_def:
        mem_read_ffi_results (:α) ffi (n+1))
 End
 
-
+(* TODO: remove TAKE SUM *)
+(* sum_delays should hold until the first panic *)
+(* this theorem provide gaurantees only upto the first panic if any *)
 Theorem steps_io_event_thm:
   ∀labels prog n st sts (t:('a,time_input) panSem$state) ist.
     steps prog labels (dimword (:α) - 1) n st sts ∧
@@ -9228,7 +9181,7 @@ Definition wf_prog_and_init_states_def:
     ~MEM "get_time_input" (MAP explode (out_signals prog))
 End
 
-
+(* TODO: remove TAKE SUM *)
 Theorem timed_automata_correct:
   ∀prog labels st sts (t:('a,time_input) panSem$state).
     steps prog labels
