@@ -352,7 +352,7 @@ Definition steps_def:
      let n' =
          case lbl of
          | LDelay d => d + n
-         | LAction _ => n
+         | _ => n
      in
        steps prog lbls m n' st sts) ∧
   (steps prog _ m _ s _ ⇔ F)

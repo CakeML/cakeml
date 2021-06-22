@@ -717,7 +717,8 @@ Definition evaluations_def:
                 nt.code = t.code ∧
                 nt.be = t.be ∧
                 nt.ffi.ffi_state = t.ffi.ffi_state ∧
-                nt.ffi.oracle = t.ffi.oracle)
+                nt.ffi.oracle = t.ffi.oracle ∧
+                nt.eshapes = t.eshapes)
          | PanicInput i =>
              (wakeup_shape t.locals s.waitTime (FST (t.ffi.ffi_state 0)) ∧
               input_stime_rel s.waitTime (FST (t.ffi.ffi_state 0)) (FST (t.ffi.ffi_state 0)) ∧
@@ -730,7 +731,8 @@ Definition evaluations_def:
                 nt.code = t.code ∧
                 nt.be = t.be ∧
                 nt.ffi.ffi_state = next_ffi t.ffi.ffi_state ∧
-                nt.ffi.oracle = t.ffi.oracle)) ∧
+                nt.ffi.oracle = t.ffi.oracle ∧
+                nt.eshapes = t.eshapes)) ∧
 
   (evaluate_delay prog d ist s st (t:('a,time_input) panSem$state) lbls sts ⇔
    ∀cycles.
@@ -751,6 +753,7 @@ Definition evaluations_def:
        nt.be = t.be ∧
        nt.ffi.ffi_state = nexts_ffi cycles t.ffi.ffi_state ∧
        nt.ffi.oracle = t.ffi.oracle ∧
+       nt.eshapes = t.eshapes ∧
        FLOOKUP nt.locals «wakeUpAt» = FLOOKUP t.locals «wakeUpAt» ∧
        FLOOKUP nt.locals «waitSet» = FLOOKUP t.locals «waitSet» ∧
        FLOOKUP nt.locals «taskRet» = FLOOKUP t.locals «taskRet» ∧
@@ -778,6 +781,7 @@ Definition evaluations_def:
      nt.be = t.be ∧
      nt.ffi.ffi_state = next_ffi t.ffi.ffi_state ∧
      nt.ffi.oracle = t.ffi.oracle ∧
+     nt.eshapes = t.eshapes ∧
      FLOOKUP nt.locals «wakeUpAt» =
      SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) +
                          case st.waitTime of
@@ -807,6 +811,7 @@ Definition evaluations_def:
      nt.be = t.be ∧
      nt.ffi.ffi_state = t.ffi.ffi_state ∧
      nt.ffi.oracle = t.ffi.oracle ∧
+     nt.eshapes = t.eshapes ∧
      FLOOKUP nt.locals «wakeUpAt» =
      SOME (ValWord (n2w (FST (t.ffi.ffi_state 0) +
                          case st.waitTime of
@@ -8704,20 +8709,24 @@ Definition sum_delays_def:
        mem_read_ffi_results (:α) ffi (n+1))
 End
 
+
+
+(* lets assume that there are no panic and timeout in labels *)
 (* TODO: remove TAKE SUM *)
-(* sum_delays should hold until the first panic *)
-(* this theorem provide gaurantees only upto the first panic if any *)
 Theorem steps_io_event_thm:
   ∀labels prog n st sts (t:('a,time_input) panSem$state) ist.
     steps prog labels (dimword (:α) - 1) n st sts ∧
+    (∀lbl.
+       MEM lbl labels ⇒
+       lbl ≠ LPanic (PanicTimeout) ∧
+       (∀is. lbl ≠ LPanic is)) ∧
     assumptions prog n st t ∧
     ffi_rels prog labels st t ist ∧
     sum_delays (:α) labels t.ffi.ffi_state ⇒
     ∃ck t' ns ios.
       evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
       (SOME (Return (ValWord 0w)),t') ∧
-      t'.ffi.io_events =
-      t.ffi.io_events ++ ios ∧
+      t'.ffi.io_events = t.ffi.io_events ++ ios ∧
       LENGTH labels = LENGTH ns ∧
       SUM ns ≤ LENGTH ios ∧
       t'.be = t.be ∧
@@ -8925,7 +8934,14 @@ Proof
     gs [assumptions_def] >>
   rveq >> gs [] >>
   gs [evaluations_def, steps_def] >>
-  cases_on ‘h’ >> gs []
+  cases_on ‘h’ >> gs [] >>
+  TRY (
+    cases_on ‘p’ >> gvs []
+    >- (
+      first_x_assum (qspec_then ‘LPanic PanicTimeout’ mp_tac) >>
+      gvs []) >>
+    first_x_assum (qspec_then ‘LPanic (PanicInput n)’ mp_tac) >>
+    gvs [])
   >- (
     gs [ffi_rels_def, ffi_rel_def] >>
     first_x_assum drule >>
@@ -9167,6 +9183,8 @@ Definition wf_prog_and_init_states_def:
     st.location =  FST (ohd prog) ∧
     init_clocks st.clocks (clksOf prog) ∧
     code_installed t.code prog ∧
+    (* for the time being *)
+    FLOOKUP t.eshapes «panic» = SOME One ∧
     FLOOKUP t.code «start» =
       SOME ([], start_controller (prog,st.waitTime)) ∧
     well_formed_code prog t.code ∧
@@ -9184,10 +9202,15 @@ Definition wf_prog_and_init_states_def:
 End
 
 (* TODO: remove TAKE SUM *)
+(* TODO: panLang needs exception shape declaration *)
 Theorem timed_automata_correct:
   ∀prog labels st sts (t:('a,time_input) panSem$state).
     steps prog labels
           (dimword (:α) - 1) (FST (t.ffi.ffi_state 0)) st sts ∧
+    (∀lbl.
+       MEM lbl labels ⇒
+       lbl ≠ LPanic (PanicTimeout) ∧
+       (∀is. lbl ≠ LPanic is)) ∧
     wf_prog_and_init_states prog st t ∧
     ffi_rels_after_init prog labels st t ∧
     sum_delays (:α) labels (next_ffi t.ffi.ffi_state) ⇒
