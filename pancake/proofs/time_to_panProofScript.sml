@@ -3323,7 +3323,7 @@ Proof
   cases_on ‘EVERY (λcnd. evalCond s cnd) cnds’
   >- (
     drule comp_conditions_true_correct >>
-    disch_then (qspecl_then [‘m’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+    disch_then (qspecl_then [‘dimword (:α) − 1 ’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
     impl_tac
     >- (
       gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
@@ -3333,7 +3333,7 @@ Proof
     gs [asmTheory.word_cmp_def] >>
     fs [wordLangTheory.word_op_def]) >>
   drule comp_conditions_false_correct >>
-  disch_then (qspecl_then [‘m’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+  disch_then (qspecl_then [‘dimword (:α) − 1 ’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
   impl_tac
   >- (
     gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
@@ -3365,7 +3365,7 @@ Proof
   cases_on ‘EVERY (λcnd. evalCond s cnd) cnds’
   >- (
     drule comp_conditions_true_correct >>
-    disch_then (qspecl_then [‘m’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+    disch_then (qspecl_then [‘dimword (:α) − 1 ’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
     impl_tac
     >- (
       gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
@@ -3375,7 +3375,7 @@ Proof
     gs [asmTheory.word_cmp_def] >>
     fs [wordLangTheory.word_op_def]) >>
   drule comp_conditions_false_correct >>
-  disch_then (qspecl_then [‘m’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+  disch_then (qspecl_then [‘dimword (:α) − 1 ’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
   impl_tac
   >- (
     gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
@@ -3401,8 +3401,8 @@ QED
 
 
 Theorem pick_term_dest_eq:
-  ∀s max m e tms s' lbl.
-    pickTerm s max m e tms s' lbl ⇒
+  ∀s m e tms s' lbl.
+    pickTerm s m e tms s' lbl ⇒
     (e = NONE ⇒
      ((∃out.
          lbl = LAction (Output out)) ⇒
@@ -3417,7 +3417,7 @@ Theorem pick_term_dest_eq:
        (case wt of [] => s'.waitTime = NONE | _ => ∃nt. s'.waitTime = SOME nt))) ∧
     (∀n.
        e = SOME n ⇒
-       n+1 < max ∧
+       n+1 < m ∧
        (lbl = LAction (Input n) ⇒
         (case s'.waitTime of
          | NONE => T
@@ -6187,7 +6187,7 @@ Proof
 QED
 
 
-Theorem bar:
+Theorem eval_wait_not_zero':
   !(t:('a,'b) panSem$state).
     FLOOKUP t.locals «isInput» = SOME (ValWord 1w) ∧
     FLOOKUP t.locals «waitSet» = SOME (ValWord 0w) ∧
@@ -6300,7 +6300,7 @@ Proof
       match_mp_tac step_delay_eval_wait_not_zero >>
       gs [state_rel_def, equivs_def, time_vars_def, active_low_def]) >>
     ‘x ≠ 0’ by gs [step_cases] >>
-    match_mp_tac bar >>
+    match_mp_tac eval_wait_not_zero' >>
     gs [input_rel_def, next_ffi_def] >>
     conj_tac
     >- gs [state_rel_def, equivs_def, active_low_def, time_vars_def] >>
@@ -8041,7 +8041,7 @@ Proof
       match_mp_tac step_delay_eval_wait_not_zero >>
       gs [state_rel_def, equivs_def, time_vars_def, active_low_def]) >>
     ‘x ≠ 0’ by gs [step_cases] >>
-    match_mp_tac bar >>
+    match_mp_tac eval_wait_not_zero' >>
     gs [input_rel_def, next_ffi_def] >>
     conj_tac
     >- gs [state_rel_def, equivs_def, active_low_def, time_vars_def] >>
