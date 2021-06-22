@@ -6788,11 +6788,10 @@ Theorem path_starting_at_composable_step:
   /\ path_starting_at (CURRY $ set dep) 0 rs pqs
   /\ composable_step (LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs)) dep [] = INL res
   /\ MEM y res
-  ==> ?y' rs' s'. path_starting_at (CURRY $ set dep) 0 rs' (pqs ++ [y'])
+  ==> ?y' rs' s'. path_starting_at (CURRY $ set dep) 0 (rs++[rs']) (pqs ++ [y'])
     /\ var_renaming s' /\ is_const_or_type y
-    /\ LR_TYPE_SUBST s' y = LR_TYPE_SUBST (LAST rs') (SND y')
-    /\ LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs) = LR_TYPE_SUBST (LAST rs') (FST y')
-    /\ LR_TYPE_SUBST (HD rs) (FST $ HD pqs) = LR_TYPE_SUBST (HD rs') (FST $ HD pqs)
+    /\ LR_TYPE_SUBST s' y = LR_TYPE_SUBST rs' (SND y')
+    /\ LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs) = LR_TYPE_SUBST rs' (FST y')
 Proof
   rw[]
   >> drule_at Any composable_step_sound_INL
@@ -6807,7 +6806,7 @@ Proof
   >> `is_const_or_type $ FST p /\ is_const_or_type $ SND p` by fs[wf_pqs_def,ELIM_UNCURRY,EVERY_MEM]
   >> drule_all unify_LR_invertible_on
   >> disch_then $ qx_choose_then `s` strip_assume_tac
-  >> map_every qexists_tac [`p`,`rs++[MAP (TYPE_SUBST s ## I) s_p ++ s]`]
+  >> map_every qexists_tac [`p`,`MAP (TYPE_SUBST s ## I) s_p ++ s`]
   >> fs[GSYM PULL_EXISTS,GSYM LR_TYPE_SUBST_compose,IN_DEF]
   >> conj_tac
   >- (
@@ -6835,11 +6834,10 @@ Theorem path_starting_at_composable_step':
   /\ is_const_or_type y
   /\ composable_step (LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs)) dep [] = INL res
   ==> (?s'. var_renaming s' /\ MEM (LR_TYPE_SUBST s' y) res)
-    = ?y' rs' s'. path_starting_at (CURRY $ set dep) 0 rs' (pqs ++ [y'])
-    /\ var_renaming s'
-    /\ LR_TYPE_SUBST s' y = LR_TYPE_SUBST (LAST rs') (SND y')
-    /\ LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs) = LR_TYPE_SUBST (LAST rs') (FST y')
-    /\ LR_TYPE_SUBST (HD rs) (FST $ HD pqs) = LR_TYPE_SUBST (HD rs') (FST $ HD pqs)
+    = ?y' rs' s'. path_starting_at (CURRY $ set dep) 0 (rs++[rs']) (pqs ++ [y'])
+    /\ var_renaming s' /\ is_const_or_type y
+    /\ LR_TYPE_SUBST s' y = LR_TYPE_SUBST rs' (SND y')
+    /\ LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs) = LR_TYPE_SUBST rs' (FST y')
 Proof
   rw[EQ_IMP_THM]
   >- (
@@ -6871,32 +6869,32 @@ Proof
   >> drule_at Any unify_LR_LR_TYPE_SUBST
   >> gs[GSYM PULL_EXISTS,invertible_on_equiv_ts_on_FV]
   >> rw[GSYM equiv_ts_on_FV,EQ_SYM_EQ,equiv_ts_on_symm]
-  >> `set dep y'` by fs[path_starting_at_def]
+  >> `set dep y'` by fs[IN_DEF]
   >> PairCases_on `y'`
   >> qhdtm_assum `monotone` $ imp_res_tac o SIMP_RULE (srw_ss()) [monotone_def,list_subset_set]
   >> qmatch_goalsub_abbrev_tac `~xx ==> _` >> Cases_on `xx` >> fs[]
   >- (
-    irule_at Any var_renaming_compose
+    dxrule equiv_ts_on_trans >> simp[Once equiv_ts_on_symm]
+    >> disch_then $ dxrule_then assume_tac
+    >> irule_at Any var_renaming_compose
     >> fs[GSYM clean_tysubst_LR_TYPE_SUBST_eq,GSYM LR_TYPE_SUBST_compose]
-    >> dxrule_all_then assume_tac equiv_ts_on_trans
-    >> fs[Once equiv_ts_on_symm]
-    >> dxrule_all equiv_ts_on_subset
-    >> rw[equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
+    >> dxrule_all equiv_ts_on_subset >> simp[Once equiv_ts_on_symm]
+    >> rw[equiv_ts_on_FV,LR_TYPE_SUBST_NIL] >> gs[]
     >> irule_at Any var_renaming_SWAP_LR_id'
-    >> gs[]
-    >> goal_assum $ drule_at (Pos $ el 2) o GSYM
+    >> goal_assum $ drule_at (Pos $ el 3) o GSYM
     >> fs[var_renaming_SWAP_IMP]
   )
-  >> rev_dxrule_at (Pos $ el 3) var_renaming_SWAP_LR_id'
+  >> rev_drule_at (Pos $ el 3) var_renaming_SWAP_LR_id'
   >> asm_rewrite_tac[]
   >> disch_then $ fs o single
   >> dxrule_all equiv_ts_on_subset
-  >> fs[Once equiv_ts_on_symm]
+  >> simp[Once equiv_ts_on_symm]
   >> rw[equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
   >> irule_at Any var_renaming_compose
   >> fs[GSYM clean_tysubst_LR_TYPE_SUBST_eq,GSYM LR_TYPE_SUBST_compose]
-  >> qmatch_goalsub_abbrev_tac `LR_TYPE_SUBST (MAP SWAP s') (LR_TYPE_SUBST e _)`
-  >> map_every qexists_tac [`MAP SWAP e`,`MAP SWAP (MAP SWAP s')`]
+  >> qmatch_goalsub_abbrev_tac `MAP SWAP s'`
+  >> qmatch_goalsub_abbrev_tac `_ = LR_TYPE_SUBST e _`
+  >> map_every qexists_tac [`e`,`MAP SWAP (MAP SWAP s')`]
   >> fs[var_renaming_SWAP_IMP,var_renaming_SWAP_LR_id]
 QED
 
