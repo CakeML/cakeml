@@ -8709,6 +8709,36 @@ Definition sum_delays_def:
        mem_read_ffi_results (:α) ffi (n+1))
 End
 
+Theorem take_one_less_length_eq_front:
+  ∀xs .
+    xs ≠ [] ⇒
+    TAKE (LENGTH xs − 1) xs = FRONT xs
+Proof
+  Induct >>
+  rw [] >>
+  gs [FRONT_DEF] >>
+  cases_on ‘xs’ >> gvs []
+QED
+
+
+Theorem from_front_to_take:
+  ∀ios ns.
+    SUM ns + 1 = LENGTH ios ⇒
+    FRONT ios = TAKE (SUM ns) ios
+Proof
+  Induct >>
+  rw [] >>
+  gs [ADD1] >>
+  cases_on ‘ns’ >> gs [] >>
+  gs [TAKE_def] >>
+  cases_on ‘ios’
+  >- gvs [] >>
+  qmatch_goalsub_abbrev_tac ‘LENGTH (ios)’ >>
+  ‘TAKE (LENGTH ios − 1) ios = FRONT ios’ by (
+    match_mp_tac take_one_less_length_eq_front >>
+    unabbrev_all_tac >> gs []) >>
+  unabbrev_all_tac >> gs []
+QED
 
 
 (* lets assume that there are no panic and timeout in labels *)
@@ -8731,8 +8761,7 @@ Theorem steps_io_event_thm:
       SUM ns + 1 = LENGTH ios ∧
       t'.be = t.be ∧
       decode_ios (:α) t'.be labels ns
-                 (LAST t.ffi.io_events::
-                  TAKE (SUM ns) ios)
+                 (LAST t.ffi.io_events::FRONT ios)
 Proof
   rw [] >>
   gs [] >>
@@ -9005,15 +9034,70 @@ Proof
     conj_asm1_tac
     >-  gs [mk_ti_events_def, gen_ffi_states_def] >>
     conj_asm1_tac
-    >- gs [LENGTH_TAKE_EQ] >>
+    >- (
+      gs [] >>
+      cases_on ‘ios’ >>
+      gvs [FRONT_APPEND]) >>
     qmatch_asmsub_abbrev_tac ‘decode_ios _ _ _ ns nios’ >>
     qmatch_goalsub_abbrev_tac ‘decode_ios _ _ _ ns nios'’ >>
     ‘nios = nios'’ by (
       gs [Abbr ‘nios’, Abbr ‘nios'’] >>
+      drule from_front_to_take >>
+      strip_tac >>
+      gvs [] >>
+      pop_assum kall_tac >>
+
+
+
+      qmatch_goalsub_abbrev_tac ‘DROP _ ft’ >>
+      ‘ft =
+       TAKE (LENGTH bytess + SUM ns)
+            (mk_ti_events (:α) t.be bytess
+             (gen_ffi_states t.ffi.ffi_state (LENGTH bytess)) ++ ios)’ by (
+        fs [Abbr ‘ft’] >>
+        gs [TAKE_SUM] >>
+        qmatch_goalsub_abbrev_tac ‘TAKE _ (xs ++ _)’ >>
+
+        gvs [TAKE_APPEND, DROP_LENGTH_APPEND] >>
+        gs [Abbr ‘xs’] >>
+        cases_on ‘ios’
+        >- gs [] >>
+        once_rewrite_tac [FRONT_APPEND] >>
+        ‘FRONT (h::t'³') = TAKE (SUM ns) (h::t'³')’ by cheat >>
+        gs [] >>
+           ‘’
+
+
+
+        cases_on ‘ios’ >>
+        fs [FRONT_APPEND]
+
+
+
+          )
+
+
+
+
+        ) >>
+      gs [] >>
+      gvs [Abbr ‘ft’] >>
+      pop_assum kall_tac >>
+
+
+
+
+
+
+
+
+
+
       gs [TAKE_SUM] >>
       qmatch_goalsub_abbrev_tac ‘TAKE _ (xs ++ _)’ >>
-      ‘cycles = LENGTH xs’ by
+      ‘cycles = LENGTH xs’ by (
         gs [Abbr ‘xs’, mk_ti_events_def, gen_ffi_states_def] >>
+        cheat) >>
       gs [TAKE_LENGTH_APPEND, DROP_LENGTH_APPEND] >>
       gs [DROP_APPEND] >>
       ‘LENGTH xs − 1 − LENGTH xs = 0’ by gs [] >>
