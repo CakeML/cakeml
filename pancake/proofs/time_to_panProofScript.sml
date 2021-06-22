@@ -26,7 +26,7 @@ Type time_input_ffi = ``:time_input ffi_state``
 
 Type pan_state = ``:('a, time_input) panSem$state``
 
-(* TODO: remove (:'a)*)
+
 Definition get_bytes_def:
   get_bytes be (w:'a word) =
   let m  = dimindex (:'a) DIV 8;
@@ -972,7 +972,7 @@ Definition ffi_rels_after_init_def:
              (FST (t.ffi.ffi_state 0))
 End
 
-
+(*
 Definition labels_of_def:
   labels_of k prog m n or st =
    FST (THE (timeFunSem$eval_steps k prog m n or st))
@@ -1007,7 +1007,7 @@ Definition systime_at_def:
   systime_at (t:('a,time_input) panSem$state) =
     FST (t.ffi.ffi_state 0)
 End
-
+*)
 Theorem length_get_bytes:
   ∀w be.
     LENGTH (get_bytes be (w:'a word)) = dimindex (:α) DIV 8
@@ -1585,7 +1585,7 @@ Theorem comp_input_term_correct:
   ∀s n cnds tclks dest wt s' t (clkvals:'a v list) clks (m:num).
     evalTerm s (SOME n)
              (Tm (Input n) cnds tclks dest wt) s' ∧
-    m < dimword (:α) ∧
+    m = dimword (:α) - 1 ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
     maxClksSize clkvals ∧
     clock_bound s.clocks clks m ∧
@@ -1867,7 +1867,7 @@ Theorem comp_output_term_correct:
   ∀s out cnds tclks dest wt s' t (clkvals:'a v list) clks m.
     evalTerm s NONE
              (Tm (Output out) cnds tclks dest wt) s' ∧
-    m < dimword (:'a) ∧
+    m = dimword (:'a) - 1 ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
     maxClksSize clkvals ∧
     clock_bound s.clocks clks m ∧
@@ -2189,7 +2189,7 @@ Theorem comp_term_correct:
   ∀s io ioAct cnds tclks dest wt s' t (clkvals:'a v list) clks m.
     evalTerm s io
              (Tm ioAct cnds tclks dest wt) s' ∧
-    m < dimword (:'a) ∧
+    m = dimword (:'a) - 1 ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
     maxClksSize clkvals ∧
     clock_bound s.clocks clks m ∧
@@ -2227,8 +2227,12 @@ Proof
   >- (
     drule eval_term_inpput_ios_same >>
     strip_tac >> rveq >>
-    imp_res_tac comp_input_term_correct) >>
-  imp_res_tac comp_output_term_correct
+    match_mp_tac comp_input_term_correct >>
+    gs [] >>
+    metis_tac []) >>
+  strip_tac >>
+  drule comp_output_term_correct >>
+  gs []
 QED
 
 
@@ -2312,7 +2316,7 @@ QED
 Theorem comp_condition_true_correct:
   ∀s cnd m (t:('a,'b) panSem$state) clks clkvals.
     evalCond s cnd ∧
-    m < dimword (:α) ∧
+    m = dimword (:α) - 1 ∧
     EVERY (λe. case (evalExpr s e) of
                | SOME n => n < m
                | _ => F) (destCond cnd) ∧
@@ -2390,7 +2394,7 @@ QED
 Theorem map_comp_conditions_true_correct:
   ∀cnds s m (t:('a,'b) panSem$state) clks clkvals.
     EVERY (λcnd. evalCond s cnd) cnds ∧
-    m < dimword (:α) ∧
+    m = dimword (:α) - 1 ∧
     EVERY
     (λcnd.
       EVERY (λe. case (evalExpr s e) of
@@ -2409,7 +2413,7 @@ Proof
   strip_tac >>
   fs [] >>
   drule comp_condition_true_correct >>
-  fs [] >>
+  fs [] >> gvs [] >>
   disch_then drule_all >>
   strip_tac >>
   gs [] >>
@@ -2432,7 +2436,7 @@ QED
 Theorem comp_conditions_true_correct:
   ∀cnds s m (t:('a,'b) panSem$state) clks clkvals.
     EVERY (λcnd. evalCond s cnd) cnds ∧
-    m < dimword (:α) ∧
+    m = dimword (:α) - 1 ∧
     EVERY
     (λcnd.
       EVERY (λe. case (evalExpr s e) of
@@ -2483,7 +2487,7 @@ QED
 Theorem pickTerm_output_cons_correct:
   ∀s out cnds tclks dest wt s' t (clkvals:'a v list) clks tms m.
     EVERY (λcnd. evalCond s cnd) cnds ∧
-    m < dimword (:'a) ∧
+    m = dimword (:'a) - 1 ∧
     evalTerm s NONE (Tm (Output out) cnds tclks dest wt) s' ∧
     EVERY
     (λcnd.
@@ -2512,7 +2516,8 @@ Theorem pickTerm_output_cons_correct:
            memory := write_bytearray 4000w bytes t.memory t.memaddrs t.be;
            ffi := nffi_state t out bytes|>)
 Proof
-  rw [] >>
+  rpt gen_tac >>
+  rpt strip_tac >>
   drule_all comp_conditions_true_correct >>
   strip_tac >>
   fs [compTerms_def] >>
@@ -2522,8 +2527,8 @@ Proof
       eval_def,OPT_MMAP_def, ETA_AX, timeLangTheory.termAction_def] >>
   gs [event_match_def,compAction_def, eval_def, asmTheory.word_cmp_def,
       wordLangTheory.word_op_def] >>
-  drule_all comp_output_term_correct >>
-  fs []
+  drule comp_output_term_correct >>
+  gvs []
 QED
 
 
@@ -2531,7 +2536,7 @@ Theorem pickTerm_input_cons_correct:
   ∀s n cnds tclks dest wt s' t (clkvals:'a v list) clks tms m.
     EVERY (λcnd. evalCond s cnd) cnds ∧
     evalTerm s (SOME n) (Tm (Input n) cnds tclks dest wt) s' ∧
-    m < dimword (:α) ∧
+    m = dimword (:α) - 1 ∧
     EVERY
     (λcnd.
       EVERY (λe. case (evalExpr s e) of
@@ -2553,7 +2558,8 @@ Theorem pickTerm_input_cons_correct:
      t with locals :=
      restore_from t FEMPTY [«waitTimes»; «newClks»; «wakeUpAt»; «waitSet»])
 Proof
-  rw [] >>
+  rpt gen_tac >>
+  rpt strip_tac >>
   drule_all comp_conditions_true_correct >>
   strip_tac >>
   fs [compTerms_def] >>
@@ -2563,15 +2569,15 @@ Proof
       eval_def,OPT_MMAP_def, ETA_AX, timeLangTheory.termAction_def] >>
   gs [event_match_def,compAction_def, eval_def, asmTheory.word_cmp_def,
       wordLangTheory.word_op_def] >>
-  drule_all comp_input_term_correct >>
-  fs []
+  drule comp_input_term_correct >>
+  gvs []
 QED
 
 
 Theorem comp_condition_false_correct:
   ∀s cnd m (t:('a,'b) panSem$state) clks clkvals.
     ~(evalCond s cnd) ∧
-    m < dimword (:α) ∧
+    m = dimword (:α) - 1 ∧
     EVERY (λe. case (evalExpr s e) of
                | SOME n => n < m
                | _ => F) (destCond cnd) ∧
@@ -2643,7 +2649,7 @@ QED
 Theorem comp_conditions_false_correct:
   ∀cnds s m (t:('a,'b) panSem$state) clks clkvals.
     ~EVERY (λcnd. evalCond s cnd) cnds ∧
-    m < dimword (:α) ∧
+    m = dimword (:α) - 1 ∧
     EVERY (λcnd. EVERY (λe. ∃t. evalExpr s e = SOME t) (destCond cnd)) cnds ∧
     EVERY
     (λcnd.
@@ -2684,9 +2690,11 @@ Proof
     rveq >> gs [] >>
     metis_tac [EVERY_NOT_EXISTS]) >>
   fs []  >>
+  gvs [] >>
   last_x_assum drule_all >>
   strip_tac >>
   drule comp_condition_false_correct >>
+  gvs [] >>
   disch_then drule_all >>
   strip_tac >>
   fs [compConditions_def] >>
@@ -2704,11 +2712,13 @@ Proof
   every_case_tac >> gs [wordLangTheory.word_op_def] >>
   rveq >> gs [] >>
   metis_tac [EVERY_NOT_EXISTS]) >>
+  gvs [] >>
   last_x_assum drule_all >>
   strip_tac >>
   cases_on ‘evalCond s h’
   >- (
-    drule comp_condition_true_correct >>
+  drule comp_condition_true_correct >>
+  gvs [] >>
     disch_then drule_all >>
     strip_tac >>
     fs [compConditions_def] >>
@@ -2729,6 +2739,7 @@ Proof
     rveq >> gs [] >>
     metis_tac [EVERY_NOT_EXISTS]) >>
   drule comp_condition_false_correct >>
+  gvs [] >>
   disch_then drule_all >>
   strip_tac >>
   fs [compConditions_def] >>
@@ -2760,7 +2771,7 @@ Theorem pickTerm_panic_correct:
       (termConditions tm)) tms ∧
     EVERY (λtm. EXISTS ($~ ∘ (λcnd. evalCond s cnd)) (termConditions tm))
           tms ∧
-    m < dimword (:'a) ∧
+    m = dimword (:'a) - 1 ∧
     conds_eval_lt_dimword m s tms ∧
     conds_clks_mem_clks clks tms ∧
     FLOOKUP t.locals «clks» = SOME (Struct clkvals) ∧
@@ -2784,25 +2795,22 @@ Proof
     match_mp_tac comp_conditions_false_correct >>
     gs [] >>
     qexists_tac ‘s’ >>
-    qexists_tac ‘m’ >>
     gs [conds_eval_lt_dimword_def, tm_conds_eval_limit_def,
         timeLangTheory.termConditions_def, conds_clks_mem_clks_def]) >>
   gs [eval_def, OPT_MMAP_def] >>
   cases_on ‘i’ >>
   fs [event_match_def] >>
   gs [eval_def,compAction_def, asmTheory.word_cmp_def, wordLangTheory.word_op_def] >>
-  last_x_assum (qspecl_then [‘s’, ‘t’, ‘clkvals’, ‘clks’, ‘m’] mp_tac) >>
+  last_x_assum (qspecl_then [‘s’, ‘t’, ‘clkvals’, ‘clks’] mp_tac) >>
   (impl_tac >- gs [conds_eval_lt_dimword_def, conds_clks_mem_clks_def] >>
   gs [])
 QED
 
 Theorem pick_term_thm:
-  ∀s max m e tms s' lbl.
-    pickTerm s max m e tms s' lbl ⇒
+  ∀s m e tms s' lbl.
+    pickTerm s m e tms s' lbl ⇒
     (∀(t :('a, 'b) panSem$state) clks clkvals.
-       max = dimword (:α) - 1  ∧
-       m < dimword (:α) ∧
-       (* might not be necessary *)
+       m = dimword (:α) - 1  ∧
        conds_clks_mem_clks clks tms ∧
        terms_valid_clocks clks tms ∧
        locs_in_code t.code tms ∧
@@ -2864,8 +2872,7 @@ Proof
     match_mp_tac pickTerm_input_cons_correct >>
     qexists_tac ‘s'’ >>
     qexists_tac ‘clkvals’ >>
-    qexists_tac ‘m’ >>
-    gs [] >>
+    gvs [] >>
     conj_tac
     >- (
       gs [conds_eval_lt_dimword_def, tm_conds_eval_limit_def,
@@ -2912,8 +2919,7 @@ Proof
     match_mp_tac pickTerm_output_cons_correct >>
     qexists_tac ‘s'’ >>
     qexists_tac ‘clkvals’ >>
-    qexists_tac ‘m’ >>
-    gs [] >>
+    gvs [] >>
     conj_tac
     >- gs [conds_eval_lt_dimword_def, tm_conds_eval_limit_def,
            timeLangTheory.termConditions_def] >>
@@ -2970,8 +2976,7 @@ Proof
           match_mp_tac comp_conditions_false_correct >>
           gs [] >>
           qexists_tac ‘s’ >>
-          qexists_tac ‘m’ >>
-          gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
+          gvs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
               tm_conds_eval_limit_def,
               timeLangTheory.termConditions_def]) >>
         gs [eval_def, OPT_MMAP_def] >>
@@ -2998,8 +3003,7 @@ Proof
           match_mp_tac comp_conditions_false_correct >>
           gs [] >>
           qexists_tac ‘s’ >>
-          qexists_tac ‘m’ >>
-          gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
+          gvs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
               tm_conds_eval_limit_def,
               timeLangTheory.termConditions_def]) >>
       gs [eval_def, OPT_MMAP_def] >>
@@ -3033,8 +3037,7 @@ Proof
       match_mp_tac comp_conditions_false_correct >>
       gs [] >>
       qexists_tac ‘s’ >>
-      qexists_tac ‘m’ >>
-      gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
+      gvs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
           tm_conds_eval_limit_def,
           timeLangTheory.termConditions_def]) >>
     gs [eval_def, OPT_MMAP_def] >>
@@ -3061,8 +3064,7 @@ Proof
       match_mp_tac comp_conditions_false_correct >>
       gs [] >>
       qexists_tac ‘s’ >>
-      qexists_tac ‘m’ >>
-      gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
+      gvs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
           tm_conds_eval_limit_def,
           timeLangTheory.termConditions_def]) >>
     gs [eval_def, OPT_MMAP_def] >>
@@ -3100,10 +3102,10 @@ Proof
       cases_on ‘EVERY (λcnd. evalCond s cnd) cnds’
       >- (
         drule comp_conditions_true_correct >>
-        disch_then (qspecl_then [‘m’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+        disch_then (qspecl_then [‘dimword (:α) − 1 ’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
         impl_tac
         >- (
-          gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
+          gvs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
               tm_conds_eval_limit_def,
               timeLangTheory.termConditions_def]) >>
         strip_tac >> fs [] >>
@@ -3115,10 +3117,10 @@ Proof
         fs [wordLangTheory.word_op_def] >>
         metis_tac []) >>
       drule comp_conditions_false_correct >>
-      disch_then (qspecl_then [‘m’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+      disch_then (qspecl_then [‘dimword (:α) − 1 ’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
       impl_tac
       >- (
-        gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
+        gvs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
             tm_conds_eval_limit_def,
             timeLangTheory.termConditions_def] >>
         gs [EVERY_MEM] >>
@@ -3155,7 +3157,7 @@ Proof
     cases_on ‘EVERY (λcnd. evalCond s cnd) cnds’
     >- (
     drule comp_conditions_true_correct >>
-    disch_then (qspecl_then [‘m’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+    disch_then (qspecl_then [‘dimword (:α) − 1 ’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
     impl_tac
     >- (
       gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
@@ -3170,7 +3172,7 @@ Proof
     fs [wordLangTheory.word_op_def] >>
     metis_tac []) >>
     drule comp_conditions_false_correct >>
-    disch_then (qspecl_then [‘m’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+    disch_then (qspecl_then [‘dimword (:α) − 1 ’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
     impl_tac
     >- (
      gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
@@ -3208,7 +3210,7 @@ Proof
     cases_on ‘EVERY (λcnd. evalCond s cnd) cnds’
     >- (
     drule comp_conditions_true_correct >>
-    disch_then (qspecl_then [‘m’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+    disch_then (qspecl_then [‘dimword (:α) − 1 ’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
     impl_tac
     >- (
       gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
@@ -3223,7 +3225,7 @@ Proof
     fs [wordLangTheory.word_op_def] >>
     metis_tac []) >>
     drule comp_conditions_false_correct >>
-    disch_then (qspecl_then [‘m’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+    disch_then (qspecl_then [‘dimword (:α) − 1 ’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
     impl_tac
     >- (
      gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
@@ -3260,7 +3262,7 @@ Proof
     cases_on ‘EVERY (λcnd. evalCond s cnd) cnds’
     >- (
     drule comp_conditions_true_correct >>
-    disch_then (qspecl_then [‘m’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+    disch_then (qspecl_then [‘dimword (:α) − 1 ’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
     impl_tac
     >- (
       gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
@@ -3275,7 +3277,7 @@ Proof
     fs [wordLangTheory.word_op_def] >>
     metis_tac []) >>
     drule comp_conditions_false_correct >>
-    disch_then (qspecl_then [‘m’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
+    disch_then (qspecl_then [‘dimword (:α) − 1 ’, ‘t’, ‘clks'’, ‘clkvals’] mp_tac) >>
     impl_tac
     >- (
      gs [conds_clks_mem_clks_def, conds_eval_lt_dimword_def,
