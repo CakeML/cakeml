@@ -6908,10 +6908,11 @@ Proof
   rw[has_path_to_def,PULL_EXISTS]
   >> drule_at (Pos $ el 4) path_starting_at_composable_step
   >> rpt $ disch_then drule >> rw[]
-  >> ntac 2 $ goal_assum drule
   >> imp_res_tac path_starting_at_LENGTH
   >> drule_then assume_tac $ cj 1 $ iffLR path_starting_at_def
+  >> goal_assum $ drule_at $ Pos $ el 2
   >> gs[Excl"EL",Excl"EL_restricted",GSYM EL,EL_APPEND1,equal_ts_on_FV,wf_pqs_def,ELIM_UNCURRY,EVERY_MEM,EL_MEM]
+  >> goal_assum drule >> fs[]
 QED
 
 (* composable_dep *)
@@ -7186,7 +7187,6 @@ QED
 
 Theorem dep_step_sound_INL:
   !dep dep' res. wf_pqs (dep ++ dep')
-  /\ EVERY ($~ o UNCURRY is_instance_LR) (dep ++ dep')
   /\ (!q. MEM q dep' ==>
       ?extd. composable_step (SND q) dep [] = INL extd /\
       EVERY ($~ o UNCURRY is_instance_LR) (MAP (λx. (FST q,x)) extd))
