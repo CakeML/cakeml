@@ -8728,7 +8728,7 @@ Theorem steps_io_event_thm:
       (SOME (Return (ValWord 0w)),t') ∧
       t'.ffi.io_events = t.ffi.io_events ++ ios ∧
       LENGTH labels = LENGTH ns ∧
-      SUM ns ≤ LENGTH ios ∧
+      SUM ns + 1 = LENGTH ios ∧
       t'.be = t.be ∧
       decode_ios (:α) t'.be labels ns
                  (LAST t.ffi.io_events::
@@ -9021,10 +9021,16 @@ Proof
       pop_assum kall_tac >>
       ‘DROP (LENGTH xs − 1) xs = [LAST xs]’ by (
         match_mp_tac drop_length_eq_last >>
-        gs []) >>
+        CCONTR_TAC >>
+        gvs []) >>
       gs [] >>
+      ‘cycles = LENGTH xs’ by gvs [] >>
       cases_on ‘xs’ >- gs [] >>
-      simp [LAST_APPEND_CONS]) >>
+      simp [LAST_APPEND_CONS] >> gvs [] >>
+      ‘LENGTH t'³' − SUC (LENGTH t'³') = 0’ by gs [] >>
+      simp [] >>
+      gs [DROP_LENGTH_NIL, TAKE_LENGTH_APPEND, LAST_CONS_cond] >>
+      cases_on ‘t'''’ >> gvs []) >>
     qpat_x_assum ‘obs_ios_are_label_delay _ _ _’ mp_tac >>
     gs [obs_ios_are_label_delay_def] >>
     strip_tac >>
@@ -9036,12 +9042,14 @@ Proof
       gs [ZIP_EQ_NIL]) >>
     strip_tac >>
     gs [] >>
+
+
     qmatch_goalsub_abbrev_tac ‘TAKE _ (TAKE _ (xs ++ _))’ >>
     ‘TAKE cycles (TAKE (cycles + SUM ns) (xs ++ ios)) =
      xs’ by (
       ‘cycles = LENGTH xs’ by
          gs [Abbr ‘xs’, mk_ti_events_def, gen_ffi_states_def] >>
-      gs [] >>
+      simp [] >>
       gs [TAKE_SUM, TAKE_LENGTH_APPEND]) >>
     gs [Abbr ‘xs’, DROP_LENGTH_APPEND]) >>
   cases_on ‘i’
@@ -9113,7 +9121,9 @@ Proof
     qexists_tac ‘1::ns’ >>
     rewrite_tac [decode_ios_def] >>
     gs [] >>
-    gs [to_input_def, DROP_LENGTH_APPEND, decode_io_events_def]) >>
+    gs [to_input_def, DROP_LENGTH_APPEND, decode_io_events_def] >>
+    ‘LENGTH ios − 1 = SUM ns’ by gs [] >>
+    simp []) >>
   gs [ffi_rels_def, ffi_rel_def, action_rel_def] >>
   first_x_assum drule >>
   disch_then (qspec_then ‘nt’ mp_tac) >>
@@ -9138,7 +9148,9 @@ Proof
   gs [output_io_events_rel_def] >>
   qexists_tac ‘1::ns’ >>
   rewrite_tac [decode_ios_def] >>
-  gs [to_input_def, DROP_LENGTH_APPEND, decode_io_events_def]
+  gs [to_input_def, DROP_LENGTH_APPEND, decode_io_events_def] >>
+  ‘LENGTH ios − 1 = SUM ns’ by gs [] >>
+  simp []
 QED
 
 
