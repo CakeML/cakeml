@@ -7308,17 +7308,6 @@ Proof
   >> fs[wf_pqs_APPEND,dep_step_inv_def]
 QED
 
-Theorem dep_step_inv_path_init:
-  !dep. wf_pqs dep
-  ==> EVERY (λx. ?rs pqs. path_starting_at (CURRY $ set dep) 0 rs pqs
-    /\ FST x = FST $ HD pqs /\ SND x = LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs)
-    ) dep
-Proof
-  rw[EVERY_MEM,path_starting_at_def]
-  >> map_every qexists_tac [`[[]]`,`[x]`]
-  >> fs[LR_TYPE_SUBST_NIL,equiv_ts_on_refl,sol_seq_def,wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,FORALL_AND_THM,IN_DEF]
-QED
-
 (* depth-limited expansion of the dependency relation *)
 (* usage: dep_steps dep k dep = ... *)
 Definition dep_steps_def:
