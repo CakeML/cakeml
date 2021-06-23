@@ -273,4 +273,19 @@ Proof
   res_tac >> gs []
 QED
 
+Theorem pickTerm_panic_st_eq:
+  ∀tms st m i st st'.
+    pickTerm st m (SOME i) tms st' (LPanic (PanicInput i)) ⇒
+    st' = st
+Proof
+ Induct >> rw [] >>
+ gs [Once pickTerm_cases] >>
+ gvs [] >>
+ res_tac >> gs []
+
+
+
+QED
+
+
 val _ = export_theory();

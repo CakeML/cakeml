@@ -1012,6 +1012,7 @@ Definition systime_at_def:
   systime_at (t:('a,time_input) panSem$state) =
     FST (t.ffi.ffi_state 0)
 End
+
 *)
 Theorem length_get_bytes:
   ∀w be.
@@ -6499,6 +6500,13 @@ Proof
   strip_tac >>
   unabbrev_all_tac >>
   rveq >> gs [] >>
+  (* the new If statement *)
+  qmatch_goalsub_abbrev_tac ‘evaluate (Seq _ q, nnt)’ >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  unabbrev_all_tac >>
+  rveq >> gs [] >>
+  (* until here *)
   qmatch_goalsub_abbrev_tac ‘evaluate (Seq _ q, nnt)’ >>
   ‘FLOOKUP nnt.locals «loc» = FLOOKUP t.locals «loc»’ by
     fs [Abbr ‘nnt’, FLOOKUP_UPDATE] >>
@@ -7190,6 +7198,21 @@ Proof
   strip_tac >>
   gs [eval_upd_clock_eq] >>
   fs [Abbr ‘q’] >>
+  (* the new If statement *)
+  qmatch_goalsub_abbrev_tac ‘evaluate (Seq _ q, nnt)’ >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  drule evaluate_if_compare_sys_time >>
+  disch_then (qspec_then ‘nt + wt’ mp_tac) >>
+  impl_tac
+  >- (
+    unabbrev_all_tac >>
+    gs [FLOOKUP_UPDATE]) >>
+  strip_tac >> rveq >> gs [] >>
+  unabbrev_all_tac >>
+  rveq >> gs [] >>
+  (* until here *)
   qmatch_goalsub_abbrev_tac ‘evaluate (Seq _ q, _)’ >>
   (* calling the function *)
   (* location will come from equivs: state_rel *)
@@ -8742,7 +8765,7 @@ QED
 
 
 (* lets assume that there are no panic and timeout in labels *)
-(* TODO: remove TAKE SUM *)
+(* TODO: replace (TAKE (SUM ns) ios) with (FRONT ios) *)
 Theorem steps_io_event_thm:
   ∀labels prog n st sts (t:('a,time_input) panSem$state) ist.
     steps prog labels (dimword (:α) - 1) n st sts ∧
@@ -8761,7 +8784,7 @@ Theorem steps_io_event_thm:
       SUM ns + 1 = LENGTH ios ∧
       t'.be = t.be ∧
       decode_ios (:α) t'.be labels ns
-                 (LAST t.ffi.io_events::FRONT ios)
+                 (LAST t.ffi.io_events::TAKE (SUM ns) ios)
 Proof
   rw [] >>
   gs [] >>
@@ -9033,71 +9056,20 @@ Proof
       gs []) >>
     conj_asm1_tac
     >-  gs [mk_ti_events_def, gen_ffi_states_def] >>
+    (*
+     gs [] >>
+     cases_on ‘ios’ >>
+     gvs [FRONT_APPEND]*)
     conj_asm1_tac
-    >- (
-      gs [] >>
-      cases_on ‘ios’ >>
-      gvs [FRONT_APPEND]) >>
+    >- gs [TAKE_SUM] >>
     qmatch_asmsub_abbrev_tac ‘decode_ios _ _ _ ns nios’ >>
     qmatch_goalsub_abbrev_tac ‘decode_ios _ _ _ ns nios'’ >>
     ‘nios = nios'’ by (
       gs [Abbr ‘nios’, Abbr ‘nios'’] >>
-      drule from_front_to_take >>
-      strip_tac >>
-      gvs [] >>
-      pop_assum kall_tac >>
-
-
-
-      qmatch_goalsub_abbrev_tac ‘DROP _ ft’ >>
-      ‘ft =
-       TAKE (LENGTH bytess + SUM ns)
-            (mk_ti_events (:α) t.be bytess
-             (gen_ffi_states t.ffi.ffi_state (LENGTH bytess)) ++ ios)’ by (
-        fs [Abbr ‘ft’] >>
-        gs [TAKE_SUM] >>
-        qmatch_goalsub_abbrev_tac ‘TAKE _ (xs ++ _)’ >>
-
-        gvs [TAKE_APPEND, DROP_LENGTH_APPEND] >>
-        gs [Abbr ‘xs’] >>
-        cases_on ‘ios’
-        >- gs [] >>
-        once_rewrite_tac [FRONT_APPEND] >>
-        ‘FRONT (h::t'³') = TAKE (SUM ns) (h::t'³')’ by cheat >>
-        gs [] >>
-           ‘’
-
-
-
-        cases_on ‘ios’ >>
-        fs [FRONT_APPEND]
-
-
-
-          )
-
-
-
-
-        ) >>
-      gs [] >>
-      gvs [Abbr ‘ft’] >>
-      pop_assum kall_tac >>
-
-
-
-
-
-
-
-
-
-
       gs [TAKE_SUM] >>
       qmatch_goalsub_abbrev_tac ‘TAKE _ (xs ++ _)’ >>
-      ‘cycles = LENGTH xs’ by (
+      ‘cycles = LENGTH xs’ by
         gs [Abbr ‘xs’, mk_ti_events_def, gen_ffi_states_def] >>
-        cheat) >>
       gs [TAKE_LENGTH_APPEND, DROP_LENGTH_APPEND] >>
       gs [DROP_APPEND] >>
       ‘LENGTH xs − 1 − LENGTH xs = 0’ by gs [] >>
@@ -9126,8 +9098,6 @@ Proof
       gs [ZIP_EQ_NIL]) >>
     strip_tac >>
     gs [] >>
-
-
     qmatch_goalsub_abbrev_tac ‘TAKE _ (TAKE _ (xs ++ _))’ >>
     ‘TAKE cycles (TAKE (cycles + SUM ns) (xs ++ ios)) =
      xs’ by (
@@ -9297,7 +9267,6 @@ Definition wf_prog_and_init_states_def:
     ~MEM "get_time_input" (MAP explode (out_signals prog))
 End
 
-(* TODO: remove TAKE SUM *)
 (* TODO: panLang needs exception shape declaration *)
 Theorem timed_automata_correct:
   ∀prog labels st sts (t:('a,time_input) panSem$state).
@@ -9313,7 +9282,7 @@ Theorem timed_automata_correct:
     ∃io ios ns.
       semantics t «start» = Terminate Success (io::ios) ∧
       LENGTH labels = LENGTH ns ∧
-      SUM ns ≤ LENGTH ios ∧
+      SUM ns + 1 = LENGTH ios ∧
       decode_ios (:α) t.be labels ns
                  (io::TAKE (SUM ns) ios)
 Proof
@@ -9324,7 +9293,7 @@ Proof
      (SOME (Return (ValWord 0w)),t') ∧
      t'.ffi.io_events = t.ffi.io_events ++ io::ios ∧
      LENGTH labels' = LENGTH ns ∧
-     SUM ns ≤ LENGTH ios ∧
+     SUM ns + 1 = LENGTH ios ∧
      decode_ios (:α) t.be labels' ns
                 (io::TAKE (SUM ns) ios)’ by (
     ‘∃bytes.
@@ -9343,7 +9312,7 @@ Proof
        evaluate (always (nClks prog),nt with clock := nt.clock + ck) =
        (SOME (Return (ValWord 0w)),t') ∧
        t'.ffi.io_events = nt.ffi.io_events ++ ios ∧
-       LENGTH labels' = LENGTH ns ∧ SUM ns ≤ LENGTH ios ∧
+       LENGTH labels' = LENGTH ns ∧ SUM ns + 1 = LENGTH ios ∧
        (t'.be ⇔ nt.be) ∧
        decode_ios (:α) t'.be labels' ns
                   (LAST nt.ffi.io_events::TAKE (SUM ns) ios)’ by (
