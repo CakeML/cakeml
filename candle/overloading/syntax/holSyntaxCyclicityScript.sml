@@ -7300,6 +7300,17 @@ Proof
   >> gvs[Once pair_case_eq,o_DEF]
 QED
 
+Theorem dep_step_INL_props:
+  !dep dep' dep''. wf_pqs (dep ++ dep') /\ dep_step dep dep' [] = INL dep''
+  ==> wf_pqs dep''
+Proof
+  rw[]
+  >> drule_at Any $ SIMP_RULE (srw_ss()) [PULL_EXISTS,AND_IMP_INTRO] $ iffLR dep_step_eq_INL
+  >> fs[wf_pqs_APPEND] >> strip_tac
+  >> drule_at Any dep_step_sound_INL
+  >> fs[wf_pqs_APPEND,dep_step_inv_def]
+QED
+
 Theorem dep_step_inv_path_init:
   !dep. wf_pqs dep
   ==> EVERY (λx. ?rs pqs. path_starting_at (CURRY $ set dep) 0 rs pqs
@@ -7326,21 +7337,47 @@ End
 Definition extension_len_def:
   (extension_len dep 0 dep' dep'' = (dep'' = dep'))
   /\ (extension_len dep (SUC k) dep' dep''' =
-    !x. MEM x dep''' <=>
-      ?y dep'' extd. extension_len dep k dep' dep''
-          /\ composable_step (SND y) dep [] = INL extd
-          /\ EVERY ($~ o UNCURRY is_instance_LR) (MAP (λx. (FST y,x)) extd)
-          /\ MEM y dep'' /\ FST y = FST x
-          /\ MEM (SND x) extd
-  )
+      ?dep''. dep_step dep dep'' [] = INL dep'''
+        /\ extension_len dep k dep' dep'')
 End
 
 Theorem extension_len_eq:
   !k dep dep' dep'' dep'''.
   extension_len dep k dep' dep'' /\ extension_len dep k dep' dep'''
-  ==> !x. MEM x dep'' = MEM x dep'''
+  ==> dep'' = dep'''
 Proof
-  Induct >> fs[extension_len_def]
+  Induct >> rw[extension_len_def]
+  >> first_x_assum $ rev_drule_then $ drule_then strip_assume_tac
+  >> gvs[]
+QED
+
+Theorem extension_len_shorter:
+  !n dep dep' dep'kdep. extension_len dep n dep' dep'kdep
+  ==> !k. k < n ==> ?dep'' dep''kdep. extension_len dep k dep'' dep''kdep
+Proof
+  Induct >> rw[extension_len_def,Once LESS_EQ,LESS_OR_EQ]
+  >> first_x_assum $ drule_then assume_tac >> fs[]
+  >> goal_assum drule
+QED
+
+Theorem extension_len_SUC:
+  !k dep dep1 dep1kdep. extension_len dep (SUC k) dep1 dep1kdep
+  = ?dep2. dep_step dep dep1 [] = INL dep2 /\ extension_len dep k dep2 dep1kdep
+Proof
+  Induct >> rw[extension_len_def]
+  >> fs[extension_len_def,PULL_EXISTS,EQ_IMP_THM,AND_IMP_INTRO,FORALL_AND_THM]
+  >> rw[EQ_IMP_THM] >> metis_tac[]
+QED
+
+Theorem extension_len_wf_pqs:
+  !k dep dep' dep''. wf_pqs (dep ++ dep') /\ extension_len dep k dep' dep''
+  ==> wf_pqs dep''
+Proof
+  Induct >> rw[extension_len_SUC,PULL_EXISTS]
+  >- fs[wf_pqs_APPEND,extension_len_def]
+  >> first_x_assum $ drule_at Any
+  >> imp_res_tac dep_step_INL_props
+  >> fs[wf_pqs_APPEND]
 QED
 
 Definition dep_steps_inv_def:
@@ -7350,7 +7387,7 @@ Definition dep_steps_inv_def:
   )
 End
 
-Theorem dep_steps_sound_INL'':
+Theorem dep_steps_sound_acyclic'':
   !dep k' deps' deps k k''.
     dep_steps_inv dep k deps k' deps'
     /\ dep_steps dep k' deps' = acyclic k''
@@ -7370,7 +7407,6 @@ Proof
     REWRITE_TAC[extension_len_def,ONE]
     >> unabbrev_all_tac
     >> gvs[extension_len_def]
-    >> dsimp[AC CONJ_ASSOC CONJ_COMM]
   )
   >> fs[LESS_OR_EQ,Once SUB_LESS_0]
   >> qabbrev_tac `n = k - k'`
@@ -7378,38 +7414,32 @@ Proof
   >> `n = SUC n'` by (unabbrev_all_tac >> fs[])
   >> ntac 2 $ qpat_x_assum `Abbrev _` kall_tac
   >> rw[extension_len_def,EQ_IMP_THM]
-  >- (
-    ntac 2 $ goal_assum drule
-    >> asm_rewrite_tac[]
-  )
-  >> drule_then rev_drule extension_len_eq >> disch_then $ fs o single
-  >> goal_assum drule
-  >> fs[]
+  >> rpt $ goal_assum drule
 QED
 
-Theorem dep_steps_sound_INL':
+Theorem dep_steps_sound_acyclic':
   !dep k k' deps. wf_pqs (dep ++ deps)
     /\ dep_steps dep k deps = acyclic k'
     ==> dep_steps_inv dep k deps k' []
 Proof
   rpt strip_tac
-  >> drule_at_then Any irule dep_steps_sound_INL''
+  >> drule_at_then Any irule dep_steps_sound_acyclic''
   >> fs[dep_steps_inv_def,extension_len_def,wf_pqs_APPEND]
 QED
 
-Theorem dep_steps_sound_INL:
-  !dep k k' deps. wf_pqs dep
+Theorem dep_steps_sound_acyclic:
+  !dep k k'. wf_pqs dep
     /\ dep_steps dep k dep = acyclic k'
     ==> dep_steps_inv dep k dep k' []
 Proof
-  fs[dep_steps_sound_INL',wf_pqs_APPEND]
+  fs[dep_steps_sound_acyclic',wf_pqs_APPEND]
 QED
 
 (*
-SIMP_RULE (srw_ss()) [wf_pqs_APPEND,dep_steps_inv_def] dep_steps_sound_INL
+SIMP_RULE (srw_ss()) [wf_pqs_APPEND,dep_steps_inv_def] dep_steps_sound_acyclic
 *)
 
-Theorem dep_steps_complete_INL:
+Theorem dep_steps_complete_acyclic':
   !dep k deps k''.
     dep_steps_inv dep k deps k'' []
     ==> ?k'. dep_steps dep k deps = acyclic k'
@@ -7420,25 +7450,29 @@ Proof
   >> qmatch_goalsub_abbrev_tac `dep_step dep deps' []`
   >> fs[AND_IMP_INTRO,PULL_FORALL]
   >> `?res. dep_step dep deps' [] = INL res` by (
-    gvs[dep_steps_inv_def,extension_len_def,LESS_OR_EQ]
-    >> Cases_on `SUC k - k''` >> fs[extension_len_def]
-    >> cheat
+    PRED_ASSUM is_forall kall_tac
+    >> gvs[dep_steps_inv_def,LESS_OR_EQ,Once SUB_LESS_0]
+    >> Cases_on `SUC k - k''` >> fs[]
+    >- fs[extension_len_SUC]
+    >> fs[extension_len_def,dep_step_def]
   )
   >> goal_assum drule
   >> first_x_assum $ drule_then irule
   >> qmatch_assum_abbrev_tac `dep_steps_inv _ _ _ k'' []`
+  >> fs[dep_steps_inv_def,wf_pqs_APPEND]
+  >> reverse $ dxrule_then strip_assume_tac $ iffLR LESS_OR_EQ
+  >- gvs[extension_len_def,dep_step_def]
   >> qexists_tac `k''`
-  >> gvs[dep_steps_inv_def,LESS_OR_EQ,extension_len_def,dep_step_def,wf_pqs_APPEND,Once SUB_LESS_0]
+  >> fs[Once SUB_LESS_0]
   >> qmatch_asmsub_abbrev_tac `0n < n'`
   >> qmatch_goalsub_abbrev_tac `extension_len _ n`
   >> `n' = SUC n` by (unabbrev_all_tac >> fs[])
   >> ntac 2 $ qpat_x_assum `Abbrev _` kall_tac
-  >> gvs[extension_len_def]
+  >> gvs[extension_len_SUC]
   >> drule_at Any $ SIMP_RULE (srw_ss()) [PULL_EXISTS,AND_IMP_INTRO] $ iffLR dep_step_eq_INL
   >> fs[wf_pqs_APPEND] >> strip_tac
   >> drule_at Any dep_step_sound_INL
-  >> fs[wf_pqs_APPEND,dep_step_inv_def] >> strip_tac
-  >> cheat
+  >> fs[wf_pqs_APPEND,dep_step_inv_def]
 QED
 
 val _ = export_theory();
