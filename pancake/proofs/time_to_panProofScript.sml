@@ -7847,6 +7847,20 @@ Proof
   strip_tac >>
   gs [eval_upd_clock_eq] >>
   fs [Abbr ‘q’] >>
+  qmatch_goalsub_abbrev_tac ‘evaluate (Seq _ q, nnt)’ >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  pairarg_tac >> fs [] >>
+  drule evaluate_if_compare_sys_time >>
+  disch_then (qspec_then ‘nt + wt’ mp_tac) >>
+  impl_tac
+  >- (
+    unabbrev_all_tac >>
+    gs [FLOOKUP_UPDATE]) >>
+  strip_tac >> rveq >> gs [] >>
+  unabbrev_all_tac >>
+  rveq >> gs [] >>
+  (* until here *)
   qmatch_goalsub_abbrev_tac ‘evaluate (Seq _ q, _)’ >>
   (* calling the function *)
   (* location will come from equivs: state_rel *)
@@ -8261,6 +8275,13 @@ Proof
   strip_tac >>
   unabbrev_all_tac >>
   rveq >> gs [] >>
+  (* the new If statement *)
+  qmatch_goalsub_abbrev_tac ‘evaluate (Seq _ q, nnt)’ >>
+  rewrite_tac [Once evaluate_def] >>
+  fs [] >>
+  unabbrev_all_tac >>
+  rveq >> gs [] >>
+  (* until here *)
   qmatch_goalsub_abbrev_tac ‘evaluate (Seq _ q, nnt)’ >>
   ‘FLOOKUP nnt.locals «loc» = FLOOKUP t.locals «loc»’ by
     fs [Abbr ‘nnt’, FLOOKUP_UPDATE] >>
