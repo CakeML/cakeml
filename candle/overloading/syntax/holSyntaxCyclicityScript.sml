@@ -7187,15 +7187,14 @@ QED
 
 Theorem dep_step_sound_INL:
   !dep dep' res. wf_pqs (dep ++ dep')
-  /\ (!q. MEM q dep' ==>
-      ?extd. composable_step (SND q) dep [] = INL extd /\
-      EVERY ($~ o UNCURRY is_instance_LR) (MAP (λx. (FST q,x)) extd))
   /\ dep_step dep dep' [] = INL res
   ==> dep_step_inv dep dep' [] res
 Proof
   rpt strip_tac
+  >> drule_at_then Any strip_assume_tac dep_step_INL_imp
+  >> gs[wf_pqs_APPEND]
   >> drule_at_then Any irule dep_step_sound_INL'
-  >> fs[dep_step_inv_def,wf_pqs_APPEND]
+  >> gs[dep_step_inv_def,wf_pqs_APPEND]
 QED
 
 Theorem dep_step_complete_INL:
@@ -7305,8 +7304,6 @@ Theorem dep_step_INL_props:
   ==> wf_pqs dep''
 Proof
   rw[]
-  >> drule_at Any $ SIMP_RULE (srw_ss()) [PULL_EXISTS,AND_IMP_INTRO] $ iffLR dep_step_eq_INL
-  >> fs[wf_pqs_APPEND] >> strip_tac
   >> drule_at Any dep_step_sound_INL
   >> fs[wf_pqs_APPEND,dep_step_inv_def]
 QED
@@ -7399,8 +7396,6 @@ Proof
   >> first_x_assum irule
   >> qmatch_asmsub_abbrev_tac `dep_step dep deps' []`
   >> fs[wf_pqs_APPEND,dep_steps_inv_def]
-  >> drule_at Any $ SIMP_RULE (srw_ss()) [PULL_EXISTS,AND_IMP_INTRO] $ iffLR dep_step_eq_INL
-  >> fs[wf_pqs_APPEND] >> strip_tac
   >> drule_at Any dep_step_sound_INL
   >> fs[wf_pqs_APPEND,dep_step_inv_def] >> strip_tac
   >- (
@@ -7435,10 +7430,6 @@ Proof
   fs[dep_steps_sound_acyclic',wf_pqs_APPEND]
 QED
 
-(*
-SIMP_RULE (srw_ss()) [wf_pqs_APPEND,dep_steps_inv_def] dep_steps_sound_acyclic
-*)
-
 Theorem dep_steps_complete_acyclic':
   !dep k deps k''.
     dep_steps_inv dep k deps k'' []
@@ -7469,10 +7460,16 @@ Proof
   >> `n' = SUC n` by (unabbrev_all_tac >> fs[])
   >> ntac 2 $ qpat_x_assum `Abbrev _` kall_tac
   >> gvs[extension_len_SUC]
-  >> drule_at Any $ SIMP_RULE (srw_ss()) [PULL_EXISTS,AND_IMP_INTRO] $ iffLR dep_step_eq_INL
-  >> fs[wf_pqs_APPEND] >> strip_tac
   >> drule_at Any dep_step_sound_INL
   >> fs[wf_pqs_APPEND,dep_step_inv_def]
+QED
+
+Theorem dep_steps_complete_acyclic:
+  !dep k k''.
+    dep_steps_inv dep k dep k'' []
+    ==> ?k'. dep_steps dep k dep = acyclic k'
+Proof
+  rpt strip_tac >> irule dep_steps_complete_acyclic' >> goal_assum drule
 QED
 
 val _ = export_theory();
