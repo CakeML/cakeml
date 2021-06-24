@@ -220,7 +220,7 @@ Definition check_input_time_def:
         Assign  «sysTime» time ;
         Assign  «event»   input;
         Assign  «isInput» (Cmp Equal input (Const 0w));
-        If (Cmp Equal (Var «sysTime») (Const (n2w (dimword (:α) -1))))
+        If (Cmp Equal (Var «sysTime») (Const (n2w (dimword (:α) - 1))))
            (Return (Const 0w)) (Skip:'a prog)
       ]
 End
@@ -238,7 +238,6 @@ Definition wait_input_time_limit_def:
     While wait check_input_time
 End
 
-
 Definition task_controller_def:
   task_controller clksLength =
   let
@@ -250,8 +249,8 @@ Definition task_controller_def:
   in
     (nested_seq [
         wait_input_time_limit;
-        If (Cmp Equal (Var «sysTime») (Const (n2w (dimword (:α) -1))))
-           (Return (Const 0w)) (Skip:'a prog); (* keep Skip for the time being*)
+        If (Cmp Equal (Var «sysTime») (Const (n2w (dimword (:α) - 2))))
+           check_input_time (Skip:'a prog); (* keep Skip for the time being *)
         Call (Ret «taskRet» NONE) (Var «loc»)
              [Struct (normalisedClks «sysTime» «clks» clksLength);
              Var «event»];
