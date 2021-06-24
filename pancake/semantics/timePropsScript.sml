@@ -227,7 +227,8 @@ QED
 
 Theorem steps_ffi_bounded:
   ∀lbls sts p m n st.
-    steps p lbls m n st sts ⇒
+    steps p lbls m n st sts ∧
+    lbls ≠ [] ⇒
     n < m
 Proof
   Induct >>
@@ -236,7 +237,20 @@ Proof
   gs [steps_def, step_cases]
 QED
 
+(*
+Theorem steps_ffi_bounded:
+  ∀lbls sts p m n st.
+    steps p lbls m n st sts ⇒
+    n < m
+Proof
+  Induct >>
+  rw [] >>
+  cases_on ‘sts’ >>
+  gs [steps_def, step_cases]
+QED
+*)
 
+(*
 Theorem step_wt_ffi_bounded:
   ∀p lbl m n st st' w.
     step p lbl m n st st' ∧
@@ -259,7 +273,7 @@ Proof
   cases_on ‘sts’ >>
   gs [steps_def, step_cases]
 QED
-
+*)
 
 Theorem steps_lbls_sts_len_eq:
   ∀lbls sts p m n st.
@@ -282,9 +296,6 @@ Proof
  gs [Once pickTerm_cases] >>
  gvs [] >>
  res_tac >> gs []
-
-
-
 QED
 
 

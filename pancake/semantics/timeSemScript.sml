@@ -341,6 +341,21 @@ Inductive step:
     step p (LPanic (PanicInput in_signal)) m n st st')
 End
 
+
+Definition steps_def:
+  (steps prog [] m n s [] ⇔ T) ∧
+  (steps prog (lbl::lbls) m n s (st::sts) ⇔
+     step prog lbl m n s st ∧
+     let n' =
+         case lbl of
+         | LDelay d => d + n
+         | _ => n
+     in
+       steps prog lbls m n' st sts) ∧
+  (steps prog _ m _ s _ ⇔ F)
+End
+
+(*
 Definition steps_def:
   (steps prog [] m n s [] ⇔
    n < m  ∧
@@ -357,7 +372,7 @@ Definition steps_def:
        steps prog lbls m n' st sts) ∧
   (steps prog _ m _ s _ ⇔ F)
 End
-
+*)
 Inductive stepTrace:
   (!p m n st.
     stepTrace p m n st st []) ∧

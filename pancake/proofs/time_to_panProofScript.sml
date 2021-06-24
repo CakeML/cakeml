@@ -9441,6 +9441,7 @@ Definition wf_prog_and_init_states_def:
               t.ffi.ffi_state t.ffi.io_events ∧
     init_ffi t.ffi.ffi_state ∧
     input_time_rel t.ffi.ffi_state ∧
+    FST (t.ffi.ffi_state 0) < dimword (:α) − 1 ∧
     time_seq t.ffi.ffi_state (dimword (:α)) ∧
     t.ffi.io_events = [] ∧
     good_dimindex (:'a) ∧
@@ -9755,9 +9756,7 @@ Proof
     impl_tac
     >- (
       unabbrev_all_tac >>
-      gs [FLOOKUP_UPDATE] >>
-      drule steps_ffi_bounded >>
-      gs []) >>
+      gs [FLOOKUP_UPDATE]) >>
     strip_tac >> rveq >> gs [] >>
     rewrite_tac [Once evaluate_def] >>
     fs [] >>

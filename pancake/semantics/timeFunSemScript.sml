@@ -169,6 +169,7 @@ Definition set_oracle_def:
   (set_oracle (Output _) or = or)
 End
 
+(*
 Definition eval_steps_def:
   (eval_steps 0 prog m n _ st =
    if n < m ∧
@@ -193,6 +194,27 @@ Definition eval_steps_def:
           | NONE => NONE
           | SOME (lbls', sts') => SOME (lbl::lbls', st'::sts'))
    | NONE => NONE)
+End
+*)
+
+Definition eval_steps_def:
+  (eval_steps 0 _ _ _ _ st = SOME ([],[])) ∧
+  (eval_steps (SUC k) prog m n or st =
+   case eval_step prog m n (or 0) st of
+   | SOME (lbl, st') =>
+       let n' =
+           case lbl of
+           | LDelay d => d + n
+           | _ => n;
+           noracle =
+           case lbl of
+           | LDelay _ => next_oracle or
+           | LAction act => set_oracle act or
+       in
+         (case eval_steps k prog m n' noracle st' of
+          | NONE => NONE
+          | SOME (lbls', sts') => SOME (lbl::lbls', st'::sts'))
+         | NONE => NONE)
 End
 
 
@@ -578,6 +600,23 @@ Proof
   gs [step_cases, mkState_def]
 QED
 
+(*
+Theorem eval_steps_imp_steps:
+  ∀k prog m n or st labels sts.
+    eval_steps k prog m n or st = SOME (labels, sts) ⇒
+    steps prog labels m n st sts
+Proof
+  Induct >> rw []
+  >- fs [eval_steps_def, steps_def] >>
+  gs [eval_steps_def] >>
+  every_case_tac >> gvs [] >>
+  TRY (cases_on ‘p’) >> gvs [] >>
+  gs [steps_def] >>
+  imp_res_tac eval_step_imp_step >>
+  gs [] >>
+  res_tac >> gs []
+QED
+*)
 
 Theorem eval_steps_imp_steps:
   ∀k prog m n or st labels sts.
@@ -594,6 +633,5 @@ Proof
   gs [] >>
   res_tac >> gs []
 QED
-
 
 val _ = export_theory();
