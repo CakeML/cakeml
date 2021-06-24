@@ -983,7 +983,7 @@ Definition ffi_rels_after_init_def:
              (FST (t.ffi.ffi_state 0))
 End
 
-(*
+
 Definition labels_of_def:
   labels_of k prog m n or st =
    FST (THE (timeFunSem$eval_steps k prog m n or st))
@@ -999,7 +999,8 @@ Definition wf_prog_init_states_def:
     init_clocks st.clocks (clksOf prog) ∧
     code_installed t.code prog ∧
     FLOOKUP t.code «start» =
-      SOME ([], start_controller (prog,st.waitTime)) ∧
+    SOME ([], start_controller (prog,st.waitTime)) ∧
+    FLOOKUP t.eshapes «panic» = SOME One ∧
     well_formed_code prog t.code ∧
     mem_config t.memory t.memaddrs t.be ∧
     mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
@@ -1019,7 +1020,6 @@ Definition systime_at_def:
     FST (t.ffi.ffi_state 0)
 End
 
-*)
 Theorem length_get_bytes:
   ∀w be.
     LENGTH (get_bytes be (w:'a word)) = dimindex (:α) DIV 8
@@ -9447,15 +9447,22 @@ Definition wf_prog_and_init_states_def:
     ~MEM "get_time_input" (MAP explode (out_signals prog))
 End
 
-(* TODO: panLang needs exception shape declaration *)
+
+Definition no_panic_def:
+  no_panic lbls ⇔
+  ∀lbl.
+    MEM lbl lbls ⇒
+    lbl ≠ LPanic (PanicTimeout) ∧
+    (∀is. lbl ≠ LPanic is)
+End
+
+(* TODO: panLang needs exception shape declaration,
+   to revise/review no_panic *)
 Theorem timed_automata_correct:
   ∀prog labels st sts (t:('a,time_input) panSem$state).
     steps prog labels
           (dimword (:α) - 1) (FST (t.ffi.ffi_state 0)) st sts ∧
-    (∀lbl.
-       MEM lbl labels ⇒
-       lbl ≠ LPanic (PanicTimeout) ∧
-       (∀is. lbl ≠ LPanic is)) ∧
+    no_panic labels ∧
     wf_prog_and_init_states prog st t ∧
     ffi_rels_after_init prog labels st t ∧
     sum_delays (:α) labels (next_ffi t.ffi.ffi_state) ⇒
@@ -9466,7 +9473,7 @@ Theorem timed_automata_correct:
       decode_ios (:α) t.be labels ns
                  (io::TAKE (SUM ns) ios)
 Proof
-  rw [wf_prog_and_init_states_def] >>
+  rw [wf_prog_and_init_states_def, no_panic_def] >>
   ‘∃ck t' io ios ns.
      evaluate
      (TailCall (Label «start» ) [],t with clock := t.clock + ck) =
@@ -9864,19 +9871,19 @@ Proof
   gs []
 QED
 
-(* to figure out if TAKE (SUM ns) is neccessary or not *)
 Theorem timed_automata_functional_correct:
   ∀k prog or st sts labels (t:('a,time_input) panSem$state).
     timeFunSem$eval_steps k prog
                (dimword (:α) - 1) (FST (t.ffi.ffi_state 0))
                or st = SOME (labels, sts) ∧
+    no_panic labels ∧
     wf_prog_and_init_states prog st t ∧
     ffi_rels_after_init prog labels st t ∧
     sum_delays (:α) labels (next_ffi t.ffi.ffi_state) ⇒
     ∃io ios ns.
       semantics t «start» = Terminate Success (io::ios) ∧
       LENGTH labels = LENGTH ns ∧
-      SUM ns ≤ LENGTH ios ∧
+      SUM ns + 1 = LENGTH ios ∧
       decode_ios (:α) t.be labels ns
                  (io::TAKE (SUM ns) ios)
 Proof
@@ -9887,20 +9894,20 @@ Proof
 QED
 
 
-
 Theorem io_trace_impl_eval_steps:
   ∀prog st (t:('a,time_input) panSem$state) or.
     wf_prog_init_states prog or st t ⇒
     ∃k.
       ffi_rels_after_init prog
                           (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) st t ∧
+      no_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ∧
       sum_delays (:α) (labels_of k prog (dimword (:α) - 1) (systime_at t) or st)
                  (next_ffi t.ffi.ffi_state) ⇒
         ∃lbls sts io ios ns.
           timeFunSem$eval_steps k prog (dimword (:α) - 1) (systime_at t) or st =
           SOME (lbls, sts) ∧
           semantics t «start» = Terminate Success (io::ios) ∧
-          LENGTH lbls = LENGTH ns ∧ SUM ns ≤ LENGTH ios ∧
+          LENGTH lbls = LENGTH ns ∧ SUM ns + 1 = LENGTH ios ∧
           decode_ios (:α) t.be lbls ns (io::TAKE (SUM ns) ios)
 Proof
   rw [] >>
@@ -9916,11 +9923,11 @@ Proof
     gs [IS_SOME_DEF] >>
     cases_on ‘x’ >> gs []) >>
   gs [labels_of_def] >>
+  match_mp_tac timed_automata_functional_correct >>
+  gs [] >>
   metis_tac [timed_automata_functional_correct,
              wf_prog_and_init_states_def]
 QED
-
-
 
 
 val _ = export_theory();
