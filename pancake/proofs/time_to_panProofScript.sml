@@ -1010,6 +1010,7 @@ Definition wf_prog_init_states_def:
     init_ffi t.ffi.ffi_state ∧
     input_time_rel t.ffi.ffi_state ∧
     time_seq t.ffi.ffi_state (dimword (:α)) ∧
+    FST (t.ffi.ffi_state 0) < dimword (:α) − 1 ∧
     t.ffi.io_events = [] ∧
     good_dimindex (:'a) ∧
     ~MEM "get_time_input" (MAP explode (out_signals prog))
@@ -9922,8 +9923,6 @@ Proof
     gs [IS_SOME_DEF] >>
     cases_on ‘x’ >> gs []) >>
   gs [labels_of_def] >>
-  match_mp_tac timed_automata_functional_correct >>
-  gs [] >>
   metis_tac [timed_automata_functional_correct,
              wf_prog_and_init_states_def]
 QED

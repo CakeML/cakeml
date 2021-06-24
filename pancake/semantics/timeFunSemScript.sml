@@ -245,7 +245,6 @@ Proof
 QED
 
 
-
 Theorem pick_eval_input_term_imp_pickTerm:
   ∀tms st m i st'.
     machine_bounds (resetOutput st) m tms ∧
@@ -600,23 +599,6 @@ Proof
   gs [step_cases, mkState_def]
 QED
 
-(*
-Theorem eval_steps_imp_steps:
-  ∀k prog m n or st labels sts.
-    eval_steps k prog m n or st = SOME (labels, sts) ⇒
-    steps prog labels m n st sts
-Proof
-  Induct >> rw []
-  >- fs [eval_steps_def, steps_def] >>
-  gs [eval_steps_def] >>
-  every_case_tac >> gvs [] >>
-  TRY (cases_on ‘p’) >> gvs [] >>
-  gs [steps_def] >>
-  imp_res_tac eval_step_imp_step >>
-  gs [] >>
-  res_tac >> gs []
-QED
-*)
 
 Theorem eval_steps_imp_steps:
   ∀k prog m n or st labels sts.

@@ -237,44 +237,6 @@ Proof
   gs [steps_def, step_cases]
 QED
 
-(*
-Theorem steps_ffi_bounded:
-  ∀lbls sts p m n st.
-    steps p lbls m n st sts ⇒
-    n < m
-Proof
-  Induct >>
-  rw [] >>
-  cases_on ‘sts’ >>
-  gs [steps_def, step_cases]
-QED
-*)
-
-(*
-Theorem step_wt_ffi_bounded:
-  ∀p lbl m n st st' w.
-    step p lbl m n st st' ∧
-    st.waitTime = SOME w  ⇒
-    w < m
-Proof
-  rw [] >>
-  gs [step_cases]
-QED
-
-
-Theorem steps_wt_ffi_bounded:
-  ∀lbls sts p m n st w.
-    steps p lbls m n st sts ∧
-    st.waitTime = SOME w  ⇒
-    w < m
-Proof
-  Induct >>
-  rw [] >>
-  cases_on ‘sts’ >>
-  gs [steps_def, step_cases]
-QED
-*)
-
 Theorem steps_lbls_sts_len_eq:
   ∀lbls sts p m n st.
     steps p lbls m n st sts ⇒
