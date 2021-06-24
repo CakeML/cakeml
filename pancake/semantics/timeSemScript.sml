@@ -328,7 +328,7 @@ Inductive step:
     n < m ∧
     ALOOKUP p st.location = SOME tms ∧
     st.waitTime = SOME 0 ∧
-    pickTerm st m NONE tms st' (LPanic PanicTimeout) ⇒
+    pickTerm (resetOutput st) m NONE tms st' (LPanic PanicTimeout) ⇒
     step p (LPanic PanicTimeout) m n st st') ∧
 
   (!p m n st tms st' in_signal.
@@ -337,7 +337,7 @@ Inductive step:
     (case st.waitTime of
      | NONE => T
      | SOME wt => wt ≠ 0 ∧ wt < m) ∧
-    pickTerm st m (SOME in_signal) tms st' (LPanic (PanicInput in_signal)) ⇒
+    pickTerm (resetOutput st) m (SOME in_signal) tms st' (LPanic (PanicInput in_signal)) ⇒
     step p (LPanic (PanicInput in_signal)) m n st st')
 End
 

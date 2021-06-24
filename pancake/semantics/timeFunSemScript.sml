@@ -173,7 +173,7 @@ Definition eval_steps_def:
   (eval_steps 0 prog m n _ st =
    if n < m ∧
       (case st.waitTime of
-       | SOME w => w ≠ 0 ∧ w < m
+       | SOME w => w < m
        | NONE => T)
    then SOME ([],[])
    else NONE) ∧
@@ -183,7 +183,7 @@ Definition eval_steps_def:
        let n' =
              case lbl of
              | LDelay d => d + n
-             | LAction _ => n;
+             | _ => n;
            noracle =
              case lbl of
              | LDelay _ => next_oracle or
@@ -195,7 +195,7 @@ Definition eval_steps_def:
    | NONE => NONE)
 End
 
-(*
+
 Theorem label_from_pick_eval_input_term:
   ∀tms i st lbl st' m.
     pick_eval_input_term st i m tms = SOME (lbl,st') ⇒
@@ -207,6 +207,21 @@ Proof
   every_case_tac >> gvs [eval_term_def] >>
   res_tac >> gvs []
 QED
+
+
+
+Theorem label_from_pick_eval_output_term:
+  ∀tms st lbl st'.
+    pick_eval_output_term st tms = SOME (lbl,st') ⇒
+    (∃os. lbl = LAction (Output os)) ∨
+    lbl = LPanic PanicTimeout
+Proof
+  Induct >> rw [] >>
+  gvs [pick_eval_output_term_def] >>
+  every_case_tac >> gvs [eval_term_def] >>
+  res_tac >> gvs []
+QED
+
 
 
 Theorem pick_eval_input_term_imp_pickTerm:
@@ -343,7 +358,6 @@ Proof
       timeLangTheory.termConditions_def]
 QED
 
-
 Theorem pick_input_term_panic_sts_eq:
   ∀tms st m i st'.
     pick_eval_input_term st i m tms =
@@ -432,19 +446,67 @@ Proof
       terms_in_signals_def]
 QED
 
-Theorem foo:
-  ∀tms i st lbl st'.
-    pick_eval_input_term st i tms = SOME (lbl,st') ⇒
-    lbl = LAction (Input i) ∨
-    lbl = LPanic (PanicInput i)
+Theorem pick_eval_output_term_panic_imp_pickTerm:
+  ∀tms st m st'.
+    machine_bounds (resetOutput st) m tms ∧
+    pick_eval_output_term (resetOutput st) tms =
+    SOME (LPanic PanicTimeout, st') ⇒
+    pickTerm (resetOutput st) m NONE tms st' (LPanic PanicTimeout)
 Proof
-  Induct >> rw [] >>
-  gvs [pick_eval_input_term_def] >>
-  every_case_tac >> gvs [eval_term_def] >>
-  res_tac >> gvs []
+  Induct >>
+  rpt gen_tac >>
+  strip_tac >>
+  gs []
+  >- (
+    gs [pick_eval_output_term_def] >>
+    rewrite_tac [Once pickTerm_cases] >>
+    gs [machine_bounds_def]) >>
+  gs [pick_eval_output_term_def] >>
+  cases_on ‘h’ >> gs [] >>
+  reverse (cases_on ‘i’) >> gs []
+  >- (
+    FULL_CASE_TAC >> gs [] >> rveq >> gs []
+    >- (
+      rewrite_tac [Once pickTerm_cases] >>
+      gs [] >>
+      gs [machine_bounds_def, terms_time_range_def,
+          conds_eval_lt_dimword_def, input_terms_actions_def,
+          terms_in_signals_def] >>
+      gs [eval_term_def, evalTerm_cases] >>
+      rveq >> gs [state_component_equality]) >>
+    rewrite_tac [Once pickTerm_cases] >>
+    gs [] >>
+    last_x_assum (qspecl_then [‘st’, ‘m’, ‘st'’] mp_tac) >>
+    impl_tac
+    >- (
+      gs [] >>
+      gs [machine_bounds_def, tms_conds_eval_def, conds_eval_lt_dimword_def,
+          terms_time_range_def, input_terms_actions_def, terms_wtimes_ffi_bound_def,
+          terms_in_signals_def]) >>
+    strip_tac >>
+    gs [machine_bounds_def, terms_time_range_def,
+        conds_eval_lt_dimword_def, input_terms_actions_def,
+        terms_in_signals_def, tms_conds_eval_def,  tm_conds_eval_def,
+        timeLangTheory.termConditions_def] >>
+    gs [EVERY_MEM] >>
+    rw [] >>
+    res_tac >> gs []  >>
+    FULL_CASE_TAC >> gs []) >>
+  rewrite_tac [Once pickTerm_cases] >>
+  gs [] >>
+  last_x_assum (qspecl_then [‘st’, ‘m’, ‘st'’] mp_tac) >>
+  impl_tac
+  >- (
+    gs [] >>
+    gs [machine_bounds_def, tms_conds_eval_def, conds_eval_lt_dimword_def,
+        terms_time_range_def, input_terms_actions_def, terms_wtimes_ffi_bound_def,
+        terms_in_signals_def]) >>
+  strip_tac >>
+  gs [machine_bounds_def, terms_time_range_def,
+      conds_eval_lt_dimword_def, input_terms_actions_def,
+      terms_in_signals_def, tms_conds_eval_def,  tm_conds_eval_def,
+      timeLangTheory.termConditions_def]
 QED
-
-
 
 
 Theorem eval_step_imp_step:
@@ -470,18 +532,8 @@ Proof
     >- (
       imp_res_tac pick_eval_input_term_imp_pickTerm >>
       gs [step_cases, mkState_def]) >>
-    drule pick_input_term_panic_sts_eq >>
-    strip_tac >> gvs []
-
-
-
-    imp_res_tac pick_eval_input_term_panic_imp_pickTerm >>
-    gs [step_cases, mkState_def]
-       (* need fix *)
-
-
-
-    cheat)
+    drule_all pick_eval_input_term_panic_imp_pickTerm >>
+    gs [step_cases, mkState_def])
   >- (
     FULL_CASE_TAC >> gs []
     >- (
@@ -489,9 +541,12 @@ Proof
       every_case_tac >> rveq >> gs [] >>
       rveq >> gs [] >>
       qmatch_asmsub_rename_tac ‘ALOOKUP _ _ = SOME tms’ >>
-      ‘∃os. label = LAction (Output os)’ by cheat >>
-      gvs [] >>
-      imp_res_tac pick_eval_output_term_imp_pickTerm >>
+      drule label_from_pick_eval_output_term >>
+      strip_tac >> gvs []
+      >- (
+        imp_res_tac pick_eval_output_term_imp_pickTerm >>
+        gs [step_cases, mkState_def]) >>
+      drule_all pick_eval_output_term_panic_imp_pickTerm >>
       gs [step_cases, mkState_def]) >>
     gs [eval_delay_wtime_some_def] >>
     rveq >>
@@ -503,17 +558,23 @@ Proof
     every_case_tac >> rveq >> gs [] >>
     rveq >> gs [] >>
     qmatch_asmsub_rename_tac ‘ALOOKUP _ _ = SOME tms’ >>
-    ‘∃os. label = LAction (Output os)’ by cheat >>
-    gvs [] >>
-    imp_res_tac pick_eval_output_term_imp_pickTerm >>
+    drule label_from_pick_eval_output_term >>
+    strip_tac >> gvs []
+    >- (
+      imp_res_tac pick_eval_output_term_imp_pickTerm >>
+      gs [step_cases, mkState_def]) >>
+    drule_all pick_eval_output_term_panic_imp_pickTerm >>
     gs [step_cases, mkState_def]) >>
   gs [eval_input_def] >>
   FULL_CASE_TAC >> gs [] >> rveq >> gs [] >>
   qmatch_asmsub_rename_tac ‘ALOOKUP _ _ = SOME tms’ >>
-  qmatch_asmsub_rename_tac ‘pick_eval_input_term _ i _ = _’ >>
-  ‘label = LAction (Input i)’ by cheat >>
-  gvs [] >>
-  imp_res_tac pick_eval_input_term_imp_pickTerm >>
+  qmatch_asmsub_rename_tac ‘pick_eval_input_term _ i _ _ = _’ >>
+  drule label_from_pick_eval_input_term >>
+  strip_tac >> gvs []
+  >- (
+    imp_res_tac pick_eval_input_term_imp_pickTerm >>
+    gs [step_cases, mkState_def]) >>
+  drule_all pick_eval_input_term_panic_imp_pickTerm >>
   gs [step_cases, mkState_def]
 QED
 
@@ -534,5 +595,5 @@ Proof
   res_tac >> gs []
 QED
 
-*)
+
 val _ = export_theory();
