@@ -64,6 +64,14 @@ Proof
   metis_tac[values_insert]
 QED
 
+Theorem values_insert_fresh:
+  (∀x. x ∈ domain fml ⇒ x ≠ n) ⇒
+  values (insert n l fml) = l INSERT values fml
+Proof
+  rw[values_def,EXTENSION,lookup_insert,domain_lookup]>>
+  metis_tac[SOME_11]
+QED
+
 (* Implementation *)
 val _ = Datatype`
   lprstep =
@@ -1115,6 +1123,170 @@ Proof
   `IMAGE interp_cclause (set fml2) ⊆ interp_spt x` by (
     rw[SUBSET_DEF]>>
     fs[EVERY_MEM,MEM_toAList,EXISTS_PROD,MEM_MAP]>>
+    first_x_assum drule>>rw[]>>
+    fs[interp_spt_def,values_def]>>
+    metis_tac[])>>
+  qpat_x_assum`satisfiable _` mp_tac>>
+  match_mp_tac (satisfiable_SUBSET)>>
+  fs[interp_def]
+QED
+
+(* Top-level DRAT-style proofs, i.e., every line is a clause that is either deleted or added *)
+val _ = Datatype`
+  step =
+    Del cclause (* Clause to delete *)
+  | Add cclause` (* Clause to add *)
+
+Type proof = ``:step list``
+
+(* Run the top-level proof operations on a formula *)
+val run_proof_step_def = Define`
+  (run_proof_step fml (Del cl) = FILTER ($≠ cl) fml) ∧
+  (run_proof_step fml (Add cl) = fml ++ [cl])`
+
+val run_proof_def = Define`
+  run_proof fml pf = FOLDL run_proof_step fml pf`
+
+val wf_proof_def = Define`
+  (wf_proof (Del _) = T) ∧
+  (wf_proof (Add C) = wf_clause C)`
+
+(* As a first step towards verification, define a version operating over sptrees *)
+val run_proof_step_spt_def = Define`
+  (run_proof_step_spt (fml,n) (Del cl) =
+    let kv = toAList fml in
+    let l = MAP FST (FILTER (λ(k,v). cl = v) kv) in
+      (FOLDL (\a b. delete b a) fml l, n)) ∧
+  (run_proof_step_spt (fml,n:num) (Add cl) =
+    (insert n cl fml,n+1))`
+
+val run_proof_spt_def = Define`
+  run_proof_spt fmln pf = FOLDL run_proof_step_spt fmln pf`
+
+val check_lpr_range_def = Define`
+  check_lpr_range lpr fml n pf i j =
+  if i ≤ j then
+    let (fml1,n1) = run_proof_spt (fml,n) (TAKE i pf) in
+    let (fml2,n2) = run_proof_spt (fml1,n1) (DROP i (TAKE j pf)) in
+    let vals = MAP SND (toAList fml2) in
+    check_lpr_sat_equiv lpr fml1 0 vals
+  else F`
+
+Theorem lookup_FOLDL_delete:
+  ∀l k fml.
+  lookup k (FOLDL (\a b. delete b a) fml l) =
+  if MEM k l then NONE
+  else lookup k fml
+Proof
+  Induct>>rw[]>>fs[lookup_delete]
+QED
+
+Theorem wf_run_proof_spt:
+  ∀pf fml n fml' n'.
+  run_proof_spt (fml,n) pf = (fml',n') ∧
+  EVERY wf_proof pf ∧
+  wf_fml fml ⇒
+  wf_fml fml'
+Proof
+  Induct>>fs[run_proof_spt_def]>>
+  Cases>>simp[run_proof_step_spt_def,wf_proof_def]>>
+  rw[]>>
+  first_x_assum drule>>
+  rpt(disch_then drule)>>
+  disch_then match_mp_tac>>
+  fs[wf_fml_def]
+  >- (
+    fs[values_def,lookup_FOLDL_delete,MEM_MAP,MEM_FILTER,EXISTS_PROD,MEM_toAList]>>
+    metis_tac[])>>
+  metis_tac[values_insert]
+QED
+
+Theorem MAP_ALL_DISTINCT_FILTER:
+  ALL_DISTINCT (MAP f ls) ⇒
+  ALL_DISTINCT (MAP f (FILTER P ls))
+Proof
+  Induct_on`ls`>>rw[MEM_FILTER,MEM_MAP]
+QED
+
+Theorem run_proof_spt_interp:
+  ∀pf fmlspt n fmlspt' n' fml.
+  run_proof_spt (fmlspt,n) pf = (fmlspt',n') ∧
+  values fmlspt = set fml ∧
+  (∀x. x ∈ domain fmlspt ⇒ x < n)
+  ⇒
+  values fmlspt' = set (run_proof fml pf) ∧
+  (∀x. x ∈ domain fmlspt' ⇒ x < n')
+Proof
+  Induct>>fs[run_proof_def,run_proof_spt_def]>>
+  Cases>>simp[run_proof_step_spt_def,run_proof_step_def]>>
+  ntac 6 strip_tac>>
+  first_x_assum drule>>
+  disch_then match_mp_tac
+  >- (
+    fs[values_def,domain_lookup,lookup_FOLDL_delete,MEM_MAP,MEM_FILTER,EXISTS_PROD,MEM_toAList]>>
+    fs[domain_lookup]>>
+    reverse CONJ_TAC >- metis_tac[]>>
+    pop_assum kall_tac>>
+    last_x_assum kall_tac>>
+    fs[EXTENSION,MEM_MAP,MEM_FILTER,MEM_toAList,values_def,EXISTS_PROD]>>
+    metis_tac[SOME_11])
+  >>
+    DEP_REWRITE_TAC [values_insert_fresh]>>
+    CONJ_TAC>-
+      (rw[]>>first_x_assum drule>>simp[])>>
+    CONJ_TAC>-
+      (fs[EXTENSION]>>metis_tac[])>>
+    rw[]>>fs[]>>
+    first_x_assum drule>>simp[]
+QED
+
+Theorem run_proof_APPEND:
+  run_proof fml (pf1++pf2) = run_proof (run_proof fml pf1) pf2
+Proof
+  simp[run_proof_def,FOLDL_APPEND]
+QED
+
+Theorem check_lpr_range_sound:
+  EVERY wf_clause fml ∧ EVERY wf_lpr lpr ∧ EVERY wf_proof pf ∧
+  id + LENGTH fml ≤ n ∧
+  check_lpr_range lpr (build_fml id fml) n pf i j ⇒
+  satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
+  satisfiable (interp (run_proof fml (TAKE j pf)))
+Proof
+  rw[check_lpr_range_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  fs[check_lpr_sat_equiv_def]>>
+  every_case_tac>>fs[]>>
+  drule wf_fml_build_fml>> disch_then(qspec_then `id` assume_tac)>>
+  qpat_x_assum` _ = (fml1,n1)` assume_tac>>
+  drule wf_run_proof_spt>>
+  simp[EVERY_TAKE]>>
+  strip_tac>>
+  drule check_lpr_sound>>
+  rpt (disch_then drule)>>
+  strip_tac>>
+  drule run_proof_spt_interp>>
+  disch_then(qspec_then`fml` mp_tac)>>
+  impl_tac>-
+    simp[values_build_fml,domain_lookup,lookup_build_fml]>>
+  rw[]>>
+  qpat_x_assum` _ ⇒ _` mp_tac>>
+  impl_tac >-
+    fs[interp_def,interp_spt_def]>>
+  qpat_x_assum` _ = (fml2,n2)` assume_tac>>
+  drule run_proof_spt_interp>>
+  disch_then drule>>
+  simp[GSYM run_proof_APPEND]>>
+  rw[]>>
+  `TAKE i pf ++ DROP i (TAKE j pf) = TAKE j pf` by
+    (simp[DROP_TAKE]>>
+    metis_tac[take_drop_partition])>>
+  simp[]>>
+  `interp (run_proof fml (TAKE j pf)) ⊆ interp_spt x` by (
+    fs[contains_clauses_def,EVERY_MEM,MEM_toAList,EXISTS_PROD,MEM_MAP,interp_def]>>
+    qpat_x_assum`value _ = set _` sym_sub_tac>>
+    rw[SUBSET_DEF,values_def]>>
+    fs[PULL_EXISTS]>>
     first_x_assum drule>>rw[]>>
     fs[interp_spt_def,values_def]>>
     metis_tac[])>>
