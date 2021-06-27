@@ -1147,8 +1147,9 @@ val run_proof_step_def = Define`
 val run_proof_def = Define`
   run_proof fml pf = FOLDL run_proof_step fml pf`
 
+(* Del case not technically necessary, but useful for parsing *)
 val wf_proof_def = Define`
-  (wf_proof (Del _) = T) ∧
+  (wf_proof (Del C) = wf_clause C) ∧
   (wf_proof (Add C) = wf_clause C)`
 
 (* As a first step towards verification, define a version operating over sptrees *)

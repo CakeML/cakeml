@@ -1731,55 +1731,53 @@ val hash_clauses_list_def = Define`
   Run "first part" of proof that updates all moving parts simultaneously:
     - fml is an array of index -> clauses
     - inds is lazily updated list of active indices (only added to)
-    - Clist and earliest track optimization information
+    - earliest tracks optimization information
     - fm is a "hashtable" mapping clause -> list of indices it appears
 
   The "second part" of the proof only needs to project out the "fm" component
 *)
 val run_proof_step_list_def = Define`
-  (run_proof_step_list (fml,inds,Clist,earliest,fm,n) (Del C) =
+  (run_proof_step_list (fml,inds,earliest,fm,n,mv) (Del C) =
     case FLOOKUP fm C of
       NONE => (* the clause to be deleted doesn't exist, don't do anything *)
-        (fml,inds,Clist,earliest,fm,n)
+        (fml,inds,earliest,fm,n,mv)
     | SOME cls => (* list of clause indices *)
-        (list_delete_list cls fml, inds, Clist, earliest, fm \\ C,n)) ∧
-  (run_proof_step_list (fml,inds,Clist,earliest,fm,n) (Add C) =
+        (list_delete_list cls fml, inds, earliest, fm \\ C,n,mv)) ∧
+  (run_proof_step_list (fml,inds,earliest,fm,n,mv) (Add C) =
     (resize_update_list fml NONE (SOME C) n,
      sorted_insert n inds,
-     resize_Clist C Clist,
      update_earliest earliest n C,
      hash_insert fm C n,
-     n+1))`
+     n+1,
+     MAX mv (list_max_index C + 1)))`
 
 val run_proof_list_def = Define`
   run_proof_list data pf = FOLDL run_proof_step_list data pf`
 
 val check_lpr_range_list_def = Define`
-  check_lpr_range_list lpr fml inds Clist earliest n pf i j =
+  check_lpr_range_list lpr fml inds earliest mv n pf i j =
   if i ≤ j then
     let fm = hash_clauses_list fml inds in
     let pfij = TAKE j pf in
     let pfi = TAKE i pfij in
     let pfj = DROP i pfij in
-    let (fml',inds',Clist',earliest',fm',n') = run_proof_list (fml,inds,Clist,earliest,fm,n) pfi in
-    let (fml'',inds'',Clist'',earliest'',fm'',n'') = run_proof_list (fml',inds',Clist',earliest',fm',n') pfj in
+    let (fml',inds',earliest',fm',n',mv') = run_proof_list (fml,inds,earliest,fm,n,mv) pfi in
+    let (fml'',inds'',earliest'',fm'',n'',mv'') = run_proof_list (fml',inds',earliest',fm',n',mv') pfj in
     let cls = MAP FST (fmap_to_alist fm'') in
-    check_lpr_sat_equiv_list lpr fml' inds' Clist' earliest' 0 cls
+    check_lpr_sat_equiv_list lpr fml' inds' (REPLICATE mv' w8z) earliest' 0 cls
   else F`
 
 (* The "easy" part of the induction *)
 Theorem run_proof_list_rels:
-  ∀pf fmlls inds Clist earliest fm n
-      fmlls' inds' Clist' earliest' fm' n'.
-  run_proof_list (fmlls,inds,Clist,earliest,fm,n) pf = (fmlls',inds',Clist',earliest',fm',n') ∧
+  ∀pf fmlls inds earliest fm n mv
+      fmlls' inds' earliest' fm' n' mv'.
+  run_proof_list (fmlls,inds,earliest,fm,n,mv) pf = (fmlls',inds',earliest',fm',n',mv') ∧
   ind_rel fmlls inds ∧
   SORTED $>= inds ∧
-  EVERY ($= w8z) Clist ∧
   earliest_rel fmlls earliest
   ⇒
   ind_rel fmlls' inds' ∧
   SORTED $>= inds' ∧
-  EVERY ($= w8z) Clist' ∧
   earliest_rel fmlls' earliest'
 Proof
   Induct>>fs[run_proof_list_def]>>
@@ -1946,10 +1944,10 @@ QED
 
 (* The "hard" part of the induction *)
 Theorem fml_rel_run_proof_list:
-  ∀pf fmlls inds Clist earliest fm n
-      fmlls' inds' Clist' earliest' fm' n'
+  ∀pf fmlls inds earliest fm n mv
+      fmlls' inds' earliest' fm' n' mv'
       fml fml' m.
-  run_proof_list (fmlls,inds,Clist,earliest,fm,n) pf = (fmlls',inds',Clist',earliest',fm',n') ∧
+  run_proof_list (fmlls,inds,earliest,fm,n,mv) pf = (fmlls',inds',earliest',fm',n',mv') ∧
   run_proof_spt (fml,n) pf = (fml',m) ∧
   fml_rel fml fmlls ∧
   hash_rel fmlls fm ∧
@@ -2093,12 +2091,11 @@ Proof
 QED
 
 Theorem fml_rel_check_lpr_range_list:
-  check_lpr_range_list lpr fmlls inds Clist earliest n pf i j ∧
+  check_lpr_range_list lpr fmlls inds earliest mv n pf i j ∧
   fml_rel fml fmlls ∧
   (∀x. IS_SOME(list_lookup fmlls NONE x) ⇒ x < n) ∧
   ind_rel fmlls inds ∧
   SORTED $>= inds ∧
-  EVERY ($= w8z) Clist ∧
   earliest_rel fmlls earliest ∧
   wf_fml fml ∧ EVERY wf_proof pf ∧ EVERY wf_lpr lpr
   ⇒
@@ -2121,6 +2118,7 @@ Proof
   rw[]>>
   simp[check_lpr_sat_equiv_def]>>
   drule fml_rel_check_lpr_list>>
+  `EVERY ($= w8z) (REPLICATE mv' w8z)` by fs[EVERY_REPLICATE]>>
   rpt(disch_then drule)>>
   drule wf_run_proof_spt>> simp[EVERY_TAKE]>>
   strip_tac>>

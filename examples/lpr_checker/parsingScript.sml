@@ -298,6 +298,17 @@ val parse_dimacs_body_def = Define`
     | SOME cl => parse_dimacs_body maxvar ss (cl::acc)
   )`
 
+Theorem LENGTH_parse_dimacs_body:
+  ∀ss mv acc res.
+  parse_dimacs_body mv ss acc = SOME res ⇒
+  LENGTH res = LENGTH ss + LENGTH acc
+Proof
+  Induct>>fs[parse_dimacs_body_def]>>
+  rw[]>>every_case_tac>>fs[]>>
+  first_x_assum drule>>
+  simp[]
+QED
+
 (* Parse the tokenized DIMACS file as a list of clauses *)
 val parse_dimacs_toks_def = Define`
   parse_dimacs_toks tokss =
@@ -687,6 +698,174 @@ Proof
   drule parse_lprstep_wf>>
   simp[]
 QED
+
+(* Parsing of top-level proofs *)
+val parse_proofstep_def = Define`
+  (parse_proofstep (first::rest) =
+  if first = INL (strlit "d") then
+    (* deletion line *)
+    case parse_until_zero rest [] of
+      SOME (cl ,[]) => SOME (Del cl)
+    | _ => NONE
+  else
+    case parse_until_zero (first::rest) [] of
+      SOME (cl,[]) => SOME (Add cl)
+    | _ => NONE) ∧
+  (parse_proofstep _ = NONE)`
+
+val parse_proof_toks_aux_def = Define`
+  (parse_proof_toks_aux [] acc = SOME (REVERSE acc)) ∧
+  (parse_proof_toks_aux (t::ts) acc =
+  case parse_proofstep t of
+    NONE => NONE
+  | SOME step => parse_proof_toks_aux ts (step::acc))`
+
+val parse_proof_toks_def = Define`
+  parse_proof_toks ls = parse_proof_toks_aux ls []`
+
+val parse_proof_def = Define`
+  parse_proof strs = parse_proof_toks (MAP toks strs)`
+
+Theorem parse_until_zero_wf_clause:
+  ∀t acc c rest.
+  parse_until_zero t acc = SOME (c, rest) ∧
+  wf_clause acc ⇒
+  wf_clause c
+Proof
+  Induct>>rw[parse_until_zero_def]>>
+  every_case_tac>>fs[]>>rw[]
+  >-
+    fs[wf_clause_def]>>
+  first_x_assum drule>>disch_then match_mp_tac>>
+  fs[wf_clause_def]
+QED
+
+Theorem parse_proof_toks_aux_wf_proof:
+  ∀ls acc pf.
+  parse_proof_toks_aux ls acc = SOME pf ∧
+  EVERY wf_proof acc ⇒
+  EVERY wf_proof pf
+Proof
+  Induct>>rw[parse_proof_toks_aux_def]>>
+  every_case_tac>>fs[EVERY_REVERSE]>>
+  first_x_assum match_mp_tac>>
+  asm_exists_tac>>simp[]>>
+  Cases_on`h`>>fs[parse_proofstep_def]>>
+  every_case_tac>>fs[]>>
+  imp_res_tac parse_until_zero_wf_clause>>rw[]>>
+  fs[wf_clause_def,wf_proof_def]
+QED
+
+Theorem parse_proof_wf_proof:
+  parse_proof ls = SOME pf ⇒
+  EVERY wf_proof pf
+Proof
+  rw[parse_proof_def,parse_proof_toks_def]>>
+  match_mp_tac parse_proof_toks_aux_wf_proof>>
+  asm_exists_tac>>simp[]
+QED
+
+val print_proofstep_def = Define`
+  (print_proofstep (Add cl) = print_clause cl) ∧
+  (print_proofstep (Del cl) = strlit"d " ^ print_clause cl)`
+
+val print_proof_def = Define`
+  print_proof pf = MAP print_proofstep pf`
+
+Theorem toks_strcat_d:
+  toks (strlit"d " ^ y) = INL (strlit"d"):: toks y
+Proof
+  simp[toks_def]>>
+  `strlit"d " = strlit"d" ^ str(#" ")` by
+    EVAL_TAC>>
+  simp[]>>
+  DEP_REWRITE_TAC [mlstringTheory.tokens_append]>>simp[]>>
+  CONJ_TAC>-
+    EVAL_TAC>>
+  qexists_tac`strlit"d"`>>EVAL_TAC
+QED
+
+Theorem parse_until_zero_print_clause:
+  ∀ys acc.
+  wf_clause ys
+  ⇒
+  parse_until_zero (toks (print_clause ys)) acc = SOME (REVERSE acc ++ ys, [])
+Proof
+  simp[toks_def]>>
+  Induct>>rw[print_clause_def]
+  >-
+    EVAL_TAC
+  >>
+  `strlit" " = str #" "` by EVAL_TAC>>
+  simp[]>>
+  DEP_REWRITE_TAC[mlstringTheory.tokens_append]>>simp[]>>
+  CONJ_TAC >- EVAL_TAC>>
+  fs[wf_clause_def]>>
+  simp[tokens_blanks_toStdString]>>
+  simp[tokenize_def]>>
+  simp[parse_until_zero_def]
+QED
+
+Theorem parse_proofstep_print_proofstep:
+  wf_proof h ⇒
+  parse_proofstep (toks (print_proofstep h)) = SOME h
+Proof
+  Cases_on`h`>>fs[print_proofstep_def]
+  >- (
+    simp[toks_strcat_d,parse_proofstep_def,wf_proof_def]>>
+    simp[parse_until_zero_print_clause])>>
+  simp[wf_proof_def]>>
+  Cases_on`toks (print_clause l)`
+  >- (
+    fs[toks_def]>>
+    metis_tac[tokens_print_clause_nonempty])>>
+  simp[parse_proofstep_def]>>
+  rw[]
+  >- (
+    CCONTR_TAC>>
+    qpat_x_assum`_ = _` mp_tac>>
+    Cases_on`l`>>simp[print_clause_def]
+    >-
+      EVAL_TAC>>
+    `strlit" " = str #" "` by EVAL_TAC>>
+    simp[toks_def]>>
+    DEP_REWRITE_TAC[mlstringTheory.tokens_append]>>
+    simp[tokens_blanks_toStdString,tokenize_def]>>
+    EVAL_TAC)>>
+  qpat_x_assum`_=_` sym_sub_tac>>
+  simp[parse_until_zero_print_clause]
+QED
+
+Theorem parse_proof_toks_aux_print_proofstep:
+  ∀pf acc.
+  EVERY wf_proof pf ⇒
+  parse_proof_toks_aux (MAP toks (MAP print_proofstep pf)) acc = SOME (REVERSE acc ++ pf)
+Proof
+  Induct>>rw[parse_proof_toks_aux_def]>>
+  simp[parse_proofstep_print_proofstep]
+QED
+
+Theorem parse_proof_print_proof:
+  EVERY wf_proof pf ⇒
+  parse_proof (print_proof pf) = SOME pf
+Proof
+  rw[parse_proof_def,print_proof_def,parse_proof_toks_def]>>
+  DEP_REWRITE_TAC [parse_proof_toks_aux_print_proofstep]>>
+  simp[]
+QED
+
+(* Parse a range spec of the form i-j *)
+val parse_rng_def = Define`
+  parse_rng ij =
+  case fields (λc. c = #"-") ij of
+    [i;j] =>
+    (case mlint$fromNatString i of
+      NONE => NONE
+    | SOME i =>
+    case mlint$fromNatString j of
+      NONE => NONE
+    | SOME j => SOME (i,j))
+  | _ => NONE`
 
 val dimacsraw = ``[
   strlit "c this is a comment";

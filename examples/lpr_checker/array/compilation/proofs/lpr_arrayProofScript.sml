@@ -64,25 +64,40 @@ Theorem machine_code_sound:
   ∃out err.
     extract_fs fs (check_unsat_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-  if out = strlit "s VERIFIED UNSAT\n" then
-    LENGTH cl = 3 ∧ inFS_fname fs (EL 1 cl) ∧
-    ∃fml.
-      parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
-      unsatisfiable (interp fml)
-  else if out = strlit "s VERIFIED TRANSFORMATION\n" then
-    LENGTH cl = 4 ∧ inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 3 cl) ∧
-    ∃fml fml2.
-      parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
-      parse_dimacs (all_lines fs (EL 3 cl)) = SOME fml2 ∧
-      (satisfiable (interp fml) ⇒ satisfiable (interp fml2))
-  else if LENGTH cl = 2 then
+  if LENGTH cl = 2 then
     if inFS_fname fs (EL 1 cl)
     then
       case parse_dimacs (all_lines fs (EL 1 cl)) of
         NONE => out = strlit ""
       | SOME fml => out = concat (print_dimacs fml)
-    else
-      out = strlit ""
+    else out = strlit ""
+  else if LENGTH cl = 3 then
+    if out = strlit "s VERIFIED UNSAT\n" then
+      inFS_fname fs (EL 1 cl) ∧
+      ∃fml.
+        parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+        unsatisfiable (interp fml)
+    else out = strlit ""
+  else if LENGTH cl = 4 then
+    if out = strlit "s VERIFIED TRANSFORMATION\n" then
+    inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 3 cl) ∧
+    ∃fml fml2.
+      parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+      parse_dimacs (all_lines fs (EL 3 cl)) = SOME fml2 ∧
+      (satisfiable (interp fml) ⇒ satisfiable (interp fml2))
+    else out = strlit ""
+  else if LENGTH cl = 5 then
+    if out = strlit"s VERIFIED RANGE: TODO" then
+    inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
+    inFS_fname fs (EL 4 cl) ∧
+    ∃i j fml pf.
+      parse_rng (EL 3 cl) = SOME (i,j) ∧
+      parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+      parse_proof (all_lines fs (EL 2 cl)) = SOME pf ∧
+      i ≤ j ∧ j ≤ LENGTH pf ∧
+      (satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
+       satisfiable (interp (run_proof fml (TAKE j pf))))
+    else out = strlit ""
   else
     out = strlit ""
 Proof
@@ -104,59 +119,48 @@ Proof
     qexists_tac`err`>>rw[]>>
     metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
   TOP_CASE_TAC
-  >-(
+  >- (
     (* 1 arg *)
     fs[check_unsat_1_sem_def]>>
     reverse IF_CASES_TAC>>fs[]
     >- (
-      qexists_tac`err`>>rw[]
-      >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-      Cases_on`cl`>>rfs[])>>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     TOP_CASE_TAC>>fs[]
     >- (
-      qexists_tac`err`>>rw[]
-      >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-      fs[parse_dimacs_def])>>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     qexists_tac`strlit ""` >>
-    simp[STD_streams_stderr,add_stdo_nil]>>
-    simp[print_dimacs_def,print_header_line_def]>>
-    qmatch_goalsub_abbrev_tac` (strlit"p cnf " ^ a ^ b ^ c)`>>
-    qmatch_goalsub_abbrev_tac` _ :: d`>>
-    EVAL_TAC)>>
+    simp[STD_streams_stderr,add_stdo_nil])>>
   TOP_CASE_TAC>>fs[]
   >- (
     (* 2 arg *)
     fs[check_unsat_2_sem_def]>>
     reverse IF_CASES_TAC>>fs[]
     >- (
-      qexists_tac`err`>>rw[]
-      >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-      Cases_on`cl`>>rfs[])>>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     TOP_CASE_TAC>>fs[]
     >- (
       qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]
-      >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-      fs[parse_dimacs_def])>>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     PairCases_on`x`>>fs[]>>
     reverse IF_CASES_TAC>>fs[]
     >- (
       qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]
-      >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-      fs[parse_dimacs_def]) >>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     TOP_CASE_TAC>>fs[]
     >- (
       qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]
-      >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-      fs[parse_dimacs_def]) >>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     reverse IF_CASES_TAC>>fs[]
     >- (
       qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]
-      >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-      fs[parse_dimacs_def]) >>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     qexists_tac`strlit "s VERIFIED UNSAT\n"` >>
     qexists_tac`strlit ""`>> simp[]>>
     CONJ_TAC >-
@@ -168,56 +172,45 @@ Proof
       match_mp_tac (GEN_ALL parse_dimacs_wf)>>simp[parse_dimacs_def]>>
       qexists_tac`all_lines fs h'`>>fs[])>>
     metis_tac[parse_lpr_wf])>>
-  reverse TOP_CASE_TAC>>fs[]
+  TOP_CASE_TAC>>fs[]
   >- (
-    qexists_tac`err`>>rw[]
-    >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-    Cases_on`cl`>>rfs[])
-  >>
     (* 3 arg *)
     fs[check_unsat_3_sem_def]>>
     reverse IF_CASES_TAC>>fs[]
     >- (
-      qexists_tac`err`>>rw[]
-      >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-      Cases_on`cl`>>rfs[])>>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     TOP_CASE_TAC>>fs[]
     >- (
       qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]
-      >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-      fs[parse_dimacs_def])>>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     PairCases_on`x`>>fs[]>>
     reverse IF_CASES_TAC>>fs[]
     >- (
-      qexists_tac`err`>>rw[]
-      >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-      fs[parse_dimacs_def]) >>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     TOP_CASE_TAC>>fs[]
     >- (
       qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]
-      >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-      fs[parse_dimacs_def]) >>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     PairCases_on`x`>>fs[]>>
     reverse IF_CASES_TAC>>fs[]
     >- (
       qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]
-      >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-      fs[parse_dimacs_def]) >>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     TOP_CASE_TAC>>fs[]
     >- (
       qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]
-      >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-      fs[parse_dimacs_def]) >>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     reverse IF_CASES_TAC>>fs[]
     >- (
       qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]
-      >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-      fs[parse_dimacs_def]) >>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     qexists_tac`strlit "s VERIFIED TRANSFORMATION\n"` >>
     qexists_tac`strlit ""`>> simp[]>>
     CONJ_TAC >-
@@ -228,7 +221,74 @@ Proof
     CONJ_TAC >- (
       match_mp_tac (GEN_ALL parse_dimacs_wf)>>simp[parse_dimacs_def]>>
       qexists_tac`all_lines fs h'`>>fs[])>>
-    metis_tac[parse_lpr_wf]
+    metis_tac[parse_lpr_wf])>>
+  TOP_CASE_TAC>>fs[]
+  >- (
+    (* 4 arg *)
+    fs[check_unsat_4_sem_def]>>
+    reverse IF_CASES_TAC>>fs[]
+    >- (
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
+    TOP_CASE_TAC>>fs[]
+    >- (
+      qexists_tac`strlit ""`>>simp[]>>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
+    PairCases_on`x`>>fs[]>>
+    reverse IF_CASES_TAC>>fs[]
+    >- (
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
+    TOP_CASE_TAC>>fs[]
+    >- (
+      qexists_tac`strlit ""`>>simp[]>>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
+    TOP_CASE_TAC>>fs[]
+    >- (
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
+    TOP_CASE_TAC>>fs[]>>
+    reverse IF_CASES_TAC
+    >- (
+      qexists_tac`strlit ""`>>simp[]>>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
+    TOP_CASE_TAC>>fs[]
+    >- (
+      qexists_tac`strlit ""`>>simp[]>>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
+    reverse IF_CASES_TAC>>fs[]
+    >- (
+      qexists_tac`strlit ""`>>simp[]>>
+      qexists_tac`err`>>rw[]>>
+      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
+    qexists_tac`strlit "s VERIFIED RANGE: TODO"` >>
+    qexists_tac`strlit ""`>> simp[]>>
+    CONJ_TAC >-
+      metis_tac[STD_streams_stderr,add_stdo_nil]>>
+    fs[parse_dimacs_def,parse_proof_def]>>
+    match_mp_tac (GEN_ALL check_lpr_range_list_sound)>>
+    `x1 + 1 = LENGTH x2 +1 ` by (
+      fs[parse_dimacs_toks_def]>>
+      qpat_x_assum `_ = SOME (x0,x1,x2)` mp_tac>>
+      rpt (pop_assum kall_tac)>>
+      every_case_tac>>fs[]>>
+      drule LENGTH_parse_dimacs_body>>
+      rw[]>> simp[])>>
+    pop_assum SUBST_ALL_TAC>>
+    asm_exists_tac>>simp[]>>
+    fs[GSYM parse_proof_def]>>
+    drule parse_proof_wf_proof>>
+    drule parse_lpr_wf>>
+    simp[]>>
+    `parse_dimacs (all_lines fs h') = SOME x2` by
+      fs[parse_dimacs_def]>>
+    drule parse_dimacs_wf>>simp[])>>
+  qexists_tac`err`>>rw[]>>
+  metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]
 QED
 
 val _ = export_theory();
