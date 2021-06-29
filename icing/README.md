@@ -90,6 +90,9 @@ Implementation of the source to source floating-point rewriter
 This file defines the basic rewriter, used by the optimisation pass later.
 Correctness proofs are in icing_rewriterProofsScript.
 
+[new_backendProofScript.sml](new_backendProofScript.sml):
+Extend backend proof with a theorem about pull_words
+
 [optPlannerProofsScript.sml](optPlannerProofsScript.sml):
 Correctness proof for optimization planner
 
@@ -97,6 +100,9 @@ Correctness proof for optimization planner
 Unverified optimisation planner.
 Definitions in this file correspond to the function ‘planOpts’
 from Section 5 of the PrincessCake paper.
+
+[pull_wordsScript.sml](pull_wordsScript.sml):
+Correctness proof for optimization planner
 
 [pureExpsScript.sml](pureExpsScript.sml):
 predicate to check whether an expression is pure, i.e. does not use memory
