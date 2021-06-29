@@ -2052,24 +2052,6 @@ Proof
   \\ qpat_x_assum ‘_ ==> _’ imp_res_tac
 QED
 
-Theorem generate_unique_name_some:
-  ! identifiers base v. generate_unique_name identifiers base = v ==> ? x. v = SOME x
-Proof
-  fs[generate_unique_name_def]
-  \\ rpt strip_tac
-  \\ ‘ALL_DISTINCT (GENLIST (λi. STRCAT (STRCAT base "_") (toString i)) (LENGTH identifiers + 1))’ by (
-    qspecl_then [‘(λi. STRCAT (STRCAT base "_") (toString i))’, ‘(LENGTH identifiers + 1)’] strip_assume_tac genlist_is_all_distinct
-    \\ pop_assum irule \\ fs[]
-    )
-  \\ ‘LENGTH (GENLIST (λi. STRCAT (STRCAT base "_") (toString i)) (LENGTH identifiers + 1)) > LENGTH identifiers’ by fs[]
-  \\ qspecl_then [‘(GENLIST (λi. STRCAT (STRCAT base "_") (toString i)) (LENGTH identifiers + 1))’, ‘identifiers’] imp_res_tac all_distinct_MEM_FIND
-  \\ fs[]
-  \\ Cases_on ‘FIND (λx. ~MEM x identifiers)
-               (GENLIST (λi. STRCAT (STRCAT base "_") (toString i))
-                (LENGTH identifiers + 1))’
-  \\ fs[]
-QED
-
 Theorem FIND_result_fulfills:
   ! P l v. FIND P l = SOME v ==> P v
 Proof
@@ -2077,17 +2059,6 @@ Proof
   \\ fs[FIND_thm]
   \\ rpt strip_tac
   \\ Cases_on ‘P h’ \\ fs[] \\ rveq \\ fs[]
-QED
-
-Theorem generate_unique_name_is_unique:
-  ! identifiers base v. generate_unique_name identifiers base = SOME v ==> ~ MEM v identifiers
-Proof
-  fs[generate_unique_name_def]
-  \\ rpt strip_tac
-  \\ qspecl_then [‘(λx. ~MEM x identifiers)’,
-                  ‘(GENLIST (λi. STRCAT (STRCAT base "_") (toString i)) (LENGTH identifiers + 1))’,
-                  ‘v’] imp_res_tac FIND_result_fulfills
-  \\ fs[]
 QED
 
 Triviality v_size_ALOOKUP:
