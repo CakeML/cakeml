@@ -95,9 +95,9 @@ Definition theAST_def:
 End
 
 Definition theErrBound_def:
-  theErrBound = (2 pow (5))
+  theErrBound = inv (2 pow (5))
 End
 
-val x = define_benchmark theAST_def theAST_pre_def false;
+val x = define_benchmark theAST_def theAST_pre_def true;
 
 val _ = export_theory()

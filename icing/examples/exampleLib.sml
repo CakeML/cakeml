@@ -5,16 +5,19 @@ structure exampleLib =
 struct
   open astTheory cfTacticsLib ml_translatorLib;
   open basis_ffiTheory cfHeapsBaseTheory basis;
-  open data_monadTheory compilationLib;
+  (* open (* data_monadTheory*) (* compilationLib; *) *)
   open FloverMapTheory RealIntervalInferenceTheory ErrorIntervalInferenceTheory
        CertificateCheckerTheory;
   open floatToRealProofsTheory source_to_sourceTheory CakeMLtoFloVerTheory
-       source_to_sourceProofsTheory
-       cfSupportTheory optPlannerTheory icing_realIdProofsTheory;
+       source_to_sourceProofsTheory cfSupportTheory optPlannerTheory
+       icing_realIdProofsTheory optPlannerProofsTheory pull_wordsTheory
+       new_backendProofTheory;
   open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith sptreeTheory;
   open supportLib preamble;
 
   val logErrors = ref false;
+
+  val _ = ParseExtras.temp_tight_equality();
 
   fun flatMap (ll:'a list list) =
     case ll of [] => []
@@ -514,6 +517,7 @@ struct
                 App Opapp [Var (Short "iter"); Lit (IntLit ^iter_count)];
                 Var (Short "u")]; Var (Short "b")])))))))))))])))]’;
 
+(*
 fun get_names_for thy_name =
   let
     fun find_def name = DB.find name |> filter (fn ((x,_),_) => x = thy_name)
@@ -643,6 +647,7 @@ fun compile_to_data_code theAST_def reader_def intToFP_def printer_def theBenchm
   in
     write_to_file data_prog_def
 end;
+*)
 
   fun define_benchmark theAST_def theAST_pre_def checkError =
   let
@@ -678,12 +683,16 @@ end;
           then raise ERR ("Failed optimization with error:"^
                           (Parse.thm_to_string theAST_opt_result)) ""
           else ()
+  val theAST_fp_opt = save_thm ("theAST_fp_opt",
+  EVAL (Parse.Term ‘no_opt_decs theOpts (MAP FST (stos_pass_with_plans_decs theOpts theAST_plan theAST))’))
   val theAST_opt = save_thm ("theAST_opt",
     EVAL
       (Parse.Term ‘
-        (no_opt_decs theOpts (MAP FST (stos_pass_with_plans_decs theOpts theAST_plan theAST)))’));
+          pull_words$lift_constants_decl ^(theAST_fp_opt |> concl |> rhs)’))
     val (fname_opt, fvars_opt, body_opt) =
-      EVAL (Parse.Term ‘getDeclLetParts ^(theAST_opt |> concl |> rhs)’)
+        EVAL (Parse.Term ‘getDeclLetParts ^(theAST_fp_opt |> concl |> rhs)’)
+        (* EVAL (Parse.Term ‘getDeclLetParts (DROP (LENGTH ^(theAST_opt |> concl |> rhs)-1) ^(theAST_opt |> concl |> rhs))’) *)
+      (* EVAL (Parse.Term ‘getDeclLetParts (case ^(theAST_opt |> concl |> rhs) of |[Dlet l p e] => [Dlet l p e] |[Dlocal _ decl] => decl)’) *)
       |> concl |> rhs |> dest_pair
       |> (fn (x,y) => let val (y,z) = dest_pair y in (x,y,z) end)
     val (fname, fvars, body) =
@@ -703,34 +712,39 @@ end;
       else if numArgs = 8 then (main8 fname, call8_code fname, reader8_def, reader8_spec)
       else if numArgs = 9 then (main9 fname, call9_code fname, reader9_def, reader9_spec)
       else raise ERR ("Too many arguments:"^(Int.toString numArgs)) ""
-  val doppler_opt = theAST_opt |> concl |> rhs;
+  val theAST_opt_rhs = theAST_opt |> concl |> rhs;
   val theProg_def = Define ‘theProg = ^theAST’
-  val theOptProg_def = Define ‘theOptProg = ^doppler_opt’;
+  val theOptProg_def =
+    let
+      val theOptProgFun = EVAL (Parse.Term ‘DROP (LENGTH ^(theAST_opt |> concl |> rhs)-1) ^(theAST_opt |> concl |> rhs)’) |> concl |> rhs
+    in
+      Define ‘theOptProg = ^theOptProgFun’
+    end;
+  val theFullOptProg_def = Define ‘theFullOptProg = ^theAST_opt_rhs’;
   val theBenchmarkMain_def = Define ‘theBenchmarkMain =
    (HD (^iter_code)) :: (^call_code  )’;
   val st_no_doppler = get_ml_prog_state ();
   val theAST_env = st_no_doppler
    |> ml_progLib.clean_state
    |> ml_progLib.remove_snocs
-   |> ml_progLib.get_env;
-  val _ = append_prog (theOptProg_def |> concl |> rhs)
+   |> ml_progLib.get_env
+  val _ = append_prog (theAST_fp_opt |> concl |> rhs)
+  (* val _ = append_prog (theFullOptProg_def |> concl |> rhs) *)
   val _ = append_prog theMain;
   val theAST_env_def = Define ‘theAST_env = ^theAST_env’;
-  val _ = compile_to_data_code theProg_def reader_def intToFP_def printer_def theBenchmarkMain_def ((Theory.current_theory()) ^ "_unopt_")
-  val _ = compile_to_data_code theOptProg_def reader_def intToFP_def printer_def theBenchmarkMain_def ((Theory.current_theory()) ^ "_opt_")
-
+  (* val _ = compile_to_data_code theProg_def reader_def intToFP_def printer_def theBenchmarkMain_def ((Theory.current_theory()) ^ "_unopt_")
+  val _ = compile_to_data_code theFullOptProg_def reader_def intToFP_def printer_def theBenchmarkMain_def ((Theory.current_theory()) ^ "_opt_") *)
   (* val _ = computeLib.del_funs [sptreeTheory.subspt_def]; *)
   val _ = computeLib.add_funs [realTheory.REAL_INV_1OVER,
                              binary_ieeeTheory.float_to_real_def,
                              binary_ieeeTheory.float_tests,
                              sptreeTheory.subspt_eq,
-                             sptreeTheory.lookup_def];
-  (*
+                             sptreeTheory.lookup_def,
+                             computeErrorbounds_def];
   val errorbounds_AST =
     if ((!logErrors) andalso checkError) then
       let
-        val error_thm_opt =
-           EVAL (Parse.Term  ‘getErrorbounds ^(concl theAST_opt |> rhs) theAST_pre’)
+        val error_thm_opt = EVAL (Parse.Term  ‘getErrorbounds ^(concl theAST_fp_opt |> rhs) theAST_pre’)
          val (bounds, cmd, success_opt) =
            (EVAL (Parse.Term ‘case ^(error_thm_opt |> concl |> rhs) of
                      |(SOME (bounds, cmd, _), _) => (bounds,cmd)’)
@@ -765,9 +779,9 @@ end;
     else if checkError then
       save_thm ("errorbounds_AST",
         EVAL (Parse.Term
-          ‘isOkError ^(concl theAST_opt |> rhs) theAST_pre theErrBound’))
-    else CONJ_COMM
-  val local_opt_thm = save_thm ("local_opt_thm", mk_local_opt_thm theAST_opt theAST_def);
+          ‘isOkError ^(concl theAST_fp_opt |> rhs) theAST_pre theErrBound’))
+    else  CONJ_COMM
+  val local_opt_thm = save_thm ("local_opt_thm", mk_local_opt_thm theAST_fp_opt theAST_def);
   val _ =
    supportLib.write_code_to_file true theAST_def theAST_opt
   (Parse.Term ‘APPEND ^(reader_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
@@ -781,10 +795,22 @@ end;
                    |> listSyntax.dest_list (* extract the plan as a list *)
                    |> #1 (* take the list, ignore type *)
   val stos_pass_correct_thm =
-    if (not (!logErrors)) then save_thm ("stos_pass_correct_thm", mk_stos_pass_correct_thm plan_list)
+    if (not (!logErrors)) then
+      store_thm ("stos_pass_correct_thm",
+        “! st1 st2 env exps r.
+          is_optimise_with_plan_correct
+            (HD (generate_plan_decs theOpts theAST)) st1 st2 env theOpts exps r”,
+        gs[theAST_def, generate_plan_decs_def, generate_plan_exp_top_def]
+        >> irule optPlanner_correct_float_single)
     else CONJ_COMM
   val stos_pass_real_id_thm =
-    if (not (!logErrors)) then save_thm ("stos_pass_real_id_thm", mk_stos_pass_real_id_thm plan_list)
+    if (not (!logErrors)) then
+      store_thm ("stos_pass_real_id_thm",
+        “! st1 st2 env exps r.
+          is_real_id_optimise_with_plan
+            (HD (generate_plan_decs theOpts theAST)) st1 st2 env theOpts exps r”,
+        gs[theAST_def, generate_plan_decs_def, generate_plan_exp_top_def]
+        >> irule optPlanner_correct_real_single)
     else CONJ_COMM
   val main_spec_thm =
     if (not checkError orelse !logErrors) then CONJ_COMM
@@ -793,27 +819,27 @@ end;
       val st = get_ml_prog_state ();
       (* Precreate terms for arguments *)
       val (args, argList, vList) =
-        if numArgs = 1 then (“(w1):word64”, “[w1]:word64 list”, “[d1]:v list”)
-        else if numArgs = 2 then (“(w1, w2):word64 # word64”, “[w1;w2]:word64 list”, “[d1; d2]:v list”)
+        if numArgs = 1 then (“(w1):word64”, “[w1]:word64 list”, “[d1]:semanticPrimitives$v list”)
+        else if numArgs = 2 then (“(w1, w2):word64 # word64”, “[w1;w2]:word64 list”, “[d1; d2]:semanticPrimitives$v list”)
         else if numArgs = 3 then (“(w1, w2, w3):word64 # word64 # word64”,
                                   “[w1; w2; w3]:word64 list”,
-                                  “[d1; d2; d3]:v list”)
+                                  “[d1; d2; d3]:semanticPrimitives$v list”)
         else if numArgs = 4 then
           (“(w1, w2, w3, w4):word64 # word64 # word64 #word64”,
            “[w1; w2; w3; w4]:word64 list”,
-           “[d1; d2; d3; d4]:v list”)
+           “[d1; d2; d3; d4]:semanticPrimitives$v list”)
         else if numArgs = 6 then
           (“(w1, w2, w3, w4, w5, w6):word64 # word64 # word64 # word64 # word64 #word64”,
            “[w1; w2; w3; w4; w5; w6]:word64 list”,
-           “[d1; d2; d3; d4; d5; d6]:v list”)
+           “[d1; d2; d3; d4; d5; d6]:semanticPrimitives$v list”)
         else if numArgs = 8 then
           (“(w1, w2, w3, w4, w5, w6, w7, w8):word64#word64#word64#word64#word64#word64#word64#word64”,
            “[w1; w2; w3; w4; w5; w6; w7; w8]:word64 list”,
-           “[d1; d2; d3; d4; d5; d6; d7; d8]:v list”)
+           “[d1; d2; d3; d4; d5; d6; d7; d8]:semanticPrimitives$v list”)
         else (“(w1, w2, w3, w4, w5, w6, w7, w8, w9):
                 word64#word64#word64#word64#word64#word64#word64#word64#word64”,
               “[w1; w2; w3; w4; w5; w6; w7; w8; w9]:word64 list”,
-              “[d1; d2; d3; d4; d5; d6; d7; d8; d9]:v list”)
+              “[d1; d2; d3; d4; d5; d6; d7; d8; d9]:semanticPrimitives$v list”)
       (* Define a real-number and floating-point spec*)
       val theAST_real_spec_def =
         Define ‘theAST_real_spec ^args = real_spec_prog ^body_opt theAST_env ^fvars ^argList’
@@ -840,14 +866,14 @@ end;
       val theAST_float_returns_def =
         Define ‘
         theAST_float_returns ^args w ⇔
-        ∃ fpOpts st2 fp.
+        (∃ fpOpts st2 fp.
           let theOpts = FLAT (MAP (λ x. case x of |Apply (_, rws) => rws |_ => []) (HD theAST_plan)) in
-            evaluate (empty_state with fp_state :=
+            (evaluate (empty_state with fp_state :=
                       empty_state.fp_state with
                                  <| rws := theOpts ; opts := fpOpts; canOpt := FPScope NoOpt |>)
                      (theAST_env with v :=
                       extend_env_with_vars (REVERSE ^fvars) (REVERSE ^argList) (theAST_env).v)
-                     [^body] = (st2, Rval [FP_WordTree fp]) ∧ compress_word fp = w’
+                     [^body] = (st2, Rval [FP_WordTree fp])) ∧ (compress_word fp = w))’
       val body_doubleExpPlan = store_thm ("body_doubleExpPlan",
         Parse.Term ‘isDoubleExpPlan ^body no_fp_opt_conf (HD theAST_plan)’,
           EVAL_TAC);
@@ -875,7 +901,7 @@ end;
         \\ gs[body_doubleExpPlan, freeVars_real_bound_def, extend_env_with_vars_def, toRspace_def]
         \\ rpt strip_tac \\ gs[nsMap_nsBind])
       val theAST_opt_backward_sim = store_thm ("theAST_opt_backward_sim",
-        Parse.Term ‘theAST_opt_float_option_noopt ^args = SOME w ⇒
+        Parse.Term ‘(theAST_opt_float_option_noopt ^args = SOME w) ⇒
         theAST_float_returns ^args (compress_word w)’,
         simp[theAST_opt_float_option_noopt_def, theAST_float_returns_def]
         \\ rpt gen_tac
@@ -896,15 +922,16 @@ end;
         \\ strip_tac
         \\ assume_tac (INST_TYPE [“:'a” |-> “:unit”] stos_pass_correct_thm)
         \\ first_x_assum
-             (qspecl_then [‘emp_upd’, ‘emp_res’, ‘dEnv’, ‘theOpts’, ‘[e_init]’,
+             (qspecl_then [‘emp_upd’, ‘emp_res’, ‘dEnv’, ‘[e_init]’,
                            ‘[FP_WordTree fp2]’] mp_tac)
         \\ simp[is_optimise_with_plan_correct_def]
         \\ impl_tac
         >- (
          unabbrev_all_tac
          \\ assume_tac freeVars_list_body
-         \\ gs[empty_state_def, theOpts_def, extend_conf_def, no_fp_opt_conf_def,
-               theAST_env_def, stos_pass_with_plans_def, theAST_plan_result])
+         \\ gs[empty_state_def, theOpts_def, extend_conf_def,
+               theAST_env_def, stos_pass_with_plans_def, GSYM (SIMP_RULE std_ss [theOpts_def] theAST_plan_def), theAST_plan_result]
+        \\ gs[no_fp_opt_conf_def])
         \\ rpt strip_tac
         \\ unabbrev_all_tac
         \\ fs[empty_state_def, semanticPrimitivesTheory.state_component_equality, theAST_env_def]
@@ -917,13 +944,15 @@ end;
                       (CONJUNCT1 fpSemPropsTheory.evaluate_add_choices))
         \\ fs[theOpts_def, no_fp_opt_conf_def, extend_conf_def,
               config_component_equality, theAST_plan_result]
-        )
+        \\ pop_assum $ mp_tac
+        \\ simp[GSYM (SIMP_RULE std_ss [theOpts_def, no_fp_opt_conf_def] theAST_plan_def),
+                theAST_plan_result])
       (* Define a side-condition for the AST *)
       val theAST_side_def =
         Define ‘theAST_side ^args = (is_precond_sound ^fvars ^argList ^(theAST_pre_def |> concl |> rhs))’
       val is_Double_def = Define ‘
-        is_Double [] [] = T ∧
-        is_Double (w1::ws) (d1::ds) = (DOUBLE (Fp_const w1) d1 ∧ is_Double ws ds)’
+        (is_Double [] [] = T) ∧
+        (is_Double (w1::ws) (d1::ds) = (DOUBLE (Fp_const w1) d1 ∧ is_Double ws ds))’
       (* Load the necessary constants from the state *)
       val theAST_v = fetch_v (stringSyntax.fromHOLstring fname) st
       val theAST_v_def = DB.find_in ((term_to_string theAST_v)^"_def")
@@ -956,7 +985,7 @@ end;
         \\ fs[theAST_pre_def]
         \\ disch_then (qspecl_then
                        [‘theAST_env’,
-                        ‘case ^(theAST_opt |> concl |> rhs) of | [Dlet _ _ e] => e’] mp_tac)
+                        ‘case ^(theAST_fp_opt |> concl |> rhs) of | [Dlet _ _ e] => e’] mp_tac)
         \\ impl_tac
         >- fs[stripFuns_def]
         \\ strip_tac
@@ -986,16 +1015,20 @@ end;
          \\ strip_tac
          \\ fs[is_real_id_optimise_with_plan_def]
          \\ first_x_assum (
-            qspecl_then [ ‘emptyWithReals’, ‘emptyWithReals’, ‘realEnv’, ‘theOpts’, ‘[e_init]’, ‘[Real r]’] mp_tac)
+            qspecl_then [ ‘emptyWithReals’, ‘emptyWithReals’, ‘realEnv’,
+                          ‘[e_init]’, ‘[Real r]’] mp_tac)
          \\ simp[MAP]
          \\ unabbrev_all_tac \\ fs[theAST_plan_result]
          \\ impl_tac
          >- (
           imp_res_tac evaluate_realify_state
-          \\ qpat_x_assum `isPureExp _ ⇒ _ = _` mp_tac
+          \\ qpat_x_assum `isPureExp _ ⇒ (_ = _)` mp_tac
           \\ impl_tac >- EVAL_TAC
-          \\ strip_tac \\ gs[theOpts_def, no_fp_opt_conf_def]
-          \\ assume_tac freeVars_real_list_body \\ gs[no_fp_opt_conf_def, theAST_plan_result])
+          \\ strip_tac \\ gs[theOpts_def]
+          \\ assume_tac freeVars_real_list_body
+          \\ gs[empty_state_def, theOpts_def, extend_conf_def,
+               theAST_env_def, stos_pass_with_plans_def, GSYM (SIMP_RULE std_ss [theOpts_def] theAST_plan_def), theAST_plan_result]
+          \\ gs[no_fp_opt_conf_def])
          \\ strip_tac \\ rveq
          \\ irule REAL_LE_TRANS \\ asm_exists_tac \\ fs[])
         \\ ntac (numArgs-1)
@@ -1061,8 +1094,8 @@ end;
         in (EVAL (Parse.Term ‘[fname] ++ ^cstStrs’) |> concl |> rhs, cstStrs, inps)
         end
       val all_float_string_def = Define ‘
-        all_float_string [] [] = T ∧
-        all_float_string (s1::ss) (w1::ws) = (is_float_string s1 w1 ∧ all_float_string ss ws)’
+        (all_float_string [] [] = T) ∧
+        (all_float_string (s1::ss) (w1::ws) = (is_float_string s1 w1 ∧ all_float_string ss ws))’
       val main_spec = store_thm ("main_spec",
         Parse.Term ‘
         ∀ p.
@@ -1084,61 +1117,65 @@ end;
         simp[all_float_string_def] \\ rpt strip_tac
         \\ first_x_assum $ mp_then Any assume_tac
                          $ SIMP_RULE std_ss [is_Double_def] (INST_TYPE [“:'ffi”|->“:'a”] theAST_spec)
+        \\ gs[DOUBLE_def]
+        \\ xcf "main" st
+        (* let for unit value *)
+        \\ xlet_auto >- (xcon \\ xsimpl)
+        \\ ‘^(numSyntax.term_of_int (numArgs+1)) = LENGTH cl’ by (rveq \\ fs[])
+        \\ rveq
+        \\ xlet_auto_spec (SOME reader_spec)
+        >- (xsimpl \\ qexists_tac ‘emp’ \\ xsimpl
+            \\ qexists_tac ‘fs’ \\ xsimpl)
+        \\ xmatch
+        \\ fs[PAIR_TYPE_def]
+        \\ TRY (reverse conj_tac >- (EVAL_TAC \\ fs[]))
+        \\ rveq \\ fs[is_float_string_def] \\ rveq
+        \\ ntac numArgs (
+          last_x_assum (mp_then Any mp_tac intToFP_spec)
+          \\ disch_then (fn ith => last_x_assum $ mp_then Any mp_tac ith)
+          \\ disch_then drule
+          \\ disch_then (qspecl_then [‘p’, ‘fs’] assume_tac)
+          \\ xlet_auto
+          >- (xsimpl \\ qexists_tac ‘emp’ \\ xsimpl
+              \\ qexists_tac ‘fs’ \\ xsimpl)
+          \\ qpat_x_assum `app _ intToFP_v _ _ _` kall_tac)
+        \\ first_x_assum $ qspec_then ‘p’ mp_tac
+        \\ qmatch_goalsub_abbrev_tac ‘POSTv v. &DOUBLE_RES AST_spec v’
+        \\ rpt strip_tac
+        \\ xlet ‘POSTv v. &DOUBLE_RES AST_spec v * STDIO fs’
+        >- (xapp_prepare_goal
+            \\ first_x_assum $ mp_then Any mp_tac app_wgframe
+            \\ gs[DOUBLE_def] \\ rveq
+            \\ disch_then irule \\ qexists_tac ‘STDIO fs’ \\ xsimpl)
+        \\ qpat_x_assum ‘DOUBLE_RES _ _’ mp_tac
+        \\ simp[DOUBLE_RES_def] \\ TOP_CASE_TAC \\ fs[]
+        \\ rpt strip_tac \\ rveq
+        \\ qmatch_goalsub_abbrev_tac ‘compress_word f’
+        \\ xlet ‘POSTv v. &WORD (compress_word f) v * STDIO fs’
         >- (
-         xcf "main" st
-         (* let for unit value *)
-         \\ xlet_auto >- (xcon \\ xsimpl)
-         \\ ‘^(numSyntax.term_of_int (numArgs+1)) = LENGTH cl’ by (rveq \\ fs[])
-         \\ rveq
-         \\ xlet_auto_spec (SOME reader_spec)
-         >- (xsimpl \\ qexists_tac ‘emp’ \\ xsimpl
-             \\ qexists_tac ‘fs’ \\ xsimpl)
-         \\ xmatch
-         \\ fs[PAIR_TYPE_def]
-         \\ TRY (reverse conj_tac >- (EVAL_TAC \\ fs[]))
-         \\ rveq \\ fs[is_float_string_def] \\ rveq
-         \\ ntac numArgs (
-           last_x_assum (mp_then Any mp_tac intToFP_spec)
-           \\ disch_then (fn ith => last_x_assum $ mp_then Any mp_tac ith)
-           \\ disch_then drule
-           \\ disch_then (qspecl_then [‘p’, ‘fs’] assume_tac)
-           \\ xlet_auto
-           >- (xsimpl \\ qexists_tac ‘emp’ \\ xsimpl
-               \\ qexists_tac ‘fs’ \\ xsimpl)
-           \\ qpat_x_assum `app _ intToFP_v _ _ _` kall_tac)
-         \\ first_x_assum drule
-         \\ rpt (disch_then drule) \\ strip_tac
-         \\ xlet_auto >- xsimpl
-         \\ qpat_x_assum ‘DOUBLE_RES _ _’ mp_tac
-         \\ simp[DOUBLE_RES_def] \\ TOP_CASE_TAC \\ fs[]
-         \\ rpt strip_tac \\ rveq
-         \\ qmatch_goalsub_abbrev_tac ‘compress_word f’
-         \\ xlet ‘POSTv v. &WORD (compress_word f) v * STDIO fs’
+         fs[cf_fptoword_def, cfHeapsTheory.local_def, cfNormaliseTheory.exp2v_def,
+            cfTheory.app_fptoword_def]
+         \\ rpt strip_tac
+         \\ fs[WORD_def]
+         \\ qexists_tac ‘STDIO fs’ \\ qexists_tac ‘emp’
+         \\ fs[set_sepTheory.STAR_def]
+         \\ qexists_tac ‘POSTv v. &WORD (compress_word f) v * STDIO fs’ \\ rpt conj_tac
          >- (
-          fs[cf_fptoword_def, cfHeapsTheory.local_def, cfNormaliseTheory.exp2v_def,
-             cfTheory.app_fptoword_def]
-          \\ rpt strip_tac
-          \\ fs[WORD_def]
-          \\ qexists_tac ‘STDIO fs’ \\ qexists_tac ‘emp’
-          \\ fs[set_sepTheory.STAR_def]
-          \\ qexists_tac ‘POSTv v. &WORD (compress_word f) v * STDIO fs’ \\ rpt conj_tac
-          >- (
-           qexists_tac ‘h’ \\ qexists_tac ‘EMPTY’ \\ fs[SPLIT_def, emp_def])
-          >- (
-           fs[DOUBLE_def, set_sepTheory.SEP_IMP_def]
-           \\ rpt strip_tac \\ fs[set_sepTheory.cond_def, set_sepTheory.STAR_def]
-           \\ qexists_tac ‘s’ \\ fs[SPLIT_def])
-          \\ xsimpl \\ rveq \\ rpt strip_tac
-          \\ fs[set_sepTheory.SEP_IMP_def, set_sepTheory.STAR_def] \\ rpt strip_tac
-          \\ qexists_tac ‘s’ \\ qexists_tac ‘EMPTY’
-          \\ fs[SPLIT_def, GC_def] \\ conj_tac
-          >- (rveq \\ rewrite_tac [CONJ_ASSOC]
-              \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs[]
-              \\ qexists_tac ‘EMPTY’
-              \\ fs[set_sepTheory.cond_def, WORD_def])
-          \\ fs[set_sepTheory.SEP_EXISTS] \\ qexists_tac ‘emp’ \\ fs[emp_def])
-         \\ xapp \\ xsimpl)
-        \\ fs[DOUBLE_def]
+          qexists_tac ‘h’ \\ qexists_tac ‘EMPTY’ \\ fs[SPLIT_def, emp_def])
+         >- (
+          fs[DOUBLE_def, set_sepTheory.SEP_IMP_def]
+          \\ rpt strip_tac \\ fs[set_sepTheory.cond_def, set_sepTheory.STAR_def]
+          \\ qexists_tac ‘s’ \\ fs[SPLIT_def])
+         \\ xsimpl \\ rveq \\ rpt strip_tac
+         \\ fs[set_sepTheory.SEP_IMP_def, set_sepTheory.STAR_def] \\ rpt strip_tac
+         \\ qexists_tac ‘s’ \\ qexists_tac ‘EMPTY’
+         \\ fs[SPLIT_def, GC_def] \\ conj_tac
+         >- (rveq \\ rewrite_tac [CONJ_ASSOC]
+             \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs[]
+             \\ qexists_tac ‘EMPTY’
+             \\ fs[set_sepTheory.cond_def, WORD_def])
+         \\ fs[set_sepTheory.SEP_EXISTS] \\ qexists_tac ‘emp’ \\ fs[emp_def])
+        \\ xapp \\ xsimpl
         )
       val main_whole_prog_spec = store_thm ("main_whole_prog_spec",
         Parse.Term ‘
@@ -1178,7 +1215,7 @@ end;
                     |> DISCH_ALL |> SIMP_RULE std_ss [];
       val theAST_semantics =
         full_semantics_prog_thm |> ONCE_REWRITE_RULE[GSYM theAST_prog_def]
-        |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC];
+        |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC, Once pull_words_correct_simp];
       val theAST_semantics_side_def = Define ‘
         theAST_semantics_side ^inps ^args ⇔
           all_float_string ^inp_list ^argList ∧
@@ -1186,7 +1223,7 @@ end;
       val theAST_semantics_final = store_thm ("theAST_semantics_final",
         Parse.Term ‘theAST_semantics_side ^inps ^args ∧ init_ok (^cl_list,fs) ⇒
         ∃ (w:word64).
-          CakeML_evaluates_and_prints (^cl_list,fs,theAST_prog) (toString w) ∧
+          CakeML_evaluates_and_prints (^cl_list,fs,lift_constants_decl theAST_prog) (toString w) ∧
           theAST_float_returns ^args w ∧
           real$abs (fp64_to_real w - theAST_real_spec ^args) ≤ theErrBound’,
         rpt strip_tac
@@ -1197,7 +1234,7 @@ end;
         \\ qexists_tac ‘compress_word (THE (theAST_opt_float_option ^args))’ \\ fs[]
         \\ asm_exists_tac \\ fs[toString_def]
         )
-      in theAST_semantics_final end *)
+      in theAST_semantics_final end
   in () end;
 
 end;
