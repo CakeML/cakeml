@@ -18,6 +18,10 @@ struct
   val logErrors = ref false;
 
   val _ = ParseExtras.temp_tight_equality();
+  val _ = set_grammar_ancestry ["semanticPrimitives", "floatToRealProofs",
+                                "source_to_source", "CakeMLtoFloVer",
+                                "source_to_sourceProofs", "cfSupport", "optPlanner",
+                                "icing_realIdProofs", "optPlannerProofs", "pull_words"];
 
   fun flatMap (ll:'a list list) =
     case ll of [] => []

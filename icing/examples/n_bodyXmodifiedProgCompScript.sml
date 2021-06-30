@@ -13,8 +13,6 @@ Definition theAST_pre_def:
   if x = Short "z0" then (((1)/(1000), (1)/(5)):real#real)
   else if x = Short "y0" then (((1)/(1000), (6)/(1)):real#real)
   else if x = Short "x0" then (((1)/(1000), (6)/(1)):real#real)
-  else if x = Short "vy0" then (((-3)/(1), (3)/(1)):real#real)
-  else if x = Short "vz0" then (((-1)/(10), (1)/(10)):real#real)
   else if x = Short "vx0" then (((-3)/(1), (3)/(1)):real#real)
   else (0,0)
 End
@@ -22,7 +20,7 @@ End
 Definition theAST_def:
   theAST =
   [ Dlet unknown_loc (Pvar "n_bodyXmodified")
-    (Fun "x0"(Fun "y0"(Fun "z0"(Fun "vx0"(Fun "vy0"(Fun "vz0"
+    (Fun "x0"(Fun "y0"(Fun "z0"(Fun "vx0"
       (FpOptimise Opt
         (Let (SOME "dt")
         (App FpFromWord [Lit (Word64 (4591870180066957722w:word64))])
@@ -91,7 +89,7 @@ Definition theAST_def:
                         Var (Short  "vxNew")
                       ])
                     ])
-                  (Var (Short  "x_2"))))))))))))))))))))]
+                  (Var (Short  "x_2"))))))))))))))))))]
 End
 
 Definition theErrBound_def:
