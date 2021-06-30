@@ -87,12 +87,15 @@ val has_length = assert (can (find_term (same_const listSyntax.length_tm)) o
                          concl)
 
 val peg_eval_choice_NONE =
-  ``peg_eval G (i, choice s1 s2 f) NONE``
+  ``peg_eval G (i, choice s1 s2 f) (Failure fl fe)``
     |> SIMP_CONV (srw_ss()) [Once peg_eval_cases]
 
 Theorem peg_eval_tokSymP_NONE[simp]:
-  peg_eval G (i, tokSymP P) NONE ⇔
-  ∀s l t. i = (SymbolT s, l)::t ⇒ ¬P s
+  peg_eval G (i, tokSymP P) (Failure fl fe) ⇔
+    (∀l tk t. i = (tk, l)::t ⇒
+              (∀s. tk = SymbolT s ⇒ ¬P s ∧ fl = l ∧ fe = G.tokFALSE) ∧
+              ((∀s. tk ≠ SymbolT s) ⇒ fl = l ∧ fe = G.tokFALSE)) ∧
+    (i = [] ⇒ fl = Locs EOFpt EOFpt ∧ fe = G.tokEOF)
 Proof
   simp[tokSymP_def, peg_eval_tok_NONE, EXISTS_PROD] >> Cases_on ‘i’ >> simp[] >>
   rename [‘hdi = (_,_)’] >> Cases_on ‘hdi’ >> simp[] >> metis_tac[]
