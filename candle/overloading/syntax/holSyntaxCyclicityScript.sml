@@ -6509,6 +6509,21 @@ Proof
   rw[cyclic_dep_eq,acyclic_len_def,has_path_to_def,DISJ_EQ_IMP,PULL_EXISTS,AND_IMP_INTRO]
 QED
 
+Theorem acyclic_len_TWO_ONE:
+  !dep. wf_dep dep /\ monotone dep /\ acyclic_len dep 2 ==> acyclic_len dep 1
+Proof
+  simp[GSYM AND_IMP_INTRO]
+  >> gen_tac >> ntac 2 strip_tac
+  >> rw[Once MONO_NOT_EQ,acyclic_len_def,has_path_to_ONE,Once is_instance_LR_eq]
+  >> qmatch_asmsub_abbrev_tac `LR_TYPE_SUBST s x`
+  >> map_every qexists_tac [`x`,`LR_TYPE_SUBST (MAP (TYPE_SUBST s ## I) s ++ s) x`]
+  >> dep_rewrite.DEP_REWRITE_TAC[has_path_to_ind_eq,TWO,has_path_to_ONE]
+  >> fs[GSYM LR_TYPE_SUBST_compose,has_path_to_ONE,PULL_EXISTS,is_instance_LR_simps,AC CONJ_ASSOC CONJ_COMM]
+  >> goal_assum drule
+  >> irule_at Any EQ_REFL
+  >> fs[]
+QED
+
 (* composability check *)
 
 Definition composable_at_def:
