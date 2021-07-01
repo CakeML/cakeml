@@ -514,6 +514,20 @@ End
 val _ = Parse.add_infix("≈", 401, Parse.NONASSOC)
 Overload "≈" = ``$equiv``
 
+Theorem equiv_refl:
+  !x. is_const_or_type x ==> equiv x x
+Proof
+  rw[equiv_def]
+  >> irule_at Any var_renaming_nil
+  >> fs[LR_TYPE_SUBST_NIL]
+QED
+
+Theorem equiv_is_const_or_type:
+  is_const_or_type x /\ equiv y x ==> is_const_or_type y
+Proof
+  rw[equiv_def] >> fs[]
+QED
+
 Theorem equiv_symm:
   !x y. is_const_or_type x /\ is_const_or_type y
   ==> equiv x y = equiv y x
@@ -533,6 +547,53 @@ Proof
   >> fs[GSYM clean_tysubst_LR_TYPE_SUBST_eq,GSYM LR_TYPE_SUBST_compose]
   >> irule_at Any EQ_REFL
   >> asm_rewrite_tac[]
+QED
+
+Theorem equiv_equiv_ts_on2:
+  !x s. is_const_or_type x
+  ==> equiv x (LR_TYPE_SUBST s x) = equiv_ts_on [] s (FV x)
+Proof
+  rw[equiv_def,equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
+QED
+
+Theorem equiv_equiv_ts_on1:
+  !x s. is_const_or_type x
+  ==> equiv (LR_TYPE_SUBST s x) x = equiv_ts_on [] s (FV x)
+Proof
+  rw[Once equiv_symm,equiv_equiv_ts_on2]
+QED
+
+Theorem equiv_equiv_ts_on:
+  !x s s'. is_const_or_type x
+  ==> equiv (LR_TYPE_SUBST s x) (LR_TYPE_SUBST s' x) = equiv_ts_on s s' (FV x)
+Proof
+  rw[equiv_def,equiv_ts_on_FV]
+QED
+
+Theorem equiv_LR_TYPE_SUBST1:
+  !s x y. is_const_or_type x /\ is_const_or_type y /\ var_renaming s
+  ==> equiv (LR_TYPE_SUBST s x) y = equiv x y
+Proof
+  rw[equiv_def,EQ_IMP_THM]
+  >- (
+    rev_drule_all var_renaming_SWAP_LR_id'
+    >> disch_then $ fs o single
+    >> irule_at Any var_renaming_compose
+    >> fs[GSYM clean_tysubst_LR_TYPE_SUBST_eq,GSYM LR_TYPE_SUBST_compose]
+    >> irule_at Any EQ_REFL
+    >> fs[var_renaming_SWAP_IMP]
+  )
+  >> irule_at Any var_renaming_compose
+  >> fs[GSYM clean_tysubst_LR_TYPE_SUBST_eq,GSYM LR_TYPE_SUBST_compose]
+  >> irule_at Any EQ_REFL
+  >> fs[]
+QED
+
+Theorem equiv_LR_TYPE_SUBST2:
+  !s x y. is_const_or_type x /\ is_const_or_type y /\ var_renaming s
+  ==> equiv x (LR_TYPE_SUBST s y) = equiv x y
+Proof
+  rw[equiv_LR_TYPE_SUBST1,Once equiv_symm] >> fs[equiv_symm]
 QED
 
 (* well-formed list of dependencies *)
