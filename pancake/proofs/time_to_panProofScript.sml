@@ -909,7 +909,8 @@ Definition decode_ios_def:
               in
                 Input i = THE (to_input obs_io)
           | Output os =>
-              decode_io_event (:α) be (EL 1 ios) = ObsOutput os))))
+              decode_io_event (:α) be (EL 1 ios) = ObsOutput os)))) ∧
+  (decode_ios (:α) be _ _ ios ⇔ F)
 End
 
 
@@ -8772,47 +8773,18 @@ Definition sum_delays_def:
        mem_read_ffi_results (:α) ffi (n+1))
 End
 
-Theorem take_one_less_length_eq_front:
-  ∀xs .
-    xs ≠ [] ⇒
-    TAKE (LENGTH xs − 1) xs = FRONT xs
-Proof
-  Induct >>
-  rw [] >>
-  gs [FRONT_DEF] >>
-  cases_on ‘xs’ >> gvs []
-QED
+Definition no_panic_def:
+  no_panic lbls ⇔
+  ∀lbl.
+    MEM lbl lbls ⇒
+    lbl ≠ LPanic (PanicTimeout) ∧
+    (∀is. lbl ≠ LPanic is)
+End
 
-
-Theorem from_front_to_take:
-  ∀ios ns.
-    SUM ns + 1 = LENGTH ios ⇒
-    FRONT ios = TAKE (SUM ns) ios
-Proof
-  Induct >>
-  rw [] >>
-  gs [ADD1] >>
-  cases_on ‘ns’ >> gs [] >>
-  gs [TAKE_def] >>
-  cases_on ‘ios’
-  >- gvs [] >>
-  qmatch_goalsub_abbrev_tac ‘LENGTH (ios)’ >>
-  ‘TAKE (LENGTH ios − 1) ios = FRONT ios’ by (
-    match_mp_tac take_one_less_length_eq_front >>
-    unabbrev_all_tac >> gs []) >>
-  unabbrev_all_tac >> gs []
-QED
-
-
-(* lets assume that there are no panic and timeout in labels *)
-(* TODO: replace (TAKE (SUM ns) ios) with (FRONT ios) *)
-Theorem steps_io_event_thm:
+Theorem steps_io_event_no_panic_thm:
   ∀labels prog n st sts (t:('a,time_input) panSem$state) ist.
     steps prog labels (dimword (:α) - 1) n st sts ∧
-    (∀lbl.
-       MEM lbl labels ⇒
-       lbl ≠ LPanic (PanicTimeout) ∧
-       (∀is. lbl ≠ LPanic is)) ∧
+    no_panic labels ∧
     assumptions prog n st t ∧
     ffi_rels prog labels st t ist ∧
     sum_delays (:α) labels t.ffi.ffi_state ⇒
@@ -8827,7 +8799,7 @@ Theorem steps_io_event_thm:
                  (LAST t.ffi.io_events::TAKE (SUM ns) ios)
 Proof
   rw [] >>
-  gs [] >>
+  gs [no_panic_def] >>
   drule_all steps_thm >>
   disch_then (qspec_then ‘ist’ mp_tac) >>
   strip_tac >>
@@ -9388,7 +9360,6 @@ Proof
   simp []
 QED
 
-
 Theorem opt_mmap_empty_const:
   ∀t prog v n.
     FLOOKUP t.code (num_to_str (FST (ohd prog))) = SOME v ⇒
@@ -9430,7 +9401,6 @@ Definition wf_prog_and_init_states_def:
     st.location =  FST (ohd prog) ∧
     init_clocks st.clocks (clksOf prog) ∧
     code_installed t.code prog ∧
-    (* for the time being *)
     FLOOKUP t.eshapes «panic» = SOME One ∧
     FLOOKUP t.code «start» =
       SOME ([], start_controller (prog,st.waitTime)) ∧
@@ -9449,18 +9419,7 @@ Definition wf_prog_and_init_states_def:
     ~MEM "get_time_input" (MAP explode (out_signals prog))
 End
 
-
-Definition no_panic_def:
-  no_panic lbls ⇔
-  ∀lbl.
-    MEM lbl lbls ⇒
-    lbl ≠ LPanic (PanicTimeout) ∧
-    (∀is. lbl ≠ LPanic is)
-End
-
-(* TODO: panLang needs exception shape declaration,
-   to revise/review no_panic *)
-Theorem timed_automata_correct:
+Theorem timed_automata_no_panic_correct_main:
   ∀prog labels st sts (t:('a,time_input) panSem$state).
     steps prog labels
           (dimword (:α) - 1) (FST (t.ffi.ffi_state 0)) st sts ∧
@@ -9505,10 +9464,10 @@ Proof
        (t'.be ⇔ nt.be) ∧
        decode_ios (:α) t'.be labels' ns
                   (LAST nt.ffi.io_events::TAKE (SUM ns) ios)’ by (
-      match_mp_tac steps_io_event_thm >>
+      match_mp_tac steps_io_event_no_panic_thm >>
       MAP_EVERY qexists_tac [‘FST (t.ffi.ffi_state 0)’, ‘st’, ‘sts’,
                              ‘(FST (t.ffi.ffi_state 0))’] >>
-      gs [] >>
+      gs [no_panic_def] >>
       conj_tac
       >- (
         unabbrev_all_tac >>
@@ -9871,6 +9830,59 @@ Proof
   gs []
 QED
 
+Theorem take_one_less_length_eq_front:
+  ∀xs .
+    xs ≠ [] ⇒
+    TAKE (LENGTH xs − 1) xs = FRONT xs
+Proof
+  Induct >>
+  rw [] >>
+  gs [FRONT_DEF] >>
+  cases_on ‘xs’ >> gvs []
+QED
+
+
+Theorem from_take_sum_to_front:
+  ∀xs ns.
+    SUM ns + 1 = LENGTH xs ⇒
+    TAKE (SUM ns) xs = FRONT xs
+Proof
+  Induct >>
+  rw [] >>
+  gs [ADD1] >>
+  cases_on ‘ns’ >> gs [] >>
+  gs [TAKE_def] >>
+  cases_on ‘xs’
+  >- gvs [] >>
+  qmatch_goalsub_abbrev_tac ‘LENGTH xs’ >>
+  ‘TAKE (LENGTH xs − 1) xs = FRONT xs’ by (
+    match_mp_tac take_one_less_length_eq_front >>
+    unabbrev_all_tac >> gs []) >>
+  unabbrev_all_tac >> gs []
+QED
+
+Theorem timed_automata_no_panic_correct:
+  ∀prog labels st sts (t:('a,time_input) panSem$state).
+    steps prog labels
+          (dimword (:α) - 1) (FST (t.ffi.ffi_state 0)) st sts ∧
+    no_panic labels ∧
+    wf_prog_and_init_states prog st t ∧
+    ffi_rels_after_init prog labels st t ∧
+    sum_delays (:α) labels (next_ffi t.ffi.ffi_state) ⇒
+    ∃io ios ns.
+      semantics t «start» = Terminate Success (io::ios) ∧
+      LENGTH labels = LENGTH ns ∧
+      SUM ns + 1 = LENGTH ios ∧
+      decode_ios (:α) t.be labels ns (io::FRONT ios)
+Proof
+  rw [] >>
+  drule_all timed_automata_no_panic_correct_main >>
+  strip_tac >>
+  gs [] >>
+  qexists_tac ‘ns’ >> gs [from_take_sum_to_front]
+QED
+
+
 Theorem timed_automata_functional_correct:
   ∀k prog or st sts labels (t:('a,time_input) panSem$state).
     timeFunSem$eval_steps k prog
@@ -9926,6 +9938,29 @@ Proof
   metis_tac [timed_automata_functional_correct,
              wf_prog_and_init_states_def]
 QED
+
+Theorem io_trace_impl_eval_steps:
+  ∀prog st (t:('a,time_input) panSem$state) or.
+    wf_prog_init_states prog or st t ⇒
+    ∃k.
+      ffi_rels_after_init prog
+                          (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) st t ∧
+      until_first_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ∧
+      sum_delays (:α) (labels_of k prog (dimword (:α) - 1) (systime_at t) or st)
+                 (next_ffi t.ffi.ffi_state) ⇒
+        ∃lbls sts io ios ns.
+          timeFunSem$eval_steps k prog (dimword (:α) - 1) (systime_at t) or st =
+          SOME (lbls, sts) ∧
+          semantics t «start» = Terminate Success (io::ios) ∧
+          LENGTH lbls = LENGTH ns ∧ SUM ns + 1 = LENGTH ios ∧
+          decode_ios (:α) t.be lbls ns (io::TAKE (SUM ns) ios)
+
+
+QED
+(* FRONT ios *)
+(* until_first_panic, sum_delay_until_panic
+*)
+
 
 
 val _ = export_theory();

@@ -197,6 +197,30 @@ Definition eval_steps_def:
 End
 *)
 
+
+Definition eval_steps_def:
+  (eval_steps 0 _ _ _ _ st = SOME ([],[])) ∧
+  (eval_steps (SUC k) prog m n or st =
+   if m - 1 <= n then SOME ([], [])
+   else
+     (case eval_step prog m n (or 0) st of
+      | SOME (lbl, st') =>
+          let n' =
+              case lbl of
+              | LDelay d => d + n
+              | _ => n;
+              noracle =
+              case lbl of
+              | LDelay _ => next_oracle or
+              | LAction act => set_oracle act or
+       in
+         (case eval_steps k prog m n' noracle st' of
+          | NONE => NONE
+          | SOME (lbls', sts') => SOME (lbl::lbls', st'::sts'))
+         | NONE => NONE))
+End
+
+(*
 Definition eval_steps_def:
   (eval_steps 0 _ _ _ _ st = SOME ([],[])) ∧
   (eval_steps (SUC k) prog m n or st =
@@ -216,7 +240,7 @@ Definition eval_steps_def:
           | SOME (lbls', sts') => SOME (lbl::lbls', st'::sts'))
          | NONE => NONE)
 End
-
+*)
 
 Theorem label_from_pick_eval_input_term:
   ∀tms i st lbl st' m.

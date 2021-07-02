@@ -250,7 +250,7 @@ Definition task_controller_def:
     (nested_seq [
         wait_input_time_limit;
         If (Cmp Equal (Var «sysTime») (Const (n2w (dimword (:α) - 2))))
-           check_input_time (Skip:'a prog); (* keep Skip for the time being *)
+           check_input_time (Skip:'a prog);
         Call (Ret «taskRet» NONE) (Var «loc»)
              [Struct (normalisedClks «sysTime» «clks» clksLength);
              Var «event»];
