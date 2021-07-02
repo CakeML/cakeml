@@ -718,6 +718,7 @@ Definition evaluations_def:
                 nt.code = t.code ∧
                 nt.be = t.be ∧
                 nt.ffi.ffi_state = t.ffi.ffi_state ∧
+                nt.ffi.io_events = t.ffi.io_events ∧
                 nt.ffi.oracle = t.ffi.oracle ∧
                 nt.eshapes = t.eshapes)
          | PanicInput i =>
@@ -850,6 +851,20 @@ Definition action_rel_def:
     ffi = t.ffi.ffi_state)
 End
 
+Definition panic_rel_def:
+  (panic_rel PanicTimeout s (t:('a,time_input) panSem$state) ffi ⇔
+   output_rel t.locals t.ffi.ffi_state ∧
+   FST (t.ffi.ffi_state 0) < dimword (:α) - 2 ∧
+   ffi = t.ffi.ffi_state) ∧
+  (panic_rel (PanicInput i) s t ffi ⇔
+   wakeup_shape t.locals s.waitTime (FST (t.ffi.ffi_state 0)) ∧
+    input_stime_rel s.waitTime (FST (t.ffi.ffi_state 0)) (FST (t.ffi.ffi_state 0)) ∧
+    input_rel t.locals i (next_ffi t.ffi.ffi_state) ∧
+    mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
+    FST (t.ffi.ffi_state 1) < dimword (:α) − 2 ∧
+    ffi = next_ffi t.ffi.ffi_state)
+End
+
 
 Definition ffi_rel_def:
   (ffi_rel (LDelay d) s (t:('a,time_input) panSem$state) ist ffi =
@@ -864,7 +879,10 @@ Definition ffi_rel_def:
      FST (t.ffi.ffi_state 0)) ∧
   (ffi_rel (LAction act) s t ist ffi ⇔
    ist = FST (t.ffi.ffi_state 0) ∧
-   action_rel act s t ffi)
+   action_rel act s t ffi) ∧
+  (ffi_rel (LPanic p) s t ist ffi ⇔
+   ist = FST (t.ffi.ffi_state 0) ∧
+   panic_rel p s t ffi)
 End
 
 Definition ffi_rels_def:
@@ -909,7 +927,8 @@ Definition decode_ios_def:
               in
                 Input i = THE (to_input obs_io)
           | Output os =>
-              decode_io_event (:α) be (EL 1 ios) = ObsOutput os)))) ∧
+              decode_io_event (:α) be (EL 1 ios) = ObsOutput os))
+    | LPanic p => F)) ∧
   (decode_ios (:α) be _ _ ios ⇔ F)
 End
 
@@ -7835,6 +7854,7 @@ Theorem step_panic_timeout:
       (SOME (Exception «panic» (ValWord 0w)), t') ∧
       code_installed t'.code prog ∧
       t'.ffi.ffi_state = t.ffi.ffi_state ∧
+      t'.ffi.io_events = t.ffi.io_events ∧
       t'.ffi.oracle = t.ffi.oracle ∧
       t'.code = t.code ∧
       t'.be = t.be ∧
@@ -9939,14 +9959,24 @@ Proof
 QED
 
 
+Definition up_until_first_panic_def:
+  (up_until_first_panic [] = []) ∧
+  (up_until_first_panic (lbl::lbls) =
+   case lbl of
+   | LPanic p => LPanic p::up_until_first_panic [] (* could simply be [] *)
+   | _ => lbl::up_until_first_panic lbls)
+End
+
 Definition until_first_panic_def:
   (until_first_panic [] = []) ∧
   (until_first_panic (lbl::lbls) =
    case lbl of
-   | LPanic _ => []
+   | LPanic p => []
    | _ => lbl::until_first_panic lbls)
 End
 
+
+(*
 Theorem lbls_until_first_panic_are_no_panic:
   ∀lbls.
     no_panic (until_first_panic lbls)
@@ -9959,9 +9989,157 @@ Proof
   gvs [no_panic_def] >>
   rw [] >> gvs []
 QED
-
+*)
 
 (* until_first_panic, sum_delay_until_panic *)
+
+Definition has_panic_def:
+  has_panic lbls ⇔
+  ∃lbl.
+    MEM lbl lbls ∧
+    (lbl = LPanic (PanicTimeout) ∨
+     (∃is. lbl = LPanic is))
+End
+
+Definition sum_delays_until_first_panic_def:
+  sum_delays_until_first_panic (:α) lbls (ffi:time_input) ⇔
+    SUM (MAP (λlbl.
+               case lbl of
+               | LDelay d => d
+               | _ => 0) lbls) + FST (ffi 0) < dimword (:α) − 2
+End
+
+
+Definition decode_ios_until_first_panic_def:
+  (decode_ios_until_first_panic (:α) be [] [] ios ⇔ LENGTH ios = 1) ∧
+  (decode_ios_until_first_panic (:α) be (lbl::lbls) (n::ns) ios ⇔
+   SUM (n::ns) = LENGTH ios ∧
+   (case lbl of
+    | LDelay d =>
+        (if n = 0
+         then d = 0 ∧ decode_ios_until_first_panic (:α) be lbls ns ios
+         else
+           let
+             m' = EL 0 (io_event_dest (:α) be (HD ios));
+             nios = TAKE n (TL ios);
+             obs_ios = decode_io_events (:'a) be nios;
+             m = THE (to_delay (EL (LENGTH obs_ios - 1) obs_ios))
+           in
+             d = m - m' ∧
+             decode_ios_until_first_panic (:α) be lbls ns (DROP n ios))
+    | LAction act =>
+        (n = 1 ∧
+         decode_ios_until_first_panic (:α) be lbls ns (DROP 1 ios) ∧
+         (case act of
+          | Input i =>
+              let
+                obs_io = decode_io_event (:α) be (EL 1 ios)
+              in
+                Input i = THE (to_input obs_io)
+          | Output os =>
+              decode_io_event (:α) be (EL 1 ios) = ObsOutput os))
+    | LPanic p => F)) ∧
+  (decode_ios_until_first_panic (:α) _ _ _ _ ⇔ F)
+End
+
+(* have cases on the first panic *)
+(* this is the case when the first panic occur after *)
+Theorem steps_io_event_first_panic_after_dimword_sub_2_thm:
+  ∀labels prog n st sts (t:('a,time_input) panSem$state) ist.
+    steps prog labels (dimword (:α) - 1) n st sts ∧
+    has_panic labels ∧
+    assumptions prog n st t ∧
+    ffi_rels prog (up_until_first_panic labels) st t ist ∧
+    sum_delays_until_first_panic (:α) (until_first_panic labels) t.ffi.ffi_state ⇒
+    ∃ck t' ns ios.
+      evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
+      (SOME (Exception «panic» (ValWord 0w)),t') ∧
+      t'.ffi.io_events = t.ffi.io_events ++ ios ∧
+      LENGTH (case ARB labels
+                   | PanicTimeout => until_first_panic labels
+                   | PanicInput _ => up_until_first_panic labels) =
+      LENGTH ns ∧
+      SUM ns + (case ARB labels
+                   | PanicTimeout => 0
+                   | PanicInput _ => 1) =
+      LENGTH ios ∧
+      t'.be = t.be ∧
+      decode_ios_until_first_panic
+      (:α) t'.be (until_first_panic labels) ns (LAST t.ffi.io_events::ios)
+Proof
+  rw [] >>
+  gs [] >>
+  drule_all steps_thm >>
+  disch_then (qspec_then ‘ist’ mp_tac) >>
+  strip_tac >>
+  rpt (pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [‘ist’, ‘t’, ‘sts’, ‘st’, ‘n’, ‘prog’, ‘labels'’] >>
+  Induct
+  >- (
+    rw [] >>
+    gs [has_panic_def]) >>
+  rw [] >>
+  ‘LENGTH sts = LENGTH (h::labels')’ by
+    metis_tac [steps_sts_length_eq_lbls] >>
+  cases_on ‘sts’ >>
+  fs [] >>
+  ‘n = FST (t.ffi.ffi_state 0)’ by
+    gs [assumptions_def] >>
+  rveq >> gs [] >>
+  gs [evaluations_def, steps_def] >>
+  cases_on ‘h’ >> gs []
+  >- cheat
+  >- cheat >>
+  cases_on ‘p’ >> gvs []
+  >- (
+    gvs [until_first_panic_def, up_until_first_panic_def] >>
+    gvs [sum_delays_until_first_panic_def] >>
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    impl_tac
+    >- gvs [ffi_rels_def, ffi_rel_def, panic_rel_def] >>
+    strip_tac >> gvs [] >>
+    strip_tac >>
+    first_x_assum (qspec_then ‘0’ assume_tac) >>
+    qexists_tac ‘ck’ >>
+    qexists_tac ‘nt’ >>
+    gs [state_component_equality, ffiTheory.ffi_state_component_equality] >>
+    cases_on ‘t.ffi.io_events’ >>
+    gvs [decode_ios_until_first_panic_def]) >>
+  gvs [until_first_panic_def, up_until_first_panic_def] >>
+  gvs [sum_delays_until_first_panic_def] >>
+  pop_assum mp_tac >>
+  pop_assum mp_tac >>
+  impl_tac
+  >- gvs [ffi_rels_def, ffi_rel_def, panic_rel_def] >>
+  strip_tac >> gvs [] >>
+  strip_tac >>
+  first_x_assum (qspec_then ‘0’ assume_tac) >>
+  qexists_tac ‘ck’ >>
+  qexists_tac ‘nt’ >>
+  gs [state_component_equality, ffiTheory.ffi_state_component_equality] >>
+  cases_on ‘t.ffi.io_events’ >>
+  gvs [decode_ios_until_first_panic_def])
+
+
+
+
+    )
+
+
+  gvs [until_first_panic_def] >>
+    gvs [ffi_rels_def] >>
+
+
+
+
+
+
+  )
+
+
+QED
+
 
 Theorem timed_automata_until_first_panic_correct:
   ∀prog labels st sts (t:('a,time_input) panSem$state).
