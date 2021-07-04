@@ -291,4 +291,123 @@ Proof
   metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]
 QED
 
+val interval_cover_def = Define`
+  (interval_cover i j [] = F) ∧
+  (interval_cover (i:num) j ((a,b)::xs) =
+    (a = i ∧
+    (b = j ∨ interval_cover b j xs)))`
+
+Theorem interval_cover_satisfiable:
+  ∀ijs i j.
+  interval_cover i j ijs ∧
+  EVERY (λ(i,j).
+    (satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
+     satisfiable (interp (run_proof fml (TAKE j pf))))) ijs ⇒
+  satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
+  satisfiable (interp (run_proof fml (TAKE j pf)))
+Proof
+  Induct>>simp[interval_cover_def,FORALL_PROD]>>rw[]>>fs[]>>
+  first_x_assum drule>>
+  metis_tac[]
+QED
+
+Theorem run_proof_empty:
+  run_proof fml [] = fml
+Proof
+  EVAL_TAC
+QED
+
+Theorem stdout_add_stderr:
+  STD_streams fs ∧ stdout fs out ⇒
+  stdout (add_stderr fs err) out
+Proof
+  rw[stdo_def]>>
+  simp[add_stdo_def,up_stdo_def,fsFFITheory.fsupdate_def]>>
+  every_case_tac>>simp[AFUPDKEY_ALOOKUP]>>
+  fs[fsFFIPropsTheory.STD_streams_def]>>
+  rw[]>>simp[]>>
+  Cases_on`r`>>
+  rpt(first_x_assum(qspecl_then [`2`,`q`,`r'`] assume_tac))>>fs[]
+QED
+
+Theorem add_stdout_11:
+  add_stdout fs1 out1 = add_stdout fs2 out2 ∧
+  stdout fs1 out ∧ stdout fs2 out ⇒
+  out1 = out2
+Proof
+  rw[]>>
+  `stdout (add_stdout fs1 out1) (out ^ out1)` by
+    metis_tac[stdo_add_stdo]>>
+  `stdout (add_stdout fs2 out2) (out ^ out2)` by
+    metis_tac[stdo_add_stdo]>>
+  fs[fsFFITheory.IO_fs_component_equality]>>
+  rw[]>>fs[stdo_def]>>
+  gs[]
+QED
+
+Theorem par_check_sound:
+  EVERY (λ(cl,fs,mc,ms,i,j).
+    wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
+    installed_x64 check_unsat_code (basis_ffi cl fs) mc ms ∧
+    LENGTH cl = 5 ∧
+    inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
+    all_lines fs (EL 1 cl) = fmlstr ∧
+    all_lines fs (EL 2 cl) = pfstr ∧
+    EL 3 cl = toString i ^ «-» ^ toString j
+  ) nodes ∧
+  parse_dimacs fmlstr = SOME fml ∧ parse_proof pfstr = SOME pf ∧
+  interval_cover 0 (LENGTH pf) (MAP (λ(cl,fs,mc,ms,i,j). (i,j)) nodes)
+  ⇒
+  EVERY (λ(cl,fs,mc,ms,i,j).
+    machine_sem mc (basis_ffi cl fs) ms ⊆
+    extend_with_resource_limit
+      {Terminate Success (check_unsat_io_events cl fs)}) nodes ∧
+  (
+    EVERY (λ(cl,fs,mc,ms,i,j).
+      extract_fs fs (check_unsat_io_events cl fs) =
+        SOME (add_stdout fs (strlit"s VERIFIED RANGE: TODO"))
+    ) nodes ⇒
+    (satisfiable (interp fml) ⇒
+     satisfiable (interp (run_proof fml pf)))
+  )
+Proof
+  strip_tac>>
+  `EVERY (λ(cl,fs,mc,ms,i,j).
+  machine_sem mc (basis_ffi cl fs) ms ⊆
+    extend_with_resource_limit
+      {Terminate Success (check_unsat_io_events cl fs)} ∧
+  ∃out err.
+    extract_fs fs (check_unsat_io_events cl fs) =
+      SOME (add_stdout (add_stderr fs err) out) ∧
+    (out = strlit"s VERIFIED RANGE: TODO" ⇒
+      i ≤ j ∧ j ≤ LENGTH pf ∧
+      (satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
+       satisfiable (interp (run_proof fml (TAKE j pf)))))) nodes` by
+    (fs[EVERY_MEM,FORALL_PROD]>>
+    rw[]>>first_x_assum drule>>
+    strip_tac>>
+    drule machine_code_sound>> rpt(disch_then drule)>>
+    simp[]>>  rpt(disch_then drule)>>
+    rw[]>>
+    asm_exists_tac>>simp[]>>
+    strip_tac>>fs[]>>
+    fs[parse_rng_toString])>>
+  CONJ_TAC >- (
+    pop_assum mp_tac>>match_mp_tac MONO_EVERY>>
+    simp[FORALL_PROD]>>
+    metis_tac[])>>
+  rw[]>>
+  drule interval_cover_satisfiable>>
+  disch_then(qspecl_then[`pf`,`fml`] mp_tac)>>
+  impl_tac>-(
+    fs[EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD,PULL_EXISTS,run_proof_empty]>>
+    rw[]>>rpt (first_x_assum drule)>>
+    rw[]>>
+    gs[SOME_11]>>
+    drule STD_streams_stdout>>rw[]>>
+    drule add_stdout_11>>
+    metis_tac[stdout_add_stderr])>>
+  simp[]
+QED
+
 val _ = export_theory();

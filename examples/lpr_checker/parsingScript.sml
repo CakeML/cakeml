@@ -857,15 +857,32 @@ QED
 (* Parse a range spec of the form i-j *)
 val parse_rng_def = Define`
   parse_rng ij =
-  case fields (λc. c = #"-") ij of
-    [i;j] =>
+  let (i,j) = splitl (λc. c <> #"-") ij in
     (case mlint$fromNatString i of
       NONE => NONE
     | SOME i =>
-    case mlint$fromNatString j of
+    case mlint$fromNatString (substring j 1 (strlen j)) of
       NONE => NONE
-    | SOME j => SOME (i,j))
-  | _ => NONE`
+    | SOME j => SOME (i,j))`
+
+Theorem parse_rng_toString:
+  parse_rng (toString i ^ «-» ^ toString j) = SOME (i,j)
+Proof
+  rw[parse_rng_def]>>
+  simp[mlstringTheory.splitl_SPLITL,SPLITL_def]>>
+  PURE_REWRITE_TAC [GSYM STRCAT_ASSOC]>>
+  PURE_REWRITE_TAC [Once SPLITP_APPEND]>>
+  IF_CASES_TAC
+  >- (
+    CCONTR_TAC>>pop_assum kall_tac>>
+    pop_assum mp_tac>>simp[o_DEF,mlintTheory.num_to_str_thm]>>
+    `EVERY isDigit (toString i)` by
+      metis_tac[ASCIInumbersTheory.EVERY_isDigit_num_to_dec_string]>>
+    pop_assum mp_tac>>match_mp_tac MONO_EVERY>>
+    EVAL_TAC>>rw[])>>
+  simp[SPLITP,mlstringTheory.implode_def,mlstringTheory.substring_def]>>
+  simp[GSYM mlstringTheory.implode_def]
+QED
 
 val dimacsraw = ``[
   strlit "c this is a comment";
