@@ -3420,6 +3420,12 @@ val check_unsat_3 = (append_prog o process_topdecs) `
 
 val _ = translate parse_rng_def;
 
+val parse_rng_side_def = fetch "-" "parse_rng_side_def"
+
+val parse_rng_side = Q.prove(`
+  !x. parse_rng_side x ⇔ T`,
+  simp[parse_rng_side_def]) |> update_precondition;
+
 val check_cond_def = Define`
   check_cond i j pf = (i ≤ j ∧ j ≤ LENGTH pf)`
 

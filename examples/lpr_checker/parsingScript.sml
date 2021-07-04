@@ -861,7 +861,8 @@ val parse_rng_def = Define`
     (case mlint$fromNatString i of
       NONE => NONE
     | SOME i =>
-    case mlint$fromNatString (substring j 1 (strlen j)) of
+    if strlen j = 0 then NONE else
+    case mlint$fromNatString (substring j 1 (strlen j - 1)) of
       NONE => NONE
     | SOME j => SOME (i,j))`
 
@@ -881,7 +882,13 @@ Proof
     pop_assum mp_tac>>match_mp_tac MONO_EVERY>>
     EVAL_TAC>>rw[])>>
   simp[SPLITP,mlstringTheory.implode_def,mlstringTheory.substring_def]>>
-  simp[GSYM mlstringTheory.implode_def]
+  simp[GSYM mlstringTheory.implode_def]>>
+  `1:num = SUC 0` by simp[]>>
+  pop_assum SUBST_ALL_TAC>>
+  simp[Once SEG_SUC_CONS]>>
+  `strlen (toString j) = LENGTH (explode (toString j))` by
+    simp[]>>
+  pop_assum SUBST1_TAC>>simp[SEG_LENGTH_ID]
 QED
 
 val dimacsraw = ``[
