@@ -317,34 +317,6 @@ Proof
   EVAL_TAC
 QED
 
-Theorem stdout_add_stderr:
-  STD_streams fs ∧ stdout fs out ⇒
-  stdout (add_stderr fs err) out
-Proof
-  rw[stdo_def]>>
-  simp[add_stdo_def,up_stdo_def,fsFFITheory.fsupdate_def]>>
-  every_case_tac>>simp[AFUPDKEY_ALOOKUP]>>
-  fs[fsFFIPropsTheory.STD_streams_def]>>
-  rw[]>>simp[]>>
-  Cases_on`r`>>
-  rpt(first_x_assum(qspecl_then [`2`,`q`,`r'`] assume_tac))>>fs[]
-QED
-
-Theorem add_stdout_11:
-  add_stdout fs1 out1 = add_stdout fs2 out2 ∧
-  stdout fs1 out ∧ stdout fs2 out ⇒
-  out1 = out2
-Proof
-  rw[]>>
-  `stdout (add_stdout fs1 out1) (out ^ out1)` by
-    metis_tac[stdo_add_stdo]>>
-  `stdout (add_stdout fs2 out2) (out ^ out2)` by
-    metis_tac[stdo_add_stdo]>>
-  fs[fsFFITheory.IO_fs_component_equality]>>
-  rw[]>>fs[stdo_def]>>
-  gs[]
-QED
-
 Theorem par_check_sound:
   EVERY (λ(cl,fs,mc,ms,i,j).
     wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
@@ -405,7 +377,7 @@ Proof
     rw[]>>
     gs[SOME_11]>>
     drule STD_streams_stdout>>rw[]>>
-    drule add_stdout_11>>
+    drule add_stdout_inj>>
     metis_tac[stdout_add_stderr])>>
   simp[]
 QED
@@ -440,7 +412,7 @@ Proof
     simp[]>>  rpt(disch_then drule)>>
     rw[]>>
     drule STD_streams_stdout>>rw[]>>
-    drule add_stdout_11>>
+    drule add_stdout_inj>>
     disch_then drule>>
     rw[stdout_add_stderr]>>
     fs[parse_rng_toString])>>

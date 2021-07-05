@@ -648,6 +648,65 @@ Proof
   metis_tac[STD_streams_stderr,FILTER_File_add_stdo]
 QED
 
+(* Note: more general versions of the following 4 theorems
+  can be proved for stdo, but requires
+  assumption to ensure that the file descriptors do not overlap *)
+Theorem stdout_add_stderr:
+  STD_streams fs ∧ stdout fs out ⇒
+  stdout (add_stderr fs err) out
+Proof
+  rw[stdo_def]>>
+  simp[add_stdo_def,up_stdo_def,fsupdate_def]>>
+  every_case_tac>>simp[AFUPDKEY_ALOOKUP]>>
+  fs[STD_streams_def]>>
+  rw[]>>simp[]>>
+  Cases_on`r`>>
+  rpt(first_x_assum(qspecl_then [`2`,`q`,`r'`] assume_tac))>>fs[]
+QED
+
+Theorem stderr_add_stdout:
+  STD_streams fs ∧ stderr fs err ⇒
+  stderr (add_stdout fs out) err
+Proof
+  rw[stdo_def]>>
+  simp[add_stdo_def,up_stdo_def,fsupdate_def]>>
+  every_case_tac>>simp[AFUPDKEY_ALOOKUP]>>
+  fs[STD_streams_def]>>
+  rw[]>>simp[]>>
+  Cases_on`r`>>
+  rpt(first_x_assum(qspecl_then [`1`,`q`,`r'`] assume_tac))>>fs[]
+QED
+
+Theorem add_stdout_inj:
+  add_stdout fs1 out1 = add_stdout fs2 out2 ∧
+  stdout fs1 out ∧ stdout fs2 out ⇒
+  out1 = out2
+Proof
+  rw[]>>
+  `stdout (add_stdout fs1 out1) (out ^ out1)` by
+    metis_tac[stdo_add_stdo]>>
+  `stdout (add_stdout fs2 out2) (out ^ out2)` by
+    metis_tac[stdo_add_stdo]>>
+  fs[fsFFITheory.IO_fs_component_equality]>>
+  rw[]>>fs[stdo_def]>>
+  gs[]
+QED
+
+Theorem add_stderr_inj:
+  add_stderr fs1 err1 = add_stderr fs2 err2 ∧
+  stderr fs1 err ∧ stderr fs2 err ⇒
+  err1 = err2
+Proof
+  rw[]>>
+  `stderr (add_stderr fs1 err1) (err ^ err1)` by
+    metis_tac[stdo_add_stdo]>>
+  `stderr (add_stderr fs2 err2) (err ^ err2)` by
+    metis_tac[stdo_add_stdo]>>
+  fs[fsFFITheory.IO_fs_component_equality]>>
+  rw[]>>fs[stdo_def]>>
+  gs[]
+QED
+
 val stdin_def = Define
 `stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(UStream(strlit"stdin"),ReadMode,pos) /\
                      ALOOKUP fs.inode_tbl (UStream(strlit"stdin"))= SOME inp)`
