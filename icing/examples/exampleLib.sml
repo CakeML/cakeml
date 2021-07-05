@@ -653,6 +653,28 @@ fun compile_to_data_code theAST_def reader_def intToFP_def printer_def theBenchm
 end;
 *)
 
+(*
+val run = fn t => Parse.Term t |> EVAL |> concl |> rhs
+
+val decl = theAST_fp_opt |> concl |> rhs
+val P = theAST_pre_def |> concl |> rhs
+val (vars, body) = Parse.Term ‘case ^decl of | [Dlet loc (Pvar p) e] => stripFuns e’ |> EVAL |> concl |> rhs |> pairSyntax.dest_pair
+val (floverVars, varMap, freshId) = Parse.Term ‘case getFloVerVarMap ^vars of |SOME x => x’ |> EVAL |> concl |> rhs |> pairSyntax.dest_pair
+      |> (fn (x,y) => let val (y,z) = pairSyntax.dest_pair y in (x,y,z) end)
+val Gamma = Parse.Term ‘buildFloVerTypeMap ^floverVars’ |> EVAL |> concl |> rhs
+val (theIds, freshId, theCmd) = run ‘case toFloVerCmd ^varMap ^freshId ^body of SOME x => x’
+    |> pairSyntax.dest_pair |> (fn (x,y) => let val (y,z) = pairSyntax.dest_pair y in (x,y,z) end)
+val thePre = run ‘mkFloVerPre ^P ^varMap’
+val theRCmd = run ‘toRCmd ^theCmd’
+
+val [ivboundsCmd] = decls "inferErrorboundCmd";
+val [ivbounds] = decls "inferErrorbound"
+  computeLib.monitoring := SOME (fn x => same_const ivboundsCmd x orelse same_const ivbounds x)
+val theRealBounds = run ‘case inferIntervalboundsCmd ^theRCmd ^thePre FloverMapTree_empty of SOME x => x’
+val typeMap = run ‘case getValidMapCmd ^Gamma ^theRCmd FloverMapTree_empty of Succes x => x’
+val theErrBounds = run ‘case inferErrorboundCmd ^theRCmd ^typeMap ^theRealBounds FloverMapTree_empty of |SOME x => x’
+*)
+
   fun define_benchmark theAST_def theAST_pre_def checkError =
   let
     val theAST = theAST_def |> concl |> rhs
@@ -774,11 +796,11 @@ end;
             else EVAL (Parse.Term ‘0:real’)
          val theAST_unopt_bound_def = Define ‘theAST_unopt_bound = ^(theBound |> concl |> rhs)’
       in
-        if success_opt then
+        (* if success_opt then
         store_thm ("errorbounds_AST",
           Parse.Term(‘isOkError ^(concl theAST_opt |> rhs) theAST_pre theErrBound = (SOME T, NONE)’),
           simp[isOkError_def, error_thm_opt] \\ EVAL_TAC)
-        else CONJ_COMM
+        else *) CONJ_COMM
        end
     else if checkError then
       save_thm ("errorbounds_AST",
