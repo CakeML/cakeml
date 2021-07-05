@@ -410,4 +410,41 @@ Proof
   simp[]
 QED
 
+val check_successful_def = Define`
+  check_successful fmlstr pfstr (i:num,j:num) =
+  ∃cl fs mc ms.
+    wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
+    installed_x64 check_unsat_code (basis_ffi cl fs) mc ms ∧
+    LENGTH cl = 5 ∧
+    inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
+    all_lines fs (EL 1 cl) = fmlstr ∧
+    all_lines fs (EL 2 cl) = pfstr ∧
+    EL 3 cl = toString i ^ «-» ^ toString j ∧
+    extract_fs fs (check_unsat_io_events cl fs) =
+      SOME (add_stdout fs (strlit"s VERIFIED RANGE: TODO"))`
+
+Theorem par_check_sound_2:
+  parse_dimacs fmlstr = SOME fml ∧ parse_proof pfstr = SOME pf ∧
+  interval_cover 0 (LENGTH pf) ranges ∧
+  EVERY (check_successful fmlstr pfstr) ranges ⇒
+  (satisfiable (interp fml) ⇒ satisfiable (interp (run_proof fml pf)))
+Proof
+  rw[]>>
+  drule interval_cover_satisfiable>>
+  disch_then(qspecl_then[`pf`,`fml`] mp_tac)>>
+  impl_tac>-(
+    fs[EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD,PULL_EXISTS,run_proof_empty]>>
+    rw[]>>first_x_assum drule>>
+    simp[check_successful_def]>>rw[]>>
+    drule machine_code_sound>> rpt(disch_then drule)>>
+    simp[]>>  rpt(disch_then drule)>>
+    rw[]>>
+    drule STD_streams_stdout>>rw[]>>
+    drule add_stdout_11>>
+    disch_then drule>>
+    rw[stdout_add_stderr]>>
+    fs[parse_rng_toString])>>
+  simp[]
+QED
+
 val _ = export_theory();
