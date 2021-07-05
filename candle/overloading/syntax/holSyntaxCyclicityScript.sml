@@ -6859,6 +6859,40 @@ Proof
   >> drule_all composable_step_sound_INR >> simp[]
 QED
 
+Theorem composable_INL_MEM:
+  !dep x y res s. wf_pqs dep /\ monotone (CURRY $ set dep)
+  /\ MEM (x,y) dep
+  /\ composable_step (LR_TYPE_SUBST s x) dep [] = INL res
+  ==> ?x. MEM x res /\ equiv x (LR_TYPE_SUBST s y)
+Proof
+  rw[]
+  >> drule_at Any composable_step_sound_INL
+  >> qhdtm_assum `wf_pqs` $ imp_res_tac o REWRITE_RULE[wf_pqs_def,EVERY_MEM,ELIM_UNCURRY]
+  >> fs[PULL_EXISTS,AC CONJ_ASSOC CONJ_COMM]
+  >> disch_then kall_tac
+  >> goal_assum drule >> fs[]
+  >> qmatch_goalsub_abbrev_tac `uf = SOME _`
+  >> `IS_SOME uf` by (
+    fs[Abbr`uf`,unify_LR_complete,orth_LR_is_instance_LR_equiv]
+    >> irule_at Any is_instance_LR_refl >> fs[is_instance_LR_simps]
+  )
+  >> fs[IS_SOME_EXISTS,Abbr`uf`]
+  >> qmatch_assum_abbrev_tac `_ = SOME xx` >> PairCases_on `xx`
+  >> drule_at Any unify_LR_LR_TYPE_SUBST
+  >> gs[GSYM PULL_EXISTS,invertible_on_equiv_ts_on_FV,IN_DEF]
+  >> rw[GSYM equiv_ts_on_FV,EQ_SYM_EQ,equiv_ts_on_symm]
+  >> qhdtm_assum `monotone` $ imp_res_tac o SIMP_RULE (srw_ss()) [monotone_def,list_subset_set]
+  >> qmatch_goalsub_abbrev_tac `~xx ==> _` >> Cases_on `xx` >> fs[]
+  >- (
+    dxrule equiv_ts_on_trans >> simp[Once equiv_ts_on_symm]
+    >> disch_then $ dxrule_then assume_tac
+    >> dxrule_all equiv_ts_on_subset
+    >> fs[equiv_equiv_ts_on2]
+  )
+  >> dxrule_all equiv_ts_on_subset
+  >> fs[equiv_equiv_ts_on,Once equiv_ts_on_symm]
+QED
+
 Theorem path_starting_at_composable_step:
   !dep rs pqs res y. wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ path_starting_at (CURRY $ set dep) 0 rs pqs
