@@ -7571,4 +7571,45 @@ Proof
   rpt strip_tac >> irule dep_steps_complete_acyclic' >> goal_assum drule
 QED
 
+Theorem extension_len_has_path_to2:
+  !k dep dep'. wf_pqs dep /\ monotone (CURRY $ set dep)
+  /\ extension_len dep (SUC 0) dep dep'
+    ==> !x. wf_pqs [x] ==> (?y. MEM (FST x,y) dep' /\ equiv y (SND x)) =
+    ?y. has_path_to (CURRY $ set dep) 2 (FST x) y /\ equiv y (SND x)
+Proof
+  rpt strip_tac
+  >> gs[extension_len_def,wf_pqs_APPEND]
+  >> drule_at Any dep_step_sound_INL
+  >> rw[dep_step_inv_def,wf_pqs_APPEND]
+  >> rw[EQ_IMP_THM]
+  >- (
+    REWRITE_TAC[TWO]
+    >> irule_at Any equiv_trans
+    >> goal_assum $ drule_at $ Pos $ el 5
+    >> drule_at Any composable_step_sound_INL_is_const_or_type
+    >> rev_drule_then (drule_at Any) has_path_to_composable_step
+    >> disch_then $ drule_at_then Any $ qspec_then `1` assume_tac
+    >> qmatch_assum_rename_tac `MEM q dep` >> PairCases_on `q`
+    >> gs[has_path_to_ONE,wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,IN_DEF]
+    >> first_x_assum $ drule
+    >> last_x_assum $ drule
+    >> rw[]
+    >> goal_assum $ drule_at $ Pos last
+    >> metis_tac[equiv_is_const_or_type]
+  )
+  >> qhdtm_x_assum `has_path_to` mp_tac
+  >> dep_rewrite.DEP_REWRITE_TAC[has_path_to_ind_eq,TWO,wf_dep_wf_pqs]
+  >> rw[has_path_to_ONE]
+  >> fs[IN_DEF] >> first_x_assum $ drule_then strip_assume_tac
+  >> fs[AC CONJ_ASSOC CONJ_COMM,EXISTS_PROD,PULL_EXISTS]
+  >> qhdtm_assum `composable_step` $ irule_at Any
+  >> drule_at Any composable_INL_MEM
+  >> fs[wf_pqs_CONS,IN_DEF] >> disch_then $ drule_then strip_assume_tac
+  >> goal_assum drule
+  >> drule_at_then Any irule equiv_trans
+  >> drule_at Any equiv_is_const_or_type
+  >> qpat_x_assum `wf_pqs dep` $ imp_res_tac o SIMP_RULE (srw_ss()) [wf_pqs_def,ELIM_UNCURRY,EVERY_MEM,IN_DEF]
+  >> fs[]
+QED
+
 val _ = export_theory();
