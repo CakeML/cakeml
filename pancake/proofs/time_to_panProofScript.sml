@@ -930,7 +930,15 @@ Definition decode_ios_def:
                 Input i = THE (to_input obs_io)
           | Output os =>
               decode_io_event (:α) be (EL 1 ios) = ObsOutput os))
-    | LPanic p => F)) ∧
+    | LPanic p =>
+        case p of
+        | PanicInput i =>
+            n = 1 ∧
+            let
+              obs_io = decode_io_event (:α) be (EL 1 ios)
+            in
+              Input i = THE (to_input obs_io)
+        | _ => F)) ∧
   (decode_ios (:α) be _ _ ios ⇔ F)
 End
 
@@ -9998,29 +10006,59 @@ Proof
 QED
 
 
-Definition up_until_first_panic_def:
-  (up_until_first_panic [] = []) ∧
-  (up_until_first_panic (lbl::lbls) =
-   case lbl of
-   | LPanic p => LPanic p::up_until_first_panic [] (* could simply be [] *)
-   | _ => lbl::up_until_first_panic lbls)
+Definition has_panic_def:
+  has_panic lbls ⇔
+  ∃lbl.
+    MEM lbl lbls ∧
+    (lbl = LPanic (PanicTimeout) ∨
+     (∃is. lbl = LPanic is))
 End
 
-Definition until_first_panic_def:
-  (until_first_panic [] = []) ∧
-  (until_first_panic (lbl::lbls) =
-   case lbl of
-   | LPanic p => []
-   | _ => lbl::until_first_panic lbls)
-End
-
-Definition first_panic_def:
-  (first_panic [] = NONE) ∧
-  (first_panic (lbl::lbls) =
+Definition panic_at_def:
+  (panic_at [] = NONE) ∧
+  (panic_at (lbl::lbls) =
    case lbl of
    | LPanic p => SOME p
-   | _ => first_panic lbls)
+   | _ => panic_at lbls)
 End
+
+
+Definition until_panic_def:
+  (until_panic [] = []) ∧
+  (until_panic (lbl::lbls) =
+   case lbl of
+   | LPanic p => []
+   | _ => lbl::until_panic lbls)
+End
+
+Definition uptil_panic_def:
+  (uptil_panic [] = []) ∧
+  (uptil_panic (lbl::lbls) =
+   case lbl of
+   | LPanic p => [LPanic p]
+   | _ => lbl::uptil_panic lbls)
+End
+
+Definition slice_labels_def:
+  (slice_labels [] = []) ∧
+  (slice_labels (lbl::lbls) =
+   case lbl of
+   | LPanic p =>
+       (case p of
+        | PanicTimeout => []
+        | _ => [LPanic p])
+  | _ => lbl::slice_labels lbls)
+End
+
+
+Definition sum_delays_until_panic_def:
+  sum_delays_until_panic (:α) lbls (ffi:time_input) ⇔
+    SUM (MAP (λlbl.
+               case lbl of
+               | LDelay d => d
+               | _ => 0) lbls) + FST (ffi 0) < dimword (:α) − 2
+End
+
 
 (*
 Theorem lbls_until_first_panic_are_no_panic:
@@ -10038,63 +10076,6 @@ QED
 *)
 
 (* until_first_panic, sum_delay_until_panic *)
-
-Definition has_panic_def:
-  has_panic lbls ⇔
-  ∃lbl.
-    MEM lbl lbls ∧
-    (lbl = LPanic (PanicTimeout) ∨
-     (∃is. lbl = LPanic is))
-End
-
-Definition sum_delays_until_first_panic_def:
-  sum_delays_until_first_panic (:α) lbls (ffi:time_input) ⇔
-    SUM (MAP (λlbl.
-               case lbl of
-               | LDelay d => d
-               | _ => 0) lbls) + FST (ffi 0) < dimword (:α) − 2
-End
-
-
-Definition decode_ios_until_first_panic_def:
-  (decode_ios_until_first_panic (:α) be [] [] ios ⇔ LENGTH ios = 1) ∧
-  (decode_ios_until_first_panic (:α) be (lbl::lbls) (n::ns) ios ⇔
-   SUM (n::ns) = LENGTH ios ∧
-   (case lbl of
-    | LDelay d =>
-        (if n = 0
-         then d = 0 ∧ decode_ios_until_first_panic (:α) be lbls ns ios
-         else
-           let
-             m' = EL 0 (io_event_dest (:α) be (HD ios));
-             nios = TAKE n (TL ios);
-             obs_ios = decode_io_events (:'a) be nios;
-             m = THE (to_delay (EL (LENGTH obs_ios - 1) obs_ios))
-           in
-             d = m - m' ∧
-             decode_ios_until_first_panic (:α) be lbls ns (DROP n ios))
-    | LAction act =>
-        (n = 1 ∧
-         decode_ios_until_first_panic (:α) be lbls ns (DROP 1 ios) ∧
-         (case act of
-          | Input i =>
-              let
-                obs_io = decode_io_event (:α) be (EL 1 ios)
-              in
-                Input i = THE (to_input obs_io)
-          | Output os =>
-              decode_io_event (:α) be (EL 1 ios) = ObsOutput os))
-    | LPanic p =>
-        case p of
-        | PanicInput i =>
-            n = 1 ∧
-            let
-              obs_io = decode_io_event (:α) be (EL 1 ios)
-            in
-              Input i = THE (to_input obs_io)
-         | _ => F)) ∧
-  (decode_ios_until_first_panic (:α) _ _ _ _ ⇔ F)
-End
 
 Definition decode_ios_def:
   (decode_ios (:α) be [] [] ios ⇔ LENGTH ios = 1) ∧
@@ -10122,12 +10103,19 @@ Definition decode_ios_def:
                 obs_io = decode_io_event (:α) be (EL 1 ios)
               in
                 Input i = THE (to_input obs_io)
-           | Output os =>
-               decode_io_event (:α) be (EL 1 ios) = ObsOutput os))
-    | LPanic p => ARB)) ∧
+          | Output os =>
+              decode_io_event (:α) be (EL 1 ios) = ObsOutput os))
+    | LPanic p =>
+        case p of
+        | PanicInput i =>
+            n = 1 ∧
+            let
+              obs_io = decode_io_event (:α) be (EL 1 ios)
+            in
+              Input i = THE (to_input obs_io)
+        | _ => F)) ∧
   (decode_ios (:α) be _ _ ios ⇔ F)
 End
-
 
 (* have cases on the first panic *)
 (* this is the case when the first panic occur after *)
@@ -10136,28 +10124,17 @@ Theorem steps_io_event_first_panic_after_dimword_sub_2_thm:
     steps prog labels (dimword (:α) - 1) n st sts ∧
     has_panic labels ∧
     assumptions prog n st t ∧
-    ffi_rels prog (up_until_first_panic labels) st t ist ∧
-    sum_delays_until_first_panic (:α) (until_first_panic labels) t.ffi.ffi_state ⇒
+    ffi_rels prog (uptil_panic labels) st t ist ∧
+    sum_delays_until_panic (:α) (until_panic labels) t.ffi.ffi_state ⇒
     ∃ck t' ns ios.
       evaluate (time_to_pan$always (nClks prog), t with clock := t.clock + ck) =
       (SOME (Exception «panic» (ValWord 0w)),t') ∧
       t'.ffi.io_events = t.ffi.io_events ++ ios ∧
-      LENGTH (up_until_first_panic labels) = LENGTH ns ∧
-      SUM ns + 1 = LENGTH ios ∧
+      LENGTH (slice_labels labels) = LENGTH ns ∧
+      SUM ns = LENGTH ios ∧
       t'.be = t.be ∧
-      decode_ios (:α) t'.be (up_until_first_panic labels) ns
-                 (LAST t.ffi.io_events::TAKE (SUM ns) ios)
-      (*
-      (*
-      LENGTH (case first_panic labels of
-              | SOME PanicTimeout => until_first_panic labels
-              | SOME (PanicInput _) => up_until_first_panic labels
-              | NONE => []) =
-      LENGTH ns ∧
-      SUM ns = LENGTH ios ∧ *)
-      t'.be = t.be ∧
-      abc
-      (:α) t'.be (up_until_first_panic labels) ns (LAST t.ffi.io_events::ios) *)
+       decode_ios (:α) t'.be (slice_labels labels) ns
+                 (LAST t.ffi.io_events::ios)
 Proof
   rw [] >>
   gs [] >>
@@ -10181,7 +10158,7 @@ Proof
   gs [evaluations_def, steps_def] >>
   cases_on ‘h’ >> gs []
   >- (
-    gs [up_until_first_panic_def, ffi_rels_def, ffi_rel_def] >>
+    gs [uptil_panic_def, ffi_rels_def, ffi_rel_def, slice_labels_def, panic_at_def] >>
     first_x_assum drule >>
     gs [] >>
     strip_tac >>
@@ -10196,7 +10173,7 @@ Proof
       >- (
         first_x_assum match_mp_tac >>
         metis_tac []) >>
-      gvs [until_first_panic_def, sum_delays_until_first_panic_def]) >>
+      gvs [until_panic_def, sum_delays_until_panic_def]) >>
     strip_tac >>
     first_x_assum (qspec_then ‘ck'’ assume_tac) >>
     qexists_tac ‘ck + ck'’ >> gs [] >>
@@ -10212,18 +10189,13 @@ Proof
       gs []) >>
     conj_asm1_tac
     >-  gs [mk_ti_events_def, gen_ffi_states_def] >>
-    (*
-     gs [] >>
-     cases_on ‘ios’ >>
-     gvs [FRONT_APPEND]*)
     conj_asm1_tac
     >- gs [TAKE_SUM] >>
     qmatch_asmsub_abbrev_tac ‘decode_ios _ _ _ ns nios’ >>
     qmatch_goalsub_abbrev_tac ‘decode_ios _ _ _ ns nios'’ >>
     ‘nios = nios'’ by (
       gs [Abbr ‘nios’, Abbr ‘nios'’] >>
-      gs [TAKE_SUM] >>
-      qmatch_goalsub_abbrev_tac ‘TAKE _ (xs ++ _)’ >>
+      qmatch_goalsub_abbrev_tac ‘DROP _ (xs ++ _)’ >>
       ‘cycles = LENGTH xs’ by
         gs [Abbr ‘xs’, mk_ti_events_def, gen_ffi_states_def] >>
       gs [TAKE_LENGTH_APPEND, DROP_LENGTH_APPEND] >>
@@ -10241,8 +10213,12 @@ Proof
       simp [LAST_APPEND_CONS] >> gvs [] >>
       ‘LENGTH t'³' − SUC (LENGTH t'³') = 0’ by gs [] >>
       simp [] >>
-      gs [DROP_LENGTH_NIL, TAKE_LENGTH_APPEND, LAST_CONS_cond] >>
-      cases_on ‘t'''’ >> gvs []) >>
+      conj_asm1_tac
+      >- (
+        gs [DROP_LENGTH_NIL, TAKE_LENGTH_APPEND, LAST_CONS_cond] >>
+        cases_on ‘t'''’ >> gvs []) >>
+      ‘SUC (LENGTH t'³') − (SUC (LENGTH t'³') + 1)= 0’ by gs [] >>
+      simp []) >>
     qpat_x_assum ‘obs_ios_are_label_delay _ _ _’ mp_tac >>
     gs [obs_ios_are_label_delay_def] >>
     strip_tac >>
@@ -10254,18 +10230,53 @@ Proof
       gs [ZIP_EQ_NIL]) >>
     strip_tac >>
     gs [] >>
-    qmatch_goalsub_abbrev_tac ‘TAKE _ (TAKE _ (xs ++ _))’ >>
-    ‘TAKE cycles (TAKE (cycles + SUM ns) (xs ++ ios)) =
+    qmatch_goalsub_abbrev_tac ‘TAKE _ (xs ++ _)’ >>
+    ‘TAKE cycles (xs ++ ios) =
      xs’ by (
       ‘cycles = LENGTH xs’ by
          gs [Abbr ‘xs’, mk_ti_events_def, gen_ffi_states_def] >>
       simp [] >>
-      gs [TAKE_SUM, TAKE_LENGTH_APPEND]) >>
+      gs [TAKE_LENGTH_APPEND]) >>
     gs [Abbr ‘xs’, DROP_LENGTH_APPEND])
   >- (
-  cases_on ‘i’
-  >- (
-    gs [up_until_first_panic_def, ffi_rels_def, ffi_rel_def, action_rel_def] >>
+    cases_on ‘i’
+    >- (
+      gs [uptil_panic_def, ffi_rels_def, ffi_rel_def, action_rel_def, slice_labels_def, panic_at_def] >>
+      first_x_assum drule >>
+      disch_then (qspec_then ‘nt’ mp_tac) >>
+      impl_tac >- gs [] >>
+      strip_tac >>
+      last_x_assum drule >>
+      disch_then (qspecl_then [‘nt’, ‘ist’] mp_tac) >>
+      impl_tac
+      >- (
+        conj_tac >- cheat >>
+        gvs [assumptions_def] >>
+        gs [nexts_ffi_def, input_rel_def] >>
+        qpat_x_assum ‘state_rel _ _ _ t’ assume_tac >>
+        gs [state_rel_def] >>
+        pairarg_tac >> gs [] >>
+        gs [input_time_rel_def] >>
+        gs [input_time_eq_def, has_input_def] >>
+        first_x_assum (qspec_then ‘0’ mp_tac) >>
+        impl_tac
+        >- (
+          gs [] >>
+          gs [input_rel_def, next_ffi_def]) >>
+        gs [next_ffi_def] >>
+        strip_tac >>
+        gvs [until_panic_def, sum_delays_until_panic_def]) >>
+      strip_tac >>
+      first_x_assum (qspec_then ‘ck'’ assume_tac) >>
+      qexists_tac ‘ck + ck'’ >> gs [] >>
+      gs [input_io_events_rel_def] >>
+      qexists_tac ‘1::ns’ >>
+      rewrite_tac [decode_ios_def] >>
+      gs [] >>
+      gs [to_input_def, DROP_LENGTH_APPEND, decode_io_events_def] >>
+      ‘LENGTH ios − 1 = SUM ns’ by gs [] >>
+      simp []) >>
+    gs [uptil_panic_def, ffi_rels_def, ffi_rel_def, action_rel_def, slice_labels_def, panic_at_def] >>
     first_x_assum drule >>
     disch_then (qspec_then ‘nt’ mp_tac) >>
     impl_tac >- gs [] >>
@@ -10275,192 +10286,21 @@ Proof
     impl_tac
     >- (
       conj_tac >- cheat >>
-      gvs [assumptions_def] >>
-      gs [nexts_ffi_def, input_rel_def] >>
-      qpat_x_assum ‘state_rel _ _ _ t’ assume_tac >>
-      gs [state_rel_def] >>
-      pairarg_tac >> gs [] >>
-      gs [input_time_rel_def] >>
-      gs [input_time_eq_def, has_input_def] >>
-      first_x_assum (qspec_then ‘0’ mp_tac) >>
-      impl_tac
-      >- (
-        gs [] >>
-        gs [input_rel_def, next_ffi_def]) >>
-      gs [next_ffi_def] >>
-      strip_tac >>
-      gvs [until_first_panic_def, sum_delays_until_first_panic_def]) >>
+      gs [assumptions_def] >>
+      gvs [until_panic_def, sum_delays_until_panic_def]) >>
     strip_tac >>
     first_x_assum (qspec_then ‘ck'’ assume_tac) >>
     qexists_tac ‘ck + ck'’ >> gs [] >>
-    gs [input_io_events_rel_def] >>
+    gs [output_io_events_rel_def] >>
     qexists_tac ‘1::ns’ >>
     rewrite_tac [decode_ios_def] >>
-    gs [] >>
     gs [to_input_def, DROP_LENGTH_APPEND, decode_io_events_def] >>
     ‘LENGTH ios − 1 = SUM ns’ by gs [] >>
     simp []) >>
-  gs [up_until_first_panic_def, ffi_rels_def, ffi_rel_def, action_rel_def] >>
-  first_x_assum drule >>
-  disch_then (qspec_then ‘nt’ mp_tac) >>
-  impl_tac >- gs [] >>
-  strip_tac >>
-  last_x_assum drule >>
-  disch_then (qspecl_then [‘nt’, ‘ist’] mp_tac) >>
-  impl_tac
-  >- (
-    conj_tac >- cheat >>
-    gs [assumptions_def] >>
-    gvs [until_first_panic_def, sum_delays_until_first_panic_def]) >>
-  strip_tac >>
-  first_x_assum (qspec_then ‘ck'’ assume_tac) >>
-  qexists_tac ‘ck + ck'’ >> gs [] >>
-  gs [output_io_events_rel_def] >>
-  qexists_tac ‘1::ns’ >>
-  rewrite_tac [decode_ios_def] >>
-  gs [to_input_def, DROP_LENGTH_APPEND, decode_io_events_def] >>
-  ‘LENGTH ios − 1 = SUM ns’ by gs [] >>
-  simp [])
-
-
-
-  )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    strip_tac >>
-    first_x_assum (qspec_then ‘ck'’ assume_tac) >>
-    qexists_tac ‘ck + ck'’ >> gs [] >>
-
-
-
-    gvs [first_panic_def, until_first_panic_def] >>
-
-    gs [abc_def] >>
-    qexists_tac ‘cycles::ns’ >>
-    rewrite_tac [abc_def] >>
-    gs [] >>
-    cases_on ‘cycles = 0’ >> gs []
-    >- (
-      gs [mk_ti_events_def, gen_ffi_states_def] >>
-      gs [delay_rep_def] >>
-      qexists_tac ‘ios’ >> gvs [] >>
-      conj_asm1_tac >- cheat >>
-      gvs []
-
-
-
-      drule decode_ios_length_eq_sum >>
-      gs []) >>
-    conj_asm1_tac
-    >-  gs [mk_ti_events_def, gen_ffi_states_def] >>
-    (*
-     gs [] >>
-     cases_on ‘ios’ >>
-     gvs [FRONT_APPEND]*)
-    conj_asm1_tac
-    >- gs [TAKE_SUM] >>
-    qmatch_asmsub_abbrev_tac ‘decode_ios _ _ _ ns nios’ >>
-    qmatch_goalsub_abbrev_tac ‘decode_ios _ _ _ ns nios'’ >>
-    ‘nios = nios'’ by (
-      gs [Abbr ‘nios’, Abbr ‘nios'’] >>
-      gs [TAKE_SUM] >>
-      qmatch_goalsub_abbrev_tac ‘TAKE _ (xs ++ _)’ >>
-      ‘cycles = LENGTH xs’ by
-        gs [Abbr ‘xs’, mk_ti_events_def, gen_ffi_states_def] >>
-      gs [TAKE_LENGTH_APPEND, DROP_LENGTH_APPEND] >>
-      gs [DROP_APPEND] >>
-      ‘LENGTH xs − 1 − LENGTH xs = 0’ by gs [] >>
-      simp [] >>
-      pop_assum kall_tac >>
-      ‘DROP (LENGTH xs − 1) xs = [LAST xs]’ by (
-        match_mp_tac drop_length_eq_last >>
-        CCONTR_TAC >>
-        gvs []) >>
-      gs [] >>
-      ‘cycles = LENGTH xs’ by gvs [] >>
-      cases_on ‘xs’ >- gs [] >>
-      simp [LAST_APPEND_CONS] >> gvs [] >>
-      ‘LENGTH t'³' − SUC (LENGTH t'³') = 0’ by gs [] >>
-      simp [] >>
-      gs [DROP_LENGTH_NIL, TAKE_LENGTH_APPEND, LAST_CONS_cond] >>
-      cases_on ‘t'''’ >> gvs []) >>
-    qpat_x_assum ‘obs_ios_are_label_delay _ _ _’ mp_tac >>
-    gs [obs_ios_are_label_delay_def] >>
-    strip_tac >>
-    pop_assum mp_tac >>
-    impl_tac
-    >- (
-      CCONTR_TAC >>
-      gs [DROP_LENGTH_APPEND, mk_ti_events_def, gen_ffi_states_def, decode_io_events_def] >>
-      gs [ZIP_EQ_NIL]) >>
-    strip_tac >>
-    gs [] >>
-    qmatch_goalsub_abbrev_tac ‘TAKE _ (TAKE _ (xs ++ _))’ >>
-    ‘TAKE cycles (TAKE (cycles + SUM ns) (xs ++ ios)) =
-     xs’ by (
-      ‘cycles = LENGTH xs’ by
-         gs [Abbr ‘xs’, mk_ti_events_def, gen_ffi_states_def] >>
-      simp [] >>
-      gs [TAKE_SUM, TAKE_LENGTH_APPEND]) >>
-    gs [Abbr ‘xs’, DROP_LENGTH_APPEND])
-
-
-
-
-
-
-
-
-
-
-
-
-
-  )
-  >- cheat >>
   cases_on ‘p’ >> gvs []
   >- (
-    gvs [until_first_panic_def, up_until_first_panic_def, first_panic_def] >>
-    gvs [sum_delays_until_first_panic_def] >>
+    gvs [slice_labels_def, until_panic_def, panic_at_def,
+         sum_delays_until_panic_def, uptil_panic_def] >>
     pop_assum mp_tac >>
     pop_assum mp_tac >>
     impl_tac
@@ -10472,9 +10312,9 @@ Proof
     qexists_tac ‘nt’ >>
     gs [state_component_equality, ffiTheory.ffi_state_component_equality] >>
     (* cases_on ‘t.ffi.io_events’ >> *)
-    gvs [decode_ios_until_first_panic_def]) >>
-  gvs [first_panic_def, up_until_first_panic_def, until_first_panic_def] >>
-  gvs [sum_delays_until_first_panic_def] >>
+    gvs [decode_ios_def]) >>
+  gvs [slice_labels_def, until_panic_def, panic_at_def,
+       sum_delays_until_panic_def, uptil_panic_def] >>
   pop_assum mp_tac >>
   pop_assum mp_tac >>
   impl_tac
@@ -10485,39 +10325,15 @@ Proof
   qexists_tac ‘ck’ >>
   qexists_tac ‘nt’ >>
   gs [state_component_equality, ffiTheory.ffi_state_component_equality] >>
+  gvs [input_io_events_rel_def] >>
   qexists_tac ‘[1]’ >>
   gvs [] >>
-
-
-  gvs [input_io_events_rel_def] >>
   gvs [from_io_events_def, io_events_dest_def] >>
-  gvs [decode_ios_until_first_panic_def]
-
-  (* cases_on ‘t.ffi.io_events’ >> *)
-  gvs [decode_ios_until_first_panic_def] >>
-  gvs [input_io_events_rel_def, decode_ios_until_first_panic_def] >>
-
-
-
-
-
-
-
-
-  )
-
-
-  gvs [until_first_panic_def] >>
-    gvs [ffi_rels_def] >>
-
-
-
-
-
-
-  )
-
-
+  gvs [decode_ios_def] >>
+  gvs [input_io_events_rel_def, decode_io_event_def, mk_ti_event_def] >>
+  gvs [to_input_def, DROP_LENGTH_APPEND, decode_io_events_def] >>
+  gvs [io_event_dest_def] >>
+  cheat
 QED
 
 
