@@ -225,7 +225,7 @@ Overload bignum_limit[local] =
         2 * il + 2 * jl``
 
 (* Gives an upper bound to the memory consuption of an operation *)
-val space_consumed_def = Define `
+Definition space_consumed_def:
   (space_consumed ^s (ConsExtend tag) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
    LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) + 1
   ) /\
@@ -263,7 +263,7 @@ val space_consumed_def = Define `
    | NONE => 0
   ) /\
   (space_consumed s (op:closLang$op) (vs:v list) = 0:num)
-`
+End
 
 val vb_size_def = tDefine"vb_size"`
   (vb_size (Block ts t ls) = 1 + t + SUM (MAP vb_size ls) + LENGTH ls) ∧
@@ -641,7 +641,33 @@ Definition check_lim_def:
                                s.safe_for_space)
 End
 
-val do_app_aux_def = Define `
+Definition do_part_def:
+  do_part m (Int i) s = (Number i, s) ∧
+  do_part m (W64 w) s = (Word64 w, s) ∧
+  do_part m (Con t ns) s =
+    (if ns = [] then (Block 0 t [],s)
+                else with_fresh_ts s 1
+                       (λts s'. (Block ts t (MAP m ns),
+                                 check_lim s' (LENGTH ns)))) ∧
+  do_part m (Str t) s =
+    let ptr = (LEAST ptr. ¬(ptr IN domain s.refs)) in
+    let bytes = MAP (n2w o ORD) t in
+      (RefPtr ptr, s with refs := insert ptr (ByteArray F bytes) s.refs )
+End
+
+Definition do_build_def:
+  do_build m i [] s = do_part m (Int 0) s ∧
+  do_build m i [p] s = do_part m p s ∧
+  do_build m i (p::rest) s =
+    let (x,s1) = do_part m p s in
+      do_build ((i =+ x) m) (i+1) rest s1
+End
+
+Definition do_build_const_def:
+  do_build_const xs s = do_build (λx. Number 0) 0 xs s
+End
+
+Definition do_app_aux_def:
   do_app_aux op ^vs ^s =
     case (op,vs) of
     (* bvi part *)
@@ -717,8 +743,9 @@ val do_app_aux_def = Define `
     | (ConcatByteVec, _) => Rerr (Rabort Rtype_error)
     | (CopyByte T, _)    => Rerr (Rabort Rtype_error)
     (* bvl part *)
+    | (Build parts,[]) => (case do_build_const parts s of (v,s1) => Rval (v,s1))
     | (Cons tag,xs) => (if xs = []
-                        then  Rval (Block 0 tag [],s)
+                        then Rval (Block 0 tag [],s)
                         else with_fresh_ts s 1
                                (λts s'. Rval (Block ts tag xs,
                                               check_lim s' (LENGTH xs))))
@@ -917,7 +944,8 @@ val do_app_aux_def = Define `
                          then Rval (Boolv (i < &n),s) else Error
          | _ => Error)
     | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
-    | _ => Error`;
+    | _ => Error
+End
 
 Overload do_app_safe =
   ``λop vs s. if allowed_op op (LENGTH vs)
@@ -1194,15 +1222,15 @@ End
 
 val evaluate_ind = theorem"evaluate_ind";
 
-val evaluate_safe_def = Define`
+Definition evaluate_safe_def:
   evaluate_safe c s = let (x,s1) = evaluate (c,s)
                       in s1.safe_for_space
-`;
+End
 
-val evaluate_peak_def = Define`
+Definition evaluate_peak_def:
   evaluate_peak c s = let (x,s1) = evaluate (c,s)
                       in s1.peak_heap_length
-`;
+End
 
 (* We prove that the clock never increases. *)
 
@@ -1227,8 +1255,33 @@ Proof
   PURE_TOP_CASE_TAC >> rw[]
 QED
 
+Theorem do_build_const_const:
+  do_build_const xs s = (y,s1) ⇒
+  s1.clock = s.clock ∧
+  s1.code = s.code ∧
+  s1.compile = s.compile ∧
+  s1.compile_oracle = s.compile_oracle ∧
+  s1.ffi = s.ffi ∧
+  s1.global = s.global
+Proof
+  fs [do_build_const_def]
+  \\ rename [‘do_build m a xs s’]
+  \\ EVERY (map qid_spec_tac [‘m’,‘a’,‘xs’,‘s’,‘y’,‘s1’])
+  \\ Induct_on ‘xs’
+  \\ fs [do_build_def,do_part_def]
+  \\ Cases_on ‘xs’
+  \\ fs [do_build_def,do_part_def]
+  THEN1 (Cases_on ‘h’
+         \\ fs [do_part_def,with_fresh_ts_def,check_lim_def,AllCaseEqs()]
+         \\ rw [] \\ gvs [])
+  \\ rw [] \\ pairarg_tac \\ gvs []
+  \\ res_tac \\ Cases_on ‘h'’ \\ gvs [do_part_def]
+  \\ fs [do_part_def,with_fresh_ts_def,check_lim_def,AllCaseEqs()]
+  \\ rw [] \\ gvs []
+QED
+
 Theorem do_app_clock:
-   (dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock
+  (dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock
 Proof
   rw[ do_app_def
     , do_app_aux_def
@@ -1241,6 +1294,7 @@ Proof
     , UNCURRY
     , check_lim_def
     ]
+  \\ imp_res_tac do_build_const_const
   \\ rw[do_stack_clock]
 QED
 
