@@ -308,4 +308,23 @@ Definition start_controller_def:
 End
 
 
+Definition ta_controller_def:
+  ta_controller (ta_prog:program) =
+  decs
+  [
+    («retvar», Const 0w);
+    («excpvar», Const 0w)
+  ]
+  (nested_seq
+   [
+     Call (Ret «retvar»
+           (SOME (Handle «panic» «excpvar» (Return (Const 1w)))))
+     (Label «start_controller»)
+     [];
+     Return (Const 0w)
+   ])
+End
+
+
+
 val _ = export_theory();

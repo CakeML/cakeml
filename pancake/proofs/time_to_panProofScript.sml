@@ -1028,8 +1028,9 @@ Definition wf_prog_init_states_def:
     st.location =  FST (ohd prog) ∧
     init_clocks st.clocks (clksOf prog) ∧
     code_installed t.code prog ∧
-    FLOOKUP t.code «start» =
-    SOME ([], start_controller (prog,st.waitTime)) ∧
+    FLOOKUP t.code «start» = SOME ([],ta_controller (prog,st.waitTime)) ∧
+    FLOOKUP t.code «start_controller» =
+    SOME ([],start_controller (prog,st.waitTime)) ∧
     FLOOKUP t.eshapes «panic» = SOME One ∧
     well_formed_code prog t.code ∧
     mem_config t.memory t.memaddrs t.be ∧
@@ -9470,7 +9471,9 @@ Definition wf_prog_and_init_states_def:
     code_installed t.code prog ∧
     FLOOKUP t.eshapes «panic» = SOME One ∧
     FLOOKUP t.code «start» =
-      SOME ([], start_controller (prog,st.waitTime)) ∧
+    SOME ([], ta_controller (prog,st.waitTime)) ∧
+    FLOOKUP t.code «start_controller» =
+    SOME ([], start_controller (prog,st.waitTime)) ∧
     well_formed_code prog t.code ∧
     mem_config t.memory t.memaddrs t.be ∧
     mem_read_ffi_results (:α) t.ffi.ffi_state 1 ∧
@@ -9618,11 +9621,30 @@ Proof
         unabbrev_all_tac >>
         gs [state_component_equality]) >>
       gs [ffi_call_ffi_def]) >>
-    qexists_tac ‘ck + 1’ >>
+    qexists_tac ‘ck + 2’ >>
     rw [] >>
     once_rewrite_tac [evaluate_def] >>
     gs [] >>
     gs [eval_def, OPT_MMAP_def, lookup_code_def, dec_clock_def, FUPDATE_LIST] >>
+    (* qpat_x_assum ‘FLOOKUP t.code _ = _’  kall_tac >> *)
+    (* ta_controller *)
+    fs [ta_controller_def, panLangTheory.decs_def] >>
+    once_rewrite_tac [evaluate_def] >>
+    gs [eval_def] >>
+    once_rewrite_tac [evaluate_def] >>
+    gs [eval_def] >>
+    pairarg_tac >> gvs [] >>
+    pairarg_tac >> gvs [] >>
+    pop_assum mp_tac >>
+    gs [panLangTheory.nested_seq_def] >>
+    once_rewrite_tac [evaluate_def] >>
+    gs [] >>
+    pairarg_tac >> gvs [] >>
+    pop_assum mp_tac >>
+    once_rewrite_tac [evaluate_def] >>
+    gvs [eval_def] >>
+    gs [eval_def, OPT_MMAP_def, lookup_code_def, dec_clock_def, FUPDATE_LIST] >>
+    qpat_x_assum ‘FLOOKUP t.code _ = _’  kall_tac >>
     qpat_x_assum ‘FLOOKUP t.code _ = _’  kall_tac >>
     (* start contoller *)
     fs [start_controller_def, panLangTheory.decs_def] >>
@@ -9831,6 +9853,9 @@ Proof
     strip_tac >>
     gvs [empty_locals_def] >>
     gs [ffi_call_ffi_def] >>
+    gvs [shape_of_def, set_var_def] >>
+    strip_tac >> gvs [] >>
+    strip_tac >> gvs [panLangTheory.size_of_shape_def] >>
     qexists_tac ‘ns’ >> gvs []) >>
   gs [semantics_def] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
@@ -10276,7 +10301,7 @@ Proof
   gs [to_input_def, DROP_LENGTH_APPEND, decode_io_events_def]
 QED
 
-Theorem timed_automata_no_panic_correct:
+Theorem timed_automata_until_panic_correct:
   ∀prog labels st sts (t:('a,time_input) panSem$state).
     steps prog labels
           (dimword (:α) - 1) (FST (t.ffi.ffi_state 0)) st sts ∧
@@ -10285,7 +10310,7 @@ Theorem timed_automata_no_panic_correct:
     ffi_rels_after_init prog (uptil_panic labels) st t ∧
     sum_delays_until_panic (:α) (until_panic labels) (next_ffi t.ffi.ffi_state) ⇒
     ∃io ios ns.
-      semantics t «start» = Fail ∧
+      semantics t «start» = Terminate Success (io::ios) ∧
       LENGTH (slice_labels labels) = LENGTH ns ∧
       SUM ns = LENGTH ios ∧
       decode_ios (:α) t.be (slice_labels labels) ns (io::ios)
@@ -10294,7 +10319,7 @@ Proof
   ‘∃ck t' io ios ns.
      evaluate
      (TailCall (Label «start» ) [],t with clock := t.clock + ck) =
-     (SOME (Exception «panic» (ValWord 0w)),t') ∧
+     (SOME (Return (ValWord 1w)),t') ∧
      t'.ffi.io_events = t.ffi.io_events ++ io::ios ∧
      LENGTH (slice_labels labels') = LENGTH ns ∧
      SUM ns = LENGTH ios ∧
@@ -10406,11 +10431,29 @@ Proof
         unabbrev_all_tac >>
         gs [state_component_equality]) >>
       gs [ffi_call_ffi_def]) >>
-    qexists_tac ‘ck + 1’ >>
+    qexists_tac ‘ck + 2’ >>
     rw [] >>
     once_rewrite_tac [evaluate_def] >>
     gs [] >>
     gs [eval_def, OPT_MMAP_def, lookup_code_def, dec_clock_def, FUPDATE_LIST] >>
+
+    fs [ta_controller_def, panLangTheory.decs_def] >>
+    once_rewrite_tac [evaluate_def] >>
+    gs [eval_def] >>
+    once_rewrite_tac [evaluate_def] >>
+    gs [eval_def] >>
+    pairarg_tac >> gvs [] >>
+    pairarg_tac >> gvs [] >>
+    pop_assum mp_tac >>
+    gs [panLangTheory.nested_seq_def] >>
+    once_rewrite_tac [evaluate_def] >>
+    gs [] >>
+    pairarg_tac >> gvs [] >>
+    pop_assum mp_tac >>
+    once_rewrite_tac [evaluate_def] >>
+    gvs [eval_def] >>
+    gs [eval_def, OPT_MMAP_def, lookup_code_def, dec_clock_def, FUPDATE_LIST] >>
+    qpat_x_assum ‘FLOOKUP t.code _ = _’  kall_tac >>
     qpat_x_assum ‘FLOOKUP t.code _ = _’  kall_tac >>
     (* start contoller *)
     fs [start_controller_def, panLangTheory.decs_def] >>
@@ -10619,11 +10662,31 @@ Proof
     strip_tac >>
     gvs [empty_locals_def] >>
     gs [ffi_call_ffi_def] >>
+    gvs [shape_of_def, set_var_def] >>
+    strip_tac >> gvs [] >>
+    strip_tac >> gvs [panLangTheory.size_of_shape_def] >>
     qexists_tac ‘ns’ >> gvs []) >>
-  gs [semantics_def] >>
+    gs [semantics_def] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   rw []
-  >- metis_tac []
+  >- (
+    cases_on
+    ‘evaluate (TailCall (Label «start» ) [],t with clock := k')’ >>
+    gs [] >>
+    cases_on ‘q = SOME TimeOut’ >>
+    gs [] >>
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘k'’ assume_tac) >>
+    gs [] >>
+    strip_tac >>
+    strip_tac >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘ck + t.clock’ assume_tac) >>
+    gs [])
   >- (
     gs [] >>
     first_x_assum (qspec_then ‘ck + t.clock’ assume_tac) >> gs [] >>
@@ -10645,13 +10708,84 @@ Proof
     gs [] >> gvs [] >>
     MAP_EVERY qexists_tac [‘io’, ‘ios’, ‘ns’] >>
     gvs [state_component_equality])
-  >- metis_tac [] >>
+  >- (
+    cases_on
+    ‘evaluate (TailCall (Label «start» ) [],t with clock := k)’ >>
+    gs [] >>
+    cases_on ‘q = SOME TimeOut’ >>
+    gs [] >>
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘k’ assume_tac) >>
+    gs [] >>
+    strip_tac >>
+    strip_tac >>
+    drule evaluate_add_clock_eq >>
+    gs [] >>
+    disch_then (qspec_then ‘ck + t.clock’ assume_tac) >>
+    gs []) >>
   gs [] >>
   qexists_tac ‘ck + t.clock’ >>
-  gs [] >>
-  pop_assum (qspec_then ‘ck + t.clock’ assume_tac) >>
-  gvs []
+  gs []
 QED
+
+Theorem timed_automata_until_panic_functional_correct:
+  ∀k prog or st sts labels (t:('a,time_input) panSem$state).
+    timeFunSem$eval_steps k prog
+               (dimword (:α) - 1) (FST (t.ffi.ffi_state 0))
+               or st = SOME (labels, sts) ∧
+    has_panic labels ∧
+    wf_prog_and_init_states prog st t ∧
+    ffi_rels_after_init prog (uptil_panic labels) st t ∧
+    sum_delays_until_panic (:α) (until_panic labels) (next_ffi t.ffi.ffi_state) ⇒
+    ∃io ios ns.
+      semantics t «start» = Terminate Success (io::ios) ∧
+      LENGTH (slice_labels labels) = LENGTH ns ∧
+      SUM ns = LENGTH ios ∧
+      decode_ios (:α) t.be (slice_labels labels) ns (io::ios)
+Proof
+  rw [] >>
+  dxrule eval_steps_imp_steps >>
+  strip_tac >>
+  metis_tac [timed_automata_until_panic_correct]
+QED
+
+
+Theorem io_trace_impl_eval_steps:
+  ∀prog st (t:('a,time_input) panSem$state) or.
+    wf_prog_init_states prog or st t ⇒
+    ∃k.
+      ffi_rels_after_init prog
+                          (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) st t ∧
+      no_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ∧
+      sum_delays (:α) (labels_of k prog (dimword (:α) - 1) (systime_at t) or st)
+                 (next_ffi t.ffi.ffi_state) ⇒
+        ∃lbls sts io ios ns.
+          timeFunSem$eval_steps k prog (dimword (:α) - 1) (systime_at t) or st =
+          SOME (lbls, sts) ∧
+          semantics t «start» = Terminate Success (io::ios) ∧
+          LENGTH lbls = LENGTH ns ∧ SUM ns + 1 = LENGTH ios ∧
+          decode_ios (:α) t.be lbls ns (io::FRONT ios)
+Proof
+  rw [] >>
+  gs [wf_prog_init_states_def, systime_at_def] >>
+  qexists_tac ‘k’ >>
+  strip_tac >>
+  ‘∃lbls sts.
+     timeFunSem$eval_steps k prog (dimword (:α) − 1)
+                           (FST (t.ffi.ffi_state 0)) or st = SOME (lbls,sts)’ by (
+    gs [GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE] >>
+    cases_on ‘(timeFunSem$eval_steps k prog (dimword (:α) − 1)
+               (FST (t.ffi.ffi_state 0)) or st)’ >>
+    gs [IS_SOME_DEF] >>
+    cases_on ‘x’ >> gs []) >>
+  gs [labels_of_def] >>
+  metis_tac [timed_automata_no_panic_functional_correct,
+             wf_prog_and_init_states_def]
+QED
+
 
 
 
