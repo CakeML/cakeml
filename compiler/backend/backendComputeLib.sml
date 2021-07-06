@@ -379,6 +379,8 @@ val add_backend_compset = computeLib.extend_compset
       (* ---- data_space ---- *)
     ,data_spaceTheory.pMakeSpace_def
     ,data_spaceTheory.space_def
+    ,data_spaceTheory.num_size_def
+    ,data_spaceTheory.part_space_req_def
     ,data_spaceTheory.op_space_req_def
     ,data_spaceTheory.compile_def
       (* ---- data_live ---- *)
