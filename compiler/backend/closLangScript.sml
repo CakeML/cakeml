@@ -13,7 +13,21 @@ val _ = set_grammar_ancestry ["ast"]
 
 (* compilation from this language removes closures *)
 
-val _ = Datatype `
+Datatype:
+  const = ConstCons num (const list)
+        | ConstInt int
+        | ConstStr string
+        | ConstWord64 word64
+End
+
+Datatype:
+  const_part = Con num (num list)
+             | Int int
+             | Str string
+             | W64 word64
+End
+
+Datatype:
   op = Global num    (* load global var with index *)
      | SetGlobal num (* assign a value to a global *)
      | AllocGlobal   (* make space for a new global *)
@@ -53,6 +67,8 @@ val _ = Datatype `
      | Equal         (* structural equality *)
      | EqualInt int  (* equal to integer constant *)
      | Const int     (* integer *)
+     | Constant const (* produces a constant value *)
+     | Build (const_part list)  (* implementation of Constant above *)
      | Add           (* + over the integers *)
      | Sub           (* - over the integers *)
      | Mult          (* * over the integers *)
@@ -76,9 +92,10 @@ val _ = Datatype `
      | BoundsCheckByte bool (* T = loose (<=) bound *)
      | LessConstSmall num
      | ConfigGC
-     | Install`
+     | Install
+End
 
-val _ = Datatype `
+Datatype:
   exp = Var tra num
       | If tra exp exp exp
       | Let tra (exp list) exp
@@ -89,7 +106,8 @@ val _ = Datatype `
       | App tra (num option) exp (exp list)
       | Fn mlstring (num option) (num list option) num exp
       | Letrec (mlstring list) (num option) (num list option) ((num # exp) list) exp
-      | Op tra op (exp list) `;
+      | Op tra op (exp list)
+End
 
 val exp_size_def = definition"exp_size_def";
 
