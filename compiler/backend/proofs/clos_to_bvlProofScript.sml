@@ -6,7 +6,7 @@ open preamble
      closLangTheory closSemTheory closPropsTheory
      bvlSemTheory bvlPropsTheory
      bvl_jumpProofTheory
-     clos_to_bvlTheory
+     clos_to_bvlTheory clos_constantProofTheory
      backend_commonTheory;
 
 local
@@ -1400,21 +1400,22 @@ Proof
   \\ rw [] \\ fs [v_rel_SIMP, closSemTheory.list_to_v_def, list_to_v_def]
 QED
 
-val do_app = Q.prove(
-  `(do_app op xs s1 = Rval (v,s2)) /\
+Theorem do_app[local]:
+   (do_app op xs s1 = Rval (v,s2)) /\
    state_rel f s1 t1 /\
    LIST_REL (v_rel s1.max_app f t1.refs t1.code) xs ys /\
    (* store updates need special treatment *)
    (op <> Ref) /\ (op <> Update) ∧
    (op ≠ RefArray) ∧ (∀f. op ≠ RefByte f) ∧ (op ≠ UpdateByte) ∧
    (∀s. op ≠ String s) ∧ (op ≠ FromListByte) ∧ op ≠ ConcatByteVec ∧
-   (∀b. op ≠ CopyByte b) ∧
+   (∀b. op ≠ CopyByte b) ∧ (∀c. op ≠ Constant c) ∧
    (∀n. op ≠ (FFI n)) ==>
    ?w t2.
      (do_app (compile_op op) ys t1 = Rval (w,t2)) /\
      v_rel s1.max_app f t1.refs t1.code v w /\
      state_rel f s2 t2 /\
-     (t1.refs = t2.refs) /\ (t1.code = t2.code)`,
+     (t1.refs = t2.refs) /\ (t1.code = t2.code)
+Proof
   Cases_on `op = ListAppend`
   >-
    (rw []
@@ -1636,7 +1637,8 @@ val do_app = Q.prove(
   \\ rpt (TOP_CASE_TAC \\ fs [])
   \\ full_simp_tac(srw_ss())[v_rel_SIMP] \\ srw_tac[][v_rel_SIMP]
   \\ full_simp_tac(srw_ss())[v_rel_SIMP] \\ srw_tac[][v_rel_SIMP]
-  \\ CCONTR_TAC \\ fs []);
+  \\ CCONTR_TAC \\ fs []
+QED
 
 val v_case_eq_thms =
   LIST_CONJ [
@@ -3350,19 +3352,6 @@ Proof
     \\ IMP_RES_TAC SUBMAP_TRANS \\ full_simp_tac(srw_ss())[])
   THEN1 (* Op *)
    (Cases_on `op = Install` THEN1
-(*
-    (rveq \\ fs[] \\ rveq \\ fs[]
-     \\ fs[closSemTheory.evaluate_def]
-     \\ fs[case_eq_thms] \\ rveq \\ fs[]
-     \\ fs[compile_exps_def]
-     \\ pairarg_tac \\ fs[] \\ rveq
-     \\ first_x_assum drule
-     \\ disch_then drule
-     \\ disch_then drule
-     \\ rw[] \\ simp[bEval_def]
-     \\ qexists_tac`ck` \\ simp[]
-     \\ asm_exists_tac \\ rw[])
-*)
      (rveq \\ fs [] \\ rveq
       \\ fs [cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
       \\ pairarg_tac \\ fs []
@@ -3664,6 +3653,7 @@ Proof
       \\ match_mp_tac LIST_REL_IMP_LAST \\ fs []
       \\ disj2_tac \\ CCONTR_TAC \\ fs []
       )
+
     \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
     \\ `?p. evaluate (xs,env,s) = p` by full_simp_tac(srw_ss())[] \\ PairCases_on `p` \\ full_simp_tac(srw_ss())[]
@@ -3690,6 +3680,8 @@ Proof
       strip_tac >> simp[] >>
       first_assum(match_exists_tac o concl) >> simp[])
     \\ (Cases_on `a'`) \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ Cases_on ‘∃c. op = Constant c’
+    THEN1 cheat
     \\ Cases_on `op = Ref` \\ full_simp_tac(srw_ss())[]
     THEN1
      (full_simp_tac(srw_ss())[closSemTheory.do_app_def,LET_DEF] \\ SRW_TAC [] []
