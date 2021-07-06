@@ -75,7 +75,6 @@ Theorem do_app_Rval_swap:
           clock := x1.clock; ffi := x1.ffi |>)
 Proof
   rw[do_app_cases_val] \\ rfs[SUBSET_DEF] \\ fs []
-  \\ strip_tac \\ res_tac \\ fs []
 QED
 
 Theorem do_app_with_code:
@@ -706,7 +705,7 @@ Proof
 QED
 
 Theorem evaluate_genlist_vars_rev:
-   !skip env n st.
+  ∀skip env n st.
     n + skip ≤ LENGTH env ⇒
     evaluate (REVERSE (GENLIST (λarg. Var (arg + skip)) n), env, st) =
     (Rval (REVERSE (TAKE n (DROP skip env))), st)
@@ -720,12 +719,24 @@ Proof
   metis_tac [evaluate_var_reverse]
 QED
 
+Triviality do_build_SUBSET:
+  ∀m n parts refs q rs.
+    do_build m n parts refs = (q,rs) ⇒ FDOM refs SUBSET FDOM rs
+Proof
+  Induct_on ‘parts’ \\ fs [do_build_def,do_part_def]
+  \\ Cases_on ‘parts’ \\ fs [do_build_def,do_part_def]
+  \\ Cases \\ fs [do_build_def,do_part_def]
+  \\ fs [SUBSET_DEF] \\ rw [] \\ res_tac
+  \\ fs [FDOM_FUPDATE]
+QED
+
 Theorem do_app_refs_SUBSET:
-   (do_app op a r = Rval (q,t)) ==> FDOM r.refs SUBSET FDOM t.refs
+  (do_app op a r = Rval (q,t)) ==> FDOM r.refs SUBSET FDOM t.refs
 Proof
   rw [do_app_cases_val] >>
   fs [SUBSET_DEF,IN_INSERT,dec_clock_def,do_install_def] >>
-  fs [UNCURRY] >> every_case_tac >> fs [] \\ rw [] \\ fs []
+  fs [UNCURRY] >> every_case_tac >> fs [] \\ rw [] \\ fs [do_build_const_def]
+  \\ imp_res_tac do_build_SUBSET \\ fs [SUBSET_DEF]
 QED
 
 val evaluate_refs_SUBSET_lemma = Q.prove(

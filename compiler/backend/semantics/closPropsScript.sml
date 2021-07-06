@@ -2228,7 +2228,8 @@ Proof
     \\ metis_tac [simple_val_rel_list, simple_val_rel_APPEND, vr_list_NONE])
   \\ Cases_on `opp = Add \/ opp = Sub \/ opp = Mult \/ opp = Div \/ opp = Mod \/
                opp = Less \/ opp = LessEq \/ opp = Greater \/ opp = GreaterEq \/
-               opp = LengthBlock \/ (?i. opp = Const i) \/ opp = WordFromInt \/
+               opp = LengthBlock \/ (?i. opp = Const i) \/
+               (?c. opp = Build c) \/ opp = WordFromInt \/
                (?f. opp = FP_cmp f) \/ (?s. opp = String s) \/
                (?f. opp = FP_uop f) \/ (opp = BoundsCheckBlock) \/
                (?f. opp = FP_bop f) \/ (?f. opp = FP_top f) \/
@@ -2250,6 +2251,15 @@ Proof
     \\ rpt strip_tac \\ rveq \\ fs []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ TRY (res_tac \\ fs [isClos_cases] \\ NO_TAC))
+  \\ Cases_on `∃c. opp = Constant c`
+  THEN1
+   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def]
+    \\ rpt strip_tac \\ gvs []
+    \\ qid_spec_tac ‘c’
+    \\ recInduct make_const_ind
+    \\ fs [make_const_def,simple_val_rel_def]
+    \\ Induct \\ fs [])
   \\ Cases_on `opp = Length \/ (?b. opp = BoundsCheckByte b) \/
                opp = BoundsCheckArray \/ opp = LengthByte \/
                opp = DerefByteVec \/ opp = DerefByte \/

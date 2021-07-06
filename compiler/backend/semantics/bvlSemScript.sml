@@ -127,10 +127,33 @@ val do_install_def = Define `
             | _ => Rerr(Rabort Rtype_error))
        | _ => Rerr(Rabort Rtype_error))`;
 
+Definition do_part_def:
+  do_part m (Int i) refs = (Number i, refs) ∧
+  do_part m (W64 w) refs = (Word64 w, refs) ∧
+  do_part m (Con t ns) refs = (Block t (MAP m ns), refs) ∧
+  do_part m (Str t) refs =
+    let ptr = (LEAST ptr. ¬(ptr IN FDOM refs)) in
+    let bytes = MAP (n2w o ORD) t in
+      (RefPtr ptr, refs |+ (ptr,(ByteArray F bytes):v ref))
+End
+
+Definition do_build_def:
+  do_build m i [] refs = do_part m (Int 0) refs ∧
+  do_build m i [p] refs = do_part m p refs ∧
+  do_build m i (p::rest) refs =
+    let (x,refs1) = do_part m p refs in
+      do_build ((i =+ x) m) (i+1) rest refs1
+End
+
+Definition do_build_const_def:
+  do_build_const xs refs = do_build (λx. Number 0) 0 xs refs
+End
+
 (* same as closSem$do_app, except:
     - LengthByteVec and DerefByteVec are removed
     - FromListByte, ToListByte, String, ConcatByteVec, and
       CopyByte work on ByteArrays rather than ByteVectors
+    - Constant has been replaced by Build (which builds the constant)
     - Label is added *)
 
 val do_app_def = Define `
@@ -150,6 +173,8 @@ val do_app_def = Define `
     | (Install,vs) => do_install vs s
     | (Const i,[]) => Rval (Number i, s)
     | (Cons tag,xs) => Rval (Block tag xs, s)
+    | (Build parts,[]) =>
+        (let (v,rs) = do_build_const parts s.refs in Rval (v, s with refs := rs))
     | (ConsExtend tag,Block _ xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then
