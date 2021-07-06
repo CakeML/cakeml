@@ -284,7 +284,7 @@ Proof
   fs [flatSemTheory.evaluate_def,compile_def]
   \\ Cases_on `l` \\ fs [PULL_EXISTS]
   \\ once_rewrite_tac [CONJUNCT2 v_rel_cases] \\ fs []
-  \\ fs [compile_lit_def,evaluate_def,do_app_def]
+  \\ fs [compile_lit_def,evaluate_def,do_app_def,make_const_def]
 QED
 
 Theorem compile_Raise:
@@ -402,12 +402,56 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem dest_Constant_IMP:
+  dest_Constant x = SOME c ⇒ ∃t. x = Op t (Constant c) []
+Proof
+  fs [DefnBase.one_line_ify NONE dest_Constant_def, AllCaseEqs()]
+QED
+
+Theorem dest_Constants_IMP:
+  ∀xs x.
+    dest_Constants xs = SOME x ⇒
+    LIST_REL (λx y. ∃t. x = Op t (Constant y) []) xs x
+Proof
+  Induct \\ fs [dest_Constants_def]
+  \\ rw [] \\ gvs [AllCaseEqs()]
+  \\ imp_res_tac dest_Constant_IMP \\ fs []
+QED
+
+Theorem dest_Constant_evaluate:
+  dest_Constant x = SOME c ⇒
+  evaluate ([x],db,s) = (Rval [make_const c], s)
+Proof
+  rw [] \\ imp_res_tac dest_Constant_IMP
+  \\ gvs [evaluate_def,do_app_def]
+QED
+
+Theorem dest_Constants_evaluate:
+  ∀xs x.
+    dest_Constants xs = SOME x ⇒
+    evaluate (xs,db,s) = (Rval (MAP make_const x), s)
+Proof
+  Induct \\ fs [dest_Constants_def]
+  \\ rw [] \\ gvs [AllCaseEqs()]
+  \\ imp_res_tac dest_Constant_evaluate \\ fs []
+  \\ once_rewrite_tac [evaluate_CONS] \\ fs []
+QED
+
+Theorem evaluate_SmartCons:
+  evaluate ([SmartCons t tag xs],db,s) = evaluate ([Op t (Cons tag) xs],db,s)
+Proof
+  fs [SmartCons_def] \\ CASE_TAC \\ fs []
+  \\ fs [evaluate_def,do_app_def,make_const_def]
+  \\ imp_res_tac dest_Constants_evaluate
+  \\ fs [SF ETA_ss,MAP_REVERSE]
+QED
+
 Theorem compile_Con:
   ^(get_goal "flatLang$Con _ NONE") /\
   ^(get_goal "flatLang$Con _ (SOME _)")
 Proof
   rpt strip_tac
-  \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
+  \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def,evaluate_SmartCons]
   \\ fs [pair_case_eq,CaseEq"bool"] \\ fs []
   \\ first_x_assum drule
   \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM]
@@ -1400,7 +1444,8 @@ Proof
     \\ rw []
     \\ fs [option_case_eq] \\ rveq \\ fs []
     \\ rveq \\ fs []
-    \\ simp [evaluate_append, compile_def, evaluate_def, do_app_def]
+    \\ simp [evaluate_append, compile_def, evaluate_def, do_app_def,
+             evaluate_SmartCons]
     \\ simp [v_rel_def, Unitv_def]
   )
   \\ Cases_on ‘dest_nop op es’
@@ -1664,6 +1709,24 @@ Proof
   Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
 QED
 
+Theorem set_globals_SmartCons:
+  set_globals (SmartCons t tag xs) = elist_globals xs
+Proof
+  fs [SmartCons_def] \\ CASE_TAC \\ fs [op_gbag_def]
+  \\ drule dest_Constants_IMP
+  \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘xs’
+  \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs [op_gbag_def]
+QED
+
+Theorem esgc_free_SmartCons:
+  esgc_free (SmartCons t tag xs) = EVERY esgc_free xs
+Proof
+  fs [SmartCons_def] \\ CASE_TAC \\ fs [esgc_free_def]
+  \\ drule dest_Constants_IMP
+  \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘xs’
+  \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs [esgc_free_def]
+QED
+
 Theorem compile_set_globals:
   ∀m e. EVERY no_Mat e ==>
   closProps$elist_globals (compile m e) = flatProps$elist_globals e
@@ -1678,14 +1741,14 @@ Proof
      THEN1 (gvs [dest_nop_thm] \\ fs [flatPropsTheory.op_gbag_def])
      \\ last_x_assum kall_tac)
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
-    \\ simp [compile_lit_def])
+    \\ simp [compile_lit_def,op_gbag_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
     \\ simp ([compile_op_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs))
   \\ TRY (qmatch_goalsub_abbrev_tac `AllocGlobals _ n` \\ Induct_on `n`
     \\ simp [Once AllocGlobals_def]
     \\ rw props_defs)
-  \\ simp [compile_def, closPropsTheory.op_gbag_def,
+  \\ simp [compile_def, closPropsTheory.op_gbag_def,set_globals_SmartCons,
     flatPropsTheory.op_gbag_def, closPropsTheory.elist_globals_append]
   \\ rpt (
     DEEP_INTRO_TAC compile_single_DEEP_INTRO
@@ -1698,10 +1761,10 @@ Proof
   \\ simp [flatPropsTheory.op_gbag_def, closPropsTheory.op_gbag_def]
   \\ fs [Q.ISPEC `{||}` EQ_SYM_EQ, COMM_BAG_UNION]
   \\ rpt (DEEP_INTRO_TAC compile_single_DEEP_INTRO
-    \\ rw [] \\ fs [])
+          \\ rw [] \\ fs [])
   \\ fs [dest_pat_def]
   \\ simp [flatPropsTheory.elist_globals_FOLDR,
-        closPropsTheory.elist_globals_FOLDR]
+           closPropsTheory.elist_globals_FOLDR]
   \\ irule FOLDR_CONG
   \\ simp [MAP_MAP_o]
   \\ irule MAP_CONG
@@ -1714,7 +1777,7 @@ Proof
   \\ qpat_x_assum `_ = flatProps$set_globals _` (assume_tac o GSYM)
   \\ simp []
   \\ rpt (DEEP_INTRO_TAC compile_single_DEEP_INTRO
-    \\ rw [] \\ fs [])
+          \\ rw [] \\ fs [])
 QED
 
 Theorem compile_eq_set_globals:
@@ -1758,7 +1821,7 @@ Proof
   \\ TRY (qmatch_goalsub_abbrev_tac `AllocGlobals _ n` \\ Induct_on `n`
     \\ simp [Once AllocGlobals_def]
     \\ rw props_defs)
-  \\ simp [compile_def, closPropsTheory.op_gbag_def,
+  \\ simp [compile_def, closPropsTheory.op_gbag_def,esgc_free_SmartCons,
     flatPropsTheory.op_gbag_def, closPropsTheory.elist_globals_append]
   \\ rpt (
     DEEP_INTRO_TAC compile_single_DEEP_INTRO
@@ -1800,6 +1863,40 @@ Proof
   \\ simp [compile_esgc_free]
 QED
 
+Theorem contains_App_SOME_SmartCons:
+  contains_App_SOME max_app [SmartCons t tag xs] =
+  contains_App_SOME max_app xs
+Proof
+  fs [SmartCons_def] \\ CASE_TAC \\ fs [contains_App_SOME_def]
+  \\ drule dest_Constants_IMP
+  \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘xs’
+  \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs [contains_App_SOME_def]
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [contains_App_SOME_EXISTS]
+  \\ fs [EXISTS_MEM,EVERY_MEM]
+  \\ fs [contains_App_SOME_def]
+QED
+
+Theorem every_Fn_vs_NONE_SmartCons:
+  every_Fn_vs_NONE [SmartCons t tag xs] =
+  every_Fn_vs_NONE xs
+Proof
+  fs [SmartCons_def] \\ CASE_TAC \\ fs [every_Fn_vs_NONE_def]
+  \\ drule dest_Constants_IMP
+  \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘xs’
+  \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs [every_Fn_vs_NONE_def]
+  \\ Cases_on ‘xs'’ \\ fs []
+QED
+
+Theorem no_mti_SmartCons:
+  no_mti (SmartCons t tag xs) = EVERY no_mti xs
+Proof
+  fs [SmartCons_def] \\ CASE_TAC \\ fs [no_mti_def,SF ETA_ss]
+  \\ drule dest_Constants_IMP
+  \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘xs’
+  \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs [no_mti_def]
+QED
+
 Theorem compile_syntactic_props:
   0 < max_app ⇒ ∀m e.
     ¬closProps$contains_App_SOME max_app (compile m e) /\
@@ -1809,7 +1906,8 @@ Proof
   disch_tac
   \\ ho_match_mp_tac compile_ind
   \\ simp ([compile_def] @ props_defs)
-  \\ simp [contains_App_SOME_APPEND, EVERY_REVERSE]
+  \\ simp [contains_App_SOME_APPEND, EVERY_REVERSE,contains_App_SOME_SmartCons,
+           no_mti_SmartCons, every_Fn_vs_NONE_SmartCons]
   \\ rw []
   \\ TRY
     (rename [‘dest_nop op es’] \\ reverse (Cases_on ‘dest_nop op es’) \\ fs [])
@@ -1872,7 +1970,6 @@ Theorem FST_inc_compile_esgc_free:
   EVERY (flatProps$esgc_free o flatProps$dest_Dlet) (FILTER flatProps$is_Dlet decs) /\
   no_Mat_decs decs ==>
   EVERY closProps$esgc_free (FST (inc_compile_decs decs))
-
 Proof
   simp [inc_compile_decs_def]
   \\ simp [compile_decs_esgc_free]
