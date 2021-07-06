@@ -10753,21 +10753,24 @@ Proof
 QED
 
 
-Theorem io_trace_impl_eval_steps:
+Theorem io_trace_impl_eval_steps_uptil_panic:
   ∀prog st (t:('a,time_input) panSem$state) or.
     wf_prog_init_states prog or st t ⇒
     ∃k.
       ffi_rels_after_init prog
-                          (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) st t ∧
-      no_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ∧
-      sum_delays (:α) (labels_of k prog (dimword (:α) - 1) (systime_at t) or st)
-                 (next_ffi t.ffi.ffi_state) ⇒
+                          (uptil_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st))
+                          st t ∧
+      has_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ∧
+      sum_delays_until_panic (:α)
+                             (until_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st))
+                             (next_ffi t.ffi.ffi_state) ⇒
         ∃lbls sts io ios ns.
           timeFunSem$eval_steps k prog (dimword (:α) - 1) (systime_at t) or st =
           SOME (lbls, sts) ∧
           semantics t «start» = Terminate Success (io::ios) ∧
-          LENGTH lbls = LENGTH ns ∧ SUM ns + 1 = LENGTH ios ∧
-          decode_ios (:α) t.be lbls ns (io::FRONT ios)
+          LENGTH (slice_labels lbls) = LENGTH ns ∧
+          SUM ns = LENGTH ios ∧
+          decode_ios (:α) t.be (slice_labels lbls) ns (io::ios)
 Proof
   rw [] >>
   gs [wf_prog_init_states_def, systime_at_def] >>
@@ -10782,59 +10785,9 @@ Proof
     gs [IS_SOME_DEF] >>
     cases_on ‘x’ >> gs []) >>
   gs [labels_of_def] >>
-  metis_tac [timed_automata_no_panic_functional_correct,
+  metis_tac [timed_automata_until_panic_functional_correct,
              wf_prog_and_init_states_def]
 QED
 
-
-
-
-
-Theorem timed_automata_until_first_panic_correct:
-  ∀prog labels st sts (t:('a,time_input) panSem$state).
-    steps prog labels
-          (dimword (:α) - 1) (FST (t.ffi.ffi_state 0)) st sts ∧
-    wf_prog_and_init_states prog st t ∧
-    ffi_rels_after_init prog (until_first_panic labels) st t ∧
-    sum_delays (:α) (until_first_panic labels) (next_ffi t.ffi.ffi_state) ⇒
-    ∃io ios ns.
-      semantics t «start» = Terminate Success (io::ios) ∧
-      LENGTH (until_first_panic labels) = LENGTH ns ∧
-      SUM ns + 1 = LENGTH ios ∧
-      decode_ios (:α) t.be (until_first_panic labels) ns (io::FRONT ios)
-Proof
-  rw [] >>
-  ‘no_panic (until_first_panic labels')’ by
-    metis_tac [lbls_until_first_panic_are_no_panic] >>
-  ‘∃sts'.
-     steps prog (until_first_panic labels') (dimword (:α) − 1) (FST (t.ffi.ffi_state 0)) st sts'’ by
-    cheat >>
-  last_x_assum kall_tac >>
-  drule_all timed_automata_no_panic_correct >>
-  gvs []
-QED
-
-
-
-
-
-Theorem io_trace_impl_eval_steps:
-  ∀prog st (t:('a,time_input) panSem$state) or.
-    wf_prog_init_states prog or st t ⇒
-    ∃k.
-      ffi_rels_after_init prog
-                          (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) st t ∧
-      until_first_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ∧
-      sum_delays (:α) (labels_of k prog (dimword (:α) - 1) (systime_at t) or st)
-                 (next_ffi t.ffi.ffi_state) ⇒
-        ∃lbls sts io ios ns.
-          timeFunSem$eval_steps k prog (dimword (:α) - 1) (systime_at t) or st =
-          SOME (lbls, sts) ∧
-          semantics t «start» = Terminate Success (io::ios) ∧
-          LENGTH lbls = LENGTH ns ∧ SUM ns + 1 = LENGTH ios ∧
-          decode_ios (:α) t.be lbls ns (io::TAKE (SUM ns) ios)
-Proof
-  cheat
-QED
 
 val _ = export_theory();
