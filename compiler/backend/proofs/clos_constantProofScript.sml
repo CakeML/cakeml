@@ -2,7 +2,7 @@
   Some functions that flatten a closLang/BVL/BVI/dataLang const tree
   into a sequence of operations that share common data.
 *)
-open preamble closLangTheory;
+open preamble closLangTheory clos_to_bvlTheory;
 
 val _ = new_theory "clos_constantProof";
 
@@ -249,50 +249,7 @@ Proof
   \\ fs [LIST_REL_eq,MAP_EQ_f]
 QED
 
-(* an efficent version *)
-
-Overload PRIME[local] = “999983:num”;
-
-Definition part_hash_def:
-  part_hash (Int i) = Num (ABS i) MOD PRIME ∧
-  part_hash (Str s) = (LENGTH s + 3 * SUM (MAP ORD s)) MOD PRIME ∧
-  part_hash (W64 w) = (17 + w2n w) MOD PRIME ∧
-  part_hash (Con t ns) = (18 + 5 * t + 7 * SUM ns) MOD PRIME
-End
-
-Definition add_part_def:
-  add_part n p aux acc =
-    let h = part_hash p in
-      case lookup h aux of
-      | NONE => (n+1n,n,insert h [(p,n)] aux,p::acc)
-      | SOME bucket =>
-          case ALOOKUP bucket p of
-          | NONE => (n+1n,n,insert h ((p,n)::bucket) aux,p::acc)
-          | SOME k => (n,k,aux,acc)
-End
-
-Definition add_parts_def:
-  add_parts (ConstInt i) n aux acc = add_part n (Int i) aux acc ∧
-  add_parts (ConstStr s) n aux acc = add_part n (Str s) aux acc ∧
-  add_parts (ConstWord64 w) n aux acc = add_part n (W64 w) aux acc ∧
-  add_parts (ConstCons t cs) n aux acc =
-    (let (n, rs, aux, acc) = add_parts_list cs n aux acc in
-       add_part n (Con t rs) aux acc) ∧
-  add_parts_list [] n aux acc = (n,[],aux,acc) ∧
-  add_parts_list (c::cs) n aux acc =
-    let (n,r,aux,acc) = add_parts c n aux acc in
-    let (n,rs,aux,acc) = add_parts_list cs n aux acc in
-      (n,r::rs,aux,acc)
-End
-
-Definition const_to_parts_def:
-  const_to_parts (ConstInt i) = [Int i] ∧
-  const_to_parts (ConstStr s) = [Str s] ∧
-  const_to_parts (ConstWord64 w) = [W64 w] ∧
-  const_to_parts (ConstCons t cs) =
-    let (n, rs, aux, acc) = add_parts_list cs 0 LN [] in
-      REVERSE ((Con t rs)::acc)
-End
+(* verification of the efficent version in clos_to_bvlTheory *)
 
 Definition good_hash_table_def:
   good_hash_table m aux =
@@ -351,5 +308,13 @@ Proof
   \\ impl_tac \\ fs []
   \\ fs [good_hash_table_def,lookup_def]
 QED
+
+(*
+    gvs [compile_op_def,do_app_def,closSemTheory.do_app_def,AllCaseEqs()]
+    \\ pairarg_tac \\ fs [const_to_parts_thm]
+    \\ once_rewrite_tac [GSYM build_const_to_parts]
+
+    clos_constantProofTheory.build_const_def
+*)
 
 val _ = export_theory();

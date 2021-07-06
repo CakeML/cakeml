@@ -196,6 +196,10 @@ val add_backend_compset = computeLib.extend_compset
     ,backend_commonTheory.bool_to_tag_def
     ,bvlTheory.mk_tick_def
     ,bvlTheory.Bool_def
+    ,clos_to_bvlTheory.part_hash_def
+    ,clos_to_bvlTheory.add_part_def
+    ,clos_to_bvlTheory.add_parts_def
+    ,clos_to_bvlTheory.const_to_parts_def
     ,clos_to_bvlTheory.recc_Let0_def
     ,clos_to_bvlTheory.partial_app_fn_location_def
     ,clos_to_bvlTheory.default_config_def
