@@ -1,5 +1,6 @@
 (**
-  Extend backend proof with a theorem about pull_words
+  Proof of a new overall compiler correctness theorem for
+  the global constant lifting, showing that it is semantics preserving
 **)
 open semanticPrimitivesTheory evaluateTheory terminationTheory
      icing_rewriterTheory icing_optimisationsTheory
