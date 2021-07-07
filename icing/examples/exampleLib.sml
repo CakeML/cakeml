@@ -677,6 +677,7 @@ val theErrBounds = run ‘case inferErrorboundCmd ^theRCmd ^typeMap ^theRealBoun
 
   fun define_benchmark theAST_def theAST_pre_def checkError =
   let
+    val checkError = false
     val theAST = theAST_def |> concl |> rhs
     val theAST_pre = theAST_pre_def |> concl |> rhs
     (** Optimizations to be applied by Icing **)
@@ -715,7 +716,7 @@ val theErrBounds = run ‘case inferErrorboundCmd ^theRCmd ^typeMap ^theRealBoun
                     (MAP FST (stos_pass_with_plans_decs theOpts theAST_plan theAST))
      in
      if fpNum_decs fp_opt < fpNum_decs ^(theAST_def |> concl |> rhs) then fp_opt
-     else no_opt_decs theOpts ^(theAST_def |> concl |> rhs)’))
+     else ^(theAST_def |> concl |> rhs)’))
   val theAST_fp_opt_spec = save_thm ("theAST_fp_opt",
     EVAL (Parse.Term
       ‘no_opt_decs theOpts

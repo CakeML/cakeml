@@ -1,5 +1,6 @@
 (**
-  Implementation and correctness proof of the global constant lifting (Section 7.2)
+  Implementation and correctness proof of the global constant lifting
+  (Section 7.2)
 **)
 open semanticPrimitivesTheory evaluateTheory terminationTheory
      icing_rewriterTheory icing_optimisationsTheory

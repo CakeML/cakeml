@@ -91,7 +91,8 @@ This file defines the basic rewriter, used by the optimisation pass later.
 Correctness proofs are in icing_rewriterProofsScript.
 
 [new_backendProofScript.sml](new_backendProofScript.sml):
-Extend backend proof with a theorem about pull_words
+Proof of a new overall compiler correctness theorem for
+the global constant lifting, showing that it is semantics preserving
 
 [optPlannerProofsScript.sml](optPlannerProofsScript.sml):
 Correctness proof for optimization planner
@@ -102,7 +103,8 @@ Definitions in this file correspond to the function ‘planOpts’
 from Section 5 of the PrincessCake paper.
 
 [pull_wordsScript.sml](pull_wordsScript.sml):
-Correctness proof for optimization planner
+Implementation and correctness proof of the global constant lifting
+(Section 7.2)
 
 [pureExpsScript.sml](pureExpsScript.sml):
 predicate to check whether an expression is pure, i.e. does not use memory

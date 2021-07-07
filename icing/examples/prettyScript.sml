@@ -2,7 +2,7 @@
   Define some nicer versions of definitions for pretty printing with the munger
 *)
 open semanticPrimitivesTheory terminationTheory;
-open source_to_sourceProofsTheory CakeMLtoFloVerTheory CakeMLtoFloVerProofsTheory;
+open source_to_sourceProofsTheory CakeMLtoFloVerTheory CakeMLtoFloVerProofsTheory optPlannerProofsTheory;
 open FloverMapTheory;
 open realTheory;
 open bossLib preamble;
@@ -235,6 +235,23 @@ QED
 
 Theorem perform_rewrites_correct_lift =
   is_rewriteFPexp_correct_lift_perform_rewrites |> GEN_ALL |> SPEC “opts:(fp_pat # fp_pat) list” |> GEN_ALL |> SIMP_RULE std_ss [];
+
+Theorem optPlanner_correct =
+optPlanner_correct_float_single
+        |> SIMP_RULE (srw_ss()) [is_optimise_with_plan_correct_def, GSYM noRealsAllowed_def, GSYM canOptimize_def,
+                                 GSYM appendOptsAndOracle_def, GSYM notInStrictMode_def,
+                                 GSYM flagAndScopeAgree_def, GSYM optimizeWithPlan_def,
+                                 GSYM getRws_def, LET_THM,
+                                 GSYM freeVars_fine_def]
+        |> REWRITE_RULE [GSYM freeVars_fine_def]
+
+Theorem optPlanner_real_id =
+optPlanner_correct_real_single
+        |> SIMP_RULE (srw_ss()) [floatToRealProofsTheory.is_real_id_optimise_with_plan_def, GSYM noRealsAllowed_def, GSYM canOptimize_def,
+                                 GSYM appendOptsAndOracle_def, GSYM notInStrictMode_def,
+                                 GSYM flagAndScopeAgree_def,
+                                 GSYM freeVars_fine_exp_def]
+        |> REWRITE_RULE [GSYM freeVars_fine_exp_def]
 
 Overload noOpts = “no_optimisations cfg”
 
