@@ -608,4 +608,42 @@ Definition generate_plan_decs_def:
   generate_plan_decs cfg [d] = []
 End
 
+Definition fpNum_def:
+  fpNum [Lit _] = 0 ∧
+  fpNum [Var _] = 0:num ∧
+  fpNum [App op es] =
+  (case op of
+  |FP_uop _ => 1 + fpNum es
+  |FP_bop _ => 2 + fpNum es
+  |FP_top _ => 3 + fpNum es
+  | _ => fpNum es)
+  ∧
+  fpNum [FpOptimise _ e] = fpNum [e] ∧
+  fpNum [Letrec funs e] = fpNum [e] ∧
+  fpNum [Let x e1 e2] = fpNum [e1] + fpNum [e2] ∧
+  fpNum [Mat e pes] = fpNum [e] + fpNum (MAP SND pes) ∧
+  fpNum [If e1 e2 e3] = fpNum [e1] + fpNum [e2] + fpNum [e3] ∧
+  fpNum [Log _ e1 e2] = fpNum [e1] + fpNum [e2] ∧
+  fpNum [Con cn es] = fpNum es ∧
+  fpNum [Handle e pes] = fpNum [e] + fpNum (MAP SND pes) ∧
+  fpNum [Raise e] = fpNum [e] ∧
+  fpNum [Fun p e] = fpNum [e] ∧
+  fpNum (e1::(e2::es)) = fpNum [e1] + fpNum (e2::es) ∧
+  fpNum [] = 0
+Termination
+  wf_rel_tac ‘measure exp6_size’ >> gs[]
+  >> Induct_on ‘pes’ >> gs[astTheory.exp_size_def]
+  >> rpt strip_tac >> irule LESS_TRANS
+  >> qexists_tac ‘exp3_size pes + (exp_size e) + 2 + (exp_size (SND h) + 1)’
+  >> gs[]
+  >> Cases_on ‘h’ >> gs[astTheory.exp_size_def]
+End
+
+Definition fpNum_decs_def:
+  fpNum_decs [] = 0:num ∧
+  fpNum_decs [Dlet loc p e] = fpNum [e] ∧
+  fpNum_decs (d1::(d2::ds)) = fpNum_decs [d1] + fpNum_decs (d2::ds) ∧
+  fpNum_decs _ = 0
+End
+
 val _ = export_theory();
