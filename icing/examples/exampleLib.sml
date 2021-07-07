@@ -710,13 +710,27 @@ val theErrBounds = run ‘case inferErrorboundCmd ^theRCmd ^typeMap ^theRealBoun
                           (Parse.thm_to_string theAST_opt_result)) ""
           else ()
   val theAST_fp_opt = save_thm ("theAST_fp_opt",
-  EVAL (Parse.Term ‘no_opt_decs theOpts (MAP FST (stos_pass_with_plans_decs theOpts theAST_plan theAST))’))
+  EVAL (Parse.Term
+    ‘let fp_opt = no_opt_decs theOpts
+                    (MAP FST (stos_pass_with_plans_decs theOpts theAST_plan theAST))
+     in
+     if fpNum_decs fp_opt < fpNum_decs ^(theAST_def |> concl |> rhs) then fp_opt
+     else no_opt_decs theOpts ^(theAST_def |> concl |> rhs)’))
+  val theAST_fp_opt_spec = save_thm ("theAST_fp_opt",
+    EVAL (Parse.Term
+      ‘no_opt_decs theOpts
+         (MAP FST (stos_pass_with_plans_decs theOpts theAST_plan theAST))’))
+  val rejected_def =
+  let val rej =
+      EVAL (Parse.Term ‘if ^(theAST_fp_opt |> concl |> rhs) = ^(theAST_def |> concl |> rhs) then "true" else "false"’)
+        |> concl |> rhs in
+    Define ‘rejected = ^rej’ end
   val theAST_opt = save_thm ("theAST_opt",
     EVAL
       (Parse.Term ‘
           pull_words$lift_constants_decl ^(theAST_fp_opt |> concl |> rhs)’))
     val (fname_opt, fvars_opt, body_opt) =
-        EVAL (Parse.Term ‘getDeclLetParts ^(theAST_fp_opt |> concl |> rhs)’)
+        EVAL (Parse.Term ‘getDeclLetParts ^(theAST_fp_opt_spec |> concl |> rhs)’)
         (* EVAL (Parse.Term ‘getDeclLetParts (DROP (LENGTH ^(theAST_opt |> concl |> rhs)-1) ^(theAST_opt |> concl |> rhs))’) *)
       (* EVAL (Parse.Term ‘getDeclLetParts (case ^(theAST_opt |> concl |> rhs) of |[Dlet l p e] => [Dlet l p e] |[Dlocal _ decl] => decl)’) *)
       |> concl |> rhs |> dest_pair
@@ -754,7 +768,7 @@ val theErrBounds = run ‘case inferErrorboundCmd ^theRCmd ^typeMap ^theRealBoun
    |> ml_progLib.clean_state
    |> ml_progLib.remove_snocs
    |> ml_progLib.get_env
-  val _ = append_prog (theAST_fp_opt |> concl |> rhs)
+  val _ = append_prog (theAST_fp_opt_spec |> concl |> rhs)
   (* val _ = append_prog (theFullOptProg_def |> concl |> rhs) *)
   val _ = append_prog theMain;
   val theAST_env_def = Define ‘theAST_env = ^theAST_env’;
@@ -770,7 +784,7 @@ val theErrBounds = run ‘case inferErrorboundCmd ^theRCmd ^typeMap ^theRealBoun
   val errorbounds_AST =
     if ((!logErrors) andalso checkError) then
       let
-        val error_thm_opt = EVAL (Parse.Term  ‘getErrorbounds ^(concl theAST_fp_opt |> rhs) theAST_pre’)
+        val error_thm_opt = EVAL (Parse.Term  ‘getErrorbounds ^(concl theAST_fp_opt_spec |> rhs) theAST_pre’)
          val (bounds, cmd, success_opt) =
            (EVAL (Parse.Term ‘case ^(error_thm_opt |> concl |> rhs) of
                      |(SOME (bounds, cmd, _), _) => (bounds,cmd)’)
@@ -805,9 +819,9 @@ val theErrBounds = run ‘case inferErrorboundCmd ^theRCmd ^typeMap ^theRealBoun
     else if checkError then
       save_thm ("errorbounds_AST",
         EVAL (Parse.Term
-          ‘isOkError ^(concl theAST_fp_opt |> rhs) theAST_pre theErrBound’))
+          ‘isOkError ^(concl theAST_fp_opt_spec |> rhs) theAST_pre theErrBound’))
     else  CONJ_COMM
-  val local_opt_thm = save_thm ("local_opt_thm", mk_local_opt_thm theAST_fp_opt theAST_def);
+  val local_opt_thm = save_thm ("local_opt_thm", mk_local_opt_thm theAST_fp_opt_spec theAST_def);
   val _ =
    supportLib.write_code_to_file true theAST_def theAST_opt
   (Parse.Term ‘APPEND ^(reader_def |> concl |> rhs) (APPEND ^(intToFP_def |> concl |> rhs) (APPEND ^(printer_def |> concl |> rhs) ^(theBenchmarkMain_def |> concl |> rhs)))’)
@@ -1011,7 +1025,7 @@ val theErrBounds = run ‘case inferErrorboundCmd ^theRCmd ^typeMap ^theRealBoun
         \\ fs[theAST_pre_def]
         \\ disch_then (qspecl_then
                        [‘theAST_env’,
-                        ‘case ^(theAST_fp_opt |> concl |> rhs) of | [Dlet _ _ e] => e’] mp_tac)
+                        ‘case ^(theAST_fp_opt_spec |> concl |> rhs) of | [Dlet _ _ e] => e’] mp_tac)
         \\ impl_tac
         >- fs[stripFuns_def]
         \\ strip_tac
