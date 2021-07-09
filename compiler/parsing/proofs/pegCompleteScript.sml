@@ -4,14 +4,12 @@
 *)
 open preamble
      pegTheory grammarTheory pegSoundTheory
-     gramTheory gramPropsTheory cmlPEGTheory
+     gramTheory gramPropsTheory cmlPEGTheory cmlNTPropsTheory
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "pegComplete"
 val _ = set_grammar_ancestry ["pegSound"]
-
-val _ = set_trace "Goalstack.print_goal_at_top" 0
 
 val bindNT0_lemma = REWRITE_RULE [GSYM mkNd_def] bindNT0_def
 val _ = augment_srw_ss [rewrites [bindNT0_lemma]]
@@ -77,10 +75,41 @@ in
   inst_exvs theta THEN inst_favs theta th
 end g
 
+Theorem peg_eval_seql_CONS[simp]:
+  ∀x. peg_eval G (i0, seql (h::t) f) x ⇔
+        ∃r. peg_eval G (i0, h) r ∧
+            ((∃fl fe. r = Failure fl fe ∧ x = r) ∨
+             (∃i1 rh eo1 r2.
+                r = Success i1 rh eo1 ∧
+                peg_eval G (i1, seql t I) r2 ∧
+                ((∃fl fe. r2 = Failure fl fe ∧ x = r2) ∨
+                 ∃i rt eopt2.
+                   r2 = Success i rt eopt2 ∧
+                   x = Success i (f (rh ++ rt)) eopt2)))
+Proof
+  simp[pegSoundTheory.peg_eval_seql_CONS] >> gen_tac >> eq_tac >> rw[] >>
+  rpt (dxrule_then assume_tac (cj 1 peg_deterministic)) >> simp[]
+QED
+
+Theorem choicel_cons:
+  peg_eval G (i0, cmlPEG$choicel (h::t)) x ⇔
+    ∃r. peg_eval G (i0, h) r ∧
+        ((∃i ptl eo. r = Success i ptl eo ∧ x = r) ∨
+         (∃res2 fl1 fe1 i ptl eopt fl2 fe2.
+            r = Failure fl1 fe1 ∧
+            peg_eval G (i0,choicel t) res2 ∧
+            (res2 = Success i ptl eopt ∧
+             x = Success i ptl (optmax MAXerr (SOME (fl1,fe1)) eopt) ∨
+             res2 = Failure fl2 fe2 ∧
+             x = UNCURRY Failure (MAXerr (fl1, fe1) (fl2,fe2)))))
+Proof
+  simp[peg_eval_choicel_CONS] >> eq_tac >> rw[] >>
+  rpt (dxrule_then assume_tac (cj 1 peg_deterministic)) >> simp[]
+QED
 
 val _ = augment_srw_ss [rewrites [
-  peg_eval_seql_CONS, peg_eval_tok_SOME, tokeq_def, bindNT_def, mktokLf_def,
-  peg_eval_choicel_CONS, pegf_def, peg_eval_seq_SOME, pnt_def, peg_eval_try,
+  peg_eval_tok_SOME, tokeq_def, bindNT_def, mktokLf_def,
+  pegf_def, peg_eval_seq_SOME, pnt_def, peg_eval_try,
   try_def]]
 
 val has_length = assert (can (find_term (same_const listSyntax.length_tm)) o
@@ -113,827 +142,16 @@ Theorem ptree_head_eq_tok[simp] =
        (CONV_RULE (LAND_CONV (REWR_CONV EQ_SYM_EQ)) ptree_head_eq_tok0);
 
 open NTpropertiesTheory
-Theorem firstSet_nUQTyOp[simp]:
-   firstSet cmlG (NN nUQTyOp::rest) =
-     {AlphaT s | T} ∪ {SymbolT s | T}
-Proof
-  simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
-  dsimp[Once EXTENSION, EQ_IMP_THM]
-QED
-
-Theorem firstSet_nTyOp[simp]:
-   firstSet cmlG (NN nTyOp :: rest) =
-      {AlphaT s | T} ∪ {SymbolT s | T} ∪ {LongidT s1 s2 | T}
-Proof
-  simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
-  dsimp[Once EXTENSION, EQ_IMP_THM]
-QED
-
-Theorem firstSet_nPTbase[simp]:
-   firstSet cmlG (NN nPTbase :: rest) =
-     firstSet cmlG [NN nTyOp] ∪ {LparT} ∪ {TyvarT s | T}
-Proof
-  simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM, SimpLHS] >>
-  simp[nullable_PTbase] >> dsimp[Once EXTENSION] >> metis_tac[]
-QED
-
-Theorem firstSet_nTbaseList[simp]:
-   firstSet cmlG (NN nTbaseList :: rest) =
-     firstSet cmlG [NN nPTbase] ∪ firstSet cmlG rest
-Proof
-  simp[Once firstSet_NT, SimpLHS, cmlG_FDOM, cmlG_applied,
-       nullable_TbaseList] >> simp[]
-QED
-
-Theorem firstSet_nTyVarList[simp]:
-   firstSet cmlG [NT (mkNT nTyVarList)] = { TyvarT s | T }
-Proof
-  simp[firstSetML_eqn] >> simp[firstSetML_def] >>
-  simp[cmlG_applied, cmlG_FDOM] >> simp[firstSetML_def] >>
-  simp[cmlG_applied, cmlG_FDOM] >>
-  dsimp[Once EXTENSION, EQ_IMP_THM] >>
-  simp[firstSetML_def]
-QED
-val _ =
-    firstSetML_def |> CONJUNCTS |> (fn l => List.take(l,2)) |> rewrites
-                   |> (fn ss => augment_srw_ss [ss])
-
-Theorem firstSet_nLetDec[simp]:
-   firstSet cmlG [NT (mkNT nLetDec)] = {ValT; FunT}
-Proof
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM,
-       cmlG_applied, INSERT_UNION_EQ]
-QED
-
-Theorem firstSet_nLetDecs[simp]:
-   firstSet cmlG [NT (mkNT nLetDecs)] = {ValT; FunT; SemicolonT}
-Proof
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM,
-       cmlG_applied] >>
-  simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ]
-QED
-
-Theorem firstSet_nTypeDec[simp]:
-   firstSet cmlG [NT (mkNT nTypeDec)] = {DatatypeT}
-Proof
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]
-QED
-
-Theorem firstSet_nTypeAbbrevDec[simp]:
-   firstSet cmlG [NT (mkNT nTypeAbbrevDec)] = {TypeT}
-Proof
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]
-QED
-
-Theorem firstSet_nDecl[simp]:
-   firstSet cmlG [NT (mkNT nDecl)] =
-      {ValT; FunT; DatatypeT;ExceptionT;TypeT;LocalT}
-Proof
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied,
-       INSERT_UNION_EQ]
-QED
-
-Theorem firstSet_nDecls[simp]:
-   firstSet cmlG [NN nDecls] =
-      {ValT; DatatypeT; FunT; SemicolonT; ExceptionT; TypeT; LocalT}
-Proof
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
-  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
-  ONCE_REWRITE_TAC [firstSetML_def] >>
-  simp[cmlG_applied, cmlG_FDOM, INSERT_UNION_EQ, INSERT_COMM]
-QED
-
-Theorem IMAGE_GSPEC1[local]:
-  IMAGE f (GSPEC (λa. (g a, P a))) = GSPEC (λa. (f (g a), P a))
-Proof
-  simp[EXTENSION, PULL_EXISTS]
-QED
-
-Theorem BIGUNION_singletons[local,simp]:
-  BIGUNION (GSPEC (λa. {f a}, P a)) = GSPEC (λa. f a, P a)
-Proof
-  simp[Once EXTENSION, PULL_EXISTS]
-QED
-
-Theorem firstSet_nMultOps[simp]:
-   firstSet cmlG (NT (mkNT nMultOps)::rest) =
-      {AlphaT "div"; AlphaT"mod"; StarT} ∪ {SymbolT s | validMultSym s}
-Proof
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
-       INSERT_UNION_EQ, IMAGE_GSPEC1]
-QED
-
-Theorem firstSet_nRelOps[simp]:
-   firstSet cmlG (NT (mkNT nRelOps)::rest) =
-      EqualsT INSERT {SymbolT s | validRelSym s}
-Proof
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM,
-       IMAGE_GSPEC1] >>
-  dsimp[Once EXTENSION, EQ_IMP_THM]
-QED
-
-Theorem firstSet_nAddOps[simp]:
-   firstSet cmlG (NT (mkNT nAddOps)::rest) = {SymbolT s | validAddSym s}
-Proof
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM,
-       INSERT_UNION_EQ, IMAGE_GSPEC1]
-QED
-
-Theorem firstSet_nCompOps[simp]:
-   firstSet cmlG (NT (mkNT nCompOps)::rest) = {AlphaT "o"; SymbolT ":="}
-Proof
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
-       INSERT_UNION_EQ]
-QED
-
-Theorem firstSet_nListOps[simp]:
-   firstSet cmlG (NT (mkNT nListOps)::rest) = {SymbolT s | validListSym s}
-Proof
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
-       INSERT_UNION_EQ, INSERT_COMM, IMAGE_GSPEC1]
-QED
-
-Theorem firstSet_nStructure[simp]:
-   firstSet cmlG [NT (mkNT nStructure)] = {StructureT}
-Proof
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]
-QED
-
-
-Theorem firstSet_nTopLevelDec[simp]:
-   firstSet cmlG [NT (mkNT nTopLevelDec)] =
-    {ValT; FunT; DatatypeT; StructureT; ExceptionT; TypeT; LocalT}
-Proof
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ, INSERT_COMM]
-QED
-
-Theorem firstSet_nSpecLine[simp]:
-   firstSet cmlG [NT (mkNT nSpecLine)] =
-    {ValT; DatatypeT; TypeT; ExceptionT}
-Proof
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ, INSERT_COMM]
-QED
-
-Theorem firstSet_nSpecLineList[simp]:
-   firstSet cmlG [NT (mkNT nSpecLineList)] =
-      {ValT; DatatypeT; TypeT; SemicolonT; ExceptionT}
-Proof
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied,
-       INSERT_UNION_EQ, INSERT_COMM]
-QED
-
-Theorem firstSet_nV:
-   firstSet cmlG (NN nV:: rest) =
-      { AlphaT s | s ≠ "" ∧ ¬isUpper (HD s) ∧ s ≠ "before" ∧ s ≠ "div" ∧
-                   s ≠ "mod" ∧ s ≠ "o"} ∪
-      { SymbolT s | validPrefixSym s }
-Proof
-  simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM, IMAGE_GSPEC1] >>
-  dsimp[Once EXTENSION, EQ_IMP_THM]
-QED
-
-Theorem firstSet_nFQV:
-   firstSet cmlG [NT (mkNT nFQV)] =
-      firstSet cmlG [NT (mkNT nV)] ∪
-      { LongidT m i | (m,i) | i ≠ "" ∧ (isAlpha (HD i) ⇒ ¬isUpper (HD i))}
-Proof
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
-  dsimp[Once EXTENSION]
-QED
-
-Theorem firstSet_nUQConstructorName:
-   firstSet cmlG (NN nUQConstructorName :: rest) =
-      { AlphaT s | s ≠ "" ∧ isUpper (HD s) }
-Proof
-  simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
-  dsimp[Once EXTENSION, EQ_IMP_THM]
-QED
-
-Theorem firstSet_nConstructorName:
-   firstSet cmlG (NN nConstructorName :: rest) =
-      { LongidT str s | (str,s) | s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s)} ∪
-      { AlphaT s | s ≠ "" ∧ isUpper (HD s) }
-Proof
-  ntac 2 (simp [Once firstSet_NT, cmlG_applied, cmlG_FDOM]) >>
-  dsimp[Once EXTENSION, EQ_IMP_THM]
-QED
-
-Theorem firstSetML_nConstructorName[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ⇒
-    (firstSetML cmlG sn (NN nConstructorName::rest) =
-     firstSet cmlG [NN nConstructorName])
-Proof
-  simp[firstSetML_eqn] >>
-  ntac 2 (simp[firstSetML_def] >> simp[cmlG_applied, cmlG_FDOM]) >>
-  strip_tac >> simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[firstSetML_def]
-QED
-
-Theorem firstSetML_nV[simp]:
-   mkNT nV ∉ sn ⇒
-    (firstSetML cmlG sn (NN nV::rest) = firstSet cmlG [NN nV])
-Proof
-  simp[firstSetML_eqn] >> simp[firstSetML_def] >>
-  simp[cmlG_FDOM, cmlG_applied] >> strip_tac >>
-  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
-QED
-
-Theorem firstSetML_nFQV[simp]:
-   mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ⇒
-    (firstSetML cmlG sn (NN nFQV::rest) = firstSet cmlG [NN nFQV])
-Proof
-  simp[firstSetML_eqn] >>
-  ntac 2 (simp[firstSetML_def] >> simp[cmlG_FDOM, cmlG_applied]) >>
-  strip_tac >> simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
-QED
-
-Theorem firstSet_nEtuple[simp]:
-   firstSet cmlG [NT (mkNT nEtuple)] = {LparT}
-Proof
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]
-QED
-
-Theorem firstSet_nEliteral[simp]:
-   firstSet cmlG [NT (mkNT nEliteral)] =
-     {IntT i | T} ∪ {StringT s | T} ∪ {CharT c | T} ∪ {WordT w | T} ∪
-     {FFIT s | T}
-Proof
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
-  dsimp[Once EXTENSION] >> gen_tac >> eq_tac >> rw[]
-QED
-
-Theorem firstSetML_nEliteral[simp]:
-   mkNT nEliteral ∉ sn ⇒
-     firstSetML cmlG sn (NT (mkNT nEliteral)::rest) =
-     firstSet cmlG [NT (mkNT nEliteral)]
-Proof
-  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
-  dsimp[Once EXTENSION] >> metis_tac[]
-QED
-
-Theorem firstSet_nEbase[simp]:
-   firstSet cmlG [NT (mkNT nEbase)] =
-      {LetT; LparT; LbrackT; OpT} ∪ firstSet cmlG [NT (mkNT nFQV)] ∪
-      firstSet cmlG [NT (mkNT nEliteral)] ∪
-      firstSet cmlG [NT (mkNT nConstructorName)]
-Proof
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
-  dsimp[Once EXTENSION] >> gen_tac >> eq_tac >> rw[] >> simp[]
-QED
-
-Theorem firstSetML_nEbase[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEliteral ∉ sn ⇒
-    firstSetML cmlG sn (NT (mkNT nEbase)::rest) =
-    firstSet cmlG [NT (mkNT nEbase)]
-Proof
-  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >> strip_tac >>
-  Cases_on `mkNT nEtuple ∈ sn` >>
-  simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
-  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
-QED
-
-Theorem firstSet_nEapp[simp]:
-   firstSet cmlG [NT (mkNT nEapp)] = firstSet cmlG [NT (mkNT nEbase)]
-Proof
-  simp[Once firstSetML_eqn, SimpLHS] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
-  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
-QED
-
-Theorem firstSetML_nEapp[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-    mkNT nEliteral ∉ sn
-   ⇒
-    firstSetML cmlG sn (NT (mkNT nEapp) :: rest) =
-    firstSet cmlG [NT(mkNT nEbase)]
-Proof
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
-  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
-QED
-
-Theorem firstSet_nEmult[simp]:
-   firstSet cmlG [NT (mkNT nEmult)] = firstSet cmlG [NT (mkNT nEbase)]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSetML_nEmult[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-    mkNT nEmult ∉ sn ∧ mkNT nEliteral ∉ sn
-  ⇒
-    firstSetML cmlG sn (NT (mkNT nEmult) :: rest) =
-    firstSet cmlG [NT (mkNT nEbase)]
-Proof
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSet_nEadd[simp]:
-   firstSet cmlG [NT (mkNT nEadd)] = firstSet cmlG [NT (mkNT nEbase)]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSetML_nEadd[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nEliteral ∉ sn⇒
-    firstSetML cmlG sn (NT (mkNT nEadd) :: rest) =
-    firstSet cmlG [NT(mkNT nEbase)]
-Proof
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSet_nElistop[simp]:
-   firstSet cmlG (NT (mkNT nElistop)::rest) =
-       firstSet cmlG [NT (mkNT nEbase)]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSetML_nElistop[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nElistop ∉ sn ∧
-    mkNT nEliteral ∉ sn
-   ⇒
-    firstSetML cmlG sn (NT (mkNT nElistop) :: rest) =
-    firstSet cmlG [NT(mkNT nEbase)]
-Proof
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSet_nErel[simp]:
-   firstSet cmlG (NT(mkNT nErel)::rest) = firstSet cmlG [NT (mkNT nEbase)]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSetML_nErel[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nElistop ∉ sn ∧
-    mkNT nEliteral ∉ sn
-   ⇒
-    firstSetML cmlG sn (NT (mkNT nErel) :: rest) = firstSet cmlG [NN nEbase]
-Proof
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSet_nEcomp[simp]:
-   firstSet cmlG (NT(mkNT nEcomp)::rest) = firstSet cmlG [NT (mkNT nEbase)]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSetML_nEcomp[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
-    mkNT nElistop ∉ sn ∧ mkNT nEliteral ∉ sn ⇒
-    firstSetML cmlG sn (NT (mkNT nEcomp) :: rest) = firstSet cmlG [NN nEbase]
-Proof
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSet_nEbefore[simp]:
-   firstSet cmlG (NT(mkNT nEbefore)::rest) =
-      firstSet cmlG [NT (mkNT nEbase)]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSetML_nEbefore[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
-    mkNT nEbefore ∉ sn ∧ mkNT nElistop ∉ sn ∧ mkNT nEliteral ∉ sn ⇒
-    firstSetML cmlG sn (NT (mkNT nEbefore)::rest) = firstSet cmlG [NN nEbase]
-Proof
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSet_nEtyped[simp]:
-   firstSet cmlG (NT(mkNT nEtyped)::rest) = firstSet cmlG [NT (mkNT nEbase)]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSetML_nEtyped[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
-    mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElistop ∉ sn ∧
-    mkNT nEliteral ∉ sn
-   ⇒
-    firstSetML cmlG sn (NT (mkNT nEtyped)::rest) = firstSet cmlG [NN nEbase]
-Proof
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSet_nElogicAND[simp]:
-   firstSet cmlG (NT(mkNT nElogicAND)::rest) = firstSet cmlG [NT (mkNT nEbase)]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSetML_nElogicAND[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
-    mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
-    mkNT nElistop ∉ sn ∧ mkNT nEliteral ∉ sn
-   ⇒
-    firstSetML cmlG sn (NT (mkNT nElogicAND)::rest) =
-      firstSet cmlG [NN nEbase]
-Proof
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSet_nElogicOR[simp]:
-   firstSet cmlG (NT(mkNT nElogicOR)::rest) = firstSet cmlG [NT (mkNT nEbase)]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSetML_nElogicOR[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
-    mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
-    mkNT nElogicOR ∉ sn ∧ mkNT nElistop ∉ sn ∧ mkNT nEliteral ∉ sn
-  ⇒
-    firstSetML cmlG sn (NT (mkNT nElogicOR)::rest) =
-      firstSet cmlG [NN nEbase]
-Proof
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSet_nEhandle[simp]:
-   firstSet cmlG (NT(mkNT nEhandle)::rest) = firstSet cmlG [NT (mkNT nEbase)]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSetML_nEhandle[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
-    mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
-    mkNT nElogicOR ∉ sn ∧ mkNT nEhandle ∉ sn ∧ mkNT nElistop ∉ sn ∧
-    mkNT nEliteral ∉ sn
-   ⇒
-    firstSetML cmlG sn (NT (mkNT nEhandle)::rest) =
-      firstSet cmlG [NN nEbase]
-Proof
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
-QED
-
-Theorem firstSet_nE:
-   firstSet cmlG (NT(mkNT nE)::rest) =
-      firstSet cmlG [NT (mkNT nEbase)] ∪ {IfT; CaseT; FnT; RaiseT}
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
-  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
-QED
-
-Theorem firstSet_nTopLevelDecs[simp]:
-   firstSet cmlG [NN nTopLevelDecs] =
-      {ValT; FunT; SemicolonT; DatatypeT; StructureT; ExceptionT; TypeT;
-       LocalT} ∪
-      firstSet cmlG [NT (mkNT nE)]
-Proof
-  simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
-  ONCE_REWRITE_TAC [firstSet_NT] >> simp[cmlG_applied, cmlG_FDOM] >>
-  simp[INSERT_UNION_EQ, INSERT_COMM] >>
-  simp[EXTENSION, EQ_IMP_THM] >> rpt strip_tac >> rveq >> simp[]
-QED
-
-Theorem firstSet_nNonETopLevelDecs[simp]:
-   firstSet cmlG [NN nNonETopLevelDecs] =
-      {ValT; FunT; SemicolonT; DatatypeT; StructureT; ExceptionT; TypeT;
-       LocalT}
-Proof
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
-  simp[INSERT_COMM, INSERT_UNION_EQ]
-QED
-
-Theorem firstSet_nEseq[simp]:
-   firstSet cmlG (NN nEseq :: rest) = firstSet cmlG [NN nE]
-Proof
-  simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
-  simp[firstSet_nE]
-QED
-
-Theorem NOTIN_firstSet_nE[simp]:
-   ValT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
-    StructureT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
-    FunT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
-    DatatypeT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
-    ExceptionT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
-    SemicolonT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
-    RparT ∉ firstSet cmlG (NN nE :: rest) ∧
-    RbrackT ∉ firstSet cmlG (NN nE :: rest) ∧
-    TypeT ∉ firstSet cmlG (NN nE :: rest)
-Proof
-  simp[firstSet_nE, firstSet_nFQV] >>
-  rpt (dsimp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, disjImpI])
-QED
-
-Theorem firstSetML_nE[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
-    mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
-    mkNT nElogicOR ∉ sn ∧ mkNT nEhandle ∉ sn ∧ mkNT nE ∉ sn ∧
-    mkNT nElistop ∉ sn ∧ mkNT nEliteral ∉ sn ⇒
-    firstSetML cmlG sn (NT (mkNT nE)::rest) = firstSet cmlG [NN nE]
-Proof
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM, firstSet_nE]) >>
-  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
-QED
-
-Theorem firstSet_nE':
-   firstSet cmlG (NT(mkNT nE')::rest) =
-      firstSet cmlG [NT (mkNT nEbase)] ∪ {IfT; RaiseT}
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
-  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
-QED
-
-Theorem firstSetML_nE'[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-    mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-    mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
-    mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
-    mkNT nElogicOR ∉ sn ∧ mkNT nE' ∉ sn ∧ mkNT nElistop ∉ sn ∧
-    mkNT nEliteral ∉ sn
-   ⇒
-    firstSetML cmlG sn (NT (mkNT nE')::rest) = firstSet cmlG [NN nE']
-Proof
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM, firstSet_nE']) >>
-  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
-QED
-
-Theorem firstSet_nElist1[simp]:
-   firstSet cmlG (NT (mkNT nElist1)::rest) = firstSet cmlG [NT (mkNT nE)]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]
-QED
-
-Theorem firstSet_nElist2[simp]:
-   firstSet cmlG (NT (mkNT nElist2)::rest) = firstSet cmlG [NT (mkNT nE)]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]
-QED
-
-Theorem firstSetML_nPtuple[simp]:
-   mkNT nPtuple ∉ sn ⇒ (firstSetML cmlG sn (NN nPtuple :: rest) = {LparT})
-Proof
-  simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied]
-QED
-
-Theorem firstSet_nPtuple[simp]:
-   firstSet cmlG (NN nPtuple :: rest) = {LparT}
-Proof
-  simp[firstSetML_eqn, firstSetML_nPtuple]
-QED
-
-Theorem firstSet_nPbase[simp]:
-   firstSet cmlG (NN nPbase :: rest) =
-      {LparT; UnderbarT; LbrackT; OpT} ∪ {IntT i | T } ∪ {StringT s | T } ∪
-      {CharT c | T } ∪
-      firstSet cmlG [NN nConstructorName] ∪ firstSet cmlG [NN nV]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
-  dsimp[Once EXTENSION, EQ_IMP_THM]
-QED
-
-Theorem firstSetML_nPbase[simp]:
-   mkNT nPbase ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nConstructorName ∉ sn ∧
-    mkNT nUQConstructorName ∉ sn ∧ mkNT nPtuple ∉ sn ⇒
-    firstSetML cmlG sn (NN nPbase :: rest) = firstSet cmlG [NN nPbase]
-Proof
-  simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
-  dsimp[Once EXTENSION, EQ_IMP_THM]
-QED
-
-Theorem firstSet_nPConApp[simp]:
-   firstSet cmlG (NN nPConApp :: rest) =
-     firstSet cmlG [NN nConstructorName]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
-  simp[Once firstSetML_def]
-QED
-
-Theorem firstSetML_nPConApp[simp]:
-   mkNT nConstructorName ∉ sn ∧ mkNT nPConApp ∉ sn ∧
-   mkNT nUQConstructorName ∉ sn ⇒
-     firstSetML cmlG sn (NN nPConApp :: rest) =
-     firstSet cmlG [NN nConstructorName]
-Proof
-  simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
-  simp[Once firstSetML_def]
-QED
-
-Theorem firstSet_nPapp[simp]:
-   firstSet cmlG (NN nPapp :: rest) = firstSet cmlG [NN nPbase]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
-  dsimp[Once EXTENSION, EQ_IMP_THM]
-QED
-
-Theorem firstSetML_nPapp[simp]:
-   mkNT nPbase ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nConstructorName ∉ sn ∧
-   mkNT nUQConstructorName ∉ sn ∧ mkNT nPtuple ∉ sn ∧ mkNT nPapp ∉ sn ∧
-   mkNT nPConApp ∉ sn ⇒
-    firstSetML cmlG sn (NN nPapp :: rest) = firstSet cmlG [NN nPbase]
-Proof
-  simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
-  dsimp[Once EXTENSION, EQ_IMP_THM]
-QED
-
-Theorem firstSet_nPcons[simp]:
-   firstSet cmlG (NN nPcons :: rest) = firstSet cmlG [NN nPbase]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]
-QED
-
-Theorem firstSetML_nPcons[simp]:
-   mkNT nPbase ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nConstructorName ∉ sn ∧
-   mkNT nUQConstructorName ∉ sn ∧ mkNT nPtuple ∉ sn ∧ mkNT nPapp ∉ sn ∧
-   mkNT nPcons ∉ sn ∧ mkNT nPConApp ∉ sn ⇒
-    firstSetML cmlG sn (NN nPcons :: rest) = firstSet cmlG [NN nPbase]
-Proof
-  simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied]
-QED
-
-Theorem firstSet_nPattern[simp]:
-   firstSet cmlG (NN nPattern :: rest) = firstSet cmlG [NN nPbase]
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
-  dsimp[Once EXTENSION, EQ_IMP_THM]
-QED
-
-Theorem firstSet_nPatternList[simp]:
-   firstSet cmlG (NN nPatternList :: rest) = firstSet cmlG [NN nPattern]
-Proof
-  simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >> simp[]
-QED
-
-Theorem firstSet_nPbaseList1[simp]:
-   firstSet cmlG (NN nPbaseList1 :: rest) = firstSet cmlG [NN nPbase]
-Proof
-  simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >> simp[]
-QED
-
-Theorem NOTIN_firstSet_nV[simp]:
-   CommaT ∉ firstSet cmlG [NN nV] ∧ LparT ∉ firstSet cmlG [NN nV] ∧
-    RparT ∉ firstSet cmlG [NN nV] ∧ UnderbarT ∉ firstSet cmlG [NN nV] ∧
-    BarT ∉ firstSet cmlG [NN nV] ∧ OpT ∉ firstSet cmlG [NN nV] ∧
-    FnT ∉ firstSet cmlG [NN nV] ∧ IfT ∉ firstSet cmlG [NN nV] ∧
-    EqualsT ∉ firstSet cmlG [NN nV] ∧ DarrowT ∉ firstSet cmlG [NN nV] ∧
-    ValT ∉ firstSet cmlG [NN nV] ∧
-    ExceptionT ∉ firstSet cmlG [NN nV] ∧
-    EndT ∉ firstSet cmlG [NN nV] ∧
-    AndT ∉ firstSet cmlG [NN nV] ∧
-    FFIT s ∉ firstSet cmlG [NN nV] ∧
-    FunT ∉ firstSet cmlG [NN nV] ∧
-    LbrackT ∉ firstSet cmlG [NN nV] ∧
-    LocalT ∉ firstSet cmlG [NN nV] ∧
-    RbrackT ∉ firstSet cmlG [NN nV] ∧
-    InT ∉ firstSet cmlG [NN nV] ∧
-    IntT i ∉ firstSet cmlG [NN nV] ∧
-    StringT s ∉ firstSet cmlG [NN nV] ∧
-    CharT c ∉ firstSet cmlG [NN nV] ∧
-    ThenT ∉ firstSet cmlG [NN nV] ∧
-    ElseT ∉ firstSet cmlG [NN nV] ∧
-    CaseT ∉ firstSet cmlG [NN nV] ∧
-    LetT ∉ firstSet cmlG [NN nV] ∧
-    OfT ∉ firstSet cmlG [NN nV] ∧
-    RaiseT ∉ firstSet cmlG [NN nV] ∧
-    DatatypeT ∉ firstSet cmlG [NN nV] ∧
-    TypeT ∉ firstSet cmlG [NN nV] ∧
-    SemicolonT ∉ firstSet cmlG [NN nV] ∧ ColonT ∉ firstSet cmlG [NN nV] ∧
-    StructureT ∉ firstSet cmlG [NN nV] ∧ WordT w ∉ firstSet cmlG [NN nV] ∧
-    SymbolT "::" ∉ firstSet cmlG [NN nV]
-Proof
-  simp[firstSet_nV] >> simp[validPrefixSym_def]
-QED
-
-Theorem NOTIN_firstSet_nFQV[simp]:
-   AndT ∉ firstSet cmlG [NN nFQV] ∧
-    BarT ∉ firstSet cmlG [NN nFQV] ∧
-    CaseT ∉ firstSet cmlG [NN nFQV] ∧
-    CharT c ∉ firstSet cmlG [NN nFQV] ∧
-    ColonT ∉ firstSet cmlG [NN nFQV] ∧
-    CommaT ∉ firstSet cmlG [NN nFQV] ∧
-    DarrowT ∉ firstSet cmlG [NN nFQV] ∧
-    DatatypeT ∉ firstSet cmlG [NN nFQV] ∧
-    ElseT ∉ firstSet cmlG [NN nFQV] ∧
-    EndT ∉ firstSet cmlG [NN nFQV] ∧
-    EqualsT ∉ firstSet cmlG [NN nFQV] ∧
-    ExceptionT ∉ firstSet cmlG [NN nFQV] ∧
-    FFIT s ∉ firstSet cmlG [NN nFQV] ∧
-    FnT ∉ firstSet cmlG [NN nFQV] ∧
-    FunT ∉ firstSet cmlG [NN nFQV] ∧
-    IfT ∉ firstSet cmlG [NN nFQV] ∧
-    InT ∉ firstSet cmlG [NN nFQV] ∧
-    IntT i ∉ firstSet cmlG [NN nFQV] ∧
-    LbrackT ∉ firstSet cmlG [NN nFQV] ∧
-    LetT ∉ firstSet cmlG [NN nFQV] ∧
-    LocalT ∉ firstSet cmlG [NN nFQV] ∧
-    LparT ∉ firstSet cmlG [NN nFQV] ∧
-    OfT ∉ firstSet cmlG [NN nFQV] ∧
-    OpT ∉ firstSet cmlG [NN nFQV] ∧
-    RaiseT ∉ firstSet cmlG [NN nFQV] ∧
-    RbrackT ∉ firstSet cmlG [NN nFQV] ∧
-    RparT ∉ firstSet cmlG [NN nFQV] ∧
-    SemicolonT ∉ firstSet cmlG [NN nFQV] ∧
-    StringT s ∉ firstSet cmlG [NN nFQV] ∧
-    StructureT ∉ firstSet cmlG [NN nFQV] ∧
-    ThenT ∉ firstSet cmlG [NN nFQV] ∧
-    TypeT ∉ firstSet cmlG [NN nFQV] ∧
-    UnderbarT ∉ firstSet cmlG [NN nFQV] ∧
-    ValT ∉ firstSet cmlG [NN nFQV] ∧
-    WordT w ∉ firstSet cmlG [NN nFQV]
-Proof
-  simp[firstSet_nFQV]
-QED
-
-Theorem NOTIN_firstSet_nConstructorName[simp]:
-   AndT ∉ firstSet cmlG [NN nConstructorName] ∧
-    BarT ∉ firstSet cmlG [NN nConstructorName] ∧
-    ColonT ∉ firstSet cmlG [NN nConstructorName] ∧
-    CaseT ∉ firstSet cmlG [NN nConstructorName] ∧
-    CharT c ∉ firstSet cmlG [NN nConstructorName] ∧
-    CommaT ∉ firstSet cmlG [NN nConstructorName] ∧
-    DarrowT ∉ firstSet cmlG [NN nConstructorName] ∧
-    DatatypeT ∉ firstSet cmlG [NN nConstructorName] ∧
-    ElseT ∉ firstSet cmlG [NN nConstructorName] ∧
-    EndT ∉ firstSet cmlG [NN nConstructorName] ∧
-    EqualsT ∉ firstSet cmlG [NN nConstructorName] ∧
-    ExceptionT ∉ firstSet cmlG [NN nConstructorName] ∧
-    FFIT s ∉ firstSet cmlG [NN nConstructorName] ∧
-    FnT ∉ firstSet cmlG [NN nConstructorName] ∧
-    FunT ∉ firstSet cmlG [NN nConstructorName] ∧
-    IfT ∉ firstSet cmlG [NN nConstructorName] ∧
-    InT ∉ firstSet cmlG [NN nConstructorName] ∧
-    IntT i ∉ firstSet cmlG [NN nConstructorName] ∧
-    LbrackT ∉ firstSet cmlG [NN nConstructorName] ∧
-    LetT ∉ firstSet cmlG [NN nConstructorName] ∧
-    LocalT ∉ firstSet cmlG [NN nConstructorName] ∧
-    LparT ∉ firstSet cmlG [NN nConstructorName] ∧
-    OfT ∉ firstSet cmlG [NN nConstructorName] ∧
-    OpT ∉ firstSet cmlG [NN nConstructorName] ∧
-    RaiseT ∉ firstSet cmlG [NN nConstructorName] ∧
-    RbrackT ∉ firstSet cmlG [NN nConstructorName] ∧
-    RparT ∉ firstSet cmlG [NN nConstructorName] ∧
-    SemicolonT ∉ firstSet cmlG [NN nConstructorName] ∧
-    StringT s ∉ firstSet cmlG [NN nConstructorName] ∧
-    StructureT ∉ firstSet cmlG [NN nConstructorName] ∧
-    SymbolT "::" ∉ firstSet cmlG [NN nConstructorName] ∧
-    SymbolT "ref" ∉ firstSet cmlG [NN nConstructorName] ∧
-    ThenT ∉ firstSet cmlG [NN nConstructorName] ∧
-    TypeT ∉ firstSet cmlG [NN nConstructorName] ∧
-    UnderbarT ∉ firstSet cmlG [NN nConstructorName] ∧
-    ValT ∉ firstSet cmlG [NN nConstructorName] ∧
-    WordT w ∉ firstSet cmlG [NN nConstructorName]
-Proof
-  simp[firstSet_nConstructorName]
-QED
-
 val cmlPEG_total =
     peg_eval_total |> Q.GEN `G` |> Q.ISPEC `cmlPEG`
                              |> C MATCH_MP PEG_wellformed
 
-val FLAT_EQ_CONS = Q.prove(
-  `∀ll h t.
+Theorem FLAT_EQ_CONS[local]:
+  ∀ll h t.
      FLAT ll = h::t ⇔
      ∃p t0 s. ll = p ++ [h::t0] ++ s ∧
-              EVERY ((=) []) p ∧ FLAT (t0::s) = t`,
+              EVERY ((=) []) p ∧ FLAT (t0::s) = t
+Proof
   Induct >> simp[] >> rpt gen_tac >>
   rename [`list0 ++ FLAT ll = h::t`] >>
   Cases_on `list0` >> simp[]
@@ -946,7 +164,8 @@ val FLAT_EQ_CONS = Q.prove(
   >- (qexists_tac `[]` >> simp[])
   >- (rename [`EVERY ((=) []) pfx`] >> Cases_on `pfx` >> rfs[] >> rw[]) >>
   rename [`EVERY ((=) []) pfx`] >> Cases_on `pfx` >- fs[] >>
-  full_simp_tac bool_ss [EVERY_DEF] >> rw[] >> fs[])
+  full_simp_tac bool_ss [EVERY_DEF] >> rw[] >> fs[]
+QED
 
 Theorem rfirstSet_nonempty_fringe:
    ∀pt t l rest.
@@ -962,16 +181,15 @@ Theorem peg_respects_firstSets:
    ∀N i0 t l.
       t ∉ firstSet cmlG [NT N] ∧ ¬peg0 cmlPEG (nt N I) ∧
       nt N I ∈ Gexprs cmlPEG ⇒
-      peg_eval cmlPEG ((t,l)::i0, nt N I) NONE
+      ∃fl fe.
+        peg_eval cmlPEG ((t,l)::i0, nt N I) (Failure fl fe)
 Proof
   rpt gen_tac >> CONV_TAC CONTRAPOS_CONV >> simp[] >>
   Cases_on `nt N I ∈ Gexprs cmlPEG` >> simp[] >>
-  IMP_RES_THEN (qspec_then `(t,l)::i0` (qxchl [`r`] assume_tac)) cmlPEG_total >>
+  drule_then (qspec_then `(t,l)::i0` $ qxchl [`r`] assume_tac) cmlPEG_total >>
   pop_assum (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
   simp[] >>
-  `r = NONE ∨ ∃i ptl. r = SOME(i,ptl)`
-    by metis_tac[optionTheory.option_CASES, pairTheory.pair_CASES] >>
-  simp[] >> rveq >>
+  Cases_on ‘r’ >> simp[] >> rename [‘_ = Success i ptl eo’] >>
   `∃pt. ptl = [pt] ∧ ptree_head pt = NT N ∧ valid_lptree cmlG pt ∧
         MAP (TK ## I) ((t,l)::i0) = real_fringe pt ++ MAP (TK ## I) i`
     by metis_tac [peg_sound] >>
@@ -986,20 +204,20 @@ Proof
   gvs[] >> metis_tac [rfirstSet_nonempty_fringe]
 QED
 
-val sym2peg_def = Define`
+Definition sym2peg_def:
   sym2peg (TOK tk) = tokeq tk ∧
   sym2peg (NT N) = nt N I
-`;
+End
 
 Theorem not_peg0_peg_eval_NIL_NONE:
    ¬peg0 G sym ∧ sym ∈ Gexprs G ∧ wfG G ⇒
-    peg_eval G ([], sym) NONE
+   ∃fl fe. peg_eval G ([], sym) (Failure fl fe)
 Proof
   strip_tac >>
   `∃r. peg_eval G ([], sym) r`
     by metis_tac [peg_eval_total] >>
-  Cases_on `r` >> simp[] >> Cases_on `x` >>
-  erule mp_tac not_peg0_LENGTH_decreases >> simp[]
+  Cases_on `r` >> simp[SF SFY_ss] >>
+  drule_all not_peg0_LENGTH_decreases >> simp[]
 QED
 
 val list_case_lemma = Q.prove(
@@ -1055,9 +273,10 @@ Proof
   rename [`MAP ptree_loc t2`] >> Cases_on ‘t2’ >> simp[]
 QED
 
-val leftLoc_def = Define`leftLoc (Locs l1 _) = l1`;
-val rightLoc_def = Define`rightLoc (Locs _ l2) = l2`;
-val _ = export_rewrites ["leftLoc_def", "rightLoc_def"]
+Definition leftLoc_def[simp]: leftLoc (Locs l1 _) = l1
+End
+Definition rightLoc_def[simp]: rightLoc (Locs _ l2) = l2
+End
 
 Theorem merge_locs_LR:
    merge_locs l1 l2 = Locs (leftLoc l1) (rightLoc l2)
@@ -1137,7 +356,7 @@ Proof
         locationTheory.merge_list_locs_def]
 QED
 
-val leftmost_def = Define`
+Definition leftmost_def:
   leftmost (Lf s) = Lf s ∧
   leftmost (Nd (n,l) args) =
     if args ≠ [] ∧ n = mkNT nTbase then HD args
@@ -1145,19 +364,17 @@ val leftmost_def = Define`
       case args of
           [] => Nd (n,l) args
         | h::_ => leftmost h
-`;
+End
 
 (* pt is a Tbase, and n will be DType all the way down *)
-val left_insert2_def = Define`
+Definition left_insert2_def[simp]:
   (left_insert2 pt (Lf (tk, l)) = Lf (tk, merge_locs (ptree_loc pt) l)) ∧
   (left_insert2 pt (Nd (n, l0) subs) =
      case subs of
          [] => Nd(n,merge_locs (ptree_loc pt) l0) [pt]
        | [Nd _ (* nTbase *) [tyop]] => mkNd n [mkNd n [pt]; tyop]
        | x::ys => mkNd n (left_insert2 pt x :: ys))
-`;
-val left_insert2_ind = theorem "left_insert2_ind"
-val _ = export_rewrites ["left_insert2_def"]
+End
 
 Theorem ptree_loc_left_insert2:
    ∀bpt dpt.
@@ -1268,7 +485,7 @@ QED
 *)
 
 
-val left_insert_def = Define`
+Definition left_insert_def:
   (left_insert (Lf (tk,l)) p sep c = Lf (tk,merge_locs (ptree_loc c) l)) ∧
   (left_insert (Nd (n,l) subs) p sep c =
      if n <> p then Nd (n,merge_locs (ptree_loc c) l) subs
@@ -1277,7 +494,7 @@ val left_insert_def = Define`
            [c0] => mkNd p [mkNd p [c]; sep; c0]
          | [p'; s'; c'] => mkNd p [left_insert p' p sep c; s'; c']
          | _ => Nd (n, merge_locs (ptree_loc c) l) subs)
-`;
+End
 
 
 Theorem left_insert_mkNd[simp]:
@@ -1287,12 +504,6 @@ Theorem left_insert_mkNd[simp]:
 Proof
   simp[left_insert_def, mkNd_def, ptree_list_loc_def]
 QED
-
-val list_case_eq = Q.prove(
-  ‘(list_CASE l n c = v) ⇔
-     (l = [] ∧ v = n) ∨ (∃h t. l = h::t ∧ v = c h t)’,
-  Cases_on `l` >> simp[] >> metis_tac[]);
-
 
 Theorem ptree_loc_left_insert:
    ∀bpt n sep c.
@@ -1371,48 +582,41 @@ Proof
   rw[] >> simp[mk_linfix_def, left_insert_def]
 QED
 
-Theorem firstSets_nV_nConstructorName:
-   ¬(t ∈ firstSet cmlG [NN nConstructorName] ∧ t ∈ firstSet cmlG [NN nV])
-Proof
-  Cases_on `t ∈ firstSet cmlG [NN nV]` >> simp[] >>
-  fs[firstSet_nV, firstSet_nConstructorName]
-QED
-
 val elim_disjineq = Q.prove( `p \/ x ≠ y ⇔ (x = y ⇒ p)`, DECIDE_TAC)
 val elim_det = Q.prove(`(!x. P x ⇔ (x = y)) ==> P y`, METIS_TAC[])
 
 val peg_det = CONJUNCT1 peg_deterministic
 
 Theorem peg_seql_NONE_det:
-   peg_eval G (i0, seql syms f) NONE ⇒
-    ∀f' r. peg_eval G (i0, seql syms f') r ⇔ r = NONE
+   peg_eval G (i0, seql syms f) (Failure fl fe) ⇒
+    ∀f' r. peg_eval G (i0, seql syms f') r ⇔ r = (Failure fl fe)
 Proof
   Induct_on `syms` >> simp[] >> rpt strip_tac >>
   rpt (first_x_assum (assume_tac o MATCH_MP peg_det)) >> simp[]
 QED
 
 Theorem peg_seql_NONE_append:
-   ∀i0 f. peg_eval G (i0, seql (l1 ++ l2) f) NONE ⇔
-           peg_eval G (i0, seql l1 I) NONE ∨
-           ∃i' r. peg_eval G (i0, seql l1 I) (SOME(i',r)) ∧
-                  peg_eval G (i', seql l2 I) NONE
+   ∀i0 f. peg_eval G (i0, seql (l1 ++ l2) f) (Failure fl fe) ⇔
+           peg_eval G (i0, seql l1 I) (Failure fl fe) ∨
+           ∃i' r eo. peg_eval G (i0, seql l1 I) (Success i' r eo) ∧
+                  peg_eval G (i', seql l2 I) (Failure fl fe)
 Proof
   Induct_on `l1` >> simp[] >- metis_tac [peg_seql_NONE_det] >>
   map_every qx_gen_tac [`h`, `i0`] >>
-  Cases_on `peg_eval G (i0,h) NONE` >> simp[] >>
+  Cases_on `peg_eval G (i0,h) (Failure fl fe)` >> simp[] >>
   dsimp[] >> metis_tac[]
 QED
 
 Theorem peg_seql_SOME_append:
-   ∀i0 l2 f i r.
-      peg_eval G (i0, seql (l1 ++ l2) f) (SOME(i,r)) ⇔
-      ∃i' r1 r2.
-          peg_eval G (i0, seql l1 I) (SOME(i',r1)) ∧
-          peg_eval G (i', seql l2 I) (SOME(i,r2)) ∧
-          (r = f (r1 ++ r2))
+  ∀i0 l2 f i r eo.
+    peg_eval G (i0, seql (l1 ++ l2) f) (Success i r eo) ⇔
+      ∃i' eo' r1 r2 .
+        peg_eval G (i0, seql l1 I) (Success i' r1 eo') ∧
+        peg_eval G (i', seql l2 I) (Success i r2 eo) ∧
+        r = f (r1 ++ r2)
 Proof
   Induct_on `l1` >> simp[]
-  >- (Induct_on `l2` >- simp[] >>
+  >- (Induct_on `l2` >- simp[AC CONJ_ASSOC CONJ_COMM] >>
       ONCE_REWRITE_TAC [peg_eval_seql_CONS] >>
       simp_tac (srw_ss() ++ DNF_ss) []) >>
   dsimp[] >> metis_tac[]
@@ -1420,49 +624,91 @@ QED
 
 fun has_const c = assert (Lib.can (find_term (same_const c)) o concl)
 
-Theorem eOR_wrongtok:
-   ¬peg_eval cmlPEG ((RaiseT,loc)::i0, nt (mkNT nElogicOR) I) (SOME(i,r)) ∧
-    ¬peg_eval cmlPEG ((FnT,loc)::i0, nt (mkNT nElogicOR) I) (SOME(i,r)) ∧
-    ¬peg_eval cmlPEG ((CaseT,loc)::i0, nt (mkNT nElogicOR) I) (SOME(i,r)) ∧
-    ¬peg_eval cmlPEG ((IfT,loc)::i0, nt (mkNT nElogicOR) I) (SOME(i,r))
+Theorem firstSet_respect_peg_eval_not_success:
+  t ∉ firstSet cmlG [NT N] ∧ ¬peg0 cmlPEG (nt N I) ∧ nt N I ∈ Gexprs cmlPEG ⇒
+  ¬peg_eval cmlPEG ((t,l)::i0, nt N I) (Success i r e0)
 Proof
-  rpt conj_tac >>
-  qmatch_abbrev_tac `¬peg_eval cmlPEG (ttk::i0, nt (mkNT nElogicOR) I) (SOME(i,r))` >>
-  strip_tac >>
-  `peg_eval cmlPEG (ttk::i0, nt (mkNT nElogicOR) I) NONE`
-    suffices_by (first_assum (assume_tac o MATCH_MP peg_det) >> simp[]) >>
-  simp[Abbr`ttk`, peg_respects_firstSets]
+  rpt strip_tac >>
+  ‘∃fl fe. peg_eval cmlPEG ((t,l)::i0, nt N I) (Failure fl fe)’
+     suffices_by (first_assum (assume_tac o MATCH_MP peg_det) >> simp[]) >>
+  simp[peg_respects_firstSets]
 QED
 
+Theorem eOR_wrongtok:
+   ¬peg_eval cmlPEG ((RaiseT,loc)::i0, nt (mkNT nElogicOR) I) (Success i r eo) ∧
+   ¬peg_eval cmlPEG ((FnT,loc)::i0, nt (mkNT nElogicOR) I) (Success i r eo) ∧
+   ¬peg_eval cmlPEG ((CaseT,loc)::i0, nt (mkNT nElogicOR) I) (Success i r eo) ∧
+   ¬peg_eval cmlPEG ((IfT,loc)::i0, nt (mkNT nElogicOR) I) (Success i r eo)
+Proof
+  simp[firstSet_respect_peg_eval_not_success]
+QED
+
+Theorem peg_eval_seqempty:
+  peg_eval G (i0, seq e1 (empty []) f) r =
+  ∃r0. peg_eval G (i0, e1) r0 ∧
+       ((∃fl fe. r0 = Failure fl fe ∧ r = r0) ∨
+        (∃i r00 eo. r0 = Success i r00 eo ∧ r = Success i (f r00 []) NONE))
+Proof
+  simp[SimpLHS, Once peg_eval_cases] >> dsimp[] >> metis_tac[]
+QED
+
+Theorem peg_eval_NT:
+  peg_eval G (i0, nt N f) r ⇔
+    ∃r0. r = resultmap f r0 ∧ N ∈ FDOM G.rules ∧ peg_eval G (i0, G.rules ' N) r0
+Proof
+  simp[Once peg_eval_cases] >> metis_tac[]
+QED
+
+Theorem peg_eval_tok =
+        SIMP_CONV (srw_ss()) [Once peg_eval_cases, EXISTS_PROD]
+                  “peg_eval G (i0, tok P f) r”
+
 Theorem nE'_nE:
-   ∀i0 i r.
-      peg_eval cmlPEG (i0, nt (mkNT nE') I) (SOME(i,r)) ∧
-      (i ≠ [] ⇒ FST (HD i) ≠ HandleT) ⇒
-      ∃r'. peg_eval cmlPEG (i0, nt (mkNT nE) I) (SOME(i,r'))
+  ∀i0 i r eo.
+    peg_eval cmlPEG (i0, nt (mkNT nE') I) (Success i r eo) ∧
+    (i ≠ [] ⇒ FST (HD i) ≠ HandleT) ⇒
+    ∃r'. peg_eval cmlPEG (i0, nt (mkNT nE) I) (Success i r' eo)
 Proof
   gen_tac >> completeInduct_on `LENGTH i0` >> gen_tac >> strip_tac >>
   full_simp_tac (srw_ss() ++ DNF_ss) [AND_IMP_INTRO] >>
-  simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied] >>
-  rpt strip_tac >> rveq >> simp[peg_eval_tok_NONE] >> fs[]
-  >- (dsimp[] >> metis_tac[DECIDE``x<SUC x``])
-  >- (dsimp[] >> DISJ2_TAC >> DISJ1_TAC >>
-      simp[peg_eval_NT_SOME] >>
-      simp_tac list_ss [cmlpeg_rules_applied] >>
-      ONCE_REWRITE_TAC [peg_eval_seql_CONS] >>
-      dsimp[] >>
-      first_assum (strip_assume_tac o MATCH_MP peg_det) >>
-      dsimp[] >> simp[peg_eval_tok_NONE] >> Cases_on `i` >> fs[])
-  >- (dsimp[] >> DISJ2_TAC >> simp[peg_eval_seq_NONE] >>
-      rpt (first_x_assum (assume_tac o MATCH_MP peg_det)) >>
-      rename [`FST tkl = IfT`] >> Cases_on `tkl` >> fs[] >>
-      simp[peg_respects_firstSets] >>
-      first_x_assum match_mp_tac >> simp[] >>
-      rpt (first_x_assum (assume_tac o MATCH_MP elim_det)) >>
-      imp_res_tac length_no_greater >> fs[] >> simp[])
-  >- (rename [`FST tkl = RaiseT`] >> Cases_on `tkl` >> fs[] >> rveq >>
-      fs[eOR_wrongtok])
-  >- (rename [`FST tkl = RaiseT`] >> Cases_on `tkl` >> fs[] >> rveq >>
-      fs[eOR_wrongtok])
+  simp[peg_eval_NT_SOME] >> REWRITE_TAC[cmlpeg_rules_applied] >>
+  qmatch_goalsub_abbrev_tac
+    ‘choicel (_ :: pegf (pnt nEhandle) _ :: iteblock)’ >>
+  simp[Once choicel_cons, SimpL “$==>”] >> rpt strip_tac >> gvs[] >~
+  [‘peg_eval _ (_, tok ($= RaiseT) _) (Failure _ _)’]
+  >- (qpat_x_assum ‘peg_eval _ (_, tok _ _) (Failure _ _)’ $
+        mp_then Any assume_tac peg_det >>
+      simp[Once choicel_cons] >> simp[Once choicel_cons, peg_eval_seqempty] >>
+      simp[Once peg_eval_NT, cmlpeg_rules_applied, FDOM_cmlPEG] >>
+      RULE_ASSUM_TAC (ONCE_REWRITE_RULE [choicel_cons]) >> gvs[]
+      >- (dxrule_then assume_tac peg_det >> simp[] >>
+          simp[Once choicel_cons] >> Cases_on ‘i’ >> gs[] >>
+          simp[peg_eval_tok] >- simp[Once choicel_cons] >>
+          rename [‘FST h ≠ HandleT’] >> Cases_on ‘h’ >> gvs[] >>
+          simp[choicel_cons]) >>
+      gvs[peg_eval_seqempty] >> dxrule_then assume_tac peg_det >> simp[] >>
+      gvs[choicel_cons, peg_eval_seql_CONS, PULL_EXISTS] >>
+      qmatch_asmsub_abbrev_tac ‘Abbrev (_ = seql _ _ :: fncaseblock)’ >>
+      simp[Abbr‘iteblock’, choicel_cons, Excl "peg_eval_seql_CONS",
+           Once peg_eval_seql_CONS, peg_eval_tok] >>
+      RM_ALL_ABBREVS_TAC >>
+      qmatch_goalsub_abbrev_tac ‘seql (nt (mkNT nE) I :: thenb)’ >>
+      simp[] >>
+      drule_then assume_tac length_no_greater >>
+      dxrule_then assume_tac peg_det >> gs[] >>
+      qmatch_asmsub_abbrev_tac ‘Abbrev (_ = _ :: _ :: elseb)’ >>
+      simp[Abbr‘thenb’, peg_eval_tok] >>
+      drule_then assume_tac length_no_greater >>
+      dxrule_then assume_tac peg_det >> gs[] >>
+      simp[Abbr‘elseb’, peg_eval_tok] >>
+      first_x_assum $ drule_at (Pos $ el 2) >> simp[] >>
+      strip_tac >> dxrule_then assume_tac peg_det >> simp[]) >~
+  [‘peg_eval _ ((RaiseT, _)::_, _) _’]
+  >- gvs[choicel_cons, eOR_wrongtok] >~
+  [‘peg_eval _ (_, nt (mkNT nE') I) (Success _ _ _)’]
+  >- (simp[choicel_cons, peg_eval_tok] >>
+      first_x_assum $ drule_at (Pos $ el 2) >> simp[] >> strip_tac >>
+      dxrule_then assume_tac peg_det >> simp[])
 QED
 
 Theorem nE'_bar_nE:
