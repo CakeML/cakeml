@@ -52,7 +52,6 @@ Datatype:
      | CopyByte bool (* copy a slice of a byte array, T means target should be allocated *)
      | ListAppend    (* appends two lists *)
      | FromList num  (* convert list to packed Block *)
-     | String string (* create a ByteVector from a constant *)
      | FromListByte  (* convert list of chars to ByteVector *)
      | ToListByte    (* convert ByteVector to list of chars *)
      | LengthByteVec (* get length of ByteVector *)

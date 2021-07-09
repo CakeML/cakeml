@@ -357,7 +357,6 @@ val clos_op_to_display_def = Define `
     | CopyByte b => Item NONE (strlit "CopyByte") [bool_to_display b]
     | ListAppend => empty_item (strlit "ListAppend")
     | FromList num => item_with_num (strlit "FromList") num
-    | closLang$String s => Item NONE (strlit "String") [string_imp s]
     | FromListByte => empty_item (strlit "FromListByte")
     | ToListByte => empty_item (strlit "ToListByte")
     | LengthByteVec => empty_item (strlit "LengthByteVec")

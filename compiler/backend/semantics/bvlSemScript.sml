@@ -257,10 +257,6 @@ val do_app_def = Define `
         (case v_to_list lv of
          | SOME vs => Rval (Block n vs, s)
          | _ => Error)
-    | (String str,[]) =>
-      let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
-        Rval (RefPtr ptr, s with refs := s.refs |+
-          (ptr,ByteArray T (MAP (n2w o ORD) str)))
     | (FromListByte,[lv]) =>
         (case some ns. v_to_list lv = SOME (MAP (Number o $&) ns) ∧ EVERY (λn. n < 256) ns of
           | SOME ns => let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in

@@ -1407,7 +1407,7 @@ Theorem do_app[local]:
    (* store updates need special treatment *)
    (op <> Ref) /\ (op <> Update) ∧
    (op ≠ RefArray) ∧ (∀f. op ≠ RefByte f) ∧ (op ≠ UpdateByte) ∧
-   (∀s. op ≠ String s) ∧ (op ≠ FromListByte) ∧ op ≠ ConcatByteVec ∧
+   (op ≠ FromListByte) ∧ op ≠ ConcatByteVec ∧
    (∀b. op ≠ CopyByte b) ∧ (∀c. op ≠ Constant c) ∧
    (∀n. op ≠ (FFI n)) ==>
    ?w t2.
@@ -4172,49 +4172,6 @@ Proof
       \\ `m IN FRANGE f2` by (full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
       \\ full_simp_tac(srw_ss())[SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM, add_args_def]
       \\ rveq \\ fs[])
-    \\ Cases_on `∃str. op = String str` \\ fs[] >- (
-      fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def]
-      \\ Cases_on`REVERSE a` \\  fs[] \\ rw[]
-      \\ rw[v_rel_SIMP,FLOOKUP_UPDATE]
-      \\ qexists_tac`f2`
-      \\ conj_tac
-      >- ( fs[state_rel_def,SUBSET_DEF] \\ METIS_TAC[LEAST_NOTIN_FDOM] )
-      \\ conj_tac
-      >- (
-        fs[state_rel_def] \\
-        conj_tac >- (
-          match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
-          ONCE_REWRITE_TAC[CONJ_COMM] >>
-          first_assum(match_exists_tac o concl) >> simp[] >>
-          rpt strip_tac >>
-          match_mp_tac OPTREL_v_rel_NEW_REF >>
-          simp[LEAST_NOTIN_FDOM] ) >>
-        conj_tac >- (
-          rw[FLOOKUP_UPDATE]
-          >- (
-            fs[FLOOKUP_DEF]
-            \\ METIS_TAC[LEAST_NOTIN_FDOM] )
-          \\ first_x_assum match_mp_tac
-          \\ asm_exists_tac \\ rw[] ) \\
-        conj_tac >- fs[SUBSET_DEF] \\
-        rw[FLOOKUP_UPDATE] \\
-        first_x_assum drule \\ rw[] \\ simp[] \\
-        rw[] >- ( fs[FLOOKUP_DEF] \\ METIS_TAC[LEAST_NOTIN_FDOM] ) \\
-        Cases_on`x` \\ fs[] \\
-        match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
-        ONCE_REWRITE_TAC[CONJ_COMM] >>
-        asm_exists_tac \\ fs[] \\ rw[] \\
-        match_mp_tac v_rel_NEW_REF \\
-        simp[LEAST_NOTIN_FDOM])
-      \\ simp[]
-      \\ qmatch_goalsub_abbrev_tac`t2.refs |+ (ptr,_)`
-      \\ `ptr ∉ FRANGE f2`
-      by (
-        fs[state_rel_def]
-        \\ `ptr ∉ FDOM t2.refs` suffices_by METIS_TAC[SUBSET_DEF]
-        \\ simp[Abbr`ptr`,LEAST_NOTIN_FDOM] )
-      \\ fs[FDIFF_def,DRESTRICT_DEF,SUBMAP_DEF,FAPPLY_FUPDATE_THM]
-      \\ rw[] \\ METIS_TAC[LEAST_NOTIN_FDOM] )
     \\ Cases_on`op = FromListByte` \\ fs[] >- (
       fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def]
       \\ Cases_on`REVERSE a` \\  fs[]
