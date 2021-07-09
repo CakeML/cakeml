@@ -97,7 +97,7 @@ Definition add_parts_def:
   add_parts (ConstWord64 w) n aux acc = add_part n (W64 w) aux acc ∧
   add_parts (ConstCons t cs) n aux acc =
     (let (n, rs, aux, acc) = add_parts_list cs n aux acc in
-       add_part n (Con t rs) aux acc) ∧
+       add_part n (Con (clos_tag_shift t) rs) aux acc) ∧
   add_parts_list [] n aux acc = (n,[],aux,acc) ∧
   add_parts_list (c::cs) n aux acc =
     let (n,r,aux,acc) = add_parts c n aux acc in
@@ -105,13 +105,14 @@ Definition add_parts_def:
       (n,r::rs,aux,acc)
 End
 
-Definition const_to_parts_def:
-  const_to_parts (ConstInt i) = [Int i] ∧
-  const_to_parts (ConstStr s) = [Str s] ∧
-  const_to_parts (ConstWord64 w) = [W64 w] ∧
-  const_to_parts (ConstCons t cs) =
-    let (n, rs, aux, acc) = add_parts_list cs 0 LN [] in
-      REVERSE ((Con t rs)::acc)
+Definition compile_const_def:
+  compile_const (ConstInt i) = Const i ∧
+  compile_const (ConstStr s) = Build [Str s] ∧
+  compile_const (ConstWord64 w) = Build [W64 w] ∧
+  compile_const (ConstCons t cs) =
+    if NULL cs then Cons (clos_tag_shift t) else
+      let (n, rs, aux, acc) = add_parts_list cs 0 LN [] in
+        Build (REVERSE ((Con (clos_tag_shift t) rs)::acc))
 End
 
 (* / Constant flattening *)
@@ -132,7 +133,7 @@ val compile_op_def = Define`
   compile_op DerefByteVec = DerefByte ∧
   compile_op (SetGlobal n) = SetGlobal (n + num_added_globals) ∧
   compile_op (Global n) = Global (n + num_added_globals) ∧
-  compile_op (Constant c) = Build (const_to_parts c) ∧
+  compile_op (Constant c) = compile_const c ∧
   compile_op x = x`
 val _ = export_rewrites["compile_op_def"];
 
@@ -149,7 +150,7 @@ Theorem compile_op_pmatch:
       | DerefByteVec => DerefByte
       | SetGlobal n => SetGlobal (n + num_added_globals)
       | Global n => Global (n + num_added_globals)
-      | Constant c => Build (const_to_parts c)
+      | Constant c => compile_const c
       | x => x
 Proof
   rpt strip_tac

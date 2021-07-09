@@ -724,7 +724,6 @@ Triviality do_build_SUBSET:
     do_build m n parts refs = (q,rs) ⇒ FDOM refs SUBSET FDOM rs
 Proof
   Induct_on ‘parts’ \\ fs [do_build_def,do_part_def]
-  \\ Cases_on ‘parts’ \\ fs [do_build_def,do_part_def]
   \\ Cases \\ fs [do_build_def,do_part_def]
   \\ fs [SUBSET_DEF] \\ rw [] \\ res_tac
   \\ fs [FDOM_FUPDATE]

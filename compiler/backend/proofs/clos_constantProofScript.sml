@@ -2,7 +2,7 @@
   Some functions that flatten a closLang/BVL/BVI/dataLang const tree
   into a sequence of operations that share common data.
 *)
-open preamble closLangTheory clos_to_bvlTheory;
+open preamble closLangTheory clos_to_bvlTheory closSemTheory;
 
 val _ = new_theory "clos_constantProof";
 
@@ -48,8 +48,7 @@ Definition build_part_def:
 End
 
 Definition build_def:
-  build mem i [] = ConstInt 0 ∧
-  build mem i [p] = build_part mem p ∧
+  build mem i [] = mem (i-1) ∧
   build mem i (p::rest) = build ((i =+ build_part mem p) mem) (i+1) rest
 End
 
@@ -69,9 +68,7 @@ Theorem build_mem_thm:
     build mem i (xs ++ [y]) =
       build (build_map mem i xs) (i + LENGTH xs) [y]
 Proof
-  Induct_on ‘xs’ \\ fs [build_map_def]
-  \\ Cases \\ simp [Once build_def]
-  \\ Cases_on ‘xs’ \\ fs [build_def]
+  Induct_on ‘xs’ \\ fs [build_map_def] \\ fs [build_def,ADD1]
 QED
 
 Theorem parts_acc:
@@ -245,24 +242,36 @@ Proof
   \\ drule (CONJUNCT2 parts_thm)
   \\ impl_tac THEN1 fs [conses_ok_def]
   \\ rw [build_const_def,build_mem_thm]
-  \\ fs [build_def,build_part_def,MAP_REVERSE]
+  \\ fs [build_def,build_part_def,MAP_REVERSE,APPLY_UPDATE_THM]
   \\ fs [LIST_REL_eq,MAP_EQ_f]
 QED
 
 (* verification of the efficent version in clos_to_bvlTheory *)
 
+Definition update_tag_def:
+  update_tag (Con t ns) = Con (clos_tag_shift t) ns ∧
+  update_tag x = x
+End
+
+Theorem update_tag_11:
+  update_tag x = update_tag y ⇔ x = y
+Proof
+  Cases_on ‘x’ \\ Cases_on ‘y’
+  \\ rw [update_tag_def,backend_commonTheory.clos_tag_shift_def]
+QED
+
 Definition good_hash_table_def:
   good_hash_table m aux =
     ∀k v. ALOOKUP aux k = SOME v ⇔
-          ∃bucket. lookup (part_hash k) m = SOME bucket ∧
-                   ALOOKUP bucket k = SOME v
+          ∃bucket. lookup (part_hash (update_tag k)) m = SOME bucket ∧
+                   ALOOKUP bucket (update_tag k) = SOME v
 End
 
 Theorem add_part_thm:
-  add_part n x m (MAP FST aux) = (n1,rs,m1,acc1) ∧
+  add_part n (update_tag x) m (MAP (update_tag o FST) aux) = (n1,rs,m1,acc1) ∧
   make_part n x aux = (n2,rs1,aux1) ∧
   good_hash_table m aux ⇒
-  n1 = n2 ∧ rs = rs1 ∧ MAP FST aux1 = acc1 ∧ good_hash_table m1 aux1
+  n1 = n2 ∧ rs = rs1 ∧ MAP (update_tag o FST) aux1 = acc1 ∧ good_hash_table m1 aux1
 Proof
   fs [add_part_def,AllCaseEqs()] \\ reverse strip_tac \\ gvs []
   THEN1
@@ -272,20 +281,20 @@ Proof
   \\ Cases_on ‘ALOOKUP aux x’ \\ gvs []
   \\ gvs [make_part_def]
   \\ fs [good_hash_table_def] \\ rw []
-  \\ fs [lookup_insert] \\ IF_CASES_TAC \\ fs []
+  \\ fs [lookup_insert] \\ IF_CASES_TAC \\ fs [update_tag_11]
 QED
 
 Theorem add_parts_thm:
   (∀l n m acc n1 m1 rs m1 acc1 aux n2 rs1 aux1.
     add_parts l n m acc = (n1,rs,m1,acc1) ∧
     parts l n aux = (n2,rs1,aux1) ∧
-    MAP FST aux = acc ∧ good_hash_table m aux ⇒
-    n1 = n2 ∧ rs = rs1 ∧ MAP FST aux1 = acc1 ∧ good_hash_table m1 aux1) ∧
+    MAP (update_tag o FST) aux = acc ∧ good_hash_table m aux ⇒
+    n1 = n2 ∧ rs = rs1 ∧ MAP (update_tag o FST) aux1 = acc1 ∧ good_hash_table m1 aux1) ∧
   (∀l n m acc n1 m1 rs m1 acc1 aux n2 rs1 aux1.
     add_parts_list l n m acc = (n1,rs,m1,acc1) ∧
     parts_list l n aux = (n2,rs1,aux1) ∧
-    MAP FST aux = acc ∧ good_hash_table m aux ⇒
-    n1 = n2 ∧ rs = rs1 ∧ MAP FST aux1 = acc1 ∧ good_hash_table m1 aux1)
+    MAP (update_tag o FST) aux = acc ∧ good_hash_table m aux ⇒
+    n1 = n2 ∧ rs = rs1 ∧ MAP (update_tag o FST) aux1 = acc1 ∧ good_hash_table m1 aux1)
 Proof
   reverse Induct \\ rpt gen_tac \\ strip_tac
   \\ gvs [add_parts_def,parts_def]
@@ -293,28 +302,60 @@ Proof
   THEN1
    (last_x_assum drule_all \\ strip_tac \\ gvs []
     \\ last_x_assum drule_all \\ strip_tac \\ gvs [])
-  \\ TRY (drule_all add_part_thm \\ fs [])
+  \\ TRY
+   (irule add_part_thm
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs [update_tag_def]
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
   \\ rename [‘Con’]
   \\ last_x_assum drule_all \\ strip_tac \\ gvs []
-  \\ drule_all add_part_thm \\ fs []
+  \\ irule add_part_thm
+  \\ first_x_assum $ irule_at $ Pos hd \\ fs [update_tag_def]
+  \\ first_x_assum $ irule_at $ Pos hd \\ fs []
 QED
 
-Theorem const_to_parts_thm:
-  const_to_parts c = to_parts c
+Theorem compile_const_thm:
+  (∀i. c ≠ ConstInt i) ∧ (∀t. c ≠ ConstCons t []) ⇒
+  compile_const c = Build (MAP update_tag (to_parts c))
 Proof
-  Cases_on ‘c’ \\ fs [const_to_parts_def,to_parts_def]
+  Cases_on ‘c’ \\ fs [compile_const_def,to_parts_def,update_tag_def]
+  \\ Cases_on ‘l’ \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
-  \\ drule_then drule (add_parts_thm |> CONJUNCT2)
-  \\ impl_tac \\ fs []
-  \\ fs [good_hash_table_def,lookup_def]
+  \\ drule_then drule (add_parts_thm |> CONJUNCT2) \\ fs []
+  \\ impl_tac THEN1 fs [good_hash_table_def,lookup_def]
+  \\ fs [MAP_REVERSE,MAP_MAP_o,update_tag_def]
 QED
 
-(*
-    gvs [compile_op_def,do_app_def,closSemTheory.do_app_def,AllCaseEqs()]
-    \\ pairarg_tac \\ fs [const_to_parts_thm]
-    \\ once_rewrite_tac [GSYM build_const_to_parts]
+(* connection to closSem *)
 
-    clos_constantProofTheory.build_const_def
-*)
+Definition build_part'_def:
+  build_part' mem (Int i) = Number i ∧
+  build_part' mem (Str s) = ByteVector (MAP (n2w ∘ ORD) s) ∧
+  build_part' mem (W64 w) = Word64 w ∧
+  build_part' mem (Con t ns) = Block t (MAP mem ns)
+End
+
+Definition build'_def:
+  build' mem i [] = mem (i - 1) ∧
+  build' mem i (p::rest) = build' ((i =+ build_part' mem p) mem) (i + 1n) rest
+End
+
+Definition build_const'_def:
+  build_const' xs = build' (λx. Number 0) 0 xs
+End
+
+Theorem make_const_thm:
+  make_const c = build_const' (to_parts c)
+Proof
+  simp [Once (GSYM build_const_to_parts)]
+  \\ fs [build_const_def,build_const'_def]
+  \\ qsuff_tac ‘∀m n xs. make_const (build m n xs) = build' (make_const o m) n xs’
+  THEN1 fs [o_DEF,make_const_def]
+  \\ Induct_on ‘xs’ \\ fs []
+  \\ fs [build_def,build'_def,make_const_def]
+  \\ Cases \\ fs [make_const_def,build_part_def,build_part'_def,MAP_MAP_o,o_DEF]
+  \\ rw [] \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ fs [FUN_EQ_THM] \\ fs [APPLY_UPDATE_THM]
+  \\ rw [] \\ fs [make_const_def,MAP_MAP_o,o_DEF]
+QED
 
 val _ = export_theory();

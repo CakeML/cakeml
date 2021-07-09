@@ -134,12 +134,11 @@ Definition do_part_def:
   do_part m (Str t) refs =
     let ptr = (LEAST ptr. ¬(ptr IN FDOM refs)) in
     let bytes = MAP (n2w o ORD) t in
-      (RefPtr ptr, refs |+ (ptr,(ByteArray F bytes):v ref))
+      (RefPtr ptr, refs |+ (ptr,(ByteArray T bytes):v ref))
 End
 
 Definition do_build_def:
-  do_build m i [] refs = do_part m (Int 0) refs ∧
-  do_build m i [p] refs = do_part m p refs ∧
+  do_build m i [] refs = (m (i-1), refs) ∧
   do_build m i (p::rest) refs =
     let (x,refs1) = do_part m p refs in
       do_build ((i =+ x) m) (i+1) rest refs1
