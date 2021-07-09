@@ -2230,7 +2230,7 @@ Proof
                opp = Less \/ opp = LessEq \/ opp = Greater \/ opp = GreaterEq \/
                opp = LengthBlock \/ (?i. opp = Const i) \/
                (?c. opp = Build c) \/ opp = WordFromInt \/
-               (?f. opp = FP_cmp f) \/ (?s. opp = String s) \/
+               (?f. opp = FP_cmp f) \/
                (?f. opp = FP_uop f) \/ (opp = BoundsCheckBlock) \/
                (?f. opp = FP_bop f) \/ (?f. opp = FP_top f) \/
                opp = WordToInt \/ opp = ConfigGC \/
