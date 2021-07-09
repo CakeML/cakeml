@@ -3081,6 +3081,98 @@ Proof
   \\ Cases_on `c1` \\ fs [chain_exps_def]
 QED
 
+Triviality refs_lemma:
+  (t2 with refs := t2.refs) = (t2:('a,'b) bvlSem$state)
+Proof
+  fs [state_component_equality]
+QED
+
+Theorem do_build_const_thm:
+  do_build_const (MAP clos_constantProof$update_tag parts) t2.refs = (v,rs) ∧
+  state_rel f2 p1 t2 ∧ f1 ⊑ f2 ∧
+  FDIFF t1.refs (FRANGE f1) ⊑ FDIFF t2.refs (FRANGE f2) ⇒
+  ∃f2'.
+    v_rel p1.max_app f2' rs t2.code
+      (clos_constantProof$build_const' parts) v ∧
+    state_rel f2' p1 (t2 with refs := rs) ∧ f1 ⊑ f2' ∧
+    FDIFF t1.refs (FRANGE f1) ⊑ FDIFF rs (FRANGE f2')
+Proof
+  fs [do_build_const_def,clos_constantProofTheory.build_const'_def]
+  \\ qmatch_goalsub_abbrev_tac ‘do_build m2’
+  \\ qmatch_goalsub_abbrev_tac ‘clos_constantProof$build' m1’
+  \\ ‘∀k. v_rel p1.max_app f2 t2.refs t2.code (m1 k) (m2 k)’ by
+    (unabbrev_all_tac \\ fs [] \\ simp [Once v_rel_cases])
+  \\ pop_assum mp_tac
+  \\ qspec_tac (‘0n’,‘n:num’)
+  \\ goal_term (fn tm => EVERY (map ID_SPEC_TAC (free_vars tm)))
+  \\ rpt (pop_assum kall_tac)
+  \\ Induct_on ‘parts’ \\ fs []
+  \\ fs [do_build_def,clos_constantProofTheory.build'_def,do_part_def]
+  THEN1 (rw [] \\ first_x_assum $ irule_at (Pos last)\\ fs [refs_lemma])
+  \\ rw [] \\ pairarg_tac \\ fs []
+  \\ ‘t2.code = (t2 with refs := refs1).code ∧
+      (t2 with refs := rs) = ((t2 with refs := refs1) with refs := rs)’ by fs []
+  \\ asm_rewrite_tac []
+  \\ first_x_assum irule \\ fs []
+  \\ first_x_assum $ irule_at (Pos $ el 2) \\ gvs []
+  \\ Cases_on ‘h’ \\ gvs [do_part_def,update_tag_def]
+  THEN1
+   (qexists_tac ‘f2’ \\ fs [refs_lemma]
+    \\ rw [APPLY_UPDATE_THM,clos_constantProofTheory.build_part'_def]
+    \\ simp [Once v_rel_cases]
+    \\ disj1_tac \\ qid_spec_tac ‘l’
+    \\ Induct \\ fs [])
+  \\ TRY
+   (qexists_tac ‘f2’ \\ fs [refs_lemma]
+    \\ rw [APPLY_UPDATE_THM,clos_constantProofTheory.build_part'_def]
+    \\ simp [Once v_rel_cases] \\ NO_TAC)
+  \\ qexists_tac ‘f2’ \\ fs [refs_lemma,update_tag_def]
+  \\ fs [APPLY_UPDATE_THM,clos_constantProofTheory.build_part'_def]
+  \\ qabbrev_tac ‘k = LEAST ptr. ptr ∉ FDOM t2.refs’
+  \\ ‘k ∉ FDOM t2.refs’ by metis_tac [LEAST_NOTIN_FDOM]
+  \\ once_rewrite_tac [DECIDE “a ∧ b ∧ c ⇔ b ∧ a ∧ c”]
+  \\ conj_asm1_tac
+  THEN1
+   (fs [SUBMAP_DEF,FDIFF_def]
+    \\ rw [FAPPLY_FUPDATE_THM] \\ rw [] \\ res_tac)
+  \\ conj_tac
+  THEN1
+   (rw []
+    THEN1 (simp [Once v_rel_cases,FLOOKUP_UPDATE]
+           \\ fs[state_rel_def,SUBSET_DEF] \\ METIS_TAC[LEAST_NOTIN_FDOM])
+    \\ irule v_rel_SUBMAP
+    \\ first_x_assum (qspec_then ‘k'’ assume_tac)
+    \\ first_x_assum $ irule_at $ Pos last \\ fs []
+    \\ fs [SUBMAP_DEF,FDIFF_def]
+    \\ rw [FAPPLY_FUPDATE_THM]
+    \\ METIS_TAC[LEAST_NOTIN_FDOM])
+  \\ fs[state_rel_def]
+  \\ conj_tac >-
+   (match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    rpt strip_tac >>
+    match_mp_tac OPTREL_v_rel_NEW_REF >>
+    simp[LEAST_NOTIN_FDOM] )
+  \\ conj_tac >-
+   (rw[FLOOKUP_UPDATE]
+    >-
+     (fs[FLOOKUP_DEF]
+      \\ METIS_TAC[LEAST_NOTIN_FDOM] )
+    \\ first_x_assum match_mp_tac
+    \\ asm_exists_tac \\ rw[] ) \\
+  conj_tac >- fs[SUBSET_DEF] \\
+  rw[FLOOKUP_UPDATE] \\
+  first_x_assum drule \\ rw[] \\ simp[] \\
+  rw[] >- ( fs[FLOOKUP_DEF] \\ METIS_TAC[LEAST_NOTIN_FDOM] ) \\
+  Cases_on`x` \\ fs[] \\
+  match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
+  ONCE_REWRITE_TAC[CONJ_COMM] >>
+  asm_exists_tac \\ fs[] \\ rw[] \\
+  match_mp_tac v_rel_NEW_REF \\
+  simp[LEAST_NOTIN_FDOM]
+QED
+
 Theorem compile_exps_correct:
   (!tmp xs env ^s1 aux1 (t1:('c,'ffi) bvlSem$state) env' f1 res s2 ys aux2.
     (tmp = (xs,env,s1)) ∧
@@ -3653,7 +3745,6 @@ Proof
       \\ match_mp_tac LIST_REL_IMP_LAST \\ fs []
       \\ disj2_tac \\ CCONTR_TAC \\ fs []
       )
-
     \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
     \\ `?p. evaluate (xs,env,s) = p` by full_simp_tac(srw_ss())[] \\ PairCases_on `p` \\ full_simp_tac(srw_ss())[]
@@ -3681,7 +3772,29 @@ Proof
       first_assum(match_exists_tac o concl) >> simp[])
     \\ (Cases_on `a'`) \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ Cases_on ‘∃c. op = Constant c’
-    THEN1 cheat
+    THEN1
+     (gvs []
+      \\ Cases_on ‘∃i. c = ConstCons i []’
+      THEN1
+       (gvs [compile_op_def,compile_const_def]
+        \\ gvs [closSemTheory.do_app_def,AllCaseEqs(),do_app_def,PULL_EXISTS]
+        \\ fs [make_const_def]
+        \\ first_x_assum $ irule_at $ Pos last \\ fs []
+        \\ simp [Once v_rel_cases])
+      \\ Cases_on ‘∃i. c = ConstInt i’
+      THEN1
+       (gvs [compile_op_def,compile_const_def]
+        \\ gvs [closSemTheory.do_app_def,AllCaseEqs(),do_app_def,PULL_EXISTS]
+        \\ fs [make_const_def]
+        \\ first_x_assum $ irule_at $ Pos last \\ fs []
+        \\ simp [Once v_rel_cases])
+      \\ fs []
+      \\ drule_all compile_const_thm
+      \\ strip_tac \\ gvs []
+      \\ gvs [closSemTheory.do_app_def,AllCaseEqs(),do_app_def,PULL_EXISTS]
+      \\ pairarg_tac \\ gvs [make_const_thm]
+      \\ irule do_build_const_thm \\ fs []
+      \\ first_x_assum $ irule_at Any \\ fs [])
     \\ Cases_on `op = Ref` \\ full_simp_tac(srw_ss())[]
     THEN1
      (full_simp_tac(srw_ss())[closSemTheory.do_app_def,LET_DEF] \\ SRW_TAC [] []
@@ -8440,6 +8553,9 @@ Theorem assign_get_code_label_compile_op:
    closLang$assign_get_code_label (compile_op op) = case some n. op = Label n of SOME n => {n} | _ => {}
 Proof
   Cases_on`op` \\ rw[clos_to_bvlTheory.compile_op_def, closLangTheory.assign_get_code_label_def]
+  \\ Cases_on ‘c’ \\ fs [assign_get_code_label_def,compile_const_def]
+  \\ rw [] \\ fs [assign_get_code_label_def]
+  \\ pairarg_tac \\ fs [assign_get_code_label_def]
 QED
 
 Theorem recc_Lets_code_labels:
