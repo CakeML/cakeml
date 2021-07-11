@@ -1095,6 +1095,8 @@ Proof
   \\ fs[do_app_aux_def]
   \\ fs[state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def]
   \\ fs[AllCaseEqs()]
+  \\ TRY(pairarg_tac \\ fs[])
+  \\ gvs []
 QED
 
 Theorem state_rel_do_app_err:
@@ -1111,6 +1113,7 @@ Proof
   \\ fs[bvi_to_bvl_def]
   \\ fs[bvlSemTheory.do_app_def]
   \\ TOP_CASE_TAC \\ fs[]
+  \\ TRY(pairarg_tac \\ gvs[])
   \\ fs[case_eq_thms,do_app_aux_def]
   \\ fs[AllCaseEqs()]
 QED
