@@ -403,15 +403,22 @@ Proof
 QED
 
 Theorem dest_Constant_IMP:
-  dest_Constant x = SOME c ⇒ ∃t. x = Op t (Constant c) []
+  dest_Constant x = SOME c ⇔
+    (∃t. x = Op t (Constant c) []) ∨
+    (∃t i. x = Op t (Const i) [] ∧ c = ConstInt i) ∨
+    (∃t n. x = Op t (Cons n) [] ∧ c = ConstCons n [])
 Proof
   fs [DefnBase.one_line_ify NONE dest_Constant_def, AllCaseEqs()]
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘l’ \\ fs []
+  \\ Cases_on ‘o'’ \\ fs []
+  \\ eq_tac \\ rw []
 QED
 
 Theorem dest_Constants_IMP:
-  ∀xs x.
-    dest_Constants xs = SOME x ⇒
-    LIST_REL (λx y. ∃t. x = Op t (Constant y) []) xs x
+  ∀xs ys.
+    dest_Constants xs = SOME ys ⇒
+    LIST_REL (λx y. dest_Constant x = SOME y) xs ys
 Proof
   Induct \\ fs [dest_Constants_def]
   \\ rw [] \\ gvs [AllCaseEqs()]
@@ -423,7 +430,7 @@ Theorem dest_Constant_evaluate:
   evaluate ([x],db,s) = (Rval [make_const c], s)
 Proof
   rw [] \\ imp_res_tac dest_Constant_IMP
-  \\ gvs [evaluate_def,do_app_def]
+  \\ gvs [evaluate_def,do_app_def,make_const_def]
 QED
 
 Theorem dest_Constants_evaluate:
@@ -1715,7 +1722,8 @@ Proof
   fs [SmartCons_def] \\ CASE_TAC \\ fs [op_gbag_def]
   \\ drule dest_Constants_IMP
   \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘xs’
-  \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs [op_gbag_def]
+  \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs []
+  \\ imp_res_tac dest_Constant_IMP \\ gvs [op_gbag_def]
 QED
 
 Theorem esgc_free_SmartCons:
@@ -1724,7 +1732,8 @@ Proof
   fs [SmartCons_def] \\ CASE_TAC \\ fs [esgc_free_def]
   \\ drule dest_Constants_IMP
   \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘xs’
-  \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs [esgc_free_def]
+  \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs []
+  \\ imp_res_tac dest_Constant_IMP \\ gvs [esgc_free_def]
 QED
 
 Theorem compile_set_globals:
@@ -1871,6 +1880,7 @@ Proof
   \\ drule dest_Constants_IMP
   \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘xs’
   \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs [contains_App_SOME_def]
+  \\ imp_res_tac dest_Constant_IMP \\ gvs [contains_App_SOME_def]
   \\ pop_assum mp_tac
   \\ once_rewrite_tac [contains_App_SOME_EXISTS]
   \\ fs [EXISTS_MEM,EVERY_MEM]
@@ -1885,6 +1895,7 @@ Proof
   \\ drule dest_Constants_IMP
   \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘xs’
   \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs [every_Fn_vs_NONE_def]
+  \\ imp_res_tac dest_Constant_IMP \\ gvs [every_Fn_vs_NONE_def]
   \\ Cases_on ‘xs'’ \\ fs []
 QED
 
@@ -1895,6 +1906,7 @@ Proof
   \\ drule dest_Constants_IMP
   \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘xs’
   \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs [no_mti_def]
+  \\ imp_res_tac dest_Constant_IMP \\ gvs [no_mti_def]
 QED
 
 Theorem compile_syntactic_props:

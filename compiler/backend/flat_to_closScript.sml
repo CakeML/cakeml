@@ -36,13 +36,13 @@ QED
 
 Definition compile_lit_def:
   compile_lit t l =
-    closLang$Op t (Constant $
-    dtcase l of
-    | IntLit i => ConstInt i
-    | Char c => ConstInt (& (ORD c))
-    | StrLit s => ConstStr s
-    | Word8 b => ConstInt (& (w2n b))
-    | Word64 w => ConstWord64 w) []
+    closLang$Op t
+     (dtcase l of
+      | IntLit i => Const i
+      | Char c => Const (& (ORD c))
+      | StrLit s => Constant (ConstStr s)
+      | Word8 b => Const (& (w2n b))
+      | Word64 w => Constant (ConstWord64 w)) []
 End
 
 Definition arg1_def:
@@ -222,11 +222,18 @@ QED
 
 Definition dest_Constant_def:
   dest_Constant (Op t (Constant c) []) = SOME c ∧
+  dest_Constant (Op t (Const i) []) = SOME (ConstInt i) ∧
+  dest_Constant (Op t (Cons n) []) = SOME (ConstCons n []) ∧
   dest_Constant _ = NONE
 End
 
 Theorem dest_Constant_pmatch:
-  dest_Constant xs = case xs of Op t (Constant x) [] => SOME x | _ => NONE
+  dest_Constant xs =
+    case xs of
+    | Op t (Constant x) [] => SOME x
+    | Op t (Const i) [] => SOME (ConstInt i)
+    | Op t (Cons n) [] => SOME (ConstCons n [])
+    | _ => NONE
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ every_case_tac \\ fs [dest_Constant_def]
