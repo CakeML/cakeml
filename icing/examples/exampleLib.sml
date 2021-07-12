@@ -1278,4 +1278,31 @@ val theErrBounds = run ‘case inferErrorboundCmd ^theRCmd ^typeMap ^theRealBoun
       in theAST_semantics_final end
   in () end;
 
+(** EVAL CODE for single example walkthrough:
+  val (vs, body) = EVAL (Parse.Term ‘case ^(concl theAST_opt |> rhs) of
+      | [Dlet loc (Pvar p) e ] => stripFuns e’) |> concl |> rhs |> dest_pair
+  val (floverVars, (varMap, freshId)) = EVAL
+    (Parse.Term ‘case getFloVerVarMap ^vs of |SOME (floverVars, varMap, freshId)
+      => (floverVars, varMap, freshId)’) |> concl |> rhs |> dest_pair |> (fn (x,y) => (x, dest_pair y))
+  EVAL (Parse.Term ‘checkFreevars ^vs (freevars_list [^body])’)
+  val Gamma = EVAL (Parse.Term ‘buildFloVerTypeMap ^floverVars’) |> concl |> rhs
+  val (theIds, (freshId, theCmd)) = EVAL (Parse.Term ‘case toFloVerCmd ^varMap ^freshId ^body of
+      |SOME (floverVars, varMap, freshId) => (floverVars, varMap, freshId)’)
+  |> concl |> rhs |> dest_pair |> (fn (x,y) => (x, dest_pair y))
+
+  val theCmd = EVAL (Parse.Term ‘toRCmd ^theCmd’) |> concl |> rhs
+  val theRealBounds = EVAL (Parse.Term ‘case inferIntervalboundsCmd ^theCmd
+    (mkFloVerPre theAST_pre ^varMap) FloverMapTree_empty of |SOME bounds => bounds’) |> concl |> rhs
+  val typeMap = EVAL (Parse.Term ‘case getValidMapCmd ^Gamma ^theCmd FloverMapTree_empty of
+    |Succes typeMap => typeMap’) |> concl |> rhs
+  val theErrBounds = EVAL (Parse.Term ‘case inferErrorboundCmd ^theCmd ^typeMap
+    ^theRealBounds FloverMapTree_empty of | SOME errBounds => errBounds’) |> concl |> rhs
+
+  val test = EVAL (Parse.Term ‘getValidMapCmd ^Gamma ^theCmd FloverMapTree_empty’)
+  val foo = EVAL (Parse.Term ‘validSSA ^theCmd (freeVars ^theCmd)’)
+  open IntervalValidationTheory;
+  val foo = EVAL (Parse.Term ‘validIntervalbounds (case ^theCmd of Ret e => e)
+    ^theErrBounds (mkFloVerPre theAST_pre ^varMap) LN’)
+**)
+
 end;
