@@ -909,26 +909,12 @@ val compile_exps_Var_list = Q.prove(
   \\ qmatch_goalsub_rename_tac`compile_exps a`
   \\ first_x_assum(qspec_then`a`strip_assume_tac) \\ fs[]);
 
-val compile_int_thm = Q.prove(
-  `!i env s. evaluate ([compile_int i],env,s) = (Rval [Number i],s)`,
-  STRIP_TAC \\ completeInduct_on `Num (ABS i)`
-  \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[PULL_FORALL] \\ POP_ASSUM (K ALL_TAC)
-  \\ reverse (Cases_on `i`) \\ full_simp_tac(srw_ss())[] THEN1 EVAL_TAC
-  \\ (ONCE_REWRITE_TAC [compile_int_def] \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ SRW_TAC [] [] THEN1
-     (`n <= 268435457` by DECIDE_TAC
-      \\ full_simp_tac(srw_ss())[evaluate_def,bviSemTheory.do_app_def,do_app_aux_def,backend_commonTheory.small_enough_int_def])
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`&(n DIV 268435457)`,`env`,`s`])
-    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
-    THEN1 (full_simp_tac(srw_ss())[integerTheory.INT_ABS_NUM,DIV_LT_X] \\ intLib.COOPER_TAC)
-    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
-    \\ `n MOD 268435457 < 268435457` by full_simp_tac(srw_ss())[MOD_LESS]
-    \\ `n MOD 268435457 <= 268435457` by DECIDE_TAC
-    \\ full_simp_tac(srw_ss())[evaluate_def,bviSemTheory.do_app_def,do_app_aux_def,backend_commonTheory.small_enough_int_def,bvlSemTheory.do_app_def]
-    \\ full_simp_tac(srw_ss())[bvl_to_bvi_id]
-    \\ STRIP_ASSUME_TAC
-         (MATCH_MP DIVISION (DECIDE ``0 < 268435457:num``) |> Q.SPEC `n`)
-    \\ intLib.COOPER_TAC));
+Theorem compile_int_thm[local]:
+  ∀i env s. evaluate ([compile_int i],env,s) = (Rval [Number i],s)
+Proof
+  Cases \\ rw [compile_int_def]
+  \\ rw [] \\ EVAL_TAC \\ fs [state_component_equality]
+QED
 
 val compile_string_thm = Q.prove(
   `∀str s ls vs.
@@ -4325,10 +4311,7 @@ QED
 Theorem compile_int_code_labels[simp]:
    ∀i. get_code_labels (compile_int i) = {}
 Proof
-  recInduct bvl_to_bviTheory.compile_int_ind
-  \\ rw[]
-  \\ rw[Once bvl_to_bviTheory.compile_int_def]
-  \\ rw[closLangTheory.assign_get_code_label_def]
+  rw [bvl_to_bviTheory.compile_int_def,closLangTheory.assign_get_code_label_def]
 QED
 
 Theorem compile_op_code_labels:

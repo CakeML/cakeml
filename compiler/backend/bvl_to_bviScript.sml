@@ -39,27 +39,10 @@ QED
 
 val large_int = ``268435457:int`` (* 2**28-1 *)
 
-val compile_int_def = tDefine "compile_int" `
+Definition compile_int_def:
   compile_int (i:int) =
-    if 0 <= i then
-      if i <= ^large_int then
-        (Op (Const i) []:bvi$exp)
-      else
-        let x = compile_int (i / ^large_int) in
-        let y = Op (Const (i % ^large_int)) [] in
-        let n = Op (Const ^large_int) [] in
-          Op Add [Op Mult [x; n]; y]
-    else
-      if -^large_int <= i then
-        Op (Const i) []
-      else
-        let i = 0 - i in
-        let x = compile_int (i / ^large_int) in
-        let y = Op (Const (0 - (i % ^large_int))) [] in
-        let n = Op (Const (0 - ^large_int)) [] in
-          Op Add [Op Mult [x; n]; y]`
- (WF_REL_TAC `measure (Num o ABS)`
-  \\ REPEAT STRIP_TAC \\ intLib.COOPER_TAC)
+    bvi$Op (if -^large_int ≤ i ∧ i ≤ ^large_int then Const i else Build [Int i]) []
+End
 
 val alloc_glob_count_def = tDefine "alloc_glob_count" `
   (alloc_glob_count [] = 0:num) /\
