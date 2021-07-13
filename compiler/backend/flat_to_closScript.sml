@@ -40,7 +40,7 @@ Definition compile_lit_def:
      (dtcase l of
       | IntLit i => Const i
       | Char c => Const (& (ORD c))
-      | StrLit s => Constant (ConstStr s)
+      | StrLit s => Constant (ConstStr (mlstring$implode s))
       | Word8 b => Const (& (w2n b))
       | Word64 w => Constant (ConstWord64 w)) []
 End

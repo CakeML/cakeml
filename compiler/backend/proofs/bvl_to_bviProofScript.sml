@@ -1800,7 +1800,7 @@ val names_nss_DIV_nss = prove(
   ``(name * nss) DIV nss = name``,
   fs [EVAL ``nss``,MULT_DIV]);
 
-fun note_tac s g = (print ("compile_exps_correct: " ^ s ^ "\n"); ALL_TAC g)
+fun note_tac s g = (print ("compile_exps_correct: " ^ s ^ "\n"); ALL_TAC g);
 
 Theorem compile_exps_correct[local]:
    !xs env s1 n res s2 (t1:('c,'ffi) bviSem$state) n2 ys aux b1.
@@ -2952,18 +2952,18 @@ Proof
         \\ fs [] \\ rw [APPLY_UPDATE_THM,adjust_bv_def]
         \\ fs [MAP_MAP_o,o_DEF,MAP_EQ_f,bv_ok_def,EVERY_MEM,MEM_MAP]
         \\ fs [bv_ok_def] \\ rw [EVERY_MEM,MEM_MAP] \\ fs [] \\ NO_TAC)
-      \\ rename [‘Str’]
+      \\ rename [‘Str content’]
       \\ fs [do_part_def] \\ rw []
       \\ drule (GEN_ALL state_rel_add_bytearray)
-      \\ qabbrev_tac ‘new_s = LEAST ptr. ptr ∉ FDOM s'.refs’
+      \\ qabbrev_tac ‘new_s = LEAST ptr. ptr ∉ FDOM s.refs’
       \\ qabbrev_tac ‘new_t = LEAST ptr. ptr ∉ FDOM t.refs’
-      \\ ‘new_s ∉ FDOM s'.refs’ by metis_tac [LEAST_NOTIN_FDOM]
+      \\ ‘new_s ∉ FDOM s.refs’ by metis_tac [LEAST_NOTIN_FDOM]
       \\ ‘new_t ∉ FDOM t.refs’ by metis_tac [LEAST_NOTIN_FDOM]
       \\ fs [EVAL “(inc_clock c t).refs”]
       \\ disch_then drule_all
       \\ ‘∀r. (inc_clock c t with refs := r) = inc_clock c (t with refs := r)’ by
               (EVAL_TAC \\ fs []) \\ fs []
-      \\ disch_then (qspecl_then [‘MAP (n2w ∘ ORD) s’,‘T’] mp_tac)
+      \\ disch_then (qspecl_then [‘MAP (n2w ∘ ORD) (mlstring$explode content)’,‘T’] mp_tac)
       \\ qmatch_goalsub_abbrev_tac ‘state_rel _ s1 (_ t1)’
       \\ strip_tac
       \\ first_x_assum drule
@@ -2979,13 +2979,13 @@ Proof
          (fs [state_ok_def,FLOOKUP_UPDATE,EVERY_MEM] \\ rw []
           \\ rpt (TOP_CASE_TAC \\ gvs []) \\ rw []
           \\ irule bv_ok_SUBSET_IMP
-          \\ qexists_tac ‘s'.refs’ \\ fs []
+          \\ qexists_tac ‘s.refs’ \\ fs []
           \\ res_tac \\ gvs []
           \\ first_x_assum (qspec_then ‘k’ mp_tac) \\ gvs [] \\ NO_TAC)
         \\ rw [APPLY_UPDATE_THM,adjust_bv_def,bv_ok_def]
-        THEN1 (irule bv_ok_SUBSET_IMP \\ qexists_tac ‘s'.refs’ \\ fs [])
+        THEN1 (irule bv_ok_SUBSET_IMP \\ qexists_tac ‘s.refs’ \\ fs [])
         \\ irule bv_ok_IMP_adjust_bv_eq
-        \\ qexists_tac ‘s'.refs’ \\ fs []
+        \\ qexists_tac ‘s.refs’ \\ fs []
         \\ rw [APPLY_UPDATE_THM]
         \\ metis_tac [LEAST_NOTIN_FDOM])
       \\ strip_tac \\ fs []
@@ -2999,7 +2999,7 @@ Proof
        (qpat_x_assum ‘MAP _ _ = _’ (assume_tac o GSYM) \\ fs [MAP_EQ_f]
         \\ rw []
         \\ irule bv_ok_IMP_adjust_bv_eq
-        \\ qexists_tac ‘s'.refs’ \\ fs []
+        \\ qexists_tac ‘s.refs’ \\ fs []
         \\ fs [EVERY_MEM] \\ res_tac \\ fs []
         \\ rw [] \\ res_tac
         \\ Cases_on ‘new_s = a’ \\ fs [APPLY_UPDATE_THM])

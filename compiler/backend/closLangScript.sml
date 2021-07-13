@@ -16,14 +16,14 @@ val _ = set_grammar_ancestry ["ast"]
 Datatype:
   const = ConstCons num (const list)
         | ConstInt int
-        | ConstStr string
+        | ConstStr mlstring
         | ConstWord64 word64
 End
 
 Datatype:
   const_part = Con num (num list)
              | Int int
-             | Str string
+             | Str mlstring
              | W64 word64
 End
 
