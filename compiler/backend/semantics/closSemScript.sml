@@ -161,7 +161,7 @@ val do_install_def = Define `
 
 Definition make_const_def:
   make_const (ConstInt i) = Number i ∧
-  make_const (ConstStr s) = ByteVector (MAP (n2w o ORD) s) ∧
+  make_const (ConstStr s) = ByteVector (MAP (n2w o ORD) (mlstring$explode s)) ∧
   make_const (ConstWord64 w) = Word64 w ∧
   make_const (ConstCons t cs) = Block t (MAP make_const cs)
 Termination

@@ -75,7 +75,8 @@ Overload PRIME[local] = “999983:num”;
 
 Definition part_hash_def:
   part_hash (Int i) = Num (ABS i) MOD PRIME ∧
-  part_hash (Str s) = (LENGTH s + 3 * SUM (MAP ORD s)) MOD PRIME ∧
+  part_hash (Str s) =
+    (mlstring$strlen s + 3 * SUM (MAP ORD (mlstring$explode s))) MOD PRIME ∧
   part_hash (W64 w) = (17 + w2n w) MOD PRIME ∧
   part_hash (Con t ns) = (18 + 5 * t + 7 * SUM ns) MOD PRIME
 End

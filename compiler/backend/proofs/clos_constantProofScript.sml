@@ -329,7 +329,7 @@ QED
 
 Definition build_part'_def:
   build_part' mem (Int i) = Number i ∧
-  build_part' mem (Str s) = ByteVector (MAP (n2w ∘ ORD) s) ∧
+  build_part' mem (Str s) = ByteVector (MAP (n2w ∘ ORD) (mlstring$explode s)) ∧
   build_part' mem (W64 w) = Word64 w ∧
   build_part' mem (Con t ns) = Block t (MAP mem ns)
 End

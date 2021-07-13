@@ -133,7 +133,7 @@ Definition do_part_def:
   do_part m (Con t ns) refs = (Block t (MAP m ns), refs) ∧
   do_part m (Str t) refs =
     let ptr = (LEAST ptr. ¬(ptr IN FDOM refs)) in
-    let bytes = MAP (n2w o ORD) t in
+    let bytes = MAP (n2w o ORD) (mlstring$explode t) in
       (RefPtr ptr, refs |+ (ptr,(ByteArray T bytes):v ref))
 End
 
