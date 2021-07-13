@@ -118,15 +118,6 @@ val r = translate bvi_tailrecTheory.compile_prog_def;
 (* ------------------------------------------------------------------------- *)
 
 val r = translate bvl_to_bviTheory.compile_int_def;
-
-val bvl_to_bvi_compile_int_side = Q.prove(`
-  ∀x. bvl_to_bvi_compile_int_side x ⇔ T`,
-  completeInduct_on`Num(ABS x)`>>
-  simp[Once (fetch "-" "bvl_to_bvi_compile_int_side_def")]>>
-  rw[]>>fs[PULL_FORALL]>>
-  first_assum MATCH_MP_TAC>>
-  intLib.COOPER_TAC) |> update_precondition;
-
 val r = translate bvl_to_bviTheory.compile_aux_def;
 
 (* TODO: better way to translate Boolean pmatch patterns *)
