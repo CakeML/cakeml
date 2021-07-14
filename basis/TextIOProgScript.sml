@@ -611,10 +611,10 @@ val _ = (append_prog o process_topdecs) `
       None (* stdin *) =>
                     (let
                        val is = b_openStdIn ()
-                     in Some (is, (fn () => (b_consume_rest is))) end)
+                     in Some (is, (fn () => b_consume_rest is)) end)
     | Some fname => (let
                        val is = b_openIn fname
-                     in Some (is, (fn () => (b_consume_rest is; b_closeIn is; ()))) end
+                     in Some (is, (fn () => b_closeIn is)) end
                      handle BadFileName => None)`;
 
 val _ = (append_prog o process_topdecs) `
