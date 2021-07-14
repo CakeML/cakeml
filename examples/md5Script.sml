@@ -524,44 +524,6 @@ Definition toHexString_def:
   toHexString v = FOLDR byte2hex [] v
 End
 
-fun md5 str = let
-  val xs = str |> explode |> map (Word8.fromInt o Char.ord)
-  val state = MD5.init
-  val state = MD5.update(state,Word8Vector.fromList xs)
-  val state = MD5.final state
-  in MD5.toHexString state end
-
-Definition md5_def:
-  md5 str =
-    let xs = MAP (n2w o ORD) str in
-    let state = init in
-    let state = update state xs in
-    let state = final state in
-      toHexString state
-End
-
-(*
-    Some testing
-*)
-
-fun run_test str = let
-  val str_tm = str |> stringSyntax.fromMLstring
-  val res = EVAL (mk_comb(“md5”,str_tm))
-            |> concl |> rand |> stringSyntax.fromHOLstring
-  val correct = md5 str
-  in if res = correct
-     then (print ("Passed for: " ^ str ^ "\n"))
-     else (print ("Failed for: " ^ str ^ "\n"); fail()) end;
-
-val _ = run_test "hi";
-val _ = run_test "there";
-val _ = run_test "This is a longer string.";
-val _ = run_test ("Mun mummoni mun mammani. Mun mammani muni mut." ^
-                  "Mun mummoni mun mammani. Mun mammani muni mut." ^
-                  "Mun mummoni mun mammani. Mun mammani muni mut." ^
-                  "Mun mummoni mun mammani. Mun mammani muni mut." ^
-                  "Mun mummoni mun mammani. Mun mammani muni mut.");
-
 (*
     Specialise update for taking only one input
 *)
@@ -602,5 +564,38 @@ Proof
   \\ Cases_on ‘n'’ \\ fs [extract_def,genlist_rev_def]
   \\ once_rewrite_tac [loop_def] \\ fs [extract_def,oEL_def]
 QED
+
+fun md5 str = let
+  val xs = str |> explode |> map (Word8.fromInt o Char.ord)
+  val state = MD5.init
+  val state = MD5.update(state,Word8Vector.fromList xs)
+  val state = MD5.final state
+  in MD5.toHexString state end
+
+Definition md5_def:
+  md5 str = toHexString (final (FOLDL update1 init (MAP (n2w o ORD) str)))
+End
+
+(*
+    Some testing
+*)
+
+fun run_test str = let
+  val str_tm = str |> stringSyntax.fromMLstring
+  val res = EVAL (mk_comb(“md5”,str_tm))
+            |> concl |> rand |> stringSyntax.fromHOLstring
+  val correct = md5 str
+  in if res = correct
+     then (print ("Passed for: " ^ str ^ "\n"))
+     else (print ("Failed for: " ^ str ^ "\n"); fail()) end;
+
+val _ = run_test "hi";
+val _ = run_test "there";
+val _ = run_test "This is a longer string.";
+val _ = run_test ("Mun mummoni mun mammani. Mun mammani muni mut." ^
+                  "Mun mummoni mun mammani. Mun mammani muni mut." ^
+                  "Mun mummoni mun mammani. Mun mammani muni mut." ^
+                  "Mun mummoni mun mammani. Mun mammani muni mut." ^
+                  "Mun mummoni mun mammani. Mun mammani muni mut.");
 
 val _ = export_theory();
