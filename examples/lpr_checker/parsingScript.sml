@@ -20,8 +20,27 @@ val tokenize_def = Define`
     NONE => INL s
   | SOME i => INR i`
 
+val fromString_unsafe_def = Define`
+  fromString_unsafe str =
+    if strlen str = 0
+    then 0i
+    else if strsub str 0 = #"~" ∨
+            strsub str 0 = #"-"
+      then ~&fromChars_unsafe (strlen str - 1)
+                              (substring str 1 (strlen str - 1))
+      else &fromChars_unsafe (strlen str) str`;
+
+val tokenize_fast_def = Define`
+  tokenize_fast (s:mlstring) =
+  if strlen s = 0 then INL s
+  else if strsub s 0 = #"c" ∨ strsub s 0 = #"d" then INL s
+  else INR (fromString_unsafe s)`
+
 val toks_def = Define`
   toks s = MAP tokenize (tokens blanks s)`
+
+val toks_fast_def = Define`
+  toks_fast s = MAP tokenize_fast (tokens blanks s)`
 
 (* DIMACS parser *)
 
@@ -662,7 +681,7 @@ QED
 val parse_lpr_def = Define`
   (parse_lpr [] = SOME []) ∧
   (parse_lpr (l::ls) =
-    case parse_lprstep (toks l) of
+    case parse_lprstep (MAP tokenize_fast (tokens blanks l)) of
       NONE => NONE
     | SOME step =>
       (case parse_lpr ls of

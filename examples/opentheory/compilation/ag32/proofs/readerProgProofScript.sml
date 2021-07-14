@@ -136,7 +136,7 @@ Theorem reader_extract_writes:
               MEM (Sequent asl c) s.thms ⇒
                 (thyof refs.the_context, asl) |= c)) ∧
          refs.the_context extends init_ctxt ∧
-         (out = explode (msg_success s refs.the_context)) ∧
+         (out = explode (concat (append (msg_success s refs.the_context)))) ∧
          (err = "")
      | _ => F
 Proof

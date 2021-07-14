@@ -6,6 +6,8 @@ open preamble backendPropsTheory match_goal
      closSemTheory closPropsTheory
      clos_callTheory db_varsTheory
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory"clos_callProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
@@ -2053,7 +2055,7 @@ val code_inv_def = Define `
     s_code = FEMPTY /\
     s_cc = state_cc compile_inc t_cc /\
     t_co = state_co compile_inc s_co /\
-    (?g aux. wfg (g, aux) /\ is_state_oracle compile_inc s_co /\
+    (?g aux. wfg (g, aux) /\
         FST (FST (s_co 0)) = g /\
         oracle_monotonic (set o code_locs o FST o SND) (<)
             (domain g UNION l1) s_co /\
@@ -2114,15 +2116,17 @@ Theorem code_rel_state_rel_install:
       r.code r.compile r.compile_oracle t.code t.compile t.compile_oracle /\
     state_rel g1 l1 r t /\
     r.compile cfg (exps,aux) =
-        SOME (bytes,data,FST (shift_seq 1 r.compile_oracle 0)) /\
+        SOME (bytes,data,next_cfg) /\
     r.compile_oracle 0 = (cfg,exps,aux) /\
     t.compile_oracle 0 = (cfg',progs) /\
+    next_cfg = FST (shift_seq 1 r.compile_oracle 0) /\
     DISJOINT l1 (domain (FST g1)) ==>
-    DISJOINT (FDOM t.code) (set (MAP FST (SND progs))) ∧
+    DISJOINT (FDOM t.code) (set (MAP FST (SND progs))) /\
     ALL_DISTINCT (MAP FST (SND progs)) /\
-    t.compile cfg' progs = SOME (bytes,data,FST (shift_seq 1 t.compile_oracle 0)) /\
-    ?exp1 aux1 g2 l2.
+    ?exp1 aux1 g2 l2 next_cfg'.
+    t.compile cfg' progs = SOME (bytes,data,next_cfg') /\
       progs = (exp1,aux1) /\
+      next_cfg' = FST (shift_seq 1 t.compile_oracle 0) /\
       subg g1 g2 /\ l1 ⊆ l2 /\ DISJOINT l2 (domain (FST g2)) /\
       set (code_locs exps) DIFF domain (FST g2) ⊆ l2 /\
       calls exps g1 = (exp1, g2) /\
@@ -2148,7 +2152,6 @@ Proof
   \\ fs [compile_inc_def]
   \\ pairarg_tac \\ fs []
   \\ rveq \\ fs []
-  \\ Cases_on `r.compile_oracle 1`
   \\ fs [] \\ rveq \\ fs []
   \\ drule_then (fn t => simp [t]) calls_acc
   \\ first_x_assum (fn t => qspec_then `0` assume_tac t
@@ -2173,6 +2176,7 @@ Proof
         ALL_DISTINCT_alist_to_fmap_REVERSE, DISJOINT_SYM]
   \\ qexists_tac `l1 UNION (set (code_locs exps) DIFF domain d')`
   \\ fs [pred_setTheory.DISJOINT_DIFF]
+  \\ simp [compile_inc_def]
   \\ `subg (FST cfg,code) (d',new_code ++ code)` by (
     irule calls_subg
     \\ fs [wfg_def]
@@ -2180,7 +2184,7 @@ Proof
     \\ drule_then (fn t => simp [t]) calls_acc
     \\ fs [DISJOINT_IMAGE_SUC]
   )
-  \\ fs []
+  \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ]
   \\ conj_tac >- (
     drule (Q.SPEC `0` oracle_monotonic_DISJOINT_init)
     \\ fs [irreflexive_def, DISJOINT_SYM]
@@ -2211,11 +2215,6 @@ Proof
     drule_then (qspec_then `code` assume_tac) calls_acc
     \\ drule calls_wfg
     \\ fs [wfg_def, DISJOINT_IMAGE_SUC]
-  )
-  \\ conj_tac >- (
-    qpat_x_assum `is_state_oracle _ _` mp_tac
-    \\ simp [Once is_state_oracle_shift]
-    \\ simp [compile_inc_def]
   )
   \\ fs [wfg_def, DISJOINT_IMAGE_SUC, DISJOINT_SYM]
   \\ drule_then irule (GEN_ALL (Q.SPEC `1` oracle_monotonic_shift_seq))
@@ -2997,7 +2996,7 @@ Proof
     \\ simp [option_case_eq,list_case_eq,PULL_EXISTS,pair_case_eq,bool_case_eq]
     \\ pairarg_tac
     \\ fs [SWAP_REVERSE_SYM,
-Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
+       Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
        option_case_eq,pair_case_eq,PULL_EXISTS]
     \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs []
     \\ `aux = []` by (drule (Q.SPEC `0` code_inv_k) \\ fs [syntax_ok_def])
@@ -3011,6 +3010,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
       \\ `?cfg' progs. t.compile_oracle 0 = (cfg',progs)` by metis_tac [PAIR]
       \\ drule (GEN_ALL code_rel_state_rel_install)
       \\ rpt (disch_then drule)
+      \\ simp []
       \\ strip_tac
       \\ fs [shift_seq_def]
       \\ `exp1 <> []` by
@@ -3037,6 +3037,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
       \\ `t.clock = 0` by fs [state_rel_def] \\ fs []
       \\ rfs [state_rel_def,FUPDATE_LIST]
       \\ fs [code_inv_def]
+      \\ simp [state_co_def]
       \\ metis_tac [subg_trans, SUBSET_TRANS])
     \\ fs [bool_case_eq] \\ fs []
     \\ rveq \\ fs [FUPDATE_LIST,shift_seq_def]
@@ -3601,9 +3602,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
       \\ fs []
       \\ impl_tac >- (fs [] \\ irule subg_trans \\ metis_tac [subg_trans])
       \\ strip_tac \\ rveq
-      \\ drule (Q.GEN`s`pure_correct
-                |> INST_TYPE [``:'c``|->``:abs_calls_state # 'c``])
-      \\ disch_then(qspec_then`r`mp_tac)
+      \\ drule_then drule pure_correct_eq
       \\ simp[]
       \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
       >- (CASE_TAC \\ fs[])

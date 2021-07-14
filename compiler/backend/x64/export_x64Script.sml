@@ -27,15 +27,18 @@ val startup =
        "     .globl  cdecl(cml_heap)";
        "     .globl  cdecl(cml_stack)";
        "     .globl  cdecl(cml_stackend)";
+       "#ifndef __APPLE__";
+       "     .type   cml_main, function";
+       "#endif";
        "cdecl(cml_main):";
-       "     pushq   %rbp                        # push base pointer";
-       "     movq    %rsp, %rbp                  # save stack pointer";
-       "     leaq    cake_main(%rip), %rdi       # arg1: entry address";
-       "     movq    cml_heap(%rip), %rsi        # arg2: first address of heap";
+       "     pushq   %rbp                            # push base pointer";
+       "     movq    %rsp, %rbp                      # save stack pointer";
+       "     leaq    cake_main(%rip), %rdi           # arg1: entry address";
+       "     movq    cdecl(cml_heap)(%rip), %rsi     # arg2: first address of heap";
        "     leaq    cake_bitmaps(%rip), %rax";
-       "     movq    %rax, 0(%rsi)               # store bitmap pointer";
-       "     movq    cml_stack(%rip), %rdx       # arg3: first address of stack";
-       "     movq    cml_stackend(%rip), %rcx    # arg4: first address past the stack";
+       "     movq    %rax, 0(%rsi)                   # store bitmap pointer";
+       "     movq    cdecl(cml_stack)(%rip), %rdx    # arg3: first address of stack";
+       "     movq    cdecl(cml_stackend)(%rip), %rcx # arg4: first address past the stack";
        "     jmp     cake_main";
        ""])`` |> EVAL |> concl |> rand
 

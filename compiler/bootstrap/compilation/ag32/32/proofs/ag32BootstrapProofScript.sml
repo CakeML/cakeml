@@ -29,15 +29,15 @@ val with_clos_conf_simp = prove(
 
 val ffi_names =
   ``config.lab_conf.ffi_names``
-  |> (REWRITE_CONV[ag32BootstrapTheory.config_def] THENC EVAL)
+  |> (REWRITE_CONV[ag32BootstrapTheory.config_def] THENC EVAL);
 
 val LENGTH_code =
   ``LENGTH code``
-  |> (REWRITE_CONV[ag32BootstrapTheory.code_def] THENC listLib.LENGTH_CONV)
+  |> (REWRITE_CONV[ag32BootstrapTheory.code_def] THENC listLib.LENGTH_CONV);
 
 val LENGTH_data =
   ``LENGTH data``
-  |> (REWRITE_CONV[ag32BootstrapTheory.data_def] THENC listLib.LENGTH_CONV)
+  |> (REWRITE_CONV[ag32BootstrapTheory.data_def] THENC listLib.LENGTH_CONV);
 
 Overload cake_machine_config =
   ``ag32_machine_config (THE config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``
@@ -281,7 +281,9 @@ Theorem cake_extract_writes:
    let events = MAP get_output_io_event (cake_io_events cl (stdin_fs inp)) in
    let out = extract_writes 1 events in
    let err = extract_writes 2 events in
-   if has_version_flag (TL cl) then
+   if has_help_flag (TL cl) then
+     (out = explode help_string) ∧ (err = "")
+   else if has_version_flag (TL cl) then
      (out = explode current_build_info_str) ∧ (err = "")
    else
      let (cout, cerr) = compile_32 (TL cl) inp in
@@ -294,7 +296,7 @@ Proof
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
   \\ simp[compilerTheory.full_compile_32_def]
   \\ pairarg_tac \\ simp[]
-  \\ IF_CASES_TAC \\ fs[]
+  \\ ntac 2 (IF_CASES_TAC \\ fs[]
   >- (
     simp[TextIOProofTheory.add_stdo_def]
     \\ SELECT_ELIM_TAC
@@ -324,7 +326,7 @@ Proof
         pop_assum mp_tac
         \\ rw[] \\ fs[] \\ rw[]
         \\ pop_assum mp_tac \\ rw[])
-      >- ( rw[] \\ rw[OPTREL_def])))
+      >- ( rw[] \\ rw[OPTREL_def]))))
   \\ simp[TextIOProofTheory.add_stdout_fastForwardFD, STD_streams_stdin_fs]
   \\ DEP_REWRITE_TAC[TextIOProofTheory.add_stderr_fastForwardFD]
   \\ simp[TextIOProofTheory.STD_streams_add_stdout, STD_streams_stdin_fs]

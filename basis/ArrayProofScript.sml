@@ -255,8 +255,7 @@ val less_than_length_thm = Q.prove (
   rw[] \\
   qexists_tac`HD (DROP n xs)` \\
   qexists_tac`TL (DROP n xs)` \\
-  Cases_on`DROP n xs` \\ fs[]
-  >- fs[DROP_NIL] \\
+  Cases_on`DROP n xs` \\ fs[] \\
   metis_tac[TAKE_DROP,APPEND_ASSOC,CONS_APPEND]
 );
 

@@ -5,6 +5,8 @@ open preamble wordsTheory wordsLib integer_wordTheory gc_sharedTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "gen_gc";
 
 val _ = ParseExtras.temp_loose_equality();
@@ -1311,15 +1313,12 @@ val gc_move_loop_gc_inv = prove(
   \\ fs [gc_inv_def]
   \\ strip_tac
   >- fs []
-  \\ qpat_x_assum `state.a + _ = conf.limit` mp_tac
-  \\ qpat_x_assum `BIJ _ _ _` mp_tac
-  \\ qpat_x_assum `!i j. _` mp_tac
+  \\ rpt (pop_assum mp_tac)
   \\ once_rewrite_tac [CONS_APPEND]
   \\ rewrite_tac [APPEND_ASSOC]
   \\ rpt strip_tac \\ TRY (fs [] \\ NO_TAC)
   \\ qpat_x_assum `!i j. _` (qspecl_then [`i`,`j`] mp_tac)
-  \\ fs []
-  \\ strip_tac \\ fs []
+  \\ fs [] \\ strip_tac \\ fs []
   \\ `is_final conf state j = is_final conf (state with <|r4 := []; r2 := h::t|>) j` by fs [is_final_def,heap_length_def]
   \\ fs [] \\ fs []);
 

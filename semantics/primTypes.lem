@@ -32,7 +32,8 @@ let add_to_sem_env (st, env) prog =
 val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * sem_env v)
 let prim_sem_env ffi =
   add_to_sem_env
-    (<| clock = 0; ffi = ffi; refs = []; next_type_stamp = 0; next_exn_stamp = 0 |>,
+    (<| clock = 0; ffi = ffi; refs = [];
+        next_type_stamp = 0; next_exn_stamp = 0; eval_state = Nothing |>,
      <| v = nsEmpty; c = nsEmpty |>)
         prim_types_program
 

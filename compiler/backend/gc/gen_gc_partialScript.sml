@@ -3,6 +3,8 @@
 *)
 open preamble wordsTheory wordsLib integer_wordTheory gc_sharedTheory gen_gcTheory;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "gen_gc_partial";
 
 val _ = ParseExtras.temp_loose_equality();
@@ -3060,7 +3062,6 @@ Theorem partial_gc_IMP:
                           ?xs l d. MEM (DataElement xs l d) curr /\ c.isRef d)
 Proof
   fs [partial_gc_def] \\ CASE_TAC \\ fs []
-  THEN1 (CCONTR_TAC \\ rw [] \\ fs [] \\ rveq \\ fs [])
   \\ CASE_TAC \\ CASE_TAC
   \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ rveq \\ fs []
   \\ `?s4. gc_move_data c (state' with <|r2 := []; r1 := refs'|>) = s4` by fs []

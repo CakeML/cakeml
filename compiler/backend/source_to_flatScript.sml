@@ -23,20 +23,36 @@ val _ = temp_tight_equality ();
 val _ = Datatype `
   var_name = Glob tra num | Local tra string`
 
-val _ = Datatype `
+Datatype:
   environment =
-    <| c : (modN, conN, ctor_id#type_id) namespace;
-       v : (modN, varN, var_name) namespace; |>`;
+    <| c : (modN, conN, ctor_id#type_group_id) namespace;
+       v : (modN, varN, var_name) namespace; |>
+End
+
+Datatype:
+  environment_generation_store =
+    <| next : num;
+       generation : num;
+       envs : environment sptree$num_map |>
+End
+
+Datatype:
+  environment_store =
+    <| next : num;
+       env_gens : (environment sptree$num_map) sptree$num_map |>
+End
 
 val compile_var_def = Define `
   compile_var t (Glob _ i) = App t (GlobalVarLookup i) [] /\
   compile_var t (Local _ s) = Var_local t s`;
 
-(*
- * EXPLORER: No patterna propagates here. compile_pat just calls itself until
- * the trace is discared.
- *)
-val compile_pat_def = tDefine "compile_pat" `
+Theorem ast_pat1_size:
+  ast$pat1_size xs = LENGTH xs + SUM (MAP pat_size xs)
+Proof
+  Induct_on `xs` \\ simp [astTheory.pat_size_def]
+QED
+
+Definition compile_pat_def:
   (compile_pat env (ast$Pvar v) = flatLang$Pvar v) ∧
   (compile_pat env Pany = Pany) ∧
   (compile_pat env (Plit l) = Plit l) ∧
@@ -45,14 +61,12 @@ val compile_pat_def = tDefine "compile_pat" `
       (OPTION_JOIN (OPTION_MAP (nsLookup env.c) id))
       (MAP (compile_pat env) ps)) ∧
   (compile_pat env (Pref p) = Pref (compile_pat env p)) ∧
-  (compile_pat env (Ptannot p t) = compile_pat env p)`
-  (WF_REL_TAC `measure (pat_size o SND)` >>
-   rw [] >>
-   Induct_on `ps` >>
-   rw [astTheory.pat_size_def]
-   >- decide_tac >>
-   res_tac >>
-   decide_tac);
+  (compile_pat env (Ptannot p t) = compile_pat env p)
+Termination
+  WF_REL_TAC `measure (pat_size o SND)` >>
+  rw [ast_pat1_size] >>
+  fs [MEM_SPLIT, SUM_APPEND]
+End
 
 val pat_tups_def = Define`
   (pat_tups t [] = []) ∧
@@ -108,8 +122,23 @@ val astOp_to_flatOp_def = Define `
   | ListAppend => flatLang$ListAppend
   | ConfigGC => flatLang$ConfigGC
   | FFI string => flatLang$FFI string
+  | Eval => Eval
   (* default element *)
   | _ => flatLang$ConfigGC`;
+
+Definition type_group_id_type_def:
+  type_group_id_type NONE = NONE /\
+  type_group_id_type (SOME (cn, NONE)) = SOME (cn, NONE) /\
+  type_group_id_type (SOME (cn, (SOME (ty_id, ctors)))) = SOME (cn, SOME ty_id)
+End
+
+Theorem type_group_id_type_MAP:
+  type_group_id_type = OPTION_MAP (I ## OPTION_MAP FST)
+Proof
+  simp [FUN_EQ_THM]
+  \\ ho_match_mp_tac type_group_id_type_ind
+  \\ simp [type_group_id_type_def]
+QED
 
 Definition str_sep_def:
   str_sep = "_"
@@ -136,7 +165,7 @@ val compile_exp_def = tDefine"compile_exp"`
     Handle None (compile_exp t env e) (compile_pes t env pes)) ∧
   (compile_exp t env (ast$Lit l) = flatLang$Lit None l) ∧
   (compile_exp t env (Con cn es) =
-    Con None (OPTION_JOIN (OPTION_MAP (nsLookup env.c) cn))
+    Con None (OPTION_JOIN (OPTION_MAP (type_group_id_type o nsLookup env.c) cn))
           (compile_exps t env es)) ∧
   (compile_exp t env (Var x) =
     case nsLookup env.v x of
@@ -150,6 +179,22 @@ val compile_exp_def = tDefine"compile_exp"`
       FOLDR (Let None NONE) (flatLang$App None Aalloc [Lit None (IntLit (&0));
                                                        Lit None (IntLit (&0))])
         (REVERSE (compile_exps t env es))
+    else
+    if op = Eval then
+      flatLang$Mat None (Con None NONE (compile_exps t env es))
+        [(Pcon NONE [Pany; Pany; Pany; Pany; Pvar "bytes"; Pvar "words"],
+            flatLang$Let None NONE (flatLang$App None Eval
+                    (MAP (Var_local None) ["bytes"; "words"]))
+                (Let None (SOME "r") (App None (GlobalVarLookup 0) [])
+                    (flatLang$App None (El 0) [Var_local None "r"])))]
+    else
+    if op = Env_id then (case es of
+      | [_] => (case compile_exps t env es of
+                | x::xs => x
+                | _ => Var_local None "" (* Can't happen *))
+      (* possible only if one of es raises an exception *)
+      | _ => App None (El 0) (compile_exps t env es)
+      )
     else
       flatLang$App None (astOp_to_flatOp op) (compile_exps t env es)) ∧
   (compile_exp t env (Log lop e1 e2) =
@@ -295,20 +340,29 @@ val _ = Define `
     | NONE => (0, sptree$insert i 1 t)
     | SOME n => (n, sptree$insert i (n+1) t)`;
 
-val alloc_tags = Define `
-  (alloc_tags tid cids [] = (nsEmpty, cids)) ∧
-  (alloc_tags tid cids ((cn, ts) :: ctors) =
-    let (tag, new_cids) = lookup_inc (LENGTH ts) cids in
-    let (ns, new_cids') = alloc_tags tid new_cids ctors in
-      (nsBind cn (tag, SOME tid) ns, new_cids'))`;
+Definition alloc_tags1_def:
+  (alloc_tags1 [] = (nsEmpty, LN, [])) ∧
+  (alloc_tags1 ((cn, ts) :: ctors) =
+    let (ns, cids, tag_list) = alloc_tags1 ctors in
+    let arity = LENGTH ts in
+    let (tag, new_cids) = lookup_inc arity cids in
+      (nsBind cn tag ns, new_cids, (tag, arity) :: tag_list))
+End
 
-val let_none_list_def = Define `
-  let_none_list [] = flatLang$Con None NONE [] /\
-  let_none_list [x] = x /\
-  let_none_list (x::xs) = flatLang$Let None NONE x (let_none_list xs)`;
+Definition alloc_tags_def:
+  alloc_tags tid ctors =
+    let (con_ns, cid_spt, tag_list) = alloc_tags1 (REVERSE ctors) in
+    let data = SOME (tid, REVERSE tag_list) in
+    (nsMap (\tag. (tag, data)) con_ns, cid_spt)
+End
+
+Definition env_id_tuple_def:
+  env_id_tuple gen id = Con None NONE
+    [Lit None (IntLit (& gen)); Lit None (IntLit (& id))]
+End
 
 val compile_decs_def = tDefine "compile_decs" `
-  (compile_decs (t:string list) n next env [ast$Dlet locs p e] =
+  (compile_decs (t:string list) n next env envs [ast$Dlet locs p e] =
      let n' = n + 4 in
      let xs = REVERSE (pat_bindings p []) in
      let e' = compile_exp (xs++t) env e in
@@ -316,61 +370,77 @@ val compile_decs_def = tDefine "compile_decs" `
      let n'' = n' + l in
        (n'', (next with vidx := next.vidx + l),
         <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
+        envs,
         [flatLang$Dlet (Mat None e'
           [(compile_pat env p, make_varls 0 None next.vidx xs)])])) ∧
-  (compile_decs t n next env [ast$Dletrec locs funs] =
+  (compile_decs t n next env envs [ast$Dletrec locs funs] =
      let fun_names = MAP FST funs in
      let new_env = nsBindList (MAP (\x. (x, Local None x)) fun_names) env.v in
      let flat_funs = compile_funs t (env with v := new_env) funs in
-     let env' = <| v := alist_to_ns (alloc_defs n next.vidx fun_names); c := nsEmpty |> in
-       (n + LENGTH funs, (next with vidx := next.vidx + LENGTH funs), env',
-        [flatLang$Dlet (flatLang$Letrec "" flat_funs
-           (let_none_list (MAPi (\i (f,x,e). App None (GlobalVarInit (next.vidx + i))
-               [Var_local None f]) funs)))])) /\
-  (compile_decs t n next env [Dtype locs type_def] =
-    let new_env = MAPi (\tid (_,_,constrs). alloc_tags (next.tidx + tid) LN constrs) type_def in
+     let n' = n + 1 in
+     let env' = <| v := alist_to_ns (alloc_defs n' next.vidx (REVERSE fun_names));
+                   c := nsEmpty |> in
+       (n' + LENGTH funs, (next with vidx := next.vidx + LENGTH funs),
+        env', envs,
+        [flatLang$Dlet (flatLang$Letrec (join_all_names t) flat_funs
+           (make_varls 0 None next.vidx (REVERSE fun_names)))])) /\
+  (compile_decs t n next env envs [Dtype locs type_def] =
+    let new_env = MAPi (\tid (_,_,constrs). alloc_tags (next.tidx + tid) constrs) type_def in
      (n, (next with tidx := next.tidx + LENGTH type_def),
       <| v := nsEmpty;
          c := FOLDL (\ns (l,cids). nsAppend l ns) nsEmpty new_env |>,
+      envs,
       MAPi (λi (ns,cids). flatLang$Dtype (next.tidx + i) cids) new_env)) ∧
-  (compile_decs _ n next env [Dtabbrev locs tvs tn t] =
-     (n, next, empty_env, [])) ∧
-  (compile_decs t n next env [Dexn locs cn ts] =
+  (compile_decs _ n next env envs [Dtabbrev locs tvs tn t] =
+     (n, next, empty_env, envs, [])) ∧
+  (compile_decs t n next env envs [Dexn locs cn ts] =
      (n, (next with eidx := next.eidx + 1),
-      <| v := nsEmpty; c := nsSing cn (next.eidx, NONE) |>, [Dexn next.eidx (LENGTH ts)])) ∧
-  (compile_decs t n next env [Dmod mn ds] =
-     let (n', next', new_env, ds') = compile_decs (mn::t) n next env ds in
-       (n', next', (lift_env mn new_env), ds')) ∧
-  (compile_decs t n next env [Dlocal lds ds] =
-     let (n', next1, new_env1, lds') = compile_decs t n next env lds in
-     let (n'', next2, new_env2, ds') = compile_decs t n' next1
-        (extend_env new_env1 env) ds
-     in (n'', next2, new_env2, lds'++ds')) ∧
-  (compile_decs t n next env [] =
-    (n, next, empty_env, [])) ∧
-  (compile_decs t n next env (d::ds) =
-     let (n', next1, new_env1, d') = compile_decs t n next env [d] in
-     let (n'', next2, new_env2, ds') =
-       compile_decs t n' next1 (extend_env new_env1 env) ds
+      <| v := nsEmpty; c := nsSing cn (next.eidx, NONE) |>,
+      envs,
+      [Dexn next.eidx (LENGTH ts)])) ∧
+  (compile_decs t n next env envs [Dmod mn ds] =
+     let (n', next', new_env, envs', ds') = compile_decs (mn::t) n next env envs ds in
+       (n', next', (lift_env mn new_env), envs', ds')) ∧
+  (compile_decs t n next env envs [Dlocal lds ds] =
+     let (n', next1, new_env1, envs', lds') = compile_decs t n next env envs lds in
+     let (n'', next2, new_env2, envs'', ds') = compile_decs t n' next1
+        (extend_env new_env1 env) envs' ds
+     in (n'', next2, new_env2, envs'', lds'++ds')) ∧
+  (compile_decs t n next env envs [Denv nenv] =
+     (n + 1, next with vidx := next.vidx + 1,
+        <| v := nsBind nenv (Glob None next.vidx) nsEmpty; c := nsEmpty |>,
+        envs with <| next := envs.next + 1;
+            envs := insert envs.next env envs.envs |>,
+        [flatLang$Dlet (App None (GlobalVarInit next.vidx)
+            [env_id_tuple envs.generation envs.next])])) ∧
+  (compile_decs t n next env envs [] =
+    (n, next, empty_env, envs, [])) ∧
+  (compile_decs t n next env envs (d::ds) =
+     let (n', next1, new_env1, envs1, d') = compile_decs t n next env envs [d] in
+     let (n'', next2, new_env2, envs2, ds') =
+       compile_decs t n' next1 (extend_env new_env1 env) envs1 ds
      in
-       (n'', next2, extend_env new_env2 new_env1, d'++ds'))`
- (wf_rel_tac `measure (list_size ast$dec_size o SND o SND o SND o SND)`
+       (n'', next2, extend_env new_env2 new_env1, envs2, d'++ds'))`
+ (wf_rel_tac `measure (list_size ast$dec_size o SND o SND o SND o SND o SND)`
   >> rw [dec1_size_eq]);
 
 val _ = Datatype`
   config = <| next : next_indices
             ; mod_env : environment
             ; pattern_cfg : flat_pattern$config
+            ; envs : environment_store
             |>`;
 
 val empty_config_def = Define`
   empty_config =
     <| next := <| vidx := 0; tidx := 0; eidx := 0 |>;
         mod_env := empty_env;
-        pattern_cfg := flat_pattern$init_config (K 0) |>`;
+        pattern_cfg := flat_pattern$init_config (K 0);
+        envs := <| next := 0; env_gens := LN |>
+    |>`;
 
 val compile_flat_def = Define `
-  compile_flat pcfg = flat_pattern$compile_decs pcfg
+  compile_flat pcfg = MAP (flat_pattern$compile_dec pcfg)
     o flat_elim$remove_flat_prog`;
 
 val glob_alloc_def = Define `
@@ -381,16 +451,57 @@ val glob_alloc_def = Define `
           (GlobalVarAlloc (next.vidx - c.next.vidx)) [])
         (flatLang$Con om_tra NONE []))`;
 
+Definition alloc_env_ref_def:
+  alloc_env_ref = Dlet (App None (GlobalVarInit 0)
+    [App None Opref [Con None NONE []]])
+End
+
 val compile_prog_def = Define`
   compile_prog c p =
-    let (_,next,e,p') = compile_decs [] 1n c.next c.mod_env p in
-    (c with <| next := next; mod_env := e |>, glob_alloc next c :: p')`;
+    let next = c.next with <| vidx := c.next.vidx + 1 |> in
+    let envs = <| next := 0; generation := c.envs.next; envs := LN |> in
+    let (_,next,e,gen,p') = compile_decs [] 1n next c.mod_env envs p in
+    let envs2 = <| next := c.envs.next + 1;
+        env_gens := insert c.envs.next gen.envs c.envs.env_gens |> in
+    (c with <| next := next; envs := envs2; mod_env := e |>,
+        glob_alloc next c :: alloc_env_ref :: p')`;
+
+Definition lookup_env_id_def:
+  lookup_env_id env_id envs = case lookup (FST env_id) envs.env_gens of
+  | NONE => empty_env
+  | SOME gen => (case lookup (SND env_id) gen of
+    | NONE => empty_env
+    | SOME env => env
+  )
+End
+
+val store_env_id_def = Define`
+  store_env_id gen id =
+    Dlet (Let None (SOME "r") (flatLang$App None (GlobalVarLookup 0) [])
+        (App None Opassign [Var_local None "r"; env_id_tuple gen id]))`;
+
+val inc_compile_prog_def = Define`
+  inc_compile_prog env_id c p =
+    let env = lookup_env_id env_id c.envs in
+    let envs = <| next := 0; generation := c.envs.next; envs := LN |> in
+    let (_,next,e,gen,p') = compile_decs [] 1n c.next env envs p in
+    let gen_envs = insert gen.next (extend_env e env) gen.envs in
+    let envs2 = <| next := c.envs.next + 1;
+        env_gens := insert c.envs.next gen_envs c.envs.env_gens |> in
+    (c with <| next := next; envs := envs2 |>,
+        glob_alloc next c :: p' ++ [store_env_id gen.generation gen.next])`;
 
 val compile_def = Define `
   compile c p =
     let (c', p') = compile_prog c p in
-    let (pc', p') = compile_flat c'.pattern_cfg p' in
-    let c'' = c' with <| pattern_cfg := pc' |> in
-    (c'', p')`;
+    let p' = compile_flat c'.pattern_cfg p' in
+    (c', p')`;
+
+(* note that flat_elim is always disabled in the eval/incremental case *)
+val inc_compile_def = Define `
+  inc_compile env_id c p =
+    let (c', p') = inc_compile_prog env_id c p in
+    let p' = MAP (flat_pattern$compile_dec c'.pattern_cfg) p' in
+    (c', p')`;
 
 val _ = export_theory();

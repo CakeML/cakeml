@@ -247,6 +247,7 @@ Proof
   \\ `LENGTH cl <= LENGTH cl` by fs []
   \\ asm_exists_tac \\ fs [] \\ xsimpl
   \\ `DROP (LENGTH cl) cl = []` by fs [DROP_NIL]
+  \\ asm_rewrite_tac []
   \\ fs [LIST_TYPE_def]
   \\ fs [wfcl_def] \\ rfs [two_byte_sum]
   \\ rw [] \\ qexists_tac `x` \\ xsimpl

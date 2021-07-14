@@ -180,6 +180,14 @@ Proof
   \\ fs []
 QED
 
+Theorem is_state_oracle_shift_imp:
+  is_state_oracle compile_inc_f co ==>
+  is_state_oracle compile_inc_f (shift_seq n co)
+Proof
+  rw [is_state_oracle_def, shift_seq_def]
+  \\ fs [arithmeticTheory.ADD_CLAUSES]
+QED
+
 Theorem is_state_oracle_k:
   !k. is_state_oracle compile_inc_f co ==>
   ?st oth_st prog. co k = ((st, oth_st), prog)
@@ -296,7 +304,7 @@ Proof
         (!j. j <= i ==> n_f (FST (FST (orac j))) <= n_f (FST (FST (orac i))))`
   by (
     Induct \\ fs [is_state_oracle_def]
-    \\ fs [PAIR_FST_SND_EQ, seqTheory.LE_SUC]
+    \\ fs [PAIR_FST_SND_EQ, LE]
     \\ rw [] \\ fs []
     \\ metis_tac [LESS_EQ_TRANS]
   )

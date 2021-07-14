@@ -18,6 +18,11 @@ let fix_clock s (s',res) =
 
 let dec_clock s = <| s with clock = s.clock - 1 |>
 
+let do_eval_res vs s = match do_eval vs s.eval_state with
+  | Nothing -> (s, Rerr (Rabort Rtype_error))
+  | Just (env1, decs, es1) -> (<| s with eval_state = es1 |>, Rval (env1, decs))
+  end
+
 (* list_result is equivalent to map_result (\v. [v]) I, where map_result is
  * defined in evalPropsTheory *)
 let rec
@@ -27,6 +32,7 @@ list_result (Rerr e) = Rerr e
 
 val evaluate : forall 'ffi. state 'ffi -> sem_env v -> list exp -> state 'ffi * result (list v) v
 val evaluate_match : forall 'ffi. state 'ffi -> sem_env v -> v -> list (pat * exp) -> v -> state 'ffi * result (list v) v
+val evaluate_decs : forall 'ffi. state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v
 let rec
 evaluate st env [] = (st, Rval [])
 and
@@ -88,6 +94,26 @@ evaluate st env [App op es] =
             else
               evaluate (dec_clock st') env' [e]
         | Nothing -> (st', Rerr (Rabort Rtype_error))
+        end
+      else if op = Eval then
+        match fix_clock st' (do_eval_res (reverse vs) st') with
+        | (st1, Rval (env1, decs)) ->
+            if st1.clock = 0 then
+              (st1, Rerr (Rabort Rtimeout_error))
+            else
+              match fix_clock (dec_clock st1)
+                      (evaluate_decs (dec_clock st1) env1 decs) with
+              | (st2, Rval env2) -> match declare_env st2.eval_state
+                  (extend_dec_env env2 env1) with
+                | Just (x, es2) -> (<| st2 with eval_state =
+                    reset_env_generation st'.eval_state es2 |>, Rval [x])
+                | Nothing -> (st2, Rerr (Rabort Rtype_error))
+                end
+              | (st2, Rerr (Rabort a)) -> (st2, Rerr (Rabort a))
+              | (st2, Rerr e) -> (<| st2 with eval_state =
+                  reset_env_generation st'.eval_state st2.eval_state |>, Rerr e)
+              end
+        | (st1, Rerr e) -> (st1, Rerr e)
         end
       else
         match do_app (st'.refs,st'.ffi) op (reverse vs) with
@@ -155,17 +181,11 @@ evaluate_match st env v ((p,e)::pes) err_v  =
     | Match_type_error -> (st, Rerr (Rabort Rtype_error))
     end
   else (st, Rerr (Rabort Rtype_error))
-
-declare {isabelle} rename function evaluate = fun_evaluate
-declare {isabelle} rename function evaluate_match = fun_evaluate_match
-
-val evaluate_decs :
-  forall 'ffi. state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v
-let rec
+and
 evaluate_decs st env [] = (st, Rval <| v = nsEmpty; c = nsEmpty |>)
 and
 evaluate_decs st env (d1::d2::ds) =
-  match evaluate_decs st env [d1] with
+  match fix_clock st (evaluate_decs st env [d1]) with
   | (st1, Rval env1) ->
     match evaluate_decs st1 (extend_dec_env env1 env) (d2::ds) with
     | (st2,r) -> (st2, combine_dec_result env1 r)
@@ -205,6 +225,13 @@ and
 evaluate_decs st env [Dtabbrev locs tvs tn t] =
   (st, Rval <| v = nsEmpty; c = nsEmpty |>)
 and
+evaluate_decs st env [Denv n] =
+  match declare_env st.eval_state env with
+  | Just (x, es') -> (<| st with eval_state = es' |>,
+        Rval <| v = nsSing n x; c = nsEmpty |>)
+  | Nothing -> (st, Rerr (Rabort Rtype_error))
+  end
+and
 evaluate_decs st env [Dexn locs cn ts] =
   (<| st with next_exn_stamp = st.next_exn_stamp + 1 |>,
    Rval <| v = nsEmpty; c = nsSing cn (length ts, ExnStamp st.next_exn_stamp) |>)
@@ -220,10 +247,12 @@ evaluate_decs st env [Dmod mn ds] =
   end
 and
 evaluate_decs st env [Dlocal lds ds] =
-  match evaluate_decs st env lds with
+  match fix_clock st (evaluate_decs st env lds) with
   | (st1, Rval env1) ->
     evaluate_decs st1 (extend_dec_env env1 env) ds
   | res -> res
   end
 
+declare {isabelle} rename function evaluate = fun_evaluate
+declare {isabelle} rename function evaluate_match = fun_evaluate_match
 declare {isabelle} rename function evaluate_decs = fun_evaluate_decs

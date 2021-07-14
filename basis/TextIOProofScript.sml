@@ -7,7 +7,7 @@ open preamble
      Word8ArrayProofTheory TextIOProgTheory MarshallingProgTheory MarshallingTheory
      integerTheory int_arithTheory;
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "TAKE_LENGTH_ID_rwt2", "TAKE_LENGTH_ID_rwt2"];
 
 val _ = new_theory"TextIOProof";
 
@@ -91,7 +91,7 @@ Proof
   rw[STDIO_def,STD_streams_def,SEP_CLAUSES,SEP_EXISTS_THM,STAR_COMM,STAR_ASSOC,cond_STAR] >>
   fs[Once STAR_COMM] >>
   imp_res_tac UNIQUE_IOFS >>
-  cases_on`fs1` >> cases_on`fs2` >> fs[IO_fs_numchars_fupd]
+  cases_on`fs1` >> cases_on`fs2` >> fs[recordtype_IO_fs_seldef_numchars_fupd_def]
 QED;
 
 (* weak injection theorem *)
@@ -112,7 +112,7 @@ Proof
      qmatch_assum_rename_tac`SPLIT s (u0, v0)` >>
      qexists_tac`u0` >> qexists_tac`v0` >> fs[] >>
      qexists_tac`u1` >> fs[PULL_EXISTS] >> qexists_tac`ll` >> fs[] >>
-     cases_on`fs1` >> cases_on`fs2` >> fs[IO_fs_numchars_fupd] >>
+     cases_on`fs1` >> cases_on`fs2` >> fs[recordtype_IO_fs_seldef_numchars_fupd_def] >>
      metis_tac[]
      ) >>
   fs[STDIO_def,STD_streams_def,STAR_def,SEP_EXISTS,cond_def] >>
@@ -121,7 +121,7 @@ Proof
   qmatch_assum_rename_tac`SPLIT s (u0, v0)` >>
   qexists_tac`u0` >> qexists_tac`v0` >> fs[] >>
   qexists_tac`u1` >> fs[PULL_EXISTS] >> qexists_tac`ll` >> fs[] >>
-  cases_on`fs1` >> cases_on`fs2` >> fs[IO_fs_numchars_fupd] >>
+  cases_on`fs1` >> cases_on`fs2` >> fs[recordtype_IO_fs_seldef_numchars_fupd_def] >>
   metis_tac[]
 QED;
 
@@ -768,7 +768,7 @@ val instream_buffered_inv_def = Define `
 val INSTREAM_BUFFERED_def = Define `
   INSTREAM_BUFFERED bactive is =
     SEP_EXISTS rr r wr w buff bcontent fd fdv.
-      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 12)) [fdv; rr; wr; buff]) /\
+      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 31)) [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
@@ -778,7 +778,7 @@ val INSTREAM_BUFFERED_def = Define `
 val INSTREAM_BUFFERED_FD_def = Define `
   INSTREAM_BUFFERED_FD bactive fd is =
     SEP_EXISTS rr r wr w buff bcontent fdv.
-      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 12)) [fdv; rr; wr; buff]) /\
+      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 31)) [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
@@ -788,7 +788,7 @@ val INSTREAM_BUFFERED_FD_def = Define `
 val INSTREAM_BUFFERED_BL_FD_def = Define `
   INSTREAM_BUFFERED_BL_FD bcontent bactive fd is =
     SEP_EXISTS rr r wr w buff fdv.
-      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 12)) [fdv; rr; wr; buff]) /\
+      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 31)) [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
@@ -798,7 +798,7 @@ val INSTREAM_BUFFERED_BL_FD_def = Define `
 val INSTREAM_BUFFERED_BL_FD_RW_def = Define `
   INSTREAM_BUFFERED_BL_FD_RW bcontent bactive fd r w is =
     SEP_EXISTS rr wr buff fdv.
-      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 12)) [fdv; rr; wr; buff]) /\
+      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 31)) [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
@@ -956,9 +956,9 @@ Proof
         getNullTermStr_insert_atI, ORD_BOUND, ORD_eq_0,option_eq_some,
         dimword_8, MAP_MAP_o, o_DEF, char_BIJ,w82n_n2w8,LENGTH_n2w8,
         implode_explode, LENGTH_explode,closeFD_def,LUPDATE_def] >>
-     cases_on`fs` >> fs[IO_fs_infds_fupd] >>
+     cases_on`fs` >> fs[recordtype_IO_fs_seldef_infds_fupd_def] >>
      imp_res_tac ALOOKUP_NONE >> rw[] \\
-     fs[liveFS_def,IO_fs_infds_fupd,STRING_TYPE_def] \\ xsimpl >>
+     fs[liveFS_def,recordtype_IO_fs_seldef_infds_fupd_def,STRING_TYPE_def] \\ xsimpl >>
      qpat_abbrev_tac `new_events = events ++ _` >>
      qexists_tac `new_events` >> xsimpl) >>
   NTAC 3 (xlet_auto >- xsimpl) >>
@@ -1004,9 +1004,9 @@ Proof
         getNullTermStr_insert_atI, ORD_BOUND, ORD_eq_0,option_eq_some,
         dimword_8, MAP_MAP_o, o_DEF, char_BIJ,w82n_n2w8,LENGTH_n2w8,
         implode_explode, LENGTH_explode,closeFD_def,LUPDATE_def] >>
-     cases_on`fs` >> fs[IO_fs_infds_fupd] >>
+     cases_on`fs` >> fs[recordtype_IO_fs_seldef_infds_fupd_def] >>
      imp_res_tac ALOOKUP_NONE >> rw[] \\
-     fs[liveFS_def,IO_fs_infds_fupd,STRING_TYPE_def] \\ xsimpl >>
+     fs[liveFS_def,recordtype_IO_fs_seldef_infds_fupd_def,STRING_TYPE_def] \\ xsimpl >>
      qpat_abbrev_tac `new_events = events ++ _` >>
      qexists_tac `new_events` >> xsimpl) >>
   NTAC 3 (xlet_auto >- xsimpl) >>
@@ -2140,9 +2140,9 @@ Proof
                         (W8ARRAY v'' (REPLICATE (MIN 65535 (MAX (bsize+4) 1028)) 48w)) *
                         IOFS (openFileFS s fs ReadMode 0)`
   >-(xref \\ fs[REF_NUM_def,MIN_DEF] \\ xsimpl)
-    \\ xcon \\ fs[INSTREAM_BUFFERED_FD_def] \\ xsimpl
-    \\ map_every qexists_tac [`4`, `4`]
-    \\ fs[instream_buffered_inv_def,MAX_DEF] \\ xsimpl
+  \\ xcon \\ fs[INSTREAM_BUFFERED_FD_def] \\ xsimpl
+  \\ map_every qexists_tac [`4`, `4`]
+  \\ fs[instream_buffered_inv_def,MAX_DEF] \\ xsimpl
 QED
 
 Theorem b_openIn_spec:
@@ -2244,7 +2244,7 @@ QED
 
 Theorem b_refillBuffer_with_read_spec:
   !fd fdv fs content pos.
-  is = (Conv (SOME (TypeStamp "InstreamBuffered" 12)) [fdv; rr; wr; isbuff]) /\
+  is = (Conv (SOME (TypeStamp "InstreamBuffered" 31)) [fdv; rr; wr; isbuff]) /\
   get_file_content fs fd = SOME(content, pos) ⇒
   get_mode fs fd = SOME ReadMode ⇒
   app (p:'ffi ffi_proj) TextIO_b_refillBuffer_with_read_v [is;]
@@ -6641,7 +6641,7 @@ Proof
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ qpat_x_assum`is =
-   Conv (SOME (TypeStamp "InstreamBuffered" 12)) [fdv; rr; wr; buff]` mp_tac
+   Conv (SOME (TypeStamp "InstreamBuffered" 31)) [fdv; rr; wr; buff]` mp_tac
   \\ rveq \\ strip_tac \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
@@ -7143,7 +7143,8 @@ Proof
   \\ imp_res_tac splitlines_next
   \\ rveq
   \\ `pos < LENGTH content`
-  by ( CCONTR_TAC \\ fs[NOT_LESS,GSYM GREATER_EQ,GSYM DROP_NIL] )
+  by ( CCONTR_TAC \\ full_simp_tac std_ss[NOT_LESS,GSYM GREATER_EQ,GSYM DROP_NIL]
+       \\ gvs[])
   \\ fs[DROP_DROP_T]
   \\ pairarg_tac \\ fs[implode_def,STRING_TYPE_def,std_preludeTheory.OPTION_TYPE_def] \\ rveq
   \\ xmatch

@@ -113,6 +113,8 @@ val _ = translate COUNT_LIST_compute
 
 *)
 
+val _ = translate difference_def;
+
 val _ = translate list_remap_def;
 val _ = translate mk_bij_aux_def;
 

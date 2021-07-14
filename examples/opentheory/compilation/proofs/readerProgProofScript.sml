@@ -42,48 +42,47 @@ Theorem reader_compiled_thm =
  * Does a good alternative already exist somewhere?
  *)
 
-val installed_x64_def = Define `
+Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
       (word8 list # word64 list # 64 backend$config))
-    ffi mc ms
-  <=>
-    ?cbspace data_sp.
-      is_x64_machine_config mc /\
+    ffi mc ms ⇔
+    ∃cbspace data_sp.
+      is_x64_machine_config mc ∧
       installed
         code cbspace
         data data_sp
-        cfg.lab_conf.ffi_names
-        ffi
+        cfg.lab_conf.ffi_names ffi
         (heap_regs x64_backend_config.stack_conf.reg_names) mc ms
-    `;
+End
 
-val reader_code_def = Define `
+Definition reader_code_def:
   reader_code = (code, data, config)
-  `;
+End
 
 val _ = Parse.hide "mem";
-val mem = ``mem:'U->'U->bool``;
+val mem = “mem: 'U -> 'U -> bool”;
 
 Theorem machine_code_sound:
-   input_exists fs cl /\ wfcl cl /\ wfFS fs /\ STD_streams fs
-   ==>
-   (installed_x64 reader_code (basis_ffi cl fs) mc ms
-    ==>
-    machine_sem mc (basis_ffi cl fs) ms ⊆
-      extend_with_resource_limit
-        {Terminate Success (reader_io_events cl fs)}) /\
-   ?fs_out hol_refs s.
-      extract_fs fs (reader_io_events cl fs) = SOME fs_out /\
-      (no_errors fs fs_out ==>
-       reader_main fs init_refs (TL cl) = (fs_out, hol_refs, SOME s) /\
-       hol_refs.the_context extends init_ctxt /\
-       fs_out = add_stdout (flush_stdin (TL cl) fs)
-                           (msg_success s hol_refs.the_context) /\
-      !asl c.
-        MEM (Sequent asl c) s.thms /\
-        is_set_theory ^mem
-        ==>
-        (thyof hol_refs.the_context, asl) |= c)
+   input_exists fs cl ∧
+   wfcl cl ∧
+   wfFS fs ∧
+   STD_streams fs ⇒
+     (installed_x64 reader_code (basis_ffi cl fs) mc ms ⇒
+        machine_sem mc (basis_ffi cl fs) ms ⊆
+          extend_with_resource_limit
+            {Terminate Success (reader_io_events cl fs)}) ∧
+     ∃fs_out hol_refs s.
+       extract_fs fs (reader_io_events cl fs) = SOME fs_out ∧
+       (no_errors fs fs_out ⇒
+          reader_main fs init_refs (TL cl) = (fs_out, hol_refs, SOME s) ∧
+          hol_refs.the_context extends init_ctxt ∧
+          fs_out =
+            add_stdout (flush_stdin (TL cl) fs)
+                       (concat (append (msg_success s hol_refs.the_context))) ∧
+       ∀asl c.
+         MEM (Sequent asl c) s.thms ∧
+         is_set_theory ^mem ⇒
+           (thyof hol_refs.the_context, asl) |= c)
 Proof
   metis_tac [installed_x64_def, reader_code_def, reader_compiled_thm, PAIR,
               FST, SND, reader_success_stderr, input_exists_def,

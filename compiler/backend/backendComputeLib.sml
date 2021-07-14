@@ -82,7 +82,7 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Defs (theory_computes "flatLang")
   ,computeLib.Defs (theory_computes "pattern_semantics")
   ,computeLib.Defs (theory_computes "pattern_comp")
-  ,computeLib.Defs (theory_computes "reachable_spt")
+  ,computeLib.Defs (theory_computes "spt_closure")
   ,computeLib.Tys
     [``:flatLang$op``
     ,``:flatLang$pat``
@@ -699,6 +699,10 @@ val add_backend_compset = computeLib.extend_compset
     ,sptreeTheory.spt_fold_def
     ,sptreeTheory.mapi_def
     ,sptreeTheory.mapi0_def
+    ,sptreeTheory.subspt_eq
+    ,sptreeTheory.spt_left_def
+    ,sptreeTheory.spt_center_def
+    ,sptreeTheory.spt_right_def
     ]
   ,computeLib.Tys
     [ (* ---- stackLang ---- *)

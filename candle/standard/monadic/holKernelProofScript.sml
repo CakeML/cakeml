@@ -4,6 +4,8 @@
 *)
 open preamble mlstringTheory ml_monadBaseTheory holKernelTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "holKernelProof";
 
 val _ = ParseExtras.temp_loose_equality();
@@ -2482,7 +2484,8 @@ Proof
       <|the_type_constants := Y::s.the_type_constants|>)` >>
   `get_type_arity tyname s1 = (Success (LENGTH vs), s1)` by (
     simp[get_type_arity_def,st_ex_bind_def,Abbr`s1`] >>
-    EVAL_TAC ) >>
+    simp[Abbr`vs`]>>
+    EVAL_TAC)>>
   simp[mk_type_def,try_def,otherwise_def,raise_Fail_def,st_ex_return_def,Once st_ex_bind_def] >>
   simp[mk_fun_ty_def] >>
   `get_type_arity (strlit "fun") s1 = (Success 2, s1)` by (
@@ -2530,8 +2533,11 @@ Proof
     imp_res_tac THM_term_ok_bool >>
     fs[term_ok_def] >>
     rfs[WELLTYPED] >>
-    simp[Abbr`s2`,Abbr`s1`,Abbr`vs`,Abbr`l1`
-        ,MAP_MAP_o,combinTheory.o_DEF,ETA_AX] >>
+    simp[Abbr`s2`,Abbr`s1`,Abbr`vs`,Abbr`l1`] >>
+    CONJ_TAC >- (
+      qpat_x_assum`_ = STRING_SORT _` (mp_tac o Q.AP_TERM`LENGTH`)>>
+      qpat_x_assum`_ = STRING_SORT _` (mp_tac o Q.AP_TERM`LENGTH`)>>
+      simp[LENGTH_QSORT,LENGTH_STRING_SORT,LENGTH_MAP,tvars_ALL_DISTINCT]) >>
     METIS_TAC[term_type]) >>
   qmatch_assum_abbrev_tac`Abbrev(l1 = [(absname,absty);(repname,repty)])` >>
   `mk_const (repname,[]) s2 = (Success (Const repname repty), s2)` by (

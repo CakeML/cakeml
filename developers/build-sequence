@@ -97,6 +97,10 @@ examples/opentheory/compilation
 examples/opentheory/compilation/proofs
 examples/opentheory/compilation/ag32
 examples/opentheory/compilation/ag32/proofs
+examples/sat_encodings
+examples/sat_encodings/case_studies
+examples/sat_encodings/translation
+examples/sat_encodings/translation/compilation
 
 translator/okasaki-examples
 translator/other-examples

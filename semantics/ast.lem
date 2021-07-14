@@ -102,6 +102,10 @@ type op =
   | ConfigGC
   (* Call a given foreign function *)
   | FFI of string
+  (* Evaluate new code in a given env *)
+  | Eval
+  (* Get the identifier of an env object *)
+  | Env_id
 
 (* Logical operations *)
 type lop =
@@ -184,6 +188,8 @@ type dec =
   | Dmod of modN * list dec
   (* Local: local part, visible part *)
   | Dlocal of list dec * list dec
+  (* Store current lexical env in an env value *)
+  | Denv of tvarN
 
 (*
 (* Specifications

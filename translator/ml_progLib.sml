@@ -508,18 +508,19 @@ fun get_env s = let
 
 fun get_state s = get_thm s |> concl |> rand
 
+fun mk_acc nm rec_tm = let
+    val fields = TypeBase.fields_of (type_of rec_tm)
+    val field = assoc nm fields
+  in mk_icomb (#accessor field, rec_tm) end
+
 fun get_next_type_stamp s =
-  semanticPrimitivesTheory.state_component_equality
-  |> ISPEC (get_state s)
-  |> SPEC (get_state s)
-  |> concl |> rand |> rand |> rand |> rand |> rator |> rand |> rand
+  get_state s
+  |> mk_acc "next_type_stamp"
   |> QCONV EVAL |> concl |> rand |> numSyntax.int_of_term;
 
 fun get_next_exn_stamp s =
-  semanticPrimitivesTheory.state_component_equality
-  |> ISPEC (get_state s)
-  |> SPEC (get_state s)
-  |> concl |> rand |> rand |> rand |> rand |> rand |> rand
+  get_state s
+  |> mk_acc "next_exn_stamp"
   |> QCONV EVAL |> concl |> rand |> numSyntax.int_of_term;
 
 fun add_prog prog_tm pick_name s = let

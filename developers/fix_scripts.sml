@@ -5,7 +5,7 @@
   the dir that needs fixing; it will recurse into INCLUDES dirs.
 *)
 
-val new_str = "val _ = temp_delsimps [\"NORMEQ_CONV\"]\n\n"
+val new_str = "val _ = temp_delsimps [\"lift_disj_eq\", \"lift_imp_disj\"]\n\n"
 
 fun mem x [] = false | mem x (y::ys) = x = y orelse mem x ys;
 fun fst (x,y) = x

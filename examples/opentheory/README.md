@@ -9,7 +9,7 @@ This directory contains a version of the OpenTheory article checker
 where the I/O part is built using the monadic translator.
 
 [prettyScript.sml](prettyScript.sml):
-A pretty printer producing strings.
+A pretty printer producing mlstring app_lists.
 Based on the pretty printer from "ML from the working programmer".
 
 [readerProgScript.sml](readerProgScript.sml):

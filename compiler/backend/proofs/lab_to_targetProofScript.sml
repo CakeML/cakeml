@@ -183,7 +183,8 @@ val evaluate_nop_steps = Q.prove(
   \\ full_simp_tac(srw_ss())[ADD_ASSOC] \\ rpt strip_tac
   \\ first_x_assum (mp_tac o Q.SPEC `k`)
   \\ first_x_assum (mp_tac o Q.SPEC `k+l'`)
-  \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]);
+  \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
+  \\ gvs [word_add_n2w]);
 
 val asm_step_IMP_evaluate_step_nop = Q.prove(
   `!c s1 ms1 io i s2 bytes.
@@ -242,6 +243,7 @@ val asm_step_IMP_evaluate_step_nop = Q.prove(
   \\ Cases_on `i` \\ full_simp_tac(srw_ss())[asm_def]
   \\ full_simp_tac(srw_ss())[LENGTH_FLAT,SUM_REPLICATE,map_replicate]
   \\ full_simp_tac std_ss [GSYM WORD_ADD_ASSOC,word_add_n2w]
+  \\ fs [GSYM word_add_n2w]
   THEN1 (Cases_on `i'` \\ full_simp_tac(srw_ss())[inst_def,upd_pc_def]
     \\ full_simp_tac std_ss [GSYM WORD_ADD_ASSOC,word_add_n2w])
   \\ full_simp_tac(srw_ss())[jump_to_offset_def,upd_pc_def]
@@ -4923,7 +4925,8 @@ Proof
   >> IF_CASES_TAC
   >- (
     Cases_on`h`>>full_simp_tac(srw_ss())[enc_line_def]
-    >> rev_full_simp_tac(srw_ss())[enc_sec_def] >> full_simp_tac(srw_ss())[])
+    >> rev_full_simp_tac(srw_ss())[enc_sec_def] >> full_simp_tac(srw_ss())[]
+    >> metis_tac [])
   >> IF_CASES_TAC
   >- ( Cases_on`h`>>full_simp_tac(srw_ss())[enc_line_def,LET_THM] )
   >> IF_CASES_TAC

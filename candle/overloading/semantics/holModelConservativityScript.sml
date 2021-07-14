@@ -11,6 +11,7 @@ open preamble mlstringTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory ho
      holExtensionTheory
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
@@ -480,29 +481,6 @@ Proof
   >> fs[]
   >> imp_res_tac dependency_INR_is_Const
   >> fs[INST_def,INST_CORE_def]
-QED
-
-Theorem dependency_FV_mono:
-  ∀x y. ctxt extends [] /\ dependency ctxt x y
-  ⇒ set (FV y) ⊆ set (FV x)
-Proof
-  rw[dependency_cases,FV_def,SUBSET_DEF]
-  >> fs[]
-  >> TRY (drule_then strip_assume_tac allCInsts_is_Const >> rveq)
-  >> fs[tvars_def,tyvars_def,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS]
-  >> TRY (drule_all_then assume_tac allCInsts_tyvars
-    ORELSE drule_all_then assume_tac MEM_tyvars_allTypes
-    ORELSE drule_all_then assume_tac MEM_tyvars_allTypes')
-  >> ASM_REWRITE_TAC[]
-  >> qpat_x_assum `MEM (ConstSpec _ _ _) ctxt` (strip_assume_tac o ONCE_REWRITE_RULE[MEM_SPLIT])
-  >> rveq
-  >> dxrule_then assume_tac extends_APPEND_NIL
-  >> dxrule_then assume_tac extends_NIL_CONS_updates
-  >> fs[updates_cases]
-  >> imp_res_tac (Q.ISPEC `SND:mlstring # term -> term ` MEM_MAP_f)
-  >> qpat_x_assum `EVERY _ _` (drule_then strip_assume_tac o REWRITE_RULE[EVERY_MEM])
-  >> imp_res_tac WELLTYPED_LEMMA
-  >> fs[]
 QED
 
 Theorem bool_not_dependency:
@@ -6463,7 +6441,7 @@ Proof
                      dxrule extends_APPEND_NIL >>
                      simp[extends_NIL_CONS_extends,updates_cases,constspec_ok_def,is_reserved_name_def] >> simp[DISJ_IMP_THM,FORALL_AND_THM] >>
                      rw[] >> res_tac >>
-                     simp[]) >>
+                     fs[]) >>
                   fs[] >>
                   qpat_x_assum `MEM _ _` (strip_assume_tac o REWRITE_RULE [MEM_SPLIT]) >>
                   rveq >> fs[]) >>

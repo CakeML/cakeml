@@ -4,6 +4,8 @@
 open preamble sptreeTheory reg_allocTheory linear_scanTheory reg_allocProofTheory libTheory
 open ml_monadBaseTheory ml_monadBaseLib;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "linear_scanProof"
 
 val _ = disable_tyabbrev_printing "type_ident"

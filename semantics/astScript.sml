@@ -126,7 +126,11 @@ val _ = Hol_datatype `
   (* Configure the GC *)
   | ConfigGC
   (* Call a given foreign function *)
-  | FFI of string`;
+  | FFI of string
+  (* Evaluate new code in a given env *)
+  | Eval
+  (* Get the identifier of an env object *)
+  | Env_id`;
 
 
 (* Logical operations *)
@@ -218,7 +222,9 @@ val _ = Hol_datatype `
   (* Module *)
   | Dmod of modN => dec list
   (* Local: local part, visible part *)
-  | Dlocal of dec list => dec list`;
+  | Dlocal of dec list => dec list
+  (* Store current lexical env in an env value *)
+  | Denv of tvarN`;
 
 
 (*

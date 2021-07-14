@@ -11,6 +11,7 @@ val _ = new_theory "word_to_stackProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = set_grammar_ancestry [
@@ -965,8 +966,8 @@ val env_to_list_K_I_IMP = Q.prove(
   \\ res_tac \\ fs [key_val_compare_def,LET_DEF]
   \\ pairarg_tac \\ fs [] \\ pairarg_tac \\ fs [])
 
-val evaluate_wLive = Q.prove(
-  `wLive names bs (k,f,f') = (wlive_prog,bs') /\
+Theorem evaluate_wLive[local]:
+   wLive names bs (k,f,f') = (wlive_prog,bs') /\
    (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
    state_rel k f f' (s:('a,'a word list # 'c,'ffi) wordSem$state) t lens /\ 1 <= f /\
    (cut_env names s.locals = SOME env) /\
@@ -976,7 +977,8 @@ val evaluate_wLive = Q.prove(
      state_rel k 0 0 (push_env env ^nn s with <|locals := LN; locals_size := SOME 0|>) t5 (f'::lens) /\
      state_rel k f f' s t5 lens /\
      LENGTH t5.stack = LENGTH t.stack /\ t5.stack_space = t.stack_space /\
-     !i. i ≠ k ==> get_var i t5 = get_var i t`,
+     !i. i ≠ k ==> get_var i t5 = get_var i t
+Proof
   fsrw_tac[] [wLive_def,LET_THM] \\ rpt strip_tac \\
   `f ≠ 0` by DECIDE_TAC \\ fsrw_tac[][] \\ pop_assum kall_tac
   \\ pairarg_tac \\ fsrw_tac[] [] \\ rpt var_eq_tac
@@ -1020,7 +1022,6 @@ val evaluate_wLive = Q.prove(
   \\ fsrw_tac[][wf_def]
   \\ fsrw_tac[] [stack_rel_def,stack_rel_aux_def,abs_stack_def]
   \\ Cases_on `DROP t.stack_space t.stack` \\ fsrw_tac[] []
-  THEN1 (fsrw_tac[] [DROP_NIL,DECIDE ``m>=n<=>n<=m:num``] \\ `F` by decide_tac)
   \\ fsrw_tac[] [LUPDATE_def,abs_stack_def]
   \\ conj_tac THEN1
    (mp_tac (Q.SPEC `env` env_to_list_K_I_IMP)
@@ -1077,12 +1078,7 @@ val evaluate_wLive = Q.prove(
   \\ match_mp_tac SORTED_IMP_EQ_LISTS
   \\ conj_tac
   >- (
-    (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> snd
-    |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
-    REWRITE_TAC[GSYM inv_image_def] >>
-    conj_tac >-(
-      match_mp_tac transitive_inv_image >>
-      ACCEPT_TAC transitive_GT ) >>
+    REWRITE_TAC[GSYM inv_image_def,sorted_map] >>
     qmatch_abbrev_tac`SORTED R' (QSORT R ls)` >>
     `SORTED R (QSORT R ls)` by (
       match_mp_tac QSORT_SORTED >>
@@ -1101,21 +1097,13 @@ val evaluate_wLive = Q.prove(
       fsrw_tac[][EVEN_GT])
   \\ conj_tac
   >- (
-    (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> snd
-     |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
+    ONCE_REWRITE_TAC[sorted_map] >>
     REWRITE_TAC[GSYM inv_image_def] >>
-    conj_tac >-(
-      match_mp_tac transitive_inv_image >>
-      ACCEPT_TAC transitive_GT ) >>
     match_mp_tac (MP_CANON sorted_filter) >>
     conj_tac >- metis_tac[transitive_inv_image,transitive_GT] >>
-    (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> fst
-     |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
-    conj_tac >- metis_tac[transitive_inv_image,transitive_GT] >>
+    ONCE_REWRITE_TAC[GSYM sorted_map] >>
     simp[MAP_GENLIST,combinTheory.o_DEF] >>
-    (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> fst
-     |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
-    conj_tac >- ACCEPT_TAC transitive_GT>>
+    ONCE_REWRITE_TAC[GSYM sorted_map] >>
     simp[MAP_GENLIST,combinTheory.o_DEF] >>
     qmatch_abbrev_tac`SORTED R (GENLIST g m)` >>
     `GENLIST g m = GENLIST (λx. k + m - (x + 1)) m` by (
@@ -1169,7 +1157,8 @@ val evaluate_wLive = Q.prove(
   \\ ONCE_REWRITE_TAC[CONJ_COMM]
   \\ asm_exists_tac
   \\ simp[]
-  \\ simp_tac (srw_ss()) [MULT_COMM,MULT_DIV]);
+  \\ simp_tac (srw_ss()) [MULT_COMM,MULT_DIV]
+QED
 
 val push_env_set_store = Q.prove(
   `push_env env ^nn (set_store AllocSize (Word c) s) =

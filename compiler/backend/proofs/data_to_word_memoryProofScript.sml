@@ -13,7 +13,7 @@ val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
 val _ = new_theory "data_to_word_memoryProof";
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
@@ -947,11 +947,13 @@ Proof
     \\ drule(GEN_ALL gen_gc_data_refs_split) \\ fs[]
     \\ fs[] \\ impl_tac THEN1 (unabbrev_all_tac >> fs[]) \\ fs[]
     \\ strip_tac \\ conj_tac
-    THEN1 (match_mp_tac (GEN_ALL gen_state_ok_reset)
+    THEN1 (once_rewrite_tac [ADD_COMM]
+           \\ match_mp_tac (GEN_ALL gen_state_ok_reset)
            \\ asm_exists_tac \\ fs [])
     \\ `state'.n + heap_length state'.h1 =
         heap_length(state'.h1 ++ heap_expand state'.n)`
           by fs[heap_length_APPEND,heap_length_heap_expand]
+    \\ once_rewrite_tac [ADD_COMM]
     \\ pop_assum (fn thm => PURE_ONCE_REWRITE_TAC [thm])
     \\ PURE_ONCE_REWRITE_TAC [gen_gc_partialTheory.heap_split_length]
     \\ fs[heap_expand_not_isRef])

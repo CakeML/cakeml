@@ -405,6 +405,8 @@ val op_to_string_def = Define `
 (op_to_string Asub_unsafe = (implode "Asub_unsafe", 2)) ∧
 (op_to_string Aupdate_unsafe = (implode "Aupdate_unsafe", 3)) ∧
 (op_to_string ConfigGC = (implode "ConfigGC", 2)) ∧
+(op_to_string Eval = (implode "Eval", 6)) ∧
+(op_to_string Env_id = (implode "Env_id", 1)) ∧
 (op_to_string ListAppend = (implode "ListAppend", 2)) ∧
 (op_to_string (FFI _) = (implode "FFI", 2))`;
 
@@ -537,6 +539,8 @@ constrain_op l op ts =
    | (Aupdate_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Aw8update_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
+   | (Eval, _) => failwith l (implode "Unsafe ops do not have a type")
+   | (Env_id, _) => failwith l (implode "Unsafe ops do not have a type")
    | _ => failwith l (op_n_args_msg op (LENGTH ts))
 End
 
@@ -564,13 +568,14 @@ Proof
  qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2` >>
  cases_on `op` >>
  fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
- rfs [quantHeuristicsTheory.LIST_LENGTH_5] >>
+ gvs [quantHeuristicsTheory.LIST_LENGTH_5] >>
  rfs [] >>
  fs [add_constraints_def, add_constraint_def, fresh_uvar_def,
    st_ex_bind_failure, st_ex_return_def, option_case_eq] >>
  rw [] >>
- fs [mlstringTheory.concat_thm, Abbr `m1`, Abbr `m2`] >>
- fs [failwith_def] >> rveq >> fs []
+ fs [mlstringTheory.concat_thm] >>
+ fs [failwith_def] >> rw [] >> fs [] >>
+ unabbrev_all_tac >> fs []
 QED
 
 val infer_e_def = tDefine "infer_e" `
@@ -828,6 +833,9 @@ val infer_d_def = Define `
               inf_c := nsSing cn ([], ts', Texn_num);
               inf_t := nsEmpty |>
   od) ∧
+(infer_d ienv (Denv n) =
+  failwith <| loc := NONE; err := ienv.inf_t |>
+    (strlit "Env declaration (Denv) is not supported.")) ∧
 (infer_d ienv (Dmod mn ds) =
   do ienv' <- infer_ds ienv ds;
      return (lift_ienv mn ienv')

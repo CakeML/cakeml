@@ -132,7 +132,11 @@ val _ = Define `
 
 (*open import {hol} `locationTheory`*)
 (*type locn = <| row : nat;  col : nat; offset : nat |>*)
-(*type locs = (locn * locn)*)
+(*type locs = Locs of locn * locn*)
 (*val unknown_loc : locs*)
+
+(*val option_map : forall 'a 'b. ('a -> 'b) -> maybe 'a -> maybe 'b*) (* TODO *)
+
+(*val some : forall 'a. ('a -> bool) -> maybe 'a*) (* TODO *)
 val _ = export_theory()
 
