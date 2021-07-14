@@ -284,15 +284,14 @@ Proof
   cases_on ‘h’ >> gs [] >>
   cases_on ‘i'’ >> gs []
   >- (
-    FULL_CASE_TAC >> gs []
+    FULL_CASE_TAC >> gvs []
     >- (
       rewrite_tac [Once pickTerm_cases] >>
       gs [] >>
       gs [machine_bounds_def] >>
       gs [eval_term_def, evalTerm_cases] >>
       rveq >> gs [state_component_equality]) >>
-    cheat
-    (*
+    cases_on ‘ n' = i’ >> gvs []
     >- (
       rewrite_tac [Once pickTerm_cases] >>
       gs [] >>
@@ -306,7 +305,12 @@ Proof
       strip_tac >>
       gs [machine_bounds_def, terms_time_range_def,
           conds_eval_lt_dimword_def, input_terms_actions_def,
-          terms_in_signals_def]) >>
+          terms_in_signals_def, tms_conds_eval_def] >>
+      disj2_tac >>
+      gs [tm_conds_eval_def, EVERY_MEM] >>
+      rw [] >> gvs [ timeLangTheory.termConditions_def] >>
+      res_tac >> gvs [] >>
+      FULL_CASE_TAC >> gvs []) >>
     rewrite_tac [Once pickTerm_cases] >>
     gs [] >>
     last_x_assum (qspecl_then [‘st’, ‘m’, ‘i’, ‘st'’] mp_tac) >>
@@ -321,12 +325,7 @@ Proof
         conds_eval_lt_dimword_def, input_terms_actions_def,
         terms_in_signals_def, tms_conds_eval_def,  tm_conds_eval_def,
         timeLangTheory.termConditions_def] >>
-    gs [EVERY_MEM] >>
-    disj2_tac >>
-    disj1_tac >>
-    rw [] >>
-    res_tac >> gs []  >>
-    FULL_CASE_TAC >> gs []*)) >>
+    gs [EVERY_MEM]) >>
   rewrite_tac [Once pickTerm_cases] >>
   gs [] >>
   last_x_assum (qspecl_then [‘st’, ‘m’, ‘i’, ‘st'’] mp_tac) >>
@@ -341,6 +340,7 @@ Proof
       conds_eval_lt_dimword_def, input_terms_actions_def,
       terms_in_signals_def]
 QED
+
 
 Theorem pick_eval_output_term_imp_pickTerm:
   ∀tms st m os st'.
@@ -424,7 +424,6 @@ Theorem pick_eval_input_term_panic_imp_pickTerm:
     SOME (LPanic (PanicInput i), st') ⇒
     pickTerm (resetOutput st) m (SOME i) tms st' (LPanic (PanicInput i))
 Proof
-  (*
   Induct >>
   rpt gen_tac >>
   strip_tac >>
@@ -443,7 +442,8 @@ Proof
       gs [] >>
       gvs [machine_bounds_def] >>
       gs [eval_term_def, evalTerm_cases] >>
-      rveq >> gs [state_component_equality])
+      rveq >> gs [state_component_equality]) >>
+    cases_on ‘ n' = i’ >> gvs []
     >- (
       rewrite_tac [Once pickTerm_cases] >>
       gs [] >>
@@ -457,7 +457,11 @@ Proof
       strip_tac >>
       gs [machine_bounds_def, terms_time_range_def,
           conds_eval_lt_dimword_def, input_terms_actions_def,
-          terms_in_signals_def]) >>
+          terms_in_signals_def] >>
+      gs [tms_conds_eval_def, tm_conds_eval_def, EVERY_MEM] >>
+      rw [] >> gvs [timeLangTheory.termConditions_def] >>
+      res_tac >> gvs [] >>
+      FULL_CASE_TAC >> gvs []) >>
     rewrite_tac [Once pickTerm_cases] >>
     gs [] >>
     last_x_assum (qspecl_then [‘st’, ‘m’, ‘i’, ‘st'’] mp_tac) >>
@@ -489,8 +493,7 @@ Proof
   strip_tac >>
   gs [machine_bounds_def, terms_time_range_def,
       conds_eval_lt_dimword_def, input_terms_actions_def,
-      terms_in_signals_def] *)
-  cheat
+      terms_in_signals_def]
 QED
 
 Theorem pick_eval_output_term_panic_imp_pickTerm:

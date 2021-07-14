@@ -792,8 +792,6 @@ Proof
       imp_res_tac evaluate_clock_mono >>
       gs [dec_clock_def, state_component_equality])
     >- (
-      cheat
-      (*
       TOP_CASE_TAC >> gs []
       >- (
         strip_tac >> rveq >>
@@ -839,17 +837,8 @@ Proof
           >- gs [state_component_equality] >>
           strip_tac >> gs [] >>
           imp_res_tac evaluate_clock_mono >>
-          gs [dec_clock_def, state_component_equality])
-        >- (
-          strip_tac >> rveq >>
-          gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def,
-              dec_clock_def, set_var_def] >>
-          first_x_assum (qspecl_then [‘st’, ‘ck’] mp_tac) >>
-          impl_tac
-          >- gs [state_component_equality] >>
-          strip_tac >> gs [] >>
-          imp_res_tac evaluate_clock_mono >>
-          gs [dec_clock_def, state_component_equality]) >>
+          gvs [dec_clock_def, state_component_equality] >>
+          TOP_CASE_TAC >> gvs []) >>
         strip_tac >> rveq >>
         gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def,
             dec_clock_def, set_var_def] >>
@@ -877,7 +866,7 @@ Proof
         gs [dec_clock_def, state_component_equality]) >>
       strip_tac >> gs [] >>
       imp_res_tac evaluate_clock_mono >>
-      gs [dec_clock_def, state_component_equality] *)) >>
+      gs [dec_clock_def, state_component_equality]) >>
     strip_tac >> rveq >>
     gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def, dec_clock_def] >>
     last_x_assum (qspecl_then [‘r' with clock := r'.clock - ck’, ‘ck’] mp_tac) >>
@@ -959,8 +948,6 @@ Theorem evaluate_add_clock_io_events_mono:
     (SND(evaluate(exps,s))).ffi.io_events ≼
     (SND(evaluate(exps,s with clock := s.clock + extra))).ffi.io_events
 Proof
-  cheat
-  (*
   recInduct evaluate_ind >>
   rw [] >>
   TRY (
@@ -1165,7 +1152,8 @@ Proof
    drule evaluate_add_clock_eq >> fs [] >>
    disch_then (qspec_then ‘extra’ mp_tac) >>
    fs [] >> strip_tac >> strip_tac >>
-   fs [] >> rveq >> fs []) >>
+   fs [] >> rveq >> fs [] >>
+   TOP_CASE_TAC >> gvs []) >>
   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
   pop_assum mp_tac >>
@@ -1191,7 +1179,7 @@ Proof
   every_case_tac >> fs [] >>
   fs [set_var_def, mem_store_def,
       dec_clock_def, empty_locals_def] >> rveq >>
-  fs [] *)
+  fs []
 QED
 
 

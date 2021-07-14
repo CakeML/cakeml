@@ -99,19 +99,16 @@ QED
 Theorem evaluate_break_ok:
   ∀p t res t1. evaluate (p,t) = (res,t1) ∧ break_ok p ⇒ res ≠ NONE
 Proof
-  (*
   ho_match_mp_tac break_ok_ind \\ rw [] \\ fs [break_ok_def]
   \\ fs [evaluate_def] \\ rveq \\ fs []
   \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool",CaseEq"word_loc"] \\ rveq \\ fs []
   \\ rpt (pairarg_tac \\ fs []) \\ rw [] \\ fs []
   \\ CCONTR_TAC \\ fs []
-  \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-  \\ rename [‘evaluate (pp,t)’]
+  \\ every_case_tac \\ gvs []
+  \\ rename [‘cut_res _ (evaluate (pp,t))’]
   \\ Cases_on ‘evaluate (pp,t)’ \\ fs [cut_res_def,cut_state_def]
   \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool",CaseEq"word_loc"] \\ rveq \\ fs []
-  \\ rfs []
-  *)
-  cheat
+  \\ gvs []
 QED
 
 Theorem compile_Mark:

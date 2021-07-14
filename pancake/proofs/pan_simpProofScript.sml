@@ -133,8 +133,6 @@ QED
 Theorem evaluate_seq_assoc:
   !p q s. evaluate (seq_assoc p q,s) = evaluate (Seq p q,^s)
 Proof
-  cheat
-  (*
   ho_match_mp_tac seq_assoc_ind >> rw [] >>
   fs [evaluate_seq_skip, seq_assoc_def] >>
   TRY (
@@ -146,8 +144,9 @@ Proof
   rpt (pairarg_tac >> fs [] >> rveq) >>
   TOP_CASE_TAC >> fs [] >>
   metis_tac [evaluate_while_body_same]) >>
-  fs [evaluate_def] >> rpt (pairarg_tac >> fs [] >> rw [] >> fs []) >>
-  every_case_tac >> fs [] >> rveq  >> fs [evaluate_skip_seq, evaluate_def]*)
+  gvs [evaluate_def] >> rpt (pairarg_tac >> fs [] >> rw [] >> gvs[]) >>
+  every_case_tac >> gvs [evaluate_skip_seq, evaluate_def] >>
+  every_case_tac >> gvs [evaluate_skip_seq, evaluate_def]
 QED
 
 
@@ -774,17 +773,14 @@ Theorem compile_Others:
   ^(get_goal "panLang$Return") /\
   ^(get_goal "panLang$Tick")
 Proof
-  cheat
-  (*
   rw [] >>
   fs [evaluate_seq_assoc, evaluate_skip_seq] >>
   fs [evaluate_def] >> rveq >> fs [] >>
   (
-  every_case_tac >> fs [] >> rveq >>
+  every_case_tac >> gvs [] >>
   imp_res_tac compile_eval_correct >>
-  fs [] >> rveq >> fs [] >>
-  rfs [state_rel_def, state_component_equality,
-       empty_locals_def, dec_clock_def]) *)
+  gvs [state_rel_def, state_component_equality,
+       empty_locals_def, dec_clock_def])
 QED
 
 Theorem compile_correct:
@@ -887,8 +883,7 @@ Theorem state_rel_imp_semantics:
   semantics s start <> Fail ==>
   semantics t start = semantics s start
 Proof
-  cheat
-  (* rw [] >>
+  rw [] >>
   fs [] >>
   reverse (Cases_on ‘semantics s start’) >> fs []
   >- (
@@ -901,8 +896,6 @@ Proof
    >- (
     (* the fail case of pan_simp semantics *)
     CCONTR_TAC >> fs [] >> rveq >> fs [] >>
-    pop_assum kall_tac >>
-    pop_assum kall_tac >>
     last_x_assum (qspec_then ‘k'’ mp_tac) >>
     (fn g => subterm (fn tm => Cases_on ‘^(assert(has_pair_type)tm)’) (#2 g) g) >>
     strip_tac >>
@@ -1109,7 +1102,7 @@ Proof
   strip_tac >> fs [] >> rveq >> fs [] >>
   qexists_tac ‘k’ >>
   fs [] >>
-  fs [state_rel_def, state_component_equality, IS_PREFIX_THM] *)
+  fs [state_rel_def, state_component_equality, IS_PREFIX_THM]
 QED
 
 val _ = export_theory();
