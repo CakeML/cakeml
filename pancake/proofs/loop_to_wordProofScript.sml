@@ -10,6 +10,8 @@ open preamble
 
 val _ = new_theory "loop_to_wordProof";
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"];
+
 Definition locals_rel_def:
   locals_rel ctxt l1 l2 ⇔
     INJ (find_var ctxt) (domain ctxt) UNIV ∧
@@ -136,11 +138,10 @@ Theorem locals_rel_insert:
      (insert (find_var ctxt v) w lcl')
 Proof
   fs [locals_rel_def,lookup_insert] >> rw [] >>
-  fs [CaseEq"bool"] >> rveq >> gvs [] >>
+  fs [CaseEq"bool"] >> rveq >> fs [] >>
   fs [domain_lookup,find_var_def] >>
-  res_tac >> gvs [] >>
-  strip_tac >> gvs [] >>
-  CCONTR_TAC >> fs [] >> rveq >> fs [] >>
+  res_tac >> fs [] >>
+  disj2_tac >> CCONTR_TAC >> fs [] >> rveq >> fs [] >>
   fs [INJ_DEF,domain_lookup] >>
   first_x_assum (qspecl_then [‘v’,‘n’] mp_tac) >>
   fs [] >> fs [find_var_def]
@@ -768,8 +769,7 @@ Proof
             domain_toNumSet,GSYM IMP_DISJ_THM])
   >> Cases_on ‘handler’ >> fs []
   >-
-   (
-    fs [evaluate_def,add_ret_loc_def,domain_mk_new_cutset_not_empty,cut_res_def]
+   (fs [evaluate_def,add_ret_loc_def,domain_mk_new_cutset_not_empty,cut_res_def]
     >> fs [loopSemTheory.cut_state_def]
     >> Cases_on ‘domain x1 ⊆ domain s.locals’ >> fs []
     >> qpat_x_assum ‘locals_rel _ s.locals _’ assume_tac
@@ -804,15 +804,13 @@ Proof
     >> pop_assum mp_tac
     >> Cases_on ‘res1’ >- fs []
     >> disch_then (fn th => assume_tac (REWRITE_RULE [IMP_DISJ_THM] th))
-    >> cheat
-    (*
-    >> gs [] >> Cases_on ‘x’ >> fs [] >> rw []
+    >> fs [] >> Cases_on ‘x’ >> fs []
     >> fs [state_rel_def]
     >> fs [call_env_def,push_env_def] >> pairarg_tac >> fs [dec_clock_def]
     >> fs [jump_exc_def,NOT_LESS]
     >> Cases_on ‘LENGTH t.stack <= t.handler’ >> fs [LASTN_ADD_CONS]
     >> simp [CaseEq"option",CaseEq"prod",CaseEq"bool",set_var_def,CaseEq"list",
-             CaseEq"stack_frame"] >> rw [] >> fs [] *))
+             CaseEq"stack_frame"] >> rw [] >> fs [])
   >> PairCases_on ‘x’ >> fs []
   >> rpt (pairarg_tac >> fs [])
   >> fs [evaluate_def,add_ret_loc_def,domain_mk_new_cutset_not_empty,cut_res_def]
@@ -885,8 +883,6 @@ Proof
   >> Cases_on ‘evaluate (x1',set_var hvar w (st with locals := inter s.locals x1))’
   >> fs []
   >> Cases_on ‘q = SOME Error’ >- fs [cut_res_def] >> fs []
-  >> cheat
-(*
   >> fs [pop_env_def,Abbr‘tt’] >> fs [call_env_def,push_env_def]
   >> rename [‘SOME (find_var _ _,p1,l8)’]
   >> PairCases_on ‘l8’ >> fs [call_env_def,push_env_def]
@@ -940,7 +936,6 @@ Proof
   >> pop_assum mp_tac
   >> fs [Abbr‘tt’,jump_exc_def]
   >> metis_tac []
-  *)
 QED
 
 Theorem compile_FFI:
