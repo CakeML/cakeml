@@ -412,7 +412,8 @@ Proof
 QED
 
 val do_app_swap_tac =
-   Cases \\ rw [do_app_def,do_stack_def
+   strip_tac
+   \\ Cases_on ‘op’ \\ rw [do_app_def,do_stack_def
               , do_install_def
               , do_app_aux_def
               , with_fresh_ts_def
@@ -2441,6 +2442,7 @@ Proof
      CaseEq "bool",CaseEq"option",CaseEq"list",CaseEq"prod",CaseEq"closLang$op",
      CaseEq "v",CaseEq"ref",CaseEq"ffi_result",CaseEq"eq_result",CaseEq"word_size",
      ELIM_UNCURRY,consume_space_def] >> rw[option_le_max_right]
+  \\ gvs [] \\ rw[option_le_max_right]
 QED
 
 Theorem evaluate_option_le_stack_max:
@@ -2541,6 +2543,7 @@ Theorem do_app_cc_co_only_diff_rval:
     ?t1. dataSem$do_app op vs t = Rval (v,t1) /\ cc_co_only_diff s1 t1
 Proof
   rpt strip_tac >>
+  Cases_on ‘op’ \\ fs [] >>
   ntac 2(
   fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
@@ -2549,8 +2552,8 @@ Proof
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
      CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
-    rveq >> fs[]) >>
-  rfs[]
+    rveq >> fs[])
+  >> gvs []
 QED
 
 Theorem do_app_cc_co_only_diff_rerr:
@@ -2580,6 +2583,7 @@ Proof
   rename1 `cc_co_only_diff s1 s2` >>
   qpat_x_assum `cc_co_only_diff y x` kall_tac >>
   rpt(qpat_x_assum `do_space _ _ _ = _` kall_tac) >>
+  Cases_on ‘op’ >>
   fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,list_case_eq,option_case_eq,v_case_eq,
      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
      with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
@@ -2758,6 +2762,7 @@ Theorem do_app_stack_max_le_stack_limit:
   option_le s1.stack_max (SOME s1.limits.stack_limit)
 Proof
   rpt strip_tac >>
+  Cases_on ‘op’ >>
   fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
      with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
@@ -2776,10 +2781,10 @@ Proof
 QED
 
 Theorem evaluate_stack_max_le_stack_limit:
-  !prog s res s1.
-  dataSem$evaluate (prog,s) = (res,s1) /\ s1.safe_for_space /\
-  option_le s.stack_max (SOME s.limits.stack_limit) ==>
-  option_le s1.stack_max (SOME s1.limits.stack_limit)
+  ∀prog s res s1.
+    dataSem$evaluate (prog,s) = (res,s1) ∧ s1.safe_for_space ∧
+    option_le s.stack_max (SOME s.limits.stack_limit) ⇒
+    option_le s1.stack_max (SOME s1.limits.stack_limit)
 Proof
   recInduct evaluate_ind >> rpt strip_tac
   >- ((* Skip *)
