@@ -642,29 +642,28 @@ Definition check_lim_def:
 End
 
 Definition do_part_def:
-  do_part m (Int i) s = (Number i, s) ∧
-  do_part m (W64 w) s = (Word64 w, s) ∧
-  do_part m (Con t ns) s =
-    (if ns = [] then (Block 0 t [],s)
-                else with_fresh_ts s 1
-                       (λts s'. (Block ts t (MAP m ns),
-                                 check_lim s' (LENGTH ns)))) ∧
-  do_part m (Str t) s =
-    let ptr = (LEAST ptr. ¬(ptr IN domain s.refs)) in
-    let bytes = MAP (n2w o ORD) t in
-      (RefPtr ptr, s with refs := insert ptr (ByteArray F bytes) s.refs )
+  do_part m (Int i) s ts = (Number i, s, ts) ∧
+  do_part m (W64 w) s ts = (Word64 w, s, ts) ∧
+  do_part m (Con t ns) s ts =
+    (if ns = [] then (Block 0 t [],s,ts)
+                else case ts of
+                     | NONE => (Block 0 t (MAP m ns),s,ts)
+                     | SOME n => (Block 0 t (MAP m ns),s,SOME (n+1:num))) ∧
+  do_part m (Str t) s ts =
+    let ptr = (LEAST ptr. ¬(ptr IN domain s)) in
+    let bytes = MAP (n2w o ORD) (mlstring$explode t) in
+      (RefPtr ptr, insert ptr (ByteArray T bytes) s, ts)
 End
 
 Definition do_build_def:
-  do_build m i [] s = do_part m (Int 0) s ∧
-  do_build m i [p] s = do_part m p s ∧
-  do_build m i (p::rest) s =
-    let (x,s1) = do_part m p s in
-      do_build ((i =+ x) m) (i+1) rest s1
+  do_build m i [] s ts = (m (i-1), s, ts) ∧
+  do_build m i (p::rest) s ts =
+    let (x,s1,ts1) = do_part m p s ts in
+      do_build ((i =+ x) m) (i+1) rest s1 ts1
 End
 
 Definition do_build_const_def:
-  do_build_const xs s = do_build (λx. Number 0) 0 xs s
+  do_build_const xs s ts = do_build (λx. Number 0) 0 xs s ts
 End
 
 Definition do_app_aux_def:
@@ -738,12 +737,14 @@ Definition do_app_aux_def:
             else Rerr (Rabort Rtype_error)
           | _ => Rerr (Rabort Rtype_error))
     | (AllocGlobal, _)   => Rerr (Rabort Rtype_error)
-    | (String _, _)      => Rerr (Rabort Rtype_error)
+    | (Constant _, _)    => Rerr (Rabort Rtype_error)
     | (FromListByte, _)  => Rerr (Rabort Rtype_error)
     | (ConcatByteVec, _) => Rerr (Rabort Rtype_error)
     | (CopyByte T, _)    => Rerr (Rabort Rtype_error)
     (* bvl part *)
-    | (Build parts,[]) => (case do_build_const parts s of (v,s1) => Rval (v,s1))
+    | (Build parts,[]) =>
+        (case do_build_const parts s.refs s.tstamps of
+         | (v,s1,ts1) => Rval (v,s with <| refs := s1 ; tstamps := ts1 |>))
     | (Cons tag,xs) => (if xs = []
                         then Rval (Block 0 tag [],s)
                         else with_fresh_ts s 1
@@ -961,7 +962,6 @@ Overload do_app_peak =
               then s.peak_heap_length
               else if MEM op [Greater; GreaterEq] then s.peak_heap_length
               else do_space_peak op vs s``
-
 
 val do_app_def = Define `
   do_app op vs ^s =
@@ -1255,31 +1255,6 @@ Proof
   PURE_TOP_CASE_TAC >> rw[]
 QED
 
-Theorem do_build_const_const:
-  do_build_const xs s = (y,s1) ⇒
-  s1.clock = s.clock ∧
-  s1.code = s.code ∧
-  s1.compile = s.compile ∧
-  s1.compile_oracle = s.compile_oracle ∧
-  s1.ffi = s.ffi ∧
-  s1.global = s.global
-Proof
-  fs [do_build_const_def]
-  \\ rename [‘do_build m a xs s’]
-  \\ EVERY (map qid_spec_tac [‘m’,‘a’,‘xs’,‘s’,‘y’,‘s1’])
-  \\ Induct_on ‘xs’
-  \\ fs [do_build_def,do_part_def]
-  \\ Cases_on ‘xs’
-  \\ fs [do_build_def,do_part_def]
-  THEN1 (Cases_on ‘h’
-         \\ fs [do_part_def,with_fresh_ts_def,check_lim_def,AllCaseEqs()]
-         \\ rw [] \\ gvs [])
-  \\ rw [] \\ pairarg_tac \\ gvs []
-  \\ res_tac \\ Cases_on ‘h'’ \\ gvs [do_part_def]
-  \\ fs [do_part_def,with_fresh_ts_def,check_lim_def,AllCaseEqs()]
-  \\ rw [] \\ gvs []
-QED
-
 Theorem do_app_clock:
   (dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock
 Proof
@@ -1294,7 +1269,6 @@ Proof
     , UNCURRY
     , check_lim_def
     ]
-  \\ imp_res_tac do_build_const_const
   \\ rw[do_stack_clock]
 QED
 
