@@ -9868,10 +9868,14 @@ Proof
     gs [] >>
     pop_assum mp_tac >>
     pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
     drule evaluate_add_clock_eq >>
     gs [] >>
     disch_then (qspec_then ‘k'’ assume_tac) >>
     gs [] >>
+    strip_tac >>
+    strip_tac >>
     strip_tac >>
     strip_tac >>
     drule evaluate_add_clock_eq >>
@@ -10666,7 +10670,7 @@ Proof
     strip_tac >> gvs [] >>
     strip_tac >> gvs [panLangTheory.size_of_shape_def] >>
     qexists_tac ‘ns’ >> gvs []) >>
-    gs [semantics_def] >>
+  gs [semantics_def] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   rw []
   >- (
@@ -10677,10 +10681,14 @@ Proof
     gs [] >>
     pop_assum mp_tac >>
     pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
     drule evaluate_add_clock_eq >>
     gs [] >>
     disch_then (qspec_then ‘k'’ assume_tac) >>
     gs [] >>
+    strip_tac >>
+    strip_tac >>
     strip_tac >>
     strip_tac >>
     drule evaluate_add_clock_eq >>
