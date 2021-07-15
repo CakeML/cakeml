@@ -653,8 +653,7 @@ Proof
   >> ‘~bad_dest_args dest (MAP (find_var ctxt) argvars)’ by
        (pop_assum kall_tac >> Cases_on ‘dest’ >> fs [bad_dest_args_def]
         >> fs [loopSemTheory.find_code_def]
-        >> imp_res_tac locals_rel_get_vars >> CCONTR_TAC >> fs [] >>
-        cheat)
+        >> imp_res_tac locals_rel_get_vars >> CCONTR_TAC >> fs [])
   >> Cases_on ‘ret’ >> fs []
   >-
    (fs [comp_def,evaluate_def]
@@ -770,8 +769,6 @@ Proof
   >> Cases_on ‘handler’ >> fs []
   >-
    (
-   cheat
-    (*
     fs [evaluate_def,add_ret_loc_def,domain_mk_new_cutset_not_empty,cut_res_def]
     >> fs [loopSemTheory.cut_state_def]
     >> Cases_on ‘domain x1 ⊆ domain s.locals’ >> fs []
@@ -807,7 +804,9 @@ Proof
     >> pop_assum mp_tac
     >> Cases_on ‘res1’ >- fs []
     >> disch_then (fn th => assume_tac (REWRITE_RULE [IMP_DISJ_THM] th))
-    >> fs [] >> Cases_on ‘x’ >> fs []
+    >> cheat
+    (*
+    >> gs [] >> Cases_on ‘x’ >> fs [] >> rw []
     >> fs [state_rel_def]
     >> fs [call_env_def,push_env_def] >> pairarg_tac >> fs [dec_clock_def]
     >> fs [jump_exc_def,NOT_LESS]
@@ -881,12 +880,13 @@ Proof
     >> pop_assum mp_tac >> rewrite_tac [IMP_DISJ_THM]
     >> IF_CASES_TAC >> fs []
     >> fs [Abbr‘tt’] >> metis_tac [])
-  >> cheat
-     (* qpat_x_assum ‘∀x. _’ (assume_tac o REWRITE_RULE [IMP_DISJ_THM])
+  >> qpat_x_assum ‘∀x. _’ (assume_tac o REWRITE_RULE [IMP_DISJ_THM])
   >> rename [‘loopSem$set_var hvar w _’]
   >> Cases_on ‘evaluate (x1',set_var hvar w (st with locals := inter s.locals x1))’
   >> fs []
   >> Cases_on ‘q = SOME Error’ >- fs [cut_res_def] >> fs []
+  >> cheat
+(*
   >> fs [pop_env_def,Abbr‘tt’] >> fs [call_env_def,push_env_def]
   >> rename [‘SOME (find_var _ _,p1,l8)’]
   >> PairCases_on ‘l8’ >> fs [call_env_def,push_env_def]
