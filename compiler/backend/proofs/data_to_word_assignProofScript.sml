@@ -13407,6 +13407,12 @@ Proof
    >> res_tac >> fs[]
 QED
 
+Theorem assign_Build:
+   (∃parts. op = Build parts) ==> ^assign_thm_goal
+Proof
+  cheat
+QED
+
 Theorem assign_thm:
    ^assign_thm_goal
 Proof
