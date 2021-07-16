@@ -648,7 +648,7 @@ Definition do_part_def:
     (if ns = [] then (Block 0 t [],s,ts)
                 else case ts of
                      | NONE => (Block 0 t (MAP m ns),s,ts)
-                     | SOME n => (Block 0 t (MAP m ns),s,SOME (n+1:num))) ∧
+                     | SOME n => (Block n t (MAP m ns),s,SOME (n+1:num))) ∧
   do_part m (Str t) s ts =
     let ptr = (LEAST ptr. ¬(ptr IN domain s)) in
     let bytes = MAP (n2w o ORD) (mlstring$explode t) in
