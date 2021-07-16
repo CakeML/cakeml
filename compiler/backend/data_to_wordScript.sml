@@ -29,6 +29,7 @@ val _ = Datatype `
             ; has_longdiv : bool (* LongDiv available in target *)
             ; has_fp_ops : bool (* can compile floating-point ops *)
             ; has_fp_tern : bool (* can compile FMA *)
+            ; be : bool (* bigendian *)
             ; call_empty_ffi : bool (* emit (T) / omit (F) calls to FFI "" *)
             ; gc_kind : gc_kind (* GC settings *) |>`
 
