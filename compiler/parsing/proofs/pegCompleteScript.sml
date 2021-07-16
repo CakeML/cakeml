@@ -119,7 +119,7 @@ Proof
   rpt (dxrule_then assume_tac (cj 1 peg_deterministic)) >> simp[]
 QED
 
-Theorem choicel_CONS_NONE:
+Theorem choicel_cons_NONE:
   peg_eval G (i0, cmlPEG$choicel (h::t))
            (Failure fl fe : ((α#locs)list,γ list,δ)pegresult) ⇔
     ∃fl1 fe1 fl2 fe2.
@@ -1038,7 +1038,8 @@ Proof
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, cmlG_FDOM, cmlG_applied, valid_lptree_thm] >>
   rw[] >>
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
-  >- (rename [‘ptree_head apt = NN nEapp’,
+  >- ((* complicated "step case", where production was Eapp -> Eapp Ebase *)
+      rename [‘ptree_head apt = NN nEapp’,
               ‘real_fringe apt = MAP _ af’,
               ‘ptree_head bpt = NN nEbase’,
               ‘real_fringe bpt = MAP _ bf’] >>
@@ -1070,6 +1071,7 @@ Proof
                    $ mp_then (Pos hd) assume_tac peg_det >>
       simp[PULL_EXISTS] >> gvs[peg_eval_rpt] >> first_assum $ irule_at Any >>
       simp[left_insert1_FOLDL, left_insert1_mkNd]) >>
+  (* "base case", where Eapp -> Ebase is the production used *)
   rename [‘ptree_head bpt = NN nEbase’] >>
   simp[seql_cons_SOME, peg_eval_rpt, PULL_EXISTS, AllCaseEqs()] >>
   irule_at Any $ cj 1 FOLDL >> irule_at Any peg_eval_list_nil >>
@@ -1085,12 +1087,12 @@ Proof
   simp[DECIDE “x:num ≤ y ⇔ x = y ∨ x < y”, DISJ_IMP_THM, stoppers_def] >>
   strip_tac >>
   ‘pfx = master’
-    by metis_tac[rich_listTheory.IS_PREFIX_LENGTH_ANTI,
-                 REVERSE_11, listTheory.LENGTH_REVERSE] >> gvs[stoppers_def]
+    by metis_tac[IS_PREFIX_LENGTH_ANTI, REVERSE_11, LENGTH_REVERSE] >>
+  gvs[stoppers_def]
 QED
 
 Theorem peg_respects_firstSets':
-   peg_eval cmlPEG ((t,l) :: rest, nt N I) (SOME(sfx, res)) ∧
+   peg_eval cmlPEG ((t,l) :: rest, nt N I) (Success sfx res eo) ∧
    nt N I ∈ Gexprs cmlPEG ∧ ¬peg0 cmlPEG (nt N I) ⇒
    t ∈ firstSet cmlG [NT N]
 Proof
@@ -1098,111 +1100,127 @@ Proof
   mp_tac (CONV_RULE (STRIP_QUANT_CONV CONTRAPOS_CONV) peg_respects_firstSets) >>
   disch_then (qspecl_then [`N`, `rest`, `t`, `l`] mp_tac) >> simp[] >>
   disch_then irule >> strip_tac >>
-  metis_tac[peg_deterministic, NOT_NONE_SOME]
+  drule_then assume_tac peg_det >> simp[]
 QED
 
 Theorem nUQConstructorName_input_monotone:
-   peg_eval cmlPEG (i0, nt (mkNT nUQConstructorName) I) (SOME (i,r)) ⇒
+   peg_eval cmlPEG (i0, nt (mkNT nUQConstructorName) I) (Success i r eo) ⇒
    peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nUQConstructorName) I)
-     (SOME (i ++ sfx,r))
+     (Success (i ++ sfx) r eo)
 Proof
   simp[peg_eval_NT_SOME] >>
-  simp[cmlpeg_rules_applied, peg_UQConstructorName_def]
+  simp[cmlpeg_rules_applied, peg_UQConstructorName_def, PULL_EXISTS]
 QED
 
 Theorem nConstructorName_input_monotone:
-   peg_eval cmlPEG (i0, nt (mkNT nConstructorName) I) (SOME (i,r)) ⇒
+   peg_eval cmlPEG (i0, nt (mkNT nConstructorName) I) (Success i r eo) ⇒
    peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nConstructorName) I)
-     (SOME (i ++ sfx,r))
+     (Success (i ++ sfx) r eo)
 Proof
   simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied] >> strip_tac >> rveq >>
-  simp[]
-  >- dsimp[EXISTS_PROD, nUQConstructorName_input_monotone] >>
-  fs[peg_eval_seq_NONE] >>
-  rename [‘FST tkl = LongidT str s’] >> Cases_on `tkl` >> fs[] >> rveq >>
-  simp[peg_respects_firstSets, firstSet_nUQConstructorName]
+  simp[] >> gvs[choicel_cons, peg_eval_seqempty] >~
+  [‘peg_eval _ (_, nt (mkNT nUQConstructorName) I) (Success _ _ _)’]
+  >- (dsimp[EXISTS_PROD] >> metis_tac[nUQConstructorName_input_monotone]) >>
+  dsimp[optmax_def] >>
+  gvs[peg_eval_NT] >> gvs[cmlpeg_rules_applied, peg_UQConstructorName_def]
 QED
 
 Theorem peg_eval_NT_NONE =
-  “peg_eval cmlPEG (i0, nt (mkNT n) I) NONE”
+  “peg_eval cmlPEG (i0, nt (mkNT n) I) (Failure fl fe)”
      |> SIMP_CONV (srw_ss()) [Once peg_eval_cases]
 
 Theorem nConstructorName_NONE_input_monotone:
-   peg_eval cmlPEG ((tk,l) :: i, nt (mkNT nConstructorName) I) NONE ⇒
-   peg_eval cmlPEG ((tk,l) :: (i ++ sfx), nt (mkNT nConstructorName) I) NONE
+   peg_eval cmlPEG ((tk,l) :: i, nt (mkNT nConstructorName) I) (Failure fl fe) ⇒
+   peg_eval cmlPEG
+            ((tk,l) :: (i ++ sfx), nt (mkNT nConstructorName) I)
+            (Failure fl fe)
 Proof
   simp[peg_eval_NT_NONE] >>
   simp[cmlpeg_rules_applied, FDOM_cmlPEG, EXISTS_PROD, peg_eval_seq_NONE,
-       peg_eval_tok_NONE] >>
+       peg_eval_tok_NONE, choicel_cons_NONE] >>
   simp[peg_eval_NT_NONE] >>
   simp[cmlpeg_rules_applied, FDOM_cmlPEG, EXISTS_PROD, peg_eval_seq_NONE,
        peg_eval_tok_NONE, peg_UQConstructorName_def]
 QED
 
 Theorem nV_input_monotone:
-   peg_eval cmlPEG (i0, nt (mkNT nV) I) (SOME (i,r)) ⇒
-   peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nV) I) (SOME (i ++ sfx,r))
+   peg_eval cmlPEG (i0, nt (mkNT nV) I) (Success i r eo) ⇒
+   peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nV) I) (Success (i ++ sfx) r eo)
 Proof
-  simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, peg_V_def] >>
-  strip_tac >> rveq >> simp[peg_eval_tok_NONE]
+  simp[peg_eval_NT_SOME] >>
+  simp[cmlpeg_rules_applied, peg_V_def, peg_eval_seqempty,
+       choicel_cons, optmax_def, peg_eval_tok_NONE] >>
+  strip_tac >>
+  gvs[peg_eval_tok_NONE, peg_eval_tok_SOME, peg_eval_tok, tokSymP_def] >>
+  rename [‘FST h = SymbolT _’] >> Cases_on ‘h’ >> gvs[]
 QED
 
 Theorem nOpID_input_monotone:
-   peg_eval cmlPEG (i0, nt (mkNT nOpID) I) (SOME (i,r)) ⇒
-   peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nOpID) I) (SOME (i ++ sfx,r))
+   peg_eval cmlPEG (i0, nt (mkNT nOpID) I) (Success i r eo) ⇒
+   peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nOpID) I) (Success (i ++ sfx) r eo)
 Proof
-  simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, peg_eval_seq_NONE] >>
-  strip_tac >> rveq >> simp[peg_eval_tok_NONE]
+  simp[peg_eval_NT_SOME] >>
+  simp[cmlpeg_rules_applied, peg_eval_seq_NONE, choicel_cons] >>
+  strip_tac >> gvs[peg_eval_tok, optmax_def, peg_eval_seqempty]
 QED
 
 Theorem nUQTyOp_input_monotone:
-   peg_eval cmlPEG (i0, nt (mkNT nUQTyOp) I) (SOME(i,r)) ⇒
-   peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nUQTyOp) I) (SOME(i++sfx,r))
+   peg_eval cmlPEG (i0, nt (mkNT nUQTyOp) I) (Success i r eo) ⇒
+   peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nUQTyOp) I) (Success (i++sfx) r eo)
 Proof
-  simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, peg_eval_seq_NONE] >>
-  strip_tac >> rveq >> simp[peg_eval_tok_NONE]
+  simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, peg_eval_seq_NONE]
 QED
+
+Theorem nUQTyOp_input_monotone' =
+  nUQTyOp_input_monotone |> UNDISCH_ALL |> MATCH_MP peg_det |> DISCH_ALL
 
 Theorem nTyOp_input_monotone:
-   peg_eval cmlPEG (i0, nt (mkNT nTyOp) I) (SOME(i,r)) ⇒
-   peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nTyOp) I) (SOME(i++sfx,r))
+   peg_eval cmlPEG (i0, nt (mkNT nTyOp) I) (Success i r eo) ⇒
+   peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nTyOp) I) (Success (i++sfx) r eo)
 Proof
-  simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, peg_eval_seq_NONE] >>
-  strip_tac >> rveq >> simp[peg_eval_tok_NONE, nUQTyOp_input_monotone] >>
-  rename [‘isLongidT (FST tkl)’] >> Cases_on `tkl` >> fs[] >>
+  simp[peg_eval_NT_SOME] >>
+  simp[cmlpeg_rules_applied, peg_eval_seq_NONE, choicel_cons] >>
+  strip_tac >> gvs[]
+  >- (drule_then assume_tac nUQTyOp_input_monotone' >> simp[]) >>
+  rename [‘isLongidT tk’] >> Cases_on `tk` >> gvs[peg_eval_tok, optmax_def] >>
+  dsimp[] >>
   simp[peg_eval_NT_NONE] >>
-  simp[cmlpeg_rules_applied, peg_eval_tok_NONE, peg_eval_seq_NONE] >>
-  rename [‘isLongidT tk’] >> Cases_on `tk` >> fs[]
+  simp[cmlpeg_rules_applied, peg_eval_tok_NONE, peg_eval_seq_NONE]
 QED
 
+Theorem nTyOp_input_monotone' =
+  nTyOp_input_monotone |> UNDISCH_ALL |> MATCH_MP peg_det |> DISCH_ALL
+
 Theorem nTyOplist_input_monotone:
-   ∀result i0 i sfx.
-     peg_eval_list cmlPEG (i0, nt (mkNT nTyOp) I) (i, result) ∧
-     (i = [] ∧ sfx ≠ [] ⇒ FST (HD sfx) ∈ stoppers nDType) ⇒
-     peg_eval_list cmlPEG (i0 ++ sfx, nt (mkNT nTyOp) I) (i ++ sfx, result)
+  ∀pts res i0 i sfx.
+    peg_eval_list cmlPEG (i0, nt (mkNT nTyOp) I) (i, pts, res) ∧
+    (i = [] ∧ sfx ≠ [] ⇒ FST (HD sfx) ∈ stoppers nDType) ⇒
+    ∃res'.
+      peg_eval_list cmlPEG (i0 ++ sfx, nt (mkNT nTyOp) I) (i ++ sfx, pts, res')
 Proof
   Induct
-  >- (ONCE_REWRITE_TAC [peg_eval_list] >> simp[] >> rpt strip_tac >>
-      Cases_on `i0` >> simp[]
-      >- (Cases_on `sfx` >- simp[not_peg0_peg_eval_NIL_NONE] >> fs[] >>
-          rename [‘FST tkl = _’] >> Cases_on `tkl` >>
-          fs[peg_respects_firstSets]) >>
+  >- (ONCE_REWRITE_TAC [peg_eval_list] >> simp[] >> rpt strip_tac >> gvs[] >>
+      rename [‘peg_eval _ (i ++ sfx, _) _’] >>
+      Cases_on ‘i’ >> simp[]
+      >- (Cases_on `sfx` >- simp[not_peg0_peg_eval_NIL_NONE] >> gvs[] >>
+          rename [‘FST tkl ∈ _’] >> Cases_on `tkl` >>
+          gvs[peg_respects_firstSets, stoppers_def]) >>
       qpat_x_assum ‘peg_eval _ _ _’ mp_tac >>
       simp[peg_eval_NT_NONE] >>
       simp[cmlpeg_rules_applied, peg_eval_seq_NONE, peg_eval_tok_NONE] >>
-      simp[peg_eval_NT_NONE] >>
-      simp[cmlpeg_rules_applied, peg_eval_seq_NONE, peg_eval_tok_NONE]) >>
-  ONCE_REWRITE_TAC [peg_eval_list] >> rpt strip_tac >> rveq >> fs[] >> rveq >>
-  rename [‘peg_eval cmlPEG (i0, nt (mkNT nTyOp) I) (SOME(i1, r1))’] >>
-  ‘peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nTyOp) I) (SOME(i1 ++ sfx, r1))’
-    by simp[nTyOp_input_monotone] >> qexists_tac `i1 ++ sfx` >> simp[]
+      simp[peg_eval_NT_NONE, choicel_cons_NONE] >>
+      simp[cmlpeg_rules_applied, peg_eval_seq_NONE, peg_eval_tok_NONE,
+           PULL_EXISTS] >> rename [‘h::t = []’] >>
+      Cases_on ‘h’ >> simp[MAXerr_def]) >>
+  ONCE_REWRITE_TAC [peg_eval_list] >> rpt strip_tac >> gvs[] >>
+  dxrule_then assume_tac nTyOp_input_monotone' >> gvs[] >>
+  first_x_assum irule >> metis_tac[]
 QED
 
 Triviality peg_eval_TyOp_LparT[simp]:
-  peg_eval cmlPEG ((LparT, loc)::i0, nt (mkNT nTyOp) I) (SOME (i,r)) ⇔ F
+  peg_eval cmlPEG ((LparT, loc)::i0, nt (mkNT nTyOp) I) (Success i r eo) ⇔ F
 Proof
-  simp[] >> strip_tac >>
-  pop_assum (mp_then (Pos hd) mp_tac peg_respects_firstSets') >> simp[]
+  simp[] >> strip_tac >> dxrule peg_respects_firstSets' >> simp[]
 QED
 
 Theorem Type_input_monotone:
