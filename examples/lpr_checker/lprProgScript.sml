@@ -2,7 +2,7 @@
   lpr program example: takes two file names from command line
   cake_lpr foo.cnf foo.lpr
 *)
-open preamble basis parsingTheory lpr_commonProgTheory;
+open preamble basis lpr_parsingTheory lpr_commonProgTheory;
 
 val _ = new_theory "lprProg"
 
@@ -21,7 +21,7 @@ val _ = translate parse_clause_aux_def;
 val _ = translate parse_clause_def;
 
 (* NOTE: inefficient-ish version that reads all lines at once *)
-val _ = translate parsingTheory.build_fml_def;
+val _ = translate lpr_parsingTheory.build_fml_def;
 val _ = translate nocomment_line_def;
 val _ = translate parse_dimacs_toks_def;
 val _ = translate parse_dimacs_def;

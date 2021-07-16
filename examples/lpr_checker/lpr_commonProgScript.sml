@@ -3,7 +3,7 @@
 
   This translates all of the LPR parsing machinery
 *)
-open preamble basis lprTheory parsingTheory;
+open preamble basis lprTheory lpr_parsingTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -80,7 +80,7 @@ val ind_lemma = Q.prove(
   )
   |> update_precondition;
 
-val result = translate parsingTheory.fromString_unsafe_def;
+val result = translate lpr_parsingTheory.fromString_unsafe_def;
 
 val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
 val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";

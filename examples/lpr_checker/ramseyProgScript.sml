@@ -2,7 +2,7 @@
   Ramsey number 4 example:
   cake_ramsey foo.lpr
 *)
-open preamble basis parsingTheory ramseyTheory lpr_commonProgTheory;
+open preamble basis lpr_parsingTheory ramseyTheory lpr_commonProgTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 

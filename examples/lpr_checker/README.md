@@ -16,7 +16,7 @@ Basic specification of an LPR checker (minimal optimization)
 [lpr_commonProgScript.sml](lpr_commonProgScript.sml):
 Common translation for lpr and ramsey
 
-[parsingScript.sml](parsingScript.sml):
+[lpr_parsingScript.sml](lpr_parsingScript.sml):
 Parsing interface for DIMACS and LPR
 
 [ramseyProgScript.sml](ramseyProgScript.sml):

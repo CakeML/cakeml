@@ -1,7 +1,7 @@
 (*
   This refines lpr_list to use arrays
 *)
-open preamble basis UnsafeProgTheory UnsafeProofTheory lprTheory lpr_listTheory parsingTheory;
+open preamble basis md5ProgTheory UnsafeProgTheory UnsafeProofTheory lprTheory lpr_listTheory lpr_parsingTheory;
 
 val _ = new_theory "lpr_arrayProg"
 
@@ -9,7 +9,7 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
-val _ = translation_extends"UnsafeProg";
+val _ = translation_extends"md5Prog";
 
 (* Pure translation of LPR checker *)
 val _ = register_type``:lprstep``;
@@ -1777,7 +1777,7 @@ val ind_lemma = Q.prove(
   )
   |> update_precondition;
 
-val result = translate parsingTheory.fromString_unsafe_def;
+val result = translate lpr_parsingTheory.fromString_unsafe_def;
 
 val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
 val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
@@ -2486,7 +2486,7 @@ val _ = translate parse_clause_aux_def;
 val _ = translate parse_clause_def;
 
 (* NOTE: inefficient-ish version that reads all lines at once *)
-val _ = translate parsingTheory.build_fml_def;
+val _ = translate lpr_parsingTheory.build_fml_def;
 val _ = translate nocomment_line_def;
 val _ = translate parse_dimacs_toks_def;
 (* val _ = translate parse_dimacs_def; *)
