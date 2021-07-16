@@ -16,18 +16,17 @@ Definition num_size_def:
 End
 
 Definition part_space_req_def:
-  part_space_req n (W64 s) = n + 3 ∧
-  part_space_req n (Int i) =
-    (if Num (ABS i) < 2**29 then n else
-       n + num_size (Num (ABS i))) ∧
-  part_space_req n (Str s) = n + strlen s DIV 4 + 1 ∧
-  part_space_req n (Con t ns) =
-    let l = LENGTH ns in if l = 0n then n else n+l+1
+  part_space_req (W64 s) = 3 ∧
+  part_space_req (Int i) =
+    (if Num (ABS i) < 2**29 then 0 else num_size (Num (ABS i))) ∧
+  part_space_req (Str s) = strlen s DIV 4 + 1 ∧
+  part_space_req (Con t ns) =
+    let l = LENGTH ns in if l = 0n then 0 else l+1
 End
 
 Definition op_space_req_def:
   (op_space_req (Cons _) l = if l = 0n then 0 else l+1) /\
-  (op_space_req (Build parts) l = FOLDL part_space_req 0 parts) /\
+  (op_space_req (Build parts) l = SUM (MAP part_space_req parts)) /\
   (op_space_req Ref l = l + 1) /\
   (op_space_req (WordOp W64 _) _ = 3) /\
   (op_space_req (WordShift W64 _ _) _ = 3) /\
