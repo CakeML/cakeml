@@ -272,6 +272,10 @@ val all_ts_def = Define`
     in {ts | ∃x. (x ∈ refs_v ∨ MEM x stack) ∧ MEM ts (v_all_ts x)}
 `
 
+Definition be_ok_def:
+  be_ok b1 b2 ⇔ b1 = b2
+End
+
 (* THIS IS IMPORTANT *)
 val bc_stack_ref_inv_def = Define `
   bc_stack_ref_inv conf ts stack refs (roots, heap, be) =
@@ -280,7 +284,7 @@ val bc_stack_ref_inv_def = Define `
       FDOM f SUBSET (domain refs) /\
       INJ (FAPPLY tf) (FDOM tf) { a | isSomeDataElement (heap_lookup a heap) } /\
       FDOM tf SUBSET (all_ts refs stack) /\
-      FDOM tf SUBSET { n | n < ts } /\
+      FDOM tf SUBSET { n | n < ts } /\ be_ok conf.be be /\
       EVERY2 (\v x. v_inv conf v (x,f,tf,heap)) stack roots /\
       !n. reachable_refs stack refs n ==> bc_ref_inv conf n refs (f,tf,heap,be)`;
 
@@ -6399,6 +6403,101 @@ Proof
   \\ qpat_x_assum `_ = _` (fn th => simp [th])
 QED
 
+Theorem memory_rel_RefByte_content:
+   memory_rel c be ts refs sp st m dm vars ∧
+   new ∉ (domain refs) ∧ byte_len (:'a) n < sp ∧
+   byte_len (:'a) n < 2 ** (dimindex (:α) − 4) /\
+   byte_len (:'a) n < 2 ** c.len_size /\ n = LENGTH bytes ∧
+   good_dimindex (:α) ⇒
+   ∃free curr m1.
+     FLOOKUP st NextFree = SOME (Word free) ∧
+     FLOOKUP st CurrHeap = SOME (Word curr) ∧
+     (let w' = bytes_in_word * (n2w (byte_len (:'a) n + 1)):'a word in
+      let ws = REPLICATE (byte_len (:'a) n) 0w in
+      let ws = write_bytes bytes ws be in
+        store_list free (Word (make_byte_header c fl n)::MAP Word ws) m dm = SOME m1 ∧
+        memory_rel c be ts (insert new (ByteArray fl bytes) refs)
+          (sp − (byte_len (:'a) n + 1)) (st |+ (NextFree,Word (free + w'))) m1 dm
+          ((RefPtr new,make_ptr c (free − curr) (0w:'a word) (byte_len (:'a) n))::vars))
+Proof
+  simp_tac std_ss [LET_THM]
+  \\ rewrite_tac [CONJ_ASSOC]
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ fs [memory_rel_def,PULL_EXISTS]
+  \\ qmatch_goalsub_abbrev_tac`Word _ :: ws`
+  \\ rw []
+  \\ qabbrev_tac ‘n = LENGTH bytes’
+  \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
+  \\ drule (GEN_ALL new_byte_alt_thm)
+  \\ disch_then (qspecl_then [`(byte_len (:'a) n)`,
+        `new`,`fl`,`bytes`] mp_tac)
+  \\ fs [LENGTH_REPLICATE]
+  \\ impl_tac THEN1
+    (gvs [byte_len_def,good_dimindex_def] \\ gvs [markerTheory.Abbrev_def,dimword_def])
+  \\ rfs [] \\ fs [] \\ clean_tac \\ strip_tac
+  \\ rewrite_tac [GSYM CONJ_ASSOC]
+  \\ once_rewrite_tac [METIS_PROVE [] ``b1 /\ b2 /\ b3 <=> b2 /\ b1 /\ b3:bool``]
+  \\ asm_exists_tac \\ fs []
+  \\ fs [heap_in_memory_store_def,FLOOKUP_UPDATE]
+  \\ imp_res_tac heap_store_unused_alt_IMP_length \\ fs []
+  \\ `byte_len (:'a) n <= sp' + sp1` by decide_tac
+  \\ pop_assum mp_tac \\ simp_tac std_ss [LESS_EQ_EXISTS]
+  \\ strip_tac \\ clean_tac \\ fs []
+  \\ Cases_on `p` \\ fs [ADD1]
+  \\ fs [bytes_in_word_mul_eq_shift]
+  \\ fs [GSYM word_add_n2w,word_addr_def,
+         WORD_LEFT_ADD_DISTRIB,get_addr_def,make_ptr_def,get_lowerbits_def]
+  \\ fs [bytes_in_word_mul_eq_shift]
+  \\ fs [heap_store_unused_alt_def,el_length_def,Bytes_def,LENGTH_REPLICATE]
+  \\ qpat_x_assum`_ = (_,T)`mp_tac
+  \\ rw[] \\ fs []
+  \\ imp_res_tac heap_lookup_SPLIT \\ fs [] \\ clean_tac
+  \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  \\ fs [heap_store_lemma] \\ clean_tac \\ fs []
+  \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def,
+         SEP_CLAUSES,word_heap_heap_expand,RefBlock_def,el_length_def,
+         heap_length_APPEND,heap_length_heap_expand,LENGTH_REPLICATE]
+  \\ fs [word_list_exists_ADD |> Q.SPECL [`n+1`,`n'`]
+           |> SIMP_RULE std_ss [Once ADD_COMM]]
+  \\ fs [GSYM bytes_in_word_mul_eq_shift,write_bytes_REPLICATE]
+  \\ qpat_abbrev_tac `ws2 = Word (make_byte_header c fl n)::_`
+  \\ rveq \\ fs []
+  \\ simp_tac (std_ss++helperLib.sep_cond_ss) [cond_STAR,GSYM CONJ_ASSOC]
+  \\ fs [GSYM PULL_EXISTS] \\ fs [CONJ_ASSOC]
+  \\ reverse conj_tac THEN1
+   (`(byte_len (:α) n + 1) = LENGTH ws2` by
+      (unabbrev_all_tac \\ fs [LENGTH_REPLICATE] \\ NO_TAC) \\ fs []
+    \\ qpat_x_assum `_ (fun2set (m,dm))` mp_tac
+    \\ qpat_abbrev_tac `ll = word_list_exists _ (LENGTH ws2)`
+    \\ fs [AC STAR_COMM STAR_ASSOC]
+    \\ qunabbrev_tac `ll` \\ strip_tac
+    \\ drule store_list_thm
+    \\ strip_tac \\ fs []
+    \\ fs [heap_length_def,el_length_def]
+    \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+    \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC])
+  \\ `0 < c.len_size` by fs [] \\ fs [GSYM shift_def]
+  \\ fs [GSYM DIV_LT_X,EXP_ADD]
+  \\ fs [labPropsTheory.good_dimindex_def,shift_def,byte_len_def,
+         make_byte_header_def,decode_length_def] \\ rfs []
+  \\ fs [DECIDE ``m + n < k <=> m < k - n:num``]
+  \\ qpat_abbrev_tac `www = (COND _ _ _) >>> _`
+  \\ `www = 0w` by
+    (unabbrev_all_tac
+     \\ IF_CASES_TAC
+     \\ match_mp_tac n2w_lsr_eq_0
+     \\ fs [dimword_def]
+     \\ match_mp_tac LESS_DIV_EQ_ZERO \\ fs []
+     \\ fs [LESS_EQ]
+     \\ match_mp_tac LESS_EQ_TRANS
+     \\ qexists_tac `2n ** 5`
+     \\ (conj_tac THEN1 fs [])
+     \\ match_mp_tac IMP_EXP_LESS \\ fs [] \\ NO_TAC) \\ fs []
+  \\ qunabbrev_tac ‘ws’
+  \\ fs [DIV_LT_X,ADD_DIV_EQ]
+  \\ match_mp_tac shift_shift_lemma \\ fs [shift_def] \\ fs [dimword_def,DIV_LT_X]
+QED
+
 Theorem memory_rel_RefByte_alt:
   memory_rel c be ts refs sp st m dm vars ∧
    new ∉ (domain refs) ∧ byte_len (:'a) n < sp ∧
@@ -6522,6 +6621,23 @@ Proof
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]
 QED
+
+(*
+        memory_rel_def
+word_ml_inv_def
+abs_ml_inv_def
+bc_stack_ref_inv_def
+bc_ref_inv_def
+Bytes_def
+write_bytes_def
+
+
+          heap_in_memory_store_def
+  word_heap_def
+  word_el_def
+  word_el_def
+   word_payload_def
+*)
 
 Theorem memory_rel_tail:
    memory_rel c be ts refs sp st m dm (v::vars) ==>
@@ -12243,20 +12359,43 @@ Proof
 QED
 
 Definition build_part_words_def:
-  build_part_words c m (Int i) offset = SOME (0w:'a word,[]) ∧
-  build_part_words c m (Con t ns) offset =
+  build_part_words c m (Int i) offset =
+    (if small_int (:'a) i then  SOME (Smallnum i,[])
+     else let (sign,ws) = i2mw i in
+            case encode_header c (w2n (b2w sign ≪ 2 ‖ 3w:'a word)) (LENGTH ws) of
+            | NONE => NONE
+            | SOME hd => SOME (theWord (make_ptr c offset (0w:'a word) (LENGTH ws)),
+                               hd::ws)) ∧
+  build_part_words c m (Con t ns) (offset:'a word) =
     (if NULL ns then
        if t < dimword (:'a) DIV 16 then SOME (n2w (16 * t + 2),[]) else NONE
      else
        case encode_header c (4 * t) (LENGTH ns) of
        | NONE => NONE
        | SOME hd => SOME (theWord (make_cons_ptr c offset t (LENGTH ns)),
-                          hd::(MAP m ns)))
+                          hd::(MAP m ns))) ∧
+  build_part_words c m (W64 w) offset =
+    (let ws = (if dimindex (:α) < 64
+               then [((63 >< 32) w); ((31 >< 0) w)]
+               else [((63 >< 0) w):'a word]) in
+       case encode_header c 3 (LENGTH ws) of
+       | NONE => NONE
+       | SOME hd => SOME (theWord (make_ptr c offset (0w:'a word) (LENGTH ws)),
+                          hd::ws)) ∧
+  build_part_words c m (Str s) offset =
+    (let bytes = MAP (n2w o ORD) (explode s) in
+     let n = LENGTH bytes in
+     let hd = make_byte_header c T n in
+     let ws = write_bytes bytes (REPLICATE (byte_len (:α) n) 0w) c.be in
+       if byte_len (:α) n < 2 ** (dimindex (:α) − 4) ∧
+          byte_len (:α) n < 2 ** c.len_size
+       then SOME (theWord (make_ptr c offset (0w:'a word) (byte_len (:α) n)),hd::ws)
+       else NONE)
 End
 
 Definition build_words_def:
   build_words c m i [] off = SOME (m (i - 1:num), []) ∧
-  build_words c m i (x::parts) off =
+  build_words c m i (x::parts) (off:'a word) =
     case build_part_words c m x off of
     | NONE => NONE
     | SOME (w,xs) =>
@@ -12285,6 +12424,43 @@ Triviality ZIP_MAP_MAP:
   ∀xs. ZIP (MAP f xs, MAP g xs) = MAP (λk. (f k, g k)) xs
 Proof
   Induct \\ fs []
+QED
+
+Theorem Word_theWord_make_ptr:
+  Word (theWord (make_ptr c a b n)) = make_ptr c a b n
+Proof
+  fs [make_ptr_def,theWord_def]
+QED
+
+Triviality LENGTH_n2mw_LE_num_size:
+  ∀n m. good_dimindex (:'a) ∧ n ≤ m ⇒ SUC (LENGTH (n2mw n : 'a word list)) ≤ num_size m
+Proof
+  ho_match_mp_tac n2mw_ind \\ rw []
+  \\ once_rewrite_tac [n2mw_def,data_spaceTheory.num_size_def]
+  \\ Cases_on ‘n=0’ \\ fs []
+  \\ fs [GSYM ADD1]
+  \\ IF_CASES_TAC
+  THEN1 (fs [Once n2mw_def] \\ gvs [good_dimindex_def,dimword_def,DIV_EQ_X])
+  \\ fs [] \\ first_x_assum irule
+  \\ match_mp_tac LESS_EQ_TRANS
+  \\ qexists_tac ‘n DIV 4294967296’
+  \\ fs [DIV_LE_MONOTONE]
+  \\ irule DIV_thm1
+  \\ gvs [good_dimindex_def,dimword_def]
+QED
+
+Theorem least_notin_domain:
+  (LEAST ptr. ptr ∉ domain refs) ∉ domain (refs:'a num_map)
+Proof
+  qabbrev_tac ‘pp = λptr. ptr ∉ domain refs’
+  \\ qsuff_tac ‘pp ($LEAST pp)’ THEN1 fs [Abbr‘pp’]
+  \\ match_mp_tac LEAST_INTRO \\ fs [Abbr‘pp’]
+  \\ ‘FINITE (domain refs)’ by fs [FINITE_domain]
+  \\ rename [‘FINITE s’]
+  \\ CCONTR_TAC \\ gvs []
+  \\ assume_tac pred_setTheory.INFINITE_NUM_UNIV
+  \\ ‘𝕌(:num) SUBSET s’ by fs [SUBSET_DEF,EXTENSION]
+  \\ imp_res_tac SUBSET_FINITE_I
 QED
 
 Theorem memory_rel_do_build:
@@ -12316,9 +12492,10 @@ Proof
   \\ imp_res_tac do_part_SOME_IMP_SOME \\ gvs []
   \\ last_x_assum drule \\ strip_tac
   \\ fs [store_list_append]
-  \\ Cases_on ‘h’ \\ gvs [do_part_def,AllCaseEqs()]
+  \\ Cases_on ‘∃t. h = Con t []’
   THEN1
-   (gvs [build_part_words_def,data_spaceTheory.part_space_req_def]
+   (gvs [do_part_def,AllCaseEqs()]
+    \\ gvs [build_part_words_def,data_spaceTheory.part_space_req_def]
     \\ last_x_assum $ drule_then $ drule_then $ drule_then drule
     \\ fs [store_list_def]
     \\ disch_then irule \\ rw []
@@ -12326,8 +12503,10 @@ Proof
     \\ first_x_assum (qspec_then ‘ks’ assume_tac)
     \\ drule_all memory_rel_Cons_empty
     \\ fs [BlockNil_def,WORD_MUL_LSL,word_mul_n2w,word_add_n2w])
+  \\ Cases_on ‘∃n l. h = Con n l’
   THEN1
-   (gvs [build_part_words_def,data_spaceTheory.part_space_req_def,NULL_EQ]
+   (gvs [do_part_def,AllCaseEqs()]
+    \\ gvs [build_part_words_def,data_spaceTheory.part_space_req_def,NULL_EQ]
     \\ gvs [AllCaseEqs()]
     \\ qabbrev_tac ‘vals = MAP map0 l’
     \\ qabbrev_tac ‘ws = MAP (Word o map0') l’
@@ -12350,8 +12529,140 @@ Proof
     \\ irule memory_rel_IMP_MAP_UPDATE
     \\ rewrite_tac [make_cons_ptr_def,theWord_def]
     \\ rewrite_tac [GSYM make_cons_ptr_def,theWord_def]
-    \\ cheat (* memory_rel_Cons1 *))
-  \\ cheat
+    \\ ‘memory_rel c be ts refs sp st m dm (ZIP (vals,ws) ++
+           (MAP (λk. (map0 k,Word (map0' k))) ks ++ vars))’ by
+           (unabbrev_all_tac \\ fs [ZIP_MAP_MAP]
+            \\ last_x_assum (qspec_then ‘l ++ ks’ mp_tac) \\ fs [])
+    \\ drule (GEN_ALL memory_rel_Cons1) \\ fs []
+    \\ disch_then (qspec_then ‘n’ mp_tac) \\ fs []
+    \\ impl_tac THEN1 (CCONTR_TAC \\ fs [])
+    \\ fs [GSYM word_add_n2w,GSYM word_mul_n2w,WORD_LEFT_ADD_DISTRIB,WORD_ADD_ASSOC])
+  \\ Cases_on ‘∃ww. h = W64 ww’
+  THEN1
+   (gvs [do_part_def,build_part_words_def,AllCaseEqs()] \\ rw [] \\ fs []
+    THEN1
+     (qabbrev_tac ‘st1 = (st |+ (NextFree,Word (free + 3w * bytes_in_word)))’
+      \\ first_x_assum (qspec_then ‘st1’ mp_tac)
+      \\ fs [Abbr‘st1’] \\ fs [FLOOKUP_UPDATE]
+      \\ disch_then (qspec_then ‘sp - 3’ mp_tac)
+      \\ rewrite_tac [GSYM SUB_PLUS] \\ fs [ADD1,data_spaceTheory.part_space_req_def]
+      \\ disch_then drule
+      \\ first_assum (qspec_then ‘[]’ (mp_tac o SIMP_RULE std_ss [MAP,APPEND]))
+      \\ strip_tac
+      \\ drule (memory_rel_Word64_alt |> Q.INST [‘vs’|->‘[]’]
+           |> SIMP_RULE std_ss [APPEND] |> GEN_ALL)
+      \\ fs [Word64Rep_def]
+      \\ disch_then (qspec_then ‘ww’ strip_assume_tac) \\ gvs []
+      \\ fs [GSYM word_add_n2w,GSYM word_mul_n2w,WORD_LEFT_ADD_DISTRIB,WORD_ADD_ASSOC]
+      \\ disch_then match_mp_tac \\ rw []
+      \\ match_mp_tac memory_rel_IMP_MAP_UPDATE
+      \\ rewrite_tac [Word_theWord_make_ptr]
+      \\ first_x_assum (qspec_then ‘ks’ assume_tac)
+      \\ drule (memory_rel_Word64_alt |> Q.INST [‘vs’|->‘[]’]
+           |> SIMP_RULE std_ss [APPEND] |> GEN_ALL)
+      \\ fs [Word64Rep_def]
+      \\ disch_then (qspec_then ‘ww’ strip_assume_tac) \\ gvs [])
+    THEN1
+     (qabbrev_tac ‘st1 = (st |+ (NextFree,Word (free + 2w * bytes_in_word)))’
+      \\ first_x_assum (qspec_then ‘st1’ mp_tac)
+      \\ fs [Abbr‘st1’] \\ fs [FLOOKUP_UPDATE]
+      \\ disch_then (qspec_then ‘sp - 2’ mp_tac)
+      \\ rewrite_tac [GSYM SUB_PLUS] \\ fs [ADD1,data_spaceTheory.part_space_req_def]
+      \\ disch_then drule
+      \\ first_assum (qspec_then ‘[]’ (mp_tac o SIMP_RULE std_ss [MAP,APPEND]))
+      \\ strip_tac
+      \\ drule (memory_rel_Word64_alt |> Q.INST [‘vs’|->‘[]’]
+           |> SIMP_RULE std_ss [APPEND] |> GEN_ALL)
+      \\ fs [Word64Rep_def]
+      \\ disch_then (qspec_then ‘ww’ strip_assume_tac) \\ gvs []
+      \\ fs [GSYM word_add_n2w,GSYM word_mul_n2w,WORD_LEFT_ADD_DISTRIB,WORD_ADD_ASSOC]
+      \\ disch_then match_mp_tac \\ rw []
+      \\ match_mp_tac memory_rel_IMP_MAP_UPDATE
+      \\ rewrite_tac [Word_theWord_make_ptr]
+      \\ first_x_assum (qspec_then ‘ks’ assume_tac)
+      \\ drule (memory_rel_Word64_alt |> Q.INST [‘vs’|->‘[]’]
+           |> SIMP_RULE std_ss [APPEND] |> GEN_ALL)
+      \\ fs [Word64Rep_def]
+      \\ disch_then (qspec_then ‘ww’ strip_assume_tac) \\ gvs []))
+  \\ Cases_on ‘∃j. h = Int j’
+  THEN1
+   (gvs [] \\ Cases_on ‘small_int (:α) j’ \\ fs []
+    THEN1
+     (gvs [build_part_words_def,store_list_def,do_part_def]
+      \\ first_x_assum irule
+      \\ fs [data_spaceTheory.part_space_req_def]
+      \\ first_x_assum $ irule_at Any \\ rw []
+      \\ first_x_assum (qspec_then ‘ks’ assume_tac)
+      \\ match_mp_tac memory_rel_IMP_MAP_UPDATE
+      \\ drule_all IMP_memory_rel_Number \\ fs [])
+    \\ first_assum (qspec_then ‘[]’ (mp_tac o SIMP_RULE std_ss [MAP,APPEND]))
+    \\ strip_tac
+    \\ drule (GEN_ALL IMP_memory_rel_bignum_alt) \\ fs []
+    \\ fs [Bignum_def]
+    \\ disch_then drule
+    \\ pairarg_tac \\ fs []
+    \\ gvs [build_part_words_def,AllCaseEqs(),data_spaceTheory.part_space_req_def]
+    \\ disch_then (qspec_then ‘payload’ mp_tac) \\ fs []
+    \\ ‘~(Num (ABS j) < 536870912)’ by
+      (Cases_on ‘j’ \\ gvs [small_int_def,good_dimindex_def,dimword_def])
+    \\ ‘SUC (LENGTH payload) ≤ num_size (Num (ABS j))’ by
+      (gvs [i2mw_def] \\ irule LENGTH_n2mw_LE_num_size \\ fs [])
+    \\ impl_tac THEN1 fs []
+    \\ strip_tac \\ gvs []
+    \\ qabbrev_tac ‘st1 = (st |+ (NextFree,Word (free +
+                                  bytes_in_word * n2w (SUC (LENGTH payload)))))’
+    \\ first_x_assum (qspec_then ‘st1’ mp_tac)
+    \\ fs [Abbr‘st1’] \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspec_then ‘sp - SUC (LENGTH payload)’ mp_tac)
+    \\ fs [GSYM word_add_n2w,GSYM word_mul_n2w,WORD_LEFT_ADD_DISTRIB,WORD_ADD_ASSOC]
+    \\ disch_then match_mp_tac \\ rw []
+    \\ first_assum $ irule_at Any \\ fs []
+    \\ rw []
+    \\ match_mp_tac memory_rel_IMP_MAP_UPDATE
+    \\ rewrite_tac [Word_theWord_make_ptr]
+    \\ first_x_assum (qspec_then ‘ks’ assume_tac)
+    \\ drule (GEN_ALL IMP_memory_rel_bignum_alt) \\ fs []
+    \\ disch_then drule
+    \\ fs [Bignum_def,ADD1]
+    \\ disch_then $ drule_at $ Pos last \\ fs []
+    \\ gvs [do_part_def])
+  \\ ‘∃z. h = Str z’ by (Cases_on ‘h’ \\ gvs []) \\ gvs []
+  \\ gvs [do_part_def,data_spaceTheory.part_space_req_def]
+  \\ first_assum (qspec_then ‘[]’ (mp_tac o SIMP_RULE std_ss [MAP,APPEND]))
+  \\ strip_tac
+  \\ drule (GEN_ALL memory_rel_RefByte_content) \\ fs []
+  \\ disch_then (qspecl_then [‘LEAST ptr. ptr ∉ domain refs’,
+       ‘T’,‘MAP (n2w ∘ ORD) (explode z)’] mp_tac)
+  \\ fs [] \\ impl_keep_tac
+  THEN1
+   (gvs [build_part_words_def,AllCaseEqs(),least_notin_domain]
+    \\ gvs [byte_len_def,good_dimindex_def]
+    \\ qsuff_tac ‘strlen z DIV 8 ≤ strlen z DIV 4’ THEN1 gvs []
+    \\ irule multiwordTheory.DIV_thm1 \\ fs [])
+  \\ strip_tac
+  \\ ‘c.be = be’ by cheat
+  \\ gvs [build_part_words_def,AllCaseEqs(),least_notin_domain]
+  \\ qabbrev_tac ‘st1 = (st |+ (NextFree,Word (free +
+        bytes_in_word * n2w (SUC (byte_len (:α) (strlen z))))))’
+  \\ first_x_assum (qspec_then ‘st1’ mp_tac)
+  \\ fs [Abbr‘st1’] \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspec_then ‘sp - SUC (byte_len (:α) (strlen z))’ mp_tac)
+  \\ fs [GSYM word_add_n2w,GSYM word_mul_n2w,WORD_LEFT_ADD_DISTRIB,WORD_ADD_ASSOC]
+  \\ disch_then match_mp_tac \\ rw []
+  \\ first_assum $ irule_at Any \\ fs []
+  \\ conj_tac THEN1
+   (gvs [byte_len_def,good_dimindex_def]
+    \\ qsuff_tac ‘strlen z DIV 8 ≤ strlen z DIV 4’ THEN1 gvs []
+    \\ irule multiwordTheory.DIV_thm1 \\ fs [])
+  \\ rw []
+  \\ match_mp_tac memory_rel_IMP_MAP_UPDATE
+  \\ rewrite_tac [Word_theWord_make_ptr]
+  \\ first_x_assum (qspec_then ‘ks’ assume_tac)
+  \\ drule (GEN_ALL memory_rel_RefByte_content) \\ fs []
+  \\ disch_then (qspecl_then [‘LEAST ptr. ptr ∉ domain refs’,
+       ‘T’,‘MAP (n2w ∘ ORD) (explode z)’] mp_tac)
+  \\ fs [] \\ impl_tac THEN1 (fs [least_notin_domain])
+  \\ rw [] \\ fs [ADD1]
 QED
 
 val _ = export_theory();
