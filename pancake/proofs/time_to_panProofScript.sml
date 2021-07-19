@@ -1021,9 +1021,9 @@ End
 
 
 Definition wf_prog_init_states_def:
-  wf_prog_init_states prog or st (t:('a,time_input) panSem$state) ⇔
-    (∃k. timeFunSem$eval_steps
-         k prog (dimword (:α) - 1) (FST (t.ffi.ffi_state 0)) or st ≠ NONE) ∧
+  wf_prog_init_states prog or k st (t:('a,time_input) panSem$state) ⇔
+    timeFunSem$eval_steps
+    k prog (dimword (:α) - 1) (FST (t.ffi.ffi_state 0)) or st ≠ NONE ∧
     prog ≠ [] ∧ LENGTH (clksOf prog) ≤ 29 ∧
     st.location =  FST (ohd prog) ∧
     init_clocks st.clocks (clksOf prog) ∧
@@ -10002,25 +10002,22 @@ QED
 
 
 Theorem io_trace_impl_eval_steps:
-  ∀prog st (t:('a,time_input) panSem$state) or.
-    wf_prog_init_states prog or st t ⇒
-    ∃k.
-      ffi_rels_after_init prog
-                          (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) st t ∧
-      no_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ∧
-      sum_delays (:α) (labels_of k prog (dimword (:α) - 1) (systime_at t) or st)
-                 (next_ffi t.ffi.ffi_state) ⇒
-        ∃lbls sts io ios ns.
-          timeFunSem$eval_steps k prog (dimword (:α) - 1) (systime_at t) or st =
-          SOME (lbls, sts) ∧
-          semantics t «start» = Terminate Success (io::ios) ∧
-          LENGTH lbls = LENGTH ns ∧ SUM ns + 1 = LENGTH ios ∧
-          decode_ios (:α) t.be lbls ns (io::FRONT ios)
+  ∀prog st (t:('a,time_input) panSem$state) or k.
+    wf_prog_init_states prog or k st t ∧
+    ffi_rels_after_init prog
+                        (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) st t ∧
+    no_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ∧
+    sum_delays (:α) (labels_of k prog (dimword (:α) - 1) (systime_at t) or st)
+               (next_ffi t.ffi.ffi_state) ⇒
+    ∃lbls sts io ios ns.
+      timeFunSem$eval_steps k prog (dimword (:α) - 1) (systime_at t) or st =
+      SOME (lbls, sts) ∧
+      semantics t «start» = Terminate Success (io::ios) ∧
+      LENGTH lbls = LENGTH ns ∧ SUM ns + 1 = LENGTH ios ∧
+      decode_ios (:α) t.be lbls ns (io::FRONT ios)
 Proof
   rw [] >>
   gs [wf_prog_init_states_def, systime_at_def] >>
-  qexists_tac ‘k’ >>
-  strip_tac >>
   ‘∃lbls sts.
      timeFunSem$eval_steps k prog (dimword (:α) − 1)
                            (FST (t.ffi.ffi_state 0)) or st = SOME (lbls,sts)’ by (
@@ -10762,28 +10759,25 @@ QED
 
 
 Theorem io_trace_impl_eval_steps_uptil_panic:
-  ∀prog st (t:('a,time_input) panSem$state) or.
-    wf_prog_init_states prog or st t ⇒
-    ∃k.
-      ffi_rels_after_init prog
-                          (uptil_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st))
-                          st t ∧
-      has_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ∧
-      sum_delays_until_panic (:α)
-                             (until_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st))
-                             (next_ffi t.ffi.ffi_state) ⇒
-        ∃lbls sts io ios ns.
-          timeFunSem$eval_steps k prog (dimword (:α) - 1) (systime_at t) or st =
-          SOME (lbls, sts) ∧
-          semantics t «start» = Terminate Success (io::ios) ∧
-          LENGTH (slice_labels lbls) = LENGTH ns ∧
-          SUM ns = LENGTH ios ∧
-          decode_ios (:α) t.be (slice_labels lbls) ns (io::ios)
+  ∀prog st (t:('a,time_input) panSem$state) or k.
+    wf_prog_init_states prog or k st t ∧
+    ffi_rels_after_init prog
+                        (uptil_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st))
+                        st t ∧
+    has_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ∧
+    sum_delays_until_panic (:α)
+                           (until_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st))
+                           (next_ffi t.ffi.ffi_state) ⇒
+    ∃lbls sts io ios ns.
+      timeFunSem$eval_steps k prog (dimword (:α) - 1) (systime_at t) or st =
+      SOME (lbls, sts) ∧
+      semantics t «start» = Terminate Success (io::ios) ∧
+      LENGTH (slice_labels lbls) = LENGTH ns ∧
+      SUM ns = LENGTH ios ∧
+      decode_ios (:α) t.be (slice_labels lbls) ns (io::ios)
 Proof
   rw [] >>
   gs [wf_prog_init_states_def, systime_at_def] >>
-  qexists_tac ‘k’ >>
-  strip_tac >>
   ‘∃lbls sts.
      timeFunSem$eval_steps k prog (dimword (:α) − 1)
                            (FST (t.ffi.ffi_state 0)) or st = SOME (lbls,sts)’ by (
@@ -10852,7 +10846,7 @@ Proof
 QED
 
 Definition io_events_and_ffi_assumptions_def:
-  io_events_and_ffi_assumptions (:α) k prog or st t ⇔
+d  io_events_and_ffi_assumptions (:α) k prog or st t ⇔
     (ffi_rels_after_init prog
      (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) st t ∧
      no_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ∧
@@ -10869,31 +10863,27 @@ End
 
 
 Theorem io_trace_impl_steps:
-  ∀prog st (t:('a,time_input) panSem$state) or.
-    wf_prog_init_states prog or st t ⇒
-    ∃k.
-      io_events_and_ffi_assumptions (:α) k prog or st t ⇒
-      ∃lbls sts io ios ns.
-        timeFunSem$eval_steps k prog (dimword (:α) - 1) (systime_at t) or st =
-        SOME (lbls, sts) ∧
-        semantics t «start» = Terminate Success (io::ios) ∧
-        (no_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ⇒
-         LENGTH lbls = LENGTH ns ∧ SUM ns + 1 = LENGTH ios ∧
-         decode_ios (:α) t.be lbls ns (io::FRONT ios)) ∧
-        (has_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ⇒
-         LENGTH (slice_labels lbls) = LENGTH ns ∧
-         SUM ns = LENGTH ios ∧
-         decode_ios (:α) t.be (slice_labels lbls) ns (io::ios))
+  ∀prog st (t:('a,time_input) panSem$state) or k.
+    wf_prog_init_states prog or k st t ∧
+    io_events_and_ffi_assumptions (:α) k prog or st t ⇒
+    ∃lbls sts io ios ns.
+      timeFunSem$eval_steps k prog (dimword (:α) - 1) (systime_at t) or st =
+      SOME (lbls, sts) ∧
+      semantics t «start» = Terminate Success (io::ios) ∧
+      (no_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ⇒
+       LENGTH lbls = LENGTH ns ∧ SUM ns + 1 = LENGTH ios ∧
+       decode_ios (:α) t.be lbls ns (io::FRONT ios)) ∧
+      (has_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ⇒
+       LENGTH (slice_labels lbls) = LENGTH ns ∧
+       SUM ns = LENGTH ios ∧
+       decode_ios (:α) t.be (slice_labels lbls) ns (io::ios))
 Proof
   rw [] >>
-  gvs [io_events_and_ffi_assumptions_def] >>
-  drule io_trace_impl_eval_steps >>
-  strip_tac >>
-  (* we are unable to unify no_panic and has_panic cases because of k *)
-  cheat
+  gs [io_events_and_ffi_assumptions_def,
+      no_panic_imp_not_has_panic, has_panic_imp_not_no_panic] >>
+  metis_tac [io_trace_impl_eval_steps,
+             io_trace_impl_eval_steps_uptil_panic]
 QED
-
-
 
 (*
 Definition ndecode_ios_def:
