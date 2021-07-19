@@ -476,11 +476,7 @@ Proof
         conds_eval_lt_dimword_def, input_terms_actions_def,
         terms_in_signals_def, tms_conds_eval_def,  tm_conds_eval_def,
         timeLangTheory.termConditions_def] >>
-    gs [EVERY_MEM] >>
-    disj1_tac >>
-    rw [] >>
-    res_tac >> gs []  >>
-    FULL_CASE_TAC >> gs []) >>
+    gs [EVERY_MEM]) >>
   rewrite_tac [Once pickTerm_cases] >>
   gs [] >>
   last_x_assum (qspecl_then [‘st’, ‘m’, ‘i’, ‘st'’] mp_tac) >>

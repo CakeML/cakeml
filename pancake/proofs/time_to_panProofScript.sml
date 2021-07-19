@@ -10797,5 +10797,140 @@ Proof
              wf_prog_and_init_states_def]
 QED
 
+Definition labels_and_ffi_assumptions_def:
+  labels_and_ffi_assumptions (:α) prog lbls st t ⇔
+    (no_panic lbls ∧
+     sum_delays (:α) lbls (next_ffi t.ffi.ffi_state) ∧
+     ffi_rels_after_init prog lbls st t) ∨
+    (has_panic lbls ∧
+     ffi_rels_after_init prog (uptil_panic lbls) st t ∧
+     sum_delays_until_panic (:α) (until_panic lbls) (next_ffi t.ffi.ffi_state))
+End
+
+Theorem no_panic_imp_not_has_panic:
+  ∀lbls.
+    no_panic lbls ⇒ ~has_panic lbls
+Proof
+  Induct >>
+  rw [no_panic_def, has_panic_def] >>
+  metis_tac []
+QED
+
+Theorem has_panic_imp_not_no_panic:
+  ∀lbls.
+    has_panic lbls ⇒ ~no_panic lbls
+Proof
+  Induct >>
+  rw [no_panic_def, has_panic_def] >>
+  metis_tac [timed_automata_until_panic_functional_correct]
+QED
+
+
+Theorem steps_impl_io_trace:
+  ∀k prog or st sts labels (t:('a,time_input) panSem$state).
+    timeFunSem$eval_steps k prog
+                          (dimword (:α) - 1) (FST (t.ffi.ffi_state 0))
+                          or st = SOME (labels, sts) ∧
+    labels_and_ffi_assumptions (:α) prog labels st t ∧
+    wf_prog_and_init_states prog st t ⇒
+    ∃io ios ns.
+      semantics t «start» = Terminate Success (io::ios) ∧
+      (no_panic labels ⇒
+       LENGTH labels = LENGTH ns ∧
+       SUM ns + 1 = LENGTH ios ∧
+       decode_ios (:α) t.be labels ns (io::FRONT ios)) ∧
+      (has_panic labels ⇒
+       LENGTH (slice_labels labels) = LENGTH ns ∧
+       SUM ns = LENGTH ios ∧
+       decode_ios (:α) t.be (slice_labels labels) ns (io::ios))
+Proof
+  rw [] >>
+  gs [labels_and_ffi_assumptions_def,
+      no_panic_imp_not_has_panic, has_panic_imp_not_no_panic] >>
+  metis_tac [timed_automata_no_panic_functional_correct,
+             timed_automata_until_panic_functional_correct]
+QED
+
+Definition io_events_and_ffi_assumptions_def:
+  io_events_and_ffi_assumptions (:α) k prog or st t ⇔
+    (ffi_rels_after_init prog
+     (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) st t ∧
+     no_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ∧
+     sum_delays (:α) (labels_of k prog (dimword (:α) - 1) (systime_at t) or st)
+                (next_ffi t.ffi.ffi_state)) ∨
+    (ffi_rels_after_init prog
+     (uptil_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st))
+     st t ∧
+     has_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ∧
+     sum_delays_until_panic (:α)
+                            (until_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st))
+                            (next_ffi t.ffi.ffi_state))
+End
+
+
+Theorem io_trace_impl_steps:
+  ∀prog st (t:('a,time_input) panSem$state) or.
+    wf_prog_init_states prog or st t ⇒
+    ∃k.
+      io_events_and_ffi_assumptions (:α) k prog or st t ⇒
+      ∃lbls sts io ios ns.
+        timeFunSem$eval_steps k prog (dimword (:α) - 1) (systime_at t) or st =
+        SOME (lbls, sts) ∧
+        semantics t «start» = Terminate Success (io::ios) ∧
+        (no_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ⇒
+         LENGTH lbls = LENGTH ns ∧ SUM ns + 1 = LENGTH ios ∧
+         decode_ios (:α) t.be lbls ns (io::FRONT ios)) ∧
+        (has_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ⇒
+         LENGTH (slice_labels lbls) = LENGTH ns ∧
+         SUM ns = LENGTH ios ∧
+         decode_ios (:α) t.be (slice_labels lbls) ns (io::ios))
+Proof
+  rw [] >>
+  gvs [io_events_and_ffi_assumptions_def] >>
+  drule io_trace_impl_eval_steps >>
+  strip_tac >>
+  (* we are unable to unify no_panic and has_panic cases because of k *)
+  cheat
+QED
+
+
+
+(*
+Definition ndecode_ios_def:
+  (ndecode_ios (:α) _ [] _ ios ⇔ LENGTH ios = 0) ∧
+  (ndecode_ios (:α) be (lbl::lbls) e (io::ios) ⇔
+   case lbl of
+   | LDelay d =>
+       (if d = 0 then
+        ndecode_ios (:α) be lbls e (io::ios)
+        else
+          let
+            m' = EL 0 (io_event_dest (:α) be e);
+            obs_ios = decode_io_events (:'a) be io;
+            m = THE (to_delay (EL (LENGTH obs_ios - 1) obs_ios))
+          in
+            d = m - m' ∧
+            ndecode_ios (:α) be lbls (LAST io) ios)
+   | LAction act =>
+        (ndecode_ios (:α) be lbls (LAST io) ios ∧
+         (case act of
+          | Input i =>
+              let
+                obs_io = decode_io_event (:α) be (EL 0 io)
+              in
+                Input i = THE (to_input obs_io)
+          | Output os =>
+              decode_io_event (:α) be (EL 0 io) = ObsOutput os))
+    | LPanic p =>
+        case p of
+        | PanicInput i =>
+            let
+              obs_io = decode_io_event (:α) be (EL 0 io)
+            in
+              Input i = THE (to_input obs_io)
+        | _ => F) ∧
+  (ndecode_ios (:α) _ _ _ _ ⇔ F)
+End
+*)
 
 val _ = export_theory();
