@@ -1408,17 +1408,17 @@ Proof
 QED
 
 Theorem Pattern_input_monotone0[local]:
-  ∀N i0 rlist b i r sfx eo res.
-     (N ∈ {nPbase; nPtuple; nPattern; nPapp; nPatternList; nPcons} ∧ ¬b ∧
+  ∀N i0 rlist b i r l sfx eo res.
+    (N ∈ {nPbase; nPtuple; nPattern; nPapp; nPatternList; nPcons} ∧ ¬b ∧
      (i ≠ [] ⇒ FST (HD i) ∈ stoppers N) ∧
      (i = [] ∧ sfx ≠ [] ⇒ FST (HD sfx) ∈ stoppers N) ∧
      peg_eval cmlPEG (i0, nt (mkNT N) I) (Success i r eo) ⇒
      peg_eval cmlPEG (i0 ++ sfx, nt (mkNT N) I) (Success (i ++ sfx) r eo)) ∧
-     (N = nPbase ∧ b ∧
-      (i ≠ [] ⇒ FST (HD i) ∉ firstSet cmlG [NN nPbase]) ∧
-      (i = [] ∧ sfx ≠ [] ⇒ FST (HD sfx) ∉ firstSet cmlG [NN nPbase]) ∧
-      peg_eval_list cmlPEG (i0, nt (mkNT N) I) (i, rlist, l, res) ⇒
-      ∃res'.
+    (N = nPbase ∧ b ∧
+     (i ≠ [] ⇒ FST (HD i) ∉ firstSet cmlG [NN nPbase]) ∧
+     (i = [] ∧ sfx ≠ [] ⇒ FST (HD sfx) ∉ firstSet cmlG [NN nPbase]) ∧
+     peg_eval_list cmlPEG (i0, nt (mkNT N) I) (i, rlist, l, res) ⇒
+     ∃res'.
        peg_eval_list cmlPEG (i0 ++ sfx, nt (mkNT N) I) (i ++ sfx, rlist, res'))
 Proof
   ntac 4 gen_tac >> ‘?iN. iN = (i0,b,rlist,N)’ by simp[] >> pop_assum mp_tac >>
@@ -1450,7 +1450,7 @@ Proof
       [‘peg_eval _ (i0, nt (mkNT nConstructorName) I) (Success _ _ _)’,
        ‘peg_eval _ (i0, nt (mkNT nV) I) (Failure fl1 fe1)’]
       >- (Cases_on ‘i0’
-          >- (drule_at (Pos last) not_peg0_LENGTH_decreases >> simp[])
+          >- (drule_at (Pos last) not_peg0_LENGTH_decreases >> simp[]) >>
           rename [‘peg_eval cmlPEG (tl::_, nt (mkNT nConstructorName) I)’] >>
           ‘∃tk loc. tl = (tk,loc)’ by (Cases_on ‘tl’ >> simp[]) >> rveq >>
           drule peg_respects_firstSets' >> simp[] >> strip_tac >>
@@ -1544,124 +1544,97 @@ Proof
       Cases_on ‘h’ >> gvs[seql_cons, peg_eval_tok] >>
       last_x_assum $ drule_at (Pos last) >> simp[stoppers_def] >> metis_tac[])>~
   [‘peg_eval _ (i0 ++ sfx, nt (mkNT nPattern) I) (Success (i ++ sfx) r _)’]
-  (* HERE *)
   >- (simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, EXISTS_PROD] >>
-      strip_tac >> rveq >> fs[]
-      >- (first_x_assum
-             (qpat_assum ‘peg_eval _ (_, nt (mkNT nPcons) _) _’ o
-              mp_then (Pos last) mp_tac o
-              has_const “NT_rank”) >> simp[NT_rank_def] >>
-          disch_then
-            (qspec_then ‘sfx’
-                 (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic))) >>
-            simp[Type_input_monotone])
-      >- (first_x_assum
-             (qpat_assum ‘peg_eval _ (_, nt (mkNT nPcons) _) _’ o
-              mp_then (Pos last) (qspec_then ‘sfx’ mp_tac) o
-              has_const “NT_rank”) >> simp[NT_rank_def] >>
-          disch_then
-            (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
-          simp[] >> Cases_on ‘i’ >> fs[peg_eval_tok_NONE] >>
-          Cases_on ‘sfx’ >> fs[peg_eval_tok_NONE]))
-  >- (rename [
-       ‘peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nPapp) I) (SOME (i ++ sfx, r))’
-      ] >>
-      simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, EXISTS_PROD] >>
-      strip_tac >> rveq
-      >- (fs[peg_eval_rpt] >> rveq >>
-          qpat_assum ‘peg_eval _ _ _’
-            (mp_then (Pos last) (qspec_then ‘sfx’ mp_tac)
-                     nConstructorName_input_monotone) >>
-          disch_then (assume_tac o
-                      MATCH_MP (CONJUNCT1 peg_deterministic)) >> simp[] >>
-          dsimp[] >>
-          first_x_assum
-            (qpat_assum ‘peg_eval_list _ _ _’ o
-             mp_then (Pos last) (qspec_then ‘sfx’ mp_tac) o
-             has_const “LENGTH”) >> simp[] >>
-          imp_res_tac (MATCH_MP (GEN_ALL not_peg0_LENGTH_decreases)
-                                peg0_nConstructorName) >> simp[] >>
-          disch_then (assume_tac o MATCH_MP (CONJUNCT2 peg_deterministic)) >>
-          simp[])
-      >- (first_x_assum
-            (qpat_assum ‘peg_eval _ _ (SOME _)’ o
-             mp_then (Pos last) (qspec_then ‘sfx’ mp_tac) o
-             has_const “NT_rank”) >>
-          impl_tac >- simp[NT_rank_def] >>
-          simp[peg_eval_tok_NONE] >> strip_tac >>
-          disj2_tac >>
-          Cases_on ‘i0’
-          >- (imp_res_tac (MATCH_MP (GEN_ALL not_peg0_LENGTH_decreases)
-                                    peg0_nPbase) >> fs[]) >>
-          rename [‘peg_eval _ (tkl :: _, _) _’] >> Cases_on ‘tkl’ >> fs[] >>
-          rename [‘peg_eval _ ((tk,l)::_, nt (mkNT nConstructorName) I)’] >>
-          imp_res_tac nConstructorName_NONE_input_monotone >> simp[] >>
-          fs[peg_eval_tok_NONE]))
-  >- (rename [
-       ‘peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nPatternList) I)
-          (SOME (i ++ sfx, r))’
-      ] >>
-      simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, EXISTS_PROD] >>
-      strip_tac >> rveq
-      >- (first_x_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nPattern) I) _’ o
-                         mp_then (Pos last) (qspec_then ‘sfx’ mp_tac) o
-                         has_const “NT_rank”) >>
-          simp[NT_rank_def] >>
-          disch_then (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
-          simp[] >> first_x_assum irule >> simp[] >>
-          imp_res_tac (MATCH_MP not_peg0_LENGTH_decreases peg0_nPattern) >>
-          fs[])
-      >- (simp[] >>
-          first_x_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nPattern) I) _’ o
-                         mp_then (Pos last) (qspec_then ‘sfx’ mp_tac) o
-                         has_const “NT_rank”) >>
-          simp[NT_rank_def] >> fs[] >>
-          disch_then (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
-          simp[] >> Cases_on ‘i’ >> fs[]
-          >- (Cases_on ‘sfx’ >> fs[peg_eval_tok_NONE]) >>
-          simp[peg_eval_tok_NONE])
-      >- fs[])
-  >- (rename [
-       ‘peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nPcons) I) (SOME (i ++ sfx, r))’
-      ] >>
-      simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, EXISTS_PROD] >>
-      strip_tac >> rveq >> simp[]
-      >- (first_x_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nPapp) I) _’ o
-                         mp_then (Pos last) (qspec_then ‘sfx’ mp_tac) o
-                         has_const “NT_rank”) >>
-          simp[NT_rank_def] >>
-          disch_then (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
-          simp[] >> first_x_assum irule >> simp[] >>
-          imp_res_tac (MATCH_MP not_peg0_LENGTH_decreases peg0_nPapp) >>
-          fs[])
-      >- (first_x_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nPapp) I) _’ o
-                         mp_then (Pos last) (qspec_then ‘sfx’ mp_tac) o
-                         has_const “NT_rank”) >>
-          simp[NT_rank_def] >> fs[] >>
-          disch_then (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
-          simp[] >> Cases_on ‘i’ >> fs[]
-          >- (Cases_on ‘sfx’ >> fs[peg_eval_tok_NONE]) >>
-          fs[peg_eval_tok_NONE])
-      >- (fs[]))) >>
-  qx_genl_tac [‘i0’, ‘rlist’, ‘i’, ‘sfx’] >> rpt strip_tac >>
+      simp[choicel_cons, seql_cons_SOME, EXISTS_result] >>
+      strip_tac >> gvs[] >~
+      [‘peg_eval _ (i, seql _ _) (Failure _ _)’]
+      >- (‘NT_rank (mkNT nPcons) < NT_rank (mkNT nPattern)’
+            by simp[NT_rank_def] >>
+          first_x_assum dxrule >> simp[] >>
+          disch_then $ drule_at (Pos last) >> simp[] >>
+          disch_then $ irule_at Any >>
+          Cases_on ‘i’ >> gvs[]
+          >- (Cases_on ‘sfx’ >> gvs[] >> simp[seql_cons, peg_eval_tok] >>
+              gvs[stoppers_def] >> rename [‘FST h ≠ ColonT’] >> Cases_on ‘h’ >>
+              gvs[]) >>
+          rename [‘FST h ∈ stoppers _’] >> Cases_on ‘h’ >>
+          gvs[stoppers_def, seql_cons, peg_eval_tok]) >~
+      [‘peg_eval _ (i0, nt(mkNT nPcons) I) (Success ((ColonT, l)::i1) _ _)’]
+      >- (‘NT_rank (mkNT nPcons) < NT_rank (mkNT nPattern)’
+            by simp[NT_rank_def] >>
+          first_x_assum dxrule >> simp[] >>
+          disch_then $ irule_at Any >> first_assum $ irule_at Any >>
+          simp[stoppers_def] >> irule_at Any Type_input_monotone >> simp[] >>
+          first_assum $ irule_at Any >> gvs[stoppers_def])) >~
+  [‘peg_eval _ (i0,nt (mkNT nPapp) I) (Success i r _) ⇒
+    peg_eval _ (_, nt (mkNT nPapp) I) _’]
+  >- (simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied] >>
+      simp[choicel_cons, seql_cons, EXISTS_result] >> strip_tac >>
+      simp[PULL_EXISTS] >> gvs[] >~
+      [‘peg_eval _ (_, nt (mkNT nConstructorName) _) (Success _ _ _)’]
+      >- (dxrule_then assume_tac nConstructorName_input_monotone >>
+          pop_assum $ C (resolve_then Any assume_tac) peg_det >>
+          gvs[peg_eval_rpt, PULL_EXISTS] >> irule_at Any EQ_REFL >>
+          gvs[GSYM RIGHT_EXISTS_IMP_THM, SKOLEM_THM] >>
+          first_x_assum $ irule_at Any >> gvs[stoppers_def] >>
+          rename [‘peg_eval_list _ (i1, _) (i2,l2,ep)’] >>
+          Cases_on ‘ep’ >> gvs[] >> first_x_assum $ irule_at Any >>
+          pop_assum (C (resolve_then (Pos last) mp_tac)
+                     not_peg0_LENGTH_decreases o iffRL) >> simp[])
+      >- (drule_at (Pos last) not_peg0_LENGTH_decreases >> simp[] >>
+          strip_tac >> Cases_on ‘i0’ >> gvs[] >>
+          rename [‘peg_eval _ (tkl::_, _)’] >> Cases_on ‘tkl’ >> gvs[] >>
+          drule_then assume_tac nConstructorName_NONE_input_monotone >>
+          pop_assum $ C (resolve_then Any assume_tac) peg_det >> simp[] >>
+          ‘NT_rank (mkNT nPbase) < NT_rank (mkNT nPapp)’
+            by simp[NT_rank_def] >> first_x_assum dxrule >>
+          simp[stoppers_def] >> metis_tac[])) >~
+  [‘peg_eval _ (i0 ++ sfx, nt (mkNT nPatternList) I) (Success (i ++ _) _ _)’]
+  >- (simp[peg_eval_NT_SOME] >>
+      simp[cmlpeg_rules_applied, EXISTS_PROD, PULL_EXISTS, seql_cons_SOME] >>
+      rpt strip_tac >> gvs[] >>
+      ‘NT_rank (mkNT nPattern) < NT_rank (mkNT nPatternList)’
+        by simp[NT_rank_def] >>
+      first_x_assum dxrule >> simp[] >> disch_then $ irule_at Any >>
+      first_assum $ irule_at Any >> gvs[choicel_cons, seql_cons] >~
+      [‘peg_eval _ (_, tok ($= CommaT) _) (Failure _ _)’]
+      >- (gvs[peg_eval_tok] >- gvs[stoppers_def] >>
+          Cases_on ‘sfx’ >> gvs[] >> rename [‘FST h ∈ stoppers _’] >>
+          Cases_on ‘h’ >> gvs[stoppers_def]) >~
+      [‘CommaT ∈ stoppers nPatternList’] >- gvs[stoppers_def] >>
+      simp[peg_eval_tok, EXISTS_result, stoppers_def] >>
+      first_x_assum $ irule_at Any >> simp[] >> first_assum $ irule_at Any >>
+      rpt (dxrule_at (Pos last) not_peg0_LENGTH_decreases) >> simp[]) >~
+  [‘peg_eval _ (i0 ++ sfx, nt (mkNT nPcons) I) (Success (i ++ sfx) _ _ )’]
+  >- (simp[peg_eval_NT_SOME] >>
+      simp[cmlpeg_rules_applied, EXISTS_PROD, seql_cons_SOME, PULL_EXISTS] >>
+      rpt strip_tac >> gvs[] >>
+      ‘NT_rank (mkNT nPapp) < NT_rank (mkNT nPcons)’ by simp[NT_rank_def] >>
+      first_x_assum dxrule >> simp[] >> disch_then $ irule_at Any >>
+      first_assum $ irule_at Any >> gvs[choicel_cons, seql_cons] >~
+      [‘peg_eval _ (_, tok ($= (SymbolT "::")) _) (Failure _ _)’]
+      >- (gvs[peg_eval_tok] >- gvs[stoppers_def] >>
+          Cases_on ‘sfx’ >> gvs[] >> rename [‘FST h ∈ stoppers _’] >>
+          Cases_on ‘h’ >> gvs[stoppers_def]) >~
+      [‘SymbolT "::" ∈ stoppers nPcons’] >- gvs[stoppers_def] >>
+      simp[peg_eval_tok, EXISTS_result, stoppers_def] >>
+      first_x_assum $ irule_at Any >> simp[] >> first_assum $ irule_at Any >>
+      rpt (dxrule_at (Pos last) not_peg0_LENGTH_decreases) >> simp[])) >>
+  qx_genl_tac [‘i0’, ‘rlist’, ‘i’, ‘l’, ‘sfx’] >> rpt strip_tac >>
   qpat_x_assum ‘peg_eval_list _ _ _’ mp_tac >>
   Cases_on ‘rlist’ >> ONCE_REWRITE_TAC[peg_eval_list] >> simp[]
   >- (rw[] >> Cases_on ‘i’ >> fs[]
       >- (Cases_on ‘sfx’ >> fs[not_peg0_peg_eval_NIL_NONE] >>
           rename [‘FST h ≠ LparT’] >> Cases_on ‘h’ >>
-          fs[peg_respects_firstSets]) >>
+          fs[peg_respects_firstSets_rwt]) >>
       rename [‘FST h ≠ LparT’] >> Cases_on ‘h’ >>
-      fs[peg_respects_firstSets]) >>
+      fs[peg_respects_firstSets_rwt]) >>
   rpt strip_tac >>
-  first_x_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nPbase) I) _’ o
-                 mp_then (Pos last) (qspec_then ‘sfx’ mp_tac)) >>
-  simp[] >>
-  disch_then (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
-  simp[] >>
-  first_x_assum (qpat_assum ‘peg_eval_list _ _ _’ o
-                 mp_then (Pos last) (qspec_then ‘sfx’ mp_tac)) >>
-  simp[] >> disch_then irule >>
-  imp_res_tac (MATCH_MP (GEN_ALL not_peg0_LENGTH_decreases) peg0_nPbase)
+  first_x_assum $ irule_at Any >> simp[stoppers_def] >>
+  first_assum $ irule_at Any >>
+  gvs[SKOLEM_THM, GSYM RIGHT_EXISTS_IMP_THM]>>
+  first_x_assum $ irule_at Any >> simp[] >> first_assum $ irule_at Any >>
+  drule_at (Pos last) not_peg0_LENGTH_decreases >> simp[]
 QED
 
 Theorem Pattern_input_monotone =
