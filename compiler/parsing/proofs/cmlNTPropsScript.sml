@@ -1,3 +1,6 @@
+(*
+  Properties (first sets etc) for non-terminals in the CakeML grammar
+*)
 open HolKernel Parse boolLib bossLib;
 
 open preamble

@@ -1,5 +1,8 @@
 Soundness and completeness proofs for the CakeML PEG.
 
+[cmlNTPropsScript.sml](cmlNTPropsScript.sml):
+Properties (first sets etc) for non-terminals in the CakeML grammar
+
 [pegCompleteScript.sml](pegCompleteScript.sml):
 Completeness proof for the parser. If a successful parse exists,
 then the parser will find one.
