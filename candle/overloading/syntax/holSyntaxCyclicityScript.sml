@@ -6493,6 +6493,38 @@ Proof
   >> fs[var_renaming_SWAP_LR_id,EL_MEM]
 QED
 
+Theorem has_path_to_shorten:
+  !k dep x y. wf_dep dep /\ has_path_to dep (SUC $ SUC k) x y
+  ==> ?y. has_path_to dep (SUC k) x y
+Proof
+  rw[]
+  >> drule $ iffLR has_path_to_ind_eq
+  >> disch_then $ dxrule_at_then Any assume_tac
+  >> fs[]
+  >> goal_assum drule
+QED
+
+Theorem has_path_to_shorten':
+  !k k' dep x y. wf_dep dep /\ has_path_to dep (SUC $ SUC k) x y /\ k' <= k
+  ==> ?y. has_path_to dep (SUC k') x y
+Proof
+  Induct >> rw[]
+  >- (
+    REWRITE_TAC[ONE]
+    >> drule_then irule has_path_to_shorten
+    >> fs[] >> goal_assum drule
+  )
+  >> dxrule_then strip_assume_tac $ iffLR LESS_OR_EQ
+  >- (
+    first_x_assum drule
+    >> dxrule_all_then strip_assume_tac has_path_to_shorten
+    >> disch_then $ drule_then irule
+    >> fs[]
+  )
+  >> gvs[]
+  >> drule_all_then irule has_path_to_shorten
+QED
+
 Definition asc_path_def:
   asc_path dep rs pqs =
       (path_starting_at dep 0 rs pqs
@@ -7271,6 +7303,14 @@ Definition composable_until_def:
   composable_until dep n = !k. k <= n ==> composable_len dep k
 End
 
+Theorem composable_until_eq:
+  !dep. (!n. composable_until dep n) = !k. composable_len dep k
+Proof
+  rw[composable_until_def,EQ_IMP_THM]
+  >> first_x_assum irule
+  >> irule_at Any LESS_EQ_REFL
+QED
+
 Theorem composable_len_simps[simp]:
   composable_until dep 0
 Proof
@@ -7663,8 +7703,8 @@ Proof
 QED
 
 Theorem extension_len_shorter:
-  !n dep dep' dep'kdep. extension_len dep n dep' dep'kdep
-  ==> !k. k < n ==> ?dep'' dep''kdep. extension_len dep k dep'' dep''kdep
+  !n dep dep'kdep. extension_len dep n dep dep'kdep
+  ==> !k. k < n ==> ?dep''kdep. extension_len dep k dep dep''kdep
 Proof
   Induct >> rw[extension_len_def,Once LESS_EQ,LESS_OR_EQ]
   >> first_x_assum $ drule_then assume_tac >> fs[]
@@ -7883,6 +7923,174 @@ Proof
   >> irule_at Any equiv_symm_imp
   >> goal_assum $ drule_at Any
   >> fs[]
+QED
+
+Theorem extension_len_composable_len:
+  !k dep dep'. wf_pqs (dep ++ dep') /\ monotone (CURRY $ set dep)
+  /\ extension_len dep (SUC $ SUC k) dep dep'
+  ==> composable_len (CURRY $ set dep) $ SUC $ SUC k
+Proof
+  rpt gen_tac >> strip_tac
+  >> fs[Once extension_len_def]
+  >> drule_at Any extension_len_has_path_to
+  >> drule_at Any dep_step_sound_INL
+  >> drule_at Any extension_len_wf_pqs
+  >> fs[wf_pqs_APPEND]
+  >> rw[composable_len_def,wf_pqs_APPEND,dep_step_inv_def]
+  >> imp_res_tac has_path_to_is_const_or_type
+  >> first_x_assum $ qspec_then `(x,y)` assume_tac o iffRL
+  >> gvs[wf_pqs_CONS,equiv_def]
+  >> first_x_assum $ drule_then strip_assume_tac
+  >> drule_at Any $ cj 2 composable_step_sound_INL
+  >> qpat_assum `wf_pqs dep` $ imp_res_tac o SIMP_RULE(srw_ss())[wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,IN_DEF]
+  >> fs[EVERY_MEM,IN_DEF]
+  >> disch_then imp_res_tac
+  >> gs[composable_at_var_renaming1]
+QED
+
+Theorem extension_len_acyclic_len:
+  !k dep dep'. wf_pqs (dep ++ dep') /\ monotone (CURRY $ set dep)
+  /\ extension_len dep (SUC $ SUC k) dep dep'
+  ==> acyclic_len (CURRY $ set dep) $ SUC $ SUC k
+Proof
+  rpt gen_tac >> strip_tac
+  >> fs[Once extension_len_def]
+  >> drule_at Any extension_len_has_path_to
+  >> drule_at Any extension_len_wf_pqs
+  >> fs[Once extension_len_def]
+  >> drule_at Any extension_len_wf_pqs
+  >> drule_at Any dep_step_sound_INL
+  >> rw[acyclic_len_def,wf_pqs_APPEND,dep_step_inv_def]
+  >> gs[wf_pqs_APPEND]
+  >> imp_res_tac has_path_to_is_const_or_type
+  >> first_x_assum $ qspec_then `(x,y)` assume_tac o iffRL
+  >> gvs[wf_pqs_CONS,equiv_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+  >> first_x_assum drule
+  >> fs[is_instance_LR_var_renaming2]
+QED
+
+Theorem dep_steps_acyclic_NOT_has_path_to:
+  !dep k k' x y. wf_pqs dep /\ monotone (CURRY $ set dep)
+    /\ dep_steps dep k dep = acyclic k'
+    /\ ~NULL dep
+    ==> ~has_path_to (CURRY $ set dep) (SUC $ k - k') x y
+Proof
+  rpt gen_tac >> strip_tac
+  >> drule_all dep_steps_sound_acyclic
+  >> reverse $ rw[dep_steps_inv_def,wf_pqs_APPEND,LESS_OR_EQ]
+  >- fs[extension_len_def,NULL_EQ]
+  >> fs[Once SUB_LESS_0]
+  >> qmatch_assum_abbrev_tac `0n < kk`
+  >> drule_at_then Any (qspec_then `PRE kk` mp_tac) extension_len_has_path_to
+  >> fs[iffLR SUC_PRE]
+  >> disch_then $ drule_at Any
+  >> Cases_on `is_const_or_type y`
+  >> Cases_on `is_const_or_type x`
+  >> rw[wf_pqs_APPEND,wf_pqs_CONS,FORALL_PROD]
+  >> fs $ map (ONCE_REWRITE_RULE[MONO_NOT_EQ]) [cj 2 has_path_to_is_const_or_type,cj 1 has_path_to_is_const_or_type]
+QED
+
+Theorem dep_steps_acyclic_NOT_has_path_to':
+  !dep l k k' x y. wf_pqs dep /\ monotone (CURRY $ set dep)
+    /\ dep_steps dep k dep = acyclic k'
+    /\ ~NULL dep
+    /\ SUC $ k - k' <= l
+    ==> ~has_path_to (CURRY $ set dep) l x y
+Proof
+  dsimp[LESS_OR_EQ,dep_steps_acyclic_NOT_has_path_to]
+  >> rw[]
+  >> `k' < k` by (
+    drule_all dep_steps_sound_acyclic
+    >> rw[dep_steps_inv_def,wf_pqs_APPEND,LESS_OR_EQ]
+    >> fs[extension_len_def,NULL_EQ]
+  )
+  >> drule dep_steps_acyclic_NOT_has_path_to
+  >> rpt $ disch_then drule >> strip_tac
+  >> dxrule_then assume_tac $ iffLR SUB_LESS_0
+  >> qmatch_assum_abbrev_tac `0n < kk`
+  >> drule_then assume_tac $ iffRL wf_dep_wf_pqs
+  >> dxrule_then (qspecl_then [`PRE $ PRE l`,`kk`] mp_tac) has_path_to_shorten'
+  >> dep_rewrite.DEP_REWRITE_TAC[iffLR SUC_PRE]
+  >> conj_asm1_tac >- (fs[] >> DECIDE_TAC)
+  >> fs[]
+QED
+
+Theorem dep_steps_acyclic_props:
+  !k dep k' x y. wf_pqs dep /\ monotone (CURRY $ set dep)
+    /\ dep_steps dep k dep = acyclic k' /\ 0 < k
+    /\ acyclic_len (CURRY $ set dep) 1 /\ composable_len (CURRY $ set dep) 1
+    ==> !l. l <= k - k' ==> acyclic_len (CURRY $ set dep) l
+      /\ composable_len (CURRY $ set dep) l
+Proof
+  Cases >> fs[] >> rpt gen_tac >> strip_tac
+  >> drule_all dep_steps_sound_acyclic
+  >> fs[dep_steps_inv_def,wf_pqs_APPEND,Once LESS_OR_EQ]
+  >> reverse strip_tac >- fs[Once extension_len_def]
+  >> dxrule_then assume_tac $ iffLR SUB_LESS_0
+  >> qmatch_assum_abbrev_tac `0n < kk`
+  >> Cases_on `kk` >- fs[]
+  >> qmatch_assum_abbrev_tac `0n < SUC n'`
+  >> Cases_on `n'`
+  >- fs[LESS_OR_EQ,DISJ_IMP_THM]
+  >> fs[LESS_OR_EQ] >> gen_tac >> reverse strip_tac
+  >- (
+    drule_at Any extension_len_acyclic_len
+    >> drule_at Any extension_len_composable_len
+    >> fs[]
+  )
+  >> drule_all_then strip_assume_tac extension_len_shorter
+  >> qmatch_assum_rename_tac `extension_len _ l _ _`
+  >> Cases_on `l` >> fs[]
+  >> qmatch_assum_rename_tac `extension_len _ (SUC l) _ _`
+  >> Cases_on `l` >> fs[]
+  >> drule_at Any extension_len_acyclic_len
+  >> drule_at Any extension_len_composable_len
+  >> drule_at Any extension_len_wf_pqs
+  >> fs[wf_pqs_APPEND]
+QED
+
+Theorem dep_steps_acyclic_sound:
+  !k dep k'. wf_pqs dep /\ monotone (CURRY $ set dep)
+    /\ dep_steps dep (SUC k) dep = acyclic k'
+    /\ ~NULL dep
+    /\ acyclic_len (CURRY $ set dep) 1 /\ composable_len (CURRY $ set dep) 1
+    ==> ~cyclic_dep (CURRY $ set dep) /\ composable_dep (CURRY $ set dep)
+Proof
+  rpt gen_tac >> strip_tac
+  >> simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM,acyclic_until,composable_dep_composable_until,wf_dep_wf_pqs,composable_until_eq]
+  >> drule_all dep_steps_sound_acyclic
+  >> fs[dep_steps_inv_def,wf_pqs_APPEND,LESS_OR_EQ]
+  >> reverse strip_tac >- gvs[extension_len_def]
+  >> qmatch_assum_rename_tac `k' < SUC k`
+  >> qx_gen_tac `n` >> Cases_on `n <= SUC k - k'`
+  >- (
+    drule dep_steps_acyclic_props
+    >> rpt $ disch_then $ drule_at Any
+    >> fs[]
+  )
+  >> simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM,wf_dep_wf_pqs,acyclic_len_def,composable_len_def,GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
+  >> drule dep_steps_acyclic_NOT_has_path_to'
+  >> rpt $ disch_then $ drule_at Any
+  >> fs[NOT_LESS_EQUAL]
+QED
+
+(*
+use with composable_len_ONE_compute, acyclic_len_ONE and monotone_compute_eq
+*)
+Theorem dep_steps_acyclic_sound':
+  !k dep k'. wf_pqs dep /\ monotone (CURRY $ set dep)
+    /\ dep_steps dep (SUC k) dep = acyclic k'
+    /\ ~NULL dep
+    /\ acyclic_len (CURRY $ set dep) 1 /\ composable_len (CURRY $ set dep) 1
+    ==> terminating $ TC $ subst_clos (CURRY $ set dep)
+Proof
+  rw[]
+  >> drule dep_steps_acyclic_sound
+  >> rpt $ disch_then $ drule_at Any
+  >> rw[]
+  >> drule cyclic_eq_not_terminating
+  >> rpt $ disch_then $ drule_at Any
+  >> fs[wf_dep_wf_pqs]
 QED
 
 val _ = export_theory();
