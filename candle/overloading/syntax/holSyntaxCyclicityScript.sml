@@ -7572,11 +7572,14 @@ QED
 
 Theorem extension_len_shorter:
   !n dep dep'kdep. extension_len dep n dep dep'kdep
-  ==> !k. k < n ==> ?dep''kdep. extension_len dep k dep dep''kdep
+  ==> !k. k <= n ==> ?dep''kdep. extension_len dep k dep dep''kdep
 Proof
-  Induct >> rw[extension_len_def,Once LESS_EQ,LESS_OR_EQ]
-  >> first_x_assum $ drule_then assume_tac >> fs[]
-  >> goal_assum drule
+  Induct >- fs[extension_len_def]
+  >> reverse $ rw[Once LESS_OR_EQ]
+  >- goal_assum drule
+  >> fs[extension_len_def]
+  >> first_x_assum $ drule_then irule
+  >> fs[]
 QED
 
 Theorem extension_len_SUC:
@@ -7880,7 +7883,8 @@ QED
 Theorem dep_steps_acyclic_props:
   !k dep k' x y. wf_pqs dep /\ monotone (CURRY $ set dep)
     /\ dep_steps dep k dep = acyclic k' /\ 0 < k
-    /\ acyclic_len (CURRY $ set dep) 1 /\ composable_len (CURRY $ set dep) 1
+    /\ ~NULL dep
+    /\ composable_len (CURRY $ set dep) 1
     ==> !l. l <= k - k'
       ==> acyclic_len (CURRY $ set dep) l /\ composable_len (CURRY $ set dep) l
 Proof
@@ -7891,31 +7895,45 @@ Proof
   >> dxrule_then assume_tac $ iffLR SUB_LESS_0
   >> qmatch_assum_abbrev_tac `0n < kk`
   >> Cases_on `kk` >- fs[]
-  >> qmatch_assum_abbrev_tac `0n < SUC n'`
+  >> qho_match_abbrev_tac `!l. l <= SUC n' ==> P l`
   >> Cases_on `n'`
-  >- fs[LESS_OR_EQ,DISJ_IMP_THM]
-  >> fs[LESS_OR_EQ] >> gen_tac >> reverse strip_tac
   >- (
-    drule_at Any extension_len_acyclic_len
-    >> drule_at Any extension_len_composable_len
-    >> fs[]
+    fs[LESS_OR_EQ,DISJ_IMP_THM,Abbr`P`]
+    >> irule acyclic_len_TWO_ONE
+    >> rw[acyclic_len_def,wf_dep_wf_pqs]
+    >> drule dep_steps_acyclic_NOT_has_path_to'
+    >> rpt $ disch_then $ drule_at Any
+    >> rw[LESS_OR_EQ,DISJ_IMP_THM,FORALL_AND_THM]
+    >> gs[]
   )
+  >> qmatch_assum_rename_tac `0 < SUC $ SUC n''`
+  >> qsuff_tac `(!l. l < 2 /\ l <= SUC $ SUC n'' ==> P l) /\ !l. 2 <= l /\ l <= SUC $ SUC n'' ==> P l`
+  >- fs[GSYM FORALL_AND_THM,GSYM DISJ_IMP_THM,GSYM LEFT_AND_OVER_OR,GSYM RIGHT_AND_OVER_OR]
+  >> conj_asm2_tac
+  >- (
+    qx_gen_tac `l`
+    >> fs o single $
+      (REWRITE_CONV [GSYM rich_listTheory.COUNT_LIST_COUNT,GSYM pred_setTheory.IN_COUNT] THENC EVAL)
+      ``l < (2 : num)``
+    >> rw[Abbr`P`,DISJ_IMP_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR]
+    >> irule acyclic_len_TWO_ONE
+    >> fs[Once LESS_OR_EQ,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM,FORALL_AND_THM,wf_dep_wf_pqs,AND_IMP_INTRO]
+  )
+  >> rw[]
   >> drule_all_then strip_assume_tac extension_len_shorter
-  >> qmatch_assum_rename_tac `extension_len _ l _ _`
-  >> Cases_on `l` >> fs[]
-  >> qmatch_assum_rename_tac `extension_len _ (SUC l) _ _`
-  >> Cases_on `l` >> fs[]
+  >> qmatch_assum_rename_tac `extension_len _ l _ _` >> Cases_on `l` >> fs[]
+  >> qmatch_assum_rename_tac `extension_len _ (SUC l) _ _` >> Cases_on `l` >> fs[]
   >> drule_at Any extension_len_acyclic_len
   >> drule_at Any extension_len_composable_len
   >> drule_at Any extension_len_wf_pqs
-  >> fs[wf_pqs_APPEND]
+  >> fs[wf_pqs_APPEND,Abbr`P`]
 QED
 
 Theorem dep_steps_acyclic_sound:
   !k dep k'. wf_pqs dep /\ monotone (CURRY $ set dep)
     /\ dep_steps dep (SUC k) dep = acyclic k'
     /\ ~NULL dep
-    /\ acyclic_len (CURRY $ set dep) 1 /\ composable_len (CURRY $ set dep) 1
+    /\ composable_len (CURRY $ set dep) 1
     ==> ~cyclic_dep (CURRY $ set dep) /\ composable_dep (CURRY $ set dep)
 Proof
   rpt gen_tac >> strip_tac
@@ -7952,13 +7970,13 @@ QED
 
 (*
 use with
-composable_len_ONE_compute, acyclic_len_ONE, monotone_compute_eq,
+composable_len_ONE_compute, monotone_compute_eq,
 invertible_on_compute, is_instance_LR_equiv, composable_len_ONE_compute
 *)
 Theorem dep_steps_acyclic_sound':
   !dep k k'. wf_pqs dep /\ monotone (CURRY $ set dep)
     /\ dep_steps dep (SUC k) dep = acyclic k'
-    /\ acyclic_len (CURRY $ set dep) 1 /\ composable_len (CURRY $ set dep) 1
+    /\ composable_len (CURRY $ set dep) 1
     ==> terminating $ TC $ subst_clos (CURRY $ set dep)
 Proof
   rw[]
@@ -7980,14 +7998,12 @@ QED
 
 Theorem dep_steps_acyclic_sound'':
   !ctxt k k'. dep_steps (dependency_compute ctxt) (SUC k) (dependency_compute ctxt) = acyclic k'
-    /\ EVERY ($~ o UNCURRY is_instance_LR_compute) (dependency_compute ctxt)
     /\ composable_len (CURRY $ set $ dependency_compute ctxt) 1
     ==> terminating $ TC $ subst_clos $ dependency ctxt
 Proof
   rpt strip_tac
   >> drule_at Any dep_steps_acyclic_sound'
   >> rpt $ disch_then $ drule_at Any
-  >> dep_rewrite.DEP_REWRITE_TAC[acyclic_len_ONE]
   >> fs[wf_dep_dependency_ctxt,GSYM wf_dep_wf_pqs,DEPENDENCY_EQUIV,GSYM is_instance_LR_equiv,monotone_dependency]
 QED
 
