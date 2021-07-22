@@ -7936,6 +7936,20 @@ Proof
   >> fs[NOT_LESS_EQUAL]
 QED
 
+Theorem TC_CURRY_EMPTY:
+  TC $ CURRY EMPTY = CURRY EMPTY
+Proof
+  fs[FUN_EQ_THM,EQ_IMP_THM,FORALL_AND_THM,Excl"EMPTY_applied"]
+  >> reverse conj_tac >- fs[]
+  >> ho_match_mp_tac TC_INDUCT >> fs[]
+QED
+
+Theorem subst_clos_CURRY_EMPTY:
+  subst_clos $ CURRY EMPTY = CURRY EMPTY
+Proof
+  fs[subst_clos_empty,CURRY_DEF,LAMBDA_PROD,FUN_EQ_THM,EMPTY_DEF]
+QED
+
 (*
 use with
 composable_len_ONE_compute, acyclic_len_ONE, monotone_compute_eq,
@@ -7944,11 +7958,12 @@ invertible_on_compute, is_instance_LR_equiv, composable_len_ONE_compute
 Theorem dep_steps_acyclic_sound':
   !dep k k'. wf_pqs dep /\ monotone (CURRY $ set dep)
     /\ dep_steps dep (SUC k) dep = acyclic k'
-    /\ ~NULL dep
     /\ acyclic_len (CURRY $ set dep) 1 /\ composable_len (CURRY $ set dep) 1
     ==> terminating $ TC $ subst_clos (CURRY $ set dep)
 Proof
   rw[]
+  >> Cases_on `NULL dep`
+  >- fs[NULL_EQ,LAMBDA_PROD,TC_CURRY_EMPTY,subst_clos_CURRY_EMPTY,terminating_def,WF_EQ_INDUCTION_THM]
   >> drule dep_steps_acyclic_sound
   >> rpt $ disch_then $ drule_at Any
   >> rw[]
