@@ -7972,4 +7972,23 @@ Proof
   >> fs[wf_dep_wf_pqs]
 QED
 
+Theorem monotone_dependency:
+  !ctxt. monotone $ dependency ctxt
+Proof
+  cheat
+QED
+
+Theorem dep_steps_acyclic_sound'':
+  !ctxt k k'. dep_steps (dependency_compute ctxt) (SUC k) (dependency_compute ctxt) = acyclic k'
+    /\ EVERY ($~ o UNCURRY is_instance_LR_compute) (dependency_compute ctxt)
+    /\ composable_len (CURRY $ set $ dependency_compute ctxt) 1
+    ==> terminating $ TC $ subst_clos $ dependency ctxt
+Proof
+  rpt strip_tac
+  >> drule_at Any dep_steps_acyclic_sound'
+  >> rpt $ disch_then $ drule_at Any
+  >> dep_rewrite.DEP_REWRITE_TAC[acyclic_len_ONE]
+  >> fs[wf_dep_dependency_ctxt,GSYM wf_dep_wf_pqs,DEPENDENCY_EQUIV,GSYM is_instance_LR_equiv,monotone_dependency]
+QED
+
 val _ = export_theory();
