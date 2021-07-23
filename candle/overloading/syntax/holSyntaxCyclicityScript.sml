@@ -5774,9 +5774,17 @@ Definition monotone_compute_def:
 End
 
 Theorem monotone_compute_eq[compute]:
+  !dep. monotone (CURRY $ set dep) = monotone_compute dep
+Proof
+  Induct
+  >> fs[monotone_def,monotone_compute_def]
+  >> dsimp[DISJ_IMP_THM,FORALL_PROD]
+QED
+
+Theorem monotone_dependency_eq[compute]:
   !ctxt. monotone (dependency ctxt) = monotone_compute (dependency_compute ctxt)
 Proof
-  rw[monotone_compute_def,EVERY_MEM,IN_DEF,monotone_def,GSYM DEPENDENCY_EQUIV,FORALL_PROD,list_subset_set]
+  fs[monotone_compute_eq,GSYM DEPENDENCY_EQUIV]
 QED
 
 (* proper instances *)
