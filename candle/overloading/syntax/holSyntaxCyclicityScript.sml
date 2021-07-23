@@ -7394,6 +7394,9 @@ Proof
   >> gs[dep_step_inv_def,wf_pqs_APPEND]
 QED
 
+Theorem dep_step_wf_pqs =
+  cj 1 $ REWRITE_RULE[dep_step_inv_def] dep_step_sound_INL
+
 Theorem dep_step_complete_INL:
   !dep rest dep'dep dep'.
   dep_step_inv dep dep' rest dep'dep
@@ -7517,68 +7520,33 @@ Definition dep_steps_def:
   )
 End
 
-Definition extension_len_def:
-  (extension_len dep 0 dep' dep'' = (dep'' = dep'))
-  /\ (extension_len dep (SUC k) dep' dep''' =
-      ?dep''. dep_step dep dep'' [] = INL dep'''
-        /\ extension_len dep k dep' dep'')
-End
-
-Theorem extension_len_eq:
-  !k dep dep' dep'' dep'''.
-  extension_len dep k dep' dep'' /\ extension_len dep k dep' dep'''
-  ==> dep'' = dep'''
+Theorem NRC_shorter:
+  !n R x y. NRC R n x y ==> !k. k <= n ==> ?z. NRC R k x z
 Proof
-  Induct >> rw[extension_len_def]
-  >> first_x_assum $ rev_drule_then $ drule_then strip_assume_tac
-  >> gvs[]
+  Induct >> fs[]
+  >> simp[LESS_OR_EQ,DISJ_IMP_THM,FORALL_AND_THM,IMP_CONJ_THM]
+  >> reverse conj_tac >- metis_tac[]
+  >> rw[NRC_SUC_RECURSE_LEFT,LESS_EQ]
+  >> first_x_assum $ drule_all_then irule
 QED
 
-Theorem extension_len_shorter:
-  !n dep dep'kdep. extension_len dep n dep dep'kdep
-  ==> !k. k <= n ==> ?dep''kdep. extension_len dep k dep dep''kdep
-Proof
-  Induct >- fs[extension_len_def]
-  >> reverse $ rw[Once LESS_OR_EQ]
-  >- goal_assum drule
-  >> fs[extension_len_def]
-  >> first_x_assum $ drule_then irule
-  >> fs[]
-QED
-
-Theorem extension_len_shorter':
-  !n dep dep' dep'kdep. extension_len dep n dep' dep'kdep
-  ==> !k. k < n ==> ?dep'' dep''kdep. extension_len dep k dep'' dep''kdep
-Proof
-  Induct >> rw[extension_len_def,Once LESS_EQ,LESS_OR_EQ]
-  >> first_x_assum $ drule_then assume_tac >> fs[]
-  >> goal_assum drule
-QED
-
-Theorem extension_len_SUC:
-  !k dep dep1 dep1kdep. extension_len dep (SUC k) dep1 dep1kdep
-  = ?dep2. dep_step dep dep1 [] = INL dep2 /\ extension_len dep k dep2 dep1kdep
-Proof
-  Induct >> rw[extension_len_def]
-  >> fs[extension_len_def,PULL_EXISTS,EQ_IMP_THM,AND_IMP_INTRO,FORALL_AND_THM]
-  >> rw[EQ_IMP_THM] >> metis_tac[]
-QED
-
-Theorem extension_len_wf_pqs:
-  !k dep dep' dep''. wf_pqs (dep ++ dep') /\ extension_len dep k dep' dep''
+Theorem NRC_dep_step_wf_pqs:
+  !k dep dep' dep''. wf_pqs (dep ++ dep')
+  /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') k dep' dep''
   ==> wf_pqs dep''
 Proof
-  Induct >> rw[extension_len_SUC,PULL_EXISTS]
-  >- fs[wf_pqs_APPEND,extension_len_def]
-  >> first_x_assum $ drule_at Any
-  >> imp_res_tac dep_step_INL_props
+  Induct >> fs[wf_pqs_APPEND]
+  >> rw[NRC]
+  >> first_x_assum $ drule_at_then Any irule
+  >> drule_at Any dep_step_wf_pqs
   >> fs[wf_pqs_APPEND]
 QED
 
 Definition dep_steps_inv_def:
   dep_steps_inv dep k deps k' deps' = (
     wf_pqs (dep ++ deps ++ deps')
-    /\ k' <= k /\ extension_len dep (k - k') deps deps'
+    /\ k' <= k
+    /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (k - k') deps deps'
   )
 End
 
@@ -7593,21 +7561,13 @@ Proof
   >> Cases_on `k = SUC k'`
   >> first_x_assum irule
   >> qmatch_asmsub_abbrev_tac `dep_step dep deps' []`
-  >> fs[wf_pqs_APPEND,dep_steps_inv_def]
-  >> drule_at Any dep_step_sound_INL
-  >> fs[wf_pqs_APPEND,dep_step_inv_def] >> strip_tac
-  >- (
-    REWRITE_TAC[extension_len_def,ONE]
-    >> unabbrev_all_tac
-    >> gvs[extension_len_def]
-  )
+  >> drule_at_then Any assume_tac dep_step_wf_pqs
+  >> gs[wf_pqs_APPEND,dep_steps_inv_def]
+  >> drule $ Ho_Rewrite.REWRITE_RULE[PULL_EXISTS] $ iffRL NRC_SUC_RECURSE_LEFT
   >> fs[LESS_OR_EQ,Once SUB_LESS_0]
-  >> qabbrev_tac `n = k - k'`
-  >> qmatch_asmsub_abbrev_tac `0n < n'`
-  >> `n = SUC n'` by (unabbrev_all_tac >> fs[])
-  >> ntac 2 $ qpat_x_assum `Abbrev _` kall_tac
-  >> rw[extension_len_def,EQ_IMP_THM]
-  >> rpt $ goal_assum drule
+  >> qmatch_goalsub_abbrev_tac `NRC R n _ _ ==> NRC R n' _ _`
+  >> qsuff_tac `n = n'` >- fs[]
+  >> unabbrev_all_tac >> fs[]
 QED
 
 Theorem dep_steps_sound_acyclic:
@@ -7617,7 +7577,7 @@ Theorem dep_steps_sound_acyclic:
 Proof
   rpt strip_tac
   >> drule_at_then Any irule dep_steps_sound_acyclic'
-  >> fs[dep_steps_inv_def,extension_len_def,wf_pqs_APPEND]
+  >> fs[dep_steps_inv_def,wf_pqs_APPEND]
 QED
 
 Theorem dep_steps_complete_acyclic':
@@ -7627,31 +7587,27 @@ Theorem dep_steps_complete_acyclic':
 Proof
   ho_match_mp_tac dep_steps_ind
   >> rw[dep_steps_def,AllCaseEqs()]
-  >- fs[extension_len_def,dep_steps_inv_def]
+  >- fs[dep_steps_inv_def]
   >> qmatch_goalsub_abbrev_tac `dep_step dep deps' []`
   >> fs[AND_IMP_INTRO,PULL_FORALL]
   >> `?res. dep_step dep deps' [] = INL res` by (
     PRED_ASSUM is_forall kall_tac
     >> gvs[dep_steps_inv_def,LESS_OR_EQ,Once SUB_LESS_0]
-    >> Cases_on `SUC k - k''` >> fs[]
-    >- fs[extension_len_SUC]
-    >> fs[extension_len_def,dep_step_def]
+    >> Cases_on `SUC k - k''` >> fs[NRC]
   )
   >> goal_assum drule
   >> first_x_assum $ drule_then irule
-  >> qmatch_assum_abbrev_tac `dep_steps_inv _ _ _ k'' []`
+  >> qmatch_assum_rename_tac `dep_steps_inv _ _ _ k'' []`
   >> fs[dep_steps_inv_def,wf_pqs_APPEND]
-  >> reverse $ dxrule_then strip_assume_tac $ iffLR LESS_OR_EQ
-  >- gvs[extension_len_def,dep_step_def]
+  >> reverse $ dxrule_then strip_assume_tac $ iffLR LESS_OR_EQ >- gvs[]
   >> qexists_tac `k''`
-  >> fs[Once SUB_LESS_0]
+  >> drule_at_then Any assume_tac dep_step_wf_pqs
+  >> fs[Once SUB_LESS_0,wf_pqs_APPEND]
   >> qmatch_asmsub_abbrev_tac `0n < n'`
-  >> qmatch_goalsub_abbrev_tac `extension_len _ n`
+  >> qmatch_goalsub_abbrev_tac `NRC _ n`
   >> `n' = SUC n` by (unabbrev_all_tac >> fs[])
-  >> ntac 2 $ qpat_x_assum `Abbrev _` kall_tac
-  >> gvs[extension_len_SUC]
-  >> drule_at Any dep_step_sound_INL
-  >> fs[wf_pqs_APPEND,dep_step_inv_def]
+  >> rpt $ qpat_x_assum `Abbrev _` kall_tac
+  >> fs[NRC]
 QED
 
 Theorem dep_steps_complete_acyclic:
@@ -7662,15 +7618,14 @@ Proof
   rpt strip_tac >> drule_then irule dep_steps_complete_acyclic'
 QED
 
-Theorem extension_len_has_path_to2:
+Theorem dep_step_has_path_to2:
   !k dep dep'. wf_pqs dep /\ monotone (CURRY $ set dep)
-  /\ extension_len dep (SUC 0) dep dep'
+  /\ dep_step dep dep [] = INL dep'
     ==> !x. wf_pqs [x]
       ==> (?y. MEM (FST x,y) dep' /\ equiv y (SND x))
         = has_path_to (CURRY $ set dep) 2 (FST x) (SND x)
 Proof
   rpt strip_tac
-  >> gs[extension_len_def,wf_pqs_APPEND]
   >> drule_at Any dep_step_sound_INL
   >> rw[dep_step_inv_def,wf_pqs_APPEND]
   >> rw[EQ_IMP_THM]
@@ -7709,18 +7664,18 @@ Proof
   >> fs[equiv_is_const_or_type,equiv_symm_imp]
 QED
 
-Theorem extension_len_has_path_to:
+Theorem NRC_dep_step_has_path_to:
   !k dep dep'. wf_pqs (dep ++ dep') /\ monotone (CURRY $ set dep)
-  /\ extension_len dep (SUC k) dep dep'
+  /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC k) dep dep'
     ==> !x. wf_pqs [x]
       ==> (?y. MEM (FST x,y) dep' /\ equiv y (SND x))
         = has_path_to (CURRY $ set dep) (SUC (SUC k)) (FST x) (SND x)
 Proof
   Induct >> rpt strip_tac
-  >- (drule_at (Pos $ el 3) extension_len_has_path_to2 >> fs[wf_pqs_APPEND])
-  >> qhdtm_x_assum `extension_len` $ strip_assume_tac o SIMP_RULE(srw_ss()) [Once extension_len_def]
+  >- (fs[NRC] >> drule_at (Pos $ el 3) dep_step_has_path_to2  >> fs[wf_pqs_APPEND])
+  >> qhdtm_x_assum `NRC` $ strip_assume_tac o SIMP_RULE(srw_ss()) [Once NRC_SUC_RECURSE_LEFT]
   >> first_x_assum $ drule_at Any
-  >> drule_at Any extension_len_wf_pqs
+  >> drule_at Any NRC_dep_step_wf_pqs
   >> fs[wf_pqs_APPEND,GSYM AND_IMP_INTRO,GSYM PULL_FORALL]
   >> rpt strip_tac >> dsimp[EQ_IMP_THM]
   >> conj_tac
@@ -7763,16 +7718,16 @@ Proof
   >> fs[]
 QED
 
-Theorem extension_len_composable_len:
+Theorem NRC_dep_step_composable_len:
   !k dep dep'. wf_pqs (dep ++ dep') /\ monotone (CURRY $ set dep)
-  /\ extension_len dep (SUC $ SUC k) dep dep'
+  /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC $ SUC k) dep dep'
   ==> composable_len (CURRY $ set dep) $ SUC $ SUC k
 Proof
   rpt gen_tac >> strip_tac
-  >> fs[Once extension_len_def]
-  >> drule_at Any extension_len_has_path_to
+  >> fs[Once NRC_SUC_RECURSE_LEFT]
+  >> drule_at Any NRC_dep_step_has_path_to
   >> drule_at Any dep_step_sound_INL
-  >> drule_at Any extension_len_wf_pqs
+  >> drule_at Any NRC_dep_step_wf_pqs
   >> fs[wf_pqs_APPEND]
   >> rw[composable_len_def,wf_pqs_APPEND,dep_step_inv_def]
   >> imp_res_tac has_path_to_is_const_or_type
@@ -7786,19 +7741,19 @@ Proof
   >> gs[composable_at_var_renaming1]
 QED
 
-Theorem extension_len_acyclic_len:
+Theorem NRC_dep_step_acyclic_len:
   !k dep dep'. wf_pqs (dep ++ dep') /\ monotone (CURRY $ set dep)
-  /\ extension_len dep (SUC $ SUC k) dep dep'
+  /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC $ SUC k) dep dep'
   ==> acyclic_len (CURRY $ set dep) $ SUC $ SUC k
 Proof
   rpt gen_tac >> strip_tac
-  >> fs[Once extension_len_def]
-  >> drule_at Any extension_len_has_path_to
-  >> drule_at Any extension_len_wf_pqs
-  >> fs[Once extension_len_def]
-  >> drule_at Any extension_len_wf_pqs
+  >> fs[Once NRC_SUC_RECURSE_LEFT]
+  >> drule_at Any NRC_dep_step_has_path_to
+  >> drule_at Any NRC_dep_step_wf_pqs
+  >> qhdtm_x_assum `NRC` $ strip_assume_tac o SIMP_RULE(srw_ss()) [Once NRC_SUC_RECURSE_LEFT]
+  >> drule_at Any NRC_dep_step_wf_pqs
   >> drule_at Any dep_step_sound_INL
-  >> rw[acyclic_len_def,wf_pqs_APPEND,dep_step_inv_def]
+  >> rw[acyclic_len_def,dep_step_inv_def]
   >> gs[wf_pqs_APPEND]
   >> imp_res_tac has_path_to_is_const_or_type
   >> first_x_assum $ qspec_then `(x,y)` assume_tac o iffRL
@@ -7816,10 +7771,10 @@ Proof
   rpt gen_tac >> strip_tac
   >> drule_all dep_steps_sound_acyclic
   >> reverse $ rw[dep_steps_inv_def,wf_pqs_APPEND,LESS_OR_EQ]
-  >- fs[extension_len_def,NULL_EQ]
+  >- fs[NULL_EQ]
   >> fs[Once SUB_LESS_0]
   >> qmatch_assum_abbrev_tac `0n < kk`
-  >> drule_at_then Any (qspec_then `PRE kk` mp_tac) extension_len_has_path_to
+  >> drule_at_then Any (qspec_then `PRE kk` mp_tac) NRC_dep_step_has_path_to
   >> fs[iffLR SUC_PRE]
   >> disch_then $ drule_at Any
   >> Cases_on `is_const_or_type y`
@@ -7840,7 +7795,7 @@ Proof
   >> `k' < k` by (
     drule_all dep_steps_sound_acyclic
     >> rw[dep_steps_inv_def,wf_pqs_APPEND,LESS_OR_EQ]
-    >> fs[extension_len_def,NULL_EQ]
+    >> fs[NULL_EQ]
   )
   >> drule dep_steps_acyclic_NOT_has_path_to
   >> rpt $ disch_then drule >> strip_tac
@@ -7864,7 +7819,7 @@ Proof
   Cases >> fs[] >> rpt gen_tac >> strip_tac
   >> drule_all dep_steps_sound_acyclic
   >> fs[dep_steps_inv_def,wf_pqs_APPEND,Once LESS_OR_EQ]
-  >> reverse strip_tac >- fs[Once extension_len_def]
+  >> strip_tac >> fs[]
   >> dxrule_then assume_tac $ iffLR SUB_LESS_0
   >> qmatch_assum_abbrev_tac `0n < kk`
   >> Cases_on `kk` >- fs[]
@@ -7877,7 +7832,7 @@ Proof
     >> drule dep_steps_acyclic_NOT_has_path_to'
     >> rpt $ disch_then $ drule_at Any
     >> rw[LESS_OR_EQ,DISJ_IMP_THM,FORALL_AND_THM]
-    >> gs[]
+    >> fs[]
   )
   >> qmatch_assum_rename_tac `0 < SUC $ SUC n''`
   >> qsuff_tac `(!l. l < 2 /\ l <= SUC $ SUC n'' ==> P l) /\ !l. 2 <= l /\ l <= SUC $ SUC n'' ==> P l`
@@ -7893,12 +7848,12 @@ Proof
     >> fs[Once LESS_OR_EQ,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM,FORALL_AND_THM,wf_dep_wf_pqs,AND_IMP_INTRO]
   )
   >> rw[]
-  >> drule_all_then strip_assume_tac extension_len_shorter
-  >> qmatch_assum_rename_tac `extension_len _ l _ _` >> Cases_on `l` >> fs[]
-  >> qmatch_assum_rename_tac `extension_len _ (SUC l) _ _` >> Cases_on `l` >> fs[]
-  >> drule_at Any extension_len_acyclic_len
-  >> drule_at Any extension_len_composable_len
-  >> drule_at Any extension_len_wf_pqs
+  >> drule_all_then strip_assume_tac NRC_shorter
+  >> qmatch_assum_rename_tac `NRC _ l _ _` >> Cases_on `l` >> fs[]
+  >> qmatch_assum_rename_tac `NRC _ (SUC l) _ _` >> Cases_on `l` >> fs[]
+  >> drule_at Any NRC_dep_step_acyclic_len
+  >> drule_at Any NRC_dep_step_composable_len
+  >> drule_at Any NRC_dep_step_wf_pqs
   >> fs[wf_pqs_APPEND,Abbr`P`]
 QED
 
@@ -7913,7 +7868,7 @@ Proof
   >> simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM,acyclic_until,composable_dep_composable_len,wf_dep_wf_pqs]
   >> drule_all dep_steps_sound_acyclic
   >> fs[dep_steps_inv_def,wf_pqs_APPEND,LESS_OR_EQ]
-  >> reverse strip_tac >- gvs[extension_len_def]
+  >> strip_tac >> gs[]
   >> qmatch_assum_rename_tac `k' < SUC k`
   >> qx_gen_tac `n` >> Cases_on `n <= SUC k - k'`
   >- (
