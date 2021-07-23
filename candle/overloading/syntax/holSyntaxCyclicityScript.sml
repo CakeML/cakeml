@@ -1406,7 +1406,7 @@ Proof
 QED
 
 (* invertible type substitutions *)
-Definition invertible_on_def:
+Definition invertible_on_def[nocompute]:
   invertible_on s vars =
   ?s'. !x. MEM x vars ==> TYPE_SUBST s' (TYPE_SUBST s (Tyvar x)) = Tyvar x
 End
@@ -1610,7 +1610,7 @@ Definition inverse_on_def:
   inverse_on s vars = FILTER ((λx. MEM x $ MAP Tyvar vars) o SND) $ clean_tysubst s
 End
 
-Theorem invertible_on_compute:
+Theorem invertible_on_compute[compute]:
   !s vars. invertible_on s vars <=>
   let s' = inverse_on s vars
   in (
@@ -5773,8 +5773,8 @@ Definition monotone_compute_def:
   monotone_compute dep = EVERY (λ(p,q). list_subset (FV (q)) (FV (p))) dep
 End
 
-Theorem monotone_compute_eq:
-  !ctxt. monotone_compute (dependency_compute ctxt) <=> monotone (dependency ctxt)
+Theorem monotone_compute_eq[compute]:
+  !ctxt. monotone (dependency ctxt) = monotone_compute (dependency_compute ctxt)
 Proof
   rw[monotone_compute_def,EVERY_MEM,IN_DEF,monotone_def,GSYM DEPENDENCY_EQUIV,FORALL_PROD,list_subset_set]
 QED
@@ -7970,6 +7970,23 @@ Proof
   >> drule_at Any dep_steps_acyclic_sound'
   >> rpt $ disch_then $ drule_at Any
   >> fs[wf_dep_dependency_ctxt,GSYM wf_dep_wf_pqs,DEPENDENCY_EQUIV,GSYM is_instance_LR_equiv,monotone_dependency]
+QED
+
+Theorem composable_len_ONE_compute'[compute]:
+  !ctxt. composable_len (CURRY $ set $ dependency_compute ctxt) 1 =
+  EVERY (λq.
+    EVERY (λp.
+      case unify_LR (SND q) (FST p) of
+        SOME (s_q, s_p) => if invertible_on s_q (FV $ SND q)
+          then T
+          else invertible_on s_p (FV $ FST p)
+      | NONE => T
+    ) (dependency_compute ctxt)
+  ) (dependency_compute ctxt)
+Proof
+  gen_tac
+  >> irule composable_len_ONE_compute
+  >> fs[wf_dep_dependency_ctxt,GSYM wf_dep_wf_pqs,DEPENDENCY_EQUIV,monotone_dependency]
 QED
 
 val _ = export_theory();
