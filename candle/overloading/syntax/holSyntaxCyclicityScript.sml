@@ -7582,6 +7582,15 @@ Proof
   >> fs[]
 QED
 
+Theorem extension_len_shorter':
+  !n dep dep' dep'kdep. extension_len dep n dep' dep'kdep
+  ==> !k. k < n ==> ?dep'' dep''kdep. extension_len dep k dep'' dep''kdep
+Proof
+  Induct >> rw[extension_len_def,Once LESS_EQ,LESS_OR_EQ]
+  >> first_x_assum $ drule_then assume_tac >> fs[]
+  >> goal_assum drule
+QED
+
 Theorem extension_len_SUC:
   !k dep dep1 dep1kdep. extension_len dep (SUC k) dep1 dep1kdep
   = ?dep2. dep_step dep dep1 [] = INL dep2 /\ extension_len dep k dep2 dep1kdep
