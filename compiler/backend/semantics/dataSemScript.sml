@@ -56,7 +56,7 @@ val _ = Datatype `
      ; code        : (num # dataLang$prog) num_map
      ; ffi         : 'ffi ffi_state
      ; space       : num
-     ; tstamps     : num option
+     ; tstamps     : num
      ; limits      : limits
      ; safe_for_space   : bool
      ; all_blocks       : v list
@@ -500,10 +500,10 @@ val list_to_v_def = Define`
 Overload Block_nil = ``Block 0 nil_tag []``
 
 val with_fresh_ts_def = Define`
-  with_fresh_ts ^s n f = case s.tstamps of
-                           SOME ts => f ts (s with <| tstamps := SOME (ts + n) |>)
-                         | NONE    => f 0 s
+  with_fresh_ts ^s n f =
+     f s.tstamps ( s with tstamps updated_by $+ n)
 `;
+
 
 Definition lim_safe_def[simp]:
   (lim_safe lims (Cons tag) xs = if xs = []
@@ -1301,7 +1301,7 @@ val initial_state_def = Define`
   ; compile_oracle := coracle
   ; ffi := ffi
   ; space := 0
-  ; tstamps := if stamps then SOME 0 else NONE
+  ; tstamps := 0
   ; safe_for_space := if stamps then T else F
   ; all_blocks := []
   ; peak_heap_length := 0

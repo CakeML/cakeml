@@ -4454,7 +4454,6 @@ val state_rel_thm = Define `
       t.compile t.compile_oracle t.code_buffer t.data_buffer /\
     good_dimindex (:'a) /\
     shift_length c < dimindex (:'a) /\
-    IS_SOME s.tstamps /\
     (* the store *)
     EVERY (\n. n IN FDOM t.store) [Globals] /\
     (* every local is represented in word lang *)
@@ -4470,7 +4469,7 @@ val state_rel_thm = Define `
     t.locals_size = s.locals_size /\
     limits_inv s.limits (FLOOKUP t.store HeapLength) t.stack_limit c.len_size c.has_fp_ops c.has_fp_tern /\
     (* there exists some GC-compatible abstraction *)
-    memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+    memory_rel c t.be s.tstamps s.refs s.space t.store t.memory t.mdomain
       (v1 ++
        join_env s.locals (toAList (inter t.locals (adjust_set s.locals))) ++
        [(the_global s.global,t.store ' Globals)] ++
@@ -4845,7 +4844,7 @@ Proof
   \\ full_simp_tac(srw_ss())[lookup_fromAList] \\ rev_full_simp_tac(srw_ss())[]
   \\ first_assum (match_exists_tac o concl) \\ full_simp_tac(srw_ss())[] (* asm_exists_tac *)
   \\ full_simp_tac(srw_ss())[flat_def]
-  \\ `word_ml_inv (heap,t1.be,a',sp,sp1,gens) limit (THE s1.tstamps) c s1.refs
+  \\ `word_ml_inv (heap,t1.be,a',sp,sp1,gens) limit s1.tstamps c s1.refs
        ((a,w)::(join_env s l ++
          [(the_global s1.global,t1.store ' Globals)] ++ flat t ys))` by
    (first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
@@ -4914,7 +4913,7 @@ Proof
       s.handler + 1 <= LENGTH t.stack` by decide_tac
   \\ imp_res_tac LASTN_IMP_APPEND \\ full_simp_tac(srw_ss())[ADD1]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[flat_APPEND,flat_def]
-  \\ `word_ml_inv (heap,t.be,a,sp,sp1,gens) limit (THE s.tstamps) c s.refs
+  \\ `word_ml_inv (heap,t.be,a,sp,sp1,gens) limit s.tstamps c s.refs
        ((x,w)::(join_env s' l ++
          [(the_global s.global,t.store ' Globals)] ++ flat t' ys))` by
    (first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
@@ -6965,7 +6964,7 @@ Proof
    (fs [code_oracle_rel_def,FLOOKUP_UPDATE]
     \\ imp_res_tac stack_rel_IMP_size_of_stack \\ fs []
     \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
-    \\ `word_ml_inv (heap1,t.be,a1,sp1,sp2,gens2) limit (THE s.tstamps) c
+    \\ `word_ml_inv (heap1,t.be,a1,sp1,sp2,gens2) limit s.tstamps c
             s.refs ((the_global s.global, s1 ' Globals) ::
                     ZIP (MAP FST (flat s.stack t.stack),stack1))` by
       (fs [word_ml_inv_def] \\ asm_exists_tac \\ fs [])
