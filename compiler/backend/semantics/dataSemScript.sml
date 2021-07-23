@@ -59,6 +59,7 @@ val _ = Datatype `
      ; tstamps     : num option
      ; limits      : limits
      ; safe_for_space   : bool
+     ; all_blocks       : v list
      ; peak_heap_length : num
      ; compile_oracle   : num -> 'c # (num # num # dataLang$prog) list |> `
 
@@ -1302,6 +1303,7 @@ val initial_state_def = Define`
   ; space := 0
   ; tstamps := if stamps then SOME 0 else NONE
   ; safe_for_space := if stamps then T else F
+  ; all_blocks := []
   ; peak_heap_length := 0
   ; stack_frame_sizes := ss
   ; limits := lims
