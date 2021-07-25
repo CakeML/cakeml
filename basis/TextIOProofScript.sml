@@ -7765,6 +7765,69 @@ Proof
 QED
 
 (*
+  fun fold_lines_loop f is y =
+    case b_inputLine is of
+      None => y
+    | Some c => fold_lines_loop f is (f c y);
+*)
+Theorem fold_lines_loop_thm:
+  ∀is a f fv s y yv fs fd.
+    (STRING_TYPE --> a --> a) f fv ∧ a y yv ⇒
+    app (p:'ffi ffi_proj) TextIO_fold_lines_loop_v [fv; is; yv]
+      (STDIO fs * INSTREAM_LINES fd is s fs)
+      (POSTv retv. SEP_EXISTS k.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES fd is [] (forwardFD fs fd k) *
+         &a (mllist$foldl f y s) retv)
+Proof
+  ntac 4 strip_tac
+  \\ Induct
+  THEN1
+   (xcf_with_def "TextIO.fold_lines_loop" TextIO_fold_lines_loop_v_def
+    \\ xlet ‘(POSTv chv. SEP_EXISTS k.
+          STDIO (forwardFD fs fd k) *
+          INSTREAM_LINES fd is [] (forwardFD fs fd k) *
+          &OPTION_TYPE STRING_TYPE NONE chv)’
+    THEN1
+     (xapp_spec (b_inputLine_spec_lines |> Q.INST [‘lines’|->‘[]’] )
+      \\ qexists_tac ‘emp’
+      \\ qexists_tac ‘fs’
+      \\ qexists_tac ‘fd’
+      \\ xsimpl \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl)
+    \\ gvs [std_preludeTheory.OPTION_TYPE_def]
+    \\ xmatch \\ xvar
+    \\ fs [mllistTheory.foldl_def]
+    \\ xsimpl \\ qexists_tac ‘k’ \\ xsimpl)
+  \\ rw[]
+  \\ xcf_with_def "TextIO.fold_lines_loop" TextIO_fold_lines_loop_v_def
+  \\ xlet ‘(POSTv chv. SEP_EXISTS k.
+            STDIO (forwardFD fs fd k) *
+            INSTREAM_LINES fd is s (forwardFD fs fd k) *
+            &OPTION_TYPE STRING_TYPE (SOME h) chv)’
+  THEN1
+   (xapp_spec (b_inputLine_spec_lines |> Q.INST [‘lines’|->‘h::s’] )
+    \\ qexists_tac ‘emp’
+    \\ qexists_tac ‘s’
+    \\ qexists_tac ‘h’
+    \\ qexists_tac ‘fs’
+    \\ qexists_tac ‘fd’
+    \\ xsimpl \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl)
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
+  \\ xmatch
+  \\ xlet_auto THEN1 xsimpl
+  \\ first_x_assum drule \\ strip_tac
+  \\ xapp
+  \\ qexists_tac ‘emp’
+  \\ qexists_tac ‘(forwardFD fs fd k)’
+  \\ qexists_tac ‘fd’
+  \\ xsimpl
+  \\ rw []
+  \\ qexists_tac ‘x+k’
+  \\ fs [fsFFIPropsTheory.forwardFD_o]
+  \\ xsimpl \\ fs [mllistTheory.foldl_def]
+QED
+
+(*
   fun b_consume_rest is =
     case b_input1 is of
       None => ()
@@ -8086,6 +8149,140 @@ Proof
   \\ fs [sub_spec_none_def]
   \\ last_x_assum drule
   \\ disch_then (qspecl_then [‘fs’,‘""’,‘k’] mp_tac)
+  \\ strip_tac
+  \\ xlet_auto
+  THEN1 (qexists_tac ‘emp’ \\ xsimpl)
+  \\ xcon \\ xsimpl
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def]
+QED
+
+(*
+  fun foldLines f x stdin_or_fname =
+    case b_open_option stdin_or_fname of
+      None => None
+    | Some (is,close) =>
+      (let
+         val res = fold_lines_loop f is x
+         val _ = close ()
+       in Some res end
+       handle e => (close (); raise e));
+*)
+Theorem foldLines_SOME:
+  (STRING_TYPE --> a --> a) f fv ∧ a x xv ∧
+  OPTION_TYPE FILENAME (SOME s) fnv ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) TextIO_foldLines_v [fv; xv; fnv]
+    (STDIO fs)
+    (POSTv retv. STDIO fs *
+                 & (OPTION_TYPE a
+                      (OPTION_MAP (foldl f x o lines_of o implode) (file_content fs s))
+                      retv))
+Proof
+  rpt strip_tac
+  \\ xcf_with_def "TextIO.foldLines" TextIO_foldLines_v_def
+  \\ reverse (Cases_on ‘STD_streams fs’)
+  THEN1 (fs [STDIO_def] \\ xpull)
+  \\ reverse (Cases_on ‘consistentFS fs’)
+  THEN1
+    (fs [STDIO_def,IOFS_def,wfFS_def] \\ xpull
+     \\ fs [fsFFIPropsTheory.consistentFS_def]
+     \\ res_tac \\ fs [])
+  \\ Cases_on ‘file_content fs s’ \\ fs []
+  THEN1
+   (xlet ‘POSTv retv. STDIO fs * &OPTION_TYPE a NONE retv’
+    THEN1
+     (xapp_spec b_open_option_SOME_fail \\ fs []
+      \\ first_assum $ irule_at Any \\ fs []
+      \\ fs [file_content_def,AllCaseEqs(),inFS_fname_def]
+      \\ fs [consistentFS_def]
+      \\ res_tac
+      \\ fs [MEM_MAP,ALOOKUP_NONE]
+      \\ metis_tac [])
+    \\ gvs [std_preludeTheory.OPTION_TYPE_def]
+    \\ xmatch \\ xcon \\ xsimpl)
+  \\ full_simp_tac std_ss []
+  \\ rename [‘file_content fs s = SOME text’]
+  \\ ‘inFS_fname fs s’ by fs [inFS_fname_def,file_content_def,AllCaseEqs()]
+  \\ drule_all (SIMP_RULE std_ss [] b_open_option_SOME)
+  \\ disch_then (assume_tac o SPEC_ALL)
+  \\ xlet_auto
+  THEN1
+   (xsimpl \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def] \\ xsimpl)
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def]
+  \\ xmatch
+  \\ reverse (xhandle
+    ‘(POSTv retv. STDIO fs *
+        & (OPTION_TYPE a (SOME (mllist$foldl f x (lines_of (implode text)))) retv))’)
+  THEN1 (xsimpl \\ rw [] \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def])
+  \\ drule_all fold_lines_loop_thm
+  \\ qabbrev_tac ‘fs1 = openFileFS s fs ReadMode 0’
+  \\ disch_then (qspecl_then [‘p’,‘is’,‘lines_of (implode text)’,‘fs1’,‘nextFD fs’]
+                   assume_tac)
+  \\ fs [INSTREAM_LINES_def,SEP_CLAUSES,app_SEP_EXISTS]
+  \\ pop_assum $ qspec_then ‘text’ mp_tac
+  \\ fs [SEP_CLAUSES] \\ rw []
+  \\ full_simp_tac (std_ss ++ sep_cond_ss) [implode_def]
+  \\ fs []
+  \\ xlet_auto
+  THEN1 (xsimpl  \\ rw [] \\ qexists_tac ‘x'’ \\ qexists_tac ‘x''’ \\ xsimpl)
+  \\ xlet_auto
+  THEN1 (xcon \\ xsimpl)
+  \\ fs [sub_spec_def]
+  \\ last_x_assum drule
+  \\ disch_then (qspecl_then [‘forwardFD fs1 (nextFD fs) k’,‘rest’] mp_tac)
+  \\ impl_tac
+  THEN1
+   (fs [Abbr‘fs1’,validFileFD_forwardFD]
+    \\ irule_at Any validFileFD_nextFD \\ fs []
+    \\ imp_res_tac LESS_IMP_LESS_OR_EQ
+    \\ imp_res_tac fsFFIPropsTheory.nextFD_leX \\ fs []
+    \\ imp_res_tac fsFFIPropsTheory.STD_streams_nextFD \\ fs [])
+  \\ strip_tac
+  \\ xlet_auto
+  THEN1 (xsimpl \\ gvs [UNIT_TYPE_def])
+  \\ xcon \\ xsimpl
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def]
+  \\ unabbrev_all_tac
+  \\ irule STDIO_ADELKEY \\ fs []
+QED
+
+Theorem foldLines_NONE:
+  (STRING_TYPE --> a --> a) f fv ∧ a x xv ∧
+  OPTION_TYPE FILENAME NONE fnv ∧
+  stdin_content fs = SOME text
+  ⇒
+  app (p:'ffi ffi_proj) TextIO_foldLines_v [fv; xv; fnv]
+    (STDIO fs)
+    (POSTv retv. STDIO (fastForwardFD fs 0) *
+        & (OPTION_TYPE a (SOME (foldl f x (lines_of (implode text)))) retv))
+Proof
+  rpt strip_tac
+  \\ xcf_with_def "TextIO.foldLines" TextIO_foldLines_v_def
+  \\ drule_all (SIMP_RULE std_ss [] b_open_option_NONE)
+  \\ disch_then (assume_tac o SPEC_ALL)
+  \\ xlet_auto
+  THEN1
+   (xsimpl \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def] \\ xsimpl)
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def]
+  \\ xmatch
+  \\ reverse (xhandle
+    ‘(POSTv retv. STDIO (fastForwardFD fs 0) *
+        & (OPTION_TYPE a (SOME (mllist$foldl f x (lines_of (implode text)))) retv))’)
+  THEN1 (xsimpl \\ rw [] \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def])
+  \\ drule_all fold_lines_loop_thm
+  \\ disch_then (qspecl_then [‘p’,‘is’,‘lines_of (implode text)’,‘fs’,‘0’] assume_tac)
+  \\ fs [INSTREAM_LINES_def,SEP_CLAUSES,app_SEP_EXISTS]
+  \\ pop_assum $ qspec_then ‘text’ mp_tac
+  \\ full_simp_tac (std_ss ++ sep_cond_ss) [implode_def]
+  \\ fs [SEP_CLAUSES] \\ rw []
+  \\ xlet_auto
+  THEN1 (xsimpl \\ rw [] \\ qexists_tac ‘x'’ \\ qexists_tac ‘x''’ \\ xsimpl)
+  \\ xlet_auto
+  THEN1 (xcon \\ xsimpl)
+  \\ fs [sub_spec_none_def]
+  \\ last_x_assum drule
+  \\ disch_then (qspecl_then [‘fs’,‘rest’,‘k’] mp_tac)
   \\ strip_tac
   \\ xlet_auto
   THEN1 (qexists_tac ‘emp’ \\ xsimpl)
