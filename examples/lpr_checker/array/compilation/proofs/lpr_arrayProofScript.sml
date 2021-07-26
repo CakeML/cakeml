@@ -292,10 +292,9 @@ Proof
 QED
 
 val interval_cover_def = Define`
-  (interval_cover i j [] = F) ∧
+  (interval_cover i j [] ⇔ i = j) ∧
   (interval_cover (i:num) j ((a,b)::xs) =
-    (a = i ∧
-    (b = j ∨ interval_cover b j xs)))`
+    (a = i ∧ interval_cover b j xs))`
 
 Theorem interval_cover_satisfiable:
   ∀ijs i j.
