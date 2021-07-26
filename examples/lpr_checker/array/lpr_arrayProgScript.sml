@@ -3431,6 +3431,13 @@ val check_cond_def = Define`
 
 val _ = translate check_cond_def;
 
+(* The success string, TODO: add md5 of f1 f2 *)
+val success_rng_def = Define`
+  success_rng f1 f2 rng =
+  (strlit "s VERIFIED RANGE" ^ rng ^ "\n")`
+
+val _ = translate success_rng_def;
+
 val check_unsat_4 = (append_prog o process_topdecs) `
   fun check_unsat_4 f1 f2 rng f3 =
   case parse_dimacs_full f1 of
@@ -3454,7 +3461,7 @@ val check_unsat_4 = (append_prog o process_topdecs) `
     in
       case check_lpr_range_arr f3 arr rls earr bnd (ncl+1) pf i j of
         Inl err => TextIO.output TextIO.stdErr err
-      | Inr True => TextIO.print "s VERIFIED RANGE: TODO"
+      | Inr True => TextIO.print (success_rng f1 f2 rng)
       | Inr False => TextIO.output TextIO.stdErr "c transformation clause not derived at end of proof\n"
     end
     else TextIO.output TextIO.stdErr "c Invalid range specification: range a-b must satisfy a <= b <= num lines in proof file\n"`
@@ -3893,7 +3900,7 @@ val check_unsat_4_sem_def = Define`
         let upd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base fmlls in
         let earliest = FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) fmlls in
           if check_lpr_range_list lpr upd (REVERSE (MAP FST fmlls)) earliest bnd (ncl+1) pf i j then
-            add_stdout fs (strlit "s VERIFIED RANGE: TODO")
+            add_stdout fs (success_rng f1 f2 rng)
           else
             add_stderr fs err
       | NONE => add_stderr fs err
@@ -4074,8 +4081,11 @@ Proof
   simp[SUM_TYPE_def]>>strip_tac>>
   TOP_CASE_TAC>>fs[BOOL_def]>> xmatch
   >- (
+    xlet_autop>>
     xapp>>xsimpl>>
-    qexists_tac`emp`>>qexists_tac`fs`>>xsimpl)>>
+    qexists_tac`emp`>>
+    asm_exists_tac>>
+    qexists_tac`fs`>>xsimpl)>>
   xapp_spec output_stderr_spec \\ xsimpl>>
   qexists_tac`emp`>>xsimpl>>
   qexists_tac`fs`>>xsimpl>>

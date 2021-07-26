@@ -87,7 +87,7 @@ Theorem machine_code_sound:
       (satisfiable (interp fml) ⇒ satisfiable (interp fml2))
     else out = strlit ""
   else if LENGTH cl = 5 then
-    if out = strlit"s VERIFIED RANGE: TODO" then
+    if out = success_rng (EL 1 cl) (EL 2 cl) (EL 3 cl) then
     inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
     inFS_fname fs (EL 4 cl) ∧
     ∃i j fml pf.
@@ -226,6 +226,7 @@ Proof
   >- (
     (* 4 arg *)
     fs[check_unsat_4_sem_def]>>
+    `success_rng h' h'' h''' ≠ strlit ""` by EVAL_TAC>>
     reverse IF_CASES_TAC>>fs[]
     >- (
       qexists_tac`err`>>rw[]>>
@@ -265,7 +266,7 @@ Proof
       qexists_tac`strlit ""`>>simp[]>>
       qexists_tac`err`>>rw[]>>
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    qexists_tac`strlit "s VERIFIED RANGE: TODO"` >>
+    qexists_tac`success_rng h' h'' h'''` >>
     qexists_tac`strlit ""`>> simp[]>>
     CONJ_TAC >-
       metis_tac[STD_streams_stderr,add_stdo_nil]>>
@@ -336,7 +337,7 @@ Theorem par_check_sound:
   (
     EVERY (λ(cl,fs,mc,ms,i,j).
       extract_fs fs (check_unsat_io_events cl fs) =
-        SOME (add_stdout fs (strlit"s VERIFIED RANGE: TODO"))
+        SOME (add_stdout fs (success_rng (EL 1 cl) (EL 2 cl) (EL 3 cl) ))
     ) nodes ⇒
     (satisfiable (interp fml) ⇒
      satisfiable (interp (run_proof fml pf)))
@@ -350,7 +351,7 @@ Proof
   ∃out err.
     extract_fs fs (check_unsat_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-    (out = strlit"s VERIFIED RANGE: TODO" ⇒
+    (out = success_rng (EL 1 cl) (EL 2 cl) (EL 3 cl) ⇒
       i ≤ j ∧ j ≤ LENGTH pf ∧
       (satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
        satisfiable (interp (run_proof fml (TAKE j pf)))))) nodes` by
@@ -392,7 +393,7 @@ val check_successful_def = Define`
     all_lines fs (EL 2 cl) = pfstr ∧
     EL 3 cl = toString i ^ «-» ^ toString j ∧
     extract_fs fs (check_unsat_io_events cl fs) =
-      SOME (add_stdout fs (strlit"s VERIFIED RANGE: TODO"))`
+      SOME (add_stdout fs (success_rng (EL 1 cl) (EL 2 cl) (EL 3 cl) ))`
 
 Theorem par_check_sound_2:
   parse_dimacs fmlstr = SOME fml ∧ parse_proof pfstr = SOME pf ∧
