@@ -7918,25 +7918,42 @@ Proof
   >> fs[wf_dep_wf_pqs]
 QED
 
-Theorem monotone_dependency:
-  !ctxt. monotone $ dependency ctxt
+Theorem monotone_dependency_extends_nil:
+  !ctxt.
+    ctxt extends [] ⇒
+    monotone $ dependency ctxt
 Proof
-  cheat
+  rw[monotone_def] >>
+  drule_then drule dependency_FV_mono >>
+  rw[list_subset_set]
+QED
+
+Theorem monotone_dependency_good_constspec_names:
+  !ctxt.
+    good_constspec_names ctxt ⇒
+    monotone $ dependency ctxt
+Proof
+  rw[monotone_def] >>
+  drule_then drule dependency_FV_mono_lemma >>
+  rw[list_subset_set]
 QED
 
 Theorem dep_steps_acyclic_sound'':
   !ctxt k k'. dep_steps (dependency_compute ctxt) (SUC k) (dependency_compute ctxt) = acyclic k'
     /\ composable_len (CURRY $ set $ dependency_compute ctxt) 1
+    ∧ good_constspec_names ctxt
     ==> terminating $ TC $ subst_clos $ dependency ctxt
 Proof
   rpt strip_tac
   >> drule_at Any dep_steps_acyclic_sound'
   >> rpt $ disch_then $ drule_at Any
-  >> fs[wf_dep_dependency_ctxt,GSYM wf_dep_wf_pqs,DEPENDENCY_EQUIV,GSYM is_instance_LR_equiv,monotone_dependency]
+  >> fs[wf_dep_dependency_ctxt,GSYM wf_dep_wf_pqs,DEPENDENCY_EQUIV,GSYM is_instance_LR_equiv,monotone_dependency_good_constspec_names]
 QED
 
 Theorem composable_len_ONE_compute'[compute]:
-  !ctxt. composable_len (CURRY $ set $ dependency_compute ctxt) 1 =
+  !ctxt.
+  good_constspec_names ctxt ⇒
+  composable_len (CURRY $ set $ dependency_compute ctxt) 1 =
   EVERY (λq.
     EVERY (λp.
       case unify_LR (SND q) (FST p) of
@@ -7947,9 +7964,9 @@ Theorem composable_len_ONE_compute'[compute]:
     ) (dependency_compute ctxt)
   ) (dependency_compute ctxt)
 Proof
-  gen_tac
+  rpt strip_tac
   >> irule composable_len_ONE_compute
-  >> fs[wf_dep_dependency_ctxt,GSYM wf_dep_wf_pqs,DEPENDENCY_EQUIV,monotone_dependency]
+  >> fs[wf_dep_dependency_ctxt,GSYM wf_dep_wf_pqs,DEPENDENCY_EQUIV,monotone_dependency_good_constspec_names]
 QED
 
 val _ = export_theory();

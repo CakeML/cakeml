@@ -15195,6 +15195,35 @@ Definition extends_init_def:
   extends_init ctxt = (ctxt extends init_ctxt)
 End
 
+Definition good_constspec_names_def:
+  good_constspec_names ctxt ⇔
+  ∀overload eqs prop.
+     MEM (ConstSpec overload eqs prop) ctxt ⇒
+     EVERY
+     (λt. (∀v. MEM v (tvars t) ⇒ MEM v (tyvars (typeof t))))
+     (MAP SND eqs)
+End
+
+Theorem dependency_FV_mono_lemma:
+  ∀x y.
+    dependency ctxt x y ∧ good_constspec_names ctxt
+    ⇒ set (FV y) ⊆ set (FV x)
+Proof
+  rw[dependency_cases,FV_def,SUBSET_DEF]
+  >> fs[]
+  >> TRY (drule_then strip_assume_tac allCInsts_is_Const >> rveq)
+  >> fs[tvars_def,tyvars_def,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS]
+  >> TRY (drule_all_then assume_tac allCInsts_tyvars
+    ORELSE drule_all_then assume_tac MEM_tyvars_allTypes
+    ORELSE drule_all_then assume_tac MEM_tyvars_allTypes')
+  >> ASM_REWRITE_TAC[]
+  >> qpat_x_assum `MEM (ConstSpec _ _ _) ctxt` (strip_assume_tac o ONCE_REWRITE_RULE[MEM_SPLIT])
+  >> rveq
+  >> gvs[good_constspec_names_def,DISJ_IMP_THM,FORALL_AND_THM,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+  >> res_tac
+  >> fs[] >> metis_tac[WELLTYPED_LEMMA]
+QED
+
 Theorem dependency_FV_mono:
   ∀x y. ctxt extends [] /\ dependency ctxt x y
   ⇒ set (FV y) ⊆ set (FV x)
