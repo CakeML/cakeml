@@ -102,6 +102,7 @@ val r = holSyntaxExtraTheory.tymatch_def
         |> translate;
 val _ = (use_mem_intro := false);
 val r = translate OPTION_MAP_DEF;
+val r = translate FOLDL;
 val r = translate holSyntaxExtraTheory.match_type_def;
 
 val r = m_translate find_axiom_def;
@@ -313,4 +314,3 @@ Theorem context_spec =
   mk_app_of_ArrowP (fetch "ml_hol_kernelProg" "context_v_thm");
 
 val _ = export_theory ();
-
