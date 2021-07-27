@@ -2867,8 +2867,35 @@ val _ = translate nocomment_line_def;
 val _ = translate parse_dimacs_body_def;
 val _ = translate parse_dimacs_toks_def;
 
-val usage_string_def = Define`
-  usage_string = strlit"Usage: cake_lpr <DIMACS formula file> <Optional: LPR proof file> <Optional: DIMACS formula file (transformation check)>\n"`;
+val usage_string = ‘
+
+cake_lpr can be invoked in several ways from the command line.
+
+Usage:  cake_lpr <DIMACS formula file>
+Parses the DIMACS file and prints the parsed formula.
+
+Usage:  cake_lpr <DIMACS formula file> <LPR proof file>
+Run LPR unsatisfiability proof checking
+
+Usage:  cake_lpr <DIMACS formula file> <LPR proof file> <DIMACS transformation file>
+Run LPR transformation proof checking
+
+Usage:  cake_lpr <DIMACS formula file> <summary proof file> i-j <LPR proof file>
+Run two-level transformation proof checking for lines i-j
+
+’
+
+fun drop_until p [] = []
+  | drop_until p (x::xs) = if p x then x::xs else drop_until p xs;
+
+val usage_string_tm =
+  usage_string |> hd |> (fn QUOTE s => s) |> explode
+  |> drop_until (fn c => c = #"\n") |> tl |> implode
+  |> stringSyntax.fromMLstring;
+
+Definition usage_string_def:
+  usage_string = strlit ^usage_string_tm
+End
 
 val r = translate usage_string_def;
 
@@ -3337,7 +3364,7 @@ Proof
 QED
 
 (*
-  Checker takes up to 3 arguments:
+  Checker takes up to 4 arguments:
   1 arg (CNF file): parse and print the CNF
   2 args (CNF file, proof file): parse CNF, run proof, report UNSAT (or error)
   3 args (CNF file, proof file, CNF file (transformation)):
@@ -3434,7 +3461,7 @@ val _ = translate check_cond_def;
 (* The success string, TODO: add md5 of f1 f2 *)
 val success_rng_def = Define`
   success_rng f1 f2 rng =
-  (strlit "s VERIFIED RANGE" ^ rng ^ "\n")`
+  (strlit "s VERIFIED RANGE " ^ rng ^ strlit "\n")`
 
 val _ = translate success_rng_def;
 
