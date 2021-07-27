@@ -3,7 +3,7 @@
 *)
 open preamble miscTheory lprTheory mlintTheory;
 
-val _ = new_theory "parsing";
+val _ = new_theory "lpr_parsing";
 
 (*
   Parses a list of strings (1 per line of a file) in DIMACS format

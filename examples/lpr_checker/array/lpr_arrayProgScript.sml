@@ -1,7 +1,7 @@
 (*
   This refines lpr_list to use arrays
 *)
-open preamble basis UnsafeProgTheory UnsafeProofTheory lprTheory lpr_listTheory parsingTheory HashtableProofTheory;
+open preamble basis md5ProgTheory UnsafeProgTheory UnsafeProofTheory lprTheory lpr_listTheory lpr_parsingTheory;
 
 val _ = new_theory "lpr_arrayProg"
 
@@ -2188,7 +2188,7 @@ val ind_lemma = Q.prove(
   )
   |> update_precondition;
 
-val result = translate parsingTheory.fromString_unsafe_def;
+val result = translate lpr_parsingTheory.fromString_unsafe_def;
 
 val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
 val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";

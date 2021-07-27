@@ -246,15 +246,17 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem EvalM_from_app:
-   !(eff_v:v) ARG_TYPE EXC_TYPE.
+Theorem EvalM_from_app_gen:
+   !(eff_v:v) ARG_TYPE EXC_TYPE P.
    (!x s. ?r t. f x s = (Success r, t)) /\
    (!x xv s ret new_s.
+     P s ==>
      ARG_TYPE x xv ==>
      (f x s = (Success ret, new_s)) ==>
      app (p: 'ffi ffi_proj) fun_v [xv] (H s)
        (POSTv rv. &RET_TYPE ret rv * (H new_s)))
    ==>
+   P st /\
    Eval env fun_exp (ARG_TYPE x) /\
    (nsLookup env.v fun_name = SOME fun_v) ==>
    EvalM F env st (App Opapp [Var fun_name; fun_exp])
@@ -267,6 +269,7 @@ Proof
   \\ simp [MONAD_def]
   \\ first_x_assum (qspecl_then [`x`,`st`] strip_assume_tac) \\ fs []
   \\ first_assum drule
+  \\ disch_then drule
   \\ disch_then (mp_tac o CONV_RULE (RESORT_FORALL_CONV rev))
   \\ fs [REFS_PRED_def, set_sepTheory.STAR_def]
   \\ qabbrev_tac `rss = s.refs++refs'`
@@ -314,6 +317,7 @@ Proof
   \\ first_x_assum drule
   \\ disch_then drule
   \\ disch_then drule
+  \\ disch_then drule
   \\ rw []
   \\ FULL_CASE_TAC \\ fs [set_sepTheory.cond_STAR]
   \\ fs [set_sepTheory.cond_def] \\ rw []
@@ -337,6 +341,142 @@ Proof
   \\ drule evaluatePropsTheory.evaluate_add_to_clock
   \\ disch_then (qspec_then `ck'` mp_tac) \\ fs []
   \\ simp [state_component_equality]
+QED
+
+Theorem EvalM_from_app:
+   !(eff_v:v) ARG_TYPE EXC_TYPE.
+   (!x s. ?r t. f x s = (Success r, t)) /\
+   (!x xv s ret new_s.
+     ARG_TYPE x xv ==>
+     (f x s = (Success ret, new_s)) ==>
+     app (p: 'ffi ffi_proj) fun_v [xv] (H s)
+       (POSTv rv. &RET_TYPE ret rv * (H new_s)))
+   ==>
+   Eval env fun_exp (ARG_TYPE x) /\
+   (nsLookup env.v fun_name = SOME fun_v) ==>
+   EvalM F env st (App Opapp [Var fun_name; fun_exp])
+    (MONAD RET_TYPE EXC_TYPE (f x))
+    (H, p)
+Proof
+  rw[] \\ irule EvalM_from_app_gen \\ rw[]
+  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘K T’
+  \\ simp[] \\ metis_tac []
+QED
+
+Theorem EvalM_from_app_unit_gen:
+   !(eff_v:v) EXC_TYPE P.
+   (!s. ?r t. f s = (Success r, t)) /\
+   (!xv s ret new_s.
+     P s ==>
+     UNIT_TYPE () xv ==>
+     (f s = (Success ret, new_s)) ==>
+     app (p: 'ffi ffi_proj) fun_v [xv] (H s)
+       (POSTv rv. &RET_TYPE ret rv * (H new_s)))
+   ==>
+   P st /\
+   Eval env fun_exp (UNIT_TYPE ()) /\
+   (nsLookup env.v fun_name = SOME fun_v) ==>
+   EvalM F env st (App Opapp [Var fun_name; fun_exp])
+    (MONAD RET_TYPE EXC_TYPE f)
+    (H, p)
+Proof
+  rw [EvalM_def] \\ fs [Eval_def]
+  \\ first_x_assum (qspec_then `s.refs` strip_assume_tac)
+  \\ fs [cfAppTheory.app_def, cfAppTheory.app_basic_def, evaluate_to_heap_def]
+  \\ simp [MONAD_def]
+  \\ first_x_assum (qspecl_then [`st`] strip_assume_tac) \\ fs []
+  \\ first_assum drule
+  \\ disch_then (mp_tac o CONV_RULE (RESORT_FORALL_CONV rev))
+  \\ fs [REFS_PRED_def, set_sepTheory.STAR_def]
+  \\ qabbrev_tac `rss = s.refs++refs'`
+  \\ sg `?hk. SPLIT (st2heap p (s with refs := rss)) (u, hk)`
+  >- fs [Abbr`rss`, set_sepTheory.SPLIT_EQ,
+         cfAppTheory.st2heap_with_refs_append,
+         cfStoreTheory.st2heap_def, SUBSET_DEF]
+  \\ fs [Abbr`rss`]
+  \\ rpt (disch_then drule) \\ rw []
+  \\ fs [cfHeapsBaseTheory.POSTv_def, cfHeapsBaseTheory.POST_def]
+  \\ FULL_CASE_TAC \\ fs [set_sepTheory.cond_def]
+  \\ rw [evaluate_def, PULL_EXISTS]
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ rename1 `RET_TYPE r val`
+  \\ qexists_tac `Rval [val]` \\ fs [PULL_EXISTS]
+  \\ fs [UNIT_TYPE_def]
+  \\ rw [MONAD_def, PULL_EXISTS]
+  \\ mp_tac ((Q.SPEC `s with refs := s.refs` o
+              CONV_RULE SWAP_FORALL_CONV o GEN_ALL)
+             evaluate_empty_state_IMP) \\ fs []
+  \\ disch_then drule \\ rw []
+  \\ fs[with_same_refs]
+  \\ fs[ml_progTheory.eval_rel_def]
+  \\ qmatch_asmsub_abbrev_tac `do_opapp [a;_]`
+  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
+  \\ fs [Abbr`a`]
+  \\ qhdtm_x_assum `evaluate_ck` mp_tac
+  \\ simp [cfAppTheory.evaluate_ck_def] \\ strip_tac \\ fs []
+  \\ pop_assum mp_tac
+  \\ drule evaluatePropsTheory.evaluate_set_clock
+  \\ disch_then (qspec_then `ck+1` mp_tac) \\ strip_tac
+  \\ fs [] \\ rw []
+  \\ rename1 `evaluate (s with clock := ck88) env [fun_exp] = _`
+  \\ qexists_tac `ck88` \\ fs [dec_clock_def]
+  \\ fs [REFS_PRED_FRAME_def]
+  \\ simp [Once set_sepTheory.STAR_def,PULL_EXISTS]
+  \\ rw []
+  \\ qmatch_assum_abbrev_tac `evaluate s6  env' [exp] = _`
+  \\ rename1 `SPLIT (st2heap p s) (u1,v1)`
+  \\ `?he. SPLIT (st2heap p s6) (u1,v1 UNION he)` by
+   (qspecl_then [`s`,`refs'`,`p`] strip_assume_tac st2heap_new_refs_UNION
+    \\ rfs [] \\ qexists_tac `x` \\ fs [Abbr `s6`]
+    \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF,set_sepTheory.SPLIT_def]
+    \\ metis_tac [])
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ rw []
+  \\ FULL_CASE_TAC \\ fs [set_sepTheory.cond_STAR]
+  \\ fs [set_sepTheory.cond_def] \\ rw []
+  \\ rename1 `SPLIT3 (st2heap p st9) _`
+  \\ fs [cfHeapsBaseTheory.SPLIT_emp1] \\ rw []
+  \\ qsuff_tac `?ck. st' = st9 with clock := ck`
+  THEN1
+   (rw [] \\ fs []
+    \\ match_mp_tac SPLIT3_IMP_STAR_STAR
+    \\ asm_exists_tac \\ fs []
+    \\ asm_exists_tac \\ fs []
+    \\ rename1 `SPLIT3 _ (h1,h2 UNION h3,h4)`
+    \\ qexists_tac `(h4 UNION h3) DIFF h2`
+    \\ fs [GC_T,cfHeapsBaseTheory.SPLIT3_def]
+    \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF]
+    \\ metis_tac [])
+  \\ fs [cfAppTheory.evaluate_ck_def,Abbr `s6`]
+  \\ drule evaluatePropsTheory.evaluate_add_to_clock
+  \\ disch_then (qspec_then `ck` mp_tac) \\ fs []
+  \\ qpat_x_assum `_ = (_,Rval [val])` assume_tac
+  \\ drule evaluatePropsTheory.evaluate_add_to_clock
+  \\ disch_then (qspec_then `ck'` mp_tac) \\ fs []
+  \\ simp [state_component_equality]
+QED
+
+Theorem EvalM_from_app_unit:
+   !(eff_v:v) EXC_TYPE.
+   (!s. ?r t. f s = (Success r, t)) /\
+   (!xv s ret new_s.
+     UNIT_TYPE () xv ==>
+     (f s = (Success ret, new_s)) ==>
+     app (p: 'ffi ffi_proj) fun_v [xv] (H s)
+       (POSTv rv. &RET_TYPE ret rv * (H new_s)))
+   ==>
+   Eval env fun_exp (UNIT_TYPE ()) /\
+   (nsLookup env.v fun_name = SOME fun_v) ==>
+   EvalM F env st (App Opapp [Var fun_name; fun_exp])
+    (MONAD RET_TYPE EXC_TYPE f)
+    (H, p)
+Proof
+  rw[]
+  \\ irule EvalM_from_app_unit_gen
+  \\ rw[] \\ qexists_tac ‘K T’
+  \\ simp[]
 QED
 
 val _ = export_theory();
