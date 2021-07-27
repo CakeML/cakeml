@@ -497,13 +497,21 @@ val list_to_v_def = Define`
   list_to_v ts t [] = t ∧
   list_to_v ts t (h::l) = Block ts cons_tag [h; list_to_v (ts+1) t l]`;
 
+(* Similar to list_to_v but returns a list of all intermediate blocks in the list
+   e.g:
+     list_to_all_v 10 t [1,2,3] =
+       [ Block 10 cons_tag [1, Block 11 cons_tag [2, Block 12 cons_tag [3,t]]]
+         Block 11 cons_tag [2, Block 12 cons_tag [3,t]],
+         Block 12 cons_tag [3,t]
+       ]
+
+*)
+Definition list_to_all_v_def:
+  list_to_all_v ts t [] = [] ∧
+  list_to_all_v ts t (h::l) = list_to_v ts t (h::l) :: list_to_all_v (ts+1) t l
+End
+
 Overload Block_nil = ``Block 0 nil_tag []``
-
-val with_fresh_ts_def = Define`
-  with_fresh_ts ^s n f =
-     f s.tstamps ( s with tstamps updated_by $+ n)
-`;
-
 
 Definition lim_safe_def[simp]:
   (lim_safe lims (Cons tag) xs = if xs = []
@@ -642,6 +650,41 @@ Definition check_lim_def:
                                s.safe_for_space)
 End
 
+(* Create a new block with a fresh timestamp, checking the limits,
+   and recording it into ‘all_blocks’
+*)
+Definition mk_block_def:
+  mk_block tag l s =
+    (* Return a new block with the current timestamp *)
+    Rval (Block s.tstamps tag l,
+          (* Check block size limits *)
+          check_lim (s with
+                        (* Increase the current timestamp by one *)
+                     <| tstamps updated_by SUC;
+                        (* Store the new block in the list of all blocks *)
+                        all_blocks updated_by (CONS (Block s.tstamps tag l)) |>)
+                    (LENGTH l))
+End
+
+(* Creates a new block representing a list with fresh timestamps,
+   checking the limits, and recording all intermediate block into
+   ‘all_blocks’
+ *)
+Definition mk_list_def:
+  mk_list t l s =
+    (* Return a new block representing a list *)
+    Rval (list_to_v s.tstamps t l,
+          (* Check for block size limits *)
+          check_lim (s with
+                        (* Increase the timestamps by the amount of element in the
+                           list as each element requieres a block *)
+                     <| tstamps updated_by ($+ (LENGTH l));
+                        (* Compute all intermediate blocks and store them in the
+                           list of all blocks *)
+                        all_blocks updated_by ($++ (list_to_all_v s.tstamps t l)) |>)
+                    2)
+End
+
 val do_app_aux_def = Define `
   do_app_aux op ^vs ^s =
     case (op,vs) of
@@ -697,9 +740,7 @@ val do_app_aux_def = Define `
                           then Rval (Block 0 n [],s)
                           else Error
              | SOME vs => if len = Number (& (LENGTH vs))
-                          then with_fresh_ts s 1
-                            (λts s'. Rval (Block ts n vs,
-                                          check_lim (s') (LENGTH vs)))
+                          then mk_block n vs s
                           else Error
              | _ => Error)
          | _ => Error)
@@ -720,18 +761,13 @@ val do_app_aux_def = Define `
     (* bvl part *)
     | (Cons tag,xs) => (if xs = []
                         then  Rval (Block 0 tag [],s)
-                        else with_fresh_ts s 1
-                               (λts s'. Rval (Block ts tag xs,
-                                              check_lim s' (LENGTH xs))))
+                        else mk_block tag xs s)
     | (ConsExtend tag,Block x y xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then
           Error
-        else with_fresh_ts s 1
-                           (λts s'.
-                                    let l = (xs++TAKE (Num len) (DROP (Num lower) xs'))
-                                    in Rval (Block ts tag l,
-                                             check_lim s' (LENGTH l)))
+        else let l = (xs++TAKE (Num len) (DROP (Num lower) xs'))
+             in mk_block tag l s
     | (ConsExtend tag,_) => Error
     | (El,[Block _ tag xs; Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
@@ -753,10 +789,7 @@ val do_app_aux_def = Define `
          | _ => Error)
     | (ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
-         | (SOME xs, SOME ys) =>
-             with_fresh_ts ^s (LENGTH xs)
-             (λts s'. Rval (list_to_v ts x2 xs,
-                           check_lim (s') 2))
+         | (SOME xs, SOME ys) => mk_list x2 xs s
          | _ => Error)
     | (LengthBlock,[Block _ tag xs]) =>
         Rval (Number (&LENGTH xs), s)
@@ -1238,7 +1271,8 @@ Proof
     , do_install_def
     , case_eq_thms
     , PULL_EXISTS
-    , with_fresh_ts_def
+    , mk_block_def
+    , mk_list_def
     , UNCURRY
     , check_lim_def
     ]
