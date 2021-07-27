@@ -341,6 +341,7 @@ Theorem do_stack_const[simp]:
 ∧ (do_stack op vs s).ffi                = s.ffi
 ∧ (do_stack op vs s).space              = s.space
 ∧ (do_stack op vs s).tstamps            = s.tstamps
+∧ (do_stack op vs s).all_blocks         = s.all_blocks
 ∧ (do_stack op vs s).limits             = s.limits
 ∧ (do_stack op vs s).peak_heap_length   = s.peak_heap_length
 ∧ (do_stack op vs s).compile_oracle     = s.compile_oracle

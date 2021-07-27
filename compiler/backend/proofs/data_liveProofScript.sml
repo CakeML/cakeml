@@ -23,6 +23,7 @@ val state_rel_def = Define `
     s1.tstamps = t1.tstamps /\
     s1.limits  = t1.limits /\
     s1.stack_frame_sizes  = t1.stack_frame_sizes /\
+    s1.all_blocks = t1.all_blocks /\
     (* s1.safe_for_space = t1.safe_for_space /\ *) (* ASK: Probably don't need it *)
     (!x. x IN domain live ==> (lookup x s1.locals = lookup x t1.locals))`;
 
