@@ -1946,7 +1946,7 @@ Proof
   Cases_on `op` \\
   fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
-      with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
+      mk_block_def,mk_list_def,closSemTheory.ref_case_eq,do_install_def,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,check_lim_def,
       semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
       pair_case_eq,consume_space_def,dataLangTheory.op_space_reset_def,data_spaceTheory.op_space_req_def]
@@ -3754,14 +3754,14 @@ Proof
   >- (
     conj_tac >-
       (drule_then match_mp_tac option_le_trans >>
-       fs[with_fresh_ts_def,CaseEq"option",check_lim_def,opt_map_plus_zero_id] >>
+       fs[mk_block_def,mk_list_def,CaseEq"option",check_lim_def,opt_map_plus_zero_id] >>
        rveq >> simp[] >>
        FULL_SIMP_TAC std_ss [state_rel_def,option_le_max_right]) >>
     strip_tac >>
     `good_dimindex(:'a)` by metis_tac[state_rel_def] >>
     fs[good_dimindex_def,encode_header_def,dimword_def] >> fs[] >>
     spose_not_then strip_assume_tac >>
-    fs[with_fresh_ts_def,CaseEq"option"] >> rveq >> fs[check_lim_def] >>
+    fs[mk_block_def,mk_list_def,CaseEq"option"] >> rveq >> fs[check_lim_def] >>
     metis_tac[state_rel_def,limits_inv_def])
   \\ rename1 `v_to_list r1 = SOME in1`
   \\ rename1 `v_to_list r2 = SOME in2`
@@ -3814,7 +3814,7 @@ Proof
       \\ fs [EXTENSION,domain_lookup,lookup_fromAList])
     \\ fs [wordSemTheory.set_var_def,set_var_def]
     \\ fs [state_rel_thm]
-    \\ fs [lookup_insert,adjust_var_11, call_env_def,with_fresh_ts_def,
+    \\ fs [lookup_insert,adjust_var_11, call_env_def,mk_block_def,mk_list_def,
            push_env_def,set_var_def,wordSemTheory.set_var_def,IS_SOME_EXISTS]
     \\ fs [] \\ rveq \\ fs [list_to_v_def]
     \\ simp[option_le_max_right, check_lim_def, wordSemTheory.flush_state_def, allowed_op_def]
@@ -3937,7 +3937,7 @@ Proof
     \\ fs [wordSemTheory.set_var_def,set_var_def]
     \\ fs [state_rel_thm]
     \\ fs [lookup_insert,adjust_var_11, IS_SOME_EXISTS,
-           call_env_def,push_env_def, with_fresh_ts_def,
+           call_env_def,push_env_def, mk_block_def,mk_list_def,
            dataSemTheory.set_var_def,wordSemTheory.set_var_def, check_lim_def]
     \\ fs [] \\ rveq \\ fs []
     \\ strip_tac THEN1
@@ -4143,7 +4143,7 @@ Proof
     \\ fs [good_dimindex_def,dimword_def])
   \\ strip_tac
   \\ Cases_on `aa1 = SOME NotEnoughSpace` \\ fs []
-  THEN1 (fs [with_fresh_ts_def] \\ fs [check_lim_def] \\ rveq \\
+  THEN1 (fs [mk_block_def,mk_list_def] \\ fs [check_lim_def] \\ rveq \\
     unabbrev_all_tac >>
     conj_tac >- rw[call_env_def,push_env_def,dataSemTheory.dec_clock_def] >>
     conj_tac >-
@@ -4404,7 +4404,7 @@ Proof
   \\ simp [FAPPLY_FUPDATE_THM,memory_rel_Temp]
   \\ fs [memory_rel_Temp,
          MATCH_MP FUPDATE_COMMUTES (prove(``Temp p <> NextFree``,EVAL_TAC))]
-  \\ fs [contains_loc_def,lookup_fromAList,with_fresh_ts_def,IS_SOME_EXISTS]
+  \\ fs [contains_loc_def,lookup_fromAList,mk_block_def,mk_list_def,IS_SOME_EXISTS,check_lim_def]
   \\ fs [] \\ rveq \\ fs []
   \\ strip_tac
   THEN1
@@ -4431,10 +4431,14 @@ Proof
     (drule_then match_mp_tac option_le_trans >>
      rw[option_le_max]
      >- (drule_then match_mp_tac option_le_trans >>
-         rw[size_of_stack_eq,option_le_max_right,option_le_max,option_map2_max_add,AC option_add_comm option_add_assoc,option_le_eq_eqns,option_map2_max_add,stack_size_eq,option_le_add]
+         rw[size_of_stack_eq,option_le_max_right,option_le_max,
+            option_map2_max_add,AC option_add_comm option_add_assoc,
+            option_le_eq_eqns,option_map2_max_add,stack_size_eq,option_le_add]
         ) >>
      imp_res_tac stack_rel_IMP_size_of_stack >>
-     rw[size_of_stack_eq,option_le_max_right,option_le_max,option_map2_max_add,AC option_add_comm option_add_assoc,option_le_eq_eqns,option_map2_max_add,stack_size_eq,option_le_add])
+     rw[size_of_stack_eq,option_le_max_right,option_le_max,option_map2_max_add,
+        AC option_add_comm option_add_assoc,option_le_eq_eqns,option_map2_max_add,
+        stack_size_eq,option_le_add])
   \\ conj_tac >- fs [limits_inv_def, FLOOKUP_UPDATE]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs [flat_def]
@@ -4909,7 +4913,7 @@ Theorem FromList_thm:
 Proof
   fs [do_app_def,do_app_aux_def,do_space_def,
       dataLangTheory.op_space_reset_def]
-  \\ Cases_on `v_to_list v2` \\ fs [with_fresh_ts_def]
+  \\ Cases_on `v_to_list v2` \\ fs [mk_block_def,mk_list_def]
   \\ reverse (Cases_on `v1 = Number (&LENGTH x)`)
   >- (Cases_on `x` \\ fs [])
   \\ fs [LENGTH_NIL] \\ strip_tac \\ rveq \\ fs [FromList_code_def]
@@ -4933,7 +4937,7 @@ Proof
            wordSemTheory.flush_state_def]
     \\ rveq \\ fs [lookup_insert]
     \\ `lookup 0 t.locals = SOME (Loc l1 l2)` by fs [state_rel_def] \\ fs []
-    \\ fs [state_rel_thm,wordSemTheory.call_env_def,lookup_def,with_fresh_ts_def]
+    \\ fs [state_rel_thm,wordSemTheory.call_env_def,lookup_def,mk_block_def,mk_list_def]
     \\ fs [] \\ rveq
     \\ fs [EVAL ``(toAList (inter (fromList2 []) (insert 0 () LN)))`` ]
     \\ fs [EVAL ``join_env LN []``,lookup_insert]
@@ -5128,10 +5132,14 @@ Proof
   >- (imp_res_tac stack_rel_simp >>
       imp_res_tac stack_rel_IMP_size_of_stack >>
       fs[stack_size_eq,stack_consumed_def] >>
-      simp[size_of_stack_eq,option_le_max_right,option_le_max,option_map2_max_add,AC option_add_comm option_add_assoc,option_le_eq_eqns,option_map2_max_add,stack_size_eq])
+      simp[size_of_stack_eq,option_le_max_right,option_le_max,
+           option_map2_max_add,AC option_add_comm option_add_assoc,
+           option_le_eq_eqns,option_map2_max_add,stack_size_eq])
+  \\ simp[SUC_ONE_ADD,Once ADD_SYM]
   \\ drule0 memory_rel_zero_space
   \\ match_mp_tac memory_rel_rearrange
-  \\ fs [] \\ rw [] \\ fs []
+  \\ fs [SUC_ONE_ADD,Once ADD_SYM]
+  \\ rw [] \\ fs []
 QED
 
 Theorem assign_FromList:
@@ -5157,12 +5165,12 @@ Proof
   \\ IF_CASES_TAC \\ fs []
   >- (conj_tac >-
        (fs[CaseEq "list",CaseEq"bool",state_rel_def,option_le_max_right,
-           with_fresh_ts_def,ELIM_UNCURRY,CaseEq"option"] >>
+           mk_block_def,mk_list_def,ELIM_UNCURRY,CaseEq"option"] >>
         rveq >> fs[option_le_max_right,check_lim_def] >>
         metis_tac[option_le_trans]) >>
       strip_tac >> spose_not_then strip_assume_tac >>
       fs[CaseEq "list",CaseEq"bool",state_rel_def,option_le_max_right,
-         with_fresh_ts_def,ELIM_UNCURRY,CaseEq"option"] >>
+         mk_block_def,mk_list_def,ELIM_UNCURRY,CaseEq"option"] >>
       rveq >> fs[option_le_max_right,check_lim_def,encode_header_def] >>
       fs[state_rel_def,arch_size_def,good_dimindex_def,limits_inv_def,dimword_def] >> rfs[])
   \\ clean_tac
@@ -5212,13 +5220,13 @@ Proof
   \\ `4 * tag < dimword (:'a) DIV 16` by (fs [encode_header_def] \\ NO_TAC)
   \\ rpt_drule0 state_rel_IMP_Number_arg
   \\ strip_tac
-  \\ Cases_on `vs` \\ fs [with_fresh_ts_def]
+  \\ Cases_on `vs` \\ fs [mk_block_def,mk_list_def]
   \\ `s1.tstamps = s.tstamps` by rw [Abbr `s1`]
   \\ rpt_drule0 FromList_thm
   \\ (simp [Once call_env_def,wordSemTheory.dec_clock_def,do_app_def,
            get_vars_def,get_var_def,lookup_insert,fromList_def,
            do_space_def,dataLangTheory.op_space_reset_def,
-           call_env_def,do_app_aux_def,with_fresh_ts_def,
+           call_env_def,do_app_aux_def,mk_block_def,mk_list_def,
            is_env_def,dec_clock_tstamps,push_env_tstamps]
   \\ fs [check_lim_def, allowed_op_def] \\ rveq
   \\ disch_then
@@ -10006,7 +10014,7 @@ Proof
   \\ qhdtm_x_assum`memory_rel`kall_tac
   \\ simp[] \\ ntac 2 strip_tac
   \\ clean_tac
-  \\ simp [assign_WordOp64(*assign_def*)]
+  \\ simp [assign_WordOp64] (*assign_def*)
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs []
     >- (conj_tac >- metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max] >>
@@ -12189,7 +12197,7 @@ Proof
   \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs [] \\ rveq
   \\ `?startptr len. i = &startptr /\ i' = & len` by
        (Cases_on `i` \\ Cases_on `i'` \\ fs [] \\ NO_TAC) \\ rveq \\ fs []
-  \\ fs [with_fresh_ts_def]
+  \\ fs [mk_block_def,mk_list_def]
   \\ rveq \\ fs []
   \\ pop_assum mp_tac
   \\ pop_assum mp_tac
@@ -12517,7 +12525,8 @@ Proof
     \\ conj_tac THEN1 (rw [] \\ fs [])
     \\ conj_tac THEN1 (fs[option_le_max_right])
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ match_mp_tac memory_rel_insert
+    \\ fs [SUC_ONE_ADD,Once ADD_SYM]
     \\ drule0 memory_rel_tl
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ strip_tac \\ rpt_drule0 memory_rel_Cons_alt
@@ -12667,6 +12676,7 @@ Proof
     \\ fs [IN_domain_adjust_set_inter])
   \\ fs [] \\ pop_assum kall_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ simp [SUC_ONE_ADD,Once ADD_SYM]
   \\ rpt_drule0 memory_rel_Cons_alt
   \\ disch_then (qspecl_then [`tag`,`full_header`] mp_tac)
   \\ reverse impl_tac
@@ -12691,11 +12701,11 @@ Proof
        fs[do_app,CaseEq"bool",CaseEq"option"] >>
        imp_res_tac get_vars_IMP_LENGTH >>
        rveq >> fs[arch_size_def,limits_inv_def,good_dimindex_def] >>
-       rfs[dimword_def,with_fresh_ts_def,consume_space_def,
+       rfs[dimword_def,mk_block_def,mk_list_def,consume_space_def,
            IS_SOME_EXISTS])
     \\ fs [LENGTH_NIL] \\ rpt var_eq_tac
     \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs []
-    \\ fs [with_fresh_ts_def]
+    \\ fs [mk_block_def,mk_list_def]
     \\ rveq \\ fs []
     \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
     \\ TRY (Cases_on `vals`) \\ fs [] \\ clean_tac
@@ -12721,12 +12731,12 @@ Proof
      fs[do_app,CaseEq"bool",CaseEq"option"] >>
      imp_res_tac get_vars_IMP_LENGTH >>
      rveq >> fs[arch_size_def,limits_inv_def,good_dimindex_def,encode_header_def] >>
-     rfs[dimword_def,with_fresh_ts_def,consume_space_def,
+     rfs[dimword_def,mk_block_def,mk_list_def,consume_space_def,
          IS_SOME_EXISTS] >>
      rveq >> fs[check_lim_def] >> rveq >> fs[]
     )
   \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs []
-  \\ fs [with_fresh_ts_def]
+  \\ fs [mk_block_def,mk_list_def]
   \\ rveq \\ fs []
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac
   \\ fs [consume_space_def] \\ clean_tac
@@ -12758,6 +12768,7 @@ Proof
   \\ clean_tac \\ fs [] \\ UNABBREV_ALL_TAC
   \\ fs [lookup_insert,FAPPLY_FUPDATE_THM,adjust_var_11,FLOOKUP_UPDATE,
          code_oracle_rel_def,FLOOKUP_UPDATE,check_lim_def]
+  \\ simp[SUC_ONE_ADD,Once ADD_SYM]
   \\ rw [] \\ fs [] \\ rw [] \\ fs []
   \\ fs [inter_insert_ODD_adjust_set,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
