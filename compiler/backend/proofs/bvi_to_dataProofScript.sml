@@ -451,7 +451,8 @@ Proof
                 , v_case_eq
                 , bvlSemTheory.v_case_eq
                 , ffiTheory.call_FFI_def
-                , with_fresh_ts_def
+                , mk_block_def
+                , mk_list_def
                 , closSemTheory.ref_case_eq
                 , do_install_def
                 , ffiTheory.ffi_result_case_eq

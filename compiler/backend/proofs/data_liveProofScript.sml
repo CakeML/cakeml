@@ -58,7 +58,7 @@ val state_rel_IMP_do_app_aux = Q.prove(
                             |>))`,
   STRIP_TAC
   \\ Cases_on `op`
-  \\ fs [do_app_aux_def,do_space_def,with_fresh_ts_def,state_rel_def,check_lim_def]
+  \\ fs [do_app_aux_def,do_space_def,mk_block_def,mk_list_def,state_rel_def,check_lim_def]
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
   \\ SRW_TAC [] [] \\ fs[]);
@@ -93,7 +93,7 @@ val state_rel_IMP_do_app_aux_err = Q.prove(
     (do_app_aux op args t1 = Rerr e)`,
   STRIP_TAC
   \\ Cases_on `op`
-  \\ fs [do_app_aux_def,do_space_def,with_fresh_ts_def]
+  \\ fs [do_app_aux_def,do_space_def,mk_block_def,mk_list_def]
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
   \\ SRW_TAC [] [] \\ fs[]);
