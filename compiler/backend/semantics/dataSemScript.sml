@@ -185,6 +185,92 @@ Definition size_of_heap_def:
       n
 End
 
+Datatype:
+  root = TStamp num | RStamp num
+End
+
+(* Turns a list of values (:v) into a set of roots (:root) *)
+Definition to_roots_def:
+  (to_roots [] = {})
+∧ (to_roots (Block ts _ _::xs) = {TStamp ts} ∪ to_roots xs)
+∧ (to_roots (RefPtr ref::xs)   = {RStamp ref} ∪ to_roots xs)
+∧ (to_roots (_::xs) = to_roots xs)
+End
+
+(* Obtain all the roots (:root) from a state by filtering them out of
+   ‘stack_to_vs’
+ *)
+Definition all_roots_def:
+  all_roots ^s = to_roots (stack_to_vs s)
+End
+
+(* Given a list of values and a timestamp returns the (possibly empty)
+   set of roots (:root) a block with that timestamp has.
+
+   note: meant to be used with s.all_blocks which should only contain
+         blocks with timestamps 0 < ts < s.timestamp
+ *)
+Definition block_to_roots_def:
+  (block_to_roots [] _ = {})
+∧ (block_to_roots (Block ts _ l::xs) ts' =
+     if (ts = ts')
+     then to_roots l
+     else block_to_roots xs ts')
+∧ (block_to_roots (_::xs) ts = block_to_roots xs ts)
+End
+
+Definition ptr_to_roots_def:
+  ptr_to_roots refs p =
+    case sptree$lookup p refs of
+      SOME (ValueArray vs) => to_roots vs
+      | _ => {}
+End
+
+Definition next_def:
+  (next refs blocks (TStamp ts) r =
+     (r ∈ block_to_roots blocks ts))
+∧ (next refs blocks (RStamp ref) r =
+     (r ∈ ptr_to_roots refs ref))
+End
+
+Definition reachable_v_def:
+  reachable_v refs blocks roots = { y | ∃x. x ∈ roots ∧ (next refs blocks)^* x y}
+End
+
+Definition root_to_vs:
+  (root_to_vs refs [] (TStamp ts) = [])
+∧ (root_to_vs refs (Block ts _ vs::xs) (TStamp ts') =
+     if (ts = ts')
+     then vs
+     else root_to_vs refs xs (TStamp ts'))
+∧ (root_to_vs refs (_::xs) (TStamp ts) = root_to_vs refs xs (TStamp ts))
+∧ (root_to_vs refs blocks (RStamp p) =
+     case sptree$lookup p refs of
+       SOME (ValueArray vs) => vs
+       | _ => [])
+End
+
+Definition flat_measure_def:
+  (flat_measure lims [] = 0)
+∧ (flat_measure lims (x::y::ys) =
+     flat_measure lims [x]  + flat_measure lims (y::ys))
+∧ (flat_measure lims [Word64 _] = 3)
+∧ (flat_measure lims [Number i] =
+     (if small_num lims.arch_64_bit i
+      then 0
+      else bignum_size lims.arch_64_bit i))
+∧ (flat_measure lims[CodePtr _] = 0)
+∧ (flat_measure lims[RefPtr r] = 1)
+∧ (flat_measure lims[Block ts tag []] = 0)
+∧ (flat_measure lims[Block ts tag vs] = 1)
+End
+
+Definition flat_size_of:
+  flat_size_of lims refs blocks roots =
+    list$SUM $ MAP (flat_measure lims o root_to_vs refs blocks)
+        (SET_TO_LIST $ reachable_v refs blocks roots)
+End
+
 Overload add_space_safe =
   ``λk ^s. s.safe_for_space
            ∧ size_of_heap s + k <= s.limits.heap_limit``
