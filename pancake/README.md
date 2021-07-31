@@ -9,12 +9,8 @@ struct-layout to word-layout
 [crep_to_loopScript.sml](crep_to_loopScript.sml):
 Compilation from crepLang to panLang.
 
-[extra-files](extra-files):
-Syntax for Pancake Language.
-
 [ffi](ffi):
-Definition of CakeML's observational semantics, in particular traces of calls
-over the Foreign-Function Interface (FFI).
+FFI for Pancake
 
 [loopLangScript.sml](loopLangScript.sml):
 loopLang intermediate language
@@ -60,7 +56,7 @@ Semantics for Pancake and its intermediate languages.
 Parser for compactDSL programs
 
 [ta_progs](ta_progs):
-Some sample timeLang programs
+Same TA programs
 
 [timeLangScript.sml](timeLangScript.sml):
 Abstract syntax for timeLang

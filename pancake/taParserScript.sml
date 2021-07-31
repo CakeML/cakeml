@@ -7,6 +7,8 @@ open preamble
 
 val _ = new_theory "taParser";
 
+Overload CVar = “strlit”;
+
 local
   fun has_nat_prefix (#"%" :: #"n" :: #"a" :: #"t" :: _) = true
     | has_nat_prefix _ = false
