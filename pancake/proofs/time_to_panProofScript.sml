@@ -10846,7 +10846,7 @@ Proof
 QED
 
 Definition io_events_and_ffi_assumptions_def:
-d  io_events_and_ffi_assumptions (:α) k prog or st t ⇔
+  io_events_and_ffi_assumptions (:α) k prog or st t ⇔
     (ffi_rels_after_init prog
      (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) st t ∧
      no_panic (labels_of k prog (dimword (:α) - 1) (systime_at t) or st) ∧
