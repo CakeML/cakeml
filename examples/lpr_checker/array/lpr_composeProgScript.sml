@@ -1,84 +1,66 @@
 (*
   Define and verify LPR composition checker function
+
+  The expected line format is:
+  s VERIFIED RANGE md5(cnf_file) md5(proof_file) i-j
+
 *)
-open preamble basis md5ProgTheory cfLib basisFunctionsLib spt_closureTheory;
+open preamble basis md5ProgTheory cfLib basisFunctionsLib spt_closureTheory lpr_parsingTheory;
 
 val _ = new_theory "lpr_composeProg"
 
 val _ = translation_extends "md5Prog";
-
-(* TODO: move *)
 
 Definition interval_cover_def:
   (interval_cover i j [] ⇔ i = j) ∧
   (interval_cover (i:num) j ((a,b)::xs) ⇔ a = i ∧ interval_cover b j xs)
 End
 
-(* / TODO *)
-
-Definition next_nondigit_def:
-  next_nondigit i s =
-    if i < strlen s then
-      let c = strsub s i in
-        if ORD #"0" ≤ ORD c ∧ ORD c ≤ ORD #"9"
-        then next_nondigit (i+1:num) s else i
-    else i
-Termination
-  WF_REL_TAC ‘measure (λ(i,s). strlen s - i:num)’
-End
-
-val res = translate next_nondigit_def;
-
-Definition get_num_acc_def:
-  get_num_acc [] k = (k,[],T) ∧
-  get_num_acc (c::cs) k =
-    if ORD #"0" ≤ ORD c ∧ ORD c ≤ ORD #"9" then
-      get_num_acc cs (k * 10 + (ORD c - ORD #"0"))
-    else (k,c::cs,T)
-End
-
-Definition get_num_def:
-  get_num [] = (0,[],F) ∧
-  get_num (c::cs) =
-    if ORD #"0" ≤ ORD c ∧ ORD c ≤ ORD #"9" then
-      if c = #"0" then (0,cs,T)
-      else get_num_acc (c::cs) 0
-    else (0,c::cs,F)
-End
-
-Definition get_chr_def:
-  get_chr c [] = ([],F) ∧
-  get_chr c (x::xs) = (xs,x = (c:char))
-End
+Theorem interval_cover_satisfiable:
+  ∀ijs i j.
+  interval_cover i j ijs ∧
+  EVERY (λ(i,j).
+    (satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
+     satisfiable (interp (run_proof fml (TAKE j pf))))) ijs ⇒
+  satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
+  satisfiable (interp (run_proof fml (TAKE j pf)))
+Proof
+  Induct>>simp[interval_cover_def,FORALL_PROD]>>rw[]>>fs[]>>
+  first_x_assum drule>>
+  metis_tac[]
+QED
 
 Definition get_range_def:
   get_range prefix line =
     if ~(mlstring$isPrefix prefix line) then
-      INL (strlit"ERROR: Incorrect prefix on line: " ^ line ^ strlit"\n")
+      INL (strlit"c Incorrect prefix on line: " ^ line ^ strlit"\n")
     else
       let i = strlen prefix in
       let l = strlen line in
-      let xs = explode (substring line i (l-i)) in
-      let (n,xs,b1) = get_num xs in
-      let (xs,b2) = get_chr #"-" xs in
-      let (xs,b3) = get_chr #"-" xs in
-      let (m,xs,b4) = get_num xs in
-      let (xs,b5) = get_chr #"\n" xs in
-      let g = (b1 ∧ b2 ∧ b3 ∧ b4 ∧ b5 ∧ NULL xs) in
-        if g then INR (n,m)
-        else INL (strlit "ERROR: Bad ranges on line: " ^ line)
+      if l > 0 ∧ strsub line (l-1) = #"\n" then
+        let rest = substring line i (l-i-1) in
+        case parse_rng rest of
+          NONE => INL (strlit "c Bad ranges on line: " ^ line)
+        | SOME (i,j) => INR (i,j)
+      else
+        INL (strlit "c Bad ranges on line: " ^ line)
 End
 
-val res = translate get_num_acc_def;
-val res = translate get_num_def;
-val res = translate get_chr_def;
+val _ = translate parse_rng_def;
+
+val parse_rng_side_def = fetch "-" "parse_rng_side_def"
+
+val parse_rng_side = Q.prove(`
+  !x. parse_rng_side x ⇔ T`,
+  simp[parse_rng_side_def]) |> update_precondition;
+
 val res = translate get_range_def;
 
 Theorem get_range_side:
   get_range_side x y = T
 Proof
-  fs [fetch "-" "get_range_side_def"]
-  \\ Cases_on ‘x’ \\ Cases_on ‘y’ \\ fs [isPrefix_def]
+  fs [fetch "-" "get_range_side_def"]>>
+  fs [isPrefix_def]
 QED
 
 val _ = update_precondition get_range_side;
@@ -97,10 +79,9 @@ End
 val res = translate get_ranges_def;
 
 Definition expected_prefix_def:
-  expected_prefix cnf_fname cnf_md5 proof_fname proof_md5 =
-    concat [cnf_fname; strlit " ";
+  expected_prefix cnf_md5 proof_md5 =
+    concat [strlit "s VERIFIED RANGE ";
             cnf_md5; strlit " ";
-            proof_fname; strlit " ";
             proof_md5; strlit " "]
 End
 
@@ -128,18 +109,18 @@ val res = translate closure_spt_def;
 val res = translate build_sets_def;
 
 Definition check_lines_def:
-  check_lines cnf_fname cnf_md5 proof_fname proof_md5 lines (n:num) =
-    let prefix = expected_prefix cnf_fname cnf_md5 proof_fname proof_md5 in
+  check_lines cnf_md5 proof_md5 lines (n:num) =
+    let prefix = expected_prefix cnf_md5 proof_md5 in
       case get_ranges prefix lines of
-      | INL err => err
+      | INL err => INL err
       | INR ranges =>
         let start = insert 0 () LN in
         let r = closure_spt start (build_sets ranges LN) in
           case lookup n r of
           | NONE =>
-              concat [strlit "ERROR: intervals do not reach "; toString n; strlit "\n"]
+              INL (concat [strlit "c Intervals do not reach "; toString n; strlit "\n"])
           | SOME u =>
-              concat [strlit "OK: intervals covered "; toString n; strlit "\n"]
+              INR (concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString n; strlit "\n"])
 End
 
 val res = translate check_lines_def;
@@ -181,21 +162,28 @@ Proof
   \\ Induct \\ fs [mllistTheory.foldl_def,add_one_def,ADD1]
 QED
 
+val notfound_string_def = Define`
+  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]`;
+
+val r = translate notfound_string_def;
+
 val _ = (append_prog o process_topdecs) `
   fun check_compose cnf_fname proof_fname lines_fname =
     case md5_of (Some cnf_fname) of
-      None => print ("ERROR: cannot read CNF file " ^ cnf_fname ^ "\n")
+      None => TextIO.output TextIO.stdErr (notfound_string cnf_fname)
     | Some cnf_md5 =>
       case md5_of (Some proof_fname) of
-        None => print ("ERROR: cannot read proof file " ^ proof_fname ^ "\n")
+        None => TextIO.output TextIO.stdErr (notfound_string proof_fname)
       | Some proof_md5 =>
         case TextIO.b_inputLinesFrom lines_fname of
-          None => print ("ERROR: cannot read lines file " ^ lines_fname ^ "\n")
+          None => TextIO.output TextIO.stdErr (notfound_string lines_fname)
         | Some lines =>
           case line_count_of proof_fname of
-            None => print ("ERROR: cannot read proof file " ^ proof_fname ^ "\n")
+            None => TextIO.output TextIO.stdErr (notfound_string proof_fname)
           | Some n =>
-              print (check_lines cnf_fname cnf_md5 proof_fname proof_md5 lines n)`;
+              case check_lines cnf_md5 proof_md5 lines n of
+                Inl err => TextIO.output TextIO.stdErr err
+              | Inr succ => print succ`
 
 Theorem check_compose_spec:
   FILENAME cnf_fname cnfv     ∧ file_content fs cnf_fname = SOME cnf ∧
@@ -206,11 +194,9 @@ Theorem check_compose_spec:
   app (p:'ffi ffi_proj) check_compose_v [cnfv; proofv; linesv]
     (STDIO fs)
     (POSTv retv.
-      STDIO (add_stdout fs
-        (check_lines cnf_fname (implode (md5 cnf))
-                     proof_fname (implode (md5 proof))
-                     (lines_of (strlit x))
-                     (LENGTH (lines_of (strlit proof))))) *
+      (case check_lines (implode (md5 cnf)) (implode (md5 proof)) (lines_of (strlit x)) (LENGTH (lines_of (strlit proof))) of
+        INL err => STDIO (add_stderr fs err)
+      | INR out => STDIO (add_stdout fs out)) *
       & (UNIT_TYPE () retv))
 Proof
   rpt strip_tac
@@ -248,8 +234,13 @@ Proof
   \\ fs [std_preludeTheory.OPTION_TYPE_def,implode_def]
   \\ xmatch
   \\ xlet_auto THEN1 xsimpl
+  \\ TOP_CASE_TAC \\ fs[SUM_TYPE_def] \\ xmatch
+  >- (
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl)
   \\ xapp
-  \\ xsimpl
   \\ first_assum $ irule_at (Pos hd) \\ fs []
   \\ qexists_tac ‘fs’
   \\ xsimpl
@@ -267,8 +258,9 @@ Theorem check_compose_spec_fail:
   app (p:'ffi ffi_proj) check_compose_v [cnfv; proofv; linesv]
     (STDIO fs)
     (POSTv retv.
-      SEP_EXISTS output.
-        STDIO (add_stdout fs output) * & (isPrefix (strlit "ERROR") output))
+      & (UNIT_TYPE () retv) *
+      SEP_EXISTS err.
+        STDIO (add_stderr fs err))
 Proof
   rpt strip_tac
   \\ xcf_with_def "check_compose" (fetch "-" "check_compose_v_def")
@@ -290,15 +282,11 @@ Proof
     \\ gvs [std_preludeTheory.OPTION_TYPE_def]
     \\ xmatch
     \\ xlet_auto THEN1 xsimpl
-    \\ xlet_auto THEN1 xsimpl
-    \\ xapp
-    \\ xsimpl
-    \\ first_assum $ irule_at (Pos hd) \\ fs []
-    \\ qexists_tac ‘fs’ \\ xsimpl
-    \\ rw []
-    \\ qmatch_goalsub_abbrev_tac ‘ss ^ tt’
-    \\ qexists_tac ‘ss ^ tt’
-    \\ xsimpl \\ unabbrev_all_tac \\ EVAL_TAC \\ fs [] \\ EVAL_TAC)
+    \\ xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>qexists_tac`notfound_string cnf_fname`>>xsimpl)
   \\ ntac 2 (pop_assum mp_tac)
   \\ simp [std_preludeTheory.OPTION_TYPE_def] \\ rw []
   \\ xmatch
@@ -313,15 +301,11 @@ Proof
     \\ gvs [std_preludeTheory.OPTION_TYPE_def]
     \\ xmatch
     \\ xlet_auto THEN1 xsimpl
-    \\ xlet_auto THEN1 xsimpl
-    \\ xapp
-    \\ xsimpl
-    \\ first_assum $ irule_at (Pos hd) \\ fs []
-    \\ qexists_tac ‘fs’ \\ xsimpl
-    \\ rw []
-    \\ qmatch_goalsub_abbrev_tac ‘ss ^ tt’
-    \\ qexists_tac ‘ss ^ tt’
-    \\ xsimpl \\ unabbrev_all_tac \\ EVAL_TAC \\ fs [] \\ EVAL_TAC)
+    \\ xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>qexists_tac`notfound_string proof_fname`>>xsimpl)
   \\ ntac 2 (pop_assum mp_tac)
   \\ simp [std_preludeTheory.OPTION_TYPE_def] \\ rw []
   \\ xmatch
@@ -339,15 +323,11 @@ Proof
   \\ fs [std_preludeTheory.OPTION_TYPE_def,implode_def]
   \\ xmatch
   \\ xlet_auto THEN1 xsimpl
-  \\ xlet_auto THEN1 xsimpl
-  \\ xapp
-  \\ xsimpl
-  \\ first_assum $ irule_at (Pos hd) \\ fs []
-  \\ qexists_tac ‘fs’ \\ xsimpl
-  \\ rw []
-  \\ qmatch_goalsub_abbrev_tac ‘ss ^ tt’
-  \\ qexists_tac ‘ss ^ tt’
-  \\ xsimpl \\ unabbrev_all_tac \\ EVAL_TAC \\ fs [] \\ EVAL_TAC
+  \\ xapp_spec output_stderr_spec \\ xsimpl>>
+  asm_exists_tac>>xsimpl>>
+  qexists_tac`emp`>>xsimpl>>
+  qexists_tac`fs`>>xsimpl>>
+  rw[]>>qexists_tac`notfound_string lines_fname`>>xsimpl
 QED
 
 Theorem is_adjacent_build_sets:
@@ -390,6 +370,7 @@ Proof
   \\ qexists_tac ‘p_2’ \\ fs [is_adjacent_build_sets]
 QED
 
+(*
 Theorem get_ranges_IML_IMP:
   ∀lines prefix. get_ranges prefix lines = INL x ⇒ isPrefix «ERROR» x
 Proof
@@ -398,21 +379,18 @@ Proof
   \\ gvs [get_range_def,AllCaseEqs()]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ EVAL_TAC \\ fs [] \\ EVAL_TAC
-QED
+QED *)
 
 Theorem check_lines_correct:
-  ~isPrefix (strlit "ERROR")
-            (check_lines cnf_fname cnf_md5 proof_fname proof_md5 lines n)
+  check_lines cnf_md5 proof_md5 lines n = INR succ
   ⇒
   ∃path ranges.
     interval_cover 0 n path ∧ set path ⊆ set ranges ∧
-    get_ranges (expected_prefix cnf_fname cnf_md5 proof_fname proof_md5)
+    get_ranges (expected_prefix cnf_md5 proof_md5)
       lines = INR ranges
 Proof
   fs [check_lines_def] \\ CASE_TAC
-  \\ imp_res_tac get_ranges_IML_IMP
   \\ CASE_TAC \\ fs []
-  THEN1 (EVAL_TAC \\ fs [] \\ EVAL_TAC)
   \\ rw []
   \\ fs [GSYM is_reachable_build_sets]
   \\ fs [closure_spt_thm |> SIMP_RULE (srw_ss()) [EXTENSION,domain_lookup]]

@@ -1,7 +1,7 @@
 (*
   This refines lpr_list to use arrays
 *)
-open preamble basis md5ProgTheory UnsafeProgTheory UnsafeProofTheory lprTheory lpr_listTheory lpr_parsingTheory;
+open preamble basis md5ProgTheory lpr_composeProgTheory UnsafeProofTheory lprTheory lpr_listTheory lpr_parsingTheory HashtableProofTheory;
 
 val _ = new_theory "lpr_arrayProg"
 
@@ -52,7 +52,7 @@ Proof
   simp[]
 QED
 
-val _ = translation_extends"UnsafeProg";
+val _ = translation_extends"lpr_composeProg";
 
 (* Pure translation of LPR checker *)
 val _ = register_type``:lprstep``;
@@ -2319,11 +2319,6 @@ Proof
   metis_tac[]
 QED
 
-val notfound_string_def = Define`
-  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]`;
-
-val r = translate notfound_string_def;
-
 val noparse_string_def = Define`
   noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]`;
 
@@ -2882,6 +2877,9 @@ Run LPR transformation proof checking
 
 Usage:  cake_lpr <DIMACS formula file> <summary proof file> i-j <LPR proof file>
 Run two-level transformation proof checking for lines i-j
+
+Usage:  cake_lpr <DIMACS formula file> <summary proof file> -check <output file>
+Check that output intervals cover all lines of summary proof file
 
 ’
 
@@ -3445,25 +3443,22 @@ val check_unsat_3 = (append_prog o process_topdecs) `
     | Inr False => TextIO.output TextIO.stdErr "c transformation clause not derived at end of proof\n"
   end`
 
-val _ = translate parse_rng_def;
-
-val parse_rng_side_def = fetch "-" "parse_rng_side_def"
-
-val parse_rng_side = Q.prove(`
-  !x. parse_rng_side x ⇔ T`,
-  simp[parse_rng_side_def]) |> update_precondition;
-
 val check_cond_def = Define`
   check_cond i j pf = (i ≤ j ∧ j ≤ LENGTH pf)`
 
 val _ = translate check_cond_def;
 
-(* The success string, TODO: add md5 of f1 f2 *)
-val success_rng_def = Define`
-  success_rng f1 f2 rng =
-  (strlit "s VERIFIED RANGE " ^ rng ^ strlit "\n")`
+val success_str_def = Define`
+  success_str cnf_md5 proof_md5 rng = expected_prefix cnf_md5 proof_md5 ^ rng ^ strlit "\n"`
 
-val _ = translate success_rng_def;
+val _ = translate success_str_def;
+
+val parse_rng_or_check_def = Define`
+  parse_rng_or_check rngc =
+  if rngc = strlit "-check" then SOME (INL ())
+  else OPTION_MAP INR (parse_rng rngc)`
+
+val _ = translate parse_rng_or_check_def;
 
 val check_unsat_4 = (append_prog o process_topdecs) `
   fun check_unsat_4 f1 f2 rng f3 =
@@ -3473,9 +3468,11 @@ val check_unsat_4 = (append_prog o process_topdecs) `
   case parse_proof_full f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr pf =>
-  case parse_rng rng of
+  case parse_rng_or_check rng of
     None => TextIO.output TextIO.stdErr "c Unable to parse range specification a-b\n"
-  | Some (i,j) =>
+  | Some (Inl u) =>
+    check_compose f1 f2 f3
+  | Some (Inr (i,j)) =>
     if check_cond i j pf
     then
     let val ls = enumerate 1 fml
@@ -3488,7 +3485,13 @@ val check_unsat_4 = (append_prog o process_topdecs) `
     in
       case check_lpr_range_arr f3 arr rls earr bnd (ncl+1) pf i j of
         Inl err => TextIO.output TextIO.stdErr err
-      | Inr True => TextIO.print (success_rng f1 f2 rng)
+      | Inr True =>
+          (case md5_of (Some f1) of
+            None => TextIO.output TextIO.stdErr (notfound_string f1)
+          | Some cnf_md5 =>
+            case md5_of (Some f2) of
+              None => TextIO.output TextIO.stdErr (notfound_string f2)
+            | Some proof_md5 => TextIO.print (success_str cnf_md5 proof_md5 rng))
       | Inr False => TextIO.output TextIO.stdErr "c transformation clause not derived at end of proof\n"
     end
     else TextIO.output TextIO.stdErr "c Invalid range specification: range a-b must satisfy a <= b <= num lines in proof file\n"`
@@ -3915,9 +3918,17 @@ val check_unsat_4_sem_def = Define`
   (case parse_proof_toks (MAP toks (all_lines fs f2)) of
     NONE => add_stderr fs err
   | SOME pf =>
-  (case parse_rng rng of
+  (case parse_rng_or_check rng of
     NONE => add_stderr fs err
-  | SOME (i,j) =>
+  | SOME (INL ()) =>
+    if inFS_fname fs f3 then
+      case check_lines (implode (md5 (THE (file_content fs f1)))) (implode (md5 (THE (file_content fs f2))))
+        (all_lines fs f3) (LENGTH pf) of
+        INL _ => add_stderr fs err
+      | INR s => add_stdout fs s
+    else
+      add_stderr fs err
+  | SOME (INR (i,j)) =>
     if i ≤ j ∧ j ≤ LENGTH pf ∧ inFS_fname fs f3 then
       case parse_lpr (all_lines fs f3) of
         SOME lpr =>
@@ -3927,7 +3938,7 @@ val check_unsat_4_sem_def = Define`
         let upd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base fmlls in
         let earliest = FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) fmlls in
           if check_lpr_range_list lpr upd (REVERSE (MAP FST fmlls)) earliest bnd (ncl+1) pf i j then
-            add_stdout fs (success_rng f1 f2 rng)
+            add_stdout fs (success_str (implode (md5 (THE (file_content fs f1)))) (implode (md5 (THE (file_content fs f2)))) rng)
           else
             add_stderr fs err
       | NONE => add_stderr fs err
@@ -3986,6 +3997,14 @@ Proof
     simp[SUM_TYPE_def]>>metis_tac[]
 QED
 
+Theorem inFS_fname_file_content:
+  consistentFS fs ∧ inFS_fname fs f ⇒ ∃c. file_content fs f = SOME c
+Proof
+  rw[consistentFS_def,inFS_fname_def]>>simp[]>>
+  first_x_assum drule>>simp[file_content_def]>>
+  metis_tac[ALOOKUP_NONE,option_CASES]
+QED
+
 Theorem check_unsat_4_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
   STRING_TYPE f2 f2v ∧ validArg f2 ∧
@@ -4001,6 +4020,8 @@ Theorem check_unsat_4_spec:
 Proof
   rw[]>>
   xcf "check_unsat_4" (get_ml_prog_state ())>>
+  reverse (Cases_on`consistentFS fs`)
+    >- (fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def] \\ xpull \\ metis_tac[]) >>
   xlet_autop>>
   simp[check_unsat_4_sem_def]>>
   reverse TOP_CASE_TAC>>fs[]
@@ -4027,7 +4048,33 @@ Proof
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     qexists_tac`strlit"c Unable to parse range specification a-b\n"`>>xsimpl)>>
-  PairCases_on`x'`>>fs[PAIR_TYPE_def]>>
+  TOP_CASE_TAC >>fs[SUM_TYPE_def]
+  >- (
+    (* -check case *)
+    xmatch>>
+    reverse TOP_CASE_TAC
+    >- (
+      xapp_spec check_compose_spec_fail>>
+      xsimpl>>
+      fs[FILENAME_def,validArg_def]>>
+      asm_exists_tac>>simp[]>>
+      asm_exists_tac>>simp[]>>
+      asm_exists_tac>>simp[]>>
+      fs[file_content_def,inFS_fname_def]>>
+      TOP_CASE_TAC>>fs[])>>
+    xapp>>xsimpl>>fs[]>>
+    asm_exists_tac>>simp[]>>
+    imp_res_tac inFS_fname_file_content>>fs[]>>rw[]>>
+    fs[FILENAME_def,validArg_def]>>
+    asm_exists_tac>> simp[]>>
+    qpat_x_assum`_ _ f3 = _` assume_tac>>
+    asm_exists_tac>> simp[]>>
+    qpat_x_assum`_ _ f2 = _` assume_tac>>
+    asm_exists_tac>> simp[]>>
+    qexists_tac`emp`>>xsimpl>>rw[]>>
+    (* relate all_lines and lines_of *)
+    cheat)>>
+  PairCases_on`y`>>fs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
   fs[check_cond_def]>>
@@ -4108,6 +4155,21 @@ Proof
   simp[SUM_TYPE_def]>>strip_tac>>
   TOP_CASE_TAC>>fs[BOOL_def]>> xmatch
   >- (
+    xlet_autop>>
+    xlet ‘(POSTv retv. STDIO fs * &OPTION_TYPE STRING_TYPE
+            (OPTION_MAP (implode ∘ md5) (file_content fs f1)) retv)’
+    >-
+      (xapp_spec md5_of_SOME \\ fs [std_preludeTheory.OPTION_TYPE_def, FILENAME_def,validArg_def])>>
+    imp_res_tac inFS_fname_file_content>>fs[]>>rw[]>>
+    gvs [std_preludeTheory.OPTION_TYPE_def]>>
+    xmatch>>
+    xlet_autop>>
+    xlet ‘(POSTv retv. STDIO fs * &OPTION_TYPE STRING_TYPE
+            (OPTION_MAP (implode ∘ md5) (file_content fs f2)) retv)’
+    >-
+      (xapp_spec md5_of_SOME \\ fs [std_preludeTheory.OPTION_TYPE_def, FILENAME_def,validArg_def])>>
+    gvs [std_preludeTheory.OPTION_TYPE_def]>>
+    xmatch>>
     xlet_autop>>
     xapp>>xsimpl>>
     qexists_tac`emp`>>
