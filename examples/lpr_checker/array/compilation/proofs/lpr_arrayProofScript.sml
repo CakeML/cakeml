@@ -7,7 +7,7 @@ open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
      TextIOProofTheory
      satSemTheory lprTheory lpr_listTheory lpr_arrayProgTheory
-     parsingTheory lpr_arrayCompileTheory;
+     lpr_parsingTheory lpr_arrayCompileTheory lpr_composeProgTheory;
 
 val _ = new_theory"lpr_arrayProof";
 
@@ -55,6 +55,27 @@ val check_unsat_code_def = Define `
   check_unsat_code = (code, data, config)
   `;
 
+Theorem concat_success_str:
+  ∀a b c. concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString (d:num); strlit "\n"] ≠ success_str a b c
+Proof
+  rw[]>>
+  simp[success_str_def,expected_prefix_def]>>
+  simp[mlstringTheory.concat_def]>>
+  qmatch_goalsub_abbrev_tac`STRING #"I" (STRING #"N" lss)`>>
+  qmatch_goalsub_abbrev_tac`STRING #"R" (STRING #"A" lsss)`>>
+  EVAL_TAC
+QED
+
+Theorem check_lines_success_str:
+  check_lines a b c d = INR y ⇒
+  y = concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString d; strlit "\n"] ∧
+  ∀a b c. y ≠ success_str a b c
+Proof
+  simp[check_lines_def]>>
+  every_case_tac>>rw[]>>
+  metis_tac[concat_success_str]
+QED
+
 Theorem machine_code_sound:
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ⇒
   installed_x64 check_unsat_code (basis_ffi cl fs) mc ms ⇒
@@ -87,9 +108,12 @@ Theorem machine_code_sound:
       (satisfiable (interp fml) ⇒ satisfiable (interp fml2))
     else out = strlit ""
   else if LENGTH cl = 5 then
-    if out = success_rng (EL 1 cl) (EL 2 cl) (EL 3 cl) then
+    if ∃cnf_md5 proof_md5 rng. out = success_str cnf_md5 proof_md5 rng then
     inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
     inFS_fname fs (EL 4 cl) ∧
+    out = success_str
+      (implode (md5 (THE (file_content fs (EL 1 cl)))))
+      (implode (md5 (THE (file_content fs (EL 2 cl))))) (EL 3 cl) ∧
     ∃i j fml pf.
       parse_rng (EL 3 cl) = SOME (i,j) ∧
       parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
@@ -97,6 +121,11 @@ Theorem machine_code_sound:
       i ≤ j ∧ j ≤ LENGTH pf ∧
       (satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
        satisfiable (interp (run_proof fml (TAKE j pf))))
+    else if ?n:num. out = concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString n; strlit "\n"] then
+    inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧ inFS_fname fs (EL 4 cl) ∧
+    EL 3 cl = strlit "-check" ∧
+    check_lines (implode (md5 (THE (file_content fs (EL 1 cl))))) (implode (md5 (THE (file_content fs (EL 2 cl)))))
+        (all_lines fs (EL 4 cl)) (LENGTH (all_lines fs (EL 2 cl))) = INR out
     else out = strlit ""
   else
     out = strlit ""
@@ -225,16 +254,20 @@ Proof
   TOP_CASE_TAC>>fs[]
   >- (
     (* 4 arg *)
+    `∀a b c. success_str a b c ≠ strlit ""` by (rw[]>>EVAL_TAC)>>
+    `∀n:num. concat [strlit "s VERIFIED INTERVALS COVER 0-" ; toString n; strlit"\n"]  ≠ strlit ""` by
+      (rw[]>>
+      qmatch_goalsub_abbrev_tac`_ :: lss`>>
+      EVAL_TAC)>>
     fs[check_unsat_4_sem_def]>>
-    `success_rng h' h'' h''' ≠ strlit ""` by EVAL_TAC>>
     reverse IF_CASES_TAC>>fs[]
     >- (
-      qexists_tac`err`>>rw[]>>
+      qexists_tac`err`>>rw[] >>
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     TOP_CASE_TAC>>fs[]
     >- (
       qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]>>
+      qexists_tac`err`>>
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     PairCases_on`x`>>fs[]>>
     reverse IF_CASES_TAC>>fs[]
@@ -248,8 +281,32 @@ Proof
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
     TOP_CASE_TAC>>fs[]
     >- (
-      qexists_tac`err`>>rw[]>>
+      qexists_tac`strlit""`>>qexists_tac`err`>>rw[]>>
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
+    TOP_CASE_TAC>>fs[]
+    (* -check option*)
+    >- (
+      reverse IF_CASES_TAC
+      >- (
+        qexists_tac`strlit ""`>>simp[]>>
+        qexists_tac`err`>>rw[]>>
+        metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
+      TOP_CASE_TAC
+      >- (
+        qexists_tac`strlit ""`>>simp[]>>
+        qexists_tac`err`>>rw[]>>
+        metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
+      qexists_tac`y`>>qexists_tac`strlit ""`>>simp[]>>
+      CONJ_TAC >-
+        metis_tac[STD_streams_stderr,add_stdo_nil]>>
+      drule check_lines_success_str>>
+      simp[]>> rw[]
+      >- metis_tac[]
+      >-  (fs[parse_rng_or_check_def]>>
+        qpat_x_assum`_=SOME (INL _)` mp_tac>>IF_CASES_TAC>>fs[])>>
+      drule parse_proof_toks_LENGTH>>
+      rw[]>>
+      metis_tac[])>>
     TOP_CASE_TAC>>fs[]>>
     reverse IF_CASES_TAC
     >- (
@@ -266,11 +323,20 @@ Proof
       qexists_tac`strlit ""`>>simp[]>>
       qexists_tac`err`>>rw[]>>
       metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    qexists_tac`success_rng h' h'' h'''` >>
+    qmatch_goalsub_abbrev_tac`success_str a b c`>>
+    qexists_tac`success_str a b c`>>
     qexists_tac`strlit ""`>> simp[]>>
     CONJ_TAC >-
       metis_tac[STD_streams_stderr,add_stdo_nil]>>
+    reverse IF_CASES_TAC>- (
+      rw[]>>
+      metis_tac[])>>
     fs[parse_dimacs_def,parse_proof_def]>>
+    rw[]>>fs[]>>
+    fs[parse_rng_or_check_def]>>
+    qpat_x_assum`_ = SOME (INR _)` mp_tac>>
+    IF_CASES_TAC>>fs[]>>
+    strip_tac>>
     match_mp_tac (GEN_ALL check_lpr_range_list_sound)>>
     `x1 + 1 = LENGTH x2 +1 ` by (
       fs[parse_dimacs_toks_def]>>
@@ -290,25 +356,6 @@ Proof
     drule parse_dimacs_wf>>simp[])>>
   qexists_tac`err`>>rw[]>>
   metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]
-QED
-
-val interval_cover_def = Define`
-  (interval_cover i j [] ⇔ i = j) ∧
-  (interval_cover (i:num) j ((a,b)::xs) =
-    (a = i ∧ interval_cover b j xs))`
-
-Theorem interval_cover_satisfiable:
-  ∀ijs i j.
-  interval_cover i j ijs ∧
-  EVERY (λ(i,j).
-    (satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
-     satisfiable (interp (run_proof fml (TAKE j pf))))) ijs ⇒
-  satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
-  satisfiable (interp (run_proof fml (TAKE j pf)))
-Proof
-  Induct>>simp[interval_cover_def,FORALL_PROD]>>rw[]>>fs[]>>
-  first_x_assum drule>>
-  metis_tac[]
 QED
 
 Theorem run_proof_empty:
@@ -337,7 +384,10 @@ Theorem par_check_sound:
   (
     EVERY (λ(cl,fs,mc,ms,i,j).
       extract_fs fs (check_unsat_io_events cl fs) =
-        SOME (add_stdout fs (success_rng (EL 1 cl) (EL 2 cl) (EL 3 cl) ))
+        SOME (add_stdout fs
+          (success_str
+          (implode (md5 (THE (file_content fs (EL 1 cl)))))
+          (implode (md5 (THE (file_content fs (EL 2 cl))))) (EL 3 cl)))
     ) nodes ⇒
     (satisfiable (interp fml) ⇒
      satisfiable (interp (run_proof fml pf)))
@@ -351,7 +401,9 @@ Proof
   ∃out err.
     extract_fs fs (check_unsat_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-    (out = success_rng (EL 1 cl) (EL 2 cl) (EL 3 cl) ⇒
+    (out = success_str
+      (implode (md5 (THE (file_content fs (EL 1 cl)))))
+      (implode (md5 (THE (file_content fs (EL 2 cl))))) (EL 3 cl) ⇒
       i ≤ j ∧ j ≤ LENGTH pf ∧
       (satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
        satisfiable (interp (run_proof fml (TAKE j pf)))))) nodes` by
@@ -362,8 +414,10 @@ Proof
     simp[]>>  rpt(disch_then drule)>>
     rw[]>>
     asm_exists_tac>>simp[]>>
-    strip_tac>>fs[]>>
-    fs[parse_rng_toString])>>
+    pop_assum mp_tac>>every_case_tac>>
+    fs[parse_rng_toString]>>
+    `∀a b c. success_str a b c ≠ strlit ""` by (rw[]>>EVAL_TAC)>>
+    metis_tac[])>>
   CONJ_TAC >- (
     pop_assum mp_tac>>match_mp_tac MONO_EVERY>>
     simp[FORALL_PROD]>>
@@ -393,7 +447,10 @@ val check_successful_def = Define`
     all_lines fs (EL 2 cl) = pfstr ∧
     EL 3 cl = toString i ^ «-» ^ toString j ∧
     extract_fs fs (check_unsat_io_events cl fs) =
-      SOME (add_stdout fs (success_rng (EL 1 cl) (EL 2 cl) (EL 3 cl) ))`
+      SOME (add_stdout fs
+        (success_str
+          (implode (md5 (THE (file_content fs (EL 1 cl)))))
+          (implode (md5 (THE (file_content fs (EL 2 cl))))) (EL 3 cl)))`
 
 Theorem par_check_sound_2:
   parse_dimacs fmlstr = SOME fml ∧ parse_proof pfstr = SOME pf ∧
@@ -411,11 +468,155 @@ Proof
     drule machine_code_sound>> rpt(disch_then drule)>>
     simp[]>>  rpt(disch_then drule)>>
     rw[]>>
+    pop_assum mp_tac>>
+    TOP_CASE_TAC>>fs[]
+    >- (
+      rw[]>>
+      drule STD_streams_stdout>>rw[]>>
+      drule add_stdout_inj>>
+      disch_then drule>>
+      rw[stdout_add_stderr]>>
+      fs[parse_rng_toString])>>
     drule STD_streams_stdout>>rw[]>>
     drule add_stdout_inj>>
     disch_then drule>>
-    rw[stdout_add_stderr]>>
-    fs[parse_rng_toString])>>
+    rw[]>>
+    metis_tac[stdout_add_stderr])>>
+  simp[]
+QED
+
+Theorem parse_proof_LENGTH:
+  parse_proof ls = SOME pf ⇒
+  LENGTH pf = LENGTH ls
+Proof
+  simp[parse_proof_def]>>
+  rw[]>>
+  drule parse_proof_toks_LENGTH>>
+  simp[]
+QED
+
+Theorem success_str_inj:
+  success_str a b c = success_str a b d ⇒ c = d
+Proof
+  rw[success_str_def,expected_prefix_def]>>
+  pop_assum mp_tac>>
+  EVAL_TAC>>
+  rw[]>>simp[]>>
+  every_case_tac>>fs[]
+QED
+
+val check_successful_par_def = Define`
+  check_successful_par fmlstr pfstr =
+  ∃outstr.
+    (∃cl fs mc ms.
+      wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
+      installed_x64 check_unsat_code (basis_ffi cl fs) mc ms ∧
+      LENGTH cl = 5 ∧
+      inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
+      all_lines fs (EL 1 cl) = fmlstr ∧
+      all_lines fs (EL 2 cl) = pfstr ∧
+      all_lines fs (EL 4 cl) = outstr ∧
+      extract_fs fs (check_unsat_io_events cl fs) =
+        SOME (add_stdout fs
+          (concat [«s VERIFIED INTERVALS COVER 0-» ; toString (LENGTH pfstr); «\n»]))) ∧
+    ∀out. MEM out outstr ⇒
+    (∃cl fs mc ms i j.
+      wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
+      installed_x64 check_unsat_code (basis_ffi cl fs) mc ms ∧
+      LENGTH cl = 5 ∧
+      inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
+      all_lines fs (EL 1 cl) = fmlstr ∧
+      all_lines fs (EL 2 cl) = pfstr ∧
+      EL 3 cl = toString i ^ «-» ^ toString j ∧
+      extract_fs fs (check_unsat_io_events cl fs) = SOME (add_stdout fs out))`
+
+Theorem MEM_get_ranges:
+  ∀ls prefix ranges i j.
+  get_ranges prefix ls = INR ranges ∧
+  MEM (i,j) ranges ⇒
+  MEM (prefix ^ (toString i ^ «-» ^ toString j) ^ strlit"\n") ls
+Proof
+  Induct>>rw[get_ranges_def]>>
+  every_case_tac>>fs[]>>rw[]>>
+  fs[get_range_def]>>
+  every_case_tac>>fs[]>>rw[]>>
+  cheat
+QED
+
+Theorem lines_of_inj:
+  lines_of (strlit c) = lines_of (strlit d) ⇒ c = d
+Proof
+  cheat
+QED
+
+Theorem par_check_sound_3:
+  parse_dimacs fmlstr = SOME fml ∧ parse_proof pfstr = SOME pf ∧
+  check_successful_par fmlstr pfstr ⇒
+  (satisfiable (interp fml) ⇒ satisfiable (interp (run_proof fml pf)))
+Proof
+  rw[check_successful_par_def]>>
+  drule machine_code_sound>> rpt(disch_then drule)>>
+  simp[]>>  rpt(disch_then drule)>>
+  rw[]>>
+  drule STD_streams_stdout>>rw[]>>
+  drule add_stdout_inj>>
+  disch_then drule>>
+  simp[stdout_add_stderr]>>
+  rw[]>>fs[concat_success_str]>>
+  ntac 2 (pop_assum mp_tac)>>
+  reverse IF_CASES_TAC>>fs[]
+  >-
+    metis_tac[]>>
+  rw[]>>
+  drule lpr_composeProgTheory.check_lines_correct>>
+  rw[]>>
+  qpat_x_assum`satisfiable _` mp_tac>>
+  match_mp_tac (GEN_ALL par_check_sound_2)>>
+  asm_exists_tac>> simp[]>>
+  asm_exists_tac>> simp[]>>
+  drule parse_proof_LENGTH>>
+  rw[]>>
+  asm_exists_tac>> simp[]>>
+  rw[EVERY_MEM]>>
+  Cases_on`e`>>fs[]>>
+  `MEM (q,r) ranges` by fs[SUBSET_DEF]>>
+  drule MEM_get_ranges>>
+  disch_then drule>>
+  simp[GSYM success_str_def]>>
+  strip_tac>>
+  first_x_assum drule>>
+  rw[]>>
+  simp[check_successful_def]>>
+  rpt(asm_exists_tac>>simp[])>>
+  drule machine_code_sound>>
+  rpt(disch_then drule)>>simp[]>>
+  rpt(disch_then drule)>>simp[]>>
+  strip_tac>>fs[]>>
+  qmatch_asmsub_abbrev_tac`add_stdout fs' ss`>>
+  `ss = out` by
+    (drule STD_streams_stdout>>rw[]>>
+    drule add_stdout_inj>>
+    disch_then drule>>
+    rw[stdout_add_stderr])>>
+  unabbrev_all_tac>>fs[]>>
+  pop_assum sym_sub_tac>>
+  pop_assum mp_tac>>
+  reverse IF_CASES_TAC
+  >- metis_tac[]>>
+  fs[]>>strip_tac>>
+  fs[success_str_inj]>>
+  `consistentFS fs` by
+    (fs[fsFFIPropsTheory.consistentFS_def,fsFFIPropsTheory.wfFS_def]>>
+    metis_tac[])>>
+  drule inFS_fname_file_content>> disch_then imp_res_tac >>
+  `consistentFS fs'` by
+    (fs[fsFFIPropsTheory.consistentFS_def,fsFFIPropsTheory.wfFS_def]>>
+    metis_tac[])>>
+  drule inFS_fname_file_content>> disch_then imp_res_tac >>
+  imp_res_tac all_lines_lines_of>>
+  fs[]>>
+  imp_res_tac lines_of_inj>>rw[]>>
+  drule success_str_inj>>
   simp[]
 QED
 

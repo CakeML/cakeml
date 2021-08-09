@@ -4005,6 +4005,34 @@ Proof
   metis_tac[ALOOKUP_NONE,option_CASES]
 QED
 
+Theorem all_lines_lines_of:
+  file_content fs f = SOME c ⇒
+  all_lines fs f = lines_of (strlit c)
+Proof
+  fs[file_content_def]>>
+  rw[all_lines_def,lines_of_def]>>
+  every_case_tac>>fs[]
+QED
+
+Theorem parse_proof_toks_aux_LENGTH:
+  ∀ls acc x.
+  parse_proof_toks_aux ls acc = SOME x ⇒
+  LENGTH x = LENGTH ls + LENGTH acc
+Proof
+  Induct>>simp[parse_proof_toks_aux_def]>>
+  rw[]>>
+  every_case_tac>>fs[]>>
+  first_x_assum drule>>
+  simp[]
+QED
+
+Theorem parse_proof_toks_LENGTH:
+  parse_proof_toks ls = SOME x ⇒ LENGTH x = LENGTH ls
+Proof
+  rw[parse_proof_toks_def]>>
+  drule parse_proof_toks_aux_LENGTH>>simp[]
+QED
+
 Theorem check_unsat_4_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
   STRING_TYPE f2 f2v ∧ validArg f2 ∧
@@ -4073,7 +4101,13 @@ Proof
     asm_exists_tac>> simp[]>>
     qexists_tac`emp`>>xsimpl>>rw[]>>
     (* relate all_lines and lines_of *)
-    cheat)>>
+    imp_res_tac all_lines_lines_of>>simp[]>>
+    gs[]>>
+    drule parse_proof_toks_LENGTH>>
+    simp[]>>
+    TOP_CASE_TAC>>simp[]>>strip_tac
+    >- (qexists_tac`x'`>>xsimpl)>>
+    xsimpl)>>
   PairCases_on`y`>>fs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
