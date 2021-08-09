@@ -370,6 +370,112 @@ Proof
   \\ qexists_tac ‘p_2’ \\ fs [is_adjacent_build_sets]
 QED
 
+Theorem isPrefix:
+  isPrefix (strlit s) (strlit t) ⇔ s ≼ t
+Proof
+  fs [isPrefix_def]  \\ fs [isStringThere_aux_def]
+  \\ reverse (Cases_on ‘STRLEN s ≤ STRLEN t’)
+  THEN1
+   (fs [] \\ CCONTR_TAC \\ fs []
+    \\ imp_res_tac rich_listTheory.IS_PREFIX_LENGTH)
+  \\ fs []
+  \\ qsuff_tac ‘∀x y.
+    isStringThere_aux (strlit (x ++ s)) (strlit (y ++ t))
+       (LENGTH x) (LENGTH y) (STRLEN s) ⇔ s ≼ t’
+  THEN1 (fs [] \\ disch_then (qspecl_then [‘[]’,‘[]’] assume_tac) \\ fs [])
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘t’
+  \\ qid_spec_tac ‘s’
+  \\ Induct \\ fs [isStringThere_aux_def]
+  \\ Cases_on ‘t’ \\ fs [isStringThere_aux_def] \\ rw []
+  \\ last_x_assum drule
+  \\ disch_then (qspecl_then [‘x ++ [h']’,‘y ++ [h]’] mp_tac) \\ fs []
+  \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND] \\ fs []
+  \\ rw [EL_LENGTH_APPEND]
+QED
+
+Theorem SEG_LENGTH_APPEND:
+  ∀xs ys n. SEG n (LENGTH xs) (xs ++ ys) = SEG n 0 ys
+Proof
+  Induct \\ Cases_on ‘n’ \\ fs [SEG]
+QED
+
+Theorem substring_strcat:
+  substring (prefix ^ s) (strlen prefix) n = substring s 0 n
+Proof
+  Cases_on ‘prefix’ \\ Cases_on ‘s’
+  \\ fs [strcat_def,concat_def]
+  \\ fs [substring_def,DROP_LENGTH_APPEND]
+  \\ fs [DECIDE “n+m ≤ m+k ⇔ n ≤ k:num”]
+  \\ rw [SEG_LENGTH_APPEND]
+QED
+
+Theorem isPrefix_IMP_append:
+  isPrefix prefix h ⇒ ∃s. h = prefix ^ s
+Proof
+  Cases_on ‘prefix’ \\ Cases_on ‘h’ \\ rw [isPrefix]
+  \\ gvs [stringTheory.isPREFIX_STRCAT]
+  \\ rename [‘STRCAT s s1’]
+  \\ qexists_tac ‘strlit s1’ \\ fs [strcat_def,concat_def]
+QED
+
+Theorem substring_TAKE:
+  substring (strlit xs) 0 n = strlit (TAKE n xs)
+Proof
+  rw [substring_def] \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘xs’
+  \\ qid_spec_tac ‘n’
+  \\ Induct \\ Cases_on ‘xs’ \\ fs [SEG]
+QED
+
+Definition parse_num_aux_def:
+  parse_num_aux [] = 0 ∧
+  parse_num_aux (c::cs) = (ORD c - 48) + 10 * parse_num_aux cs
+End
+
+Definition parse_num_def:
+  parse_num s =
+    if isPrefix (strlit "0") s then
+      if s = strlit "0" then SOME 0 else NONE
+    else
+      let cs = explode s in
+        if EVERY isDigit cs then SOME (parse_num_aux (REVERSE cs)) else NONE
+End
+
+Theorem parse_num_IMP:
+  parse_num s = SOME n ⇒ s = toString n
+Proof
+  rw [parse_num_def] THEN1 EVAL_TAC
+  \\ gvs [AllCaseEqs()]
+  \\ cheat
+QED
+
+Theorem MEM_get_ranges:
+  ∀ls prefix ranges i j.
+    get_ranges prefix ls = INR ranges ∧
+    MEM (i,j) ranges ⇒
+    MEM (prefix ^ (toString i ^ «-» ^ toString j) ^ strlit"\n") ls
+Proof
+  Induct \\ rw[get_ranges_def]
+  \\ gvs[get_range_def,AllCaseEqs()]
+  \\ disj1_tac
+  \\ imp_res_tac isPrefix_IMP_append \\ gvs []
+  \\ fs [substring_strcat]
+  \\ Cases_on ‘s’ \\ Cases_on ‘s'’ using SNOC_CASES
+  THEN1
+   (rpt (pop_assum mp_tac)
+    \\ qid_spec_tac ‘i’
+    \\ qid_spec_tac ‘j’
+    \\ EVAL_TAC \\ fs [])
+  \\ fs [SNOC_APPEND,ADD1]
+  \\ Cases_on ‘prefix’
+  \\ fs [strcat_def,concat_def]
+  \\ ‘STRLEN l + STRLEN s = STRLEN (STRCAT s l)’ by fs []
+  \\ full_simp_tac std_ss [EL_LENGTH_APPEND,NULL,HD] \\ gvs []
+  \\ fs [substring_TAKE,TAKE_LENGTH_APPEND]
+  \\ cheat
+QED
+
 (*
 Theorem get_ranges_IML_IMP:
   ∀lines prefix. get_ranges prefix lines = INL x ⇒ isPrefix «ERROR» x

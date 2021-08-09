@@ -530,19 +530,6 @@ val check_successful_par_def = Define`
       EL 3 cl = toString i ^ «-» ^ toString j ∧
       extract_fs fs (check_unsat_io_events cl fs) = SOME (add_stdout fs out))`
 
-Theorem MEM_get_ranges:
-  ∀ls prefix ranges i j.
-  get_ranges prefix ls = INR ranges ∧
-  MEM (i,j) ranges ⇒
-  MEM (prefix ^ (toString i ^ «-» ^ toString j) ^ strlit"\n") ls
-Proof
-  Induct>>rw[get_ranges_def]>>
-  every_case_tac>>fs[]>>rw[]>>
-  fs[get_range_def]>>
-  every_case_tac>>fs[]>>rw[]>>
-  cheat
-QED
-
 Theorem lines_of_inj:
   lines_of (strlit c) = lines_of (strlit d) ⇒ c = d
 Proof
