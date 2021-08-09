@@ -866,10 +866,13 @@ val parse_rng_def = Define`
       NONE => NONE
     | SOME j => SOME (i,j))`
 
-Theorem parse_rng_toString:
-  parse_rng (toString i ^ «-» ^ toString j) = SOME (i,j)
+val print_rng_def = Define`
+  print_rng (i:num) (j:num) = toString i ^ «-» ^ toString j`
+
+Theorem parse_rng_print_rng:
+  parse_rng (print_rng i j) = SOME (i,j)
 Proof
-  rw[parse_rng_def]>>
+  rw[parse_rng_def,print_rng_def]>>
   simp[mlstringTheory.splitl_SPLITL,SPLITL_def]>>
   PURE_REWRITE_TAC [GSYM STRCAT_ASSOC]>>
   PURE_REWRITE_TAC [Once SPLITP_APPEND]>>
