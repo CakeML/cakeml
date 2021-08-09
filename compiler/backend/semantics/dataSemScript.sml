@@ -197,13 +197,6 @@ Definition to_roots_def:
 ∧ (to_roots (_::xs) = to_roots xs)
 End
 
-(* Obtain all the roots (:root) from a state by filtering them out of
-   ‘stack_to_vs’
- *)
-Definition all_roots_def:
-  all_roots ^s = to_roots (stack_to_vs s)
-End
-
 (* Given a list of values and a timestamp returns the (possibly empty)
    set of roots (:root) a block with that timestamp has.
 
@@ -211,14 +204,15 @@ End
          blocks with timestamps 0 < ts < s.timestamp
  *)
 Definition block_to_roots_def:
-  (block_to_roots [] _ = {})
-∧ (block_to_roots (Block ts _ l::xs) ts' =
-     if (ts = ts')
-     then to_roots l
-     else block_to_roots xs ts')
-∧ (block_to_roots (_::xs) ts = block_to_roots xs ts)
+  block_to_roots blocks ts =
+  (case oEL ts blocks of
+   | SOME (Block _ _ vs) => to_roots vs
+   | _ => ∅ )
 End
 
+(* Given a reference map and a pointer returns the (possibly empty)
+   set of roots (:root) at that location.
+ *)
 Definition ptr_to_roots_def:
   ptr_to_roots refs p =
     case sptree$lookup p refs of
@@ -226,6 +220,7 @@ Definition ptr_to_roots_def:
       | _ => {}
 End
 
+(* next l r holds iff r follows immediately from l *)
 Definition next_def:
   (next refs blocks (TStamp ts) r =
      (r ∈ block_to_roots blocks ts))
@@ -233,17 +228,17 @@ Definition next_def:
      (r ∈ ptr_to_roots refs ref))
 End
 
+(* The set of all roots that can be reached from an initial set of roots *)
 Definition reachable_v_def:
   reachable_v refs blocks roots = { y | ∃x. x ∈ roots ∧ (next refs blocks)^* x y}
 End
 
+(* Given a root return the list of values pointed by it *)
 Definition root_to_vs:
-  (root_to_vs refs [] (TStamp ts) = [])
-∧ (root_to_vs refs (Block ts _ vs::xs) (TStamp ts') =
-     if (ts = ts')
-     then vs
-     else root_to_vs refs xs (TStamp ts'))
-∧ (root_to_vs refs (_::xs) (TStamp ts) = root_to_vs refs xs (TStamp ts))
+(root_to_vs refs blocks (TStamp ts) =
+  (case oEL ts blocks of
+   | SOME (Block _ _ vs) => vs
+   | _ => [] ))
 ∧ (root_to_vs refs blocks (RStamp p) =
      case sptree$lookup p refs of
        SOME (ValueArray vs) => vs
@@ -259,16 +254,35 @@ Definition flat_measure_def:
      (if small_num lims.arch_64_bit i
       then 0
       else bignum_size lims.arch_64_bit i))
-∧ (flat_measure lims[CodePtr _] = 0)
-∧ (flat_measure lims[RefPtr r] = 1)
-∧ (flat_measure lims[Block ts tag []] = 0)
-∧ (flat_measure lims[Block ts tag vs] = 1)
+∧ (flat_measure lims _ = 0)
 End
 
-Definition flat_size_of:
+Definition sum_img_def:
+  sum_img f s = ITSET (λa b. f a + b) s (0:num)
+End
+
+Definition size_of_root_def:
+  (size_of_root lims refs blocks (TStamp ts) =
+   (case oEL ts blocks of
+    | SOME (Block _ _ vs) => 1 + LENGTH vs + flat_measure lims vs
+    | _ => 0))
+∧ (size_of_root lims refs blocks (RStamp p) =
+   (case sptree$lookup p refs of
+    | SOME (ValueArray vs)  => 1 + LENGTH vs + flat_measure lims vs
+    | SOME (ByteArray _ bs) => LENGTH bs DIV (arch_size lims DIV 8) + 2
+    | _ => 0))
+End
+
+Definition flat_size_of_def[nocompute]:
   flat_size_of lims refs blocks roots =
-    list$SUM $ MAP (flat_measure lims o root_to_vs refs blocks)
-        (SET_TO_LIST $ reachable_v refs blocks roots)
+    flat_measure lims roots +
+    sum_img (size_of_root lims refs blocks)
+            (reachable_v refs blocks (to_roots roots))
+End
+
+Definition flat_size_of_heap_def:
+  flat_size_of_heap ^s  =
+    flat_size_of s.limits s.refs s.all_blocks (stack_to_vs s)
 End
 
 Overload add_space_safe =
