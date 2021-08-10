@@ -11,6 +11,68 @@ val _ = new_theory "lpr_composeProg"
 
 val _ = translation_extends "md5Prog";
 
+(* TODO: move *)
+
+Theorem isPrefix:
+  isPrefix (strlit s) (strlit t) ⇔ s ≼ t
+Proof
+  fs [isPrefix_def]  \\ fs [isStringThere_aux_def]
+  \\ reverse (Cases_on ‘STRLEN s ≤ STRLEN t’)
+  THEN1
+   (fs [] \\ CCONTR_TAC \\ fs []
+    \\ imp_res_tac rich_listTheory.IS_PREFIX_LENGTH)
+  \\ fs []
+  \\ qsuff_tac ‘∀x y.
+    isStringThere_aux (strlit (x ++ s)) (strlit (y ++ t))
+       (LENGTH x) (LENGTH y) (STRLEN s) ⇔ s ≼ t’
+  THEN1 (fs [] \\ disch_then (qspecl_then [‘[]’,‘[]’] assume_tac) \\ fs [])
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘t’
+  \\ qid_spec_tac ‘s’
+  \\ Induct \\ fs [isStringThere_aux_def]
+  \\ Cases_on ‘t’ \\ fs [isStringThere_aux_def] \\ rw []
+  \\ last_x_assum drule
+  \\ disch_then (qspecl_then [‘x ++ [h']’,‘y ++ [h]’] mp_tac) \\ fs []
+  \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND] \\ fs []
+  \\ rw [EL_LENGTH_APPEND]
+QED
+
+Theorem SEG_LENGTH_APPEND:
+  ∀xs ys n. SEG n (LENGTH xs) (xs ++ ys) = SEG n 0 ys
+Proof
+  Induct \\ Cases_on ‘n’ \\ fs [SEG]
+QED
+
+Theorem substring_strcat:
+  substring (prefix ^ s) (strlen prefix) n = substring s 0 n
+Proof
+  Cases_on ‘prefix’ \\ Cases_on ‘s’
+  \\ fs [strcat_def,concat_def]
+  \\ fs [substring_def,DROP_LENGTH_APPEND]
+  \\ fs [DECIDE “n+m ≤ m+k ⇔ n ≤ k:num”]
+  \\ rw [SEG_LENGTH_APPEND]
+QED
+
+Theorem isPrefix_IMP_append:
+  isPrefix prefix h ⇒ ∃s. h = prefix ^ s
+Proof
+  Cases_on ‘prefix’ \\ Cases_on ‘h’ \\ rw [isPrefix]
+  \\ gvs [stringTheory.isPREFIX_STRCAT]
+  \\ rename [‘STRCAT s s1’]
+  \\ qexists_tac ‘strlit s1’ \\ fs [strcat_def,concat_def]
+QED
+
+Theorem substring_TAKE:
+  substring (strlit xs) 0 n = strlit (TAKE n xs)
+Proof
+  rw [substring_def] \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘xs’
+  \\ qid_spec_tac ‘n’
+  \\ Induct \\ Cases_on ‘xs’ \\ fs [SEG]
+QED
+
+(* -- *)
+
 Definition interval_cover_def:
   (interval_cover i j [] ⇔ i = j) ∧
   (interval_cover (i:num) j ((a,b)::xs) ⇔ a = i ∧ interval_cover b j xs)
@@ -370,64 +432,6 @@ Proof
   \\ qexists_tac ‘p_2’ \\ fs [is_adjacent_build_sets]
 QED
 
-Theorem isPrefix:
-  isPrefix (strlit s) (strlit t) ⇔ s ≼ t
-Proof
-  fs [isPrefix_def]  \\ fs [isStringThere_aux_def]
-  \\ reverse (Cases_on ‘STRLEN s ≤ STRLEN t’)
-  THEN1
-   (fs [] \\ CCONTR_TAC \\ fs []
-    \\ imp_res_tac rich_listTheory.IS_PREFIX_LENGTH)
-  \\ fs []
-  \\ qsuff_tac ‘∀x y.
-    isStringThere_aux (strlit (x ++ s)) (strlit (y ++ t))
-       (LENGTH x) (LENGTH y) (STRLEN s) ⇔ s ≼ t’
-  THEN1 (fs [] \\ disch_then (qspecl_then [‘[]’,‘[]’] assume_tac) \\ fs [])
-  \\ pop_assum mp_tac
-  \\ qid_spec_tac ‘t’
-  \\ qid_spec_tac ‘s’
-  \\ Induct \\ fs [isStringThere_aux_def]
-  \\ Cases_on ‘t’ \\ fs [isStringThere_aux_def] \\ rw []
-  \\ last_x_assum drule
-  \\ disch_then (qspecl_then [‘x ++ [h']’,‘y ++ [h]’] mp_tac) \\ fs []
-  \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND] \\ fs []
-  \\ rw [EL_LENGTH_APPEND]
-QED
-
-Theorem SEG_LENGTH_APPEND:
-  ∀xs ys n. SEG n (LENGTH xs) (xs ++ ys) = SEG n 0 ys
-Proof
-  Induct \\ Cases_on ‘n’ \\ fs [SEG]
-QED
-
-Theorem substring_strcat:
-  substring (prefix ^ s) (strlen prefix) n = substring s 0 n
-Proof
-  Cases_on ‘prefix’ \\ Cases_on ‘s’
-  \\ fs [strcat_def,concat_def]
-  \\ fs [substring_def,DROP_LENGTH_APPEND]
-  \\ fs [DECIDE “n+m ≤ m+k ⇔ n ≤ k:num”]
-  \\ rw [SEG_LENGTH_APPEND]
-QED
-
-Theorem isPrefix_IMP_append:
-  isPrefix prefix h ⇒ ∃s. h = prefix ^ s
-Proof
-  Cases_on ‘prefix’ \\ Cases_on ‘h’ \\ rw [isPrefix]
-  \\ gvs [stringTheory.isPREFIX_STRCAT]
-  \\ rename [‘STRCAT s s1’]
-  \\ qexists_tac ‘strlit s1’ \\ fs [strcat_def,concat_def]
-QED
-
-Theorem substring_TAKE:
-  substring (strlit xs) 0 n = strlit (TAKE n xs)
-Proof
-  rw [substring_def] \\ pop_assum mp_tac
-  \\ qid_spec_tac ‘xs’
-  \\ qid_spec_tac ‘n’
-  \\ Induct \\ Cases_on ‘xs’ \\ fs [SEG]
-QED
-
 Theorem MEM_get_ranges:
   ∀ls prefix ranges i j.
   get_ranges prefix ls = INR ranges ∧
@@ -435,28 +439,26 @@ Theorem MEM_get_ranges:
   ∃out. MEM (prefix ^ out ^ strlit"\n") ls ∧ parse_rng out = SOME (i,j)
 Proof
   Induct \\ rw[get_ranges_def]
-  \\ gvs[get_range_def,AllCaseEqs()]
-  THEN1 (
-    simp[Once CONJ_COMM] \\ asm_exists_tac \\ simp[]
-    \\ disj1_tac
-    \\ imp_res_tac isPrefix_IMP_append \\ gvs []
-    \\ fs [substring_strcat]
-    \\ cheat
-    (*
-    \\ Cases_on ‘s’ \\ Cases_on ‘s'’ using SNOC_CASES
-    THEN1
-     (rpt (pop_assum mp_tac)
-      \\ qid_spec_tac ‘i’
-      \\ qid_spec_tac ‘j’
-      \\ EVAL_TAC \\ fs [])
-    \\ fs [SNOC_APPEND,ADD1]
-    \\ Cases_on ‘prefix’
-    \\ fs [strcat_def,concat_def]
-    \\ ‘STRLEN l + STRLEN s = STRLEN (STRCAT s l)’ by fs []
-    \\ full_simp_tac std_ss [EL_LENGTH_APPEND,NULL,HD] \\ gvs []
-    \\ fs [substring_TAKE,TAKE_LENGTH_APPEND]
-    \\ cheat *) )
-  \\ metis_tac[]
+  \\ reverse (gvs[get_range_def,AllCaseEqs()])
+  THEN1 metis_tac []
+  \\ first_assum (irule_at (Pos last))
+  \\ disj1_tac
+  \\ imp_res_tac isPrefix_IMP_append \\ gvs []
+  \\ fs [substring_strcat]
+  \\ rewrite_tac [GSYM strcat_assoc]
+  \\ AP_TERM_TAC
+  \\ Cases_on ‘s’ \\ Cases_on ‘s'’ using SNOC_CASES
+  THEN1
+   (rpt (pop_assum mp_tac)
+    \\ qid_spec_tac ‘i’
+    \\ qid_spec_tac ‘j’
+    \\ EVAL_TAC \\ fs [])
+  \\ fs [SNOC_APPEND,ADD1,substring_TAKE]
+  \\ fs [substring_TAKE,TAKE_LENGTH_APPEND]
+  \\ Cases_on ‘prefix’
+  \\ fs [strcat_def,concat_def]
+  \\ ‘STRLEN l + STRLEN s = STRLEN (STRCAT s l)’ by fs []
+  \\ full_simp_tac std_ss [EL_LENGTH_APPEND,NULL,HD] \\ gvs []
 QED
 
 Theorem check_lines_correct:
