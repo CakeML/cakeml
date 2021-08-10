@@ -3460,6 +3460,8 @@ val parse_rng_or_check_def = Define`
 
 val _ = translate parse_rng_or_check_def;
 
+val _ = translate print_rng_def;
+
 val check_unsat_4 = (append_prog o process_topdecs) `
   fun check_unsat_4 f1 f2 rng f3 =
   case parse_dimacs_full f1 of
@@ -3491,7 +3493,7 @@ val check_unsat_4 = (append_prog o process_topdecs) `
           | Some cnf_md5 =>
             case md5_of (Some f2) of
               None => TextIO.output TextIO.stdErr (notfound_string f2)
-            | Some proof_md5 => TextIO.print (success_str cnf_md5 proof_md5 rng))
+            | Some proof_md5 => TextIO.print (success_str cnf_md5 proof_md5 (print_rng i j)))
       | Inr False => TextIO.output TextIO.stdErr "c transformation clause not derived at end of proof\n"
     end
     else TextIO.output TextIO.stdErr "c Invalid range specification: range a-b must satisfy a <= b <= num lines in proof file\n"`
@@ -3938,7 +3940,7 @@ val check_unsat_4_sem_def = Define`
         let upd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base fmlls in
         let earliest = FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) fmlls in
           if check_lpr_range_list lpr upd (REVERSE (MAP FST fmlls)) earliest bnd (ncl+1) pf i j then
-            add_stdout fs (success_str (implode (md5 (THE (file_content fs f1)))) (implode (md5 (THE (file_content fs f2)))) rng)
+            add_stdout fs (success_str (implode (md5 (THE (file_content fs f1)))) (implode (md5 (THE (file_content fs f2)))) (print_rng i j))
           else
             add_stderr fs err
       | NONE => add_stderr fs err
@@ -4204,6 +4206,7 @@ Proof
       (xapp_spec md5_of_SOME \\ fs [std_preludeTheory.OPTION_TYPE_def, FILENAME_def,validArg_def])>>
     gvs [std_preludeTheory.OPTION_TYPE_def]>>
     xmatch>>
+    xlet_autop>>
     xlet_autop>>
     xapp>>xsimpl>>
     qexists_tac`emp`>>
