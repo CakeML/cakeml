@@ -835,7 +835,12 @@ Definition evaluations_def:
      task_ret_defined nt.locals (nClks prog) ∧
      evaluations prog lbls sts (FST (t.ffi.ffi_state 0)) st nt)
 Termination
-  cheat
+  WF_REL_TAC ‘measure $ λx. case x of
+    | INL (_,lbls,_)                           => 2 * LENGTH lbls
+    | INR (INL (prog,d,ist,s,st,t,lbls,sts))   => 2 * LENGTH lbls + 1
+    | INR (INR (INL (prog,i,s,st,t,lbls,sts))) => 2 * LENGTH lbls + 1
+    | INR (INR (INR (prog,os,st,t,lbls,sts)))  => 2 * LENGTH lbls + 1’
+  \\ fs []
 End
 
 
