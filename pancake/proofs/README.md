@@ -26,6 +26,3 @@ Correctness proof for --
 
 [time_to_panProofScript.sml](time_to_panProofScript.sml):
 Correctness proof for --
-
-[time_to_panSemProofScript.sml](time_to_panSemProofScript.sml):
-Correctness proof for --
