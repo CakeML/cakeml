@@ -35,7 +35,7 @@ val check_unsat_compiled_thm =
   (* |> check_thm *)
   |> curry save_thm "check_unsat_compiled_thm";
 
-(* Standard prettifying (see readerProgProof) *)
+(* Prettifying the standard parts of all the theorems *)
 val installed_x64_def = Define `
   installed_x64 ((code, data, cfg) :
       (word8 list # word64 list # 64 backend$config))
@@ -54,6 +54,12 @@ val installed_x64_def = Define `
 val check_unsat_code_def = Define `
   check_unsat_code = (code, data, config)
   `;
+
+(* A standard run of cake_lpr satisfying all the default assumptions *)
+val cake_lpr_run_def = Define`
+  cake_lpr_run cl fs mc ms ⇔
+  wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
+  installed_x64 check_unsat_code (basis_ffi cl fs) mc ms`
 
 Theorem concat_success_str:
   ∀a b c. concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString (d:num); strlit "\n"] ≠ success_str a b c
@@ -77,8 +83,7 @@ Proof
 QED
 
 Theorem machine_code_sound:
-  wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ⇒
-  installed_x64 check_unsat_code (basis_ffi cl fs) mc ms ⇒
+  cake_lpr_run cl fs mc ms ⇒
   machine_sem mc (basis_ffi cl fs) ms ⊆
     extend_with_resource_limit
       {Terminate Success (check_unsat_io_events cl fs)} ∧
@@ -132,8 +137,8 @@ Theorem machine_code_sound:
   else
     out = strlit ""
 Proof
-  ntac 2 strip_tac>>
-  fs[installed_x64_def,check_unsat_code_def]>>
+  strip_tac>>
+  fs[installed_x64_def,check_unsat_code_def,cake_lpr_run_def]>>
   drule check_unsat_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
@@ -368,15 +373,15 @@ QED
 
 Theorem par_check_sound:
   EVERY (λ(cl,fs,mc,ms,i,j).
-    wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-    installed_x64 check_unsat_code (basis_ffi cl fs) mc ms ∧
+    cake_lpr_run cl fs mc ms ∧
     LENGTH cl = 5 ∧
     inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
     file_content fs (EL 1 cl) = SOME fmlstr ∧
     file_content fs (EL 2 cl) = SOME pfstr ∧
     parse_rng (EL 3 cl) = SOME(i,j)
   ) nodes ∧
-  parse_dimacs (lines_of (strlit fmlstr)) = SOME fml ∧ parse_proof (lines_of (strlit pfstr)) = SOME pf ∧
+  parse_dimacs (lines_of (strlit fmlstr)) = SOME fml ∧
+  parse_proof (lines_of (strlit pfstr)) = SOME pf ∧
   interval_cover 0 (LENGTH pf) (MAP (λ(cl,fs,mc,ms,i,j). (i,j)) nodes)
   ⇒
   EVERY (λ(cl,fs,mc,ms,i,j).
@@ -430,6 +435,7 @@ Proof
     rw[]>>rpt (first_x_assum drule)>>
     rw[]>>
     gs[SOME_11]>>
+    fs[cake_lpr_run_def]>>
     drule STD_streams_stdout>>rw[]>>
     drule add_stdout_inj>>
     metis_tac[stdout_add_stderr])>>
@@ -439,8 +445,7 @@ QED
 val check_successful_def = Define`
   check_successful fmlstr pfstr (i:num,j:num) =
   ∃cl fs mc ms.
-    wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-    installed_x64 check_unsat_code (basis_ffi cl fs) mc ms ∧
+    cake_lpr_run cl fs mc ms ∧
     LENGTH cl = 5 ∧
     inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
     file_content fs (EL 1 cl) = SOME fmlstr ∧
@@ -472,6 +477,7 @@ Proof
     >- (
       imp_res_tac all_lines_lines_of>>
       gs[])>>
+    fs[cake_lpr_run_def]>>
     drule STD_streams_stdout>>rw[]>>
     drule add_stdout_inj>>
     disch_then drule>>
@@ -504,8 +510,7 @@ val check_successful_par_def = Define`
   check_successful_par fmlstr pfstr =
   ∃outstr.
     (∃cl fs mc ms.
-      wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-      installed_x64 check_unsat_code (basis_ffi cl fs) mc ms ∧
+      cake_lpr_run cl fs mc ms ∧
       LENGTH cl = 5 ∧
       inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
       file_content fs (EL 1 cl) = SOME fmlstr ∧
@@ -516,8 +521,7 @@ val check_successful_par_def = Define`
           (concat [«s VERIFIED INTERVALS COVER 0-» ; toString (LENGTH (lines_of (strlit pfstr))); «\n»]))) ∧
     ∀out. MEM out outstr ⇒
     (∃cl fs mc ms.
-      wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-      installed_x64 check_unsat_code (basis_ffi cl fs) mc ms ∧
+      cake_lpr_run cl fs mc ms ∧
       LENGTH cl = 5 ∧
       inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
       file_content fs (EL 1 cl) = SOME fmlstr ∧
@@ -535,12 +539,13 @@ Proof
   drule machine_code_sound>> rpt(disch_then drule)>>
   simp[]>>  rpt(disch_then drule)>>
   rw[]>>
+  `STD_streams fs` by fs[cake_lpr_run_def]>>
   drule STD_streams_stdout>>rw[]>>
   drule add_stdout_inj>>
   disch_then drule>>
   simp[stdout_add_stderr]>>
   rw[]>>fs[concat_success_str]>>
-  ntac 2 (pop_assum mp_tac)>>
+  qpat_x_assum`if _ then _ else _` mp_tac>>
   reverse IF_CASES_TAC>>fs[]
   >-
     metis_tac[]>>
@@ -574,8 +579,9 @@ Proof
   rpt(disch_then drule)>>simp[]>>
   strip_tac>>fs[]>>
   qmatch_asmsub_abbrev_tac`add_stdout fs' ss`>>
-  `ss = out''` by
-    (drule STD_streams_stdout>>rw[]>>
+  `ss = out''` by (
+    fs[cake_lpr_run_def]>>
+    drule STD_streams_stdout>>rw[]>>
     drule add_stdout_inj>>
     disch_then drule>>
     rw[stdout_add_stderr])>>
