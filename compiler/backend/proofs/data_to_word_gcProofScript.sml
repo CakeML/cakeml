@@ -3129,8 +3129,10 @@ Theorem gc_partial_move_list_heap_lengths:
      s.n + heap_length s.h2 = s1.n + heap_length s1.h2
 Proof
   Induct_on `x` >> rw[gen_gc_partialTheory.gc_move_list_def]
-  >> ntac 2 (pairarg_tac >> fs[])
-  >> metis_tac[gc_partial_move_heap_lengths,gc_partial_move_list_ok_before]
+  >> ntac 2 (pairarg_tac >> gvs[])
+  >> drule_all gc_partial_move_list_ok_before >> rw []
+  >> drule_all gc_partial_move_heap_lengths >> rw []
+  >> res_tac
 QED
 
 val partial_len_inv_def = Define `

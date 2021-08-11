@@ -102,12 +102,9 @@ Proof
   rw [partition_def, FILTER, partition_aux_thm]
 QED
 
-val foldl_aux_def = Define`
-  (foldl_aux f e n [] = e) /\
-  (foldl_aux f e n (h::t) = foldl_aux f (f h e) (SUC n) t)`;
-
 val foldl_def = Define`
-  foldl f e l = foldl_aux f e 0 l`;
+  (foldl f e [] = e) /\
+  (foldl f e (h::t) = foldl f (f h e) t)`;
 
 val foldli_aux_def = Define`
   (foldli_aux f e n [] = e) /\
@@ -123,6 +120,12 @@ val foldli_aux_thm = Q.prove (
   rw [FOLDRi_APPEND] \\
   rw [ADD1]
 );
+
+Theorem foldl_intro:
+  ∀xs x f. FOLDL f x xs = foldl (λx acc. f acc x) x xs
+Proof
+  Induct \\ fs [foldl_def]
+QED
 
 Theorem foldli_thm:
    !f e l. foldli f e l = FOLDRi (\n. f (LENGTH l - (SUC n))) e (REVERSE l)

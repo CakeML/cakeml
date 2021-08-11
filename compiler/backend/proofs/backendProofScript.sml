@@ -2553,12 +2553,6 @@ Proof
   \\ imp_res_tac pred_setTheory.LINV_DEF \\ fs []
 QED
 
-Definition mk_flat_install_conf_def:
-  mk_flat_install_conf cc co =
-  flatSem$install_config_compile_fupd (K cc)
-    (flatSem$install_config_compile_oracle_fupd (K co) ARB)
-End
-
 Theorem state_co_inc_compile_has_flat_comp:
   compile c prog = SOME (b,bm,c') ==>
   state_co (\c (env_id,decs). inc_compile env_id c decs) (cake_orac c' src config_tuple1 g) =
@@ -2624,11 +2618,11 @@ Definition K_same_type_def:
 End
 
 Definition eval_config_to_interp_def:
-  eval_config_to_interp ec = source_to_flatProof$oracle_interpretation_decode_state_fupd
-    (K_same_type (\v. case ec.decode_v v of
-        NONE => NONE
-      | SOME c => SOME (config_tuple1 c)
-    )) ARB
+  eval_config_to_interp ec =
+    source_to_flatProof$update_decode_state
+      (λv. case ec.decode_v v of
+           | NONE => NONE
+           | SOME c => SOME (config_tuple1 c)) ARB
 End
 
 Definition add_eval_state_def:
@@ -2820,6 +2814,10 @@ Proof
   \\ rveq \\ fs []
   \\ simp [compile_inc_progs_src_env]
 QED
+
+Overload "mk_flat_install_conf" = “flatProps$mk_flat_install_conf”;
+
+val mk_flat_install_conf_def = flatPropsTheory.mk_flat_install_conf_def;
 
 Theorem source_eval_semantics:
   ~ semantics_prog (add_eval_state ev c' s0) env prog Fail /\
@@ -3564,9 +3562,12 @@ Proof
      \\ strip_tac
      \\ rename [`_ = (stack_len, heap_len)`]
      \\ qpat_x_assum `stack_len = _` (assume_tac o GSYM)
-     \\ `LENGTH (stackSem$state_stack init_reduce_state) =
-         stackSem$state_stack_space init_reduce_state + 1`
-           by fs [Abbr`init_reduce_state`,stack_removeProofTheory.init_reduce_def]
+     \\ `LENGTH (stackSem$read_stack init_reduce_state) =
+         stackSem$read_stack_space init_reduce_state + 1`
+           by fs [Abbr`init_reduce_state`,stack_removeProofTheory.init_reduce_def,
+                  stackSemTheory.read_stack_def,stackSemTheory.read_stack_space_def]
+     \\ pop_assum (assume_tac o REWRITE_RULE
+           [stackSemTheory.read_stack_def,stackSemTheory.read_stack_space_def])
      \\ pop_assum mp_tac \\ asm_rewrite_tac [] \\ pop_assum kall_tac \\ strip_tac
      \\ Cases_on `stack_len` \\ fs [ADD1]
      \\ simp [word_mul_n2w]

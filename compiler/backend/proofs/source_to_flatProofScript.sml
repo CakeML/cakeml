@@ -1790,6 +1790,11 @@ Datatype:
     <| decode_state : semanticPrimitives$v -> (config # 'd) option |>
 End
 
+Definition update_decode_state_def[simp]:
+  update_decode_state x (y: 'a oracle_interpretation) =
+    <| decode_state := x |> : 'a oracle_interpretation
+End
+
 (* the source oracle states can always be decoded by the interpretation
    function, and the state part in the sequence is produced by repeatedly
    applying compile_prog *)

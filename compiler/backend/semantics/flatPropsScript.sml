@@ -1394,4 +1394,9 @@ Definition no_Mat_decs_def[simp]:
   no_Mat_decs (_::xs) = no_Mat_decs xs
 End
 
+Definition mk_flat_install_conf_def:
+  mk_flat_install_conf cc co =
+    <| compile := cc ; compile_oracle := co |> : 'c flatSem$install_config
+End
+
 val _ = export_theory()

@@ -54,6 +54,9 @@ Faster cat: process 2048 chars at a time.
 [lcsScript.sml](lcsScript.sml):
 Verification of longest common subsequence algorithms.
 
+[lispProgScript.sml](lispProgScript.sml):
+Parsing and pretty printing of s-expressions
+
 [lpr_checker](lpr_checker):
 An LPR checker built on CakeML
 
@@ -72,6 +75,9 @@ In-place quick sort on a polymorphic array.
 
 [replProgScript.sml](replProgScript.sml):
 The CakeML REPL
+
+[sat_encodings](sat_encodings):
+Encodings of puzzles to CNF, to use as SAT-solver input.
 
 [sortProgScript.sml](sortProgScript.sml):
 Program to sort the lines in a file, built on top of the quick sort example.

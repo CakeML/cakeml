@@ -29,6 +29,14 @@ val coeff_bounds_def = Define`
   small_num T (&m) ∧
   small_num T (&(a*m + c))`
 
+val fields = TypeBase.fields_of “:('c,'ffi) dataSem$state”;
+
+Overload state_refs_fupd = (fields |> assoc "refs" |> #fupd);
+Overload state_locals_fupd = (fields |> assoc "locals" |> #fupd);
+Overload state_stack_max_fupd = (fields |> assoc "stack_max" |> #fupd);
+Overload state_safe_for_space_fupd = (fields |> assoc "safe_for_space" |> #fupd);
+Overload state_peak_heap_length_fupd = (fields |> assoc "peak_heap_length" |> #fupd);
+
 Theorem size_of_Number_head_append:
   ∀ls.
   EVERY (λl. case l of Number n => small_num lims.arch_64_bit n | _ => F) ls ⇒
@@ -1254,7 +1262,7 @@ in
   \\ qmatch_goalsub_abbrev_tac `bind _ rest_mkspc _`
   \\ ASM_REWRITE_TAC [ bind_def, makespace_def, add_space_def]
   \\ eval_goalsub_tac ``dataSem$cut_env _ _`` \\ simp []
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ Q.UNABBREV_TAC `rest_mkspc`
   \\ still_safe
   \\ rename1`state_peak_heap_length_fupd (K pkheap1) _`
@@ -1340,7 +1348,7 @@ in
   \\ Q.ABBREV_TAC `pred = ∃w. 0 = w2n (w:word8)`
   \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 0` \\ rw [])
   \\ fs [] \\ pop_assum kall_tac \\ pop_assum kall_tac
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ still_safe
   >- (rfs [size_of_Number_head,small_num_def]
       \\ qmatch_asmsub_abbrev_tac ‘size_of _ (_::ll)’
@@ -1464,7 +1472,7 @@ in
   \\ Q.ABBREV_TAC `pred = ∃w. 0 = w2n (w:word8)`
   \\ `pred` by (UNABBREV_ALL_TAC \\ qexists_tac `n2w 0` \\ rw [])
   \\ fs [] \\ pop_assum kall_tac \\ pop_assum kall_tac
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ qmatch_goalsub_abbrev_tac `insert p2 _ (insert p1 _ s.refs)`
   \\ simp []
   \\ `p1 ≠ p2` by
@@ -2201,7 +2209,7 @@ in
   \\ pop_assum kall_tac
   (* move 14 13 *)
   \\ simp [move_def,lookup_def,set_var_def]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``
   (* Exit if *)
   \\ Q.UNABBREV_TAC ‘if_rest_ass’
   (* make_space 3 ... *)
@@ -2296,7 +2304,7 @@ in
   \\ strip_tac \\ simp[]
   >- simp[data_safe_def]
   \\ simp[pop_env_def,set_var_def]
-  \\ eval_goalsub_tac “dataSem$state_locals_fupd _ _”>>
+  \\ eval_goalsub_tac “state_locals_fupd _ _”>>
   (* call_put_chars (21,⦕ 1; 2; 3; 14 ⦖) [20] NONE; *)
   simp[Once bind_def]>>
   simp [ call_def      , find_code_def  , push_env_def
@@ -2363,7 +2371,7 @@ in
   simp[]
   >- simp[data_safe_def]>>
   simp[pop_env_def,set_var_def] >>
-  eval_goalsub_tac “dataSem$state_locals_fupd _ _”>>
+  eval_goalsub_tac “state_locals_fupd _ _”>>
   (* tailcall_lcgLoop [14; 1; 2; 3] *)
   ASM_REWRITE_TAC [ tailcall_def , find_code_def
                   , get_vars_def , get_var_def
@@ -2437,9 +2445,9 @@ in
       simp[closed_ptrs_APPEND])>>
     rw[])>>
   simp[to_shallow_thm]>>
-  eval_goalsub_tac “dataSem$state_locals_fupd _ _”>>
+  eval_goalsub_tac “state_locals_fupd _ _”>>
   strip_tac>>
-  eval_goalsub_tac “dataSem$state_locals_fupd _ _”>>
+  eval_goalsub_tac “state_locals_fupd _ _”>>
   pairarg_tac>>fs[]>>
   rw[]>>fs[data_safe_def]
 end
@@ -2574,7 +2582,7 @@ in
   drop_state>>
   (* move 14 13 *)
   simp [move_def,lookup_def,set_var_def]
-  \\ eval_goalsub_tac ``dataSem$state_locals_fupd _ _``>>
+  \\ eval_goalsub_tac ``state_locals_fupd _ _``>>
   (* Exit if *)
   Q.UNABBREV_TAC ‘if_rest_ass’ >>
   (* make_space 3 ... *)

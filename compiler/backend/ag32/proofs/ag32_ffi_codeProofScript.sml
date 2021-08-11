@@ -1627,8 +1627,7 @@ Proof
   \\ `byte_aligned s2.PC` by (
     simp[Abbr`s2`]
     \\ irule byte_aligned_add
-    \\ reverse conj_tac >- EVAL_TAC
-    \\ simp[] )
+    \\ simp [] \\ EVAL_TAC)
   \\ impl_tac
   >- (
     simp[]
@@ -1672,9 +1671,7 @@ Proof
   \\ `s3.MEM = s1.MEM` by fs[Abbr`s3`, Abbr`s2`]
   \\ `byte_aligned s3.PC` by (
     simp[Abbr`s3`]
-    \\ irule byte_aligned_add
-    \\ reverse conj_tac >- EVAL_TAC
-    \\ simp[] )
+    \\ irule byte_aligned_add \\ fs [] \\ EVAL_TAC)
   \\ simp[]
   \\ qspec_then`s3`mp_tac(Q.GEN`s`ag32_ffi_write_check_lengths_code_thm)
   \\ impl_tac
@@ -2067,13 +2064,11 @@ Proof
   by (
     simp[Abbr`s6`]
     \\ irule byte_aligned_add
-    \\ reverse conj_tac >- EVAL_TAC
+    \\ conj_tac >- EVAL_TAC
     \\ simp[Abbr`s5`]
     \\ CONV_TAC(RAND_CONV EVAL)
     \\ simp[]
-    \\ irule byte_aligned_add
-    \\ reverse conj_tac >- EVAL_TAC
-    \\ simp[] )
+    \\ irule byte_aligned_add \\ fs [] \\ EVAL_TAC )
   \\ `s6.R 5w = n2w (output_offset + 12)`
   by (
     simp[Abbr`s6`, APPLY_UPDATE_THM]
