@@ -1,0 +1,2 @@
+The Pancake compiler, i.e. a C-like compiler built from the lower
+parts of the CakeML compiler.

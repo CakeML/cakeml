@@ -123,12 +123,29 @@ val to_data_def = Define`
   let p = bvi_to_data$compile_prog p in
   (c,p,names)`;
 
+val to_word_0_def = Define`
+  to_word_0 c p =
+  let (c,p,names) = to_data c p in
+  let p = data_to_word$compile_0 c.data_conf c.lab_conf.asm_conf p in
+  (c,p,names)`;
+
 val to_word_def = Define`
   to_word c p =
   let (c,p,names) = to_data c p in
   let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   (c,p,names)`;
+
+Theorem to_word_thm:
+  to_word c p =
+  let (c,p,names) = to_word_0 c p in
+  let (col,p) = compile c.word_to_word_conf c.lab_conf.asm_conf p in
+  let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
+  (c,p,names)
+Proof
+  fs [to_word_def,to_word_0_def,compile_0_def,data_to_wordTheory.compile_def]
+  \\ pairarg_tac \\ fs []
+QED
 
 val to_stack_def = Define`
   to_stack c p =
@@ -202,11 +219,26 @@ val from_word_def = Define`
   let c = c with word_conf := c' in
   from_stack c names p`;
 
+val from_word_0_def = Define`
+  from_word_0 c names p =
+  let (col,prog) = word_to_word$compile c.word_to_word_conf c.lab_conf.asm_conf p in
+  let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
+  from_word c names prog`;
+
 val from_data_def = Define`
   from_data c names p =
   let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   from_word c names p`;
+
+Theorem from_data_thm:
+  from_data c names p =
+  let p = data_to_word$compile_0 c.data_conf c.lab_conf.asm_conf p in
+  from_word_0 c names p
+Proof
+  fs [from_data_def,data_to_wordTheory.compile_0_def,data_to_wordTheory.compile_def,
+      from_word_0_def]
+QED
 
 val from_bvi_def = Define`
   from_bvi c names p =
@@ -282,8 +314,54 @@ val to_livesets_def = Define`
   in
     ((reg_count,data),c',names,p)`
 
+val to_livesets_0_def = Define`
+  to_livesets_0 (c:α backend$config,p,names: mlstring num_map) =
+  let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
+  let alg = word_conf.reg_alg in
+  let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
+  let p =
+    MAP (λ(name_num,arg_count,prog).
+    let prog = word_simp$compile_exp prog in
+    let maxv = max_var prog + 1 in
+    let inst_prog = inst_select asm_conf maxv prog in
+    let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
+    let rm_prog = FST(remove_dead ssa_prog LN) in
+    let prog = if two_reg_arith then three_to_two_reg rm_prog
+                                else rm_prog in
+     (name_num,arg_count,prog)) p in
+  let data = MAP (\(name_num,arg_count,prog).
+    let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
+    (get_clash_tree prog,heu_moves,spillcosts,get_forced c.lab_conf.asm_conf prog [])) p
+  in
+    ((reg_count,data),c,names,p)`
+
+Theorem to_data_conf_inv:
+  to_data c p = (c',p',names) ⇒
+  c'.data_conf = c.data_conf ∧
+  c'.word_conf = c.word_conf ∧
+  c'.word_to_word_conf = c.word_to_word_conf ∧
+  c'.stack_conf = c.stack_conf ∧
+  c'.lab_conf = c.lab_conf
+Proof
+  strip_tac
+  \\ fs [to_data_def] \\ rpt (pairarg_tac \\ gvs [])
+  \\ fs [to_bvi_def] \\ rpt (pairarg_tac \\ gvs [])
+  \\ fs [to_bvl_def] \\ rpt (pairarg_tac \\ gvs [])
+  \\ fs [to_clos_def] \\ rpt (pairarg_tac \\ gvs [])
+  \\ fs [to_flat_def] \\ rpt (pairarg_tac \\ gvs [])
+QED
+
+Theorem to_liveset_0_thm:
+  to_livesets c p = to_livesets_0 (to_word_0 c p)
+Proof
+  fs [to_livesets_def,to_livesets_0_def,to_word_0_def]
+  \\ Cases_on ‘to_data c p’ \\ fs [] \\ PairCases_on ‘r’ \\ fs []
+  \\ fs [to_livesets_0_def,to_word_0_def,data_to_wordTheory.compile_0_def]
+  \\ imp_res_tac to_data_conf_inv \\ fs []
+QED
+
 val from_livesets_def = Define`
-  from_livesets c ((k,data),c',names,p) =
+  from_livesets ((k,data),c,names,p) =
   let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
   let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
   let alg = word_conf.reg_alg in
@@ -299,16 +377,45 @@ val from_livesets_def = Define`
             | Failure _ => prog (*cannot happen*)) in
           (name_num,arg_count,remove_must_terminate cp)
       | SOME col_prog => (name_num,arg_count,remove_must_terminate col_prog)) prog_with_oracles in
-  (* clarifying (for compilationLib) that the config changes in c'
-     are needed in the final returned config, but are limited to fields
-     that won't be read from this point. *)
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
-  let c = c with <| source_conf := c'.source_conf; clos_conf := c'.clos_conf;
-        bvl_conf := c'.bvl_conf |> in
   from_word c names p`;
 
+Triviality ZIP_MAP_MAP:
+  ∀xs. ZIP (MAP f xs, MAP g xs) = MAP (λx. (f x, g x)) xs
+Proof
+  Induct \\ fs []
+QED
+
+Triviality EL_ZIP_MAP:
+  ∀p q x.
+    x < LENGTH q ∧ x < LENGTH p ⇒
+    (EL x (ZIP (q, MAP f p))) = (λ(y,x). (x,f y)) (EL x (ZIP (p,q)))
+Proof
+  Induct \\ Cases_on ‘q’ \\ fs [] \\ Cases_on ‘x’ \\ fs []
+QED
+
+Theorem from_word_0_to_livesets_0:
+  from_word_0 c names p =
+  from_livesets (to_livesets_0 (c,p,names))
+Proof
+  simp[to_livesets_0_def,from_word_0_def,from_livesets_def] >>
+  simp[word_to_wordTheory.compile_def] >>
+  Cases_on ‘next_n_oracle (LENGTH p) c.word_to_word_conf.col_oracle’ >> fs [] >>
+  AP_TERM_TAC >>
+  match_mp_tac LIST_EQ >>
+  conj_tac THEN1 fs [Once MIN_COMM] >>
+  fs [] \\ rpt strip_tac >>
+  simp[MAP_MAP_o]>>
+  simp[EL_MAP,EL_ZIP]>>
+  fs [ZIP_MAP_MAP,EL_ZIP_MAP] >>
+  rpt(pairarg_tac>>fs[])>>
+  fs[full_compile_single_def]>>
+  fs [compile_single_def,word_allocTheory.word_alloc_def] >>
+  gvs [] >> BasicProvers.EVERY_CASE_TAC>>fs[]
+QED
+
 Theorem compile_oracle:
-    from_livesets c (to_livesets c p) = compile c p
+    from_livesets (to_livesets c p) = compile c p
 Proof
   srw_tac[][FUN_EQ_THM,
      to_data_def,
@@ -326,9 +433,7 @@ Proof
   ntac 2 (pop_assum mp_tac)>>
   qpat_abbrev_tac`progs = MAP A B`>>
   qpat_abbrev_tac`progs' = MAP A B`>>
-  qsuff_tac `progs = progs'`>>rw[]>-(
-    AP_THM_TAC>>AP_TERM_TAC>>simp[config_component_equality]
-  )>>
+  qsuff_tac `progs = progs'`>>rw[]>>
   unabbrev_all_tac>>
   fs[next_n_oracle_def]>>
   pop_assum mp_tac >>
@@ -352,8 +457,17 @@ Proof
   BasicProvers.EVERY_CASE_TAC>>fs[]
 QED
 
+Theorem compile_oracle_word_0:
+  compile c p =
+  let (c,p,names) = to_word_0 c p in
+  from_word_0 c names p
+Proof
+  simp[from_word_0_to_livesets_0, GSYM compile_oracle,to_liveset_0_thm]>>
+  pairarg_tac>>simp[]
+QED
+
 Theorem to_livesets_invariant:
-    wc.reg_alg = c.word_to_word_conf.reg_alg ⇒
+  wc.reg_alg = c.word_to_word_conf.reg_alg ⇒
   to_livesets (c with word_to_word_conf:=wc) p =
   let (rcm,c,p) = to_livesets c p in
     (rcm,c with word_to_word_conf:=wc,p)
@@ -366,6 +480,15 @@ Proof
      to_flat_def,to_livesets_def] >>
   unabbrev_all_tac>>fs[]>>
   rpt(rfs[]>>fs[])
+QED
+
+Theorem to_livesets_0_invariant:
+  (wc.reg_alg = c.word_to_word_conf.reg_alg) ⇒
+  (to_livesets_0 (c with word_to_word_conf:=wc,p,names) =
+  let (rcm,c,p) = to_livesets_0 (c,p,names) in
+    (rcm,c with word_to_word_conf:=wc,p))
+Proof
+  rw[FUN_EQ_THM,to_livesets_0_def]
 QED
 
 Theorem to_data_change_config:
@@ -437,5 +560,21 @@ val backend_compile_inc_progs_def = Define`
     let c = c with lab_conf updated_by (case target of NONE => I
         | SOME (_, c') => K c') in
     (c, ps)`;
+
+Theorem to_word_0_invariant:
+  (wc.reg_alg = c.word_to_word_conf.reg_alg) ⇒
+  ((to_word_0 (c with word_to_word_conf:=wc) p) =
+  let (c,p,names) = to_word_0 c p in
+    (c with word_to_word_conf:=wc,p,names))
+Proof
+  srw_tac[][FUN_EQ_THM,
+     to_data_def,
+     to_bvi_def,
+     to_bvl_def,
+     to_clos_def,
+     to_flat_def,to_livesets_def,to_word_0_def] >>
+  unabbrev_all_tac>>fs[]>>
+  rpt(rfs[]>>fs[])
+QED
 
 val _ = export_theory();
