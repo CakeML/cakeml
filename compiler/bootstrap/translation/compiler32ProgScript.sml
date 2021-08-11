@@ -224,8 +224,10 @@ val res = format_compiler_result_def
 val res = translate compile_32_def;
 
 val res = translate (has_version_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
+val res = translate (has_help_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 val res = translate print_option_def
 val res = translate current_build_info_str_def
+val res = translate compilerTheory.help_string_def;
 
 val nonzero_exit_code_for_error_msg_def = Define `
   nonzero_exit_code_for_error_msg e =
@@ -240,7 +242,9 @@ val main = process_topdecs`
     let
       val cl = CommandLine.arguments ()
     in
-      if compiler_has_version_flag cl then
+      if compiler_has_help_flag cl then
+        print compiler_help_string
+      else if compiler_has_version_flag cl then
         print compiler_current_build_info_str
       else
         case compiler_compile_32 cl (TextIO.inputAll TextIO.stdIn)  of
@@ -285,6 +289,20 @@ Proof
   \\ conj_tac >- metis_tac[] \\ rw[]
   \\ imp_res_tac stdin_11 \\ rw[]
   \\ imp_res_tac stdin_get_file_content
+  \\ xlet_auto >- xsimpl
+  \\ xif
+  >-
+   (simp[full_compile_32_def]
+    \\ xapp
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac `help_string`
+    \\ fs [compilerTheory.help_string_def,
+           fetch "-" "compiler_help_string_v_thm"]
+    \\ xsimpl
+    \\ rename1 `add_stdout _ (strlit string)`
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac`fs`
+    \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ xif
   >- (

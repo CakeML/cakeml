@@ -35,7 +35,7 @@ val _ = translate check_RAT_def;
 val _ = translate check_PR_def;
 val _ = translate is_PR_def;
 
-val _ = translate check_lpr_step_def;
+val _ = translate (check_lpr_step_def |> SIMP_RULE std_ss [mllistTheory.foldl_intro]);
 val _ = translate (is_unsat_def |> SIMP_RULE (srw_ss()) [LET_DEF,MEMBER_INTRO]);
 
 open mlintTheory;

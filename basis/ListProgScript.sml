@@ -113,7 +113,7 @@ val _ = ml_prog_update open_local_in_block;
 val result = next_ml_names := ["partition"];
 val result = translate mllistTheory.partition_def;
 
-val result = translate FOLDL;
+val result = translate foldl_def;
 
 val _ = ml_prog_update open_local_block;
 val result = translate foldli_aux_def;
