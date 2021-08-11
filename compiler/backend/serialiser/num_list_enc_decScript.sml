@@ -32,6 +32,43 @@ Proof
   fs [enc_dec_ok_def]
 QED
 
+(* conditional enc/dec functions *)
+
+Definition enc_dec_ok'_def:
+  enc_dec_ok' p enc dec ⇔
+    dec_ok dec ∧
+    ∀x (xs:num list). p x ⇒ dec (append (enc x) ++ xs) = (x,xs)
+End
+
+Theorem IMP_enc_dec_ok:
+  enc_dec_ok enc dec ⇒ enc_dec_ok' (K T) enc dec
+Proof
+  fs [enc_dec_ok_def,enc_dec_ok'_def]
+QED
+
+Theorem enc_dec_ok'_IMP:
+  enc_dec_ok' (λx. T) enc dec ⇒ enc_dec_ok enc dec
+Proof
+  fs [enc_dec_ok_def,enc_dec_ok'_def]
+QED
+
+Definition const_dec_def:
+  const_dec a xs = (a,xs:num list)
+End
+
+Theorem enc_dec_ok'_const:
+  ∀x. enc_dec_ok' ($= x) (K $ List []) (const_dec x)
+Proof
+  fs [enc_dec_ok'_def,dec_ok_def,const_dec_def]
+QED
+
+Theorem enc_dec_ok'_o:
+  enc_dec_ok' p e d ∧ (∀x. f (g x) = x) ⇒
+  enc_dec_ok' (p ∘ g) (e ∘ g) ((f ## I) ∘ d)
+Proof
+  fs [enc_dec_ok'_def]
+QED
+
 (* misc *)
 
 Definition fix_res_def:
@@ -114,6 +151,18 @@ Proof
   \\ Cases_on ‘list_dec' k d r’ \\ fs []
   \\ rw [] \\ res_tac \\ fs [dec_ok_def]
   \\ first_x_assum (qspec_then ‘ns’ mp_tac) \\ fs []
+QED
+
+Theorem list_dec_ok:
+  dec_ok d ⇒
+  dec_ok (list_dec d)
+Proof
+  fs [list_dec_def,dec_ok_def]
+  \\ fs [list_dec_def] \\ strip_tac
+  \\ Cases \\ fs []
+  \\ Cases_on ‘list_dec' h d t’ \\ fs []
+  \\ drule list_dec'_length
+  \\ fs [dec_ok_def]
 QED
 
 Theorem list_enc_dec_ok:
@@ -211,6 +260,27 @@ Proof
   \\ fs [num_enc_dec_ok,CHR_ORD]
 QED
 
+(* mlstring *)
+
+Definition mlstring_enc_def:
+  mlstring_enc (strlit s) = list_enc char_enc s
+End
+
+Definition mlstring_dec_def:
+  mlstring_dec = (strlit ## I) o (list_dec char_dec)
+End
+
+Theorem mlstring_enc_dec_ok:
+  enc_dec_ok mlstring_enc mlstring_dec
+Proof
+  fs [enc_dec_ok_def,mlstring_enc_def]
+  \\ fs [mlstring_dec_def,PULL_FORALL]
+  \\ Cases \\ fs [] \\ strip_tac
+  \\ Cases_on ‘list_dec char_dec (append (mlstring_enc (strlit s)) ++ xs)’ \\ fs []
+  \\ assume_tac (MATCH_MP list_enc_dec_ok char_enc_dec_ok)
+  \\ fs [enc_dec_ok_def,mlstring_enc_def]
+QED
+
 (* prod *)
 
 Definition prod_enc_def:
@@ -224,12 +294,35 @@ Definition prod_dec_def:
       ((x,y),ns2)
 End
 
+Theorem prod_dec_ok:
+  dec_ok d1 ∧
+  dec_ok d2 ⇒
+  dec_ok (prod_dec d1 d2)
+Proof
+  full_simp_tac std_ss [GSYM APPEND_ASSOC,prod_dec_def,LET_THM] \\ rw []
+  \\ fs [dec_ok_def,prod_dec_def] \\ rw []
+  \\ Cases_on ‘d1 i’ \\ fs []
+  \\ Cases_on ‘d2 r’ \\ fs []
+  \\ last_x_assum (qspec_then ‘i’ assume_tac)
+  \\ last_x_assum (qspec_then ‘r’ assume_tac)
+  \\ rfs []
+QED
+
 Theorem prod_enc_dec_ok:
   enc_dec_ok e1 d1 ∧
   enc_dec_ok e2 d2 ⇒
   enc_dec_ok (prod_enc e1 e2) (prod_dec d1 d2)
 Proof
-  fs [enc_dec_ok_def,prod_enc_def,FORALL_PROD]
+  fs [enc_dec_ok_def,prod_enc_def,FORALL_PROD,prod_dec_ok]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,prod_dec_def,LET_THM] \\ rw []
+QED
+
+Theorem prod_enc_dec_ok':
+  enc_dec_ok' p1 e1 d1 ∧
+  enc_dec_ok' p2 e2 d2 ⇒
+  enc_dec_ok' (λx. p1 (FST x) ∧ p2 (SND x)) (prod_enc e1 e2) (prod_dec d1 d2)
+Proof
+  fs [enc_dec_ok'_def,prod_enc_def,FORALL_PROD]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,prod_dec_def,LET_THM] \\ rw []
   \\ fs [dec_ok_def,prod_dec_def] \\ rw []
   \\ Cases_on ‘d1 i’ \\ fs []
@@ -428,12 +521,12 @@ QED
 
 Definition namespace_enc_def:
   namespace_enc e (Bind xs ys) =
-    (let ns1 = list_enc (prod_enc (list_enc char_enc) (list_enc char_enc)) xs in
+    (let ns1 = list_enc (prod_enc (list_enc char_enc) e) xs in
      let ns2 = namespace_enc_list e ys in
        Append ns1 ns2) ∧
   namespace_enc_list e [] = List [0] ∧
   namespace_enc_list e ((m,x)::xs) =
-    Append (Append (List [1]) (e m))
+    Append (Append (List [1]) (list_enc char_enc m))
       (Append (namespace_enc e x) (namespace_enc_list e xs))
 Termination
   WF_REL_TAC ‘measure (λx. case x of
@@ -445,7 +538,7 @@ Definition namespace_dec_def:
   namespace_dec d ns =
     (if PRECONDITION (dec_ok d) then
      if ns = [] then (Bind [] [],ns) else
-       let (xs,ns1) = list_dec (prod_dec (list_dec char_dec) (list_dec char_dec)) ns in
+       let (xs,ns1) = list_dec (prod_dec (list_dec char_dec) d) ns in
        let (ys,ns2) = namespace_dec_list d ns1 in
          (Bind xs ys,ns2)
      else (Bind [] [],ns)) ∧
@@ -455,7 +548,7 @@ Definition namespace_dec_def:
       | [] => ([],ns)
       | (n::rest) =>
         if n = 0n then ([],rest) else
-          let (m,ns) = d rest in
+          let (m,ns) = list_dec char_dec rest in
           let (x,ns) = fix_res ns (namespace_dec d ns) in
           let (ys,ns) = namespace_dec_list d ns in
             ((m,x)::ys,ns)
@@ -465,21 +558,20 @@ Termination
                            | INL (_,ns) => LENGTH ns
                            | INR (_,ns) => LENGTH ns)’
   \\ reverse (rw [] \\ imp_res_tac fix_res_IMP \\ fs [])
+  \\ assume_tac (MATCH_MP list_enc_dec_ok char_enc_dec_ok)
+  \\ fs [enc_dec_ok_def]
+  \\ pop_assum kall_tac
   \\ TRY
-   (fs [PRECONDITION_def,dec_ok_def]
-    \\ rpt (qpat_x_assum ‘(_,_) = _’ (assume_tac o GSYM))
+   (fs [dec_ok_def]
+    \\ Cases_on ‘list_dec char_dec rest’ \\ gvs []
     \\ first_x_assum (qspec_then ‘rest’ mp_tac) \\ fs [] \\ NO_TAC)
   \\ Cases_on ‘ns’ \\ fs []
-  \\ fs [list_dec_def]
-  \\ pop_assum (assume_tac o GSYM)
+  \\ gvs [list_dec_def,PRECONDITION_def]
+  \\ first_x_assum (assume_tac o SYM)
   \\ imp_res_tac list_dec'_length
+  \\ rpt (qpat_x_assum ‘∀x. _’ kall_tac)
   \\ pop_assum mp_tac \\ impl_tac \\ fs []
-  \\ qsuff_tac ‘enc_dec_ok
-                (prod_enc (list_enc char_enc) (list_enc char_enc))
-                (prod_dec (list_dec char_dec) (list_dec char_dec))’
-  THEN1 (fs [enc_dec_ok_def])
-  \\ match_mp_tac prod_enc_dec_ok \\ fs []
-  \\ match_mp_tac list_enc_dec_ok \\ fs [char_enc_dec_ok]
+  \\ irule prod_dec_ok \\ fs []
 End
 
 Theorem dec_ok_namespace_dec:
@@ -497,17 +589,20 @@ Proof
   \\ fs [ml_translatorTheory.PRECONDITION_def,UNCURRY]
   \\ rw [] \\ fs []
   THEN1
-   (Cases_on ‘list_dec (prod_dec (list_dec char_dec) (list_dec char_dec)) i’ \\ fs []
-    \\ ‘dec_ok (list_dec (prod_dec (list_dec char_dec) (list_dec char_dec)))’ by
-      metis_tac [list_enc_dec_ok, prod_enc_dec_ok, char_enc_dec_ok, enc_dec_ok_def]
+   (Cases_on ‘list_dec (prod_dec (list_dec char_dec) d) i’ \\ fs []
+    \\ ‘dec_ok (list_dec (prod_dec (list_dec char_dec) d))’ by
+     (irule list_dec_ok \\ irule prod_dec_ok \\ fs []
+      \\ metis_tac [list_enc_dec_ok, prod_enc_dec_ok, char_enc_dec_ok, enc_dec_ok_def])
     \\ fs [dec_ok_def] \\ first_x_assum (qspec_then ‘i’ mp_tac) \\ fs [])
   \\ Cases_on ‘i’ \\ fs []
   \\ Cases_on ‘h=0’ \\ fs []
-  \\ Cases_on ‘d t’ \\ fs []
+  \\ Cases_on ‘list_dec char_dec t’ \\ fs []
   \\ Cases_on ‘namespace_dec d r’ \\ fs []
   \\ Cases_on ‘fix_res r (q',r')’ \\ fs []
   \\ match_mp_tac LESS_EQ_TRANS \\ asm_exists_tac \\ fs []
   \\ imp_res_tac (GSYM fix_res_IMP)
+  \\ ‘dec_ok (list_dec char_dec)’ by
+    (metis_tac [list_enc_dec_ok, prod_enc_dec_ok, char_enc_dec_ok, enc_dec_ok_def])
   \\ fs [dec_ok_def]
   \\ first_x_assum (qspec_then ‘t’ mp_tac) \\ fs []
 QED
@@ -527,6 +622,7 @@ Theorem namespace_dec_ind = namespace_dec_ind
   |> SIMP_RULE std_ss [fix_res_namespace_dec,GSYM AND_IMP_INTRO]
   |> SIMP_RULE bool_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC];
 
+
 Theorem namespace_enc_dec_ok:
   enc_dec_ok e d ⇒
   enc_dec_ok (namespace_enc e) (namespace_dec d)
@@ -537,25 +633,31 @@ Proof
   \\ qid_spec_tac ‘x’
   \\ qid_spec_tac ‘e’
   \\ qsuff_tac ‘
-        (∀e x.
-            (∀x xs. d (append (e x) ++ xs) = (x,xs)) ⇒
-            ∀xs. namespace_dec d (append (namespace_enc e x) ++ xs) = (x,xs)) ∧
-        (∀e x.
-            (∀x xs. d (append (e x) ++ xs) = (x,xs)) ⇒
-            ∀xs. namespace_dec_list d (append (namespace_enc_list e x) ++ xs) = (x,xs))’
+      (∀e x.
+         (∀x xs. d (append (e x) ++ xs) = (x,xs)) ⇒
+         ∀xs. namespace_dec d (append (namespace_enc e x) ++ xs) = (x,xs)) ∧
+      (∀e x.
+         (∀x xs. d (append (e x) ++ xs) = (x,xs)) ⇒
+         ∀xs. namespace_dec_list d (append (namespace_enc_list e x) ++ xs) = (x,xs))’
   THEN1 metis_tac []
   \\ ho_match_mp_tac namespace_enc_ind \\ rw [] \\ fs []
   \\ fs [namespace_enc_def]
   \\ once_rewrite_tac [namespace_dec_def] \\ fs []
   \\ fs [ml_translatorTheory.PRECONDITION_def]
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ IF_CASES_TAC THEN1 fs [list_enc_def]
-  \\ pop_assum kall_tac
-  \\ ‘enc_dec_ok
-      (list_enc (prod_enc (list_enc char_enc) (list_enc char_enc)))
-      (list_dec (prod_dec (list_dec char_dec) (list_dec char_dec)))’ by
+  THEN1
+   (full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ IF_CASES_TAC THEN1 fs [list_enc_def]
+    \\ pop_assum kall_tac
+    \\ ‘enc_dec_ok
+        (list_enc (prod_enc (list_enc char_enc) e))
+        (list_dec (prod_dec (list_dec char_dec) d))’ by
+      metis_tac [list_enc_dec_ok, prod_enc_dec_ok, char_enc_dec_ok, enc_dec_ok_def]
+    \\ fs [enc_dec_ok_def] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC])
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ ‘enc_dec_ok (list_enc char_enc) (list_dec char_dec)’ by
     metis_tac [list_enc_dec_ok, prod_enc_dec_ok, char_enc_dec_ok, enc_dec_ok_def]
   \\ fs [enc_dec_ok_def] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ gvs [] \\ rev_full_simp_tac std_ss [GSYM APPEND_ASSOC] \\ gvs []
 QED
 
 (* encoding decoding from characters *)
@@ -569,10 +671,11 @@ Proof
   EVAL_TAC
 QED
 
-Definition enc_def:
-  enc [] = [] ∧
-  enc (n::ns) = if n < CUT then CHR (n + SHIFT) :: enc ns
-                else CHR ((n MOD CUT) + SHIFT + CUT) :: enc ((n DIV CUT)::ns)
+Definition nums_to_chars_def:
+  nums_to_chars [] = [] ∧
+  nums_to_chars (n::ns) =
+    if n < CUT then CHR (n + SHIFT) :: nums_to_chars ns
+    else CHR ((n MOD CUT) + SHIFT + CUT) :: nums_to_chars ((n DIV CUT)::ns)
 End
 
 Definition dec_next_def:
@@ -590,11 +693,11 @@ Proof
   \\ rw [] \\ res_tac \\ fs []
 QED
 
-Definition dec_def:
-  dec ns =
+Definition chars_to_nums_def:
+  chars_to_nums ns =
     if NULL ns then [] else
       let (k,ks) = dec_next 0 1 ns in
-        k :: dec ks
+        k :: chars_to_nums ks
 Termination
   WF_REL_TAC ‘measure LENGTH’ \\ rw []
   \\ pop_assum mp_tac
@@ -603,12 +706,12 @@ Termination
   \\ rw [] \\ imp_res_tac dec_next_LENGTH \\ fs []
 End
 
-Theorem dec_next_enc:
+Theorem dec_next_nums_to_chars:
   ∀h l ns k.
-    dec_next k (CUT ** l) (enc (h::ns)) = (k + (CUT ** l) * h, enc ns)
+    dec_next k (CUT ** l) (nums_to_chars (h::ns)) = (k + (CUT ** l) * h, nums_to_chars ns)
 Proof
   completeInduct_on ‘h’ \\ rw []
-  \\ simp [Once enc_def] \\ rw []
+  \\ simp [Once nums_to_chars_def] \\ rw []
   \\ fs [dec_next_def,ORD_CHR]
   THEN1 (‘h + SHIFT < 256’ by fs [] \\ simp [ORD_CHR])
   \\ ‘ORD (CHR (h MOD CUT + SHIFT)) = h MOD CUT + SHIFT’ by
@@ -629,15 +732,15 @@ Proof
   \\ pop_assum (fn th => simp [Once th])
 QED
 
-Theorem dec_enc:
-  ∀ns. dec (enc ns) = ns
+Theorem chars_to_nums_nums_to_chars:
+  ∀ns. chars_to_nums (nums_to_chars ns) = ns
 Proof
   Induct THEN1 EVAL_TAC
-  \\ simp [Once dec_def] \\ rw []
-  \\ fs [dec_next_enc |> SPEC_ALL |> Q.INST [‘l’|->‘0’] |> SIMP_RULE std_ss []]
+  \\ simp [Once chars_to_nums_def] \\ rw []
+  \\ fs [dec_next_nums_to_chars |> SPEC_ALL |> Q.INST [‘l’|->‘0’] |> SIMP_RULE std_ss []]
   \\ pop_assum mp_tac \\ pop_assum kall_tac
   \\ fs [] \\ completeInduct_on ‘h’
-  \\ simp [Once enc_def] \\ rw []
+  \\ simp [Once nums_to_chars_def] \\ rw []
 QED
 
 val _ = export_theory();

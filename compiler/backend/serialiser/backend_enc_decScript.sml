@@ -156,6 +156,8 @@ val res = define_enc_dec “:fp_bop”
 val res = define_enc_dec “:fp_top”
 val res = define_enc_dec “:closLang$op”
 val res = define_enc_dec “:mlstring”
+val res = define_enc_dec “:gc_kind”
+val res = define_enc_dec “:tap_config”
 
 (* closLang's exp *)
 
@@ -291,121 +293,138 @@ QED
 
 val _ = reg_enc_dec val_approx_enc'_thm;
 
+(* automation for producing enc/dec for record types *)
 
+fun define_abbrev name tm = let
+  val name = name |> String.tokens (fn c => c = #" ") |> last
+    |> String.translate (fn c => if c = #"$" then "_" else implode [c])
+  val thm_name = name ^ "_def"
+  val vs = free_vars tm |> sort (fn x => fn y => fst (dest_var x) <= fst (dest_var y))
+  val f = mk_var(name,type_of (list_mk_abs(vs,tm)))
+  val l = list_mk_comb(f,vs)
+  val def = new_definition(thm_name,mk_eq(l,tm)) |> SPEC_ALL
+  val _ = save_thm(thm_name,def |> SIMP_RULE std_ss [FUN_EQ_THM,LAMBDA_PROD] |> SPEC_ALL)
+  in def end
 
+val builtin = [bool_enc_dec_ok, unit_enc_dec_ok, num_enc_dec_ok,
+               int_enc_dec_ok, char_enc_dec_ok, list_enc_dec_ok,
+               word_enc_dec_ok, prod_enc_dec_ok, option_enc_dec_ok,
+               sum_enc_dec_ok, spt_enc_dec_ok, namespace_enc_dec_ok,
+               mlstring_enc_dec_ok, namespace_enc_dec_ok] |> map UNDISCH_ALL;
+
+val extra = DB.find "enc_dec_ok"
+  |> filter (fn ((thy,_),(th,_)) => thy = current_theory()
+       andalso not (can (find_term is_forall) (concl th)))
+  |> map (fst o snd);
+
+val get_enc_dec_ok_mem = ref (builtin @ extra);
+
+val ty = “:val_approx + num”
+
+fun get_enc_dec_ok_thm ty = let
+  fun get_match th =
+    match_type (th |> concl |> rator |> rand |> type_of |> dest_type |> snd |> hd) ty
+  val th = first (can get_match) (!get_enc_dec_ok_mem)
+  val m = get_match th
+  val th1 = INST_TYPE m th |> DISCH_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO]
+  fun match_all th1 = let
+    val tm = th1 |> concl |> dest_imp |> fst
+    val ty1 = tm |> rator |> rand |> type_of |> dest_type |> snd |> hd
+    in match_all (MATCH_MP th1 (get_enc_dec_ok_thm ty1)) end
+    handle HOL_ERR _ => th1
+  in match_all th1 end
+
+val mem_enc_dec' = ref ([]:thm list);
+
+fun get_enc_dec_ok'_thm (name, ty) =
+  if can (match_type “:'a -> 'b”) ty orelse
+     can (match_type “:'a asm_config”) ty then
+    ISPEC (mk_var(name,ty)) enc_dec_ok'_const
+  else if can get_enc_dec_ok_thm ty then
+    MATCH_MP IMP_enc_dec_ok (get_enc_dec_ok_thm ty)
+  else let
+    fun is_match th =
+      (th |> concl |> rator |> rand |> type_of |> dest_type |> snd |> hd) = ty
+    in first is_match (!mem_enc_dec') end
+    handle HOL_ERR e => (print "\n\nERROR: get_enc_dec_ok'_thm fails for: ";
+                         print_type ty; print "\n\n"; raise HOL_ERR e);
+
+fun encode_for_rec ty = let
+  val xs = TypeBase.fields_of ty |> map (fn (x,{ty = c, ...}) => (x,c))
+  val ys = map get_enc_dec_ok'_thm xs
 (*
-
-  <| source_conf : source_to_flat$config
-   ; clos_conf : clos_to_bvl$config
-   ; bvl_conf : bvl_to_bvi$config
-   ; data_conf : data_to_word$config
-   ; word_to_word_conf : word_to_word$config
-   ; word_conf : 'a word_to_stack$config
-   ; stack_conf : stack_to_lab$config
-   ; lab_conf : 'a lab_to_target$config
-   ; tap_conf : tap_config
-
-  source_to_flat$config =
-           <| next : next_indices
-            ; mod_env : environment
-            ; pattern_cfg : flat_pattern$config
-
-  where
-
-  next_indices = <| vidx : num; tidx : num; eidx : num |>
-
-  var_name = Glob tra num | Local tra string
-
-  environment =
-    <| c : (modN, conN, num # num option) namespace;
-       v : (modN, varN, var_name) namespace; |>
-
-  flat_pattern$config =
-  <| pat_heuristic : (* pattern_matching$branch list *) unit -> num ;  (* problem! *)
-    type_map : (num # num) list spt |>
-
-  clos_to_bvl$config =
-           <| next_loc : num
-            ; start : num
-            ; do_mti : bool
-            ; known_conf : clos_known$config option
-            ; do_call : bool
-            ; call_state : num_set # (num, num # closLang$exp) alist
-            ; max_app : num
-            |>
-
-  clos_known$config =
-           <| inline_max_body_size : num
-            ; inline_factor : num
-            ; initial_inline_factor : num
-            ; val_approx_spt : val_approx spt
-            |>`;
-
-  bvl_to_bvi$config =
-           <| inline_size_limit : num (* zero disables inlining *)
-            ; exp_cut : num (* huge number effectively disables exp splitting *)
-            ; split_main_at_seq : bool (* split main expression at Seqs *)
-            ; next_name1 : num (* there should be as many of       *)
-            ; next_name2 : num (* these as bvl_to_bvi_namespaces-1 *)
-            ; inlines : (num # bvl$exp) spt
-            |>
-
-  data_to_word$config = <| tag_bits : num (* in each pointer *)
-            ; len_bits : num (* in each pointer *)
-            ; pad_bits : num (* in each pointer *)
-            ; len_size : num (* size of length field in block header *)
-            ; has_div : bool (* Div available in target *)
-            ; has_longdiv : bool (* LongDiv available in target *)
-            ; has_fp_ops : bool (* can compile floating-point ops *)
-            ; has_fp_tern : bool (* can compile FMA *)
-            ; call_empty_ffi : bool (* emit (T) / omit (F) calls to FFI "" *)
-            ; gc_kind : gc_kind (* GC settings *) |>
-
-  word_to_word$config =
-  <| reg_alg : num
-   ; col_oracle : num -> (num num_map) option |>
-
-  word_to_stack$config = <| bitmaps : 'a word list ;
-                            stack_frame_size : num spt |>
-
-  stack_to_lab$config =
-  <| reg_names : num num_map
-   ; jump : bool (* whether to compile to JumpLower or If Lower ... in stack_remove*)
-   |>
-
-  lab_to_target$config =
-           <| labels : num num_map num_map
-            ; pos : num
-            ; asm_conf : 'a asm_config
-            ; init_clock : num
-            ; ffi_names : string list option
-            ; hash_size : num
-            |>
-
-  asm_config =
-    <| ISA            : architecture
-     ; encode         : 'a asm -> word8 list
-     ; big_endian     : bool
-     ; code_alignment : num
-     ; link_reg       : num option
-     ; avoid_regs     : num list
-     ; reg_count      : num
-     ; fp_reg_count   : num  (* set to 0 if float not available *)
-     ; two_reg_arith  : bool
-     ; valid_imm      : (binop + cmp) -> 'a word -> bool
-     ; addr_offset    : 'a word # 'a word
-     ; byte_offset    : 'a word # 'a word
-     ; jump_offset    : 'a word # 'a word
-     ; cjump_offset   : 'a word # 'a word
-     ; loc_offset     : 'a word # 'a word
-     |>
-
-  tap_config = Tap_Config
-    (* save filename prefix *) mlstring
-    (* bits which should be saved. the boolean indicates
-       the presence of a '*' suffix, and matches all suffixes *)
-    ((mlstring # bool) list)
-
+  val (name,ty) = first (not o can get_enc_dec_ok'_thm) xs
 *)
+  fun prod_enc [th] = th
+    | prod_enc (th::thms) =
+        MATCH_MP prod_enc_dec_ok' (CONJ th (prod_enc thms))
+    | prod_enc _ = TRUTH
+  val thi = prod_enc ys
+  val x = mk_var("x",ty)
+  val cons = TypeBase.constructors_of ty |> hd
+  val cs = TypeBase.fields_of ty |> map snd |> map (fn {accessor = c, ...} => c)
+  val e = mk_abs(x,list_mk_pair(map (fn tm => mk_comb(tm,x)) cs))
+  val tms = map (fn tm => mk_comb(tm,x)) cs
+  val tm = list_mk_pair tms
+  val enc = mk_abs(x,tm)
+  val y = mk_var("y",type_of tm)
+  fun parts [] x = [x]
+    | parts [_] x = [x]
+    | parts (y::ys) x = mk_fst x :: parts ys (mk_snd x)
+  val ys = parts tms y
+  val dec = mk_abs(y,list_mk_comb(cons,ys))
+  val goal = mk_forall(x,mk_eq(mk_comb(dec,mk_comb(enc,x)),x))
+  val lemma = prove(goal,Cases THEN EVAL_TAC)
+  val th = MATCH_MP enc_dec_ok'_o (CONJ thi lemma)
+            |> SIMP_RULE std_ss [o_DEF,prod_enc_def]
+  val enc_tm = th |> concl |> rator |> rand
+  val enc_name = type_to_string ty ^ "_enc" |> explode |> tl |> implode
+  val enc_def = define_abbrev enc_name enc_tm
+  val dec_tm = th |> concl |> rand
+  val dec_name = type_to_string ty ^ "_dec" |> explode |> tl |> implode
+  val dec_def = define_abbrev dec_name dec_tm
+  val res = CONV_RULE (RAND_CONV (REWR_CONV (GSYM dec_def))
+                       THENC (RATOR_CONV o RAND_CONV) (REWR_CONV (GSYM enc_def))) th
+  val _ = (mem_enc_dec' := res :: (!mem_enc_dec'))
+  val _ = (get_enc_dec_ok_mem := !get_enc_dec_ok_mem @ [MATCH_MP enc_dec_ok'_IMP res])
+          handle HOL_ERR _ => ()
+  in res end handle HOL_ERR e => failwith ("encode_for_rec failed for " ^ type_to_string ty);
+
+val res = encode_for_rec “:next_indices”;
+val res = encode_for_rec “:clos_known$config”;
+val res = encode_for_rec “:word_to_word$config”;
+val res = encode_for_rec “:bvl_to_bvi$config”;
+val res = encode_for_rec “:stack_to_lab$config”;
+val res = encode_for_rec “:flat_pattern$config”;
+val res = encode_for_rec “:data_to_word$config”;
+val res = encode_for_rec “:clos_to_bvl$config”;
+val res = encode_for_rec “:environment”;
+val res = encode_for_rec “:environment_store”;
+val res = encode_for_rec “:source_to_flat$config”;
+val res = encode_for_rec “:'a word_to_stack$config”;
+val res = encode_for_rec “:'a lab_to_target$config”;
+val res = encode_for_rec “:'a backend$config”;
+
+Theorem config_dec_thm =
+  res |> SIMP_RULE std_ss [enc_dec_ok'_def]
+      |> CONJUNCT2 |> Q.SPECL [‘c’,‘[]’]
+      |> GEN_ALL |> SIMP_RULE std_ss [APPEND_NIL];
+
+(* top level *)
+
+Definition encode_backend_config_def:
+  encode_backend_config c = nums_to_chars (append (config_enc c)) : char list
+End
+
+Definition decode_backend_config_def:
+  decode_backend_config x s = FST (config_dec x (chars_to_nums s))
+End
+
+Theorem encode_backend_config_thm:
+  decode_backend_config c.lab_conf.asm_conf (encode_backend_config c) = c
+Proof
+  fs [encode_backend_config_def,decode_backend_config_def,
+      chars_to_nums_nums_to_chars,config_dec_thm]
+QED
 
 val _ = export_theory();
