@@ -12665,4 +12665,135 @@ Proof
   \\ rw [] \\ fs [ADD1]
 QED
 
+Theorem word_and_lsr_0:
+  (∀i. k ≤ i ∧ i < dimindex (:'a) ⇒ ~w ' i) ⇒ w && n ≪ k = (0w:'a word)
+Proof
+  fs [fcpTheory.CART_EQ,word_and_def,fcpTheory.FCP_BETA,word_lsl_def]
+  \\ rw [] \\ res_tac
+  \\ Cases_on ‘i < k’ \\ fs [word_0]
+QED
+
+Theorem make_cons_ptr_add:
+  small_shift_length c ≤ shift_length c − shift (:α) ⇒
+  make_cons_ptr c n tag len =
+  Word (n ≪ (shift_length c − shift (:α)) +
+        get_lowerbits c (Word (ptr_bits c tag len)) :'a word)
+Proof
+  fs [make_cons_ptr_def,get_lowerbits_def]
+  \\ fs [GSYM get_lowerbits_def] \\ rw []
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ irule wordsTheory.WORD_ADD_OR
+  \\ irule word_and_lsr_0
+  \\ fs [get_lowerbits_def]
+  \\ fs [fcpTheory.FCP_BETA,word_or_def,word_bits_def,word_index]
+  \\ rw [shift_def]
+  \\ CCONTR_TAC \\ gvs []
+  \\ fs [small_shift_length_def,shift_length_def]
+  \\ gvs [shift_def]
+QED
+
+Theorem make_ptr_add:
+  small_shift_length c ≤ shift_length c − shift (:α) ⇒
+  make_ptr c n tag len =
+  Word (n ≪ (shift_length c − shift (:'a)) + 1w:'a word)
+Proof
+  rw [make_ptr_def,get_lowerbits_def]
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ irule wordsTheory.WORD_ADD_OR
+  \\ fs [fcpTheory.FCP_BETA,word_or_def,word_bits_def,word_index,fcpTheory.CART_EQ,
+         word_and_def,word_lsl_def,word_0]
+  \\ fs [small_shift_length_def,shift_length_def]
+QED
+
+Definition part_to_words_def:
+  part_to_words c m (Int i) offset =
+    (if small_int (:'a) i then  SOME ((F,Smallnum i),[])
+     else let (sign,ws) = i2mw i in
+            case encode_header c (w2n (b2w sign ≪ 2 ‖ 3w:'a word)) (LENGTH ws) of
+            | NONE => NONE
+            | SOME hd => SOME ((T,theWord (make_ptr c offset (0w:'a word) (LENGTH ws))),
+                               MAP (λw. (F,w)) (hd::ws))) ∧
+  part_to_words c m (Con t ns) (offset:'a word) =
+    (if NULL ns then
+       if t < dimword (:'a) DIV 16 then SOME ((F,n2w (16 * t + 2)),[]) else NONE
+     else
+       case encode_header c (4 * t) (LENGTH ns) of
+       | NONE => NONE
+       | SOME hd => SOME ((T,theWord (make_cons_ptr c offset t (LENGTH ns))),
+                          (F,hd)::(MAP m ns))) ∧
+  part_to_words c m (W64 w) offset =
+    (let ws = (if dimindex (:α) < 64
+               then [((63 >< 32) w); ((31 >< 0) w)]
+               else [((63 >< 0) w):'a word]) in
+       case encode_header c 3 (LENGTH ws) of
+       | NONE => NONE
+       | SOME hd => SOME ((T,theWord (make_ptr c offset (0w:'a word) (LENGTH ws))),
+                          (F,hd)::MAP (λw. (F,w)) ws)) ∧
+  part_to_words c m (Str s) offset =
+    (let bytes = MAP (n2w o ORD) (explode s) in
+     let n = LENGTH bytes in
+     let hd = make_byte_header c T n in
+     let ws = write_bytes bytes (REPLICATE (byte_len (:α) n) 0w) c.be in
+       if byte_len (:α) n < 2 ** (dimindex (:α) − 4) ∧
+          byte_len (:α) n < 2 ** c.len_size
+       then SOME ((T,theWord (make_ptr c offset (0w:'a word) (byte_len (:α) n))),
+                  MAP (λw. (F,w)) (hd::ws))
+       else NONE)
+End
+
+Definition parts_to_words_def:
+  parts_to_words c m i [] off = SOME (m (i - 1:num), []) ∧
+  parts_to_words c m i (x::parts) (off:'a word) =
+    case part_to_words c m x off of
+    | NONE => NONE
+    | SOME (w,xs) =>
+      case parts_to_words c ((i =+ w) m) (i+1) parts (off + bytes_in_word * n2w (LENGTH xs)) of
+      | NONE => NONE
+      | SOME (r,ys) => SOME (r,xs ++ ys)
+End
+
+Definition word_cond_add_def[simp]:
+  word_cond_add c a (F,w) = (w:'a word) ∧
+  word_cond_add c a (T,w) = w + a ≪ (shift_length c − shift (:'a))
+End
+
+Theorem part_to_words_add:
+  ∀part m off a w ws m1.
+    small_shift_length c ≤ shift_length c − shift (:α) ∧
+    part_to_words c m part (off:'a word) = SOME (w,ws) ∧
+    (∀i. SND (m1 i) = word_cond_add c a (m i)) ⇒
+    ∃v vs. part_to_words c m1 part (off + a:'a word) = SOME (v,vs) ∧
+           MAP SND vs = MAP (word_cond_add c a) ws ∧
+           SND v = word_cond_add c a w
+Proof
+  Cases
+  \\ rw [part_to_words_def] \\ gvs [AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [AllCaseEqs()]
+  \\ gvs [make_cons_ptr_add,make_ptr_add,theWord_def]
+  \\ fs [MAP_MAP_o] \\ fs [MAP_EQ_f]
+QED
+
+Theorem parts_to_words_add:
+  ∀parts m i off a w ws m1.
+    small_shift_length c ≤ shift_length c − shift (:α) ∧
+    parts_to_words c m i parts (off:'a word) = SOME (w,ws) ∧
+    (∀i. SND (m1 i) = word_cond_add c a (m i)) ⇒
+    ∃v vs. parts_to_words c m1 i parts (off + a:'a word) = SOME (v,vs) ∧
+           MAP SND vs = MAP (word_cond_add c a) ws ∧
+           SND v = word_cond_add c a w
+Proof
+  Cases_on ‘small_shift_length c ≤ shift_length c − shift (:α)’ \\ fs []
+  \\ Induct \\ fs [parts_to_words_def]
+  \\ fs [AllCaseEqs()] \\ rw [PULL_EXISTS]
+  \\ drule_all part_to_words_add
+  \\ rw [] \\ fs []
+  \\ first_x_assum drule
+  \\ disch_then (qspecl_then [‘a’,‘m1⦇i ↦ v⦈’] mp_tac)
+  \\ impl_tac THEN1 rw [APPLY_UPDATE_THM]
+  \\ strip_tac \\ fs []
+  \\ ‘LENGTH (MAP SND vs) = LENGTH (MAP (word_cond_add c a) xs)’ by asm_rewrite_tac []
+  \\ fs []
+QED
+
 val _ = export_theory();
