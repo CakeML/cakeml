@@ -155,16 +155,91 @@ Proof
   \\ simp[]
 QED
 
+Definition ref_to_vs_def:
+  ref_to_vs [] = []
+∧ ref_to_vs (ValueArray vs::xs) = vs ++ ref_to_vs xs
+∧ ref_to_vs (ByteArray _ _::xs) = ref_to_vs xs
+End
+
+Definition blocks_to_vs_def:
+  blocks_to_vs [] = []
+∧ blocks_to_vs (Block _ _ l::xs) = l ++ blocks_to_vs xs
+∧ blocks_to_vs (x::xs) = blocks_to_vs xs
+End
+
+Theorem FINITE_to_roots:
+  ∀l. FINITE (to_roots l)
+Proof
+  Induct \\ rw[to_roots_def]
+  \\ Cases_on ‘h’
+  \\ rw[to_roots_def]
+QED
+
+(* Any block within a block must also be in all_blocks *)
+Definition all_blocks_ok_def:
+  all_blocks_ok blocks =
+    ∀ts ts' tag tag' l l'.
+      MEM (Block ts tag l) blocks ∧
+      MEM (Block ts' tag' l') l
+      ⇒ MEM (Block ts' tag' l') blocks
+End
+
+Theorem to_roots_APPEND:
+  ∀a b. to_roots (a ++ b) = to_roots a ∪ to_roots b
+Proof
+  Induct \\ rw[to_roots_def]
+  \\ Cases_on ‘h’ \\ rw[to_roots_def,UNION_ASSOC]
+QED
 
 (* Note: This might be tricky as it will relay on well-formedness properties
          of references  and blocks which should not have circular pointers/timestamps
  *)
 Theorem FINITE_reachable_v:
   ∀refs blocks roots.
-  FINITE roots ⇒
-  FINITE (reachable_v refs blocks roots)
+    FINITE roots ⇒
+    FINITE (reachable_v refs blocks roots)
 Proof
-  cheat
+  rw[]
+  \\ qspec_then ‘to_roots (blocks_to_vs blocks) ∪
+                 to_roots (ref_to_vs (sptree$toList refs))  ∪
+                 roots’
+                mp_tac SUBSET_FINITE
+  \\ impl_tac >- rw[FINITE_to_roots]
+  \\ disch_then ho_match_mp_tac
+  \\ rw [SUBSET_DEF,IN_DEF,reachable_v_def]
+  \\ gs[Once RTC_CASES2]
+  \\ Cases_on ‘u’
+  >- (gs[next_def,block_to_roots_def]
+      \\ Cases_on ‘LLOOKUP blocks n’ \\ gs []
+      \\ Cases_on ‘x''’ \\ gs [LLOOKUP_EQ_EL]
+      \\ drule EL_MEM
+      \\ qpat_x_assum ‘Blocks _ _ _ = _’ (REWRITE_TAC o single o GSYM)
+      \\ rw[] \\ DISJ1_TAC \\ DISJ1_TAC
+      \\ gs[IN_DEF] \\ pop_assum mp_tac
+      \\ qpat_x_assum ‘to_roots _ _’ mp_tac
+      \\ rpt (pop_assum kall_tac)
+      \\ simp[AND_IMP_INTRO]
+      \\ induct_on ‘blocks’
+      \\ rw[]
+      >- (simp[blocks_to_vs_def,to_roots_APPEND,IN_DEF])
+      \\ first_x_assum drule_all \\ rw[]
+      \\ Cases_on ‘h’ \\ rw[]
+      \\ rw[blocks_to_vs_def,to_roots_def,to_roots_APPEND,IN_DEF])
+  >-(gs[next_def,ptr_to_roots_def]
+     \\ Cases_on ‘lookup n refs’ \\ gs[]
+     \\ Cases_on ‘x''’ \\ gs[]
+     \\ ‘MEM (ValueArray l) (toList refs)’ by metis_tac[MEM_toList]
+     \\ DISJ1_TAC \\ DISJ2_TAC
+     \\ pop_assum mp_tac \\ qpat_x_assum ‘x ∈ _’ mp_tac
+     \\ rpt (pop_assum kall_tac)
+     \\ qmatch_goalsub_abbrev_tac ‘MEM _ ll’
+     \\ pop_assum kall_tac \\ simp[AND_IMP_INTRO]
+     \\ induct_on ‘ll’
+     \\ rw[]
+     >- (simp[ref_to_vs_def,to_roots_APPEND])
+     \\ first_x_assum drule_all \\ rw[]
+     \\ Cases_on ‘h’ \\ rw[]
+     \\ rw[ref_to_vs_def,to_roots_def,to_roots_APPEND,IN_DEF])
 QED
 
 Theorem flat_size_of_le_APPEND:
@@ -182,6 +257,9 @@ Proof
   \\ ‘a2 ≤ b2’ suffices_by simp[]
   \\ UNABBREV_ALL_TAC
   \\ irule sum_img_subset
+  \\ simp[FINITE_to_roots,FINITE_reachable_v,SUBSET_DEF,to_roots_APPEND]
+  \\ rw[IN_DEF,reachable_v_def]
+  \\ metis_tac[]
 QED
 
 val _ = export_theory();
