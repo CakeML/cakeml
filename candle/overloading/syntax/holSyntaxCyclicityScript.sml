@@ -6711,8 +6711,7 @@ End
 * returns whether q p are non-strict instances of one-another *)
 Definition composable_one_def:
   composable_one q p =
-    let s = unify q p
-    in case s of
+    case unify q p of
       | NONE => ignore
       | SOME (s_q,s_p) =>
     let sp_inv = invertible_on s_p (tyvars p) ;
