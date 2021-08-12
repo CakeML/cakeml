@@ -451,23 +451,6 @@ Proof
   >> fs[]
 QED
 
-(*
-Theorem rename_apart_by_ALOOKUP_inj:
-  !chr r s c x y. MEM x (list_inter r s) /\ MEM y (list_inter r s) ==>
-  let f = λx. ALOOKUP (MAP SWAP (rename_apart_by chr (list_complement r s) (LIST_UNION s c))) x
-  in  f x = f y ==> x = y
-Proof
-  rw[GSYM rename_apart_by_ALOOKUP]
-  >> CCONTR_TAC
-  >> qmatch_asmsub_abbrev_tac `ALOOKUP ss x`
-  >> Cases_on `ALOOKUP ss x`
-  >> qunabbrev_tac `ss`
-  >> fs[GSYM rename_apart_by_ALOOKUP_NONE,GSYM rename_apart_by_ALOOKUP]
-  >> qspecl_then [`chr`,`list_complement r s`,`LIST_UNION s c`] assume_tac rename_apart_by_MEM_SND
-  >> fs[list_inter_set]
-QED
-*)
-
 Theorem rename_apart_by_list_complement:
   !chr r rc c. NULL (list_inter (MAP SND (rename_apart_by chr (list_complement r rc) c)) rc)
 Proof
