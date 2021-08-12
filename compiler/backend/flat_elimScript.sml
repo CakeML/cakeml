@@ -6,11 +6,11 @@
   Removes unreachable globals from the code.
 *)
 
-open preamble sptreeTheory flatLangTheory reachable_sptTheory
+open preamble sptreeTheory flatLangTheory spt_closureTheory
 
 val _ = new_theory "flat_elim";
 
-val _ = set_grammar_ancestry ["reachable_spt", "flatLang", "misc"]
+val _ = set_grammar_ancestry ["spt_closure", "flatLang", "misc"]
 val _ = temp_tight_equality();
 
 (**************************** ANALYSIS FUNCTIONS *****************************)
@@ -81,9 +81,34 @@ Definition is_pure_def:
     (is_pure _ = F)
 Termination
   WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def] >> fs[] >>
-  TRY (Induct_on `es` >> rw[exp_size_def] >> fs[])
-  >- (Induct_on `pes` >> rw[exp_size_def] >> fs[] >>
-      Cases_on `h` >> fs[exp_size_def])
+  fs [MEM_MAP, EXISTS_PROD] >>
+  fs [exp1_size, exp3_size, exp6_size, MEM_SPLIT, SUM_APPEND, exp_size_def]
+End
+
+Theorem is_pure_def1 = CONV_RULE (DEPTH_CONV ETA_CONV) is_pure_def
+
+Definition has_Eval_def:
+  (has_Eval (App t op es) ⇔ op = Eval ∨ has_Eval_list es) ∧
+  (has_Eval (Mat _ e pes) ⇔ has_Eval e ∨ has_Eval_pats pes) ∧
+  (has_Eval (Letrec _ funs e) ⇔ has_Eval e ∨ has_Eval_funs funs) ∧
+  (has_Eval (Raise _ e) ⇔ has_Eval e) ∧
+  (has_Eval (Handle _ e pes) ⇔ has_Eval e ∨ has_Eval_pats pes) ∧
+  (has_Eval (Con _ _ es) ⇔ has_Eval_list es) ∧
+  (has_Eval (Fun _ _ e) ⇔ has_Eval e) ∧
+  (has_Eval (If _ e1 e2 e3) ⇔ has_Eval e1 ∨ has_Eval e2 ∨ has_Eval e3) ∧
+  (has_Eval (Let _ _ e1 e2) ⇔ has_Eval e1 ∨ has_Eval e2) ∧
+  (has_Eval _ ⇔ F) ∧
+  (has_Eval_list [] ⇔ F) ∧
+  (has_Eval_list (e::es) ⇔ has_Eval e ∨ has_Eval_list es) ∧
+  (has_Eval_pats [] ⇔ F) ∧
+  (has_Eval_pats ((p,e)::pes) ⇔ has_Eval e ∨ has_Eval_pats pes) ∧
+  (has_Eval_funs [] ⇔ F) ∧
+  (has_Eval_funs ((_,_,e)::fs) ⇔ has_Eval e ∨ has_Eval_funs fs)
+Termination
+  wf_rel_tac `inv_image $< (\x. case x of INL e => exp_size e
+                                | INR (INL es) => exp6_size es
+                                | INR (INR (INL pes)) => exp3_size pes
+                                | INR (INR (INR funs)) => exp1_size funs)`
 End
 
 val dest_GlobalVarInit_def = Define `
@@ -234,8 +259,16 @@ val remove_unreachable_def = Define `
     remove_unreachable reachable l = FILTER (keep reachable) l
 `
 
+Definition has_Eval_dec_def:
+  has_Eval_dec (Dlet e) = has_Eval e /\
+  has_Eval_dec _ = F
+End
+
 val remove_flat_prog_def = Define `
     remove_flat_prog code =
+      if EXISTS has_Eval_dec code
+      then code
+      else
         let (r, t) = analyse_code code in
         let reachable = closure_spt r t in
         remove_unreachable reachable code

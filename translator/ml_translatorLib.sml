@@ -178,7 +178,7 @@ val refs' = mk_var("refs'",refs_ty)
 val v = mk_var("v",v_ty)
 val env_tm = mk_var("env",venvironment)
 val cl_env_tm = mk_var("cl_env",venvironment)
-val state_refs_tm = prim_mk_const{Name="state_refs",Thy="semanticPrimitives"}
+val state_refs_tm = prim_mk_const{Name=TypeBasePure.mk_recordtype_fieldsel {fieldname="refs",tyname="state"},Thy="semanticPrimitives"}
 fun mk_tid name =
   optionSyntax.mk_some
     (astSyntax.mk_Short
@@ -433,6 +433,7 @@ in
   fun get_names() = map (#2) (!v_thms)
   fun get_v_thms_ref() = v_thms (* for the monadic translator *)
   fun get_type_mods () = !type_mod_state
+  fun type_mods_reset () = type_mod_state := []
   fun lookup_type_mod tyname =
     SOME (Lib.assoc tyname (!type_mod_state))
     handle HOL_ERR _ => NONE
@@ -449,6 +450,7 @@ in
       | _ => type_mod_state := (tyname,mods)::(!type_mod_state)
     end
   fun get_cons_names () = !cons_name_state
+  fun cons_names_reset () = cons_name_state := []
   fun mk_cons_name tm =
     let
       val (_, ty) = strip_fun (type_of tm)
@@ -1625,7 +1627,7 @@ val th = inv_defs |> map #2 |> hd
   (* cons assumption *)
   fun mk_assum tm =
     if not is_exn_type then let
-      val x = find_term is_TypeStamp tm
+      val x = find_term is_TypeStamp (rhs tm)
       val (n,k) = dest_TypeStamp x
       val l = tm |> dest_eq |> fst |> rator |> rand |> list_dest dest_comb
                  |> tl |> length |> numSyntax.term_of_int
@@ -2800,12 +2802,13 @@ fun mutual_to_single_line_def def = let
   in ([def],ind) end
 
 val builtin_terops =
-  ([Eval_substring, Eval_FLOAT_FMA]
+  [Eval_substring,
+   Eval_FLOAT_FMA]
   |> map (fn th =>
-      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th)));
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th))
 
 val builtin_binops =
-  ([Eval_NUM_ADD,
+  [Eval_NUM_ADD,
    Eval_NUM_SUB,
    Eval_NUM_SUB_nocheck,
    Eval_NUM_MULT,
@@ -2845,28 +2848,28 @@ val builtin_binops =
    Eval_Implies,
    Eval_pure_seq]
   |> map (fn th =>
-      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th)));
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
 
 val builtin_monops =
-  ([Eval_implode,
+  [Eval_implode,
    Eval_explode,
    Eval_strlen,
    Eval_concat,
    Eval_Bool_Not,
    Eval_int_negate,
-   Eval_FLOAT_ABS,
-   Eval_FLOAT_SQRT,
-   Eval_FLOAT_NEG,
    Eval_length,
    Eval_vector,
    Eval_int_of_num,
    Eval_num_of_int,
+   Eval_FLOAT_ABS,
+   Eval_FLOAT_SQRT,
+   Eval_FLOAT_NEG,
    Eval_empty_ffi,
    Eval_force_out_of_memory_error,
    Eval_Chr,
    Eval_Ord]
   |> map (fn th =>
-      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator, th)));
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator, th))
 
 val builtin_hol_string_binops =
   [Eval_HOL_STRING_EL,
@@ -3832,7 +3835,12 @@ fun rev_param_list tm =
 val EVAL_T_F = LIST_CONJ [EVAL (mk_CONTAINER TRUE), EVAL (mk_CONTAINER FALSE)]
 
 fun reset_translation () =
-  (v_thms_reset(); type_reset(); print_reset(); finalise_reset());
+  (v_thms_reset();
+   type_reset();
+   type_mods_reset();
+   cons_names_reset();
+   print_reset();
+   finalise_reset());
 
 fun abbrev_code (fname,ml_fname,def,th,v) = let
   val th = th |> UNDISCH_ALL
@@ -4408,7 +4416,7 @@ fun translate_options options def =
         val th = UNDISCH_ALL (clean_assumptions (D th))
         val curr_state = get_curr_state()
         val curr_refs =
-          mk_icomb(prim_mk_const{Name="state_refs",Thy="semanticPrimitives"},curr_state)
+          mk_icomb(state_refs_tm,curr_state)
         val curr_refs_eq = EVAL curr_refs
         val vs = free_vars (concl th)
         fun aux (v,th) = let

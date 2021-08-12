@@ -581,9 +581,9 @@ Theorem rewrite_PMATCH:
        | _ =>
            dtcase check_op ts opr loc expr of
              NONE => (F, apply_op opr (Var acc) expr)
-           | SOME expr =>
-             dtcase opbinargs opr expr of
-               NONE => (F, apply_op opr (Var acc) expr)
+           | SOME expr2 =>
+             dtcase opbinargs opr expr2 of
+               NONE => (F, apply_op opr (Var acc) expr2)
              | SOME (xs, f) => (T, push_call next opr acc xs (args_from f))
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)

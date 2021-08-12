@@ -19,7 +19,7 @@ val _ = new_theory "fpOpt"
 val _ = Hol_datatype `
  fp_pat =
        Word of word64
-     | Var of num
+     | PatVar of num
      | Unop of fp_uop => fp_pat
      | Binop of fp_bop => fp_pat => fp_pat
      | Terop of fp_top => fp_pat => fp_pat => fp_pat
@@ -75,7 +75,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  val matchWordTree_defn = Defn.Hol_multi_defns `
  ((matchWordTree:fp_pat -> fp_word_val ->(num#fp_word_val)list ->((num#fp_word_val)list)option) (Word w1) (Fp_const w2) s=
      (if (w1 = w2) then SOME s else NONE))
-    /\ ((matchWordTree:fp_pat -> fp_word_val ->(num#fp_word_val)list ->((num#fp_word_val)list)option) (Var n) v s=
+    /\ ((matchWordTree:fp_pat -> fp_word_val ->(num#fp_word_val)list ->((num#fp_word_val)list)option) (PatVar n) v s=
        ((case substLookup s n of
         SOME v1 => if v1 = v then SOME s else NONE
       | NONE => SOME (substAdd n v s)
@@ -132,7 +132,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 (*val instWordTree: fp_pat -> subst fp_word_val -> maybe fp_word_val*)
  val instWordTree_defn = Defn.Hol_multi_defns `
  ((instWordTree:fp_pat ->(num#fp_word_val)list ->(fp_word_val)option) (Word w) s=  (SOME (Fp_const w)))
-    /\ ((instWordTree:fp_pat ->(num#fp_word_val)list ->(fp_word_val)option) (Var n) s=  (substLookup s n))
+    /\ ((instWordTree:fp_pat ->(num#fp_word_val)list ->(fp_word_val)option) (PatVar n) s=  (substLookup s n))
     /\ ((instWordTree:fp_pat ->(num#fp_word_val)list ->(fp_word_val)option) (Unop u p) s=
        ((case instWordTree p s of
         NONE => NONE

@@ -1290,6 +1290,9 @@ Proof
  >- pat_sound_tac
  >- pat_sound_tac
  >- pat_sound_tac
+ >- pat_sound_tac
+ >- pat_sound_tac
+ >- pat_sound_tac
  >- (
    qpat_x_assum `type_ps _ _ (_::_) _ _` mp_tac
    >> simp [Once type_p_cases]
@@ -1400,7 +1403,7 @@ Theorem do_fpoptimise_preserves_type:
     do_fpoptimise annot vs = vs2 /\
     LIST_REL (type_v n ctMap tenvS) vs2 ts
 Proof
-  measureInduct_on `v7_size vs`
+  measureInduct_on `v1_size vs`
   \\ Cases_on `vs` \\ fs[do_fpoptimise_def, Once do_fpoptimise_cons]
   \\ rpt strip_tac \\ rveq
   \\ first_assum (qspec_then `t` mp_tac)
@@ -1452,6 +1455,8 @@ Theorem exp_type_sound:
     ∃tenvS'.
       type_s ctMap s'.refs tenvS' ∧
       store_type_extension tenvS tenvS' ∧
+      s'.next_type_stamp = s.next_type_stamp ∧
+      s'.next_exn_stamp = s.next_exn_stamp ∧
       case r of
          | Rval vs => LIST_REL (type_v tvs ctMap tenvS') vs ts
          | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
@@ -1473,6 +1478,8 @@ Theorem exp_type_sound:
     ∃tenvS'.
       type_s ctMap s'.refs tenvS' ∧
       store_type_extension tenvS tenvS' ∧
+      s'.next_type_stamp = s.next_type_stamp ∧
+      s'.next_exn_stamp = s.next_exn_stamp ∧
       case r of
          | Rval vs => type_v tvs ctMap tenvS' (HD vs) t2
          | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
@@ -1751,6 +1758,10 @@ Proof
    >- (
      Cases_on `op` >> fs[getOpClass_def]
      >> Cases_on `ts` >> fs[type_op_def])
+   >> Cases_on ‘getOpClass op = EvalOp’
+   >- (
+     Cases_on ‘op’ >> gs[getOpClass_def]
+     >> Cases_on ‘ts’ >> fs[type_op_def])
    >> fs [bind_tvar_def]
    >> `good_ctMap ctMap` by simp [good_ctMap_def]
    >> drule op_type_sound
@@ -2110,7 +2121,7 @@ val let_tac =
       qexists_tac `ctMap`
       >> qexists_tac `tenvS''`
       >> rw [weakCT_refl, type_v_exn, bind_exn_v_def] >>
-      metis_tac [consistent_ctMap_def, evaluate_state_unchanged])
+      metis_tac [consistent_ctMap_def])
     >- ( (* match *)
       qexists_tac `ctMap`
       >> qexists_tac `tenvS''`
@@ -2122,7 +2133,7 @@ val let_tac =
         irule nsAll2_alist_to_ns
         >> fs [tenv_add_tvs_def, EVERY2_MAP, LAMBDA_PROD])
       >> conj_asm1_tac
-      >- metis_tac [consistent_ctMap_def, evaluate_state_unchanged]
+      >- metis_tac [consistent_ctMap_def]
       >> irule nsAll2_nsAppend
       >> simp []))
   >- ( (* An exception *)
@@ -2133,7 +2144,7 @@ val let_tac =
       >> qexists_tac `tenvS''`
       >> fs [weakCT_refl, type_all_env_def, good_ctMap_def]
       >> conj_tac
-      >- metis_tac [consistent_ctMap_def, evaluate_state_unchanged]
+      >- metis_tac [consistent_ctMap_def]
       >> irule nsAll2_mono
       >> qexists_tac `(λi v (tvs,t). type_v tvs ctMap tenvS v t)`
       >> rw []
@@ -2543,6 +2554,7 @@ Proof
    >> qexists_tac `tenvS`
    >> rw [weakCT_refl, store_type_extension_refl]
    >> fs [type_sound_invariant_def, type_all_env_def])
+ >- (rename [`Denv`] \\ fs [Once type_d_cases])
  >- ( (* case exception *)
    drule type_d_tenv_ok
    >> fs [Once type_d_cases]

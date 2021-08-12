@@ -427,7 +427,7 @@ Proof
   \\ rw[ag32Theory.ag32_state_component_equality, APPLY_UPDATE_THM, FUN_EQ_THM]
   >- EVAL_TAC
   \\ rw[] \\ fs[]
-  \\ EVAL_TAC
+  \\ EVAL_TAC \\ gvs []
 QED
 
 val ag32_ffi_copy_code_def = Define`
@@ -2788,7 +2788,7 @@ Proof
   \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM]
   \\ qmatch_goalsub_abbrev_tac`if 8w = _ then r8 else _`
   \\ qexists_tac`r8`
-  \\ conj_tac >- EVAL_TAC
+  \\ conj_tac >- (EVAL_TAC \\ fs [])
   \\ rw[MarshallingTheory.w22n_def,Abbr`r8`] \\ fs[]
   >- (
     Cases_on`off0` \\ Cases_on`off1` \\ fs[]
@@ -2922,9 +2922,9 @@ Proof
     rw[ag32_ffi_write_check_lengths_def, dfn'Normal_PC, dfn'LoadConstant_PC,
        ag32Theory.dfn'JumpIfZero_def, ag32Theory.ALU_def,
        ag32Theory.ri2word_def, ag32Theory.incPC_def ] )
-  >- EVAL_TAC
+  >- (EVAL_TAC \\ fs [])
   \\ rw[ag32Theory.dfn'LoadConstant_def, ag32Theory.incPC_def, APPLY_UPDATE_THM]
-  \\ EVAL_TAC
+  \\ EVAL_TAC \\ fs []
 QED
 
 Theorem ag32_ffi_write_check_lengths_R:
@@ -3189,7 +3189,7 @@ Proof
   \\ rw[dfn'Normal_PC, dfn'Shift_PC, dfn'LoadConstant_PC]
   \\ rw[Once ag32Theory.dfn'StoreMEM_def, ag32Theory.incPC_def]
   \\ rw[dfn'Normal_PC, dfn'Shift_PC, dfn'LoadConstant_PC]
-  \\ EVAL_TAC
+  \\ EVAL_TAC \\ fs []
 QED
 
 Theorem ag32_ffi_write_write_header_R:

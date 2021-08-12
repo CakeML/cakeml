@@ -438,7 +438,6 @@ rw [pure_add_constraints_def] >-
 metis_tac [infer_st_component_equality] >>
 eq_tac >>
 rw [] >>
-fs [infer_st_subst] >>
 cases_on `t_unify st.subst t1 t2` >>
 fs []);
 

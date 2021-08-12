@@ -3,12 +3,11 @@
 *)
 
 open preamble wordLangTheory
-     word_elimTheory wordSemTheory wordPropsTheory
-     reachable_sptTheory reachable_sptProofTheory
+     word_elimTheory wordSemTheory wordPropsTheory spt_closureTheory
 
 val _ = new_theory "word_elimProof";
 val _ = set_grammar_ancestry
-  ["wordLang", "word_elim", "wordSem", "wordProps", "reachable_spt"];
+  ["wordLang", "word_elim", "wordSem", "wordProps", "spt_closure"];
 val _ = Parse.hide"mem";
 val _ = Parse.bring_to_front_overload"domain"{Thy="sptree",Name="domain"};
 

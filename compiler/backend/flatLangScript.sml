@@ -94,6 +94,8 @@ val _ = Datatype `
   | GlobalVarInit num
   (* Get the value of the given global variable *)
   | GlobalVarLookup num
+  (* Evaluate some declarations *)
+  | Eval
   (* for pattern match compilation *)
   | TagLenEq num num
   | LenEq num
@@ -104,13 +106,14 @@ val _ = Datatype `
 Type ctor_id = ``:num``
 (* NONE represents the exception type *)
 Type type_id = ``:num option``
+Type type_group_id = ``:(num # (ctor_id # num) list) option``
 
 val _ = Datatype `
   pat =
   | Pany
   | Pvar varN
   | Plit lit
-  | Pcon ((ctor_id # type_id) option) (pat list)
+  | Pcon ((ctor_id # type_group_id) option) (pat list)
   | Pref pat`;
 
 Definition pat_bindings_def:

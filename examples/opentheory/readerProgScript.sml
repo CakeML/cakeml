@@ -2,11 +2,10 @@
   Deeply embedded CakeML program that implements an OpenTheory article
   checker.
 *)
-open preamble basis
-     ml_monadBaseTheory ml_monad_translatorLib cfMonadTheory cfMonadLib
-     holKernelTheory holKernelProofTheory ml_hol_kernelProgTheory readerTheory
-     readerProofTheory prettyTheory
-     reader_commonProgTheory reader_initTheory
+open preamble basis ml_monadBaseTheory ml_monad_translatorLib cfMonadTheory
+     cfMonadLib holKernelTheory holKernelProofTheory ml_hol_kernelProgTheory
+     readerTheory readerProofTheory prettyTheory reader_commonProgTheory
+     reader_initTheory;
 
 val _ = new_theory "readerProg"
 val _ = m_translation_extends "reader_commonProg"
@@ -82,7 +81,7 @@ Theorem l2c_aux_spec:
 Proof
   Induct_on ‘linesFD fs fd’
   \\ rpt strip_tac
-  \\ xcf "l2c_aux" (get_ml_prog_state ())
+  \\ xcf_with_def "l2c_aux" (fetch "-" "l2c_aux_v_def")
   \\ qpat_x_assum ‘_ = linesFD fs fd’ (assume_tac o SYM) \\ fs []
   \\ ‘IS_SOME (get_file_content fs fd)’
       by fs []
@@ -134,7 +133,7 @@ Theorem l2c_spec:
         STDIO (fastForwardFD fs fd))
 Proof
   strip_tac
-  \\ xcf "l2c" (get_ml_prog_state ())
+  \\ xcf_with_def "l2c" (fetch "-" "l2c_v_def")
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xapp
   \\ Q.LIST_EXISTS_TAC [‘emp’, ‘[]’]
@@ -176,7 +175,7 @@ Theorem l2c_from_spec:
         STDIO fs)
 Proof
   strip_tac
-  \\ xcf "l2c_from" (get_ml_prog_state ())
+  \\ xcf_with_def "l2c_from" (fetch "-" "l2c_from_v_def")
   \\ ‘CARD (set (MAP FST fs.infds)) < fs.maxFD’
     by fs []
   \\ reverse (Cases_on ‘STD_streams fs’)
@@ -256,7 +255,7 @@ val _ = (append_prog o process_topdecs) `
     let
       val st = fst (readlines init_state (l2c TextIO.stdIn))
     in
-      TextIO.print (msg_success st (Kernel.context ()))
+      print_app_list (msg_success st (Kernel.context ()))
     end
     handle Kernel.Fail e => TextIO.output TextIO.stdErr e;
   `;
@@ -275,7 +274,7 @@ val _ = (append_prog o process_topdecs) `
         let
           val st = fst (readlines init_state (List.concat ls))
         in
-          TextIO.print (msg_success st (Kernel.context ()))
+          print_app_list (msg_success st (Kernel.context ()))
         end
         handle Kernel.Fail e => TextIO.output TextIO.stdErr e;
   `;
@@ -302,7 +301,7 @@ Theorem read_stdin_spec:
         STDIO (FST (read_stdin fs refs)) *
         HOL_STORE (FST (SND (read_stdin fs refs))))
 Proof
-  xcf "read_stdin" (get_ml_prog_state ())
+  xcf_with_def "read_stdin" (fetch "-" "read_stdin_v_def")
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [STDIO_def] \\ xpull)
   \\ fs [UNIT_TYPE_def, read_stdin_def]
@@ -393,7 +392,7 @@ Theorem read_file_spec:
         STDIO (FST (read_file fs refs fnm)) *
         HOL_STORE (FST (SND (read_file fs refs fnm))))
 Proof
-  xcf "read_file" (get_ml_prog_state())
+  xcf_with_def "read_file" (fetch "-" "read_file_v_def")
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def] \\ xpull)
   \\ reverse (Cases_on`consistentFS fs`)
@@ -496,7 +495,7 @@ Theorem reader_main_spec:
         &UNIT_TYPE () u *
         STDIO (FST (reader_main fs refs (TL cl))))
 Proof
-  xcf "reader_main" (get_ml_prog_state ())
+  xcf_with_def "reader_main" (fetch "-" "reader_main_v_def")
   \\ reverse (Cases_on ‘wfcl cl’)
   >- (simp [COMMANDLINE_def] \\ xpull)
   \\ xlet_auto >- (xcon \\ xsimpl)

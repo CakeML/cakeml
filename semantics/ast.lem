@@ -114,9 +114,14 @@ type op =
   | ConfigGC
   (* Call a given foreign function *)
   | FFI of string
+  (* Evaluate new code in a given env *)
+  | Eval
+  (* Get the identifier of an env object *)
+  | Env_id
 
 (* Define operator classes, that allow to group their behavior later *)
 type op_class =
+  | EvalOp (* Eval primitive *)
   | FunApp (* function application *)
   | Simple (* arithmetic operation, no finite-precision/reals *)
   | Icing (* 64-bit floating-points *)
@@ -134,6 +139,7 @@ let getOpClass op =
   | Real_uop _ -> Reals
   | RealFromFP -> Reals
   | Opapp -> FunApp
+  | Eval -> EvalOp
   | _ -> Simple
 end
 
@@ -228,6 +234,8 @@ type dec =
   | Dmod of modN * list dec
   (* Local: local part, visible part *)
   | Dlocal of list dec * list dec
+  (* Store current lexical env in an env value *)
+  | Denv of tvarN
 
 (*
 (* Specifications

@@ -22,6 +22,7 @@ val _ = Datatype `symbol = StringS string
                          | WordS num
                          | LongS string (* identifiers with a . in them *)
                          | FFIS string
+                         | REPLIDS string
                          | OtherS string
                          | ErrorS `;
 
@@ -138,6 +139,25 @@ Proof
   qpat_x_assum `_ = _` (assume_tac o SYM) >> res_tac >> simp[]
 QED
 
+val read_REPLcommand_def = Define‘
+  (read_REPLcommand "" acc loc = (ErrorS, loc, "")) ∧
+  (read_REPLcommand (c::s0) acc loc =
+      if c = #"}" then
+        (FFIS (REVERSE acc), loc with col updated_by (+) 2, s0)
+      else if c = #"\n" then (ErrorS, loc, s0)
+      else if isSpace c then
+        read_REPLcommand s0 acc (loc with col updated_by (+) 1)
+      else
+        read_REPLcommand s0 (c::acc) (loc with col updated_by (+) 1))’;
+
+Theorem read_REPLcommand_reduces_input:
+  ∀s0 a l0 t l s.
+    read_REPLcommand s0 a l0 = (t, l, s) ⇒ LENGTH s < LENGTH s0 + 1
+Proof
+  Induct >> dsimp[read_REPLcommand_def, bool_case_eq] >> rw[] >>
+  qpat_x_assum `_ = _` (assume_tac o SYM) >> res_tac >> simp[]
+QED
+
 val isAlphaNumPrime_def = Define`
   isAlphaNumPrime c <=> isAlphaNum c \/ (c = #"'") \/ (c = #"_")`
 
@@ -164,10 +184,16 @@ val next_sym_def = tDefine "next_sym" `
                    rest)
          else SOME (ErrorS, Locs loc loc, TL str)
        else
-         let (n,rest) = read_while isDigit str [] in
-           SOME (NumberS (&(num_from_dec_string (c::n))),
-                 Locs loc (loc with col := loc.col + LENGTH n),
-                 rest)
+         if str ≠ "" ∧ c = #"0" ∧ HD str = #"x" then
+           let (n,rest) = read_while isHexDigit (TL str) [] in
+             SOME (NumberS (& (num_from_hex_string n)),
+                   Locs loc (loc with col := loc.col + LENGTH n + 2),
+                   rest)
+         else
+           let (n,rest) = read_while isDigit str [] in
+             SOME (NumberS (&(num_from_dec_string (c::n))),
+                   Locs loc (loc with col := loc.col + LENGTH n),
+                   rest)
      else if c = #"~" /\ str <> "" /\ isDigit (HD str) then (* read negative number *)
        let (n,rest) = read_while isDigit str [] in
          SOME (NumberS (0- &(num_from_dec_string n)),
@@ -187,7 +213,9 @@ val next_sym_def = tDefine "next_sym" `
          SOME (mkCharS t, Locs loc loc', rest)
      else if isPREFIX "#(" (c::str) then
        let (t, loc', rest) = read_FFIcall (TL str) "" (loc with col := loc.col + 2) in
-
+         SOME (t, Locs loc loc', rest)
+     else if isPREFIX "#{" (c::str) then
+       let (t, loc', rest) = read_REPLcommand (TL str) "" (loc with col := loc.col + 2) in
          SOME (t, Locs loc loc', rest)
      else if isPREFIX "(*" (c::str) then
        case skip_comment (TL str) 0 (loc with col := loc.col + 2) of
@@ -281,6 +309,8 @@ Proof
        imp_res_tac read_while_thm >> simp[] >> NO_TAC) >>
   TRY (rename1 `read_FFIcall` >>
        imp_res_tac read_FFIcall_reduces_input >> simp[] >> NO_TAC) >>
+  TRY (rename1 `read_REPLcommand` >>
+       imp_res_tac read_REPLcommand_reduces_input >> simp[] >> NO_TAC) >>
   qpat_x_assum ‘SOME _ = next_sym _ _’ (assume_tac o SYM) >>
   first_x_assum drule >> simp[]
 QED
@@ -375,6 +405,7 @@ val token_of_sym_def = Define `
     | LongS s => let (s1,s2) = SPLITP (\x. x = #".") s in
                    LongidT s1 (case s2 of "" => "" | (c::cs) => cs)
     | FFIS s => FFIT s
+    | REPLIDS s => REPLIDT s
     | OtherS s  => get_token s `;
 
 val next_token_def = Define `

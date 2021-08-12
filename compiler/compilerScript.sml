@@ -21,6 +21,90 @@ open ag32_configTheory export_ag32Theory
 
 val _ = new_theory"compiler";
 
+val help_string = (* beginning of --help string *) ‘
+
+Usage:  cake [OPTIONS] < input_file > output_file
+
+The cake executable is usually invoked as shown above. The different
+OPTIONS are described in the OPTIONS listing below.
+
+One can also run the cake execuable as follows to print a listing of
+the type of each top-level binding (including the bindings made in
+the standard basis library).
+
+Usage:  cake --types < input_file
+
+One can invoke the cake executable to print this help message (--help)
+or version information (--version) without an input_file:
+
+Usage:  cake --version
+Usage:  cake --help
+
+OPTIONS:
+
+  --reg_alg=N   N is a natural number that specifies the register
+                allocation algorithm to use:
+                   0   - simple allocator, no spill heuristics
+                   1   - simple allocator, spill heuristics
+                   2   - IRC allocator, no spill heuristics (default)
+                   3   - IRC allocator, spill heuristics
+                   >=4 - linear scan allocator
+
+  --gc=G        specifies garbage collector type; here G is one of:
+                   none   - no garbage collector is used
+                   simple - a non-generational Cheney (default)
+                   genN   - a generational Cheney garbage collector is
+                            used; the size of the nursery generation is
+                            N machine words (example: --gc=gen5000)
+
+  --target=T    specifies that compilation should produce code for target
+                T, where T can be one of x64, arm8, mips, riscv for
+                the 64-bit compiler; for the 32-bit compiler T can be
+                one of arm7 and ag32.
+
+  --sexp=B      B can be either true or false; here false means that the
+                input will be parsed as normal CakeML concrete syntax;
+                true means that the input is parsed as an s-expression.
+
+  --print_sexp  causes the cake to print the given program in
+                s-expression format; with this option, the compiler
+                does not generate machine code.
+
+  --exclude_prelude=B   here B can be either true or false; the default
+                is false; setting this to true causes the compiler not
+                to include the standard basis library.
+
+  --skip_type_inference=B   here B can be either true or false; the
+                default is false; true will make the compiler skip
+                type inference. There are no gurantees of safety if
+                the type inferencer is skipped.
+
+  --explore     outputs several intermediate forms of the compiled
+                program in JSON format
+
+ADDITIONAL OPTIONS:
+
+Optimisations can be configured using the following advanced options.
+
+  --jump=B   true means conditional jumps to be used for out-of-stack checks
+  --multi=B  true means clos_to_bvl phase is to use multi optimisation
+  --known=B  true means clos_to_bvl phase is to use known optimisation
+  --call=B   true means clos_to_bvl phase is to use call optimisation
+  --inline_factor=N  threshold used by for ClosLang inliner in known pass
+  --max_body_size=N  threshold used by for ClosLang inliner in known pass
+  --max_app=N   max number of optimised curried applications in multi pass
+  --inline_size=N  threshold used by for BVL inliner pass
+  --exp_cut=N  threshold for when to cut large expression into subfunctions
+  --split=B  true means main expression will be split at sequencing (;)
+  --tag_bits=N  number of tag bits in every pointer
+  --len_bits=N  number of length bits in every pointer
+  --pad_bits=N  number of zero padding in every pointer
+  --len_size=N  size of length field in heap object header cells
+  --emit_empty_ffi=B  true emits debugging FFI calls for use with DEBUG_FFI
+  --hash_size=N  size of the memoization table used by instruction encoder
+
+’ (* end of --help string *)
+
 (* == Build info =========================================================== *)
 
 val current_version_tm = mlstring_from_proc "git" ["rev-parse", "HEAD"]
@@ -53,7 +137,7 @@ val current_build_info_str_def = Define `
 
 (* ========================================================================= *)
 
-val _ = Datatype`
+Datatype:
   config =
     <| inferencer_config : inf_env
      ; backend_config : α backend$config
@@ -62,9 +146,24 @@ val _ = Datatype`
      ; skip_type_inference : bool
      ; only_print_types    : bool
      ; only_print_sexp     : bool
-     |>`;
+     |>
+End
 
-val _ = Datatype`compile_error = ParseError | TypeError mlstring | AssembleError | ConfigError mlstring`;
+Datatype:
+  compile_error = ParseError | TypeError mlstring | AssembleError | ConfigError mlstring
+End
+
+fun drop_until p [] = []
+  | drop_until p (x::xs) = if p x then x::xs else drop_until p xs;
+
+val help_string_tm =
+  help_string |> hd |> (fn QUOTE s => s) |> explode
+  |> drop_until (fn c => c = #"\n") |> tl |> implode
+  |> stringSyntax.fromMLstring;
+
+Definition help_string_def:
+  help_string = strlit ^help_string_tm
+End
 
 val locs_to_string_def = Define `
   (locs_to_string NONE = implode "unknown location") ∧
@@ -437,11 +536,13 @@ val parse_top_config_def = Define`
                get_err_str prelude;
                get_err_str typeinference])`
 
-(* Check for version flag
-   TODO: fix this
-*)
+(* Check for version flag *)
 val has_version_flag_def = Define `
   has_version_flag ls = MEM (strlit"--version") ls`
+
+(* Check for version help *)
+val has_help_flag_def = Define `
+  has_help_flag ls = MEM (strlit"--help") ls`
 
 val format_compiler_result_def = Define`
   format_compiler_result bytes_export (Failure err) =
@@ -499,7 +600,9 @@ val compile_64_def = Define`
 
 val full_compile_64_def = Define `
   full_compile_64 cl inp fs =
-    if has_version_flag cl then
+    if has_help_flag cl then
+      add_stdout fs help_string
+    else if has_version_flag cl then
       add_stdout fs current_build_info_str
     else
       let (out, err) = compile_64 cl inp in
@@ -536,7 +639,9 @@ val compile_32_def = Define`
 
 val full_compile_32_def = Define `
   full_compile_32 cl inp fs =
-    if has_version_flag cl then
+    if has_help_flag cl then
+      add_stdout fs help_string
+    else if has_version_flag cl then
       add_stdout fs current_build_info_str
     else
       let (out, err) = compile_32 cl inp in

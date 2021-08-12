@@ -138,13 +138,18 @@ val _ = Hol_datatype `
   (* Configure the GC *)
   | ConfigGC
   (* Call a given foreign function *)
-  | FFI of string`;
+  | FFI of string
+  (* Evaluate new code in a given env *)
+  | Eval
+  (* Get the identifier of an env object *)
+  | Env_id`;
 
 
 (* Define operator classes, that allow to group their behavior later *)
 val _ = Hol_datatype `
  op_class =
-    FunApp (* function application *)
+    EvalOp (* Eval primitive *)
+  | FunApp (* function application *)
   | Simple (* arithmetic operation, no finite-precision/reals *)
   | Icing (* 64-bit floating-points *)
   | Reals`;
@@ -163,6 +168,7 @@ val _ = Define `
   | Real_uop _ => Reals
   | RealFromFP => Reals
   | Opapp => FunApp
+  | Eval => EvalOp
   | _ => Simple
 )))`;
 
@@ -268,7 +274,9 @@ val _ = Hol_datatype `
   (* Module *)
   | Dmod of modN => dec list
   (* Local: local part, visible part *)
-  | Dlocal of dec list => dec list`;
+  | Dlocal of dec list => dec list
+  (* Store current lexical env in an env value *)
+  | Denv of tvarN`;
 
 
 (*

@@ -11,7 +11,6 @@ val ag32_names_def = Define `
 val ag32_names_def = save_thm("ag32_names_def[compute]",
   CONV_RULE (RAND_CONV EVAL) ag32_names_def);
 
-val source_conf = rconc(EVAL``prim_config.source_conf``)
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=2; col_oracle := λn. NONE |>``
@@ -22,7 +21,7 @@ val ag32_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_co
 
 val ag32_backend_config_def = Define`
   ag32_backend_config =
-             <|source_conf:=^(source_conf);
+             <|source_conf:=prim_src_config;
                clos_conf:=^(clos_conf);
                bvl_conf:=^(bvl_conf);
                data_conf:=^(ag32_data_conf);
