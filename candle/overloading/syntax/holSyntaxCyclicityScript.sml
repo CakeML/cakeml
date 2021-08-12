@@ -7939,12 +7939,14 @@ Proof
 QED
 
 Theorem dep_steps_acyclic_sound'':
-  !ctxt k k'. dep_steps (dependency_compute ctxt) (SUC k) (dependency_compute ctxt) = acyclic k'
-    /\ composable_len (CURRY $ set $ dependency_compute ctxt) 1
-    ∧ good_constspec_names ctxt
-    ==> terminating $ TC $ subst_clos $ dependency ctxt
+  !ctxt k k'.
+    let dep = dependency_compute ctxt
+    in dep_steps dep (SUC k) dep = acyclic k'
+      /\ composable_len (CURRY $ set $ dep) 1
+      /\ good_constspec_names ctxt
+      ==> terminating $ TC $ subst_clos $ dependency ctxt
 Proof
-  rpt strip_tac
+  rw[]
   >> drule_at Any dep_steps_acyclic_sound'
   >> rpt $ disch_then $ drule_at Any
   >> fs[wf_dep_dependency_ctxt,GSYM wf_dep_wf_pqs,DEPENDENCY_EQUIV,GSYM is_instance_LR_equiv,monotone_dependency_good_constspec_names]
