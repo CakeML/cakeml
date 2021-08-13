@@ -2258,7 +2258,7 @@ Proof
           fs[] >>
           ‘∃tok1 loc1 TLDfr0. TLDfr = (tok1,loc1) :: TLDfr0’
               by (Cases_on ‘TLDfr’ >> fs[] >> metis_tac[pair_CASES])>>
-          gvs[]
+          gvs[] >>
           ‘tok1 ∈ firstSet cmlG [NN nTopLevelDec]’
             by metis_tac[rfirstSet_nonempty_fringe] >>
           ‘∃fl fe.
@@ -2324,7 +2324,7 @@ Proof
               ‘ptree_head blpt = NN nTbaseList’, ‘real_fringe blpt = MAP _ blf’
       ] >>
       Cases_on ‘blf = []’
-      >- (gvs[]
+      >- (gvs[] >>
           ‘NT_rank (mkNT nPTbase) < NT_rank (mkNT nTbaseList)’
             by simp[NT_rank_def] >>
           first_x_assum
