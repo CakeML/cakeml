@@ -12360,28 +12360,28 @@ QED
 
 Definition build_part_words_def:
   build_part_words c m (Int i) offset =
-    (if small_int (:'a) i then  SOME (Smallnum i,[])
+    (if small_int (:'a) i then  SOME (Word (Smallnum i),[])
      else let (sign,ws) = i2mw i in
             case encode_header c (w2n (b2w sign ≪ 2 ‖ 3w:'a word)) (LENGTH ws) of
             | NONE => NONE
-            | SOME hd => SOME (theWord (make_ptr c offset (0w:'a word) (LENGTH ws)),
-                               hd::ws)) ∧
+            | SOME hd => SOME (make_ptr c offset (0w:'a word) (LENGTH ws),
+                               MAP Word (hd::ws))) ∧
   build_part_words c m (Con t ns) (offset:'a word) =
     (if NULL ns then
-       if t < dimword (:'a) DIV 16 then SOME (n2w (16 * t + 2),[]) else NONE
+       if t < dimword (:'a) DIV 16 then SOME (Word (n2w (16 * t + 2)),[]) else NONE
      else
        case encode_header c (4 * t) (LENGTH ns) of
        | NONE => NONE
-       | SOME hd => SOME (theWord (make_cons_ptr c offset t (LENGTH ns)),
-                          hd::(MAP m ns))) ∧
+       | SOME hd => SOME (make_cons_ptr c offset t (LENGTH ns),
+                          Word hd::(MAP m ns))) ∧
   build_part_words c m (W64 w) offset =
     (let ws = (if dimindex (:α) < 64
                then [((63 >< 32) w); ((31 >< 0) w)]
                else [((63 >< 0) w):'a word]) in
        case encode_header c 3 (LENGTH ws) of
        | NONE => NONE
-       | SOME hd => SOME (theWord (make_ptr c offset (0w:'a word) (LENGTH ws)),
-                          hd::ws)) ∧
+       | SOME hd => SOME (make_ptr c offset (0w:'a word) (LENGTH ws),
+                          MAP Word (hd::ws))) ∧
   build_part_words c m (Str s) offset =
     (let bytes = MAP (n2w o ORD) (explode s) in
      let n = LENGTH bytes in
@@ -12389,7 +12389,7 @@ Definition build_part_words_def:
      let ws = write_bytes bytes (REPLICATE (byte_len (:α) n) 0w) c.be in
        if byte_len (:α) n < 2 ** (dimindex (:α) − 4) ∧
           byte_len (:α) n < 2 ** c.len_size
-       then SOME (theWord (make_ptr c offset (0w:'a word) (byte_len (:α) n)),hd::ws)
+       then SOME (make_ptr c offset (0w:'a word) (byte_len (:α) n),MAP Word (hd::ws))
        else NONE)
 End
 
@@ -12412,9 +12412,9 @@ QED
 
 Theorem memory_rel_IMP_MAP_UPDATE:
   memory_rel c be ts refs sp st m dm
-          ((b,Word w) :: MAP (λk. (map0 k, Word (map0' k))) ks ++ vars) ⇒
+          ((b,w) :: MAP (λk. (map0 k, map0' k)) ks ++ vars) ⇒
   memory_rel c be ts refs sp st m dm
-          (MAP (λk. (map0⦇i ↦ b⦈ k, Word (map0'⦇i ↦ w⦈ k))) ks ++ vars)
+          (MAP (λk. (map0⦇i ↦ b⦈ k, (map0'⦇i ↦ w⦈ k))) ks ++ vars)
 Proof
   match_mp_tac memory_rel_rearrange
   \\ fs [MEM_MAP] \\ rw [APPLY_UPDATE_THM] \\ fs [] \\ metis_tac []
@@ -12424,12 +12424,6 @@ Triviality ZIP_MAP_MAP:
   ∀xs. ZIP (MAP f xs, MAP g xs) = MAP (λk. (f k, g k)) xs
 Proof
   Induct \\ fs []
-QED
-
-Theorem Word_theWord_make_ptr:
-  Word (theWord (make_ptr c a b n)) = make_ptr c a b n
-Proof
-  fs [make_ptr_def,theWord_def]
 QED
 
 Triviality LENGTH_n2mw_LE_num_size:
@@ -12466,17 +12460,17 @@ QED
 Theorem memory_rel_do_build:
   ∀parts i st free curr sp map0 map0' refs ts refs1 v m v ws.
     do_build map0 i parts refs (SOME ts) = (v,refs1,SOME ts1) ∧
-    build_words c map0' i parts (free − curr) = SOME (w,ws) ∧
+    build_words c map0' i parts (free − curr :'a word) = SOME (w,ws) ∧
     SUM (MAP part_space_req parts) ≤ sp ∧
     FLOOKUP st NextFree = SOME (Word free) ∧
     FLOOKUP st CurrHeap = SOME (Word curr) ∧
-    (∀ks. memory_rel c be ts refs sp st m dm (MAP (λk. (map0 k, Word (map0' k))) ks ++ vars)) ∧
+    (∀ks. memory_rel c be ts refs sp st m dm (MAP (λk. (map0 k, (map0' k))) ks ++ vars)) ∧
     good_dimindex (:'a) ==>
     ∃m1.
       let nf = free + bytes_in_word * n2w (LENGTH ws) in
         memory_rel c be ts1 refs1 (sp − LENGTH ws)
-          (st |+ (NextFree,Word nf)) m1 dm ((v,Word (w:'a word))::vars) ∧
-        store_list free (MAP Word ws) m dm = SOME m1
+          (st |+ (NextFree,Word nf)) m1 dm ((v,w)::vars) ∧
+        store_list free ws m dm = SOME m1
 Proof
   Induct
   THEN1
@@ -12509,7 +12503,7 @@ Proof
     \\ gvs [build_part_words_def,data_spaceTheory.part_space_req_def,NULL_EQ]
     \\ gvs [AllCaseEqs()]
     \\ qabbrev_tac ‘vals = MAP map0 l’
-    \\ qabbrev_tac ‘ws = MAP (Word o map0') l’
+    \\ qabbrev_tac ‘ws = MAP (map0') l’
     \\ ‘memory_rel c be ts refs sp st m dm (ZIP (vals,ws) ++ vars) ∧
          LENGTH vals = LENGTH ws ∧ LENGTH ws = LENGTH l’ by
            (unabbrev_all_tac \\ fs [ZIP_MAP_MAP])
@@ -12530,7 +12524,7 @@ Proof
     \\ rewrite_tac [make_cons_ptr_def,theWord_def]
     \\ rewrite_tac [GSYM make_cons_ptr_def,theWord_def]
     \\ ‘memory_rel c be ts refs sp st m dm (ZIP (vals,ws) ++
-           (MAP (λk. (map0 k,Word (map0' k))) ks ++ vars))’ by
+           (MAP (λk. (map0 k,(map0' k))) ks ++ vars))’ by
            (unabbrev_all_tac \\ fs [ZIP_MAP_MAP]
             \\ last_x_assum (qspec_then ‘l ++ ks’ mp_tac) \\ fs [])
     \\ drule (GEN_ALL memory_rel_Cons1) \\ fs []
@@ -12556,7 +12550,6 @@ Proof
       \\ fs [GSYM word_add_n2w,GSYM word_mul_n2w,WORD_LEFT_ADD_DISTRIB,WORD_ADD_ASSOC]
       \\ disch_then match_mp_tac \\ rw []
       \\ match_mp_tac memory_rel_IMP_MAP_UPDATE
-      \\ rewrite_tac [Word_theWord_make_ptr]
       \\ first_x_assum (qspec_then ‘ks’ assume_tac)
       \\ drule (memory_rel_Word64_alt |> Q.INST [‘vs’|->‘[]’]
            |> SIMP_RULE std_ss [APPEND] |> GEN_ALL)
@@ -12578,7 +12571,6 @@ Proof
       \\ fs [GSYM word_add_n2w,GSYM word_mul_n2w,WORD_LEFT_ADD_DISTRIB,WORD_ADD_ASSOC]
       \\ disch_then match_mp_tac \\ rw []
       \\ match_mp_tac memory_rel_IMP_MAP_UPDATE
-      \\ rewrite_tac [Word_theWord_make_ptr]
       \\ first_x_assum (qspec_then ‘ks’ assume_tac)
       \\ drule (memory_rel_Word64_alt |> Q.INST [‘vs’|->‘[]’]
            |> SIMP_RULE std_ss [APPEND] |> GEN_ALL)
@@ -12619,7 +12611,6 @@ Proof
     \\ first_assum $ irule_at Any \\ fs []
     \\ rw []
     \\ match_mp_tac memory_rel_IMP_MAP_UPDATE
-    \\ rewrite_tac [Word_theWord_make_ptr]
     \\ first_x_assum (qspec_then ‘ks’ assume_tac)
     \\ drule (GEN_ALL IMP_memory_rel_bignum_alt) \\ fs []
     \\ disch_then drule
@@ -12656,7 +12647,6 @@ Proof
     \\ irule multiwordTheory.DIV_thm1 \\ fs [])
   \\ rw []
   \\ match_mp_tac memory_rel_IMP_MAP_UPDATE
-  \\ rewrite_tac [Word_theWord_make_ptr]
   \\ first_x_assum (qspec_then ‘ks’ assume_tac)
   \\ drule (GEN_ALL memory_rel_RefByte_content) \\ fs []
   \\ disch_then (qspecl_then [‘LEAST ptr. ptr ∉ domain refs’,
@@ -12707,28 +12697,29 @@ QED
 
 Definition part_to_words_def:
   part_to_words c m (Int i) offset =
-    (if small_int (:'a) i then  SOME ((F,Smallnum i),[])
+    (if small_int (:'a) i then  SOME ((F,Word (Smallnum i)),[])
      else let (sign,ws) = i2mw i in
             case encode_header c (w2n (b2w sign ≪ 2 ‖ 3w:'a word)) (LENGTH ws) of
             | NONE => NONE
-            | SOME hd => SOME ((T,theWord (make_ptr c offset (0w:'a word) (LENGTH ws))),
-                               MAP (λw. (F,w)) (hd::ws))) ∧
+            | SOME hd => SOME ((T,(make_ptr c offset (0w:'a word) (LENGTH ws))),
+                               MAP (λw. (F,Word w)) (hd::ws))) ∧
   part_to_words c m (Con t ns) (offset:'a word) =
     (if NULL ns then
-       if t < dimword (:'a) DIV 16 then SOME ((F,n2w (16 * t + 2)),[]) else NONE
+       if t < dimword (:'a) DIV 16
+       then SOME ((F,Word (n2w (16 * t + 2))),[]) else NONE
      else
        case encode_header c (4 * t) (LENGTH ns) of
        | NONE => NONE
-       | SOME hd => SOME ((T,theWord (make_cons_ptr c offset t (LENGTH ns))),
-                          (F,hd)::(MAP m ns))) ∧
+       | SOME hd => SOME ((T,(make_cons_ptr c offset t (LENGTH ns))),
+                          (F,Word hd)::(MAP m ns))) ∧
   part_to_words c m (W64 w) offset =
     (let ws = (if dimindex (:α) < 64
                then [((63 >< 32) w); ((31 >< 0) w)]
                else [((63 >< 0) w):'a word]) in
        case encode_header c 3 (LENGTH ws) of
        | NONE => NONE
-       | SOME hd => SOME ((T,theWord (make_ptr c offset (0w:'a word) (LENGTH ws))),
-                          (F,hd)::MAP (λw. (F,w)) ws)) ∧
+       | SOME hd => SOME ((T,(make_ptr c offset (0w:'a word) (LENGTH ws))),
+                          MAP (λw. (F,Word w)) (hd::ws))) ∧
   part_to_words c m (Str s) offset =
     (let bytes = MAP (n2w o ORD) (explode s) in
      let n = LENGTH bytes in
@@ -12736,8 +12727,8 @@ Definition part_to_words_def:
      let ws = write_bytes bytes (REPLICATE (byte_len (:α) n) 0w) c.be in
        if byte_len (:α) n < 2 ** (dimindex (:α) − 4) ∧
           byte_len (:α) n < 2 ** c.len_size
-       then SOME ((T,theWord (make_ptr c offset (0w:'a word) (byte_len (:α) n))),
-                  MAP (λw. (F,w)) (hd::ws))
+       then SOME ((T,(make_ptr c offset (0w:'a word) (byte_len (:α) n))),
+                  MAP (λw. (F,Word w)) (hd::ws))
        else NONE)
 End
 
@@ -12752,9 +12743,15 @@ Definition parts_to_words_def:
       | SOME (r,ys) => SOME (r,xs ++ ys)
 End
 
+Definition const_parts_to_words_def:
+  const_parts_to_words c parts =
+    parts_to_words c (λn. (F,Word 0w)) 0 parts 0w
+End
+
 Definition word_cond_add_def[simp]:
-  word_cond_add c a (F,w) = (w:'a word) ∧
-  word_cond_add c a (T,w) = w + a ≪ (shift_length c − shift (:'a))
+  word_cond_add c a (F,x) = (x:'a word_loc) ∧
+  word_cond_add c a (T,Word w) = Word (w + a ≪ (shift_length c − shift (:'a))) ∧
+  word_cond_add c a (T,other) = other
 End
 
 Theorem part_to_words_add:
@@ -12794,6 +12791,75 @@ Proof
   \\ strip_tac \\ fs []
   \\ ‘LENGTH (MAP SND vs) = LENGTH (MAP (word_cond_add c a) xs)’ by asm_rewrite_tac []
   \\ fs []
+QED
+
+Theorem part_to_words_IMP_build_words:
+  part_to_words c m part off = SOME (w,ws) ⇒
+  build_part_words c (λi. SND (m i)) part off = SOME (SND w,MAP SND ws)
+Proof
+  Cases_on ‘part’
+  \\ fs [part_to_words_def,build_part_words_def]
+  \\ rw [] \\ gvs [AllCaseEqs()]
+  \\ gvs [MAP_MAP_o,o_DEF]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [AllCaseEqs()]
+  \\ gvs [MAP_MAP_o,o_DEF,SF ETA_ss]
+QED
+
+Theorem parts_to_words_IMP_build_words:
+  ∀c m i parts off w ws.
+    parts_to_words c m i parts off = SOME (w,ws) ⇒
+    build_words c (λi. SND (m i)) i parts off = SOME (SND w,MAP SND ws)
+Proof
+  Induct_on ‘parts’ \\ fs [parts_to_words_def,build_words_def]
+  \\ fs [AllCaseEqs()] \\ rw [] \\ fs [PULL_EXISTS]
+  \\ imp_res_tac part_to_words_IMP_build_words
+  \\ fs [] \\ res_tac
+  \\ pop_assum (fn th => once_rewrite_tac [GSYM th])
+  \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
+  \\ ntac 2 (rw [FUN_EQ_THM,APPLY_UPDATE_THM])
+QED
+
+Theorem memory_rel_do_build_const:
+  do_build_const parts refs (SOME ts) = (v,refs1,SOME ts1) ∧
+  const_parts_to_words c parts = SOME (w,ws) ∧
+  memory_rel c be ts refs sp st m dm vars ∧
+  small_shift_length c ≤ shift_length c − shift (:α) ∧
+  SUM (MAP part_space_req parts) ≤ sp ∧
+  FLOOKUP st NextFree = SOME (Word free) ∧
+  FLOOKUP st CurrHeap = SOME (Word curr) ∧
+  good_dimindex (:'a) ==>
+  ∃m1.
+    let nf = free + bytes_in_word * n2w (LENGTH ws) in
+    let adjust = word_cond_add c (free − curr :'a word) in
+      memory_rel c be ts1 refs1 (sp − LENGTH ws)
+        (st |+ (NextFree,Word nf)) m1 dm ((v,adjust w)::vars) ∧
+      store_list free (MAP adjust ws) m dm = SOME m1
+Proof
+  assume_tac (GEN_ALL memory_rel_do_build) \\ fs []
+  \\ strip_tac
+  \\ qabbrev_tac ‘ws1 = (MAP (word_cond_add c (free - curr)) ws)’
+  \\ fs []
+  \\ ‘LENGTH ws = LENGTH ws1’ by fs [Abbr ‘ws1’]
+  \\ fs []
+  \\ last_x_assum irule \\ fs []
+  \\ fs [do_build_const_def]
+  \\ last_x_assum $ irule_at Any
+  \\ qexists_tac ‘(λn. Word 0w)’ \\ fs []
+  \\ conj_tac
+  THEN1
+   (Induct \\ fs []
+    \\ (IMP_memory_rel_Number |> Q.INST [‘i’|->‘0’]
+          |> SIMP_RULE std_ss [EVAL “Smallnum 0”] |> irule) \\ fs []
+    \\ EVAL_TAC \\ fs [good_dimindex_def,dimword_def])
+  \\ fs [const_parts_to_words_def]
+  \\ drule_at Any parts_to_words_add
+  \\ disch_then drule
+  \\ fs [word_cond_add_def]
+  \\ disch_then (qspecl_then [‘free-curr’,‘λn. (F,Word 0w)’] mp_tac)
+  \\ impl_tac THEN1 fs []
+  \\ strip_tac
+  \\ drule parts_to_words_IMP_build_words \\ fs []
 QED
 
 val _ = export_theory();
