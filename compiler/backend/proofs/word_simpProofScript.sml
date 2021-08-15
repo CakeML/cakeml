@@ -1064,6 +1064,11 @@ Proof
   imp_res_tac lookup_filter_v_SOME_imp \\ fs [lookup_inter_EQ] \\
   metis_tac [push_env_pop_env_locals_thm, is_gc_word_const_def])
 
+  >- (** StoreConsts **)
+  (fs [const_fp_loop_def] \\ rw [evaluate_def] \\ every_case_tac \\ fs [] \\
+  fs [get_var_def,lookup_delete] \\ res_tac \\
+  gvs [set_var_def,lookup_insert,lookup_delete] \\ cheat)
+
   >- (* Install *) (
     rw[const_fp_loop_def]\\ fs[evaluate_def,case_eq_thms] \\
     pairarg_tac \\ fs[case_eq_thms] \\

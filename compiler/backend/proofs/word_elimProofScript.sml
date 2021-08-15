@@ -76,13 +76,15 @@ Proof
 QED
 
 Theorem no_install_evaluate_const_code:
-     ∀ prog s result s1 . evaluate (prog, s) = (result, s1) ∧
-        no_install prog ∧ no_install_code s.code
+  ∀ prog s result s1 .
+    evaluate (prog, s) = (result, s1) ∧
+    no_install prog ∧ no_install_code s.code
     ⇒ s.code = s1.code
 Proof
     recInduct evaluate_ind >> rw[] >> qpat_x_assum `evaluate _ = _` mp_tac >>
     fs[evaluate_def]
-    >- (EVERY_CASE_TAC >> fs[] >> rw[] >> imp_res_tac alloc_const >> fs[])
+    >- (EVERY_CASE_TAC >> fs[] >> rw[] >> imp_res_tac alloc_const >> fs[set_var_def])
+    >- (EVERY_CASE_TAC >> fs[] >> rw[] >> fs[set_var_def])
     >- (fs[get_vars_def, set_vars_def] >> EVERY_CASE_TAC >>
         fs[] >> rw[] >> fs[get_vars_def])
     >- (rw[] >> EVERY_CASE_TAC >> imp_res_tac inst_const_full >>

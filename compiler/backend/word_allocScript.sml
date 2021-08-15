@@ -483,6 +483,8 @@ val apply_colour_def = Define `
     LocValue (f r) l1) ∧
   (apply_colour f (Alloc num numset) =
     Alloc (f num) (apply_nummap_key f numset)) ∧
+  (apply_colour f (StoreConsts a b c d ws) =
+    StoreConsts (f a) (f b) (f c) (f d) ws) ∧
   (apply_colour f (Raise num) = Raise (f num)) ∧
   (apply_colour f (Return num1 num2) = Return (f num1) (f num2)) ∧
   (apply_colour f Tick = Tick) ∧
@@ -613,6 +615,8 @@ val get_live_def = Define`
        dtcase ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live) ∧
   (get_live (Alloc num numset) live = insert num () numset) ∧
+  (get_live (StoreConsts a b c d ws) live =
+    insert c () (insert d () (delete a (delete b live)))) ∧
   (get_live (Install r1 r2 r3 r4 numset) live =
     list_insert [r1;r2;r3;r4] numset) ∧
   (get_live (CodeBufferWrite r1 r2) live =

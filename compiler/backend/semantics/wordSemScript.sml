@@ -212,6 +212,9 @@ val set_var_def = Define `
   set_var v x ^s =
     (s with locals := (insert v x s.locals))`;
 
+val unset_var_def = Define `
+  unset_var v ^s = (s with locals := delete v s.locals)`;
+
 val set_vars_def = Define `
   set_vars vs xs ^s =
     (s with locals := (alist_insert vs xs s.locals))`;
@@ -669,11 +672,34 @@ val MustTerminate_limit_def = zDefine `
     dimword (:'a) ** dimword (:'a) +
     dimword (:'a) ** dimword (:'a) ** dimword (:'a)`;
 
+Definition const_addresses_def:
+  const_addresses a [] d = T ∧
+  const_addresses a (x::xs) d =
+    (a IN d ∧ const_addresses (a + bytes_in_word) xs d)
+End
+
+Definition const_writes_def:
+  const_writes a off [] m = m ∧
+  const_writes (a:'a word) off ((b,x:'a word)::xs) m =
+    const_writes (a + bytes_in_word) off xs
+      ((a =+ Word (if b then x + off else x)) m)
+End
+
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
   (evaluate (Alloc n names,s) =
      case get_var n s of
      | SOME (Word w) => alloc w names s
+     | _ => (SOME Error,s)) /\
+  (evaluate (StoreConsts t1 t2 addr offset words,s) =
+     case (get_var addr s, get_var offset s) of
+     | (SOME (Word a), SOME (Word off)) =>
+        (if ~ const_addresses a words s.mdomain then
+           (SOME Error,s)
+         else
+           let s = s with memory := const_writes a off words s.memory in
+           let s = set_var offset (Word off) (unset_var t1 (unset_var t2 s)) in
+             (NONE, set_var addr (Word (a + bytes_in_word * n2w (LENGTH words))) s))
      | _ => (SOME Error,s)) /\
   (evaluate (Move pri moves,s) =
      if ALL_DISTINCT (MAP FST moves) then
@@ -926,7 +952,7 @@ Proof
   \\ rpt (disch_then strip_assume_tac)
   \\ imp_res_tac alloc_clock \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[set_vars_def,set_var_def,set_store_def]
+  \\ full_simp_tac(srw_ss())[set_vars_def,set_var_def,set_store_def,unset_var_def]
   \\ imp_res_tac inst_clock \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[mem_store_def,call_env_def,dec_clock_def,flush_state_def]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
@@ -944,23 +970,22 @@ Proof
   \\ decide_tac
 QED
 
-val fix_clock_evaluate = Q.prove(
-  `fix_clock s (evaluate (c1,s)) = evaluate (c1,s)`,
+Theorem fix_clock_evaluate[local]:
+  fix_clock s (evaluate (c1,s)) = evaluate (c1,s)
+Proof
   Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[fix_clock_def]
   \\ imp_res_tac evaluate_clock \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]
-  \\ full_simp_tac(srw_ss())[state_component_equality]);
+  \\ full_simp_tac(srw_ss())[state_component_equality]
+QED
 
 (* We store the theorems without fix_clock *)
 
-val evaluate_ind = save_thm("evaluate_ind",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
-
-val evaluate_def = save_thm("evaluate_def[compute]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
+Theorem evaluate_ind = REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
+Theorem evaluate_def = REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
 (* observational semantics *)
 
-val semantics_def = Define `
+Definition semantics_def:
   semantics ^s start =
   let prog = Call NONE (SOME start) [0] NONE in
   if ∃k. case FST(evaluate (prog,s with clock := k)) of
@@ -986,7 +1011,8 @@ val semantics_def = Define `
       Diverge
          (build_lprefix_lub
            (IMAGE (λk. fromList
-              (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))`;
+              (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
+End
 
 Definition word_lang_safe_for_space_def:
   word_lang_safe_for_space (s:('a,'c,'ffi) wordSem$state) start =
