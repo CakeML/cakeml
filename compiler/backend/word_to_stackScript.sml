@@ -244,8 +244,25 @@ val PopHandler_def = Define`
   (Seq (StackFree 3)
   prog))`
 
+Definition chunk_to_bits_def:
+  chunk_to_bits ([]:(bool # α word) list) = 1w:'a word ∧
+  chunk_to_bits ((b,w)::ws) =
+    let res = (chunk_to_bits ws) << 1 in
+      if b then res + 1w else res
+End
+
+Definition chunk_to_bitmap_def:
+  chunk_to_bitmap ws = chunk_to_bits ws :: MAP SND ws
+End
+
 Definition const_words_to_bitmap_def:
-  const_words_to_bitmap ws = MAP SND ws
+  const_words_to_bitmap (ws:(bool # α word) list) (ws_len:num) =
+    if ws_len < (dimindex (:'a) - 1) ∨ (dimindex (:'a) - 1) = 0
+    then chunk_to_bitmap ws
+    else
+      let h = TAKE (dimindex (:'a) - 1) ws in
+      let t = DROP (dimindex (:'a) - 1) ws in
+        chunk_to_bitmap ws ++ const_words_to_bitmap t (ws_len - (dimindex (:'a) - 1))
 End
 
 val comp_def = Define `
@@ -305,7 +322,7 @@ val comp_def = Define `
      let (q1,bs) = wLive live bs kf in
        (Seq q1 (Alloc 1),bs)) /\
   (comp (StoreConsts a b c d ws) bs kf =
-     let (new_bs,i) = insert_bitmap (const_words_to_bitmap ws) bs in
+     let (new_bs,i) = insert_bitmap (const_words_to_bitmap ws (LENGTH ws)) bs in
        (Seq (Inst (Const 2 (n2w (i+1)))) StoreConsts,new_bs)) /\
   (comp (LocValue r l1) bs kf = (wRegWrite1 (λr. LocValue r l1 0) r kf,bs)) /\
   (comp (Install r1 r2 r3 r4 live) bs kf =
