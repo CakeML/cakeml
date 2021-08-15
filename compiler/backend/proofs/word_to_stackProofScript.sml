@@ -8970,8 +8970,8 @@ val stack_move_no_labs = Q.prove(`
   EVAL_TAC>>metis_tac[])
 
 Theorem word_to_stack_lab_pres:
-    ∀p bs kf.
-  extract_labels p = extract_labels (FST (comp p bs kf))
+  ∀p bs kf.
+    extract_labels p = extract_labels (FST (comp p bs kf))
 Proof
   ho_match_mp_tac comp_ind>>
   rw[comp_def,extract_labels_def,wordPropsTheory.extract_labels_def]>>
@@ -9016,9 +9016,9 @@ Proof
   >-
     (fs[wLive_def]>>rpt(pairarg_tac>>fs[])>>
     EVERY_CASE_TAC>>fs[]>>rveq>>fs[]>>EVAL_TAC)
-  >- (EVAL_TAC>>EVERY_CASE_TAC>>EVAL_TAC)
   >> rpt(pairarg_tac \\ fs[wReg2_def])
   \\ every_case_tac \\ rw[] \\ EVAL_TAC
+  \\ EVAL_TAC>>EVERY_CASE_TAC>>EVAL_TAC
 QED
 
 
@@ -9122,7 +9122,7 @@ val wLive_stack_asm_name = Q.prove(`
   rveq>>EVAL_TAC>>fs[])
 
 Theorem word_to_stack_stack_asm_name_lem:
-    ∀p bs kf c.
+  ∀p bs kf c.
   post_alloc_conventions (FST kf) p ∧
   full_inst_ok_less c p ∧
   (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
@@ -9209,6 +9209,7 @@ Proof
   >-
     (pairarg_tac>>fs[]>>EVAL_TAC>>
     metis_tac[wLive_stack_asm_name])
+  >- (pairarg_tac \\ fs [] \\ EVAL_TAC \\ fs [])
   >-
     (PairCases_on`kf`>>
     EVAL_TAC>>rw[]>>
@@ -9217,29 +9218,33 @@ Proof
   \\ rw[] \\ EVAL_TAC \\ fs[]
 QED
 
-val call_dest_stack_asm_remove = Q.prove(`
+Theorem call_dest_stack_asm_remove[local]:
   (FST k)+1 < c.reg_count - LENGTH c.avoid_regs ∧
   call_dest d a k = (q0,d') ⇒
   stack_asm_remove c q0 ∧
   case d' of
     INR r => r ≤ (FST k)+1
-  | INL l => T`,
+  | INL l => T
+Proof
   Cases_on`d`>>EVAL_TAC>>rw[]>>
   EVAL_TAC>>
   pairarg_tac>>fs[]>>
   pop_assum mp_tac>>PairCases_on`k`>>
   EVAL_TAC>>rw[]>>
-  EVAL_TAC>>rw[])
+  EVAL_TAC>>rw[]
+QED
 
-val wLive_stack_asm_remove = Q.prove(`
+Theorem wLive_stack_asm_remove[local]:
   (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ∧
   wLive q bs kf = (q1,bs') ⇒
-  stack_asm_remove c q1`,
+  stack_asm_remove c q1
+Proof
   PairCases_on`kf`>>
   fs[wLive_def]>>
   rw[]>-EVAL_TAC>>
   rpt(pairarg_tac>>fs[])>>
-  rveq>>EVAL_TAC>>fs[])
+  rveq>>EVAL_TAC>>fs[]
+QED
 
 Theorem word_to_stack_stack_asm_remove_lem:
     ∀(p:'a wordLang$prog) bs kf (c:'a asm_config).
@@ -9303,6 +9308,7 @@ Proof
   >-
     (pairarg_tac>>fs[]>>EVAL_TAC>>
     metis_tac[wLive_stack_asm_remove])
+  >- (rpt(pairarg_tac \\ fs[]) \\ EVAL_TAC)
   >-
     (PairCases_on`kf`>>
     EVAL_TAC>>rw[]>>
