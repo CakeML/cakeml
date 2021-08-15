@@ -3005,6 +3005,8 @@ val call_arg_convention_def = Define`
   (call_arg_convention (FFI x ptr len ptr2 len2 args) = (ptr = 2 ∧ len = 4 ∧
                                                          ptr2 = 6 ∧ len2 = 8)) ∧
   (call_arg_convention (Alloc n s) = (n=2)) ∧
+  (call_arg_convention (StoreConsts a b c e ws) =
+    ((a=0) ∧ (b=1) ∧ (c=2) ∧ (d=3))) ∧
   (call_arg_convention (Call ret dest args h) =
     (case ret of
       NONE => args = GENLIST (\x.2*x) (LENGTH args)

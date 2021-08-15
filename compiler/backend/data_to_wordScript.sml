@@ -2289,7 +2289,7 @@ val stub_names_def = Define`
 Theorem check_stubs_length:
    word_num_stubs + LENGTH (stubs (:α) c) = data_num_stubs
 Proof
-  EVAL_TAC
+  CONV_TAC (BINOP_CONV EVAL) \\ EVAL_TAC
 QED
 
 Theorem check_LongDiv_location:

@@ -721,6 +721,7 @@ val add_backend_compset = computeLib.extend_compset
     ,backend_commonTheory.word_shift_def
     ,backend_commonTheory.stack_num_stubs_def
     ,stackLangTheory.gc_stub_location_eq
+    ,stackLangTheory.store_consts_stub_location_eq
       (* ---- word_to_stack ---- *)
     ,word_to_stackTheory.wReg1_def
     ,word_to_stackTheory.wReg2_def

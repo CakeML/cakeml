@@ -244,6 +244,10 @@ val PopHandler_def = Define`
   (Seq (StackFree 3)
   prog))`
 
+Definition const_words_to_bitmap_def:
+  const_words_to_bitmap ws = MAP SND ws
+End
+
 val comp_def = Define `
   (comp (Skip:'a wordLang$prog) bs kf = (Skip:'a stackLang$prog,bs)) /\
   (comp (Move _ xs) bs kf = (wMove xs kf,bs)) /\
@@ -300,6 +304,9 @@ val comp_def = Define `
   (comp (Alloc r live) bs kf =
      let (q1,bs) = wLive live bs kf in
        (Seq q1 (Alloc 1),bs)) /\
+  (comp (StoreConsts a b c d ws) bs kf =
+     let (new_bs,i) = insert_bitmap (const_words_to_bitmap ws) bs in
+       (Seq (Inst (Const 2 (n2w (i+1)))) StoreConsts,new_bs)) /\
   (comp (LocValue r l1) bs kf = (wRegWrite1 (λr. LocValue r l1 0) r kf,bs)) /\
   (comp (Install r1 r2 r3 r4 live) bs kf =
     let (l3,r3) = wReg1 r3 kf in

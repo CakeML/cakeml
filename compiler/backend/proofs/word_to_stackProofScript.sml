@@ -2316,7 +2316,7 @@ Proof
   \\ every_case_tac \\ fs[]
   \\ rpt (pairarg_tac >> fs[])
   \\ rveq
-  \\ metis_tac[IS_PREFIX_TRANS,wLive_isPREFIX]
+  \\ metis_tac[IS_PREFIX_TRANS,wLive_isPREFIX,insert_bitmap_isPREFIX]
 QED
 
 val compile_prog_isPREFIX = Q.prove(
@@ -5442,6 +5442,12 @@ Proof
     Cases_on`res=NONE`>>fs[]
 QED
 
+Theorem comp_StoreConsts_correct:
+  ^(get_goal "StoreConsts")
+Proof
+  cheat
+QED
+
 Theorem comp_Move_correct:
   ^(get_goal "Move")
 Proof
@@ -8310,13 +8316,14 @@ Theorem comp_correct:
 Proof
   match_mp_tac (the_ind_thm()) >>
   rpt conj_tac >>
-  MAP_FIRST MATCH_ACCEPT_TAC
-    [comp_Skip_correct,comp_Alloc_correct,comp_Move_correct,comp_Inst_correct,comp_Assign_correct,
-     comp_Get_correct,comp_Set_correct,comp_Store_correct,comp_Tick_correct,comp_MustTerminate_correct,
-     comp_Seq_correct,comp_Return_correct,comp_Raise_correct,comp_If_correct,comp_LocValue_correct,
-     comp_Install_correct,comp_CodeBufferWrite_correct,comp_DataBufferWrite_correct,
-     comp_FFI_correct,comp_OpCurrHeap_correct,comp_Call_correct
-    ]
+  MAP_FIRST MATCH_ACCEPT_TAC [comp_Skip_correct, comp_Alloc_correct,
+    comp_StoreConsts_correct, comp_Move_correct, comp_Inst_correct,
+    comp_Assign_correct, comp_Get_correct, comp_Set_correct,
+    comp_Store_correct, comp_Tick_correct, comp_MustTerminate_correct,
+    comp_Seq_correct, comp_Return_correct, comp_Raise_correct,
+    comp_If_correct, comp_LocValue_correct, comp_Install_correct,
+    comp_CodeBufferWrite_correct, comp_DataBufferWrite_correct,
+    comp_FFI_correct, comp_OpCurrHeap_correct, comp_Call_correct]
 QED
 
 val evaluate_Seq_Skip = Q.prove(

@@ -43,6 +43,7 @@ val _ = Datatype `
        | Seq wordLang$prog wordLang$prog
        | If cmp num ('a reg_imm) wordLang$prog wordLang$prog
        | Alloc num num_set
+       | StoreConsts num num num num ((bool # 'a word) list)
        | Raise num
        | Return num num
        | Tick
@@ -140,6 +141,8 @@ val every_var_def = Define `
     (P r1 ∧ every_var_imm P ri ∧ every_var P e2 ∧ every_var P e3)) ∧
   (every_var P (Alloc num numset) =
     (P num ∧ every_name P numset)) ∧
+  (every_var P (StoreConsts a b c d ws) =
+    (P a ∧ P b ∧ P c ∧ P d)) ∧
   (every_var P (Raise num) = P num) ∧
   (every_var P (Return num1 num2) = (P num1 ∧ P num2)) ∧
   (every_var P (OpCurrHeap _ num1 num2) = (P num1 ∧ P num2)) ∧
@@ -238,6 +241,8 @@ val max_var_def = Define `
       max3 r (max_var e2) (max_var e3)) ∧
   (max_var (Alloc num numset) =
     MAX num (list_max (MAP FST (toAList numset)))) ∧
+  (max_var (StoreConsts a b c d ws) =
+    list_max [a;b;c;d]) ∧
   (max_var (Install r1 r2 r3 r4 numset) =
     (list_max (r1::r2::r3::r4::MAP FST (toAList numset)))) ∧
   (max_var (CodeBufferWrite r1 r2) =

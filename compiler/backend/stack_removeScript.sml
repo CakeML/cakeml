@@ -282,8 +282,8 @@ val stub_names_def = Define`
     (2n,mlstring$strlit "_Halt2")]`
 
 Theorem check_init_stubs_length:
-   LENGTH (init_stubs gen_gc max_heap k start) + 1 (* gc *) =
-   stack_num_stubs
+  LENGTH (init_stubs gen_gc max_heap k start) + 3 (* gc + store_consts + dummy *) =
+  stack_num_stubs
 Proof
   EVAL_TAC
 QED

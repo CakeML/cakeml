@@ -1157,7 +1157,8 @@ Theorem comp_correct[local]:
 Proof
   recInduct evaluate_ind \\ rpt strip_tac
   THEN1 (* Skip *)
-   (full_simp_tac(srw_ss())[comp_def,evaluate_def] \\ rpt var_eq_tac \\ qexists_tac`0` \\ full_simp_tac(srw_ss())[])
+   (full_simp_tac(srw_ss())[comp_def,evaluate_def] \\ rpt var_eq_tac
+    \\ qexists_tac`0` \\ full_simp_tac(srw_ss())[])
   THEN1 (* Halt *)
    (full_simp_tac(srw_ss())[comp_def,evaluate_def,reg_bound_def]
     \\ imp_res_tac state_rel_get_var \\ full_simp_tac(srw_ss())[]
@@ -1166,7 +1167,9 @@ Proof
     \\ BasicProvers.TOP_CASE_TAC \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[state_rel_def])
   THEN1 (* Alloc *)
-   (full_simp_tac(srw_ss())[comp_def,evaluate_def] \\ full_simp_tac(srw_ss())[state_rel_def])
+   (fs [comp_def,evaluate_def] \\ fs [state_rel_def])
+  THEN1 (* StoreConsts *)
+   cheat
   THEN1 (* Inst *)
    (full_simp_tac(srw_ss())[comp_def,evaluate_def]
     \\ last_x_assum mp_tac
