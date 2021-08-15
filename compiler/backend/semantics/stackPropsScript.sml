@@ -117,6 +117,27 @@ Proof
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]
 QED
 
+Theorem store_const_sem_const:
+   store_const_sem s = (r,t) ⇒ t.ffi = s.ffi ∧
+    t.clock = s.clock ∧
+    t.use_alloc = s.use_alloc ∧
+    t.use_store = s.use_store ∧
+    t.use_stack = s.use_stack ∧
+    t.code = s.code ∧
+    t.be = s.be ∧
+    t.gc_fun = s.gc_fun ∧
+    t.mdomain = s.mdomain ∧
+    t.bitmaps = s.bitmaps ∧
+    t.compile = s.compile ∧
+    t.store = s.store ∧
+    t.data_buffer = s.data_buffer ∧
+    t.code_buffer = s.code_buffer ∧
+    t.compile_oracle = s.compile_oracle
+Proof
+  gvs[store_const_sem_def,gc_def,LET_THM,AllCaseEqs()]
+  \\ rw [] \\ gvs [unset_var_def,set_var_def]
+QED
+
 Theorem gc_with_const[simp]:
    gc (x with clock := k) = OPTION_MAP (λs. s with clock := k) (gc x)
 Proof
@@ -127,6 +148,13 @@ Theorem alloc_with_const[simp]:
    alloc x (y with clock := z) = (I ## (λs. s with clock := z))(alloc x y)
 Proof
   srw_tac[][alloc_def] >> every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]
+QED
+
+Theorem store_const_sem_with_const[simp]:
+   store_const_sem (y with clock := z) = (I ## (λs. s with clock := z))(store_const_sem y)
+Proof
+  srw_tac[][store_const_sem_def,get_var_def] >> every_case_tac >>
+  fs [unset_var_def,set_var_def]
 QED
 
 Theorem mem_load_with_const[simp]:
@@ -225,6 +253,7 @@ Proof
   rpt gen_tac >>
   rpt (
     (strip_tac >> CHANGED_TAC(imp_res_tac alloc_const) >> full_simp_tac(srw_ss())[]) ORELSE
+    (strip_tac >> CHANGED_TAC(imp_res_tac store_const_sem_const) >> full_simp_tac(srw_ss())[]) ORELSE
     (strip_tac >> CHANGED_TAC(imp_res_tac inst_const) >> full_simp_tac(srw_ss())[]) ORELSE
     (strip_tac >> var_eq_tac >> rveq >> full_simp_tac(srw_ss())[]) ORELSE
     (CASE_TAC >> full_simp_tac(srw_ss())[]) ORELSE
@@ -246,6 +275,7 @@ Proof
   TRY(
     fs[case_eq_thms,empty_env_def]>>rw[]>>
     imp_res_tac alloc_const \\ imp_res_tac inst_const \\
+    imp_res_tac store_const_sem_const \\
     qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC)
   (* Seq *)
   >- (
@@ -336,6 +366,7 @@ Proof
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >>
   TRY pairarg_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac alloc_const >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac store_const_sem_const >> full_simp_tac(srw_ss())[] >>
   imp_res_tac inst_const >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[set_var_def] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -420,6 +451,7 @@ Proof
   every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >>
   full_simp_tac(srw_ss())[get_var_def] >> rveq >> full_simp_tac(srw_ss())[] >>
   imp_res_tac alloc_const >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac store_const_sem_const >> full_simp_tac(srw_ss())[] >>
   imp_res_tac inst_const >> full_simp_tac(srw_ss())[] >>
   fsrw_tac[ARITH_ss][dec_clock_def] >>
   TRY (
