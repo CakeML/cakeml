@@ -323,7 +323,8 @@ val comp_def = Define `
        (Seq q1 (Alloc 1),bs)) /\
   (comp (StoreConsts a b c d ws) bs kf =
      let (new_bs,i) = insert_bitmap (const_words_to_bitmap ws (LENGTH ws)) bs in
-       (Seq (Inst (Const 2 (n2w (i+1)))) StoreConsts,new_bs)) /\
+       (Seq (Inst (Const 2 (n2w (i+1))))
+            (StoreConsts (FST kf) (FST kf + 1) (SOME store_consts_stub_location)),new_bs)) /\
   (comp (LocValue r l1) bs kf = (wRegWrite1 (λr. LocValue r l1 0) r kf,bs)) /\
   (comp (Install r1 r2 r3 r4 live) bs kf =
     let (l3,r3) = wReg1 r3 kf in
@@ -341,7 +342,7 @@ val comp_def = Define `
                                                 (r3 DIV 2) (r4 DIV 2) 0,bs)) /\
   (comp _ bs kf = (Skip,bs) (* impossible *))`
 
-val raise_stub_def = Define `
+Definition raise_stub_def:
   raise_stub k =
      Seq (Get k Handler)
     (Seq (StackSetSize k)
@@ -349,36 +350,47 @@ val raise_stub_def = Define `
     (Seq (Set Handler k)
     (Seq (StackLoad k 1) (* handler pc *)
     (Seq (StackFree 3)
-         (Raise k))))))`;
+         (Raise k))))))
+End
+
+Definition store_consts_stub_def:
+  store_consts_stub k =
+    Seq (StoreConsts k (k+1) NONE) (Return 0 0)
+End
 
 (*stack args are in wordLang vars 0,2,4,...,2*(k-1), 2*k , ...*)
 (*2*k and above are "stack" variables*)
 (*We always allocate enough space for the maximum stack var*)
-val compile_prog_def = Define `
+Definition compile_prog_def:
   compile_prog (prog:'a wordLang$prog) arg_count reg_count bitmaps =
     let stack_arg_count = arg_count - reg_count in
     let stack_var_count = MAX ((max_var prog DIV 2 + 1)- reg_count) stack_arg_count in
     let f = if stack_var_count = 0 then 0 else stack_var_count + 1 in
     let (q1,bitmaps) = comp prog bitmaps (reg_count,f,stack_var_count) in
-      (Seq (StackAlloc (f - stack_arg_count)) q1, f, bitmaps)`
+      (Seq (StackAlloc (f - stack_arg_count)) q1, f, bitmaps)
+End
 
-val compile_word_to_stack_def = Define `
+Definition compile_word_to_stack_def:
   (compile_word_to_stack k [] bitmaps = ([],[],bitmaps)) /\
   (compile_word_to_stack k ((i,n,p)::progs) bitmaps =
      let (prog,f,bitmaps) = compile_prog p n k bitmaps in
      let (progs,fs,bitmaps) = compile_word_to_stack k progs bitmaps in
-       ((i,prog)::progs,f::fs,bitmaps))`
+       ((i,prog)::progs,f::fs,bitmaps))
+End
 
-val compile_def = Define `
+Definition compile_def:
   compile asm_conf progs =
     let k = asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs) in
     let (progs,fs,bitmaps) = compile_word_to_stack k progs [4w] in
     let sfs = fromAList (MAP (λ((i,_),n). (i,n)) (ZIP (progs,fs))) in
       (<| bitmaps := bitmaps;
-          stack_frame_size := sfs |>, 0::fs, (raise_stub_location,raise_stub k) :: progs)`
+          stack_frame_size := sfs |>, 0::fs,
+       (raise_stub_location,raise_stub k) :: progs)
+End
 
-val stub_names_def = Define`
+Definition stub_names_def:
   stub_names () = [
-    (raise_stub_location,mlstring$strlit "_Raise")]`
+    (raise_stub_location,mlstring$strlit "_Raise")]
+End
 
 val _ = export_theory();

@@ -37,7 +37,7 @@ val _ = Datatype `
        | While cmp num ('a reg_imm) stackLang$prog
        | JumpLower num num num (* reg, reg, target name *)
        | Alloc num
-       | StoreConsts
+       | StoreConsts num num (num option) (* reg, reg, stub name to call *)
        | Raise num
        | Return num num
        | FFI string num num num num num (* FFI index, conf_ptr, conf_len,

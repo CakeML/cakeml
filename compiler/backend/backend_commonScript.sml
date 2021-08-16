@@ -83,10 +83,10 @@ val bool_to_tag_def = Define`
   bool_to_tag b = if b then true_tag else false_tag`
 
 val stack_num_stubs_def = Define`
-  stack_num_stubs = 6n`;
+  stack_num_stubs = 5n`;
 
 val word_num_stubs_def = Define`
-  word_num_stubs = stack_num_stubs + 1 (* raise *)`;
+  word_num_stubs = stack_num_stubs + 1 (* raise *) + 1 (* store consts *)`;
 
 val data_num_stubs_def = Define`
   data_num_stubs = word_num_stubs + (* general: *) 30 + (* bignum: *) 23 `;

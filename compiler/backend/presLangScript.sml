@@ -660,7 +660,7 @@ val stack_prog_to_display_def = Define`
          asm_reg_imm_to_display to; stack_prog_to_display x]
     | JumpLower n1 n2 n3 => item_with_nums «JumpLower» [n1; n2; n3]
     | Alloc n => item_with_num «Alloc» n
-    | StoreConsts => empty_item «StoreConsts»
+    | StoreConsts n1 n2 _ => item_with_nums «StoreConsts» [n1; n2]
     | Raise n => item_with_num «Raise» n
     | Return n1 n2 => item_with_nums «Return» [n1; n2]
     | FFI nm cp cl ap al ra => Item NONE «FFI»

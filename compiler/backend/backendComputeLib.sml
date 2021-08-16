@@ -412,6 +412,7 @@ val add_backend_compset = computeLib.extend_compset
     ,wordLangTheory.max_var_inst_def
     ,wordLangTheory.max_var_exp_def
     ,wordLangTheory.raise_stub_location_eq
+    ,wordLangTheory.store_consts_stub_location_eq
       (* ---- data_to_word ---- *)
     ,data_to_wordTheory.adjust_var_def
     ,data_to_wordTheory.adjust_set_def
@@ -721,7 +722,6 @@ val add_backend_compset = computeLib.extend_compset
     ,backend_commonTheory.word_shift_def
     ,backend_commonTheory.stack_num_stubs_def
     ,stackLangTheory.gc_stub_location_eq
-    ,stackLangTheory.store_consts_stub_location_eq
       (* ---- word_to_stack ---- *)
     ,word_to_stackTheory.chunk_to_bits_def
     ,word_to_stackTheory.chunk_to_bitmap_def

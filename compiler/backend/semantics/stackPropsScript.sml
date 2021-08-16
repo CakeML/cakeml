@@ -118,7 +118,7 @@ Proof
 QED
 
 Theorem store_const_sem_const:
-   store_const_sem s = (r,t) ⇒ t.ffi = s.ffi ∧
+   store_const_sem t1 t2 s = (r,t) ⇒ t.ffi = s.ffi ∧
     t.clock = s.clock ∧
     t.use_alloc = s.use_alloc ∧
     t.use_store = s.use_store ∧
@@ -151,7 +151,8 @@ Proof
 QED
 
 Theorem store_const_sem_with_const[simp]:
-   store_const_sem (y with clock := z) = (I ## (λs. s with clock := z))(store_const_sem y)
+   store_const_sem t1 t2 (y with clock := z) =
+   (I ## (λs. s with clock := z))(store_const_sem t1 t2 y)
 Proof
   srw_tac[][store_const_sem_def,get_var_def] >> every_case_tac >>
   fs [unset_var_def,set_var_def]
@@ -253,12 +254,12 @@ Proof
   rpt gen_tac >>
   rpt (
     (strip_tac >> CHANGED_TAC(imp_res_tac alloc_const) >> full_simp_tac(srw_ss())[]) ORELSE
-    (strip_tac >> CHANGED_TAC(imp_res_tac store_const_sem_const) >> full_simp_tac(srw_ss())[]) ORELSE
     (strip_tac >> CHANGED_TAC(imp_res_tac inst_const) >> full_simp_tac(srw_ss())[]) ORELSE
     (strip_tac >> var_eq_tac >> rveq >> full_simp_tac(srw_ss())[]) ORELSE
     (CASE_TAC >> full_simp_tac(srw_ss())[]) ORELSE
     (pairarg_tac >> simp[]))>>
-  (every_case_tac>>fs[]>>rw[])
+  (every_case_tac>>fs[]>>rw[]) >>
+  imp_res_tac store_const_sem_const >> fs []
 QED
 
 Theorem evaluate_code_bitmaps:
