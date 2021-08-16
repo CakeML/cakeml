@@ -108,7 +108,7 @@ val tac =
     fs[evaluate_def,state_component_equality]>>
     qexists_tac`st.permute`>>
     fs[alloc_def,get_var_def,gc_def,push_env_def,set_store_def,env_to_list_def,pop_env_def,has_space_def,
-    call_env_def,flush_state_def,set_var_def,get_var_def,dec_clock_def,jump_exc_def,set_vars_def,mem_store_def, stack_size_def]>>
+    call_env_def,flush_state_def,set_var_def,get_var_def,dec_clock_def,jump_exc_def,set_vars_def,mem_store_def, stack_size_def,unset_var_def]>>
     every_case_tac>>fs[state_component_equality]
 
 val rm_perm = Q.prove(`
@@ -569,6 +569,7 @@ Proof
     Cases_on`x'`>>fs[]>>Cases_on`h`>>fs[]>>
     EVERY_CASE_TAC>>fs[has_space_def]>>
     rfs[call_env_def,flush_state_def])
+  >- (rename [‘StoreConsts’] \\ tac)
   >- (rename [‘Raise’] \\ tac)
   >- (rename [‘Return’] \\ tac)
   >- (rename [‘Tick’] \\ tac)
