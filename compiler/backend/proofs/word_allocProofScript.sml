@@ -2964,8 +2964,9 @@ Proof
       fs[strong_locals_rel_def,list_insert_def]>>
     rw[]>>
     imp_res_tac strong_locals_rel_I_get_var>>
+    rename1`cut_env sss _ = _`>>
     rpt(
-      pop_assum(qspecl_then[`t`,`domain v40`] mp_tac)>>
+      pop_assum(qspecl_then[`t`,`sss`] mp_tac)>>
       impl_tac>- (fs[strong_locals_rel_def]>>metis_tac[]))>>
     rw[state_component_equality]>>
     fs[strong_locals_rel_def] >>
@@ -6093,14 +6094,15 @@ Proof
     simp[lookup_alist_insert]>>
     fs[get_var_def]>>
     simp[alist_insert_def]>>
+    fs[every_var_def]>>
     `na+8 = (na+4)+4` by fs[]>>
     pop_assum SUBST_ALL_TAC>>
-    fs[every_var_def]>>
     drule ssa_map_ok_extend >>
     disch_then(qspec_then`n2` mp_tac)>>
     impl_tac>-
       metis_tac[convention_partitions]>>
-    simp[]>>strip_tac>>
+    strip_tac>>
+    match_mp_tac ssa_locals_rel_insert>> simp[]>>
     metis_tac[
       ssa_locals_rel_insert,
       ssa_locals_rel_delete_left,
