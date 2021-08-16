@@ -154,7 +154,11 @@ Proof
   THEN1
    (rename [`Alloc`] \\ simple_case)
   THEN1
-   (rename [`StoreConsts`] \\ simple_case \\ rw [] \\ fs [unset_var_def])
+   (rename [`StoreConsts`] \\ simple_case \\ rw []
+    \\ fs [unset_var_def,check_store_consts_opt_def]
+    \\ Cases_on ‘stub_opt’
+    \\ fs [unset_var_def,check_store_consts_opt_def]
+    \\ res_tac \\ fs [comp_top_def,Once comp_def])
   THEN1
    (rename [`Inst`] \\ match_mp_tac evaluate_comp_Inst \\ fs [])
   THEN1
