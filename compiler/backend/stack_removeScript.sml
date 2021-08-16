@@ -282,7 +282,7 @@ val stub_names_def = Define`
     (2n,mlstring$strlit "_Halt2")]`
 
 Theorem check_init_stubs_length:
-  LENGTH (init_stubs gen_gc max_heap k start) + 3 (* gc + store_consts + dummy *) =
+  LENGTH (init_stubs gen_gc max_heap k start) + 2 (* gc + dummy *) =
   stack_num_stubs
 Proof
   EVAL_TAC
@@ -290,9 +290,10 @@ QED
 
 (* -- full compiler -- *)
 
-val compile_def = Define `
+Definition compile_def:
   compile jump off gen_gc max_heap k start prog =
     init_stubs gen_gc max_heap k start ++
-    MAP (prog_comp jump off k) prog`;
+    MAP (prog_comp jump off k) prog
+End
 
 val _ = export_theory();

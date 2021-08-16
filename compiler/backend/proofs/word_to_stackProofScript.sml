@@ -5445,6 +5445,16 @@ QED
 Theorem comp_StoreConsts_correct:
   ^(get_goal "StoreConsts")
 Proof
+(*
+  gvs [wordSemTheory.evaluate_def,AllCaseEqs(),PULL_EXISTS]
+  \\ rpt strip_tac \\ gvs [comp_def]
+  \\ pairarg_tac \\ gvs []
+  \\ qexists_tac ‘0’
+  \\ ‘t.use_store ∧ t.use_alloc’ by fs [state_rel_def]
+  \\ gvs [stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def,
+          stackSemTheory.word_exp_def,post_alloc_conventions_def,call_arg_convention_def]
+  \\ gvs [store_const_sem_def]
+*)
   cheat
 QED
 

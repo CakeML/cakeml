@@ -557,15 +557,23 @@ Definition unset_var_def:
 End
 
 Definition store_const_sem_def:
-  store_const_sem (s:('a,'c,'ffi) stackSem$state) =
-    case (get_var 1 s, get_var 2 s, get_var 3 s) of
-    | (SOME (Word i), SOME (Word a), SOME (Word off)) =>
-        (case copy_words (w2n i) a off s.bitmaps s.mdomain s.memory of
-         | NONE => (SOME Error, s)
-         | SOME (a,m) => (NONE,
-            (if s.use_alloc then unset_var 0 else I)
-              (set_var 1 (Word 1w) (set_var 2 (Word a) (s with memory := m)))))
-    | _ => (SOME Error, s)
+  store_const_sem t1 t2 (s:('a,'c,'ffi) stackSem$state) =
+    if ~ ALL_DISTINCT [0;1;2;3;t1;t2] then (SOME Error, s) else
+      case (get_var 1 s, get_var 2 s, get_var 3 s) of
+      | (SOME (Word i), SOME (Word a), SOME (Word off)) =>
+          (case copy_words (w2n i) a off s.bitmaps s.mdomain s.memory of
+           | NONE => (SOME Error, s)
+           | SOME (a,m) => (NONE,
+              (if s.use_alloc then unset_var 0 else I)
+                (set_var t1 (Word 1w) (set_var t2 (Word 1w)
+                  (set_var 1 (Word 1w) (set_var 2 (Word a) (s with memory := m)))))))
+      | _ => (SOME Error, s)
+End
+
+Definition check_store_consts_opt_def:
+  check_store_consts_opt t1 t2 NONE _ = T ∧
+  check_store_consts_opt t1 t2 (SOME n) c =
+    (lookup n c = SOME (Seq (StoreConsts t1 t2 NONE) (Return 0 0)))
 End
 
 Definition dest_Seq_def:
@@ -584,9 +592,11 @@ val evaluate_def = tDefine "evaluate" `
      case get_var n s of
      | SOME (Word w) => alloc w s
      | _ => (SOME Error,s)) /\
-  (evaluate (StoreConsts,s) =
+  (evaluate (StoreConsts t1 t2 stub_opt,s) =
      if ~s.use_store then (SOME Error,s) else
-       store_const_sem s) /\
+     if ~s.use_alloc ∧ IS_SOME stub_opt then (SOME Error,s) else
+     if ~check_store_consts_opt t1 t2 stub_opt s.code then (SOME Error,s) else
+       store_const_sem t1 t2 s) /\
   (evaluate (Inst i,s) =
      case inst i s of
      | SOME s1 => (NONE, s1)
@@ -848,7 +858,7 @@ Proof
 QED
 
 Theorem store_const_sem_clock:
-  ∀s1 v s2. (store_const_sem s1 = (v,s2)) ==> s2.clock <= s1.clock
+  ∀s1 v s2. (store_const_sem t1 t2 s1 = (v,s2)) ==> s2.clock <= s1.clock
 Proof
   rw [store_const_sem_def,AllCaseEqs(),unset_var_def] \\ fs [set_var_def]
 QED

@@ -608,14 +608,11 @@ val word_gc_code_def = Define `
                  :'a stackLang$prog`
 
 Definition stubs_def:
-  stubs conf =
-    [(gc_stub_location, Seq (word_gc_code conf) (Return 0 0));
-     (store_consts_stub_location, Seq StoreConsts (Return 0 0))]
+  stubs conf = [(gc_stub_location, Seq (word_gc_code conf) (Return 0 0))]
 End
 
 Definition stub_names_def:
-  stub_names () = [(gc_stub_location,           «_GC»);
-                   (store_consts_stub_location, «_StoreConsts»)]
+  stub_names () = [(gc_stub_location, «_GC»)]
 End
 
 (* compiler *)
@@ -672,8 +669,7 @@ val comp_quotation = `
               let (q2,m) = comp n m p2 in
                 (Call (SOME (q1,lr,l1,l2)) dest (SOME (q2,k1,k2)),m))
     | Alloc k => (Call (SOME (Skip,0,n,m)) (INL gc_stub_location) NONE,m+1)
-    | StoreConsts => (Call (SOME (Skip,0,n,m))
-                        (INL store_consts_stub_location) NONE,m+1)
+    | StoreConsts k1 k2 (SOME loc) => (Call (SOME (Skip,0,n,m)) (INL loc) NONE,m+1)
     | _ => (p,m) `
 in
 val comp_def = Define comp_quotation

@@ -1144,6 +1144,17 @@ Proof
   srw_tac[][FUN_EQ_THM,prog_comp_def,FORALL_PROD,LAMBDA_PROD]
 QED
 
+(* temp
+Theorem comp_StoreConsts:
+  comp jump off k StoreConsts =
+    Seq (Inst (Mem Load k (Addr (k+1) (store_offset BitmapBase)))
+        (Seq ()
+             ())
+Proof
+  cheat
+QED
+*)
+
 Theorem comp_correct[local]:
   !p s1 r s2 t1 k off jump.
      evaluate (p,s1) = (r,s2) /\ r <> SOME Error /\
@@ -1168,8 +1179,13 @@ Proof
     \\ full_simp_tac(srw_ss())[state_rel_def])
   THEN1 (* Alloc *)
    (fs [comp_def,evaluate_def] \\ fs [state_rel_def])
+
   THEN1 (* StoreConsts *)
    cheat
+(*
+   gvs [comp_def,evaluate_def,AllCaseEqs(),store_const_sem_def]
+*)
+
   THEN1 (* Inst *)
    (full_simp_tac(srw_ss())[comp_def,evaluate_def]
     \\ last_x_assum mp_tac

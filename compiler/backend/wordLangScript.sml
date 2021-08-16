@@ -56,9 +56,12 @@ val _ = Datatype `
        | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *) `;
 
 val raise_stub_location_def = Define`
-  raise_stub_location = word_num_stubs - 1`;
-val raise_stub_location_eq = save_thm("raise_stub_location_eq",
-  EVAL``raise_stub_location``);
+  raise_stub_location = word_num_stubs - 2`;
+val store_consts_stub_location_def = Define`
+  store_consts_stub_location = word_num_stubs - 1`;
+
+Theorem raise_stub_location_eq = EVAL``raise_stub_location``;
+Theorem store_consts_stub_location_eq = EVAL``store_consts_stub_location``;
 
 (* wordLang uses syntactic invariants compared to stackLang that uses semantic flags
    Some of these are also used to EVAL (e.g. for the oracle)
