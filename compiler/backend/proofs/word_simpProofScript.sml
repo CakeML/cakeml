@@ -771,20 +771,20 @@ Proof
 QED
 
 Theorem evaluate_sf_gc_consts:
-   !p s s' res.
-   evaluate (p, s) = (res, s') /\ gc_fun_const_ok s.gc_fun ==>
-   (case res of
-     | NONE =>
-       LIST_REL sf_gc_consts s.stack s'.stack /\
-       s'.handler = s.handler
-     | SOME (Result _ _) =>
-       LIST_REL sf_gc_consts s.stack s'.stack /\
-       s'.handler = s.handler
-     | SOME (Exception _ _) =>
-       s.handler < LENGTH s.stack ==>
-       LIST_REL sf_gc_consts (LASTN s.handler s.stack) s'.stack /\
-       s'.handler = get_above_handler s
-     | _ => T)
+  !p s s' res.
+  evaluate (p, s) = (res, s') /\ gc_fun_const_ok s.gc_fun ==>
+  (case res of
+    | NONE =>
+      LIST_REL sf_gc_consts s.stack s'.stack /\
+      s'.handler = s.handler
+    | SOME (Result _ _) =>
+      LIST_REL sf_gc_consts s.stack s'.stack /\
+      s'.handler = s.handler
+    | SOME (Exception _ _) =>
+      s.handler < LENGTH s.stack ==>
+      LIST_REL sf_gc_consts (LASTN s.handler s.stack) s'.stack /\
+      s'.handler = get_above_handler s
+    | _ => T)
 Proof
   recInduct evaluate_ind \\ reverse (rpt conj_tac)
   >- (** Call **)
@@ -898,6 +898,9 @@ Proof
   >- (** MustTerminate **)
   (rw [evaluate_def] \\ pairarg_tac \\ fs [] \\ every_case_tac \\ rw [] \\ rw [get_above_handler_def])
 
+  >- ( (* StoreConsts *)
+    rw[evaluate_def] \\ every_case_tac \\ fs[set_var_def,unset_var_def,state_component_equality]
+    \\ irule EVERY2_refl \\ rw [sf_gc_consts_refl])
   >- (** Alloc **)
   (rw [evaluate_def, alloc_def] \\ every_case_tac \\ fs [] \\
   imp_res_tac gc_sf_gc_consts \\ fs [push_env_def, set_store_def, pop_env_def] \\
@@ -912,13 +915,13 @@ Proof
 QED
 
 Theorem evaluate_const_fp_loop:
-   !p cs p' cs' s res s'.
-   evaluate (p, s) = (res, s') /\
-   const_fp_loop p cs = (p', cs') /\
-   gc_fun_const_ok s.gc_fun /\
-   (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) ==>
-   evaluate (p', s) = (res, s') /\
-   (res = NONE ==> (!v w. lookup v cs' = SOME w ==> get_var v s' = SOME (Word w)))
+  !p cs p' cs' s res s'.
+  evaluate (p, s) = (res, s') /\
+  const_fp_loop p cs = (p', cs') /\
+  gc_fun_const_ok s.gc_fun /\
+  (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) ==>
+  evaluate (p', s) = (res, s') /\
+  (res = NONE ==> (!v w. lookup v cs' = SOME w ==> get_var v s' = SOME (Word w)))
 Proof
   ho_match_mp_tac const_fp_loop_ind \\ (rpt conj_tac)
   >- (** Move **)
@@ -1064,11 +1067,10 @@ Proof
   imp_res_tac lookup_filter_v_SOME_imp \\ fs [lookup_inter_EQ] \\
   metis_tac [push_env_pop_env_locals_thm, is_gc_word_const_def])
 
-  >- (** StoreConsts **)
-  (fs [const_fp_loop_def] \\ rw [evaluate_def] \\ every_case_tac \\ fs [] \\
-  fs [get_var_def,lookup_delete] \\ res_tac \\
-  gvs [set_var_def,lookup_insert,lookup_delete] \\ cheat)
-
+  >- ( (** StoreConsts **)
+    fs [const_fp_loop_def] \\ rw [evaluate_def] \\ every_case_tac \\ fs [] \\
+    fs [get_var_def,lookup_delete] \\ res_tac \\
+    gvs [set_var_def,lookup_insert,lookup_delete,unset_var_def])
   >- (* Install *) (
     rw[const_fp_loop_def]\\ fs[evaluate_def,case_eq_thms] \\
     pairarg_tac \\ fs[case_eq_thms] \\
