@@ -5,16 +5,7 @@ open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheor
      holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
      holSyntaxRenamingTheory
 
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
 val _ = new_theory"holSyntaxRenamingTyvar"
-
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
-(* TODO replace with REWRITE_RULE[Once MONO_NOT_EQ] *)
-fun ccontr_equiv(x) =
-  let val (a,b) = EQ_IMP_RULE (SPEC_ALL x)
-  in GEN_ALL (IMP_ANTISYM_RULE (CONTRAPOS b) (CONTRAPOS a)) end;
 
 (* overloads for set operations on lists *)
 
@@ -926,11 +917,11 @@ Theorem var_renaming_compose:
   ⇒ var_renaming (clean_tysubst (MAP (TYPE_SUBST s ## I) r ++ s))
 Proof
   rpt strip_tac
-  >> reverse (rw[var_renaming_def,rename_bij_def,clean_tysubst_prop])
+  >> reverse $ rw[var_renaming_def,rename_bij_def,clean_tysubst_prop]
   >- (
     qmatch_goalsub_abbrev_tac `EVERY _`
     >> qmatch_goalsub_abbrev_tac `clean_tysubst sor`
-    >> qspec_then `sor` mp_tac (CONJUNCT2 clean_tysubst_prop |> CONJUNCT1)
+    >> qspec_then `sor` mp_tac $ cj 2 clean_tysubst_prop
     >> fs[ELIM_UNCURRY]
   )
   >> qmatch_goalsub_abbrev_tac`sr ++ s`
@@ -939,9 +930,7 @@ Proof
     fs[Abbr`sr`,MAP_MAP_o,o_DEF]
     >> SIMP_TAC(std_ss ++ ETA_ss)[]
   )
-  >> `ALL_DISTINCT (MAP SND sr)` by (
-    fs[var_renaming_def,rename_bij_def]
-  )
+  >> `ALL_DISTINCT (MAP SND sr)` by fs[var_renaming_def,rename_bij_def]
   >> dxrule clean_tysubst_FILTER_eq
   >> impl_tac
   >- (
@@ -949,7 +938,7 @@ Proof
     >> qmatch_goalsub_abbrev_tac `EVERY P'`
     >> `P' = P o SND` by fs[Abbr`P`,Abbr`P'`,o_DEF]
     >> VAR_EQ_TAC
-    >> fs[GSYM EVERY_MAP,o_DEF]
+    >> REWRITE_TAC[GSYM EVERY_MAP,o_DEF]
     >> fs[Abbr`P`,var_renaming_def]
     >> fs[LAMBDA_PROD,EVERY_MAP]
   )
@@ -1254,7 +1243,6 @@ Proof
   >> gvs[]
 QED
 
-
 Theorem ALOOKUP_bij_LNTH_SUC_LNTH_SOME[local]:
   !s n. ALL_DISTINCT (MAP SND s) /\ ALL_DISTINCT (MAP FST s) /\ EVERY (UNCURRY $<>) s
     ==> let ll = LUNFOLD (OPTION_MAP (λx. (x,x)) o (ALOOKUP s))
@@ -1387,19 +1375,21 @@ Proof
       o SIMP_RULE std_ss [LFINITE,GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS])
   >> drule_then (strip_assume_tac o GSYM) LTAKE_LENGTH
   >> fs[GSYM PULL_EXISTS]
-  >> CCONTR_TAC
-  >> fs[DISJ_EQ_IMP]
+  >> spose_not_then assume_tac
   >> `ALL_DISTINCT x` by (
-    rw[EL_ALL_DISTINCT_EL_EQ]
+    ntac 3 $ pop_assum mp_tac >> rpt $ pop_assum kall_tac
+    >> REWRITE_TAC[EL_ALL_DISTINCT_EL_EQ,EQ_IMP_THM]
+    >> rpt strip_tac >> rfs[]
     >> drule_then imp_res_tac LTAKE_LNTH_EL
-    >> qpat_x_assum `!n. _ ==> _` (imp_res_tac o REWRITE_RULE[IS_SOME_EXISTS])
-    >> rw[EQ_IMP_THM,Once EQ_LESS_EQ,LESS_OR_EQ,DISJ_EQ_IMP]
-    >> fs[NOT_LESS,LESS_OR_EQ,Once SUB_LESS_0]
-    >> ntac 2 (first_x_assum (drule_then assume_tac))
-    >> rfs[]
+    >> rw[Once EQ_LESS_EQ,LESS_OR_EQ,DISJ_EQ_IMP]
+    >> fs[NOT_LESS,LESS_OR_EQ]
+    >> drule_then strip_assume_tac LESS_ADD
+    >> qpat_x_assum `!n. _ ==> _` $ imp_res_tac o REWRITE_RULE[IS_SOME_EXISTS]
+    >> gvs[]
+    >> res_tac >> fs[]
   )
   >> drule_all_then assume_tac every_LTAKE_EVERY
-  >> qspecl_then [`set (MAP SND s)`,`set x`] assume_tac (Ho_Rewrite.REWRITE_RULE[PULL_FORALL] CARD_SUBSET)
+  >> qspecl_then [`set (MAP SND s)`,`set x`] assume_tac $ Ho_Rewrite.REWRITE_RULE[PULL_FORALL] CARD_SUBSET
   >> rfs[EVERY_MEM,SUBSET_DEF,ALL_DISTINCT_CARD_LIST_TO_SET]
 QED
 
@@ -1927,32 +1917,19 @@ QED
 Theorem ren_disj_dom_img2:
   !r c. NULL (list_inter (MAP ((TYPE_SUBST (ren r c)) o $Tyvar) r) (MAP Tyvar c))
 Proof
-  rw[NULL_FILTER,list_inter_def]
-  >> rw[MEM_MAP]
-  >> Cases_on `MEM y' r`
-  >> fs[MEM_MAP]
-  >> rveq
-  >> Cases_on `MEM (Tyvar y') (MAP SND (ren r c))`
+  rw[NULL_FILTER,list_inter_def] >> rw[MEM_MAP]
+  >> Cases_on `MEM y' r` >> gvs[MEM_MAP]
+  >> reverse $ Cases_on `MEM (Tyvar y') (MAP SND (ren r c))`
   >- (
-    qspecl_then [`r`,`c`] assume_tac ren_disj_dom_img
-    >> fs[list_inter_def,NULL_FILTER]
-    >> imp_res_tac MEM_SPLIT_APPEND_SND_first
-    >> imp_res_tac TYPE_SUBST_drop_prefix
-    >> first_x_assum (qspec_then `[(q,Tyvar y')]++sfx` assume_tac)
-    >> `MEM q (MAP FST (ren r c))` by fs[]
-    >> res_tac
-    >> fs[REV_ASSOCD_def]
-    >> qspecl_then [`r`,`c`] (assume_tac o REWRITE_RULE[list_inter_def,NULL_FILTER,Q.ISPECL [`c:mlstring list`,`Tyvar`] MEM_MAP]) ren_disj_img_c
-    >> pop_assum imp_res_tac
-    >> CCONTR_TAC
-    >> fs[]
+    drule_then assume_tac TYPE_SUBST_drop_all
+    >> gvs[GSYM ren_MEM_SND1,list_inter_def,MEM_FILTER]
   )
-  >> imp_res_tac TYPE_SUBST_drop_all
-  >> fs[GSYM ren_MEM_SND1]
-  >> fs[list_inter_def,MEM_FILTER]
-  >> fs[]
-  >> CCONTR_TAC
-  >> fs[]
+  >> drule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
+  >> imp_res_tac $ Q.ISPEC `FST` MEM_MAP_f
+  >> imp_res_tac $ Q.ISPEC `Tyvar` MEM_MAP_f
+  >> imp_res_tac $ SIMP_RULE (srw_ss()) [list_inter_def,NULL_FILTER] ren_disj_img_c
+  >> drule_then assume_tac $ SIMP_RULE (srw_ss()) [list_inter_def,NULL_FILTER] ren_disj_dom_img
+  >> gs[REV_ASSOCD_def]
 QED
 
 Theorem ren_disj_img_r:
@@ -2286,22 +2263,35 @@ Proof
   >> fs[]
 QED
 
+Theorem list_complement_MAP_INJ1[local]:
+  !f a b x. (!x y. (MEM x a \/ MEM x b) /\ (MEM y a \/ MEM y b) ==> f x = f y ==> x = y) ==>
+  (MEM x (MAP f (list_complement a b))) = MEM x (list_complement (MAP f a) (MAP f b))
+Proof
+  rw[EQ_IMP_THM] >> rw[list_complement_def,EVERY_MEM]
+  >> fs[MEM_MAP,MEM_FILTER,list_complement_def]
+  >> rw[]
+  >- (
+    spose_not_then assume_tac
+    >> last_x_assum imp_res_tac
+    >> gvs[]
+  )
+  >- (goal_assum $ drule_at Any >> fs[])
+  >> spose_not_then assume_tac
+  >> rpt $ first_x_assum $ qspec_then `y` assume_tac
+  >> fs[]
+QED
+
 Theorem ren_MEM_list_complement:
   !r s c x. let sigma = ren (list_complement r s) (LIST_UNION s c) in
   MEM (Tyvar x) (MAP (TYPE_SUBST sigma o Tyvar) (list_complement r s))
   = MEM (Tyvar x) (list_complement (MAP (TYPE_SUBST sigma o Tyvar) r) (MAP (TYPE_SUBST sigma o Tyvar) s))
 Proof
   rw[]
-  >> match_mp_tac list_complement_MAP_INJ1
+  >> irule list_complement_MAP_INJ1
   >> rw[o_DEF]
   >> qspecl_then [`list_complement r s`,`LIST_UNION s c`] mp_tac ren_TYPE_SUBST_INJ
-  >> disch_then match_mp_tac
-  >> ASM_REWRITE_TAC[TYPE_SUBST_def]
-  >> fs[MEM_FILTER,list_inter_def,list_complement_def,MEM_LIST_UNION]
-  >> Cases_on `MEM x s`
-  >> ASM_REWRITE_TAC[]
-  >> Cases_on `MEM y s`
-  >> ASM_REWRITE_TAC[]
+  >> disch_then irule
+  >> rw[MEM_FILTER,list_inter_def,list_complement_def,MEM_LIST_UNION,DISJ_EQ_IMP]
 QED
 
 (* bijective version of ren *)
@@ -2541,47 +2531,36 @@ Theorem renn_disj_dom_img2:
 Proof
   rw[NULL_FILTER,list_inter_def,GSYM MAP_MAP_o]
   >> rw[MEM_MAP]
-  >> drule (REWRITE_RULE[NULL_FILTER,list_inter_def] renn_disj_dom_s)
-  >> disch_then (qspecl_then [`r`,`c`] assume_tac)
-  >> CCONTR_TAC
+  >> drule $ REWRITE_RULE[NULL_FILTER,list_inter_def] renn_disj_dom_s
+  >> disch_then $ qspecl_then [`r`,`c`] assume_tac
   >> fs[]
-  >> imp_res_tac (ONCE_REWRITE_RULE[MONO_NOT_EQ] (Ho_Rewrite.REWRITE_RULE[FORALL_AND_THM,EQ_IMP_THM] renn_MAP_FST_SND))
-  >> qmatch_asmsub_abbrev_tac `TYPE_SUBST sigma`
+  >> imp_res_tac $ ONCE_REWRITE_RULE[MONO_NOT_EQ] $ Ho_Rewrite.REWRITE_RULE[FORALL_AND_THM,EQ_IMP_THM] renn_MAP_FST_SND
+  >> spose_not_then assume_tac
+  >> qmatch_asmsub_abbrev_tac `REV_ASSOCD _ sigma _`
   >> Cases_on `MEM (Tyvar y'') (MAP SND sigma)`
   >- (
-    qunabbrev_tac `sigma`
-    >> imp_res_tac TYPE_SUBST_MEM_MAP_SND
-    >> imp_res_tac (Q.ISPEC `FST` MEM_MAP_f)
+    drule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
+    >> imp_res_tac $ Q.ISPEC `FST` MEM_MAP_f
+    >> unabbrev_all_tac
     >> imp_res_tac renn_MAP_FST_SND
-    >> imp_res_tac (REWRITE_RULE[NULL_FILTER,list_inter_def] renn_disj_dom_s)
-    >> rfs[]
-    >> fs[]
+    >> imp_res_tac $ REWRITE_RULE[NULL_FILTER,list_inter_def] renn_disj_dom_s
+    >> gs[]
   )
   >> imp_res_tac TYPE_SUBST_drop_all
-  >> rveq
-  >> fs[MEM_Tyvar_MAP_Tyvar,list_complement_def,MEM_FILTER]
+  >> gvs[MEM_Tyvar_MAP_Tyvar,list_complement_def,MEM_FILTER]
 QED
 
 Theorem renn_disj_dom_img3:
   !r c. NULL (list_inter (MAP ((TYPE_SUBST (renn r c)) o $Tyvar) (list_inter r c)) (MAP Tyvar c))
 Proof
   rw[NULL_FILTER,list_inter_def,GSYM MAP_MAP_o,MEM_MAP]
-  >> CCONTR_TAC
+  >> spose_not_then assume_tac
   >> fs[MEM_FILTER,renn_def]
   >> qspecl_then [`r`,`c`,`y''`] assume_tac ren_MEM_SND
-  >> rfs[MEM_LIST_UNION,list_inter_def,MEM_FILTER]
-  >> fs[REWRITE_RULE[TYPE_SUBST_def] TYPE_SUBST_drop_suffix]
+  >> gvs[MEM_LIST_UNION,list_inter_def,MEM_FILTER,REWRITE_RULE[TYPE_SUBST_def] TYPE_SUBST_drop_suffix]
   >> fs[GSYM MEM_Tyvar_MAP_Tyvar]
-  >> qspecl_then [`r`,`c`,`Tyvar y'`] assume_tac (REWRITE_RULE[NULL_FILTER,list_inter_def] ren_disj_dom_img2)
-  >> rfs[MEM_Tyvar_MAP_Tyvar,MEM_MAP]
-  >> qpat_x_assum `_ = REV_ASSOCD _ _ _` (assume_tac o GSYM)
-  >> fs[]
-  >> rfs[]
-  >> first_x_assum (qspec_then `y''` (assume_tac o GSYM))
-  >> Cases_on `y`
-  >> fs[]
-  >> rveq
-  >> fs[]
+  >> imp_res_tac $ REWRITE_RULE[NULL_FILTER,list_inter_def] ren_disj_dom_img2
+  >> gs[MEM_Tyvar_MAP_Tyvar,MEM_MAP]
 QED
 
 Theorem renn_disj_dom_img4:
@@ -2616,21 +2595,15 @@ Proof
   rw[MEM_MAP]
   >> Cases_on `MEM y s`
   >- (
-     qspecl_then [`s`,`r`,`c`,`y`] mp_tac renn_MEM_SND_compl_union
+    qspecl_then [`s`,`r`,`c`,`y`] mp_tac renn_MEM_SND_compl_union
     >> rw[MEM_FILTER,MEM_LIST_UNION,list_inter_def,list_complement_def]
     >> fs[GSYM list_complement_def]
     >> imp_res_tac TYPE_SUBST_drop_all
-    >> fs[]
-    >> rveq
-    >> fs[]
+    >> gvs[]
   )
-  >> qmatch_goalsub_abbrev_tac `a \/ _`
-  >> Cases_on `a`
-  >> mp_tac renn_bij3
-  >> fs[markerTheory.Abbrev_def]
-  >> disch_then drule
-  >> rw[]
-  >> fs[]
+  >> gvs[Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_def]
+  >> imp_res_tac renn_bij3
+  >> gvs[]
 QED
 
 val _ = export_theory();
