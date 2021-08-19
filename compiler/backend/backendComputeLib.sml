@@ -749,6 +749,7 @@ val add_backend_compset = computeLib.extend_compset
     ,word_to_stackTheory.StackArgs_def
     ,word_to_stackTheory.comp_def
     ,word_to_stackTheory.raise_stub_def
+    ,word_to_stackTheory.store_consts_stub_def
     ,word_to_stackTheory.stub_names_def
     ,word_to_stackTheory.compile_prog_def
     ,word_to_stackTheory.compile_word_to_stack_def
