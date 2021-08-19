@@ -2947,50 +2947,61 @@ Proof
       normlist >> first_assum $ irule_at Any >> simp[stoppers_def] >>
       normlist >> first_assum $ irule_at Any >> simp[stoppers_def] >>
       first_x_assum $ irule_at Any >> gs[stoppers_def])
-  >- ((* HERE *) print_tac "nEtyped" >>
-      simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied,
-           mkNd_def] >> rw[] >>
-      fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
-      >- (dsimp[] >> DISJ2_TAC >> DISJ1_TAC >> simp[NT_rank_def] >>
-          simp[peg_eval_tok_NONE] >> Cases_on ‘sfx’ >>
-          fs[Once EXISTS_PROD] >> metis_tac[PAIR]) >>
-      pmap_cases >> dsimp[] >> DISJ1_TAC >>
-      normlist >>
-      first_assum (unify_firstconj kall_tac o has_length) >> simp[])
+  >- (print_tac "nEtyped" >>
+      simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
+      rw[seql_cons_SOME, PULL_EXISTS] >>
+      gvs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM]
+      >- (‘NT_rank (mkNT nEbefore) < NT_rank (mkNT nEtyped)’
+            by simp[NT_rank_def] >>
+          first_x_assum (pop_assum o
+                         mp_then Any (strip_assume_tac o
+                                      SRULE [GSYM RIGHT_EXISTS_IMP_THM,
+                                             SKOLEM_THM])) >>
+          pop_assum $ irule_at Any >> dsimp[choicel_cons] >>
+          disj2_tac >> Cases_on ‘sfx’ >> simp[seql_cons] >>
+          gs[stoppers_def, peg_eval_tok]) >> loseC “NT_rank” >>
+      gs[SKOLEM_THM, GSYM RIGHT_EXISTS_IMP_THM] >> normlist >>
+      first_assum $ irule_at Any >>
+      dsimp[stoppers_def, choicel_cons, seql_cons, peg_eval_tok] >>
+      first_x_assum $ irule_at Any >> gs[stoppers_def])
   >- (print_tac "nEtuple" >> fs[FDOM_cmlPEG])
-  >- (print_tac "nEseq" >> stdstart >> pmap_cases
-      >- (normlist >> first_assum (unify_firstconj kall_tac) >>
-          simp[mkNd_def]) >>
-      first_assum(unify_firstconj kall_tac) >> simp[NT_rank_def, mkNd_def] >>
-      dsimp[] >>
-      Cases_on ‘sfx’ >> fs[peg_eval_tok_NONE])
-  >- (print_tac "nErel" >>
-      disch_then assume_tac >>
-      simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
+  >- (print_tac "nEseq" >> stdstart >> gvs[seql_cons_SOME, PULL_EXISTS]
+      >- (loseC “NT_rank” >> gs[SKOLEM_THM, GSYM RIGHT_EXISTS_IMP_THM] >>
+          normlist >> first_assum $ irule_at Any >>
+          dsimp[stoppers_def, choicel_cons, seql_cons, peg_eval_tok,
+                nestoppers_def] >> first_x_assum $ irule_at Any >>
+          simp[]) >>
+      ‘NT_rank (mkNT nE) < NT_rank (mkNT nEseq)’ by simp[NT_rank_def] >>
+      first_x_assum (pop_assum o
+                     mp_then Any (strip_assume_tac o
+                                  SRULE [SKOLEM_THM,
+                                         GSYM RIGHT_EXISTS_IMP_THM])) >>
+      pop_assum $ irule_at Any >> dsimp[choicel_cons, seql_cons] >>
+      Cases_on ‘sfx’ >> simp[peg_eval_tok] >> gs[stoppers_def])
+  >- (print_tac "nErel" >> disch_then assume_tac >>
+      simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
                       |> Q.INST [‘P’ |-> ‘nErel’, ‘SEP’ |-> ‘NN nRelOps’,
                                  ‘C’ |-> ‘NN nElistop’, ‘master’ |-> ‘pfx’]
                       |> SIMP_RULE (srw_ss() ++ DNF_ss)
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
-      simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >>
-      conj_tac
-      >- (simp[firstSet_nFQV, firstSet_nConstructorName, firstSet_nV] >>
-          metis_tac[validSym_incompatibility]) >> fs[])
+      simp[cmlG_applied, cmlG_FDOM, NT_rank_def, stoppers_def] >>
+      simp[firstSet_nFQV, firstSet_nConstructorName, firstSet_nV] >>
+      metis_tac[validSym_incompatibility])
   >- (print_tac "nEmult" >> disch_then assume_tac >>
-      simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
+      simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
                       |> Q.INST [‘P’ |-> ‘nEmult’, ‘SEP’ |-> ‘NN nMultOps’,
                                  ‘C’ |-> ‘NN nEapp’, ‘master’ |-> ‘pfx’]
                       |> SIMP_RULE (srw_ss() ++ DNF_ss)
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
-      simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >>
-      fs[] >> simp[firstSet_nFQV, firstSet_nV, firstSet_nConstructorName] >>
-      rw[disjImpI, stringTheory.isUpper_def] >>
+      simp[cmlG_applied, cmlG_FDOM, NT_rank_def, stoppers_def, firstSet_nFQV,
+           firstSet_nV, firstSet_nConstructorName, stringTheory.isUpper_def] >>
       metis_tac[validSym_incompatibility])
   >- (print_tac "nElogicOR" >> disch_then assume_tac >>
-      simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
+      simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
                       |> Q.INST [‘P’ |-> ‘nElogicOR’, ‘SEP’ |-> ‘TK OrelseT’,
                                  ‘C’ |-> ‘NN nElogicAND’, ‘master’ |-> ‘pfx’]
@@ -2998,10 +3009,10 @@ Proof
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
       simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >>
-      conj_tac >- simp[firstSet_nFQV, firstSet_nConstructorName,
-                       firstSet_nV, FORALL_PROD] >> fs[])
+      simp[stoppers_def, firstSet_nFQV, firstSet_nConstructorName,
+           firstSet_nV])
   >- (print_tac "nElogicAND" >> disch_then assume_tac >>
-      simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
+      simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
                       |> Q.INST [‘P’ |-> ‘nElogicAND’, ‘SEP’ |-> ‘TK AndalsoT’,
                                  ‘C’ |-> ‘NN nEtyped’, ‘master’ |-> ‘pfx’]
@@ -3009,54 +3020,55 @@ Proof
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
       simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >>
-      conj_tac
-      >- simp[firstSet_nV,firstSet_nConstructorName,firstSet_nFQV,
-              FORALL_PROD] >>
-      fs[])
-  >- (print_tac "nEliteral" >> stdstart >> pmap_cases >>
-      simp[peg_eval_tok_NONE,mkNd_def])
-  >- (print_tac "nElistop" >> stdstart
-      >- (normlist >> first_assum (unify_firstconj kall_tac) >>
+      simp[firstSet_nV,firstSet_nConstructorName,firstSet_nFQV,
+           stoppers_def])
+  >- (print_tac "nEliteral" >> stdstart >> gvs[] >>
+      simp[choicel_cons, peg_eval_tok])
+  >- (print_tac "nElistop" >> stdstart >> simp[seql_cons_SOME, PULL_EXISTS]
+      >- (loseC “NT_rank” >>
           rename[‘ptree_head eaddpt = NN nEadd’,
                  ‘ptree_head oppt = NN nListOps’,
                  ‘real_fringe oppt = MAP _ opf’] >>
-          qexists_tac ‘eaddpt’ >>
-          ‘0 < LENGTH (MAP (TK ## I) opf)’
-            by metis_tac[rfringe_length_not_nullable,
-                         nullable_ListOps] >> fs[] >>
+          drule_all (MATCH_MP rfringe_length_not_nullable nullable_ListOps) >>
+          simp[] >> strip_tac >> gs[SKOLEM_THM, GSYM RIGHT_EXISTS_IMP_THM] >>
+          normlist >> first_assum $ irule_at Any >> simp[] >>
           ‘(∀l1 l2. HD (opf ++ l1 ++ l2) = HD opf) ∧ opf ≠ []’
-            by (Cases_on ‘opf’ >> fs[]) >>  simp[mkNd_def] >>
+            by (Cases_on ‘opf’ >> fs[]) >> simp[] >>
           ‘FST (HD opf) ∈ stoppers nEadd’
             by (Cases_on ‘opf’ >> fs[PAIR_MAP] >>
-                first_assum
-                  (mp_tac o
-                   MATCH_MP (rfirstSet_nonempty_fringe
-                               |> GEN_ALL |> Q.ISPEC ‘cmlG’
-                               |> REWRITE_RULE [GSYM AND_IMP_INTRO])) >>
-                simp[] >>
-                rw[firstSet_nFQV, firstSet_nV, firstSet_nConstructorName,
-                   disjImpI] >> rw[] >> fs[] >>
-                metis_tac[validSym_incompatibility]) >>
-          conj_tac >- (normlist >> loseC “NT_rank” >>
-                       first_x_assum match_mp_tac >> simp[] >>
-                       fs[]) >>
-          normlist >> first_assum (unify_firstconj kall_tac) >> simp[] >>
-          normlist >> first_assum (match_mp_tac o has_length) >>
-          simp[] >> CONV_TAC NumRelNorms.sum_lt_norm >>
-          metis_tac [rfringe_length_not_nullable,
-                     nullable_Eadd, listTheory.LENGTH_MAP,
-                     arithmeticTheory.ZERO_LESS_ADD]) >>
-      first_assum (unify_firstconj kall_tac) >> simp[mkNd_def] >>
-      conj_tac >- simp[NT_rank_def] >>
-      Cases_on ‘sfx’ >> fs[not_peg0_peg_eval_NIL_NONE] >>
+                drule_all rfirstSet_nonempty_fringe >>
+                simp[stoppers_def, PULL_EXISTS] >>
+                simp[firstSet_nFQV, firstSet_nV, firstSet_nConstructorName] >>
+                metis_tac[validSym_incompatibility]) >> simp[] >>
+          dsimp[choicel_cons, seql_cons] >>
+          drule_all (MATCH_MP rfringe_length_not_nullable nullable_Eadd) >>
+          simp[] >> strip_tac >> normlist >> first_assum $ irule_at Any >>
+          simp[stoppers_def] >> first_x_assum $ irule_at Any >> simp[]) >>
+      ‘NT_rank (mkNT nEadd) < NT_rank (mkNT nElistop)’ by simp[NT_rank_def] >>
+      first_x_assum (pop_assum o
+                     mp_then Any
+                     (strip_assume_tac o
+                      SRULE [SKOLEM_THM, GSYM RIGHT_EXISTS_IMP_THM])) >>
+      pop_assum $ irule_at Any >> simp[] >>
+      Cases_on ‘sfx’ >>
+      dsimp[not_peg0_peg_eval_NIL_NONE, choicel_cons, seql_cons] >> gs[] >>
       rename [‘peg_eval _ (tl::_, _)’] >> Cases_on ‘tl’ >> fs[] >>
-      simp[peg_respects_firstSets])
+      gs[peg_respects_firstSets_rwt, stoppers_def])
   >- (print_tac "nElist2" >> fs[FDOM_cmlPEG])
-  >- (print_tac "nElist1" >> stdstart >> pmap_cases >> simp[mkNd_def]
-      >- (first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def] >>
-          Cases_on ‘sfx’ >> fs[peg_eval_tok_NONE]) >>
-      normlist >> first_assum (unify_firstconj kall_tac) >> simp[])
-  >- (print_tac "nEhandle" >>
+  >- (print_tac "nElist1" >> stdstart >> gvs[seql_cons_SOME, PULL_EXISTS]
+      >- (‘NT_rank (mkNT nE) < NT_rank (mkNT nElist1)’ by simp[NT_rank_def] >>
+          first_x_assum (pop_assum o
+                         mp_then Any
+                         (strip_assume_tac o
+                          SRULE [SKOLEM_THM, GSYM RIGHT_EXISTS_IMP_THM])) >>
+          pop_assum $ irule_at Any >> gs[stoppers_def] >>
+          dsimp[choicel_cons, seql_cons] >> Cases_on ‘sfx’ >> simp[] >>
+          gs[]) >>
+      loseC “NT_rank” >> gs[SKOLEM_THM, GSYM RIGHT_EXISTS_IMP_THM] >>
+      normlist >> first_assum $ irule_at Any >>
+      simp[stoppers_def, nestoppers_def] >> dsimp[choicel_cons, seql_cons] >>
+      first_x_assum $ irule_at Any >> simp[])
+  >- ((* HERE *) print_tac "nEhandle" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied,mkNd_def] >>
       strip_tac >>
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
