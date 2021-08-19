@@ -565,8 +565,10 @@ val state_rel_def = Define `
         EVERY (post_alloc_conventions k o SND o SND) progs ∧
         EVERY (flat_exp_conventions o SND o SND) progs ∧
         EVERY ((<>) raise_stub_location o FST) progs ∧
+        EVERY ((<>) store_consts_stub_location o FST) progs ∧
         (n = 0 ⇒ bm0 = t.bitmaps)) ∧
-    domain t.code = raise_stub_location INSERT domain s.code ∧
+    domain t.code = raise_stub_location INSERT
+                      store_consts_stub_location INSERT domain s.code ∧
     (!n word_prog arg_count.
        (lookup n s.code = SOME (arg_count,word_prog)) ==>
        post_alloc_conventions k word_prog /\
@@ -578,6 +580,7 @@ val state_rel_def = Define `
          the f (lookup n s.stack_size) = f
     ) /\
     (lookup raise_stub_location t.code = SOME (raise_stub k)) /\
+    (lookup store_consts_stub_location t.code = SOME (store_consts_stub k)) /\
     good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
     LENGTH t.bitmaps + LENGTH s.data_buffer.buffer + s.data_buffer.space_left +1 < dimword (:α) /\
     1 ≤ LENGTH t.bitmaps ∧ HD t.bitmaps = 4w ∧
@@ -5317,6 +5320,7 @@ val Install_tac =
         \\ simp[lookup_def,the_eqn]
       )
       \\ conj_tac >- simp[lookup_union]
+      \\ conj_tac >- simp[lookup_union]
       \\ conj_tac >- (
         fs[buffer_flush_def]
         \\ rveq \\ fs[] )
@@ -5442,20 +5446,264 @@ Proof
     Cases_on`res=NONE`>>fs[]
 QED
 
+Theorem chunk_to_bits_bound:
+  ∀ws.
+    LENGTH ws < dimindex (:α) ⇒
+    (chunk_to_bits ws : 'a word) ' (LENGTH ws) ∧
+    ∀i. LENGTH ws < i ∧ i < dimindex (:'a) ⇒ ~(chunk_to_bits ws : 'a word) ' i
+Proof
+  Induct \\ fs [chunk_to_bits_def,word_index,FORALL_PROD]
+  \\ gen_tac \\ strip_tac \\ gvs []
+  \\ ‘chunk_to_bits ws ≪ 1 + 1w = (chunk_to_bits ws ≪ 1) || 1w’ by
+   (irule WORD_ADD_OR
+    \\ fs [fcpTheory.CART_EQ,word_and_def,word_index,fcpTheory.FCP_BETA,word_lsl_def])
+  \\ fs [] \\ IF_CASES_TAC \\ fs []
+  \\ fs [word_or_def,fcpTheory.FCP_BETA,word_lsl_def,word_index]
+QED
+
+Theorem chunk_to_bits_0:
+  chunk_to_bits ((b,w)::words) ' 0 ⇔ b
+Proof
+  fs [chunk_to_bits_def]
+  \\ ‘chunk_to_bits words ≪ 1 + 1w = (chunk_to_bits words ≪ 1) || 1w’ by
+    (irule WORD_ADD_OR
+     \\ fs [fcpTheory.CART_EQ,word_and_def,word_index,fcpTheory.FCP_BETA,word_lsl_def])
+  \\ fs [] \\ rw []
+  \\ fs [word_or_def,fcpTheory.FCP_BETA,word_lsl_def,word_index]
+QED
+
+Theorem copy_words_for_pattern_thm:
+  ∀words xs a off ys dm m.
+    LENGTH words < dimindex (:α) ∧ const_addresses a words dm ⇒
+    copy_words_for_pattern (chunk_to_bits words) (LENGTH xs) (a:'a word) off
+      (xs ++ MAP SND words ++ ys) dm m =
+    SOME (LENGTH xs + LENGTH words,
+          a + bytes_in_word * n2w (LENGTH words),
+          const_writes a off words m)
+Proof
+  Induct \\ fs [FORALL_PROD]
+  THEN1 (EVAL_TAC \\ fs [])
+  \\ rw [] \\ gvs [const_addresses_def]
+  \\ once_rewrite_tac [copy_words_for_pattern_def]
+  \\ gvs []
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ fs [EL_LENGTH_APPEND,chunk_to_bits_0]
+  \\ ‘LENGTH ((p_1,p_2)::words) < dimindex (:α)’ by fs []
+  \\ drule chunk_to_bits_bound \\ strip_tac \\ gvs []
+  \\ conj_tac
+  THEN1 (fs [fcpTheory.CART_EQ,word_index] \\ qexists_tac ‘(SUC (LENGTH words))’ \\ fs [])
+  \\ IF_CASES_TAC
+  THEN1
+   (qsuff_tac ‘F’ \\ simp [] \\ pop_assum mp_tac \\ simp []
+    \\ simp [fcpTheory.CART_EQ,word_index]
+    \\ qexists_tac ‘(SUC (LENGTH words))’ \\ simp [fcpTheory.CART_EQ,word_index])
+  \\ last_x_assum drule
+  \\ ‘(chunk_to_bits ((p_1,p_2)::words) ⋙ 1) = chunk_to_bits words’ by
+   (fs [chunk_to_bits_def]
+    \\ ‘chunk_to_bits words ≪ 1 + 1w = (chunk_to_bits words ≪ 1) || 1w’ by
+      (irule WORD_ADD_OR
+       \\ fs [fcpTheory.CART_EQ,word_and_def,word_index,fcpTheory.FCP_BETA,word_lsl_def])
+    \\ simp []
+    \\ qsuff_tac ‘(chunk_to_bits words ≪ 1) ⋙ 1 = chunk_to_bits words’
+    THEN1
+     (rw []
+      \\ fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_or_def,word_lsl_def,word_lsr_def]
+      \\ rw []
+      \\ Cases_on ‘chunk_to_bits words ' i'’ \\ fs []
+      \\ CCONTR_TAC \\ fs [] \\ gvs [word_index])
+    \\ qsuff_tac ‘~word_msb (chunk_to_bits words)’
+    THEN1
+     (simp [word_msb_def,fcpTheory.CART_EQ,fcpTheory.FCP_BETA,
+            word_or_def,word_lsl_def,word_lsr_def]
+      \\ rw []
+      \\ Cases_on ‘i = dimindex (:'a) - 1’
+      \\ gvs [fcpTheory.FCP_BETA])
+    \\ ‘LENGTH words < dimindex (:α)’ by fs []
+    \\ drule chunk_to_bits_bound
+    \\ strip_tac \\ fs [word_msb_def])
+  \\ fs []
+  \\ disch_then (qspecl_then [‘xs ++ [p_2]’,‘off’,‘ys’,
+        ‘m⦇a ↦ Word (if p_1 then off + p_2 else p_2)⦈’] mp_tac)
+  \\ fs [ADD1] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ fs [const_writes_def]
+  \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+QED
+
+Theorem chunk_to_bits_bound:
+  ∀ws.
+    LENGTH ws < dimindex (:α) ⇒
+    (chunk_to_bits ws : 'a word) ' (LENGTH ws) ∧
+    ∀i. LENGTH ws < i ∧ i < dimindex (:'a) ⇒ ~(chunk_to_bits ws : 'a word) ' i
+Proof
+  Induct \\ fs [chunk_to_bits_def,word_index,FORALL_PROD]
+  \\ gen_tac \\ strip_tac \\ gvs []
+  \\ ‘chunk_to_bits ws ≪ 1 + 1w = (chunk_to_bits ws ≪ 1) || 1w’ by
+   (irule WORD_ADD_OR
+    \\ fs [fcpTheory.CART_EQ,word_and_def,word_index,fcpTheory.FCP_BETA,word_lsl_def])
+  \\ fs [] \\ IF_CASES_TAC \\ fs []
+  \\ fs [word_or_def,fcpTheory.FCP_BETA,word_lsl_def,word_index]
+QED
+
+Theorem word_msb_chunk_to_bits:
+  LENGTH words < dimindex (:α) ∧ good_dimindex (:α) ⇒
+  word_msb (chunk_to_bits words : 'a word) = (LENGTH words = dimindex (:α) − 1)
+Proof
+  rw [] \\ drule chunk_to_bits_bound
+  \\ Cases_on ‘LENGTH words = dimindex (:α) − 1’ \\ fs []
+  \\ fs [word_msb_def] \\ rw []
+  \\ first_x_assum irule \\ fs []
+QED
+
+Theorem copy_words:
+   const_addresses a words dm ∧ good_dimindex (:α) ∧
+   LENGTH words < dimindex (:α) ⇒
+   copy_words (LENGTH xs) a off (xs ++ chunk_to_bitmap words ++ ys) dm m =
+     if LENGTH words = dimindex (:α) - 1 then
+       copy_words (LENGTH xs + (LENGTH words + 1))
+             (a + bytes_in_word * n2w (LENGTH words)) off
+             (xs ++ chunk_to_bitmap words ++ ys) dm
+             (const_writes a off words m)
+     else
+       SOME (a + bytes_in_word * n2w (LENGTH words),
+             const_writes (a:'a word) off words m)
+Proof
+  fs [chunk_to_bitmap_def]
+  \\ simp [Once copy_words_def]
+  \\ simp_tac std_ss [GSYM APPEND_ASSOC,EL_LENGTH_APPEND,NULL]
+  \\ fs [EL_LENGTH_APPEND,NULL]
+  \\ strip_tac
+  \\ drule copy_words_for_pattern_thm
+  \\ disch_then (qspec_then ‘xs ++ [chunk_to_bits words]’ mp_tac)
+  \\ disch_then (assume_tac o SPEC_ALL)
+  \\ fs [] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND] \\ fs []
+  \\ fs [word_msb_chunk_to_bits]
+QED
+
+Theorem const_writes_append:
+  ∀h t a off m.
+    const_writes a off (h ++ t) m =
+    const_writes (a + bytes_in_word * n2w (LENGTH h)) off t
+      (const_writes a off h m)
+Proof
+  Induct \\ fs [const_writes_def,FORALL_PROD]
+  \\ fs [ADD1] \\ gvs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+QED
+
+Theorem const_addresses_append:
+  ∀xs ys dm a.
+    const_addresses a (xs ++ ys) dm ⇔
+    const_addresses a xs dm ∧
+    const_addresses (a + bytes_in_word * n2w (LENGTH xs)) ys dm
+Proof
+  Induct \\ fs [const_addresses_def]
+  \\ fs [ADD1] \\ gvs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ rw [] \\ eq_tac \\ rw []
+QED
+
+Theorem copy_words_correct:
+  ∀words xs ys a off dm m.
+    const_addresses a words dm ∧ good_dimindex (:'a) ⇒
+    copy_words (LENGTH xs) (a:'a word) off
+      (xs ++ const_words_to_bitmap words (LENGTH words) ++ ys) dm m =
+    SOME (a + bytes_in_word * n2w (LENGTH words), const_writes a off words m)
+Proof
+  strip_tac
+  \\ completeInduct_on ‘LENGTH words’
+  \\ rpt strip_tac \\ gvs [PULL_FORALL]
+  \\ rw [Once const_words_to_bitmap_def]
+  THEN1
+   (‘LENGTH words < dimindex (:α)’ by fs []
+    \\ drule_all copy_words \\ fs [])
+  THEN1 gvs [good_dimindex_def]
+  \\ qabbrev_tac ‘h = (TAKE (dimindex (:α) − 1) words)’
+  \\ qabbrev_tac ‘t = (DROP (dimindex (:α) − 1) words)’
+  \\ gvs []
+  \\ ‘LENGTH h < dimindex (:α)’ by fs [Abbr‘h’]
+  \\ ‘const_addresses a h dm’ by
+   (‘words = h ++ t’ by metis_tac [TAKE_DROP]
+    \\ gvs [const_addresses_append])
+  \\ drule_all copy_words
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ disch_then kall_tac
+  \\ reverse IF_CASES_TAC THEN1 gvs [Abbr‘h’,LENGTH_TAKE]
+  \\ first_x_assum (qspecl_then [‘t’,‘xs ++ chunk_to_bitmap h’,‘ys’,
+       ‘a + bytes_in_word * n2w (LENGTH h)’,‘off’,‘dm’,
+       ‘const_writes a off h m’] mp_tac)
+  \\ rewrite_tac [AND_IMP_INTRO]
+  \\ impl_tac THEN1
+   (‘words = h ++ t’ by metis_tac [TAKE_DROP]
+    \\ gvs [const_addresses_append])
+  \\ strip_tac \\ gvs []
+  \\ ‘LENGTH t = LENGTH words + 1 - dimindex (:α)’ by
+    (unabbrev_all_tac \\ fs [])
+  \\ ‘LENGTH (chunk_to_bitmap h) = dimindex (:α)’ by
+    fs [chunk_to_bitmap_def]
+  \\ fs []
+  \\ qpat_x_assum ‘LENGTH t = _’ (assume_tac o GSYM)
+  \\ ‘dimindex (:α) − 1 = LENGTH h’ by fs [Abbr‘h’] \\ fs []
+  \\ ‘words = h ++ t’ by metis_tac [TAKE_DROP]
+  \\ gvs [] \\ gvs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ fs [const_writes_append]
+QED
+
+Theorem insert_bitmap_append:
+  ∀bs xs new_bs i.
+    insert_bitmap xs bs = (new_bs,i) ⇒
+    ∃ys zs. new_bs = ys ++ xs ++ zs ∧ i = LENGTH ys
+Proof
+  Induct \\ rw [insert_bitmap_def]
+  \\ TRY (qexists_tac ‘[]’ \\ fs [IS_PREFIX_APPEND] \\ NO_TAC)
+  \\ pairarg_tac \\ gvs []
+  \\ res_tac \\ gvs []
+  \\ qexists_tac ‘h::ys'’ \\ fs []
+QED
+
 Theorem comp_StoreConsts_correct:
   ^(get_goal "StoreConsts")
 Proof
-(*
   gvs [wordSemTheory.evaluate_def,AllCaseEqs(),PULL_EXISTS]
   \\ rpt strip_tac \\ gvs [comp_def]
   \\ pairarg_tac \\ gvs []
   \\ qexists_tac ‘0’
-  \\ ‘t.use_store ∧ t.use_alloc’ by fs [state_rel_def]
+  \\ ‘t.use_store ∧ t.use_alloc ∧ good_dimindex (:'a)’ by fs [state_rel_def]
   \\ gvs [stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def,
           stackSemTheory.word_exp_def,post_alloc_conventions_def,call_arg_convention_def]
+  \\ IF_CASES_TAC
+  THEN1
+   (qsuff_tac ‘F’ \\ fs []
+    \\ fs [check_store_consts_opt_def]
+    \\ gvs [state_rel_def,store_consts_stub_def])
   \\ gvs [store_const_sem_def]
-*)
-  cheat
+  \\ IF_CASES_TAC THEN1 fs [state_rel_def] \\ fs []
+  \\ fs [stackSemTheory.get_var_def,stackSemTheory.set_var_def,lookup_insert,
+         FLOOKUP_UPDATE]
+  \\ ‘FLOOKUP t.regs 2 = SOME (Word a) ∧ FLOOKUP t.regs 3 = SOME (Word off)’ by
+    (fs [state_rel_def,get_var_def] \\ res_tac \\ ‘3 < k’ by fs [] \\ fs [])
+  \\ fs [stackSemTheory.unset_var_def]
+  \\ ‘LENGTH t.bitmaps < dimword (:α)’ by fs [state_rel_def]
+  \\ ‘∃xs ys. t.bitmaps = xs ++ const_words_to_bitmap words (LENGTH words) ++ ys ∧
+              LENGTH xs = i’ by
+   (imp_res_tac insert_bitmap_append \\ gvs [] \\ gvs [IS_PREFIX_APPEND]
+    \\ qexists_tac ‘ys’ \\ qexists_tac ‘zs++l’ \\ fs [])
+  \\ gvs []
+  \\ ‘s.mdomain = t.mdomain’ by fs [state_rel_def]
+  \\ drule (GEN_ALL copy_words_correct)
+  \\ fs [] \\ disch_then kall_tac
+  \\ fs [state_rel_def,set_var_def,unset_var_def,lookup_insert]
+  \\ rpt strip_tac
+  \\ TRY (res_tac \\ NO_TAC)
+  \\ rpt (irule wf_insert)
+  \\ rpt (irule wf_delete)
+  \\ fs []\\ gvs [AllCaseEqs(),lookup_delete]
+  \\ gvs [DOMSUB_FLOOKUP_THM,FLOOKUP_UPDATE]
+  \\ fs [DIV_LT_X]
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ fs [DIV_EQ_X]
+  \\ res_tac
+  \\ Cases_on ‘n’ \\ fs [] \\ Cases_on ‘n'’ \\ fs [ADD1]
+  \\ Cases_on ‘n’ \\ fs [] \\ Cases_on ‘n'’ \\ fs [ADD1]
+  \\ Cases_on ‘n’ \\ fs [] \\ Cases_on ‘n'’ \\ fs [ADD1]
+  \\ rw [] \\ fs []
 QED
 
 Theorem comp_Move_correct:
@@ -6162,7 +6410,7 @@ Proof
   \\ disch_then drule
   \\ disch_then ho_match_mp_tac
   \\ (conj_tac >- simp[state_rel_set_var_k])
-  \\ conj_tac \\ strip_tac \\ Install_tac
+  \\ rpt strip_tac \\ Install_tac
 QED
 
 Theorem comp_CodeBufferWrite_correct:
@@ -8624,6 +8872,7 @@ val init_state_ok_def = Define `
         EVERY (post_alloc_conventions k o SND o SND) progs ∧
         EVERY (flat_exp_conventions o SND o SND) progs ∧
         EVERY ((<>) raise_stub_location o FST) progs ∧
+        EVERY ((<>) store_consts_stub_location o FST) progs ∧
         (n = 0 ⇒ bm0 = t.bitmaps))`
 
 val make_init_def = Define `
@@ -8657,6 +8906,7 @@ val make_init_def = Define `
 
 val init_state_ok_IMP_state_rel = Q.prove(
   `lookup raise_stub_location t.code = SOME (raise_stub k) /\
+   lookup store_consts_stub_location t.code = SOME (store_consts_stub k) /\
     (!n word_prog arg_count.
        (lookup n code = SOME (arg_count,word_prog)) ==>
        post_alloc_conventions k word_prog /\
@@ -8665,7 +8915,8 @@ val init_state_ok_IMP_state_rel = Q.prove(
          word_to_stack$compile_prog word_prog arg_count k bs = (stack_prog,f,bs2) /\
          isPREFIX bs2 t.bitmaps /\
          (lookup n t.code = SOME stack_prog)) /\
-    domain t.code = raise_stub_location INSERT domain code ∧
+    domain t.code =
+      raise_stub_location INSERT store_consts_stub_location INSERT domain code ∧
     init_state_ok k t coracle ==>
     state_rel k 0 0 (make_init k t code coracle) (t:('a,'c,'ffi)stackSem$state) []`,
    fs [state_rel_def,make_init_def,LET_DEF,lookup_def,init_state_ok_def]
@@ -8688,13 +8939,11 @@ val init_state_ok_IMP_state_rel = Q.prove(
    \\ unabbrev_all_tac
    \\ fs[LENGTH_DROP]);
 
-
 val init_state_ok_semantics =
   state_rel_IMP_semantics |> Q.INST [`s`|->`make_init k t code coracle`]
   |> SIMP_RULE std_ss [LET_DEF,GSYM AND_IMP_INTRO]
   |> (fn th => (MATCH_MP th (UNDISCH init_state_ok_IMP_state_rel)))
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
-
 
 Theorem state_rel_IMP_semantics':
    state_rel k 0 0 ^s ^t lens /\ semantics s start <> Fail /\
@@ -8921,19 +9170,18 @@ Proof
   simp[EL_APPEND1]
 QED
 
-
 val init_state_ok_semantics' =
   state_rel_IMP_semantics' |> Q.INST [`s`|->`make_init k t code coracle`]
   |> SIMP_RULE std_ss [LET_DEF,GSYM AND_IMP_INTRO]
   |> (fn th => (MATCH_MP th (UNDISCH init_state_ok_IMP_state_rel)))
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
-
 Theorem compile_semantics:
    ^t.code = fromAList (SND (SND (compile asm_conf code))) /\
     k = (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) /\
     init_state_ok k t coracle /\
     (ALOOKUP code raise_stub_location = NONE) /\
+    (ALOOKUP code store_consts_stub_location = NONE) /\
     (FST (compile asm_conf code)).bitmaps ≼ t.bitmaps /\
     EVERY (λn,m,prog. flat_exp_conventions prog /\
     post_alloc_conventions (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) prog) code /\
@@ -8951,7 +9199,9 @@ Proof
    fs [compile_word_to_stack_def,lookup_fromAList,LET_THM,domain_fromAList] >>
    rw [] >> fs [] >> TRY (pairarg_tac >> fs []) >>
    imp_res_tac MAP_FST_compile_word_to_stack >> fs[] >>
+   fs [EVAL “raise_stub_location = store_consts_stub_location”] >>
    Cases_on `n=raise_stub_location` >> fs [] >>
+   Cases_on `n=store_consts_stub_location` >> fs [] >>
    TRY (imp_res_tac ALOOKUP_MEM >>
     fs[EVERY_MEM,FORALL_PROD] >>
     metis_tac[]) >>
@@ -8962,7 +9212,9 @@ Proof
   \\ fs [compile_word_to_stack_def,lookup_fromAList,LET_THM,domain_fromAList] \\ rw [] \\ fs []
   \\ TRY (pairarg_tac \\ fs [])
   \\ imp_res_tac MAP_FST_compile_word_to_stack \\ fs[]
+  \\ fs [EVAL “raise_stub_location = store_consts_stub_location”]
   \\ Cases_on `n=raise_stub_location` \\ fs []
+  \\ Cases_on `n=store_consts_stub_location` \\ fs []
   \\ TRY
     (imp_res_tac ALOOKUP_MEM>>
     fs[EVERY_MEM,FORALL_PROD]>>
@@ -9038,7 +9290,7 @@ Theorem word_to_stack_compile_lab_pres:
     EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
     ALL_DISTINCT labs) prog ⇒
   let (c,f,p) = compile asm_cognf prog in
-    MAP FST p = (raise_stub_location::MAP FST prog) ∧
+    MAP FST p = (raise_stub_location::store_consts_stub_location::MAP FST prog) ∧
     EVERY (λn,p.
       let labs = extract_labels p in
       EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
@@ -9340,6 +9592,8 @@ Proof
   fs[compile_def]>>pairarg_tac>>rw[]
   >- (EVAL_TAC>>fs[])
   >- (EVAL_TAC>>fs[])
+  >- (EVAL_TAC>>fs[])
+  >- (EVAL_TAC>>fs[])
   >>
     qabbrev_tac`f = [4w]`>> pop_assum kall_tac>>
     rpt (pop_assum mp_tac)>>
@@ -9576,9 +9830,8 @@ Proof
   ntac 3 strip_tac>>
   fs[compile_def]>>
   pairarg_tac>>fs[]>>rveq>>fs[]
-  >-
-    (rw[]>>
-    EVAL_TAC>>fs[])
+  >- (rw[]>> EVAL_TAC>>fs[])
+  >- (rw[]>> EVAL_TAC>>fs[])
   >>
     qabbrev_tac`k=ac.reg_count-(LENGTH ac.avoid_regs+5)`>>
     `ac.reg_count-(LENGTH ac.avoid_regs+3) = k+2` by fs[Abbr`k`]>>
@@ -9681,8 +9934,10 @@ Theorem word_to_stack_comp_code_labels:
   ∀prog bs kf n.
     good_handlers n prog ⇒
     get_code_labels (FST (comp prog bs kf)) ⊆
-    (raise_stub_location,0n) INSERT ((IMAGE (λn.(n,0)) (get_code_labels prog)) ∪
-      stack_get_handler_labels n (FST (comp prog bs kf)))
+    (raise_stub_location,0n) INSERT
+      (store_consts_stub_location,0n) INSERT
+        ((IMAGE (λn.(n,0)) (get_code_labels prog)) ∪
+         stack_get_handler_labels n (FST (comp prog bs kf)))
 Proof
   ho_match_mp_tac word_to_stackTheory.comp_ind>>
   rw[word_to_stackTheory.comp_def]>>
@@ -9734,6 +9989,7 @@ Theorem compile_word_to_stack_code_labels:
   (* every label in the compiled code *)
   BIGUNION (IMAGE get_code_labels (set (MAP SND p'))) ⊆
   (raise_stub_location,0n) INSERT
+  (store_consts_stub_location,0n) INSERT
   (* either came from wordLang *)
   IMAGE (\n.(n,0n)) (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) UNION
   (* or has been introduced into the handler labels *)
@@ -9770,8 +10026,8 @@ Proof
   disch_then drule>>fs[]>>
   drule MAP_FST_compile_word_to_stack>>
   rw[]
-  >-
-    simp[raise_stub_def]
+  >- simp[raise_stub_def,store_consts_stub_def]
+  >- simp[raise_stub_def,store_consts_stub_def]
   >>
   match_mp_tac SUBSET_TRANS>> asm_exists_tac>>simp[]>>
   rw[]
@@ -9785,6 +10041,7 @@ QED
 
 Theorem word_to_stack_good_code_labels_incr:
   raise_stub_location ∈ elabs ∧
+  store_consts_stub_location ∈ elabs ∧
   compile_word_to_stack ac prog bs = (prog',fs', bs') ⇒
   good_code_labels prog elabs ⇒
   stack_good_code_labels prog' elabs
@@ -9824,10 +10081,11 @@ Proof
   disch_then drule>>fs[]>>
   drule MAP_FST_compile_word_to_stack>>
   rw[]>>
-  simp[raise_stub_def]>>
+  simp[raise_stub_def,store_consts_stub_def]>>
   drule backendPropsTheory.restrict_nonzero_SUBSET_left>>
-  REWRITE_TAC[Once INSERT_SING_UNION]>>
-  REWRITE_TAC[Once UNION_ASSOC]>>
+  ONCE_REWRITE_TAC[INSERT_SING_UNION]>>
+  ONCE_REWRITE_TAC[INSERT_SING_UNION]>>
+  REWRITE_TAC[UNION_ASSOC]>>
   strip_tac>>
   drule backendPropsTheory.restrict_nonzero_left_union>>
   qmatch_goalsub_abbrev_tac`_ ⊆ restrict_nonzero xxx ∪ _`>>
@@ -9848,10 +10106,11 @@ Proof
   disch_then drule>>fs[]>>
   drule MAP_FST_compile_word_to_stack>>
   rw[]>>match_mp_tac sub_union_lemma>>
-  simp[raise_stub_def]>>
+  simp[raise_stub_def,store_consts_stub_def]>>
   drule backendPropsTheory.restrict_nonzero_SUBSET_left>>
-  REWRITE_TAC[Once INSERT_SING_UNION]>>
-  REWRITE_TAC[Once UNION_ASSOC]>>
+  ONCE_REWRITE_TAC[INSERT_SING_UNION]>>
+  ONCE_REWRITE_TAC[INSERT_SING_UNION]>>
+  REWRITE_TAC[UNION_ASSOC]>>
   strip_tac>>
   drule backendPropsTheory.restrict_nonzero_left_union>>
   qmatch_goalsub_abbrev_tac`_ ⊆ restrict_nonzero xxx ∪ _`>>
