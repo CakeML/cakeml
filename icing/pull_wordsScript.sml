@@ -257,6 +257,8 @@ Inductive v_rel:
   ∧
   (∀r. v_rel (Loc r) (Loc r))
   ∧
+  (∀ env id. v_rel (Env env id) (Env env id))
+  ∧
   (∀s vs vs1.
      LIST_REL v_rel vs vs1 ⇒
      v_rel (Conv s vs) (Conv s vs1))
@@ -298,6 +300,7 @@ Theorem v_rel_simp[simp] =
    “v_rel (FP_WordTree r) w”,
    “v_rel (FP_BoolTree r) w”,
    “v_rel (Loc r) w”,
+   “v_rel (Env env id) w”,
    “v_rel (Conv s vs) w”,
    “v_rel (Vectorv vs) w”,
    “v_rel (Closure env v e) w”,
@@ -307,15 +310,17 @@ Theorem v_rel_simp[simp] =
    “v_rel w (FP_WordTree r)”,
    “v_rel w (FP_BoolTree r)”,
    “v_rel w (Loc r)”,
+   “v_rel w (Env env id)”,
    “v_rel w (Conv s vs)”,
    “v_rel w (Vectorv vs)”,
    “v_rel w (Closure env v e)”,
    “v_rel w (Recclosure env funs v)”]
   |> map (SIMP_CONV (srw_ss()) [Once v_rel_cases]) |> LIST_CONJ;
 
-Theorem env_rel_def = v_rel_cases |> CONJUNCT2 |> SIMP_RULE std_ss []
-                                  |> Q.SPECL [‘env1’, ‘env2’, ‘ws’]
-                                  |> Q.GEN ‘ws’ |> Q.GEN ‘env2’ |> Q.GEN ‘env1’;
+Theorem env_rel_def =
+        v_rel_cases |> CONJUNCT2 |> SIMP_RULE std_ss []
+                                 |> Q.SPECL [‘env1’, ‘env2’, ‘ws’]
+                                 |> Q.GEN ‘ws’ |> Q.GEN ‘env2’ |> Q.GEN ‘env1’;
 
 Definition res_rel_def[simp]:
   res_rel (Rval x) (Rval y) = LIST_REL v_rel x y ∧

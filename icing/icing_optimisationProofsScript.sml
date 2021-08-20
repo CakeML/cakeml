@@ -146,8 +146,8 @@ Proof
   \\ rename1 `App op els`
   \\ Cases_on `op` \\ fs[isPureOp_def]
   \\ Cases_on ‘isPureExpList els ∧
-      isFpArithPat (Binop fpBop (Var 0) (Binop fpBop (Var 1) (Var 2))) ∧
-      isFpArithPat (Binop fpBop (Binop fpBop (Var 0) (Var 1)) (Var 2)) ∧
+      isFpArithPat (Binop fpBop (PatVar 0) (Binop fpBop (PatVar 1) (PatVar 2))) ∧
+      isFpArithPat (Binop fpBop (Binop fpBop (PatVar 0) (PatVar 1)) (PatVar 2)) ∧
       isFpArithExp (App (FP_bop f) els)’ \\ fs[]
   \\ Cases_on ‘els’ \\ fs[]
   \\ Cases_on ‘t’ \\ fs[]

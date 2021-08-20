@@ -161,12 +161,19 @@ Proof
       fs[astTheory.getOpClass_def]>>
       every_case_tac>>fs[]>>
       fs[isPureOp_def])
-    >- (every_case_tac>>simp[state_component_equality,fpState_component_equality])
-    >- (every_case_tac>>simp[state_component_equality,fpState_component_equality]))
+    >- (
+      fs[astTheory.getOpClass_def]>>
+      every_case_tac>>fs[]>>
+      fs[isPureOp_def])
+    >> every_case_tac>>simp[state_component_equality,fpState_component_equality])
   >- (
     qpat_x_assum` _ = (_,_)` mp_tac>>
     ntac 2 (TOP_CASE_TAC>>simp[])>>
     TOP_CASE_TAC>>fs[]
+    >- (
+      fs[astTheory.getOpClass_def]>>
+      every_case_tac>>fs[]>>
+      fs[isPureOp_def])
     >- (
       fs[astTheory.getOpClass_def]>>
       every_case_tac>>fs[]>>

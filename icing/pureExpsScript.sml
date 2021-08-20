@@ -31,6 +31,7 @@ Definition isPureOp_def:
     | CopyAw8Aw8 => F
     | CopyStrAw8 => F
     | CopyAw8Str => F
+    | Eval => F
     | FFI _ => F
     | Opassign => F
     | Opapp => F
@@ -123,7 +124,7 @@ Theorem isPureOp_same_ffi:
 Proof
   Cases_on `op` \\ rpt gen_tac \\ strip_tac
   \\ fs[isPureOp_simp, do_app_def, CaseEq"list", CaseEq"lit", CaseEq"option", CaseEq"v",
-        PULL_EXISTS, CaseEq"bool", CaseEq"word_size", CaseEq"eq_result"]
+        PULL_EXISTS, CaseEq"bool", CaseEq"word_size", CaseEq"eq_result", CaseEq"prod"]
 QED
 
 local
@@ -355,6 +356,7 @@ Proof
      \\ fs[shift_fp_opts_def, semState_comp_eq, fpState_component_equality]
      \\ rpt (qpat_x_assum `! x. _ x = _ x` ( fn thm => fs[GSYM thm])))
     (* Simple case *)
+    \\ TRY (Cases_on ‘op’ \\ gs[astTheory.getOpClass_def, isPureOp_def] \\ NO_TAC)
     \\ TOP_CASE_TAC
     \\ first_x_assum impl_subgoal_tac >- fp_inv_tac
     \\ imp_res_tac evaluate_fp_opts_inv

@@ -243,13 +243,13 @@ Definition optimise_linear_interpolation_def:
       (* Does it match  *)
       case (matchesFPexp (Binop FP_Add
                           (Binop FP_Mul
-                           (Var 0)
+                           (PatVar 0)
                            (Binop FP_Sub
                             (Word (4607182418800017408w: word64))
-                            (Var 1)))
+                            (PatVar 1)))
                           (Binop FP_Mul
-                           (Var 2)
-                           (Var 1))) e []) of
+                           (PatVar 2)
+                           (PatVar 1))) e []) of
       | SOME _ =>
           let plan = [
               Label "Linear Interpolation";
