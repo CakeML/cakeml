@@ -72,6 +72,11 @@ val _ = inst_tyargs := [alpha]
 
 open word_to_stackTheory
 
+val r = translate (chunk_to_bits_def |> conv32);
+val r = translate (chunk_to_bitmap_def |> conv32);
+Theorem const_words_to_bitmap_ind = const_words_to_bitmap_ind |> conv32;
+val r = translate (const_words_to_bitmap_def |> conv32);
+
 val _ = translate (conv32 write_bitmap_def|> (RW (!extra_preprocessing)))
 
 (* TODO: The paired let trips up the translator's single line def mechanism, unable to find a smaller failing example yet *)
