@@ -2352,6 +2352,11 @@ Proof
   \\ Cases_on `max_depth l x'` \\ fs [OPTION_MAP2_DEF]
 QED
 
+Theorem evaluate_Assign_Const =
+  “wordSem$evaluate (Assign n (Const w), s)”
+  |> SIMP_CONV std_ss [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,
+                       wordSemTheory.set_var_def];
+
 Theorem eval_Call_Arith:
    !index r.
       state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) [] locs /\
@@ -2420,7 +2425,7 @@ Proof
   \\ ntac 4 (TOP_CASE_TAC \\ fs [])
   \\ rveq \\ fs [Arith_code_def]
   \\ simp [Once wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,
-           EVAL ``evaluate (Assign n (Const w), s)``]
+           evaluate_Assign_Const]
   \\ pairarg_tac \\ fs []
   \\ pop_assum mp_tac
   \\ pairarg_tac \\ fs []
@@ -2428,6 +2433,7 @@ Proof
   \\ qpat_abbrev_tac `pat = wordSem$evaluate _`
   \\ Cases_on `pat`
   \\ pop_assum (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])
+  \\ fs []
   \\ drule max_depth_Call_NONE
   \\ Cases_on `q' = SOME Error`
   THEN1 (fs [] \\ rw [] \\ fs [])

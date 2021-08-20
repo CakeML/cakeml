@@ -176,6 +176,15 @@ val stack_alloc_compile_side = Q.prove(`∀conf prog. stack_alloc_compile_side c
 
 open stack_removeTheory
 
+val each_def =
+  copy_each_def |> inline_simp |> conv32 |> SPEC_ALL |> CONV_RULE (RAND_CONV EVAL);
+val loop_def =
+  (copy_loop_def |> inline_simp |> conv32 |> SPEC_ALL |> CONV_RULE (RAND_CONV EVAL)
+    |> REWRITE_RULE [GSYM each_def]);
+
+val _ = translate each_def;
+val _ = translate loop_def;
+
 (* Might be better to inline this *)
 val _ = translate (conv32 word_offset_def)
 val _ = translate (conv32 store_offset_def |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv32)

@@ -12631,7 +12631,8 @@ Proof
     \\ qsuff_tac ‘strlen z DIV 8 ≤ strlen z DIV 4’ THEN1 gvs []
     \\ irule multiwordTheory.DIV_thm1 \\ fs [])
   \\ strip_tac
-  \\ ‘c.be = be’ by cheat
+  \\ ‘c.be = be’ by
+    fs [memory_rel_def,word_ml_inv_def,abs_ml_inv_def,bc_stack_ref_inv_def,be_ok_def]
   \\ gvs [build_part_words_def,AllCaseEqs(),least_notin_domain]
   \\ qabbrev_tac ‘st1 = (st |+ (NextFree,Word (free +
         bytes_in_word * n2w (SUC (byte_len (:α) (strlen z))))))’
@@ -12695,6 +12696,13 @@ Proof
   \\ fs [small_shift_length_def,shift_length_def]
 QED
 
+Definition lookup_mem_def:
+  lookup_mem m a =
+    case lookup a m of
+    | NONE => (F,Word (0w:'a word))
+    | SOME x => x
+End
+
 Definition part_to_words_def:
   part_to_words c m (Int i) offset =
     (if small_int (:'a) i then  SOME ((F,Word (Smallnum i)),[])
@@ -12711,7 +12719,7 @@ Definition part_to_words_def:
        case encode_header c (4 * t) (LENGTH ns) of
        | NONE => NONE
        | SOME hd => SOME ((T,(make_cons_ptr c offset t (LENGTH ns))),
-                          (F,Word hd)::(MAP m ns))) ∧
+                          (F,Word hd)::(MAP (lookup_mem m) ns))) ∧
   part_to_words c m (W64 w) offset =
     (let ws = (if dimindex (:α) < 64
                then [((63 >< 32) w); ((31 >< 0) w)]
@@ -12733,19 +12741,20 @@ Definition part_to_words_def:
 End
 
 Definition parts_to_words_def:
-  parts_to_words c m i [] off = SOME (m (i - 1:num), []) ∧
+  parts_to_words c m i [] off = SOME (lookup_mem m (i - 1:num), []) ∧
   parts_to_words c m i (x::parts) (off:'a word) =
     case part_to_words c m x off of
     | NONE => NONE
     | SOME (w,xs) =>
-      case parts_to_words c ((i =+ w) m) (i+1) parts (off + bytes_in_word * n2w (LENGTH xs)) of
+      case parts_to_words c (insert i w m) (i+1) parts
+             (off + bytes_in_word * n2w (LENGTH xs)) of
       | NONE => NONE
       | SOME (r,ys) => SOME (r,xs ++ ys)
 End
 
 Definition const_parts_to_words_def:
   const_parts_to_words c parts =
-    parts_to_words c (λn. (F,Word 0w)) 0 parts 0w
+    parts_to_words c LN 0 parts 0w
 End
 
 Definition word_cond_add_def[simp]:
@@ -12758,7 +12767,7 @@ Theorem part_to_words_add:
   ∀part m off a w ws m1.
     small_shift_length c ≤ shift_length c − shift (:α) ∧
     part_to_words c m part (off:'a word) = SOME (w,ws) ∧
-    (∀i. SND (m1 i) = word_cond_add c a (m i)) ⇒
+    (∀i. SND (lookup_mem m1 i) = word_cond_add c a (lookup_mem m i)) ⇒
     ∃v vs. part_to_words c m1 part (off + a:'a word) = SOME (v,vs) ∧
            MAP SND vs = MAP (word_cond_add c a) ws ∧
            SND v = word_cond_add c a w
@@ -12775,7 +12784,7 @@ Theorem parts_to_words_add:
   ∀parts m i off a w ws m1.
     small_shift_length c ≤ shift_length c − shift (:α) ∧
     parts_to_words c m i parts (off:'a word) = SOME (w,ws) ∧
-    (∀i. SND (m1 i) = word_cond_add c a (m i)) ⇒
+    (∀i. SND (lookup_mem m1 i) = word_cond_add c a (lookup_mem m i)) ⇒
     ∃v vs. parts_to_words c m1 i parts (off + a:'a word) = SOME (v,vs) ∧
            MAP SND vs = MAP (word_cond_add c a) ws ∧
            SND v = word_cond_add c a w
@@ -12786,8 +12795,9 @@ Proof
   \\ drule_all part_to_words_add
   \\ rw [] \\ fs []
   \\ first_x_assum drule
-  \\ disch_then (qspecl_then [‘a’,‘m1⦇i ↦ v⦈’] mp_tac)
-  \\ impl_tac THEN1 rw [APPLY_UPDATE_THM]
+  \\ disch_then (qspecl_then [‘a’,‘insert i v m1’] mp_tac)
+  \\ impl_tac
+  THEN1 (fs [lookup_mem_def,lookup_insert] \\ rw [])
   \\ strip_tac \\ fs []
   \\ ‘LENGTH (MAP SND vs) = LENGTH (MAP (word_cond_add c a) xs)’ by asm_rewrite_tac []
   \\ fs []
@@ -12795,7 +12805,7 @@ QED
 
 Theorem part_to_words_IMP_build_words:
   part_to_words c m part off = SOME (w,ws) ⇒
-  build_part_words c (λi. SND (m i)) part off = SOME (SND w,MAP SND ws)
+  build_part_words c (λi. SND (lookup_mem m i)) part off = SOME (SND w,MAP SND ws)
 Proof
   Cases_on ‘part’
   \\ fs [part_to_words_def,build_part_words_def]
@@ -12809,7 +12819,7 @@ QED
 Theorem parts_to_words_IMP_build_words:
   ∀c m i parts off w ws.
     parts_to_words c m i parts off = SOME (w,ws) ⇒
-    build_words c (λi. SND (m i)) i parts off = SOME (SND w,MAP SND ws)
+    build_words c (λi. SND (lookup_mem m i)) i parts off = SOME (SND w,MAP SND ws)
 Proof
   Induct_on ‘parts’ \\ fs [parts_to_words_def,build_words_def]
   \\ fs [AllCaseEqs()] \\ rw [] \\ fs [PULL_EXISTS]
@@ -12817,7 +12827,8 @@ Proof
   \\ fs [] \\ res_tac
   \\ pop_assum (fn th => once_rewrite_tac [GSYM th])
   \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
-  \\ ntac 2 (rw [FUN_EQ_THM,APPLY_UPDATE_THM])
+  \\ rw [FUN_EQ_THM,lookup_mem_def,lookup_insert,APPLY_UPDATE_THM]
+  \\ rw [FUN_EQ_THM,lookup_mem_def,lookup_insert,APPLY_UPDATE_THM]
 QED
 
 Theorem memory_rel_do_build_const:
@@ -12856,10 +12867,10 @@ Proof
   \\ drule_at Any parts_to_words_add
   \\ disch_then drule
   \\ fs [word_cond_add_def]
-  \\ disch_then (qspecl_then [‘free-curr’,‘λn. (F,Word 0w)’] mp_tac)
-  \\ impl_tac THEN1 fs []
+  \\ disch_then (qspecl_then [‘free-curr’,‘LN’] mp_tac)
+  \\ impl_tac THEN1 fs [lookup_mem_def,lookup_def]
   \\ strip_tac
-  \\ drule parts_to_words_IMP_build_words \\ fs []
+  \\ drule parts_to_words_IMP_build_words \\ fs [lookup_mem_def,lookup_def]
 QED
 
 val _ = export_theory();

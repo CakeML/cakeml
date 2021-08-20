@@ -990,6 +990,7 @@ val get_code_labels_def = Define`
   (get_code_labels (JumpLower _ _ t) = {(t,0)}) ∧
   (get_code_labels (RawCall t) = {(t,1)}) ∧
   (get_code_labels (LocValue _ l1 l2) = {(l1,l2)}) ∧
+  (get_code_labels (StoreConsts _ _ (SOME l)) = {(l,0)}) ∧
   (get_code_labels _ = {})`;
 val _ = export_rewrites["get_code_labels_def"];
 

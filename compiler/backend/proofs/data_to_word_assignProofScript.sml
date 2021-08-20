@@ -13407,10 +13407,57 @@ Proof
    >> res_tac >> fs[]
 QED
 
+Definition forceWord_def:
+  forceWord (Word w) = w ∧
+  forceWord _ = 0w
+End
+
+Theorem assign_B:
+  assign c n l dest (Build ps) args names_opt =
+    if ~(small_shift_length c ≤ shift_length c − shift (:α)) then (GiveUp,l) else
+    case const_parts_to_words c ps of
+    | NONE => (GiveUp,l)
+    | SOME (w,ws) =>
+      let b = forceWord (SND w) in
+      (list_Seq
+        [Assign 1 (Lookup NextFree);
+         Assign 3 (Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+             (shift_length c − shift (:'a)));
+         StoreConsts 1 3 1 3 (MAP (I ## forceWord) ws);
+         Set NextFree (Var 1);
+         Assign (adjust_var dest)
+           (if FST w then Op Add [Const b; Var 3] else (Const b))] :'a wordLang$prog,l)
+Proof
+  cheat
+QED
+
 Theorem assign_Build:
    (∃parts. op = Build parts) ==> ^assign_thm_goal
 Proof
-  cheat
+  rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ rpt_drule0 state_rel_cut_IMP
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ Cases_on ‘FST (assign c n l dest (Build parts) args names_opt) = GiveUp’
+  THEN1
+   (asm_rewrite_tac [] >> fs [] >>
+    fs[state_rel_def] >>
+    conj_tac >- metis_tac[backendPropsTheory.option_le_trans,
+                          do_app_stack_max,option_le_max_right] >>
+    strip_tac >>
+    gvs[do_app,CaseEq"bool",CaseEq"option",AllCaseEqs()] >>
+    imp_res_tac get_vars_IMP_LENGTH >>
+    rveq >> fs[arch_size_def,limits_inv_def,good_dimindex_def] >>
+    rfs[dimword_def,with_fresh_ts_def,consume_space_def,
+        IS_SOME_EXISTS] \\ cheat)
+  \\ gvs [assign_B]
+  \\ IF_CASES_TAC \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  \\ PairCases_on ‘x'’ \\ fs []
+  \\ pop_assum kall_tac
+  \\ gvs [do_app_def,AllCaseEqs(),do_app_aux_def,do_stack_def,
+          data_spaceTheory.op_space_req_def,do_space_def,dataLangTheory.op_space_reset_def]
+  \\ cheat
 QED
 
 Theorem assign_thm:

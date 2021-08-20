@@ -1449,8 +1449,8 @@ Proof
   \\ qexists_tac `0` \\ simp []
 QED
 
-Theorem data_to_word_stubs_above_raise_stub:
-  EVERY (λn. n > raise_stub_location) (MAP FST (data_to_word$stubs (:'a) dc))
+Theorem data_to_word_stubs_above_store_consts_stub:
+  EVERY (λn. n > store_consts_stub_location) (MAP FST (data_to_word$stubs (:'a) dc))
 Proof
   EVAL_TAC
 QED
@@ -1460,7 +1460,7 @@ Theorem to_word_labels_ok:
   ==>
   let (_, p, _) = to_word c prog in
   ALL_DISTINCT (MAP FST p) /\
-  EVERY (λn. n > raise_stub_location) (MAP FST p) /\
+  EVERY (λn. n > store_consts_stub_location) (MAP FST p) /\
   EVERY (λ(n,m,p).
     let labs = wordProps$extract_labels p in
     EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧ ALL_DISTINCT labs) p
@@ -1474,10 +1474,10 @@ Proof
      |> C (specl_args_of_then``data_to_word$compile``)mp_tac)
   \\ rpt disch_tac \\ fs []
   \\ drule to_data_labels_ok
-  \\ simp [data_to_word_stubs_above_raise_stub]
+  \\ simp [data_to_word_stubs_above_store_consts_stub]
   \\ simp [ALL_DISTINCT_APPEND, EVERY_MEM, ALL_DISTINCT_MAP_FST_stubs]
   \\ metis_tac [prim_recTheory.LESS_REFL, MAP_FST_stubs_bound,
-    LESS_LESS_EQ_TRANS, (EVAL ``raise_stub_location < data_num_stubs``),
+    LESS_LESS_EQ_TRANS, (EVAL ``store_consts_stub_location < data_num_stubs``),
     arithmeticTheory.GREATER_DEF]
 QED
 
@@ -1505,6 +1505,7 @@ Proof
   \\ RES_THEN mp_tac
   \\ EVAL_TAC
   \\ simp []
+  \\ gvs []
 QED
 
 Theorem oracle_monotonic_slice:
@@ -1791,6 +1792,7 @@ Proof
     \\ qspecl_then [`word_p`, `c2.lab_conf.asm_conf`] mp_tac
         (GEN_ALL word_to_stack_compile_lab_pres)
     \\ simp [EVAL ``raise_stub_location < SUC data_num_stubs``]
+    \\ simp [EVAL ``store_consts_stub_location < SUC data_num_stubs``]
     \\ disch_tac
     \\ qpat_x_assum `compile _.data_conf _ _ _ = _` mp_tac
     \\ (data_to_word_compile_lab_pres
@@ -3505,6 +3507,7 @@ Proof
       (* simple syntactic thing *)
       simp[EVERY_FST_SND]>>
       CONJ_TAC>- EVAL_TAC>>
+      CONJ_TAC>- EVAL_TAC>>
       `!k. data_num_stubs<= k ⇒ stack_num_stubs <=k` by
         (EVAL_TAC>>fs[])>>
       CONJ_TAC>-
@@ -3695,8 +3698,16 @@ Proof
       \\ fs [Abbr `data_oracle`] \\ fs [cake_orac_0, config_tuple2_def]
       \\ first_x_assum (qspecl_then [`n`] mp_tac)
       \\ simp [EVERY_MEM]
-      \\ metis_tac [EVAL ``data_num_stubs <= raise_stub_location``]
+      \\ metis_tac [EVAL ``data_num_stubs <= raise_stub_location``,
+                    EVAL ``data_num_stubs <= store_consts_stub_location``]
     ) \\
+    conj_tac >- (
+      qunabbrev_tac`t_code` \\
+      imp_res_tac data_to_word_names \\
+      simp[ALOOKUP_NONE] \\
+      conj_tac >- EVAL_TAC \\
+      strip_tac \\ fs[EVERY_MEM] \\
+      res_tac \\ pop_assum mp_tac >> EVAL_TAC) \\
     conj_tac >- (
       qunabbrev_tac`t_code` \\
       imp_res_tac data_to_word_names \\
