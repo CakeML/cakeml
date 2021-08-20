@@ -9570,7 +9570,7 @@ Proof
   >-
     (pairarg_tac>>fs[]>>EVAL_TAC>>
     metis_tac[wLive_stack_asm_remove])
-  >- (rpt(pairarg_tac \\ fs[]) \\ EVAL_TAC)
+  >- (rpt(pairarg_tac \\ fs[]) \\ EVAL_TAC \\ fs [])
   >-
     (PairCases_on`kf`>>
     EVAL_TAC>>rw[]>>
