@@ -792,6 +792,8 @@ val add_backend_compset = computeLib.extend_compset
     ,stack_allocTheory.word_gen_gc_move_loop_code_def
     ,stack_allocTheory.clear_top_inst_def
       (* ---- stack_remove ---- *)
+    ,stack_removeTheory.copy_each_def
+    ,stack_removeTheory.copy_loop_def
     ,stack_removeTheory.max_stack_alloc_def
     ,stack_removeTheory.upshift_def
     ,stack_removeTheory.compile_def

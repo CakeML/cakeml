@@ -821,6 +821,7 @@ val stack_asm_remove_def = Define`
   (stack_asm_remove c (StackGetSize n) ⇔ reg_name n c) ∧
   (stack_asm_remove c (StackSetSize n) ⇔ reg_name n c) ∧
   (stack_asm_remove c (BitmapLoad n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
+  (stack_asm_remove c (StoreConsts n n0 _) ⇔ reg_name n c ∧ reg_name n0 c) ∧
   (stack_asm_remove c (Seq p1 p2) ⇔ stack_asm_remove c p1 ∧ stack_asm_remove c p2) ∧
   (stack_asm_remove c (If cmp n r p p') ⇔ stack_asm_remove c p ∧ stack_asm_remove c p') ∧
   (stack_asm_remove c (While cmp n r p) ⇔ stack_asm_remove c p) ∧
@@ -901,6 +902,8 @@ val reg_bound_def = Define `
      v1 < k /\ n <> BitmapBase) /\
   (reg_bound (LocValue v1 l1 l2) k <=>
      v1 < k) /\
+  (reg_bound (StoreConsts t1 t2 _) k <=>
+     3 < k ∧ t1 < k ∧ t2 < k) /\
   (reg_bound (Return v1 v2) k <=>
      v1 < k /\ v2 < k) /\
   (reg_bound (JumpLower v1 v2 dest) k <=>
