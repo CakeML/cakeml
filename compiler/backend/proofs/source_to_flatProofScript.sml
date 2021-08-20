@@ -1778,14 +1778,6 @@ val env_domain_eq_append = Q.prove (
       EXTENSION, GSPECIFICATION, EXISTS_PROD] >>
   metis_tac [option_nchotomy, NOT_SOME_NONE, pair_CASES]);
 
-Theorem do_fpoptimise_length:
-  LENGTH (do_fpoptimise annot l) = LENGTH l
-Proof
-  Induct_on ‘l’ >>
-  simp[Once fpSemPropsTheory.do_fpoptimise_cons, terminationTheory.do_fpoptimise_def] >>
-  rpt strip_tac >> Cases_on ‘h’ >> fs[terminationTheory.do_fpoptimise_def]
-QED
-
 Theorem v_rel_do_fpoptimise:
   ∀ vs vsF genv annot.
     LIST_REL (v_rel genv) vs vsF ⇒

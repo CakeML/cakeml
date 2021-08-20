@@ -1157,7 +1157,51 @@ Proof
     \\ simp [ELIM_UNCURRY, quotient_pairTheory.PAIR_REL_THM, EVERY2_refl]
   )
   >~ [‘getOpClass op = Icing’]
-  >- (cheat)
+  >- (
+    rveq \\ gs[CaseEq"option", CaseEq"prod"]
+    \\ drule_then (drule_then assume_tac) do_app_sim
+    \\ insts_tac
+    \\ ‘r ≠ Rerr (Rabort Rtype_error)’ by (every_case_tac \\ gs[do_fprw_def, CaseEq"result"])
+    \\ gs[s_rel_def] \\ rveq \\ gs[]
+    \\ COND_CASES_TAC \\ gs[]
+    \\ Cases_on ‘isFpBool op’ \\ gs[do_fprw_def, CaseEq"option"] \\ Cases_on ‘r’ \\ gs[]
+    >- (
+      Cases_on ‘a’ \\ gs[shift_fp_opts_def]
+      \\ rveq \\ gs[]
+      \\ simp[state_component_equality]
+      \\ Cases_on ‘st'.fp_state.opts 0’ \\ gs[terminationTheory.rwAllWordTree_def, terminationTheory.rwAllBoolTree_def]
+      \\ TRY (rename1 ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’
+              \\ Cases_on ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
+      \\ TRY (rename1 ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’
+              \\ Cases_on ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
+      \\ Cases_on ‘v''’ \\ gs[Boolv_def]
+      \\ TRY (rename1 ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’
+              \\ Cases_on ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’ \\ gs[v_to_env_id_def])
+      \\ TRY (rename1 ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’
+              \\ Cases_on ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
+      \\ COND_CASES_TAC \\ gs[v_to_env_id_def])
+    >- gs[shift_fp_opts_def, state_component_equality]
+    >- (
+      Cases_on ‘a’ \\ gs[shift_fp_opts_def]
+      \\ rveq \\ gs[]
+      \\ simp[state_component_equality]
+      \\ Cases_on ‘st'.fp_state.opts 0’ \\ gs[terminationTheory.rwAllWordTree_def, terminationTheory.rwAllBoolTree_def]
+      \\ TRY (rename1 ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’
+              \\ Cases_on ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
+      \\ TRY (rename1 ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’
+              \\ Cases_on ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
+      \\ Cases_on ‘v''’ \\ gs[Boolv_def]
+      \\ TRY (rename1 ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’
+              \\ Cases_on ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’ \\ gs[v_to_env_id_def])
+      \\ TRY (rename1 ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’
+              \\ Cases_on ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’ \\ gs[v_to_env_id_def]))
+    >- gs[shift_fp_opts_def, state_component_equality]
+    >- (
+      gs[shift_fp_opts_def, state_component_equality]
+      \\ Cases_on ‘a’ \\ gs[]
+      \\ TOP_CASE_TAC \\ gs[Boolv_def]
+      \\ COND_CASES_TAC \\ gs[v_to_env_id_def])
+    \\ gs[shift_fp_opts_def, state_component_equality])
   \\ eval_cases_tac
   \\ drule_then (drule_then assume_tac) do_app_sim
   \\ insts_tac
@@ -1327,11 +1371,56 @@ Proof
   \\ insts_tac
 QED
 
-Theorem list_rel_fpoptimise:
-  v_rel R v1 v2 ⇒
-  LIST_REL (v_rel R) (do_fpoptimise annot [v1]) (do_fpoptimise annot [v2])
+Theorem do_fpoptimise_length:
+  LENGTH (do_fpoptimise annot l) = LENGTH l
 Proof
-  cheat
+  Induct_on ‘l’ >>
+  simp[Once fpSemPropsTheory.do_fpoptimise_cons, terminationTheory.do_fpoptimise_def] >>
+  rpt strip_tac >> Cases_on ‘h’ >> fs[terminationTheory.do_fpoptimise_def]
+QED
+
+Theorem do_fpoptimise_env_id:
+  v_to_env_id v = SOME id ⇒
+  ∃ v2. do_fpoptimise annot [v] = [v2] ∧ v_to_env_id v2 = SOME id
+Proof
+  gs[v_to_env_id_def, v_to_nat_def, CaseEq"v", CaseEq"list", CaseEq"option", CaseEq"lit"]
+  \\ rpt strip_tac \\ gs[terminationTheory.do_fpoptimise_def]
+QED
+
+Theorem v_rel_do_fpoptimise:
+  ∀ vs vsF.
+    LIST_REL (v_rel R) vs vsF ⇒
+    LIST_REL (v_rel R) (do_fpoptimise annot vs) (do_fpoptimise annot vsF)
+Proof
+  measureInduct_on ‘semanticPrimitives$v1_size vs’ >> Cases_on ‘vs’
+  >> fs[LIST_REL_def] >> rpt strip_tac
+  >- (
+   fs[terminationTheory.do_fpoptimise_def])
+  >> first_assum (qspec_then ‘t’ assume_tac)
+  >> fs[semanticPrimitivesTheory.v_size_def]
+  >> simp[Once fpSemPropsTheory.do_fpoptimise_cons]
+  >> Cases_on ‘h’ >> simp[terminationTheory.do_fpoptimise_def]
+  >> fs[Once v_rel_cases]
+  >> first_x_assum (qspec_then ‘ys’ assume_tac)
+  >> simp[Once fpSemPropsTheory.do_fpoptimise_cons]
+  >> gs[terminationTheory.do_fpoptimise_def]
+  >- (
+   first_x_assum $ qspec_then ‘l’ assume_tac
+   >> fs[semanticPrimitivesTheory.v_size_def])
+  >- (
+   first_x_assum $ qspec_then ‘l’ assume_tac
+   >> fs[semanticPrimitivesTheory.v_size_def])
+  >> imp_res_tac do_fpoptimise_env_id
+  >> first_x_assum $ qspec_then ‘annot’ strip_assume_tac >> gs[]
+QED
+
+Theorem list_rel_fpoptimise:
+  ∀ annot R v1 v2.
+    v_rel R v1 v2 ⇒
+    LIST_REL (v_rel R) (do_fpoptimise annot [v1]) (do_fpoptimise annot [v2])
+Proof
+  rpt strip_tac >> irule v_rel_do_fpoptimise
+  >> gs[LIST_REL_def]
 QED
 
 Triviality eval_simulation_Scope:
