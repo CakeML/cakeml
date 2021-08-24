@@ -52,20 +52,29 @@ val is_single_char_symbol_def = Define `
 val isSymbol_def = Define `
   isSymbol c = MEM c (CHR 96 (* backquote *) :: "!%&$#+-/:<=>?@\\~^|*")`;
 
+Definition next_loc_def:
+  next_loc n (POSN r c) = POSN r (c+n) ∧
+  next_loc n x = x
+End
+
+Definition next_line_def:
+  next_line (POSN r c) = POSN (r+1) 0 ∧
+  next_line x = x
+End
+
 Definition read_string_def:
-  read_string str s loc =
+  read_string str s (loc:locn) =
     if str = "" then (ErrorS, loc, "") else
-    if HD str = #"\"" then (StringS s, loc with col := loc.col, TL str) else
-    if HD str = #"\n" then (ErrorS, loc with <|row := loc.row + 1; col := 0|>, TL str) else
+    if HD str = #"\"" then (StringS s, loc, TL str) else
+    if HD str = #"\n" then (ErrorS, next_line loc, TL str) else
     if HD str <> #"\\" then
-      read_string (TL str) (s ++ [HD str]) (loc with col := loc.col + 1)
+      read_string (TL str) (s ++ [HD str]) (next_loc 1 loc)
     else
       case TL str of
-      | #"\\"::cs => read_string cs (s ++ "\\") (loc with col := loc.col + 2)
-      | #"\""::cs => read_string cs (s ++ "\"") (loc with col := loc.col + 2)
-      | #"n"::cs => read_string cs (s ++ "\n") (loc with <|row := loc.row + 1;
-                                                           col := 0|>)
-      | #"t"::cs => read_string cs (s ++ "\t") (loc with col := loc.col + 2)
+      | #"\\"::cs => read_string cs (s ++ "\\") (next_loc 2 loc)
+      | #"\""::cs => read_string cs (s ++ "\"") (next_loc 2 loc)
+      | #"n"::cs => read_string cs (s ++ "\n") (next_line loc)
+      | #"t"::cs => read_string cs (s ++ "\t") (next_loc 2 loc)
       | _ => (ErrorS, loc, TL str)
 Termination
   WF_REL_TAC `measure (LENGTH o FST)` THEN REPEAT STRIP_TAC
@@ -91,21 +100,18 @@ Proof
   THEN FULL_SIMP_TAC std_ss [LENGTH] THEN DECIDE_TAC
 QED
 
-Definition loc_row_def: loc_row n = POSN n 0
-End
-
 Definition skip_comment_def:
   (skip_comment "" d _ = NONE) /\
   (skip_comment [x] d _ = NONE) /\
   (skip_comment (x::y::xs) d loc =
     if [x;y] = "(*" then
-      skip_comment xs (d+1:num) (loc with col := loc.col + 2)
+      skip_comment xs (d+1:num) (next_loc 2 loc)
     else if [x;y] = "*)" then
-      (if d = 0 then SOME (xs, loc with col := loc.col + 2)
-       else skip_comment xs (d-1) (loc with col := loc.col +2))
+      (if d = 0 then SOME (xs, next_loc 2 loc)
+       else skip_comment xs (d-1) (next_loc 2 loc))
     else if ORD x = 10 then
-      skip_comment (y::xs) d (loc_row (loc.row+1))
-    else skip_comment (y::xs) d (loc with col := loc.col + 1))
+      skip_comment (y::xs) d (next_line loc)
+    else skip_comment (y::xs) d (next_loc 1 loc))
 End
 
 Theorem skip_comment_thm:
@@ -123,12 +129,12 @@ Definition read_FFIcall_def:
   (read_FFIcall "" acc loc = (ErrorS, loc, "")) ∧
   (read_FFIcall (c::s0) acc loc =
       if c = #")" then
-        (FFIS (REVERSE acc), loc with col updated_by (+) 2, s0)
+        (FFIS (REVERSE acc), next_loc 2 loc, s0)
       else if c = #"\n" then (ErrorS, loc, s0)
       else if isSpace c then
-        read_FFIcall s0 acc (loc with col updated_by (+) 1)
+        read_FFIcall s0 acc (next_loc 1 loc)
       else
-        read_FFIcall s0 (c::acc) (loc with col updated_by (+) 1))
+        read_FFIcall s0 (c::acc) (next_loc 1 loc))
 End
 
 Theorem read_FFIcall_reduces_input:
@@ -148,58 +154,57 @@ Definition next_sym_def:
   (next_sym "" _ = NONE) /\
   (next_sym (c::str) loc =
      if c = #"\n" then (* skip new line *)
-        next_sym str (loc_row (loc.row + 1))
+        next_sym str (next_line loc)
      else if isSpace c then (* skip blank space *)
-       next_sym str (loc with col := loc.col + 1)
+       next_sym str (next_loc 1 loc)
      else if isDigit c then (* read number *)
        if str ≠ "" ∧ c = #"0" ∧ HD str = #"w" then
          if TL str = "" then SOME (ErrorS, Locs loc loc, "")
          else if isDigit (HD (TL str)) then
            let (n,rest) = read_while isDigit (TL str) [] in
              SOME (WordS (num_from_dec_string n),
-                   Locs loc (loc with col := loc.col + LENGTH n + 1),
+                   Locs loc (next_loc (LENGTH n + 1) loc),
                    rest)
          else if HD(TL str) = #"x" then
            let (n,rest) = read_while isHexDigit (TL (TL str)) [] in
              SOME (WordS (num_from_hex_string n),
-                   Locs loc (loc with col := loc.col + LENGTH n + 2),
+                   Locs loc (next_loc (LENGTH n + 2) loc),
                    rest)
          else SOME (ErrorS, Locs loc loc, TL str)
        else
          let (n,rest) = read_while isDigit str [] in
            SOME (NumberS (&(num_from_dec_string (c::n))),
-                 Locs loc (loc with col := loc.col + LENGTH n),
+                 Locs loc (next_loc (LENGTH n) loc),
                  rest)
      else if c = #"~" /\ str <> "" /\ isDigit (HD str) then (* read negative number *)
        let (n,rest) = read_while isDigit str [] in
          SOME (NumberS (0- &(num_from_dec_string n)),
-               Locs loc (loc with col := loc.col + LENGTH n),
+               Locs loc (next_loc (LENGTH n) loc),
                rest)
      else if c = #"'" then (* read type variable *)
        let (n,rest) = read_while isAlphaNumPrime str [c] in
-         SOME (OtherS n, Locs loc (loc with col := loc.col + LENGTH n - 1),
+         SOME (OtherS n, Locs loc (next_loc (LENGTH n - 1) loc),
                rest)
      else if c = #"\"" then (* read string *)
-       let (t, loc', rest) = read_string str "" (loc with col := loc.col + 1) in
+       let (t, loc', rest) = read_string str "" (next_loc 1 loc) in
          SOME (t, Locs loc loc', rest)
      else if isPREFIX "*)" (c::str) then
-       SOME (ErrorS, Locs loc (loc with col := loc.col +2), TL str)
+       SOME (ErrorS, Locs loc (next_loc 2 loc), TL str)
      else if isPREFIX "#\"" (c::str) then
-       let (t, loc', rest) = read_string (TL str) "" (loc with col := loc.col + 2) in
+       let (t, loc', rest) = read_string (TL str) "" (next_loc 2 loc) in
          SOME (mkCharS t, Locs loc loc', rest)
      else if isPREFIX "#(" (c::str) then
-       let (t, loc', rest) = read_FFIcall (TL str) "" (loc with col := loc.col + 2) in
-
+       let (t, loc', rest) = read_FFIcall (TL str) "" (next_loc 2 loc) in
          SOME (t, Locs loc loc', rest)
      else if isPREFIX "(*" (c::str) then
-       case skip_comment (TL str) 0 (loc with col := loc.col + 2) of
-       | NONE => SOME (ErrorS, Locs loc (loc with col := loc.col + 2), "")
+       case skip_comment (TL str) 0 (next_loc 2 loc) of
+       | NONE => SOME (ErrorS, Locs loc (next_loc 2 loc), "")
        | SOME (rest, loc') => next_sym rest loc'
      else if is_single_char_symbol c then (* single character tokens, i.e. delimiters *)
        SOME (OtherS [c], Locs loc loc, str)
      else if isSymbol c then
        let (n,rest) = read_while isSymbol str [c] in
-         SOME (OtherS n, Locs loc (loc with col := loc.col + LENGTH n - 1),
+         SOME (OtherS n, Locs loc (next_loc (LENGTH n - 1) loc),
                rest)
      else if isAlpha c then (* read identifier *)
        let (n,rest) = read_while isAlphaNumPrime str [c] in
@@ -211,25 +216,23 @@ Definition next_sym_def:
                           let (n', rest'') = read_while isAlphaNumPrime rest' [c'] in
                             SOME (LongS (n ++ "." ++ n'),
                                   Locs loc
-                                       (loc with
-                                         col := loc.col + LENGTH n + LENGTH n'),
+                                       (next_loc (LENGTH n + LENGTH n') loc),
                                   rest'')
                         else if isSymbol c' then
                           let (n', rest'') = read_while isSymbol rest' [c'] in
                             SOME (LongS (n ++ "." ++ n'),
                                   Locs loc
-                                       (loc with
-                                         col := loc.col + LENGTH n + LENGTH n'),
+                                       (next_loc (LENGTH n + LENGTH n') loc),
                                   rest'')
                         else
                           SOME (ErrorS,
-                                Locs loc (loc with col := loc.col + LENGTH n),
+                                Locs loc (next_loc (LENGTH n) loc),
                                 rest')
                     | "" => SOME (ErrorS,
-                                  Locs loc (loc with col := loc.col + LENGTH n),
+                                  Locs loc (next_loc (LENGTH n) loc),
                                   []))
             | _ => SOME (OtherS n,
-                         Locs loc (loc with col := loc.col + LENGTH n - 1),
+                         Locs loc (next_loc (LENGTH n - 1) loc),
                          rest)
      else if c = #"_" then SOME (OtherS "_", Locs loc loc, str)
      else (* input not recognised *)
@@ -270,7 +273,6 @@ QED
 
 val listeq = CaseEq "list"
 val optioneq = CaseEq "option"
-
 
 Theorem next_sym_LESS:
    !input l s l' rest.
@@ -418,7 +420,7 @@ Definition lexer_fun_aux_def:
     | NONE => []
     | SOME (token, Locs loc' loc'', rest_of_input) =>
         (token, Locs loc' loc'') ::
-            lexer_fun_aux rest_of_input (loc'' with col := loc''.col +1)
+            lexer_fun_aux rest_of_input (next_loc 1 loc'')
 Termination
   WF_REL_TAC `measure (LENGTH o FST)` >> rw[] >> imp_res_tac next_token_LESS
 End
