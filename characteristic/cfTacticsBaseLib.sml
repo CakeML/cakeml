@@ -146,10 +146,11 @@ val parse_t =
         case
           peg_exec cmlPEG (nt (mkNT inputnt) I) (lexer_fun s) [] NONE [] done failed
         of
-          Result (Success [] x _) => sem x : 'a
+          Result (Success [] [x] _) => sem x : 'a
         | Result (Success toks _ _) =>
             ARB (ARB "Parse failed with remaining tokens" toks)
-        | _ => ARB "Parse failed"`
+        | Result (Failure fl fe) => ARB ("Parse failed", fl, fe)
+        | _ => ARB "Parse failed mysteriously"`
 
 fun string_of_q [] = ""
   | string_of_q (QUOTE s :: qs) = s ^ (string_of_q qs)
