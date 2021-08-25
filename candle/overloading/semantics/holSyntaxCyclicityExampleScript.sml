@@ -10,8 +10,8 @@ val _ = new_theory"holSyntaxCyclicityExample";
 Overload Fun = ``λs t. Tyapp «fun» [s;t]``
 Overload Bool = ``Tyapp «bool» []``
 
-Definition dep_def:
-  dep = [
+Definition hol_ctxt_dep_def:
+  hol_ctxt_dep = [
   (INL (Fun (Tyvar «A» ) (Tyvar «B» )),INL (Tyvar «A» ));
   (INL (Fun (Tyvar «A» ) (Tyvar «B» )),INL (Tyvar «B» ));
   (INR (Const «!» (Fun (Fun (Tyvar «A» ) Bool) Bool)), INL (Tyvar «A» ));
@@ -40,9 +40,23 @@ Definition dep_def:
   ]
 End
 
+(* write dependency relation to file *)
+
+fun write_hol_string_to_file filename tm =
+  let
+    val f = TextIO.openOut filename
+    val s = tm |> Hol_pp.term_to_string
+    val _ = TextIO.output (f,s)
+    val _ = TextIO.closeOut f
+  in () end
+
+val _ = temp_clear_overloads_on "Equal" ;
+val _ = temp_clear_overloads_on "Select" ;
+val _ = write_hol_string_to_file "hol_ctxt_dep.txt" (EVAL ``hol_ctxt_dep`` |> concl |> rand) ;
+
 Theorem dependency_hol_ctxt_eq:
   set (MAP ((λf. (f ## f)) (LR_TYPE_SUBST [(Tyvar «B», Tyvar «aa»);(Tyvar «A»,Tyvar «a»)]))
-  (dependency_compute hol_ctxt)) = set dep
+  (dependency_compute hol_ctxt)) = set hol_ctxt_dep
 Proof
   fs[dependency_compute_def,hol_ctxt_def,dependency_cases,mk_infinity_ctxt_def,
     mk_bool_ctxt_def,mk_eta_ctxt_def,mk_select_ctxt_def,finite_hol_ctxt_def,
@@ -56,12 +70,12 @@ Proof
 QED
 
 Theorem dependency_hol_ctxt_eq =
-  REWRITE_RULE[dep_def] dependency_hol_ctxt_eq
+  REWRITE_RULE[hol_ctxt_dep_def] dependency_hol_ctxt_eq
 
-Theorem dep_steps_dep_thm = time EVAL ``dep_steps dep 4 dep`` ;
+Theorem dep_steps_dep_thm = time EVAL ``dep_steps hol_ctxt_dep 4 hol_ctxt_dep`` ;
 
 Theorem terminating_dep:
-  terminating $ TC $ subst_clos $ CURRY $ set dep
+  terminating $ TC $ subst_clos $ CURRY $ set hol_ctxt_dep
 Proof
   irule dep_steps_acyclic_sound'
   >> conj_asm1_tac
