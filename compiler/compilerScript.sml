@@ -49,7 +49,7 @@ val current_build_info_str_tm = EVAL ``
   |> concl |> rhs
 
 val current_build_info_str_def = Define `
-  current_build_info_str = ^current_build_info_str_tm`
+  current_build_info_str = ^current_build_info_str_tm`;
 
 (* ========================================================================= *)
 
@@ -64,13 +64,18 @@ val _ = Datatype`
      ; only_print_sexp     : bool
      |>`;
 
-val _ = Datatype`compile_error = ParseError | TypeError mlstring | AssembleError | ConfigError mlstring`;
+Datatype:
+  compile_error = ParseError mlstring
+                | TypeError mlstring
+                | AssembleError
+                | ConfigError mlstring
+End
 
 Definition locn_to_string_def:
   locn_to_string UNKNOWNpt = implode "unknown point" ∧
   locn_to_string EOFpt = implode "end-of-file" ∧
   locn_to_string (POSN r c) =
-  concat [implode "row " ; toString r ; ", column " ; toString c]
+    concat [strlit "row " ; toString r ; strlit ", column " ; toString c]
 End
 
 val locs_to_string_def = Define `
@@ -88,16 +93,33 @@ val locs_to_string_def = Define `
 (* this is a rather annoying feature of peg_exec requiring locs... *)
 Overload add_locs = ``MAP (λc. (c,unknown_loc))``
 
+Definition parse_sexp_input_def:
+  parse_sexp_input input =
+    let err = strlit "Parsing of sexp syntax failed" in
+      case parse_sexp (add_locs input) of
+      | NONE => INL err
+      | SOME x => case sexplist sexpdec x of
+                  | NONE => INL err
+                  | SOME x => INR x
+End
+
+Definition parse_cml_input_def:
+  parse_cml_input input =
+    case parse_prog (lexer_fun input) of
+    | Failure l _ => INL (strlit "Parsing failed at " ^ locs_to_string (SOME l))
+    | Success _ x _ => INR x
+End
+
 val compile_def = Define`
   compile c prelude input =
     let _ = empty_ffi (strlit "finished: start up") in
     case
       if c.input_is_sexp
-      then OPTION_BIND (parse_sexp (add_locs input)) (sexplist sexpdec)
-      else parse_prog (lexer_fun input)
+      then parse_sexp_input input
+      else parse_cml_input input
     of
-    | NONE => (Failure ParseError, [])
-    | SOME prog =>
+    | INL msg => (Failure (ParseError msg), [])
+    | INR prog =>
        let _ = empty_ffi (strlit "finished: lexing and parsing") in
        let full_prog = if c.exclude_prelude then prog else prelude ++ prog in
        case
@@ -123,7 +145,8 @@ val compile_def = Define`
 
 (* The top-level compiler *)
 val error_to_str_def = Define`
-  (error_to_str ParseError = strlit "### ERROR: parse error\n") /\
+  (error_to_str (ParseError s) =
+     concat [strlit "### ERROR: parse error\n"; s; strlit "\n"]) /\
   (error_to_str (TypeError s) =
      (* if the first char in the message is a newline char then it isn't an error *)
      if (if strlen s = 0 then T else
