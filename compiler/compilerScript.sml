@@ -66,6 +66,13 @@ val _ = Datatype`
 
 val _ = Datatype`compile_error = ParseError | TypeError mlstring | AssembleError | ConfigError mlstring`;
 
+Definition locn_to_string_def:
+  locn_to_string UNKNOWNpt = implode "unknown point" ∧
+  locn_to_string EOFpt = implode "end-of-file" ∧
+  locn_to_string (POSN r c) =
+  concat [implode "row " ; toString r ; ", column " ; toString c]
+End
+
 val locs_to_string_def = Define `
   (locs_to_string NONE = implode "unknown location") ∧
   (locs_to_string (SOME (Locs startl endl)) =
@@ -73,14 +80,10 @@ val locs_to_string_def = Define `
       implode "unknown location"
     else
       concat
-        [implode "location starting at row ";
-         toString startl.row;
-         implode " column ";
-         toString startl.col;
-         implode ", ending at row ";
-         toString endl.row;
-         implode " column ";
-         toString endl.col])`;
+        [implode "location starting at ";
+         locn_to_string startl ;
+         implode ", ending at ";
+         locn_to_string endl])`;
 
 (* this is a rather annoying feature of peg_exec requiring locs... *)
 Overload add_locs = ``MAP (λc. (c,unknown_loc))``
