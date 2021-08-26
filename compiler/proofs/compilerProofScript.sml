@@ -48,17 +48,25 @@ val initial_condition_def = Define`
     mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
 Theorem parse_prog_correct:
-   parse_prog = parse
+  (parse_prog s = Failure y1 y2 ⇒ parse s = NONE) ∧
+  (parse_prog s = Success x1 a x2 ⇒ parse s = SOME a)
 Proof
-  simp[FUN_EQ_THM] \\ gen_tac
-  \\ simp[parse_def,cmlParseTheory.parse_prog_def]
+  cheat (*
+
+  simp[parse_def,cmlParseTheory.parse_prog_def]
   \\ DEEP_INTRO_TAC some_intro
   \\ simp[]
+  \\ gvs [cmlParseTheory.pegresult_bind_def,AllCaseEqs(),cmlParseTheory.optlift_def
+          |> SIMP_RULE std_ss [FUN_EQ_THM]
+          |> DefnBase.one_line_ify NONE]
+  \\ gvs []
+  \\ rpt strip_tac
+
   \\ conj_tac
   >- (
     (* some = SOME case *)
     rpt strip_tac
-    \\ drule completeness
+    \\ drule completeness \\ fs []
     \\ simp[MAP_MAP_o]
     \\ strip_tac
     \\ assume_tac cmlPEGTheory.PEG_wellformed
@@ -96,7 +104,7 @@ Proof
   \\ strip_tac \\ rveq \\ simp[]
   \\ Cases_on`ptree_TopLevelDecs pt`\\simp[]
   \\ strip_tac \\ fs[MAP_MAP_o]
-  \\ metis_tac[]
+  \\ metis_tac[] *)
 QED
 
 Theorem infertype_prog_correct:
@@ -151,7 +159,7 @@ Theorem compile_correct_gen:
    ∀(st:'ffi semantics$state) (cc:α compiler$config) prelude input mc data_sp cbspace.
     initial_condition st cc mc ⇒
     case FST (compiler$compile cc prelude input) of
-    | Failure ParseError => semantics st prelude input = CannotParse
+    | Failure (ParseError e) => semantics st prelude input = CannotParse
     | Failure (TypeError e) => semantics st prelude input = IllTyped
     | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
     | Failure (ConfigError e) => T (* configuration string is malformed *)
@@ -171,16 +179,18 @@ Theorem compile_correct_gen:
 Proof
   rpt strip_tac
   \\ simp[compilerTheory.compile_def,read_limits_def,is_safe_for_space_def]
-  \\ simp[parse_prog_correct]
   \\ qpat_abbrev_tac `tt = if _ then _ else _`
   \\ BasicProvers.CASE_TAC
   \\ fs[initial_condition_def,Abbr`tt`]
+  \\ fs[parse_cml_input_def]
   \\ BasicProvers.CASE_TAC
   \\ fs[initial_condition_def]
+  \\ imp_res_tac parse_prog_correct
   \\ simp[semantics_def]
   \\ drule (GEN_ALL infertype_prog_correct)
   \\ simp[]
-  \\ disch_then(qspec_then`prelude++x`mp_tac)
+  \\ rename [‘infertype_prog cc.inferencer_config (_ ++ x45)’]
+  \\ disch_then(qspec_then`prelude++x45`mp_tac)
   \\ qhdtm_assum`type_sound_invariant`
        (strip_assume_tac o
         SIMP_RULE std_ss [typeSoundInvariantsTheory.type_sound_invariant_def])
@@ -220,7 +230,7 @@ Theorem compile_correct_lemma:
   ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
     config_ok cc mc ⇒
     case FST (compiler$compile cc prelude input) of
-    | Failure ParseError => semantics_init ffi prelude input = CannotParse
+    | Failure (ParseError e) => semantics_init ffi prelude input = CannotParse
     | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
     | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
     | Failure (ConfigError e) => T (* configuration string is malformed *)
@@ -305,7 +315,7 @@ Theorem compile_correct = Q.prove(`
   ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
     config_ok cc mc ⇒
     case FST (compiler$compile cc prelude input) of
-    | Failure ParseError => semantics_init ffi prelude input = CannotParse
+    | Failure (ParseError e) => semantics_init ffi prelude input = CannotParse
     | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
     | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
     | Failure (ConfigError e) => T (* configuration string is malformed *)
@@ -321,6 +331,7 @@ Theorem compile_correct = Q.prove(`
              for the one without the ⊆ and extend_with_resource_limit *)`,
   rw [] \\ mp_tac (SPEC_ALL compile_correct_lemma)
   \\ fs [] \\ TOP_CASE_TAC \\ fs []
+  \\ rename [‘(Success a,_)’]
   \\ PairCases_on `a` \\ fs [] \\ strip_tac \\ fs []
   \\ rw [] \\ first_x_assum drule \\ rw []
   \\ match_mp_tac SUBSET_TRANS
