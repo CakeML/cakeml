@@ -132,10 +132,14 @@ val res = translate (spec64 word_to_string_def);
 
 (* compilerTheory *)
 
-val def = spec64 (PURE_REWRITE_RULE[fromSexpTheory.sexpdec_alt_intro1]compilerTheory.compile_def);
-
+val _ = translate compilerTheory.locn_to_string_def;
 val _ = translate compilerTheory.locs_to_string_def;
-val res = translate def
+val _ = translate compilerTheory.parse_cml_input_def;
+val _ = translate (compilerTheory.parse_sexp_input_def
+                   |> PURE_REWRITE_RULE[fromSexpTheory.sexpdec_alt_intro1]);
+
+val def = spec64 (compilerTheory.compile_def);
+val res = translate def;
 
 val res = translate basisProgTheory.basis_def
 
