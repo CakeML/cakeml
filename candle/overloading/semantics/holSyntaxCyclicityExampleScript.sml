@@ -9,6 +9,7 @@ val _ = new_theory"holSyntaxCyclicityExample";
 
 Overload Fun = ``λs t. Tyapp «fun» [s;t]``
 Overload Bool = ``Tyapp «bool» []``
+Overload Prod = ``λs t. Tyapp «prod» [s;t]``
 
 Definition hol_ctxt_dep_def:
   hol_ctxt_dep = [
@@ -88,5 +89,42 @@ Proof
   >> fs[composable_len_ONE_compute]
   >> EVAL_TAC
 QED
+
+Overload A[local] = ``Tyvar (strlit "A")``
+Overload B[local] = ``Tyvar (strlit "B")``
+Overload x[local] = ``Var (strlit "x") A``
+
+(* An overloading ConstDef *)
+Overload ConstOverload = ``λx t. ConstSpec T [(x,t)] (Var x (typeof t) === t)``
+
+Overload Ind = ``Tyapp (strlit "ind") []``
+Overload z[local] = ``Var (strlit "x") (Prod A Ind)``
+
+(*
+ * replacing in the definition of  c  by
+ *   ConstOverload «c» (Abs x (Comb (Const «d» (Fun (Prod A A) Bool)) (Const «undef» (Prod A A))))
+ * which replaces the type  (Prod A Ind)  with  (Prod A A)  makes the relation
+ * uncomposable
+ *)
+Definition cyclic_ctxt_def:
+  cyclic_ctxt =
+  ConstOverload «c» (Abs x (Comb (Const «d» (Fun (Prod A Ind) Bool)) (Const «undef» (Prod A Ind))))
+  :: ConstOverload «d» (Abs z (Not (Comb (Const «c» (Fun A Bool)) (Const «undef» A))))
+  :: NewConst «c» (Fun A Bool)
+  :: NewConst «d» (Fun (Prod A B) Bool)
+  :: []
+End
+
+Theorem dependency_cyclic_ctxt =
+  EVAL ``nub $ dependency_compute cyclic_ctxt``
+  |> SIMP_RULE (srw_ss()) [SimpRHS,Excl"nub_def"]
+  |> SIMP_RULE (srw_ss()) [SimpRHS,nub_def]
+
+Definition dependency_cyclic_ctxt_def:
+  dependency_cyclic_ctxt = ^(dependency_cyclic_ctxt |> concl |> rand)
+End
+
+Theorem dep_steps_dependency_cyclic_ctxt =
+  EVAL ``dep_steps dependency_cyclic_ctxt 1 dependency_cyclic_ctxt`` ;
 
 val _ = export_theory();
