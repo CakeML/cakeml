@@ -51,60 +51,7 @@ Theorem parse_prog_correct:
   (parse_prog s = Failure y1 y2 ⇒ parse s = NONE) ∧
   (parse_prog s = Success x1 a x2 ⇒ parse s = SOME a)
 Proof
-  cheat (*
-
-  simp[parse_def,cmlParseTheory.parse_prog_def]
-  \\ DEEP_INTRO_TAC some_intro
-  \\ simp[]
-  \\ gvs [cmlParseTheory.pegresult_bind_def,AllCaseEqs(),cmlParseTheory.optlift_def
-          |> SIMP_RULE std_ss [FUN_EQ_THM]
-          |> DefnBase.one_line_ify NONE]
-  \\ gvs []
-  \\ rpt strip_tac
-
-  \\ conj_tac
-  >- (
-    (* some = SOME case *)
-    rpt strip_tac
-    \\ drule completeness \\ fs []
-    \\ simp[MAP_MAP_o]
-    \\ strip_tac
-    \\ assume_tac cmlPEGTheory.PEG_wellformed
-    \\ drule (GEN_ALL pegexecTheory.peg_eval_executed)
-    \\ qmatch_asmsub_abbrev_tac`peg_eval _ (s,e) r`
-    \\ disch_then(qspecl_then[`s`,`r`,`e`]mp_tac)
-    \\ simp[Abbr`e`,GSYM cmlPEGTheory.pnt_def]
-    \\ strip_tac
-    \\ simp[cmlParseTheory.destResult_def,Abbr`r`]
-    \\ simp[ETA_AX,OPTION_BIND_SOME])
-  (* some = NONE case *)
-  \\ qmatch_goalsub_abbrev_tac`opt = NONE`
-  \\ Cases_on`opt`\\fs[markerTheory.Abbrev_def]
-  \\ strip_tac
-  \\ assume_tac cmlPEGTheory.PEG_wellformed
-  \\ drule (GEN_ALL pegexecTheory.peg_eval_executed)
-  \\ qmatch_asmsub_abbrev_tac`peg_exec cmlPEG e s`
-  \\ qmatch_asmsub_abbrev_tac`destResult r`
-  \\ Cases_on`r` \\ fs[cmlParseTheory.destResult_def]
-  \\ qmatch_asmsub_rename_tac`pegexec$Result r`
-  \\ disch_then(qspecl_then[`s`,`r`,`e`]mp_tac)
-  \\ fs[markerTheory.Abbrev_def]
-  \\ impl_tac >- (
-      metis_tac[pegTheory.start_IN_Gexprs,
-                SIMP_CONV (srw_ss()) [cmlPEGTheory.cmlPEG_def]``cmlPEG.start``])
-  \\ strip_tac
-  \\ rveq
-  \\ fs[cmlPEGTheory.pnt_def]
-  \\ qmatch_asmsub_rename_tac`SOME p`
-  \\ Cases_on`p`
-  \\ qpat_x_assum`Result r = _`(assume_tac o SYM)
-  \\ Cases_on`r` \\ fs[cmlParseTheory.destResult_def]
-  \\ rveq
-  \\ drule peg_sound
-  \\ strip_tac \\ rveq \\ simp[]
-  \\ Cases_on`ptree_TopLevelDecs pt`\\simp[]
-  \\ strip_tac \\ fs[MAP_MAP_o]
-  \\ metis_tac[] *)
+  metis_tac[parserProofTheory.parse_prog_correct0]
 QED
 
 Theorem infertype_prog_correct:
