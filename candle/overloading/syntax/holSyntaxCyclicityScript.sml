@@ -6286,6 +6286,19 @@ Proof
   >> fs[var_renaming_SWAP_IMP]
 QED
 
+Theorem unify_LR_invertible_on':
+  !q p s_q s_p. unify_LR q p = SOME (s_q,s_p)
+  /\ invertible_on s_p (FV p)
+  /\ is_const_or_type p /\ is_const_or_type q
+  ==> ?s. var_renaming s /\ p = LR_TYPE_SUBST s (LR_TYPE_SUBST s_q q)
+Proof
+  rpt strip_tac
+  >> imp_res_tac unify_LR_sound
+  >> gs[invertible_on_equiv_ts_on_FV,equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
+  >> irule_at Any $ GSYM var_renaming_SWAP_LR_id
+  >> fs[var_renaming_SWAP_IMP]
+QED
+
 (* dep relation contains a type-substitutive path from x to y in k steps (k>0) *)
 Definition has_path_to_def:
   has_path_to dep k x y =
@@ -6701,6 +6714,54 @@ Theorem composable_at_var_renaming12:
   ==> composable_at (LR_TYPE_SUBST s q) (LR_TYPE_SUBST s p) = composable_at q p
 Proof
   rw[composable_at_var_renaming1,composable_at_var_renaming2]
+QED
+
+Theorem composable_at_eq:
+  !p q. wf_pqs [(p,q)]
+  ==> composable_at p q = (is_instance_LR p q \/ is_instance_LR q p \/ orth_LR p q)
+Proof
+  fs[EQ_IMP_THM,composable_at_def,wf_pqs_CONS,unify_LR_complete'']
+  >> rpt strip_tac >> gvs[]
+  >- (
+    Cases_on `unify_LR p q` >> gs[]
+    >> qmatch_assum_rename_tac `unify_LR _ _ = SOME x` >> PairCases_on `x`
+    (* >> imp_res_tac unify_LR_sound *)
+    >> gvs[is_instance_LR_eq]
+    >- (
+      disj2_tac
+      >> drule_all_then strip_assume_tac unify_LR_invertible_on
+      >> gvs[LR_TYPE_SUBST_compose]
+      >> irule_at Any EQ_REFL
+    )
+    >> disj1_tac
+    >> drule_all_then strip_assume_tac unify_LR_invertible_on'
+    >> gvs[LR_TYPE_SUBST_compose]
+    >> irule_at Any EQ_REFL
+  )
+  >> gvs[is_instance_LR_eq]
+  >- (
+    drule_at (Pos last) unify_LR_LR_TYPE_SUBST'
+    >> fs[invertible_on_equiv_ts_on_FV,equiv_ts_on_symm]
+  )
+  >- (
+    drule_at (Pos last) unify_LR_LR_TYPE_SUBST
+    >> fs[invertible_on_equiv_ts_on_FV,equiv_ts_on_symm]
+  )
+QED
+
+Theorem composable_dep_eq:
+  !dep. wf_dep dep ==> composable_dep dep =
+  !pqs rs p q. dep p q /\ path_starting_at dep 0 rs pqs
+  ==> composable_at (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs))) p
+Proof
+  gen_tac >> dsimp[composable_dep_def,EQ_IMP_THM] >> rpt strip_tac
+  >> first_x_assum $ drule_all
+  >> dep_rewrite.DEP_REWRITE_TAC[composable_at_eq]
+  >> drule_then assume_tac $ cj 1 $ iffLR path_starting_at_def
+  >> qhdtm_x_assum `wf_dep` $ imp_res_tac o REWRITE_RULE[wf_dep_def]
+  >> imp_res_tac $ cj 1 path_starting_at_LAST
+  >> imp_res_tac $ cj 1 path_starting_at_LENGTH
+  >> gs[AC DISJ_ASSOC DISJ_COMM,wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,FORALL_AND_THM,IMP_CONJ_THM,EL_MEM]
 QED
 
 Datatype:
