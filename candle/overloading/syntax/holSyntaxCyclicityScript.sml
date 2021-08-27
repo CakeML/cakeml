@@ -7373,9 +7373,9 @@ Definition dep_step_def:
       | INL extd' =>
           let
             extd'' = MAP (λx. (p, x)) extd' ;
-            cycles = FILTER (UNCURRY is_instance_LR_compute) extd''
-          in case NULL cycles of
-          | F => INR $ cyclic_step (p,q,SND $ HD cycles) (* cycle found *)
+            has_cycles = FILTER (UNCURRY is_instance_LR_compute) extd''
+          in case NULL has_cycles of
+          | F => INR $ cyclic_step (p,q,SND $ HD has_cycles) (* cycle found *)
           | T => dep_step dep ext (extd ++ extd''))
 End
 
