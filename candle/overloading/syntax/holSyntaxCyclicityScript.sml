@@ -72,26 +72,6 @@ Proof
   >> fs[]
 QED
 
-Theorem MEM_DROP_TAKE:
-  !xs l. l <= LENGTH xs ==> !x k. MEM x (DROP k (TAKE l xs)) ==> MEM x (DROP k xs)
-Proof
-  Induct
-  >> fs[DROP_def,TAKE_def]
-  >> rpt strip_tac
-  >> FULL_CASE_TAC
-  >> fs[DROP_def,TAKE_def,PULL_FORALL]
-  >- (
-    FULL_CASE_TAC
-    >> fs[MEM]
-    >> first_x_assum (qspecl_then [`l-1`,`x`,`0`] assume_tac)
-    >> rfs[DROP_def]
-  )
-  >> FULL_CASE_TAC
-  >> fs[DROP_def]
-  >> first_x_assum (qspecl_then [`l-1`,`x`,`k-1`] assume_tac)
-  >> rfs[DROP_def]
-QED
-
 Theorem LAST_DROP:
   !l k. ~NULL (DROP k l) ==> LAST (DROP k l) = LAST l
 Proof
@@ -177,15 +157,6 @@ Theorem LR_TYPE_SUBST_wlog_eq'':
 Proof
   rw[is_const_or_type_eq]
   >> rw[GSYM TYPE_SUBST_FILTER_SND_tyvars2,o_DEF,LR_TYPE_SUBST_def,INST_def,INST_CORE_def,FV_def,sum_case_def,tvars_def]
-QED
-
-Theorem LR_tyvars_SUBSET:
-  !t t' x. is_const_or_type t /\ is_const_or_type t'
-  /\ MEM x (FV t) /\ list_subset (FV t) (FV t')
-  ==> MEM x (FV t')
-Proof
-  rw[is_const_or_type_eq,sum_case_def,list_subset_set,FV_def,SUBSET_DEF]
-  >> fs[INL,INR]
 QED
 
 Theorem FV_SUBSET_LR_TYPE_SUBST_id:
@@ -274,13 +245,6 @@ Proof
   rpt strip_tac >> fs[equiv_ts_on_FV,LR_TYPE_SUBST_compose]
 QED
 
-Theorem equal_ts_on_compose_NIL:
-  (!s' s vars. equal_ts_on s' (MAP (TYPE_SUBST s ## I) [] ++ s) vars = equal_ts_on s' s vars)
-  /\ !s' s vars. equal_ts_on s' (MAP (TYPE_SUBST [] ## I) s ++ []) vars = equal_ts_on s' s vars
-Proof
-  REWRITE_TAC[GSYM TYPE_SUBST_compose,TYPE_SUBST_NIL,equal_ts_on_def]
-QED
-
 Theorem equiv_ts_on_compose_NIL:
   (!s' s vars. equiv_ts_on s' (MAP (TYPE_SUBST s ## I) [] ++ s) vars = equiv_ts_on s' s vars)
   /\ !s' s vars. equiv_ts_on s' (MAP (TYPE_SUBST [] ## I) s ++ []) vars = equiv_ts_on s' s vars
@@ -314,16 +278,6 @@ Theorem equal_ts_on_symm:
   !s' s vars. equal_ts_on s' s vars = equal_ts_on s s' vars
 Proof
   fs[equal_ts_on_def,EQ_IMP_THM,Once EQ_SYM_EQ]
-QED
-
-Theorem equiv_ts_on_FV_subset:
-  !x y s. is_const_or_type x /\ is_const_or_type y /\ set (FV y) SUBSET set (FV x)
-  ==> equiv_ts_on s [] (FV x)
-    = ?s'. var_renaming s' /\ LR_TYPE_SUBST s x = LR_TYPE_SUBST s' x
-        /\ LR_TYPE_SUBST s y = LR_TYPE_SUBST s' y
-Proof
-  rw[equiv_ts_on_def,equal_ts_on_def,LR_TYPE_SUBST_tyvars,SUBSET_DEF,IN_DEF,Excl"TYPE_SUBST_def",EQ_IMP_THM]
-  >> metis_tac[]
 QED
 
 Theorem var_renaming_SWAP_LR_id:
@@ -373,16 +327,6 @@ Proof
   >> fs[var_renaming_compose,equal_ts_on_def,GSYM clean_tysubst_TYPE_SUBST_eq,GSYM TYPE_SUBST_compose]
 QED
 
-Theorem equiv_ts_on_trans_eq:
-  !s1 s2 s3 vars. equiv_ts_on s1 s2 vars
-  ==> equiv_ts_on s3 s1 vars = equiv_ts_on s3 s2 vars
-Proof
-  rw[EQ_IMP_THM]
-  >> irule equiv_ts_on_trans
-  >> goal_assum $ drule_at Any
-  >> fs[equiv_ts_on_symm]
-QED
-
 Theorem equiv_ts_on_compose:
   !e s s' vars. var_renaming e
   ==> equiv_ts_on s (MAP (TYPE_SUBST e ## I) s' ++ e) vars = equiv_ts_on s s' vars
@@ -421,14 +365,6 @@ Theorem equal_ts_on_FILTER:
   = equal_ts_on s (FILTER ((λx. MEM x (MAP Tyvar (FV t))) o SND) s') (FV t)
 Proof
   rw[equal_ts_on_FV,GSYM LR_TYPE_SUBST_wlog_eq'']
-QED
-
-Theorem equiv_ts_on_FILTER:
-  !s s' t. is_const_or_type t ==> equiv_ts_on s s' (FV t)
-  = equiv_ts_on s (FILTER ((λx. MEM x (MAP Tyvar (FV t))) o SND) s') (FV t)
-Proof
-  ONCE_REWRITE_TAC[equiv_ts_on_symm]
-  >> rw[equiv_ts_on_FV,GSYM equal_ts_on_FILTER,EQ_IMP_THM,GSYM LR_TYPE_SUBST_wlog_eq'']
 QED
 
 Theorem equal_ts_on_FV_LR_TYPE_SUBST:
@@ -570,13 +506,6 @@ Theorem equiv_equiv_ts_on2:
   ==> equiv x (LR_TYPE_SUBST s x) = equiv_ts_on [] s (FV x)
 Proof
   rw[equiv_def,equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
-QED
-
-Theorem equiv_equiv_ts_on1:
-  !x s. is_const_or_type x
-  ==> equiv (LR_TYPE_SUBST s x) x = equiv_ts_on [] s (FV x)
-Proof
-  rw[Once equiv_symm,equiv_equiv_ts_on2]
 QED
 
 Theorem equiv_equiv_ts_on:
@@ -829,61 +758,6 @@ Proof
   >> match_mp_tac mg_sol_seq_var_renaming
   >> fs[renn_var_renaming]
 QED
-
-Theorem sol_seq_FILTER:
-  !rs pqs r p q.
-  sol_seq (rs ++ [r]) (pqs ++ [(p,q)])
-  = sol_seq (rs ++ [FILTER ((λx. MEM x (MAP Tyvar (FV p))) o SND) r]) (pqs ++ [(p,q)])
-Proof
-  rw[sol_seq_def,EQ_IMP_THM,GSYM LE_LT1,LESS_OR_EQ,FORALL_AND_THM,DISJ_IMP_THM]
-  >> TRY (
-    qmatch_assum_rename_tac `SUC i < LENGTH _`
-    >> rfs[]
-    >> first_x_assum drule
-    >> dep_rewrite.DEP_REWRITE_TAC[EL_APPEND1]
-    >> fs[]
-  )
-  >> TRY (
-    qmatch_assum_rename_tac `SUC i = LENGTH _`
-    >> rfs[]
-    >> first_x_assum drule
-    >> dep_rewrite.DEP_ONCE_REWRITE_TAC[EL_APPEND1,EL_APPEND1,EL_APPEND2,EL_APPEND2,EL_APPEND1,EL_APPEND2]
-    >> rw[]
-    >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_FILTER_SND_tyvars,o_DEF]
-    >> fs[wf_pqs_def]
-  )
-QED
-
-Theorem mg_sol_seq_FILTER:
-  !rs pqs r p q.
-  mg_sol_seq (rs ++ [r]) (pqs ++ [(p,q)])
-  = mg_sol_seq (rs ++ [FILTER ((λx. MEM x (MAP Tyvar (FV p))) o SND) r]) (pqs ++ [(p,q)])
-Proof
-  rw[mg_sol_seq_def,GSYM sol_seq_FILTER,EQ_IMP_THM]
-  >> `LENGTH pqs = LENGTH rs` by fs[sol_seq_def]
-  >> first_x_assum $ drule_then strip_assume_tac
-  >> goal_assum drule
-  >> rpt strip_tac
-  >> first_x_assum drule
-  >> dep_rewrite.DEP_REWRITE_TAC[o_DEF,equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose]
-  >> irule_at Any sol_seq_is_const_or_type_FST >> goal_assum drule
-  >> fs[GSYM LE_LT1,LESS_OR_EQ]
-  >> TRY (
-    qmatch_assum_rename_tac `i < LENGTH _`
-    >> rfs[]
-    >> dep_rewrite.DEP_REWRITE_TAC[EL_APPEND1]
-    >> fs[]
-  )
-  >> TRY (
-    qmatch_assum_rename_tac `i = LENGTH _`
-    >> rfs[]
-    >> dep_rewrite.DEP_REWRITE_TAC[EL_APPEND2]
-    >> fs[]
-    >> dep_rewrite.DEP_REWRITE_TAC[LR_TYPE_SUBST_FILTER_SND_tyvars,o_DEF]
-    >> fs[wf_pqs_def,sol_seq_def]
-  )
-QED
-
 
 (* various monotony properties (Lemma 5.2) *)
 
@@ -1438,20 +1312,6 @@ Proof
   >> CONV_TAC $ RAND_CONV $ REWR_CONV invertible_on_def
   >> fs[Excl"TYPE_SUBST_def"]
   >> fs[GSYM invertible_on_def,Excl"TYPE_SUBST_def"]
-QED
-
-Theorem invertible_on_FILTER:
-  !s vars. invertible_on s vars
-  <=> invertible_on (FILTER ((λx. MEM x $ MAP Tyvar vars) o SND) s) vars
-Proof
-  rpt gen_tac
-  >> CONV_TAC $ LAND_CONV $ REWR_CONV invertible_on_tyvars_Tyapp
-  >> ONCE_REWRITE_TAC[invertible_on_tyvars]
-  >> CONV_TAC $ LAND_CONV $ QUANT_CONV $ LHS_CONV $ RAND_CONV $ ONCE_DEPTH_CONV $ REWR_CONV TYPE_SUBST_FILTER_SND_tyvars2
-  >> REWRITE_TAC[GSYM invertible_on_tyvars,GSYM invertible_on_tyvars_Tyapp]
-  >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
-  >> dep_rewrite.DEP_REWRITE_TAC[tyvars_Tyapp_MAP_Tyvar]
-  >> fs[o_DEF,ELIM_UNCURRY,FUN_EQ_THM,all_distinct_nub,MEM_MAP]
 QED
 
 Theorem invertible_on_imp1:
@@ -2584,19 +2444,6 @@ Proof
   >> irule_at Any EQ_TRANS >> irule_at Any orth_LR_symm
   >> irule_at Any EQ_TRANS >> irule_at Any orth_LR_var_renaming1
   >> fs[orth_LR_symm]
-QED
-
-(* orthogonality of dependencies *)
-
-Definition orth_dep_def:
-  orth_dep dep = !p q p' q'. dep p q /\ dep p' q' ==> p = p' \/ p # p'
-End
-
-Theorem orth_dep_set:
-  !dep. orth_dep (CURRY $ set dep) =
-  !pq pq'. MEM pq dep /\ MEM pq' dep ==> FST pq = FST pq' \/ FST pq # FST pq'
-Proof
-  fs[orth_dep_def,IN_DEF,FORALL_PROD]
 QED
 
 (* Definition 5.6, Kunčar 2015 *)
@@ -4248,66 +4095,6 @@ Proof
   >> fs[]
 QED
 
-Theorem LFILTER_num_pred:
-  !P e. P e = (?n. LNTH n (LFILTER P (LGENLIST I NONE)) = SOME e)
-Proof
-  rw[EQ_IMP_THM]
-  >> qspecl_then [`LGENLIST I NONE`,`P`] assume_tac every_LFILTER
-  >> imp_res_tac every_LNTH
-  >> qspec_then `e` assume_tac LGENLIST_num
-  >> match_mp_tac LNTH_LFILTER1
-  >> goal_assum (first_assum o mp_then Any mp_tac)
-  >> fs[LFINITE_LGENLIST]
-QED
-
-Theorem LENGTH_num:
-  !i. LENGTH (THE (LTAKE i (LGENLIST I NONE))) = i
-Proof
-  `~LFINITE (LGENLIST I NONE)` by fs[LFINITE_LGENLIST]
-  >> imp_res_tac NOT_LFINITE_TAKE
-  >> rw[]
-  >> first_x_assum (qspec_then `i` assume_tac)
-  >> fs[]
-  >> imp_res_tac LTAKE_LENGTH
-  >> fs[]
-QED
-
-Theorem LTAKE_GENLIST_num:
-  !i f. THE (LTAKE i (LGENLIST I NONE)) = GENLIST I i
-Proof
-  Induct
-  >> rw[LTAKE_SNOC_LNTH,GENLIST]
-  >> `~LFINITE (LGENLIST I NONE)` by fs[LFINITE_LGENLIST]
-  >> imp_res_tac infinite_lnth_some
-  >> imp_res_tac NOT_LFINITE_TAKE
-  >> rpt (first_x_assum (qspec_then `i` assume_tac))
-  >> fs[LGENLIST_num,option_CLAUSES]
-QED
-
-Theorem LDROP_GENLIST_NOT_SOME:
-  !n i. LNTH (SUC n) (THE (LDROP i (LGENLIST I NONE))) <> SOME i
-Proof
-  `~LFINITE (LGENLIST I NONE)` by fs[LFINITE_LGENLIST]
-  >> rw[]
-  >> qspec_then `i + SUC n` assume_tac LGENLIST_num
-  >> imp_res_tac NOT_LFINITE_DROP
-  >> qspecl_then [`i`,`SUC n`,`LGENLIST I NONE`] mp_tac LNTH_ADD
-  >> rw[]
-  >> fs[]
-QED
-
-Theorem LDROP_SUC_LGENLIST_NOT_SOME:
-  !n i. LNTH n (THE (LDROP (SUC i) (LGENLIST I NONE))) <> SOME i
-Proof
-  `~LFINITE (LGENLIST I NONE)` by fs[LFINITE_LGENLIST]
-  >> rw[]
-  >> qspec_then `SUC i + n` assume_tac LGENLIST_num
-  >> imp_res_tac NOT_LFINITE_DROP
-  >> qspecl_then [`SUC i`,`n`,`LGENLIST I NONE`] mp_tac LNTH_ADD
-  >> rw[]
-  >> fs[]
-QED
-
 Theorem NOT_LFINITE_LFILTER:
   !P ll. ~LFINITE (LFILTER P ll) ==> ~LFINITE ll
 Proof
@@ -4653,23 +4440,6 @@ Proof
   >> `infin_or_leq rs (SUC (SUC k)) T /\ ~LFINITE pqs /\ ~LFINITE rs` by fs[infin_or_leq_def,sol_seq_inf_def]
   >> dxrule_then strip_assume_tac infin_or_leq_LENGTH_LTAKE_EQ
   >> fs[LTAKE_FRONT_LNTH_LAST,sol_seq_inf_sol_seq_LTAKE,every_LTAKE_EVERY',DISJ_EQ_IMP]
-QED
-
-Theorem leq_geq_monotone_composable_LTAKE_LDROP[local]:
-  !pqs rs k k' dep.
-  monotone dep
-  /\ composable_dep dep
-  /\ every (UNCURRY dep) pqs
-  /\ sol_seq_inf rs pqs
-  ==> has_mg_sol_leq (THE (LTAKE (SUC k') (THE (LDROP k pqs)))) (FST (THE (LNTH (SUC k') (THE (LDROP k pqs)))))
-  \/ has_mg_sol_geq (THE (LTAKE (SUC k') (THE (LDROP k pqs)))) (FST (THE (LNTH (SUC k') (THE (LDROP k pqs)))))
-Proof
-  rw[]
-  >> match_mp_tac leq_geq_monotone_composable_LTAKE
-  >> rpt (goal_assum (first_assum o mp_then Any mp_tac))
-  >> `~LFINITE pqs` by fs[sol_seq_inf_def]
-  >> qexists_tac `THE (LDROP k rs)`
-  >> fs[every_THE_LDROP,sol_seq_inf_LDROP]
 QED
 
 Theorem NOT_LFINITE_LNTH:
@@ -7959,7 +7729,7 @@ QED
 (*
 use with
 composable_len_ONE_compute, monotone_compute_eq,
-invertible_on_compute, is_instance_LR_equiv, composable_len_ONE_compute
+invertible_on_compute, is_instance_LR_equiv
 *)
 Theorem dep_steps_acyclic_sound':
   !dep k k'. wf_pqs dep /\ monotone (CURRY $ set dep)
