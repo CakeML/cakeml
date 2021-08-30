@@ -6569,33 +6569,32 @@ Definition composable_one_LR_def:
 End
 
 Theorem composable_one_LR_ignore:
-  !p q. is_const_or_type p /\ is_const_or_type q
+  !p q. wf_pqs [(p,q)]
   ==> (composable_one_LR q p = ignore
     <=> orth_LR q p \/ ?s_q s_p. unify_LR q p = SOME (s_q, s_p) /\
               invertible_on s_p (FV p) /\ ~invertible_on s_q (FV q))
 Proof
-  dsimp[is_const_or_type_eq,composable_one_LR_def,unify_LR_def,AllCaseEqs(),FV_def,tvars_def,orth_LR_def,unify_complete',orth_ci_def,composable_one_def]
+  dsimp[is_const_or_type_eq,composable_one_LR_def,unify_LR_def,AllCaseEqs(),FV_def,tvars_def,orth_LR_def,unify_complete',orth_ci_def,composable_one_def,wf_pqs_CONS]
   >> metis_tac[]
 QED
 
 Theorem composable_one_LR_continue:
-  !p q s. is_const_or_type p /\ is_const_or_type q
+  !p q s. wf_pqs [(p,q)]
   ==> (composable_one_LR q p = continue s
     <=> ?s_q s_p. unify_LR q p = SOME (s_q, s_p) /\ (
         s = s_p /\ ~invertible_on s_p (FV p) /\ invertible_on s_q (FV q)
         \/ (s = [] /\ invertible_on s_p (FV p) /\ invertible_on s_q (FV q))))
 Proof
-  dsimp[is_const_or_type_eq,composable_one_LR_def,unify_LR_def,AllCaseEqs(),GSYM invertible_on_equiv_ts_on,FV_def,tvars_def]
+  dsimp[is_const_or_type_eq,composable_one_LR_def,unify_LR_def,AllCaseEqs(),GSYM invertible_on_equiv_ts_on,FV_def,tvars_def,wf_pqs_CONS]
   >> dsimp[composable_one_def,AllCaseEqs()]
   >> metis_tac[]
 QED
 
 Theorem composable_one_LR_uncomposable:
-  !p q. is_const_or_type p
-  /\ is_const_or_type q
+  !p q. wf_pqs [(p,q)]
   ==> (composable_one_LR q p = uncomposable <=> ~composable_at q p)
 Proof
-  dsimp[is_const_or_type_eq,composable_one_LR_def,AllCaseEqs(),composable_at_def,unify_LR_def,composable_one_def,FV_def,tvars_def]
+  dsimp[is_const_or_type_eq,composable_one_LR_def,AllCaseEqs(),composable_at_def,unify_LR_def,composable_one_def,FV_def,tvars_def,wf_pqs_CONS]
   >> metis_tac[]
 QED
 
@@ -6651,7 +6650,7 @@ Proof
   Induct >- fs[composable_step_inv_def,composable_step_def]
   >> PairCases >> rw[composable_step_def,AllCaseEqs()]
   >> first_x_assum $ dxrule_at_then Any irule
-  >> gs[composable_step_inv_def,wf_pqs_CONS,wf_pqs_APPEND,composable_one_LR_ignore,unify_LR_complete'',composable_one_LR_continue,invertible_on_equiv_ts_on_FV]
+  >> gs[composable_step_inv_def,wf_pqs_CONS,wf_pqs_APPEND,composable_one_LR_ignore,unify_LR_complete'',composable_one_LR_continue,invertible_on_equiv_ts_on_FV,wf_pqs_CONS]
   >> dsimp[composable_at_def,invertible_on_equiv_ts_on_FV,AC DISJ_ASSOC DISJ_COMM,LR_TYPE_SUBST_NIL]
 QED
 
@@ -6724,7 +6723,7 @@ Theorem composable_step_sound_INR:
 Proof
   Induct >- fs[composable_step_def]
   >> PairCases >> rw[composable_step_def,AllCaseEqs(),wf_pqs_APPEND,wf_pqs_CONS]
-  >> gs[composable_one_LR_uncomposable,composable_one_LR_ignore,composable_one_LR_continue,unify_LR_complete'']
+  >> gs[composable_one_LR_uncomposable,composable_one_LR_ignore,composable_one_LR_continue,unify_LR_complete'',wf_pqs_CONS]
   >> TRY (first_x_assum $ dxrule_at (Pos $ last))
   >> rw[composable_step_inv_INR_def]
   >~ [`[(h0,h1)]`] >- (qexists_tac `[]` >> fs[])
