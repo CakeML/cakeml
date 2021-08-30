@@ -7276,12 +7276,18 @@ Theorem dep_step_sound_cyclic_step:
   !dep rest dep'dep p q y. wf_pqs (dep ++ rest)
   /\ dep_step dep rest dep'dep = INR $ cyclic_step (p,q,y)
   ==> ?res. MEM (p,q) rest /\ composable_step q dep [] = INL res
-    /\ EXISTS (UNCURRY is_instance_LR) (MAP (λx. (p,x)) res)
+    /\ EXISTS (λx. is_instance_LR p x) res
     /\ y = SND $ HD (FILTER (UNCURRY is_instance_LR) (MAP (λx. (p,x)) res))
 Proof
   ho_match_mp_tac dep_step_ind
   >> reverse $ rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,Excl"EVERY_DEF",GSYM is_instance_LR_equiv]
-  >> fs[o_DEF,Once EXISTS_NOT_EVERY]
+  >> fs[o_DEF,Once EXISTS_NOT_EVERY,ELIM_UNCURRY,EXISTS_MAP]
+QED
+
+Triviality EXISTS_LENGTH_FILTER:
+  !ls f. EXISTS f ls <=> 0 < LENGTH $ FILTER f ls
+Proof
+  Induct >> rw[]
 QED
 
 Theorem dep_step_complete_cyclic_step:
@@ -7289,16 +7295,16 @@ Theorem dep_step_complete_cyclic_step:
   /\ rest = pre ++ [(p,q)] ++ suf
   /\ (!q. MEM q pre ==>
     ?extd. composable_step (SND q) dep [] = INL extd /\
-    EVERY ($~ o UNCURRY is_instance_LR) (MAP (λx. (FST q,x)) extd))
+    ~EXISTS (λx. is_instance_LR  (FST q) x) extd)
   /\ composable_step q dep [] = INL extd
-  /\ EXISTS (UNCURRY is_instance_LR) (MAP (λx. (p,x)) extd)
-  /\ q' = SND $ HD (FILTER (UNCURRY is_instance_LR) (MAP (λx. (p,x)) extd))
+  /\ EXISTS (λx. is_instance_LR p x) extd
+  /\ q' = HD (FILTER (λx. is_instance_LR p x) extd)
   ==> dep_step dep rest dep'dep = INR $ cyclic_step (p,q,q')
 Proof
   ho_match_mp_tac dep_step_ind
   >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,GSYM is_instance_LR_equiv]
-  >> Cases_on `pre` >- gvs[dep_step_inv_def,Once EXISTS_NOT_EVERY]
-  >> gvs[pair_case_eq,o_DEF]
+  >> Cases_on `pre`
+  >> gvs[dep_step_inv_def,EVERY_MAP,o_DEF,EVERY_NOT_EXISTS,Excl"NOT_EXISTS",EXISTS_MAP,FILTER_MAP,Excl"EL",Excl"EL_restricted",GSYM EL,EL_MAP,EXISTS_LENGTH_FILTER]
 QED
 
 Theorem dep_step_sound_non_comp_step:
