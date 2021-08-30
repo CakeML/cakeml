@@ -6066,6 +6066,32 @@ Proof
   >> simp[Once equiv_ts_on_symm]
 QED
 
+Theorem unify_LR_invertible_on_is_instance_LR1:
+  !q p s_q s_p. unify_LR q p = SOME (s_q,s_p)
+  /\ invertible_on s_q (FV q)
+  /\ is_const_or_type q /\ is_const_or_type p
+  ==> is_instance_LR p q
+Proof
+  rpt strip_tac
+  >> imp_res_tac unify_LR_sound
+  >> gs[invertible_on_equiv_ts_on_FV,Once equiv_ts_on_symm]
+  >> gvs[equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
+  >> rw[LR_TYPE_SUBST_compose,is_instance_LR_simps]
+QED
+
+Theorem unify_LR_invertible_on_is_instance_LR2:
+  !q p s_q s_p. unify_LR q p = SOME (s_q,s_p)
+  /\ invertible_on s_p (FV p)
+  /\ is_const_or_type q /\ is_const_or_type p
+  ==> is_instance_LR q p
+Proof
+  rpt strip_tac
+  >> drule_then (assume_tac o GSYM) unify_LR_sound
+  >> gs[invertible_on_equiv_ts_on_FV,Once equiv_ts_on_symm]
+  >> gvs[equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
+  >> rw[LR_TYPE_SUBST_compose,is_instance_LR_simps]
+QED
+
 Theorem unify_LR_invertible_on:
   !q p s_q s_p. unify_LR q p = SOME (s_q,s_p)
   /\ invertible_on s_q (FV q)
@@ -7055,32 +7081,6 @@ Proof
   >- (FULL_CASE_TAC >> fs[])
   >> first_x_assum $ rev_drule_then drule
   >> FULL_CASE_TAC
-QED
-
-Theorem unify_LR_invertible_on_is_instance_LR1:
-  !q p s_q s_p. unify_LR q p = SOME (s_q,s_p)
-  /\ invertible_on s_q (FV q)
-  /\ is_const_or_type q /\ is_const_or_type p
-  ==> is_instance_LR p q
-Proof
-  rpt strip_tac
-  >> imp_res_tac unify_LR_sound
-  >> gs[invertible_on_equiv_ts_on_FV,Once equiv_ts_on_symm]
-  >> gvs[equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
-  >> rw[LR_TYPE_SUBST_compose,is_instance_LR_simps]
-QED
-
-Theorem unify_LR_invertible_on_is_instance_LR2:
-  !q p s_q s_p. unify_LR q p = SOME (s_q,s_p)
-  /\ invertible_on s_p (FV p)
-  /\ is_const_or_type q /\ is_const_or_type p
-  ==> is_instance_LR q p
-Proof
-  rpt strip_tac
-  >> drule_then (assume_tac o GSYM) unify_LR_sound
-  >> gs[invertible_on_equiv_ts_on_FV,Once equiv_ts_on_symm]
-  >> gvs[equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
-  >> rw[LR_TYPE_SUBST_compose,is_instance_LR_simps]
 QED
 
 Theorem composable_dep_composable_len:
