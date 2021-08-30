@@ -6569,14 +6569,12 @@ Definition composable_one_LR_def:
 End
 
 Theorem composable_one_LR_ignore:
-  !p q. is_const_or_type p
-  /\ is_const_or_type q
+  !p q. is_const_or_type p /\ is_const_or_type q
   ==> (composable_one_LR q p = ignore
     <=> orth_LR q p \/ ?s_q s_p. unify_LR q p = SOME (s_q, s_p) /\
-              equiv_ts_on s_p [] (FV p) /\ ~equiv_ts_on s_q [] (FV q))
+              invertible_on s_p (FV p) /\ ~invertible_on s_q (FV q))
 Proof
-  dsimp[is_const_or_type_eq,composable_one_LR_def,unify_LR_def,AllCaseEqs(),FV_def,tvars_def,orth_LR_def]
-  >> dsimp[composable_one_def,AllCaseEqs(),unify_complete',orth_ci_def,GSYM invertible_on_equiv_ts_on]
+  dsimp[is_const_or_type_eq,composable_one_LR_def,unify_LR_def,AllCaseEqs(),FV_def,tvars_def,orth_LR_def,unify_complete',orth_ci_def,composable_one_def]
   >> metis_tac[]
 QED
 
@@ -6696,7 +6694,7 @@ Proof
   >> Cases_on `composable_one_LR q h0` >> fs[]
   >~ [`_ = ignore`] >- (
     first_x_assum irule >> goal_assum $ drule_at Any
-    >> gs[composable_step_inv_def,wf_pqs_def,unify_LR_complete'',invertible_on_equiv_ts_on_FV,composable_one_LR_ignore,unify_LR_complete'']
+    >> gs[composable_step_inv_def,wf_pqs_def,unify_LR_complete'',GSYM invertible_on_equiv_ts_on_FV,composable_one_LR_ignore,unify_LR_complete'']
     >> dsimp[AC DISJ_ASSOC DISJ_COMM]
   )
   >~ [`_ = uncomposable`] >- (
