@@ -6566,12 +6566,12 @@ Definition composable_one_def:
       if sp_inv /\ ~sq_inv
       (* p is a strict instance of q, witnessed by (s_p^-1) (s_q) q = p *)
       then ignore
-      else if ~sp_inv /\ sq_inv
-      (* q is a strict instance of p, witnessed by q = (s_q^-1) (s_p) p *)
-      then continue s_p (*, inverse_on s_q (tyvars q)) *)
       else if ~sp_inv /\ ~sq_inv
       (* both are not invertible *)
       then uncomposable
+      else if ~sp_inv /\ sq_inv
+      (* q is a strict instance of p, witnessed by q = (s_q^-1) (s_p) p *)
+      then continue s_p (*, inverse_on s_q (tyvars q)) *)
       (* both are invertible, thus q = p modulo type variable renaming *)
       else continue []
 End
