@@ -2430,8 +2430,7 @@ Proof
   dsimp[EQ_IMP_THM,AND_IMP_INTRO]
   >> ONCE_REWRITE_TAC[MONO_NOT_EQ]
   >> rw[DISJ_EQ_IMP]
-  >>
-  gs[orth_LR_is_instance_LR_equiv,is_instance_LR_var_renaming1,is_instance_LR_var_renaming2]
+  >> gs[orth_LR_is_instance_LR_equiv,is_instance_LR_var_renaming1,is_instance_LR_var_renaming2]
   >> goal_assum $ drule_at (Pos last)
   >> fs[is_instance_LR_var_renaming1]
 QED
@@ -6476,70 +6475,17 @@ QED
 
 (* composability check *)
 
-Definition composable_at_def:
-  composable_at q p =
+Definition composable_def:
+  composable q p =
     !s_q s_p. unify_LR q p = SOME (s_q, s_p)
     ==> (invertible_on s_q (FV q) \/ invertible_on s_p (FV p))
 End
 
-Theorem composable_at_var_renaming1:
-  !s q p. is_const_or_type q /\ is_const_or_type p /\ var_renaming s
-  ==> composable_at (LR_TYPE_SUBST s q) p = composable_at q p
-Proof
-  rw[composable_at_def,EQ_IMP_THM,invertible_on_equiv_ts_on_FV]
-  >- (
-    drule_at_then Any (drule_at Any) unify_LR_LR_TYPE_SUBST_var_renaming1'
-    >> rw[wf_pqs_CONS]
-    >> first_x_assum $ drule_then strip_assume_tac
-    >> gs[equiv_ts_on_NIL_var_renaming1,equiv_ts_on_NIL_var_renaming2]
-    >> gs[equiv_ts_on_FV_LR_TYPE_SUBST]
-    >- (disj1_tac >> metis_tac[equiv_ts_on_symm,equiv_ts_on_trans])
-    >> disj2_tac >> metis_tac[equiv_ts_on_symm,equiv_ts_on_trans]
-  )
-  >> drule_at_then Any (drule_at Any) unify_LR_LR_TYPE_SUBST_var_renaming1
-  >> rw[wf_pqs_CONS]
-  >> first_x_assum $ drule_then strip_assume_tac
-  >> gs[equiv_ts_on_NIL_var_renaming1,equiv_ts_on_NIL_var_renaming2]
-  >> gs[equiv_ts_on_FV_LR_TYPE_SUBST]
-  >- (disj1_tac >> metis_tac[equiv_ts_on_symm,equiv_ts_on_trans])
-  >> disj2_tac >> metis_tac[equiv_ts_on_symm,equiv_ts_on_trans]
-QED
-
-Theorem composable_at_var_renaming2:
-  !s q p. is_const_or_type q /\ is_const_or_type p /\ var_renaming s
-  ==> composable_at q (LR_TYPE_SUBST s p) = composable_at q p
-Proof
-  rw[composable_at_def,EQ_IMP_THM,invertible_on_equiv_ts_on_FV]
-  >- (
-    drule_at_then Any (drule_at Any) unify_LR_LR_TYPE_SUBST_var_renaming2'
-    >> rw[wf_pqs_CONS]
-    >> first_x_assum $ drule_then strip_assume_tac
-    >> gs[equiv_ts_on_NIL_var_renaming1,equiv_ts_on_NIL_var_renaming2]
-    >> gs[equiv_ts_on_FV_LR_TYPE_SUBST]
-    >- (disj1_tac >> metis_tac[equiv_ts_on_symm,equiv_ts_on_trans])
-    >> disj2_tac >> metis_tac[equiv_ts_on_symm,equiv_ts_on_trans]
-  )
-  >> drule_at_then Any (drule_at Any) unify_LR_LR_TYPE_SUBST_var_renaming2
-  >> rw[wf_pqs_CONS]
-  >> first_x_assum $ drule_then strip_assume_tac
-  >> gs[equiv_ts_on_NIL_var_renaming1,equiv_ts_on_NIL_var_renaming2]
-  >> gs[equiv_ts_on_FV_LR_TYPE_SUBST]
-  >- (disj1_tac >> metis_tac[equiv_ts_on_symm,equiv_ts_on_trans])
-  >> disj2_tac >> metis_tac[equiv_ts_on_symm,equiv_ts_on_trans]
-QED
-
-Theorem composable_at_var_renaming12:
-  !s q p. is_const_or_type q /\ is_const_or_type p /\ var_renaming s
-  ==> composable_at (LR_TYPE_SUBST s q) (LR_TYPE_SUBST s p) = composable_at q p
-Proof
-  rw[composable_at_var_renaming1,composable_at_var_renaming2]
-QED
-
-Theorem composable_at_eq:
+Theorem composable_eq:
   !p q. wf_pqs [(p,q)]
-  ==> composable_at p q = (is_instance_LR p q \/ is_instance_LR q p \/ orth_LR p q)
+  ==> composable p q = (is_instance_LR p q \/ is_instance_LR q p \/ orth_LR p q)
 Proof
-  fs[EQ_IMP_THM,composable_at_def,wf_pqs_CONS,unify_LR_complete'']
+  fs[EQ_IMP_THM,composable_def,wf_pqs_CONS,unify_LR_complete'']
   >> rpt strip_tac >> gvs[]
   >- (
     Cases_on `unify_LR p q` >> gs[]
@@ -6568,19 +6514,39 @@ Proof
   )
 QED
 
+Theorem composable_var_renaming1:
+  !s q p. is_const_or_type q /\ is_const_or_type p /\ var_renaming s
+  ==> composable (LR_TYPE_SUBST s q) p = composable q p
+Proof
+  fs[composable_eq,wf_pqs_CONS,is_instance_LR_var_renaming1,is_instance_LR_var_renaming2,orth_LR_var_renaming1,orth_LR_var_renaming2]
+QED
+
+Theorem composable_var_renaming2:
+  !s q p. is_const_or_type q /\ is_const_or_type p /\ var_renaming s
+  ==> composable q (LR_TYPE_SUBST s p) = composable q p
+Proof
+  fs[composable_eq,wf_pqs_CONS,is_instance_LR_var_renaming1,is_instance_LR_var_renaming2,orth_LR_var_renaming1,orth_LR_var_renaming2]
+QED
+
+Theorem composable_var_renaming12:
+  !s q p. is_const_or_type q /\ is_const_or_type p /\ var_renaming s
+  ==> composable (LR_TYPE_SUBST s q) (LR_TYPE_SUBST s p) = composable q p
+Proof
+  rw[composable_var_renaming1,composable_var_renaming2]
+QED
+
 Theorem composable_dep_eq:
   !dep. wf_dep dep ==> composable_dep dep =
   !pqs rs p q. dep p q /\ path_starting_at dep 0 rs pqs
-  ==> composable_at (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs))) p
+  ==> composable (LR_TYPE_SUBST (LAST rs) (SND (LAST pqs))) p
 Proof
   gen_tac >> dsimp[composable_dep_def,EQ_IMP_THM] >> rpt strip_tac
   >> first_x_assum $ drule_all
-  >> dep_rewrite.DEP_REWRITE_TAC[composable_at_eq]
   >> drule_then assume_tac $ cj 1 $ iffLR path_starting_at_def
   >> qhdtm_x_assum `wf_dep` $ imp_res_tac o REWRITE_RULE[wf_dep_def]
   >> imp_res_tac $ cj 1 path_starting_at_LAST
   >> imp_res_tac $ cj 1 path_starting_at_LENGTH
-  >> gs[AC DISJ_ASSOC DISJ_COMM,wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,FORALL_AND_THM,IMP_CONJ_THM,EL_MEM]
+  >> gs[composable_eq,AC DISJ_ASSOC DISJ_COMM,wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,FORALL_AND_THM,IMP_CONJ_THM,EL_MEM]
 QED
 
 Datatype:
@@ -6627,6 +6593,45 @@ Proof
   >> metis_tac[]
 QED
 
+Theorem composable_one_LR_ignore':
+  !p q. wf_pqs [(p,q)]
+  ==> (composable_one_LR q p = ignore
+    <=> (composable q p /\ ~(is_instance_LR p q)))
+Proof
+  fs[composable_eq,composable_one_LR_ignore,EQ_IMP_THM,wf_pqs_CONS]
+  >> rpt strip_tac >> fs[unify_LR_invertible_on_is_instance_LR2]
+  >- gvs[is_instance_LR_eq]
+  >- (
+    imp_res_tac unify_LR_sound
+    >> gs[unify_LR_complete'',is_instance_LR_eq]
+    >> spose_not_then strip_assume_tac
+    >> qpat_x_assum `~_` mp_tac
+    >> simp[invertible_on_FV]
+    >> gvs[invertible_on_equiv_ts_on_FV,equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
+    >> qmatch_assum_rename_tac `var_renaming e`
+    >> qmatch_goalsub_abbrev_tac `_ = LR_TYPE_SUBST s _`
+    >> qexists_tac `MAP (TYPE_SUBST s ## I) (MAP SWAP e) ++ s`
+    >> fs[GSYM LR_TYPE_SUBST_compose,var_renaming_SWAP_LR_id,var_renaming_SWAP_IMP]
+  )
+  >> rw[DISJ_EQ_IMP,GSYM unify_LR_complete,IS_SOME_EXISTS]
+  >> qmatch_assum_rename_tac `unify_LR _ _ = SOME x`
+  >> PairCases_on `x`
+  >> imp_res_tac unify_LR_sound
+  >> dxrule_then strip_assume_tac $ cj 1 $ REWRITE_RULE[EQ_IMP_THM] is_instance_LR_eq
+  >> gvs[]
+  >> drule_all_then strip_assume_tac unify_LR_LR_TYPE_SUBST'
+  >> fs[invertible_on_equiv_ts_on_FV,equiv_ts_on_symm]
+  >> qmatch_assum_rename_tac `equiv_ts_on s x0 (FV q)`
+  >> spose_not_then assume_tac
+  >> `equiv_ts_on s [] (FV q)` by (
+    irule equiv_ts_on_trans
+    >> goal_assum $ drule_at Any
+    >> fs[equiv_ts_on_symm]
+  )
+  >> drule_then (dxrule_at_then Any strip_assume_tac) $ cj 1 $ REWRITE_RULE[EQ_IMP_THM] equiv_ts_on_FV
+  >> gvs[LR_TYPE_SUBST_NIL,is_instance_LR_refl,is_instance_LR_var_renaming1]
+QED
+
 Theorem composable_one_LR_continue:
   !p q s. wf_pqs [(p,q)]
   ==> (composable_one_LR q p = continue s
@@ -6641,9 +6646,9 @@ QED
 
 Theorem composable_one_LR_uncomposable:
   !p q. wf_pqs [(p,q)]
-  ==> (composable_one_LR q p = uncomposable <=> ~composable_at q p)
+  ==> (composable_one_LR q p = uncomposable <=> ~composable q p)
 Proof
-  dsimp[is_const_or_type_eq,composable_one_LR_def,AllCaseEqs(),composable_at_def,unify_LR_def,composable_one_def,FV_def,tvars_def,wf_pqs_CONS]
+  dsimp[is_const_or_type_eq,composable_one_LR_def,AllCaseEqs(),composable_def,unify_LR_def,composable_one_def,FV_def,tvars_def,wf_pqs_CONS]
   >> metis_tac[]
 QED
 
@@ -6672,15 +6677,15 @@ Definition composable_step_inv_def:
         /\ (~invertible_on s_p (FV $ FST p) ==> x = LR_TYPE_SUBST s_p $ SND p)
         /\ (invertible_on s_p (FV $ FST p) ==> x = SND p)
       )
-    /\ EVERY (λp. composable_at q (FST p)) done
+    /\ EVERY (λp. composable q (FST p)) done
   )
 End
 
 Definition composable_step_inv_INR_def:
   composable_step_inv_INR q p dep =
     ?pre suff. dep = pre ++ [p] ++ suff
-    /\ ~(composable_at q $ FST p)
-    /\ EVERY (λp. composable_at q $ FST p) pre
+    /\ ~(composable q $ FST p)
+    /\ EVERY (λp. composable q $ FST p) pre
 End
 
 Theorem composable_step_init:
@@ -6700,7 +6705,7 @@ Proof
   >> PairCases >> rw[composable_step_def,AllCaseEqs()]
   >> first_x_assum $ dxrule_at_then Any irule
   >> gs[composable_step_inv_def,wf_pqs_CONS,wf_pqs_APPEND,composable_one_LR_ignore,unify_LR_complete'',composable_one_LR_continue,invertible_on_equiv_ts_on_FV,wf_pqs_CONS]
-  >> dsimp[composable_at_def,invertible_on_equiv_ts_on_FV,AC DISJ_ASSOC DISJ_COMM,LR_TYPE_SUBST_NIL]
+  >> dsimp[composable_def,invertible_on_equiv_ts_on_FV,AC DISJ_ASSOC DISJ_COMM,LR_TYPE_SUBST_NIL]
 QED
 
 Theorem composable_step_imp_INL':
@@ -6733,7 +6738,7 @@ QED
 
 Theorem composable_step_complete_INL':
   !dep' dep q step. composable_step_inv q dep dep' step
-  /\ EVERY (λp. composable_at q (FST p)) dep
+  /\ EVERY (λp. composable q (FST p)) dep
   ==> ?res. composable_step q dep' step = INL res
 Proof
   Induct >- fs[composable_step_def] >> PairCases
@@ -6758,7 +6763,7 @@ QED
 
 Theorem composable_step_complete_INL:
   !dep q. is_const_or_type q ∧ wf_pqs dep
-    /\ EVERY (λp. composable_at q (FST p)) dep
+    /\ EVERY (λp. composable q (FST p)) dep
   ==> ?res. composable_step q dep [] = INL res
 Proof
   rpt strip_tac >> irule composable_step_complete_INL'
@@ -6778,7 +6783,7 @@ Proof
   >~ [`[(h0,h1)]`] >- (qexists_tac `[]` >> fs[])
   >> Q.REFINE_EXISTS_TAC `_::_` >> fs[]
   >> irule_at Any EQ_REFL >> fs[]
-  >> gs[composable_at_def,GSYM invertible_on_equiv_ts_on_FV]
+  >> gs[composable_def,GSYM invertible_on_equiv_ts_on_FV]
 QED
 
 Triviality composable_step_INR_eq:
@@ -6828,7 +6833,7 @@ QED
 Theorem composable_step_eq_INL:
   !dep q. is_const_or_type q ∧ wf_pqs dep
   ==>
-    EVERY (λp. composable_at q (FST p)) dep
+    EVERY (λp. composable q (FST p)) dep
   = ?res. composable_step q dep [] = INL res
     /\ !x. MEM x res <=>
          ?p s_q s_p.
@@ -7042,25 +7047,25 @@ QED
 Definition composable_len_def:
   composable_len dep n =
     !x y p. has_path_to dep n x y
-      /\ UNCURRY dep p ==> composable_at y (FST p)
+      /\ UNCURRY dep p ==> composable y (FST p)
 End
 
 Theorem composable_len_simps[simp]:
   composable_len dep 0
 Proof
-  fs[composable_len_def,composable_at_def]
+  fs[composable_len_def,composable_def]
 QED
 
 Theorem composable_len_ONE:
   !dep. wf_pqs dep /\ monotone (CURRY $ set dep)
   ==> composable_len (CURRY $ set dep) 1 =
     !q p s_q s_p. MEM q dep /\ MEM p dep
-      ==> composable_at (SND q) (FST p)
+      ==> composable (SND q) (FST p)
 Proof
   dsimp[has_path_to_ONE,composable_len_def,PULL_EXISTS,IN_DEF,AND_IMP_INTRO,FORALL_PROD,wf_pqs_def,EVERY_MEM,ELIM_UNCURRY]
   >> rw[EQ_IMP_THM]
   >- metis_tac[equiv_refl]
-  >> metis_tac[equiv_def,composable_at_var_renaming1]
+  >> metis_tac[equiv_def,composable_var_renaming1]
 QED
 
 Theorem composable_len_ONE_compute:
@@ -7076,7 +7081,7 @@ Theorem composable_len_ONE_compute:
     ) dep
   ) dep
 Proof
-  dsimp[composable_len_ONE,EVERY_MEM,EQ_IMP_THM,composable_at_def,IN_DEF]
+  dsimp[composable_len_ONE,EVERY_MEM,EQ_IMP_THM,composable_def,IN_DEF]
   >> rpt strip_tac >> TRY FULL_CASE_TAC >> gvs[AND_IMP_INTRO]
   >- (FULL_CASE_TAC >> fs[])
   >> first_x_assum $ rev_drule_then drule
@@ -7088,7 +7093,7 @@ Theorem composable_dep_composable_len:
 Proof
   rw[EQ_IMP_THM,composable_dep_def,composable_len_def,has_path_to_def,ELIM_UNCURRY,PULL_EXISTS]
   >- (
-    rw[composable_at_def] >> gvs[equiv_def]
+    rw[composable_def] >> gvs[equiv_def]
     >> first_x_assum drule_all
     >> drule_at Any $ Ho_Rewrite.REWRITE_RULE[IS_SOME_EXISTS,PULL_EXISTS,AND_IMP_INTRO,GSYM CONJ_ASSOC] $ iffLR unify_LR_complete
     >> dep_rewrite.DEP_ONCE_REWRITE_TAC[LR_TYPE_SUBST_type_preserving]
@@ -7137,7 +7142,7 @@ Proof
   >> Cases_on `rs_pqs # p` >> fs[]
   >> drule_at Any $ iffRL unify_LR_complete
   >> unabbrev_all_tac
-  >> fs[IS_SOME_EXISTS,EL_MEM,composable_at_def]
+  >> fs[IS_SOME_EXISTS,EL_MEM,composable_def]
   >> disch_then $ qx_choose_then `x` strip_assume_tac >> PairCases_on `x`
   >> rw[]
   >> gs[unify_LR_invertible_on_is_instance_LR1,unify_LR_invertible_on_is_instance_LR2,EL_MEM]
@@ -7594,7 +7599,7 @@ Proof
   >> qpat_assum `wf_pqs dep` $ imp_res_tac o SIMP_RULE(srw_ss())[wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,IN_DEF]
   >> fs[EVERY_MEM,IN_DEF]
   >> disch_then imp_res_tac
-  >> gs[composable_at_var_renaming1]
+  >> gs[composable_var_renaming1]
 QED
 
 Theorem NRC_dep_step_acyclic_len:
