@@ -7345,6 +7345,25 @@ Proof
   >> gvs[dep_step_inv_def,EVERY_MAP,o_DEF,EVERY_NOT_EXISTS,Excl"NOT_EXISTS",EXISTS_MAP,FILTER_MAP,Excl"EL",Excl"EL_restricted",GSYM EL,EL_MAP,EXISTS_LENGTH_FILTER]
 QED
 
+Theorem dep_step_eq_cyclic_step:
+  !dep rest p q q' dep'dep. wf_pqs (dep ++ rest) ==>
+  (dep_step dep rest dep'dep = INR $ cyclic_step (p,q,q'))
+  = ?pre suf extd. rest = pre ++ [(p,q)] ++ suf
+    /\ (!q. MEM q pre ==>
+      ?extd. composable_step (SND q) dep [] = INL extd /\
+      ~EXISTS (λx. is_instance_LR  (FST q) x) extd)
+    /\ composable_step q dep [] = INL extd
+    /\ EXISTS (λx. is_instance_LR p x) extd
+    /\ q' = HD (FILTER (λx. is_instance_LR p x) extd)
+Proof
+  rw[EQ_IMP_THM]
+  >- (drule_all dep_step_sound_cyclic_step >> fs[o_DEF])
+  >> irule dep_step_complete_cyclic_step
+  >> fs[ELIM_UNCURRY,EVERY_MAP,o_DEF,wf_pqs_APPEND]
+  >> irule_at Any EQ_REFL
+  >> fs[]
+QED
+
 Theorem dep_step_sound_non_comp_step:
   !dep rest dep'dep p q q'. wf_pqs (dep ++ rest)
   /\ dep_step dep rest dep'dep = INR $ non_comp_step (p,q,q')
@@ -7378,6 +7397,24 @@ Proof
   >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,GSYM is_instance_LR_equiv]
   >> Cases_on `pre`
   >> gvs[Once pair_case_eq,o_DEF]
+QED
+
+Theorem dep_step_eq_non_comp_step:
+  !dep rest p q q' dep'dep. wf_pqs (dep ++ rest) ==>
+  (dep_step dep rest dep'dep = INR $ non_comp_step (p,q,q'))
+  =
+  (?pre suf. rest = pre ++ [(p,q)] ++ suf
+  /\ (!pq. MEM pq pre ==>
+    ?extd. composable_step (SND pq) dep [] = INL extd /\
+    ~(EXISTS (λx. is_instance_LR (FST pq) x) extd))
+  /\ composable_step q dep [] = INR q')
+Proof
+  rw[EQ_IMP_THM]
+  >- (drule_all dep_step_sound_non_comp_step >> fs[o_DEF])
+  >> irule dep_step_complete_non_comp_step
+  >> fs[ELIM_UNCURRY,EVERY_MAP,o_DEF,wf_pqs_APPEND]
+  >> irule_at Any EQ_REFL
+  >> fs[]
 QED
 
 Theorem dep_step_INL_props:
