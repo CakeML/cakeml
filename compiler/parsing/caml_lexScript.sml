@@ -16,39 +16,30 @@ val _ = new_theory "caml_lex";
  * ------------------------------------------------------------------------- *)
 
 Datatype:
-  reserved_word
-    = AndR | AsR | AssertR | AsrR | BeginR | ClassR | ConstraintR | DoR | DoneR
-    | DowntoR | ElseR | EndR | ExceptionR | ExternalR | FalseR | ForR | FunR
-    | FunctionR | FunctorR | IfR | InR | IncludeR | InheritR | InitializerR
-    | LandR | LazyR | LetR | LorR | LslR | LsrR | LxorR | MatchR | MethodR
-    | ModR | ModuleR | MutableR | NewR | NonrecR | ObjectR | OfR | OpenR
-    | OrR | PrivateR | RecR | SigR | StructR | ThenR | ToR | TrueR | TryR
-    | TypeR | ValR | VirtualR | WhenR | WhileR | WithR
-End
-
-Datatype:
-  reserved_symb
-    = NeqRS | HashRS | AndbRS | AndRS | TickRS | LparRS | RparRS | MulRS
-    | PlusRS | CommaRS | DashRS | DashdRS | RarrowRS | DotRS | DotsRS | DottRS
-    | ColonRS | ColonsRS | RassignRS | SigsubRS | SemiRS | SemisRS | LessRS
-    | LarrowRS | EqualRS | GreaterRS | QuestionRS | LbrackRS | RbrackRS | AnyRS
-    | QtickRS | LbraceRS | RbraceRS | OrbRS | OrlRS | TildeRS
-    (* missing: >], >}, [<, [>, [|, |], *)
-End
-
-Datatype:
   token
-    = ReswT reserved_word       (* reserved word     *)
-    | RessymT reserved_symb     (* reserved symbol   *)
-    | PSymT string              (* prefix symbol     *)
-    | ISymT string              (* infix symbol      *)
-    | Hol_infixT string         (* THEN, THENC, etc. *)
-    | IntT int                  (* integer literal   *)
-    | CharT char                (* character literal *)
-    | StrT string               (* string literal    *)
-    | UIdentT string            (* [U]ppercase ident *)
-    | LIdentT string            (* [l]owercase ident *)
-    | UnknownT string           (* Bad token         *)
+    (* keywords: *)
+    = AndT | AsT | AssertT | AsrT | BeginT | ClassT | ConstraintT | DoT | DoneT
+    | DowntoT | ElseT | EndT | ExceptionT | ExternalT | FalseT | ForT | FunT
+    | FunctionT | FunctorT | IfT | InT | IncludeT | InheritT | InitializerT
+    | LandT | LazyT | LetT | LorT | LslT | LsrT | LxorT | MatchT | MethodT
+    | ModT | ModuleT | MutableT | NewT | NonrecT | ObjectT | OfT | OpenT | OrT
+    | PrivateT | RecT | SigT | StructT | ThenT | ToT | TrueT | TryT | TypeT
+    | ValT | VirtualT | WhenT | WhileT | WithT
+    (* symbol keywords: *)
+    | EqualT | TickT | LparT | RparT | HashT | StarT | PlusT | CommaT | MinusT
+    | LessT | GreaterT | LbrackT | RbrackT | LbraceT | RbraceT | QuestionT
+    | SemiT | SemisT | BarT | OrelseT | AmpT | AndalsoT | NeqT | MinusFT
+    | RarrowT | LarrowT | DotT | DotsT | EscapeT | ColonT | ColonsT | UpdateT
+    | SealT | AnyT | BtickT | TildeT | LqbraceT | RqbraceT | LqbrackT | RqbrackT
+    | RrbrackT | LlbrackT | RlbrackT
+    (* literals and identifiers: *)
+    | IntT int
+    | CharT char
+    | StringT string
+    | UIdentT string    (* leading uppercase *)
+    | LIdentT string    (* leading lowercase or underscore *)
+    | SymbolT string    (* symbols *)
+    | LexErrorT
 End
 
 (* -------------------------------------------------------------------------
@@ -358,6 +349,136 @@ EVAL “next_sym "= bar" loc”
 
 EVAL “next_sym "(= bar)" loc”
 EVAL “next_sym "=<! bar" loc”
+ *)
+
+Definition get_token_def:
+  get_token s =
+    if s = "=" then EqualT else
+    if s = "'" then TickT else
+    if s = "(" then LparT else
+    if s = ")" then RparT else
+    if s = "#" then HashT else
+    if s = "*" then StarT else
+    if s = "+" then PlusT else
+    if s = "," then CommaT else
+    if s = "-" then MinusT else
+    if s = "<" then LessT else
+    if s = ">" then GreaterT else
+    if s = "[" then LbrackT else
+    if s = "]" then RbrackT else
+    if s = "{" then LbraceT else
+    if s = "}" then RbraceT else
+    if s = "?" then QuestionT else
+    if s = ";" then SemiT else
+    if s = ";;" then SemisT else
+    if s = "|" then BarT else
+    if s = "||" then OrelseT else
+    if s = "&" then AmpT else
+    if s = "&&" then AndalsoT else
+    if s = "!=" then NeqT else
+    if s = "-." then MinusFT else
+    if s = "->" then RarrowT else
+    if s = "<-" then LarrowT else
+    if s = "." then DotT else
+    if s = ".." then DotsT else
+    if s = ".~" then EscapeT else
+    if s = ":" then ColonT else
+    if s = "::" then ColonsT else
+    if s = ":=" then UpdateT else
+    if s = ":>" then SealT else
+    if s = "_" then AnyT else
+    if s = "`" then BtickT else
+    if s = "~" then TildeT else
+    if s = "{<" then LqbraceT else
+    if s = ">}" then RqbraceT else
+    if s = "[<" then LqbrackT else
+    if s = ">]" then RqbrackT else
+    if s = "[>" then RrbrackT else
+    if s = "[|" then LlbrackT else
+    if s = "|]" then RlbrackT else
+    if s = "and" then AndT else
+    if s = "as" then AsT else
+    if s = "assert" then AssertT else
+    if s = "asr" then AsrT else
+    if s = "begin" then BeginT else
+    if s = "class" then ClassT else
+    if s = "constraint" then ConstraintT else
+    if s = "do" then DoT else
+    if s = "done" then DoneT else
+    if s = "downto" then DowntoT else
+    if s = "else" then ElseT else
+    if s = "exception" then ExceptionT else
+    if s = "external" then ExternalT else
+    if s = "false" then FalseT else
+    if s = "for" then ForT else
+    if s = "fun" then FunT else
+    if s = "function" then FunctionT else
+    if s = "functor" then FunctorT else
+    if s = "if" then IfT else
+    if s = "in" then InT else
+    if s = "include" then IncludeT else
+    if s = "inherit" then InheritT else
+    if s = "initializer" then InitializerT else
+    if s = "land" then LandT else
+    if s = "lazy" then LazyT else
+    if s = "let" then LetT else
+    if s = "lor" then LorT else
+    if s = "lsl" then LslT else
+    if s = "lsr" then LsrT else
+    if s = "lxor" then LxorT else
+    if s = "match" then MatchT else
+    if s = "method" then MethodT else
+    if s = "mod" then ModT else
+    if s = "module" then ModuleT else
+    if s = "mutable" then MutableT else
+    if s = "new" then NewT else
+    if s = "nonrec" then NonrecT else
+    if s = "object" then ObjectT else
+    if s = "of" then OfT else
+    if s = "open" then OpenT else
+    if s = "or" then OrT else
+    if s = "private" then PrivateT else
+    if s = "rec" then RecT else
+    if s = "sig" then SigT else
+    if s = "struct" then StructT else
+    if s = "then" then ThenT else
+    if s = "to" then ToT else
+    if s = "true" then TrueT else
+    if s = "try" then TryT else
+    if s = "type" then TypeT else
+    if s = "val" then ValT else
+    if s = "virtual" then VirtualT else
+    if s = "when" then WhenT else
+    if s = "while" then WhileT else
+    if s = "with" then WithT else
+    (* identifiers or symbols *)
+    if s = "" then LexErrorT else
+      let c = HD s in
+        if isUpper c then UIdentT s else
+        if isLower c ∨ c = #"_" then LIdentT s else
+          SymbolT s
+End
+
+Definition sym2token_def:
+  sym2token s =
+    case s of
+      NumberS i => IntT i
+    | StringS s => StringT s
+    | CharS c => CharT c
+    | ErrorS => LexErrorT
+    | OtherS s => get_token s
+End
+
+Definition next_token_def:
+  next_token inp loc =
+    case next_sym inp loc of
+      NONE => NONE
+    | SOME (sym, locs, rest) => SOME (sym2token sym, locs, rest)
+End
+
+(*
+EVAL “next_token "let foo = 3;; (* bar *)" loc”
+EVAL “next_token "-33 + 44" loc”
  *)
 
 val _ = export_theory ();
