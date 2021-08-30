@@ -2446,6 +2446,29 @@ Proof
   >> fs[orth_LR_symm]
 QED
 
+Theorem orth_LR_simps1[simp]:
+  is_const_or_type p ==> ~(orth_LR p p)
+Proof
+  rw[is_const_or_type_eq]
+  >> fs[orth_LR_def,orth_ci_def]
+QED
+
+Theorem orth_LR_simps2[simp]:
+  is_const_or_type p ==> ~(orth_LR (LR_TYPE_SUBST s p) p)
+Proof
+  rw[is_const_or_type_eq]
+  >> fs[orth_LR_def,orth_ci_def,LR_TYPE_SUBST_cases]
+QED
+
+Theorem orth_LR_simps3[simp]:
+  is_const_or_type p ==> ~(orth_LR p (LR_TYPE_SUBST s p))
+Proof
+  rpt strip_tac
+  >> drule $ cj 1 $ REWRITE_RULE[EQ_IMP_THM] orth_LR_symm
+  >> disch_then $ drule_at Any
+  >> fs[orth_LR_simps2]
+QED
+
 (* Definition 5.6, Kunčar 2015 *)
 Definition cyclic_dep_def:
   cyclic_dep dep =
