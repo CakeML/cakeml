@@ -7299,22 +7299,33 @@ Proof
   >> goal_assum $ drule_at Any >> fs[]
 QED
 
-Theorem dep_step_sound_cyclic_step:
-  !dep rest dep'dep p q y. wf_pqs (dep ++ rest)
-  /\ dep_step dep rest dep'dep = INR $ cyclic_step (p,q,y)
-  ==> ?res. MEM (p,q) rest /\ composable_step q dep [] = INL res
-    /\ EXISTS (λx. is_instance_LR p x) res
-    /\ y = SND $ HD (FILTER (UNCURRY is_instance_LR) (MAP (λx. (p,x)) res))
-Proof
-  ho_match_mp_tac dep_step_ind
-  >> reverse $ rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,Excl"EVERY_DEF",GSYM is_instance_LR_equiv]
-  >> fs[o_DEF,Once EXISTS_NOT_EVERY,ELIM_UNCURRY,EXISTS_MAP]
-QED
-
 Triviality EXISTS_LENGTH_FILTER:
   !ls f. EXISTS f ls <=> 0 < LENGTH $ FILTER f ls
 Proof
   Induct >> rw[]
+QED
+
+Theorem dep_step_sound_cyclic_step:
+  !dep rest dep'dep p q y. wf_pqs (dep ++ rest)
+  /\ dep_step dep rest dep'dep = INR $ cyclic_step (p,q,y)
+  ==> ?pre suf extd. rest = pre ++ [(p,q)] ++ suf
+    /\ (!q. MEM q pre ==>
+      ?extd. composable_step (SND q) dep [] = INL extd /\
+      ~EXISTS (λx. is_instance_LR  (FST q) x) extd)
+    /\ composable_step q dep [] = INL extd
+    /\ EXISTS (λx. is_instance_LR p x) extd
+    /\ y = HD (FILTER (λx. is_instance_LR p x) extd)
+Proof
+  ho_match_mp_tac dep_step_ind
+  >> fs[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,Excl"EVERY_DEF"]
+  >> ntac 2 (rpt gen_tac >> strip_tac)
+  >> gvs[dep_step_inv_def,GSYM is_instance_LR_equiv]
+  >- (
+    Q.REFINE_EXISTS_TAC `_::_` >> fs[ELIM_UNCURRY,EVERY_MAP,o_DEF]
+    >> irule_at Any EQ_REFL >> fs[]
+  )
+  >> qexists_tac `[]`
+  >> gs[EVERY_MAP,o_DEF,EVERY_NOT_EXISTS,Excl"NOT_EXISTS",EXISTS_MAP,FILTER_MAP,Excl"EL",Excl"EL_restricted",GSYM EL,EL_MAP,EXISTS_LENGTH_FILTER]
 QED
 
 Theorem dep_step_complete_cyclic_step:
@@ -7337,12 +7348,21 @@ QED
 Theorem dep_step_sound_non_comp_step:
   !dep rest dep'dep p q q'. wf_pqs (dep ++ rest)
   /\ dep_step dep rest dep'dep = INR $ non_comp_step (p,q,q')
-  ==> ?res. MEM (p,q) rest /\ composable_step q dep [] = INR q'
+  ==> (?pre suf. rest = pre ++ [(p,q)] ++ suf
+  /\ (!pq. MEM pq pre ==>
+    ?extd. composable_step (SND pq) dep [] = INL extd /\
+    ~(EXISTS (λx. is_instance_LR (FST pq) x) extd))
+  /\ composable_step q dep [] = INR q')
 Proof
   ho_match_mp_tac dep_step_ind
   >> fs[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,Excl"EVERY_DEF"]
   >> ntac 2 (rpt gen_tac >> strip_tac)
-  >> fs[dep_step_inv_def]
+  >> gvs[dep_step_inv_def,GSYM is_instance_LR_equiv]
+  >- (
+    Q.REFINE_EXISTS_TAC `_::_` >> fs[ELIM_UNCURRY,EVERY_MAP,o_DEF]
+    >> irule_at Any EQ_REFL >> fs[]
+  )
+  >> qexists_tac `[]` >> fs[]
 QED
 
 Theorem dep_step_complete_non_comp_step:
