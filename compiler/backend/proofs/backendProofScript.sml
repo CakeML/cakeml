@@ -118,6 +118,7 @@ val mc_init_ok_def = Define`
   find_name c.stack_conf.reg_names 1 = mc.ptr_reg ∧
   find_name c.stack_conf.reg_names 0 =
     (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ∧
+  c.data_conf.be = mc.target.config.big_endian ∧
   (* the next four are implied by injectivity of find_name *)
   (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ≠ mc.len_reg ∧
   (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ≠ mc.ptr_reg ∧
@@ -3326,6 +3327,17 @@ Proof
     conj_tac >- (
       AP_TERM_TAC>>
       simp[data_to_wordTheory.compile_part_def,FST_triple,MAP_MAP_o,o_DEF,LAMBDA_PROD])>>
+    conj_tac >- (
+      simp [stack_to_labProofTheory.full_make_init_def,
+            stack_allocProofTheory.make_init_def,
+            stack_removeProofTheory.make_init_any_def,
+            stack_removeProofTheory.make_init_opt_def,AllCaseEqs()]
+      \\ TOP_CASE_TAC \\ fs []
+      \\ fs [stack_removeProofTheory.make_init_opt_def,CaseEq"option",pair_case_eq] \\ rveq
+      \\ fs [stack_namesProofTheory.make_init_def,stack_to_labProofTheory.make_init_def,
+             lab_to_targetProofTheory.make_init_def,mc_init_ok_def,
+             stack_removeProofTheory.init_reduce_def]
+      \\ imp_res_tac stackPropsTheory.evaluate_consts \\ fs [])>>
     conj_tac >- (
       simp [stack_to_labProofTheory.full_make_init_def,
             stack_allocProofTheory.make_init_def,

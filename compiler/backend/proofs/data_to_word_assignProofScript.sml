@@ -13174,7 +13174,7 @@ Proof
                    \\ qmatch_assum_rename_tac`t.memory _ = Word v`
                    \\ `∃v. wb1 (byte_align (aa2 + n2w i)) = Word v`
                       by (`isWord (wb1 (byte_align (aa2 + n2w i)))`
-                          suffices_by (metis_tac[isWord_def,wordSemTheory.word_loc_nchotomy])
+                          suffices_by (metis_tac[isWord_def,wordLangTheory.word_loc_nchotomy])
                           \\ simp[Abbr`wb1`]
                           \\ match_mp_tac write_bytearray_isWord
                           \\ simp[isWord_def])
@@ -13431,6 +13431,33 @@ Proof
   cheat
 QED
 
+Theorem do_build_const_IMP_SOME:
+  do_build_const parts x (SOME ts) = (v,vs,ts1) ⇒
+  ∃ts2. ts1 = SOME ts2
+Proof
+  fs [do_build_const_def]
+  \\ qmatch_goalsub_rename_tac ‘do_build m k _ _ _ = (x1,x2,x3)’
+  \\ EVERY (map qid_spec_tac [‘x3’,‘x2’,‘x1’,‘ts’,‘x’,‘parts’,‘k’,‘m’])
+  \\ Induct_on ‘parts’ \\ fs [do_build_def]
+  \\ rw [] \\ pairarg_tac \\ fs []
+  \\ qsuff_tac ‘∃ttt. ts1 = SOME ttt’
+  THEN1 (rw [] \\ gvs [] \\ res_tac \\ fs [])
+  \\ Cases_on ‘h’ \\ gvs [do_part_def,AllCaseEqs()]
+QED
+
+Theorem word_exp_if:
+  wordSem$word_exp
+    (t with
+     <| locals := insert 1 w (insert 3 (Word v) tl);
+        store := ts;
+        memory := m6|>)
+    (if y0 then Op Add [Const h; Var 3] else Const h) =
+  SOME (Word (if y0 then h + v else h))
+Proof
+  rw [wordSemTheory.word_exp_def,lookup_insert,wordSemTheory.the_words_def,
+      wordLangTheory.word_op_def]
+QED
+
 Theorem assign_Build:
    (∃parts. op = Build parts) ==> ^assign_thm_goal
 Proof
@@ -13451,13 +13478,68 @@ Proof
     rfs[dimword_def,with_fresh_ts_def,consume_space_def,
         IS_SOME_EXISTS] \\ cheat)
   \\ gvs [assign_B]
-  \\ IF_CASES_TAC \\ fs []
-  \\ TOP_CASE_TAC \\ fs []
-  \\ PairCases_on ‘x'’ \\ fs []
+  \\ IF_CASES_TAC THEN1 fs []
+  \\ fs [] \\ Cases_on ‘const_parts_to_words c parts’ THEN1 fs []
+  \\ rename [‘_ = SOME y’]
+  \\ PairCases_on ‘y’ \\ fs []
+  \\ qpat_x_assum ‘_ ≠ _’ kall_tac
+  \\ qexists_tac ‘NONE’ \\ fs []
+  \\ ‘∃free curr.
+        FLOOKUP t.store NextFree = SOME (Word free) ∧
+        FLOOKUP t.store CurrHeap = SOME (Word curr) ∧
+        good_dimindex (:'a) ∧ shift_length c < dimindex (:α)’ by
+          fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def]
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,wordSemTheory.set_var_def]
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,wordSemTheory.set_var_def,
+         wordSemTheory.the_words_def,wordLangTheory.word_op_def,wordLangTheory.word_sh_def]
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,wordSemTheory.set_var_def,
+         wordSemTheory.the_words_def,lookup_insert,wordSemTheory.unset_var_def,
+         wordSemTheory.get_var_def]
+  \\ qpat_x_assum ‘state_rel c l1 l2 x t [] locs’ mp_tac
+  \\ simp [Once state_rel_thm] \\ strip_tac
+  \\ Cases_on ‘x.tstamps’ \\ gvs []
+  \\ rename [‘x.tstamps = SOME ts’]
+  \\ fs [do_app]
+  \\ qabbrev_tac ‘x3 = if SUM (MAP part_space_req parts) = 0 then SOME x
+                       else consume_space (SUM (MAP part_space_req parts)) x’
+  \\ ‘x3 = consume_space (SUM (MAP part_space_req parts)) x’ by
+   (unabbrev_all_tac \\ rw []
+    \\ fs [consume_space_def,dataSemTheory.state_component_equality])
+  \\ fs []
   \\ pop_assum kall_tac
-  \\ gvs [do_app_def,AllCaseEqs(),do_app_aux_def,do_stack_def,
-          data_spaceTheory.op_space_req_def,do_space_def,dataLangTheory.op_space_reset_def]
-  \\ cheat
+  \\ pop_assum kall_tac
+  \\ gvs [AllCaseEqs(),consume_space_def]
+  \\ imp_res_tac do_build_const_IMP_SOME \\ gvs []
+  \\ imp_res_tac const_parts_to_words_LENGTH
+  \\ drule_at_then (Pos (el 2)) (drule_at (Pos (el 2))) memory_rel_do_build_const
+  \\ fs [] \\ strip_tac
+  \\ qpat_abbrev_tac ‘m6 = const_writes _ _ _ _’
+  \\ ‘const_addresses free (MAP (I ## forceWord) y2) t.mdomain ∧
+      m1 = m6 ∧ isWord y1’ by cheat
+  \\ fs [allowed_op_def]
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,wordSemTheory.set_var_def,
+         wordSemTheory.the_words_def,wordLangTheory.word_op_def,wordLangTheory.word_sh_def,
+         wordSemTheory.set_store_def]
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,wordSemTheory.set_var_def,
+         wordSemTheory.the_words_def,wordLangTheory.word_op_def,wordLangTheory.word_sh_def,
+         wordSemTheory.set_store_def,word_exp_if]
+  \\ fs [state_rel_thm,dataSemTheory.set_var_def,lookup_insert,lookup_delete,
+         FLOOKUP_UPDATE,FAPPLY_FUPDATE_THM,adjust_var_11,option_le_max_right]
+  \\ conj_tac THEN1 (rw [] \\ fs [])
+  \\ gvs []
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert
+  \\ fs[inter_insert_ODD_adjust_set_alt,inter_delete_ODD_adjust_set_alt]
+  \\ irule memory_rel_less_space
+  \\ qexists_tac ‘x.space − LENGTH y2’
+  \\ conj_tac THEN1 fs []
+  \\ Cases_on ‘y1’ \\ gvs [isWord_def,forceWord_def]
+  \\ Cases_on ‘y0’ \\ fs [word_cond_add_def]
 QED
 
 Theorem assign_thm:

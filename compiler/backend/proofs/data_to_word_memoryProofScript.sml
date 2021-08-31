@@ -12831,6 +12831,75 @@ Proof
   \\ rw [FUN_EQ_THM,lookup_mem_def,lookup_insert,APPLY_UPDATE_THM]
 QED
 
+Theorem LESS_EQ_num_size:
+  good_dimindex (:α) ⇒
+  ∀m n. n ≤ m ⇒ SUC (LENGTH (n2mw n:'a word list)) ≤ num_size m
+Proof
+  strip_tac
+  \\ ho_match_mp_tac data_spaceTheory.num_size_ind
+  \\ rw []
+  \\ simp [Once data_spaceTheory.num_size_def]
+  \\ once_rewrite_tac [multiwordTheory.n2mw_def]
+  \\ IF_CASES_TAC \\ fs []
+  \\ IF_CASES_TAC \\ fs []
+  THEN1
+   (fs [good_dimindex_def,dimword_def,LESS_DIV_EQ_ZERO]
+    \\ once_rewrite_tac [multiwordTheory.n2mw_def] \\ fs [])
+  \\ fs [GSYM ADD1]
+  \\ last_x_assum irule
+  \\ irule LESS_EQ_TRANS
+  \\ qexists_tac ‘n DIV 4294967296’
+  \\ irule_at Any DIV_LE_MONOTONE \\  fs[]
+  \\ irule multiwordTheory.DIV_thm1 \\ fs []
+  \\ fs [good_dimindex_def,dimword_def,LESS_DIV_EQ_ZERO]
+QED
+
+Theorem part_to_words_LENGTH:
+  part_to_words c m h a = SOME ((w:bool # 'a word_loc),ws) ∧
+  (∀k v. isWord (SND (lookup_mem m k))) ∧ good_dimindex (:'a) ⇒
+  LENGTH ws ≤ part_space_req h ∧ isWord (SND w) ∧ EVERY isWord (MAP SND ws)
+Proof
+  Cases_on ‘h’ \\ fs [part_to_words_def,AllCaseEqs()]
+  \\ strip_tac \\ gvs [isWord_def,data_spaceTheory.part_space_req_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ TRY (Cases_on ‘l’) \\ fs [make_cons_ptr_def,isWord_def,EVERY_MAP,make_ptr_def]
+  \\ gvs [AllCaseEqs(),isWord_def,EVERY_MAP]
+  \\ rw [] \\ gvs []
+  THEN1 (gvs [small_int_def,good_dimindex_def,dimword_def] \\ intLib.COOPER_TAC)
+  \\ TRY (gvs [byte_len_def,good_dimindex_def,dimword_def,ADD1]
+          \\ irule multiwordTheory.DIV_thm1 \\ fs [])
+  \\ gvs [multiwordTheory.i2mw_def]
+  \\ irule LESS_EQ_num_size \\ fs []
+QED
+
+Theorem const_parts_to_words_LENGTH:
+  const_parts_to_words c parts = SOME ((w:bool # 'a word_loc),ws) ∧
+  good_dimindex (:'a) ⇒
+  LENGTH ws ≤ SUM (MAP part_space_req parts) ∧
+  isWord (SND w) ∧ EVERY isWord (MAP SND ws)
+Proof
+  fs [const_parts_to_words_def]
+  \\ qpat_abbrev_tac ‘m = LN’
+  \\ ‘(∀k v. isWord (SND (lookup_mem m k)))’ by
+        fs [lookup_def,Abbr‘m’,lookup_mem_def,isWord_def]
+  \\ last_x_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ rename [‘parts_to_words c _ k parts a’]
+  \\ EVERY (map qid_spec_tac [‘m’,‘c’,‘k’,‘parts’,‘a’,‘w’,‘ws’])
+  \\ rewrite_tac [AND_IMP_INTRO]
+  \\ Induct_on ‘parts’
+  \\ fs [parts_to_words_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ drule part_to_words_LENGTH \\ fs []
+  \\ strip_tac
+  \\ last_x_assum (drule_at Any)
+  \\ impl_tac \\ fs []
+  \\ rw [lookup_mem_def,lookup_insert]
+  \\ CASE_TAC \\ fs [isWord_def,lookup_mem_def]
+  \\ last_x_assum (qspec_then ‘k'’ mp_tac) \\ fs []
+QED
+
 Theorem memory_rel_do_build_const:
   do_build_const parts refs (SOME ts) = (v,refs1,SOME ts1) ∧
   const_parts_to_words c parts = SOME (w,ws) ∧

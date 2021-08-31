@@ -1136,7 +1136,7 @@ Theorem compile_semantics:
        MAP (compile_part c)) ∧
   Abbrev (tco = (I ## MAP (compile_part c)) ∘ co) ∧
   (∀n. EVERY (λ(n,_). data_num_stubs <= n) (SND (co n))) ∧
-  code_rel_ext x1 t.code ∧ domain x1 = domain t.code ∧
+  code_rel_ext x1 t.code ∧ domain x1 = domain t.code ∧ t.be = c.be ∧
   t.stack_max = SOME 1 ∧ t.locals_size = SOME 0 ∧ t.stack_limit <> 0 ∧
   t.compile_oracle =
   (I ## MAP (λp. full_compile_single tt kk aa coo (p,NONE))) ∘ tco ∧

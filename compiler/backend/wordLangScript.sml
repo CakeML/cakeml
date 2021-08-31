@@ -283,4 +283,8 @@ val word_sh_def = Define `
 
 Overload shift = “backend_common$word_shift”
 
+Datatype:
+  word_loc = Word ('a word) | Loc num num
+End
+
 val _ = export_theory();

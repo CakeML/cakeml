@@ -7959,6 +7959,16 @@ Proof
   \\ imp_res_tac domain_adjust_set_EVEN \\ fs [EVEN_ODD]
 QED
 
+Theorem inter_delete_ODD_adjust_set_alt:
+   !k. ODD k ==>
+      inter (delete k s) (adjust_set t) =
+      inter s (adjust_set t)
+Proof
+  fs [spt_eq_thm,wf_inter,lookup_inter_alt,lookup_delete]
+  \\ rw [] \\ rw [] \\ fs []
+  \\ imp_res_tac domain_adjust_set_EVEN \\ fs [EVEN_ODD]
+QED
+
 Theorem domain_adjust_set_NOT_EMPTY[simp]:
    domain (adjust_set s) <> EMPTY
 Proof

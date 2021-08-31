@@ -30,10 +30,6 @@ val buffer_write_def = Define`
       SOME (cb with <| buffer := cb.buffer++[b] ; space_left := cb.space_left-1|>)
     else NONE`;
 
-val _ = Datatype `
-  word_loc = Word ('a word) | Loc num num `;
-
-
 val is_fwd_ptr_def = Define `
   (is_fwd_ptr (Word w) = ((w && 3w) = 0w)) /\
   (is_fwd_ptr _ = F)`;
