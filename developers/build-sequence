@@ -74,6 +74,12 @@ candle/standard/ml_kernel
 candle/overloading/syntax
 candle/overloading/semantics
 
+# pancake
+pancake
+pancake/ffi
+pancake/semantics
+pancake/proofs
+
 # examples and tests
 characteristic/examples
 tutorial/solutions
