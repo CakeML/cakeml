@@ -8,7 +8,7 @@ val _ = new_theory "caml_lex";
 
 (* TODO
  * - Location spans might be wrong just about everywhere
- * - loc_row_def
+ * - infix symbols mix with other symbols
  *)
 
 (* -------------------------------------------------------------------------
@@ -128,6 +128,10 @@ Proof
   \\ gs []
 QED
 
+Definition loc_row_def:
+  loc_row n = <| row := n; col := 1; offset := 0 |>
+End
+
 Definition skip_comment_def:
   skip_comment cs d loc =
     case cs of
@@ -138,7 +142,7 @@ Definition skip_comment_def:
           let loc' = loc with col := loc.col + 2 in
             if d = 0n then SOME (xs, loc') else skip_comment xs (d - 1) loc'
         else if x = #"\n" then
-          skip_comment (y::xs) d (loc with <| col := 0; row := loc.row + 1 |>)
+          skip_comment (y::xs) d (loc_row (loc.row + 1))
         else
           skip_comment (y::xs) d (loc with col := loc.col + 1)
     | _ => NONE
@@ -320,7 +324,7 @@ Definition next_sym_def:
   next_sym [] loc = NONE ∧
   next_sym (c::cs) loc =
     if c = #"\n" then
-      next_sym cs (loc with <| col := 0; row := loc.row + 1 |>)
+      next_sym cs (loc_row (loc.row + 1))
     else if isSpace c then
       next_sym cs (loc with col := loc.col + 1)
     else if isDigit c then
