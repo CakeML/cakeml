@@ -504,6 +504,27 @@ val with_fresh_ts_def = Define`
                          | NONE    => f 0 s
 `;
 
+Definition lim_safe_part_def[simp]:
+  (lim_safe_part lims (Con tag xs) ⇔ if xs = []
+                             then tag < 2 ** (arch_size lims) DIV 16
+                             else
+                               LENGTH xs < 2 ** lims.length_limit /\
+                               LENGTH xs < 2 ** (arch_size lims - 4) /\
+                               4 * tag < 2 ** (arch_size lims) DIV 16 /\
+                               4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)) ∧
+  (lim_safe_part lims (Int i) ⇔
+     (if small_num lims.arch_64_bit i
+      then T else
+        let il = bignum_size lims.arch_64_bit i in
+          il <= 2 ** lims.length_limit)) ∧
+  (lim_safe_part lims (Str s) ⇔
+     (let i = strlen s in
+        i DIV (arch_size lims DIV 8) < 2 ** (arch_size lims) DIV arch_size lims /\
+        i DIV (arch_size lims DIV 8) + 1 < 2 ** lims.length_limit /\
+        small_num lims.arch_64_bit (& i))) ∧
+  (lim_safe_part lims (W64 w) ⇔ 1 < lims.length_limit)
+End
+
 Definition lim_safe_def[simp]:
   (lim_safe lims (Cons tag) xs = if xs = []
                              then tag < 2 ** (arch_size lims) DIV 16
@@ -598,6 +619,9 @@ Definition lim_safe_def[simp]:
 ∧ (lim_safe lims Ref xs =
    (LENGTH xs < 2 ** lims.length_limit /\
     LENGTH xs < 2 ** arch_size lims DIV 16)
+  )
+∧ (lim_safe lims (Build parts) _ =
+   EVERY (lim_safe_part lims) parts
   )
 ∧ (lim_safe lims WordToInt _ =
    (1 < lims.length_limit)
