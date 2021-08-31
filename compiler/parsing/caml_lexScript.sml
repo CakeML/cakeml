@@ -8,7 +8,7 @@ val _ = new_theory "caml_lex";
 
 (* TODO
  * - Location spans might be wrong just about everywhere
- * - Maybe won't need so many different tokens for symbols
+ * - loc_row_def
  *)
 
 (* -------------------------------------------------------------------------
