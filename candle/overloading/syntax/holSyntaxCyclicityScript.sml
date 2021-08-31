@@ -5690,12 +5690,11 @@ Theorem unify_mgu:
   ==> ?rr ss. TYPE_SUBST rr (TYPE_SUBST r ty) = TYPE_SUBST r' ty
   /\ TYPE_SUBST ss (TYPE_SUBST s ty') = TYPE_SUBST s' ty'
 Proof
-  rw[unify_def] >> fs[ELIM_UNCURRY,IS_SOME_EXISTS,normalise_tyvars_rec_FST_SND]
+  rpt gen_tac >> fs[unify_def,ELIM_UNCURRY,normalise_tyvars_rec_FST_SND,IS_SOME_EXISTS]
+  >> every_case_tac >> rw[]
   >> qspecl_then [`ty`,`#"a"`] assume_tac invertible_on_normalise_tyvars_rec
   >> qspecl_then [`ty'`,`#"b"`] assume_tac invertible_on_normalise_tyvars_rec
   >> qmatch_asmsub_abbrev_tac `(TYPE_SUBST (SND tya) ty, TYPE_SUBST (SND ty'b) ty')`
-  >> qpat_x_assum `_ = r` $ fs o single o GSYM
-  >> qpat_x_assum `_ = s` $ fs o single o GSYM
   >> gs[invertible_on_tyvars',GSYM invertible_on_equiv_ts_on,GSYM TYPE_SUBST_compose,equiv_ts_on_tyvars]
   >> qmatch_asmsub_abbrev_tac `TYPE_SUBST tya_i (TYPE_SUBST _ ty) = ty`
   >> qmatch_asmsub_abbrev_tac `TYPE_SUBST ty'b_i (TYPE_SUBST _ ty') = ty'`
@@ -5718,10 +5717,11 @@ Proof
       (qspec_then `p` assume_tac) o REWRITE_RULE[Once subtype_at_eq]
     >> qpat_x_assum `TYPE_SUBST _ (TYPE_SUBST _ ty) = ty` $
       drule_then assume_tac o REWRITE_RULE[Once TYPE_SUBST_eq_id,TYPE_SUBST_compose]
-    >> `MEM (Tyvar x) (MAP SND $ SND tya)` by
+    >> qmatch_assum_rename_tac `MEM xx (tyvars ty)`
+    >> `MEM (Tyvar xx) (MAP SND $ SND tya)` by
       fs[Abbr`tya`,normalise_tyvars_rec_domain,MEM_Tyvar_MAP_Tyvar]
     >> drule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
-    >> qmatch_asmsub_abbrev_tac `(b,Tyvar x)`
+    >> qmatch_asmsub_abbrev_tac `(b,Tyvar xx)`
     >> `?a. b = Tyvar a` by (
       qspecl_then [`ty`,`#"a"`] strip_assume_tac $
         SIMP_RULE (std_ss++LET_ss) [EVERY_MEM] normalise_tyvars_rec_chr
@@ -5754,10 +5754,11 @@ Proof
       (qspec_then `p` assume_tac) o REWRITE_RULE[Once subtype_at_eq]
     >> qpat_x_assum `TYPE_SUBST _ (TYPE_SUBST _ ty') = ty'` $
       drule_then assume_tac o REWRITE_RULE[Once TYPE_SUBST_eq_id,TYPE_SUBST_compose]
-    >> `MEM (Tyvar x) (MAP SND $ SND ty'b)` by
+    >> qmatch_assum_rename_tac `MEM xx (tyvars ty')`
+    >> `MEM (Tyvar xx) (MAP SND $ SND ty'b)` by
       fs[Abbr`ty'b`,normalise_tyvars_rec_domain,MEM_Tyvar_MAP_Tyvar]
     >> drule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
-    >> qmatch_asmsub_abbrev_tac `(b,Tyvar x)`
+    >> qmatch_asmsub_abbrev_tac `(b,Tyvar xx)`
     >> `?a. b = Tyvar a` by (
       qspecl_then [`ty'`,`#"b"`] strip_assume_tac $
         SIMP_RULE (std_ss++LET_ss) [EVERY_MEM] normalise_tyvars_rec_chr
@@ -5793,7 +5794,7 @@ Proof
   >- (
     rw[Once equiv_ts_on_symm,GSYM invertible_on_equiv_ts_on]
     >> drule unify_mgu
-    >> gvs[unify_def,ELIM_UNCURRY,IS_SOME_EXISTS,GSYM TYPE_SUBST_compose,normalise_tyvars_rec_FST_SND,invertible_on_tyvars]
+    >> gvs[unify_def,ELIM_UNCURRY,IS_SOME_EXISTS,GSYM TYPE_SUBST_compose,normalise_tyvars_rec_FST_SND,invertible_on_tyvars,AllCaseEqs()]
     >> imp_res_tac unify_types_sound
     >> qmatch_assum_abbrev_tac `unify_types [(TYPE_SUBST spa _,TYPE_SUBST nb _)] _ = _`
     >> rw[GSYM PULL_EXISTS]
@@ -5802,7 +5803,7 @@ Proof
   )
   >> rw[]
   >> imp_res_tac unify_sound
-  >> first_x_assum $ drule
+  >> first_x_assum drule
   >> rw[equiv_ts_on_tyvars]
 QED
 

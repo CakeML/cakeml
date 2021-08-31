@@ -6826,12 +6826,12 @@ Definition unify_def:
     let
       (t1,s1) = normalise_tyvars_rec ty1 #"a";
       (t2,s2) = normalise_tyvars_rec ty2 #"b";
-      sigma = unify_types [(t1,t2)] [];
+      uft = unify_types [(t1,t2)] [];
       (* tyin2 o tyin1 = *)
       o_tyinst tyin2 tyin1 = (MAP (TYPE_SUBST tyin2 ## I) tyin1) ++ tyin2
-    in if IS_SOME sigma
-      then SOME (o_tyinst (THE sigma) s1, o_tyinst (THE sigma) s2)
-      else NONE
+    in case uft of
+      SOME sigma => SOME (o_tyinst sigma s1, o_tyinst sigma s2)
+      | NONE => NONE
 End
 
 (* Soundness of unify_types *)
@@ -8365,10 +8365,9 @@ Theorem unify_sound:
        ==> TYPE_SUBST s1 ty1 = TYPE_SUBST s2 ty2
 Proof
   rw[unify_def,ELIM_UNCURRY,IS_SOME_EXISTS]
-  >> fs[THE_DEF]
+  >> every_case_tac >> gvs[]
   >> imp_res_tac unify_types_sound
-  >> fs[GSYM TYPE_SUBST_compose]
-  >> fs[normalise_tyvars_rec_def]
+  >> fs[GSYM TYPE_SUBST_compose,normalise_tyvars_rec_def]
 QED
 
 Theorem unify_complete:
@@ -8377,10 +8376,8 @@ Proof
   rw[]
   >> qspecl_then [`ty1`,`ty2`,`#"a"`,`#"b"`] assume_tac normalise_tyvars_rec_chr_diff2
   >> qspecl_then [`ty1`,`ty2`,`#"a"`,`#"b"`] assume_tac orth_ty_normalise
-  >> fs[unify_def]
-  >> pop_assum kall_tac
-  >> fs[GSYM unifiable_orth_ty_equiv,unify_types_complete,ELIM_UNCURRY]
-  >> FULL_CASE_TAC
+  >> fs[unify_def,GSYM unifiable_orth_ty_equiv,unify_types_complete,ELIM_UNCURRY]
+  >> every_case_tac
   >> fs[IS_SOME_DEF]
 QED
 
