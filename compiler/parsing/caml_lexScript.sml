@@ -104,9 +104,29 @@ Definition take_while_aux_def:
         else (REVERSE acc, x::xs)
 End
 
+Theorem take_while_aux_thm[local]:
+  ∀acc p xs ys zs.
+    take_while_aux acc p xs = (ys, zs) ⇒
+      LENGTH xs + LENGTH acc = LENGTH ys + LENGTH zs
+Proof
+  ho_match_mp_tac take_while_aux_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ simp [Once take_while_aux_def]
+  \\ CASE_TAC \\ gs []
+  \\ rw [] \\ gs []
+QED
+
 Definition take_while_def:
   take_while = take_while_aux []
 End
+
+Theorem take_while_thm:
+  take_while p xs = (ys, zs) ⇒ LENGTH xs = LENGTH ys + LENGTH zs
+Proof
+  rw [take_while_def]
+  \\ drule_then assume_tac take_while_aux_thm
+  \\ gs []
+QED
 
 Definition skip_comment_def:
   skip_comment cs d loc =
@@ -220,6 +240,18 @@ Termination
   \\ drule_then assume_tac scan_escseq_thm \\ gs []
 End
 
+Theorem scan_strlit_thm:
+  ∀acc cs loc sym locs ds.
+    scan_strlit acc cs loc = SOME (sym, locs, ds) ⇒
+      LENGTH ds ≤ LENGTH cs + LENGTH acc
+Proof
+  ho_match_mp_tac scan_strlit_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ simp [Once scan_strlit_def]
+  \\ rw [CaseEqs ["string", "option", "prod", "bool"]] \\ gs []
+  \\ imp_res_tac scan_escseq_thm \\ gs []
+QED
+
 Definition scan_charlit_def:
   scan_charlit cs loc =
     if cs = "" then
@@ -241,6 +273,14 @@ Definition scan_charlit_def:
           SOME (ErrorS, Locs loc loc, cs)
 End
 
+Theorem scan_charlit_thm:
+  scan_charlit cs loc = SOME (sym, locs, ds) ⇒ LENGTH ds ≤ LENGTH cs
+Proof
+  rw [scan_charlit_def, CaseEqs ["option", "prod", "bool", "string"]] \\ gs []
+  \\ imp_res_tac scan_escseq_thm
+  \\ gs [NOT_NIL_EQ_LENGTH_NOT_0, LENGTH_TL]
+QED
+
 Definition scan_number_def:
   scan_number ok_digit to_int offset cs loc =
     if cs = "" then
@@ -258,12 +298,22 @@ Definition scan_number_def:
               rest)
 End
 
+Theorem scan_number_thm:
+  scan_number f g off cs loc = SOME (sym, locs, ds) ⇒
+    LENGTH ds ≤ LENGTH cs
+Proof
+  rw [scan_number_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ drule_then assume_tac take_while_thm \\ gs []
+  \\ gvs [NOT_NIL_EQ_LENGTH_NOT_0, LENGTH_TL, CaseEq "bool"]
+QED
+
 Definition isSym_def:
-  isSym c ⇔ MEM c "#$&*+-/=>@^|~!?%<:."
+  isSym c ⇔ MEM c "#$&*+-/=>@^|~!?%<:.;"
 End
 
 Definition isDelim_def:
-  isDelim c ⇔ MEM c "()[]{}"
+  isDelim c ⇔ MEM c "()[]{},"
 End
 
 Definition next_sym_def:
@@ -328,6 +378,52 @@ Termination
   \\ Cases_on ‘cs’ \\ gs []
   \\ drule skip_comment_thm \\ gs []
 End
+
+Theorem take_while_lemma[local]:
+  ∀acc p xs ys zs.
+    xs ≠ "" ∧
+    p (HD xs) ∧
+    take_while_aux acc p xs = (ys, zs) ⇒
+      0 < LENGTH ys
+Proof
+  ho_match_mp_tac take_while_aux_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ simp [Once take_while_aux_def]
+  \\ CASE_TAC \\ gs []
+  \\ rw [] \\ gs []
+  \\ pop_assum mp_tac
+  \\ simp [Once take_while_aux_def]
+  \\ CASE_TAC \\ gs [] \\ rw [] \\ gs []
+QED
+
+Theorem next_sym_thm:
+  ∀cs loc sym locs ds.
+    next_sym cs loc = SOME (sym, locs, ds) ⇒
+      LENGTH ds < LENGTH cs
+Proof
+  ho_match_mp_tac next_sym_ind \\ rw []
+  \\ simp [next_sym_def]
+  \\ pop_assum mp_tac
+  \\ rw [Once next_sym_def] \\ gs []
+  \\ map_every imp_res_tac [
+    scan_number_thm,
+    scan_strlit_thm,
+    scan_charlit_thm ] \\ gs []
+  \\ gs [NOT_NIL_EQ_LENGTH_NOT_0, LENGTH_TL]
+  \\ imp_res_tac skip_comment_thm \\ gs []
+  \\ imp_res_tac take_while_thm \\ gs []
+  \\ gs [take_while_def, Once scan_number_def, isAlphaNum_def]
+  \\ gvs [CaseEqs ["option", "prod", "bool"]]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [CaseEqs ["option", "prod", "bool"]]
+  \\ imp_res_tac take_while_lemma \\ gs []
+  \\ gs [GSYM take_while_def]
+  \\ imp_res_tac take_while_thm
+  \\ gs [NOT_NIL_EQ_LENGTH_NOT_0, LENGTH_TL]
+  \\ Cases_on ‘cs’ \\ gs []
+  \\ imp_res_tac skip_comment_thm \\ gs []
+  \\ Cases_on ‘c’ \\ gs []
+QED
 
 (*
 EVAL “next_sym "-0X2f" loc”
@@ -476,9 +572,45 @@ Definition next_token_def:
     | SOME (sym, locs, rest) => SOME (sym2token sym, locs, rest)
 End
 
+Theorem next_token_thm:
+  next_token inp loc = SOME (sym, locs, rest) ⇒
+    LENGTH rest < LENGTH inp
+Proof
+  rw [next_token_def, CaseEqs ["option", "prod"]]
+  \\ drule_then assume_tac next_sym_thm \\ gs []
+QED
+
 (*
 EVAL “next_token "let foo = 3;; (* bar *)" loc”
 EVAL “next_token "-33 + 44" loc”
+ *)
+
+Definition lexer_fun_aux_def:
+  lexer_fun_aux inp loc =
+    case next_token inp loc of
+      NONE => []
+    | SOME (tok, Locs loc1 loc2, rest) =>
+        (tok, Locs loc1 loc2) ::
+          lexer_fun_aux rest (loc2 with col := loc2.col + 1)
+Termination
+  wf_rel_tac ‘measure (LENGTH o FST)’ \\ rw []
+  \\ drule_then assume_tac next_token_thm \\ gs []
+End
+
+Definition init_loc_def:
+  init_loc = <| row := 1; col := 1; offset := 0 |>
+End
+
+Definition lexer_fun_def:
+  lexer_fun inp = lexer_fun_aux inp init_loc
+End
+
+(*
+
+val str = "let rec term_union l1 l2 =\nmatch (l1,l2) with\n([],l2) -> l2\n| (l1,[]) -> l1\n| (h1::t1,h2::t2) -> let c = alphaorder h1 h2 in\nif c = 0 then h1::(term_union t1 t2)\nelse if c < 0 then h1::(term_union t1 l2)\nelse h2::(term_union l1 t2)";
+val str_tm = stringSyntax.fromMLstring str;
+EVAL “lexer_fun (^str_tm)”
+
  *)
 
 val _ = export_theory ();
