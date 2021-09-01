@@ -13414,7 +13414,6 @@ End
 
 Theorem assign_B:
   assign c n l dest (Build ps) args names_opt =
-    if ~(small_shift_length c ≤ shift_length c − shift (:α)) then (GiveUp,l) else
     case const_parts_to_words c ps of
     | NONE => (GiveUp,l)
     | SOME (w,ws) =>
@@ -13458,6 +13457,30 @@ Proof
       wordLangTheory.word_op_def]
 QED
 
+Triviality TWO_POW_LEMMA:
+  (2 ** n ≤ 3 ⇒ n < 2) ∧
+  (2 ** n ≤ 2 ⇒ n < 2) ∧
+  (2 ** n ≤ 1 ⇒ n < 1)
+Proof
+  Cases_on ‘n’ \\ fs [EXP]
+  \\ Cases_on ‘n'’ \\ fs [EXP]
+  \\ ‘0 < 2 ** n’ by fs [bitTheory.ZERO_LT_TWOEXP]
+  \\ decide_tac
+QED
+
+Theorem bignum_size:
+  good_dimindex (:'a) ⇒
+  bignum_size (dimindex (:α) = 64) i = LENGTH (n2mw (Num (ABS i)) :'a word list) + 1
+Proof
+  fs [bignum_size_def]
+  \\ rename [‘n2mw n’]
+  \\ qid_spec_tac ‘n’
+  \\ ho_match_mp_tac multiwordTheory.n2mw_ind \\ rw [] \\ fs []
+  \\ once_rewrite_tac [multiwordTheory.n2mw_def,bignum_digits_def]
+  \\ IF_CASES_TAC \\ fs []
+  \\ gvs [labPropsTheory.good_dimindex_def,dimword_def]
+QED
+
 Theorem assign_Build:
    (∃parts. op = Build parts) ==> ^assign_thm_goal
 Proof
@@ -13471,14 +13494,59 @@ Proof
     fs[state_rel_def] >>
     conj_tac >- metis_tac[backendPropsTheory.option_le_trans,
                           do_app_stack_max,option_le_max_right] >>
-    strip_tac >>
-    gvs[do_app,CaseEq"bool",CaseEq"option",AllCaseEqs()] >>
-    imp_res_tac get_vars_IMP_LENGTH >>
-    rveq >> fs[arch_size_def,limits_inv_def,good_dimindex_def] >>
-    rfs[dimword_def,with_fresh_ts_def,consume_space_def,
-        IS_SOME_EXISTS] \\ cheat)
+    pop_assum mp_tac >>
+    ‘x.limits = s.limits’ by
+      (Cases_on ‘names_opt’ \\ gvs [cut_state_opt_def,cut_state_def,AllCaseEqs()]) >>
+    rewrite_tac [assign_B]
+    \\ reverse (Cases_on ‘const_parts_to_words c parts’)
+    THEN1 (fs [] \\ PairCases_on ‘x'’ \\ fs [] \\ EVAL_TAC) \\ fs []
+    \\ qsuff_tac ‘EXISTS ($¬ ∘ lim_safe_part s.limits) parts’
+    THEN1 (strip_tac \\ gvs[do_app,CaseEq"bool",CaseEq"option",AllCaseEqs()] >>
+           imp_res_tac get_vars_IMP_LENGTH >>
+           rveq >> fs[arch_size_def,limits_inv_def,good_dimindex_def] >>
+           gvs [consume_space_def,AllCaseEqs()])
+    \\ qpat_x_assum ‘limits_inv _ _ _ _ _ _’ mp_tac
+    \\ pop_assum mp_tac
+    \\ fs [const_parts_to_words_def]
+    \\ qmatch_goalsub_rename_tac ‘parts_to_words c m aa parts off’
+    \\ qid_spec_tac ‘aa’
+    \\ qid_spec_tac ‘m’
+    \\ qid_spec_tac ‘off’
+    \\ qid_spec_tac ‘parts’
+    \\ Induct
+    \\ fs [parts_to_words_def,AllCaseEqs(),PULL_EXISTS]
+    \\ rpt gen_tac
+    \\ reverse (Cases_on ‘part_to_words c m h off’)
+    THEN1 (gvs [] \\ rw [] \\ res_tac \\ fs [])
+    \\ fs []
+    \\ simp [limits_inv_def] \\ strip_tac
+    \\ disj1_tac \\ strip_tac
+    \\ Cases_on ‘h’ \\ gvs [part_to_words_def,arch_size_def]
+    THEN1
+     (Cases_on ‘l’ \\ gvs [labPropsTheory.good_dimindex_def,dimword_def,
+        encode_header_def])
+    THEN1
+     (gvs [AllCaseEqs(),multiwordTheory.i2mw_def,encode_header_def]
+      THEN1
+       (Cases_on ‘i < 0’ \\ fs [b2w_def,EVAL “1w ≪ 2 ‖ 3w”]
+        \\ gvs [labPropsTheory.good_dimindex_def,dimword_def,NOT_LESS]
+        \\ ‘7 < 2 ** 4 ∧ 3 < 2 ** 4’ by EVAL_TAC
+        \\ drule_all LESS_EQ_LESS_TRANS
+        \\ simp [EXP_BASE_LT_MONO]
+        \\ fs [heap_in_memory_store_def])
+      THEN1
+       (qpat_x_assum ‘~(n < m:num)’ mp_tac
+        \\ Cases_on ‘i < 0’ \\ gvs [labPropsTheory.good_dimindex_def,dimword_def]
+        \\ ntac 10 (fs [dimword_def] \\ EVAL_TAC))
+      \\ gvs [bignum_size]
+      \\ qsuff_tac ‘2 ** c.len_size ≤ 2 ** (dimindex (:α) − 4)’
+      THEN1 decide_tac
+      \\ fs [heap_in_memory_store_def])
+    \\ gvs [labPropsTheory.good_dimindex_def,dimword_def,byte_len_def,encode_header_def,
+            AllCaseEqs(),NOT_LESS]
+    \\ imp_res_tac TWO_POW_LEMMA
+    \\ fs [heap_in_memory_store_def,encode_header_def,AllCaseEqs()])
   \\ gvs [assign_B]
-  \\ IF_CASES_TAC THEN1 fs []
   \\ fs [] \\ Cases_on ‘const_parts_to_words c parts’ THEN1 fs []
   \\ rename [‘_ = SOME y’]
   \\ PairCases_on ‘y’ \\ fs []
