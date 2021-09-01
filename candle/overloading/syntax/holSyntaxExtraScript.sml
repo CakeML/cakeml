@@ -6826,11 +6826,9 @@ Definition unify_def:
     let
       (t1,s1) = normalise_tyvars_rec ty1 #"a";
       (t2,s2) = normalise_tyvars_rec ty2 #"b";
-      uft = unify_types [(t1,t2)] [];
-      (* tyin2 o tyin1 = *)
-      o_tyinst tyin2 tyin1 = (MAP (TYPE_SUBST tyin2 ## I) tyin1) ++ tyin2
-    in case uft of
-      SOME sigma => SOME (o_tyinst sigma s1, o_tyinst sigma s2)
+    in case unify_types [(t1,t2)] [] of
+      SOME sigma => SOME ((MAP (TYPE_SUBST sigma ## I) s1) ++ sigma,
+        (MAP (TYPE_SUBST sigma ## I) s2) ++ sigma)
       | NONE => NONE
 End
 
