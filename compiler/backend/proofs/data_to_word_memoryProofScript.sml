@@ -12429,17 +12429,17 @@ QED
 Triviality LENGTH_n2mw_LE_num_size:
   ∀n m. good_dimindex (:'a) ∧ n ≤ m ⇒ SUC (LENGTH (n2mw n : 'a word list)) ≤ num_size m
 Proof
-  ho_match_mp_tac n2mw_ind \\ rw []
-  \\ once_rewrite_tac [n2mw_def,data_spaceTheory.num_size_def]
+  ho_match_mp_tac multiwordTheory.n2mw_ind \\ rw []
+  \\ once_rewrite_tac [multiwordTheory.n2mw_def,data_spaceTheory.num_size_def]
   \\ Cases_on ‘n=0’ \\ fs []
   \\ fs [GSYM ADD1]
   \\ IF_CASES_TAC
-  THEN1 (fs [Once n2mw_def] \\ gvs [good_dimindex_def,dimword_def,DIV_EQ_X])
+  THEN1 (fs [Once multiwordTheory.n2mw_def] \\ gvs [good_dimindex_def,dimword_def,DIV_EQ_X])
   \\ fs [] \\ first_x_assum irule
   \\ match_mp_tac LESS_EQ_TRANS
   \\ qexists_tac ‘n DIV 4294967296’
   \\ fs [DIV_LE_MONOTONE]
-  \\ irule DIV_thm1
+  \\ irule multiwordTheory.DIV_thm1
   \\ gvs [good_dimindex_def,dimword_def]
 QED
 
@@ -12521,8 +12521,8 @@ Proof
     \\ first_x_assum $ irule_at $ Pos last \\ fs []
     \\ rw []
     \\ irule memory_rel_IMP_MAP_UPDATE
-    \\ rewrite_tac [make_cons_ptr_def,theWord_def]
-    \\ rewrite_tac [GSYM make_cons_ptr_def,theWord_def]
+    \\ rewrite_tac [make_cons_ptr_def,wordSemTheory.theWord_def]
+    \\ rewrite_tac [GSYM make_cons_ptr_def,wordSemTheory.theWord_def]
     \\ ‘memory_rel c be ts refs sp st m dm (ZIP (vals,ws) ++
            (MAP (λk. (map0 k,(map0' k))) ks ++ vars))’ by
            (unabbrev_all_tac \\ fs [ZIP_MAP_MAP]
@@ -12598,7 +12598,7 @@ Proof
     \\ ‘~(Num (ABS j) < 536870912)’ by
       (Cases_on ‘j’ \\ gvs [small_int_def,good_dimindex_def,dimword_def])
     \\ ‘SUC (LENGTH payload) ≤ num_size (Num (ABS j))’ by
-      (gvs [i2mw_def] \\ irule LENGTH_n2mw_LE_num_size \\ fs [])
+      (gvs [multiwordTheory.i2mw_def] \\ irule LENGTH_n2mw_LE_num_size \\ fs [])
     \\ impl_tac THEN1 fs []
     \\ strip_tac \\ gvs []
     \\ qabbrev_tac ‘st1 = (st |+ (NextFree,Word (free +
@@ -12664,36 +12664,49 @@ Proof
   \\ Cases_on ‘i < k’ \\ fs [word_0]
 QED
 
+Theorem byte_aligned_IMP_shift:
+  byte_aligned (w:'a word) ∧ good_dimindex (:'a) ⇒
+  ∃v. w = v << shift (:'a)
+Proof
+  rw [labPropsTheory.good_dimindex_def,backend_commonTheory.word_shift_def]
+  \\ gvs [byte_aligned_def]
+  \\ qexists_tac ‘w >>> (shift (:'a))’
+  \\ rw [labPropsTheory.good_dimindex_def,backend_commonTheory.word_shift_def]
+  \\ rewrite_tac [GSYM align_shift]
+  \\ fs [align_aligned]
+QED
+
 Theorem make_cons_ptr_add:
-  small_shift_length c ≤ shift_length c − shift (:α) ⇒
+  byte_aligned n ∧ good_dimindex (:'a) ∧ shift (:α) ≤ shift_length c ⇒
   make_cons_ptr c n tag len =
   Word (n ≪ (shift_length c − shift (:α)) +
         get_lowerbits c (Word (ptr_bits c tag len)) :'a word)
 Proof
-  fs [make_cons_ptr_def,get_lowerbits_def]
+  strip_tac
+  \\ drule_all byte_aligned_IMP_shift \\ rw []
+  \\ fs [make_cons_ptr_def,get_lowerbits_def]
   \\ fs [GSYM get_lowerbits_def] \\ rw []
   \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ irule wordsTheory.WORD_ADD_OR
   \\ irule word_and_lsr_0
   \\ fs [get_lowerbits_def]
   \\ fs [fcpTheory.FCP_BETA,word_or_def,word_bits_def,word_index]
-  \\ rw [shift_def]
   \\ CCONTR_TAC \\ gvs []
   \\ fs [small_shift_length_def,shift_length_def]
-  \\ gvs [shift_def]
 QED
 
 Theorem make_ptr_add:
-  small_shift_length c ≤ shift_length c − shift (:α) ⇒
+  byte_aligned n ∧ good_dimindex (:'a) ∧ shift (:α) ≤ shift_length c ⇒
   make_ptr c n tag len =
   Word (n ≪ (shift_length c − shift (:'a)) + 1w:'a word)
 Proof
-  rw [make_ptr_def,get_lowerbits_def]
+  strip_tac
+  \\ drule_all byte_aligned_IMP_shift \\ rw []
+  \\ rw [make_ptr_def,get_lowerbits_def]
   \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ irule wordsTheory.WORD_ADD_OR
   \\ fs [fcpTheory.FCP_BETA,word_or_def,word_bits_def,word_index,fcpTheory.CART_EQ,
-         word_and_def,word_lsl_def,word_0]
-  \\ fs [small_shift_length_def,shift_length_def]
+         word_and_def,word_lsl_def,word_0,shift_length_def]
 QED
 
 Definition lookup_mem_def:
@@ -12765,7 +12778,8 @@ End
 
 Theorem part_to_words_add:
   ∀part m off a w ws m1.
-    small_shift_length c ≤ shift_length c − shift (:α) ∧
+    byte_aligned off ∧ byte_aligned a ∧
+    good_dimindex (:'a) ∧ shift (:α) ≤ shift_length c ⇒
     part_to_words c m part (off:'a word) = SOME (w,ws) ∧
     (∀i. SND (lookup_mem m1 i) = word_cond_add c a (lookup_mem m i)) ⇒
     ∃v vs. part_to_words c m1 part (off + a:'a word) = SOME (v,vs) ∧
@@ -12776,28 +12790,51 @@ Proof
   \\ rw [part_to_words_def] \\ gvs [AllCaseEqs()]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ gvs [AllCaseEqs()]
-  \\ gvs [make_cons_ptr_add,make_ptr_add,theWord_def]
+  \\ ‘byte_aligned (a + off)’ by fs [alignmentTheory.byte_aligned_add]
+  \\ gvs [make_cons_ptr_add,make_ptr_add,wordSemTheory.theWord_def]
   \\ fs [MAP_MAP_o] \\ fs [MAP_EQ_f]
+QED
+
+Theorem byte_aligned_bytes_in_word:
+  good_dimindex (:'a) ⇒
+  byte_aligned (bytes_in_word:'a word)
+Proof
+  rw [labPropsTheory.good_dimindex_def,bytes_in_word_def] \\ gvs []
+  \\ EVAL_TAC \\ fs [] \\ EVAL_TAC
+QED
+
+Theorem byte_align_mult_bytes_in_word:
+  good_dimindex (:'a) ⇒
+  byte_aligned (w * bytes_in_word:'a word) ∧
+  byte_aligned (bytes_in_word * w:'a word)
+Proof
+  qsuff_tac ‘good_dimindex (:'a) ⇒ byte_aligned (w * bytes_in_word:'a word)’
+  THEN1 (simp [] \\ fs [])
+  \\ Cases_on ‘w’ \\ Induct_on ‘n’ \\ fs [] THEN1 EVAL_TAC
+  \\ rw [] \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ irule byte_aligned_add \\ fs [byte_aligned_bytes_in_word]
 QED
 
 Theorem parts_to_words_add:
   ∀parts m i off a w ws m1.
-    small_shift_length c ≤ shift_length c − shift (:α) ∧
     parts_to_words c m i parts (off:'a word) = SOME (w,ws) ∧
+    byte_aligned off ∧ byte_aligned a ∧
+    good_dimindex (:'a) ∧ shift (:α) ≤ shift_length c ∧
     (∀i. SND (lookup_mem m1 i) = word_cond_add c a (lookup_mem m i)) ⇒
     ∃v vs. parts_to_words c m1 i parts (off + a:'a word) = SOME (v,vs) ∧
            MAP SND vs = MAP (word_cond_add c a) ws ∧
            SND v = word_cond_add c a w
 Proof
-  Cases_on ‘small_shift_length c ≤ shift_length c − shift (:α)’ \\ fs []
-  \\ Induct \\ fs [parts_to_words_def]
+  Induct \\ fs [parts_to_words_def]
   \\ fs [AllCaseEqs()] \\ rw [PULL_EXISTS]
   \\ drule_all part_to_words_add
   \\ rw [] \\ fs []
   \\ first_x_assum drule
   \\ disch_then (qspecl_then [‘a’,‘insert i v m1’] mp_tac)
   \\ impl_tac
-  THEN1 (fs [lookup_mem_def,lookup_insert] \\ rw [])
+  THEN1
+   (fs [lookup_mem_def,lookup_insert] \\ rw []
+    \\ irule byte_aligned_add \\ fs [byte_align_mult_bytes_in_word])
   \\ strip_tac \\ fs []
   \\ ‘LENGTH (MAP SND vs) = LENGTH (MAP (word_cond_add c a) xs)’ by asm_rewrite_tac []
   \\ fs []
@@ -12860,10 +12897,10 @@ Theorem part_to_words_LENGTH:
   LENGTH ws ≤ part_space_req h ∧ isWord (SND w) ∧ EVERY isWord (MAP SND ws)
 Proof
   Cases_on ‘h’ \\ fs [part_to_words_def,AllCaseEqs()]
-  \\ strip_tac \\ gvs [isWord_def,data_spaceTheory.part_space_req_def]
+  \\ strip_tac \\ gvs [wordSemTheory.isWord_def,data_spaceTheory.part_space_req_def]
   \\ rpt (pairarg_tac \\ fs [])
-  \\ TRY (Cases_on ‘l’) \\ fs [make_cons_ptr_def,isWord_def,EVERY_MAP,make_ptr_def]
-  \\ gvs [AllCaseEqs(),isWord_def,EVERY_MAP]
+  \\ TRY (Cases_on ‘l’) \\ fs [make_cons_ptr_def,wordSemTheory.isWord_def,EVERY_MAP,make_ptr_def]
+  \\ gvs [AllCaseEqs(),wordSemTheory.isWord_def,EVERY_MAP]
   \\ rw [] \\ gvs []
   THEN1 (gvs [small_int_def,good_dimindex_def,dimword_def] \\ intLib.COOPER_TAC)
   \\ TRY (gvs [byte_len_def,good_dimindex_def,dimword_def,ADD1]
@@ -12881,7 +12918,7 @@ Proof
   fs [const_parts_to_words_def]
   \\ qpat_abbrev_tac ‘m = LN’
   \\ ‘(∀k v. isWord (SND (lookup_mem m k)))’ by
-        fs [lookup_def,Abbr‘m’,lookup_mem_def,isWord_def]
+        fs [lookup_def,Abbr‘m’,lookup_mem_def,wordSemTheory.isWord_def]
   \\ last_x_assum kall_tac
   \\ pop_assum mp_tac
   \\ rename [‘parts_to_words c _ k parts a’]
@@ -12896,7 +12933,7 @@ Proof
   \\ last_x_assum (drule_at Any)
   \\ impl_tac \\ fs []
   \\ rw [lookup_mem_def,lookup_insert]
-  \\ CASE_TAC \\ fs [isWord_def,lookup_mem_def]
+  \\ CASE_TAC \\ fs [wordSemTheory.isWord_def,lookup_mem_def]
   \\ last_x_assum (qspec_then ‘k'’ mp_tac) \\ fs []
 QED
 
@@ -12904,7 +12941,6 @@ Theorem memory_rel_do_build_const:
   do_build_const parts refs (SOME ts) = (v,refs1,SOME ts1) ∧
   const_parts_to_words c parts = SOME (w,ws) ∧
   memory_rel c be ts refs sp st m dm vars ∧
-  small_shift_length c ≤ shift_length c − shift (:α) ∧
   SUM (MAP part_space_req parts) ≤ sp ∧
   FLOOKUP st NextFree = SOME (Word free) ∧
   FLOOKUP st CurrHeap = SOME (Word curr) ∧
@@ -12937,7 +12973,18 @@ Proof
   \\ disch_then drule
   \\ fs [word_cond_add_def]
   \\ disch_then (qspecl_then [‘free-curr’,‘LN’] mp_tac)
-  \\ impl_tac THEN1 fs [lookup_mem_def,lookup_def]
+  \\ impl_tac THEN1
+   (fs [lookup_mem_def,lookup_def]
+    \\ qsuff_tac ‘byte_aligned (free - curr)’
+    THEN1 (fs [memory_rel_def,heap_in_memory_store_def] \\ EVAL_TAC)
+    \\ ‘byte_aligned free ∧ byte_aligned curr’ by
+         (gvs [memory_rel_def,heap_in_memory_store_def]
+          \\ irule byte_aligned_add
+          \\ fs [byte_align_mult_bytes_in_word])
+    \\ ntac 2 (pop_assum mp_tac)
+    \\ rewrite_tac [byte_aligned_def]
+    \\ rpt strip_tac
+    \\ imp_res_tac aligned_add_sub_cor)
   \\ strip_tac
   \\ drule parts_to_words_IMP_build_words \\ fs [lookup_mem_def,lookup_def]
 QED
