@@ -13481,6 +13481,29 @@ Proof
   \\ gvs [labPropsTheory.good_dimindex_def,dimword_def]
 QED
 
+Theorem store_list_word_cond_add_IMP:
+  ∀y2 m a m1 free.
+    store_list free (MAP (word_cond_add c (a:'a word)) y2) m dm = SOME m1 ∧
+    EVERY isWord (MAP SND y2) ⇒
+    const_addresses free (MAP (I ## forceWord) y2) dm ∧
+    const_writes free (a ≪ (shift_length c − shift (:α)))
+            (MAP (I ## forceWord) y2) m = m1
+Proof
+  Induct
+  \\ fs [wordSemTheory.const_addresses_def,
+         wordSemTheory.const_writes_def,store_list_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ res_tac \\ fs []
+  \\ gvs []
+  \\ Cases_on ‘h’
+  \\ Cases_on ‘r’
+  \\ Cases_on ‘q’
+  \\ fs [wordSemTheory.const_addresses_def,word_cond_add_def,
+         wordSemTheory.const_writes_def,store_list_def,
+         forceWord_def]
+  \\ res_tac \\ fs [isWord_def]
+QED
+
 Theorem assign_Build:
    (∃parts. op = Build parts) ==> ^assign_thm_goal
 Proof
@@ -13585,8 +13608,8 @@ Proof
   \\ drule_at_then (Pos (el 2)) (drule_at (Pos (el 2))) memory_rel_do_build_const
   \\ fs [] \\ strip_tac
   \\ qpat_abbrev_tac ‘m6 = const_writes _ _ _ _’
-  \\ ‘const_addresses free (MAP (I ## forceWord) y2) t.mdomain ∧
-      m1 = m6 ∧ isWord y1’ by cheat
+  \\ ‘const_addresses free (MAP (I ## forceWord) y2) t.mdomain ∧ m1 = m6’ by
+    (drule store_list_word_cond_add_IMP \\ fs [])
   \\ fs [allowed_op_def]
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,wordSemTheory.set_var_def,
