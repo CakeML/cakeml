@@ -444,7 +444,7 @@ QED
 
 val check_successful_def = Define`
   check_successful fmlstr pfstr (i:num,j:num) =
-  ∃cl fs mc ms.
+  ∃cl fs mc ms err.
     cake_lpr_run cl fs mc ms ∧
     LENGTH cl = 5 ∧
     inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
@@ -452,7 +452,7 @@ val check_successful_def = Define`
     file_content fs (EL 2 cl) = SOME pfstr ∧
     parse_rng (EL 3 cl) = SOME (i,j) ∧
     extract_fs fs (check_unsat_io_events cl fs) =
-      SOME (add_stdout fs
+      SOME (add_stdout (add_stderr fs err)
         (success_str (implode (md5 fmlstr)) (implode (md5 pfstr)) (print_rng i j)))`
 
 Theorem par_check_sound_2:
@@ -480,8 +480,7 @@ Proof
     fs[cake_lpr_run_def]>>
     drule STD_streams_stdout>>rw[]>>
     drule add_stdout_inj>>
-    disch_then drule>>
-    rw[]>>
+    disch_then(qspec_then`out'` mp_tac)>>
     metis_tac[stdout_add_stderr])>>
   simp[]
 QED
@@ -509,6 +508,15 @@ QED
 val check_successful_par_def = Define`
   check_successful_par fmlstr pfstr =
   ∃outstr.
+    (∀out. MEM out outstr ⇒
+    (∃cl fs mc ms err.
+      cake_lpr_run cl fs mc ms ∧
+      LENGTH cl = 5 ∧
+      inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
+      file_content fs (EL 1 cl) = SOME fmlstr ∧
+      file_content fs (EL 2 cl) = SOME pfstr ∧
+      extract_fs fs (check_unsat_io_events cl fs) =
+        SOME (add_stdout (add_stderr fs err) out))) ∧
     (∃cl fs mc ms.
       cake_lpr_run cl fs mc ms ∧
       LENGTH cl = 5 ∧
@@ -518,15 +526,7 @@ val check_successful_par_def = Define`
       all_lines fs (EL 4 cl) = outstr ∧
       extract_fs fs (check_unsat_io_events cl fs) =
         SOME (add_stdout fs
-          (concat [«s VERIFIED INTERVALS COVER 0-» ; toString (LENGTH (lines_of (strlit pfstr))); «\n»]))) ∧
-    ∀out. MEM out outstr ⇒
-    (∃cl fs mc ms.
-      cake_lpr_run cl fs mc ms ∧
-      LENGTH cl = 5 ∧
-      inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
-      file_content fs (EL 1 cl) = SOME fmlstr ∧
-      file_content fs (EL 2 cl) = SOME pfstr ∧
-      extract_fs fs (check_unsat_io_events cl fs) = SOME (add_stdout fs out))`
+          (concat [«s VERIFIED INTERVALS COVER 0-» ; toString (LENGTH (lines_of (strlit pfstr))); «\n»])))`
 
 Theorem par_check_sound_3:
   parse_dimacs (lines_of (strlit fmlstr)) = SOME fml ∧
@@ -576,15 +576,14 @@ Proof
   rpt(asm_exists_tac>>simp[])>>
   drule machine_code_sound>>
   rpt(disch_then drule)>>simp[]>>
-  rpt(disch_then drule)>>simp[]>>
   strip_tac>>fs[]>>
-  qmatch_asmsub_abbrev_tac`add_stdout fs' ss`>>
+  qmatch_asmsub_abbrev_tac`add_stdout (add_stderr fs' _) ss`>>
   `ss = out''` by (
     fs[cake_lpr_run_def]>>
     drule STD_streams_stdout>>rw[]>>
     drule add_stdout_inj>>
-    disch_then drule>>
-    rw[stdout_add_stderr])>>
+    disch_then match_mp_tac>>
+    metis_tac[stdout_add_stderr])>>
   unabbrev_all_tac>>fs[]>>
   pop_assum sym_sub_tac>>
   pop_assum mp_tac>>
@@ -594,7 +593,7 @@ Proof
     metis_tac[success_str_inj]>>
   rveq>>
   fs[parse_rng_print_rng]>>
-  rw[stdout_add_stderr]
+  metis_tac[stdout_add_stderr]
 QED
 
 val _ = export_theory();
