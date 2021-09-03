@@ -1779,24 +1779,50 @@ Proof
   simp[LENGTH_resize_Clist]
 QED
 
+(* A version of contains_clauses_list that returns an error clause (if any) *)
+val contains_clauses_list_err_def = Define`
+  contains_clauses_list_err fml inds cls =
+  case reindex fml inds of
+    (_,inds') =>
+  oHD (FILTER (λcl. ¬MEM cl inds') cls)`
+
+Theorem contains_clauses_list_err:
+  contains_clauses_list fml inds cls ⇔
+  ¬IS_SOME (contains_clauses_list_err fml inds cls)
+Proof
+  simp[contains_clauses_list_def,contains_clauses_list_err_def]>>
+  TOP_CASE_TAC>>simp[]>>
+  pop_assum kall_tac>>
+  simp[oHD_def,option_CLAUSES]>>
+  every_case_tac>>fs[FILTER_EQ_NIL]>>
+  CCONTR_TAC>>
+  imp_res_tac LENGTH_FILTER_EXISTS >>
+  fs[o_DEF]
+QED
+
+(* SOME cls indicates failure to detect clause cls *)
 val contains_clauses_sing_list_def = Define`
-  (contains_clauses_sing_list fml [] cls = F) ∧
+  (contains_clauses_sing_list fml [] cls = SOME cls) ∧
   (contains_clauses_sing_list fml (i::is) cls =
   case list_lookup fml NONE i of
     NONE => contains_clauses_sing_list fml is cls
   | SOME v =>
-    v = cls ∨ contains_clauses_sing_list fml is cls)`
+    if v = cls then NONE
+    else contains_clauses_sing_list fml is cls)`
 
 Theorem contains_clauses_sing_list_eq:
   ∀inds fml cls.
   contains_clauses_sing_list fml inds cls =
-  contains_clauses_list fml inds [cls]
+  contains_clauses_list_err fml inds [cls]
 Proof
-  simp[contains_clauses_list_def]>>
+  simp[contains_clauses_list_err_def]>>
   Induct>>rw[contains_clauses_sing_list_def,reindex_def]>>
   TOP_CASE_TAC>>simp[]>>
   TOP_CASE_TAC>>simp[]>>
-  metis_tac[]
+  TOP_CASE_TAC>>simp[]>>
+  TOP_CASE_TAC>>simp[]>>
+  pairarg_tac>>fs[]>>
+  rw[] >> fs[]
 QED
 
 (* Optimized combination of reindex and contains_clauses
@@ -1805,14 +1831,15 @@ QED
 val contains_clauses_sing_arr =  (append_prog o process_topdecs)`
   fun contains_clauses_sing_arr fml ls cls =
   case ls of
-    [] => False
+    [] => Some cls
   | (i::is) =>
   if Array.length fml <= i then contains_clauses_sing_arr fml is cls
   else
   case Unsafe.sub fml i of
     None => contains_clauses_sing_arr fml is cls
   | Some v =>
-  v = cls orelse contains_clauses_sing_arr fml is cls`
+    if v = cls then None
+    else contains_clauses_sing_arr fml is cls`
 
 Theorem contains_clauses_sing_arr_spec:
   ∀ls lsv fmlv fmlls fmllsv cls clsv.
@@ -1825,7 +1852,7 @@ Theorem contains_clauses_sing_arr_spec:
     [fmlv; lsv; clsv]
     (ARRAY fmlv fmllsv)
     (POSTv resv.
-      &(BOOL (contains_clauses_sing_list fmlls ls cls) resv) *
+      &(OPTION_TYPE (LIST_TYPE INT) (contains_clauses_sing_list fmlls ls cls) resv) *
       ARRAY fmlv fmllsv)
 Proof
   Induct>>rw[contains_clauses_sing_list_def]>>
@@ -1833,7 +1860,8 @@ Proof
   fs[LIST_TYPE_def]
   >- (
     xmatch>> rpt(xlet_autop)>>
-    xcon>>xsimpl)>>
+    xcon>>xsimpl>>
+    simp[OPTION_TYPE_def])>>
   xmatch>> rpt(xlet_autop)>>
   simp[list_lookup_def]>>
   `LENGTH fmlls = LENGTH fmllsv` by
@@ -1848,8 +1876,8 @@ Proof
   >- (xmatch>> xapp>> xsimpl) >>
   xmatch>>
   xlet_autop>>
-  xlog>>IF_CASES_TAC
-  >- (xsimpl>>fs[])>>
+  xif
+  >- (xcon>>xsimpl>>simp[OPTION_TYPE_def])>>
   xapp>>simp[]
 QED
 
@@ -1873,13 +1901,14 @@ val reindex_hash = (append_prog o process_topdecs)`
     (hash_ins ht v i;
     reindex_hash fml is ht)`
 
+(* badly named, but hash_contains returns an option with the first clause it fails to find *)
 val hash_contains = (append_prog o process_topdecs)`
-  fun hash_contains hash cls =
-  case cls of
-    [] => True
+  fun hash_contains hash clss =
+  case clss of
+    [] => None
   | (i::is) =>
   (case Hashtable.lookup hash i of
-    None => False
+    None => Some i
   | Some u =>
     hash_contains hash is)`
 
@@ -1903,7 +1932,7 @@ val _ = translate order_lists_def;
 val contains_clauses_arr =  (append_prog o process_topdecs)`
   fun contains_clauses_arr fml ls cls =
   case cls of
-    [] => True
+    [] => None
   | [cl] => contains_clauses_sing_arr fml ls cl
   | clss =>
     let
@@ -2063,22 +2092,30 @@ Theorem hash_contains_spec:
     [hv; clsv]
     (HASHTABLE (LIST_TYPE INT) (LIST_TYPE NUM) hash_func order_lists h hv)
     (POSTv bv.
-      &(BOOL (set cls ⊆ FDOM h) bv))
+      &(OPTION_TYPE (LIST_TYPE INT)
+        (oHD (FILTER (λcl. cl ∉ FDOM h) cls))
+    bv))
 Proof
   Induct>>rw[]>>
   xcf "hash_contains" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    xcon>>xsimpl>>
+    simp[OPTION_TYPE_def])
+  >- (
+    xmatch>> xlet_auto
+    >- (qexists_tac`emp`>>
+      xsimpl)>>
+    Cases_on`FLOOKUP h' h`>>fs[FDOM_FLOOKUP,OPTION_TYPE_def]>>
+    xmatch>>
     xcon>>xsimpl)>>
-  xmatch>>
-  xlet_auto
-  >- (qexists_tac`emp`>>qexists_tac`h'`>>xsimpl)>>
+  xmatch>> xlet_auto
+  >- (qexists_tac`emp`>> xsimpl)>>
   Cases_on`FLOOKUP h' h`>>fs[FDOM_FLOOKUP,OPTION_TYPE_def]>>
-  xmatch
-  >- (xcon>>xsimpl)>>
+  xmatch>>
   xapp>>
-  xsimpl
+  fs[]
 QED
 
 Theorem FDOM_hash_clauses_aux:
@@ -2103,19 +2140,21 @@ Theorem contains_clauses_arr_spec:
     [fmlv; lsv; clsv]
     (ARRAY fmlv fmllsv)
     (POSTv resv.
-      &(BOOL (contains_clauses_list fmlls ls cls) resv) *
+      &(OPTION_TYPE (LIST_TYPE INT) (contains_clauses_list_err fmlls ls cls) resv) *
       ARRAY fmlv fmllsv)
 Proof
-  rw[contains_clauses_list_def]>>
+  rw[contains_clauses_list_err_def]>>
   xcf "contains_clauses_arr" (get_ml_prog_state ())>>
   Cases_on`cls`>>fs[LIST_TYPE_def]
-  >- (xmatch>>xcon>>TOP_CASE_TAC>>xsimpl)>>
+  >- (
+    xmatch>> xcon>>
+    xsimpl>> every_case_tac>>simp[OPTION_TYPE_def])>>
   Cases_on`t`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
     xapp>>xsimpl>>
     rpt(asm_exists_tac>>simp[])>>
-    simp[contains_clauses_sing_list_eq,contains_clauses_list_def])>>
+    rw[]>>every_case_tac>>fs[contains_clauses_sing_list_eq,contains_clauses_list_err_def])>>
   xmatch>>
   rpt xlet_autop>>
   xlet`POSTv v. HASHTABLE (LIST_TYPE INT) (LIST_TYPE NUM) hash_func order_lists FEMPTY v * ARRAY fmlv fmllsv`
@@ -2577,13 +2616,13 @@ Theorem check_unsat'_spec:
   (POSTv v.
     STDIO fs *
     SEP_EXISTS err.
-      &(SUM_TYPE STRING_TYPE BOOL)
+      &(SUM_TYPE STRING_TYPE (OPTION_TYPE (LIST_TYPE INT)))
       (if inFS_fname fs f then
         (case parse_lpr (all_lines fs f) of
          SOME lpr =>
            (case check_lpr_list mindel lpr fmlls ls (REPLICATE n w8z) earliest of
              NONE => INL err
-           | SOME (fml', inds') => INR (contains_clauses_list fml' inds' cls))
+           | SOME (fml', inds') => INR (contains_clauses_list_err fml' inds' cls))
         | NONE => INL err)
       else
         INL err
@@ -3259,7 +3298,7 @@ Proof
   every_case_tac>>fs[EVERY_MEM,EXTENSION]
 QED
 
-Theorem run_proof_arr_spec:
+Theorem check_lpr_range_arr_spec:
   FILENAME f fv ∧
   hasFreeFD fs ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
@@ -3279,8 +3318,8 @@ Theorem run_proof_arr_spec:
     (STDIO fs * ARRAY fmlv fmllsv * ARRAY Earrv earliestv)
     (POSTv v.
     STDIO fs *
-    SEP_EXISTS err.
-      &(SUM_TYPE STRING_TYPE BOOL)
+    SEP_EXISTS err err2.
+      &(SUM_TYPE STRING_TYPE (OPTION_TYPE (LIST_TYPE INT)))
       (if inFS_fname fs f then
         (case parse_lpr (all_lines fs f) of
           NONE => INL err
@@ -3294,7 +3333,9 @@ Theorem run_proof_arr_spec:
           let cls = MAP FST (fmap_to_alist fm'') in
           case check_lpr_list 0 lpr fmlls' ls' (REPLICATE mv' w8z) earliest' of
             NONE => INL err
-          | SOME (fml',ls') => INR (contains_clauses_list fml' ls' cls))
+          | SOME (fml',ls') =>
+            if contains_clauses_list fml' ls' cls then INR NONE
+            else INR (SOME err2))
       else
         INL err
       ) v)
@@ -3346,7 +3387,7 @@ Proof
     xapp_spec (HashtableProofTheory.hashtable_toAscList_spec|>INST_TYPE[alpha|->``:int list``,beta |-> ``:num list``])>>
     qexists_tac`ARRAY v1 fmllsv' * ARRAY v3 earliestv' * STDIO fs`>>xsimpl>>
     metis_tac[SEP_IMP_REFL])>>
-  rpt xlet_autop>>
+  xlet_autop>>
   xapp>>
   xsimpl>>
   `bounded_fml mv' fmlls'` by
@@ -3357,7 +3398,22 @@ Proof
   `set (MAP FST bsalist) = set (MAP FST (fmap_to_alist (FEMPTY |++ bsalist)))` by
     fs[EXTENSION,MEM_MAP,MEM_fmap_to_alist,EXISTS_PROD,FDOM_FUPDATE_LIST]>>
   drule contains_clauses_list_eq>>
+  rw[]>>
+  reverse TOP_CASE_TAC>>fs[]
+  >-
+    metis_tac[]>>
+  TOP_CASE_TAC>>fs[]
+  >-
+    metis_tac[]>>
+  TOP_CASE_TAC>>fs[]
+  >-
+    metis_tac[]>>
+  pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
+  qpat_x_assum`!inds fml. _` (assume_tac o GSYM)>>
   simp[]>>
+  strip_tac>>simp[contains_clauses_list_err]>>
+  TOP_CASE_TAC>>simp[]>>
+  fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]>>
   metis_tac[]
 QED
 
@@ -3417,9 +3473,15 @@ val check_unsat_2 = (append_prog o process_topdecs) `
   in
     case check_unsat' 0 arr rls earr f2 bnd [[]] of
       Inl err => TextIO.output TextIO.stdErr err
-    | Inr True => TextIO.print "s VERIFIED UNSAT\n"
-    | Inr False => TextIO.output TextIO.stdErr "c empty clause not derived at end of proof\n"
+    | Inr None => TextIO.print "s VERIFIED UNSAT\n"
+    | Inr (Some l) => TextIO.output TextIO.stdErr "c empty clause not derived at end of proof\n"
   end`
+
+val transformation_err_def = Define`
+  transformation_err cl =
+  concat[strlit"c transformation clause: ";print_clause cl;strlit" not derived at end of proof\n"]`;
+
+val _ = translate transformation_err_def;
 
 val check_unsat_3 = (append_prog o process_topdecs) `
   fun check_unsat_3 f1 f2 f3 =
@@ -3439,8 +3501,8 @@ val check_unsat_3 = (append_prog o process_topdecs) `
   in
     case check_unsat' 0 arr rls earr f2 bnd fml2 of
       Inl err => TextIO.output TextIO.stdErr err
-    | Inr True => TextIO.print "s VERIFIED TRANSFORMATION\n"
-    | Inr False => TextIO.output TextIO.stdErr "c transformation clause not derived at end of proof\n"
+    | Inr None => TextIO.print "s VERIFIED TRANSFORMATION\n"
+    | Inr (Some cl) => TextIO.output TextIO.stdErr (transformation_err cl)
   end`
 
 val check_cond_def = Define`
@@ -3487,14 +3549,14 @@ val check_unsat_4 = (append_prog o process_topdecs) `
     in
       case check_lpr_range_arr f3 arr rls earr bnd (ncl+1) pf i j of
         Inl err => TextIO.output TextIO.stdErr err
-      | Inr True =>
+      | Inr None =>
           (case md5_of (Some f1) of
             None => TextIO.output TextIO.stdErr (notfound_string f1)
           | Some cnf_md5 =>
             case md5_of (Some f2) of
               None => TextIO.output TextIO.stdErr (notfound_string f2)
             | Some proof_md5 => TextIO.print (success_str cnf_md5 proof_md5 (print_rng i j)))
-      | Inr False => TextIO.output TextIO.stdErr "c transformation clause not derived at end of proof\n"
+      | Inr (Some cl) => TextIO.output TextIO.stdErr (transformation_err cl)
     end
     else TextIO.output TextIO.stdErr "c Invalid range specification: range a-b must satisfy a <= b <= num lines in proof file\n"`
 
@@ -3693,14 +3755,14 @@ Proof
   xlet`POSTv v.
     STDIO fs *
     SEP_EXISTS err.
-     &SUM_TYPE STRING_TYPE BOOL
+     &SUM_TYPE STRING_TYPE (OPTION_TYPE (LIST_TYPE INT))
       (if inFS_fname fs f2 then
          (case parse_lpr (all_lines fs f2) of
             NONE => INL err
           | SOME lpr =>
             (case check_lpr_list 0 lpr a b c d of
              NONE => INL err
-           | SOME (fml', inds') => INR (contains_clauses_list fml' inds' [[]])))
+           | SOME (fml', inds') => INR (contains_clauses_list_err fml' inds' [[]])))
        else INL err) v`
   >- (
     xapp_spec (GEN_ALL check_unsat'_spec)>>
@@ -3741,15 +3803,19 @@ Proof
   >- (fs[SUM_TYPE_def]>>xmatch>>err_tac)>>
   TOP_CASE_TAC>>fs[SUM_TYPE_def]
   >- (xmatch>>err_tac)>>
-  every_case_tac>>fs[SUM_TYPE_def]
-  >- (xmatch>>err_tac)
+  Cases_on` check_lpr_list 0 x a b c d `>>fs[SUM_TYPE_def]
+  >- (xmatch>>err_tac)>>
+  Cases_on`x'`>>fs[]>>
+  fs[contains_clauses_list_err]>>
+  TOP_CASE_TAC>>fs[SUM_TYPE_def,OPTION_TYPE_def]
   >- (
-    fs[BOOL_def]>> xmatch>>
+    xmatch>>
     xapp_spec print_spec >> xsimpl
     \\ qexists_tac`emp`
     \\ qexists_tac`fs`>>xsimpl)
   >- (
-    fs[BOOL_def]>> xmatch>>
+    gs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS,OPTION_TYPE_def]>>
+    xmatch>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
@@ -3845,14 +3911,14 @@ Proof
   xlet`POSTv v.
     STDIO fs *
     SEP_EXISTS err.
-     &SUM_TYPE STRING_TYPE BOOL
+     &SUM_TYPE STRING_TYPE (OPTION_TYPE (LIST_TYPE INT))
       (if inFS_fname fs f2 then
          (case parse_lpr (all_lines fs f2) of
             NONE => INL err
           | SOME lpr =>
             (case check_lpr_list 0 lpr a b c d of
              NONE => INL err
-           | SOME (fml', inds') => INR (contains_clauses_list fml' inds' x2')))
+           | SOME (fml', inds') => INR (contains_clauses_list_err fml' inds' x2')))
        else INL err) v`
   >- (
     xapp_spec (GEN_ALL check_unsat'_spec)>>
@@ -3893,21 +3959,26 @@ Proof
   >- (fs[SUM_TYPE_def]>>xmatch>>err_tac)>>
   TOP_CASE_TAC>>fs[SUM_TYPE_def]
   >- (xmatch>>err_tac)>>
-  every_case_tac>>fs[SUM_TYPE_def]
-  >- (xmatch>>err_tac)
+  Cases_on`check_lpr_list 0 x a b c d`>>gs[SUM_TYPE_def]
+  >- (xmatch>>err_tac)>>
+  Cases_on`x'`>>fs[SUM_TYPE_def]>>
+  fs[contains_clauses_list_err,OPTION_TYPE_def]>>
+  TOP_CASE_TAC>>fs[]
   >- (
-    fs[BOOL_def]>> xmatch>>
+    fs[OPTION_TYPE_def]>>xmatch>>
     xapp_spec print_spec >> xsimpl
     \\ qexists_tac`emp`
-    \\ qexists_tac`fs`>>xsimpl)
-  >- (
-    fs[BOOL_def]>> xmatch>>
-    xapp_spec output_stderr_spec \\ xsimpl>>
-    qexists_tac`emp`>>xsimpl>>
-    qexists_tac`fs`>>xsimpl>>
-    rw[]>>
-    qmatch_goalsub_abbrev_tac`_ _ err`>>
-    qexists_tac`err`>>xsimpl)
+    \\ qexists_tac`fs`>>xsimpl)>>
+  gs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS,OPTION_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  xapp_spec output_stderr_spec \\ xsimpl>>
+  qexists_tac`emp`>>xsimpl>>
+  asm_exists_tac>>
+  qexists_tac`fs`>>xsimpl>>
+  rw[]>>
+  qmatch_goalsub_abbrev_tac`_ _ err`>>
+  qexists_tac`err`>>xsimpl
 QED
 
 val check_unsat_4_sem_def = Define`
@@ -4189,7 +4260,7 @@ Proof
     qexists_tac`err`>>xsimpl)>>
   TOP_CASE_TAC>>simp[check_lpr_range_list_def,check_lpr_sat_equiv_list_def]>>
   simp[SUM_TYPE_def]>>strip_tac>>
-  TOP_CASE_TAC>>fs[BOOL_def]>> xmatch
+  TOP_CASE_TAC>>fs[OPTION_TYPE_def,SUM_TYPE_def]>> xmatch
   >- (
     xlet_autop>>
     xlet ‘(POSTv retv. STDIO fs * &OPTION_TYPE STRING_TYPE
@@ -4212,11 +4283,12 @@ Proof
     qexists_tac`emp`>>
     asm_exists_tac>>
     qexists_tac`fs`>>xsimpl)>>
+  xlet_autop>>
   xapp_spec output_stderr_spec \\ xsimpl>>
   qexists_tac`emp`>>xsimpl>>
-  qexists_tac`fs`>>xsimpl>>
+  asm_exists_tac>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit"c transformation clause not derived at end of proof\n"`>>xsimpl
+  qexists_tac`transformation_err err2`>>xsimpl
 QED
 
 val check_unsat_sem_def = Define`
