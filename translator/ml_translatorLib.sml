@@ -178,7 +178,7 @@ val refs' = mk_var("refs'",refs_ty)
 val v = mk_var("v",v_ty)
 val env_tm = mk_var("env",venvironment)
 val cl_env_tm = mk_var("cl_env",venvironment)
-val state_refs_tm = prim_mk_const{Name="state_refs",Thy="semanticPrimitives"}
+val state_refs_tm = prim_mk_const{Name=TypeBasePure.mk_recordtype_fieldsel {fieldname="refs",tyname="state"},Thy="semanticPrimitives"}
 fun mk_tid name =
   optionSyntax.mk_some
     (astSyntax.mk_Short
@@ -1627,7 +1627,7 @@ val th = inv_defs |> map #2 |> hd
   (* cons assumption *)
   fun mk_assum tm =
     if not is_exn_type then let
-      val x = find_term is_TypeStamp tm
+      val x = find_term is_TypeStamp (rhs tm)
       val (n,k) = dest_TypeStamp x
       val l = tm |> dest_eq |> fst |> rator |> rand |> list_dest dest_comb
                  |> tl |> length |> numSyntax.term_of_int
@@ -4416,7 +4416,7 @@ fun translate_options options def =
         val th = UNDISCH_ALL (clean_assumptions (D th))
         val curr_state = get_curr_state()
         val curr_refs =
-          mk_icomb(prim_mk_const{Name="state_refs",Thy="semanticPrimitives"},curr_state)
+          mk_icomb(state_refs_tm,curr_state)
         val curr_refs_eq = EVAL curr_refs
         val vs = free_vars (concl th)
         fun aux (v,th) = let

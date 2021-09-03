@@ -152,7 +152,7 @@ val cmlG_def = mk_grammar_def ginfo
        |  ^(``{SymbolT s | s ≠ ""}``)
        |  "*" | "=" ;
 
- Eliteral ::= <IntT> |  <CharT> | <StringT> | <WordT> | <FFIT> ;
+ Eliteral ::= <IntT> | <CharT> | <StringT> | <WordT> | <FFIT> ;
 
  Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | Eliteral
         | "let" LetDecs "in" Eseq "end" | "[" "]"
@@ -222,7 +222,9 @@ val cmlG_def = mk_grammar_def ginfo
  TopLevelDec ::= Structure | Decl ;
  TopLevelDecs ::= E ";" TopLevelDecs | TopLevelDec NonETopLevelDecs
                |  ";" TopLevelDecs | ;
- NonETopLevelDecs ::= TopLevelDec NonETopLevelDecs | ";" TopLevelDecs | ;
+ NonETopLevelDecs ::= TopLevelDec NonETopLevelDecs | ";" TopLevelDecs | ; (*
+ REPLCommand ::= <REPLIDT> Ebase ;
+ TopLevel ::= REPLCommand | TopLevelDecs ; *)
 `;
 
 Type NT = ``:MMLnonT inf``

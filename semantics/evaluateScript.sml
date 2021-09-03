@@ -32,6 +32,13 @@ val _ = Define `
  ((dec_clock:'a state -> 'a state) s=  (( s with<| clock := (s.clock -( 1 : num)) |>)))`;
 
 
+val _ = Define `
+ ((do_eval_res:(v)list -> 'b state -> 'b state#(((v)sem_env#(dec)list),'a)result) vs s=  ((case do_eval vs s.eval_state of
+    NONE => (s, Rerr (Rabort Rtype_error))
+  | SOME (env1, decs, es1) => (( s with<| eval_state := es1 |>), Rval (env1, decs))
+  )))`;
+
+
 (* list_result is equivalent to map_result (\v. [v]) I, where map_result is
  * defined in evalPropsTheory *)
  val _ = Define `
@@ -43,6 +50,7 @@ val _ = Define `
 
 (*val evaluate : forall 'ffi. state 'ffi -> sem_env v -> list exp -> state 'ffi * result (list v) v*)
 (*val evaluate_match : forall 'ffi. state 'ffi -> sem_env v -> v -> list (pat * exp) -> v -> state 'ffi * result (list v) v*)
+(*val evaluate_decs : forall 'ffi. state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v*)
  val evaluate_defn = Defn.Hol_multi_defns `
 
 ((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env []=  (st, Rval []))
@@ -105,6 +113,26 @@ val _ = Define `
             else
               evaluate (dec_clock st') env' [e]
         | NONE => (st', Rerr (Rabort Rtype_error))
+        )
+      else if op = Eval then
+        (case fix_clock st' (do_eval_res (REVERSE vs) st') of
+          (st1, Rval (env1, decs)) =>
+            if st1.clock =( 0 : num) then
+              (st1, Rerr (Rabort Rtimeout_error))
+            else
+              (case fix_clock (dec_clock st1)
+                      (evaluate_decs (dec_clock st1) env1 decs) of
+                (st2, Rval env2) => (case declare_env st2.eval_state
+                  (extend_dec_env env2 env1) of
+                  SOME (x, es2) => (( st2 with<| eval_state :=
+                    (reset_env_generation st'.eval_state es2) |>), Rval [x])
+                | NONE => (st2, Rerr (Rabort Rtype_error))
+                )
+              | (st2, Rerr (Rabort a)) => (st2, Rerr (Rabort a))
+              | (st2, Rerr e) => (( st2 with<| eval_state :=
+                  (reset_env_generation st'.eval_state st2.eval_state) |>), Rerr e)
+              )
+        | (st1, Rerr e) => (st1, Rerr e)
         )
       else
         (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of
@@ -171,18 +199,12 @@ val _ = Define `
     | No_match => evaluate_match st env v pes err_v
     | Match_type_error => (st, Rerr (Rabort Rtype_error))
     )
-  else (st, Rerr (Rabort Rtype_error))))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) evaluate_defn;
-
-(*val evaluate_decs :
-  forall 'ffi. state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v*)
- val evaluate_decs_defn = Defn.Hol_multi_defns `
-
+  else (st, Rerr (Rabort Rtype_error))))
+/\
 ((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env []=  (st, Rval <| v := nsEmpty; c := nsEmpty |>))
 /\
 ((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env (d1::d2::ds)=
-   ((case evaluate_decs st env [d1] of
+   ((case fix_clock st (evaluate_decs st env [d1]) of
     (st1, Rval env1) =>
     (case evaluate_decs st1 (extend_dec_env env1 env) (d2::ds) of
       (st2,r) => (st2, combine_dec_result env1 r)
@@ -222,6 +244,13 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 ((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dtabbrev locs tvs tn t]=
    (st, Rval <| v := nsEmpty; c := nsEmpty |>))
 /\
+((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Denv n]=
+   ((case declare_env st.eval_state env of
+    SOME (x, es') => (( st with<| eval_state := es' |>),
+        Rval <| v := (nsSing n x); c := nsEmpty |>)
+  | NONE => (st, Rerr (Rabort Rtype_error))
+  )))
+/\
 ((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dexn locs cn ts]=
    (( st with<| next_exn_stamp := (st.next_exn_stamp +( 1 : num)) |>),
    Rval <| v := nsEmpty; c := (nsSing cn (LENGTH ts, ExnStamp st.next_exn_stamp)) |>))
@@ -237,12 +266,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   )))
 /\
 ((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dlocal lds ds]=
-   ((case evaluate_decs st env lds of
+   ((case fix_clock st (evaluate_decs st env lds) of
     (st1, Rval env1) =>
     evaluate_decs st1 (extend_dec_env env1 env) ds
   | res => res
   )))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) evaluate_decs_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) evaluate_defn;
 val _ = export_theory()
 

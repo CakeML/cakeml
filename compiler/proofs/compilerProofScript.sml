@@ -150,6 +150,8 @@ Proof
   \\ rpt strip_tac
   \\ (backendProofTheory.compile_correct'
       |> SIMP_RULE std_ss [LET_THM,UNCURRY]
+      |> Q.INST [‘ev’|->‘NONE’]
+      |> REWRITE_RULE [add_eval_state_def]
       |> GEN_ALL
       |> drule)
   \\ simp[]
@@ -158,7 +160,7 @@ Proof
   \\ simp [AC CONJ_COMM CONJ_ASSOC]
   \\ disch_then (match_mp_tac o MP_CANON)
   \\ simp [RIGHT_EXISTS_AND_THM]
-  \\ fs[can_type_prog_def]
+  \\ fs[can_type_prog_def,opt_eval_config_wf_def]
   \\ reverse conj_tac >- metis_tac[]
   \\ strip_tac
   \\ drule semantics_type_sound

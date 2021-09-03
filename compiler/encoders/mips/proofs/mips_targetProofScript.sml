@@ -258,8 +258,11 @@ local
       List.tabulate (n, fn i => bool1 (tm, numLib.term_of_int (n - 1 - i)))
    val bytes = List.concat o List.map (boolify 8)
    val v2w_n2w_rule = CONV_RULE (Conv.DEPTH_CONV bitstringLib.v2w_n2w_CONV)
-   val (_, mk_mips_state_BranchDelay, _, _) =
-      HolKernel.syntax_fns1 "mips" "mips_state_BranchDelay"
+   val mips_state_BranchDelay =
+     TypeBase.fields_of “:mips_state”
+     |> assoc "BranchDelay"
+     |> #accessor
+   fun mk_mips_state_BranchDelay tm = mk_comb(mips_state_BranchDelay,tm)
    val (_, _, dest_NextStateMIPS, is_NextStateMIPS) =
       HolKernel.syntax_fns1 "mips_step" "NextStateMIPS"
    val is_mips_next = #4 (HolKernel.syntax_fns1 "mips_target" "mips_next")

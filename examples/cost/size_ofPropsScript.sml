@@ -85,6 +85,13 @@ Proof
   \\ fs []
 QED
 
+Theorem all_blocks_cons_simp:
+  ∀x xs ys. all_blocks (x::xs::ys) = all_blocks [x] ++ all_blocks (xs::ys)
+Proof
+  rw [] \\ qspecl_then [‘[x]’,‘xs::ys’] assume_tac all_blocks_append
+  \\ fs []
+QED
+
 Theorem size_of_cons:
   size_of lims (x::xs) refs seen =
     let (n1,refs1,seen1) = size_of lims xs refs seen in
@@ -94,7 +101,7 @@ Proof
   Cases_on ‘xs’ \\ fs [size_of_def] \\ fs [UNCURRY]
 QED
 
-Theorem size_of_append:
+Theorem size_of_append_eq:
   ∀lims xs ys refs seen.
     size_of lims (xs++ys) refs seen =
       let (n1,refs1,seen1) = size_of lims ys refs seen in
@@ -325,7 +332,7 @@ Proof
     \\ reverse (Cases_on ‘h’) \\ fs [size_of_def,AllCaseEqs()]
     \\ rveq \\ fs [] \\ rfs []
     THEN1
-     (rewrite_tac [size_of_append,size_of_def] \\ simp []
+     (rewrite_tac [size_of_append_eq,size_of_def] \\ simp []
       \\ Cases_on ‘size_of lims vs (delete n refs) seen1’ \\ fs []
       \\ PairCases_on ‘r’ \\ fs [] \\ rveq
       \\ last_x_assum (qspec_then ‘size (delete n refs)’ mp_tac)
@@ -336,7 +343,7 @@ Proof
       \\ disch_then (qspecl_then [‘vs’,‘seen1’] mp_tac)
       \\ simp []
       \\ reverse impl_tac
-      THEN1 (fs [size_of_append] \\ fs [UNCURRY])
+      THEN1 (fs [size_of_append_eq] \\ fs [UNCURRY])
       \\ rpt strip_tac
       THEN1
        (first_x_assum match_mp_tac \\ fs []
@@ -352,7 +359,7 @@ Proof
     \\ rveq \\ fs [] \\ rfs []
     \\ ‘∃rr. size_of lims (h::t) refs (insert n0 () seen1) = rr’ by fs []
     \\ PairCases_on ‘rr’ \\ fs [] \\ rveq \\ fs []
-    \\ asm_rewrite_tac [size_of_append,size_of_def,lookup_insert]
+    \\ asm_rewrite_tac [size_of_append_eq,size_of_def,lookup_insert]
     \\ rename [‘if t1 = t2 then SOME () else NONE’]
     \\ Cases_on ‘t1 = t2’ \\ fs []
     THEN1 (‘bb = h::t’by (fs [sane_timestamps_def] \\ res_tac \\ fs []) \\ fs [])
@@ -373,17 +380,17 @@ Proof
     \\ ‘∃w. size_of lims (h::t) refs (insert t2 () (insert t1 () seen1)) = w’ by fs []
     \\ PairCases_on ‘w’ \\ fs []
     \\ ntac 4 (pop_assum mp_tac)
-    \\ rewrite_tac [size_of_append]
+    \\ rewrite_tac [size_of_append_eq]
     \\ rpt strip_tac \\ fs [] \\ rfs []
     \\ ‘∃v. size_of lims bb w1 w2 = v’ by fs []
     \\ PairCases_on ‘v’ \\ fs [])
   \\ ‘size_of lims ([h] ++ t) refs seen1 = (k0,refs1,seen2)’ by fs []
   \\ pop_assum mp_tac
-  \\ simp [Once size_of_append]
+  \\ simp [Once size_of_append_eq]
   \\ strip_tac
   \\ ‘size_of lims (bb ++ h::t) refs = size_of lims (bb ++ ([h] ++ t)) refs’
       by rewrite_tac [APPEND]
-  \\ asm_rewrite_tac [] \\ rewrite_tac [size_of_append]
+  \\ asm_rewrite_tac [] \\ rewrite_tac [size_of_append_eq]
   \\ ‘∃v. size_of lims t refs seen1 = v’ by fs []
   \\ PairCases_on ‘v’ \\ fs []
   \\ rename [‘_ = (n7,refs7,seen7)’]
@@ -409,7 +416,7 @@ Proof
         \\ rveq \\ rpt strip_tac
         \\ first_x_assum match_mp_tac \\ fs []
         \\ rw [] \\ fs [] \\ fs [v_size_def,v_size_append])
-      \\ rewrite_tac [size_of_append]
+      \\ rewrite_tac [size_of_append_eq]
       \\ fs [UNCURRY])
     \\ last_x_assum (qspec_then ‘size refs7’ mp_tac)
     \\ impl_keep_tac
@@ -419,7 +426,7 @@ Proof
     \\ disch_then (qspec_then ‘refs7’ mp_tac) \\ rewrite_tac []
     \\ disch_then drule
     \\ reverse impl_tac
-    THEN1 (rewrite_tac [size_of_append] \\ fs [UNCURRY])
+    THEN1 (rewrite_tac [size_of_append_eq] \\ fs [UNCURRY])
     \\ fs []
     \\ reverse (rpt strip_tac)
     THEN1 (Cases_on ‘h’ \\ fs [])
@@ -444,7 +451,7 @@ Proof
     \\ rpt strip_tac
     \\ first_x_assum match_mp_tac \\ fs []
     \\ rw [] \\ fs [v_size_append,v_size_def])
-  \\ rewrite_tac [size_of_append]
+  \\ rewrite_tac [size_of_append_eq]
   \\ ‘∃v. size_of lims t refs (insert x1 () seen1) = v’ by fs []
   \\ PairCases_on ‘v’ \\ fs []
   \\ ‘∃w. size_of lims bb v1 v2 = w’ by fs []
@@ -453,7 +460,7 @@ Proof
   \\ qsuff_tac
        ‘size_of lims ([h] ++ bb ++ []) v1 v2 =
         size_of lims (bb ++ [h] ++ []) v1 v2’
-  THEN1 (rewrite_tac [APPEND_NIL] \\ rewrite_tac [size_of_append] \\ fs [UNCURRY])
+  THEN1 (rewrite_tac [APPEND_NIL] \\ rewrite_tac [size_of_append_eq] \\ fs [UNCURRY])
   \\ first_x_assum match_mp_tac \\ fs []
   \\ reverse (rpt strip_tac)
   THEN1 (Cases_on ‘h’ \\ fs [])
@@ -534,15 +541,15 @@ Proof
        (rpt strip_tac
         \\ first_x_assum match_mp_tac \\ fs []
         \\ rw [] \\ fs [v_size_def])
-      \\ rewrite_tac [size_of_append,size_of_def]
+      \\ rewrite_tac [size_of_append_eq,size_of_def]
       \\ fs [UNCURRY])
     \\ Cases_on ‘n = r’ \\ fs [] \\ rveq
     THEN1
-     (rewrite_tac [size_of_append,size_of_def,lookup_delete] \\ fs []
+     (rewrite_tac [size_of_append_eq,size_of_def,lookup_delete] \\ fs []
       \\ fs [UNCURRY])
     \\ ‘∃rr. size_of lims (array_vals x') (delete n refs) seen1 = rr’ by fs []
     \\ PairCases_on ‘rr’ \\ fs [] \\ rveq \\ fs []
-    \\ asm_rewrite_tac [size_of_append,size_of_ref,lookup_insert,lookup_delete]
+    \\ asm_rewrite_tac [size_of_append_eq,size_of_ref,lookup_insert,lookup_delete]
     \\ simp []
     \\ last_x_assum (qspec_then ‘size (delete n refs)’ mp_tac)
     \\ impl_tac THEN1 (imp_res_tac lookup_zero \\ fs [size_delete])
@@ -567,16 +574,16 @@ Proof
         \\ imp_res_tac lookup_zero \\ fs [size_delete])
       \\ imp_res_tac lookup_zero \\ fs [size_delete] \\ rfs [])
     \\ simp [Once delete_delete]
-    \\ rewrite_tac [size_of_append]
+    \\ rewrite_tac [size_of_append_eq]
     \\ fs [UNCURRY])
   \\ ‘size_of lims ([h] ++ t) refs seen1 = (k0,refs1,seen2)’ by fs []
   \\ pop_assum mp_tac
-  \\ simp [Once size_of_append]
+  \\ simp [Once size_of_append_eq]
   \\ strip_tac
   \\ ‘size_of lims (array_vals x ++ h::t) =
       size_of lims (array_vals x ++ ([h] ++ t))’
         by rewrite_tac [APPEND]
-  \\ asm_rewrite_tac [] \\ rewrite_tac [size_of_append]
+  \\ asm_rewrite_tac [] \\ rewrite_tac [size_of_append_eq]
   \\ ‘∃v. size_of lims t refs seen1 = v’ by fs []
   \\ PairCases_on ‘v’ \\ fs []
   \\ rename [‘_ = (n7,refs7,seen7)’]
@@ -603,7 +610,7 @@ Proof
         \\ rveq \\ rpt strip_tac
         \\ first_x_assum match_mp_tac \\ fs []
         \\ rw [] \\ fs [] \\ fs [v_size_def,v_size_append])
-      \\ rewrite_tac [size_of_append]
+      \\ rewrite_tac [size_of_append_eq]
       \\ fs [UNCURRY])
     \\ last_x_assum (qspec_then ‘size refs7’ mp_tac)
     \\ impl_keep_tac
@@ -614,7 +621,7 @@ Proof
     \\ disch_then drule
     \\ disch_then (qspecl_then [‘r’,‘x’] mp_tac) \\ rewrite_tac []
     \\ reverse impl_tac
-    THEN1 (rewrite_tac [size_of_append] \\ fs [UNCURRY])
+    THEN1 (rewrite_tac [size_of_append_eq] \\ fs [UNCURRY])
     \\ fs []
     \\ reverse (rpt strip_tac)
     THEN1 (Cases_on ‘h’ \\ fs [])
@@ -639,7 +646,7 @@ Proof
     \\ rpt strip_tac
     \\ first_x_assum match_mp_tac \\ fs []
     \\ rw [] \\ fs [v_size_append,v_size_def])
-  \\ rewrite_tac [size_of_append]
+  \\ rewrite_tac [size_of_append_eq]
   \\ ‘∃v. size_of lims t (delete r refs) seen1 = v’ by fs []
   \\ PairCases_on ‘v’ \\ fs []
   \\ ‘∃w. size_of lims (array_vals x) v1 v2 = w’ by fs []
@@ -648,7 +655,7 @@ Proof
   \\ qsuff_tac
        ‘size_of lims ([h] ++ array_vals x ++ []) v1 v2 =
         size_of lims (array_vals x ++ [h] ++ []) v1 v2’
-  THEN1 (rewrite_tac [APPEND_NIL] \\ rewrite_tac [size_of_append] \\ fs [UNCURRY])
+  THEN1 (rewrite_tac [APPEND_NIL] \\ rewrite_tac [size_of_append_eq] \\ fs [UNCURRY])
   \\ first_x_assum match_mp_tac \\ fs []
   \\ reverse (rpt strip_tac)
   THEN1 (Cases_on ‘x’ \\ fs [array_vals_def,refs_in_def] \\ metis_tac [])
@@ -702,7 +709,7 @@ Proof
   THEN1 (fs [] \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC])
   \\ qabbrev_tac ‘ts = (t ++ zs)’
   \\ qabbrev_tac ‘xs2 = ys ++ [h]’
-  \\ simp [size_of_append]
+  \\ simp [size_of_append_eq]
   \\ ‘∃q. size_of lims ts refs seen = q’ by fs []
   \\ PairCases_on ‘q’ \\ fs []
   \\ AP_TERM_TAC \\ fs [Abbr‘xs2’]
@@ -724,10 +731,10 @@ Proof
   THEN1 fs []
   \\ Cases_on ‘h’
   \\ TRY (rename [‘Block x1 x2 x3’] \\ Cases_on ‘x3’)
-  \\ TRY (rewrite_tac [size_of_append] \\ simp [size_of_def] \\ NO_TAC)
+  \\ TRY (rewrite_tac [size_of_append_eq] \\ simp [size_of_def] \\ NO_TAC)
   (* only non-empty Block and RefPtr cases left *)
   THEN1
-   (rewrite_tac [size_of_append] \\ simp [size_of_def]
+   (rewrite_tac [size_of_append_eq] \\ simp [size_of_def]
     \\ Cases_on ‘IS_SOME (lookup x1 seen1)’ \\ fs []
     THEN1
      (‘∃q. size_of lims ys refs seen1 = q’ by fs []
@@ -751,14 +758,14 @@ Proof
       \\ last_x_assum (qspecl_then [‘ys’,‘h::t'’,‘[]’,‘refs’,‘insert x1 () seen1’] mp_tac)
       \\ impl_tac THEN1 fs [v_size_def,v_size_append]
       \\ rewrite_tac [APPEND_NIL]
-      \\ asm_rewrite_tac [size_of_append] \\ fs [])
+      \\ asm_rewrite_tac [size_of_append_eq] \\ fs [])
     \\ qsuff_tac ‘size_of lims ys refs seen1 =
        size_of lims (ys ++ [Block x1 x2 (h::t')]) refs seen1’
     THEN1
      (fs [] \\ disch_then kall_tac
-      \\ simp [Once size_of_append]
+      \\ simp [Once size_of_append_eq]
       \\ fs [size_of_def])
-    \\ asm_rewrite_tac [size_of_append,size_of_def,EVAL “IS_SOME NONE”]
+    \\ asm_rewrite_tac [size_of_append_eq,size_of_def,EVAL “IS_SOME NONE”]
     \\ drule size_of_lemma
     \\ rename [‘Block x1 x2 (x3::x4)’]
     \\ disch_then (qspecl_then [‘x2’,‘x1’,‘bs’,‘x3::x4’] mp_tac)
@@ -770,9 +777,9 @@ Proof
     \\ first_assum (qspecl_then [‘x3::x4’,‘ys’,‘[]’,‘refs’,‘insert x1 () seen1’] mp_tac)
     \\ impl_tac THEN1 fs [v_size_def,v_size_append]
     \\ rewrite_tac [APPEND_NIL]
-    \\ rewrite_tac [size_of_append]
+    \\ rewrite_tac [size_of_append_eq]
     \\ fs [UNCURRY])
-  \\ rewrite_tac [size_of_append] \\ simp [size_of_def]
+  \\ rewrite_tac [size_of_append_eq] \\ simp [size_of_def]
   \\ rename [‘lookup r’]
   \\ Cases_on ‘lookup r refs’ \\ fs []
   THEN1
@@ -799,14 +806,14 @@ Proof
       THEN1 (imp_res_tac lookup_zero \\ fs [size_delete])
       THEN1 (fs [refs_in_def,lookup_delete] \\ metis_tac [])
       \\ fs [array_vals_def,refs_in_def] \\ res_tac)
-    \\ rewrite_tac [APPEND_NIL] \\ asm_rewrite_tac [size_of_append] \\ fs [])
+    \\ rewrite_tac [APPEND_NIL] \\ asm_rewrite_tac [size_of_append_eq] \\ fs [])
   \\ qsuff_tac ‘size_of lims ys refs seen1 =
                 size_of lims (ys ++ [RefPtr r]) refs seen1’
   THEN1
    (fs [] \\ disch_then kall_tac
-    \\ simp [Once size_of_append]
+    \\ simp [Once size_of_append_eq]
     \\ fs [size_of_def])
-  \\ asm_rewrite_tac [size_of_append,size_of_def]
+  \\ asm_rewrite_tac [size_of_append_eq,size_of_def]
   \\ drule size_of_lemma_ref
   \\ disch_then (qspecl_then [‘bs’,‘r’] mp_tac) \\ simp []
   \\ impl_tac
@@ -821,7 +828,7 @@ Proof
     THEN1 (fs [refs_in_def,lookup_delete] \\ metis_tac [])
     \\ Cases_on ‘x’ \\ fs [array_vals_def,refs_in_def] \\ res_tac)
   \\ rewrite_tac [APPEND_NIL]
-  \\ rewrite_tac [size_of_append]
+  \\ rewrite_tac [size_of_append_eq]
   \\ Cases_on ‘x’ \\ fs [array_vals_def,array_len_def]
   \\ fs [size_of_def]
   \\ fs [UNCURRY] \\ rw [] \\ fs []
@@ -850,7 +857,7 @@ Proof
   \\ fs [PERM_SINGLE_SWAP_DEF]
   \\ rveq \\ fs []
   \\ rewrite_tac [GSYM APPEND_ASSOC]
-  \\ once_rewrite_tac [size_of_append]
+  \\ once_rewrite_tac [size_of_append_eq]
   \\ simp [] \\ AP_TERM_TAC
   \\ qsuff_tac ‘size_of lims (x2 ++ x3 ++ []) refs seen =
                 size_of lims (x3 ++ x2 ++ []) refs seen’
@@ -875,8 +882,8 @@ Proof
   \\ asm_exists_tac \\ simp []
 QED
 
-Theorem size_of_perm:
-  ∀xs ys lims bs refs seen.
+Theorem size_of_perm_gen:
+  ∀xs ys lims refs seen.
     PERM xs ys ∧
     sane_timestamps (all_bs_refs refs ++ all_blocks xs) ⇒
     size_of lims xs refs seen =
@@ -912,7 +919,7 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem sane_timestamps_PERM:
+Theorem sane_timestamps_PERM_eq:
   ∀xs ys. PERM xs ys ⇒ sane_timestamps xs = sane_timestamps ys
 Proof
   rw [] \\  EQ_TAC \\ pop_assum mp_tac
@@ -966,6 +973,291 @@ Proof
   \\ reverse (Cases_on ‘x = Block ts tag' vl'’)
   >- (fs [] \\ last_x_assum irule \\ metis_tac [MEM_PERM])
   \\ fs []
+QED
+
+Theorem sane_timestamps_PERM:
+  ∀xs ys. PERM xs ys ∧ sane_timestamps xs ⇒ sane_timestamps ys
+Proof
+  rw[] \\ drule sane_timestamps_PERM_eq \\ gs[]
+QED
+
+(* sane_heap is a more simple interface for sane_timestamps and all the appending and permutation in it *)
+Definition sane_heap_def:
+  sane_heap refs xs = sane_timestamps (all_bs_refs refs ++ all_blocks xs)
+End
+
+Theorem all_blocks_PERM:
+  ∀xs ys. PERM xs ys ⇒ PERM (all_blocks xs) (all_blocks ys)
+Proof
+  ho_match_mp_tac PERM_STRONG_IND \\ rw[all_blocks_def]
+  \\ ONCE_REWRITE_TAC [all_blocks_cons] \\ simp [PERM_APPEND_IFF]
+  \\ ONCE_REWRITE_TAC [all_blocks_cons] \\ simp [PERM_APPEND_IFF]
+  >- (qmatch_goalsub_abbrev_tac ‘a ++ b ++ c’ \\ irule PERM_TRANS
+      \\ qexists_tac ‘b ++ a ++ c’ \\ simp [PERM_APPEND_IFF,APPEND_PERM_SYM])
+  \\ metis_tac[PERM_TRANS]
+QED
+
+Theorem sane_timestamps_APPEND_left:
+  ∀xs ys. sane_timestamps (xs ++ ys) ⇒ sane_timestamps xs
+Proof
+  simp[sane_timestamps_def]
+  \\ ntac 9 strip_tac
+  \\ first_x_assum irule
+  \\ qexists_tac ‘ts’
+  \\ rw []
+QED
+
+Theorem sane_timestamps_APPEND_right:
+  ∀xs ys. sane_timestamps (xs ++ ys) ⇒ sane_timestamps ys
+Proof
+  rw[] \\ first_x_assum (mp_then Any mp_tac sane_timestamps_PERM)
+  \\ disch_then (qspec_then ‘ys ++ xs’ mp_tac)
+  \\ impl_tac >- simp[APPEND_PERM_SYM]
+  \\ metis_tac [sane_timestamps_APPEND_left]
+QED
+
+Theorem sane_timestamps_APPEND:
+  ∀xs ys. sane_timestamps (xs ++ ys) ⇒ sane_timestamps xs ∧ sane_timestamps ys
+Proof
+  metis_tac [sane_timestamps_APPEND_right,sane_timestamps_APPEND_left]
+QED
+
+Theorem sane_heap_PERM_eq:
+  ∀s xs ys. PERM xs ys ⇒ (sane_heap s xs ⇔ sane_heap s ys)
+Proof
+  rw[sane_heap_def] \\ irule sane_timestamps_PERM_eq
+  \\ qmatch_goalsub_abbrev_tac ‘PERM (a ++ b) (a ++ c)’
+  \\ irule PERM_TRANS
+  \\ irule_at Any APPEND_PERM_SYM
+  \\ qexists_tac ‘c ++ a’
+  \\ simp [PERM_APPEND_IFF,APPEND_PERM_SYM]
+  \\ drule all_blocks_PERM \\ simp []
+QED
+
+Theorem sane_heap_PERM:
+  ∀s xs ys. PERM xs ys ∧ sane_heap s xs ⇒ sane_heap s ys
+Proof
+  rw[] \\ drule sane_heap_PERM_eq \\ metis_tac[]
+QED
+
+Theorem sane_heap_block_cons:
+  ∀refs x xs ts tag vl. sane_heap refs (Block ts tag vl::xs) ⇔
+         (sane_heap refs (vl ++ xs) ∧
+          ∀tag' vl'.
+            MEM (Block ts tag' vl') (all_bs_refs refs ++ all_blocks (xs ++ vl)) ⇒
+             tag = tag' ∧ vl = vl')
+Proof
+  rw[sane_heap_def]
+  \\ ONCE_REWRITE_TAC [all_blocks_cons,all_blocks_append]
+  \\ qmatch_goalsub_abbrev_tac ‘sane_timestamps (refs1 ++ x1::xs1)’
+  \\ ‘PERM (refs1 ++ (x1::xs1)) (x1::(xs1 ++ refs1))’
+     by simp[APPEND_PERM_SYM]
+  \\ dxrule_then (ONCE_REWRITE_TAC o single) sane_timestamps_PERM_eq
+  \\ ‘PERM (refs1 ++ xs1) (xs1 ++ refs1)’
+     by simp[APPEND_PERM_SYM]
+  \\ dxrule_then (ONCE_REWRITE_TAC o single) sane_timestamps_PERM_eq
+  \\ UNABBREV_ALL_TAC
+  \\ EQ_TAC
+  \\ strip_tac
+  >- (gs[sane_timestamps_cons]
+      \\ ntac 3 strip_tac
+      \\ first_x_assum irule \\ simp[])
+  \\ gs [sane_timestamps_cons]
+  \\ ntac 3 strip_tac
+  \\ first_x_assum irule \\ simp[]
+QED
+
+Theorem sane_heap_APPEND_right:
+  ∀s xs ys. sane_heap s (xs ++ ys) ⇒ sane_heap s ys
+Proof
+  rw [sane_heap_def,all_blocks_append]
+  \\ qmatch_asmsub_abbrev_tac ‘sane_timestamps (a ++ b ++ c)’
+  \\ ntac 3 (pop_assum kall_tac)
+  \\ irule sane_timestamps_APPEND_left
+  \\ qexists_tac ‘b’
+  \\ first_x_assum (mp_then Any irule sane_timestamps_PERM)
+  \\ SIMP_TAC (std_ss++permLib.PERM_SIMPLE_ss) []
+QED
+
+Theorem sane_heap_APPEND_left:
+  ∀s xs ys. sane_heap s (xs ++ ys) ⇒ sane_heap s xs
+Proof
+  rw[] \\ irule sane_heap_APPEND_right
+  \\ irule_at Any sane_heap_PERM
+  \\ metis_tac [PERM_APPEND]
+QED
+
+Theorem sane_heap_cons_simp:
+  (∀refs x xs. sane_heap refs (Number  x::xs) = sane_heap refs xs)
+∧ (∀refs x xs. sane_heap refs (CodePtr x::xs) = sane_heap refs xs)
+∧ (∀refs x xs. sane_heap refs (Word64  x::xs) = sane_heap refs xs)
+∧ (∀refs x xs. sane_heap refs (RefPtr  x::xs) = sane_heap refs xs)
+Proof
+  rw[sane_heap_def,sane_timestamps_def]
+QED
+
+Theorem size_of_perm:
+  ∀xs ys lims refs seen.
+    PERM xs ys ∧
+    sane_heap refs xs ⇒
+    size_of lims xs refs seen =
+    size_of lims ys refs seen
+Proof
+  rw [sane_heap_def] \\ metis_tac [size_of_perm_gen]
+QED
+
+Theorem all_blocks_MEM_aux:
+  ∀vs x y.
+    MEM x (all_blocks vs) ∧
+    MEM y (all_blocks [x])
+    ⇒ MEM y (all_blocks vs)
+Proof
+  ho_match_mp_tac all_blocks_ind
+  \\ rw[all_blocks_def]
+  \\ gs[all_blocks_def]
+  \\ metis_tac []
+QED
+
+Theorem all_blocks_v_size:
+  ∀vs x. MEM x (all_blocks vs) ⇒ v_size x ≤ v1_size vs
+Proof
+  ho_match_mp_tac all_blocks_ind
+  \\ rw[all_blocks_def,v_size_def]
+  \\ gs[all_blocks_def,v_size_def]
+  \\ first_x_assum drule \\ rw[]
+QED
+
+Theorem all_blocks_no_self_containment:
+  ∀vs ts tag. ¬MEM (Block ts tag vs) (all_blocks vs)
+Proof
+  rw[] \\ goal_assum (mp_then Any assume_tac all_blocks_v_size o SIMP_RULE std_ss [])
+  \\ gs[v_size_def]
+QED
+
+Theorem sane_heap_block_MEM:
+  ∀refs ts tag vs.
+    sane_heap refs [Block ts tag vs]
+    ⇒ ∀tag0 vs0. ¬MEM (Block ts tag0 vs0) (all_blocks vs)
+Proof
+  rw[sane_heap_block_cons] \\ CCONTR_TAC \\ gs[]
+  \\ first_x_assum (qspecl_then [‘tag0’,‘vs0’] assume_tac)
+  \\ gs[] \\ rveq \\ gs[all_blocks_no_self_containment]
+QED
+
+Definition no_ptrs_list_def:
+  (no_ptrs_list [] = T) ∧
+  (no_ptrs_list [RefPtr p] = F) ∧
+  (no_ptrs_list [Block ts tag l] = no_ptrs_list l) ∧
+  (no_ptrs_list [x] = T) ∧
+  (no_ptrs_list (v::vs) = (no_ptrs_list [v] ∧ no_ptrs_list vs))
+Termination
+  WF_REL_TAC `(inv_image (measure v1_size) I)`
+End
+
+Theorem size_of_seen_no_ptrs_list_ignore:
+  ∀lims vs refs seen ts n refs1 seen1.
+    (size_of lims vs refs seen = (n,refs1,seen1)) ∧
+    (∀tag l. ¬MEM (Block ts tag l) (all_blocks vs)) ∧
+    no_ptrs_list vs
+    ⇒ (size_of lims vs refs (insert ts () seen) = (n,refs1,insert ts () seen1))
+Proof
+  ho_match_mp_tac size_of_ind \\ fs [size_of_def,no_ptrs_list_def]
+  \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac \\ rpt gen_tac \\ strip_tac
+  >- (rpt (pairarg_tac \\ fs []) \\ rveq
+      \\ gs[all_blocks_cons_simp,MEM_APPEND,FORALL_AND_THM,no_ptrs_list_def]
+      \\ res_tac \\ gs[] \\ rveq \\ gs[])
+  >- (Cases_on ‘ts = ts'’ \\ gs[lookup_insert]
+      >-(Cases_on ‘lookup ts' seen’ \\ gs[]
+         \\ rpt (pairarg_tac \\ fs []) \\ rveq
+         \\ gs[MEM_APPEND,FORALL_AND_THM])
+      >- (Cases_on ‘lookup ts seen’ \\ gs[]
+          \\ rpt (pairarg_tac \\ fs []) \\ rveq
+          \\ first_x_assum drule
+          \\ simp[insert_swap]))
+QED
+
+Theorem sane_heap_cons_split:
+  ∀refs x xs.
+    sane_heap refs (x::xs) ⇒ sane_heap refs [x] ∧ sane_heap refs xs
+Proof
+  rw[]
+  >- (irule sane_heap_APPEND_left \\ simp[] \\ asm_exists_tac \\ simp[])
+  >- (irule sane_heap_APPEND_right \\ qexists_tac ‘[x]’ \\ simp[])
+QED
+
+Theorem sane_timestamps_smaller:
+  ∀l l'.
+    sane_timestamps l ∧
+    (∀x. MEM x l' ⇒ MEM x l)
+    ⇒ sane_timestamps l'
+Proof
+  Induct \\ rw[sane_timestamps_def,sane_timestamps_cons]
+  \\ first_assum dxrule \\ first_assum dxrule
+  \\ rw[] \\ metis_tac []
+QED
+
+Theorem toList_subspt_smaller:
+  ∀refs1 refs2 x.
+    subspt refs1 refs2 ∧
+    MEM x (toList refs1)
+    ⇒ MEM x (toList refs2)
+Proof
+  rw[MEM_toList,subspt_lookup] \\ metis_tac[]
+QED
+
+Theorem all_bs_refs_subspt_smaller:
+  ∀refs1 refs2 x.
+    subspt refs1 refs2 ∧
+    MEM x (all_bs_refs refs1)
+    ⇒ MEM x (all_bs_refs refs2)
+Proof
+  rw[all_bs_refs_def]
+  \\ drule toList_subspt_smaller
+  \\ qmatch_goalsub_abbrev_tac ‘MEM _ l1’
+  \\ qmatch_goalsub_abbrev_tac ‘MAP _ l2’
+  \\ rw[] \\ gs[MEM_FLAT,MEM_MAP] \\ rveq
+  \\ metis_tac[]
+QED
+
+Theorem sane_heap_refs_subspt:
+  ∀refs1 vs refs2.
+    subspt refs2 refs1 ∧
+    sane_heap refs1 vs
+    ⇒ sane_heap refs2 vs
+Proof
+  rw[sane_heap_def]
+  \\ irule sane_timestamps_smaller
+  \\ first_x_assum (irule_at Any)
+  \\ simp[MEM_APPEND] \\ rw[]
+  \\ metis_tac[all_bs_refs_subspt_smaller]
+QED
+
+Theorem size_of_seen_ts_cases:
+  ∀lims vs refs seen n refs1 seen1 ts tag x xs.
+    size_of lims vs refs seen = (n,refs1,seen1) ∧
+    IS_SOME(lookup ts seen1)
+    ⇒ IS_SOME(lookup ts seen) ∨
+      ∃tag l. MEM (Block ts tag l) (all_blocks vs) ∨
+              MEM (Block ts tag l) (all_bs_refs refs)
+Proof
+  ho_match_mp_tac size_of_ind \\ fs [size_of_def] \\ rw[] \\ simp[]
+  >- (rpt (pairarg_tac \\ fs []) \\ rveq
+      \\ simp[all_blocks_cons_simp]
+      \\ metis_tac[size_of_refs_subspt,all_bs_refs_subspt_smaller])
+  >- (Cases_on ‘lookup r refs’ \\ gs[] \\ Cases_on ‘x’ \\ gs[]
+     \\ rpt (pairarg_tac \\ fs []) \\ rveq
+     \\ first_x_assum drule \\ rw[] \\ simp[]
+      >- (simp[all_bs_refs_def,MEM_FLAT,MEM_MAP,MEM_toList]
+          \\ metis_tac[array_vals_def])
+      >- (gs[all_bs_refs_def,MEM_FLAT,MEM_MAP,MEM_toList]
+          \\ Cases_on ‘y’ \\ gs[array_vals_def] \\ rveq
+          \\ Cases_on ‘k = r’ \\ gs[lookup_delete]
+          \\ metis_tac[array_vals_def]))
+  >- (rpt (pairarg_tac \\ fs []) \\ rveq \\ gs[]
+      \\ first_x_assum drule \\ rw[] \\ simp[]
+      >- metis_tac[lookup_insert]
+      >- metis_tac[]
+      >- metis_tac[])
 QED
 
 val _ = export_theory();

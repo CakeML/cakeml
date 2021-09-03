@@ -89,6 +89,7 @@ QED
 
 (* Translation of wordfreq helper functions *)
 
+val res = translate FOLDL;
 val res = translate lookup0_def;
 val res = translate insert_word_def;
 val res = translate (insert_line_def |> REWRITE_RULE[splitwords_def]);

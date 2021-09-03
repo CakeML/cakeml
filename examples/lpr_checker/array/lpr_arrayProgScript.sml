@@ -2220,9 +2220,9 @@ Proof
             case
               parse_and_run_file_list (all_lines fs f) fmlls ls (REPLICATE n w8z) earliest
             of
-              NONE => resv = Conv (SOME (TypeStamp "Inl" 4)) [v0] ∧ ∃s. STRING_TYPE s v0
+              NONE => resv = Conv (SOME (TypeStamp "Inl" 23)) [v0] ∧ ∃s. STRING_TYPE s v0
             | SOME(fmlls',inds') =>
-              resv = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2]] ∧
+              resv = Conv (SOME (TypeStamp "Inr" 23)) [Conv NONE [v1; v2]] ∧
               v1 = fmlv' ∧
               LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls' fmllsv' ∧ LIST_TYPE NUM inds' v2
           )`
@@ -2281,14 +2281,13 @@ Proof
       qexists_tac `a2` >>
       qexists_tac `a1` >>
       qexists_tac `k` >>
-      qexists_tac `rest` >> xsimpl>>
-      metis_tac[])
+      qexists_tac `rest` >> xsimpl)
     >>
     xhandle`(POSTv v.
         SEP_EXISTS v1 v2 k rest.
          STDIO (forwardFD fss (nextFD fs) k) *
          INSTREAM_LINES (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
-         &(v = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2]]) *
+         &(v = Conv (SOME (TypeStamp "Inr" 23)) [Conv NONE [v1; v2]]) *
          (SEP_EXISTS fmllsv'.
            ARRAY v1 fmllsv' *
            &(unwrap_TYPE

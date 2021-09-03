@@ -1,8 +1,9 @@
 (*
   Prove `encoder_correct` for x64
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib x64_stepLib x64_targetTheory;
+open HolKernel Parse boolLib bossLib;
+open x64_stepLib x64_targetTheory;
+open asmLib;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -541,11 +542,15 @@ val encode_rwts =
        ]
    end;
 
+val asm_state_failed =
+  TypeBase.accessors_of “:'a asmSem$asm_state” |> last
+    |> SPEC_ALL |> concl |> rator |> rand |> rator;
+
 val enc_rwts =
   [x64_config, Zreg2num_num2Zreg_imp, binop_lem1, loc_lem1, loc_lem2,
    const_lem1, const_lem2, binop_lem9b, jump_lem1, jump_lem3, jump_lem4,
    jump_lem5, jump_lem6, cmp_lem7, is_rax, x64_asm_ok, xmm_reg, xmm_reg3,
-   utilsLib.mk_cond_rand_thms [``asmSem$asm_state_failed``]] @
+   utilsLib.mk_cond_rand_thms [asm_state_failed]] @
   encode_rwts @ asmLib.asm_rwts;
 
 val enc_ok_rwts =

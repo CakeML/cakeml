@@ -269,7 +269,8 @@ val arm8_config_def = Define`
     ; encode := arm8_enc
     ; reg_count := 32
     ; fp_reg_count := 0
-    ; avoid_regs := [26; 31]
+      (* register x18 is reserved on some platforms, e.g., Apple platforms *)
+    ; avoid_regs := [18; 26; 31]
     ; link_reg := SOME 30
     ; two_reg_arith := F
     ; big_endian := F
