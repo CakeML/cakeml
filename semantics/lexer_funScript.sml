@@ -191,23 +191,16 @@ Definition next_sym_def:
                    rest)
          else SOME (ErrorS, Locs loc loc, TL str)
        else
-<<<<<<< HEAD
-         let (n,rest) = read_while isDigit str [] in
-           SOME (NumberS (&(num_from_dec_string (c::n))),
-                 Locs loc (next_loc (LENGTH n) loc),
-                 rest)
-=======
          if str ≠ "" ∧ c = #"0" ∧ HD str = #"x" then
            let (n,rest) = read_while isHexDigit (TL str) [] in
              SOME (NumberS (& (num_from_hex_string n)),
-                   Locs loc (loc with col := loc.col + LENGTH n + 2),
+                   Locs loc (next_loc (LENGTH n) loc),
                    rest)
          else
            let (n,rest) = read_while isDigit str [] in
              SOME (NumberS (&(num_from_dec_string (c::n))),
-                   Locs loc (loc with col := loc.col + LENGTH n),
+                   Locs loc (next_loc (LENGTH n) loc),
                    rest)
->>>>>>> master
      else if c = #"~" /\ str <> "" /\ isDigit (HD str) then (* read negative number *)
        let (n,rest) = read_while isDigit str [] in
          SOME (NumberS (0- &(num_from_dec_string n)),
@@ -226,14 +219,7 @@ Definition next_sym_def:
        let (t, loc', rest) = read_string (TL str) "" (next_loc 2 loc) in
          SOME (mkCharS t, Locs loc loc', rest)
      else if isPREFIX "#(" (c::str) then
-<<<<<<< HEAD
        let (t, loc', rest) = read_FFIcall (TL str) "" (next_loc 2 loc) in
-=======
-       let (t, loc', rest) = read_FFIcall (TL str) "" (loc with col := loc.col + 2) in
-         SOME (t, Locs loc loc', rest)
-     else if isPREFIX "#{" (c::str) then
-       let (t, loc', rest) = read_REPLcommand (TL str) "" (loc with col := loc.col + 2) in
->>>>>>> master
          SOME (t, Locs loc loc', rest)
      else if isPREFIX "(*" (c::str) then
        case skip_comment (TL str) 0 (next_loc 2 loc) of
@@ -430,13 +416,8 @@ Definition token_of_sym_def:
     | LongS s => let (s1,s2) = SPLITP (\x. x = #".") s in
                    LongidT s1 (case s2 of "" => "" | (c::cs) => cs)
     | FFIS s => FFIT s
-<<<<<<< HEAD
     | OtherS s  => get_token s
 End
-=======
-    | REPLIDS s => REPLIDT s
-    | OtherS s  => get_token s `;
->>>>>>> master
 
 Definition next_token_def:
   next_token input loc =
