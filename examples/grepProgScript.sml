@@ -330,13 +330,27 @@ val regexp_matcher_with_limit_side_def = Q.prove
          n.b. INTRO_FLOOKUP is copied from parserProgScript.sml
 *)
 
+Theorem locnle:
+  locnle x y =
+    case (x,y) of
+    | (UNKNOWNpt,_) => T
+    | (_,EOFpt) => T
+    | (POSN x1 x2,POSN y1 y2) => ((x1 < y1) ∨ (x1 = y1) ∧ (x2 ≤ y2))
+    | _ => F
+Proof
+  Cases_on ‘x’ \\ Cases_on ‘y’ \\ fs []
+  \\ fs [locationTheory.locnle_def] \\ EVAL_TAC \\ fs []
+QED
+
+val _ = translate locnle;
+
 Theorem INTRO_FLOOKUP:
-   (if n IN FDOM G.rules
-     then EV (G.rules ' n) i r y fk
-     else Result xx) =
-    (case FLOOKUP G.rules n of
-       NONE => Result xx
-     | SOME x => EV x i r y fk)
+   (if n ∈ FDOM G.rules then
+      pegexec$EV (G.rules ' n) i r eo errs (appf1 tf3 k) fk
+    else Looped) =
+   (case FLOOKUP G.rules n of
+      NONE => Looped
+    | SOME x => pegexec$EV x i r eo errs (appf1 tf3 k) fk)
 Proof
   SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]
 QED
@@ -395,21 +409,23 @@ val r = translate parse_regexp_def;
 
 val termination_lemma =
   MATCH_MP pegexecTheory.coreloop_total wfG_rePEG
-  |> SIMP_RULE(srw_ss())[coreloop_def']
+  |> SIMP_RULE(srw_ss())[coreloop_def'];
 
 val parse_regexp_side = Q.prove(
   `∀x. parse_regexp_side x = T`,
   rw[definition"parse_regexp_side_def"] \\
   rw[definition"peg_exec_side_def"] \\
   rw[definition"coreloop_side_def"] \\
-  qspec_then`MAP add_loc x`strip_assume_tac (Q.GEN`i`termination_lemma) \\
+  qspec_then`MAP add_loc x`strip_assume_tac (GEN_ALL termination_lemma) \\
   qmatch_abbrev_tac`IS_SOME (OWHILE f g h)` \\
   qmatch_assum_abbrev_tac`OWHILE f g' h = SOME _` \\
-  `g' = g` by (
-    unabbrev_all_tac
-    \\ simp[FUN_EQ_THM]
-    \\ Cases \\ simp[]
-    \\ TOP_CASE_TAC \\ simp[] ) \\ fs[]) |> update_precondition;
+  qsuff_tac `g' = g` THEN1 (rw [] \\ fs [])
+  \\ unabbrev_all_tac
+  \\ simp[FUN_EQ_THM]
+  \\ Cases \\ simp[]
+  \\ TOP_CASE_TAC \\ simp[]
+  \\ TOP_CASE_TAC \\ simp[]
+  \\ TOP_CASE_TAC \\ simp[]) |> update_precondition;
 
 (* -- *)
 
