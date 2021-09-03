@@ -3479,7 +3479,7 @@ val check_unsat_2 = (append_prog o process_topdecs) `
 
 val transformation_err_def = Define`
   transformation_err cl =
-  concat[strlit"c transformation clause: ";print_clause cl;strlit" not derived at end of proof\n"]`;
+  concat[strlit"c transformation clause: ";print_clause cl;strlit"c not derived at end of proof\n"]`;
 
 val _ = translate transformation_err_def;
 
