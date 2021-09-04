@@ -36,10 +36,59 @@ Datatype:
     | IntT int
     | CharT char
     | StringT string
-    | UIdentT string    (* leading uppercase *)
-    | LIdentT string    (* leading lowercase or underscore *)
+    | IdentT string
     | SymbolT string    (* symbols *)
     | LexErrorT
+End
+
+Definition isInt_def:
+  isInt (IntT i) = T ∧
+  isInt _ = F
+End
+
+Definition destInt_def:
+  destInt (IntT i) = SOME i ∧
+  destInt _ = NONE
+End
+
+Definition isChar_def:
+  isChar (CharT c) = T ∧
+  isChar _ = F
+End
+
+Definition destChar_def:
+  destChar (CharT c) = SOME c ∧
+  destChar _ = NONE
+End
+
+Definition isString_def:
+  isString (StringT s) = T ∧
+  isString _ = F
+End
+
+Definition destString_def:
+  destString (StringT s) = SOME s ∧
+  destString _ = NONE
+End
+
+Definition isSymbol_def:
+  isSymbol (SymbolT s) = T ∧
+  isSymbol _ = F
+End
+
+Definition destSymbol_def:
+  destSymbol (SymbolT s) = SOME s ∧
+  destSymbol _ = NONE
+End
+
+Definition isIdent_def:
+  isIdent (IdentT s) = T ∧
+  isIdent _ = F
+End
+
+Definition destIdent_def:
+  destIdent (IdentT s) = SOME s ∧
+  destIdent _ = NONE
 End
 
 (* -------------------------------------------------------------------------
@@ -554,8 +603,7 @@ Definition get_token_def:
     (* identifiers or symbols *)
     if s = "" then LexErrorT else
       let c = HD s in
-        if isUpper c then UIdentT s else
-        if isLower c ∨ c = #"_" then LIdentT s else
+        if isAlpha c ∨ c = #"_" then IdentT s else
           SymbolT s
 End
 
