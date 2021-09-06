@@ -156,6 +156,15 @@ End
 fun drop_until p [] = []
   | drop_until p (x::xs) = if p x then x::xs else drop_until p xs;
 
+val help_string_tm =
+  help_string |> hd |> (fn QUOTE s => s) |> explode
+  |> drop_until (fn c => c = #"\n") |> tl |> implode
+  |> stringSyntax.fromMLstring;
+
+Definition help_string_def:
+  help_string = strlit ^help_string_tm
+End
+
 Datatype:
   compile_error = ParseError mlstring
                 | TypeError mlstring
