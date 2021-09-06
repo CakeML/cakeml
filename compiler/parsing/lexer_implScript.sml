@@ -224,11 +224,6 @@ val next_sym_alt_def = tDefine "next_sym_alt" `
              read_FFIcall (TL str) "" (next_loc 2 loc)
        in
          SOME (t, Locs loc loc', rest)
-     else if isPREFIX "#{" (c::str) then
-       let (t, loc', rest) =
-             read_REPLcommand (TL str) "" (loc with col := loc.col + 2)
-       in
-         SOME (t, Locs loc loc', rest)
      else if isPREFIX "(*" (c::str) then
        case skip_comment (TL str) (0:num) (next_loc 2 loc) of
        | NONE => SOME (ErrorS, Locs loc (next_loc 2 loc), "")
@@ -318,12 +313,12 @@ val read_while_P_lem = Q.prove(`
   first_assum match_mp_tac>>fs[]>>
   qexists_tac`STRING h rest`>>fs[])
 
-val read_while_P = Q.prove(`
-  ∀ls P x y.
-  read_while P ls "" = (x,y) ⇒
-  EVERY P x`,
+Theorem read_while_P[local]:
+  ∀ls P x y. read_while P ls "" = (x,y) ⇒ EVERY P x
+Proof
   rw[]>>ho_match_mp_tac read_while_P_lem>>
-  MAP_EVERY qexists_tac [`ls`,`""`,`y`]>>fs[])
+  MAP_EVERY qexists_tac [`ls`,`""`,`y`]>>fs[]
+QED
 
 Theorem next_sym_eq:
    ∀x l. next_sym x l = next_sym_alt x l
@@ -343,7 +338,7 @@ QED
 
 (* lex_until_toplevel_semicolon *)
 
-val lex_aux_def = tDefine "lex_aux" `
+Definition lex_aux_def:
   lex_aux acc (d:num) input loc =
     case next_token input loc of
     | (* case: end of input *)
@@ -360,9 +355,11 @@ val lex_aux_def = tDefine "lex_aux" `
             else if token = LparT then lex_aux new_acc (d + 1) rest newloc
             else if token = EndT then lex_aux new_acc (d - 1) rest newloc
             else if token = RparT then lex_aux new_acc (d - 1) rest newloc
-            else lex_aux new_acc d rest newloc`
-  (WF_REL_TAC `measure (LENGTH o FST o SND o SND)` >> rw[] >>
-   imp_res_tac next_token_LESS);
+            else lex_aux new_acc d rest newloc
+Termination
+  WF_REL_TAC `measure (LENGTH o FST o SND o SND)` >> rw[] >>
+  imp_res_tac next_token_LESS
+End
 
 val lex_until_toplevel_semicolon_def = Define `
   lex_until_toplevel_semicolon input = lex_aux [] 0 input`;
@@ -400,7 +397,7 @@ QED
 
 open rich_listTheory
 
-val lex_aux_alt_def = tDefine "lex_aux_alt" `
+Definition lex_aux_alt_def:
   lex_aux_alt acc (d:num) input l =
     case next_sym input l of
     | (* case: end of input *)
@@ -415,9 +412,11 @@ val lex_aux_alt_def = tDefine "lex_aux_alt" `
             lex_aux_alt new_acc (d + 1) rest newloc
           else if MEM token [OtherS ")"; OtherS "end"] then
             lex_aux_alt new_acc (d - 1) rest newloc
-          else lex_aux_alt new_acc d rest newloc`
-  (WF_REL_TAC `measure (LENGTH o FST o SND o SND)` >> rw[] >>
-   imp_res_tac next_sym_LESS);
+          else lex_aux_alt new_acc d rest newloc
+Termination
+  WF_REL_TAC `measure (LENGTH o FST o SND o SND)` >> rw[] >>
+  imp_res_tac next_sym_LESS
+End
 
 val lex_until_top_semicolon_alt_def = Define `
   lex_until_top_semicolon_alt input = lex_aux_alt [] 0 input`
@@ -450,20 +449,19 @@ Proof
   THEN FULL_SIMP_TAC std_ss []
 QED
 
-val token_of_sym_EQ_LEMMA = Q.prove(
-  `((token_of_sym q = LetT) = (q = OtherS "let")) /\
-    ((token_of_sym q = EndT) = (q = OtherS "end")) /\
-    ((token_of_sym q = SigT) = (q = OtherS "sig")) /\
-    ((token_of_sym q = StructT) = (q = OtherS "struct")) /\
-    ((token_of_sym q = SemicolonT) = (q = OtherS ";")) /\
-    ((token_of_sym q = RparT) = (q = OtherS ")")) /\
-    ((token_of_sym q = LparT) = (q = OtherS "("))`,
-  REPEAT STRIP_TAC
-  THEN SIMP_TAC std_ss [token_of_sym_def,get_token_def,processIdent_def,LET_DEF]
-  THEN BasicProvers.FULL_CASE_TAC THEN SRW_TAC [] []
-  THEN CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) THEN SRW_TAC [] []
-  THEN BasicProvers.FULL_CASE_TAC THEN SRW_TAC [] []
-  THEN CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) THEN SRW_TAC [] []);
+Theorem token_of_sym_EQ_LEMMA[local]:
+  ((token_of_sym q = LetT) = (q = OtherS "let")) /\
+  ((token_of_sym q = EndT) = (q = OtherS "end")) /\
+  ((token_of_sym q = SigT) = (q = OtherS "sig")) /\
+  ((token_of_sym q = StructT) = (q = OtherS "struct")) /\
+  ((token_of_sym q = SemicolonT) = (q = OtherS ";")) /\
+  ((token_of_sym q = RparT) = (q = OtherS ")")) /\
+  ((token_of_sym q = LparT) = (q = OtherS "("))
+Proof
+  REPEAT STRIP_TAC THEN
+  simp[token_of_sym_def,get_token_def,processIdent_def,LET_DEF,
+       AllCaseEqs(), UNCURRY]
+QED
 
 
 val token_of_sym_loc_def = Define`

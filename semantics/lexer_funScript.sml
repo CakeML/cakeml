@@ -16,15 +16,16 @@ open stringTheory stringLib listTheory tokensTheory ASCIInumbersTheory intLib;
 
 (* intermediate symbols *)
 
-val _ = Datatype `symbol = StringS string
-                         | CharS char
-                         | NumberS int
-                         | WordS num
-                         | LongS string (* identifiers with a . in them *)
-                         | FFIS string
-                         | REPLIDS string
-                         | OtherS string
-                         | ErrorS `;
+Datatype:
+  symbol = StringS string
+         | CharS char
+         | NumberS int
+         | WordS num
+         | LongS string (* identifiers with a . in them *)
+         | FFIS string
+         | OtherS string
+         | ErrorS
+End
 
 (* helper functions *)
 val mkCharS_def = Define`
