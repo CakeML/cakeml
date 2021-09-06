@@ -815,8 +815,7 @@ val NTS_in_PEG_exprs = let
   in
     CONV_RULE (RAND_CONV (K (SYM exprs_th'))) th0
   end
-  val nts' = Lib.op_set_diff aconv nts [``mkNT nTopLevel``]
-  val th = LIST_CONJ (map p nts')
+  val th = LIST_CONJ (map p nts)
 in
   save_thm("NTS_in_PEG_exprs", th) before export_rewrites ["NTS_in_PEG_exprs"]
 end

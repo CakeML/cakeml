@@ -989,8 +989,6 @@ Definition stoppers_def:
   (stoppers nTopLevelDec =
      nestoppers DIFF ({LparT; BarT; StarT; AndT; OfT} ∪ {TyvarT s | T})) ∧
   (stoppers nTopLevelDecs = ∅) ∧
-  (stoppers nTopLevel = ∅) ∧
-  (stoppers nREPLCommand = ∅) ∧
   (stoppers nType = UNIV DIFF ({ArrowT; StarT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nTypeAbbrevDec =
      UNIV DIFF ({ArrowT; StarT} ∪ firstSet cmlG [NN nTyOp])) ∧
