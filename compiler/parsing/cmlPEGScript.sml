@@ -501,12 +501,6 @@ Definition cmlPEG_def[nocompute]:
                  seql [tokeq SemicolonT; pnt nTopLevelDecs]
                       (bindNT nNonETopLevelDecs);
                  pegf (empty []) (bindNT nNonETopLevelDecs)]);
-              (mkNT nREPLCommand,
-                 seql [tok (IS_SOME o destREPLIDT) mktokLf; pnt nEbase]
-                      (bindNT nREPLCommand));
-              (mkNT nTopLevel,
-                 pegf (choicel [pnt nREPLCommand; pnt nTopLevelDecs])
-                      (bindNT nTopLevel))
              ] |>
 End
 
@@ -695,8 +689,8 @@ val npeg0_rwts =
                 “nEbefore”,
                 “nEtyped”, “nElogicAND”, “nElogicOR”, “nEhandle”,
                 “nE”, “nE'”, “nElist1”,
-                “nSpecLine”, “nStructure”, “nTopLevelDec”,
-                ``nREPLCommand``]
+                “nSpecLine”, “nStructure”, “nTopLevelDec”
+               ]
 
 fun wfnt(t,acc) = let
   val th =
@@ -733,8 +727,8 @@ val topo_nts = [“nV”, “nTyvarN”, “nTypeDec”, “nTypeAbbrevDec”, �
                 “nDecls”, “nDconstructor”, “nAndFDecls”, “nSpecLine”,
                 “nSpecLineList”, “nSignatureValue”,
                 “nOptionalSignatureAscription”, “nStructure”,
-                “nTopLevelDec”, “nTopLevelDecs”, “nNonETopLevelDecs”,
-                ``nREPLCommand``, ``nTopLevel``]
+                “nTopLevelDec”, “nTopLevelDecs”, “nNonETopLevelDecs”
+               ]
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",
