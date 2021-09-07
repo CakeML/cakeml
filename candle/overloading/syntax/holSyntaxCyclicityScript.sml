@@ -7442,6 +7442,32 @@ Proof
   >> first_x_assum $ drule_all_then irule
 QED
 
+Theorem NRC_inj:
+  !R k x y z. (!x y z. R x y /\ R x z ==> y = z)
+  /\ NRC R k x y /\ NRC R k x z ==> y = z
+Proof
+  gen_tac >> completeInduct_on `k` >> Cases_on `k` >> rw[NRC]
+  >> qmatch_assum_rename_tac `NRC R n zz z`
+  >> qmatch_assum_rename_tac `NRC R n yy y`
+  >> first_assum $ drule_then $ rev_drule_then assume_tac
+  >> VAR_EQ_TAC
+  >> Cases_on `n` >> fs[]
+  >> last_x_assum irule
+  >> rpt $ goal_assum $ dxrule_at Any
+  >> fs[]
+QED
+
+Theorem NRC_dep_step_inj:
+  !k dep dep' dep'' dep'''.
+  NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') k dep' dep''
+  /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') k dep' dep'''
+  ==> dep'' = dep'''
+Proof
+  rpt strip_tac
+  >> drule_at_then Any irule NRC_inj
+  >> rpt strip_tac >> fs[]
+QED
+
 Theorem NRC_dep_step_wf_pqs:
   !k dep dep' dep''. wf_pqs (dep ++ dep')
   /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') k dep' dep''
@@ -7630,7 +7656,7 @@ Proof
   >> fs[]
 QED
 
-Theorem NRC_dep_step_composable_len:
+Theorem NRC_dep_step_composable_len':
   !k dep dep'. wf_pqs (dep ++ dep') /\ monotone (CURRY $ set dep)
   /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC $ SUC k) dep dep'
   ==> composable_len (CURRY $ set dep) $ SUC $ SUC k
@@ -7653,7 +7679,22 @@ Proof
   >> gs[composable_var_renaming1]
 QED
 
-Theorem NRC_dep_step_acyclic_len:
+Theorem NRC_dep_step_composable_len:
+  !k k' dep dep'. wf_pqs (dep ++ dep') /\ monotone (CURRY $ set dep)
+  /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') k dep dep'
+  ==> !k'. 1 < k' /\ k' <= k ==> composable_len (CURRY $ set dep) k'
+Proof
+  rpt strip_tac
+  >> qmatch_assum_rename_tac `1 < l` >> Cases_on `l` >> fs[]
+  >> qmatch_assum_rename_tac `1 < SUC l` >> Cases_on `l` >> fs[]
+  >> qmatch_assum_rename_tac `SUC $ SUC n <= k`
+  >> dxrule_then (drule_then strip_assume_tac) NRC_shorter
+  >> drule_at_then Any irule NRC_dep_step_composable_len'
+  >> drule_at Any NRC_dep_step_wf_pqs
+  >> fs[wf_pqs_APPEND]
+QED
+
+Theorem NRC_dep_step_acyclic_len':
   !k dep dep'. wf_pqs (dep ++ dep') /\ monotone (CURRY $ set dep)
   /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC $ SUC k) dep dep'
   ==> acyclic_len (CURRY $ set dep) $ SUC $ SUC k
@@ -7670,8 +7711,24 @@ Proof
   >> imp_res_tac has_path_to_is_const_or_type
   >> first_x_assum $ qspec_then `(x,y)` assume_tac o iffRL
   >> gvs[wf_pqs_CONS,equiv_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
-  >> first_x_assum drule
-  >> fs[is_instance_LR_var_renaming2]
+  >> first_x_assum drule >> fs[is_instance_LR_var_renaming2]
+QED
+
+Theorem NRC_dep_step_acyclic_len:
+  !k k' dep dep'. wf_pqs (dep ++ dep') /\ monotone (CURRY $ set dep)
+  /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') k dep dep'
+  ==> !k'. 1 < k' /\ k' <= k ==> acyclic_len (CURRY $ set dep) k'
+Proof
+  rw[]
+  >> qmatch_assum_rename_tac `NRC _ k _ _` >> Cases_on `k` >> fs[]
+  >> qmatch_assum_rename_tac `NRC _ (SUC k) _ _` >> Cases_on `k` >> fs[]
+  >> qmatch_assum_rename_tac `1 < k` >> Cases_on `k` >> fs[]
+  >> qmatch_assum_rename_tac `1 < (SUC k)` >> Cases_on `k` >> fs[]
+  >> dxrule_then (qspec_then `SUC $ SUC n'` assume_tac) NRC_shorter
+  >> rfs[]
+  >> drule_at_then Any irule NRC_dep_step_acyclic_len'
+  >> drule_at Any NRC_dep_step_wf_pqs
+  >> fs[wf_pqs_APPEND]
 QED
 
 Theorem dep_steps_acyclic_NOT_has_path_to:
@@ -7733,8 +7790,7 @@ Proof
   >> fs[dep_steps_inv_def,wf_pqs_APPEND,Once LESS_OR_EQ]
   >> strip_tac >> fs[]
   >> dxrule_then assume_tac $ iffLR SUB_LESS_0
-  >> qmatch_assum_abbrev_tac `0n < kk`
-  >> Cases_on `kk` >- fs[]
+  >> qmatch_assum_abbrev_tac `0n < kk` >> Cases_on `kk` >- fs[]
   >> qho_match_abbrev_tac `!l. l <= SUC n' ==> P l`
   >> Cases_on `n'`
   >- (
@@ -7759,14 +7815,9 @@ Proof
     >> irule acyclic_len_TWO_ONE
     >> fs[Once LESS_OR_EQ,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM,FORALL_AND_THM,wf_dep_wf_pqs,AND_IMP_INTRO]
   )
-  >> rw[]
-  >> drule_all_then strip_assume_tac NRC_shorter
-  >> qmatch_assum_rename_tac `NRC _ l _ _` >> Cases_on `l` >> fs[]
-  >> qmatch_assum_rename_tac `NRC _ (SUC l) _ _` >> Cases_on `l` >> fs[]
-  >> drule_at Any NRC_dep_step_acyclic_len
   >> drule_at Any NRC_dep_step_composable_len
-  >> drule_at Any NRC_dep_step_wf_pqs
-  >> fs[wf_pqs_APPEND,Abbr`P`]
+  >> drule_at Any NRC_dep_step_acyclic_len
+  >> rw[wf_pqs_APPEND,Abbr`P`]
 QED
 
 Theorem dep_steps_acyclic_sound:
