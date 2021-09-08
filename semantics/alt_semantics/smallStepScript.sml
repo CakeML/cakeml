@@ -10,7 +10,7 @@ val _ = new_theory "smallStep"
 
 (*
   A small-step semantics for CakeML. This semantics is no longer used
-  in the CakeML development.
+  in the main CakeML development, but is used in PureCake and choreographies.
 *)
 (*open import Pervasives_extra*)
 (*open import Lib*)
@@ -19,8 +19,7 @@ val _ = new_theory "smallStep"
 (*open import SemanticPrimitives*)
 (*open import Ffi*)
 
-(* Small-step semantics for expression only.  Modules and definitions have
- * big-step semantics only *)
+(* Small-step semantics for expressions, modules, and definitions *)
 
 (* Evaluation contexts
  * The hole is denoted by the unit type
@@ -259,6 +258,151 @@ val _ = Define `
     ==>
 (? env'' s'' e'' c''.
       e_step_reln (env',s',e',c') (env'',s'',e'',c''))))`;
+
+
+
+(* Evaluation contexts for declarations *)
+
+val _ = Hol_datatype `
+ decl_ctxt_frame =
+    Cdmod of modN => v sem_env => dec list
+  | CdlocalL of v sem_env => dec list => dec list (* local env, local and global decs *)
+  | CdlocalG of v sem_env => v sem_env => dec list`;
+ (* local and global envs, global decs *)
+
+val _ = type_abbrev( "decl_ctxt" , ``: decl_ctxt_frame list``);
+
+val _ = Hol_datatype `
+ decl_eval =
+    Decl of dec (* a declaration to evaluate *)
+  | ExpVal of v sem_env => exp_or_val => ctxt list => locs => pat (* a Dlet under evaluation *)
+  | Env of v sem_env`;
+ (* an environment to return to parent declaration *)
+
+val _ = type_abbrev((*  'ffi *) "small_decl_state" , ``: 'ffi state # decl_eval # decl_ctxt``);
+
+val _ = Hol_datatype `
+ decl_step_result =
+    Dstep of 'ffi small_decl_state
+  | Dabort of abort
+  | Ddone`;
+
+
+
+(* Helper functions *)
+
+(*val empty_dec_env : forall 'v. sem_env 'v*)
+val _ = Define `
+ ((empty_dec_env:'v sem_env)=  (<| v := nsEmpty ; c := nsEmpty |>))`;
+
+
+(*val lift_dec_env : forall 'v. modN -> sem_env 'v -> sem_env 'v*)
+val _ = Define `
+ ((lift_dec_env:string -> 'v sem_env -> 'v sem_env) mn env=  (<| v := (nsLift mn env.v) ; c := (nsLift mn env.c) |>))`;
+
+
+(* Get the "current" sem_env given the context *)
+(*val collapse_env : decl_ctxt -> sem_env v*)
+ val _ = Define `
+ ((collapse_env:(decl_ctxt_frame)list ->(v)sem_env) c=
+   ((case c of
+    [] => empty_dec_env
+  | Cdmod mn env ds :: cs => extend_dec_env env (collapse_env cs)
+  | CdlocalL lenv lds gds :: cs =>
+      extend_dec_env lenv (collapse_env cs)
+  | CdlocalG lenv genv gds :: cs =>
+      extend_dec_env (extend_dec_env genv lenv) (collapse_env cs)
+  )))`;
+
+
+
+(* Apply a context to the env resulting from evaluating a declaration *)
+(*val decl_continue : forall 'ffi. sem_env v -> state 'ffi -> decl_ctxt -> decl_step_result 'ffi*)
+val _ = Define `
+ ((decl_continue:(v)sem_env -> 'ffi state ->(decl_ctxt_frame)list -> 'ffi decl_step_result) env' st c=
+   ((case c of
+    [] => Ddone
+  | Cdmod mn env [] :: cs =>
+      Dstep (st, Env (lift_dec_env mn (extend_dec_env env' env)), cs)
+  | Cdmod mn env (d::ds) :: cs =>
+      Dstep (st, Decl d, (Cdmod mn (extend_dec_env env' env) ds :: cs))
+  | CdlocalL lenv [] [] :: cs => Dstep (st, Env empty_dec_env, cs)
+  | CdlocalL lenv [] (gd::gds) :: cs =>
+      Dstep (st, Decl gd, (CdlocalG (extend_dec_env env' lenv) empty_dec_env gds :: cs))
+  | CdlocalL lenv (ld::lds) gds :: cs =>
+      Dstep (st, Decl ld, (CdlocalL (extend_dec_env env' lenv) lds gds :: cs))
+  | CdlocalG lenv genv [] :: cs => Dstep (st, Env (extend_dec_env env' genv), cs)
+  | CdlocalG lenv genv (gd::gds) :: cs =>
+      Dstep (st, Decl gd, (CdlocalG lenv (extend_dec_env env' genv) gds :: cs))
+  )))`;
+
+
+(*val decl_step : forall 'ffi. small_decl_state 'ffi -> decl_step_result 'ffi*)
+val _ = Define `
+ ((decl_step:'ffi state#decl_eval#(decl_ctxt_frame)list -> 'ffi decl_step_result) (st, dev, c)=
+   ((case dev of
+    Decl d =>
+      (case d of
+        Dlet locs p e =>
+          if ALL_DISTINCT (pat_bindings p []) then
+            Dstep (st, ExpVal (collapse_env c) (Exp e) [] locs p, c)
+          else Dabort Rtype_error
+      | Dletrec locs funs =>
+          if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) then
+            Dstep (st,
+              Env <| v := (build_rec_env funs (collapse_env c) nsEmpty); c := nsEmpty |>,
+              c)
+          else Dabort Rtype_error
+      | Dtype locs tds =>
+          if EVERY check_dup_ctors tds then
+            Dstep (
+              ( st with<| next_type_stamp := (st.next_type_stamp + LENGTH tds) |>),
+              Env <| v := nsEmpty; c := (build_tdefs st.next_type_stamp tds) |>,
+              c)
+          else Dabort Rtype_error
+      | Dtabbrev locs tvs n t => Dstep (st, Env empty_dec_env, c)
+      | Dexn locs cn ts =>
+          Dstep (
+            ( st with<| next_exn_stamp := (st.next_exn_stamp +( 1 : num)) |>),
+            Env <| v := nsEmpty; c := (nsSing cn (LENGTH ts, ExnStamp st.next_exn_stamp)) |>,
+            c)
+      | Dmod mn [] =>
+          Dstep (st, Env (lift_dec_env mn empty_dec_env), c)
+      | Dmod mn (d::ds) =>
+          Dstep (st, Decl d, (Cdmod mn empty_dec_env ds :: c))
+      | Dlocal [] [] => Dstep (st, Env empty_dec_env, c)
+      | Dlocal [] (d::ds) =>
+          Dstep (st, Decl d, (CdlocalG empty_dec_env empty_dec_env ds :: c))
+      | Dlocal (ld::lds) gds =>
+          Dstep (st, Decl ld, (CdlocalL empty_dec_env lds gds :: c))
+      | Denv tv => Dabort Rtype_error (* eval primitive not supported *)
+      )
+
+  | Env env => decl_continue env st c
+
+  | ExpVal env ev ec locs p =>
+      (case (ev, ec) of
+        (Val v, []) =>
+          if ALL_DISTINCT (pat_bindings p []) then
+            (case pmatch env.c st.refs p v [] of
+              Match new_vals =>
+                Dstep (st, Env <| v := (alist_to_ns new_vals); c := nsEmpty |>, c)
+            | No_match => Ddone
+            | Match_type_error => Dabort Rtype_error
+            )
+          else Dabort Rtype_error
+      | (Val v, ((Craise () , env')::[])) => Ddone
+      | _ =>
+        (case e_step (env, (st.refs, st.ffi), ev, ec) of
+          Estep (env', (refs', ffi'), ev', ec') =>
+            Dstep (( st with<| refs := refs' ; ffi := ffi' |>),
+              ExpVal env' ev' ec' locs p, c)
+        | Eabort a => Dabort a
+        | Estuck => Ddone (* cannot happen *)
+        )
+      )
+  )))`;
+
 
 val _ = export_theory()
 

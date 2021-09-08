@@ -12,4 +12,4 @@ CakeML. This directory might be deleted in the future.
 
 [smallStep.lem](smallStep.lem):
 A small-step semantics for CakeML. This semantics is no longer used
-in the CakeML development.
+in the main CakeML development, but is used in PureCake and choreographies.
