@@ -234,7 +234,7 @@ Definition reachable_v_def:
 End
 
 (* Given a root return the list of values pointed by it *)
-Definition root_to_vs:
+Definition root_to_vs_def:
 (root_to_vs refs blocks (TStamp ts) =
   (case oEL ts blocks of
    | SOME (Block _ _ vs) => vs
@@ -245,39 +245,34 @@ Definition root_to_vs:
        | _ => [])
 End
 
+(* Measure the size of a "flat" value *)
 Definition flat_measure_def:
-  (flat_measure lims [] = 0)
-∧ (flat_measure lims (x::y::ys) =
-     flat_measure lims [x]  + flat_measure lims (y::ys))
-∧ (flat_measure lims [Word64 _] = 3)
-∧ (flat_measure lims [Number i] =
+  flat_measure lims (Word64 _) = 3
+∧ flat_measure lims (Number i) =
      (if small_num lims.arch_64_bit i
       then 0
-      else bignum_size lims.arch_64_bit i))
-∧ (flat_measure lims _ = 0)
+      else bignum_size lims.arch_64_bit i)
+∧ flat_measure lims _ = 0
 End
 
-Definition sum_img_def:
-  sum_img f s = ITSET (λa b. f a + b) s (0:num)
-End
-
+(* Measures the size of the values *)
 Definition size_of_root_def:
   (size_of_root lims refs blocks (TStamp ts) =
    (case oEL ts blocks of
-    | SOME (Block _ _ vs) => 1 + LENGTH vs + flat_measure lims vs
+    | SOME (Block _ _ vs) => 1 + LENGTH vs + SUM (MAP (flat_measure lims) vs)
     | _ => 0))
 ∧ (size_of_root lims refs blocks (RStamp p) =
    (case sptree$lookup p refs of
-    | SOME (ValueArray vs)  => 1 + LENGTH vs + flat_measure lims vs
+    | SOME (ValueArray vs)  => 1 + LENGTH vs + SUM (MAP (flat_measure lims) vs)
     | SOME (ByteArray _ bs) => LENGTH bs DIV (arch_size lims DIV 8) + 2
     | _ => 0))
 End
 
 Definition flat_size_of_def[nocompute]:
   flat_size_of lims refs blocks roots =
-    flat_measure lims roots +
-    sum_img (size_of_root lims refs blocks)
-            (reachable_v refs blocks (to_roots roots))
+    SUM (MAP (flat_measure lims) roots) +
+    ∑ (size_of_root lims refs blocks)
+      (reachable_v refs blocks (to_roots roots))
 End
 
 Definition flat_size_of_heap_def:
