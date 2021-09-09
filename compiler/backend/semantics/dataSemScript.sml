@@ -280,9 +280,29 @@ Definition flat_size_of_heap_def:
     flat_size_of s.limits s.refs s.all_blocks (stack_to_vs s)
 End
 
+Definition size_inv_def:
+(* All timestamps below the current one point to a block in all_blocks *)
+  size_inv ^s =
+    ((∀ts.
+       ts < s.tstamps
+       ⇒ ∃tag vs.
+           oEL ts s.all_blocks = SOME (Block ts tag vs))
+(* All blocks in the locals are in all_blocks *)
+     ∧ (∀n ts tag vs.
+          sptree$lookup n s.locals = SOME (Block ts tag vs)
+          ⇒ oEL ts s.all_blocks = SOME (Block ts tag vs))
+(* All blocks in the references are in all_blocks *)
+     ∧ (∀ptr l ts tag vs.
+          sptree$lookup ptr s.refs = SOME (ValueArray l) ∧
+          MEM (Block ts tag vs) l
+          ⇒ oEL ts s.all_blocks = SOME (Block ts tag vs)))
+End
+
 Overload add_space_safe =
   ``λk ^s. s.safe_for_space
-           ∧ size_of_heap s + k <= s.limits.heap_limit``
+           ∧ (size_of_heap s + k <= s.limits.heap_limit
+              ∨ (size_inv s ⇒
+                 flat_size_of_heap s + k <= s.limits.heap_limit))``
 
 Overload heap_peak =
   ``λk ^s. MAX (s.peak_heap_length) (size_of_heap s + k)``
