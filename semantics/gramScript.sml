@@ -222,9 +222,9 @@ val cmlG_def = mk_grammar_def ginfo
  TopLevelDec ::= Structure | Decl ;
  TopLevelDecs ::= E ";" TopLevelDecs | TopLevelDec NonETopLevelDecs
                |  ";" TopLevelDecs | ;
- NonETopLevelDecs ::= TopLevelDec NonETopLevelDecs | ";" TopLevelDecs | ;
+ NonETopLevelDecs ::= TopLevelDec NonETopLevelDecs | ";" TopLevelDecs | ; (*
  REPLCommand ::= <REPLIDT> Ebase ;
- TopLevel ::= REPLCommand | TopLevelDecs ;
+ TopLevel ::= REPLCommand | TopLevelDecs ; *)
 `;
 
 Type NT = ``:MMLnonT inf``

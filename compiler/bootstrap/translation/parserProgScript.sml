@@ -70,6 +70,20 @@ val EqType_PT_rule = EqualityType_rule [] ``:(token,MMLnonT,locs) parsetree``;
 
 val _ = translate (def_of_const ``validAddSym``);
 
+Theorem locnle:
+  locnle x y =
+    case (x,y) of
+    | (UNKNOWNpt,_) => T
+    | (_,EOFpt) => T
+    | (POSN x1 x2,POSN y1 y2) => ((x1 < y1) ∨ (x1 = y1) ∧ (x2 ≤ y2))
+    | _ => F
+Proof
+  Cases_on ‘x’ \\ Cases_on ‘y’ \\ fs []
+  \\ fs [locationTheory.locnle_def] \\ EVAL_TAC \\ fs []
+QED
+
+val _ = translate locnle;
+
 Triviality validaddsym_side_lemma:
   ∀x. validaddsym_side x = T
 Proof
@@ -80,12 +94,12 @@ val _ = update_precondition validaddsym_side_lemma;
 val _ = translate (def_of_const ``cmlPEG``);
 
 Theorem INTRO_FLOOKUP:
-   (if n IN FDOM G.rules
-     then EV (G.rules ' n) i r y fk
-     else Result xx) =
-    (case FLOOKUP G.rules n of
-       NONE => Result xx
-     | SOME x => EV x i r y fk)
+   (if n ∈ FDOM G.rules then
+      pegexec$EV (G.rules ' n) i r eo errs (appf1 tf3 k) fk
+    else Looped) =
+   (case FLOOKUP G.rules n of
+      NONE => Looped
+    | SOME x => pegexec$EV x i r eo errs (appf1 tf3 k) fk)
 Proof
   SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]
 QED
@@ -142,7 +156,7 @@ Theorem parse_prog_side_lemma = Q.prove(`
   SIMP_TAC std_ss [fetch "-" "parse_prog_side_def",
     fetch "-" "peg_exec_side_def", fetch "-" "coreloop_side_def"]
   THEN REPEAT STRIP_TAC
-  THEN STRIP_ASSUME_TAC (Q.SPEC `x` owhile_TopLevelDecs_total)
+  THEN STRIP_ASSUME_TAC (Q.SPEC `v1` owhile_TopLevelDecs_total)
   THEN FULL_SIMP_TAC std_ss [INTRO_FLOOKUP] THEN POP_ASSUM MP_TAC
   THEN CONV_TAC (DEPTH_CONV ETA_CONV) THEN FULL_SIMP_TAC std_ss [])
   |> update_precondition;

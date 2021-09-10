@@ -702,22 +702,32 @@ val sexplop_def = Define`
    if s = "Or" then SOME Or else NONE) ∧
   (sexplop _ = NONE)`;
 
-val sexplocn_def = Define`
+Definition sexplocpt_def:
+  (sexplocpt (SX_SYM s) =
+    if s = "unk" then SOME UNKNOWNpt
+    else if s = "eof" then SOME EOFpt
+    else NONE) ∧
+  (sexplocpt s =
+   do
+     ls <- strip_sxcons s ;
+     guard (LENGTH ls = 2) (lift2 POSN
+                            (odestSXNUM (EL 0 ls))
+                            (odestSXNUM (EL 1 ls)))
+   od)
+End
+
+Definition sexplocn_def:
   sexplocn s =
     do
       ls <- strip_sxcons s;
-      guard (LENGTH ls = 6)
-      (lift2 Locs
-            (lift locn (odestSXNUM (EL 0 ls)) <*>
-                       (odestSXNUM (EL 1 ls)) <*>
-                       (odestSXNUM (EL 2 ls)))
-            (lift locn (odestSXNUM (EL 3 ls)) <*>
-                       (odestSXNUM (EL 4 ls)) <*>
-                       (odestSXNUM (EL 5 ls)))
-                       )
-    od`;
+      guard (LENGTH ls = 2)
+            (lift2 Locs
+             (sexplocpt (EL 0 ls))
+             (sexplocpt (EL 1 ls)))
+    od
+End
 
-val sexpexp_def = tDefine "sexpexp" `
+Definition sexpexp_def:
   sexpexp s =
     do
       (nm, args) <- dstrip_sexp s;
@@ -768,8 +778,8 @@ val sexpexp_def = tDefine "sexpexp" `
               (sexpexp (EL 0 args))
               (sexplocn (EL 1 args)))
     od
-`
-  (WF_REL_TAC `measure sexp_size` >> simp[] >> rpt strip_tac
+Termination
+  WF_REL_TAC `measure sexp_size` >> simp[] >> rpt strip_tac
    >> TRY
      (rename1 `sxMEM sx0 (EL 1 args)` >>
        `sexp_size sx0 < sexp_size (EL 1 args)` by simp[sxMEM_sizelt] >>
@@ -786,10 +796,11 @@ val sexpexp_def = tDefine "sexpexp" `
      metis_tac[listTheory.EL,rich_listTheory.EL_MEM,DECIDE``0n < 2``,arithmeticTheory.LESS_TRANS])
    >> metis_tac[rich_listTheory.EL_MEM, listTheory.EL,
                 DECIDE ``1n < 2 ∧ 0n < 2 ∧ 0n < 1 ∧ 2n < 3 ∧ 0n < 3 ∧ 1n < 3``,
-                dstrip_sexp_size, sxMEM_sizelt, arithmeticTheory.LESS_TRANS])
+                dstrip_sexp_size, sxMEM_sizelt, arithmeticTheory.LESS_TRANS]
+End
 
 (* translator friendly version for bootstrapping *)
-val sexpexp_alt_def = tDefine"sexpexp_alt"`
+Definition sexpexp_alt_def:
   (sexpexp_alt s =
      case dstrip_sexp s of
      | NONE => NONE
@@ -895,8 +906,9 @@ val sexpexp_alt_def = tDefine"sexpexp_alt"`
         | (SOME x, SOME y, SOME z) => SOME (x,y,z)
         | _ => NONE)
       | _ => NONE)
-    | _ => NONE)`
-  (wf_rel_tac`inv_image (measure sexp_size)
+    | _ => NONE)
+Termination
+  wf_rel_tac`inv_image (measure sexp_size)
     (λx. case x of
          | INL y => y
          | INR (INL y) => y
@@ -905,9 +917,8 @@ val sexpexp_alt_def = tDefine"sexpexp_alt"`
          | INR (INR (INR (INR (INL y)))) => y
          | INR (INR (INR (INR (INR y)))) => y)` \\ rw[] \\
    imp_res_tac dstrip_sexp_size \\
-   fs[LENGTH_EQ_NUM_compute]);
-
-val sexpexp_alt_ind = theorem"sexpexp_alt_ind";
+   fs[LENGTH_EQ_NUM_compute]
+End
 
 Theorem sexpexp_alt_intro:
    (∀s. sexpexp s = sexpexp_alt s) ∧
@@ -1302,23 +1313,26 @@ Proof
   rw[EQ_IMP_THM] >> pop_assum (mp_tac o AP_TERM “sexpop”) >> simp[]
 QED
 
-val locnsexp_def = Define`
-  locnsexp (Locs (locn n1 n2 n3) (locn n4 n5 n6)) =
-    listsexp (MAP SX_NUM [n1;n2;n3;n4;n5;n6])`;
-
-Theorem locnsexp_thm[compute]:
-   locnsexp (Locs l1 l2) =
-   listsexp [&(l1.row); &(l1.col); &(l1.offset);
-             &(l2.row); &(l2.col); &(l2.offset)]
-Proof
-  Cases_on`l1` \\ Cases_on`l2` \\ rw[locnsexp_def]
-QED
+Definition locnsexp_def:
+  locnsexp (POSN n1 n2) = listsexp (MAP SX_NUM [n1;n2]) ∧
+  locnsexp UNKNOWNpt = SX_SYM "unk" ∧
+  locnsexp EOFpt = SX_SYM "eof"
+End
 
 Theorem locnsexp_11[simp]:
-   ∀l1 l2. locnsexp l1 = locnsexp l2 ⇔ l1 = l2
+  locnsexp p1 = locnsexp p2 ⇔ p1 = p2
 Proof
-  Cases \\ Cases \\ rename [`locnsexp (Locs l1 l2) = locnsexp (Locs l3 l4)`] >>
-  map_every Cases_on [`l1`, `l2`, `l3`, `l4`] >> rw[locnsexp_def]
+  map_every Cases_on [‘p1’, ‘p2’] >> simp[locnsexp_def, listsexp_def]
+QED
+
+Definition locssexp_def:
+  locssexp (Locs p1 p2) = listsexp (MAP locnsexp [p1;p2])
+End
+
+Theorem locssexp_11[simp]:
+   ∀l1 l2. locssexp l1 = locssexp l2 ⇔ l1 = l2
+Proof
+  Cases \\ Cases \\ simp[locssexp_def]
 QED
 
 val expsexp_def = tDefine"expsexp"`
@@ -1338,7 +1352,7 @@ val expsexp_def = tDefine"expsexp"`
      listsexp (MAP (λ(x,y,z). SX_CONS (SEXSTR x) (SX_CONS (SEXSTR y) (expsexp z))) funs);
      expsexp e]) ∧
   (expsexp (Tannot e t) = listsexp [SX_SYM "Tannot"; expsexp e; typesexp t]) ∧
-  (expsexp (Lannot e loc) = listsexp [SX_SYM "Lannot"; expsexp e; locnsexp loc])`
+  (expsexp (Lannot e loc) = listsexp [SX_SYM "Lannot"; expsexp e; locssexp loc])`
   (WF_REL_TAC`measure exp_size` >>
    rpt conj_tac >> simp[] >>
    (Induct_on`pes` ORELSE Induct_on`es` ORELSE Induct_on`funs`) >>
@@ -1400,14 +1414,14 @@ Proof
 QED
 
 val decsexp_def = tDefine "decsexp"`
-  (decsexp (Dlet locs p e) = listsexp [SX_SYM "Dlet"; locnsexp locs; patsexp p; expsexp e]) ∧
+  (decsexp (Dlet locs p e) = listsexp [SX_SYM "Dlet"; locssexp locs; patsexp p; expsexp e]) ∧
   (decsexp (Dletrec locs funs) =
-     listsexp [SX_SYM "Dletrec"; locnsexp locs;
+     listsexp [SX_SYM "Dletrec"; locssexp locs;
                listsexp (MAP (λ(f,x,e). SX_CONS (SEXSTR f) (SX_CONS (SEXSTR x) (expsexp e))) funs)]) ∧
-  (decsexp (Dtype locs td) = listsexp [SX_SYM "Dtype"; locnsexp locs; type_defsexp td]) ∧
-  (decsexp (Dtabbrev locs ns x t) = listsexp [SX_SYM "Dtabbrev"; locnsexp locs; listsexp (MAP SEXSTR ns); SEXSTR x; typesexp t]) ∧
+  (decsexp (Dtype locs td) = listsexp [SX_SYM "Dtype"; locssexp locs; type_defsexp td]) ∧
+  (decsexp (Dtabbrev locs ns x t) = listsexp [SX_SYM "Dtabbrev"; locssexp locs; listsexp (MAP SEXSTR ns); SEXSTR x; typesexp t]) ∧
   (decsexp (Denv name) = listsexp [SX_SYM "Denv"; SEXSTR name]) ∧
-  (decsexp (Dexn locs x ts) = listsexp [SX_SYM "Dexn"; locnsexp locs; SEXSTR x; listsexp (MAP typesexp ts)]) ∧
+  (decsexp (Dexn locs x ts) = listsexp [SX_SYM "Dexn"; locssexp locs; SEXSTR x; listsexp (MAP typesexp ts)]) ∧
   (decsexp (Dmod name decs) = listsexp [SX_SYM "Dmod"; SEXSTR name; listsexp (MAP decsexp decs)]) ∧
   decsexp (Dlocal ldecs decs) = listsexp [SX_SYM "Dlocal";
         listsexp (MAP decsexp ldecs); listsexp (MAP decsexp decs)]`
@@ -1647,11 +1661,17 @@ Proof
   Cases_on`l`>>EVAL_TAC
 QED
 
-Theorem sexplocn_locnsexp[simp]:
-   sexplocn (locnsexp l) = SOME l
+Theorem sexplocpt_locnsexp[simp]:
+  sexplocpt (locnsexp p) = SOME p
 Proof
-  Cases_on `l` >> rename [`Locs l1 l2`] >>
-  Cases_on`l1` \\ Cases_on`l2` \\ rw[locnsexp_def,sexplocn_def]
+  Cases_on ‘p’ >> simp[sexplocpt_def, locnsexp_def, listsexp_def] >>
+  simp[strip_sxcons_def]
+QED
+
+Theorem sexplocn_locnsexp[simp]:
+   sexplocn (locssexp l) = SOME l
+Proof
+  Cases_on `l` >> rw[sexplocn_def,locssexp_def]
 QED
 
 Theorem sexpexp_expsexp[simp]:
@@ -1863,18 +1883,27 @@ Proof
   Cases_on`s` \\ rw[sexplop_def] \\ rw[lopsexp_def]
 QED
 
-Theorem locnsexp_sexplocn:
-   sexplocn s = SOME z ⇒ locnsexp z = s
+Theorem odestSXNUM_SXNUM:
+  odestSXNUM s = SOME n ⇒ s = &n
 Proof
-  Cases_on`z` \\ rename [`Locs l1 l2`] >>
-  Cases_on`l1` \\ Cases_on `l2`
-  \\ rw[sexplocn_def,locnsexp_def]
-  \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
-  \\ fs[Once strip_sxcons_def]
-  \\ simp[listsexp_def]
-  \\ rename [`⟪h1; h2; h3; h4; h5; h6⟫`]
-  \\ map_every (fn q => Cases_on q >> fs[odestSXNUM_def])
-       [`h1`, `h2`, `h3`, `h4`, `h5`, `h6`]
+  Cases_on ‘s’ >> simp[odestSXNUM_def]
+QED
+
+Theorem locnsexp_sexplocpt:
+  sexplocpt s = SOME z ⇒ locnsexp z = s
+Proof
+  Cases_on ‘z’ >> Cases_on ‘s’ >>
+  simp[locnsexp_def,sexplocpt_def, AllCaseEqs(), PULL_EXISTS,
+       LENGTH_EQ_NUM_compute, listsexp_def] >> rpt strip_tac >>
+  rpt (dxrule odestSXNUM_SXNUM) >> simp[]
+QED
+
+Theorem locnsexp_sexplocn:
+   sexplocn s = SOME z ⇒ locssexp z = s
+Proof
+  Cases_on`z` >>
+  simp[sexplocn_def, locssexp_def, listsexp_def, LENGTH_EQ_NUM_compute,
+       PULL_EXISTS] >> metis_tac[locnsexp_sexplocpt]
 QED
 
 Theorem expsexp_sexpexp:
@@ -2111,9 +2140,15 @@ Proof
 QED
 
 Theorem locnsexp_valid[simp]:
-   ∀l. valid_sexp (locnsexp l)
+  ∀p. valid_sexp (locnsexp p)
 Proof
-  Cases \\ rename [`Locs l1 l2`] >> Cases_on `l1` \\ Cases_on `l2` \\ EVAL_TAC
+  Cases >> simp[locnsexp_def] >> EVAL_TAC
+QED
+
+Theorem locssexp_valid[simp]:
+   ∀l. valid_sexp (locssexp l)
+Proof
+  Cases \\ simp[locssexp_def, listsexp_valid]
 QED
 
 Theorem expsexp_valid[simp]:
