@@ -7883,6 +7883,22 @@ Proof
   >> fs[Abbr`f`,MEM_FILTER]
 QED
 
+Theorem NRC_dep_step_acyclic_len_composable_len_eq:
+  !k k' dep. wf_pqs dep /\ monotone (CURRY $ set dep)
+  ==>
+  (?dep'. NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') k dep dep')
+  = (!k'. 0 < k' /\ k' <= k ==>
+  composable_len (CURRY $ set dep) k' /\ acyclic_len (CURRY $ set dep) $ SUC k')
+Proof
+  dsimp[EQ_IMP_THM,acyclic_len_composable_len_NRC_dep_step]
+  >> conj_tac >- metis_tac[NRC_dep_step_composable_len]
+  >> ntac 3 gen_tac >> Cases >> rw[]
+  >> drule NRC_dep_step_acyclic_len
+  >> rpt $ disch_then $ drule
+  >> disch_then irule
+  >> fs[]
+QED
+
 (* depth-limited expansion of the dependency relation *)
 (* usage: dep_steps dep k dep = ... *)
 Definition dep_steps_def:
