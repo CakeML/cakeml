@@ -7625,38 +7625,55 @@ QED
 
 Theorem NRC_dep_step_acyclic_len':
   !k dep dep'. wf_pqs dep /\ monotone (CURRY $ set dep)
-  /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC $ SUC k) dep dep'
+  /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC k) dep dep'
   ==> acyclic_len (CURRY $ set dep) $ SUC $ SUC k
 Proof
-  rpt gen_tac >> strip_tac
-  >> fs[Once NRC_SUC_RECURSE_LEFT]
-  >> drule_at Any NRC_dep_step_has_path_to
+  Cases >> rpt gen_tac >> strip_tac
+  >- (
+    rw[acyclic_len_def] >> gvs[Once NRC_SUC_RECURSE_LEFT]
+    >> imp_res_tac has_path_to_is_const_or_type
+    >> drule_at Any $ iffRL dep_step_has_path_to2
+    >> fs[FORALL_PROD]
+    >> rpt $ disch_then $ drule_at Any
+    >> rw[wf_pqs_CONS]
+    >> qmatch_assum_rename_tac `equiv y' y`
+    >> qsuff_tac `~(is_instance_LR x y')`
+    >- gvs[equiv_def,is_instance_LR_var_renaming2]
+    >> drule_at Any $ cj 4 $ REWRITE_RULE[dep_step_inv_def] dep_step_sound_INL
+    >> fs[wf_pqs_APPEND]
+    >> disch_then $ fs o single
+    >> gvs[EVERY_MAP,EVERY_MEM,ELIM_UNCURRY,o_DEF]
+  )
+  >> drule_at Any $ iffRL NRC_dep_step_has_path_to
   >> drule_at Any NRC_dep_step_wf_pqs
-  >> qhdtm_x_assum `NRC` $ strip_assume_tac o SIMP_RULE(srw_ss()) [Once NRC_SUC_RECURSE_LEFT]
-  >> drule_at Any NRC_dep_step_wf_pqs
-  >> drule_at Any dep_step_sound_INL
-  >> rw[acyclic_len_def,dep_step_inv_def]
-  >> gs[wf_pqs_APPEND]
+  >> rw[acyclic_len_def]
   >> imp_res_tac has_path_to_is_const_or_type
-  >> first_x_assum $ qspec_then `(x,y)` assume_tac o iffRL
-  >> gvs[wf_pqs_CONS,equiv_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
-  >> first_x_assum drule >> fs[is_instance_LR_var_renaming2]
+  >> gvs[Once NRC_SUC_RECURSE_LEFT,FORALL_PROD,wf_pqs_APPEND]
+  >> first_x_assum $ drule_at_then Any assume_tac
+  >> drule_at_then Any assume_tac NRC_dep_step_wf_pqs
+  >> gs[wf_pqs_CONS,wf_pqs_APPEND]
+  >> qmatch_assum_rename_tac `equiv y' y`
+  >> qsuff_tac `~(is_instance_LR x y')`
+  >- gvs[equiv_def,is_instance_LR_var_renaming2]
+  >> drule_at Any $ cj 4 $ REWRITE_RULE[dep_step_inv_def] dep_step_sound_INL
+  >> fs[wf_pqs_APPEND]
+  >> disch_then $ fs o single
+  >> gvs[EVERY_MAP,EVERY_MEM,ELIM_UNCURRY,o_DEF]
 QED
 
 Theorem NRC_dep_step_acyclic_len:
   !k k' dep dep'. wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') k dep dep'
-  ==> !k'. 1 < k' /\ k' <= k ==> acyclic_len (CURRY $ set dep) k'
+  ==> !k'. 1 < k' /\ k' <= SUC k ==> acyclic_len (CURRY $ set dep) k'
 Proof
   rw[]
   >> qmatch_assum_rename_tac `NRC _ k _ _` >> Cases_on `k` >> fs[]
-  >> qmatch_assum_rename_tac `NRC _ (SUC k) _ _` >> Cases_on `k` >> fs[]
   >> qmatch_assum_rename_tac `1 < k` >> Cases_on `k` >> fs[]
   >> qmatch_assum_rename_tac `1 < (SUC k)` >> Cases_on `k` >> fs[]
-  >> dxrule_then (qspec_then `SUC $ SUC n'` assume_tac) NRC_shorter
-  >> rfs[]
-  >> drule_at_then Any irule NRC_dep_step_acyclic_len'
-  >> fs[wf_pqs_APPEND]
+  >> drule_at_then Any irule NRC_dep_step_acyclic_len' >> fs[]
+  >> irule NRC_shorter
+  >> goal_assum $ drule_at Any
+  >> fs[]
 QED
 
 Theorem acyclic_len_composable_len_NRC_dep_step2:
