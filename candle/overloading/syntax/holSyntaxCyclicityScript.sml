@@ -7742,8 +7742,8 @@ QED
 
 Theorem acyclic_len_composable_len_NRC_dep_step:
   !k k' dep. wf_pqs dep /\ monotone (CURRY $ set dep)
-  /\ (!k'. k' <= SUC k
-    ==> composable_len (CURRY $ set dep) k' /\ acyclic_len (CURRY $ set dep) k')
+  /\ (!k'. 0 < k' /\ k' <= k ==>
+  composable_len (CURRY $ set dep) k' /\ acyclic_len (CURRY $ set dep) $ SUC k')
   ==> ?dep'. NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') k dep dep'
 Proof
   Induct >> fs[] >> rpt strip_tac
@@ -7751,7 +7751,10 @@ Proof
   >> gs[wf_pqs_APPEND,NRC_SUC_RECURSE_LEFT]
   >> goal_assum $ drule_at Any
   >> Cases_on `k`
-  >- (drule acyclic_len_composable_len_NRC_dep_step2 >> gvs[])
+  >- (
+    drule acyclic_len_composable_len_NRC_dep_step2
+    >> fs[LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,LESS_OR_EQ,FORALL_AND_THM,DISJ_IMP_THM]
+  )
   >> spose_not_then assume_tac
   >> fs[quantHeuristicsTheory.INL_NEQ_ELIM,quantHeuristicsTheory.ISR_exists]
   >> qmatch_assum_rename_tac `dep_step dep dep' [] = _`
