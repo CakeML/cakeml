@@ -7533,14 +7533,14 @@ Proof
 QED
 
 Theorem NRC_dep_step_has_path_to:
-  !k dep dep'. wf_pqs (dep ++ dep') /\ monotone (CURRY $ set dep)
+  !k dep dep'. wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC k) dep dep'
     ==> !x. wf_pqs [x]
       ==> (?y. MEM (FST x,y) dep' /\ equiv y (SND x))
         = has_path_to (CURRY $ set dep) (SUC (SUC k)) (FST x) (SND x)
 Proof
   Induct >> rpt strip_tac
-  >- (fs[NRC] >> drule_at (Pos $ el 3) dep_step_has_path_to2  >> fs[wf_pqs_APPEND])
+  >- (fs[NRC] >> drule_at (Pos $ el 3) dep_step_has_path_to2 >> fs[wf_pqs_APPEND])
   >> qhdtm_x_assum `NRC` $ strip_assume_tac o SIMP_RULE(srw_ss()) [Once NRC_SUC_RECURSE_LEFT]
   >> first_x_assum $ drule_at Any
   >> drule_at Any NRC_dep_step_wf_pqs
@@ -7587,7 +7587,7 @@ Proof
 QED
 
 Theorem NRC_dep_step_composable_len':
-  !k dep dep'. wf_pqs (dep ++ dep') /\ monotone (CURRY $ set dep)
+  !k dep dep'. wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC $ SUC k) dep dep'
   ==> composable_len (CURRY $ set dep) $ SUC $ SUC k
 Proof
@@ -7610,7 +7610,7 @@ Proof
 QED
 
 Theorem NRC_dep_step_composable_len:
-  !k k' dep dep'. wf_pqs (dep ++ dep') /\ monotone (CURRY $ set dep)
+  !k k' dep dep'. wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') k dep dep'
   ==> !k'. 1 < k' /\ k' <= k ==> composable_len (CURRY $ set dep) k'
 Proof
@@ -7620,12 +7620,11 @@ Proof
   >> qmatch_assum_rename_tac `SUC $ SUC n <= k`
   >> dxrule_then (drule_then strip_assume_tac) NRC_shorter
   >> drule_at_then Any irule NRC_dep_step_composable_len'
-  >> drule_at Any NRC_dep_step_wf_pqs
   >> fs[wf_pqs_APPEND]
 QED
 
 Theorem NRC_dep_step_acyclic_len':
-  !k dep dep'. wf_pqs (dep ++ dep') /\ monotone (CURRY $ set dep)
+  !k dep dep'. wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC $ SUC k) dep dep'
   ==> acyclic_len (CURRY $ set dep) $ SUC $ SUC k
 Proof
@@ -7645,7 +7644,7 @@ Proof
 QED
 
 Theorem NRC_dep_step_acyclic_len:
-  !k k' dep dep'. wf_pqs (dep ++ dep') /\ monotone (CURRY $ set dep)
+  !k k' dep dep'. wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') k dep dep'
   ==> !k'. 1 < k' /\ k' <= k ==> acyclic_len (CURRY $ set dep) k'
 Proof
@@ -7657,7 +7656,6 @@ Proof
   >> dxrule_then (qspec_then `SUC $ SUC n'` assume_tac) NRC_shorter
   >> rfs[]
   >> drule_at_then Any irule NRC_dep_step_acyclic_len'
-  >> drule_at Any NRC_dep_step_wf_pqs
   >> fs[wf_pqs_APPEND]
 QED
 
@@ -7750,7 +7748,6 @@ Theorem acyclic_len_composable_len_NRC_dep_step:
 Proof
   Induct >> fs[] >> rpt strip_tac
   >> first_x_assum $ drule_then drule >> rw[]
-  >> drule_at_then Any assume_tac NRC_dep_step_wf_pqs
   >> gs[wf_pqs_APPEND,NRC_SUC_RECURSE_LEFT]
   >> goal_assum $ drule_at Any
   >> Cases_on `k`
