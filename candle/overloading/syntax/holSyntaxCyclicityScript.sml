@@ -7586,43 +7586,6 @@ Proof
   >> fs[]
 QED
 
-Theorem NRC_dep_step_composable_len':
-  !k dep dep'. wf_pqs dep /\ monotone (CURRY $ set dep)
-  /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC $ SUC k) dep dep'
-  ==> composable_len (CURRY $ set dep) $ SUC $ SUC k
-Proof
-  rpt gen_tac >> strip_tac
-  >> fs[Once NRC_SUC_RECURSE_LEFT]
-  >> drule_at Any NRC_dep_step_has_path_to
-  >> drule_at Any dep_step_sound_INL
-  >> drule_at Any NRC_dep_step_wf_pqs
-  >> fs[wf_pqs_APPEND]
-  >> rw[composable_len_def,wf_pqs_APPEND,dep_step_inv_def]
-  >> imp_res_tac has_path_to_is_const_or_type
-  >> first_x_assum $ qspec_then `(x,y)` assume_tac o iffRL
-  >> gvs[wf_pqs_CONS,equiv_def]
-  >> first_x_assum $ drule_then strip_assume_tac
-  >> drule_at Any $ cj 2 composable_step_sound_INL
-  >> qpat_assum `wf_pqs dep` $ imp_res_tac o SIMP_RULE(srw_ss())[wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,IN_DEF]
-  >> fs[EVERY_MEM,IN_DEF]
-  >> disch_then imp_res_tac
-  >> gs[composable_var_renaming1]
-QED
-
-Theorem NRC_dep_step_composable_len:
-  !k k' dep dep'. wf_pqs dep /\ monotone (CURRY $ set dep)
-  /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') k dep dep'
-  ==> !k'. 1 < k' /\ k' <= k ==> composable_len (CURRY $ set dep) k'
-Proof
-  rpt strip_tac
-  >> qmatch_assum_rename_tac `1 < l` >> Cases_on `l` >> fs[]
-  >> qmatch_assum_rename_tac `1 < SUC l` >> Cases_on `l` >> fs[]
-  >> qmatch_assum_rename_tac `SUC $ SUC n <= k`
-  >> dxrule_then (drule_then strip_assume_tac) NRC_shorter
-  >> drule_at_then Any irule NRC_dep_step_composable_len'
-  >> fs[wf_pqs_APPEND]
-QED
-
 Theorem NRC_dep_step_acyclic_len':
   !k dep dep'. wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC k) dep dep'
@@ -7674,6 +7637,61 @@ Proof
   >> irule NRC_shorter
   >> goal_assum $ drule_at Any
   >> fs[]
+QED
+
+Theorem dep_step_composable_len1:
+  !dep deps'. wf_pqs dep /\ monotone (CURRY (set dep))
+  /\ dep_step dep dep [] = INL deps'
+  ==> composable_len (CURRY (set dep)) 1
+Proof
+  rpt gen_tac >> strip_tac
+  >> drule_at Any $ cj 3 $ REWRITE_RULE[dep_step_inv_def] dep_step_sound_INL
+  >> rw[composable_len_def,PULL_EXISTS,has_path_to_ONE,FORALL_PROD,wf_pqs_APPEND,IN_DEF]
+  >> qmatch_assum_rename_tac `equiv y' y`
+  >> qpat_assum `wf_pqs dep` $ imp_res_tac o SIMP_RULE(srw_ss())[wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,IN_DEF]
+  >> qsuff_tac `composable y' p_1`
+  >- gvs[equiv_def,composable_var_renaming1]
+  >> first_x_assum $ rev_drule_then strip_assume_tac
+  >> drule_at Any $ cj 2 composable_step_sound_INL
+  >> fs[EVERY_MEM,IN_DEF,FORALL_PROD]
+  >> disch_then imp_res_tac
+QED
+
+Theorem NRC_dep_step_composable_len':
+  !k dep dep'. wf_pqs dep /\ monotone (CURRY $ set dep)
+  /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC k) dep dep'
+  ==> composable_len (CURRY $ set dep) $ SUC k
+Proof
+  Cases >> rpt gen_tac >> strip_tac
+  >- fs[dep_step_composable_len1]
+  >> fs[Once NRC_SUC_RECURSE_LEFT]
+  >> drule_at Any NRC_dep_step_has_path_to
+  >> drule_at Any dep_step_sound_INL
+  >> drule_at Any NRC_dep_step_wf_pqs
+  >> fs[wf_pqs_APPEND]
+  >> rw[composable_len_def,wf_pqs_APPEND,dep_step_inv_def]
+  >> imp_res_tac has_path_to_is_const_or_type
+  >> first_x_assum $ qspec_then `(x,y)` assume_tac o iffRL
+  >> gvs[wf_pqs_CONS,equiv_def]
+  >> first_x_assum $ drule_then strip_assume_tac
+  >> drule_at Any $ cj 2 composable_step_sound_INL
+  >> qpat_assum `wf_pqs dep` $ imp_res_tac o SIMP_RULE(srw_ss())[wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,IN_DEF]
+  >> fs[EVERY_MEM,IN_DEF]
+  >> disch_then imp_res_tac
+  >> gs[composable_var_renaming1]
+QED
+
+Theorem NRC_dep_step_composable_len:
+  !k k' dep dep'. wf_pqs dep /\ monotone (CURRY $ set dep)
+  /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') k dep dep'
+  ==> !k'. 0 < k' /\ k' <= k ==> composable_len (CURRY $ set dep) k'
+Proof
+  rpt strip_tac
+  >> qmatch_assum_rename_tac `0 < l` >> Cases_on `l` >> fs[]
+  >> qmatch_assum_rename_tac `SUC _ <= k` >> Cases_on `k` >> fs[]
+  >> irule NRC_dep_step_composable_len'
+  >> dxrule NRC_shorter
+  >> fs[wf_pqs_APPEND]
 QED
 
 Theorem acyclic_len_composable_len_NRC_dep_step2:
