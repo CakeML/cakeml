@@ -186,60 +186,60 @@ Definition size_of_heap_def:
 End
 
 Datatype:
-  root = TStamp num | RStamp num
+  addr = BlockAddr num | RefAddr num
 End
 
-(* Turns a list of values (:v) into a set of roots (:root) *)
-Definition to_roots_def:
-  (to_roots [] = {})
-∧ (to_roots (Block ts _ _::xs) = {TStamp ts} ∪ to_roots xs)
-∧ (to_roots (RefPtr ref::xs)   = {RStamp ref} ∪ to_roots xs)
-∧ (to_roots (_::xs) = to_roots xs)
+(* Turns a list of values (:v) into a set of addresses (:addr) *)
+Definition to_addrs_def:
+  (to_addrs [] = {})
+∧ (to_addrs (Block ts _ _::xs) = {BlockAddr ts} ∪ to_addrs xs)
+∧ (to_addrs (RefPtr ref::xs)   = {RefAddr ref} ∪ to_addrs xs)
+∧ (to_addrs (_::xs) = to_addrs xs)
 End
 
 (* Given a list of values and a timestamp returns the (possibly empty)
-   set of roots (:root) a block with that timestamp has.
+   set of addresses (:addr) a block with that timestamp has.
 
    note: meant to be used with s.all_blocks which should only contain
          blocks with timestamps 0 < ts < s.timestamp
  *)
-Definition block_to_roots_def:
-  block_to_roots blocks ts =
+Definition block_to_addrs_def:
+  block_to_addrs blocks ts =
   (case oEL ts blocks of
-   | SOME (Block _ _ vs) => to_roots vs
+   | SOME (Block _ _ vs) => to_addrs vs
    | _ => ∅ )
 End
 
 (* Given a reference map and a pointer returns the (possibly empty)
-   set of roots (:root) at that location.
+   set of addresses (:addr) at that location.
  *)
-Definition ptr_to_roots_def:
-  ptr_to_roots refs p =
+Definition ptr_to_addrs_def:
+  ptr_to_addrs refs p =
     case sptree$lookup p refs of
-      SOME (ValueArray vs) => to_roots vs
+      SOME (ValueArray vs) => to_addrs vs
       | _ => {}
 End
 
 (* next l r holds iff r follows immediately from l *)
 Definition next_def:
-  (next refs blocks (TStamp ts) r =
-     (r ∈ block_to_roots blocks ts))
-∧ (next refs blocks (RStamp ref) r =
-     (r ∈ ptr_to_roots refs ref))
+  (next refs blocks (BlockAddr ts) r =
+     (r ∈ block_to_addrs blocks ts))
+∧ (next refs blocks (RefAddr ref) r =
+     (r ∈ ptr_to_addrs refs ref))
 End
 
-(* The set of all roots that can be reached from an initial set of roots *)
+(* The set of all addresses that can be reached from an initial set of roots *)
 Definition reachable_v_def:
   reachable_v refs blocks roots = { y | ∃x. x ∈ roots ∧ (next refs blocks)^* x y}
 End
 
-(* Given a root return the list of values pointed by it *)
-Definition root_to_vs_def:
-(root_to_vs refs blocks (TStamp ts) =
+(* Given an address returns the list of values pointed by it *)
+Definition addr_to_vs_def:
+(addr_to_vs refs blocks (BlockAddr ts) =
   (case oEL ts blocks of
    | SOME (Block _ _ vs) => vs
    | _ => [] ))
-∧ (root_to_vs refs blocks (RStamp p) =
+∧ (addr_to_vs refs blocks (RefAddr p) =
      case sptree$lookup p refs of
        SOME (ValueArray vs) => vs
        | _ => [])
@@ -256,12 +256,12 @@ Definition flat_measure_def:
 End
 
 (* Measures the size of the values *)
-Definition size_of_root_def:
-  (size_of_root lims refs blocks (TStamp ts) =
+Definition size_of_addr_def:
+  (size_of_addr lims refs blocks (BlockAddr ts) =
    (case oEL ts blocks of
     | SOME (Block _ _ vs) => 1 + LENGTH vs + SUM (MAP (flat_measure lims) vs)
     | _ => 0))
-∧ (size_of_root lims refs blocks (RStamp p) =
+∧ (size_of_addr lims refs blocks (RefAddr p) =
    (case sptree$lookup p refs of
     | SOME (ValueArray vs)  => 1 + LENGTH vs + SUM (MAP (flat_measure lims) vs)
     | SOME (ByteArray _ bs) => LENGTH bs DIV (arch_size lims DIV 8) + 2
@@ -271,8 +271,8 @@ End
 Definition flat_size_of_def[nocompute]:
   flat_size_of lims refs blocks roots =
     SUM (MAP (flat_measure lims) roots) +
-    ∑ (size_of_root lims refs blocks)
-      (reachable_v refs blocks (to_roots roots))
+    ∑ (size_of_addr lims refs blocks)
+      (reachable_v refs blocks (to_addrs roots))
 End
 
 Definition flat_size_of_heap_def:
