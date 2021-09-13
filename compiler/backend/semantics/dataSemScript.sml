@@ -117,7 +117,7 @@ Definition bignum_size_def:
     1 + bignum_digits arch64 (Num (ABS i))
 End
 
-Definition size_of_def:
+Definition size_of_def[nocompute]:
   (size_of lims [] refs seen = (0, refs, seen)) /\
   (size_of lims (x::y::ys) refs seen =
     let (n1,refs1,seen1) = check_res refs (size_of lims (y::ys) refs seen) in
