@@ -40,7 +40,7 @@ Definition mk_linfix_def:
   mk_linfix tgt acc [] = acc ∧
   mk_linfix tgt acc [t] = acc ∧
   mk_linfix tgt acc (opt::t::rest) =
-   mk_linfix tgt (mkNd tgt [acc; opt; t]) rest
+    mk_linfix tgt (mkNd tgt [acc; opt; t]) rest
 End
 
 Definition mk_rinfix_def:
@@ -104,6 +104,15 @@ Definition validPrefixSym_def:
     case s of
       [] => F
     | c::cs =>
+        (c = #"!" ∨ (c = #"?" ∨ c = #"~" ∧ cs ≠ "")) ∧
+        EVERY validOpChar cs
+End
+
+Definition validInfixSym_def:
+  validInfixSym s =
+    case s of
+      [] => F
+    | c::cs =>
       ((validCoreOpChar c ∨ c = #"%" ∨ c = #"<") ∨
        (c = #"#" ∧ cs ≠ "")) ∧
       EVERY validOpChar cs
@@ -114,32 +123,54 @@ Definition validMultOp_def:
     case s of
       [] => F
     | c::cs =>
-        (MEM c "*%/" ∧ EVERY validOpChar cs) ∨
-        MEM s [ "mod"; "land"; "lor"; "lxor" ]
+        (MEM c "*%/" ∧ cs ≠ "" ∧ EVERY validOpChar cs) ∨
+        MEM s [ "%"; "/"; "mod"; "land"; "lor"; "lxor" ]
+End
+
+Definition validRelOp_def:
+  validRelOp s =
+    case s of
+      [] => F
+    | c::cs =>
+        MEM c "<>|&$" ∧ cs ≠ "" ∧ EVERY validOpChar cs
 End
 
 Definition validAddOp_def:
   validAddOp s =
     case s of
       [] => F
-    | c::cs => MEM c "+-" ∧ EVERY validOpChar cs
+    | c::cs => MEM c "+-" ∧ cs ≠ "" ∧ EVERY validOpChar cs
+End
+
+Definition validRelOp_def:
+  validRelOp s =
+    case s of
+      [] => F
+    | c::cs => MEM c "=<>|&$" ∧
+               cs ≠ "" ∧
+               EVERY validOpChar cs
 End
 
 Datatype:
   camlNT
-    = nELiteral
+    = nLiteral
+    | nIdent
     | nEBase
+    (* expression ops *)
+    | nEPrefix
     | nEMult
     | nEAdd
-    | nEPrefix
+    | nERel
     | nExpr
-    | nEMultOp
+    (* misc *)
+    | nMultOp
+    | nAddOp
+    | nRelOp
     | nStart
 End
 
 (*
  * TODO
- * - Fix operator parsing (e.g. a * b / c doesnt work; see comment below)
  * - Add remaining non-terminals to datatype and
  *   implement remaining rules
  *)
@@ -150,67 +181,56 @@ Definition camlPEG_def[nocompute]:
     tokFALSE := "Unexpected token";
     tokEOF   := "Expected token, found end-of-file";
     notFAIL  := "Not combinator failed";
-    start := pnt nExpr;
+    start := pnt nStart;
     rules := FEMPTY |++ [
-      (* nELiteral ::= <integer-literal>
-       *             / <char-literal>
-       *             / <string-literal>
-       *)
-      (INL nELiteral,
+      (* --------------------------- Expressions --------------------------- *)
+      (INL nLiteral,
        choicel [
-           tok isInt    (bindNT nELiteral o mktokLf);
-           tok isString (bindNT nELiteral o mktokLf);
-           tok isChar   (bindNT nELiteral o mktokLf)
+           tok isInt    (bindNT nLiteral o mktokLf);
+           tok isString (bindNT nLiteral o mktokLf);
+           tok isChar   (bindNT nLiteral o mktokLf)
          ]);
-      (* nEBase ::= nELiteral
-       *          / <LPAR> ; nE ; [RPAR]
-       *)
+      (INL nIdent,
+       tok isIdent (bindNT nIdent o mktokLf));
       (INL nEBase,
        choicel [
-           pegf (pnt nELiteral) (bindNT nEBase);
+           pegf (pnt nLiteral) (bindNT nEBase);
+           pegf (pnt nIdent) (bindNT nEBase);
            seql [ tokeq LparT; pnt nExpr; tokeq RparT ] (bindNT nEBase)
         ]);
-      (* nEPrefix ::= <prefix-symbol> ; nEBase
-       *            / nEBase
-       * FIXME prefix symbols
-       *)
       (INL nEPrefix,
        choicel [
           seql [ tokSymP validPrefixSym; pnt nEBase ] (bindNT nEPrefix);
           pegf (pnt nEBase) (bindNT nEPrefix)
         ]);
-      (* nMultOp ::= StarT
-       *           / <validMultOp>
-       *)
-      (INL nEMultOp,
+      (INL nMultOp,
        choicel [
-         pegf (tokeq StarT) (bindNT nEMultOp);
-         pegf (tokSymP validMultOp) (bindNT nEMultOp)
+         pegf (tokeq StarT) (bindNT nMultOp);
+         pegf (tokSymP validMultOp) (bindNT nMultOp)
        ]);
-      (* nEMult ::= nEPrefix ; nMultOp ; nEPrefix
-       *          / nEPrefix
-       * FIXME
-       *)
+      (INL nAddOp,
+       pegf (choicel [
+               tokeq PlusT;
+               tokeq MinusT;
+               tokSymP validAddOp])
+            (bindNT nAddOp));
+      (INL nRelOp,
+       pegf (choicel [
+               tokeq EqualT;
+               tokeq LessT;
+               tokeq GreaterT;
+               tokeq NeqT;
+               tokSymP validRelOp])
+            (bindNT nRelOp));
       (INL nEMult,
-       choicel [
-           seql [ pnt nEPrefix; pnt nEMultOp; pnt nEPrefix ] (bindNT nEMult);
-           pegf (pnt nEPrefix) (bindNT nEMult)
-        ]);
-      (* nEAdd ::= nEMult ; <add-ops> ; nEMult
-       *         / nEMult
-       * FIXME
-       *)
+       peg_linfix (INL nEMult) (pnt nEPrefix) (pnt nMultOp));
       (INL nEAdd,
-       choicel [
-           seql [ pnt nEMult; tokSymP validAddOp; pnt nEMult ]
-                (bindNT nEAdd);
-           pegf (pnt nEMult) (bindNT nEAdd)
-        ]);
-      (* nExpr ::= nEAdd
-       *)
+       peg_linfix (INL nEAdd) (pnt nEMult) (pnt nAddOp));
+      (INL nERel,
+       peg_linfix (INL nERel) (pnt nEAdd) (pnt nRelOp));
       (INL nExpr,
-       pegf (pnt nEAdd) (bindNT nExpr));
-      (* nStart ::= nExpr ; not (empty []) *)
+       pegf (pnt nERel) (bindNT nExpr));
+      (* --------------------------- Entrypoint ---------------------------- *)
       (INL nStart,
        seql [pnt nExpr; not (any (K [])) [] ] (bindNT nStart))
       ] |>
@@ -290,8 +310,22 @@ val test =
                   IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2);
               ] 0)
              [] NONE [] done failed”;
+val test2 =
+  time EVAL “peg_exec camlPEG (pnt nStart)
+             (map_loc [
+                  IntT 3; StarT; IntT 4;
+              ] 0)
+             [] NONE [] done failed”;
+val test3 =
+  time EVAL “peg_exec camlPEG (pnt nStart)
+             (map_loc [
+                  IntT 3; LessT; IdentT "foo";
+              ] 0)
+             [] NONE [] done failed”;
 
-
+(* -------------------------------------------------------------------------
+ * Running the lexer, and then the parser
+ * ------------------------------------------------------------------------- *)
 
 val _ = export_theory ();
 
