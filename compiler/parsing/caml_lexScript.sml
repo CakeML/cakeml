@@ -177,8 +177,16 @@ Proof
   \\ gs []
 QED
 
-Definition loc_row_def:
-  loc_row n = <| row := n; col := 1; offset := 0 |>
+(* next_loc, next_line are copied from semantics/lexer_funScript.sml *)
+
+Definition next_loc_def:
+  next_loc n (POSN r c) = POSN r (c+n) ∧
+  next_loc n x = x
+End
+
+Definition next_line_def:
+  next_line (POSN r c) = POSN (r+1) 0 ∧
+  next_line x = x
 End
 
 Definition skip_comment_def:
@@ -186,14 +194,14 @@ Definition skip_comment_def:
     case cs of
       x::y::xs =>
         if x = #"(" ∧ y = #"*" then
-          skip_comment xs (d + 1) (loc with col := loc.col + 2)
+          skip_comment xs (d + 1) (next_loc 2 loc)
         else if x = #"*" ∧ y = #")" then
-          let loc' = loc with col := loc.col + 2 in
+          let loc' = next_loc 2 loc in
             if d = 0n then SOME (xs, loc') else skip_comment xs (d - 1) loc'
         else if x = #"\n" then
-          skip_comment (y::xs) d (loc_row (loc.row + 1))
+          skip_comment (y::xs) d (next_line loc)
         else
-          skip_comment (y::xs) d (loc with col := loc.col + 1)
+          skip_comment (y::xs) d (next_loc 1 loc)
     | _ => NONE
 End
 
@@ -223,38 +231,38 @@ Definition scan_escseq_def:
       #"\\" :: cs =>
         (case cs of
            #"\\" :: rest =>
-             SOME (#"\\", rest, loc with col := loc.col + 2)
+             SOME (#"\\", rest, next_loc 2 loc)
          | #"\"" :: rest =>
-             SOME (#"\"", rest, loc with col := loc.col + 2)
+             SOME (#"\"", rest, next_loc 2 loc)
          | #"'" :: rest =>
-             SOME (#"'", rest, loc with col := loc.col + 2)
+             SOME (#"'", rest, next_loc 2 loc)
          | #"n" :: rest =>
-             SOME (#"\n", rest, loc with col := loc.col + 2)
+             SOME (#"\n", rest, next_loc 2 loc)
          | #"r" :: rest =>
-             SOME (#"\r", rest, loc with col := loc.col + 2)
+             SOME (#"\r", rest, next_loc 2 loc)
          | #"t" :: rest =>
-             SOME (#"\t", rest, loc with col := loc.col + 2)
+             SOME (#"\t", rest, next_loc 2 loc)
          | #"b" :: rest =>
-             SOME (#"\b", rest, loc with col := loc.col + 2)
+             SOME (#"\b", rest, next_loc 2 loc)
          | #" " :: rest =>
-             SOME (#" ", rest, loc with col := loc.col + 2)
+             SOME (#" ", rest, next_loc 2 loc)
          | #"x" :: d1 :: d2 :: rest =>
              if isHexDigit d1 ∧ isHexDigit d2 then
                let n = hex2num [d1; d2] in
-                 SOME (CHR n, rest, loc with col := loc.col + 4)
+                 SOME (CHR n, rest, next_loc 4 loc)
              else
                NONE
          | #"o" :: d1 :: d2 :: d3 :: rest =>
             if 48 ≤ ORD d1 ∧ ORD d1 ≤ 51 ∧ isOctDigit d2 ∧ isOctDigit d3 then
               let n = oct2num [d1; d2; d3] in
-               SOME (CHR n, rest, loc with col := loc.col + 5)
+               SOME (CHR n, rest, next_loc 5 loc)
              else
                NONE
          | d1 ::d2::d3::rest =>
              if EVERY isDigit [d1; d2; d3] then
                let n = dec2num [d1; d2; d3] in
                  if n ≤ 255 then
-                   SOME (CHR n, rest, loc with col := loc.col + 4)
+                   SOME (CHR n, rest, next_loc 4 loc)
                  else
                    NONE
              else
@@ -276,18 +284,14 @@ Definition scan_strlit_def:
     case cs of
       [] => SOME (ErrorS, Locs loc loc, cs)
     | #"\""::cs =>
-        SOME (StringS (REVERSE acc),
-              Locs loc (loc with col := loc.col),
-              cs)
+        SOME (StringS (REVERSE acc), Locs loc loc, cs)
     | #"\n"::cs =>
-        SOME (ErrorS,
-              Locs loc (loc with <| col := 0; row := loc.row + 1 |>),
-              cs)
+        SOME (ErrorS, Locs loc (next_line loc), cs)
     | #"\\"::_ =>
         (case scan_escseq cs loc of
            NONE => SOME (ErrorS, Locs loc loc, cs)
          | SOME (c, cs', loc') => scan_strlit (c::acc) cs' loc')
-    | c::cs => scan_strlit (c::acc) cs (loc with col := loc.col + 1)
+    | c::cs => scan_strlit (c::acc) cs (next_loc 1 loc)
 Termination
   wf_rel_tac ‘measure (LENGTH o FST o SND)’ \\ rw []
   \\ drule_then assume_tac scan_escseq_thm \\ gs []
@@ -347,7 +351,7 @@ Definition scan_number_def:
                       then (1, TL rest)
                       else (0, rest) in
         SOME (NumberS (to_int n),
-              Locs loc (loc with col := loc.col + LENGTH cs' + offset + t),
+              Locs loc (next_loc (LENGTH cs' + offset + t) loc),
               rest)
 End
 
@@ -373,9 +377,9 @@ Definition next_sym_def:
   next_sym [] loc = NONE ∧
   next_sym (c::cs) loc =
     if c = #"\n" then
-      next_sym cs (loc_row (loc.row + 1))
+      next_sym cs (next_line loc)
     else if isSpace c then
-      next_sym cs (loc with col := loc.col + 1)
+      next_sym cs (next_loc 1 loc)
     else if isDigit c then
       if c = #"0" ∧ cs ≠ "" then
         if HD cs = #"x" ∨ HD cs = #"X" then
@@ -402,29 +406,29 @@ Definition next_sym_def:
         else
           scan_number isDigit (λs. -&dec2num s) 0 (c::cs) loc
     else if c = #"\"" then
-      scan_strlit [] cs (loc with col := loc.col + 1)
+      scan_strlit [] cs (next_loc 1 loc)
     else if c = #"'" ∧ cs ≠ "" then
-      scan_charlit cs (loc with col := loc.col + 1)
+      scan_charlit cs (next_loc 1 loc)
     else if isPREFIX "*)" (c::cs) then
-      SOME (ErrorS, Locs loc (loc with col := loc.col + 2), TL cs)
+      SOME (ErrorS, Locs loc (next_loc 2 loc), TL cs)
     else if isPREFIX [#"("; #"*"] (c::cs) then
-      case skip_comment (TL cs) 0 (loc with col := loc.col + 2) of
-      | NONE => SOME (ErrorS, Locs loc (loc with col := loc.col + 2), "")
+      case skip_comment (TL cs) 0 (next_loc 2 loc) of
+      | NONE => SOME (ErrorS, Locs loc (next_loc 2 loc), "")
       | SOME (rest, loc') => next_sym rest loc'
     else if isDelim c then
       SOME (OtherS [c], Locs loc loc, cs)
     else if isSym c then
       let (n, rest) = take_while isSym (c::cs) in
         SOME (OtherS n,
-              Locs loc (loc with col := loc.col + LENGTH n - 1),
+              Locs loc (next_loc (LENGTH n - 1) loc),
               rest)
     else if isAlpha c ∨ c = #"_" then
       let (n, rest) = take_while (λc. isAlphaNum c ∨ MEM c "'_") (c::cs) in
         SOME (OtherS n,
-              Locs loc (loc with col := loc.col + LENGTH n - 1),
+              Locs loc (next_loc (LENGTH n - 1) loc),
               rest)
     else
-      NONE
+      SOME (ErrorS, Locs loc loc, cs)
 Termination
   wf_rel_tac ‘measure (LENGTH o FST)’
   \\ rw [] \\ gs []
@@ -498,6 +502,8 @@ EVAL “next_sym "= bar" loc”
 
 EVAL “next_sym "(= bar)" loc”
 EVAL “next_sym "=<! bar" loc”
+
+EVAL “next_sym "*" loc”
  *)
 
 Definition get_token_def:
@@ -635,6 +641,8 @@ QED
 (*
 EVAL “next_token "let foo = 3;; (* bar *)" loc”
 EVAL “next_token "-33 + 44" loc”
+EVAL “next_token "* /" loc”
+EVAL “next_token "**" loc”
  *)
 
 Definition lexer_fun_aux_def:
@@ -650,7 +658,7 @@ Termination
 End
 
 Definition init_loc_def:
-  init_loc = <| row := 1; col := 1; offset := 0 |>
+   init_loc = POSN 0 0
 End
 
 Definition lexer_fun_def:
