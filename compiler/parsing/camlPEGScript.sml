@@ -12,6 +12,9 @@ val _ = enable_monadsyntax ();
 
 val _ = enable_monad "option";
 
+(* Some definitions taken from cmlPEG:
+ *)
+
 Definition sumID_def:
   sumID (INL x) = x ∧
   sumID (INR y) = y
@@ -53,12 +56,6 @@ Definition peg_linfix_def:
                    [] => []
                   | h::_ => [mk_linfix tgtnt (mkNd tgtnt [h]) b])
 End
-
-(* have to use these versions of choicel and pegf below because the
-   "built-in" versions from HOL/examples/ use ARB in their definitions.
-   Logically, the ARBs are harmless, but they completely mess with the
-   translator
-*)
 
 Definition choicel_def:
   choicel [] = not (empty []) [] ∧
@@ -137,6 +134,7 @@ Datatype:
     | nEPrefix
     | nExpr
     | nEMultOp
+    | nStart
 End
 
 (*
@@ -148,7 +146,11 @@ End
 
 Definition camlPEG_def[nocompute]:
   camlPEG = <|
-    start := ARB;
+    anyEOF   := "Unexpected end-of-file";
+    tokFALSE := "Unexpected token";
+    tokEOF   := "Expected token, found end-of-file";
+    notFAIL  := "Not combinator failed";
+    start := pnt nExpr;
     rules := FEMPTY |++ [
       (* nELiteral ::= <integer-literal>
        *             / <char-literal>
@@ -207,13 +209,17 @@ Definition camlPEG_def[nocompute]:
       (* nExpr ::= nEAdd
        *)
       (INL nExpr,
-       pegf (pnt nEAdd) (bindNT nExpr))
+       pegf (pnt nEAdd) (bindNT nExpr));
+      (* nStart ::= nExpr ; not (empty []) *)
+      (INL nStart,
+       seql [pnt nExpr; not (any (K [])) [] ] (bindNT nStart))
       ] |>
 End
 
-(* All of this stuff is taken from cmlPEGScript. Its for doing EVAL
- * using peg_exec.
- *)
+(* -------------------------------------------------------------------------
+ * All of the stuff below is taken from cmlPEGScript. Its for doing EVAL
+ * using peg_exec:
+ * ------------------------------------------------------------------------- *)
 
 val rules_t = “camlPEG.rules”;
 fun ty2frag ty = let
@@ -223,13 +229,7 @@ in
   merge_ss (rewrites rewrs :: map conv_ss convs)
 end
 
-(* can't use srw_ss() as it will attack the bodies of the rules,
-   and in particular, will destroy predicates from tok
-   constructors of the form
-        do ... od = SOME ()
-   which matches optionTheory.OPTION_BIND_EQUALS_OPTION, putting
-   an existential into our rewrite thereby *)
-val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β,γ)peg``)
+val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β,γ,δ)peg``)
                       [camlPEG_def, combinTheory.K_DEF,
                        finite_mapTheory.FUPDATE_LIST_THM] rules_t
 
@@ -284,15 +284,13 @@ Theorem camlPEG_exec_thm[compute] =
                                [sumTheory.INL_11]))
     |> LIST_CONJ;
 
-(*
-time EVAL “peg_exec camlPEG (pnt nExpr)
-           (map_loc [
-                IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2);
-            ] 0)
-           []
-           done
-           failed”;
- *)
+val test =
+  time EVAL “peg_exec camlPEG (pnt nStart)
+             (map_loc [
+                  IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2);
+              ] 0)
+             [] NONE [] done failed”;
+
 
 
 val _ = export_theory ();
