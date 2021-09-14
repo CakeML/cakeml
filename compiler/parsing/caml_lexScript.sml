@@ -1,5 +1,5 @@
 (*
-  Lexer for the caml frontend.
+  Lexer for the OCaml frontend.
  *)
 
 open preamble locationTheory;
