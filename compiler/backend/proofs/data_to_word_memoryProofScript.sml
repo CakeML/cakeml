@@ -12697,6 +12697,9 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
   \\ gvs [AllCaseEqs()]
   \\ ‘byte_aligned (a + off)’ by fs [alignmentTheory.byte_aligned_add]
+  \\ drule_all make_cons_ptr_add
+  \\ fs [make_cons_ptr_def,get_lowerbits_ptrbits]
+  \\ disch_then (assume_tac o GSYM)
   \\ gvs [make_cons_ptr_add,make_ptr_add,wordSemTheory.theWord_def]
   \\ fs [MAP_MAP_o] \\ fs [MAP_EQ_f]
 QED
@@ -12747,7 +12750,8 @@ Proof
 QED
 
 Theorem part_to_words_IMP_build_words:
-  part_to_words c m p (off:'a word) = SOME (w,ws) ∧ good_dimindex (:'a) ⇒
+  part_to_words c m p (off:'a word) = SOME (w,ws) ∧ good_dimindex (:'a) ∧
+  byte_aligned off ∧ shift (:α) ≤ shift_length c ⇒
   build_part_words c (λi. SND (lookup_mem m i)) p off = SOME (SND w,MAP SND ws)
 Proof
   Cases_on ‘p’
@@ -12757,20 +12761,27 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
   \\ gvs [AllCaseEqs()]
   \\ gvs [MAP_MAP_o,o_DEF,SF ETA_ss]
+  \\ fs [make_cons_ptr_add,get_lowerbits_ptrbits]
   \\ Cases_on ‘sign’ \\ fs [b2w_def,WORD_MUL_LSL]
   \\ gvs [good_dimindex_def,dimword_def]
 QED
 
 Theorem parts_to_words_IMP_build_words:
   ∀c m i parts (off:'a word) w ws.
-    parts_to_words c m i parts off = SOME (w,ws) ∧ good_dimindex (:'a) ⇒
+    parts_to_words c m i parts off = SOME (w,ws) ∧ good_dimindex (:'a) ∧
+    byte_aligned off ∧ shift (:α) ≤ shift_length c ⇒
     build_words c (λi. SND (lookup_mem m i)) i parts off = SOME (SND w,MAP SND ws)
 Proof
   Induct_on ‘parts’ \\ fs [parts_to_words_def,build_words_def]
   \\ fs [AllCaseEqs()] \\ rw [] \\ fs [PULL_EXISTS]
-  \\ imp_res_tac part_to_words_IMP_build_words
-  \\ fs [] \\ res_tac
+  \\ drule_all part_to_words_IMP_build_words \\ fs []
+  \\ last_x_assum drule \\ fs []
+  \\ impl_tac THEN1
+   (irule byte_aligned_add
+    \\ fs [byte_align_mult_bytes_in_word])
+  \\ strip_tac
   \\ pop_assum (fn th => once_rewrite_tac [GSYM th])
+  \\ strip_tac
   \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
   \\ rw [FUN_EQ_THM,lookup_mem_def,lookup_insert,APPLY_UPDATE_THM]
   \\ rw [FUN_EQ_THM,lookup_mem_def,lookup_insert,APPLY_UPDATE_THM]
@@ -12933,6 +12944,8 @@ Proof
     \\ imp_res_tac aligned_add_sub_cor)
   \\ strip_tac
   \\ drule parts_to_words_IMP_build_words \\ fs [lookup_mem_def,lookup_def]
+  \\ disch_then irule
+  \\ fs [memory_rel_def,heap_in_memory_store_def,byte_align_mult_bytes_in_word]
 QED
 
 val _ = export_theory();

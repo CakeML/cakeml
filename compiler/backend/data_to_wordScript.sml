@@ -1237,7 +1237,9 @@ Definition part_to_words_def:
      else
        dtcase encode_header c (4 * t) (LENGTH ns) of
        | NONE => NONE
-       | SOME hd => SOME ((T,(make_cons_ptr c offset t (LENGTH ns))),
+       | SOME hd => SOME ((T,Word
+                              (offset ≪ (shift_length c − shift (:α)) +
+                               (ptr_bits c t (LENGTH ns) ‖ 1w))),
                           (F,Word hd)::(MAP (lookup_mem m) ns))) ∧
   part_to_words c m (W64 w) offset =
     (let ws = (if dimindex (:α) < 64
@@ -1251,10 +1253,11 @@ Definition part_to_words_def:
     (let bytes = MAP (n2w o ORD) (explode s) in
      let n = LENGTH bytes in
      let hd = make_byte_header c T n in
-     let ws = write_bytes bytes (REPLICATE (byte_len (:α) n) 0w) c.be in
+     let k = byte_len (:α) n in
+     let ws = write_bytes bytes (REPLICATE k 0w) c.be in
        if byte_len (:α) n < 2 ** (dimindex (:α) − 4) ∧
           byte_len (:α) n < 2 ** c.len_size
-       then SOME ((T,(make_ptr c offset (0w:'a word) (byte_len (:α) n))),
+       then SOME ((T,(make_ptr c offset (0w:'a word) k)),
                   MAP (λw. (F,Word w)) (hd::ws))
        else NONE)
 End
@@ -1266,7 +1269,7 @@ Definition parts_to_words_def:
     | NONE => NONE
     | SOME (w,xs) =>
       dtcase parts_to_words c (insert i w m) (i+1) parts
-             (off + bytes_in_word * n2w (LENGTH xs)) of
+               (off + bytes_in_word * n2w (LENGTH xs)) of
       | NONE => NONE
       | SOME (r,ys) => SOME (r,xs ++ ys)
 End

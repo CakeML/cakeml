@@ -187,7 +187,6 @@ QED
 
 val _ = translate set_byte_32;
 val _ = translate (byteTheory.bytes_to_word_def |> inline_simp |> conv32);
-
 val _ = translate (data_to_wordTheory.getWords_def
                    |> INST_TYPE [alpha|->beta, beta |-> alpha] |> conv32);
 val _ = translate (data_to_wordTheory.StoreAnyConsts_def |> inline_simp |> conv32);
@@ -206,40 +205,84 @@ val ugly_lsl_lemma =
 
 val _ = translate (ugly_lsl_lemma |> conv32);
 
-Theorem small_shift_length_ptr_bits:
-  (small_shift_length c − 1 >< 0) (ptr_bits c t k:'a word) = ptr_bits c t k : 'a word
+Definition int_to_words_def:
+  int_to_words c i offset =
+    ^(data_to_wordTheory.part_to_words_def |> CONJUNCTS |> el 1
+     |> SPEC_ALL |> concl |> rand)
+End
+
+Definition con_to_words_def:
+  con_to_words c m t ns offset =
+    ^(data_to_wordTheory.part_to_words_def |> CONJUNCTS |> el 2
+     |> SPEC_ALL |> concl |> rand)
+End
+
+Definition w64_to_words_def:
+  w64_to_words c w offset =
+    ^(data_to_wordTheory.part_to_words_def |> CONJUNCTS |> el 3
+     |> SPEC_ALL |> concl |> rand)
+End
+
+Definition str_to_words_def:
+  str_to_words c s offset =
+    ^(data_to_wordTheory.part_to_words_def |> CONJUNCTS |> el 4
+     |> SPEC_ALL |> concl |> rand)
+End
+
+Theorem part_to_words_def =
+  data_to_wordTheory.part_to_words_def
+  |> REWRITE_RULE [GSYM int_to_words_def,
+                   GSYM con_to_words_def,
+                   GSYM w64_to_words_def,
+                   GSYM str_to_words_def];
+
+Theorem word_extract_lemma:
+  ((63 >< 32) (w:word64)) :word32 = w2w (w >> 32) ∧
+  ((31 ><  0) (w:word64)) :word32 = w2w w
 Proof
-  fs [fcpTheory.CART_EQ,word_extract_def,word_bits_def,ptr_bits_def,word_or_def,
-      fcpTheory.FCP_BETA,data_to_wordTheory.small_shift_length_def,maxout_bits_def]
-  \\ rw []
-  \\ fs [fcpTheory.CART_EQ,word_extract_def,word_bits_def,ptr_bits_def,word_or_def,
-         fcpTheory.FCP_BETA,data_to_wordTheory.small_shift_length_def,word_lsl_def]
-  \\ rw [] \\ eq_tac \\ rw [] \\ fs []
-  \\ cheat
+  blastLib.BBLAST_TAC
 QED
 
-data_to_wordTheory.part_to_words_def
-      |> SIMP_RULE std_ss [data_to_wordTheory.byte_len_def,
-                           data_to_wordTheory.make_byte_header_def,
-                           data_to_wordTheory.get_lowerbits_def,
-                           data_to_wordTheory.make_cons_ptr_def,
-                           data_to_wordTheory.small_int_def,
-                           data_to_wordTheory.make_ptr_def,
-                           GSYM my_lsl_shift_def]
-      |> inline_simp |> conv32
-      |> SIMP_RULE std_ss [small_shift_length_ptr_bits]
- |> translate
+Definition bytes_of_string_def:
+  bytes_of_string cs = MAP (λc. n2w (ORD c) :word8) (explode cs)
+End
 
+val _ = ml_translatorLib.use_string_type false;
+val _ = translate bytes_of_string_def;
+val _ = ml_translatorLib.use_string_type true;
 
+val r = int_to_words_def
+     |> REWRITE_RULE [data_to_wordTheory.small_int_def,
+                      data_to_wordTheory.make_ptr_def,GSYM my_lsl_shift_def]
+     |> inline_simp |> conv32
+     |> translate;
 
-(*
+val r = w64_to_words_def
+     |> SIMP_RULE std_ss [data_to_wordTheory.small_int_def,LET_THM,LENGTH,
+                      data_to_wordTheory.make_ptr_def,GSYM my_lsl_shift_def]
+     |> inline_simp |> conv32 |> SIMP_RULE std_ss [LENGTH,word_extract_lemma]
+     |> translate;
 
-    data_to_wordTheory.parts_to_words_def |> inline_simp
-      |> REWRITE_RULE [word_mul_n2w] |> conv32
+val r = con_to_words_def
+     |> SIMP_RULE std_ss [data_to_wordTheory.small_int_def,LET_THM,LENGTH,
+                      data_to_wordTheory.make_ptr_def,GSYM my_lsl_shift_def]
+     |> inline_simp |> conv32 |> SIMP_RULE std_ss [LENGTH,word_extract_lemma]
+     |> translate;
 
-    data_to_wordTheory.const_parts_to_words_def |> conv32
+val r = str_to_words_def
+     |> SIMP_RULE std_ss [data_to_wordTheory.small_int_def,LENGTH,
+                      data_to_wordTheory.byte_len_def,combinTheory.o_DEF,
+                      data_to_wordTheory.make_byte_header_def,
+                      data_to_wordTheory.make_ptr_def,GSYM my_lsl_shift_def]
+     |> inline_simp |> conv32
+     |> SIMP_RULE std_ss [LENGTH,word_extract_lemma,LENGTH_MAP,GSYM bytes_of_string_def]
+     |> translate;
 
-*)
+val r = part_to_words_def |> conv32 |> translate;
+
+val r = data_to_wordTheory.parts_to_words_def |> inline_simp
+        |> REWRITE_RULE [word_mul_n2w] |> conv32 |> translate;
+val r = data_to_wordTheory.const_parts_to_words_def |> conv32 |> translate;
 
 val _ = translate arg1_def;
 val _ = translate arg2_pmatch;
