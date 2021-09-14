@@ -657,13 +657,5 @@ Definition lexer_fun_def:
   lexer_fun inp = lexer_fun_aux inp init_loc
 End
 
-(*
-
-val str = "let rec term_union l1 l2 =\nmatch (l1,l2) with\n([],l2) -> l2\n| (l1,[]) -> l1\n| (h1::t1,h2::t2) -> let c = alphaorder h1 h2 in\nif c = 0 then h1::(term_union t1 t2)\nelse if c < 0 then h1::(term_union t1 l2)\nelse h2::(term_union l1 t2)";
-val str_tm = stringSyntax.fromMLstring str;
-EVAL “lexer_fun (^str_tm)”
-
- *)
-
 val _ = export_theory ();
 
