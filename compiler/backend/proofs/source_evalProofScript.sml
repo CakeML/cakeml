@@ -626,7 +626,8 @@ QED
 Theorem concrete_v_enc_locs:
   !loc. concrete_v (enc_locs loc)
 Proof
-  Cases \\ simp [enc_locs_def, enc_locn_def]
+  Cases \\ simp [enc_locs_def] \\ conj_tac \\ rename [‘enc_locn l’] \\
+  Cases_on ‘l’ \\ simp[enc_locn_def]
 QED
 
 Theorem concrete_v_enc_option:

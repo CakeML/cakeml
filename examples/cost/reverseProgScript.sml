@@ -20,8 +20,7 @@ val whole_prog = whole_prog ()
 
 val reverse_term =
  “[Dletrec
-       (Locs <|row := 1; col := 16; offset := 0|>
-          <|row := 3; col := 42; offset := 0|>)
+       (Locs (POSN 1 16) (POSN 3 42))
        [("reverse","l",
          Mat (Var (Short "l"))
            [(Pcon (SOME (Short "[]")) [],Con (SOME (Short "[]")) []);
