@@ -104,11 +104,11 @@ Proof
   \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool",CaseEq"word_loc"] \\ rveq \\ fs []
   \\ rpt (pairarg_tac \\ fs []) \\ rw [] \\ fs []
   \\ CCONTR_TAC \\ fs []
-  \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-  \\ rename [‘evaluate (pp,t)’]
+  \\ every_case_tac \\ gvs []
+  \\ rename [‘cut_res _ (evaluate (pp,t))’]
   \\ Cases_on ‘evaluate (pp,t)’ \\ fs [cut_res_def,cut_state_def]
   \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool",CaseEq"word_loc"] \\ rveq \\ fs []
-  \\ rfs []
+  \\ gvs []
 QED
 
 Theorem compile_Mark:

@@ -515,7 +515,7 @@ Proof
    pairarg_tac >> fs [] >>
    fs [nested_decs_def, FUPDATE_LIST_THM] >>
    cases_on ‘t’ >> cases_on ‘r’ >>
-   fs [state_component_equality, state_locals_fupd]) >>
+   fs [state_component_equality, recordtype_state_seldef_locals_fupd_def]) >>
   rpt gen_tac >>
   strip_tac >>
   cases_on ‘ns’ >>
@@ -564,6 +564,7 @@ Proof
                           res_var r.locals (h,FLOOKUP t.locals h)’ mp_tac) >>
   fs [] >>
   metis_tac [res_var_commutes]
+
 QED
 
 Theorem mem_comp_field:

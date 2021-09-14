@@ -7,10 +7,15 @@ open preamble
 
 val _ = new_theory "timeSem";
 
+Datatype:
+  panic = PanicTimeout
+        | PanicInput in_signal
+End
 
 Datatype:
   label = LDelay time
         | LAction ioAction
+        | LPanic panic
 End
 
 Datatype:
@@ -213,56 +218,70 @@ Definition terms_wtimes_ffi_bound_def:
 End
 
 (* max is dimword *)
+(* m is m+n *)
 Inductive pickTerm:
-  (!st max m cnds in_signal clks dest diffs tms st'.
+  (!st m cnds in_signal clks dest diffs tms st'.
     EVERY (λcnd. evalCond st cnd) cnds ∧
     conds_eval_lt_dimword m st (Tm (Input in_signal) cnds clks dest diffs::tms) ∧
     max_clocks st.clocks m ∧
     terms_time_range m (Tm (Input in_signal) cnds clks dest diffs::tms)  ∧
-    input_terms_actions max (Tm (Input in_signal) cnds clks dest diffs::tms) ∧
+    input_terms_actions m (Tm (Input in_signal) cnds clks dest diffs::tms) ∧
     terms_wtimes_ffi_bound m st (Tm (Input in_signal) cnds clks dest diffs::tms) ∧
     evalTerm st (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs) st' ⇒
-    pickTerm st max m (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs::tms) st') ∧
+    pickTerm st m (SOME in_signal) (Tm (Input in_signal) cnds clks dest diffs::tms) st'
+             (LAction (Input in_signal))) ∧
 
-  (!st max m cnds out_signal clks dest diffs tms st'.
+  (!st m cnds out_signal clks dest diffs tms st'.
     EVERY (λcnd. evalCond st cnd) cnds ∧
     conds_eval_lt_dimword m st (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
     max_clocks st.clocks m ∧
     terms_time_range m (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
-    input_terms_actions max tms ∧
+    input_terms_actions m tms ∧
     terms_wtimes_ffi_bound m st (Tm (Output out_signal) cnds clks dest diffs::tms) ∧
     evalTerm st NONE (Tm (Output out_signal) cnds clks dest diffs) st' ⇒
-    pickTerm st max m NONE (Tm (Output out_signal) cnds clks dest diffs::tms) st') ∧
+    pickTerm st m NONE (Tm (Output out_signal) cnds clks dest diffs::tms) st'
+             (LAction (Output out_signal))) ∧
 
-  (!st max m cnds event ioAction clks dest diffs tms st'.
+  (!st m cnds event ioAction clks dest diffs tms st' lbl.
     EVERY (λcnd. EVERY (λe. ∃t. evalExpr st e = SOME t) (destCond cnd)) cnds ∧
     ~(EVERY (λcnd. evalCond st cnd) cnds) ∧
     tm_conds_eval_limit m st (Tm ioAction cnds clks dest diffs) ∧
     term_time_range m (Tm ioAction cnds clks dest diffs) ∧
-    input_terms_actions max [(Tm ioAction cnds clks dest diffs)] ∧
+    input_terms_actions m [(Tm ioAction cnds clks dest diffs)] ∧
     terms_wtimes_ffi_bound m st (Tm ioAction cnds clks dest diffs :: tms) ∧
-    pickTerm st max m event tms st' ⇒
-    pickTerm st max m event (Tm ioAction cnds clks dest diffs :: tms) st') ∧
+    pickTerm st m event tms st' lbl ⇒
+    pickTerm st m event (Tm ioAction cnds clks dest diffs :: tms) st' lbl) ∧
 
-  (!st max m cnds event in_signal clks dest diffs tms st'.
+  (!st m cnds event in_signal clks dest diffs tms st' lbl.
     event <> SOME in_signal ∧
     tm_conds_eval_limit m st (Tm (Input in_signal) cnds clks dest diffs) ∧
     term_time_range m (Tm (Input in_signal) cnds clks dest diffs) ∧
     terms_wtimes_ffi_bound m st (Tm (Input in_signal) cnds clks dest diffs :: tms) ∧
-    in_signal + 1 < max ∧
-    pickTerm st max m event tms st' ⇒
-    pickTerm st max m event (Tm (Input in_signal) cnds clks dest diffs :: tms) st') ∧
+    in_signal + 1 < m ∧
+    pickTerm st m event tms st' lbl ⇒
+    pickTerm st m event (Tm (Input in_signal) cnds clks dest diffs :: tms) st' lbl) ∧
 
-  (!st max m cnds event out_signal clks dest diffs tms st'.
+  (!st m cnds event out_signal clks dest diffs tms st' lbl.
     event <> NONE ∧
     tm_conds_eval_limit m st (Tm (Output out_signal) cnds clks dest diffs) ∧
     term_time_range m (Tm (Output out_signal) cnds clks dest diffs) ∧
     terms_wtimes_ffi_bound m st (Tm (Output out_signal) cnds clks dest diffs :: tms) ∧
-    pickTerm st max m event tms st' ⇒
-    pickTerm st max m event (Tm (Output out_signal) cnds clks dest diffs :: tms) st')
+    pickTerm st m event tms st' lbl ⇒
+    pickTerm st m event (Tm (Output out_signal) cnds clks dest diffs :: tms) st' lbl) ∧
+
+  (!st m.
+    max_clocks st.clocks m  ⇒
+    pickTerm st m NONE [] st (LPanic PanicTimeout)) ∧
+
+  (!st m in_signal.
+    max_clocks st.clocks m ∧
+    in_signal + 1 < m ⇒
+    pickTerm st m (SOME in_signal) [] st (LPanic (PanicInput in_signal)))
 End
 
+(* d + n ≤ m ∧ *)
 
+(* m ≤ w + n *)
 (* n would be FST (seq 0), or may be systime time *)
 Inductive step:
   (!p m n st d.
@@ -278,7 +297,7 @@ Inductive step:
 
   (!p m n st d w.
     st.waitTime = SOME w ∧
-    d ≤ w ∧ w + n < m ∧
+    d ≤ w ∧ w < m ∧ d + n < m ∧
     max_clocks (delay_clocks (st.clocks) (d + n)) m ⇒
     step p (LDelay d) m n st
          (mkState
@@ -288,59 +307,72 @@ Inductive step:
           (SOME (w - d)))) ∧
 
   (!p m n st tms st' in_signal.
-      ALOOKUP p st.location = SOME tms ∧
-      n < m ∧
-      (case st.waitTime of
-       | NONE => T
-       | SOME wt => wt ≠ 0 ∧ wt + n < m) ∧
-      pickTerm (resetOutput st) m (m - n) (SOME in_signal) tms st' ∧
-      st'.ioAction = SOME (Input in_signal) ⇒
-      step p (LAction (Input in_signal)) m n st st') ∧
+    n < m ∧
+    ALOOKUP p st.location = SOME tms ∧
+    (case st.waitTime of
+     | NONE => T
+     | SOME wt => wt ≠ 0 ∧ wt < m) ∧
+    pickTerm (resetOutput st) m (SOME in_signal) tms st' (LAction (Input in_signal)) ∧
+    st'.ioAction = SOME (Input in_signal) ⇒
+    step p (LAction (Input in_signal)) m n st st') ∧
 
   (!p m n st tms st' out_signal.
+    n < m ∧
     ALOOKUP p st.location = SOME tms ∧
     st.waitTime = SOME 0 ∧
-    n < m ∧
-    pickTerm (resetOutput st) m (m - n) NONE tms st' ∧
+    pickTerm (resetOutput st) m NONE tms st' (LAction (Output out_signal)) ∧
     st'.ioAction = SOME (Output out_signal) ⇒
-    step p (LAction (Output out_signal)) m n st st')
+    step p (LAction (Output out_signal)) m n st st') ∧
+
+  (!p m n st tms st'.
+    n < m ∧
+    ALOOKUP p st.location = SOME tms ∧
+    st.waitTime = SOME 0 ∧
+    pickTerm (resetOutput st) m NONE tms st' (LPanic PanicTimeout) ⇒
+    step p (LPanic PanicTimeout) m n st st') ∧
+
+  (!p m n st tms st' in_signal.
+    n < m ∧
+    ALOOKUP p st.location = SOME tms ∧
+    (case st.waitTime of
+     | NONE => T
+     | SOME wt => wt ≠ 0 ∧ wt < m) ∧
+    pickTerm (resetOutput st) m (SOME in_signal) tms st' (LPanic (PanicInput in_signal)) ⇒
+    step p (LPanic (PanicInput in_signal)) m n st st')
 End
+
 
 Definition steps_def:
-  (steps prog [] m n s [] ⇔
-   step prog (LDelay ((m - 1) - n)) m n s
-        (mkState
-         (delay_clocks (s.clocks) ((m - 1) - n))
-         s.location
-         NONE
-         NONE)) ∧
+  (steps prog [] m n s [] ⇔ T) ∧
   (steps prog (lbl::lbls) m n s (st::sts) ⇔
-   step prog lbl m n s st ∧
-   let n' =
-       case lbl of
-       | LDelay d => d + n
-       | LAction _ => n
-   in
-     steps prog lbls m n' st sts) ∧
+     step prog lbl m n s st ∧
+     let n' =
+         case lbl of
+         | LDelay d => d + n
+         | _ => n
+     in
+       steps prog lbls m n' st sts) ∧
   (steps prog _ m _ s _ ⇔ F)
 End
-
 
 (*
 Definition steps_def:
-  (steps prog [] _ _ _ [] ⇔ T) ∧
+  (steps prog [] m n s [] ⇔
+   n < m  ∧
+   (case s.waitTime of
+    | SOME w => (* w ≠ 0 ∧ *) w < m
+    | NONE => T)) ∧
   (steps prog (lbl::lbls) m n s (st::sts) ⇔
-   step prog lbl m n s st ∧
-   let n' =
-       case lbl of
-       | LDelay d => d + n
-       | LAction _ => n
-   in
-     steps prog lbls m n' st sts) ∧
+     step prog lbl m n s st ∧
+     let n' =
+         case lbl of
+         | LDelay d => d + n
+         | _ => n
+     in
+       steps prog lbls m n' st sts) ∧
   (steps prog _ m _ s _ ⇔ F)
 End
 *)
-
 Inductive stepTrace:
   (!p m n st.
     stepTrace p m n st st []) ∧

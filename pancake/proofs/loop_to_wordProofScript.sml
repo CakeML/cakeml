@@ -10,6 +10,8 @@ open preamble
 
 val _ = new_theory "loop_to_wordProof";
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"];
+
 Definition locals_rel_def:
   locals_rel ctxt l1 l2 ⇔
     INJ (find_var ctxt) (domain ctxt) UNIV ∧

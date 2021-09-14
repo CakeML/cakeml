@@ -162,7 +162,7 @@ Definition pick_term_def:
 End
 
 Definition compTerms_def:
-  (compTerms clks cname ename [] = Skip) ∧
+  (compTerms clks cname ename [] = Raise «panic» (Const 0w)) ∧
   (compTerms clks cname ename (t::ts) =
    let
      cds = termConditions t;
@@ -220,7 +220,7 @@ Definition check_input_time_def:
         Assign  «sysTime» time ;
         Assign  «event»   input;
         Assign  «isInput» (Cmp Equal input (Const 0w));
-        If (Cmp Equal (Var «sysTime») (Const (n2w (dimword (:α) -1))))
+        If (Cmp Equal (Var «sysTime») (Const (n2w (dimword (:α) - 1))))
            (Return (Const 0w)) (Skip:'a prog)
       ]
 End
@@ -230,14 +230,13 @@ Definition wait_def:
     Op And [Var «isInput»; (* Not *)
             Op Or
             [Var «waitSet»; (* Not *)
-             Cmp Lower (Var «sysTime») (Var «wakeUpAt»)]]
+             Cmp NotEqual (Var «sysTime») (Var «wakeUpAt»)]]
 End
 
 Definition wait_input_time_limit_def:
   wait_input_time_limit =
     While wait check_input_time
 End
-
 
 Definition task_controller_def:
   task_controller clksLength =
@@ -250,6 +249,8 @@ Definition task_controller_def:
   in
     (nested_seq [
         wait_input_time_limit;
+        If (Cmp Equal (Var «sysTime») (Const (n2w (dimword (:α) - 2))))
+           check_input_time (Skip:'a prog);
         Call (Ret «taskRet» NONE) (Var «loc»)
              [Struct (normalisedClks «sysTime» «clks» clksLength);
              Var «event»];
@@ -306,12 +307,25 @@ Definition start_controller_def:
      ])
 End
 
-(*
-Definition call_controller_def:
-  call_controller prog =
-    («start»,[],start_controller prog)
+
+Definition ta_controller_def:
+  ta_controller (ta_prog:program) =
+  decs
+  [
+    («retvar», Const 0w);
+    («excpvar», Const 0w)
+  ]
+  (nested_seq
+   [
+     Call (Ret «retvar»
+           (SOME (Handle «panic» «excpvar» (Return (Const 1w)))))
+     (Label «start_controller»)
+     [];
+     Return (Const 0w)
+   ])
 End
-*)
+
+
 
 Definition compile_prog_def:
   compile_prog prog =

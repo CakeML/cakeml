@@ -116,16 +116,6 @@ Definition exprClks_def:
 End
 
 
-(*
-Definition exprClks_def:
-  (exprClks clks (ELit time) = clks) ∧
-  (exprClks clks (EClock clk) =
-     if MEM clk clks then clks else clk::clks) ∧
-  (exprClks clks (ESub e1 e2) =
-     exprClks (exprClks clks e1) e2)
-End
-*)
-
 Definition clksOfExprs_def:
   clksOfExprs es = FOLDL exprClks [] es
 End

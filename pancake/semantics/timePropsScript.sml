@@ -198,6 +198,24 @@ Proof
   metis_tac []
 QED
 
+Theorem calculate_wtime_reset_output_eq:
+  calculate_wtime s clks difs = SOME wt ⇒
+  calculate_wtime (resetOutput s) clks difs = SOME wt
+Proof
+  rw [calculate_wtime_def, resetOutput_def] >>
+  gs [] >>
+  qmatch_asmsub_abbrev_tac ‘list_min_option xs’ >>
+  qmatch_goalsub_abbrev_tac ‘list_min_option ys’ >>
+  ‘xs = ys’ by (
+    unabbrev_all_tac >>
+    gs [MAP_EQ_f] >>
+    rw [] >> gs [] >>
+    cases_on ‘e’ >>
+    gs [evalDiff_def, evalExpr_def]) >>
+  gs []
+QED
+
+
 Theorem step_ffi_bounded:
   ∀p lbl m n st st'.
     step p lbl m n st st' ⇒
@@ -207,36 +225,11 @@ Proof
   gs [step_cases]
 QED
 
-
 Theorem steps_ffi_bounded:
   ∀lbls sts p m n st.
-    steps p lbls m n st sts ⇒
-    n < m
-Proof
-  Induct >>
-  rw [] >>
-  cases_on ‘sts’ >>
-  gs [steps_def, step_cases]
-QED
-
-
-
-Theorem step_wt_ffi_bounded:
-  ∀p lbl m n st st' w.
-    step p lbl m n st st' ∧
-    st.waitTime = SOME w  ⇒
-    w + n < m
-Proof
-  rw [] >>
-  gs [step_cases]
-QED
-
-
-Theorem steps_wt_ffi_bounded:
-  ∀lbls sts p m n st w.
     steps p lbls m n st sts ∧
-    st.waitTime = SOME w  ⇒
-    w + n < m
+    lbls ≠ [] ⇒
+    n < m
 Proof
   Induct >>
   rw [] >>
@@ -255,5 +248,17 @@ Proof
   gs [steps_def, step_cases] >>
   res_tac >> gs []
 QED
+
+Theorem pickTerm_panic_st_eq:
+  ∀tms st m i st st'.
+    pickTerm st m (SOME i) tms st' (LPanic (PanicInput i)) ⇒
+    st' = st
+Proof
+ Induct >> rw [] >>
+ gs [Once pickTerm_cases] >>
+ gvs [] >>
+ res_tac >> gs []
+QED
+
 
 val _ = export_theory();

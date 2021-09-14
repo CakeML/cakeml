@@ -429,7 +429,8 @@ Theorem fm_empty_zip_flookup:
   FLOOKUP (FEMPTY |++ ZIP (xs,ys)) x = SOME y ==>
   ?n. n < LENGTH xs /\ EL n (ZIP (xs,ys)) = (x,y)
 Proof
-  Induct >> rw [] >>
+  Induct >> rw []
+  >-  fs [FUPDATE_LIST_THM] >>
   cases_on ‘ys’ >> fs [] >>
   fs [FUPDATE_LIST_THM] >>
   cases_on ‘x = h’ >> fs [] >> rveq

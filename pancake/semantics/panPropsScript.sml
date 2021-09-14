@@ -837,17 +837,8 @@ Proof
           >- gs [state_component_equality] >>
           strip_tac >> gs [] >>
           imp_res_tac evaluate_clock_mono >>
-          gs [dec_clock_def, state_component_equality])
-        >- (
-          strip_tac >> rveq >>
-          gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def,
-              dec_clock_def, set_var_def] >>
-          first_x_assum (qspecl_then [‘st’, ‘ck’] mp_tac) >>
-          impl_tac
-          >- gs [state_component_equality] >>
-          strip_tac >> gs [] >>
-          imp_res_tac evaluate_clock_mono >>
-          gs [dec_clock_def, state_component_equality]) >>
+          gvs [dec_clock_def, state_component_equality] >>
+          TOP_CASE_TAC >> gvs []) >>
         strip_tac >> rveq >>
         gs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq1, empty_locals_def,
             dec_clock_def, set_var_def] >>
@@ -1161,7 +1152,8 @@ Proof
    drule evaluate_add_clock_eq >> fs [] >>
    disch_then (qspec_then ‘extra’ mp_tac) >>
    fs [] >> strip_tac >> strip_tac >>
-   fs [] >> rveq >> fs []) >>
+   fs [] >> rveq >> fs [] >>
+   TOP_CASE_TAC >> gvs []) >>
   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
   pop_assum mp_tac >>
