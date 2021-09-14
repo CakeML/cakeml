@@ -1255,8 +1255,7 @@ Definition part_to_words_def:
      let hd = make_byte_header c T n in
      let k = byte_len (:α) n in
      let ws = write_bytes bytes (REPLICATE k 0w) c.be in
-       if byte_len (:α) n < 2 ** (dimindex (:α) − 4) ∧
-          byte_len (:α) n < 2 ** c.len_size
+       if k < 2 ** (dimindex (:α) − 4) ∧ k < 2 ** c.len_size
        then SOME ((T,(make_ptr c offset (0w:'a word) k)),
                   MAP (λw. (F,Word w)) (hd::ws))
        else NONE)
