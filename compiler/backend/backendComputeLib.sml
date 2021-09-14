@@ -395,6 +395,7 @@ val add_backend_compset = computeLib.extend_compset
     [ (* wordLang *)
      ``:'a wordLang$exp``
     ,``:'a wordLang$prog``
+    ,``:'a wordLang$word_loc``
       (* word_bignum *)
     ,``:word_bignum$address``
     ,``:'a word_bignum$mini``
@@ -414,6 +415,19 @@ val add_backend_compset = computeLib.extend_compset
     ,wordLangTheory.raise_stub_location_eq
     ,wordLangTheory.store_consts_stub_location_eq
       (* ---- data_to_word ---- *)
+    ,data_to_wordTheory.getWords_def
+    ,data_to_wordTheory.StoreAnyConsts_def
+    ,data_to_wordTheory.lookup_mem_def
+    ,data_to_wordTheory.byte_len_def
+    ,data_to_wordTheory.make_byte_header_def
+    ,data_to_wordTheory.get_lowerbits_def
+    ,data_to_wordTheory.make_cons_ptr_def
+    ,data_to_wordTheory.make_ptr_def
+    ,data_to_wordTheory.write_bytes_def
+    ,data_to_wordTheory.small_int_def
+    ,data_to_wordTheory.part_to_words_def
+    ,data_to_wordTheory.parts_to_words_def
+    ,data_to_wordTheory.const_parts_to_words_def
     ,data_to_wordTheory.adjust_var_def
     ,data_to_wordTheory.adjust_set_def
     ,data_to_wordTheory.Unit_def

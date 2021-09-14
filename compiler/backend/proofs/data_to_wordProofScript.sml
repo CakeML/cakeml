@@ -1262,16 +1262,27 @@ val _ = (max_print_depth := 15);
 val extract_labels_def = wordPropsTheory.extract_labels_def;
 
 Theorem extract_labels_MemEqList[simp]:
-   !a x. extract_labels (MemEqList a x) = []
+  ∀a x. extract_labels (MemEqList a x) = []
 Proof
   Induct_on `x`
   \\ asm_rewrite_tac [MemEqList_def,extract_labels_def,APPEND]
 QED
 
 Theorem extract_labels_StoreEach:
-   !xs a d. extract_labels (StoreEach a xs d) = []
+  ∀xs a d. extract_labels (StoreEach a xs d) = []
 Proof
   Induct \\ fs [StoreEach_def,extract_labels_def]
+QED
+
+Theorem extract_labels_StoreAnyConsts:
+  ∀r1 r2 r3 ws w. extract_labels (StoreAnyConsts r1 r2 r3 ws w) = []
+Proof
+  ho_match_mp_tac StoreAnyConsts_ind \\ rw []
+  \\ fs [StoreAnyConsts_def]
+  THEN1 (every_case_tac \\ EVAL_TAC)
+  \\ CASE_TAC
+  \\ TRY pairarg_tac \\ fs []
+  \\ fs [extract_labels_def,list_Seq_def]
 QED
 
 (* TODO: goes away on inlineenc branch *)
@@ -1309,12 +1320,12 @@ val extract_labels_assignWordShift = Q.prove(`
     EVAL_TAC);
 
 Theorem data_to_word_lab_pres_lem:
-    ∀c n l p.
-  l ≠ 0 ⇒
-  let (cp,l') = comp c n l p in
-  l ≤ l' ∧
-  EVERY (λ(l1,l2). l1 = n ∧ l ≤ l2 ∧ l2 < l') (extract_labels cp) ∧
-  ALL_DISTINCT (extract_labels cp)
+  ∀c n l p.
+    l ≠ 0 ⇒
+    let (cp,l') = comp c n l p in
+    l ≤ l' ∧
+    EVERY (λ(l1,l2). l1 = n ∧ l ≤ l2 ∧ l2 < l') (extract_labels cp) ∧
+    ALL_DISTINCT (extract_labels cp)
 Proof
   HO_MATCH_MP_TAC comp_ind>>Cases_on`p`>>rw[]>>
   once_rewrite_tac[comp_def]>>fs[extract_labels_def]
@@ -1337,7 +1348,8 @@ Proof
       simp[])>>
     fs[extract_labels_def,GiveUp_def,assign_def,assign_def_extras]>>
     BasicProvers.EVERY_CASE_TAC>>
-    fs[extract_labels_def,list_Seq_def,extract_labels_StoreEach,Maxout_bits_code_def])
+    fs[extract_labels_def,list_Seq_def,extract_labels_StoreEach,
+       extract_labels_StoreAnyConsts,Maxout_bits_code_def])
   >>
     (rpt (pairarg_tac>>fs[])>>rveq>>
           fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND,
@@ -1438,26 +1450,37 @@ val MemEqList_no_inst = Q.prove(`
   every_inst (inst_ok_less ac) (MemEqList a x)`,
   Induct_on `x` \\ fs [MemEqList_def,every_inst_def]);
 
-val assign_no_inst = Q.prove(`
+Theorem StoreAnyConsts_no_inst[local]:
+  ∀r1 r2 r3 ws w. every_inst (inst_ok_less ac) (StoreAnyConsts r1 r2 r3 ws w)
+Proof
+  ho_match_mp_tac StoreAnyConsts_ind \\ rw []
+  \\ fs [StoreAnyConsts_def] \\ every_case_tac
+  \\ fs [list_Seq_def] \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [every_inst_def]
+QED
+
+Theorem assign_no_inst[local]:
   ((a.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (a.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
    (a.has_fp_ops ⇒ 1 < ac.fp_reg_count) ∧
    (a.has_fp_tern ==> 2 < ac.fp_reg_count /\ ac.ISA = ARMv7) /\
   addr_offset_ok ac 0w /\ byte_offset_ok ac 0w) ⇒
-  every_inst (inst_ok_less ac) (FST(assign a b c d e f g))`,
+  every_inst (inst_ok_less ac) (FST(assign a b c d e f g))
+Proof
   fs[assign_def]>>
   Cases_on`e`>>fs[every_inst_def]>>
   rw[]>>fs[every_inst_def,GiveUp_def]>>
   every_case_tac>>
   TRY(Cases_on`f'`)>>
   fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
-    Maxout_bits_code_def,GiveUp_def,
+    Maxout_bits_code_def,GiveUp_def,StoreAnyConsts_no_inst,
     inst_ok_less_def,assign_def_extras,MemEqList_no_inst,
     asmTheory.fp_reg_ok_def,fp_uop_inst_def,fp_cmp_inst_def,
     fp_bop_inst_def, fp_top_inst_def]>>
   IF_CASES_TAC>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
     Maxout_bits_code_def,GiveUp_def,
-    inst_ok_less_def,assign_def_extras,MemEqList_no_inst] \\ FAIL_TAC "");
+    inst_ok_less_def,assign_def_extras,MemEqList_no_inst] \\ FAIL_TAC ""
+QED
 
 (*
 inst_ok_less_def
@@ -2134,23 +2157,46 @@ val word_get_code_labels_MemEqList = Q.prove(`
   word_get_code_labels (MemEqList b x) = {}`,
   Induct>>fs[MemEqList_def]);
 
+Theorem word_get_code_labels_StoreAnyConsts[local]:
+  const_parts_to_words c ps = SOME (w,ws) ⇒
+  word_get_code_labels (StoreAnyConsts r1 r2 r3 ws w) = EMPTY
+Proof
+  strip_tac
+  \\ drule const_parts_to_words_isWord
+  \\ EVERY (rev (map qid_spec_tac [‘r1’,‘r2’,‘r3’,‘ws’,‘w’]))
+  \\ ho_match_mp_tac StoreAnyConsts_ind \\ rw []
+  \\ fs [StoreAnyConsts_def]
+  \\ every_case_tac \\ fs [wordSemTheory.isWord_def]
+  \\ pairarg_tac \\ fs []
+  \\ gvs []
+  \\ imp_res_tac getWords_thm
+  \\ ‘EVERY isWord (MAP SND (r1'::ws'))’ by fs [wordSemTheory.isWord_def]
+  \\ pop_assum mp_tac
+  \\ asm_rewrite_tac [EVERY_APPEND,MAP_APPEND]
+  \\ rw [] \\ gvs []
+QED
+
 (* slow... *)
-val word_get_code_labels_assign = Q.prove(`
+Theorem word_get_code_labels_assign[local]:
   ∀x.
-  word_get_code_labels (FST (assign c secn v w x y z)) SUBSET
-  closLang$assign_get_code_label x ∪ (set(MAP FST (stubs (:α) c)))`,
+    word_get_code_labels (FST (assign c secn v w x y z)) SUBSET
+    closLang$assign_get_code_label x ∪ (set(MAP FST (stubs (:α) c)))
+Proof
   ho_match_mp_tac (closLangTheory.assign_get_code_label_ind)>>
   rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def,
      closLangTheory.assign_get_code_label_def]>>
   fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList]>>
   rpt(every_case_tac>>fs[]>>
+  imp_res_tac word_get_code_labels_StoreAnyConsts >>
   fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList]>>
-  EVAL_TAC));
+  EVAL_TAC)
+QED
 
-val data_to_word_comp_code_labels = Q.prove(`
+Theorem data_to_word_comp_code_labels[local]:
   ∀c secn l p.
   word_get_code_labels ((FST (comp c secn l p)):'a wordLang$prog) SUBSET
-  data_get_code_labels p ∪ set(MAP FST (stubs (:α) c))`,
+  data_get_code_labels p ∪ set(MAP FST (stubs (:α) c))
+Proof
   ho_match_mp_tac comp_ind>>
   rw[]>>Cases_on`p`>>fs[]>>
   simp[Once comp_def]>>
@@ -2167,7 +2213,8 @@ val data_to_word_comp_code_labels = Q.prove(`
   >-
     (fs[SUBSET_DEF]>>metis_tac[])
   >>
-    EVAL_TAC>>rw[]>>fs[]);
+    EVAL_TAC>>rw[]>>fs[]
+QED
 
 val word_good_handlers_StoreEach = Q.prove(`
   ∀ls off.
@@ -2179,16 +2226,26 @@ val word_good_handlers_MemEqList = Q.prove(`
   word_good_handlers secn (MemEqList b x)`,
   Induct>>fs[MemEqList_def]);
 
+Theorem word_good_handlers_StoreAnyConsts[local]:
+  ∀r1 r2 r3 ws w. word_good_handlers secn (StoreAnyConsts r1 r2 r3 ws w)
+Proof
+  ho_match_mp_tac StoreAnyConsts_ind \\ rw []
+  \\ fs [StoreAnyConsts_def] \\ every_case_tac
+  \\ fs [list_Seq_def] \\ rpt (pairarg_tac \\ fs [])
+QED
+
 (* slow... *)
-val word_good_handlers_assign = Q.prove(`
+Theorem word_good_handlers_assign[local]:
   ∀x.
-  word_good_handlers secn (FST (assign c secn v w x y z))`,
+    word_good_handlers secn (FST (assign c secn v w x y z))
+Proof
   ho_match_mp_tac (closLangTheory.assign_get_code_label_ind)>>
   rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def]>>
   rpt(
-  every_case_tac>>fs[list_Seq_def,word_good_handlers_StoreEach,word_good_handlers_MemEqList]>>
-  rw[]>>EVAL_TAC
-  ));
+  every_case_tac>>fs[list_Seq_def,word_good_handlers_StoreEach,
+                     word_good_handlers_StoreAnyConsts,word_good_handlers_MemEqList]>>
+  rw[]>>EVAL_TAC)
+QED
 
 val data_to_word_comp_good_handlers = Q.prove(`
   ∀c secn l p.

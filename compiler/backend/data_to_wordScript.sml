@@ -1136,6 +1136,159 @@ val def = assign_Define `
                         Assign (adjust_var dest) (Const 2w)],l)
       : 'a wordLang$prog # num`;
 
+Definition getWords_def:
+  getWords [] aux = (REVERSE aux,[]) ∧
+  getWords (c::cs) aux =
+    dtcase c of
+    | (b,Word w) => getWords cs ((b,w)::aux)
+    | _          => (REVERSE aux,c::cs)
+End
+
+Definition StoreAnyConsts_def:
+  StoreAnyConsts r1 r2 r3 [] v =
+    Seq (Set NextFree (Var r2))
+        (dtcase SND v of
+         | Loc n _ => LocValue r1 n
+         | Word w => Assign r1 (if FST v then Op Add [Const w; Var r3]
+                                         else (Const w))) ∧
+  StoreAnyConsts r1 r2 r3 (v::vs) w =
+    dtcase ((SND v):'a word_loc) of
+    | Loc n _ => list_Seq [LocValue r1 n;
+                           Store (Var r2) r1;
+                           Assign r2 (Op Add [Var r2; Const bytes_in_word]);
+                           StoreAnyConsts r1 r2 r3 vs w]
+    | _ => let (ws,vs1) = getWords (v::vs) [] in
+             Seq (StoreConsts r2 r3 r2 r3 ws)
+                 (StoreAnyConsts r1 r2 r3 vs1 w)
+Termination
+  WF_REL_TAC ‘measure (λ(r1,r2,r3,vs,v). LENGTH vs)’ \\ fs [getWords_def] \\ rw []
+  \\ qsuff_tac ‘∀ws aux (ws1:(bool # 'a word) list) vs1.
+       (ws1,vs1) = getWords ws aux ⇒ LENGTH vs1 ≤ LENGTH ws’
+  THEN1 (rw [] \\ res_tac \\ fs [])
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ Induct \\ fs [getWords_def]
+  \\ fs [AllCaseEqs()] \\ rw[]
+  \\ res_tac \\ fs [getWords_def]
+End
+
+Definition lookup_mem_def:
+  lookup_mem m a =
+    dtcase lookup a m of
+    | NONE => (F,Word (0w:'a word))
+    | SOME x => x
+End
+
+Definition byte_len_def:
+  byte_len (:'a) num_bytes =
+    if dimindex (:'a) = 32 then num_bytes DIV 4 + 1
+                           else num_bytes DIV 8 + 1
+End
+
+Definition make_byte_header_def:
+  make_byte_header conf cmp_by_contents len =
+  let tag = if cmp_by_contents then 0b00111w else 0b10111w in
+    (if dimindex (:'a) = 32
+     then n2w (len + 4) << (dimindex (:α) - 2 - conf.len_size) || tag
+     else n2w (len + 8) << (dimindex (:α) - 3 - conf.len_size) || tag):'a word
+End
+
+Definition get_lowerbits_def:
+  (get_lowerbits conf (Word w) =
+     ((((small_shift_length conf - 1) -- 0) w) || 1w)) /\
+  (get_lowerbits conf _ = 1w)
+End
+
+Definition make_cons_ptr_def:
+  make_cons_ptr conf nf tag len =
+    Word (nf << (shift_length conf - shift (:'a)) || (1w:'a word)
+            || get_lowerbits conf (Word (ptr_bits conf tag len)))
+End
+
+Definition make_ptr_def:
+  make_ptr conf nf tag len =
+    Word (nf << (shift_length conf - shift (:'a)) || (1w:'a word))
+End
+
+Definition write_bytes_def:
+  (write_bytes bs [] be = []) /\
+  (write_bytes bs ((w:'a word)::ws) be =
+     let k = dimindex (:'a) DIV 8 in
+       bytes_to_word k 0w bs w be
+          :: write_bytes (DROP k bs) ws be)
+End
+
+Definition small_int_def:
+  small_int (:'a) i <=>
+    -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8):int
+End
+
+Definition part_to_words_def:
+  part_to_words c m (Int i) offset =
+    (if small_int (:'a) i then  SOME ((F,Word (Smallnum i)),[])
+     else let (sign,ws) = i2mw i in
+            dtcase encode_header c (if sign then 7 else 3) (LENGTH ws) of
+            | NONE => NONE
+            | SOME hd => SOME ((T,(make_ptr c offset (0w:'a word) (LENGTH ws))),
+                               MAP (λw. (F,Word w)) (hd::ws))) ∧
+  part_to_words c m (Con t ns) (offset:'a word) =
+    (if NULL ns then
+       if t < dimword (:'a) DIV 16
+       then SOME ((F,Word (n2w (16 * t + 2))),[]) else NONE
+     else
+       dtcase encode_header c (4 * t) (LENGTH ns) of
+       | NONE => NONE
+       | SOME hd => SOME ((T,(make_cons_ptr c offset t (LENGTH ns))),
+                          (F,Word hd)::(MAP (lookup_mem m) ns))) ∧
+  part_to_words c m (W64 w) offset =
+    (let ws = (if dimindex (:α) < 64
+               then [((63 >< 32) w); ((31 >< 0) w)]
+               else [((63 >< 0) w):'a word]) in
+       dtcase encode_header c 3 (LENGTH ws) of
+       | NONE => NONE
+       | SOME hd => SOME ((T,(make_ptr c offset (0w:'a word) (LENGTH ws))),
+                          MAP (λw. (F,Word w)) (hd::ws))) ∧
+  part_to_words c m (Str s) offset =
+    (let bytes = MAP (n2w o ORD) (explode s) in
+     let n = LENGTH bytes in
+     let hd = make_byte_header c T n in
+     let ws = write_bytes bytes (REPLICATE (byte_len (:α) n) 0w) c.be in
+       if byte_len (:α) n < 2 ** (dimindex (:α) − 4) ∧
+          byte_len (:α) n < 2 ** c.len_size
+       then SOME ((T,(make_ptr c offset (0w:'a word) (byte_len (:α) n))),
+                  MAP (λw. (F,Word w)) (hd::ws))
+       else NONE)
+End
+
+Definition parts_to_words_def:
+  parts_to_words c m i [] off = SOME (lookup_mem m (i - 1:num), []) ∧
+  parts_to_words c m i (x::parts) (off:'a word) =
+    dtcase part_to_words c m x off of
+    | NONE => NONE
+    | SOME (w,xs) =>
+      dtcase parts_to_words c (insert i w m) (i+1) parts
+             (off + bytes_in_word * n2w (LENGTH xs)) of
+      | NONE => NONE
+      | SOME (r,ys) => SOME (r,xs ++ ys)
+End
+
+Definition const_parts_to_words_def:
+  const_parts_to_words c parts =
+    parts_to_words c LN 0 parts 0w
+End
+
+val def = assign_Define `
+  assign_Build (c:data_to_word$config)
+            (secn:num) (l:num) (dest:num) (names:num_set option) ps =
+    dtcase const_parts_to_words c ps of
+    | NONE => (GiveUp,l)
+    | SOME (w,ws) =>
+      (list_Seq
+        [Assign 1 (Lookup NextFree);
+         Assign 3 (Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+                    (shift_length c − shift (:'a)));
+         StoreAnyConsts (adjust_var dest) 1 3 ws w],l)
+      : 'a wordLang$prog # num`;
+
 val def = assign_Define `
   assign_ConsExtend (c:data_to_word$config)
             (secn:num) (l:num) (dest:num) (names:num_set option) tag args =
@@ -2003,6 +2156,7 @@ val assign_def = Define `
     | ListAppend => arg2 args (assign_ListAppend c secn l dest names) (Skip,l)
     | Cons tag => assign_Cons c l dest tag args
     | ConfigGC => arg2 args (assign_ConfigGC c secn l dest names) (Skip,l)
+    | Build parts => assign_Build c secn l dest names parts
     | ConsExtend tag => assign_ConsExtend c secn l dest names tag args
     | Ref => assign_Ref c secn l dest names args
     | RefByte imm => arg2 args (assign_RefByte c secn l dest names imm) (Skip,l)

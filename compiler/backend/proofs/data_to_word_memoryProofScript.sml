@@ -130,11 +130,6 @@ QED
 
 (* -- *)
 
-val get_lowerbits_def = Define `
-  (get_lowerbits conf (Word w) =
-     ((((small_shift_length conf - 1) -- 0) w) || 1w)) /\
-  (get_lowerbits conf _ = 1w)`;
-
 val _ = Datatype `
   tag = BlockTag num | RefTag | BytesTag bool num | NumTag bool | Word64Tag`;
 
@@ -143,13 +138,6 @@ val BlockRep_def = Define `
 
 Type ml_el = ``:('a word_loc, tag # ('a word_loc list)) heap_element``
 Type ml_heap = ``:'a ml_el list``
-
-val write_bytes_def = Define `
-  (write_bytes bs [] be = []) /\
-  (write_bytes bs ((w:'a word)::ws) be =
-     let k = dimindex (:'a) DIV 8 in
-       bytes_to_word k 0w bs w be
-          :: write_bytes (DROP k bs) ws be)`
 
 val Bytes_def = Define`
   ((Bytes is_bigendian cmp_by_contents (bs:word8 list) (ws:'a word list)):'a ml_el) =
@@ -181,10 +169,6 @@ val v_size_LEMMA = Q.prove(
   `!vs v. MEM v vs ==> v_size v <= v1_size vs`,
   Induct \\ full_simp_tac (srw_ss()) [v_size_def]
   \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss [] \\ DECIDE_TAC);
-
-val small_int_def = Define `
-  small_int (:'a) i <=>
-    -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8):int`
 
 (*
   code pointers (i.e. Locs) will end in ...0
@@ -4350,14 +4334,11 @@ val word_addr_def = Define `
   (word_addr conf (Data (Word v)) = Word (v && (~1w))) /\
   (word_addr conf (Pointer n w) = Word (get_addr conf n w))`
 
-val b2w_def = Define `(b2w T = 1w) /\ (b2w F = 0w)`;
-
-val make_byte_header_def = Define `
-  make_byte_header conf cmp_by_contents len =
-  let tag = if cmp_by_contents then 0b00111w else 0b10111w in
-    (if dimindex (:'a) = 32
-     then n2w (len + 4) << (dimindex (:α) - 2 - conf.len_size) || tag
-     else n2w (len + 8) << (dimindex (:α) - 3 - conf.len_size) || tag):'a word`
+Theorem b2w_def:
+  (multiword$b2w T = 1w) ∧ (multiword$b2w F = 0w)
+Proof
+  EVAL_TAC
+QED
 
 val word_payload_def = Define `
   (word_payload ys l (BlockTag n) qs conf =
@@ -5287,15 +5268,6 @@ Proof
   \\ SEP_W_TAC \\ fs [AC STAR_ASSOC STAR_COMM]
 QED
 
-val make_cons_ptr_def = Define `
-  make_cons_ptr conf nf tag len =
-    Word (nf << (shift_length conf - shift (:'a)) || (1w:'a word)
-            || get_lowerbits conf (Word (ptr_bits conf tag len)))`;
-
-val make_ptr_def = Define `
-  make_ptr conf nf tag len =
-    Word (nf << (shift_length conf - shift (:'a)) || (1w:'a word))`;
-
 val store_list_def = Define `
   (store_list a [] (m:'a word -> 'a word_loc) dm = SOME m) /\
   (store_list a (w::ws) m dm =
@@ -6015,11 +5987,6 @@ val memory_rel_RefArray = save_thm("memory_rel_RefArray",
   |> REWRITE_RULE [GSYM AND_IMP_INTRO]
   |> (fn th => MATCH_MP th (UNDISCH memory_rel_REPLICATE))
   |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
-
-val byte_len_def = Define `
-  byte_len (:'a) num_bytes =
-    if dimindex (:'a) = 32 then num_bytes DIV 4 + 1
-                           else num_bytes DIV 8 + 1`;
 
 val word_of_byte_def = Define `
   word_of_byte (w:'a word) =
@@ -12709,67 +12676,6 @@ Proof
          word_and_def,word_lsl_def,word_0,shift_length_def]
 QED
 
-Definition lookup_mem_def:
-  lookup_mem m a =
-    case lookup a m of
-    | NONE => (F,Word (0w:'a word))
-    | SOME x => x
-End
-
-Definition part_to_words_def:
-  part_to_words c m (Int i) offset =
-    (if small_int (:'a) i then  SOME ((F,Word (Smallnum i)),[])
-     else let (sign,ws) = i2mw i in
-            case encode_header c (w2n (b2w sign ≪ 2 ‖ 3w:'a word)) (LENGTH ws) of
-            | NONE => NONE
-            | SOME hd => SOME ((T,(make_ptr c offset (0w:'a word) (LENGTH ws))),
-                               MAP (λw. (F,Word w)) (hd::ws))) ∧
-  part_to_words c m (Con t ns) (offset:'a word) =
-    (if NULL ns then
-       if t < dimword (:'a) DIV 16
-       then SOME ((F,Word (n2w (16 * t + 2))),[]) else NONE
-     else
-       case encode_header c (4 * t) (LENGTH ns) of
-       | NONE => NONE
-       | SOME hd => SOME ((T,(make_cons_ptr c offset t (LENGTH ns))),
-                          (F,Word hd)::(MAP (lookup_mem m) ns))) ∧
-  part_to_words c m (W64 w) offset =
-    (let ws = (if dimindex (:α) < 64
-               then [((63 >< 32) w); ((31 >< 0) w)]
-               else [((63 >< 0) w):'a word]) in
-       case encode_header c 3 (LENGTH ws) of
-       | NONE => NONE
-       | SOME hd => SOME ((T,(make_ptr c offset (0w:'a word) (LENGTH ws))),
-                          MAP (λw. (F,Word w)) (hd::ws))) ∧
-  part_to_words c m (Str s) offset =
-    (let bytes = MAP (n2w o ORD) (explode s) in
-     let n = LENGTH bytes in
-     let hd = make_byte_header c T n in
-     let ws = write_bytes bytes (REPLICATE (byte_len (:α) n) 0w) c.be in
-       if byte_len (:α) n < 2 ** (dimindex (:α) − 4) ∧
-          byte_len (:α) n < 2 ** c.len_size
-       then SOME ((T,(make_ptr c offset (0w:'a word) (byte_len (:α) n))),
-                  MAP (λw. (F,Word w)) (hd::ws))
-       else NONE)
-End
-
-Definition parts_to_words_def:
-  parts_to_words c m i [] off = SOME (lookup_mem m (i - 1:num), []) ∧
-  parts_to_words c m i (x::parts) (off:'a word) =
-    case part_to_words c m x off of
-    | NONE => NONE
-    | SOME (w,xs) =>
-      case parts_to_words c (insert i w m) (i+1) parts
-             (off + bytes_in_word * n2w (LENGTH xs)) of
-      | NONE => NONE
-      | SOME (r,ys) => SOME (r,xs ++ ys)
-End
-
-Definition const_parts_to_words_def:
-  const_parts_to_words c parts =
-    parts_to_words c LN 0 parts 0w
-End
-
 Definition word_cond_add_def[simp]:
   word_cond_add c a (F,x) = (x:'a word_loc) ∧
   word_cond_add c a (T,Word w) = Word (w + a ≪ (shift_length c − shift (:'a))) ∧
@@ -12841,21 +12747,23 @@ Proof
 QED
 
 Theorem part_to_words_IMP_build_words:
-  part_to_words c m part off = SOME (w,ws) ⇒
-  build_part_words c (λi. SND (lookup_mem m i)) part off = SOME (SND w,MAP SND ws)
+  part_to_words c m p (off:'a word) = SOME (w,ws) ∧ good_dimindex (:'a) ⇒
+  build_part_words c (λi. SND (lookup_mem m i)) p off = SOME (SND w,MAP SND ws)
 Proof
-  Cases_on ‘part’
+  Cases_on ‘p’
   \\ fs [part_to_words_def,build_part_words_def]
   \\ rw [] \\ gvs [AllCaseEqs()]
   \\ gvs [MAP_MAP_o,o_DEF]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ gvs [AllCaseEqs()]
   \\ gvs [MAP_MAP_o,o_DEF,SF ETA_ss]
+  \\ Cases_on ‘sign’ \\ fs [b2w_def,WORD_MUL_LSL]
+  \\ gvs [good_dimindex_def,dimword_def]
 QED
 
 Theorem parts_to_words_IMP_build_words:
-  ∀c m i parts off w ws.
-    parts_to_words c m i parts off = SOME (w,ws) ⇒
+  ∀c m i parts (off:'a word) w ws.
+    parts_to_words c m i parts off = SOME (w,ws) ∧ good_dimindex (:'a) ⇒
     build_words c (λi. SND (lookup_mem m i)) i parts off = SOME (SND w,MAP SND ws)
 Proof
   Induct_on ‘parts’ \\ fs [parts_to_words_def,build_words_def]
@@ -12891,6 +12799,18 @@ Proof
   \\ fs [good_dimindex_def,dimword_def,LESS_DIV_EQ_ZERO]
 QED
 
+Theorem part_to_words_isWord:
+  part_to_words c m h a = SOME ((w:bool # 'a word_loc),ws) ∧
+  (∀k v. isWord (SND (lookup_mem m k))) ⇒
+  isWord (SND w) ∧ EVERY isWord (MAP SND ws)
+Proof
+  Cases_on ‘h’ \\ fs [part_to_words_def,AllCaseEqs()]
+  \\ strip_tac \\ gvs [wordSemTheory.isWord_def,data_spaceTheory.part_space_req_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ TRY (Cases_on ‘l’) \\ fs [make_cons_ptr_def,wordSemTheory.isWord_def,EVERY_MAP,make_ptr_def]
+  \\ gvs [AllCaseEqs(),wordSemTheory.isWord_def,EVERY_MAP]
+QED
+
 Theorem part_to_words_LENGTH:
   part_to_words c m h a = SOME ((w:bool # 'a word_loc),ws) ∧
   (∀k v. isWord (SND (lookup_mem m k))) ∧ good_dimindex (:'a) ⇒
@@ -12907,6 +12827,32 @@ Proof
           \\ irule multiwordTheory.DIV_thm1 \\ fs [])
   \\ gvs [multiwordTheory.i2mw_def]
   \\ irule LESS_EQ_num_size \\ fs []
+QED
+
+Theorem const_parts_to_words_isWord:
+  const_parts_to_words c parts = SOME ((w:bool # 'a word_loc),ws) ⇒
+  isWord (SND w) ∧ EVERY isWord (MAP SND ws)
+Proof
+  fs [const_parts_to_words_def]
+  \\ qpat_abbrev_tac ‘m = LN’
+  \\ ‘(∀k v. isWord (SND (lookup_mem m k)))’ by
+        fs [lookup_def,Abbr‘m’,lookup_mem_def,wordSemTheory.isWord_def]
+  \\ last_x_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ rename [‘parts_to_words c _ k parts a’]
+  \\ EVERY (map qid_spec_tac [‘m’,‘c’,‘k’,‘parts’,‘a’,‘w’,‘ws’])
+  \\ rewrite_tac [AND_IMP_INTRO]
+  \\ Induct_on ‘parts’
+  \\ fs [parts_to_words_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ drule part_to_words_isWord \\ fs []
+  \\ strip_tac
+  \\ last_x_assum (drule_at Any)
+  \\ impl_tac \\ fs []
+  \\ rw [lookup_mem_def,lookup_insert]
+  \\ CASE_TAC \\ fs [wordSemTheory.isWord_def,lookup_mem_def]
+  \\ last_x_assum (qspec_then ‘k'’ mp_tac) \\ fs []
 QED
 
 Theorem const_parts_to_words_LENGTH:

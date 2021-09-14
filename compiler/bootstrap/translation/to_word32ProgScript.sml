@@ -163,6 +163,84 @@ val _ = translate(Make_ptr_bits_code_def |> inline_simp |> conv32);
 val _ = translate(SilentFFI_def |> inline_simp |> wcomp_simp |> conv32);
 val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv32);
 
+val _ = register_type ``:32 wordLang$word_loc``;
+
+val _ = translate (byteTheory.byte_index_def |> inline_simp |> conv32);
+
+Theorem set_byte_32:
+  set_byte a b (w:word32) be =
+    let i = byte_index a be in
+      if i = 0  then w2w b       || (w && 0xFFFFFF00w) else
+      if i = 8  then w2w b << 8  || (w && 0xFFFF00FFw) else
+      if i = 16 then w2w b << 16 || (w && 0xFF00FFFFw) else
+                     w2w b << 24 || (w && 0x00FFFFFFw)
+Proof
+  fs [byteTheory.set_byte_def]
+  \\ qsuff_tac ‘byte_index a be = 0 ∨
+                byte_index a be = 8 ∨
+                byte_index a be = 16 ∨
+                byte_index a be = 24’
+  THEN1 (rw [] \\ fs [byteTheory.word_slice_alt_def] \\ blastLib.BBLAST_TAC)
+  \\ fs [byte_index_def]
+  \\ ‘w2n a MOD 4 < 4’ by fs [MOD_LESS] \\ rw []
+QED
+
+val _ = translate set_byte_32;
+val _ = translate (byteTheory.bytes_to_word_def |> inline_simp |> conv32);
+
+val _ = translate (data_to_wordTheory.getWords_def
+                   |> INST_TYPE [alpha|->beta, beta |-> alpha] |> conv32);
+val _ = translate (data_to_wordTheory.StoreAnyConsts_def |> inline_simp |> conv32);
+val _ = translate (data_to_wordTheory.lookup_mem_def |> conv32);
+val _ = translate (data_to_wordTheory.write_bytes_def |> inline_simp |> conv32);
+
+Definition my_lsl_shift_def:
+  my_lsl_shift w n = (w << n)
+End
+
+val ugly_lsl_lemma =
+  “my_lsl_shift (w:'a word) n”
+  |> (REWRITE_CONV [my_lsl_shift_def]
+      THENC RATOR_CONV (ONCE_REWRITE_CONV [GSYM n2w_w2n])
+      THENC REWRITE_CONV [word_lsl_n2w]);
+
+val _ = translate (ugly_lsl_lemma |> conv32);
+
+Theorem small_shift_length_ptr_bits:
+  (small_shift_length c − 1 >< 0) (ptr_bits c t k:'a word) = ptr_bits c t k : 'a word
+Proof
+  fs [fcpTheory.CART_EQ,word_extract_def,word_bits_def,ptr_bits_def,word_or_def,
+      fcpTheory.FCP_BETA,data_to_wordTheory.small_shift_length_def,maxout_bits_def]
+  \\ rw []
+  \\ fs [fcpTheory.CART_EQ,word_extract_def,word_bits_def,ptr_bits_def,word_or_def,
+         fcpTheory.FCP_BETA,data_to_wordTheory.small_shift_length_def,word_lsl_def]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+  \\ cheat
+QED
+
+data_to_wordTheory.part_to_words_def
+      |> SIMP_RULE std_ss [data_to_wordTheory.byte_len_def,
+                           data_to_wordTheory.make_byte_header_def,
+                           data_to_wordTheory.get_lowerbits_def,
+                           data_to_wordTheory.make_cons_ptr_def,
+                           data_to_wordTheory.small_int_def,
+                           data_to_wordTheory.make_ptr_def,
+                           GSYM my_lsl_shift_def]
+      |> inline_simp |> conv32
+      |> SIMP_RULE std_ss [small_shift_length_ptr_bits]
+ |> translate
+
+
+
+(*
+
+    data_to_wordTheory.parts_to_words_def |> inline_simp
+      |> REWRITE_RULE [word_mul_n2w] |> conv32
+
+    data_to_wordTheory.const_parts_to_words_def |> conv32
+
+*)
+
 val _ = translate arg1_def;
 val _ = translate arg2_pmatch;
 val _ = translate arg3_pmatch;

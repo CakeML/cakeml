@@ -243,6 +243,11 @@ Proof
   \\ every_case_tac \\ fs []
 QED
 
+Triviality b2n_not:
+  (if c then 0 else 1) = b2n (~c)
+Proof
+  Cases_on ‘c’ \\ EVAL_TAC
+QED
 
 Theorem LongDiv1_thm':
    !k n1 n2 m i1 i2 (t2:('a,'c,'ffi) wordSem$state)
@@ -342,11 +347,9 @@ Proof
   \\ qmatch_goalsub_abbrev_tac `insert 12 (Word new_z)`
   \\ `z' = new_z /\ c1' = new_c` by
    (unabbrev_all_tac \\ pop_assum mp_tac
+    \\ simp [b2n_not]
     \\ simp [multiwordTheory.single_add_def] \\ strip_tac \\ rveq
-    \\ qpat_abbrev_tac `ppp = if b2w c1 = 0w then 0 else 1n`
-    \\ qsuff_tac `ppp = b2n c1`
-    THEN1 (fs [] \\ Cases_on `c1` \\ EVAL_TAC)
-    \\ unabbrev_all_tac \\ Cases_on `c1` \\ EVAL_TAC \\ fs [] \\ NO_TAC)
+    \\ fs [multiwordTheory.b2w_def])
   \\ fs [list_Seq_def,eq_eval]
   \\ qmatch_goalsub_abbrev_tac `evaluate (LongDiv1_code c,t3)`
   \\ strip_tac \\ first_x_assum drule
@@ -459,10 +462,7 @@ Proof
   \\ `z' = new_z /\ c1' = new_c` by
    (unabbrev_all_tac \\ pop_assum mp_tac
     \\ simp [multiwordTheory.single_add_def] \\ strip_tac \\ rveq
-    \\ qpat_abbrev_tac `ppp = if b2w c1 = 0w then 0 else 1n`
-    \\ qsuff_tac `ppp = b2n c1`
-    THEN1 (fs [] \\ Cases_on `c1` \\ EVAL_TAC)
-    \\ unabbrev_all_tac \\ Cases_on `c1` \\ EVAL_TAC \\ fs [] \\ NO_TAC)
+    \\ simp [b2n_not] \\ fs [multiwordTheory.b2w_def])
   \\ fs [list_Seq_def,eq_eval]
   \\ qmatch_goalsub_abbrev_tac `evaluate (LongDiv1_code c,t3)`
   \\ strip_tac \\ first_x_assum drule
