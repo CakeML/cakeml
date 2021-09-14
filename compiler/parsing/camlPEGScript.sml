@@ -146,9 +146,14 @@ Definition validRelOp_def:
   validRelOp s =
     case s of
       [] => F
-    | c::cs => MEM c "=<>|&$" ∧
-               cs ≠ "" ∧
-               EVERY validOpChar cs
+    | c::cs => MEM c "=<>|&$" ∧ cs ≠ "" ∧ EVERY validOpChar cs
+End
+
+Definition validCatOp_def:
+  validCatOp s =
+    case s of
+      [] => F
+    | c::cs => (c = #"@" ∨ c = CHR 94) ∧ EVERY validOpChar cs
 End
 
 Datatype:
@@ -156,23 +161,45 @@ Datatype:
     = nLiteral
     | nIdent
     | nEBase
-    (* expression ops *)
+    (* in order of presedence, highest to lowest: *)
+    | nEApp
     | nEPrefix
+    | nENeg
     | nEMult
     | nEAdd
+    | nECons
+    | nECat
     | nERel
+    | nEAnd
+    | nEOr
     | nExpr
+    (* various modifiers *)
+    | nEAssert
+    | nELazy
     (* misc *)
     | nMultOp
     | nAddOp
     | nRelOp
+    | nAndOp
+    | nOrOp
     | nStart
 End
 
 (*
  * TODO
- * - Add remaining non-terminals to datatype and
- *   implement remaining rules
+ * - function application,
+ *   constructor application,
+ *   tag application,
+ * - shift ops
+ * - commas
+ * - assignments <- :=
+ * - if, while, for
+ * - semicolon (sequencing)
+ * - let match fun function try
+ *
+ * - patterns
+ * - type expressions
+ * - top-level double-semicolon-separated expressions
  *)
 
 Definition camlPEG_def[nocompute]:
@@ -186,50 +213,87 @@ Definition camlPEG_def[nocompute]:
       (* --------------------------- Expressions --------------------------- *)
       (INL nLiteral,
        choicel [
-           tok isInt    (bindNT nLiteral o mktokLf);
-           tok isString (bindNT nLiteral o mktokLf);
-           tok isChar   (bindNT nLiteral o mktokLf)
-         ]);
+         tok isInt    (bindNT nLiteral o mktokLf);
+         tok isString (bindNT nLiteral o mktokLf);
+         tok isChar   (bindNT nLiteral o mktokLf)
+       ]);
       (INL nIdent,
        tok isIdent (bindNT nIdent o mktokLf));
       (INL nEBase,
        choicel [
-           pegf (pnt nLiteral) (bindNT nEBase);
-           pegf (pnt nIdent) (bindNT nEBase);
-           seql [ tokeq LparT; pnt nExpr; tokeq RparT ] (bindNT nEBase)
-        ]);
-      (INL nEPrefix,
-       choicel [
-          seql [ tokSymP validPrefixSym; pnt nEBase ] (bindNT nEPrefix);
-          pegf (pnt nEBase) (bindNT nEPrefix)
-        ]);
-      (INL nMultOp,
-       choicel [
-         pegf (tokeq StarT) (bindNT nMultOp);
-         pegf (tokSymP validMultOp) (bindNT nMultOp)
+         pegf (pnt nLiteral) (bindNT nEBase);
+         pegf (pnt nIdent) (bindNT nEBase);
+         seql [ tokeq LparT; pnt nExpr; tokeq RparT ] (bindNT nEBase)
        ]);
+      (INL nEAssert,
+       seql [tokeq AssertT; pnt nEBase] (bindNT nEAssert));
+      (INL nELazy,
+       seql [tokeq LazyT; pnt nEBase] (bindNT nELazy));
+      (INL nEApp,
+       pegf (choicel [pnt nELazy;
+                      pnt nEAssert;
+                      pnt nEBase]) (* TODO cons-app, fun-app, tag-app *)
+            (bindNT nEApp));
+      (INL nEPrefix, (* FIXME try? *)
+       choicel [
+         seql [ tokSymP validPrefixSym; pnt nEApp ] (bindNT nEPrefix);
+         pegf (pnt nEApp) (bindNT nEPrefix)
+       ]);
+      (INL nENeg, (* FIXME try? *)
+       choicel [
+         seql [choicel [tokeq MinusT; tokeq MinusFT]; pnt nEPrefix]
+              (bindNT nENeg);
+         pegf (pnt nEPrefix) (bindNT nENeg)
+       ]);
+      (INL nMultOp,
+       pegf (choicel [tokeq StarT; tokSymP validMultOp])
+            (bindNT nMultOp));
       (INL nAddOp,
-       pegf (choicel [
-               tokeq PlusT;
-               tokeq MinusT;
-               tokSymP validAddOp])
+       pegf (choicel [tokeq PlusT; tokeq MinusT; tokSymP validAddOp])
             (bindNT nAddOp));
       (INL nRelOp,
-       pegf (choicel [
-               tokeq EqualT;
-               tokeq LessT;
-               tokeq GreaterT;
-               tokeq NeqT;
-               tokSymP validRelOp])
+       pegf (choicel [tokeq EqualT;
+                      tokeq LessT;
+                      tokeq GreaterT;
+                      tokeq NeqT;
+                      tokSymP validRelOp])
             (bindNT nRelOp));
+      (INL nAndOp,
+       pegf (choicel [tokeq AmpT; tokeq AndalsoT])
+            (bindNT nAndOp));
+      (INL nOrOp,
+       pegf (choicel [tokeq OrelseT; tokeq OrT])
+            (bindNT nOrOp));
       (INL nEMult,
        peg_linfix (INL nEMult) (pnt nEPrefix) (pnt nMultOp));
       (INL nEAdd,
        peg_linfix (INL nEAdd) (pnt nEMult) (pnt nAddOp));
+      (INL nECons, (* TODO r-assoc, try? *)
+       choicel [
+         seql [ pnt nEAdd; tokeq ColonsT; pnt nECons ]
+              (bindNT nECons);
+         pegf (pnt nEAdd) (bindNT nECons)]);
+      (INL nECat, (* TODO r-assoc, try? *)
+       choicel [
+         seql [pnt nECons; tokSymP validCatOp; pnt nECat]
+              (bindNT nECat);
+         pegf (pnt nECons) (bindNT nECat)]);
       (INL nERel,
-       peg_linfix (INL nERel) (pnt nEAdd) (pnt nRelOp));
+       peg_linfix (INL nERel) (pnt nECat) (pnt nRelOp));
+      (INL nEAnd, (* TODO r-assoc, try? *)
+       choicel [
+         seql [pnt nERel; pnt nAndOp; pnt nEAnd]
+              (bindNT nEAnd);
+         pegf (pnt nERel) (bindNT nEAnd)
+       ]);
+      (INL nEOr, (* TODO r-assoc, try? *)
+       choicel [
+         seql [pnt nEAnd; pnt nOrOp; pnt nEOr]
+              (bindNT nEOr);
+         pegf (pnt nEAnd) (bindNT nEOr)
+       ]);
       (INL nExpr,
-       pegf (pnt nERel) (bindNT nExpr));
+       pegf (pnt nEOr) (bindNT nExpr));
       (* --------------------------- Entrypoint ---------------------------- *)
       (INL nStart,
        seql [pnt nExpr; not (any (K [])) [] ] (bindNT nStart))
@@ -310,12 +374,14 @@ val test =
                   IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2);
               ] 0)
              [] NONE [] done failed”;
+
 val test2 =
   time EVAL “peg_exec camlPEG (pnt nStart)
              (map_loc [
                   IntT 3; StarT; IntT 4;
               ] 0)
              [] NONE [] done failed”;
+
 val test3 =
   time EVAL “peg_exec camlPEG (pnt nStart)
              (map_loc [
@@ -323,9 +389,87 @@ val test3 =
               ] 0)
              [] NONE [] done failed”;
 
+val test4 =
+  time EVAL “peg_exec camlPEG (pnt nStart)
+             (map_loc [
+                  IntT 3; ColonsT; IdentT "xs";
+              ] 0)
+             [] NONE [] done failed”;
+
+val test5 =
+  time EVAL “peg_exec camlPEG (pnt nStart)
+             (map_loc [
+                  ColonsT; IdentT "xs";
+              ] 0)
+             [] NONE [] done failed”;
+
+val test6 =
+  time EVAL “peg_exec camlPEG (pnt nStart)
+             (map_loc [
+                  IdentT "xs";
+              ] 0)
+             [] NONE [] done failed”;
+
+val test7 =
+  time EVAL “peg_exec camlPEG (pnt nStart)
+             (map_loc [
+                  IdentT "x"; ColonsT;
+                  IdentT "y"; ColonsT;
+                  IdentT "xs";
+              ] 0)
+             [] NONE [] done failed”;
+
+val test8 =
+  time EVAL “peg_exec camlPEG (pnt nStart)
+             (map_loc [
+                  LparT;
+                  IdentT "x"; ColonsT;
+                  IdentT "y";
+                  RparT;
+                  ColonsT;
+                  IdentT "xs";
+              ] 0)
+             [] NONE [] done failed”;
+
+val test9 =
+  time EVAL “peg_exec camlPEG (pnt nStart)
+             (map_loc [
+                  IdentT "y";
+                  SymbolT "@<<";
+                  IdentT "xs";
+              ] 0)
+             [] NONE [] done failed”;
+
 (* -------------------------------------------------------------------------
  * Running the lexer, and then the parser
  * ------------------------------------------------------------------------- *)
+
+Overload camlpegexec =
+  “λn t. peg_exec camlPEG (pnt n) t [] NONE [] done failed”;
+
+Definition destResult_def:
+  destResult (Result (Success [] x eo)) = INR (x, eo) ∧
+  destResult (Result (Success ((_,l)::_) _ _)) =
+    INL (l, "Expected to be at EOF") ∧
+  destResult (Result (Failure fl fe)) = INL (fl, fe) ∧
+  destResult _ =
+    INL (unknown_loc, "Something catastrophic happened")
+End
+
+Definition run_prog_def:
+  run_prog input =
+    let toks = lexer_fun input in
+    let errs = FILTER ($= LexErrorT o FST) toks in
+      if errs ≠ [] then
+        INL (SND (HD errs), "Lexer error")
+      else
+        destResult (camlpegexec nStart toks)
+End
+
+val test1 = EVAL “run_prog " :: d ? 4"”
+val test2 = EVAL “run_prog "1 + ? 4"”
+val test3 = EVAL “run_prog "1 + 33 / (a_b_cdef :: 4)"”
+val test4 = EVAL “run_prog "abcdef \\s"”;
 
 val _ = export_theory ();
 
