@@ -295,7 +295,9 @@ Definition camlPEG_def[nocompute]:
        choicel [
          tok isInt    (bindNT nLiteral o mktokLf);
          tok isString (bindNT nLiteral o mktokLf);
-         tok isChar   (bindNT nLiteral o mktokLf)
+         tok isChar   (bindNT nLiteral o mktokLf);
+         tokeq TrueT;
+         tokeq FalseT;
        ]);
       (INL nIdent,
        tok isIdent (bindNT nIdent o mktokLf));
@@ -700,7 +702,8 @@ val test2 = run_parser "1 + ? 4"
 val test3 = run_parser "1 + 33 / (a_b_cdef :: 4)"
 val test4 = run_parser "abcdef \\s"
 val test5 = run_parser "if let x = True in x then 4 else 3";
-val test6 = run_parser "if let x = true in x then 4 else 3"; (* fails; "true" *)
+val test6 = run_parser "if let x = true in x then 4 else 3";
+val test7 = run_parser "if let x = * true in x then 4 else 3 + 4";
 
 val _ = export_theory ();
 
