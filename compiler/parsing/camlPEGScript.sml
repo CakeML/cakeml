@@ -207,10 +207,15 @@ Datatype:
     | nEIf
     | nEWhile
     | nEFor
+    | nEMatch
+    | nETry
+    | nEFunction
     | nExpr
     (* various modifiers *)
     | nEAssert
     | nELazy
+    (* pattern matches *)
+    | nPatternMatch
     (* misc *)
     | nShiftOp
     | nMultOp
@@ -223,10 +228,11 @@ End
 
 (*
  * TODO
+ * - list literals, other bracketed things ...
  * - commas
  * - assignments <- :=
  * - semicolon ; (sequencing)
- * - let match fun function try
+ * - let fun
  *
  * - patterns
  * - type expressions
@@ -258,7 +264,8 @@ Definition camlPEG_def[nocompute]:
        choicel [
          pegf (pnt nLiteral) (bindNT nEBase);
          pegf (pnt nIdent) (bindNT nEBase);
-         seql [tokeq LparT; pnt nExpr; tokeq RparT] (bindNT nEBase)
+         seql [tokeq LparT; pnt nExpr; tokeq RparT] (bindNT nEBase);
+         seql [tokeq BeginT; pnt nExpr; tokeq EndT] (bindNT nEBase)
        ]);
       (INL nEAssert,
        seql [tokeq AssertT; pnt nEBase] (bindNT nEAssert));
@@ -362,6 +369,17 @@ Definition camlPEG_def[nocompute]:
             (bindNT nEFor));
       (INL nExpr,
        pegf (pnt nEOr) (bindNT nExpr));
+      (* -------------------------- Let, match, ... ------------------------ *)
+      (INL nEMatch,
+       seql [tokeq MatchT; pnt nExpr; tokeq WithT; pnt nPatternMatch]
+            (bindNT nEMatch));
+      (INL nETry,
+       seql [tokeq TryT; pnt nExpr; tokeq WithT; pnt nPatternMatch]
+            (bindNT nETry));
+      (INL nEFunction,
+       seql [tokeq FunctionT; pnt nPatternMatch]
+            (bindNT nEFunction));
+      (* ----------------------------- Pmatches ---------------------------- *)
       (* --------------------------- Entrypoint ---------------------------- *)
       (INL nStart,
        seql [pnt nExpr; not (any (K [])) [] ] (bindNT nStart))
