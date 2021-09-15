@@ -168,52 +168,40 @@ Definition validCatOp_def:
     | c::cs => (c = #"@" ∨ c = CHR 94) ∧ EVERY validOpChar cs
 End
 
+Definition idChar_def:
+  idChar P s = EVERY (λc. P c ∨ c = #"_" ∨ c = #"'" ∨ isDigit c) cs
+End
+
 Definition validConsId_def:
   validConsId s =
     case s of
       [] => F
-    | c::cs => isUpper c ∧
-               EVERY (λc. isLower c ∨ c = #"_" ∨ c = #"'" ∨ isDigit c) cs
+    | c::cs => isUpper c ∧ idChar isLower cs
 End
 
 Definition validFunId_def:
   validFunId s =
     case s of
       [] => F
-    | c::cs =>
-        isLower c ∧ EVERY (λc. isLower c ∨ c = #"_" ∨ c = #"'" ∨ isDigit c) cs
+    | c::cs => (isLower c ∨ c = #"_") ∧ idChar isLower cs
 End
 
 Datatype:
-  camlNT
-    = nLiteral
-    | nIdent
-    | nEBase
-    | nEApp | nEConstr | nEFunapp | nETagapp
-    | nEPrefix
-    | nENeg
-    | nEShift
-    | nEMult
-    | nEAdd
-    | nECons
-    | nECat
-    | nERel
-    | nEAnd
-    | nEOr
-    | nEProd
-    | nEIf
-    | nESeq
+  camlNT =
+    (* expressions *)
+      nLiteral | nIdent | nEBase
+    | nEApp | nEConstr | nEFunapp | nETagapp | nEAssert | nELazy
+    | nEPrefix | nENeg | nEShift | nEMult
+    | nEAdd | nECons | nECat | nERel
+    | nEAnd | nEOr | nEProd | nEIf | nESeq
     | nEMatch | nETry | nEFun | nEFunction | nELet | nELetExn
-    | nEWhile | nEFor
-    | nExpr
-    (* various modifiers *)
-    | nEAssert
-    | nELazy
+    | nEWhile | nEFor | nExpr
     (* pattern matches *)
-    | nParameter | nParameters
-    | nLetBinding | nLetBindings
+    | nParameter | nParameters | nLetBinding | nLetBindings
     | nPatternMatch | nPatternMatches
-    | nConstrDecl
+    (* type definitions *)
+    | nTypeDefinition | nTypeDef | nTypeInfo | nTypeRepr | nTypeReprs
+    | nConstrDecl | nConstrArgs
     (* patterns *)
     | nPAny | nPBase | nPLazy | nPConstr | nPTagapp | nPApp | nPCons | nPProd
     | nPOr | nPAs | nPattern
@@ -250,6 +238,38 @@ Definition camlPEG_def[nocompute]:
     notFAIL  := "Not combinator failed";
     start := pnt nStart;
     rules := FEMPTY |++ [
+      (* -- Typedef -------------------------------------------------------- *)
+      (INL nTypeDefinition,
+       seql [tokeq TypeT; try (tokeq NonrecT); pnt nTypeDef;
+             rpt (seql [tokeq AndT; pnt nTypeDef] I) FLAT]
+            (bindNT nTypeDefinition));
+      (INL nTypeDef,
+       seql [choicel [seql [tokeq LparT; pnt nTVar;
+                            rpt (seql [tokeq CommaT; pnt nTVar] I) FLAT;
+                            tokeq RparT] I;
+                      pnt nTVar;
+                      empty []];
+             tokIdP validFunId; pnt nTypeInfo]
+            (bindNT nTypeDef));
+      (INL nTypeInfo,
+       seql [try (seql [tokeq EqualT; pnt nType] I);
+             try (pnt nTypeRepr)]
+            (bindNT nTypeInfo));
+      (INL nTypeRepr,
+       seql [try (tokeq BarT); pnt nConstrDecl; try (pnt nTypeReprs)]
+            (bindNT nTypeRepr));
+      (INL nTypeReprs,
+       seql [tokeq BarT; pnt nConstrDecl; try (pnt nTypeReprs)]
+            (bindNT nTypeReprs));
+      (INL nConstrDecl,
+       seql [choicel [tokIdP validConsId;
+                      tokSymP (λs. s = "[]");
+                      seql [tokeq LparT; tokeq ColonsT; tokeq RparT] I];
+             try (seql [tokeq OfT; pnt nConstrArgs] I)]
+            (bindNT nConstrDecl));
+      (INL nConstrArgs,
+       seql [pnt nType; rpt (seql [tokeq StarT; pnt nType] I) FLAT]
+            (bindNT nConstrArgs));
       (* -- Type5 ---------------------------------------------------------- *)
       (INL nTVar,
        seql [tokeq TickT; pnt nIdent] (bindNT nTVar));
