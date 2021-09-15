@@ -129,7 +129,7 @@ Definition validMultOp_def:
       [] => F
     | c::cs =>
         (MEM c "*%/" ∧ cs ≠ "" ∧ EVERY validOpChar cs) ∨
-        MEM s [ "%"; "/"; "mod"; "land"; "lor"; "lxor" ]
+        MEM s [ "%"; "/" ]
 End
 
 Definition validRelOp_def:
@@ -342,7 +342,8 @@ Definition camlPEG_def[nocompute]:
             (bindNT nEShift));
       (* -- Expr11 --------------------------------------------------------- *)
       (INL nMultOp,
-       pegf (choicel [tokeq StarT; tokSymP validMultOp])
+       pegf (choicel [tokeq StarT; tokeq ModT; tokeq LandT; tokeq LorT;
+                      tokeq LxorT; tokSymP validMultOp])
             (bindNT nMultOp));
       (INL nEMult,
        peg_linfix (INL nEMult) (pnt nEShift) (pnt nMultOp));
