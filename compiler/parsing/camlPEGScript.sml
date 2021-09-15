@@ -217,6 +217,8 @@ Datatype:
     (* patterns *)
     | nPBase | nPLazy | nPConstr | nPTagapp | nPApp | nPCons | nPProd
     | nPOr | nPAs | nPattern
+    (* types *)
+    | nTVar | nTAny | nTBase | nTConstr | nTApp | nTProd | nTFun | nTAs | nType
     (* misc *)
     | nShiftOp | nMultOp | nAddOp | nRelOp | nAndOp | nOrOp
     | nStart
@@ -233,9 +235,9 @@ End
    - Rules for type annotations both in expressions and patterns.
    - What's called 'pattern matches' in the grammar (patterns and arrows
      in case-expressions).
-   - All rules for type expressions.
    - Definitions (i.e. all top-level declarations)
    - The module syntax.
+   - Any-patterns
 
    Also the following is broken:
    - Somehow I forgot to allow identifiers to contain dots
@@ -253,6 +255,44 @@ Definition camlPEG_def[nocompute]:
     notFAIL  := "Not combinator failed";
     start := pnt nStart;
     rules := FEMPTY |++ [
+      (* -- Type5 ---------------------------------------------------------- *)
+      (INL nTVar,
+       seql [tokeq TickT; pnt nIdent] (bindNT nTVar));
+      (INL nTAny,
+       pegf (tokeq AnyT) (bindNT nTAny));
+      (INL nTBase,
+       pegf (choicel [pnt nTVar;
+                      pnt nTAny;
+                      seql [tokeq LparT; pnt nType; tokeq RparT] I;
+                      pnt nTConstr])
+            (bindNT nTBase));
+      (* -- Type4 ---------------------------------------------------------- *)
+      (INL nTConstr,
+       seql [choicel [seql [tokeq LparT; pnt nType;
+                            rpt (seql [tokeq CommaT; pnt nType] I) FLAT;
+                            tokeq RparT] I;
+                      pnt nType;
+                      empty []];
+             tokIdP validConsId]
+            (bindNT nTConstr));
+      (INL nTApp,
+       pegf (choicel [pnt nTConstr; pnt nTBase])
+            (bindNT nTApp));
+      (* -- Type3 ---------------------------------------------------------- *)
+      (INL nTProd,
+       seql [pnt nTApp; try (seql [tokeq StarT; pnt nTProd] I)]
+            (bindNT nTProd));
+      (* -- Type2 ---------------------------------------------------------- *)
+      (INL nTFun,
+       seql [pnt nTProd; try (seql [tokeq RarrowT; pnt nTFun] I)]
+            (bindNT nTFun));
+      (* -- Type1 ---------------------------------------------------------- *)
+      (INL nTAs,
+       seql [pnt nTFun; tokeq AsT; tokeq TickT; pnt nIdent]
+            (bindNT nTAs));
+      (* -- Type ----------------------------------------------------------- *)
+      (INL nType,
+       pegf (pnt nTAs) (bindNT nType));
       (* -- Expr16 --------------------------------------------------------- *)
       (INL nLiteral,
        choicel [
