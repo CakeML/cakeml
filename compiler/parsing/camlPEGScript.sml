@@ -204,6 +204,9 @@ Datatype:
     | nERel
     | nEAnd
     | nEOr
+    | nEIf
+    | nEWhile
+    | nEFor
     | nExpr
     (* various modifiers *)
     | nEAssert
@@ -222,13 +225,12 @@ End
  * TODO
  * - commas
  * - assignments <- :=
- * - if, while, for
- * - semicolon (sequencing)
+ * - semicolon ; (sequencing)
  * - let match fun function try
  *
  * - patterns
  * - type expressions
- * - top-level double-semicolon-separated expressions
+ * - top-level double-semicolon-separated expressions foo ;; bar;; baz
  *
  * - somehow I forgot to allow identifiers to contain dots
  *   (i.e. module paths); this needs to be fixed also in the
@@ -340,6 +342,24 @@ Definition camlPEG_def[nocompute]:
               (bindNT nEOr);
          pegf (pnt nEAnd) (bindNT nEOr)
        ]);
+      (* ------------------------ Control exprs. --------------------------- *)
+      (INL nEIf,
+       choicel [
+         seql [tokeq IfT; pnt nExpr;
+               tokeq ThenT; pnt nExpr;
+               tokeq ElseT; pnt nExpr]
+              (bindNT nEIf);
+         seql [tokeq IfT; pnt nExpr;
+               tokeq ThenT; pnt nExpr]
+              (bindNT nEIf)]);
+      (INL nEWhile,
+       seql [tokeq WhileT; pnt nExpr; tokeq DoT; pnt nExpr; tokeq DoneT]
+            (bindNT nEWhile));
+      (INL nEFor,
+       seql [tokeq ForT; pnt nIdent; tokeq EqualT;
+             choicel [tokeq ToT; tokeq DowntoT]; pnt nExpr;
+             tokeq DoT; pnt nExpr; tokeq DoneT]
+            (bindNT nEFor));
       (INL nExpr,
        pegf (pnt nEOr) (bindNT nExpr));
       (* --------------------------- Entrypoint ---------------------------- *)
