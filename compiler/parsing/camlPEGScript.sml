@@ -215,7 +215,7 @@ Datatype:
     | nPatternMatch
     | nConstrDecl
     (* patterns *)
-    | nPBase | nPLazy | nPConstr | nPTagapp | nPApp | nPCons | nPProd
+    | nPAny | nPBase | nPLazy | nPConstr | nPTagapp | nPApp | nPCons | nPProd
     | nPOr | nPAs | nPattern
     (* types *)
     | nTVar | nTAny | nTBase | nTConstr | nTApp | nTProd | nTFun | nTAs | nType
@@ -231,13 +231,10 @@ End
      Both in the expression and pattern rules.
    - Expression rules for the following things are missing:
      + Assignments, i.e. <- :=
-   - + nEFun is not complete
-   - Rules for type annotations both in expressions and patterns.
    - What's called 'pattern matches' in the grammar (patterns and arrows
      in case-expressions).
    - Definitions (i.e. all top-level declarations)
    - The module syntax.
-   - Any-patterns
 
    Also the following is broken:
    - Somehow I forgot to allow identifiers to contain dots
@@ -306,7 +303,9 @@ Definition camlPEG_def[nocompute]:
        choicel [
          pegf (pnt nLiteral) (bindNT nEBase);
          pegf (pnt nIdent) (bindNT nEBase);
-         seql [tokeq LparT; pnt nExpr; tokeq RparT] (bindNT nEBase);
+         seql [tokeq LparT; pnt nExpr;
+               try (seql [tokeq ColonT; pnt nType] I);
+               tokeq RparT] (bindNT nEBase);
          seql [tokeq BeginT; pnt nExpr; tokeq EndT] (bindNT nEBase)
        ]);
       (* -- Expr15 --------------------------------------------------------- *)
@@ -408,7 +407,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nEMatch));
       (INL nEFun,
        seql [tokeq FunT; pnt nParameters;
-             (* [ : typexpr ]; *)
+             try (seql [tokeq ColonT; pnt nType] I);
              tokeq RarrowT; pnt nExpr]
             (bindNT nEFun));
       (INL nEFunction,
@@ -441,26 +440,29 @@ Definition camlPEG_def[nocompute]:
        seql [pnt nLetBinding; try (seql [tokeq AndT; pnt nLetBindings] I)]
             (bindNT nLetBindings));
       (INL nLetBinding,
-       choicel [
-         seql [pnt nPattern; tokeq EqualT; pnt nExpr]
-              (bindNT nLetBinding);
-         (* value-name {parameter} [: typexpr] [:> typexpr] = expr *)
-         (* value-name : poly-typexpr = expr *)
-       ]);
+       pegf (choicel [seql [pnt nPattern; tokeq EqualT; pnt nExpr] I;
+                      seql [pnt nIdent; try (pnt nParameters);
+                            try (seql [tokeq ColonT; pnt nType] I);
+                            tokeq EqualT; pnt nExpr ] I])
+            (bindNT nLetBinding));
       (INL nParameters,
        seql [pnt nParameter; try (pnt nParameters)]
             (bindNT nParameters));
       (INL nParameter, (* only one type of parameter supported; collapse? *)
        pegf (pnt nPattern) (bindNT nParameter));
       (* -- Pat8 ----------------------------------------------------------- *)
+      (INL nPAny,
+       pegf (tokeq AnyT) (bindNT nPAny));
       (INL nPBase,
-       choicel [
-         pegf (pnt nIdent) (bindNT nPBase);
-         seql [tokeq LparT; pnt nPattern; tokeq RparT] (bindNT nPBase);
-         seql [tok isChar (bindNT nLiteral o mktokLf);
-               tokeq DotsT;
-               tok isChar (bindNT nLiteral o mktokLf)]
-              (bindNT nPBase)]);
+       pegf (choicel [pnt nIdent;
+                      pnt nPAny;
+                      seql [tokeq LparT; pnt nPattern;
+                            try (seql [tokeq ColonT; pnt nType] I);
+                            tokeq RparT] I;
+                      seql [tok isChar (bindNT nLiteral o mktokLf);
+                            tokeq DotsT;
+                            tok isChar (bindNT nLiteral o mktokLf)] I])
+            (bindNT nPBase));
       (* -- Pat7 ----------------------------------------------------------- *)
       (INL nPLazy,
        seql [tokeq LazyT; pnt nPBase]
