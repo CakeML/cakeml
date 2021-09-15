@@ -201,7 +201,7 @@ Datatype:
     | nPatternMatch | nPatternMatches
     (* type definitions *)
     | nTypeDefinition | nTypeDef | nTypeInfo | nTypeRepr | nTypeReprs
-    | nConstrDecl | nConstrArgs
+    | nConstrDecl | nConstrArgs | nExcDefinition
     (* patterns *)
     | nPAny | nPBase | nPLazy | nPConstr | nPTagapp | nPApp | nPCons | nPProd
     | nPOr | nPAs | nPattern
@@ -239,6 +239,12 @@ Definition camlPEG_def[nocompute]:
     start := pnt nStart;
     rules := FEMPTY |++ [
       (* -- Typedef -------------------------------------------------------- *)
+      (INL nExcDefinition,
+       seql [tokeq ExceptionT;
+             choicel [pnt nConstrDecl;
+                      seql [tokIdP validConsId; tokeq EqualT;
+                            tokIdP validConsId] I]]
+            (bindNT nExcDefinition));
       (INL nTypeDefinition,
        seql [tokeq TypeT; try (tokeq NonrecT); pnt nTypeDef;
              rpt (seql [tokeq AndT; pnt nTypeDef] I) FLAT]
