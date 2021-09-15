@@ -83,6 +83,11 @@ Definition tokSymP_def:
     tok (λt. (do s <- destSymbol t; assert (P s) od) = SOME ()) mktokLf
 End
 
+Definition tokIdP_def:
+  tokIdP P =
+    tok (λt. (do s <- destIdent t; assert (P s) od) = SOME ()) mktokLf
+End
+
 Definition pnt_def:
   pnt ntsym = nt (INL ntsym) I
 End
@@ -149,11 +154,34 @@ Definition validRelOp_def:
     | c::cs => MEM c "=<>|&$" ∧ cs ≠ "" ∧ EVERY validOpChar cs
 End
 
+Definition validShiftOp_def:
+  validShiftOp s =
+    case s of
+      c::d::cs => c = #"*" ∧ d = #"*" ∧ EVERY validOpChar cs
+    | _ => F
+End
+
 Definition validCatOp_def:
   validCatOp s =
     case s of
       [] => F
     | c::cs => (c = #"@" ∨ c = CHR 94) ∧ EVERY validOpChar cs
+End
+
+Definition validConsId_def:
+  validConsId s =
+    case s of
+      [] => F
+    | c::cs => isUpper c ∧
+               EVERY (λc. isLower c ∨ c = #"_" ∨ c = #"'" ∨ isDigit c) cs
+End
+
+Definition validFunId_def:
+  validFunId s =
+    case s of
+      [] => F
+    | c::cs =>
+        isLower c ∧ EVERY (λc. isLower c ∨ c = #"_" ∨ c = #"'" ∨ isDigit c) cs
 End
 
 Datatype:
@@ -163,8 +191,12 @@ Datatype:
     | nEBase
     (* in order of presedence, highest to lowest: *)
     | nEApp
+    | nEConstr
+    | nEFunapp
+    | nETagapp
     | nEPrefix
     | nENeg
+    | nEShift
     | nEMult
     | nEAdd
     | nECons
@@ -177,6 +209,7 @@ Datatype:
     | nEAssert
     | nELazy
     (* misc *)
+    | nShiftOp
     | nMultOp
     | nAddOp
     | nRelOp
@@ -187,10 +220,6 @@ End
 
 (*
  * TODO
- * - function application,
- *   constructor application,
- *   tag application,
- * - shift ops
  * - commas
  * - assignments <- :=
  * - if, while, for
@@ -200,6 +229,10 @@ End
  * - patterns
  * - type expressions
  * - top-level double-semicolon-separated expressions
+ *
+ * - somehow I forgot to allow identifiers to contain dots
+ *   (i.e. module paths); this needs to be fixed also in the
+ *   lexer
  *)
 
 Definition camlPEG_def[nocompute]:
@@ -223,28 +256,33 @@ Definition camlPEG_def[nocompute]:
        choicel [
          pegf (pnt nLiteral) (bindNT nEBase);
          pegf (pnt nIdent) (bindNT nEBase);
-         seql [ tokeq LparT; pnt nExpr; tokeq RparT ] (bindNT nEBase)
+         seql [tokeq LparT; pnt nExpr; tokeq RparT] (bindNT nEBase)
        ]);
       (INL nEAssert,
        seql [tokeq AssertT; pnt nEBase] (bindNT nEAssert));
       (INL nELazy,
        seql [tokeq LazyT; pnt nEBase] (bindNT nELazy));
+      (INL nEConstr,
+       seql [tokIdP validConsId; pnt nEBase] (bindNT nEConstr));
+      (INL nEFunapp,
+       seql [tokIdP validFunId; pnt nEBase] (bindNT nEFunapp));
+      (INL nETagapp,
+       seql [tokeq BtickT; tokIdP validFunId; pnt nEBase]
+            (bindNT nETagapp));
       (INL nEApp,
-       pegf (choicel [pnt nELazy;
-                      pnt nEAssert;
-                      pnt nEBase]) (* TODO cons-app, fun-app, tag-app *)
+       pegf (choicel (MAP pnt [nELazy; nEAssert; nEConstr; nEFunapp;
+                               nETagapp; nEBase]))
             (bindNT nEApp));
       (INL nEPrefix, (* FIXME try? *)
        choicel [
-         seql [ tokSymP validPrefixSym; pnt nEApp ] (bindNT nEPrefix);
+         seql [tokSymP validPrefixSym; pnt nEApp] (bindNT nEPrefix);
          pegf (pnt nEApp) (bindNT nEPrefix)
        ]);
       (INL nENeg, (* FIXME try? *)
        choicel [
          seql [choicel [tokeq MinusT; tokeq MinusFT]; pnt nEPrefix]
               (bindNT nENeg);
-         pegf (pnt nEPrefix) (bindNT nENeg)
-       ]);
+         pegf (pnt nEPrefix) (bindNT nENeg)]);
       (INL nMultOp,
        pegf (choicel [tokeq StarT; tokSymP validMultOp])
             (bindNT nMultOp));
@@ -264,8 +302,18 @@ Definition camlPEG_def[nocompute]:
       (INL nOrOp,
        pegf (choicel [tokeq OrelseT; tokeq OrT])
             (bindNT nOrOp));
+      (INL nShiftOp,
+       pegf (choicel [tokSymP validShiftOp;
+                      tokeq LslT;
+                      tokeq LsrT;
+                      tokeq AsrT])
+            (bindNT nShiftOp));
+      (INL nEShift, (* TODO r-assoc *)
+       choicel [
+         seql [pnt nENeg; pnt nShiftOp; pnt nEShift] (bindNT nEShift);
+         pegf (pnt nENeg) (bindNT nEShift)]);
       (INL nEMult,
-       peg_linfix (INL nEMult) (pnt nEPrefix) (pnt nMultOp));
+       peg_linfix (INL nEMult) (pnt nEShift) (pnt nMultOp));
       (INL nEAdd,
        peg_linfix (INL nEAdd) (pnt nEMult) (pnt nAddOp));
       (INL nECons, (* TODO r-assoc, try? *)
