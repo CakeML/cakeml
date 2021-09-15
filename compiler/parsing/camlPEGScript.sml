@@ -212,7 +212,7 @@ Datatype:
     (* pattern matches *)
     | nParameter | nParameters
     | nLetBinding | nLetBindings
-    | nPatternMatch
+    | nPatternMatch | nPatternMatches
     | nConstrDecl
     (* patterns *)
     | nPAny | nPBase | nPLazy | nPConstr | nPTagapp | nPApp | nPCons | nPProd
@@ -231,8 +231,6 @@ End
      Both in the expression and pattern rules.
    - Expression rules for the following things are missing:
      + Assignments, i.e. <- :=
-   - What's called 'pattern matches' in the grammar (patterns and arrows
-     in case-expressions).
    - Definitions (i.e. all top-level declarations)
    - The module syntax.
 
@@ -441,6 +439,16 @@ Definition camlPEG_def[nocompute]:
                pnt nEWhile; pnt nEFor])
             (bindNT nExpr));
       (* -- Pattern matches etc. ------------------------------------------- *)
+      (INL nPatternMatch,
+       seql [try (tokeq BarT); pnt nPattern;
+             try (seql [tokeq WhenT; pnt nExpr] I); tokeq RarrowT; pnt nExpr;
+             try (pnt nPatternMatches)]
+            (bindNT nPatternMatch));
+      (INL nPatternMatches,
+       seql [tokeq BarT; pnt nPattern;
+             try (seql [tokeq WhenT; pnt nExpr] I); tokeq RarrowT; pnt nExpr;
+             try (pnt nPatternMatches)]
+            (bindNT nPatternMatches));
       (INL nLetBindings,
        seql [pnt nLetBinding; try (seql [tokeq AndT; pnt nLetBindings] I)]
             (bindNT nLetBindings));
