@@ -386,12 +386,14 @@ Definition camlPEG_def[nocompute]:
       (* -- Expr3: assignments --------------------------------------------- *)
       (* -- Expr2 ---------------------------------------------------------- *)
       (INL nEIf,
-       seql [tokeq IfT; pnt nExpr; tokeq ThenT; pnt nExpr;
-             try (seql [tokeq ElseT; pnt nExpr] I)]
+       pegf (choicel [seql [tokeq IfT; pnt nExpr; tokeq ThenT; pnt nExpr;
+                            try (seql [tokeq ElseT; pnt nExpr] I)] I;
+                      pnt nEProd])
             (bindNT nEIf));
       (* -- Expr1 ---------------------------------------------------------- *)
       (INL nESeq,
-       seql [pnt nEIf; try (seql [tokeq SemiT; pnt nESeq] I)]
+       pegf (choicel [seql [pnt nEIf; try (seql [tokeq SemiT; pnt nESeq] I)] I;
+                      pnt nEIf])
             (bindNT nESeq));
       (* -- Expr0 ---------------------------------------------------------- *)
       (INL nELet,
@@ -664,10 +666,41 @@ Definition run_prog_def:
         destResult (camlpegexec nStart toks)
 End
 
-val test1 = EVAL “run_prog " :: d ? 4"”
-val test2 = EVAL “run_prog "1 + ? 4"”
-val test3 = EVAL “run_prog "1 + 33 / (a_b_cdef :: 4)"”
-val test4 = EVAL “run_prog "abcdef \\s"”;
+Definition parse_def:
+  parse input =
+    case run_prog input of
+      INL (Locs (POSN r1 c1) (POSN r2 c2), err) =>
+        "Failure: " ++ err ++ "\nbetween (" ++
+        toString r1 ++ ", " ++ toString c1 ++ ") and (" ++
+        toString r2 ++ ", " ++ toString c2 ++ ").\n"
+    | INR (tree, _) => "Success!\n"
+End
+
+fun run_parser str =
+  let
+    val holstr = stringSyntax.fromMLstring str
+    val th = EVAL “parse ^holstr” |> SIMP_RULE (srw_ss()) [camlPEG_def]
+    val strtm = rhs (concl th)
+    val outstr = stringSyntax.fromHOLstring strtm
+  in
+    print outstr
+  end;
+
+fun run_parser_file file =
+  let
+    val ins = TextIO.openIn file
+    val str = TextIO.inputAll ins
+    val _ = TextIO.closeIn ins
+  in
+    run_parser str
+  end;
+
+val test1 = run_parser ":: d ? 4"
+val test2 = run_parser "1 + ? 4"
+val test3 = run_parser "1 + 33 / (a_b_cdef :: 4)"
+val test4 = run_parser "abcdef \\s"
+val test5 = run_parser "if let x = True in x then 4 else 3";
+val test6 = run_parser "if let x = true in x then 4 else 3"; (* fails; "true" *)
 
 val _ = export_theory ();
 
