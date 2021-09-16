@@ -285,7 +285,8 @@ val _ = Hol_datatype `
  decl_step_result =
     Dstep of 'ffi small_decl_state
   | Dabort of abort
-  | Ddone`;
+  | Ddone
+  | Draise of v`;
 
 
 
@@ -302,16 +303,16 @@ val _ = Define `
 
 
 (* Get the "current" sem_env given the context *)
-(*val collapse_env : decl_ctxt -> sem_env v*)
+(*val collapse_env : sem_env v -> decl_ctxt -> sem_env v*)
  val _ = Define `
- ((collapse_env:(decl_ctxt_frame)list ->(v)sem_env) c=
+ ((collapse_env:(v)sem_env ->(decl_ctxt_frame)list ->(v)sem_env) base c=
    ((case c of
-    [] => empty_dec_env
-  | Cdmod mn env ds :: cs => extend_dec_env env (collapse_env cs)
+    [] => base
+  | Cdmod mn env ds :: cs => extend_dec_env env (collapse_env base cs)
   | CdlocalL lenv lds gds :: cs =>
-      extend_dec_env lenv (collapse_env cs)
+      extend_dec_env lenv (collapse_env base cs)
   | CdlocalG lenv genv gds :: cs =>
-      extend_dec_env (extend_dec_env genv lenv) (collapse_env cs)
+      extend_dec_env (extend_dec_env genv lenv) (collapse_env base cs)
   )))`;
 
 
@@ -326,9 +327,9 @@ val _ = Define `
       Dstep (st, Env (lift_dec_env mn (extend_dec_env env' env)), cs)
   | Cdmod mn env (d::ds) :: cs =>
       Dstep (st, Decl d, (Cdmod mn (extend_dec_env env' env) ds :: cs))
-  | CdlocalL lenv [] [] :: cs => Dstep (st, Env empty_dec_env, cs)
-  | CdlocalL lenv [] (gd::gds) :: cs =>
-      Dstep (st, Decl gd, (CdlocalG (extend_dec_env env' lenv) empty_dec_env gds :: cs))
+  | CdlocalL lenv [] gds :: cs =>
+      Dstep (st, Env empty_dec_env,
+             (CdlocalG (extend_dec_env env' lenv) empty_dec_env gds :: cs))
   | CdlocalL lenv (ld::lds) gds :: cs =>
       Dstep (st, Decl ld, (CdlocalL (extend_dec_env env' lenv) lds gds :: cs))
   | CdlocalG lenv genv [] :: cs => Dstep (st, Env (extend_dec_env env' genv), cs)
@@ -337,20 +338,20 @@ val _ = Define `
   )))`;
 
 
-(*val decl_step : forall 'ffi. small_decl_state 'ffi -> decl_step_result 'ffi*)
+(*val decl_step : forall 'ffi. sem_env v -> small_decl_state 'ffi -> decl_step_result 'ffi*)
 val _ = Define `
- ((decl_step:'ffi state#decl_eval#(decl_ctxt_frame)list -> 'ffi decl_step_result) (st, dev, c)=
+ ((decl_step:(v)sem_env -> 'ffi state#decl_eval#(decl_ctxt_frame)list -> 'ffi decl_step_result) benv (st, dev, c)=
    ((case dev of
     Decl d =>
       (case d of
         Dlet locs p e =>
           if ALL_DISTINCT (pat_bindings p []) then
-            Dstep (st, ExpVal (collapse_env c) (Exp e) [] locs p, c)
+            Dstep (st, ExpVal (collapse_env benv c) (Exp e) [] locs p, c)
           else Dabort Rtype_error
       | Dletrec locs funs =>
           if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) then
             Dstep (st,
-              Env <| v := (build_rec_env funs (collapse_env c) nsEmpty); c := nsEmpty |>,
+              Env <| v := (build_rec_env funs (collapse_env benv c) nsEmpty); c := nsEmpty |>,
               c)
           else Dabort Rtype_error
       | Dtype locs tds =>
@@ -366,16 +367,17 @@ val _ = Define `
             ( st with<| next_exn_stamp := (st.next_exn_stamp +( 1 : num)) |>),
             Env <| v := nsEmpty; c := (nsSing cn (LENGTH ts, ExnStamp st.next_exn_stamp)) |>,
             c)
-      | Dmod mn [] =>
-          Dstep (st, Env (lift_dec_env mn empty_dec_env), c)
-      | Dmod mn (d::ds) =>
-          Dstep (st, Decl d, (Cdmod mn empty_dec_env ds :: c))
-      | Dlocal [] [] => Dstep (st, Env empty_dec_env, c)
-      | Dlocal [] (d::ds) =>
-          Dstep (st, Decl d, (CdlocalG empty_dec_env empty_dec_env ds :: c))
-      | Dlocal (ld::lds) gds =>
-          Dstep (st, Decl ld, (CdlocalL empty_dec_env lds gds :: c))
-      | Denv tv => Dabort Rtype_error (* eval primitive not supported *)
+      | Dmod mn ds =>
+          Dstep (st, Env empty_dec_env, (Cdmod mn empty_dec_env ds :: c))
+      | Dlocal lds gds =>
+          Dstep (st, Env empty_dec_env, (CdlocalL empty_dec_env lds gds :: c))
+      | Denv n =>
+          (case declare_env st.eval_state (collapse_env benv c) of
+            SOME (x, es') =>
+             Dstep (( st with<| eval_state := es' |>),
+              Env <| v := (nsSing n x) ; c := nsEmpty |>, c)
+          | NONE => Dabort Rtype_error
+          )
       )
 
   | Env env => decl_continue env st c
@@ -384,14 +386,14 @@ val _ = Define `
       (case (ev, ec) of
         (Val v, []) =>
           if ALL_DISTINCT (pat_bindings p []) then
-            (case pmatch env.c st.refs p v [] of
+            (case pmatch (collapse_env benv c).c st.refs p v [] of
               Match new_vals =>
                 Dstep (st, Env <| v := (alist_to_ns new_vals); c := nsEmpty |>, c)
-            | No_match => Ddone
+            | No_match => Draise bind_exn_v
             | Match_type_error => Dabort Rtype_error
             )
           else Dabort Rtype_error
-      | (Val v, ((Craise () , env')::[])) => Ddone
+      | (Val v, ((Craise () , env')::[])) => Draise v
       | _ =>
         (case e_step (env, (st.refs, st.ffi), ev, ec) of
           Estep (env', (refs', ffi'), ev', ec') =>
