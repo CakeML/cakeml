@@ -2047,4 +2047,1045 @@ Proof
   rw[] >> drule $ cj 1 untyped_safety_decs >> metis_tac[]
 QED
 
+
+(**********
+
+  Prove equivalence between small-step and big-step semantics for declarations.
+
+**********)
+
+val _ = set_fixity "+++" (Infixl 480);
+Overload "+++" = “extend_dec_env”;
+
+Definition decl_step_reln_def:
+  decl_step_reln benv st st' = (decl_step benv st = Dstep st')
+End
+
+val decl_step_ss = simpLib.named_rewrites "decl_step_ss"
+  [decl_step_reln_def, decl_step_def, decl_continue_def];
+
+Definition Rerr_to_decl_step_result_def[simp]:
+  Rerr_to_decl_step_result (Rraise v) = Draise v ∧
+  Rerr_to_decl_step_result (Rabort v) = Dabort v
+End
+
+Definition small_eval_dec_def:
+  (small_eval_dec benv dst (st, Rval e) =
+    (decl_step_reln benv)꙳ dst (st, Env e, [])) ∧
+  (small_eval_dec benv dst (st, Rerr err) =
+    ∃dst'.
+      (decl_step_reln benv)꙳ dst (st, dst') ∧
+      decl_step benv (st, dst') = Rerr_to_decl_step_result err)
+End
+
+Inductive small_eval_decs:
+  small_eval_decs benv st [] (st, Rval empty_dec_env) ∧
+
+  (small_eval_dec benv (st, Decl d, []) (st', Rval env) ∧
+   small_eval_decs (env +++ benv) st' ds (st'', r)
+      ⇒ small_eval_decs benv st (d::ds) (st'', combine_dec_result env r)) ∧
+
+  (small_eval_dec benv (st, Decl d, []) (st', Rerr e)
+      ⇒ small_eval_decs benv st (d::ds) (st', Rerr e))
+End
+
+Definition small_decl_diverges_def:
+  small_decl_diverges env a ⇔
+    ∀b.
+      (decl_step_reln env)꙳ a b ⇒
+      ∃c. decl_step_reln env b c
+End
+
+Theorem decl_step_to_Ddone:
+  decl_step env (st, dev, ds) = Ddone ⇔
+  ∃e. dev = Env e ∧ ds = []
+Proof
+  rw[] >> reverse eq_tac >> rw[]
+  >- (simp[decl_step_def, decl_continue_def]) >>
+  reverse $ Cases_on `dev` >> gvs[decl_step_def]
+  >- (gvs[decl_continue_def] >> every_case_tac >> gvs[])
+  >- (
+    pop_assum mp_tac >> simp[] >>
+    qpat_abbrev_tac `foo = e_step_result_CASE _ _ _ _` >>
+    TOP_CASE_TAC >> gvs[]
+    >- (
+      gvs[e_step_def, push_def, return_def] >>
+      every_case_tac >> gvs[] >> unabbrev_all_tac >> gvs[] >>
+      gvs[application_def] >> every_case_tac >> gvs[return_def]
+      ) >>
+    TOP_CASE_TAC >> gvs[] >- (every_case_tac >> gvs[]) >>
+    Cases_on `∃env. h::t = [Craise (), env]` >> gvs[] >>
+    qsuff_tac `foo ≠ Ddone` >- (rw[] >> every_case_tac >> gvs[]) >>
+    unabbrev_all_tac >> every_case_tac >> gvs[] >>
+    pop_assum mp_tac >> simp[] >>
+    simp[e_step_def, continue_def, push_def, return_def, application_def] >>
+    every_case_tac >> gvs[]
+    )
+  >- (every_case_tac >> gvs[])
+QED
+
+Theorem small_decl_total:
+  ∀env a.
+    (∀b. ¬small_eval_dec env a b) ⇔
+    small_decl_diverges env a
+Proof
+  rw[small_decl_diverges_def] >>
+  reverse eq_tac >> strip_tac >> gen_tac >> rw[] >> gvs[]
+  >- (
+    CCONTR_TAC >> last_x_assum mp_tac >> gvs[] >>
+    PairCases_on `b` >> Cases_on `b1` >> gvs[small_eval_dec_def] >>
+    goal_assum drule >> simp[SF decl_step_ss] >>
+    Cases_on `e` >> gvs[]
+    ) >>
+  simp[SF decl_step_ss] >>
+  Cases_on `decl_step env b` >> gvs[] >> PairCases_on `b`
+  >- (
+    last_x_assum mp_tac >> simp[] >> qexists_tac `(b0, Rerr $ Rabort a')` >>
+    simp[small_eval_dec_def] >> goal_assum drule >> simp[]
+    )
+  >- (
+    gvs[decl_step_to_Ddone] >>
+    last_x_assum $ qspec_then `(b0,Rval e)` assume_tac >> gvs[small_eval_dec_def]
+    )
+  >- (
+    last_x_assum mp_tac >> simp[] >> qexists_tac `(b0, Rerr $ Rraise v)` >>
+    simp[small_eval_dec_def] >> goal_assum drule >> simp[]
+    )
+QED
+
+Theorem extend_dec_env_empty_dec_env[simp]:
+  (∀env. env +++ empty_dec_env = env) ∧
+  (∀env. empty_dec_env +++ env = env)
+Proof
+  rw[extend_dec_env_def, empty_dec_env_def]
+QED
+
+Theorem collapse_env_def:
+  (∀benv. collapse_env benv [] =  benv) ∧
+  (∀benv mn env ds cs. collapse_env benv (Cdmod mn env ds :: cs) =
+    env +++ (collapse_env benv cs)) ∧
+  (∀benv lenv lds gds cs. collapse_env benv (CdlocalL lenv lds gds :: cs) =
+    lenv +++ (collapse_env benv cs)) ∧
+  (∀benv lenv genv gds cs. collapse_env benv (CdlocalG lenv genv gds :: cs) =
+    genv +++ lenv +++ (collapse_env benv cs))
+Proof
+  rw[] >> simp[Once collapse_env_def, empty_dec_env_def]
+QED
+
+Theorem collapse_env_APPEND:
+  ∀c1 c2 benv.
+    collapse_env benv (c1 ++ c2) =
+      collapse_env (collapse_env benv c2) c1
+Proof
+  Induct >> rw[collapse_env_def] >> Cases_on `h` >> gvs[collapse_env_def]
+QED
+
+Theorem extend_collapse_env:
+  ∀c benv env.
+    (collapse_env env c) +++ benv =
+    collapse_env (extend_dec_env env benv) c
+Proof
+  Induct >> rw[collapse_env_def, empty_dec_env_def] >>
+  Cases_on `h` >> simp[collapse_env_def] >>
+  rewrite_tac[GSYM extend_dec_env_assoc] >>
+  first_assum $ rewrite_tac o single
+QED
+
+Theorem collapse_env_unchanged:
+  ∀c benv. collapse_env benv c = benv ⇔ collapse_env empty_dec_env c = empty_dec_env
+Proof
+  rw[] >> `benv = empty_dec_env +++ benv` by simp[] >>
+  pop_assum $ rewrite_tac o single o Once >>
+  simp[GSYM extend_collapse_env] >>
+  simp[extend_dec_env_def] >>
+  Cases_on `collapse_env empty_dec_env c` >> simp[] >>
+  Cases_on `n` >> Cases_on `n0` >> gvs[] >>
+  Cases_on `benv` >> Cases_on `n` >> Cases_on `n0` >> gvs[] >>
+  simp[namespaceTheory.nsAppend_def, sem_env_component_equality] >>
+  eq_tac >> rw[empty_dec_env_def, namespaceTheory.nsEmpty_def]
+QED
+
+Theorem collapse_env_split:
+  ∀benv env. collapse_env benv env =
+    extend_dec_env (collapse_env empty_dec_env env) benv
+Proof
+  simp[extend_collapse_env]
+QED
+
+Theorem collapse_env_APPEND_alt:
+  ∀c1 c2 benv.
+    collapse_env benv (c1 ++ c2) =
+      extend_dec_env (collapse_env empty_dec_env c1) (collapse_env benv c2)
+Proof
+  simp[extend_collapse_env, collapse_env_APPEND]
+QED
+
+Theorem small_eval_dec_prefix:
+  ∀benv dst dst' res.
+    (decl_step_reln benv)꙳ dst dst' ⇒
+    small_eval_dec benv dst' res
+  ⇒ small_eval_dec benv dst res
+Proof
+  rw[] >> PairCases_on `res` >> Cases_on `res1` >> gvs[small_eval_dec_def]
+  >- (simp[Once RTC_CASES_RTC_TWICE] >> goal_assum drule >> simp[]) >>
+  Cases_on `e` >> gvs[small_eval_dec_def] >>
+  goal_assum $ drule_at Any >>
+  simp[Once RTC_CASES_RTC_TWICE] >> goal_assum drule >> simp[]
+QED
+
+Theorem decl_step_ctxt_weaken_Dstep:
+  ∀benv extra (st:'ffi state) dev c s' dev' c'.
+    decl_step (collapse_env benv extra) (st, dev, c) = Dstep (s', dev', c')
+  ⇒ decl_step benv (st, dev, c ++ extra) = Dstep (s', dev', c' ++ extra)
+Proof
+  rw[decl_step_def] >>
+  `collapse_env benv (c ++ extra) = collapse_env (collapse_env benv extra) c` by
+    simp[collapse_env_APPEND] >>
+  every_case_tac >> gvs[collapse_env_def] >>
+  pop_assum mp_tac >> simp[decl_continue_def] >>
+  every_case_tac >> gvs[]
+QED
+
+Theorem decl_step_ctxt_weaken_Dabort:
+  ∀benv extra (st:'ffi state) dev c s' dev' c' a.
+    decl_step (collapse_env benv extra) (st, dev, c) = Dabort a
+  ⇒ decl_step benv (st, dev, c ++ extra) = Dabort a
+Proof
+  rw[decl_step_def] >>
+  `collapse_env benv (c ++ extra) = collapse_env (collapse_env benv extra) c` by
+    simp[collapse_env_APPEND] >>
+  every_case_tac >> gvs[collapse_env_def] >>
+  pop_assum mp_tac >> simp[decl_continue_def] >>
+  every_case_tac >> gvs[]
+QED
+
+Theorem decl_step_ctxt_weaken_Draise:
+  ∀benv extra (st:'ffi state) dev c s' dev' c' a.
+    decl_step (collapse_env benv extra) (st, dev, c) = Draise a
+  ⇒ decl_step benv (st, dev, c ++ extra) = Draise a
+Proof
+  rw[decl_step_def] >>
+  `collapse_env benv (c ++ extra) = collapse_env (collapse_env benv extra) c` by
+    simp[collapse_env_APPEND] >>
+  every_case_tac >> gvs[collapse_env_def] >>
+  pop_assum mp_tac >> simp[decl_continue_def] >>
+  every_case_tac >> gvs[]
+QED
+
+Theorem decl_step_ctxt_weaken_err:
+  ∀benv extra (st:'ffi state) dev c s' dev' c' a.
+    decl_step (collapse_env benv extra) (st, dev, c) = Rerr_to_decl_step_result a
+  ⇒ decl_step benv (st, dev, c ++ extra) = Rerr_to_decl_step_result a
+Proof
+  Cases_on `a` >> gvs[] >>
+  simp[decl_step_ctxt_weaken_Dabort, decl_step_ctxt_weaken_Draise]
+QED
+
+Theorem RTC_decl_step_reln_ctxt_weaken:
+  ∀benv extra (st : 'ffi state) dev c s' dev' c'.
+    (decl_step_reln (collapse_env benv extra))꙳ (st, dev, c) (s', dev', c')
+  ⇒ (decl_step_reln benv)꙳ (st, dev, c ++ extra) (s', dev', c' ++ extra)
+Proof
+  gen_tac >> gen_tac >>
+  Induct_on `RTC (decl_step_reln (collapse_env benv extra))` >> rw[] >> simp[] >>
+  simp[Once RTC_CASES1] >> disj2_tac >>
+  rename1 `decl_step_reln _ _ foo` >> PairCases_on `foo` >>
+  gvs[decl_step_reln_def] >> drule decl_step_ctxt_weaken_Dstep >> simp[]
+QED
+
+Theorem decl_step_to_Draise:
+  ∀env (st:'ffi state) dev c ex.
+    decl_step env (st, dev, c) = Draise ex ⇔
+      (∃env' v locs p.
+        dev = ExpVal env' (Val v) [] locs p ∧
+        ALL_DISTINCT (pat_bindings p []) ∧
+        pmatch (collapse_env env c).c st.refs p v [] = No_match ∧
+        ex = bind_exn_v) ∨
+      (∃env' v env'' locs p.
+        dev = ExpVal env' (Val v) [(Craise (), env'')] locs p ∧ ex = v)
+Proof
+  rw[] >> eq_tac >> rw[] >> gvs[decl_step_def] >>
+  every_case_tac >> gvs[] >>
+  gvs[decl_continue_def] >> every_case_tac >> gvs[]
+QED
+
+Theorem pmatch_nsAppend:
+  (∀ns st pat v env m ns'.
+    (pmatch ns st pat v env = No_match
+   ⇒ pmatch (nsAppend ns ns') st pat v env = No_match) ∧
+    (pmatch ns st pat v env = Match m
+   ⇒ pmatch (nsAppend ns ns') st pat v env = Match m)) ∧
+  (∀ns st pats vs env m ns'.
+    (pmatch_list ns st pats vs env = No_match
+   ⇒ pmatch_list (nsAppend ns ns') st pats vs env = No_match) ∧
+    (pmatch_list ns st pats vs env = Match m
+   ⇒ pmatch_list (nsAppend ns ns') st pats vs env = Match m))
+Proof
+  ho_match_mp_tac terminationTheory.pmatch_ind >>
+  rw[terminationTheory.pmatch_def]
+  >- (
+    pop_assum mp_tac >> TOP_CASE_TAC >>
+    `nsLookup (nsAppend ns ns') n = SOME x` by
+      gvs[namespacePropsTheory.nsLookup_nsAppend_some] >>
+    gvs[] >> PairCases_on `x` >> gvs[] >>
+    rpt (TOP_CASE_TAC >> gvs[])
+    )
+  >- (
+    pop_assum mp_tac >> TOP_CASE_TAC >>
+    `nsLookup (nsAppend ns ns') n = SOME x` by
+      gvs[namespacePropsTheory.nsLookup_nsAppend_some] >>
+    gvs[] >> PairCases_on `x` >> gvs[] >>
+    rpt (TOP_CASE_TAC >> gvs[])
+    )
+  >- (TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[])
+  >- (TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[])
+  >- (
+    pop_assum mp_tac >> TOP_CASE_TAC >> gvs[] >>
+    TOP_CASE_TAC >> gvs[]
+    )
+  >- (
+    pop_assum mp_tac >> TOP_CASE_TAC >> gvs[] >>
+    TOP_CASE_TAC >> gvs[]
+    )
+QED
+
+Theorem pmatch_nsAppend_No_match = pmatch_nsAppend |> cj 1 |> cj 1;
+Theorem pmatch_nsAppend_Match = pmatch_nsAppend |> cj 1 |> cj 2;
+
+Triviality e_step_reln_decl_step_reln:
+  ∀env (stffi:('ffi,v) store_ffi) ev cs env' stffi' ev' cs'
+    benv (st:'ffi state) locs p dcs.
+  e_step_reln꙳ (env, stffi, ev, cs) (env', stffi', ev', cs')
+  ⇒ (decl_step_reln benv)꙳
+      (st with <| refs := FST stffi ; ffi := SND stffi |>,
+          ExpVal env ev cs locs p, dcs)
+      (st with <| refs := FST stffi' ; ffi := SND stffi' |>,
+          ExpVal env' ev' cs' locs p, dcs)
+Proof
+  Induct_on `RTC e_step_reln` >> rw[] >> simp[] >>
+  simp[Once RTC_CASES1] >> disj2_tac >>
+  simp[decl_step_reln_def, decl_step_def] >> gvs[e_step_reln_def] >>
+  every_case_tac >> gvs[e_step_def, continue_def]
+QED
+
+Theorem decl_step_eval_state_NONE:
+  ∀benv (st:'ffi state) dev c st' dev' c'.
+    decl_step benv (st, dev, c) = Dstep (st', dev', c') ∧
+    st.eval_state = NONE
+  ⇒ st'.eval_state = NONE
+Proof
+  rw[decl_step_def] >> every_case_tac >> gvs[] >>
+  gvs[decl_continue_def, declare_env_def] >> every_case_tac >> gvs[]
+QED
+
+Theorem RTC_decl_step_reln_eval_state_NONE:
+  ∀benv (st : 'ffi state) dev c st' dev' c'.
+    (decl_step_reln benv)꙳ (st, dev, c) (st', dev', c') ∧
+    st.eval_state = NONE
+  ⇒ st'.eval_state = NONE
+Proof
+  rw[] >>
+  qsuff_tac `
+    ∀a b. (decl_step_reln benv)꙳ a b ⇒
+    ∀(st:'ffi state) dev c st' dev' c'.
+      a = (st, dev, c) ∧ b = (st', dev', c') ∧
+      st.eval_state = NONE
+    ⇒ st'.eval_state = NONE`
+  >- (rw[] >> metis_tac[]) >>
+  Induct_on `RTC (decl_step_reln benv)` >> rw[] >> simp[] >>
+  PairCases_on `a'` >> gvs[] >> first_x_assum irule >>
+  gvs[decl_step_reln_def] >>
+  drule decl_step_eval_state_NONE >> simp[]
+QED
+
+Theorem small_eval_decs_eval_state_NONE:
+  ∀env (st : 'ffi state) ds st' res.
+    small_eval_decs env st ds (st', res) ∧
+    st.eval_state = NONE
+  ⇒ st'.eval_state = NONE
+Proof
+  Induct_on `small_eval_decs` >> rw[]
+  >- (
+    first_x_assum irule >> simp[] >>
+    irule RTC_decl_step_reln_eval_state_NONE >> gvs[small_eval_dec_def] >>
+    rpt $ goal_assum drule
+    )
+  >- (
+    irule RTC_decl_step_reln_eval_state_NONE >> gvs[small_eval_dec_def] >>
+    PairCases_on `dst'` >> rpt $ goal_assum drule
+    )
+QED
+
+Theorem small_eval_decs_Rval_Dmod_lemma[local]:
+  ∀env (st:'ffi state) decs st' new_env envc envb enva mn.
+    small_eval_decs env st decs (st', Rval new_env) ∧
+    env = envc +++ envb +++ enva ∧
+    st.eval_state = NONE
+  ⇒ (decl_step_reln enva)꙳ (st,Env envc,[Cdmod mn envb decs])
+     (st', Env $ lift_dec_env mn (new_env +++ envc +++ envb), [])
+Proof
+  Induct_on `small_eval_decs` >> rw[] >> gvs[]
+  >- (simp[Once RTC_CASES1, SF decl_step_ss]) >>
+  Cases_on `r` >> gvs[combine_dec_result_def] >>
+  simp[Once RTC_CASES1, SF decl_step_ss] >>
+  gvs[small_eval_dec_def] >>
+  qspecl_then [`enva`,`[Cdmod mn (envc +++ envb) decs]`]
+    mp_tac RTC_decl_step_reln_ctxt_weaken >>
+  simp[collapse_env_def] >> disch_then drule >> simp[] >> strip_tac >>
+  irule $ iffRL RTC_CASES_RTC_TWICE >> goal_assum drule >>
+  irule $ iffRL RTC_CASES_RTC_TWICE >> first_x_assum $ irule_at Any >> simp[] >>
+  simp[extend_dec_env_def] >>
+  irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+QED
+
+Theorem small_eval_decs_Rval_Dmod:
+  ∀env st ds res st' new_env mn.
+   small_eval_decs env st ds (st', Rval new_env) ∧
+   st.eval_state = NONE
+  ⇒ small_eval_dec env (st, Decl (Dmod mn ds), [])
+      (st', Rval $ lift_dec_env mn new_env)
+Proof
+  rw[] >> drule small_eval_decs_Rval_Dmod_lemma >>
+  disch_then $ qspecl_then [`empty_dec_env`,`empty_dec_env`,`env`] mp_tac >>
+  rw[small_eval_dec_def] >> simp[Once RTC_CASES1, SF decl_step_ss]
+QED
+
+Theorem small_eval_decs_Rerr_Dmod_lemma[local]:
+  ∀env (st:'ffi state) decs st' err envc envb enva mn.
+    small_eval_decs env st decs (st', Rerr err) ∧
+    env = envc +++ envb +++ enva ∧
+    st.eval_state = NONE
+  ⇒ ∃dst.
+     (decl_step_reln enva)꙳ (st,Env envc,[Cdmod mn envb decs]) (st', dst) ∧
+     decl_step enva (st', dst) = Rerr_to_decl_step_result err
+Proof
+  Induct_on `small_eval_decs` >> reverse $ rw[] >> gvs[]
+  >- (
+    simp[Once RTC_CASES1, SF decl_step_ss] >> irule_at Any OR_INTRO_THM2 >>
+    gvs[small_eval_dec_def] >>
+    qspecl_then [`enva`,`[Cdmod mn (envc +++ envb) ds]`]
+      mp_tac RTC_decl_step_reln_ctxt_weaken >>
+    simp[collapse_env_def] >> PairCases_on `dst'` >>
+    disch_then drule >> simp[] >> strip_tac >> goal_assum drule >>
+    irule decl_step_ctxt_weaken_err >> simp[collapse_env_def]
+    ) >>
+  Cases_on `r` >> gvs[combine_dec_result_def] >>
+  simp[Once RTC_CASES1, SF decl_step_ss] >> irule_at Any OR_INTRO_THM2 >>
+  gvs[small_eval_dec_def] >>
+  qspecl_then [`enva`,`[Cdmod mn (envc +++ envb) decs]`]
+    mp_tac RTC_decl_step_reln_ctxt_weaken >>
+  simp[collapse_env_def] >> disch_then drule >> simp[] >> strip_tac >>
+  irule_at Any $ iffRL RTC_CASES_RTC_TWICE >> goal_assum drule >>
+  first_x_assum irule >> simp[] >>
+  irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+QED
+
+Theorem small_eval_decs_Rerr_Dmod:
+  ∀env st ds res st' err mn.
+   small_eval_decs env st ds (st', Rerr err) ∧
+   st.eval_state = NONE
+  ⇒ small_eval_dec env (st, Decl (Dmod mn ds), []) (st', Rerr err)
+Proof
+  rw[] >> drule small_eval_decs_Rerr_Dmod_lemma >>
+  disch_then $ qspecl_then [`empty_dec_env`,`empty_dec_env`,`env`] mp_tac >>
+  rw[small_eval_dec_def] >> simp[Once RTC_CASES1, SF decl_step_ss] >>
+  irule_at Any OR_INTRO_THM2 >> simp[]
+QED
+
+Theorem small_eval_decs_Rval_Dlocal_lemma_1[local]:
+  ∀env (st:'ffi state) decs st' new_env envc envb enva gds.
+    small_eval_decs env st decs (st', Rval new_env) ∧
+    env = envc +++ envb +++ enva ∧
+    st.eval_state = NONE
+  ⇒ (decl_step_reln enva)꙳ (st,Env envc,[CdlocalL envb decs gds])
+     (st', Env empty_dec_env,
+      [CdlocalG (new_env +++ envc +++ envb) empty_dec_env gds])
+Proof
+  Induct_on `small_eval_decs` >> rw[] >> gvs[]
+  >- (simp[Once RTC_CASES1, SF decl_step_ss]) >>
+  Cases_on `r` >> gvs[combine_dec_result_def] >>
+  simp[Once RTC_CASES1, SF decl_step_ss] >>
+  gvs[small_eval_dec_def] >>
+  qspecl_then [`enva`,`[CdlocalL (envc +++ envb) decs gds]`]
+    mp_tac RTC_decl_step_reln_ctxt_weaken >>
+  simp[collapse_env_def] >> disch_then drule >> simp[] >> strip_tac >>
+  irule $ iffRL RTC_CASES_RTC_TWICE >> goal_assum drule >>
+  irule $ iffRL RTC_CASES_RTC_TWICE >> first_x_assum $ irule_at Any >> simp[] >>
+  simp[extend_dec_env_def] >>
+  irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+QED
+
+Theorem small_eval_decs_Rval_Dlocal_lemma_2[local]:
+  ∀env (st:'ffi state) decs st' new_env envc lenv genv enva.
+    small_eval_decs env st decs (st', Rval new_env) ∧
+    env = envc +++ genv +++ lenv +++ enva ∧
+    st.eval_state = NONE
+  ⇒ (decl_step_reln enva)꙳ (st,Env envc,[CdlocalG lenv genv decs])
+     (st', Env $ new_env +++ envc +++ genv, [])
+Proof
+  Induct_on `small_eval_decs` >> rw[] >> gvs[]
+  >- (simp[Once RTC_CASES1, SF decl_step_ss]) >>
+  Cases_on `r` >> gvs[combine_dec_result_def] >>
+  simp[Once RTC_CASES1, SF decl_step_ss] >>
+  gvs[small_eval_dec_def] >>
+  qspecl_then [`enva`,`[CdlocalG lenv (envc +++ genv) decs]`]
+    mp_tac RTC_decl_step_reln_ctxt_weaken >>
+  simp[collapse_env_def] >> disch_then drule >> simp[] >> strip_tac >>
+  irule $ iffRL RTC_CASES_RTC_TWICE >> goal_assum drule >>
+  irule $ iffRL RTC_CASES_RTC_TWICE >> first_x_assum $ irule_at Any >> simp[] >>
+  simp[extend_dec_env_def] >>
+  irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+QED
+
+Theorem small_eval_decs_Rval_Dlocal:
+  ∀env (st:'ffi state) lds st' lenv gds st'' genv.
+   small_eval_decs env st lds (st', Rval lenv) ∧
+   small_eval_decs (lenv +++ env) st' gds (st'', Rval genv) ∧
+   st.eval_state = NONE
+  ⇒ small_eval_dec env (st, Decl (Dlocal lds gds), []) (st'', Rval $ genv)
+Proof
+  rw[] >>
+  qpat_x_assum `small_eval_decs _ _ _ _` mp_tac >>
+  drule small_eval_decs_Rval_Dlocal_lemma_1 >>
+  disch_then $ qspecl_then [`empty_dec_env`,`empty_dec_env`,`env`,`gds`] mp_tac >>
+  simp[] >> strip_tac >> strip_tac >>
+  drule small_eval_decs_Rval_Dlocal_lemma_2 >>
+  disch_then $ qspecl_then [`empty_dec_env`,`lenv`,`empty_dec_env`,`env`] mp_tac >>
+  simp[] >> impl_tac >> rw[]
+  >- (irule small_eval_decs_eval_state_NONE >> rpt $ goal_assum drule) >>
+  simp[small_eval_dec_def] >>
+  simp[Once RTC_CASES1, SF decl_step_ss] >>
+  irule $ iffRL RTC_CASES_RTC_TWICE >> goal_assum drule >> simp[]
+QED
+
+Theorem small_eval_decs_Rerr_Dlocal_lemma_1[local]:
+  ∀env (st:'ffi state) decs st' err envc envb enva gds.
+    small_eval_decs env st decs (st', Rerr err) ∧
+    env = envc +++ envb +++ enva ∧
+    st.eval_state = NONE
+  ⇒ ∃dst.
+      (decl_step_reln enva)꙳ (st,Env envc,[CdlocalL envb decs gds]) (st', dst) ∧
+      decl_step enva (st', dst) = Rerr_to_decl_step_result err
+Proof
+  Induct_on `small_eval_decs` >> reverse $ rw[] >> gvs[]
+  >- (
+    gvs[small_eval_dec_def] >>
+    simp[Once RTC_CASES1, SF decl_step_ss] >> irule_at Any OR_INTRO_THM2 >>
+    qspecl_then [`enva`,`[CdlocalL (envc +++ envb) ds gds]`]
+      mp_tac RTC_decl_step_reln_ctxt_weaken >>
+    simp[collapse_env_def] >> PairCases_on `dst'` >>
+    disch_then drule >> simp[] >> strip_tac >> goal_assum drule >>
+    irule decl_step_ctxt_weaken_err >> simp[collapse_env_def]
+    ) >>
+  Cases_on `r` >> gvs[combine_dec_result_def] >>
+  simp[Once RTC_CASES1, SF decl_step_ss] >> irule_at Any OR_INTRO_THM2 >>
+  gvs[small_eval_dec_def] >>
+  qspecl_then [`enva`,`[CdlocalL (envc +++ envb) decs gds]`]
+    mp_tac RTC_decl_step_reln_ctxt_weaken >>
+  simp[collapse_env_def] >> disch_then drule >> simp[] >> strip_tac >>
+  irule_at Any $ iffRL RTC_CASES_RTC_TWICE >> goal_assum drule >>
+  first_x_assum $ irule_at Any >> simp[] >>
+  irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+QED
+
+Theorem small_eval_decs_Rerr_Dlocal_lemma_2[local]:
+  ∀env (st:'ffi state) decs st' err envc lenv genv enva.
+    small_eval_decs env st decs (st', Rerr err) ∧
+    env = envc +++ genv +++ lenv +++ enva ∧
+    st.eval_state = NONE
+  ⇒ ∃dst.
+      (decl_step_reln enva)꙳ (st,Env envc,[CdlocalG lenv genv decs]) (st',dst) ∧
+      decl_step enva (st',dst) = Rerr_to_decl_step_result err
+Proof
+  Induct_on `small_eval_decs` >> reverse $ rw[] >> gvs[]
+  >- (
+    gvs[small_eval_dec_def] >>
+    simp[Once RTC_CASES1, SF decl_step_ss] >> irule_at Any OR_INTRO_THM2 >>
+    qspecl_then [`enva`,`[CdlocalG lenv (envc +++ genv) ds]`]
+      mp_tac RTC_decl_step_reln_ctxt_weaken >>
+    simp[collapse_env_def] >> PairCases_on `dst'` >>
+    disch_then drule >> simp[] >> strip_tac >> goal_assum drule >>
+    irule decl_step_ctxt_weaken_err >> simp[collapse_env_def]
+    ) >>
+  Cases_on `r` >> gvs[combine_dec_result_def] >>
+  simp[Once RTC_CASES1, SF decl_step_ss] >> irule_at Any OR_INTRO_THM2 >>
+  gvs[small_eval_dec_def] >>
+  qspecl_then [`enva`,`[CdlocalG lenv (envc +++ genv) decs]`]
+    mp_tac RTC_decl_step_reln_ctxt_weaken >>
+  simp[collapse_env_def] >> disch_then drule >> simp[] >> strip_tac >>
+  irule_at Any $ iffRL RTC_CASES_RTC_TWICE >> goal_assum drule >>
+  first_x_assum $ irule_at Any >> simp[] >>
+  irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+QED
+
+Theorem small_eval_decs_Rerr_Dlocal:
+  ∀env st lds gds res st' err mn.
+   (small_eval_decs env st lds (st', Rerr err) ∨
+    ∃st'' new_env.
+      small_eval_decs env st lds (st'', Rval new_env) ∧
+      small_eval_decs (new_env +++ env) st'' gds (st', Rerr err)) ∧
+   st.eval_state = NONE
+  ⇒ small_eval_dec env (st, Decl (Dlocal lds gds), []) (st', Rerr err)
+Proof
+  rw[small_eval_dec_def] >>
+  simp[Once RTC_CASES1, SF decl_step_ss] >> irule_at Any OR_INTRO_THM2
+  >- (irule small_eval_decs_Rerr_Dlocal_lemma_1 >> simp[]) >>
+  irule_at Any $ iffRL RTC_CASES_RTC_TWICE >>
+  irule_at Any small_eval_decs_Rval_Dlocal_lemma_1 >>
+  goal_assum drule >> simp[] >>
+  irule small_eval_decs_Rerr_Dlocal_lemma_2 >> simp[] >>
+  irule small_eval_decs_eval_state_NONE >> rpt $ goal_assum drule
+QED
+
+Theorem big_dec_to_small_dec:
+  (∀ck env (st:'ffi state) d r.
+    evaluate_dec ck env st d r ⇒
+    ¬ck ∧ st.eval_state = NONE
+  ⇒ small_eval_dec env (st, Decl d, []) r) ∧
+
+  (∀ck env (st:'ffi state) ds r.
+    evaluate_decs ck env st ds r ⇒
+    ¬ck ∧ st.eval_state = NONE
+  ⇒ small_eval_decs env st ds r)
+Proof
+  ho_match_mp_tac evaluate_dec_ind >> rw[small_eval_dec_def] >> gvs[]
+  >- (
+    simp[Once RTC_CASES1, SF decl_step_ss] >>
+    drule_all $ iffRL small_big_exp_equiv >> strip_tac >>
+    gvs[small_eval_def] >>
+    drule e_step_reln_decl_step_reln >>
+    disch_then $ qspecl_then [`env`,`st`,`locs`,`p`,`[]`] mp_tac >>
+    simp[to_small_st_def] >>
+    qmatch_goalsub_abbrev_tac `RTC _ (sta,_) (stb,_)` >> strip_tac >>
+    `sta = st ∧ stb = s2` by (
+      unabbrev_all_tac >> gvs[state_component_equality]) >> gvs[] >>
+    qmatch_goalsub_abbrev_tac `Env new_env` >>
+    drule small_eval_dec_prefix >>
+    disch_then $ qspec_then `(s2, Rval new_env)` mp_tac >>
+    simp[small_eval_dec_def, collapse_env_def] >> disch_then irule >>
+    irule RTC_SINGLE >> simp[SF decl_step_ss, collapse_env_def]
+    )
+  >- (
+    simp[Once RTC_CASES1, SF decl_step_ss] >>
+    irule_at Any OR_INTRO_THM2 >>
+    drule_all $ iffRL small_big_exp_equiv >> strip_tac >>
+    gvs[small_eval_def] >>
+    drule e_step_reln_decl_step_reln >>
+    disch_then $ qspecl_then [`env`,`st`,`locs`,`p`,`[]`] mp_tac >>
+    simp[to_small_st_def] >>
+    qmatch_goalsub_abbrev_tac `RTC _ (sta,_) (stb,_)` >> strip_tac >>
+    `sta = st ∧ stb = s2` by (
+      unabbrev_all_tac >> gvs[state_component_equality]) >> gvs[] >>
+    simp[collapse_env_def] >> goal_assum drule >>
+    simp[decl_step_def, collapse_env_def]
+    )
+  >- (
+    simp[Once RTC_CASES1, SF decl_step_ss] >>
+    irule_at Any OR_INTRO_THM2 >>
+    drule_all $ iffRL small_big_exp_equiv >> strip_tac >>
+    gvs[small_eval_def] >>
+    drule e_step_reln_decl_step_reln >>
+    disch_then $ qspecl_then [`env`,`st`,`locs`,`p`,`[]`] mp_tac >>
+    simp[to_small_st_def] >>
+    qmatch_goalsub_abbrev_tac `RTC _ (sta,_) (stb,_)` >> strip_tac >>
+    `sta = st ∧ stb = s2` by (
+      unabbrev_all_tac >> gvs[state_component_equality]) >> gvs[] >>
+    simp[collapse_env_def] >> goal_assum drule >>
+    simp[decl_step_def, collapse_env_def]
+    )
+  >- (irule_at Any RTC_REFL >> simp[decl_step_def])
+  >- (
+    Cases_on `err` >> gvs[small_eval_dec_def] >> (
+      simp[Once RTC_CASES1, SF decl_step_ss] >>
+      irule_at Any OR_INTRO_THM2 >>
+      drule_all $ iffRL small_big_exp_equiv >> strip_tac >>
+      gvs[small_eval_def] >>
+      drule e_step_reln_decl_step_reln >>
+      disch_then $ qspecl_then [`env`,`st`,`locs`,`p`,`[]`] mp_tac >>
+      simp[to_small_st_def] >>
+      qmatch_goalsub_abbrev_tac `RTC _ (sta,_) (stb,_)` >> strip_tac >>
+      `sta = st ∧ stb = s'` by (
+        unabbrev_all_tac >> gvs[state_component_equality]) >> gvs[] >>
+      simp[collapse_env_def] >> goal_assum drule >>
+      simp[decl_step_def] >> gvs[to_small_st_def] >>
+      rpt (TOP_CASE_TAC >> gvs[]) >> gvs[e_step_def, continue_def]
+      )
+    )
+  >- (irule RTC_SINGLE >> simp[SF decl_step_ss, collapse_env_def])
+  >- (irule_at Any RTC_REFL >> simp[decl_step_def])
+  >- (irule RTC_SINGLE >> simp[SF decl_step_ss])
+  >- (
+    irule_at Any RTC_REFL >> simp[decl_step_def] >>
+    IF_CASES_TAC >> gvs[] >> pop_assum mp_tac >> simp[]
+    )
+  >- (irule RTC_SINGLE >> simp[SF decl_step_ss] >> gvs[declare_env_def])
+  >- (irule_at Any RTC_REFL >> simp[SF decl_step_ss, collapse_env_def])
+  >- (irule RTC_SINGLE >> simp[SF decl_step_ss, empty_dec_env_def])
+  >- (irule RTC_SINGLE >> simp[SF decl_step_ss])
+  >- (
+    drule small_eval_decs_Rval_Dmod >> simp[small_eval_dec_def, lift_dec_env_def]
+    )
+  >- (
+    simp[GSYM small_eval_dec_def] >> irule small_eval_decs_Rerr_Dmod >> simp[]
+    )
+  >- (
+    PairCases_on `r` >> gvs[] >> Cases_on `r1` >> gvs[]
+    >- (
+      irule small_eval_decs_Rval_Dlocal >> simp[] >>
+      goal_assum drule >> first_x_assum irule >>
+      irule small_eval_decs_eval_state_NONE >>
+      rpt $ goal_assum drule
+      )
+    >- (
+      irule small_eval_decs_Rerr_Dlocal >> simp[] >> disj2_tac >>
+      goal_assum drule >> first_x_assum irule >>
+      irule small_eval_decs_eval_state_NONE >>
+      rpt $ goal_assum drule
+      )
+    )
+  >- (
+    simp[GSYM small_eval_dec_def] >> irule small_eval_decs_Rerr_Dlocal >> simp[]
+    )
+  >- simp[Once small_eval_decs_cases, empty_dec_env_def]
+  >- (
+    simp[Once small_eval_decs_cases] >> disj2_tac >>
+    simp[small_eval_dec_def] >> goal_assum drule >> simp[]
+    )
+  >- (
+    simp[Once small_eval_decs_cases] >> disj1_tac >>
+    irule_at Any EQ_REFL >> simp[small_eval_dec_def] >>
+    goal_assum drule >> simp[] >>
+    first_x_assum irule >>
+    irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+    )
+QED
+
+Theorem TC_functional_confluence:
+  ∀R. (∀a b1 b2. R a b1 ∧ R a b2 ⇒ b1 = b2) ⇒
+    ∀a b1 b2.
+      R⁺ a b1 ∧ R⁺ a b2
+    ⇒ (b1 = b2) ∨
+      (R⁺ a b1 ∧ R⁺ b1 b2) ∨
+      (R⁺ a b2 ∧ R⁺ b2 b1)
+Proof
+  ntac 2 strip_tac >> Induct_on `TC R` >> rw[]
+  >- (
+    qpat_x_assum `TC _ _ _` mp_tac >>
+    simp[Once TC_CASES1] >> strip_tac >> gvs[] >- metis_tac[] >>
+    `y = b1` by metis_tac[] >> gvs[] >>
+    disj2_tac >> simp[Once TC_CASES1]
+    ) >>
+  rename1 `R⁺ mid b1` >>
+  last_x_assum assume_tac >>
+  last_x_assum $ qspec_then `b2` assume_tac >> gvs[]
+  >- (
+    last_x_assum drule >> strip_tac >> gvs[] >>
+    disj2_tac >> disj1_tac >>
+    irule $ cj 2 TC_RULES >> qexists_tac `mid` >> simp[]
+    )
+  >- (
+    ntac 2 disj2_tac >>
+    irule $ cj 2 TC_RULES >> goal_assum drule >> simp[]
+    )
+QED
+
+Theorem TC_functional_deterministic:
+  ∀R. (∀a b1 b2. R a b1 ∧ R a b2 ⇒ b1 = b2) ⇒
+  ∀a b1 b2.
+    R⁺ a b1 ∧ R⁺ a b2 ∧
+    (∀c. ¬R b1 c) ∧ (∀c. ¬R b2 c)
+  ⇒ b1 = b2
+Proof
+  rw[] >> drule TC_functional_confluence >> disch_then drule >>
+  disch_then $ qspec_then `b1` assume_tac >> gvs[] >> metis_tac[TC_CASES1]
+QED
+
+Theorem RTC_functional_confluence:
+  ∀R. (∀a b1 b2. R a b1 ∧ R a b2 ⇒ b1 = b2) ⇒
+    ∀a b1 b2.
+      R꙳ a b1 ∧ R꙳ a b2
+    ⇒ (R꙳ a b1 ∧ R꙳ b1 b2) ∨
+      (R꙳ a b2 ∧ R꙳ b2 b1)
+Proof
+  ntac 2 strip_tac >> Induct_on `RTC R` >>
+  once_rewrite_tac[RTC_CASES1] >> rw[] >> gvs[] >>
+  metis_tac[RTC_CASES1]
+QED
+
+Theorem RTC_functional_deterministic:
+  ∀R. (∀a b1 b2. R a b1 ∧ R a b2 ⇒ b1 = b2) ⇒
+  ∀a b1 b2.
+    R꙳ a b1 ∧ R꙳ a b2 ∧
+    (∀c. ¬R b1 c) ∧ (∀c. ¬R b2 c)
+  ⇒ b1 = b2
+Proof
+  once_rewrite_tac[RTC_CASES_TC] >> rw[] >> gvs[]
+  >- gvs[Once TC_CASES1] >- gvs[Once TC_CASES1] >>
+  metis_tac[TC_functional_deterministic]
+QED
+
+Theorem small_eval_dec_cases:
+  ∀env dev st res.
+    small_eval_dec env dev res ⇔
+      ∃dev'.
+        (decl_step_reln env)꙳ dev dev' ∧
+        ((∃env'. SND res = Rval env' ∧ dev' = (FST res, Env env', [])) ∨
+         (∃err. SND res = Rerr err ∧ FST dev' = FST res ∧
+            decl_step env dev' = Rerr_to_decl_step_result err))
+Proof
+  rw[] >> reverse eq_tac >> rw[] >> gvs[small_eval_dec_def] >>
+  PairCases_on `res` >> gvs[small_eval_dec_def]
+  >- (PairCases_on `dev'` >> simp[] >> goal_assum drule >> simp[]) >>
+  Cases_on `res1` >> gvs[small_eval_dec_def] >>
+  goal_assum drule >> simp[]
+QED
+
+Triviality decl_step_reln_functional:
+  ∀env a b1 b2. decl_step_reln env a b1 ∧ decl_step_reln env a b2 ⇒ b1 = b2
+Proof
+  rw[decl_step_reln_def] >> gvs[]
+QED
+
+Triviality RTC_decl_step_confl = RTC_functional_confluence |>
+  Q.ISPEC `decl_step_reln env` |>
+  Lib.C MATCH_MP (Q.SPEC `env` decl_step_reln_functional) |> GEN_ALL
+
+Triviality RTC_decl_step_determ = RTC_functional_deterministic |>
+  Q.ISPEC `decl_step_reln env` |>
+  Lib.C MATCH_MP (Q.SPEC `env` decl_step_reln_functional) |> GEN_ALL
+
+Theorem small_eval_dec_determ:
+    small_eval_dec env dev r1 ∧ small_eval_dec env dev r2
+  ⇒ r1 = r2
+Proof
+  rw[small_eval_dec_cases] >> gvs[]
+  >- (
+    qmatch_asmsub_abbrev_tac `RTC _ _ a` >>
+    last_x_assum assume_tac >> qmatch_asmsub_abbrev_tac `RTC _ _ b` >>
+    qspecl_then [`env`,`dev`,`a`,`b`] assume_tac RTC_decl_step_determ >> gvs[] >>
+    unabbrev_all_tac >> gvs[decl_step_reln_def, decl_step_def, decl_continue_def] >>
+    metis_tac[PAIR]
+    )
+  >- (
+    qmatch_asmsub_abbrev_tac `RTC _ _ a` >>
+    last_x_assum assume_tac >> qmatch_asmsub_abbrev_tac `RTC _ _ b` >>
+    qspecl_then [`env`,`dev`,`a`,`b`] assume_tac RTC_decl_step_determ >> gvs[] >>
+    unabbrev_all_tac >> Cases_on `err` >>
+    gvs[decl_step_reln_def, decl_step_def, decl_continue_def]
+    )
+  >- (
+    qmatch_asmsub_abbrev_tac `RTC _ _ a` >>
+    last_x_assum assume_tac >> qmatch_asmsub_abbrev_tac `RTC _ _ b` >>
+    qspecl_then [`env`,`dev`,`a`,`b`] assume_tac RTC_decl_step_determ >> gvs[] >>
+    unabbrev_all_tac >> Cases_on `err` >>
+    gvs[decl_step_reln_def, decl_step_def, decl_continue_def]
+    )
+  >- (
+    qmatch_asmsub_abbrev_tac `RTC _ _ a` >>
+    last_x_assum assume_tac >> qmatch_asmsub_abbrev_tac `RTC _ _ b` >>
+    qspecl_then [`env`,`dev`,`a`,`b`] assume_tac RTC_decl_step_determ >> gvs[] >>
+    unabbrev_all_tac >> Cases_on `err` >> Cases_on `err'` >>
+    gvs[decl_step_reln_def, decl_step_def, decl_continue_def] >>
+    metis_tac[PAIR]
+    )
+QED
+
+Triviality small_decl_diverges_prefix:
+  ∀env a b.
+    (decl_step_reln env)꙳ a b ∧
+    small_decl_diverges env b
+  ⇒ small_decl_diverges env a
+Proof
+  rw[small_decl_diverges_def] >>
+  qspecl_then [`env`,`a`,`b`,`b'`] assume_tac RTC_decl_step_confl >> gvs[] >>
+  pop_assum mp_tac >> simp[Once RTC_CASES1] >> rw[] >> gvs[] >> goal_assum drule
+QED
+
+Triviality small_decl_diverges_suffix:
+  ∀env a b.
+    (decl_step_reln env)꙳ b a ∧
+    small_decl_diverges env b
+  ⇒ small_decl_diverges env a
+Proof
+  rw[small_decl_diverges_def] >>
+  first_x_assum irule >> simp[Once RTC_CASES_RTC_TWICE] >>
+  goal_assum drule >> simp[]
+QED
+
+Triviality small_decl_diverges_ExpVal_lemma:
+  ∀benv (st:'ffi state) env ev cs locs p dcs b.
+    (decl_step_reln benv)꙳ (st,ExpVal env ev cs locs p,dcs) b ∧
+    (∀res. (e_step_reln꙳ (env,(st.refs,st.ffi),ev,cs) res ⇒
+      ∃res'. e_step_reln res res'))
+  ⇒ ∃c. decl_step_reln benv b c
+Proof
+  gen_tac >> Induct_on `RTC (decl_step_reln benv)` >> rw[] >>
+  gvs[decl_step_reln_def, e_step_reln_def]
+  >- (
+    last_x_assum $ qspec_then `(env,(st.refs,st.ffi),ev,cs)` mp_tac >> rw[] >>
+    simp[decl_step_def] >> every_case_tac >> gvs[] >>
+    gvs[e_step_def, continue_def]
+    ) >>
+  first_x_assum irule >>
+  `∃r. e_step (env,(st.refs,st.ffi),ev,cs) = Estep r` by (
+    first_x_assum irule >> simp[]) >>
+  rename1 `Dstep dst` >> PairCases_on `dst` >> simp[] >>
+  PairCases_on `r` >>
+  qexistsl_tac [`r4`,`r0`,`r3`,`locs`,`p`] >>
+  `r1 = dst0.refs ∧ r2 = dst0.ffi` by (
+    gvs[decl_step_def] >> every_case_tac >> gvs[] >>
+    gvs[e_step_def, continue_def]
+    ) >>
+  gvs[] >> reverse conj_asm2_tac
+  >- (
+    gvs[decl_step_def] >> every_case_tac >> gvs[] >>
+    gvs[e_step_def, continue_def]
+    ) >>
+  gvs[] >> rw[] >> first_x_assum irule >> simp[Once RTC_CASES1, e_step_reln_def]
+QED
+
+Theorem small_decl_diverges_ExpVal:
+  ∀env (st:'ffi state) e benv env e locs pat dcs.
+    e_diverges env (st.refs,st.ffi) e
+  ⇒ small_decl_diverges benv (st, ExpVal env (Exp e) [] locs pat, dcs)
+Proof
+  rw[e_diverges_def, small_decl_diverges_def] >>
+  irule small_decl_diverges_ExpVal_lemma >>
+  goal_assum $ drule_at Any >> simp[FORALL_PROD] >> rw[] >>
+  last_x_assum drule >> rw[] >> goal_assum drule
+QED
+
+Theorem dec_diverges_imp_small_decl_diverges:
+  (∀env (st:'ffi state) d. dec_diverges env st d ⇒
+    ∀env' cs. collapse_env env' cs = env ∧ st.eval_state = NONE ⇒
+      small_decl_diverges env' (st, Decl d, cs)) ∧
+
+  (∀env (st:'ffi state) ds. decs_diverges env st ds ⇒
+    (∀env' cs enva envb mn.
+      enva +++ envb +++ collapse_env env' cs = env ∧
+      st.eval_state = NONE
+     ⇒ small_decl_diverges env' (st, Env enva, Cdmod mn envb ds :: cs)) ∧
+    (∀env' cs enva envb gds.
+      enva +++ envb +++ collapse_env env' cs = env ∧
+      st.eval_state = NONE
+     ⇒ small_decl_diverges env' (st, Env enva, CdlocalL envb ds gds :: cs)) ∧
+    (∀env' cs enva lenv genv.
+      enva +++ genv +++ lenv +++ collapse_env env' cs = env ∧
+      st.eval_state = NONE
+     ⇒ small_decl_diverges env' (st, Env enva, CdlocalG lenv genv ds :: cs)))
+Proof
+  ho_match_mp_tac dec_diverges_ind >> rw[]
+  >- (
+    irule small_decl_diverges_prefix >>
+    irule_at Any RTC_SINGLE >> simp[SF decl_step_ss] >>
+    irule small_decl_diverges_ExpVal >> simp[]
+    )
+  >- (
+    irule small_decl_diverges_prefix >>
+    irule_at Any RTC_SINGLE >> simp[SF decl_step_ss]
+    )
+  >- (
+    irule small_decl_diverges_prefix >>
+    simp[Once RTC_CASES1, SF decl_step_ss] >> irule_at Any OR_INTRO_THM2 >>
+    drule $ cj 2 big_dec_to_small_dec >> simp[] >> strip_tac >>
+    drule small_eval_decs_Rval_Dlocal_lemma_1 >> simp[] >>
+    disch_then $ qspecl_then [`empty_dec_env`,`empty_dec_env`] mp_tac >> simp[] >>
+    disch_then $ qspec_then `ds` assume_tac >>
+    drule RTC_decl_step_reln_ctxt_weaken >> simp[] >> disch_then $ irule_at Any >>
+    first_x_assum $ irule >> simp[] >>
+    irule small_eval_decs_eval_state_NONE >> rpt $ goal_assum drule
+    )
+  >- (
+    irule small_decl_diverges_prefix >>
+    irule_at Any RTC_SINGLE >> simp[SF decl_step_ss]
+    )
+  >- (
+    irule small_decl_diverges_prefix >>
+    irule_at Any RTC_SINGLE >> simp[SF decl_step_ss] >>
+    first_x_assum irule >> simp[collapse_env_def]
+    )
+  >- (
+    irule small_decl_diverges_prefix >>
+    irule_at Any RTC_SINGLE >> simp[SF decl_step_ss] >>
+    first_x_assum irule >> simp[collapse_env_def]
+    )
+  >- (
+    irule small_decl_diverges_prefix >>
+    irule_at Any RTC_SINGLE >> simp[SF decl_step_ss] >>
+    first_x_assum irule >> simp[collapse_env_def]
+    )
+  >- (
+    irule small_decl_diverges_prefix >>
+    irule_at Any RTC_SINGLE >> simp[SF decl_step_ss] >>
+    drule $ cj 1 big_dec_to_small_dec >> simp[] >> strip_tac >>
+    irule small_decl_diverges_prefix >>
+    qspecl_then [`env'`,`Cdmod mn (enva +++ envb) ds :: cs`]
+      mp_tac RTC_decl_step_reln_ctxt_weaken >>
+    simp[collapse_env_def] >> gvs[small_eval_dec_def] >>
+    disch_then drule >> simp[] >> disch_then $ irule_at Any >>
+    first_x_assum irule >> simp[] >>
+    irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+    )
+  >- (
+    irule small_decl_diverges_prefix >>
+    irule_at Any RTC_SINGLE >> simp[SF decl_step_ss] >>
+    drule $ cj 1 big_dec_to_small_dec >> simp[] >> strip_tac >>
+    irule small_decl_diverges_prefix >>
+    qspecl_then [`env'`,`CdlocalL (enva +++ envb) ds gds :: cs`]
+      mp_tac RTC_decl_step_reln_ctxt_weaken >>
+    simp[collapse_env_def] >> gvs[small_eval_dec_def] >>
+    disch_then drule >> simp[] >> disch_then $ irule_at Any >>
+    first_x_assum irule >> simp[] >>
+    irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+    )
+  >- (
+    irule small_decl_diverges_prefix >>
+    irule_at Any RTC_SINGLE >> simp[SF decl_step_ss] >>
+    drule $ cj 1 big_dec_to_small_dec >> simp[] >> strip_tac >>
+    irule small_decl_diverges_prefix >>
+    qspecl_then [`env'`,`CdlocalG lenv (enva +++ genv) ds :: cs`]
+      mp_tac RTC_decl_step_reln_ctxt_weaken >>
+    simp[collapse_env_def] >> gvs[small_eval_dec_def] >>
+    disch_then drule >> simp[] >> disch_then $ irule_at Any >>
+    first_x_assum irule >> simp[] >>
+    irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+    )
+QED
+
+Theorem small_big_dec_equiv:
+  ∀env (st:'ffi state) d r.  st.eval_state = NONE ⇒
+    evaluate_dec F env st d r = small_eval_dec env (st, Decl d, []) r
+Proof
+  rw[] >> eq_tac >> rw[]
+  >- (drule $ cj 1 big_dec_to_small_dec >> simp[]) >>
+  Cases_on `∃res. evaluate_dec F env st d res` >> gvs[]
+  >- (
+    drule small_eval_dec_determ >>
+    drule $ cj 1 big_dec_to_small_dec >> simp[] >> strip_tac >>
+    disch_then drule >> rw[] >> gvs[]
+    ) >>
+  drule $ iffLR untyped_safety_decs_alt >>
+  disch_then drule >> strip_tac >>
+  drule_at Any $ cj 1 dec_diverges_imp_small_decl_diverges >> simp[] >>
+  qexistsl_tac [`env`,`[]`] >> simp[collapse_env_def] >>
+  simp[small_decl_diverges_def] >>
+  PairCases_on `r` >> Cases_on `r1` >> gvs[small_eval_dec_def] >>
+  goal_assum drule >> simp[SF decl_step_ss] >>
+  Cases_on `e` >> simp[]
+QED
+
+Theorem small_big_dec_equiv_diverge:
+  ∀env (st:'ffi state) d.  st.eval_state = NONE ⇒
+    dec_diverges env st d = small_decl_diverges env (st, Decl d, [])
+Proof
+  rw[] >> eq_tac >> rw[]
+  >- (
+    irule $ cj 1 dec_diverges_imp_small_decl_diverges >> simp[collapse_env_def]
+    ) >>
+  CCONTR_TAC >> qpat_x_assum `small_decl_diverges _ _` mp_tac >> simp[] >>
+  drule_all $ iffRL $ cj 1 untyped_safety_decs >> strip_tac >> gvs[] >>
+  simp[GSYM small_decl_total] >>
+  drule $ cj 1 big_dec_to_small_dec >> simp[] >> disch_then $ irule_at Any
+QED
+
 val _ = export_theory ();
