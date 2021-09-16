@@ -169,7 +169,7 @@ Definition validCatOp_def:
 End
 
 Definition idChar_def:
-  idChar P s = EVERY (λc. P c ∨ c = #"_" ∨ c = #"'" ∨ isDigit c) cs
+  idChar P = EVERY (λc. P c ∨ c = #"_" ∨ c = #"'" ∨ isDigit c)
 End
 
 Definition validConsId_def:
