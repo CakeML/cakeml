@@ -1920,4 +1920,131 @@ Proof
   full_simp_tac(srw_ss())[state_component_equality]
 QED
 
+(* ---------------------------------------------------------------------- *)
+
+(**********
+
+  Prove that the small step semantics never gets stuck if there is
+  still work to do (i.e., it must detect all type errors).  Thus, it
+  either diverges or gives a result, and it can't do both.
+
+**********)
+
+Theorem untyped_safety_exp_step:
+  ∀env s e c.
+    (e_step (env,s,e,c) = Estuck) ⇔
+    (∃v. e = Val v) ∧ (c = [] ∨ ∃env. c = [(Craise (), env)])
+Proof
+  rw[e_step_def, continue_def, push_def, return_def] >>
+  TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[] >>
+  every_case_tac >> gvs[] >>
+  gvs[application_def, push_def, return_def] >> every_case_tac >> gvs[]
+QED
+
+Theorem small_exp_safety1:
+  ∀s env e r.
+    ¬(e_diverges env s e ∧ ∃r. small_eval env s e [] r)
+Proof
+  rw[e_diverges_def, Once DISJ_COMM, DISJ_EQ_IMP] >>
+  PairCases_on `r` >> Cases_on `r2` >> gvs[small_eval_def, e_step_reln_def]
+  >- (goal_assum drule >> simp[e_step_def, continue_def]) >>
+  Cases_on `e'` >> gvs[small_eval_def] >>
+  goal_assum drule >> simp[e_step_def, continue_def]
+QED
+
+Theorem small_exp_safety2:
+  ∀menv cenv s env e. e_diverges env s e ∨ ∃r. small_eval env s e [] r
+Proof
+  rw[e_diverges_def, DISJ_EQ_IMP, e_step_reln_def] >>
+  Cases_on `e_step (env',s',e',c')` >> gvs[untyped_safety_exp_step]
+  >- (PairCases_on `p` >> gvs[])
+  >- (
+    qexists_tac `(s', Rerr (Rabort a))` >> rw[small_eval_def] >>
+    goal_assum drule >> simp[]
+    )
+  >- (
+    qexists_tac `(s', Rval v)` >> rw[small_eval_def] >>
+    goal_assum drule >> simp[]
+    )
+  >- (
+    qexists_tac `(s', Rerr (Rraise v))` >> rw[small_eval_def] >>
+    goal_assum drule >> simp[]
+    )
+QED
+
+Theorem untyped_safety_exp:
+  ∀s env e. (∃r. small_eval env s e [] r) = ¬e_diverges env s e
+Proof
+  metis_tac[small_exp_safety2, small_exp_safety1]
+QED
+
+Triviality to_small_st_surj:
+  ∀s. ∃y. s = to_small_st y
+Proof
+  srw_tac [QUANT_INST_ss[record_default_qp,std_qp]] [to_small_st_def]
+QED
+
+Theorem untyped_safety_decs:
+  (∀d (s:'ffi state) env.
+     s.eval_state = NONE ⇒
+     (∃r. evaluate_dec F env s d r) = ¬dec_diverges env s d) ∧
+  (∀ds (s:'ffi state) env.
+     s.eval_state = NONE ⇒
+     (∃r. evaluate_decs F env s ds r) = ¬decs_diverges env s ds)
+Proof
+  ho_match_mp_tac astTheory.dec_induction >> rw[] >>
+  rw[Once evaluate_dec_cases, Once dec_diverges_cases, GSYM untyped_safety_exp] >>
+  gvs[]
+  >- (
+    Cases_on `ALL_DISTINCT (pat_bindings p [])` >>
+    gvs[GSYM small_big_exp_equiv, to_small_st_def] >>
+    eq_tac >- metis_tac[] >> rw[] >>
+    PairCases_on `r` >>
+    Q.REFINE_EXISTS_TAC `(s with <| refs := r0; ffi := r1 |>, res)` >> simp[] >>
+    reverse $ Cases_on `r2` >> gvs[]
+    >- (qexists_tac `Rerr e'` >> gvs[]) >>
+    Cases_on `pmatch env.c r0 p a []` >> gvs[]
+    >- (
+      qexists_tac `Rerr (Rraise bind_exn_v)` >> gvs[] >>
+      disj1_tac >> goal_assum drule >> simp[]
+      )
+    >- (
+      qexists_tac `Rerr (Rabort Rtype_error)` >> gvs[] >>
+      disj1_tac >> goal_assum drule >> simp[]
+      )
+    >- (
+      qexists_tac `Rval <| v := alist_to_ns a' ; c := nsEmpty |>` >> gvs[] >>
+      goal_assum drule >> simp[]
+      )
+    )
+  >- metis_tac[]
+  >- metis_tac[NOT_EVERY]
+  >- (
+    eq_tac >> rw[] >> gvs[EXISTS_PROD, PULL_EXISTS] >>
+    metis_tac[result_nchotomy]
+    )
+  >- (
+    gvs[EXISTS_PROD, PULL_EXISTS, declare_env_def] >>
+    ntac 3 $ pop_assum $ mp_tac o GSYM >>
+    gvs[] >> rw[] >> eq_tac >> rw[] >> gvs[] >>
+    imp_res_tac evaluate_dec_eval_state >> gvs[] >>
+    metis_tac[result_nchotomy, decs_determ, PAIR_EQ, result_11, result_distinct]
+    )
+  >- (gvs[EXISTS_PROD, declare_env_def])
+  >- (
+    gvs[EXISTS_PROD, declare_env_def] >>
+    ntac 2 $ pop_assum $ mp_tac o GSYM >> rw[] >> eq_tac >> rw[] >>
+    imp_res_tac evaluate_dec_eval_state >> gvs[] >> res_tac >>
+    imp_res_tac evaluate_dec_eval_state >> gvs[] >>
+    metis_tac[result_nchotomy, result_distinct, decs_determ, PAIR_EQ, result_11]
+    )
+QED
+
+Theorem untyped_safety_decs_alt:
+  ∀d (s:'ffi state) env.  s.eval_state = NONE ⇒
+    (∀r. ¬evaluate_dec F env s d r) = dec_diverges env s d
+Proof
+  rw[] >> drule $ cj 1 untyped_safety_decs >> metis_tac[]
+QED
+
 val _ = export_theory ();
