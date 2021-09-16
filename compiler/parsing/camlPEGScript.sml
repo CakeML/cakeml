@@ -43,6 +43,7 @@ Definition mk_linfix_def:
     mk_linfix tgt (mkNd tgt [acc; opt; t]) rest
 End
 
+(* TODO: unused *)
 Definition mk_rinfix_def:
   mk_rinfix tgt [] = mkNd tgt [] ∧
   mk_rinfix tgt [t] = mkNd tgt [t] ∧
@@ -207,6 +208,8 @@ Datatype:
     | nPOr | nPAs | nPList | nPattern
     (* types *)
     | nTVar | nTAny | nTBase | nTConstr | nTApp | nTProd | nTFun | nTAs | nType
+    (* definitions *)
+    | nDefinition | nTopLet | nModuleItem | nModuleItems
     (* misc *)
     | nShiftOp | nMultOp | nAddOp | nRelOp | nAndOp | nOrOp
     | nStart
@@ -217,8 +220,8 @@ End
    The following is a (possibly incomplete) list of missing things:
    - Expression rules for the following things are missing:
      + Assignments, i.e. <- :=
-   - Definitions (i.e. all top-level declarations)
-   - The module syntax.
+   - The module syntax (all module expressions and the module types), and some
+     top-levle definitions such as 'open'.
 
    Also the following is broken:
    - Somehow I forgot to allow identifiers to contain dots
@@ -226,7 +229,8 @@ End
      lexer.
    - I've assigned a bunch of closed expressions (e.g. while, for) to the
      lowest fixity, but it's possible they should go elsewhere.
-
+   - [1;2;3] should parse into a list of three elements but I think it's
+     currently parsed into the sequence (seq 1 (seq 2 3)) of expressions.
  *)
 
 Definition camlPEG_def[nocompute]:
@@ -237,6 +241,26 @@ Definition camlPEG_def[nocompute]:
     notFAIL  := "Not combinator failed";
     start := pnt nStart;
     rules := FEMPTY |++ [
+      (* -- Definitions ---------------------------------------------------- *)
+      (INL nModuleItem,
+       seql [try (tokeq SemisT); choicel [pnt nDefinition; pnt nExpr]]
+            (bindNT nModuleItem));
+      (INL nModuleItems,
+       seql [rpt (pnt nModuleItem) FLAT; try (tokeq SemisT)]
+            (bindNT nModuleItems));
+      (INL nTopLet,
+       seql [tokeq LetT; try (tokeq RecT); pnt nLetBindings]
+            (bindNT nTopLet));
+      (INL nDefinition,
+       pegf (choicel [pnt nTopLet;
+                      pnt nTypeDefinition;
+                      pnt nExcDefinition;
+                      (* module definition *)
+                      (* module type *)
+                      (* open modulename *)
+                      (* include moduleexpr *)
+                      ])
+            (bindNT nDefinition));
       (* -- Typedef -------------------------------------------------------- *)
       (INL nExcDefinition,
        seql [tokeq ExceptionT;
@@ -546,7 +570,7 @@ Definition camlPEG_def[nocompute]:
       (INL nPattern,
        pegf (pnt nPAs) (bindNT nPattern));
       (INL nStart,
-       seql [pnt nExpr; not (any (K [])) [] ] (bindNT nStart))
+       seql [try (pnt nModuleItems); not (any (K [])) [] ] (bindNT nStart))
       ] |>
 End
 
@@ -752,6 +776,10 @@ val test4 = run_parser "abcdef \\s"
 val test5 = run_parser "if let x = True in x then 4 else 3";
 val test6 = run_parser "if let x = true in x then 4 else 3";
 val test7 = run_parser "if let x = * true in x then 4 else 3 + 4";
+val test8 = run_parser "let x = [(1;2);(3;4)] in x"
+val test9 = run_parser "let x = [1;2;3;4] in x"
+val test10 = run_parser "let x = [1; ;2;3;4] in x"
+val test11 = run_parser "let x = 3 and y = 4;; (let z = [3] in z) ;;"
 
 val _ = export_theory ();
 
