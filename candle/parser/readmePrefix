@@ -1,0 +1,2 @@
+A PEG-based parser for a subset of the OCaml language, for use with the Candle
+theorem prover.
