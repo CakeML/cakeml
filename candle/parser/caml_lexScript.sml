@@ -9,6 +9,7 @@ val _ = new_theory "caml_lex";
 (* TODO
  * - Location spans might be wrong just about everywhere
  * - infix symbols mix with other symbols
+ * - pick up module paths correctly
  *)
 
 (* -------------------------------------------------------------------------
