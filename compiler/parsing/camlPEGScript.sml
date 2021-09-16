@@ -642,6 +642,7 @@ Theorem camlPEG_exec_thm[compute] =
                                [sumTheory.INL_11]))
     |> LIST_CONJ;
 
+(*
 val test =
   time EVAL “peg_exec camlPEG (pnt nStart)
              (map_loc [
@@ -713,10 +714,13 @@ val test9 =
                   IdentT "xs";
               ] 0)
              [] NONE [] done failed”;
+*)
 
 (* -------------------------------------------------------------------------
  * Running the lexer, and then the parser
  * ------------------------------------------------------------------------- *)
+
+(*
 
 Overload camlpegexec =
   “λn t. peg_exec camlPEG (pnt n) t [] NONE [] done failed”;
@@ -780,6 +784,8 @@ val test8 = run_parser "let x = [(1;2);(3;4)] in x"
 val test9 = run_parser "let x = [1;2;3;4] in x"
 val test10 = run_parser "let x = [1; ;2;3;4] in x"
 val test11 = run_parser "let x = 3 and y = 4;; let z = [3] in z;;"
+
+ *)
 
 val _ = export_theory ();
 
