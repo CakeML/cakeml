@@ -189,7 +189,7 @@ End
 Datatype:
   camlNT =
     (* expressions *)
-      nLiteral | nIdent | nEBase
+      nLiteral | nIdent | nEBase | nEList
     | nEApp | nEConstr | nEFunapp | nETagapp | nEAssert | nELazy
     | nEPrefix | nENeg | nEShift | nEMult
     | nEAdd | nECons | nECat | nERel
@@ -204,7 +204,7 @@ Datatype:
     | nConstrDecl | nConstrArgs | nExcDefinition
     (* patterns *)
     | nPAny | nPBase | nPLazy | nPConstr | nPTagapp | nPApp | nPCons | nPProd
-    | nPOr | nPAs | nPattern
+    | nPOr | nPAs | nPList | nPattern
     (* types *)
     | nTVar | nTAny | nTBase | nTConstr | nTApp | nTProd | nTFun | nTAs | nType
     (* misc *)
@@ -215,8 +215,6 @@ End
 (*
    TODO
    The following is a (possibly incomplete) list of missing things:
-   - List literals and other bracketed things, if there are any.
-     Both in the expression and pattern rules.
    - Expression rules for the following things are missing:
      + Assignments, i.e. <- :=
    - Definitions (i.e. all top-level declarations)
@@ -228,6 +226,7 @@ End
      lexer.
    - I've assigned a bunch of closed expressions (e.g. while, for) to the
      lowest fixity, but it's possible they should go elsewhere.
+
  *)
 
 Definition camlPEG_def[nocompute]:
@@ -315,14 +314,20 @@ Definition camlPEG_def[nocompute]:
       (INL nType,
        pegf (pnt nTAs) (bindNT nType));
       (* -- Expr16 --------------------------------------------------------- *)
+      (INL nEList,
+       seql [tokeq LbrackT;
+             pnt nExpr;
+             rpt (seql [tokeq SemiT; pnt nExpr] I) FLAT;
+             try (tokeq SemiT);
+             tokeq RbrackT]
+            (bindNT nEList));
       (INL nLiteral,
        choicel [
          tok isInt    (bindNT nLiteral o mktokLf);
          tok isString (bindNT nLiteral o mktokLf);
          tok isChar   (bindNT nLiteral o mktokLf);
-         tokeq TrueT;
-         tokeq FalseT;
-       ]);
+         tok (λx. MEM x [TrueT; FalseT]) (bindNT nLiteral o mktokLf);
+         pegf (pnt nEList) (bindNT nLiteral)]);
       (INL nIdent,
        tok isIdent (bindNT nIdent o mktokLf));
       (INL nEBase,
@@ -490,11 +495,19 @@ Definition camlPEG_def[nocompute]:
       (INL nParameter, (* only one type of parameter supported; collapse? *)
        pegf (pnt nPattern) (bindNT nParameter));
       (* -- Pat8 ----------------------------------------------------------- *)
+      (INL nPList,
+       seql [tokeq LbrackT;
+             pnt nPattern;
+             rpt (seql [tokeq SemiT; pnt nPattern] I) FLAT;
+             try (tokeq SemiT);
+             tokeq RbrackT]
+            (bindNT nPList));
       (INL nPAny,
        pegf (tokeq AnyT) (bindNT nPAny));
       (INL nPBase,
        pegf (choicel [pnt nIdent;
                       pnt nPAny;
+                      pnt nPList;
                       seql [tokeq LparT; pnt nPattern;
                             try (seql [tokeq ColonT; pnt nType] I);
                             tokeq RparT] I;
