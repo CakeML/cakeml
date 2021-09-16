@@ -243,7 +243,7 @@ Definition camlPEG_def[nocompute]:
     rules := FEMPTY |++ [
       (* -- Definitions ---------------------------------------------------- *)
       (INL nModuleItem,
-       seql [try (tokeq SemisT); choicel [pnt nDefinition; pnt nExpr]]
+       seql [try (tokeq SemisT); choicel [pnt nExpr; pnt nDefinition]]
             (bindNT nModuleItem));
       (INL nModuleItems,
        seql [rpt (pnt nModuleItem) FLAT; try (tokeq SemisT)]
@@ -779,7 +779,7 @@ val test7 = run_parser "if let x = * true in x then 4 else 3 + 4";
 val test8 = run_parser "let x = [(1;2);(3;4)] in x"
 val test9 = run_parser "let x = [1;2;3;4] in x"
 val test10 = run_parser "let x = [1; ;2;3;4] in x"
-val test11 = run_parser "let x = 3 and y = 4;; (let z = [3] in z) ;;"
+val test11 = run_parser "let x = 3 and y = 4;; let z = [3] in z;;"
 
 val _ = export_theory ();
 
