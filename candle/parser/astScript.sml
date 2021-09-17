@@ -27,8 +27,17 @@ Datatype:
       | List (exp list)
       | Seq exp exp
       | Let bool ((string # exp) list)
+      | Cons string (exp list)
+      | Fun string exp
+      | Match exp ((pat # exp) list)
       ;
-  type = TVar string
+  pat = PAny
+      | PVar string
+      | PCons string (pat list)
+      ;
+  type = TAny
+       | TAs type string
+       | TVar string
        | TProd type type
        | TFun type type
        | TCons string (type list)
@@ -42,7 +51,7 @@ Proof
 QED
 
 Theorem exp_size_lemma:
-  (∀ts t. MEM t ts ⇒ exp_size t < exp3_size ts)
+  (∀ts t. MEM t ts ⇒ exp_size t < exp5_size ts)
 Proof
   Induct_on ‘ts’ \\ rw [] \\ gs [fetch"-""exp_size_def"]
   \\ res_tac \\ fs []
@@ -153,7 +162,8 @@ End
 Definition pp_type_def:
   pp_type (prec:num) ty =
     case ty of
-      TVar v => mk_str («'» ^ implode v)
+      TAny => mk_str «_»
+    | TVar v => mk_str («'» ^ implode v)
     | TProd s t =>
         pp_with_sep « * » (prec > 1) [pp_type 2 s; pp_type 1 t]
     | TFun s t =>
