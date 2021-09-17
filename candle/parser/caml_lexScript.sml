@@ -408,8 +408,12 @@ Definition next_sym_def:
           scan_number isDigit (λs. -&dec2num s) 0 (c::cs) loc
     else if c = #"\"" then
       scan_strlit [] cs (next_loc 1 loc)
-    else if c = #"'" ∧ cs ≠ "" then
-      scan_charlit cs (next_loc 1 loc)
+    else if c = #"'" then
+      case scan_charlit cs (next_loc 1 loc) of
+      | NONE => SOME (OtherS [c], Locs loc loc, cs)
+      | SOME res =>
+          if FST res = ErrorS then SOME (OtherS [c], Locs loc loc, cs)
+          else SOME res
     else if isPREFIX "*)" (c::cs) then
       SOME (ErrorS, Locs loc (next_loc 2 loc), TL cs)
     else if isPREFIX [#"("; #"*"] (c::cs) then
@@ -478,12 +482,14 @@ Proof
   \\ gs [GSYM take_while_def]
   \\ imp_res_tac take_while_thm
   \\ gs [NOT_NIL_EQ_LENGTH_NOT_0, LENGTH_TL]
+  \\ imp_res_tac scan_charlit_thm \\ gs []
   \\ Cases_on ‘cs’ \\ gs []
   \\ imp_res_tac skip_comment_thm \\ gs []
   \\ Cases_on ‘c’ \\ gs []
 QED
 
 (*
+EVAL “next_sym "'foo'" loc”
 EVAL “next_sym "-0X2f" loc”
 EVAL “next_sym "0x2f" loc”
 EVAL “next_sym "0b10n" loc”
