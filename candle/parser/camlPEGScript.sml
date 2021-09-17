@@ -313,15 +313,15 @@ Definition camlPEG_def[nocompute]:
        pegf (tokeq AnyT) (bindNT nTAny));
       (INL nTBase,
        pegf (choicel [seql [tokeq LparT; pnt nType; tokeq RparT] I;
-                      seql [tokeq LparT; pnt nTypeList; tokeq RparT] I;
+                      seql [tokeq LparT; pnt nTypeList; tokeq RparT;
+                            tokIdP validFunId] I;
                       pnt nTVar;
                       pnt nTAny])
             (bindNT nTBase));
       (* -- Type4 ---------------------------------------------------------- *)
       (INL nTConstr,
-       choicel [pegf (tokIdP validFunId) (bindNT nTConstr);
-                seql [try (pnt nTBase); rpt (tokIdP validFunId) FLAT]
-                     (bindNT nTConstr)]);
+       seql [pnt nTBase; rpt (tokIdP validFunId) FLAT]
+            (bindNT nTConstr));
       (* -- Type3 ---------------------------------------------------------- *)
       (INL nTProd,
        seql [pnt nTConstr; try (seql [tokeq StarT; pnt nTProd] I)]
@@ -646,10 +646,10 @@ Theorem camlPEG_exec_thm[compute] =
 Overload camlpegexec =
   “λn t. peg_exec camlPEG (pnt n) t [] NONE [] done failed”;
 
-val t1 = rconc $ time EVAL “lexer_fun "'a"”;
-val t2 = time EVAL “camlpegexec nType ^t1”;
+val t1 = rconc $ time EVAL “lexer_fun "('a, 'b) d"”;
+val t2 = time EVAL “camlpegexec nTBase ^t1”;
 
-val t1 = rconc $ time EVAL “lexer_fun "'a list"”;
+val t1 = rconc $ time EVAL “lexer_fun "'a b c d"”;
 val t2 = time EVAL “camlpegexec nType ^t1”;
 
 val t1 = rconc $ time EVAL “lexer_fun "('a * 'b -> 'c, 'd) alist"”;
