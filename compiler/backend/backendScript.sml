@@ -587,4 +587,11 @@ Proof
   Induct \\ fs [LENGTH_NIL,LENGTH_CONS,PULL_EXISTS,FORALL_PROD]
 QED
 
+(* used in compilationLib *)
+Theorem TAKE_DROP_PAIR_LEMMA:
+  LENGTH xs = n ⇒ (TAKE n xs, DROP n xs) = (xs, [])
+Proof
+  rw []
+QED
+
 val _ = export_theory();

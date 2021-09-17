@@ -382,16 +382,8 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
       |> (RAND_CONV(REWR_CONV oracle_def) THENC
           listLib.LENGTH_CONV)
 
-    val take_drop_oracle_lemma = let
-      val oracle_tm = oracle_def |> concl |> lhs
-      val n = LENGTH_word_prog1 |> concl |> rhs
-      val x = listSyntax.mk_take(n,oracle_tm)
-      val y = listSyntax.mk_drop(n,oracle_tm)
-      val ty = type_of x |> dest_type |> snd |> hd
-      val xy = pairSyntax.mk_pair(x,y)
-      val xy1 = pairSyntax.mk_pair(oracle_tm,listSyntax.mk_nil ty)
-      in prove(mk_eq(xy,xy1),ONCE_REWRITE_TAC [oracle_def] THEN CONV_TAC eval) end
-
+    val take_drop_oracle_lemma =
+      MATCH_MP backendTheory.TAKE_DROP_PAIR_LEMMA LENGTH_oracle
     val MAP_ZIP_ZIP_lemma = MATCH_MP backendTheory.MAP_ZIP_ZIP
       (LIST_CONJ [LENGTH_oracle, LENGTH_word_prog1, LENGTH_word_prog0])
 
