@@ -123,6 +123,116 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
           PATH_CONV"rlllr" (REWR_CONV bvl_conf_clos_conf_start) THENC
           PATH_CONV"rllr"(REWR_CONV bvl_conf_bvl_conf))
 
+(*
+
+eval ``compile_const (ConstCons 8 [ConstWord64 (45w);ConstCons 8 [ConstStr (strlit "hiii")];ConstCons 8 [ConstInt (-56)]])``
+
+ ``SOME``
+
+fun all_distinct c [] = c
+  | all_distinct c (x::xs) = all_distinct (x::c) (filter (fn s => s <> x) xs);
+
+val tm =
+fetch "-" "bvl_prog_def" |> concl
+|> rand |> rand |> rand |> rand |> rand |> rand |> rand
+|> rand |> rand |> rand |> rand |> rand |> rand |> rand
+|> rand |> rand |> rand |> rand |> rand |> rand |> rand
+|> rand |> rand |> rand |> rand |> rand |> rand |> rand
+|> rand |> rand |> rand |> rand |> rand |> rand |> rand
+|> rand |> rand |> rand |> rand |> rand |> rand |> rand
+|> rand |> rand |> rand |> rand |> rand |> rand |> rand
+|> rand |> rand |> rand |> rand |> rand |> rand |> rand
+|> rand |> rand |> rand |> rand |> rand |> rand |> rand
+|> rand |> rand
+|> rand |> rand
+|> rand |> rator
+
+fun foo tm =
+  if is_abs tm then foo (snd (dest_abs tm)) else
+  if is_comb tm then
+    let
+      val (x,y) = dest_comb tm
+    in if pairSyntax.is_pabs x then y else
+           (foo x handle HOL_ERR _ => foo y)
+    end
+  else fail()
+
+
+free_vars tm
+
+foo tm |> dest_comb |> snd
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+|> rand
+
+xo|> rand
+|> rand
+|> rand
+|> rator
+|> rand
+|> rator
+|> rand
+|> foo
+
+|> find_terms is_abs
+
+|> find_term (can (match_term ``ALOOKUP _ _``))
+
+max_print_depth := 25
+
+
+tm
+|> find_terms is_const
+|> filter (not o TypeBase.is_constructor)
+|> map (fst o dest_const)
+|> all_distinct []
+
+*)
+
     val to_bvi_thm1 = to_bvi_thm0 |> CONV_RULE(RAND_CONV(
       timez "to_bvi" eval))
 
@@ -187,6 +297,31 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
     val (_,[conf_tm,prog_tm]) =
       to_data_thm |> concl |> lhs |> strip_comb
+
+(*
+
+val uninteresting_consts =
+  [``ZERO``, ``BIT1``, ``BIT2``,``NUMERAL``,``CHR``,``int_of_num``,“int_neg”]
+
+fun uninteresting tm =
+  if TypeBase.is_constructor tm then true else
+  if can (first (fn pat => can (match_term pat) tm))
+       uninteresting_consts then true else false
+
+fetch "-" "data_prog_def"
+|> concl |> rand |> find_terms is_const
+|> filter (not o uninteresting)
+
+  eval
+
+  EVAL
+  ``const_parts_to_words x64_backend_config.data_conf [Int 7; Con 0 [0]]
+    :((bool # 32 word_loc) # (bool # 32 word_loc) list) option``
+  |> type_of
+
+  EVAL ``byte_index (0w:word32) F``
+
+*)
 
     val to_livesets_thm0 =
       ``to_livesets ^conf_tm ^prog_tm``
@@ -468,12 +603,20 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       val () = computeLib.extend_compset[computeLib.Defs[word_prog2_def]] cs;
 
       (* slow; cannot parallelise easily due to bitmaps accumulator *)
-      val from_word_thm =
+      val from_word_thm' =
         compile_thm1'
         |> CONV_RULE(RAND_CONV(
              REWR_CONV from_word_def THENC
              REWR_CONV LET_THM THENC
-             RAND_CONV(timez "word_to_stack" eval) THENC
+             RAND_CONV(timez "word_to_stack" eval)))
+(*
+from_word_thm'
+ |> concl
+ |> funpow 1670 rand
+*)
+      val from_word_thm =
+        from_word_thm'
+        |> CONV_RULE(RAND_CONV(
              PAIRED_BETA_CONV THENC
              REWR_CONV_BETA LET_THM))
 
@@ -983,7 +1126,7 @@ val compile_x64 = compile x64_backend_config_def cbv_to_bytes_x64
 (*
 
 val (backend_config_def,cbv_to_bytes,name,prog_def) =
-    (x64_backend_config_def,cbv_to_bytes_x64,500,500,"hello",hello_prog_def)
+    (x64_backend_config_def,cbv_to_bytes_x64,"hello",hello_prog_def)
 
 *)
 

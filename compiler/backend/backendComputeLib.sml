@@ -112,6 +112,8 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Tys
     [``:closLang$exp``
     ,``:closLang$op``
+    ,``:closLang$const``
+    ,``:closLang$const_part``
     ,``:clos_known$val_approx``
     ,``:clos_known$globalOpt``
     ,``:clos_known$inliningDecision``
@@ -415,6 +417,12 @@ val add_backend_compset = computeLib.extend_compset
     ,wordLangTheory.raise_stub_location_eq
     ,wordLangTheory.store_consts_stub_location_eq
       (* ---- data_to_word ---- *)
+    ,byteTheory.byte_index_def
+    ,byteTheory.set_byte_32
+    ,byteTheory.set_byte_64
+    ,byteTheory.bytes_in_word_def
+    ,byteTheory.bytes_to_word_def
+    ,byteTheory.words_of_bytes_def
     ,data_to_wordTheory.getWords_def
     ,data_to_wordTheory.StoreAnyConsts_def
     ,data_to_wordTheory.lookup_mem_def

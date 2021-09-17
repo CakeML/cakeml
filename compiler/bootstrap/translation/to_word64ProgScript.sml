@@ -164,33 +164,7 @@ val _ = register_type ``:64 wordLang$word_loc``;
 
 val _ = translate (byteTheory.byte_index_def |> inline_simp |> conv64);
 
-Theorem set_byte_64:
-  set_byte a b (w:word64) be =
-    let i = byte_index a be in
-      if i = 0  then w2w b       || (w && 0xFFFFFFFFFFFFFF00w) else
-      if i = 8  then w2w b << 8  || (w && 0xFFFFFFFFFFFF00FFw) else
-      if i = 16 then w2w b << 16 || (w && 0xFFFFFFFFFF00FFFFw) else
-      if i = 24 then w2w b << 24 || (w && 0xFFFFFFFF00FFFFFFw) else
-      if i = 32 then w2w b << 32 || (w && 0xFFFFFF00FFFFFFFFw) else
-      if i = 40 then w2w b << 40 || (w && 0xFFFF00FFFFFFFFFFw) else
-      if i = 48 then w2w b << 48 || (w && 0xFF00FFFFFFFFFFFFw) else
-                     w2w b << 56 || (w && 0x00FFFFFFFFFFFFFFw)
-Proof
-  fs [byteTheory.set_byte_def]
-  \\ qsuff_tac ‘byte_index a be = 0 ∨
-                byte_index a be = 8 ∨
-                byte_index a be = 16 ∨
-                byte_index a be = 24 ∨
-                byte_index a be = 32 ∨
-                byte_index a be = 40 ∨
-                byte_index a be = 48 ∨
-                byte_index a be = 56’
-  THEN1 (rw [] \\ fs [byteTheory.word_slice_alt_def] \\ blastLib.BBLAST_TAC)
-  \\ fs [byte_index_def]
-  \\ ‘w2n a MOD 8 < 8’ by fs [MOD_LESS] \\ rw []
-QED
-
-val _ = translate set_byte_64;
+val _ = translate byteTheory.set_byte_64;
 val _ = translate (byteTheory.bytes_to_word_def |> inline_simp |> conv64);
 val _ = translate (data_to_wordTheory.getWords_def
                    |> INST_TYPE [alpha|->beta, beta |-> alpha] |> conv64);

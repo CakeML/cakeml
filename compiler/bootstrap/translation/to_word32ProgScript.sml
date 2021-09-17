@@ -167,25 +167,7 @@ val _ = register_type ``:32 wordLang$word_loc``;
 
 val _ = translate (byteTheory.byte_index_def |> inline_simp |> conv32);
 
-Theorem set_byte_32:
-  set_byte a b (w:word32) be =
-    let i = byte_index a be in
-      if i = 0  then w2w b       || (w && 0xFFFFFF00w) else
-      if i = 8  then w2w b << 8  || (w && 0xFFFF00FFw) else
-      if i = 16 then w2w b << 16 || (w && 0xFF00FFFFw) else
-                     w2w b << 24 || (w && 0x00FFFFFFw)
-Proof
-  fs [byteTheory.set_byte_def]
-  \\ qsuff_tac ‘byte_index a be = 0 ∨
-                byte_index a be = 8 ∨
-                byte_index a be = 16 ∨
-                byte_index a be = 24’
-  THEN1 (rw [] \\ fs [byteTheory.word_slice_alt_def] \\ blastLib.BBLAST_TAC)
-  \\ fs [byte_index_def]
-  \\ ‘w2n a MOD 4 < 4’ by fs [MOD_LESS] \\ rw []
-QED
-
-val _ = translate set_byte_32;
+val _ = translate byteTheory.set_byte_32;
 val _ = translate (byteTheory.bytes_to_word_def |> inline_simp |> conv32);
 val _ = translate (data_to_wordTheory.getWords_def
                    |> INST_TYPE [alpha|->beta, beta |-> alpha] |> conv32);
