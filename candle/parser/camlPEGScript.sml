@@ -9,7 +9,6 @@ open finite_mapSyntax;
 val _ = new_theory "camlPEG";
 
 val _ = enable_monadsyntax ();
-
 val _ = enable_monad "option";
 
 (* Some definitions taken from cmlPEG:
@@ -207,7 +206,9 @@ Datatype:
     | nPAny | nPBase | nPLazy | nPConstr | nPTagapp | nPApp | nPCons | nPProd
     | nPOr | nPAs | nPList | nPattern
     (* types *)
-    | nTVar | nTAny | nTBase | nTConstr | nTApp | nTProd | nTFun | nTAs | nType
+    | nTypeList | nTypeLists
+    | nTVar | nTAny | nTBase | nTConstr | nTApp | nTProd | nTFun
+    | nTAs | nType
     (* definitions *)
     | nDefinition | nTopLet | nModuleItem | nModuleItems
     (* misc *)
@@ -300,31 +301,30 @@ Definition camlPEG_def[nocompute]:
        seql [pnt nType; rpt (seql [tokeq StarT; pnt nType] I) FLAT]
             (bindNT nConstrArgs));
       (* -- Type5 ---------------------------------------------------------- *)
+      (INL nTypeList,
+       seql [pnt nType; tokeq CommaT; pnt nTypeLists]
+            (bindNT nTypeList));
+      (INL nTypeLists,
+       seql [pnt nType; try (seql [tokeq CommaT; pnt nTypeLists] I)]
+            (bindNT nTypeLists));
       (INL nTVar,
        seql [tokeq TickT; pnt nIdent] (bindNT nTVar));
       (INL nTAny,
        pegf (tokeq AnyT) (bindNT nTAny));
       (INL nTBase,
-       pegf (choicel [pnt nTVar;
-                      pnt nTAny;
-                      seql [tokeq LparT; pnt nType; tokeq RparT] I;
-                      pnt nTConstr])
+       pegf (choicel [seql [tokeq LparT; pnt nType; tokeq RparT] I;
+                      seql [tokeq LparT; pnt nTypeList; tokeq RparT] I;
+                      pnt nTVar;
+                      pnt nTAny])
             (bindNT nTBase));
       (* -- Type4 ---------------------------------------------------------- *)
       (INL nTConstr,
-       seql [choicel [seql [tokeq LparT; pnt nType;
-                            rpt (seql [tokeq CommaT; pnt nType] I) FLAT;
-                            tokeq RparT] I;
-                      pnt nType;
-                      empty []];
-             tokIdP validConsId]
-            (bindNT nTConstr));
-      (INL nTApp,
-       pegf (choicel [pnt nTConstr; pnt nTBase])
-            (bindNT nTApp));
+       choicel [pegf (tokIdP validFunId) (bindNT nTConstr);
+                seql [try (pnt nTBase); rpt (tokIdP validFunId) FLAT]
+                     (bindNT nTConstr)]);
       (* -- Type3 ---------------------------------------------------------- *)
       (INL nTProd,
-       seql [pnt nTApp; try (seql [tokeq StarT; pnt nTProd] I)]
+       seql [pnt nTConstr; try (seql [tokeq StarT; pnt nTProd] I)]
             (bindNT nTProd));
       (* -- Type2 ---------------------------------------------------------- *)
       (INL nTFun,
@@ -332,7 +332,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nTFun));
       (* -- Type1 ---------------------------------------------------------- *)
       (INL nTAs,
-       seql [pnt nTFun; tokeq AsT; tokeq TickT; pnt nIdent]
+       seql [pnt nTFun; try (seql [tokeq AsT; tokeq TickT; pnt nIdent] I)]
             (bindNT nTAs));
       (* -- Type ----------------------------------------------------------- *)
       (INL nType,
@@ -643,6 +643,23 @@ Theorem camlPEG_exec_thm[compute] =
     |> LIST_CONJ;
 
 (*
+Overload camlpegexec =
+  “λn t. peg_exec camlPEG (pnt n) t [] NONE [] done failed”;
+
+val t1 = rconc $ time EVAL “lexer_fun "'a"”;
+val t2 = time EVAL “camlpegexec nType ^t1”;
+
+val t1 = rconc $ time EVAL “lexer_fun "'a list"”;
+val t2 = time EVAL “camlpegexec nType ^t1”;
+
+val t1 = rconc $ time EVAL “lexer_fun "('a * 'b -> 'c, 'd) alist"”;
+val t2 = time EVAL “camlpegexec nType ^t1”;
+
+val t1 = rconc $ time EVAL “lexer_fun "'a -> 'b"”
+val t2 = time EVAL “camlpegexec nType ^t1”;
+ *)
+
+(*
 val test =
   time EVAL “peg_exec camlPEG (pnt nStart)
              (map_loc [
@@ -722,8 +739,6 @@ val test9 =
 
 (*
 
-Overload camlpegexec =
-  “λn t. peg_exec camlPEG (pnt n) t [] NONE [] done failed”;
 
 Definition destResult_def:
   destResult (Result (Success [] x eo)) = INR (x, eo) ∧
