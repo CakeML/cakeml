@@ -7739,7 +7739,7 @@ Proof
   >> rw[composable_step_inv_INR_def] >> fs[]
 QED
 
-Theorem dep_step_cyclic_step_has_path_to1:
+Theorem dep_step_cyclic_step_has_path_to2:
   !dep p q p'. wf_pqs dep /\ monotone (CURRY (set dep))
   /\ dep_step dep dep [] = INR $ cyclic_step (p,q,p')
   ==> has_path_to (CURRY $ set dep) 2 p p' /\ is_instance_LR p p'
@@ -7809,7 +7809,7 @@ Proof
     >> res_tac
   )
   >> qhdtm_x_assum `composable_len` kall_tac
-  >> dxrule_all_then strip_assume_tac dep_step_cyclic_step_has_path_to1
+  >> dxrule_all_then strip_assume_tac dep_step_cyclic_step_has_path_to2
   >> fs[acyclic_len_def]
   >> res_tac
 QED
