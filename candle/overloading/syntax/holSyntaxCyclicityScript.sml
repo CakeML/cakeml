@@ -7740,8 +7740,8 @@ Proof
 QED
 
 Theorem dep_step_cyclic_step_has_path_to2:
-  !dep p q p'. wf_pqs dep /\ monotone (CURRY (set dep))
-  /\ dep_step dep dep [] = INR $ cyclic_step (p,q,p')
+  !dep p q p' deps'. wf_pqs dep /\ monotone (CURRY (set dep))
+  /\ dep_step dep dep deps' = INR $ cyclic_step (p,q,p')
   ==> has_path_to (CURRY $ set dep) 2 p p' /\ is_instance_LR p p'
 Proof
   rpt gen_tac >> strip_tac
@@ -7842,9 +7842,9 @@ Proof
 QED
 
 Theorem NRC_dep_step_cyclic_step_has_path_to_SUC:
-  !dep dep' p q p' n. wf_pqs dep /\ monotone (CURRY $ set dep)
+  !dep dep' deps' p q p' n. wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC n) dep dep'
-  /\ dep_step dep dep' [] = INR $ cyclic_step (p,q,p')
+  /\ dep_step dep dep' deps' = INR $ cyclic_step (p,q,p')
   ==> has_path_to (CURRY $ set dep) (SUC $ SUC $ SUC n) p p' /\ is_instance_LR p p'
 Proof
   rpt gen_tac >> strip_tac
