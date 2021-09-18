@@ -8034,6 +8034,43 @@ Proof
   >> rpt $ goal_assum $ drule_at Any
 QED
 
+Theorem dep_steps_sound_cyclic_step_composable_len_acyclic_len:
+  !dep deps k p q q'. wf_pqs dep /\ monotone (CURRY $ set dep)
+    /\ dep_steps dep k dep = cyclic_step (p,q,q')
+    ==> ?kk. kk <= k /\
+    (!k'. 0 < k' /\ k' <= kk ==>
+    composable_len (CURRY $ set dep) k' /\ acyclic_len (CURRY $ set dep) $ SUC k')
+    /\ ~(acyclic_len (CURRY $ set dep) $ SUC $ SUC kk)
+Proof
+  rpt strip_tac
+  >> drule_all_then strip_assume_tac
+    $ REWRITE_RULE[dep_steps_inv_def,LESS_OR_EQ] dep_steps_sound_cyclic_step
+  >- (
+    fs[Once SUB_LESS_0]
+    >> qmatch_assum_rename_tac `NRC _ (k - n) _ _`
+    >> qmatch_assum_abbrev_tac `NRC _ kk _ _`
+    >> Cases_on `kk` >> fs[]
+    >> rev_drule NRC_dep_step_cyclic_step_has_path_to_SUC
+    >> rpt $ disch_then $ drule_at Any
+    >> disch_then strip_assume_tac
+    >> qmatch_asmsub_abbrev_tac `has_path_to _ (SUC $ SUC kk)`
+    >> qexists_tac `kk` >> fs[]
+    >> conj_tac
+    >- (
+      drule_at Any $
+        SIMP_RULE(srw_ss())[PULL_EXISTS,GSYM CONJ_ASSOC,AND_IMP_INTRO]
+        $ iffLR NRC_dep_step_acyclic_len_composable_len_eq
+        >> fs[]
+    )
+    >> fs[acyclic_len_def]
+    >> goal_assum drule_all
+  )
+  >> qexists_tac `0`
+  >> gvs[acyclic_len_def]
+  >> drule_all_then strip_assume_tac dep_step_cyclic_step_has_path_to2
+  >> goal_assum drule_all
+QED
+
 Theorem dep_steps_complete_non_comp_step:
   !dep k deps deps' n p q q' depsdep. wf_pqs dep
     /\ dep_steps_inv dep k deps n deps'
