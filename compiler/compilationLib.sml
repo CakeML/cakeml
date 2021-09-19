@@ -1446,6 +1446,12 @@ val cbv_to_bytes_x64 =
     x64_backend_config_def x64_names_def
     x64_export_defs
 
+(*
+val (word_directive,add_encode_compset,backend_config_def,names_def,target_export_defs) =
+    ("quad",ag32_targetLib.add_ag32_encode_compset,
+     ag32_backend_config_def,ag32_names_def,ag32_export_defs)
+*)
+
 val intermediate_prog_prefix = ref ""
 
 fun compile backend_config_def cbv_to_bytes name prog_def =
