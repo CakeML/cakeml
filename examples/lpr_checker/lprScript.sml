@@ -224,10 +224,42 @@ val check_lpr_def = Define`
     | SOME fml' => check_lpr mindel steps fml')`
 
 (* Checking that the final formula contains a list of clauses *)
+
+(* Canonical form for a clause, making transformation proofs easier to check *)
+val sorted_dup_def = Define`
+  (sorted_dup (x::y::xs) =
+  if x = (y:int) then sorted_dup (x::xs)
+  else x::(sorted_dup (y::xs))) ∧
+  (sorted_dup ls = ls)`
+
+val canon_clause_def = Define`
+  canon_clause cl = sorted_dup (QSORT (λi j. i ≤ (j:int)) cl)`
+
+Theorem set_sorted_dup:
+  ∀cl.
+  set (sorted_dup cl) = set cl
+Proof
+  ho_match_mp_tac (fetch "-" "sorted_dup_ind")>>
+  rw[sorted_dup_def]
+QED
+
+Theorem set_QSORT:
+  set (QSORT R ls) = set ls
+Proof
+  rw[EXTENSION,QSORT_MEM]
+QED
+
+Theorem canon_clause_interp:
+  interp_cclause (canon_clause cl) = interp_cclause cl
+Proof
+  rw[canon_clause_def,interp_cclause_def]>>
+  simp[set_sorted_dup,set_QSORT]
+QED
+
 val contains_clauses_def = Define`
   contains_clauses fml cls =
-  let ls = MAP SND (toAList fml) in
-  EVERY (λcl. MEM cl ls) cls`
+  let ls = MAP (canon_clause o SND) (toAList fml) in
+  EVERY (λcl. MEM (canon_clause cl) ls) cls`
 
 (* Checking unsatisfiability *)
 val check_lpr_unsat_def = Define`
@@ -1063,8 +1095,12 @@ Proof
     match_mp_tac empty_clause_imp_unsatisfiable>>
     fs[contains_clauses_def]>>
     fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList,interp_spt_def,values_def]>>
-    qexists_tac`r`>>simp[interp_cclause_def]>>
-    metis_tac[])>>
+    qexists_tac`r`>>
+    simp[]>>
+    `canon_clause [] = [] ∧ interp_cclause [] = {}` by
+      (simp[interp_cclause_def]>>
+      EVAL_TAC)>>
+    metis_tac[canon_clause_interp,interp_cclause_def])>>
   drule wf_fml_build_fml>>
   disch_then (qspec_then`id` assume_tac)>>
   drule check_lpr_sound>>
@@ -1100,7 +1136,7 @@ Proof
     fs[EVERY_MEM,MEM_toAList,EXISTS_PROD,MEM_MAP]>>
     first_x_assum drule>>rw[]>>
     fs[interp_spt_def,values_def]>>
-    metis_tac[])>>
+    metis_tac[canon_clause_interp])>>
   qpat_x_assum`satisfiable _` mp_tac>>
   match_mp_tac (satisfiable_SUBSET)>>
   fs[interp_build_fml, interp_def]
@@ -1125,7 +1161,7 @@ Proof
     fs[EVERY_MEM,MEM_toAList,EXISTS_PROD,MEM_MAP]>>
     first_x_assum drule>>rw[]>>
     fs[interp_spt_def,values_def]>>
-    metis_tac[])>>
+    metis_tac[canon_clause_interp])>>
   qpat_x_assum`satisfiable _` mp_tac>>
   match_mp_tac (satisfiable_SUBSET)>>
   fs[interp_def]
@@ -1290,7 +1326,7 @@ Proof
     fs[PULL_EXISTS]>>
     first_x_assum drule>>rw[]>>
     fs[interp_spt_def,values_def]>>
-    metis_tac[])>>
+    metis_tac[canon_clause_interp])>>
   qpat_x_assum`satisfiable _` mp_tac>>
   match_mp_tac (satisfiable_SUBSET)>>
   fs[interp_def]

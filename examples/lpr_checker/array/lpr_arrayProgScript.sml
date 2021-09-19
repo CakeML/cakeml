@@ -1784,7 +1784,8 @@ val contains_clauses_list_err_def = Define`
   contains_clauses_list_err fml inds cls =
   case reindex fml inds of
     (_,inds') =>
-  oHD (FILTER (λcl. ¬MEM cl inds') cls)`
+  let inds'' = MAP canon_clause inds' in
+  oHD (FILTER (λcl. ¬MEM (canon_clause cl) inds'') cls)`
 
 Theorem contains_clauses_list_err:
   contains_clauses_list fml inds cls ⇔
@@ -1802,17 +1803,17 @@ QED
 
 (* SOME cls indicates failure to detect clause cls *)
 val contains_clauses_sing_list_def = Define`
-  (contains_clauses_sing_list fml [] cls = SOME cls) ∧
-  (contains_clauses_sing_list fml (i::is) cls =
+  (contains_clauses_sing_list fml [] cls ccls = SOME cls) ∧
+  (contains_clauses_sing_list fml (i::is) cls ccls =
   case list_lookup fml NONE i of
-    NONE => contains_clauses_sing_list fml is cls
+    NONE => contains_clauses_sing_list fml is cls ccls
   | SOME v =>
-    if v = cls then NONE
-    else contains_clauses_sing_list fml is cls)`
+    if canon_clause v = ccls then NONE
+    else contains_clauses_sing_list fml is cls ccls)`
 
 Theorem contains_clauses_sing_list_eq:
   ∀inds fml cls.
-  contains_clauses_sing_list fml inds cls =
+  contains_clauses_sing_list fml inds cls (canon_clause cls) =
   contains_clauses_list_err fml inds [cls]
 Proof
   simp[contains_clauses_list_err_def]>>
@@ -1825,34 +1826,38 @@ Proof
   rw[] >> fs[]
 QED
 
+val _ = translate sorted_dup_def;
+val _ = translate canon_clause_def;
+
 (* Optimized combination of reindex and contains_clauses
   for checking that a single clause
   is contained in the formula (usually cls is the empty clause []) *)
 val contains_clauses_sing_arr =  (append_prog o process_topdecs)`
-  fun contains_clauses_sing_arr fml ls cls =
+  fun contains_clauses_sing_arr fml ls cls ccls =
   case ls of
     [] => Some cls
   | (i::is) =>
-  if Array.length fml <= i then contains_clauses_sing_arr fml is cls
+  if Array.length fml <= i then contains_clauses_sing_arr fml is cls ccls
   else
   case Unsafe.sub fml i of
-    None => contains_clauses_sing_arr fml is cls
+    None => contains_clauses_sing_arr fml is cls ccls
   | Some v =>
-    if v = cls then None
-    else contains_clauses_sing_arr fml is cls`
+    if canon_clause v = ccls then None
+    else contains_clauses_sing_arr fml is cls ccls`
 
 Theorem contains_clauses_sing_arr_spec:
-  ∀ls lsv fmlv fmlls fmllsv cls clsv.
+  ∀ls lsv fmlv fmlls fmllsv cls clsv ccls cclsv.
   (LIST_TYPE NUM) ls lsv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
-  (LIST_TYPE INT) cls clsv
+  (LIST_TYPE INT) cls clsv ∧
+  (LIST_TYPE INT) ccls cclsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "contains_clauses_sing_arr" (get_ml_prog_state()))
-    [fmlv; lsv; clsv]
+    [fmlv; lsv; clsv; cclsv]
     (ARRAY fmlv fmllsv)
     (POSTv resv.
-      &(OPTION_TYPE (LIST_TYPE INT) (contains_clauses_sing_list fmlls ls cls) resv) *
+      &(OPTION_TYPE (LIST_TYPE INT) (contains_clauses_sing_list fmlls ls cls ccls) resv) *
       ARRAY fmlv fmllsv)
 Proof
   Induct>>rw[contains_clauses_sing_list_def]>>
@@ -1876,6 +1881,7 @@ Proof
   >- (xmatch>> xapp>> xsimpl) >>
   xmatch>>
   xlet_autop>>
+  xlet_autop>>
   xif
   >- (xcon>>xsimpl>>simp[OPTION_TYPE_def])>>
   xapp>>simp[]
@@ -1887,19 +1893,20 @@ val hash_ins = (append_prog o process_topdecs)`
     None => Hashtable.insert ht k [v]
   | Some ls => Hashtable.insert ht k (v::ls)`
 
-(* reindex that creates a hash table of the values *)
+(* reindex that creates a hash table of the values
+  canon flag decides whether to canonicalize clauses along the way *)
 val reindex_hash = (append_prog o process_topdecs)`
-  fun reindex_hash fml ls ht =
+  fun reindex_hash fml canon ls ht =
   case ls of
     [] => ()
   | (i::is) =>
-  if Array.length fml <= i then reindex_hash fml is ht
+  if Array.length fml <= i then reindex_hash fml canon is ht
   else
   case Unsafe.sub fml i of
-    None => reindex_hash fml is ht
+    None => reindex_hash fml canon is ht
   | Some v =>
-    (hash_ins ht v i;
-    reindex_hash fml is ht)`
+    (hash_ins ht (if canon then canon_clause v else v) i;
+    reindex_hash fml canon is ht)`
 
 (* badly named, but hash_contains returns an option with the first clause it fails to find *)
 val hash_contains = (append_prog o process_topdecs)`
@@ -1907,7 +1914,7 @@ val hash_contains = (append_prog o process_topdecs)`
   case clss of
     [] => None
   | (i::is) =>
-  (case Hashtable.lookup hash i of
+  (case Hashtable.lookup hash (canon_clause i) of
     None => Some i
   | Some u =>
     hash_contains hash is)`
@@ -1933,11 +1940,11 @@ val contains_clauses_arr =  (append_prog o process_topdecs)`
   fun contains_clauses_arr fml ls cls =
   case cls of
     [] => None
-  | [cl] => contains_clauses_sing_arr fml ls cl
+  | [cl] => contains_clauses_sing_arr fml ls cl (canon_clause cl)
   | clss =>
     let
       val ht = Hashtable.empty (2 * List.length ls) hash_func order_lists
-      val u1 = reindex_hash fml ls ht
+      val u1 = reindex_hash fml True ls ht
     in
       hash_contains ht clss
     end`
@@ -2033,16 +2040,17 @@ QED
 Theorem reindex_hash_spec:
   ∀ls lsv h hv.
   (LIST_TYPE NUM) ls lsv ∧
-  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv
+  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
+  BOOL canon canonv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "reindex_hash" (get_ml_prog_state()))
-    [fmlv; lsv; hv]
+    [fmlv; canonv; lsv; hv]
     (HASHTABLE (LIST_TYPE INT) (LIST_TYPE NUM) hash_func order_lists h hv * ARRAY fmlv fmllsv)
     (POSTv uv.
       &(UNIT_TYPE () uv) *
       HASHTABLE (LIST_TYPE INT) (LIST_TYPE NUM) hash_func order_lists
-       ((λ(xs,ys). hash_clauses_aux ys xs) (reindex fmlls ls) h) hv *
+       ((λ(xs,ys). hash_clauses_aux (if canon then MAP canon_clause ys else ys) xs) (reindex fmlls ls) h) hv *
       ARRAY fmlv fmllsv)
 Proof
   Induct>>rw[reindex_def]>>
@@ -2057,30 +2065,43 @@ Proof
   simp[list_lookup_def]>>
   `LENGTH fmlls = LENGTH fmllsv` by
     metis_tac[LIST_REL_LENGTH]>>
-  IF_CASES_TAC >> fs[]>>
-  xif>> asm_exists_tac>> xsimpl
+  xif
   >- (xapp >> xsimpl>>
     qexists_tac`emp`>>qexists_tac`h'`>>xsimpl)>>
   xlet_autop >>
   `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by
     fs[LIST_REL_EL_EQN]>>
-  TOP_CASE_TAC >> fs[OPTION_TYPE_def]
+  Cases_on`EL h fmlls`>>
+  fs[OPTION_TYPE_def]
   >- (
     xmatch>> xapp>> xsimpl>>
     qexists_tac`emp`>>qexists_tac`h'`>>xsimpl)>>
   xmatch>>
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
-  rw[]>>fs[hash_clauses_aux_def]>>
+  xlet`POSTv v. &(LIST_TYPE INT (if canon then canon_clause x else x) v) * ARRAY fmlv fmllsv *
+           HASHTABLE (LIST_TYPE INT) (LIST_TYPE NUM) hash_func order_lists h' hv`
+  >- (
+    IF_CASES_TAC>>xif>>asm_exists_tac>>fs[]
+    >- (
+      xapp>> xsimpl>> asm_exists_tac>>
+      metis_tac[])>>
+    xvar>>xsimpl)>>
   xlet`POSTv uv. &UNIT_TYPE () uv *
     HASHTABLE (LIST_TYPE INT) (LIST_TYPE NUM) hash_func order_lists
-      (hash_insert h' x h) hv * ARRAY fmlv fmllsv`
+      (hash_insert h' (if canon then canon_clause x else x) h) hv * ARRAY fmlv fmllsv`
   >- (
     xapp>>xsimpl>>
     asm_exists_tac>>simp[]>>
     asm_exists_tac>>simp[]>>
     qexists_tac`ARRAY fmlv fmllsv`>>qexists_tac`h'`>>xsimpl)>>
-  xapp>>xsimpl
+  xapp>>xsimpl>>
+  rw[]>>simp[hash_clauses_aux_def]
+  >- (
+    qexists_tac`emp`>>qexists_tac`(hash_insert h' (canon_clause x) h)`>>
+    xsimpl)>>
+  qexists_tac`emp`>>qexists_tac`(hash_insert h' x h)`>>
+  xsimpl
 QED
 
 Theorem hash_contains_spec:
@@ -2093,7 +2114,7 @@ Theorem hash_contains_spec:
     (HASHTABLE (LIST_TYPE INT) (LIST_TYPE NUM) hash_func order_lists h hv)
     (POSTv bv.
       &(OPTION_TYPE (LIST_TYPE INT)
-        (oHD (FILTER (λcl. cl ∉ FDOM h) cls))
+        (oHD (FILTER (λcl. canon_clause cl ∉ FDOM h) cls))
     bv))
 Proof
   Induct>>rw[]>>
@@ -2104,15 +2125,18 @@ Proof
     xcon>>xsimpl>>
     simp[OPTION_TYPE_def])
   >- (
-    xmatch>> xlet_auto
-    >- (qexists_tac`emp`>>
-      xsimpl)>>
-    Cases_on`FLOOKUP h' h`>>fs[FDOM_FLOOKUP,OPTION_TYPE_def]>>
+    xmatch>>
+    xlet_autop>>
+    xlet_auto
+    >- (qexists_tac`emp`>> xsimpl)>>
+    Cases_on`FLOOKUP h' (canon_clause h)`>>fs[FDOM_FLOOKUP,OPTION_TYPE_def]>>
     xmatch>>
     xcon>>xsimpl)>>
-  xmatch>> xlet_auto
+  xmatch>>
+  xlet_autop>>
+  xlet_auto
   >- (qexists_tac`emp`>> xsimpl)>>
-  Cases_on`FLOOKUP h' h`>>fs[FDOM_FLOOKUP,OPTION_TYPE_def]>>
+  Cases_on`FLOOKUP h' (canon_clause h)`>>fs[FDOM_FLOOKUP,OPTION_TYPE_def]>>
   xmatch>>
   xapp>>
   fs[]
@@ -2152,6 +2176,7 @@ Proof
   Cases_on`t`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    xlet_autop>>
     xapp>>xsimpl>>
     rpt(asm_exists_tac>>simp[])>>
     rw[]>>every_case_tac>>fs[contains_clauses_sing_list_eq,contains_clauses_list_err_def])>>
@@ -2171,18 +2196,30 @@ Proof
     qexists_tac`LIST_TYPE NUM`>>xsimpl>>
     simp[theorem "hash_func_v_thm"])>>
   xlet_autop>>
+  xlet`(POSTv uv.
+      &(UNIT_TYPE () uv) *
+      HASHTABLE (LIST_TYPE INT) (LIST_TYPE NUM) hash_func order_lists
+       ((λ(xs,ys). hash_clauses_aux (MAP canon_clause ys) xs) (reindex fmlls ls) FEMPTY) v *
+      ARRAY fmlv fmllsv)`
+  >- (
+    xapp>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    `BOOL T (Conv (SOME (TypeStamp "True" 0)) [])` by EVAL_TAC>>
+    rpt (asm_exists_tac>>simp[])>>
+    qexists_tac`FEMPTY`>>xsimpl)>>
   xapp>>
   qexists_tac`ARRAY fmlv fmllsv`>>xsimpl>>
   qmatch_goalsub_abbrev_tac` _ _ _ _ _ hh v` >>
   qexists_tac`hh`>>
-  qexists_tac`h::h'::t'`>>simp[LIST_TYPE_def]>>
   xsimpl>>
+  qexists_tac`h::h'::t'`>>simp[LIST_TYPE_def]>>
   simp[Abbr`hh`]>>
   Cases_on`reindex fmlls ls`>>
   simp[]>>
   DEP_REWRITE_TAC[FDOM_hash_clauses_aux]>>
   simp[EVERY_MEM,SUBSET_DEF]>>
-  drule reindex_characterize>>fs[]
+  drule reindex_characterize>>fs[]>>
+  simp[MEM_MAP]
 QED
 
 open mlintTheory;
@@ -3256,7 +3293,7 @@ val check_lpr_range_arr = (append_prog o process_topdecs) `
   fun check_lpr_range_arr fname fml inds earr mv n pf i j =
   let
     val hm = (Hashtable.empty (2 * n) hash_func order_lists)
-    val u = reindex_hash fml inds hm
+    val u = reindex_hash fml False inds hm
     val pfij = List.take pf j
     val pfi = List.take pfij i
     val pfj = List.drop pfij i
@@ -3291,7 +3328,7 @@ Proof
 QED
 
 Theorem contains_clauses_list_eq:
-  set (ls:'a list) = set ls' ⇒
+  set (ls:int list list) = set ls' ⇒
   contains_clauses_list fml inds ls = contains_clauses_list fml inds ls'
 Proof
   rw[contains_clauses_list_def]>>
@@ -3357,6 +3394,18 @@ Proof
     qexists_tac`LIST_TYPE NUM`>>xsimpl>>
     simp[theorem "hash_func_v_thm"])>>
   assume_tac (ListProgTheory.take_v_thm |> Q.GEN `a` |> Q.ISPEC `LPR_STEP_TYPE`)>>
+  rpt xlet_autop>>
+  xlet`(POSTv uv.
+      &(UNIT_TYPE () uv) *
+      HASHTABLE (LIST_TYPE INT) (LIST_TYPE NUM) hash_func order_lists
+       ((λ(xs,ys). hash_clauses_aux ys xs) (reindex fmlls ls) FEMPTY) v *
+      STDIO fs * ARRAY fmlv fmllsv * ARRAY Earrv earliestv)`
+  >- (
+    xapp>>xsimpl>>
+    qexists_tac`STDIO fs * ARRAY Earrv earliestv`>>xsimpl>>
+    `BOOL F (Conv (SOME (TypeStamp "False" 0)) [])` by EVAL_TAC>>
+    rpt (asm_exists_tac>>simp[])>>
+    qexists_tac`FEMPTY`>>xsimpl)>>
   rpt xlet_autop>>
   xlet_auto
   >- (

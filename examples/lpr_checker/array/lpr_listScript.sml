@@ -392,7 +392,9 @@ val check_lpr_list_def = Define`
 val contains_clauses_list_def = Define`
   contains_clauses_list fml inds cls =
   case reindex fml inds of
-    (_,inds') => EVERY (λcl. MEM cl inds') cls`
+    (_,inds') =>
+  let inds'' = MAP canon_clause inds' in
+  EVERY (λcl. MEM (canon_clause cl) inds'') cls`
 
 val check_lpr_unsat_list_def = Define`
   check_lpr_unsat_list lpr fml inds Clist earliest =
