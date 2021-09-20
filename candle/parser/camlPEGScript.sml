@@ -479,7 +479,7 @@ Definition camlPEG_def[nocompute]:
        seql [tokeq WhileT; pnt nExpr; tokeq DoT; pnt nExpr; tokeq DoneT]
             (bindNT nEWhile));
       (INL nEFor,
-       seql [tokeq ForT; pnt nIdent; tokeq EqualT;
+       seql [tokeq ForT; pnt nIdent; tokeq EqualT; pnt nExpr;
              choicel [tokeq ToT; tokeq DowntoT]; pnt nExpr;
              tokeq DoT; pnt nExpr; tokeq DoneT]
             (bindNT nEFor));
