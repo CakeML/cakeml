@@ -448,8 +448,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nEIf));
       (* -- Expr1 ---------------------------------------------------------- *)
       (INL nESeq,
-       pegf (choicel [seql [pnt nEIf; try (seql [tokeq SemiT; pnt nESeq] I)] I;
-                      pnt nEIf])
+       seql [pnt nEIf; try (seql [tokeq SemiT; pnt nESeq] I)]
             (bindNT nESeq));
       (* -- Expr0 ---------------------------------------------------------- *)
       (INL nELet,
