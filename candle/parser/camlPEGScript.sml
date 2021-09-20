@@ -350,14 +350,14 @@ Definition camlPEG_def[nocompute]:
          tok isInt    (bindNT nLiteral o mktokLf);
          tok isString (bindNT nLiteral o mktokLf);
          tok isChar   (bindNT nLiteral o mktokLf);
-         tok (λx. MEM x [TrueT; FalseT]) (bindNT nLiteral o mktokLf);
-         pegf (pnt nEList) (bindNT nLiteral)]);
+         tok (λx. MEM x [TrueT; FalseT]) (bindNT nLiteral o mktokLf)]);
       (INL nIdent,
        tok isIdent (bindNT nIdent o mktokLf));
       (INL nEBase,
        choicel [
          pegf (pnt nLiteral) (bindNT nEBase);
          pegf (pnt nIdent) (bindNT nEBase);
+         pegf (pnt nEList) (bindNT nLiteral);
          seql [tokeq LparT; pnt nExpr;
                try (seql [tokeq ColonT; pnt nType] I);
                tokeq RparT] (bindNT nEBase);
