@@ -14,15 +14,46 @@ val _ = new_theory "ast";
  * Some OCaml abstract syntax.
  * ------------------------------------------------------------------------- *)
 
+val _ = Parse.hide "op";
+
 Datatype:
   lit = Lstring string
       | Lchar char
       | Lint int
       | Lbool bool
-      ;
+End
+
+Datatype:
+  op = Lsl | Lsr | Asr                   (* shift *)
+     | Add | Sub | Mult | Div | Mod      (* arith *)
+     | Land | Lor | Lxor                 (* bitwise *)
+     | FAdd | FSub | FMult | FDiv | FExp
+     | FLe | FLeq | FGe | FGeq | FEq     (* float *)
+     | ListCons | Append                 (* list *)
+     | Leq | Le | Geq | Ge | Eq          (* relops *)
+     | And | Or                          (* bool ops *)
+     | Strcat                            (* string *)
+End
+
+Datatype:
+  pat = PAny
+      | PVar string
+      | PCons string (pat list)
+End
+
+Datatype:
+  type = TAny
+       | TAs type string
+       | TVar string
+       | TProd type type
+       | TFun type type
+       | TCons string (type list)
+End
+
+Datatype:
   exp = Id string
       | Lit lit
-      | Binop exp exp
+      | Op op (exp list)
       | If exp exp exp
       | List (exp list)
       | Seq exp exp
@@ -31,18 +62,7 @@ Datatype:
       | Fun string exp
       | App exp exp
       | Typed exp type
-      | Match exp ((pat # exp) list)
-      ;
-  pat = PAny
-      | PVar string
-      | PCons string (pat list)
-      ;
-  type = TAny
-       | TAs type string
-       | TVar string
-       | TProd type type
-       | TFun type type
-       | TCons string (type list)
+      | Match exp ((pat # exp # exp option) list)
 End
 
 Theorem type_size_lemma:
@@ -53,7 +73,7 @@ Proof
 QED
 
 Theorem exp_size_lemma:
-  (∀ts t. MEM t ts ⇒ exp_size t < exp5_size ts)
+  (∀ts t. MEM t ts ⇒ exp_size t < exp6_size ts)
 Proof
   Induct_on ‘ts’ \\ rw [] \\ gs [fetch"-""exp_size_def"]
   \\ res_tac \\ fs []
@@ -209,8 +229,6 @@ Definition pp_exp_def:
     | List xs =>
         mk_blo 0 [mk_str «[»; pp_with_sep «; » F (MAP (pp_exp 0) xs);
                   mk_str «]»]
-    | Binop x y =>
-        pp_paren_blk 0 (prec = 1001) [pp_exp 1001 x; mk_str «+»; pp_exp 1000 y]
     | Seq x y =>
         pp_paren_blk 0 (prec = 1000) [pp_exp 999 x; pp_exp 1000 y]
     | If x y z =>
