@@ -561,7 +561,7 @@ Definition camlPEG_def[nocompute]:
       (* -- Pat1 ----------------------------------------------------------- *)
       (INL nPattern,
        pegf (pnt nPAs) (bindNT nPattern));
-      (INL nPatternList
+      (INL nPatternList,
        seql [pnt nPattern; try (pnt nPatternList)]
             (bindNT nPatternList));
       (INL nStart,
