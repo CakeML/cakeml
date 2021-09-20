@@ -30,7 +30,6 @@ Datatype:
      | Land | Lor | Lxor                 (* bitwise *)
      | FAdd | FSub | FMult | FDiv | FExp
      | FLe | FLeq | FGe | FGeq | FEq     (* float *)
-     | Append                            (* list *)
      | Leq | Le | Geq | Ge | Eq          (* relops *)
      | And | Or                          (* bool ops *)
      | Strcat                            (* string *)
