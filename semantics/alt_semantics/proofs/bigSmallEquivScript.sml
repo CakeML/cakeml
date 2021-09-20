@@ -2057,10 +2057,6 @@ QED
 val _ = set_fixity "+++" (Infixl 480);
 Overload "+++" = “extend_dec_env”;
 
-Definition decl_step_reln_def:
-  decl_step_reln benv st st' = (decl_step benv st = Dstep st')
-End
-
 val decl_step_ss = simpLib.named_rewrites "decl_step_ss"
   [decl_step_reln_def, decl_step_def, decl_continue_def];
 
@@ -2069,14 +2065,17 @@ Definition Rerr_to_decl_step_result_def[simp]:
   Rerr_to_decl_step_result (Rabort v) = Dabort v
 End
 
-Definition small_eval_dec_def:
-  (small_eval_dec benv dst (st, Rval e) =
+Theorem small_eval_dec_def:
+  (∀benv dst st e. small_eval_dec benv dst (st, Rval e) =
     (decl_step_reln benv)꙳ dst (st, Env e, [])) ∧
-  (small_eval_dec benv dst (st, Rerr err) =
+  (∀benv dst st err. small_eval_dec benv dst (st, Rerr err) =
     ∃dst'.
       (decl_step_reln benv)꙳ dst (st, dst') ∧
       decl_step benv (st, dst') = Rerr_to_decl_step_result err)
-End
+Proof
+  rw[small_eval_dec_def] >>
+  Cases_on `err` >> rw[small_eval_dec_def, EXISTS_PROD]
+QED
 
 Inductive small_eval_decs:
   small_eval_decs benv st [] (st, Rval empty_dec_env) ∧
@@ -2087,13 +2086,6 @@ Inductive small_eval_decs:
 
   (small_eval_dec benv (st, Decl d, []) (st', Rerr e)
       ⇒ small_eval_decs benv st (d::ds) (st', Rerr e))
-End
-
-Definition small_decl_diverges_def:
-  small_decl_diverges env a ⇔
-    ∀b.
-      (decl_step_reln env)꙳ a b ⇒
-      ∃c. decl_step_reln env b c
 End
 
 Theorem decl_step_to_Ddone:

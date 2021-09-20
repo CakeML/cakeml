@@ -361,3 +361,31 @@ let decl_step benv (st, dev, c) =
       end
   end
 
+val decl_step_reln : forall 'ffi. sem_env v -> small_decl_state 'ffi -> small_decl_state 'ffi -> bool
+
+val small_eval_dec : forall 'ffi. sem_env v -> small_decl_state 'ffi -> state 'ffi * result (sem_env v) v -> bool
+
+let decl_step_reln env st1 st2 =
+  (decl_step env st1 = Dstep st2)
+
+let rec
+small_eval_dec env dst (st, Rval e) =
+  (rtc (decl_step_reln env)) dst (st, Env e, [])
+and
+small_eval_dec env dst (st, Rerr (Rraise v)) =
+  (exists dev' dcs'.
+    (rtc (decl_step_reln env)) dst (st, dev', dcs') &&
+    decl_step env (st, dev', dcs') = Draise v)
+and
+small_eval_dec env dst (st, Rerr (Rabort v)) =
+  (exists dev' dcs'.
+    (rtc (decl_step_reln env)) dst (st, dev', dcs') &&
+    decl_step env (st, dev', dcs') = Dabort v)
+
+val small_decl_diverges : forall 'ffi. sem_env v -> small_decl_state 'ffi -> bool
+let small_decl_diverges env a =
+  forall b.
+    (rtc (decl_step_reln env)) a b
+    -->
+  (exists c.  decl_step_reln env b c)
+

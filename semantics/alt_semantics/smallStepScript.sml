@@ -406,5 +406,39 @@ val _ = Define `
   )))`;
 
 
+(*val decl_step_reln : forall 'ffi. sem_env v -> small_decl_state 'ffi -> small_decl_state 'ffi -> bool*)
+
+(*val small_eval_dec : forall 'ffi. sem_env v -> small_decl_state 'ffi -> state 'ffi * result (sem_env v) v -> bool*)
+
+val _ = Define `
+ ((decl_step_reln:(v)sem_env -> 'ffi state#decl_eval#decl_ctxt -> 'ffi state#decl_eval#decl_ctxt -> bool) env st1 st2=
+   (decl_step env st1 = Dstep st2))`;
+
+
+ val _ = Define `
+
+((small_eval_dec:(v)sem_env -> 'ffi state#decl_eval#decl_ctxt -> 'ffi state#(((v)sem_env),(v))result -> bool) env dst (st, Rval e)=
+   ((RTC (decl_step_reln env)) dst (st, Env e, [])))
+/\
+((small_eval_dec:(v)sem_env -> 'ffi state#decl_eval#decl_ctxt -> 'ffi state#(((v)sem_env),(v))result -> bool) env dst (st, Rerr (Rraise v))=
+   (? dev' dcs'.
+    (RTC (decl_step_reln env)) dst (st, dev', dcs') /\
+    (decl_step env (st, dev', dcs') = Draise v)))
+/\
+((small_eval_dec:(v)sem_env -> 'ffi state#decl_eval#decl_ctxt -> 'ffi state#(((v)sem_env),(v))result -> bool) env dst (st, Rerr (Rabort v))=
+   (? dev' dcs'.
+    (RTC (decl_step_reln env)) dst (st, dev', dcs') /\
+    (decl_step env (st, dev', dcs') = Dabort v)))`;
+
+
+(*val small_decl_diverges : forall 'ffi. sem_env v -> small_decl_state 'ffi -> bool*)
+val _ = Define `
+ ((small_decl_diverges:(v)sem_env -> 'ffi state#decl_eval#decl_ctxt -> bool) env a=
+   (! b.
+    (RTC (decl_step_reln env)) a b
+    ==>
+  (? c.  decl_step_reln env b c)))`;
+
+
 val _ = export_theory()
 
