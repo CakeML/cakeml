@@ -371,11 +371,12 @@ Definition camlPEG_def[nocompute]:
       (INL nEConstr,
        seql [tokIdP validConsId; pnt nEBase] (bindNT nEConstr));
       (INL nEFunapp,
-       seql [tokIdP validFunId; pnt nEBase] (bindNT nEFunapp));
-      (INL nETagapp,
+       seql [pnt nEBase; rpt (pnt nEBase) FLAT]
+            (bindNT nEFunapp));
+      (INL nETagapp, (* TODO Won't support; remove *)
        seql [tokeq BtickT; tokIdP validFunId; pnt nEBase]
             (bindNT nETagapp));
-      (INL nEApp,
+      (INL nEApp, (* TODO treat assert/lazy as regular apps *)
        pegf (choicel (MAP pnt [nELazy; nEAssert; nEConstr; nEFunapp;
                                nETagapp; nEBase]))
             (bindNT nEApp));
