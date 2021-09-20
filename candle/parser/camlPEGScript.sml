@@ -541,13 +541,15 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPBase));
       (* -- Pat7 ----------------------------------------------------------- *)
       (INL nPLazy,
-       seql [tokeq LazyT; pnt nPBase]
+       seql [try (tokeq LazyT); pnt nPBase]
             (bindNT nPLazy));
       (* -- Pat6 ----------------------------------------------------------- *)
       (INL nPConstr,
-       seql [tokIdP validConsId; pnt nPLazy] (bindNT nPConstr));
-      (INL nPTagapp,
-       seql [tokeq TickT; tokIdP validFunId; pnt nPLazy] (bindNT nPTagapp));
+       seql [try (tokIdP validConsId); pnt nPLazy]
+            (bindNT nPConstr));
+      (INL nPTagapp, (* TODO Remove tag apps *)
+       seql [try (seql [tokeq TickT; tokIdP validFunId] I); pnt nPLazy]
+            (bindNT nPTagapp));
       (INL nPApp,
        pegf (choicel [pnt nPConstr; pnt nPTagapp; pnt nPLazy])
             (bindNT nPApp));
@@ -563,8 +565,8 @@ Definition camlPEG_def[nocompute]:
       (INL nPOr,
        peg_linfix (INL nPOr) (pnt nPProd) (tokeq BarT));
       (* -- Pat2 ----------------------------------------------------------- *)
-      (INL nPAs,
-       seql [pnt nPOr; tokeq AsT; pnt nIdent]
+      (INL nPAs, (* FIXME *)
+       seql [pnt nPOr; try (seql [tokeq AsT; pnt nIdent] I)]
             (bindNT nPAs));
       (* -- Pat1 ----------------------------------------------------------- *)
       (INL nPattern,
