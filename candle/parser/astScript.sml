@@ -26,9 +26,11 @@ Datatype:
       | If exp exp exp
       | List (exp list)
       | Seq exp exp
-      | Let bool ((string # exp) list)
+      | Let bool ((string # exp) list) exp
       | Cons string (exp list)
       | Fun string exp
+      | App exp exp
+      | Typed exp type
       | Match exp ((pat # exp) list)
       ;
   pat = PAny
@@ -215,7 +217,7 @@ Definition pp_exp_def:
         pp_paren_blk 0 (prec = 999) [mk_str «if »; pp_exp 0 x;
                                      mk_str « then »; pp_exp 0 y;
                                      mk_str « else »; pp_exp 0 z]
-    | Let r binds => ARB
+    | Let r binds body => ARB
 Termination
   WF_REL_TAC ‘measure (exp_size o SND)’ \\ rw []
   \\ imp_res_tac exp_size_lemma \\ gs []
