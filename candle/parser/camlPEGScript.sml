@@ -403,7 +403,8 @@ Definition camlPEG_def[nocompute]:
        peg_linfix (INL nEMult) (pnt nEShift) (pnt nMultOp));
       (* -- Expr10 --------------------------------------------------------- *)
       (INL nAddOp,
-       pegf (choicel [tokeq PlusT; tokeq MinusT; tokSymP validAddOp])
+       pegf (choicel [tokeq PlusT; tokeq MinusT; tokeq MinusFT;
+                      tokSymP validAddOp])
             (bindNT nAddOp));
       (INL nEAdd,
        peg_linfix (INL nEAdd) (pnt nEMult) (pnt nAddOp));
