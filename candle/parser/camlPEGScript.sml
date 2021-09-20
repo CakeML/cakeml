@@ -190,21 +190,21 @@ Datatype:
   camlNT =
     (* expressions *)
       nLiteral | nIdent | nEBase | nEList
-    | nEApp | nEConstr | nEFunapp | nETagapp | nEAssert | nELazy
+    | nEApp | nEConstr | nEFunapp | nEAssert | nELazy
     | nEPrefix | nENeg | nEShift | nEMult
     | nEAdd | nECons | nECat | nERel
     | nEAnd | nEOr | nEProd | nEIf | nESeq
     | nEMatch | nETry | nEFun | nEFunction | nELet | nELetExn
     | nEWhile | nEFor | nExpr
     (* pattern matches *)
-    | nParameter | nParameters | nLetBinding | nLetBindings
+    | nLetBinding | nLetBindings
     | nPatternMatch | nPatternMatches
     (* type definitions *)
     | nTypeDefinition | nTypeDef | nTypeInfo | nTypeRepr | nTypeReprs
     | nConstrDecl | nConstrArgs | nExcDefinition
     (* patterns *)
-    | nPAny | nPBase | nPLazy | nPConstr | nPTagapp | nPApp | nPCons | nPProd
-    | nPOr | nPAs | nPList | nPattern
+    | nPAny | nPBase | nPLazy | nPConstr | nPApp | nPCons | nPProd
+    | nPOr | nPAs | nPList | nPattern | nPatternList
     (* types *)
     | nTypeList | nTypeLists
     | nTVar | nTAny | nTBase | nTConstr | nTApp | nTProd | nTFun
@@ -223,6 +223,7 @@ End
      + Assignments, i.e. <- :=
    - The module syntax (all module expressions and the module types), and some
      top-levle definitions such as 'open'.
+   - Literals for the unit value (i.e. (), and begin end.)
 
    Also the following is broken:
    - Somehow I forgot to allow identifiers to contain dots
@@ -373,12 +374,8 @@ Definition camlPEG_def[nocompute]:
       (INL nEFunapp,
        seql [pnt nEBase; rpt (pnt nEBase) FLAT]
             (bindNT nEFunapp));
-      (INL nETagapp, (* TODO Won't support; remove *)
-       seql [tokeq BtickT; tokIdP validFunId; pnt nEBase]
-            (bindNT nETagapp));
       (INL nEApp, (* TODO treat assert/lazy as regular apps *)
-       pegf (choicel (MAP pnt [nELazy; nEAssert; nEConstr; nEFunapp;
-                               nETagapp; nEBase]))
+       pegf (choicel (MAP pnt [nELazy; nEAssert; nEConstr; nEFunapp; nEBase]))
             (bindNT nEApp));
       (* -- Expr14 --------------------------------------------------------- *)
       (INL nEPrefix,
@@ -465,7 +462,7 @@ Definition camlPEG_def[nocompute]:
        seql [tokeq MatchT; pnt nExpr; tokeq WithT; pnt nPatternMatch]
             (bindNT nEMatch));
       (INL nEFun,
-       seql [tokeq FunT; pnt nParameters;
+       seql [tokeq FunT; pnt nPatternList;
              try (seql [tokeq ColonT; pnt nType] I);
              tokeq RarrowT; pnt nExpr]
             (bindNT nEFun));
@@ -510,15 +507,10 @@ Definition camlPEG_def[nocompute]:
             (bindNT nLetBindings));
       (INL nLetBinding,
        pegf (choicel [seql [pnt nPattern; tokeq EqualT; pnt nExpr] I;
-                      seql [pnt nIdent; try (pnt nParameters);
+                      seql [pnt nIdent; try (pnt nPatternList);
                             try (seql [tokeq ColonT; pnt nType] I);
                             tokeq EqualT; pnt nExpr ] I])
             (bindNT nLetBinding));
-      (INL nParameters,
-       seql [pnt nParameter; try (pnt nParameters)]
-            (bindNT nParameters));
-      (INL nParameter, (* only one type of parameter supported; collapse? *)
-       pegf (pnt nPattern) (bindNT nParameter));
       (* -- Pat8 ----------------------------------------------------------- *)
       (INL nPList,
        seql [tokeq LbrackT;
@@ -548,11 +540,8 @@ Definition camlPEG_def[nocompute]:
       (INL nPConstr,
        seql [try (tokIdP validConsId); pnt nPLazy]
             (bindNT nPConstr));
-      (INL nPTagapp, (* TODO Remove tag apps *)
-       seql [try (seql [tokeq TickT; tokIdP validFunId] I); pnt nPLazy]
-            (bindNT nPTagapp));
       (INL nPApp,
-       pegf (choicel [pnt nPConstr; pnt nPTagapp; pnt nPLazy])
+       pegf (choicel [pnt nPConstr; pnt nPLazy])
             (bindNT nPApp));
       (* -- Pat5 ----------------------------------------------------------- *)
       (INL nPCons,
@@ -566,12 +555,15 @@ Definition camlPEG_def[nocompute]:
       (INL nPOr,
        peg_linfix (INL nPOr) (pnt nPProd) (tokeq BarT));
       (* -- Pat2 ----------------------------------------------------------- *)
-      (INL nPAs, (* FIXME *)
+      (INL nPAs,
        seql [pnt nPOr; try (seql [tokeq AsT; pnt nIdent] I)]
             (bindNT nPAs));
       (* -- Pat1 ----------------------------------------------------------- *)
       (INL nPattern,
        pegf (pnt nPAs) (bindNT nPattern));
+      (INL nPatternList
+       seql [pnt nPattern; try (pnt nPatternList)]
+            (bindNT nPatternList));
       (INL nStart,
        seql [try (pnt nModuleItems); not (any (K [])) [] ] (bindNT nStart))
       ] |>
@@ -655,11 +647,19 @@ val t2 = time EVAL “camlpegexec nTBase ^t1”;
 val t1 = rconc $ time EVAL “lexer_fun "'a b c d"”;
 val t2 = time EVAL “camlpegexec nType ^t1”;
 
-val t1 = rconc $ time EVAL “lexer_fun "('a * 'b -> 'c, 'd) alist"”;
-val t2 = time EVAL “camlpegexec nType ^t1”;
+val t1 = rconc $ time EVAL “lexer_fun "('a,'b -> 'c) list list"”;
+val t2 = rconc $ time EVAL “camlpegexec nType ^t1”;
+val t3 = hd (fst (listSyntax.dest_list (rand (rator (rand t2)))))
+val t4 = time EVAL “ptree_Type ^t3”
 
-val t1 = rconc $ time EVAL “lexer_fun "'a -> 'b"”
-val t2 = time EVAL “camlpegexec nType ^t1”;
+val t1 = rconc $ time EVAL “lexer_fun "3 || 2.0"”
+val t2 = time EVAL “camlpegexec nEAdd ^t1”;
+
+val t1 = rconc $ time EVAL “lexer_fun "for x = y z"”;
+val t2 = rconc $ time EVAL “camlpegexec nEApp ^t1”;
+val t3 = hd (fst (listSyntax.dest_list (rand (rator (rand t2)))))
+val t4 = rconc $ time EVAL “ptree_Literal ^t3”;
+
  *)
 
 (*
