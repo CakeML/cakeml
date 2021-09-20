@@ -26,10 +26,11 @@ End
 Datatype:
   op = Lsl | Lsr | Asr                   (* shift *)
      | Add | Sub | Mult | Div | Mod      (* arith *)
+     | Neg | FNeg                        (* unary negation *)
      | Land | Lor | Lxor                 (* bitwise *)
      | FAdd | FSub | FMult | FDiv | FExp
      | FLe | FLeq | FGe | FGeq | FEq     (* float *)
-     | ListCons | Append                 (* list *)
+     | Append                            (* list *)
      | Leq | Le | Geq | Ge | Eq          (* relops *)
      | And | Or                          (* bool ops *)
      | Strcat                            (* string *)
