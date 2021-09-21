@@ -193,6 +193,8 @@ fun compile_to_word_0 data_prog_def to_data_thm =
     val conf_tm = to_data_tm |> rator |> rand
     val prog_tm = to_data_tm |> rand
 
+    fun ABBREV_CONV name tm = SYM (mk_abbrev name tm);
+
     val to_word_0_thm = to_word_0_def
                         |> INST_TYPE [beta|->alpha]
                         |> ISPEC conf_tm |> SPEC prog_tm
@@ -200,15 +202,19 @@ fun compile_to_word_0 data_prog_def to_data_thm =
                         |> PURE_REWRITE_RULE [data_to_wordTheory.compile_0_def]
                         |> CONV_RULE (RAND_CONV (RAND_CONV (REWR_CONV to_data_thm)))
                         |> CONV_RULE (RAND_CONV (timez "data_to_word" eval))
+                        |> CONV_RULE (PATH_CONV "rlr"  (ABBREV_CONV "word_0_c"))
+                        |> CONV_RULE (PATH_CONV "rrlr" (ABBREV_CONV "word_0_p"))
+                        |> CONV_RULE (PATH_CONV "rrr"  (ABBREV_CONV "word_0_names"))
 
   in to_word_0_thm end;
 
 fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
   let
-    val word_0_parts = helperLib.list_dest dest_pair word_0_tm
-    val word_0_abbrevs =
-      zip ["word_0_c","word_0_p","word_0_names"] word_0_parts
-      |> map (fn (n,tm) => mk_abbrev n tm)
+    (* TODO: don't look up definition *)
+    val word_0_c_def = definition"word_0_c_def"
+    val word_0_p_def = definition"word_0_p_def"
+    val word_0_names_def = definition"word_0_names_def"
+    val word_0_abbrevs = [word_0_c_def, word_0_p_def, word_0_names_def]
 
     val cs = compilation_compset()
     val () =
@@ -226,8 +232,7 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
           mips_backend_config_def, mips_names_def,
           riscv_backend_config_def, riscv_names_def,
           ag32_backend_config_def, ag32_names_def,
-          x64_backend_config_def, x64_names_def
-          ] @ word_0_abbrevs)
+          x64_backend_config_def, x64_names_def] @ word_0_abbrevs)
       ] cs
     val eval = computeLib.CBV_CONV cs;
     fun parl f = parlist (!num_threads) (!chunk_size) f
@@ -1144,6 +1149,38 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
   in stack_to_lab_thm end
 
+fun compose_to_word_0_from_word_0 to_word_0_thm from_word_0_thm =
+  let
+
+    val wc =
+     from_word_0_thm |> concl |> lhs |> rator |> rator |> rand |> rator |> rand |> rand
+
+    val args = to_word_0_thm |> concl |> lhs |> strip_comb |> #2
+
+    val to_word_0_final =
+      to_word_0_invariant |> INST_TYPE [beta|->alpha]
+      |> Q.GEN`wc` |> SPEC wc
+      |> Q.GENL[`c`,`p`] |> ISPECL args
+      |> CONV_RULE ((RATOR_CONV EVAL) THENC BETA_CONV)
+      |> CONV_RULE(RAND_CONV(
+           REWR_CONV LET_THM THENC
+           RAND_CONV(REWR_CONV to_word_0_thm) THENC
+           PAIRED_BETA_CONV))
+
+    val args = to_word_0_final |> concl |> lhs |> strip_comb |> #2
+
+    val final_thm =
+      compile_oracle_word_0
+      |> Q.GENL[`c`,`p`] |> ISPECL args
+      |> CONV_RULE(RAND_CONV(
+           REWR_CONV LET_THM THENC
+           RAND_CONV(REWR_CONV to_word_0_final) THENC
+           PAIRED_BETA_CONV))
+      |> CONV_RULE(RAND_CONV (REWR_CONV from_word_0_thm))
+
+  in final_thm end
+  handle HOL_ERR _ => failwith "compose_to_word_0_from_word_0 failed";
+
 val spec64 = INST_TYPE[alpha |-> fcpSyntax.mk_int_numeric_type 64]
 val (COND_T,COND_F) = COND_CLAUSES |> SPEC_ALL |> CONJ_PAIR;
 val (T_AND::AND_T::_) = AND_CLAUSES |> SPEC_ALL |> CONJUNCTS;
@@ -1462,70 +1499,38 @@ fun compile backend_config_def cbv_to_bytes name prog_def =
     val to_data_thm = compile_to_data cs conf_def prog_def data_prog_name
     val _ = save_thm((!intermediate_prog_prefix) ^ "to_data_thm", to_data_thm)
     val data_prog_def = definition(mk_abbrev_name data_prog_name)
-    val lab_prog_name = (!intermediate_prog_prefix) ^ "lab_prog"
+    val lab_prog_name = (!intermediate_prog_prefix) ^ "lab_prog";
+
     val to_word_0_thm = compile_to_word_0 data_prog_def to_data_thm
     val conf_tm = to_data_thm |> concl |> lhs |> rator |> rand
-    val word_0_tm = to_word_0_thm |> concl |> rand
+    val word_0_tm = to_word_0_thm |> concl |> rand;
 
-    val stack_to_lab_thm = compile_to_lab_new conf_tm word_0_tm lab_prog_name
+    val stack_to_lab_thm = compile_to_lab_new conf_tm word_0_tm lab_prog_name;
 
-    (* val stack_to_lab_thm = compile_to_lab data_prog_def to_data_thm lab_prog_name *)
     val lab_prog_def = definition(mk_abbrev_name lab_prog_name)
     val code_name = (!intermediate_prog_prefix) ^ "code"
     val data_name = (!intermediate_prog_prefix) ^ "data"
-    val config_name = (!intermediate_prog_prefix) ^ "config"
-    val result_thm =
-      cbv_to_bytes stack_to_lab_thm lab_prog_def code_name data_name config_name (name^".S")
+    val config_name = (!intermediate_prog_prefix) ^ "config";
+    val from_word_0_thm =
+      cbv_to_bytes stack_to_lab_thm lab_prog_def code_name data_name config_name (name^".S");
 
-    (* TODO: don't look up definition *)
-    val word_0_c_def = definition"word_0_c_def"
-    val word_0_p_def = definition"word_0_p_def"
-    val word_0_names_def = definition"word_0_names_def"
-
-    val to_word_0_thm' = to_word_0_thm |>
-      CONV_RULE (RAND_CONV (RATOR_CONV (RAND_CONV (REWR_CONV (SYM word_0_c_def))))) |>
-      CONV_RULE (RAND_CONV (RAND_CONV (RATOR_CONV (RAND_CONV (REWR_CONV (SYM word_0_p_def)) )))) |>
-      CONV_RULE (RAND_CONV (RAND_CONV (RAND_CONV (REWR_CONV (SYM word_0_names_def)))))
-
-    val wc =
-     result_thm |> concl |> lhs |> rator |> rator |> rand |> rator |> rand |> rand
-
-    val args = to_word_0_thm' |> concl |> lhs |> strip_comb |> #2
-
-    val to_word_0_final =
-      to_word_0_invariant |> INST_TYPE [beta|->alpha]
-      |> Q.GEN`wc` |> SPEC wc
-      |> Q.GENL[`c`,`p`] |> ISPECL args
-      |> CONV_RULE ((RATOR_CONV eval) THENC BETA_CONV)
-      |> CONV_RULE(RAND_CONV(
-           REWR_CONV LET_THM THENC
-           RAND_CONV(REWR_CONV to_word_0_thm') THENC
-           PAIRED_BETA_CONV))
-
-    val args = to_word_0_final |> concl |> lhs |> strip_comb |> #2
-
-    val final_thm =
-      compile_oracle_word_0
-      |> Q.GENL[`c`,`p`] |> ISPECL args
-      |> CONV_RULE(RAND_CONV(
-           REWR_CONV LET_THM THENC
-           RAND_CONV(REWR_CONV to_word_0_final) THENC
-           PAIRED_BETA_CONV))
-      |> CONV_RULE(RAND_CONV (REWR_CONV result_thm))
-
+    val final_thm = compose_to_word_0_from_word_0 to_word_0_thm from_word_0_thm
   in final_thm end
 
-val compile_arm7 = compile arm7_backend_config_def cbv_to_bytes_arm7
-val compile_arm8 = compile arm8_backend_config_def cbv_to_bytes_arm8
-val compile_mips = compile mips_backend_config_def cbv_to_bytes_mips
+val compile_arm7  = compile arm7_backend_config_def  cbv_to_bytes_arm7
+val compile_arm8  = compile arm8_backend_config_def  cbv_to_bytes_arm8
+val compile_mips  = compile mips_backend_config_def  cbv_to_bytes_mips
 val compile_riscv = compile riscv_backend_config_def cbv_to_bytes_riscv
-val compile_ag32 = compile ag32_backend_config_def cbv_to_bytes_ag32
-val compile_x64 = compile x64_backend_config_def cbv_to_bytes_x64
+val compile_ag32  = compile ag32_backend_config_def  cbv_to_bytes_ag32
+val compile_x64   = compile x64_backend_config_def   cbv_to_bytes_x64
 
 (*
 
 val (backend_config_def,cbv_to_bytes,name,prog_def) =
     (x64_backend_config_def,cbv_to_bytes_x64,"hello",hello_prog_def)
+
+val (backend_config_def,cbv_to_bytes,name,prog_def) =
+    (ag32_backend_config_def,cbv_to_bytes_ag32,"hello",hello_prog_def)
 
 *)
 
