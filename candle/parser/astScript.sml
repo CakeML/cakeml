@@ -51,6 +51,7 @@ Datatype:
       | PTyped pat type
       | PCons string (pat list)
       | POr pat pat
+      | PAs pat string
 End
 
 Datatype:
