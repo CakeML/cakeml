@@ -6030,8 +6030,8 @@ val write_bytes_REPLICATE = Q.prove(
   \\ qspec_tac (`0w:'a word`,`a`)
   \\ qspec_tac (`dimindex (:α) DIV 8`,`n`)
   \\ Induct
-  \\ fs [bytes_to_word_def,REPLICATE] \\ Cases_on `m`
-  \\ fs [bytes_to_word_def,REPLICATE,set_byte_word_of_byte]);
+  \\ simp [Once bytes_to_word_def,REPLICATE] \\ Cases_on `m`
+  \\ fs [REPLICATE,set_byte_word_of_byte]);
 
 Theorem IMP_EXP_LESS:
    m <= l ==> 2n ** m <= 2 ** l
@@ -6068,14 +6068,6 @@ Theorem write_bytes_APPEND:
       write_bytes (DROP ((dimindex (:α) DIV 8) * LENGTH xs) vals) ys be
 Proof
   Induct \\ fs [write_bytes_def,ADD1,RIGHT_ADD_DISTRIB,DROP_DROP_T]
-QED
-
-Theorem bytes_to_word_simp:
-   (bytes_to_word k a [] w be = w) /\
-    (bytes_to_word k a (b::bs) w be =
-     if k = 0 then w else set_byte a b (bytes_to_word (k-1) (a+1w) bs w be) be)
-Proof
-  Cases_on `k` \\ fs [bytes_to_word_def]
 QED
 
 Theorem set_byte_sort:
@@ -6153,11 +6145,13 @@ Proof
   fs[labPropsTheory.good_dimindex_def] \\ rfs[dimword_def]
   \\ rw [] \\ rfs [] \\ pop_assum mp_tac
   \\ `good_dimindex (:α)` by fs[labPropsTheory.good_dimindex_def]
-  \\ Cases_on `bs` \\ Cases_on `bs'` \\ fs [bytes_to_word_simp]
+  \\ Cases_on `bs` \\ Cases_on `bs'`
+  \\ once_rewrite_tac [bytes_to_word_def] \\ fs []
   \\ assume_tac (UNDISCH set_byte_eq_ARB)
   \\ pop_assum (fn th => once_rewrite_tac [th]) \\ fs []
   \\ rpt (rename1 `LENGTH t1 = LENGTH t2`
-    \\ Cases_on `t1` \\ Cases_on `t2` \\ fs [bytes_to_word_simp]
+    \\ Cases_on `t1` \\ Cases_on `t2`
+    \\ once_rewrite_tac [bytes_to_word_def] \\ fs []
     \\ NTAC 30 (fs [Once set_byte_sort_dec])
     \\ assume_tac (UNDISCH set_byte_eq_ARB)
     \\ pop_assum (fn th => once_rewrite_tac [th]))
@@ -6290,7 +6284,7 @@ Proof
   \\ TRY (
     qmatch_goalsub_rename_tac`_::_::_::_::_::_::_::_::bs`
     \\ Cases_on`bs` \\ rfs[ADD1] )
-  \\ simp[bytes_to_word_simp,set_byte_all_64,set_byte_all_32]
+  \\ rpt (once_rewrite_tac [bytes_to_word_def] \\ fs [set_byte_all_64,set_byte_all_32])
 QED
 
 val last_bytes_def = Define`
@@ -6302,8 +6296,8 @@ val last_bytes_simp = Q.prove(
   `(last_bytes 0 b a w be = w) ∧
    (last_bytes (SUC n) b a w be = set_byte a b (last_bytes n b (a + 1w) w be) be)`,
   rw[Once last_bytes_def] \\ rw[Once last_bytes_def])
-|> CONJUNCTS |> map GEN_ALL |> LIST_CONJ |> CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV
-|> curry save_thm "last_bytes_simp";
+  |> CONJUNCTS |> map GEN_ALL |> LIST_CONJ |> CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV
+  |> curry save_thm "last_bytes_simp";
 
 Theorem last_bytes_bytes_to_word_REPLICATE:
    !n1 n k a (w:'a word).
@@ -6312,7 +6306,7 @@ Theorem last_bytes_bytes_to_word_REPLICATE:
    last_bytes n1 b1 a w be
 Proof
   simp []
-  \\ Induct \\ rw[bytes_to_word_simp,REPLICATE]
+  \\ Induct \\ rw[Once bytes_to_word_def,REPLICATE]
   >- ( rw[Once last_bytes_def] )
   \\ rw[Once last_bytes_def,SimpRHS]
 QED
@@ -7097,11 +7091,11 @@ Proof
     \\ TRY (Cases_on `t''`) \\ fs []
     \\ TRY (Cases_on `t`) \\ fs []
     \\ TRY (Cases_on `t'`) \\ fs []
-    \\ rewrite_tac [expand_num,bytes_to_word_def]
-    \\ rpt (fs [labPropsTheory.good_dimindex_get_byte_set_byte]
-      \\ match_mp_tac get_byte_set_byte_alt
-      \\ fs [dimword_def,alignmentTheory.byte_align_def,
-             alignmentTheory.align_w2n]))
+    \\ ntac 10 (once_rewrite_tac [expand_num,bytes_to_word_def]
+                \\ rpt (fs [labPropsTheory.good_dimindex_get_byte_set_byte]
+                        \\ match_mp_tac get_byte_set_byte_alt
+                        \\ fs [dimword_def,alignmentTheory.byte_align_def,
+                               alignmentTheory.align_w2n])))
   \\ fs [] \\ Cases_on `dimindex (:α) = 64` \\ fs [] THEN1
    (fs [LESS_8] \\ fs []
     \\ Cases_on `zs` \\ fs []
@@ -7113,11 +7107,11 @@ Proof
     \\ TRY (Cases_on `t'`) \\ fs []
     \\ TRY (Cases_on `t`) \\ fs []
     \\ TRY (Cases_on `t'`) \\ fs []
-    \\ rewrite_tac [expand_num,bytes_to_word_def]
-    \\ rpt (fs [labPropsTheory.good_dimindex_get_byte_set_byte]
-      \\ match_mp_tac get_byte_set_byte_alt
-      \\ fs [dimword_def,alignmentTheory.byte_align_def,
-             alignmentTheory.align_w2n]))
+    \\ ntac 10 (once_rewrite_tac [expand_num,bytes_to_word_def]
+                \\ rpt (fs [labPropsTheory.good_dimindex_get_byte_set_byte]
+                        \\ match_mp_tac get_byte_set_byte_alt
+                        \\ fs [dimword_def,alignmentTheory.byte_align_def,
+                               alignmentTheory.align_w2n])))
   \\ rfs [labPropsTheory.good_dimindex_def]
 QED
 
@@ -7196,7 +7190,7 @@ Proof
   \\ TRY (Cases_on`t'`) \\ fs[]
   \\ TRY (Cases_on`t''`) \\ fs[]
   \\ TRY (Cases_on`t'`) \\ fs[]
-  \\ rewrite_tac[expand_num,bytes_to_word_def,LUPDATE_def] \\ fs [ADD1]
+  \\ rewrite_tac[expand_num,bytes_to_word_eq,LUPDATE_def] \\ fs [ADD1]
   \\ rpt (fs [Once set_byte_sort,labPropsTheory.good_dimindex_def]
           \\ AP_THM_TAC \\ AP_TERM_TAC)
 QED

@@ -246,8 +246,17 @@ Definition bytes_to_word_def:
     if k = 0:num then w else
       case bs of
       | [] => w
-      | (b::bs1) => set_byte a b (bytes_to_word (k-1) (a+1w) bs1 w be) be
+      | (b::bs) => set_byte a b (bytes_to_word (k-1) (a+1w) bs w be) be
 End
+
+Theorem bytes_to_word_eq:
+  bytes_to_word 0 a bs w be = w ∧
+  bytes_to_word k a [] w be = w ∧
+  bytes_to_word (SUC k) a (b::bs) w be =
+    set_byte a b (bytes_to_word k (a+1w) bs w be) be
+Proof
+  rw [] \\ simp [Once bytes_to_word_def]
+QED
 
 Theorem word_of_bytes_bytes_to_word:
   ∀be a bs k.

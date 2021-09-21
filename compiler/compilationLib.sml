@@ -35,6 +35,24 @@ val bare_compiler_eval = computeLib.CBV_CONV bare_compiler_cs
 
 fun REWR_CONV_BETA th tm = Thm.Beta (REWR_CONV th tm)
 
+local
+  val uninteresting_consts =
+    [``ZERO``, ``BIT1``, ``BIT2``,``NUMERAL``,``CHR``,``int_of_num``,“int_neg”,
+     ``n2w``];
+in
+  fun interesting tm =
+    if TypeBase.is_constructor tm then false else
+    if can (first (fn pat => can (match_term pat) tm))
+         uninteresting_consts then false else true;
+end
+
+(*
+
+  lab_prog_def
+  |> concl |> rand |> find_terms is_const |> filter interesting
+
+*)
+
 val num_threads = ref 8
 val chunk_size = ref 50
 
@@ -123,116 +141,6 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
           PATH_CONV"rlllr" (REWR_CONV bvl_conf_clos_conf_start) THENC
           PATH_CONV"rllr"(REWR_CONV bvl_conf_bvl_conf))
 
-(*
-
-eval ``compile_const (ConstCons 8 [ConstWord64 (45w);ConstCons 8 [ConstStr (strlit "hiii")];ConstCons 8 [ConstInt (-56)]])``
-
- ``SOME``
-
-fun all_distinct c [] = c
-  | all_distinct c (x::xs) = all_distinct (x::c) (filter (fn s => s <> x) xs);
-
-val tm =
-fetch "-" "bvl_prog_def" |> concl
-|> rand |> rand |> rand |> rand |> rand |> rand |> rand
-|> rand |> rand |> rand |> rand |> rand |> rand |> rand
-|> rand |> rand |> rand |> rand |> rand |> rand |> rand
-|> rand |> rand |> rand |> rand |> rand |> rand |> rand
-|> rand |> rand |> rand |> rand |> rand |> rand |> rand
-|> rand |> rand |> rand |> rand |> rand |> rand |> rand
-|> rand |> rand |> rand |> rand |> rand |> rand |> rand
-|> rand |> rand |> rand |> rand |> rand |> rand |> rand
-|> rand |> rand |> rand |> rand |> rand |> rand |> rand
-|> rand |> rand
-|> rand |> rand
-|> rand |> rator
-
-fun foo tm =
-  if is_abs tm then foo (snd (dest_abs tm)) else
-  if is_comb tm then
-    let
-      val (x,y) = dest_comb tm
-    in if pairSyntax.is_pabs x then y else
-           (foo x handle HOL_ERR _ => foo y)
-    end
-  else fail()
-
-
-free_vars tm
-
-foo tm |> dest_comb |> snd
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-|> rand
-
-xo|> rand
-|> rand
-|> rand
-|> rator
-|> rand
-|> rator
-|> rand
-|> foo
-
-|> find_terms is_abs
-
-|> find_term (can (match_term ``ALOOKUP _ _``))
-
-max_print_depth := 25
-
-
-tm
-|> find_terms is_const
-|> filter (not o TypeBase.is_constructor)
-|> map (fst o dest_const)
-|> all_distinct []
-
-*)
-
     val to_bvi_thm1 = to_bvi_thm0 |> CONV_RULE(RAND_CONV(
       timez "to_bvi" eval))
 
@@ -297,31 +205,6 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
     val (_,[conf_tm,prog_tm]) =
       to_data_thm |> concl |> lhs |> strip_comb
-
-(*
-
-val uninteresting_consts =
-  [``ZERO``, ``BIT1``, ``BIT2``,``NUMERAL``,``CHR``,``int_of_num``,“int_neg”]
-
-fun uninteresting tm =
-  if TypeBase.is_constructor tm then true else
-  if can (first (fn pat => can (match_term pat) tm))
-       uninteresting_consts then true else false
-
-fetch "-" "data_prog_def"
-|> concl |> rand |> find_terms is_const
-|> filter (not o uninteresting)
-
-  eval
-
-  EVAL
-  ``const_parts_to_words x64_backend_config.data_conf [Int 7; Con 0 [0]]
-    :((bool # 32 word_loc) # (bool # 32 word_loc) list) option``
-  |> type_of
-
-  EVAL ``byte_index (0w:word32) F``
-
-*)
 
     val to_livesets_thm0 =
       ``to_livesets ^conf_tm ^prog_tm``
@@ -885,10 +768,14 @@ val (emit_symbols_tm,mk_emit_symbols,dest_emit_symbols,is_emit_symbols) =
 val (SmartAppend_tm,mk_SmartAppend,dest_SmartAppend,is_SmartAppend) = HolKernel.syntax_fns2 "misc" "SmartAppend"
 val (split16_tm,mk_split16,dest_split16,is_split16) = HolKernel.syntax_fns2 "export" "split16"
 
+(*
 fun format_byte s = String.concat("0x"::(if String.size s < 2 then ["0",s] else [s]))
 
 fun byte_to_string i = i |> Int.fmt StringCvt.HEX |> format_byte
+                       handle Overflow => ("byte_to_string overflowed!!!!"; raise Overflow)
 fun word_to_string i = i |> Int.fmt StringCvt.DEC
+                       handle Overflow => ("word_to_string overflowed!!!!"; raise Overflow)
+*)
 
 fun split16_to_app_list f [] = Nil
   | split16_to_app_list f xs =
@@ -916,11 +803,26 @@ fun split16_def_to_app_list term_to_app_list eval f def =
   in split16_to_app_list apply_f ls end
 *)
 
-fun split16_ml_to_app_list (prefix,to_string) def =
+val ty8  = ``:8``
+val ty32 = ``:32``
+val ty64 = ``:64``
+
+fun str_of_n2w tm = let
+  val (n,ty) = wordsSyntax.dest_n2w tm
+  val s = Arbnum.toHexString (numSyntax.dest_numeral n)
+  val l = (if ty = ty8  then  2:int else
+           if ty = ty32 then  8:int else
+           if ty = ty64 then 16:int else
+             failwith("str_of_num: size not supported"))
+  val _ = size s <= l orelse failwith "str_of_num: too long"
+  val s = if l = 2 andalso size s = 1 then "0" ^ s else s
+  in "0x" ^ s end
+
+fun split16_ml_to_app_list prefix def =
   let
     val (ls,ty) = listSyntax.dest_list(rconc def)
-    val ints = map wordsSyntax.uint_of_word ls
-  in split16_to_app_list (words_line prefix to_string) ints end
+    val nums = map str_of_n2w ls
+  in split16_to_app_list (words_line prefix I) nums end
 
 fun emit_symbols_to_app_list tm =
   let
@@ -945,6 +847,10 @@ fun emit_symbols_to_app_list tm =
     List (mapi emit_symbol ls)
   end
 
+(*
+data_def |> concl |> rand |> listSyntax.dest_list
+*)
+
 fun term_to_app_list word_directive eval code_def data_def =
   let
     fun ttal tm =
@@ -952,13 +858,9 @@ fun term_to_app_list word_directive eval code_def data_def =
       else if is_split16 tm then
         let
           val (f,x) = dest_split16 tm
-        in if same_const x (lhs(concl code_def))
-           (*
-           then split16_def_to_app_list ttal eval f code_def
-           else split16_def_to_app_list ttal eval f data_def
-           *)
-           then split16_ml_to_app_list ("\t.byte ",byte_to_string) code_def
-           else split16_ml_to_app_list ("\t."^word_directive^" ",word_to_string) data_def
+        in (if same_const x (lhs(concl code_def))
+            then split16_ml_to_app_list "\t.byte " code_def
+            else split16_ml_to_app_list ("\t."^word_directive^" ") data_def)
         end
       else if is_List tm then
         dest_List tm |> listSyntax.dest_list |> #1
@@ -1013,7 +915,9 @@ fun eval_export word_directive target_export_defs code_def data_def syms_tm ffi_
          lhs(concl data_def),
          syms_tm])
     val app_list = eval eval_export_tm |> rconc
-    in print_app_list out (term_to_app_list word_directive eval code_def data_def app_list) end
+    in print_app_list out
+         (term_to_app_list word_directive eval code_def data_def app_list)
+    end
 
 fun cbv_to_bytes
       word_directive
@@ -1095,6 +999,13 @@ val cbv_to_bytes_x64 =
     x64_targetLib.add_x64_encode_compset
     x64_backend_config_def x64_names_def
     x64_export_defs
+
+(*
+val (word_directive, add_encode_compset, backend_config_def,
+     names_def, target_export_defs) =
+    ("quad", x64_targetLib.add_x64_encode_compset,
+     x64_backend_config_def, x64_names_def, x64_export_defs);
+*)
 
 val intermediate_prog_prefix = ref ""
 
