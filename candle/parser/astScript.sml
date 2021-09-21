@@ -36,12 +36,6 @@ Datatype:
 End
 
 Datatype:
-  pat = PAny
-      | PVar string
-      | PCons string (pat list)
-End
-
-Datatype:
   type = TAny
        | TAs type string
        | TVar string
@@ -51,11 +45,19 @@ Datatype:
 End
 
 Datatype:
+  pat = PAny
+      | PVar string
+      | PLit lit
+      | PTyped pat type
+      | PCons string (pat list)
+      | POr pat pat
+End
+
+Datatype:
   exp = Id string
       | Lit lit
       | Op op (exp list)
       | If exp exp exp
-      | List (exp list)
       | Seq exp exp
       | Let bool ((string # exp) list) exp
       | Cons string (exp list)
@@ -226,9 +228,6 @@ Definition pp_exp_def:
     case exp of
       Id s => mk_str (implode s)
     | Lit l => pp_lit l
-    | List xs =>
-        mk_blo 0 [mk_str «[»; pp_with_sep «; » F (MAP (pp_exp 0) xs);
-                  mk_str «]»]
     | Seq x y =>
         pp_paren_blk 0 (prec = 1000) [pp_exp 999 x; pp_exp 1000 y]
     | If x y z =>
