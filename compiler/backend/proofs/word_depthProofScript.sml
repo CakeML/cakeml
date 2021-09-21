@@ -37,17 +37,6 @@ Proof
   \\ fs [IS_SOME_EXISTS] \\ fs [max_depth_def]
 QED
 
-Definition max_depth_graphs_def:
-  max_depth_graphs ss [] all funs all_funs = SOME 0 /\
-  max_depth_graphs ss (n::ns) all funs all_funs =
-    case lookup n all_funs of
-    | NONE => NONE
-    | SOME (a,body) =>
-        OPTION_MAP2 MAX (lookup n ss)
-       (OPTION_MAP2 MAX (max_depth ss (call_graph funs n all (size all_funs) body))
-                        (max_depth_graphs ss ns all funs all_funs))
-End
-
 Theorem MEM_max_depth_graphs:
   !ns name y.
     MEM name ns /\ lookup name code = SOME y ==>

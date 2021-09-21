@@ -693,4 +693,33 @@ val compile_def = Define `
     let c = c with start := num_stubs c.max_app - 1 in
       (c, code_sort prog', func_names)`;
 
+(* TODO: there needs to be a PMATCH version of this for translation *)
+val extract_name_def = Define `
+  extract_name [] = (0,[]) /\
+  extract_name (x :: xs) =
+    dtcase (some n. ?t. x = Op t (Const (& n)) []) of
+    | NONE => (0,x::xs)
+    | SOME n => (n, if xs = [] then [x] else xs)`;
+
+val compile_inc_def = Define `
+  compile_inc max_app (es,prog) =
+    let (n,real_es) = extract_name es in
+        clos_to_bvl$compile_prog max_app
+          (clos_to_bvl$chain_exps n real_es ++ prog)
+    : (num, num # exp) alist`;
+
+val clos_to_bvl_compile_inc_def = Define`
+  clos_to_bvl_compile_inc c p =
+    let p = clos_mti$cond_mti_compile_inc c.do_mti c.max_app p in
+    let (n, p) = ignore_table clos_number$compile_inc c.next_loc p in
+    let c = c with <| next_loc := n |> in
+    let spt = option_val_approx_spt c.known_conf in
+    let (spt, p) = known_compile_inc (known_static_conf c.known_conf) spt p in
+    let c = c with <| known_conf := option_upd_val_spt spt c.known_conf |> in
+    let (c', p) = clos_call$cond_call_compile_inc c.do_call (FST c.call_state) p in
+    let c = c with <| call_state := (c', []) |> in
+    let p = clos_annotate$compile_inc p in
+    let p = clos_to_bvl$compile_inc c.max_app p in
+    (c, p)`;
+
 val _ = export_theory()

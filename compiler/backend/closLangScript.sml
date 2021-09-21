@@ -165,4 +165,8 @@ val assign_get_code_label_def = Define`
   (assign_get_code_label (closLang$Label x) = {x}) ∧
   (assign_get_code_label x = {})`
 
+Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp) list``
+
+Type clos_cc = ``:'c -> clos_prog -> (word8 list # word64 list # 'c) option``
+
 val _ = export_theory()

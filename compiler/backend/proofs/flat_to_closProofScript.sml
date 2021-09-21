@@ -85,11 +85,6 @@ Definition store_rel_def:
           | W8array bs => FLOOKUP t_refs i = SOME (ByteArray F bs)
 End
 
-Definition inc_compile_decs_def:
-  inc_compile_decs decs = (compile_decs decs ++
-    compile_decs [Dlet (Con None NONE [])], [])
-End
-
 Definition install_config_rel_def:
   install_config_rel ic co cc = (
     (!i. no_Mat_decs (SND (ic.compile_oracle i))) /\

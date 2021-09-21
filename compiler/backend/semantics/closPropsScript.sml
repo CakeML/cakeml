@@ -1895,28 +1895,6 @@ Proof
   Induct>>fs[set_globals_def,elist_globals_append,COMM_BAG_UNION]
 QED
 
-val ignore_table_def = Define`
-  ignore_table f st (code,aux) = let (st',code') = f st code in (st',(code',aux))`;
-
-Theorem ignore_table_imp:
-   ignore_table f st p = (st',p') ⇒ SND p' = SND p
-Proof
-  Cases_on`p` \\ EVAL_TAC
-  \\ pairarg_tac \\ rw[] \\ rw[]
-QED
-
-Theorem SND_SND_ignore_table:
-   SND (SND (ignore_table f st p)) = SND p
-Proof
-  Cases_on`p` \\ EVAL_TAC \\ pairarg_tac \\ fs[]
-QED
-
-Theorem FST_SND_ignore_table:
-   FST (SND (ignore_table f st p)) = SND (f st (FST p))
-Proof
-  Cases_on`p` \\ EVAL_TAC \\ pairarg_tac \\ fs[]
-QED
-
 (* generic do_app compile proof *)
 
 val isClos_def = Define `

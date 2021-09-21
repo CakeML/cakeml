@@ -1,7 +1,7 @@
 (*
   Compiles the hello example by evaluation inside the logic of HOL
 *)
-open preamble compilationLib helloProgTheory
+open preamble helloProgTheory compilationLib
 
 val _ = new_theory "helloCompile"
 

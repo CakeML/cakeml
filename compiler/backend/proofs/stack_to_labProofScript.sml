@@ -3034,13 +3034,6 @@ Proof
   \\ CCONTR_TAC \\ fs [EVERY_MEM] \\ res_tac \\ fs []
 QED
 
-val compile_no_stubs_def = Define`
-  compile_no_stubs f jump offset sp prog =
-  MAP prog_to_section
-    (stack_names$compile f
-      (MAP (prog_comp jump offset sp)
-        (MAP prog_comp prog)))`;
-
 val good_code_def = Define`
   good_code sp code ⇔
    ALL_DISTINCT (MAP FST code) ∧

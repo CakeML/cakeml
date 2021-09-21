@@ -408,4 +408,15 @@ val compile_def = Define `
     let (n2, code') = bvi_tailrec$compile_prog (num_stubs + 2) code in
       (loc, code', inlines, n1, n2, get_names (MAP FST code') names)`;
 
+val bvl_to_bvi_compile_inc_all_def = Define `
+  bvl_to_bvi_compile_inc_all c p =
+    let (inl, p) = bvl_inline$compile_inc c.inline_size_limit
+        c.split_main_at_seq c.exp_cut c.inlines p in
+    let c = c with <| inlines := inl |> in
+    let (nn1, p) = bvl_to_bvi$compile_inc c.next_name1 p in
+    let c = c with <| next_name1 := nn1 |> in
+    let (nn2, p) = bvi_tailrec$compile_prog c.next_name2 p in
+    let c = c with <| next_name2 := nn2 |> in
+    (c, p)`;
+
 val _ = export_theory();
