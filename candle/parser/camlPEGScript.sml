@@ -199,6 +199,7 @@ Datatype:
     (* pattern matches *)
     | nLetBinding | nLetBindings
     | nPatternMatch | nPatternMatches
+    | nPmatchBody | nPmatchWhen | nPmatchFirst
     (* type definitions *)
     | nTypeDefinition | nTypeDef | nTypeInfo | nTypeRepr | nTypeReprs
     | nConstrDecl | nConstrArgs | nExcDefinition
@@ -487,23 +488,32 @@ Definition camlPEG_def[nocompute]:
                (* everything else: *)
                pnt nEWhile; pnt nEFor])
             (bindNT nExpr));
-      (* -- Pattern matches etc. ------------------------------------------- *)
+      (* -- Pattern matches ------------------------------------------------ *)
+      (INL nPmatchFirst,
+       seql [try (tokeq BarT); pnt nPattern]
+            (bindNT nPmatchFirst));
+      (INL nPmatchWhen,
+       seql [tokeq WhenT; pnt nExpr]
+            (bindNT nPmatchWhen));
+      (INL nPmatchBody,
+       seql [tokeq RarrowT; pnt nExpr]
+            (bindNT nPmatchBody));
       (INL nPatternMatch,
-       seql [try (tokeq BarT); pnt nPattern;
-             try (seql [tokeq WhenT; pnt nExpr] I); tokeq RarrowT; pnt nExpr;
+       seql [pnt nPmatchFirst; pnt nPmatchWhen; pnt nPmatchBody;
              try (pnt nPatternMatches)]
             (bindNT nPatternMatch));
       (INL nPatternMatches,
-       seql [tokeq BarT; pnt nPattern;
-             try (seql [tokeq WhenT; pnt nExpr] I); tokeq RarrowT; pnt nExpr;
+       seql [tokeq BarT; pnt nPattern; pnt nPmatchWhen; pnt nPmatchBody;
              try (pnt nPatternMatches)]
             (bindNT nPatternMatches));
+      (* -- Let bindings --------------------------------------------------- *)
       (INL nLetBindings,
        seql [pnt nLetBinding; try (seql [tokeq AndT; pnt nLetBindings] I)]
             (bindNT nLetBindings));
       (INL nLetBinding,
        pegf (choicel [seql [pnt nPattern; tokeq EqualT; pnt nExpr] I;
-                      seql [pnt nIdent; try (pnt nPatternList);
+                      seql [pnt nIdent;
+                            try (pnt nPatternList);
                             try (seql [tokeq ColonT; pnt nType] I);
                             tokeq EqualT; pnt nExpr ] I])
             (bindNT nLetBinding));
