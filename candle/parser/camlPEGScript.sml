@@ -493,8 +493,7 @@ Definition camlPEG_def[nocompute]:
        seql [try (tokeq BarT); pnt nPattern]
             (bindNT nPmatchFirst));
       (INL nPmatchWhen,
-       seql [tokeq WhenT; pnt nExpr]
-            (bindNT nPmatchWhen));
+       try (seql [tokeq WhenT; pnt nExpr] (bindNT nPmatchWhen)));
       (INL nPmatchBody,
        seql [tokeq RarrowT; pnt nExpr]
             (bindNT nPmatchBody));
