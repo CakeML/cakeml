@@ -328,7 +328,8 @@ Definition ptree_Pattern_def:
         lbrack::rest =>
           do
             expect_tok lbrack LbrackT;
-            ARB (* TODO build conses *)
+            pats <- ptree_PatternList rest;
+            SOME (FOLDR (λt p. PCons "::" [t; p]) (PCons "[]" []) pats)
           od
       | _ => NONE
     else if FST n = INL nPLazy then
@@ -404,7 +405,25 @@ Definition ptree_Pattern_def:
         [pat] => ptree_Pattern pat
       | _ => NONE
     else
-      NONE)
+      NONE) ∧
+  (ptree_PatternList [] = NONE) ∧
+  (ptree_PatternList [t] =
+     do
+       expect_tok t RbrackT;
+       SOME []
+     od) ∧
+  (ptree_PatternList (p::ps) =
+     do
+       q <- ptree_Pattern p;
+       qs <- ptree_PatternList ps;
+       SOME (q::qs)
+     od)
+Termination
+  WF_REL_TAC ‘inv_image $<
+                (λx. if ISL x
+                     then parsetree_size (K 0) (K 0) (K 0) (OUTL x)
+                     else parsetree1_size (K 0) (K 0) (K 0) (OUTR x))’
+  \\ rw [] \\ gs [grammarTheory.parsetree_size_def]
 End
 
 Definition build_binop_def:
