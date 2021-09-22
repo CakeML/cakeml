@@ -194,7 +194,7 @@ Datatype:
     | nEPrefix | nENeg | nEShift | nEMult
     | nEAdd | nECons | nECat | nERel
     | nEAnd | nEOr | nEProd | nEIf | nESeq
-    | nEMatch | nETry | nEFun | nEFunction | nELet | nELetExn
+    | nEMatch | nETry | nEFun | nEFunction | nELet
     | nEWhile | nEFor | nExpr
     (* pattern matches *)
     | nLetBinding | nLetBindings
@@ -454,10 +454,6 @@ Definition camlPEG_def[nocompute]:
        seql [tokeq LetT; try (tokeq RecT); pnt nLetBindings;
              tokeq InT; pnt nExpr]
             (bindNT nELet));
-      (INL nELetExn,
-       seql [tokeq LetT; tokeq ExceptionT; pnt nConstrDecl; tokeq InT;
-             pnt nExpr]
-            (bindNT nELetExn));
       (INL nEMatch,
        seql [tokeq MatchT; pnt nExpr; tokeq WithT; pnt nPatternMatch]
             (bindNT nEMatch));
@@ -486,7 +482,7 @@ Definition camlPEG_def[nocompute]:
                (* e1: *)
                pnt nESeq;
                (* e0: *)
-               pnt nELet; pnt nELetExn; pnt nEMatch; pnt nEFun; pnt nEFunction;
+               pnt nELet; pnt nEMatch; pnt nEFun; pnt nEFunction;
                pnt nETry;
                (* everything else: *)
                pnt nEWhile; pnt nEFor])
