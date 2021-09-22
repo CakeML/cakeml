@@ -426,6 +426,23 @@ Termination
   \\ rw [] \\ gs [grammarTheory.parsetree_size_def]
 End
 
+Definition ptree_Patterns_def:
+  (ptree_Patterns (Lf t) = NONE) ∧
+  (ptree_Patterns (Nd n args) =
+    if FST n = INL nPatterns then
+      case args of
+        [pat] => OPTION_MAP (λx. [x]) (ptree_Pattern pat)
+      | [pat; rest] =>
+          do
+            p <- ptree_Pattern pat;
+            ps <- ptree_Patterns rest;
+            SOME (p::ps)
+          od
+      | _ => NONE
+    else
+      NONE)
+End
+
 Definition build_binop_def:
   build_binop (INR opn) x y = Op opn [x; y] ∧
   build_binop (INL symb) x y = App (App (Id symb) x) y
