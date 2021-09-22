@@ -205,7 +205,7 @@ Datatype:
     | nConstrDecl | nConstrArgs | nExcDefinition
     (* patterns *)
     | nPAny | nPBase | nPLazy | nPConstr | nPApp | nPCons | nPProd
-    | nPOr | nPAs | nPList | nPattern | nPatternList
+    | nPOr | nPAs | nPList | nPattern | nPatterns
     (* types *)
     | nTypeList | nTypeLists
     | nTVar | nTAny | nTBase | nTConstr | nTApp | nTProd | nTFun
@@ -459,7 +459,7 @@ Definition camlPEG_def[nocompute]:
        seql [tokeq MatchT; pnt nExpr; tokeq WithT; pnt nPatternMatch]
             (bindNT nEMatch));
       (INL nEFun,
-       seql [tokeq FunT; pnt nPatternList;
+       seql [tokeq FunT; pnt nPatterns;
              try (seql [tokeq ColonT; pnt nType] I);
              tokeq RarrowT; pnt nExpr]
             (bindNT nEFun));
@@ -513,7 +513,7 @@ Definition camlPEG_def[nocompute]:
       (INL nLetBinding,
        pegf (choicel [seql [pnt nPattern; tokeq EqualT; pnt nExpr] I;
                       seql [pnt nIdent;
-                            try (pnt nPatternList);
+                            try (pnt nPatterns);
                             try (seql [tokeq ColonT; pnt nType] I);
                             tokeq EqualT; pnt nExpr ] I])
             (bindNT nLetBinding));
@@ -567,9 +567,9 @@ Definition camlPEG_def[nocompute]:
       (* -- Pat1 ----------------------------------------------------------- *)
       (INL nPattern,
        pegf (pnt nPAs) (bindNT nPattern));
-      (INL nPatternList,
-       seql [pnt nPattern; try (pnt nPatternList)]
-            (bindNT nPatternList));
+      (INL nPatterns,
+       seql [pnt nPattern; try (pnt nPatterns)]
+            (bindNT nPatterns));
       (INL nStart,
        seql [try (pnt nModuleItems); not (any (K [])) [] ] (bindNT nStart))
       ] |>
