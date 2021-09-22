@@ -66,6 +66,7 @@ Datatype:
       | App exp exp
       | Typed exp type
       | Match exp ((pat # exp # exp option) list)
+      | Try exp ((pat # exp # exp option) list)
 End
 
 Theorem type_size_lemma:
