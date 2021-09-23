@@ -9,8 +9,6 @@ val _ = new_theory "camlPTreeConversion";
 val _ = enable_monadsyntax ();
 val _ = enable_monad "option";
 
-Overload lift[local] = “option$OPTION_MAP”;
-
 Definition ifM_def:
   ifM bM tM eM =
     do
@@ -28,6 +26,18 @@ Definition mapM_def:
       SOME (y::ys)
     od
 End
+
+Theorem mapM_cong[defncong]:
+  ∀xs ys f g.
+    xs = ys ∧
+    (∀x. MEM x xs ⇒ f x = g x) ⇒
+      mapM f xs = mapM g ys
+Proof
+  Induct \\ rw [mapM_def]
+  \\ Cases_on ‘g h’ \\ fs [mapM_def]
+  \\ ‘mapM f xs = mapM g xs’ suffices_by simp_tac std_ss []
+  \\ first_x_assum irule \\ fs []
+QED
 
 Definition destLf_def:
   destLf (Lf x) = SOME x ∧
@@ -95,7 +105,7 @@ Definition ptree_TAny_def:
 End
 
 Definition ptree_Type_def:
-  (ptree_Type (Lf _) : type option = NONE) ∧
+  (ptree_Type (Lf _) = NONE) ∧
   (ptree_Type (Nd n args) =
     if FST n = INL nType then
       case args of
@@ -448,11 +458,39 @@ Definition build_binop_def:
   build_binop (INL symb) x y = App (App (Id symb) x) y
 End
 
-(*
+Theorem parsetree_size_lemma[local]:
+  ∀xs x. MEM x xs ⇒ parsetree_size (K 0) (K 0) (K 0) x <
+                    parsetree1_size (K 0) (K 0) (K 0) xs
+Proof
+  Induct \\ rw [] \\ gs [grammarTheory.parsetree_size_def]
+  \\ res_tac \\ fs []
+QED
+
+(* TODO Figure out what to do with the stuff that comes out of
+        ptree_Letbinding.
+
+        The ones with patterns on the left are particularily annoying/
+        problematic, and they're used throughout the HOL light sources.
+        Examples:
+
+        let fun1, fun2 = ... ;;
+        let [a; b; c] = CONJUNCTS foo;;
+
+ *)
+
 Definition ptree_Expr:
   (ptree_Expr (Lf t) = NONE) ∧
   (ptree_Expr (Nd n args) =
-    if FST n = INL nEBase then
+    if FST n = INL nEList then
+      case args of
+        lbrack::rest =>
+          do
+            expect_tok lbrack LbrackT;
+            exps <- ptree_ExprList rest;
+            SOME (FOLDR (λt e. Cons "::" [t; e]) (Cons "[]" []) exps)
+          od
+      | _ => NONE
+    else if FST n = INL nEBase then
       case args of
         [lpar;expr;rpar] =>
           do
@@ -477,7 +515,7 @@ Definition ptree_Expr:
       | [arg] =>
           OPTION_MAP Lit (ptree_Literal arg) ++
           OPTION_MAP Id (ptree_Ident arg) ++
-          ptree_EList arg
+          ptree_Expr arg
       | _ => NONE
     else if FST n = INL nEAssert then
       case args of
@@ -507,7 +545,14 @@ Definition ptree_Expr:
           od
       | _ => NONE
     else if FST n = INL nEFunapp then
-      ARB (* It's wrong *)
+      case args of
+        funexp::funargs =>
+          do
+            x <- ptree_Expr funexp;
+            xs <- mapM ptree_Expr funargs;
+            SOME (FOLDL App x xs)
+          od
+      | _ => NONE
     else if FST n = INL nEApp then
       case args of
         [arg] => ptree_Expr arg
@@ -590,7 +635,7 @@ Definition ptree_Expr:
           do
             x <- ptree_Expr lhs;
             y <- ptree_Expr rhs;
-            ARB (* TODO *)
+            SOME (FOLDL App (Id "String.cat") [x; y])
           od
       | _ => NONE
     else if FST n = INL nERel then
@@ -676,21 +721,21 @@ Definition ptree_Expr:
             expect_tok lett LetT;
             expect_tok rec RecT;
             expect_tok int InT;
-            bs <- ptree_LetBindings binds;
+            bs <- ptree_LetBinding binds;
             x <- ptree_Expr expr;
-            SOME (Let T bs x)
+            ARB (*
+            SOME (Let T bs x) *)
           od
       | [lett; binds; int; expr] =>
           do
             expect_tok lett LetT;
             expect_tok int InT;
-            bs <- ptree_LetBindings binds;
+            bs <- ptree_LetBinding binds;
             x <- ptree_Expr expr;
-            SOME (Let F bs x)
+            ARB (*
+            SOME (Let F bs x) *)
           od
       | _ => NONE
-    else if FST n = INL nELetExn then
-      ARB (* TODO won't support this *)
     else if FST n = INL nEMatch then
       case args of
         [match; expr; witht; pmatch] =>
@@ -708,20 +753,19 @@ Definition ptree_Expr:
           do
             expect_tok funt FunT;
             expect_tok rarrow RarrowT;
-            ps <- ptree_Parameters params;
-            x <- ptree_Expr x;
-            assert (¬NULL ps);
-            SOME (FOLDR Fun (Fun (HD ps) x) (REVERSE (TL ps)))
+            ps <- ptree_Patterns params;
+            x <- ptree_Expr expr;
+            ARB (* Fun does not accept a pattern; use match *)
           od
       | [funt; params; colon; typ; rarrow; expr] =>
           do
             expect_tok funt FunT;
             expect_tok rarrow RarrowT;
-            ps <- ptree_Parameters params;
-            x <- ptree_Expr x;
+            ps <- ptree_Patterns params;
+            x <- ptree_Expr expr;
             ty <- ptree_Type typ;
             assert (¬NULL ps);
-            SOME (FOLDR Fun (Fun (HD ps) (Typed x ty)) (REVERSE (TL ps)))
+            ARB (* Fun does not accept a pattern; use match *)
           od
       | _ => NONE
     else if FST n = INL nEFunction then
@@ -729,8 +773,8 @@ Definition ptree_Expr:
         [funct; pmatch] =>
           do
             expect_tok funct FunctionT;
-            pm <- ptree_PatternMatch pmatch;
-            ARB (* TODO *)
+            pms <- ptree_PatternMatch pmatch;
+            SOME (Fun "" (Match (Id "") pms))
           od
       | _ => NONE
     else if FST n = INL nETry then
@@ -740,8 +784,8 @@ Definition ptree_Expr:
             expect_tok tryt TryT;
             expect_tok witht WithT;
             x <- ptree_Expr expr;
-            pm <- ptree_PatternMatch pmatch;
-            ARB (* TODO *)
+            pms <- ptree_PatternMatch pmatch;
+            SOME (Try x pms)
           od
       | _ => NONE
     else if FST n = INL nEWhile then
@@ -753,7 +797,7 @@ Definition ptree_Expr:
             expect_tok donet DoneT;
             x <- ptree_Expr expr;
             b <- ptree_Expr body;
-            ARB (* TODO *)
+            SOME (FOLDL App (Id "while") [x; b])
           od
       | _ => NONE
     else if FST n = INL nEFor then
@@ -770,7 +814,8 @@ Definition ptree_Expr:
             u <- ptree_Expr ubd;
             l <- ptree_Expr lbd;
             b <- ptree_Expr body;
-            ARB (* TODO *)
+            SOME (FOLDL App (Id "for")
+                        [Lit (Lbool (tk = ToT)); Id id; u; l; b])
           od
       | _ => NONE
     else if FST n = INL nExpr then
@@ -778,19 +823,122 @@ Definition ptree_Expr:
         [arg] => ptree_Expr arg
       | _ => NONE
     else
-      NONE) (*∧
+      NONE) ∧
   (ptree_PatternMatch (Lf t) = NONE) ∧
   (ptree_PatternMatch (Nd n args) =
     if FST n = INL nPatternMatch then
-      ptree_Expr ARB
-      (* TODO annoying with all the try:'s, make a special one with 'when' *)
+      case args of
+        [bar; pms] =>
+          do
+            expect_tok bar BarT;
+            ptree_PatternMatch pms
+          od
+      | [pms] => ptree_PatternMatch pms
+      | _ => NONE
     else if FST n = INL nPatternMatches then
-      NONE
-      (* TODO annoying with all the try:'s, make a special one with 'when' *)
+      case args of
+        pat :: whent :: whenx :: rarrow :: body :: rest =>
+          do
+            expect_tok rarrow RarrowT;
+            expect_tok whent WhenT;
+            p <- ptree_Pattern pat;
+            x <- ptree_Expr body;
+            w <- ptree_Expr whenx;
+            case rest of
+              [] => SOME [p, x, SOME w]
+            | [bar; pms] =>
+                do
+                  expect_tok bar BarT;
+                  ps <- ptree_PatternMatch pms;
+                  SOME ((p, x, SOME w)::ps)
+                od
+            | _ => NONE
+          od
+      | pat :: rarrow :: body :: rest =>
+          do
+            expect_tok rarrow RarrowT;
+            p <- ptree_Pattern pat;
+            x <- ptree_Expr body;
+            case rest of
+              [] => SOME [p, x, NONE]
+            | [bar; pms] =>
+                do
+                  expect_tok bar BarT;
+                  ps <- ptree_PatternMatch pms;
+                  SOME ((p, x, NONE)::ps)
+                od
+            | _ => NONE
+          od
+      | _ => NONE
     else
-      NONE) *)
+      NONE) ∧
+  (ptree_LetBinding (Lf t) = NONE) ∧
+  (ptree_LetBinding (Nd n args) =
+    if FST n = INL nLetBinding then
+      case args of
+        [pat; eq; bod] =>
+          do
+            expect_tok eq EqualT;
+            p <- ptree_Pattern pat;
+            x <- ptree_Expr bod;
+            SOME [(NONE, [p], x)]
+          od
+      | [id; pats; eq; bod] =>
+          do
+            expect_tok eq EqualT;
+            nm <- ptree_Ident id;
+            ps <- ptree_Patterns pats;
+            x <- ptree_Expr bod;
+            SOME [(SOME n, ps, x)]
+          od
+      | [id; pats; colon; typ; eq; bod] =>
+          do
+            expect_tok eq EqualT;
+            expect_tok colon ColonT;
+            nm <- ptree_Ident id;
+            ps <- ptree_Patterns pats;
+            x <- ptree_Expr bod;
+            SOME [(SOME n, ps, x)]
+          od
+      | _ => NONE
+    else if FST n = INL nLetBindings then
+      case args of
+        [lb] => ptree_LetBinding lb
+      | [lb; andt; lbs] =>
+          do
+            l1 <- ptree_LetBinding lb;
+            l2 <- ptree_LetBinding lbs;
+            SOME (l1 ++ l2)
+          od
+      | _ => NONE
+    else
+      NONE) ∧
+  (ptree_ExprList [] = NONE) ∧
+  (ptree_ExprList [t] =
+    do
+      expect_tok t RbrackT;
+      SOME []
+    od) ∧
+  (ptree_ExprList (t::ts) =
+    do
+      expect_tok t SemiT;
+      ptree_ExprList ts
+    od ++
+    do
+      e <- ptree_Expr t;
+      es <- ptree_ExprList ts;
+      SOME (e::es)
+    od)
+Termination
+  WF_REL_TAC ‘inv_image $<
+              (λx. case x of
+                     INL x => parsetree_size (K 0) (K 0) (K 0) x
+                   | INR (INL x) => parsetree_size (K 0) (K 0) (K 0) x
+                   | INR (INR (INL x)) => parsetree_size (K 0) (K 0) (K 0) x
+                   | INR (INR (INR x)) => parsetree1_size (K 0) (K 0) (K 0) x)’
+  \\ rw [] \\ gs [grammarTheory.parsetree_size_def]
+  \\ imp_res_tac parsetree_size_lemma \\ gs []
 End
-       *)
 
 val _ = export_theory ();
 
