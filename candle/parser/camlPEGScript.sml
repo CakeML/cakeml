@@ -199,7 +199,6 @@ Datatype:
     (* pattern matches *)
     | nLetBinding | nLetBindings
     | nPatternMatch | nPatternMatches
-    | nPmatchBody | nPmatchWhen | nPmatchFirst
     (* type definitions *)
     | nTypeDefinition | nTypeDef | nTypeInfo | nTypeRepr | nTypeReprs
     | nConstrDecl | nConstrArgs | nExcDefinition
@@ -489,21 +488,14 @@ Definition camlPEG_def[nocompute]:
                pnt nEWhile; pnt nEFor])
             (bindNT nExpr));
       (* -- Pattern matches ------------------------------------------------ *)
-      (INL nPmatchFirst,
-       seql [try (tokeq BarT); pnt nPattern]
-            (bindNT nPmatchFirst));
-      (INL nPmatchWhen,
-       try (seql [tokeq WhenT; pnt nExpr] (bindNT nPmatchWhen)));
-      (INL nPmatchBody,
-       seql [tokeq RarrowT; pnt nExpr]
-            (bindNT nPmatchBody));
       (INL nPatternMatch,
-       seql [pnt nPmatchFirst; pnt nPmatchWhen; pnt nPmatchBody;
-             try (pnt nPatternMatches)]
+       seql [try (tokeq BarT); pnt nPatternMatches]
             (bindNT nPatternMatch));
       (INL nPatternMatches,
-       seql [tokeq BarT; pnt nPattern; pnt nPmatchWhen; pnt nPmatchBody;
-             try (pnt nPatternMatches)]
+       seql [pnt nPattern;
+             try (seql [tokeq WhenT; pnt nExpr] I);
+             tokeq RarrowT; pnt nExpr;
+             try (seql [tokeq BarT; pnt nPatternMatches] I)]
             (bindNT nPatternMatches));
       (* -- Let bindings --------------------------------------------------- *)
       (INL nLetBindings,
@@ -511,10 +503,9 @@ Definition camlPEG_def[nocompute]:
             (bindNT nLetBindings));
       (INL nLetBinding,
        pegf (choicel [seql [pnt nPattern; tokeq EqualT; pnt nExpr] I;
-                      seql [pnt nIdent;
-                            try (pnt nPatterns);
+                      seql [pnt nIdent; pnt nPatterns;
                             try (seql [tokeq ColonT; pnt nType] I);
-                            tokeq EqualT; pnt nExpr ] I])
+                            tokeq EqualT; pnt nExpr] I])
             (bindNT nLetBinding));
       (* -- Pat8 ----------------------------------------------------------- *)
       (INL nPList,
