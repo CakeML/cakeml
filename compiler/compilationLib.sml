@@ -1420,8 +1420,8 @@ fun cbv_to_bytes word_directive add_encode_compset backend_config_def names_def 
         computeLib.Extenders [ add_encode_compset ],
         computeLib.Defs [ backend_config_def, names_def, lab_prog_def,
         (* TODO: don't look up definition *)
-        definition "word_0_c_def",
-        definition "word_0_names_def"
+        (definition "word_0_c_def" handle HOL_ERR _ => TRUTH),
+        (definition "word_0_names_def" handle HOL_ERR _ => TRUTH)
         ]
       ] cs
     val eval = computeLib.CBV_CONV cs;
