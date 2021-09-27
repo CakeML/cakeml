@@ -1,6 +1,10 @@
 The direcory contains proofs about the old relational semantics for
 CakeML. This directory might be deleted in the future.
 
+[alt_semanticsScript.sml](alt_semanticsScript.sml):
+Relate top-level semantics for function big-step / relational big-step /
+small-step semantics.
+
 [bigClockScript.sml](bigClockScript.sml):
 Theorems about the clocked big-step semantics. Primarily that they
 are total, and that they have the proper relationship to the
