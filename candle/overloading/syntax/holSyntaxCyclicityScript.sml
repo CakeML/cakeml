@@ -8071,21 +8071,46 @@ Proof
   >> goal_assum drule_all
 QED
 
-Theorem dep_steps_complete_non_comp_step:
-  !dep k deps deps' n p q q' depsdep. wf_pqs dep
+Theorem dep_steps_complete_cyclic_step':
+  !dep k deps deps' n p q q'. wf_pqs dep
     /\ dep_steps_inv dep k deps n deps'
     /\ dep_step dep deps' [] = INR $ cyclic_step (p,q,q')
-    /\ 0 < k /\ ~NULL deps'
-    ==> dep_steps dep k deps' = cyclic_step (p,q,q')
+    ==> dep_steps dep (SUC k) deps = cyclic_step (p,q,q')
 Proof
-  ho_match_mp_tac dep_steps_ind >> rpt conj_tac
+  ho_match_mp_tac dep_steps_ind
+  >> reverse $ rpt conj_tac
   >- (
-    rw[dep_steps_def,dep_steps_inv_def]
-    >> drule_all NRC_dep_step_NULL
+    rpt strip_tac
+    >> fs[dep_steps_inv_def]
+    >> reverse $ dxrule_then strip_assume_tac $ iffLR LESS_OR_EQ
+    >- fs[dep_steps_def]
+    >> qmatch_assum_rename_tac `NRC _ (SUC k - n) _ _`
+    >> qhdtm_x_assum `NRC` mp_tac
+    >> `SUC k - n = SUC (k - n)` by fs[]
+    >> simp[NRC] >> pop_assum kall_tac
+    >> rw[dep_steps_def,CaseEq"sum"]
+    >> drule_at_then Any assume_tac dep_step_wf_pqs
+    >> fs[]
+    >> first_x_assum $ drule_at Any
+    >> gs[wf_pqs_APPEND]
+    >> Cases_on `k`
     >> fs[]
   )
-  >- fs[dep_steps_def]
-  >> rpt gen_tac >> strip_tac >> Cases >> gvs[dep_steps_def]
+  >> rpt strip_tac
+  >> fs[dep_steps_inv_def,dep_steps_def]
+  >> imp_res_tac NRC_dep_step_NULL
+  >> gvs[dep_steps_def,NULL_EQ,dep_step_def]
+QED
+
+Theorem dep_steps_complete_cyclic_step:
+  !dep k deps dep' n p q q'. wf_pqs dep
+    /\ dep_steps_inv dep k dep n deps
+    /\ dep_step dep deps [] = INR $ cyclic_step (p,q,q')
+    ==> dep_steps dep (SUC k) dep = cyclic_step (p,q,q')
+Proof
+  rpt strip_tac
+  >> drule_all dep_steps_complete_cyclic_step'
+  >> fs[]
 QED
 
 Theorem dep_steps_sound_non_comp_step':
