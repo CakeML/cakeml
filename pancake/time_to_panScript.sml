@@ -327,4 +327,15 @@ End
 
 
 
+Definition compile_prog_def:
+  compile_prog prog =
+    let i = («start»,[],start_controller prog) in
+    let clks = clksOf (FST prog) in
+    let n = LENGTH clks in
+      i :: MAP (λ(loc,tms).
+            (num_to_str loc,
+             [(«clks», genShape n); («event», One)],
+             compTerms clks «clks» «event» tms)) (FST prog)
+End
+
 val _ = export_theory();

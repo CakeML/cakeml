@@ -136,4 +136,11 @@ val compile_def = Define `
    let prog = stack_names$compile stack_conf.reg_names prog in
      MAP prog_to_section prog`;
 
+val compile_no_stubs_def = Define`
+  compile_no_stubs f jump offset sp prog =
+  MAP prog_to_section
+    (stack_names$compile f
+      (MAP (prog_comp jump offset sp)
+        (MAP prog_comp prog)))`;
+
 val _ = export_theory();

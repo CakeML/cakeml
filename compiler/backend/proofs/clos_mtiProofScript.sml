@@ -124,10 +124,6 @@ val FMAP_REL_def = Define `
 
 (* state relation *)
 
-val compile_inc_def = Define `
-  compile_inc max_app (e,es) =
-    (intro_multi max_app e, [])`
-
 Theorem SND_compile_inc[simp]:
    SND (compile_inc max_app p) = []
 Proof

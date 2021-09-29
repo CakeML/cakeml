@@ -1991,11 +1991,6 @@ val env_rel_Op_Install = prove(
 val syntax_ok_def = Define`
   syntax_ok x ⇔ every_Fn_SOME x ∧ every_Fn_vs_NONE x ∧ ALL_DISTINCT (code_locs x)`;
 
-val compile_inc_def = Define `
-  compile_inc d (e,xs) =
-    let (ea, d1, new_code) = calls e (d,[]) in
-      (d1, ea, new_code)`;
-
 val co_ok_def = Define `
   co_ok code co full_gs k <=>
     if k = 0 then T else
