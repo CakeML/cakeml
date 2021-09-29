@@ -50,6 +50,7 @@ compiler/inference/proofs
 compiler/backend/semantics
 compiler/backend/reg_alloc/proofs
 compiler/backend/proofs
+compiler/backend/serialiser
 compiler/encoders/x64/proofs
 compiler/encoders/arm7/proofs
 compiler/encoders/arm8/proofs

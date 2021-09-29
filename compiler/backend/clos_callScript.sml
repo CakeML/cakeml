@@ -225,6 +225,14 @@ val compile_def = Define `
   compile F x = (x,(LN,[])) /\
   compile T x = let (xs,g) = calls x (LN,[]) in (xs,g)`
 
+val compile_inc_def = Define `
+  compile_inc d (e,xs) =
+    let (ea, d1, new_code) = calls e (d,[]) in
+      (d1, ea, new_code)`;
+
+val cond_call_compile_inc_def = Define`
+  cond_call_compile_inc do_it = if do_it then compile_inc else CURRY I`;
+
 Theorem calls_length:
    ∀xs g0 ys g. calls xs g0 = (ys,g) ⇒ LENGTH ys = LENGTH xs
 Proof

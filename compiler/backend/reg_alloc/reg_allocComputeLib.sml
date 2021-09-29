@@ -210,9 +210,11 @@ fun alloc_all alg t =
 
 fun get_oracle alg t =
   let val cols = alloc_all alg t
-      val alloc = listSyntax.mk_list (map mk_num_sptree cols,``:num num_map``) in
-  ``let alloc = ^(alloc) in
-    \n. if n >= LENGTH alloc then NONE else SOME(EL n alloc)``
+      val alloc = listSyntax.mk_list (
+      map
+        (optionSyntax.mk_some  o mk_num_sptree) cols,
+        ``:num num_map option``) in
+      alloc
   end
 
 (*
