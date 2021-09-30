@@ -378,17 +378,6 @@ val ramsey_lpr_def = Define`
   let cli = MAP (clique_edges enc) ls in
   (MAP (λns. MAP (λn. &n:int) ns) cli ++ MAP (λns. MAP (λn. -&n:int) ns) cli)`
 
-Theorem ramsey_lpr_wf:
-  EVERY wf_clause (ramsey_lpr k n)
-Proof
-  rw[ramsey_lpr_def]>>
-  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
-  rw[]>>simp[wf_clause_def,MEM_MAP]>>
-  match_mp_tac clique_edges_nonzero>>
-  simp[MAP_transpose,MAP_FST_enumerate]>>
-  simp[EVERY_MAP]
-QED
-
 val decoder_def = Define`
   decoder ls = λn.
   case ALOOKUP ls n of NONE => (0n,0n) | SOME [a;b] => (a,b) | _ => (0,0)`
@@ -556,6 +545,17 @@ Proof
   `encoder x h y > 0` by
     metis_tac[encoder_pos]>>
   fs[]
+QED
+
+Theorem ramsey_lpr_wf:
+  EVERY wf_clause (ramsey_lpr k n)
+Proof
+  rw[ramsey_lpr_def]>>
+  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
+  rw[]>>simp[wf_clause_def,MEM_MAP]>>
+  match_mp_tac clique_edges_nonzero>>
+  simp[MAP_transpose,MAP_FST_enumerate]>>
+  simp[EVERY_MAP]
 QED
 
 (*
