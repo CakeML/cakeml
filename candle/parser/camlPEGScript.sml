@@ -194,10 +194,10 @@ Datatype:
     | nEPrefix | nENeg | nEShift | nEMult
     | nEAdd | nECons | nECat | nERel
     | nEAnd | nEOr | nEProd | nEIf | nESeq
-    | nEMatch | nETry | nEFun | nEFunction | nELet
+    | nEMatch | nETry | nEFun | nEFunction | nELet | nELetRec
     | nEWhile | nEFor | nExpr
     (* pattern matches *)
-    | nLetBinding | nLetBindings
+    | nLetBinding | nLetBindings | nLetRecBinding | nLetRecBindings
     | nPatternMatch | nPatternMatches
     (* type definitions *)
     | nTypeDefinition | nTypeDef | nTypeInfo | nTypeRepr | nTypeReprs
@@ -210,7 +210,7 @@ Datatype:
     | nTVar | nTAny | nTBase | nTConstr | nTApp | nTProd | nTFun
     | nTAs | nType
     (* definitions *)
-    | nDefinition | nTopLet | nModuleItem | nModuleItems
+    | nDefinition | nTopLet | nTopLetRec | nModuleItem | nModuleItems
     (* misc *)
     | nShiftOp | nMultOp | nAddOp | nRelOp | nAndOp | nOrOp
     | nStart
@@ -251,10 +251,14 @@ Definition camlPEG_def[nocompute]:
        seql [rpt (pnt nModuleItem) FLAT; try (tokeq SemisT)]
             (bindNT nModuleItems));
       (INL nTopLet,
-       seql [tokeq LetT; try (tokeq RecT); pnt nLetBindings]
+       seql [tokeq LetT; pnt nLetBindings]
             (bindNT nTopLet));
+      (INL nTopLetRec,
+       seql [tokeq LetT; tokeq RecT; pnt nLetRecBindings]
+            (bindNT nTopLetRec));
       (INL nDefinition,
-       pegf (choicel [pnt nTopLet;
+       pegf (choicel [pnt nTopLetRec;
+                      pnt nTopLet;
                       pnt nTypeDefinition;
                       pnt nExcDefinition;
                       (* module definition *)
@@ -450,8 +454,12 @@ Definition camlPEG_def[nocompute]:
        seql [pnt nEIf; try (seql [tokeq SemiT; pnt nESeq] I)]
             (bindNT nESeq));
       (* -- Expr0 ---------------------------------------------------------- *)
+      (INL nELetRec,
+       seql [tokeq LetT; tokeq RecT; pnt nLetRecBindings;
+             tokeq InT; pnt nExpr]
+            (bindNT nELetRec));
       (INL nELet,
-       seql [tokeq LetT; try (tokeq RecT); pnt nLetBindings;
+       seql [tokeq LetT; pnt nLetBindings;
              tokeq InT; pnt nExpr]
             (bindNT nELet));
       (INL nEMatch,
@@ -482,7 +490,7 @@ Definition camlPEG_def[nocompute]:
                (* e1: *)
                pnt nESeq;
                (* e0: *)
-               pnt nELet; pnt nEMatch; pnt nEFun; pnt nEFunction;
+               pnt nELetRec; pnt nELet; pnt nEMatch; pnt nEFun; pnt nEFunction;
                pnt nETry;
                (* everything else: *)
                pnt nEWhile; pnt nEFor])
@@ -498,15 +506,22 @@ Definition camlPEG_def[nocompute]:
              try (seql [tokeq BarT; pnt nPatternMatches] I)]
             (bindNT nPatternMatches));
       (* -- Let bindings --------------------------------------------------- *)
-      (INL nLetBindings,
-       seql [pnt nLetBinding; try (seql [tokeq AndT; pnt nLetBindings] I)]
-            (bindNT nLetBindings));
+      (INL nLetRecBinding,
+       seql [pnt nIdent; pnt nPatterns; try (seql [tokeq ColonT; pnt nType] I);
+             tokeq EqualT; pnt nExpr]
+            (bindNT nLetRecBinding));
+      (INL nLetRecBindings,
+       seql [pnt nLetRecBinding; try (seql [tokeq AndT; pnt nLetRecBindings] I)]
+            (bindNT nLetRecBindings));
       (INL nLetBinding,
        pegf (choicel [seql [pnt nPattern; tokeq EqualT; pnt nExpr] I;
                       seql [pnt nIdent; pnt nPatterns;
                             try (seql [tokeq ColonT; pnt nType] I);
                             tokeq EqualT; pnt nExpr] I])
             (bindNT nLetBinding));
+      (INL nLetBindings,
+       seql [pnt nLetBinding; try (seql [tokeq AndT; pnt nLetBindings] I)]
+            (bindNT nLetBindings));
       (* -- Pat8 ----------------------------------------------------------- *)
       (INL nPList,
        seql [tokeq LbrackT;
