@@ -1194,5 +1194,277 @@ Termination
   \\ gs []
 End
 
+Definition ptree_StarTypes_def:
+  ptree_StarTypes [] = return [] ∧
+  ptree_StarTypes (x::xs) =
+    do
+      expect_tok x StarT;
+      ptree_StarTypes xs
+    od ++
+    do
+      t <- ptree_Type x;
+      ts <- ptree_StarTypes xs;
+      return (t::ts)
+    od
+End
+
+Definition ptree_ConstrArgs_def:
+  (ptree_ConstrArgs (Lf t) =
+    fail "Expected a constructor arguments non-terminal") ∧
+  (ptree_ConstrArgs (Nd n args) =
+    if FST n = INL nConstrArgs then
+      case args of
+        ty::rest =>
+          do
+            t <- ptree_Type ty;
+            ts <- ptree_StarTypes rest;
+            return (t::ts)
+          od
+      | _ => fail "Impossible: nConstrArgs"
+    else
+      fail "Expected a constructor arguments non-terminal")
+End
+
+Definition ptree_ConstrDecl_def:
+  (ptree_ConstrDecl (Lf t) =
+    fail "Expected a constructor declaration non-terminal") ∧
+  (ptree_ConstrDecl (Nd n args) =
+    if FST n = INL nConstrDecl then
+      case args of
+        [name] =>
+          do
+            nm <- ptree_Ident name;
+            return (nm, [])
+          od
+      | [name; oft; args] =>
+          do
+            expect_tok oft OfT;
+            nm <- ptree_Ident name;
+            ts <- ptree_ConstrArgs args;
+            return (nm, ts)
+          od
+      | _ => fail "Impossible: nConstrDecl"
+    else
+      fail "Expected a constructor declaration non-terminal")
+End
+
+Definition ptree_ExcDefinition_def:
+  (ptree_ExcDefinition (Lf t) =
+    fail "Expected an exception definition non-terminal") ∧
+  (ptree_ExcDefinition (Nd n args) =
+    if FST n = INL nExcDefinition then
+      case args of
+        [exnt; cdecl] =>
+          do
+            expect_tok exnt ExceptionT;
+            (nm, args) <- ptree_ConstrDecl cdecl;
+            return (Dexn (SND n) nm args)
+          od
+      | [exnt; lhsid; eq; rhsid] =>
+          do
+            expect_tok exnt ExceptionT;
+            expect_tok eq EqualT;
+            lhs <- ptree_Ident lhsid;
+            rhs <- ptree_Ident rhsid;
+            return (Dexn (SND n) lhs [Atapp [] (Short rhs)])
+          od
+      | _ => fail "Impossible: nExcDefinition"
+    else
+      fail "Expected an exception definition non-terminal")
+End
+
+Definition ptree_TypeRepr_def:
+  (ptree_TypeRepr (Lf t) = fail "Expected a type-repr non-terminal") ∧
+  (ptree_TypeRepr (Nd n args) =
+    if FST n = INL nTypeRepr then
+      case args of
+        [bart; cdecl; reprs] =>
+          do
+            expect_tok bart BarT;
+            tr <- ptree_ConstrDecl cdecl;
+            trs <- ptree_TypeRepr reprs;
+            return (tr::trs)
+          od
+      | [a; b] =>
+          do
+            expect_tok a BarT;
+            tr <- ptree_ConstrDecl b;
+            return [tr]
+          od ++
+          do
+            tr <- ptree_ConstrDecl a;
+            trs <- ptree_TypeRepr b;
+            return (tr::trs)
+          od
+      | [cdecl] =>
+          do
+            tr <- ptree_ConstrDecl cdecl;
+            return [tr]
+          od
+      | _ => fail "Impossible: nTypeRepr"
+    else if FST n = INL nTypeRepr then
+      case args of
+        [bart; cdecl] =>
+          do
+            expect_tok bart BarT;
+            ts <- ptree_ConstrDecl cdecl;
+            return [ts]
+          od
+      | [bart; cdecl; tyreps] =>
+          do
+            expect_tok bart BarT;
+            ts <- ptree_ConstrDecl cdecl;
+            trs <- ptree_TypeRepr tyreps;
+            return (ts::trs)
+          od
+      | _ => fail "Impossible: nTypeReprs"
+    else
+      fail "Expected a type-repr non-terminal")
+End
+
+Definition ptree_TypeInfo_def:
+  (ptree_TypeInfo (Lf t) =
+    fail "Expected a type-info non-terminal") ∧
+  (ptree_TypeInfo (Nd n args) =
+    if FST n = INL nTypeInfo then
+      case args of
+        [tr] =>
+          do
+            ts <- ptree_TypeRepr tr;
+            return (INR tr)
+          od
+      | [eq; ty] =>
+          do
+            expect_tok eq EqualT;
+            t <- ptree_Type ty;
+            return (INL t)
+          od
+      | _ => fail "Impossible: nTypeInfo"
+    else
+      fail "Expected a type-info non-terminal")
+End
+
+(* There ar
+  type-definition ::= type [nonrec] typedef  { and typedef }
+  typedef ::= [type-params]  typeconstr-name  type-information
+  type-information ::= [type-equation] [type-representation] { type-constraint }  *
+
+  type-params ::= type-param
+                ∣ ( type-param { , type-param } )
+  type-param ::= ' ident
+ *)
+
+Definition ptree_TypeParamList_def:
+  (ptree_TypeParamList [] = fail "Empty type parameters are not supported") ∧
+  (ptree_TypeParamList [t] =
+    do
+      expect_tok t RparT;
+      return []
+    od) ∧
+  (ptree_TypeParamList (p::ps) =
+    do
+      expect_tok p CommaT;
+      ptree_TypeParamList ps
+    od ++
+    do
+      t <- ptree_TVar p;
+      ts <- ptree_TypeParamList ps;
+      return (t::ts)
+    od)
+End
+
+Definition ptree_TypeParams_def:
+  (ptree_TypeParams (Lf t) =
+    fail "Expected a type-parameters non-terminal") ∧
+  (ptree_TypeParams (Nd n args) =
+    if FST n = INL nTypeParams then
+      case args of
+        [tv] =>
+          do
+            ty <- ptree_TVar tv;
+            return [ty]
+          od
+      | lpar :: tv :: rest =>
+          do
+            expect_tok lpar LparT;
+            ty <- ptree_TVar tv;
+            ts <- ptree_TypeParamList rest;
+            return (ty::ts)
+          od
+      | _ => fail "Impossible: nTypeParams"
+    else
+      fail "Expected a type-parameters non-terminal")
+End
+
+Definition ptree_TypeDef_def:
+  (ptree_TypeDef (Lf t) =
+    fail "Expected a typedef non-terminal") ∧
+  (ptree_TypeDef (Nd n args) =
+    if FST n = INL nTypeDef then
+      case args of
+        [tps; id; info] =>
+          do
+            tys <- ptree_TypeParams tps;
+            nm <- ptree_Ident id;
+            trs <- ptree_TypeInfo info;
+            case trs of
+              INL ty => ARB (* TODO *)
+            | INR tys => ARB (* TODO *)
+          od
+      | [id; info] =>
+          do
+            nm <- ptree_Ident id;
+            trs <- ptree_TypeInfo info;
+            case trs of
+              INL ty => ARB (* TODO *)
+            | INR tys => ARB (* TODO *)
+          od
+      | _ => fail "Impossible: nTypeDef"
+    else
+      fail "Expected a typedef non-terminal")
+End
+
+Definition ptree_TypeDefs_def:
+  (ptree_TypeDefs (Lf t) =
+    fail "Expected a typedef:s non-terminal") ∧
+  (ptree_TypeDefs (Nd n args) =
+    if FST n = INL nTypeDefs then
+      case args of
+        [td] =>
+          do
+            t <- ptree_TypeDef td;
+            return [t]
+          od
+      | [td; andt; tds] =>
+          do
+            expect_tok andt AndT;
+            t <- ptree_TypeDef td;
+            ts <- ptree_TypeDefs tds;
+            return (t::ts)
+          od
+      | _ => fail "Impossible: nTypeDefs"
+    else
+      fail "Expected a typedef:s non-terminal")
+End
+
+Definition ptree_TypeDefinition_def:
+  (ptree_TypeDefinition (Lf t) =
+    fail "Expected a type definition non-terminal") ∧
+  (ptree_TypeDefinition (Nd n args) =
+    if FST n = INL nTypeDefinition then
+      case args of
+        [typet; nrec; tds] =>
+          do
+            ARB (* TODO *)
+          od
+      | [typet; tds] =>
+          do
+            ARB (* TODO *)
+          od
+      | _ => fail "Impossible: nTypeDefinition"
+    else
+      fail "Expected a type definition non-terminal")
+End
+
 val _ = export_theory ();
 

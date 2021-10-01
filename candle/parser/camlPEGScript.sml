@@ -200,8 +200,8 @@ Datatype:
     | nLetBinding | nLetBindings | nLetRecBinding | nLetRecBindings
     | nPatternMatch | nPatternMatches
     (* type definitions *)
-    | nTypeDefinition | nTypeDef | nTypeInfo | nTypeRepr | nTypeReprs
-    | nConstrDecl | nConstrArgs | nExcDefinition
+    | nTypeDefinition | nTypeDef | nTypeDefs | nTypeParams | nTypeInfo
+    | nTypeRepr | nTypeReprs | nConstrDecl | nConstrArgs | nExcDefinition
     (* patterns *)
     | nPAny | nPBase | nPLazy | nPConstr | nPApp | nPCons | nPProd
     | nPOr | nPAs | nPList | nPattern | nPatterns
@@ -275,21 +275,23 @@ Definition camlPEG_def[nocompute]:
                             tokIdP validConsId] I]]
             (bindNT nExcDefinition));
       (INL nTypeDefinition,
-       seql [tokeq TypeT; try (tokeq NonrecT); pnt nTypeDef;
-             rpt (seql [tokeq AndT; pnt nTypeDef] I) FLAT]
+       seql [tokeq TypeT; try (tokeq NonrecT); pnt nTypeDefs]
             (bindNT nTypeDefinition));
       (INL nTypeDef,
-       seql [choicel [seql [tokeq LparT; pnt nTVar;
-                            rpt (seql [tokeq CommaT; pnt nTVar] I) FLAT;
-                            tokeq RparT] I;
-                      pnt nTVar;
-                      empty []];
-             tokIdP validFunId; pnt nTypeInfo]
+       seql [try (pnt nTypeParams); tokIdP validFunId; pnt nTypeInfo]
             (bindNT nTypeDef));
+      (INL nTypeDefs,
+       seql [pnt nTypeDef; try (seql [tokeq AndT; pnt nTypeDefs] I)]
+            (bindNT nTypeDefs));
+      (INL nTypeParams,
+       choicel [pegf (pnt nTVar) (bindNT nTypeParams);
+                seql [tokeq LparT; pnt nTVar;
+                      rpt (seql [tokeq CommaT; pnt nTVar] I) FLAT;
+                      tokeq RparT]
+                     (bindNT nTypeParams)]);
       (INL nTypeInfo,
-       seql [try (seql [tokeq EqualT; pnt nType] I);
-             try (pnt nTypeRepr)]
-            (bindNT nTypeInfo));
+       choicel [seql [tokeq EqualT; pnt nType] (bindNT nTypeInfo);
+                pegf (pnt nTypeRepr) (bindNT nTypeInfo)]);
       (INL nTypeRepr,
        seql [try (tokeq BarT); pnt nConstrDecl; try (pnt nTypeReprs)]
             (bindNT nTypeRepr));
@@ -297,9 +299,7 @@ Definition camlPEG_def[nocompute]:
        seql [tokeq BarT; pnt nConstrDecl; try (pnt nTypeReprs)]
             (bindNT nTypeReprs));
       (INL nConstrDecl,
-       seql [choicel [tokIdP validConsId;
-                      tokSymP (λs. s = "[]");
-                      seql [tokeq LparT; tokeq ColonsT; tokeq RparT] I];
+       seql [tokIdP validConsId;
              try (seql [tokeq OfT; pnt nConstrArgs] I)]
             (bindNT nConstrDecl));
       (INL nConstrArgs,
