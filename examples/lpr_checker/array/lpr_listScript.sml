@@ -363,10 +363,13 @@ val hint_earliest_def = Define`
   | SOME _ => earliest`
 
 val check_lpr_step_list_def = Define`
-  check_lpr_step_list step fml inds Clist earliest =
+  check_lpr_step_list mindel step fml inds Clist earliest =
   case step of
     Delete cl =>
-      SOME (list_delete_list cl fml, inds, Clist, earliest)
+      if EVERY ($< mindel) cl then
+        SOME (list_delete_list cl fml, inds, Clist, earliest)
+      else
+        NONE
   | PR n C w i0 ik =>
     let p = safe_hd C in
     let Clist = resize_Clist C Clist in
@@ -374,26 +377,37 @@ val check_lpr_step_list_def = Define`
       case is_PR_list fml inds Clist earliest p C w i0 ik of
         NONE => NONE
       | SOME (inds, Clist) =>
-        SOME (resize_update_list fml NONE (SOME C) n, sorted_insert n inds, Clist,
-          update_earliest earliest n C)`
-
-val is_unsat_list_def = Define`
-  is_unsat_list fml inds =
-  case reindex fml inds of
-    (_,inds') => MEM [] inds'`
+        if mindel < n then
+          SOME (resize_update_list fml NONE (SOME C) n, sorted_insert n inds, Clist,
+            update_earliest earliest n C)
+        else NONE`
 
 val check_lpr_list_def = Define`
-  (check_lpr_list [] fml inds Clist earliest = SOME (fml, inds)) ∧
-  (check_lpr_list (step::steps) fml inds Clist earliest =
-    case check_lpr_step_list step fml inds Clist earliest of
+  (check_lpr_list mindel [] fml inds Clist earliest = SOME (fml, inds)) ∧
+  (check_lpr_list mindel (step::steps) fml inds Clist earliest =
+    case check_lpr_step_list mindel step fml inds Clist earliest of
       NONE => NONE
-    | SOME (fml', inds', Clist',earliest') => check_lpr_list steps fml' inds' Clist' earliest')`
+    | SOME (fml', inds', Clist',earliest') => check_lpr_list mindel steps fml' inds' Clist' earliest')`
+
+val contains_clauses_list_def = Define`
+  contains_clauses_list fml inds cls =
+  case reindex fml inds of
+    (_,inds') =>
+  let inds'' = MAP canon_clause inds' in
+  EVERY (λcl. MEM (canon_clause cl) inds'') cls`
 
 val check_lpr_unsat_list_def = Define`
   check_lpr_unsat_list lpr fml inds Clist earliest =
-  case check_lpr_list lpr fml inds Clist earliest of
+  case check_lpr_list 0 lpr fml inds Clist earliest of
     NONE => F
-  | SOME (fml', inds') => is_unsat_list fml' inds'`
+  | SOME (fml', inds') => contains_clauses_list fml' inds' [[]]`
+
+(* Checking satisfiability equivalence *)
+val check_lpr_sat_equiv_list_def = Define`
+  check_lpr_sat_equiv_list lpr fml inds Clist earliest mindel cls =
+  case check_lpr_list mindel lpr fml inds Clist earliest of
+    NONE => F
+  | SOME (fml', inds') => contains_clauses_list fml' inds' cls`
 
 (* prove that check_lpr_step_list implements check_lpr_step *)
 val fml_rel_def = Define`
@@ -1608,19 +1622,20 @@ Theorem fml_rel_check_lpr_step_list:
   EVERY ($= w8z) Clist ∧
   earliest_rel fmlls earliest ∧
   wf_fml fml ⇒
-  case check_lpr_step_list step fmlls inds Clist earliest of
+  case check_lpr_step_list mindel step fmlls inds Clist earliest of
     SOME (fmlls', inds', Clist', earliest') =>
     SORTED ($>=) inds' ∧
     EVERY ($= w8z) Clist' ∧
     ind_rel fmlls' inds' ∧
     earliest_rel fmlls' earliest' ∧
-    ∃fml'. check_lpr_step step fml = SOME fml' ∧ fml_rel fml' fmlls'
+    ∃fml'. check_lpr_step mindel step fml = SOME fml' ∧ fml_rel fml' fmlls'
   | NONE => T
 Proof
   simp[check_lpr_step_def,check_lpr_step_list_def]>>
   strip_tac>>
   Cases_on`step`>>simp[]
   >- (
+    IF_CASES_TAC>>simp[]>>
     CONJ_TAC >- metis_tac[ind_rel_list_delete_list]>>
     metis_tac[fml_rel_list_delete_list,earliest_rel_list_delete_list])>>
   rename1 `hint_earliest a b c`>>
@@ -1636,23 +1651,26 @@ Proof
   TOP_CASE_TAC>>simp[]>>
   TOP_CASE_TAC>>simp[]>>
   simp[safe_hd_def]>>
+  IF_CASES_TAC >> simp[]>>
   metis_tac[ind_rel_resize_update_list_sorted_insert,  SORTED_sorted_insert,
     fml_rel_resize_update_list,
     earliest_rel_resize_update_list0,
     earliest_rel_resize_update_list1, earliest_rel_resize_update_list2]
 QED
 
-Theorem fml_rel_is_unsat_list:
+Theorem fml_rel_contains_clauses_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
-  is_unsat_list fmlls inds ⇒
-  is_unsat fml
+  contains_clauses_list fmlls inds cls ⇒
+  contains_clauses fml cls
 Proof
-  simp[is_unsat_list_def,is_unsat_def,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
+  simp[contains_clauses_list_def,contains_clauses_def,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
   TOP_CASE_TAC>>rw[]>>
   drule reindex_characterize>>
   rw[]>>
+  fs[EVERY_MEM]>>rw[]>>first_x_assum drule>>
   fs[MEM_MAP,MEM_FILTER,list_lookup_def]>>
+  strip_tac>>
   Cases_on ‘LENGTH fmlls ≤ x’ >> fs [] >>
   fs[fml_rel_def]>>
   first_x_assum(qspec_then`x` assume_tac)>>rfs[]>>
@@ -1660,6 +1678,480 @@ Proof
   rfs [] >>
   fs [] >>
   metis_tac[]
+QED
+
+Theorem fml_rel_check_lpr_list:
+  ∀steps mindel fml fmlls inds fmlls' inds' Clist earliest.
+  fml_rel fml fmlls ∧
+  ind_rel fmlls inds ∧
+  SORTED $>= inds ∧
+  EVERY ($= w8z) Clist ∧ wf_fml fml ∧
+  earliest_rel fmlls earliest ∧
+  EVERY wf_lpr steps ∧
+  check_lpr_list mindel steps fmlls inds Clist earliest = SOME (fmlls', inds') ⇒
+  ind_rel fmlls' inds' ∧
+  ∃fml'. check_lpr mindel steps fml = SOME fml' ∧
+    fml_rel fml' fmlls'
+Proof
+  Induct>>fs[check_lpr_list_def,check_lpr_def]>>
+  ntac 9 strip_tac>>
+  ntac 4 (TOP_CASE_TAC>>fs[])>>
+  strip_tac>>
+  drule  fml_rel_check_lpr_step_list>>
+  rpt (disch_then drule)>>
+  disch_then (qspecl_then [`h`,`mindel`] mp_tac)>> simp[]>>
+  strip_tac>>
+  simp[]>>
+  first_x_assum match_mp_tac>>
+  asm_exists_tac>>fs[]>>
+  asm_exists_tac>>fs[]>>
+  asm_exists_tac>>fs[]>>
+  qexists_tac`r`>>fs[]>>
+  match_mp_tac check_lpr_step_wf_fml>>
+  metis_tac[]
+QED
+
+(* Construct "hash table" mapping clauses -> list of indexes *)
+val hash_insert_def = Define`
+  hash_insert fm k v =
+    case FLOOKUP fm k of
+      NONE => fm |+ (k,[v])
+    | SOME vs => fm |+ (k, v::vs)`
+
+val hash_clauses_aux_def = Define`
+  (hash_clauses_aux [] [] fm = fm) ∧
+  (hash_clauses_aux (c::cs) (i::is) fm =
+    hash_clauses_aux cs is (hash_insert fm c i))`
+
+(* Construct a "hash table" from an existing formula representation *)
+val hash_clauses_list_def = Define`
+  hash_clauses_list fml inds =
+  case reindex fml inds of
+    (inds', cls) => hash_clauses_aux cls inds' FEMPTY`
+
+(*
+  Run "first part" of proof that updates all moving parts simultaneously:
+    - fml is an array of index -> clauses
+    - inds is lazily updated list of active indices (only added to)
+    - earliest tracks optimization information
+    - fm is a "hashtable" mapping clause -> list of indices it appears
+
+  The "second part" of the proof only needs to project out the "fm" component
+*)
+val run_proof_step_list_def = Define`
+  (run_proof_step_list (fml,inds,earliest,fm,n,mv) (Del C) =
+    case FLOOKUP fm C of
+      NONE => (* the clause to be deleted doesn't exist, don't do anything *)
+        (fml,inds,earliest,fm,n,mv)
+    | SOME cls => (* list of clause indices *)
+        (list_delete_list cls fml, inds, earliest, fm \\ C,n,mv)) ∧
+  (run_proof_step_list (fml,inds,earliest,fm,n,mv) (Add C) =
+    (resize_update_list fml NONE (SOME C) n,
+     sorted_insert n inds,
+     update_earliest earliest n C,
+     hash_insert fm C n,
+     n+1,
+     MAX mv (list_max_index C + 1)))`
+
+val run_proof_list_def = Define`
+  run_proof_list data pf = FOLDL run_proof_step_list data pf`
+
+val check_lpr_range_list_def = Define`
+  check_lpr_range_list lpr fml inds earliest mv n pf i j =
+  if i ≤ j then
+    let fm = hash_clauses_list fml inds in
+    let pfij = TAKE j pf in
+    let pfi = TAKE i pfij in
+    let pfj = DROP i pfij in
+    let (fml',inds',earliest',fm',n',mv') = run_proof_list (fml,inds,earliest,fm,n,mv) pfi in
+    let (fml'',inds'',earliest'',fm'',n'',mv'') = run_proof_list (fml',inds',earliest',fm',n',mv') pfj in
+    let cls = MAP FST (fmap_to_alist fm'') in
+    check_lpr_sat_equiv_list lpr fml' inds' (REPLICATE mv' w8z) earliest' 0 cls
+  else F`
+
+(* The "easy" part of the induction *)
+Theorem run_proof_list_rels:
+  ∀pf fmlls inds earliest fm n mv
+      fmlls' inds' earliest' fm' n' mv'.
+  run_proof_list (fmlls,inds,earliest,fm,n,mv) pf = (fmlls',inds',earliest',fm',n',mv') ∧
+  ind_rel fmlls inds ∧
+  SORTED $>= inds ∧
+  earliest_rel fmlls earliest
+  ⇒
+  ind_rel fmlls' inds' ∧
+  SORTED $>= inds' ∧
+  earliest_rel fmlls' earliest'
+Proof
+  Induct>>fs[run_proof_list_def]>>
+  Cases>>ntac 13 strip_tac>>
+  fs[run_proof_step_list_def]>>every_case_tac>>fs[]>>
+  first_x_assum drule>>
+  disch_then match_mp_tac>>fs[]
+  >- metis_tac[ind_rel_list_delete_list,earliest_rel_list_delete_list] >>
+  CONJ_TAC >-
+    metis_tac[ind_rel_resize_update_list_sorted_insert]>>
+  simp[SORTED_sorted_insert]>>
+  rw[resize_Clist_def]>>
+  metis_tac[earliest_rel_resize_update_list0, earliest_rel_resize_update_list1, earliest_rel_resize_update_list2]
+QED
+
+(* the hash set contains all the information necessary and nothing extra *)
+val hash_rel_def = Define`
+  hash_rel fmlls fm ⇔
+  (∀C x. x < LENGTH fmlls ∧ EL x fmlls = SOME C ⇒
+    ∃xs. FLOOKUP fm C = SOME xs ∧ MEM x xs) ∧
+  (∀C x xs. FLOOKUP fm C = SOME xs ∧ MEM x xs ⇒
+    x < LENGTH fmlls ∧ EL x fmlls = SOME C)`
+
+Theorem fml_rel_from_to_AList:
+  fml_rel fml fmlls ⇒
+  fml_rel (fromAList (toAList fml)) fmlls
+Proof
+  rw[fml_rel_def]>>rw[]>>
+  first_x_assum (qspec_then`x` assume_tac)>>rfs[]>>
+  simp[lookup_fromAList,ALOOKUP_toAList]
+QED
+
+Theorem EL_list_delete_list:
+  ∀y ls x.
+  x < LENGTH ls ⇒
+  EL x (list_delete_list y ls) =
+  if MEM x y then NONE else EL x ls
+Proof
+  Induct>>rw[list_delete_list_def]>>
+  fs[]>>rfs[EL_LUPDATE]
+QED
+
+Theorem hash_rel_list_delete_list:
+  hash_rel fmlls fm ∧
+  FLOOKUP fm l = SOME x ⇒
+  hash_rel (list_delete_list x fmlls) (fm \\ l)
+Proof
+  rw[hash_rel_def]
+  >- (
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC [EL_list_delete_list]>>
+    simp[]>>
+    strip_tac>>
+    last_x_assum drule>>
+    disch_then drule>>
+    strip_tac>>
+    first_x_assum drule>>
+    fs[DOMSUB_FLOOKUP_THM]>>
+    CCONTR_TAC>>rw[]>>
+    gs[])
+  >- (
+    fs[DOMSUB_FLOOKUP_THM]>>
+    metis_tac[]) >>
+  fs[DOMSUB_FLOOKUP_THM]>>
+  first_assum drule>>
+  disch_then drule>>
+  simp[EL_list_delete_list]>>
+  rw[]>>CCONTR_TAC>>rw[]>>
+  first_assum drule>>
+  disch_then drule>>
+  qpat_x_assum`_ = SOME xs` mp_tac>>
+  first_assum drule>>
+  disch_then drule>>
+  rpt strip_tac>>
+  fs[]
+QED
+
+Theorem FLOOKUP_hash_insert:
+  FLOOKUP (hash_insert fm l n) C =
+  if C = l then
+    case FLOOKUP fm C of
+      NONE => SOME [n]
+    | SOME ls => SOME (n::ls)
+  else
+    FLOOKUP fm C
+Proof
+  rw[hash_insert_def]>>every_case_tac>>fs[FLOOKUP_UPDATE]
+QED
+
+Theorem EL_resize_update_list:
+  x < LENGTH (resize_update_list fmlls NONE (SOME l) n) ⇒
+  EL x (resize_update_list fmlls NONE (SOME l) n)  =
+  if x = n then SOME l
+  else
+    if x < LENGTH fmlls then EL x fmlls
+    else NONE
+Proof
+  rw[resize_update_list_def,EL_LUPDATE]>>
+  fs[EL_APPEND_EQN,EL_REPLICATE]
+QED
+
+Theorem hash_rel_hash_insert:
+  hash_rel fmlls fm ∧
+  (∀x. IS_SOME(list_lookup fmlls NONE x) ⇒ x < n)
+  ⇒
+  hash_rel (resize_update_list fmlls NONE (SOME l) n) (hash_insert fm l n)
+Proof
+  simp[hash_rel_def,hash_insert_def,EL_resize_update_list]>>
+  strip_tac>>
+  CONJ_TAC
+  >- (
+    rw[]>>rfs[EL_resize_update_list]>>
+    pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
+    strip_tac>>rw[]
+    >- (TOP_CASE_TAC>>simp[FLOOKUP_UPDATE])>>
+    TOP_CASE_TAC>>simp[FLOOKUP_UPDATE]>>rw[]>>fs[]
+    >- (
+      last_x_assum drule>>
+      disch_then drule>>
+      rw[])>>
+    metis_tac[SOME_11]) >>
+  ntac 4 strip_tac>>
+  every_case_tac>>fs[]
+  >- (
+    pop_assum mp_tac>>simp[FLOOKUP_UPDATE]>>
+    IF_CASES_TAC>>simp[]>>strip_tac>>rveq>>fs[]
+    >- (
+      CONJ_ASM1_TAC >> simp[EL_resize_update_list]>>
+      simp[resize_update_list_def]>>
+      every_case_tac>>simp[])>>
+    first_x_assum drule>>
+    disch_then drule>>
+    strip_tac>>
+    CONJ_ASM1_TAC >> simp[EL_resize_update_list]
+    >- (simp[resize_update_list_def]>> every_case_tac>>simp[])>>
+    rw[]>>
+    first_x_assum(qspec_then`n` mp_tac)>>simp[list_lookup_def])
+  >- (
+    pop_assum mp_tac>>simp[FLOOKUP_UPDATE]>>
+    IF_CASES_TAC>>simp[]>>strip_tac>>rveq>>fs[]
+    >- (
+      CONJ_ASM1_TAC >> simp[EL_resize_update_list]>>
+      simp[resize_update_list_def]>>
+      every_case_tac>>simp[])>>
+    first_x_assum drule>>
+    disch_then drule>>
+    strip_tac>>
+    CONJ_ASM1_TAC >> simp[EL_resize_update_list]
+    >- (simp[resize_update_list_def]>> every_case_tac>>simp[])>>
+    rw[]
+    >- rw[resize_update_list_def]
+    >>
+      first_x_assum(qspec_then`n` mp_tac)>>simp[list_lookup_def])
+QED
+
+Theorem same_lookup_fml_rel:
+  fml_rel a b ∧
+  (∀x. sptree$lookup x a = lookup x a') ⇒
+  fml_rel a' b
+Proof
+  rw[fml_rel_def]>>
+  metis_tac[]
+QED
+
+(* The "hard" part of the induction *)
+Theorem fml_rel_run_proof_list:
+  ∀pf fmlls inds earliest fm n mv
+      fmlls' inds' earliest' fm' n' mv'
+      fml fml' m.
+  run_proof_list (fmlls,inds,earliest,fm,n,mv) pf = (fmlls',inds',earliest',fm',n',mv') ∧
+  run_proof_spt (fml,n) pf = (fml',m) ∧
+  fml_rel fml fmlls ∧
+  hash_rel fmlls fm ∧
+  (∀x. IS_SOME(list_lookup fmlls NONE x) ⇒ x < n) ⇒
+    n' = m ∧
+    fml_rel fml' fmlls' ∧
+    hash_rel fmlls' fm' ∧
+    (∀x. IS_SOME(list_lookup fmlls' NONE x) ⇒ x < n')
+Proof
+  Induct>>fs[run_proof_list_def,run_proof_spt_def]>>
+  Cases>>fs[run_proof_step_spt_def,run_proof_step_list_def]>>
+  ntac 16 strip_tac>>
+  every_case_tac>>fs[]>>
+  first_x_assum drule>>
+  disch_then drule>>
+  disch_then match_mp_tac
+  >- (
+    fs[]>>
+    qmatch_goalsub_abbrev_tac`FOLDL _ _ lss`>>
+    `lss = []` by (
+      simp[Abbr`lss`,FILTER_EQ_NIL]>>
+      rw[EVERY_MEM,FORALL_PROD,MEM_toAList]>>
+      fs[hash_rel_def,fml_rel_def]>>
+      CCONTR_TAC>>
+      fs[]>>
+      last_x_assum(qspec_then`p_1` mp_tac)>>
+      rw[]>>
+      CCONTR_TAC>>fs[] >>
+      last_x_assum drule>>
+      disch_then(qspec_then`l` assume_tac)>>rfs[])>>
+    simp[])
+  >- (
+    CONJ_TAC>- (
+      qmatch_goalsub_abbrev_tac`FOLDL _ _ lss`>>
+      `set x = set lss` by
+        (simp[Abbr`lss`,EXTENSION,MEM_MAP,MEM_FILTER,EXISTS_PROD,MEM_toAList]>>
+        fs[hash_rel_def,fml_rel_def]>>
+        first_x_assum drule>>
+        rw[EQ_IMP_THM]
+        >- (
+          first_x_assum drule>>strip_tac>>
+          last_x_assum(qspec_then`x'` assume_tac)>>rfs[])>>
+        last_x_assum(qspec_then`x'` mp_tac)>>simp[]>>
+        simp[Once EQ_SYM_EQ]>>
+        strip_tac>> first_x_assum drule>>
+        disch_then drule>>
+        strip_tac>>rfs[])>>
+      drule fml_rel_list_delete_list>>
+      disch_then (qspecl_then [`x`,`list_delete_list x fmlls`] mp_tac)>>
+      simp[]>>
+      strip_tac>> drule same_lookup_fml_rel>>
+      disch_then match_mp_tac>>
+      simp[lookup_FOLDL_delete])>>
+    CONJ_TAC>- metis_tac[hash_rel_list_delete_list]>>
+    rw[list_lookup_def, EL_list_delete_list]) >>
+  simp[fml_rel_resize_update_list]>>
+  drule hash_rel_hash_insert>>simp[]>>
+  rw[list_lookup_resize_update_list]>>
+  every_case_tac>>fs[]>>
+  last_x_assum drule>>simp[]
+QED
+
+Theorem FLOOKUP_hash_clauses_aux_0:
+ ∀xs ys C x is fm.
+ LENGTH xs = LENGTH ys ∧
+ FLOOKUP fm C = SOME is ∧ MEM x is ⇒
+ ∃is'.
+   FLOOKUP (hash_clauses_aux xs ys fm) C = SOME is' ∧ MEM x is'
+Proof
+  Induct>>fs[hash_clauses_aux_def]>>rw[]>>
+  Cases_on`ys`>>fs[hash_clauses_aux_def]>>rw[]>>
+  first_x_assum match_mp_tac>>fs[FLOOKUP_hash_insert]>>
+  rw[]>>simp[]
+QED
+
+Theorem FLOOKUP_hash_clauses_aux_1:
+  ∀xs ys x y fm.
+  LENGTH xs = LENGTH ys ∧
+  MEM (x,y) (ZIP (xs,ys)) ⇒
+  ∃is.
+    FLOOKUP (hash_clauses_aux xs ys fm) x = SOME is ∧ MEM y is
+Proof
+  Induct>>fs[hash_clauses_aux_def]>>rw[]>>
+  Cases_on`ys`>>fs[hash_clauses_aux_def]>>rw[]>>
+  match_mp_tac FLOOKUP_hash_clauses_aux_0>>
+  simp[FLOOKUP_hash_insert]>>
+  every_case_tac>>fs[]
+QED
+
+Theorem FLOOKUP_hash_clauses_aux_2:
+  ∀xs ys fm x is y.
+  FLOOKUP (hash_clauses_aux xs ys fm) x = SOME is ∧ MEM y is ∧
+  LENGTH xs = LENGTH ys ⇒
+  (∃is'. FLOOKUP fm x = SOME is' ∧ MEM y is') ∨
+  MEM (x,y) (ZIP (xs,ys))
+Proof
+  Induct>>fs[hash_clauses_aux_def]>>rw[]>>
+  Cases_on`ys`>>fs[hash_clauses_aux_def]>>
+  first_x_assum(qspec_then`t` mp_tac)>>fs[]>>
+  disch_then drule>>
+  disch_then drule>>
+  strip_tac>>simp[]>>
+  qpat_x_assum`_=SOME is` kall_tac>>
+  fs[hash_insert_def]>>every_case_tac>>fs[FLOOKUP_UPDATE]>>
+  every_case_tac>>fs[]>>rw[]>>fs[]
+QED
+
+Theorem hash_rel_hash_clauses_list:
+  ind_rel fmlls inds ⇒
+  hash_rel fmlls (hash_clauses_list fmlls inds)
+Proof
+  simp[hash_clauses_list_def]>>
+  TOP_CASE_TAC>>fs[]>>
+  drule reindex_characterize>>
+  rw[]>>
+  simp[hash_rel_def]>>
+  CONJ_TAC>- (
+    rw[]>>
+    match_mp_tac FLOOKUP_hash_clauses_aux_1>>
+    fs[MEM_ZIP]>>
+    qmatch_goalsub_abbrev_tac`MAP _ lss`>>
+    `MEM x lss` by (
+      simp[Abbr`lss`,MEM_FILTER]>>
+      fs[ind_rel_def,list_lookup_def])>>
+    fs[MEM_EL]>>
+    qexists_tac`n`>>simp[EL_MAP,list_lookup_def]>>
+    rw[])>>
+  ntac 4 strip_tac>>
+  drule FLOOKUP_hash_clauses_aux_2>>
+  disch_then drule>>
+  simp[MEM_ZIP]>>strip_tac>>
+  qmatch_asmsub_abbrev_tac`EL n lss`>>
+  `MEM x lss` by
+    metis_tac[MEM_EL]>>
+  `IS_SOME (list_lookup fmlls NONE x)` by
+    fs[Abbr`lss`,MEM_FILTER]>>
+  pop_assum mp_tac>>
+  simp[list_lookup_def]>>
+  rw[]>>simp[EL_MAP]>>
+  Cases_on`EL (EL n lss) fmlls`>>fs[]
+QED
+
+Theorem fml_rel_check_lpr_range_list:
+  check_lpr_range_list lpr fmlls inds earliest mv n pf i j ∧
+  fml_rel fml fmlls ∧
+  (∀x. IS_SOME(list_lookup fmlls NONE x) ⇒ x < n) ∧
+  ind_rel fmlls inds ∧
+  SORTED $>= inds ∧
+  earliest_rel fmlls earliest ∧
+  wf_fml fml ∧ EVERY wf_proof pf ∧ EVERY wf_lpr lpr
+  ⇒
+  check_lpr_range lpr fml n pf i j
+Proof
+  rw[check_lpr_range_def,check_lpr_range_list_def]>>
+  rpt(pairarg_tac >> fs[])>>
+  fs[check_lpr_sat_equiv_list_def,check_lpr_list_def]>>
+  every_case_tac>>fs[]>>
+  qpat_x_assum `run_proof_list _ _ = (fml', _)` assume_tac>>
+  drule run_proof_list_rels>>
+  simp[]>> strip_tac>>
+  drule fml_rel_run_proof_list>>
+  simp[TAKE_TAKE_T]>>
+  qpat_x_assum `run_proof_spt _ _ = (fml1, _)` assume_tac>>
+  disch_then drule>>
+  simp[]>>
+  impl_tac>-
+    fs[hash_rel_hash_clauses_list]>>
+  rw[]>>
+  simp[check_lpr_sat_equiv_def]>>
+  drule fml_rel_check_lpr_list>>
+  `EVERY ($= w8z) (REPLICATE mv' w8z)` by fs[EVERY_REPLICATE]>>
+  rpt(disch_then drule)>>
+  drule wf_run_proof_spt>> simp[EVERY_TAKE]>>
+  strip_tac>>
+  rpt(disch_then drule)>>
+  rw[]>>simp[]>>
+  drule fml_rel_contains_clauses_list>>
+  rpt (disch_then drule)>>
+  qpat_x_assum `run_proof_list _ _ = (fml'', _)` assume_tac>>
+  drule run_proof_list_rels>>
+  simp[]>> strip_tac>>
+  drule (GEN_ALL fml_rel_run_proof_list)>>
+  qpat_x_assum `run_proof_spt _ _ = (fml2, _)` assume_tac>>
+  disch_then drule>>
+  simp[]>>
+  strip_tac >>
+  qmatch_goalsub_abbrev_tac`_ _ A  ==> _ _ B`>>
+  `set B ⊆ set A` by (
+    unabbrev_all_tac>>simp[SUBSET_DEF]>>
+    ntac 3 (pop_assum mp_tac)>>
+    rpt (pop_assum kall_tac)>>
+    rw[fml_rel_def,hash_rel_def]>>
+    fs[MEM_MAP,EXISTS_PROD,MEM_toAList]>>
+    last_x_assum(qspec_then`p_1` assume_tac)>>
+    every_case_tac>>fs[]>>
+    first_x_assum drule>>
+    disch_then drule>>simp[]>>
+    rw[FDOM_FLOOKUP]>>
+    metis_tac[])>>
+  pop_assum mp_tac>>
+  simp[contains_clauses_def,SUBSET_DEF,EVERY_MEM]>>
+  rw[]
 QED
 
 val _ = export_theory();

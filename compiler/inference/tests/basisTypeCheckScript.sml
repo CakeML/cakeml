@@ -22,6 +22,8 @@ val () = computeLib.extend_compset
     ] cmp
 val inf_eval = computeLib.CBV_CONV cmp
 
+val _ = (max_print_depth := 20);
+
 local
   val test = inf_eval ``infertype_prog init_config basis``
 in

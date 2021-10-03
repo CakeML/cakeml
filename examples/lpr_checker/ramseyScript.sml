@@ -5,6 +5,34 @@ open preamble miscTheory lprTheory satSemTheory;
 
 val _ = new_theory "ramsey";
 
+(* TODO MOVE *)
+Theorem ALL_DISTINCT_MAP_FST_enumerate:
+  ∀ls n.
+  ALL_DISTINCT (MAP FST (enumerate n ls))
+Proof
+  Induct>>rw[enumerate_def]>>
+  CCONTR_TAC>>fs[MEM_MAP]>>
+  Cases_on`y`>>fs[MEM_EL]>>
+  fs[LENGTH_enumerate]>>
+  rfs[EL_enumerate]
+QED
+
+Theorem MAP_FST_enumerate:
+  ∀ls.
+  MAP FST (enumerate n ls) = MAP (λm. m + n) (COUNT_LIST (LENGTH ls))
+Proof
+  rw[LIST_EQ_REWRITE]>>fs[LENGTH_enumerate,LENGTH_COUNT_LIST]>>
+  fs[EL_MAP,LENGTH_enumerate,LENGTH_COUNT_LIST]>>
+  simp[EL_COUNT_LIST,EL_enumerate]
+QED
+
+Theorem MAP_SND_enumerate:
+  ∀ls n.
+  MAP SND (enumerate n ls) = ls
+Proof
+  Induct>>rw[enumerate_def]
+QED
+
 (* Definition of the Ramsey numbers *)
 
 Type edges = ``:num -> num -> bool``;
@@ -342,18 +370,13 @@ val clique_edges_def = Define`
   (clique_edges f (x::xs) =
   MAP (f x) xs ++ clique_edges f xs)`
 
-val build_fml_def = Define`
-  (build_fml (id:num) [] (acc:ccnf) = acc) ∧
-  (build_fml id (cl::cls) acc =
-  build_fml (id+1) cls (insert id cl acc))`
-
 val ramsey_lpr_def = Define`
   ramsey_lpr k n =
   let ls = choose (COUNT_LIST n) k in
   let pairs = transpose (enumerate 1n (choose (COUNT_LIST n) 2)) in
   let enc = encoder pairs in
   let cli = MAP (clique_edges enc) ls in
-  build_fml 1 (MAP (λns. MAP (λn. &n:int) ns) cli ++ MAP (λns. MAP (λn. -&n:int) ns) cli) LN`
+  (MAP (λns. MAP (λn. &n:int) ns) cli ++ MAP (λns. MAP (λn. -&n:int) ns) cli)`
 
 val decoder_def = Define`
   decoder ls = λn.
@@ -392,68 +415,15 @@ Proof
   fs[MAP_transpose]
 QED
 
-Theorem values_insert_notin_domain:
-  n ∉ domain fml ⇒
-  values(insert n l fml) = l INSERT values fml
-Proof
-  rw[values_def,lookup_insert,EXTENSION,EQ_IMP_THM]
-  >-
-    (every_case_tac>>fs[]>>
-    metis_tac[])
-  >-
-    metis_tac[]
-  >>
-    `n ≠ n'` by metis_tac[domain_lookup]>>
-    metis_tac[]
-QED
-
-Theorem interp_insert_notin_domain:
-  n ∉ domain fml ⇒
-  interp (insert n p fml) = interp_cclause p INSERT interp fml
+Theorem choose_pairs_correct:
+  b < n ∧ a < b ⇒
+  MEM [a;b] (choose (COUNT_LIST n) 2)
 Proof
   rw[]>>
-  `interp_cclause p INSERT interp fml ⊆ interp (insert n p fml)` by
-    (rw[interp_def,SUBSET_DEF,PULL_FORALL]>>
-    drule values_insert_notin_domain>>rw[]>>
-    metis_tac[])>>
-  fs[SET_EQ_SUBSET,interp_insert]
-QED
-
-Theorem interp_cclause_QSORT[simp]:
-  interp_cclause (QSORT $<= x) = interp_cclause x
-Proof
-  rw[interp_cclause_def]>>
-  AP_TERM_TAC>>
-  simp[EXTENSION,QSORT_MEM]
-QED
-
-Theorem interp_build_fml:
-  ∀ls id acc.
-  (∀m. id ≤ m ⇒ m ∉ domain acc) ⇒
-  interp (build_fml id ls acc) =
-  interp acc ∪ set (MAP interp_cclause ls)
-Proof
-  Induct>>fs[build_fml_def]>>rw[]>>
-  pop_assum(qspec_then`id` assume_tac)>>fs[]>>
-  simp[interp_insert_notin_domain]>>
-  metis_tac[UNION_COMM,UNION_ASSOC,INSERT_SING_UNION]
-QED
-
-Theorem interp_LN[simp]:
-  interp LN = {}
-Proof
-  rw[interp_def,values_def,lookup_def]
-QED
-
-Theorem clique_edges_MEM:
-  ∀ls f a b.
-  MEM a ls ∧ MEM b ls ∧ a ≠ b ⇒
-  MEM (f a b) (clique_edges f ls) ∨
-  MEM (f b a) (clique_edges f ls)
-Proof
-  Induct>>rw[clique_edges_def]>>
-  fs[MEM_MAP]>>
-  metis_tac[]
+  qspecl_then [`COUNT_LIST n`,`2`,`[a;b]`] mp_tac choose_complete>>
+  simp[EL_COUNT_LIST]>>
+  disch_then match_mp_tac>>
+  fs[SORTED_DEF,LENGTH_COUNT_LIST]
 QED
 
 Theorem clique_edges_SORTED_MEM:
@@ -473,72 +443,6 @@ Proof
   fs[]
 QED
 
-Theorem clique_edges_complete:
-  ∀ls f n.
-  MEM n (clique_edges f ls) ∧
-  ALL_DISTINCT ls ==>
-  ∃a b.
-  MEM a ls ∧ MEM b ls ∧ a ≠ b ∧
-  n = f a b
-Proof
-  Induct>>rw[clique_edges_def]>>
-  fs[MEM_MAP]>>
-  metis_tac[]
-QED
-
-Theorem clique_edges_SORTED_complete:
-  ∀ls f n.
-  SORTED $< ls ∧
-  MEM n (clique_edges f ls) ==>
-  ∃a b.
-  MEM a ls ∧ MEM b ls ∧ a < b ∧
-  n = f a b
-Proof
-  Induct>>rw[clique_edges_def]>>
-  fs[MEM_MAP]>>
-  qpat_x_assum`SORTED _ (_::_)` mp_tac>>
-  dep_rewrite.DEP_REWRITE_TAC [SORTED_EQ]>>
-  simp[transitive_def]>>
-  rw[]>>fs[]>>
-  first_x_assum drule >> rw[]>>
-  metis_tac[]
-QED
-
-Theorem pos_imp_int_pos:
-  x:num > 0 ⇒
-  &x > 0:int ∧
-  ¬(-&x > 0:int)
-Proof
-  intLib.ARITH_TAC
-QED
-
-Theorem ALL_DISTINCT_MAP_FST_enumerate:
-  ∀ls n.
-  ALL_DISTINCT (MAP FST (enumerate n ls))
-Proof
-  Induct>>rw[enumerate_def]>>
-  CCONTR_TAC>>fs[MEM_MAP]>>
-  Cases_on`y`>>fs[MEM_EL]>>
-  fs[LENGTH_enumerate]>>
-  rfs[EL_enumerate]
-QED
-
-Theorem MAP_FST_enumerate:
-  ∀ls.
-  MAP FST (enumerate n ls) = MAP (λm. m + n) (COUNT_LIST (LENGTH ls))
-Proof
-  rw[LIST_EQ_REWRITE]>>fs[LENGTH_enumerate,LENGTH_COUNT_LIST]>>
-  fs[EL_MAP,LENGTH_enumerate,LENGTH_COUNT_LIST]>>
-  simp[EL_COUNT_LIST,EL_enumerate]
-QED
-
-Theorem MAP_SND_enumerate:
-  ∀ls n.
-  MAP SND (enumerate n ls) = ls
-Proof
-  Induct>>rw[enumerate_def]
-QED
-
 Theorem encoder_pos:
   EVERY (λx. x ≠ 0) (MAP SND ls) ⇒
   encoder ls a b > 0n
@@ -550,15 +454,12 @@ Proof
   fs[]
 QED
 
-Theorem choose_pairs_correct:
-  b < n ∧ a < b ⇒
-  MEM [a;b] (choose (COUNT_LIST n) 2)
+Theorem pos_imp_int_pos:
+  x:num > 0 ⇒
+  &x > 0:int ∧
+  ¬(-&x > 0:int)
 Proof
-  rw[]>>
-  qspecl_then [`COUNT_LIST n`,`2`,`[a;b]`] mp_tac choose_complete>>
-  simp[EL_COUNT_LIST]>>
-  disch_then match_mp_tac>>
-  fs[SORTED_DEF,LENGTH_COUNT_LIST]
+  intLib.ARITH_TAC
 QED
 
 Theorem ramsey_lpr_correct:
@@ -583,69 +484,55 @@ Proof
   `!a b. b < n ∧ a < b ⇒ MEM [a;b] (MAP SND ls)` by
     (fs[Abbr`ls`,MAP_SND_enumerate]>>
     metis_tac[choose_pairs_correct])>>
-  dep_rewrite.DEP_REWRITE_TAC[interp_build_fml]>>
-  simp[]>>
-  simp[satisfies_union,MAP_MAP_o]>>
+  simp[interp_def,satisfies_union,MAP_MAP_o]>>
   simp[LIST_TO_SET_MAP,satisfies_def,PULL_EXISTS]>>
   qexists_tac`λm. (UNCURRY e) (decoder ls m)`>>
   rw[]
   >- (
     drule choose_count_correct>>fs[]>>rw[]>>
-    first_x_assum(qspec_then `set x` assume_tac)>>rfs[]>>
+    first_x_assum(qspec_then `set x'` assume_tac)>>rfs[]>>
     simp[interp_cclause_def,LIST_TO_SET_MAP,satisfies_clause_def,PULL_EXISTS]>>
     pop_assum(qspec_then`F` assume_tac)>>fs[]>>
     fs[is_clique_def]>>
-    `x' < y ∨ y < x'` by fs[]>>
+    `x < y ∨ y < x` by fs[]>>
     drule clique_edges_SORTED_MEM>>
     rpt(disch_then drule)>>
     disch_then (qspec_then `encoder (transpose ls)` assume_tac)>>
     asm_exists_tac>>fs[]
     >-
-      (`encoder (transpose ls) x' y > 0` by metis_tac[]>>
+      (`encoder (transpose ls) x y > 0` by metis_tac[]>>
       simp[satisfies_literal_def,interp_lit_def,pos_imp_int_pos]>>
       dep_rewrite.DEP_REWRITE_TAC [decoder_encoder2]>>
       simp[]>>
       fs[SUBSET_DEF])
     >>
-      `encoder (transpose ls) y x' > 0` by metis_tac[]>>
+      `encoder (transpose ls) y x > 0` by metis_tac[]>>
       simp[satisfies_literal_def,interp_lit_def,pos_imp_int_pos]>>
       dep_rewrite.DEP_REWRITE_TAC [decoder_encoder2]>>
       simp[]>>fs[symmetric_def]>>
       fs[SUBSET_DEF])
   >>
     drule choose_count_correct>>fs[]>>rw[]>>
-    first_x_assum(qspec_then `set x` assume_tac)>>rfs[]>>
+    first_x_assum(qspec_then `set x'` assume_tac)>>rfs[]>>
     simp[interp_cclause_def,LIST_TO_SET_MAP,satisfies_clause_def,PULL_EXISTS]>>
     pop_assum(qspec_then`T` assume_tac)>>fs[]>>
     fs[is_clique_def]>>
-    `x' < y ∨ y < x'` by fs[]>>
+    `x < y ∨ y < x` by fs[]>>
     drule clique_edges_SORTED_MEM>>
     rpt(disch_then drule)>>
     disch_then (qspec_then `encoder (transpose ls)` assume_tac)>>
     asm_exists_tac>>fs[]
     >-
-      (`encoder (transpose ls) x' y > 0` by metis_tac[]>>
+      (`encoder (transpose ls) x y > 0` by metis_tac[]>>
       simp[satisfies_literal_def,interp_lit_def,pos_imp_int_pos]>>
       dep_rewrite.DEP_REWRITE_TAC [decoder_encoder2]>>
       fs[SUBSET_DEF])
     >>
-      (`encoder (transpose ls) y x' > 0` by metis_tac[]>>
+      (`encoder (transpose ls) y x > 0` by metis_tac[]>>
       simp[satisfies_literal_def,interp_lit_def,pos_imp_int_pos]>>
       dep_rewrite.DEP_REWRITE_TAC [decoder_encoder2]>>
       simp[]>>fs[symmetric_def]>>
       fs[SUBSET_DEF])
-QED
-
-Theorem build_fml_wf:
-  ∀ls id acc.
-  wf_fml acc ∧ EVERY wf_clause ls ⇒
-  wf_fml (build_fml id ls acc)
-Proof
-  Induct>>fs[build_fml_def]>>rw[]>>
-  first_x_assum match_mp_tac>>
-  fs[]>>
-  match_mp_tac wf_fml_insert>>
-  simp[wf_clause_def]
 QED
 
 Theorem clique_edges_nonzero:
@@ -661,11 +548,10 @@ Proof
 QED
 
 Theorem ramsey_lpr_wf:
-  wf_fml (ramsey_lpr k n)
+  EVERY wf_clause (ramsey_lpr k n)
 Proof
   rw[ramsey_lpr_def]>>
-  match_mp_tac build_fml_wf>>fs[MEM_MAP,PULL_EXISTS]>>
-  simp[wf_fml_def,values_def,lookup_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
+  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
   rw[]>>simp[wf_clause_def,MEM_MAP]>>
   match_mp_tac clique_edges_nonzero>>
   simp[MAP_transpose,MAP_FST_enumerate]>>
@@ -684,10 +570,28 @@ val fast_ramsey_lpr_def = Define`
   let ls = choose (COUNT_LIST n) k in
   let enc = index_edge n in
   let cli = MAP (clique_edges enc) ls in
-  build_fml 1 (MAP (λns. MAP (λn. &n:int) ns) cli ++ MAP (λns. MAP (λn. -&n:int) ns) cli) LN`
+  build_fml 1 (MAP (λns. MAP (λn. &n:int) ns) cli ++ MAP (λns. MAP (λn. -&n:int) ns) cli)`
+
+Theorem clique_edges_SORTED_complete:
+  ∀ls f n.
+  SORTED $< ls ∧
+  MEM n (clique_edges f ls) ==>
+  ∃a b.
+  MEM a ls ∧ MEM b ls ∧ a < b ∧
+  n = f a b
+Proof
+  Induct>>rw[clique_edges_def]>>
+  fs[MEM_MAP]>>
+  qpat_x_assum`SORTED _ (_::_)` mp_tac>>
+  dep_rewrite.DEP_REWRITE_TAC [SORTED_EQ]>>
+  simp[transitive_def]>>
+  rw[]>>fs[]>>
+  first_x_assum drule >> rw[]>>
+  metis_tac[]
+QED
 
 Theorem fast_ramsey_lpr_correct:
-  satisfiable (interp (fast_ramsey_lpr k n)) ⇒
+  satisfiable (interp_spt (fast_ramsey_lpr k n)) ⇒
   ¬(is_ramsey k n)
 Proof
   rw[is_ramsey_def,satisfiable_def]>>
@@ -698,7 +602,7 @@ Proof
   rw[]>>
   CCONTR_TAC>>fs[]>>
   last_x_assum mp_tac>>simp[fast_ramsey_lpr_def]>>
-  dep_rewrite.DEP_REWRITE_TAC[interp_build_fml]>>
+  rw[interp_build_fml,interp_def]>>
   simp[satisfies_union,MAP_MAP_o]>>
   simp[LIST_TO_SET_MAP,satisfies_def,PULL_EXISTS]>>
   `FINITE (count n)` by fs[]>>
@@ -730,8 +634,8 @@ Proof
   qexists_tac`QSORT $<= (SET_TO_LIST t)`>>simp[]>>
   drule SET_TO_LIST_CARD >> strip_tac >> fs [] >>
   Cases_on`b`>>fs[]
-  >-
-    (DISJ2_TAC>>
+  >- (
+    DISJ2_TAC>>
     fs[is_clique_def]>>
     simp[satisfies_clause_def]>>rw[]>>
     simp[interp_cclause_def]>>CCONTR_TAC>>
@@ -815,16 +719,15 @@ QED
 
 Theorem check_sat_satisfies:
   check_sat asg fml ⇒
-  satisfies asg (interp fml)
+  satisfies asg (interp_spt fml)
 Proof
-  rw[check_sat_def,satisfies_def,interp_def,values_def]>>
+  rw[check_sat_def,satisfies_def,interp_spt_def,values_def]>>
   fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,MEM_toAList]>>
   first_x_assum drule>>fs[]>>
   metis_tac[check_clause_satisfies_clause]
 QED
 
 (* Ramsey number 3 is not 5 *)
-
 val sol = rconc (EVAL ``
   FOLDR (λn t. insert n () t) LN
   [1; 3; 5; 6; 7; 10; 11; 12; 14; 15; 16; 17; 18; 19]``)
@@ -844,7 +747,6 @@ Proof
 QED
 
 (* Ramsey number 3 is 6 *)
-
 val lpr = ``[
   Delete []; PR 41 [-12; -14; -15] NONE [39; 38; 40; 17] []; Delete [17];
   PR 42 [-9; -14; -15] NONE [35; 36; 40; 14] []; Delete [14];
@@ -869,7 +771,7 @@ val lpr = ``[
   Delete [33; 24; 27; 1]; PR 65 [] NONE [50; 57; 20; 61; 9; 10; 28] []
   ]``;
 
-val thm = EVAL ``check_lpr_unsat ^lpr (ramsey_lpr 3 6)``
+val thm = EVAL ``check_lpr_unsat ^lpr (build_fml 1 (ramsey_lpr 3 6))``
 val thm2 = EVAL ``EVERY wf_lpr ^lpr``
 
 Theorem ramsey_number_3:
@@ -877,8 +779,9 @@ Theorem ramsey_number_3:
 Proof
   match_mp_tac ramsey_eq>>simp[not_is_ramsey_3_5]>>
   match_mp_tac ramsey_lpr_correct>>
-  match_mp_tac (check_lpr_unsat_sound |> SIMP_RULE std_ss [AND_IMP_INTRO])>>
-  metis_tac[ramsey_lpr_wf,thm,thm2]
+  match_mp_tac (GEN_ALL check_lpr_unsat_sound |> SIMP_RULE std_ss [AND_IMP_INTRO])>>
+  simp[ramsey_lpr_wf,thm2]>>
+  metis_tac[thm,thm2]
 QED
 
 (* Ramsey number 4 is not 17 *)
