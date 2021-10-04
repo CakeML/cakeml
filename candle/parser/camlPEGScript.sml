@@ -186,6 +186,13 @@ Definition validFunId_def:
     | c::cs => (isLower c ∨ c = #"_") ∧ idChar isLower cs
 End
 
+Definition validModId_def:
+  validModId s =
+    case s of
+      [] => F
+    | c::cs => isUpper c ∧ idChar isLower cs
+End
+
 Datatype:
   camlNT =
     (* expressions *)
@@ -210,7 +217,7 @@ Datatype:
     | nTVar | nTAny | nTBase | nTConstr | nTApp | nTProd | nTFun
     | nTAs | nType
     (* definitions *)
-    | nDefinition | nTopLet | nTopLetRec | nModuleItem | nModuleItems
+    | nDefinition | nTopLet | nTopLetRec | nModuleItem | nModuleItems | nOpen
     (* misc *)
     | nShiftOp | nMultOp | nAddOp | nRelOp | nAndOp | nOrOp
     | nStart
@@ -256,14 +263,17 @@ Definition camlPEG_def[nocompute]:
       (INL nTopLetRec,
        seql [tokeq LetT; tokeq RecT; pnt nLetRecBindings]
             (bindNT nTopLetRec));
+      (INL nOpen,
+       seql [tokeq OpenT; tokIdP validModId]
+            (bindNT nOpen));
       (INL nDefinition,
        pegf (choicel [pnt nTopLetRec;
                       pnt nTopLet;
                       pnt nTypeDefinition;
                       pnt nExcDefinition;
+                      pnt nOpen;
                       (* module definition *)
                       (* module type *)
-                      (* open modulename *)
                       (* include moduleexpr *)
                       ])
             (bindNT nDefinition));

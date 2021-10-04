@@ -1476,5 +1476,66 @@ Definition ptree_TypeDefinition_def:
       fail "Expected a type definition non-terminal")
 End
 
+(* Build a top-level letrec out of a list of let rec-bindings.
+ *)
+
+Definition build_dletrec_def:
+  build_dletrec locs binds =
+    Dletrec locs (MAP (λ(f,ps,x). (f,"",Mat (Var (Short ""))
+                                      [HD ps, build_fun_lam x (TL ps)]))
+                      binds)
+End
+
+(* Builds a top-level let out of a list of let bindings.
+ *)
+
+Definition build_dlet_def:
+  build_dlet locs binds =
+    MAP (λbind.
+           case bind of
+             INL (p, x) => Dlet locs p x
+           | INR (f, ps, x) => Dlet locs (Pvar f) (build_fun_lam x ps))
+        binds
+End
+
+(* TODO
+ * The location information gets a bit lost. ptree_LetBindings should also
+ * return the location of the first token of each let binding (i.e. a pattern
+ * or a variable name).
+ *)
+
+Definition ptree_Definition_def:
+  (ptree_Definition (Lf t) =
+    fail "Expected a top-level definition non-terminal") ∧
+  (ptree_Definition (Nd n args) =
+    if FST n = INL nTopLet then
+      case args of
+        [lett; lbs] =>
+          do
+            expect_tok lett LetT;
+            binds <- ptree_LetBindings lbs;
+            return (build_dlet (SND n) binds)
+          od
+      | _ => fail "Impossible: nTopLet"
+    else if FST n = INL nTopLetRec then
+      case args of
+        [lett; rect; lbs] =>
+          do
+            expect_tok lett LetT;
+            expect_tok rect RecT;
+            binds <- ptree_LetRecBindings lbs;
+            return [build_dletrec (SND n) binds]
+          od
+      | _ => fail "Impossible: nTopLetRec"
+    else if FST n = INL nTypeDefinition then
+      ptree_TypeDefinition (Nd n args)
+    else if FST n = INL nExcDefinition then
+      fmap (λd. [d]) $ ptree_ExcDefinition (Nd n args)
+    else if FST n = INL nOpen then
+      fail "open-declarations are not supported (yet)"
+    else
+      fail "Expected a top-level definition non-terminal")
+End
+
 val _ = export_theory ();
 
