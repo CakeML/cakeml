@@ -67,9 +67,14 @@ Proof
   \\ first_x_assum irule \\ fs []
 QED
 
-Definition lift_def[simp]:
-  lift NONE = INL "option" ∧
-  lift (SOME x) = INR x
+Definition option_def[simp]:
+  option NONE = INL "option" ∧
+  option (SOME x) = INR x
+End
+
+Definition fmap_def[simp]:
+  fmap f (INR x) = INR (f x) ∧
+  fmap f (INL err) = INL err
 End
 
 (* -------------------------------------------------------------------------
@@ -89,8 +94,8 @@ Definition ptree_Ident_def:
         [arg] =>
           do
             lf <- destLf arg;
-            tk <- lift $ destTOK lf;
-            lift $ destIdent tk
+            tk <- option $ destTOK lf;
+            option $ destIdent tk
           od
       | _ => fail "Impossible: nIdent"
     else
@@ -101,8 +106,8 @@ Definition ptree_Name_def:
   ptree_Name symb =
     do
       lf <- destLf symb;
-      tk <- lift $ destTOK lf;
-      lift $ destIdent tk
+      tk <- option $ destTOK lf;
+      option $ destIdent tk
     od
 End
 
@@ -114,7 +119,7 @@ Definition expect_tok_def:
   expect_tok symb token =
     do
       lf <- destLf symb;
-      tk <- lift $ destTOK lf;
+      tk <- option $ destTOK lf;
       if tk = token then return tk else fail "Unexpected token"
     od
 End
@@ -232,11 +237,7 @@ Definition ptree_Type_def:
             ts <- ptree_TypeList tlist;
             return (t::ts)
           od
-      | [typ] =>
-          do
-            t <- ptree_Type typ;
-            return [t]
-          od
+      | [typ] => fmap (λt. [t]) $ ptree_Type typ
       | _ => fail "Impossible: nTypeLists"
     else
       fail "Expected a type list non-terminal")
@@ -250,7 +251,7 @@ Definition ptree_Literal:
         [arg] =>
           do
             lf <- destLf arg;
-            tk <- lift $ destTOK lf;
+            tk <- option $ destTOK lf;
             case tk of
               IntT n => return (IntLit n)
             | CharT c => return (Char c)
@@ -279,58 +280,58 @@ Definition ptree_Op_def:
       [arg] =>
         do
           lf <- destLf arg;
-          tk <- lift $ destTOK lf;
+          tk <- option $ destTOK lf;
           if FST n = INL nShiftOp then
             case tk of
-              LslT => return (INL (Long "CakeML" (Short "lsl")))
-            | LsrT => return (INL (Long "CakeML" (Short "lsr")))
-            | AsrT => return (INL (Long "CakeML" (Short "asr")))
-            | SymbolT "**" => return (INL (Long "Double" (Short "pow")))
-            | SymbolT s => return (INL (Short s))
+              LslT => return $ INL $ Long "CakeML" $ Short "lsl"
+            | LsrT => return $ INL $ Long "CakeML" $ Short "lsr"
+            | AsrT => return $ INL $ Long "CakeML" $ Short "asr"
+            | SymbolT "**" => return $ INL $ Long "Double" $ Short "pow"
+            | SymbolT s => return $ INL $ Short s
             | _ => fail "Impossible: nShiftOp"
           else if FST n = INL nMultOp then
             case tk of
-              StarT => return (INR (Opn Times))
-            | LandT => return (INL (Long "CakeML" (Short "land")))
-            | LorT => return (INL (Long "CakeML" (Short "lor")))
-            | LxorT => return (INL (Long "CakeML" (Short "lxor")))
-            | SymbolT "/" => return (INR (Opn Divide))
-            | SymbolT "*." => return (INR (FP_bop FP_Mul))
-            | SymbolT "/." => return (INR (FP_bop FP_Div))
-            | SymbolT s => return (INL (Short s))
+              StarT => return $ INR $ Opn Times
+            | LandT => return $ INL $ Long "CakeML" $ Short "land"
+            | LorT => return $ INL $ Long "CakeML" $ Short "lor"
+            | LxorT => return $ INL $ Long "CakeML" $ Short "lxor"
+            | SymbolT "/" => return $ INR $ Opn Divide
+            | SymbolT "*." => return $ INR $ FP_bop FP_Mul
+            | SymbolT "/." => return $ INR $ FP_bop FP_Div
+            | SymbolT s => return $ INL $ Short s
             | _ => fail "Impossible: nMultOp"
           else if FST n = INL nAddOp then
             case tk of
-              PlusT => return (INR (Opn Plus))
-            | MinusT => return (INR (Opn Minus))
-            | MinusFT => return (INR (FP_bop FP_Sub))
-            | SymbolT "+." => return (INR (FP_bop FP_Add))
-            | SymbolT s => return (INL (Short s))
+              PlusT => return $ INR $ Opn Plus
+            | MinusT => return $ INR $ Opn Minus
+            | MinusFT => return $ INR $ FP_bop FP_Sub
+            | SymbolT "+." => return $ INR $ FP_bop FP_Add
+            | SymbolT s => return $ INL $ Short s
             | _ => fail "Impossible: nAddOp"
           else if FST n = INL nRelOp then
             case tk of
-              LessT => return (INR (Opb Lt))
-            | GreaterT => return (INR (Opb Gt))
-            | EqualT => return (INR Equality)
-            | SymbolT "<=" => return (INR (Opb Leq))
-            | SymbolT ">=" => return (INR (Opb Geq))
-            | SymbolT "<." => return (INR (FP_cmp FP_Less))
-            | SymbolT ">." => return (INR (FP_cmp FP_Greater))
-            | SymbolT "<=." => return (INR (FP_cmp FP_LessEqual))
-            | SymbolT ">=." => return (INR (FP_cmp FP_GreaterEqual))
-            | SymbolT s => return (INL (Short s))
+              LessT => return $ INR $ Opb Lt
+            | GreaterT => return $ INR $ Opb Gt
+            | EqualT => return $ INR Equality
+            | SymbolT "<=" => return $ INR $ Opb Leq
+            | SymbolT ">=" => return $ INR $ Opb Geq
+            | SymbolT "<." => return $ INR $ FP_cmp FP_Less
+            | SymbolT ">." => return $ INR $ FP_cmp FP_Greater
+            | SymbolT "<=." => return $ INR $ FP_cmp FP_LessEqual
+            | SymbolT ">=." => return $ INR $ FP_cmp FP_GreaterEqual
+            | SymbolT s => return $ INL $ Short s
             | _ => fail "Impossible: nRelOp"
           else if FST n = INL nAndOp then
             case tk of
-              AndalsoT => return (INL (Long "CakeML" (Short "and")))
-            | AmpT => return (INL (Long "CakeML" (Short "and")))
-            | SymbolT s => return (INL (Short s))
+              AndalsoT => return $ INL $ Long "CakeML" $ Short "and"
+            | AmpT => return $ INL $ Long "CakeML" $ Short "and"
+            | SymbolT s => return $ INL $ Short s
             | _ => fail "Impossible: nAndOp"
           else if FST n = INL nOrOp then
             case tk of
-              OrelseT => return (INL (Long "CakeML" (Short "or")))
-            | OrT => return (INL (Long "CakeML" (Short "or")))
-            | SymbolT s => return (INL (Short s))
+              OrelseT => return $ INL $ Long "CakeML" $ Short "or"
+            | OrT => return $ INL $ Long "CakeML" $ Short "or"
+            | SymbolT s => return $ INL $ Short s
             | _ => fail "Impossible: nOrOp"
           else
             fail "Expected binary operation non-terminal"
@@ -395,10 +396,7 @@ Definition ptree_Pattern_def:
     else if FST n = INL nPBase then
       case args of
         [arg] =>
-          do
-            nm <- ptree_Ident arg;
-            return [Pvar nm]
-          od ++
+          fmap (λn. [Pvar n]) (ptree_Ident arg) ++
           ptree_Pattern arg
       | [l; p; r] =>
           do
@@ -520,11 +518,7 @@ Definition ptree_Patterns_def:
   (ptree_Patterns (Nd n args) =
     if FST n = INL nPatterns then
       case args of
-        [pat] =>
-          do
-            p <- ptree_Pattern pat;
-            return [p]
-          od
+        [pat] => fmap (λp. [p]) $ ptree_Pattern pat
       | [pat; rest] =>
           do
             p <- ptree_Pattern pat;
@@ -687,17 +681,11 @@ Definition ptree_Expr:
             return (Tannot x ty)
           od
       | [arg] =>
-          do
-            l <- ptree_Literal arg;
-            return (Lit l)
-          od ++
-          do
-            nm <- ptree_Ident arg;
-            return (Var (Short nm))
-          od ++
+          fmap Lit (ptree_Literal arg) ++
+          fmap (Var o Short) (ptree_Ident arg) ++
           do
             lf <- destLf arg;
-            tk <- lift $ destTOK lf;
+            tk <- option $ destTOK lf;
             if tk = TrueT ∨ tk = FalseT then
               return (bool_to_exp (tk = TrueT))
             else
@@ -750,8 +738,8 @@ Definition ptree_Expr:
         [pref; expr] =>
           do
             lf <- destLf pref;
-            tk <- lift $ destTOK lf;
-            sym <- lift $ destSymbol tk;
+            tk <- option $ destTOK lf;
+            sym <- option $ destSymbol tk;
             x <- ptree_Expr expr;
             return (App Opapp [Var (Short sym); x])
           od
@@ -762,7 +750,7 @@ Definition ptree_Expr:
         [pref; expr] =>
           do
             lf <- destLf pref;
-            tk <- lift $ destTOK lf;
+            tk <- option $ destTOK lf;
             x <- ptree_Expr expr;
             case tk of
               MinusT => return (App (Opn Minus) [Lit (IntLit 0i); x])
@@ -996,7 +984,7 @@ Definition ptree_Expr:
             expect_tok eq EqualT;
             expect_tok dot DoT;
             lf <- destLf updown;
-            tk <- lift $ destTOK lf;
+            tk <- option $ destTOK lf;
             (if tk = ToT ∨ tk = DowntoT then return () else
               fail "Expected 'to' or 'downto'");
             id <- ptree_Ident ident;
@@ -1098,10 +1086,7 @@ Definition ptree_Expr:
     if FST n = INL nLetRecBindings then
       case args of
         [rec] =>
-          do
-            r <- ptree_LetRecBinding rec;
-            return [r]
-          od
+          fmap (λr. [r]) $ ptree_LetRecBinding rec
       | [rec; andt; recs] =>
           do
             expect_tok andt AndT;
@@ -1155,10 +1140,7 @@ Definition ptree_Expr:
     if FST n = INL nLetBindings then
       case args of
         [letb] =>
-          do
-            l <- ptree_LetBinding letb;
-            return [l]
-          od
+          fmap (λl. [l]) $ ptree_LetBinding letb
       | [letb; andt; lets] =>
           do
             expect_tok andt AndT;
@@ -1232,10 +1214,7 @@ Definition ptree_ConstrDecl_def:
     if FST n = INL nConstrDecl then
       case args of
         [name] =>
-          do
-            nm <- ptree_Ident name;
-            return (nm, [])
-          od
+          fmap (λnm. (nm,[])) $ ptree_Ident name
       | [name; oft; args] =>
           do
             expect_tok oft OfT;
@@ -1272,6 +1251,11 @@ Definition ptree_ExcDefinition_def:
     else
       fail "Expected an exception definition non-terminal")
 End
+
+(* ptree_TypeRepr picks out constructor declarations and returns
+ * a list of (constructor_name # argument_types) pairs, one for
+ * each constructor.
+ *)
 
 Definition ptree_TypeRepr_def:
   (ptree_TypeRepr (Lf t) = fail "Expected a type-repr non-terminal") ∧
@@ -1329,15 +1313,11 @@ Definition ptree_TypeInfo_def:
     if FST n = INL nTypeInfo then
       case args of
         [tr] =>
-          do
-            ts <- ptree_TypeRepr tr;
-            return (INR tr)
-          od
+          fmap INR $ ptree_TypeRepr tr
       | [eq; ty] =>
           do
             expect_tok eq EqualT;
-            t <- ptree_Type ty;
-            return (INL t)
+            fmap INL $ ptree_Type ty
           od
       | _ => fail "Impossible: nTypeInfo"
     else
@@ -1354,6 +1334,21 @@ End
   type-param ::= ' ident
  *)
 
+Definition ptree_TypeName_def:
+  ptree_TypeName (Lf t) = fail "Expected type variable non-terminal" ∧
+  ptree_TypeName (Nd n args) =
+    if FST n = INL nTVar then
+      case args of
+        [tick; id] =>
+          do
+            expect_tok tick TickT;
+            ptree_Ident id
+          od
+      | _ => fail "Impossible: nTVar"
+    else
+      fail "Expected type variable non-terminal"
+End
+
 Definition ptree_TypeParamList_def:
   (ptree_TypeParamList [] = fail "Empty type parameters are not supported") ∧
   (ptree_TypeParamList [t] =
@@ -1367,7 +1362,7 @@ Definition ptree_TypeParamList_def:
       ptree_TypeParamList ps
     od ++
     do
-      t <- ptree_TVar p;
+      t <- ptree_TypeName p;
       ts <- ptree_TypeParamList ps;
       return (t::ts)
     od)
@@ -1380,16 +1375,13 @@ Definition ptree_TypeParams_def:
     if FST n = INL nTypeParams then
       case args of
         [tv] =>
-          do
-            ty <- ptree_TVar tv;
-            return [ty]
-          od
+          fmap (λt. [t]) $ ptree_TypeName tv
       | lpar :: tv :: rest =>
           do
             expect_tok lpar LparT;
-            ty <- ptree_TVar tv;
+            tn <- ptree_TypeName tv;
             ts <- ptree_TypeParamList rest;
-            return (ty::ts)
+            return (tn::ts)
           od
       | _ => fail "Impossible: nTypeParams"
     else
@@ -1407,17 +1399,13 @@ Definition ptree_TypeDef_def:
             tys <- ptree_TypeParams tps;
             nm <- ptree_Ident id;
             trs <- ptree_TypeInfo info;
-            case trs of
-              INL ty => ARB (* TODO *)
-            | INR tys => ARB (* TODO *)
+            return (SND n, tys, nm, trs)
           od
       | [id; info] =>
           do
             nm <- ptree_Ident id;
             trs <- ptree_TypeInfo info;
-            case trs of
-              INL ty => ARB (* TODO *)
-            | INR tys => ARB (* TODO *)
+            return (SND n, [], nm, trs)
           od
       | _ => fail "Impossible: nTypeDef"
     else
@@ -1431,10 +1419,7 @@ Definition ptree_TypeDefs_def:
     if FST n = INL nTypeDefs then
       case args of
         [td] =>
-          do
-            t <- ptree_TypeDef td;
-            return [t]
-          od
+          fmap (λt. [t]) $ ptree_TypeDef td
       | [td; andt; tds] =>
           do
             expect_tok andt AndT;
@@ -1447,6 +1432,12 @@ Definition ptree_TypeDefs_def:
       fail "Expected a typedef:s non-terminal")
 End
 
+(* Ocaml datatype definitions and type abbreviations can be made mutually
+ * recursive with each other and this is not supported in CakeML. Example:
+ *   type foo = A of bar | B of baz | ...
+ *   and baz = foo list
+ *)
+
 Definition ptree_TypeDefinition_def:
   (ptree_TypeDefinition (Lf t) =
     fail "Expected a type definition non-terminal") ∧
@@ -1455,11 +1446,30 @@ Definition ptree_TypeDefinition_def:
       case args of
         [typet; nrec; tds] =>
           do
-            ARB (* TODO *)
+            expect_tok typet TypeT;
+            expect_tok nrec NonrecT;
+            tdefs <- ptree_TypeDefs tds;
+            if EVERY (λ(locs,tys,nm,trs). ISL trs) tdefs then
+              return $ MAP (λ(locs,tys,nm,trs). Dtabbrev locs tys nm (OUTL trs))
+                           tdefs
+            else if EVERY (λ(locs,tys,nm,trs). ISR trs) tdefs then
+              return $ [Dtype (SND n) (MAP (λ(_,tys,nm,trs). (tys,nm,OUTR trs))
+                                           tdefs)]
+            else
+              fail $ "Type abbreviations and datatype definitions cannot be" ++
+                     " mutually recursive in CakeML"
           od
       | [typet; tds] =>
           do
-            ARB (* TODO *)
+            expect_tok typet TypeT;
+            tdefs <- ptree_TypeDefs tds;
+            (abbrevs,datas) <<- PARTITION (λ(_,tys,nm,trs). ISL trs) tdefs;
+            abbrevs <<-
+              MAP (λ(locs,tys,nm,trs). Dtabbrev locs tys nm (OUTL trs))
+                  abbrevs;
+            datas <<-
+              Dtype (SND n) (MAP (λ(_,tys,nm,trs). (tys,nm,OUTR trs)) datas);
+            return (datas::abbrevs)
           od
       | _ => fail "Impossible: nTypeDefinition"
     else
