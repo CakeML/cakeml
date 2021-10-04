@@ -558,6 +558,7 @@ Definition camlPEG_def[nocompute]:
        pegf (choicel [pnt nIdent;
                       pnt nPAny;
                       pnt nPList;
+                      seql [tokeq LparT; tokeq RparT] I;
                       seql [tokeq LparT; pnt nPattern;
                             try (seql [tokeq ColonT; pnt nType] I);
                             tokeq RparT] I;

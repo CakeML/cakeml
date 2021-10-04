@@ -398,6 +398,12 @@ Definition ptree_Pattern_def:
         [arg] =>
           fmap (λn. [Pvar n]) (ptree_Ident arg) ++
           ptree_Pattern arg
+      | [l; r] =>
+          do
+            expect_tok l LparT;
+            expect_tok r RparT;
+            return [Pcon NONE []]
+          od
       | [l; p; r] =>
           do
             expect_tok l LparT;
@@ -1617,6 +1623,19 @@ Definition ptree_Definition_def:
 Termination
   WF_REL_TAC ‘measure (sum_size psize (sum_size psize (sum_size psize
                       (sum_size p1size psize))))’
+End
+
+Definition ptree_Start_def:
+  (ptree_Start (Lf t) =
+    fail "Expected the start non-terminal") ∧
+  (ptree_Start (Nd n args) =
+    if FST n = INL nStart then
+      case args of
+        [] => return []
+      | [modits] => ptree_ModuleItems modits
+      | _ => fail "Impossible: nStart"
+    else
+      fail "Expected the start non-terminal")
 End
 
 val _ = export_theory ();
