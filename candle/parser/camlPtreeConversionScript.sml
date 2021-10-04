@@ -4,7 +4,7 @@
 
 open preamble caml_lexTheory camlPEGTheory astTheory;
 
-val _ = new_theory "camlPTreeConversion";
+val _ = new_theory "camlPtreeConversion";
 
 (* -------------------------------------------------------------------------
  * Sum monad syntax
