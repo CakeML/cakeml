@@ -672,6 +672,12 @@ Definition ptree_Expr:
             expect_tok rpar RparT;
             ptree_Expr expr
           od ++
+      | [lpar;rpar] =>
+          do
+            expect_tok lpar LparT;
+            expect_tok rpar RparT;
+            return (Con NONE [])
+          od ++
           do
             expect_tok lpar BeginT;
             expect_tok rpar BeginT;

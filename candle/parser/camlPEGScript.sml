@@ -385,6 +385,7 @@ Definition camlPEG_def[nocompute]:
          pegf (pnt nLiteral) (bindNT nEBase);
          pegf (pnt nIdent) (bindNT nEBase);
          pegf (pnt nEList) (bindNT nLiteral);
+         seql [tokek LparT; tokeq RparT] (bindNT nEBase);
          seql [tokeq LparT; pnt nExpr;
                try (seql [tokeq ColonT; pnt nType] I);
                tokeq RparT] (bindNT nEBase);
