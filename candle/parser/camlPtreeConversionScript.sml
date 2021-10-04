@@ -1504,6 +1504,18 @@ End
  * or a variable name).
  *)
 
+Definition ptree_ModPath_def:
+  (ptree_ModPath (Lf t) =
+    fail "Expected a module path non-terminal") ∧
+  (ptree_ModPath (Nd n args) =
+    if FST n = INL nModPath then
+      case args of
+        [arg] => ptree_Ident arg
+      | _ => fail "Impossible: nModPath"
+    else
+      fail "Expected a module path non-terminal")
+End
+
 Definition ptree_Definition_def:
   (ptree_Definition (Lf t) =
     fail "Expected a top-level definition non-terminal") ∧
@@ -1533,8 +1545,78 @@ Definition ptree_Definition_def:
       fmap (λd. [d]) $ ptree_ExcDefinition (Nd n args)
     else if FST n = INL nOpen then
       fail "open-declarations are not supported (yet)"
+    else if FST n = INL nModuleDef then
+      case args of
+        [modt; modid; eq; mexpr] =>
+          do
+            expect_tok modt ModuleT;
+            expect_tok eq EqualT;
+            nm <- ptree_Ident modid;
+            mx <- ptree_ModExpr mexpr;
+            case mx of
+              INL name =>
+                fail "Structure assignment is not supported (yet?)"
+            | INR decs =>
+                return [Dmod nm decs]
+          od
+      | _ => fail "Impossible: nModuleDef"
     else
-      fail "Expected a top-level definition non-terminal")
+      fail "Expected a top-level definition non-terminal") ∧
+  (ptree_ModExpr (Lf t) =
+    fail "Expected a module expression non-terminal") ∧
+  (ptree_ModExpr (Nd n args) =
+    if FST n = INL nModExpr then
+      case args of
+        [path] => fmap INL $ ptree_ModPath path
+      | [struct; its; endt] =>
+          do
+            expect_tok struct StructT;
+            expect_tok endt EndT;
+            fmap INR $ ptree_ModuleItems its
+          od
+    else
+      fail "Expected a module expression non-terminal") ∧
+  (ptree_ModuleItems (Lf t) =
+    fail "Expected a module item list non-terminal") ∧
+  (ptree_ModuleItems (Nd n args) =
+    if FST n = INL nModuleItems then
+      ptree_Items args
+    else
+      fail "Expected a module item list non-terminal") ∧
+  (ptree_Items [] = fail "Empty module item lists are not supported") ∧
+  (ptree_Items [t] =
+    fmap (λx. []) (expect_tok t SemisT) ++
+    ptree_ModuleItem t) ∧
+  (ptree_Items (t::ts) =
+    do
+      i <- ptree_ModuleItem t;
+      is <- ptree_Items ts;
+      return (i ++ is)
+    od) ∧
+  (ptree_ModuleItem (Lf t) =
+    fail "Expected a module item non-terminal") ∧
+  (ptree_ModuleItem (Nd n args) =
+    if FST n = INL nModuleItem then
+      case args of
+        [semis; exdef] =>
+          do
+            expect_tok semis SemiT;
+            x <- ptree_Expr exdef;
+            return [Dlet (SND n) (Pvar "") x]
+          od ++
+          ptree_Definition exdef
+      | [exdef] =>
+          do
+            x <- ptree_Expr exdef;
+            return [Dlet (SND n) (Pvar "") x]
+          od ++
+          ptree_Definition exdef
+      | _ => fail "Impossible: nModuleItem"
+    else
+      fail "Expected a module item non-terminal")
+Termination
+  WF_REL_TAC ‘measure (sum_size psize (sum_size psize (sum_size psize
+                      (sum_size p1size psize))))’
 End
 
 val _ = export_theory ();
