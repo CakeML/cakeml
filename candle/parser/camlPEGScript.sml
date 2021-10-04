@@ -218,6 +218,7 @@ Datatype:
     | nTAs | nType
     (* definitions *)
     | nDefinition | nTopLet | nTopLetRec | nModuleItem | nModuleItems | nOpen
+    | nModExpr | nModPath | nModuleDef
     (* misc *)
     | nShiftOp | nMultOp | nAddOp | nRelOp | nAndOp | nOrOp
     | nStart
@@ -266,13 +267,24 @@ Definition camlPEG_def[nocompute]:
       (INL nOpen,
        seql [tokeq OpenT; tokIdP validModId]
             (bindNT nOpen));
+      (INL nModPath,
+       pegf (tokIdP validModId)
+            (bindNT nModPath));
+      (INL nModExpr,
+       pegf (choicel [pnt nModPath;
+                      seql [tokeq StructT; pnt nModuleItems; tokeq EndT] I])
+            (bindNT nModExpr));
+      (INL nModuleDef,
+       seql [tokeq ModuleT; tokIdP validModId;
+             tokeq EqualT; pnt nModExpr]
+            (bindNT nModuleDef));
       (INL nDefinition,
        pegf (choicel [pnt nTopLetRec;
                       pnt nTopLet;
                       pnt nTypeDefinition;
                       pnt nExcDefinition;
                       pnt nOpen;
-                      (* module definition *)
+                      pnt nModuleDef;
                       (* module type *)
                       (* include moduleexpr *)
                       ])
