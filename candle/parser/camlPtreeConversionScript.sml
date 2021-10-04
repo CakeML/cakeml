@@ -666,17 +666,17 @@ Definition ptree_Expr:
       | _ => fail "Impossible: nEList"
     else if FST n = INL nEBase then
       case args of
-        [lpar;expr;rpar] =>
-          do
-            expect_tok lpar LparT;
-            expect_tok rpar RparT;
-            ptree_Expr expr
-          od ++
-      | [lpar;rpar] =>
+        [lpar;rpar] =>
           do
             expect_tok lpar LparT;
             expect_tok rpar RparT;
             return (Con NONE [])
+          od
+      | [lpar;expr;rpar] =>
+          do
+            expect_tok lpar LparT;
+            expect_tok rpar RparT;
+            ptree_Expr expr
           od ++
           do
             expect_tok lpar BeginT;
