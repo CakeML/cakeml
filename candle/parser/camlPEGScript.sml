@@ -228,7 +228,7 @@ Datatype:
     | nTAs | nType
     (* definitions *)
     | nDefinition | nTopLet | nTopLetRec | nModuleItem | nModuleItems | nOpen
-    | nModExpr | nModPath | nModuleDef
+    | nModExpr | nModuleDef
     (* misc *)
     | nShiftOp | nMultOp | nAddOp | nRelOp | nAndOp | nOrOp
     | nStart
