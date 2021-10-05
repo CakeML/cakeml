@@ -172,31 +172,41 @@ Definition idChar_def:
   idChar P = EVERY (λc. P c ∨ c = #"_" ∨ c = #"'" ∨ isDigit c)
 End
 
-Definition validConsId_def:
-  validConsId s =
+Definition identUpper_def:
+  identUpper s =
+    case s of
+      [] => F
+    | c::cs => isUpper c ∧ idChar isAlpha cs
+End
+
+Definition identUpperLower_def:
+  identUpperLower s =
     case s of
       [] => F
     | c::cs => isUpper c ∧ idChar isLower cs
 End
 
-Definition validFunId_def:
-  validFunId s =
+Definition identAllUpper_def:
+  identAllUpper s =
     case s of
       [] => F
-    | c::cs => (isLower c ∨ c = #"_") ∧ idChar isLower cs
+    | c::cs => isUpper c ∧ idChar isUpper cs
 End
 
-Definition validModId_def:
-  validModId s =
+Definition identLower_def:
+  identLower s =
     case s of
       [] => F
-    | c::cs => isUpper c ∧ idChar isLower cs
+    | c::cs => (isLower c ∨ c = #"_") ∧ idChar isAlpha cs
 End
 
 Datatype:
   camlNT =
+    (* different sorts of names *)
+    | nValueName | nOperatorName | nConstrName | nTypeConstrName | nModuleName
+    | nValuePath | nConstr | nTypeConstr | nModulePath
     (* expressions *)
-      nLiteral | nIdent | nEBase | nEList
+    | nLiteral | nIdent | nEBase | nEList
     | nEApp | nEConstr | nEFunapp | nEAssert | nELazy
     | nEPrefix | nENeg | nEShift | nEMult
     | nEAdd | nECons | nECat | nERel
@@ -227,16 +237,8 @@ End
 (*
    TODO
    The following is a (possibly incomplete) list of missing things:
-   - Expression rules for the following things are missing:
-     + Assignments, i.e. <- :=
-   - The module syntax (all module expressions and the module types), and some
-     top-levle definitions such as 'open'.
-   - Literals for the unit value (i.e. (), and begin end.)
-
-   Also the following is broken:
-   - Somehow I forgot to allow identifiers to contain dots
-     (i.e. module paths); this needs to be fixed also in the
-     lexer.
+   - Expression assignments; <- and :=
+   - Signature syntax ('module types')
    - I've assigned a bunch of closed expressions (e.g. while, for) to the
      lowest fixity, but it's possible they should go elsewhere.
    - [1;2;3] should parse into a list of three elements but I think it's
@@ -251,6 +253,38 @@ Definition camlPEG_def[nocompute]:
     notFAIL  := "Not combinator failed";
     start := pnt nStart;
     rules := FEMPTY |++ [
+      (* -- Names and paths ------------------------------------------------ *)
+      (INL nValueName,
+       choicel [pegf (tokIdP identLower) (bindNT nValueName);
+                seql [tokeq LparT; pnt nOperatorName; tokeq RparT]
+                     (bindNT nValueName)]);
+      (INL nOperatorName,
+       pegf (choicel [pnt nShiftOp;
+                      pnt nMultOp;
+                      pnt nAddOp;
+                      pnt nRelOp;
+                      pnt nAndOp;
+                      pnt nOrOp;
+                      tokSymP validPrefixSym])
+            (bindNT nOperatorName));
+      (INL nConstrName,
+       pegf (tokIdP identUpperLower) (bindNT nConstrName));
+      (INL nTypeConstrName,
+       pegf (tokIdP identLower) (bindNT nTypeConstrName));
+      (INL nModuleName,
+       pegf (tokIdP identUpperLower) (bindNT nModuleName));
+      (INL nValuePath,
+       seql [try (seql [pnt nModulePath; tokeq DotT] I); pnt nValueName]
+            (bindNT nValuePath));
+      (INL nConstr,
+       seql [try (seql [pnt nModulePath; tokeq DotT] I); pnt nConstrName]
+            (bindNT nConstr));
+      (INL nTypeConstr,
+       seql [try (seql [pnt nModulePath; tokeq DotT] I); pnt nTypeConstrName]
+            (bindNT nTypeConstr));
+      (INL nModulePath,
+       seql [pnt nModuleName; try (seql [tokeq DotT; pnt nModulePath] I)]
+            (bindNT nModulePath));
       (* -- Definitions ---------------------------------------------------- *)
       (INL nModuleItem,
        seql [try (tokeq SemisT); choicel [pnt nExpr; pnt nDefinition]]
@@ -265,18 +299,14 @@ Definition camlPEG_def[nocompute]:
        seql [tokeq LetT; tokeq RecT; pnt nLetRecBindings]
             (bindNT nTopLetRec));
       (INL nOpen,
-       seql [tokeq OpenT; tokIdP validModId]
+       seql [tokeq OpenT; pnt nModulePath]
             (bindNT nOpen));
-      (INL nModPath,
-       pegf (tokIdP validModId)
-            (bindNT nModPath));
       (INL nModExpr,
-       pegf (choicel [pnt nModPath;
+       pegf (choicel [pnt nModulePath;
                       seql [tokeq StructT; pnt nModuleItems; tokeq EndT] I])
             (bindNT nModExpr));
       (INL nModuleDef,
-       seql [tokeq ModuleT; tokIdP validModId;
-             tokeq EqualT; pnt nModExpr]
+       seql [tokeq ModuleT; pnt nModuleName; tokeq EqualT; pnt nModExpr]
             (bindNT nModuleDef));
       (INL nDefinition,
        pegf (choicel [pnt nTopLetRec;
@@ -293,14 +323,13 @@ Definition camlPEG_def[nocompute]:
       (INL nExcDefinition,
        seql [tokeq ExceptionT;
              choicel [pnt nConstrDecl;
-                      seql [tokIdP validConsId; tokeq EqualT;
-                            tokIdP validConsId] I]]
+                      seql [pnt nConstrName; tokeq EqualT; pnt nConstr] I]]
             (bindNT nExcDefinition));
       (INL nTypeDefinition,
        seql [tokeq TypeT; try (tokeq NonrecT); pnt nTypeDefs]
             (bindNT nTypeDefinition));
       (INL nTypeDef,
-       seql [try (pnt nTypeParams); tokIdP validFunId; pnt nTypeInfo]
+       seql [try (pnt nTypeParams); pnt nTypeConstrName; pnt nTypeInfo]
             (bindNT nTypeDef));
       (INL nTypeDefs,
        seql [pnt nTypeDef; try (seql [tokeq AndT; pnt nTypeDefs] I)]
@@ -321,8 +350,7 @@ Definition camlPEG_def[nocompute]:
        seql [tokeq BarT; pnt nConstrDecl; try (pnt nTypeReprs)]
             (bindNT nTypeReprs));
       (INL nConstrDecl,
-       seql [tokIdP validConsId;
-             try (seql [tokeq OfT; pnt nConstrArgs] I)]
+       seql [pnt nConstrName; try (seql [tokeq OfT; pnt nConstrArgs] I)]
             (bindNT nConstrDecl));
       (INL nConstrArgs,
        seql [pnt nType; rpt (seql [tokeq StarT; pnt nType] I) FLAT]
@@ -341,13 +369,13 @@ Definition camlPEG_def[nocompute]:
       (INL nTBase,
        pegf (choicel [seql [tokeq LparT; pnt nType; tokeq RparT] I;
                       seql [tokeq LparT; pnt nTypeList; tokeq RparT;
-                            tokIdP validFunId] I;
+                            pnt nTypeConstr] I;
                       pnt nTVar;
                       pnt nTAny])
             (bindNT nTBase));
       (* -- Type4 ---------------------------------------------------------- *)
       (INL nTConstr,
-       seql [pnt nTBase; rpt (tokIdP validFunId) FLAT]
+       seql [pnt nTBase; rpt (pnt nTypeConstr) FLAT]
             (bindNT nTConstr));
       (* -- Type3 ---------------------------------------------------------- *)
       (INL nTProd,
@@ -383,9 +411,11 @@ Definition camlPEG_def[nocompute]:
       (INL nEBase,
        choicel [
          pegf (pnt nLiteral) (bindNT nEBase);
-         pegf (pnt nIdent) (bindNT nEBase);
+         pegf (pnt nValuePath) (bindNT nEBase);
+         pegf (pnt nConstr) (bindNT nEBase);
          pegf (pnt nEList) (bindNT nLiteral);
-         seql [tokeq LparT; tokeq RparT] (bindNT nEBase);
+         seql [tokeq LparT; tokeq RparT] (bindNT nEBase); (* unit *)
+         seql [tokeq BeginT; tokeq EndT] (bindNT nEBase); (* unit *)
          seql [tokeq LparT; pnt nExpr;
                try (seql [tokeq ColonT; pnt nType] I);
                tokeq RparT] (bindNT nEBase);
@@ -397,7 +427,7 @@ Definition camlPEG_def[nocompute]:
       (INL nELazy,
        seql [tokeq LazyT; pnt nEBase] (bindNT nELazy));
       (INL nEConstr,
-       seql [tokIdP validConsId; pnt nEBase] (bindNT nEConstr));
+       seql [pnt nConstr; pnt nEBase] (bindNT nEConstr));
       (INL nEFunapp,
        seql [pnt nEBase; rpt (pnt nEBase) FLAT]
             (bindNT nEFunapp));
@@ -504,7 +534,7 @@ Definition camlPEG_def[nocompute]:
        seql [tokeq WhileT; pnt nExpr; tokeq DoT; pnt nExpr; tokeq DoneT]
             (bindNT nEWhile));
       (INL nEFor,
-       seql [tokeq ForT; pnt nIdent; tokeq EqualT; pnt nExpr;
+       seql [tokeq ForT; pnt nValueName; tokeq EqualT; pnt nExpr;
              choicel [tokeq ToT; tokeq DowntoT]; pnt nExpr;
              tokeq DoT; pnt nExpr; tokeq DoneT]
             (bindNT nEFor));
@@ -530,7 +560,8 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPatternMatches));
       (* -- Let bindings --------------------------------------------------- *)
       (INL nLetRecBinding,
-       seql [pnt nIdent; pnt nPatterns; try (seql [tokeq ColonT; pnt nType] I);
+       seql [pnt nValueName; pnt nPatterns;
+             try (seql [tokeq ColonT; pnt nType] I);
              tokeq EqualT; pnt nExpr]
             (bindNT nLetRecBinding));
       (INL nLetRecBindings,
@@ -538,7 +569,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nLetRecBindings));
       (INL nLetBinding,
        pegf (choicel [seql [pnt nPattern; tokeq EqualT; pnt nExpr] I;
-                      seql [pnt nIdent; pnt nPatterns;
+                      seql [pnt nValueName; pnt nPatterns;
                             try (seql [tokeq ColonT; pnt nType] I);
                             tokeq EqualT; pnt nExpr] I])
             (bindNT nLetBinding));
@@ -556,7 +587,7 @@ Definition camlPEG_def[nocompute]:
       (INL nPAny,
        pegf (tokeq AnyT) (bindNT nPAny));
       (INL nPBase,
-       pegf (choicel [pnt nIdent;
+       pegf (choicel [pnt nValueName;
                       pnt nPAny;
                       pnt nPList;
                       seql [tokeq LparT; tokeq RparT] I;
@@ -573,7 +604,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPLazy));
       (* -- Pat6 ----------------------------------------------------------- *)
       (INL nPConstr,
-       seql [try (tokIdP validConsId); pnt nPLazy]
+       seql [try (pnt nConstr); pnt nPLazy]
             (bindNT nPConstr));
       (INL nPApp,
        pegf (choicel [pnt nPConstr; pnt nPLazy])
@@ -600,7 +631,7 @@ Definition camlPEG_def[nocompute]:
        seql [pnt nPattern; try (pnt nPatterns)]
             (bindNT nPatterns));
       (INL nStart,
-       seql [try (pnt nModuleItems); not (any (K [])) [] ] (bindNT nStart))
+       seql [try (pnt nModuleItems)] (bindNT nStart))
       ] |>
 End
 
@@ -694,6 +725,9 @@ val t1 = rconc $ time EVAL “lexer_fun "for x = y z"”;
 val t2 = rconc $ time EVAL “camlpegexec nEApp ^t1”;
 val t3 = hd (fst (listSyntax.dest_list (rand (rator (rand t2)))))
 val t4 = rconc $ time EVAL “ptree_Literal ^t3”;
+
+val t1 = rconc $ time EVAL “lexer_fun "let fx y () = Z.z + C ;;"”
+val t2 = rconc $ time EVAL “camlpegexec nStart ^t1”
 
  *)
 
