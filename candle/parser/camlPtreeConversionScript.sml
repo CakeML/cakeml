@@ -86,8 +86,24 @@ Definition destLf_def:
   destLf _ = fail "destLf: Not a leaf"
 End
 
+Definition expect_tok_def:
+  expect_tok symb token =
+    do
+      lf <- destLf symb;
+      tk <- option $ destTOK lf;
+      if tk = token then return tk else fail "Unexpected token"
+    od
+End
+
+Definition path_to_ns_def:
+  path_to_ns [] = fail "Empty path" ∧
+  path_to_ns [i] = return (Short i) ∧
+  path_to_ns [m; i] = return (Long m $ Short i) ∧
+  path_to_ns _ = fail "Nested modules are not supported"
+End
+
 Definition ptree_Ident_def:
-  ptree_Ident (Lf t) = fail "Expected Ident non-terminal" ∧
+  ptree_Ident (Lf t) = fail "Expected ident non-terminal" ∧
   ptree_Ident (Nd n args) =
     if FST n = INL nIdent then
       case args of
@@ -99,29 +115,161 @@ Definition ptree_Ident_def:
           od
       | _ => fail "Impossible: nIdent"
     else
-      fail "Expected Ident non-terminal"
+      fail "Expected ident non-terminal"
 End
 
-Definition ptree_Name_def:
-  ptree_Name symb =
-    do
-      lf <- destLf symb;
-      tk <- option $ destTOK lf;
-      option $ destIdent tk
-    od
+Definition ptree_OperatorName_def:
+  ptree_OperatorName (Lf t) = fail "Expected operator-name non-terminal" ∧
+  ptree_OperatorName (Nd n args) =
+    if FST n = INL nOperatorName then
+      case args of
+        [arg] =>
+          fail "Cannot use infix operators as prefix (yet)"
+      | _ => fail "Impossible: nOperatorName"
+    else
+      fail "Expected operator-name non-terminal"
 End
 
-(* TODO
- *   Printing the tokens involved would be helpful.
- *)
+Definition ptree_ValueName_def:
+  ptree_ValueName (Lf t) = fail "Expected value-name non-terminal" ∧
+  ptree_ValueName (Nd n args) =
+    if FST n = INL nValueName then
+      case args of
+        [arg] =>
+          do
+            lf <- destLf arg;
+            tk <- option $ destTOK lf;
+            option $ destIdent tk
+          od
+      | [lpar; opn; rpar] =>
+          do
+            expect_tok lpar LparT;
+            expect_tok rpar RparT;
+            ptree_OperatorName opn
+          od
+      | _ => fail "Impossible: nValueName"
+    else
+      fail "Expected value-name non-terminal"
+End
 
-Definition expect_tok_def:
-  expect_tok symb token =
-    do
-      lf <- destLf symb;
-      tk <- option $ destTOK lf;
-      if tk = token then return tk else fail "Unexpected token"
-    od
+Definition ptree_ConstrName_def:
+  ptree_ConstrName (Lf t) = fail "Expected constr-name non-terminal" ∧
+  ptree_ConstrName (Nd n args) =
+    if FST n = INL nConstrName then
+      case args of
+        [arg] =>
+          do
+            lf <- destLf arg;
+            tk <- option $ destTOK lf;
+            option $ destIdent tk
+          od
+      | _ => fail "Impossible: nConstrName"
+    else
+      fail "Expected constr-name non-terminal"
+End
+
+Definition ptree_TypeConstrName_def:
+  ptree_TypeConstrName (Lf t) = fail "Expected typeconstr-name non-terminal" ∧
+  ptree_TypeConstrName (Nd n args) =
+    if FST n = INL nTypeConstrName then
+      case args of
+        [arg] =>
+          do
+            lf <- destLf arg;
+            tk <- option $ destTOK lf;
+            option $ destIdent tk
+          od
+      | _ => fail "Impossible: nTypeConstrName"
+    else
+      fail "Expected typeconstr-name non-terminal"
+End
+
+Definition ptree_ModuleName_def:
+  ptree_ModuleName (Lf t) = fail "Expected modulename non-terminal" ∧
+  ptree_ModuleName (Nd n args) =
+    if FST n = INL nModuleName then
+      case args of
+        [arg] =>
+          do
+            lf <- destLf arg;
+            tk <- option $ destTOK lf;
+            option $ destIdent tk
+          od
+      | _ => fail "Impossible: nModuleName"
+    else
+      fail "Expected modulename non-terminal"
+End
+
+Definition ptree_ValuePath_def:
+  ptree_ValuePath (Lf t) = fail "Expected value-path non-terminal" ∧
+  ptree_ValuePath (Nd n args) =
+    if FST n = INL nValuePath then
+      case args of
+        [arg] => fmap (λx. [x]) $ ptree_ValueName arg
+      | [path; dot; arg] =>
+          do
+            expect_tok dot DotT;
+            vp <- ptree_ValuePath path;
+            vn <- ptree_ValueName arg;
+            return (vp ++ [vn])
+          od
+      | _ => fail "Impossible: nValuePath"
+    else
+      fail "Expected value-path non-terminal"
+End
+
+Definition ptree_Constr_def:
+  ptree_Constr (Lf t) = fail "Expected constr non-terminal" ∧
+  ptree_Constr (Nd n args) =
+    if FST n = INL nConstr then
+      case args of
+        [arg] => fmap (λx. [x]) $ ptree_ConstrName arg
+      | [path; dot; arg] =>
+          do
+            expect_tok dot DotT;
+            vp <- ptree_Constr path;
+            vn <- ptree_ConstrName arg;
+            return (vp ++ [vn])
+          od
+      | _ => fail "Impossible: nConstr"
+    else
+      fail "Expected constr non-terminal"
+End
+
+Definition ptree_TypeConstr_def:
+  ptree_TypeConstr (Lf t) = fail "Expected typeconstr non-terminal" ∧
+  ptree_TypeConstr (Nd n args) =
+    if FST n = INL nTypeConstr then
+      case args of
+        [arg] => fmap (λx. [x]) $ ptree_TypeConstrName arg
+      | [path; dot; arg] =>
+          do
+            expect_tok dot DotT;
+            vp <- ptree_TypeConstr path;
+            vn <- ptree_TypeConstrName arg;
+            return (vp ++ [vn])
+          od
+      | _ => fail "Impossible: nTypeConstr"
+    else
+      fail "Expected typeconstr non-terminal"
+End
+
+Definition ptree_ModulePath_def:
+  ptree_ModulePath (Lf t) = fail "Expected module-path non-terminal" ∧
+  ptree_ModulePath (Nd n args) =
+    if FST n = INL nModulePath then
+      case args of
+        [arg] => fmap (λx. [x]) $ ptree_ModuleName arg
+      | [path; dot; arg] =>
+          do
+            expect_tok dot DotT;
+            vp <- ptree_ModulePath path;
+            vn <- ptree_ModuleName arg;
+            return (vp ++ [vn])
+          od
+      | _ => fail "Impossible: nModulePath"
+    else
+      fail "Expected module-path non-terminal"
 End
 
 Definition ptree_TVar_def:
@@ -139,11 +287,6 @@ Definition ptree_TVar_def:
     else
       fail "Expected type variable non-terminal"
 End
-
-(* TODO
- *   There are no wildcard patterns in the type syntax of CakeML. Perhaps we
- *   can simulate it later by using some state for fresh variables.
- *)
 
 Definition ptree_TAny_def:
   ptree_TAny (Lf t) = fail "Expected wildcard type non-terminal" ∧
@@ -168,8 +311,9 @@ Definition ptree_Type_def:
             expect_tok lpar LparT;
             expect_tok rpar RparT;
             ts <- ptree_TypeList args;
-            nm <- ptree_Name ctor;
-            return (Atapp ts (Short nm))
+            nm <- ptree_TypeConstr ctor;
+            ns <- path_to_ns nm;
+            return (Atapp ts ns)
           od
       | [lpar; arg; rpar] =>
           do
@@ -186,8 +330,9 @@ Definition ptree_Type_def:
       | arg::rest =>
           do
             ty <- ptree_Type arg;
-            ids <- mapM ptree_Name rest;
-            return (FOLDL (λt id. Atapp [t] (Short id)) ty ids)
+            ids <- mapM ptree_TypeConstr rest;
+            cns <- mapM path_to_ns ids;
+            return (FOLDL (λt id. Atapp [t] id) ty cns)
           od
       | _ => fail "Impossible: nTConstr"
     else if FST n = INL nTProd then
@@ -396,7 +541,7 @@ Definition ptree_Pattern_def:
     else if FST n = INL nPBase then
       case args of
         [arg] =>
-          fmap (λn. [Pvar n]) (ptree_Ident arg) ++
+          fmap (λn. [Pvar n]) (ptree_ValueName arg) ++
           ptree_Pattern arg
       | [l; r] =>
           do
@@ -450,9 +595,10 @@ Definition ptree_Pattern_def:
         [pat] => ptree_Pattern pat
       | [id; pat] =>
           do
-            nm <- ptree_Name id;
+            cns <- ptree_Constr id;
+            id <- path_to_ns cns;
             ps <- ptree_Pattern pat;
-            return (MAP (λp. Pcon (SOME (Short nm)) [p]) ps)
+            return (MAP (λp. Pcon (SOME id) [p]) ps)
           od
       | _ => fail "Impossible: nPConstr"
     else if FST n = INL nPApp then
@@ -694,7 +840,16 @@ Definition ptree_Expr:
           od
       | [arg] =>
           fmap Lit (ptree_Literal arg) ++
-          fmap (Var o Short) (ptree_Ident arg) ++
+          do
+            cns <- ptree_ValuePath arg;
+            ns <- path_to_ns cns;
+            return (Var ns)
+          od ++
+          do
+            cns <- ptree_Constr arg;
+            ns <- path_to_ns cns;
+            return (Con (SOME ns) [])
+          od ++
           do
             lf <- destLf arg;
             tk <- option $ destTOK lf;
@@ -727,9 +882,10 @@ Definition ptree_Expr:
       case args of
         [consid; expr] =>
           do
-            id <- ptree_Name consid;
+            cns <- ptree_Constr consid;
+            id <- path_to_ns cns;
             x <- ptree_Expr expr;
-            return (Con (SOME (Short id)) [x])
+            return (Con (SOME id) [x])
           od
       | _ => fail "Impossible: nEConstr"
     else if FST n = INL nEFunapp then
@@ -1226,7 +1382,7 @@ Definition ptree_ConstrDecl_def:
     if FST n = INL nConstrDecl then
       case args of
         [name] =>
-          fmap (λnm. (nm,[])) $ ptree_Ident name
+          fmap (λnm. (nm,[])) $ ptree_ConstrName name
       | [name; oft; args] =>
           do
             expect_tok oft OfT;
@@ -1255,9 +1411,10 @@ Definition ptree_ExcDefinition_def:
           do
             expect_tok exnt ExceptionT;
             expect_tok eq EqualT;
-            lhs <- ptree_Ident lhsid;
-            rhs <- ptree_Ident rhsid;
-            return (Dexn (SND n) lhs [Atapp [] (Short rhs)])
+            lhs <- ptree_ConstrName lhsid;
+            cns <- ptree_Constr rhsid;
+            rhs <- path_to_ns cns;
+            return (Dexn (SND n) lhs [Atapp [] rhs])
           od
       | _ => fail "Impossible: nExcDefinition"
     else
@@ -1336,16 +1493,6 @@ Definition ptree_TypeInfo_def:
       fail "Expected a type-info non-terminal")
 End
 
-(* There ar
-  type-definition ::= type [nonrec] typedef  { and typedef }
-  typedef ::= [type-params]  typeconstr-name  type-information
-  type-information ::= [type-equation] [type-representation] { type-constraint }  *
-
-  type-params ::= type-param
-                ∣ ( type-param { , type-param } )
-  type-param ::= ' ident
- *)
-
 Definition ptree_TypeName_def:
   ptree_TypeName (Lf t) = fail "Expected type variable non-terminal" ∧
   ptree_TypeName (Nd n args) =
@@ -1409,13 +1556,13 @@ Definition ptree_TypeDef_def:
         [tps; id; info] =>
           do
             tys <- ptree_TypeParams tps;
-            nm <- ptree_Ident id;
+            nm <- ptree_ConstrName id;
             trs <- ptree_TypeInfo info;
             return (SND n, tys, nm, trs)
           od
       | [id; info] =>
           do
-            nm <- ptree_Ident id;
+            nm <- ptree_ConstrName id;
             trs <- ptree_TypeInfo info;
             return (SND n, [], nm, trs)
           od
@@ -1510,24 +1657,6 @@ Definition build_dlet_def:
         binds
 End
 
-(* TODO
- * The location information gets a bit lost. ptree_LetBindings should also
- * return the location of the first token of each let binding (i.e. a pattern
- * or a variable name).
- *)
-
-Definition ptree_ModPath_def:
-  (ptree_ModPath (Lf t) =
-    fail "Expected a module path non-terminal") ∧
-  (ptree_ModPath (Nd n args) =
-    if FST n = INL nModPath then
-      case args of
-        [arg] => ptree_Ident arg
-      | _ => fail "Impossible: nModPath"
-    else
-      fail "Expected a module path non-terminal")
-End
-
 Definition ptree_Definition_def:
   (ptree_Definition (Lf t) =
     fail "Expected a top-level definition non-terminal") ∧
@@ -1563,7 +1692,7 @@ Definition ptree_Definition_def:
           do
             expect_tok modt ModuleT;
             expect_tok eq EqualT;
-            nm <- ptree_Ident modid;
+            nm <- ptree_ModuleName modid;
             mx <- ptree_ModExpr mexpr;
             case mx of
               INL name =>
@@ -1579,7 +1708,7 @@ Definition ptree_Definition_def:
   (ptree_ModExpr (Nd n args) =
     if FST n = INL nModExpr then
       case args of
-        [path] => fmap INL $ ptree_ModPath path
+        [path] => fmap INL $ ptree_ModulePath path
       | [struct; its; endt] =>
           do
             expect_tok struct StructT;
