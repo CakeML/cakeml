@@ -641,7 +641,10 @@ Definition ptree_Pattern_def:
           od
       | _ => fail "Impossible: nPOr"
     else if FST n = INL nPAs then
-      fail "Pattern aliases are not supported"
+      case args of
+        [pat] => ptree_Pattern pat
+      | [pat; ast; id] => fail "Pattern aliases are not supported"
+      | _ => fail "Impossible: nPAs"
     else if FST n = INL nPattern then
       case args of
         [pat] => ptree_Pattern pat
@@ -1046,6 +1049,7 @@ Definition ptree_Expr:
             y1 <- ptree_Expr y;
             return (If x1 y1 (Con NONE []))
           od
+      | [exp] => ptree_Expr exp
       | _ => fail "Impossible: nEIf"
     else if FST n = INL nESeq then
       case args of
