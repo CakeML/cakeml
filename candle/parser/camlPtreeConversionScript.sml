@@ -1155,7 +1155,7 @@ Definition ptree_Expr:
             tk <- option $ destTOK lf;
             (if tk = ToT ∨ tk = DowntoT then return () else
               fail "Expected 'to' or 'downto'");
-            id <- ptree_Ident ident;
+            id <- ptree_ValueName ident;
             u <- ptree_Expr ubd;
             l <- ptree_Expr lbd;
             b <- ptree_Expr body;
@@ -1227,7 +1227,7 @@ Definition ptree_Expr:
           do
             expect_tok colon ColonT;
             expect_tok eq EqualT;
-            nm <- ptree_Ident id;
+            nm <- ptree_ValueName id;
             ps <- ptree_Patterns pats;
             if LENGTH ps = 1 then INR () else
               fail "Or-patterns are not allowed in let rec bindings";
@@ -1238,7 +1238,7 @@ Definition ptree_Expr:
       | [id; pats; eq; expr] =>
           do
             expect_tok eq EqualT;
-            nm <- ptree_Ident id;
+            nm <- ptree_ValueName id;
             ps <- ptree_Patterns pats;
             if LENGTH ps = 1 then INR () else
               fail "Or-patterns are not allowed in let rec bindings";
@@ -1281,7 +1281,7 @@ Definition ptree_Expr:
       | [id; pats; eq; bod] =>
           do
             expect_tok eq EqualT;
-            nm <- ptree_Ident id;
+            nm <- ptree_ValueName id;
             ps <- ptree_Patterns pats;
             if LENGTH ps = 1 then INR () else
               fail "Or-patterns are not allowed in let bindings";
@@ -1292,7 +1292,7 @@ Definition ptree_Expr:
           do
             expect_tok eq EqualT;
             expect_tok colon ColonT;
-            nm <- ptree_Ident id;
+            nm <- ptree_ValueName id;
             ps <- ptree_Patterns pats;
             if EVERY (λp. LENGTH p = 1) ps then INR () else
               fail "Or-patterns are not allowed in let bindings";
@@ -1386,7 +1386,7 @@ Definition ptree_ConstrDecl_def:
       | [name; oft; args] =>
           do
             expect_tok oft OfT;
-            nm <- ptree_Ident name;
+            nm <- ptree_ConstrName name;
             ts <- ptree_ConstrArgs args;
             return (nm, ts)
           od
@@ -1661,7 +1661,11 @@ Definition ptree_Definition_def:
   (ptree_Definition (Lf t) =
     fail "Expected a top-level definition non-terminal") ∧
   (ptree_Definition (Nd n args) =
-    if FST n = INL nTopLet then
+    if FST n = INL nDefinition then
+      case args of
+        [arg] => ptree_Definition arg
+      | _ => fail "Impossible: nDefinition"
+    else if FST n = INL nTopLet then
       case args of
         [lett; lbs] =>
           do
