@@ -318,7 +318,7 @@ Definition scan_charlit_def:
       case scan_escseq cs loc of
         SOME (c, cs', loc') =>
           if cs' ≠ "" ∧ HD cs' = #"'" then
-            SOME (CharS c, Locs loc (loc' with col := loc'.col), TL cs')
+            SOME (CharS c, Locs loc loc', TL cs')
           else
             SOME (ErrorS, Locs loc loc', cs')
       | NONE =>
@@ -326,7 +326,7 @@ Definition scan_charlit_def:
     else
       case cs of
         c :: #"'" :: rest =>
-          SOME (CharS c, Locs loc (loc with col := loc.col + 1), rest)
+          SOME (CharS c, Locs loc (next_loc 1 loc), rest)
       | _ =>
           SOME (ErrorS, Locs loc loc, cs)
 End
