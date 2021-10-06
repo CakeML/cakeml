@@ -658,7 +658,7 @@ Definition lexer_fun_aux_def:
       NONE => []
     | SOME (tok, Locs loc1 loc2, rest) =>
         (tok, Locs loc1 loc2) ::
-          lexer_fun_aux rest (loc2 with col := loc2.col + 1)
+          lexer_fun_aux rest (next_loc 1 loc2)
 Termination
   wf_rel_tac ‘measure (LENGTH o FST)’ \\ rw []
   \\ drule_then assume_tac next_token_thm \\ gs []
