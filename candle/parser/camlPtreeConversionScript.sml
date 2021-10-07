@@ -448,8 +448,11 @@ Definition ptree_Op_def:
               LslT => return $ INL $ Long "CakeML" $ Short "lsl"
             | LsrT => return $ INL $ Long "CakeML" $ Short "lsr"
             | AsrT => return $ INL $ Long "CakeML" $ Short "asr"
-            | SymbolT "**" => return $ INL $ Long "Double" $ Short "pow"
-            | SymbolT s => return $ INL $ Short s
+            | SymbolT s =>
+                if s = "**" then
+                  return $ INL $ Long "Double" $ Short "pow"
+                else
+                  return $ INL $ Short s
             | _ => fail (locs, "Impossible: nShiftOp")
           else if nterm = INL nMultOp then
             case tk of
@@ -457,31 +460,47 @@ Definition ptree_Op_def:
             | LandT => return $ INL $ Long "CakeML" $ Short "land"
             | LorT => return $ INL $ Long "CakeML" $ Short "lor"
             | LxorT => return $ INL $ Long "CakeML" $ Short "lxor"
-            | SymbolT "/" => return $ INR $ Opn Divide
-            | SymbolT "*." => return $ INR $ FP_bop FP_Mul
-            | SymbolT "/." => return $ INR $ FP_bop FP_Div
-            | SymbolT s => return $ INL $ Short s
+            | SymbolT s =>
+                if s = "/" then
+                  return $ INR $ Opn Divide
+                else if s = "*." then
+                  return $ INR $ FP_bop FP_Mul
+                else if s = "/." then
+                  return $ INR $ FP_bop FP_Div
+                else
+                  return $ INL $ Short s
             | _ => fail (locs, "Impossible: nMultOp")
           else if nterm = INL nAddOp then
             case tk of
               PlusT => return $ INR $ Opn Plus
             | MinusT => return $ INR $ Opn Minus
             | MinusFT => return $ INR $ FP_bop FP_Sub
-            | SymbolT "+." => return $ INR $ FP_bop FP_Add
-            | SymbolT s => return $ INL $ Short s
+            | SymbolT s =>
+                if s = "+." then
+                  return $ INR $ FP_bop FP_Add
+                else
+                  return $ INL $ Short s
             | _ => fail (locs, "Impossible: nAddOp")
           else if nterm = INL nRelOp then
             case tk of
               LessT => return $ INR $ Opb Lt
             | GreaterT => return $ INR $ Opb Gt
             | EqualT => return $ INR Equality
-            | SymbolT "<=" => return $ INR $ Opb Leq
-            | SymbolT ">=" => return $ INR $ Opb Geq
-            | SymbolT "<." => return $ INR $ FP_cmp FP_Less
-            | SymbolT ">." => return $ INR $ FP_cmp FP_Greater
-            | SymbolT "<=." => return $ INR $ FP_cmp FP_LessEqual
-            | SymbolT ">=." => return $ INR $ FP_cmp FP_GreaterEqual
-            | SymbolT s => return $ INL $ Short s
+            | SymbolT s =>
+                if s = "<=" then
+                  return $ INR $ Opb Leq
+                else if s = ">=" then
+                  return $ INR $ Opb Geq
+                else if s = "<." then
+                  return $ INR $ FP_cmp FP_Less
+                else if s = ">." then
+                  return $ INR $ FP_cmp FP_Greater
+                else if s = "<=." then
+                  return $ INR $ FP_cmp FP_LessEqual
+                else if s = ">=." then
+                  return $ INR $ FP_cmp FP_GreaterEqual
+                else
+                  return $ INL $ Short s
             | _ => fail (locs, "Impossible: nRelOp")
           else if nterm = INL nAndOp then
             case tk of
@@ -821,7 +840,7 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-Definition ptree_Expr:
+Definition ptree_Expr_def:
   (ptree_Expr (Lf (_, locs)) =
     fail (locs, "Expected an expression non-terminal")) ∧
   (ptree_Expr (Nd (nterm, locs) args) =
