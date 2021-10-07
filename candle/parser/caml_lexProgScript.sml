@@ -65,6 +65,17 @@ val _ = ml_translatorLib.use_string_type true;
 
 val r = register_type “:caml_lex$token”;
 
+val r = translate isInt_PMATCH;
+val r = translate destInt_PMATCH;
+val r = translate isChar_PMATCH;
+val r = translate destChar_PMATCH;
+val r = translate isString_PMATCH;
+val r = translate destString_PMATCH;
+val r = translate isSymbol_PMATCH;
+val r = translate destSymbol_PMATCH;
+val r = translate isIdent_PMATCH;
+val r = translate destIdent_PMATCH;
+
 (* The rest of the lexer works on character lists.
  *)
 

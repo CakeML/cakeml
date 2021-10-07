@@ -8,8 +8,6 @@ val _ = new_theory "caml_lex";
 
 (* TODO
  * - Location spans might be wrong just about everywhere
- * - infix symbols mix with other symbols
- * - pick up module paths correctly
  *)
 
 (* -------------------------------------------------------------------------
@@ -47,50 +45,80 @@ Definition isInt_def:
   isInt _ = F
 End
 
-Definition destInt_def:
+Definition destInt_def[simp]:
   destInt (IntT i) = SOME i ∧
   destInt _ = NONE
 End
+
+Theorem isInt_thm:
+  isInt x ⇔ ∃y. x = IntT y
+Proof
+  Cases_on ‘x’ \\ rw [isInt_def]
+QED
 
 Definition isChar_def:
   isChar (CharT c) = T ∧
   isChar _ = F
 End
 
-Definition destChar_def:
+Definition destChar_def[simp]:
   destChar (CharT c) = SOME c ∧
   destChar _ = NONE
 End
+
+Theorem isChar_thm:
+  isChar x ⇔ ∃y. x = CharT y
+Proof
+  Cases_on ‘x’ \\ rw [isChar_def]
+QED
 
 Definition isString_def:
   isString (StringT s) = T ∧
   isString _ = F
 End
 
-Definition destString_def:
+Definition destString_def[simp]:
   destString (StringT s) = SOME s ∧
   destString _ = NONE
 End
+
+Theorem isString_thm:
+  isString x ⇔ ∃y. x = StringT y
+Proof
+  Cases_on ‘x’ \\ rw [isString_def]
+QED
 
 Definition isSymbol_def:
   isSymbol (SymbolT s) = T ∧
   isSymbol _ = F
 End
 
-Definition destSymbol_def:
+Definition destSymbol_def[simp]:
   destSymbol (SymbolT s) = SOME s ∧
   destSymbol _ = NONE
 End
+
+Theorem isSymbol_thm:
+  isSymbol x ⇔ ∃y. x = SymbolT y
+Proof
+  Cases_on ‘x’ \\ rw [isSymbol_def]
+QED
 
 Definition isIdent_def:
   isIdent (IdentT s) = T ∧
   isIdent _ = F
 End
 
-Definition destIdent_def:
+Definition destIdent_def[simp]:
   destIdent (IdentT s) = SOME s ∧
   destIdent _ = NONE
 End
+
+Theorem isIdent_thm:
+  isIdent x ⇔ ∃y. x = IdentT y
+Proof
+  Cases_on ‘x’ \\ rw [isIdent_def]
+QED
 
 (* -------------------------------------------------------------------------
  * Pre-tokens
@@ -671,6 +699,113 @@ End
 Definition lexer_fun_def:
   lexer_fun inp = lexer_fun_aux inp init_loc
 End
+
+(* -------------------------------------------------------------------------
+ * PMATCH
+ * ------------------------------------------------------------------------- *)
+
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
+val PMCONV = patternMatchesLib.PMATCH_ELIM_CONV;
+
+Theorem isInt_PMATCH:
+  ∀x. isInt x =
+        case x of
+          IntT i => T
+        | _ => F
+Proof
+  CONV_TAC (DEPTH_CONV PMCONV)
+  \\ Cases \\ rw [isInt_def]
+QED
+
+Theorem destInt_PMATCH:
+  ∀x. destInt x =
+        case x of
+          IntT i => SOME i
+        | _ => NONE
+Proof
+  CONV_TAC (DEPTH_CONV PMCONV)
+  \\ Cases \\ rw []
+QED
+
+Theorem isChar_PMATCH:
+  ∀x. isChar x =
+        case x of
+          CharT c => T
+        | _ => F
+Proof
+  CONV_TAC (DEPTH_CONV PMCONV)
+  \\ Cases \\ rw [isChar_def]
+QED
+
+Theorem destChar_PMATCH:
+  ∀x. destChar x =
+        case x of
+          CharT c => SOME c
+        | _ => NONE
+Proof
+  CONV_TAC (DEPTH_CONV PMCONV)
+  \\ Cases \\ rw []
+QED
+
+Theorem isString_PMATCH:
+  ∀x. isString x =
+        case x of
+          StringT s => T
+        | _ => F
+Proof
+  CONV_TAC (DEPTH_CONV PMCONV)
+  \\ Cases \\ rw [isString_def]
+QED
+
+Theorem destString_PMATCH:
+  ∀x. destString x =
+        case x of
+          StringT s => SOME s
+        | _ => NONE
+Proof
+  CONV_TAC (DEPTH_CONV PMCONV)
+  \\ Cases \\ rw [isString_def]
+QED
+
+Theorem isSymbol_PMATCH:
+  ∀x. isSymbol x =
+        case x of
+          SymbolT s => T
+        | _ => F
+Proof
+  CONV_TAC (DEPTH_CONV PMCONV)
+  \\ Cases \\ rw [isSymbol_def]
+QED
+
+Theorem destSymbol_PMATCH:
+  ∀x. destSymbol x =
+        case x of
+          SymbolT s => SOME s
+        | _ => NONE
+Proof
+  CONV_TAC (DEPTH_CONV PMCONV)
+  \\ Cases \\ rw [isSymbol_def]
+QED
+
+Theorem isIdent_PMATCH:
+  ∀x. isIdent x =
+        case x of
+          IdentT s => T
+        | _ => F
+Proof
+  CONV_TAC (DEPTH_CONV PMCONV)
+  \\ Cases \\ rw [isIdent_def]
+QED
+
+Theorem destIdent_PMATCH:
+  ∀x. destIdent x =
+        case x of
+          IdentT s => SOME s
+        | _ => NONE
+Proof
+  CONV_TAC (DEPTH_CONV PMCONV)
+  \\ Cases \\ rw []
+QED
 
 val _ = export_theory ();
 
