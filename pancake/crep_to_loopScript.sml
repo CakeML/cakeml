@@ -201,11 +201,14 @@ Definition comp_func_def:
     compile (mk_ctxt vmap fs vmax) l body
 End
 
+Definition first_name_def:
+  first_name = 60:num
+End
 
 Definition make_funcs_def:
   make_funcs prog =
   let fnames = MAP FST prog;
-      fnums  = GENLIST I (LENGTH prog);
+      fnums  = GENLIST (λn. n + first_name) (LENGTH prog);
       lens = MAP (LENGTH o FST o SND) prog;
       fnums_lens = MAP2 (λx y. (x,y)) fnums lens;
       fs =  MAP2 (λx y. (x,y)) fnames fnums_lens in
@@ -214,7 +217,7 @@ End
 
 Definition compile_prog_def:
   compile_prog prog =
-  let fnums  = GENLIST I (LENGTH prog);
+  let fnums  = GENLIST (λn. n + first_name) (LENGTH prog);
       comp = comp_func (make_funcs prog) in
    MAP2 (λn (name, params, body).
          (n,
