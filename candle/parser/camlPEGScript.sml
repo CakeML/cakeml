@@ -105,67 +105,66 @@ Definition validOpChar_def:
 End
 
 Definition validPrefixSym_def:
-  validPrefixSym s =
-    case s of
-      [] => F
-    | c::cs =>
-        (c = #"!" ∨ (c = #"?" ∨ c = #"~" ∧ cs ≠ "")) ∧
-        EVERY validOpChar cs
+  validPrefixSym s ⇔
+    s ≠ "" ∧
+    (HD s = #"!" ∨ HD s = #"?" ∨ HD s = #"~" ∧ 2 ≤ LENGTH s) ∧
+    EVERY validOpChar (TL s)
 End
 
 Definition validInfixSym_def:
-  validInfixSym s =
-    case s of
-      [] => F
-    | c::cs =>
-      ((validCoreOpChar c ∨ c = #"%" ∨ c = #"<") ∨
-       (c = #"#" ∧ cs ≠ "")) ∧
-      EVERY validOpChar cs
+  validInfixSym s ⇔
+    s ≠ "" ∧
+    (validCoreOpChar (HD s) ∨ HD s = #"%" ∨ HD s = #"<" ∨
+     HD s = #"#" ∧ 2 ≤ LENGTH s) ∧
+    EVERY validOpChar (TL s)
 End
 
 Definition validMultOp_def:
-  validMultOp s =
-    case s of
-      [] => F
-    | c::cs =>
-        (MEM c "*%/" ∧ cs ≠ "" ∧ EVERY validOpChar cs) ∨
-        MEM s [ "%"; "/" ]
+  validMultOp s ⇔
+    s ≠ "" ∧
+    (s = "%" ∨
+     s = "/" ∨
+     ((HD s = #"*" ∨ HD s = #"%" ∨ HD s = #"/") ∧
+        2 ≤ LENGTH s ∧ EVERY validOpChar (TL s)))
 End
 
 Definition validRelOp_def:
-  validRelOp s =
-    case s of
-      [] => F
-    | c::cs =>
-        MEM c "<>|&$" ∧ cs ≠ "" ∧ EVERY validOpChar cs
+  validRelOp s ⇔
+    s ≠ "" ∧
+    (HD s = #"<" ∨ HD s = #">" ∨ HD s = #"|" ∨
+     HD s = #"&" ∨ HD s = #"$") ∧
+    2 ≤ LENGTH s ∧
+    EVERY validOpChar (TL s)
 End
 
 Definition validAddOp_def:
-  validAddOp s =
-    case s of
-      [] => F
-    | c::cs => MEM c "+-" ∧ cs ≠ "" ∧ EVERY validOpChar cs
+  validAddOp s ⇔
+    s ≠ "" ∧
+    (HD s = #"+" ∨ HD s = #"-") ∧
+    2 ≤ LENGTH s ∧
+    EVERY validOpChar (TL s)
 End
 
 Definition validRelOp_def:
-  validRelOp s =
-    case s of
-      [] => F
-    | c::cs => MEM c "=<>|&$" ∧ cs ≠ "" ∧ EVERY validOpChar cs
+  validRelOp s ⇔
+    s ≠ "" ∧
+    (HD s = #"=" ∨ HD s = #"<" ∨ HD s = #">" ∨ HD s = #"|" ∨
+     HD s = #"&" ∨ HD s = #"$") ∧
+    2 ≤ LENGTH s ∧
+    EVERY validOpChar (TL s)
 End
 
 Definition validShiftOp_def:
-  validShiftOp s =
-    case s of
-      c::d::cs => c = #"*" ∧ d = #"*" ∧ EVERY validOpChar cs
-    | _ => F
+  validShiftOp s ⇔
+    IS_PREFIX s "**" ∧
+    EVERY validOpChar (TL (TL s))
 End
 
 Definition validCatOp_def:
-  validCatOp s =
-    case s of
-      [] => F
-    | c::cs => (c = #"@" ∨ c = CHR 94) ∧ EVERY validOpChar cs
+  validCatOp s ⇔
+    s ≠ "" ∧
+    (HD s = #"@" ∨ HD s = CHR 94) ∧
+    EVERY validOpChar (TL s)
 End
 
 Definition idChar_def:
@@ -173,31 +172,31 @@ Definition idChar_def:
 End
 
 Definition identUpper_def:
-  identUpper s =
-    case s of
-      [] => F
-    | c::cs => isUpper c ∧ idChar isAlpha cs
+  identUpper s ⇔
+    s ≠ "" ∧
+    isUpper (HD s) ∧
+    idChar isAlpha (TL s)
 End
 
 Definition identUpperLower_def:
-  identUpperLower s =
-    case s of
-      [] => F
-    | c::cs => isUpper c ∧ idChar isLower cs
+  identUpperLower s ⇔
+    s ≠ "" ∧
+    isUpper (HD s) ∧
+    idChar isLower (TL s)
 End
 
 Definition identAllUpper_def:
-  identAllUpper s =
-    case s of
-      [] => F
-    | c::cs => isUpper c ∧ idChar isUpper cs
+  identAllUpper s ⇔
+    s ≠ "" ∧
+    isUpper (HD s) ∧
+    idChar isUpper (TL s)
 End
 
 Definition identLower_def:
-  identLower s =
-    case s of
-      [] => F
-    | c::cs => (isLower c ∨ c = #"_") ∧ idChar isAlpha cs
+  identLower s ⇔
+    s ≠ "" ∧
+    (isLower (HD s) ∨ HD s = #"_") ∧
+    idChar isAlpha (TL s)
 End
 
 Datatype:
