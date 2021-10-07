@@ -211,9 +211,9 @@ fun compile_to_word_0 data_prog_def to_data_thm =
 fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
   let
     (* TODO: don't look up definition *)
-    val word_0_c_def = definition"word_0_c_def"
-    val word_0_p_def = definition"word_0_p_def"
-    val word_0_names_def = definition"word_0_names_def"
+    val word_0_c_def = definition"word_0_c_def" handle HOL_ERR _ => TRUTH
+    val word_0_p_def = definition"word_0_p_def" handle HOL_ERR _ => TRUTH
+    val word_0_names_def = definition"word_0_names_def" handle HOL_ERR _ => TRUTH
     val word_0_abbrevs = [word_0_c_def, word_0_p_def, word_0_names_def]
 
     val cs = compilation_compset()
@@ -1535,6 +1535,8 @@ val compile_ag32  = compile ag32_backend_config_def  cbv_to_bytes_ag32
 val compile_x64   = compile x64_backend_config_def   cbv_to_bytes_x64
 
 (*
+
+val hello_prog_def = Define `hello_prog = []:ast$dec list`;
 
 val (backend_config_def,cbv_to_bytes,name,prog_def) =
     (x64_backend_config_def,cbv_to_bytes_x64,"hello",hello_prog_def)
