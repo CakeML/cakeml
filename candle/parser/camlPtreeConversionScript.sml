@@ -6,6 +6,9 @@ open preamble caml_lexTheory camlPEGTheory astTheory;
 
 val _ = new_theory "camlPtreeConversion";
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
+val PMATCH_ELIM_CONV = patternMatchesLib.PMATCH_ELIM_CONV;
+
 (* -------------------------------------------------------------------------
  * Sum monad syntax
  * ------------------------------------------------------------------------- *)
@@ -87,7 +90,7 @@ Definition destLf_def:
 End
 
 Definition expect_tok_def:
-  expect_tok symb token =
+  expect_tok symb (token: token) =
     do
       lf <- destLf symb;
       tk <- option $ destTOK lf;
