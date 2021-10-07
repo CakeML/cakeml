@@ -28,8 +28,3 @@ Compset for evaluating the functional big-step semantics.
 
 [interpScript.sml](interpScript.sml):
 Deriviation of a functional big-step semantics from the relational one.
-
-[untypedSafetyScript.sml](untypedSafetyScript.sml):
-Prove that the small step semantics never gets stuck if there is
-still work to do (i.e., it must detect all type errors).  Thus, it
-either diverges or gives a result, and it can't do both.

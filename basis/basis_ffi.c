@@ -158,7 +158,9 @@ int hasT = 0;
 void cml_exit(int arg) {
 
   #ifdef STDERR_MEM_EXHAUST
-  fprintf(stderr,"Program exited with nonzero exit code.\n");
+  if (arg != 0) {
+    fprintf(stderr,"Program exited with nonzero exit code.\n");
+  }
   #endif
 
   #ifdef DEBUG_FFI
