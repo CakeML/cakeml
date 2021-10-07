@@ -6,9 +6,6 @@ open preamble caml_lexTheory camlPEGTheory astTheory;
 
 val _ = new_theory "camlPtreeConversion";
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
-val PMATCH_ELIM_CONV = patternMatchesLib.PMATCH_ELIM_CONV;
-
 (* -------------------------------------------------------------------------
  * Sum monad syntax
  * ------------------------------------------------------------------------- *)
@@ -416,11 +413,14 @@ Definition ptree_Literal:
           do
             lf <- destLf arg;
             tk <- option $ destTOK lf;
-            case tk of
-              IntT n => return $ IntLit n
-            | CharT c => return $ Char c
-            | StringT s => return $ StrLit s
-            | _ => fail (locs, "Impossible: nLiteral")
+            if isInt tk then
+              return $ IntLit $ THE $ destInt tk
+            else if isChar tk then
+              return $ Char $ THE $ destChar tk
+            else if isString tk then
+              return $ StrLit $ THE $ destString tk
+            else
+              fail (locs, "Impossible: nLiteral")
           od
       | _ => fail (locs, "Impossible: nLiteral")
     else
@@ -447,23 +447,31 @@ Definition ptree_Op_def:
           lf <- destLf arg;
           tk <- option $ destTOK lf;
           if nterm = INL nShiftOp then
-            case tk of
-              LslT => return $ INL $ Long "CakeML" $ Short "lsl"
-            | LsrT => return $ INL $ Long "CakeML" $ Short "lsr"
-            | AsrT => return $ INL $ Long "CakeML" $ Short "asr"
-            | SymbolT s =>
+            if tk = LslT then
+              return $ INL $ Long "CakeML" $ Short "lsl"
+            else if tk = LsrT then
+              return $ INL $ Long "CakeML" $ Short "lsr"
+            else if tk = AsrT then
+              return $ INL $ Long "CakeML" $ Short "asr"
+            else if isSymbol tk then
+              let s = THE (destSymbol tk) in
                 if s = "**" then
                   return $ INL $ Long "Double" $ Short "pow"
                 else
                   return $ INL $ Short s
-            | _ => fail (locs, "Impossible: nShiftOp")
+            else
+              fail (locs, "Impossible: nShiftOp")
           else if nterm = INL nMultOp then
-            case tk of
-              StarT => return $ INR $ Opn Times
-            | LandT => return $ INL $ Long "CakeML" $ Short "land"
-            | LorT => return $ INL $ Long "CakeML" $ Short "lor"
-            | LxorT => return $ INL $ Long "CakeML" $ Short "lxor"
-            | SymbolT s =>
+            if tk = StarT then
+              return $ INR $ Opn Times
+            else if tk = LandT then
+              return $ INL $ Long "CakeML" $ Short "land"
+            else if tk = LorT then
+              return $ INL $ Long "CakeML" $ Short "lor"
+            else if tk = LxorT then
+              return $ INL $ Long "CakeML" $ Short "lxor"
+            else if isSymbol tk then
+              let s = THE (destSymbol tk) in
                 if s = "/" then
                   return $ INR $ Opn Divide
                 else if s = "*." then
@@ -472,24 +480,32 @@ Definition ptree_Op_def:
                   return $ INR $ FP_bop FP_Div
                 else
                   return $ INL $ Short s
-            | _ => fail (locs, "Impossible: nMultOp")
+            else
+              fail (locs, "Impossible: nMultOp")
           else if nterm = INL nAddOp then
-            case tk of
-              PlusT => return $ INR $ Opn Plus
-            | MinusT => return $ INR $ Opn Minus
-            | MinusFT => return $ INR $ FP_bop FP_Sub
-            | SymbolT s =>
+            if tk = PlusT then
+              return $ INR $ Opn Plus
+            else if tk = MinusT then
+              return $ INR $ Opn Minus
+            else if tk = MinusFT then
+              return $ INR $ FP_bop FP_Sub
+            else if isSymbol tk then
+              let s = THE (destSymbol tk) in
                 if s = "+." then
                   return $ INR $ FP_bop FP_Add
                 else
                   return $ INL $ Short s
-            | _ => fail (locs, "Impossible: nAddOp")
+            else
+             fail (locs, "Impossible: nAddOp")
           else if nterm = INL nRelOp then
-            case tk of
-              LessT => return $ INR $ Opb Lt
-            | GreaterT => return $ INR $ Opb Gt
-            | EqualT => return $ INR Equality
-            | SymbolT s =>
+            if tk = LessT then
+              return $ INR $ Opb Lt
+            else if tk = GreaterT then
+              return $ INR $ Opb Gt
+            else if tk = EqualT then
+              return $ INR Equality
+            else if isSymbol tk then
+              let s = THE (destSymbol tk) in
                 if s = "<=" then
                   return $ INR $ Opb Leq
                 else if s = ">=" then
@@ -504,19 +520,24 @@ Definition ptree_Op_def:
                   return $ INR $ FP_cmp FP_GreaterEqual
                 else
                   return $ INL $ Short s
-            | _ => fail (locs, "Impossible: nRelOp")
+            else
+              fail (locs, "Impossible: nRelOp")
           else if nterm = INL nAndOp then
-            case tk of
-              AndalsoT => return $ INL $ Long "CakeML" $ Short "and"
-            | AmpT => return $ INL $ Long "CakeML" $ Short "and"
-            | SymbolT s => return $ INL $ Short s
-            | _ => fail (locs, "Impossible: nAndOp")
+            if tk = AndalsoT ∨ tk = AmpT then
+              return $ INL $ Long "CakeML" $ Short "and"
+            else if isSymbol tk then
+              let s = THE (destSymbol tk) in
+                return $ INL $ Short s
+            else
+              fail (locs, "Impossible: nAndOp")
           else if nterm = INL nOrOp then
-            case tk of
-              OrelseT => return $ INL $ Long "CakeML" $ Short "or"
-            | OrT => return $ INL $ Long "CakeML" $ Short "or"
-            | SymbolT s => return $ INL $ Short s
-            | _ => fail (locs, "Impossible: nOrOp")
+            if tk = OrelseT ∨ tk = OrT then
+              return $ INL $ Long "CakeML" $ Short "or"
+            else if isSymbol tk then
+              let s = THE (destSymbol tk) in
+                return $ INL $ Short s
+            else
+              fail (locs, "Impossible: nOrOp")
           else
             fail (locs, "Expected binary operation non-terminal")
         od
@@ -966,11 +987,15 @@ Definition ptree_Expr_def:
             lf <- destLf pref;
             tk <- option $ destTOK lf;
             x <- ptree_Expr expr;
-            case tk of
-              MinusT => return (App (Opn Minus) [Lit (IntLit 0i); x])
-            | MinusFT => return (App (FP_bop FP_Sub) [Lit (Word64 0w); x])
-            | SymbolT s => return (App Opapp [Var (Short s); x])
-            | _ => fail (locs, "Impossible: nEPrefix")
+            if tk = MinusT then
+              return (App (Opn Minus) [Lit (IntLit 0i); x])
+            else if tk = MinusFT then
+              return (App (FP_bop FP_Sub) [Lit (Word64 0w); x])
+            else if isSymbol tk then
+              let s = THE (destSymbol tk) in
+                return (App Opapp [Var (Short s); x])
+            else
+              fail (locs, "Impossible: nEPrefix")
           od
       | [arg] => ptree_Expr arg
       | _ => fail (locs, "Impossible: nENeg")
