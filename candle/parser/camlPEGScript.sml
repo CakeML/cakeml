@@ -428,7 +428,7 @@ Definition camlPEG_def[nocompute]:
       (INL nEConstr,
        seql [pnt nConstr; pnt nEBase] (bindNT nEConstr));
       (INL nEFunapp,
-       seql [pnt nEBase; pnt nEBase; try (pnt nEFunApp)]
+       seql [pnt nEBase; pnt nEBase; try (pnt nEFunapp)]
             (bindNT nEFunapp));
       (INL nEApp, (* TODO treat assert/lazy as regular apps *)
        pegf (choicel (MAP pnt [nELazy; nEAssert; nEConstr; nEFunapp; nEBase]))
