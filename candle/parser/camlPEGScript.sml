@@ -205,7 +205,7 @@ Datatype:
     | nValueName | nOperatorName | nConstrName | nTypeConstrName | nModuleName
     | nValuePath | nConstr | nTypeConstr | nModulePath
     (* expressions *)
-    | nLiteral | nIdent | nEBase | nEList
+    | nLiteral | nIdent | nEBase | nEList | nESemiSep
     | nEApp | nEConstr | nEFunapp | nEAssert | nELazy
     | nEPrefix | nENeg | nEShift | nEMult
     | nEAdd | nECons | nECat | nERel
@@ -392,12 +392,12 @@ Definition camlPEG_def[nocompute]:
       (INL nType,
        pegf (pnt nTAs) (bindNT nType));
       (* -- Expr16 --------------------------------------------------------- *)
+      (INL nESemiSep,
+       choicel [pegf (tokeq SemiT) (bindNT nESemiSep);
+                seql [tokeq SemiT; pnt nExpr; try (pnt nESemiSep)]
+                     (bindNT nESemiSep)]);
       (INL nEList,
-       seql [tokeq LbrackT;
-             pnt nExpr;
-             rpt (seql [tokeq SemiT; pnt nExpr] I) FLAT;
-             try (tokeq SemiT);
-             tokeq RbrackT]
+       seql [tokeq LbrackT; pnt nExpr; pnt nESemiSep; tokeq RbrackT]
             (bindNT nEList));
       (INL nLiteral,
        choicel [
@@ -428,7 +428,7 @@ Definition camlPEG_def[nocompute]:
       (INL nEConstr,
        seql [pnt nConstr; pnt nEBase] (bindNT nEConstr));
       (INL nEFunapp,
-       seql [pnt nEBase; rpt (pnt nEBase) FLAT]
+       seql [pnt nEBase; pnt nEBase; try (pnt nEFunApp)]
             (bindNT nEFunapp));
       (INL nEApp, (* TODO treat assert/lazy as regular apps *)
        pegf (choicel (MAP pnt [nELazy; nEAssert; nEConstr; nEFunapp; nEBase]))
