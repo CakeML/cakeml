@@ -789,7 +789,10 @@ End
 Definition build_letrec_def:
   build_letrec binds body =
     Letrec (MAP (λ(f,ps,x). (f,"",Mat (Var (Short ""))
-                                      [HD ps, build_fun_lam x (TL ps)]))
+                                    case ps of
+                                      [] => [] (* this should never happen *)
+                                    | p::ps =>
+                                        [p, build_fun_lam x ps]))
                 binds)
            body
 End
@@ -1269,7 +1272,11 @@ Definition ptree_Expr_def:
             ps <- ptree_Patterns params;
             x <- ptree_Expr expr;
             return (Fun "" (Mat (Var (Short ""))
-                           (MAP (λps. (HD ps, build_fun_lam x (TL ps))) ps)))
+                           (MAP (λps. case ps of
+                                        [] => (Pany, Var (Short ""))
+                                      | p::ps =>
+                                              (p, build_fun_lam x ps))
+                                ps)))
           od
       | [funt; params; colon; typ; rarrow; expr] =>
           do
@@ -1279,7 +1286,11 @@ Definition ptree_Expr_def:
             x <- ptree_Expr expr;
             ty <- ptree_Type typ;
             return (Tannot (Fun "" (Mat (Var (Short ""))
-                                   (MAP (λps. (HD ps, build_fun_lam x (TL ps)))
+                                   (MAP (λps. case ps of
+                                                      (* this never happens:*)
+                                                [] => (Pany, Var (Short ""))
+                                              | p::ps =>
+                                                  (p, build_fun_lam x ps))
                                         ps))) ty)
           od
       | _ => fail (locs, "Impossible: nEFun")
@@ -1368,21 +1379,23 @@ Definition ptree_Expr_def:
             expect_tok eq EqualT;
             nm <- ptree_ValueName id;
             ps <- ptree_Patterns pats;
-            if LENGTH ps = 1 then INR () else
-              fail (locs, "Or-patterns are not allowed in let rec bindings");
             ty <- ptree_Type type;
             bd <- ptree_Expr expr;
-            return (nm, HD ps, Tannot bd ty)
+            case ps of
+              [p] => return (nm, p, Tannot bd ty)
+            | _ =>
+                fail (locs, "Or-patterns are not allowed in let rec bindings")
           od
       | [id; pats; eq; expr] =>
           do
             expect_tok eq EqualT;
             nm <- ptree_ValueName id;
             ps <- ptree_Patterns pats;
-            if LENGTH ps = 1 then INR () else
-              fail (locs, "Or-patterns are not allowed in let rec bindings");
             bd <- ptree_Expr expr;
-            return (nm, HD ps, bd)
+            case ps of
+              [p] => return (nm, p, bd)
+            | _ =>
+              fail (locs, "Or-patterns are not allowed in let rec bindings")
           od
       | _ => fail (locs, "Impossible: nLetRecBinding")
     else
@@ -1413,20 +1426,22 @@ Definition ptree_Expr_def:
           do
             expect_tok eq EqualT;
             ps <- ptree_Pattern pat;
-            if LENGTH ps = 1 then INR () else
-              fail (locs, "Or-patterns are not allowed in let bindings");
             x <- ptree_Expr bod;
-            return (INL (HD ps, x))
+            case ps of
+              [p] => return (INL (p, x))
+            | _ =>
+              fail (locs, "Or-patterns are not allowed in let bindings")
           od
       | [id; pats; eq; bod] =>
           do
             expect_tok eq EqualT;
             nm <- ptree_ValueName id;
             ps <- ptree_Patterns pats;
-            if LENGTH ps = 1 then INR () else
-              fail (locs, "Or-patterns are not allowed in let bindings");
             x <- ptree_Expr bod;
-            return (INR (nm, HD ps, x))
+            case ps of
+              [p] => return (INR (nm, p, x))
+            | _ =>
+              fail (locs, "Or-patterns are not allowed in let bindings")
           od
       | [id; pats; colon; typ; eq; bod] =>
           do
@@ -1437,7 +1452,7 @@ Definition ptree_Expr_def:
             if EVERY (λp. LENGTH p = 1) ps then INR () else
               fail (locs, "Or-patterns are not allowed in let bindings");
             x <- ptree_Expr bod;
-            return (INR (nm, MAP HD ps, x))
+            return (INR (nm, MAP (λp. case p of [] => Pany | p::_ => p) ps, x))
           od
       | _ => fail (locs, "Impossible: nLetBinding")
     else
@@ -1827,7 +1842,10 @@ End
 Definition build_dletrec_def:
   build_dletrec locs binds =
     Dletrec locs (MAP (λ(f,ps,x). (f,"",Mat (Var (Short ""))
-                                      [HD ps, build_fun_lam x (TL ps)]))
+                                    case ps of
+                                      [] => [] (* this should never happen *)
+                                    | p::ps =>
+                                        [p, build_fun_lam x ps]))
                       binds)
 End
 
