@@ -713,7 +713,7 @@ Definition ptree_Pattern_def:
     else
       fail (locs, "Expected a pattern non-terminal")) ∧
   (ptree_PatternList [] =
-    fail (Locs UNKNOWNpt UNKNOWNpt, "Pattern lists cannot be empty")) ∧
+    fail (unknown_loc, "Pattern lists cannot be empty")) ∧
   (ptree_PatternList [t] =
      do
        expect_tok t RbrackT;
@@ -1709,7 +1709,7 @@ End
 
 Definition ptree_TypeParamList_def:
   ptree_TypeParamList [] =
-    fail (Locs UNKNOWNpt UNKNOWNpt, "Empty type parameters are not supported") ∧
+    fail (unknown_loc, "Empty type parameters are not supported") ∧
   ptree_TypeParamList [t] =
     do
       expect_tok t RparT;
@@ -1921,8 +1921,10 @@ Definition ptree_Definition_def:
           do
             expect_tok struct StructT;
             expect_tok endt EndT;
-            fmap INR $ ptree_ModuleItems its
+            is <- ptree_ModuleItems its;
+            return (INR is)
           od
+      | _ => fail (locs, "Impossible: nModExpr")
     else
       fail (locs, "Expected a module expression non-terminal")) ∧
   (ptree_ModuleItems (Lf (_, locs)) =
@@ -1933,8 +1935,7 @@ Definition ptree_Definition_def:
     else
       fail (locs, "Expected a module item list non-terminal")) ∧
   (ptree_Items [] =
-    fail (Locs UNKNOWNpt UNKNOWNpt,
-          "Empty module item lists are not supported")) ∧
+    fail (unknown_loc, "Empty module item lists are not supported")) ∧
   (ptree_Items [t] =
     fmap (λx. []) (expect_tok t SemisT) ++
     ptree_ModuleItem t) ∧
