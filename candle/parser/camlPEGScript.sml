@@ -223,7 +223,7 @@ Datatype:
     | nPOr | nPAs | nPList | nPattern | nPatterns
     (* types *)
     | nTypeList | nTypeLists
-    | nTVar | nTAny | nTBase | nTConstr | nTApp | nTProd | nTFun
+    | nTVar | nTAny | nTBase | nTConstr | nTProd | nTFun
     | nTAs | nType
     (* definitions *)
     | nDefinition | nTopLet | nTopLetRec | nModuleItem | nModuleItems | nOpen
