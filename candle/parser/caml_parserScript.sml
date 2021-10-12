@@ -48,10 +48,10 @@ Definition run_parser_def:
       pt <- peg $ destResult $ camlpegexec nStart toks;
       case pt of
         [ptree] =>
-          case ptree_Start ptree of
+          (case ptree_Start ptree of
             INR x => INR x
           | INL (loc, err) =>
-              fail (loc, "Ptree conversion: " ++ err)
+              fail (loc, "Ptree conversion: " ++ err))
       | _ => fail (unknown_loc, "Impossible: run_parser")
     od
 End
