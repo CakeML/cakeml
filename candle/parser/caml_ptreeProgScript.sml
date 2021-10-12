@@ -136,42 +136,29 @@ val r = translate ptree_Expr_def;
 
 Theorem ptree_Expr_preconds[local]:
   (∀x. ptree_expr_side x) ∧
-  (∀x. ptree_esemisep_side x) ∧
-  (∀x. ptree_elist_side x) ∧
-  (∀x. ptree_ebase_side x) ∧
-  (∀x. ptree_eassert_side x) ∧
-  (∀x. ptree_elazy_side x) ∧
-  (∀x. ptree_econstr_side x) ∧
-  (∀x. ptree_efunapp_side x) ∧
-  (∀x. ptree_eapp_side x) ∧
-  (∀x. ptree_eprefix_side x) ∧
-  (∀x. ptree_eneg_side x) ∧
-  (∀x. ptree_ebinop_side x) ∧
-  (∀x. ptree_econs_side x) ∧
-  (∀x. ptree_ecat_side x) ∧
-  (∀x. ptree_eprod_side x) ∧
-  (∀x. ptree_eif_side x) ∧
-  (∀x. ptree_eseq_side x) ∧
-  (∀x. ptree_elet_side x) ∧
-  (∀x. ptree_ematch_side x) ∧
-  (∀x. ptree_efun_side x) ∧
-  (∀x. ptree_efunction_side x) ∧
-  (∀x. ptree_etry_side x) ∧
-  (∀x. ptree_ewhile_side x) ∧
-  (∀x. ptree_efor_side x) ∧
   (∀x. ptree_letrecbinding_side x) ∧
   (∀x. ptree_letrecbindings_side x) ∧
   (∀x. ptree_letbinding_side x) ∧
   (∀x. ptree_letbindings_side x) ∧
   (∀x. ptree_patternmatches_side x) ∧
-  (∀x. ptree_patternmatch_side x)
+  (∀x. ptree_patternmatch_side x) ∧
+  (∀x. ptree_esemisep_side x)
 Proof
-  ho_match_mp_tac ptree_Expr_ind \\ rw []
+  ho_match_mp_tac ptree_Expr_ind
+  \\ strip_tac
+  >- simp [Once (fetch "-" "ptree_expr_side_def")]
+  \\ strip_tac
+  >- (
+    reverse Induct \\ gs []
+    >- simp [Once (fetch "-" "ptree_expr_side_def")]
+    \\ Cases \\ rw []
+    \\ simp [Once (fetch "-" "ptree_expr_side_def")]
+    \\ rw [] \\ gs [caml_lexTheory.isSymbol_thm])
+  \\ rw []
   \\ simp [Once (fetch "-" "ptree_expr_side_def")]
-  \\ rw [] \\ gs [caml_lexTheory.isSymbol_thm]
 QED
 
-val _ = map update_precondition (CONJUNCTS ptree_Expr_preconds);
+val _ = List.app (ignore o update_precondition) (CONJUNCTS ptree_Expr_preconds);
 
 val r = translate ptree_TypeDefinition_def;
 
