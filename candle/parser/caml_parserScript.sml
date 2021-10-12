@@ -47,7 +47,11 @@ Definition run_parser_def:
     do
       pt <- peg $ destResult $ camlpegexec nStart toks;
       case pt of
-        [ptree] => ptree_Start ptree
+        [ptree] =>
+          case ptree_Start ptree of
+            INR x => INR x
+          | INL (loc, err) =>
+              fail (loc, "Ptree conversion: " ++ err)
       | _ => fail (unknown_loc, "Impossible: run_parser")
     od
 End
@@ -125,7 +129,9 @@ Definition run_def:
         case run_parser toks of
           INL (loc, err) =>
             concat [«Parsing failed at: »;
-                    locs_to_string (implode inp) (SOME loc)]
+                    locs_to_string (implode inp) (SOME loc);
+                    «\nwith:\n»;
+                    implode err ]
         | INR tree =>
             «Parsing successful.»
 End
