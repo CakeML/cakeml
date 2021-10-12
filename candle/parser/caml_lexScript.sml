@@ -597,6 +597,7 @@ Definition get_token_def:
     if s = "done" then DoneT else
     if s = "downto" then DowntoT else
     if s = "else" then ElseT else
+    if s = "end" then EndT else
     if s = "exception" then ExceptionT else
     if s = "external" then ExternalT else
     if s = "false" then FalseT else
@@ -699,6 +700,17 @@ End
 Definition lexer_fun_def:
   lexer_fun inp = lexer_fun_aux inp init_loc
 End
+
+(*
+EVAL “lexer_fun "true"”
+EVAL “lexer_fun "false"”
+EVAL “lexer_fun "()"”
+EVAL “lexer_fun "begin end"”
+EVAL “lexer_fun "( )"”
+EVAL “lexer_fun "X.x"”
+EVAL “lexer_fun "x"”
+EVAL “lexer_fun "3 <+> 5 FOO"”
+ *)
 
 (* -------------------------------------------------------------------------
  * PMATCH
