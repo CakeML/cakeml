@@ -5,6 +5,7 @@
 open preamble caml_lexTheory;
 open pegexecTheory pegTheory;
 open finite_mapSyntax;
+open mlstringTheory;
 
 val _ = new_theory "camlPEG";
 
@@ -233,6 +234,105 @@ Datatype:
     | nStart
 End
 
+Definition camlNT2string_def:
+  camlNT2string n =
+    case n of
+      nValueName => strlit"value-name"
+    | nOperatorName => strlit"operator-name"
+    | nConstrName => strlit"constr-name"
+    | nTypeConstrName => strlit"typeconstr-name"
+    | nModuleName => strlit"module-name"
+    | nValuePath => strlit"value-path"
+    | nConstr => strlit"constr"
+    | nTypeConstr => strlit"typeconstr"
+    | nModulePath => strlit"module-path"
+    | nLiteral => strlit"literal"
+    | nIdent => strlit"ident"
+    | nEBase => strlit"base-expr"
+    | nEList => strlit"list-expr"
+    | nESemiSep => strlit"semicolon-sep-expr"
+    | nEApp => strlit"app-expr"
+    | nEConstr => strlit"constr-app"
+    | nEFunapp => strlit"fun-app"
+    | nEAssert => strlit"assert-app"
+    | nELazy => strlit"lazy-app"
+    | nEPrefix => strlit"prefix-op"
+    | nENeg => strlit"negation-op"
+    | nEShift => strlit"shift-op"
+    | nEMult => strlit"mult-op"
+    | nEAdd => strlit"add-op"
+    | nECons => strlit"cons-op"
+    | nECat => strlit"cat-op"
+    | nERel => strlit"rel-op"
+    | nEAnd => strlit"and-op"
+    | nEOr => strlit"or-op"
+    | nEProd => strlit"prod-op"
+    | nEIf => strlit"if-then[-else]"
+    | nESeq => strlit"seq (;)"
+    | nEMatch => strlit"match"
+    | nETry => strlit"try"
+    | nEFun => strlit"fun"
+    | nEFunction => strlit"function"
+    | nELet => strlit"let"
+    | nELetRec => strlit"let rec"
+    | nEWhile => strlit"while"
+    | nEFor => strlit"for"
+    | nExpr => strlit"expr"
+    | nLetBinding => strlit"let-binding"
+    | nLetBindings => strlit"let-bindings"
+    | nLetRecBinding => strlit"letrec-binding"
+    | nLetRecBindings => strlit"letrec-bindings"
+    | nPatternMatch => strlit"pattern-match"
+    | nPatternMatches => strlit"pattern-matches"
+    | nTypeDefinition => strlit"type-definition"
+    | nTypeDef => strlit"type-def"
+    | nTypeDefs => strlit"type-defs"
+    | nTypeParams => strlit"type-params"
+    | nTypeInfo => strlit"type-info"
+    | nTypeRepr => strlit"type-repr"
+    | nTypeReprs => strlit"type-reprs"
+    | nConstrDecl => strlit"constr-decl"
+    | nConstrArgs => strlit"constr-args"
+    | nExcDefinition => strlit"exc-definition"
+    | nPAny => strlit"pat-any"
+    | nPBase => strlit"pat-base"
+    | nPLazy => strlit"pat-lazy"
+    | nPConstr => strlit"pat-constr"
+    | nPApp => strlit"pat-app"
+    | nPCons => strlit"pat-cons"
+    | nPProd => strlit"pat-prod"
+    | nPOr => strlit"pat-or"
+    | nPAs => strlit"pat-as"
+    | nPList => strlit"pat-list"
+    | nPattern => strlit"pattern"
+    | nPatterns => strlit"patterns"
+    | nTypeList => strlit"type-list"
+    | nTypeLists => strlit"type-lists"
+    | nTVar => strlit"type-var"
+    | nTAny => strlit"type-any"
+    | nTBase => strlit"type-base"
+    | nTConstr => strlit"type-constr"
+    | nTProd => strlit"type-prod"
+    | nTFun => strlit"type-fun"
+    | nTAs => strlit"type-as"
+    | nType => strlit"type"
+    | nDefinition => strlit"definition"
+    | nTopLet => strlit"top-let"
+    | nTopLetRec => strlit"top-letrec"
+    | nModuleItem => strlit"module-item"
+    | nModuleItems => strlit"module-items"
+    | nOpen => strlit"open"
+    | nModExpr => strlit"mod-expr"
+    | nModuleDef => strlit"module-def"
+    | nShiftOp => strlit"shift-op"
+    | nMultOp => strlit"mult-op"
+    | nAddOp => strlit"add-op"
+    | nRelOp => strlit"rel-op"
+    | nAndOp => strlit"and-op"
+    | nOrOp => strlit"or-op"
+    | nStart => strlit"start"
+End
+
 (*
    TODO
    The following is a (possibly incomplete) list of missing things:
@@ -396,9 +496,12 @@ Definition camlPEG_def[nocompute]:
        choicel [pegf (tokeq SemiT) (bindNT nESemiSep);
                 seql [tokeq SemiT; pnt nExpr; try (pnt nESemiSep)]
                      (bindNT nESemiSep)]);
+      (* FIXME: the empty list is not accepted *)
+      (* FIXME: lists w/o trailing ; are rejected *)
       (INL nEList,
        seql [tokeq LbrackT; pnt nExpr; pnt nESemiSep; tokeq RbrackT]
             (bindNT nEList));
+      (* FIXME: true, false are not recognized as literals? *)
       (INL nLiteral,
        choicel [
          tok isInt    (bindNT nLiteral o mktokLf);
@@ -407,6 +510,10 @@ Definition camlPEG_def[nocompute]:
          tok (λx. MEM x [TrueT; FalseT]) (bindNT nLiteral o mktokLf)]);
       (INL nIdent,
        tok isIdent (bindNT nIdent o mktokLf));
+      (* FIXME: Module.x doesn't parse *)
+      (* FIXME: parenthesizing makes parser go really slow *)
+      (* FIXME: begin end unit not recognized because
+                it's not in the lexer apparently *)
       (INL nEBase,
        choicel [
          pegf (pnt nLiteral) (bindNT nEBase);
