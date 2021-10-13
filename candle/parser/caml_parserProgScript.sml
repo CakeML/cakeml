@@ -226,8 +226,8 @@ val npeg0_rwts =
         “nConstrDecl”, “nTypeReprs”, “nTypeRepr”, “nTypeInfo”, “nConstrArgs”,
         “nExcDefinition”, “nPAny”, “nPList”, “nPBase”, “nPLazy”, “nPConstr”,
         “nPApp”, “nPCons”, “nPProd”, “nPOr”, “nPAs”, “nPattern”, “nPatterns”,
-        “nTopLet”, “nTopLetRec”, “nOpen”, “nModuleDef”, “nModExpr”,
-        “nDefinition”, “nModuleItem” ];
+        “nTopLet”, “nTopLetRec”, “nOpen”, “nSemis”, “nExprItem”, “nExprItems”,
+        “nModuleDef”, “nDefinition”,  “nDefItem”, “nModExpr”, “nModuleItem” ];
 
 fun wfnt(t,acc) = let
   val th =
@@ -235,7 +235,7 @@ fun wfnt(t,acc) = let
           SIMP_TAC (srw_ss())
                    [camlpeg_rules_applied ,
                     wfpeg_pnt, FDOM_camlPEG, try_def,
-                    seql_def, tokIdP_def, identLower_def,
+                    choicel_def, seql_def, tokIdP_def, identLower_def,
                     tokeq_def, peg_linfix_def] THEN
           simp(wfpeg_rwts @ npeg0_rwts @ peg0_rwts @ acc))
 in
@@ -259,8 +259,8 @@ val topo_nts =
         “nType”, “nTypeList”, “nTypeLists”, “nTypeParams”, “nTypeDef”,
         “nTypeDefs”, “nConstrDecl”, “nTypeReprs”, “nTypeRepr”, “nTypeInfo”,
         “nConstrArgs”, “nExcDefinition”, “nTopLet”, “nTopLetRec”, “nOpen”,
-        “nModuleDef”, “nModExpr”, “nDefinition”, “nModuleItem”, “nModuleItems”,
-        “nStart”];
+        “nSemis”, “nExprItem”, “nExprItems”, “nModuleDef”, “nModExpr”,
+        “nDefinition”, “nDefItem”, “nModuleItem”, “nModuleItems”, “nStart”];
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",

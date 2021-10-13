@@ -1844,6 +1844,54 @@ Definition build_dlet_def:
         binds
 End
 
+Definition ptree_Semis_def:
+  ptree_Semis (Lf (_, locs)) =
+    fail (locs, «Expected a semicolons-list non-terminal») ∧
+  ptree_Semis (Nd (nterm, locs) args) =
+    if nterm = INL nSemis then
+      case args of
+        [s] => expect_tok s SemisT
+      | [s; r] =>
+          do
+            expect_tok s SemisT;
+            ptree_Semis r
+          od
+      | _ => fail (locs, «Impossible: nSemis»)
+    else
+      fail (locs, «Expected a semicolons-list non-terminal»)
+End
+
+Definition ptree_ExprItem_def:
+  ptree_ExprItem (Lf (_, locs)) =
+    fail (locs, «Expected a expr-item(s) non-terminal») ∧
+  ptree_ExprItem (Nd (nterm, locs) args) =
+    if nterm = INL nExprItem then
+      case args of
+        [expr] =>
+          do
+            x <- ptree_Expr nExpr expr;
+            return [Dlet locs (Pvar "") x]
+          od
+      | [semis; expr] =>
+          do
+            ptree_Semis semis;
+            x <- ptree_Expr nExpr expr;
+            return [Dlet locs (Pvar "") x]
+          od
+      | _ => fail (locs, «Impossible: nExprItem»)
+    else if nterm = INL nExprItems then
+      case args of
+      | [semis; expr] =>
+          do
+            ptree_Semis semis;
+            x <- ptree_Expr nExpr expr;
+            return [Dlet locs (Pvar "") x]
+          od
+      | _ => fail (locs, «Impossible: nExprItem»)
+    else
+      fail (locs, «Expected a expr-item(s) non-terminal»)
+End
+
 Definition ptree_Definition_def:
   (ptree_Definition (Lf (_, locs)) =
     fail (locs, «Expected a top-level definition non-terminal»)) ∧
@@ -1914,44 +1962,65 @@ Definition ptree_Definition_def:
     fail (locs, «Expected a module item list non-terminal»)) ∧
   (ptree_ModuleItems (Nd (nterm, locs) args) =
     if nterm = INL nModuleItems then
-      ptree_Items args
+      case args of
+        [eord] =>
+            ptree_ExprItem eord ++
+            ptree_DefItem eord
+      | [eord; mit] =>
+          do
+            d <- ptree_ExprItem eord ++
+                 ptree_DefItem eord;
+            do
+              ds <- ptree_ModuleItem mit;
+              return (d ++ ds)
+            od ++
+            do
+              ptree_Semis mit;
+              return d
+            od
+          od
+      | [eord; mit; semis] =>
+          do
+            d <- ptree_ExprItem eord ++
+                 ptree_DefItem eord;
+            ds <- ptree_ModuleItem mit;
+            ptree_Semis semis;
+            return (d ++ ds)
+          od
+      | _ => fail (locs, «Impossible: nModuleItems»)
     else
       fail (locs, «Expected a module item list non-terminal»)) ∧
-  (ptree_Items [] =
-    fail (unknown_loc, «Empty module item lists are not supported»)) ∧
-  (ptree_Items [t] =
-    fmap (λx. []) (expect_tok t SemisT) ++
-    ptree_ModuleItem t) ∧
-  (ptree_Items (t::ts) =
-    do
-      i <- ptree_ModuleItem t;
-      is <- ptree_Items ts;
-      return (i ++ is)
-    od) ∧
   (ptree_ModuleItem (Lf (_, locs)) =
     fail (locs, «Expected a module item non-terminal»)) ∧
   (ptree_ModuleItem (Nd (nterm, locs) args) =
     if nterm = INL nModuleItem then
       case args of
-        [semis; exdef] =>
+        [eord] => ptree_ExprItem eord ++
+                  ptree_DefItem eord
+      | [eord; mit] =>
           do
-            expect_tok semis SemiT;
-            x <- ptree_Expr nExpr exdef;
-            return [Dlet locs (Pvar "") x]
-          od ++
-          ptree_Definition exdef
-      | [exdef] =>
-          do
-            x <- ptree_Expr nExpr exdef;
-            return [Dlet locs (Pvar "") x]
-          od ++
-          ptree_Definition exdef
+            d <- ptree_ExprItem eord ++
+                 ptree_DefItem eord;
+            ds <- ptree_ModuleItem mit;
+            return (d ++ ds)
+          od
       | _ => fail (locs, «Impossible: nModuleItem»)
     else
-      fail (locs, «Expected a module item non-terminal»))
-Termination
-  WF_REL_TAC ‘measure (sum_size psize (sum_size psize (sum_size psize
-                      (sum_size p1size psize))))’
+      fail (locs, «Expected a module item non-terminal»)) ∧
+  ptree_DefItem (Lf (_, locs)) =
+    fail (locs, «Expected a expr-item(s) non-terminal») ∧
+  ptree_DefItem (Nd (nterm, locs) args) =
+    if nterm = INL nDefItem then
+      case args of
+        [defn] => ptree_Definition defn
+      | [semis; defn] =>
+          do
+            ptree_Semis semis;
+            ptree_Definition defn
+          od
+      | _ => fail (locs, «Impossible: nExprItem»)
+    else
+      fail (locs, «Expected a expr-item(s) non-terminal»)
 End
 
 Definition ptree_Start_def:

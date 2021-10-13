@@ -229,6 +229,7 @@ Datatype:
     (* definitions *)
     | nDefinition | nTopLet | nTopLetRec | nModuleItem | nModuleItems | nOpen
     | nModExpr | nModuleDef
+    | nSemis | nExprItem | nExprItems | nDefItem
     (* misc *)
     | nShiftOp | nMultOp | nAddOp | nRelOp | nAndOp | nOrOp
     | nStart
@@ -331,6 +332,10 @@ Definition camlNT2string_def:
     | nAndOp => strlit"and-op"
     | nOrOp => strlit"or-op"
     | nStart => strlit"start"
+    | nSemis => strlit"double-semicolons"
+    | nExprItem => strlit"expr-item"
+    | nExprItems => strlit"expr-items"
+    | nDefItem => strlit"def-item"
 End
 
 (*
@@ -385,12 +390,45 @@ Definition camlPEG_def[nocompute]:
        seql [pnt nModuleName; try (seql [tokeq DotT; pnt nModulePath] I)]
             (bindNT nModulePath));
       (* -- Definitions ---------------------------------------------------- *)
-      (INL nModuleItem,
-       seql [try (tokeq SemisT); choicel [pnt nExpr; pnt nDefinition]]
-            (bindNT nModuleItem));
+      (*
+
+        module-items ::= {;;} (def | expr) { {;;} (def | ;; expr) } {;;}
+
+        module-items ::= {;;} (def | expr) [module-item] {;;}
+        module-item  ::= {;;} (def | ;; expr) [module-item]
+
+        ---
+
+        semis ::= seql [";;"; try semis]
+        expr-items ::= (try semis) expr
+        def-item ::= (try semis) def
+        expr-item ::= semis expr
+
+        module-items ::= (expr-items | def-item) [module-item] {;;}
+        module-item  ::= (expr-item | def-item) [module-item]
+
+       *)
+      (INL nSemis,
+       seql [tokeq SemisT; try (pnt nSemis)]
+            (bindNT nSemis));
+      (INL nExprItems,
+       seql [try (pnt nSemis); pnt nExpr]
+            (bindNT nExprItems));
+      (INL nExprItem,
+       seql [pnt nSemis; pnt nExpr]
+            (bindNT nExprItem));
+      (INL nDefItem,
+       seql [try (pnt nSemis); pnt nDefinition]
+            (bindNT nDefItem));
       (INL nModuleItems,
-       seql [rpt (pnt nModuleItem) FLAT; try (tokeq SemisT)]
+       seql [choicel [pnt nExprItems; pnt nDefItem];
+             try (pnt nModuleItem);
+             try (pnt nSemis)]
             (bindNT nModuleItems));
+      (INL nModuleItem,
+       seql [choicel [pnt nExprItem; pnt nDefItem];
+             try (pnt nModuleItem)]
+            (bindNT nModuleItem));
       (INL nTopLet,
        seql [tokeq LetT; pnt nLetBindings]
             (bindNT nTopLet));
@@ -813,8 +851,8 @@ Theorem camlPEG_exec_thm[compute] =
 Overload camlpegexec =
   “λn t. peg_exec camlPEG (pnt n) t [] NONE [] done failed”;
 
-val t1 = rconc $ time EVAL “lexer_fun "('a, 'b) d"”;
-val t2 = time EVAL “camlpegexec nTBase ^t1”;
+val t1 = rhs $ concl $ time EVAL “lexer_fun "x;;"”;
+val t2 = time EVAL “camlpegexec nStart ^t1”;
 
 val t1 = rconc $ time EVAL “lexer_fun "'a b c d"”;
 val t2 = time EVAL “camlpegexec nType ^t1”;
