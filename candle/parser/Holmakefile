@@ -23,7 +23,7 @@ caml: caml.S
 caml.S: caml-sexpr
 	$(CAKE_BIN) --sexp=true --exclude_prelude=true --skip_type_inference=true <$< >$@
 
-caml-sexpr: caml_sexprScript.sml
+caml-sexpr: caml_sexprTheory.uo
 
 EXTRA_CLEANS=caml caml.S caml-sexpr
 
