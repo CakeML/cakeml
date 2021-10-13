@@ -30,15 +30,15 @@ Definition destResult_def:
   destResult (Result (Success [] x eo)) =
     Success [] x eo ∧
   destResult (Result (Success ((_,l)::_) _ _)) =
-    Failure l «Expected to be at EOF»  ∧
+    Failure l "Expected to be at EOF"  ∧
   destResult (Result (Failure fl fe)) =
-    Failure fl (implode fe) ∧
+    Failure fl fe ∧
   destResult _ =
-    Failure unknown_loc «Something catastrophic happened»
+    Failure unknown_loc "Something catastrophic happened"
 End
 
 Definition peg_def:
-  peg (Failure locn err) = fail (locn, err) ∧
+  peg (Failure locn err) = fail (locn, implode err) ∧
   peg (Success (_: (caml_lex$token # locs) list) x _) = return x
 End
 
@@ -51,7 +51,7 @@ Definition run_parser_def:
           (case ptree_Start ptree of
             INR x => INR x
           | INL (loc, err) =>
-              fail (loc, concat [«Ptree conversion: »; ++ err]))
+              fail (loc, concat [«Ptree conversion: »; err]))
       | _ => fail (unknown_loc, «Impossible: run_parser»)
     od
 End
