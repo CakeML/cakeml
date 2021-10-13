@@ -24,6 +24,20 @@ Termination
   WF_REL_TAC ‘measure num_tree1_size’
 End
 
+Theorem fix_res_IMP:
+  (x,ns1) = fix_res ns res ⇒ LENGTH ns1 ≤ LENGTH ns
+Proof
+  PairCases_on ‘res’ \\ rw [fix_res_def] \\ gvs []
+QED
+
+Theorem dec_ok_fix_res:
+  dec_ok d ⇒ ∀ns. fix_res ns (d ns) = d ns
+Proof
+  fs [dec_ok_def] \\ rw [] \\ Cases_on ‘d ns’
+  \\ first_x_assum (qspec_then ‘ns’ mp_tac) \\ fs []
+  \\ fs [fix_res_def]
+QED
+
 Definition num_tree_dec'_def:
   num_tree_dec' c ns =
     if c = 0 then ([],ns) else
