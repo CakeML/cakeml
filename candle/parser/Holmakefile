@@ -19,7 +19,7 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
 
 caml: caml.S
-	$(CC) $(CFLAGS) -o $@ $< ../basis/basis_ffi.c
+	$(CC) $(CFLAGS) -o $@ $< $(CAKEMLDIR)/basis/basis_ffi.c
 caml.S: caml-sexpr
 	$(CAKE_BIN) --sexp=true --exclude_prelude=true --skip_type_inference=true <$< >$@
 
