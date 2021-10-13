@@ -2,7 +2,7 @@ ARCH = x64
 WORD_SIZE = 64
 INCLUDES = $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis ../../../.. $(CAKEMLDIR)/unverified/sexpr-bootstrap \
 					 ../../../../encoders/asm ../../../../encoders/$(ARCH)\
-					 ../../../../backend/$(ARCH) ../../../translation
+					 ../../../../backend/$(ARCH) ../../../../backend/serialiser ../../../translation
 
 all: $(DEFAULT_TARGETS) README.md cake-$(ARCH)-$(WORD_SIZE).tar.gz
 .PHONY: all
