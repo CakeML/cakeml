@@ -891,6 +891,26 @@ Definition ptree_linfix_def:
 End
  *)
 
+Definition ptree_Bool_def:
+  ptree_Bool (Lf (_, locs)) =
+    fail (locs, «Expected a boolean literal non-terminal») ∧
+  ptree_Bool (Nd (nterm, locs) args) =
+    if nterm = INL nLiteral then
+      case args of
+        [arg] =>
+          do
+            lf <- destLf arg;
+            tk <- option $ destTOK lf;
+            if tk = TrueT ∨ tk = FalseT then
+              return (bool_to_exp (tk = TrueT))
+            else
+              fail (locs, «not a boolean literal»)
+          od
+      | _ => fail (locs, «Impossible: nLiteral (bool)»)
+    else
+      fail (locs, «Expected a boolean literal non-terminal»)
+End
+
 Definition ptree_Expr_def:
   (ptree_Expr et (Lf (_, locs)) =
     fail (locs, «Expected an expression non-terminal»)) ∧
@@ -956,6 +976,7 @@ Definition ptree_Expr_def:
           od
       | [arg] =>
           fmap Lit (ptree_Literal arg) ++
+          ptree_Bool arg ++
           do
             cns <- ptree_ValuePath arg;
             ns <- path_to_ns locs cns;
@@ -965,14 +986,6 @@ Definition ptree_Expr_def:
             cns <- ptree_Constr arg;
             ns <- path_to_ns locs cns;
             return (Con (SOME ns) [])
-          od ++
-          do
-            lf <- destLf arg;
-            tk <- option $ destTOK lf;
-            if tk = TrueT ∨ tk = FalseT then
-              return (bool_to_exp (tk = TrueT))
-            else
-              fail (unknown_loc, «»)
           od ++
           ptree_Expr nEList arg
       | _ => fail (locs, «Impossible: nEBase»)
