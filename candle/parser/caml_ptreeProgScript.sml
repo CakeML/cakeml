@@ -135,7 +135,7 @@ val _ = update_precondition ptree_literal_side;
 val r = translate ptree_Expr_def;
 
 Theorem ptree_Expr_preconds[local]:
-  (∀x. ptree_expr_side x) ∧
+  (∀x y. ptree_expr_side x y) ∧
   (∀x. ptree_letrecbinding_side x) ∧
   (∀x. ptree_letrecbindings_side x) ∧
   (∀x. ptree_letbinding_side x) ∧
@@ -149,9 +149,15 @@ Proof
   >- simp [Once (fetch "-" "ptree_expr_side_def")]
   \\ strip_tac
   >- (
-    reverse Induct \\ gs []
+    reverse (Induct_on ‘nterm’) \\ gs []
     >- simp [Once (fetch "-" "ptree_expr_side_def")]
-    \\ Cases \\ rw []
+    \\ qx_gen_tac ‘et’ \\ qx_gen_tac ‘nterm’
+    \\ Cases_on ‘nterm ≠ et’ \\ gs []
+    >- (
+      rpt strip_tac
+      \\ simp [Once (fetch "-" "ptree_expr_side_def")])
+    \\ simp [SF CONJ_ss]
+    \\ rpt strip_tac
     \\ simp [Once (fetch "-" "ptree_expr_side_def")]
     \\ rw [] \\ gs [caml_lexTheory.isSymbol_thm])
   \\ rw []
