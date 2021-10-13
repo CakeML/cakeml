@@ -30,11 +30,11 @@ Definition destResult_def:
   destResult (Result (Success [] x eo)) =
     Success [] x eo ∧
   destResult (Result (Success ((_,l)::_) _ _)) =
-    Failure l "Expected to be at EOF" ∧
+    Failure l «Expected to be at EOF»  ∧
   destResult (Result (Failure fl fe)) =
-    Failure fl fe ∧
+    Failure fl (implode fe) ∧
   destResult _ =
-    Failure unknown_loc "Something catastrophic happened"
+    Failure unknown_loc «Something catastrophic happened»
 End
 
 Definition peg_def:
@@ -51,8 +51,8 @@ Definition run_parser_def:
           (case ptree_Start ptree of
             INR x => INR x
           | INL (loc, err) =>
-              fail (loc, "Ptree conversion: " ++ err))
-      | _ => fail (unknown_loc, "Impossible: run_parser")
+              fail (loc, concat [«Ptree conversion: »; ++ err]))
+      | _ => fail (unknown_loc, «Impossible: run_parser»)
     od
 End
 
@@ -130,8 +130,7 @@ Definition run_def:
           INL (loc, err) =>
             concat [«Parsing failed at: »;
                     locs_to_string (implode inp) (SOME loc);
-                    «\nwith:\n»;
-                    implode err ]
+                    «\nwith this error: »; err ]
         | INR tree =>
             «Parsing successful.»
 End

@@ -68,7 +68,7 @@ Proof
 QED
 
 Definition option_def[simp]:
-  option NONE = INL (unknown_loc, "option") ∧
+  option NONE = INL (unknown_loc, «option») ∧
   option (SOME x) = INR x
 End
 
@@ -83,7 +83,7 @@ End
 
 Definition destLf_def:
   destLf (Lf x) = return x ∧
-  destLf (Nd (_, locs) _) = fail (locs, "destLf: Not a leaf")
+  destLf (Nd (_, locs) _) = fail (locs, «destLf: Not a leaf»)
 End
 
 Definition expect_tok_def:
@@ -94,19 +94,19 @@ Definition expect_tok_def:
       if tk = token then
         return tk
       else
-        fail (SND lf, "Unexpected token")
+        fail (SND lf, «Unexpected token»)
     od
 End
 
 Definition path_to_ns_def:
-  path_to_ns locs [] = fail (locs, "Empty path") ∧
+  path_to_ns locs [] = fail (locs, «Empty path») ∧
   path_to_ns locs [i] = return (Short i) ∧
   path_to_ns locs [m; i] = return (Long m $ Short i) ∧
-  path_to_ns locs _ = fail (locs, "Nested modules are not supported")
+  path_to_ns locs _ = fail (locs, «Nested modules are not supported»)
 End
 
 Definition ptree_Ident_def:
-  ptree_Ident (Lf (_, locs)) = fail (locs, "Expected ident non-terminal") ∧
+  ptree_Ident (Lf (_, locs)) = fail (locs, «Expected ident non-terminal») ∧
   ptree_Ident (Nd (nterm, locs) args) =
     if nterm = INL nIdent then
       case args of
@@ -116,27 +116,27 @@ Definition ptree_Ident_def:
             tk <- option $ destTOK lf;
             option $ destIdent tk
           od
-      | _ => fail (locs, "Impossible: nIdent")
+      | _ => fail (locs, «Impossible: nIdent»)
     else
-      fail (locs, "Expected ident non-terminal")
+      fail (locs, «Expected ident non-terminal»)
 End
 
 Definition ptree_OperatorName_def:
   ptree_OperatorName (Lf (_, locs)) =
-    fail (locs, "Expected operator-name non-terminal") ∧
+    fail (locs, «Expected operator-name non-terminal») ∧
   ptree_OperatorName (Nd (nterm, locs) args) =
     if nterm = INL nOperatorName then
       case args of
         [arg] =>
-          fail (locs, "Cannot use infix operators as prefix (yet)")
-      | _ => fail (locs, "Impossible: nOperatorName")
+          fail (locs, «Cannot use infix operators as prefix (yet)»)
+      | _ => fail (locs, «Impossible: nOperatorName»)
     else
-      fail (locs, "Expected operator-name non-terminal")
+      fail (locs, «Expected operator-name non-terminal»)
 End
 
 Definition ptree_ValueName_def:
   ptree_ValueName (Lf (_, locs)) =
-    fail (locs, "Expected value-name non-terminal") ∧
+    fail (locs, «Expected value-name non-terminal») ∧
   ptree_ValueName (Nd (nterm, locs) args) =
     if nterm = INL nValueName then
       case args of
@@ -152,14 +152,14 @@ Definition ptree_ValueName_def:
             expect_tok rpar RparT;
             ptree_OperatorName opn
           od
-      | _ => fail (locs, "Impossible: nValueName")
+      | _ => fail (locs, «Impossible: nValueName»)
     else
-      fail (locs, "Expected value-name non-terminal")
+      fail (locs, «Expected value-name non-terminal»)
 End
 
 Definition ptree_ConstrName_def:
   ptree_ConstrName (Lf (_, locs)) =
-    fail (locs, "Expected constr-name non-terminal") ∧
+    fail (locs, «Expected constr-name non-terminal») ∧
   ptree_ConstrName (Nd (nterm, locs) args) =
     if nterm = INL nConstrName then
       case args of
@@ -169,14 +169,14 @@ Definition ptree_ConstrName_def:
             tk <- option $ destTOK lf;
             option $ destIdent tk
           od
-      | _ => fail (locs, "Impossible: nConstrName")
+      | _ => fail (locs, «Impossible: nConstrName»)
     else
-      fail (locs, "Expected constr-name non-terminal")
+      fail (locs, «Expected constr-name non-terminal»)
 End
 
 Definition ptree_TypeConstrName_def:
   ptree_TypeConstrName (Lf (_, locs)) =
-    fail (locs, "Expected typeconstr-name non-terminal") ∧
+    fail (locs, «Expected typeconstr-name non-terminal») ∧
   ptree_TypeConstrName (Nd (nterm, locs) args) =
     if nterm = INL nTypeConstrName then
       case args of
@@ -186,14 +186,14 @@ Definition ptree_TypeConstrName_def:
             tk <- option $ destTOK lf;
             option $ destIdent tk
           od
-      | _ => fail (locs, "Impossible: nTypeConstrName")
+      | _ => fail (locs, «Impossible: nTypeConstrName»)
     else
-      fail (locs, "Expected typeconstr-name non-terminal")
+      fail (locs, «Expected typeconstr-name non-terminal»)
 End
 
 Definition ptree_ModuleName_def:
   ptree_ModuleName (Lf (_, locs)) =
-    fail (locs, "Expected modulename non-terminal") ∧
+    fail (locs, «Expected modulename non-terminal») ∧
   ptree_ModuleName (Nd (nterm, locs) args) =
     if nterm = INL nModuleName then
       case args of
@@ -203,14 +203,14 @@ Definition ptree_ModuleName_def:
             tk <- option $ destTOK lf;
             option $ destIdent tk
           od
-      | _ => fail (locs, "Impossible: nModuleName")
+      | _ => fail (locs, «Impossible: nModuleName»)
     else
-      fail (locs, "Expected modulename non-terminal")
+      fail (locs, «Expected modulename non-terminal»)
 End
 
 Definition ptree_ValuePath_def:
   ptree_ValuePath (Lf (_, locs)) =
-    fail (locs, "Expected value-path non-terminal") ∧
+    fail (locs, «Expected value-path non-terminal») ∧
   ptree_ValuePath (Nd (nterm, locs) args) =
     if nterm = INL nValuePath then
       case args of
@@ -222,13 +222,13 @@ Definition ptree_ValuePath_def:
             vn <- ptree_ValueName arg;
             return (vp ++ [vn])
           od
-      | _ => fail (locs, "Impossible: nValuePath")
+      | _ => fail (locs, «Impossible: nValuePath»)
     else
-      fail (locs, "Expected value-path non-terminal")
+      fail (locs, «Expected value-path non-terminal»)
 End
 
 Definition ptree_Constr_def:
-  ptree_Constr (Lf (_, locs)) = fail (locs, "Expected constr non-terminal") ∧
+  ptree_Constr (Lf (_, locs)) = fail (locs, «Expected constr non-terminal») ∧
   ptree_Constr (Nd (nterm, locs) args) =
     if nterm = INL nConstr then
       case args of
@@ -240,14 +240,14 @@ Definition ptree_Constr_def:
             vn <- ptree_ConstrName arg;
             return (vp ++ [vn])
           od
-      | _ => fail (locs, "Impossible: nConstr")
+      | _ => fail (locs, «Impossible: nConstr»)
     else
-      fail (locs, "Expected constr non-terminal")
+      fail (locs, «Expected constr non-terminal»)
 End
 
 Definition ptree_TypeConstr_def:
   ptree_TypeConstr (Lf (_, locs)) =
-    fail (locs, "Expected typeconstr non-terminal") ∧
+    fail (locs, «Expected typeconstr non-terminal») ∧
   ptree_TypeConstr (Nd (nterm, locs) args) =
     if nterm = INL nTypeConstr then
       case args of
@@ -259,14 +259,14 @@ Definition ptree_TypeConstr_def:
             vn <- ptree_TypeConstrName arg;
             return (vp ++ [vn])
           od
-      | _ => fail (locs, "Impossible: nTypeConstr")
+      | _ => fail (locs, «Impossible: nTypeConstr»)
     else
-      fail (locs, "Expected typeconstr non-terminal")
+      fail (locs, «Expected typeconstr non-terminal»)
 End
 
 Definition ptree_ModulePath_def:
   ptree_ModulePath (Lf (_, locs)) =
-    fail (locs, "Expected module-path non-terminal") ∧
+    fail (locs, «Expected module-path non-terminal») ∧
   ptree_ModulePath (Nd (nterm, locs) args) =
     if nterm = INL nModulePath then
       case args of
@@ -278,14 +278,14 @@ Definition ptree_ModulePath_def:
             vn <- ptree_ModuleName arg;
             return (vp ++ [vn])
           od
-      | _ => fail (locs, "Impossible: nModulePath")
+      | _ => fail (locs, «Impossible: nModulePath»)
     else
-      fail (locs, "Expected module-path non-terminal")
+      fail (locs, «Expected module-path non-terminal»)
 End
 
 Definition ptree_TVar_def:
   ptree_TVar (Lf (_, locs)) =
-    fail (locs, "Expected type variable non-terminal") ∧
+    fail (locs, «Expected type variable non-terminal») ∧
   ptree_TVar (Nd (nterm, locs) args) =
     if nterm = INL nTVar then
       case args of
@@ -295,29 +295,29 @@ Definition ptree_TVar_def:
             nm <- ptree_Ident id;
             return (Atvar nm)
           od
-      | _ => fail (locs, "Impossible: nTVar")
+      | _ => fail (locs, «Impossible: nTVar»)
     else
-      fail (locs, "Expected type variable non-terminal")
+      fail (locs, «Expected type variable non-terminal»)
 End
 
 Definition ptree_TAny_def:
   ptree_TAny (Lf (_, locs)) =
-    fail (locs, "Expected wildcard type non-terminal") ∧
+    fail (locs, «Expected wildcard type non-terminal») ∧
   ptree_TAny (Nd (nterm, locs) args) =
     if nterm = INL nTAny then
-      fail (locs, "Wildcard type variables are not supported")
+      fail (locs, «Wildcard type variables are not supported»)
     else
-      fail (locs, "Expected wildcard type variable non-terminal")
+      fail (locs, «Expected wildcard type variable non-terminal»)
 End
 
 Definition ptree_Type_def:
   (ptree_Type (Lf (_, locs)) =
-    fail (locs, "Expected a type non-terminal")) ∧
+    fail (locs, «Expected a type non-terminal»)) ∧
   (ptree_Type (Nd (nterm, locs) args) =
     if nterm = INL nType then
       case args of
         [ty] => ptree_Type ty
-      | _ => fail (locs, "Impossible: nType")
+      | _ => fail (locs, «Impossible: nType»)
     else if nterm = INL nTBase then
       case args of
         [lpar; args; rpar; ctor] =>
@@ -337,7 +337,7 @@ Definition ptree_Type_def:
           od
       | [arg] =>
           ptree_TVar arg ++ ptree_TAny arg
-      | _ => fail (locs, "Impossible: nTBase")
+      | _ => fail (locs, «Impossible: nTBase»)
     else if nterm = INL nTConstr then
       case args of
         [arg] => ptree_Type arg
@@ -348,7 +348,7 @@ Definition ptree_Type_def:
             cns <- mapM (path_to_ns locs) ids;
             return (FOLDL (λt id. Atapp [t] id) ty cns)
           od
-      | _ => fail (locs, "Impossible: nTConstr")
+      | _ => fail (locs, «Impossible: nTConstr»)
     else if nterm = INL nTProd then
       case args of
         [arg] => ptree_Type arg
@@ -359,7 +359,7 @@ Definition ptree_Type_def:
             ty2 <- ptree_Type prod;
             return (Attup [ty1; ty2])
           od
-      | _ => fail (locs, "Impossible: nTProd")
+      | _ => fail (locs, «Impossible: nTProd»)
     else if nterm = INL nTFun then
       case args of
         [arg] => ptree_Type arg
@@ -370,13 +370,13 @@ Definition ptree_Type_def:
             ty2 <- ptree_Type fun;
             return (Atfun ty1 ty2)
           od
-      | _ => fail (locs, "Impossible: nTFun")
+      | _ => fail (locs, «Impossible: nTFun»)
     else if nterm = INL nTAs then
-      fail (locs, "Aliases in types are not supported")
+      fail (locs, «Aliases in types are not supported»)
     else
-      fail (locs, "Expected type non-terminal")) ∧
+      fail (locs, «Expected type non-terminal»)) ∧
   (ptree_TypeList (Lf (_, locs)) =
-    fail (locs, "Expected a type list non-terminal")) ∧
+    fail (locs, «Expected a type list non-terminal»)) ∧
   (ptree_TypeList (Nd (nterm, locs) args) =
     if nterm = INL nTypeList then
       case args of
@@ -387,7 +387,7 @@ Definition ptree_Type_def:
             ts <- ptree_TypeList tlist;
             return (t::ts)
           od
-      | _ => fail (locs, "Impossible: nTypeList")
+      | _ => fail (locs, «Impossible: nTypeList»)
     else if nterm = INL nTypeLists then
       case args of
         [typ;comma;tlist] =>
@@ -398,14 +398,14 @@ Definition ptree_Type_def:
             return (t::ts)
           od
       | [typ] => fmap (λt. [t]) $ ptree_Type typ
-      | _ => fail (locs, "Impossible: nTypeLists")
+      | _ => fail (locs, «Impossible: nTypeLists»)
     else
-      fail (locs, "Expected a type list non-terminal"))
+      fail (locs, «Expected a type list non-terminal»))
 End
 
 Definition ptree_Literal_def:
   ptree_Literal (Lf (_, locs)) =
-    fail (locs, "Expected a literal non-terminal") ∧
+    fail (locs, «Expected a literal non-terminal») ∧
   ptree_Literal (Nd (nterm, locs) args) =
     if nterm = INL nLiteral then
       case args of
@@ -420,11 +420,11 @@ Definition ptree_Literal_def:
             else if isString tk then
               return $ StrLit $ THE $ destString tk
             else
-              fail (locs, "Impossible: nLiteral")
+              fail (locs, «Impossible: nLiteral»)
           od
-      | _ => fail (locs, "Impossible: nLiteral")
+      | _ => fail (locs, «Impossible: nLiteral»)
     else
-      fail (locs, "Expected a literal non-terminal")
+      fail (locs, «Expected a literal non-terminal»)
 End
 
 (* TODO
@@ -439,7 +439,7 @@ End
 
 Definition ptree_Op_def:
   ptree_Op (Lf (_, locs)) =
-    fail (locs, "Expected binary operation non-terminal") ∧
+    fail (locs, «Expected binary operation non-terminal») ∧
   ptree_Op (Nd (nterm, locs) args) =
     case args of
       [arg] =>
@@ -460,7 +460,7 @@ Definition ptree_Op_def:
                 else
                   return $ INL $ Short s
             else
-              fail (locs, "Impossible: nShiftOp")
+              fail (locs, «Impossible: nShiftOp»)
           else if nterm = INL nMultOp then
             if tk = StarT then
               return $ INR $ Opn Times
@@ -483,7 +483,7 @@ Definition ptree_Op_def:
                 else
                   return $ INL $ Short s
             else
-              fail (locs, "Impossible: nMultOp")
+              fail (locs, «Impossible: nMultOp»)
           else if nterm = INL nAddOp then
             if tk = PlusT then
               return $ INR $ Opn Plus
@@ -498,7 +498,7 @@ Definition ptree_Op_def:
                 else
                   return $ INL $ Short s
             else
-             fail (locs, "Impossible: nAddOp")
+             fail (locs, «Impossible: nAddOp»)
           else if nterm = INL nRelOp then
             if tk = LessT then
               return $ INR $ Opb Lt
@@ -523,7 +523,7 @@ Definition ptree_Op_def:
                 else
                   return $ INL $ Short s
             else
-              fail (locs, "Impossible: nRelOp")
+              fail (locs, «Impossible: nRelOp»)
           else if nterm = INL nAndOp then
             if tk = AndalsoT ∨ tk = AmpT then
               return $ INL $ Long "CakeML" $ Short "and"
@@ -531,7 +531,7 @@ Definition ptree_Op_def:
               let s = THE (destSymbol tk) in
                 return $ INL $ Short s
             else
-              fail (locs, "Impossible: nAndOp")
+              fail (locs, «Impossible: nAndOp»)
           else if nterm = INL nOrOp then
             if tk = OrelseT ∨ tk = OrT then
               return $ INL $ Long "CakeML" $ Short "or"
@@ -539,11 +539,11 @@ Definition ptree_Op_def:
               let s = THE (destSymbol tk) in
                 return $ INL $ Short s
             else
-              fail (locs, "Impossible: nOrOp")
+              fail (locs, «Impossible: nOrOp»)
           else
-            fail (locs, "Expected binary operation non-terminal")
+            fail (locs, «Expected binary operation non-terminal»)
         od
-    | _ => fail (locs, "Expected binary operation non-terminal")
+    | _ => fail (locs, «Expected binary operation non-terminal»)
 End
 
 (* Turns a list literal pattern “[x; y; z]” into the
@@ -591,7 +591,7 @@ QED
 
 Definition ptree_Pattern_def:
   (ptree_Pattern (Lf (_, locs)) =
-    fail (locs, "Expected a pattern non-terminal")) ∧
+    fail (locs, «Expected a pattern non-terminal»)) ∧
   (ptree_Pattern (Nd (nterm, locs) args) =
     if nterm = INL nPAny then
       case args of
@@ -600,7 +600,7 @@ Definition ptree_Pattern_def:
             expect_tok arg AnyT;
             return [Pany]
           od
-      | _ => fail (locs, "Impossible: nPAny")
+      | _ => fail (locs, «Impossible: nPAny»)
     else if nterm = INL nPBase then
       case args of
         [arg] =>
@@ -633,7 +633,7 @@ Definition ptree_Pattern_def:
             ty <- ptree_Type typ;
             return (MAP (λp. Ptannot p ty) ps)
           od
-      | _ => fail (locs, "Impossible: nPBase")
+      | _ => fail (locs, «Impossible: nPBase»)
     else if nterm = INL nPList then
       case args of
         lbrack::rest =>
@@ -642,7 +642,7 @@ Definition ptree_Pattern_def:
             pats <- ptree_PatternList rest;
             return (MAP build_list_pat (list_cart_prod pats))
           od
-      | _ => fail (locs, "Impossible: nPList")
+      | _ => fail (locs, «Impossible: nPList»)
     else if nterm = INL nPLazy then
       case args of
         [pat] => ptree_Pattern pat
@@ -652,7 +652,7 @@ Definition ptree_Pattern_def:
             ps <- ptree_Pattern pat;
             return (MAP (λp. Pcon (SOME (Short "lazy")) [p]) ps)
           od
-      | _ => fail (locs, "Impossible: nPLazy")
+      | _ => fail (locs, «Impossible: nPLazy»)
     else if nterm = INL nPConstr then
       case args of
         [pat] => ptree_Pattern pat
@@ -663,11 +663,11 @@ Definition ptree_Pattern_def:
             ps <- ptree_Pattern pat;
             return (MAP (λp. Pcon (SOME id) [p]) ps)
           od
-      | _ => fail (locs, "Impossible: nPConstr")
+      | _ => fail (locs, «Impossible: nPConstr»)
     else if nterm = INL nPApp then
       case args of
         [pat] => ptree_Pattern pat
-      | _ => fail (locs, "Impossible: nPApp")
+      | _ => fail (locs, «Impossible: nPApp»)
     else if nterm = INL nPCons then
       case args of
         [pat] => ptree_Pattern pat
@@ -679,7 +679,7 @@ Definition ptree_Pattern_def:
             return (MAP (λ(p,q). Pcon (SOME (Short "::")) [p; q])
                         (cart_prod ps qs))
           od
-      | _ => fail (locs, "Impossible: nPCons")
+      | _ => fail (locs, «Impossible: nPCons»)
     else if nterm = INL nPProd then
       case args of
         [pat] => ptree_Pattern pat
@@ -691,7 +691,7 @@ Definition ptree_Pattern_def:
             return (MAP (λ(p,q). Pcon (SOME (Short ",")) [p; q])
                         (cart_prod ps qs))
           od
-      | _ => fail (locs, "Impossible: nPProd")
+      | _ => fail (locs, «Impossible: nPProd»)
     else if nterm = INL nPOr then
       case args of
         [pat] => ptree_Pattern pat
@@ -702,20 +702,20 @@ Definition ptree_Pattern_def:
             qs <- ptree_Pattern p2;
             return (ps ++ qs)
           od
-      | _ => fail (locs, "Impossible: nPOr")
+      | _ => fail (locs, «Impossible: nPOr»)
     else if nterm = INL nPAs then
       case args of
         [pat] => ptree_Pattern pat
-      | [pat; ast; id] => fail (locs, "Pattern aliases are not supported")
-      | _ => fail (locs, "Impossible: nPAs")
+      | [pat; ast; id] => fail (locs, «Pattern aliases are not supported»)
+      | _ => fail (locs, «Impossible: nPAs»)
     else if nterm = INL nPattern then
       case args of
         [pat] => ptree_Pattern pat
-      | _ => fail (locs, "Impossible: nPattern")
+      | _ => fail (locs, «Impossible: nPattern»)
     else
-      fail (locs, "Expected a pattern non-terminal")) ∧
+      fail (locs, «Expected a pattern non-terminal»)) ∧
   (ptree_PatternList [] =
-    fail (unknown_loc, "Pattern lists cannot be empty")) ∧
+    fail (unknown_loc, «Pattern lists cannot be empty»)) ∧
   (ptree_PatternList [t] =
      do
        expect_tok t RbrackT;
@@ -734,7 +734,7 @@ End
 
 Definition ptree_Patterns_def:
   ptree_Patterns (Lf (_, locs)) =
-    fail (locs, "Expected pattern list non-terminal") ∧
+    fail (locs, «Expected pattern list non-terminal») ∧
   ptree_Patterns (Nd (nterm, locs) args) =
     if nterm = INL nPatterns then
       case args of
@@ -745,9 +745,9 @@ Definition ptree_Patterns_def:
             ps <- ptree_Patterns rest;
             return (p::ps)
           od
-      | _ => fail (locs, "Impossible: nPatterns")
+      | _ => fail (locs, «Impossible: nPatterns»)
     else
-      fail (locs, "Expected pattern list non-terminal")
+      fail (locs, «Expected pattern list non-terminal»)
 End
 
 (* Builds a binary operation based on the output from “ptree_Op”.
@@ -869,28 +869,63 @@ Proof
   \\ res_tac \\ fs []
 QED
 
+(*
+Definition ptree_linfix_def:
+  ptree_linfix (topnt: camlNT) opn elnt pt =
+    case pt of
+      Lf _ => fail (unknown_loc, «Found nothing: ptree_linfix»)
+    | Nd (nterm, locs) args =>
+        if nterm = INL topnt then
+          case args of
+            [pt] => fmap (λx. [x]) (elnt pt)
+          | [x; op_pt; pt] =>
+              do
+                expect_tok op_pt opn;
+                front <- ptree_linfix topnt opn elnt x;
+                last <- elnt pt;
+                return (front ++ [last])
+              od
+          | _ => fail (locs, «Impossible: ptree_linfix»)
+        else
+          fail (locs, «Found nothing: ptree_linfix»)
+End
+ *)
+
 Definition ptree_Expr_def:
-  (ptree_Expr (Lf (_, locs)) =
-    fail (locs, "Expected an expression non-terminal")) ∧
-  (ptree_Expr (Nd (nterm, locs) args) =
-    if nterm = INL nExpr then
+  (ptree_Expr et (Lf (_, locs)) =
+    fail (locs, «Expected an expression non-terminal»)) ∧
+  (ptree_Expr et (Nd (nterm, locs) args) =
+    if INL et ≠ nterm then
+      fail (locs, concat [«expected: »; camlNT2string et; «\n»;
+                          «found: »; (case nterm of INL n =>
+                                        camlNT2string n
+                                      | _ => «unknown»);])
+    else if nterm = INL nExpr then
       case args of
         [arg] =>
-          ptree_Expr arg ++ (* for eseq, elet, eletrec, ematch, efun,
-                               efunction, etry, ewhile, efor *)
-          fail (locs, "Expected an expression non-terminal")
-      | _ => fail (locs, "Impossible: nExpr")
+          ptree_Expr nESeq arg ++
+          ptree_Expr nELet arg ++
+          ptree_Expr nELet arg ++
+          ptree_Expr nELetRec arg ++
+          ptree_Expr nEMatch arg ++
+          ptree_Expr nEFun arg ++
+          ptree_Expr nEFunction arg ++
+          ptree_Expr nETry arg ++
+          ptree_Expr nEWhile arg ++
+          ptree_Expr nEFor arg ++
+          fail (locs, «Expected an expression non-terminal»)
+      | _ => fail (locs, «Impossible: nExpr»)
     else if nterm = INL nEList then
       case args of
         [lbrack; expr; exprs; rbrack] =>
           do
             expect_tok lbrack LbrackT;
             expect_tok rbrack RbrackT;
-            x <- ptree_Expr expr;
+            x <- ptree_Expr nExpr expr;
             xs <- ptree_ESemiSep exprs;
             return (build_list_exp (x::xs))
           od
-      | _ => fail (locs, "Impossible: nEList")
+      | _ => fail (locs, «Impossible: nEList»)
     else if nterm = INL nEBase then
       case args of
         [lpar;rpar] =>
@@ -903,12 +938,12 @@ Definition ptree_Expr_def:
           do
             expect_tok lpar LparT;
             expect_tok rpar RparT;
-            ptree_Expr expr
+            ptree_Expr nExpr expr
           od ++
           do
             expect_tok lpar BeginT;
-            expect_tok rpar BeginT;
-            ptree_Expr expr
+            expect_tok rpar EndT;
+            ptree_Expr nExpr expr
           od
       | [lpar;expr;colon;typ;rpar] =>
           do
@@ -916,7 +951,7 @@ Definition ptree_Expr_def:
             expect_tok rpar RparT;
             expect_tok colon ColonT;
             ty <- ptree_Type typ;
-            x <- ptree_Expr expr;
+            x <- ptree_Expr nExpr expr;
             return (Tannot x ty)
           od
       | [arg] =>
@@ -937,58 +972,63 @@ Definition ptree_Expr_def:
             if tk = TrueT ∨ tk = FalseT then
               return (bool_to_exp (tk = TrueT))
             else
-              fail (unknown_loc, "")
+              fail (unknown_loc, «»)
           od ++
-          ptree_Expr arg (* for nEList *)
-      | _ => fail (locs, "Impossible: nEBase")
+          ptree_Expr nEList arg
+      | _ => fail (locs, «Impossible: nEBase»)
     else if nterm = INL nEAssert then
       case args of
         [assr; expr] =>
           do
             expect_tok assr AssertT;
-            x <- ptree_Expr expr;
+            x <- ptree_Expr nEBase expr;
             return (App Opapp [Var (Short "assert"); x])
           od
-      | _ => fail (locs, "Impossible: nEAssert")
+      | _ => fail (locs, «Impossible: nEAssert»)
     else if nterm = INL nELazy then
       case args of
         [lazy; expr] =>
           do
             expect_tok lazy LazyT;
-            x <- ptree_Expr expr;
+            x <- ptree_Expr nEBase expr;
             return (App Opapp [Var (Short "lazy"); x])
           od
-      | _ => fail (locs, "Impossible: nELazy")
+      | _ => fail (locs, «Impossible: nELazy»)
     else if nterm = INL nEConstr then
       case args of
         [consid; expr] =>
           do
             cns <- ptree_Constr consid;
             id <- path_to_ns locs cns;
-            x <- ptree_Expr expr;
+            x <- ptree_Expr nEBase expr;
             return (Con (SOME id) [x])
           od
-      | _ => fail (locs, "Impossible: nEConstr")
+      | _ => fail (locs, «Impossible: nEConstr»)
     else if nterm = INL nEFunapp then
       case args of
         [fexp; aexp] =>
           do
-            f <- ptree_Expr fexp;
-            x <- ptree_Expr aexp;
+            f <- ptree_Expr nEBase fexp;
+            x <- ptree_Expr nEBase aexp;
             return (build_funapp f [x])
           od
       | [fexp; aexp; fexps] =>
           do
-            f <- ptree_Expr fexp;
-            x <- ptree_Expr aexp;
-            y <- ptree_Expr fexps;
+            f <- ptree_Expr nEBase fexp;
+            x <- ptree_Expr nEBase aexp;
+            y <- ptree_Expr nEFunapp fexps;
             return (build_funapp f [x; y])
           od
-      | _ => fail (locs, "Impossible: nEFunapp")
+      | _ => fail (locs, «Impossible: nEFunapp»)
     else if nterm = INL nEApp then
       case args of
-        [arg] => ptree_Expr arg
-      | _ => fail (locs, "Impossible: nEApp")
+        [arg] =>
+          ptree_Expr nELazy arg ++
+          ptree_Expr nEAssert arg ++
+          ptree_Expr nEConstr arg ++
+          ptree_Expr nEFunapp arg ++
+          ptree_Expr nEBase arg
+      | _ => fail (locs, «Impossible: nEApp»)
     else if nterm = INL nEPrefix then
       case args of
         [pref; expr] =>
@@ -996,18 +1036,18 @@ Definition ptree_Expr_def:
             lf <- destLf pref;
             tk <- option $ destTOK lf;
             sym <- option $ destSymbol tk;
-            x <- ptree_Expr expr;
+            x <- ptree_Expr nEApp expr;
             return (App Opapp [Var (Short sym); x])
           od
-      | [arg] => ptree_Expr arg
-      | _ => fail (locs, "Impossible: nEPrefix")
+      | [arg] => ptree_Expr nEApp arg
+      | _ => fail (locs, «Impossible: nEPrefix»)
     else if nterm = INL nENeg then
       case args of
         [pref; expr] =>
           do
             lf <- destLf pref;
             tk <- option $ destTOK lf;
-            x <- ptree_Expr expr;
+            x <- ptree_Expr nEPrefix expr;
             if tk = MinusT then
               return (App (Opn Minus) [Lit (IntLit 0i); x])
             else if tk = MinusFT then
@@ -1016,58 +1056,108 @@ Definition ptree_Expr_def:
               let s = THE (destSymbol tk) in
                 return (App Opapp [Var (Short s); x])
             else
-              fail (locs, "Impossible: nEPrefix")
+              fail (locs, «Impossible: nEPrefix»)
           od
-      | [arg] => ptree_Expr arg
-      | _ => fail (locs, "Impossible: nEPrefix")
-    else if nterm = INL nEShift ∨
-            nterm = INL nEMult ∨
-            nterm = INL nEAdd ∨
-            nterm = INL nERel ∨
-            nterm = INL nEAnd ∨
-            nterm = INL nEOr then
+      | [arg] => ptree_Expr nEPrefix arg
+      | _ => fail (locs, «Impossible: nEPrefix»)
+    else if nterm = INL nEShift then
       case args of
-        [exp] => ptree_Expr exp
+        [exp] => ptree_Expr nENeg exp
       | [lhs; opn; rhs] =>
           do
-            x <- ptree_Expr lhs;
-            y <- ptree_Expr rhs;
+            x <- ptree_Expr nENeg lhs;
+            y <- ptree_Expr nEShift rhs;
             op <- ptree_Op opn;
             return (build_binop op x y)
           od
-      | _ => fail (locs, "Impossible: nEBinOp")
+      | _ => fail (locs, «Impossible: nEShift»)
+    else if nterm = INL nEMult then
+      case args of
+        [exp] => ptree_Expr nEShift exp
+      | [lhs; opn; rhs] =>
+          do
+            x <- ptree_Expr nEMult lhs;
+            y <- ptree_Expr nEShift rhs;
+            op <- ptree_Op opn;
+            return (build_binop op x y)
+          od
+      | _ => fail (locs, «Impossible: nMult»)
+    else if nterm = INL nEAdd then
+      case args of
+        [exp] => ptree_Expr nEMult exp
+      | [lhs; opn; rhs] =>
+          do
+            x <- ptree_Expr nEAdd lhs;
+            y <- ptree_Expr nEMult rhs;
+            op <- ptree_Op opn;
+            return (build_binop op x y)
+          od
+      | _ => fail (locs, «Impossible: nEAdd»)
     else if nterm = INL nECons then
       case args of
-        [exp] => ptree_Expr exp
+        [exp] => ptree_Expr nEAdd exp
       | [lhs; colons; rhs] =>
           do
             expect_tok colons ColonsT;
-            x <- ptree_Expr lhs;
-            y <- ptree_Expr rhs;
+            x <- ptree_Expr nEAdd lhs;
+            y <- ptree_Expr nECons rhs;
             return (Con (SOME (Short "::")) [x; y])
           od
-      | _ => fail (locs, "Impossible: nECons")
+      | _ => fail (locs, «Impossible: nECons»)
     else if nterm = INL nECat then
       case args of
-        [exp] => ptree_Expr exp
+        [exp] => ptree_Expr nECons exp
       | [lhs; opn; rhs] =>
           do
-            x <- ptree_Expr lhs;
-            y <- ptree_Expr rhs;
+            x <- ptree_Expr nECons lhs;
+            y <- ptree_Expr nECat rhs;
             return (build_funapp (Var (Long "String" (Short [CHR 94]))) [x; y])
           od
-      | _ => fail (locs, "Impossible: nECat")
+      | _ => fail (locs, «Impossible: nECat»)
+    else if nterm = INL nERel then
+      case args of
+        [exp] => ptree_Expr nECat exp
+      | [lhs; opn; rhs] =>
+          do
+            x <- ptree_Expr nERel lhs;
+            y <- ptree_Expr nECat rhs;
+            op <- ptree_Op opn;
+            return (build_binop op x y)
+          od
+      | _ => fail (locs, «Impossible: nERel»)
+    else if nterm = INL nEAnd then
+      case args of
+        [exp] => ptree_Expr nERel exp
+      | [lhs; opn; rhs] =>
+          do
+            x <- ptree_Expr nERel lhs;
+            y <- ptree_Expr nEAnd rhs;
+            op <- ptree_Op opn;
+            return (build_binop op x y)
+          od
+      | _ => fail (locs, «Impossible: nEAnd»)
+    else if nterm = INL nEOr then
+      case args of
+        [exp] => ptree_Expr nEAnd exp
+      | [lhs; opn; rhs] =>
+          do
+            x <- ptree_Expr nEAnd lhs;
+            y <- ptree_Expr nEOr rhs;
+            op <- ptree_Op opn;
+            return (build_binop op x y)
+          od
+      | _ => fail (locs, «Impossible: nEOr»)
     else if nterm = INL nEProd then
       case args of
-        [exp] => ptree_Expr exp
+        [exp] => ptree_Expr nEOr exp
       | [lhs; comma; rhs] =>
           do
             expect_tok comma CommaT;
-            x <- ptree_Expr lhs;
-            y <- ptree_Expr rhs;
+            x <- ptree_Expr nEOr lhs;
+            y <- ptree_Expr nEProd rhs;
             return (Con (SOME (Short ",")) [x; y])
           od
-      | _ => fail (locs, "Impossible: nEProd")
+      | _ => fail (locs, «Impossible: nEProd»)
     else if nterm = INL nEIf then
       case args of
         [ift; x; thent; y; elset; z] =>
@@ -1075,32 +1165,32 @@ Definition ptree_Expr_def:
             expect_tok ift IfT;
             expect_tok thent ThenT;
             expect_tok elset ElseT;
-            x1 <- ptree_Expr x;
-            y1 <- ptree_Expr y;
-            z1 <- ptree_Expr z;
+            x1 <- ptree_Expr nEProd x;
+            y1 <- ptree_Expr nEProd y;
+            z1 <- ptree_Expr nEProd z;
             return (If x1 y1 z1)
           od
       | [ift; x; thent; y] =>
           do
             expect_tok ift IfT;
             expect_tok thent ThenT;
-            x1 <- ptree_Expr x;
-            y1 <- ptree_Expr y;
+            x1 <- ptree_Expr nEProd x;
+            y1 <- ptree_Expr nEProd y;
             return (If x1 y1 (Con NONE []))
           od
-      | [exp] => ptree_Expr exp
-      | _ => fail (locs, "Impossible: nEIf")
+      | [exp] => ptree_Expr nEProd exp
+      | _ => fail (locs, «Impossible: nEIf»)
     else if nterm = INL nESeq then
       case args of
         [x; semi; y] =>
           do
             expect_tok semi SemiT;
-            x1 <- ptree_Expr x;
-            y1 <- ptree_Expr y;
+            x1 <- ptree_Expr nEIf x;
+            y1 <- ptree_Expr nESeq y;
             return (Let NONE x1 y1)
           od
-      | [x] => ptree_Expr x
-      | _ => fail (locs,"Impossible: nESeq")
+      | [x] => ptree_Expr nEIf x
+      | _ => fail (locs,«Impossible: nESeq»)
     else if nterm = INL nELet then
       case args of
         [lett; rec; binds; int; expr] =>
@@ -1109,7 +1199,7 @@ Definition ptree_Expr_def:
             expect_tok rec RecT;
             expect_tok int InT;
             binds <- ptree_LetRecBindings binds;
-            body <- ptree_Expr expr;
+            body <- ptree_Expr nExpr expr;
             return (build_letrec binds body)
           od
       | [lett; binds; int; expr] =>
@@ -1117,21 +1207,21 @@ Definition ptree_Expr_def:
             expect_tok lett LetT;
             expect_tok int InT;
             binds <- ptree_LetBindings binds;
-            body <- ptree_Expr expr;
+            body <- ptree_Expr nExpr expr;
             return (build_lets body binds)
           od
-      | _ => fail (locs, "Impossible: nELet")
+      | _ => fail (locs, «Impossible: nELet»)
     else if nterm = INL nEMatch then
       case args of
         [match; expr; witht; pmatch] =>
           do
             expect_tok match MatchT;
             expect_tok witht WithT;
-            x <- ptree_Expr expr;
+            x <- ptree_Expr nExpr expr;
             ps <- ptree_PatternMatch pmatch;
             return (build_match "" (flatten_pmatch ps) x)
           od
-      | _ => fail (locs, "Impossible: nEMatch")
+      | _ => fail (locs, «Impossible: nEMatch»)
     else if nterm = INL nEFun then
       case args of
         [funt; params; rarrow; expr] =>
@@ -1139,7 +1229,7 @@ Definition ptree_Expr_def:
             expect_tok funt FunT;
             expect_tok rarrow RarrowT;
             ps <- ptree_Patterns params;
-            x <- ptree_Expr expr;
+            x <- ptree_Expr nExpr expr;
             return (Fun "" (Mat (Var (Short ""))
                            (MAP (λps. case ps of
                                         [] => (Pany, Var (Short ""))
@@ -1152,7 +1242,7 @@ Definition ptree_Expr_def:
             expect_tok funt FunT;
             expect_tok rarrow RarrowT;
             ps <- ptree_Patterns params;
-            x <- ptree_Expr expr;
+            x <- ptree_Expr nExpr expr;
             ty <- ptree_Type typ;
             return (Tannot (Fun "" (Mat (Var (Short ""))
                                    (MAP (λps. case ps of
@@ -1162,7 +1252,7 @@ Definition ptree_Expr_def:
                                                   (p, build_fun_lam x ps))
                                         ps))) ty)
           od
-      | _ => fail (locs, "Impossible: nEFun")
+      | _ => fail (locs, «Impossible: nEFun»)
     else if nterm = INL nEFunction then
       case args of
         [funct; pmatch] =>
@@ -1171,18 +1261,18 @@ Definition ptree_Expr_def:
             ps <- ptree_PatternMatch pmatch;
             return (build_function "" (flatten_pmatch ps))
           od
-      | _ => fail (locs, "Impossible: nEFunction")
+      | _ => fail (locs, «Impossible: nEFunction»)
     else if nterm = INL nETry then
       case args of
         [tryt; expr; witht; pmatch] =>
           do
             expect_tok tryt TryT;
             expect_tok witht WithT;
-            x <- ptree_Expr expr;
+            x <- ptree_Expr nExpr expr;
             ps <- return []; (* ptree_PatternMatch pmatch; *)
             return (build_handle "" (flatten_pmatch ps) x)
           od
-      | _ => fail (locs, "Impossible: nETry")
+      | _ => fail (locs, «Impossible: nETry»)
     else if nterm = INL nEWhile then
       case args of
         [while; expr; dot; body; donet] =>
@@ -1190,11 +1280,11 @@ Definition ptree_Expr_def:
             expect_tok while WhileT;
             expect_tok dot DoT;
             expect_tok donet DoneT;
-            x <- ptree_Expr expr;
-            b <- ptree_Expr body;
+            x <- ptree_Expr nExpr expr;
+            b <- ptree_Expr nExpr body;
             return (build_funapp (Var (Short "while")) [x; b])
           od
-      | _ => fail (locs, "Impossible: nEWhile")
+      | _ => fail (locs, «Impossible: nEWhile»)
     else if nterm = INL nEFor then
       case args of
         [for; ident; eq; ubd; updown; lbd; dot; body; donet] =>
@@ -1205,20 +1295,20 @@ Definition ptree_Expr_def:
             lf <- destLf updown;
             tk <- option $ destTOK lf;
             (if tk = ToT ∨ tk = DowntoT then return () else
-              fail (locs, "Expected 'to' or 'downto'"));
+              fail (locs, «Expected 'to' or 'downto'»));
             id <- ptree_ValueName ident;
-            u <- ptree_Expr ubd;
-            l <- ptree_Expr lbd;
-            b <- ptree_Expr body;
+            u <- ptree_Expr nExpr ubd;
+            l <- ptree_Expr nExpr lbd;
+            b <- ptree_Expr nExpr body;
             return (build_funapp (Var (Short "for"))
                                  [bool_to_exp (tk = ToT);
                                   Var (Short id); u; l; b])
           od
-      | _ => fail (locs, "Impossible: nEFor")
+      | _ => fail (locs, «Impossible: nEFor»)
     else
-      fail (locs, "Expected a for non-terminal")) ∧
+      fail (locs, «Expected a for non-terminal»)) ∧
   (ptree_LetRecBinding (Lf (_, locs)) =
-    fail (locs, "Expected a let rec binding non-terminal")) ∧
+    fail (locs, «Expected a let rec binding non-terminal»)) ∧
   (ptree_LetRecBinding (Nd (nterm, locs) args) =
     if nterm = INL nLetRecBinding then
       case args of
@@ -1229,28 +1319,28 @@ Definition ptree_Expr_def:
             nm <- ptree_ValueName id;
             ps <- ptree_Patterns pats;
             ty <- ptree_Type type;
-            bd <- ptree_Expr expr;
+            bd <- ptree_Expr nExpr expr;
             case ps of
               [p] => return (nm, p, Tannot bd ty)
             | _ =>
-                fail (locs, "Or-patterns are not allowed in let rec bindings")
+                fail (locs, «Or-patterns are not allowed in let rec bindings»)
           od
       | [id; pats; eq; expr] =>
           do
             expect_tok eq EqualT;
             nm <- ptree_ValueName id;
             ps <- ptree_Patterns pats;
-            bd <- ptree_Expr expr;
+            bd <- ptree_Expr nExpr expr;
             case ps of
               [p] => return (nm, p, bd)
             | _ =>
-              fail (locs, "Or-patterns are not allowed in let rec bindings")
+              fail (locs, «Or-patterns are not allowed in let rec bindings»)
           od
-      | _ => fail (locs, "Impossible: nLetRecBinding")
+      | _ => fail (locs, «Impossible: nLetRecBinding»)
     else
-      fail (locs, "Expected a let rec binding non-terminal")) ∧
+      fail (locs, «Expected a let rec binding non-terminal»)) ∧
   (ptree_LetRecBindings (Lf (_, locs)) =
-      fail (locs, "Expected a list of let rec bindings non-terminal")) ∧
+      fail (locs, «Expected a list of let rec bindings non-terminal»)) ∧
   (ptree_LetRecBindings (Nd (nterm, locs) args) =
     if nterm = INL nLetRecBindings then
       case args of
@@ -1263,11 +1353,11 @@ Definition ptree_Expr_def:
             rs <- ptree_LetRecBindings recs;
             return (r::rs)
           od
-      | _ => fail (locs, "Impossible: nLetRecBindings")
+      | _ => fail (locs, «Impossible: nLetRecBindings»)
     else
-      fail (locs, "Expected a list of let rec bindings non-terminal")) ∧
+      fail (locs, «Expected a list of let rec bindings non-terminal»)) ∧
   (ptree_LetBinding (Lf (_, locs)) =
-    fail (locs, "Expected a let binding non-terminal")) ∧
+    fail (locs, «Expected a let binding non-terminal»)) ∧
   (ptree_LetBinding (Nd (nterm, locs) args) =
     if nterm = INL nLetBinding then
       case args of
@@ -1275,22 +1365,22 @@ Definition ptree_Expr_def:
           do
             expect_tok eq EqualT;
             ps <- ptree_Pattern pat;
-            x <- ptree_Expr bod;
+            x <- ptree_Expr nExpr bod;
             case ps of
               [p] => return (INL (p, x))
             | _ =>
-              fail (locs, "Or-patterns are not allowed in let bindings")
+              fail (locs, «Or-patterns are not allowed in let bindings»)
           od
       | [id; pats; eq; bod] =>
           do
             expect_tok eq EqualT;
             nm <- ptree_ValueName id;
             ps <- ptree_Patterns pats;
-            x <- ptree_Expr bod;
+            x <- ptree_Expr nExpr bod;
             case ps of
               [p] => return (INR (nm, p, x))
             | _ =>
-              fail (locs, "Or-patterns are not allowed in let bindings")
+              fail (locs, «Or-patterns are not allowed in let bindings»)
           od
       | [id; pats; colon; typ; eq; bod] =>
           do
@@ -1299,15 +1389,15 @@ Definition ptree_Expr_def:
             nm <- ptree_ValueName id;
             ps <- ptree_Patterns pats;
             if EVERY (λp. LENGTH p = 1) ps then INR () else
-              fail (locs, "Or-patterns are not allowed in let bindings");
-            x <- ptree_Expr bod;
+              fail (locs, «Or-patterns are not allowed in let bindings»);
+            x <- ptree_Expr nExpr bod;
             return (INR (nm, MAP (λp. case p of [] => Pany | p::_ => p) ps, x))
           od
-      | _ => fail (locs, "Impossible: nLetBinding")
+      | _ => fail (locs, «Impossible: nLetBinding»)
     else
-      fail (locs, "Expected a let binding non-terminal")) ∧
+      fail (locs, «Expected a let binding non-terminal»)) ∧
   (ptree_LetBindings (Lf (_, locs)) =
-     fail (locs, "Expected a list of let bindings non-terminal")) ∧
+     fail (locs, «Expected a list of let bindings non-terminal»)) ∧
   (ptree_LetBindings (Nd (nterm, locs) args) =
     if nterm = INL nLetBindings then
       case args of
@@ -1320,11 +1410,11 @@ Definition ptree_Expr_def:
             rs <- ptree_LetBindings lets;
             return (r::rs)
           od
-      | _ => fail (locs, "Impossible: nLetBindings")
+      | _ => fail (locs, «Impossible: nLetBindings»)
     else
-      fail (locs, "Expected a list of let bindings non-terminal")) ∧
+      fail (locs, «Expected a list of let bindings non-terminal»)) ∧
   (ptree_PatternMatches (Lf (_, locs)) =
-    fail (locs, "Expected a pattern-matches non-terminal")) ∧
+    fail (locs, «Expected a pattern-matches non-terminal»)) ∧
   (ptree_PatternMatches (Nd (nterm, locs) args) =
     if nterm = INL nPatternMatches then
       case args of
@@ -1335,15 +1425,15 @@ Definition ptree_Expr_def:
               expect_tok rarrow RarrowT;
               expect_tok whent WhenT;
               p <- ptree_Pattern pat;
-              x <- ptree_Expr body;
-              w <- ptree_Expr whenx;
+              x <- ptree_Expr nExpr body;
+              w <- ptree_Expr nExpr whenx;
               return [p, x, SOME w]
             od ++
           let pat = a; rarrow = b; body = c; bar = d; pms = e in
             do
               expect_tok rarrow RarrowT;
               p <- ptree_Pattern pat;
-              x <- ptree_Expr body;
+              x <- ptree_Expr nExpr body;
               expect_tok bar BarT;
               ps <- ptree_PatternMatch pms;
               return ((p, x, NONE)::ps)
@@ -1353,8 +1443,8 @@ Definition ptree_Expr_def:
             expect_tok rarrow RarrowT;
             expect_tok whent WhenT;
             p <- ptree_Pattern pat;
-            x <- ptree_Expr body;
-            w <- ptree_Expr whenx;
+            x <- ptree_Expr nExpr body;
+            w <- ptree_Expr nExpr whenx;
             expect_tok bar BarT;
             ps <- ptree_PatternMatches pms;
             return ((p, x, SOME w)::ps)
@@ -1363,14 +1453,14 @@ Definition ptree_Expr_def:
           do
             expect_tok rarrow RarrowT;
             p <- ptree_Pattern pat;
-            x <- ptree_Expr body;
+            x <- ptree_Expr nExpr body;
             return [p, x, NONE]
           od
-      | _ => fail (locs, "Impossible: nPatternMatches")
+      | _ => fail (locs, «Impossible: nPatternMatches»)
     else
-      fail (locs, "Expected a pattern-matches non-terminal")) ∧
+      fail (locs, «Expected a pattern-matches non-terminal»)) ∧
   (ptree_PatternMatch (Lf (_, locs)) =
-    fail (locs, "Expected a pattern-match non-terminal")) ∧
+    fail (locs, «Expected a pattern-match non-terminal»)) ∧
   (ptree_PatternMatch (Nd (nterm, locs) args) =
     if nterm = INL nPatternMatch then
       case args of
@@ -1380,11 +1470,11 @@ Definition ptree_Expr_def:
             ptree_PatternMatches pms
           od
       | [pms] => ptree_PatternMatches pms
-      | _ => fail (locs, "Impossible: nPatternMatch")
+      | _ => fail (locs, «Impossible: nPatternMatch»)
     else
-      fail (locs, "Expected a pattern-match non-terminal")) ∧
+      fail (locs, «Expected a pattern-match non-terminal»)) ∧
   (ptree_ESemiSep (Lf (_, locs)) =
-    fail (locs, "Expected a semicolon separated expressions non-terminal")) ∧
+    fail (locs, «Expected a semicolon separated expressions non-terminal»)) ∧
   (ptree_ESemiSep (Nd (nterm, locs) args) =
     if nterm = INL nESemiSep then
       case args of
@@ -1396,19 +1486,19 @@ Definition ptree_Expr_def:
       | [semi; expr] =>
           do
             expect_tok semi SemiT;
-            x <- ptree_Expr expr;
+            x <- ptree_Expr nExpr expr;
             return [x]
           od
       | [semi; expr; exprs] =>
           do
             expect_tok semi SemiT;
-            x <- ptree_Expr expr;
+            x <- ptree_Expr nExpr expr;
             xs <- ptree_ESemiSep exprs;
             return (x::xs)
           od
-      | _ => fail (locs, "Impossible: nESemiSep")
+      | _ => fail (locs, «Impossible: nESemiSep»)
     else
-      fail (locs, "Expected a semicolon separated expressions non-terminal"))
+      fail (locs, «Expected a semicolon separated expressions non-terminal»))
 End
 
 (* Tidy up the list bits of the induction theorem.
@@ -1432,7 +1522,7 @@ End
 
 Definition ptree_ConstrArgs_def:
   ptree_ConstrArgs (Lf (_, locs)) =
-    fail (locs, "Expected a constructor arguments non-terminal") ∧
+    fail (locs, «Expected a constructor arguments non-terminal») ∧
   ptree_ConstrArgs (Nd (nterm, locs) args) =
     if nterm = INL nConstrArgs then
       case args of
@@ -1442,14 +1532,14 @@ Definition ptree_ConstrArgs_def:
             ts <- ptree_StarTypes rest;
             return (t::ts)
           od
-      | _ => fail (locs, "Impossible: nConstrArgs")
+      | _ => fail (locs, «Impossible: nConstrArgs»)
     else
-      fail (locs, "Expected a constructor arguments non-terminal")
+      fail (locs, «Expected a constructor arguments non-terminal»)
 End
 
 Definition ptree_ConstrDecl_def:
   ptree_ConstrDecl (Lf (_, locs)) =
-    fail (locs, "Expected a constructor declaration non-terminal") ∧
+    fail (locs, «Expected a constructor declaration non-terminal») ∧
   ptree_ConstrDecl (Nd (nterm, locs) args) =
     if nterm = INL nConstrDecl then
       case args of
@@ -1462,14 +1552,14 @@ Definition ptree_ConstrDecl_def:
             ts <- ptree_ConstrArgs args;
             return (nm, ts)
           od
-      | _ => fail (locs, "Impossible: nConstrDecl")
+      | _ => fail (locs, «Impossible: nConstrDecl»)
     else
-      fail (locs, "Expected a constructor declaration non-terminal")
+      fail (locs, «Expected a constructor declaration non-terminal»)
 End
 
 Definition ptree_ExcDefinition_def:
   ptree_ExcDefinition (Lf (_, locs)) =
-    fail (locs, "Expected an exception definition non-terminal") ∧
+    fail (locs, «Expected an exception definition non-terminal») ∧
   ptree_ExcDefinition (Nd (nterm, locs) args) =
     if nterm = INL nExcDefinition then
       case args of
@@ -1488,9 +1578,9 @@ Definition ptree_ExcDefinition_def:
             rhs <- path_to_ns locs cns;
             return (Dexn locs lhs [Atapp [] rhs])
           od
-      | _ => fail (locs, "Impossible: nExcDefinition")
+      | _ => fail (locs, «Impossible: nExcDefinition»)
     else
-      fail (locs, "Expected an exception definition non-terminal")
+      fail (locs, «Expected an exception definition non-terminal»)
 End
 
 (* ptree_TypeRepr picks out constructor declarations and returns
@@ -1500,7 +1590,7 @@ End
 
 Definition ptree_TypeRepr_def:
   ptree_TypeRepr (Lf (_, locs)) =
-    fail (locs, "Expected a type-repr non-terminal") ∧
+    fail (locs, «Expected a type-repr non-terminal») ∧
   ptree_TypeRepr (Nd (nterm, locs) args) =
     if nterm = INL nTypeRepr then
       case args of
@@ -1527,7 +1617,7 @@ Definition ptree_TypeRepr_def:
             tr <- ptree_ConstrDecl cdecl;
             return [tr]
           od
-      | _ => fail (locs, "Impossible: nTypeRepr")
+      | _ => fail (locs, «Impossible: nTypeRepr»)
     else if nterm = INL nTypeRepr then
       case args of
         [bart; cdecl] =>
@@ -1543,14 +1633,14 @@ Definition ptree_TypeRepr_def:
             trs <- ptree_TypeRepr tyreps;
             return (ts::trs)
           od
-      | _ => fail (locs, "Impossible: nTypeReprs")
+      | _ => fail (locs, «Impossible: nTypeReprs»)
     else
-      fail (locs, "Expected a type-repr non-terminal")
+      fail (locs, «Expected a type-repr non-terminal»)
 End
 
 Definition ptree_TypeInfo_def:
   ptree_TypeInfo (Lf (_, locs)) =
-    fail (locs, "Expected a type-info non-terminal") ∧
+    fail (locs, «Expected a type-info non-terminal») ∧
   ptree_TypeInfo (Nd (nterm, locs) args) =
     if nterm = INL nTypeInfo then
       case args of
@@ -1561,14 +1651,14 @@ Definition ptree_TypeInfo_def:
             expect_tok eq EqualT;
             fmap INL $ ptree_Type ty
           od
-      | _ => fail (locs, "Impossible: nTypeInfo")
+      | _ => fail (locs, «Impossible: nTypeInfo»)
     else
-      fail (locs, "Expected a type-info non-terminal")
+      fail (locs, «Expected a type-info non-terminal»)
 End
 
 Definition ptree_TypeName_def:
   ptree_TypeName (Lf (_, locs)) =
-    fail (locs, "Expected type variable non-terminal") ∧
+    fail (locs, «Expected type variable non-terminal») ∧
   ptree_TypeName (Nd (nterm, locs) args) =
     if nterm = INL nTVar then
       case args of
@@ -1577,14 +1667,14 @@ Definition ptree_TypeName_def:
             expect_tok tick TickT;
             ptree_Ident id
           od
-      | _ => fail (locs, "Impossible: nTVar")
+      | _ => fail (locs, «Impossible: nTVar»)
     else
-      fail (locs, "Expected type variable non-terminal")
+      fail (locs, «Expected type variable non-terminal»)
 End
 
 Definition ptree_TypeParamList_def:
   ptree_TypeParamList [] =
-    fail (unknown_loc, "Empty type parameters are not supported") ∧
+    fail (unknown_loc, «Empty type parameters are not supported») ∧
   ptree_TypeParamList [t] =
     do
       expect_tok t RparT;
@@ -1604,7 +1694,7 @@ End
 
 Definition ptree_TypeParams_def:
   ptree_TypeParams (Lf (_, locs)) =
-    fail (locs, "Expected a type-parameters non-terminal") ∧
+    fail (locs, «Expected a type-parameters non-terminal») ∧
   ptree_TypeParams (Nd (nterm, locs) args) =
     if nterm = INL nTypeParams then
       case args of
@@ -1617,14 +1707,14 @@ Definition ptree_TypeParams_def:
             ts <- ptree_TypeParamList rest;
             return (tn::ts)
           od
-      | _ => fail (locs, "Impossible: nTypeParams")
+      | _ => fail (locs, «Impossible: nTypeParams»)
     else
-      fail (locs, "Expected a type-parameters non-terminal")
+      fail (locs, «Expected a type-parameters non-terminal»)
 End
 
 Definition ptree_TypeDef_def:
   ptree_TypeDef (Lf (_, locs)) =
-    fail (locs, "Expected a typedef non-terminal") ∧
+    fail (locs, «Expected a typedef non-terminal») ∧
   ptree_TypeDef (Nd (nterm, locs) args) =
     if nterm = INL nTypeDef then
       case args of
@@ -1641,14 +1731,14 @@ Definition ptree_TypeDef_def:
             trs <- ptree_TypeInfo info;
             return (locs, [], nm, trs)
           od
-      | _ => fail (locs, "Impossible: nTypeDef")
+      | _ => fail (locs, «Impossible: nTypeDef»)
     else
-      fail (locs, "Expected a typedef non-terminal")
+      fail (locs, «Expected a typedef non-terminal»)
 End
 
 Definition ptree_TypeDefs_def:
   ptree_TypeDefs (Lf (_, locs)) =
-    fail (locs, "Expected a typedef:s non-terminal") ∧
+    fail (locs, «Expected a typedef:s non-terminal») ∧
   ptree_TypeDefs (Nd (nterm, locs) args) =
     if nterm = INL nTypeDefs then
       case args of
@@ -1661,9 +1751,9 @@ Definition ptree_TypeDefs_def:
             ts <- ptree_TypeDefs tds;
             return (t::ts)
           od
-      | _ => fail (locs, "Impossible: nTypeDefs")
+      | _ => fail (locs, «Impossible: nTypeDefs»)
     else
-      fail (locs, "Expected a typedef:s non-terminal")
+      fail (locs, «Expected a typedef:s non-terminal»)
 End
 
 (* Ocaml datatype definitions and type abbreviations can be made mutually
@@ -1674,7 +1764,7 @@ End
 
 Definition ptree_TypeDefinition_def:
   ptree_TypeDefinition (Lf (_, locs)) =
-    fail (locs, "Expected a type definition non-terminal") ∧
+    fail (locs, «Expected a type definition non-terminal») ∧
   ptree_TypeDefinition (Nd (nterm, locs) args) =
     if nterm = INL nTypeDefinition then
       case args of
@@ -1690,9 +1780,9 @@ Definition ptree_TypeDefinition_def:
               return $ [Dtype locs (MAP (λ(_,tys,nm,trs). (tys,nm,OUTR trs))
                                         tdefs)]
             else
-              fail (locs,
-                    "Type abbreviations and datatype definitions cannot be" ++
-                    " mutually recursive in CakeML")
+              fail (locs, concat [
+                    «Type abbreviations and datatype definitions cannot be»;
+                    « mutually recursive in CakeML»])
           od
       | [typet; tds] =>
           do
@@ -1706,9 +1796,9 @@ Definition ptree_TypeDefinition_def:
               Dtype locs (MAP (λ(_,tys,nm,trs). (tys,nm,OUTR trs)) datas);
             return (datas::abbrevs)
           od
-      | _ => fail (locs, "Impossible: nTypeDefinition")
+      | _ => fail (locs, «Impossible: nTypeDefinition»)
     else
-      fail (locs, "Expected a type definition non-terminal")
+      fail (locs, «Expected a type definition non-terminal»)
 End
 
 (* Build a top-level letrec out of a list of let rec-bindings.
@@ -1738,12 +1828,12 @@ End
 
 Definition ptree_Definition_def:
   (ptree_Definition (Lf (_, locs)) =
-    fail (locs, "Expected a top-level definition non-terminal")) ∧
+    fail (locs, «Expected a top-level definition non-terminal»)) ∧
   (ptree_Definition (Nd (nterm, locs) args) =
     if nterm = INL nDefinition then
       case args of
         [arg] => ptree_Definition arg
-      | _ => fail (locs, "Impossible: nDefinition")
+      | _ => fail (locs, «Impossible: nDefinition»)
     else if nterm = INL nTopLet then
       case args of
         [lett; lbs] =>
@@ -1752,7 +1842,7 @@ Definition ptree_Definition_def:
             binds <- ptree_LetBindings lbs;
             return (build_dlet locs binds)
           od
-      | _ => fail (locs, "Impossible: nTopLet")
+      | _ => fail (locs, «Impossible: nTopLet»)
     else if nterm = INL nTopLetRec then
       case args of
         [lett; rect; lbs] =>
@@ -1762,13 +1852,13 @@ Definition ptree_Definition_def:
             binds <- ptree_LetRecBindings lbs;
             return [build_dletrec locs binds]
           od
-      | _ => fail (locs, "Impossible: nTopLetRec")
+      | _ => fail (locs, «Impossible: nTopLetRec»)
     else if nterm = INL nTypeDefinition then
       ptree_TypeDefinition (Nd (nterm, locs) args)
     else if nterm = INL nExcDefinition then
       fmap (λd. [d]) $ ptree_ExcDefinition (Nd (nterm, locs) args)
     else if nterm = INL nOpen then
-      fail (locs, "open-declarations are not supported (yet)")
+      fail (locs, «open-declarations are not supported (yet)»)
     else if nterm = INL nModuleDef then
       case args of
         [modt; modid; eq; mexpr] =>
@@ -1779,15 +1869,15 @@ Definition ptree_Definition_def:
             mx <- ptree_ModExpr mexpr;
             case mx of
               INL name =>
-                fail (locs, "Structure assignment is not supported (yet?)")
+                fail (locs, «Structure assignment is not supported (yet?)»)
             | INR decs =>
                 return [Dmod nm decs]
           od
-      | _ => fail (locs, "Impossible: nModuleDef")
+      | _ => fail (locs, «Impossible: nModuleDef»)
     else
-      fail (locs, "Expected a top-level definition non-terminal")) ∧
+      fail (locs, «Expected a top-level definition non-terminal»)) ∧
   (ptree_ModExpr (Lf (_, locs)) =
-    fail (locs, "Expected a module expression non-terminal")) ∧
+    fail (locs, «Expected a module expression non-terminal»)) ∧
   (ptree_ModExpr (Nd (nterm, locs) args) =
     if nterm = INL nModExpr then
       case args of
@@ -1799,18 +1889,18 @@ Definition ptree_Definition_def:
             is <- ptree_ModuleItems its;
             return (INR is)
           od
-      | _ => fail (locs, "Impossible: nModExpr")
+      | _ => fail (locs, «Impossible: nModExpr»)
     else
-      fail (locs, "Expected a module expression non-terminal")) ∧
+      fail (locs, «Expected a module expression non-terminal»)) ∧
   (ptree_ModuleItems (Lf (_, locs)) =
-    fail (locs, "Expected a module item list non-terminal")) ∧
+    fail (locs, «Expected a module item list non-terminal»)) ∧
   (ptree_ModuleItems (Nd (nterm, locs) args) =
     if nterm = INL nModuleItems then
       ptree_Items args
     else
-      fail (locs, "Expected a module item list non-terminal")) ∧
+      fail (locs, «Expected a module item list non-terminal»)) ∧
   (ptree_Items [] =
-    fail (unknown_loc, "Empty module item lists are not supported")) ∧
+    fail (unknown_loc, «Empty module item lists are not supported»)) ∧
   (ptree_Items [t] =
     fmap (λx. []) (expect_tok t SemisT) ++
     ptree_ModuleItem t) ∧
@@ -1821,26 +1911,26 @@ Definition ptree_Definition_def:
       return (i ++ is)
     od) ∧
   (ptree_ModuleItem (Lf (_, locs)) =
-    fail (locs, "Expected a module item non-terminal")) ∧
+    fail (locs, «Expected a module item non-terminal»)) ∧
   (ptree_ModuleItem (Nd (nterm, locs) args) =
     if nterm = INL nModuleItem then
       case args of
         [semis; exdef] =>
           do
             expect_tok semis SemiT;
-            x <- ptree_Expr exdef;
+            x <- ptree_Expr nExpr exdef;
             return [Dlet locs (Pvar "") x]
           od ++
           ptree_Definition exdef
       | [exdef] =>
           do
-            x <- ptree_Expr exdef;
+            x <- ptree_Expr nExpr exdef;
             return [Dlet locs (Pvar "") x]
           od ++
           ptree_Definition exdef
-      | _ => fail (locs, "Impossible: nModuleItem")
+      | _ => fail (locs, «Impossible: nModuleItem»)
     else
-      fail (locs, "Expected a module item non-terminal"))
+      fail (locs, «Expected a module item non-terminal»))
 Termination
   WF_REL_TAC ‘measure (sum_size psize (sum_size psize (sum_size psize
                       (sum_size p1size psize))))’
@@ -1848,15 +1938,15 @@ End
 
 Definition ptree_Start_def:
   ptree_Start (Lf (_, locs)) =
-    fail (locs, "Expected the start non-terminal") ∧
+    fail (locs, «Expected the start non-terminal») ∧
   ptree_Start (Nd (nterm, locs) args) =
     if nterm = INL nStart then
       case args of
         [] => return []
       | [modits] => ptree_ModuleItems modits
-      | _ => fail (locs, "Impossible: nStart")
+      | _ => fail (locs, «Impossible: nStart»)
     else
-      fail (locs, "Expected the start non-terminal")
+      fail (locs, «Expected the start non-terminal»)
 End
 
 val _ = export_theory ();
