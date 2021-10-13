@@ -380,7 +380,7 @@ Definition scan_number_def:
                       then (1, TL rest)
                       else (0, rest) in
         SOME (NumberS (to_int n),
-              Locs loc (next_loc (LENGTH cs' + offset + t) loc),
+              Locs loc (next_loc (LENGTH cs' + offset + t - 1) loc),
               rest)
 End
 
