@@ -390,24 +390,6 @@ Definition camlPEG_def[nocompute]:
        seql [pnt nModuleName; try (seql [tokeq DotT; pnt nModulePath] I)]
             (bindNT nModulePath));
       (* -- Definitions ---------------------------------------------------- *)
-      (*
-
-        module-items ::= {;;} (def | expr) { {;;} (def | ;; expr) } {;;}
-
-        module-items ::= {;;} (def | expr) [module-item] {;;}
-        module-item  ::= {;;} (def | ;; expr) [module-item]
-
-        ---
-
-        semis ::= seql [";;"; try semis]
-        expr-items ::= (try semis) expr
-        def-item ::= (try semis) def
-        expr-item ::= semis expr
-
-        module-items ::= (expr-items | def-item) [module-item] {;;}
-        module-item  ::= (expr-item | def-item) [module-item]
-
-       *)
       (INL nSemis,
        seql [tokeq SemisT; try (pnt nSemis)]
             (bindNT nSemis));
