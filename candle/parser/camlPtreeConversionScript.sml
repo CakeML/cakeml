@@ -208,6 +208,25 @@ Definition ptree_ModuleName_def:
       fail (locs, «Expected modulename non-terminal»)
 End
 
+Definition ptree_ModulePath_def:
+  ptree_ModulePath (Lf (_, locs)) =
+    fail (locs, «Expected module-path non-terminal») ∧
+  ptree_ModulePath (Nd (nterm, locs) args) =
+    if nterm = INL nModulePath then
+      case args of
+        [arg] => fmap (λx. [x]) $ ptree_ModuleName arg
+      | [path; dot; arg] =>
+          do
+            expect_tok dot DotT;
+            vp <- ptree_ModulePath path;
+            vn <- ptree_ModuleName arg;
+            return (vp ++ [vn])
+          od
+      | _ => fail (locs, «Impossible: nModulePath»)
+    else
+      fail (locs, «Expected module-path non-terminal»)
+End
+
 Definition ptree_ValuePath_def:
   ptree_ValuePath (Lf (_, locs)) =
     fail (locs, «Expected value-path non-terminal») ∧
@@ -218,7 +237,7 @@ Definition ptree_ValuePath_def:
       | [path; dot; arg] =>
           do
             expect_tok dot DotT;
-            vp <- ptree_ValuePath path;
+            vp <- ptree_ModulePath path;
             vn <- ptree_ValueName arg;
             return (vp ++ [vn])
           od
@@ -262,25 +281,6 @@ Definition ptree_TypeConstr_def:
       | _ => fail (locs, «Impossible: nTypeConstr»)
     else
       fail (locs, «Expected typeconstr non-terminal»)
-End
-
-Definition ptree_ModulePath_def:
-  ptree_ModulePath (Lf (_, locs)) =
-    fail (locs, «Expected module-path non-terminal») ∧
-  ptree_ModulePath (Nd (nterm, locs) args) =
-    if nterm = INL nModulePath then
-      case args of
-        [arg] => fmap (λx. [x]) $ ptree_ModuleName arg
-      | [path; dot; arg] =>
-          do
-            expect_tok dot DotT;
-            vp <- ptree_ModulePath path;
-            vn <- ptree_ModuleName arg;
-            return (vp ++ [vn])
-          od
-      | _ => fail (locs, «Impossible: nModulePath»)
-    else
-      fail (locs, «Expected module-path non-terminal»)
 End
 
 Definition ptree_TVar_def:
@@ -1861,37 +1861,6 @@ Definition ptree_Semis_def:
       fail (locs, «Expected a semicolons-list non-terminal»)
 End
 
-Definition ptree_ExprItem_def:
-  ptree_ExprItem (Lf (_, locs)) =
-    fail (locs, «Expected a expr-item(s) non-terminal») ∧
-  ptree_ExprItem (Nd (nterm, locs) args) =
-    if nterm = INL nExprItem then
-      case args of
-        [expr] =>
-          do
-            x <- ptree_Expr nExpr expr;
-            return [Dlet locs (Pvar "") x]
-          od
-      | [semis; expr] =>
-          do
-            ptree_Semis semis;
-            x <- ptree_Expr nExpr expr;
-            return [Dlet locs (Pvar "") x]
-          od
-      | _ => fail (locs, «Impossible: nExprItem»)
-    else if nterm = INL nExprItems then
-      case args of
-      | [semis; expr] =>
-          do
-            ptree_Semis semis;
-            x <- ptree_Expr nExpr expr;
-            return [Dlet locs (Pvar "") x]
-          od
-      | _ => fail (locs, «Impossible: nExprItem»)
-    else
-      fail (locs, «Expected a expr-item(s) non-terminal»)
-End
-
 Definition ptree_Definition_def:
   (ptree_Definition (Lf (_, locs)) =
     fail (locs, «Expected a top-level definition non-terminal»)) ∧
@@ -1963,13 +1932,10 @@ Definition ptree_Definition_def:
   (ptree_ModuleItems (Nd (nterm, locs) args) =
     if nterm = INL nModuleItems then
       case args of
-        [eord] =>
-            ptree_ExprItem eord ++
-            ptree_DefItem eord
+        [eord] => ptree_ExprOrDefn eord
       | [eord; mit] =>
           do
-            d <- ptree_ExprItem eord ++
-                 ptree_DefItem eord;
+            d <- ptree_ExprOrDefn eord;
             do
               ds <- ptree_ModuleItem mit;
               return (d ++ ds)
@@ -1981,8 +1947,7 @@ Definition ptree_Definition_def:
           od
       | [eord; mit; semis] =>
           do
-            d <- ptree_ExprItem eord ++
-                 ptree_DefItem eord;
+            d <- ptree_ExprOrDefn eord;
             ds <- ptree_ModuleItem mit;
             ptree_Semis semis;
             return (d ++ ds)
@@ -1995,22 +1960,43 @@ Definition ptree_Definition_def:
   (ptree_ModuleItem (Nd (nterm, locs) args) =
     if nterm = INL nModuleItem then
       case args of
-        [eord] => ptree_ExprItem eord ++
-                  ptree_DefItem eord
+        [eord] => ptree_ExprOrDefn eord
       | [eord; mit] =>
           do
-            d <- ptree_ExprItem eord ++
-                 ptree_DefItem eord;
+            d <- ptree_ExprOrDefn eord;
             ds <- ptree_ModuleItem mit;
             return (d ++ ds)
           od
       | _ => fail (locs, «Impossible: nModuleItem»)
     else
       fail (locs, «Expected a module item non-terminal»)) ∧
-  ptree_DefItem (Lf (_, locs)) =
-    fail (locs, «Expected a expr-item(s) non-terminal») ∧
-  ptree_DefItem (Nd (nterm, locs) args) =
-    if nterm = INL nDefItem then
+  (ptree_ExprOrDefn (Lf (_, locs)) =
+    fail (locs, «Expected a top-level expression/definition non-terminal»)) ∧
+  (ptree_ExprOrDefn (Nd (nterm, locs) args) =
+    if nterm = INL nExprItems then
+      case args of
+        [expr] =>
+          do
+            x <- ptree_Expr nExpr expr;
+            return [Dlet locs (Pvar "") x]
+          od
+      | [semis; expr] =>
+          do
+            ptree_Semis semis;
+            x <- ptree_Expr nExpr expr;
+            return [Dlet locs (Pvar "") x]
+          od
+      | _ => fail (locs, «Impossible: nExprItems»)
+    else if nterm = INL nExprItem then
+      case args of
+      | [semis; expr] =>
+          do
+            ptree_Semis semis;
+            x <- ptree_Expr nExpr expr;
+            return [Dlet locs (Pvar "") x]
+          od
+      | _ => fail (locs, «Impossible: nExprItem»)
+    else if nterm = INL nDefItem then
       case args of
         [defn] => ptree_Definition defn
       | [semis; defn] =>
@@ -2020,7 +2006,7 @@ Definition ptree_Definition_def:
           od
       | _ => fail (locs, «Impossible: nExprItem»)
     else
-      fail (locs, «Expected a expr-item(s) non-terminal»)
+      fail (locs, «Expected a top-level expression/definition non-terminal»))
 End
 
 Definition ptree_Start_def:
