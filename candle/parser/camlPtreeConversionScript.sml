@@ -1183,17 +1183,17 @@ Definition ptree_Expr_def:
             expect_tok ift IfT;
             expect_tok thent ThenT;
             expect_tok elset ElseT;
-            x1 <- ptree_Expr nEProd x;
-            y1 <- ptree_Expr nEProd y;
-            z1 <- ptree_Expr nEProd z;
+            x1 <- ptree_Expr nExpr x;
+            y1 <- ptree_Expr nExpr y;
+            z1 <- ptree_Expr nExpr z;
             return (If x1 y1 z1)
           od
       | [ift; x; thent; y] =>
           do
             expect_tok ift IfT;
             expect_tok thent ThenT;
-            x1 <- ptree_Expr nEProd x;
-            y1 <- ptree_Expr nEProd y;
+            x1 <- ptree_Expr nExpr x;
+            y1 <- ptree_Expr nExpr y;
             return (If x1 y1 (Con NONE []))
           od
       | [exp] => ptree_Expr nEProd exp

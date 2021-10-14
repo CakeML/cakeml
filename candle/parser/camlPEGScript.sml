@@ -624,8 +624,8 @@ Definition camlPEG_def[nocompute]:
       (* -- Expr3: assignments --------------------------------------------- *)
       (* -- Expr2 ---------------------------------------------------------- *)
       (INL nEIf,
-       pegf (choicel [seql [tokeq IfT; pnt nEProd; tokeq ThenT; pnt nEProd;
-                            try (seql [tokeq ElseT; pnt nEProd] I)] I;
+       pegf (choicel [seql [tokeq IfT; pnt nExpr; tokeq ThenT; pnt nExpr;
+                            try (seql [tokeq ElseT; pnt nExpr] I)] I;
                       pnt nEProd])
             (bindNT nEIf));
       (* -- Expr1 ---------------------------------------------------------- *)
