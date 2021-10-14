@@ -1024,18 +1024,12 @@ Definition ptree_Expr_def:
       | _ => fail (locs, «Impossible: nEConstr»)
     else if nterm = INL nEFunapp then
       case args of
-        [fexp; aexp] =>
+        [exp] => ptree_Expr nEBase exp
+      | [fexp; aexp] =>
           do
-            f <- ptree_Expr nEBase fexp;
+            f <- ptree_Expr nEFunapp fexp;
             x <- ptree_Expr nEBase aexp;
             return (build_funapp f [x])
-          od
-      | [fexp; aexp; fexps] =>
-          do
-            f <- ptree_Expr nEBase fexp;
-            x <- ptree_Expr nEBase aexp;
-            y <- ptree_Expr nEFunapp fexps;
-            return (build_funapp f [x; y])
           od
       | _ => fail (locs, «Impossible: nEFunapp»)
     else if nterm = INL nEApp then

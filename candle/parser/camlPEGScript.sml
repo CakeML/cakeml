@@ -521,7 +521,6 @@ Definition camlPEG_def[nocompute]:
       (INL nEList,
        seql [tokeq LbrackT; pnt nExpr; pnt nESemiSep; tokeq RbrackT]
             (bindNT nEList));
-      (* FIXME: true, false are not recognized as literals? *)
       (INL nLiteral,
        choicel [
          tok isInt    (bindNT nLiteral o mktokLf);
@@ -530,10 +529,6 @@ Definition camlPEG_def[nocompute]:
          tok (λx. MEM x [TrueT; FalseT]) (bindNT nLiteral o mktokLf)]);
       (INL nIdent,
        tok isIdent (bindNT nIdent o mktokLf));
-      (* FIXME: Module.x doesn't parse *)
-      (* FIXME: parenthesizing makes parser go really slow *)
-      (* FIXME: begin end unit not recognized because
-                it's not in the lexer apparently *)
       (INL nEBase,
        choicel [
          pegf (pnt nLiteral) (bindNT nEBase);
@@ -555,9 +550,12 @@ Definition camlPEG_def[nocompute]:
       (INL nEConstr,
        seql [pnt nConstr; pnt nEBase] (bindNT nEConstr));
       (INL nEFunapp,
-       seql [pnt nEBase; pnt nEBase; try (pnt nEFunapp)]
-            (bindNT nEFunapp));
-      (INL nEApp, (* TODO treat assert/lazy as regular apps *)
+       seql [pnt nEBase; rpt (pnt nEBase) FLAT]
+            (λl. case l of
+                   [] => []
+                 | h::t => [FOLDL (λa b. mkNd (INL nEFunapp) [a; b])
+                                  (mkNd (INL nEFunapp) [h]) t]));
+      (INL nEApp,
        pegf (choicel (MAP pnt [nELazy; nEAssert; nEConstr; nEFunapp; nEBase]))
             (bindNT nEApp));
       (* -- Expr14 --------------------------------------------------------- *)
