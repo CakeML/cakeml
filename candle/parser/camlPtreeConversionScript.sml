@@ -218,12 +218,12 @@ Definition ptree_ModulePath_def:
     if nterm = INL nModulePath then
       case args of
         [arg] => fmap (λx. [x]) $ ptree_ModuleName arg
-      | [path; dot; arg] =>
+      | [arg; dot; path] =>
           do
             expect_tok dot DotT;
             vp <- ptree_ModulePath path;
             vn <- ptree_ModuleName arg;
-            return (vp ++ [vn])
+            return (vn::vp)
           od
       | _ => fail (locs, «Impossible: nModulePath»)
     else
@@ -258,7 +258,7 @@ Definition ptree_Constr_def:
       | [path; dot; arg] =>
           do
             expect_tok dot DotT;
-            vp <- ptree_Constr path;
+            vp <- ptree_ModulePath path;
             vn <- ptree_ConstrName arg;
             return (vp ++ [vn])
           od
@@ -277,7 +277,7 @@ Definition ptree_TypeConstr_def:
       | [path; dot; arg] =>
           do
             expect_tok dot DotT;
-            vp <- ptree_TypeConstr path;
+            vp <- ptree_ModulePath path;
             vn <- ptree_TypeConstrName arg;
             return (vp ++ [vn])
           od
