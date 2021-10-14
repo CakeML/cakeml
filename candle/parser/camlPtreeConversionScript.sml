@@ -688,7 +688,7 @@ Definition ptree_Pattern_def:
             expect_tok comma CommaT;
             ps <- ptree_Pattern p1;
             qs <- ptree_Pattern p2;
-            return (MAP (λ(p,q). Pcon (SOME (Short ",")) [p; q])
+            return (MAP (λ(p,q). Pcon NONE [p; q])
                         (cart_prod ps qs))
           od
       | _ => fail (locs, «Impossible: nPProd»)
@@ -1173,7 +1173,7 @@ Definition ptree_Expr_def:
             expect_tok comma CommaT;
             x <- ptree_Expr nEOr lhs;
             y <- ptree_Expr nEProd rhs;
-            return (Con (SOME (Short ",")) [x; y])
+            return (Con NONE [x; y])
           od
       | _ => fail (locs, «Impossible: nEProd»)
     else if nterm = INL nEIf then
