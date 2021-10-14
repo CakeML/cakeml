@@ -172,12 +172,9 @@ Definition idChar_def:
   idChar P = EVERY (λc. P c ∨ c = #"_" ∨ c = #"'" ∨ isDigit c)
 End
 
-Definition identUpper_def:
-  identUpper s ⇔
-    s ≠ "" ∧
-    isUpper (HD s) ∧
-    idChar isAlpha (TL s)
-End
+(* Modules and type constructors according to HOL light are words that start
+ * with a capital letter and then only lowercase letters, digits or ticks.
+ *)
 
 Definition identUpperLower_def:
   identUpperLower s ⇔
@@ -186,19 +183,20 @@ Definition identUpperLower_def:
     idChar isLower (TL s)
 End
 
-Definition identAllUpper_def:
-  identAllUpper s ⇔
+(* Names of values according to HOL light are all combinations of identifier
+ * characters (alphanumerics, underscore and tick) _except_ those that are
+ * module names or type constructors: if the name starts with an uppercase
+ * letter then the rest must contain at least one uppercase letter.
+ *)
+
+Definition identMixed_def:
+  identMixed s ⇔
     s ≠ "" ∧
-    isUpper (HD s) ∧
-    idChar isUpper (TL s)
+    idChar isAlpha (TL s) ∧
+    ((isLower (HD s) ∨ HD s = #"_") ∨
+     (isUpper (HD s) ∧ EXISTS isUpper (TL s)))
 End
 
-Definition identLower_def:
-  identLower s ⇔
-    s ≠ "" ∧
-    (isLower (HD s) ∨ HD s = #"_") ∧
-    idChar isAlpha (TL s)
-End
 
 Datatype:
   camlNT =
@@ -359,7 +357,7 @@ Definition camlPEG_def[nocompute]:
     rules := FEMPTY |++ [
       (* -- Names and paths ------------------------------------------------ *)
       (INL nValueName,
-       choicel [pegf (tokIdP identLower) (bindNT nValueName);
+       choicel [pegf (tokIdP identMixed) (bindNT nValueName);
                 seql [tokeq LparT; pnt nOperatorName; tokeq RparT]
                      (bindNT nValueName)]);
       (INL nOperatorName,
@@ -374,7 +372,7 @@ Definition camlPEG_def[nocompute]:
       (INL nConstrName,
        pegf (tokIdP identUpperLower) (bindNT nConstrName));
       (INL nTypeConstrName,
-       pegf (tokIdP identLower) (bindNT nTypeConstrName));
+       pegf (tokIdP identMixed) (bindNT nTypeConstrName));
       (INL nModuleName,
        pegf (tokIdP identUpperLower) (bindNT nModuleName));
       (INL nValuePath,

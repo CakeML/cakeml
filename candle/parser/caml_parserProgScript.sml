@@ -241,7 +241,7 @@ fun wfnt(t,acc) = let
           SIMP_TAC (srw_ss())
                    [camlpeg_rules_applied ,
                     wfpeg_pnt, FDOM_camlPEG, try_def,
-                    choicel_def, seql_def, tokIdP_def, identLower_def,
+                    choicel_def, seql_def, tokIdP_def, identMixed_def,
                     tokeq_def, peg_linfix_def] THEN
           simp(wfpeg_rwts @ npeg0_rwts @ peg0_rwts @ acc))
 in
