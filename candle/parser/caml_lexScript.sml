@@ -33,8 +33,8 @@ Datatype:
     | RrbrackT | LlbrackT | RlbrackT
     (* special HOL Light tokens (all infixes): *)
     | FuncompT | F_FT
-    | THENT | THENCT | THENLT | THEN_TCLT
-    | ORELSET | ORELSECT | ORELSE_TCLT
+    | THEN_T | THENC_T | THENL_T | THEN_TCL_T
+    | ORELSE_T | ORELSEC_T | ORELSE_TCL_T
     (* literals and identifiers: *)
     | IntT int
     | CharT char
@@ -650,13 +650,13 @@ Definition get_token_def:
     (* HOL Light: *)
     if s = "o" then FuncompT else
     if s = "F_F" then F_FT else
-    if s = "THEN" then THENT else
-    if s = "THENC" then THENCT else
-    if s = "THENL" then THENLT else
-    if s = "THEN_TCL" then THEN_TCLT else
-    if s = "ORELSE" then ORELSET else
-    if s = "ORELSEC" then ORELSECT else
-    if s = "ORELSE_TCL" then ORELSE_TCLT else
+    if s = "THEN" then THEN_T else
+    if s = "THENC" then THENC_T else
+    if s = "THENL" then THENL_T else
+    if s = "THEN_TCL" then THEN_TCL_T else
+    if s = "ORELSE" then ORELSE_T else
+    if s = "ORELSEC" then ORELSEC_T else
+    if s = "ORELSE_TCL" then ORELSE_TCL_T else
     (* identifiers or symbols *)
       let c = HD s in
         if isAlpha c ∨ c = #"_" then IdentT s else
