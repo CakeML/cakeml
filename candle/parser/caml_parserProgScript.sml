@@ -5,14 +5,20 @@
 open preamble camlPEGTheory camlPtreeConversionTheory;
 open caml_parserTheory caml_ptreeProgTheory;
 open ml_translatorLib ml_translatorTheory;
+open sexp_parserProgTheory;
 
 val _ = new_theory "caml_parserProg";
 
 val _ = set_grammar_ancestry [
-  "misc", "caml_lex", "camlPEG", "camlPtreeConversion", "caml_parser"
-  ];
+  "misc", "camlPEG", "camlPtreeConversion", "caml_parser",
+  "ml_translator" ];
 
-val _ = translation_extends "caml_ptreeProg";
+val _ = translation_extends "sexp_parserProg";
+
+val _ =
+  temp_bring_to_front_overload "nType" {Name="nType", Thy="camlPEG"};
+val _ =
+  temp_bring_to_front_overload "nPattern" {Name="nPattern", Thy="camlPEG"};
 
 (* -------------------------------------------------------------------------
  * Translator setup

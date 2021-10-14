@@ -4,11 +4,15 @@
 
 open preamble caml_lexTheory camlPEGTheory camlPtreeConversionTheory;
 open mlintTheory mlstringTheory;
+open fromSexpTheory simpleSexpParseTheory;
 
 val _ = new_theory "caml_parser";
 
-val _ = monadsyntax.temp_enable_monad "sum";
+val _ = set_grammar_ancestry [
+  "misc", "caml_lex", "camlPEG", "camlPtreeConversion",
+  "mlstring", "mlint" ];
 
+val _ = monadsyntax.temp_enable_monad "sum";
 
 (* Run the lexer and return all tokens, or a list of all errors.
  *)
@@ -123,16 +127,18 @@ Definition run_def:
   run inp =
     case run_lexer inp of
       INL locs =>
-        concat [«Lexing failed at: »;
-                locs_to_string (implode inp) (SOME (HD locs))]
+        INL $ concat [«Lexing failed at: »;
+                      locs_to_string (implode inp) (SOME (HD locs))]
     | INR toks =>
         case run_parser toks of
           INL (loc, err) =>
-            concat [«Parsing failed at: »;
-                    locs_to_string (implode inp) (SOME loc);
-                    «\nwith this error: »; err ]
+            INL $ concat [«Parsing failed at: »;
+                          locs_to_string (implode inp) (SOME loc);
+                          «\nwith this error: »; err ]
         | INR tree =>
-            «Parsing successful.»
+            INR $ simpleSexpParse$print_sexp
+                $ fromSexp$listsexp
+                $ MAP fromSexp$decsexp tree
 End
 
 val _ = export_theory ();

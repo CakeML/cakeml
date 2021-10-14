@@ -11,8 +11,9 @@ val _ = translation_extends "caml_parserProg";
 
 val main = process_topdecs ‘
   fun main u =
-    (print (run (TextIO.inputAll TextIO.stdIn));
-     print "\n");
+    case run (TextIO.inputAll TextIO.stdIn) of
+      Inl err => TextIO.output TextIO.stdErr (err ^ "\n")
+    | Inr out => TextIO.print (out ^ "\n");
   ’;
 
 val res = append_prog main;
@@ -21,7 +22,9 @@ val main_v_def = fetch "-" "main_v_def";
 
 Definition caml_parse_def:
   caml_parse inp fs =
-    add_stdout (fastForwardFD fs 0) ((run inp) ^ «\n»)
+    case run inp of
+      INL err => add_stderr (fastForwardFD fs 0) (err ^ «\n»)
+    | INR out => add_stdout (fastForwardFD fs 0) (implode out ^ «\n»)
 End
 
 Theorem main_spec:
@@ -46,25 +49,28 @@ Proof
   \\ SELECT_ELIM_TAC
   \\ simp[FORALL_PROD,EXISTS_PROD, SF SFY_ss]
   \\ imp_res_tac stdin_11 \\ rw[]
-  \\ imp_res_tac stdin_get_file_content
+  \\ imp_res_tac stdin_get_file_content \\ gvs []
   \\ xlet_auto >- (xsimpl \\ fs[INSTREAM_stdin, STD_streams_get_mode])
+  \\ rename1 ‘DROP pos inp’
   \\ ‘HOL_STRING_TYPE (DROP pos inp) sv’
     by gs [HOL_STRING_TYPE_def]
   \\ xlet_auto >- xsimpl
+  \\ Cases_on ‘run (DROP pos inp)’ \\ gs [SUM_TYPE_def] \\ xmatch
+  >- (
+    xlet_auto >- xsimpl
+    \\ xapp_spec output_stderr_spec
+    \\ xsimpl
+    \\ first_assum (irule_at Any)
+    \\ qexists_tac ‘fastForwardFD fs 0’
+    \\ xsimpl)
+  \\ rename1 ‘HOL_STRING_TYPE ys vs’
+  \\ ‘STRING_TYPE (implode ys) vs’
+    by gs [HOL_STRING_TYPE_def]
   \\ xlet_auto >- xsimpl
   \\ xapp
   \\ xsimpl
-  \\ gvs []
-  \\ rename1 ‘DROP n xs’
-  \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac ‘add_stdout (fastForwardFD fs 0) (run (DROP n xs))’
-  \\ xsimpl
-  \\ imp_res_tac STD_streams_add_stdout
-  \\ simp [add_stdout_fastForwardFD]
-  \\ imp_res_tac STD_streams_stdout
-  \\ simp [add_stdo_o]
-  \\ drule_then (qspecl_then [‘«\n» ’,‘run (DROP n xs)’] mp_tac) add_stdo_o
-  \\ simp []
+  \\ first_assum (irule_at Any)
+  \\ qexists_tac ‘fastForwardFD fs 0’
   \\ xsimpl
 QED
 
@@ -75,10 +81,11 @@ Proof
   simp[whole_prog_spec_def,UNCURRY]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
-  \\ reverse conj_tac >-
-    rw[Abbr`fs1`,caml_parse_def,UNCURRY,
-       GSYM fastForwardFD_with_numchars,
-       GSYM add_stdo_with_numchars, with_same_numchars]
+  \\ reverse conj_tac >- (
+    gs [Abbr ‘fs1’, caml_parse_def]
+    \\ CASE_TAC \\ gs []
+    \\ rw [GSYM fastForwardFD_with_numchars,
+           GSYM add_stdo_with_numchars, with_same_numchars])
   \\ simp [SEP_CLAUSES]
   \\ match_mp_tac(MP_CANON(MATCH_MP app_wgframe main_spec))
   \\ xsimpl
