@@ -101,8 +101,11 @@ End
 Definition path_to_ns_def:
   path_to_ns locs [] = fail (locs, «Empty path») ∧
   path_to_ns locs [i] = return (Short i) ∧
-  path_to_ns locs [m; i] = return (Long m $ Short i) ∧
-  path_to_ns locs _ = fail (locs, «Nested modules are not supported»)
+  path_to_ns locs (m::ms) =
+    do
+      id <- path_to_ns locs ms;
+      return $ Long m id
+    od
 End
 
 Definition ptree_Ident_def:
