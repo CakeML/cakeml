@@ -31,6 +31,10 @@ Datatype:
     | RarrowT | LarrowT | DotT | DotsT | EscapeT | ColonT | ColonsT | UpdateT
     | SealT | AnyT | BtickT | TildeT | LqbraceT | RqbraceT | LqbrackT | RqbrackT
     | RrbrackT | LlbrackT | RlbrackT
+    (* special HOL Light tokens (all infixes): *)
+    | FuncompT | F_FT
+    | THENT | THENCT | THENLT | THEN_TCLT
+    | ORELSET | ORELSECT | ORELSE_TCLT
     (* literals and identifiers: *)
     | IntT int
     | CharT char
@@ -543,6 +547,7 @@ EVAL “next_sym "*" loc”
 
 Definition get_token_def:
   get_token s =
+    if s = "" then LexErrorT else
     if s = "=" then EqualT else
     if s = "'" then TickT else
     if s = "(" then LparT else
@@ -642,8 +647,17 @@ Definition get_token_def:
     if s = "when" then WhenT else
     if s = "while" then WhileT else
     if s = "with" then WithT else
+    (* HOL Light: *)
+    if s = "o" then FuncompT else
+    if s = "F_F" then F_FT else
+    if s = "THEN" then THENT else
+    if s = "THENC" then THENCT else
+    if s = "THENL" then THENLT else
+    if s = "THEN_TCL" then THEN_TCLT else
+    if s = "ORELSE" then ORELSET else
+    if s = "ORELSEC" then ORELSECT else
+    if s = "ORELSE_TCL" then ORELSE_TCLT else
     (* identifiers or symbols *)
-    if s = "" then LexErrorT else
       let c = HD s in
         if isAlpha c ∨ c = #"_" then IdentT s else
           SymbolT s
