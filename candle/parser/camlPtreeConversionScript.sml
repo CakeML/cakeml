@@ -1265,7 +1265,7 @@ Definition ptree_Expr_def:
             expect_tok tryt TryT;
             expect_tok witht WithT;
             x <- ptree_Expr nExpr expr;
-            ps <- return []; (* ptree_PatternMatch pmatch; *)
+            ps <- ptree_PatternMatch pmatch;
             return (build_handle "" (flatten_pmatch ps) x)
           od
       | _ => fail (locs, «Impossible: nETry»)
