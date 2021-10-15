@@ -1215,7 +1215,7 @@ Definition ptree_Expr_def:
           od
       | [x] => ptree_Expr nEIf x
       | _ => fail (locs,«Impossible: nESeq»)
-    else if nterm = INL nELet then
+    else if nterm = INL nELetRec then
       case args of
         [lett; rec; binds; int; expr] =>
           do
@@ -1226,7 +1226,10 @@ Definition ptree_Expr_def:
             body <- ptree_Expr nExpr expr;
             return (Letrec binds body)
           od
-      | [lett; binds; int; expr] =>
+      | _ => fail (locs, «Impossible: nELetRec»)
+    else if nterm = INL nELet then
+      case args of
+        [lett; binds; int; expr] =>
           do
             expect_tok lett LetT;
             expect_tok int InT;
