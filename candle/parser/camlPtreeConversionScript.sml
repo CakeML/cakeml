@@ -1440,7 +1440,7 @@ Definition ptree_Expr_def:
               p <- ptree_Pattern pat;
               x <- ptree_Expr nExpr body;
               expect_tok bar BarT;
-              ps <- ptree_PatternMatch pms;
+              ps <- ptree_PatternMatches pms;
               return ((p, x, NONE)::ps)
             od
       | [pat; whent; whenx; rarrow; body; bar; pms] =>
