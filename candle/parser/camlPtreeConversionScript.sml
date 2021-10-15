@@ -895,6 +895,11 @@ Definition ptree_Bool_def:
       fail (locs, «Expected a boolean literal non-terminal»)
 End
 
+Definition nterm_of_def:
+  nterm_of (Lf (_, locs)) = fail (locs, «nterm_of: Not a parsetree node») ∧
+  nterm_of (Nd (nterm, _) args) = return nterm
+End
+
 Definition ptree_Expr_def:
   (ptree_Expr et (Lf (_, locs)) =
     fail (locs, «Expected an expression non-terminal»)) ∧
@@ -907,17 +912,29 @@ Definition ptree_Expr_def:
     else if nterm = INL nExpr then
       case args of
         [arg] =>
-          ptree_Expr nESeq arg ++
-          ptree_Expr nELet arg ++
-          ptree_Expr nELet arg ++
-          ptree_Expr nELetRec arg ++
-          ptree_Expr nEMatch arg ++
-          ptree_Expr nEFun arg ++
-          ptree_Expr nEFunction arg ++
-          ptree_Expr nETry arg ++
-          ptree_Expr nEWhile arg ++
-          ptree_Expr nEFor arg ++
-          fail (locs, «Expected an expression non-terminal»)
+          do
+            n <- nterm_of arg;
+            if n = INL nESeq then
+              ptree_Expr nESeq arg
+            else if n = INL nELet then
+              ptree_Expr nELet arg
+            else if n = INL nELetRec then
+              ptree_Expr nELetRec arg
+            else if n = INL nEMatch then
+              ptree_Expr nEMatch arg
+            else if n = INL nEFun then
+              ptree_Expr nEFun arg
+            else if n = INL nEFunction then
+              ptree_Expr nEFunction arg
+            else if n = INL nETry then
+              ptree_Expr nETry arg
+            else if n = INL nEWhile then
+              ptree_Expr nEWhile arg
+            else if n = INL nEFor then
+              ptree_Expr nEFor arg
+            else
+              fail (locs, «Expected an expression non-terminal»)
+          od
       | _ => fail (locs, «Impossible: nExpr»)
     else if nterm = INL nEList then
       case args of
