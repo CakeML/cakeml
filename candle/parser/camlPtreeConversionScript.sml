@@ -692,7 +692,7 @@ Definition ptree_Pattern_def:
         [pat] => ptree_Pattern pat
       | [p1; colons; p2] =>
           do
-            expect_tok colons ColonT;
+            expect_tok colons ColonsT;
             ps <- ptree_Pattern p1;
             qs <- ptree_Pattern p2;
             return (MAP (λ(p,q). Pcon (SOME (Short "::")) [p; q])
