@@ -231,6 +231,25 @@ QED
 
 val _ = app DefnBase.export_cong ["list_enc'_cong", "list_dec'_cong"];
 
+(* string *)
+
+Definition list_chr_dec'_def:
+  list_chr_dec' [] = [] ∧
+  list_chr_dec' (x::xs) = chr_dec' x :: list_chr_dec' xs
+End
+
+Definition string_dec'_def:
+  string_dec' (Tree _ xs) = IMPLODE (list_chr_dec' xs)
+End
+
+Theorem string_dec'_intro:
+  list_dec' chr_dec' = string_dec'
+Proof
+  fs [FUN_EQ_THM] \\ Cases
+  \\ fs [list_dec'_def,string_dec'_def]
+  \\ Induct_on ‘l’ \\ fs [list_chr_dec'_def]
+QED
+
 (* pair *)
 
 Definition pair_enc'_def:

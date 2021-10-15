@@ -248,8 +248,12 @@ Definition char_enc_def:
   char_enc = num_enc o ORD
 End
 
+Definition safe_chr_def:
+  safe_chr n = CHR (n MOD 256)
+End
+
 Definition char_dec_def:
-  char_dec = ((λn. CHR (n MOD 256)) ## I) o num_dec
+  char_dec = (safe_chr ## I) o num_dec
 End
 
 Theorem char_enc_dec_ok:
@@ -257,7 +261,30 @@ Theorem char_enc_dec_ok:
 Proof
   fs [char_enc_def,char_dec_def]
   \\ match_mp_tac enc_dec_ok_o
-  \\ fs [num_enc_dec_ok,CHR_ORD,ORD_BOUND]
+  \\ fs [num_enc_dec_ok,CHR_ORD,ORD_BOUND,safe_chr_def]
+QED
+
+(* string *)
+
+Definition safe_chr_list_def:
+  safe_chr_list ns = MAP safe_chr ns
+End
+
+Definition string_dec_def:
+  string_dec ns =
+    case ns of
+    | [] => ("",[])
+    | (n::ns) => (IMPLODE (safe_chr_list (TAKE n ns)), DROP n ns)
+End
+
+Theorem string_dec_thm:
+  string_dec = list_dec char_dec
+Proof
+  fs [FUN_EQ_THM] \\ Cases THEN1 EVAL_TAC
+  \\ fs [string_dec_def,list_dec_def,safe_chr_list_def]
+  \\ qid_spec_tac ‘t’
+  \\ qid_spec_tac ‘h’
+  \\ cheat
 QED
 
 (* mlstring *)
@@ -542,7 +569,7 @@ End
 Definition namespace_dec'_def:
   namespace_dec' k d ns =
     (if k = 0:num then (Bind [] [],ns) else
-       let (xs,ns1) = list_dec (prod_dec (list_dec char_dec) d) ns in
+       let (xs,ns1) = list_dec (prod_dec (string_dec) d) ns in
        let (ys,ns2) = namespace_dec'_list (k-1) d ns1 in
          (Bind xs ys,ns2)) ∧
   namespace_dec'_list k d ns =
@@ -551,7 +578,7 @@ Definition namespace_dec'_def:
     | (n::rest) =>
       if n = 0n then ([],rest) else
       if k = 0:num then ([],ns) else
-        let (m,ns) = list_dec char_dec rest in
+        let (m,ns) = string_dec rest in
         let (x,ns) = namespace_dec' (k-1) d ns in
         let (ys,ns) = namespace_dec'_list (k-1) d ns in
           ((m,x)::ys,ns)
@@ -580,7 +607,7 @@ Proof
   THEN1 metis_tac [] \\ pop_assum kall_tac
   \\ ho_match_mp_tac namespace_dec'_ind \\ rw []
   \\ once_rewrite_tac [namespace_dec'_def]
-  \\ fs [UNCURRY] \\ rw [] \\ fs []
+  \\ fs [UNCURRY,string_dec_thm] \\ rw [] \\ fs []
   THEN1
    (Cases_on ‘list_dec (prod_dec (list_dec char_dec) d) i’ \\ fs []
     \\ ‘dec_ok (list_dec (prod_dec (list_dec char_dec) d))’ by
@@ -624,7 +651,7 @@ Proof
   \\ rpt (pop_assum kall_tac)
   \\ ho_match_mp_tac namespace_enc'_ind \\ rw []
   \\ fs [namespace_enc'_def,append_thm,namespace_depth_def]
-  \\ simp [Once namespace_dec'_def]
+  \\ simp [Once namespace_dec'_def,string_dec_thm]
   THEN1
    (‘enc_dec_ok
         (list_enc (prod_enc (list_enc char_enc) e))
