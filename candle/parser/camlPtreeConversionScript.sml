@@ -1858,6 +1858,17 @@ Definition ptree_Semis_def:
       fail (locs, «Expected a semicolons-list non-terminal»)
 End
 
+(* Turns "expr;;" into "let it = expr;;". (The results of evaluating the
+ * expression must end up somewhere and its strange to put in a variable with
+ * no name.
+ *)
+
+Definition ptree_ExprDec_def:
+  ptree_ExprDec locs pt =
+    fmap (λx. [Dlet locs (Pvar "it") x])
+         (ptree_Expr nExpr pt)
+End
+
 Definition ptree_Definition_def:
   (ptree_Definition (Lf (_, locs)) =
     fail (locs, «Expected a top-level definition non-terminal»)) ∧
@@ -1972,16 +1983,11 @@ Definition ptree_Definition_def:
   (ptree_ExprOrDefn (Nd (nterm, locs) args) =
     if nterm = INL nExprItems then
       case args of
-        [expr] =>
-          do
-            x <- ptree_Expr nExpr expr;
-            return [Dlet locs (Pvar "") x]
-          od
+        [expr] => ptree_ExprDec locs expr
       | [semis; expr] =>
           do
             ptree_Semis semis;
-            x <- ptree_Expr nExpr expr;
-            return [Dlet locs (Pvar "") x]
+            ptree_ExprDec locs expr
           od
       | _ => fail (locs, «Impossible: nExprItems»)
     else if nterm = INL nExprItem then
@@ -1989,8 +1995,7 @@ Definition ptree_Definition_def:
       | [semis; expr] =>
           do
             ptree_Semis semis;
-            x <- ptree_Expr nExpr expr;
-            return [Dlet locs (Pvar "") x]
+            ptree_ExprDec locs expr
           od
       | _ => fail (locs, «Impossible: nExprItem»)
     else if nterm = INL nDefItem then

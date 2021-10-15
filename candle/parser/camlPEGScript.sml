@@ -180,6 +180,7 @@ Definition identUpperLower_def:
   identUpperLower s ⇔
     s ≠ "" ∧
     isUpper (HD s) ∧
+    ¬NULL (TL s) ∧
     idChar isLower (TL s)
 End
 
@@ -194,7 +195,7 @@ Definition identMixed_def:
     s ≠ "" ∧
     idChar isAlpha (TL s) ∧
     ((isLower (HD s) ∨ HD s = #"_") ∨
-     (isUpper (HD s) ∧ EXISTS isUpper (TL s)))
+     (isUpper (HD s) ∧ ¬NULL (TL s) ⇒ EXISTS isUpper (TL s)))
 End
 
 
