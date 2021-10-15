@@ -778,6 +778,8 @@ End
 (* Turns a curried lambda with patterns, e.g. “fun a [3;4] c -> e”
  * into a sequence of lambdas, possibly with pattern matches:
  * “fun a -> fun fresh -> match fresh with [3;4] -> fun c -> e”.
+ *
+ * TODO Can we replace this with build_letrec_binding?
  *)
 
 Definition build_fun_lam_def:
@@ -788,18 +790,18 @@ Definition build_fun_lam_def:
             body pats
 End
 
-(* Builds a letrec out of a list of let rec-bindings.
+(* This builds the body of a let rec expression out of a list of patterns
+ * (a list instead of one, because of or-patterns) and an expression body.
+ *
+ * TODO
+ * This is sort-of like build_fun_lam but accepts _lists_ of patterns at
+ * each level. I think we should replace build_fun_lam with this thing.
  *)
 
-Definition build_letrec_def:
-  build_letrec binds body =
-    Letrec (MAP (λ(f,ps,x). (f,"",Mat (Var (Short ""))
-                                    case ps of
-                                      [] => [] (* this should never happen *)
-                                    | p::ps =>
-                                        [p, build_fun_lam x ps]))
-                binds)
-           body
+Definition build_letrec_binding_def:
+  build_letrec_binding bv pats body =
+    FOLDR (λps b. Fun bv (Mat (Var (Short bv)) (MAP (λp. (p, b)) ps)))
+      body pats
 End
 
 (* Builds a sequence of lets out of a list of let bindings.
@@ -811,14 +813,22 @@ Definition build_lets_def:
              case bind of
                INL (p,x) =>
                  Mat x [p, rest]
-             | INR (f,ps,x) =>
-                 Let (SOME f) (build_fun_lam x ps) rest)
+             | INR (f,_,x) =>
+                 Let (SOME f) x rest)
           binds body
 End
 
 (* TODO
  * With these functions it's not possible to mix value definitions
  * and recursive function definitions.
+ *
+ * NOTE
+ * I think this means that the parser won't accept
+ *
+ *   let rec f x = something
+ *   and y = 5;;
+ *
+ * which is a bit annoying but it hardly matters.
  *)
 
 (* Builds a pattern match for a match expression. The third part of each tuple
@@ -864,35 +874,6 @@ End
 Definition flatten_pmatch_def:
   flatten_pmatch pss = FLAT (MAP (λ(ps,x,w). MAP (λp. (p,x,w)) ps) pss)
 End
-
-Theorem list_size_lemma[local]:
-  MEM x xs ⇒ m x < list_size m xs
-Proof
-  Induct_on ‘xs’ \\ rw [list_size_def]
-  \\ res_tac \\ fs []
-QED
-
-(*
-Definition ptree_linfix_def:
-  ptree_linfix (topnt: camlNT) opn elnt pt =
-    case pt of
-      Lf _ => fail (unknown_loc, «Found nothing: ptree_linfix»)
-    | Nd (nterm, locs) args =>
-        if nterm = INL topnt then
-          case args of
-            [pt] => fmap (λx. [x]) (elnt pt)
-          | [x; op_pt; pt] =>
-              do
-                expect_tok op_pt opn;
-                front <- ptree_linfix topnt opn elnt x;
-                last <- elnt pt;
-                return (front ++ [last])
-              od
-          | _ => fail (locs, «Impossible: ptree_linfix»)
-        else
-          fail (locs, «Found nothing: ptree_linfix»)
-End
- *)
 
 Definition ptree_Bool_def:
   ptree_Bool (Lf (_, locs)) =
@@ -1215,7 +1196,7 @@ Definition ptree_Expr_def:
             expect_tok int InT;
             binds <- ptree_LetRecBindings binds;
             body <- ptree_Expr nExpr expr;
-            return (build_letrec binds body)
+            return (Letrec binds body)
           od
       | [lett; binds; int; expr] =>
           do
@@ -1335,10 +1316,7 @@ Definition ptree_Expr_def:
             ps <- ptree_Patterns pats;
             ty <- ptree_Type type;
             bd <- ptree_Expr nExpr expr;
-            case ps of
-              [p] => return (nm, p, Tannot bd ty)
-            | _ =>
-                fail (locs, «Or-patterns are not allowed in let rec bindings»)
+            return (nm, "", build_letrec_binding "" ps (Tannot bd ty))
           od
       | [id; pats; eq; expr] =>
           do
@@ -1346,10 +1324,7 @@ Definition ptree_Expr_def:
             nm <- ptree_ValueName id;
             ps <- ptree_Patterns pats;
             bd <- ptree_Expr nExpr expr;
-            case ps of
-              [p] => return (nm, p, bd)
-            | _ =>
-              fail (locs, «Or-patterns are not allowed in let rec bindings»)
+            return (nm, "", build_letrec_binding "" ps bd)
           od
       | _ => fail (locs, «Impossible: nLetRecBinding»)
     else
@@ -1380,33 +1355,31 @@ Definition ptree_Expr_def:
           do
             expect_tok eq EqualT;
             ps <- ptree_Pattern pat;
-            x <- ptree_Expr nExpr bod;
+            bd <- ptree_Expr nExpr bod;
             case ps of
-              [p] => return (INL (p, x))
+              [p] => return (INL (p, bd))
             | _ =>
-              fail (locs, «Or-patterns are not allowed in let bindings»)
+              fail (locs, concat [
+                            «Or-patterns are not allowed in let bindings»;
+                            « like this one: 'let' <pattern> '=' <expr';;»])
           od
       | [id; pats; eq; bod] =>
           do
             expect_tok eq EqualT;
             nm <- ptree_ValueName id;
             ps <- ptree_Patterns pats;
-            x <- ptree_Expr nExpr bod;
-            case ps of
-              [p] => return (INR (nm, p, x))
-            | _ =>
-              fail (locs, «Or-patterns are not allowed in let bindings»)
+            bd <- ptree_Expr nExpr bod;
+            return $ INR (nm, "", build_letrec_binding "" ps bd)
           od
-      | [id; pats; colon; typ; eq; bod] =>
+      | [id; pats; colon; type; eq; bod] =>
           do
             expect_tok eq EqualT;
             expect_tok colon ColonT;
             nm <- ptree_ValueName id;
             ps <- ptree_Patterns pats;
-            if EVERY (λp. LENGTH p = 1) ps then INR () else
-              fail (locs, «Or-patterns are not allowed in let bindings»);
-            x <- ptree_Expr nExpr bod;
-            return (INR (nm, MAP (λp. case p of [] => Pany | p::_ => p) ps, x))
+            ty <- ptree_Type type;
+            bd <- ptree_Expr nExpr bod;
+            return $ INR (nm, "", build_letrec_binding "" ps (Tannot bd ty))
           od
       | _ => fail (locs, «Impossible: nLetBinding»)
     else
@@ -1816,19 +1789,6 @@ Definition ptree_TypeDefinition_def:
       fail (locs, «Expected a type definition non-terminal»)
 End
 
-(* Build a top-level letrec out of a list of let rec-bindings.
- *)
-
-Definition build_dletrec_def:
-  build_dletrec locs binds =
-    Dletrec locs (MAP (λ(f,ps,x). (f,"",Mat (Var (Short ""))
-                                    case ps of
-                                      [] => [] (* this should never happen *)
-                                    | p::ps =>
-                                        [p, build_fun_lam x ps]))
-                      binds)
-End
-
 (* Builds a top-level let out of a list of let bindings.
  *)
 
@@ -1837,7 +1797,7 @@ Definition build_dlet_def:
     MAP (λbind.
            case bind of
              INL (p, x) => Dlet locs p x
-           | INR (f, ps, x) => Dlet locs (Pvar f) (build_fun_lam x ps))
+           | INR (f,_,x) => Dlet locs (Pvar f) x)
         binds
 End
 
@@ -1893,7 +1853,7 @@ Definition ptree_Definition_def:
             expect_tok lett LetT;
             expect_tok rect RecT;
             binds <- ptree_LetRecBindings lbs;
-            return [build_dletrec locs binds]
+            return [Dletrec locs binds]
           od
       | _ => fail (locs, «Impossible: nTopLetRec»)
     else if nterm = INL nTypeDefinition then
