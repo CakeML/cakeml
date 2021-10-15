@@ -727,7 +727,8 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPLazy));
       (* -- Pat6 ----------------------------------------------------------- *)
       (INL nPConstr,
-       seql [try (pnt nConstr); pnt nPLazy]
+       pegf (choicel [seql [pnt nConstr; try (pnt nPLazy)] I;
+                      pnt nPLazy])
             (bindNT nPConstr));
       (INL nPApp,
        pegf (choicel [pnt nPConstr; pnt nPLazy])

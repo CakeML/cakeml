@@ -587,6 +587,11 @@ Proof
   \\ Induct_on ‘x’ \\ rw [list_size_def, grammarTheory.parsetree_size_def]
 QED
 
+Definition nterm_of_def:
+  nterm_of (Lf (_, locs)) = fail (locs, «nterm_of: Not a parsetree node») ∧
+  nterm_of (Nd (nterm, _) args) = return nterm
+End
+
 (* The parse trees contain or-patterns. “ptree_Pattern” creates one result
  * for each alternative in a or-pattern, as if all or-patterns were pulled up
  * to the top of the tree.
@@ -658,7 +663,18 @@ Definition ptree_Pattern_def:
       | _ => fail (locs, «Impossible: nPLazy»)
     else if nterm = INL nPConstr then
       case args of
-        [pat] => ptree_Pattern pat
+        [arg] =>
+          do
+            n <- nterm_of arg;
+            if n = INL nConstr then
+              do
+                cns <- ptree_Constr arg;
+                id <- path_to_ns locs cns;
+                return [Pcon (SOME id) []]
+              od
+            else
+              ptree_Pattern arg
+          od
       | [id; pat] =>
           do
             cns <- ptree_Constr id;
@@ -893,11 +909,6 @@ Definition ptree_Bool_def:
       | _ => fail (locs, «Impossible: nLiteral (bool)»)
     else
       fail (locs, «Expected a boolean literal non-terminal»)
-End
-
-Definition nterm_of_def:
-  nterm_of (Lf (_, locs)) = fail (locs, «nterm_of: Not a parsetree node») ∧
-  nterm_of (Nd (nterm, _) args) = return nterm
 End
 
 Definition ptree_Expr_def:
