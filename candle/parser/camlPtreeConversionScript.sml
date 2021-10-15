@@ -1330,7 +1330,10 @@ Definition ptree_Expr_def:
           od
       | _ => fail (locs, «Impossible: nEFor»)
     else
-      fail (locs, «Expected a for non-terminal»)) ∧
+      fail (locs, concat [«expected any expression non-terminal,\n»;
+                          «found: »; (case nterm of INL n =>
+                                        camlNT2string n
+                                      | _ => «unknown»);])) ∧
   (ptree_LetRecBinding (Lf (_, locs)) =
     fail (locs, «Expected a let rec binding non-terminal»)) ∧
   (ptree_LetRecBinding (Nd (nterm, locs) args) =
