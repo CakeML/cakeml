@@ -201,6 +201,8 @@ End
 
 Datatype:
   camlNT =
+    (* hol-light specific operators *)
+    | nEHolInfix | nHolInfixOp
     (* different sorts of names *)
     | nValueName | nOperatorName | nConstrName | nTypeConstrName | nModuleName
     | nValuePath | nConstr | nTypeConstr | nModulePath
@@ -241,7 +243,9 @@ End
 Definition camlNT2string_def:
   camlNT2string n =
     case n of
-      nValueName => strlit"value-name"
+      nEHolInfix => strlit"hol-infix-expression"
+    | nHolInfixOp => strlit"hol-infix-op"
+    | nValueName => strlit"value-name"
     | nOperatorName => strlit"operator-name"
     | nConstrName => strlit"constr-name"
     | nTypeConstrName => strlit"typeconstr-name"
@@ -351,6 +355,12 @@ Definition camlPEG_def[nocompute]:
     notFAIL  := "Not combinator failed";
     start := pnt nStart;
     rules := FEMPTY |++ [
+      (* -- HOL Light specific ops ----------------------------------------- *)
+      (INL nHolInfixOp,
+       pegf (choicel [tokeq FuncompT; tokeq F_FT; tokeq THEN_T; tokeq THENC_T;
+                      tokeq THENL_T; tokeq THEN_TCL_T; tokeq ORELSE_T;
+                      tokeq ORELSEC_T; tokeq ORELSE_TCL_T])
+            (bindNT nHolInfixOp));
       (* -- Names and paths ------------------------------------------------ *)
       (INL nValueName,
        choicel [pegf (tokIdP identMixed) (bindNT nValueName);
@@ -363,7 +373,9 @@ Definition camlPEG_def[nocompute]:
                       pnt nRelOp;
                       pnt nAndOp;
                       pnt nOrOp;
-                      tokSymP validPrefixSym])
+                      pnt nHolInfixOp;
+                      tokSymP validPrefixSym;
+                      tokSymP validCatOp ])
             (bindNT nOperatorName));
       (INL nConstrName,
        pegf (tokIdP identUpperLower) (bindNT nConstrName));
@@ -607,9 +619,13 @@ Definition camlPEG_def[nocompute]:
       (INL nEOr,
        seql [pnt nEAnd; try (seql [pnt nOrOp; pnt nEOr] I)]
             (bindNT nEOr));
+      (* -- Expr 4.5 ------------------------------------------------------- *)
+      (INL nEHolInfix,
+       peg_linfix (INL nEHolInfix) (pnt nEOr) (pnt nHolInfixOp));
       (* -- Expr4 ---------------------------------------------------------- *)
       (INL nEProd,
-       seql [pnt nEOr; try (rpt (seql [tokeq CommaT; pnt nEOr] I) FLAT)]
+       seql [pnt nEHolInfix;
+             try (rpt (seql [tokeq CommaT; pnt nEHolInfix] I) FLAT)]
             (bindNT nEProd));
       (* -- Expr3: assignments --------------------------------------------- *)
       (* -- Expr2 ---------------------------------------------------------- *)
