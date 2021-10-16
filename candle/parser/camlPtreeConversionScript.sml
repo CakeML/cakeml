@@ -701,7 +701,8 @@ Definition ptree_Pattern_def:
       | _ => fail (locs, «Impossible: nPCons»)
     else if nterm = INL nPProd then
       case args of
-        pat::pats =>
+        [pat] => ptree_Pattern pat
+      | pat::pats =>
           do
             p <- ptree_Pattern pat;
             ps <- ptree_PatternCommas pats;
@@ -1185,7 +1186,8 @@ Definition ptree_Expr_def:
       | _ => fail (locs, «Impossible: nEOr»)
     else if nterm = INL nEProd then
       case args of
-        exp::exps =>
+        [exp] => ptree_Expr nEOr exp
+      | exp::exps =>
           do
             x <- ptree_Expr nEOr exp;
             xs <- ptree_ExprCommas exps;
