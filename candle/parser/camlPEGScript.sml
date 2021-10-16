@@ -508,8 +508,8 @@ Definition camlPEG_def[nocompute]:
       (* -- Expr16 --------------------------------------------------------- *)
       (INL nEList,
        seql [tokeq LbrackT;
-             try (seql [pnt nExpr;
-                        try (rpt (seql [tokeq SemiT; pnt nExpr] I) FLAT);
+             try (seql [pnt nEIf;
+                        try (rpt (seql [tokeq SemiT; pnt nEIf] I) FLAT);
                         try (tokeq SemiT)] I);
              tokeq RbrackT]
             (bindNT nEList));

@@ -1520,7 +1520,7 @@ Definition ptree_Expr_def:
        ptree_ExprList xs
      od ++
      do
-       y <- ptree_Expr nExpr x;
+       y <- ptree_Expr nEIf x;
        ys <- ptree_ExprList xs;
        return (y::ys)
      od) ∧
