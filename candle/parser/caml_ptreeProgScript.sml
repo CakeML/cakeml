@@ -129,6 +129,8 @@ QED
 
 val _ = update_precondition ptree_literal_side;
 
+val r = translate ptree_Pattern_def;
+
 (* This takes a long time.
  *)
 
@@ -142,7 +144,7 @@ Theorem ptree_Expr_preconds[local]:
   (∀x. ptree_letbindings_side x) ∧
   (∀x. ptree_patternmatches_side x) ∧
   (∀x. ptree_patternmatch_side x) ∧
-  (∀x. ptree_esemisep_side x)
+  (∀x. ptree_exprlist_side x)
 Proof
   ho_match_mp_tac ptree_Expr_ind
   \\ strip_tac

@@ -742,6 +742,10 @@ Definition ptree_Pattern_def:
      od) ∧
   (ptree_PatternList (p::ps) =
      do
+       expect_tok p SemiT;
+       ptree_PatternList ps
+     od ++
+     do
        q <- ptree_Pattern p;
        qs <- ptree_PatternList ps;
        return (q::qs)
@@ -949,13 +953,11 @@ Definition ptree_Expr_def:
       | _ => fail (locs, «Impossible: nExpr»)
     else if nterm = INL nEList then
       case args of
-        [lbrack; expr; exprs; rbrack] =>
+        lbrack::rest =>
           do
             expect_tok lbrack LbrackT;
-            expect_tok rbrack RbrackT;
-            x <- ptree_Expr nExpr expr;
-            xs <- ptree_ESemiSep exprs;
-            return (build_list_exp (x::xs))
+            exps <- ptree_ExprList rest;
+            return (build_list_exp exps)
           od
       | _ => fail (locs, «Impossible: nEList»)
     else if nterm = INL nEBase then
@@ -1495,32 +1497,32 @@ Definition ptree_Expr_def:
       | _ => fail (locs, «Impossible: nPatternMatch»)
     else
       fail (locs, «Expected a pattern-match non-terminal»)) ∧
-  (ptree_ESemiSep (Lf (_, locs)) =
-    fail (locs, «Expected a semicolon separated expressions non-terminal»)) ∧
-  (ptree_ESemiSep (Nd (nterm, locs) args) =
-    if nterm = INL nESemiSep then
-      case args of
-        [semi] =>
-          do
-            expect_tok semi SemiT;
-            return []
-          od
-      | [semi; expr] =>
-          do
-            expect_tok semi SemiT;
-            x <- ptree_Expr nExpr expr;
-            return [x]
-          od
-      | [semi; expr; exprs] =>
-          do
-            expect_tok semi SemiT;
-            x <- ptree_Expr nExpr expr;
-            xs <- ptree_ESemiSep exprs;
-            return (x::xs)
-          od
-      | _ => fail (locs, «Impossible: nESemiSep»)
-    else
-      fail (locs, «Expected a semicolon separated expressions non-terminal»))
+  (ptree_ExprList [] =
+    fail (unknown_loc, «Expression lists cannot be empty»)) ∧
+  (ptree_ExprList [t] =
+     do
+       expect_tok t RbrackT;
+       return []
+     od) ∧
+  (ptree_ExprList (x::xs) =
+     do
+       expect_tok x SemiT;
+       ptree_ExprList xs
+     od ++
+     do
+       y <- ptree_Expr nExpr x;
+       ys <- ptree_ExprList xs;
+       return (y::ys)
+     od)
+Termination
+  WF_REL_TAC ‘measure $ sum_size (pair_size camlNT_size psize)
+                      $ sum_size psize
+                      $ sum_size psize
+                      $ sum_size psize
+                      $ sum_size psize
+                      $ sum_size psize
+                      $ sum_size psize (list_size psize)’
+  \\ simp [parsetree_size_lemma]
 End
 
 (* Tidy up the list bits of the induction theorem.

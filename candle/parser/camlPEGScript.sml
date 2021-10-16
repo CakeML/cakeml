@@ -205,7 +205,7 @@ Datatype:
     | nValueName | nOperatorName | nConstrName | nTypeConstrName | nModuleName
     | nValuePath | nConstr | nTypeConstr | nModulePath
     (* expressions *)
-    | nLiteral | nIdent | nEBase | nEList | nESemiSep
+    | nLiteral | nIdent | nEBase | nEList
     | nEApp | nEConstr | nEFunapp | nEAssert | nELazy
     | nEPrefix | nENeg | nEShift | nEMult
     | nEAdd | nECons | nECat | nERel
@@ -234,6 +234,10 @@ Datatype:
     | nStart
 End
 
+(* Printing names of non-terminals, useful for debugging the parse-tree
+ * to ast conversion.
+ *)
+
 Definition camlNT2string_def:
   camlNT2string n =
     case n of
@@ -250,7 +254,6 @@ Definition camlNT2string_def:
     | nIdent => strlit"ident"
     | nEBase => strlit"base-expr"
     | nEList => strlit"list-expr"
-    | nESemiSep => strlit"semicolon-sep-expr"
     | nEApp => strlit"app-expr"
     | nEConstr => strlit"constr-app"
     | nEFunapp => strlit"fun-app"
@@ -337,15 +340,7 @@ Definition camlNT2string_def:
     | nDefItem => strlit"def-item"
 End
 
-(*
-   TODO
-   The following is a (possibly incomplete) list of missing things:
-   - Expression assignments; <- and :=
-   - Signature syntax ('module types')
-   - I've assigned a bunch of closed expressions (e.g. while, for) to the
-     lowest fixity, but it's possible they should go elsewhere.
-   - [1;2;3] should parse into a list of three elements but I think it's
-     currently parsed into the sequence (seq 1 (seq 2 3)) of expressions.
+(* Definition of the OCaml PEG.
  *)
 
 Definition camlPEG_def[nocompute]:
@@ -511,14 +506,12 @@ Definition camlPEG_def[nocompute]:
       (INL nType,
        pegf (pnt nTAs) (bindNT nType));
       (* -- Expr16 --------------------------------------------------------- *)
-      (INL nESemiSep,
-       choicel [pegf (tokeq SemiT) (bindNT nESemiSep);
-                seql [tokeq SemiT; pnt nExpr; try (pnt nESemiSep)]
-                     (bindNT nESemiSep)]);
-      (* FIXME: the empty list is not accepted *)
-      (* FIXME: lists w/o trailing ; are rejected *)
       (INL nEList,
-       seql [tokeq LbrackT; pnt nExpr; pnt nESemiSep; tokeq RbrackT]
+       seql [tokeq LbrackT;
+             try (seql [pnt nExpr;
+                        try (rpt (seql [tokeq SemiT; pnt nExpr] I) FLAT);
+                        try (tokeq SemiT)] I);
+             tokeq RbrackT]
             (bindNT nEList));
       (INL nLiteral,
        choicel [
@@ -533,7 +526,7 @@ Definition camlPEG_def[nocompute]:
          pegf (pnt nLiteral) (bindNT nEBase);
          pegf (pnt nValuePath) (bindNT nEBase);
          pegf (pnt nConstr) (bindNT nEBase);
-         pegf (pnt nEList) (bindNT nLiteral);
+         pegf (pnt nEList) (bindNT nEBase);
          seql [tokeq LparT; tokeq RparT] (bindNT nEBase); (* unit *)
          seql [tokeq BeginT; tokeq EndT] (bindNT nEBase); (* unit *)
          seql [tokeq LparT; pnt nExpr;
@@ -702,9 +695,9 @@ Definition camlPEG_def[nocompute]:
       (* -- Pat8 ----------------------------------------------------------- *)
       (INL nPList,
        seql [tokeq LbrackT;
-             pnt nPattern;
-             rpt (seql [tokeq SemiT; pnt nPattern] I) FLAT;
-             try (tokeq SemiT);
+             try (seql [pnt nPattern;
+                        try (rpt (seql [tokeq SemiT; pnt nPattern] I) FLAT);
+                        try (tokeq SemiT)] I);
              tokeq RbrackT]
             (bindNT nPList));
       (INL nPAny,
@@ -760,8 +753,7 @@ Definition camlPEG_def[nocompute]:
 End
 
 (* -------------------------------------------------------------------------
- * All of the stuff below is taken from cmlPEGScript. Its for doing EVAL
- * using peg_exec:
+ * Some of this is used in proving parser side conditions in translation later.
  * ------------------------------------------------------------------------- *)
 
 val rules_t = “camlPEG.rules”;
@@ -831,170 +823,8 @@ Theorem camlPEG_exec_thm[compute] =
 Overload camlpegexec =
   “λn t. peg_exec camlPEG (pnt n) t [] NONE [] done failed”;
 
-val t1 = rhs $ concl $ time EVAL “lexer_fun "x;;"”;
-val t2 = time EVAL “camlpegexec nStart ^t1”;
-
-val t1 = rconc $ time EVAL “lexer_fun "'a b c d"”;
-val t2 = time EVAL “camlpegexec nType ^t1”;
-
-val t1 = rconc $ time EVAL “lexer_fun "('a,'b -> 'c) list list"”;
-val t2 = rconc $ time EVAL “camlpegexec nType ^t1”;
-val t3 = hd (fst (listSyntax.dest_list (rand (rator (rand t2)))))
-val t4 = time EVAL “ptree_Type ^t3”
-
-val t1 = rconc $ time EVAL “lexer_fun "3 || 2.0"”
-val t2 = time EVAL “camlpegexec nEAdd ^t1”;
-
-val t1 = rconc $ time EVAL “lexer_fun "for x = y z"”;
-val t2 = rconc $ time EVAL “camlpegexec nEApp ^t1”;
-val t3 = hd (fst (listSyntax.dest_list (rand (rator (rand t2)))))
-val t4 = rconc $ time EVAL “ptree_Literal ^t3”;
-
-val t1 = rconc $ time EVAL “lexer_fun "let fx y () = Z.z + C ;;"”
-val t2 = rconc $ time EVAL “camlpegexec nStart ^t1”
-
- *)
-
-(*
-val test =
-  time EVAL “peg_exec camlPEG (pnt nStart)
-             (map_loc [
-                  IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2);
-              ] 0)
-             [] NONE [] done failed”;
-
-val test2 =
-  time EVAL “peg_exec camlPEG (pnt nStart)
-             (map_loc [
-                  IntT 3; StarT; IntT 4;
-              ] 0)
-             [] NONE [] done failed”;
-
-val test3 =
-  time EVAL “peg_exec camlPEG (pnt nStart)
-             (map_loc [
-                  IntT 3; LessT; IdentT "foo";
-              ] 0)
-             [] NONE [] done failed”;
-
-val test4 =
-  time EVAL “peg_exec camlPEG (pnt nStart)
-             (map_loc [
-                  IntT 3; ColonsT; IdentT "xs";
-              ] 0)
-             [] NONE [] done failed”;
-
-val test5 =
-  time EVAL “peg_exec camlPEG (pnt nStart)
-             (map_loc [
-                  ColonsT; IdentT "xs";
-              ] 0)
-             [] NONE [] done failed”;
-
-val test6 =
-  time EVAL “peg_exec camlPEG (pnt nStart)
-             (map_loc [
-                  IdentT "xs";
-              ] 0)
-             [] NONE [] done failed”;
-
-val test7 =
-  time EVAL “peg_exec camlPEG (pnt nStart)
-             (map_loc [
-                  IdentT "x"; ColonsT;
-                  IdentT "y"; ColonsT;
-                  IdentT "xs";
-              ] 0)
-             [] NONE [] done failed”;
-
-val test8 =
-  time EVAL “peg_exec camlPEG (pnt nStart)
-             (map_loc [
-                  LparT;
-                  IdentT "x"; ColonsT;
-                  IdentT "y";
-                  RparT;
-                  ColonsT;
-                  IdentT "xs";
-              ] 0)
-             [] NONE [] done failed”;
-
-val test9 =
-  time EVAL “peg_exec camlPEG (pnt nStart)
-             (map_loc [
-                  IdentT "y";
-                  SymbolT "@<<";
-                  IdentT "xs";
-              ] 0)
-             [] NONE [] done failed”;
-*)
-
-(* -------------------------------------------------------------------------
- * Running the lexer, and then the parser
- * ------------------------------------------------------------------------- *)
-
-(*
-
-
-Definition destResult_def:
-  destResult (Result (Success [] x eo)) = INR (x, eo) ∧
-  destResult (Result (Success ((_,l)::_) _ _)) =
-    INL (l, "Expected to be at EOF") ∧
-  destResult (Result (Failure fl fe)) = INL (fl, fe) ∧
-  destResult _ =
-    INL (unknown_loc, "Something catastrophic happened")
-End
-
-Definition run_prog_def:
-  run_prog input =
-    let toks = lexer_fun input in
-    let errs = FILTER ($= LexErrorT o FST) toks in
-      if errs ≠ [] then
-        INL (SND (HD errs), "Lexer error")
-      else
-        destResult (camlpegexec nStart toks)
-End
-
-Definition parse_def:
-  parse input =
-    case run_prog input of
-      INL (Locs (POSN r1 c1) (POSN r2 c2), err) =>
-        "Failure: " ++ err ++ "\nbetween (" ++
-        toString r1 ++ ", " ++ toString c1 ++ ") and (" ++
-        toString r2 ++ ", " ++ toString c2 ++ ").\n"
-    | INR (tree, _) => "Success!\n"
-End
-
-fun run_parser str =
-  let
-    val holstr = stringSyntax.fromMLstring str
-    val th = EVAL “parse ^holstr” |> SIMP_RULE (srw_ss()) [camlPEG_def]
-    val strtm = rhs (concl th)
-    val outstr = stringSyntax.fromHOLstring strtm
-  in
-    print outstr
-  end;
-
-fun run_parser_file file =
-  let
-    val ins = TextIO.openIn file
-    val str = TextIO.inputAll ins
-    val _ = TextIO.closeIn ins
-  in
-    run_parser str
-  end;
-
-val test1 = run_parser ":: d ? 4"
-val test2 = run_parser "1 + ? 4"
-val test3 = run_parser "1 + 33 / (a_b_cdef :: 4)"
-val test4 = run_parser "abcdef \\s"
-val test5 = run_parser "if let x = True in x then 4 else 3";
-val test6 = run_parser "if let x = true in x then 4 else 3";
-val test7 = run_parser "if let x = * true in x then 4 else 3 + 4";
-val test8 = run_parser "let x = [(1;2);(3;4)] in x"
-val test9 = run_parser "let x = [1;2;3;4] in x"
-val test10 = run_parser "let x = [1; ;2;3;4] in x"
-val test11 = run_parser "let x = 3 and y = 4;; let z = [3] in z;;"
+val t1 = rhs $ concl $ time EVAL “lexer_fun "[] -> []"”;
+val t2 = time EVAL “camlpegexec nPatternMatch ^t1”;
 
  *)
 
