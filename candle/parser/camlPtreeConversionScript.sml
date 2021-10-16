@@ -701,14 +701,11 @@ Definition ptree_Pattern_def:
       | _ => fail (locs, «Impossible: nPCons»)
     else if nterm = INL nPProd then
       case args of
-        [pat] => ptree_Pattern pat
-      | [p1; comma; p2] =>
+        pat::pats =>
           do
-            expect_tok comma CommaT;
-            ps <- ptree_Pattern p1;
-            qs <- ptree_Pattern p2;
-            return (MAP (λ(p,q). Pcon NONE [p; q])
-                        (cart_prod ps qs))
+            p <- ptree_Pattern pat;
+            ps <- ptree_PatternCommas pats;
+            return (MAP (λps. Pcon NONE ps) (list_cart_prod (p::ps)))
           od
       | _ => fail (locs, «Impossible: nPProd»)
     else if nterm = INL nPOr then
@@ -749,9 +746,22 @@ Definition ptree_Pattern_def:
        q <- ptree_Pattern p;
        qs <- ptree_PatternList ps;
        return (q::qs)
-     od)
+     od) ∧
+  (ptree_PatternCommas [] = return []) ∧
+  (ptree_PatternCommas (p::ps) =
+    do
+      expect_tok p CommaT;
+      ptree_PatternCommas ps
+    od ++
+    do
+      q <- ptree_Pattern p;
+      qs <- ptree_PatternCommas ps;
+      return (q::qs)
+    od)
 Termination
-  WF_REL_TAC ‘measure (sum_size psize (list_size psize))’
+  WF_REL_TAC ‘measure $ sum_size psize
+                      $ sum_size (list_size psize)
+                                 (list_size psize)’
   \\ simp [parsetree_size_lemma]
 End
 
@@ -1175,13 +1185,11 @@ Definition ptree_Expr_def:
       | _ => fail (locs, «Impossible: nEOr»)
     else if nterm = INL nEProd then
       case args of
-        [exp] => ptree_Expr nEOr exp
-      | [lhs; comma; rhs] =>
+        exp::exps =>
           do
-            expect_tok comma CommaT;
-            x <- ptree_Expr nEOr lhs;
-            y <- ptree_Expr nEProd rhs;
-            return (Con NONE [x; y])
+            x <- ptree_Expr nEOr exp;
+            xs <- ptree_ExprCommas exps;
+            return (Con NONE (x::xs))
           od
       | _ => fail (locs, «Impossible: nEProd»)
     else if nterm = INL nEIf then
@@ -1513,7 +1521,18 @@ Definition ptree_Expr_def:
        y <- ptree_Expr nExpr x;
        ys <- ptree_ExprList xs;
        return (y::ys)
-     od)
+     od) ∧
+  (ptree_ExprCommas [] = return []) ∧
+  (ptree_ExprCommas (x::xs) =
+    do
+      expect_tok x CommaT;
+      ptree_ExprCommas xs
+    od ++
+    do
+      y <- ptree_Expr nEOr x;
+      ys <- ptree_ExprCommas xs;
+      return (y::ys)
+    od)
 Termination
   WF_REL_TAC ‘measure $ sum_size (pair_size camlNT_size psize)
                       $ sum_size psize
@@ -1521,7 +1540,8 @@ Termination
                       $ sum_size psize
                       $ sum_size psize
                       $ sum_size psize
-                      $ sum_size psize (list_size psize)’
+                      $ sum_size psize
+                      $ sum_size (list_size psize) (list_size psize)’
   \\ simp [parsetree_size_lemma]
 End
 

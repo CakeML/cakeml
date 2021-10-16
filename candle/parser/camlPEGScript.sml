@@ -609,7 +609,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nEOr));
       (* -- Expr4 ---------------------------------------------------------- *)
       (INL nEProd,
-       seql [pnt nEOr; try (seql [tokeq CommaT; pnt nEProd] I)]
+       seql [pnt nEOr; try (rpt (seql [tokeq CommaT; pnt nEOr] I) FLAT)]
             (bindNT nEProd));
       (* -- Expr3: assignments --------------------------------------------- *)
       (* -- Expr2 ---------------------------------------------------------- *)
@@ -732,7 +732,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPCons));
       (* -- Pat4 ----------------------------------------------------------- *)
       (INL nPProd,
-       seql [pnt nPCons; try (seql [tokeq CommaT; pnt nPProd] I)]
+       seql [pnt nPCons; try (rpt (seql [tokeq CommaT; pnt nPCons] I) FLAT)]
             (bindNT nPProd));
       (* -- Pat3 ----------------------------------------------------------- *)
       (INL nPOr,

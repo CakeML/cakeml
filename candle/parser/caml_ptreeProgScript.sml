@@ -144,7 +144,8 @@ Theorem ptree_Expr_preconds[local]:
   (∀x. ptree_letbindings_side x) ∧
   (∀x. ptree_patternmatches_side x) ∧
   (∀x. ptree_patternmatch_side x) ∧
-  (∀x. ptree_exprlist_side x)
+  (∀x. ptree_exprlist_side x) ∧
+  (∀x. ptree_exprcommas_side x)
 Proof
   ho_match_mp_tac ptree_Expr_ind
   \\ strip_tac
