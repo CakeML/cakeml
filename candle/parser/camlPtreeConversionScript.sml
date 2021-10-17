@@ -1702,12 +1702,11 @@ Definition ptree_TypeInfo_def:
   ptree_TypeInfo (Nd (nterm, locs) args) =
     if nterm = INL nTypeInfo then
       case args of
-        [tr] =>
-          fmap INR $ ptree_TypeRepr tr
-      | [eq; ty] =>
+        [eq; arg] =>
           do
             expect_tok eq EqualT;
-            fmap INL $ ptree_Type ty
+            fmap INL (ptree_Type arg) ++
+            fmap INR (ptree_TypeRepr arg)
           od
       | _ => fail (locs, «Impossible: nTypeInfo»)
     else
@@ -1779,13 +1778,13 @@ Definition ptree_TypeDef_def:
         [tps; id; info] =>
           do
             tys <- ptree_TypeParams tps;
-            nm <- ptree_ConstrName id;
+            nm <- ptree_TypeConstrName id;
             trs <- ptree_TypeInfo info;
             return (locs, tys, nm, trs)
           od
       | [id; info] =>
           do
-            nm <- ptree_ConstrName id;
+            nm <- ptree_TypeConstrName id;
             trs <- ptree_TypeInfo info;
             return (locs, [], nm, trs)
           od

@@ -198,11 +198,14 @@ Definition identMixed_def:
      (isUpper (HD s) ∧ ¬NULL (TL s) ⇒ EXISTS isUpper (TL s)))
 End
 
+(* Names of types start with a lowercase letter or underscore.
+ *)
+
 Definition identLower_def:
   identLower s ⇔
     s ≠ "" ∧
     isLower (HD s) ∨ HD s = #"_" ∧
-    idChar isLower (TL s)
+    idChar isAlpha (TL s)
 End
 
 Datatype:
@@ -474,8 +477,9 @@ Definition camlPEG_def[nocompute]:
                       tokeq RparT]
                      (bindNT nTypeParams)]);
       (INL nTypeInfo,
-       choicel [seql [tokeq EqualT; pnt nType] (bindNT nTypeInfo);
-                pegf (pnt nTypeRepr) (bindNT nTypeInfo)]);
+       seql [tokeq EqualT;
+             choicel [pnt nType; pnt nTypeRepr]]
+            (bindNT nTypeInfo));
       (INL nTypeRepr,
        seql [try (tokeq BarT); pnt nConstrDecl; try (pnt nTypeReprs)]
             (bindNT nTypeRepr));
