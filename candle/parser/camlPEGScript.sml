@@ -490,7 +490,7 @@ Definition camlPEG_def[nocompute]:
        seql [pnt nConstrName; try (seql [tokeq OfT; pnt nConstrArgs] I)]
             (bindNT nConstrDecl));
       (INL nConstrArgs,
-       seql [pnt nType; rpt (seql [tokeq StarT; pnt nType] I) FLAT]
+       seql [pnt nTConstr; try (rpt (seql [tokeq StarT; pnt nTConstr] I) FLAT)]
             (bindNT nConstrArgs));
       (* -- Type5 ---------------------------------------------------------- *)
       (INL nTypeList,
