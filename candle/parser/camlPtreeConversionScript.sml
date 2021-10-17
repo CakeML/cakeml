@@ -124,14 +124,136 @@ Definition ptree_Ident_def:
       fail (locs, «Expected ident non-terminal»)
 End
 
+(* Returns a (function) name corresponding to the operator.
+ *)
+
+Definition ptree_Op_def:
+  ptree_Op (Lf (_, locs)) =
+    fail (locs, «Expected operator non-terminal») ∧
+  ptree_Op (Nd (nterm, locs) args) =
+    case args of
+      [arg] =>
+        do
+          lf <- destLf arg;
+          tk <- option $ destTOK lf;
+          if nterm = INL nShiftOp then
+            if tk = LslT then
+              return "lsl"
+            else if tk = LsrT then
+              return "lsr"
+            else if tk = AsrT then
+              return "asr"
+            else if isSymbol tk then
+              let s = THE (destSymbol tk) in
+                return s
+            else
+              fail (locs, «Impossible: nShiftOp»)
+          else if nterm = INL nMultOp then
+            if tk = StarT then
+              return "*"
+            else if tk = ModT then
+              return "mod"
+            else if tk = LandT then
+              return "land"
+            else if tk = LorT then
+              return "lor"
+            else if tk = LxorT then
+              return "lxor"
+            else if isSymbol tk then
+              let s = THE (destSymbol tk) in
+                return s
+            else
+              fail (locs, «Impossible: nMultOp»)
+          else if nterm = INL nAddOp then
+            if tk = PlusT then
+              return "+"
+            else if tk = MinusT then
+              return "-"
+            else if tk = MinusFT then
+              return "-."
+            else if isSymbol tk then
+              let s = THE (destSymbol tk) in
+                return s
+            else
+             fail (locs, «Impossible: nAddOp»)
+          else if nterm = INL nRelOp then
+            if tk = LessT then
+              return "<"
+            else if tk = GreaterT then
+              return ">"
+            else if tk = EqualT then
+              return "="
+            else if isSymbol tk then
+              let s = THE (destSymbol tk) in
+                return s
+            else
+              fail (locs, «Impossible: nRelOp»)
+          else if nterm = INL nAndOp then
+            if tk = AndalsoT then
+              return "&&"
+            else if tk = AmpT then
+              return "&"
+            else if isSymbol tk then
+              let s = THE (destSymbol tk) in
+                return s
+            else
+              fail (locs, «Impossible: nAndOp»)
+          else if nterm = INL nOrOp then
+            if tk = OrelseT then
+              return "||"
+            else if tk = OrT then
+              return "|"
+            else if isSymbol tk then
+              let s = THE (destSymbol tk) in
+                return s
+            else
+              fail (locs, «Impossible: nOrOp»)
+          else if nterm = INL nHolInfixOp then
+            if tk = FuncompT then
+              return "o"
+            else if tk = F_FT then
+              return "F_F"
+            else if tk = THEN_T then
+              return "THEN"
+            else if tk = THENC_T then
+              return "THENC"
+            else if tk = THENL_T then
+              return "THENL"
+            else if tk = THEN_TCL_T then
+              return "THEN_TCL"
+            else if tk = ORELSE_T then
+              return "ORELSE"
+            else if tk = ORELSEC_T then
+              return "ORELSEC"
+            else if tk = ORELSE_TCL_T then
+              return "ORELSE_TCL"
+            else
+              fail (locs, «Impossible: nHolInfixOp»)
+          else if nterm = INL nCatOp then
+            if isSymbol tk then
+              let s = THE (destSymbol tk) in
+                return s
+            else
+              fail (locs, «Impossible: nCatOp»)
+          else if nterm = INL nPrefixOp then
+            if isSymbol tk then
+              let s = THE (destSymbol tk) in
+                return s
+            else
+              fail (locs, «Impossible: nPrefixOp»)
+          else
+            fail (locs, «Expected operator non-terminal»)
+        od
+    | _ => fail (locs, «Expected operator non-terminal»)
+End
+
 Definition ptree_OperatorName_def:
   ptree_OperatorName (Lf (_, locs)) =
     fail (locs, «Expected operator-name non-terminal») ∧
   ptree_OperatorName (Nd (nterm, locs) args) =
     if nterm = INL nOperatorName then
       case args of
-        [arg] =>
-          fail (locs, «Cannot use infix operators as prefix (yet)»)
+        [arg] => ptree_Op arg
       | _ => fail (locs, «Impossible: nOperatorName»)
     else
       fail (locs, «Expected operator-name non-terminal»)
@@ -430,125 +552,6 @@ Definition ptree_Literal_def:
       fail (locs, «Expected a literal non-terminal»)
 End
 
-(* TODO
- *   There's several made-up function names here that should be replaced
- *   by code which converts from integers to 64-bit words and back.
- w   For example, CakeML.lsl a b should be:
- *
- *     App WordToInt [
- *       App (Opw Lsl) [App WordFromInt [a];
- *                      App WordFromInt [b]]]
- *)
-
-Definition ptree_Op_def:
-  ptree_Op (Lf (_, locs)) =
-    fail (locs, «Expected binary operation non-terminal») ∧
-  ptree_Op (Nd (nterm, locs) args) =
-    case args of
-      [arg] =>
-        do
-          lf <- destLf arg;
-          tk <- option $ destTOK lf;
-          if nterm = INL nShiftOp then
-            if tk = LslT then
-              return $ INL $ Long "CakeML" $ Short "lsl"
-            else if tk = LsrT then
-              return $ INL $ Long "CakeML" $ Short "lsr"
-            else if tk = AsrT then
-              return $ INL $ Long "CakeML" $ Short "asr"
-            else if isSymbol tk then
-              let s = THE (destSymbol tk) in
-                if s = "**" then
-                  return $ INL $ Long "Double" $ Short "pow"
-                else
-                  return $ INL $ Short s
-            else
-              fail (locs, «Impossible: nShiftOp»)
-          else if nterm = INL nMultOp then
-            if tk = StarT then
-              return $ INR $ Opn Times
-            else if tk = ModT then
-              return $ INR $ Opn Modulo
-            else if tk = LandT then
-              return $ INL $ Long "CakeML" $ Short "land"
-            else if tk = LorT then
-              return $ INL $ Long "CakeML" $ Short "lor"
-            else if tk = LxorT then
-              return $ INL $ Long "CakeML" $ Short "lxor"
-            else if isSymbol tk then
-              let s = THE (destSymbol tk) in
-                if s = "/" then
-                  return $ INR $ Opn Divide
-                else if s = "*." then
-                  return $ INR $ FP_bop FP_Mul
-                else if s = "/." then
-                  return $ INR $ FP_bop FP_Div
-                else
-                  return $ INL $ Short s
-            else
-              fail (locs, «Impossible: nMultOp»)
-          else if nterm = INL nAddOp then
-            if tk = PlusT then
-              return $ INR $ Opn Plus
-            else if tk = MinusT then
-              return $ INR $ Opn Minus
-            else if tk = MinusFT then
-              return $ INR $ FP_bop FP_Sub
-            else if isSymbol tk then
-              let s = THE (destSymbol tk) in
-                if s = "+." then
-                  return $ INR $ FP_bop FP_Add
-                else
-                  return $ INL $ Short s
-            else
-             fail (locs, «Impossible: nAddOp»)
-          else if nterm = INL nRelOp then
-            if tk = LessT then
-              return $ INR $ Opb Lt
-            else if tk = GreaterT then
-              return $ INR $ Opb Gt
-            else if tk = EqualT then
-              return $ INR Equality
-            else if isSymbol tk then
-              let s = THE (destSymbol tk) in
-                if s = "<=" then
-                  return $ INR $ Opb Leq
-                else if s = ">=" then
-                  return $ INR $ Opb Geq
-                else if s = "<." then
-                  return $ INR $ FP_cmp FP_Less
-                else if s = ">." then
-                  return $ INR $ FP_cmp FP_Greater
-                else if s = "<=." then
-                  return $ INR $ FP_cmp FP_LessEqual
-                else if s = ">=." then
-                  return $ INR $ FP_cmp FP_GreaterEqual
-                else
-                  return $ INL $ Short s
-            else
-              fail (locs, «Impossible: nRelOp»)
-          else if nterm = INL nAndOp then
-            if tk = AndalsoT ∨ tk = AmpT then
-              return $ INL $ Long "CakeML" $ Short "and"
-            else if isSymbol tk then
-              let s = THE (destSymbol tk) in
-                return $ INL $ Short s
-            else
-              fail (locs, «Impossible: nAndOp»)
-          else if nterm = INL nOrOp then
-            if tk = OrelseT ∨ tk = OrT then
-              return $ INL $ Long "CakeML" $ Short "or"
-            else if isSymbol tk then
-              let s = THE (destSymbol tk) in
-                return $ INL $ Short s
-            else
-              fail (locs, «Impossible: nOrOp»)
-          else
-            fail (locs, «Expected binary operation non-terminal»)
-        od
-    | _ => fail (locs, «Expected binary operation non-terminal»)
-End
-
 (* Turns a list literal pattern “[x; y; z]” into the
  * constructor pattern “x::y::z::[]”.
  *)
@@ -788,8 +791,7 @@ End
  *)
 
 Definition build_binop_def:
-  build_binop (INR opn) x y = App opn [x; y] ∧
-  build_binop (INL symb) x y = App Opapp [App Opapp [Var symb; x]; y]
+  build_binop symb x y = App Opapp [App Opapp [Var (Short symb); x]; y]
 End
 
 (* Turns a list literal expression “[x; y; z]” into the
@@ -1068,13 +1070,11 @@ Definition ptree_Expr_def:
       | _ => fail (locs, «Impossible: nEApp»)
     else if nterm = INL nEPrefix then
       case args of
-        [pref; expr] =>
+        [opn; expr] =>
           do
-            lf <- destLf pref;
-            tk <- option $ destTOK lf;
-            sym <- option $ destSymbol tk;
+            op <- ptree_Op opn;
             x <- ptree_Expr nEApp expr;
-            return (App Opapp [Var (Short sym); x])
+            return (App Opapp [Var (Short op); x])
           od
       | [arg] => ptree_Expr nEApp arg
       | _ => fail (locs, «Impossible: nEPrefix»)
@@ -1086,9 +1086,9 @@ Definition ptree_Expr_def:
             tk <- option $ destTOK lf;
             x <- ptree_Expr nEPrefix expr;
             if tk = MinusT then
-              return (App (Opn Minus) [Lit (IntLit 0i); x])
+              return (App Opapp [Var (Long "Int" (Short "~")); x])
             else if tk = MinusFT then
-              return (App (FP_bop FP_Sub) [Lit (Word64 0w); x])
+              return (App Opapp [Var (Long "Double" (Short "~")); x])
             else if isSymbol tk then
               let s = THE (destSymbol tk) in
                 return (App Opapp [Var (Short s); x])
@@ -1148,7 +1148,8 @@ Definition ptree_Expr_def:
           do
             x <- ptree_Expr nECons lhs;
             y <- ptree_Expr nECat rhs;
-            return (build_funapp (Var (Long "String" (Short [CHR 94]))) [x; y])
+            op <- ptree_Op opn;
+            return (build_binop op x y)
           od
       | _ => fail (locs, «Impossible: nECat»)
     else if nterm = INL nERel then
@@ -1184,12 +1185,24 @@ Definition ptree_Expr_def:
             return (build_binop op x y)
           od
       | _ => fail (locs, «Impossible: nEOr»)
-    else if nterm = INL nEProd then
+
+    else if nterm = INL nEHolInfix then
       case args of
         [exp] => ptree_Expr nEOr exp
+      | [lhs; opn; rhs] =>
+          do
+            x <- ptree_Expr nEHolInfix lhs;
+            y <- ptree_Expr nEOr rhs;
+            op <- ptree_Op opn;
+            return (build_binop op x y)
+          od
+      | _ => fail (locs, «Impossible: nEHolInfix»)
+    else if nterm = INL nEProd then
+      case args of
+        [exp] => ptree_Expr nEHolInfix exp
       | exp::exps =>
           do
-            x <- ptree_Expr nEOr exp;
+            x <- ptree_Expr nEHolInfix exp;
             xs <- ptree_ExprCommas exps;
             return (Con NONE (x::xs))
           od
@@ -1531,7 +1544,7 @@ Definition ptree_Expr_def:
       ptree_ExprCommas xs
     od ++
     do
-      y <- ptree_Expr nEOr x;
+      y <- ptree_Expr nEHolInfix x;
       ys <- ptree_ExprCommas xs;
       return (y::ys)
     od)
