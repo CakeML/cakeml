@@ -232,7 +232,7 @@ Datatype:
     | nModExpr | nModuleDef
     | nSemis | nExprItem | nExprItems | nDefItem
     (* misc *)
-    | nShiftOp | nMultOp | nAddOp | nRelOp | nAndOp | nOrOp
+    | nShiftOp | nMultOp | nAddOp | nRelOp | nAndOp | nOrOp | nCatOp | nPrefixOp
     | nStart
 End
 
@@ -244,7 +244,6 @@ Definition camlNT2string_def:
   camlNT2string n =
     case n of
       nEHolInfix => strlit"hol-infix-expression"
-    | nHolInfixOp => strlit"hol-infix-op"
     | nValueName => strlit"value-name"
     | nOperatorName => strlit"operator-name"
     | nConstrName => strlit"constr-name"
@@ -331,12 +330,15 @@ Definition camlNT2string_def:
     | nOpen => strlit"open"
     | nModExpr => strlit"mod-expr"
     | nModuleDef => strlit"module-def"
+    | nPrefixOp => strlit"prefix-op"
     | nShiftOp => strlit"shift-op"
     | nMultOp => strlit"mult-op"
     | nAddOp => strlit"add-op"
+    | nCatOp => strlit"append-op"
     | nRelOp => strlit"rel-op"
     | nAndOp => strlit"and-op"
     | nOrOp => strlit"or-op"
+    | nHolInfixOp => strlit"hol-infix-op"
     | nStart => strlit"start"
     | nSemis => strlit"double-semicolons"
     | nExprItem => strlit"expr-item"
@@ -374,8 +376,8 @@ Definition camlPEG_def[nocompute]:
                       pnt nAndOp;
                       pnt nOrOp;
                       pnt nHolInfixOp;
-                      tokSymP validPrefixSym;
-                      tokSymP validCatOp ])
+                      pnt nCatOp;
+                      pnt nPrefixOp ])
             (bindNT nOperatorName));
       (INL nConstrName,
        pegf (tokIdP identUpperLower) (bindNT nConstrName));
@@ -563,8 +565,11 @@ Definition camlPEG_def[nocompute]:
        pegf (choicel (MAP pnt [nELazy; nEAssert; nEConstr; nEFunapp; nEBase]))
             (bindNT nEApp));
       (* -- Expr14 --------------------------------------------------------- *)
+      (INL nPrefixOp,
+       pegf (tokSymP validPrefixSym)
+            (bindNT nPrefixOp));
       (INL nEPrefix,
-       seql [try (tokSymP validPrefixSym); pnt nEApp] (bindNT nEPrefix));
+       seql [try (pnt nPrefixOp); pnt nEApp] (bindNT nEPrefix));
       (* -- Expr13 --------------------------------------------------------- *)
       (INL nENeg,
        seql [try (choicel [tokeq MinusT; tokeq MinusFT]); pnt nEPrefix]
@@ -595,8 +600,11 @@ Definition camlPEG_def[nocompute]:
        seql [pnt nEAdd; try (seql [tokeq ColonsT; pnt nECons] I)]
             (bindNT nECons));
       (* -- Expr8 ---------------------------------------------------------- *)
+      (INL nCatOp,
+       pegf (tokSymP validCatOp)
+            (bindNT nCatOp));
       (INL nECat,
-       seql [pnt nECons; try (seql [tokSymP validCatOp; pnt nECat] I)]
+       seql [pnt nECons; try (seql [pnt nCatOp; pnt nECat] I)]
             (bindNT nECat));
       (* -- Expr7 ---------------------------------------------------------- *)
       (INL nRelOp,
