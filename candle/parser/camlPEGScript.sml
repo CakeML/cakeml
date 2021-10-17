@@ -204,7 +204,7 @@ End
 Definition identLower_def:
   identLower s ⇔
     s ≠ "" ∧
-    isLower (HD s) ∨ HD s = #"_" ∧
+    (isLower (HD s) ∨ HD s = #"_") ∧
     idChar isAlpha (TL s)
 End
 
