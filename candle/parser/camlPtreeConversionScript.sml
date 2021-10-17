@@ -465,13 +465,19 @@ Definition ptree_Type_def:
       | _ => fail (locs, «Impossible: nTBase»)
     else if nterm = INL nTConstr then
       case args of
-        [arg] => ptree_Type arg
-      | arg::rest =>
+        arg::rest =>
           do
             ty <- ptree_Type arg;
             ids <- mapM ptree_TypeConstr rest;
             cns <- mapM (path_to_ns locs) ids;
             return (FOLDL (λt id. Atapp [t] id) ty cns)
+          od ++
+          do
+            id <- ptree_TypeConstr arg;
+            cn <- path_to_ns locs id;
+            ids <- mapM ptree_TypeConstr rest;
+            cns <- mapM (path_to_ns locs) ids;
+            return (FOLDL (λt id. Atapp [t] id) (Atapp [] cn) cns)
           od
       | _ => fail (locs, «Impossible: nTConstr»)
     else if nterm = INL nTProd then

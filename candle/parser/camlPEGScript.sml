@@ -512,7 +512,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nTBase));
       (* -- Type4 ---------------------------------------------------------- *)
       (INL nTConstr,
-       seql [pnt nTBase; rpt (pnt nTypeConstr) FLAT]
+       seql [try (pnt nTBase); rpt (pnt nTypeConstr) FLAT]
             (bindNT nTConstr));
       (* -- Type3 ---------------------------------------------------------- *)
       (INL nTProd,
@@ -857,8 +857,8 @@ Theorem camlPEG_exec_thm[compute] =
 Overload camlpegexec =
   “λn t. peg_exec camlPEG (pnt n) t [] NONE [] done failed”;
 
-val t1 = rhs $ concl $ time EVAL “lexer_fun "[] -> []"”;
-val t2 = time EVAL “camlpegexec nPatternMatch ^t1”;
+val t1 = rhs $ concl $ time EVAL “lexer_fun "'a baz list"”;
+val t2 = time EVAL “camlpegexec nTConstr ^t1”;
 
  *)
 
