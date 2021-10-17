@@ -198,6 +198,12 @@ Definition identMixed_def:
      (isUpper (HD s) ∧ ¬NULL (TL s) ⇒ EXISTS isUpper (TL s)))
 End
 
+Definition identLower_def:
+  identLower s ⇔
+    s ≠ "" ∧
+    isLower (HD s) ∨ HD s = #"_" ∧
+    idChar isLower (TL s)
+End
 
 Datatype:
   camlNT =
@@ -382,7 +388,7 @@ Definition camlPEG_def[nocompute]:
       (INL nConstrName,
        pegf (tokIdP identUpperLower) (bindNT nConstrName));
       (INL nTypeConstrName,
-       pegf (tokIdP identMixed) (bindNT nTypeConstrName));
+       pegf (tokIdP identLower) (bindNT nTypeConstrName));
       (INL nModuleName,
        pegf (tokIdP identUpperLower) (bindNT nModuleName));
       (INL nValuePath,

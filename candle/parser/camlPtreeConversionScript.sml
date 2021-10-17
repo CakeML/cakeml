@@ -1185,7 +1185,6 @@ Definition ptree_Expr_def:
             return (build_binop op x y)
           od
       | _ => fail (locs, «Impossible: nEOr»)
-
     else if nterm = INL nEHolInfix then
       case args of
         [exp] => ptree_Expr nEOr exp
