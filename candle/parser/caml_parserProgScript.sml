@@ -218,14 +218,14 @@ end
 val npeg0_rwts =
     List.foldl pegnt []
       [ “nShiftOp”, “nMultOp”, “nAddOp”, “nRelOp”, “nAndOp”, “nOrOp”,
-        “nHolInfixOp”, “nCatOp”, “nPrefixOp”,
+        “nHolInfixOp”, “nCatOp”, “nPrefixOp”, “nAssignOp”,
         “nValueName”, “nOperatorName”, “nConstrName”, “nTypeConstrName”,
         “nModuleName”, “nValuePath”, “nConstr”, “nTypeConstr”, “nModulePath”,
         “nLiteral”, “nIdent”, “nEList”, “nEConstr”, “nEBase”,
         “nELazy”, “nEAssert”, “nEFunapp”, “nEApp”, “nEPrefix”, “nENeg”,
         “nEShift”, “nEMult”, “nEAdd”, “nECons”, “nECat”, “nERel”, “nEAnd”,
         “nEOr”, “nEHolInfix”,
-        “nEProd”, “nEIf”, “nESeq”, “nEMatch”, “nETry”, “nEFun”,
+        “nEProd”, “nEAssign”, “nEIf”, “nESeq”, “nEMatch”, “nETry”, “nEFun”,
         “nEFunction”, “nELet”, “nELetRec”, “nEWhile”, “nEFor”, “nExpr”,
         “nLetBinding”, “nLetBindings”, “nLetRecBinding”, “nLetRecBindings”,
         “nPatternMatches”, “nPatternMatch”, “nTypeDefinition”, “nTypeDef”,
@@ -253,14 +253,14 @@ end;
 
 val topo_nts =
       [ “nShiftOp”, “nMultOp”, “nAddOp”, “nRelOp”, “nAndOp”, “nOrOp”,
-        “nHolInfixOp”, “nCatOp”, “nPrefixOp”,
+        “nHolInfixOp”, “nCatOp”, “nPrefixOp”, “nAssignOp”,
         “nValueName”, “nOperatorName”, “nConstrName”, “nTypeConstrName”,
         “nModuleName”, “nModulePath”, “nValuePath”, “nConstr”, “nTypeConstr”,
         “nLiteral”, “nIdent”, “nEList”, “nEConstr”, “nEBase”,
         “nELazy”, “nEAssert”, “nEFunapp”, “nEApp”, “nEPrefix”, “nENeg”,
         “nEShift”, “nEMult”, “nEAdd”, “nECons”, “nECat”, “nERel”, “nEAnd”,
         “nEOr”, “nEHolInfix”,
-        “nEProd”, “nEIf”, “nESeq”, “nEMatch”, “nETry”, “nEFun”,
+        “nEProd”, “nEAssign”, “nEIf”, “nESeq”, “nEMatch”, “nETry”, “nEFun”,
         “nEFunction”, “nELet”, “nELetRec”, “nEWhile”, “nEFor”, “nExpr”,
         “nPAny”, “nPList”, “nPBase”, “nPLazy”, “nPConstr”,
         “nPApp”, “nPCons”, “nPProd”, “nPOr”, “nPAs”, “nPattern”, “nPatterns”,

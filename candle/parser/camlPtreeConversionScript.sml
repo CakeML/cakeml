@@ -241,6 +241,13 @@ Definition ptree_Op_def:
                 return s
             else
               fail (locs, «Impossible: nPrefixOp»)
+          else if nterm = INL nAssignOp then
+            if tk = LarrowT then
+              return "<-"
+            else if tk = UpdateT then
+              return ":="
+            else
+              fail (locs, «Impossible: nAssignOp»)
           else
             fail (locs, «Expected operator non-terminal»)
         od
@@ -1212,6 +1219,20 @@ Definition ptree_Expr_def:
             return (Con NONE (x::xs))
           od
       | _ => fail (locs, «Impossible: nEProd»)
+    else if nterm = INL nEAssign then
+
+      case args of
+        [exp] => ptree_Expr nEProd exp
+      | [lhs; opn; rhs] =>
+          do
+            x <- ptree_Expr nEProd lhs;
+            y <- ptree_Expr nEAssign rhs;
+            op <- ptree_Op opn;
+            return (build_binop op x y)
+          od
+      | _ => fail (locs, «Impossible: nEAssign»)
+
+
     else if nterm = INL nEIf then
       case args of
         [ift; x; thent; y; elset; z] =>

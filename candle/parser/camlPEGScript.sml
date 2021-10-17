@@ -220,7 +220,7 @@ Datatype:
     | nEApp | nEConstr | nEFunapp | nEAssert | nELazy
     | nEPrefix | nENeg | nEShift | nEMult
     | nEAdd | nECons | nECat | nERel
-    | nEAnd | nEOr | nEProd | nEIf | nESeq
+    | nEAnd | nEOr | nEProd | nEAssign | nEIf | nESeq
     | nEMatch | nETry | nEFun | nEFunction | nELet | nELetRec
     | nEWhile | nEFor | nExpr
     (* pattern matches *)
@@ -242,7 +242,7 @@ Datatype:
     | nSemis | nExprItem | nExprItems | nDefItem
     (* misc *)
     | nShiftOp | nMultOp | nAddOp | nRelOp | nAndOp | nOrOp | nCatOp | nPrefixOp
-    | nStart
+    | nAssignOp | nStart
 End
 
 (* Printing names of non-terminals, useful for debugging the parse-tree
@@ -282,6 +282,7 @@ Definition camlNT2string_def:
     | nEAnd => strlit"and-op"
     | nEOr => strlit"or-op"
     | nEProd => strlit"prod-op"
+    | nEAssign => strlit"assign-expr"
     | nEIf => strlit"if-then[-else]"
     | nESeq => strlit"seq (;)"
     | nEMatch => strlit"match"
@@ -348,6 +349,7 @@ Definition camlNT2string_def:
     | nAndOp => strlit"and-op"
     | nOrOp => strlit"or-op"
     | nHolInfixOp => strlit"hol-infix-op"
+    | nAssignOp => strlit"assignment-op"
     | nStart => strlit"start"
     | nSemis => strlit"double-semicolons"
     | nExprItem => strlit"expr-item"
@@ -646,11 +648,17 @@ Definition camlPEG_def[nocompute]:
              try (rpt (seql [tokeq CommaT; pnt nEHolInfix] I) FLAT)]
             (bindNT nEProd));
       (* -- Expr3: assignments --------------------------------------------- *)
+      (INL nAssignOp,
+       pegf (choicel [tokeq UpdateT; tokeq LarrowT])
+            (bindNT nAssignOp));
+      (INL nEAssign,
+       seql [pnt nEProd; try (seql [pnt nAssignOp; pnt nEAssign] I)]
+            (bindNT nEAssign));
       (* -- Expr2 ---------------------------------------------------------- *)
       (INL nEIf,
        pegf (choicel [seql [tokeq IfT; pnt nExpr; tokeq ThenT; pnt nExpr;
                             try (seql [tokeq ElseT; pnt nExpr] I)] I;
-                      pnt nEProd])
+                      pnt nEAssign])
             (bindNT nEIf));
       (* -- Expr1 ---------------------------------------------------------- *)
       (INL nESeq,
