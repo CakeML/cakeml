@@ -747,16 +747,17 @@ Definition camlPEG_def[nocompute]:
       (INL nPAny,
        pegf (tokeq AnyT) (bindNT nPAny));
       (INL nPBase,
-       pegf (choicel [pnt nValueName;
+       pegf (choicel [seql [tok isChar (bindNT nLiteral o mktokLf);
+                            tokeq DotsT;
+                            tok isChar (bindNT nLiteral o mktokLf)] I;
+                      pnt nLiteral;
+                      pnt nValueName;
                       pnt nPAny;
                       pnt nPList;
                       seql [tokeq LparT; tokeq RparT] I;
                       seql [tokeq LparT; pnt nPattern;
                             try (seql [tokeq ColonT; pnt nType] I);
-                            tokeq RparT] I;
-                      seql [tok isChar (bindNT nLiteral o mktokLf);
-                            tokeq DotsT;
-                            tok isChar (bindNT nLiteral o mktokLf)] I])
+                            tokeq RparT] I])
             (bindNT nPBase));
       (* -- Pat7 ----------------------------------------------------------- *)
       (INL nPLazy,
@@ -867,11 +868,11 @@ Theorem camlPEG_exec_thm[compute] =
 Overload camlpegexec =
   “λn t. peg_exec camlPEG (pnt n) t [] NONE [] done failed”;
 
-val t1 = rhs $ concl $ time EVAL “lexer_fun "Bar | Baz of int * int"”;
-val t2 = time EVAL “camlpegexec nTypeRepr ^t1”;
+val t1 = rhs $ concl $ time EVAL “lexer_fun "x::(_ as p)"”;
+val t2 = time EVAL “camlpegexec nPattern ^t1”;
 val t3 = t2 |> concl |> rhs |> rand |> rator |> rand |> listSyntax.dest_list
          |> #1 |> hd
-val t4 = EVAL “ptree_TypeRepr ^t3”;
+val t4 = EVAL “ptree_Pattern ^t3”;
  *)
 
 val _ = export_theory ();

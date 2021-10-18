@@ -97,7 +97,7 @@ Definition destLf_def:
   destLf (Nd (nterm, locs) _) =
     fail (locs, concat [«destLf: node »; (case nterm of INL n => camlNT2string n
                                                       | _ => «unknown»);
-                        «is not a leaf»])
+                        « is not a leaf»])
 End
 
 Definition expect_tok_def:
