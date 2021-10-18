@@ -676,12 +676,6 @@ Definition ptree_Pattern_def:
             expect_tok l LparT;
             expect_tok r RparT;
             ptree_Pattern nPattern p
-          od ++
-          do
-            expect_tok p DotsT;
-            c1 <- ptree_Literal l;
-            c2 <- ptree_Literal r;
-            return [Pcon (SOME (Short "..")) [Plit c1; Plit c2]]
           od
       | [lpar; pat; colon; typ; rpar] =>
           do

@@ -747,10 +747,7 @@ Definition camlPEG_def[nocompute]:
       (INL nPAny,
        pegf (tokeq AnyT) (bindNT nPAny));
       (INL nPBase,
-       pegf (choicel [seql [tok isChar (bindNT nLiteral o mktokLf);
-                            tokeq DotsT;
-                            tok isChar (bindNT nLiteral o mktokLf)] I;
-                      pnt nLiteral;
+       pegf (choicel [pnt nLiteral;
                       pnt nValueName;
                       pnt nPAny;
                       pnt nPList;
