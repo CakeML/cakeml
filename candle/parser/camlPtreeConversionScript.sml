@@ -94,7 +94,10 @@ QED
 
 Definition destLf_def:
   destLf (Lf x) = return x ∧
-  destLf (Nd (_, locs) _) = fail (locs, «destLf: Not a leaf»)
+  destLf (Nd (nterm, locs) _) =
+    fail (locs, concat [«destLf: node »; (case nterm of INL n => camlNT2string n
+                                                      | _ => «unknown»);
+                        «is not a leaf»])
 End
 
 Definition expect_tok_def:
@@ -631,10 +634,14 @@ End
  *)
 
 Definition ptree_Pattern_def:
-  (ptree_Pattern (Lf (_, locs)) =
+  (ptree_Pattern et (Lf (_, locs)) =
     fail (locs, «Expected a pattern non-terminal»)) ∧
-  (ptree_Pattern (Nd (nterm, locs) args) =
-    if nterm = INL nPAny then
+  (ptree_Pattern et (Nd (nterm, locs) args) =
+    if INL et ≠ nterm then
+      fail (locs, concat [«expected: »; camlNT2string et; « but found: »;
+                          (case nterm of INL n => camlNT2string n
+                                       | _ => «unknown»)])
+    else if nterm = INL nPAny then
       case args of
         [arg] =>
           do
@@ -645,8 +652,19 @@ Definition ptree_Pattern_def:
     else if nterm = INL nPBase then
       case args of
         [arg] =>
-          fmap (λn. [Pvar n]) (ptree_ValueName arg) ++
-          ptree_Pattern arg
+          do
+            n <- nterm_of arg;
+            if n = INL nValueName then
+              fmap (λn. [Pvar n]) (ptree_ValueName arg)
+            else if n = INL nPAny then
+              ptree_Pattern nPAny arg
+            else if n = INL nPList then
+              ptree_Pattern nPList arg
+            else if n = INL nLiteral then
+              fmap (λlit. [Plit lit]) (ptree_Literal arg)
+            else
+              fail (locs, «Impossible: nPBase»)
+         od
       | [l; r] =>
           do
             expect_tok l LparT;
@@ -657,7 +675,7 @@ Definition ptree_Pattern_def:
           do
             expect_tok l LparT;
             expect_tok r RparT;
-            ptree_Pattern p
+            ptree_Pattern nPattern p
           od ++
           do
             expect_tok p DotsT;
@@ -670,7 +688,7 @@ Definition ptree_Pattern_def:
             expect_tok lpar LparT;
             expect_tok rpar RparT;
             expect_tok colon ColonT;
-            ps <- ptree_Pattern pat;
+            ps <- ptree_Pattern nPattern pat;
             ty <- ptree_Type typ;
             return (MAP (λp. Ptannot p ty) ps)
           od
@@ -686,11 +704,11 @@ Definition ptree_Pattern_def:
       | _ => fail (locs, «Impossible: nPList»)
     else if nterm = INL nPLazy then
       case args of
-        [pat] => ptree_Pattern pat
+        [pat] => ptree_Pattern nPBase pat
       | [lazy; pat] =>
           do
             expect_tok lazy LazyT;
-            ps <- ptree_Pattern pat;
+            ps <- ptree_Pattern nPBase pat;
             return (MAP (λp. Pcon (SOME (Short "lazy")) [p]) ps)
           od
       | _ => fail (locs, «Impossible: nPLazy»)
@@ -706,61 +724,70 @@ Definition ptree_Pattern_def:
                 return [Pcon (SOME id) []]
               od
             else
-              ptree_Pattern arg
+              ptree_Pattern nPLazy arg
           od
       | [id; pat] =>
           do
             cns <- ptree_Constr id;
             id <- path_to_ns locs cns;
-            ps <- ptree_Pattern pat;
+            ps <- ptree_Pattern nPLazy pat;
             return (MAP (λp. Pcon (SOME id) [p]) ps)
           od
       | _ => fail (locs, «Impossible: nPConstr»)
     else if nterm = INL nPApp then
       case args of
-        [pat] => ptree_Pattern pat
+        [pat] =>
+          do
+            n <- nterm_of pat;
+            if n = INL nPConstr then
+              ptree_Pattern nPConstr pat
+            else if n = INL nPLazy then
+              ptree_Pattern nPLazy pat
+            else
+              fail (locs, «Impossible: nPApp»)
+          od
       | _ => fail (locs, «Impossible: nPApp»)
     else if nterm = INL nPCons then
       case args of
-        [pat] => ptree_Pattern pat
+        [pat] => ptree_Pattern nPApp pat
       | [p1; colons; p2] =>
           do
             expect_tok colons ColonsT;
-            ps <- ptree_Pattern p1;
-            qs <- ptree_Pattern p2;
+            ps <- ptree_Pattern nPApp p1;
+            qs <- ptree_Pattern nPCons p2;
             return (MAP (λ(p,q). Pcon (SOME (Short "::")) [p; q])
                         (cart_prod ps qs))
           od
       | _ => fail (locs, «Impossible: nPCons»)
     else if nterm = INL nPProd then
       case args of
-        [pat] => ptree_Pattern pat
+        [pat] => ptree_Pattern nPCons pat
       | pat::pats =>
           do
-            p <- ptree_Pattern pat;
+            p <- ptree_Pattern nPCons pat;
             ps <- ptree_PatternCommas pats;
             return (MAP (λps. Pcon NONE ps) (list_cart_prod (p::ps)))
           od
       | _ => fail (locs, «Impossible: nPProd»)
     else if nterm = INL nPOr then
       case args of
-        [pat] => ptree_Pattern pat
+        [pat] => ptree_Pattern nPProd pat
       | [p1; bar; p2] =>
           do
             expect_tok bar BarT;
-            ps <- ptree_Pattern p1;
-            qs <- ptree_Pattern p2;
+            ps <- ptree_Pattern nPOr p1;
+            qs <- ptree_Pattern nPProd p2;
             return (ps ++ qs)
           od
       | _ => fail (locs, «Impossible: nPOr»)
     else if nterm = INL nPAs then
       case args of
-        [pat] => ptree_Pattern pat
+        [pat] => ptree_Pattern nPOr pat
       | [pat; ast; id] => fail (locs, «Pattern aliases are not supported»)
       | _ => fail (locs, «Impossible: nPAs»)
     else if nterm = INL nPattern then
       case args of
-        [pat] => ptree_Pattern pat
+        [pat] => ptree_Pattern nPAs pat
       | _ => fail (locs, «Impossible: nPattern»)
     else
       fail (locs, «Expected a pattern non-terminal»)) ∧
@@ -777,7 +804,7 @@ Definition ptree_Pattern_def:
        ptree_PatternList ps
      od ++
      do
-       q <- ptree_Pattern p;
+       q <- ptree_Pattern nPattern p;
        qs <- ptree_PatternList ps;
        return (q::qs)
      od) ∧
@@ -788,12 +815,12 @@ Definition ptree_Pattern_def:
       ptree_PatternCommas ps
     od ++
     do
-      q <- ptree_Pattern p;
+      q <- ptree_Pattern nPCons p;
       qs <- ptree_PatternCommas ps;
       return (q::qs)
     od)
 Termination
-  WF_REL_TAC ‘measure $ sum_size psize
+  WF_REL_TAC ‘measure $ sum_size (pair_size camlNT_size psize)
                       $ sum_size (list_size psize)
                                  (list_size psize)’
   \\ simp [parsetree_size_lemma]
@@ -805,10 +832,10 @@ Definition ptree_Patterns_def:
   ptree_Patterns (Nd (nterm, locs) args) =
     if nterm = INL nPatterns then
       case args of
-        [pat] => fmap (λp. [p]) $ ptree_Pattern pat
+        [pat] => fmap (λp. [p]) $ ptree_Pattern nPattern pat
       | [pat; rest] =>
           do
-            p <- ptree_Pattern pat;
+            p <- ptree_Pattern nPattern pat;
             ps <- ptree_Patterns rest;
             return (p::ps)
           od
@@ -963,10 +990,9 @@ Definition ptree_Expr_def:
     fail (locs, «Expected an expression non-terminal»)) ∧
   (ptree_Expr et (Nd (nterm, locs) args) =
     if INL et ≠ nterm then
-      fail (locs, concat [«expected: »; camlNT2string et; «\n»;
-                          «found: »; (case nterm of INL n =>
-                                        camlNT2string n
-                                      | _ => «unknown»);])
+      fail (locs, concat [«expected: »; camlNT2string et; « but found: »;
+                          (case nterm of INL n => camlNT2string n
+                                       | _ => «unknown»);])
     else if nterm = INL nExpr then
       case args of
         [arg] =>
@@ -1453,7 +1479,7 @@ Definition ptree_Expr_def:
         [pat; eq; bod] =>
           do
             expect_tok eq EqualT;
-            ps <- ptree_Pattern pat;
+            ps <- ptree_Pattern nPattern pat;
             bd <- ptree_Expr nExpr bod;
             case ps of
               [p] => return (INL (p, bd))
@@ -1511,7 +1537,7 @@ Definition ptree_Expr_def:
             do
               expect_tok rarrow RarrowT;
               expect_tok whent WhenT;
-              p <- ptree_Pattern pat;
+              p <- ptree_Pattern nPattern pat;
               x <- ptree_Expr nExpr body;
               w <- ptree_Expr nExpr whenx;
               return [p, x, SOME w]
@@ -1519,7 +1545,7 @@ Definition ptree_Expr_def:
           let pat = a; rarrow = b; body = c; bar = d; pms = e in
             do
               expect_tok rarrow RarrowT;
-              p <- ptree_Pattern pat;
+              p <- ptree_Pattern nPattern pat;
               x <- ptree_Expr nExpr body;
               expect_tok bar BarT;
               ps <- ptree_PatternMatches pms;
@@ -1529,7 +1555,7 @@ Definition ptree_Expr_def:
           do
             expect_tok rarrow RarrowT;
             expect_tok whent WhenT;
-            p <- ptree_Pattern pat;
+            p <- ptree_Pattern nPattern pat;
             x <- ptree_Expr nExpr body;
             w <- ptree_Expr nExpr whenx;
             expect_tok bar BarT;
@@ -1539,7 +1565,7 @@ Definition ptree_Expr_def:
       | [pat; rarrow; body] =>
           do
             expect_tok rarrow RarrowT;
-            p <- ptree_Pattern pat;
+            p <- ptree_Pattern nPattern pat;
             x <- ptree_Expr nExpr body;
             return [p, x, NONE]
           od

@@ -514,8 +514,10 @@ Definition camlPEG_def[nocompute]:
             (bindNT nTBase));
       (* -- Type4 ---------------------------------------------------------- *)
       (INL nTConstr,
-       seql [try (pnt nTBase); pnt nTypeConstr; rpt (pnt nTypeConstr) FLAT]
-            (bindNT nTConstr));
+       choicel [seql [try (pnt nTBase); pnt nTypeConstr;
+                      rpt (pnt nTypeConstr) FLAT]
+                     (bindNT nTConstr);
+                pegf (pnt nTBase) (bindNT nTConstr)]);
       (* -- Type3 ---------------------------------------------------------- *)
       (INL nTProd,
        seql [pnt nTConstr; rpt (seql [tokeq StarT; pnt nTConstr] I) FLAT]
