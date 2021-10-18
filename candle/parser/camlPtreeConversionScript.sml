@@ -81,6 +81,17 @@ End
  * Parse tree conversion
  * ------------------------------------------------------------------------- *)
 
+Overload psize[local] = “parsetree_size (K 0) (K 0) (K 0)”;
+
+Overload p1size[local] = “parsetree1_size (K 0) (K 0) (K 0)”;
+
+Theorem parsetree_size_lemma[local]:
+  p1size = list_size psize
+Proof
+  rw [FUN_EQ_THM]
+  \\ Induct_on ‘x’ \\ rw [list_size_def, grammarTheory.parsetree_size_def]
+QED
+
 Definition destLf_def:
   destLf (Lf x) = return x ∧
   destLf (Nd (_, locs) _) = fail (locs, «destLf: Not a leaf»)
@@ -489,13 +500,11 @@ Definition ptree_Type_def:
       | _ => fail (locs, «Impossible: nTConstr»)
     else if nterm = INL nTProd then
       case args of
-        [arg] => ptree_Type arg
-      | [arg;star;prod] =>
+        arg::rest =>
           do
-            expect_tok star StarT;
-            ty1 <- ptree_Type arg;
-            ty2 <- ptree_Type prod;
-            return (Attup [ty1; ty2])
+            ty <- ptree_Type arg;
+            ts <- ptree_StarTypes rest;
+            return (Attup (ty::ts))
           od
       | _ => fail (locs, «Impossible: nTProd»)
     else if nterm = INL nTFun then
@@ -510,7 +519,11 @@ Definition ptree_Type_def:
           od
       | _ => fail (locs, «Impossible: nTFun»)
     else if nterm = INL nTAs then
-      fail (locs, «Aliases in types are not supported»)
+      case args of
+        [arg] => ptree_Type arg
+      | [arg; ast; tickt; identt] =>
+          fail (locs, «Aliases in types are not supported»)
+      | _ => fail (locs, «Impossible: ptree_Type»)
     else
       fail (locs, «Expected type non-terminal»)) ∧
   (ptree_TypeList (Lf (_, locs)) =
@@ -538,7 +551,22 @@ Definition ptree_Type_def:
       | [typ] => fmap (λt. [t]) $ ptree_Type typ
       | _ => fail (locs, «Impossible: nTypeLists»)
     else
-      fail (locs, «Expected a type list non-terminal»))
+      fail (locs, «Expected a type list non-terminal»)) ∧
+  (ptree_StarTypes [] = return []) ∧
+  (ptree_StarTypes (x::xs) =
+    do
+      expect_tok x StarT;
+      ptree_StarTypes xs
+    od ++
+    do
+      t <- ptree_Type x;
+      ts <- ptree_StarTypes xs;
+      return (t::ts)
+    od)
+Termination
+  WF_REL_TAC ‘measure $ sum_size psize $
+                        sum_size psize (list_size psize)’
+  \\ simp [parsetree_size_lemma]
 End
 
 Definition ptree_Literal_def:
@@ -591,17 +619,6 @@ Definition list_cart_prod_def:
   list_cart_prod (xs::xss) =
     FLAT (MAP (λx. MAP (λy. x::y) (list_cart_prod xss)) xs)
 End
-
-Overload psize[local] = “parsetree_size (K 0) (K 0) (K 0)”;
-
-Overload p1size[local] = “parsetree1_size (K 0) (K 0) (K 0)”;
-
-Theorem parsetree_size_lemma[local]:
-  p1size = list_size psize
-Proof
-  rw [FUN_EQ_THM]
-  \\ Induct_on ‘x’ \\ rw [list_size_def, grammarTheory.parsetree_size_def]
-QED
 
 Definition nterm_of_def:
   nterm_of (Lf (_, locs)) = fail (locs, «nterm_of: Not a parsetree node») ∧
@@ -1220,7 +1237,6 @@ Definition ptree_Expr_def:
           od
       | _ => fail (locs, «Impossible: nEProd»)
     else if nterm = INL nEAssign then
-
       case args of
         [exp] => ptree_Expr nEProd exp
       | [lhs; opn; rhs] =>
@@ -1231,8 +1247,6 @@ Definition ptree_Expr_def:
             return (build_binop op x y)
           od
       | _ => fail (locs, «Impossible: nEAssign»)
-
-
     else if nterm = INL nEIf then
       case args of
         [ift; x; thent; y; elset; z] =>
@@ -1253,7 +1267,7 @@ Definition ptree_Expr_def:
             y1 <- ptree_Expr nExpr y;
             return (If x1 y1 (Con NONE []))
           od
-      | [exp] => ptree_Expr nEProd exp
+      | [exp] => ptree_Expr nEAssign exp
       | _ => fail (locs, «Impossible: nEIf»)
     else if nterm = INL nESeq then
       case args of
@@ -1591,20 +1605,6 @@ End
 
 Theorem ptree_Expr_ind = ptree_Expr_ind |> SIMP_RULE (srw_ss() ++ CONJ_ss) [];
 
-Definition ptree_StarTypes_def:
-  ptree_StarTypes [] = return [] ∧
-  ptree_StarTypes (x::xs) =
-    do
-      expect_tok x StarT;
-      ptree_StarTypes xs
-    od ++
-    do
-      t <- ptree_Type x;
-      ts <- ptree_StarTypes xs;
-      return (t::ts)
-    od
-End
-
 Definition ptree_ConstrArgs_def:
   ptree_ConstrArgs (Lf (_, locs)) =
     fail (locs, «Expected a constructor arguments non-terminal») ∧
@@ -1703,7 +1703,7 @@ Definition ptree_TypeRepr_def:
             return [tr]
           od
       | _ => fail (locs, «Impossible: nTypeRepr»)
-    else if nterm = INL nTypeRepr then
+    else if nterm = INL nTypeReprs then
       case args of
         [bart; cdecl] =>
           do
@@ -1732,8 +1732,13 @@ Definition ptree_TypeInfo_def:
         [eq; arg] =>
           do
             expect_tok eq EqualT;
-            fmap INL (ptree_Type arg) ++
-            fmap INR (ptree_TypeRepr arg)
+            n <- nterm_of arg;
+            if n = INL nType then
+              fmap INL (ptree_Type arg)
+            else if n = INL nTypeRepr then
+              fmap INR (ptree_TypeRepr arg)
+            else
+              fail (locs, «Impossible: nTypeInfo»)
           od
       | _ => fail (locs, «Impossible: nTypeInfo»)
     else

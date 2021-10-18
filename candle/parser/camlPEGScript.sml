@@ -492,7 +492,7 @@ Definition camlPEG_def[nocompute]:
        seql [pnt nConstrName; try (seql [tokeq OfT; pnt nConstrArgs] I)]
             (bindNT nConstrDecl));
       (INL nConstrArgs,
-       seql [pnt nTConstr; try (rpt (seql [tokeq StarT; pnt nTConstr] I) FLAT)]
+       seql [pnt nTConstr; rpt (seql [tokeq StarT; pnt nTConstr] I) FLAT]
             (bindNT nConstrArgs));
       (* -- Type5 ---------------------------------------------------------- *)
       (INL nTypeList,
@@ -514,11 +514,11 @@ Definition camlPEG_def[nocompute]:
             (bindNT nTBase));
       (* -- Type4 ---------------------------------------------------------- *)
       (INL nTConstr,
-       seql [try (pnt nTBase); rpt (pnt nTypeConstr) FLAT]
+       seql [try (pnt nTBase); pnt nTypeConstr; rpt (pnt nTypeConstr) FLAT]
             (bindNT nTConstr));
       (* -- Type3 ---------------------------------------------------------- *)
       (INL nTProd,
-       seql [pnt nTConstr; try (seql [tokeq StarT; pnt nTProd] I)]
+       seql [pnt nTConstr; rpt (seql [tokeq StarT; pnt nTConstr] I) FLAT]
             (bindNT nTProd));
       (* -- Type2 ---------------------------------------------------------- *)
       (INL nTFun,
@@ -535,7 +535,7 @@ Definition camlPEG_def[nocompute]:
       (INL nEList,
        seql [tokeq LbrackT;
              try (seql [pnt nEIf;
-                        try (rpt (seql [tokeq SemiT; pnt nEIf] I) FLAT);
+                        rpt (seql [tokeq SemiT; pnt nEIf] I) FLAT;
                         try (tokeq SemiT)] I);
              tokeq RbrackT]
             (bindNT nEList));
@@ -645,7 +645,7 @@ Definition camlPEG_def[nocompute]:
       (* -- Expr4 ---------------------------------------------------------- *)
       (INL nEProd,
        seql [pnt nEHolInfix;
-             try (rpt (seql [tokeq CommaT; pnt nEHolInfix] I) FLAT)]
+             rpt (seql [tokeq CommaT; pnt nEHolInfix] I) FLAT]
             (bindNT nEProd));
       (* -- Expr3: assignments --------------------------------------------- *)
       (INL nAssignOp,
@@ -738,7 +738,7 @@ Definition camlPEG_def[nocompute]:
       (INL nPList,
        seql [tokeq LbrackT;
              try (seql [pnt nPattern;
-                        try (rpt (seql [tokeq SemiT; pnt nPattern] I) FLAT);
+                        rpt (seql [tokeq SemiT; pnt nPattern] I) FLAT;
                         try (tokeq SemiT)] I);
              tokeq RbrackT]
             (bindNT nPList));
@@ -774,7 +774,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPCons));
       (* -- Pat4 ----------------------------------------------------------- *)
       (INL nPProd,
-       seql [pnt nPCons; try (rpt (seql [tokeq CommaT; pnt nPCons] I) FLAT)]
+       seql [pnt nPCons; rpt (seql [tokeq CommaT; pnt nPCons] I) FLAT]
             (bindNT nPProd));
       (* -- Pat3 ----------------------------------------------------------- *)
       (INL nPOr,
@@ -865,9 +865,11 @@ Theorem camlPEG_exec_thm[compute] =
 Overload camlpegexec =
   “λn t. peg_exec camlPEG (pnt n) t [] NONE [] done failed”;
 
-val t1 = rhs $ concl $ time EVAL “lexer_fun "'a baz list"”;
-val t2 = time EVAL “camlpegexec nTConstr ^t1”;
-
+val t1 = rhs $ concl $ time EVAL “lexer_fun "Bar | Baz of int * int"”;
+val t2 = time EVAL “camlpegexec nTypeRepr ^t1”;
+val t3 = t2 |> concl |> rhs |> rand |> rator |> rand |> listSyntax.dest_list
+         |> #1 |> hd
+val t4 = EVAL “ptree_TypeRepr ^t3”;
  *)
 
 val _ = export_theory ();
