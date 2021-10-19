@@ -16,6 +16,7 @@ Datatype:
       | Load exp
       | Op binop (exp list)
       | Shift shift exp num
+      | BaseAddr
 End
 
 Datatype:

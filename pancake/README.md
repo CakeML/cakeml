@@ -65,6 +65,9 @@ This is an example compilation of a TA program
 [ta_progs](ta_progs):
 Some sample timed automata (TA) programs.
 
+[temp](temp):
+Temporary files
+
 [timeLangScript.sml](timeLangScript.sml):
 Abstract syntax for timeLang
 
