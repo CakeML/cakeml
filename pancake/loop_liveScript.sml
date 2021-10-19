@@ -11,6 +11,7 @@ val _ = new_theory "loop_live";
 Definition vars_of_exp_def:
   vars_of_exp (loopLang$Var v) l = insert v () l ∧
   vars_of_exp (Const _) l = l ∧
+  vars_of_exp (BaseAddr) l = l ∧
   vars_of_exp (Lookup _) l = l ∧
   vars_of_exp (Load a) l = vars_of_exp a l ∧
   vars_of_exp (Op x vs) l = vars_of_exp_list vs l ∧
