@@ -8345,7 +8345,7 @@ Proof
   >> fs[]
 QED
 
-Theorem dep_steps_acyclic_props:
+Theorem dep_steps_sound_acyclic_composable_len_acyclic_len:
   !k dep k' x y. wf_pqs dep /\ monotone (CURRY $ set dep)
     /\ dep_steps dep k dep = acyclic k' /\ 0 < k
     /\ ~NULL dep
@@ -8383,8 +8383,8 @@ Proof
     >> irule acyclic_len_TWO_ONE
     >> fs[Once LESS_OR_EQ,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM,FORALL_AND_THM,wf_dep_wf_pqs,AND_IMP_INTRO]
   )
-  >> drule_at Any NRC_dep_step_composable_len
-  >> drule_at Any NRC_dep_step_acyclic_len
+  >> drule_at (Pos $ el 3) NRC_dep_step_composable_len
+  >> drule_at (Pos $ el 3) NRC_dep_step_acyclic_len
   >> rw[wf_pqs_APPEND,Abbr`P`]
 QED
 
@@ -8397,13 +8397,15 @@ Theorem dep_steps_acyclic_sound:
 Proof
   rpt gen_tac >> strip_tac
   >> simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM,acyclic_until,composable_dep_composable_len,wf_dep_wf_pqs]
-  >> drule_all dep_steps_sound_acyclic
-  >> fs[dep_steps_inv_def,wf_pqs_APPEND,LESS_OR_EQ]
-  >> strip_tac >> gs[]
-  >> qmatch_assum_rename_tac `k' < SUC k`
+  >> qmatch_assum_rename_tac `dep_steps _ (SUC k) dep = acyclic k'`
+  >> `k' < SUC k` by (
+    drule_all dep_steps_sound_acyclic
+    >> fs[dep_steps_inv_def,wf_pqs_APPEND,LESS_OR_EQ]
+    >> strip_tac >> gs[]
+  )
   >> qx_gen_tac `n` >> Cases_on `n <= SUC k - k'`
   >- (
-    drule dep_steps_acyclic_props
+    drule dep_steps_sound_acyclic_composable_len_acyclic_len
     >> rpt $ disch_then $ drule_at Any
     >> fs[]
   )
