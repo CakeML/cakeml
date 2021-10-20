@@ -8034,7 +8034,7 @@ Proof
   >> rpt $ goal_assum $ drule_at Any
 QED
 
-Theorem dep_steps_sound_cyclic_step_composable_len_acyclic_len:
+Theorem dep_steps_sound_cyclic_step_len:
   !dep deps k p q q'. wf_pqs dep /\ monotone (CURRY $ set dep)
     /\ dep_steps dep k dep = cyclic_step (p,q,q')
     ==> ?kk. kk <= k /\
@@ -8165,7 +8165,7 @@ Proof
   >> rpt $ goal_assum $ drule_at Any
 QED
 
-Theorem dep_steps_complete_non_comp_step:
+Theorem dep_steps_complete_non_comp_step':
   !dep k deps deps' n p q q' depsdep. wf_pqs dep
     /\ dep_steps_inv dep k deps n deps'
     /\ dep_step dep deps' [] = INR $ non_comp_step (p,q,q')
@@ -8213,7 +8213,7 @@ Proof
   >> fs[dep_steps_inv_def,wf_pqs_APPEND]
 QED
 
-Theorem dep_steps_complete_maybe_cyclic:
+Theorem dep_steps_complete_maybe_cyclic':
   !dep k deps deps'.
     dep_steps_inv dep k deps 0 deps' /\ ~NULL deps'
     ==> dep_steps dep k deps = maybe_cyclic
@@ -8261,7 +8261,7 @@ Proof
   >> fs[dep_steps_inv_def,wf_pqs_APPEND]
 QED
 
-Theorem dep_steps_complete_acyclic':
+Theorem dep_steps_complete_acyclic'':
   !dep k deps k''.
     dep_steps_inv dep k deps k'' []
     ==> ?k'. dep_steps dep k deps = acyclic k'
@@ -8291,12 +8291,12 @@ Proof
   >> fs[NRC]
 QED
 
-Theorem dep_steps_complete_acyclic:
+Theorem dep_steps_complete_acyclic':
   !dep k k''.
     dep_steps_inv dep k dep k'' []
     ==> ?k'. dep_steps dep k dep = acyclic k'
 Proof
-  rpt strip_tac >> drule_then irule dep_steps_complete_acyclic'
+  rpt strip_tac >> drule_then irule dep_steps_complete_acyclic''
 QED
 
 Theorem dep_steps_acyclic_NOT_has_path_to:
@@ -8345,7 +8345,7 @@ Proof
   >> fs[]
 QED
 
-Theorem dep_steps_sound_acyclic_composable_len_acyclic_len:
+Theorem dep_steps_sound_acyclic_len:
   !k dep k' x y. wf_pqs dep /\ monotone (CURRY $ set dep)
     /\ dep_steps dep k dep = acyclic k' /\ 0 < k
     /\ ~NULL dep
@@ -8405,7 +8405,7 @@ Proof
   )
   >> qx_gen_tac `n` >> Cases_on `n <= SUC k - k'`
   >- (
-    drule dep_steps_sound_acyclic_composable_len_acyclic_len
+    drule dep_steps_sound_acyclic_len
     >> rpt $ disch_then $ drule_at Any
     >> fs[]
   )
