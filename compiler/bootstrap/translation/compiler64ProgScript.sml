@@ -2,7 +2,7 @@
   Finish translation of the 64-bit version of the compiler.
 *)
 open preamble
-     mipsProgTheory compilerTheory
+     decode64ProgTheory compilerTheory
      exportTheory
      ml_translatorLib ml_translatorTheory
 open cfLib basis
@@ -11,7 +11,7 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory"compiler64Prog";
 
-val _ = translation_extends "mipsProg";
+val _ = translation_extends "decode64Prog";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler64Prog");
 val _ = ml_translatorLib.use_string_type true;
