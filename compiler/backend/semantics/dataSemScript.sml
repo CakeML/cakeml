@@ -305,7 +305,9 @@ Overload add_space_safe =
                  flat_size_of_heap s + k <= s.limits.heap_limit))``
 
 Overload heap_peak =
-  ``λk ^s. MAX (s.peak_heap_length) (size_of_heap s + k)``
+  ``λk ^s. MAX (s.peak_heap_length)
+               (MIN (size_of_heap s + k)
+                    (flat_size_of_heap s + k))``
 
 val add_space_def = Define `
   add_space ^s k =
@@ -496,8 +498,7 @@ End
 
 Overload do_space_safe =
   ``λop vs ^s. if op_space_reset op
-              then s.safe_for_space
-                   ∧ size_of_heap s + space_consumed s op vs <= s.limits.heap_limit
+              then add_space_safe (space_consumed s op vs) s
               else s.safe_for_space``
 
 Overload do_space_peak =
@@ -1451,6 +1452,7 @@ val initial_state_def = Define`
   ; ffi := ffi
   ; space := 0
   ; tstamps := 0
+  (* TODO: Remove stamps argument *)
   ; safe_for_space := if stamps then T else F
   ; all_blocks := []
   ; peak_heap_length := 0
