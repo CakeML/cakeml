@@ -8,7 +8,7 @@
   recurisve and controlled using configurable parameters.
 *)
 open preamble closLangTheory;
-open db_varsTheory clos_ticksTheory clos_letopTheory clos_fvsTheory;
+open db_varsTheory clos_ticksTheory clos_letopTheory clos_fvsTheory clos_opTheory;
 
 val _ = new_theory "clos_known";
 
@@ -567,10 +567,10 @@ val known_def = tDefine "known" `
      let e =
          (if isGlobal op then
            dtcase gO_destApx a of
-             | gO_None => Op t op
+             | gO_None => SmartOp t op
              | gO_Int i => Op t (Const i)
              | gO_NullTuple tag => Op t (Cons tag)
-          else Op t op) (MAP FST ea1)
+          else SmartOp t op) (MAP FST ea1)
      in
        ([(e,a)],g)) /\
   (known c [App t loc_opt x xs] vs g =

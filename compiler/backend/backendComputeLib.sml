@@ -83,6 +83,7 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Defs (theory_computes "pattern_semantics")
   ,computeLib.Defs (theory_computes "pattern_comp")
   ,computeLib.Defs (theory_computes "spt_closure")
+  ,computeLib.Defs (theory_computes "clos_op")
   ,computeLib.Tys
     [``:flatLang$op``
     ,``:flatLang$pat``

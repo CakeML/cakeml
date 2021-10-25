@@ -114,6 +114,11 @@ functions. This phase is vital for good performance.
 This simple compiler phase walks the program and gives each closure
 a unique numeric name.
 
+[clos_opScript.sml](clos_opScript.sml):
+This is file implements a "smart" version of ClosLang's Op
+constructor. When possible, this smart constructor breaks
+the operation into faster separate operators.
+
 [clos_ticksScript.sml](clos_ticksScript.sml):
 This simple compiler phase removes all Tick operations. Tick
 operations appear as a side effect of function inlining, and can be
