@@ -340,14 +340,14 @@ evaluate_dec ck env s (Dtype locs tds)
 ==>
 evaluate_dec ck env s (Dtype locs tds) (s, Rerr (Rabort Rtype_error)))
 
-/\ (! st env x es' n.
-declare_env st.eval_state env = SOME (x, es')
+/\ (! ck env st x es' n.
+(declare_env st.eval_state env = SOME (x, es'))
 ==>
-evaluate_dec ck env st (Denv n) (( st with<| eval_state := es' |>),
-                                 Rval <| v := (nsSing n x); c := nsEmpty |>))
+evaluate_dec ck env st (Denv n)
+  (( st with<| eval_state := es' |>), Rval <| v := (nsSing n x) ; c := nsEmpty |>))
 
-/\ (! st env n.
-declare_env st.eval_state env = NONE
+/\ (! ck env st n.
+(declare_env st.eval_state env = NONE)
 ==>
 evaluate_dec ck env st (Denv n) (st, Rerr (Rabort Rtype_error)))
 
@@ -516,3 +516,4 @@ prog_diverges (extend_dec_env new_env env) s2 tops
 prog_diverges env s1 (top::tops)
 *)
 val _ = export_theory()
+

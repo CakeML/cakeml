@@ -6,10 +6,26 @@ structure inferenceComputeLib = struct
   open HolKernel boolLib bossLib
   open infer_tTheory inferTheory
 
+local
+
+  fun theory_computes thy
+  = ThmSetData.theory_data {settype = "compute", thy = thy}
+    |> ThmSetData.added_thms
+
+in
+
   (* val (Success_tm,mk_Success,dest_Success,is_Success) = syntax_fns1 "ml_monadBase" "Success" *)
 
   val add_inference_compset = computeLib.extend_compset
-  [computeLib.Defs
+  [computeLib.Defs (theory_computes "infer"),
+   computeLib.Defs (theory_computes "infer_t"),
+   computeLib.Defs (theory_computes "unify"),
+   computeLib.Defs (theory_computes "mlint"),
+   computeLib.Defs (theory_computes "mlstring"),
+   computeLib.Defs (theory_computes "primTypes"),
+   computeLib.Defs (theory_computes "typeSystem"),
+   computeLib.Defs (theory_computes "ml_monadBase"),
+   computeLib.Defs
     [id_to_string_def
     ,op_to_string_def
     ,type_name_check_subst_def
@@ -101,7 +117,11 @@ structure inferenceComputeLib = struct
     ,infer_tTheory.type_ident_to_string_def
     ,mlintTheory.toString_def
     ,mlintTheory.toChar_def
+    ,mlintTheory.toChars_def
+    ,mlintTheory.simple_toChars_def
+    ,mlintTheory.zero_pad_def
     ,mlintTheory.maxSmall_DEC_def
+    ,mlintTheory.padLen_DEC_def
     ,mlstringTheory.str_def
     ,inferTheory.word_tc_def
     ],
@@ -110,6 +130,7 @@ structure inferenceComputeLib = struct
     (*,``:('a,'b)exc``*)
     ,``:('a,'b)infer$exc``
     ,``:infer_st``
+    ,``:typeSystem$t``
     ,``:inf_env``
     ,``:mlstring``
     ,``:tenv_ctor``
@@ -124,5 +145,7 @@ structure inferenceComputeLib = struct
     ,ignore o unifyLib.add_unify_compset
     ]
   ]
+
+end
 
 end

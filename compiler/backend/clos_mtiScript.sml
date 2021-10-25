@@ -261,10 +261,18 @@ val compile_def = Define`
   compile F max_app exps = exps /\
   compile T max_app exps = intro_multi max_app exps`
 
+val compile_inc_def = Define `
+  compile_inc max_app (e,es) =
+    (intro_multi max_app e, [])`
+
+val cond_mti_compile_inc_def = Define`
+  cond_mti_compile_inc do_it max_app =
+    if do_it then (compile_inc max_app) else I`;
+
 Theorem compile_nil[simp]:
-   compile do_mti max_app [] = []
+  compile do_mti max_app [] = []
 Proof
-Cases_on`do_mti` \\ EVAL_TAC
+  Cases_on`do_mti` \\ EVAL_TAC
 QED
 
 val _ = export_theory()

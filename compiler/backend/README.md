@@ -230,9 +230,6 @@ into displayLang representations.
 This directory contains the correctness proofs for all of the
 different phases of the compiler backend.
 
-[reachability](reachability):
-Generic closure operation over next-step sptrees (num_set num_maps)
-
 [reg_alloc](reg_alloc):
 This directory contains the implementation of the register allocator
 and parallel-move algorithms.
@@ -245,6 +242,9 @@ This directory contains the definition of the semantics for each
 intermediate language that is used in the compiler backend. This
 directory also contains generic properties about the semantics of each
 intermediate language.
+
+[serialiser](serialiser):
+Proofs and automation for serialising HOL values.
 
 [source_to_flatScript.sml](source_to_flatScript.sml):
 This is the compiler phase that translates the CakeML source

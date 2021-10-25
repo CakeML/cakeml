@@ -133,7 +133,7 @@ val current_build_info_str_tm = EVAL ``
   |> concl |> rhs
 
 val current_build_info_str_def = Define `
-  current_build_info_str = ^current_build_info_str_tm`
+  current_build_info_str = ^current_build_info_str_tm`;
 
 (* ========================================================================= *)
 
@@ -165,35 +165,87 @@ Definition help_string_def:
   help_string = strlit ^help_string_tm
 End
 
-val locs_to_string_def = Define `
-  (locs_to_string NONE = implode "unknown location") ∧
-  (locs_to_string (SOME (Locs startl endl)) =
-    if Locs startl endl = unknown_loc then
-      implode "unknown location"
+Datatype:
+  compile_error = ParseError mlstring
+                | TypeError mlstring
+                | AssembleError
+                | ConfigError mlstring
+End
+
+Definition find_next_newline_def:
+  find_next_newline n s =
+    if strlen s ≤ n then n else
+      if strsub s n = #"\n" then n else
+        find_next_newline (n+1) s
+Termination
+  WF_REL_TAC ‘measure (λ(n,s). strlen s - n)’
+End
+
+Definition safe_substring_def:
+  safe_substring s n l =
+    let k = strlen s in
+      if k ≤ n then strlit "" else
+        if n + l ≤ k then
+          substring s n l
+        else substring s n (k - n)
+End
+
+Definition get_nth_line_def:
+  get_nth_line k s n =
+    if k = 0 then
+      let n1 = find_next_newline n s in
+        safe_substring s n (n1 - n)
     else
-      concat
-        [implode "location starting at row ";
-         toString startl.row;
-         implode " column ";
-         toString startl.col;
-         implode ", ending at row ";
-         toString endl.row;
-         implode " column ";
-         toString endl.col])`;
+      get_nth_line (k-1:num) s (find_next_newline n s + 1)
+End
+
+Definition locs_to_string_def:
+  (locs_to_string input NONE = implode "unknown location") ∧
+  (locs_to_string input (SOME (Locs startl endl)) =
+    case startl of
+    | POSN r c =>
+       (let line = get_nth_line r input 0 in
+        let len = strlen line in
+        let stop =
+          (case endl of POSN r1 c1 => (if r1 = r then c1 else len) | _ => len) in
+        let underline =
+          concat (REPLICATE c (strlit " ") ++ REPLICATE ((stop - c) + 1) (strlit [CHR 94])) in
+          concat [strlit "line "; toString (r+1); strlit "\n\n";
+                  line; strlit "\n";
+                  underline;  strlit "\n"])
+    | _ => implode "unknown location")
+End
 
 (* this is a rather annoying feature of peg_exec requiring locs... *)
 Overload add_locs = ``MAP (λc. (c,unknown_loc))``
+
+Definition parse_sexp_input_def:
+  parse_sexp_input input =
+    let err = strlit "Parsing of sexp syntax failed" in
+      case parse_sexp (add_locs input) of
+      | NONE => INL err
+      | SOME x => case sexplist sexpdec x of
+                  | NONE => INL err
+                  | SOME x => INR x
+End
+
+Definition parse_cml_input_def:
+  parse_cml_input input =
+    case parse_prog (lexer_fun input) of
+    | Failure l _ => INL (strlit "Parsing failed at " ^ locs_to_string (implode input) (SOME l))
+    | Success _ x _ => INR x
+End
 
 val compile_def = Define`
   compile c prelude input =
     let _ = empty_ffi (strlit "finished: start up") in
     case
       if c.input_is_sexp
-      then OPTION_BIND (parse_sexp (add_locs input)) (sexplist sexpdec)
-      else parse_prog (lexer_fun input)
+      then parse_sexp_input input
+      else parse_cml_input input
     of
-    | NONE => (Failure ParseError, [])
-    | SOME prog =>
+    | INL msg => (Failure (ParseError msg), [])
+    | INR prog =>
        let _ = empty_ffi (strlit "finished: lexing and parsing") in
        let full_prog = if c.exclude_prelude then prog else prelude ++ prog in
        case
@@ -203,7 +255,7 @@ val compile_def = Define`
        of
        | Failure (locs, msg) =>
            (Failure (TypeError (concat [msg; implode " at ";
-               locs_to_string locs])), [])
+               locs_to_string (implode input) locs])), [])
        | Success ic =>
           let _ = empty_ffi (strlit "finished: type inference") in
           if c.only_print_types then
@@ -219,7 +271,8 @@ val compile_def = Define`
 
 (* The top-level compiler *)
 val error_to_str_def = Define`
-  (error_to_str ParseError = strlit "### ERROR: parse error\n") /\
+  (error_to_str (ParseError s) =
+     concat [strlit "### ERROR: parse error\n"; s; strlit "\n"]) /\
   (error_to_str (TypeError s) =
      (* if the first char in the message is a newline char then it isn't an error *)
      if (if strlen s = 0 then T else

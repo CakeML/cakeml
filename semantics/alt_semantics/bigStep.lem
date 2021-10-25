@@ -443,6 +443,21 @@ evaluate_dec ck env s (Dtype locs tds) (s, Rerr (Rabort Rtype_error))
 
 and
 
+denv1 : forall ck env st x es' n.
+declare_env st.eval_state env = Just (x, es')
+==>
+evaluate_dec ck env st (Denv n)
+  (<| st with eval_state = es' |>, Rval <| v = nsSing n x ; c = nsEmpty |>)
+
+and
+
+denv2 : forall ck env st n.
+declare_env st.eval_state env = Nothing
+==>
+evaluate_dec ck env st (Denv n) (st, Rerr (Rabort Rtype_error))
+
+and
+
 dtabbrev : forall ck env tvs tn t s locs.
 true
 ==>

@@ -236,4 +236,7 @@ val compile_def = Define `
   compile prog =
     MAP (λ(n,args,exp). (n,args, HD (annotate args [exp]))) prog`
 
+val compile_inc_def = Define `
+  compile_inc (e,aux) = (annotate 0 e,clos_annotate$compile aux)`;
+
 val _ = export_theory();

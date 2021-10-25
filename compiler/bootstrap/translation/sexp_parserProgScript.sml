@@ -28,6 +28,7 @@ val r = translate simpleSexpPEGTheory.pnt_def
 val r = translate pegTheory.ignoreR_def
 val r = translate pegTheory.ignoreL_def
 val r = translate simpleSexpTheory.arb_sexp_def
+val r = translate simpleSexpPEGTheory.sumID_def
 val r = translate simpleSexpPEGTheory.choicel_def
 
 val r = translate simpleSexpPEGTheory.tokeq_def
@@ -67,16 +68,16 @@ val parse_sexp_side = Q.prove(
   \\ fs[pegexecTheory.coreloop_def]
   \\ qmatch_abbrev_tac`IS_SOME (OWHILE a b c)`
   \\ qmatch_assum_abbrev_tac`OWHILE a b' c = _`
-  \\ `b = b'`
-  by (
-    simp[Abbr`b`,Abbr`b'`,FUN_EQ_THM]
-    \\ Cases \\ simp[]
-    \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
-    \\ TOP_CASE_TAC \\ simp[]
-    \\ TOP_CASE_TAC \\ simp[]
-    \\ TOP_CASE_TAC \\ simp[]
-    \\ TOP_CASE_TAC \\ simp[] ) \\
-  fs[]) |> update_precondition;
+  \\ qsuff_tac `b = b'` THEN1 fs []
+  \\ simp[Abbr`b`,Abbr`b'`,FUN_EQ_THM]
+  \\ rpt gen_tac
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
+  \\ Cases_on ‘k’ \\ TRY (fs [] \\ NO_TAC)
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]) |> update_precondition;
 
 val r = fromSexpTheory.sexplist_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM]
@@ -238,6 +239,10 @@ val sexpspec_side = Q.prove(
 *)
 
 val r = fromSexpTheory.sexpopt_def
+        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
+        |> translate;
+
+val r = fromSexpTheory.sexplocpt_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
         |> translate;
 
@@ -461,6 +466,7 @@ val _ = translate typesexp_def;
 val _ = translate patsexp_def;
 val _ = translate opsexp_def;
 val _ = translate lopsexp_def;
+val _ = translate locssexp_def;
 val _ = translate expsexp_def;
 val _ = translate type_defsexp_def;
 val _ = translate decsexp_def;
