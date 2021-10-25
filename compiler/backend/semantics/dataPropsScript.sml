@@ -383,6 +383,7 @@ Theorem do_stack_const[simp]:
 ∧ (do_stack op vs s).limits             = s.limits
 ∧ (do_stack op vs s).peak_heap_length   = s.peak_heap_length
 ∧ (do_stack op vs s).compile_oracle     = s.compile_oracle
+∧ (do_stack op vs s).all_blocks         = s.all_blocks
 Proof
   EVAL_TAC
 QED
