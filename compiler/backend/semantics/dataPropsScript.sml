@@ -1661,6 +1661,18 @@ Proof
   EVAL_TAC \\ rw []
 QED
 
+Theorem flat_size_of_heap_with_clock:
+  ∀s z. flat_size_of_heap (s with clock := z) = flat_size_of_heap s
+Proof
+  EVAL_TAC \\ rw []
+QED
+
+Theorem size_inv_with_clock:
+  ∀s z. size_inv (s with clock := z) = size_inv s
+Proof
+  EVAL_TAC  \\ rw []
+QED
+
 Theorem space_consumed_with_clock:
   !s op vs. space_consumed (s with clock := z) op vs = space_consumed s op vs
 Proof
@@ -1687,7 +1699,8 @@ Proof
                  ffiTheory.oracle_result_case_eq,
                  semanticPrimitivesTheory.eq_result_case_eq,
                  astTheory.word_size_case_eq,pair_case_eq,
-                 consume_space_def,size_of_heap_with_clock,check_lim_def]
+                 consume_space_def,size_of_heap_with_clock,check_lim_def,
+                 flat_size_of_heap_with_clock,size_inv_with_clock]
              \\ rveq \\ fs [] \\ rw [])
 QED
 
@@ -1709,7 +1722,8 @@ Proof
                  ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
                  semanticPrimitivesTheory.eq_result_case_eq,
                  astTheory.word_size_case_eq,pair_case_eq,consume_space_def,
-                 size_of_heap_with_clock,check_lim_def]
+                 size_of_heap_with_clock,check_lim_def,
+                 flat_size_of_heap_with_clock,size_inv_with_clock]
              \\ rveq \\ fs [] \\ rw [])
 QED
 
@@ -1730,7 +1744,8 @@ Proof
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,
               astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,check_lim_def] >>
+              pair_case_eq,consume_space_def,check_lim_def,
+              flat_size_of_heap_with_clock,size_inv_with_clock] >>
           rveq >> fs [] >> rw [])
 QED
 
@@ -1766,7 +1781,7 @@ Proof
   recInduct evaluate_ind >> srw_tac[][evaluate_def]
   >- (every_case_tac
      \\ fs[get_var_def,set_var_def]
-     \\ srw_tac[][] >> fs[])
+     \\ srw_tac[][] \\ fs[])
   >- (fs [do_app_aux_def,list_case_eq,option_case_eq
          , v_case_eq,cut_state_opt_def,cut_state_def
          , bool_case_eq,ffiTheory.call_FFI_def
@@ -1775,49 +1790,68 @@ Proof
          , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq
          , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq
          , pair_case_eq,consume_space_def]
-     \\ rveq \\ fs [call_env_def,flush_state_def,do_app_with_clock,do_app_with_locals]
-     \\ imp_res_tac do_app_const \\ fs [set_var_def,state_component_equality]
-     \\ PairCases_on `y` \\ fs []
-     \\ qpat_x_assum `v4 = _` (fn th => once_rewrite_tac [th]) \\ fs []
-     \\ imp_res_tac do_app_const
-     \\ fs[do_stack_def]
-     \\ fs [set_var_def,state_component_equality]
-     (* FIX: this is obnoxious *)
-     \\ qmatch_goalsub_abbrev_tac `size_of_heap f1`
-     \\ qpat_abbrev_tac `f2 = (s with locals := _)`
-     \\ `size_of_heap f1 = size_of_heap f2`
+      \\ rveq \\ fs [call_env_def,flush_state_def,do_app_with_clock,do_app_with_locals]
+      \\ imp_res_tac do_app_const \\ fs [set_var_def,state_component_equality]
+      \\ PairCases_on `y` \\ fs []
+      \\ qpat_x_assum `v4 = _` (fn th => once_rewrite_tac [th]) \\ fs []
+      \\ imp_res_tac do_app_const
+      \\ fs[do_stack_def]
+      \\ fs [set_var_def,state_component_equality]
+      (* FIX: this is obnoxious *)
+      \\ qmatch_goalsub_abbrev_tac `size_of_heap f1`
+      \\ qpat_abbrev_tac `f2 = (s with locals := _)`
+      \\ `size_of_heap f1 = size_of_heap f2 ∧
+          flat_size_of_heap f1 = flat_size_of_heap f2 ∧
+          size_inv f1 = size_inv f2`
+          by(`f1 = f2 with clock := ck + s.clock`
+               by rw [Abbr `f1`,Abbr `f2`,state_component_equality]
+             \\ rw [size_of_heap_with_clock,
+                   flat_size_of_heap_with_clock,
+                   size_inv_with_clock])
+      \\ `space_consumed f1 = space_consumed f2`
+          by(`f1 = f2 with clock := ck + s.clock`
+               by rw [Abbr `f1`,Abbr `f2`,state_component_equality]
+             \\ rw []
+             \\ metis_tac[space_consumed_with_clock])
+      \\ rw[])
+  >- (EVAL_TAC \\ simp[state_component_equality])
+  >- (every_case_tac \\ fs[] \\ srw_tac[][] \\ fs [add_space_def]
+      \\ qmatch_goalsub_abbrev_tac `size_of_heap f1`
+      \\ qpat_abbrev_tac `f2 = (s with locals := _)`
+      \\ `size_of_heap f1 = size_of_heap f2 ∧
+         flat_size_of_heap f1 = flat_size_of_heap f2 ∧
+         size_inv f1 = size_inv f2`
          by(`f1 = f2 with clock := ck + s.clock`
               by rw [Abbr `f1`,Abbr `f2`,state_component_equality]
-            \\ rw [size_of_heap_with_clock])
-     \\ `space_consumed f1 = space_consumed f2`
-         by(`f1 = f2 with clock := ck + s.clock`
-              by rw [Abbr `f1`,Abbr `f2`,state_component_equality]
-            \\ rw []
-            \\ metis_tac[space_consumed_with_clock])
+            \\ rw [size_of_heap_with_clock,
+                  flat_size_of_heap_with_clock,
+                  size_inv_with_clock])
+      \\ `space_consumed f1 = space_consumed f2`
+        by(`f1 = f2 with clock := ck + s.clock`
+             by rw [Abbr `f1`,Abbr `f2`,state_component_equality]
+           \\ rw []
+           \\ metis_tac[space_consumed_with_clock])
      \\ rw[])
-  >- (EVAL_TAC >> simp[state_component_equality])
-  >- (every_case_tac >> fs[] >> srw_tac[][]
-     \\ fs [add_space_def,size_of_heap_def,stack_to_vs_def]
-     \\ rw [state_component_equality,size_of_heap_with_clock])
-  >- (every_case_tac >> fs[] >> srw_tac[][] >> fs[jump_exc_NONE]
-     \\ imp_res_tac jump_exc_IMP >> fs[]
-     \\ srw_tac[][] >> fs[jump_exc_def])
-  >- (every_case_tac >> fs[] >> srw_tac[][call_env_def,flush_state_def] >>
-      unabbrev_all_tac >> srw_tac[][])
+  >- (every_case_tac \\ fs[] \\ srw_tac[][] \\ fs[jump_exc_NONE]
+     \\ imp_res_tac jump_exc_IMP \\ fs[]
+     \\ srw_tac[][] \\ fs[jump_exc_def])
+  >- (every_case_tac \\ fs[] \\ srw_tac[][call_env_def,flush_state_def] \\
+      unabbrev_all_tac \\ srw_tac[][])
   >- (fs[LET_THM]
-     \\ pairarg_tac >> fs[]
-     \\ every_case_tac >> fs[] >> srw_tac[][]
-     \\ rfs[] >> srw_tac[][])
-  >- (every_case_tac >> fs[] >> srw_tac[][])
-  >- (every_case_tac >> fs[] >> srw_tac[][] >> rfs[]
-     \\ fsrw_tac[ARITH_ss][call_env_def,flush_state_def,dec_clock_def,push_env_def,pop_env_def,set_var_def,LET_THM]
-     \\ TRY(first_x_assum(qspec_then`ck`mp_tac) >> simp[]
-                         \\ every_case_tac >> fs[] >> srw_tac[][] >> rfs[] >> fs[]
-                         \\ spose_not_then strip_assume_tac >> fs[] \\ NO_TAC)
-     \\ every_case_tac >> fs[] >> rfs[] >> rveq >> fs[] >> rfs[]
-     \\ TRY(first_x_assum(qspec_then`ck`mp_tac) >> simp[]
-                         \\ every_case_tac >> fs[] >> srw_tac[][] >> rfs[] >> fs[]
-                         \\ spose_not_then strip_assume_tac >> fs[] \\ NO_TAC))
+     \\ pairarg_tac \\ fs[]
+     \\ every_case_tac \\ fs[] \\ srw_tac[][]
+     \\ rfs[] \\ srw_tac[][])
+  >- (every_case_tac \\ fs[] \\ srw_tac[][])
+  >- (every_case_tac \\ fs[] \\ srw_tac[][] \\ rfs[]
+     \\ fsrw_tac[ARITH_ss][call_env_def,flush_state_def,dec_clock_def,
+                           push_env_def,pop_env_def,set_var_def,LET_THM]
+     \\ TRY(first_x_assum(qspec_then`ck`mp_tac) \\ simp[]
+                         \\ every_case_tac \\ fs[] \\ srw_tac[][] \\ rfs[] \\ fs[]
+                         \\ spose_not_then strip_assume_tac \\ fs[] \\ NO_TAC)
+     \\ every_case_tac \\ fs[] \\ rfs[] \\ rveq \\ fs[] \\ rfs[]
+     \\ TRY(first_x_assum(qspec_then`ck`mp_tac) \\ simp[]
+                         \\ every_case_tac \\ fs[] \\ srw_tac[][] \\ rfs[] \\ fs[]
+                         \\ spose_not_then strip_assume_tac \\ fs[] \\ NO_TAC))
 QED
 
 Theorem set_var_const[simp]:
@@ -2616,7 +2650,8 @@ Definition cc_co_only_diff_def:
     s.tstamps = t.tstamps /\
     s.limits = t.limits /\
     s.safe_for_space = t.safe_for_space /\
-    s.peak_heap_length = t.peak_heap_length
+    s.peak_heap_length = t.peak_heap_length /\
+    s.all_blocks = t.all_blocks
 End
 
 Theorem do_app_cc_co_only_diff_rval:
@@ -2633,9 +2668,10 @@ Proof
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
-     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
-    rveq >> fs[]) >>
-  rfs[]
+     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def,
+     flat_size_of_heap_def,size_inv_def] >>
+    rveq >> fs[]) >> rfs[] >>
+    rw[] >> first_x_assum drule_all >> simp[]
 QED
 
 Theorem do_app_cc_co_only_diff_rerr:
@@ -2654,7 +2690,8 @@ Proof
   `?y. do_space op vs s = SOME y /\ cc_co_only_diff y (THE(do_space op vs t))`
     by (fs[do_space_def,CaseEq"bool",consume_space_def] >>
         rveq >> fs[cc_co_only_diff_def] >>
-        rw[EQ_IMP_THM,size_of_heap_def,ELIM_UNCURRY,stack_to_vs_def]) >>
+        rw[EQ_IMP_THM,size_of_heap_def,ELIM_UNCURRY,stack_to_vs_def,
+           flat_size_of_heap_def,size_of_heap_def,size_inv_def]) >>
   fs[] >>
   qpat_x_assum `cc_co_only_diff s t` kall_tac >>
   rfs[] >>
@@ -2671,7 +2708,8 @@ Proof
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
-     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
+     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def,
+     flat_size_of_heap_def,size_inv_def] >>
   rveq >> fs[]
 QED
 
@@ -2753,8 +2791,8 @@ Proof
   >- ((* MakeSpace *)
       fs[evaluate_def,CaseEq "option",set_var_def,add_space_def,
          cc_co_only_diff_def] >> rveq >> rw[add_space_def] >>
-      rfs[stack_to_vs_def,size_of_heap_def] >>
-      fs[])
+      rfs[stack_to_vs_def,size_of_heap_def,flat_size_of_heap_def,size_inv_def] >>
+      fs[] >> metis_tac [])
   >- ((* Raise *)
       fs[evaluate_def,CaseEq "option",set_var_def,jump_exc_def,
          CaseEq "list", CaseEq "stack",add_space_def,cc_co_only_diff_def] >> rveq >>
