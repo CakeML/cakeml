@@ -38,7 +38,7 @@ Overload state_stack_max_fupd = (fields |> assoc "stack_max" |> #fupd);
 Overload state_safe_for_space_fupd = (fields |> assoc "safe_for_space" |> #fupd);
 
 Theorem data_safe_yes_code:
-  ∀s ts smax sstack lsize.
+  ∀s smax sstack lsize.
    s.safe_for_space ∧
    wf s.refs ∧
    (s.stack_frame_sizes = yes_config.word_conf.stack_frame_size) ∧
@@ -52,8 +52,7 @@ Theorem data_safe_yes_code:
    closed_ptrs (stack_to_vs s) s.refs ∧
    size_of_heap s + 11 ≤ s.limits.heap_limit ∧
    2 ≤ s.limits.length_limit ∧
-   (s.tstamps = SOME ts) ∧
-   0 < ts ∧
+   0 < s.tstamps ∧
    (s.locals = fromList [RefPtr 3]) ∧
    (lookup 3 s.refs = SOME (ByteArray T [121w])) ∧
    (s.code = fromAList yes_data_prog)
@@ -228,14 +227,15 @@ Proof
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert] \\ rveq \\ fs []
      \\ qmatch_asmsub_rename_tac `size_of _ _ s.refs LN = (_,_,seen0)`
-     \\ Cases_on `IS_SOME (lookup (ts + 1) seen0)` \\ fs []
+      \\ rpt (disch_then kall_tac) \\ disj1_tac
+     \\ Cases_on `IS_SOME (lookup (SUC s.tstamps) seen0)` \\ fs []
      >- (rveq \\ fs [] \\ rveq \\ fs []
-        \\ Cases_on `IS_SOME (lookup ts seen0)` \\ fs []
+        \\ Cases_on `IS_SOME (lookup s.tstamps seen0)` \\ fs []
         \\ rveq \\ rw[arch_size_def])
      \\ rveq \\ fs []
-     \\ Cases_on `IS_SOME (lookup ts seen0)` \\ fs []
+     \\ Cases_on `IS_SOME (lookup s.tstamps seen0)` \\ fs []
      >- (fs [] \\ rveq
-        \\ Cases_on `IS_SOME (lookup ts seen')` \\ fs []
+        \\ Cases_on `IS_SOME (lookup s.tstamps seen')` \\ fs []
         \\ rveq \\ fs [lookup_insert] \\ rfs []
         \\ drule size_of_RefPtr_head
         \\ strip_tac \\ fs []
@@ -286,7 +286,7 @@ Proof
   \\ `safe` by
      (Q.UNABBREV_TAC `safe`
      \\ simp [data_safe_def,size_of_def,size_of_Number_head]
-     \\ fs [size_of_heap_def,stack_to_vs_def]
+     \\ fs [size_of_heap_def,stack_to_vs_def,SUC_LEMMA]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
      (* \\ Cases_on `ts` *)
      \\ fs [size_of_def,lookup_def,GREATER_DEF,libTheory.the_def
@@ -297,9 +297,9 @@ Proof
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert] \\ rveq \\ fs []
      \\ qmatch_asmsub_rename_tac `size_of _ _ s.refs LN = (_,_,seen0)`
-     \\ Cases_on `IS_SOME (lookup (ts + 1) seen0)` \\ fs []
+     \\ Cases_on `IS_SOME (lookup (s.tstamps + 1) seen0)` \\ fs []
      \\ rveq \\ fs []
-     \\ Cases_on `IS_SOME (lookup ts seen0)` \\ fs [lookup_delete]
+     \\ Cases_on `IS_SOME (lookup s.tstamps seen0)` \\ fs [lookup_delete]
      >- (rveq \\ fs [lookup_insert] \\ rfs []
         \\ drule size_of_RefPtr_head
         \\ strip_tac \\ fs [])
@@ -343,7 +343,7 @@ Proof
   \\ `safe` by
      (Q.UNABBREV_TAC `safe`
      \\ simp [data_safe_def,size_of_def,size_of_Number_head]
-     \\ fs [size_of_heap_def,stack_to_vs_def,size_of_Number_head]
+     \\ fs [size_of_heap_def,stack_to_vs_def,size_of_Number_head,SUC_LEMMA]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
      \\ fs [size_of_def,lookup_def]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -355,8 +355,8 @@ Proof
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert] \\ rveq \\ fs []
      \\ qmatch_asmsub_rename_tac `size_of _ _ s.refs LN = (_,_,seen0)`
-     \\ Cases_on `IS_SOME (lookup (ts + 1) seen0)` \\ fs []
-     \\ Cases_on `IS_SOME (lookup ts seen0)` \\ fs [lookup_delete]
+     \\ Cases_on `IS_SOME (lookup (s.tstamps + 1) seen0)` \\ fs []
+     \\ Cases_on `IS_SOME (lookup s.tstamps seen0)` \\ fs [lookup_delete]
      >- (rveq \\ fs [lookup_insert] \\ rfs []
         \\ drule size_of_RefPtr_head
         \\ strip_tac \\ fs [])
@@ -416,12 +416,13 @@ Proof
   (* Prove we are safe for space up to this point *)
   \\ `safe` by
      (Q.UNABBREV_TAC `safe`
-     \\ fs [GREATER_DEF,libTheory.the_def,size_of_stack_def]
+     \\ fs [GREATER_DEF,libTheory.the_def,size_of_stack_def,SUC_LEMMA]
      \\ simp [data_safe_def,size_of_def,size_of_Number_head]
      \\ fs [size_of_heap_def,stack_to_vs_def,size_of_Number_head]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
      \\ fs [size_of_Number_head,insert_shadow] \\ rveq
      \\ fs [Once insert_def,toList_def,toListA_def]
+     \\ rpt (disch_then kall_tac) \\ disj1_tac
      (* insert p1 *)
      \\ drule_then drule size_of_insert
      \\ disch_then (qspecl_then [`s.limits`,`LN`,`p1`] mp_tac)
@@ -440,7 +441,7 @@ Proof
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert] \\ rfs [] \\ rveq
      \\ qmatch_asmsub_rename_tac `size_of _ _ _ LN = (n'',_,seen0)`
-     \\ Cases_on `IS_SOME (lookup ts seen0)` \\ fs [] \\ rveq
+     \\ Cases_on `IS_SOME (lookup s.tstamps seen0)` \\ fs [] \\ rveq
      \\ fs [lookup_insert,lookup_delete] \\ rfs []
      \\ rw [arch_size_def])
   \\ simp [] \\ ntac 2 (pop_assum kall_tac)
@@ -492,7 +493,7 @@ Proof
      \\ strip_tac \\ fs [] \\ rveq
      \\ fs [lookup_insert] \\ rfs [] \\ rveq
      \\ qmatch_asmsub_rename_tac `size_of _ _ _ LN = (n'',_,seen0)`
-     \\ Cases_on `IS_SOME (lookup ts seen0)` \\ fs [] \\ rveq
+     \\ Cases_on `IS_SOME (lookup s.tstamps seen0)` \\ fs [] \\ rveq
      \\ fs [lookup_insert,lookup_delete] \\ rfs [])
   \\ simp [] \\ ntac 2 (pop_assum kall_tac)
   (* Make stack_max sane to look at *)
@@ -755,13 +756,12 @@ Theorem data_safe_yes_code_shallow[local] =
   data_safe_yes_code |> simp_rule [to_shallow_thm,to_shallow_def]
 
 Theorem data_safe_yes_code_abort:
- ∀s ts.
+ ∀s.
    (s.locals = fromList [RefPtr 3]) ∧
    (lookup 3 s.refs = SOME (ByteArray T [121w])) ∧
    2 ≤ s.limits.length_limit ∧
    (s.stack_frame_sizes = yes_config.word_conf.stack_frame_size) ∧
    s.limits.arch_64_bit ∧
-   (s.tstamps = SOME ts) ∧
    (s.code = fromAList yes_data_prog)
    ⇒ ∃s' e. evaluate (^printLoop_body, s) =
        (SOME (Rerr (Rabort e)),s')
@@ -862,6 +862,8 @@ Proof
                      , flush_state_def]
   \\ simp [code_lookup,lookup_def,frame_lookup]
   \\ IF_CASES_TAC >- simp [data_safe_def]
+  \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe)  _`
+  \\ pop_assum kall_tac
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
   \\ simp [LET_DEF]
@@ -899,6 +901,8 @@ Proof
           , flush_state_def
           , size_of_stack_frame_def]
   \\ IF_CASES_TAC >- simp [data_safe_def]
+  \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe')  _`
+  \\ pop_assum kall_tac
   \\ REWRITE_TAC [ push_env_def , to_shallow_def , to_shallow_thm]
   \\ eval_goalsub_tac ``state_locals_fupd _ _``
   (* strip_assign *)
@@ -994,6 +998,14 @@ Proof
      \\ `n < n'` by rw []
      \\ first_x_assum drule \\ rw[]
      \\ Cases_on `n` \\ fs [])
+  \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe)  _`
+  \\ pop_assum kall_tac
+  \\ qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K smax)  _`
+  \\ pop_assum kall_tac
+  \\ qmatch_goalsub_abbrev_tac `state_all_blocks_fupd allb _`
+  \\ pop_assum kall_tac
+  \\ qmatch_goalsub_abbrev_tac `state_peak_heap_length_fupd phl _`
+  \\ pop_assum kall_tac
   \\ rveq \\ pop_assum kall_tac
   \\ eval_goalsub_tac ``state_locals_fupd _ _``
   \\ `p3 ≠ p2` by
@@ -1033,6 +1045,12 @@ Proof
      \\ fs [FINITE_domain,domain_lookup]
      \\ Cases_on `lookup x (insert p2 ARB (insert p1 ARB s.refs))`
      \\ fs [] \\ qexists_tac `x` \\ Cases_on `x = p2` \\ Cases_on `x = p1` \\ fs [lookup_insert])
+  \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe')  _`
+  \\ pop_assum kall_tac
+  \\ qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K smax')  _`
+  \\ pop_assum kall_tac
+  \\ qmatch_goalsub_abbrev_tac `state_peak_heap_length_fupd phl' _`
+  \\ pop_assum kall_tac
   \\ `3 ≠ p3` by (CCONTR_TAC  \\ fs [])
   \\ strip_assign
   \\ fs [lookup_insert]
@@ -1057,10 +1075,10 @@ Proof
   \\ qmatch_goalsub_abbrev_tac `f0 (evaluate _)`
   \\ qmatch_goalsub_abbrev_tac `f0 e0`
   \\ reverse (sg `∃s' e. e0 = (SOME (Rerr (Rabort e)),s')`)
-  \\ fs [Abbr`f0`,Abbr`e0`]
+  \\ fs [Abbr`f0`,Abbr`e0`,SUC_LEMMA]
   \\ qmatch_goalsub_abbrev_tac `evaluate (p0,s0)`
   \\ `s0.clock < s.clock` by fs [Abbr `s0`,dec_clock_def]
-  \\ first_x_assum (drule_then (qspec_then `ts + 2` mp_tac))
+  \\ first_x_assum drule
   \\ impl_tac >- (fs [Abbr `s0`,lookup_insert,call_env_def] \\ EVAL_TAC)
   \\ rw [Abbr`p0`,to_shallow_def,to_shallow_thm] \\ fs []
   end
