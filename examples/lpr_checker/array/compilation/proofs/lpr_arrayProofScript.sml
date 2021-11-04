@@ -6,7 +6,7 @@
 open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
      TextIOProofTheory
-     satSemTheory lprTheory lpr_listTheory lpr_arrayProgTheory
+     satSemTheory lprTheory lpr_listTheory lpr_arrayFullProgTheory
      lpr_parsingTheory lpr_arrayCompileTheory lpr_composeProgTheory;
 
 val _ = new_theory"lpr_arrayProof";
