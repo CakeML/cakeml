@@ -3119,7 +3119,6 @@ Theorem fml_rel_FOLDL_resize_update_list:
   fml_rel (build_fml k fml)
   (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
 Proof
-  cheat
   rw[fml_rel_def]>>
   reverse IF_CASES_TAC
   >- (
