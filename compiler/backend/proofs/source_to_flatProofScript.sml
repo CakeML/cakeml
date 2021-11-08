@@ -18,7 +18,7 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 val grammar_ancestry =
   ["source_to_flat","flatProps","namespaceProps",
    "semantics","semanticPrimitivesProps","ffi","lprefix_lub",
-   "backend_common","misc","backendProps"];
+   "backend_common","misc","backendProps", "source_evalProof"];
 val _ = set_grammar_ancestry grammar_ancestry;
 
 val compile_exps_length = Q.prove (
@@ -1785,26 +1785,21 @@ Proof
   )
 QED
 
-Datatype:
-  oracle_interpretation =
-    <| decode_state : semanticPrimitives$v -> (config # 'd) option |>
+Definition decode_state_def:
+  decode_state ci = v_rel_abs ci.config_v_rel
 End
 
-Definition update_decode_state_def[simp]:
-  update_decode_state x (y: 'a oracle_interpretation) =
-    <| decode_state := x |> : 'a oracle_interpretation
-End
-
-(* the source oracle states can always be decoded by the interpretation
-   function, and the state part in the sequence is produced by repeatedly
+(* The source oracle states can always be decoded according to the
+   value rel in the compiler instance (see source_evalProof). The state
+   part of the oracle sequence should be what is produced by repeatedly
    applying compile_prog *)
 Definition src_orac_step_invs_def:
-  src_orac_step_invs interp eval_state = (case (interp, eval_state) of
+  src_orac_step_invs ci eval_state = (case (ci, eval_state) of
     | (NONE, NONE) => T
     | (SOME i, SOME (EvalOracle s)) => (
     (!k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
-        ?c x. i.decode_state state_v = SOME (c, x)) /\
-    let c_orac = FST o THE o i.decode_state o FST o SND o s.oracle in
+        ?c x. decode_state i state_v = SOME (c, x)) /\
+    let c_orac = FST o THE o decode_state i o FST o SND o s.oracle in
     (!k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
         c_orac (SUC k) = FST (inc_compile_prog env_id (c_orac k) decs)))
     | _ => F
@@ -1816,15 +1811,14 @@ End
 Definition orac_rel_inner_def:
   orac_rel_inner i s (s_compiler : compiler_fun) c <=>
     !k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
-        let x = THE (i.decode_state state_v) in
+        let x = THE (decode_state i state_v) in
         let f_decs = SND (inc_compile_prog env_id (FST x) decs) in
         c.compile_oracle k = (SND x, f_decs) /\
         (s_compiler (env_id, state_v, decs) <> NONE ==>
-            ?bytes words f_st st_p.
+            ?bytes words f_st st_v2.
             c.compile (SND x) f_decs = SOME (bytes, words, f_st) /\
-            s_compiler (env_id, state_v, decs) = SOME (st_p, bytes, words) /\
-            (!st2 x2. st_p st2 /\ i.decode_state st2 = SOME x2 ==>
-                SND x2 = f_st))
+            s_compiler (env_id, state_v, decs) = SOME (st_v2, bytes, words) /\
+            (!x2. decode_state i st_v2 = SOME x2 ==> SND x2 = f_st))
 End
 
 Definition orac_rel_def:
@@ -1849,7 +1843,7 @@ QED
 Definition src_orac_next_cfg_inner_def:
   src_orac_next_cfg_inner interp orac_0 = case (interp, orac_0) of
     | (SOME i, (env_id, state_v, decs)) =>
-      (case i.decode_state state_v of
+      (case decode_state i state_v of
         | SOME (c, x) => SOME c
         | _ => NONE
       )
@@ -2816,7 +2810,7 @@ Theorem src_orac_env_invs_lookup_env:
   es.oracle 0 = (env_id,st_v,decs)
   ==>
   ? c x gen comp_map.
-  (THE interp).decode_state st_v = SOME (c, x) /\
+  decode_state (THE interp) st_v = SOME (c, x) /\
   lookup (FST env_id) c.envs.env_gens = SOME gen /\
   lookup (SND env_id) gen = SOME comp_map /\
   global_env_inv genv comp_map {} env
@@ -2845,8 +2839,8 @@ Triviality step_1:
   interp = SOME i_f /\
   es.oracle 0 = (env_id0, st_v0, decs0) /\
   es.oracle 1 = (env_id1, st_v1, decs1) /\
-  i_f.decode_state st_v0 = SOME (c0, x0) /\
-  i_f.decode_state st_v1 = SOME (c1, x1) /\
+  decode_state i_f st_v0 = SOME (c0, x0) /\
+  decode_state i_f st_v1 = SOME (c1, x1) /\
   inc_compile_prog env_id0 c0 decs0 = (c1, fdecs0) /\
   src_orac_next_cfg (SOME i_f) (SOME (EvalOracle es)) = SOME c0
 Proof
@@ -2950,8 +2944,7 @@ Proof
   \\ simp [env_gen_inv_def]
   \\ rpt conj_tac
   >- (
-    first_x_assum drule
-    \\ simp [shift_seq_def]
+    simp [shift_seq_def]
     \\ fs [orac_rel_inner_def]
     \\ first_x_assum (qspec_then `1` drule)
     \\ simp []
@@ -3410,24 +3403,7 @@ Proof
   simp [abort_def]
 QED
 
-Definition Case_def:
-  Case X <=> T
-End
-
-Theorem add_Case:
-  !X. P <=> (Case X ==> P)
-Proof
-  simp [Case_def]
-QED
-
-Theorem elim_Case:
-  (Case X /\ Y) = Y /\
-  (Case X ==> Y) = Y
-Proof
-  simp [Case_def]
-QED
-
-fun is_app_case t = is_comb t andalso same_const ``Case`` (rator t)
+val is_app_case = can markerSyntax.dest_Case
 
 fun setup (q : term quotation, t : tactic) = let
     val the_concl = Parse.typedTerm q bool
@@ -3445,7 +3421,6 @@ fun setup (q : term quotation, t : tactic) = let
 val compile_correct_setup = setup (`
   (∀ ^s env es s' r genv comp_map env_i1 ^s_i1 es_i1 locals t ts gen idxs.
     evaluate$evaluate s env es = (s', r) ∧
-    Case es ∧
     invariant interp gen genv idxs s s_i1 ∧
     env_all_rel genv comp_map env env_i1 locals ∧
     LENGTH ts = LENGTH locals ∧
@@ -3468,7 +3443,6 @@ val compile_correct_setup = setup (`
   (∀ ^s env v pes err_v genv comp_map s' r env_i1 ^s_i1 v_i1 pes_i1
          err_v_i1 locals t ts gen idxs.
     evaluate$evaluate_match s env v pes err_v = (s', r) ∧
-    Case pes ∧
     invariant interp gen genv idxs s s_i1 ∧
     env_all_rel genv comp_map env env_i1 locals ∧
     v_rel genv v v_i1 ∧
@@ -3494,7 +3468,6 @@ val compile_correct_setup = setup (`
   (∀ ^s env ds s' r path t idx end_idx os comp_map ^s_i1 idx'
         comp_map' ds_i1 t' genv gen gen'.
     evaluate$evaluate_decs s env ds = (s',r) ∧
-    Case ds ∧
     invariant interp gen genv (idx, end_idx, os) s s_i1 ∧
     source_to_flat$compile_decs path t idx comp_map gen ds =
         (t', idx', comp_map', gen', ds_i1) ∧
@@ -3529,11 +3502,11 @@ val compile_correct_setup = setup (`
         result_rel (\a b (c:'a). T) genv' (Rerr err) (Rerr err_i1))
   )
   `,
-  ho_match_mp_tac terminationTheory.full_evaluate_ind
+  ho_match_mp_tac (name_ind_cases [] terminationTheory.full_evaluate_ind)
   \\ rw [terminationTheory.full_evaluate_def, flat_evaluate_def,
     compile_exp_def, compile_decs_def]
   \\ imp_res_tac invariant_IMP_s_rel
-  \\ fs [result_rel_eqns, v_rel_eqns_non_global, elim_Case]
+  \\ fs [result_rel_eqns, v_rel_eqns_non_global]
 )
 
 (*
@@ -4483,7 +4456,7 @@ QED
 Triviality compile_correct_Dtype:
   ^(#get_goal compile_correct_setup `Case [Dtype _ _]`)
 Proof
-  simp [Case_def] >>
+  simp [markerTheory.Case_def] >>
   MAP_EVERY qid_spec_tac [`genv`, `idx`, `comp_map`, `env`, `s`, `s_i1`] >>
   Induct_on `tds`
   >- ( (* No tds *)
@@ -5046,8 +5019,7 @@ Proof
   \\ Cases_on `next.vidx` \\ fs []
   \\ simp [LUPDATE_def]
   \\ rw []
-  \\ drule_then drule
-    (List.last (CONJUNCTS compile_correct) |> REWRITE_RULE [elim_Case])
+  \\ drule_then drule (List.last (CONJUNCTS compile_correct))
   \\ rpt (disch_then drule)
   \\ simp [idx_prev_refl]
   \\ impl_tac >- (
