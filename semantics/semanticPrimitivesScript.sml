@@ -964,13 +964,18 @@ val _ = Define `
 
 
 (*val enc_locn : locn -> v*)
-val _ = Define ‘
- ((enc_locn:locn -> v) (POSN l r) =
+ val _ = Define `
+
+  ((enc_locn:locn -> v) (POSN l r)=
      (Conv (SOME (TypeStamp "Posn" locn_type_num))
       [Litv (IntLit (int_of_num l));
-       Litv (IntLit (int_of_num r))])) ∧
- (enc_locn UNKNOWNpt = Conv (SOME (TypeStamp "Unknownpt" locn_type_num)) []) ∧
- (enc_locn EOFpt = Conv (SOME (TypeStamp "Eofpt" locn_type_num)) [])’;
+       Litv (IntLit (int_of_num r))]))
+/\
+  ((enc_locn:locn -> v) UNKNOWNpt=
+     (Conv (SOME (TypeStamp "Unknownpt" locn_type_num)) []))
+/\
+  ((enc_locn:locn -> v) EOFpt=
+     (Conv (SOME (TypeStamp "Eofpt" locn_type_num)) []))`;
 
 
 (*val enc_locs : locs -> v*)

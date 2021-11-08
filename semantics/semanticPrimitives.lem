@@ -776,11 +776,17 @@ and
     Conv (Just (TypeStamp "Opn" op_type_num)) [enc_opn x_1]
 
 val enc_locn : locn -> v
-let enc_locn l =
-    Conv (Just (TypeStamp "Recordtypelocn" locn_type_num))
-      [Litv (IntLit (integerFromNat l.row));
-       Litv (IntLit (integerFromNat l.col));
-       Litv (IntLit (integerFromNat l.offset))]
+let rec
+  enc_locn (POSN l r) =
+    Conv (Just (TypeStamp "Posn" locn_type_num))
+      [Litv (IntLit (integerFromNat l));
+       Litv (IntLit (integerFromNat r))]
+and
+  enc_locn UNKNOWNpt =
+    Conv (Just (TypeStamp "Unknownpt" locn_type_num)) []
+and
+  enc_locn EOFpt =
+    Conv (Just (TypeStamp "Eofpt" locn_type_num)) []
 
 val enc_locs : locs -> v
 let rec
