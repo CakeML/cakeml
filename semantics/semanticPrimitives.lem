@@ -144,20 +144,25 @@ let store_assign n v st =
   else
     Nothing
 
-(* Required abstract state for Eval. There must be a compiler function, which
-   manipulates some abstract state type. Here we represent the abstract state
-   by the set of v values that might encode it. *)
+(* Compiler checker for Eval. The current design requires the compiler
+   to be run (as regular code within the semantics) before Eval is called,
+   and these config parameters specify how to interpret the declarations to
+   be evaluated and check that the compiler was run correctly. *)
 type compiler_args = ((nat * nat) * v * list dec)
-type compiler_fun = compiler_args ->
-    maybe ((v -> bool) * list word8 * list word64)
+type compiler_fun = compiler_args -> maybe (v * list word8 * list word64)
 
 type eval_decs_state =
   <|
     compiler : compiler_fun ;
-    compiler_state : (v -> bool) ;
-    env_id_counter : (nat * nat * nat)
+    (* state must be encoded as v somehow *)
+    compiler_state : v ;
+    env_id_counter : (nat * nat * nat) ;
+    (* decs must also be encoded as v *)
+    decode_decs : v -> maybe (list dec)
   |>
 
+(* Alternative mode for Eval including an oracle.
+   This is only for use in the compiler proof. *)
 type eval_oracle_fun = nat -> compiler_args
 
 type eval_oracle_state =
@@ -775,126 +780,6 @@ and
   enc_op (Opn x_1) =
     Conv (Just (TypeStamp "Opn" op_type_num)) [enc_opn x_1]
 
-val enc_locn : locn -> v
-let enc_locn l =
-    Conv (Just (TypeStamp "Recordtypelocn" locn_type_num))
-      [Litv (IntLit (integerFromNat l.row));
-       Litv (IntLit (integerFromNat l.col));
-       Litv (IntLit (integerFromNat l.offset))]
-
-val enc_locs : locs -> v
-let rec
-  enc_locs (Locs l1 l2) =
-    Conv (Just (TypeStamp "Locs" locs_type_num))
-      [enc_locn l1; enc_locn l2]
-
-val enc_exp : exp -> v
-let rec
-  enc_exp (Lannot x_28 x_27) =
-    Conv (Just (TypeStamp "Lannot" exp_type_num)) [enc_exp x_28; enc_locs x_27]
-and
-  enc_exp (Tannot x_26 x_25) =
-    Conv (Just (TypeStamp "Tannot" exp_type_num)) [enc_exp x_26; enc_ast_t x_25]
-and
-  enc_exp (Letrec x_24 x_23) =
-    Conv (Just (TypeStamp "Letrec" exp_type_num))
-      [enc_list (List.map (fun (f,x,e) -> enc_pair (Litv (StrLit f))
-                               (enc_pair (Litv (StrLit x))
-                                         (enc_exp e))) x_24);
-       enc_exp x_23]
-and
-  enc_exp (Let x_22 x_21 x_20) =
-    Conv (Just (TypeStamp "Let" exp_type_num))
-      [enc_option (option_map (fun s -> Litv (StrLit s)) x_22);
-       enc_exp x_21; enc_exp x_20]
-and
-  enc_exp (Mat x_19 x_18) =
-    Conv (Just (TypeStamp "Mat" exp_type_num))
-      [enc_exp x_19;
-       enc_list (List.map (fun (p,e) -> enc_pair (enc_pat p) (enc_exp e)) x_18)]
-and
-  enc_exp (If x_17 x_16 x_15) =
-    Conv (Just (TypeStamp "If" exp_type_num))
-      [enc_exp x_17; enc_exp x_16; enc_exp x_15]
-and
-  enc_exp (Log x_14 x_13 x_12) =
-    Conv (Just (TypeStamp "Log" exp_type_num))
-      [enc_lop x_14; enc_exp x_13; enc_exp x_12]
-and
-  enc_exp (App x_11 x_10) =
-    Conv (Just (TypeStamp "App" exp_type_num))
-      [enc_op x_11; enc_list (List.map enc_exp x_10)]
-and
-  enc_exp (Fun x_9 x_8) =
-    Conv (Just (TypeStamp "Fun" exp_type_num)) [Litv (StrLit x_9); enc_exp x_8]
-and
-  enc_exp (Var x_7) =
-    Conv (Just (TypeStamp "Var" exp_type_num)) [enc_id x_7]
-and
-  enc_exp (Con x_6 x_5) =
-    Conv (Just (TypeStamp "Con" exp_type_num))
-      [enc_option (option_map enc_id x_6);
-       enc_list (List.map enc_exp x_5)]
-and
-  enc_exp (Lit x_4) =
-    Conv (Just (TypeStamp "Lit" exp_type_num)) [enc_lit x_4]
-and
-  enc_exp (Handle x_3 x_2) =
-    Conv (Just (TypeStamp "Handle" exp_type_num))
-      [enc_exp x_3;
-       enc_list (List.map (fun (p,e) -> enc_pair (enc_pat p) (enc_exp e)) x_2)]
-and
-  enc_exp (Raise x_1) =
-    Conv (Just (TypeStamp "Raise" exp_type_num)) [enc_exp x_1]
-
-val enc_dec : dec -> v
-let rec
-  enc_dec (Denv x_19) =
-    Conv (Just (TypeStamp "Denv" dec_type_num)) [Litv (StrLit x_19)]
-and
-  enc_dec (Dlocal x_18 x_17) =
-    Conv (Just (TypeStamp "Dlocal" dec_type_num))
-      [enc_list (List.map enc_dec x_18); enc_list (List.map enc_dec x_17)]
-and
-  enc_dec (Dmod x_16 x_15) =
-    Conv (Just (TypeStamp "Dmod" dec_type_num))
-      [Litv (StrLit x_16); enc_list (List.map enc_dec x_15)]
-and
-  enc_dec (Dexn x_14 x_13 x_12) =
-    Conv (Just (TypeStamp "Dexn" dec_type_num))
-      [enc_locs x_14; Litv (StrLit x_13); enc_list (List.map enc_ast_t x_12)]
-and
-  enc_dec (Dtabbrev x_11 x_10 x_9 x_8) =
-    Conv (Just (TypeStamp "Dtabbrev" dec_type_num))
-      [enc_locs x_11; enc_list (List.map (fun s -> Litv (StrLit s)) x_10);
-       Litv (StrLit x_9); enc_ast_t x_8]
-and
-  enc_dec (Dtype x_7 x_6) =
-    Conv (Just (TypeStamp "Dtype" dec_type_num))
-      [enc_locs x_7;
-       enc_list (List.map (fun (vs,s,l) ->
-                  enc_pair (enc_list (List.map (fun s -> Litv (StrLit s)) vs))
-                    (enc_pair (Litv (StrLit s))
-                       (enc_list (List.map (fun (x,xs) -> enc_pair (Litv (StrLit x))
-                          (enc_list (List.map enc_ast_t xs))) l)))) x_6)]
-and
-  enc_dec (Dletrec x_5 x_4) =
-    Conv (Just (TypeStamp "Dletrec" dec_type_num))
-      [enc_locs x_5;
-       enc_list (List.map (fun (f,x,e) -> enc_pair (Litv (StrLit f))
-                               (enc_pair (Litv (StrLit x))
-                                         (enc_exp e))) x_4)]
-and
-  enc_dec (Dlet x_3 x_2 x_1) =
-    Conv (Just (TypeStamp "Dlet" dec_type_num))
-      [enc_locs x_3; enc_pat x_2; enc_exp x_1]
-
-val decs_to_v : list dec -> v
-let decs_to_v ds = enc_list (List.map enc_dec ds)
-
-val v_to_decs : v -> maybe (list dec)
-let v_to_decs v = some (fun ds -> (v = decs_to_v ds))
-
 val maybe_all_list : forall 'a. list (maybe 'a) -> maybe (list 'a)
 let rec maybe_all_list v =
   match v with
@@ -983,8 +868,8 @@ val compiler_agrees : compiler_fun -> compiler_args -> v * v * v -> bool
 let compiler_agrees f args (st_v, bs_v, ws_v) = match
     (f args, args, v_to_word8_list bs_v, v_to_word64_list ws_v)
   with
-  | (Just (st_p, c_bs, c_ws), (_, prev_st_v, _), Just bs, Just ws) ->
-    st_p st_v && c_bs = bs && c_ws = ws && concrete_v st_v &&
+  | (Just (st, c_bs, c_ws), (_, prev_st_v, _), Just bs, Just ws) ->
+    st = st_v && c_bs = bs && c_ws = ws && concrete_v st_v &&
         concrete_v prev_st_v
   | _ -> false
   end
@@ -995,12 +880,11 @@ val do_eval : list v -> maybe eval_state ->
 let do_eval vs es =
   match (es, vs) with
   | (Just (EvalDecs s), [Env env id; st_v; decs_v; st_v2; bs_v; ws_v]) ->
-    match v_to_decs decs_v with
-    | Just decs -> if s.compiler_state st_v && compiler_agrees s.compiler
-            (id, st_v, decs) (st_v2, bs_v, ws_v)
+    match s.decode_decs decs_v with
+    | Just decs -> if st_v = s.compiler_state && concrete_v decs_v &&
+            compiler_agrees s.compiler (id, st_v, decs) (st_v2, bs_v, ws_v)
         then Just (env, decs, Just (EvalDecs
-            (add_decs_generation <| s with compiler_state =
-                (fun st -> st = st_v2) |>)))
+            (add_decs_generation <| s with compiler_state = st_v2 |>)))
         else Nothing
     | _ -> Nothing
     end

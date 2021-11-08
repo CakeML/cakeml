@@ -238,22 +238,27 @@ val _ = Define `
     NONE))`;
 
 
-(* Required abstract state for Eval. There must be a compiler function, which
-   manipulates some abstract state type. Here we represent the abstract state
-   by the set of v values that might encode it. *)
+(* Compiler checker for Eval. The current design requires the compiler
+   to be run (as regular code within the semantics) before Eval is called,
+   and these config parameters specify how to interpret the declarations to
+   be evaluated and check that the compiler was run correctly. *)
 val _ = type_abbrev( "compiler_args" , ``: ((num # num) # v # dec list)``);
-val _ = type_abbrev( "compiler_fun" , ``: compiler_args ->
-     ((v -> bool) # word8 list # word64 list)option``);
+val _ = type_abbrev( "compiler_fun" , ``: compiler_args ->  (v # word8 list # word64 list)option``);
 
 val _ = Hol_datatype `
  eval_decs_state =
   <|
     compiler : compiler_fun ;
-    compiler_state : (v -> bool) ;
-    env_id_counter : (num # num # num)
+    (* state must be encoded as v somehow *)
+    compiler_state : v ;
+    env_id_counter : (num # num # num) ;
+    (* decs must also be encoded as v *)
+    decode_decs : v ->  ( dec list)option
   |>`;
 
 
+(* Alternative mode for Eval including an oracle.
+   This is only for use in the compiler proof. *)
 val _ = type_abbrev( "eval_oracle_fun" , ``: num -> compiler_args``);
 
 val _ = Hol_datatype `
@@ -963,141 +968,6 @@ val _ = Define `
      (Conv (SOME (TypeStamp "Opn" op_type_num)) [enc_opn x_1]))`;
 
 
-(*val enc_locn : locn -> v*)
-val _ = Define ‘
- ((enc_locn:locn -> v) (POSN l r) =
-     (Conv (SOME (TypeStamp "Posn" locn_type_num))
-      [Litv (IntLit (int_of_num l));
-       Litv (IntLit (int_of_num r))])) ∧
- (enc_locn UNKNOWNpt = Conv (SOME (TypeStamp "Unknownpt" locn_type_num)) []) ∧
- (enc_locn EOFpt = Conv (SOME (TypeStamp "Eofpt" locn_type_num)) [])’;
-
-
-(*val enc_locs : locs -> v*)
- val _ = Define `
-
-  ((enc_locs:locs -> v) (Locs l1 l2)=
-     (Conv (SOME (TypeStamp "Locs" locs_type_num))
-      [enc_locn l1; enc_locn l2]))`;
-
-
-(*val enc_exp : exp -> v*)
- val enc_exp_defn = Defn.Hol_multi_defns `
-
-  ((enc_exp:exp -> v) (Lannot x_28 x_27)=
-     (Conv (SOME (TypeStamp "Lannot" exp_type_num)) [enc_exp x_28; enc_locs x_27]))
-/\
-  ((enc_exp:exp -> v) (Tannot x_26 x_25)=
-     (Conv (SOME (TypeStamp "Tannot" exp_type_num)) [enc_exp x_26; enc_ast_t x_25]))
-/\
-  ((enc_exp:exp -> v) (Letrec x_24 x_23)=
-     (Conv (SOME (TypeStamp "Letrec" exp_type_num))
-      [enc_list (MAP (\ (f,x,e) .  enc_pair (Litv (StrLit f))
-                               (enc_pair (Litv (StrLit x))
-                                         (enc_exp e))) x_24);
-       enc_exp x_23]))
-/\
-  ((enc_exp:exp -> v) (Let x_22 x_21 x_20)=
-     (Conv (SOME (TypeStamp "Let" exp_type_num))
-      [enc_option (OPTION_MAP (\ s .  Litv (StrLit s)) x_22);
-       enc_exp x_21; enc_exp x_20]))
-/\
-  ((enc_exp:exp -> v) (Mat x_19 x_18)=
-     (Conv (SOME (TypeStamp "Mat" exp_type_num))
-      [enc_exp x_19;
-       enc_list (MAP (\ (p,e) .  enc_pair (enc_pat p) (enc_exp e)) x_18)]))
-/\
-  ((enc_exp:exp -> v) (If x_17 x_16 x_15)=
-     (Conv (SOME (TypeStamp "If" exp_type_num))
-      [enc_exp x_17; enc_exp x_16; enc_exp x_15]))
-/\
-  ((enc_exp:exp -> v) (Log x_14 x_13 x_12)=
-     (Conv (SOME (TypeStamp "Log" exp_type_num))
-      [enc_lop x_14; enc_exp x_13; enc_exp x_12]))
-/\
-  ((enc_exp:exp -> v) (App x_11 x_10)=
-     (Conv (SOME (TypeStamp "App" exp_type_num))
-      [enc_op x_11; enc_list (MAP enc_exp x_10)]))
-/\
-  ((enc_exp:exp -> v) (Fun x_9 x_8)=
-     (Conv (SOME (TypeStamp "Fun" exp_type_num)) [Litv (StrLit x_9); enc_exp x_8]))
-/\
-  ((enc_exp:exp -> v) (Var x_7)=
-     (Conv (SOME (TypeStamp "Var" exp_type_num)) [enc_id x_7]))
-/\
-  ((enc_exp:exp -> v) (Con x_6 x_5)=
-     (Conv (SOME (TypeStamp "Con" exp_type_num))
-      [enc_option (OPTION_MAP enc_id x_6);
-       enc_list (MAP enc_exp x_5)]))
-/\
-  ((enc_exp:exp -> v) (Lit x_4)=
-     (Conv (SOME (TypeStamp "Lit" exp_type_num)) [enc_lit x_4]))
-/\
-  ((enc_exp:exp -> v) (Handle x_3 x_2)=
-     (Conv (SOME (TypeStamp "Handle" exp_type_num))
-      [enc_exp x_3;
-       enc_list (MAP (\ (p,e) .  enc_pair (enc_pat p) (enc_exp e)) x_2)]))
-/\
-  ((enc_exp:exp -> v) (Raise x_1)=
-     (Conv (SOME (TypeStamp "Raise" exp_type_num)) [enc_exp x_1]))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) enc_exp_defn;
-
-(*val enc_dec : dec -> v*)
- val enc_dec_defn = Defn.Hol_multi_defns `
-
-  ((enc_dec:dec -> v) (Denv x_19)=
-     (Conv (SOME (TypeStamp "Denv" dec_type_num)) [Litv (StrLit x_19)]))
-/\
-  ((enc_dec:dec -> v) (Dlocal x_18 x_17)=
-     (Conv (SOME (TypeStamp "Dlocal" dec_type_num))
-      [enc_list (MAP enc_dec x_18); enc_list (MAP enc_dec x_17)]))
-/\
-  ((enc_dec:dec -> v) (Dmod x_16 x_15)=
-     (Conv (SOME (TypeStamp "Dmod" dec_type_num))
-      [Litv (StrLit x_16); enc_list (MAP enc_dec x_15)]))
-/\
-  ((enc_dec:dec -> v) (Dexn x_14 x_13 x_12)=
-     (Conv (SOME (TypeStamp "Dexn" dec_type_num))
-      [enc_locs x_14; Litv (StrLit x_13); enc_list (MAP enc_ast_t x_12)]))
-/\
-  ((enc_dec:dec -> v) (Dtabbrev x_11 x_10 x_9 x_8)=
-     (Conv (SOME (TypeStamp "Dtabbrev" dec_type_num))
-      [enc_locs x_11; enc_list (MAP (\ s .  Litv (StrLit s)) x_10);
-       Litv (StrLit x_9); enc_ast_t x_8]))
-/\
-  ((enc_dec:dec -> v) (Dtype x_7 x_6)=
-     (Conv (SOME (TypeStamp "Dtype" dec_type_num))
-      [enc_locs x_7;
-       enc_list (MAP (\ (vs,s,l) . 
-                  enc_pair (enc_list (MAP (\ s .  Litv (StrLit s)) vs))
-                    (enc_pair (Litv (StrLit s))
-                       (enc_list (MAP (\ (x,xs) .  enc_pair (Litv (StrLit x))
-                          (enc_list (MAP enc_ast_t xs))) l)))) x_6)]))
-/\
-  ((enc_dec:dec -> v) (Dletrec x_5 x_4)=
-     (Conv (SOME (TypeStamp "Dletrec" dec_type_num))
-      [enc_locs x_5;
-       enc_list (MAP (\ (f,x,e) .  enc_pair (Litv (StrLit f))
-                               (enc_pair (Litv (StrLit x))
-                                         (enc_exp e))) x_4)]))
-/\
-  ((enc_dec:dec -> v) (Dlet x_3 x_2 x_1)=
-     (Conv (SOME (TypeStamp "Dlet" dec_type_num))
-      [enc_locs x_3; enc_pat x_2; enc_exp x_1]))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) enc_dec_defn;
-
-(*val decs_to_v : list dec -> v*)
-val _ = Define `
- ((decs_to_v:(dec)list -> v) ds=  (enc_list (MAP enc_dec ds)))`;
-
-
-(*val v_to_decs : v -> maybe (list dec)*)
-val _ = Define `
- ((v_to_decs:v ->((dec)list)option) v=  ($some (\ ds .  (v = decs_to_v ds))))`;
-
-
 (*val maybe_all_list : forall 'a. list (maybe 'a) -> maybe (list 'a)*)
  val maybe_all_list_defn = Hol_defn "maybe_all_list" `
  ((maybe_all_list:('a option)list ->('a list)option) v=
@@ -1205,11 +1075,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 (*val compiler_agrees : compiler_fun -> compiler_args -> v * v * v -> bool*)
 val _ = Define `
- ((compiler_agrees:((num#num)#v#(dec)list ->((v -> bool)#(word8)list#(word64)list)option) ->(num#num)#v#(dec)list -> v#v#v -> bool) f args (st_v, bs_v, ws_v)=  ((case
+ ((compiler_agrees:((num#num)#v#(dec)list ->(v#(word8)list#(word64)list)option) ->(num#num)#v#(dec)list -> v#v#v -> bool) f args (st_v, bs_v, ws_v)=  ((case
     (f args, args, v_to_word8_list bs_v, v_to_word64_list ws_v)
   of
-    (SOME (st_p, c_bs, c_ws), (_, prev_st_v, _), SOME bs, SOME ws) =>
-    st_p st_v /\ (c_bs = bs) /\ (c_ws = ws) /\ concrete_v st_v /\
+    (SOME (st, c_bs, c_ws), (_, prev_st_v, _), SOME bs, SOME ws) =>
+    (st = st_v) /\ (c_bs = bs) /\ (c_ws = ws) /\ concrete_v st_v /\
         concrete_v prev_st_v
   | _ => F
   )))`;
@@ -1222,12 +1092,11 @@ val _ = Define `
  ((do_eval:(v)list ->(eval_state)option ->((v)sem_env#(dec)list#(eval_state)option)option) vs es=
    ((case (es, vs) of
     (SOME (EvalDecs s), [Env env id; st_v; decs_v; st_v2; bs_v; ws_v]) =>
-    (case v_to_decs decs_v of
-      SOME decs => if s.compiler_state st_v /\ compiler_agrees s.compiler
-            (id, st_v, decs) (st_v2, bs_v, ws_v)
+    (case s.decode_decs decs_v of
+      SOME decs => if (st_v = s.compiler_state) /\ concrete_v decs_v /\
+            compiler_agrees s.compiler (id, st_v, decs) (st_v2, bs_v, ws_v)
         then SOME (env, decs, SOME (EvalDecs
-            (add_decs_generation ( s with<| compiler_state :=
-                (\ st .  st = st_v2) |>))))
+            (add_decs_generation ( s with<| compiler_state := st_v2 |>))))
         else NONE
     | _ => NONE
     )
