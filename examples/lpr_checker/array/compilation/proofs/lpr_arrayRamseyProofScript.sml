@@ -121,7 +121,7 @@ Proof
       metis_tac[STD_streams_stderr,add_stdo_nil]>>
     match_mp_tac ramsey_eq>>simp[not_is_ramsey_4_17]>>
     match_mp_tac ramsey_lpr_correct>>
-    match_mp_tac (GEN_ALL check_lpr_unsat_list_sound)>>
+    match_mp_tac (GEN_ALL lpr_arrayProgTheory.check_lpr_unsat_list_sound)>>
     fs[enc_def]>>
     asm_exists_tac>>simp[]>>
     CONJ_TAC >- (
