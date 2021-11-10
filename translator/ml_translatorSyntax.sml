@@ -10,10 +10,12 @@ open HolKernel boolLib ml_translatorTheory semanticPrimitivesSyntax;
 val ERR = Feedback.mk_HOL_ERR "ml_translatorSyntax";
 
 val monop = HolKernel.syntax_fns1 "ml_translator"
+val binop = HolKernel.syntax_fns2 "ml_translator"
 
 val (EqualityType,mk_EqualityType,dest_EqualityType,is_EqualityType) = monop "EqualityType";
 val (CONTAINER,mk_CONTAINER,dest_CONTAINER,is_CONTAINER) = monop "CONTAINER";
 val (PRECONDITION,mk_PRECONDITION,dest_PRECONDITION,is_PRECONDITION) = monop "PRECONDITION";
+val (IsTypeRep,mk_IsTypeRep,dest_IsTypeRep,is_IsTypeRep) = binop "IsTypeRep";
 
 val (_, mk_Conv_args, _, _) = monop "Conv_args"
 val (_, mk_trivial4, dest_trivial4, _) = HolKernel.syntax_fns4 "ml_translator" "trivial4";
