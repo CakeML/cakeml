@@ -300,8 +300,10 @@ Theorem EqTyp_test_lemmas:
     /\ EqualityType (^a_c_inv_num) /\ EqualityType (^st_inv)
     /\ EqualityType (^st2_inv)
 Proof
-  fs (eq_lemmas ())
+  fs (map (REWRITE_RULE [AND_IMP_INTRO]) (eq_lemmas ()))
 QED
+
+(* FIXME: mutually recursive datastructures don't seem to work *)
 
 (* translating within nested local blocks and modules *)
 

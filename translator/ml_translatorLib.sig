@@ -30,7 +30,7 @@ sig
     val add_type_inv   : term -> hol_type -> unit
     val get_type_inv   : hol_type -> term
 
-    val fetch_v_fun    : hol_type -> term
+    val fetch_v_fun    : hol_type -> term option
 
     val add_eval_thm   : thm -> thm
     val add_user_proved_v_thm : thm -> thm

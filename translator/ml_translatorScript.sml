@@ -403,28 +403,52 @@ Proof
   \\ simp [GSYM dimword_def]
 QED
 
-Theorem EqualityType_measure:
-   !m. (!n : num. EqualityType (And TY (\x. m x < n))) ==> EqualityType TY
+Definition EqualityType_at_def:
+  EqualityType_at (abs:'a->v->bool) x <=>
+    (!v. abs x v ==> no_closures v) /\
+    (!v x2 v2. abs x v /\ abs x2 v2 ==> ((v = v2) = (x = x2))) /\
+    (!v x2 v2. abs x v /\ abs x2 v2 ==> types_match v v2)
+End
+
+Theorem EqualityType_eq_at:
+  EqualityType TY = (!x. EqualityType_at TY x)
 Proof
-  rpt strip_tac
-  \\ RULE_ASSUM_TAC (Q.GENL [`x`, `y`] o Q.SPEC `MAX (SUC (m x)) (SUC (m y))`)
-  \\ fs [EqualityType_def, And_def]
-  \\ metis_tac [prim_recTheory.LESS_SUC_REFL]
+  simp [EqualityType_def, EqualityType_at_def]
+  \\ metis_tac []
 QED
 
-val trivial4_def = Define `trivial4 x y a b = T`;
+Theorem EqualityType_at_eq_Case_rearranged:
+  EqualityType_at TY x <=>
+  !y vx vy. Case (x, y, vx, vy) ==>
+  TY x vx /\ TY y vy ==>
+  (x = y ==> vx = vy ==> no_closures vx)
+        /\ (vx = vy <=> x = y) /\ types_match vx vy
+Proof
+  fs [EqualityType_at_def, markerTheory.Case_def] \\ metis_tac []
+QED
 
-val Conv_args_def = Define `Conv_args v = (case v of
-  | Conv _ vs => vs
-  | _ => [v])`;
+Theorem Case_tuple_helper_rule:
+  Case ((x,x2),(y,y2),(vx::vx2),(vy::vy2)) <=>
+    Case (x, y, vx, vy) /\ Case (x2, y2, vx2, vy2)
+Proof
+  REWRITE_TAC [markerTheory.Case_def]
+QED
+
+Theorem EqualityType_at_IMP:
+  !x y vx vy TY. EqualityType_at TY x ==>
+  TY x vx /\ TY y vy ==>
+  (x = y ==> vx = vy ==> no_closures vx)
+        /\ (vx = vy <=> x = y) /\ types_match vx vy
+Proof
+  fs [EqualityType_at_def] \\ metis_tac []
+QED
 
 Theorem EqualityType_def_rearranged:
-   EqualityType abs = (!x y vx vy. trivial4 x y vx vy
-    ==> abs x vx /\ abs y vy
+   EqualityType abs = (!x y vx vy. abs x vx /\ abs y vy
     ==> (x = y ==> vx = vy ==> no_closures vx)
         /\ (vx = vy <=> x = y) /\ types_match vx vy)
 Proof
-  fs [EqualityType_def, trivial4_def] \\ metis_tac []
+  fs [EqualityType_def] \\ metis_tac []
 QED
 
 Theorem EqualityType_from_ONTO:
