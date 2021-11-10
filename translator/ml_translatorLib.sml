@@ -1206,6 +1206,8 @@ fun matching_induction_of typ = let
     | _ => INST_TYPE (hd matches) ind
   end
 
+val EqualityType_at = prim_mk_const{Thy="ml_translator",Name="EqualityType_at"}
+
 fun mk_EqualityType_ind typ = let
     val ind = matching_induction_of typ
     val (ind_p, ind_c) = concl ind |> strip_forall |> snd |> dest_imp
@@ -1221,14 +1223,19 @@ fun mk_EqualityType_ind typ = let
     val ss = list_ss ++ simpLib.type_ssfrag v_ty ++ optionSimps.OPTION_ss
         ++ simpLib.type_ssfrag (pairSyntax.mk_prod (alpha, beta))
         ++ simpLib.type_ssfrag stamp_ty ++ stringSimps.STRING_ss
-    fun adj tm = if is_Conv tm then snd (dest_Conv tm)
-        else pairSyntax.list_mk_pair (snd (strip_comb tm) @ [oneSyntax.one_tm])
+    fun adj tm = if not (is_Conv tm) then snd (strip_comb tm)
+        else dest_Conv tm |> snd |> listSyntax.dest_list |> fst
+    fun inst_eq_at x ys = let
+        val thm1 = GEN_ALL EqualityType_at_eq_Case_rearranged
+            |> ISPECL [x, get_type_inv (type_of x)]
+        val thm2 = ASSUME (lhs (concl thm1)) |> REWRITE_RULE [thm1, markerTheory.Case_def]
+      in thm2 |> SPECL ys |> DISCH_ALL end
+    fun insts [] oths = ALL_TAC
+      | insts (x :: xs) oths = mp_tac (inst_eq_at x (map hd oths)) \\ insts xs (map tl oths)
     val fiddle_case_tac = FIRST_X_ASSUM (fn thm => let
-        val tup = markerSyntax.dest_Case (concl thm)
-        val tup2 = pairSyntax.spine_pair tup |> map adj |> pairSyntax.list_mk_pair
-        val thm2 = prove (mk_icomb (markerSyntax.Case_tm, tup2),
-            REWRITE_TAC [markerTheory.Case_def])
-      in mp_tac thm2 end)
+        val xs = markerSyntax.dest_Case (concl thm) |> pairSyntax.spine_pair
+        val ys = map adj xs
+      in insts (hd ys) (tl ys) end)
     val gl = map (ml_translatorSyntax.mk_EqualityType o get_type_inv) proof_tys
         |> list_mk_conj
     val assums = map (ml_translatorSyntax.mk_EqualityType o get_type_inv) ex_assum_tys
@@ -1247,12 +1254,8 @@ fun mk_EqualityType_ind typ = let
         \\ TRY (simp_tac (bool_ss ++ simpLib.type_ssfrag typ) [] \\ NO_TAC)
         \\ rpt (gen_tac ORELSE disch_tac)
         \\ full_simp_tac ss []
-        \\ fiddle_case_tac
-        \\ simp_tac ss [Case_tuple_helper_rule]
-        \\ strip_tac
-        \\ full_simp_tac ss [EqualityType_eq_at, EqualityType_at_eq_Case_rearranged]
-        \\ rpt (first_x_assum drule)
-        \\ asm_simp_tac ss []
+        \\ rpt fiddle_case_tac
+        \\ full_simp_tac ss [EqualityType_eq_at, markerTheory.Case_def]
         \\ simp_tac (bool_ss ++ simpLib.type_ssfrag typ) []
     )
   in (assums, thm) end
@@ -1264,8 +1267,6 @@ fun mk_EqualityType_thm is_exn_type typ = let
     val (assums, thm) = if can get_type_n2typ_onto_thm typ
           then ([], EqualityType_via_n2typ is_exn_type typ)
           else mk_EqualityType_ind typ
-    val _ = print "got thm: "
-    val _ = print_thm thm
   in
     prove (list_mk_imp (assums, final_goal),
         rpt strip_tac \\ mp_tac thm \\ asm_simp_tac bool_ss [])
@@ -1274,44 +1275,45 @@ fun mk_EqualityType_thm is_exn_type typ = let
     (print ".. cannot do EqualityType proof.\n"; TRUTH)
 
 fun fetch_v_fun_ex extra_tms extra_thms ty = case assoc1 ty extra_tms of
-    SOME (_, v_fun) => SOME v_fun
+    SOME (_, v_fun) => v_fun
   | NONE => if is_vartype ty then let
     val s = dest_vartype ty
-  in SOME (mk_var ("t_" ^ s ^ "_v", ty --> v_ty)) end
-  else if can dom_rng ty then NONE else let
+  in mk_var ("t_" ^ s ^ "_v", ty --> v_ty) end
+  else if can dom_rng ty then raise (UnsupportedType ty) else let
     val ind = get_type_inv ty
     val ind_head = fst (strip_comb ind)
-    val (_, tys) = dest_type ty
-    val arg_funs = mapfilter (valOf o fetch_v_fun_ex extra_tms extra_thms) tys
+    (* this special case solves the issue with HOL_STRING_TYPE *)
+    val (_, tys) = if is_const ind then ("s", []) else dest_type ty
+    val arg_funs = map (fetch_v_fun_ex extra_tms extra_thms) tys
     val f_opts = extra_thms @ eq_lemmas ()
         |> map (snd o strip_imp o concl)
         |> mapfilter (ml_translatorSyntax.dest_IsTypeRep)
         |> filter (same_const ind_head o fst o strip_comb o snd)
         |> map (fst o strip_comb o fst)
         |> HOLset.fromList Term.compare |> HOLset.listItems
-  in if length arg_funs < length tys then NONE
-    else case f_opts of
-    [] => NONE
-  | [f] => SOME (list_mk_icomb (f, arg_funs))
-  | _ => failwith ("fetch_v_fun_ex: multiple options for " ^ type_to_string ty)
-  end
+    val f = case f_opts of
+      [] => raise (UnsupportedType ty)
+    | [f] => f
+    | _ => failwith ("fetch_v_fun_ex: multiple options for " ^ type_to_string ty)
+    val f_arg = strip_fun (type_of f) |> fst |> List.last
+    val m = match_type f_arg ty
+  in list_mk_comb (inst m f, arg_funs) end
 
-fun mk_v_app extras v = case fetch_v_fun_ex extras [] (type_of v) of
-    SOME oper => mk_comb (oper, v)
-  | NONE => failwith ("mk_v_app: no v fun for " ^ type_to_string (type_of v))
+fun mk_v_app extras v = mk_comb (fetch_v_fun_ex extras [] (type_of v), v)
 
 val fetch_v_fun = fetch_v_fun_ex [] []
 
 (* define a type->v function from the type's induction rule and type_inv *)
 fun define_v_fun ty = let
     val main_ty = ty
-    val ind = TypeBase.induction_of ty
+    val ind = matching_induction_of ty
     val args = concl ind |> strip_forall |> snd |> dest_imp |> snd
         |> strip_conj |> map (fst o dest_forall)
-    val param_tys = type_vars_in_term (concl ind) |> map (valOf o fetch_v_fun)
-    val ty_inv_defs = map (get_type_inv o type_of) args |> map (find_terms is_const)
-        |> List.concat |> HOLset.fromList Term.compare |> HOLset.listItems
-        |> filter ((fn s => s <> "NUM") o fst o dest_const)
+    val param_tys = type_vars_in_term (concl ind) |> map fetch_v_fun
+    val ty_inv_defs = map (get_type_inv o type_of) args
+        |> map (fst o strip_comb)
+        |> filter is_const
+        |> HOLset.fromList Term.compare |> HOLset.listItems
         |> map guess_const_def
     fun name ty = get_type_inv ty |> strip_comb |> fst |> dest_const |> fst
         |> Portable.replace_string {from = "_TYPE", to = "_v"}
@@ -1341,8 +1343,7 @@ fun define_v_fun ty = let
         |> HOLset.fromList Term.compare |> HOLset.listItems
     val const_op_tups = map (fn t => (fst (dom_rng (type_of t)), t))
         (const_ops @ param_tys)
-    fun mk_is_tr ty = mk_IsTypeRep (valOf (fetch_v_fun_ex const_op_tups [] ty),
-        get_type_inv ty)
+    fun mk_is_tr ty = mk_IsTypeRep (fetch_v_fun_ex const_op_tups [] ty, get_type_inv ty)
     val arg_tys = map type_of args
     val all_tys = map (find_terms is_var) cases
         |> List.concat |> map type_of
@@ -1364,10 +1365,9 @@ fun define_v_fun ty = let
 fun define_type_reps [] = []
   | define_type_reps (ty :: tys) = let
     val reps = define_type_reps tys
-  in case fetch_v_fun_ex [] reps ty of
-    SOME _ => reps
-  | NONE => define_v_fun ty @ reps
-  end
+    val more = (fetch_v_fun_ex [] reps ty; [])
+      handle UnsupportedType _ => define_v_fun ty
+  in more @ reps end
 
 fun EqualityType_cc dir tm = let
     val lemmas = map (REWRITE_RULE [AND_IMP_INTRO]) (eq_lemmas ())
