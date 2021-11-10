@@ -1391,21 +1391,21 @@ fun define_type_reps [] = []
   | NONE => define_v_fun ty @ reps
   end
 
-local open ConseqConv in
-
 fun EqualityType_cc dir tm = let
-    val cc = CONSEQ_REWRITE_CONV (eq_lemmas (), [], [])
+    val cc = ConseqConv.CONSEQ_REWRITE_CONV (eq_lemmas (), [], [])
   in cc dir tm end
 
-fun EqualityType_rule prems ty = let
-    val mk = ml_translatorSyntax.mk_EqualityType o get_type_inv
-    val goal = if null prems then mk ty
-        else mk_imp (list_mk_conj (map mk prems), mk ty)
-  in prove (goal,
-    CONSEQ_CONV_TAC EqualityType_cc \\ full_simp_tac bool_ss [])
+fun EqualityType_cc_conv tm = let
+    val th = EqualityType_cc ConseqConv.CONSEQ_CONV_STRENGTHEN_direction tm
+  in if same_const T (fst (dest_imp (concl th)))
+    then prove (mk_eq (tm, T), mp_tac th \\ simp_tac bool_ss [])
+    else raise UNCHANGED
   end
 
-end
+fun simp_eq_lemma th = if not (is_imp (concl th)) then th
+  else let
+    val conv = Conv.EVERY_CONJ_CONV (TRY_CONV EqualityType_cc_conv)
+  in CONV_RULE (RATOR_CONV (RAND_CONV conv)) th end
 
 fun define_ref_inv is_exn_type tys = let
   val is_pair_type = tys_is_pair_type tys
@@ -1572,11 +1572,12 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
                    (ml_ty_name,xs,ty,sub lhs th,input)) (zip inv_defs ys)
   val _ = map reg_type ys2
   (* equality type and type rep *)
-  val eq_lemmas = map (fn ty => (ty, mk_EqualityType_thm is_exn_type ty)) tys
+  val eq_lemmas = map (fn ty => (ty, mk_EqualityType_thm is_exn_type ty
+        |> simp_eq_lemma)) tys
   val res = map (fn ((th,inv_def),(_,eq_lemma)) => (th,inv_def,eq_lemma))
                 (zip inv_defs eq_lemmas)
   val type_rep_lemmas = filter (not o same_const T o concl o snd) eq_lemmas
-      |> map fst |> define_type_reps
+      |> map fst |> define_type_reps |> map simp_eq_lemma
   in (name,res,type_rep_lemmas) end;
 
 fun domain ty = ty |> dest_fun_type |> fst
