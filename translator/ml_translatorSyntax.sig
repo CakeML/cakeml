@@ -12,6 +12,11 @@ sig
   val is_EqualityType   : term -> bool
   val EqualityType      : term
 
+  val IsTypeRep      : term
+  val dest_IsTypeRep : term -> term * term
+  val is_IsTypeRep   : term -> bool
+  val mk_IsTypeRep   : term * term -> term
+
   val dest_trivial4 : term -> (term * term * term * term)
   val mk_Conv_args  : term -> term
 

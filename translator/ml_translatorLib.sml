@@ -556,13 +556,17 @@ in
   fun is_primitive_exception name = can get_primitive_exception name
 end;
 
+val default_eq_lemmas = CONJUNCTS EqualityType_NUM_BOOL
+    @ CONJUNCTS IsTypeRep_NUM_BOOL
+    @ [IsTypeRep_PAIR, IsTypeRep_LIST, IsTypeRep_VECTOR]
+
 local
   val type_mappings = ref ([]:(hol_type * hol_type) list)
   val other_types = ref ([]:(hol_type * term) list)
   val preprocessor_rws = ref ([]:thm list)
   val type_memory = ref ([]:(hol_type * thm * (term * thm) list * thm) list)
   val deferred_dprogs = ref ([]:term list)
-  val all_eq_lemmas = ref (CONJUNCTS EqualityType_NUM_BOOL)
+  val all_eq_lemmas = ref default_eq_lemmas
 in
   fun type_reset () =
     (type_mappings := [];
@@ -570,7 +574,7 @@ in
      preprocessor_rws := [];
      type_memory := [];
      deferred_dprogs := [];
-     all_eq_lemmas := (CONJUNCTS EqualityType_NUM_BOOL))
+     all_eq_lemmas := default_eq_lemmas)
   fun dest_fun_type ty = let
     val (name,args) = dest_type ty
     in if name = "fun" then (el 1 args, el 2 args) else failwith("not fun type") end
@@ -676,8 +680,9 @@ in
   fun add_eq_lemma eq_lemma =
     if Teq (concl eq_lemma) then () else
       (all_eq_lemmas := eq_lemma :: (!all_eq_lemmas))
-  fun add_type_thms (rws1,rws2,res) = let
+  fun add_type_thms (rws1,rws2,res,tr_lemmas) = let
     val _ = map (fn (ty,eq_lemma,inv_def,conses,case_lemma,ts) => add_eq_lemma eq_lemma) res
+    val _ = map add_eq_lemma tr_lemmas
     val _ = (type_memory := map (fn (ty,eq_lemma,inv_def,conses,case_lemma,ts) => (ty,inv_def,conses,case_lemma)) res @ (!type_memory))
     val _ = (preprocessor_rws := rws2 @ (!preprocessor_rws))
     in () end
@@ -1290,6 +1295,102 @@ fun mk_EqualityType_thm is_exn_type typ = let
   end handle Option.Option =>
     (print ".. cannot do EqualityType proof.\n"; TRUTH)
 
+fun fetch_v_fun_ex extra_tms extra_thms ty = case assoc1 ty extra_tms of
+    SOME (_, v_fun) => SOME v_fun
+  | NONE => if is_vartype ty then let
+    val s = dest_vartype ty
+  in SOME (mk_var ("t_" ^ s ^ "_v", ty --> v_ty)) end
+  else if can dom_rng ty then NONE else let
+    val ind = get_type_inv ty
+    val ind_head = fst (strip_comb ind)
+    val (_, tys) = dest_type ty
+    val arg_funs = mapfilter (valOf o fetch_v_fun_ex extra_tms extra_thms) tys
+    val f_opts = extra_thms @ eq_lemmas ()
+        |> map (snd o strip_imp o concl)
+        |> mapfilter (ml_translatorSyntax.dest_IsTypeRep)
+        |> filter (same_const ind_head o fst o strip_comb o snd)
+        |> map (fst o strip_comb o fst)
+        |> HOLset.fromList Term.compare |> HOLset.listItems
+  in if length arg_funs < length tys then NONE
+    else case f_opts of
+    [] => NONE
+  | [f] => SOME (list_mk_icomb (f, arg_funs))
+  | _ => failwith ("fetch_v_fun_ex: multiple options for " ^ type_to_string ty)
+  end
+
+fun mk_v_app extras v = case fetch_v_fun_ex extras [] (type_of v) of
+    SOME oper => mk_comb (oper, v)
+  | NONE => failwith ("mk_v_app: no v fun for " ^ type_to_string (type_of v))
+
+val fetch_v_fun = fetch_v_fun_ex [] []
+
+(* define a type->v function from the type's induction rule and type_inv *)
+fun define_v_fun ty = let
+    val main_ty = ty
+    val ind = TypeBase.induction_of ty
+    val args = concl ind |> strip_forall |> snd |> dest_imp |> snd
+        |> strip_conj |> map (fst o dest_forall)
+    val param_tys = type_vars_in_term (concl ind) |> map (valOf o fetch_v_fun)
+    val ty_inv_defs = map (get_type_inv o type_of) args |> map (find_terms is_const)
+        |> List.concat |> HOLset.fromList Term.compare |> HOLset.listItems
+        |> filter ((fn s => s <> "NUM") o fst o dest_const)
+        |> map guess_const_def
+    fun name ty = get_type_inv ty |> strip_comb |> fst |> dest_const |> fst
+        |> Portable.replace_string {from = "_TYPE", to = "_v"}
+    fun is_aux ty = exists (not o is_vartype) (snd (dest_type ty))
+    fun aux_name i ty = if is_aux ty then name main_ty ^ "_aux_" ^ Int.toString i
+        else name ty
+    val ops = mapi (fn i => fn v => list_mk_comb (mk_var (aux_name i (type_of v),
+        foldr (fn (h, t) => type_of h --> t) (type_of v --> v_ty) param_tys), param_tys)) args
+    val op_tups = map (fn t => (fst (dom_rng (type_of t)), t)) ops
+    val cases = concl ind |> strip_forall |> snd |> dest_imp |> fst
+        |> strip_conj
+        |> map (rand o snd o strip_forall o snd o strip_imp o snd o strip_forall)
+    val inv_def_eqs = map (strip_conj o concl) ty_inv_defs |> List.concat
+    fun case_eqn t = let
+        val (c, xs) = strip_comb t
+        val eq = first (can (find_term (same_const c)) o lhs o snd o strip_forall) inv_def_eqs
+        val conv = find_term (is_Conv) eq
+        val stamp = fst (dest_Conv conv)
+      in mk_eq (mk_v_app op_tups t, mk_Conv (stamp,
+            listSyntax.mk_list (map (mk_v_app op_tups) xs, v_ty))) end
+    val def = map case_eqn cases |> list_mk_conj
+    val def_name = (hd ops |> strip_comb |> fst |> dest_var |> fst) ^ "_def"
+    val def_thm = new_recursive_definition
+        {name = def_name, rec_axiom = TypeBase.axiom_of ty, def=def}
+    val const_ops = def_thm |> concl |> strip_conj
+        |> map (rator o fst o dest_eq o snd o strip_forall)
+        |> HOLset.fromList Term.compare |> HOLset.listItems
+    val const_op_tups = map (fn t => (fst (dom_rng (type_of t)), t))
+        (const_ops @ param_tys)
+    fun mk_is_tr ty = mk_IsTypeRep (valOf (fetch_v_fun_ex const_op_tups [] ty),
+        get_type_inv ty)
+    val arg_tys = map type_of args
+    val all_tys = map (find_terms is_var) cases
+        |> List.concat |> map type_of
+        |> HOLset.fromList Type.compare |> HOLset.listItems
+    val other_tys = subtract all_tys arg_tys
+    val prop = map (mk_is_tr o type_of) args |> list_mk_conj
+    val asms = T :: map mk_is_tr other_tys |> list_mk_conj
+    val thm = prove (mk_imp (asms, prop),
+        REWRITE_TAC [IsTypeRep_def]
+        \\ TRY disch_tac \\ ho_match_mp_tac ind
+        \\ asm_simp_tac (list_ss ++ simpLib.type_ssfrag v_ty)
+            ([def_thm] @ ty_inv_defs)
+    )
+  in filter (not o is_aux) (map type_of args)
+        |> map (fn ty => mk_imp (asms, mk_is_tr ty))
+        |> map (fn gl => prove (gl, disch_tac \\ mp_tac thm \\ asm_simp_tac bool_ss []))
+  end
+
+fun define_type_reps [] = []
+  | define_type_reps (ty :: tys) = let
+    val reps = define_type_reps tys
+  in case fetch_v_fun_ex [] reps ty of
+    SOME _ => reps
+  | NONE => define_v_fun ty @ reps
+  end
+
 local open ConseqConv in
 
 fun EqualityType_cc dir tm = let
@@ -1470,11 +1571,13 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
   val ys2 = map (fn ((_,th),(ml_ty_name,xs,ty,lhs,input)) =>
                    (ml_ty_name,xs,ty,sub lhs th,input)) (zip inv_defs ys)
   val _ = map reg_type ys2
-  (* equality type *)
-  val eq_lemmas = map (fn ty => mk_EqualityType_thm is_exn_type ty) tys
-  val res = map (fn ((th,inv_def),eq_lemma) => (th,inv_def,eq_lemma))
+  (* equality type and type rep *)
+  val eq_lemmas = map (fn ty => (ty, mk_EqualityType_thm is_exn_type ty)) tys
+  val res = map (fn ((th,inv_def),(_,eq_lemma)) => (th,inv_def,eq_lemma))
                 (zip inv_defs eq_lemmas)
-  in (name,res) end;
+  val type_rep_lemmas = filter (not o same_const T o concl o snd) eq_lemmas
+      |> map fst |> define_type_reps
+  in (name,res,type_rep_lemmas) end;
 
 fun domain ty = ty |> dest_fun_type |> fst
 fun codomain ty = ty |> dest_fun_type |> snd
@@ -1570,7 +1673,7 @@ fun derive_thms_for_type is_exn_type ty = let
   (* look up case theorems *)
   val case_thms = map (fn ty => (ty, get_nchotomy_of ty)) tys
   (* define coupling invariant for data refinement and prove EqualityType lemmas *)
-  val (name,inv_defs) = define_ref_inv is_exn_type tys
+  val (name,inv_defs,tr_lemmas) = define_ref_inv is_exn_type tys
   val _ = map (fn (_,inv_def,_) => print_inv_def inv_def) inv_defs
   fun list_mk_type [] ret_ty = ret_ty
     | list_mk_type (x::xs) ret_ty = mk_type("fun",[type_of x,list_mk_type xs ret_ty])
@@ -1920,7 +2023,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 2 ts
   val _ = enter_type_mod name
   val _ = end_timing start
 
-  in (rws1,rws2,res,dprog) end;
+  in (rws1,rws2,res,tr_lemmas,dprog) end;
 
 local
   val translator = ref (fn th => I (th:thm))
@@ -1931,7 +2034,7 @@ local
   fun add_type abstract_mode ty = let
     val start = start_timing ("adding type " ^ Parse.type_to_string ty)
     val fcps = ((filter fcpSyntax.is_numeric_type) o snd o dest_type) ty
-    val (rws1,rws2,res,dprog) = derive_thms_for_type false ty
+    val (rws1,rws2,res,tr_lemmas,dprog) = derive_thms_for_type false ty
     val (rws1,rws2) =
       if length fcps > 0 then
         let val insts = INST_TYPE [alpha|-> hd fcps,beta |-> hd fcps] in
@@ -1939,7 +2042,7 @@ local
         end
       else (rws1,rws2)
     val _ = store_dprog abstract_mode dprog
-    val _ = add_type_thms (rws1,rws2,res)
+    val _ = add_type_thms (rws1,rws2,res,tr_lemmas)
     val _ = map do_translate rws1
     val _ = end_timing start
     in res end
@@ -1972,9 +2075,9 @@ in
   fun store_eq_thm th = (add_eq_lemma th; th)
   fun register_exn_type_main abstract_mode ty = let
     val start = start_timing ("adding exn type " ^ Parse.type_to_string ty)
-    val (rws1,rws2,res,dprog) = derive_thms_for_type true ty
+    val (rws1,rws2,res,tr_lemmas,dprog) = derive_thms_for_type true ty
     val _ = store_dprog abstract_mode dprog
-    val _ = do_timing "add_type_thms" add_type_thms (rws1,rws2,res)
+    val _ = do_timing "add_type_thms" add_type_thms (rws1,rws2,res,tr_lemmas)
     val _ = do_timing "map do_translate rws1" (map do_translate) rws1
     val _ = end_timing start
     in () end
