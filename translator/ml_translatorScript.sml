@@ -427,22 +427,6 @@ Proof
   fs [EqualityType_at_def, markerTheory.Case_def] \\ metis_tac []
 QED
 
-Theorem Case_tuple_helper_rule:
-  Case ((x,x2),(y,y2),(vx::vx2),(vy::vy2)) <=>
-    Case (x, y, vx, vy) /\ Case (x2, y2, vx2, vy2)
-Proof
-  REWRITE_TAC [markerTheory.Case_def]
-QED
-
-Theorem EqualityType_at_IMP:
-  !x y vx vy TY. EqualityType_at TY x ==>
-  TY x vx /\ TY y vy ==>
-  (x = y ==> vx = vy ==> no_closures vx)
-        /\ (vx = vy <=> x = y) /\ types_match vx vy
-Proof
-  fs [EqualityType_at_def] \\ metis_tac []
-QED
-
 Theorem EqualityType_def_rearranged:
    EqualityType abs = (!x y vx vy. abs x vx /\ abs y vy
     ==> (x = y ==> vx = vy ==> no_closures vx)
@@ -493,8 +477,8 @@ Proof
   \\ metis_tac (map TypeBase.one_one_of [``:stamp``, ``:'a option``, ``: v``])
 QED
 
-Definition UNIT_TYPE_v_def:
-  UNIT_TYPE_v (u:unit) = (Conv NONE [])
+Definition UNIT_v_def:
+  UNIT_v (u:unit) = (Conv NONE [])
 End
 
 Definition INT_v_def:
@@ -522,12 +506,12 @@ Definition CHAR_v_def:
   CHAR_v (c:char) = Litv (Char c)
 End
 
-Definition STRING_TYPE_v_def:
-  STRING_TYPE_v (strlit s) = Litv (StrLit s)
+Definition STRING_v_def:
+  STRING_v (strlit s) = Litv (StrLit s)
 End
 
-Definition HOL_STRING_TYPE_v_def:
-  HOL_STRING_TYPE_v cs = STRING_TYPE_v (implode cs)
+Definition HOL_STRING_v_def:
+  HOL_STRING_v cs = STRING_v (implode cs)
 End
 
 Triviality types_match_list_REPLICATE:
@@ -564,9 +548,9 @@ Theorem IsTypeRep_NUM_BOOL:
   IsTypeRep NUM_v NUM /\ IsTypeRep INT_v INT /\
   IsTypeRep BOOL_v BOOL /\
   IsTypeRep CHAR_v CHAR /\
-  IsTypeRep UNIT_TYPE_v UNIT_TYPE /\
-  IsTypeRep STRING_TYPE_v STRING_TYPE /\
-  IsTypeRep HOL_STRING_TYPE_v HOL_STRING_TYPE /\
+  IsTypeRep UNIT_v UNIT_TYPE /\
+  IsTypeRep STRING_v STRING_TYPE /\
+  IsTypeRep HOL_STRING_v HOL_STRING_TYPE /\
   (dimindex (:'a) <= 64 ==> IsTypeRep WORD_v (WORD : 'a word -> v -> bool))
 Proof
   EVAL_TAC \\ simp []
