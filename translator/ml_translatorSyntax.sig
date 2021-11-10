@@ -17,9 +17,6 @@ sig
   val is_IsTypeRep   : term -> bool
   val mk_IsTypeRep   : term * term -> term
 
-  val dest_trivial4 : term -> (term * term * term * term)
-  val mk_Conv_args  : term -> term
-
   val mk_CONTAINER   : term -> term
   val dest_CONTAINER : term -> term
   val is_CONTAINER   : term -> bool

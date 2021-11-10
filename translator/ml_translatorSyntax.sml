@@ -17,9 +17,6 @@ val (CONTAINER,mk_CONTAINER,dest_CONTAINER,is_CONTAINER) = monop "CONTAINER";
 val (PRECONDITION,mk_PRECONDITION,dest_PRECONDITION,is_PRECONDITION) = monop "PRECONDITION";
 val (IsTypeRep,mk_IsTypeRep,dest_IsTypeRep,is_IsTypeRep) = binop "IsTypeRep";
 
-val (_, mk_Conv_args, _, _) = monop "Conv_args"
-val (_, mk_trivial4, dest_trivial4, _) = HolKernel.syntax_fns4 "ml_translator" "trivial4";
-
 val BOOL        = prim_mk_const{Thy="ml_translator",Name="BOOL"}
 val WORD       = prim_mk_const{Thy="ml_translator",Name="WORD"}
 val NUM         = prim_mk_const{Thy="ml_translator",Name="NUM"}
