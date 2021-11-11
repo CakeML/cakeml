@@ -312,8 +312,8 @@ Definition lift_exps_def:
              let (xs,n,binds) = lift_exps xs n binds in
                (Op None (Cons t) ys::xs,n,binds))
          | NONE =>
-            (let (xs,n,binds) = lift_exps xs n binds in
-              (Var None n::xs,n,x::binds))
+            (let (xs,n1,binds) = lift_exps xs (n + 1) (binds ++ [x]) in
+              (Var None n::xs,n1,binds))
 Termination
   WF_REL_TAC ‘measure (λ(xs,n,binds). exp3_size xs)’ \\ rw []
   \\ Cases_on ‘x’ \\ fs [dest_Op_def,dest_Cons_def,exp_size_def]
@@ -323,7 +323,7 @@ End
 Definition eq_any_def:
   eq_any x y =
     dtcase lift_exps [x;y] 0 [] of
-    | (x::y::_, _, binds) => SOME (Let None (REVERSE binds) (eq_pure x y))
+    | (x::y::_, _, binds) => SOME (Let None binds (eq_pure x y))
     | _ => NONE
 End
 
