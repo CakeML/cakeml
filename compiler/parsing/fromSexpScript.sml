@@ -519,7 +519,7 @@ val sexplit_def = Define`
 
 (* don't require Pvar constructors; bare strings can be pattern variables.
    Unclear if this sort of special-casing is ever likely to be helpful *)
-val sexppat_def = tDefine "sexppat" `
+Definition sexppat_def:
   sexppat s =
     lift Pvar (odestSEXSTR s) ++
     do
@@ -531,19 +531,26 @@ val sexppat_def = tDefine "sexppat" `
       guard (nm = "Pcon" ∧ LENGTH args = 2)
             (lift2 Pcon (sexpopt (sexpid odestSEXSTR) (EL 0 args))
                         (sexplist sexppat (EL 1 args))) ++
+      guard (nm = "Pas" ∧ LENGTH args = 2)
+            (lift2 Pas (sexppat (EL 0 args))
+                       (odestSEXSTR (EL 1 args))) ++
       guard (nm = "Pref" ∧ LENGTH args = 1) (lift Pref (sexppat (EL 0 args))) ++
       guard (nm = "Ptannot" ∧ LENGTH args = 2)
             (lift2 Ptannot (sexppat (EL 0 args)) (sexptype (EL 1 args)))
     od
-`
-  (WF_REL_TAC `measure sexp_size` >> simp[] >> rpt strip_tac
-   >- metis_tac[arithmeticTheory.LESS_TRANS, rich_listTheory.EL_MEM,
-                DECIDE ``1n < 2``, sxMEM_sizelt, dstrip_sexp_size]
-   >- metis_tac[arithmeticTheory.LESS_TRANS, rich_listTheory.EL_MEM,
-                DECIDE ``0n < 2``, sxMEM_sizelt, dstrip_sexp_size,
-                EL ]
-   >- metis_tac[rich_listTheory.EL_MEM, DECIDE ``0n < 1``, listTheory.EL,
-                dstrip_sexp_size])
+Termination
+  WF_REL_TAC `measure sexp_size` >> simp[] >> rpt strip_tac
+  >- metis_tac[arithmeticTheory.LESS_TRANS, rich_listTheory.EL_MEM,
+               DECIDE ``1n < 2``, sxMEM_sizelt, dstrip_sexp_size]
+  >- metis_tac[arithmeticTheory.LESS_TRANS, rich_listTheory.EL_MEM,
+               DECIDE ``0n < 2``, sxMEM_sizelt, dstrip_sexp_size,
+               EL ]
+  >- metis_tac[arithmeticTheory.LESS_TRANS, rich_listTheory.EL_MEM,
+               DECIDE ``0n < 2``, sxMEM_sizelt, dstrip_sexp_size,
+               EL ]
+  >- metis_tac[rich_listTheory.EL_MEM, DECIDE ``0n < 1``, listTheory.EL,
+               dstrip_sexp_size]
+End
 
 (* translator friendly version for bootstrapping *)
 val sexppat_alt_def = tDefine"sexppat_alt"`
@@ -559,6 +566,9 @@ val sexppat_alt_def = tDefine"sexppat_alt"`
       else if nm = "Pcon" ∧ LENGTH args = 2 then
         OPTION_MAP2 Pcon (sexpopt (sexpid odestSEXSTR) (EL 0 args))
           (sexppat_list (EL 1 args))
+      else if nm = "Pas" ∧ LENGTH args = 2 then
+        OPTION_MAP2 Pas (sexppat (EL 0 args))
+                        (odestSEXSTR (EL 1 args))
       else if nm = "Pref" ∧ LENGTH args = 1 then
         OPTION_MAP Pref (sexppat_alt (EL 0 args))
       else if nm = "Ptannot" ∧ LENGTH args = 2 then
@@ -1172,6 +1182,7 @@ val patsexp_def = tDefine"patsexp"`
   (patsexp (Pvar s) = SEXSTR s) ∧
   (patsexp (Plit l) = listsexp [SX_SYM "Plit"; litsexp l]) ∧
   (patsexp (Pcon cn ps) = listsexp [SX_SYM "Pcon"; optsexp (OPTION_MAP idsexp cn); listsexp (MAP patsexp ps)]) ∧
+  (patsexp (Pas p i) = listsexp [SX_SYM "Pas"; patsexp p; SEXSTR i]) ∧
   (patsexp (Pref p) = listsexp [SX_SYM "Pref"; patsexp p]) ∧
   (patsexp (Ptannot p t) = listsexp [SX_SYM "Ptannot" ; patsexp p; typesexp t])`
   (WF_REL_TAC`measure pat_size` >>
