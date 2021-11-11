@@ -19,6 +19,9 @@ Finish translation of the 32-bit version of the compiler.
 [compiler64ProgScript.sml](compiler64ProgScript.sml):
 Finish translation of the 64-bit version of the compiler.
 
+[decode64ProgScript.sml](decode64ProgScript.sml):
+Translate the compiler's state decoder.
+
 [explorerProgScript.sml](explorerProgScript.sml):
 Translate the compiler explorer parts of the compiler.
 
