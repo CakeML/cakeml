@@ -56,6 +56,7 @@ Definition total_pat_def:
   total_pat Pany = T /\
   total_pat (Pvar _) = T /\
   total_pat (Pcon NONE xs) = total_pat_list xs /\
+  total_pat (Pas p _) = total_pat p /\
   total_pat _ = F /\
   total_pat_list [] = T /\
   total_pat_list (p::ps) = (total_pat p /\ total_pat_list ps)
