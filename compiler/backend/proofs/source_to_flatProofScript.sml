@@ -1785,21 +1785,17 @@ Proof
   )
 QED
 
-Definition decode_state_def:
-  decode_state ci = v_rel_abs ci.config_v_rel
-End
-
 (* The source oracle states can always be decoded according to the
-   value rel in the compiler instance (see source_evalProof). The state
+   optional decode function provided. The state
    part of the oracle sequence should be what is produced by repeatedly
    applying compile_prog *)
 Definition src_orac_step_invs_def:
   src_orac_step_invs ci eval_state = (case (ci, eval_state) of
     | (NONE, NONE) => T
-    | (SOME i, SOME (EvalOracle s)) => (
+    | (SOME dec, SOME (EvalOracle s)) => (
     (!k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
-        ?c x. decode_state i state_v = SOME (c, x)) /\
-    let c_orac = FST o THE o decode_state i o FST o SND o s.oracle in
+        ?c x. dec state_v = SOME (c, x)) /\
+    let c_orac = FST o THE o dec o FST o SND o s.oracle in
     (!k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
         c_orac (SUC k) = FST (inc_compile_prog env_id (c_orac k) decs)))
     | _ => F
@@ -1809,41 +1805,41 @@ End
 (* the flatLang oracle is derived from the source oracle by compile_prog,
    and the two compile oracles agree also *)
 Definition orac_rel_inner_def:
-  orac_rel_inner i s (s_compiler : compiler_fun) c <=>
+  orac_rel_inner dec s (s_compiler : compiler_fun) c <=>
     !k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
-        let x = THE (decode_state i state_v) in
+        let x = THE (dec state_v) in
         let f_decs = SND (inc_compile_prog env_id (FST x) decs) in
         c.compile_oracle k = (SND x, f_decs) /\
         (s_compiler (env_id, state_v, decs) <> NONE ==>
             ?bytes words f_st st_v2.
             c.compile (SND x) f_decs = SOME (bytes, words, f_st) /\
             s_compiler (env_id, state_v, decs) = SOME (st_v2, bytes, words) /\
-            (!x2. decode_state i st_v2 = SOME x2 ==> SND x2 = f_st))
+            (!x2. dec st_v2 = SOME x2 ==> SND x2 = f_st))
 End
 
 Definition orac_rel_def:
   orac_rel interp src_eval flat_eval <=> (case (interp, src_eval) of
     | (_, NONE) => T
-    | (SOME i, SOME (EvalOracle s)) => (
+    | (SOME dec, SOME (EvalOracle s)) => (
     ? s_compiler.
     s.custom_do_eval = source_evalProof$do_eval_oracle s_compiler /\
-    orac_rel_inner i s s_compiler flat_eval
+    orac_rel_inner dec s s_compiler flat_eval
       )
     | _ => F)
 End
 
 Theorem orac_rel_SOME_eval:
   orac_rel interp (SOME eval_state) flat_eval ==>
-  ? i orac_st.
-  interp = SOME i /\ eval_state = EvalOracle orac_st
+  ? dec orac_st.
+  interp = SOME dec /\ eval_state = EvalOracle orac_st
 Proof
   simp [orac_rel_def] \\ every_case_tac \\ rw [] \\ fs []
 QED
 
 Definition src_orac_next_cfg_inner_def:
   src_orac_next_cfg_inner interp orac_0 = case (interp, orac_0) of
-    | (SOME i, (env_id, state_v, decs)) =>
-      (case decode_state i state_v of
+    | (SOME dec, (env_id, state_v, decs)) =>
+      (case dec state_v of
         | SOME (c, x) => SOME c
         | _ => NONE
       )
@@ -2810,7 +2806,7 @@ Theorem src_orac_env_invs_lookup_env:
   es.oracle 0 = (env_id,st_v,decs)
   ==>
   ? c x gen comp_map.
-  decode_state (THE interp) st_v = SOME (c, x) /\
+  (THE interp) st_v = SOME (c, x) /\
   lookup (FST env_id) c.envs.env_gens = SOME gen /\
   lookup (SND env_id) gen = SOME comp_map /\
   global_env_inv genv comp_map {} env
@@ -2827,7 +2823,7 @@ Proof
   \\ rw [] \\ simp []
 QED
 
-Theorem FST_SND_EQ_CASE:
+Triviality FST_SND_EQ_CASE:
   FST = (\(a, b). a) /\ SND = (\(a, b). b)
 Proof
   simp [FUN_EQ_THM, FORALL_PROD]
@@ -2839,8 +2835,8 @@ Triviality step_1:
   interp = SOME i_f /\
   es.oracle 0 = (env_id0, st_v0, decs0) /\
   es.oracle 1 = (env_id1, st_v1, decs1) /\
-  decode_state i_f st_v0 = SOME (c0, x0) /\
-  decode_state i_f st_v1 = SOME (c1, x1) /\
+  i_f st_v0 = SOME (c0, x0) /\
+  i_f st_v1 = SOME (c1, x1) /\
   inc_compile_prog env_id0 c0 decs0 = (c1, fdecs0) /\
   src_orac_next_cfg (SOME i_f) (SOME (EvalOracle es)) = SOME c0
 Proof
