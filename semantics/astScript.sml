@@ -164,6 +164,8 @@ val _ = Hol_datatype `
      A Nothing constructor indicates a tuple pattern. *)
   | Pcon of  ( (modN, conN)id)option => pat list
   | Pref of pat
+  (* Pattern alias. *)
+  | Pas of pat => varN
   | Ptannot of pat => ast_t`;
 
 
@@ -259,6 +261,9 @@ type specs = list spec
 /\
 ((pat_bindings:pat ->(string)list ->(string)list) (Pref p) already_bound=
    (pat_bindings p already_bound))
+/\
+((pat_bindings:pat ->(string)list ->(string)list) (Pas p i) already_bound=
+   (pat_bindings p (i::already_bound)))
 /\
 ((pat_bindings:pat ->(string)list ->(string)list) (Ptannot p _) already_bound=
    (pat_bindings p already_bound))

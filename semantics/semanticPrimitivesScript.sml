@@ -407,6 +407,9 @@ val _ = Define `
     | NONE => Match_type_error
   )))
 /\
+((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Pas p i) v env=
+   (pmatch envC s p v ((i,v)::env)))
+/\
 ((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Ptannot p t) v env=
    (pmatch envC s p v env))
 /\
@@ -703,13 +706,17 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 (*val enc_pat : pat -> v*)
  val enc_pat_defn = Defn.Hol_multi_defns `
 
-  ((enc_pat:pat -> v) (Ptannot x_7 x_6)=
+  ((enc_pat:pat -> v) (Ptannot x_9 x_8)=
      (Conv (SOME (TypeStamp "Ptannot" pat_type_num))
-      [enc_pat x_7; enc_ast_t x_6]))
+      [enc_pat x_9; enc_ast_t x_8]))
 /\
-  ((enc_pat:pat -> v) (Pref x_5)=
+  ((enc_pat:pat -> v) (Pref x_7)=
      (Conv (SOME (TypeStamp "Pref" pat_type_num))
-      [enc_pat x_5]))
+      [enc_pat x_7]))
+/\
+  ((enc_pat:pat -> v) (Pas x_6 x_5)=
+     (Conv (SOME (TypeStamp "Pas" pat_type_num))
+      [enc_pat x_6; Litv (StrLit x_5)]))
 /\
   ((enc_pat:pat -> v) (Pcon x_4 x_3)=
      (Conv (SOME (TypeStamp "Pcon" pat_type_num))
@@ -1074,7 +1081,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   ((enc_dec:dec -> v) (Dtype x_7 x_6)=
      (Conv (SOME (TypeStamp "Dtype" dec_type_num))
       [enc_locs x_7;
-       enc_list (MAP (\ (vs,s,l) . 
+       enc_list (MAP (\ (vs,s,l) .
                   enc_pair (enc_list (MAP (\ s .  Litv (StrLit s)) vs))
                     (enc_pair (Litv (StrLit s))
                        (enc_list (MAP (\ (x,xs) .  enc_pair (Litv (StrLit x))
@@ -1728,7 +1735,7 @@ val _ = Define `
 val _ = Define `
  ((build_constrs:num ->(string#'a list)list ->(string#(num#stamp))list) stamp condefs=
    (MAP
-    (\ (conN, ts) . 
+    (\ (conN, ts) .
       (conN, (LENGTH ts, TypeStamp conN stamp)))
     condefs))`;
 
@@ -1747,7 +1754,7 @@ val _ = Define `
 (*val check_dup_ctors : list tvarN * typeN * list (conN * list ast_t) -> bool*)
 val _ = Define `
  ((check_dup_ctors:(tvarN)list#string#(string#(ast_t)list)list -> bool) (tvs, tn, condefs)=
-   (ALL_DISTINCT (let x2 = 
+   (ALL_DISTINCT (let x2 =
   ([]) in  FOLDR (\(n, ts) x2 .  if T then n :: x2 else x2) x2 condefs)))`;
 
 
