@@ -14,6 +14,7 @@ val compile_pat_def = tDefine "compile_pat" `
   (compile_pat (Pvar v) = Pvar v) ∧
   (compile_pat (Plit l) = Plit l) ∧
   (compile_pat (Pcon tag ps) = Pcon (SOME (the (0,NONE) tag)) (MAP compile_pat ps)) ∧
+  (compile_pat (Pas p v) = Pas (compile_pat p) v) ∧
   (compile_pat (Pref p) = Pref (compile_pat p))`
  (WF_REL_TAC `measure pat_size` >>
   rw [] >>
