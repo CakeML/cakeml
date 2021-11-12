@@ -559,6 +559,8 @@ Definition pmatch_def:
       pmatch_list s ps vs bindings
     else
       No_match) ∧
+  (pmatch s (Pas p i) v bindings =
+    pmatch s p v ((i,v)::bindings)) ∧
   (pmatch s (Pref p) (Loc lnum) bindings =
     case store_lookup lnum s.refs of
     | SOME (Refv v) => pmatch s p v bindings
