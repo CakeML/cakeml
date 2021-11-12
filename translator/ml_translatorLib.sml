@@ -1279,7 +1279,7 @@ fun fetch_v_fun_ex extra_tms extra_thms ty = case assoc1 ty extra_tms of
   | NONE => if is_vartype ty then let
     val s = dest_vartype ty
   in mk_var ("t_" ^ s ^ "_v", ty --> v_ty) end
-  else if can dom_rng ty then raise (UnsupportedType ty) else let
+  else let
     val ind = get_type_inv ty
     val ind_head = fst (strip_comb ind)
     (* this special case solves the issue with HOL_STRING_TYPE *)

@@ -305,6 +305,14 @@ QED
 
 (* FIXME: mutually recursive datastructures don't seem to work *)
 
+(* register a type for which EqualityType can't be proven *)
+
+Datatype:
+  non_eq_type = Non_Eq_Type (num -> bool) (num list)
+End
+
+val r = register_type ``: non_eq_type``;
+
 (* translating within nested local blocks and modules *)
 
 val hidden_f1_def = Define `hidden_f1 xs = REVERSE xs ++ [()]`;

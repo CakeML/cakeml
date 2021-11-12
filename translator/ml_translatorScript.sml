@@ -478,7 +478,7 @@ Proof
 QED
 
 Definition UNIT_v_def:
-  UNIT_v (u:unit) = (Conv NONE [])
+  UNIT_v (u : unit) = (Conv NONE [])
 End
 
 Definition INT_v_def:
@@ -544,6 +544,10 @@ Proof
   \\ fs [IsTypeRep_def]
 QED
 
+Definition FUN_TYPE_REP_v:
+  FUN_TYPE_REP_v (a_v : 'a -> v) (b_v : 'b -> v) (f : 'a -> 'b) = UNIT_v ()
+End
+
 Theorem IsTypeRep_NUM_BOOL:
   IsTypeRep NUM_v NUM /\ IsTypeRep INT_v INT /\
   IsTypeRep BOOL_v BOOL /\
@@ -551,9 +555,10 @@ Theorem IsTypeRep_NUM_BOOL:
   IsTypeRep UNIT_v UNIT_TYPE /\
   IsTypeRep STRING_v STRING_TYPE /\
   IsTypeRep HOL_STRING_v HOL_STRING_TYPE /\
+  (F ==> IsTypeRep (FUN_TYPE_REP_v a_v b_v) (a --> b)) /\
   (dimindex (:'a) <= 64 ==> IsTypeRep WORD_v (WORD : 'a word -> v -> bool))
 Proof
-  EVAL_TAC \\ simp []
+  simp [] \\ EVAL_TAC \\ simp []
   \\ rpt (conj_tac ORELSE disch_tac)
   \\ Cases
   \\ EVAL_TAC
