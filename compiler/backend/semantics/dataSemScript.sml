@@ -192,6 +192,7 @@ End
 (* Turns a list of values (:v) into a set of addresses (:addr) *)
 Definition to_addrs_def:
   (to_addrs [] = {})
+∧ (to_addrs (Block _ _ []::xs) = to_addrs xs)
 ∧ (to_addrs (Block ts _ _::xs) = {BlockAddr ts} ∪ to_addrs xs)
 ∧ (to_addrs (RefPtr ref::xs)   = {RefAddr ref} ∪ to_addrs xs)
 ∧ (to_addrs (_::xs) = to_addrs xs)

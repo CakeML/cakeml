@@ -2,7 +2,7 @@
   Lemmas about size_of
 *)
 
-open preamble dataSemTheory dataPropsTheory;
+open preamble dataSemTheory;
 
 val _ = new_theory "size_ofProps";
 
