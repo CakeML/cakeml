@@ -51,12 +51,13 @@ Proof
 QED
 
 Theorem eq_direct_thm:
-  evaluate ([Op t Equal [x; y]],env,s) = (res,s1) ∧
-  res ≠ Rerr (Rabort Rtype_error) ∧
-  eq_direct x y = SOME z ⇒
-  evaluate ([z],env,s) = (res,s1)
+  ∀x y env s res s1 t z.
+    evaluate ([Op t Equal [x; y]],env,s) = (res,s1) ∧
+    res ≠ Rerr (Rabort Rtype_error) ∧
+    eq_direct x y = SOME z ⇒
+    evaluate ([z],env,s) = (res,s1)
 Proof
-  fs [eq_direct_def]
+  rpt gen_tac \\ fs [eq_direct_def]
   \\ reverse (Cases_on ‘eq_direct_const x y’) \\ fs []
   THEN1
    (gvs [eq_direct_const_def,AllCaseEqs(),dest_Op_Nil_thm,dest_Const_thm]
@@ -116,6 +117,14 @@ Theorem lift_exps_n:
   ∀xs n binds ys k binds2.
     lift_exps xs n binds = (ys,k,binds2) ∧ n = LENGTH binds ⇒
     k = LENGTH binds2
+Proof
+  cheat
+QED
+
+Theorem lift_exps_length:
+  ∀xs n binds ys k binds2.
+    lift_exps xs n binds = (ys,k,binds2) ⇒
+    LENGTH xs = LENGTH ys
 Proof
   cheat
 QED
@@ -211,7 +220,7 @@ Proof
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
 QED
 
-Theorem lift_exps_thm:
+Theorem lift_exps_Let:
   lift_exps [x] 0 [] = ([y],n,binds) ∧
   evaluate ([x],env,s1) = (res,s2) ⇒
   evaluate ([Let None binds y],env,s1) = (res,s2)
@@ -222,8 +231,131 @@ Proof
   \\ disch_then drule
   \\ strip_tac \\ fs []
   \\ reverse (Cases_on ‘res'’) \\ gvs []
-  \\ pop_assum (qspec_then ‘env’ strip_assume_tac)
+  \\ pop_assum (qspecl_then [‘env’,‘s2’] strip_assume_tac)
   \\ gvs []
+QED
+
+Theorem lift_exps_pure:
+  lift_exps xs n binds = (ys,k,binds2) ⇒ EVERY pure ys
+Proof
+  cheat
+QED
+
+Theorem evaluate_ConjList_append_F:
+  ∀xs ys.
+    evaluate ([ConjList xs],env1,r) = (Rval [Boolv F],r) ∧ EVERY pure xs ⇒
+    evaluate ([ConjList (xs ++ ys)],env1,r) = (Rval [Boolv F],r:('c,'ffi) state)
+Proof
+  Induct THEN1 (EVAL_TAC \\ rw [] \\ EVAL_TAC)
+  \\ reverse (Cases_on ‘xs’) \\ fs [ConjList_def]
+  THEN1
+   (fs [evaluate_def] \\ rpt gen_tac
+    \\ rpt (CASE_TAC \\ fs []) \\ rw []
+    \\ imp_res_tac pure_correct
+    \\ first_x_assum (qspecl_then [‘r’,‘env1’] assume_tac) \\ gvs [])
+  \\ reverse (Cases_on ‘ys’) \\ fs [ConjList_def]
+  \\ fs [evaluate_def] \\ rpt gen_tac \\ EVAL_TAC
+QED
+
+Theorem evaluate_ConjList_append_T:
+  ∀xs ys.
+    evaluate ([ConjList xs],env1,r) = (Rval [Boolv T],r) ∧ EVERY pure xs ⇒
+    evaluate ([ConjList (xs ++ ys)],env1,r) =
+    evaluate ([ConjList ys],env1,r:('c,'ffi) state)
+Proof
+  Induct THEN1 (EVAL_TAC \\ rw [] \\ EVAL_TAC)
+  \\ reverse (Cases_on ‘xs’) \\ fs [ConjList_def]
+  THEN1
+   (fs [evaluate_def] \\ rpt gen_tac
+    \\ rpt (CASE_TAC \\ fs []) \\ rw []
+    \\ fs [evaluate_MakeBool]
+    \\ imp_res_tac pure_correct
+    \\ first_x_assum (qspecl_then [‘r’,‘env1’] assume_tac) \\ gvs [])
+  \\ reverse (Cases_on ‘ys’) \\ fs [ConjList_def]
+  \\ fs [evaluate_def] \\ rpt gen_tac \\ EVAL_TAC
+QED
+
+Theorem do_eq_sym:
+  do_eq x y = do_eq y x
+Proof
+  cheat
+QED
+
+Theorem pure_eq_pure_list:
+  ∀xs.
+    EVERY (λ(x,y). pure x ∧ pure y) xs ⇒
+    EVERY pure (append (eq_pure_list xs))
+Proof
+  cheat
+QED
+
+Theorem eq_pure_thm:
+  evaluate ([x1; y1],env1,r) = (Rval [h1; h2],r) ∧ pure x1 ∧ pure y1 ∧
+  do_eq h1 h2 = Eq_val b ⇒
+  evaluate ([eq_pure x1 y1],env1,r) = (Rval [Boolv b],r)
+Proof
+  fs [eq_pure_def]
+  \\ qsuff_tac ‘
+      ∀xs hs b.
+        LIST_REL (λ(x1,y1) (h1,h2). evaluate ([x1; y1],env1,r) = (Rval [h1; h2],r) ∧
+                                    pure x1 ∧ pure y1) xs hs ∧
+        do_eq_list (MAP FST hs) (MAP SND hs) = Eq_val b ∧
+        EVERY pure (append (eq_pure_list xs)) ⇒
+        evaluate ([ConjList (append (eq_pure_list xs))],env1,r) = (Rval [Boolv b],r)’
+  THEN1
+   (disch_then (qspecl_then [‘[(x1,y1)]’,‘[(h1,h2)]’,‘b’] mp_tac)
+    \\ rw [] \\ gvs[do_eq_def |> CONJUNCT2]
+    \\ Cases_on ‘b’ \\ gvs []
+    \\ last_x_assum irule
+    \\ irule pure_eq_pure_list \\ fs [])
+  \\ ho_match_mp_tac eq_pure_list_ind
+  \\ rpt strip_tac
+  THEN1 (gvs [do_eq_def |> CONJUNCT2] \\ EVAL_TAC)
+  THEN1
+   (simp [Once eq_pure_list_def]
+    \\ reverse (Cases_on ‘eq_direct x y’) \\ gvs [UNCURRY]
+    THEN1
+     (qspecl_then [‘x’,‘y’,‘env1’,‘r’] mp_tac eq_direct_thm
+      \\ simp [Once evaluate_def,do_app_def]
+      \\ simp [Once do_eq_sym] \\ fs [do_eq_def |> CONJUNCT2]
+      \\ Cases_on ‘do_eq (FST y') (SND y')’ \\ fs [ConjList_def]
+      \\ Cases_on ‘b'’ \\ fs [])
+    \\ Cases_on ‘dest_Op dest_Cons x’ \\ fs []
+    \\ Cases_on ‘dest_Op dest_Cons y’ \\ fs []
+    THEN1
+     (simp [Once evaluate_def,do_app_def,ConjList_def]
+      \\ simp [Once do_eq_sym] \\ fs [do_eq_def |> CONJUNCT2]
+      \\ Cases_on ‘do_eq (FST y') (SND y')’ \\ fs [ConjList_def]
+      \\ Cases_on ‘b'’ \\ fs [])
+    THEN1
+     (gvs [PULL_EXISTS] \\ last_x_assum irule
+      \\ fs [evaluate_def]
+      \\ cheat)
+    THEN1 cheat
+    \\ PairCases_on ‘x'’
+    \\ PairCases_on ‘x''’
+    \\ gvs [dest_Op_thm]
+    \\ IF_CASES_TAC
+    THEN1
+     (EVAL_TAC \\ Cases_on ‘b’ \\ gvs [dest_Cons_thm]
+      \\ Cases_on ‘y'’
+      \\ gvs [evaluate_def,AllCaseEqs(),do_app_def]
+      \\ qpat_x_assum ‘do_eq_list _ _ = _’ mp_tac
+      \\ fs [do_eq_def]
+      \\ rw [] \\ fs [] \\ imp_res_tac evaluate_IMP_LENGTH \\ gvs [])
+    \\ last_x_assum irule
+    \\ Cases_on ‘x''0 = x'0’ \\ gvs []
+    \\ irule_at Any pure_eq_pure_list
+    \\ cheat)
+  \\ gvs [PULL_EXISTS,FORALL_PROD,UNCURRY,do_eq_def |> CONJUNCT2]
+  \\ simp [Once eq_pure_list_def]
+  \\ pop_assum mp_tac
+  \\ simp [Once eq_pure_list_def] \\ rw []
+  \\ Cases_on ‘do_eq (FST y) (SND y)’ \\ fs []
+  \\ reverse (Cases_on ‘b'’) \\ gvs []
+  \\ last_x_assum drule
+  \\ Cases_on ‘do_eq (FST y') (SND y')’ \\ fs [] \\ rw []
+  \\ fs [evaluate_ConjList_append_F,evaluate_ConjList_append_T]
 QED
 
 Theorem SmartOp_thm:
@@ -299,10 +431,25 @@ Proof
   \\ reverse (Cases_on ‘eq_direct x y’) \\ rw []
   THEN1 (drule_all eq_direct_thm \\ fs [])
   \\ gvs [eq_any_def,AllCaseEqs()]
-
-
-
-  \\ cheat
+  \\ drule_at Any lift_exps_thm
+  \\ simp [Once evaluate_def]
+  \\ last_x_assum mp_tac
+  \\ simp [Once evaluate_def]
+  \\ Cases_on ‘evaluate ([x; y],env,s)’ \\ fs []
+  \\ strip_tac \\ disch_then drule
+  \\ strip_tac
+  \\ simp [Once evaluate_def]
+  \\ reverse (Cases_on ‘q’) \\ gvs []
+  \\ CASE_TAC \\ fs []
+  \\ imp_res_tac evaluate_IMP_LENGTH
+  \\ gvs [LENGTH_EQ_NUM_compute,do_app_def]
+  \\ rename [‘do_eq h1 h2’]
+  \\ reverse (Cases_on ‘do_eq h1 h2’) \\ gvs []
+  \\ imp_res_tac lift_exps_length \\ gvs []
+  \\ first_x_assum (qspecl_then [‘env’,‘r’] assume_tac)
+  \\ irule eq_pure_thm \\ fs []
+  \\ imp_res_tac lift_exps_pure \\ fs []
+  \\ simp [Once do_eq_sym]
 QED
 
 Theorem SmartOp_simp:
