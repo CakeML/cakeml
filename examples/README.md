@@ -66,14 +66,14 @@ Translate md5 function
 [md5Script.sml](md5Script.sml):
 Functional definition of md5 hash based on HOL/src/portableML/poly/MD5.sml
 
-[md5sumProgScript.sml](md5sumProgScript.sml):
-Implementation of Unix-style md5sum
-
 [opentheory](opentheory):
 Implementation of an OpenTheory reader based on the Candle kernel.
 
 [patchProgScript.sml](patchProgScript.sml):
 patch example: apply a patch to a file.
+
+[pseudo_bool](pseudo_bool):
+A checker for pseudo-boolean constraints
 
 [queueProgScript.sml](queueProgScript.sml):
 An example of a queue data structure implemented using CakeML arrays, verified
