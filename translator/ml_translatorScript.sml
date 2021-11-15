@@ -544,8 +544,8 @@ Proof
   \\ fs [IsTypeRep_def]
 QED
 
-Definition FUN_TYPE_REP_v:
-  FUN_TYPE_REP_v (a_v : 'a -> v) (b_v : 'b -> v) (f : 'a -> 'b) = UNIT_v ()
+Definition DUMMY_TYPE_REP_v:
+  DUMMY_TYPE_REP_v x = UNIT_v ()
 End
 
 Theorem IsTypeRep_NUM_BOOL:
@@ -555,7 +555,6 @@ Theorem IsTypeRep_NUM_BOOL:
   IsTypeRep UNIT_v UNIT_TYPE /\
   IsTypeRep STRING_v STRING_TYPE /\
   IsTypeRep HOL_STRING_v HOL_STRING_TYPE /\
-  (F ==> IsTypeRep (FUN_TYPE_REP_v a_v b_v) (a --> b)) /\
   (dimindex (:'a) <= 64 ==> IsTypeRep WORD_v (WORD : 'a word -> v -> bool))
 Proof
   simp [] \\ EVAL_TAC \\ simp []

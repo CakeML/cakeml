@@ -313,6 +313,8 @@ End
 
 val r = register_type ``: non_eq_type``;
 
+val part_dummy_v_fun = fetch_v_fun ``: non_eq_type``;
+
 (* translating within nested local blocks and modules *)
 
 val hidden_f1_def = Define `hidden_f1 xs = REVERSE xs ++ [()]`;

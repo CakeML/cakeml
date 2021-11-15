@@ -25,6 +25,8 @@ val CHAR        = prim_mk_const{Thy="ml_translator",Name="CHAR"}
 val STRING_TYPE = prim_mk_const{Thy="ml_translator",Name="STRING_TYPE"}
 val UNIT_TYPE   = prim_mk_const{Thy="ml_translator",Name="UNIT_TYPE"}
 
+val DUMMY_TYPE_REP_v = prim_mk_const{Thy="ml_translator",Name="DUMMY_TYPE_REP_v"}
+
 val (LIST_TYPE,mk_LIST_TYPE,dest_LIST_TYPE,is_LIST_TYPE) = HolKernel.syntax_fns3 "ml_translator" "LIST_TYPE";
 
 val TRUE  = prim_mk_const{Thy="ml_translator",Name="TRUE"}
