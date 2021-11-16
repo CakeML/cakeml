@@ -405,7 +405,55 @@ Proof
   ho_match_mp_tac size_of_ind \\ rw[]
   >- (gs[aux_size_of_def,size_of_def,to_addrs_def,reachable_v_def] \\ EVAL_TAC)
      (* TODO *)
-  >- (gs[size_of_def] \\ rpt (pairarg_tac \\ gs[]) \\ rveq \\ cheat)
+  >- (gs[size_of_def] \\ rpt (pairarg_tac \\ gs[]) \\ rveq
+      \\ first_x_assum (first_assum o mp_then Any mp_tac)
+      (* tail invariants *)
+      \\ impl_tac \\ rw[]
+      >- (last_x_assum kall_tac
+          \\ gs[blocks_roots_inv_def,FORALL_AND_THM]
+          \\ metis_tac [])
+      \\ first_x_assum (qspec_then ‘difference blocks seen1’ mp_tac)
+      \\ impl_tac \\ rw[]
+      (* head invariants *)
+      >- (gs[blocks_roots_inv_def,FORALL_AND_THM,lookup_difference]
+          \\ rw[] \\ gs[]
+          \\ first_x_assum irule \\ simp[]
+          \\ ‘subspt seen seen1’ by metis_tac [size_of_seen_pres]
+          \\ CCONTR_TAC
+          \\ Cases_on ‘lookup ts seen’ \\ gs[]
+          \\ gs[subspt_lookup])
+      >- (gs[blocks_refs_inv_def] \\ rw[]
+          \\ ‘subspt refs1 refs’ by metis_tac [size_of_refs_subspt]
+          \\ gs[subspt_lookup] \\ first_x_assum drule
+          \\ disch_then (first_x_assum o C (mp_then Any assume_tac))
+          \\ gs[blocks_roots_inv_def,FORALL_AND_THM,lookup_difference]
+          \\ rw[] \\ gs[]
+          \\ first_x_assum irule \\ simp[]
+          \\ ‘subspt seen seen1’ by metis_tac [size_of_seen_pres]
+          \\ CCONTR_TAC
+          \\ Cases_on ‘lookup ts seen’ \\ gs[]
+          \\ gs[subspt_lookup])
+      >- (gs[blocks_all_inv_def] \\ rw[]
+          \\ first_x_assum (qspecl_then [‘ts’,‘tag’,‘l’] mp_tac)
+          \\ impl_tac >- gs[lookup_difference]
+          \\ gs[blocks_roots_inv_def,FORALL_AND_THM
+                ,lookup_difference,lookup_delete,lookup_insert]
+          \\ rw[] \\ gs[]
+          >- (first_x_assum irule \\ IF_CASES_TAC \\ gs[IS_SOME_EXISTS])
+          >- (CCONTR_TAC \\ gs[IS_SOME_EXISTS])
+          >- (Cases_on ‘ts' = ts’ \\ gs[IS_SOME_EXISTS])
+          >- (Cases_on ‘ts' = ts’ \\ gs[IS_SOME_EXISTS]
+              \\ first_x_assum (qspec_then ‘ts'’ mp_tac)
+              \\ simp[] \\ disch_then irule \\ simp[]
+              \\ ‘subspt seen seen1’ by metis_tac [size_of_seen_pres]
+              \\ CCONTR_TAC
+              \\ Cases_on ‘lookup ts' seen’ \\ gs[]
+              \\ gs[subspt_lookup]))
+      \\ gs[aux_size_of_def]
+      \\ qmatch_goalsub_abbrev_tac ‘a + nn = _’
+      \\ qmatch_goalsub_abbrev_tac ‘_ = b + (c + nn)’
+      \\ ‘a = b + c’ suffices_by simp[]
+      \\ cheat)
   >- (gs[aux_size_of_def,size_of_def,to_addrs_def,reachable_v_def] \\ EVAL_TAC)
   >- (gs[aux_size_of_def,size_of_def,to_addrs_def,reachable_v_def]
       \\ cases_on ‘small_num lims.arch_64_bit i’
