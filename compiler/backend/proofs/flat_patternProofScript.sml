@@ -563,6 +563,43 @@ Proof
     \\ fs [dec_enc]
   )
   >- (
+    gs [pat_bindings_def]
+    \\ qpat_x_assum ‘EVERY _ (pat_bindings _ [_])’ mp_tac
+    \\ rw [Once pat_bindings_accum]
+    \\ gvs [CaseEq "match_result"]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ qpat_x_assum `!env. _ ==> pure_eval_to _ _ x _` mp_tac
+    \\ disch_then (qspec_then `env` mp_tac)
+    \\ rw [evaluate_def, pure_eval_to_def, ALOOKUP_rel_refl]
+    \\ gs [evaluate_def, PULL_EXISTS, libTheory.opt_bind_def]
+    \\ last_x_assum (first_assum o mp_then (Pat `evaluate _ _ _ = _`) mp_tac)
+    \\ simp []
+    \\ disch_then irule
+    \\ conj_tac
+    >- (
+      gvs [EVERY_EL, ELIM_UNCURRY, LIST_REL_EL_EQN, SF SFY_ss] \\ rw []
+      \\ first_x_assum (drule_then assume_tac) \\ gs [])
+    \\ qpat_assum ‘pmatch s p _ _ = Match _’ (irule_at Any) \\ simp []
+    \\ first_assum (irule_at Any)
+    \\ gs [libTheory.opt_bind_def]
+    \\ ‘¬((λk. k < j) o dec_name_to_num) (enc_num_to_name (i + 1) "")’
+      by simp [dec_enc]
+    \\ simp [ALOOKUP_rel_cons_false]
+    \\ irule_at Any ALOOKUP_rel_cons \\ simp []
+    \\ rw []
+    >- (
+      simp [pure_eval_to_def, evaluate_def, CaseEq "option"]
+      \\ drule_then (fn t => DEP_REWRITE_TAC [t]) ALOOKUP_rel_EQ_ALOOKUP
+      \\ simp [dec_enc])
+    \\ irule_at Any LIST_REL_mono
+    \\ first_x_assum (irule_at Any)
+    \\ simp [FORALL_PROD, SF DNF_ss]
+    \\ rw [] \\ gs[]
+    \\ first_x_assum irule
+    \\ pop_assum mp_tac
+    \\ rw [ALOOKUP_rel_def]
+    \\ rw [] \\ gs [dec_enc])
+  >- (
     (* Pref *)
     qpat_x_assum `_ = Match _` mp_tac
     \\ qmatch_goalsub_abbrev_tac `pmatch _ (Pref _) ref_v`
@@ -862,6 +899,10 @@ Proof
   \\ rfs []
   \\ imp_res_tac LIST_REL_LENGTH \\ fs []
   >- ( irule ALOOKUP_rel_cons \\ simp [] )
+  >- (
+    first_x_assum irule \\ gs []
+    \\ irule ALOOKUP_rel_cons \\ gs []
+  )
   >- (
     fs [store_lookup_def, bool_case_eq, option_case_eq]
     \\ every_case_tac \\ rfs []
@@ -1190,66 +1231,91 @@ Proof
 QED
 
 Theorem naive_pattern_match_correct:
-  !t mats vs bindings exp res.
-  LIST_REL (pure_eval_to s env) (MAP SND mats) vs /\
-  pmatch_list s (MAP FST mats) vs bindings = res /\
-  res <> Match_type_error /\
-  naive_pattern_match t mats = exp /\
-  initial_ctors ⊆ s.c ==>
-  pure_eval_to s env exp (Boolv (res <> No_match))
+  (∀(s:('a,'b) state) mat vs bindings res.
+     pmatch s mat vs bindings = res ∧
+     res ≠ Match_type_error ∧
+     initial_ctors ⊆ s.c ⇒
+       ∀ms env exp.
+         pure_eval_to s env ms vs ∧
+         naive_pattern_match t [(mat, ms)] = exp ⇒
+           pure_eval_to s env exp (Boolv (res ≠ No_match))) ∧
+  (∀(s:('a,'b) state) mats vs bindings res.
+     pmatch_list s mats vs bindings = res ∧
+     res ≠ Match_type_error ∧
+     initial_ctors ⊆ s.c ⇒
+       ∀mss env exp.
+         mats = MAP FST mss ∧
+         LIST_REL (pure_eval_to s env) (MAP SND mss) vs ∧
+         naive_pattern_match t mss = exp ⇒
+           pure_eval_to s env exp (Boolv (res ≠ No_match)))
 Proof
-  ho_match_mp_tac naive_pattern_match_ind
+  ho_match_mp_tac flatSemTheory.pmatch_ind \\ rw []
   \\ simp [naive_pattern_match_def]
-  \\ rw []
-  \\ fs [pure_eval_to_def, evaluate_def, Bool_def, init_in_c_bool_tag,
+  \\ TRY (
+    fs [pure_eval_to_def, evaluate_def, Bool_def, init_in_c_bool_tag,
         fold_Boolv, flatSemTheory.pmatch_def]
-  \\ Cases_on `y` \\ fs [flatSemTheory.pmatch_def]
-  >- (
-    (* lit eq *)
-    fs [do_app_def, do_eq_def]
-    \\ rw []
-    \\ fs [lit_same_type_sym, do_if_Boolv]
-    \\ EVERY_CASE_TAC \\ fs []
-    \\ simp [evaluate_def, Bool_def, fold_Boolv, init_in_c_bool_tag]
-  )
-  >- (
-    (* cons no tag *)
-    rw [] \\ fs [pmatch_stamps_ok_cases]
-    \\ first_x_assum (qspecl_then [`l ++ ys`, `bindings`] mp_tac)
-    \\ simp [flatPropsTheory.pmatch_list_append, o_DEF]
-    \\ simp [listTheory.LIST_REL_APPEND_EQ]
-    \\ simp [LIST_REL_EL_EQN, pure_eval_to_def, evaluate_def, do_app_def]
-  )
-  >- (
-    (* cons with tag *)
-    qmatch_goalsub_abbrev_tac `if ~ ok then Match_type_error else _`
-    \\ Cases_on `ok` \\ fs []
-    \\ fs [markerTheory.Abbrev_def]
-    \\ fs [pmatch_stamps_ok_cases]
-    \\ rveq \\ fs []
-    \\ simp [do_app_def]
-    \\ simp [do_if_Boolv]
-    \\ rw [] \\ fs [] \\ simp [evaluate_def, fold_Boolv, init_in_c_bool_tag]
-    \\ TRY (EVERY_CASE_TAC \\ fs [] \\ NO_TAC)
-    \\ first_x_assum (qspecl_then [`l ++ ys`, `bindings`] mp_tac)
-    \\ simp [flatPropsTheory.pmatch_list_append, o_DEF]
-    \\ simp [listTheory.LIST_REL_APPEND_EQ]
-    \\ simp [LIST_REL_EL_EQN, pure_eval_to_def, evaluate_def, do_app_def]
-  )
-  >- (
-    (* ref *)
-    CASE_TAC \\ fs []
+    \\ NO_TAC)
+  >~ [‘Litv l’] >- (
+    fs [pure_eval_to_def, evaluate_def, Bool_def, init_in_c_bool_tag,
+        fold_Boolv, flatSemTheory.pmatch_def]
+    \\ simp [do_app_def, do_eq_def]
+    \\ gs [CaseEq "bool", lit_same_type_sym, do_if_Boolv, evaluate_def,
+           init_in_c_bool_tag, fold_Boolv]
+    \\ IF_CASES_TAC \\ gs []
+    \\ simp [evaluate_def, fold_Boolv, init_in_c_bool_tag])
+  >~ [‘Pcon stmp mats’] >- (
+    fs [pure_eval_to_def, evaluate_def, Bool_def, init_in_c_bool_tag,
+        fold_Boolv, flatSemTheory.pmatch_def]
+    \\ Cases_on ‘stmp’
+    >- ((* NONE *)
+      rw [] \\ gs [pmatch_stamps_ok_cases]
+      \\ simp [naive_pattern_match_def]
+      \\ ‘mats = MAP FST (MAPi (λi p. (p, App t (El i) [ms])) mats)’
+        by (irule LIST_EQ \\ gs [])
+      \\ first_x_assum (drule_then (qspec_then ‘env’ mp_tac))
+      \\ simp [o_DEF]
+      \\ disch_then irule
+      \\ gvs [LIST_REL_EL_EQN]
+      \\ rw [pure_eval_to_def, evaluate_def, do_app_def])
+        (* SOME *)
+    \\ rw [] \\ gs [pmatch_stamps_ok_cases]
+    \\ simp [naive_pattern_match_def, evaluate_def, do_app_def, do_if_Boolv,
+             Bool_def, init_in_c_bool_tag, fold_Boolv]
+    \\ ‘mats = MAP FST (MAPi (λi p. (p, App t (El i) [ms])) mats)’
+      by (irule LIST_EQ \\ gs [])
+    \\ first_x_assum (drule_then (qspec_then ‘env’ mp_tac))
+    \\ simp [o_DEF]
+    \\ disch_then irule
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ rw [pure_eval_to_def, evaluate_def, do_app_def])
+  >~ [‘Pas p i’] >- (
+    ‘pmatch s p vs ((i,vs)::bindings) ≠ Match_type_error’
+      by gs [flatSemTheory.pmatch_def]
+    \\ gs []
+    \\ cheat (* the pattern compiler and the evaluation are stated backwards
+                wrt the semantics. I need pure_eval_to for an environment that
+                is distinct from the one I prove pure_eval_to for *))
+  >~ [‘Pref’] >- (
+    fs [pure_eval_to_def, evaluate_def, Bool_def, init_in_c_bool_tag,
+        fold_Boolv, flatSemTheory.pmatch_def]
     \\ CASE_TAC \\ fs []
-    \\ fs [PULL_EXISTS, flatSemTheory.pmatch_def]
-    \\ fs [do_app_def]
-  )
+    \\ CASE_TAC \\ fs []
+    \\ first_x_assum irule
+    \\ simp [evaluate_def, do_app_def])
+  >~ [‘vs::vss’] >- (
+    Cases_on ‘mss’ \\ gvs []
+    \\ rename1 ‘FST ps’
+    \\ PairCases_on ‘ps’
+    \\ gs [flatSemTheory.pmatch_def]
+    \\ gs [CaseEq "match_result"]
+    \\ cheat (* bleh, nope *))
 QED
 
-Theorem naive_pattern_match_correct_inst = naive_pattern_match_correct
-  |> Q.SPECL [`t`, `[(p, x)]`, `[v]`, `[]`]
-  |> REWRITE_RULE [pure_eval_to_def]
-  |> SIMP_RULE list_ss []
-  |> GEN_ALL
+Theorem naive_pattern_match_correct_inst =
+  CONJUNCT1 naive_pattern_match_correct
+  |> SIMP_RULE std_ss [PULL_FORALL]
+  |> Q.SPECL [‘s’,‘p’,‘v’,‘[]’,‘x’,‘env’]
+  |> SIMP_RULE (srw_ss()) [pure_eval_to_def];
 
 Theorem naive_pattern_matches_correct:
   !t x mats dflt exp v res.
@@ -1266,8 +1332,11 @@ Proof
   \\ simp [naive_pattern_matches_def, pmatch_rows_def]
   \\ rw []
   \\ simp [evaluate_def]
-  \\ drule_then (fn t => DEP_REWRITE_TAC [t]) naive_pattern_match_correct_inst
-  \\ simp [flatSemTheory.pmatch_def]
+  \\ ‘pmatch s p v [] ≠ Match_type_error’
+    by (strip_tac \\ gs [])
+  \\ drule naive_pattern_match_correct_inst
+  \\ disch_then (fn t => DEP_REWRITE_TAC [t])
+  \\ gs [pure_eval_to_def]
   \\ simp [do_if_Boolv]
   \\ TOP_CASE_TAC \\ fs []
   \\ every_case_tac \\ fs []

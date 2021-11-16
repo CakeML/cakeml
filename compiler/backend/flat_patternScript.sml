@@ -74,9 +74,11 @@ Definition compile_pat_bindings_def:
     let spt2 = if NULL j_nms_used then spt else insert k () spt in
     (spt2, exp3)) /\
   compile_pat_bindings t i ((Pas p v, k, x) :: m) exp = (
+    let nm = enc_num_to_name (i + 1) [] in
     let (spt, exp2) = compile_pat_bindings t (i + 2)
-                      ((p, i + 1, Var_local t v) :: m) exp in
-    (insert k () spt, Let t (SOME v) x exp2)) /\
+                      ((p, i + 1, Var_local t nm) :: m) exp in
+    (insert k () spt, Let t (SOME v) x
+                            (Let t (SOME nm) (Var_local t v) exp2))) /\
   compile_pat_bindings t i ((Pref p, k, x) :: m) exp = (
     let nm = enc_num_to_name (i + 1) [] in
     let (spt, exp2) = compile_pat_bindings t (i + 2)
