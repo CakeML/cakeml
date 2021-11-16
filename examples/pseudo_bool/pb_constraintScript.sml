@@ -255,6 +255,32 @@ Proof
   \\ fs [le_mult_div_ceiling]
 QED
 
+(* negation *)
+
+Definition negate_def:
+  negate (Pos n) = Neg n ∧
+  negate (Neg n) = Pos n
+End
+
+Definition not_def:
+  not (PBC l n) = PBC (MAP (I ## negate) l) (SUM (MAP FST l) + 1 - n)
+End
+
+Theorem negate_thm:
+  eval_pbc w (not c) ⇔ ~eval_pbc w c
+Proof
+  Cases_on ‘c’ \\ fs [not_def,eval_pbc_def,GREATER_EQ]
+  \\ qid_spec_tac ‘n’
+  \\ qid_spec_tac ‘l’
+  \\ Induct \\ fs [FORALL_PROD] \\ rw []
+  \\ Cases_on ‘p_2’ \\ fs [negate_def]
+  \\ Cases_on ‘w n'’ \\ fs []
+  \\ TRY (last_x_assum (fn th => rewrite_tac [GSYM th]) \\ gvs [] \\ NO_TAC)
+  \\ Cases_on ‘p_1 ≤ n’
+  \\ TRY (last_x_assum (qspec_then ‘n-p_1’ assume_tac) \\ gvs [] \\ NO_TAC)
+  \\ fs [GSYM NOT_LESS]
+  \\ last_x_assum (qspec_then ‘SUM (MAP (eval_term w) l)’ assume_tac) \\ gvs []
+QED
 
 (*
 
