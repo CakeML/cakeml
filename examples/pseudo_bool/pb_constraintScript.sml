@@ -6,7 +6,7 @@ open preamble;
 
 val _ = new_theory "pb_constraint";
 
-(* abstract syntax *)
+(* abstract syntax for normalised syntax *)
 
 Type var = “:num”
 
@@ -201,33 +201,58 @@ QED
 
 (* division *)
 
-Definition divisible_def:
-  divisible (PBC l n) k = EVERY (λ(c,_). c MOD k = 0) l
+Definition div_ceiling_def:
+  div_ceiling m n = (m + (n - 1)) DIV n
 End
+
+Theorem div_ceiling_le_x:
+  k ≠ 0 ⇒ (div_ceiling n k ≤ m ⇔ n ≤ k * m)
+Proof
+  fs [div_ceiling_def,DIV_LE_X,LEFT_ADD_DISTRIB]
+QED
+
+Theorem div_ceiling:
+  k ≠ 0 ⇒ div_ceiling n k = n DIV k + MIN (n MOD k) 1
+Proof
+  rewrite_tac [div_ceiling_def]
+  \\ strip_tac
+  \\ ‘0 < k’ by fs []
+  \\ drule_then (qspec_then ‘n’ mp_tac) DIVISION
+  \\ strip_tac
+  \\ qpat_x_assum ‘n = _’ (fn th => CONV_TAC (RATOR_CONV (SIMP_CONV std_ss [Once th])))
+  \\ rewrite_tac [GSYM ADD_ASSOC]
+  \\ asm_simp_tac std_ss [ADD_DIV_ADD_DIV]
+  \\ Cases_on ‘n MOD k = 0’ THEN1 fs [DIV_EQ_X]
+  \\ fs [DIV_EQ_X] \\ rw [MIN_DEF]
+QED
+
+Theorem le_mult_div_ceiling:
+  k ≠ 0 ⇒ n ≤ k * div_ceiling n k
+Proof
+  rw [div_ceiling,MIN_DEF]
+  \\ ‘0 < k’ by fs []
+  \\ drule_then (qspec_then ‘n’ mp_tac) DIVISION
+  \\ strip_tac
+  \\ qpat_x_assum ‘n = _’ (fn th => CONV_TAC (RATOR_CONV (SIMP_CONV std_ss [Once th])))
+  \\ fs [LEFT_ADD_DISTRIB]
+QED
 
 Definition divide_def:
   divide (PBC l n) k =
-    PBC (MAP (λ(c,v). (c DIV k, v)) l) ((n + (k - 1)) DIV k)
+    PBC (MAP (λ(c,v). (div_ceiling c k, v)) l) (div_ceiling n k)
 End
 
 Theorem divide_thm:
-  divisible c k ∧ k ≠ 0 ∧ eval_pbc w c ⇒ eval_pbc w (divide c k)
+  eval_pbc w c ∧ k ≠ 0 ⇒ eval_pbc w (divide c k)
 Proof
-  Cases_on ‘c’ \\ fs [divide_def,divisible_def]
-  \\ rw [eval_pbc_def,GREATER_EQ]
-  \\ gvs [DIV_LE_X]
-  \\ gvs [LEFT_ADD_DISTRIB]
-  \\ qsuff_tac ‘k * SUM (MAP (eval_term w) (MAP (λ(c,v). (c DIV k,v)) l)) =
-                SUM (MAP (eval_term w) l)’
-  THEN1 fs []
-  \\ last_x_assum mp_tac
-  \\ pop_assum kall_tac
+  Cases_on ‘c’ \\ fs [divide_def]
+  \\ rw [eval_pbc_def,GREATER_EQ,div_ceiling_le_x]
+  \\ irule LESS_EQ_TRANS
+  \\ first_x_assum $ irule_at Any
   \\ Induct_on ‘l’ \\ fs [FORALL_PROD]
   \\ fs [LEFT_ADD_DISTRIB] \\ rw []
-  \\ ‘0 < k’ by fs []
-  \\ drule DIVISION
-  \\ disch_then (qspec_then ‘p_1’ mp_tac)
-  \\ asm_rewrite_tac [] \\ gvs []
+  \\ irule (DECIDE “m ≤ m1 ∧ n ≤ n1 ⇒ m+n ≤ m1+n1:num”)
+  \\ fs [le_mult_div_ceiling]
 QED
 
 
