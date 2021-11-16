@@ -202,7 +202,7 @@ Proof
     CONJ_TAC >-
       metis_tac[STD_streams_stderr,add_stdo_nil]>>
     simp[parse_dimacs_def]>>
-    match_mp_tac (GEN_ALL check_lpr_unsat_list_sound)>>
+    match_mp_tac (GEN_ALL lpr_arrayProgTheory.check_lpr_unsat_list_sound)>>
     asm_exists_tac>>simp[]>>
     CONJ_TAC >- (
       match_mp_tac (GEN_ALL parse_dimacs_wf)>>simp[parse_dimacs_def]>>
