@@ -6,6 +6,8 @@ open preamble;
 
 val _ = new_theory "pb_constraint";
 
+val _ = numLib.prefer_num();
+
 (* abstract syntax for normalised syntax *)
 
 Type var = “:num”
@@ -280,6 +282,108 @@ Proof
   \\ TRY (last_x_assum (qspec_then ‘n-p_1’ assume_tac) \\ gvs [] \\ NO_TAC)
   \\ fs [GSYM NOT_LESS]
   \\ last_x_assum (qspec_then ‘SUM (MAP (eval_term w) l)’ assume_tac) \\ gvs []
+QED
+
+(* multiplication *)
+Definition multiply_def:
+  multiply (PBC l n) k =
+    PBC (MAP (λ(c,v). (c * k, v)) l) (n * k)
+End
+
+(* k ≠ 0 needed for compactness *)
+Theorem multiply_thm:
+  eval_pbc w c ⇒ eval_pbc w (multiply c k)
+Proof
+  Cases_on ‘c’ \\ fs [multiply_def]
+  \\ rw [eval_pbc_def,GREATER_EQ]
+  \\ drule LESS_MONO_MULT
+  \\ disch_then (qspec_then`k` mp_tac)
+  \\ REWRITE_TAC [Once MULT_COMM]
+  \\ strip_tac
+  \\ irule LESS_EQ_TRANS
+  \\ first_x_assum $ irule_at Any
+  \\ pop_assum kall_tac
+  \\ Induct_on`l` \\ simp[] \\ Cases
+  \\ rw[]
+QED
+
+(* saturation *)
+Definition saturate_def:
+  saturate (PBC l n) =
+    PBC (MAP (λ(c,v). (MIN c n, v)) l) n
+End
+
+Theorem eval_lit_bool:
+  eval_lit w r = 0 ∨ eval_lit w r = 1
+Proof
+  Cases_on`r` \\ rw[eval_lit_def]
+  \\ Cases_on`w n` \\ rw[b2n_def]
+QED
+
+Theorem saturate_thm:
+  eval_pbc w c ⇒ eval_pbc w (saturate c)
+Proof
+  Cases_on ‘c’ \\ fs [saturate_def]
+  \\ rw [eval_pbc_def,GREATER_EQ]
+  \\ `∀a.
+      n ≤ SUM (MAP (eval_term w) l) + a ⇒
+      n ≤ SUM (MAP (eval_term w) (MAP (λ(c,v). (MIN c n,v)) l)) + a` by (
+    pop_assum kall_tac
+    \\ Induct_on`l` \\ simp[] \\ Cases
+    \\ assume_tac eval_lit_bool
+    \\ fs[MIN_DEF] \\ rw[]
+    \\ ONCE_REWRITE_TAC[ADD_ASSOC]
+    \\ first_x_assum match_mp_tac
+    \\ fs[])
+  \\ pop_assum (qspec_then`0` assume_tac) \\ fs[]
+QED
+
+Definition weaken_aux_def:
+  (weaken_aux v [] n = ([],n)) ∧
+  (weaken_aux v ((c,l)::xs) n =
+    let (xs',n') = weaken_aux v xs n in
+    if get_var l = v then
+      (xs',n'-c)
+    else
+      ((c,l)::xs',n'))
+End
+
+(* weakening *)
+Definition weaken_def:
+  weaken (PBC l n) v =
+    let (l',n') = weaken_aux v l n in
+    PBC l' n'
+End
+
+Theorem weaken_aux_theorem:
+  ∀v l n l' n' a.
+  n ≤ SUM (MAP (eval_term w) l) + a ∧
+  weaken_aux v l n = (l',n') ⇒
+  n' ≤ SUM (MAP (eval_term w) l') + a
+Proof
+  ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
+  \\ pairarg_tac \\ fs[]
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ ( (* two subgoals *)
+    first_x_assum(qspec_then`a + c * eval_lit w l` assume_tac) \\ rfs[]
+    \\ `eval_lit w l = 0 ∨ eval_lit w l = 1` by fs[eval_lit_bool]
+    \\ fs[] )
+QED
+
+(* set a = 0 *)
+val weaken_aux_theorem0 =
+  weaken_aux_theorem |>
+  CONV_RULE (RESORT_FORALL_CONV (sort_vars ["a"])) |>
+  Q.SPEC`0` |> SIMP_RULE std_ss [];
+
+Theorem weaken_thm:
+  eval_pbc w c ⇒ eval_pbc w (weaken c v)
+Proof
+  Cases_on ‘c’ \\ fs [weaken_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rw [eval_pbc_def,GREATER_EQ]
+  \\ match_mp_tac weaken_aux_theorem0
+  \\ metis_tac[]
 QED
 
 (*
