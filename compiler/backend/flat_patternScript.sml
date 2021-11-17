@@ -170,7 +170,7 @@ Definition naive_pattern_match_def:
   naive_pattern_match t ((Pcon NONE ps, v) :: mats) =
     naive_pattern_match t (MAPi (\i p. (p, App t (El i) [v])) ps ++ mats) /\
   naive_pattern_match t ((Pas p i, v) :: mats) =
-    Let t (SOME i) v (naive_pattern_match t ((p, v) :: mats)) /\
+    naive_pattern_match t ((p, v) :: mats) /\
   naive_pattern_match t ((Pcon (SOME stmp) ps, v) :: mats) =
     If t (App t (TagLenEq (FST stmp) (LENGTH ps)) [v])
       (naive_pattern_match t (MAPi (\i p. (p, App t (El i) [v])) ps ++ mats))
