@@ -668,7 +668,7 @@ val ptree_Pattern_def = Define`
     else if FST nm = mkNT nPas then
       dtcase args of
           [papt] => ptree_Pattern nPcons papt
-        | [papt; as_t; vt] =>
+        | [vt; as_t; papt] =>
           do
             assert (tokcheck as_t AsT);
             pa <- ptree_Pattern nPcons papt;

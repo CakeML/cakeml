@@ -420,8 +420,8 @@ Definition cmlPEG_def[nocompute]:
                      try (seql [tokeq (SymbolT "::"); pnt nPcons] I)]
                     (bindNT nPcons));
               (mkNT nPas,
-               seql [pnt nPcons;
-                     try (seql [tokeq AsT; pnt nV] I)]
+               seql [try (seql [pnt nV; tokeq AsT] I);
+                     pnt nPcons]
                     (bindNT nPas));
               (mkNT nPattern,
                seql [pnt nPas; try (seql [tokeq ColonT; pnt nType] I)]

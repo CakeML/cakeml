@@ -742,14 +742,20 @@ Proof
           simp[DISJ_IMP_THM, PULL_EXISTS, SF CONJ_ss, GSYM CONJ_ASSOC] >>
           first_x_assum irule >> simp[SF SFY_ss] >>
           rpt (dxrule length_no_greater) >> simp[]))
-  >- (print_tac "nPas" >>
+  >- (
+      print_tac "nPas" >>
       `NT_rank (mkNT nPcons) < NT_rank (mkNT nPas)`
         by simp[NT_rank_def] >> strip_tac >> rveq >>
       simp[cmlG_applied, cmlG_FDOM]
-      >- (first_x_assum $ drule_all_then strip_assume_tac >>
-          gvs[MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS] >>
-          csimp[] >> simp[GSYM CONJ_ASSOC] >> first_x_assum irule >>
-          simp[SF SFY_ss] >> rpt (dxrule length_no_greater) >> simp[])
+      >- (imp_res_tac length_no_greater
+          \\ gs [GSYM LESS_EQ]
+          \\ first_x_assum (drule_all_then strip_assume_tac)
+          \\ gvs [MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS]
+          \\ csimp [] \\ simp [GSYM CONJ_ASSOC]
+          \\ ‘NT_rank (mkNT nV) < NT_rank (mkNT nPas)’
+            by simp [NT_rank_def]
+          \\ first_x_assum $ drule_all_then strip_assume_tac
+          \\ simp [])
       >- (first_x_assum $ drule_all_then strip_assume_tac >> gvs[]) >>
       first_x_assum $ drule_all_then strip_assume_tac >> gvs[])
   >- (print_tac "nPcons" >>
