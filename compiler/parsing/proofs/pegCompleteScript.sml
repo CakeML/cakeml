@@ -1428,9 +1428,10 @@ Proof
 QED
 
 Theorem Pattern_nV_nCons[local]:
-  peg_eval cmlPEG (i, nt (mkNT nV) I) (Success [] r eo) ⇒
+  peg_eval cmlPEG (i, nt (mkNT nV) I) (Success j r eo) ∧
+  (j ≠ [] ⇒ FST (HD j) ∈ stoppers nPcons) ⇒
   ∃r1 eo1.
-    peg_eval cmlPEG (i, nt (mkNT nPcons) I) (Success [] r1 eo1)
+    peg_eval cmlPEG (i, nt (mkNT nPcons) I) (Success j r1 eo1)
 Proof
   ‘(∀j r eo. peg_eval cmlPEG (i, nt (mkNT nV) I) (Success j r eo) ⇒
       ∃r1 eo1.
@@ -1438,9 +1439,10 @@ Proof
     (∀j r eo. peg_eval cmlPEG (i, nt (mkNT nV) I) (Success j r eo) ⇒
       ∃r1 eo1.
         peg_eval cmlPEG (i, nt (mkNT nPapp) I) (Success j r1 eo1)) ∧
-    (∀r eo. peg_eval cmlPEG (i, nt (mkNT nV) I) (Success [] r eo) ⇒
+    (∀j r eo. peg_eval cmlPEG (i, nt (mkNT nV) I) (Success j r eo) ∧
+              (j ≠ [] ⇒ FST (HD j) ∈ stoppers nPcons) ⇒
       ∃r1 eo1.
-        peg_eval cmlPEG (i, nt (mkNT nPcons) I) (Success [] r1 eo1))’
+        peg_eval cmlPEG (i, nt (mkNT nPcons) I) (Success j r1 eo1))’
     suffices_by rw [SF SFY_ss]
   \\ conj_asm1_tac
   >- (
@@ -1469,6 +1471,8 @@ Proof
   \\ simp [seql_cons_SOME]
   \\ first_assum (irule_at Any) \\ gs []
   \\ dsimp [choicel_cons, EXISTS_result, seql_cons]
+  \\ rename1 ‘rest = []’ \\ Cases_on ‘rest’ \\ gs []
+  \\ rename1 ‘FST h ∈ _’ \\ Cases_on ‘h’ \\ gs [stoppers_def]
 QED
 
 Theorem Pattern_input_monotone0[local]:
@@ -2745,13 +2749,37 @@ Proof
         \\ first_assum (irule_at Any)
         \\ simp [stoppers_def, firstSet_nV, firstSet_nConstructorName]
         \\ first_x_assum (irule_at Any) \\ gs [stoppers_def])
-      \\ dsimp [seql_cons, EXISTS_result]
-      \\ cheat (* TODO *)
-      (*
-      Cases_on ‘sfx’ >- gs[choicel_cons, seql_cons, peg_eval_tok] >>
-      gs[] >> rename [‘FST h ∈ stoppers nPas’] >> Cases_on ‘h’ >>
-      gs[stoppers_def, choicel_cons, seql_cons, peg_eval_tok] *)
-      )
+      \\ simp [APPEND_EQ_CONS]
+      \\ disj2_tac
+      \\ ‘NT_rank (mkNT nPcons) < NT_rank (mkNT nPas)’
+        by simp [NT_rank_def]
+      \\ first_assum
+         (pop_assum o
+          mp_then Any (strip_assume_tac o
+                       SRULE [SKOLEM_THM, GSYM RIGHT_EXISTS_IMP_THM]))
+      \\ pop_assum (irule_at Any) \\ simp [RIGHT_EXISTS_AND_THM]
+      \\ conj_tac >- gs [stoppers_def]
+      \\ dsimp [seql_cons]
+      \\ qmatch_goalsub_abbrev_tac ‘peg_eval cmlPEG (s,e)’
+      \\ ‘∃r. peg_eval cmlPEG (s,e) r’
+        by (irule peg_eval_total \\ simp [Abbr ‘e’])
+      \\ Cases_on ‘r’ \\ gs [SF SFY_ss]
+      \\ disj2_tac
+      \\ first_assum (irule_at Any)
+      \\ ‘NT_rank (mkNT nPcons) < NT_rank (mkNT nPas)’
+        by simp [NT_rank_def]
+      \\ first_x_assum (drule_then (dxrule_then (qspec_then ‘sfx’ mp_tac)))
+      \\ simp []
+      \\ impl_tac >- gs [stoppers_def]
+      \\ strip_tac
+      \\ unabbrev_all_tac \\ gs []
+      \\ gs [peg_eval_tok_NONE]
+      \\ rename1 ‘a = []’ \\ Cases_on ‘a’ \\ gs []
+      \\ rename1 ‘h = (_,_)’ \\ Cases_on ‘h’ \\ gs []
+      \\ strip_tac \\ gvs []
+      \\ drule_then assume_tac Pattern_nV_nCons
+      \\ gs [Once stoppers_def, firstSet_nV, firstSet_nConstructorName]
+      \\ drule_then assume_tac peg_det \\ gvs [stoppers_def])
   >- (print_tac "nPapp" >> strip_tac
       >- (gvs[MAP_EQ_CONS,MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
           rename [‘ptree_head pcpt = NN nPConApp’,
