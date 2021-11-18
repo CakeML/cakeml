@@ -1172,6 +1172,15 @@ Proof
   rename [‘FST h = SymbolT _’] >> Cases_on ‘h’ >> gvs[]
 QED
 
+Theorem nV_NONE_input_monotone:
+   peg_eval cmlPEG ((tk,l)::i0, nt (mkNT nV) I) (Failure fl fe) ⇒
+   peg_eval cmlPEG ((tk,l)::(i0 ++ sfx), nt (mkNT nV) I) (Failure fl fe)
+Proof
+  simp [peg_eval_NT_NONE]
+  \\ simp [cmlpeg_rules_applied, peg_V_def, choicel_cons_NONE,
+           peg_eval_seq_NONE]
+QED
+
 Theorem nOpID_input_monotone:
    peg_eval cmlPEG (i0, nt (mkNT nOpID) I) (Success i r eo) ⇒
    peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nOpID) I) (Success (i ++ sfx) r eo)
@@ -1418,6 +1427,50 @@ Proof
       >- (drule_at (Pos last) not_peg0_LENGTH_decreases >> simp[]))
 QED
 
+Theorem Pattern_nV_nCons[local]:
+  peg_eval cmlPEG (i, nt (mkNT nV) I) (Success [] r eo) ⇒
+  ∃r1 eo1.
+    peg_eval cmlPEG (i, nt (mkNT nPcons) I) (Success [] r1 eo1)
+Proof
+  ‘(∀j r eo. peg_eval cmlPEG (i, nt (mkNT nV) I) (Success j r eo) ⇒
+      ∃r1 eo1.
+        peg_eval cmlPEG (i, nt (mkNT nPbase) I) (Success j r1 eo1)) ∧
+    (∀j r eo. peg_eval cmlPEG (i, nt (mkNT nV) I) (Success j r eo) ⇒
+      ∃r1 eo1.
+        peg_eval cmlPEG (i, nt (mkNT nPapp) I) (Success j r1 eo1)) ∧
+    (∀r eo. peg_eval cmlPEG (i, nt (mkNT nV) I) (Success [] r eo) ⇒
+      ∃r1 eo1.
+        peg_eval cmlPEG (i, nt (mkNT nPcons) I) (Success [] r1 eo1))’
+    suffices_by rw [SF SFY_ss]
+  \\ conj_asm1_tac
+  >- (
+    rpt strip_tac
+    \\ rw [peg_eval_NT_SOME, cmlpeg_rules_applied]
+    \\ dsimp [Once choicel_cons, EXISTS_result, SF SFY_ss])
+  \\ conj_asm1_tac
+  >- (
+    rpt strip_tac \\ gs []
+    \\ first_x_assum (drule_then strip_assume_tac)
+    \\ rw [peg_eval_NT_SOME, cmlpeg_rules_applied]
+    \\ dsimp [Once choicel_cons, EXISTS_result, SF SFY_ss]
+    \\ disj2_tac
+    \\ simp [choicel_cons, EXISTS_result, seql_cons_SOME]
+    \\ first_x_assum (irule_at Any) \\ gs []
+    \\ simp [seql_cons, EXISTS_result]
+    \\ gvs [peg_eval_NT_NONE, peg_eval_NT_SOME, cmlpeg_rules_applied,
+           peg_eval_seq_NONE, peg_V_def, choicel_cons, EXISTS_result,
+           peg_eval_seq_NONE, peg_UQConstructorName_def, peg_eval_tok_NONE]
+    \\ gvs [ELIM_UNCURRY,PULL_EXISTS]
+    \\ Cases_on ‘h’ \\ gs [])
+  \\ rpt strip_tac \\ gs []
+  \\ first_x_assum (drule_then strip_assume_tac)
+  \\ first_x_assum (drule_then strip_assume_tac)
+  \\ rw [peg_eval_NT_SOME, cmlpeg_rules_applied]
+  \\ simp [seql_cons_SOME]
+  \\ first_assum (irule_at Any) \\ gs []
+  \\ dsimp [choicel_cons, EXISTS_result, seql_cons]
+QED
+
 Theorem Pattern_input_monotone0[local]:
   ∀N i0 rlist b i r l sfx eo res.
     (N ∈ {nPbase; nPtuple; nPattern; nPapp; nPatternList; nPas; nPcons; nV} ∧ ¬b ∧
@@ -1620,22 +1673,52 @@ Proof
       rpt (dxrule_at (Pos last) not_peg0_LENGTH_decreases) >> simp[]) >~
   [‘peg_eval _ (i0 ++ sfx, nt (mkNT nPas) I) (Success (i ++ sfx) _ _ )’]
   >- (
-      simp[peg_eval_NT_SOME] >>
-      simp[cmlpeg_rules_applied, EXISTS_PROD, seql_cons_SOME, PULL_EXISTS] >>
-      rpt strip_tac >> gvs[] >>
-      ‘NT_rank (mkNT nPcons) < NT_rank (mkNT nPas)’ by simp[NT_rank_def] >>
-      first_x_assum dxrule >> simp[] >> disch_then $ irule_at Any >>
-      first_assum $ irule_at Any >> gvs[choicel_cons, seql_cons] >~
-      [‘peg_eval _ (_, tok ($= AsT) _) (Failure _ _)’]
-      >- (gvs[peg_eval_tok] >- gvs[stoppers_def] >>
-          Cases_on ‘sfx’ >> gvs[] >> rename [‘FST h ∈ stoppers _’] >>
-          Cases_on ‘h’ >> gvs[stoppers_def]) >~
-      [‘AsT ∈ stoppers nPcons’] >- gvs[stoppers_def] >>
-      simp[peg_eval_tok, EXISTS_result, stoppers_def, firstSet_nV,
-           firstSet_nConstructorName] >>
-      first_assum $ irule_at Any >> simp[] >>
-      first_assum $ irule_at Any >> simp[stoppers_def] >>
-      rpt (dxrule_at (Pos last) not_peg0_LENGTH_decreases) >> simp[]) >~
+      simp [peg_eval_NT_SOME]
+      \\ simp [cmlpeg_rules_applied, seql_cons_SOME, PULL_EXISTS]
+      \\ rpt strip_tac \\ gvs []
+      \\ gvs [Once choicel_cons]
+      >- (
+        last_assum (irule_at Any) \\ simp [NT_rank_def]
+        \\ first_assum (irule_at Any)
+        \\ qpat_x_assum ‘peg_eval _ (i0, _) _’ assume_tac
+        \\ drule_at (Pos last) not_peg0_LENGTH_decreases \\ simp []
+        \\ disch_then kall_tac
+        \\ gvs [seql_cons_SOME]
+        \\ dsimp [choicel_cons, EXISTS_result, seql_cons_SOME]
+        \\ simp [RIGHT_EXISTS_AND_THM]
+        \\ simp_tac std_ss [Once CONS_APPEND, Once APPEND_ASSOC]
+        \\ irule_at Any nV_input_monotone \\ gs []
+        \\ first_assum (irule_at Any)
+        \\ gs [stoppers_def])
+      \\ dsimp [Once choicel_cons, EXISTS_result]
+      \\ disj2_tac
+      \\ gvs [choicel_cons]
+      \\ first_assum (irule_at (Pos last)) \\ simp [NT_rank_def]
+      \\ first_assum (irule_at Any) \\ simp [RIGHT_EXISTS_AND_THM]
+      \\ conj_tac >- gvs [stoppers_def]
+      \\ conj_tac >- gvs [stoppers_def]
+      \\ fs [Once seql_cons] \\ gvs [] \\ dsimp [EXISTS_result]
+      >- (
+        disj2_tac
+        \\ ‘∃tk l rest. i0 = (tk,l)::rest’
+          by (imp_res_tac length_no_greater
+              \\ Cases_on ‘i0’ \\ simp [ABS_PAIR_THM]
+              \\ ‘nt (mkNT nPcons) I ∈ Gexprs cmlPEG’
+                by gs [NTS_in_PEG_exprs]
+              \\ drule_at_then Any assume_tac not_peg0_peg_eval_NIL_NONE
+              \\ gvs []
+              \\ drule_then assume_tac peg_det \\ gs [])
+        \\ gvs []
+        \\ irule_at Any nV_NONE_input_monotone \\ gs [SF SFY_ss])
+      \\ disj1_tac
+      \\ gs [seql_cons, EXISTS_result]
+      \\ irule_at Any nV_input_monotone \\ gs []
+      \\ first_assum (irule_at Any)
+      \\ gvs [peg_eval_tok_NONE]
+      \\ Cases_on ‘sfx’ \\ gvs []
+      \\ drule_then strip_assume_tac Pattern_nV_nCons
+      \\ drule_then assume_tac peg_det \\ gvs []
+      \\ strip_tac \\ gs [stoppers_def]) >~
   [‘peg_eval _ (i0 ++ sfx, nt (mkNT nPcons) I) (Success (i ++ sfx) _ _ )’]
   >- (simp[peg_eval_NT_SOME] >>
       simp[cmlpeg_rules_applied, EXISTS_PROD, seql_cons_SOME, PULL_EXISTS] >>
@@ -2654,23 +2737,21 @@ Proof
       dsimp[choicel_cons, seql_cons, peg_eval_tok] >>
       first_x_assum $ irule_at Any >> gs[stoppers_def])
   >- (
-      print_tac "nPas" >> stdstart >> dsimp[seql_cons_SOME]
+      print_tac "nPas" \\ stdstart \\ dsimp [seql_cons_SOME, choicel_cons]
       >- (
-        gvs[] >> loseRK >> gs[SKOLEM_THM, GSYM RIGHT_EXISTS_IMP_THM] >>
-        normlist >> first_assum $ irule_at Any >>
-        simp[stoppers_def, firstSet_nV, firstSet_nConstructorName] >>
-        dsimp[choicel_cons, seql_cons, peg_eval_tok] >>
-        first_x_assum $ irule_at Any >> gs[stoppers_def]) >>
-      ‘NT_rank (mkNT nPcons) < NT_rank (mkNT nPas)’
-        by simp[NT_rank_def] >>
-      first_x_assum
-      (pop_assum o
-       mp_then Any (strip_assume_tac o
-                    SRULE [SKOLEM_THM, GSYM RIGHT_EXISTS_IMP_THM])) >>
-      pop_assum $ irule_at Any >> simp[stoppers_def] >>
+        gvs[] \\ loseRK \\ gs [SKOLEM_THM, GSYM RIGHT_EXISTS_IMP_THM]
+        \\ disj1_tac
+        \\ normlist
+        \\ first_assum (irule_at Any)
+        \\ simp [stoppers_def, firstSet_nV, firstSet_nConstructorName]
+        \\ first_x_assum (irule_at Any) \\ gs [stoppers_def])
+      \\ dsimp [seql_cons, EXISTS_result]
+      \\ cheat (* TODO *)
+      (*
       Cases_on ‘sfx’ >- gs[choicel_cons, seql_cons, peg_eval_tok] >>
       gs[] >> rename [‘FST h ∈ stoppers nPas’] >> Cases_on ‘h’ >>
-      gs[stoppers_def, choicel_cons, seql_cons, peg_eval_tok])
+      gs[stoppers_def, choicel_cons, seql_cons, peg_eval_tok] *)
+      )
   >- (print_tac "nPapp" >> strip_tac
       >- (gvs[MAP_EQ_CONS,MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
           rename [‘ptree_head pcpt = NN nPConApp’,
