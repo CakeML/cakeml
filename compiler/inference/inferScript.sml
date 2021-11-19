@@ -334,6 +334,10 @@ val infer_p_def = tDefine "infer_p" `
   do (t,tenv) <- infer_p l ienv p;
     return (Infer_Tapp [t] Tref_num, tenv)
   od) ∧
+(infer_p l ienv (Pas p v) =
+  do (t,tenv) <- infer_p l ienv p;
+    return (t, tenv++[(v,t)])
+  od) ∧
 (infer_p l ienv (Ptannot p t) =
  do (t',tenv) <- infer_p l ienv p;
     t'' <- type_name_check_subst l
