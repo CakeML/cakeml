@@ -540,6 +540,11 @@ type_p tvs tenv (Pcon NONE ps) (Ttup ts) bindings)
 ==>
 type_p tvs tenv (Pref p) (Tref t) bindings)
 
+/\ (!tvs tenv pat v t bindings.
+(type_p tvs tenv pat t bindings)
+==>
+type_p tvs tenv (Pas pat v) t (bindings ++ [(v,t)]))
+
 /\ (! tvs tenv p t bindings.
 (check_freevars_ast [] t /\
 check_type_names tenv.t t /\
