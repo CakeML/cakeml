@@ -259,7 +259,7 @@ QED
 
 (* negation *)
 
-Definition negate_def:
+Definition negate_def[simp]:
   negate (Pos n) = Neg n ∧
   negate (Neg n) = Pos n
 End
@@ -386,6 +386,61 @@ Proof
   \\ metis_tac[]
 QED
 
+(* substitution/instantiation *)
+
+Definition assign_def:
+  assign f (w:num->bool) (n:num) =
+    case lookup n f of
+    | NONE => w n
+    | SOME (INL b) => b            (* concrete value b *)
+    | SOME (INR (Pos v)) =>   w v  (* subst with var v *)
+    | SOME (INR (Neg v)) => ~ w v  (* subst with negation of var v *)
+End
+
+Definition is_Pos_def[simp]:
+  is_Pos (Pos _) = T ∧
+  is_Pos (Neg _) = F
+End
+
+Definition subst_aux_def:
+  subst_aux f [] = ([],[],0) ∧
+  subst_aux f ((c,l)::rest) =
+    let (old,new,k) = subst_aux f rest in
+      case lookup (get_var l) f of
+      | NONE => ((c,l)::old,new,k)
+      | SOME (INL b) => (old,new,if is_Pos l = b then k+c else k)
+      | SOME (INR n) => let x = (if is_Pos l then n else negate n) in
+                          (old,(c,x)::new,k)
+End
+
+Definition subst_def:
+  subst f (PBC l n) =
+    let (old,new,k) = subst_aux f l in
+      (PBC (old ++ new) (n - k))  (* TODO: replace ++ by addition *)
+End
+
+Theorem subst_thm:
+  eval_pbc w (subst f c) = eval_pbc (assign f w) c
+Proof
+  Cases_on ‘c’ \\ fs [eval_pbc_def,subst_def]
+  \\ pairarg_tac \\ gvs [eval_pbc_def,GREATER_EQ]
+  \\ qsuff_tac
+    ‘∀l old new k.
+       subst_aux f l = (old,new,k) ⇒
+       SUM (MAP (eval_term (assign f w)) l) =
+       k + SUM (MAP (eval_term w) old ++ MAP (eval_term w) new)’
+  THEN1 (disch_then drule \\ fs [])
+  \\ Induct \\ fs [subst_aux_def,FORALL_PROD]
+  \\ pairarg_tac \\ fs []
+  \\ rw []
+  \\ Cases_on ‘lookup (get_var p_2) f’ \\ gvs [assign_def]
+  THEN1 (Cases_on ‘p_2’ \\ fs [assign_def])
+  \\ Cases_on ‘x’ \\ gvs []
+  THEN1 (Cases_on ‘p_2’ \\ fs [assign_def] \\ Cases_on ‘x'’ \\ fs [])
+  \\ Cases_on ‘p_2’ \\ Cases_on ‘y’ \\ fs [assign_def]
+  \\ Cases_on ‘w n'’ \\ fs [SUM_APPEND]
+QED
+
 (*
 
 We need:
@@ -433,6 +488,113 @@ We need:
 
  a proof is a formula + commands, the proof ends when infeasible set
  is found (finding the line 0 >= k for some k > 0)
+
+*)
+
+(* junk
+
+Definition get_val_def:
+  get_val n s =
+    case lookup n s of
+    | NONE => (F,0)
+    | SOME res => res
+End
+
+Definition update_term_def:
+  update_term f (c,l) =
+    case lookup (get_var l) f of
+    | NONE => INL (c,l)
+    | SOME (INL b) => INR (if is_Pos l = b then c else 0)
+    | SOME (INR (Pos v)) => INL (c,if is_Pos l then Pos v else Neg v)
+    | SOME (INR (Neg v)) => INL (c,if is_Pos l then Neg v else Pos v)
+End
+
+Definition subst_aux_def:
+  subst_aux f (c,l) (s,k) =
+    case update_term f (c,l) of
+    | INR k' => (s,k+k')
+    | INL (c',l') =>
+      case lookup (get_var l) s of
+      | NONE => (insert (get_var l) (c',l') s,k)
+      | SOME (c1,l1) =>
+        case add_terms (c',l') (c',l') of
+        | ([],k') => (delete (get_var l) s,k+k')
+        | (r::_,k') => (insert (get_var l) r s,k+k')
+End
+
+Definition subst_def:
+  subst f (PBC l n) =
+    let (s,k) = FOLDR (subst_aux f) (LN,0) l in
+      PBC (MAP SND (toSortedAList s)) (n - k)
+End
+
+Theorem SUM_toSortedAList_NONE:
+  lookup n s = NONE ⇒
+  SUM (MAP (eval_term w) (MAP SND (toSortedAList (insert n x s)))) =
+  eval_term w x + SUM (MAP (eval_term w) (MAP SND (toSortedAList s)))
+Proof
+  cheat
+QED
+
+Theorem SUM_toSortedAList_SOME:
+  lookup n s = SOME y ⇒
+  SUM (MAP (eval_term w) (MAP SND (toSortedAList (insert n x s)))) =
+  eval_term w x + SUM (MAP (eval_term w) (MAP SND (toSortedAList (delete n s))))
+Proof
+  cheat
+QED
+
+Theorem SUM_toSortedAList_SOME_1:
+  lookup n s = SOME y ⇒
+  SUM (MAP (eval_term w) (MAP SND (toSortedAList s))) =
+  eval_term w y + SUM (MAP (eval_term w) (MAP SND (toSortedAList (delete n s))))
+Proof
+  cheat
+QED
+
+Theorem subst_thm:
+  eval_pbc w (subst f c) = eval_pbc (assign f w) c
+Proof
+  Cases_on ‘c’ \\ fs [eval_pbc_def,subst_def]
+  \\ pairarg_tac \\ gvs [eval_pbc_def,GREATER_EQ]
+  \\ qsuff_tac
+    ‘∀l s' k' s k.
+      FOLDR (subst_aux f) (s',k') l = (s,k) ⇒
+      SUM (MAP (eval_term (assign f w)) l) +
+      SUM (MAP (eval_term w) (MAP SND (toSortedAList s'))) + k' =
+      SUM (MAP (eval_term w) (MAP SND (toSortedAList s))) + k’
+  THEN1 (disch_then drule \\ fs [EVAL “toSortedAList LN”])
+  \\ pop_assum kall_tac
+  \\ Induct \\ fs [] \\ rw []
+  \\ Cases_on ‘FOLDR (subst_aux f) (s',k') l’
+  \\ rename [‘_ = (s2,k2)’]
+  \\ first_x_assum drule \\ rw []
+  \\ qabbrev_tac ‘d = SUM (MAP (eval_term w) (MAP SND (toSortedAList s')))’
+  \\ last_x_assum mp_tac
+  \\ PairCases_on ‘h’
+  \\ rewrite_tac [subst_aux_def,update_term_def]
+  \\ Cases_on ‘h1’ \\ fs [get_var_def,assign_def,is_Pos_def]
+
+    Cases_on ‘lookup n f’ \\ fs []
+
+      Cases_on ‘lookup n s2’ \\ fs [] \\ rw []
+      THEN1 fs [SUM_toSortedAList_NONE]
+      \\ gvs [add_terms_def,SUM_toSortedAList_SOME]
+
+      drule SUM_toSortedAList_SOME_1
+
+      \\ cheat
+
+    \\ Cases_on ‘x’ \\ fs []
+    THEN1 (Cases_on ‘x'’ \\ fs [] \\ rw [] \\ gvs [])
+    \\ Cases_on ‘y’ \\ fs []
+
+      Cases_on ‘lookup n s2’ \\ rw []
+      \\ fs [SUM_toSortedAList_NONE]
+
+  \\ drule FOLDR_subst_aux_lemma
+  \\ fs [EVAL “toSortedAList LN”]
+QED
 
 *)
 
