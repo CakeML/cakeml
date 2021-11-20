@@ -675,6 +675,7 @@ val ptree_Pattern_def = Define`
             vtt <- ptree_V vt;
             SOME(Pas pa vtt)
           od
+        | _ => fail
     else if FST nm = mkNT nPattern then
       dtcase args of
           [pas] => ptree_Pattern nPas pas
