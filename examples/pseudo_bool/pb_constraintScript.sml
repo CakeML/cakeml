@@ -566,6 +566,31 @@ Proof
   \\ Cases_on ‘h'’ \\ fs []
 QED
 
+(* Tentative representation of PBF as a set of constraints *)
+Definition satisfies_def:
+  satisfies w pbf ⇔
+  ∀c. c ∈ pbf ⇒ eval_pbc w c
+End
+
+Definition satisfiable_def:
+  satisfiable pbf ⇔
+  ∃w. satisfies w pbf
+End
+
+Definition sat_implies_def:
+  sat_implies pbf pbf' ⇔
+  ∀w. satisfies w pbf ⇒ satisfies w pbf'
+End
+
+(* Statement of Prop 1 from Gocht/Nordstrom AAAI-21 *)
+Theorem substitution_redundancy:
+  satisfiable pbf ∧
+  sat_implies ((not C) INSERT pbf) (IMAGE w (C INSERT pbf)) ⇒
+  satisfiable (C INSERT pbf)
+Proof
+  cheat
+QED
+
 (*
 
 We need:
