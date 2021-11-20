@@ -490,12 +490,7 @@ val v_of_pat_def = tDefine "v_of_pat" `
          xv::rest => SOME (xv, rest, wildcards)
        | _ => NONE) /\
   v_of_pat envC (Pas x p) insts wildcards =
-    (case insts of
-         xv::rest =>
-          (case v_of_pat envC x rest wildcards of
-           | NONE => NONE
-           | SOME (_, rest, wildcards) => SOME (xv, rest, wildcards))
-       | _ => NONE) /\
+    NONE (* unsupported *) /\
   v_of_pat envC Pany insts wildcards =
     (case wildcards of
          xv::rest => SOME (xv, insts, rest)
@@ -559,7 +554,6 @@ Proof
   HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac \\
   fs [v_of_pat_def, pat_bindings_def, LENGTH_NIL] \\ rw []
   THEN1 (every_case_tac \\ fs [LENGTH_NIL])
-  THEN1 cheat
   THEN1 (every_case_tac \\ fs [])
   THEN1 (
     (* v_of_pat _ (Pcon _ _) _ _ *)
@@ -597,7 +591,6 @@ Proof
   HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac \\
   try_finally (fs [v_of_pat_def])
   THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [])
-  THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ gvs [])
   THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [])
   THEN1 (
     rename1 `Pcon c _` \\ Cases_on `c`
@@ -623,7 +616,6 @@ Proof
   try_finally (fs [v_of_pat_def])
   THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [])
   THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ gvs [])
-  THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [])
   THEN1 (
     rename1 `Pcon c _` \\ Cases_on `c`
     THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw [])
@@ -652,7 +644,6 @@ Proof
     fs [v_of_pat_def, pat_bindings_def, pat_wildcards_def] \\
     every_case_tac \\ fs []
   )
-  THEN1 cheat
   THEN1 (
     rename1 `Pcon c _` \\ Cases_on `c`
     THEN1 (
@@ -711,7 +702,6 @@ Proof
     fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\ rw [] \\
     first_assum progress \\ rw []
   )
-  THEN1 cheat
   THEN1 (
     fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\ rw [] \\
     qpat_assum `v_of_pat _ _ _ _ = _` (first_assum o progress_with) \\
@@ -753,7 +743,6 @@ Proof
   HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac \\
   try_finally (fs [v_of_pat_def] \\ every_case_tac \\ fs [])
   THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ metis_tac [])
-  THEN1 cheat
   THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ metis_tac [])
   THEN1 (
     reverse eq_tac THEN1 (rw []) \\ fs [v_of_pat_def] \\ strip_tac \\
@@ -822,22 +811,23 @@ val pat_typechecks_def = Define `
   pat_typechecks envC s pat v =
     (pmatch envC s pat v [] <> Match_type_error)`;
 
-val pat_without_Pref_def = tDefine "pat_without_Pref" `
-  pat_without_Pref (Pcon _ args) = EVERY pat_without_Pref args /\
-  pat_without_Pref (Pref _) = F /\
-  pat_without_Pref (Ptannot p _) = pat_without_Pref p /\
-  pat_without_Pref (Pas p _) = pat_without_Pref p /\
-  pat_without_Pref _ = T`
-
-  (WF_REL_TAC `measure pat_size` \\ simp[] \\
-   Cases \\ Induct \\ fs [basicSizeTheory.option_size_def] \\
-   fs [list_size_def, astTheory.pat_size_def] \\ rpt strip_tac \\ fs [] \\
-   first_assum progress \\ fs []);
+Definition pat_without_Pref_Pas_def:
+  pat_without_Pref_Pas (Pcon _ args) = EVERY pat_without_Pref_Pas args /\
+  pat_without_Pref_Pas (Pref _) = F /\
+  pat_without_Pref_Pas (Ptannot p _) = pat_without_Pref_Pas p /\
+  pat_without_Pref_Pas (Pas p _) = F /\
+  pat_without_Pref_Pas _ = T
+Termination
+  WF_REL_TAC `measure pat_size` \\ simp[] \\
+  Cases \\ Induct \\ fs [basicSizeTheory.option_size_def] \\
+  fs [list_size_def, astTheory.pat_size_def] \\ rpt strip_tac \\ fs [] \\
+  first_assum progress \\ fs []
+End
 
 val validate_pat_def = Define `
   validate_pat envC s pat v env =
     (pat_typechecks envC s pat v /\
-     pat_without_Pref pat /\
+     pat_without_Pref_Pas pat /\
      ALL_DISTINCT (pat_bindings pat []))`;
 
 (* Lemmas that relate [v_of_pat] and [pmatch], the pattern-matching function
@@ -883,7 +873,6 @@ Proof
     every_case_tac \\ fs [] \\ rw [] \\
     progress v_of_pat_list_length \\ first_assum progress \\ fs []
   )
-  THEN1 cheat
   THEN1 (
     fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
     every_case_tac \\ fs [] \\ rw [] \\ first_assum progress
@@ -917,13 +906,13 @@ QED
 Theorem pmatch_v_of_pat:
    (!envC s pat v env_v env_v'.
       pmatch envC s pat v env_v = Match env_v' ==>
-      pat_without_Pref pat ==>
+      pat_without_Pref_Pas pat ==>
       ?insts wildcards.
         env_v' = ZIP (pat_bindings pat [], REVERSE insts) ++ env_v /\
         v_of_pat envC pat insts wildcards = SOME (v, [], [])) /\
     (!envC s pats vs env_v env_v'.
       pmatch_list envC s pats vs env_v = Match env_v' ==>
-      EVERY (\pat. pat_without_Pref pat) pats ==>
+      EVERY (\pat. pat_without_Pref_Pas pat) pats ==>
       ?insts wildcards.
         env_v' = ZIP (pats_bindings pats [], REVERSE insts) ++ env_v /\
         v_of_pat_list envC pats insts wildcards = SOME (vs, [], []))
@@ -944,27 +933,20 @@ Proof
     every_case_tac \\ fs []
   )
   THEN1 (
-    fs [pmatch_def, pat_without_Pref_def] \\ every_case_tac \\ fs [] \\
+    fs [pmatch_def, pat_without_Pref_Pas_def] \\ every_case_tac \\ fs [] \\
     fs [pat_bindings_def] \\ Q.LIST_EXISTS_TAC [`insts`, `wildcards`] \\
     rename1 `same_ctor t1 t2` \\ fs [] \\
     rewrite_tac [v_of_pat_def] \\ fs [] \\ progress v_of_pat_list_length \\
     fs [same_ctor_def]
   )
   THEN1 (
-    fs [pmatch_def, pat_without_Pref_def] \\ every_case_tac \\ fs [] \\
+    fs [pmatch_def, pat_without_Pref_Pas_def] \\ every_case_tac \\ fs [] \\
     fs [pat_bindings_def] \\ Q.LIST_EXISTS_TAC [`insts`, `wildcards`] \\ fs [] \\
     rewrite_tac [v_of_pat_def] \\ every_case_tac \\ fs []
   )
-  THEN1 (fs [pat_without_Pref_def])
-  THEN1
-   (fs [pmatch_def,pat_bindings_def,pat_without_Pref_def]
-    \\ once_rewrite_tac [semanticPrimitivesPropsTheory.pat_bindings_accum]
-    \\ fs [] \\ qexists_tac ‘v::insts’ \\ gvs []
-    \\ imp_res_tac v_of_pat_insts_length
-    \\ fs [GSYM ZIP_APPEND]
-    \\ qexists_tac ‘wildcards’
-    \\ fs [v_of_pat_def])
-  THEN1 (fs [pat_without_Pref_def,pat_bindings_def,v_of_pat_def,pmatch_def]
+  THEN1 (fs [pat_without_Pref_Pas_def])
+  THEN1 (fs [pat_without_Pref_Pas_def])
+  THEN1 (fs [pat_without_Pref_Pas_def,pat_bindings_def,v_of_pat_def,pmatch_def]
          \\ metis_tac[])
   THEN1 (
     fs [pmatch_def] \\ every_case_tac \\ fs [] \\ rw [] \\
@@ -990,7 +972,7 @@ QED
 Theorem pmatch_v_of_pat_norest:
    !envC s pat v env_v env_v'.
       pmatch envC s pat v env_v = Match env_v' ==>
-      pat_without_Pref pat ==>
+      pat_without_Pref_Pas pat ==>
       ?insts wildcards.
         env_v' = ZIP (pat_bindings pat [], REVERSE insts) ++ env_v /\
         v_of_pat_norest envC pat insts wildcards = SOME v
