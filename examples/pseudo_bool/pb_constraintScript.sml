@@ -54,8 +54,7 @@ End
 Definition compact_def[simp]:
   compact (PBC xs n) ⇔
     SORTED term_lt xs ∧ (* implies that no var is mentioned twice *)
-    EVERY (λ(c,l). c ≠ 0) xs ∧
-    (n = 0 ⇒ xs = [])
+    EVERY (λ(c,l). c ≠ 0) xs
 End
 
 (* addition -- implementation *)
@@ -93,8 +92,7 @@ End
 Definition add_def:
   add (PBC xs m) (PBC ys n) =
     let (xs,d) = add_lists xs ys in
-      if m+n ≤ d then PBC [] 0 else
-        PBC xs ((m + n) - d)
+      PBC xs ((m + n) - d)
 End
 
 (* addition -- proof *)
@@ -138,7 +136,7 @@ QED
 
 (* addition -- compactness *)
 
-Theorem add_lists_sorted:
+Triviality add_lists_sorted_lemma:
   ∀l1 l2 h t d x.
     add_lists l1 l2 = (h::t,d) ∧
     SORTED term_lt (x::l1) ∧
@@ -162,17 +160,14 @@ Proof
   \\ Cases_on ‘x'’ \\ Cases_on ‘x’ \\ Cases_on ‘y’ \\ Cases_on ‘h'’ \\ gvs []
 QED
 
-Theorem compact_add:
-  compact c1 ∧ compact c2 ⇒ compact (add c1 c2)
+Theorem add_lists_sorted:
+   ∀l l' xs d.
+     EVERY (λ(c,l). c ≠ 0) l ∧ EVERY (λ(c,l). c ≠ 0) l' ∧
+     SORTED term_lt l ∧ SORTED term_lt l' ∧
+     add_lists l l' = (xs,d) ⇒
+     SORTED term_lt xs ∧ EVERY (λ(c,l). c ≠ 0) xs
 Proof
-  Cases_on ‘c1’ \\ Cases_on ‘c2’ \\ fs [add_def]
-  \\ pairarg_tac \\ fs [] \\ strip_tac
-  \\ IF_CASES_TAC \\ fs []
-  \\ last_x_assum mp_tac
-  \\ rpt (qpat_x_assum ‘SORTED _ _’ mp_tac)
-  \\ rpt (qpat_x_assum ‘EVERY _ _’ mp_tac)
-  \\ EVERY (map qid_spec_tac [‘d’,‘xs’,‘l'’,‘l’])
-  \\ ho_match_mp_tac add_lists_ind
+  ho_match_mp_tac add_lists_ind
   \\ REVERSE (rpt strip_tac)
   \\ fs [add_lists_def] \\ gvs []
   \\ imp_res_tac SORTED_TL
@@ -184,21 +179,28 @@ Proof
   \\ Cases_on ‘term_lt x y’ \\ fs []
   THEN1
    (pairarg_tac \\ gvs [] \\ Cases_on ‘zs’ \\ fs []
-    \\ drule add_lists_sorted \\ fs [])
+    \\ drule add_lists_sorted_lemma \\ fs [])
   \\ Cases_on ‘term_lt y x’ \\ fs []
   THEN1
    (pairarg_tac \\ gvs [] \\ Cases_on ‘zs’ \\ fs []
-    \\ drule add_lists_sorted \\ fs [])
+    \\ drule add_lists_sorted_lemma \\ fs [])
   \\ rpt (pairarg_tac \\ gvs [])
   \\ rename [‘get_var l1 < get_var l2’]
   \\ ‘z = [] ∨ ∃c l. z = [(c,l)] ∧ get_var l = get_var l1’ by
     gvs [AllCaseEqs(),add_terms_def |> DefnBase.one_line_ify NONE]
   \\ gvs [] \\ Cases_on ‘zs’ \\ fs []
-  \\ drule add_lists_sorted
+  \\ drule add_lists_sorted_lemma
   \\ disch_then irule \\ rw []
   \\ rename [‘_::l5’]
   \\ Cases_on ‘l5’ \\ fs []
   \\ Cases_on ‘h'’ \\ fs []
+QED
+
+Theorem compact_add:
+  compact c1 ∧ compact c2 ⇒ compact (add c1 c2)
+Proof
+  Cases_on ‘c1’ \\ Cases_on ‘c2’ \\ fs [add_def]
+  \\ pairarg_tac \\ fs [] \\ metis_tac [add_lists_sorted]
 QED
 
 (* division *)
@@ -287,10 +289,10 @@ QED
 (* multiplication *)
 Definition multiply_def:
   multiply (PBC l n) k =
-    PBC (MAP (λ(c,v). (c * k, v)) l) (n * k)
+    if k = 0 then PBC [] 0 else
+      PBC (MAP (λ(c,v). (c * k, v)) l) (n * k)
 End
 
-(* k ≠ 0 needed for compactness *)
 Theorem multiply_thm:
   eval_pbc w c ⇒ eval_pbc w (multiply c k)
 Proof
@@ -303,8 +305,18 @@ Proof
   \\ irule LESS_EQ_TRANS
   \\ first_x_assum $ irule_at Any
   \\ pop_assum kall_tac
-  \\ Induct_on`l` \\ simp[] \\ Cases
-  \\ rw[]
+  \\ Induct_on`l` \\ simp[] \\ Cases \\ rw[]
+QED
+
+Theorem compact_multiply:
+  compact c ⇒ compact (multiply c k)
+Proof
+  Cases_on ‘c’ \\ reverse (rw [multiply_def,compact_def])
+  THEN1 gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  \\ Induct_on ‘l’ \\ fs [FORALL_PROD]
+  \\ Cases_on ‘l’ \\ fs []
+  \\ Cases_on ‘t’ \\ fs []
+  \\ PairCases_on ‘h’ \\ fs []
 QED
 
 (* saturation *)
@@ -386,6 +398,82 @@ Proof
   \\ metis_tac[]
 QED
 
+(* clean up *)
+
+Definition partition_def:
+  partition [] ys zs = (ys,zs) ∧
+  partition (x::xs) ys zs = partition xs zs (x::ys)
+End
+
+Theorem partition_length:
+  ∀xs ys zs ys1 zs1.
+    (ys1,zs1) = partition xs ys zs ⇒
+    LENGTH ys1 + LENGTH zs1 = LENGTH xs + LENGTH zs + LENGTH ys ∧
+    (ys ≠ [] ∧ zs ≠ [] ⇒ ys1 ≠ [] ∧ zs1 ≠ [])
+Proof
+  Induct \\ rw [partition_def]
+  \\ last_x_assum drule \\ fs []
+QED
+
+Theorem partition_sum:
+  ∀xs ys zs ys1 zs1.
+    partition xs ys zs = (ys1,zs1) ⇒
+    SUM (MAP (eval_term w) xs) + SUM (MAP (eval_term w) ys) + SUM (MAP (eval_term w) zs) =
+    SUM (MAP (eval_term w) ys1) + SUM (MAP (eval_term w) zs1)
+Proof
+  Induct \\ rw [partition_def] \\ res_tac \\ fs []
+QED
+
+Definition clean_up_def:
+  clean_up [] = ([],0) ∧
+  clean_up [x] = ([x],0) ∧
+  clean_up (x::y::xs) =
+    let (ys,zs) = partition xs [x] [y] in
+    let (ys1,k1) = clean_up ys in
+    let (ys2,k2) = clean_up zs in
+    let (res,k3) = add_lists ys1 ys2 in
+      (res,k1+k2+k3)
+Termination
+  WF_REL_TAC ‘measure LENGTH’ \\ rw []
+  \\ drule partition_length \\ fs []
+  \\ Cases_on ‘ys’ \\ Cases_on ‘zs’ \\ fs []
+End
+
+Theorem clean_up_thm:
+  ∀xs ys d.
+    clean_up xs = (ys,d) ⇒
+    SUM (MAP (eval_term w) xs) = SUM (MAP (eval_term w) ys) + d
+Proof
+  ho_match_mp_tac clean_up_ind \\ rw []
+  \\ gvs [clean_up_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ drule_then (qspec_then ‘w’ assume_tac) partition_sum
+  \\ drule_then (qspec_then ‘w’ assume_tac) add_lists_thm
+  \\ gvs []
+QED
+
+Theorem EVERY_partition:
+  ∀xs ys zs ys1 zs1 P.
+    partition xs ys zs = (ys1,zs1) ∧ EVERY P xs ∧ EVERY P ys ∧ EVERY P zs ⇒
+    EVERY P ys1 ∧ EVERY P zs1
+Proof
+  Induct \\ rw [partition_def]
+  \\ res_tac \\ fs []
+QED
+
+Theorem clean_up_sorted:
+  ∀xs ys d.
+    clean_up xs = (ys,d) ∧ EVERY (λ(c,l). c ≠ 0) xs ⇒
+    SORTED term_lt ys ∧ EVERY (λ(c,l). c ≠ 0) ys
+Proof
+  ho_match_mp_tac clean_up_ind \\ rw []
+  \\ gvs [clean_up_def]
+  \\ rpt (pairarg_tac \\ full_simp_tac std_ss []) \\ gvs []
+  \\ drule_at (Pos last) add_lists_sorted
+  \\ impl_tac \\ rw [] \\ fs []
+  \\ imp_res_tac EVERY_partition \\ gvs []
+QED
+
 (* substitution/instantiation *)
 
 Definition assign_def:
@@ -416,29 +504,66 @@ End
 Definition subst_def:
   subst f (PBC l n) =
     let (old,new,k) = subst_aux f l in
-      (PBC (old ++ new) (n - k))  (* TODO: replace ++ by addition *)
+    let (sorted,k2) = clean_up new in
+    let (result,k3) = add_lists old sorted in
+      (PBC result (n - (k + k2 + k3)))
 End
 
 Theorem subst_thm:
   eval_pbc w (subst f c) = eval_pbc (assign f w) c
 Proof
   Cases_on ‘c’ \\ fs [eval_pbc_def,subst_def]
-  \\ pairarg_tac \\ gvs [eval_pbc_def,GREATER_EQ]
-  \\ qsuff_tac
-    ‘∀l old new k.
-       subst_aux f l = (old,new,k) ⇒
-       SUM (MAP (eval_term (assign f w)) l) =
-       k + SUM (MAP (eval_term w) old ++ MAP (eval_term w) new)’
-  THEN1 (disch_then drule \\ fs [])
+  \\ rpt (pairarg_tac \\ gvs [eval_pbc_def,GREATER_EQ])
+  \\ ‘∀l old new k.
+        subst_aux f l = (old,new,k) ⇒
+        SUM (MAP (eval_term (assign f w)) l) =
+        k + SUM (MAP (eval_term w) old ++ MAP (eval_term w) new)’ by
+    (Induct \\ fs [subst_aux_def,FORALL_PROD]
+     \\ pairarg_tac \\ fs []
+     \\ rw []
+     \\ Cases_on ‘lookup (get_var p_2) f’ \\ gvs [assign_def]
+     THEN1 (Cases_on ‘p_2’ \\ fs [assign_def])
+     \\ Cases_on ‘x’ \\ gvs []
+     THEN1 (Cases_on ‘p_2’ \\ fs [assign_def] \\ Cases_on ‘x'’ \\ fs [])
+     \\ Cases_on ‘p_2’ \\ Cases_on ‘y’ \\ fs [assign_def]
+     \\ Cases_on ‘w n'’ \\ fs [SUM_APPEND])
+  \\ pop_assum $ drule_then assume_tac \\ fs [SUM_APPEND]
+  \\ drule_then (qspec_then ‘w’ assume_tac) clean_up_thm
+  \\ drule_then (qspec_then ‘w’ assume_tac) add_lists_thm
+  \\ gvs []
+QED
+
+(* subst is compact *)
+
+Theorem compact_subst:
+  compact c ⇒ compact (subst f c)
+Proof
+  Cases_on ‘c’ \\ fs [compact_def,subst_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ strip_tac
+  \\ qsuff_tac ‘∀l old new k.
+       SORTED term_lt l ∧ EVERY (λ(c,l). c ≠ 0) l ∧ subst_aux f l = (old,new,k) ⇒
+       SORTED term_lt old ∧ EVERY (λ(c,l). c ≠ 0) old ∧ EVERY (λ(c,l). c ≠ 0) new’
+  THEN1
+   (disch_then drule \\ fs [] \\ strip_tac
+    \\ drule clean_up_sorted \\ fs [] \\ strip_tac
+    \\ drule_all add_lists_sorted \\ fs [])
+  \\ rpt (pop_assum kall_tac)
   \\ Induct \\ fs [subst_aux_def,FORALL_PROD]
-  \\ pairarg_tac \\ fs []
-  \\ rw []
-  \\ Cases_on ‘lookup (get_var p_2) f’ \\ gvs [assign_def]
-  THEN1 (Cases_on ‘p_2’ \\ fs [assign_def])
+  \\ rpt gen_tac \\ strip_tac
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ Cases_on ‘lookup (get_var p_2) f’ \\ gvs []
+  \\ imp_res_tac sortingTheory.SORTED_TL \\ gvs [AllCaseEqs()]
+  \\ Cases_on ‘old'’ \\ fs []
+  \\ qpat_x_assum ‘subst_aux f l = (h::t,new,k)’ mp_tac
+  \\ qpat_x_assum ‘SORTED term_lt ((p_1,p_2)::l)’ mp_tac
+  \\ EVERY (map qid_spec_tac [‘p_1’,‘p_2’,‘t’,‘h’,‘new’,‘k’,‘l’])
+  \\ Induct \\ fs [subst_aux_def,FORALL_PROD] \\ rw []
+  \\ pairarg_tac \\ gvs []
+  \\ Cases_on ‘lookup (get_var p_2') f’ \\ gvs []
   \\ Cases_on ‘x’ \\ gvs []
-  THEN1 (Cases_on ‘p_2’ \\ fs [assign_def] \\ Cases_on ‘x'’ \\ fs [])
-  \\ Cases_on ‘p_2’ \\ Cases_on ‘y’ \\ fs [assign_def]
-  \\ Cases_on ‘w n'’ \\ fs [SUM_APPEND]
+  \\ first_x_assum irule
+  \\ Cases_on ‘l'’ \\ fs []
+  \\ Cases_on ‘h'’ \\ fs []
 QED
 
 (*
@@ -448,28 +573,8 @@ We need:
  - division (same factor in each)
  - division (round up coeficients, follows from above version)
  - saturation
-
-  3 * x + 1 * y + 1 * z >= 2
-  ⇒
-  (MIN 2 3) * x + (MIN 2 1) * y + (MIN 2 1) * z >= 2
-
  - substitution function (either literal or zero, one)
-     num -> lit + bool
-
- YK: would it make sense to separate into subst (lit for lit) and
-     inst (lit to const)? (Answer: perhaps it makes sense for impl.)
-
- YK: how does unit propagation work in this context?
- Stephan: perhaps we want to have the tool able to figure out
-          unit propagation proof
-
  - negate a constraint (call it not(c))
-
-  3 * x + 1 * y + 1 * z >= 2
--->
-  3 * x + 1 * y + 1 * z < 2 and then noramlise
-  3 * x + 1 * y + 1 * z ≤ 1
-  -3 * x + -1 * y + -1 * z >= -1
 
  - we have a set of constraints F, and a constraint C,
    suppose we have cutting planes derivation from F UNION not(C)
@@ -488,113 +593,6 @@ We need:
 
  a proof is a formula + commands, the proof ends when infeasible set
  is found (finding the line 0 >= k for some k > 0)
-
-*)
-
-(* junk
-
-Definition get_val_def:
-  get_val n s =
-    case lookup n s of
-    | NONE => (F,0)
-    | SOME res => res
-End
-
-Definition update_term_def:
-  update_term f (c,l) =
-    case lookup (get_var l) f of
-    | NONE => INL (c,l)
-    | SOME (INL b) => INR (if is_Pos l = b then c else 0)
-    | SOME (INR (Pos v)) => INL (c,if is_Pos l then Pos v else Neg v)
-    | SOME (INR (Neg v)) => INL (c,if is_Pos l then Neg v else Pos v)
-End
-
-Definition subst_aux_def:
-  subst_aux f (c,l) (s,k) =
-    case update_term f (c,l) of
-    | INR k' => (s,k+k')
-    | INL (c',l') =>
-      case lookup (get_var l) s of
-      | NONE => (insert (get_var l) (c',l') s,k)
-      | SOME (c1,l1) =>
-        case add_terms (c',l') (c',l') of
-        | ([],k') => (delete (get_var l) s,k+k')
-        | (r::_,k') => (insert (get_var l) r s,k+k')
-End
-
-Definition subst_def:
-  subst f (PBC l n) =
-    let (s,k) = FOLDR (subst_aux f) (LN,0) l in
-      PBC (MAP SND (toSortedAList s)) (n - k)
-End
-
-Theorem SUM_toSortedAList_NONE:
-  lookup n s = NONE ⇒
-  SUM (MAP (eval_term w) (MAP SND (toSortedAList (insert n x s)))) =
-  eval_term w x + SUM (MAP (eval_term w) (MAP SND (toSortedAList s)))
-Proof
-  cheat
-QED
-
-Theorem SUM_toSortedAList_SOME:
-  lookup n s = SOME y ⇒
-  SUM (MAP (eval_term w) (MAP SND (toSortedAList (insert n x s)))) =
-  eval_term w x + SUM (MAP (eval_term w) (MAP SND (toSortedAList (delete n s))))
-Proof
-  cheat
-QED
-
-Theorem SUM_toSortedAList_SOME_1:
-  lookup n s = SOME y ⇒
-  SUM (MAP (eval_term w) (MAP SND (toSortedAList s))) =
-  eval_term w y + SUM (MAP (eval_term w) (MAP SND (toSortedAList (delete n s))))
-Proof
-  cheat
-QED
-
-Theorem subst_thm:
-  eval_pbc w (subst f c) = eval_pbc (assign f w) c
-Proof
-  Cases_on ‘c’ \\ fs [eval_pbc_def,subst_def]
-  \\ pairarg_tac \\ gvs [eval_pbc_def,GREATER_EQ]
-  \\ qsuff_tac
-    ‘∀l s' k' s k.
-      FOLDR (subst_aux f) (s',k') l = (s,k) ⇒
-      SUM (MAP (eval_term (assign f w)) l) +
-      SUM (MAP (eval_term w) (MAP SND (toSortedAList s'))) + k' =
-      SUM (MAP (eval_term w) (MAP SND (toSortedAList s))) + k’
-  THEN1 (disch_then drule \\ fs [EVAL “toSortedAList LN”])
-  \\ pop_assum kall_tac
-  \\ Induct \\ fs [] \\ rw []
-  \\ Cases_on ‘FOLDR (subst_aux f) (s',k') l’
-  \\ rename [‘_ = (s2,k2)’]
-  \\ first_x_assum drule \\ rw []
-  \\ qabbrev_tac ‘d = SUM (MAP (eval_term w) (MAP SND (toSortedAList s')))’
-  \\ last_x_assum mp_tac
-  \\ PairCases_on ‘h’
-  \\ rewrite_tac [subst_aux_def,update_term_def]
-  \\ Cases_on ‘h1’ \\ fs [get_var_def,assign_def,is_Pos_def]
-
-    Cases_on ‘lookup n f’ \\ fs []
-
-      Cases_on ‘lookup n s2’ \\ fs [] \\ rw []
-      THEN1 fs [SUM_toSortedAList_NONE]
-      \\ gvs [add_terms_def,SUM_toSortedAList_SOME]
-
-      drule SUM_toSortedAList_SOME_1
-
-      \\ cheat
-
-    \\ Cases_on ‘x’ \\ fs []
-    THEN1 (Cases_on ‘x'’ \\ fs [] \\ rw [] \\ gvs [])
-    \\ Cases_on ‘y’ \\ fs []
-
-      Cases_on ‘lookup n s2’ \\ rw []
-      \\ fs [SUM_toSortedAList_NONE]
-
-  \\ drule FOLDR_subst_aux_lemma
-  \\ fs [EVAL “toSortedAList LN”]
-QED
 
 *)
 
