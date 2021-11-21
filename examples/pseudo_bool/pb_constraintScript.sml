@@ -270,7 +270,7 @@ Definition not_def:
   not (PBC l n) = PBC (MAP (I ## negate) l) (SUM (MAP FST l) + 1 - n)
 End
 
-Theorem negate_thm:
+Theorem not_thm:
   eval_pbc w (not c) ⇔ ~eval_pbc w c
 Proof
   Cases_on ‘c’ \\ fs [not_def,eval_pbc_def,GREATER_EQ]
@@ -478,7 +478,7 @@ QED
 
 Definition assign_def:
   assign f (w:num->bool) (n:num) =
-    case lookup n f of
+    case f n of
     | NONE => w n
     | SOME (INL b) => b            (* concrete value b *)
     | SOME (INR (Pos v)) =>   w v  (* subst with var v *)
@@ -494,7 +494,7 @@ Definition subst_aux_def:
   subst_aux f [] = ([],[],0) ∧
   subst_aux f ((c,l)::rest) =
     let (old,new,k) = subst_aux f rest in
-      case lookup (get_var l) f of
+      case f (get_var l) of
       | NONE => ((c,l)::old,new,k)
       | SOME (INL b) => (old,new,if is_Pos l = b then k+c else k)
       | SOME (INR n) => let x = (if is_Pos l then n else negate n) in
@@ -509,6 +509,10 @@ Definition subst_def:
       (PBC result (n - (k + k2 + k3)))
 End
 
+Definition subst_set_def:
+  subset_set f s = IMAGE (subst f) s
+End
+
 Theorem subst_thm:
   eval_pbc w (subst f c) = eval_pbc (assign f w) c
 Proof
@@ -521,7 +525,7 @@ Proof
     (Induct \\ fs [subst_aux_def,FORALL_PROD]
      \\ pairarg_tac \\ fs []
      \\ rw []
-     \\ Cases_on ‘lookup (get_var p_2) f’ \\ gvs [assign_def]
+     \\ Cases_on ‘f (get_var p_2)’ \\ gvs [assign_def]
      THEN1 (Cases_on ‘p_2’ \\ fs [assign_def])
      \\ Cases_on ‘x’ \\ gvs []
      THEN1 (Cases_on ‘p_2’ \\ fs [assign_def] \\ Cases_on ‘x'’ \\ fs [])
@@ -551,7 +555,7 @@ Proof
   \\ Induct \\ fs [subst_aux_def,FORALL_PROD]
   \\ rpt gen_tac \\ strip_tac
   \\ rpt (pairarg_tac \\ fs [])
-  \\ Cases_on ‘lookup (get_var p_2) f’ \\ gvs []
+  \\ Cases_on ‘f (get_var p_2)’ \\ gvs []
   \\ imp_res_tac sortingTheory.SORTED_TL \\ gvs [AllCaseEqs()]
   \\ Cases_on ‘old'’ \\ fs []
   \\ qpat_x_assum ‘subst_aux f l = (h::t,new,k)’ mp_tac
@@ -559,7 +563,7 @@ Proof
   \\ EVERY (map qid_spec_tac [‘p_1’,‘p_2’,‘t’,‘h’,‘new’,‘k’,‘l’])
   \\ Induct \\ fs [subst_aux_def,FORALL_PROD] \\ rw []
   \\ pairarg_tac \\ gvs []
-  \\ Cases_on ‘lookup (get_var p_2') f’ \\ gvs []
+  \\ Cases_on ‘f (get_var p_2')’ \\ gvs []
   \\ Cases_on ‘x’ \\ gvs []
   \\ first_x_assum irule
   \\ Cases_on ‘l'’ \\ fs []
@@ -582,13 +586,47 @@ Definition sat_implies_def:
   ∀w. satisfies w pbf ⇒ satisfies w pbf'
 End
 
+Overload "⊨" = “sat_implies”
+Overload "⇂" = “λf w. IMAGE (subst w) f”
+
+val _ = set_fixity "redundant_wrt" (Infixl 500);
+val _ = set_fixity "⊨" (Infixl 500);
+val _ = set_fixity "⇂" (Infixl 501);
+
+Definition redundant_wrt_def:
+  c redundant_wrt f ⇔ (satisfiable f ⇔ satisfiable (f ∪ {c}))
+End
+
+Theorem satisfies_simp[simp]:
+  satisfies w EMPTY = T ∧
+  satisfies w (c INSERT f) = (eval_pbc w c ∧ satisfies w f) ∧
+  satisfies w (f ∪ h) = (satisfies w f ∧ satisfies w h)
+Proof
+  fs [satisfies_def] \\ metis_tac []
+QED
+
 (* Statement of Prop 1 from Gocht/Nordstrom AAAI-21 *)
 Theorem substitution_redundancy:
-  satisfiable pbf ∧
-  sat_implies ((not C) INSERT pbf) (IMAGE w (C INSERT pbf)) ⇒
-  satisfiable (C INSERT pbf)
+  c redundant_wrt f
+  ⇔
+  ∃w. f ∪ {not c} ⊨ (f ∪ {c}) ⇂ w
 Proof
-  cheat
+  eq_tac \\ fs [redundant_wrt_def]
+  THEN1
+   (rw [satisfiable_def,sat_implies_def,not_thm]
+    \\ Cases_on ‘∃w. satisfies w f’ \\ fs []
+    \\ qexists_tac ‘SOME o INL o w’
+    \\ ‘∀w'. assign (SOME o INL o w) w' = w’ by fs [assign_def,FUN_EQ_THM]
+    \\ fs [satisfies_def,PULL_EXISTS,subst_thm])
+  \\ rw []
+  \\ Cases_on ‘satisfiable f’ \\ fs []
+  \\ fs [satisfiable_def]
+  \\ fs [sat_implies_def,not_thm]
+  \\ Cases_on ‘eval_pbc w' c’ THEN1 metis_tac []
+  \\ first_x_assum drule_all
+  \\ rw [subst_thm]
+  \\ first_x_assum $ irule_at (Pos last)
+  \\ fs [satisfies_def,PULL_EXISTS,subst_thm]
 QED
 
 (*
