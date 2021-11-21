@@ -567,7 +567,7 @@ val sexppat_alt_def = tDefine"sexppat_alt"`
         OPTION_MAP2 Pcon (sexpopt (sexpid odestSEXSTR) (EL 0 args))
           (sexppat_list (EL 1 args))
       else if nm = "Pas" ∧ LENGTH args = 2 then
-        OPTION_MAP2 Pas (sexppat (EL 0 args))
+        OPTION_MAP2 Pas (sexppat_alt (EL 0 args))
                         (odestSEXSTR (EL 1 args))
       else if nm = "Pref" ∧ LENGTH args = 1 then
         OPTION_MAP Pref (sexppat_alt (EL 0 args))
