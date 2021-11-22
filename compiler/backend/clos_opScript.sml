@@ -151,20 +151,18 @@ End
 Definition cons_op_def:
   cons_op op t xs =
     dtcase dest_ElemAt op of
-    | SOME n => (if EVERY pure xs ∧ n < LENGTH xs then SOME (EL n xs)
-                 else SOME (Let None xs (Var None n)))
+    | SOME n => (if n < LENGTH xs then
+                   SOME (Let None xs (Var None (LENGTH xs - (n + 1))))
+                 else NONE)
     | NONE =>
     dtcase dest_TagLenEq op of
-    | SOME (n,l) => (if EVERY pure xs then SOME (MakeBool (n = t ∧ LENGTH xs = l))
-                     else SOME (Let None xs (MakeBool (n = t ∧ LENGTH xs = l))))
+    | SOME (n,l) => SOME (Let None xs (MakeBool (n = t ∧ LENGTH xs = l)))
     | NONE =>
     dtcase dest_TagEq op of
-    | SOME n => (if EVERY pure xs then SOME (MakeBool (n = t))
-                 else SOME (Let None xs (MakeBool (n = t))))
+    | SOME n => SOME (Let None xs (MakeBool (n = t)))
     | NONE =>
     dtcase dest_LenEq op of
-    | SOME l => (if EVERY pure xs then SOME (MakeBool (LENGTH xs = l))
-                 else SOME (Let None xs (MakeBool (LENGTH xs = l))))
+    | SOME l => SOME (Let None xs (MakeBool (LENGTH xs = l)))
     | NONE => NONE
 End
 
@@ -244,10 +242,10 @@ Definition eq_pure_list_def:
       | (NONE, NONE) => List [Op None Equal [x;y]]
       | (SOME (t1,xs), SOME (t2,ys)) =>
            if t1 ≠ t2 ∨ LENGTH xs ≠ LENGTH ys then List [MakeBool F]
-           else eq_pure_list (ZIP (xs, ys))
+           else eq_pure_list (ZIP (REVERSE xs, REVERSE ys))
       | (SOME (t1,xs), NONE) =>
            Append (List [Op None (TagLenEq t1 (LENGTH xs)) [y]])
-                  (eq_pure_list (MAPi (λi x. (x, Op None (ElemAt i) [y])) xs))
+                  (eq_pure_list (MAPi (λi x. (x, Op None (ElemAt i) [y])) (REVERSE xs)))
       | (NONE, SOME (t1,ys)) => eq_pure_list [(y,x)]) ∧
   eq_pure_list (xy::xys) = Append (eq_pure_list [xy]) (eq_pure_list xys)
 Termination
@@ -258,7 +256,11 @@ Termination
   THEN1
    (fs [o_DEF,cons_measure_lemma]
     \\ imp_res_tac cons_measure_lemma \\ fs []
-    \\ qid_spec_tac ‘p_2’ \\ Induct using SNOC_INDUCT
+    \\ ‘LENGTH p_2 = LENGTH (REVERSE p_2)’ by fs []
+    \\ ‘SUM (MAP cons_measure p_2) = SUM (MAP cons_measure (REVERSE p_2))’ by
+      (rpt (pop_assum kall_tac) \\ Induct_on ‘p_2’ \\ fs [SUM_APPEND])
+    \\ asm_rewrite_tac[]
+    \\ qspec_tac (‘REVERSE p_2’,‘p_3’) \\ Induct using SNOC_INDUCT
     \\ fs [SNOC_APPEND,MAPi_APPEND,SUM_APPEND])
   \\ imp_res_tac cons_measure_lemma \\ fs [cons_measure_lemma,MEM_SPLIT,SUM_APPEND]
   \\ qpat_x_assum ‘LENGTH _ = _’ mp_tac
@@ -268,7 +270,7 @@ Termination
   \\ Induct THEN1 (Cases \\ fs [])
   \\ Cases_on ‘ys'’ \\ fs [] \\ rpt strip_tac
   \\ first_x_assum drule
-  \\ decide_tac
+  \\ fs [GSYM rich_listTheory.ZIP_APPEND,SUM_APPEND]
 End
 
 Definition ConjList_def:
@@ -287,8 +289,8 @@ Triviality eq_pure_list_test:
           [(Var None 5,
             Op None (Cons 70) [Op None (Const 2) []; Op None (Cons 4) []])]) =
      [Op None (TagLenEq 70 2) [Var None 5];
-      Op None (EqualInt 2) [Op None (ElemAt 0) [Var None 5]];
-      Op None (TagLenEq 4 0) [Op None (ElemAt 1) [Var None 5]]]
+      Op None (TagLenEq 4 0) [Op None (ElemAt 0) [Var None 5]];
+      Op None (EqualInt 2) [Op None (ElemAt 1) [Var None 5]]]
 Proof
   EVAL_TAC
 QED
@@ -297,7 +299,10 @@ Definition dont_lift_def:
   dont_lift x =
     dtcase dest_Op_Const x of
     | SOME i => T
-    | NONE => F
+    | NONE =>
+      dtcase dest_Op_Cons_Nil x of
+      | SOME t => T
+      | NONE => F
 End
 
 Definition lift_exps_def:

@@ -514,6 +514,12 @@ QED
 
 val fv_max_def = Define `fv_max n xs = !v. fv v xs ==> v < n`;
 
+Theorem fv_max_SmartOp:
+  fv_max n [Op t op xs] ⇒ fv_max n [SmartOp t op xs]
+Proof
+  fs [fv_max_def,fv1_SmartOp]
+QED
+
 Theorem fv_alt:
    !n xs. fv n xs <=> has_var n (SND (free xs))
 Proof
@@ -709,7 +715,7 @@ val value_ind =
   TypeBase.induction_of ``:closSem$v``
    |> Q.SPECL [`P`, `EVERY P`]
    |> SIMP_RULE (srw_ss()) []
-   |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> Q.GEN `P`
+   |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> Q.GEN `P`;
 
 Theorem do_app_ssgc:
    !opn args s0 res.
@@ -761,6 +767,9 @@ Proof
   >- (simp[PULL_FORALL] \\ rw []
       \\ fs [ssgc_free_def] \\ res_tac
       \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
+      \\ fs [EVERY_EL] \\ rw [] \\ res_tac \\ fs [])
+  >- (simp[PULL_FORALL] \\ rw []
+      \\ fs [ssgc_free_def] \\ res_tac
       \\ fs [EVERY_EL] \\ rw [] \\ res_tac \\ fs [])
   >- (simp[ssgc_free_def] >>
       rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
@@ -5246,7 +5255,7 @@ Proof
   \\ TRY (match_mp_tac val_approx_no_Labels_merge \\ fs [])
   \\ fs[IS_SOME_EXISTS, any_el_ALT, EVERY_REPLICATE] \\ rveq \\ fs[]
   >- (rw[] \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,val_approx_no_Labels_def] )
-  >- (imp_res_tac no_Labels_SmartOp \\ IF_CASES_TAC \\ fs[] \\ CASE_TAC \\ fs[] )
+  >- (rw [no_Labels_SmartOp] \\ CASE_TAC \\ fs [no_Labels_SmartOp])
   \\ fs [val_approx_no_Labels_def]
   >- (imp_res_tac known_op_no_Labels \\ fs[EVERY_REVERSE])
   >- (imp_res_tac known_op_no_Labels \\ fs[EVERY_REVERSE])
