@@ -325,6 +325,13 @@ Note that CakeML requires that constructors are fully applied. This
 means that `List.map Some xs` is not allowed; instead one can write
 `List.map (fn x => Some x) xs`.
 
+CakeML supports nested patterns and the `as` pattern:
+
+    fun as_pattern_demo a =
+      case a of
+        B [b1 as D (A 4) b2] => bar_toString b1 ^ bar_toString b2
+      | _                    => foo_toString a;
+
 Exceptions are defined in a similar style and can be used as normal
 constructors in patterns:
 
