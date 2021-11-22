@@ -91,7 +91,7 @@ in
       in
         if aconv fringe_t ttoks then let
           val ptree_res =
-              case Lib.total mk_comb(sem,res) of
+              case Lib.total mk_icomb(sem,res) of
                   NONE => optionSyntax.mk_none bool
                 | SOME t =>
                   let
