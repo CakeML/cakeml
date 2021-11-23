@@ -2836,7 +2836,7 @@ Proof
         src_orac_next_cfg_inner_def]
   \\ every_case_tac \\ fs []
   \\ rfs []
-  \\ fs [lem_listTheory.list_index_def]
+  \\ fs [oEL_THM]
   \\ rveq \\ fs []
   \\ first_x_assum (drule_then drule)
   \\ rw [] \\ simp []
@@ -3787,7 +3787,7 @@ Proof
   \\ rveq \\ fs []
   \\ TRY (imp_res_tac step_1 \\ fs [env_gen_rel_def] \\ NO_TAC)
   \\ simp [v_rel_eqns, PULL_EXISTS, nat_to_v_def]
-  \\ fs [lem_listTheory.list_index_def]
+  \\ fs [oEL_THM]
   \\ simp [EL_LUPDATE]
   \\ fs [src_orac_next_cfg_def]
   \\ rw []
@@ -4626,7 +4626,7 @@ Proof
   >- (
     fs [src_orac_env_invs_def, env_gen_future_rel_def]
     \\ rfs [src_orac_next_cfg_def]
-    \\ fs [env_gen_rel_def, lem_listTheory.list_index_def]
+    \\ fs [env_gen_rel_def, oEL_THM]
     \\ rveq \\ fs []
     \\ fs [EL_LUPDATE, EL_APPEND_IF]
     \\ rw []
@@ -4662,14 +4662,14 @@ Proof
     \\ rfs [orac_config_envs_subspt_def, src_orac_next_cfg_def]
   )
   >- (
-    fs [env_gen_rel_def, lem_listTheory.list_index_def]
+    fs [env_gen_rel_def, oEL_THM]
     \\ simp [EL_LUPDATE]
   )
   >- (
     simp [Once v_rel_cases]
     \\ fs [EL_LUPDATE, markerTheory.Abbrev_def, v_rel_eqns]
     \\ simp [nat_to_v_def, v_rel_eqns]
-    \\ fs [lem_listTheory.list_index_def]
+    \\ fs [oEL_THM]
     \\ rveq \\ fs []
     \\ fs [env_gen_rel_def]
   )
