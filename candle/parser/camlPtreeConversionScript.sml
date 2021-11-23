@@ -777,7 +777,13 @@ Definition ptree_Pattern_def:
     else if nterm = INL nPAs then
       case args of
         [pat] => ptree_Pattern nPOr pat
-      | [pat; ast; id] => fail (locs, «Pattern aliases are not supported»)
+      | [pat; ast; id] =>
+          do
+            expect_tok ast AsT;
+            p <- ptree_Pattern nPOr pat;
+            nm <- ptree_Ident id;
+            return (MAP (λp. Pas p nm) p)
+          od
       | _ => fail (locs, «Impossible: nPAs»)
     else if nterm = INL nPattern then
       case args of
