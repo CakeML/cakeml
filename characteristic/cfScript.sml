@@ -1875,14 +1875,6 @@ val cf_def = tDefine "cf" `
        every_case_tac \\ fs [astTheory.exp_size_def] \\
        drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]
      )
-     THEN1 (
-       Induct_on `branches` \\ fs [MEM] \\ rpt strip_tac \\ rw [] \\
-       fs [astTheory.exp_size_def]
-     )
-     THEN1 (
-       Induct_on `branches` \\ fs [MEM] \\ rpt strip_tac \\ rw [] \\
-       fs [astTheory.exp_size_def]
-     )
   )
 
 val cf_ind = fetch "-" "cf_ind"
