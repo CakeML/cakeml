@@ -234,8 +234,7 @@ Datatype:
     | nPOr | nPAs | nPList | nPattern | nPatterns
     (* types *)
     | nTypeList | nTypeLists
-    | nTVar | nTAny | nTBase | nTConstr | nTProd | nTFun
-    | nTAs | nType
+    | nTVar | nTBase | nTConstr | nTProd | nTFun | nType
     (* definitions *)
     | nDefinition | nTopLet | nTopLetRec | nModuleItem | nModuleItems | nOpen
     | nModExpr | nModuleDef
@@ -243,118 +242,6 @@ Datatype:
     (* misc *)
     | nShiftOp | nMultOp | nAddOp | nRelOp | nAndOp | nOrOp | nCatOp | nPrefixOp
     | nAssignOp | nStart
-End
-
-(* Printing names of non-terminals, useful for debugging the parse-tree
- * to ast conversion.
- *)
-
-Definition camlNT2string_def:
-  camlNT2string n =
-    case n of
-      nEHolInfix => strlit"hol-infix-expression"
-    | nValueName => strlit"value-name"
-    | nOperatorName => strlit"operator-name"
-    | nConstrName => strlit"constr-name"
-    | nTypeConstrName => strlit"typeconstr-name"
-    | nModuleName => strlit"module-name"
-    | nValuePath => strlit"value-path"
-    | nConstr => strlit"constr"
-    | nTypeConstr => strlit"typeconstr"
-    | nModulePath => strlit"module-path"
-    | nLiteral => strlit"literal"
-    | nIdent => strlit"ident"
-    | nEBase => strlit"base-expr"
-    | nEList => strlit"list-expr"
-    | nEApp => strlit"app-expr"
-    | nEConstr => strlit"constr-app"
-    | nEFunapp => strlit"fun-app"
-    | nEAssert => strlit"assert-app"
-    | nELazy => strlit"lazy-app"
-    | nEPrefix => strlit"prefix-op"
-    | nENeg => strlit"negation-op"
-    | nEShift => strlit"shift-op"
-    | nEMult => strlit"mult-op"
-    | nEAdd => strlit"add-op"
-    | nECons => strlit"cons-op"
-    | nECat => strlit"cat-op"
-    | nERel => strlit"rel-op"
-    | nEAnd => strlit"and-op"
-    | nEOr => strlit"or-op"
-    | nEProd => strlit"prod-op"
-    | nEAssign => strlit"assign-expr"
-    | nEIf => strlit"if-then[-else]"
-    | nESeq => strlit"seq (;)"
-    | nEMatch => strlit"match"
-    | nETry => strlit"try"
-    | nEFun => strlit"fun"
-    | nEFunction => strlit"function"
-    | nELet => strlit"let"
-    | nELetRec => strlit"let rec"
-    | nEWhile => strlit"while"
-    | nEFor => strlit"for"
-    | nExpr => strlit"expr"
-    | nLetBinding => strlit"let-binding"
-    | nLetBindings => strlit"let-bindings"
-    | nLetRecBinding => strlit"letrec-binding"
-    | nLetRecBindings => strlit"letrec-bindings"
-    | nPatternMatch => strlit"pattern-match"
-    | nPatternMatches => strlit"pattern-matches"
-    | nTypeDefinition => strlit"type-definition"
-    | nTypeDef => strlit"type-def"
-    | nTypeDefs => strlit"type-defs"
-    | nTypeParams => strlit"type-params"
-    | nTypeInfo => strlit"type-info"
-    | nTypeRepr => strlit"type-repr"
-    | nTypeReprs => strlit"type-reprs"
-    | nConstrDecl => strlit"constr-decl"
-    | nConstrArgs => strlit"constr-args"
-    | nExcDefinition => strlit"exc-definition"
-    | nPAny => strlit"pat-any"
-    | nPBase => strlit"pat-base"
-    | nPLazy => strlit"pat-lazy"
-    | nPConstr => strlit"pat-constr"
-    | nPApp => strlit"pat-app"
-    | nPCons => strlit"pat-cons"
-    | nPProd => strlit"pat-prod"
-    | nPOr => strlit"pat-or"
-    | nPAs => strlit"pat-as"
-    | nPList => strlit"pat-list"
-    | nPattern => strlit"pattern"
-    | nPatterns => strlit"patterns"
-    | nTypeList => strlit"type-list"
-    | nTypeLists => strlit"type-lists"
-    | nTVar => strlit"type-var"
-    | nTAny => strlit"type-any"
-    | nTBase => strlit"type-base"
-    | nTConstr => strlit"type-constr"
-    | nTProd => strlit"type-prod"
-    | nTFun => strlit"type-fun"
-    | nTAs => strlit"type-as"
-    | nType => strlit"type"
-    | nDefinition => strlit"definition"
-    | nTopLet => strlit"top-let"
-    | nTopLetRec => strlit"top-letrec"
-    | nModuleItem => strlit"module-item"
-    | nModuleItems => strlit"module-items"
-    | nOpen => strlit"open"
-    | nModExpr => strlit"mod-expr"
-    | nModuleDef => strlit"module-def"
-    | nPrefixOp => strlit"prefix-op"
-    | nShiftOp => strlit"shift-op"
-    | nMultOp => strlit"mult-op"
-    | nAddOp => strlit"add-op"
-    | nCatOp => strlit"append-op"
-    | nRelOp => strlit"rel-op"
-    | nAndOp => strlit"and-op"
-    | nOrOp => strlit"or-op"
-    | nHolInfixOp => strlit"hol-infix-op"
-    | nAssignOp => strlit"assignment-op"
-    | nStart => strlit"start"
-    | nSemis => strlit"double-semicolons"
-    | nExprItem => strlit"expr-item"
-    | nExprItems => strlit"expr-items"
-    | nDefItem => strlit"def-item"
 End
 
 (* Definition of the OCaml PEG.
@@ -503,14 +390,11 @@ Definition camlPEG_def[nocompute]:
             (bindNT nTypeLists));
       (INL nTVar,
        seql [tokeq TickT; pnt nIdent] (bindNT nTVar));
-      (INL nTAny,
-       pegf (tokeq AnyT) (bindNT nTAny));
       (INL nTBase,
        pegf (choicel [seql [tokeq LparT; pnt nType; tokeq RparT] I;
                       seql [tokeq LparT; pnt nTypeList; tokeq RparT;
                             pnt nTypeConstr] I;
-                      pnt nTVar;
-                      pnt nTAny])
+                      pnt nTVar])
             (bindNT nTBase));
       (* -- Type4 ---------------------------------------------------------- *)
       (INL nTConstr,
@@ -526,13 +410,9 @@ Definition camlPEG_def[nocompute]:
       (INL nTFun,
        seql [pnt nTProd; try (seql [tokeq RarrowT; pnt nTFun] I)]
             (bindNT nTFun));
-      (* -- Type1 ---------------------------------------------------------- *)
-      (INL nTAs,
-       seql [pnt nTFun; try (seql [tokeq AsT; tokeq TickT; pnt nIdent] I)]
-            (bindNT nTAs));
       (* -- Type ----------------------------------------------------------- *)
       (INL nType,
-       pegf (pnt nTAs) (bindNT nType));
+       pegf (pnt nTFun) (bindNT nType));
       (* -- Expr16 --------------------------------------------------------- *)
       (INL nEList,
        seql [tokeq LbrackT;
