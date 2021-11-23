@@ -391,10 +391,7 @@ val _ = register "enc_ast_t" enc_ast_t_def enc_ast_t_ind;
 val (enc_pat_def, enc_pat_ind) =
   tprove_no_defn ((enc_pat_def, enc_pat_ind),
     WF_REL_TAC `measure pat_size`
-    \\ rw [] \\ fs [pat_size_def]
-    \\ qsuff_tac `!a l. MEM a l ==> pat_size a < pat1_size l`
-    THEN1 (rw[] \\ res_tac \\ fs [])
-    \\ Induct_on `l` \\ fs [] \\ rw [] \\ fs [pat_size_def] \\ res_tac \\ fs [])
+    \\ rw [] \\ fs [pat_size_def])
 val _ = register "enc_pat" enc_pat_def enc_pat_ind;
 
 val (enc_exp_def, enc_exp_ind) =
