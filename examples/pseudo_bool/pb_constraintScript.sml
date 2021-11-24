@@ -587,10 +587,6 @@ Definition subst_def:
       (PBC result (n - (k + k2 + k3)))
 End
 
-Definition subst_set_def:
-  subset_set f s = IMAGE (subst f) s
-End
-
 Theorem subst_thm:
   eval_pbc w (subst f c) = eval_pbc (assign f w) c
 Proof
