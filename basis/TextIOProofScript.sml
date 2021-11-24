@@ -7357,7 +7357,7 @@ Proof
       \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP,MAX_DEF])
   \\ conj_tac
   >- (gs[get_mode_def,fastForwardFD_def,get_file_content_def]
-      \\ PairCases_on ‘z’
+      \\ PairCases_on ‘x'’
       \\ qmatch_assum_rename_tac ‘ALOOKUP _ _ = SOME (ino,mode,off')’
       \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP])
   \\ xsimpl \\ simp[fastForwardFD_eq_forwardFD] \\ xsimpl
@@ -7633,7 +7633,7 @@ Proof
       \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP,MAX_DEF])
   \\ conj_tac
   >- (gs[get_mode_def,fastForwardFD_def,get_file_content_def]
-      \\ PairCases_on ‘z’
+      \\ PairCases_on ‘x'’
       \\ qmatch_assum_rename_tac ‘ALOOKUP _ _ = SOME (ino,mode,off')’
       \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP])
   \\ xsimpl \\ simp[fastForwardFD_eq_forwardFD] \\ xsimpl
