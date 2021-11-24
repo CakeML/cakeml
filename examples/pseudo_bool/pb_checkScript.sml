@@ -41,17 +41,17 @@ Type pbf = ``:pb_constraint spt``;
 Type pbp = ``:pbpstep list``;
 
 (* Computes the LHS term of the slack of a constraint under
-  a partial assignment p (list of literals)
+  a partial assignment p (list of literals) *)
 Definition lslack_def:
   lslack (PBC ls num) p =
   SUM (MAP FST (FILTER (λ(a,b). ¬MEM (negate b) p) ls))
 End
 
 Definition check_contradiction_def:
-  check_contradiction (PBC ls num) = ¬
+  check_contradiction (PBC ls num) =
   let l = lslack (PBC ls num) [] in
     l < num
-End *)
+End
 
 Definition check_polish_def:
   (check_polish fml (Id n) = lookup n fml) ∧
@@ -160,25 +160,23 @@ Proof
     (* multiply case *)
     metis_tac[compact_multiply])
   >- (
-    (* divide case TODO: must be changed to ensure compactness(?) *)
-    cheat)
+    metis_tac[compact_divide])
   >- (
-    (* saturate case TODO: must be changed to ensure compactness *)
-    cheat)
+    metis_tac[compact_saturate])
   >- (
     (* literal case *)
     EVAL_TAC)
   >- (
     (* weaken case *)
-    cheat)
+    metis_tac[compact_weaken])
 QED
 
 Theorem check_contradiction_unsat:
   check_contradiction c ⇒
   ¬eval_pbc w c
 Proof
-  Cases_on`c`>>rw[check_contradiction_def,eval_pbc_def,lslack_def]>>
-  CCONTR_TAC>>fs[]>>
+  Cases_on`c`>>
+  rw[check_contradiction_def,eval_pbc_def,lslack_def]>>
   qmatch_asmsub_abbrev_tac`MAP FST lss`>>
   `lss = l` by
     fs[Abbr`lss`,FILTER_EQ_ID,EVERY_MEM,FORALL_PROD]>>
@@ -287,6 +285,19 @@ Proof
   (* two subgoals *)
   first_x_assum(qspecl_then [`s`,`n`] assume_tac)>>rfs[]>>
   metis_tac[check_pbpstep_Cont]
+QED
+
+Theorem check_pbpstep_compact:
+  (∀c. c ∈ values fml ⇒ compact c) ∧
+  check_pbpstep step fml id = Cont fml' id' ⇒
+  (∀c. c ∈ values fml' ⇒ compact c)
+Proof
+  Cases_on`step`>>fs[check_pbpstep_def]>>
+  every_case_tac>>rw[]
+  >-
+    metis_tac[values_FOLDL_delete,SUBSET_DEF] >>
+  drule values_insert>>rw[]>>
+  metis_tac[check_polish_compact]
 QED
 
 (* TODO: write a parser *)

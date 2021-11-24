@@ -259,8 +259,32 @@ Proof
   \\ fs [le_mult_div_ceiling]
 QED
 
-(* negation *)
+Theorem div_ceiling_ge_one:
+  m ≠ 0 ∧ n ≠ 0 ⇒ 1 ≤ div_ceiling m n
+Proof
+  rw[div_ceiling_def]>>
+  Cases_on`m`>>fs[ADD1]>>
+  `0 < n` by fs[]>>
+  drule ADD_DIV_RWT>>
+  disch_then (fn th => DEP_REWRITE_TAC[th])>>fs[]
+QED
 
+Theorem compact_divide:
+  compact c ∧ k ≠ 0 ⇒ compact (divide c k)
+Proof
+  Cases_on`c` \\ rw[compact_def,divide_def]
+  THEN1 (Induct_on ‘l’ \\ fs [FORALL_PROD]
+    \\ Cases_on ‘l’ \\ fs []
+    \\ Cases_on ‘t’ \\ fs []
+    \\ PairCases_on ‘h’ \\ fs [])
+  \\ fs[EVERY_MAP,EVERY_MEM]
+  \\ rw[] \\ first_x_assum drule
+  \\ pairarg_tac \\ fs[]
+  \\ strip_tac \\ imp_res_tac div_ceiling_ge_one
+  \\ fs[]
+QED
+
+(* negation *)
 Definition negate_def[simp]:
   negate (Pos n) = Neg n ∧
   negate (Neg n) = Pos n
@@ -322,7 +346,8 @@ QED
 (* saturation *)
 Definition saturate_def:
   saturate (PBC l n) =
-    PBC (MAP (λ(c,v). (MIN c n, v)) l) n
+    if n = 0 then PBC [] n
+    else PBC (MAP (λ(c,v). (MIN c n, v)) l) n
 End
 
 Theorem eval_lit_bool:
@@ -348,6 +373,17 @@ Proof
     \\ first_x_assum match_mp_tac
     \\ fs[])
   \\ pop_assum (qspec_then`0` assume_tac) \\ fs[]
+QED
+
+Theorem compact_saturate:
+  compact c ⇒ compact (saturate c)
+Proof
+  Cases_on ‘c’ \\ reverse (rw [saturate_def,compact_def])
+  THEN1 gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  \\ Induct_on ‘l’ \\ fs [FORALL_PROD]
+  \\ Cases_on ‘l’ \\ fs []
+  \\ Cases_on ‘t’ \\ fs []
+  \\ PairCases_on ‘h’ \\ fs []
 QED
 
 Definition weaken_aux_def:
@@ -396,6 +432,48 @@ Proof
   \\ rw [eval_pbc_def,GREATER_EQ]
   \\ match_mp_tac weaken_aux_theorem0
   \\ metis_tac[]
+QED
+
+Theorem weaken_aux_contains:
+  ∀v ls n ls' n' x.
+  weaken_aux v ls n = (ls',n') ∧
+  MEM x ls' ⇒ MEM x ls
+Proof
+  ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
+  \\ pairarg_tac \\ fs[]
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ fs[]
+QED
+
+Theorem SORTED_weaken_aux:
+  ∀v ls n ls' n'.
+  SORTED term_lt ls ∧
+  weaken_aux v ls n = (ls',n') ⇒
+  SORTED term_lt ls'
+Proof
+  ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
+  \\ pairarg_tac \\ fs[]
+  \\ every_case_tac \\ fs[] \\ rw[]
+  >-
+    metis_tac[SORTED_TL]
+  \\ qpat_x_assum `SORTED _ (_ :: _)` mp_tac
+  \\ DEP_REWRITE_TAC [SORTED_EQ] \\ rw[]
+  >-
+    simp[transitive_def,FORALL_PROD]
+  \\ drule weaken_aux_contains
+  \\ metis_tac[]
+QED
+
+Theorem compact_weaken:
+  compact c ⇒ compact (weaken c v)
+Proof
+  Cases_on ‘c’ \\ rw[weaken_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rw[]
+  >-
+    metis_tac[SORTED_weaken_aux]
+  \\ fs[EVERY_MEM,FORALL_PROD]
+  \\ metis_tac[weaken_aux_contains]
 QED
 
 (* clean up *)
