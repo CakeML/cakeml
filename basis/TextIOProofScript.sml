@@ -6158,7 +6158,7 @@ Proof
   \\ rveq
   \\ `pos < LENGTH content`
   by ( CCONTR_TAC \\ full_simp_tac std_ss[NOT_LESS,GSYM GREATER_EQ,GSYM DROP_NIL]
-       \\ gvs[])
+       \\ full_simp_tac std_ss [EVAL “splitlines ""”, NOT_CONS_NIL])
   \\ fs[DROP_DROP_T]
   \\ pairarg_tac \\ fs[implode_def,STRING_TYPE_def,std_preludeTheory.OPTION_TYPE_def] \\ rveq
   \\ xmatch
@@ -6713,8 +6713,7 @@ Proof
   \\ disch_then (qspecl_then [‘p’,‘fs’] assume_tac)
   \\ asm_exists_tac
   \\ xsimpl
-  \\ fs [get_file_content_def,get_mode_def,STD_streams_def]
-  \\ rpt (pairarg_tac \\ gs[])
+  \\ gvs [get_file_content_def,AllCaseEqs(),get_mode_def]
 QED
 
 Theorem b_openIn_spec_str:
