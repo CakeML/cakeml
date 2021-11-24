@@ -46,9 +46,7 @@ val encode_str_def = Define`
     else if unicode then implode ("\\u" ++ REVERSE (n_rev_hex_digs 4 (ORD c)))
     else concat [strlit "\\"; toString (ORD c)]) s2)`;
 
-val obj_size_def = fetch "-" "obj_size_def"
-
-val json_to_mlstring_def = tDefine "json_to_mlstring" `
+Definition json_to_mlstring_def:
   (json_to_mlstring obj =
     case obj of
         | Object mems => List [strlit "{"] ++
@@ -63,12 +61,11 @@ val json_to_mlstring_def = tDefine "json_to_mlstring" `
        | Null => List [strlit "null"])
   /\
   (mem_to_string n_obj = let (n, obj) = n_obj in
-        List [strlit "\""; n; strlit "\":"] ++ json_to_mlstring obj)`
-  (WF_REL_TAC `measure (\x. case x of
+        List [strlit "\""; n; strlit "\":"] ++ json_to_mlstring obj)
+Termination
+   WF_REL_TAC `measure (\x. case x of
        | INL obj => obj_size obj
        | INR p => obj2_size p)` \\ rw []
-   THEN1 (Induct_on `obs` \\ fs [] \\ rw [obj_size_def] \\ fs [])
-   THEN1 (Induct_on `mems` \\ fs [] \\ rw [obj_size_def] \\ fs []
-          \\ rw [obj_size_def]));
+End
 
 val _ = export_theory();
