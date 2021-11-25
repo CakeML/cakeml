@@ -53,4 +53,7 @@ Proof
   recInduct remove_ticks_ind \\ fs [remove_ticks_def]
 QED
 
+val compile_inc_def = Define `
+  compile_inc (e, xs) = (remove_ticks e, [])`;
+
 val _ = export_theory();

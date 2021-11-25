@@ -61,6 +61,7 @@ Definition compile_pat_def:
       (OPTION_JOIN (OPTION_MAP (nsLookup env.c) id))
       (MAP (compile_pat env) ps)) ∧
   (compile_pat env (Pref p) = Pref (compile_pat env p)) ∧
+  (compile_pat env (Pas p i) = Pas (compile_pat env p) i) ∧
   (compile_pat env (Ptannot p t) = compile_pat env p)
 Termination
   WF_REL_TAC `measure (pat_size o SND)` >>
@@ -435,7 +436,7 @@ val empty_config_def = Define`
   empty_config =
     <| next := <| vidx := 0; tidx := 0; eidx := 0 |>;
         mod_env := empty_env;
-        pattern_cfg := flat_pattern$init_config (K 0);
+        pattern_cfg := flat_pattern$init_config 0;
         envs := <| next := 0; env_gens := LN |>
     |>`;
 

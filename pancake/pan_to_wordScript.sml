@@ -1,5 +1,5 @@
 (*
-  Correctness proof for --
+  Compiler from pan to word
 *)
 
 open preamble

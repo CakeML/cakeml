@@ -37,8 +37,8 @@ Theorem pats_bindings_FLAT_MAP:
 Proof
   Induct
   \\ simp[flatLangTheory.pat_bindings_def]
-  \\ Cases \\ simp[flatLangTheory.pat_bindings_def]
-  \\ metis_tac[pat_bindings_accum]
+  \\ Cases \\ rw[flatLangTheory.pat_bindings_def]
+  \\ metis_tac [pat_bindings_accum, APPEND_ASSOC, CONS_APPEND]
 QED
 
 val s =  ``s:('c,'ffi) state``

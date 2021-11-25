@@ -419,8 +419,12 @@ Definition cmlPEG_def[nocompute]:
                seql [pnt nPapp;
                      try (seql [tokeq (SymbolT "::"); pnt nPcons] I)]
                     (bindNT nPcons));
+              (mkNT nPas,
+               seql [try (seql [pnt nV; tokeq AsT] I);
+                     pnt nPcons]
+                    (bindNT nPas));
               (mkNT nPattern,
-               seql [pnt nPcons; try (seql [tokeq ColonT; pnt nType] I)]
+               seql [pnt nPas; try (seql [tokeq ColonT; pnt nType] I)]
                     (bindNT nPattern));
               (mkNT nPatternList,
                seql [pnt nPattern;
@@ -680,7 +684,7 @@ val npeg0_rwts =
                 “nTyOp”, “nTbase”, “nPTbase”, “nDType”, “nPType”, “nType”,
                 “nTypeList1”, “nTypeList2”,
                 “nRelOps”, “nPtuple”, “nPbase”, “nPapp”,
-                “nPcons”, “nPattern”,
+                “nPcons”, “nPas”, “nPattern”,
                 “nPatternList”, “nPbaseList1”,
                 “nLetDec”, “nMultOps”, “nListOps”,
                 “nFQV”, “nAddOps”, “nCompOps”, “nEliteral”,
@@ -712,7 +716,7 @@ val topo_nts = [“nV”, “nTyvarN”, “nTypeDec”, “nTypeAbbrevDec”, �
                 “nConstructorName”, “nTyVarList”, “nTypeName”, “nTyOp”,
                 “nTbase”, “nPTbase”, “nTbaseList”, “nDType”, “nPType”,
                 “nListOps”, “nRelOps”, “nPtuple”, “nPbase”, “nPapp”,
-                “nPcons”, “nPattern”,
+                “nPcons”, “nPas”, “nPattern”,
                 “nPatternList”, “nPbaseList1”, “nPE”,
                 “nPE'”, “nPEs”, “nMultOps”, “nLetDec”, “nLetDecs”,
                 “nFQV”,

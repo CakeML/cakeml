@@ -259,17 +259,14 @@ QED
 
 (* Value approximation is sgc free *)
 
-val val_approx_sgc_free_def = tDefine "val_approx_gc_free" `
+Definition val_approx_sgc_free_def:
   (val_approx_sgc_free (ClosNoInline m n) <=> T) /\
   (val_approx_sgc_free (Clos m n e s) <=> set_globals e = {||}) /\
   (val_approx_sgc_free (Tuple tag vas) <=> EVERY val_approx_sgc_free vas) /\
   (val_approx_sgc_free _ <=> T)
-` (WF_REL_TAC `measure val_approx_size`
-   \\ Induct_on `vas` \\ simp []
-   \\ rw [] THEN1 simp [val_approx_size_def]
-   \\ first_x_assum drule
-   \\ disch_then (qspec_then `tag` assume_tac)
-   \\ fs [val_approx_size_def]);
+Termination
+  WF_REL_TAC `measure val_approx_size`
+End
 
 val val_approx_sgc_free_def = save_thm(
   "val_approx_sgc_free_def[simp]",
@@ -1782,10 +1779,6 @@ Proof
    \\ metis_tac [oracle_gapprox_disjoint_shift_seq_unique_set_globals]
 QED
 
-val compile_inc_def = Define `
-  compile_inc c g (es,xs) =
-    let (eas, g') = known (reset_inline_factor c) es [] g in (g', MAP FST eas, xs)`;
-
 val say = say0 "known_correct_approx";
 
 Theorem known_correct_approx:
@@ -2395,7 +2388,7 @@ Proof
   Induct \\ fs [closSemTheory.v_size_def]
 QED
 
-val v_rel_def = tDefine "v_rel" `
+Definition v_rel_def:
   (v_rel c g (Number i) v <=> v = Number i) /\
   (v_rel c g (Word64 w) v <=> v = Word64 w) /\
   (v_rel c g (ByteVector ws) v <=> v = ByteVector ws) /\
@@ -2425,9 +2418,10 @@ val v_rel_def = tDefine "v_rel" `
        LIST_REL val_approx_val aenv env1a /\
        LIST_REL (f_rel c (clos ++ aenv) g) funs1 funs2 /\
        v = Recclosure loc_opt args2 (env2a ++ env2b) funs2 i else F)
-  `
-  (WF_REL_TAC `measure (v_size o FST o SND o SND)` \\ simp [v1_size_append, v_size_def]
-   \\ rpt strip_tac \\ imp_res_tac v_size_lemma \\ simp []);
+Termination
+  WF_REL_TAC `measure (v_size o FST o SND o SND)` \\ simp [v1_size_append, v_size_def]
+  \\ rpt strip_tac \\ imp_res_tac v_size_lemma \\ simp []
+End
 
 val v_rel_def = save_thm("v_rel_def[simp,compute]",
   v_rel_def |> SIMP_RULE (bool_ss ++ ETA_ss) []);
@@ -4608,7 +4602,7 @@ val syntax_ok_def = Define`
 
 Overload fvs_compile = ``clos_fvs$compile``
 
-val fvs_inc = ``clos_fvsProof$compile_inc : clos_prog -> clos_prog``;
+val fvs_inc = ``clos_fvs$compile_inc : clos_prog -> clos_prog``;
 
 val syntax_oracle_ok_def = Define`
   syntax_oracle_ok c xs co conf ⇔
@@ -4623,63 +4617,58 @@ val known_cc_def = Define `
   known_cc known_conf cc =
     (case known_conf of
      | SOME kcfg =>
-       (pure_cc clos_fvsProof$compile_inc
+       (pure_cc clos_fvs$compile_inc
          (state_cc (compile_inc kcfg)
-           (pure_cc clos_ticksProof$compile_inc
-             (pure_cc clos_letopProof$compile_inc
+           (pure_cc clos_ticks$compile_inc
+             (pure_cc clos_letop$compile_inc
                (cc:'b clos_cc):'b clos_cc):'b clos_cc)))
      | NONE      => state_cc (CURRY I) cc :(val_approx num_map # 'b) clos_cc)`;
 
 val known_co_def = Define `
   known_co known_conf (co : (val_approx num_map # 'b) clos_co) =
     (case known_conf of
-     | SOME kcfg => (pure_co clos_letopProof$compile_inc o
-                       ((pure_co clos_ticksProof$compile_inc o
+     | SOME kcfg => (pure_co clos_letop$compile_inc o
+                       ((pure_co clos_ticks$compile_inc o
                           (state_co (compile_inc kcfg)
-                            (pure_co clos_fvsProof$compile_inc o co)
+                            (pure_co clos_fvs$compile_inc o co)
                             : 'b clos_co)) : 'b clos_co))
      | NONE      => (state_co (CURRY I) co) : 'b clos_co)`;
 
 Theorem known_co_eq_pure_state:
   known_co known_conf co =
     pure_co (if IS_SOME known_conf
-        then clos_letopProof$compile_inc
-            o (clos_ticksProof$compile_inc : clos_prog -> clos_prog)
+        then clos_letop$compile_inc
+            o (clos_ticks$compile_inc : clos_prog -> clos_prog)
         else I) o
     state_co (case known_conf of SOME kcfg => compile_inc kcfg
         | NONE => CURRY I)
-    (pure_co (if IS_SOME known_conf then clos_fvsProof$compile_inc else I) o co)
+    (pure_co (if IS_SOME known_conf then clos_fvs$compile_inc else I) o co)
 Proof
   fs [known_co_def]
   \\ CASE_TAC
   \\ fs [pure_co_I, pure_co_comb_pure_co]
 QED
 
-
-val option_val_approx_spt_def = Define `
-  option_val_approx_spt kc = (case kc of NONE => LN
-    | SOME kcfg => kcfg.val_approx_spt)`;
-
 val known_mk_co_def = Define `
   known_mk_co kc kc' mk =
-    add_state_co (if IS_SOME kc then clos_knownProof$compile_inc (THE kc)
+    add_state_co (if IS_SOME kc then clos_known$compile_inc (THE kc)
         else CURRY I)
     (option_val_approx_spt kc')
     (mk o pure_co_progs (if IS_SOME kc then
-          clos_letopProof$compile_inc
-              ∘ (clos_ticksProof$compile_inc : clos_prog -> clos_prog)
+          clos_letop$compile_inc
+              ∘ (clos_ticks$compile_inc : clos_prog -> clos_prog)
         else I))
-    o pure_co_progs (if IS_SOME kc then clos_fvsProof$compile_inc else I)`
+    o pure_co_progs (if IS_SOME kc then clos_fvs$compile_inc else I)`
 
 val known_co_progs_def = Define `
   known_co_progs kc kc' =
     pure_co_progs (if IS_SOME kc then
-          clos_letopProof$compile_inc
-              ∘ (clos_ticksProof$compile_inc : clos_prog -> clos_prog)
+          clos_letop$compile_inc
+              ∘ (clos_ticks$compile_inc : clos_prog -> clos_prog)
         else I)
-    o state_co_progs (if IS_SOME kc then clos_knownProof$compile_inc (THE kc)
+    o state_co_progs (if IS_SOME kc then clos_known$compile_inc (THE kc)
         else CURRY I) (case kc' of NONE => LN | SOME kcfg => kcfg.val_approx_spt)
-    o pure_co_progs (if IS_SOME kc then clos_fvsProof$compile_inc else I)`
+    o pure_co_progs (if IS_SOME kc then clos_fvs$compile_inc else I)`
 
 Theorem known_co_known_mk_co:
   clos_knownProof$known_co kc
@@ -4695,7 +4684,7 @@ Proof
 QED
 
 Theorem fvs_compile_uncurry:
-  clos_fvsProof$compile_inc p = (remove_fvs 0 (FST p), [])
+  clos_fvs$compile_inc p = (remove_fvs 0 (FST p), [])
 Proof
   Cases_on`p` \\ EVAL_TAC
 QED
@@ -4826,13 +4815,13 @@ Proof
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ first_x_assum (qspec_then `n` assume_tac) \\ fs [] \\ rfs []
     \\ Cases_on`co n` \\ fs[backendPropsTheory.pure_co_def]
-    \\ Cases_on`r` \\ fs[clos_fvsProofTheory.compile_inc_def])
+    \\ Cases_on`r` \\ fs[clos_fvsTheory.compile_inc_def])
   \\ disch_then (fn th => fs [th])
   \\ drule (GEN_ALL clos_letopProofTheory.semantics_let_op)
   \\ reverse impl_tac \\ fs [] \\ rw []
   \\ first_x_assum (qspec_then `n` assume_tac) \\ fs []
   \\ qmatch_assum_abbrev_tac `SND pp = []`
-  \\ Cases_on `pp` \\ fs [clos_ticksProofTheory.compile_inc_def]
+  \\ Cases_on `pp` \\ fs [clos_ticksTheory.compile_inc_def]
   \\ fs []
 QED
 
@@ -5157,17 +5146,14 @@ QED
 
 (* no_Labels *)
 
-val val_approx_no_Labels_def = tDefine "val_approx_no_Labels" `
+Definition val_approx_no_Labels_def:
   (val_approx_no_Labels (ClosNoInline m n) <=> T) /\
   (val_approx_no_Labels (Clos m n e s) <=> no_Labels e) /\
   (val_approx_no_Labels (Tuple tag vas) <=> EVERY val_approx_no_Labels vas) /\
   (val_approx_no_Labels _ <=> T)
-` (WF_REL_TAC `measure val_approx_size`
-   \\ Induct_on `vas` \\ simp []
-   \\ rw [] THEN1 simp [val_approx_size_def]
-   \\ first_x_assum drule
-   \\ disch_then (qspec_then `tag` assume_tac)
-   \\ fs [val_approx_size_def]);
+Termination
+  WF_REL_TAC `measure val_approx_size`
+End
 
 Theorem decide_inline_no_Labels:
    val_approx_no_Labels b ∧ decide_inline a b c d = inlD_LetInline e ⇒
@@ -5177,9 +5163,10 @@ Proof
   \\ fs[val_approx_no_Labels_def]
 QED
 
-val globals_approx_no_Labels_def = Define`
+Definition globals_approx_no_Labels_def:
   globals_approx_no_Labels g =
-    (∀c d. lookup c g = SOME d ⇒ val_approx_no_Labels d)`;
+    (∀c d. lookup c g = SOME d ⇒ val_approx_no_Labels d)
+End
 
 Theorem val_approx_no_Labels_merge:
    ∀a b. val_approx_no_Labels a ∧ val_approx_no_Labels b ⇒
@@ -5313,17 +5300,14 @@ QED
 
 (* obeys_max_app *)
 
-val val_approx_obeys_max_app_def = tDefine "val_approx_obeys_max_app" `
+Definition val_approx_obeys_max_app_def:
   (val_approx_obeys_max_app k (ClosNoInline m n) <=> T) /\
   (val_approx_obeys_max_app k (Clos m n e s) <=> obeys_max_app k e) /\
   (val_approx_obeys_max_app k (Tuple tag vas) <=> EVERY (val_approx_obeys_max_app k) vas) /\
   (val_approx_obeys_max_app k _ <=> T)
-` (WF_REL_TAC `measure (val_approx_size o SND)`
-   \\ Induct_on `vas` \\ simp []
-   \\ rw [] THEN1 simp [val_approx_size_def]
-   \\ first_x_assum drule
-   \\ disch_then (qspec_then `tag` assume_tac)
-   \\ fs [val_approx_size_def]);
+Termination
+  WF_REL_TAC `measure (val_approx_size o SND)`
+End
 
 Theorem decide_inline_obeys_max_app:
    val_approx_obeys_max_app k b ∧ decide_inline a b c d = inlD_LetInline e ⇒

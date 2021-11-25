@@ -589,15 +589,15 @@ Theorem alookup_el_length:
 Proof
   rw[]
   >> gvs[numVarMap_ok_def, numVarAssignment_ok_def]
-  >> gs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  >> rgs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
   >> ‘MEM (x, (xs' ++ (q,r)::xs)) vMap’ by gs[ALOOKUP_MEM]
   >> last_x_assum (qspecl_then [‘x’, ‘xs' ++ (q,r)::xs’] assume_tac)
   >> first_x_assum (qspecl_then [‘xs' ++ (q,r)::xs’, ‘x’] assume_tac)
   >> gvs[GENLIST_APPEND, APPEND_EQ_CONS, APPEND_11_LENGTH, GENLIST]
-  >> gs[GSYM ADD1]
+  >> rgs[GSYM ADD1]
   >> ‘lt ++ [r] = SNOC r lt’ by gvs[]
   >> ‘LENGTH (MAP SND xs') = (LENGTH (0::lt))’ by metis_tac[]
-  >> ‘LENGTH xs' = SUC (LENGTH lt)’ by gvs[]
+  >> ‘LENGTH xs' = SUC (LENGTH lt)’ by rgs[]
   >> gvs[GENLIST]
 QED
 
@@ -766,9 +766,9 @@ Proof
   >> qspecl_then [‘vMap’, ‘bvs’, ‘x’, ‘q’, ‘r’] assume_tac alookup_el_lemma
   >> ‘n < LENGTH bvs’ by gs[vMap_orderBool_same_size_lemma]
   >> ‘MEM (q, r) bvs’ by metis_tac[EL_MEM]
-  >> gs[numVarMap_ok_def, EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  >> rgs[numVarMap_ok_def, EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
   >> last_x_assum (qspecl_then [‘bvs’, ‘x’] assume_tac)
-  >> gs[ALOOKUP_MEM]
+  >> rgs[ALOOKUP_MEM]
   >> metis_tac[el_genlist_lemma]
 QED
 

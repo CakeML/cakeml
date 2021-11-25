@@ -1,4 +1,5 @@
-Abstract syntax and compiler for Pancake and its intermediate languages.
+The Pancake compiler, i.e. a C-like compiler built from the lower
+parts of the CakeML compiler.
 
 [crepLangScript.sml](crepLangScript.sml):
 Abstract syntax of Crepe language

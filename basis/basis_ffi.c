@@ -158,16 +158,19 @@ int hasT = 0;
 void cml_exit(int arg) {
 
   #ifdef STDERR_MEM_EXHAUST
-  if(arg == 1) {
-    fprintf(stderr,"CakeML heap space exhausted.\n");
-  }
-  else if(arg == 2) {
-    fprintf(stderr,"CakeML stack space exhausted.\n");
+  if (arg != 0) {
+    fprintf(stderr,"Program exited with nonzero exit code.\n");
   }
   #endif
 
   #ifdef DEBUG_FFI
   {
+    if(arg == 1) {
+      fprintf(stderr,"CakeML heap space exhausted.\n");
+    }
+    else if(arg == 2) {
+      fprintf(stderr,"CakeML stack space exhausted.\n");
+    }
     fprintf(stderr,"GCNum: %d, GCTime(us): %ld\n",numGC,microsecs);
   }
   #endif
