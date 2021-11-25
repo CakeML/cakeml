@@ -1,7 +1,7 @@
 (*
   Pseudo-boolean constraints proof format and checker
 *)
-open preamble pb_constraintTheory;
+open preamble pb_constraintTheory mlstringTheory mlintTheory;
 
 val _ = new_theory "pb_check";
 
@@ -300,6 +300,105 @@ Proof
   metis_tac[check_polish_compact]
 QED
 
-(* TODO: write a parser *)
+(* Parsing an OPB file
+  For now, use the standard format where variables are named x1,...,xn
+*)
+
+(* todo: copied from lpr_parsing *)
+(* Everything recognized as a "blank" *)
+Definition blanks_def:
+  blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t" ∨ c = #"\r"
+End
+
+Definition tokenize_def:
+  tokenize (s:mlstring) =
+  case mlint$fromString s of
+    NONE => INL s
+  | SOME i => INR i
+End
+
+Definition toks_def:
+  toks s = MAP tokenize (tokens blanks s)
+End
+
+(* OPB parser *)
+
+Definition parse_lit_def:
+  parse_lit s =
+  if strlen s ≥ 2 ∧ strsub s 0 = #"~" /\ strsub s 1 = #"x" then
+    OPTION_MAP Neg (mlint$fromNatString (substring s 2 (strlen s - 1)))
+  else if strlen s ≥ 1 ∧ strsub s 0 = #"x" then
+    OPTION_MAP Pos (mlint$fromNatString (substring s 1 (strlen s - 1)))
+  else NONE
+End
+
+(* Parsing the LHS of a constraint and returns the rest *)
+Definition parse_constraint_LHS_def:
+  (parse_constraint_LHS (INR n::INL v::rest) acc =
+    (*  Note: for now, we only handle names of the form "xi" *)
+    case parse_lit v of NONE => (INR n::INL v::rest,REVERSE acc)
+    | SOME lit => parse_constraint_LHS rest ((n,lit)::acc)) ∧
+  (parse_constraint_LHS ls acc = (ls,REVERSE acc))
+End
+
+Definition term_le_def:
+  term_le (_,l1) (_,l2) = (get_var l1 < get_var l2)
+End
+
+Definition term_eq_def:
+  term_eq (_,l1) (_,l2) = (get_var l1 = get_var l2)
+End
+
+(* same as add_terms but not normalizing *)
+Definition add_terms_denorm_def:
+  add_terms_denorm (c1,Pos n) (c2,Pos _) = ((c1+c2:int,Pos n), 0) ∧
+  add_terms_denorm (c1,Pos n) (c2,Neg _) = ((c1-c2,Pos n), c2) ∧
+  add_terms_denorm (c1,Neg n) (c2,Neg _) = ((c1+c2,Neg n),0) ∧
+  add_terms_denorm (c1,Neg n) (c2,Pos _) = ((c1-c2,Neg n),c2)
+End
+
+Definition merge_adjacent_def:
+  (merge_adjacent (x::y::xs) acc n =
+  if term_eq x y then
+    let (trm,carry) = add_terms_denorm x y in
+    merge_adjacent xs (trm::acc) (n-carry)
+  else
+    merge_adjacent (y::xs) (x::acc) n) ∧
+  (merge_adjacent ls acc n = (REVERSE (ls++acc),n))
+End
+
+Definition normalize_def:
+  (normalize [] acc n = (REVERSE acc,n)) ∧
+  (normalize ((c,l)::xs) acc n =
+    if (c:int) = 0 then normalize xs acc n
+    else if c < 0 then (* *)
+      normalize xs ((Num(-c),negate l)::acc) (n + c)
+    else
+      normalize xs ((Num c,l)::acc) n)
+End
+
+(* Given an inequality _ >= _, produces a normalized PBC *)
+Definition normalize_PBC_def:
+  normalize_PBC lhs deg =
+  (* Sort literals by underlying vars then merge adjacent terms with equal vars *)
+  let (lhs',deg') = merge_adjacent (QSORT term_le lhs) [] deg in
+  let (lhs'',deg'') = normalize lhs' [] deg' in
+  if deg'' < 0 then PBC lhs'' 0
+  else PBC lhs'' (Num deg'')
+End
+
+Definition parse_constraint_def:
+  parse_constraint line =
+  case parse_constraint_LHS line [] of (rest,lhs) =>
+  case rest of
+    [INL cmp; INR deg; INL term] =>
+      if term ≠ str #";" then NONE
+      else if cmp = implode ">=" then
+        SOME [normalize_PBC lhs deg]
+      else NONE
+  | _ => NONE
+End
+
+(* EVAL``parse_constraint (toks (strlit "10 x1 +2 x2 -12 x1 >= 1 ;"))`` *)
 
 val _ = export_theory ();
