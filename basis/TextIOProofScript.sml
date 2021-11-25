@@ -7347,17 +7347,20 @@ Theorem INSTREAM_STR_fastForwardFD:
 Proof
   rw [INSTREAM_STR_def]
   \\ xsimpl \\ rw[] \\ gs[] \\ rveq
+  \\ rename [‘get_file_content _ _ = SOME z’]
   \\ PairCases_on ‘z’
   \\ qmatch_assum_rename_tac ‘get_file_content _ _ = SOME (c,off)’
   \\ gs[] \\ rveq \\ simp [GSYM PULL_EXISTS]
   \\ conj_tac
   >- (qexists_tac ‘c’ \\ gs[get_file_content_def,fastForwardFD_def]
-      \\ PairCases_on ‘x'’
+      \\ rename [‘ALOOKUP fs.infds fd = SOME zz’]
+      \\ PairCases_on ‘zz’
       \\ qmatch_assum_rename_tac ‘ALOOKUP _ _ = SOME (ino,mode,off')’
       \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP,MAX_DEF])
   \\ conj_tac
   >- (gs[get_mode_def,fastForwardFD_def,get_file_content_def]
-      \\ PairCases_on ‘x'’
+      \\ rename [‘ALOOKUP fs.infds fd = SOME zz’]
+      \\ PairCases_on ‘zz’
       \\ qmatch_assum_rename_tac ‘ALOOKUP _ _ = SOME (ino,mode,off')’
       \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP])
   \\ xsimpl \\ simp[fastForwardFD_eq_forwardFD] \\ xsimpl
