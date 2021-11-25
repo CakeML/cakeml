@@ -94,10 +94,7 @@ QED
 
 Definition destLf_def:
   destLf (Lf x) = return x ∧
-  destLf (Nd (nterm, locs) _) =
-    fail (locs, concat [«destLf: node »; (case nterm of INL n => camlNT2string n
-                                                      | _ => «unknown»);
-                        « is not a leaf»])
+  destLf (Nd (nterm, locs) _) = fail (locs, «destLf»)
 End
 
 Definition expect_tok_def:
@@ -622,9 +619,7 @@ Definition ptree_Pattern_def:
     fail (locs, «Expected a pattern non-terminal»)) ∧
   (ptree_Pattern et (Nd (nterm, locs) args) =
     if INL et ≠ nterm then
-      fail (locs, concat [«expected: »; camlNT2string et; « but found: »;
-                          (case nterm of INL n => camlNT2string n
-                                       | _ => «unknown»)])
+      fail (locs, «ptree_Pattern»)
     else if nterm = INL nPAny then
       case args of
         [arg] =>
@@ -806,7 +801,7 @@ Definition ptree_Pattern_def:
 Termination
   WF_REL_TAC ‘measure $ sum_size (pair_size camlNT_size psize)
                       $ sum_size (list_size psize)
-                                 (list_size psize)’
+                                 (SUC o list_size psize)’
   \\ simp [parsetree_size_lemma]
 End
 
@@ -974,9 +969,7 @@ Definition ptree_Expr_def:
     fail (locs, «Expected an expression non-terminal»)) ∧
   (ptree_Expr et (Nd (nterm, locs) args) =
     if INL et ≠ nterm then
-      fail (locs, concat [«expected: »; camlNT2string et; « but found: »;
-                          (case nterm of INL n => camlNT2string n
-                                       | _ => «unknown»);])
+      fail (locs, «ptree_Expr»)
     else if nterm = INL nExpr then
       case args of
         [arg] =>
@@ -1408,10 +1401,7 @@ Definition ptree_Expr_def:
           od
       | _ => fail (locs, «Impossible: nEFor»)
     else
-      fail (locs, concat [«expected any expression non-terminal,\n»;
-                          «found: »; (case nterm of INL n =>
-                                        camlNT2string n
-                                      | _ => «unknown»);])) ∧
+      fail (locs, «ptree_Expr»)) ∧
   (ptree_LetRecBinding (Lf (_, locs)) =
     fail (locs, «Expected a let rec binding non-terminal»)) ∧
   (ptree_LetRecBinding (Nd (nterm, locs) args) =
@@ -1606,7 +1596,7 @@ Termination
                       $ sum_size psize
                       $ sum_size psize
                       $ sum_size psize
-                      $ sum_size (list_size psize) (list_size psize)’
+                      $ sum_size (SUC o list_size psize) (SUC o list_size psize)’
   \\ simp [parsetree_size_lemma]
 End
 
