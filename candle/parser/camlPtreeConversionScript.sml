@@ -446,16 +446,6 @@ Definition ptree_TVar_def:
       fail (locs, «Expected type variable non-terminal»)
 End
 
-Definition ptree_TAny_def:
-  ptree_TAny (Lf (_, locs)) =
-    fail (locs, «Expected wildcard type non-terminal») ∧
-  ptree_TAny (Nd (nterm, locs) args) =
-    if nterm = INL nTAny then
-      fail (locs, «Wildcard type variables are not supported»)
-    else
-      fail (locs, «Expected wildcard type variable non-terminal»)
-End
-
 Definition ptree_Type_def:
   (ptree_Type (Lf (_, locs)) =
     fail (locs, «Expected a type non-terminal»)) ∧
@@ -482,7 +472,7 @@ Definition ptree_Type_def:
             ptree_Type arg
           od
       | [arg] =>
-          ptree_TVar arg ++ ptree_TAny arg
+          ptree_TVar arg
       | _ => fail (locs, «Impossible: nTBase»)
     else if nterm = INL nTConstr then
       case args of
@@ -521,12 +511,6 @@ Definition ptree_Type_def:
             return (Atfun ty1 ty2)
           od
       | _ => fail (locs, «Impossible: nTFun»)
-    else if nterm = INL nTAs then
-      case args of
-        [arg] => ptree_Type arg
-      | [arg; ast; tickt; identt] =>
-          fail (locs, «Aliases in types are not supported»)
-      | _ => fail (locs, «Impossible: ptree_Type»)
     else
       fail (locs, «Expected type non-terminal»)) ∧
   (ptree_TypeList (Lf (_, locs)) =
