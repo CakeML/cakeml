@@ -1,5 +1,5 @@
 (*
-  compset for the operational semantics.
+  A compset for the operational semantics.
 *)
 structure evaluateComputeLib = struct
 open HolKernel boolLib bossLib

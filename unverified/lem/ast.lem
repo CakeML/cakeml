@@ -133,6 +133,8 @@ type pat =
      A Nothing constructor indicates a tuple pattern. *)
   | Pcon of maybe (id modN conN) * list pat
   | Pref of pat
+  (* Pattern alias. *)
+  | Pas of pat * varN
   | Ptannot of pat * ast_t
 
 (* Expressions *)
@@ -222,6 +224,9 @@ pat_bindings (Pcon _ ps) already_bound =
 and
 pat_bindings (Pref p) already_bound =
   pat_bindings p already_bound
+and
+pat_bindings (Pas p i) already_bound =
+  pat_bindings p (i::already_bound)
 and
 pat_bindings (Ptannot p _) already_bound =
   pat_bindings p already_bound

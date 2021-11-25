@@ -903,7 +903,7 @@ Proof
   \\ conj_asm1_tac
   >- (
     simp [es_forward_def]
-    \\ simp [lookup_env_def, FORALL_PROD, lem_listTheory.list_index_def]
+    \\ simp [lookup_env_def, FORALL_PROD, oEL_THM]
     \\ simp [bool_case_eq, option_case_eq, EL_APPEND_EQN]
   )
   \\ rpt strip_tac \\ fs []
@@ -920,7 +920,7 @@ Proof
   \\ conj_asm1_tac
   >- (
     simp [es_forward_def]
-    \\ simp [lookup_env_def, FORALL_PROD, lem_listTheory.list_index_def]
+    \\ simp [lookup_env_def, FORALL_PROD, oEL_THM]
   )
   \\ simp [EQ_SYM_EQ]
   \\ fs [es_stack_forward_def]
@@ -942,13 +942,13 @@ Proof
   rw [s_rel_def, declare_env_def]
   \\ fs []
   \\ rveq \\ fs []
-  \\ simp [lem_listTheory.list_index_def, v_to_env_id_def,
+  \\ simp [oEL_THM, v_to_env_id_def,
         v_to_nat_def, nat_to_v_def, lookup_env_def, EL_LUPDATE]
   \\ simp [EL_APPEND_EQN]
   \\ conj_asm1_tac
   >- (
     simp [es_forward_def]
-    \\ simp [lookup_env_def, FORALL_PROD, lem_listTheory.list_index_def]
+    \\ simp [lookup_env_def, FORALL_PROD, oEL_THM]
     \\ simp [bool_case_eq, option_case_eq]
     \\ rw [EL_APPEND_EQN, EL_LUPDATE]
   )
@@ -1137,7 +1137,7 @@ Proof
   \\ rveq \\ fs []
   \\ fs [pair_case_eq]
   \\ rveq \\ fs []
-  \\ simp [lem_listTheory.list_index_def]
+  \\ simp [oEL_THM]
   \\ simp [state_component_equality]
   \\ qmatch_goalsub_abbrev_tac `es_forward cur_es new_es`
   \\ qsuff_tac `es_forward cur_es new_es`
@@ -1150,13 +1150,13 @@ Proof
     \\ irule env_rel_add_nsBind
     \\ simp [v_to_env_id_def, v_to_nat_def, nat_to_v_def]
     \\ fs [markerTheory.Abbrev_def, lookup_env_def,
-          lem_listTheory.list_index_def, EL_LUPDATE, EL_APPEND_EQN,
+          oEL_THM, EL_LUPDATE, EL_APPEND_EQN,
           es_stack_forward_def]
     \\ insts_tac
   )
   >- (
     fs [markerTheory.Abbrev_def, es_forward_def, FORALL_PROD]
-    \\ simp [lookup_env_def, lem_listTheory.list_index_def, option_case_eq]
+    \\ simp [lookup_env_def, oEL_THM, option_case_eq]
     \\ simp [EL_LUPDATE]
     \\ rw [EL_APPEND_EQN]
   )

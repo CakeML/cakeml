@@ -290,6 +290,9 @@ pmatch envC s (Pref p) (Loc lnum) env =
     | Nothing -> Match_type_error
   end
 and
+pmatch envC s (Pas p i) v env =
+  pmatch envC s p v ((i,v)::env)
+and
 pmatch envC s (Ptannot p t) v env =
   pmatch envC s p v env
 and
@@ -541,13 +544,17 @@ and
 
 val enc_pat : pat -> v
 let rec
-  enc_pat (Ptannot x_7 x_6) =
+  enc_pat (Ptannot x_9 x_8) =
     Conv (Just (TypeStamp "Ptannot" pat_type_num))
-      [enc_pat x_7; enc_ast_t x_6]
+      [enc_pat x_9; enc_ast_t x_8]
 and
-  enc_pat (Pref x_5) =
+  enc_pat (Pref x_7) =
     Conv (Just (TypeStamp "Pref" pat_type_num))
-      [enc_pat x_5]
+      [enc_pat x_7]
+and
+  enc_pat (Pas x_6 x_5) =
+    Conv (Just (TypeStamp "Pas" pat_type_num))
+      [enc_pat x_6; Litv (StrLit x_5)]
 and
   enc_pat (Pcon x_4 x_3) =
     Conv (Just (TypeStamp "Pcon" pat_type_num))
@@ -776,11 +783,17 @@ and
     Conv (Just (TypeStamp "Opn" op_type_num)) [enc_opn x_1]
 
 val enc_locn : locn -> v
-let enc_locn l =
-    Conv (Just (TypeStamp "Recordtypelocn" locn_type_num))
-      [Litv (IntLit (integerFromNat l.row));
-       Litv (IntLit (integerFromNat l.col));
-       Litv (IntLit (integerFromNat l.offset))]
+let rec
+  enc_locn (POSN l r) =
+    Conv (Just (TypeStamp "Posn" locn_type_num))
+      [Litv (IntLit (integerFromNat l));
+       Litv (IntLit (integerFromNat r))]
+and
+  enc_locn UNKNOWNpt =
+    Conv (Just (TypeStamp "Unknownpt" locn_type_num)) []
+and
+  enc_locn EOFpt =
+    Conv (Just (TypeStamp "Eofpt" locn_type_num)) []
 
 val enc_locs : locs -> v
 let rec
