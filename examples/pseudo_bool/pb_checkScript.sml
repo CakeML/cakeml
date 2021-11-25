@@ -372,7 +372,7 @@ Definition normalize_def:
   (normalize ((c,l)::xs) acc n =
     if (c:int) = 0 then normalize xs acc n
     else if c < 0 then (* *)
-      normalize xs ((Num(-c),negate l)::acc) (n + c)
+      normalize xs ((Num(-c),negate l)::acc) (n - c)
     else
       normalize xs ((Num c,l)::acc) n)
 End
@@ -395,10 +395,162 @@ Definition parse_constraint_def:
       if term ≠ str #";" then NONE
       else if cmp = implode ">=" then
         SOME [normalize_PBC lhs deg]
-      else NONE
+      else if cmp = implode "=" then
+        (* which one first ? *)
+        SOME [normalize_PBC (MAP (λ(c:int,l). (-c,l)) lhs) (-deg);
+              normalize_PBC lhs deg]
+       else NONE
   | _ => NONE
 End
 
-(* EVAL``parse_constraint (toks (strlit "10 x1 +2 x2 -12 x1 >= 1 ;"))`` *)
+Definition parse_constraints_def:
+  (parse_constraints [] acc = SOME (REVERSE acc)) ∧
+  (parse_constraints (s::ss) acc =
+    case parse_constraint s of
+      NONE => NONE
+    | SOME pbc => parse_constraints ss (pbc++acc))
+End
+
+Definition nocomment_line_def:
+  (nocomment_line (INL c::cs) = (c ≠ strlit "*")) ∧
+  (nocomment_line _ = T)
+End
+
+(* Parse the tokenized pbf file *)
+Definition parse_pbf_toks_def:
+  parse_pbf_toks tokss =
+  let nocomments = FILTER nocomment_line tokss in
+  (* TODO: parse the header line ? *)
+  parse_constraints nocomments []
+End
+
+(* Parse a list of strings in pbf format *)
+Definition parse_pbf_def:
+  parse_pbf strs = parse_pbf_toks (MAP toks strs)
+End
+
+(* build an sptree for the PBF from an initial ID *)
+Definition build_fml_def:
+  (build_fml (id:num) [] acc = (acc,id)) ∧
+  (build_fml id (s::ss) acc =
+    build_fml (id+1) ss (insert id s acc))
+End
+
+(* The stack is formed from constraints, where factors and variables are
+  also encoded using Id *)
+Definition parse_polish_def:
+  (parse_polish (x::xs) stack =
+  case x of INR n =>
+    parse_polish xs (Id n :: stack)
+  | INL s =>
+  if s = «+» then
+    (case stack of
+      a::b::rest => parse_polish xs (Add b a::rest)
+    | _ => NONE)
+  else if s = str #"*" then
+    (case stack of
+      Id a::b::rest => parse_polish xs (Mul b a::rest)
+    | _ => NONE)
+  else if s = str #"d" then
+    (case stack of
+      Id a::b::rest => parse_polish xs (Div b a::rest)
+    | _ => NONE)
+  else if s = str #"s" then
+    (case stack of
+      a::rest => parse_polish xs (Sat a::rest)
+    | _ => NONE)
+  else if s = str #"w" then
+    (case stack of
+      Lit (Pos v)::a::rest => parse_polish xs (Weak a v::rest)
+    | _ => NONE)
+  else
+    case parse_lit s of SOME l => parse_polish xs (Lit l::stack)
+    | NONE => NONE) ∧
+  (parse_polish [] [c] = SOME c) ∧
+  (parse_polish [] _ = NONE)
+End
+
+Definition strip_numbers_def:
+  (strip_numbers [] acc = SOME (REVERSE acc)) ∧
+  (strip_numbers (x::xs) acc =
+  case x of INR n =>
+    strip_numbers xs (n::acc)
+  | INL _ => NONE)
+End
+
+Definition parse_pbpstep_def:
+  (parse_pbpstep (first::rest) =
+  if first = INL (strlit "c") then
+    case rest of
+      [INR id] => SOME (Contradiction id)
+    | _ => NONE
+  else if first = INL (strlit "d") then
+    OPTION_MAP Delete (strip_numbers rest [])
+  else if first = INL (strlit "p") then
+    OPTION_MAP Polish (parse_polish rest [])
+  else NONE) ∧
+  (parse_pbpstep _ = NONE)
+End
+
+Definition parse_pbpsteps_def:
+  (parse_pbpsteps [] acc = SOME (REVERSE acc)) ∧
+  (parse_pbpsteps (s::ss) acc =
+    case parse_pbpstep s of
+      NONE => NONE
+    | SOME pbpstep => parse_pbpsteps ss (pbpstep::acc))
+End
+
+Definition parse_pbp_toks_def:
+  parse_pbp_toks tokss =
+  let nocomments = FILTER nocomment_line tokss in
+  (* TODO: parse the header line ? *)
+  parse_pbpsteps nocomments []
+End
+
+Definition tokenize_num_def:
+  tokenize_num (s:mlstring) =
+  if s = str #"+" then INL s
+  else
+  case mlint$fromNatString s of
+    NONE => INL s
+  | SOME i => INR i
+End
+
+Definition toks_num_def:
+  toks_num s = MAP tokenize_num (tokens blanks s)
+End
+
+(* Parse a list of strings in pbf format *)
+Definition parse_pbp_def:
+  parse_pbp strs = parse_pbp_toks (MAP toks_num strs)
+End
+
+val pbfraw = ``[
+  strlit "* #variable= 4 #constraint= 7";
+  strlit "2 ~x1 1 ~x3 >= 1 ;";
+  strlit "1 ~x3 1 ~x5 >= 1 ;";
+  strlit "1 ~x1 1 ~x5 >= 1 ;";
+  strlit "1 ~x2 1 ~x4 1 ~x6 >= 2 ;";
+  strlit "* test comment 1234567";
+  strlit "+1 x1 +1 x2 >= 1 ;";
+  strlit "+1 x3 +1 x4 >= 1 ;";
+  strlit "+1 x5 +1 x6 >= 1 ;";
+]``;
+
+val pbf = rconc (EVAL ``THE (parse_pbf ^(pbfraw))``);
+
+val pbpraw = ``[
+  strlit"* comment";
+  strlit"p 1 s";
+  strlit"* comment 2";
+  strlit"p 8 2 + 3 +";
+  strlit"p 9 2 d";
+  strlit"p 10 4 + 5 + 6 + 7 +";
+  strlit"c 11";
+]``;
+
+val pbp = rconc (EVAL ``THE (parse_pbp ^(pbpraw))``);
+
+val check = rconc (EVAL``((UNCURRY (check_pbpsteps ^(pbp))) (build_fml 1 ^(pbf) LN))``);
 
 val _ = export_theory ();
