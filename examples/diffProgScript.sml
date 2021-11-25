@@ -110,26 +110,16 @@ Proof
   xcf"diff'"(get_ml_prog_state())
   \\ xlet_auto_spec(SOME inputLinesFrom_spec)
   >- xsimpl
-  \\ xmatch \\ reverse(Cases_on `inFS_fname fs f1`)
-  >- (fs[OPTION_TYPE_def]
-      \\ reverse strip_tac
-      >- (strip_tac >> EVAL_TAC)
-      \\ xlet_auto >- xsimpl
+  \\ reverse(Cases_on `inFS_fname fs f1`) \\ fs[OPTION_TYPE_def]
+  \\ xmatch
+  >- (xlet_auto >- xsimpl
       \\ xapp_spec output_stderr_spec \\ xsimpl)
-  \\ fs[OPTION_TYPE_def]
-  \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
-  >- (EVAL_TAC \\ rw[])
   \\ xlet_auto_spec(SOME inputLinesFrom_spec)
   >- xsimpl
-  \\ xmatch \\ reverse(Cases_on `inFS_fname fs f2`)
-  >- (fs[OPTION_TYPE_def]
-      \\ reverse strip_tac
-      >- (strip_tac >> EVAL_TAC)
-      \\ xlet_auto >- xsimpl
+  \\ reverse(Cases_on `inFS_fname fs f2`) \\ fs[OPTION_TYPE_def]
+  \\ xmatch
+  >- (xlet_auto >- xsimpl
       \\ xapp_spec output_stderr_spec \\ xsimpl)
-  \\ fs[OPTION_TYPE_def]
-  \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
-  >- (EVAL_TAC \\ rw[])
   \\ xlet_auto >- xsimpl
   \\ xapp \\ rw[]
 QED
