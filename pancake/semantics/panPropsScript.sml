@@ -679,7 +679,7 @@ Proof
         gs [state_component_equality] >>
         imp_res_tac evaluate_clock_mono >>
         gs []) >>
-      strip_tac >> gs []) >>
+      strip_tac >> rgs []) >>
     cases_on ‘x’ >> gs [dec_clock_def] >> (
     first_x_assum (qspecl_then [‘s1' with clock := s1'.clock - ck’, ‘ck’] mp_tac) >>
     impl_tac
@@ -1217,11 +1217,11 @@ Proof
     >- (
       first_x_assum (qspec_then ‘h’ mp_tac) >>
       impl_tac >- gs [] >>
-      strip_tac >> gs []) >>
+      strip_tac >> rgs []) >>
     gvs [] >>
-    last_x_assum (qspecl_then [‘Struct t’, ‘n’, ‘s’] mp_tac) >>
+    last_x_assum (qspecl_then [‘Struct t'’, ‘n’, ‘s’] mp_tac) >>
     impl_tac >- metis_tac [] >>
-    gs [])
+    simp[])
   >- (
     rpt gen_tac >>
     strip_tac >>
