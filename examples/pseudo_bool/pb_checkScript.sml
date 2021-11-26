@@ -1,7 +1,7 @@
 (*
   Pseudo-boolean constraints proof format and checker
 *)
-open preamble pb_constraintTheory;
+open preamble pb_constraintTheory mlstringTheory mlintTheory;
 
 val _ = new_theory "pb_check";
 
@@ -300,6 +300,257 @@ Proof
   metis_tac[check_polish_compact]
 QED
 
-(* TODO: write a parser *)
+(* Parsing an OPB file
+  For now, use the standard format where variables are named x1,...,xn
+*)
+
+(* todo: copied from lpr_parsing *)
+(* Everything recognized as a "blank" *)
+Definition blanks_def:
+  blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t" ∨ c = #"\r"
+End
+
+Definition tokenize_def:
+  tokenize (s:mlstring) =
+  case mlint$fromString s of
+    NONE => INL s
+  | SOME i => INR i
+End
+
+Definition toks_def:
+  toks s = MAP tokenize (tokens blanks s)
+End
+
+(* OPB parser *)
+
+Definition parse_lit_def:
+  parse_lit s =
+  if strlen s ≥ 2 ∧ strsub s 0 = #"~" /\ strsub s 1 = #"x" then
+    OPTION_MAP Neg (mlint$fromNatString (substring s 2 (strlen s - 1)))
+  else if strlen s ≥ 1 ∧ strsub s 0 = #"x" then
+    OPTION_MAP Pos (mlint$fromNatString (substring s 1 (strlen s - 1)))
+  else NONE
+End
+
+(* Parsing the LHS of a constraint and returns the rest *)
+Definition parse_constraint_LHS_def:
+  (parse_constraint_LHS (INR n::INL v::rest) acc =
+    (*  Note: for now, we only handle names of the form "xi" *)
+    case parse_lit v of NONE => (INR n::INL v::rest,REVERSE acc)
+    | SOME lit => parse_constraint_LHS rest ((n,lit)::acc)) ∧
+  (parse_constraint_LHS ls acc = (ls,REVERSE acc))
+End
+
+Definition term_le_def:
+  term_le (_,l1) (_,l2) = (get_var l1 < get_var l2)
+End
+
+Definition term_eq_def:
+  term_eq (_,l1) (_,l2) = (get_var l1 = get_var l2)
+End
+
+(* same as add_terms but not normalizing *)
+Definition add_terms_denorm_def:
+  add_terms_denorm (c1,Pos n) (c2,Pos _) = ((c1+c2:int,Pos n), 0) ∧
+  add_terms_denorm (c1,Pos n) (c2,Neg _) = ((c1-c2,Pos n), c2) ∧
+  add_terms_denorm (c1,Neg n) (c2,Neg _) = ((c1+c2,Neg n),0) ∧
+  add_terms_denorm (c1,Neg n) (c2,Pos _) = ((c1-c2,Neg n),c2)
+End
+
+Definition merge_adjacent_def:
+  (merge_adjacent (x::y::xs) acc n =
+  if term_eq x y then
+    let (trm,carry) = add_terms_denorm x y in
+    merge_adjacent xs (trm::acc) (n-carry)
+  else
+    merge_adjacent (y::xs) (x::acc) n) ∧
+  (merge_adjacent ls acc n = (REVERSE (ls++acc),n))
+End
+
+Definition normalize_def:
+  (normalize [] acc n = (REVERSE acc,n)) ∧
+  (normalize ((c,l)::xs) acc n =
+    if (c:int) = 0 then normalize xs acc n
+    else if c < 0 then (* *)
+      normalize xs ((Num(-c),negate l)::acc) (n - c)
+    else
+      normalize xs ((Num c,l)::acc) n)
+End
+
+(* Given an inequality _ >= _, produces a normalized PBC *)
+Definition normalize_PBC_def:
+  normalize_PBC lhs deg =
+  (* Sort literals by underlying vars then merge adjacent terms with equal vars *)
+  let (lhs',deg') = merge_adjacent (QSORT term_le lhs) [] deg in
+  let (lhs'',deg'') = normalize lhs' [] deg' in
+  if deg'' < 0 then PBC lhs'' 0
+  else PBC lhs'' (Num deg'')
+End
+
+Definition parse_constraint_def:
+  parse_constraint line =
+  case parse_constraint_LHS line [] of (rest,lhs) =>
+  case rest of
+    [INL cmp; INR deg; INL term] =>
+      if term ≠ str #";" then NONE
+      else if cmp = implode ">=" then
+        SOME [normalize_PBC lhs deg]
+      else if cmp = implode "=" then
+        (* which one first ? *)
+        SOME [normalize_PBC (MAP (λ(c:int,l). (-c,l)) lhs) (-deg);
+              normalize_PBC lhs deg]
+       else NONE
+  | _ => NONE
+End
+
+Definition parse_constraints_def:
+  (parse_constraints [] acc = SOME (REVERSE acc)) ∧
+  (parse_constraints (s::ss) acc =
+    case parse_constraint s of
+      NONE => NONE
+    | SOME pbc => parse_constraints ss (pbc++acc))
+End
+
+Definition nocomment_line_def:
+  (nocomment_line (INL c::cs) = (c ≠ strlit "*")) ∧
+  (nocomment_line _ = T)
+End
+
+(* Parse the tokenized pbf file *)
+Definition parse_pbf_toks_def:
+  parse_pbf_toks tokss =
+  let nocomments = FILTER nocomment_line tokss in
+  (* TODO: parse the header line ? *)
+  parse_constraints nocomments []
+End
+
+(* Parse a list of strings in pbf format *)
+Definition parse_pbf_def:
+  parse_pbf strs = parse_pbf_toks (MAP toks strs)
+End
+
+(* build an sptree for the PBF from an initial ID *)
+Definition build_fml_def:
+  (build_fml (id:num) [] acc = (acc,id)) ∧
+  (build_fml id (s::ss) acc =
+    build_fml (id+1) ss (insert id s acc))
+End
+
+(* The stack is formed from constraints, where factors and variables are
+  also encoded using Id *)
+Definition parse_polish_def:
+  (parse_polish (x::xs) stack =
+  case x of INR n =>
+    parse_polish xs (Id n :: stack)
+  | INL s =>
+  if s = «+» then
+    (case stack of
+      a::b::rest => parse_polish xs (Add b a::rest)
+    | _ => NONE)
+  else if s = str #"*" then
+    (case stack of
+      Id a::b::rest => parse_polish xs (Mul b a::rest)
+    | _ => NONE)
+  else if s = str #"d" then
+    (case stack of
+      Id a::b::rest => parse_polish xs (Div b a::rest)
+    | _ => NONE)
+  else if s = str #"s" then
+    (case stack of
+      a::rest => parse_polish xs (Sat a::rest)
+    | _ => NONE)
+  else if s = str #"w" then
+    (case stack of
+      Lit (Pos v)::a::rest => parse_polish xs (Weak a v::rest)
+    | _ => NONE)
+  else
+    case parse_lit s of SOME l => parse_polish xs (Lit l::stack)
+    | NONE => NONE) ∧
+  (parse_polish [] [c] = SOME c) ∧
+  (parse_polish [] _ = NONE)
+End
+
+Definition strip_numbers_def:
+  (strip_numbers [] acc = SOME (REVERSE acc)) ∧
+  (strip_numbers (x::xs) acc =
+  case x of INR n =>
+    strip_numbers xs (n::acc)
+  | INL _ => NONE)
+End
+
+Definition parse_pbpstep_def:
+  (parse_pbpstep (first::rest) =
+  if first = INL (strlit "c") then
+    case rest of
+      [INR id] => SOME (Contradiction id)
+    | _ => NONE
+  else if first = INL (strlit "d") then
+    OPTION_MAP Delete (strip_numbers rest [])
+  else if first = INL (strlit "p") then
+    OPTION_MAP Polish (parse_polish rest [])
+  else NONE) ∧
+  (parse_pbpstep _ = NONE)
+End
+
+Definition parse_pbpsteps_def:
+  (parse_pbpsteps [] acc = SOME (REVERSE acc)) ∧
+  (parse_pbpsteps (s::ss) acc =
+    case parse_pbpstep s of
+      NONE => NONE
+    | SOME pbpstep => parse_pbpsteps ss (pbpstep::acc))
+End
+
+Definition parse_pbp_toks_def:
+  parse_pbp_toks tokss =
+  let nocomments = FILTER nocomment_line tokss in
+  (* TODO: parse the header line ? *)
+  parse_pbpsteps nocomments []
+End
+
+Definition tokenize_num_def:
+  tokenize_num (s:mlstring) =
+  if s = str #"+" then INL s
+  else
+  case mlint$fromNatString s of
+    NONE => INL s
+  | SOME i => INR i
+End
+
+Definition toks_num_def:
+  toks_num s = MAP tokenize_num (tokens blanks s)
+End
+
+(* Parse a list of strings in pbf format *)
+Definition parse_pbp_def:
+  parse_pbp strs = parse_pbp_toks (MAP toks_num strs)
+End
+
+val pbfraw = ``[
+  strlit "* #variable= 4 #constraint= 7";
+  strlit "2 ~x1 1 ~x3 >= 1 ;";
+  strlit "1 ~x3 1 ~x5 >= 1 ;";
+  strlit "1 ~x1 1 ~x5 >= 1 ;";
+  strlit "1 ~x2 1 ~x4 1 ~x6 >= 2 ;";
+  strlit "* test comment 1234567";
+  strlit "+1 x1 +1 x2 >= 1 ;";
+  strlit "+1 x3 +1 x4 >= 1 ;";
+  strlit "+1 x5 +1 x6 >= 1 ;";
+]``;
+
+val pbf = rconc (EVAL ``THE (parse_pbf ^(pbfraw))``);
+
+val pbpraw = ``[
+  strlit"* comment";
+  strlit"p 1 s";
+  strlit"* comment 2";
+  strlit"p 8 2 + 3 +";
+  strlit"p 9 2 d";
+  strlit"p 10 4 + 5 + 6 + 7 +";
+  strlit"c 11";
+]``;
+
+val pbp = rconc (EVAL ``THE (parse_pbp ^(pbpraw))``);
+
+val check = rconc (EVAL``((UNCURRY (check_pbpsteps ^(pbp))) (build_fml 1 ^(pbf) LN))``);
 
 val _ = export_theory ();
