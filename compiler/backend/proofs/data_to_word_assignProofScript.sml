@@ -13685,7 +13685,7 @@ Proof
   \\ drule evaluate_StoreAnyConsts
   \\ disch_then (qspecl_then [‘adjust_var dest’,‘1’,‘3’,‘(y0,y1)’,‘s1’] mp_tac)
   \\ impl_tac THEN1
-   (gvs [Abbr‘s1’,lookup_insert]
+   (rgs [Abbr‘s1’,lookup_insert]
     \\ Cases_on ‘y1’ \\ fs [isWord_def,good_loc_def]
     \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
     \\ rw [] \\ res_tac \\ Cases_on ‘p_2’ \\ fs [isWord_def,good_loc_def])
