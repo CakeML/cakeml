@@ -43,15 +43,6 @@ Proof
   \\ rw[to_addrs_def]
 QED
 
-(* Any block within a block must also be in all_blocks *)
-Definition all_blocks_ok_def:
-  all_blocks_ok blocks =
-    ∀ts ts' tag tag' l l'.
-      MEM (Block ts tag l) blocks ∧
-      MEM (Block ts' tag' l') l
-      ⇒ MEM (Block ts' tag' l') blocks
-End
-
 Theorem to_addrs_APPEND:
   ∀a b. to_addrs (a ++ b) = to_addrs a ∪ to_addrs b
 Proof
@@ -144,15 +135,15 @@ QED
 (* First, we need an alternative definition of flat_size_of
    where all_blocks is given as a finite map
 *)
-Definition block_to_addrs_def:
-  block_to_addrs blocks ts =
+Definition block_to_addrs0_def:
+  block_to_addrs0 blocks ts =
   (case sptree$lookup ts blocks of
    | SOME (Block _ _ vs) => to_addrs vs
    | _ => ∅ )
 End
 
-Definition ptr_to_addrs_def:
-  ptr_to_addrs refs p =
+Definition ptr_to_addrs0_def:
+  ptr_to_addrs0 refs p =
     case sptree$lookup p refs of
       SOME (ValueArray vs) => to_addrs vs
       | _ => {}
@@ -169,24 +160,24 @@ Definition addrs_in_def:
     | _      => F)
 End
 
-Definition next_def:
-  (next refs blocks (BlockAddr ts) r =
-     (r ∈ block_to_addrs blocks ts))
-∧ (next refs blocks (RefAddr ref) r =
-     (r ∈ ptr_to_addrs refs ref))
+Definition next0_def:
+  (next0 refs blocks (BlockAddr ts) r =
+     (r ∈ block_to_addrs0 blocks ts))
+∧ (next0 refs blocks (RefAddr ref) r =
+     (r ∈ ptr_to_addrs0 refs ref))
 End
 
 (* The set of all addresses that can be reached from an initial set of roots *)
-Definition reachable_v_def:
-  reachable_v refs blocks roots = { y | ∃x. x ∈ roots ∧ (next refs blocks)^* x y}
+Definition reachable_v0_def:
+  reachable_v0 refs blocks roots = { y | ∃x. x ∈ roots ∧ (next0 refs blocks)^* x y}
 End
 
-Definition size_of_addr_def:
-  (size_of_addr lims refs blocks (BlockAddr ts) =
+Definition size_of_addr0_def:
+  (size_of_addr0 lims refs blocks (BlockAddr ts) =
    (case sptree$lookup ts blocks of
     | SOME (Block _ _ vs) => 1 + LENGTH vs + SUM (MAP (flat_measure lims) vs)
     | _ => 0))
-∧ (size_of_addr lims refs blocks (RefAddr p) =
+∧ (size_of_addr0 lims refs blocks (RefAddr p) =
    (case sptree$lookup p refs of
     | SOME (ValueArray vs)  => 1 + LENGTH vs + SUM (MAP (flat_measure lims) vs)
     | SOME (ByteArray _ bs) => LENGTH bs DIV (arch_size lims DIV 8) + 2
@@ -196,38 +187,38 @@ End
 Definition aux_size_of_def:
   aux_size_of lims refs blocks roots =
     SUM (MAP (flat_measure lims) roots) +
-    ∑ (size_of_addr lims refs blocks)
-      (reachable_v refs blocks (to_addrs roots))
+    ∑ (size_of_addr0 lims refs blocks)
+      (reachable_v0 refs blocks (to_addrs roots))
 End
 
 (* If a timestam has been seen then its not in all_blocks; conversely,
    if a timestamp has not been seen and it is present in the roots
    then it must be in all_blocks.
   *)
-Definition blocks_roots_inv_def:
-  blocks_roots_inv blocks seen roots =
+Definition blocks0_roots_inv_def:
+  blocks0_roots_inv blocks seen roots =
    ∀ts tag l.
      (IS_SOME (sptree$lookup ts (seen : num_set)) ⇒ IS_NONE (sptree$lookup ts blocks)) ∧
      (IS_NONE (sptree$lookup ts seen) ∧ MEM (Block ts tag l) roots ⇒
         lookup ts blocks = SOME (Block ts tag l))
 End
 
-(* All values in a reference fulfil blocks_roots_inv *)
-Definition blocks_refs_inv_def:
-  blocks_refs_inv blocks seen refs =
+(* All values in a reference fulfil blocks0_roots_inv *)
+Definition blocks0_refs_inv_def:
+  blocks0_refs_inv blocks seen refs =
     ∀p vs.
       sptree$lookup p refs = SOME (ValueArray vs) ⇒
-      blocks_roots_inv blocks seen vs
+      blocks0_roots_inv blocks seen vs
 End
 
-(* All values in all_blocks fulfil blocks_roots_inv
+(* All values in all_blocks fulfil blocks0_roots_inv
    in a way consistent with the recursion in size_of
  *)
-Definition blocks_all_inv_def:
-  blocks_all_inv blocks seen =
+Definition blocks0_all_inv_def:
+  blocks0_all_inv blocks seen =
   ∀ts tag l.
     sptree$lookup ts blocks = SOME (Block ts tag l) ⇒
-    blocks_roots_inv (delete ts blocks) (insert ts () seen) l
+    blocks0_roots_inv (delete ts blocks) (insert ts () seen) l
 End
 
 Definition del_ptr_def[simp]:
@@ -240,36 +231,36 @@ Definition del_blk_def[simp]:
 ∧ del_blk  _             blocks = blocks
 End
 
-Theorem next_del:
+Triviality next0_del:
   ∀refs blocks v x .
-       (next refs blocks)^* v x
-     ⇒ (∃y. (next refs blocks) v y ∧
-           (next (del_ptr v refs) (del_blk v blocks))^* y x) ∨ x = v
+       (next0 refs blocks)^* v x
+     ⇒ (∃y. (next0 refs blocks) v y ∧
+           (next0 (del_ptr v refs) (del_blk v blocks))^* y x) ∨ x = v
 Proof
   strip_tac \\ strip_tac
   \\ ho_match_mp_tac RTC_STRONG_INDUCT_RIGHT1 \\ rw[]
-  >~[‘(next refs blocks)^* v v’]
+  >~[‘(next0 refs blocks)^* v v’]
   >- (DISJ1_TAC \\ asm_exists_tac \\ simp[])
   >- (Cases_on ‘x = v’ \\ gs[]
       >- (DISJ1_TAC \\ qexists_tac ‘x'’ \\ simp[])
       \\ Cases_on ‘x' = v’ \\ gs[]
       \\ asm_exists_tac \\ simp[]
       \\ Cases_on ‘x = x'’ \\ gs[]
-      \\ ‘next (del_ptr v refs) (del_blk v blocks) x x'’ by
+      \\ ‘next0 (del_ptr v refs) (del_blk v blocks) x x'’ by
          (Cases_on ‘x’ \\ Cases_on ‘v’
-          \\ gs[next_def,block_to_addrs_def]
-          \\ gs[lookup_delete,ptr_to_addrs_def])
+          \\ gs[next0_def,block_to_addrs0_def]
+          \\ gs[lookup_delete,ptr_to_addrs0_def])
       \\ irule ((snd o EQ_IMP_RULE o SPEC_ALL) RTC_CASES2)
       \\ DISJ2_TAC \\ metis_tac [])
 QED
 
-Theorem next_subspt:
+Triviality next0_subspt:
   ∀refs blocks x y.
-    (next refs blocks)^* x y ⇒
+    (next0 refs blocks)^* x y ⇒
     ∀refs' blocks'.
       subspt refs refs' ∧
       subspt blocks blocks' ⇒
-      (next refs' blocks')^* x y
+      (next0 refs' blocks')^* x y
 Proof
   strip_tac \\ strip_tac
   \\ ho_match_mp_tac RTC_strongind \\ rw[]
@@ -277,7 +268,7 @@ Proof
   \\ irule ((snd o EQ_IMP_RULE o SPEC_ALL) RTC_CASES1)
   \\ DISJ2_TAC \\ first_x_assum (irule_at Any)
   \\ Cases_on ‘x’
-  \\ gs[next_def,block_to_addrs_def,ptr_to_addrs_def]
+  \\ gs[next0_def,block_to_addrs0_def,ptr_to_addrs0_def]
   \\ gs[subspt_lookup]
   >-(cases_on ‘lookup n blocks’ \\ gs[]
      \\ first_assum drule \\ disch_then (simp o single))
@@ -285,63 +276,63 @@ Proof
      \\ first_assum drule \\ disch_then (simp o single))
 QED
 
-Theorem reachable_v_del_ptr:
+Triviality reachable_v0_del_ptr:
   ∀refs blocks r l.
     lookup r refs = SOME (ValueArray l) ⇒
-    reachable_v refs blocks {RefAddr r} =
-     reachable_v (delete r refs) blocks (to_addrs l) ∪ {RefAddr r}
+    reachable_v0 refs blocks {RefAddr r} =
+     reachable_v0 (delete r refs) blocks (to_addrs l) ∪ {RefAddr r}
 Proof
-  rw[reachable_v_def,FUN_EQ_THM] \\ EQ_TAC \\ rw[] \\ simp[]
-  >- (drule next_del \\ rw[next_def,ptr_to_addrs_def])
-  >- (drule next_subspt \\ disch_then (qspecl_then [‘refs’,‘blocks’] mp_tac)
+  rw[reachable_v0_def,FUN_EQ_THM] \\ EQ_TAC \\ rw[] \\ simp[]
+  >- (drule next0_del \\ rw[next0_def,ptr_to_addrs0_def])
+  >- (drule next0_subspt \\ disch_then (qspecl_then [‘refs’,‘blocks’] mp_tac)
       \\ impl_tac >- gs[subspt_delete]
       \\ rw[]
       \\ irule ((snd o EQ_IMP_RULE o SPEC_ALL) RTC_CASES1)
       \\ DISJ2_TAC \\ first_x_assum (irule_at Any)
-      \\  simp [next_def,ptr_to_addrs_def])
+      \\  simp [next0_def,ptr_to_addrs0_def])
 QED
 
-Theorem reachable_v_del_blk:
+Triviality reachable_v0_del_blk:
   ∀refs blocks ts tag l.
     lookup ts blocks = SOME (Block ts tag l) ⇒
-    reachable_v refs blocks {BlockAddr ts} =
-     reachable_v refs (delete ts blocks) (to_addrs l) ∪ {BlockAddr ts}
+    reachable_v0 refs blocks {BlockAddr ts} =
+     reachable_v0 refs (delete ts blocks) (to_addrs l) ∪ {BlockAddr ts}
 Proof
-  rw[reachable_v_def,FUN_EQ_THM] \\ EQ_TAC \\ rw[] \\ simp[]
-  >- (drule next_del \\ rw[next_def,block_to_addrs_def])
-  >- (drule next_subspt \\ disch_then (qspecl_then [‘refs’,‘blocks’] mp_tac)
+  rw[reachable_v0_def,FUN_EQ_THM] \\ EQ_TAC \\ rw[] \\ simp[]
+  >- (drule next0_del \\ rw[next0_def,block_to_addrs0_def])
+  >- (drule next0_subspt \\ disch_then (qspecl_then [‘refs’,‘blocks’] mp_tac)
       \\ impl_tac >- gs[subspt_delete]
       \\ rw[]
       \\ irule ((snd o EQ_IMP_RULE o SPEC_ALL) RTC_CASES1)
       \\ DISJ2_TAC \\ first_x_assum (irule_at Any)
-      \\ simp [next_def,block_to_addrs_def])
+      \\ simp [next0_def,block_to_addrs0_def])
 QED
 
-Theorem size_of_addr_del_aux:
+Triviality size_of_addr0_del_aux:
   ∀lims refs blocks v l.
-    size_of_addr lims (del_ptr v refs) (del_blk v blocks) v = 0
+    size_of_addr0 lims (del_ptr v refs) (del_blk v blocks) v = 0
 Proof
-  rw[] \\ Cases_on ‘v’ \\ rw[size_of_addr_def,lookup_delete]
+  rw[] \\ Cases_on ‘v’ \\ rw[size_of_addr0_def,lookup_delete]
 QED
 
-Theorem size_of_addr_del:
+Triviality size_of_addr0_del:
   ∀lims refs blocks v l.
     v ∉ l ⇒
-    ∑ (size_of_addr lims refs blocks) l =
-    ∑ (size_of_addr lims (del_ptr v refs) (del_blk v blocks)) l
+    ∑ (size_of_addr0 lims refs blocks) l =
+    ∑ (size_of_addr0 lims (del_ptr v refs) (del_blk v blocks)) l
 Proof
   rw[] \\ irule SUM_IMAGE_CONG \\ rw[]
-  \\ Cases_on ‘x’ \\ rw[size_of_addr_def]
+  \\ Cases_on ‘x’ \\ rw[size_of_addr0_def]
   \\ Cases_on ‘v’ \\ rw[lookup_delete]
   \\ gs[]
 QED
 
-Theorem size_of_addr_del_in:
+Triviality size_of_addr0_del_in:
   ∀lims refs blocks v l.
     v ∈ l ∧ FINITE l ⇒
-    ∑ (size_of_addr lims refs blocks) l =
-    ∑ (size_of_addr lims (del_ptr v refs) (del_blk v blocks)) l +
-    size_of_addr lims refs blocks v
+    ∑ (size_of_addr0 lims refs blocks) l =
+    ∑ (size_of_addr0 lims (del_ptr v refs) (del_blk v blocks)) l +
+    size_of_addr0 lims refs blocks v
 Proof
   rw[]
   \\ ‘l = {v} ∪ (l DELETE v)’ by
@@ -358,15 +349,15 @@ Proof
   \\ disch_then (simp o single)
   \\ ‘vv ∩ ll = ∅’ by
     (UNABBREV_ALL_TAC \\ rw[INTER_DEF,DELETE_DEF,FUN_EQ_THM])
-  \\ simp [SUM_IMAGE_THM,Abbr‘vv’,Abbr‘ff’,Abbr‘ff'’,size_of_addr_del_aux]
-  \\ irule size_of_addr_del
+  \\ simp [SUM_IMAGE_THM,Abbr‘vv’,Abbr‘ff’,Abbr‘ff'’,size_of_addr0_del_aux]
+  \\ irule size_of_addr0_del
   \\ simp[Abbr‘ll’]
 QED
 
-Triviality FINITE_reachable_v_0:
+Triviality FINITE_reachable_v0_0:
   ∀refs blocks roots.
     FINITE roots ⇒
-    FINITE (reachable_v refs blocks roots)
+    FINITE (reachable_v0 refs blocks roots)
 Proof
   rw[]
   \\ qspec_then ‘to_addrs (blocks_to_vs (sptree$toList blocks)) ∪
@@ -375,10 +366,10 @@ Proof
                 mp_tac SUBSET_FINITE
   \\ impl_tac >- rw[FINITE_to_addrs]
   \\ disch_then ho_match_mp_tac
-  \\ rw [SUBSET_DEF,IN_DEF,reachable_v_def]
+  \\ rw [SUBSET_DEF,IN_DEF,reachable_v0_def]
   \\ gs[Once RTC_CASES2]
   \\ Cases_on ‘u’
-  >- (gs[next_def,block_to_addrs_def]
+  >- (gs[next0_def,block_to_addrs0_def]
       \\ Cases_on ‘lookup n blocks’ \\ gs []
       \\ Cases_on ‘x''’ \\ gs []
       \\ rw[] \\ DISJ1_TAC \\ DISJ1_TAC
@@ -397,7 +388,7 @@ Proof
       \\ first_x_assum drule_all \\ rw[]
       \\ Cases_on ‘h’ \\ rw[]
       \\ rw[blocks_to_vs_def,to_addrs_def,to_addrs_APPEND,IN_DEF])
-  >-(gs[next_def,ptr_to_addrs_def]
+  >-(gs[next0_def,ptr_to_addrs0_def]
      \\ Cases_on ‘lookup n refs’ \\ gs[]
      \\ Cases_on ‘x''’ \\ gs[]
      \\ ‘MEM (ValueArray l) (toList refs)’ by metis_tac[MEM_toList]
@@ -414,16 +405,16 @@ Proof
      \\ rw[ref_to_vs_def,to_addrs_def,to_addrs_APPEND,IN_DEF])
 QED
 
-Theorem reachable_v_UNION:
+Triviality reachable_v0_UNION:
   ∀refs blocks a b.
-  reachable_v refs blocks (a ∪ b) =
-    reachable_v refs blocks a ∪ reachable_v refs blocks b
+  reachable_v0 refs blocks (a ∪ b) =
+    reachable_v0 refs blocks a ∪ reachable_v0 refs blocks b
 Proof
-  gs[reachable_v_def,FUN_EQ_THM] \\ rw[] \\ EQ_TAC
+  gs[reachable_v0_def,FUN_EQ_THM] \\ rw[] \\ EQ_TAC
   \\ rw[] \\ metis_tac []
 QED
 
-Theorem addrs_in_subspt:
+Triviality addrs_in_subspt:
   ∀refs1 refs2 blocks1 blocks2 v.
     subspt refs1 refs2 ∧ subspt blocks1 blocks2 ⇒
       addrs_in refs1 blocks1 v ⇒ addrs_in refs2 blocks2 v
@@ -433,7 +424,7 @@ Proof
   \\ first_x_assum drule \\ rw[] \\ gs[]
 QED
 
-Theorem not_addrs_in_subspt:
+Triviality not_addrs_in_subspt:
   ∀refs1 refs2 blocks1 blocks2 v.
     subspt refs1 refs2 ∧ subspt blocks1 blocks2 ⇒
       ¬(addrs_in refs2  blocks2 v) ⇒ ¬(addrs_in refs1 blocks1 v)
@@ -443,6 +434,7 @@ Proof
  \\ metis_tac [addrs_in_subspt]
 QED
 
+(* TODO: Move to sptreeTheory *)
 Theorem subspt_difference:
   ∀l r x.
     subspt l r ⇒ subspt (difference x r) (difference x l)
@@ -455,21 +447,21 @@ Proof
       \\ first_x_assum (qspec_then ‘k’ assume_tac) \\ gs[])
 QED
 
-Theorem reachable_v_idem:
+Triviality reachable_v0_idem:
   ∀l refs blocks.
     (∀v. v ∈ l ⇒ ¬addrs_in refs blocks v)
-    ⇒ reachable_v refs blocks l = l
+    ⇒ reachable_v0 refs blocks l = l
 Proof
-  rw[reachable_v_def,FUN_EQ_THM] \\ EQ_TAC \\ rw[]
+  rw[reachable_v0_def,FUN_EQ_THM] \\ EQ_TAC \\ rw[]
   >- (drule ((fst o EQ_IMP_RULE o SPEC_ALL) RTC_CASES1)
       \\ rw[] \\ gs[IN_DEF] \\ first_x_assum drule
       \\ Cases_on ‘x'’ \\ rw[addrs_in_def]
-      \\ gs[next_def,block_to_addrs_def,ptr_to_addrs_def]
+      \\ gs[next0_def,block_to_addrs0_def,ptr_to_addrs0_def]
       \\ EVERY_CASE_TAC \\ gs[])
   >- (simp[IN_DEF] \\ asm_exists_tac \\ simp[])
 QED
 
-Theorem size_of_reachable_not_addrs_in:
+Triviality size_of_reachable_not_addrs_in:
   ∀lims vs refs seen n refs0 seen0 blocks.
     size_of lims vs refs seen = (n,refs0,seen0) ⇒
         ∀v. v ∈ to_addrs vs ⇒ ¬addrs_in refs0 (difference blocks seen0) v
@@ -501,32 +493,32 @@ Proof
       \\ rw[subspt_lookup])
 QED
 
-Theorem size_of_reachable_v_idem:
+Triviality size_of_reachable_v0_idem:
   ∀lims vs refs seen n refs0 seen0 blocks.
     size_of lims vs refs seen = (n,refs0,seen0) ⇒
-        reachable_v refs0 (difference blocks seen0) (to_addrs vs) = to_addrs vs
+        reachable_v0 refs0 (difference blocks seen0) (to_addrs vs) = to_addrs vs
 Proof
   rw[]
-  \\ irule reachable_v_idem
+  \\ irule reachable_v0_idem
   \\ ho_match_mp_tac size_of_reachable_not_addrs_in
   \\ metis_tac[]
 QED
 
 
-Theorem reachable_v_nil:
-  ∀refs blocks. reachable_v refs blocks ∅ = ∅
+Triviality reachable_v0_nil:
+  ∀refs blocks. reachable_v0 refs blocks ∅ = ∅
 Proof
-  rw[reachable_v_def]
+  rw[reachable_v0_def]
 QED
 
-Theorem size_of_addrs_addrs_in_eq:
+Triviality size_of_addrs_addrs_in_eq:
   ∀lims refs refs0 blocks blocks0 l.
     FINITE l ∧
     subspt refs0 refs ∧
     subspt blocks0 blocks ∧
     (∀v. v ∈ l ⇒ (addrs_in refs0 blocks0 v ⇔ addrs_in refs blocks v)) ⇒
-    ∑ (size_of_addr lims refs blocks)   l =
-    ∑ (size_of_addr lims refs0 blocks0) l
+    ∑ (size_of_addr0 lims refs blocks)   l =
+    ∑ (size_of_addr0 lims refs0 blocks0) l
 Proof
   rw[] \\ irule SUM_IMAGE_CONG \\ rw[] \\ Cases_on ‘x’
   \\ first_x_assum drule \\ gs[subspt_lookup]
@@ -534,36 +526,36 @@ Proof
   \\ first_x_assum drule \\ gs[]
 QED
 
-Triviality next_addrs_in:
+Triviality next0_addrs_in:
 ∀refs blocks v x.
-  next refs blocks v x ⇒ addrs_in refs blocks v
+  next0 refs blocks v x ⇒ addrs_in refs blocks v
 Proof
   rpt (gen_tac) \\ Cases_on ‘v’
-  \\ simp[next_def,ptr_to_addrs_def,block_to_addrs_def,addrs_in_def]
+  \\ simp[next0_def,ptr_to_addrs0_def,block_to_addrs0_def,addrs_in_def]
   >- (cases_on ‘lookup n blocks’ \\ gs[])
   >- (cases_on ‘lookup n refs’ \\ gs[])
 QED
 
-Theorem reachable_v_subspt:
+Triviality reachable_v0_subspt:
   ∀refs refs0 blocks blocks0 l v.
     subspt refs0 refs ∧
     subspt blocks0 blocks ∧
-    v ∈ reachable_v refs0 blocks0 l ⇒
-    v ∈ reachable_v refs blocks l
+    v ∈ reachable_v0 refs0 blocks0 l ⇒
+    v ∈ reachable_v0 refs blocks l
 Proof
   rw[IN_DEF] \\ Cases_on ‘v’
-  \\ gs[reachable_v_def,block_to_addrs_def,ptr_to_addrs_def]
-  \\ metis_tac [next_subspt]
+  \\ gs[reachable_v0_def,block_to_addrs0_def,ptr_to_addrs0_def]
+  \\ metis_tac [next0_subspt]
 QED
 
-Theorem not_reachable_v_subspt:
+Triviality not_reachable_v0_subspt:
   ∀refs refs0 blocks blocks0 l v.
     subspt refs0 refs ∧
     subspt blocks0 blocks ∧
-    v ∉ reachable_v refs blocks l ⇒
-    v ∉ reachable_v refs0 blocks0 l
+    v ∉ reachable_v0 refs blocks l ⇒
+    v ∉ reachable_v0 refs0 blocks0 l
 Proof
-  metis_tac [reachable_v_subspt]
+  metis_tac [reachable_v0_subspt]
 QED
 
 Triviality wf_seen_size_of:
@@ -578,7 +570,7 @@ Proof
   \\ fs [wf_insert,wf_delete]
 QED
 
-
+(* TODO: Move to sptreeTheory *)
 Theorem difference_difference:
   ∀x r l.
     wf x ∧ wf r ∧ wf l ∧ subspt l r ⇒
@@ -598,53 +590,53 @@ Proof
   \\ first_x_assum drule \\ gs[]
 QED
 
-Theorem size_of_reachable_v_cases:
+Triviality size_of_reachable_v0_cases:
   ∀lims vs refs seen n refs0 seen0.
     size_of lims vs refs seen = (n,refs0,seen0) ⇒
     ∀blocks.
       wf seen ∧ wf blocks ∧
-      blocks_roots_inv blocks seen vs   ∧
-      blocks_refs_inv  blocks seen refs ∧
-      blocks_all_inv   blocks seen ⇒
-      (∀v. v ∈ reachable_v refs blocks (to_addrs vs) ⇒
+      blocks0_roots_inv blocks seen vs   ∧
+      blocks0_refs_inv  blocks seen refs ∧
+      blocks0_all_inv   blocks seen ⇒
+      (∀v. v ∈ reachable_v0 refs blocks (to_addrs vs) ⇒
           ¬addrs_in refs0  (difference blocks seen0) v) ∧
-      (∀v. v ∉ reachable_v refs blocks (to_addrs vs) ⇒
-          (next refs0  (difference blocks seen0) v =
-           (next refs  blocks v)))
+      (∀v. v ∉ reachable_v0 refs blocks (to_addrs vs) ⇒
+          (next0 refs0  (difference blocks seen0) v =
+           (next0 refs  blocks v)))
 Proof
   let val cons_invariants =
       first_x_assum (qspec_then ‘blocks’ mp_tac)
       \\ impl_tac \\ rw[]
       >- (last_x_assum kall_tac
-          \\ gs[blocks_roots_inv_def,FORALL_AND_THM]
+          \\ gs[blocks0_roots_inv_def,FORALL_AND_THM]
           \\ metis_tac [])
       \\ first_x_assum (qspec_then ‘difference blocks seen1’ mp_tac)
       \\ impl_tac \\ rw[]
       (* head invariants *)
       >- metis_tac [wf_seen_size_of]
       >- metis_tac [wf_difference,wf_seen_size_of]
-      >- (gs[blocks_roots_inv_def,FORALL_AND_THM,lookup_difference]
+      >- (gs[blocks0_roots_inv_def,FORALL_AND_THM,lookup_difference]
           \\ rw[] \\ gs[]
           \\ first_x_assum irule \\ simp[]
           \\ ‘subspt seen seen1’ by metis_tac [size_of_seen_pres]
           \\ CCONTR_TAC
           \\ Cases_on ‘lookup ts seen’ \\ gs[]
           \\ gs[subspt_lookup])
-      >- (gs[blocks_refs_inv_def] \\ rw[]
+      >- (gs[blocks0_refs_inv_def] \\ rw[]
           \\ ‘subspt refs1 refs’ by metis_tac [size_of_refs_subspt]
           \\ gs[subspt_lookup] \\ first_x_assum drule
           \\ disch_then (first_x_assum o C (mp_then Any assume_tac))
-          \\ gs[blocks_roots_inv_def,FORALL_AND_THM,lookup_difference]
+          \\ gs[blocks0_roots_inv_def,FORALL_AND_THM,lookup_difference]
           \\ rw[] \\ gs[]
           \\ first_x_assum irule \\ simp[]
           \\ ‘subspt seen seen1’ by metis_tac [size_of_seen_pres]
           \\ CCONTR_TAC
           \\ Cases_on ‘lookup ts seen’ \\ gs[]
           \\ gs[subspt_lookup])
-      >- (gs[blocks_all_inv_def] \\ rw[]
+      >- (gs[blocks0_all_inv_def] \\ rw[]
           \\ first_x_assum (qspecl_then [‘ts’,‘tag’,‘l’] mp_tac)
           \\ impl_tac >- gs[lookup_difference]
-          \\ gs[blocks_roots_inv_def,FORALL_AND_THM
+          \\ gs[blocks0_roots_inv_def,FORALL_AND_THM
                 ,lookup_difference,lookup_delete,lookup_insert]
           \\ rw[] \\ gs[]
           >- (first_x_assum irule \\ IF_CASES_TAC \\ gs[IS_SOME_EXISTS])
@@ -673,7 +665,7 @@ Proof
            \\ drule_then (qspec_then ‘blocks’ mp_tac) spt_eq_thm
            \\ rw[FUN_EQ_THM,lookup_difference]
            \\ IF_CASES_TAC \\ gs[]
-           \\ gs[blocks_roots_inv_def,FORALL_AND_THM]
+           \\ gs[blocks0_roots_inv_def,FORALL_AND_THM]
            \\ first_x_assum irule
            \\ qmatch_goalsub_rename_tac ‘lookup nnn seen’
            \\ Cases_on ‘lookup nnn seen’
@@ -682,16 +674,16 @@ Proof
      val block_invariants =
          first_x_assum (qspec_then ‘delete ts blocks’ mp_tac)
          \\ impl_tac \\ rw[wf_insert,wf_delete]
-         >- (gs[blocks_all_inv_def] \\ first_x_assum irule
-             \\ qexists_tac ‘tag’ \\ gs [blocks_roots_inv_def])
-         >- (gs[blocks_refs_inv_def] \\ rw[] \\ first_x_assum drule
-             \\ rw[blocks_roots_inv_def,lookup_delete,lookup_insert]
+         >- (gs[blocks0_all_inv_def] \\ first_x_assum irule
+             \\ qexists_tac ‘tag’ \\ gs [blocks0_roots_inv_def])
+         >- (gs[blocks0_refs_inv_def] \\ rw[] \\ first_x_assum drule
+             \\ rw[blocks0_roots_inv_def,lookup_delete,lookup_insert]
              >- (CCONTR_TAC \\ gs[])
              >- (CCONTR_TAC \\ gs[])
              >- metis_tac [])
-         >- (gs[blocks_all_inv_def] \\ rw[lookup_delete]
+         >- (gs[blocks0_all_inv_def] \\ rw[lookup_delete]
              \\ first_x_assum drule
-             \\ rw[blocks_roots_inv_def,lookup_delete,lookup_insert]
+             \\ rw[blocks0_roots_inv_def,lookup_delete,lookup_insert]
              >- (CCONTR_TAC \\ gs[]
                  \\ Cases_on ‘ts'' = ts’ \\ gs[]
                  \\ metis_tac [])
@@ -703,7 +695,7 @@ Proof
                  \\ metis_tac [])
              >- metis_tac [])
 in
-  ho_match_mp_tac size_of_ind \\ rw[] \\ gs[size_of_def,to_addrs_def,reachable_v_nil]
+  ho_match_mp_tac size_of_ind \\ rw[] \\ gs[size_of_def,to_addrs_def,reachable_v0_nil]
   \\ TRY (rveq \\ cons_aux3 \\ simp[] \\ NO_TAC)
   (* Cons-1 *)
   >- (rpt (pairarg_tac \\ gs[]) \\ rveq
@@ -713,8 +705,8 @@ in
       \\ cons_aux
       \\ gs[] \\ ntac 2 (pop_assum kall_tac)
       \\ qpat_x_assum ‘_ ∈ _’ assume_tac
-      \\ gs [Once to_addrs_cons,reachable_v_UNION]
-      >- (Cases_on ‘v ∈ reachable_v refs blocks (to_addrs xs)’
+      \\ gs [Once to_addrs_cons,reachable_v0_UNION]
+      >- (Cases_on ‘v ∈ reachable_v0 refs blocks (to_addrs xs)’
           >- (irule not_addrs_in_subspt
               \\ qexistsl_tac [‘difference blocks seen1’,‘refs1’]
               \\ irule_at Any size_of_refs_subspt
@@ -723,7 +715,7 @@ in
           \\ gs[]
           \\ first_x_assum irule
           \\ qpat_x_assum ‘v ∈ _’ mp_tac
-          \\ rw[reachable_v_def]
+          \\ rw[reachable_v0_def]
           \\ asm_exists_tac \\ simp[]
           \\ qpat_x_assum ‘x' ∈ _’ mp_tac
           \\ qpat_x_assum ‘v ∉ _’ mp_tac
@@ -738,9 +730,9 @@ in
           \\ irule (PROVE [] “A ∧ (A ⇒ B) ⇒ A ∧ B”)
           \\ conj_tac
           >- (CCONTR_TAC \\ gs[]
-              \\ ‘v' ∈ reachable_v refs blocks (to_addrs xs)’
+              \\ ‘v' ∈ reachable_v0 refs blocks (to_addrs xs)’
                  suffices_by simp[]
-              \\ gs[reachable_v_def] \\ asm_exists_tac \\ simp[]
+              \\ gs[reachable_v0_def] \\ asm_exists_tac \\ simp[]
               \\ irule ((snd o EQ_IMP_RULE o SPEC_ALL) RTC_CASES2)
               \\ metis_tac [])
           \\ rw[])
@@ -757,32 +749,32 @@ in
       \\ cons_aux
       \\ gs[]
       \\ qpat_x_assum ‘_ ∉ _’ assume_tac
-      \\ gs [Once to_addrs_cons,reachable_v_UNION]
+      \\ gs [Once to_addrs_cons,reachable_v0_UNION]
       \\ first_x_assum drule
       \\ disch_then (simp o single o GSYM)
       \\ first_x_assum irule
-      \\ irule not_reachable_v_subspt
+      \\ irule not_reachable_v0_subspt
       \\ asm_exists_tac \\ simp[]
       \\ metis_tac [subspt_difference,size_of_seen_pres,size_of_refs_subspt])
   (* Refs-1 *)
   >- (rpt (pairarg_tac \\ gs[]) \\ rveq
       \\ Cases_on ‘lookup r refs’ \\ gs[]
-      >- (rveq \\ gs[reachable_v_def,IN_DEF]
+      >- (rveq \\ gs[reachable_v0_def,IN_DEF]
           \\ drule ((fst o EQ_IMP_RULE o SPEC_ALL) RTC_CASES1)
-          \\ rw[] \\ gs[next_def,ptr_to_addrs_def,addrs_in_def])
+          \\ rw[] \\ gs[next0_def,ptr_to_addrs0_def,addrs_in_def])
       \\ reverse (Cases_on ‘x’) \\ gs[]
-      >- (rveq \\ gs[reachable_v_def,IN_DEF]
+      >- (rveq \\ gs[reachable_v0_def,IN_DEF]
           \\ drule ((fst o EQ_IMP_RULE o SPEC_ALL) RTC_CASES1)
-          \\ rw[] \\ gs[next_def,ptr_to_addrs_def,addrs_in_def,lookup_delete])
+          \\ rw[] \\ gs[next0_def,ptr_to_addrs0_def,addrs_in_def,lookup_delete])
       \\ rpt (pairarg_tac \\ gs[]) \\ rveq
       \\ first_x_assum (qspec_then ‘blocks’ mp_tac)
       \\ impl_tac \\ rw[]
-      >- metis_tac [blocks_refs_inv_def]
-      >- (gs[blocks_refs_inv_def] \\ rw[]
+      >- metis_tac [blocks0_refs_inv_def]
+      >- (gs[blocks0_refs_inv_def] \\ rw[]
           \\ first_x_assum irule \\ qexists_tac ‘p’
           \\ gs[lookup_delete])
       \\ cons_aux3 \\ gs[]
-      \\ drule reachable_v_del_ptr
+      \\ drule reachable_v0_del_ptr
       \\ disch_then (qspec_then ‘blocks’ (gs o single))
       \\ simp[addrs_in_def]
       \\ drule size_of_refs_subspt
@@ -794,35 +786,35 @@ in
       \\ Cases_on ‘lookup r refs’ \\ gs[]
       >- (rveq \\ cons_aux3 \\ simp[])
       \\ reverse (Cases_on ‘x’) \\ gs[]
-      >- (rveq \\ gs[reachable_v_def]
+      >- (rveq \\ gs[reachable_v0_def]
           \\ ‘v ≠ RefAddr r’ by (CCONTR_TAC \\ gs[])
           \\ Cases_on ‘v’
-          \\ rw[next_def,FUN_EQ_THM,IN_DEF,ptr_to_addrs_def,lookup_delete]
+          \\ rw[next0_def,FUN_EQ_THM,IN_DEF,ptr_to_addrs0_def,lookup_delete]
           \\ cons_aux3 \\ simp[])
       \\ rpt (pairarg_tac \\ gs[]) \\ rveq
       \\ first_x_assum (qspec_then ‘blocks’ mp_tac)
       \\ impl_tac \\ rw[]
-      >- metis_tac [blocks_refs_inv_def]
-      >- (gs[blocks_refs_inv_def] \\ rw[]
+      >- metis_tac [blocks0_refs_inv_def]
+      >- (gs[blocks0_refs_inv_def] \\ rw[]
           \\ first_x_assum irule \\ qexists_tac ‘p’
           \\ gs[lookup_delete])
-      \\ drule reachable_v_del_ptr
+      \\ drule reachable_v0_del_ptr
       \\ disch_then (qspec_then ‘blocks’ (gs o single))
       \\ Cases_on ‘v’
-      \\ rw[next_def,FUN_EQ_THM,IN_DEF,ptr_to_addrs_def,lookup_delete])
+      \\ rw[next0_def,FUN_EQ_THM,IN_DEF,ptr_to_addrs0_def,lookup_delete])
   (* Block-1 *)
   >- (rpt (pairarg_tac \\ gs[]) \\ rveq
       \\ reverse (Cases_on ‘lookup ts seen’) \\ gs[]
       \\ cons_aux3 \\ gs[]
-      >- (rveq \\ gs[reachable_v_def]
+      >- (rveq \\ gs[reachable_v0_def]
           \\ drule ((fst o EQ_IMP_RULE o SPEC_ALL) RTC_CASES1) \\ rw[]
-          \\ gs[next_def,lookup_difference,block_to_addrs_def,
-                addrs_in_def,blocks_roots_inv_def])
+          \\ gs[next0_def,lookup_difference,block_to_addrs0_def,
+                addrs_in_def,blocks0_roots_inv_def])
       \\ gs[size_of_def] \\ rpt (pairarg_tac \\ gs[]) \\ rveq
       \\ block_invariants
       \\ ‘lookup ts blocks = SOME (Block ts tag (v20::v21))’ by
-          gs[blocks_roots_inv_def]
-      \\ drule reachable_v_del_blk
+          gs[blocks0_roots_inv_def]
+      \\ drule reachable_v0_del_blk
       \\ disch_then (qspec_then ‘refs’ (gs o single))
       >- (‘difference (delete ts blocks) seen' = difference blocks seen'’ by
           (‘wf (difference blocks seen') ∧
@@ -848,8 +840,8 @@ in
       \\ gs[size_of_def] \\ rpt (pairarg_tac \\ gs[]) \\ rveq
       \\ block_invariants
       \\ ‘lookup ts blocks = SOME (Block ts tag (v20::v21))’ by
-         gs[blocks_roots_inv_def]
-      \\ drule reachable_v_del_blk
+         gs[blocks0_roots_inv_def]
+      \\ drule reachable_v0_del_blk
       \\ disch_then (qspec_then ‘refs’ (gs o single))
       \\ ‘difference (delete ts blocks) seen' = difference blocks seen'’ by
           (‘wf (difference blocks seen') ∧
@@ -862,23 +854,23 @@ in
            \\ qexists_tac ‘n’ \\ simp [])
       \\ gs[]
       \\ Cases_on ‘v’
-      \\ rw[next_def,FUN_EQ_THM,IN_DEF,block_to_addrs_def,lookup_delete,lookup_difference]
+      \\ rw[next0_def,FUN_EQ_THM,IN_DEF,block_to_addrs0_def,lookup_delete,lookup_difference]
       \\ gs[lookup_insert]
       \\ EVERY_CASE_TAC \\ gs[]
       \\ Cases_on ‘lookup n seen’ \\ gs[]
-      \\ gs[blocks_roots_inv_def])
+      \\ gs[blocks0_roots_inv_def])
 end
 QED
 
-Theorem size_of_addrs_in:
+Triviality size_of_addrs_in:
   ∀lims vs refs seen n refs0 seen0.
     size_of lims vs refs seen = (n,refs0,seen0) ⇒
     ∀blocks.
       wf seen ∧ wf blocks ∧
-      blocks_roots_inv blocks seen vs   ∧
-      blocks_refs_inv  blocks seen refs ∧
-      blocks_all_inv   blocks seen ⇒
-      ∀v. v ∉ reachable_v refs blocks (to_addrs vs) ⇒
+      blocks0_roots_inv blocks seen vs   ∧
+      blocks0_refs_inv  blocks seen refs ∧
+      blocks0_all_inv   blocks seen ⇒
+      ∀v. v ∉ reachable_v0 refs blocks (to_addrs vs) ⇒
           addrs_in refs0  (difference blocks seen0) v =
             (addrs_in refs blocks v)
 Proof
@@ -886,35 +878,35 @@ Proof
       first_x_assum (qspec_then ‘blocks’ mp_tac)
       \\ impl_tac \\ rw[]
       >- (last_x_assum kall_tac
-          \\ gs[blocks_roots_inv_def,FORALL_AND_THM]
+          \\ gs[blocks0_roots_inv_def,FORALL_AND_THM]
           \\ metis_tac [])
       \\ first_x_assum (qspec_then ‘difference blocks seen1’ mp_tac)
       \\ impl_tac \\ rw[]
       (* head invariants *)
       >- metis_tac [wf_seen_size_of]
       >- metis_tac [wf_difference,wf_seen_size_of]
-      >- (gs[blocks_roots_inv_def,FORALL_AND_THM,lookup_difference]
+      >- (gs[blocks0_roots_inv_def,FORALL_AND_THM,lookup_difference]
           \\ rw[] \\ gs[]
           \\ first_x_assum irule \\ simp[]
           \\ ‘subspt seen seen1’ by metis_tac [size_of_seen_pres]
           \\ CCONTR_TAC
           \\ Cases_on ‘lookup ts seen’ \\ gs[]
           \\ gs[subspt_lookup])
-      >- (gs[blocks_refs_inv_def] \\ rw[]
+      >- (gs[blocks0_refs_inv_def] \\ rw[]
           \\ ‘subspt refs1 refs’ by metis_tac [size_of_refs_subspt]
           \\ gs[subspt_lookup] \\ first_x_assum drule
           \\ disch_then (first_x_assum o C (mp_then Any assume_tac))
-          \\ gs[blocks_roots_inv_def,FORALL_AND_THM,lookup_difference]
+          \\ gs[blocks0_roots_inv_def,FORALL_AND_THM,lookup_difference]
           \\ rw[] \\ gs[]
           \\ first_x_assum irule \\ simp[]
           \\ ‘subspt seen seen1’ by metis_tac [size_of_seen_pres]
           \\ CCONTR_TAC
           \\ Cases_on ‘lookup ts seen’ \\ gs[]
           \\ gs[subspt_lookup])
-      >- (gs[blocks_all_inv_def] \\ rw[]
+      >- (gs[blocks0_all_inv_def] \\ rw[]
           \\ first_x_assum (qspecl_then [‘ts’,‘tag’,‘l’] mp_tac)
           \\ impl_tac >- gs[lookup_difference]
-          \\ gs[blocks_roots_inv_def,FORALL_AND_THM
+          \\ gs[blocks0_roots_inv_def,FORALL_AND_THM
                 ,lookup_difference,lookup_delete,lookup_insert]
           \\ rw[] \\ gs[]
           >- (first_x_assum irule \\ IF_CASES_TAC \\ gs[IS_SOME_EXISTS])
@@ -943,7 +935,7 @@ Proof
            \\ drule_then (qspec_then ‘blocks’ mp_tac) spt_eq_thm
            \\ rw[FUN_EQ_THM,lookup_difference]
            \\ IF_CASES_TAC \\ gs[]
-           \\ gs[blocks_roots_inv_def,FORALL_AND_THM]
+           \\ gs[blocks0_roots_inv_def,FORALL_AND_THM]
            \\ first_x_assum irule
            \\ qmatch_goalsub_rename_tac ‘lookup nnn seen’
            \\ Cases_on ‘lookup nnn seen’
@@ -952,16 +944,16 @@ Proof
      val block_invariants =
          first_x_assum (qspec_then ‘delete ts blocks’ mp_tac)
          \\ impl_tac \\ rw[wf_insert,wf_delete]
-         >- (gs[blocks_all_inv_def] \\ first_x_assum irule
-             \\ qexists_tac ‘tag’ \\ gs [blocks_roots_inv_def])
-         >- (gs[blocks_refs_inv_def] \\ rw[] \\ first_x_assum drule
-             \\ rw[blocks_roots_inv_def,lookup_delete,lookup_insert]
+         >- (gs[blocks0_all_inv_def] \\ first_x_assum irule
+             \\ qexists_tac ‘tag’ \\ gs [blocks0_roots_inv_def])
+         >- (gs[blocks0_refs_inv_def] \\ rw[] \\ first_x_assum drule
+             \\ rw[blocks0_roots_inv_def,lookup_delete,lookup_insert]
              >- (CCONTR_TAC \\ gs[])
              >- (CCONTR_TAC \\ gs[])
              >- metis_tac [])
-         >- (gs[blocks_all_inv_def] \\ rw[lookup_delete]
+         >- (gs[blocks0_all_inv_def] \\ rw[lookup_delete]
              \\ first_x_assum drule
-             \\ rw[blocks_roots_inv_def,lookup_delete,lookup_insert]
+             \\ rw[blocks0_roots_inv_def,lookup_delete,lookup_insert]
              >- (CCONTR_TAC \\ gs[]
                  \\ Cases_on ‘ts'' = ts’ \\ gs[]
                  \\ metis_tac [])
@@ -973,7 +965,7 @@ Proof
                  \\ metis_tac [])
              >- metis_tac [])
 in
-  ho_match_mp_tac size_of_ind \\ rw[] \\ gs[size_of_def,to_addrs_def,reachable_v_nil]
+  ho_match_mp_tac size_of_ind \\ rw[] \\ gs[size_of_def,to_addrs_def,reachable_v0_nil]
   \\ TRY (rveq \\ cons_aux3 \\ simp[] \\ NO_TAC)
   (* Cons *)
   >- (rpt (pairarg_tac \\ gs[]) \\ rveq
@@ -983,11 +975,11 @@ in
       \\ cons_aux
       \\ gs[]
       \\ qpat_x_assum ‘_ ∉ _’ assume_tac
-      \\ gs [Once to_addrs_cons,reachable_v_UNION]
+      \\ gs [Once to_addrs_cons,reachable_v0_UNION]
       \\ first_x_assum drule
       \\ disch_then (simp o single o GSYM)
       \\ first_x_assum irule
-      \\ irule not_reachable_v_subspt
+      \\ irule not_reachable_v0_subspt
       \\ asm_exists_tac \\ simp[]
       \\ metis_tac [subspt_difference,size_of_seen_pres,size_of_refs_subspt])
   (* Refs *)
@@ -995,22 +987,22 @@ in
       \\ Cases_on ‘lookup r refs’ \\ gs[]
       >- (rveq \\ cons_aux3 \\ simp[])
       \\ reverse (Cases_on ‘x’) \\ gs[]
-      >- (rveq \\ gs[reachable_v_def]
+      >- (rveq \\ gs[reachable_v0_def]
           \\ ‘v ≠ RefAddr r’ by (CCONTR_TAC \\ gs[])
           \\ Cases_on ‘v’
-          \\ rw[next_def,FUN_EQ_THM,IN_DEF,ptr_to_addrs_def,lookup_delete]
+          \\ rw[next0_def,FUN_EQ_THM,IN_DEF,ptr_to_addrs0_def,lookup_delete]
           \\ rveq \\ cons_aux3 \\ simp[addrs_in_def,lookup_delete])
       \\ rpt (pairarg_tac \\ gs[]) \\ rveq
       \\ first_x_assum (qspec_then ‘blocks’ mp_tac)
       \\ impl_tac \\ rw[]
-      >- metis_tac [blocks_refs_inv_def]
-      >- (gs[blocks_refs_inv_def] \\ rw[]
+      >- metis_tac [blocks0_refs_inv_def]
+      >- (gs[blocks0_refs_inv_def] \\ rw[]
           \\ first_x_assum irule \\ qexists_tac ‘p’
           \\ gs[lookup_delete])
-      \\ drule reachable_v_del_ptr
+      \\ drule reachable_v0_del_ptr
       \\ disch_then (qspec_then ‘blocks’ (gs o single))
       \\ Cases_on ‘v’
-      \\ rw[next_def,FUN_EQ_THM,IN_DEF,ptr_to_addrs_def,lookup_delete]
+      \\ rw[next0_def,FUN_EQ_THM,IN_DEF,ptr_to_addrs0_def,lookup_delete]
       \\ simp[addrs_in_def,lookup_delete])
   (* Block *)
   >- (rpt (pairarg_tac \\ gs[]) \\ rveq
@@ -1019,8 +1011,8 @@ in
       \\ gs[size_of_def] \\ rpt (pairarg_tac \\ gs[]) \\ rveq
       \\ block_invariants
       \\ ‘lookup ts blocks = SOME (Block ts tag (v20::v21))’ by
-         gs[blocks_roots_inv_def]
-      \\ drule reachable_v_del_blk
+         gs[blocks0_roots_inv_def]
+      \\ drule reachable_v0_del_blk
       \\ disch_then (qspec_then ‘refs’ (gs o single))
       \\ ‘difference (delete ts blocks) seen' = difference blocks seen'’ by
           (‘wf (difference blocks seen') ∧
@@ -1033,15 +1025,16 @@ in
            \\ qexists_tac ‘n’ \\ simp [])
       \\ gs[]
       \\ Cases_on ‘v’
-      \\ rw[next_def,FUN_EQ_THM,IN_DEF,block_to_addrs_def,lookup_delete,lookup_difference]
+      \\ rw[next0_def,FUN_EQ_THM,IN_DEF,block_to_addrs0_def,lookup_delete,lookup_difference]
       \\ gs[lookup_insert]
       \\ EVERY_CASE_TAC \\ gs[]
       \\ Cases_on ‘lookup n seen’ \\ gs[]
-      \\ gs[blocks_roots_inv_def]
+      \\ gs[blocks0_roots_inv_def]
       \\ simp[addrs_in_def,lookup_delete])
 end
 QED
 
+(* TODO: Move? *)
 Theorem DELETE_DIFF:
   ∀a x b.
     a DELETE x DIFF b = a DIFF b DELETE x
@@ -1050,6 +1043,7 @@ Proof
   \\ rw[]
 QED
 
+(* TODO: Move? *)
 Theorem SUM_IMAGE_DIFF:
    ∀f a b.  FINITE a ∧ FINITE b ⇒ ∑ f (a DIFF b) = ∑ f a - ∑ f (a ∩ b)
 Proof
@@ -1070,6 +1064,7 @@ Proof
   \\ simp[Once INTER_COMM]
 QED
 
+(* TODO: Move? *)
 Theorem SUM_IMAGE_SUBSET_SPLIT:
 ∀l f r.
   FINITE r ∧
@@ -1092,53 +1087,53 @@ Proof
   \\ gs[SUBSET_UNION_ABSORPTION]
 QED
 
-Theorem size_of_aux_size_of:
+Triviality size_of_eq_aux_size_of:
   ∀lims vs refs seen n refs0 seen0.
     size_of lims vs refs seen = (n,refs0,seen0) ⇒
     ∀blocks.
       wf seen ∧ wf blocks ∧
-      blocks_roots_inv blocks seen vs   ∧
-      blocks_refs_inv  blocks seen refs ∧
-      blocks_all_inv   blocks seen      ⇒
+      blocks0_roots_inv blocks seen vs   ∧
+      blocks0_refs_inv  blocks seen refs ∧
+      blocks0_all_inv   blocks seen      ⇒
         aux_size_of lims refs blocks vs = n
 Proof
   ho_match_mp_tac size_of_ind \\ rw[]
-  >- (gs[aux_size_of_def,size_of_def,to_addrs_def,reachable_v_def] \\ EVAL_TAC)
+  >- (gs[aux_size_of_def,size_of_def,to_addrs_def,reachable_v0_def] \\ EVAL_TAC)
      (* TODO *)
   >- (gs[size_of_def] \\ rpt (pairarg_tac \\ gs[]) \\ rveq
       \\ first_x_assum (first_assum o mp_then Any mp_tac)
       (* tail invariants *)
       \\ impl_tac \\ rw[]
       >- (last_x_assum kall_tac
-          \\ gs[blocks_roots_inv_def,FORALL_AND_THM]
+          \\ gs[blocks0_roots_inv_def,FORALL_AND_THM]
           \\ metis_tac [])
       \\ first_x_assum (qspec_then ‘difference blocks seen1’ mp_tac)
       \\ impl_tac \\ rw[]
       (* head invariants *)
       >- metis_tac [wf_seen_size_of]
       >- metis_tac [wf_seen_size_of,wf_difference]
-      >- (gs[blocks_roots_inv_def,FORALL_AND_THM,lookup_difference]
+      >- (gs[blocks0_roots_inv_def,FORALL_AND_THM,lookup_difference]
           \\ rw[] \\ gs[]
           \\ first_x_assum irule \\ simp[]
           \\ ‘subspt seen seen1’ by metis_tac [size_of_seen_pres]
           \\ CCONTR_TAC
           \\ Cases_on ‘lookup ts seen’ \\ gs[]
           \\ gs[subspt_lookup])
-      >- (gs[blocks_refs_inv_def] \\ rw[]
+      >- (gs[blocks0_refs_inv_def] \\ rw[]
           \\ ‘subspt refs1 refs’ by metis_tac [size_of_refs_subspt]
           \\ gs[subspt_lookup] \\ first_x_assum drule
           \\ disch_then (first_x_assum o C (mp_then Any assume_tac))
-          \\ gs[blocks_roots_inv_def,FORALL_AND_THM,lookup_difference]
+          \\ gs[blocks0_roots_inv_def,FORALL_AND_THM,lookup_difference]
           \\ rw[] \\ gs[]
           \\ first_x_assum irule \\ simp[]
           \\ ‘subspt seen seen1’ by metis_tac [size_of_seen_pres]
           \\ CCONTR_TAC
           \\ Cases_on ‘lookup ts seen’ \\ gs[]
           \\ gs[subspt_lookup])
-      >- (gs[blocks_all_inv_def] \\ rw[]
+      >- (gs[blocks0_all_inv_def] \\ rw[]
           \\ first_x_assum (qspecl_then [‘ts’,‘tag’,‘l’] mp_tac)
           \\ impl_tac >- gs[lookup_difference]
-          \\ gs[blocks_roots_inv_def,FORALL_AND_THM
+          \\ gs[blocks0_roots_inv_def,FORALL_AND_THM
                 ,lookup_difference,lookup_delete,lookup_insert]
           \\ rw[] \\ gs[]
           >- (first_x_assum irule \\ IF_CASES_TAC \\ gs[IS_SOME_EXISTS])
@@ -1157,26 +1152,26 @@ Proof
       \\ ‘a = b + c’ suffices_by simp[]
       \\ UNABBREV_ALL_TAC
       \\ qpat_abbrev_tac ‘xs = y :: ys’
-      \\ simp [Once to_addrs_cons,reachable_v_UNION]
+      \\ simp [Once to_addrs_cons,reachable_v0_UNION]
       \\ qmatch_goalsub_abbrev_tac ‘∑ ff (rr UNION nxt)’
       \\ qspecl_then [‘ff’,‘rr’,‘nxt’] mp_tac SUM_IMAGE_UNION
       \\ impl_tac
-      >- (UNABBREV_ALL_TAC \\ simp[FINITE_reachable_v_0,FINITE_to_addrs])
+      >- (UNABBREV_ALL_TAC \\ simp[FINITE_reachable_v0_0,FINITE_to_addrs])
       \\ disch_then (simp o single) \\ simp[]
       \\ ‘∑ ff (rr ∩ nxt) ≤ ∑ ff rr’ by
         (irule SUM_IMAGE_SUBSET_LE
-         \\ gs[Abbr‘rr’,FINITE_reachable_v_0,FINITE_to_addrs])
+         \\ gs[Abbr‘rr’,FINITE_reachable_v0_0,FINITE_to_addrs])
       \\ drule LESS_EQ_ADD_SUB
       \\ disch_then (qspec_then ‘∑ ff nxt’ (ONCE_REWRITE_TAC o single))
       \\ simp[]
       \\ qspecl_then [‘ff’,‘rr’,‘nxt’] mp_tac SUM_IMAGE_DIFF
-      \\ impl_tac >- simp[Abbr‘nxt’,Abbr‘rr’,FINITE_reachable_v_0,FINITE_to_addrs]
+      \\ impl_tac >- simp[Abbr‘nxt’,Abbr‘rr’,FINITE_reachable_v0_0,FINITE_to_addrs]
       \\ disch_then (simp o single o GSYM)
       \\ qpat_x_assum  ‘size_of _ xs _ _ = _’ assume_tac
       \\ drule size_of_addrs_in
       \\ disch_then (qspec_then ‘blocks’ mp_tac) \\ simp[]
-      \\ ‘blocks_roots_inv blocks seen xs’ by
-          (gs[blocks_roots_inv_def,FORALL_AND_THM]
+      \\ ‘blocks0_roots_inv blocks seen xs’ by
+          (gs[blocks0_roots_inv_def,FORALL_AND_THM]
            \\ metis_tac [])
       \\ simp[] \\ rw[]
       \\ ‘(∀v. v ∈ (rr DIFF nxt) ⇒
@@ -1188,22 +1183,22 @@ Proof
       \\ rw[]
       \\ ‘FINITE (rr DIFF nxt)’ by
           rw[Abbr‘rr’,Abbr‘nxt’,FINITE_DIFF,
-             FINITE_reachable_v_0,FINITE_to_addrs]
+             FINITE_reachable_v0_0,FINITE_to_addrs]
       \\ ‘subspt (difference blocks seen1) blocks’
          by (rw[subspt_lookup] \\ gs[lookup_difference])
       \\ drule_all size_of_addrs_addrs_in_eq
       \\ disch_then (qspec_then ‘lims’ mp_tac)
       \\ qunabbrev_tac ‘ff’ \\ disch_then (simp o single)
-      \\ drule size_of_reachable_v_cases
+      \\ drule size_of_reachable_v0_cases
       \\ disch_then (qspec_then ‘blocks’ mp_tac)
       \\ rw[]
       \\ qmatch_goalsub_abbrev_tac ‘∑ ff' _’
       \\ qspecl_then [‘ff'’,‘rr’,‘nxt’] mp_tac SUM_IMAGE_DIFF
-      \\ impl_tac >- simp[Abbr‘nxt’,Abbr‘rr’,FINITE_reachable_v_0,FINITE_to_addrs]
+      \\ impl_tac >- simp[Abbr‘nxt’,Abbr‘rr’,FINITE_reachable_v0_0,FINITE_to_addrs]
       \\ disch_then (simp o single)
       \\ ‘∑ ff' (rr ∩ nxt) = 0’ by
          (‘FINITE (rr ∩ nxt)’ by
-            simp[Abbr‘nxt’,Abbr‘rr’,FINITE_reachable_v_0,FINITE_to_addrs]
+            simp[Abbr‘nxt’,Abbr‘rr’,FINITE_reachable_v0_0,FINITE_to_addrs]
           \\ drule SUM_IMAGE_ZERO
           \\ disch_then (qspec_then ‘ff'’ (simp o single))
           \\ rw[] \\ first_x_assum drule \\ qunabbrev_tac ‘ff'’
@@ -1211,12 +1206,12 @@ Proof
       \\ qmatch_goalsub_abbrev_tac ‘_ = ∑ _ ll’
       \\ qspecl_then [‘rr’,‘ff'’,‘ll’] mp_tac SUM_IMAGE_SUBSET_SPLIT
       \\ impl_tac
-      >- (rw [Abbr‘ll’,Abbr‘rr’,FINITE_reachable_v_0,FINITE_to_addrs,SUBSET_DEF]
-          \\ irule reachable_v_subspt
+      >- (rw [Abbr‘ll’,Abbr‘rr’,FINITE_reachable_v0_0,FINITE_to_addrs,SUBSET_DEF]
+          \\ irule reachable_v0_subspt
           \\ asm_exists_tac \\ simp[])
       \\ disch_then (simp o single)
       \\ ‘FINITE (rr DIFF ll)’ by
-            simp[Abbr‘ll’,Abbr‘rr’,FINITE_reachable_v_0,FINITE_to_addrs]
+            simp[Abbr‘ll’,Abbr‘rr’,FINITE_reachable_v0_0,FINITE_to_addrs]
       \\ drule SUM_IMAGE_ZERO
       \\ disch_then (qspec_then ‘ff'’ (simp o single))
       \\ rw[Abbr‘rr’,Abbr‘ll’,Abbr‘ff'’]
@@ -1224,20 +1219,20 @@ Proof
       >- (first_x_assum drule
           \\ Cases_on ‘x'’
           \\ EVAL_TAC \\ EVERY_CASE_TAC \\ gs[])
-      \\ qpat_x_assum ‘x' ∉ reachable_v _ _ _ ’ mp_tac
-      \\ qpat_x_assum ‘x' ∈ reachable_v _ _ _ ’ mp_tac
-      \\ rw[reachable_v_def,IN_DEF]
+      \\ qpat_x_assum ‘x' ∉ reachable_v0 _ _ _ ’ mp_tac
+      \\ qpat_x_assum ‘x' ∈ reachable_v0 _ _ _ ’ mp_tac
+      \\ rw[reachable_v0_def,IN_DEF]
       \\ first_x_assum (qspec_then ‘x''’ mp_tac)
       \\ simp[] \\ CCONTR_TAC \\ gs[]
       \\ pop_assum mp_tac \\ simp[]
-      \\ qmatch_asmsub_rename_tac ‘(next refs blocks)^* l r’
+      \\ qmatch_asmsub_rename_tac ‘(next0 refs blocks)^* l r’
       \\ ‘l ∉ nxt’ by
         (Cases_on ‘r = l’ \\ gs[]
          \\ CCONTR_TAC \\ gs[]
          \\ simp[Abbr‘nxt’]
-         \\ qpat_x_assum ‘r ∉ reachable_v _ _ _ ’ mp_tac
+         \\ qpat_x_assum ‘r ∉ reachable_v0 _ _ _ ’ mp_tac
          \\ simp[] \\ pop_assum mp_tac
-         \\ rw[reachable_v_def] \\ asm_exists_tac
+         \\ rw[reachable_v0_def] \\ asm_exists_tac
          \\ simp[] \\ metis_tac [RTC_RTC])
       \\ qpat_x_assum ‘l ∉ _’ mp_tac
       \\ qpat_x_assum ‘r ∉ _’ mp_tac
@@ -1254,84 +1249,84 @@ Proof
       \\ conj_tac
       >- (CCONTR_TAC \\ gs[]
           \\ simp[Abbr‘nxt’]
-          \\ qpat_x_assum ‘r' ∉ reachable_v _ _ _ ’ mp_tac
+          \\ qpat_x_assum ‘r' ∉ reachable_v0 _ _ _ ’ mp_tac
           \\ simp[] \\ pop_assum mp_tac
-          \\ rw[reachable_v_def] \\ asm_exists_tac \\ simp[]
+          \\ rw[reachable_v0_def] \\ asm_exists_tac \\ simp[]
           \\ metis_tac [RTC_CASES2])
       \\ rw[])
-  >- (gs[aux_size_of_def,size_of_def,to_addrs_def,reachable_v_def] \\ EVAL_TAC)
-  >- (gs[aux_size_of_def,size_of_def,to_addrs_def,reachable_v_def]
+  >- (gs[aux_size_of_def,size_of_def,to_addrs_def,reachable_v0_def] \\ EVAL_TAC)
+  >- (gs[aux_size_of_def,size_of_def,to_addrs_def,reachable_v0_def]
       \\ cases_on ‘small_num lims.arch_64_bit i’
       \\ gs[flat_measure_def] \\ EVAL_TAC)
-  >- (gs[aux_size_of_def,size_of_def,to_addrs_def,reachable_v_def] \\ EVAL_TAC)
+  >- (gs[aux_size_of_def,size_of_def,to_addrs_def,reachable_v0_def] \\ EVAL_TAC)
   >- (cases_on ‘lookup r refs’ \\ gs[] \\ TRY (cases_on ‘x’)
       >~ [‘lookup _ _ = SOME (ValueArray _)’]
       >- (first_x_assum (qspec_then ‘l’ assume_tac) \\ gs[size_of_def]
           \\ pairarg_tac \\ gs[] \\ rveq
           \\ first_x_assum (qspec_then ‘blocks’ mp_tac)
           \\ impl_tac \\ rw[]
-          >- metis_tac [blocks_refs_inv_def]
-          >- (gs[blocks_refs_inv_def] \\ rw[]
+          >- metis_tac [blocks0_refs_inv_def]
+          >- (gs[blocks0_refs_inv_def] \\ rw[]
               \\ first_x_assum irule \\ qexists_tac ‘p’
               \\ gs[lookup_delete])
           >- (gs[aux_size_of_def,flat_measure_def,to_addrs_def]
-              \\ drule reachable_v_del_ptr
+              \\ drule reachable_v0_del_ptr
               \\ disch_then (qspec_then ‘blocks’ (simp o single))
               \\ qmatch_goalsub_abbrev_tac ‘∑ ff (nxt UNION rr)’
               \\ qspecl_then [‘ff’,‘nxt’,‘rr’] mp_tac SUM_IMAGE_UNION
               \\ impl_tac
-              >- simp[Abbr‘nxt’,Abbr‘rr’,FINITE_reachable_v_0,FINITE_to_addrs]
+              >- simp[Abbr‘nxt’,Abbr‘rr’,FINITE_reachable_v0_0,FINITE_to_addrs]
               \\ disch_then (simp o single)
               \\ qunabbrev_tac ‘rr’
               \\ Cases_on ‘RefAddr r ∈ nxt’
               >- (‘nxt ∩ {RefAddr r} = {RefAddr r}’ by
                     (rw[INTER_DEF,DELETE_DEF,FUN_EQ_THM]
                      \\ EQ_TAC \\ metis_tac [])
-                  \\ simp[Abbr‘ff’] \\ drule size_of_addr_del_in
+                  \\ simp[Abbr‘ff’] \\ drule size_of_addr0_del_in
                   \\ disch_then (qspecl_then [‘lims’,‘refs’,‘blocks’] mp_tac)
                   \\ impl_tac
-                  >- simp[Abbr‘nxt’,FINITE_reachable_v_0,FINITE_to_addrs]
+                  >- simp[Abbr‘nxt’,FINITE_reachable_v0_0,FINITE_to_addrs]
                   \\ disch_then (simp o single)
-                  \\ simp[size_of_addr_def])
+                  \\ simp[size_of_addr0_def])
               >- (‘nxt ∩ {RefAddr r} = ∅’ by
                     (rw[INTER_DEF,DELETE_DEF,FUN_EQ_THM])
                   \\ simp[Abbr‘ff’,SUM_IMAGE_THM]
-                  \\ drule size_of_addr_del
+                  \\ drule size_of_addr0_del
                   \\ disch_then (qspecl_then [‘lims’,‘refs’,‘blocks’] mp_tac)
                   \\ disch_then (simp o single)
-                  \\ simp[size_of_addr_def])))
-      \\ gs[aux_size_of_def,size_of_def,to_addrs_def,reachable_v_def,flat_measure_def]
+                  \\ simp[size_of_addr0_def])))
+      \\ gs[aux_size_of_def,size_of_def,to_addrs_def,reachable_v0_def,flat_measure_def]
       \\ qmatch_goalsub_abbrev_tac ‘∑ _ nxt’
-      \\ ‘nxt = {RefAddr r}’ suffices_by simp[SUM_IMAGE_SING,size_of_addr_def]
+      \\ ‘nxt = {RefAddr r}’ suffices_by simp[SUM_IMAGE_SING,size_of_addr0_def]
       \\ UNABBREV_ALL_TAC \\ simp[FUN_EQ_THM]
       \\ rw[] \\ EQ_TAC \\ rw[]
       \\ drule (RTC_CASES1  |> SPEC_ALL  |> EQ_IMP_RULE  |> fst)
-      \\ rw[] \\ gs[next_def,ptr_to_addrs_def])
+      \\ rw[] \\ gs[next0_def,ptr_to_addrs0_def])
   >- gs[size_of_def,aux_size_of_def,to_addrs_def,
-        flat_measure_def,reachable_v_def,SUM_IMAGE_THM]
+        flat_measure_def,reachable_v0_def,SUM_IMAGE_THM]
   >- (Cases_on ‘lookup ts seen’ \\ gs[]
       >~[‘lookup ts seen = SOME _’]
-      >- (gs[size_of_def,blocks_roots_inv_def] \\ rveq
+      >- (gs[size_of_def,blocks0_roots_inv_def] \\ rveq
           \\ first_x_assum (qspec_then ‘ts’ mp_tac)
           \\ rw [aux_size_of_def,to_addrs_def,flat_measure_def]
           \\ qmatch_goalsub_abbrev_tac ‘∑ _ ll’
           \\ ‘ll = {BlockAddr ts}’ by
-            (qunabbrev_tac ‘ll’ \\ rw[reachable_v_def,FUN_EQ_THM]
-             \\ EQ_TAC \\ rw[] \\ gs[Once RTC_CASES1,next_def,block_to_addrs_def])
-          \\ simp[SUM_IMAGE_SING,size_of_addr_def])
+            (qunabbrev_tac ‘ll’ \\ rw[reachable_v0_def,FUN_EQ_THM]
+             \\ EQ_TAC \\ rw[] \\ gs[Once RTC_CASES1,next0_def,block_to_addrs0_def])
+          \\ simp[SUM_IMAGE_SING,size_of_addr0_def])
       \\ gs[size_of_def] \\ rpt (pairarg_tac \\ gs[]) \\ rveq
       \\ first_x_assum (qspec_then ‘delete ts blocks’ mp_tac)
       \\ impl_tac \\ rw[wf_insert,wf_delete]
-      >- (gs[blocks_all_inv_def] \\ first_x_assum irule
-          \\ qexists_tac ‘tag’ \\ gs [blocks_roots_inv_def])
-      >- (gs[blocks_refs_inv_def] \\ rw[] \\ first_x_assum drule
-          \\ rw[blocks_roots_inv_def,lookup_delete,lookup_insert]
+      >- (gs[blocks0_all_inv_def] \\ first_x_assum irule
+          \\ qexists_tac ‘tag’ \\ gs [blocks0_roots_inv_def])
+      >- (gs[blocks0_refs_inv_def] \\ rw[] \\ first_x_assum drule
+          \\ rw[blocks0_roots_inv_def,lookup_delete,lookup_insert]
           >- (CCONTR_TAC \\ gs[])
           >- (CCONTR_TAC \\ gs[])
           >- metis_tac [])
-      >- (gs[blocks_all_inv_def] \\ rw[lookup_delete]
+      >- (gs[blocks0_all_inv_def] \\ rw[lookup_delete]
           \\ first_x_assum drule
-          \\ rw[blocks_roots_inv_def,lookup_delete,lookup_insert]
+          \\ rw[blocks0_roots_inv_def,lookup_delete,lookup_insert]
           >- (CCONTR_TAC \\ gs[]
               \\ Cases_on ‘ts'' = ts’ \\ gs[]
               \\ metis_tac [])
@@ -1342,33 +1337,142 @@ Proof
               \\ Cases_on ‘ts'' = ts’ \\ gs[]
               \\ metis_tac [])
           >- metis_tac [])
-      \\ gs[blocks_roots_inv_def]
+      \\ gs[blocks0_roots_inv_def]
       \\ first_x_assum (qspecl_then [‘ts’,‘tag’,‘v20::v21’] assume_tac)
       \\ gs [] \\ rw[aux_size_of_def,flat_measure_def,to_addrs_def]
-      \\ drule reachable_v_del_blk
+      \\ drule reachable_v0_del_blk
       \\ disch_then (qspec_then ‘ref’ (simp o single))
       \\ qmatch_goalsub_abbrev_tac ‘∑ ff (nxt UNION rr)’
       \\ qspecl_then [‘ff’,‘nxt’,‘rr’] mp_tac SUM_IMAGE_UNION
       \\ impl_tac
-      >- simp[Abbr‘nxt’,Abbr‘rr’,FINITE_reachable_v_0,FINITE_to_addrs]
+      >- simp[Abbr‘nxt’,Abbr‘rr’,FINITE_reachable_v0_0,FINITE_to_addrs]
       \\ disch_then (simp o single)
       \\ qunabbrev_tac ‘rr’
       \\ Cases_on ‘BlockAddr ts ∈ nxt’
       >- (‘nxt ∩ {BlockAddr ts} = {BlockAddr ts}’ by
             (rw[INTER_DEF,DELETE_DEF,FUN_EQ_THM]
              \\ EQ_TAC \\ metis_tac [])
-          \\ simp[Abbr‘ff’] \\ drule size_of_addr_del_in
+          \\ simp[Abbr‘ff’] \\ drule size_of_addr0_del_in
           \\ disch_then (qspecl_then [‘lims’,‘refs’,‘blocks’] mp_tac)
           \\ impl_tac
-          >- simp[Abbr‘nxt’,FINITE_reachable_v_0,FINITE_to_addrs]
+          >- simp[Abbr‘nxt’,FINITE_reachable_v0_0,FINITE_to_addrs]
           \\ disch_then (simp o single)
-          \\ simp[size_of_addr_def])
+          \\ simp[size_of_addr0_def])
       >- (‘nxt ∩ {BlockAddr ts} = ∅’ by rw[INTER_DEF,DELETE_DEF,FUN_EQ_THM]
           \\ simp[Abbr‘ff’,SUM_IMAGE_THM]
-          \\ drule size_of_addr_del
+          \\ drule size_of_addr0_del
           \\ disch_then (qspecl_then [‘lims’,‘refs’,‘blocks’] mp_tac)
           \\ disch_then (simp o single)
-          \\ simp[size_of_addr_def]))
+          \\ simp[size_of_addr0_def]))
 QED
+
+Triviality flat_size_of_eq_aux_size_of:
+  ∀lims refs blocks roots.
+    flat_size_of lims refs blocks roots =
+    aux_size_of lims refs (fromList blocks) roots
+Proof
+  rw[flat_size_of_def,aux_size_of_def]
+  \\ irule SUM_IMAGE_CONG \\ rw[]
+  >- (cases_on ‘x’ \\
+      gs[size_of_addr0_def,dataSemTheory.size_of_addr_def,
+         lookup_fromList,LLOOKUP_THM])
+  >- (rw[reachable_v0_def,dataSemTheory.reachable_v_def,FUN_EQ_THM]
+      \\ EQ_TAC \\ rw[] \\ asm_exists_tac \\ simp[] (* 2 very similar goals *)
+      \\ pop_assum mp_tac \\ ho_match_mp_tac RTC_MONOTONE
+      \\ rw[] \\ Cases_on ‘x’
+      \\ gs[next0_def,
+            block_to_addrs0_def,
+            ptr_to_addrs0_def,
+            dataSemTheory.next_def,
+            dataSemTheory.block_to_addrs_def,
+            dataSemTheory.ptr_to_addrs_def,
+            lookup_fromList,LLOOKUP_THM])
+QED
+
+Definition blocks0_all_inv0_def:
+  blocks0_all_inv0 blocks seen =
+  ∀ts tag l.
+    sptree$lookup ts blocks = SOME (Block ts tag l) ⇒
+    blocks0_roots_inv blocks seen l
+End
+
+Triviality blocks0_all_inv0_thm:
+  ∀blocks.
+    blocks0_all_inv0 blocks LN
+    ⇒ blocks0_all_inv blocks LN
+Proof
+  rw[blocks0_all_inv0_def,blocks0_all_inv_def]
+  \\ first_x_assum drule
+  \\ rw[blocks0_roots_inv_def,lookup_def]
+  >- (gs[lookup_insert,lookup_delete,lookup_def]
+      \\ Cases_on ‘ts' = ts’ \\ gs[])
+  >- (first_x_assum drule \\ rw[]
+      \\ gs[lookup_insert,lookup_delete,lookup_def])
+QED
+
+(* TODO: Move to sptreeTheory *)
+Theorem wf_fromList:
+  ∀l. wf (fromList l)
+Proof
+  Induct_on ‘l’ \\ rw[fromList_def]
+  \\ qmatch_goalsub_abbrev_tac ‘FOLDL f a _’
+  \\ qspecl_then [‘(λx. wf (SND x))’,‘f’,‘l’,‘a’] mp_tac FOLDL_invariant
+  \\ simp[] \\ disch_then irule \\ rw[]
+  >- (Cases_on ‘x’ \\ gs[Abbr‘f’,wf_insert])
+  >- (simp[Abbr‘a’,wf_insert])
+QED
+
+Triviality blocks_roots_to_all_blocks_roots:
+  ∀blocks roots.
+    blocks0_roots_inv (fromList blocks) LN roots ⇔
+      all_blocks_roots_inv blocks roots
+Proof
+  rw[blocks0_roots_inv_def,all_blocks_roots_inv_def,lookup_def]
+  \\ EQ_TAC \\ rw[] \\ gs[lookup_fromList,LLOOKUP_THM]
+  \\ metis_tac []
+QED
+
+Theorem size_of_eq_flat_size_of:
+  ∀lims refs blocks roots n refs0 seen0.
+    all_blocks_inv refs blocks roots ∧
+    size_of lims roots refs LN = (n,refs0,seen0) ⇒
+    flat_size_of lims refs blocks roots = n
+Proof
+  rw[flat_size_of_eq_aux_size_of,all_blocks_inv_def]
+  \\ irule size_of_eq_aux_size_of
+  \\ simp[wf_fromList] \\ first_x_assum (irule_at Any)
+  \\ rw[blocks_roots_to_all_blocks_roots]
+  >- (irule blocks0_all_inv0_thm
+      \\ gs[blocks0_all_inv0_def,blocks_roots_to_all_blocks_roots,
+            lookup_fromList,LLOOKUP_THM,
+            all_blocks_blocks_inv_def]
+      \\ metis_tac [])
+  >- (rw[blocks0_refs_inv_def,blocks_roots_to_all_blocks_roots]
+      \\ gs[all_blocks_refs_inv_def] \\ metis_tac [])
+QED
+
+Theorem size_of_heap_flat_eq_size_of_heap:
+  ∀s.
+    size_inv s ⇒
+    size_of_heap s = flat_size_of_heap s
+Proof
+  rw[size_of_heap_def,flat_size_of_heap_def,size_inv_def]
+  \\ pairarg_tac \\ gs[]
+  \\ metis_tac [size_of_eq_flat_size_of]
+QED
+
+val _ = map delete_binding ["block_to_addrs0_def",
+                            "ptr_to_addrs0_def",
+                            "addrs_in_def",
+                            "next0_def",
+                            "reachable_v0_def",
+                            "size_of_addr0_def",
+                            "aux_size_of_def",
+                            "blocks0_roots_inv_def",
+                            "blocks0_refs_inv_def",
+                            "blocks0_all_inv_def",
+                            "del_ptr_def",
+                            "del_blk_def",
+                            "blocks0_all_inv0_def"];
 
 val _ = export_theory();
