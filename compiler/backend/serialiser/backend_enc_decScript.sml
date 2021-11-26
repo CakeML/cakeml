@@ -303,7 +303,7 @@ fun define_abbrev name tm = let
   val f = mk_var(name,type_of (list_mk_abs(vs,tm)))
   val l = list_mk_comb(f,vs)
   val def = new_definition(thm_name,mk_eq(l,tm)) |> SPEC_ALL
-  val _ = save_thm(thm_name,def |> SIMP_RULE std_ss [FUN_EQ_THM,LAMBDA_PROD] |> SPEC_ALL)
+  val _ = save_thm(thm_name ^ "[compute]",def |> SIMP_RULE std_ss [FUN_EQ_THM,LAMBDA_PROD] |> SPEC_ALL)
   in def end
 
 val builtin = [bool_enc_dec_ok, unit_enc_dec_ok, num_enc_dec_ok,
@@ -413,7 +413,8 @@ Theorem config_dec_thm =
 (* top level *)
 
 Definition encode_backend_config_def:
-  encode_backend_config c = nums_to_chars (append (config_enc c)) : char list
+  encode_backend_config c =
+    rev_nums_to_chars (append_rev (config_enc c) []) "" : char list
 End
 
 Definition decode_backend_config_def:
@@ -423,8 +424,8 @@ End
 Theorem encode_backend_config_thm:
   decode_backend_config c.lab_conf.asm_conf (encode_backend_config c) = c
 Proof
-  fs [encode_backend_config_def,decode_backend_config_def,
-      chars_to_nums_nums_to_chars,config_dec_thm]
+  fs [encode_backend_config_def,decode_backend_config_def,rev_nums_to_chars_thm,
+      chars_to_nums_nums_to_chars,config_dec_thm,append_rev_thm]
 QED
 
 val _ = export_theory();

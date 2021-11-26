@@ -13,6 +13,7 @@ ifndef CC
 CC=gcc
 endif
 lpr_array.S: *lpr_arrayCompileScript.sml
+lpr_ramsey.S: *lpr_arrayRamseyCompileScript.sml
 cake_lpr_array: lpr_array.S $(CAKEMLDIR)/basis/basis_ffi.o
 	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
 

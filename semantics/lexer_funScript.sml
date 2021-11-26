@@ -75,7 +75,7 @@ Definition read_string_def:
       case TL str of
       | #"\\"::cs => read_string cs (s ++ "\\") (next_loc 2 loc)
       | #"\""::cs => read_string cs (s ++ "\"") (next_loc 2 loc)
-      | #"n"::cs => read_string cs (s ++ "\n") (next_line loc)
+      | #"n"::cs => read_string cs (s ++ "\n") (next_loc 2 loc)
       | #"t"::cs => read_string cs (s ++ "\t") (next_loc 2 loc)
       | _ => (ErrorS, loc, TL str)
 Termination

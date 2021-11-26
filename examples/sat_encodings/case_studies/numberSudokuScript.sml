@@ -184,8 +184,8 @@ Theorem ns_encode_filled_cells_always_true:
 Proof
   rw[ns_filled_cells_to_numBoolRange_def]
   >> qspecl_then [‘sudoku’] assume_tac ns_all_pos_unique
-  >> gs[assignment_ok_def]
-  >> gs[ns_encode_filled_cells_lemma]
+  >> rgs[assignment_ok_def]
+  >> rgs[ns_encode_filled_cells_lemma]
 QED
 
 Theorem fill_cell_equal:
@@ -197,7 +197,7 @@ Theorem fill_cell_equal:
      w pos1 ≠ w pos2)
 Proof
   rw[fill_cell_def]
-  >> (gs[assignment_ok_def, EVERY_MEM, FORALL_PROD]
+  >> (rgs[assignment_ok_def, EVERY_MEM, FORALL_PROD]
       >> metis_tac[])
 QED
 
@@ -218,10 +218,10 @@ Proof
   Induct
   >- rw[ns_not_member_def, eval_numBoolRange_def]
   >> Cases_on ‘h’
-  >> gs[ns_not_member_def, eval_numBoolRange_def]
+  >> rgs[ns_not_member_def, eval_numBoolRange_def]
   >> rw[]
   >> last_x_assum (qspecl_then [‘w’, ‘sudoku’, ‘pos’, ‘cell’] assume_tac)
-  >> gs[]
+  >> rgs[]
   >> metis_tac[fill_cell_equal]
 QED
 
@@ -245,7 +245,7 @@ Proof
   >> rw[]
   >> rw[ns_all_distinct_def]
   >> rw[eval_numBoolRange_def]
-  >> gs[]
+  >> rgs[]
   >> metis_tac[ns_not_member_lemma]
 QED
 
@@ -264,7 +264,7 @@ Proof
   Induct
   >- rw[ns_every_all_distinct_def, eval_numBoolRange_def]
   >> rw[ns_every_all_distinct_def, eval_numBoolRange_def]
-  >> qspecl_then [‘sudoku’] assume_tac ns_all_pos_unique >> gs[]
+  >> qspecl_then [‘sudoku’] assume_tac ns_all_pos_unique >> rgs[]
   >> metis_tac[ns_every_all_distinct_in_list_lemma]
 QED
 
@@ -361,7 +361,7 @@ Theorem ns_every_all_distinct_in_lists:
                     (create_row_col_block_lists sudoku))))
 Proof
   rw[]
-  >> qspecl_then [‘sudoku’] assume_tac ns_row_col_block_mem_sudoku >> gs[]
+  >> qspecl_then [‘sudoku’] assume_tac ns_row_col_block_mem_sudoku >> rgs[]
   >> metis_tac[ns_every_all_distinct_lemma]
 QED
 
@@ -380,7 +380,7 @@ Proof
   >> rw[eval_numBoolRange_def]
   >> rw[ns_sudoku_rules_to_numBoolRange_def]
   >> qspecl_then [‘sudoku’, ‘w’] assume_tac ns_encode_filled_cells_always_true
-  >> gs[]
+  >> rgs[]
   >> rw[ns_every_all_distinct_in_lists]
 QED
 
@@ -399,7 +399,7 @@ Theorem ns_every_all_distinct_split:
     exp_rangeList_ok l (ns_every_all_distinct ys)
 Proof
   Induct
-  >- gs[ns_every_all_distinct_def, exp_rangeList_ok_def]
+  >- rgs[ns_every_all_distinct_def, exp_rangeList_ok_def]
   >> rw[]
   >> rw[ns_every_all_distinct_def]
   >> rw[exp_rangeList_ok_def]
@@ -412,10 +412,10 @@ Theorem get_positions_lemma:
     MAP (MAP (λ(pos,cell). pos)) (MAP ZIP (ZIP (get_positions,sudoku))) =
     get_positions
 Proof
-  gs[sudoku_ok_def]
+  rgs[sudoku_ok_def]
   >> rw[]
-  >> gs[LENGTH_EQ_NUM_compute]
-  >> gs[get_positions_def]
+  >> rgs[LENGTH_EQ_NUM_compute]
+  >> rgs[get_positions_def]
 QED
 
 Theorem get_sudoku_rangeList_lemma:
@@ -436,8 +436,8 @@ Theorem get_col_positions_lemma:
     get_col_positions
 Proof
   rw[get_sudoku_with_pos_def, sudoku_ok_def]
-  >> gs[LENGTH_EQ_NUM_compute]
-  >> gs[get_positions_def]
+  >> rgs[LENGTH_EQ_NUM_compute]
+  >> rgs[get_positions_def]
   >> rpt (first_x_assum kall_tac)
   >> rewrite_tac[get_cols_def]
   >> rw[EVAL “GENLIST p 9”]
@@ -468,8 +468,8 @@ Theorem get_block_positions_lemma:
     get_block_positions
 Proof
   rw[sudoku_ok_def, get_sudoku_with_pos_def]
-  >> gs[LENGTH_EQ_NUM_compute]
-  >> gs[get_positions_def]
+  >> rgs[LENGTH_EQ_NUM_compute]
+  >> rgs[get_positions_def]
   >> rpt (first_x_assum kall_tac)
   >> rewrite_tac[get_blocks_def]
   >> rewrite_tac[get_cell_def]
@@ -531,24 +531,24 @@ Theorem numberSudoku_to_exp_rangeList_ok:
     get_sudoku_rangeList
     (ns_sudoku_to_numBoolRange sudoku)
 Proof
-  gs[ns_sudoku_to_numBoolRange_def]
+  rgs[ns_sudoku_to_numBoolRange_def]
   >> rw[exp_rangeList_ok_def]
   >- (rw[exp_rangeList_ok_freeVars, ns_filled_cells_to_numBoolRange_def]
-      >> gvs[ns_filled_inner_freeVars]
-      >> gvs[MEM_MAP, MEM_FILTER, EXISTS_PROD, MEM_FLAT]
-      >> gvs[sudoku_ok_def]
-      >> gvs[get_sudoku_with_pos_def, MEM_MAP]
+      >> rgs[ns_filled_inner_freeVars]
+      >> rgs[MEM_MAP, MEM_FILTER, EXISTS_PROD, MEM_FLAT]
+      >> rgs[sudoku_ok_def]
+      >> rgs[get_sudoku_with_pos_def, MEM_MAP]
       >> last_x_assum kall_tac
-      >> gvs[LENGTH_EQ_NUM_compute]
+      >> rgs[LENGTH_EQ_NUM_compute]
       >> pop_assum mp_tac
       >> pop_assum mp_tac
       >> pop_assum mp_tac
-      >> gvs[EVAL “get_positions”]
+      >> rgs[EVAL “get_positions”]
       >> rw[]
       >> (last_x_assum mp_tac
           >> EVAL_TAC
           >> rpt (strip_tac)
-          >> gvs[]))
+          >> rgs[]))
   >> rw[ns_sudoku_rules_to_numBoolRange_def]
   >> rw[create_row_col_block_lists_def]
   >> rw[ns_every_all_distinct_split]
@@ -568,9 +568,9 @@ Theorem numberSudoku_to_numVarAssignment_range_ok:
     w
     get_sudoku_rangeList
 Proof
-  gs[get_sudoku_rangeList_def]
-  >> gs[get_positions_def]
-  >> gs[numVarAssignment_range_ok_def]
+  rgs[get_sudoku_rangeList_def]
+  >> rgs[get_positions_def]
+  >> rgs[numVarAssignment_range_ok_def]
   >> gvs[sudoku_ok_def]
   >> gvs[LENGTH_EQ_NUM_compute]
   >> gvs[APPLY_UPDATE_THM, get_value_def,
@@ -588,7 +588,7 @@ Theorem numberSudoku_to_cnf_preserves_sat:
        (numberSudoku_to_cnf sudoku))
 Proof
   rw[]
-  >> imp_res_tac ns_sudoku_to_numBoolRange_preserves_sat >> gs[]
+  >> imp_res_tac ns_sudoku_to_numBoolRange_preserves_sat >> rgs[]
   >> rw[numberSudoku_to_cnf_def, numberSudoku_to_assignment_def]
   >> assume_tac numberSudoku_to_rangeList_ok
   >> imp_res_tac numberSudoku_to_exp_rangeList_ok
@@ -606,27 +606,5 @@ Theorem mem_sudoku_rangeList:
 Proof
   rw[get_sudoku_rangeList_lemma]
 QED
-
-(*
-Theorem assignment_to_cellAssignment_ok:
-  ∀ sudoku w p.
-    sudoku_ok sudoku ∧
-    assignment_ok w sudoku ∧
-    MEM p (FLAT get_positions) ⇒
-    w p =
-    assignment_to_cellAssignment
-    (cellAssignment_to_assignment w sudoku) sudoku p
-Proof
-  rw[]
-  >> rw[cellAssignment_to_assignment_def]
-  >> rw[assignment_to_cellAssignment_def]
-  >> irule assignment_to_numVarAssignment_numBoolRange_ok
-  >> rw[]
-  >- rw[numberSudoku_to_rangeList_ok]
-  >- rw[mem_sudoku_rangeList]
-  >- rw[numberSudoku_to_exp_rangeList_ok]
-  >> metis_tac[numberSudoku_to_numVarAssignment_range_ok]
-QED
-*)
 
 val _ = export_theory();
