@@ -468,15 +468,15 @@ in
       disch_then (irule_at Any)>>
       simp[repchar_to_tsl_def]>>
       qpat_x_assum ‘repchar_safe_heap _ _’ mp_tac>>
-      gs[repchar_safe_heap_def,seen_of_heap_def,stack_to_vs_def]>>
+      rgs[repchar_safe_heap_def,seen_of_heap_def,stack_to_vs_def]>>
       rpt (pairarg_tac>>fs [])>>rveq>>
       qmatch_asmsub_abbrev_tac ‘size_of _ (q1 ++ ll1 ++ ll2)’>>
       qabbrev_tac ‘ll = ll1 ++ ll2’>>
       ‘q1 ++ ll1 ++ ll2 = q1 ++ ll’ by simp [APPEND_ASSOC,Abbr‘ll’]>>
-      pop_assum (gs o single o Req0)>>
+      pop_assum (rgs o single o Req0)>>
       drule size_of_append>>rw[repchar_list_safe_def]>>
       drule size_of_seen_pres>>
-      gs[IS_SOME_EXISTS,subspt_lookup]>>
+      rgs[IS_SOME_EXISTS,subspt_lookup]>>
       disch_then drule>>gs[])>>
     simp[Once data_to_word_gcProofTheory.size_of_cons]>>
     pairarg_tac>>fs[]>>
@@ -635,15 +635,15 @@ in
     CONJ_TAC>- (
       simp[repchar_list_def]>> intLib.ARITH_TAC)>>
     CONJ_TAC>- (
-      gs[repchar_safe_heap_def,seen_of_heap_def,stack_to_vs_def]>>
+      rgs[repchar_safe_heap_def,seen_of_heap_def,stack_to_vs_def]>>
       rpt (pairarg_tac>>fs [])>>rveq>>
       qmatch_asmsub_abbrev_tac ‘size_of _ (q1 ++ ll1 ++ ll2)’>>
       qabbrev_tac ‘ll = ll1 ++ ll2’>>
       ‘q1 ++ ll1 ++ ll2 = q1 ++ ll’ by simp [APPEND_ASSOC,Abbr‘ll’]>>
-      pop_assum (gs o single o Req0)>>
+      pop_assum (rgs o single o Req0)>>
       drule size_of_append>>rw[repchar_list_safe_def]>>
       drule size_of_seen_pres>>
-      gs[IS_SOME_EXISTS,subspt_lookup]>>
+      rgs[IS_SOME_EXISTS,subspt_lookup]>>
       disch_then drule>>gs[])>>
     CONJ_TAC>- (
       rw[]>>first_assum (qspec_then ‘ts’ mp_tac)>>
@@ -656,24 +656,24 @@ in
       qabbrev_tac‘bb = [block;b2]’>>
       qabbrev_tac‘aa = [a1;a2]’>>
       ‘block::b2::ll = bb ++ ll’ by simp[Abbr‘bb’]>>
-      pop_assum (gs o single o Req0)>>
+      pop_assum (rgs o single o Req0)>>
       ‘a1::a2::ll = aa ++ ll’ by simp[Abbr‘aa’]>>
-      pop_assum (gs o single o Req0)>>
+      pop_assum (rgs o single o Req0)>>
       imp_res_tac size_of_append>>gs[]>>rveq>>rw[]>>
       ‘lookup ts seen0 = NONE’
       by (CCONTR_TAC>>Cases_on‘lookup ts seen0’>>gs[]>>
           drule size_of_seen_pres>>
-          gs[subspt_lookup]>>
+          rgs[subspt_lookup]>>
           first_x_assum (irule_at Any)>>
           simp[])>>
-      gs[Abbr‘aa’,Abbr‘bb’,Abbr‘a1’,Abbr‘a2’,Abbr‘b2’]>>
-      gs[size_of_def]>>rpt (pairarg_tac>>fs [])>>rveq>>
+      rgs[Abbr‘aa’,Abbr‘bb’,Abbr‘a1’,Abbr‘a2’,Abbr‘b2’]>>
+      rgs[size_of_def]>>rpt (pairarg_tac>>fs [])>>rveq>>
       `small_num s.limits.arch_64_bit (&(n MOD 10 + 48)) ∧
        small_num s.limits.arch_64_bit (&n) ∧
        small_num s.limits.arch_64_bit (&(n DIV 10))` by
         (fs[small_num_def]>>
          rw[]>>intLib.ARITH_TAC)>>
-      gs[size_of_Number_head]>>rveq>>
+      rgs[size_of_Number_head]>>rveq>>
       drule repchar_list_more_seen>>
       disch_then (qspecl_then[‘s.limits’,‘refs0’,‘seen0’] mp_tac)>>
       simp[lookup_insert])>>
@@ -699,7 +699,7 @@ in
   strip_tac>>simp[]>>
   rw [state_component_equality]>>
   rfs[frame_lookup]>>
-  gs[repchar_safe_heap_def]
+  rgs[repchar_safe_heap_def]
 end
 QED
 
@@ -1663,7 +1663,7 @@ Theorem extra_ByteArrays_lookup:
     ⇒ (lookup p (extra_ByteArrays ls refs) = lookup p refs)
 Proof
   Induct_on ‘ls’ \\ rw[extra_ByteArrays_def]
-  \\ PairCases_on‘h’ \\ gs[extra_ByteArrays_def,lookup_insert]
+  \\ PairCases_on‘h’ \\ rgs[extra_ByteArrays_def,lookup_insert]
 QED
 
 Theorem extra_ByteArrays_lookup':
@@ -1683,7 +1683,7 @@ Theorem extra_ByteArrays_closed_pointers_refs:
   ⇒ closed_ptrs_refs (extra_ByteArrays ls refs)
 Proof
   Induct_on‘ls’ \\ rw[extra_ByteArrays_def]
-  \\ PairCases_on‘h’ \\ gs[extra_ByteArrays_def]
+  \\ PairCases_on‘h’ \\ rgs[extra_ByteArrays_def]
   \\ irule closed_ptrs_refs_insert
   \\ conj_tac >- metis_tac[]
   \\ metis_tac[extra_ByteArrays_lookup']
@@ -1698,12 +1698,12 @@ Theorem extra_ByteArrays_closed_pointers:
 Proof
   ho_match_mp_tac closed_ptrs_list_ind
   \\ rw [closed_ptrs_def,extra_ByteArrays_def]
-  \\ TRY(PairCases_on‘h’ \\ gs[extra_ByteArrays_def])
+  \\ TRY(PairCases_on‘h’ \\ rgs[extra_ByteArrays_def])
   \\ fs [closed_ptrs_list_def]
   >- metis_tac[IS_NONE_DEF,extra_ByteArrays_closed_pointers_refs]
-  >- (first_x_assum drule_all \\ gs[IS_SOME_EXISTS] \\ rw[]
+  >- (first_x_assum drule_all \\ rgs[IS_SOME_EXISTS] \\ rw[]
       \\ ‘¬MEM p (MAP FST ls)’
-         by (CCONTR_TAC \\ gs[])
+         by (CCONTR_TAC \\ rgs[])
       \\ metis_tac[extra_ByteArrays_lookup'])
 QED
 
@@ -1717,8 +1717,8 @@ Theorem size_of_extra_ByteArrays:
 Proof
   Induct_on ‘ls’ \\ rw[extra_ByteArrays_def]
   \\ PairCases_on‘h’ \\ rw[extra_ByteArrays_def]
-  \\ irule size_of_insert \\ gs[]
-  \\ conj_tac >- gs[extra_ByteArrays_wf]
+  \\ irule size_of_insert \\ rgs[]
+  \\ conj_tac >- rgs[extra_ByteArrays_wf]
   \\ conj_tac
   >- metis_tac[extra_ByteArrays_lookup']
   \\ irule extra_ByteArrays_closed_pointers
@@ -1825,7 +1825,7 @@ in
       \\ simp [flush_state_def]
       \\ rw [state_component_equality]
       \\ fs [stack_to_vs_def,max_def]
-      \\ gs [toList_def,toListA_def]
+      \\ rgs [toList_def,toListA_def]
       \\ fs []
       \\ qexists_tac ‘[]’ \\ simp[extra_ByteArrays_def])
   \\ rename1 ‘Block _ _ (chr0::str0)’
@@ -1880,9 +1880,9 @@ in
       \\ qabbrev_tac ‘q2 = q21 ++ q22’
       \\ qabbrev_tac ‘ll = ll1 ++ ll2’
       \\ ‘q1 ++ ll1 ++ ll2 = q1 ++ ll’ by simp [APPEND_ASSOC,Abbr‘ll’]
-      \\ pop_assum (gs o single o Req0)
+      \\ pop_assum (rgs o single o Req0)
       \\ ‘q2 ++ ll1 ++ ll2 = q2 ++ ll’ by simp [APPEND_ASSOC,Abbr‘ll’]
-      \\ pop_assum (gs o single o Req0)
+      \\ pop_assum (rgs o single o Req0)
       \\ dxrule size_of_append \\ rw []
       \\ dxrule size_of_append \\ rw []
       \\ ntac 2 (pop_assum mp_tac)
@@ -1894,12 +1894,12 @@ in
       \\ simp [AND_IMP_INTRO] \\ rpt strip_tac \\ rveq
       \\ drule repchar_list_insert_ts
       \\ disch_then (qspecl_then [‘ts0’,‘refs0’,‘seen0’,‘s.limits’] assume_tac)
-      \\ gs[] \\ rveq
-      \\ Cases_on ‘lookup ts0 seen0’ \\ gs[] \\ rveq
-      \\ gs[repchar_to_tsl_def,repchar_safe_heap_def,repchar_list_safe_def]
+      \\ rgs[] \\ rveq
+      \\ Cases_on ‘lookup ts0 seen0’ \\ rgs[] \\ rveq
+      \\ rgs[repchar_to_tsl_def,repchar_safe_heap_def,repchar_list_safe_def]
       \\ drule_all repchar_list_size_of_rm
       \\ disch_then (qspecl_then [‘s.limits’,‘_''’] assume_tac)
-      \\ gs[])
+      \\ rgs[])
   \\ rw [GSYM put_char_body_def] \\ simp []
   >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
           call_env_def,push_env_def,dec_clock_def,
@@ -1926,12 +1926,12 @@ in
   \\ disch_then (qspecl_then [‘s0’] mp_tac)
   \\ fs [frame_lookup]
   \\ disch_then (qspecl_then [‘str0’,‘sstack’,‘3’,‘THE s0.stack_max’, ‘ts0'’] mp_tac)
-  \\ gs[repchar_to_tsl_def]
+  \\ rgs[repchar_to_tsl_def]
   \\ impl_tac
   >- (Q.UNABBREV_TAC ‘s0’ \\ simp []
       \\ fs [size_of_stack_def,size_of_stack_frame_def]
       \\ rw []
-      >- (gs [stack_to_vs_def]
+      >- (rgs [stack_to_vs_def]
           \\ qpat_x_assum ‘closed_ptrs _ _’ mp_tac
           \\ ntac 2 (eval_goalsub_tac “sptree$toList _”)
           \\ eval_goalsub_tac “extract_stack _”
@@ -1941,7 +1941,7 @@ in
       >- (qmatch_goalsub_abbrev_tac ‘state_refs_fupd (K refs0) _’
           \\ pop_assum kall_tac
           \\ qmatch_goalsub_abbrev_tac ‘size_of_heap ss’
-          \\ ‘size_of_heap ss ≤ size_of_heap s’ suffices_by gs[]
+          \\ ‘size_of_heap ss ≤ size_of_heap s’ suffices_by rgs[]
           \\ qmatch_asmsub_abbrev_tac ‘size_of_heap sl = size_of_heap sr’
           \\ irule LESS_EQ_TRANS
           \\ qexists_tac ‘size_of_heap sl’
@@ -1954,26 +1954,26 @@ in
           \\ qabbrev_tac ‘q2 = q21 ++ q22’
           \\ qabbrev_tac ‘ll = ll1 ++ ll2’
           \\ ‘q1 ++ ll1 ++ ll2 = q1 ++ ll’ by simp [APPEND_ASSOC,Abbr‘ll’]
-          \\ pop_assum (gs o single o Req0)
+          \\ pop_assum (rgs o single o Req0)
           \\ ‘q2 ++ ll1 ++ ll2 = q2 ++ ll’ by simp [APPEND_ASSOC,Abbr‘ll’]
-          \\ pop_assum (gs o single o Req0)
+          \\ pop_assum (rgs o single o Req0)
           \\ ‘q3 ++ ll1 ++ ll2 = q3 ++ ll’ by simp [APPEND_ASSOC,Abbr‘ll’]
-          \\ pop_assum (gs o single o Req0)
+          \\ pop_assum (rgs o single o Req0)
           \\ rpt (pairarg_tac \\ fs []) \\ rveq
-          \\ gs[repchar_safe_heap_def,repchar_list_safe_def]
+          \\ rgs[repchar_safe_heap_def,repchar_list_safe_def]
           \\ qpat_x_assum ‘Abbrev (ll = _)’ kall_tac
           \\ conj_tac
           >- (ntac 2 (qpat_x_assum ‘size_of _ _ s.refs _ = _’ kall_tac)
               \\ dxrule size_of_append
               \\ dxrule size_of_append
-              \\ UNABBREV_ALL_TAC \\ gs[]
+              \\ UNABBREV_ALL_TAC \\ rgs[]
               \\ eval_goalsub_tac “sptree$toList _”
               \\ eval_goalsub_tac “extract_stack _”
               \\ ‘small_num T i’ by (fs [small_num_def] \\ intLib.ARITH_TAC)
               \\ simp [size_of_def] \\ rw[]
               \\ rpt (pairarg_tac \\ fs []) \\ rveq
               \\ simp [AND_IMP_INTRO] \\ rpt strip_tac \\ rveq
-              \\ gs[])
+              \\ rgs[])
           >- (qpat_x_assum ‘size_of _ _ refs0 _ = _’ kall_tac
               \\ dxrule size_of_append
               \\ dxrule size_of_append
@@ -1984,28 +1984,28 @@ in
               \\ simp [size_of_def] \\ rw[]
               \\ rpt (pairarg_tac \\ fs []) \\ rveq
               \\ simp [AND_IMP_INTRO] \\ rpt strip_tac \\ rveq
-              \\ gs[]
+              \\ rgs[]
               \\ drule repchar_list_insert_ts
               \\ disch_then (qspecl_then [‘ts0’,‘refs0'’,‘seen0’,‘s.limits’] assume_tac)
-              \\ gs[] \\ rveq
-              \\ Cases_on ‘lookup ts0 seen0’ \\ gs[] \\ rveq
+              \\ rgs[] \\ rveq
+              \\ Cases_on ‘lookup ts0 seen0’ \\ rgs[] \\ rveq
               \\ drule_all repchar_list_size_of_rm
               \\ disch_then (qspecl_then [‘s.limits’,‘_''''’] assume_tac)
-              \\ gs[]))
+              \\ rgs[]))
       >- (fs[max_def]>>rw [libTheory.the_def,MAX_DEF])
       >- (irule repchar_list_more_tsb
           \\ first_x_assum (irule_at Any)
-          \\ gs[])
-      >- (gs[repchar_safe_heap_def,seen_of_heap_def,stack_to_vs_def,extract_stack_def]
+          \\ rgs[])
+      >- (rgs[repchar_safe_heap_def,seen_of_heap_def,stack_to_vs_def,extract_stack_def]
           \\ rpt (pairarg_tac \\ fs []) \\ rveq
           \\ qmatch_asmsub_abbrev_tac ‘size_of _ ll’
-          \\ ‘closed_ptrs ll s.refs’ by gs[Abbr‘ll’,closed_ptrs_APPEND]
+          \\ ‘closed_ptrs ll s.refs’ by rgs[Abbr‘ll’,closed_ptrs_APPEND]
           \\ drule_all size_of_insert
           \\ disch_then (qspec_then ‘ByteArray b2 l2’ (mp_then Any mp_tac size_of_insert))
           \\ simp[wf_insert] \\ disch_then (qspecl_then [‘p1’,‘ByteArray b1 l1’] mp_tac)
           \\ impl_tac
           >- metis_tac[lookup_insert,closed_ptrs_refs_insert,closed_ptrs_insert,closed_ptrs_def]
-          \\ gs[repchar_list_safe_def]))
+          \\ rgs[repchar_list_safe_def]))
   \\ qmatch_asmsub_abbrev_tac ‘wf refs0’
   \\ rw [GSYM put_chars_body_def] \\ simp []
   >- (
@@ -2052,7 +2052,7 @@ in
      >- (simp[ALL_DISTINCT_SNOC,MAP_SNOC]>>
          CCONTR_TAC>>gs[]>>
          first_x_assum (pop_assum o mp_then Any assume_tac)>>
-         gs[lookup_insert])>>
+         rgs[lookup_insert])>>
      rw[MAP_SNOC,MEM_MAP]>>simp[]>>PairCases_on‘y’>>simp[]>>
      ‘MEM y0 (MAP FST ls)’
       by (simp[MEM_MAP]>>first_x_assum (irule_at Any)>>simp[])>>
@@ -2076,7 +2076,7 @@ in
       simp[ALL_DISTINCT_APPEND]>>rw[]>>
       CCONTR_TAC>>gs[]>>rveq>>
       first_x_assum (pop_assum o mp_then Any assume_tac)>>
-      gs[lookup_insert])>>
+      rgs[lookup_insert])>>
   simp[]
 end
 QED
@@ -2281,10 +2281,10 @@ in
           \\ eval_goalsub_tac ``sptree$toList _``
           \\ simp[size_of_Number_head]
           \\ rpt (pairarg_tac \\ fs []) \\ rveq
-          \\ rw[] \\ gs[Once size_of_cons]
-          \\ gs[size_of_def]
+          \\ rw[] \\ rgs[Once size_of_cons]
+          \\ rgs[size_of_def]
           \\ rpt (pairarg_tac \\ fs []) \\ rveq
-          \\ gs[size_of_Number_head] \\ rveq
+          \\ rgs[size_of_Number_head] \\ rveq
           \\ simp[lookup_insert])
       \\ simp[size_of_heap_def]
       \\ eval_goalsub_tac``size_of _ _ _``
@@ -2340,33 +2340,33 @@ in
     eval_goalsub_tac``sptree$toList _``>>
     eval_goalsub_tac``sptree$toList _``>>
     CONJ_TAC>-
-      (gs[stack_to_vs_def,extract_stack_def,closed_ptrs_list_append,
+      (rgs[stack_to_vs_def,extract_stack_def,closed_ptrs_list_append,
           closed_ptrs_list_def,closed_ptrs_def] >>
        drule_then MATCH_ACCEPT_TAC closed_ptrs_repchar_list) >>
     CONJ_TAC>-
         (simp[frame_lookup])>>
     CONJ_TAC>-
-     (gs[size_of_heap_def,stack_to_vs_def,extract_stack_def]>>
+     (rgs[size_of_heap_def,stack_to_vs_def,extract_stack_def]>>
       eval_goalsub_tac``sptree$toList _`` >>
       eval_goalsub_tac``sptree$toList _`` >>
       qmatch_goalsub_abbrev_tac ‘size_of _ (aa ++ bb ++ cc ++ dd)’>>
       qabbrev_tac ‘ll = bb ++ cc ++ dd’ >>
       ‘aa ++ bb ++ cc ++ dd= aa ++ ll’ by simp[Abbr‘ll’]>>
-      pop_assum (gs o single o Req0)>>
+      pop_assum (rgs o single o Req0)>>
       rpt (pairarg_tac>>fs[])>>rveq>>
       pop_assum mp_tac>>
       eval_goalsub_tac``sptree$toList _`` >>simp[size_of_Number_head]>>
       drule size_of_append>>rw[]>>
       qpat_x_assum‘size_of _ (aa ++ ll) _ _ = _’ kall_tac>>
       qunabbrev_tac‘ll’>>qunabbrev_tac‘bb’>>gs[]>>
-      gs[size_of_Number_head]>>rveq>>
+      rgs[size_of_Number_head]>>rveq>>
       qunabbrev_tac‘aa’>>drule_all size_of_repchar_list>>
       rw[])>>
     qpat_x_assum ‘repchar_safe_heap _ _’ mp_tac>>
-    gs[repchar_safe_heap_def,extract_stack_def]>>
+    rgs[repchar_safe_heap_def,extract_stack_def]>>
     eval_goalsub_tac``sptree$toList _`` >>
     eval_goalsub_tac``sptree$toList _`` >>
-    gs[size_of_Number_head]>>rveq)>>
+    rgs[size_of_Number_head]>>rveq)>>
   strip_tac>>
   simp[]
   >- simp[data_safe_def]>>
@@ -2403,7 +2403,7 @@ in
       simp[frame_lookup])>>
     simp[]>>
     CONJ_TAC>- (
-      gs[stack_to_vs_def,Abbr`ss`]>>
+      rgs[stack_to_vs_def,Abbr`ss`]>>
       qpat_x_assum ‘closed_ptrs _ _’ mp_tac>>
       simp[extract_stack_def]>>
       ntac 3 (eval_goalsub_tac``sptree$toList _``) >>
@@ -2576,7 +2576,6 @@ in
     strip_assign \\ drop_state>>
     simp[raise_def]>>
     every_case_tac>>simp[])>>
-  IF_CASES_TAC >> simp[]>>
   strip_assign>>
   IF_CASES_TAC>> simp[]>>
   drop_state>>

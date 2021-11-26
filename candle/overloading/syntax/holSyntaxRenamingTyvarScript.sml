@@ -463,15 +463,15 @@ Proof
   >- (
     fs[MEM_MAP]
     >> drule_all_then strip_assume_tac rename_bij_MEM_REV_ASSOCD
-    >> gs[]
+    >> rgs[]
     >> drule_then strip_assume_tac rename_bij_ALL_DISTINCT_FST
     >> dxrule_then match_mp_tac ALL_DISTINCT_FST_MEMs
     >> rename[`SND yy`]
     >> PairCases_on `yy`
-    >> gs[]
+    >> rgs[]
     >> rename[`SND yy'`]
     >> PairCases_on `yy'`
-    >> gs[]
+    >> rgs[]
     >> rpt $ goal_assum drule
   )
   >> drule $ cj 2 rename_bij_def_imps
@@ -483,7 +483,7 @@ Proof
   cj 1 rename_bij_def_imps
   >> first_x_assum $ drule_at Concl
   >> imp_res_tac $ Q.ISPEC `FST` MEM_MAP_f
-  >> gs[]
+  >> rgs[]
 QED
 
 Theorem rename_bij_inj_NOT_MEM[local]:
@@ -712,16 +712,16 @@ Proof
   >- (
     drule_then (qspec_then `m` assume_tac) var_renaming_TYPE_SUBST_Tyvar
     >> Cases_on `x'`
-    >> gs[var_renaming_def]
+    >> rgs[var_renaming_def]
     >> drule_then (qspecl_then [`Tyvar m`,`Tyvar m'`] mp_tac) rename_bij_inj
     >> fs[]
   )
   >> Cases_on `x'`
   >- (
     drule_then (qspec_then `m'` assume_tac) var_renaming_TYPE_SUBST_Tyvar
-    >> gs[var_renaming_def]
+    >> rgs[var_renaming_def]
   )
-  >> gs[MAP_EQ_EVERY2,EVERY_MEM,LIST_REL_EL_EQN]
+  >> rgs[MAP_EQ_EVERY2,EVERY_MEM,LIST_REL_EL_EQN]
   >> match_mp_tac LIST_EQ
   >> rw[]
   >> first_x_assum $ drule_then assume_tac
@@ -1195,7 +1195,7 @@ Proof
     >> gvs[]
   )
   >> rpt strip_tac
-  >> gs[IS_SOME_EXISTS]
+  >> rgs[IS_SOME_EXISTS]
 QED
 
 Theorem LUNFOLD_f_iter:
@@ -1265,7 +1265,7 @@ Proof
   >> unabbrev_all_tac
   >> first_x_assum match_mp_tac
   >> imp_res_tac (SIMP_RULE(bool_ss++LET_ss)[] LUNFOLD_f_iter)
-  >> gvs[GSYM SUC_ADD_SYM,IS_SOME_EXISTS,PULL_EXISTS,Excl"LUNFOLD",Excl"LNTH_THM",Excl"LNTH",Excl"LNTH_LUNFOLD"]
+  >> rgs[GSYM SUC_ADD_SYM,IS_SOME_EXISTS,PULL_EXISTS,Excl"LUNFOLD",Excl"LNTH_THM",Excl"LNTH",Excl"LNTH_LUNFOLD"]
 QED
 
 Theorem every_LTAKE_EVERY:
@@ -1327,7 +1327,7 @@ Proof
   >> map_every qmatch_asmsub_abbrev_tac [`LNTH _ ll`,`LUNFOLD f _`]
   >> rfs[]
   >> qpat_x_assum `SOME _ = ALOOKUP _ _` (assume_tac o GSYM)
-  >> gs[GSYM MEM_ALOOKUP]
+  >> rgs[GSYM MEM_ALOOKUP]
   >> imp_res_tac (Q.ISPEC `SND` MEM_MAP_f)
   >> fs[]
 QED
@@ -1401,7 +1401,7 @@ Proof
   )
   >> `MEM (HD ls) ls` by (Cases_on `ls` >> fs[])
   >> qunabbrev_tac `ls`
-  >> gs[MEM_FILTER]
+  >> rgs[MEM_FILTER]
 QED
 
 Theorem ALOOKUP_bij_LFINITE[local]:
@@ -1511,7 +1511,7 @@ Proof
   >> drule_then assume_tac LFINITE_LNTH_LLENGTH_NONE
   >> rfs[LFINITE_LLENGTH,IS_SOME_EXISTS]
   >> CCONTR_TAC
-  >> gs[]
+  >> rgs[]
 QED
 
 Definition ALOOKUP_bij_def:
@@ -1552,7 +1552,7 @@ Termination
   >> fs[every_LNTH,IS_SOME_EXISTS]
   >> qmatch_assum_abbrev_tac `~MEM (THE llast) _`
   >> first_x_assum (drule_then assume_tac)
-  >> gs[Abbr`f`,o_DEF]
+  >> rgs[Abbr`f`,o_DEF]
 End
 
 Triviality SUBSET_UNION_DISJ:
@@ -1643,7 +1643,7 @@ Proof
   >> conj_asm1_tac
   >- (
     first_x_assum match_mp_tac
-    >> gs[IS_SOME_EXISTS]
+    >> rgs[IS_SOME_EXISTS]
     >> goal_assum drule
   )
   >> conj_asm1_tac
