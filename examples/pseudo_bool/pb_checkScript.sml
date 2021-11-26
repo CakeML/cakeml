@@ -479,10 +479,9 @@ Definition parse_pbp_toks_def:
   parse_pbpsteps nocomments []
 End
 
+(* Exactly the same as tokenize, but parses to nums instead of ints *)
 Definition tokenize_num_def:
   tokenize_num (s:mlstring) =
-  if s = str #"+" then INL s
-  else
   case mlint$fromNatString s of
     NONE => INL s
   | SOME i => INR i
