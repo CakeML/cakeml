@@ -203,7 +203,7 @@ val fromChars_unsafe_def = tDefine "fromChars_unsafe" `
 val fromChars_unsafe_ind = theorem"fromChars_unsafe_ind"
 
 val fromChars_def = tDefine "fromChars" `
-  fromChars 0 str = SOME 0n ∧ (* Shouldn't happend *)
+  fromChars 0 str = NONE ∧ (* Shouldn't happend *)
   fromChars n str =
     if n ≤ padLen_DEC
     then fromChars_range 0 n str
@@ -215,7 +215,7 @@ val fromChars_def = tDefine "fromChars" `
 val fromChars_ind = theorem"fromChars_ind"
 
 Theorem fromChars_eq_unsafe:
-   ∀n s. EVERY isDigit (explode s) ∧ n ≤ strlen s ⇒
+   ∀n s. EVERY isDigit (explode s) ∧ n ≤ strlen s ∧ n ≥ 1 ⇒
     fromChars n s = SOME (fromChars_unsafe n s)
 Proof
   let val tactics = [fromChars_def
@@ -369,9 +369,9 @@ Theorem fromChars_range_lemma[local] =
 
 Theorem fromString_thm:
   ∀str.
-    str ≠ "" ∧
+    str ≠ [] ∧
     (HD str ≠ #"~" ∧ HD str ≠ #"-" ∧ HD str ≠ #"+" ⇒ EVERY isDigit str) ∧
-    (HD str = #"~" ∨ HD str = #"-" ∨ HD str = #"+" ⇒ EVERY isDigit (DROP 1 str)) ⇒
+    (HD str = #"~" ∨ HD str = #"-" ∨ HD str = #"+" ⇒ EVERY isDigit (DROP 1 str) ∧ STRLEN str ≥ 2) ⇒
       fromString (strlit str) = SOME
         if HD str = #"~" ∨ HD str = #"-"
         then ~&num_from_dec_string (DROP 1 str)
@@ -379,11 +379,14 @@ Theorem fromString_thm:
         then &num_from_dec_string (DROP 1 str)
         else &num_from_dec_string str
 Proof
-  Cases
+  Cases \\ rw[fromString_def]
+  \\ DEP_REWRITE_TAC[fromChars_eq_unsafe] \\ simp[substring_def, SEG_TAKE_DROP]
   \\ rw [fromString_def, fromChars_eq_unsafe, fromChars_range_unsafe_eq,
          fromChars_range_unsafe_thm, substring_def, SEG_TAKE_DROP,
          TAKE_LENGTH_ID_rwt,
          fromChars_range_lemma]
+  \\ gs[]
+  \\ metis_tac[fromChars_range_lemma,EVERY_DEF]
 QED
 
 val fromString_eq_unsafe = save_thm("fromString_eq_unsafe",
@@ -405,6 +408,12 @@ Proof
   \\ simp[integerTheory.INT_OF_NUM]
 QED
 
+Theorem length_ge_2:
+  SUC (LENGTH ls) ≥ 2 ⇔ ls ≠ []
+Proof
+  Cases_on`ls`>>rw[]
+QED
+
 Theorem fromString_toString[simp]:
    !i:int. fromString (toString i) = SOME i
 Proof
@@ -415,7 +424,7 @@ Proof
    (reverse impl_tac THEN1
      (fs [Abbr`sss`,toString_thm,ASCIInumbersTheory.toNum_toString]
       \\ rw [] \\ last_x_assum mp_tac \\ intLib.COOPER_TAC)
-    \\ fs [Abbr `sss`,EVERY_isDigit_num_to_dec_string])
+    \\ fs [Abbr `sss`,EVERY_isDigit_num_to_dec_string,length_ge_2])
   \\ `HD sss ≠ #"~" ∧ HD sss ≠ #"-" ∧ HD sss ≠ #"+"` by
    (fs [Abbr `sss`]
     \\ qspec_then `Num (ABS i)` mp_tac EVERY_isDigit_num_to_dec_string
@@ -474,7 +483,7 @@ Proof
 QED
 
 Theorem fromChars_IS_SOME_IFF:
-   ∀n s. n ≤ strlen s ⇒ (IS_SOME (fromChars n s) ⇔ EVERY isDigit (TAKE n (explode s)))
+   ∀n s. n ≤ strlen s ∧ n ≥ 1 ⇒ (IS_SOME (fromChars n s) ⇔ EVERY isDigit (TAKE n (explode s)))
 Proof
   recInduct fromChars_ind
   \\ rw[fromChars_def]

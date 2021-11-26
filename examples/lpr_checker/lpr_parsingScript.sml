@@ -148,6 +148,12 @@ Proof
     \\ simp[] )
 QED
 
+Theorem length_ge_2:
+  SUC (LENGTH ls) ≥ 2 ⇔ ls ≠ []
+Proof
+  Cases_on`ls`>>rw[]
+QED
+
 Theorem fromString_toStdString[simp]:
    !i:int. fromString (toStdString i) = SOME i
 Proof
@@ -158,7 +164,7 @@ Proof
    (reverse impl_tac THEN1
      (fs [Abbr`sss`,toString_thm,ASCIInumbersTheory.toNum_toString]
       \\ rw [] \\ last_x_assum mp_tac \\ intLib.COOPER_TAC)
-    \\ fs [Abbr `sss`,EVERY_isDigit_num_to_dec_string])
+    \\ fs [Abbr `sss`,EVERY_isDigit_num_to_dec_string,length_ge_2])
   \\ `HD sss ≠ #"~" ∧ HD sss ≠ #"-" ∧ HD sss ≠ #"+"` by
    (fs [Abbr `sss`]
     \\ qspec_then `Num (ABS i)` mp_tac EVERY_isDigit_num_to_dec_string
