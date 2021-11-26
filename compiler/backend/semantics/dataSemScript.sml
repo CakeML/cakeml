@@ -281,6 +281,39 @@ Definition flat_size_of_heap_def:
     flat_size_of s.limits s.refs s.all_blocks (stack_to_vs s)
 End
 
+(* all_block invariants *)
+
+(* All blocks in the roots are in all_blocks *)
+Definition all_blocks_roots_inv_def:
+  all_blocks_roots_inv blocks roots =
+   ∀ts tag l.
+       MEM (Block ts tag l) roots ⇒
+        LLOOKUP blocks ts = SOME (Block ts tag l)
+End
+
+(* All blocks in the references fulfil the invariant *)
+Definition all_blocks_refs_inv_def:
+  all_blocks_refs_inv blocks refs =
+    ∀p vs.
+       sptree$lookup p refs = SOME (ValueArray vs) ⇒
+       all_blocks_roots_inv blocks vs
+End
+
+(* All blocks in all_blocks fulfil the invariant *)
+Definition all_blocks_blocks_inv_def:
+  all_blocks_blocks_inv blocks =
+    ∀ts tag l.
+      LLOOKUP blocks ts = SOME (Block ts tag l) ⇒
+      all_blocks_roots_inv blocks l
+End
+
+Definition all_blocks_inv_def:
+  all_blocks_inv refs blocks roots =
+    (all_blocks_roots_inv blocks roots ∧
+     all_blocks_refs_inv blocks refs   ∧
+     all_blocks_blocks_inv blocks)
+End
+
 Definition size_inv_def:
 (* All timestamps below the current one point to a block in all_blocks *)
   size_inv ^s =
