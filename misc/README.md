@@ -10,9 +10,8 @@ A theory about byte-level manipulation of machine words.
 [induct_tweakLib.sml](induct_tweakLib.sml):
 Code for adjusting and improving induction theorems.
 
-[lem_lib_stub](lem_lib_stub):
-Empty versions of the Lem libraries (which we don't use, but building
-with Lem requires)
+[libScript.sml](libScript.sml):
+Renamnts of Lem dependency
 
 [miscScript.sml](miscScript.sml):
 Miscellaneous definitions and minor lemmas used throughout the

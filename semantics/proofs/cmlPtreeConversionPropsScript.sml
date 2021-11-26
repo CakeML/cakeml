@@ -417,7 +417,7 @@ val std = rpt (first_x_assum (erule strip_assume_tac o n)) >>
           simp[]
 Theorem Pattern_OK0:
    valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
-    (N ∈ {nPattern; nPtuple; nPapp; nPbase; nPcons; nPConApp} ∧
+    (N ∈ {nPattern; nPtuple; nPapp; nPbase; nPcons; nPConApp; nPas} ∧
     ptree_head pt = NT (mkNT N) ⇒
      ∃p. ptree_Pattern N pt = SOME p) ∧
     (ptree_head pt = NN nPatternList ⇒
@@ -459,6 +459,7 @@ Proof
   >- (erule strip_assume_tac (n OpID_OK) >> simp[EtoPat_def] >>
       rename [`Var v`] >> Cases_on `v` >> simp[EtoPat_def])
   >- (erule strip_assume_tac (n ConstructorName_OK) >> simp[])
+  >- (irule V_OK \\ gs [SF SFY_ss])
 QED
 
 val Pattern_OK = save_thm("Pattern_OK", okify CONJUNCT1 `nPattern` Pattern_OK0);

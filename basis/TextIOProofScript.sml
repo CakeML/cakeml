@@ -6158,7 +6158,7 @@ Proof
   \\ rveq
   \\ `pos < LENGTH content`
   by ( CCONTR_TAC \\ full_simp_tac std_ss[NOT_LESS,GSYM GREATER_EQ,GSYM DROP_NIL]
-       \\ gvs[])
+       \\ full_simp_tac std_ss [EVAL “splitlines ""”, NOT_CONS_NIL])
   \\ fs[DROP_DROP_T]
   \\ pairarg_tac \\ fs[implode_def,STRING_TYPE_def,std_preludeTheory.OPTION_TYPE_def] \\ rveq
   \\ xmatch
@@ -6713,8 +6713,7 @@ Proof
   \\ disch_then (qspecl_then [‘p’,‘fs’] assume_tac)
   \\ asm_exists_tac
   \\ xsimpl
-  \\ fs [get_file_content_def,get_mode_def,STD_streams_def]
-  \\ rpt (pairarg_tac \\ gs[])
+  \\ gvs [get_file_content_def,AllCaseEqs(),get_mode_def]
 QED
 
 Theorem b_openIn_spec_str:
@@ -7348,17 +7347,20 @@ Theorem INSTREAM_STR_fastForwardFD:
 Proof
   rw [INSTREAM_STR_def]
   \\ xsimpl \\ rw[] \\ gs[] \\ rveq
+  \\ rename [‘get_file_content _ _ = SOME z’]
   \\ PairCases_on ‘z’
   \\ qmatch_assum_rename_tac ‘get_file_content _ _ = SOME (c,off)’
   \\ gs[] \\ rveq \\ simp [GSYM PULL_EXISTS]
   \\ conj_tac
   >- (qexists_tac ‘c’ \\ gs[get_file_content_def,fastForwardFD_def]
-      \\ PairCases_on ‘x'’
+      \\ rename [‘ALOOKUP fs.infds fd = SOME zz’]
+      \\ PairCases_on ‘zz’
       \\ qmatch_assum_rename_tac ‘ALOOKUP _ _ = SOME (ino,mode,off')’
       \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP,MAX_DEF])
   \\ conj_tac
   >- (gs[get_mode_def,fastForwardFD_def,get_file_content_def]
-      \\ PairCases_on ‘z’
+      \\ rename [‘ALOOKUP fs.infds fd = SOME zz’]
+      \\ PairCases_on ‘zz’
       \\ qmatch_assum_rename_tac ‘ALOOKUP _ _ = SOME (ino,mode,off')’
       \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP])
   \\ xsimpl \\ simp[fastForwardFD_eq_forwardFD] \\ xsimpl
@@ -7634,7 +7636,7 @@ Proof
       \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP,MAX_DEF])
   \\ conj_tac
   >- (gs[get_mode_def,fastForwardFD_def,get_file_content_def]
-      \\ PairCases_on ‘z’
+      \\ PairCases_on ‘x'’
       \\ qmatch_assum_rename_tac ‘ALOOKUP _ _ = SOME (ino,mode,off')’
       \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP])
   \\ xsimpl \\ simp[fastForwardFD_eq_forwardFD] \\ xsimpl

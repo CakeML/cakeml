@@ -132,22 +132,13 @@ Theorem patch'_spec:
 Proof
   xcf"patch'"(get_ml_prog_state())
   \\ xlet_auto >- xsimpl
-  \\ xmatch \\ reverse(Cases_on `inFS_fname fs f1`)
-  \\ fs[OPTION_TYPE_def]
-  >- (reverse strip_tac
-      >- (strip_tac >> EVAL_TAC)
-      \\ xlet_auto >- xsimpl
+  \\ reverse(Cases_on `inFS_fname fs f1`) \\ fs [OPTION_TYPE_def] \\ xmatch
+  >- (xlet_auto >- xsimpl
       \\ xapp_spec output_stderr_spec \\ xsimpl)
-  \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
-  >- (EVAL_TAC \\ rw[])
   \\ xlet_auto >- xsimpl
-  \\ xmatch \\ reverse(Cases_on `inFS_fname fs f2`)
-  \\ fs[OPTION_TYPE_def]
-  >- (reverse strip_tac >- (strip_tac >> EVAL_TAC)
-      \\ xlet_auto >- xsimpl
+  \\ reverse(Cases_on `inFS_fname fs f2`) \\ fs[OPTION_TYPE_def] \\ xmatch
+  >- (xlet_auto >- xsimpl
       \\ xapp_spec output_stderr_spec \\ xsimpl)
-  \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
-  >- (EVAL_TAC \\ rw[])
   \\ xlet_auto >- xsimpl
   \\ qpat_abbrev_tac `a1 = patch_alg _ _`
   \\ Cases_on `a1` \\ fs[OPTION_TYPE_def]

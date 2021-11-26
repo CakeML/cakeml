@@ -687,6 +687,24 @@ Proof
   simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied]
 QED
 
+Theorem firstSet_nPas[simp]:
+  firstSet cmlG (NN nPas :: rest) = firstSet cmlG [NN nPbase]
+Proof
+  simp[SimpLHS, firstSetML_eqn] >>
+  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
+  rw [EXTENSION, EQ_IMP_THM] >> gs []
+QED
+
+Theorem firstSetML_nPas[simp]:
+  mkNT nPbase ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nConstructorName ∉ sn ∧
+  mkNT nUQConstructorName ∉ sn ∧ mkNT nPtuple ∉ sn ∧ mkNT nPapp ∉ sn ∧
+  mkNT nPcons ∉ sn ∧ mkNT nPConApp ∉ sn ∧ mkNT nPas ∉ sn ⇒
+  firstSetML cmlG sn (NN nPas :: rest) = firstSet cmlG [NN nPbase]
+Proof
+  simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
+  rw [EXTENSION, EQ_IMP_THM] >> gs []
+QED
+
 Theorem firstSet_nPattern[simp]:
   firstSet cmlG (NN nPattern :: rest) = firstSet cmlG [NN nPbase]
 Proof
