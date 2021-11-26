@@ -3973,6 +3973,43 @@ Proof
     >- (qexists_tac `n DIV 2` >> fs[])
 QED
 
+(* The range is the set of values taken on by an sptree.
+  Not sure if these are worth moving. *)
+Definition range_def:
+  range s = {v | ∃n. lookup n s = SOME v}
+End
+
+Theorem range_delete:
+  range (delete h v) ⊆ range v
+Proof
+  simp[range_def,lookup_delete,SUBSET_DEF]>>
+  metis_tac[]
+QED
+
+Theorem range_insert:
+  n ∉ domain fml ⇒
+  range (insert n l fml) = l INSERT range fml
+Proof
+  rw[range_def,EXTENSION,lookup_insert,domain_lookup]>>
+  metis_tac[SOME_11]
+QED
+
+Theorem range_insert_2:
+  C ∈ range (insert n l fml) ⇒ C ∈ range fml ∨ C = l
+Proof
+  fs[range_def,lookup_insert]>>
+  rw[]>>
+  every_case_tac>>fs[]>>
+  metis_tac[]
+QED
+
+Theorem range_insert_SUBSET:
+  range (insert n l fml) ⊆ l INSERT range fml
+Proof
+  rw[SUBSET_DEF]>>
+  metis_tac[range_insert_2]
+QED
+
 (* END TODO *)
 
 Theorem TWOxDIV2:
