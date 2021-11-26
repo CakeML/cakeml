@@ -499,14 +499,6 @@ Proof
        (imp_res_tac evaluate_IMP_LENGTH
         \\ fs [evaluate_def,do_app_def] \\ rw[] \\ gvs [])
       \\ last_x_assum irule
- (*   \\ conj_tac
-      THEN1
-       (irule simple_exp_eq_pure_list
-        \\ fs [EVERY_MEM,MEM_MAPi,PULL_EXISTS]
-        \\ last_x_assum mp_tac
-        \\ last_x_assum mp_tac
-        \\ simp [Once simple_exp_cases,EVERY_EL,EL_REVERSE]
-        \\ rw [] \\ simp [Once simple_exp_cases]) *)
       \\ Cases_on ‘x'0 = n’ \\ gvs []
       \\ ‘do_eq_list (REVERSE vs) l = Eq_val b’ by gvs [AllCaseEqs()] \\ gvs []
       \\ qexists_tac ‘ZIP (REVERSE vs, l)’ \\ gvs [MAP_ZIP]
@@ -539,8 +531,8 @@ Proof
     THEN1
      (irule simple_exp_eq_pure_list
       \\ gvs [dest_Cons_thm]
-      \\ last_x_assum mp_tac \\ simp [Once simple_exp_cases]
-      \\ last_x_assum mp_tac \\ simp [Once simple_exp_cases]
+      \\ qpat_x_assum ‘simple_exp _’ mp_tac \\ simp [Once simple_exp_cases]
+      \\ qpat_x_assum ‘simple_exp _’ mp_tac \\ simp [Once simple_exp_cases]
       \\ rw [] \\ gvs []
       \\ fs [EVERY_EL,MEM_MAPi,PULL_EXISTS,MEM_ZIP,EL_ZIP,EL_REVERSE])
     \\ gvs [dest_Cons_thm]
@@ -562,7 +554,7 @@ Proof
     \\ imp_res_tac simple_exp_pure
     \\ fs [pure_def,SF ETA_ss] \\ strip_tac
     \\ fs [EL_REVERSE,PRE_SUB1]
-    \\ imp_res_tac evaluate_pure \\ gvs []
+    \\ imp_res_tac evaluate_pure \\ rgs [] \\ gvs []
     \\ ‘LENGTH b1 − (i + 1) < LENGTH b1’ by fs []
     \\ drule_all evaluate_EL \\ fs [] \\ disch_then kall_tac
     \\ ‘LENGTH b2 − (i + 1) < LENGTH b2’ by fs []
@@ -795,17 +787,18 @@ Proof
   \\ Cases_on ‘dest_Op dest_Cons x’ \\ gvs []
   THEN1
    (full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
-    \\ gvs [DROP_LENGTH_APPEND]
+    \\ full_simp_tac std_ss [GSYM DROP_DROP_T |> ONCE_REWRITE_RULE [ADD_COMM]]
+    \\ full_simp_tac std_ss [DROP_LENGTH_APPEND] \\ gvs []
     \\ drule IMP_red_rel_cons_1
     \\ disch_then (qspec_then ‘x’ $ irule_at Any)
-    \\ irule_at Any IMP_red_rel_cons_1
-    \\ fs [GSYM DROP_DROP_T |> ONCE_REWRITE_RULE [ADD_COMM]]
-    \\ fs [DROP_LENGTH_APPEND])
+    \\ irule_at Any IMP_red_rel_cons_1 \\ fs [])
   \\ PairCases_on ‘x'’ \\ gvs []
   \\ rpt (pairarg_tac \\ gvs [])
   \\ imp_res_tac lift_exps_acc \\ gvs [DROP_LENGTH_APPEND]
   \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
-  \\ gvs [DROP_LENGTH_APPEND]
+  \\ full_simp_tac std_ss [DROP_LENGTH_APPEND]
+  \\ full_simp_tac std_ss [GSYM DROP_DROP_T |> ONCE_REWRITE_RULE [ADD_COMM]]
+  \\ full_simp_tac std_ss [DROP_LENGTH_APPEND] \\ gvs []
   \\ irule_at Any IMP_red_rel_cons_0
   \\ irule_at Any IMP_red_rel_append
   \\ rpt (first_x_assum $ irule_at Any)
@@ -851,7 +844,7 @@ Proof
     \\ simp [Once red_rel_cases,red_rel_nil]
     \\ metis_tac [red_rel_refl])
   THEN1
-   (last_x_assum mp_tac
+   (first_x_assum mp_tac
     \\ fs [eq_op_def,GSYM AND_IMP_INTRO]
     \\ disch_then kall_tac
     \\ fs [AllCaseEqs()]
