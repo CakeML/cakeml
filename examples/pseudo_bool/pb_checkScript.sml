@@ -29,7 +29,8 @@ Datatype:
   | Delete (num list) (* Ids to to delete *)
   | Polish constr     (* Adds a constraint, written in reverse polish notation *)
   (* TODO below
-  | RUP constr
+  | RUP constr --> u [constraint]
+  | SR constr --> red [constraint] [mapping] [unit prop hints] [clauseID -> pbpstep list]
   | ... *)
 End
 
@@ -104,20 +105,15 @@ Definition check_pbpsteps_def:
 End
 
 (* Copied from satSem: this is the set of pseudoboolean constraints *)
-(* TODO: probably move *)
-Definition values_def:
-  values s = {v | ∃n. lookup n s = SOME v}
-End
-
 Theorem check_polish_correct:
   ∀n c w.
-  check_polish fml n = SOME c ∧ satisfies w (values fml) ⇒
+  check_polish fml n = SOME c ∧ satisfies w (range fml) ⇒
   eval_pbc w c
 Proof
   Induct_on`n`>>rw[check_polish_def]
   >- (
     (*Id case*)
-    fs[satisfies_def,values_def]>>metis_tac[])
+    fs[satisfies_def,range_def]>>metis_tac[])
   >- (
     (* add case *)
     match_mp_tac add_thm>>
@@ -145,14 +141,14 @@ QED
 
 Theorem check_polish_compact:
   ∀n c.
-  (∀c. c ∈ values fml ⇒ compact c) ∧
+  (∀c. c ∈ range fml ⇒ compact c) ∧
   check_polish fml n = SOME c ⇒
   compact c
 Proof
   Induct_on`n`>>rw[check_polish_def]
   >- (
     (*Id case*)
-    fs[values_def]>>metis_tac[])
+    fs[range_def]>>metis_tac[])
   >- (
     (* add case *)
     metis_tac[compact_add])
@@ -191,39 +187,15 @@ Proof
   fs[]
 QED
 
-(* TODO: copied *)
-Theorem values_delete:
-  values (delete h v) ⊆ values v
-Proof
-  simp[values_def,lookup_delete,SUBSET_DEF]>>
-  metis_tac[]
-QED
-
-Theorem values_insert:
-  C ∈ values (insert n l fml) ⇒ C ∈ values fml ∨ C = l
-Proof
-  fs[values_def,lookup_insert]>>
-  rw[]>>
-  every_case_tac>>fs[]>>
-  metis_tac[]
-QED
-
-Theorem values_insert2:
-  values (insert n l fml) ⊆ l INSERT values fml
-Proof
-  rw[SUBSET_DEF]>>
-  metis_tac[values_insert]
-QED
-
-Theorem values_FOLDL_delete:
+Theorem range_FOLDL_delete:
   ∀ls v.
-  values (FOLDL (λa b. delete b a) v ls) ⊆ values v
+  range (FOLDL (λa b. delete b a) v ls) ⊆ range v
 Proof
   Induct>>rw[]>>
   first_x_assum (qspec_then`delete h v` mp_tac)>>rw[]>>
   match_mp_tac SUBSET_TRANS>>
   asm_exists_tac>>simp[]>>
-  simp[values_delete]
+  simp[range_delete]
 QED
 
 Theorem satisfiable_subset:
@@ -236,7 +208,7 @@ QED
 
 Theorem check_pbpstep_Cont:
   check_pbpstep step fml id = Cont fml' id' ⇒
-  satisfiable (values fml) ⇒ satisfiable (values fml')
+  satisfiable (range fml) ⇒ satisfiable (range fml')
 Proof
   Cases_on`step`>>fs[check_pbpstep_def]>>
   every_case_tac
@@ -245,7 +217,7 @@ Proof
     rw[]>>
     drule satisfiable_subset>>
     disch_then match_mp_tac>>
-    fs[values_FOLDL_delete])
+    fs[range_FOLDL_delete])
   >> (
     (* check_polish *)
     rw[]>>
@@ -253,18 +225,18 @@ Proof
     fs[satisfiable_def,satisfies_def]>>
     rw[]>>qexists_tac`w`>>
     rw[]>>
-    drule values_insert >> fs[]>>
+    drule range_insert_2 >> fs[]>>
     metis_tac[])
 QED
 
 Theorem check_pbpstep_Unsat:
   check_pbpstep step fml id = Unsat ⇒
-  ¬ satisfiable (values fml)
+  ¬ satisfiable (range fml)
 Proof
   Cases_on`step`>>fs[check_pbpstep_def]>>
   every_case_tac>>
   (* check_contradiction *)
-  rw[satisfiable_def,values_def,satisfies_def]>>
+  rw[satisfiable_def,range_def,satisfies_def]>>
   drule check_contradiction_unsat>>
   metis_tac[]
 QED
@@ -273,9 +245,9 @@ Theorem check_pbpsteps_correct:
   ∀steps fml id.
   case check_pbpsteps steps fml id of
     Cont fml' id' =>
-      satisfiable (values fml) ⇒ satisfiable (values fml')
+      satisfiable (range fml) ⇒ satisfiable (range fml')
   | Unsat =>
-      ¬ satisfiable (values fml)
+      ¬ satisfiable (range fml)
   | Fail => T
 Proof
   Induct>>rw[check_pbpsteps_def]>>
@@ -288,15 +260,15 @@ Proof
 QED
 
 Theorem check_pbpstep_compact:
-  (∀c. c ∈ values fml ⇒ compact c) ∧
+  (∀c. c ∈ range fml ⇒ compact c) ∧
   check_pbpstep step fml id = Cont fml' id' ⇒
-  (∀c. c ∈ values fml' ⇒ compact c)
+  (∀c. c ∈ range fml' ⇒ compact c)
 Proof
   Cases_on`step`>>fs[check_pbpstep_def]>>
   every_case_tac>>rw[]
   >-
-    metis_tac[values_FOLDL_delete,SUBSET_DEF] >>
-  drule values_insert>>rw[]>>
+    metis_tac[range_FOLDL_delete,SUBSET_DEF] >>
+  drule range_insert_2>>rw[]>>
   metis_tac[check_polish_compact]
 QED
 

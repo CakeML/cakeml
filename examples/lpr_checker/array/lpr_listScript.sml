@@ -525,7 +525,7 @@ Proof
   strip_tac>>
   Cases_on`EL h fmlls`>>simp[]>>
   `wf_clause x` by
-    (fs[wf_fml_def,values_def]>>metis_tac[])>>
+    (fs[wf_fml_def,range_def]>>metis_tac[])>>
   drule delete_literals_sing_list_correct>>
   disch_then drule>>
   TOP_CASE_TAC>>simp[]

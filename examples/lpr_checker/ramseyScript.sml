@@ -721,7 +721,7 @@ Theorem check_sat_satisfies:
   check_sat asg fml ⇒
   satisfies asg (interp_spt fml)
 Proof
-  rw[check_sat_def,satisfies_def,interp_spt_def,values_def]>>
+  rw[check_sat_def,satisfies_def,interp_spt_def,range_def]>>
   fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,MEM_toAList]>>
   first_x_assum drule>>fs[]>>
   metis_tac[check_clause_satisfies_clause]
