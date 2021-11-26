@@ -1517,41 +1517,42 @@ Proof
   \\ metis_tac [SND, SOME_11]
 QED
 
-val pmatch = Q.prove (
-  `(!cenv s p v env r env' env'' env_i1 ^s_i1 v_i1 st'.
-    semanticPrimitives$pmatch cenv s p v env = r ∧
-    s_rel genv st' s_i1 ∧
-    global_env_inv genv comp_map2 shadowers senv ∧
-    genv_c_ok genv.c ∧
-    genv_c_tys_ok genv.c genv.tys ∧
-    cenv = senv.c ∧
-    comp_map2.c = comp_map.c ∧
-    env = env' ++ env'' ∧
-    s_i1.globals = genv.v ∧
-    s = st'.refs ∧
-    v_rel genv v v_i1 ∧
-    env_rel genv (alist_to_ns env') env_i1
-    ⇒
-    ?r_i1.
-      flatSem$pmatch s_i1 (compile_pat comp_map p) v_i1 env_i1 = r_i1 ∧
-      match_result_rel genv env'' r r_i1) ∧
-   (!cenv s ps vs env r env' env'' env_i1 ^s_i1 vs_i1 st'.
-    pmatch_list cenv s ps vs env = r ∧
-    global_env_inv genv comp_map2 shadowers senv ∧
-    genv_c_ok genv.c ∧
-    genv_c_tys_ok genv.c genv.tys ∧
-    cenv = senv.c ∧
-    comp_map2.c = comp_map.c ∧
-    env = env' ++ env'' ∧
-    s_i1.globals = genv.v ∧
-    s_rel genv st' s_i1 ∧
-    s = st'.refs ∧
-    LIST_REL (v_rel genv) vs vs_i1 ∧
-    env_rel genv (alist_to_ns env') env_i1
-    ⇒
-    ?r_i1.
-      pmatch_list s_i1 (MAP (compile_pat comp_map) ps) vs_i1 env_i1 = r_i1 ∧
-      match_result_rel genv env'' r r_i1)`,
+Theorem pmatch[local]:
+  (!cenv s p v env r env' env'' env_i1 ^s_i1 v_i1 st'.
+   semanticPrimitives$pmatch cenv s p v env = r ∧
+   s_rel genv st' s_i1 ∧
+   global_env_inv genv comp_map2 shadowers senv ∧
+   genv_c_ok genv.c ∧
+   genv_c_tys_ok genv.c genv.tys ∧
+   cenv = senv.c ∧
+   comp_map2.c = comp_map.c ∧
+   env = env' ++ env'' ∧
+   s_i1.globals = genv.v ∧
+   s = st'.refs ∧
+   v_rel genv v v_i1 ∧
+   env_rel genv (alist_to_ns env') env_i1
+   ⇒
+   ?r_i1.
+     flatSem$pmatch s_i1 (compile_pat comp_map p) v_i1 env_i1 = r_i1 ∧
+     match_result_rel genv env'' r r_i1) ∧
+  (!cenv s ps vs env r env' env'' env_i1 ^s_i1 vs_i1 st'.
+   pmatch_list cenv s ps vs env = r ∧
+   global_env_inv genv comp_map2 shadowers senv ∧
+   genv_c_ok genv.c ∧
+   genv_c_tys_ok genv.c genv.tys ∧
+   cenv = senv.c ∧
+   comp_map2.c = comp_map.c ∧
+   env = env' ++ env'' ∧
+   s_i1.globals = genv.v ∧
+   s_rel genv st' s_i1 ∧
+   s = st'.refs ∧
+   LIST_REL (v_rel genv) vs vs_i1 ∧
+   env_rel genv (alist_to_ns env') env_i1
+   ⇒
+   ?r_i1.
+     pmatch_list s_i1 (MAP (compile_pat comp_map) ps) vs_i1 env_i1 = r_i1 ∧
+     match_result_rel genv env'' r r_i1)
+Proof
   ho_match_mp_tac terminationTheory.pmatch_ind >>
   srw_tac[][terminationTheory.pmatch_def, flatSemTheory.pmatch_def, compile_pat_def] >>
   full_simp_tac(srw_ss())[match_result_rel_def, flatSemTheory.pmatch_def, v_rel_eqns] >>
@@ -1599,6 +1600,13 @@ val pmatch = Q.prove (
       fs [sv_rel_cases, match_result_rel_def]
   )
   >- (
+    gvs []
+    \\ ‘((i,v)::(env' ++ env'')) = ((i,v)::env') ++ env''’
+      by gs []
+    \\ pop_assum SUBST_ALL_TAC
+    \\ first_x_assum irule \\ gs []
+    \\ simp [env_rel_bind_one])
+  >- (
       rfs [] >>
       first_x_assum (qsubterm_then
           `pmatch _ (compile_pat _ _) _ _` mp_tac) >>
@@ -1608,7 +1616,8 @@ val pmatch = Q.prove (
       rpt (first_x_assum (first_assum o mp_then Any strip_assume_tac)) >>
       fs [] >>
       imp_res_tac match_result_rel_imp >> fs [match_result_rel_def]
-  ));
+  )
+QED
 
 (* compiler correctness *)
 
@@ -2827,7 +2836,7 @@ Proof
         src_orac_next_cfg_inner_def]
   \\ every_case_tac \\ fs []
   \\ rfs []
-  \\ fs [lem_listTheory.list_index_def]
+  \\ fs [oEL_THM]
   \\ rveq \\ fs []
   \\ first_x_assum (drule_then drule)
   \\ rw [] \\ simp []
@@ -3778,7 +3787,7 @@ Proof
   \\ rveq \\ fs []
   \\ TRY (imp_res_tac step_1 \\ fs [env_gen_rel_def] \\ NO_TAC)
   \\ simp [v_rel_eqns, PULL_EXISTS, nat_to_v_def]
-  \\ fs [lem_listTheory.list_index_def]
+  \\ fs [oEL_THM]
   \\ simp [EL_LUPDATE]
   \\ fs [src_orac_next_cfg_def]
   \\ rw []
@@ -4617,7 +4626,7 @@ Proof
   >- (
     fs [src_orac_env_invs_def, env_gen_future_rel_def]
     \\ rfs [src_orac_next_cfg_def]
-    \\ fs [env_gen_rel_def, lem_listTheory.list_index_def]
+    \\ fs [env_gen_rel_def, oEL_THM]
     \\ rveq \\ fs []
     \\ fs [EL_LUPDATE, EL_APPEND_IF]
     \\ rw []
@@ -4653,14 +4662,14 @@ Proof
     \\ rfs [orac_config_envs_subspt_def, src_orac_next_cfg_def]
   )
   >- (
-    fs [env_gen_rel_def, lem_listTheory.list_index_def]
+    fs [env_gen_rel_def, oEL_THM]
     \\ simp [EL_LUPDATE]
   )
   >- (
     simp [Once v_rel_cases]
     \\ fs [EL_LUPDATE, markerTheory.Abbrev_def, v_rel_eqns]
     \\ simp [nat_to_v_def, v_rel_eqns]
-    \\ fs [lem_listTheory.list_index_def]
+    \\ fs [oEL_THM]
     \\ rveq \\ fs []
     \\ fs [env_gen_rel_def]
   )

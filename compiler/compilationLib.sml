@@ -866,10 +866,25 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       |> (RAND_CONV(REWR_CONV word_prog1_def) THENC
           listLib.LENGTH_CONV)
 
+    val oracle_list_def = mk_abbrev"oracle_list" (oracle_def |> rconc |> rand);
+    val temp_defs = (mk_abbrev_name"oracle_list") :: temp_defs
+
+    val LENGTH_oracle_list =
+      listSyntax.mk_length(lhs(concl(oracle_list_def)))
+      |> (RAND_CONV(REWR_CONV oracle_list_def) THENC
+          listLib.LENGTH_CONV)
+
     val LENGTH_oracle =
-      listSyntax.mk_length(lhs(concl(oracle_def))) |>
-      SIMP_CONV std_ss [oracle_def] |>
-      CONV_RULE (RAND_CONV listLib.LENGTH_CONV)
+      listSyntax.mk_length(lhs(concl(oracle_def)))
+      |> (RAND_CONV(REWR_CONV oracle_def) THENC
+          listLib.LENGTH_CONV)
+
+    val take_drop_oracle_lemma =
+      MATCH_MP backendTheory.TAKE_DROP_PAIR_LEMMA LENGTH_oracle
+    val MAP_ZIP_ZIP_lemma = MATCH_MP backendTheory.MAP_ZIP_ZIP
+      (LIST_CONJ [LENGTH_oracle, LENGTH_word_prog1, LENGTH_word_prog0])
+
+    val args = to_livesets_oracle_thm |> concl |> lhs |> strip_comb |> #2
 
     val config_typ = type_of (hd args)
     val config_ss = bool_ss ++ simpLib.type_ssfrag config_typ
@@ -877,45 +892,42 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
     val compile_thm0 =
       compile_oracle |> SYM
       |> Q.GENL[`c`,`p`] |> ISPECL args
-      |> CONV_RULE(RAND_CONV(
-           RAND_CONV(REWR_CONV to_livesets_oracle_thm) THENC
-           REWR_CONV from_livesets_def THENC
-           REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
-           RAND_CONV(
-             RAND_CONV eval THENC
-             RATOR_CONV(RAND_CONV(REWR_CONV LENGTH_word_prog0)) THENC
-             REWR_CONV word_to_wordTheory.next_n_oracle_def) THENC
-           REWR_CONV LET_THM THENC
-           SIMP_CONV (srw_ss()) [LENGTH_oracle] THENC
-        REWR_CONV_BETA LET_THM THENC
-        REWR_CONV_BETA LET_THM THENC
-        REWR_CONV_BETA LET_THM THENC
-        REWR_CONV_BETA LET_THM THENC
-        REWR_CONV_BETA LET_THM))
-       (*THENC
-        RAND_CONV(
-             REWR_CONV MAP_ZIP THENC
-             RATOR_CONV(RAND_CONV(
-               REWR_CONV o_DEF THENC
-               ABS_CONV(RAND_CONV BETA_CONV))) THENC
-             PATH_CONV"lllrarararaararaa" (
-               PAIRED_BETA_CONV THENC
-               PATH_CONV"llr"(
-                 REWR_CONV word_allocTheory.oracle_colour_ok_def THENC
-                 REWR_CONV_BETA(CONJUNCT2 option_case_def)))) THENC
-           REPEATC (REWR_CONV LET_THM THENC BETA_CONV) THENC
-           RATOR_CONV (SIMP_CONV config_ss []))) *)
+      |> CONV_RULE (PATH_CONV "rr" (REWR_CONV to_livesets_oracle_thm))
+      |> CONV_RULE (RAND_CONV
+        (REWR_CONV from_livesets_def
+         THENC REWR_CONV LET_THM THENC PAIRED_BETA_CONV))
+      |> CONV_RULE (RAND_CONV (RAND_CONV
+        (
+          RAND_CONV (RAND_CONV (eval)) THENC
+          RAND_CONV eval THENC
+          RATOR_CONV (RAND_CONV (REWR_CONV LENGTH_word_prog0)) THENC
+          REWR_CONV word_to_wordTheory.next_n_oracle_def
+        )))
+      |> CONV_RULE (RAND_CONV
+        (PATH_CONV "rllr" (ONCE_REWRITE_CONV [oracle_def]
+                           THENC RAND_CONV listLib.LENGTH_CONV
+                           THENC eval) THENC
+         PATH_CONV "r" (REWR_CONV (CONJUNCT1 boolTheory.bool_case_thm)
+                        THENC REWR_CONV take_drop_oracle_lemma)))
+      |> CONV_RULE (RAND_CONV
+        (REWR_CONV LET_THM THENC PAIRED_BETA_CONV))
+      |> CONV_RULE (REPEATC (RAND_CONV (REWR_CONV_BETA LET_THM)))
+      |> CONV_RULE (PATH_CONV "rr" (REWR_CONV MAP_ZIP_ZIP_lemma))
+      |> CONV_RULE (PATH_CONV "rrlllrarararaararaa" (PAIRED_BETA_CONV THENC
+           PATH_CONV"llr"(REWR_CONV word_allocTheory.oracle_colour_ok_def)
+         ))
+
     val tm3 = compile_thm0 |> rconc |> rand
-    val check_fn = tm3 |> rator |> rand
+    val check_fn = tm3 |> funpow 3 rator |> rand
     val check_fn_def = mk_abbrev"check_fn"check_fn;
     val temp_defs = (mk_abbrev_name"check_fn") :: temp_defs
 
     fun eval_fn i n (a,b,c) =
-      let val tm = mk_comb(check_fn,list_mk_pair [a,b,c])
+      let val tm = list_mk_comb(check_fn,[a,b,c])
       in eval tm end
 
     val oracle_els =
-       oracle_def |> rconc |> listSyntax.dest_list |> #1
+      oracle_def |> rconc |> listSyntax.dest_list |> #1
     val word_prog1_els =
        word_prog1_def |> rconc |> listSyntax.dest_list |> #1
     val word_prog0_els =
@@ -937,53 +949,51 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       mapi (fn i =>
         CONV_RULE(
           LAND_CONV(
-            RATOR_CONV(REWR_CONV(SYM check_fn_def)) THENC
-            RAND_CONV(RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(SYM(List.nth(word_prog1_defs,i))))))))))
+            funpow 3 RATOR_CONV(REWR_CONV(SYM check_fn_def)) THENC
+            RATOR_CONV(RAND_CONV(REWR_CONV(SYM(List.nth(word_prog1_defs,i))))))))
       map3els
 
-    (* TODO broken below, *)
-      local
-        val next_thm = ref map3els'
-        val remain = ref num_progs
-        (*
-        fun str n =
-          String.concat[Int.toString n,if n mod 10 = 0 then "\n" else " "]
-        *)
-        fun el_conv _ =
-          case !next_thm of [] => fail() | th :: rest =>
-            let
-              val () = next_thm := rest
-              (*
-              val () = Lib.say(str (!remain))
-              *)
-              val () = remain := !remain-1
-            in th end
-      in
-        val map3_conv = MAP3_CONV el_conv
-      end
+    local
+      val next_thm = ref map3els'
+      val remain = ref num_progs
+      (*
+      fun str n =
+        String.concat[Int.toString n,if n mod 10 = 0 then "\n" else " "]
+      *)
+      fun el_conv _ =
+        case !next_thm of [] => fail() | th :: rest =>
+          let
+            val () = next_thm := rest
+            (*
+            val () = Lib.say(str (!remain))
+            *)
+            val () = remain := !remain-1
+          in th end
+    in
+      val map3_conv = MAP3_CONV el_conv
+    end
 
-      val compile_thm1 =
-        compile_thm0
-        |> CONV_RULE(RAND_CONV(
-             RAND_CONV (
-               RATOR_CONV(RAND_CONV(REWR_CONV(SYM check_fn_def))) THENC
-               RAND_CONV(RAND_CONV(RAND_CONV(RAND_CONV(RAND_CONV(REWR_CONV word_prog0_def))))) THENC
-               RAND_CONV(RAND_CONV(RAND_CONV(RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV word_prog1_thm)))))) THENC
-               RAND_CONV(RAND_CONV(RATOR_CONV(RAND_CONV(RAND_CONV(REWR_CONV oracle_def))))) THENC
-               RAND_CONV (SIMP_CONV std_ss []) THENC
-               PRINT_CONV THENC timez "check colour" map3_conv)))
+    val from_word_0_thm1 =
+      compile_thm0
+      |> CONV_RULE(RAND_CONV(
+           RAND_CONV (
+             RATOR_CONV(RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(SYM check_fn_def))))) THENC
+             RAND_CONV(REWR_CONV word_prog0_def) THENC
+             RATOR_CONV(RAND_CONV(REWR_CONV word_prog1_thm)) THENC
+             RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV oracle_def))) THENC
+             timez "check colour" map3_conv)))
 
-      val word_prog2_def = mk_abbrev"word_prog2" (compile_thm1 |> rconc |> rand);
-      val temp_defs = (mk_abbrev_name"word_prog2") :: temp_defs
+    val word_prog2_def = mk_abbrev"word_prog2" (from_word_0_thm1 |> rconc |> rand);
+    val temp_defs = (mk_abbrev_name"word_prog2") :: temp_defs
 
-      val compile_thm1' = compile_thm1
-        |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM word_prog2_def))))
+    val from_word_0_thm1' = from_word_0_thm1
+      |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM word_prog2_def))))
 
-      val () = computeLib.extend_compset[computeLib.Defs[word_prog2_def]] cs;
+    val () = computeLib.extend_compset[computeLib.Defs[word_prog2_def]] cs;
 
       (* slow; cannot parallelise easily due to bitmaps accumulator *)
       val from_word_thm' =
-        compile_thm1'
+        from_word_0_thm1'
         |> CONV_RULE(RAND_CONV(
              REWR_CONV from_word_def THENC
              REWR_CONV LET_THM THENC
@@ -1173,7 +1183,7 @@ from_word_thm'
 
       val () = List.app delete_binding temp_defs
 
-  in stack_to_lab_thm end
+  in stack_to_lab_thm end;
 
 fun compose_to_word_0_from_word_0 to_word_0_thm from_word_0_thm =
   let
@@ -1457,8 +1467,8 @@ fun cbv_to_bytes word_directive add_encode_compset backend_config_def names_def 
         computeLib.Extenders [ add_encode_compset ],
         computeLib.Defs [ backend_config_def, names_def, lab_prog_def,
         (* TODO: don't look up definition *)
-        definition "word_0_c_def",
-        definition "word_0_names_def"
+        (definition "word_0_c_def" handle HOL_ERR _ => TRUTH),
+        (definition "word_0_names_def" handle HOL_ERR _ => TRUTH)
         ]
       ] cs
     val eval = computeLib.CBV_CONV cs;

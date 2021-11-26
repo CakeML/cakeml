@@ -300,8 +300,20 @@ Theorem EqTyp_test_lemmas:
     /\ EqualityType (^a_c_inv_num) /\ EqualityType (^st_inv)
     /\ EqualityType (^st2_inv)
 Proof
-  fs (eq_lemmas ())
+  fs (map (REWRITE_RULE [AND_IMP_INTRO]) (eq_lemmas ()))
 QED
+
+(* FIXME: mutually recursive datastructures don't seem to work *)
+
+(* register a type for which EqualityType can't be proven *)
+
+Datatype:
+  non_eq_type = Non_Eq_Type (num -> bool) (num list)
+End
+
+val r = register_type ``: non_eq_type``;
+
+val part_dummy_v_fun = fetch_v_fun ``: non_eq_type``;
 
 (* translating within nested local blocks and modules *)
 

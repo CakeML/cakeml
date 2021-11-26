@@ -1041,7 +1041,7 @@ Proof
     >> ntac 2 $ qpat_x_assum `_ ⊆ _` $ imp_res_tac o REWRITE_RULE[SUBSET_DEF]
     >> ntac 2 $ qpat_x_assum `MEM _ (MAP Tyvar _)` $ strip_assume_tac o REWRITE_RULE[MEM_MAP]
     >> first_x_assum $ drule_at_then Any (rev_drule_at_then Any assume_tac)
-    >> gs[]
+    >> rgs[]
     >> rw[EL_MAP]
     >> first_x_assum $ match_mp_tac o Ho_Rewrite.ONCE_REWRITE_RULE[GSYM MONO_NOT_EQ]
     >> qspec_then `ee` assume_tac TYPE_SUBST_MEM_MAP_SND
@@ -1049,14 +1049,14 @@ Proof
     >> first_x_assum $ rev_drule_then strip_assume_tac
     >> last_assum $ drule_then assume_tac
     >> last_x_assum $ rev_drule_then assume_tac
-    >> gs[]
+    >> rgs[]
     >> ntac 2 $ qpat_x_assum `MEM (EL _ _) _` $ assume_tac o ONCE_REWRITE_RULE[GSYM PAIR]
     >> drule_then assume_tac ALL_DISTINCT_SND_MEMs
     >> first_assum $ dxrule_then mp_tac
     >> first_x_assum $ dxrule_then mp_tac
     >> asm_rewrite_tac[]
     >> ntac 2 $ disch_then imp_res_tac
-    >> gs[EL_MAP]
+    >> rgs[EL_MAP]
   )
   >> `EVERY (λx. ?a b. x = (Tyvar a,Tyvar b)) ee` by (
     fs[LAMBDA_PROD,EVERY_MAP_PAIR,GSYM PULL_EXISTS]
@@ -1128,7 +1128,7 @@ Proof
     by(rw[Abbr ‘a1’,SET_EQ_SUBSET,SUBSET_DEF] >>
        res_tac >> fs[] >>
        first_x_assum(irule_at Any) >>
-       gs[tyvars_def]) >>
+       rgs[tyvars_def]) >>
   pop_assum SUBST_ALL_TAC >>
   pop_assum kall_tac >>
   match_mp_tac CARD_IMAGE >>
@@ -1151,7 +1151,7 @@ Proof
   ’
   by(qexists_tac ‘{u | ∃x. TYPE_SUBST i (Tyvar u) = Tyvar x ∧ MEM u (tyvars t)}’ >>
      qexists_tac ‘{v | ∃m l. Tyapp m l = REV_ASSOCD (Tyvar v) i (Tyvar v) ∧ MEM v (tyvars t)}’ >>
-     rw[SUBSET_DEF] >> gs[] >>
+     rw[SUBSET_DEF] >> rgs[] >>
      rw[SET_EQ_SUBSET,SUBSET_DEF] >- (Cases_on ‘REV_ASSOCD (Tyvar x) i (Tyvar x)’ >> fs[]) >>
      metis_tac[]) >>
   qpat_x_assum ‘_ = _ ∪ _’ (rw o single) >>
@@ -1162,21 +1162,21 @@ Proof
        reverse conj_tac >- simp[] >>
        ONCE_REWRITE_TAC[SUBSET_DEF] >>
        rpt strip_tac >>
-       gs[Abbr ‘VV’] >>
+       rgs[Abbr ‘VV’] >>
        drule_all_then strip_assume_tac SUBSET_THM >>
        first_x_assum drule_all >> strip_tac >>
        first_x_assum drule >>
        disch_then(drule_at (Pos last)) >>
-       reverse impl_tac >- (strip_tac >> rveq >> qpat_x_assum ‘Tyapp _ _ = _’ (assume_tac o GSYM) >> gs[tyvars_def]) >>
+       reverse impl_tac >- (strip_tac >> rveq >> qpat_x_assum ‘Tyapp _ _ = _’ (assume_tac o GSYM) >> rgs[tyvars_def]) >>
        qpat_x_assum ‘Tyapp _ _ = _’ (assume_tac o GSYM) >>
        fs[REV_ASSOCD_ALOOKUP,AllCaseEqs()] >>
        imp_res_tac ALOOKUP_MEM >>
-       gs[MEM_MAP] >>
-       pairarg_tac >> gs[] >>
+       rgs[MEM_MAP] >>
+       pairarg_tac >> rgs[] >>
        metis_tac[FST,SND,PAIR]) >>
   pop_assum SUBST_ALL_TAC >>
   pop_assum kall_tac >>
-  gs[] >>
+  rgs[] >>
   match_mp_tac LESS_EQ_TRANS >>
   irule_at (Pos last) CARD_SUBSET >>
   simp[GSYM PULL_EXISTS] >>
@@ -1188,7 +1188,7 @@ Proof
        drule_all_then strip_assume_tac SUBSET_THM >>
        res_tac >> fs[] >>
        first_x_assum(irule_at Any) >>
-       gs[tyvars_def]) >>
+       rgs[tyvars_def]) >>
   pop_assum SUBST_ALL_TAC >>
   pop_assum kall_tac >>
   match_mp_tac CARD_IMAGE >>
@@ -1248,10 +1248,10 @@ Proof
   >> strip_tac
   >> dxrule_all_then strip_assume_tac LESS_EQUAL_ANTISYM
   >> Cases_on ‘not_tyvar_only’
-  >> gs[]
+  >> rgs[]
   >- (
      res_tac >> rveq >>
-     gs[tyvars_TYPE_SUBST] >>
+     rgs[tyvars_TYPE_SUBST] >>
      pop_assum mp_tac >>
      qmatch_goalsub_abbrev_tac ‘CARD a1 = CARD _’ >>
      ‘a1 = {v | ∃x. MEM x (tyvars t) ∧ x ≠ a ∧
@@ -1260,13 +1260,13 @@ Proof
           res_tac >> fs[] >-
             (Cases_on ‘a = x'’ >> rveq >>
              qpat_x_assum ‘Tyapp _ _ = REV_ASSOCD _ _ _’ (assume_tac o GSYM) >>
-             gs[tyvars_def] >> metis_tac[]) >>
+             rgs[tyvars_def] >> metis_tac[]) >>
           metis_tac[]) >>
      pop_assum SUBST_ALL_TAC >> pop_assum kall_tac >>
      strip_tac >>
      ‘∃b. MEM b (tyvars t) ∧ 1 < CARD(set(tyvars (REV_ASSOCD (Tyvar b) i (Tyvar b))))’
        by(spose_not_then strip_assume_tac >>
-          gs[NOT_LESS] >>
+          rgs[NOT_LESS] >>
           qmatch_asmsub_abbrev_tac ‘CARD a1 = CARD _’ >>
           ‘a1 = BIGUNION {set(tyvars (REV_ASSOCD (Tyvar x) i (Tyvar x))) | MEM x (tyvars t) ∧ x ≠ a}’
             by(rw[Abbr ‘a1’,SET_EQ_SUBSET,SUBSET_DEF] >> metis_tac[]) >>
@@ -1279,7 +1279,7 @@ Proof
                match_mp_tac IMAGE_FINITE >>
                match_mp_tac(MP_CANON SUBSET_FINITE) >>
                qexists_tac ‘set(tyvars t)’ >> rw[SUBSET_DEF,IN_DEF]) >>
-          gs[] >>
+          rgs[] >>
           ‘CARD a1 ≤ CARD(set(tyvars t)) - 1’
             by(rw[Abbr ‘a1’] >>
                match_mp_tac LESS_EQ_TRANS >>
@@ -1299,52 +1299,52 @@ Proof
           dxrule_all_then strip_assume_tac LESS_EQ_TRANS >>
           ‘0 < CARD(set (tyvars t))’
             by(spose_not_then strip_assume_tac >>
-               gs[]) >>
+               rgs[]) >>
           intLib.COOPER_TAC) >>
      spose_not_then kall_tac >>
-     Cases_on ‘REV_ASSOCD (Tyvar b) i (Tyvar b)’ >- gs[tyvars_def] >>
+     Cases_on ‘REV_ASSOCD (Tyvar b) i (Tyvar b)’ >- rgs[tyvars_def] >>
      first_x_assum drule >>
      disch_then (drule_at (Pos last) o GSYM) >>
      impl_tac
      >- (fs[REV_ASSOCD_ALOOKUP,AllCaseEqs()] >>
          imp_res_tac ALOOKUP_MEM >>
-         gs[MEM_MAP] >>
-         pairarg_tac >> gs[] >>
-         rveq >> gs[] >>
-         pairarg_tac >> gs[] >> rveq >> gs[] >>
+         rgs[MEM_MAP] >>
+         pairarg_tac >> rgs[] >>
+         rveq >> rgs[] >>
+         pairarg_tac >> rgs[] >> rveq >> rgs[] >>
          metis_tac[FST,SND,PAIR]) >>
-     strip_tac >> rveq >> gs[tyvars_def]
+     strip_tac >> rveq >> rgs[tyvars_def]
   ) >>
-  gs[Abbr ‘inj’] >>
-  gs[DISJ_EQ_IMP] >>
+  rgs[Abbr ‘inj’] >>
+  rgs[DISJ_EQ_IMP] >>
   qmatch_asmsub_abbrev_tac ‘CARD a1 = _’ >>
   ‘a1 = IMAGE (λ a. @b. REV_ASSOCD (Tyvar a) i (Tyvar a) = Tyvar b) (set(tyvars t))’
     by(rw[Abbr ‘a1’,SET_EQ_SUBSET,SUBSET_DEF,tyvars_TYPE_SUBST] >-
          (first_assum(irule_at Any) >>
           Cases_on ‘REV_ASSOCD (Tyvar x') i (Tyvar x')’ >> (* TODO: generated names *)
-          gs[tyvars_def,MEM_FOLDR_LIST_UNION] >>
+          rgs[tyvars_def,MEM_FOLDR_LIST_UNION] >>
           last_x_assum drule >>
           disch_then(qspecl_then [‘m’,‘l’] mp_tac) >>
           reverse impl_tac >- metis_tac[] >>
           fs[REV_ASSOCD_ALOOKUP,AllCaseEqs()] >>
           imp_res_tac ALOOKUP_MEM >>
-          gs[MEM_MAP] >>
-          pairarg_tac >> gs[] >>
-          rveq >> gs[] >>
-          pairarg_tac >> gs[] >> rveq >> gs[] >>
+          rgs[MEM_MAP] >>
+          pairarg_tac >> rgs[] >>
+          rveq >> rgs[] >>
+          pairarg_tac >> rgs[] >> rveq >> rgs[] >>
           metis_tac[FST,SND,PAIR]) >>
        first_assum(irule_at Any) >>
-       Cases_on ‘REV_ASSOCD (Tyvar a') i (Tyvar a')’ >> gs[tyvars_def] >>  (* TODO: generated names *)
-       gs[tyvars_def,MEM_FOLDR_LIST_UNION] >>
+       Cases_on ‘REV_ASSOCD (Tyvar a') i (Tyvar a')’ >> rgs[tyvars_def] >>  (* TODO: generated names *)
+       rgs[tyvars_def,MEM_FOLDR_LIST_UNION] >>
        last_x_assum drule >>
        disch_then(qspecl_then [‘m’,‘l’] mp_tac) >>
        reverse impl_tac >- metis_tac[] >>
        fs[REV_ASSOCD_ALOOKUP,AllCaseEqs()] >>
        imp_res_tac ALOOKUP_MEM >>
-       gs[MEM_MAP] >>
-       pairarg_tac >> gs[] >>
-       rveq >> gs[] >>
-       pairarg_tac >> gs[] >> rveq >> gs[] >>
+       rgs[MEM_MAP] >>
+       pairarg_tac >> rgs[] >>
+       rveq >> rgs[] >>
+       pairarg_tac >> rgs[] >> rveq >> rgs[] >>
        metis_tac[FST,SND,PAIR]) >>
   pop_assum SUBST_ALL_TAC >>
   pop_assum kall_tac >>
@@ -1529,7 +1529,7 @@ Proof
   rw[]
   >> imp_res_tac $ cj 1 $ REWRITE_RULE[IMP_CONJ_THM,FORALL_AND_THM] $
     cj 1 $ REWRITE_RULE[EQ_IMP_THM] mg_sol_seq_def
-  >> gs[sol_seq_def]
+  >> rgs[sol_seq_def]
   >> `i < LENGTH pqs` by fs[]
   >> imp_res_tac mg_sol_seq_is_const_or_type
   >> ntac 2 $ first_x_assum $ drule_then assume_tac
@@ -1539,7 +1539,7 @@ Proof
   >> impl_tac >- (drule_all FV_SND_SUBSET_FST >> fs[])
   >> ntac 2 $ qpat_x_assum `equal_ts_on _ _ _` mp_tac
   >> dep_rewrite.DEP_REWRITE_TAC[equal_ts_on_FV]
-  >> gs[GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving]
+  >> rgs[GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving]
 QED
 
 (* TODO replace uses of mg_solutions with mg_solution' *)
@@ -1827,7 +1827,7 @@ Proof
     ((qspec_then `PRE i` mp_tac) ((GSYM o cj 3 o REWRITE_RULE[sol_seq_def]) x))))
   >> rw[]
   >> `i < LENGTH rs'` by fs[sol_seq_def]
-  >> gs[NOT_ZERO_LT_ZERO,SUC_PRE]
+  >> rgs[NOT_ZERO_LT_ZERO,SUC_PRE]
   >> `EL i es = EL (PRE i) es` by fs[EL_REPLICATE,Abbr`es`]
   >> imp_res_tac sol_seq_LENGTH
   >> `PRE i < LENGTH pqs` by fs[]
@@ -1984,7 +1984,7 @@ Proof
   >> `pqs <> []` by (CCONTR_TAC >> fs[])
   >> imp_res_tac LAST_EL
   >> imp_res_tac (REWRITE_RULE[LESS_OR_EQ,FORALL_AND_THM,DISJ_IMP_THM] EL_APPEND2)
-  >> gs[]
+  >> rgs[]
 QED
 
 (* Lemma 5.9 *)
@@ -2005,7 +2005,7 @@ Proof
   >> `LENGTH rs = LENGTH pqs` by fs[sol_seq_def]
   >> `LENGTH rs <= LENGTH rs'` by fs[]
   >> drule_all_then assume_tac sol_seq_TAKE
-  >> gs[TAKE_LENGTH_APPEND]
+  >> rgs[TAKE_LENGTH_APPEND]
   >> first_x_assum $ drule_then strip_assume_tac
   >> qexists_tac `es++[LAST es]`
   >> rw[GSYM LE_LT1,LESS_OR_EQ]
@@ -2511,7 +2511,7 @@ Proof
   >> `MEM x R` by fs[Abbr`R`,holSyntaxRenamingTheory.list_complement_MEM]
   >> Cases_on `MEM x C`
   >- (
-    `MEM x c` by gs[Abbr`C`,Abbr`R`,holSyntaxRenamingTheory.list_complement_MEM]
+    `MEM x c` by rgs[Abbr`C`,Abbr`R`,holSyntaxRenamingTheory.list_complement_MEM]
     >> qspecl_then [`R`,`C`] mp_tac renn_disj_dom_img3
     >> ONCE_REWRITE_TAC[holSyntaxRenamingTheory.NULL_list_inter_COMM]
     >> REWRITE_TAC[NULL_FILTER,Once list_inter_def,holSyntaxRenamingTheory.list_inter_set]
@@ -2828,7 +2828,7 @@ Proof
   >> drule $ ONCE_REWRITE_RULE[CONJ_COMM] mg_solution'
   >> ntac 2 $ disch_then drule
   >> dxrule $ SIMP_RULE(bool_ss++LET_ss) [] mg_sol_ext_geq_tyvars_p0
-  >> `rs <> [] /\ pqs <> []` by (CCONTR_TAC >> gs[])
+  >> `rs <> [] /\ pqs <> []` by (CCONTR_TAC >> rgs[])
   >> dep_rewrite.DEP_REWRITE_TAC[GSYM LAST_EL,LR_TYPE_SUBST_type_preserving]
   >> fs[]
   >> disch_then $ drule_all_then strip_assume_tac
@@ -2871,7 +2871,7 @@ Proof
       >> fs[]
     )
     >> dep_rewrite.DEP_REWRITE_TAC[EL_MAP,EL_APPEND2]
-    >> gs[NOT_LESS,LESS_OR_EQ,equal_ts_on_refl]
+    >> rgs[NOT_LESS,LESS_OR_EQ,equal_ts_on_refl]
   )
   >> first_assum $ qspec_then `0` $ mp_tac o ONCE_REWRITE_RULE[equal_ts_on_symm]
   >> dep_rewrite.DEP_REWRITE_TAC[GSYM LR_TYPE_SUBST_compose,LR_TYPE_SUBST_type_preserving,equal_ts_on_FV]
@@ -2879,7 +2879,7 @@ Proof
   >- (REWRITE_TAC[GSYM EL] >> fs[])
   >> rw[]
   >> drule_then match_mp_tac var_renaming_sol_seq_measure
-  >> gs[LR_TYPE_SUBST_type_preserving]
+  >> rgs[LR_TYPE_SUBST_type_preserving]
   >> rpt (PRED_ASSUM (exists (curry op = "rs")
     o map (fst o dest_var) o find_terms is_var) kall_tac)
   >> rpt (PRED_ASSUM (exists (curry op = "LAST")
@@ -3750,7 +3750,7 @@ Proof
   >> drule_all_then assume_tac LNTH_EL_LTAKE
   >> drule_all_then strip_assume_tac $ REWRITE_RULE[IS_SOME_EXISTS] infin_or_leq_IS_SOME_LTAKE
   >> drule_then (qspec_then `i` assume_tac) LTAKE_TAKE_LESS
-  >> gs[]
+  >> rgs[]
 QED
 
 (* sol_seq_def for llists *)
@@ -3785,7 +3785,7 @@ Proof
   >> drule_then (qspec_then `i` assume_tac) sol_seq_is_const_or_type
   >> qspecl_then [`SUC i`,`pqs`] assume_tac less_opt_LENGTH_THE_LTAKE
   >> qspecl_then [`pqs`,`i`,`SUC i`] assume_tac LNTH_EL_LTAKE
-  >> gs[less_opt_cases,infin_or_leq_def,GSYM NOT_LFINITE_LLENGTH_NONE]
+  >> rgs[less_opt_cases,infin_or_leq_def,GSYM NOT_LFINITE_LLENGTH_NONE]
 QED
 
 Theorem sol_seq_inf_LDROP:
@@ -3995,7 +3995,7 @@ Proof
   >> qabbrev_tac `k = SUC n`
   >> `0 < k` by fs[Abbr`k`]
   >> qpat_x_assum `Abbrev _` kall_tac
-  >> gs[seq_asc_inf_def,seq_k_asc_inf_def,DISJ_EQ_IMP]
+  >> rgs[seq_asc_inf_def,seq_k_asc_inf_def,DISJ_EQ_IMP]
   >> qmatch_asmsub_rename_tac `PRE k < kk`
   >> `k = kk` by (
     Cases_on `k < kk`
@@ -4063,7 +4063,7 @@ Proof
       >> rfs[]
     )
     >> drule_then (qspec_then `SUC k` assume_tac) LTAKE_TAKE_LESS
-    >> gs[]
+    >> rgs[]
   )
   >> strip_tac
   >> drule_then assume_tac $ cj 1 $ REWRITE_RULE[EQ_IMP_THM,IMP_CONJ_THM] mg_sol_seq_def
@@ -4079,7 +4079,7 @@ Proof
   >- (
     first_x_assum $ qspec_then `k` mp_tac
     >> dep_rewrite.DEP_REWRITE_TAC[EL_APPEND2]
-    >> gs[ADD1,equiv_ts_on_symm]
+    >> rgs[ADD1,equiv_ts_on_symm]
   )
   >> rw[GSYM DROP_LTAKE_EQ_LTAKE_LDROP]
   >> goal_assum drule
@@ -4117,7 +4117,7 @@ Proof
   >> drule_then (qspec_then `PRE $ i + k` strip_assume_tac) NOT_LFINITE_LNTH
   >> imp_res_tac every_LNTH
   >> qpat_x_assum `!i. is_const_or_type (SND _)` $ qspec_then `PRE $ i+k` assume_tac
-  >> gs[ELIM_UNCURRY]
+  >> rgs[ELIM_UNCURRY]
   >> qpat_x_assum `monotone _` $ (dxrule_then assume_tac) o REWRITE_RULE[monotone_def,list_subset_set]
   >> dxrule_all equiv_ts_on_subset
   >> ONCE_REWRITE_TAC[equiv_ts_on_symm]
@@ -4196,7 +4196,7 @@ Proof
     >> first_x_assum $ qspec_then `i` assume_tac
     >> first_x_assum $ qspec_then `j` assume_tac
     >> CCONTR_TAC
-    >> gs[LESS_OR_EQ,NOT_NUM_EQ]
+    >> rgs[LESS_OR_EQ,NOT_NUM_EQ]
   )
   >> `g 0 = @k. Q 0 k` by (
     map_every qunabbrev_tac [`g`,`f`]
@@ -4262,7 +4262,7 @@ Proof
   >> `!k. ?k'. P k k'` by (
     rw[Abbr`P`]
     >> last_x_assum $ qspec_then `k` strip_assume_tac
-    >> gs[seq_k_asc_inf_def,sol_seq_inf_def,Once WOP_eq]
+    >> rgs[seq_k_asc_inf_def,sol_seq_inf_def,Once WOP_eq]
     >> goal_assum drule
     >> fs[]
   )
@@ -4990,8 +4990,8 @@ Proof
   fs[extends_init_def] >>
   dxrule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
   rveq >>
-  gs[MEM_SPLIT] >> rveq >>
-  gs[APPEND_EQ_APPEND] >> rveq >> gs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> gs[] >>
+  rgs[MEM_SPLIT] >> rveq >>
+  rgs[APPEND_EQ_APPEND] >> rveq >> rgs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> rgs[] >>
   FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
   drule_then strip_assume_tac extends_APPEND_NIL >>
   fs[] >>
@@ -5027,11 +5027,11 @@ Proof
     |> Ho_Rewrite.REWRITE_RULE[IMP_CONJ_THM,FORALL_AND_THM] |> cj 2)
   >> fs[orth_ci_def]
   >> TRY(rpt (disch_then dxrule) >> fs[orth_ty_symm] >>
-         (impl_tac >- (spose_not_then strip_assume_tac >> gs[]) >>
+         (impl_tac >- (spose_not_then strip_assume_tac >> rgs[]) >>
           fs[orth_ty_symm]) >>
          NO_TAC)
   >> TRY(drule TypeDefn_NewType_name_distinct >> disch_then drule >> rpt(disch_then drule) >>
-         gs[tyapp_distinct_orth] >> NO_TAC)
+         rgs[tyapp_distinct_orth] >> NO_TAC)
   >> TRY(gs[tyapp_distinct_orth] >> NO_TAC)
   >> TRY(disch_then kall_tac >>
          qpat_x_assum ‘MAP _ _ ≠ MAP _ _’ mp_tac >>
@@ -5039,8 +5039,8 @@ Proof
          conj_tac >- rw[INJ_DEF] >>
          rw[GENLIST_ARG_EQ] >>
          rw[orth_ty_def] >> Cases_on ‘ty’ >> rw[] >>
-         spose_not_then strip_assume_tac >> gs[] >> rveq >>
-         gs[MAP_EQ_EVERY2])
+         spose_not_then strip_assume_tac >> rgs[] >> rveq >>
+         rgs[MAP_EQ_EVERY2])
 QED
 
 (* Algorithm 1, Kunčar 2015 *)

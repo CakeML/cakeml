@@ -33,3 +33,6 @@ program (an assembly program).
 [x64BootstrapScript.sml](x64BootstrapScript.sml):
 Evaluate the final part of the 64-bit version of the compiler
 into machine code for x64.
+
+[x64_config_encScript.sml](x64_config_encScript.sml):
+Encoding of compiler state

@@ -723,10 +723,12 @@ Proof
       first_x_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nPatternList) I) _’ o
                      mp_then (Pos last) mp_tac) >>
       simp[] >> strip_tac >> rveq >> dsimp[] >> rfs[PAIR_MAP])
-  >- (print_tac "nPattern" >> strip_tac >> rveq >>
-      `NT_rank (mkNT nPcons) < NT_rank (mkNT nPattern)` by simp[NT_rank_def] >>
+  >- (
+      print_tac "nPattern" >> strip_tac >> rveq >>
+      `NT_rank (mkNT nPas) < NT_rank (mkNT nPattern)` by simp[NT_rank_def] >>
       simp[cmlG_FDOM, cmlG_applied]
-      >- (dsimp[APPEND_EQ_CONS] >> csimp[] >>
+      >- (
+          dsimp[APPEND_EQ_CONS] >> csimp[] >>
           first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[] >>
           fs[MAP_EQ_APPEND] >> rveq >> dsimp[] >> fs[] >>
           rename1`peg_eval _ (inp2, nt (mkNT nType) I)` >>
@@ -740,6 +742,22 @@ Proof
           simp[DISJ_IMP_THM, PULL_EXISTS, SF CONJ_ss, GSYM CONJ_ASSOC] >>
           first_x_assum irule >> simp[SF SFY_ss] >>
           rpt (dxrule length_no_greater) >> simp[]))
+  >- (
+      print_tac "nPas" >>
+      `NT_rank (mkNT nPcons) < NT_rank (mkNT nPas)`
+        by simp[NT_rank_def] >> strip_tac >> rveq >>
+      simp[cmlG_applied, cmlG_FDOM]
+      >- (imp_res_tac length_no_greater
+          \\ gs [GSYM LESS_EQ]
+          \\ first_x_assum (drule_all_then strip_assume_tac)
+          \\ gvs [MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS]
+          \\ csimp [] \\ simp [GSYM CONJ_ASSOC]
+          \\ ‘NT_rank (mkNT nV) < NT_rank (mkNT nPas)’
+            by simp [NT_rank_def]
+          \\ first_x_assum $ drule_all_then strip_assume_tac
+          \\ simp [])
+      >- (first_x_assum $ drule_all_then strip_assume_tac >> gvs[]) >>
+      first_x_assum $ drule_all_then strip_assume_tac >> gvs[])
   >- (print_tac "nPcons" >>
       `NT_rank (mkNT nPapp) < NT_rank (mkNT nPcons)`
         by simp[NT_rank_def] >> strip_tac >> rveq >>

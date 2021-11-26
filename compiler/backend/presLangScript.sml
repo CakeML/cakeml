@@ -181,6 +181,8 @@ val flat_pat_to_display_def = tDefine "flat_pat_to_display" `
        | Plit lit => Item NONE (strlit "Plit") [lit_to_display lit]
        | flatLang$Pcon id pats => Item NONE (strlit "Pcon")
             (MAP flat_pat_to_display pats)
+       | Pas pat varN => Item NONE (strlit "Pas") [flat_pat_to_display pat;
+                                                   string_imp varN]
        | Pref pat => Item NONE (strlit "Pref") [flat_pat_to_display pat] `
   (WF_REL_TAC `measure pat_size` \\ rw []
    \\ imp_res_tac MEM_pat_size \\ fs [])

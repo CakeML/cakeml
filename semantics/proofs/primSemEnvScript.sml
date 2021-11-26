@@ -1,5 +1,5 @@
 (*
-  TODO: document
+  Proof about the primitive semantic environment
 *)
 open preamble;
 open libTheory astTheory evaluateTheory semanticPrimitivesTheory;

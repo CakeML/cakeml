@@ -24,6 +24,20 @@ Termination
   WF_REL_TAC ‘measure num_tree1_size’
 End
 
+Theorem fix_res_IMP:
+  (x,ns1) = fix_res ns res ⇒ LENGTH ns1 ≤ LENGTH ns
+Proof
+  PairCases_on ‘res’ \\ rw [fix_res_def] \\ gvs []
+QED
+
+Theorem dec_ok_fix_res:
+  dec_ok d ⇒ ∀ns. fix_res ns (d ns) = d ns
+Proof
+  fs [dec_ok_def] \\ rw [] \\ Cases_on ‘d ns’
+  \\ first_x_assum (qspec_then ‘ns’ mp_tac) \\ fs []
+  \\ fs [fix_res_def]
+QED
+
 Definition num_tree_dec'_def:
   num_tree_dec' c ns =
     if c = 0 then ([],ns) else
@@ -216,6 +230,25 @@ Proof
 QED
 
 val _ = app DefnBase.export_cong ["list_enc'_cong", "list_dec'_cong"];
+
+(* string *)
+
+Definition list_chr_dec'_def:
+  list_chr_dec' [] = [] ∧
+  list_chr_dec' (x::xs) = chr_dec' x :: list_chr_dec' xs
+End
+
+Definition string_dec'_def:
+  string_dec' (Tree _ xs) = IMPLODE (list_chr_dec' xs)
+End
+
+Theorem string_dec'_intro:
+  list_dec' chr_dec' = string_dec'
+Proof
+  fs [FUN_EQ_THM] \\ Cases
+  \\ fs [list_dec'_def,string_dec'_def]
+  \\ Induct_on ‘l’ \\ fs [list_chr_dec'_def]
+QED
 
 (* pair *)
 

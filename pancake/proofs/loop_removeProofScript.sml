@@ -1724,9 +1724,8 @@ Theorem comp_comp_with_loop_mem:
 Proof
   Induct >>
   rpt gen_tac >> strip_tac
-  >- (
-  fs [comp_def] >>
-  pairarg_tac >> fs [] >> rveq >> gs []) >>
+  >- (fs [comp_def] >>
+      pairarg_tac >> fs [] >> rveq >> rgs []) >>
   cases_on ‘FOLDR comp (n,l) (fprog ++ [(name,params,body)] ++ lprog)’ >>
   fs [] >>
   last_x_assum drule >>
@@ -1863,7 +1862,5 @@ Proof
     fs []) >>
   fs []
 QED
-
-
 
 val _ = export_theory();
