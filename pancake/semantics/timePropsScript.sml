@@ -255,7 +255,7 @@ Theorem pickTerm_panic_st_eq:
     st' = st
 Proof
  Induct >> rw [] >>
- gs [Once pickTerm_cases] >>
+ rgs [Once pickTerm_cases] >>
  gvs [] >>
  res_tac >> gs []
 QED

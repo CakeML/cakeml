@@ -665,13 +665,24 @@ val ptree_Pattern_def = Define`
             SOME(Pcon (SOME (Short "::")) [pa; patt])
           od
         | _ => NONE
+    else if FST nm = mkNT nPas then
+      dtcase args of
+          [papt] => ptree_Pattern nPcons papt
+        | [vt; as_t; papt] =>
+          do
+            assert (tokcheck as_t AsT);
+            pa <- ptree_Pattern nPcons papt;
+            vtt <- ptree_V vt;
+            SOME(Pas pa vtt)
+          od
+        | _ => fail
     else if FST nm = mkNT nPattern then
       dtcase args of
-          [pcons] => ptree_Pattern nPcons pcons
-        | [pcons_pt; colon_t; type_pt] =>
+          [pas] => ptree_Pattern nPas pas
+        | [pas_pt; colon_t; type_pt] =>
           do
             assert (tokcheck colon_t ColonT);
-            pc <- ptree_Pattern nPcons pcons_pt;
+            pc <- ptree_Pattern nPas pas_pt;
             ty <- ptree_Type nType type_pt;
             return (Ptannot pc ty)
           od
