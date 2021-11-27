@@ -259,17 +259,14 @@ QED
 
 (* Value approximation is sgc free *)
 
-val val_approx_sgc_free_def = tDefine "val_approx_gc_free" `
+Definition val_approx_sgc_free_def:
   (val_approx_sgc_free (ClosNoInline m n) <=> T) /\
   (val_approx_sgc_free (Clos m n e s) <=> set_globals e = {||}) /\
   (val_approx_sgc_free (Tuple tag vas) <=> EVERY val_approx_sgc_free vas) /\
   (val_approx_sgc_free _ <=> T)
-` (WF_REL_TAC `measure val_approx_size`
-   \\ Induct_on `vas` \\ simp []
-   \\ rw [] THEN1 simp [val_approx_size_def]
-   \\ first_x_assum drule
-   \\ disch_then (qspec_then `tag` assume_tac)
-   \\ fs [val_approx_size_def]);
+Termination
+  WF_REL_TAC `measure val_approx_size`
+End
 
 val val_approx_sgc_free_def = save_thm(
   "val_approx_sgc_free_def[simp]",
@@ -2391,7 +2388,7 @@ Proof
   Induct \\ fs [closSemTheory.v_size_def]
 QED
 
-val v_rel_def = tDefine "v_rel" `
+Definition v_rel_def:
   (v_rel c g (Number i) v <=> v = Number i) /\
   (v_rel c g (Word64 w) v <=> v = Word64 w) /\
   (v_rel c g (ByteVector ws) v <=> v = ByteVector ws) /\
@@ -2421,9 +2418,10 @@ val v_rel_def = tDefine "v_rel" `
        LIST_REL val_approx_val aenv env1a /\
        LIST_REL (f_rel c (clos ++ aenv) g) funs1 funs2 /\
        v = Recclosure loc_opt args2 (env2a ++ env2b) funs2 i else F)
-  `
-  (WF_REL_TAC `measure (v_size o FST o SND o SND)` \\ simp [v1_size_append, v_size_def]
-   \\ rpt strip_tac \\ imp_res_tac v_size_lemma \\ simp []);
+Termination
+  WF_REL_TAC `measure (v_size o FST o SND o SND)` \\ simp [v1_size_append, v_size_def]
+  \\ rpt strip_tac \\ imp_res_tac v_size_lemma \\ simp []
+End
 
 val v_rel_def = save_thm("v_rel_def[simp,compute]",
   v_rel_def |> SIMP_RULE (bool_ss ++ ETA_ss) []);
@@ -5148,17 +5146,14 @@ QED
 
 (* no_Labels *)
 
-val val_approx_no_Labels_def = tDefine "val_approx_no_Labels" `
+Definition val_approx_no_Labels_def:
   (val_approx_no_Labels (ClosNoInline m n) <=> T) /\
   (val_approx_no_Labels (Clos m n e s) <=> no_Labels e) /\
   (val_approx_no_Labels (Tuple tag vas) <=> EVERY val_approx_no_Labels vas) /\
   (val_approx_no_Labels _ <=> T)
-` (WF_REL_TAC `measure val_approx_size`
-   \\ Induct_on `vas` \\ simp []
-   \\ rw [] THEN1 simp [val_approx_size_def]
-   \\ first_x_assum drule
-   \\ disch_then (qspec_then `tag` assume_tac)
-   \\ fs [val_approx_size_def]);
+Termination
+  WF_REL_TAC `measure val_approx_size`
+End
 
 Theorem decide_inline_no_Labels:
    val_approx_no_Labels b ∧ decide_inline a b c d = inlD_LetInline e ⇒
@@ -5168,9 +5163,10 @@ Proof
   \\ fs[val_approx_no_Labels_def]
 QED
 
-val globals_approx_no_Labels_def = Define`
+Definition globals_approx_no_Labels_def:
   globals_approx_no_Labels g =
-    (∀c d. lookup c g = SOME d ⇒ val_approx_no_Labels d)`;
+    (∀c d. lookup c g = SOME d ⇒ val_approx_no_Labels d)
+End
 
 Theorem val_approx_no_Labels_merge:
    ∀a b. val_approx_no_Labels a ∧ val_approx_no_Labels b ⇒
@@ -5304,17 +5300,14 @@ QED
 
 (* obeys_max_app *)
 
-val val_approx_obeys_max_app_def = tDefine "val_approx_obeys_max_app" `
+Definition val_approx_obeys_max_app_def:
   (val_approx_obeys_max_app k (ClosNoInline m n) <=> T) /\
   (val_approx_obeys_max_app k (Clos m n e s) <=> obeys_max_app k e) /\
   (val_approx_obeys_max_app k (Tuple tag vas) <=> EVERY (val_approx_obeys_max_app k) vas) /\
   (val_approx_obeys_max_app k _ <=> T)
-` (WF_REL_TAC `measure (val_approx_size o SND)`
-   \\ Induct_on `vas` \\ simp []
-   \\ rw [] THEN1 simp [val_approx_size_def]
-   \\ first_x_assum drule
-   \\ disch_then (qspec_then `tag` assume_tac)
-   \\ fs [val_approx_size_def]);
+Termination
+  WF_REL_TAC `measure (val_approx_size o SND)`
+End
 
 Theorem decide_inline_obeys_max_app:
    val_approx_obeys_max_app k b ∧ decide_inline a b c d = inlD_LetInline e ⇒

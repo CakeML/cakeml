@@ -214,7 +214,7 @@ val riscv_enc_thm = reconstruct_case ``riscv_enc i`` rand
 
 val res = translate riscv_enc_thm
 
-val res = translate (riscv_config_def |> SIMP_RULE bool_ss [IN_INSERT, NOT_IN_EMPTY]|> econv)
+Theorem riscv_config_v_thm = translate (riscv_config_def |> SIMP_RULE bool_ss [IN_INSERT, NOT_IN_EMPTY]|> econv)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

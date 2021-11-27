@@ -1183,6 +1183,12 @@ Proof
    >> first_x_assum irule
    >> simp []
    >> metis_tac [type_v_weakening, weakCT_refl, weakS_refl])
+ >- ((* Pas case *)
+   first_x_assum drule>>
+   rpt(disch_then drule)>>
+   simp[PULL_EXISTS,FORALL_PROD]>>
+   rpt(disch_then drule)>>
+   metis_tac[APPEND_ASSOC,CONS_APPEND])
  >- (
    first_x_assum irule
    >> simp []

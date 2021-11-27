@@ -131,7 +131,7 @@ val _ = Define `
 
 
 (*open import {hol} `locationTheory`*)
-(*type locn = <| row : nat;  col : nat; offset : nat |>*)
+(*type locn = POSN of nat * nat | UNKNOWNpt | EOFpt*)
 (*type locs = Locs of locn * locn*)
 (*val unknown_loc : locs*)
 

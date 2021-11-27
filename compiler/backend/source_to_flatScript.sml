@@ -61,6 +61,7 @@ Definition compile_pat_def:
       (OPTION_JOIN (OPTION_MAP (nsLookup env.c) id))
       (MAP (compile_pat env) ps)) ∧
   (compile_pat env (Pref p) = Pref (compile_pat env p)) ∧
+  (compile_pat env (Pas p i) = Pas (compile_pat env p) i) ∧
   (compile_pat env (Ptannot p t) = compile_pat env p)
 Termination
   WF_REL_TAC `measure (pat_size o SND)` >>

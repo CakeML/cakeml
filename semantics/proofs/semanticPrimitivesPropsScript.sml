@@ -129,16 +129,16 @@ Theorem pat_bindings_accum:
  (!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) ∧
  (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)
 Proof
- Induct >>
- srw_tac[][]
- >- srw_tac[][pat_bindings_def]
- >- srw_tac[][pat_bindings_def]
- >- srw_tac[][pat_bindings_def]
- >- metis_tac [APPEND_ASSOC, pat_bindings_def]
- >- metis_tac [APPEND_ASSOC, pat_bindings_def]
- >- metis_tac [APPEND_ASSOC, pat_bindings_def]
- >- srw_tac[][pat_bindings_def]
- >- metis_tac [APPEND_ASSOC, pat_bindings_def]
+  Induct
+  >- srw_tac[][pat_bindings_def]
+  >- srw_tac[][pat_bindings_def]
+  >- srw_tac[][pat_bindings_def]
+  >- metis_tac [APPEND_ASSOC, pat_bindings_def]
+  >- metis_tac [APPEND_ASSOC, pat_bindings_def]
+  >- metis_tac [APPEND_ASSOC, CONS_APPEND, pat_bindings_def]
+  >- metis_tac [APPEND_ASSOC, CONS_APPEND, pat_bindings_def]
+  >- srw_tac[][pat_bindings_def]
+  >- metis_tac [APPEND_ASSOC, pat_bindings_def]
 QED
 
 Theorem pmatch_append:

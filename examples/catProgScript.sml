@@ -91,8 +91,7 @@ Proof
           xapp >> fs[UNIT_TYPE_def] >> xmatch >>
           imp_res_tac get_file_content_eof >> fs[] >>
           xlet_auto >- xsimpl \\
-          xmatch \\ fs[OPTION_TYPE_def] \\
-          reverse conj_tac >- (EVAL_TAC \\ rw[]) \\
+          fs[OPTION_TYPE_def] \\ xmatch \\
           xcon
           \\ imp_res_tac STD_streams_stdout
           \\ simp[DROP_LENGTH_NIL,add_stdout_fastForwardFD,implode_def]
@@ -104,8 +103,7 @@ Proof
       strip_tac >> xmatch >>
       imp_res_tac get_file_content_eof >> rfs[] >>
       xlet_auto >- xsimpl \\
-      xmatch \\ fs[OPTION_TYPE_def] \\
-      rpt(reverse conj_tac >- (EVAL_TAC \\ rw[])) \\
+      fs[OPTION_TYPE_def] \\ xmatch \\
       xlet_auto_spec (SOME (Q.SPEC`forwardFD fs00 fd 1`(Q.GEN`fs`output1_stdout_spec)))
       >- xsimpl
       \\ xlet_auto >- ( xcon \\ xsimpl )

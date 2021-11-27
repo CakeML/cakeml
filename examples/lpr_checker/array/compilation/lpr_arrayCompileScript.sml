@@ -1,7 +1,7 @@
 (*
   Compiles the lpr example by evaluation inside the logic of HOL
 *)
-open preamble compilationLib lpr_arrayProgTheory
+open preamble compilationLib lpr_arrayFullProgTheory
 
 val _ = new_theory "lpr_arrayCompile"
 
