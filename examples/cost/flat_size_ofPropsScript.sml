@@ -199,7 +199,7 @@ Definition blocks0_roots_inv_def:
   blocks0_roots_inv blocks seen roots =
    ∀ts tag l.
      (IS_SOME (sptree$lookup ts (seen : num_set)) ⇒ IS_NONE (sptree$lookup ts blocks)) ∧
-     (IS_NONE (sptree$lookup ts seen) ∧ MEM (Block ts tag l) roots ⇒
+     (IS_NONE (sptree$lookup ts seen) ∧ MEM (Block ts tag l) roots ∧ l ≠ [] ⇒
         lookup ts blocks = SOME (Block ts tag l))
 End
 
@@ -469,7 +469,8 @@ Proof
   ho_match_mp_tac size_of_ind \\ rw[] \\ gs[to_addrs_def]
   >- (gs[size_of_def] \\ rpt (pairarg_tac \\ gs[]) \\ rveq
       \\ qmatch_asmsub_rename_tac ‘to_addrs (x::xs)’
-      \\ gs [Once to_addrs_cons]
+      \\ qspecl_then [‘x’,‘xs’] mp_tac to_addrs_cons
+      \\ disch_then (gs o single o Once)
       \\ first_x_assum drule
       \\ disch_then (qspec_then ‘blocks’ assume_tac)
       \\ pop_assum mp_tac
@@ -704,8 +705,8 @@ in
       \\ cons_invariants
       \\ cons_aux
       \\ gs[] \\ ntac 2 (pop_assum kall_tac)
-      \\ qpat_x_assum ‘_ ∈ _’ assume_tac
-      \\ gs [Once to_addrs_cons,reachable_v0_UNION]
+      \\ qpat_x_assum ‘_ ∈ _’ mp_tac
+      \\ simp [Once to_addrs_cons,reachable_v0_UNION] \\ rw[] \\ gs[]
       >- (Cases_on ‘v ∈ reachable_v0 refs blocks (to_addrs xs)’
           >- (irule not_addrs_in_subspt
               \\ qexistsl_tac [‘difference blocks seen1’,‘refs1’]
@@ -748,8 +749,8 @@ in
       \\ cons_invariants
       \\ cons_aux
       \\ gs[]
-      \\ qpat_x_assum ‘_ ∉ _’ assume_tac
-      \\ gs [Once to_addrs_cons,reachable_v0_UNION]
+      \\ qpat_x_assum ‘_ ∉ _’ mp_tac
+      \\ simp [Once to_addrs_cons,reachable_v0_UNION] \\ rw[] \\ gs[]
       \\ first_x_assum drule
       \\ disch_then (simp o single o GSYM)
       \\ first_x_assum irule
@@ -974,8 +975,8 @@ in
       \\ cons_invariants
       \\ cons_aux
       \\ gs[]
-      \\ qpat_x_assum ‘_ ∉ _’ assume_tac
-      \\ gs [Once to_addrs_cons,reachable_v0_UNION]
+      \\ qpat_x_assum ‘_ ∉ _’ mp_tac
+      \\ simp [Once to_addrs_cons,reachable_v0_UNION] \\ rw[] \\ gs[]
       \\ first_x_assum drule
       \\ disch_then (simp o single o GSYM)
       \\ first_x_assum irule
@@ -1099,7 +1100,6 @@ Triviality size_of_eq_aux_size_of:
 Proof
   ho_match_mp_tac size_of_ind \\ rw[]
   >- (gs[aux_size_of_def,size_of_def,to_addrs_def,reachable_v0_def] \\ EVAL_TAC)
-     (* TODO *)
   >- (gs[size_of_def] \\ rpt (pairarg_tac \\ gs[]) \\ rveq
       \\ first_x_assum (first_assum o mp_then Any mp_tac)
       (* tail invariants *)
@@ -1224,7 +1224,7 @@ Proof
       \\ rw[reachable_v0_def,IN_DEF]
       \\ first_x_assum (qspec_then ‘x''’ mp_tac)
       \\ simp[] \\ CCONTR_TAC \\ gs[]
-      \\ pop_assum mp_tac \\ simp[]
+      \\ qpat_x_assum ‘¬ (RTC _ _ _)’ mp_tac \\ simp[]
       \\ qmatch_asmsub_rename_tac ‘(next0 refs blocks)^* l r’
       \\ ‘l ∉ nxt’ by
         (Cases_on ‘r = l’ \\ gs[]
@@ -1461,18 +1461,34 @@ Proof
   \\ metis_tac [size_of_eq_flat_size_of]
 QED
 
-val _ = map delete_binding ["block_to_addrs0_def",
-                            "ptr_to_addrs0_def",
-                            "addrs_in_def",
-                            "next0_def",
-                            "reachable_v0_def",
-                            "size_of_addr0_def",
-                            "aux_size_of_def",
-                            "blocks0_roots_inv_def",
-                            "blocks0_refs_inv_def",
-                            "blocks0_all_inv_def",
-                            "del_ptr_def",
-                            "del_blk_def",
-                            "blocks0_all_inv0_def"];
+
+
+val _ = computeLib.del_persistent_consts [“block_to_addrs0”,
+                                          “ptr_to_addrs0”,
+                                          “addrs_in”,
+                                          “next0”,
+                                          “reachable_v0”,
+                                          “size_of_addr0”,
+                                          “aux_size_of”,
+                                          “blocks0_roots_inv”,
+                                          “blocks0_refs_inv”,
+                                          “blocks0_all_inv”,
+                                          “del_ptr”,
+                                          “del_blk”,
+                                          “blocks0_all_inv0”]
+
+val _ = map Theory.delete_const ["block_to_addrs0",
+                                 "ptr_to_addrs0",
+                                 "addrs_in",
+                                 "next0",
+                                 "reachable_v0",
+                                 "size_of_addr0",
+                                 "aux_size_of",
+                                 "blocks0_roots_inv",
+                                 "blocks0_refs_inv",
+                                 "blocks0_all_inv",
+                                 "del_ptr",
+                                 "del_blk",
+                                 "blocks0_all_inv0"];
 
 val _ = export_theory();
