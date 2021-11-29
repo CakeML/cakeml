@@ -814,7 +814,7 @@ Definition mk_list_def:
                      <| tstamps updated_by ($+ (LENGTH l));
                         (* Compute all intermediate blocks and store them in the
                            list of all blocks *)
-                        all_blocks updated_by ($++ (list_to_all_v s.tstamps t l)) |>)
+                        all_blocks updated_by (λbs. bs ++ list_to_all_v s.tstamps t l) |>)
                     2)
 End
 
