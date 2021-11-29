@@ -287,7 +287,7 @@ End
 Definition all_blocks_roots_inv_def:
   all_blocks_roots_inv blocks roots =
    ∀ts tag l.
-       MEM (Block ts tag l) roots ⇒
+       MEM (Block ts tag l) roots ∧ l ≠ [] ⇒
         LLOOKUP blocks ts = SOME (Block ts tag l)
 End
 
