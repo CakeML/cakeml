@@ -626,22 +626,16 @@ val do_install_def = Define `
             | _ => Rerr(Rabort Rtype_error))
        | _ => Rerr(Rabort Rtype_error))`;
 
-val list_to_v_def = Define`
+Definition list_to_v_def:
   list_to_v ts t [] = t ∧
-  list_to_v ts t (h::l) = Block ts cons_tag [h; list_to_v (ts+1) t l]`;
+  list_to_v ts t (h::l) = Block (ts + LENGTH l) cons_tag [h; list_to_v ts t l]
+End
 
-(* Similar to list_to_v but returns a list of all intermediate blocks in the list
-   e.g:
-     list_to_all_v 10 t [1,2,3] =
-       [ Block 10 cons_tag [1, Block 11 cons_tag [2, Block 12 cons_tag [3,t]]]
-         Block 11 cons_tag [2, Block 12 cons_tag [3,t]],
-         Block 12 cons_tag [3,t]
-       ]
-
-*)
+(* Similar to list_to_v but returns a list of all intermediate blocks in the list *)
 Definition list_to_all_v_def:
   list_to_all_v ts t [] = [] ∧
-  list_to_all_v ts t (h::l) = list_to_v ts t (h::l) :: list_to_all_v (ts+1) t l
+  list_to_all_v ts t (h::l) =
+    list_to_all_v ts t l ++ [list_to_v (ts + LENGTH l) t (h::l)]
 End
 
 Overload Block_nil = ``Block 0 nil_tag []``
@@ -795,7 +789,7 @@ Definition mk_block_def:
                         (* Increase the current timestamp by one *)
                      <| tstamps updated_by SUC;
                         (* Store the new block in the list of all blocks *)
-                        all_blocks updated_by (CONS (Block s.tstamps tag l)) |>)
+                        all_blocks updated_by (λbs. bs ++ [Block s.tstamps tag l]) |>)
                     (LENGTH l))
 End
 

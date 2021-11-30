@@ -642,7 +642,7 @@ Proof
     \\ fs [get_sign_word_lemma])
   \\ fs [AnyHeader_def,eq_eval]
   \\ Q.MATCH_ASMSUB_RENAME_TAC `(Number i,Word w)::vars` \\ rveq
-  \\ `memory_rel c t.be s.tstamps s.refs s.space t.store t.memory t.mdomain
+  \\ `memory_rel c t.be s.all_blocks s.refs s.space t.store t.memory t.mdomain
          ((Number 0,Word (Smallnum 0))::(Number i,Word w)::vars)` by
    (match_mp_tac IMP_memory_rel_Number
     \\ fs [] \\ EVAL_TAC \\ fs [good_dimindex_def,dimword_def])

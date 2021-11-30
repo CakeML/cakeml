@@ -324,9 +324,10 @@ val gc_kind_inv_def = Define `
 val abs_ml_inv_def = Define `
   abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts <=>
     roots_ok roots heap /\ heap_ok heap limit /\
+    all_blocks_inv refs ts stack ∧
     gc_kind_inv conf a sp sp1 gens heap /\
     unused_space_inv a (sp+sp1) heap /\
-    bc_stack_ref_inv conf ts stack refs (roots,heap,be)`;
+    bc_stack_ref_inv conf (LENGTH ts) stack refs (roots,heap,be)`;
 
 (* --- *)
 
@@ -2321,20 +2322,111 @@ Proof
      \\ fs [FLOOKUP_DRESTRICT])
 QED
 
+Theorem LLOOKUP_APPEND:
+  ∀xs ys n.
+    LLOOKUP (xs ++ ys) n =
+    if n < LENGTH xs then LLOOKUP xs n else LLOOKUP ys (n - LENGTH xs)
+Proof
+  Induct \\ fs [LLOOKUP_def] \\ rw [] \\ gvs [ADD1]
+QED
+
+Theorem LLOOKUP_APPEND_LENGTH:
+  ∀ys x xs. LLOOKUP (ys ++ x::xs) (LENGTH ys) = SOME x
+Proof
+  fs [LLOOKUP_APPEND,LLOOKUP_def]
+QED
+
+Theorem LLOOKUP_APPEND_IMP:
+  ∀ys xs n x. LLOOKUP ys n = SOME x ⇒ LLOOKUP (ys ++ xs) n = SOME x
+Proof
+  Induct \\ fs [LLOOKUP_def] \\ rw []
+QED
+
+Theorem all_blocks_inv_nil:
+  all_blocks_inv refs ts (Block n tag []::stack) ⇔
+  all_blocks_inv refs ts stack
+Proof
+  eq_tac \\ rw [all_blocks_inv_def]
+  \\ fs [all_blocks_roots_inv_def]
+  \\ rw [] \\ res_tac
+QED
+
+Theorem all_blocks_inv_word:
+  all_blocks_inv refs ts (Word64 w64::stack) ⇔
+  all_blocks_inv refs ts stack
+Proof
+  eq_tac \\ rw [all_blocks_inv_def]
+  \\ fs [all_blocks_roots_inv_def]
+  \\ rw [] \\ res_tac
+QED
+
+Theorem all_blocks_inv_number:
+  all_blocks_inv refs ts (Number n::stack) ⇔
+  all_blocks_inv refs ts stack
+Proof
+  eq_tac \\ rw [all_blocks_inv_def]
+  \\ fs [all_blocks_roots_inv_def]
+  \\ rw [] \\ res_tac
+QED
+
+Theorem all_blocks_inv_RefPtr:
+  all_blocks_inv refs ts (RefPtr n::stack) ⇔
+  all_blocks_inv refs ts stack
+Proof
+  eq_tac \\ rw [all_blocks_inv_def]
+  \\ fs [all_blocks_roots_inv_def]
+  \\ rw [] \\ res_tac
+QED
+
+Theorem all_blocks_inv_CodePtr:
+  all_blocks_inv refs ts (CodePtr n::stack) ⇔
+  all_blocks_inv refs ts stack
+Proof
+  eq_tac \\ rw [all_blocks_inv_def]
+  \\ fs [all_blocks_roots_inv_def]
+  \\ rw [] \\ res_tac
+QED
+
+Theorem all_blocks_inv_cons:
+  all_blocks_inv refs bs (xs ++ stack) ∧ ts = LENGTH bs ⇒
+  all_blocks_inv refs (bs ++ [Block ts tag xs]) (Block ts tag xs::stack)
+Proof
+  rw [all_blocks_inv_def,all_blocks_blocks_inv_def,all_blocks_refs_inv_def]
+  THEN1
+   (rw [all_blocks_roots_inv_def,LLOOKUP_APPEND_LENGTH]
+    \\ fs [all_blocks_roots_inv_def,LLOOKUP_APPEND_LENGTH]
+    \\ res_tac \\ imp_res_tac LLOOKUP_APPEND_IMP \\ fs [])
+  THEN1
+   (res_tac \\ fs [all_blocks_roots_inv_def]
+    \\ rw [] \\ res_tac
+    \\ imp_res_tac LLOOKUP_APPEND_IMP \\ fs [])
+  \\ gvs [LLOOKUP_APPEND,AllCaseEqs()]
+  \\ res_tac
+  THEN1 (fs [all_blocks_roots_inv_def] \\ rw [] \\ res_tac
+    \\ imp_res_tac LLOOKUP_APPEND_IMP \\ fs [])
+  \\ gvs [LLOOKUP_def]
+  \\ fs [all_blocks_roots_inv_def] \\ rw [] \\ res_tac
+  \\ imp_res_tac LLOOKUP_APPEND_IMP \\ fs []
+QED
+
 Theorem cons_thm_alt:
-   abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
+   abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit bs /\
     LENGTH xs < sp /\ xs <> [] ==>
     ?rs roots2 heap2.
       (roots = rs ++ roots2) /\ (LENGTH rs = LENGTH xs) /\
       (heap_store_unused_alt a (sp+sp1) (BlockRep tag rs) heap = (heap2,T)) /\
       abs_ml_inv conf
-        ((Block ts tag xs)::stack) refs
+        ((Block (LENGTH bs) tag xs)::stack) refs
         (Pointer a (Word (ptr_bits conf tag (LENGTH xs)))::roots2,
          heap2,be,a+el_length (BlockRep tag rs),
-         sp-el_length (BlockRep tag rs),sp1,gens) limit (ts + 1)
+         sp-el_length (BlockRep tag rs),sp1,gens) limit (bs ++ [Block (LENGTH bs) tag xs])
 Proof
   simp_tac std_ss [abs_ml_inv_def]
+  \\ qabbrev_tac ‘ts = LENGTH bs’
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def,LIST_REL_def]
+  \\ ‘all_blocks_inv refs (bs ++ [Block ts tag xs])
+            (Block ts tag xs::stack)’
+       by (irule_at Any all_blocks_inv_cons \\ fs [])
   \\ `~(ts IN FDOM tf)` by
      (qpat_x_assum `FDOM tf ⊆ _` mp_tac
       \\ rpt (pop_assum kall_tac)
@@ -2447,7 +2539,7 @@ Theorem cons_thm_EMPTY:
     abs_ml_inv conf ((Block 0 tag [])::stack) refs
       (Data (Word (BlockNil tag))::roots,heap,be,a,sp,sp1,gens) limit ts
 Proof
-  simp_tac std_ss [abs_ml_inv_def] \\ rpt strip_tac
+  simp_tac std_ss [abs_ml_inv_def,all_blocks_inv_nil] \\ rpt strip_tac
   \\ full_simp_tac std_ss [bc_stack_ref_inv_def,LIST_REL_def]
   \\ full_simp_tac (srw_ss()) [roots_ok_def,MEM]
   THEN1 (rw [] \\ fs [] \\ res_tac \\ fs [])
@@ -2475,7 +2567,9 @@ Theorem word64_alt_thm:
        (Pointer a (Word 0w)::roots,heap2,
         be,a + len + 1,sp - len - 1,sp1,gens) limit ts
 Proof
-  rw[abs_ml_inv_def]
+  rw[abs_ml_inv_def,all_blocks_inv_word]
+  \\ ‘all_blocks_inv refs ts stack’ by
+        fs [all_blocks_inv_def,all_blocks_roots_inv_def]
   \\ qpat_abbrev_tac`wr = DataElement _ _ _`
   \\ `el_length wr = len + 1`
   by ( fs[Abbr`wr`,Word64Rep_def] \\ rw[] \\ fs[el_length_def])
@@ -2590,11 +2684,13 @@ Theorem bignum_alt_thm:
    (Bignum i :α ml_el) = DataElement [] len (tag,xs) ∧
    LENGTH xs < sp ⇒
    ∃heap2.
-   heap_store_unused_alt a (sp+sp1) (Bignum i) heap = (heap2,T) ∧
-   abs_ml_inv conf (Number i::stack) refs
-     (Pointer a (Word (0w:α word))::roots,heap2,be,a+len+1,sp-len-1,sp1,gens) limit ts
+     heap_store_unused_alt a (sp+sp1) (Bignum i) heap = (heap2,T) ∧
+     abs_ml_inv conf (Number i::stack) refs
+       (Pointer a (Word (0w:α word))::roots,heap2,be,a+len+1,sp-len-1,sp1,gens) limit ts
 Proof
-  rw[abs_ml_inv_def]
+  rw[abs_ml_inv_def,all_blocks_inv_number]
+  \\ ‘all_blocks_inv refs ts stack’ by
+        fs [all_blocks_inv_def,all_blocks_roots_inv_def]
   \\ qmatch_assum_abbrev_tac`br = DataElement _ _ _`
   \\ `el_length br = len + 1` by
    (fs[Bignum_def,Abbr`br`] \\ pairarg_tac \\ rw[] \\ fs[el_length_def])
@@ -3000,6 +3096,10 @@ Theorem update_ref_thm:
         (roots,heap2,be,a,sp,sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def]
+  \\ strip_tac
+  \\ ‘all_blocks_inv (insert ptr (ValueArray xs) refs) ts (xs ++ RefPtr ptr::stack)’ by
+       (fs [all_blocks_inv_def,all_blocks_refs_inv_def] \\ rw [lookup_insert]
+        \\ fs [all_blocks_roots_inv_def] \\ res_tac \\ fs [])
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
   \\ imp_res_tac EVERY2_APPEND_CONS
   \\ full_simp_tac std_ss [v_inv_def]
@@ -3118,11 +3218,12 @@ Proof
   \\ (full_simp_tac (srw_ss()) [INJ_DEF] \\ metis_tac [])
 QED
 
-val heap_deref_def = Define `
-  (heap_deref a heap =
+Definition heap_deref_def:
+  heap_deref a heap =
     case heap_lookup a heap of
     | SOME (DataElement xs l (RefTag,[])) => SOME xs
-    | _ => NONE)`;
+    | _ => NONE
+End
 
 Theorem update_ref_thm1:
    abs_ml_inv conf (xs ++ RefPtr ptr::stack) refs
@@ -3138,6 +3239,14 @@ Theorem update_ref_thm1:
         (roots,heap2,be,a,sp,sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def]
+  \\ strip_tac
+  \\ ‘all_blocks_inv
+       (insert ptr (ValueArray (LUPDATE (HD xs) i xs1)) refs) ts
+       (xs ++ RefPtr ptr::stack)’ by
+    (fs [all_blocks_inv_def,all_blocks_refs_inv_def] \\ rw [lookup_insert]
+     \\ Cases_on ‘xs’ \\ fs []
+     \\ fs [all_blocks_roots_inv_def] \\ res_tac \\ fs [MEM_LUPDATE]
+     \\ rw [] \\ fs [] \\ drule EL_MEM \\ gvs [])
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
   \\ imp_res_tac EVERY2_APPEND_CONS
   \\ full_simp_tac std_ss [v_inv_def]
@@ -3367,6 +3476,11 @@ Theorem update_byte_ref_thm:
         (roots,h1 ++ [Bytes be fl ys ws] ++ h2,be,a,sp,sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def]
+  \\ strip_tac
+  \\ ‘all_blocks_inv (insert ptr (ByteArray fl ys) refs) ts
+         (RefPtr ptr::stack)’ by
+   (fs [all_blocks_inv_def,all_blocks_refs_inv_def] \\ rw [lookup_insert]
+    \\ res_tac \\ fs [])
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
   \\ Cases_on `roots` \\ fs [v_inv_def] \\ rpt var_eq_tac \\ fs []
   \\ `reachable_refs (RefPtr ptr::stack) refs ptr` by
@@ -3562,6 +3676,10 @@ Theorem new_ref_thm:
                   sp - (LENGTH xs + 1),sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def]
+  \\ strip_tac
+  \\ ‘all_blocks_inv (insert ptr (ValueArray xs) refs) ts (xs ++ RefPtr ptr::stack)’ by
+    (fs [all_blocks_inv_def,all_blocks_refs_inv_def,lookup_insert,
+         all_blocks_roots_inv_def] \\ rw [] \\ res_tac \\ fs [])
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
   \\ imp_res_tac EVERY2_APPEND_IMP_APPEND
   \\ full_simp_tac (srw_ss()) []
@@ -3680,7 +3798,6 @@ Proof
   \\ `reachable_refs (xs ++ RefPtr ptr::stack) refs n` by imp_res_tac reachable_refs_UPDATE
   \\ qpat_x_assum `reachable_refs (xs ++ RefPtr ptr::stack)
         (insert ptr x refs) n` (K ALL_TAC)
-
   \\ `reachable_refs (xs ++ stack) refs n` by
     (full_simp_tac std_ss [reachable_refs_def]
      \\ reverse (Cases_on `x = RefPtr ptr`)
@@ -3728,13 +3845,14 @@ QED
 
 (* deref *)
 
-val heap_el_def = Define `
+Definition heap_el_def:
   (heap_el (Pointer a u) n heap =
     case heap_lookup a heap of
     | SOME (DataElement xs l d) =>
         if n < LENGTH xs then (EL n xs,T) else (ARB,F)
     | _ => (ARB,F)) /\
-  (heap_el _ _ _ = (ARB,F))`;
+  (heap_el _ _ _ = (ARB,F))
+End
 
 Theorem deref_thm:
    abs_ml_inv conf (RefPtr ptr::stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts ==>
@@ -3772,6 +3890,13 @@ Proof
     \\ res_tac \\ full_simp_tac std_ss [MEM]
     \\ FIRST_X_ASSUM match_mp_tac
     \\ metis_tac [MEM_EL])
+  THEN1
+   (fs [all_blocks_inv_def,all_blocks_roots_inv_def]
+    \\ rw [] \\ res_tac \\ fs []
+    \\ imp_res_tac MEM_EL
+    \\ fs [all_blocks_refs_inv_def]
+    \\ res_tac \\ fs [all_blocks_roots_inv_def]
+    \\ res_tac \\ fs [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
   \\ qexists_tac `tf` \\ full_simp_tac std_ss []
   \\ conj_tac
@@ -3804,6 +3929,15 @@ QED
 
 (* el *)
 
+Theorem IMP_all_blocks_inv_CONS:
+  all_blocks_roots_inv ts [x] ∧ all_blocks_inv refs ts xs ⇒
+  all_blocks_inv refs ts (x::xs)
+Proof
+  fs [all_blocks_inv_def]
+  \\ fs [all_blocks_roots_inv_def]
+  \\ metis_tac []
+QED
+
 Theorem el_thm:
    abs_ml_inv conf (Block t0 n xs::stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
     i < LENGTH xs ==>
@@ -3827,6 +3961,17 @@ Proof
     \\ full_simp_tac std_ss [BlockRep_def]
     \\ sg `?u'. MEM (Pointer ptr' u') xs'` \\ res_tac
     \\ full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
+  \\ strip_tac THEN1
+   (irule IMP_all_blocks_inv_CONS \\ fs []
+    \\ fs [all_blocks_inv_def]
+    \\ fs [all_blocks_roots_inv_def] \\ rw []
+    \\ first_x_assum (qspecl_then [‘t0’,‘n’,‘xs’] assume_tac)
+    \\ rfs []
+    \\ fs [all_blocks_blocks_inv_def]
+    \\ res_tac
+    \\ fs [all_blocks_roots_inv_def]
+    \\ ‘MEM (EL i xs) xs’ by metis_tac [MEM_EL]
+    \\ metis_tac [])
   \\ qexists_tac `f`  \\ full_simp_tac std_ss []
   \\ qexists_tac `tf` \\ full_simp_tac std_ss []
   \\ conj_tac
@@ -3875,6 +4020,10 @@ Theorem new_byte_alt_thm:
                   sp - (ws + 1),sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def]
+  \\ strip_tac
+  \\ ‘all_blocks_inv (insert ptr (ByteArray fl bs) refs) ts (RefPtr ptr::stack)’ by
+       (fs [all_blocks_inv_def,all_blocks_refs_inv_def,lookup_insert,
+            all_blocks_inv_RefPtr] \\ rw [] \\ res_tac \\ fs [])
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
   \\ imp_res_tac EVERY2_APPEND_IMP_APPEND
   \\ full_simp_tac (srw_ss()) []
@@ -4009,6 +4158,7 @@ Proof
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [roots_ok_def,MEM_APPEND]
   THEN1 (rw [] \\ res_tac \\ fs [])
+  THEN1 (fs [all_blocks_inv_def,all_blocks_roots_inv_def])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
   \\ qexists_tac `DRESTRICT tf (all_ts refs stack)` \\ full_simp_tac std_ss []
   \\ conj_tac
@@ -4147,6 +4297,10 @@ Proof
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [roots_ok_def]
   THEN1 (full_simp_tac std_ss [MEM_APPEND,SUBSET_DEF,MEM_MAP] \\ metis_tac [])
+  THEN1
+   (fs [all_blocks_inv_def,all_blocks_roots_inv_def,SUBSET_DEF]
+    \\ rw [] \\ res_tac \\ fs []
+    \\ fs [MEM_MAP] \\ res_tac \\ fs [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
   \\ qexists_tac `DRESTRICT tf (all_ts refs (MAP FST ys ++ stack))` \\ full_simp_tac std_ss []
   \\ conj_tac
@@ -4215,6 +4369,9 @@ Theorem duplicate_thm:
 Proof
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [roots_ok_def] THEN1 metis_tac [MEM_APPEND]
+  THEN1
+   (fs [all_blocks_inv_def,all_blocks_roots_inv_def,SUBSET_DEF]
+    \\ rw [] \\ res_tac \\ fs [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
   \\ qexists_tac `tf` \\ full_simp_tac std_ss []
   \\ conj_tac >- fs [all_ts_def]
@@ -4242,6 +4399,9 @@ Proof
   REPEAT GEN_TAC
   \\ full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [roots_ok_def] THEN1 metis_tac [MEM_APPEND]
+  THEN1
+   (fs [all_blocks_inv_def,all_blocks_roots_inv_def,SUBSET_DEF]
+    \\ rw [] \\ res_tac \\ fs [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
   \\ qexists_tac `tf` \\ full_simp_tac std_ss []
   \\ conj_tac >- (fs [all_ts_def,SUBSET_DEF] \\ metis_tac [])
@@ -4285,7 +4445,7 @@ Theorem abs_ml_inv_Num:
 Proof
   fs [abs_ml_inv_def,roots_ok_def,bc_stack_ref_inv_def,v_inv_def]
   \\ fs [reachable_refs_def]
-  \\ rw [] \\ fs [] \\ res_tac \\ fs []
+  \\ rw [] \\ fs [] \\ res_tac \\ fs [all_blocks_inv_number]
   \\ qexists_tac `f` \\ fs []
   \\ qexists_tac `tf` \\ fs []
   \\ conj_tac >- (fs [all_ts_def,SUBSET_DEF] \\ metis_tac [])
@@ -5677,9 +5837,9 @@ Theorem memory_rel_Cons1:
       FLOOKUP st CurrHeap = SOME (Word curr) /\
       let w = free + bytes_in_word * n2w (LENGTH ws + 1) in
         store_list free (Word hd::ws) m dm = SOME m1 /\
-        memory_rel c be (ts+1) refs (sp - (LENGTH ws + 1))
+        memory_rel c be (ts ++ [Block (LENGTH ts) tag vals]) refs (sp - (LENGTH ws + 1))
           (st |+ (NextFree,Word w)) m1 dm
-          ((Block ts tag vals,make_cons_ptr c (free - curr) tag (LENGTH ws))::vars)
+          ((Block (LENGTH ts) tag vals,make_cons_ptr c (free - curr) tag (LENGTH ws))::vars)
 Proof
   simp_tac std_ss [LET_THM]
   \\ rewrite_tac [CONJ_ASSOC]
@@ -5913,9 +6073,9 @@ Theorem memory_rel_Cons_alt:
       FLOOKUP st NextFree = SOME (Word free) /\
       FLOOKUP st CurrHeap = SOME (Word curr) /\
       ((word_list free (Word hd::ws) * SEP_T) (fun2set(m,dm)) ==>
-       memory_rel c be (ts+1) refs (sp - (LENGTH ws + 1))
+       memory_rel c be (ts ++ [Block (LENGTH ts) tag vals]) refs (sp - (LENGTH ws + 1))
          (st |+ (NextFree,Word (free + bytes_in_word * n2w (LENGTH ws + 1)))) m dm
-         ((Block ts tag vals,make_cons_ptr c (free - curr) tag (LENGTH ws))::vars))
+         ((Block (LENGTH ts) tag vals,make_cons_ptr c (free - curr) tag (LENGTH ws))::vars))
 Proof
   simp_tac std_ss [LET_THM]
   \\ rewrite_tac [CONJ_ASSOC]
@@ -6576,7 +6736,7 @@ Proof
   \\ fs [word_ml_inv_def,PULL_EXISTS,word_addr_eq_Loc]
   \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs []
   \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,
-         roots_ok_def,reachable_refs_def]
+         roots_ok_def,reachable_refs_def,all_blocks_inv_CodePtr]
   \\ rw [] \\ fs [] \\ res_tac \\ fs []
   \\ qexists_tac `f` \\ qexists_tac `tf`
   \\ fs [PULL_EXISTS] \\ rw [] \\ fs []
@@ -6599,7 +6759,7 @@ Theorem memory_rel_Block_IMP:
             decode_length c x = n2w (LENGTH vals) /\
             LENGTH vals < 2 ** (dimindex (:'a) − 4) /\
             encode_header c (4 * tag) (LENGTH vals) = SOME x /\
-            ts' < ts
+            ts' < LENGTH ts
 Proof
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def]
@@ -6783,8 +6943,9 @@ Theorem memory_rel_FromList:
       FLOOKUP st NextFree = SOME (Word free) ∧
       FLOOKUP st CurrHeap = SOME (Word curr) ∧
       copy_list c st (LENGTH vs) (a,Word hd,free,m,dm) = SOME (f1,m1) /\
-      memory_rel c be (ts+1) refs (sp − (LENGTH vs + 1)) (st |+ (NextFree,Word f1)) m1 dm
-        ((Block ts tag vs,
+      memory_rel c be (ts ++ [Block (LENGTH ts) tag vs]) refs
+        (sp − (LENGTH vs + 1)) (st |+ (NextFree,Word f1)) m1 dm
+        ((Block (LENGTH ts) tag vs,
           make_cons_ptr c (free − curr) tag (LENGTH vs))::vars)
 Proof
   strip_tac
@@ -11457,6 +11618,21 @@ Proof
   \\ fs [SUBSET_DEF] \\ rw [] \\ res_tac \\ fs []
 QED
 
+Theorem all_blocks_inv_list_to_v:
+  all_blocks_inv refs ts (t::(xs ++ stack)) ⇒
+  all_blocks_inv refs (ts ++ list_to_all_v (LENGTH ts) t xs)
+                      (list_to_v (LENGTH ts) t xs::stack)
+Proof
+  rw [all_blocks_inv_def]
+  \\ cheat
+QED
+
+Theorem LENGTH_list_to_all_v:
+  ∀xs t ts. LENGTH (list_to_all_v ts t xs) = LENGTH xs
+Proof
+  Induct \\ fs [list_to_all_v_def]
+QED
+
 Theorem cons_multi_thm:
   abs_ml_inv conf (t::xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
   3 * LENGTH xs <= sp /\ xs <> [] ==>
@@ -11466,12 +11642,13 @@ Theorem cons_multi_thm:
          heap = heap1 ++ heap_expand (sp + sp1) ++ heap2 /\
          a = heap_length heap1 /\
          abs_ml_inv conf
-           (list_to_v ts t xs :: stack) refs
+           (list_to_v (LENGTH ts) t xs :: stack) refs
            (Pointer a (Word (ptr_bits conf cons_tag 2))::roots2,
             heap1 ++ Allocd
                   ++ heap_expand (sp + sp1 - heap_length Allocd)
                   ++ heap2, be,
-            a + heap_length Allocd, sp - heap_length Allocd, sp1, gens) limit (ts + LENGTH xs)
+            a + heap_length Allocd, sp - heap_length Allocd, sp1, gens) limit
+              (ts ++ list_to_all_v (LENGTH ts) t xs)
 Proof
   rw [abs_ml_inv_def]
   \\ qpat_x_assum `bc_stack_ref_inv _ _ _ _ _` mp_tac
@@ -11538,6 +11715,8 @@ Proof
     \\ rw [heap_lookup_APPEND, heap_length_APPEND, heap_lookup_def]
     \\ fs [isSomeDataElement_def])
   \\ conj_tac
+  THEN1 (irule all_blocks_inv_list_to_v \\ fs [])
+  \\ conj_tac
   >- (* gc_kind_inv *)
    (fs [gc_kind_inv_def]
     \\ Cases_on `conf.gc_kind` \\ fs []
@@ -11595,7 +11774,7 @@ Proof
     \\ irule (SIMP_RULE (srw_ss()) [] list_to_BlockReps_data_up_to) \\ fs [])
   \\ fs [bc_stack_ref_inv_def]
   \\ qexists_tac `f`
-  \\ qexists_tac `bind_each tf ts (heap_length ha) 3 (LENGTH xs)`
+  \\ qexists_tac `bind_each tf (LENGTH ts) (heap_length ha) 3 (LENGTH xs)`
   \\ conj_tac
   >-
    (match_mp_tac INJ_SUBSET
@@ -11627,10 +11806,10 @@ Proof
      \\ ONCE_REWRITE_TAC [GSYM APPEND_ASSOC]
      \\ qmatch_goalsub_abbrev_tac `(ha ++ (Allocd ++ hb1))`
      \\ strip_tac
-     \\ `∀t. t ∈ FDOM tf ⇒ t < ts` by (fs [SUBSET_DEF])
+     \\ `∀t. t ∈ FDOM tf ⇒ t < LENGTH ts` by (fs [SUBSET_DEF])
      \\ ntac 21 (last_x_assum (K all_tac)) (* make proofs faster *)
      \\ (fs [INJ_DEF] \\ rw []
-     >- (Cases_on `x' < ts`
+     >- (Cases_on `x' < LENGTH ts`
         >- (drule bind_each_eq_tf
            \\ disch_then drule \\ rw []
            \\ first_x_assum ho_match_mp_tac
@@ -11716,7 +11895,8 @@ Proof
      \\ qexists_tac `all_ts refs (t::(xs++stack))` \\ rw []
      \\ fs [all_ts_SUBSET_list_to_v])
   \\ conj_tac
-  >- (match_mp_tac FDOM_bind_each_lemma \\ fs [])
+  >- (asm_rewrite_tac [LENGTH_list_to_all_v]
+      \\ match_mp_tac FDOM_bind_each_lemma \\ fs [])
   \\ reverse conj_tac
   >-
    (rpt strip_tac
@@ -11773,11 +11953,12 @@ Proof
     unlength_tac [Abbr`hm`, heap_expand_def]
   \\ pop_assum (fn th => fs [th])
   \\ qunabbrev_tac `Allocd`
-  \\ `∀t. t ∈ FDOM tf ⇒ t < ts` by fs [SUBSET_DEF]
+  \\ `∀t. t ∈ FDOM tf ⇒ t < LENGTH ts` by fs [SUBSET_DEF]
   \\ qpat_x_assum `LENGTH xs = _` (assume_tac o GSYM)
   \\ rw []
   \\ match_mp_tac (Q.INST [`sp`|->`sp+sp1`] (SPEC_ALL v_inv_list_to_v))
-  \\ unlength_tac [heap_expand_def]);
+  \\ unlength_tac [heap_expand_def]
+QED
 
 Theorem memory_rel_append:
    memory_rel c be ts refs sp st m1 dm
@@ -11791,10 +11972,10 @@ Theorem memory_rel_append:
     Word init_ptr = make_cons_ptr c (next_free - curr) 0 2 /\
     FLOOKUP st CurrHeap = SOME (Word curr) /\
     FLOOKUP st NextFree = SOME (Word (next_free:'a word)) ==>
-    memory_rel c be (ts + LENGTH in1) refs (sp - 3 * LENGTH in1)
+    memory_rel c be (ts ++ list_to_all_v (LENGTH ts) v in1) refs (sp - 3 * LENGTH in1)
        (st |+ (NextFree,
                Word (next_free + bytes_in_word * n2w (3 * LENGTH in1)))) m1 dm
-       ((list_to_v ts v in1 ,Word init_ptr)::vars)
+       ((list_to_v (LENGTH ts) v in1 ,Word init_ptr)::vars)
 Proof
   rw []
   \\ qabbrev_tac `p1 = ptr_bits c 0 2`

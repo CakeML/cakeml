@@ -4454,6 +4454,8 @@ val state_rel_thm = Define `
       t.compile t.compile_oracle t.code_buffer t.data_buffer /\
     good_dimindex (:'a) /\
     shift_length c < dimindex (:'a) /\
+    s.tstamps = LENGTH s.all_blocks /\
+  (* size_inv s /\ TODO: delete this line *)
     (* the store *)
     EVERY (\n. n IN FDOM t.store) [Globals] /\
     (* every local is represented in word lang *)
@@ -4469,7 +4471,7 @@ val state_rel_thm = Define `
     t.locals_size = s.locals_size /\
     limits_inv s.limits (FLOOKUP t.store HeapLength) t.stack_limit c.len_size c.has_fp_ops c.has_fp_tern /\
     (* there exists some GC-compatible abstraction *)
-    memory_rel c t.be s.tstamps s.refs s.space t.store t.memory t.mdomain
+    memory_rel c t.be s.all_blocks s.refs s.space t.store t.memory t.mdomain
       (v1 ++
        join_env s.locals (toAList (inter t.locals (adjust_set s.locals))) ++
        [(the_global s.global,t.store ' Globals)] ++
@@ -4484,7 +4486,7 @@ Theorem state_rel_with_clock:
    state_rel a b c s1 s2 d e ⇒
    state_rel a b c (s1 with clock := k) (s2 with clock := k) d e
 Proof
-  srw_tac[][state_rel_def] \\ fs []
+  srw_tac[][state_rel_def] \\ fs [] \\ fs [size_inv_def,stack_to_vs_def]
 QED
 
 (* -------------------------------------------------------
@@ -4497,7 +4499,7 @@ Proof
   Cases_on `xs` \\ fs [flat_def]
 QED
 
-val init_store_ok_def = Define `
+Definition init_store_ok_def:
   init_store_ok c store m (dm:'a word set) code_buffer data_buffer <=>
     ?limit curr.
       limit <= max_heap_limit (:'a) c /\
@@ -4525,7 +4527,8 @@ val init_store_ok_def = Define `
       code_buffer.buffer = [] /\
       data_buffer.buffer = [] /\
       (word_list_exists curr (limit + limit)) (fun2set (m,dm)) ∧
-      byte_aligned curr`
+      byte_aligned curr
+End
 
 Theorem state_rel_init:
     t.ffi = ffi ∧ t.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
@@ -4549,10 +4552,12 @@ Theorem state_rel_init:
     state_rel c l1 l2 (initial_state ffi code co cc T lim t.stack_size t.clock)
                       (t:('a,'c,'ffi) state) [] []
 Proof
-  simp_tac std_ss [word_list_exists_ADD,conf_ok_def,init_store_ok_def]
-  \\ fs [state_rel_thm,dataSemTheory.initial_state_def,
-    join_env_def,lookup_def,the_global_def,
+  ‘all_blocks_inv LN [] []’ by (EVAL_TAC \\ fs [lookup_def])
+  \\ simp_tac std_ss [word_list_exists_ADD,conf_ok_def,init_store_ok_def]
+  \\ fs [state_rel_thm,dataSemTheory.initial_state_def,stack_to_vs_def,
+    join_env_def,lookup_def,the_global_def,size_inv_def,
     libTheory.the_def,flat_NIL,FLOOKUP_DEF] \\ strip_tac \\ fs []
+  \\ conj_tac THEN1 (EVAL_TAC \\ fs [lookup_def])
   \\ qpat_abbrev_tac `fil = FILTER _ _`
   \\ `fil = []` by
    (fs [FILTER_EQ_NIL,Abbr `fil`] \\ fs [EVERY_MEM,MEM_toAList,FORALL_PROD]
@@ -4778,6 +4783,57 @@ Proof
   \\ fs [option_le_stack_size_cons]
 QED
 
+Theorem state_rel_size_inv:
+  state_rel c l1 l2 s t vs locs ⇒
+  size_inv s
+Proof
+  rw [state_rel_thm]
+  \\ fs [memory_rel_def,word_ml_inv_def,abs_ml_inv_def]
+  \\ fs [all_blocks_inv_def,size_inv_def]
+  \\ qpat_x_assum ‘all_blocks_roots_inv s.all_blocks _’ mp_tac
+  \\ qmatch_goalsub_abbrev_tac ‘_ _ xs1 ⇒ _ _ xs2’
+  \\ qsuff_tac ‘∀x. MEM x xs2 ⇒ MEM x xs1’
+  THEN1 fs [all_blocks_roots_inv_def]
+  \\ unabbrev_all_tac
+  \\ fs [stack_to_vs_def]
+  \\ reverse (rw [])
+  THEN1 (Cases_on ‘s.global’ \\ fs [global_to_vs_def,the_global_def,libTheory.the_def])
+  THEN1
+   (rpt disj2_tac
+    \\ pop_assum mp_tac
+    \\ qpat_x_assum ‘LIST_REL stack_rel s.stack t.stack’ mp_tac
+    \\ qspec_tac (‘t.stack’,‘ys’)
+    \\ qspec_tac (‘s.stack’,‘xs’)
+    \\ Induct \\ fs [] \\ reverse (rw [])
+    \\ Cases_on ‘h’ \\ Cases_on ‘y’ \\ fs [flat_def,stack_rel_def]
+    \\ disj1_tac
+    \\ rename [‘StackFrame _ _ xx’] \\ Cases_on ‘xx’ \\ fs [stack_rel_def]
+    \\ TRY (rename [‘StackFrame _ _ (SOME xx)’] \\ PairCases_on ‘xx’ \\ fs [stack_rel_def])
+    \\ gvs []
+    \\ gvs [extract_stack_def,MEM_toList,join_env_def]
+    \\ gvs [MEM_MAP,EXISTS_PROD,MEM_FILTER,lookup_fromAList]
+    \\ first_x_assum (qspec_then ‘k’ mp_tac) \\ simp []
+    \\ simp[IS_SOME_EXISTS] \\ strip_tac
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ first_x_assum (irule_at Any)
+    \\ fs [EVEN_adjust_var,adjust_var_DIV_2])
+  \\ disj1_tac \\ disj1_tac \\ disj2_tac
+  \\ gvs [extract_stack_def,MEM_toList,join_env_def]
+  \\ gvs [MEM_MAP,EXISTS_PROD,MEM_FILTER,lookup_fromAList]
+  \\ first_x_assum (qspec_then ‘k’ mp_tac) \\ simp []
+  \\ simp[IS_SOME_EXISTS] \\ strip_tac
+  \\ ‘EVEN (adjust_var k)’ by fs [EVEN_adjust_var]
+  \\ first_x_assum (irule_at Any)
+  \\ fs [adjust_var_DIV_2]
+  \\ irule_at Any ALOOKUP_MEM
+  \\ fs [ALOOKUP_toAList]
+  \\ fs [lookup_inter_alt]
+  \\ fs [adjust_set_def,domain_fromAList]
+  \\ fs [MEM_MAP,EXISTS_PROD,adjust_var_11]
+  \\ irule_at Any ALOOKUP_MEM
+  \\ fs [ALOOKUP_toAList]
+QED
+
 val s1 = mk_var("s1",type_of s);
 
 Theorem state_rel_pop_env_IMP:
@@ -4844,7 +4900,7 @@ Proof
   \\ full_simp_tac(srw_ss())[lookup_fromAList] \\ rev_full_simp_tac(srw_ss())[]
   \\ first_assum (match_exists_tac o concl) \\ full_simp_tac(srw_ss())[] (* asm_exists_tac *)
   \\ full_simp_tac(srw_ss())[flat_def]
-  \\ `word_ml_inv (heap,t1.be,a',sp,sp1,gens) limit s1.tstamps c s1.refs
+  \\ `word_ml_inv (heap,t1.be,a',sp,sp1,gens) limit s1.all_blocks c s1.refs
        ((a,w)::(join_env s l ++
          [(the_global s1.global,t1.store ' Globals)] ++ flat t ys))` by
    (first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
@@ -4913,7 +4969,7 @@ Proof
       s.handler + 1 <= LENGTH t.stack` by decide_tac
   \\ imp_res_tac LASTN_IMP_APPEND \\ full_simp_tac(srw_ss())[ADD1]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[flat_APPEND,flat_def]
-  \\ `word_ml_inv (heap,t.be,a,sp,sp1,gens) limit s.tstamps c s.refs
+  \\ `word_ml_inv (heap,t.be,a,sp,sp1,gens) limit s.all_blocks c s.refs
        ((x,w)::(join_env s' l ++
          [(the_global s.global,t.store ' Globals)] ++ flat t' ys))` by
    (first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
@@ -6964,7 +7020,7 @@ Proof
    (fs [code_oracle_rel_def,FLOOKUP_UPDATE]
     \\ imp_res_tac stack_rel_IMP_size_of_stack \\ fs []
     \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
-    \\ `word_ml_inv (heap1,t.be,a1,sp1,sp2,gens2) limit s.tstamps c
+    \\ `word_ml_inv (heap1,t.be,a1,sp1,sp2,gens2) limit s.all_blocks c
             s.refs ((the_global s.global, s1 ' Globals) ::
                     ZIP (MAP FST (flat s.stack t.stack),stack1))` by
       (fs [word_ml_inv_def] \\ asm_exists_tac \\ fs [])

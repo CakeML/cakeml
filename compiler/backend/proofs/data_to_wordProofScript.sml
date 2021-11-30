@@ -47,6 +47,17 @@ Proof
   fs [state_rel_def]
 QED
 
+Theorem cut_size_inv_lemma:
+  state_rel c l1 l2 s t [] locs ∧ dataSem$cut_env names s.locals = SOME env ⇒
+  size_inv (s with locals := env)
+Proof
+  rw []
+  \\ ‘cut_state_opt (SOME names) s = SOME (s with locals := env)’ by
+    fs [cut_state_opt_def,cut_state_def]
+  \\ imp_res_tac state_rel_cut_IMP
+  \\ drule_then assume_tac state_rel_size_inv \\ fs []
+QED
+
 Theorem data_compile_correct:
    !prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
@@ -157,6 +168,7 @@ Proof
       \\ Cases_on `(alloc (alloc_size k) (adjust_set names)
            (t with locals := insert 1 (Word (alloc_size k)) t.locals))
                :('a result option)#( ('a,'c,'ffi) wordSem$state)`
+      \\ drule_all cut_size_inv_lemma \\ strip_tac
       \\ full_simp_tac(srw_ss())[]
       \\ drule alloc_lemma
       \\ rpt (disch_then drule)
@@ -172,6 +184,7 @@ Proof
     \\ Cases_on `dataSem$cut_env names s.locals` \\ fs []
     \\ disch_then drule \\ strip_tac \\ fs []
     \\ pairarg_tac \\ fs []
+    \\ drule_all cut_size_inv_lemma \\ strip_tac
     \\ drule state_rel_cut_env_cut_env
     \\ rpt (disch_then drule)
     \\ strip_tac

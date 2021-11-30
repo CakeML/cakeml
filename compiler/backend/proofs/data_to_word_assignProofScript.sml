@@ -2852,7 +2852,7 @@ Proof
       \\ drule0 memory_rel_tl \\ strip_tac
       \\ drule0 memory_rel_RefPtr_EQ \\ fs [])
     \\ fs [] \\ rveq
-    \\ `memory_rel c t.be s1.tstamps s1.refs s1.space t.store t.memory t.mdomain
+    \\ `memory_rel c t.be s1.all_blocks s1.refs s1.space t.store t.memory t.mdomain
          ((RefPtr dst,Word wa1)::
             (join_env s1.locals
                (toAList (inter t.locals (adjust_set s1.locals))) ++
@@ -2921,7 +2921,7 @@ Proof
       \\ match_mp_tac memory_rel_Unit
       \\ drule0 memory_rel_tl \\ fs []
       \\ match_mp_tac quotientTheory.EQ_IMPLIES
-      \\ `s1.tstamps = s.tstamps` by fs [Abbr `s1`] \\ fs []
+      \\ `s1.tstamps = s.tstamps ∧ s1.all_blocks = s.all_blocks` by fs [Abbr `s1`] \\ fs []
       \\ AP_TERM_TAC \\ fs []
       \\ fs [wordSemTheory.cut_env_def] \\ rveq
       \\ qpat_x_assum `!x._` imp_res_tac
@@ -2998,7 +2998,7 @@ Proof
       \\ match_mp_tac memory_rel_Unit
       \\ drule0 memory_rel_tl \\ fs []
       \\ match_mp_tac quotientTheory.EQ_IMPLIES
-      \\ `s1.tstamps = s.tstamps` by fs [Abbr `s1`] \\ fs []
+      \\ `s1.tstamps = s.tstamps ∧ s1.all_blocks = s.all_blocks` by fs [Abbr `s1`] \\ fs []
       \\ AP_TERM_TAC \\ fs []
       \\ fs [wordSemTheory.cut_env_def] \\ rveq
       \\ qpat_x_assum `!x._` imp_res_tac
@@ -3020,7 +3020,7 @@ Proof
       \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
       \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter]))
   THEN1
-   (`memory_rel c t.be s1.tstamps s1.refs s1.space t.store t.memory t.mdomain
+   (`memory_rel c t.be s1.all_blocks s1.refs s1.space t.store t.memory t.mdomain
          ((RefPtr src,Word wa1)::(RefPtr dst,Word wa2)::
             (join_env s1.locals
                (toAList (inter t.locals (adjust_set s1.locals))) ++
@@ -3090,7 +3090,7 @@ Proof
       \\ drule0 memory_rel_tl \\ fs [] \\ strip_tac
       \\ drule0 memory_rel_tl \\ fs [] \\ pop_assum kall_tac
       \\ match_mp_tac quotientTheory.EQ_IMPLIES
-      \\ `s1.tstamps = s.tstamps` by fs [Abbr `s1`] \\ fs []
+      \\ `s1.tstamps = s.tstamps ∧ s1.all_blocks = s.all_blocks` by fs [Abbr `s1`] \\ fs []
       \\ AP_TERM_TAC \\ fs []
       \\ fs [wordSemTheory.cut_env_def] \\ rveq
       \\ qpat_x_assum `!x._` imp_res_tac
@@ -3168,7 +3168,7 @@ Proof
       \\ drule0 memory_rel_tl \\ fs [] \\ strip_tac
       \\ drule0 memory_rel_tl \\ fs [] \\ pop_assum kall_tac
       \\ match_mp_tac quotientTheory.EQ_IMPLIES
-      \\ `s1.tstamps = s.tstamps` by fs [Abbr `s1`] \\ fs []
+      \\ `s1.tstamps = s.tstamps ∧ s1.all_blocks = s.all_blocks` by fs [Abbr `s1`] \\ fs []
       \\ AP_TERM_TAC \\ fs []
       \\ fs [wordSemTheory.cut_env_def] \\ rveq
       \\ qpat_x_assum `!x._` imp_res_tac
@@ -3738,6 +3738,7 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ imp_res_tac state_rel_cut_IMP
+  \\ drule_then assume_tac state_rel_size_inv
   \\ fs [assign_def] \\ rveq
   \\ fs [dataLangTheory.op_requires_names_def,
          dataLangTheory.op_space_reset_def,cut_state_opt_def]
@@ -3817,8 +3818,8 @@ Proof
     \\ fs [lookup_insert,adjust_var_11, call_env_def,mk_block_def,mk_list_def,
            push_env_def,set_var_def,wordSemTheory.set_var_def,IS_SOME_EXISTS]
     \\ fs [] \\ rveq \\ fs [list_to_v_def]
-    \\ simp[option_le_max_right, check_lim_def, wordSemTheory.flush_state_def, allowed_op_def]
-    \\ qmatch_goalsub_rename_tac `memory_rel _ _ ts1 _ _ _ _ _ _`
+    \\ simp[option_le_max_right, check_lim_def, wordSemTheory.flush_state_def, allowed_op_def,
+            LENGTH_list_to_all_v]
     \\ strip_tac THEN1
      (drule env_to_list_lookup_equiv \\ strip_tac
       \\ fs [lookup_fromAList,wordSemTheory.cut_env_def]
@@ -3837,7 +3838,7 @@ Proof
        imp_res_tac stack_rel_IMP_size_of_stack >> simp[option_le_add] >>
        metis_tac[option_le_flip_neg,option_le_trans]
       )
-    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,list_to_all_v_def]
     \\ match_mp_tac memory_rel_insert \\ fs [flat_def]
     \\ rfs [THE_DEF]
     \\ drule memory_rel_tl \\ strip_tac
@@ -3939,7 +3940,7 @@ Proof
     \\ fs [lookup_insert,adjust_var_11, IS_SOME_EXISTS,
            call_env_def,push_env_def, mk_block_def,mk_list_def,
            dataSemTheory.set_var_def,wordSemTheory.set_var_def, check_lim_def]
-    \\ fs [] \\ rveq \\ fs []
+    \\ fs [] \\ rveq \\ fs [LENGTH_list_to_all_v]
     \\ strip_tac THEN1
       fs [code_oracle_rel_def, FLOOKUP_UPDATE]
     \\ strip_tac THEN1
@@ -3980,7 +3981,7 @@ Proof
     \\ match_mp_tac memory_rel_insert \\ fs [flat_def]
     \\ simp [FAPPLY_FUPDATE_THM]
     \\ qmatch_asmsub_abbrev_tac `memory_rel _ _ _ _ _ _ _ _ (A ++ B::C)`
-    \\ sg `memory_rel c t.be s.tstamps s.refs sp t.store m1 t.mdomain ((B::A) ++ C)`
+    \\ sg `memory_rel c t.be s.all_blocks s.refs sp t.store m1 t.mdomain ((B::A) ++ C)`
     >-
      (irule memory_rel_rearrange
       \\ HINT_EXISTS_TAC
@@ -4316,7 +4317,7 @@ Proof
       (fs [ADD_DIV_EQ,DIV_LT_X]
        \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
     \\ `SUC (LENGTH in1) < dimword (:'a)` by
-     (qpat_x_assum `memory_rel c t.be s.tstamps s.refs s.space t.store t.memory t.mdomain
+     (qpat_x_assum `memory_rel c t.be s.all_blocks s.refs s.space t.store t.memory t.mdomain
          ((r1,Word ww)::vars)` assume_tac
       \\ drule (GEN_ALL memory_rel_list_limit)
       \\ rfs [good_dimindex_def] \\ rfs [dimword_def])
@@ -4410,6 +4411,7 @@ Proof
   THEN1
    (qpat_x_assum `code_oracle_rel c _ _ _ _ _ _ _` mp_tac
     \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE, check_lim_def])
+  \\ fs [LENGTH_list_to_all_v]
   \\ strip_tac
   THEN1 (rw[] \\ fs [adjust_var_11])
   \\ conj_tac >- (
@@ -4444,7 +4446,7 @@ Proof
   \\ match_mp_tac memory_rel_insert \\ fs [flat_def]
   \\ simp [FAPPLY_FUPDATE_THM]
   \\ qmatch_asmsub_abbrev_tac `memory_rel _ _ _ _ _ _ _ _ (A ++ B::C)`
-  \\ sg `memory_rel c aa2.be s.tstamps s.refs sp' aa2.store m1' aa2.mdomain ((B::A) ++ C)`
+  \\ sg `memory_rel c aa2.be s.all_blocks s.refs sp' aa2.store m1' aa2.mdomain ((B::A) ++ C)`
   >-
    (irule memory_rel_rearrange
     \\ HINT_EXISTS_TAC
@@ -4482,7 +4484,8 @@ Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
-  \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac \\ strip_tac
+  \\ imp_res_tac state_rel_cut_IMP
+  \\ drule_then assume_tac state_rel_size_inv
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
@@ -4563,6 +4566,7 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
+  \\ drule_then assume_tac state_rel_size_inv
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ fs[do_app,allowed_op_def]
@@ -4792,13 +4796,15 @@ Proof
 QED
 
 Theorem push_env_tstamps:
-  ∀x t s. (push_env x t s).tstamps = s.tstamps
+  ∀x t s. (push_env x t s).tstamps = s.tstamps ∧
+          (push_env x t s).all_blocks = s.all_blocks
 Proof
   rw [push_env_def] \\ Cases_on `t` \\ rw [push_env_def]
 QED
 
 Theorem dec_clock_tstamps:
-  ∀s. (dec_clock s).tstamps = s.tstamps
+  ∀s. (dec_clock s).tstamps = s.tstamps ∧
+      (dec_clock s).all_blocks = s.all_blocks
 Proof
  rw [dataSemTheory.dec_clock_def]
 QED
@@ -5151,6 +5157,7 @@ Proof
     metis_tac[do_app_stack_max]
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
+  \\ drule_then assume_tac state_rel_size_inv
   \\ fs [assign_def] \\ rveq
   \\ fs [dataLangTheory.op_requires_names_def,
          dataLangTheory.op_space_reset_def,cut_state_opt_def]
@@ -5350,6 +5357,7 @@ Proof
   \\ `option_le x.stack_max s2.stack_max` by
     metis_tac[do_app_stack_max]
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
+  \\ drule_then assume_tac state_rel_size_inv
   \\ fs [assign_def] \\ rveq
   \\ fs [dataLangTheory.op_requires_names_def,
          dataLangTheory.op_space_reset_def,cut_state_opt_def]
@@ -5533,6 +5541,7 @@ Proof
   \\ `option_le x.stack_max s2.stack_max` by
     metis_tac[do_app_stack_max]
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
+  \\ drule_then assume_tac state_rel_size_inv
   \\ fs [assign_def] \\ rveq
   \\ fs [dataLangTheory.op_requires_names_def,
          dataLangTheory.op_space_reset_def,cut_state_opt_def]
@@ -5971,6 +5980,7 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
+  \\ drule_then assume_tac state_rel_size_inv
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ fs[do_app,allowed_op_def]
@@ -7018,6 +7028,7 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ drule_then assume_tac state_rel_size_inv
   \\ drule state_rel_IMP_arch_64_bit \\ strip_tac
   \\ fs [EVAL ``op_requires_names Add``]
   \\ fs [do_app]
@@ -7136,6 +7147,7 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ drule_then assume_tac state_rel_size_inv
   \\ drule state_rel_IMP_arch_64_bit \\ strip_tac
   \\ fs [EVAL ``op_requires_names Sub``]
   \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs [] \\ rveq
@@ -7253,6 +7265,7 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ drule_then assume_tac state_rel_size_inv
   \\ drule state_rel_IMP_arch_64_bit \\ strip_tac
   \\ fs [EVAL ``op_requires_names Mult``]
   \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs [] \\ rveq
@@ -7428,6 +7441,7 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ drule_then assume_tac state_rel_size_inv
   \\ fs [EVAL ``op_requires_names Div``]
   \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs [] \\ rveq
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
@@ -7694,6 +7708,7 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ drule_then assume_tac state_rel_size_inv
   \\ fs [EVAL ``op_requires_names Mod``]
   \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs [] \\ rveq
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
@@ -8052,7 +8067,6 @@ Proof
   \\ match_mp_tac IMP_memory_rel_Number_num \\ fs []
 QED
 
-
 Theorem assign_LengthBlock:
    op = LengthBlock ==> ^assign_thm_goal
 Proof
@@ -8106,7 +8120,6 @@ Proof
   \\ match_mp_tac IMP_memory_rel_Number_num \\ fs []
 QED
 
-
 Theorem assign_BoundsCheckBlock:
    assign c secn l dest BoundsCheckBlock args names =
       case args of
@@ -8134,6 +8147,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ drule_then assume_tac state_rel_size_inv
   \\ fs [do_app,allowed_op_def] \\ rfs [] \\ every_case_tac \\ fs []
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -8219,6 +8233,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ drule_then assume_tac state_rel_size_inv
   \\ fs [do_app,allowed_op_def] \\ rfs [] \\ every_case_tac \\ fs []
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -8294,6 +8309,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ drule_then assume_tac state_rel_size_inv
   \\ fs [do_app,allowed_op_def] \\ rfs [] \\ every_case_tac \\ fs []
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -9994,6 +10010,7 @@ Proof
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ drule_then assume_tac state_rel_size_inv
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
@@ -10484,6 +10501,7 @@ Proof
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ drule_then assume_tac state_rel_size_inv
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
@@ -10698,6 +10716,7 @@ Proof
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ drule_then assume_tac state_rel_size_inv
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
@@ -10797,6 +10816,7 @@ Proof
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ drule_then assume_tac state_rel_size_inv
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ fs[do_app,allowed_op_def,space_consumed_def]
   \\ every_case_tac \\ fs[]
@@ -10958,6 +10978,7 @@ Proof
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ drule_then assume_tac state_rel_size_inv
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
@@ -11102,6 +11123,7 @@ Proof
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ drule_then assume_tac state_rel_size_inv
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
@@ -11268,6 +11290,7 @@ Proof
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ drule_then assume_tac state_rel_size_inv
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
   \\ fs [assign_def] \\ fs [do_app_Ref] \\ fs[do_app]
   \\ Cases_on `consume_space (LENGTH vals + 1) x` \\ fs [] \\ rveq
@@ -11736,7 +11759,7 @@ Proof
   \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm,option_le_max_right]
   \\ gvs [the_global_def,libTheory.the_def]
   \\ qmatch_asmsub_abbrev_tac ‘(xs1 ++ [(RefPtr ptr,t.store ' Globals)] ++ xs2)’
-  \\ ‘memory_rel c t.be x.tstamps x.refs x.space t.store t.memory
+  \\ ‘memory_rel c t.be x.all_blocks x.refs x.space t.store t.memory
           t.mdomain ((RefPtr ptr,t.store ' Globals) :: (xs1 ++ xs2))’ by
       (first_x_assum (fn th => mp_tac th \\ match_mp_tac memory_rel_rearrange)
        \\ fs [] \\ rw [] \\ fs [])
@@ -11776,7 +11799,7 @@ Proof
   \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_1] \\ clean_tac
   \\ qmatch_goalsub_abbrev_tac ‘(_,_)::(xs1++[(RefPtr ref_ptr,_)]++xs2)’
   \\ strip_tac
-  \\ ‘memory_rel c t.be x.tstamps x.refs x.space t.store t.memory t.mdomain
+  \\ ‘memory_rel c t.be x.all_blocks x.refs x.space t.store t.memory t.mdomain
         ((RefPtr ref_ptr,t.store ' Globals)::(h,a1')::(xs1 ++ xs2))’ by
       (first_x_assum (fn th => mp_tac th \\ match_mp_tac memory_rel_rearrange)
        \\ fs [] \\ rw [] \\ fs [])
@@ -11787,7 +11810,7 @@ Proof
   \\ drule memory_rel_RefPtr_IMP' \\ fs [] \\ strip_tac
   \\ fs [glob_real_inv_def]
   \\ fs [wordSemTheory.get_vars_def,AllCaseEqs()]
-  \\ ‘memory_rel c t.be x.tstamps x.refs x.space t.store t.memory t.mdomain
+  \\ ‘memory_rel c t.be x.all_blocks x.refs x.space t.store t.memory t.mdomain
         ((h,a1')::(RefPtr ref_ptr,t.store ' Globals)::(xs1 ++ xs2))’ by
       (first_x_assum (fn th => mp_tac th \\ match_mp_tac memory_rel_rearrange)
        \\ fs [] \\ rw [] \\ fs [])
@@ -12193,6 +12216,7 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ drule_then assume_tac state_rel_size_inv
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs [] \\ rveq
   \\ `?startptr len. i = &startptr /\ i' = & len` by
@@ -12345,7 +12369,7 @@ Proof
         get_vars (MAP adjust_var t7) s1 = SOME ws1 /\
         lookup (adjust_var a1) s1.locals = SOME (Word w_ptr) /\
         (l' <> [] ==> get_real_addr c s1.store w_ptr = SOME a_ptr) /\
-        memory_rel c s1.be x.tstamps x.refs (len + (LENGTH ys3 + 1)) s1.store
+        memory_rel c s1.be x.all_blocks x.refs (len + (LENGTH ys3 + 1)) s1.store
          s1.memory s1.mdomain
             ((Block n0 n' l',Word w_ptr)::(ZIP (ys7,ws1) ++
                join_env xx
@@ -12589,7 +12613,7 @@ Proof
               memcopy len ar4 ar6 m1 s1.mdomain = SOME m2 /\
               (word_list nfree (Word full_header::(ws1 ++ ws2)) * SEP_T)
                 (fun2set (m2,s1.mdomain)) /\ LENGTH ws2 = len /\
-              memory_rel c s1.be x.tstamps x.refs (len + (LENGTH ys3 + 1)) s1.store m2
+              memory_rel c s1.be x.all_blocks x.refs (len + (LENGTH ys3 + 1)) s1.store m2
                s1.mdomain
                ((ZIP (ys7 ++ TAKE len (DROP startptr l'),ws1 ++ ws2) ++
                    join_env xx
@@ -12691,6 +12715,7 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ drule_then assume_tac state_rel_size_inv
   \\ Cases_on `LENGTH args = 0` THEN1
    (fs [assign_def] \\ reverse IF_CASES_TAC \\ fs []
     >-
@@ -13063,7 +13088,7 @@ Proof
                                           (DROP (LENGTH l'' - n) r')
                                           t.memory t.mdomain t.be
               in memory_rel c t.be
-                   x.tstamps
+                   x.all_blocks
                    (insert n'''
                       (ByteArray F (TAKE (LENGTH l'' - n) l''
                                     ++
@@ -13073,7 +13098,7 @@ Proof
                    new_m t.mdomain ((RefPtr n''',Word w)::vars) ∧
                 (∀i v. i < LENGTH l'' ⇒
                   memory_rel c t.be
-                    x.tstamps
+                    x.all_blocks
                     (insert n'''
                        (ByteArray F (LUPDATE v i (TAKE (LENGTH l'' - n) l''
                                                   ++
