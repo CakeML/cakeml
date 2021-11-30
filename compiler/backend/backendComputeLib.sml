@@ -539,7 +539,7 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.AddNumSize_def
     ,multiwordTheory.n2mw_def
     ,multiwordTheory.i2mw_def
-    ,data_to_wordTheory.bignum_words_def
+    ,data_to_wordTheory.get_Word_def
     ,data_to_wordTheory.Smallnum_def
     ,data_to_wordTheory.MemEqList_def
     ,data_to_wordTheory.arg1_def

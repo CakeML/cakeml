@@ -9961,6 +9961,14 @@ val word_mem_eq_thm = prove(
   \\ qexists_tac `one (a,Word h) * ff`
   \\ fs [AC STAR_COMM STAR_ASSOC]);
 
+Definition bignum_words_def:
+  bignum_words c i =
+    let (sign,payload) = i2mw i in
+      case encode_header c (if sign then 7 else 3) (LENGTH payload) of
+      | NONE => NONE
+      | SOME h => SOME (h :: payload)
+End
+
 Theorem memory_rel_Number_const_test:
    memory_rel c be ts refs sp st m dm ((Number i,Word (w:'a word))::vars) /\
     good_dimindex (:'a) ==>

@@ -936,13 +936,6 @@ val WordShift64_on_32_def = Define `
                    Assign 31 (ShiftVar sh 11 32)]
          | Ror => []))`;
 
-val bignum_words_def = Define `
-  bignum_words c i =
-    let (sign,payload) = i2mw i in
-      dtcase encode_header c (if sign then 7 else 3) (LENGTH payload) of
-      | NONE => NONE
-      | SOME h => SOME (h :: payload)`
-
 val Smallnum_def = Define `
   Smallnum i =
     if i < 0 then 0w - n2w (Num (4 * (0 - i))) else n2w (Num (4 * i))`;
@@ -1276,6 +1269,11 @@ End
 Definition const_parts_to_words_def:
   const_parts_to_words c parts =
     parts_to_words c LN 0 parts 0w
+End
+
+Definition get_Word_def[simp]:
+  get_Word (Word w) = w ∧
+  get_Word _ = 0w
 End
 
 val def = assign_Define `
@@ -1966,23 +1964,20 @@ val def = assign_Define `
 val def = assign_Define `
   assign_EqualConst p (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v =
-    dtcase p of
-    | Int i =>
-           (if -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8)
-            then (If Equal (adjust_var v) (Imm (Smallnum i))
+    dtcase part_to_words c LN p 0w of
+    | SOME ((F,w),_) =>
+        (If Equal (adjust_var v) (Imm (get_Word w))
                     (Assign (adjust_var dest) TRUE_CONST)
                     (Assign (adjust_var dest) FALSE_CONST),l)
-            else (dtcase bignum_words c i of
-                 | NONE => (Assign (adjust_var dest) FALSE_CONST,l)
-                 | SOME words =>
-                     If Test (adjust_var v) (Imm 1w)
+    | SOME (_,words) =>
+        (If Test (adjust_var v) (Imm 1w)
                        (Assign (adjust_var dest) FALSE_CONST)
                        (list_Seq
                           [Assign 1 FALSE_CONST;
                            Assign 3 (real_addr c (adjust_var v));
-                           MemEqList 0w words;
-                           Assign (adjust_var dest) (Var 1)]),l))
-    | _ => (Skip, l)  (* part_to_words c m (Int i) offset *)
+                           MemEqList 0w (MAP (get_Word o SND) words);
+                           Assign (adjust_var dest) (Var 1)]),l)
+    | _ => (Assign (adjust_var dest) FALSE_CONST,l)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `

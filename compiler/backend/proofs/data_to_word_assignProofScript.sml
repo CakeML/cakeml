@@ -9032,7 +9032,7 @@ Proof
   \\ rveq
   \\ rpt_drule0 memory_rel_Number_const_test
   \\ disch_then (qspec_then `i` mp_tac)
-  \\ fs [assign_def,GSYM small_int_def]
+  \\ fs [assign_def,part_to_words_def]
   \\ IF_CASES_TAC THEN1
    (fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF] \\ fs [eq_eval]
     \\ Cases_on `i = j` \\ fs [] \\ rveq \\ fs []
@@ -9044,6 +9044,7 @@ Proof
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
     \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs []))
   \\ fs [] \\ TOP_CASE_TAC \\ fs []
+  \\ fs [bignum_words_def] \\ pairarg_tac \\ fs [CaseEq"option"]
   THEN1
    (fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF] \\ fs [eq_eval]
     \\ fs [lookup_insert,state_rel_thm] \\ rpt strip_tac
@@ -9053,7 +9054,7 @@ Proof
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
     \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs []))
-  \\ fs [word_bit_test]
+  \\ fs [word_bit_test,make_ptr_def]
   \\ IF_CASES_TAC
   THEN1
    (fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF] \\ fs [eq_eval]
@@ -9065,6 +9066,7 @@ Proof
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
     \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs []))
   \\ strip_tac
+  \\ simp [MAP_MAP_o,o_DEF]
   \\ fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF]
   \\ fs [list_Seq_def,eq_eval]
   \\ rename1 `get_real_addr c t.store w = SOME a`
@@ -9075,14 +9077,12 @@ Proof
   \\ disch_then (qspec_then `(adjust_var a1)` mp_tac)
   \\ impl_tac THEN1 fs [Abbr `t6`,eq_eval]
   \\ strip_tac \\ fs []
-  \\ qmatch_goalsub_abbrev_tac `(MemEqList 0w ws,t9)`
-  \\ `word_mem_eq a ws t9.mdomain t9.memory = SOME (j = i)` by fs [Abbr`t9`,Abbr`ws`]
+  \\ qmatch_goalsub_abbrev_tac `(MemEqList 0w wss,t9)`
+  \\ `word_mem_eq a wss t9.mdomain t9.memory = SOME (j = i)` by fs [Abbr`t9`,Abbr`wss`]
   \\ rpt_drule0 MemEqList_thm
   \\ impl_tac THEN1 fs [eq_eval,Abbr `t9`]
   \\ strip_tac \\ fs []
-  \\ `ws <> []` by
-     (fs [bignum_words_def,multiwordTheory.i2mw_def]
-      \\ every_case_tac \\ fs [markerTheory.Abbrev_def] \\ fs [] \\ rveq \\ fs [])
+  \\ `wss <> []` by (gvs [Abbr‘wss’])
   \\ fs []
   \\ IF_CASES_TAC \\ fs [] \\ rveq
   \\ unabbrev_all_tac
