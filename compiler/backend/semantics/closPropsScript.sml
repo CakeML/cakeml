@@ -2214,7 +2214,7 @@ Proof
                opp = WordToInt \/ opp = ConfigGC \/
                (?n. opp = Label n) \/ (?n. opp = Cons n) \/
                (?i. opp = LessConstSmall i) \/ opp = LengthByteVec \/
-               (?i. opp = EqualInt i) \/ (?n. opp = TagEq n) \/
+               (?p. opp = EqualConst p) \/ (?n. opp = TagEq n) \/
                (?n. opp = LenEq n) \/
                (?n n1. opp = TagLenEq n n1) \/ opp = Install \/
                (?w oo k. opp = WordShift w oo k) \/
@@ -2222,7 +2222,7 @@ Proof
                (?w oo. opp = WordOp w oo) \/ opp = ConcatByteVec`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def]
+    \\ simp [do_app_def,Unit_def,AllCaseEqs()]
     \\ strip_tac \\ rveq
     \\ drule v_rel_to_list_ByteVector
     \\ rfs [simple_val_rel_alt] \\ rveq \\ fs []

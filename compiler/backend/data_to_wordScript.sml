@@ -1964,8 +1964,10 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
-  assign_EqualInt i (c:data_to_word$config) (secn:num)
+  assign_EqualConst p (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v =
+    dtcase p of
+    | Int i =>
            (if -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8)
             then (If Equal (adjust_var v) (Imm (Smallnum i))
                     (Assign (adjust_var dest) TRUE_CONST)
@@ -1980,6 +1982,7 @@ val def = assign_Define `
                            Assign 3 (real_addr c (adjust_var v));
                            MemEqList 0w words;
                            Assign (adjust_var dest) (Var 1)]),l))
+    | _ => (Skip, l)  (* part_to_words c m (Int i) offset *)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -2196,7 +2199,7 @@ val assign_def = Define `
     | WordFromInt => arg1 args (assign_WordFromInt c secn l dest names) (Skip,l)
     | WordToInt => arg1 args (assign_WordToInt c secn l dest names) (Skip,l)
     | FFI ffi_index => arg2 args (assign_FFI ffi_index c secn l dest names) (Skip,l)
-    | EqualInt i => arg1 args (assign_EqualInt i c secn l dest names) (Skip,l)
+    | EqualConst p => arg1 args (assign_EqualConst p c secn l dest names) (Skip,l)
     | Install => arg4 args (assign_Install c secn l dest names) (Skip,l)
     | FP_cmp fpc => arg2 args (assign_FP_cmp fpc c secn l dest names) (Skip,l)
     | FP_top fpt => arg3 args (assign_FP_top fpt c secn l dest names) (Skip,l)

@@ -517,7 +517,7 @@ val appkind_thms = { nchotomy = TypeBase.nchotomy_of ``:app_kind``,
 val word_size_thms = { nchotomy = TypeBase.nchotomy_of ``:word_size``,
                      case_def = TypeBase.case_def_of ``:word_size`` }
 
-val case_eq_thms = LIST_CONJ (map prove_case_eq_thm
+val case_eq_thms = LIST_CONJ (CaseEq"const_part" :: map prove_case_eq_thm
   [op_thms, list_thms, option_thms, v_thms, ref_thms,
    result_thms, error_result_thms, eq_result_thms, appkind_thms, word_size_thms])
 

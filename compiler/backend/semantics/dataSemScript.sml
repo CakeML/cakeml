@@ -858,9 +858,9 @@ Definition do_app_aux_def:
         Rval (Boolv (LENGTH xs = l),s)
     | (TagLenEq n l,[Block _ tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
-    | (EqualInt i,[x1]) =>
-        (case x1 of
-         | Number j => Rval (Boolv (i = j), s)
+    | (EqualConst p,[x1]) =>
+        (case p of
+         | Int i => (case x1 of Number j => Rval (Boolv (i = j), s) | _ => Error)
          | _ => Error)
     | (Equal,[x1;x2]) =>
         (case do_eq s.refs x1 x2 of
@@ -1287,7 +1287,7 @@ Proof
     , do_space_def
     , consume_space_def
     , do_install_def
-    , case_eq_thms
+    , AllCaseEqs()
     , PULL_EXISTS
     , with_fresh_ts_def
     , UNCURRY

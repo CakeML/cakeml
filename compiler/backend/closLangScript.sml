@@ -64,7 +64,7 @@ Datatype:
      | Label num     (* constructs a CodePtr *)
      | FFI string    (* calls the FFI *)
      | Equal         (* structural equality *)
-     | EqualInt int  (* equal to integer constant *)
+     | EqualConst const_part (* equal to integer/string/word constant *)
      | Const int     (* integer *)
      | Constant const (* produces a constant value *)
      | Build (const_part list)  (* implementation of Constant above *)

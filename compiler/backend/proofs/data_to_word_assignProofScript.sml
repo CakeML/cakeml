@@ -9008,8 +9008,8 @@ Theorem MemEqList_thm = Q.prove(`
   \\ metis_tac [])
   |> Q.SPEC `0w` |> SIMP_RULE std_ss [WORD_ADD_0];
 
-Theorem assign_EqualInt:
-   (?i. op = EqualInt i) ==> ^assign_thm_goal
+Theorem assign_EqualConst:
+   (?p. op = EqualConst p) ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac

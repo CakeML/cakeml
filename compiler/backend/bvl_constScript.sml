@@ -179,8 +179,8 @@ local val SmartOp2_quotation = `
     else if op = Equal then
       dtcase (dest_simple x1, dest_simple x2) of
       | (SOME i, SOME j) => Bool (j = i)
-      | (SOME i, _) => Op (EqualInt i) [x2]
-      | (_, SOME i) => Op (EqualInt i) [x1]
+      | (SOME i, _) => Op (EqualConst (Int i)) [x2]
+      | (_, SOME i) => Op (EqualConst (Int i)) [x1]
       | _ => default
     else if op = El then
       dtcase dest_simple x1 of

@@ -291,9 +291,9 @@ val do_app_def = Define `
         Rval (Boolv (LENGTH xs = l),s)
     | (TagLenEq n l,[Block tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
-    | (EqualInt i,[x1]) =>
-        (case x1 of
-         | Number j => Rval (Boolv (i = j), s)
+    | (EqualConst p,[x1]) =>
+        (case p of
+         | Int i => (case x1 of Number j => Rval (Boolv (i = j), s) | _ => Error)
          | _ => Error)
     | (Equal,[x1;x2]) =>
         (case do_eq s.refs x1 x2 of
@@ -526,7 +526,7 @@ Theorem do_app_const:
                        s2.compile = s1.compile /\
                        s2.compile_oracle = s1.compile_oracle)
 Proof
-  rw[do_app_def,case_eq_thms,PULL_EXISTS,do_install_def,UNCURRY] \\ rw[]
+  rw[do_app_def,AllCaseEqs(),PULL_EXISTS,do_install_def,UNCURRY] \\ rw[]
 QED
 
 Theorem bvl_do_app_Ref[simp]:

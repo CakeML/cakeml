@@ -146,7 +146,7 @@ val FromListByte_code_def = Define`
 
 val ToListByte_code_def = Define`
   ToListByte_code = (3n, (* list, current index, byte array *)
-    If (Op (EqualInt 0i) [Var 1]) (Var 0)
+    If (Op (EqualConst (Int 0i)) [Var 1]) (Var 0)
       (Let [Op Sub [Op (Const 1) []; Var 1]]
       (Let [Op DerefByte [Var 0; Var 3]]
         (Call 0 (SOME ToListByte_location)
