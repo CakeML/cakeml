@@ -635,7 +635,7 @@ End
 Definition list_to_all_v_def:
   list_to_all_v ts t [] = [] ∧
   list_to_all_v ts t (h::l) =
-    list_to_all_v ts t l ++ [list_to_v (ts + LENGTH l) t (h::l)]
+    list_to_all_v ts t l ++ [list_to_v ts t (h::l)]
 End
 
 Overload Block_nil = ``Block 0 nil_tag []``
