@@ -1412,7 +1412,7 @@ Proof
   \\ Cases_on `?i. op = LessConstSmall i` THEN1
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def])
-  \\ Cases_on `?i. op = EqualInt i` THEN1
+  \\ Cases_on `?p. op = EqualConst p` THEN1
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def])
   \\ Cases_on `op = BoundsCheckBlock` THEN1

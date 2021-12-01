@@ -271,7 +271,7 @@ Inductive simple_exp:
   (∀t x y z. simple_exp x ∧ simple_exp y ∧ simple_exp z ⇒ simple_exp (If t x y z)) ∧
   (∀t i. simple_exp (Op t (Const i) [])) ∧
   (∀t i xs. EVERY simple_exp xs ⇒ simple_exp (Op t (Cons i) xs)) ∧
-  (∀t i x. simple_exp x ⇒ simple_exp (Op t (EqualInt i) [x])) ∧
+  (∀t i x. simple_exp x ⇒ simple_exp (Op t (EqualConst (Int i)) [x])) ∧
   (∀t i x. simple_exp x ⇒ simple_exp (Op t (ElemAt i) [x])) ∧
   (∀t x y. simple_exp x ∧ simple_exp y ⇒ simple_exp (Op t Equal [x;y])) ∧
   (∀t l y x. simple_exp x ⇒ simple_exp (Op t (TagLenEq l y) [x]))
@@ -652,7 +652,7 @@ Inductive red_rel:
   (∀xs ys t op i tag t1 t2.
     red_rel xs ys ∧
     MEM op [Add;Sub;Mult;Div;Mod;Less;LessEq;Greater;GreaterEq;Equal;Const i;
-            Cons tag; TagEq tag; TagLenEq t1 t2; LenEq n; EqualInt i; ElemAt t1] ⇒
+            Cons tag; TagEq tag; TagLenEq t1 t2; LenEq n; EqualConst (Int i); ElemAt t1] ⇒
     red_rel [Op t op xs] ys)
   ∧
   (red_rel [] [])

@@ -71,7 +71,7 @@ Proof
   Cases_on`y`>>simp[ref_rel_def] >> srw_tac[][EQ_IMP_THM]
 QED
 
-val code_locs_def = tDefine "code_locs" `
+Definition code_locs_def:
   (code_locs [] = []) /\
   (code_locs (x::y::xs) =
      let c1 = code_locs [x] in
@@ -111,14 +111,16 @@ val code_locs_def = tDefine "code_locs" `
      let c2 = code_locs [x2] in
        c1 ++ c2) /\
   (code_locs [Call _ ticks dest xs] =
-     code_locs xs)`
-  (WF_REL_TAC `measure (exp3_size)`
+     code_locs xs)
+Termination
+   WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
    Induct_on `fns` >>
    srw_tac [ARITH_ss] [exp_size_def] >>
    Cases_on `h` >>
    full_simp_tac(srw_ss())[exp_size_def] >>
-   decide_tac);
+   decide_tac
+End
 
 Theorem code_locs_cons:
    ∀x xs. code_locs (x::xs) = code_locs [x] ++ code_locs xs
@@ -1512,7 +1514,7 @@ val case_eq_thms = pair_case_eq::bool_case_eq::list_case_eq::option_case_eq::map
 Theorem do_app_ffi_error_IMP:
    do_app op vs s = Rerr (Rabort (Rffi_error f)) ==> ?i. op = FFI i
 Proof
-  fs [case_eq_thms,do_app_def] \\ rw [] \\ fs []
+  fs [AllCaseEqs(),do_app_def] \\ rw [] \\ fs []
 QED
 
 Theorem do_app_add_to_clock:
@@ -1537,7 +1539,7 @@ Proof
           \\ rw [] \\ fs [do_app_def,case_eq_thms] \\ NO_TAC)
   \\ pop_assum mp_tac
   \\ simp [Once do_app_def]
-  \\ fs [case_eq_thms]
+  \\ fs [AllCaseEqs()]
   \\ rpt strip_tac \\ fs []
   \\ rveq \\ simp [do_app_def]
 QED
@@ -1549,7 +1551,7 @@ Theorem do_install_add_to_clock:
 Proof
   rw[do_install_def,case_eq_thms]
   \\ pairarg_tac
-  \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]
+  \\ fs[AllCaseEqs(),pair_case_eq,bool_case_eq]
   \\ rw[] \\ fs[]
 QED
 
@@ -1560,7 +1562,7 @@ Theorem do_install_type_error_add_to_clock:
 Proof
   rw[do_install_def,case_eq_thms] \\ fs []
   \\ pairarg_tac
-  \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]
+  \\ fs[AllCaseEqs(),pair_case_eq,bool_case_eq]
   \\ rw[] \\ fs[]
 QED
 
@@ -1725,8 +1727,9 @@ QED
 Theorem do_app_never_timesout[simp]:
    do_app op args s ≠ Rerr (Rabort Rtimeout_error)
 Proof
-  Cases_on `op` >> Cases_on `args` >>
-  simp[do_app_def, case_eq_thms, bool_case_eq, pair_case_eq]
+  Cases_on `op` >> TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) >>
+  Cases_on `args` >>
+  simp[do_app_def, AllCaseEqs(), bool_case_eq, pair_case_eq]
 QED
 
 Theorem evaluate_timeout_clocks0:
@@ -1737,7 +1740,7 @@ Theorem evaluate_timeout_clocks0:
        s'.clock = 0)
 Proof
   ho_match_mp_tac evaluate_ind >> rpt conj_tac >>
-  dsimp[evaluate_def, case_eq_thms, pair_case_eq, bool_case_eq] >>
+  dsimp[evaluate_def, AllCaseEqs()] >>
   rw[] >> pop_assum mp_tac >>
   simp_tac (srw_ss()) [do_install_def,case_eq_thms,bool_case_eq,pair_case_eq,UNCURRY,LET_THM] >>
   rw[] >> fs []
@@ -1760,7 +1763,6 @@ Proof
   Q.ISPECL_THEN [`h::t`, `env`, `s0`] mp_tac (CONJUNCT1 evaluate_LENGTH) >>
   simp[]
 QED
-
 
 (* finding the SetGlobal operations *)
 val op_gbag_def = Define`
@@ -2371,7 +2373,7 @@ Proof
     \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ rfs [simple_val_rel_def] \\ rveq \\ fs []
-    \\ fs [closSemTheory.Unit_def]
+    \\ fs [closSemTheory.Unit_def,AllCaseEqs()]
     \\ TRY (res_tac \\ fs [isClos_cases] \\ NO_TAC)
     \\ drule (GEN_ALL simple_state_rel_FLOOKUP_refs_IMP)
     \\ rpt (disch_then drule) \\ fs [] \\ rw [] \\ fs []

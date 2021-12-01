@@ -197,10 +197,10 @@ Definition eq_direct_const_def:
     | SOME i =>
         (dtcase dest_Op_Const y of
          | SOME j => SOME (MakeBool (i = j))
-         | NONE => SOME (Op None (EqualInt i) [y]))
+         | NONE => SOME (Op None (EqualConst (Int i)) [y]))
     | NONE =>
         (dtcase dest_Op_Const y of
-         | SOME i => SOME (Op None (EqualInt i) [x])
+         | SOME i => SOME (Op None (EqualConst (Int i)) [x])
          | NONE => NONE)
 End
 
@@ -290,7 +290,7 @@ Triviality eq_pure_list_test:
             Op None (Cons 70) [Op None (Const 2) []; Op None (Cons 4) []])]) =
      [Op None (TagLenEq 70 2) [Var None 5];
       Op None (TagLenEq 4 0) [Op None (ElemAt 0) [Var None 5]];
-      Op None (EqualInt 2) [Op None (ElemAt 1) [Var None 5]]]
+      Op None (EqualConst (Int 2)) [Op None (ElemAt 1) [Var None 5]]]
 Proof
   EVAL_TAC
 QED

@@ -197,6 +197,8 @@ Proof
   \\ TOP_CASE_TAC \\ fs []
   \\ TOP_CASE_TAC \\ fs []
   \\ Cases_on ‘op’ \\ gvs [dest_EqualInt_def]
+  \\ rename [‘EqualConst cc’]
+  \\ Cases_on ‘cc’ \\ gvs [dest_EqualInt_def]
   \\ gvs [dest_simple_eq]
   \\ gvs [evaluate_def,do_app_def]
   \\ rw [] \\ gvs [] \\ eq_tac \\ rw []
