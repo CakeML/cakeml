@@ -861,6 +861,7 @@ Definition do_app_aux_def:
     | (EqualConst p,[x1]) =>
         (case p of
          | Int i => (case x1 of Number j => Rval (Boolv (i = j), s) | _ => Error)
+         | W64 i => (case x1 of Word64 j => Rval (Boolv (i = j), s) | _ => Error)
          | _ => Error)
     | (Equal,[x1;x2]) =>
         (case do_eq s.refs x1 x2 of

@@ -815,6 +815,8 @@ Proof
       >- (first_x_assum match_mp_tac >> fs[])
       >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[])
       >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[]))
+  >- (rename [‘EqualConst’]
+      \\ rw [] \\ fs [Boolv_def])
   >- (rename [‘Constant’]
       \\ rw [] \\ qid_spec_tac ‘c’
       \\ ho_match_mp_tac make_const_ind

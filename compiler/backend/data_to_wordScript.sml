@@ -1970,13 +1970,26 @@ val def = assign_Define `
                     (Assign (adjust_var dest) TRUE_CONST)
                     (Assign (adjust_var dest) FALSE_CONST),l)
     | SOME (_,words) =>
-        (If Test (adjust_var v) (Imm 1w)
+        ((dtcase p of
+          | Int _ => If Test (adjust_var v) (Imm 1w)
                        (Assign (adjust_var dest) FALSE_CONST)
                        (list_Seq
                           [Assign 1 FALSE_CONST;
                            Assign 3 (real_addr c (adjust_var v));
                            MemEqList 0w (MAP (get_Word o SND) words);
-                           Assign (adjust_var dest) (Var 1)]),l)
+                           Assign (adjust_var dest) (Var 1)])
+          | W64 _ => (list_Seq
+                          [Assign 1 FALSE_CONST;
+                           Assign 3 (Op Add [real_addr c (adjust_var v);
+                                             Const bytes_in_word]);
+                           MemEqList 0w (MAP (get_Word o SND) (TL words));
+                           Assign (adjust_var dest) (Var 1)])
+          | Str _ => (list_Seq
+                          [Assign 1 FALSE_CONST;
+                           Assign 3 (real_addr c (adjust_var v));
+                           MemEqList 0w (MAP (get_Word o SND) words);
+                           Assign (adjust_var dest) (Var 1)])
+          | _ => Skip),l)
     | _ => (Assign (adjust_var dest) FALSE_CONST,l)
       : 'a wordLang$prog # num`;
 

@@ -4340,7 +4340,7 @@ Proof
   EVAL_TAC
 QED
 
-val word_payload_def = Define `
+Definition word_payload_def:
   (word_payload ys l (BlockTag n) qs conf =
      (* header: ...00[11] here i in ...i[11] must be 0 for the GC *)
      (make_header conf (n2w n << 2) (LENGTH ys),
@@ -4356,7 +4356,8 @@ val word_payload_def = Define `
   (word_payload ys l Word64Tag qs conf =
      (* header: ...011[11] here i in ...i[11] must be 1 for the GC *)
      (make_header conf 3w l,
-      qs, (ys = []) /\ (LENGTH qs = l))) /\
+      qs, (ys = []) /\ (LENGTH qs = l) /\
+          IS_SOME ((encode_header conf 3 l):'a word option))) /\
   (word_payload ys l (NumTag b) qs conf =
      (* header: ...111[11] or ...011[11]
             here i in ...i[11] must be 1 for GC *)
@@ -4370,7 +4371,8 @@ val word_payload_def = Define `
      ((make_byte_header conf fl n):'a word,
       qs, (ys = []) /\ (LENGTH qs = l) /\
           let k = if dimindex(:'a) = 32 then 2 else 3 in
-          n + 2 ** k < 2 ** (conf.len_size + k)))`;
+          n + 2 ** k < 2 ** (conf.len_size + k)))
+End
 
 Theorem word_payload_T_IMP:
    word_payload l5 n5 tag r conf = (h:'a word,ts,T) /\
@@ -10030,6 +10032,81 @@ Proof
   \\ rpt (pop_assum kall_tac)
   \\ intLib.COOPER_TAC
 QED
+
+Theorem memory_rel_Word64_const_test:
+  memory_rel c be ts refs sp st m dm ((Word64 i,v)::vars) /\
+  good_dimindex (:'a) ==>
+    ∃(w:'a word) a words h.
+      v = Word w ∧ get_real_addr c st w = SOME a ∧
+      word_mem_eq (a + bytes_in_word) words dm m = SOME (i = j) ∧
+      encode_header c 3 (LENGTH words) = SOME (h:'a word) ∧
+      if dimindex (:'a) < 64 then
+        words = [(63 >< 32) j; (31 >< 0) j]
+      else
+        words = [(63 >< 0) j]
+Proof
+  strip_tac
+  \\ rpt_drule (memory_rel_Word64_IMP |> ONCE_REWRITE_RULE [CONJ_COMM])
+  \\ fs [word_bit] \\ strip_tac \\ gvs []
+  \\ CASE_TAC \\ gvs []
+  \\ fs [word_mem_eq_def,isWord_def]
+  \\ simp [GSYM PULL_EXISTS]
+  \\ (reverse conj_tac THEN1
+   (gvs [memory_rel_def,word_ml_inv_def,abs_ml_inv_def,
+         bc_stack_ref_inv_def,v_inv_def]
+    \\ imp_res_tac heap_lookup_SPLIT
+    \\ gvs [heap_in_memory_store_def,word_heap_APPEND,Word64Rep_def,
+            word_heap_def,word_el_def,word_payload_def]
+    \\ qpat_abbrev_tac ‘pp = encode_header _ _ _’
+    \\ Cases_on ‘pp’ \\ fs [SEP_CLAUSES] \\ fs [SEP_F_def]))
+  \\ gvs [encode_header_def,WORD_MUL_LSL,isWord_def]
+  \\ simp [AllCaseEqs()]
+  \\ gvs [good_dimindex_def]
+  \\ Cases_on ‘i’ \\ Cases_on ‘j’ \\ fs []
+  \\ fs [wordsTheory.word_extract_n2w]
+  \\ gvs [bitTheory.BITS_THM,dimword_def]
+  \\ ‘n DIV 4294967296 < 4294967296’ by fs [DIV_LT_X]
+  \\ ‘n' DIV 4294967296 < 4294967296’ by fs [DIV_LT_X]
+  \\ fs []
+  \\ ‘0 < 4294967296n’ by fs []
+  \\ drule DIVISION
+  \\ disch_then (fn th =>
+        strip_assume_tac (Q.SPEC ‘n’ th) \\ strip_assume_tac (Q.SPEC ‘n'’ th))
+  \\ Cases_on ‘n = n'’ \\ fs []
+QED
+
+(*
+Theorem memory_rel_String_const_test:
+  memory_rel c be ts refs sp st m dm ((RefPtr i,v)::vars) /\
+  lookup i refs = SOME (ByteArray T other) /\
+  good_dimindex (:'a) ==>
+  let t = implode (MAP (CHR o w2n) other) in
+    (part_to_words c LN (Str s) (0w:'a word) = NONE ⇒ s ≠ t) ∧
+    ∀x res.
+      part_to_words c LN (Str s) 0w = SOME (x,res) ⇒
+      ∃(w:'a word) a.
+        v = Word w ∧ get_real_addr c st w = SOME a ∧
+        word_mem_eq a (MAP (get_Word o SND) res) dm m = SOME (s = t)
+Proof
+  strip_tac
+  \\ drule_all memory_rel_ByteArray_IMP
+  \\ strip_tac
+  \\ Cases_on ‘part_to_words c LN (Str s) 0w’ \\ fs []
+  THEN1
+   (strip_tac \\ gvs [] \\ pop_assum mp_tac
+    \\ simp [part_to_words_def]
+    \\ gvs [good_dimindex_def,byte_len_def]
+    \\ fs [DECIDE “k ≠ 0 ⇒ (n + 1 < k ⇔ n < k - 1:num)”]
+    \\ gvs [DIV_LT_X,make_byte_header_def]
+    \\ cheat)
+  \\ rw [] \\ gvs [part_to_words_def]
+  \\ fs [word_mem_eq_def,isWord_def]
+  \\ cheat
+(*
+  print_match [] “make_byte_header _ _ _”
+*)
+QED
+*)
 
 val word_1_and_eq_0 = prove(
   ``((1w && w) = 0w) <=> ~(word_bit 0 w)``,
