@@ -125,7 +125,7 @@ val v_to_words_def = Define `
 
 val s = ``s:('c,'ffi)closSem$state``;
 
-val do_install_def = Define `
+Definition do_install_def:
   do_install vs ^s =
       (case vs of
        | [v1;v2] =>
@@ -153,7 +153,8 @@ val do_install_def = Define `
                   | _ => (Rerr(Rabort Rtype_error),s))
                   else (Rerr(Rabort Rtype_error),s))
             | _ => (Rerr(Rabort Rtype_error),s))
-       | _ => (Rerr(Rabort Rtype_error),s))`;
+       | _ => (Rerr(Rabort Rtype_error),s))
+End
 
 Definition make_const_def:
   make_const (ConstInt i) = Number i ∧
@@ -301,6 +302,9 @@ Definition do_app_def:
         (case p of
          | Int i => (case x1 of Number j => Rval (Boolv (i = j), s) | _ => Error)
          | W64 i => (case x1 of Word64 j => Rval (Boolv (i = j), s) | _ => Error)
+         | Str i => (case x1 of
+                     | ByteVector j => Rval (Boolv (j = MAP (n2w ∘ ORD) (explode i)), s)
+                     | _ => Error)
          | _ => Error)
     | (Equal,[x1;x2]) =>
         (case do_eq x1 x2 of
@@ -402,19 +406,23 @@ Definition do_app_def:
     | _ => Error
 End
 
-val dec_clock_def = Define `
-dec_clock n ^s = s with clock := s.clock - n`;
+Definition dec_clock_def:
+  dec_clock n ^s = s with clock := s.clock - n
+End
 
-val LESS_EQ_dec_clock = Q.prove(
-  `(r:('c,'ffi) closSem$state).clock <= (dec_clock n s).clock ==> r.clock <= s.clock`,
-  SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
+Triviality LESS_EQ_dec_clock:
+  (r:('c,'ffi) closSem$state).clock <= (dec_clock n s).clock ==> r.clock <= s.clock
+Proof
+  SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC
+QED
 
-val find_code_def = Define `
+Definition find_code_def:
   find_code p args code =
     case FLOOKUP code p of
     | NONE => NONE
     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp)
-                                                 else NONE`
+                                                 else NONE
+End
 
 (* The evaluation is defined as a clocked functional version of
    a conventional big-step operational semantics. *)

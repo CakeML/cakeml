@@ -1340,6 +1340,17 @@ Proof
       `k ∈ FDOM s5.refs ∧ n ∈ FDOM s5.refs` by fs[FLOOKUP_DEF] >>
       metis_tac[INJ_DEF]) >>
     METIS_TAC[])
+  \\ Cases_on `∃p. op = EqualConst p` \\ fs [] THEN1
+   (strip_tac
+    \\ `?x1. REVERSE a = [x1]` by (every_case_tac \\ fs [] \\ NO_TAC)
+    \\ gvs [AllCaseEqs()]
+    \\ fs [bvlSemTheory.do_app_def,adjust_bv_def]
+    \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def]
+    \\ rename [‘FLOOKUP r.refs p2 = SOME (ByteArray T bytes)’]
+    \\ last_assum (qspec_then ‘p2’ mp_tac)
+    \\ qpat_x_assum ‘FLOOKUP r.refs p2 = _’ mp_tac
+    \\ simp_tac (srw_ss()) [] \\ gvs []
+    \\ metis_tac [])
   \\ Cases_on `op = Equal` \\ fs [] THEN1
    (strip_tac
     \\ `?x1 x2. REVERSE a = [x1;x2]` by (every_case_tac \\ fs [] \\ NO_TAC)

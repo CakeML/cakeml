@@ -862,6 +862,11 @@ Definition do_app_aux_def:
         (case p of
          | Int i => (case x1 of Number j => Rval (Boolv (i = j), s) | _ => Error)
          | W64 i => (case x1 of Word64 j => Rval (Boolv (i = j), s) | _ => Error)
+         | Str i => (case x1 of RefPtr p =>
+                       (case lookup p s.refs of SOME (ByteArray T j) =>
+                          Rval (Boolv (j = MAP (n2w ∘ ORD) (explode i)), s)
+                        | _ => Error)
+                     | _ => Error)
          | _ => Error)
     | (Equal,[x1;x2]) =>
         (case do_eq s.refs x1 x2 of

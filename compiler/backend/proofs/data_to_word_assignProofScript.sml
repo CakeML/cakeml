@@ -9097,6 +9097,56 @@ Proof
     \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
     \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs []))
   THEN1
+   (rename [‘Str ss’]
+    \\ qmatch_asmsub_rename_tac `(RefPtr pp,a7)`
+    \\ rpt_drule0 memory_rel_String_const_test
+    \\ disch_then (qspec_then `ss` mp_tac) \\ strip_tac \\ clean_tac
+    \\ ‘l' = MAP (n2w ∘ ORD) (explode ss) ⇔ ss = implode (MAP (CHR ∘ w2n) l')’
+         by (eq_tac \\ rw [] \\ fs [MAP_MAP_o,o_DEF,ORD_BOUND,CHR_ORD])
+    \\ asm_rewrite_tac [] \\ pop_assum kall_tac
+    \\ fs [assign_def]
+    \\ CASE_TAC
+    THEN1
+     (fs [eq_eval]
+      \\ fs [lookup_insert,state_rel_thm] \\ rpt strip_tac
+      \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
+      \\ rfs[]
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert \\ fs []
+      \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
+      \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs []))
+    \\ CASE_TAC \\ gvs [] \\ PairCases_on ‘q’ \\ fs []
+    \\ ‘q0’ by fs [part_to_words_def,AllCaseEqs()]
+    \\ gvs []
+    \\ fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF]
+    \\ fs [list_Seq_def,eq_eval]
+    \\ rename1 `get_real_addr c t.store w = SOME a`
+    \\ qmatch_goalsub_abbrev_tac `word_exp t6`
+    \\ `get_real_addr c t6.store w = SOME a` by fs [Abbr`t6`]
+    \\ drule0 (get_real_addr_lemma |> REWRITE_RULE [CONJ_ASSOC]
+                                   |> ONCE_REWRITE_RULE [CONJ_COMM] |> GEN_ALL)
+    \\ disch_then (qspec_then `(adjust_var a1)` mp_tac)
+    \\ impl_tac THEN1 fs [Abbr `t6`,eq_eval]
+    \\ strip_tac \\ fs []
+    \\ qmatch_goalsub_abbrev_tac `(MemEqList 0w wss,t9)`
+    \\ `word_mem_eq a wss t9.mdomain t9.memory =
+       SOME (ss = implode (MAP (CHR ∘ w2n) l'))` by fs [Abbr`t9`,Abbr`wss`]
+    \\ rpt_drule0 MemEqList_thm
+    \\ impl_tac THEN1 fs [eq_eval,Abbr `t9`]
+    \\ strip_tac \\ fs []
+    \\ `wss <> []` by (gvs [Abbr‘wss’,part_to_words_def,AllCaseEqs()])
+    \\ fs []
+    \\ IF_CASES_TAC \\ fs [] \\ rveq
+    \\ unabbrev_all_tac
+    \\ fs [lookup_insert,state_rel_thm] \\ rpt strip_tac
+    \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs [option_le_max_right]
+    \\ rfs[]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
+    \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs []))
+  THEN1
    (rename [‘W64 w64’]
     \\ qmatch_asmsub_rename_tac `(Word64 other64,a7)`
     \\ rpt_drule0 memory_rel_Word64_const_test

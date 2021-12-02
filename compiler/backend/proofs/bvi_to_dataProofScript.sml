@@ -586,6 +586,9 @@ Proof
                    (data_to_bvi_do_eq |> SIMP_RULE std_ss [lookup_map]
                                       |> CONJUNCTS |> hd)
      \\ rw [])
+  >- (rename [‘EqualConst (Str m)’]
+     \\ Q.EXISTS_TAC `t`
+     \\ Cases_on ‘z’ \\ gvs [data_to_bvi_ref_def,data_to_bvi_v_Boolv])
   >- (rename [‘Build parts’]
       \\ pairarg_tac \\ gvs [PULL_EXISTS]
       \\ fs [dataSemTheory.do_build_const_def,bvlSemTheory.do_build_const_def]
