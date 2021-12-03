@@ -3,7 +3,7 @@
 *)
 
 open preamble astTheory semanticPrimitivesTheory;
-open terminationTheory ml_translatorLib ml_translatorTheory ml_progLib;
+open ml_translatorLib ml_translatorTheory ml_progLib;
 
 val _ = new_theory "decProg";
 

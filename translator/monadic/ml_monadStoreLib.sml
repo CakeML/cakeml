@@ -6,7 +6,7 @@ structure ml_monadStoreLib :> ml_monadStoreLib = struct
 
 open preamble ml_translatorTheory ml_pmatchTheory patternMatchesTheory
 open astTheory libTheory evaluateTheory semanticPrimitivesTheory
-open terminationTheory ml_progLib ml_progTheory
+open evaluateTheory ml_progLib ml_progTheory
 open packLib
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib
 open cfHeapsBaseTheory

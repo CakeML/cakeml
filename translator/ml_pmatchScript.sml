@@ -5,9 +5,9 @@
 open preamble
      astTheory libTheory semanticPrimitivesTheory
      patternMatchesTheory patternMatchesLib
-     ml_progTheory ml_translatorTheory
+     ml_progTheory ml_translatorTheory evaluateTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory;
-open terminationTheory ml_translatorTheory integerTheory;
+open ml_translatorTheory integerTheory;
 
 val _ = new_theory "ml_pmatch";
 

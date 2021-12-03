@@ -300,7 +300,7 @@ Proof
   simp [primTypesTheory.prim_type_ids_def, inf_set_tids_subset_def] >>
   rpt (
     irule namespacePropsTheory.nsAll_nsBind >>
-    rw [unconvert_t_def, inf_set_tids_def,terminationTheory.check_freevars_def]) >>
+    rw [unconvert_t_def, inf_set_tids_def,typeSystemTheory.check_freevars_def]) >>
   rw [typeSystemTheory.prim_type_nums_def]
 QED
 

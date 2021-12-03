@@ -2,7 +2,7 @@
   Translate the MIPS instruction encoder and MIPS-specific config.
 *)
 open preamble;
-open terminationTheory
+open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
 open riscvProgTheory
 open mips_targetTheory mipsTheory;
