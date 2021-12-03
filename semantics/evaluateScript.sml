@@ -12,37 +12,42 @@ val _ = new_theory "evaluate"
  * provable termination conditions. However, after termination is proved, we
  * clean up the definition (in HOL4) to remove occurrences of fix_clock. *)
 
-val _ = Define `
- ((fix_clock:'a state -> 'b state#'c -> 'b state#'c) s (s',res)=
-   (( s' with<| clock := (if s'.clock <= s.clock
-                     then s'.clock else s.clock) |>),res))`;
+Definition fix_clock_def:
+  fix_clock s (s',res) =
+    (s' with clock := if s'.clock ≤ s.clock then s'.clock else s.clock, res)
+End
 
+Definition dec_clock_def:
+  dec_clock s = (s with clock := s.clock − 1)
+End
 
-val _ = Define `
- ((dec_clock:'a state -> 'a state) s=  (( s with<| clock := (s.clock -( 1 : num)) |>)))`;
-
-
-val _ = Define `
- ((do_eval_res:(v)list -> 'b state -> 'b state#(((v)sem_env#(dec)list),'a)result) vs s=  ((case do_eval vs s.eval_state of
-    NONE => (s, Rerr (Rabort Rtype_error))
-  | SOME (env1, decs, es1) => (( s with<| eval_state := es1 |>), Rval (env1, decs))
-  )))`;
-
+Definition do_eval_res_def:
+  do_eval_res vs s =
+    case do_eval vs s.eval_state of
+    | NONE => (s,Rerr (Rabort Rtype_error))
+    | SOME (env1,decs,es1) => (s with eval_state := es1,Rval (env1,decs))
+End
 
 (* list_result is equivalent to map_result (\v. [v]) I, where map_result is
  * defined in evalPropsTheory *)
- val _ = Define `
+Definition list_result_def[simp]:
+  list_result (Rval v) = Rval [v] ∧
+  list_result (Rerr e) = Rerr e
+End
 
-((list_result:('a,'b)result ->(('a list),'b)result) (Rval v)=  (Rval [v]))
-/\
-((list_result:('a,'b)result ->(('a list),'b)result) (Rerr e)=  (Rerr e))`;
+Triviality fix_clock_IMP:
+  fix_clock s x = (s1,res) ==> s1.clock <= s.clock
+Proof
+  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
+QED
 
+Triviality list_size_REVERSE:
+  ∀xs. list_size f (REVERSE xs) = list_size f xs
+Proof
+  Induct \\ fs [listTheory.list_size_def,listTheory.list_size_append]
+QED
 
-(*val evaluate : forall 'ffi. state 'ffi -> sem_env v -> list exp -> state 'ffi * result (list v) v*)
-(*val evaluate_match : forall 'ffi. state 'ffi -> sem_env v -> v -> list (pat * exp) -> v -> state 'ffi * result (list v) v*)
-(*val evaluate_decs : forall 'ffi. state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v*)
- val evaluate_defn = Defn.Hol_multi_defns `
-
+Definition evaluate_def[nocompute]:
 ((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env []=  (st, Rval []))
 /\
 ((evaluate:'ffi state ->(v)sem_env ->(exp)list -> 'ffi state#(((v)list),(v))result) st env (e1::e2::es)=
@@ -260,7 +265,97 @@ val _ = Define `
     (st1, Rval env1) =>
     evaluate_decs st1 (extend_dec_env env1 env) ds
   | res => res
-  )))`;
+  )))
+Termination
+  WF_REL_TAC ‘inv_image ($< LEX $<)
+    (λx. case x of
+         | INL(s,_,es) => (s.clock,list_size exp_size es)
+         | INR(INL (s,_,_,pes,_)) => (s.clock,list_size (pair_size pat_size exp_size) pes)
+         | INR(INR (s,_,ds)) => (s.clock,list_size dec_size ds))’
+  \\ rw [do_if_def,do_log_def,do_eval_res_def,dec_clock_def]
+  \\ imp_res_tac fix_clock_IMP \\ fs []
+  \\ fs [listTheory.list_size_def,dec_size_eq,exp_size_eq,list_size_REVERSE]
+End
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) evaluate_defn;
+(* tidy up evalute_def and evaluate_ind *)
+
+Theorem evaluate_clock:
+   (∀(s1:'ffi state) env e r s2. evaluate s1 env e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
+   (∀(s1:'ffi state) env v p v' r s2. evaluate_match s1 env v p v' = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
+   (∀(s1:'ffi state) env ds r s2. evaluate_decs s1 env ds = (s2,r) ⇒ s2.clock ≤ s1.clock)
+Proof
+  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
+  gvs [AllCaseEqs()] >>
+  fs[dec_clock_def,fix_clock_def] >> simp[] >>
+  imp_res_tac fix_clock_IMP >> fs[]
+QED
+
+Theorem fix_clock_do_eval_res:
+   fix_clock s (do_eval_res vs s) = do_eval_res vs s
+Proof
+  simp [do_eval_res_def]
+  \\ rpt (CASE_TAC \\ fs [])
+  \\ simp [fix_clock_def, state_component_equality]
+QED
+
+Theorem fix_clock_evaluate:
+   fix_clock s1 (evaluate s1 env e) = evaluate s1 env e /\
+   fix_clock s1 (evaluate_decs s1 env ds) = evaluate_decs s1 env ds
+Proof
+  Cases_on `evaluate s1 env e` \\ fs [fix_clock_def]
+  \\ Cases_on `evaluate_decs s1 env ds` \\ fs [fix_clock_def]
+  \\ imp_res_tac evaluate_clock
+  \\ fs [arithmeticTheory.MIN_DEF,state_component_equality]
+QED
+
+Theorem full_evaluate_def[compute] =
+  REWRITE_RULE [fix_clock_evaluate, fix_clock_do_eval_res] evaluate_def;
+
+Theorem full_evaluate_ind =
+  REWRITE_RULE [fix_clock_evaluate, fix_clock_do_eval_res] evaluate_ind;
+
+(* store evaluate_def and evaluate_ind in parts *)
+
+val eval_pat = ``evaluate$evaluate _ _ _``
+val evaluate_conjs =
+  CONJUNCTS full_evaluate_def
+  |> filter (fn th => (th |> SPEC_ALL |> concl |> dest_eq |> fst
+                          |> can (match_term eval_pat)));
+
+val match_pat = ``evaluate$evaluate_match _ _ _ _ _``
+val evaluate_match_conjs =
+  CONJUNCTS full_evaluate_def
+  |> filter (fn th => (th |> SPEC_ALL |> concl |> dest_eq |> fst
+                          |> can (match_term match_pat)));
+
+val decs_pat = ``evaluate$evaluate_decs _ _ _``
+val evaluate_decs_conjs =
+  CONJUNCTS full_evaluate_def
+  |> filter (fn th => (th |> SPEC_ALL |> concl |> dest_eq |> fst
+                          |> can (match_term decs_pat)));
+
+Theorem evaluate_def = LIST_CONJ (evaluate_conjs @ evaluate_match_conjs);
+
+Theorem evaluate_match_def = LIST_CONJ evaluate_match_conjs;
+
+Theorem evaluate_decs_def = LIST_CONJ evaluate_decs_conjs;
+
+Theorem evaluate_ind =
+  full_evaluate_ind
+  |> Q.SPECL [`P1`,`P2`,`\v1 v2 v3. T`]
+  |> SIMP_RULE std_ss []
+  |> Q.GENL [`P1`,`P2`];
+
+Theorem evaluate_match_ind =
+  full_evaluate_ind
+  |> Q.SPECL [`\v1 v2 v3. T`,`P2`,`\v1 v2 v3. T`]
+  |> SIMP_RULE std_ss []
+  |> Q.GEN `P2`;
+
+Theorem evaluate_decs_ind =
+  full_evaluate_ind
+  |> Q.SPECL [`\v1 v2 v3. T`,`\v1 v2 v3 v4 v5. T`, `P`]
+  |> SIMP_RULE std_ss []
+  |> Q.GEN `P`;
+
 val _ = export_theory()
