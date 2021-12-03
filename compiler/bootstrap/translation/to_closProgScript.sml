@@ -69,7 +69,6 @@ val _ = use_long_names:=true;
 val r = translate flat_to_closTheory.dest_pat_pmatch;
 val r = translate flat_to_closTheory.arg1_pmatch;
 val r = translate flat_to_closTheory.arg2_pmatch;
-val r = translate flat_to_closTheory.dest_Constant_pmatch;
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -167,6 +166,7 @@ val r = translate clos_numberTheory.renumber_code_locs_def;
 
 val r = translate clos_opTheory.is_Var_pmatch;
 val r = translate clos_opTheory.dest_Const_pmatch;
+val r = translate clos_opTheory.dest_Build_pmatch;
 val r = translate clos_opTheory.dest_Cons_pmatch;
 val r = translate clos_opTheory.dest_ElemAt_pmatch;
 val r = translate clos_opTheory.dest_TagEq_pmatch;

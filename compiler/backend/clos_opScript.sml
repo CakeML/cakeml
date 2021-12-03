@@ -25,6 +25,20 @@ Proof
   \\ Cases_on ‘x’ \\ EVAL_TAC
 QED
 
+Definition dest_Build_def:
+  dest_Build (Build [i]) = SOME i ∧
+  dest_Build _ = NONE
+End
+
+Theorem dest_Build_pmatch:
+  dest_Build x = case x of Build [i] => SOME i | _ => NONE
+Proof
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ Cases_on ‘x’ \\ EVAL_TAC
+  \\ Cases_on ‘l’ \\ fs [dest_Build_def]
+  \\ Cases_on ‘t’ \\ fs [dest_Build_def]
+QED
+
 Definition dest_Cons_def:
   dest_Cons (closLang$Cons i) = SOME i ∧
   dest_Cons _ = NONE
@@ -115,6 +129,7 @@ End
 Overload dest_Op_Cons[local]     = “dest_Op dest_Cons”
 Overload dest_Op_Cons_Nil[local] = “dest_Op_Nil dest_Cons”
 Overload dest_Op_Const[local]    = “dest_Op_Nil dest_Const”
+Overload dest_Op_Build[local]    = “dest_Op_Nil dest_Build”
 
 Definition dest_Op_Consts_def:
   dest_Op_Consts x y =
@@ -204,11 +219,26 @@ Definition eq_direct_const_def:
          | NONE => NONE)
 End
 
+Definition eq_direct_build_def:
+  eq_direct_build x y =
+    dtcase dest_Op_Build x of
+    | SOME p =>
+        (dtcase dest_Op_Build y of
+         | SOME q => SOME (MakeBool (q = p))
+         | NONE => SOME (Op None (EqualConst p) [y]))
+    | NONE =>
+        (dtcase dest_Op_Build y of
+         | SOME p => SOME (Op None (EqualConst p) [x])
+         | NONE => NONE)
+End
+
 Definition eq_direct_def:
   eq_direct x y =
     dtcase eq_direct_const x y of
     | SOME res => SOME res
-    | NONE => eq_direct_nil x y
+    | NONE => dtcase eq_direct_build x y of
+              | SOME res => SOME res
+              | NONE => eq_direct_nil x y
 End
 
 Definition cons_measure_def:

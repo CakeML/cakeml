@@ -40,9 +40,9 @@ Definition compile_lit_def:
      (dtcase l of
       | IntLit i => Const i
       | Char c => Const (& (ORD c))
-      | StrLit s => Constant (ConstStr (mlstring$implode s))
+      | StrLit s => Build [Str (mlstring$implode s)]
       | Word8 b => Const (& (w2n b))
-      | Word64 w => Constant (ConstWord64 w)) []
+      | Word64 w => Build [W64 w]) []
 End
 
 Definition arg1_def:
@@ -220,42 +220,6 @@ Proof
   Cases_on ‘op’ \\ fs [dest_nop_def] \\ every_case_tac \\ fs []
 QED
 
-Definition dest_Constant_def:
-  dest_Constant (Op t (Constant c) []) = SOME c ∧
-  dest_Constant (Op t (Const i) []) = SOME (ConstInt i) ∧
-  dest_Constant (Op t (Cons n) []) = SOME (ConstCons n []) ∧
-  dest_Constant _ = NONE
-End
-
-Theorem dest_Constant_pmatch:
-  dest_Constant xs =
-    case xs of
-    | Op t (Constant x) [] => SOME x
-    | Op t (Const i) [] => SOME (ConstInt i)
-    | Op t (Cons n) [] => SOME (ConstCons n [])
-    | _ => NONE
-Proof
-  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  \\ every_case_tac \\ fs [dest_Constant_def]
-QED
-
-Definition dest_Constants_def:
-  dest_Constants [] = SOME [] ∧
-  dest_Constants (c::cs) =
-    dtcase dest_Constant c of
-    | NONE => NONE
-    | SOME x => dtcase dest_Constants cs of
-                | NONE => NONE
-                | SOME xs => SOME (x::xs)
-End
-
-Definition SmartCons_def:
-  SmartCons t tag xs =
-    dtcase dest_Constants xs of
-    | NONE => Op t (Cons tag) xs
-    | SOME cs => Op t (Constant (ConstCons tag (REVERSE cs))) []
-End
-
 Definition compile_def:
   (compile m [] = []) /\
   (compile m (x::y::xs) = compile m [x] ++ compile m (y::xs)) /\
@@ -264,7 +228,7 @@ Definition compile_def:
   (compile m [Var_local t v] = [Var t (findi (SOME v) m)]) /\
   (compile m [Con t n es] =
      let tag = (dtcase n of SOME (t,_) => t | _ => 0) in
-       [SmartCons t tag (compile m (REVERSE es))]) /\
+       [Op t (Cons tag) (compile m (REVERSE es))]) /\
   (compile m [App t op es] =
      dtcase dest_nop op es of
      | SOME e => compile m [e]
