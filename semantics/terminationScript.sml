@@ -92,94 +92,26 @@ val _ = register "nsMap" nsMap_def nsMap_ind;
 
 val _ = register "pmatch" pmatch_def pmatch_ind;
 
-val (type_subst_def, type_subst_ind) =
-  tprove_no_defn ((type_subst_def, type_subst_ind),
-  WF_REL_TAC `measure (λ(x,y). t_size y)` >>
-  rw [] >>
-  induct_on `ts` >>
-  rw [t_size_def] >>
-  res_tac >>
-  decide_tac);
 val _ = register "type_subst" type_subst_def type_subst_ind;
 
-val (type_name_subst_def, type_name_subst_ind) =
-  tprove_no_defn ((type_name_subst_def, type_name_subst_ind),
-  WF_REL_TAC `measure (λ(x,y). ast_t_size y)` >>
-  rw [] >>
-  induct_on `ts` >>
-  rw [ast_t_size_def] >>
-  res_tac >>
-  decide_tac);
 val _ = register "type_name_subst" type_name_subst_def type_name_subst_ind;
 
-val (check_type_names_def, check_type_names_ind) =
-  tprove_no_defn ((check_type_names_def, check_type_names_ind),
-  WF_REL_TAC `measure (λ(x,y). ast_t_size y)` >>
-  rw [] >>
-  induct_on `ts` >>
-  rw [ast_t_size_def] >>
-  res_tac >>
-  decide_tac);
 val _ = register "check_type_names" check_type_names_def check_type_names_ind;
 
-val (deBruijn_subst_def, deBruijn_subst_ind) =
-  tprove_no_defn ((deBruijn_subst_def, deBruijn_subst_ind),
-  WF_REL_TAC `measure (λ(_,x,y). t_size y)` >>
-  rw [] >>
-  induct_on `ts'` >>
-  rw [t_size_def] >>
-  res_tac >>
-  decide_tac);
 val _ = register "deBruijn_subst" deBruijn_subst_def deBruijn_subst_ind;
 
-val (check_freevars_def,check_freevars_ind) =
-  tprove_no_defn ((check_freevars_def,check_freevars_ind),
-wf_rel_tac `measure (t_size o SND o SND)` >>
-srw_tac [ARITH_ss] [t_size_def] >>
-induct_on `ts` >>
-srw_tac [ARITH_ss] [t_size_def] >>
-res_tac >>
-decide_tac);
 val _ = register "check_freevars" check_freevars_def check_freevars_ind;
 
-val (check_freevars_ast_def,check_freevars_ast_ind) =
-  tprove_no_defn ((check_freevars_ast_def,check_freevars_ast_ind),
-wf_rel_tac `measure (ast_t_size o SND)` >>
-srw_tac [ARITH_ss] [ast_t_size_def] >>
-induct_on `ts` >>
-srw_tac [ARITH_ss] [ast_t_size_def] >>
-res_tac >>
-decide_tac);
 val _ = register "check_freevars_ast" check_freevars_ast_def check_freevars_ast_ind;
 
-val (deBruijn_inc_def,deBruijn_inc_ind) =
-  tprove_no_defn ((deBruijn_inc_def,deBruijn_inc_ind),
-wf_rel_tac `measure (t_size o SND o SND)` >>
-srw_tac [ARITH_ss] [t_size_def] >>
-induct_on `ts` >>
-srw_tac [ARITH_ss] [t_size_def] >>
-res_tac >>
-decide_tac);
 val _ = register "deBruijn_inc" deBruijn_inc_def deBruijn_inc_ind;
 
-val (is_value_def,is_value_ind) =
-  tprove_no_defn ((is_value_def,is_value_ind),
-wf_rel_tac `measure (exp_size)` >>
-simp[] >>
-srw_tac [][] >>
-induct_on `es` >>
-srw_tac [] [exp_size_def] >>
-res_tac >>
-decide_tac);
 val _ = register "is_value" is_value_def is_value_ind;
 
 val _ = register "do_eq" do_eq_def do_eq_ind;
 
 val _ = register "v_to_list" v_to_list_def v_to_list_ind;
 
-val (maybe_all_list_def,maybe_all_list_ind) =
-  tprove_no_defn ((maybe_all_list_def,maybe_all_list_ind),
-wf_rel_tac `measure LENGTH` \\ simp []);
 val _ = register "maybe_all_list" maybe_all_list_def maybe_all_list_ind;
 
 val _ = register "v_to_char_list" v_to_char_list_def v_to_char_list_ind;
@@ -201,20 +133,6 @@ Proof
   pairarg_tac >>
   fs []
 QED
-
-(*
-Theorem do_log_thm:
-   do_log l v e =
-    if l = And ∧ v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Exp e) else
-    if l = Or ∧ v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Exp e) else
-    if v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Val v) else
-    if v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Val v) else
-    NONE
-Proof
-  rw[semanticPrimitivesTheory.do_log_def] >>
-    every_case_tac >> rw[]
-QED
-    *)
 
 val fix_clock_IMP = Q.prove(
   `fix_clock s x = (s1,res) ==> s1.clock <= s.clock`,

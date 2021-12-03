@@ -1069,8 +1069,7 @@ val _ = Define `
  ((v_to_decs:v ->((dec)list)option) v=  ($some (\ ds .  (v = decs_to_v ds))))`;
 
 
-(*val maybe_all_list : forall 'a. list (maybe 'a) -> maybe (list 'a)*)
- val maybe_all_list_defn = Hol_defn "maybe_all_list" `
+Definition maybe_all_list_def:
  ((maybe_all_list:('a option)list ->('a list)option) v=
    ((case v of
     [] => SOME []
@@ -1079,9 +1078,8 @@ val _ = Define `
       SOME xs => SOME (x :: xs)
     | NONE => NONE
     )
-  )))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn maybe_all_list_defn;
+  )))
+End
 
 (*val v_to_word8 : v -> maybe word8*)
 val _ = Define `
