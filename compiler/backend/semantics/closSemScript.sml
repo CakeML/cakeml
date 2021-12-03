@@ -184,6 +184,11 @@ Definition do_app_def:
         Rval (Unit, s with globals := s.globals ++ [NONE])
     | (Const i,[]) => Rval (Number i, s)
     | (Constant c,[]) => Rval (make_const c, s)
+    | (Build p,[]) =>
+        (case p of
+         | [Str t] => Rval (ByteVector (MAP (n2w o ORD) (mlstring$explode t)), s)
+         | [W64 w] => Rval (Word64 w, s)
+         | _ => Error)
     | (Cons tag,xs) => Rval (Block tag xs, s)
     | (ConsExtend tag, Block _ xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ &LENGTH xs' < lower + len ∨

@@ -1393,7 +1393,7 @@ Theorem do_app[local]:
    (op <> Ref) /\ (op <> Update) ∧
    (op ≠ RefArray) ∧ (∀f. op ≠ RefByte f) ∧ (op ≠ UpdateByte) ∧
    (op ≠ FromListByte) ∧ op ≠ ConcatByteVec ∧
-   (∀b. op ≠ CopyByte b) ∧ (∀c. op ≠ Constant c) ∧
+   (∀b. op ≠ CopyByte b) ∧ (∀c. op ≠ Constant c) ∧ (∀s. op ≠ Build [Str s]) ∧
    (∀n. op ≠ (FFI n)) ==>
    ?w t2.
      (do_app (compile_op op) ys t1 = Rval (w,t2)) /\
@@ -1412,6 +1412,12 @@ Proof
   \\ Cases_on `?i. op = LessConstSmall i` THEN1
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def])
+  \\ Cases_on `?i. op = Build i` THEN1
+    (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
+     \\ fs[v_rel_SIMP] \\ rveq
+     \\ fs [bvlSemTheory.do_app_def,do_build_const_def,do_build_def,do_part_def]
+     \\ fs[v_rel_SIMP] \\ rveq \\ fs [APPLY_UPDATE_THM]
+     \\ ‘(t1 with refs := t1.refs) = t1’ by fs [state_component_equality] \\ fs [])
   \\ Cases_on `?p. op = EqualConst p` THEN1
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def])
@@ -1432,8 +1438,6 @@ Proof
      \\ res_tac \\ fs [] \\ rveq \\ fs []
      \\ rw [] \\ res_tac \\ fs []
      \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
-  \\ Cases_on `?i. op = EqualConst i` THEN1
-    (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs [])
   \\ Cases_on `op = Install` THEN1 fs[closSemTheory.do_app_def]
   \\ Cases_on `op = Equal` THEN1
    (srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def,
@@ -3084,45 +3088,20 @@ Proof
   fs [state_component_equality]
 QED
 
-Theorem do_build_const_thm:
-  do_build_const (MAP clos_constantProof$update_tag parts) t2.refs = (v,rs) ∧
+Theorem do_part_Str:
   state_rel f2 p1 t2 ∧ f1 ⊑ f2 ∧
-  FDIFF t1.refs (FRANGE f1) ⊑ FDIFF t2.refs (FRANGE f2) ⇒
+  FDIFF t1.refs (FRANGE f1) ⊑ FDIFF t2.refs (FRANGE f2) ∧
+  do_part m2 (Str m) t2.refs = (x,refs1) ∧
+  (∀k. v_rel p1.max_app f2 t2.refs t2.code (m1 k) (m2 k)) ⇒
   ∃f2'.
-    v_rel p1.max_app f2' rs t2.code
-      (clos_constantProof$build_const' parts) v ∧
-    state_rel f2' p1 (t2 with refs := rs) ∧ f1 ⊑ f2' ∧
-    FDIFF t1.refs (FRANGE f1) ⊑ FDIFF rs (FRANGE f2')
+    (∀k. v_rel p1.max_app f2' refs1 t2.code
+               (m1⦇n ↦ ByteVector (MAP (n2w ∘ ORD) (mlstring$explode m))⦈ k)
+               (m2⦇n ↦ x⦈ k)) ∧ f1 ⊑ f2' ∧
+    FDIFF t1.refs (FRANGE f1) ⊑ FDIFF refs1 (FRANGE f2') ∧
+    state_rel f2' p1 (t2 with refs := refs1)
 Proof
-  fs [do_build_const_def,clos_constantProofTheory.build_const'_def]
-  \\ qmatch_goalsub_abbrev_tac ‘do_build m2’
-  \\ qmatch_goalsub_abbrev_tac ‘clos_constantProof$build' m1’
-  \\ ‘∀k. v_rel p1.max_app f2 t2.refs t2.code (m1 k) (m2 k)’ by
-    (unabbrev_all_tac \\ fs [] \\ simp [Once v_rel_cases])
-  \\ pop_assum mp_tac
-  \\ qspec_tac (‘0n’,‘n:num’)
-  \\ goal_term (fn tm => EVERY (map ID_SPEC_TAC (free_vars tm)))
-  \\ rpt (pop_assum kall_tac)
-  \\ Induct_on ‘parts’ \\ fs []
-  \\ fs [do_build_def,clos_constantProofTheory.build'_def,do_part_def]
-  THEN1 (rw [] \\ first_x_assum $ irule_at (Pos last)\\ fs [refs_lemma])
-  \\ rw [] \\ pairarg_tac \\ fs []
-  \\ ‘t2.code = (t2 with refs := refs1).code ∧
-      (t2 with refs := rs) = ((t2 with refs := refs1) with refs := rs)’ by fs []
-  \\ asm_rewrite_tac []
-  \\ first_x_assum irule \\ fs []
-  \\ first_x_assum $ irule_at (Pos $ el 2) \\ gvs []
-  \\ Cases_on ‘h’ \\ gvs [do_part_def,update_tag_def]
-  THEN1
-   (qexists_tac ‘f2’ \\ fs [refs_lemma]
-    \\ rw [APPLY_UPDATE_THM,clos_constantProofTheory.build_part'_def]
-    \\ simp [Once v_rel_cases]
-    \\ disj1_tac \\ qid_spec_tac ‘l’
-    \\ Induct \\ fs [])
-  \\ TRY
-   (qexists_tac ‘f2’ \\ fs [refs_lemma]
-    \\ rw [APPLY_UPDATE_THM,clos_constantProofTheory.build_part'_def]
-    \\ simp [Once v_rel_cases] \\ NO_TAC)
+  rpt strip_tac
+  \\ gvs [do_part_def]
   \\ qexists_tac ‘f2’ \\ fs [refs_lemma,update_tag_def]
   \\ fs [APPLY_UPDATE_THM,clos_constantProofTheory.build_part'_def]
   \\ qabbrev_tac ‘k = LEAST ptr. ptr ∉ FDOM t2.refs’
@@ -3168,6 +3147,50 @@ Proof
   asm_exists_tac \\ fs[] \\ rw[] \\
   match_mp_tac v_rel_NEW_REF \\
   simp[LEAST_NOTIN_FDOM]
+QED
+
+Theorem do_build_const_thm:
+  do_build_const (MAP clos_constantProof$update_tag parts) t2.refs = (v,rs) ∧
+  state_rel f2 p1 t2 ∧ f1 ⊑ f2 ∧
+  FDIFF t1.refs (FRANGE f1) ⊑ FDIFF t2.refs (FRANGE f2) ⇒
+  ∃f2'.
+    v_rel p1.max_app f2' rs t2.code
+      (clos_constantProof$build_const' parts) v ∧
+    state_rel f2' p1 (t2 with refs := rs) ∧ f1 ⊑ f2' ∧
+    FDIFF t1.refs (FRANGE f1) ⊑ FDIFF rs (FRANGE f2')
+Proof
+  fs [do_build_const_def,clos_constantProofTheory.build_const'_def]
+  \\ qmatch_goalsub_abbrev_tac ‘do_build m2’
+  \\ qmatch_goalsub_abbrev_tac ‘clos_constantProof$build' m1’
+  \\ ‘∀k. v_rel p1.max_app f2 t2.refs t2.code (m1 k) (m2 k)’ by
+    (unabbrev_all_tac \\ fs [] \\ simp [Once v_rel_cases])
+  \\ pop_assum mp_tac
+  \\ qspec_tac (‘0n’,‘n:num’)
+  \\ goal_term (fn tm => EVERY (map ID_SPEC_TAC (free_vars tm)))
+  \\ rpt (pop_assum kall_tac)
+  \\ Induct_on ‘parts’ \\ fs []
+  \\ fs [do_build_def,clos_constantProofTheory.build'_def(*,do_part_def*)]
+  THEN1 (rw [] \\ first_x_assum $ irule_at (Pos last)\\ fs [refs_lemma])
+  \\ rw [] \\ pairarg_tac \\ fs []
+  \\ ‘t2.code = (t2 with refs := refs1).code ∧
+      (t2 with refs := rs) = ((t2 with refs := refs1) with refs := rs)’ by fs []
+  \\ asm_rewrite_tac []
+  \\ first_x_assum irule \\ fs []
+  \\ first_x_assum $ irule_at (Pos $ el 2) \\ gvs []
+  \\ Cases_on ‘h’ \\ gvs []
+  THEN1
+   (gvs[do_part_def,update_tag_def] \\ qexists_tac ‘f2’ \\ fs [refs_lemma]
+    \\ rw [APPLY_UPDATE_THM,clos_constantProofTheory.build_part'_def]
+    \\ simp [Once v_rel_cases]
+    \\ disj1_tac \\ qid_spec_tac ‘l’
+    \\ Induct \\ fs [])
+  \\ TRY
+   (gvs[do_part_def,update_tag_def] \\ qexists_tac ‘f2’ \\ fs [refs_lemma]
+    \\ rw [APPLY_UPDATE_THM,clos_constantProofTheory.build_part'_def]
+    \\ simp [Once v_rel_cases] \\ NO_TAC)
+  \\ fs [update_tag_def,clos_constantProofTheory.build_part'_def]
+  \\ drule_all do_part_Str
+  \\ metis_tac []
 QED
 
 Theorem compile_exps_correct:
@@ -3768,6 +3791,20 @@ Proof
       strip_tac >> simp[] >>
       first_assum(match_exists_tac o concl) >> simp[])
     \\ (Cases_on `a'`) \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ Cases_on ‘∃c. op = Build [Str c]’
+    THEN1
+     (gvs [closSemTheory.do_app_def,do_app_def,CaseEq"list",PULL_EXISTS,
+           do_build_const_def,do_build_def] \\ fs [AllCaseEqs()]
+      \\ Cases_on ‘do_part (λx. Number 0) (Str c) t2.refs’ \\ fs []
+      \\ fs [APPLY_UPDATE_THM]
+      \\ drule_then (drule_then (drule_then (drule_then mp_tac))) do_part_Str
+      \\ disch_then (qspecl_then [‘0’,‘K $ Number 0’] mp_tac)
+      \\ impl_tac THEN1 fs [Once v_rel_cases]
+      \\ strip_tac
+      \\ pop_assum $ irule_at Any
+      \\ pop_assum $ irule_at Any
+      \\ first_x_assum (qspec_then ‘0’ mp_tac)
+      \\ fs [APPLY_UPDATE_THM])
     \\ Cases_on ‘∃c. op = Constant c’
     THEN1
      (gvs []
