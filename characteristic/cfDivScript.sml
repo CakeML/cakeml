@@ -37,7 +37,7 @@ fun append_prog tm = let
 
 Theorem dest_opapp_exp_size:
   !tm f arg. dest_opapp tm = SOME(f,arg)
-   ==> exps_size arg < exp_size tm
+   ==> list_size exp_size arg < exp_size tm
 Proof
   ho_match_mp_tac cfNormaliseTheory.dest_opapp_ind
   >> rw[cfNormaliseTheory.dest_opapp_def]

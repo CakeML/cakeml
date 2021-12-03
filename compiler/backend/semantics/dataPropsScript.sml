@@ -1508,10 +1508,10 @@ Proof
 QED
 
 Theorem funpow_dec_clock_clock:
-   !n s. FUNPOW dec_clock n s = (s with clock := s.clock - n)
+   !n s. FUNPOW dataSem$dec_clock n s = (s with clock := s.clock - n)
 Proof
   Induct_on `n` >>
-  srw_tac[][FUNPOW, state_component_equality, dec_clock_def, ADD1] >>
+  srw_tac[][FUNPOW, state_component_equality, dataSemTheory.dec_clock_def, ADD1] >>
   decide_tac
 QED
 
