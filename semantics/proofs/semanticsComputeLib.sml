@@ -6,7 +6,7 @@ struct
 
 open HolKernel boolLib bossLib
 (*
-open astTheory gramTheory semanticPrimitivesTheory terminationTheory
+open astTheory gramTheory semanticPrimitivesTheory evaluateTheory
      lexer_funTheory tokenUtilsTheory cmlPtreeConversionTheory
 *)
 
@@ -67,7 +67,7 @@ val add_ast_compset = computeLib.extend_compset
     (*,typeSystemTheory.check_exn_tenv_def*)
     (*,typeSystemTheory.tid_exn_to_tc_def*)
     ,typeSystemTheory.build_ctor_tenv_def
-    ,terminationTheory.check_dup_ctors_thm
+    ,typeSystemTheory.check_dup_ctors_def
     ,semanticPrimitivesTheory.build_constrs_def
     ,semanticPrimitivesTheory.build_tdefs_def
     ,semanticPrimitivesTheory.result_case_def
