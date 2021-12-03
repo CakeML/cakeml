@@ -1,23 +1,20 @@
 (*
-  A formalisation of pseudo-boolean constraints
+  Formalisation of normalised pseudo-boolean constraints
 *)
 
-open preamble;
+open preamble pb_preconstraintTheory;
 
 val _ = new_theory "pb_constraint";
 
 val _ = numLib.prefer_num();
 
-(* abstract syntax for normalised syntax *)
-
-Type var = “:num”
-
+(*
+  Normalized pseudoboolean constraints
+  PBC xs n represents constraint xs ≥ n
+  An additional compactness assumption guarantees uniqueness
+*)
 Datatype:
-  lit = Pos var | Neg var
-End
-
-Datatype:
-  pb_constraint = PBC ((num # lit) list) num
+  npbc = PBC ((num # lit) list) num
 End
 
 (* semantics *)
@@ -36,8 +33,19 @@ Definition eval_term_def[simp]:
   eval_term w (c,l) = c * eval_lit w l
 End
 
-Definition eval_pbc_def:
-  eval_pbc w (PBC xs n) ⇔ SUM (MAP (eval_term w) xs) ≥ n
+Definition satisfies_npbc_def:
+  satisfies_npbc w (PBC xs n) ⇔ SUM (MAP (eval_term w) xs) ≥ n
+End
+
+(* Tentative representation of PBF as a set of constraints *)
+Definition satisfies_def:
+  satisfies w pbf ⇔
+  ∀c. c ∈ pbf ⇒ satisfies_npbc w c
+End
+
+Definition satisfiable_def:
+  satisfiable pbf ⇔
+  ∃w. satisfies w pbf
 End
 
 (* compactness *)
@@ -124,11 +132,11 @@ Proof
 QED
 
 Theorem add_thm:
-  eval_pbc w c1 ∧ eval_pbc w c2 ⇒ eval_pbc w (add c1 c2)
+  satisfies_npbc w c1 ∧ satisfies_npbc w c2 ⇒ satisfies_npbc w (add c1 c2)
 Proof
   Cases_on ‘c1’ \\ Cases_on ‘c2’ \\ fs [add_def]
   \\ pairarg_tac \\ fs [] \\ rw []
-  \\ fs [eval_pbc_def]
+  \\ fs [satisfies_npbc_def]
   \\ drule_all add_lists_thm
   \\ disch_then (qspec_then ‘w’ assume_tac)
   \\ fs []
@@ -247,10 +255,10 @@ Definition divide_def:
 End
 
 Theorem divide_thm:
-  eval_pbc w c ∧ k ≠ 0 ⇒ eval_pbc w (divide c k)
+  satisfies_npbc w c ∧ k ≠ 0 ⇒ satisfies_npbc w (divide c k)
 Proof
   Cases_on ‘c’ \\ fs [divide_def]
-  \\ rw [eval_pbc_def,GREATER_EQ,div_ceiling_le_x]
+  \\ rw [satisfies_npbc_def,GREATER_EQ,div_ceiling_le_x]
   \\ irule LESS_EQ_TRANS
   \\ first_x_assum $ irule_at Any
   \\ Induct_on ‘l’ \\ fs [FORALL_PROD]
@@ -295,9 +303,9 @@ Definition not_def:
 End
 
 Theorem not_thm:
-  eval_pbc w (not c) ⇔ ~eval_pbc w c
+  satisfies_npbc w (not c) ⇔ ~satisfies_npbc w c
 Proof
-  Cases_on ‘c’ \\ fs [not_def,eval_pbc_def,GREATER_EQ]
+  Cases_on ‘c’ \\ fs [not_def,satisfies_npbc_def,GREATER_EQ]
   \\ qid_spec_tac ‘n’
   \\ qid_spec_tac ‘l’
   \\ Induct \\ fs [FORALL_PROD] \\ rw []
@@ -318,10 +326,10 @@ Definition multiply_def:
 End
 
 Theorem multiply_thm:
-  eval_pbc w c ⇒ eval_pbc w (multiply c k)
+  satisfies_npbc w c ⇒ satisfies_npbc w (multiply c k)
 Proof
   Cases_on ‘c’ \\ fs [multiply_def]
-  \\ rw [eval_pbc_def,GREATER_EQ]
+  \\ rw [satisfies_npbc_def,GREATER_EQ]
   \\ drule LESS_MONO_MULT
   \\ disch_then (qspec_then`k` mp_tac)
   \\ REWRITE_TAC [Once MULT_COMM]
@@ -358,10 +366,10 @@ Proof
 QED
 
 Theorem saturate_thm:
-  eval_pbc w c ⇒ eval_pbc w (saturate c)
+  satisfies_npbc w c ⇒ satisfies_npbc w (saturate c)
 Proof
   Cases_on ‘c’ \\ fs [saturate_def]
-  \\ rw [eval_pbc_def,GREATER_EQ]
+  \\ rw [satisfies_npbc_def,GREATER_EQ]
   \\ `∀a.
       n ≤ SUM (MAP (eval_term w) l) + a ⇒
       n ≤ SUM (MAP (eval_term w) (MAP (λ(c,v). (MIN c n,v)) l)) + a` by (
@@ -425,11 +433,11 @@ val weaken_aux_theorem0 =
   Q.SPEC`0` |> SIMP_RULE std_ss [];
 
 Theorem weaken_thm:
-  eval_pbc w c ⇒ eval_pbc w (weaken c v)
+  satisfies_npbc w c ⇒ satisfies_npbc w (weaken c v)
 Proof
   Cases_on ‘c’ \\ fs [weaken_def]
   \\ pairarg_tac \\ fs[]
-  \\ rw [eval_pbc_def,GREATER_EQ]
+  \\ rw [satisfies_npbc_def,GREATER_EQ]
   \\ match_mp_tac weaken_aux_theorem0
   \\ metis_tac[]
 QED
@@ -588,10 +596,10 @@ Definition subst_def:
 End
 
 Theorem subst_thm:
-  eval_pbc w (subst f c) = eval_pbc (assign f w) c
+  satisfies_npbc w (subst f c) = satisfies_npbc (assign f w) c
 Proof
-  Cases_on ‘c’ \\ fs [eval_pbc_def,subst_def]
-  \\ rpt (pairarg_tac \\ gvs [eval_pbc_def,GREATER_EQ])
+  Cases_on ‘c’ \\ fs [satisfies_npbc_def,subst_def]
+  \\ rpt (pairarg_tac \\ gvs [satisfies_npbc_def,GREATER_EQ])
   \\ ‘∀l old new k.
         subst_aux f l = (old,new,k) ⇒
         SUM (MAP (eval_term (assign f w)) l) =
@@ -644,17 +652,6 @@ Proof
   \\ Cases_on ‘h'’ \\ fs []
 QED
 
-(* Tentative representation of PBF as a set of constraints *)
-Definition satisfies_def:
-  satisfies w pbf ⇔
-  ∀c. c ∈ pbf ⇒ eval_pbc w c
-End
-
-Definition satisfiable_def:
-  satisfiable pbf ⇔
-  ∃w. satisfies w pbf
-End
-
 Definition sat_implies_def:
   sat_implies pbf pbf' ⇔
   ∀w. satisfies w pbf ⇒ satisfies w pbf'
@@ -673,7 +670,7 @@ End
 
 Theorem satisfies_simp[simp]:
   satisfies w EMPTY = T ∧
-  satisfies w (c INSERT f) = (eval_pbc w c ∧ satisfies w f) ∧
+  satisfies w (c INSERT f) = (satisfies_npbc w c ∧ satisfies w f) ∧
   satisfies w (f ∪ h) = (satisfies w f ∧ satisfies w h)
 Proof
   fs [satisfies_def] \\ metis_tac []
@@ -696,11 +693,45 @@ Proof
   \\ Cases_on ‘satisfiable f’ \\ fs []
   \\ fs [satisfiable_def]
   \\ fs [sat_implies_def,not_thm]
-  \\ Cases_on ‘eval_pbc w' c’ THEN1 metis_tac []
+  \\ Cases_on ‘satisfies_npbc w' c’ THEN1 metis_tac []
   \\ first_x_assum drule_all
   \\ rw [subst_thm]
   \\ first_x_assum $ irule_at (Pos last)
   \\ fs [satisfies_def,PULL_EXISTS,subst_thm]
+QED
+
+(* TODO: this is not right normalize properly *)
+Definition pbc_to_npbc_def:
+  (pbc_to_npbc (GreaterEqual xs n) = PBC (MAP (λ(c,l). Num c,l) xs) (Num n)) ∧
+  (pbc_to_npbc (Equal xs n) = PBC [] 0) (* never happens *)
+End
+
+Definition normalize_def:
+  normalize pbf =
+  let pbf' = FLAT (MAP pbc_ge pbf) in
+  MAP pbc_to_npbc pbf'
+End
+
+Theorem pbc_to_npbc_thm:
+  (∀xs n. pbc ≠ Equal xs n) ∧
+  satisfies_pbc w pbc ⇒
+  satisfies_npbc w (pbc_to_npbc pbc)
+Proof
+  cheat
+QED
+
+Theorem normalize_thm:
+  satisfies w (set pbf) ⇔
+  satisfies w (set (normalize pbf))
+Proof
+  simp[normalize_def]>>
+  qmatch_goalsub_abbrev_tac`MAP _ pbf'`>>
+  `satisfies w (set pbf) ⇔ satisfies w (set pbf')` by
+    (simp[Abbr`pbf'`]>>
+    Induct_on`pbf`>>
+    simp[]>>
+    metis_tac[pbc_ge_thm])>>
+  cheat
 QED
 
 (*

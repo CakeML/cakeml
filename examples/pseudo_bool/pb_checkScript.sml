@@ -36,9 +36,9 @@ End
 
 (*
   The type of PB formulas represented as a finite map
-  num -> pb_constraint
+  num -> pbc
 *)
-Type pbf = ``:pb_constraint spt``;
+Type pbf = ``:npbc spt``;
 Type pbp = ``:pbpstep list``;
 
 (* Computes the LHS term of the slack of a constraint under
@@ -108,7 +108,7 @@ End
 Theorem check_polish_correct:
   ∀n c w.
   check_polish fml n = SOME c ∧ satisfies w (range fml) ⇒
-  eval_pbc w c
+  satisfies_npbc w c
 Proof
   Induct_on`n`>>rw[check_polish_def]
   >- (
@@ -169,10 +169,10 @@ QED
 
 Theorem check_contradiction_unsat:
   check_contradiction c ⇒
-  ¬eval_pbc w c
+  ¬satisfies_npbc w c
 Proof
   Cases_on`c`>>
-  rw[check_contradiction_def,eval_pbc_def,lslack_def]>>
+  rw[check_contradiction_def,satisfies_npbc_def,lslack_def]>>
   qmatch_asmsub_abbrev_tac`MAP FST lss`>>
   `lss = l` by
     fs[Abbr`lss`,FILTER_EQ_ID,EVERY_MEM,FORALL_PROD]>>
@@ -293,21 +293,28 @@ Definition toks_def:
   toks s = MAP tokenize (tokens blanks s)
 End
 
-(* OPB parser *)
+(* OPB parser
+  Parses a literal xi, ~xi
+  Note: for now, only handle default "xi" var names
+*)
 
 Definition parse_lit_def:
   parse_lit s =
   if strlen s ≥ 2 ∧ strsub s 0 = #"~" /\ strsub s 1 = #"x" then
-    OPTION_MAP Neg (mlint$fromNatString (substring s 2 (strlen s - 1)))
+    OPTION_MAP Neg (mlint$fromNatString (substring s 2 (strlen s - 2)))
   else if strlen s ≥ 1 ∧ strsub s 0 = #"x" then
     OPTION_MAP Pos (mlint$fromNatString (substring s 1 (strlen s - 1)))
   else NONE
 End
 
-(* Parsing the LHS of a constraint and returns the rest *)
+(*
+  EVAL ``parse_lit (strlit "x1")``
+  EVAL ``parse_lit (strlit "~x1234")``
+*)
+
+(* Parse the LHS of a constraint and returns the remainder the line *)
 Definition parse_constraint_LHS_def:
   (parse_constraint_LHS (INR n::INL v::rest) acc =
-    (*  Note: for now, we only handle names of the form "xi" *)
     case parse_lit v of NONE => (INR n::INL v::rest,REVERSE acc)
     | SOME lit => parse_constraint_LHS rest ((n,lit)::acc)) ∧
   (parse_constraint_LHS ls acc = (ls,REVERSE acc))
@@ -359,20 +366,33 @@ Definition normalize_PBC_def:
   else PBC lhs'' (Num deg'')
 End
 
+(* strip ; from a number *)
+Definition strip_terminator_def:
+  strip_terminator s =
+  if strlen s ≥ 1 ∧ strsub s (strlen s - 1) = #";"
+  then mlint$fromString (substring s 0 (strlen s - 1))
+  else NONE
+End
+
 Definition parse_constraint_def:
   parse_constraint line =
   case parse_constraint_LHS line [] of (rest,lhs) =>
-  case rest of
-    [INL cmp; INR deg; INL term] =>
-      if term ≠ str #";" then NONE
-      else if cmp = implode ">=" then
-        SOME [normalize_PBC lhs deg]
-      else if cmp = implode "=" then
-        (* which one first ? *)
-        SOME [normalize_PBC (MAP (λ(c:int,l). (-c,l)) lhs) (-deg);
-              normalize_PBC lhs deg]
-       else NONE
-  | _ => NONE
+  let cmpdeg =
+    (case rest of
+      [INL cmp; INR deg; INL term] =>
+        if term ≠ str #";" then NONE else SOME(cmp,deg)
+    | [INL cmp; INL degterm] =>
+      (case strip_terminator degterm of NONE => NONE
+      | SOME deg => SOME(cmp,deg))
+    | _ => NONE) in
+  case cmpdeg of NONE => NONE
+  | SOME (cmp, deg) =>
+    if cmp = implode ">=" then
+      SOME [normalize_PBC lhs deg]
+    else if cmp = implode "=" then
+      (* which one first ? *)
+      SOME [normalize_PBC (MAP (λ(c:int,l). (-c,l)) lhs) (-deg); normalize_PBC lhs deg]
+    else NONE
 End
 
 Definition parse_constraints_def:
@@ -415,7 +435,7 @@ Definition parse_polish_def:
   case x of INR n =>
     parse_polish xs (Id n :: stack)
   | INL s =>
-  if s = «+» then
+  if s = str #"+" then
     (case stack of
       a::b::rest => parse_polish xs (Add b a::rest)
     | _ => NONE)
@@ -498,9 +518,9 @@ End
 
 val pbfraw = ``[
   strlit "* #variable= 4 #constraint= 7";
-  strlit "2 ~x1 1 ~x3 >= 1 ;";
+  strlit "2 ~x1 1 ~x3 >= 1;";
   strlit "1 ~x3 1 ~x5 >= 1 ;";
-  strlit "1 ~x1 1 ~x5 >= 1 ;";
+  strlit "1 ~x1 1 ~x5 >= 1;";
   strlit "1 ~x2 1 ~x4 1 ~x6 >= 2 ;";
   strlit "* test comment 1234567";
   strlit "+1 x1 +1 x2 >= 1 ;";
