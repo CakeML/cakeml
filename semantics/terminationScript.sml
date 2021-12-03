@@ -73,28 +73,6 @@ Induct >- rw[exp_size_def] >>
 Cases >> srw_tac[ARITH_ss][exp_size_def]
 QED
 
-(*
-Theorem SUM_MAP_v2_size_thm:
- ∀env. SUM (MAP v2_size env) = SUM (MAP (list_size char_size) (MAP FST env)) +
-                                SUM (MAP v_size (MAP SND env)) +
-                                LENGTH env
-Proof
-Induct >- rw[v_size_def] >>
-Cases >> srw_tac[ARITH_ss][v_size_def]
-QED
-*)
-
-(*
-Theorem SUM_MAP_v3_size_thm:
- ∀env f. SUM (MAP (v3_size f) env) = SUM (MAP (v_size f) (MAP FST env)) +
-                                      SUM (MAP (option_size (pair_size (λx. x) f)) (MAP SND env)) +
-                                      LENGTH env
-Proof
-Induct >- rw[v_size_def] >>
-Cases >> srw_tac[ARITH_ss][v_size_def]
-QED
-*)
-
 Theorem exp_size_positive:
  ∀e. 0 < exp_size e
 Proof
@@ -110,23 +88,8 @@ fun register name def ind =
     ()
   end;
 
-val (nsMap_def, nsMap_ind) =
-  tprove_no_defn ((nsMap_def, nsMap_ind),
-  wf_rel_tac `measure (\(_, env). namespace_size (\x. 1) (\x. 1) (\x. 1) env)`
-  >> Induct_on `m`
-  >> rw [namespace_size_def]
-  >> rw [namespace_size_def]
-  >> first_x_assum drule
-  >> disch_then (qspec_then `v` assume_tac)
-  >> decide_tac);
 val _ = register "nsMap" nsMap_def nsMap_ind;
 
-val (pmatch_def, pmatch_ind) =
-  tprove_no_defn ((pmatch_def, pmatch_ind),
-  wf_rel_tac
-  `inv_image $< (λx. case x of INL (s,a,p,b,c) => pat_size  p
-                             | INR (s,a,ps,b,c) => pats_size ps)` >>
-  srw_tac [ARITH_ss] [size_abbrevs, pat_size_def]);
 val _ = register "pmatch" pmatch_def pmatch_ind;
 
 val (type_subst_def, type_subst_ind) =
@@ -210,15 +173,8 @@ res_tac >>
 decide_tac);
 val _ = register "is_value" is_value_def is_value_ind;
 
-val (do_eq_def,do_eq_ind) =
-  tprove_no_defn ((do_eq_def,do_eq_ind),
-wf_rel_tac `inv_image $< (λx. case x of INL (v1,v2) => v_size v1
-                                      | INR (vs1,vs2) => v1_size vs1)`);
 val _ = register "do_eq" do_eq_def do_eq_ind;
 
-val (v_to_list_def,v_to_list_ind) =
-  tprove_no_defn ((v_to_list_def,v_to_list_ind),
-wf_rel_tac `measure v_size`);
 val _ = register "v_to_list" v_to_list_def v_to_list_ind;
 
 val (maybe_all_list_def,maybe_all_list_ind) =
@@ -226,14 +182,8 @@ val (maybe_all_list_def,maybe_all_list_ind) =
 wf_rel_tac `measure LENGTH` \\ simp []);
 val _ = register "maybe_all_list" maybe_all_list_def maybe_all_list_ind;
 
-val (v_to_char_list_def,v_to_char_list_ind) =
-  tprove_no_defn ((v_to_char_list_def,v_to_char_list_ind),
-wf_rel_tac `measure v_size`);
 val _ = register "v_to_char_list" v_to_char_list_def v_to_char_list_ind;
 
-val (vs_to_string_def,vs_to_string_ind) =
-  tprove_no_defn ((vs_to_string_def,vs_to_string_ind),
-wf_rel_tac `measure LENGTH` \\ rw[]);
 val _ = register "vs_to_string" vs_to_string_def vs_to_string_ind;
 
 Theorem check_dup_ctors_thm:
@@ -380,48 +330,14 @@ Proof
   Induct_on `xs` \\ fs [dec_size_def, list_size_def]
 QED
 
-val (enc_ast_t_def, enc_ast_t_ind) =
-  tprove_no_defn ((enc_ast_t_def, enc_ast_t_ind),
-    WF_REL_TAC `measure ast_t_size`
-    \\ `!xs a. MEM a xs ==> ast_t_size a < ast_t1_size xs` by
-          (Induct \\ fs [] \\ rw [] \\ fs [ast_t_size_def] \\ res_tac \\ fs [])
-    \\ rw [] \\ fs [ast_t_size_def] \\ res_tac \\ fs [])
 val _ = register "enc_ast_t" enc_ast_t_def enc_ast_t_ind;
 
-val (enc_pat_def, enc_pat_ind) =
-  tprove_no_defn ((enc_pat_def, enc_pat_ind),
-    WF_REL_TAC `measure pat_size`
-    \\ rw [] \\ fs [pat_size_def])
 val _ = register "enc_pat" enc_pat_def enc_pat_ind;
 
-val (enc_exp_def, enc_exp_ind) =
-  tprove_no_defn ((enc_exp_def, enc_exp_ind),
-    WF_REL_TAC `measure exp_size`
-    \\ `!l f x e. MEM (f,x,e) l ==> exp_size e < exp1_size l` by
-         (Induct \\ fs [exp_size_def] \\ rw [] \\ fs [exp_size_def] \\ res_tac \\ fs [])
-    \\ `!l p e. MEM (p,e) l ==> exp_size e < exp3_size l` by
-         (Induct \\ fs [exp_size_def] \\ rw [] \\ fs [exp_size_def] \\ res_tac \\ fs [])
-    \\ `!l e. MEM e l ==> exp_size e < exp6_size l` by
-         (Induct \\ fs [exp_size_def] \\ rw [] \\ fs [exp_size_def] \\ res_tac \\ fs [])
-    \\ rw [] \\ fs [exp_size_def]
-    \\ res_tac \\ fs [])
 val _ = register "enc_exp" enc_exp_def enc_exp_ind;
 
-val (enc_dec_def, enc_dec_ind) =
-  tprove_no_defn ((enc_dec_def, enc_dec_ind),
-    WF_REL_TAC `measure dec_size`
-    \\ `!l e. MEM e l ==> dec_size e < dec1_size l` by
-         (Induct \\ fs [dec_size_def] \\ rw [] \\ fs [dec_size_def] \\ res_tac \\ fs [])
-    \\ rw [] \\ fs [dec_size_def]
-    \\ res_tac \\ fs [])
 val _ = register "enc_dec" enc_dec_def enc_dec_ind;
 
-val (concrete_v_def, concrete_v_ind) =
-  tprove_no_defn ((concrete_v_def, concrete_v_ind),
-    WF_REL_TAC `measure (λx. case x of INL v => v_size v
-                                      | INR vs => v1_size vs)`
-    \\ rw [v_size_def]
-  )
 val _ = register "concrete_v" concrete_v_def concrete_v_ind;
 
 val _ = export_theory ();

@@ -28,17 +28,18 @@ Datatype:
 End
 
 (* helper functions *)
-val mkCharS_def = Define`
+Definition mkCharS_def:
   (mkCharS (StringS s) = if LENGTH s = 1 then CharS (HD s)
                          else ErrorS) /\
   (mkCharS _ = ErrorS)
-`;
+End
 
-val read_while_def = Define `
+Definition read_while_def:
   (read_while P "" s = (IMPLODE (REVERSE s),"")) /\
   (read_while P (STRING c cs) s =
      if P c then read_while P cs (c :: s)
-            else (IMPLODE (REVERSE s),STRING c cs))`;
+            else (IMPLODE (REVERSE s),STRING c cs))
+End
 
 Theorem read_while_thm:
    !cs s cs' s'.
@@ -48,11 +49,13 @@ Proof
   RES_TAC THEN FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND] THEN DECIDE_TAC
 QED
 
-val is_single_char_symbol_def = Define `
-  is_single_char_symbol c = MEM c "()[]{},;"`;
+Definition is_single_char_symbol_def:
+  is_single_char_symbol c = MEM c "()[]{},;"
+End
 
-val isSymbol_def = Define `
-  isSymbol c = MEM c (CHR 96 (* backquote *) :: "!%&$#+-/:<=>?@\\~^|*")`;
+Definition isSymbol_def:
+  isSymbol c = MEM c (CHR 96 (* backquote *) :: "!%&$#+-/:<=>?@\\~^|*")
+End
 
 Definition next_loc_def:
   next_loc n (POSN r c) = POSN r (c+n) ∧
@@ -75,7 +78,7 @@ Definition read_string_def:
       case TL str of
       | #"\\"::cs => read_string cs (s ++ "\\") (next_loc 2 loc)
       | #"\""::cs => read_string cs (s ++ "\"") (next_loc 2 loc)
-      | #"n"::cs => read_string cs (s ++ "\n") (next_loc 2 loc)
+      | #"n"::cs => read_string cs (s ++ "\n") (next_line loc)
       | #"t"::cs => read_string cs (s ++ "\t") (next_loc 2 loc)
       | _ => (ErrorS, loc, TL str)
 Termination
@@ -84,22 +87,22 @@ Termination
 End
 
 Theorem read_string_thm:
-   !s t l l' x1 x2. (read_string s t l = (x1, l', x2)) ==>
-                (LENGTH x2 <= LENGTH s + LENGTH t)
+  ∀s t l l' x1 x2. (read_string s t l = (x1, l', x2)) ==>
+                   (LENGTH x2 <= LENGTH s + LENGTH t)
 Proof
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
-  THEN HO_MATCH_MP_TAC (fetch "-" "read_string_ind")
-  THEN REPEAT STRIP_TAC THEN POP_ASSUM MP_TAC
-  THEN ONCE_REWRITE_TAC [read_string_def]
-  THEN Cases_on `s` THEN SIMP_TAC (srw_ss()) []
-  THEN SRW_TAC [] [LENGTH] THEN RES_TAC THEN TRY DECIDE_TAC
-  THEN SRW_TAC [] [LENGTH] THEN Cases_on `t'`
-  THEN FULL_SIMP_TAC (srw_ss()) [] THEN CCONTR_TAC
-  THEN Q.PAT_X_ASSUM `(x1, l', x2) = xxx` MP_TAC
-  THEN SIMP_TAC std_ss [] THEN SRW_TAC [] []
-  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss []
-  THEN RES_TAC THEN TRY DECIDE_TAC THEN CCONTR_TAC
-  THEN FULL_SIMP_TAC std_ss [LENGTH] THEN DECIDE_TAC
+  \\ HO_MATCH_MP_TAC (fetch "-" "read_string_ind")
+  \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
+  \\ ONCE_REWRITE_TAC [read_string_def]
+  \\ Cases_on `s` \\ SIMP_TAC (srw_ss()) []
+  \\ SRW_TAC [] [LENGTH] \\ RES_TAC \\ TRY DECIDE_TAC
+  \\ SRW_TAC [] [LENGTH] \\ Cases_on `t'`
+  \\ FULL_SIMP_TAC (srw_ss()) [] \\ CCONTR_TAC
+  \\ Q.PAT_X_ASSUM `(x1, l', x2) = xxx` MP_TAC
+  \\ SIMP_TAC std_ss [] \\ SRW_TAC [] []
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ RES_TAC \\ TRY DECIDE_TAC \\ CCONTR_TAC
+  \\ FULL_SIMP_TAC std_ss [LENGTH] \\ DECIDE_TAC
 QED
 
 Definition skip_comment_def:
@@ -120,11 +123,11 @@ Theorem skip_comment_thm:
    !xs d l l' str. (skip_comment xs d l = SOME (str, l')) ==> LENGTH str <= LENGTH xs
 Proof
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
-  THEN HO_MATCH_MP_TAC (fetch "-" "skip_comment_ind") THEN REPEAT STRIP_TAC
-  THEN POP_ASSUM MP_TAC THEN ONCE_REWRITE_TAC [skip_comment_def]
-  THEN SRW_TAC [] [] THEN RES_TAC THEN TRY DECIDE_TAC
-  THEN FULL_SIMP_TAC std_ss [] THEN SRW_TAC [] [] THEN RES_TAC
-  THEN DECIDE_TAC
+  \\ HO_MATCH_MP_TAC (fetch "-" "skip_comment_ind") \\ REPEAT STRIP_TAC
+  \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [skip_comment_def]
+  \\ SRW_TAC [] [] \\ RES_TAC \\ TRY DECIDE_TAC
+  \\ FULL_SIMP_TAC std_ss [] \\ SRW_TAC [] [] \\ RES_TAC
+  \\ DECIDE_TAC
 QED
 
 Definition read_FFIcall_def:
@@ -147,7 +150,7 @@ Proof
   qpat_x_assum `_ = _` (assume_tac o SYM) >> res_tac >> simp[]
 QED
 
-val read_REPLcommand_def = Define‘
+Definition read_REPLcommand_def:
   (read_REPLcommand "" acc loc = (ErrorS, loc, "")) ∧
   (read_REPLcommand (c::s0) acc loc =
       if c = #"}" then
@@ -156,7 +159,8 @@ val read_REPLcommand_def = Define‘
       else if isSpace c then
         read_REPLcommand s0 acc (loc with col updated_by (+) 1)
       else
-        read_REPLcommand s0 (c::acc) (loc with col updated_by (+) 1))’;
+        read_REPLcommand s0 (c::acc) (loc with col updated_by (+) 1))
+End
 
 Theorem read_REPLcommand_reduces_input:
   ∀s0 a l0 t l s.
@@ -166,8 +170,9 @@ Proof
   qpat_x_assum `_ = _` (assume_tac o SYM) >> res_tac >> simp[]
 QED
 
-val isAlphaNumPrime_def = Define`
-  isAlphaNumPrime c <=> isAlphaNum c \/ (c = #"'") \/ (c = #"_")`;
+Definition isAlphaNumPrime_def:
+  isAlphaNumPrime c <=> isAlphaNum c \/ (c = #"'") \/ (c = #"_")
+End
 
 (* next_sym reads the next symbol from a string, returning NONE if at eof *)
 Definition next_sym_def:
@@ -453,7 +458,8 @@ Termination
   WF_REL_TAC `measure (LENGTH o FST)` >> rw[] >> imp_res_tac next_token_LESS
 End
 
-Definition lexer_fun_def: lexer_fun input = lexer_fun_aux input init_loc
+Definition lexer_fun_def:
+  lexer_fun input = lexer_fun_aux input init_loc
 End
 
 (*
