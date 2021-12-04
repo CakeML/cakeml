@@ -284,28 +284,88 @@ End
 (* all_block invariants *)
 
 (* All blocks in the roots are in all_blocks *)
-Definition all_blocks_roots_inv_def:
+Definition all_blocks_roots_inv_def[nocompute]:
   all_blocks_roots_inv blocks roots =
    ∀ts tag l.
        MEM (Block ts tag l) roots ∧ l ≠ [] ⇒
         LLOOKUP blocks ts = SOME (Block ts tag l)
 End
 
+Theorem all_blocks_roots_compute[compute]:
+  ∀blocks roots.
+    all_blocks_roots_inv blocks roots =
+    EVERY (λv. case v of
+                 Block ts tag (x::xs) => (LLOOKUP blocks ts = SOME (Block ts tag (x::xs)))
+               | _ => T) roots
+Proof
+  rw[all_blocks_roots_inv_def] \\ EQ_TAC \\ rw[]
+  >- (simp[EVERY_MEM] \\ rw[]
+      \\ Cases_on ‘v’ \\ simp[]
+      \\ Cases_on ‘l’ \\ simp[])
+  >- (gs[EVERY_MEM] \\ first_x_assum drule \\ simp[]
+      \\ Cases_on ‘l’ \\ simp[] \\ gs[])
+QED
+
 (* All blocks in the references fulfil the invariant *)
-Definition all_blocks_refs_inv_def:
+Definition all_blocks_refs_inv_def[nocompute]:
   all_blocks_refs_inv blocks refs =
     ∀p vs.
        sptree$lookup p refs = SOME (ValueArray vs) ⇒
        all_blocks_roots_inv blocks vs
 End
 
+Theorem all_blocks_refs_compute[compute]:
+  ∀blocks refs.
+    all_blocks_refs_inv blocks refs =
+    EVERY (λp. case p of
+                 ValueArray vs => all_blocks_roots_inv blocks vs
+               | _ => T)
+          (toList refs)
+Proof
+  rw[all_blocks_refs_inv_def] \\ EQ_TAC \\ rw[]
+  >- (simp[EVERY_MEM] \\ rw[] \\ gs[MEM_toList]
+      \\ Cases_on ‘p’ \\ gs[]
+      \\ first_x_assum drule \\ simp[])
+  >- (gs[EVERY_MEM,MEM_toList,PULL_EXISTS]
+      \\ first_x_assum drule \\ simp[])
+QED
+
+
 (* All blocks in all_blocks fulfil the invariant *)
-Definition all_blocks_blocks_inv_def:
+Definition all_blocks_blocks_inv_def[nocompute]:
   all_blocks_blocks_inv blocks =
     ∀ts tag l.
       LLOOKUP blocks ts = SOME (Block ts tag l) ⇒
       all_blocks_roots_inv blocks l
 End
+
+(* TODO: Move to listTheory *)
+Triviality MEM_oEL:
+  ∀x l. MEM x l ⇔ ∃i. LLOOKUP l i = SOME x
+Proof
+  rw[] \\ Induct_on ‘l’ \\ rw[oEL_def]
+  \\ EQ_TAC \\ rw[]
+  >- (qexists_tac ‘0’ \\ simp[])
+  >- (qexists_tac ‘i + 1’ \\ simp[])
+  >- (Cases_on ‘i = 0’ \\ gs[]
+      \\ metis_tac [])
+QED
+
+Theorem all_blocks_blocks_compute[compute]:
+  ∀blocks.
+    all_blocks_blocks_inv blocks =
+    EVERY (λv. case v of
+                 Block ts tag l => (LLOOKUP blocks ts = SOME (Block ts tag l) ⇒
+                                    all_blocks_roots_inv blocks l)
+               | _ => T) blocks
+Proof
+  rw[all_blocks_blocks_inv_def] \\ EQ_TAC \\ rw[]
+  >- (simp[EVERY_MEM] \\ rw[]
+      \\ Cases_on ‘v’ \\ rw[]
+      \\ first_x_assum drule \\ simp[])
+  >- (gs[EVERY_MEM,MEM_oEL,PULL_EXISTS]
+      \\ first_x_assum drule \\ simp[])
+QED
 
 Definition all_blocks_inv_def:
   all_blocks_inv refs blocks roots =
