@@ -408,7 +408,7 @@ Proof
 QED
 
 Theorem foldl_evaluate:
-  ∀n s vl il acc tsl ts_f tag_f sstack lsize ssum smax ts.
+  ∀n s vl il acc tsl ts_f tag_f sstack lsize ssum smax.
     (* Sizes *)
     size_of_stack s.stack = SOME sstack ∧
     s.locals_size = SOME lsize ∧
@@ -417,7 +417,7 @@ Theorem foldl_evaluate:
     s.space = 0 ∧
     (* Arguments *)
     s.locals = fromList [vl ; Number acc; Block ts_f tag_f [CodePtr_Int_+_clos;Number 1]] ∧
-    repint_list vl n ts ∧
+    repint_list vl n s.tstamps ∧
     repint_to_list vl = SOME il ∧
     repint_to_tsl vl = SOME tsl ∧
     ¬ MEM ts_f tsl ∧
@@ -438,7 +438,6 @@ Theorem foldl_evaluate:
     (* Invariants *)
     s.safe_for_space ∧
     s.limits.arch_64_bit ∧
-    s.tstamps = SOME ts ∧
     1 < s.limits.length_limit
     ⇒
     ∃res lcls0 lsz0 smax0 clk0 ts0 pkheap0 stk.
@@ -447,7 +446,7 @@ Theorem foldl_evaluate:
                             locals_size := lsz0;
                             stack_max := SOME smax0;
                             clock := clk0;
-                            tstamps := SOME ts0;
+                            tstamps := ts0;
                             peak_heap_length := pkheap0;
                             stack := stk;
                             space := 0
@@ -605,7 +604,7 @@ in
   \\ fs [repint_to_tsl_def] \\ rveq \\ fs []
   \\ disch_then (qspecl_then [‘s'’,‘rest’,‘z’,‘acc + i’,‘z'’,‘ts_f’,‘tag_f’] mp_tac)
   \\ disch_then (qspecl_then [‘THE (size_of_stack s'.stack)’,‘THE s'.locals_size’] mp_tac)
-  \\ disch_then (qspecl_then [‘x2’,‘THE s'.stack_max’,‘ts’] mp_tac)
+  \\ disch_then (qspecl_then [‘x2’,‘THE s'.stack_max’] mp_tac)
   \\ impl_tac
   >- (qunabbrev_tac ‘s'’
      \\ rw [frame_lookup,foldl_body_def,Int_plus_body_def,Int_plus_clos_body_def]
