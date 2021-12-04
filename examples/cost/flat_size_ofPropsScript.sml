@@ -1451,7 +1451,7 @@ Proof
       \\ gs[all_blocks_refs_inv_def] \\ metis_tac [])
 QED
 
-Theorem size_of_heap_flat_eq_size_of_heap:
+Theorem size_of_heap_eq_flat_size_of_heap:
   ∀s.
     size_inv s ⇒
     size_of_heap s = flat_size_of_heap s
@@ -1460,22 +1460,6 @@ Proof
   \\ pairarg_tac \\ gs[]
   \\ metis_tac [size_of_eq_flat_size_of]
 QED
-
-
-
-val _ = computeLib.del_persistent_consts [“block_to_addrs0”,
-                                          “ptr_to_addrs0”,
-                                          “addrs_in”,
-                                          “next0”,
-                                          “reachable_v0”,
-                                          “size_of_addr0”,
-                                          “aux_size_of”,
-                                          “blocks0_roots_inv”,
-                                          “blocks0_refs_inv”,
-                                          “blocks0_all_inv”,
-                                          “del_ptr”,
-                                          “del_blk”,
-                                          “blocks0_all_inv0”]
 
 val _ = map Theory.delete_const ["block_to_addrs0",
                                  "ptr_to_addrs0",
