@@ -700,10 +700,63 @@ Proof
   \\ fs [satisfies_def,PULL_EXISTS,subst_thm]
 QED
 
+Definition normalize_lhs_def:
+  (normalize_lhs [] acc n = (acc,n)) ∧
+  (normalize_lhs ((x,l)::xs) acc n =
+    if x < 0 then normalize_lhs xs ((Num(-x),negate l)::acc) (n+x)
+    else normalize_lhs xs ((Num x,l)::acc) n)
+End
+
+Theorem eval_lit_INT[simp]:
+  &(eval_lit w r) = eval_lit w r
+Proof
+  Cases_on`r` \\ EVAL_TAC
+  \\ Cases_on`w n` \\ EVAL_TAC
+  \\ fs[]
+QED
+
+Theorem eval_lit_eq_flip:
+  q * eval_lit w r = q + (-q * eval_lit w (negate r))
+Proof
+  Cases_on`r` \\ EVAL_TAC
+  \\ Cases_on`w n` \\ EVAL_TAC
+  \\ fs[]
+QED
+
+Theorem normalize_lhs_normalizes:
+  ∀ls acc n ls' n'.
+  normalize_lhs ls acc n = (ls',n') ⇒
+  iSUM (MAP (pb_preconstraint$eval_term w) ls) + &(SUM (MAP (eval_term w) acc)) + n = &(SUM (MAP (eval_term w) ls')) + n'
+Proof
+  Induct>>rw[normalize_lhs_def,iSUM_def]>>
+  Cases_on`h`>>fs[normalize_lhs_def]>>
+  every_case_tac>>fs[]
+  >- (
+    first_x_assum drule>> simp[GSYM integerTheory.INT_ADD]>>
+    disch_then sym_sub_tac>>
+    simp[Once eval_lit_eq]>>
+    `-q * eval_lit w (negate r) = &(Num (-q) * eval_lit w (negate r))` by (
+      PURE_REWRITE_TAC[GSYM integerTheory.INT_MUL,eval_lit_INT]>>
+      `0 ≤ -q` by fs[]>>
+      pop_assum mp_tac>>
+      PURE_REWRITE_TAC[GSYM integerTheory.INT_OF_NUM]>>
+      simp[])>>
+    intLib.ARITH_TAC)>>
+  first_x_assum drule>>
+  simp[GSYM integerTheory.INT_ADD]>>
+  `&(Num q * eval_lit w r) = q * eval_lit w r` by (
+    PURE_REWRITE_TAC[GSYM integerTheory.INT_MUL,eval_lit_INT]>>
+    fs[integerTheory.INT_NOT_LT,GSYM integerTheory.INT_OF_NUM]) >>
+  intLib.ARITH_TAC
+QED
+
 (* TODO: this is not right normalize properly *)
 Definition pbc_to_npbc_def:
-  (pbc_to_npbc (GreaterEqual xs n) = PBC (MAP (λ(c,l). Num c,l) xs) (Num n)) ∧
-  (pbc_to_npbc (Equal xs n) = PBC [] 0) (* never happens *)
+  (pbc_to_npbc (GreaterEqual xs n) =
+    let (lhs,m) = normalize_lhs xs [] 0 in
+    let rhs = if n-m ≥ 0 then Num(n-m) else 0 in
+    PBC lhs rhs) ∧
+  (pbc_to_npbc (Equal xs n) = PBC [] 0)
 End
 
 Definition normalize_def:
@@ -713,13 +766,19 @@ Definition normalize_def:
 End
 
 Theorem pbc_to_npbc_thm:
-  (∀xs n. pbc ≠ Equal xs n) ∧
-  satisfies_pbc w pbc ⇒
-  satisfies_npbc w (pbc_to_npbc pbc)
+  (∀xs n. pbc ≠ Equal xs n) ⇒
+  (satisfies_pbc w pbc ⇔ satisfies_npbc w (pbc_to_npbc pbc))
 Proof
-  cheat
+  Cases_on`pbc`>>fs[]>>
+  rw[satisfies_pbc_def,satisfies_npbc_def,pbc_to_npbc_def]>>
+  pairarg_tac>>
+  drule normalize_lhs_normalizes>>
+  simp[satisfies_npbc_def]>>
+  disch_then(qspec_then`w` assume_tac)>>fs[]>>
+  intLib.ARITH_TAC
 QED
 
+(* this does not ensure compactness *)
 Theorem normalize_thm:
   satisfies w (set pbf) ⇔
   satisfies w (set (normalize pbf))
@@ -731,7 +790,16 @@ Proof
     Induct_on`pbf`>>
     simp[]>>
     metis_tac[pbc_ge_thm])>>
-  cheat
+  simp[]>>
+  `!x. MEM x pbf' ⇒ (∀xs n. x ≠ Equal xs n)` by
+    (simp[Abbr`pbf'`,MEM_FLAT,MEM_MAP,PULL_EXISTS]>>
+    Cases_on`y`>>simp[pbc_ge_def]>>
+    rw[]>>simp[])>>
+  pop_assum mp_tac>>
+  rpt(pop_assum kall_tac)>>
+  Induct_on`pbf'`>>simp[]>>
+  rw[]>>
+  metis_tac[pbc_to_npbc_thm]
 QED
 
 (*
