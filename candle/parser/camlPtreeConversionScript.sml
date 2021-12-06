@@ -1040,19 +1040,28 @@ Definition ptree_Expr_def:
             return (Tannot x ty)
           od
       | [arg] =>
-          fmap Lit (ptree_Literal arg) ++
-          ptree_Bool arg ++
           do
-            cns <- ptree_ValuePath arg;
-            ns <- path_to_ns locs cns;
-            return (Var ns)
-          od ++
-          do
-            cns <- ptree_Constr arg;
-            ns <- path_to_ns locs cns;
-            return (Con (SOME ns) [])
-          od ++
-          ptree_Expr nEList arg
+            n <- nterm_of arg;
+            if n = INL nLiteral then
+              ptree_Bool arg ++
+              fmap Lit (ptree_Literal arg)
+            else if n = INL nValuePath then
+              do
+                cns <- ptree_ValuePath arg;
+                ns <- path_to_ns locs cns;
+                return (Var ns)
+              od
+            else if n = INL nConstr then
+              do
+                cns <- ptree_Constr arg;
+                ns <- path_to_ns locs cns;
+                return (Con (SOME ns) [])
+              od
+            else if n = INL nEList then
+              ptree_Expr nEList arg
+            else
+              fail (locs, «Impossible: nEBase»)
+          od
       | _ => fail (locs, «Impossible: nEBase»)
     else if nterm = INL nEAssert then
       case args of
@@ -1095,11 +1104,21 @@ Definition ptree_Expr_def:
     else if nterm = INL nEApp then
       case args of
         [arg] =>
-          ptree_Expr nELazy arg ++
-          ptree_Expr nEAssert arg ++
-          ptree_Expr nEConstr arg ++
-          ptree_Expr nEFunapp arg ++
-          ptree_Expr nEBase arg
+          do
+            n <- nterm_of arg;
+            if n = INL nELazy then
+              ptree_Expr nELazy arg
+            else if n = INL nEAssert then
+              ptree_Expr nEAssert arg
+            else if n = INL nEConstr then
+              ptree_Expr nEConstr arg
+            else if n = INL nEFunapp then
+              ptree_Expr nEFunapp arg
+            else if n = INL nEBase then
+              ptree_Expr nEBase arg
+            else
+              fail (locs, «Impolssible: nEApp»)
+          od
       | _ => fail (locs, «Impossible: nEApp»)
     else if nterm = INL nEPrefix then
       case args of
@@ -1519,9 +1538,9 @@ Definition ptree_Expr_def:
           let pat = a; rarrow = b; body = c; bar = d; pms = e in
             do
               expect_tok rarrow RarrowT;
+              expect_tok bar BarT;
               p <- ptree_Pattern nPattern pat;
               x <- ptree_Expr nExpr body;
-              expect_tok bar BarT;
               ps <- ptree_PatternMatches pms;
               return ((p, x, NONE)::ps)
             od
