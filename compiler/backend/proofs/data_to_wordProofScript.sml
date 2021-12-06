@@ -2167,6 +2167,7 @@ val word_get_code_labels_MemEqList = Q.prove(`
   word_get_code_labels (MemEqList b x) = {}`,
   Induct>>fs[MemEqList_def]);
 
+(*
 Theorem word_get_code_labels_StoreAnyConsts[local]:
   const_parts_to_words c ps = SOME (w,ws) ⇒
   word_get_code_labels (StoreAnyConsts r1 r2 r3 ws w) = EMPTY
@@ -2185,6 +2186,54 @@ Proof
   \\ asm_rewrite_tac [EVERY_APPEND,MAP_APPEND]
   \\ rw [] \\ gvs []
 QED
+*)
+
+Triviality getWords_good_loc:
+  ∀xs ys ws vs1 s.
+    getWords xs ys = (ws,vs1) ∧
+    EVERY (good_loc s ∘ SND) xs ⇒
+    EVERY (good_loc s ∘ SND) vs1
+Proof
+  Induct \\ fs [getWords_def] \\ rw []
+  \\ gvs [AllCaseEqs(),good_loc_def]
+  \\ res_tac \\ fs []
+QED
+
+Theorem const_parts_to_words_labels:
+  const_parts_to_words c bs = SOME (q,r) ⇒
+  word_get_code_labels (StoreAnyConsts (adjust_var w) 1 3 r q) ⊆
+  closLang$assign_get_code_label (Build bs)
+Proof
+  strip_tac \\ PairCases_on ‘q’
+  \\ drule const_parts_to_words_good_loc
+  \\ fs [closLangTheory.assign_get_code_label_def]
+  \\ disch_then (qspec_then ‘{x | MEM (Lbl x) bs}’ mp_tac)
+  \\ impl_tac THEN1 (fs [EVERY_MEM] \\ Cases \\ fs [])
+  \\ pop_assum kall_tac
+  \\ strip_tac
+  \\ ‘good_loc {x | MEM (Lbl x) bs} (SND (q0,q1))’ by fs []
+  \\ rename [‘SND xx’]
+  \\ rename [‘StoreAnyConsts a n m r xx’]
+  \\ last_x_assum kall_tac
+  \\ rpt (pop_assum mp_tac)
+  \\ EVERY $ map qid_spec_tac $ rev [‘a’,‘n’,‘m’,‘r’,‘xx’]
+  \\ ho_match_mp_tac StoreAnyConsts_ind
+  \\ strip_tac \\ rpt gen_tac
+  THEN1
+   (fs [StoreAnyConsts_def]
+    \\ CASE_TAC \\ fs [good_loc_def]
+    \\ CASE_TAC \\ fs [good_loc_def])
+  \\ strip_tac
+  \\ fs [StoreAnyConsts_def]
+  \\ reverse CASE_TAC \\ fs [good_loc_def]
+  THEN1 (rw [] \\ fs [list_Seq_def])
+  \\pairarg_tac \\ fs []
+  \\ rpt strip_tac \\ fs []
+  \\ first_x_assum irule \\ fs []
+  \\ irule_at Any getWords_good_loc
+  \\ first_x_assum $ irule_at $ Pos hd
+  \\ fs [good_loc_def]
+QED
 
 (* slow... *)
 Theorem word_get_code_labels_assign[local]:
@@ -2196,9 +2245,11 @@ Proof
   rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def,
      closLangTheory.assign_get_code_label_def]>>
   fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList]>>
-  rpt(every_case_tac>>fs[]>>
-  imp_res_tac word_get_code_labels_StoreAnyConsts >>
-  fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList]>>
+  ntac 3 (every_case_tac>>fs[] >>
+  TRY (irule SUBSET_TRANS >>
+       drule_then (irule_at Any) const_parts_to_words_labels) >>
+  fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList,
+     closLangTheory.assign_get_code_label_def]>>
   EVAL_TAC)
 QED
 

@@ -471,7 +471,7 @@ Proof
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
   \\ TRY (pairarg_tac \\ fs [])
   \\ rw[] \\ fs[] \\ rw[] \\ fs[case_eq_thms,pair_case_eq] \\ rw[]
-  \\ fs[SUBSET_DEF]
+  \\ fs[SUBSET_DEF,EVERY_MEM] \\ rw [] \\ fs []
 QED
 
 Theorem do_app_with_code_err:
@@ -483,14 +483,16 @@ Proof
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
   \\ TRY (pairarg_tac \\ fs [])
   \\ rw[] \\ fs[] \\ rw[] \\ fs[case_eq_thms,pair_case_eq] \\ rw[]
-  \\ fs[SUBSET_DEF] \\ strip_tac \\ res_tac
+  \\ fs[SUBSET_DEF] \\ TRY (strip_tac \\ res_tac)
+  \\ fs [EXISTS_MEM] \\ metis_tac []
 QED
 
 Theorem do_app_aux_with_clock:
    do_app_aux op vs (s with clock := c) =
    OPTION_MAP (OPTION_MAP (λ(x,y). (x,y with clock := c))) (do_app_aux op vs s)
 Proof
-  srw_tac[][do_app_aux_def] >> every_case_tac >> fs[]
+  Cases_on ‘do_app_aux op vs (s with clock := c)’ \\ fs []
+  \\ gvs [do_app_aux_def,AllCaseEqs()]
 QED
 
 Theorem do_app_change_clock:

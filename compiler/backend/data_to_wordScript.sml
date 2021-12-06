@@ -1217,7 +1217,7 @@ End
 
 Definition part_to_words_def:
   part_to_words c m (Int i) offset =
-    (if small_int (:'a) i then  SOME ((F,Word (Smallnum i)),[])
+    (if small_int (:'a) i then SOME ((F,Word (Smallnum i)),[])
      else let (sign,ws) = i2mw i in
             dtcase encode_header c (if sign then 7 else 3) (LENGTH ws) of
             | NONE => NONE
@@ -1251,7 +1251,8 @@ Definition part_to_words_def:
        if k < 2 ** (dimindex (:α) − 4) ∧ k < 2 ** c.len_size
        then SOME ((T,(make_ptr c offset (0w:'a word) k)),
                   MAP (λw. (F,Word w)) (hd::ws))
-       else NONE)
+       else NONE) ∧
+  part_to_words c m (Lbl l) offset = SOME ((F,Loc l 0),[])
 End
 
 Definition parts_to_words_def:

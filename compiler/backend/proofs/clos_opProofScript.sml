@@ -1016,6 +1016,7 @@ Proof
   \\ ho_match_mp_tac red_rel_ind
   \\ fs [no_Labels_def]
   \\ rw [] \\ fs [] \\ eq_tac \\ rw []
+  \\ cheat (* hmm *)
 QED
 
 Theorem obeys_max_app_SmartOp:

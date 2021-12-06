@@ -12559,7 +12559,8 @@ Definition build_part_words_def:
        if byte_len (:α) n < 2 ** (dimindex (:α) − 4) ∧
           byte_len (:α) n < 2 ** c.len_size
        then SOME (make_ptr c offset (0w:'a word) (byte_len (:α) n),MAP Word (hd::ws))
-       else NONE)
+       else NONE) ∧
+  build_part_words c m (Lbl l) offset = SOME (Loc l 0, [])
 End
 
 Definition build_words_def:
@@ -12655,6 +12656,16 @@ Proof
   \\ imp_res_tac do_part_SOME_IMP_SOME \\ gvs []
   \\ last_x_assum drule \\ strip_tac
   \\ fs [store_list_append]
+  \\ Cases_on ‘∃l. h = Lbl l’
+  THEN1
+   (gvs [do_part_def,AllCaseEqs()]
+    \\ gvs [build_part_words_def,data_spaceTheory.part_space_req_def]
+    \\ last_x_assum $ drule_then $ drule_then $ drule_then $ drule
+    \\ fs [store_list_def]
+    \\ disch_then irule \\ rw []
+    \\ irule memory_rel_IMP_MAP_UPDATE
+    \\ first_x_assum (qspec_then ‘ks’ assume_tac)
+    \\ fs [] \\ irule memory_rel_CodePtr \\ fs [])
   \\ Cases_on ‘∃t. h = Con t []’
   THEN1
    (gvs [do_part_def,AllCaseEqs()]
@@ -13012,22 +13023,10 @@ Proof
   \\ fs [good_dimindex_def,dimword_def,LESS_DIV_EQ_ZERO]
 QED
 
-Theorem part_to_words_isWord:
-  part_to_words c m h a = SOME ((w:bool # 'a word_loc),ws) ∧
-  (∀k v. isWord (SND (lookup_mem m k))) ⇒
-  isWord (SND w) ∧ EVERY isWord (MAP SND ws)
-Proof
-  Cases_on ‘h’ \\ fs [part_to_words_def,AllCaseEqs()]
-  \\ strip_tac \\ gvs [wordSemTheory.isWord_def,data_spaceTheory.part_space_req_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ TRY (Cases_on ‘l’) \\ fs [make_cons_ptr_def,wordSemTheory.isWord_def,EVERY_MAP,make_ptr_def]
-  \\ gvs [AllCaseEqs(),wordSemTheory.isWord_def,EVERY_MAP]
-QED
-
 Theorem part_to_words_LENGTH:
   part_to_words c m h a = SOME ((w:bool # 'a word_loc),ws) ∧
-  (∀k v. isWord (SND (lookup_mem m k))) ∧ good_dimindex (:'a) ⇒
-  LENGTH ws ≤ part_space_req h ∧ isWord (SND w) ∧ EVERY isWord (MAP SND ws)
+  good_dimindex (:'a) ⇒
+  LENGTH ws ≤ part_space_req h
 Proof
   Cases_on ‘h’ \\ fs [part_to_words_def,AllCaseEqs()]
   \\ strip_tac \\ gvs [wordSemTheory.isWord_def,data_spaceTheory.part_space_req_def]
@@ -13042,44 +13041,14 @@ Proof
   \\ irule LESS_EQ_num_size \\ fs []
 QED
 
-Theorem const_parts_to_words_isWord:
-  const_parts_to_words c parts = SOME ((w:bool # 'a word_loc),ws) ⇒
-  isWord (SND w) ∧ EVERY isWord (MAP SND ws)
-Proof
-  fs [const_parts_to_words_def]
-  \\ qpat_abbrev_tac ‘m = LN’
-  \\ ‘(∀k v. isWord (SND (lookup_mem m k)))’ by
-        fs [lookup_def,Abbr‘m’,lookup_mem_def,wordSemTheory.isWord_def]
-  \\ last_x_assum kall_tac
-  \\ pop_assum mp_tac
-  \\ rename [‘parts_to_words c _ k parts a’]
-  \\ EVERY (map qid_spec_tac [‘m’,‘c’,‘k’,‘parts’,‘a’,‘w’,‘ws’])
-  \\ rewrite_tac [AND_IMP_INTRO]
-  \\ Induct_on ‘parts’
-  \\ fs [parts_to_words_def]
-  \\ rpt gen_tac \\ strip_tac
-  \\ gvs [AllCaseEqs()]
-  \\ drule part_to_words_isWord \\ fs []
-  \\ strip_tac
-  \\ last_x_assum (drule_at Any)
-  \\ impl_tac \\ fs []
-  \\ rw [lookup_mem_def,lookup_insert]
-  \\ CASE_TAC \\ fs [wordSemTheory.isWord_def,lookup_mem_def]
-  \\ last_x_assum (qspec_then ‘k'’ mp_tac) \\ fs []
-QED
-
 Theorem const_parts_to_words_LENGTH:
   const_parts_to_words c parts = SOME ((w:bool # 'a word_loc),ws) ∧
   good_dimindex (:'a) ⇒
-  LENGTH ws ≤ SUM (MAP part_space_req parts) ∧
-  isWord (SND w) ∧ EVERY isWord (MAP SND ws)
+  LENGTH ws ≤ SUM (MAP part_space_req parts)
 Proof
   fs [const_parts_to_words_def]
   \\ qpat_abbrev_tac ‘m = LN’
-  \\ ‘(∀k v. isWord (SND (lookup_mem m k)))’ by
-        fs [lookup_def,Abbr‘m’,lookup_mem_def,wordSemTheory.isWord_def]
   \\ last_x_assum kall_tac
-  \\ pop_assum mp_tac
   \\ rename [‘parts_to_words c _ k parts a’]
   \\ EVERY (map qid_spec_tac [‘m’,‘c’,‘k’,‘parts’,‘a’,‘w’,‘ws’])
   \\ rewrite_tac [AND_IMP_INTRO]
@@ -13090,10 +13059,46 @@ Proof
   \\ drule part_to_words_LENGTH \\ fs []
   \\ strip_tac
   \\ last_x_assum (drule_at Any)
-  \\ impl_tac \\ fs []
   \\ rw [lookup_mem_def,lookup_insert]
   \\ CASE_TAC \\ fs [wordSemTheory.isWord_def,lookup_mem_def]
   \\ last_x_assum (qspec_then ‘k'’ mp_tac) \\ fs []
+QED
+
+Definition good_loc_def:
+  good_loc code (Loc n m) = (m = 0 ∧ n IN code) ∧
+  good_loc _ _ = T
+End
+
+Theorem const_parts_to_words_good_loc:
+  const_parts_to_words c parts = SOME ((y0,y1),y2) ∧
+  EVERY (λp. ∀n. p = Lbl n ⇒ n ∈ s) parts ⇒
+  good_loc s y1 ∧ EVERY (good_loc s ∘ SND) y2
+Proof
+  fs [const_parts_to_words_def]
+  \\ qpat_abbrev_tac ‘m = LN’
+  \\ ‘∀y0 y1 k. lookup_mem m k = (y0,y1) ⇒ good_loc s y1’ by
+         fs [Abbr‘m’,lookup_mem_def,lookup_def,good_loc_def]
+  \\ pop_assum mp_tac
+  \\ last_x_assum kall_tac
+  \\ rename [‘parts_to_words c _ k parts a’]
+  \\ EVERY (map qid_spec_tac [‘m’,‘c’,‘k’,‘parts’,‘a’,‘y1’,‘y0’,‘y2’])
+  \\ rewrite_tac [AND_IMP_INTRO]
+  \\ Induct_on ‘parts’
+  \\ fs [parts_to_words_def]
+  THEN1 (rw [] \\ res_tac \\ fs [])
+  \\ rpt gen_tac \\ strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ last_x_assum (drule_at (Pos $ el 2))
+  \\ qsuff_tac ‘EVERY (good_loc s ∘ SND) xs ∧ good_loc s (SND w)’
+  THEN1
+   (strip_tac \\ fs [] \\ impl_tac \\ fs []
+    \\ fs [lookup_mem_def,lookup_insert] \\ rw []
+    \\ gvs [AllCaseEqs(),good_loc_def] \\ res_tac \\ fs [])
+  \\ Cases_on ‘h’ \\ gvs [part_to_words_def,AllCaseEqs(),good_loc_def]
+  \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
+  \\ fs [make_ptr_def,good_loc_def,EVERY_MAP]
+  \\ fs [EVERY_MEM] \\ rw []
+  \\ Cases_on ‘lookup_mem m x’ \\ res_tac \\ fs []
 QED
 
 Theorem memory_rel_do_build_const:

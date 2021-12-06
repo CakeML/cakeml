@@ -25,6 +25,7 @@ Datatype:
              | Int int
              | Str mlstring
              | W64 word64
+             | Lbl num
 End
 
 Datatype:
@@ -163,6 +164,8 @@ val pure_def = tDefine "pure" `
 (* used in proofs about closLang, BVL, BVI and dataLang *)
 val assign_get_code_label_def = Define`
   (assign_get_code_label (closLang$Label x) = {x}) ∧
+  (assign_get_code_label (EqualConst p) = case p of Lbl l => {l} | _ => {}) ∧
+  (assign_get_code_label (Build ps) = { x | MEM (Lbl x) ps }) ∧
   (assign_get_code_label x = {})`
 
 Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp) list``

@@ -2924,28 +2924,59 @@ Proof
          `a + SUC b = SUC (a + b)` by simp[] >>
          rw[] >>
          simp[LIST_EQ_REWRITE,Abbr`a`,Abbr`b`,LENGTH_REPLICATE,EL_REPLICATE])
+    \\ Cases_on`∃part. op = EqualConst part` \\ fs[] >- (
+      note_tac "Op: EqualConst" \\ gvs[compile_op_def,bEvalOp_def]
+      \\ Cases_on`REVERSE a` \\ fs[] \\ rw[]
+      \\ Cases_on`t` \\ fs[] \\ rw[]
+      \\ gvs [AllCaseEqs(),update_Lbl_def]
+      \\ imp_res_tac bvlPropsTheory.evaluate_IMP_LENGTH \\ gvs [bEval_def]
+      \\ imp_res_tac bviPropsTheory.evaluate_IMP_LENGTH \\ gvs [iEval_def]
+      \\ gvs [LENGTH_EQ_NUM_compute]
+      \\ gvs [compile_exps_def,handle_ok_def,aux_code_installed_def]
+      \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+      \\ qexists_tac ‘c’ \\ fs []
+      \\ qexists_tac ‘b2’ \\ fs []
+      \\ fs [bviSemTheory.do_app_def,do_app_aux_def,bvlSemTheory.do_app_def,
+             adjust_bv_def]
+      \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def]
+      \\ ntac 3 (qpat_x_assum ‘∀x._’ mp_tac)
+      \\ first_assum (qspec_then ‘p’ assume_tac)
+      \\ qpat_x_assum ‘FLOOKUP _ _ = _’ assume_tac \\ fs [])
     \\ Cases_on`∃parts. op = Build parts` \\ fs[] >- (
       note_tac "Op: Build" \\ gvs[compile_op_def,bEvalOp_def]
       \\ Cases_on`REVERSE a` \\ fs[] \\ rw[]
       \\ pairarg_tac \\ gvs []
+      \\ gvs [AllCaseEqs()]
       \\ imp_res_tac bvlPropsTheory.evaluate_IMP_LENGTH \\ gvs [bEval_def]
       \\ imp_res_tac bviPropsTheory.evaluate_IMP_LENGTH \\ gvs [iEval_def]
       \\ gvs [compile_exps_def,handle_ok_def,aux_code_installed_def]
       \\ qpat_x_assum ‘state_rel _ _ t1’ kall_tac
       \\ fs [bviSemTheory.do_app_def,do_app_aux_def,bvlSemTheory.do_app_def]
+      \\ ‘EVERY (λp. ∀n. p = Lbl n ⇒ n ∈ domain t1.code)
+            (MAP (update_Lbl (λl. num_stubs + l * nss)) parts)’ by
+       (fs [EVERY_MEM,MEM_MAP] \\ rpt strip_tac \\ res_tac \\ gvs []
+        \\ Cases_on ‘y’ \\ gvs [update_Lbl_def]
+        \\ res_tac \\ fs []
+        \\ fs [domain_lookup,state_rel_def]
+        \\ rename [‘_ = SOME vvv’] \\ PairCases_on ‘vvv’
+        \\ qpat_x_assum ‘∀n k m. _’ drule \\ strip_tac
+        \\ rpt (pairarg_tac \\ fs []))
+      \\ asm_rewrite_tac [] \\ fs []
       \\ pairarg_tac \\ fs []
       \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
       \\ qexists_tac ‘c’ \\ fs []
       \\ fs [do_build_const_def]
+      \\ qabbrev_tac ‘ff = (λl. num_stubs + l * nss)’
       \\ rename [‘state_rel b2 s (inc_clock c t)’]
       \\ ‘∃m1 m2 l.
            (∀k. bv_ok s.refs (m1 k)) ∧
            (∀k. m2 k = adjust_bv b2 (m1 k)) ∧
            do_build m1 l parts s.refs = (q,rs) ∧
-           do_build m2 l parts t.refs = (v,rs')’ by
+           do_build m2 l (MAP (update_Lbl ff) parts) t.refs = (v,rs')’ by
        (qexists_tac ‘λx. Number 0’ \\ qexists_tac ‘λx. Number 0’
         \\ fs [adjust_bv_def,bv_ok_def] \\ first_x_assum $ irule_at Any \\ fs [])
-      \\ ntac 4 (pop_assum mp_tac) \\ ntac 2 (pop_assum kall_tac)
+      \\ qunabbrev_tac ‘ff’
+      \\ rpt (qpat_x_assum ‘do_build _ 0 _ _ = _’ kall_tac)
       \\ rpt strip_tac
       \\ qpat_x_assum ‘state_rel _ _ _’ assume_tac
       \\ rpt $ last_x_assum mp_tac \\ rewrite_tac [AND_IMP_INTRO,GSYM CONJ_ASSOC]
@@ -2954,17 +2985,19 @@ Proof
       THEN1
        (rw [] \\ qexists_tac ‘b2’ \\ fs []
         \\ fs [state_rel_def,bvi_to_bvl_def,bvl_to_bvi_def])
-      \\ Cases
-      \\ TRY
-       (fs [do_part_def] \\ rw [] \\ first_x_assum irule \\ fs []
+      \\ strip_tac
+      \\ Cases_on ‘(∃i. h = Int i) ∨ (∃w. h = W64 w) ∨
+                   (∃n l. h = Con n l) ∨ (∃lll. h = Lbl lll)’
+      THEN1
+       (rw [] \\ fs [update_Lbl_def,do_part_def] \\ rw [] \\ first_x_assum irule \\ fs []
         \\ first_x_assum $ irule_at (Pos last)
         \\ first_x_assum $ irule_at (Pos last)
         \\ qexists_tac ‘b2’
         \\ fs [] \\ rw [APPLY_UPDATE_THM,adjust_bv_def]
         \\ fs [MAP_MAP_o,o_DEF,MAP_EQ_f,bv_ok_def,EVERY_MEM,MEM_MAP]
-        \\ fs [bv_ok_def] \\ rw [EVERY_MEM,MEM_MAP] \\ fs [] \\ NO_TAC)
-      \\ rename [‘Str content’]
-      \\ fs [do_part_def] \\ rw []
+        \\ fs [bv_ok_def] \\ rw [EVERY_MEM,MEM_MAP] \\ fs [])
+      \\ ‘∃content. h = Str content’ by (Cases_on ‘h’ \\ fs []) \\ gvs []
+      \\ fs [update_Lbl_def,do_part_def] \\ rw []
       \\ drule (GEN_ALL state_rel_add_bytearray)
       \\ qabbrev_tac ‘new_s = LEAST ptr. ptr ∉ FDOM s.refs’
       \\ qabbrev_tac ‘new_t = LEAST ptr. ptr ∉ FDOM t.refs’
@@ -4328,7 +4361,9 @@ Theorem compile_op_code_labels:
 Proof
   simp[bvl_to_bviTheory.compile_op_def, bvl_to_bviTheory.stubs_def, SUBSET_DEF]
   \\ every_case_tac \\ fs[closLangTheory.assign_get_code_label_def, REPLICATE_GENLIST, PULL_EXISTS, MAPi_GENLIST, MEM_GENLIST]
-  \\ rw[] \\ fsrw_tac[DNF_ss][PULL_EXISTS] \\ metis_tac[]
+  \\ rw[] \\ fsrw_tac[DNF_ss][PULL_EXISTS]
+  \\ TRY (fs [MEM_MAP] \\ rename [‘update_Lbl _ ccc’] \\ Cases_on ‘ccc’ \\ fs [update_Lbl_def])
+  \\ metis_tac[]
 QED
 
 Theorem compile_exps_get_code_labels:

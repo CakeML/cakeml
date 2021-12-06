@@ -335,6 +335,7 @@ Proof
   \\ gvs [dest_simple_eq]
   \\ Cases_on ‘op’ \\ fs [dest_EqualInt_def]
   \\ EVAL_TAC \\ fs []
+  \\ fs [dest_EqualInt_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
 QED
 
 Theorem SmartOp_code_labels[simp]:

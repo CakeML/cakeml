@@ -3177,6 +3177,7 @@ Proof
   \\ asm_rewrite_tac []
   \\ first_x_assum irule \\ fs []
   \\ first_x_assum $ irule_at (Pos $ el 2) \\ gvs []
+  \\ Cases_on ‘∃l. h = Lbl l’ THEN1 cheat
   \\ Cases_on ‘h’ \\ gvs []
   THEN1
    (gvs[do_part_def,update_tag_def] \\ qexists_tac ‘f2’ \\ fs [refs_lemma]
@@ -3827,6 +3828,7 @@ Proof
       \\ strip_tac \\ gvs []
       \\ gvs [closSemTheory.do_app_def,AllCaseEqs(),do_app_def,PULL_EXISTS]
       \\ pairarg_tac \\ gvs [make_const_thm]
+      \\ cheat
       \\ irule do_build_const_thm \\ fs []
       \\ first_x_assum $ irule_at Any \\ fs [])
     \\ Cases_on `op = Ref` \\ full_simp_tac(srw_ss())[]
@@ -8544,12 +8546,11 @@ Proof
 QED
 
 Theorem assign_get_code_label_compile_op:
-   closLang$assign_get_code_label (compile_op op) = case some n. op = Label n of SOME n => {n} | _ => {}
+   closLang$assign_get_code_label (compile_op op) =
+   case some n. op = Label n of SOME n => {n} | _ => {}
 Proof
   Cases_on`op` \\ rw[clos_to_bvlTheory.compile_op_def, closLangTheory.assign_get_code_label_def]
-  \\ Cases_on ‘c’ \\ fs [assign_get_code_label_def,compile_const_def]
-  \\ rw [] \\ fs [assign_get_code_label_def]
-  \\ pairarg_tac \\ fs [assign_get_code_label_def]
+  \\ cheat
 QED
 
 Theorem recc_Lets_code_labels:

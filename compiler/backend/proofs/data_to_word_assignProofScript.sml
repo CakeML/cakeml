@@ -13494,11 +13494,6 @@ Proof
    >> res_tac >> fs[]
 QED
 
-Definition good_loc_def:
-  good_loc code (Loc n m) = (m = 0 ∧ n IN code) ∧
-  good_loc _ _ = T
-End
-
 Theorem getWords_acc:
   ∀ws acc.
     getWords ws acc =
@@ -13705,12 +13700,15 @@ Proof
     \\ fs []
     \\ simp [limits_inv_def] \\ strip_tac
     \\ disj1_tac \\ strip_tac
-    \\ Cases_on ‘h’ \\ gvs [part_to_words_def,arch_size_def]
+    \\ Cases_on ‘∃n l. h = Con n l’
     THEN1
-     (Cases_on ‘l’ \\ gvs [labPropsTheory.good_dimindex_def,dimword_def,
-        encode_header_def])
+     (gvs [part_to_words_def,arch_size_def]
+      \\ Cases_on ‘l’
+      \\ gvs [labPropsTheory.good_dimindex_def,dimword_def,encode_header_def])
+    \\ Cases_on ‘∃i. h = Int i’
     THEN1
-     (gvs [AllCaseEqs(),multiwordTheory.i2mw_def,encode_header_def]
+     (gvs [part_to_words_def,arch_size_def]
+      \\ gvs [AllCaseEqs(),multiwordTheory.i2mw_def,encode_header_def]
       THEN1
        (Cases_on ‘i < 0’ \\ fs [b2w_def,EVAL “1w ≪ 2 ‖ 3w”]
         \\ gvs [labPropsTheory.good_dimindex_def,dimword_def,NOT_LESS]
@@ -13726,6 +13724,7 @@ Proof
       \\ qsuff_tac ‘2 ** c.len_size ≤ 2 ** (dimindex (:α) − 4)’
       THEN1 decide_tac
       \\ fs [heap_in_memory_store_def])
+    \\ Cases_on ‘h’ \\ gvs [part_to_words_def,arch_size_def]
     \\ gvs [labPropsTheory.good_dimindex_def,dimword_def,byte_len_def,encode_header_def,
             AllCaseEqs(),NOT_LESS]
     \\ imp_res_tac TWO_POW_LEMMA
@@ -13773,9 +13772,9 @@ Proof
   \\ disch_then (qspecl_then [‘adjust_var dest’,‘1’,‘3’,‘(y0,y1)’,‘s1’] mp_tac)
   \\ impl_tac THEN1
    (rgs [Abbr‘s1’,lookup_insert]
-    \\ Cases_on ‘y1’ \\ fs [isWord_def,good_loc_def]
-    \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
-    \\ rw [] \\ res_tac \\ Cases_on ‘p_2’ \\ fs [isWord_def,good_loc_def])
+    \\ irule const_parts_to_words_good_loc \\ fs []
+    \\ first_x_assum $ irule_at Any
+    \\ gvs [EVERY_MEM] \\ rw [] \\ res_tac \\ fs [code_rel_def])
   \\ strip_tac \\ fs []
   \\ fs [state_rel_thm,dataSemTheory.set_var_def,lookup_insert,lookup_delete,Abbr‘s1’,
          FLOOKUP_UPDATE,FAPPLY_FUPDATE_THM,adjust_var_11,option_le_max_right]

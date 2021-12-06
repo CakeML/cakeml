@@ -3259,7 +3259,7 @@ Proof
   \\ imp_res_tac do_app_SUBMAP_Rerr
 QED
 
-val obeys_max_app_def = tDefine"obeys_max_app"`
+Definition obeys_max_app_def[nocompute]:
   (obeys_max_app m (Var _ _) ⇔ T) ∧
   (obeys_max_app m (If _ e1 e2 e3) ⇔ obeys_max_app m e1 ∧ obeys_max_app m e2 ∧ obeys_max_app m e3) ∧
   (obeys_max_app m (Let _ es e) ⇔ EVERY (obeys_max_app m) es ∧ obeys_max_app m e) ∧
@@ -3270,20 +3270,20 @@ val obeys_max_app_def = tDefine"obeys_max_app"`
   (obeys_max_app m (App _ _ e es) ⇔ LENGTH es ≤ m ∧ obeys_max_app m e ∧ EVERY (obeys_max_app m) es) ∧
   (obeys_max_app m (Fn _ _ _ _ e) ⇔ obeys_max_app m e) ∧
   (obeys_max_app m (Letrec _ _ _ es e) ⇔ EVERY (obeys_max_app m) (MAP SND es) ∧ obeys_max_app m e) ∧
-  (obeys_max_app m (Op _ _ es) ⇔ EVERY (obeys_max_app m) es)`
-(wf_rel_tac`measure (exp_size o SND)`
- \\ simp [closLangTheory.exp_size_def]
- \\ rpt conj_tac \\ rpt gen_tac
- \\ Induct_on`es`
- \\ rw [closLangTheory.exp_size_def]
- \\ simp [] \\ res_tac \\ simp []);
+  (obeys_max_app m (Op _ _ es) ⇔ EVERY (obeys_max_app m) es)
+Termination
+  wf_rel_tac`measure (exp_size o SND)`
+  \\ simp [closLangTheory.exp_size_def]
+  \\ rpt conj_tac \\ rpt gen_tac
+  \\ Induct_on`es`
+  \\ rw [closLangTheory.exp_size_def]
+  \\ simp [] \\ res_tac \\ simp []
+End
 
-val obeys_max_app_def =
-  obeys_max_app_def
-  |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
-  |> curry save_thm "obeys_max_app_def[simp,compute]"
+Theorem obeys_max_app_def[simp,compute] =
+  obeys_max_app_def |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o];
 
-val no_Labels_def = tDefine"no_Labels"`
+Definition no_Labels_def[nocompute]:
   (no_Labels (Var _ _) ⇔ T) ∧
   (no_Labels (If _ e1 e2 e3) ⇔ no_Labels e1 ∧ no_Labels e2 ∧ no_Labels e3) ∧
   (no_Labels (Let _ es e) ⇔ EVERY no_Labels es ∧ no_Labels e) ∧
@@ -3294,20 +3294,23 @@ val no_Labels_def = tDefine"no_Labels"`
   (no_Labels (App _ _ e es) ⇔ no_Labels e ∧ EVERY no_Labels es) ∧
   (no_Labels (Fn _ _ _ _ e) ⇔ no_Labels e) ∧
   (no_Labels (Letrec _ _ _ es e) ⇔ EVERY no_Labels (MAP SND es) ∧ no_Labels e) ∧
-  (no_Labels (Op _ op es) ⇔ (∀n. op ≠ Label n) ∧ EVERY no_Labels es)`
-(wf_rel_tac`measure exp_size`
- \\ simp [closLangTheory.exp_size_def]
- \\ rpt conj_tac \\ rpt gen_tac
- \\ Induct_on`es`
- \\ rw [closLangTheory.exp_size_def]
- \\ simp [] \\ res_tac \\ simp []);
+  (no_Labels (Op _ op es) ⇔
+     (∀n. op ≠ Label n) ∧ (∀n. op ≠ EqualConst (Lbl n)) ∧
+     (∀ps. op = Build ps ⇒ ∀n. ~(MEM (Lbl n) ps)) ∧
+     EVERY no_Labels es)
+Termination
+  wf_rel_tac`measure exp_size`
+  \\ simp [closLangTheory.exp_size_def]
+  \\ rpt conj_tac \\ rpt gen_tac
+  \\ Induct_on`es`
+  \\ rw [closLangTheory.exp_size_def]
+  \\ simp [] \\ res_tac \\ simp []
+End
 
-val no_Labels_def =
-  no_Labels_def
-  |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
-  |> curry save_thm "no_Labels_def[simp,compute]"
+Theorem no_Labels_def[simp,compute] =
+  no_Labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o];
 
-val app_call_dests_def = tDefine "app_call_dests" `
+Definition app_call_dests_def[simp,compute]:
   (app_call_dests opt [] = {}) /\
   (app_call_dests opt (x::y::xs) =
      let c1 = app_call_dests opt [x] in
@@ -3347,16 +3350,16 @@ val app_call_dests_def = tDefine "app_call_dests" `
        c1 ∪ c2) /\
   (app_call_dests opt [Call _ ticks dest xs] =
      if opt = SOME F then app_call_dests opt xs else
-       dest INSERT app_call_dests opt xs)`
-  (WF_REL_TAC `measure (exp3_size o SND)`
-   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
-   Induct_on `fns` >>
-   srw_tac [ARITH_ss] [closLangTheory.exp_size_def] >>
-   Cases_on `h` >>
-   full_simp_tac(srw_ss())[closLangTheory.exp_size_def] >>
-   decide_tac);
-
-val _ = save_thm("app_call_dests_def[simp,compute]",app_call_dests_def);
+       dest INSERT app_call_dests opt xs)
+Termination
+  WF_REL_TAC `measure (exp3_size o SND)`
+  \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
+  \\ Induct_on `fns`
+  \\ srw_tac [ARITH_ss] [closLangTheory.exp_size_def]
+  \\ Cases_on `h`
+  \\ full_simp_tac(srw_ss())[closLangTheory.exp_size_def]
+  \\ decide_tac
+End
 
 Overload call_dests = ``app_call_dests (SOME T)``
 Overload app_dests = ``app_call_dests (SOME F)``
@@ -3468,7 +3471,8 @@ Proof
   >- ( rw[EXTENSION] \\ metis_tac[] )
   >- ( rw[EXTENSION] \\ metis_tac[] )
   >- ( rw[EXTENSION] \\ metis_tac[] )
-  >- ( Cases_on`op` \\ fs[closLangTheory.assign_get_code_label_def] )
+  >- ( Cases_on`op` \\ fs[closLangTheory.assign_get_code_label_def]
+       \\ CASE_TAC \\ fs [])
   >- (
     rw[EXTENSION]
     \\ PURE_TOP_CASE_TAC \\ fs[]
