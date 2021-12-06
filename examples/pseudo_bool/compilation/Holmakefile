@@ -1,7 +1,7 @@
 INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis $(CAKEMLDIR)/compiler ..
 CLINE_OPTIONS =
 
-all: $(DEFAULT_TARGETS) README.md exec
+all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)

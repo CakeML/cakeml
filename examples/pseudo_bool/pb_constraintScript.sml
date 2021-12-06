@@ -734,7 +734,7 @@ Proof
   >- (
     first_x_assum drule>> simp[GSYM integerTheory.INT_ADD]>>
     disch_then sym_sub_tac>>
-    simp[Once eval_lit_eq]>>
+    simp[Once eval_lit_eq_flip]>>
     `-q * eval_lit w (negate r) = &(Num (-q) * eval_lit w (negate r))` by (
       PURE_REWRITE_TAC[GSYM integerTheory.INT_MUL,eval_lit_INT]>>
       `0 ≤ -q` by fs[]>>
