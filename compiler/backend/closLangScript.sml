@@ -14,13 +14,6 @@ val _ = set_grammar_ancestry ["ast"]
 (* compilation from this language removes closures *)
 
 Datatype:
-  const = ConstCons num (const list)
-        | ConstInt int
-        | ConstStr mlstring
-        | ConstWord64 word64
-End
-
-Datatype:
   const_part = Con num (num list)
              | Int int
              | Str mlstring
@@ -67,8 +60,7 @@ Datatype:
      | Equal         (* structural equality *)
      | EqualConst const_part (* equal to integer/string/word constant *)
      | Const int     (* integer *)
-     | Constant const (* produces a constant value *)
-     | Build (const_part list)  (* implementation of Constant above *)
+     | Build (const_part list)  (* used to build large constants *)
      | Add           (* + over the integers *)
      | Sub           (* - over the integers *)
      | Mult          (* * over the integers *)

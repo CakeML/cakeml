@@ -2255,15 +2255,6 @@ Proof
     \\ rpt strip_tac \\ rveq \\ fs []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ TRY (res_tac \\ fs [isClos_cases] \\ NO_TAC))
-  \\ Cases_on `∃c. opp = Constant c`
-  THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def]
-    \\ rpt strip_tac \\ gvs []
-    \\ qid_spec_tac ‘c’
-    \\ recInduct make_const_ind
-    \\ fs [make_const_def,simple_val_rel_def]
-    \\ Induct \\ fs [])
   \\ Cases_on `opp = Length \/ (?b. opp = BoundsCheckByte b) \/
                opp = BoundsCheckArray \/ opp = LengthByte \/
                opp = DerefByteVec \/ opp = DerefByte \/

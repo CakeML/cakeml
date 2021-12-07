@@ -762,7 +762,6 @@ Definition do_app_aux_def:
             else Rerr (Rabort Rtype_error)
           | _ => Rerr (Rabort Rtype_error))
     | (AllocGlobal, _)   => Rerr (Rabort Rtype_error)
-    | (Constant _, _)    => Rerr (Rabort Rtype_error)
     | (FromListByte, _)  => Rerr (Rabort Rtype_error)
     | (ConcatByteVec, _) => Rerr (Rabort Rtype_error)
     | (CopyByte T, _)    => Rerr (Rabort Rtype_error)

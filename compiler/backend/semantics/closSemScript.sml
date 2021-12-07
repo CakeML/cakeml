@@ -156,18 +156,6 @@ Definition do_install_def:
        | _ => (Rerr(Rabort Rtype_error),s))
 End
 
-Definition make_const_def:
-  make_const (ConstInt i) = Number i ∧
-  make_const (ConstStr s) = ByteVector (MAP (n2w o ORD) (mlstring$explode s)) ∧
-  make_const (ConstWord64 w) = Word64 w ∧
-  make_const (ConstCons t cs) = Block t (MAP make_const cs)
-Termination
-  WF_REL_TAC ‘measure const_size’
-  \\ Induct_on ‘cs’ \\ rw []
-  \\ fs [const_size_def] \\ res_tac
-  \\ pop_assum (qspec_then ‘t’ assume_tac) \\ fs []
-End
-
 Definition do_app_def:
   do_app (op:closLang$op) (vs:closSem$v list) ^s =
     case (op,vs) of
@@ -183,7 +171,6 @@ Definition do_app_def:
     | (AllocGlobal,[]) =>
         Rval (Unit, s with globals := s.globals ++ [NONE])
     | (Const i,[]) => Rval (Number i, s)
-    | (Constant c,[]) => Rval (make_const c, s)
     | (Build p,[]) =>
         (case p of
          | [Str t] => Rval (ByteVector (MAP (n2w o ORD) (mlstring$explode t)), s)

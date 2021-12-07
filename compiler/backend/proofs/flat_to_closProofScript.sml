@@ -279,7 +279,7 @@ Proof
   fs [flatSemTheory.evaluate_def,compile_def]
   \\ Cases_on `l` \\ fs [PULL_EXISTS]
   \\ once_rewrite_tac [CONJUNCT2 v_rel_cases] \\ fs []
-  \\ fs [compile_lit_def,evaluate_def,do_app_def,make_const_def]
+  \\ fs [compile_lit_def,evaluate_def,do_app_def]
 QED
 
 Theorem compile_Raise:

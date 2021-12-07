@@ -348,7 +348,6 @@ val clos_op_to_display_def = Define `
     | Cons num => item_with_num (strlit "Cons") num
     | ConsExtend num => item_with_num (strlit "ConsExtend") num
     | Build _ => empty_item(strlit "Build")
-    | Constant _ => empty_item(strlit "Constant")
     | El => empty_item (strlit "El")
     | LengthBlock => empty_item (strlit "LengthBlock")
     | Length => empty_item (strlit "Length")

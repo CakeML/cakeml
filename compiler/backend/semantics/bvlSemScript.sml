@@ -153,7 +153,7 @@ End
     - LengthByteVec and DerefByteVec are removed
     - FromListByte, ToListByte, String, ConcatByteVec, and
       CopyByte work on ByteArrays rather than ByteVectors
-    - Constant has been replaced by Build (which builds the constant)
+    - Build now has full semantics, i.e. can handle all cases
     - Label is added *)
 
 val do_app_def = Define `

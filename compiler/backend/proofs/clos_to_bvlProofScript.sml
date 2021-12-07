@@ -1393,7 +1393,7 @@ Theorem do_app[local]:
    (op <> Ref) /\ (op <> Update) ∧
    (op ≠ RefArray) ∧ (∀f. op ≠ RefByte f) ∧ (op ≠ UpdateByte) ∧
    (op ≠ FromListByte) ∧ op ≠ ConcatByteVec ∧
-   (∀b. op ≠ CopyByte b) ∧ (∀c. op ≠ Constant c) ∧ (∀s. op ≠ Build [Str s]) ∧
+   (∀b. op ≠ CopyByte b) ∧ (∀s. op ≠ Build [Str s]) ∧
    (∀n. op ≠ (FFI n)) ==>
    ?w t2.
      (do_app (compile_op op) ys t1 = Rval (w,t2)) /\
@@ -3806,6 +3806,7 @@ Proof
       \\ pop_assum $ irule_at Any
       \\ first_x_assum (qspec_then ‘0’ mp_tac)
       \\ fs [APPLY_UPDATE_THM])
+    (*
     \\ Cases_on ‘∃c. op = Constant c’
     THEN1
      (gvs []
@@ -3831,6 +3832,7 @@ Proof
       \\ cheat
       \\ irule do_build_const_thm \\ fs []
       \\ first_x_assum $ irule_at Any \\ fs [])
+    *)
     \\ Cases_on `op = Ref` \\ full_simp_tac(srw_ss())[]
     THEN1
      (full_simp_tac(srw_ss())[closSemTheory.do_app_def,LET_DEF] \\ SRW_TAC [] []
@@ -7456,7 +7458,7 @@ Proof
 QED
 
 Theorem annotate_Op_Const:
-  annotate m ((Op t (Const n) [])::ls) = Op t (Const n) [] :: annotate m ls
+  annotate m ((Op t (Const n) [])::ls) = Op IsConstant (Const n) [] :: annotate m ls
 Proof
   rw[clos_annotateTheory.annotate_def]
   \\ Cases_on`ls` >- EVAL_TAC
@@ -7464,6 +7466,7 @@ Proof
   \\ pairarg_tac \\ fs[]
   \\ Cases_on`c2` >- EVAL_TAC
   \\ rw[clos_annotateTheory.shift_def]
+  \\ EVAL_TAC
 QED
 
 Theorem annotate_compile_inc_req:
@@ -7481,12 +7484,12 @@ Proof
   \\ disch_tac
   \\ drule_then assume_tac can_extract_to_case \\ fs []
   \\ fs [annotate_Op_Const, EVAL ``annotate arity []``, show_SUBSET]
+  \\ fs [can_extract_def, code_locs_Op_cons, code_locs_def]
+  \\ fs [extracted_addrs_def, extract_name_def, some_def]
   >- (
     fs [ALL_DISTINCT_APPEND, SUBSET_DEF]
     \\ metis_tac [annotate_compile_code_locs, SUBSET_DEF]
   )
-  \\ fs [can_extract_def, code_locs_Op_cons, code_locs_def]
-  \\ fs [extracted_addrs_def, extract_name_def, some_def]
   \\ fs [LENGTH_annotate, code_locs_Op_cons, code_locs_def, trivia_1]
   \\ conseq (map (MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] SUBSET_TRANS)
       o hd o BODY_CONJUNCTS)

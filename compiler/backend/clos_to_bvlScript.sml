@@ -92,6 +92,13 @@ Definition add_part_def:
           | SOME k => (n,k,aux,acc)
 End
 
+Datatype:
+  const = ConstCons num (const list)
+        | ConstInt int
+        | ConstStr mlstring
+        | ConstWord64 word64
+End
+
 Definition add_parts_def:
   add_parts (ConstInt i) n aux acc = add_part n (Int i) aux acc ∧
   add_parts (ConstStr s) n aux acc = add_part n (Str s) aux acc ∧
@@ -134,7 +141,6 @@ val compile_op_def = Define`
   compile_op DerefByteVec = DerefByte ∧
   compile_op (SetGlobal n) = SetGlobal (n + num_added_globals) ∧
   compile_op (Global n) = Global (n + num_added_globals) ∧
-  compile_op (Constant c) = compile_const c ∧
   compile_op x = x`
 val _ = export_rewrites["compile_op_def"];
 
@@ -151,7 +157,6 @@ Theorem compile_op_pmatch:
       | DerefByteVec => DerefByte
       | SetGlobal n => SetGlobal (n + num_added_globals)
       | Global n => Global (n + num_added_globals)
-      | Constant c => compile_const c
       | x => x
 Proof
   rpt strip_tac
