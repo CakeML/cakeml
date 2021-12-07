@@ -11,15 +11,41 @@ val _ = set_grammar_ancestry ["closLang","db_vars","misc"]
 
 (* alt_free calculates free variable annotations, and replaces unused lets with dummies *)
 
-val const_0_def = Define `
-  const_0 t = Op t (Const 0) []`;
+Definition const_0_def:
+  const_0 t = Op t (Const 0) []
+End
 
-val no_overlap_def = Define `
+Definition no_overlap_def:
   (no_overlap 0 l <=> T) /\
   (no_overlap (SUC n) l <=>
-     if has_var n l then F else no_overlap n l)`
+     if has_var n l then F else no_overlap n l)
+End
 
-val alt_free_def = tDefine "alt_free" `
+Definition NotConstant_def:
+  NotConstant = backend_common$Cons backend_common$None 0n
+End
+
+Overload IsConstant = “backend_common$None”
+
+Definition is_constant_def:
+  is_constant (Op t _ _) = (t = IsConstant) ∧
+  is_constant (Let t _ _) = (t = IsConstant) ∧
+  is_constant _ = F
+End
+
+Definition is_op_constant_def:
+  is_op_constant (Const i) xs = NULL xs ∧
+  is_op_constant (Build ps) xs = NULL xs ∧
+  is_op_constant (Cons t) xs = EVERY is_constant xs ∧
+  is_op_constant _ xs = F
+End
+
+Definition op_annotation_def:
+  op_annotation op xs =
+    if is_op_constant op xs then IsConstant else NotConstant
+End
+
+Definition alt_free_def:
   (alt_free [] = ([],Empty)) /\
   (alt_free ((x:closLang$exp)::y::xs) =
      let (c1,l1) = alt_free [x] in
@@ -35,10 +61,10 @@ val alt_free_def = tDefine "alt_free" `
      let m = LENGTH xs in
      let (c2,l2) = alt_free [x2] in
        if no_overlap m l2 /\ EVERY pure xs then
-         ([Let t (REPLICATE m (const_0 t)) (HD c2)], Shift m l2)
+         ([Let NotConstant (REPLICATE m (const_0 t)) (HD c2)], Shift m l2)
        else
          let (c1,l1) = alt_free xs in
-           ([Let t c1 (HD c2)],mk_Union l1 (Shift (LENGTH xs) l2))) /\
+           ([Let NotConstant c1 (HD c2)],mk_Union l1 (Shift (LENGTH xs) l2))) /\
   (alt_free [Raise t x1] =
      let (c1,l1) = alt_free [x1] in
        ([Raise t (HD c1)],l1)) /\
@@ -47,7 +73,7 @@ val alt_free_def = tDefine "alt_free" `
        ([Tick t (HD c1)],l1)) /\
   (alt_free [Op t op xs] =
      let (c1,l1) = alt_free xs in
-       ([Op t op c1],l1)) /\
+       ([Op (op_annotation op c1) op c1],l1)) /\
   (alt_free [App t loc_opt x1 xs2] =
      let (c1,l1) = alt_free [x1] in
      let (c2,l2) = alt_free xs2 in
@@ -55,7 +81,11 @@ val alt_free_def = tDefine "alt_free" `
   (alt_free [Fn t loc _ num_args x1] =
      let (c1,l1) = alt_free [x1] in
      let l2 = Shift num_args l1 in
-       ([Fn t loc (SOME (vars_to_list l2)) num_args (HD c1)],l2)) /\
+     let free_vars = vars_to_list l2 in
+     let e = Fn t loc (SOME free_vars) num_args (HD c1) in
+       if NULL free_vars then
+         ([Let IsConstant [] e],l2)
+       else ([e],l2)) /\
   (alt_free [Letrec t loc _ fns x1] =
      let m = LENGTH fns in
      let (c2,l2) = alt_free [x1] in
@@ -74,29 +104,26 @@ val alt_free_def = tDefine "alt_free" `
        ([Handle t (HD c1) (HD c2)],mk_Union l1 (Shift 1 l2))) /\
   (alt_free [Call t ticks dest xs] =
      let (c1,l1) = alt_free xs in
-       ([Call t ticks dest c1],l1))`
- (WF_REL_TAC `measure exp3_size`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ simp[]
-  \\ rename1 `MEM ee xx`
-  \\ Induct_on `xx` \\ rpt strip_tac \\ lfs[exp_size_def] \\ res_tac
-  \\ simp[]);
+       ([Call t ticks dest c1],l1))
+Termination
+  WF_REL_TAC `measure (list_size exp_size)`
+End
 
-val alt_free_ind = theorem "alt_free_ind";
-
-val alt_free_LENGTH_LEMMA = Q.prove(
-  `!xs. (case alt_free xs of (ys,s1) => (LENGTH xs = LENGTH ys))`,
+Triviality alt_free_LENGTH_LEMMA:
+  ∀xs. (case alt_free xs of (ys,s1) => (LENGTH xs = LENGTH ys))
+Proof
   recInduct alt_free_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [alt_free_def]
   \\ SRW_TAC [] [] \\ SRW_TAC [] []
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
   \\ REV_FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ rw [])
-  |> SIMP_RULE std_ss [] |> SPEC_ALL;
+  \\ rw []
+QED
 
 Theorem alt_free_LENGTH:
-   !xs ys l. (alt_free xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)
+  ∀xs ys l. (alt_free xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)
 Proof
-  REPEAT STRIP_TAC \\ MP_TAC alt_free_LENGTH_LEMMA \\ fs []
+  rw [] \\ qspec_then ‘xs’ mp_tac alt_free_LENGTH_LEMMA \\ fs []
 QED
 
 Theorem alt_free_SING:
@@ -130,15 +157,17 @@ QED
 
 (* shift renames variables to use only those in the annotations *)
 
-val get_var_def = Define `
+Definition get_var_def:
   get_var m l i v =
-    if v < l then v else l + zlookup i (v - l)`;
+    if v < l then v else l + zlookup i (v - l)
+End
 
-val shifted_env_def = Define `
+Definition shifted_env_def:
   (shifted_env n [] = LN) /\
-  (shifted_env n (x::xs) = insert x (n:num) (shifted_env (n+1) xs))`;
+  (shifted_env n (x::xs) = insert x (n:num) (shifted_env (n+1) xs))
+End
 
-val shift_def = tDefine "shift" `
+Definition shift_def:
   (shift [] (m:num) (l:num) (i:num num_map) = []) /\
   (shift ((x:closLang$exp)::y::xs) m l i =
      let c1 = shift [x] m l i in
@@ -192,12 +221,10 @@ val shift_def = tDefine "shift" `
        ([Handle t (HD c1) (HD c2)])) /\
   (shift [Call t ticks dest xs] m l i =
      let c1 = shift xs m l i in
-       ([Call t ticks dest c1]))`
- (WF_REL_TAC `measure (exp3_size o FST)`
-  \\ REPEAT STRIP_TAC
-  \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC);
-
-val shift_ind = theorem "shift_ind";
+       ([Call t ticks dest c1]))
+Termination
+  WF_REL_TAC `measure (list_size exp_size o FST)`
+End
 
 Theorem shift_LENGTH_LEMMA:
    !xs m l i. LENGTH (shift xs m l i) = LENGTH xs
@@ -224,19 +251,50 @@ QED
 Theorem HD_shift[simp]:
   LENGTH (shift [x] m l i) = 1 ∧
   [HD (shift [x] m l i)] = shift [x] m l i
-Proof STRIP_ASSUME_TAC shift_SING \\ fs []
+Proof
+  STRIP_ASSUME_TAC shift_SING \\ fs []
 QED
 
 (* main functions *)
 
-val annotate_def = Define `
-  annotate arity xs = shift (FST (alt_free xs)) 0 arity LN`;
+Definition annotate_def:
+  annotate arity xs = shift (FST (alt_free xs)) 0 arity LN
+End
 
-val compile_def = Define `
+Definition compile_def:
   compile prog =
-    MAP (λ(n,args,exp). (n,args, HD (annotate args [exp]))) prog`
+    MAP (λ(n,args,exp). (n,args, HD (annotate args [exp]))) prog
+End
 
-val compile_inc_def = Define `
-  compile_inc (e,aux) = (annotate 0 e,clos_annotate$compile aux)`;
+Definition compile_inc_def:
+  compile_inc (e,aux) = (annotate 0 e,clos_annotate$compile aux)
+End
+
+(* pmatch versions *)
+
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
+Theorem is_constant_pmatch:
+  is_constant e =
+    case e of
+    | Op t _ _  => (t = IsConstant)
+    | Let t _ _ => (t = IsConstant)
+    | _         => F
+Proof
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ Cases_on ‘e’ \\ fs [is_constant_def]
+QED
+
+Theorem is_op_constant_pmatch:
+  is_op_constant op xs =
+    case op of
+    | Const i  => NULL xs
+    | Build ps => NULL xs
+    | Cons t   => EVERY is_constant xs
+    | _        => F
+Proof
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ Cases_on ‘op’ \\ fs [is_op_constant_def]
+QED
 
 val _ = export_theory();

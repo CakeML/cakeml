@@ -141,6 +141,7 @@ val add_backend_compset = computeLib.extend_compset
       (* ---- clos_number ---- *)
     ,clos_numberTheory.renumber_code_locs_def
     ]
+  ,computeLib.Defs (theory_computes "clos_annotate")
   ,computeLib.Defs
     [clos_callTheory.calls_def
     ,clos_callTheory.free_def
@@ -150,15 +151,6 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_callTheory.calls_list_def
     ,clos_callTheory.insert_each_compute
     ,clos_callTheory.GENLIST_Var_def
-      (* ---- clos_annotate ---- *)
-    ,clos_annotateTheory.get_var_def
-    ,clos_annotateTheory.shifted_env_def
-    ,clos_annotateTheory.annotate_def
-    ,clos_annotateTheory.shift_def
-    ,clos_annotateTheory.compile_def
-    ,clos_annotateTheory.const_0_def
-    ,clos_annotateTheory.no_overlap_compute
-    ,clos_annotateTheory.alt_free_def
       (* ---- clos_known---- *)
     ,clos_knownTheory.get_size_sc_aux_def
     ,clos_knownTheory.get_size_sc_def

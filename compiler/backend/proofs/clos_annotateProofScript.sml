@@ -71,7 +71,7 @@ QED
 Theorem alt_fv_nil[simp]:
    alt_fv v [] ⇔ F
 Proof
-rw[alt_fv]
+  rw[alt_fv]
 QED
 
 val alt_fv1_def = Define`alt_fv1 v e = alt_fv v [e]`;
@@ -549,7 +549,7 @@ val every_Fn_vs_NONE_EVERY_MAP =
   every_Fn_vs_NONE_EVERY
   |> Q.SPEC`MAP f ls`
   |> SIMP_RULE std_ss [EVERY_MAP]
-  |> GSYM
+  |> GSYM;
 
 val code_tac =
     imp_res_tac evaluate_code
@@ -558,8 +558,8 @@ val code_tac =
           EVERY_MAP,EVERY_GENLIST,shift_seq_def]
     \\ fs[every_Fn_vs_NONE_EVERY_MAP,o_DEF];
 
-val shift_correct = Q.prove(
-  `(!xs env (s1:('c,'ffi) closSem$state) env' t1 res s2 m l i.
+Theorem shift_correct[local]:
+  (!xs env (s1:('c,'ffi) closSem$state) env' t1 res s2 m l i.
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr (Rabort Rtype_error) /\
      (LENGTH env = m + l) /\
      alt_fv_set xs SUBSET env_ok m l i env env' /\
@@ -581,7 +581,8 @@ val shift_correct = Q.prove(
      ?res' s2'.
        (evaluate_app loc_opt f' args' s1' = (res',s2')) /\
        result_rel (LIST_REL v_rel) v_rel res res' /\
-       state_rel s2 s2')`,
+       state_rel s2 s2')
+Proof
   HO_MATCH_MP_TAC (evaluate_ind |> Q.SPEC `λ(x1,x2,x3). P0 x1 x2 x3` |> Q.GEN `P0`
                              |> SIMP_RULE std_ss [FORALL_PROD])
   \\ REPEAT STRIP_TAC
@@ -833,7 +834,7 @@ val shift_correct = Q.prove(
     \\ Q.ABBREV_TAC `live =
           FILTER (\n. n < m + l) (vars_to_list (Shift num_args l1))`
     \\ full_simp_tac(srw_ss())[MAP_MAP_o,o_DEF]
-    \\ Cases_on `lookup_vars (MAP (get_var m l i) live) env'`
+    \\ (Cases_on `lookup_vars (MAP (get_var m l i) live) env'`
     \\ full_simp_tac(srw_ss())[] THEN1
      (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,alt_fv,alt_fv1_thm]
       \\ full_simp_tac(srw_ss())[lookup_vars_NONE] \\ UNABBREV_ALL_TAC
@@ -859,7 +860,7 @@ val shift_correct = Q.prove(
     \\ `n' + 1 = (n' + 1 - num_args) + num_args` by DECIDE_TAC
     \\ STRIP_TAC THEN1 METIS_TAC []
     \\ STRIP_TAC THEN1 (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[MEM_vars_to_list] \\ METIS_TAC [])
-    \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[ALL_DISTINCT_vars_to_list])
+    \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[ALL_DISTINCT_vars_to_list]))
   THEN1 (* Letrec *)
    (full_simp_tac std_ss [alt_free_def]
     \\ `?y2 l2. alt_free [exp] = ([y2],l2)` by METIS_TAC [PAIR,alt_free_SING]
@@ -1214,16 +1215,19 @@ val shift_correct = Q.prove(
     \\ code_tac \\ full_simp_tac(srw_ss())[dec_clock_def]
     \\ MATCH_MP_TAC EVERY2_DROP
     \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff
-    \\ full_simp_tac(srw_ss())[]));
+    \\ full_simp_tac(srw_ss())[])
+QED
 
-val env_set_default = Q.prove(
-  `x SUBSET env_ok 0 0 LN [] env'`,
-  full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,env_ok_def]);
+Triviality env_set_default:
+  x SUBSET env_ok 0 0 LN [] env'
+Proof
+  full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,env_ok_def]
+QED
 
-val annotate_correct = save_thm("annotate_correct",
+Theorem annotate_correct =
   shift_correct |> CONJUNCT1
   |> SPEC_ALL |> Q.INST [`m`|->`0`,`l`|->`0`,`i`|->`LN`,`env`|->`[]`]
-  |> REWRITE_RULE [GSYM annotate_def,env_set_default,LENGTH,ADD_0]);
+  |> REWRITE_RULE [GSYM annotate_def,env_set_default,LENGTH,ADD_0];
 
 (* more correctness properties *)
 

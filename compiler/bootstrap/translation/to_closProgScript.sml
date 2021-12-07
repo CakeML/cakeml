@@ -300,6 +300,9 @@ val r = translate clos_callTheory.compile_def;
 (* clos_annotate                                                             *)
 (* ------------------------------------------------------------------------- *)
 
+val r = translate clos_annotateTheory.is_constant_pmatch;
+val r = translate clos_annotateTheory.is_op_constant_pmatch;
+
 val r = translate clos_annotateTheory.shift_def;
 
 val clos_annotate_shift_side = Q.prove(`
