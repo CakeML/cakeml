@@ -23,7 +23,10 @@ Definition arm8_asl_next_def:
 
     (* update PC *)
       branch_taken <- read_regS BranchTaken_ref;
-      if branch_taken then returnS () else PC_set (pc + 4w)
+      if branch_taken then returnS () else do
+        pc <- PC_read();
+        PC_set (pc + 4w)
+      od
   od
 End
 
