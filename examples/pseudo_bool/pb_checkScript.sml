@@ -23,16 +23,22 @@ Datatype:
   | Weak constr var     (* Addition of literal axioms until "var" disappears *)
 End
 
+(* TODO: some syntactic representation of a substitution
+  This is a dummy type, unused for now*)
+Type subst = ``:num list``;
+
 Datatype:
   pbpstep =
   | Contradiction num (* Id representing a contradiction *)
   | Delete (num list) (* Ids to to delete *)
   | Polish constr     (* Adds a constraint, written in reverse polish notation *)
-  (* TODO below
-  | RUP constr --> u [constraint]
-  | SR constr --> red [constraint] [mapping] [unit prop hints] [clauseID -> pbpstep list]
-  | ... *)
+  | Red npbc subst (pbpstep list) (pbpstep list spt)
 End
+
+(* Red steps add the constraint npbc by contradiction,
+  - subst is the witness substitution for substitution redundancy steps (currently unused)
+  - pbpstep list is the "preamble" subproof
+  - (pbpstep list sptree) is the indexed list of subproofs (currently unused) *)
 
 (*
   The type of PB formulas represented as a finite map
@@ -91,9 +97,10 @@ Definition check_pbpstep_def:
   | Delete ls =>
       Cont (FOLDL (λa b. delete b a) fml ls) id
   | Polish constr =>
-    case check_polish fml constr of
+    (case check_polish fml constr of
       NONE => Fail
-    | SOME c => Cont (insert id c fml) (id+1)
+    | SOME c => Cont (insert id c fml) (id+1))
+  | Red c s pf pfs => Fail (* TODO: dummy, needs to be put into mutual recursion with check_pbpsteps *)
 End
 
 Definition check_pbpsteps_def:
@@ -272,11 +279,12 @@ Proof
   metis_tac[check_polish_compact]
 QED
 
-(* Parsing an OPB file
+(*
+  Parse an OPB file as an unnormalized formula
   For now, use the standard format where variables are named x1,...,xn
 *)
 
-(* todo: copied from lpr_parsing *)
+(* TODO: copied from lpr_parsing *)
 (* Everything recognized as a "blank" *)
 Definition blanks_def:
   blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t" ∨ c = #"\r"
@@ -312,7 +320,7 @@ End
   EVAL ``parse_lit (strlit "~x1234")``
 *)
 
-(* Parse the LHS of a constraint and returns the remainder the line *)
+(* Parse the LHS of a constraint and returns the remainder of the line *)
 Definition parse_constraint_LHS_def:
   (parse_constraint_LHS (INR n::INL v::rest) acc =
     case parse_lit v of NONE => (INR n::INL v::rest,REVERSE acc)
@@ -320,53 +328,7 @@ Definition parse_constraint_LHS_def:
   (parse_constraint_LHS ls acc = (ls,REVERSE acc))
 End
 
-Definition term_le_def:
-  term_le (_,l1) (_,l2) = (get_var l1 < get_var l2)
-End
-
-Definition term_eq_def:
-  term_eq (_,l1) (_,l2) = (get_var l1 = get_var l2)
-End
-
-(* same as add_terms but not normalizing *)
-Definition add_terms_denorm_def:
-  add_terms_denorm (c1,Pos n) (c2,Pos _) = ((c1+c2:int,Pos n), 0) ∧
-  add_terms_denorm (c1,Pos n) (c2,Neg _) = ((c1-c2,Pos n), c2) ∧
-  add_terms_denorm (c1,Neg n) (c2,Neg _) = ((c1+c2,Neg n),0) ∧
-  add_terms_denorm (c1,Neg n) (c2,Pos _) = ((c1-c2,Neg n),c2)
-End
-
-Definition merge_adjacent_def:
-  (merge_adjacent (x::y::xs) acc n =
-  if term_eq x y then
-    let (trm,carry) = add_terms_denorm x y in
-    merge_adjacent xs (trm::acc) (n-carry)
-  else
-    merge_adjacent (y::xs) (x::acc) n) ∧
-  (merge_adjacent ls acc n = (REVERSE (ls++acc),n))
-End
-
-Definition normalize_def:
-  (normalize [] acc n = (REVERSE acc,n)) ∧
-  (normalize ((c,l)::xs) acc n =
-    if (c:int) = 0 then normalize xs acc n
-    else if c < 0 then (* *)
-      normalize xs ((Num(-c),negate l)::acc) (n - c)
-    else
-      normalize xs ((Num c,l)::acc) n)
-End
-
-(* Given an inequality _ >= _, produces a normalized PBC *)
-Definition normalize_PBC_def:
-  normalize_PBC lhs deg =
-  (* Sort literals by underlying vars then merge adjacent terms with equal vars *)
-  let (lhs',deg') = merge_adjacent (QSORT term_le lhs) [] deg in
-  let (lhs'',deg'') = normalize lhs' [] deg' in
-  if deg'' < 0 then PBC lhs'' 0
-  else PBC lhs'' (Num deg'')
-End
-
-(* strip ; from a number *)
+(* strip ; from the end of a number *)
 Definition strip_terminator_def:
   strip_terminator s =
   if strlen s ≥ 1 ∧ strsub s (strlen s - 1) = #";"
@@ -388,19 +350,20 @@ Definition parse_constraint_def:
   case cmpdeg of NONE => NONE
   | SOME (cmp, deg) =>
     if cmp = implode ">=" then
-      SOME [normalize_PBC lhs deg]
+      SOME (GreaterEqual lhs deg)
     else if cmp = implode "=" then
-      (* which one first ? *)
-      SOME [normalize_PBC (MAP (λ(c:int,l). (-c,l)) lhs) (-deg); normalize_PBC lhs deg]
+      SOME (Equal lhs deg)
     else NONE
 End
+
+(* EVAL ``parse_constraint (toks (strlit "2 ~x1 1 ~x3 >= 1;"))``; *)
 
 Definition parse_constraints_def:
   (parse_constraints [] acc = SOME (REVERSE acc)) ∧
   (parse_constraints (s::ss) acc =
     case parse_constraint s of
       NONE => NONE
-    | SOME pbc => parse_constraints ss (pbc++acc))
+    | SOME pbc => parse_constraints ss (pbc::acc))
 End
 
 Definition nocomment_line_def:
@@ -421,12 +384,9 @@ Definition parse_pbf_def:
   parse_pbf strs = parse_pbf_toks (MAP toks strs)
 End
 
-(* build an sptree for the PBF from an initial ID *)
-Definition build_fml_def:
-  (build_fml (id:num) [] acc = (acc,id)) ∧
-  (build_fml id (s::ss) acc =
-    build_fml (id+1) ss (insert id s acc))
-End
+(*
+  Parsing a proof file
+*)
 
 (* The stack is formed from constraints, where factors and variables are
   also encoded using Id *)
@@ -516,6 +476,13 @@ Definition parse_pbp_def:
   parse_pbp strs = parse_pbp_toks (MAP toks_num strs)
 End
 
+(* build an sptree for the PBF from an initial ID *)
+Definition build_fml_def:
+  (build_fml (id:num) [] acc = (acc,id)) ∧
+  (build_fml id (s::ss) acc =
+    build_fml (id+1) ss (insert id s acc))
+End
+
 val pbfraw = ``[
   strlit "* #variable= 4 #constraint= 7";
   strlit "2 ~x1 1 ~x3 >= 1;";
@@ -542,6 +509,6 @@ val pbpraw = ``[
 
 val pbp = rconc (EVAL ``THE (parse_pbp ^(pbpraw))``);
 
-val check = rconc (EVAL``((UNCURRY (check_pbpsteps ^(pbp))) (build_fml 1 ^(pbf) LN))``);
+val check = rconc (EVAL``((UNCURRY (check_pbpsteps ^(pbp))) (build_fml 1 (normalize ^(pbf)) LN))``);
 
 val _ = export_theory ();

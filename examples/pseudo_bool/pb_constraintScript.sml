@@ -701,7 +701,7 @@ Proof
 QED
 
 Definition normalize_lhs_def:
-  (normalize_lhs [] acc n = (acc,n)) ∧
+  (normalize_lhs [] acc n = (REVERSE acc,n)) ∧
   (normalize_lhs ((x,l)::xs) acc n =
     if x < 0 then normalize_lhs xs ((Num(-x),negate l)::acc) (n+x)
     else normalize_lhs xs ((Num x,l)::acc) n)
@@ -728,7 +728,9 @@ Theorem normalize_lhs_normalizes:
   normalize_lhs ls acc n = (ls',n') ⇒
   iSUM (MAP (pb_preconstraint$eval_term w) ls) + &(SUM (MAP (eval_term w) acc)) + n = &(SUM (MAP (eval_term w) ls')) + n'
 Proof
-  Induct>>rw[normalize_lhs_def,iSUM_def]>>
+  Induct>>rw[normalize_lhs_def,iSUM_def]
+  >-
+    metis_tac[SUM_REVERSE,MAP_REVERSE] >>
   Cases_on`h`>>fs[normalize_lhs_def]>>
   every_case_tac>>fs[]
   >- (
@@ -750,7 +752,6 @@ Proof
   intLib.ARITH_TAC
 QED
 
-(* TODO: this is not right normalize properly *)
 Definition pbc_to_npbc_def:
   (pbc_to_npbc (GreaterEqual xs n) =
     let (lhs,m) = normalize_lhs xs [] 0 in
@@ -759,6 +760,7 @@ Definition pbc_to_npbc_def:
   (pbc_to_npbc (Equal xs n) = PBC [] 0)
 End
 
+(* TODO: this normalizes but does not ensure compactness *)
 Definition normalize_def:
   normalize pbf =
   let pbf' = FLAT (MAP pbc_ge pbf) in
@@ -778,7 +780,6 @@ Proof
   intLib.ARITH_TAC
 QED
 
-(* this does not ensure compactness *)
 Theorem normalize_thm:
   satisfies w (set pbf) ⇔
   satisfies w (set (normalize pbf))
