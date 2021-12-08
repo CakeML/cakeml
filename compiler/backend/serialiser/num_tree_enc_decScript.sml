@@ -314,4 +314,20 @@ Proof
   Cases_on ‘x’ \\ fs [option_enc'_def,option_dec'_def,MAP_MAP_o,o_DEF]
 QED
 
+(* word64 *)
+
+Definition word64_enc'_def:
+  word64_enc' (n:word64) = Tree (w2n n) []
+End
+
+Definition word64_dec'_def[simp]:
+  word64_dec' (Tree n xs) = n2w n :word64
+End
+
+Theorem word64_dec_enc'[simp]:
+  word64_dec' (word64_enc' n) = n
+Proof
+  fs [word64_dec'_def,word64_enc'_def]
+QED
+
 val _ = export_theory();

@@ -119,6 +119,27 @@ Proof
   \\ Cases \\ fs []
 QED
 
+(* word64 *)
+
+Definition word64_enc_def:
+  word64_enc (w:word64) = List [w2n w]
+End
+
+Definition word64_dec_def:
+  word64_dec ns =
+    case ns of
+    | [] => (0w:word64,[])
+    | (r::rs) => (n2w r,rs)
+End
+
+Theorem word64_enc_dec_ok:
+  enc_dec_ok word64_enc word64_dec
+Proof
+  fs [enc_dec_ok_def,word64_dec_def,word64_enc_def]
+  \\ fs [dec_ok_def,word64_dec_def]
+  \\ Cases \\ fs []
+QED
+
 (* list *)
 
 Definition list_enc_def:

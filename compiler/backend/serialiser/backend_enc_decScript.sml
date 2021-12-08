@@ -18,7 +18,8 @@ val enc_dec_mapping =
   ref ([(“:bool”, “bool_enc'”, “bool_dec'”),
         (“:num”,  “num_enc'”,  “num_dec'” ),
         (“:int”,  “int_enc'”,  “int_dec'” ),
-        (“:char”, “chr_enc'”,  “chr_dec'” )]);
+        (“:char”, “chr_enc'”,  “chr_dec'” ),
+        (“:word64”, “word64_enc'”, “word64_dec'” )]);
 
 fun reg_enc_dec_only ty enc dec =
    (enc_dec_mapping := (ty,enc,dec) :: (!enc_dec_mapping));
@@ -154,8 +155,9 @@ val res = define_enc_dec “:fp_cmp”
 val res = define_enc_dec “:fp_uop”
 val res = define_enc_dec “:fp_bop”
 val res = define_enc_dec “:fp_top”
-val res = define_enc_dec “:closLang$op”
 val res = define_enc_dec “:mlstring”
+val res = define_enc_dec “:const_part”
+val res = define_enc_dec “:closLang$op”
 val res = define_enc_dec “:gc_kind”
 val res = define_enc_dec “:tap_config”
 
