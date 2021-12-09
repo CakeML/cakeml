@@ -59,6 +59,10 @@ Definition term_lt_def[simp]:
   term_lt (_,l1) (_,l2) = (get_var l1 < get_var l2)
 End
 
+Definition term_le_def[simp]:
+  term_le (_,l1) (_,l2) = (get_var l1 <= get_var l2)
+End
+
 Definition compact_def[simp]:
   compact (PBC xs n) ⇔
     SORTED term_lt xs ∧ (* implies that no var is mentioned twice *)
@@ -700,12 +704,88 @@ Proof
   \\ fs [satisfies_def,PULL_EXISTS,subst_thm]
 QED
 
-Definition normalize_lhs_def:
-  (normalize_lhs [] acc n = (REVERSE acc,n)) ∧
-  (normalize_lhs ((x,l)::xs) acc n =
-    if x < 0 then normalize_lhs xs ((Num(-x),negate l)::acc) (n+x)
-    else normalize_lhs xs ((Num x,l)::acc) n)
+(* Ensure compact LHS in preconstraint form:
+  sort by variables *)
+Definition compact_lhs_def:
+  (compact_lhs ((c1:int,l1)::(c2,l2)::cs) n =
+    if get_var l1 = get_var l2 then
+      if l1 = l2 then
+        compact_lhs ((c1+c2,l1)::cs) n
+      else
+        compact_lhs ((c1-c2,l1)::cs) (n+c2)
+    else
+      let (cs',n') = compact_lhs ((c2,l2)::cs) n in
+      ((c1,l1)::cs',n')) ∧
+  (compact_lhs c n = (c,n))
 End
+
+Theorem compact_lhs_MEM:
+  ∀xs n xs' n' y l.
+  compact_lhs xs n = (xs',n') ∧
+  MEM (y,l) xs' ⇒
+  ∃y'. MEM (y',l) xs
+Proof
+  ho_match_mp_tac (theorem "compact_lhs_ind")>>
+  rw[compact_lhs_def]>> fs[]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- (
+    pairarg_tac>>gs[]>>rw[]>>fs[]>>rw[]>>
+    metis_tac[])
+  >> metis_tac[]
+QED
+
+Theorem transitive_term_le:
+  transitive term_le
+Proof
+  simp[transitive_def]>>
+  rpt Cases >>
+  simp[term_le_def]
+QED
+
+Theorem transitive_term_lt:
+  transitive term_lt
+Proof
+  simp[transitive_def]>>
+  rpt Cases >>
+  simp[term_lt_def]
+QED
+
+Theorem get_var_eq_term_le:
+  get_var l1 = get_var l2 ⇒
+  (term_le (a,l1) x ⇔ term_le (b,l2) x)
+Proof
+  Cases_on`x`>>rw[term_le_def]
+QED
+
+Theorem compact_lhs_no_dup:
+  ∀xs n xs' n'.
+  SORTED term_le xs ∧
+  compact_lhs xs n = (xs',n') ⇒
+  SORTED term_lt xs'
+Proof
+  ho_match_mp_tac (theorem "compact_lhs_ind")>>
+  rw[compact_lhs_def]>> fs[]
+  >- (
+    first_x_assum match_mp_tac>>
+    qpat_x_assum `SORTED _ _` mp_tac>>
+    DEP_REWRITE_TAC[SORTED_EQ]>>simp[transitive_term_le]>>
+    metis_tac[get_var_eq_term_le])
+  >- (
+    first_x_assum match_mp_tac>>
+    qpat_x_assum `SORTED _ _` mp_tac>>
+    DEP_REWRITE_TAC[SORTED_EQ]>>simp[transitive_term_le]>>
+    metis_tac[get_var_eq_term_le])>>
+  pairarg_tac>>fs[]>>rw[]>>
+  qpat_x_assum `SORTED _ _` mp_tac>>
+  DEP_REWRITE_TAC[SORTED_EQ]>>
+  simp[transitive_term_le,transitive_term_lt]>>
+  simp[FORALL_PROD]>>rw[]>>
+  drule compact_lhs_MEM>>
+  disch_then drule>>strip_tac>>
+  fs[]>>first_x_assum drule>>
+  fs[]
+QED
 
 Theorem eval_lit_INT[simp]:
   &(eval_lit w r) = eval_lit w r
@@ -723,6 +803,61 @@ Proof
   \\ fs[]
 QED
 
+Theorem iSUM_PERM:
+  ∀l1 l2. PERM l1 l2 ⇒
+  iSUM l1 = iSUM l2
+Proof
+  ho_match_mp_tac PERM_IND>>rw[iSUM_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_QSORT_term_le[simp]:
+  iSUM (MAP (eval_term w) (QSORT term_le l)) =
+  iSUM (MAP (eval_term w) l)
+Proof
+  match_mp_tac iSUM_PERM>>
+  match_mp_tac PERM_MAP>>
+  metis_tac[QSORT_PERM,PERM_SYM]
+QED
+
+Theorem compact_lhs_sound:
+  ∀xs n xs' n'.
+  compact_lhs xs n = (xs',n') ⇒
+  iSUM (MAP (pb_preconstraint$eval_term w) xs) + n = iSUM (MAP (pb_preconstraint$eval_term w) xs') + n'
+Proof
+  ho_match_mp_tac (theorem "compact_lhs_ind")>>
+  rw[compact_lhs_def]>> fs[]
+  >- (
+    (* l1 = l2 *)
+    fs[iSUM_def]>>
+    intLib.ARITH_TAC)
+  >- (
+    (* l1 = negate l2 *)
+    fs[iSUM_def]>>
+    qmatch_goalsub_abbrev_tac` A + _ + _`>>
+    REWRITE_TAC[Once eval_lit_eq_flip]>>
+    `negate l2 = l1` by
+      (Cases_on`l1`>>Cases_on`l2`>>fs[])>>
+    fs[Abbr`A`]>>
+    qpat_x_assum`_ = _ + _` sym_sub_tac>>
+    simp[integerTheory.INT_SUB_RDISTRIB]>>
+    qmatch_goalsub_abbrev_tac`_ * wl2 + _ +_ = _ - _ + is + _`>>
+    rpt (pop_assum kall_tac)>>
+    intLib.ARITH_TAC)>>
+  pairarg_tac>>fs[]>>
+  rw[]>>
+  fs[iSUM_def]>>
+  intLib.ARITH_TAC
+QED
+
+Definition normalize_lhs_def:
+  (normalize_lhs [] acc n = (REVERSE acc,n)) ∧
+  (normalize_lhs ((x,l)::xs) acc n =
+    if x < 0 then normalize_lhs xs ((Num(-x),negate l)::acc) (n+x)
+    else if x > 0 then normalize_lhs xs ((Num x,l)::acc) n
+    else normalize_lhs xs acc n)
+End
+
 Theorem normalize_lhs_normalizes:
   ∀ls acc n ls' n'.
   normalize_lhs ls acc n = (ls',n') ⇒
@@ -733,9 +868,15 @@ Proof
     metis_tac[SUM_REVERSE,MAP_REVERSE] >>
   Cases_on`h`>>fs[normalize_lhs_def]>>
   every_case_tac>>fs[]
+  >- intLib.ARITH_TAC>>
+  first_x_assum drule>>
+  simp[GSYM integerTheory.INT_ADD]
   >- (
-    first_x_assum drule>> simp[GSYM integerTheory.INT_ADD]>>
-    disch_then sym_sub_tac>>
+    `&(Num q * eval_lit w r) = q * eval_lit w r` by (
+      PURE_REWRITE_TAC[GSYM integerTheory.INT_MUL,eval_lit_INT]>>
+      fs[integerTheory.INT_NOT_LT,GSYM integerTheory.INT_OF_NUM]) >>
+    intLib.ARITH_TAC)
+  >- (
     simp[Once eval_lit_eq_flip]>>
     `-q * eval_lit w (negate r) = &(Num (-q) * eval_lit w (negate r))` by (
       PURE_REWRITE_TAC[GSYM integerTheory.INT_MUL,eval_lit_INT]>>
@@ -743,24 +884,21 @@ Proof
       pop_assum mp_tac>>
       PURE_REWRITE_TAC[GSYM integerTheory.INT_OF_NUM]>>
       simp[])>>
-    intLib.ARITH_TAC)>>
-  first_x_assum drule>>
-  simp[GSYM integerTheory.INT_ADD]>>
-  `&(Num q * eval_lit w r) = q * eval_lit w r` by (
-    PURE_REWRITE_TAC[GSYM integerTheory.INT_MUL,eval_lit_INT]>>
-    fs[integerTheory.INT_NOT_LT,GSYM integerTheory.INT_OF_NUM]) >>
-  intLib.ARITH_TAC
+    intLib.ARITH_TAC)
+  >- (
+    `q=0` by intLib.ARITH_TAC>>
+    simp[])
 QED
 
 Definition pbc_to_npbc_def:
-  (pbc_to_npbc (GreaterEqual xs n) =
-    let (lhs,m) = normalize_lhs xs [] 0 in
-    let rhs = if n-m ≥ 0 then Num(n-m) else 0 in
-    PBC lhs rhs) ∧
+  (pbc_to_npbc (GreaterEqual lhs n) =
+    let (lhs',m') = compact_lhs (QSORT term_le lhs) 0 in
+    let (lhs'',m'') = normalize_lhs lhs' [] 0 in
+    let rhs = if n-(m'+m'') ≥ 0 then Num(n-(m'+m'')) else 0 in
+    PBC lhs'' rhs) ∧
   (pbc_to_npbc (Equal xs n) = PBC [] 0)
 End
 
-(* TODO: this normalizes but does not ensure compactness *)
 Definition normalize_def:
   normalize pbf =
   let pbf' = FLAT (MAP pbc_ge pbf) in
@@ -773,10 +911,13 @@ Theorem pbc_to_npbc_thm:
 Proof
   Cases_on`pbc`>>fs[]>>
   rw[satisfies_pbc_def,satisfies_npbc_def,pbc_to_npbc_def]>>
-  pairarg_tac>>
-  drule normalize_lhs_normalizes>>
-  simp[satisfies_npbc_def]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  drule compact_lhs_sound>>
   disch_then(qspec_then`w` assume_tac)>>fs[]>>
+  drule normalize_lhs_normalizes>>
+  disch_then(qspec_then`w` assume_tac)>>fs[]>>
+  simp[satisfies_npbc_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -801,6 +942,87 @@ Proof
   Induct_on`pbf'`>>simp[]>>
   rw[]>>
   metis_tac[pbc_to_npbc_thm]
+QED
+
+Theorem get_var_negate[simp]:
+  get_var (negate r) = get_var r
+Proof
+  Cases_on`r`>>simp[]
+QED
+
+Theorem normalize_lhs_compact1:
+  ∀lhs acc n lhs' n'.
+  normalize_lhs lhs acc n = (lhs',n') ∧
+  SORTED $< (MAP (get_var o SND) (REVERSE acc) ++ MAP (get_var o SND) lhs) ⇒
+  SORTED term_lt lhs'
+Proof
+  Induct>>simp[normalize_lhs_def]
+  >- (
+    rw[GSYM MAP_REVERSE]>>
+    fs[sorted_map]>>
+    qmatch_asmsub_abbrev_tac`_ tlt _`>>
+    `tlt = term_lt` by
+      simp[Abbr`tlt`,FUN_EQ_THM,FORALL_PROD]>>
+    fs[])>>
+  Cases>>simp[normalize_lhs_def]>>rw[]>>
+  first_x_assum match_mp_tac>>
+  asm_exists_tac>>fs[]
+  >- (
+    PURE_REWRITE_TAC[Once (GSYM APPEND_ASSOC),APPEND]>>
+    fs[])
+  >- (
+    PURE_REWRITE_TAC[Once (GSYM APPEND_ASSOC),APPEND]>>
+    fs[]) >>
+  pop_assum mp_tac>>
+  DEP_REWRITE_TAC[SORTED_APPEND,SORTED_EQ]  >>
+  CONJ_TAC>- simp[transitive_def]>>
+  simp[]
+QED
+
+Theorem normalize_lhs_compact2:
+  ∀lhs acc n lhs' n'.
+  normalize_lhs lhs acc n = (lhs',n') ∧
+  EVERY (λ(c,l). c ≠ 0) acc ⇒
+  EVERY (λ(c,l). c ≠ 0) lhs'
+Proof
+  Induct>>simp[normalize_lhs_def]>>
+  Cases>>fs[normalize_lhs_def]>>rw[]>>
+  first_x_assum match_mp_tac>>
+  asm_exists_tac>>fs[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem compact_pbc_to_npbc:
+  compact (pbc_to_npbc c)
+Proof
+  Cases_on`c`>>rw[pbc_to_npbc_def]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  imp_res_tac compact_lhs_no_dup>>
+  pop_assum mp_tac>>
+  impl_tac>- (
+    match_mp_tac QSORT_SORTED>>
+    fs[transitive_term_le]>>
+    simp[total_def]>>
+    Cases>>Cases>>simp[])>>
+  strip_tac>>
+  CONJ_TAC>- (
+    match_mp_tac normalize_lhs_compact1>>
+    asm_exists_tac>>
+    simp[sorted_map]>>
+    qmatch_goalsub_abbrev_tac`_ tlt _`>>
+    `tlt = term_lt` by
+      simp[Abbr`tlt`,FUN_EQ_THM,FORALL_PROD]>>
+    fs[])>>
+  match_mp_tac normalize_lhs_compact2>>
+  asm_exists_tac>>
+  simp[]
+QED
+
+Theorem normalize_compact:
+  EVERY compact (normalize pbf)
+Proof
+  simp[normalize_def,EVERY_MAP,compact_pbc_to_npbc]
 QED
 
 (*
