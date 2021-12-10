@@ -121,6 +121,12 @@ Definition subst_fun_def:
   subst_fun (s:subst) n = lookup n s
 End
 
+Definition is_pol_con_def[simp]:
+  is_pol_con (Polish _) = T ∧
+  is_pol_con (Contradiction _) = T ∧
+  is_pol_con _ = F
+End
+
 Definition check_pbpstep_def:
   (check_pbpstep (step:pbpstep) (fml:pbf) (id:num) =
    case step of
@@ -136,7 +142,8 @@ Definition check_pbpstep_def:
           NONE => Fail
         | SOME c => Cont (insert id c fml) (id+1))
    | Red c s pf pfs =>
-       (let fml_not_c = insert id (not c) fml in
+       (if ~EVERY is_pol_con pf then Fail else
+        let fml_not_c = insert id (not c) fml in
           case check_pbpsteps pf fml_not_c (id+1) of
           | Unsat => Cont (insert id c fml) (id+1)  (* the ids are slightly off here *)
           | Fail => Fail
@@ -280,24 +287,36 @@ Proof
   \\ metis_tac []
 QED
 
+Definition id_ok_def:
+  id_ok fml id = ∀n. id ≤ n ⇒ n ∉ domain fml
+End
+
 Theorem check_pbpstep_correct:
   (∀step fml id.
+     id_ok fml id ⇒
      case check_pbpstep step fml id of
      | Cont fml' id' =>
-         satisfiable (range fml) ⇒ satisfiable (range fml')
+         id_ok fml' id' ∧
+         (satisfiable (range fml) ⇒ satisfiable (range fml')) ∧
+         ∀w. satisfies w (range fml) ∧ is_pol_con step ⇒
+             satisfies w (range fml')
      | Unsat =>
          ¬ satisfiable (range fml)
      | Fail => T) ∧
   (∀steps fml id.
+     id_ok fml id ⇒
      case check_pbpsteps steps fml id of
      | Cont fml' id' =>
-         satisfiable (range fml) ⇒ satisfiable (range fml')
+         id_ok fml' id' ∧
+         (satisfiable (range fml) ⇒ satisfiable (range fml')) ∧
+         ∀w. satisfies w (range fml) ∧ EVERY is_pol_con steps ⇒
+             satisfies w (range fml')
      | Unsat =>
          ¬ satisfiable (range fml)
      | Fail => T)
 Proof
-  ho_match_mp_tac check_pbpstep_ind \\ reverse (rw [])
-  THEN1 (rw[Once check_pbpstep_def] \\ every_case_tac \\ fs [])
+  ho_match_mp_tac check_pbpstep_ind \\ reverse (rpt strip_tac)
+  THEN1 (rw[Once check_pbpstep_def] \\ every_case_tac \\ gvs [])
   THEN1 (rw[Once check_pbpstep_def])
   \\ Cases_on ‘∃n. step = Contradiction n’
   THEN1
@@ -307,19 +326,24 @@ Proof
     metis_tac[])
   \\ Cases_on ‘∃n. step = Delete n’
   THEN1
-   (rw[check_pbpstep_def] \\ every_case_tac \\ rw [] >>
+   (rw[check_pbpstep_def] \\ every_case_tac \\ rw []
+    THEN1
+     (pop_assum mp_tac
+      \\ qid_spec_tac ‘fml’ \\ Induct_on ‘l’ \\ fs []
+      \\ rw [] \\ first_x_assum irule \\ fs [id_ok_def,domain_delete]) >>
     drule satisfiable_subset>>
     disch_then match_mp_tac>>
     fs[range_FOLDL_delete])
   \\ Cases_on ‘∃c. step = Polish c’
   THEN1
-   (rw[check_pbpstep_def] \\ every_case_tac \\ rw [] >>
+   (rw[check_pbpstep_def] \\ every_case_tac \\ rw []
+    THEN1 fs [id_ok_def] >>
     drule check_polish_correct>>
     fs[satisfiable_def,satisfies_def]>>
-    rw[]>>qexists_tac`w`>>
-    rw[]>>
-    drule range_insert_2 >> fs[]>>
-    metis_tac[])
+    ‘id ∉ domain fml’ by fs [id_ok_def]  >>
+    imp_res_tac id_ok_imp >>
+    fs [range_insert] >>
+    metis_tac [])
   \\ ‘∃c s pf pfs. step = Red c s pf pfs’ by (Cases_on ‘step’ \\ fs [])
   \\ gvs []
   \\ CASE_TAC
@@ -329,6 +353,7 @@ Proof
    (pop_assum mp_tac
     \\ simp [Once check_pbpstep_def,AllCaseEqs()]
     \\ rpt strip_tac \\ gvs [])
+  \\ conj_tac THEN1 gvs [id_ok_def]
   \\ gvs []
   \\ qsuff_tac ‘c redundant_wrt (range fml)’
   THEN1
@@ -337,32 +362,42 @@ Proof
     \\ pop_assum $ irule_at Any
     \\ rw [SUBSET_DEF] \\ imp_res_tac range_insert_2 \\ fs [])
   \\ rewrite_tac [substitution_redundancy]
-  \\ qexists_tac ‘subst_fun s’
-  \\ fs []
+  \\ qexists_tac ‘subst_fun s’ \\ fs []
   \\ pop_assum mp_tac
   \\ simp [Once check_pbpstep_def]
-  \\ ‘id ∉ domain fml’ by cheat
+  \\ IF_CASES_TAC \\ fs []
+  \\ ‘id ∉ domain fml’ by fs [id_ok_def]
+  \\ ‘EVERY is_pol_con pf’ by fs [EVERY_MEM]
+  \\ ‘id_ok (insert id (not c) fml) (id + 1)’ by fs [id_ok_def]
+  \\ gvs []
   \\ CASE_TAC \\ fs []
   THEN1 (gvs [sat_implies_def,satisfiable_def,range_insert] \\ metis_tac [])
   \\ gvs [AllCaseEqs()]
   \\ strip_tac
   \\ gvs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,MEM_toAList]
-  \\ ‘n ∉ domain s'’ by cheat
+  \\ ‘n ∉ domain s'’ by fs [id_ok_def]
   \\ fs [range_insert]
   \\ ‘∀a. a IN range (insert id c fml) ⇒
           ¬satisfiable (not (subst (subst_fun s) a) INSERT range s')’ by
    (simp [Once range_def,PULL_EXISTS] \\ rw []
     \\ first_x_assum drule \\ CASE_TAC \\ fs []
-    \\ first_x_assum drule_all \\ rpt strip_tac \\ gvs [])
+    \\ first_x_assum drule \\ fs []
+    \\ impl_tac THEN1 fs [id_ok_def]
+    \\ rw [] \\ fs [])
   \\ pop_assum mp_tac
-  \\ rpt (qpat_x_assum ‘∀x. _’ kall_tac)
+  \\ rpt (qpat_x_assum ‘∀x y. _’ kall_tac)
   \\ strip_tac
   \\ gvs [range_insert]
   \\ gvs [unsat_iff_implies]
   \\ simp [Once implies_explode] \\ rw []
+  \\ first_assum (qspec_then ‘c’ assume_tac)
   \\ qpat_x_assum ‘∀x. _’ imp_res_tac
   \\ simp [GSYM unsat_iff_implies]
-  \\ cheat (* the "each case" code is not quite right... *)
+  \\ gvs [GSYM unsat_iff_implies]
+  \\ qpat_x_assum ‘_ ⇒ satisfiable _’ kall_tac
+  \\ fs [satisfiable_def]
+  \\ CCONTR_TAC \\ fs []
+  \\ metis_tac []
 QED
 
 Theorem check_pbpstep_compact:
