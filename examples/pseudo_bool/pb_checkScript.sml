@@ -127,6 +127,16 @@ Definition is_pol_con_def[simp]:
   is_pol_con _ = F
 End
 
+Definition map_opt_def:
+  map_opt f LN = LN ∧
+  map_opt f (LS x) = (case f x of NONE => LN | SOME a => LS a) ∧
+  map_opt f (BN t1 t2) = mk_BN (map_opt f t1) (map_opt f t2) ∧
+  map_opt f (BS t1 x t2) =
+    case f x of
+    | NONE => mk_BN (map_opt f t1) (map_opt f t2)
+    | SOME a => mk_BS (map_opt f t1) a (map_opt f t2)
+End
+
 Definition check_pbpstep_def:
   (check_pbpstep (step:pbpstep) (fml:pbf) (id:num) =
    case step of
@@ -148,8 +158,8 @@ Definition check_pbpstep_def:
           | Unsat => Cont (insert id c fml) (id+1)  (* the ids are slightly off here *)
           | Fail => Fail
           | Cont fml' id' =>
-              let w = subst (subst_fun s) in
-              let goals = MAP (λ(n,x). (n, w x)) (toAList (insert id c fml)) in
+              let w = subst_fun s in
+              let goals = (id, subst w c) :: toAList (map_opt (subst_opt w) fml) in
               let success = EVERY (λ(n,g).
                               case lookup n pfs of
                               | NONE => F
@@ -291,6 +301,23 @@ Definition id_ok_def:
   id_ok fml id = ∀n. id ≤ n ⇒ n ∉ domain fml
 End
 
+Theorem lookup_mk_BS:
+  lookup i (mk_BS t1 a t2) = lookup i (BS t1 a t2)
+Proof
+  Cases_on ‘t1’ \\ Cases_on ‘t2’ \\ fs [mk_BS_def,lookup_def]
+QED
+
+Theorem lookup_map_opt:
+  ∀n t f.
+    lookup n (map_opt f t) =
+    case lookup n t of
+    | NONE => NONE
+    | SOME x => f x
+Proof
+  recInduct lookup_ind \\ fs [map_opt_def,lookup_def] \\ rw []
+  \\ rpt (fs [lookup_def,lookup_mk_BN,lookup_mk_BS] \\ CASE_TAC)
+QED
+
 Theorem check_pbpstep_correct:
   (∀step fml id.
      id_ok fml id ⇒
@@ -341,7 +368,6 @@ Proof
     drule check_polish_correct>>
     fs[satisfiable_def,satisfies_def]>>
     ‘id ∉ domain fml’ by fs [id_ok_def]  >>
-    imp_res_tac id_ok_imp >>
     fs [range_insert] >>
     metis_tac [])
   \\ ‘∃c s pf pfs. step = Red c s pf pfs’ by (Cases_on ‘step’ \\ fs [])
@@ -370,33 +396,43 @@ Proof
   \\ ‘EVERY is_pol_con pf’ by fs [EVERY_MEM]
   \\ ‘id_ok (insert id (not c) fml) (id + 1)’ by fs [id_ok_def]
   \\ gvs []
-  \\ CASE_TAC \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
   THEN1 (gvs [sat_implies_def,satisfiable_def,range_insert] \\ metis_tac [])
   \\ gvs [AllCaseEqs()]
   \\ strip_tac
   \\ gvs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,MEM_toAList]
   \\ ‘n ∉ domain s'’ by fs [id_ok_def]
   \\ fs [range_insert]
-  \\ ‘∀a. a IN range (insert id c fml) ⇒
-          ¬satisfiable (not (subst (subst_fun s) a) INSERT range s')’ by
-   (simp [Once range_def,PULL_EXISTS] \\ rw []
-    \\ first_x_assum drule \\ CASE_TAC \\ fs []
-    \\ first_x_assum drule \\ fs []
-    \\ impl_tac THEN1 fs [id_ok_def]
-    \\ rw [] \\ fs [])
-  \\ pop_assum mp_tac
-  \\ rpt (qpat_x_assum ‘∀x y. _’ kall_tac)
-  \\ strip_tac
-  \\ gvs [range_insert]
-  \\ gvs [unsat_iff_implies]
-  \\ simp [Once implies_explode] \\ rw []
-  \\ first_assum (qspec_then ‘c’ assume_tac)
-  \\ qpat_x_assum ‘∀x. _’ imp_res_tac
-  \\ simp [GSYM unsat_iff_implies]
-  \\ gvs [GSYM unsat_iff_implies]
   \\ qpat_x_assum ‘_ ⇒ satisfiable _’ kall_tac
-  \\ fs [satisfiable_def]
-  \\ CCONTR_TAC \\ fs []
+  \\ simp [Once implies_explode] \\ reverse (rw [])
+  THEN1
+   (last_x_assum (qspecl_then [‘id’,‘subst (subst_fun s) c’] mp_tac)
+    \\ simp [] \\ Cases_on ‘lookup id pfs’ \\ fs []
+    \\ impl_tac THEN1 fs [id_ok_def]
+    \\ gvs [GSYM unsat_iff_implies]
+    \\ strip_tac \\ CCONTR_TAC \\ fs []
+    \\ fs [satisfiable_def]
+    \\ gvs [range_insert]
+    \\ metis_tac [])
+  \\ gvs [GSYM unsat_iff_implies]
+  \\ pop_assum mp_tac
+  \\ simp [Once range_def] \\ rw []
+  \\ rename [‘lookup a fml = SOME xx’]
+  \\ fs [lookup_map_opt,CaseEq"option",PULL_EXISTS]
+  \\ first_x_assum drule
+  \\ Cases_on ‘subst_opt (subst_fun s) xx’ \\ fs []
+  THEN1
+   (imp_res_tac subst_opt_NONE
+    \\ CCONTR_TAC \\ gvs [satisfiable_def,not_thm]
+    \\ fs [satisfies_def,range_def,PULL_EXISTS]
+    \\ res_tac \\ fs [])
+  \\ Cases_on ‘lookup a pfs’ \\ fs []
+  \\ first_x_assum (qspec_then ‘a’ mp_tac) \\ fs []
+  \\ disch_then (qspec_then ‘x’ mp_tac) \\ fs []
+  \\ impl_tac THEN1 fs [id_ok_def]
+  \\ rpt strip_tac \\ fs []
+  \\ imp_res_tac subst_opt_SOME \\ gvs []
+  \\ gvs [satisfiable_def,range_insert]
   \\ metis_tac []
 QED
 

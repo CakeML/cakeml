@@ -623,6 +623,62 @@ Proof
   \\ gvs []
 QED
 
+Definition subst_opt_aux_def:
+  subst_opt_aux f [] = ([],[],0,T) ∧
+  subst_opt_aux f ((c,l)::rest) =
+    let (old,new,k,same) = subst_opt_aux f rest in
+      case f (get_var l) of
+      | NONE => ((c,l)::old,new,k,same)
+      | SOME (INL b) => (old,new,if is_Pos l = b then k+c else k,F)
+      | SOME (INR n) => let x = (if is_Pos l then n else negate n) in
+                          (old,(c,x)::new,k,F)
+End
+
+Definition subst_opt_def:
+  subst_opt f (PBC l n) =
+    let (old,new,k,same) = subst_opt_aux f l in
+      if same then NONE else
+        let (sorted,k2) = clean_up new in
+        let (result,k3) = add_lists old sorted in
+          SOME (PBC result (n - (k + k2 + k3)))
+End
+
+Theorem subst_opt_aux_thm:
+  ∀rest f old new k same.
+    subst_opt_aux f rest = (old,new,k,same) ⇒
+    subst_aux f rest = (old,new,k) ∧
+    (old ≠ rest ∨ new ≠ [] ∨ k ≠ 0 ⇒ ~same)
+Proof
+  Induct \\ fs [FORALL_PROD,subst_aux_def,subst_opt_aux_def]
+  \\ rpt strip_tac
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [AllCaseEqs()]
+  \\ res_tac \\ gvs []
+  \\ CCONTR_TAC \\ gvs []
+QED
+
+Theorem subst_opt_SOME:
+  subst_opt f c = SOME v ⇒ v = subst f c
+Proof
+  Cases_on ‘c’ \\ fs [subst_opt_def,subst_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ drule_all subst_opt_aux_thm
+  \\ rw [] \\ gvs []
+QED
+
+Theorem subst_opt_NONE:
+  subst_opt f c = NONE ⇒
+  satisfies_npbc w (subst f c) = satisfies_npbc w c
+Proof
+  Cases_on ‘c’ \\ fs [subst_opt_def,subst_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ strip_tac \\ gvs []
+  \\ drule_then assume_tac subst_opt_aux_thm
+  \\ gvs [EVAL “clean_up []”]
+  \\ Cases_on ‘l’ \\ fs [add_lists_def]
+QED
+
+
 (* subst is compact *)
 
 Theorem compact_subst:
