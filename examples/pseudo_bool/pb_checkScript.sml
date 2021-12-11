@@ -39,8 +39,6 @@ Datatype:
   | Weak constr var     (* Addition of literal axioms until "var" disappears *)
 End
 
-(* TODO: some syntactic representation of a substitution
-  This is a dummy type, unused for now*)
 Type subst = ``:(bool + lit) num_map``;
 
 Datatype:
@@ -574,7 +572,9 @@ End
 Definition parse_polish_def:
   (parse_polish (x::xs) stack =
   case x of INR n =>
-    parse_polish xs (Id n :: stack)
+    if n ≥ 0 then
+      parse_polish xs (Id (Num n) :: stack)
+    else NONE
   | INL s =>
   if s = str #"+" then
     (case stack of
@@ -607,54 +607,104 @@ Definition strip_numbers_def:
   (strip_numbers [] acc = SOME (REVERSE acc)) ∧
   (strip_numbers (x::xs) acc =
   case x of INR n =>
-    strip_numbers xs (n::acc)
+    if n ≥ 0 then
+      strip_numbers xs (Num n::acc)
+    else NONE
   | INL _ => NONE)
 End
 
-Definition parse_pbpstep_def:
-  (parse_pbpstep (first::rest) =
-  if first = INL (strlit "c") then
-    case rest of
-      [INR id] => SOME (Contradiction id)
-    | _ => NONE
-  else if first = INL (strlit "d") then
-    OPTION_MAP Delete (strip_numbers rest [])
-  else if first = INL (strlit "p") then
-    OPTION_MAP Polish (parse_polish rest [])
-  else NONE) ∧
-  (parse_pbpstep _ = NONE)
+Definition parse_var_def:
+  parse_var v =
+  case parse_lit v of SOME (Pos n) => SOME n | _ => NONE
 End
 
+(* Parse a substitution {var -> lit} *)
+Definition parse_subst_def:
+  (parse_subst (INL v :: INL arr :: r ::rest) acc =
+  if arr = strlit "->" then
+    case parse_var v of
+      NONE => ([],LN)
+    | SOME v =>
+    (case r of
+        INR r =>
+          if r = 0:int then parse_subst rest (insert v (INL F) acc)
+          else if r = 1 then parse_subst rest (insert v (INL T) acc)
+          else ([],LN)
+      | INL r =>
+          (case parse_lit r of NONE => ([],LN)
+          | SOME l => parse_subst rest (insert v (INR l) acc)))
+  else ([],LN)) ∧
+  (parse_subst ls acc = (ls, acc))
+End
+
+Definition parse_red_header_def:
+  parse_red_header line =
+  case parse_constraint_LHS line [] of (rest,lhs) =>
+  (case rest of (INL cmp :: INR deg :: INL term :: rest) =>
+    if term = str #";" ∧ cmp = strlit">=" then
+      (case parse_subst rest LN of (rest,ss) =>
+       (case rest of
+        [INL term; INL beg] =>
+          if term = strlit";" ∧ beg = strlit"begin" then
+            SOME (pbc_to_npbc (GreaterEqual lhs deg),ss)
+          else NONE
+      | _ => NONE))
+    else NONE
+  | _ => NONE)
+End
+
+(* The parser currently supports this format:
+  Lines are of the form:
+  red constraint ; witness ; begin
+    {initial steps}
+  end
+*)
 Definition parse_pbpsteps_def:
-  (parse_pbpsteps [] acc = SOME (REVERSE acc)) ∧
-  (parse_pbpsteps (s::ss) acc =
-    case parse_pbpstep s of
-      NONE => NONE
-    | SOME pbpstep => parse_pbpsteps ss (pbpstep::acc))
+  (parse_pbpsteps [] cont acc = SOME (REVERSE acc)) ∧
+  (parse_pbpsteps (s::ss) cont acc =
+    case s of (r::rs) =>
+      if r = INL (strlit "end") ∧ rs = [] then
+        case cont of
+          ((c,s,a)::xs) =>
+            parse_pbpsteps ss xs (Red c s (REVERSE acc) LN::a)
+        | [] => NONE
+      else
+      if r = INL (strlit "c") then
+        (case rs of
+          [INR id] =>
+          if id ≥ 0 then parse_pbpsteps ss cont (Contradiction (Num id)::acc)
+          else NONE
+        | _ => NONE)
+      else if r = INL (strlit "d") then
+        (case strip_numbers rs [] of NONE => NONE
+        | SOME n => parse_pbpsteps ss cont (Delete n::acc))
+      else if r = INL (strlit "pol") then
+        (case parse_polish rs [] of NONE => NONE
+        | SOME p => parse_pbpsteps ss cont (Polish p::acc))
+      else if r = INL (strlit "red") then
+        case parse_red_header rs of NONE => NONE
+        | SOME (c,s) =>
+          parse_pbpsteps ss ((c,s,acc)::cont) []
+      else if r = INL (strlit"proofgoal") then
+        (* TODO: parse rs as a number or something else? *)
+        case cont of
+          ((c,s,a)::xs) =>
+            parse_pbpsteps ss xs (Red c s (REVERSE acc) LN::a)
+        | [] => NONE
+      else NONE
+    | _ => NONE)
 End
 
 Definition parse_pbp_toks_def:
   parse_pbp_toks tokss =
   let nocomments = FILTER nocomment_line tokss in
   (* TODO: parse the header line ? *)
-  parse_pbpsteps nocomments []
-End
-
-(* Exactly the same as tokenize, but parses to nums instead of ints *)
-Definition tokenize_num_def:
-  tokenize_num (s:mlstring) =
-  case mlint$fromNatString s of
-    NONE => INL s
-  | SOME i => INR i
-End
-
-Definition toks_num_def:
-  toks_num s = MAP tokenize_num (tokens blanks s)
+  parse_pbpsteps nocomments [] []
 End
 
 (* Parse a list of strings in pbf format *)
 Definition parse_pbp_def:
-  parse_pbp strs = parse_pbp_toks (MAP toks_num strs)
+  parse_pbp strs = parse_pbp_toks (MAP toks strs)
 End
 
 (* build an sptree for the PBF from an initial ID *)
@@ -680,11 +730,11 @@ val pbf = rconc (EVAL ``THE (parse_pbf ^(pbfraw))``);
 
 val pbpraw = ``[
   strlit"* comment";
-  strlit"p 1 s";
+  strlit"pol 1 s";
   strlit"* comment 2";
-  strlit"p 8 2 + 3 +";
-  strlit"p 9 2 d";
-  strlit"p 10 4 + 5 + 6 + 7 +";
+  strlit"pol 8 2 + 3 +";
+  strlit"pol 9 2 d";
+  strlit"pol 10 4 + 5 + 6 + 7 +";
   strlit"c 11";
 ]``;
 

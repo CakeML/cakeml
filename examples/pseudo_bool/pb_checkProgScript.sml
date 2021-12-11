@@ -7,6 +7,8 @@ val _ = new_theory "pb_checkProg"
 
 val _ = translation_extends"basisProg";
 
+val _ = register_type ``: pbpstep ``
+
 Definition noparse_string_def:
   noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]
 End
@@ -47,26 +49,28 @@ val strip_terminator_side = Q.prove(
   rw[strip_terminator_side_def])
   |> update_precondition;
 
-val r = translate add_terms_denorm_def;
+val r = translate pb_preconstraintTheory.pbc_ge_def;
 val r = translate pb_constraintTheory.get_var_def;
-val r = translate term_eq_def;
-val r = translate merge_adjacent_def;
+val r = translate pb_constraintTheory.compact_lhs_def;
+val r = translate pb_constraintTheory.term_le_def;
 val r = translate pb_constraintTheory.negate_def;
-val r = translate normalize_def;
+val r = translate pb_constraintTheory.normalize_lhs_def;
 
-val normalize_side_def = theorem"normalize_side_def";
-val normalize_side = Q.prove(
-  `∀x y z. normalize_side x y z <=> T`,
-  Induct>>rw[Once normalize_side_def]>>
-  intLib.ARITH_TAC) |> update_precondition;
+val normalize_lhs_side_def = theorem "normalize_lhs_side_def";
+val normalize_lhs_side = Q.prove(
+  `∀x y z. normalize_lhs_side x y z <=> T`,
+  Induct>>rw[Once normalize_lhs_side_def]>>
+  intLib.ARITH_TAC)
+  |> update_precondition;
 
-val r = translate term_le_def;
-val r = translate normalize_PBC_def;
+val r = translate pb_constraintTheory.pbc_to_npbc_def;
 
-val normalize_pbc_side = Q.prove(
-  `∀x y. normalize_pbc_side x y <=> T`,
+val pbc_to_npbc_side = Q.prove(
+  `∀x. pbc_to_npbc_side x <=> T`,
   EVAL_TAC>>rw[]>>
   intLib.ARITH_TAC) |> update_precondition;
+
+val r = translate pb_constraintTheory.normalize_def;
 
 val r = translate parse_constraint_def;
 val r = translate parse_constraints_def;
@@ -82,10 +86,29 @@ val parse_pbf_full = (append_prog o process_topdecs) `
     None => Inl (noparse_string f "OPB")
   | Some x => Inr x))`
 
-val r = translate tokenize_num_def;
 val r = translate strip_numbers_def;
+
+val strip_numbers_side_def = theorem "strip_numbers_side_def";
+val strip_numbers_side = Q.prove(
+  `∀x y. strip_numbers_side x y <=> T`,
+  Induct>>rw[Once strip_numbers_side_def]>>
+  intLib.ARITH_TAC) |> update_precondition;
+
 val r = translate parse_polish_def;
-val r = translate parse_pbpstep_def;
+
+val parse_polish_side_def = theorem "parse_polish_side_def";
+val parse_polish_side = Q.prove(
+  `∀x y. parse_polish_side x y <=> T`,
+  Induct>>rw[Once parse_polish_side_def]>>
+  intLib.ARITH_TAC) |> update_precondition;
+
+val r = translate parse_var_def;
+
+val r = translate insert_def;
+val r = translate parse_subst_def;
+val r = translate parse_red_header_def;
+
+(* TODO: stuck because of register_type on pbpsteps *)
 val r = translate parse_pbpsteps_def;
 val r = translate parse_pbp_toks_def;
 
@@ -98,7 +121,6 @@ val parse_pbp_full = (append_prog o process_topdecs) `
     None => Inl (noparse_string f "PBP")
   | Some x => Inr x))`
 
-val r = translate insert_def;
 val r = translate lookup_def;
 val r = translate mk_BN_def;
 val r = translate mk_BS_def;
