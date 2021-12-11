@@ -2,7 +2,7 @@
   This file defines theorems and lemma used in the ml_monadStoreLib
 *)
 open preamble evaluateTheory semanticPrimitivesTheory
-open set_sepTheory cfTheory cfStoreTheory cfTacticsLib terminationTheory
+open set_sepTheory cfTheory cfStoreTheory cfTacticsLib evaluateTheory
 open cfHeapsBaseTheory cfAppTheory ml_monad_translatorBaseTheory
 open packLib
 

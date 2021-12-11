@@ -2,7 +2,7 @@
   Definition of CakeML abstract syntax (AST).
 *)
 open HolKernel Parse boolLib bossLib;
-open libTheory namespaceTheory fpSemTheory;
+open namespaceTheory fpSemTheory;
 
 val _ = numLib.prefer_num();
 
@@ -221,51 +221,18 @@ Datatype:
   | Denv tvarN
 End
 
-(*
-(* Specifications
-   For giving the signature of a module *)
-type spec =
-  | Sval of varN * ast_t
-  | Stype of type_def
-  | Stabbrev of list tvarN * typeN * ast_t
-  | Stype_opq of list tvarN * typeN
-  | Sexn of conN * list ast_t
-
-type specs = list spec
-
-*)
-
 (* Accumulates the bindings of a pattern *)
-(*val pat_bindings : pat -> list varN -> list varN*)
- val pat_bindings_defn = Defn.Hol_multi_defns `
-
-((pat_bindings:pat ->(string)list ->(string)list) Pany already_bound=
-   already_bound)
-/\
-((pat_bindings:pat ->(string)list ->(string)list) (Pvar n) already_bound=
-   (n::already_bound))
-/\
-((pat_bindings:pat ->(string)list ->(string)list) (Plit l) already_bound=
-   already_bound)
-/\
-((pat_bindings:pat ->(string)list ->(string)list) (Pcon _ ps) already_bound=
-   (pats_bindings ps already_bound))
-/\
-((pat_bindings:pat ->(string)list ->(string)list) (Pref p) already_bound=
-   (pat_bindings p already_bound))
-/\
-((pat_bindings:pat ->(string)list ->(string)list) (Pas p i) already_bound=
-   (pat_bindings p (i::already_bound)))
-/\
-((pat_bindings:pat ->(string)list ->(string)list) (Ptannot p _) already_bound=
-   (pat_bindings p already_bound))
-/\
-((pats_bindings:(pat)list ->(string)list ->(string)list) [] already_bound=
-   already_bound)
-/\
-((pats_bindings:(pat)list ->(string)list ->(string)list) (p::ps) already_bound=
-   (pats_bindings ps (pat_bindings p already_bound)))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) pat_bindings_defn;
+Definition pat_bindings_def:
+  pat_bindings Pany already_bound = already_bound ∧
+  pat_bindings (Pvar n) already_bound = n::already_bound ∧
+  pat_bindings (Plit l) already_bound = already_bound ∧
+  pat_bindings (Pcon v0 ps) already_bound = pats_bindings ps already_bound ∧
+  pat_bindings (Pref p) already_bound = pat_bindings p already_bound ∧
+  pat_bindings (Pas p i) already_bound = pat_bindings p (i::already_bound) ∧
+  pat_bindings (Ptannot p v1) already_bound = pat_bindings p already_bound ∧
+  pats_bindings [] already_bound = already_bound ∧
+  pats_bindings (p::ps) already_bound =
+  pats_bindings ps (pat_bindings p already_bound)
+End
 
 val _ = export_theory()

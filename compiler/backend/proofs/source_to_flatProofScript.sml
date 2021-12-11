@@ -686,9 +686,9 @@ val do_eq = Q.prove (
     ⇒
     do_eq_list vs1_i1 vs2_i1 = r)`,
   ntac 2 strip_tac >>
-  ho_match_mp_tac terminationTheory.do_eq_ind >>
+  ho_match_mp_tac semanticPrimitivesTheory.do_eq_ind >>
   rpt strip_tac >>
-  fs [terminationTheory.do_eq_def, flatSemTheory.do_eq_def, v_rel_more_eqns] >>
+  fs [semanticPrimitivesTheory.do_eq_def, flatSemTheory.do_eq_def, v_rel_more_eqns] >>
   rveq >> fs [] >>
   rpt (irule COND_CONG >> rpt strip_tac) >>
   imp_res_tac LIST_REL_LENGTH >>
@@ -727,8 +727,8 @@ val v_to_char_list = Q.prove (
     ⇒
     v_to_char_list v2 = SOME vs1`,
   ntac 2 strip_tac >>
-  ho_match_mp_tac terminationTheory.v_to_char_list_ind >>
-  srw_tac[][terminationTheory.v_to_char_list_def] >>
+  ho_match_mp_tac semanticPrimitivesTheory.v_to_char_list_ind >>
+  srw_tac[][semanticPrimitivesTheory.v_to_char_list_def] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[v_rel_more_eqns, flatSemTheory.v_to_char_list_def] >>
   imp_res_tac genv_lookup_nil >>
@@ -746,8 +746,8 @@ val v_to_list = Q.prove (
       v_to_list v2 = SOME vs2 ∧
       LIST_REL (v_rel genv) vs1 vs2`,
   ntac 2 strip_tac >>
-  ho_match_mp_tac terminationTheory.v_to_list_ind >>
-  srw_tac[][terminationTheory.v_to_list_def] >>
+  ho_match_mp_tac semanticPrimitivesTheory.v_to_list_ind >>
+  srw_tac[][semanticPrimitivesTheory.v_to_list_def] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[v_rel_eqns, flatSemTheory.v_to_list_def] >>
   srw_tac[][] >>
@@ -763,8 +763,8 @@ val vs_to_string = Q.prove(
     LIST_REL (v_rel genv) v1 v2 ⇒
     vs_to_string v1 = SOME s ⇒
     vs_to_string v2 = SOME s`,
-  ho_match_mp_tac terminationTheory.vs_to_string_ind
-  \\ rw[terminationTheory.vs_to_string_def,vs_to_string_def]
+  ho_match_mp_tac semanticPrimitivesTheory.vs_to_string_ind
+  \\ rw[semanticPrimitivesTheory.vs_to_string_def,vs_to_string_def]
   \\ fs[v_rel_eqns]
   \\ pop_assum mp_tac
   \\ TOP_CASE_TAC \\ strip_tac \\ rveq \\ fs[]
@@ -1553,8 +1553,8 @@ Theorem pmatch[local]:
      pmatch_list s_i1 (MAP (compile_pat comp_map) ps) vs_i1 env_i1 = r_i1 ∧
      match_result_rel genv env'' r r_i1)
 Proof
-  ho_match_mp_tac terminationTheory.pmatch_ind >>
-  srw_tac[][terminationTheory.pmatch_def, flatSemTheory.pmatch_def, compile_pat_def] >>
+  ho_match_mp_tac semanticPrimitivesTheory.pmatch_ind >>
+  srw_tac[][semanticPrimitivesTheory.pmatch_def, flatSemTheory.pmatch_def, compile_pat_def] >>
   full_simp_tac(srw_ss())[match_result_rel_def, flatSemTheory.pmatch_def, v_rel_eqns] >>
   imp_res_tac LIST_REL_LENGTH
   >- (
@@ -2744,7 +2744,7 @@ QED
 Theorem maybe_all_list_SOME:
   !xs ys. maybe_all_list xs = SOME ys ==> xs = MAP SOME ys
 Proof
-  Induct \\ simp [Once terminationTheory.maybe_all_list_def]
+  Induct \\ simp [Once maybe_all_list_def]
   \\ rw []
   \\ every_case_tac
   \\ fs []
@@ -3538,8 +3538,8 @@ val compile_correct_setup = setup (`
         result_rel (\a b (c:'a). T) genv' (Rerr err) (Rerr err_i1))
   )
   `,
-  ho_match_mp_tac terminationTheory.full_evaluate_ind
-  \\ rw [terminationTheory.full_evaluate_def, flat_evaluate_def,
+  ho_match_mp_tac evaluateTheory.full_evaluate_ind
+  \\ rw [evaluateTheory.full_evaluate_def, flat_evaluate_def,
     compile_exp_def, compile_decs_def]
   \\ imp_res_tac invariant_IMP_s_rel
   \\ fs [result_rel_eqns, v_rel_eqns_non_global, elim_Case]
@@ -4514,7 +4514,7 @@ Proof
   drule_then (drule_then drule) alloc_tags_invariant >>
   impl_tac
   >- (
-    fs [terminationTheory.check_dup_ctors_thm] >>
+    fs [check_dup_ctors_thm] >>
     fs [idx_prev_def]
   ) >>
   reverse (rw [])
@@ -5394,18 +5394,17 @@ QED
 val mem_size_lemma = Q.prove ( `list_size sz xs < N ==> (MEM x xs ⇒ sz x < N)`,
   Induct_on `xs` \\ rw [list_size_def] \\ fs []);
 
-val num_bindings_def = tDefine"num_bindings"
-  `(num_bindings (Dlet _ p _) = LENGTH (pat_bindings p [])) ∧
+Definition num_bindings_def:
+   (num_bindings (Dlet _ p _) = LENGTH (pat_bindings p [])) ∧
    (num_bindings (Dletrec _ f) = LENGTH f) ∧
    (num_bindings (Dmod _ ds) = SUM (MAP num_bindings ds)) ∧
    (num_bindings (Dlocal lds ds) = SUM (MAP num_bindings lds)
         + SUM (MAP num_bindings ds)) ∧
    (num_bindings (Denv _) = 1) ∧
-   (num_bindings _ = 0)`
-(wf_rel_tac`measure dec_size`
-  \\ fs [terminationTheory.dec1_size_eq]
-  \\ rpt (match_mp_tac mem_size_lemma ORELSE strip_tac)
-  \\ fs []);
+   (num_bindings _ = 0)
+Termination
+  wf_rel_tac`measure dec_size`
+End
 
 val _ = export_rewrites["num_bindings_def"];
 

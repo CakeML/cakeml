@@ -4,7 +4,6 @@
 
 open preamble;
 open libTheory astTheory namespaceTheory semanticPrimitivesTheory;
-open terminationTheory;
 open namespacePropsTheory;
 open boolSimps;
 

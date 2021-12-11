@@ -6,7 +6,7 @@
 
 open preamble;
 open libTheory astTheory bigStepTheory semanticPrimitivesTheory;
-open terminationTheory determTheory;
+open evaluateTheory determTheory;
 open semanticPrimitivesPropsTheory;
 open boolSimps;
 
@@ -367,11 +367,16 @@ Proof
   metis_tac [do_con_check_build_conv]
 QED
 
+Triviality list_size_REVERSE:
+  ∀xs. list_size f (REVERSE xs) = list_size f xs
+Proof
+  Induct \\ fs [listTheory.list_size_def,listTheory.list_size_append]
+QED
+
 Triviality exp6_size_rev:
   !es. exp6_size (REVERSE es) = exp6_size es
 Proof
-  RW_TAC std_ss [GSYM exps_size_def, exps_size_thm] >>
-  rw [rich_listTheory.MAP_REVERSE, rich_listTheory.SUM_REVERSE]
+  fs [exp_size_eq,list_size_REVERSE]
 QED
 
 Theorem big_clocked_total_lem[local]:

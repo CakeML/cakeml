@@ -3,7 +3,6 @@
 *)
 open preamble;
 open semanticPrimitivesTheory bigStepTheory;
-open terminationTheory;
 open determTheory bigClockTheory;
 
 val _ = new_theory "interp";

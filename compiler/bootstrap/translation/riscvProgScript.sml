@@ -2,7 +2,7 @@
   Translate the RISC-V instruction encoder and RISC-V-specific config.
 *)
 open preamble;
-open terminationTheory
+open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
 open arm8ProgTheory
 open riscv_targetTheory riscvTheory;
