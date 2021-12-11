@@ -1,11 +1,14 @@
-INCLUDES = $(CAKEMLDIR)/developers \
-	   $(CAKEMLDIR)/misc \
-	   $(CAKEMLDIR)/semantics \
-	   $(CAKEMLDIR)/semantics/proofs \
-	   $(CAKEMLDIR)/translator \
-	   $(CAKEMLDIR)/translator/monadic \
-	   $(CAKEMLDIR)/characteristic \
-	   $(CAKEMLDIR)/basis
+INCLUDES = ../../developers \
+	   ../../misc \
+	   ../../semantics \
+	   ../../semantics/proofs \
+	   ../../translator \
+	   ../../translator/monadic \
+	   ../../characteristic \
+	   ../../basis \
+	   ../standard/monadic \
+	   ../standard/semantics \
+	   ../standard/syntax
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
