@@ -46,7 +46,7 @@ Datatype:
   | Contradiction num (* Id representing a contradiction *)
   | Delete (num list) (* Ids to to delete *)
   | Polish constr     (* Adds a constraint, written in reverse polish notation *)
-  | Red npbc subst (pbpstep list) (pbpstep list spt)
+  | Red npbc subst (pbpstep list) ((num,pbpstep list) alist)
 End
 
 (* Red steps add the constraint npbc by contradiction,
@@ -57,16 +57,27 @@ End
 Definition pbpstep_ok_def[simp]:
   (pbpstep_ok (Red n _ pf pfs) ⇔
     compact n ∧ EVERY pbpstep_ok pf ∧
-    ∀n p. lookup n pfs = SOME p ⇒ EVERY pbpstep_ok p) ∧
+    ∀n p. ALOOKUP pfs n = SOME p ⇒ EVERY pbpstep_ok p) ∧
   (pbpstep_ok _ ⇔ T)
 Termination
   WF_REL_TAC ‘measure pbpstep_size’ \\ rw []
+  \\ gvs [fetch "-" "pbpstep_size_eq"] \\ rw []
+  \\ drule ALOOKUP_MEM
+  \\ drule MEM_list_size
+  \\ disch_then (qspec_then`pbpstep_size` assume_tac)
+  \\ rw[]
+  \\ drule MEM_list_size
+  \\ qmatch_goalsub_abbrev_tac`list_size sz pfs`
+  \\ disch_then (qspec_then`sz` assume_tac)
+  \\ fs[Abbr`sz`,basicSizeTheory.pair_size_def]
+  (*
   \\ drule_then (qspec_then ‘list_size pbpstep_size’ mp_tac) lookup_spt_size
+  \\ gvs [fetch "-" "pbpstep_size_eq"] \\ rw []
   \\ gvs [fetch "-" "pbpstep_size_eq"] \\ rw []
   \\ irule LESS_LESS_EQ_TRANS
   \\ irule_at Any MEM_list_size
   \\ first_x_assum $ irule_at Any
-  \\ fs []
+  \\ fs [] *)
 End
 
 (*
@@ -159,7 +170,7 @@ Definition check_pbpstep_def:
               let w = subst_fun s in
               let goals = (id, subst w c) :: toAList (map_opt (subst_opt w) fml) in
               let success = EVERY (λ(n,g).
-                              case lookup n pfs of
+                              case ALOOKUP pfs n of
                               | NONE => F
                               | SOME steps =>
                                   let fml'_g = insert id' (not g) fml' in
@@ -175,8 +186,11 @@ Definition check_pbpstep_def:
 Termination
   WF_REL_TAC ‘measure (sum_size (pbpstep_size o FST) (list_size pbpstep_size o FST))’
   \\ fs [fetch "-" "pbpstep_size_eq"] \\ rw []
-  \\ drule_then (qspec_then ‘list_size pbpstep_size’ mp_tac) lookup_spt_size
-  \\ fs []
+  \\ drule ALOOKUP_MEM
+  \\ strip_tac \\ drule MEM_list_size
+  \\ qmatch_goalsub_abbrev_tac`list_size sz pfs`
+  \\ disch_then (qspec_then`sz` assume_tac)
+  \\ fs[Abbr`sz`,basicSizeTheory.pair_size_def]
 End
 
 (* Copied from satSem: this is the set of pseudoboolean constraints *)
@@ -405,7 +419,7 @@ Proof
   \\ simp [Once implies_explode] \\ reverse (rw [])
   THEN1
    (last_x_assum (qspecl_then [‘id’,‘subst (subst_fun s) c’] mp_tac)
-    \\ simp [] \\ Cases_on ‘lookup id pfs’ \\ fs []
+    \\ simp [] \\ Cases_on ‘ALOOKUP pfs id’ \\ fs []
     \\ impl_tac THEN1 fs [id_ok_def]
     \\ gvs [GSYM unsat_iff_implies]
     \\ strip_tac \\ CCONTR_TAC \\ fs []
@@ -424,7 +438,7 @@ Proof
     \\ CCONTR_TAC \\ gvs [satisfiable_def,not_thm]
     \\ fs [satisfies_def,range_def,PULL_EXISTS]
     \\ res_tac \\ fs [])
-  \\ Cases_on ‘lookup a pfs’ \\ fs []
+  \\ Cases_on ‘ALOOKUP pfs a’ \\ fs []
   \\ first_x_assum (qspec_then ‘a’ mp_tac) \\ fs []
   \\ disch_then (qspec_then ‘x’ mp_tac) \\ fs []
   \\ impl_tac THEN1 fs [id_ok_def]
@@ -666,7 +680,7 @@ Definition parse_pbpsteps_def:
       if r = INL (strlit "end") ∧ rs = [] then
         case cont of
           ((c,s,a)::xs) =>
-            parse_pbpsteps ss xs (Red c s (REVERSE acc) LN::a)
+            parse_pbpsteps ss xs (Red c s (REVERSE acc) []::a)
         | [] => NONE
       else
       if r = INL (strlit "c") then
@@ -687,10 +701,11 @@ Definition parse_pbpsteps_def:
           parse_pbpsteps ss ((c,s,acc)::cont) []
       else if r = INL (strlit"proofgoal") then
         (* TODO: parse rs as a number or something else? *)
-        case cont of
+        NONE
+        (*case cont of
           ((c,s,a)::xs) =>
-            parse_pbpsteps ss xs (Red c s (REVERSE acc) LN::a)
-        | [] => NONE
+            parse_pbpsteps ss xs (Red c s (REVERSE acc) []::a)
+        | [] => NONE *)
       else NONE
     | _ => NONE)
 End

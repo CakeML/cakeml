@@ -7,7 +7,7 @@ val _ = new_theory "pb_checkProg"
 
 val _ = translation_extends"basisProg";
 
-val _ = register_type ``: pbpstep ``
+val _ = register_type ``:pbpstep ``
 
 Definition noparse_string_def:
   noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]
@@ -110,6 +110,13 @@ val r = translate parse_red_header_def;
 
 (* TODO: stuck because of register_type on pbpsteps *)
 val r = translate parse_pbpsteps_def;
+
+val parse_pbpsteps_side_def = theorem "parse_pbpsteps_side_def";
+val parse_pbpsteps_side = Q.prove(
+  `∀x y z. parse_pbpsteps_side x y z <=> T`,
+  Induct>>rw[Once parse_pbpsteps_side_def]>>
+  intLib.ARITH_TAC) |> update_precondition;
+
 val r = translate parse_pbp_toks_def;
 
 val parse_pbp_full = (append_prog o process_topdecs) `
@@ -130,7 +137,7 @@ val r = translate build_fml_def;
 val r = translate (lslack_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
 val r = translate (check_contradiction_def |> SIMP_RULE std_ss[LET_DEF]);
 
-(* add *)
+(* polish *)
 val r = translate pb_constraintTheory.term_lt_def;
 val r = translate pb_constraintTheory.add_terms_def;
 val r = translate pb_constraintTheory.add_lists_def;
@@ -153,8 +160,26 @@ val r = translate check_polish_def;
 
 val r = translate FOLDL
 
+val r = translate is_pol_con_def;
+val r = translate pb_constraintTheory.not_def;
+
+val r = translate subst_fun_def;
+
+val r = translate pb_constraintTheory.is_Pos_def;
+val r = translate pb_constraintTheory.subst_aux_def;
+val r = translate pb_constraintTheory.partition_def;
+val r = translate pb_constraintTheory.clean_up_def;
+val r = translate pb_constraintTheory.subst_def;
+
+val r = translate lrnext_def;
+val r = translate foldi_def;
+val r = translate toAList_def;
+
+val r = translate map_opt_def;
+val r = translate pb_constraintTheory.subst_opt_aux_def;
+val r = translate (pb_constraintTheory.subst_opt_def |> SIMP_RULE std_ss [LET_THM]);
+
 val r = translate check_pbpstep_def;
-val r = translate check_pbpsteps_def;
 
 Definition result_string_def:
   (result_string Fail = INL (strlit "Proof checking failed\n")) ∧
@@ -166,7 +191,7 @@ val r = translate result_string_def;
 
 Definition check_pbp_def:
   check_pbp pbf pbp =
-    let (id,fml) = build_fml 1 pbf LN in
+    let (id,fml) = build_fml 1 (normalize pbf) LN in
     result_string (check_pbpsteps pbp id fml)
 End
 
