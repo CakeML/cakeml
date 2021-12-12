@@ -121,7 +121,7 @@ val r = translate parse_pbp_toks_def;
 
 val parse_pbp_full = (append_prog o process_topdecs) `
   fun parse_pbp_full f =
-  (case TextIO.b_inputAllTokensFrom f blanks tokenize_num of
+  (case TextIO.b_inputAllTokensFrom f blanks tokenize of
     None => Inl (notfound_string f)
   | Some lines =>
   (case parse_pbp_toks lines of
