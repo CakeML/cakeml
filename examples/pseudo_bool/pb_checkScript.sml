@@ -161,12 +161,13 @@ Definition check_pbpstep_def:
           NONE => Fail
         | SOME c => Cont (insert id c fml) (id+1))
    | Red c s pf pfs =>
-       (if ~EVERY is_pol_con pf then Fail else
-        let fml_not_c = insert id (not c) fml in
+       (let fml_not_c = insert id (not c) fml in
           case check_pbpsteps pf fml_not_c (id+1) of
           | Unsat => Cont (insert id c fml) (id+1)  (* the ids are slightly off here *)
           | Fail => Fail
           | Cont fml' id' =>
+              (* If we need a full redundancy step, then the initial steps must be satisfiability preserving *)
+              if ~EVERY is_pol_con pf then Fail else
               let w = subst_fun s in
               let goals = (id, subst w c) :: toAList (map_opt (subst_opt w) fml) in
               let success = EVERY (λ(n,g).
@@ -403,13 +404,14 @@ Proof
   \\ qexists_tac ‘subst_fun s’ \\ fs []
   \\ pop_assum mp_tac
   \\ simp [Once check_pbpstep_def]
-  \\ IF_CASES_TAC \\ fs []
   \\ ‘id ∉ domain fml’ by fs [id_ok_def]
-  \\ ‘EVERY is_pol_con pf’ by fs [EVERY_MEM]
   \\ ‘id_ok (insert id (not c) fml) (id + 1)’ by fs [id_ok_def]
   \\ gvs []
   \\ TOP_CASE_TAC \\ fs []
   THEN1 (gvs [sat_implies_def,satisfiable_def,range_insert] \\ metis_tac [])
+  \\ IF_CASES_TAC \\ fs []
+  \\ fs[o_DEF]
+  \\ ‘EVERY is_pol_con pf’ by fs [EVERY_MEM]
   \\ gvs [AllCaseEqs()]
   \\ strip_tac
   \\ gvs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,MEM_toAList]
