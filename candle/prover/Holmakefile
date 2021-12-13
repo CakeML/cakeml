@@ -6,6 +6,7 @@ INCLUDES = ../../developers \
 	   ../../translator/monadic \
 	   ../../characteristic \
 	   ../../basis \
+	   ../standard/ml_kernel \
 	   ../standard/monadic \
 	   ../standard/semantics \
 	   ../standard/syntax
@@ -17,4 +18,3 @@ README_SOURCES = $(wildcard *Script.sml)
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
-

@@ -9,3 +9,6 @@ Useful predicates on the CakeML ast.
 
 [kernelScript.sml](kernelScript.sml):
 Kernel types and functions.
+
+[ml_hol_kernel_valsScript.sml](ml_hol_kernel_valsScript.sml):
+Theorems about values from the Candle kernel program
