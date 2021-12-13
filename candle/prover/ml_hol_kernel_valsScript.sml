@@ -11,6 +11,8 @@ open basisFunctionsLib holKernelProofTheory;
 
 val _ = new_theory "ml_hol_kernel_vals";
 
+val _ = translation_extends "ml_hol_kernelProg";
+
 (*
 TODO:
  - fix constructor names (Var is currently Var_1)
@@ -95,6 +97,12 @@ Definition kernel_funs_def:
   }
 End
 
+Theorem kernel_funs_v_def =
+  kernel_funs_def |> concl |> rand |> find_terms is_const
+  |> filter (fn tm => not (mem (fst (dest_const tm)) ["INSERT","EMPTY"]))
+  |> map (fn c => DB.find (fst (dest_const c) ^ "_def"))
+  |> map (fn t => hd t |> snd |> fst) |> LIST_CONJ;
+
 Definition kernel_locs_def:
   kernel_locs =
     { l | Loc l ∈ { the_type_constants
@@ -141,7 +149,7 @@ Definition kernel_ffi_def:
 End
 
 Definition thm2bytes_def:
-  thm2bytes th = []:word8 list
+  thm2bytes th = []:word8 list  (* TODO: fix me *)
 End
 
 Definition ok_event_def:
@@ -177,8 +185,6 @@ End
  * THM, TERM, TYPE lemmas
  * ------------------------------------------------------------------------- *)
 
-(*
-
 Theorem EqualityType_TYPE_TYPE = EqualityType_rule [] “:type”;
 
 Theorem EqualityType_LIST_TYPE_TYPE_TYPE = EqualityType_rule [] “:type list”;
@@ -192,12 +198,34 @@ Theorem EqualityType_THM_TYPE = EqualityType_rule [] “:thm”;
 Theorem EqualityType_LIST_TYPE_THM_TYPE = EqualityType_rule [] “:thm list”;
 
 Theorem kernel_funs_inferred[simp]:
+  (∀ty. v ∈ kernel_funs ⇒ ¬TYPE_TYPE ty v) ∧
   (∀tm. v ∈ kernel_funs ⇒ ¬TERM_TYPE tm v) ∧
   (∀th. v ∈ kernel_funs ⇒ ¬THM_TYPE th v)
 Proof
-  conj_tac \\ Cases
-  \\ rw [kernel_funs_def, conj_v_def, disj1_v_def, imp_v_def, not_not_v_def,
-         TERM_TYPE_def, THM_TYPE_def]
+  rpt conj_tac \\ Cases
+  \\ fs [TYPE_TYPE_def, TERM_TYPE_def, THM_TYPE_def]
+  \\ rw [] \\ qsuff_tac ‘F’ \\ fs []
+  \\ pop_assum mp_tac \\ fs []
+  \\ rewrite_tac [kernel_funs_def,IN_INSERT,NOT_IN_EMPTY]
+  \\ once_rewrite_tac [kernel_funs_v_def,constants_v_def]
+  \\ EVAL_TAC
+QED
+
+Theorem TYPE_from_TYPE_TYPE:
+  inferred ctxt v ∧
+  TYPE_TYPE ty v ⇒
+    TYPE ctxt ty
+Proof
+  rw [Once inferred_cases] \\ gs []
+  >~ [‘THM ctxt th’] >- (
+    Cases_on ‘th’ \\ gs [THM_TYPE_def]
+    \\ Cases_on ‘ty’ \\ gs [TYPE_TYPE_def])
+  >~ [‘TERM ctxt tm’] >- (
+    Cases_on ‘tm’ \\ gs [TERM_TYPE_def]
+    \\ Cases_on ‘ty’ \\ gs [TYPE_TYPE_def])
+  \\ assume_tac EqualityType_TYPE_TYPE
+  \\ gs [EqualityType_def]
+  \\ qpat_x_assum ‘∀a b c d. _ ⇒ (_ ⇔ _)’ (dxrule_then drule) \\ gs []
 QED
 
 Theorem TERM_from_TERM_TYPE:
@@ -208,6 +236,9 @@ Proof
   rw [Once inferred_cases] \\ gs []
   >~ [‘THM ctxt th’] >- (
     Cases_on ‘th’ \\ gs [THM_TYPE_def]
+    \\ Cases_on ‘tm’ \\ gs [TERM_TYPE_def])
+  >~ [‘TYPE ctxt ty’] >- (
+    Cases_on ‘ty’ \\ gs [TYPE_TYPE_def]
     \\ Cases_on ‘tm’ \\ gs [TERM_TYPE_def])
   \\ assume_tac EqualityType_TERM_TYPE
   \\ gs [EqualityType_def]
@@ -220,13 +251,18 @@ Theorem THM_from_THM_TYPE:
     THM ctxt th
 Proof
   rw [Once inferred_cases] \\ gs []
+  >~ [‘TYPE ctxt ty’] >- (
+    Cases_on ‘ty’ \\ gs [TYPE_TYPE_def]
+    \\ Cases_on ‘th’ \\ gs [THM_TYPE_def])
   >~ [‘TERM ctxt tm’] >- (
-    Cases_on ‘th’ \\ gs [THM_TYPE_def]
-    \\ Cases_on ‘tm’ \\ gs [TERM_TYPE_def])
+    Cases_on ‘tm’ \\ gs [TERM_TYPE_def]
+    \\ Cases_on ‘th’ \\ gs [THM_TYPE_def])
   \\ assume_tac EqualityType_THM_TYPE
   \\ gs [EqualityType_def]
   \\ qpat_x_assum ‘∀a b c d. _ ⇒ (_ ⇔ _)’ (dxrule_then drule) \\ gs []
 QED
+
+(*
 
 (* -------------------------------------------------------------------------
  * Theorems about partial application of values in kernel_funs.
@@ -361,5 +397,7 @@ Proof
 QED
 
 *)
+
+val _ = reset_translation();
 
 val _ = export_theory ();
