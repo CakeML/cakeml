@@ -128,11 +128,10 @@ Inductive perms_ok:
   (∀ps loc.
      RefMention loc ∈ ps ⇒
        perms_ok ps (Loc loc)) ∧
-(*
 [~Env:]
-  (∀env ns.
-     no_refwr ? env ⇒
-       no_refwr (Env env ns)) ∧ *)
+  (∀ps env ns.
+     perms_ok_env ps UNIV env  ⇒
+       perms_ok ps (Env env ns)) ∧
 [~env:]
   (∀ps fvs env.
      (∀n v.
@@ -217,6 +216,45 @@ Proof
   \\ gvs [CaseEqs ["bool", "option", "prod", "match_result"]]
 QED
 
+Theorem perms_ok_env_extend_dec_env:
+  perms_ok_env ps fvs env1 ∧
+  perms_ok_env ps fvs env ⇒
+    perms_ok_env ps fvs (extend_dec_env env1 env)
+Proof
+  rw [perms_ok_env_def, extend_dec_env_def]
+  \\ gs [nsLookup_nsAppend_some, SF SFY_ss]
+QED
+
+Theorem EVERY_perms_ok_env_BIGUNION:
+  ∀xs.
+    EVERY (λx. perms_ok_env ps (P x) env) xs =
+    perms_ok_env ps (BIGUNION (set (MAP P xs))) env
+Proof
+  Induct >- simp [perms_ok_env_def]
+  \\ rw [perms_ok_env_UNION]
+QED
+
+Theorem perms_ok_env_EMPTY:
+  perms_ok_env ps EMPTY env
+Proof
+  rw [perms_ok_env_def]
+QED
+
+Definition dfreevars_def:
+  dfreevars (Dlet locs p x) =
+    (freevars x DIFF set (MAP Short (pat_bindings p []))) ∧
+  dfreevars (Dletrec locs f) =
+    BIGUNION (set (MAP (λ(fn,vn,x). freevars x DIFF {Short fn; Short vn}) f)) ∧
+  dfreevars (Dmod mn ds) =
+    BIGUNION (set (MAP dfreevars ds)) ∧
+  dfreevars (Dlocal ds1 ds2) =
+    BIGUNION (set (MAP dfreevars ds1)) ∪
+    BIGUNION (set (MAP dfreevars ds2)) ∧
+  dfreevars _ = EMPTY
+Termination
+  WF_REL_TAC ‘measure dec_size’
+End
+
 Theorem evaluate_perms_ok:
   (∀s:'ffi semanticPrimitives$state. ∀env xs s' res.
      EVERY (perms_ok_exp ps) xs ∧
@@ -256,16 +294,16 @@ Theorem evaluate_perms_ok:
   (∀s:'ffi semanticPrimitives$state. ∀env ds s' res.
      EVERY (perms_ok_dec ps) ds ∧
      (RefPmatch ∈ ps ⇒ EVERY (refc_ok ps) s.refs) ∧
+     perms_ok_env ps UNIV env ∧
      evaluate_decs s env ds = (s', res) ⇒
        (RefAlloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
-       (DoEval ∉ ps ⇒ s'.next_type_stamp = s.next_type_stamp) ∧
        (RefPmatch ∈ ps ⇒ EVERY (refc_ok ps) s'.refs) ∧
        (∀ffi out y.
           MEM (IO_event ffi out y) s'.ffi.io_events ⇒
           MEM (IO_event ffi out y) s.ffi.io_events ∨ FFIWrite ffi ∈ ps) ∧
        case res of
          Rerr (Rraise v) => perms_ok ps v
-       | Rval env => T (* EVERY (perms_ok ps) vs *) (* TODO ? *)
+       | Rval env1 => perms_ok_env ps UNIV env1
        | _ => T)
 Proof
   ho_match_mp_tac full_evaluate_ind
@@ -438,33 +476,69 @@ Proof
     \\ pop_assum (SUBST_ALL_TAC o SYM)
     \\ gs [MEM_MAP])
   >~ [‘[]’] >- (
-    gvs [evaluate_decs_def])
+    gvs [evaluate_decs_def]
+    \\ simp [perms_ok_env_def])
   >~ [‘_::_::_’] >- (
     gvs [evaluate_decs_def, CaseEqs ["prod", "result", "error_result"]]
     \\ gs [combine_dec_result_def]
+    \\ last_x_assum mp_tac
+    \\ impl_tac \\ gs []
+    >- (
+      irule perms_ok_env_extend_dec_env
+      \\ gs [])
     \\ CASE_TAC \\ gs []
     \\ rw [] \\ gs []
+    >~ [‘perms_ok_env ps _ <| v := nsAppend _ _; c := nsAppend _ _ |>’] >- (
+      gs [perms_ok_env_def, nsLookup_nsAppend_some]
+      \\ rw [] \\ gs [SF SFY_ss])
     \\ first_x_assum (drule_then strip_assume_tac) \\ gs [])
   >~ [‘Dlet locs p e’] >- (
     gvs [evaluate_decs_def, CaseEqs ["prod", "result", "bool"]]
-    \\ cheat (* TODO Add something about variables in declarations and
-                    the environment *))
+    \\ last_x_assum mp_tac
+    \\ impl_tac \\ gs []
+    >~ [‘pmatch’] >- (
+      drule_then strip_assume_tac evaluate_sing \\ gvs []
+      \\ rw [] \\ CASE_TAC \\ gs []
+      \\ drule (CONJUNCT1 pmatch_perms_ok) \\ simp []
+      \\ disch_then drule \\ rw []
+      \\ gs [perms_ok_env_def, nsLookup_alist_to_ns_some, PULL_EXISTS] \\ rw []
+      \\ drule_then assume_tac ALOOKUP_MEM
+      \\ gs [EVERY_MEM, MEM_MAP, EXISTS_PROD, PULL_EXISTS, SF SFY_ss])
+    \\ gs [perms_ok_env_def, SF SFY_ss])
   >~ [‘Dletrec locs funs’] >- (
-    gvs [evaluate_decs_def, CaseEqs ["prod", "result", "bool"]])
-  >~ [‘Dtype locs tds’] >- (
     gvs [evaluate_decs_def, CaseEqs ["prod", "result", "bool"]]
-    \\ strip_tac
-    \\ cheat (* type definitions in permissions *))
+    \\ gs [build_rec_env_merge, perms_ok_env_def, nsLookup_alist_to_ns_some,
+           PULL_EXISTS]
+    \\ rw []
+    \\ drule_then assume_tac ALOOKUP_MEM
+    \\ gs [EVERY_MEM, MEM_MAP, EXISTS_PROD, PULL_EXISTS, SF SFY_ss]
+    \\ simp [perms_ok_def, EVERY_MEM, MEM_MAP, EXISTS_PROD,
+             perms_ok_env_BIGUNION, PULL_EXISTS]
+    \\ rw [perms_ok_env_def] \\ gs [SF SFY_ss])
+  >~ [‘Dtype locs tds’] >- (
+    gvs [evaluate_decs_def, CaseEq "bool"]
+    \\ simp [perms_ok_env_def])
   >~ [‘Dtabbrev locs tvs tn t’] >- (
-    gvs [evaluate_decs_def, CaseEqs ["prod", "result", "bool"]])
+    gvs [evaluate_decs_def]
+    \\ simp [perms_ok_env_def])
   >~ [‘Denv n’] >- (
-    gvs [evaluate_decs_def, CaseEqs ["prod", "result", "option"]])
+    gvs [evaluate_decs_def, CaseEqs ["prod", "result", "eval_state", "option"],
+         perms_ok_env_def, declare_env_def, perms_ok_def, nat_to_v_def,
+         SF SFY_ss])
   >~ [‘Dexn locs cn ts’] >- (
-    gvs [evaluate_decs_def, CaseEqs ["prod", "result"]])
+    gvs [evaluate_decs_def]
+    \\ simp [perms_ok_env_def])
   >~ [‘Dmod mn ds’] >- (
-    gvs [evaluate_decs_def, CaseEqs ["prod", "result"]])
+    gvs [evaluate_decs_def, CaseEqs ["prod", "result"], perms_ok_env_def,
+         nsLookup_nsLift]
+    \\ Cases \\ gs [SF SFY_ss])
   >~ [‘Dlocal ds1 ds2’] >- (
     gvs [evaluate_decs_def, CaseEqs ["prod", "result"]]
+    \\ last_x_assum mp_tac
+    \\ impl_tac \\ gs []
+    >- (
+      gs [perms_ok_env_def, extend_dec_env_def, nsLookup_nsAppend_some]
+      \\ rw [] \\ gs [SF SFY_ss])
     \\ rw []
     \\ first_x_assum (drule_then assume_tac) \\ gs [])
 QED
