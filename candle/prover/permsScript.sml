@@ -22,14 +22,16 @@ Datatype:
              | RefMention loc  (* Mention reference using pointer    *)
              | RefUpdate       (* Write to references                *)
              | RefAlloc        (* Allocate new references            *)
-             | RefPmatch       (* Do pattern-matching on references  *)
              | DoEval          (* Call Eval                          *)
 End
 
+(*
 Definition pats_ok_def:
   pats_ok ps = every_pat $ λp. case p of Pref p => RefPmatch ∈ ps | _ => T
 End
+ *)
 
+(*
 Theorem pats_ok_thm[simp] =
   [“pats_ok ps Pany”,
    “pats_ok ps (Pvar n)”,
@@ -41,6 +43,7 @@ Theorem pats_ok_thm[simp] =
   |> map (SIMP_CONV (srw_ss()) [pats_ok_def])
   |> map (SIMP_RULE (srw_ss()) [GSYM pats_ok_def, SF ETA_ss])
   |> LIST_CONJ;
+ *)
 
 Definition perms_ok_exp_def:
   perms_ok_exp ps =
@@ -51,8 +54,8 @@ Definition perms_ok_exp_def:
           (op = Opref ⇒ RefAlloc ∈ ps) ∧
           (op = Opassign ⇒ RefUpdate ∈ ps) ∧
           (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps)
-      | Handle x pes => EVERY (pats_ok ps) (MAP FST pes)
-      | Mat x pes => EVERY (pats_ok ps) (MAP FST pes)
+   (* | Handle x pes => EVERY (pats_ok ps) (MAP FST pes)
+      | Mat x pes => EVERY (pats_ok ps) (MAP FST pes) *)
       | _ => T
 End
 
@@ -79,7 +82,7 @@ Definition perms_ok_dec_def:
   perms_ok_dec ps =
     every_dec $ λd.
       case d of
-        Dlet locs pat exp => pats_ok ps pat ∧ perms_ok_exp ps exp
+        Dlet locs pat exp => (* pats_ok ps pat ∧ *) perms_ok_exp ps exp
       | Dletrec locs funs => EVERY (perms_ok_exp ps) (MAP (SND o SND) funs)
       | _ => T
 End
@@ -189,7 +192,8 @@ Definition perms_ok_ref_def:
 End
 
 Definition perms_ok_state_def:
-  perms_ok_state ps s = EVERY (perms_ok_ref ps) s.refs
+  perms_ok_state ps s =
+    ∀n. n < LENGTH s.refs ∧ RefMention n ∈ ps  ⇒ perms_ok_ref ps (EL n s.refs)
 End
 
 Theorem perms_ok_state_with_clock[simp]:
@@ -201,16 +205,16 @@ QED
 Theorem pmatch_perms_ok:
   (∀envC s p v ws env.
     pmatch envC s p v ws = Match env ∧
-    pats_ok perms p ∧
     perms_ok perms v ∧
-    (RefPmatch ∈ perms ⇒ EVERY (perms_ok_ref perms) s) ∧
+    (RefAlloc ∈ perms ⇒ IMAGE RefMention UNIV ⊆ perms) ∧
+    (∀n. n < LENGTH s ∧ RefMention n ∈ perms ⇒ perms_ok_ref perms (EL n s)) ∧
     EVERY (perms_ok perms) (MAP SND ws) ⇒
       EVERY (perms_ok perms) (MAP SND env)) ∧
   (∀envC s ps vs ws env.
     pmatch_list envC s ps vs ws = Match env ∧
-    EVERY (pats_ok perms) ps ∧
     EVERY (perms_ok perms) vs ∧
-    (RefPmatch ∈ perms ⇒ EVERY (perms_ok_ref perms) s) ∧
+    (RefAlloc ∈ perms ⇒ IMAGE RefMention UNIV ⊆ perms) ∧
+    (∀n. n < LENGTH s ∧ RefMention n ∈ perms ⇒ perms_ok_ref perms (EL n s)) ∧
     EVERY (perms_ok perms) (MAP SND ws) ⇒
       EVERY (perms_ok perms) (MAP SND env))
 Proof
@@ -219,15 +223,15 @@ Proof
     gs [CaseEq "bool"])
   >- ((* Pcon SOME *)
     gvs [CaseEqs ["bool", "option", "prod"]]
-    \\ gs [EVERY_MEM, perms_ok_def])
+    \\ gs [EVERY_MEM, perms_ok_def, SF DNF_ss])
   >- ((* Pcon NONE *)
     gvs [CaseEqs ["bool", "option", "prod"]]
-    \\ gs [perms_ok_def, EVERY_MEM])
+    \\ gs [perms_ok_def, EVERY_MEM, SF DNF_ss])
   >- ((* Pref *)
     gvs [perms_ok_def, EVERY_MEM, CaseEqs ["option", "store_v"]]
-    \\ gs [store_lookup_def, MEM_EL, PULL_EXISTS, EL_MAP]
+    \\ gs [store_lookup_def, MEM_EL, PULL_EXISTS, EL_MAP, SF DNF_ss]
     \\ first_x_assum drule \\ gs [perms_ok_ref_def])
-  \\ gvs [CaseEqs ["bool", "option", "prod", "match_result"]]
+  \\ gvs [CaseEqs ["bool", "option", "prod", "match_result"], SF DNF_ss]
 QED
 
 Theorem perms_ok_env_extend_dec_env:
@@ -272,14 +276,17 @@ End
 Theorem do_app_perms:
   do_app (refs, ffi) op vs = SOME ((refs1,ffi1),res) ∧
   EVERY (perms_ok ps) vs ∧
-  EVERY (perms_ok_ref ps) refs ∧
-  (op = Opref ⇒ RefAlloc ∈ ps) ∧
+  (RefAlloc ∈ ps ⇒ IMAGE RefMention UNIV ⊆ ps) ∧
+  (∀n. n < LENGTH refs ∧ RefMention n ∈ ps ⇒ perms_ok_ref ps (EL n refs)) ∧
+  (op = Opref ⇒
+    RefAlloc ∈ ps ∧
+    RefMention (LENGTH refs) ∈ ps) ∧
   (op = Opassign ⇒ RefUpdate ∈ ps) ∧
   (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps) ∧
   op ≠ Opapp ∧
   op ≠ Eval ⇒
+    (∀n. n < LENGTH refs1 ∧ RefMention n ∈ ps ⇒ perms_ok_ref ps (EL n refs1)) ∧
     (RefAlloc ∉ ps ⇒ LENGTH refs1 = LENGTH refs) ∧
-    EVERY (perms_ok_ref ps) refs1 ∧
     (∀ch out y.
        MEM (IO_event ch out y) ffi1.io_events ⇒
        MEM (IO_event ch out y) ffi.io_events ∨ FFIWrite ch ∈ ps) ∧
@@ -303,13 +310,14 @@ Proof
   >- (
     rw [do_app_cases] \\ gs []
     \\ gvs [perms_ok_def, store_assign_def]
-    \\ irule IMP_EVERY_LUPDATE
-    \\ gs [perms_ok_ref_def])
+    \\ rw [EL_LUPDATE, perms_ok_ref_def])
   \\ Cases_on ‘op = Opref’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
     \\ gvs [perms_ok_def, store_alloc_def, perms_ok_ref_def]
-    \\ cheat (* RefMention (LENGTH refs) ∈ ps when we allocate *))
+    \\ simp [EL_APPEND_EQN]
+    \\ rw [] \\ gs []
+    \\ gvs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
   \\ cheat
 QED
 
@@ -318,6 +326,7 @@ Theorem evaluate_perms_ok:
      EVERY (perms_ok_exp ps) xs ∧
      EVERY (λx. perms_ok_env ps (freevars x) env) xs ∧
      perms_ok_state ps s ∧
+     (RefAlloc ∈ ps ⇒ IMAGE RefMention UNIV ⊆ ps) ∧
      evaluate s env xs = (s', res) ⇒
        (RefAlloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
        (DoEval ∉ ps ⇒ s'.next_type_stamp = s.next_type_stamp) ∧
@@ -334,10 +343,10 @@ Theorem evaluate_perms_ok:
      EVERY (λ(p,x). perms_ok_env ps (freevars x DIFF
                                      set (MAP Short (pat_bindings p []))) env)
            pes ∧
-     EVERY (pats_ok ps) (MAP FST pes) ∧
      perms_ok_state ps s ∧
      perms_ok ps v ∧
      perms_ok ps errv ∧
+     (RefAlloc ∈ ps ⇒ IMAGE RefMention UNIV ⊆ ps) ∧
      evaluate_match s env v pes errv = (s', res) ⇒
        (RefAlloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
        (DoEval ∉ ps ⇒ s'.next_type_stamp = s.next_type_stamp) ∧
@@ -353,6 +362,7 @@ Theorem evaluate_perms_ok:
      EVERY (perms_ok_dec ps) ds ∧
      perms_ok_state ps s ∧
      perms_ok_env ps UNIV env ∧
+     (RefAlloc ∈ ps ⇒ IMAGE RefMention UNIV ⊆ ps) ∧
      evaluate_decs s env ds = (s', res) ⇒
        (RefAlloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
        perms_ok_state ps s' ∧
@@ -464,6 +474,10 @@ Proof
       by gs [EVERY_perms_ok_env_BIGUNION, SF ETA_ss]
     \\ gvs [CaseEqs ["result", "prod", "bool", "option"]]
     \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms
+    \\ impl_tac
+    >- (
+      gs [perms_ok_state_def, SUBSET_DEF])
+    \\ strip_tac \\ gs []
     \\ gs [perms_ok_state_def]
     \\ rw [] \\ gs []
     \\ first_x_assum (drule_then assume_tac) \\ gs [])
@@ -615,6 +629,12 @@ Theorem evaluate_perms_ok_exp =
 Theorem evaluate_perms_ok_pat =
   CONJUNCT1 (CONJUNCT2 evaluate_perms_ok)
   |> Q.SPECL [‘s’, ‘env’, ‘v’, ‘[p,e]’]
+  |> GEN_ALL
+  |> SIMP_RULE (srw_ss()) [];
+
+Theorem evaluate_perms_ok_dec =
+  CONJUNCT2 (CONJUNCT2 evaluate_perms_ok)
+  |> Q.SPECL [‘s’, ‘env’, ‘[dec]’]
   |> GEN_ALL
   |> SIMP_RULE (srw_ss()) [];
 
