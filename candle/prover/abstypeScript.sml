@@ -18,6 +18,10 @@ val _ = set_grammar_ancestry [
  *
  * ------------------------------------------------------------------------- *)
 
+Definition safe_exp_def:
+  safe_exp (x: exp) = T
+End
+
 Inductive v_ok:
 [~Inferred:]
   (∀ctxt v.
@@ -39,18 +43,14 @@ Inductive v_ok:
      (∀tag x. opt = SOME (TypeStamp tag x) ⇒ x ∉ kernel_types) ⇒
        v_ok ctxt (Conv opt vs)) ∧
 [~Closure:]
-  (∀ctxt env n x ps.
+  (∀ctxt env n x.
      env_ok ctxt env ∧
-     DoEval ∉ ps ∧
-     RefAlloc ∉ ps ∧
-     perms_ok_exp ps x ⇒
+     safe_exp x ⇒
        v_ok ctxt (Closure env n x)) ∧
 [~Recclosure:]
-  (∀ctxt env f n ps.
+  (∀ctxt env f n.
      env_ok ctxt env ∧
-     DoEval ∉ ps ∧
-     RefAlloc ∉ ps ∧
-     EVERY (perms_ok_exp ps) (MAP (SND o SND) f) ⇒
+     EVERY safe_exp (MAP (SND o SND) f) ⇒
        v_ok ctxt (Recclosure env f n)) ∧
 [~Vectorv:]
   (∀ctxt vs.
@@ -184,8 +184,8 @@ Proof
   rw [member_v_def]
   \\ irule v_ok_Recclosure
   \\ simp [env_ok_merge_env, env_ok_kernel_env, perms_ok_exp_def,
-           env_ok_init_env, pats_ok_def]
-  \\ qexists_tac ‘EMPTY’ \\ gs []
+           env_ok_init_env]
+  \\ cheat (* FIXME: Define safe_exp *)
 QED
 
 (* TODO: Use v_thms *)
@@ -280,7 +280,7 @@ Theorem Arrow2:
   A a av ∧ B b bv ∧
   DoEval ∉ ps ∧
   RefAlloc ∉ ps ∧
-  RefPmatch ∉ ps ∧
+  (∀n. RefMention n ∉ ps) ∧
   perms_ok ps av ∧
   perms_ok ps bv ∧
   perms_ok ps fv ⇒
@@ -294,15 +294,12 @@ Theorem Arrow2:
 Proof
   strip_tac
   \\ ‘LENGTH s'.refs = LENGTH s.refs’
-    by (gvs [do_partial_app_def, AllCaseEqs (), do_opapp_cases]
-        \\ gs [perms_ok_def]
-        \\ ‘perms_ok_exp ps e’
-          by gs [perms_ok_exp_def]
-        \\ drule_at_then (Pos (el 4))
-                         (qspec_then ‘ps’ mp_tac)
+    by (gvs [do_partial_app_def, CaseEqs ["v", "exp"], do_opapp_cases,
+             perms_ok_def]
+        \\ drule_at_then (Pos (el 5)) (qspec_then ‘ps’ mp_tac)
                          evaluate_perms_ok_exp
         \\ impl_tac \\ simp []
-        \\ gs [perms_ok_env_def]
+        \\ gs [perms_ok_state_def, perms_ok_env_def]
         \\ Cases \\ simp [ml_progTheory.nsLookup_nsBind_compute]
         \\ rw [] \\ gs []
         \\ first_x_assum irule
@@ -418,7 +415,7 @@ Theorem perms_ok_member_v:
   perms_ok ps member_v
 Proof
   rw [member_v_def, perms_ok_def, perms_ok_exp_def,
-      astTheory.pat_bindings_def, pats_ok_def]
+      astTheory.pat_bindings_def]
   \\ qmatch_goalsub_abbrev_tac ‘perms_ok_env ps fvs’
   \\ ‘fvs = EMPTY’
     by (rw [Abbr ‘fvs’, EXTENSION, astTheory.pat_bindings_def]
@@ -430,7 +427,7 @@ Theorem perms_ok_list_union_v:
   perms_ok ps list_union_v
 Proof
   rw [list_union_v_def, perms_ok_def, perms_ok_exp_def,
-      astTheory.pat_bindings_def, pats_ok_def]
+      astTheory.pat_bindings_def]
   \\ qmatch_goalsub_abbrev_tac ‘perms_ok_env ps fvs’
   \\ ‘fvs = {Short "member"}’
     by (rw [Abbr ‘fvs’, EXTENSION, astTheory.pat_bindings_def]
@@ -444,7 +441,7 @@ QED
 Theorem conj_v_perms_ok:
   perms_ok ps conj_v
 Proof
-  rw [conj_v_def, perms_ok_def, perms_ok_exp_def, pats_ok_def]
+  rw [conj_v_def, perms_ok_def, perms_ok_exp_def]
   \\ qmatch_goalsub_abbrev_tac ‘perms_ok_env ps fvs’
   \\ ‘fvs = {Short "list_union"}’
     by (rw [Abbr ‘fvs’, EXTENSION, astTheory.pat_bindings_def]
@@ -458,7 +455,7 @@ QED
 Theorem disj1_v_perms_ok:
   perms_ok ps disj1_v
 Proof
-  rw [disj1_v_def, perms_ok_def, perms_ok_exp_def, pats_ok_def]
+  rw [disj1_v_def, perms_ok_def, perms_ok_exp_def]
   \\ qmatch_goalsub_abbrev_tac ‘perms_ok_env ps fvs’
   \\ ‘fvs = EMPTY’
     by (rw [Abbr ‘fvs’, EXTENSION, astTheory.pat_bindings_def]
@@ -504,7 +501,7 @@ Proof
       \\ assume_tac conj_v_thm
       \\ ‘∃ps. DoEval ∉ ps ∧
                RefAlloc ∉ ps ∧
-               RefPmatch ∉ ps ∧
+               (∀n. RefMention n ∉ ps) ∧
                perms_ok ps conj_v’
         by (irule_at Any conj_v_perms_ok
             \\ qexists_tac ‘EMPTY’ \\ gs [])
@@ -531,7 +528,7 @@ Proof
       \\ assume_tac disj1_v_thm
       \\ ‘∃ps. DoEval ∉ ps ∧
                RefAlloc ∉ ps ∧
-               RefPmatch ∉ ps ∧
+               (∀n. RefMention n ∉ ps) ∧
                perms_ok ps disj1_v’
         by (irule_at Any disj1_v_perms_ok
             \\ qexists_tac ‘EMPTY’ \\ gs [])
@@ -573,8 +570,7 @@ local
         evaluate s env xs = (s', res) ∧
         state_ok ctxt s ∧
         env_ok ctxt env ∧
-        FFIWrite kernel_ffi ∉ perms ∧
-        EVERY (perms_ok_exp perms) xs ⇒
+        EVERY safe_exp xs ⇒
           ∃ctxt'.
             (∀v. v_ok ctxt v ⇒ v_ok ctxt' v) ∧
             case res of
@@ -589,8 +585,7 @@ local
         evaluate_match s env v ps errv = (s', res) ∧
         state_ok ctxt s ∧
         env_ok ctxt env ∧
-        FFIWrite kernel_ffi ∉ perms ∧
-        EVERY (perms_ok_exp perms) (MAP SND ps) ⇒
+        EVERY safe_exp (MAP SND ps) ⇒
           ∃ctxt'.
             (∀v. v_ok ctxt v ⇒ v_ok ctxt' v) ∧
             case res of
@@ -605,8 +600,7 @@ local
         evaluate_decs s env ds = (s', res) ∧
         state_ok ctxt s ∧
         env_ok ctxt env ∧
-        FFIWrite kernel_ffi ∉ perms ∧
-        EVERY (perms_ok_dec perms) (MAP SND ps) ⇒
+        EVERY safe_exp (MAP SND ps) ⇒
           ∃ctxt'.
             (∀v. v_ok ctxt v ⇒ v_ok ctxt' v) ∧
             case res of
@@ -665,7 +659,8 @@ Theorem compile_Raise:
 Proof
   rw [evaluate_def] \\ gs []
   \\ gvs [CaseEqs ["result", "prod"]]
-  \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
+  \\ cheat (* FIXME: Define safe_exp *) (*
+  \\ drule_then strip_assume_tac evaluate_sing \\ gvs [] *)
 QED
 
 Theorem compile_Handle:
@@ -673,6 +668,7 @@ Theorem compile_Handle:
 Proof
   rw [evaluate_def]
   \\ gvs [CaseEqs ["result", "prod", "error_result", "bool"], EVERY_MAP]
+  \\ cheat (* FIXME: Define safe_exp *) (*
   \\ first_x_assum (drule_all_then (qx_choose_then ‘ctxt1’ assume_tac)) \\ gs []
   >~ [‘¬can_pmatch_all _ _ _ _’] >- (
     gs [state_ok_def]
@@ -683,7 +679,7 @@ Proof
         \\ rw [Once v_ok_cases]
         \\ gs [SF SFY_ss])
   \\ first_x_assum (drule_all_then strip_assume_tac)
-  \\ first_assum (irule_at Any) \\ gs []
+  \\ first_assum (irule_at Any) \\ gs [] *)
 QED
 
 Theorem compile_Con:
@@ -691,6 +687,7 @@ Theorem compile_Con:
 Proof
   rw [evaluate_def]
   \\ gvs [CaseEqs ["result", "prod", "error_result", "option"], EVERY_MAP]
+  \\ cheat (* FIXME: Define safe_exp *) (*
   >~ [‘¬do_con_check _ _ _’] >- (
     gs [state_ok_def]
     \\ first_assum (irule_at Any) \\ gs [])
@@ -703,7 +700,7 @@ Proof
   \\ gvs [build_conv_def, CaseEqs ["option", "prod"]]
   \\ irule v_ok_Conv \\ gs []
   \\ qpat_x_assum ‘env_ok _ _’ mp_tac
-  \\ rw [Once v_ok_cases] \\ gs [SF SFY_ss]
+  \\ rw [Once v_ok_cases] \\ gs [SF SFY_ss] *)
 QED
 
 Theorem compile_Var:
@@ -724,10 +721,10 @@ Theorem compile_Fun:
 Proof
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
+  \\ cheat (* FIXME: Define safe_exp *) (*
   \\ first_assum (irule_at Any) \\ gs []
   \\ irule v_ok_Closure \\ gs []
-  \\ first_assum (irule_at Any)
-  \\ cheat (* DoEval and RefAlloc are not in permissions *)
+  \\ first_assum (irule_at Any) *)
 QED
 
 Theorem compile_App:
@@ -735,6 +732,7 @@ Theorem compile_App:
 Proof
   rw [evaluate_def]
   \\ gvs [CaseEqs ["prod", "result", "option", "error_result", "bool"]]
+  \\ cheat (* FIXME: Define safe_exp *) (*
   >~ [‘do_opapp _ = NONE’] >- (
     first_x_assum (drule_all_then strip_assume_tac)
     \\ gs [state_ok_def]
@@ -801,7 +799,7 @@ Proof
           \\ gs [SF SFY_ss])
         \\ first_x_assum irule
         \\ gs [SF SFY_ss])
-  \\ cheat (* there's permissions in v_ok now *)
+  \\ cheat (* there's permissions in v_ok now *) *)
 QED
 
 Theorem evaluate_v_ok:
