@@ -178,7 +178,7 @@ End
 
 Definition THM_TYPE_HEAD_def:
   THM_TYPE_HEAD v ⇔
-    ∃vs. v = Conv (SOME (TypeStamp "Thm" thm_stamp_n)) vs
+    ∃vs. v = Conv (SOME (TypeStamp "Sequent" thm_stamp_n)) vs
 End
 
 (* -------------------------------------------------------------------------
@@ -262,141 +262,67 @@ Proof
   \\ qpat_x_assum ‘∀a b c d. _ ⇒ (_ ⇔ _)’ (dxrule_then drule) \\ gs []
 QED
 
-(*
-
 (* -------------------------------------------------------------------------
- * Theorems about partial application of values in kernel_funs.
- *
- * Hopefully we can stuff some forcing code (i.e. Seq) into the kernel
- * functions to make these theorems easier to prove.
+ * Theorems applying kernel functions to *any* arguments (incl. wrong type)
  * ------------------------------------------------------------------------- *)
 
-Theorem conj_v_alt:
-  do_partial_app conj_v v = SOME g ∧
+Theorem is_type_v_head:
+  do_opapp [is_type_v; w] = SOME (env, exp) ∧
+  evaluate s env [exp] = (s', res) ⇒
+    (s = s' ∧ res = Rerr (Rabort Rtype_error)) ∨
+    (s = s' ∧ res = Rerr (Rraise bind_exn_v)) ∨
+    (s = s' ∧ res = Rerr (Rabort Rtimeout_error)) ∨
+    TYPE_TYPE_HEAD w
+Proof
+  Cases_on ‘TYPE_TYPE_HEAD w’
+  \\ fs [is_type_v_def,do_opapp_def] \\ strip_tac \\ rpt var_eq_tac
+  \\ pop_assum mp_tac
+  \\ simp [evaluate_def,astTheory.pat_bindings_def]
+  \\ gs [can_pmatch_all_def, astTheory.pat_bindings_def, pmatch_def]
+  \\ Cases_on ‘w’
+  \\ gs [can_pmatch_all_def, astTheory.pat_bindings_def, pmatch_def]
+  \\ rename [‘Conv oo ll’] \\ Cases_on ‘oo’
+  \\ gs [can_pmatch_all_def, astTheory.pat_bindings_def, pmatch_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ gvs [AllCaseEqs()]
+  \\ strip_tac \\ fs [] \\ gvs []
+  \\ Cases_on ‘x’ \\ gvs [same_type_def,same_ctor_def,LENGTH_EQ_NUM_compute]
+  \\ gvs [do_app_def] \\ fs [TYPE_TYPE_HEAD_def]
+QED
+
+Theorem trans_v_head:
+  do_partial_app trans_v v = SOME g ∧
   do_opapp [g; w] = SOME (env, exp) ∧
   evaluate s env [exp] = (s', res) ⇒
     (s = s' ∧ res = Rerr (Rabort Rtype_error)) ∨
     (s = s' ∧ res = Rerr (Rraise bind_exn_v)) ∨
     (s = s' ∧ res = Rerr (Rabort Rtimeout_error)) ∨
-    THM_TYPE_HEAD v ∧
-    THM_TYPE_HEAD w
+    THM_TYPE_HEAD v ∧ THM_TYPE_HEAD w
 Proof
-  simp [conj_v_def, do_partial_app_def, do_opapp_def, evaluate_def]
-  \\ strip_tac \\ gvs []
-  \\ qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
-  \\ Cases_on ‘v’ \\ gs [evaluate_def, pmatch_def]
-  \\ rename1 ‘Conv opt’ \\ Cases_on ‘opt’ \\ gs [pmatch_def]
-  \\ gs [can_pmatch_all_def, astTheory.pat_bindings_def, pmatch_def]
+  rewrite_tac [trans_v_def]
+  \\ qmatch_goalsub_rename_tac ‘Mat _ [(_, Mat _ [(_, ee)])]’
+  \\ strip_tac
+  \\ gvs [trans_v_def,do_partial_app_def,do_opapp_def]
+  \\ gvs [evaluate_def,AllCaseEqs()]
+  \\ rpt (pop_assum mp_tac)
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ rpt strip_tac
+  \\ Cases_on ‘v’ \\ gvs [pmatch_def]
+  \\ rename [‘Conv oo ll’] \\ Cases_on ‘oo’ \\ gvs [pmatch_def]
+  \\ gvs [AllCaseEqs(),LENGTH_EQ_NUM_compute]
+  \\ rpt (pop_assum mp_tac)
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ Cases_on ‘x’ \\ simp [same_type_def, same_ctor_def]
-  \\ IF_CASES_TAC \\ gs [] \\ gs [CaseEq "bool"]
-  \\ IF_CASES_TAC \\ gs []
-  \\ simp [THM_TYPE_HEAD_def]
-  \\ gvs [LENGTH_EQ_NUM_compute, pmatch_def]
-  \\ simp [ml_progTheory.nsLookup_Short_def,
-           ml_progTheory.nsLookup_nsBind_compute]
-  \\ Cases_on ‘w’ \\ gs [evaluate_def, pmatch_def]
-  \\ rename1 ‘Conv opt’ \\ Cases_on ‘opt’ \\ gs [pmatch_def]
-  \\ gs [can_pmatch_all_def, astTheory.pat_bindings_def, pmatch_def]
+  \\ rpt strip_tac \\ gvs [same_ctor_def,pmatch_def]
+  \\ gvs [ml_progTheory.nsLookup_Short_def,pmatch_def,
+          ml_progTheory.nsLookup_nsBind_compute]
+  \\ Cases_on ‘v'’ \\ gvs [pmatch_def]
+  \\ Cases_on ‘o'’ \\ gvs [pmatch_def,AllCaseEqs()]
+  \\ gvs [AllCaseEqs(),LENGTH_EQ_NUM_compute]
+  \\ rpt (pop_assum mp_tac)
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ Cases_on ‘x’ \\ simp [same_type_def, same_ctor_def]
-  \\ IF_CASES_TAC \\ gs [] \\ gs [CaseEq "bool"]
-  \\ IF_CASES_TAC \\ gs []
+  \\ rpt strip_tac \\ gvs [same_ctor_def,pmatch_def]
+  \\ fs [THM_TYPE_HEAD_def]
 QED
-
-Theorem disj1_v_alt:
-  do_partial_app disj1_v v = SOME g ∧
-  do_opapp [g; w] = SOME (env, exp) ∧
-  evaluate s env [exp] = (s', res) ⇒
-    (s = s' ∧ res = Rerr (Rabort Rtype_error)) ∨
-    (s = s' ∧ res = Rerr (Rraise bind_exn_v)) ∨
-    (s = s' ∧ res = Rerr (Rabort Rtimeout_error)) ∨
-    THM_TYPE_HEAD v ∧
-    TERM_TYPE_HEAD w
-Proof
-  simp [disj1_v_def, do_partial_app_def, do_opapp_def, evaluate_def]
-  \\ strip_tac \\ gvs []
-  \\ qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
-  \\ Cases_on ‘v’ \\ gs [evaluate_def, pmatch_def]
-  \\ rename1 ‘Conv opt’ \\ Cases_on ‘opt’ \\ gs [pmatch_def]
-  \\ gs [can_pmatch_all_def, astTheory.pat_bindings_def, pmatch_def]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ Cases_on ‘x’ \\ simp [same_type_def, same_ctor_def]
-  \\ IF_CASES_TAC \\ gs [] \\ gs [CaseEq "bool"]
-  \\ IF_CASES_TAC \\ gs []
-  \\ simp [THM_TYPE_HEAD_def]
-  \\ gvs [LENGTH_EQ_NUM_compute, pmatch_def]
-  \\ simp [ml_progTheory.nsLookup_Short_def,
-           ml_progTheory.nsLookup_nsBind_compute]
-  \\ simp [do_con_check_def]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ simp [build_conv_def]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ strip_tac \\ gvs []
-  \\ cheat (* disj1 does not examine the constructor of its second argument *)
-QED
-
-Theorem imp_v_alt:
-  do_partial_app imp_v v = SOME g ∧
-  do_opapp [g; w] = SOME (env, exp) ∧
-  evaluate s env [exp] = (s', res) ⇒
-    (s = s' ∧ res = Rerr (Rabort Rtype_error)) ∨
-    (s = s' ∧ res = Rerr (Rraise bind_exn_v)) ∨
-    (s = s' ∧ res = Rerr (Rabort Rtimeout_error)) ∨
-    THM_TYPE_HEAD v ∧
-    THM_TYPE_HEAD w
-Proof
-  simp [imp_v_def, do_partial_app_def, do_opapp_def, evaluate_def]
-  \\ strip_tac \\ gvs []
-  \\ qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
-  \\ Cases_on ‘v’ \\ gs [evaluate_def, pmatch_def]
-  \\ rename1 ‘Conv opt’ \\ Cases_on ‘opt’ \\ gs [pmatch_def]
-  \\ gs [can_pmatch_all_def, astTheory.pat_bindings_def, pmatch_def]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ Cases_on ‘x’ \\ simp [same_type_def, same_ctor_def]
-  \\ IF_CASES_TAC \\ gs [] \\ gs [CaseEq "bool"]
-  \\ IF_CASES_TAC \\ gs []
-  \\ simp [THM_TYPE_HEAD_def]
-  \\ gvs [LENGTH_EQ_NUM_compute, pmatch_def]
-  \\ simp [ml_progTheory.nsLookup_Short_def,
-           ml_progTheory.nsLookup_nsBind_compute]
-  \\ Cases_on ‘w’ \\ gs [evaluate_def, pmatch_def]
-  \\ rename1 ‘Conv opt’ \\ Cases_on ‘opt’ \\ gs [pmatch_def]
-  \\ gs [can_pmatch_all_def, astTheory.pat_bindings_def, pmatch_def]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ Cases_on ‘x’ \\ simp [same_type_def, same_ctor_def]
-  \\ IF_CASES_TAC \\ gs [] \\ gs [CaseEq "bool"]
-  \\ IF_CASES_TAC \\ gs []
-QED
-
-Theorem not_not_v_alt:
-  do_opapp [not_not_v; v] = SOME (env, exp) ∧
-  evaluate s env [exp] = (s', res) ⇒
-    (s = s' ∧ res = Rerr (Rabort Rtype_error)) ∨
-    (s = s' ∧ res = Rerr (Rraise bind_exn_v)) ∨
-    (s = s' ∧ res = Rerr (Rabort Rtimeout_error)) ∨
-    THM_TYPE_HEAD v
-Proof
-  simp [not_not_v_def, do_opapp_def, evaluate_def]
-  \\ strip_tac \\ gvs []
-  \\ qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
-  \\ Cases_on ‘v’ \\ gs [evaluate_def, pmatch_def]
-  \\ rename1 ‘Conv opt’ \\ Cases_on ‘opt’ \\ gs [pmatch_def]
-  \\ gs [can_pmatch_all_def, astTheory.pat_bindings_def, pmatch_def]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ Cases_on ‘x’ \\ simp [same_type_def, same_ctor_def]
-  \\ IF_CASES_TAC \\ gs [] \\ gs [CaseEq "bool"]
-  \\ IF_CASES_TAC \\ gs []
-  \\ simp [THM_TYPE_HEAD_def]
-QED
-
-*)
 
 val _ = reset_translation();
 
