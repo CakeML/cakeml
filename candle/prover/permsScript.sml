@@ -539,6 +539,13 @@ Proof
   \\ Cases_on ‘op’ \\ gs []
 QED
 
+Theorem perms_ok_do_opapp:
+  perms_ok ps fv ∧ perms_ok ps av ∧ do_opapp [fv; av] = SOME (env,exp) ⇒
+  perms_ok_exp ps exp ∧ perms_ok_env ps (freevars exp) env
+Proof
+  cheat (* this is proved below, but needed elsewhere too *)
+QED
+
 Theorem evaluate_perms_ok:
   (∀s:'ffi semanticPrimitives$state. ∀env xs s' res.
      EVERY (perms_ok_exp ps) xs ∧
@@ -862,4 +869,3 @@ Theorem evaluate_perms_ok_dec =
   |> SIMP_RULE (srw_ss()) [];
 
 val _ = export_theory ();
-

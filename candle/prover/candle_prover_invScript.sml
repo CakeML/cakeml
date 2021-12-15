@@ -140,6 +140,10 @@ Theorem v_ok_def =
 
 Theorem env_ok_def = SIMP_CONV (srw_ss()) [Once v_ok_cases] “env_ok ctxt env”;
 
+Theorem kernel_vals_ind = v_ok_ind
+  |> Q.SPECL [‘P’,‘λ_ _. T’,‘λ_ _. T’]
+  |> SIMP_RULE std_ss [] |> GEN_ALL;
+
 Definition ref_ok_def:
   ref_ok ctxt (Varray vs) = EVERY (v_ok ctxt) vs ∧
   ref_ok ctxt (Refv v) = v_ok ctxt v ∧

@@ -2440,7 +2440,7 @@ QED
 
 Theorem new_basic_type_definition_thm:
    THM defs th /\ STATE defs s ==>
-    case new_basic_type_definition tyname absname repname th s of
+    case new_basic_type_definition (tyname, absname, repname, th) s of
     | (Failure exn, s') => (s' = s)
     | (Success (th1,th2), s') =>
       (?ds. THM (ds++defs) th1 /\ THM (ds++defs) th2 /\
@@ -3088,7 +3088,7 @@ Proof
 QED
 
 Theorem new_basic_type_definition_not_clash[simp]:
-   new_basic_type_definition a b c d e <> (Failure (Clash tm),refs)
+   new_basic_type_definition (a, b, c, d) e <> (Failure (Clash tm),refs)
 Proof
   Cases_on `d` \\ rw [new_basic_type_definition_def, st_ex_bind_def,
                       st_ex_return_def, raise_Fail_def, can_def,

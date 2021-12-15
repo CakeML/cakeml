@@ -155,10 +155,6 @@ Proof
   \\ rw [Once v_ok_cases, subscript_stamp_def, kernel_types_def]
 QED
 
-Theorem kernel_vals_ind = v_ok_ind
-  |> Q.SPECL [‘P’,‘λ_ _. T’,‘λ_ _. T’]
-  |> SIMP_RULE std_ss [] |> GEN_ALL;
-
 Theorem kernel_vals_twice_partial_app:
   ∀ctxt f. kernel_vals ctxt f ⇒
            ∀v g w. do_partial_app f v = SOME g ⇒
@@ -171,9 +167,9 @@ Proof
           \\ TRY (rename [‘TERM_TYPE tm f’] \\ Cases_on ‘tm’ \\ gvs [TERM_TYPE_def])
           \\ TRY (rename [‘THM_TYPE th f’] \\ Cases_on ‘th’ \\ gvs [THM_TYPE_def])
           \\ fs [do_partial_app_def] \\ NO_TAC)
+  \\ rename [‘f ∈ kernel_funs’]
   \\ pop_assum mp_tac
   \\ qid_spec_tac ‘g’
-  \\ Cases_on ‘f = new_basic_type_definition_v’ THEN1 cheat (* fix definition∀ *)
   \\ fs [kernel_funs_def]
   \\ rewrite_tac [kernel_funs_v_def,do_partial_app_def]
   \\ EVAL_TAC \\ fs []
