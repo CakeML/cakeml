@@ -5,14 +5,14 @@
 open preamble helperLib;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory
      terminationTheory namespacePropsTheory evaluatePropsTheory
-     sptreeTheory;
-open permsTheory kernelTheory ast_extrasTheory;
+     sptreeTheory ml_hol_kernelProgTheory ;
+open permsTheory ml_hol_kernel_valsTheory ast_extrasTheory;
 local open ml_progLib in end
 
 val _ = new_theory "abstype";
 
 val _ = set_grammar_ancestry [
-  "kernel", "ast_extras", "termination", "namespaceProps", "perms",
+  "ml_hol_kernel_vals", "ast_extras", "termination", "namespaceProps", "perms",
   "semanticPrimitivesProps", "misc"];
 
 (* -------------------------------------------------------------------------
@@ -246,12 +246,15 @@ QED
  * env_ok holds for the kernel_env
  *)
 
+(*
 Theorem env_ok_kernel_env:
   env_ok ctxt kernel_env
 Proof
   rw [kernel_env_def, env_ok_write_cons, kernel_types_def, env_ok_empty_env]
 QED
+*)
 
+(*
 Theorem v_ok_member_v:
   v_ok ctxt member_v
 Proof
@@ -260,6 +263,7 @@ Proof
   \\ simp [env_ok_merge_env, env_ok_kernel_env, perms_ok_exp_def,
            env_ok_init_env]
 QED
+*)
 
 (* TODO: Use v_thms *)
 
@@ -277,7 +281,7 @@ Theorem inferred_ok:
       (∀v. res = Rerr (Rraise v) ⇒ v_ok ctxt' v)
 Proof
   rw [Once inferred_cases]
-  >~ [‘f ∈ kernel_funs’] >- (
+  >~ [‘f ∈ kernel_funs’] >- cheat (* (
     gs [kernel_funs_def]
     >~ [‘conj_v’] >- (
       gvs [conj_v_def, do_opapp_def, evaluate_def]
@@ -310,7 +314,9 @@ Proof
       \\ simp [kernel_funs_def]
       \\ simp [Once do_partial_app_def, disj1_v_def])
     >~ [‘not_not_v’] >- (
-      cheat))
+      cheat)) *)
+  >~ [‘TYPE ctxt ty’] >- (
+    Cases_on ‘ty’ \\ gs [TYPE_TYPE_def, do_opapp_cases])
   >~ [‘TERM ctxt tm’] >- (
     Cases_on ‘tm’ \\ gs [TERM_TYPE_def, do_opapp_cases])
   >~ [‘THM ctxt th’] >- (
@@ -324,9 +330,10 @@ Theorem v_ok_THM_TYPE_HEAD:
 Proof
   rw [Once v_ok_cases, kernel_types_def, THM_TYPE_HEAD_def]
   \\ gs [Once v_ok_cases, do_partial_app_def, AllCaseEqs ()]
-  \\ gs [Once inferred_cases, kernel_funs_def, conj_v_def, disj1_v_def,
-         imp_v_def, not_not_v_def, SF SFY_ss]
-  \\ Cases_on ‘tm’ \\ gs [TERM_TYPE_def]
+  \\ gs [Once inferred_cases, SF SFY_ss, Conv_NOT_IN_kernel_funs]
+  \\ TRY (rename [‘TYPE ctxt ty’] \\ Cases_on ‘ty’ \\ gs [TYPE_TYPE_def])
+  \\ TRY (rename [‘TERM ctxt tm’] \\ Cases_on ‘tm’ \\ gs [TERM_TYPE_def])
+  \\ TRY (rename [‘THM ctxt th’] \\ Cases_on ‘th’ \\ gs [THM_TYPE_def])
 QED
 
 Theorem v_ok_TERM_TYPE_HEAD:
@@ -336,9 +343,23 @@ Theorem v_ok_TERM_TYPE_HEAD:
 Proof
   rw [Once v_ok_cases, kernel_types_def, TERM_TYPE_HEAD_def]
   \\ gs [Once v_ok_cases, do_partial_app_def, AllCaseEqs ()]
-  \\ gs [Once inferred_cases, kernel_funs_def, conj_v_def, disj1_v_def,
-         imp_v_def, not_not_v_def, SF SFY_ss]
-  \\ Cases_on ‘th’ \\ gs [THM_TYPE_def]
+  \\ gs [Once inferred_cases, SF SFY_ss, Conv_NOT_IN_kernel_funs]
+  \\ TRY (rename [‘TYPE ctxt ty’] \\ Cases_on ‘ty’ \\ gs [TYPE_TYPE_def])
+  \\ TRY (rename [‘TERM ctxt tm’] \\ Cases_on ‘tm’ \\ gs [TERM_TYPE_def])
+  \\ TRY (rename [‘THM ctxt th’] \\ Cases_on ‘th’ \\ gs [THM_TYPE_def])
+QED
+
+Theorem v_ok_TYPE_TYPE_HEAD:
+  v_ok ctxt v ∧
+  TYPE_TYPE_HEAD v ⇒
+    ∃ty. TYPE_TYPE ty v
+Proof
+  rw [Once v_ok_cases, kernel_types_def, TYPE_TYPE_HEAD_def]
+  \\ gs [Once v_ok_cases, do_partial_app_def, AllCaseEqs ()]
+  \\ gs [Once inferred_cases, SF SFY_ss, Conv_NOT_IN_kernel_funs]
+  \\ TRY (rename [‘TYPE ctxt ty’] \\ Cases_on ‘ty’ \\ gs [TYPE_TYPE_def])
+  \\ TRY (rename [‘TERM ctxt tm’] \\ Cases_on ‘tm’ \\ gs [TERM_TYPE_def])
+  \\ TRY (rename [‘THM ctxt th’] \\ Cases_on ‘th’ \\ gs [THM_TYPE_def])
 QED
 
 (*
@@ -414,6 +435,20 @@ Proof
   \\ gs [io_events_mono_antisym]
 QED
 
+Theorem v_ok_TYPE:
+  v_ok ctxt v ∧
+  TYPE_TYPE ty v ⇒
+    TYPE ctxt ty
+Proof
+  strip_tac
+  \\ Cases_on ‘inferred ctxt v’
+  >- (
+    irule TYPE_from_TYPE_TYPE
+    \\ gs [SF SFY_ss])
+  \\ Cases_on ‘ty’ \\ gvs [TYPE_TYPE_def, v_ok_def, kernel_types_def]
+  \\ gvs [Once v_ok_cases, do_partial_app_def, CaseEqs ["exp", "v"]]
+QED
+
 Theorem v_ok_TERM:
   v_ok ctxt v ∧
   TERM_TYPE tm v ⇒
@@ -465,18 +500,9 @@ Proof
   cheat
 QED
 
-Theorem TERM_TYPE_perms_ok:
-  ∀tm v. TERM_TYPE tm v ⇒ perms_ok ps v
-Proof
-  Induct \\ rw [TERM_TYPE_def]
-  \\ gs [ml_translatorTheory.NUM_def,
-         ml_translatorTheory.INT_def,
-         perms_ok_def]
-QED
-
 Theorem LIST_TYPE_perms_ok:
   ∀xs xsv.
-    (∀x v. A x v ⇒ perms_ok ps v) ∧
+    (∀x v. A x v ∧ MEM x xs ⇒ perms_ok ps v) ∧
     LIST_TYPE A xs xsv ⇒
       perms_ok ps xsv
 Proof
@@ -484,15 +510,37 @@ Proof
   \\ gs [ml_translatorTheory.LIST_TYPE_def, perms_ok_def, SF SFY_ss]
 QED
 
+Theorem TYPE_TYPE_perms_ok:
+  ∀ty v. TYPE_TYPE ty v ⇒ perms_ok ps v
+Proof
+  recInduct TYPE_TYPE_ind \\ rw [TYPE_TYPE_def]
+  \\ rename [‘STRING_TYPE m _’]
+  \\ Cases_on ‘m’
+  \\ gvs [ml_translatorTheory.STRING_TYPE_def, perms_ok_def]
+  \\ metis_tac [LIST_TYPE_perms_ok]
+QED
+
+Theorem TERM_TYPE_perms_ok:
+  ∀tm v. TERM_TYPE tm v ⇒ perms_ok ps v
+Proof
+  Induct \\ rw [TERM_TYPE_def]
+  \\ res_tac \\ fs [perms_ok_def]
+  \\ rename [‘STRING_TYPE m _’]
+  \\ Cases_on ‘m’ \\ imp_res_tac TYPE_TYPE_perms_ok
+  \\ gvs [ml_translatorTheory.STRING_TYPE_def, perms_ok_def]
+QED
+
 Theorem THM_TYPE_perms_ok:
   ∀th v. THM_TYPE th v ⇒ perms_ok ps v
 Proof
-  Cases \\ rw [THM_TYPE_def]
-  \\ gs [perms_ok_def, TERM_TYPE_perms_ok, SF SFY_ss,
-         Q.ISPECL [‘(ps:permission set)’, ‘TERM_TYPE’]
-                  (GEN_ALL LIST_TYPE_perms_ok)]
+  Cases \\ rw [THM_TYPE_def] \\ imp_res_tac TERM_TYPE_perms_ok
+  \\ fs [perms_ok_def]
+  \\ drule_at (Pos last) LIST_TYPE_perms_ok
+  \\ disch_then irule \\ rw []
+  \\ imp_res_tac TERM_TYPE_perms_ok \\ fs []
 QED
 
+(*
 Theorem perms_ok_member_v:
   perms_ok ps member_v
 Proof
@@ -545,6 +593,13 @@ Proof
         \\ CCONTR_TAC \\ gs [])
   \\ gs [perms_ok_env_def]
 QED
+*)
+
+Theorem trans_v_perms_ok: (* TODO: move *)
+  perms_ok ps trans_v
+Proof
+  cheat
+QED
 
 Theorem kernel_vals_ok:
   ∀ctxt f.
@@ -569,84 +624,50 @@ Proof
     \\ first_assum (irule_at Any)
     \\ first_assum (irule_at Any) \\ gs []
     \\ first_assum (irule_at Any) \\ gs [])
-  >~ [‘do_partial_app f v = SOME g’] >- (
-    rw [DISJ_EQ_IMP]
-    \\ Cases_on ‘f ∈ kernel_funs’ \\ gs [kernel_funs_def]
-    >~ [‘conj_v’] >- (
-      drule_all_then strip_assume_tac conj_v_alt \\ gvs []
-      \\ TRY (first_assum (irule_at Any) \\ gs [] \\ NO_TAC)
-      \\ rename1 ‘do_opapp [g; w]’
-      \\ ‘∃th1. THM_TYPE th1 v’
-        by (irule_at Any v_ok_THM_TYPE_HEAD \\ gs [SF SFY_ss])
-      \\ ‘∃th2. THM_TYPE th2 w’
-        by (irule_at Any v_ok_THM_TYPE_HEAD \\ gs [SF SFY_ss])
-      \\ assume_tac conj_v_thm
-      \\ ‘∃ps. DoEval ∉ ps ∧
-               RefAlloc ∉ ps ∧
-               W8Alloc ∉ ps ∧
-               (∀n. RefMention n ∉ ps) ∧
-               perms_ok ps conj_v’
-        by (irule_at Any conj_v_perms_ok
-            \\ qexists_tac ‘EMPTY’ \\ gs [])
-      \\ ‘perms_ok ps v ∧ perms_ok ps w’
-        by gs [SF SFY_ss, THM_TYPE_perms_ok]
-      \\ drule_all Arrow2
-      \\ strip_tac \\ gvs []
-      \\ irule_at (Pos last) v_ok_KernelVals
-      \\ irule_at Any v_ok_Inferred
-      \\ irule_at Any inferred_THM
-      \\ first_assum (irule_at (Pos (el 2)))
-      \\ irule_at Any conj_thm
-      \\ imp_res_tac v_ok_THM
-      \\ first_assum (irule_at Any) \\ gs []
-      \\ gs [state_ok_def])
-    >~ [‘disj1_v’] >- (
-      drule_all_then strip_assume_tac disj1_v_alt \\ gvs []
-      \\ TRY (first_assum (irule_at Any) \\ gs [] \\ NO_TAC)
-      \\ rename1 ‘do_opapp [g; w]’
-      \\ ‘∃th. THM_TYPE th v’
-        by (irule_at Any v_ok_THM_TYPE_HEAD \\ gs [SF SFY_ss])
-      \\ ‘∃tm. TERM_TYPE tm w’
-        by (irule_at Any v_ok_TERM_TYPE_HEAD \\ gs [SF SFY_ss])
-      \\ assume_tac disj1_v_thm
-      \\ ‘∃ps. DoEval ∉ ps ∧
-               RefAlloc ∉ ps ∧
-               W8Alloc ∉ ps ∧
-               (∀n. RefMention n ∉ ps) ∧
-               perms_ok ps disj1_v’
-        by (irule_at Any disj1_v_perms_ok
-            \\ qexists_tac ‘EMPTY’ \\ gs [])
-      \\ ‘perms_ok ps v ∧ perms_ok ps w’
-        by gs [SF SFY_ss, THM_TYPE_perms_ok, TERM_TYPE_perms_ok]
-      \\ drule_all Arrow2
-      \\ strip_tac \\ gvs []
-      \\ irule_at (Pos last) v_ok_KernelVals
-      \\ irule_at Any v_ok_Inferred
-      \\ irule_at Any inferred_THM
-      \\ first_assum (irule_at (Pos (el 2)))
-      \\ cheat
-      (* \\ irule_at Any disj_thm
-      \\ imp_res_tac v_ok_THM
-      \\ first_assum (irule_at Any) \\ gs []
-      \\ gs [state_ok_def] *))
-    >~ [‘imp_v’] >- (
-      cheat)
-    >~ [‘not_not_v’] >- (
-      cheat)
-    \\ gs [Once v_ok_cases, Once inferred_cases, kernel_funs_def]
-    >- (
-      Cases_on ‘tm’ \\ gs [TERM_TYPE_def, do_partial_app_def])
-    >- (
-      Cases_on ‘th’ \\ gs [THM_TYPE_def, do_partial_app_def])
-    \\ ‘kernel_vals ctxt f’
-      by (irule v_ok_PartialApp
-          \\ first_assum (irule_at (Pos hd))
-          \\ gs [])
-    \\ drule_all kernel_vals_max_app
-    \\ rw [kernel_funs_def])
+  \\ rename [‘do_partial_app f v = SOME g’]
+  \\ rw [DISJ_EQ_IMP]
+  \\ reverse (Cases_on ‘f ∈ kernel_funs’)
+  >- (gs [Once v_ok_cases, Once inferred_cases]
+      >- (Cases_on ‘ty’ \\ gs [TYPE_TYPE_def, do_partial_app_def])
+      >- (Cases_on ‘tm’ \\ gs [TERM_TYPE_def, do_partial_app_def])
+      >- (Cases_on ‘th’ \\ gs [THM_TYPE_def, do_partial_app_def])
+      \\ ‘kernel_vals ctxt f’
+        by (irule v_ok_PartialApp
+            \\ first_assum (irule_at (Pos hd))
+            \\ gs [])
+      \\ drule_all kernel_vals_max_app
+      \\ rw [kernel_funs_def])
+  \\ Cases_on ‘f = trans_v’ \\ gvs []
+  >- (
+    drule_all_then strip_assume_tac trans_v_head \\ gvs []
+    >- (first_assum (irule_at Any) \\ gs [])
+    \\ rename1 ‘do_opapp [g; w]’
+    \\ ‘∃th1. THM_TYPE th1 v’
+      by (irule_at Any v_ok_THM_TYPE_HEAD \\ gs [SF SFY_ss])
+    \\ ‘∃th2. THM_TYPE th2 w’
+      by (irule_at Any v_ok_THM_TYPE_HEAD \\ gs [SF SFY_ss])
+    \\ ‘∃ps. DoEval ∉ ps ∧
+             RefAlloc ∉ ps ∧
+             W8Alloc ∉ ps ∧
+             (∀n. RefMention n ∉ ps) ∧
+             perms_ok ps trans_v’
+      by (irule_at Any trans_v_perms_ok
+          \\ qexists_tac ‘EMPTY’ \\ gs [])
+    \\ ‘perms_ok ps v ∧ perms_ok ps w’
+      by gs [SF SFY_ss, THM_TYPE_perms_ok]
+    \\ assume_tac trans_v_thm (*
+    \\ drule_all Arrow2
+    \\ strip_tac \\ gvs []
+    \\ irule_at (Pos last) v_ok_KernelVals
+    \\ irule_at Any v_ok_Inferred
+    \\ irule_at Any inferred_THM
+    \\ first_assum (irule_at (Pos (el 2)))
+    \\ irule_at Any conj_thm
+    \\ imp_res_tac v_ok_THM
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ gs [state_ok_def] *) \\ cheat)
+  \\ cheat (* the other kernel functions *)
 QED
-
-(* TODO Why is everything named compile_xxx? *)
 
 local
   val ind_thm =
@@ -705,22 +726,22 @@ in
   fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
     |> helperLib.list_dest dest_forall
     |> last
-  fun compile_correct_tm () = ind_thm |> concl |> rand
+  fun evaluate_v_ok () = ind_thm |> concl |> rand
   fun the_ind_thm () = ind_thm
 end
 
-Theorem compile_Nil:
+Theorem evaluate_v_ok_Nil:
   ^(get_goal "[]")
 Proof
   rw [evaluate_def]
   \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem compile_Cons:
+Theorem evaluate_v_ok_Cons:
   ^(get_goal "_::_::_")
 Proof
   rw [evaluate_def]
-  \\ gvs [CaseEqs ["result", "prod"]]
+  \\ gvs [AllCaseEqs()]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
   \\ first_x_assum (drule_all_then (qx_choose_then ‘ctxt1’ assume_tac)) \\ gs []
   \\ ‘env_ok ctxt1 env’
@@ -731,7 +752,7 @@ Proof
   \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem compile_Lit:
+Theorem evaluate_v_ok_Lit:
   ^(get_goal "Lit l")
 Proof
   rw [evaluate_def] \\ gs []
@@ -739,19 +760,19 @@ Proof
   \\ simp [v_ok_Lit]
 QED
 
-Theorem compile_Raise:
+Theorem evaluate_v_ok_Raise:
   ^(get_goal "Raise e")
 Proof
   rw [evaluate_def] \\ gs []
-  \\ gvs [CaseEqs ["result", "prod"]]
+  \\ gvs [AllCaseEqs()]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
 QED
 
-Theorem compile_Handle:
+Theorem evaluate_v_ok_Handle:
   ^(get_goal "Handle e")
 Proof
   rw [evaluate_def]
-  \\ gvs [CaseEqs ["result", "prod", "error_result", "bool"], EVERY_MAP]
+  \\ gvs [AllCaseEqs(), EVERY_MAP]
   \\ first_x_assum (drule_all_then (qx_choose_then ‘ctxt1’ assume_tac)) \\ gs []
   >~ [‘¬can_pmatch_all _ _ _ _’] >- (
     gs [state_ok_def]
@@ -762,11 +783,11 @@ Proof
   \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem compile_Con:
+Theorem evaluate_v_ok_Con:
   ^(get_goal "Con cn es")
 Proof
   rw [evaluate_def]
-  \\ gvs [CaseEqs ["result", "prod", "error_result", "option"], EVERY_MAP]
+  \\ gvs [AllCaseEqs(), EVERY_MAP]
   >~ [‘¬do_con_check _ _ _’] >- (
     gs [state_ok_def]
     \\ first_assum (irule_at Any) \\ gs [])
@@ -781,8 +802,8 @@ Proof
   \\ gs [env_ok_def, SF SFY_ss]
 QED
 
-Theorem compile_Var:
-  ^(get_goal "Var n")
+Theorem evaluate_v_ok_Var:
+  ^(get_goal "ast$Var n")
 Proof
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
@@ -793,8 +814,8 @@ Proof
   \\ gs [env_ok_def, SF SFY_ss]
 QED
 
-Theorem compile_Fun:
-  ^(get_goal "Fun n e")
+Theorem evaluate_v_ok_Fun:
+  ^(get_goal "ast$Fun n e")
 Proof
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
@@ -802,47 +823,17 @@ Proof
   \\ irule v_ok_Closure \\ gs []
 QED
 
-Theorem compile_Eval:
+Theorem evaluate_v_ok_Eval:
   op = Eval ⇒ ^(get_goal "App")
 Proof
   rw [evaluate_def]
-  \\ gvs [CaseEqs ["prod", "result", "option", "error_result", "bool"],
-          evaluateTheory.do_eval_res_def]
+  \\ gvs [AllCaseEqs(), evaluateTheory.do_eval_res_def]
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
   \\ TRY (
     gs [state_ok_def]
     \\ first_assum (irule_at Any) \\ gs []
     \\ NO_TAC)
   \\ cheat
-QED
-
-(* TODO move *)
-Theorem list_notin_kernel_funs[simp]:
-  Conv (SOME (TypeStamp nm list_type_num)) vs ∉ kernel_funs
-Proof
-  rw [Once v_ok_cases, Once inferred_cases, kernel_funs_def,
-      conj_v_def, disj1_v_def, imp_v_def, not_not_v_def]
-QED
-
-(* TODO move *)
-Theorem list_not_TERM_TYPE[simp]:
-  ¬TERM_TYPE tm (Conv (SOME (TypeStamp nm list_type_num)) vs)
-Proof
-  Cases_on ‘tm’ \\ rw [TERM_TYPE_def] \\ gs [list_type_num_def]
-QED
-
-(* TODO move *)
-Theorem list_not_THM_TYPE[simp]:
-  ¬THM_TYPE th (Conv (SOME (TypeStamp nm list_type_num)) vs)
-Proof
-  Cases_on ‘th’ \\ rw [THM_TYPE_def] \\ gs [list_type_num_def]
-QED
-
-(* TODO move *)
-Theorem list_type_NOTIN_kernel_types[simp]:
-  list_type_num ∉ kernel_types
-Proof
-  rw [list_type_num_def, kernel_types_def]
 QED
 
 Theorem v_ok_v_to_list:
@@ -853,9 +844,11 @@ Theorem v_ok_v_to_list:
 Proof
   ho_match_mp_tac v_to_list_ind
   \\ rw [v_to_list_def]
-  \\ gvs [CaseEqs ["option", "list"], v_ok_def]
-  \\ gs [Once v_ok_cases, Once inferred_cases, do_partial_app_def,
-         CaseEqs ["v", "exp"]]
+  \\ gvs [AllCaseEqs(), v_ok_def]
+  \\ fs [Once v_ok_cases]
+  \\ fs [Once inferred_cases]
+  \\ gvs [do_partial_app_def,AllCaseEqs()]
+  \\ Cases_on ‘ty’ \\ fs [TYPE_TYPE_def]
 QED
 
 Theorem do_app_ok:
@@ -1110,11 +1103,11 @@ Proof
   *)
 QED
 
-Theorem compile_Op:
+Theorem evaluate_v_ok_Op:
   op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "App")
 Proof
   rw [evaluate_def]
-  \\ gvs [CaseEqs ["prod", "result", "option"]]
+  \\ gvs [AllCaseEqs()]
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
   >~ [‘do_app _ _ _ = NONE’] >- (
     first_assum (irule_at Any)
@@ -1125,11 +1118,11 @@ Proof
   \\ disch_then drule \\ simp []
 QED
 
-Theorem compile_Opapp:
+Theorem evaluate_v_ok_Opapp:
   op = Opapp ⇒ ^(get_goal "App")
 Proof
   rw [evaluate_def]
-  \\ gvs [CaseEqs ["prod", "result", "option", "error_result", "bool"]]
+  \\ gvs [AllCaseEqs()]
   >~ [‘do_opapp _ = NONE’] >- (
     first_x_assum (drule_all_then strip_assume_tac)
     \\ gs [state_ok_def]
@@ -1190,20 +1183,19 @@ Proof
   \\ gs [SF SFY_ss]
 QED
 
-Theorem compile_App:
+Theorem evaluate_v_ok_App:
   ^(get_goal "App")
 Proof
-  Cases_on ‘op = Opapp’ >- (match_mp_tac compile_Opapp \\ gs [])
-  \\ Cases_on ‘op = Eval’ >- (match_mp_tac compile_Eval \\ gs [])
-  \\ match_mp_tac compile_Op \\ gs []
+  Cases_on ‘op = Opapp’ >- (match_mp_tac evaluate_v_ok_Opapp \\ gs [])
+  \\ Cases_on ‘op = Eval’ >- (match_mp_tac evaluate_v_ok_Eval \\ gs [])
+  \\ match_mp_tac evaluate_v_ok_Op \\ gs []
 QED
 
-Theorem compile_Log:
+Theorem evaluate_v_ok_Log:
   ^(get_goal "Log")
 Proof
   rw [evaluate_def]
-  \\ gvs [CaseEqs ["prod", "result", "option", "error_result", "exp_or_val",
-                   "bool"], do_log_def]
+  \\ gvs [AllCaseEqs(), do_log_def]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
   >- (
     first_x_assum (drule_all_then strip_assume_tac)
@@ -1219,12 +1211,11 @@ Proof
   \\ gs [env_ok_def, SF SFY_ss]
 QED
 
-Theorem compile_If:
+Theorem evaluate_v_ok_If:
   ^(get_goal "If")
 Proof
   rw [evaluate_def]
-  \\ gvs [CaseEqs ["prod", "result", "option", "error_result", "exp_or_val",
-                   "bool"], do_if_def]
+  \\ gvs [AllCaseEqs(), do_if_def]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
   >- (
     first_x_assum (drule_all_then strip_assume_tac)
@@ -1240,11 +1231,11 @@ Proof
   \\ gs [env_ok_def, SF SFY_ss]
 QED
 
-Theorem compile_Mat:
+Theorem evaluate_v_ok_Mat:
   ^(get_goal "Mat")
 Proof
   rw [evaluate_def]
-  \\ gvs [CaseEqs ["prod", "result", "option", "error_result", "bool"]]
+  \\ gvs [AllCaseEqs()]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
   \\ first_x_assum (drule_all_then strip_assume_tac)
   >~ [‘¬can_pmatch_all _ _ _ _’] >- (
@@ -1259,11 +1250,11 @@ Proof
   \\ gs [env_ok_def, SF SFY_ss]
 QED
 
-Theorem compile_Let:
+Theorem evaluate_v_ok_Let:
   ^(get_goal "Let")
 Proof
   rw [evaluate_def]
-  \\ gvs [CaseEqs ["prod", "result", "option", "error_result"]]
+  \\ gvs [AllCaseEqs()]
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
   \\ rename1 ‘v_ok ctxt1 v’
@@ -1279,11 +1270,11 @@ Proof
   \\ rw [] \\ gs [SF SFY_ss]
 QED
 
-Theorem compile_Letrec:
+Theorem evaluate_v_ok_Letrec:
   ^(get_goal "Letrec")
 Proof
   rw [evaluate_def]
-  \\ gvs [CaseEqs ["prod", "result", "option", "error_result"]]
+  \\ gvs [AllCaseEqs()]
   >~ [‘¬ALL_DISTINCT _’] >- (
     gs [state_ok_def]
     \\ first_assum (irule_at Any) \\ gs [])
@@ -1302,30 +1293,30 @@ Proof
   \\ rw [DISJ_EQ_IMP, env_ok_def] \\ gs [SF SFY_ss]
 QED
 
-Theorem compile_Tannot:
+Theorem evaluate_v_ok_Tannot:
   ^(get_goal "Tannot")
 Proof
   rw [evaluate_def]
 QED
 
-Theorem compile_Lannot:
+Theorem evaluate_v_ok_Lannot:
   ^(get_goal "Lannot")
 Proof
   rw [evaluate_def]
 QED
 
-Theorem compile_pmatch_Nil:
+Theorem evaluate_v_ok_pmatch_Nil:
   ^(get_goal "[]:(pat # exp) list")
 Proof
   rw [evaluate_def] \\ gs []
   \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem compile_pmatch_Cons:
+Theorem evaluate_v_ok_pmatch_Cons:
   ^(get_goal "_::_:(pat # exp) list")
 Proof
   rw [evaluate_def] \\ gs []
-  \\ gvs [CaseEqs ["bool", "match_result"]]
+  \\ gvs [AllCaseEqs()]
   >~ [‘Match env1’] >- (
     ‘env_ok ctxt (env with v := nsAppend (alist_to_ns env1) env.v)’
       suffices_by (
@@ -1342,18 +1333,18 @@ Proof
   \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem compile_decs_Nil:
+Theorem evaluate_v_ok_decs_Nil:
   ^(get_goal "[]:dec list")
 Proof
   rw [evaluate_decs_def, extend_dec_env_def]
   \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem compile_decs_Cons:
+Theorem evaluate_v_ok_decs_Cons:
   ^(get_goal "_::_::_:dec list")
 Proof
   rw [evaluate_decs_def]
-  \\ gvs [CaseEqs ["prod", "result"]]
+  \\ gvs [AllCaseEqs()]
   \\ first_x_assum (drule_all_then strip_assume_tac)
   \\ rename1 ‘state_ok ctxt1 st1’
   \\ ‘env_ok ctxt1 (extend_dec_env env1 env)’
@@ -1369,14 +1360,14 @@ Proof
   \\ rw [] \\ gs [SF SFY_ss]
 QED
 
-Theorem compile_decs_Dlet:
+Theorem evaluate_v_ok_decs_Dlet:
   ^(get_goal "Dlet")
 Proof
   rw [evaluate_decs_def]
   >~ [‘¬ALL_DISTINCT _’] >- (
     gs [state_ok_def]
     \\ first_assum (irule_at Any) \\ gs [])
-  \\ gvs [CaseEqs ["prod", "result"]]
+  \\ gvs [CaseEqs ["prod", "semanticPrimitives$result"]]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
   \\ first_x_assum (drule_all_then strip_assume_tac)
   \\ CASE_TAC \\ gs [state_ok_def]
@@ -1388,14 +1379,14 @@ Proof
   \\ cheat (* pmatch theorem *)
 QED
 
-Theorem compile_decs_Dletrec:
+Theorem evaluate_v_ok_decs_Dletrec:
   ^(get_goal "Dletrec")
 Proof
   rw [evaluate_decs_def]
   >~ [‘¬ALL_DISTINCT _’] >- (
     gs [state_ok_def]
     \\ first_assum (irule_at Any) \\ gs [])
-  \\ gvs [CaseEqs ["prod", "result"]]
+  \\ gvs [CaseEqs ["prod", "semanticPrimitives$result"]]
   \\ first_assum (irule_at Any) \\ gs []
   \\ gs [extend_dec_env_def, build_rec_env_merge, env_ok_def,
          nsLookup_nsAppend_some, nsLookup_alist_to_ns_some, SF SFY_ss]
@@ -1406,14 +1397,14 @@ Proof
   \\ rw [] \\ gs [env_ok_def, SF SFY_ss]
 QED
 
-Theorem compile_decs_Dtype:
+Theorem evaluate_v_ok_decs_Dtype:
   ^(get_goal "Dtype")
 Proof
   rw [evaluate_decs_def]
   >~ [‘¬EVERY check_dup_ctors _’] >- (
     gs [state_ok_def]
     \\ first_assum (irule_at Any) \\ gs [])
-  \\ gvs [CaseEqs ["prod", "result"], state_ok_def]
+  \\ gvs [CaseEqs ["prod", "semanticPrimitives$result"], state_ok_def]
   \\ first_assum (irule_at Any) \\ gs []
   \\ conj_tac
   >- (
@@ -1439,7 +1430,7 @@ Proof
   \\ first_x_assum drule_all \\ gs []
 QED
 
-Theorem compile_decs_Dtabbrev:
+Theorem evaluate_v_ok_decs_Dtabbrev:
   ^(get_goal "Dtabbrev")
 Proof
   rw [evaluate_decs_def]
@@ -1447,7 +1438,7 @@ Proof
   \\ gs [env_ok_def, extend_dec_env_def, SF SFY_ss]
 QED
 
-Theorem compile_decs_Denv:
+Theorem evaluate_v_ok_decs_Denv:
   ^(get_goal "Denv")
 Proof
   rw [evaluate_decs_def]
@@ -1460,7 +1451,7 @@ Proof
   \\ rw [] \\ gs [v_ok_def, env_ok_def, nat_to_v_def, SF SFY_ss]
 QED
 
-Theorem compile_decs_Dexn:
+Theorem evaluate_v_ok_decs_Dexn:
   ^(get_goal "Dexn")
 Proof
   rw [evaluate_decs_def]
@@ -1471,11 +1462,11 @@ Proof
   \\ rw [] \\ gs [SF SFY_ss]
 QED
 
-Theorem compile_decs_Dmod:
+Theorem evaluate_v_ok_decs_Dmod:
   ^(get_goal "Dmod")
 Proof
   rw [evaluate_decs_def]
-  \\ gvs [CaseEqs ["option", "prod", "result"]]
+  \\ gvs [CaseEqs ["option", "prod", "semanticPrimitives$result"]]
   \\ first_x_assum (drule_all_then strip_assume_tac)
   \\ first_assum (irule_at Any) \\ gs []
   \\ gs [env_ok_def, extend_dec_env_def, SF SFY_ss]
@@ -1486,11 +1477,11 @@ Proof
   \\ rw [] \\ gs [SF SFY_ss]
 QED
 
-Theorem compile_decs_Dlocal:
+Theorem evaluate_v_ok_decs_Dlocal:
   ^(get_goal "Dlocal")
 Proof
   rw [evaluate_decs_def]
-  \\ gvs [CaseEqs ["option", "prod", "result"]]
+  \\ gvs [CaseEqs ["option", "prod", "semanticPrimitives$result"]]
   \\ first_x_assum (drule_all_then strip_assume_tac)
   \\ first_x_assum (drule_all_then strip_assume_tac)
   \\ CASE_TAC \\ gs []
@@ -1503,19 +1494,25 @@ Proof
 QED
 
 Theorem evaluate_v_ok:
-  ^(compile_correct_tm ())
+  ^(evaluate_v_ok ())
 Proof
   match_mp_tac (the_ind_thm ())
   \\ rpt conj_tac \\ rpt gen_tac
-  \\ rewrite_tac [compile_Nil, compile_Cons, compile_Lit, compile_Raise,
-                  compile_Handle, compile_Con, compile_Var, compile_Fun,
-                  compile_App, compile_Log, compile_If, compile_Mat,
-                  compile_Let, compile_Letrec, compile_Tannot, compile_Lannot,
-                  compile_pmatch_Nil, compile_pmatch_Cons, compile_decs_Nil,
-                  compile_decs_Cons, compile_decs_Dlet, compile_decs_Dletrec,
-                  compile_decs_Dtype, compile_decs_Dtabbrev, compile_decs_Denv,
-                  compile_decs_Dexn, compile_decs_Dmod, compile_decs_Dlocal]
+  \\ rewrite_tac [evaluate_v_ok_Nil, evaluate_v_ok_Cons,
+                  evaluate_v_ok_Lit, evaluate_v_ok_Raise,
+                  evaluate_v_ok_Handle, evaluate_v_ok_Con,
+                  evaluate_v_ok_Var, evaluate_v_ok_Fun,
+                  evaluate_v_ok_App, evaluate_v_ok_Log,
+                  evaluate_v_ok_If, evaluate_v_ok_Mat,
+                  evaluate_v_ok_Let, evaluate_v_ok_Letrec,
+                  evaluate_v_ok_Tannot, evaluate_v_ok_Lannot,
+                  evaluate_v_ok_pmatch_Nil, evaluate_v_ok_pmatch_Cons,
+                  evaluate_v_ok_decs_Nil, evaluate_v_ok_decs_Cons,
+                  evaluate_v_ok_decs_Dlet, evaluate_v_ok_decs_Dletrec,
+                  evaluate_v_ok_decs_Dtype,
+                  evaluate_v_ok_decs_Dtabbrev,
+                  evaluate_v_ok_decs_Denv, evaluate_v_ok_decs_Dexn,
+                  evaluate_v_ok_decs_Dmod, evaluate_v_ok_decs_Dlocal]
 QED
 
 val _ = export_theory ();
-

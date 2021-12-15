@@ -342,6 +342,38 @@ Proof
   \\ fs [THM_TYPE_HEAD_def]
 QED
 
+Theorem Conv_NOT_IN_kernel_funs:
+  ~(Conv opt vs ∈ kernel_funs)
+Proof
+  rewrite_tac [kernel_funs_def,IN_INSERT]
+  \\ once_rewrite_tac [kernel_funs_v_def,constants_v_def]
+  \\ EVAL_TAC
+QED
+
+Theorem list_notin_kernel_funs[simp]:
+  Conv (SOME (TypeStamp nm list_type_num)) vs ∉ kernel_funs
+Proof
+  fs [Conv_NOT_IN_kernel_funs]
+QED
+
+Theorem list_not_TERM_TYPE[simp]:
+  ¬TERM_TYPE tm (Conv (SOME (TypeStamp nm list_type_num)) vs)
+Proof
+  Cases_on ‘tm’ \\ rw [TERM_TYPE_def] \\ gs [list_type_num_def]
+QED
+
+Theorem list_not_THM_TYPE[simp]:
+  ¬THM_TYPE th (Conv (SOME (TypeStamp nm list_type_num)) vs)
+Proof
+  Cases_on ‘th’ \\ rw [THM_TYPE_def] \\ gs [list_type_num_def]
+QED
+
+Theorem list_type_NOTIN_kernel_types[simp]:
+  list_type_num ∉ kernel_types
+Proof
+  rw [list_type_num_def, kernel_types_def]
+QED
+
 val _ = reset_translation();
 
 val _ = export_theory ();
