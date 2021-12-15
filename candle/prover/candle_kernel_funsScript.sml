@@ -29,6 +29,12 @@ Theorem inferred_ok:
       (∀v. res = Rerr (Rraise v) ⇒ v_ok ctxt' v)
 Proof
   rw [Once inferred_cases]
+  >~ [‘TYPE ctxt ty’] >- (
+    Cases_on ‘ty’ \\ gs [TYPE_TYPE_def, do_opapp_cases])
+  >~ [‘TERM ctxt tm’] >- (
+    Cases_on ‘tm’ \\ gs [TERM_TYPE_def, do_opapp_cases])
+  >~ [‘THM ctxt th’] >- (
+    Cases_on ‘th’ \\ gs [THM_TYPE_def, do_opapp_cases])
   >~ [‘f ∈ kernel_funs’] >- cheat (* (
     gs [kernel_funs_def]
     >~ [‘conj_v’] >- (
@@ -63,56 +69,7 @@ Proof
       \\ simp [Once do_partial_app_def, disj1_v_def])
     >~ [‘not_not_v’] >- (
       cheat)) *)
-  >~ [‘TYPE ctxt ty’] >- (
-    Cases_on ‘ty’ \\ gs [TYPE_TYPE_def, do_opapp_cases])
-  >~ [‘TERM ctxt tm’] >- (
-    Cases_on ‘tm’ \\ gs [TERM_TYPE_def, do_opapp_cases])
-  >~ [‘THM ctxt th’] >- (
-    Cases_on ‘th’ \\ gs [THM_TYPE_def, do_opapp_cases])
 QED
-
-Theorem v_ok_THM_TYPE_HEAD:
-  v_ok ctxt v ∧
-  THM_TYPE_HEAD v ⇒
-    ∃th. THM_TYPE th v
-Proof
-  rw [Once v_ok_cases, kernel_types_def, THM_TYPE_HEAD_def]
-  \\ gs [Once v_ok_cases, do_partial_app_def, AllCaseEqs ()]
-  \\ gs [Once inferred_cases, SF SFY_ss, Conv_NOT_IN_kernel_funs]
-  \\ TRY (rename [‘TYPE ctxt ty’] \\ Cases_on ‘ty’ \\ gs [TYPE_TYPE_def])
-  \\ TRY (rename [‘TERM ctxt tm’] \\ Cases_on ‘tm’ \\ gs [TERM_TYPE_def])
-  \\ TRY (rename [‘THM ctxt th’] \\ Cases_on ‘th’ \\ gs [THM_TYPE_def])
-QED
-
-Theorem v_ok_TERM_TYPE_HEAD:
-  v_ok ctxt v ∧
-  TERM_TYPE_HEAD v ⇒
-    ∃tm. TERM_TYPE tm v
-Proof
-  rw [Once v_ok_cases, kernel_types_def, TERM_TYPE_HEAD_def]
-  \\ gs [Once v_ok_cases, do_partial_app_def, AllCaseEqs ()]
-  \\ gs [Once inferred_cases, SF SFY_ss, Conv_NOT_IN_kernel_funs]
-  \\ TRY (rename [‘TYPE ctxt ty’] \\ Cases_on ‘ty’ \\ gs [TYPE_TYPE_def])
-  \\ TRY (rename [‘TERM ctxt tm’] \\ Cases_on ‘tm’ \\ gs [TERM_TYPE_def])
-  \\ TRY (rename [‘THM ctxt th’] \\ Cases_on ‘th’ \\ gs [THM_TYPE_def])
-QED
-
-Theorem v_ok_TYPE_TYPE_HEAD:
-  v_ok ctxt v ∧
-  TYPE_TYPE_HEAD v ⇒
-    ∃ty. TYPE_TYPE ty v
-Proof
-  rw [Once v_ok_cases, kernel_types_def, TYPE_TYPE_HEAD_def]
-  \\ gs [Once v_ok_cases, do_partial_app_def, AllCaseEqs ()]
-  \\ gs [Once inferred_cases, SF SFY_ss, Conv_NOT_IN_kernel_funs]
-  \\ TRY (rename [‘TYPE ctxt ty’] \\ Cases_on ‘ty’ \\ gs [TYPE_TYPE_def])
-  \\ TRY (rename [‘TERM ctxt tm’] \\ Cases_on ‘tm’ \\ gs [TERM_TYPE_def])
-  \\ TRY (rename [‘THM ctxt th’] \\ Cases_on ‘th’ \\ gs [THM_TYPE_def])
-QED
-
-(*
- * TODO Move elsewhere
- *)
 
 Theorem Arrow2:
   (A --> B --> C) f fv ∧
@@ -183,48 +140,6 @@ Proof
   \\ gs [io_events_mono_antisym]
 QED
 
-Theorem v_ok_TYPE:
-  v_ok ctxt v ∧
-  TYPE_TYPE ty v ⇒
-    TYPE ctxt ty
-Proof
-  strip_tac
-  \\ Cases_on ‘inferred ctxt v’
-  >- (
-    irule TYPE_from_TYPE_TYPE
-    \\ gs [SF SFY_ss])
-  \\ Cases_on ‘ty’ \\ gvs [TYPE_TYPE_def, v_ok_def, kernel_types_def]
-  \\ gvs [Once v_ok_cases, do_partial_app_def, CaseEqs ["exp", "v"]]
-QED
-
-Theorem v_ok_TERM:
-  v_ok ctxt v ∧
-  TERM_TYPE tm v ⇒
-    TERM ctxt tm
-Proof
-  strip_tac
-  \\ Cases_on ‘inferred ctxt v’
-  >- (
-    irule TERM_from_TERM_TYPE
-    \\ gs [SF SFY_ss])
-  \\ Cases_on ‘tm’ \\ gvs [TERM_TYPE_def, v_ok_def, kernel_types_def]
-  \\ gvs [Once v_ok_cases, do_partial_app_def, CaseEqs ["exp", "v"]]
-QED
-
-Theorem v_ok_THM:
-  v_ok ctxt v ∧
-  THM_TYPE th v ⇒
-    THM ctxt th
-Proof
-  strip_tac
-  \\ Cases_on ‘inferred ctxt v’
-  >- (
-    irule THM_from_THM_TYPE
-    \\ gs [SF SFY_ss])
-  \\ Cases_on ‘th’ \\ gvs [THM_TYPE_def, v_ok_def, kernel_types_def]
-  \\ gvs [Once v_ok_cases, do_partial_app_def, CaseEqs ["exp", "v"]]
-QED
-
 Theorem v_ok_bind_exn_v[simp]:
   v_ok ctxt bind_exn_v
 Proof
@@ -246,46 +161,6 @@ Theorem kernel_vals_max_app:
     f ∈ kernel_funs
 Proof
   cheat
-QED
-
-Theorem LIST_TYPE_perms_ok:
-  ∀xs xsv.
-    (∀x v. A x v ∧ MEM x xs ⇒ perms_ok ps v) ∧
-    LIST_TYPE A xs xsv ⇒
-      perms_ok ps xsv
-Proof
-  Induct \\ rw []
-  \\ gs [ml_translatorTheory.LIST_TYPE_def, perms_ok_def, SF SFY_ss]
-QED
-
-Theorem TYPE_TYPE_perms_ok:
-  ∀ty v. TYPE_TYPE ty v ⇒ perms_ok ps v
-Proof
-  recInduct TYPE_TYPE_ind \\ rw [TYPE_TYPE_def]
-  \\ rename [‘STRING_TYPE m _’]
-  \\ Cases_on ‘m’
-  \\ gvs [ml_translatorTheory.STRING_TYPE_def, perms_ok_def]
-  \\ metis_tac [LIST_TYPE_perms_ok]
-QED
-
-Theorem TERM_TYPE_perms_ok:
-  ∀tm v. TERM_TYPE tm v ⇒ perms_ok ps v
-Proof
-  Induct \\ rw [TERM_TYPE_def]
-  \\ res_tac \\ fs [perms_ok_def]
-  \\ rename [‘STRING_TYPE m _’]
-  \\ Cases_on ‘m’ \\ imp_res_tac TYPE_TYPE_perms_ok
-  \\ gvs [ml_translatorTheory.STRING_TYPE_def, perms_ok_def]
-QED
-
-Theorem THM_TYPE_perms_ok:
-  ∀th v. THM_TYPE th v ⇒ perms_ok ps v
-Proof
-  Cases \\ rw [THM_TYPE_def] \\ imp_res_tac TERM_TYPE_perms_ok
-  \\ fs [perms_ok_def]
-  \\ drule_at (Pos last) LIST_TYPE_perms_ok
-  \\ disch_then irule \\ rw []
-  \\ imp_res_tac TERM_TYPE_perms_ok \\ fs []
 QED
 
 (*
