@@ -23,27 +23,8 @@ Datatype:
              | RefUpdate       (* Write to references                *)
              | RefAlloc        (* Allocate new references            *)
              | DoEval          (* Call Eval                          *)
+             | W8Alloc         (* Allocate byte arrays               *)
 End
-
-(*
-Definition pats_ok_def:
-  pats_ok ps = every_pat $ λp. case p of Pref p => RefPmatch ∈ ps | _ => T
-End
- *)
-
-(*
-Theorem pats_ok_thm[simp] =
-  [“pats_ok ps Pany”,
-   “pats_ok ps (Pvar n)”,
-   “pats_ok ps (Plit lit)”,
-   “pats_ok ps (Pcon cn pats)”,
-   “pats_ok ps (Pref p)”,
-   “pats_ok ps (Pas p n)”,
-   “pats_ok ps (Ptannot p t)”]
-  |> map (SIMP_CONV (srw_ss()) [pats_ok_def])
-  |> map (SIMP_RULE (srw_ss()) [GSYM pats_ok_def, SF ETA_ss])
-  |> LIST_CONJ;
- *)
 
 Definition perms_ok_exp_def:
   perms_ok_exp ps =
@@ -52,10 +33,11 @@ Definition perms_ok_exp_def:
         App op xs =>
           (op = Eval ⇒ DoEval ∈ ps) ∧
           (op = Opref ⇒ RefAlloc ∈ ps) ∧
+          (op = Aalloc ⇒ RefAlloc ∈ ps) ∧
+          (op = AallocEmpty ⇒ RefAlloc ∈ ps) ∧
+          (op = Aw8alloc ⇒ W8Alloc ∈ ps) ∧
           (op = Opassign ⇒ RefUpdate ∈ ps) ∧
           (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps)
-   (* | Handle x pes => EVERY (pats_ok ps) (MAP FST pes)
-      | Mat x pes => EVERY (pats_ok ps) (MAP FST pes) *)
       | _ => T
 End
 
@@ -185,6 +167,18 @@ Proof
   rw [perms_ok_def, div_exn_v_def]
 QED
 
+Theorem perms_ok_sub_exn_v[simp]:
+  perms_ok ps sub_exn_v
+Proof
+  rw [perms_ok_def, sub_exn_v_def]
+QED
+
+Theorem perms_ok_chr_exn_v[simp]:
+  perms_ok ps chr_exn_v
+Proof
+  rw [perms_ok_def, chr_exn_v_def]
+QED
+
 Definition perms_ok_ref_def:
   perms_ok_ref ps (Refv v) = perms_ok ps v ∧
   perms_ok_ref ps (Varray vs) = EVERY (perms_ok ps) vs ∧
@@ -193,7 +187,9 @@ End
 
 Definition perms_ok_state_def:
   perms_ok_state ps s =
-    ∀n. n < LENGTH s.refs ∧ RefMention n ∈ ps  ⇒ perms_ok_ref ps (EL n s.refs)
+    ∀n. n < LENGTH s.refs ∧
+        RefMention n ∈ ps ⇒
+          perms_ok_ref ps (EL n s.refs)
 End
 
 Theorem perms_ok_state_with_clock[simp]:
@@ -273,20 +269,35 @@ Termination
   WF_REL_TAC ‘measure dec_size’
 End
 
+Theorem perms_ok_v_to_list:
+  ∀v vs.
+    v_to_list v = SOME vs ∧
+    perms_ok ps v ⇒
+      EVERY (perms_ok ps) vs
+Proof
+  ho_match_mp_tac v_to_list_ind
+  \\ simp [perms_ok_def, v_to_list_def]
+  \\ rw [] \\ gvs [CaseEqs ["option", "list"]]
+QED
+
 Theorem do_app_perms:
   do_app (refs, ffi) op vs = SOME ((refs1,ffi1),res) ∧
+  op ≠ Opapp ∧
+  op ≠ Eval ∧
   EVERY (perms_ok ps) vs ∧
   (RefAlloc ∈ ps ⇒ IMAGE RefMention UNIV ⊆ ps) ∧
+  (W8Alloc ∈ ps ⇒ IMAGE RefMention UNIV ⊆ ps) ∧
   (∀n. n < LENGTH refs ∧ RefMention n ∈ ps ⇒ perms_ok_ref ps (EL n refs)) ∧
-  (op = Opref ⇒
-    RefAlloc ∈ ps ∧
-    RefMention (LENGTH refs) ∈ ps) ∧
+  (op = Opref ⇒ RefAlloc ∈ ps) ∧
+  (op = Aalloc ⇒ RefAlloc ∈ ps) ∧
+  (op = AallocEmpty ⇒ RefAlloc ∈ ps) ∧
+  (op = Aw8alloc ⇒ W8Alloc ∈ ps) ∧
   (op = Opassign ⇒ RefUpdate ∈ ps) ∧
   (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps) ∧
   op ≠ Opapp ∧
   op ≠ Eval ⇒
     (∀n. n < LENGTH refs1 ∧ RefMention n ∈ ps ⇒ perms_ok_ref ps (EL n refs1)) ∧
-    (RefAlloc ∉ ps ⇒ LENGTH refs1 = LENGTH refs) ∧
+    (RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒ LENGTH refs1 = LENGTH refs) ∧
     (∀ch out y.
        MEM (IO_event ch out y) ffi1.io_events ⇒
        MEM (IO_event ch out y) ffi.io_events ∨ FFIWrite ch ∈ ps) ∧
@@ -297,10 +308,217 @@ Theorem do_app_perms:
 Proof
   strip_tac
   \\ qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
+  \\ Cases_on ‘op = Env_id’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def, nat_to_v_def])
+  \\ Cases_on ‘∃chn. op = FFI chn’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gvs [ffiTheory.call_FFI_def, store_lookup_def, store_assign_def,
+            CaseEqs ["bool", "list", "option", "oracle_result", "ffi_result"]]
+    \\ rw [EL_LUPDATE, perms_ok_ref_def, perms_ok_def])
+  \\ Cases_on ‘op = ConfigGC’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = ListAppend’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ dxrule_all perms_ok_v_to_list
+    \\ dxrule_all perms_ok_v_to_list
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ simp [list_to_v_def, perms_ok_def]
+    \\ Induct \\ simp [list_to_v_def, perms_ok_def])
+  \\ Cases_on ‘op = Aw8sub_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = Aw8update_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def]
+    \\ gvs [store_lookup_def, store_assign_def]
+    \\ simp [EL_LUPDATE]
+    \\ rw [perms_ok_ref_def] )
+  \\ Cases_on ‘op = Aupdate_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def]
+    \\ gvs [store_lookup_def, store_assign_def]
+    \\ simp [EL_LUPDATE]
+    \\ rw [perms_ok_ref_def, EVERY_EL, EL_LUPDATE]
+    \\ rw [perms_ok_def]
+    \\ first_x_assum drule_all
+    \\ gs [perms_ok_ref_def, EVERY_EL])
+  \\ Cases_on ‘op = Asub_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gvs [store_lookup_def, perms_ok_def]
+    \\ first_x_assum drule_all
+    \\ gs [perms_ok_ref_def, EVERY_EL])
+  \\ Cases_on ‘op = Aupdate’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def]
+    \\ gvs [store_lookup_def, store_assign_def]
+    \\ simp [EL_LUPDATE]
+    \\ rw [perms_ok_ref_def, EVERY_EL, EL_LUPDATE]
+    \\ rw [perms_ok_def]
+    \\ first_x_assum drule_all
+    \\ gs [perms_ok_ref_def, EVERY_EL])
+  \\ Cases_on ‘op = Alength’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = Asub’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gvs [store_lookup_def, perms_ok_def]
+    \\ first_x_assum drule_all
+    \\ gs [perms_ok_ref_def, EVERY_EL])
+  \\ Cases_on ‘op = AallocEmpty’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gvs [perms_ok_def, store_alloc_def, SUBSET_DEF, PULL_EXISTS]
+    \\ rw [EL_APPEND_EQN]
+    \\ gs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
+  \\ Cases_on ‘op = Aalloc’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gvs [perms_ok_def, store_alloc_def, SUBSET_DEF, PULL_EXISTS]
+    \\ rw [EL_APPEND_EQN]
+    \\ gs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
+  \\ Cases_on ‘op = Vlength’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = Vsub’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def, EVERY_EL])
+  \\ Cases_on ‘op = VfromList’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ drule_all perms_ok_v_to_list
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = Strcat’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = Strlen’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = Strsub’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = Explode’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ rename1 ‘MAP _ xs’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ simp [list_to_v_def, perms_ok_def])
+  \\ Cases_on ‘op = Implode’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘∃opb. op = Chopb opb’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [Boolv_def]
+    \\ rw [perms_ok_def])
+  \\ Cases_on ‘op = Chr’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = Ord’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = CopyAw8Aw8’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def]
+    \\ gvs [store_assign_def, EL_LUPDATE]
+    \\ rw [perms_ok_ref_def])
+  \\ Cases_on ‘op = CopyAw8Str’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def]
+    \\ gvs [store_assign_def, EL_LUPDATE]
+    \\ rw [perms_ok_ref_def])
+  \\ Cases_on ‘op = CopyStrAw8’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def]
+    \\ gvs [store_assign_def, EL_LUPDATE]
+    \\ rw [perms_ok_ref_def])
+  \\ Cases_on ‘op = CopyStrStr’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘∃n. op = WordToInt n’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘∃n. op = WordFromInt n’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = Aw8update’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [SUBSET_DEF, PULL_EXISTS, perms_ok_def]
+    \\ gvs [store_assign_def, EL_LUPDATE]
+    \\ rw [perms_ok_ref_def])
+  \\ Cases_on ‘op = Aw8sub’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = Aw8length’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = Aw8alloc’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gvs [store_alloc_def, perms_ok_def, SUBSET_DEF, PULL_EXISTS]
+    \\ rw [EL_APPEND_EQN]
+    \\ gs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
+  \\ Cases_on ‘∃top. op = FP_top top’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘∃bop. op = FP_bop bop’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘∃uop. op = FP_uop uop’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ rw [perms_ok_def])
+  \\ Cases_on ‘∃cmp. op = FP_cmp cmp’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [Boolv_def]
+    \\ rw [perms_ok_def])
   \\ Cases_on ‘∃opn. op = Opn opn’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
     \\ simp [div_exn_v_def, perms_ok_def])
+  \\ Cases_on ‘∃opb. op = Opb opb’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [Boolv_def]
+    \\ rw [perms_ok_def])
+  \\ Cases_on ‘∃sz opw. op = Opw sz opw’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = Equality’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [Boolv_def]
+    \\ rw [perms_ok_def])
   \\ Cases_on ‘op = Opderef’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -314,11 +532,11 @@ Proof
   \\ Cases_on ‘op = Opref’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
-    \\ gvs [perms_ok_def, store_alloc_def, perms_ok_ref_def]
+    \\ gvs [perms_ok_def, store_alloc_def, perms_ok_ref_def, SUBSET_DEF]
     \\ simp [EL_APPEND_EQN]
     \\ rw [] \\ gs []
     \\ gvs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
-  \\ cheat
+  \\ Cases_on ‘op’ \\ gs []
 QED
 
 Theorem evaluate_perms_ok:
@@ -327,8 +545,9 @@ Theorem evaluate_perms_ok:
      EVERY (λx. perms_ok_env ps (freevars x) env) xs ∧
      perms_ok_state ps s ∧
      (RefAlloc ∈ ps ⇒ IMAGE RefMention UNIV ⊆ ps) ∧
+     (W8Alloc ∈ ps ⇒ IMAGE RefMention UNIV ⊆ ps) ∧
      evaluate s env xs = (s', res) ⇒
-       (RefAlloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
+       (RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
        (DoEval ∉ ps ⇒ s'.next_type_stamp = s.next_type_stamp) ∧
        perms_ok_state ps s' ∧
        (∀ffi out y.
@@ -347,8 +566,9 @@ Theorem evaluate_perms_ok:
      perms_ok ps v ∧
      perms_ok ps errv ∧
      (RefAlloc ∈ ps ⇒ IMAGE RefMention UNIV ⊆ ps) ∧
+     (W8Alloc ∈ ps ⇒ IMAGE RefMention UNIV ⊆ ps) ∧
      evaluate_match s env v pes errv = (s', res) ⇒
-       (RefAlloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
+       (RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
        (DoEval ∉ ps ⇒ s'.next_type_stamp = s.next_type_stamp) ∧
        perms_ok_state ps s' ∧
        (∀ffi out y.
@@ -363,8 +583,9 @@ Theorem evaluate_perms_ok:
      perms_ok_state ps s ∧
      perms_ok_env ps UNIV env ∧
      (RefAlloc ∈ ps ⇒ IMAGE RefMention UNIV ⊆ ps) ∧
+     (W8Alloc ∈ ps ⇒ IMAGE RefMention UNIV ⊆ ps) ∧
      evaluate_decs s env ds = (s', res) ⇒
-       (RefAlloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
+       (RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
        perms_ok_state ps s' ∧
        (∀ffi out y.
           MEM (IO_event ffi out y) s'.ffi.io_events ⇒
@@ -464,6 +685,8 @@ Proof
                EXISTS_PROD]
         \\ first_assum (irule_at Any)
         \\ first_assum (irule_at Any) \\ gs []))
+    \\ ‘EVERY (λx. perms_ok_env ps (freevars x) env) xs’
+      by gs [EVERY_perms_ok_env_BIGUNION, SF ETA_ss]
     \\ Cases_on ‘op = Eval’ \\ gs []
     >- ((* Eval *)
       gvs [CaseEqs ["result", "prod", "bool", "option"],
