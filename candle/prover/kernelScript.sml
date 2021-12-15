@@ -238,6 +238,10 @@ Definition kernel_types_def:
   kernel_types: num set = {3; 4}
 End
 
+Definition kernel_ctors_def:
+  kernel_ctors = {"And"; "Or"; "Imp"; "Not"; "Atom"; "Bot"}
+End
+
 Inductive inferred:
 [~KernelFuns:]
   (∀ctxt f.
