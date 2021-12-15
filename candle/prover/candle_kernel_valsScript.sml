@@ -227,7 +227,7 @@ Proof
   \\ rw [] \\ qsuff_tac ‘F’ \\ fs []
   \\ pop_assum mp_tac \\ fs []
   \\ rewrite_tac [kernel_funs_def,IN_INSERT,NOT_IN_EMPTY]
-  \\ once_rewrite_tac [kernel_funs_v_def,constants_v_def]
+  \\ once_rewrite_tac [kernel_funs_v_def]
   \\ EVAL_TAC
 QED
 
@@ -344,18 +344,12 @@ Proof
   \\ fs [THM_TYPE_HEAD_def]
 QED
 
-Theorem Conv_NOT_IN_kernel_funs:
+Theorem Conv_NOT_IN_kernel_funs[simp]:
   ~(Conv opt vs ∈ kernel_funs)
 Proof
   rewrite_tac [kernel_funs_def,IN_INSERT]
-  \\ once_rewrite_tac [kernel_funs_v_def,constants_v_def]
+  \\ once_rewrite_tac [kernel_funs_v_def]
   \\ EVAL_TAC
-QED
-
-Theorem list_notin_kernel_funs[simp]:
-  Conv (SOME (TypeStamp nm list_type_num)) vs ∉ kernel_funs
-Proof
-  fs [Conv_NOT_IN_kernel_funs]
 QED
 
 Theorem list_not_TERM_TYPE[simp]:
