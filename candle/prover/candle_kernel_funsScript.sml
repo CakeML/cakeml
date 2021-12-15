@@ -15,6 +15,58 @@ val _ = set_grammar_ancestry [
   "candle_kernel_vals", "candle_prover_inv", "ast_extras", "termination",
   "namespaceProps", "perms", "semanticPrimitivesProps", "misc"];
 
+Theorem Arrow1:
+  (A --> B) f fv ∧
+  do_opapp [fv; av] = SOME (env, exp) ∧
+  evaluate (s:'ffi semanticPrimitives$state) env [exp] = (s', res) ∧
+  A a av ∧
+  DoEval ∉ ps ∧
+  RefAlloc ∉ ps ∧
+  W8Alloc ∉ ps ∧
+  (∀n. RefMention n ∉ ps) ∧
+  perms_ok ps av ∧
+  perms_ok ps fv ⇒
+    s.ffi = s'.ffi ∧
+    ((res = Rerr (Rabort Rtimeout_error)) ∨
+     (res = Rerr (Rabort Rtype_error)) ∨
+     s.refs = s'.refs ∧
+     s.next_type_stamp = s'.next_type_stamp ∧
+     ∃rv. res = Rval [rv] ∧
+          B (f a) rv)
+Proof
+  strip_tac
+  \\ qabbrev_tac ‘env' = write "a" av (write "f" fv ARB)’
+  \\ ‘Eval env' (Var (Short "a")) (A a)’
+    by simp [Abbr ‘env'’, ml_translatorTheory.Eval_Var_SIMP]
+  \\ ‘Eval env' (Var (Short "f")) ((A --> B) f)’
+    by simp [Abbr ‘env'’, ml_translatorTheory.Eval_Var_SIMP]
+  \\ qpat_x_assum ‘(_ --> _) _ _’ kall_tac
+  \\ qpat_x_assum ‘A _ _’ kall_tac
+  \\ dxrule_all ml_translatorTheory.Eval_Arrow
+  \\ simp [ml_translatorTheory.Eval_def]
+  \\ disch_then (qspec_then ‘s.refs’ strip_assume_tac)
+  \\ dxrule ml_translatorTheory.evaluate_empty_state_IMP
+  \\ simp [ml_progTheory.eval_rel_def, evaluate_def, Abbr ‘env'’,
+           ml_progTheory.nsLookup_write]
+  \\ strip_tac
+  \\ gvs [AllCaseEqs(),evaluateTheory.dec_clock_def]
+  \\ drule_then (qspec_then ‘s.clock’ mp_tac) evaluate_set_init_clock
+  \\ simp [with_same_clock]
+  \\ strip_tac \\ gvs []
+  THEN1
+   (drule_at (Pos last) evaluate_perms_ok_exp
+    \\ disch_then (qspec_then ‘ps’ mp_tac)
+    \\ reverse impl_tac THEN1 fs []
+    \\ fs [perms_ok_state_def]
+    \\ drule_all perms_ok_do_opapp
+    \\ fs [])
+  \\ mp_tac (CONJUNCT1 is_clock_io_mono_evaluate)
+  \\ qmatch_asmsub_abbrev_tac ‘evaluate s env1 [e]’
+  \\ disch_then (qspecl_then [`s`,`env1`,`[e]`] mp_tac)
+  \\ rw [is_clock_io_mono_def]
+  \\ gs [io_events_mono_antisym]
+QED
+
 Theorem inferred_ok:
   inferred ctxt f ∧
   state_ok ctxt s ∧
