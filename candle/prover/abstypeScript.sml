@@ -7,6 +7,7 @@ open semanticPrimitivesTheory semanticPrimitivesPropsTheory
      terminationTheory namespacePropsTheory evaluatePropsTheory
      sptreeTheory;
 open permsTheory kernelTheory ast_extrasTheory;
+local open ml_progLib in end
 
 val _ = new_theory "abstype";
 
@@ -151,6 +152,18 @@ Definition state_ok_def:
     EVERY (ref_ok ctxt) s.refs ∧
     EVERY (ok_event ctxt) s.ffi.io_events
 End
+
+Theorem state_ok_dec_clock:
+  state_ok ctxt (dec_clock s) = state_ok ctxt s
+Proof
+  rw [state_ok_def, evaluateTheory.dec_clock_def]
+QED
+
+Theorem state_ok_with_eval_state[simp]:
+  state_ok ctxt (s with eval_state := es) = state_ok ctxt s
+Proof
+  rw [state_ok_def]
+QED
 
 (* -------------------------------------------------------------------------
  * Proving env_ok/v_ok/ref_ok/state_ok for things
@@ -434,6 +447,13 @@ Theorem v_ok_bind_exn_v[simp]:
 Proof
   rw [v_ok_def, bind_exn_v_def]
   \\rw [Once v_ok_cases, bind_stamp_def, kernel_types_def]
+QED
+
+Theorem v_ok_sub_exn_v[simp]:
+  v_ok ctxt sub_exn_v
+Proof
+  rw [v_ok_def, sub_exn_v_def]
+  \\ rw [Once v_ok_cases, subscript_stamp_def, kernel_types_def]
 QED
 
 Theorem kernel_vals_max_app:
@@ -782,7 +802,330 @@ Proof
   \\ irule v_ok_Closure \\ gs []
 QED
 
-Theorem compile_App:
+Theorem compile_Eval:
+  op = Eval ⇒ ^(get_goal "App")
+Proof
+  rw [evaluate_def]
+  \\ gvs [CaseEqs ["prod", "result", "option", "error_result", "bool"],
+          evaluateTheory.do_eval_res_def]
+  \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
+  \\ TRY (
+    gs [state_ok_def]
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ NO_TAC)
+  \\ cheat
+QED
+
+(* TODO move *)
+Theorem list_notin_kernel_funs[simp]:
+  Conv (SOME (TypeStamp nm list_type_num)) vs ∉ kernel_funs
+Proof
+  rw [Once v_ok_cases, Once inferred_cases, kernel_funs_def,
+      conj_v_def, disj1_v_def, imp_v_def, not_not_v_def]
+QED
+
+(* TODO move *)
+Theorem list_not_TERM_TYPE[simp]:
+  ¬TERM_TYPE tm (Conv (SOME (TypeStamp nm list_type_num)) vs)
+Proof
+  Cases_on ‘tm’ \\ rw [TERM_TYPE_def] \\ gs [list_type_num_def]
+QED
+
+(* TODO move *)
+Theorem list_not_THM_TYPE[simp]:
+  ¬THM_TYPE th (Conv (SOME (TypeStamp nm list_type_num)) vs)
+Proof
+  Cases_on ‘th’ \\ rw [THM_TYPE_def] \\ gs [list_type_num_def]
+QED
+
+(* TODO move *)
+Theorem list_type_NOTIN_kernel_types[simp]:
+  list_type_num ∉ kernel_types
+Proof
+  rw [list_type_num_def, kernel_types_def]
+QED
+
+Theorem v_ok_v_to_list:
+  ∀v vs.
+    v_to_list v = SOME vs ∧
+    v_ok ctxt v ⇒
+      EVERY (v_ok ctxt) vs
+Proof
+  ho_match_mp_tac v_to_list_ind
+  \\ rw [v_to_list_def]
+  \\ gvs [CaseEqs ["option", "list"], v_ok_def]
+  \\ gs [Once v_ok_cases, Once inferred_cases, do_partial_app_def,
+         CaseEqs ["v", "exp"]]
+QED
+
+Theorem do_app_ok:
+  do_app (refs,ffi) op vs = SOME ((refs1,ffi1),res) ∧
+  op ≠ Opapp ∧
+  op ≠ Eval ∧
+  EVERY (v_ok ctxt) vs ∧
+  EVERY (ref_ok ctxt) refs ∧
+  EVERY (ok_event ctxt) ffi.io_events ∧
+  op ≠ FFI kernel_ffi ∧
+  (∀loc. loc ∈ kernel_locs ⇒ loc < LENGTH refs) ⇒
+    (∀loc. loc ∈ kernel_locs ⇒ loc < LENGTH refs1) ∧
+    EVERY (ref_ok ctxt) refs1 ∧
+    EVERY (ok_event ctxt) ffi1.io_events ∧
+    case list_result res of
+      Rval vs => EVERY (v_ok ctxt) vs
+      | Rerr (Rraise v) => v_ok ctxt v
+      | _ => T
+Proof
+  strip_tac
+  \\ qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
+  \\ Cases_on ‘op = Env_id’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def, nat_to_v_def])
+  \\ Cases_on ‘∃chn. op = FFI chn’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gvs [ffiTheory.call_FFI_def, store_lookup_def, store_assign_def,
+            CaseEqs ["bool", "list", "option", "oracle_result",
+                     "ffi$ffi_result"], EVERY_EL, EL_LUPDATE]
+    \\ rw [ref_ok_def, v_ok_def, EL_APPEND_EQN]
+    \\ gs [NOT_LESS, LESS_OR_EQ, ok_event_def])
+  \\ Cases_on ‘op = ConfigGC’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘op = ListAppend’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ dxrule_all_then assume_tac v_ok_v_to_list
+    \\ dxrule_all_then assume_tac v_ok_v_to_list
+    \\ ‘EVERY (v_ok ctxt) (xs ++ ys)’
+      by gs []
+    \\ pop_assum mp_tac
+    \\ rename1 ‘EVERY (v_ok ctxt) zs ⇒ _’
+    \\ qid_spec_tac ‘zs’
+    \\ Induct \\ simp [list_to_v_def, v_ok_def])
+  \\ Cases_on ‘op = Aw8sub_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘op = Aw8update_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [v_ok_def]
+    \\ gvs [store_lookup_def, store_assign_def, EVERY_EL, EL_LUPDATE]
+    \\ rw [] \\ gs [ref_ok_def])
+  \\ Cases_on ‘op = Aupdate_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [v_ok_def]
+    \\ gvs [store_lookup_def, store_assign_def, EVERY_EL, EL_LUPDATE]
+    \\ rw [] \\ gs [EVERY_EL, EL_LUPDATE, ref_ok_def]
+    \\ rw [] \\ gs []
+    \\ first_x_assum drule_all
+    \\ gs [ref_ok_def, EVERY_EL])
+  \\ Cases_on ‘op = Asub_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gvs [store_lookup_def, v_ok_def, EVERY_EL]
+    \\ first_x_assum drule_all
+    \\ gs [ref_ok_def, EVERY_EL])
+  \\ Cases_on ‘op = Aupdate’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [v_ok_def]
+    \\ gvs [store_lookup_def, store_assign_def, EVERY_EL, EL_LUPDATE]
+    \\ rw [ref_ok_def, EVERY_EL, EL_LUPDATE] \\ rw []
+    \\ first_x_assum drule_all
+    \\ gs [ref_ok_def, EVERY_EL])
+  \\ Cases_on ‘op = Alength’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘op = Asub’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gvs [store_lookup_def, v_ok_def, EVERY_EL]
+    \\ first_x_assum drule_all
+    \\ gs [ref_ok_def, EVERY_EL])
+  \\ cheat (*
+  \\ Cases_on ‘op = AallocEmpty’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gvs [v_ok_def, store_alloc_def, EVERY_EL]
+    \\ rw [EL_APPEND_EQN]
+    \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def])
+  \\ Cases_on ‘op = Aalloc’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gvs [v_ok_def, store_alloc_def, SUBSET_DEF, PULL_EXISTS]
+    \\ rw [EL_APPEND_EQN]
+    \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def])
+  \\ Cases_on ‘op = Vlength’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘op = Vsub’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [v_ok_def, EVERY_EL])
+  \\ Cases_on ‘op = VfromList’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ drule_all v_ok_v_to_list
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘op = Strcat’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘op = Strlen’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘op = Strsub’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘op = Explode’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ rename1 ‘MAP _ xs’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ simp [list_to_v_def, v_ok_def])
+  \\ Cases_on ‘op = Implode’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘∃opb. op = Chopb opb’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [Boolv_def]
+    \\ rw [v_ok_def])
+  \\ Cases_on ‘op = Chr’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘op = Ord’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘op = CopyAw8Aw8’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [v_ok_def]
+    \\ gvs [store_assign_def, EL_LUPDATE]
+    \\ rw [ref_ok_def])
+  \\ Cases_on ‘op = CopyAw8Str’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [v_ok_def]
+    \\ gvs [store_assign_def, EL_LUPDATE]
+    \\ rw [ref_ok_def])
+  \\ Cases_on ‘op = CopyStrAw8’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [v_ok_def]
+    \\ gvs [store_assign_def, EL_LUPDATE]
+    \\ rw [ref_ok_def])
+  \\ Cases_on ‘op = CopyStrStr’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘∃n. op = WordToInt n’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘∃n. op = WordFromInt n’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘op = Aw8update’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [SUBSET_DEF, PULL_EXISTS, v_ok_def]
+    \\ gvs [store_assign_def, EL_LUPDATE]
+    \\ rw [ref_ok_def])
+  \\ Cases_on ‘op = Aw8sub’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘op = Aw8length’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘op = Aw8alloc’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gvs [store_alloc_def, v_ok_def, SUBSET_DEF, PULL_EXISTS]
+    \\ rw [EL_APPEND_EQN]
+    \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def])
+  \\ Cases_on ‘∃top. op = FP_top top’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘∃bop. op = FP_bop bop’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘∃uop. op = FP_uop uop’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ rw [v_ok_def])
+  \\ Cases_on ‘∃cmp. op = FP_cmp cmp’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [Boolv_def]
+    \\ rw [v_ok_def])
+  \\ Cases_on ‘∃opn. op = Opn opn’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [div_exn_v_def, v_ok_def])
+  \\ Cases_on ‘∃opb. op = Opb opb’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [Boolv_def]
+    \\ rw [v_ok_def])
+  \\ Cases_on ‘∃sz opw. op = Opw sz opw’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘op = Equality’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [Boolv_def]
+    \\ rw [v_ok_def])
+  \\ Cases_on ‘op = Opderef’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gs [v_ok_def, store_lookup_def, EVERY_EL]
+    \\ first_x_assum drule \\ gs [ref_ok_def])
+  \\ Cases_on ‘op = Opassign’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gvs [v_ok_def, store_assign_def]
+    \\ rw [EL_LUPDATE, ref_ok_def])
+  \\ Cases_on ‘op = Opref’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gvs [v_ok_def, store_alloc_def, ref_ok_def, SUBSET_DEF]
+    \\ simp [EL_APPEND_EQN]
+    \\ rw [] \\ gs []
+    \\ gvs [NOT_LESS, LESS_OR_EQ, ref_ok_def])
+  \\ Cases_on ‘op’ \\ gs []
+  *)
+QED
+
+Theorem compile_Op:
+  op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "App")
+Proof
+  rw [evaluate_def]
+  \\ gvs [CaseEqs ["prod", "result", "option"]]
+  \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
+  >~ [‘do_app _ _ _ = NONE’] >- (
+    first_assum (irule_at Any)
+    \\ gs [])
+  \\ rename1 ‘EVERY (v_ok ctxt1)’
+  \\ qexists_tac ‘ctxt1’ \\ gs []
+  \\ drule do_app_ok \\ gs []
+  \\ disch_then drule \\ simp []
+QED
+
+Theorem compile_Opapp:
   op = Opapp ⇒ ^(get_goal "App")
 Proof
   rw [evaluate_def]
@@ -845,6 +1188,14 @@ Proof
     \\ rw [DISJ_EQ_IMP, env_ok_def] \\ gs [SF SFY_ss])
   \\ first_x_assum irule
   \\ gs [SF SFY_ss]
+QED
+
+Theorem compile_App:
+  ^(get_goal "App")
+Proof
+  Cases_on ‘op = Opapp’ >- (match_mp_tac compile_Opapp \\ gs [])
+  \\ Cases_on ‘op = Eval’ >- (match_mp_tac compile_Eval \\ gs [])
+  \\ match_mp_tac compile_Op \\ gs []
 QED
 
 Theorem compile_Log:
@@ -1156,34 +1507,14 @@ Theorem evaluate_v_ok:
 Proof
   match_mp_tac (the_ind_thm ())
   \\ rpt conj_tac \\ rpt gen_tac
-  >- rewrite_tac [compile_Nil]
-  >- rewrite_tac [compile_Cons]
-  >- rewrite_tac [compile_Lit]
-  >- rewrite_tac [compile_Raise]
-  >- rewrite_tac [compile_Handle]
-  >- rewrite_tac [compile_Con]
-  >- rewrite_tac [compile_Var]
-  >- rewrite_tac [compile_Fun]
-  >- cheat (* App *)
-  >- rewrite_tac [compile_Log]
-  >- rewrite_tac [compile_If]
-  >- rewrite_tac [compile_Mat]
-  >- rewrite_tac [compile_Let]
-  >- rewrite_tac [compile_Letrec]
-  >- rewrite_tac [compile_Tannot]
-  >- rewrite_tac [compile_Lannot]
-  >- rewrite_tac [compile_pmatch_Nil]
-  >- rewrite_tac [compile_pmatch_Cons]
-  >- rewrite_tac [compile_decs_Nil]
-  >- rewrite_tac [compile_decs_Cons]
-  >- rewrite_tac [compile_decs_Dlet]
-  >- rewrite_tac [compile_decs_Dletrec]
-  >- rewrite_tac [compile_decs_Dtype]
-  >- rewrite_tac [compile_decs_Dtabbrev]
-  >- rewrite_tac [compile_decs_Denv]
-  >- rewrite_tac [compile_decs_Dexn]
-  >- rewrite_tac [compile_decs_Dmod]
-  >- rewrite_tac [compile_decs_Dlocal]
+  \\ rewrite_tac [compile_Nil, compile_Cons, compile_Lit, compile_Raise,
+                  compile_Handle, compile_Con, compile_Var, compile_Fun,
+                  compile_App, compile_Log, compile_If, compile_Mat,
+                  compile_Let, compile_Letrec, compile_Tannot, compile_Lannot,
+                  compile_pmatch_Nil, compile_pmatch_Cons, compile_decs_Nil,
+                  compile_decs_Cons, compile_decs_Dlet, compile_decs_Dletrec,
+                  compile_decs_Dtype, compile_decs_Dtabbrev, compile_decs_Denv,
+                  compile_decs_Dexn, compile_decs_Dmod, compile_decs_Dlocal]
 QED
 
 val _ = export_theory ();
