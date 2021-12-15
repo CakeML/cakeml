@@ -35,7 +35,8 @@ Proof
     Cases_on ‘tm’ \\ gs [TERM_TYPE_def, do_opapp_cases])
   >~ [‘THM ctxt th’] >- (
     Cases_on ‘th’ \\ gs [THM_TYPE_def, do_opapp_cases])
-  >~ [‘f ∈ kernel_funs’] >- cheat (* (
+  \\ rename [‘f ∈ kernel_funs’]
+  \\ cheat (* (
     gs [kernel_funs_def]
     >~ [‘conj_v’] >- (
       gvs [conj_v_def, do_opapp_def, evaluate_def]
@@ -154,13 +155,48 @@ Proof
   \\ rw [Once v_ok_cases, subscript_stamp_def, kernel_types_def]
 QED
 
+Theorem kernel_vals_ind = v_ok_ind
+  |> Q.SPECL [‘P’,‘λ_ _. T’,‘λ_ _. T’]
+  |> SIMP_RULE std_ss [] |> GEN_ALL;
+
+Theorem kernel_vals_twice_partial_app:
+  ∀ctxt f. kernel_vals ctxt f ⇒
+           ∀v g w. do_partial_app f v = SOME g ⇒
+                   do_partial_app g w = NONE
+Proof
+  ho_match_mp_tac kernel_vals_ind \\ reverse (rw [])
+  THEN1 (res_tac \\ metis_tac [NOT_SOME_NONE])
+  \\ gvs [inferred_cases]
+  \\ TRY (TRY (rename [‘TYPE_TYPE ty f’] \\ Cases_on ‘ty’ \\ gvs [TYPE_TYPE_def])
+          \\ TRY (rename [‘TERM_TYPE tm f’] \\ Cases_on ‘tm’ \\ gvs [TERM_TYPE_def])
+          \\ TRY (rename [‘THM_TYPE th f’] \\ Cases_on ‘th’ \\ gvs [THM_TYPE_def])
+          \\ fs [do_partial_app_def] \\ NO_TAC)
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘g’
+  \\ Cases_on ‘f = new_basic_type_definition_v’ THEN1 cheat (* fix definition∀ *)
+  \\ fs [kernel_funs_def]
+  \\ rewrite_tac [kernel_funs_v_def,do_partial_app_def]
+  \\ EVAL_TAC \\ fs []
+QED
+
 Theorem kernel_vals_max_app:
   kernel_vals ctxt f ∧
   do_partial_app f v = SOME g ∧
   do_opapp [g; w] = SOME (env, exp) ⇒
     f ∈ kernel_funs
 Proof
-  cheat
+  strip_tac
+  \\ last_assum mp_tac
+  \\ simp_tac std_ss [Once v_ok_cases]
+  \\ strip_tac
+  THEN1
+   (gvs [inferred_cases]
+    \\ TRY (rename [‘TYPE_TYPE ty f’] \\ Cases_on ‘ty’ \\ gvs [TYPE_TYPE_def])
+    \\ TRY (rename [‘TERM_TYPE tm f’] \\ Cases_on ‘tm’ \\ gvs [TERM_TYPE_def])
+    \\ TRY (rename [‘THM_TYPE th f’] \\ Cases_on ‘th’ \\ gvs [THM_TYPE_def])
+    \\ fs [do_partial_app_def])
+  \\ drule_all kernel_vals_twice_partial_app
+  \\ disch_then (qspec_then ‘v’ mp_tac) \\ fs []
 QED
 
 (*
