@@ -111,6 +111,21 @@ Definition kernel_locs_def:
                   ; the_context}}
 End
 
+fun get_constructors th =
+  th |> concl |> find_terms (can $ match_term “TypeStamp _ _”)
+     |> map (rand o rator)
+     |> pred_setSyntax.mk_set;
+
+Overload type_ctors_set[local] = (get_constructors TYPE_TYPE_def);
+Overload term_ctors_set[local] = (get_constructors TERM_TYPE_def);
+Overload thm_ctors_set[local] = (get_constructors THM_TYPE_def);
+
+Definition kernel_ctors_def:
+  kernel_ctors = type_ctors_set ∪
+                 term_ctors_set ∪
+                 thm_ctors_set
+End
+
 fun get_typestamp_num th =
   th |> concl |> find_term (can $ match_term “TypeStamp _ _”) |> rand;
 
@@ -167,19 +182,22 @@ End
 Definition TYPE_TYPE_HEAD_def:
   TYPE_TYPE_HEAD v ⇔
     ∃s vs. v = Conv (SOME (TypeStamp s type_stamp_n)) vs ∧
-           s ∈ {"Tyapp"; "Tyvar"}
+           s ∈ type_ctors_set
 End
 
 Definition TERM_TYPE_HEAD_def:
   TERM_TYPE_HEAD v ⇔
     ∃s vs. v = Conv (SOME (TypeStamp s term_stamp_n)) vs ∧
-           s ∈ {"Abs"; "Comb"; "Const"; "Var_1"}
+           s ∈ term_ctors_set
 End
 
 Definition THM_TYPE_HEAD_def:
   THM_TYPE_HEAD v ⇔
-    ∃vs. v = Conv (SOME (TypeStamp "Sequent" thm_stamp_n)) vs
+    ∃s vs. v = Conv (SOME (TypeStamp s thm_stamp_n)) vs ∧
+           s ∈ thm_ctors_set
 End
+
+Theorem THM_TYPE_HEAD_def = SIMP_RULE list_ss [] THM_TYPE_HEAD_def;
 
 (* -------------------------------------------------------------------------
  * THM, TERM, TYPE lemmas
