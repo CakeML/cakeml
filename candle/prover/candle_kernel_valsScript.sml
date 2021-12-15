@@ -9,7 +9,7 @@ open semanticPrimitivesTheory semanticPrimitivesPropsTheory
      ast_extrasTheory finite_mapTheory pred_setTheory;
 open basisFunctionsLib holKernelProofTheory;
 
-val _ = new_theory "ml_hol_kernel_vals";
+val _ = new_theory "candle_kernel_vals";
 
 val _ = translation_extends "ml_hol_kernelProg";
 
@@ -101,7 +101,9 @@ Theorem kernel_funs_v_def =
   kernel_funs_def |> concl |> rand |> find_terms is_const
   |> filter (fn tm => not (mem (fst (dest_const tm)) ["INSERT","EMPTY"]))
   |> map (fn c => DB.find (fst (dest_const c) ^ "_def"))
-  |> map (fn t => hd t |> snd |> fst) |> LIST_CONJ;
+  |> map (fn t => hd t |> snd |> fst)
+  |> curry (op @) [constants_v_def]
+  |> LIST_CONJ;
 
 Definition kernel_locs_def:
   kernel_locs =
