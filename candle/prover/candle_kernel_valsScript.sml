@@ -395,6 +395,12 @@ Proof
   rw [list_type_num_def, kernel_types_def]
 QED
 
+Theorem bool_type_NOTIN_kernel_types[simp]:
+  bool_type_num ∉ kernel_types
+Proof
+  rw [bool_type_num_def, kernel_types_def]
+QED
+
 Theorem TYPE_TYPE_Vectorv[simp]:
   ¬TYPE_TYPE ty (Vectorv vs)
 Proof

@@ -145,6 +145,32 @@ Theorem v_ok_def =
   |> map (SIMP_CONV (srw_ss()) [Once v_ok_cases])
   |> LIST_CONJ;
 
+Theorem v_ok_div_exn_v[simp]:
+  v_ok ctxt div_exn_v
+Proof
+  rw [v_ok_def, div_exn_v_def, div_stamp_def]
+QED
+
+Theorem v_ok_chr_exn_v[simp]:
+  v_ok ctxt chr_exn_v
+Proof
+  rw [v_ok_def, chr_exn_v_def, chr_stamp_def]
+QED
+
+Theorem v_ok_bind_exn_v[simp]:
+  v_ok ctxt bind_exn_v
+Proof
+  rw [v_ok_def, bind_exn_v_def]
+  \\ rw [Once v_ok_cases, bind_stamp_def, kernel_types_def]
+QED
+
+Theorem v_ok_sub_exn_v[simp]:
+  v_ok ctxt sub_exn_v
+Proof
+  rw [v_ok_def, sub_exn_v_def]
+  \\ rw [Once v_ok_cases, subscript_stamp_def, kernel_types_def]
+QED
+
 Theorem env_ok_def = SIMP_CONV (srw_ss()) [Once v_ok_cases] “env_ok ctxt env”;
 
 Theorem kernel_vals_ind = v_ok_ind
