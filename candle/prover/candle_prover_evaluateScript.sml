@@ -16,6 +16,42 @@ val _ = set_grammar_ancestry [
   "candle_kernel_funs", "ast_extras", "termination", "namespaceProps", "perms",
   "semanticPrimitivesProps", "misc"];
 
+Theorem pmatch_v_ok:
+  (∀envC s p v ws env.
+    pmatch envC s p v ws = Match env ∧
+    v_ok ctxt v ∧
+    (∀n len tag m.
+      nsLookup envC n = SOME (len,TypeStamp tag m) ⇒ m ∉ kernel_types) ∧
+    EVERY (ref_ok ctxt) s ∧
+    EVERY (v_ok ctxt) (MAP SND ws) ⇒
+      EVERY (v_ok ctxt) (MAP SND env)) ∧
+  (∀envC s ps vs ws env.
+    pmatch_list envC s ps vs ws = Match env ∧
+    EVERY (v_ok ctxt) vs ∧
+    (∀n len tag m.
+      nsLookup envC n = SOME (len,TypeStamp tag m) ⇒ m ∉ kernel_types) ∧
+    EVERY (ref_ok ctxt) s ∧
+    EVERY (v_ok ctxt) (MAP SND ws) ⇒
+      EVERY (v_ok ctxt) (MAP SND env))
+Proof
+  ho_match_mp_tac pmatch_ind \\ rw [] \\ gvs [pmatch_def, SF SFY_ss]
+  >- (
+    gs [CaseEq "bool"])
+  >- (
+    gvs [CaseEqs ["bool", "option", "prod"], SF SFY_ss]
+    \\ gvs [v_ok_def, same_type_def, same_ctor_def]
+    \\ drule_then strip_assume_tac kernel_vals_Conv \\ gvs [SF SFY_ss])
+  >- (
+    gs [CaseEq "bool", v_ok_def, SF SFY_ss])
+  >- (
+    gvs [CaseEqs ["bool", "option", "store_v"], v_ok_def, SF SFY_ss]
+    \\ gs [store_lookup_def, EVERY_EL, EL_MAP] \\ rw []
+    \\ first_x_assum irule \\ gs []
+    \\ first_x_assum drule \\ gs [ref_ok_def])
+  >- (
+    gvs [CaseEq "match_result", v_ok_def, SF SFY_ss])
+QED
+
 local
   val ind_thm =
     full_evaluate_ind
@@ -96,6 +132,7 @@ Proof
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
   \\ rpt CASE_TAC \\ gs []
   \\ gs [state_ok_def]
+  \\ first_assum (irule_at Any) \\ gs []
   \\ first_assum (irule_at Any) \\ gs []
 QED
 
@@ -206,33 +243,41 @@ Theorem do_app_ok:
   EVERY (ref_ok ctxt) refs ∧
   EVERY (ok_event ctxt) ffi.io_events ∧
   op ≠ FFI kernel_ffi ∧
-  (∀loc. loc ∈ kernel_locs ⇒ loc < LENGTH refs) ⇒
-    (∀loc. loc ∈ kernel_locs ⇒ loc < LENGTH refs1) ∧
-    EVERY (ref_ok ctxt) refs1 ∧
-    EVERY (ok_event ctxt) ffi1.io_events ∧
-    case list_result res of
-      Rval vs => EVERY (v_ok ctxt) vs
-      | Rerr (Rraise v) => v_ok ctxt v
-      | _ => T
+  STATE ctxt st ∧
+  (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok st loc refs) ⇒
+    ∃st1.
+      STATE ctxt st1 ∧
+      (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok st1 loc refs1) ∧
+      EVERY (ref_ok ctxt) refs1 ∧
+      EVERY (ok_event ctxt) ffi1.io_events ∧
+      case list_result res of
+        Rval vs => EVERY (v_ok ctxt) vs
+        | Rerr (Rraise v) => v_ok ctxt v
+        | _ => T
 Proof
   strip_tac
   \\ qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
   \\ Cases_on ‘op = Env_id’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
-    \\ simp [v_ok_def, nat_to_v_def])
+    \\ simp [v_ok_def, nat_to_v_def]
+    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘∃chn. op = FFI chn’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
     \\ gvs [ffiTheory.call_FFI_def, store_lookup_def, store_assign_def,
             CaseEqs ["bool", "list", "option", "oracle_result",
                      "ffi$ffi_result"], EVERY_EL, EL_LUPDATE]
-    \\ rw [ref_ok_def, v_ok_def, EL_APPEND_EQN]
-    \\ gs [NOT_LESS, LESS_OR_EQ, ok_event_def])
+    \\ rw [v_ok_def, EL_APPEND_EQN]
+    \\ first_assum (irule_at Any)
+    \\ rw [] \\ gs [NOT_LESS, LESS_OR_EQ, ok_event_def, ref_ok_def]
+    \\ irule kernel_loc_ok_LUPDATE1 \\ gs []
+    \\ strip_tac \\ gvs [v_ok_def])
   \\ Cases_on ‘op = ConfigGC’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
-    \\ simp [v_ok_def])
+    \\ simp [v_ok_def]
+    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = ListAppend’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -243,212 +288,289 @@ Proof
     \\ pop_assum mp_tac
     \\ rename1 ‘EVERY (v_ok ctxt) zs ⇒ _’
     \\ qid_spec_tac ‘zs’
-    \\ Induct \\ simp [list_to_v_def, v_ok_def])
+    \\ Induct \\ simp [list_to_v_def, v_ok_def]
+    \\ rw [] \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = Aw8sub_unsafe’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
-    \\ simp [v_ok_def])
+    \\ simp [v_ok_def]
+    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = Aw8update_unsafe’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def]
     \\ gvs [store_lookup_def, store_assign_def, EVERY_EL, EL_LUPDATE]
-    \\ rw [] \\ gs [ref_ok_def])
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ rw [] \\ gs [ref_ok_def]
+    \\ irule kernel_loc_ok_LUPDATE1 \\ gs []
+    \\ strip_tac \\ gs [v_ok_def])
   \\ Cases_on ‘op = Aupdate_unsafe’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def]
     \\ gvs [store_lookup_def, store_assign_def, EVERY_EL, EL_LUPDATE]
     \\ rw [] \\ gs [EVERY_EL, EL_LUPDATE, ref_ok_def]
+    \\ first_assum (irule_at Any)
     \\ rw [] \\ gs []
+    >- (
+      irule kernel_loc_ok_LUPDATE1 \\ gs []
+      \\ strip_tac \\ gvs [v_ok_def])
+    \\ rw [ref_ok_def, EVERY_EL, EL_LUPDATE] \\ rw []
     \\ first_x_assum drule_all
     \\ gs [ref_ok_def, EVERY_EL])
   \\ Cases_on ‘op = Asub_unsafe’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
     \\ gvs [store_lookup_def, v_ok_def, EVERY_EL]
+    \\ first_assum (irule_at Any)
     \\ first_x_assum drule_all
     \\ gs [ref_ok_def, EVERY_EL])
   \\ Cases_on ‘op = Aupdate’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def]
     \\ gvs [store_lookup_def, store_assign_def, EVERY_EL, EL_LUPDATE]
+    \\ first_assum (irule_at Any) \\ gs []
     \\ rw [ref_ok_def, EVERY_EL, EL_LUPDATE] \\ rw []
+    >- (
+      irule kernel_loc_ok_LUPDATE1 \\ gs []
+      \\ strip_tac \\ gvs [v_ok_def])
     \\ first_x_assum drule_all
     \\ gs [ref_ok_def, EVERY_EL])
   \\ Cases_on ‘op = Alength’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Asub’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
     \\ gvs [store_lookup_def, v_ok_def, EVERY_EL]
+    \\ first_assum (irule_at Any) \\ gs []
     \\ first_x_assum drule_all
     \\ gs [ref_ok_def, EVERY_EL])
   \\ Cases_on ‘op = AallocEmpty’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
     \\ gvs [v_ok_def, store_alloc_def, EVERY_EL]
-    \\ rw [EL_APPEND_EQN]
-    \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def]
-    \\ rw [DISJ_EQ_IMP] \\ rpt strip_tac \\ gs []
-    \\ first_x_assum drule \\ gs [])
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ rw [EL_APPEND_EQN] \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def]
+    >- (
+      gs [kernel_loc_ok_def, LLOOKUP_EQ_EL, EL_APPEND_EQN]
+      \\ first_x_assum (drule_then strip_assume_tac)
+      \\ rw [] \\ gs [SF SFY_ss])
+    \\ strip_tac
+    \\ first_x_assum (drule_then assume_tac)
+    \\ drule kernel_loc_ok_LENGTH \\ gs [])
   \\ Cases_on ‘op = Aalloc’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
     \\ gvs [v_ok_def, store_alloc_def, EVERY_EL]
-    \\ rw [EL_APPEND_EQN]
-    \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def]
-    \\ rw [DISJ_EQ_IMP] \\ rpt strip_tac \\ gs []
-    \\ first_x_assum drule \\ gs [])
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ rw [EL_APPEND_EQN] \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def]
+    >- (
+      gs [kernel_loc_ok_def, LLOOKUP_EQ_EL, EL_APPEND_EQN]
+      \\ first_x_assum (drule_then strip_assume_tac)
+      \\ rw [] \\ gs [SF SFY_ss])
+    \\ strip_tac
+    \\ first_x_assum (drule_then assume_tac)
+    \\ drule kernel_loc_ok_LENGTH \\ gs [])
   \\ Cases_on ‘op = Vlength’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Vsub’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [v_ok_def, EVERY_EL])
+    rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
+    \\ gs [v_ok_def, EVERY_EL])
   \\ Cases_on ‘op = VfromList’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ drule_all v_ok_v_to_list
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Strcat’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Strlen’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Strsub’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Explode’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ rename1 ‘MAP _ xs’
     \\ qid_spec_tac ‘xs’
     \\ Induct \\ simp [list_to_v_def, v_ok_def])
   \\ Cases_on ‘op = Implode’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘∃opb. op = Chopb opb’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [Boolv_def]
     \\ rw [v_ok_def])
   \\ Cases_on ‘op = Chr’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Ord’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = CopyAw8Aw8’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def]
+    \\ first_assum (irule_at Any) \\ gs []
     \\ gvs [store_assign_def, EL_LUPDATE, EVERY_EL]
-    \\ rw [ref_ok_def])
+    \\ rw [ref_ok_def]
+    \\ irule kernel_loc_ok_LUPDATE1
+    \\ rpt strip_tac \\ gvs [])
   \\ Cases_on ‘op = CopyAw8Str’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def]
+    \\ first_assum (irule_at Any)
     \\ gvs [store_assign_def, EL_LUPDATE, EVERY_EL]
-    \\ rw [ref_ok_def])
+    \\ rw [ref_ok_def]
+    \\ irule kernel_loc_ok_LUPDATE1
+    \\ rpt strip_tac \\ gvs [])
   \\ Cases_on ‘op = CopyStrAw8’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def]
+    \\ first_assum (irule_at Any)
     \\ gvs [store_assign_def, EL_LUPDATE, EVERY_EL]
-    \\ rw [ref_ok_def])
+    \\ rw [ref_ok_def]
+    \\ irule kernel_loc_ok_LUPDATE1
+    \\ rpt strip_tac \\ gvs [])
   \\ Cases_on ‘op = CopyStrStr’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘∃n. op = WordToInt n’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘∃n. op = WordFromInt n’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Aw8update’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def]
+    \\ first_assum (irule_at Any)
     \\ gvs [store_assign_def, EL_LUPDATE, EVERY_EL]
-    \\ rw [ref_ok_def])
+    \\ rw [ref_ok_def]
+    \\ irule kernel_loc_ok_LUPDATE1
+    \\ rpt strip_tac \\ gvs [])
   \\ Cases_on ‘op = Aw8sub’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Aw8length’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Aw8alloc’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ gvs [store_alloc_def, v_ok_def]
     \\ rw [EL_APPEND_EQN, ref_ok_def, DISJ_EQ_IMP]
     \\ rpt strip_tac \\ gs []
-    \\ first_x_assum drule \\ gs [])
+    \\ first_x_assum (drule_then assume_tac) \\ gs []
+    \\ drule_then assume_tac kernel_loc_ok_LENGTH \\ gs []
+    \\ gs [kernel_loc_ok_def, LLOOKUP_EQ_EL, EL_APPEND_EQN]
+    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘∃top. op = FP_top top’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘∃bop. op = FP_bop bop’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘∃uop. op = FP_uop uop’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ rw [v_ok_def])
   \\ Cases_on ‘∃cmp. op = FP_cmp cmp’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [Boolv_def]
     \\ rw [v_ok_def])
   \\ Cases_on ‘∃opn. op = Opn opn’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘∃opb. op = Opb opb’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [Boolv_def]
     \\ rw [v_ok_def])
   \\ Cases_on ‘∃sz opw. op = Opw sz opw’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Equality’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ simp [Boolv_def]
     \\ rw [v_ok_def])
   \\ Cases_on ‘op = Opderef’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ gs [v_ok_def, store_lookup_def, EVERY_EL]
     \\ first_x_assum drule \\ gs [ref_ok_def])
   \\ Cases_on ‘op = Opassign’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ gvs [v_ok_def, store_assign_def, EVERY_EL, EL_LUPDATE]
-    \\ rw [ref_ok_def])
+    \\ rw [ref_ok_def]
+    \\ irule kernel_loc_ok_LUPDATE1
+    \\ rpt strip_tac \\ gs [])
   \\ Cases_on ‘op = Opref’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
+    \\ first_assum (irule_at Any)
     \\ gvs [v_ok_def, store_alloc_def, ref_ok_def]
     \\ rw [DISJ_EQ_IMP] \\ rpt strip_tac
-    \\ first_x_assum drule \\ gs [])
+    \\ first_x_assum (drule_then assume_tac) \\ gs []
+    \\ drule_then assume_tac kernel_loc_ok_LENGTH \\ gs []
+    \\ gs [kernel_loc_ok_def, LLOOKUP_EQ_EL, EL_APPEND_EQN]
+    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op’ \\ gs []
 QED
 
@@ -464,7 +586,10 @@ Proof
   \\ rename1 ‘EVERY (v_ok ctxt1)’
   \\ qexists_tac ‘ctxt1’ \\ gs []
   \\ drule do_app_ok \\ gs []
-  \\ disch_then drule \\ simp []
+  \\ disch_then drule_all \\ simp []
+  \\ strip_tac \\ gs []
+  \\ rpt CASE_TAC \\ gs []
+  \\ first_assum (irule_at Any) \\ gs []
 QED
 
 Theorem evaluate_v_ok_Opapp:
@@ -485,7 +610,8 @@ Proof
     by gs [env_ok_def, SF SFY_ss]
   \\ rename1 ‘state_ok ctxt1 s’
   \\ ‘state_ok ctxt1 (dec_clock s)’
-    by gs [evaluateTheory.dec_clock_def, state_ok_def]
+    by (gs [evaluateTheory.dec_clock_def, state_ok_def]
+        \\ first_assum (irule_at Any) \\ gs [])
   \\ ‘∃f v. vs = [v; f]’
     by (gvs [do_opapp_cases]
         \\ Cases_on ‘vs’ \\ gs [])
@@ -677,7 +803,9 @@ Proof
              nsLookup_alist_to_ns_none]
     \\ rw [] \\ gs [SF SFY_ss]
     \\ drule_then assume_tac ALOOKUP_MEM
-    \\ cheat (* pmatch theorem *))
+    \\ drule_then drule (CONJUNCT1 pmatch_v_ok)
+    \\ gs [env_ok_def, state_ok_def, SF SFY_ss, EVERY_MAP, LAMBDA_PROD,
+           EVERY_MEM, FORALL_PROD])
   \\ gs [state_ok_def]
   \\ first_assum (irule_at Any) \\ gs []
 QED
@@ -725,7 +853,9 @@ Proof
          nsLookup_alist_to_ns_some, SF SFY_ss]
   \\ rw [] \\ gs [SF SFY_ss]
   \\ drule_then assume_tac ALOOKUP_MEM
-  \\ cheat (* pmatch theorem *)
+  \\ drule_then drule (CONJUNCT1 pmatch_v_ok)
+  \\ gs [env_ok_def, state_ok_def, SF SFY_ss, EVERY_MAP, LAMBDA_PROD,
+         EVERY_MEM, FORALL_PROD]
 QED
 
 Theorem evaluate_v_ok_decs_Dletrec:
@@ -865,3 +995,4 @@ Proof
 QED
 
 val _ = export_theory ();
+

@@ -134,6 +134,26 @@ Proof
   \\ gs [do_partial_app_def, CaseEqs ["exp", "v"]]
 QED
 
+Theorem kernel_vals_Conv:
+  kernel_vals ctxt (Conv (SOME stamp) vs) ⇒
+    ∃tag m. stamp = TypeStamp tag m ∧ m ∈ kernel_types
+Proof
+  rw [Once v_ok_cases] \\ gs [do_partial_app_def, CaseEqs ["exp", "v"]]
+  \\ irule inferred_Conv \\ gs [SF SFY_ss]
+QED
+
+Theorem kernel_vals_Conv_NONE[simp]:
+  ¬kernel_vals ctxt (Conv NONE vs)
+Proof
+  rw [Once v_ok_cases] \\ gs [do_partial_app_def, CaseEqs ["exp", "v"]]
+QED
+
+Theorem kernel_vals_Loc[simp]:
+  ¬kernel_vals ctxt (Loc loc)
+Proof
+  rw [Once v_ok_cases] \\ gs [do_partial_app_def, CaseEqs ["exp", "v"]]
+QED
+
 Theorem v_ok_def =
   [“v_ok ctxt (Conv opt vs)”,
    “v_ok ctxt (Closure env n x)”,
@@ -195,6 +215,24 @@ Definition kernel_loc_ok_def:
         (the_context = Loc loc ⇒
            LIST_TYPE UPDATE_TYPE s.the_context v)
 End
+
+Theorem kernel_loc_ok_LENGTH:
+  kernel_loc_ok st loc refs ⇒
+    loc < LENGTH refs
+Proof
+  rw [kernel_loc_ok_def]
+  \\ gs [LLOOKUP_EQ_EL]
+QED
+
+Theorem kernel_loc_ok_LUPDATE1:
+  kernel_loc_ok st loc refs ∧
+  n ≠ loc ⇒
+    kernel_loc_ok st loc (LUPDATE v n refs)
+Proof
+  rw [kernel_loc_ok_def]
+  \\ gs [LLOOKUP_EQ_EL, EL_LUPDATE]
+  \\ first_assum (irule_at Any) \\ gs []
+QED
 
 Definition state_ok_def:
   state_ok ctxt s ⇔

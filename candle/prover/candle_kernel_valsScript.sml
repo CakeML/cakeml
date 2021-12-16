@@ -426,6 +426,45 @@ Proof
   \\ once_rewrite_tac [kernel_funs_v_def] \\ gs []
 QED
 
+Theorem inferred_Conv:
+  inferred ctxt (Conv (SOME stamp) vs) ⇒
+    ∃tag m. stamp = TypeStamp tag m ∧ m ∈ kernel_types
+Proof
+  rw [Once inferred_cases, kernel_types_def]
+  >- (
+    Cases_on ‘ty’ \\ gs [TYPE_TYPE_def])
+  >- (
+    Cases_on ‘tm’ \\ gs [TERM_TYPE_def])
+  >- (
+    Cases_on ‘th’ \\ gs [THM_TYPE_def])
+QED
+
+Theorem inferred_Conv_NONE[simp]:
+  ¬inferred ctxt (Conv NONE vs)
+Proof
+  rw [Once inferred_cases, kernel_types_def]
+  >- (
+    Cases_on ‘ty’ \\ gs [TYPE_TYPE_def])
+  >- (
+    Cases_on ‘tm’ \\ gs [TERM_TYPE_def])
+  >- (
+    Cases_on ‘th’ \\ gs [THM_TYPE_def])
+QED
+
+Theorem inferred_Loc[simp]:
+  ¬inferred ctxt (Loc loc)
+Proof
+  rw [Once inferred_cases, kernel_funs_def]
+  \\ once_rewrite_tac [kernel_funs_v_def] \\ gs []
+  >- (
+    Cases_on ‘ty’ \\ gs [TYPE_TYPE_def])
+  >- (
+    Cases_on ‘tm’ \\ gs [TERM_TYPE_def])
+  >- (
+    Cases_on ‘th’ \\ gs [THM_TYPE_def])
+QED
+
 val _ = reset_translation();
 
 val _ = export_theory ();
+
