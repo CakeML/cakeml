@@ -157,12 +157,27 @@ Definition ref_ok_def:
   ref_ok ctxt (W8array vs) = T
 End
 
+Definition kernel_loc_ok_def:
+  kernel_loc_ok s loc refs ⇔
+    ∃v. LLOOKUP refs loc = SOME (Refv v) ∧
+        (the_type_constants = Loc loc ⇒
+           LIST_TYPE (PAIR_TYPE STRING_TYPE NUM) s.the_type_constants v) ∧
+        (the_term_constants = Loc loc ⇒
+           LIST_TYPE (PAIR_TYPE STRING_TYPE TYPE_TYPE) s.the_term_constants v) ∧
+        (the_axioms = Loc loc ⇒
+           LIST_TYPE THM_TYPE s.the_axioms v) ∧
+        (the_context = Loc loc ⇒
+           LIST_TYPE UPDATE_TYPE s.the_context v)
+End
+
 Definition state_ok_def:
   state_ok ctxt s ⇔
-    (∀loc. loc ∈ kernel_locs ⇒ loc < LENGTH s.refs) ∧
     (∀n. n ∈ kernel_types ⇒ n < s.next_type_stamp) ∧
     EVERY (ref_ok ctxt) s.refs ∧
-    EVERY (ok_event ctxt) s.ffi.io_events
+    EVERY (ok_event ctxt) s.ffi.io_events ∧
+    ∃state.
+      STATE ctxt state ∧
+      ∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok state loc s.refs
 End
 
 Theorem state_ok_dec_clock:
@@ -249,6 +264,21 @@ Proof
   rw [env_ok_def, ml_progTheory.init_env_def]
   \\ gvs [nsLookup_Bind_v_some, CaseEqs ["bool", "option"], kernel_types_def]
 QED
+
+Theorem v_ok_bind_exn_v[simp]:
+  v_ok ctxt bind_exn_v
+Proof
+  fs [bind_exn_v_def]
+  \\ fs [Once v_ok_cases,bind_stamp_def]
+QED
+
+Theorem v_ok_sub_exn_v[simp]:
+  v_ok ctxt sub_exn_v
+Proof
+  rw [v_ok_def, sub_exn_v_def]
+  \\ rw [Once v_ok_cases, subscript_stamp_def, kernel_types_def]
+QED
+
 
 (* -------------------------------------------------------------------------
  * Lemmas about v_ok and {TYPE,TERM,THM}_TYPE{,_HEAD}

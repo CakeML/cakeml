@@ -310,6 +310,31 @@ Proof
   \\ gvs [do_app_def] \\ fs [TYPE_TYPE_HEAD_def]
 QED
 
+Theorem concl_v_head:
+  do_opapp [concl_v; v] = SOME (env, exp) ∧
+  evaluate s env [exp] = (s', res) ⇒
+    (s = s' ∧ res = Rerr (Rabort Rtype_error)) ∨
+    (s = s' ∧ res = Rerr (Rraise bind_exn_v)) ∨
+    (s = s' ∧ res = Rerr (Rabort Rtimeout_error)) ∨
+    THM_TYPE_HEAD v
+Proof
+  rewrite_tac [concl_v_def]
+  \\ qmatch_goalsub_rename_tac ‘Mat _ [(_, ee)]’
+  \\ strip_tac
+  \\ gvs [trans_v_def,do_partial_app_def,do_opapp_def]
+  \\ gvs [evaluate_def,AllCaseEqs()]
+  \\ rpt (pop_assum mp_tac)
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ rpt strip_tac
+  \\ Cases_on ‘v’ \\ gvs [pmatch_def]
+  \\ rename [‘Conv oo ll’] \\ Cases_on ‘oo’ \\ gvs [pmatch_def]
+  \\ gvs [AllCaseEqs(),LENGTH_EQ_NUM_compute]
+  \\ rpt (pop_assum mp_tac)
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ rpt strip_tac \\ gvs [same_ctor_def,pmatch_def]
+  \\ gvs [THM_TYPE_HEAD_def]
+QED
+
 Theorem trans_v_head:
   do_partial_app trans_v v = SOME g ∧
   do_opapp [g; w] = SOME (env, exp) ∧

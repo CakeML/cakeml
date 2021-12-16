@@ -67,12 +67,19 @@ Proof
   \\ gs [io_events_mono_antisym]
 QED
 
+Theorem perms_ok_concl:
+  perms_ok ∅ concl_v
+Proof
+  cheat
+QED
+
 Theorem inferred_ok:
   inferred ctxt f ∧
   state_ok ctxt s ∧
   v_ok ctxt v ∧
   do_opapp [f; v] = SOME (env, exp) ∧
   evaluate s env [exp] = (s', res) ⇒
+    (∃abort. s'.ffi = s.ffi ∧ res = Rerr (Rabort abort)) ∨
     ∃ctxt'.
       state_ok ctxt' s' ∧
       (∀v. v_ok ctxt v ⇒ v_ok ctxt' v) ∧
@@ -88,6 +95,45 @@ Proof
   >~ [‘THM ctxt th’] >- (
     Cases_on ‘th’ \\ gs [THM_TYPE_def, do_opapp_cases])
   \\ rename [‘f ∈ kernel_funs’]
+  \\ Cases_on ‘f ∈ { (* type_subst_v; freesin_v; vfree_in_v; variant_v; *) vsubst_v;
+                     inst_v; trans_v; abs_1_v; eq_mp_v; deduct_antisym_rule_v;
+                     inst_type_v; inst_1_v; trans_v }’ THEN1
+   (gvs []
+    \\ qpat_x_assum ‘do_opapp _ = _’ mp_tac
+    \\ last_x_assum mp_tac
+    \\ rewrite_tac [kernel_funs_v_def]
+    \\ rename [‘Closure env1 a1 (Fun a2 ee)’]
+    \\ fs [do_opapp_def] \\ rw [] \\ gvs [evaluate_def]
+    \\ qexists_tac ‘ctxt’ \\ fs []
+    \\ irule_at (Pos last) v_ok_KernelVals
+    \\ irule_at Any v_ok_PartialApp
+    \\ first_assum $ irule_at $ Pos last
+    \\ irule_at Any v_ok_Inferred
+    \\ irule_at Any inferred_KernelFuns
+    \\ first_assum $ irule_at Any
+    \\ fs [do_partial_app_def])
+  \\ Cases_on ‘f = concl_v’ \\ gvs [] >-
+   (drule_all concl_v_head \\ strip_tac \\ gvs []
+    \\ TRY (first_x_assum $ irule_at Any \\ gvs [] \\ NO_TAC)
+    \\ rename [‘THM_TYPE_HEAD _’]
+    \\ assume_tac concl_v_thm
+    \\ drule_all v_ok_THM_TYPE_HEAD \\ strip_tac
+    \\ (drule_then $ drule_then $ drule_then $ drule) Arrow1
+    \\ disch_then (qspec_then ‘{}’ mp_tac)
+    \\ impl_tac
+    THEN1 (imp_res_tac THM_TYPE_perms_ok \\ fs [perms_ok_concl])
+    \\ strip_tac \\ gvs []
+    \\ qexists_tac ‘ctxt’ \\ fs []
+    \\ fs [state_ok_def]
+    \\ irule_at (Pos last) v_ok_KernelVals
+    \\ irule_at Any v_ok_Inferred
+    \\ irule_at Any inferred_TERM
+    \\ first_assum $ irule_at Any
+    \\ irule_at Any (holKernelProofTheory.concl_thm |> GEN_ALL |> SIMP_RULE std_ss [])
+    \\ imp_res_tac v_ok_THM \\ fs []
+    \\ first_assum $ irule_at Any
+    \\ first_assum $ irule_at Any
+    \\ fs [])
   \\ cheat (* (
     gs [kernel_funs_def]
     >~ [‘conj_v’] >- (
@@ -191,20 +237,6 @@ Proof
   \\ disch_then (qspecl_then [`s`,`env1`,`[e]`] mp_tac)
   \\ rw [is_clock_io_mono_def]
   \\ gs [io_events_mono_antisym]
-QED
-
-Theorem v_ok_bind_exn_v[simp]:
-  v_ok ctxt bind_exn_v
-Proof
-  rw [v_ok_def, bind_exn_v_def]
-  \\rw [Once v_ok_cases, bind_stamp_def, kernel_types_def]
-QED
-
-Theorem v_ok_sub_exn_v[simp]:
-  v_ok ctxt sub_exn_v
-Proof
-  rw [v_ok_def, sub_exn_v_def]
-  \\ rw [Once v_ok_cases, subscript_stamp_def, kernel_types_def]
 QED
 
 Theorem kernel_vals_twice_partial_app:
@@ -326,8 +358,7 @@ Theorem kernel_vals_ok:
 Proof
   rw [Once v_ok_cases]
   >~ [‘inferred ctxt f’] >- (
-    rw [DISJ_EQ_IMP]
-    \\ irule_at Any inferred_ok
+    irule_at Any inferred_ok
     \\ first_assum (irule_at Any)
     \\ first_assum (irule_at Any) \\ gs []
     \\ first_assum (irule_at Any) \\ gs [])
@@ -344,6 +375,22 @@ Proof
             \\ gs [])
       \\ drule_all kernel_vals_max_app
       \\ rw [kernel_funs_def])
+  \\ Cases_on ‘f = concl_v’ \\ gvs []
+  THEN1 (* same proof goes for any one argument function *)
+   (qsuff_tac ‘F’ \\ fs []
+    \\ qpat_x_assum ‘do_partial_app _ _ = SOME _’ mp_tac
+    \\ rewrite_tac [kernel_funs_v_def] \\ EVAL_TAC)
+  \\ Cases_on ‘f = type_subst_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = freesin_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = vfree_in_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = variant_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = vsubst_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = inst_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = abs_1_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = eq_mp_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = deduct_antisym_rule_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = inst_type_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = inst_1_v’ \\ gvs [] >- cheat
   \\ Cases_on ‘f = trans_v’ \\ gvs []
   >- (
     drule_all_then strip_assume_tac trans_v_head \\ gvs []
@@ -373,7 +420,11 @@ Proof
     \\ imp_res_tac v_ok_THM
     \\ first_assum (irule_at Any) \\ gs []
     \\ gs [state_ok_def] *) \\ cheat)
-  \\ cheat (* the other kernel functions *)
+  \\ qsuff_tac ‘∃v1 v2 x. f = Closure v1 v2 x ∧ ∀n w. x ≠ Fun n w’
+  THEN1 (strip_tac \\ fs [do_partial_app_def,AllCaseEqs()])
+  \\ fs [kernel_funs_def]
+  \\ TRY (rewrite_tac [kernel_funs_v_def,v_11] \\ simp [] \\ NO_TAC)
+  \\ cheat (* the line above should finish off all cases *)
 QED
 
 val _ = export_theory ();
