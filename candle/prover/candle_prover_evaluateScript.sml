@@ -284,19 +284,22 @@ Proof
     \\ gvs [store_lookup_def, v_ok_def, EVERY_EL]
     \\ first_x_assum drule_all
     \\ gs [ref_ok_def, EVERY_EL])
-  \\ cheat (*
   \\ Cases_on ‘op = AallocEmpty’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
     \\ gvs [v_ok_def, store_alloc_def, EVERY_EL]
     \\ rw [EL_APPEND_EQN]
-    \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def])
+    \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def]
+    \\ rw [DISJ_EQ_IMP] \\ rpt strip_tac \\ gs []
+    \\ first_x_assum drule \\ gs [])
   \\ Cases_on ‘op = Aalloc’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
-    \\ gvs [v_ok_def, store_alloc_def, SUBSET_DEF, PULL_EXISTS]
+    \\ gvs [v_ok_def, store_alloc_def, EVERY_EL]
     \\ rw [EL_APPEND_EQN]
-    \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def])
+    \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def]
+    \\ rw [DISJ_EQ_IMP] \\ rpt strip_tac \\ gs []
+    \\ first_x_assum drule \\ gs [])
   \\ Cases_on ‘op = Vlength’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -347,17 +350,17 @@ Proof
   \\ Cases_on ‘op = CopyAw8Aw8’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def]
-    \\ gvs [store_assign_def, EL_LUPDATE]
+    \\ gvs [store_assign_def, EL_LUPDATE, EVERY_EL]
     \\ rw [ref_ok_def])
   \\ Cases_on ‘op = CopyAw8Str’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def]
-    \\ gvs [store_assign_def, EL_LUPDATE]
+    \\ gvs [store_assign_def, EL_LUPDATE, EVERY_EL]
     \\ rw [ref_ok_def])
   \\ Cases_on ‘op = CopyStrAw8’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def]
-    \\ gvs [store_assign_def, EL_LUPDATE]
+    \\ gvs [store_assign_def, EL_LUPDATE, EVERY_EL]
     \\ rw [ref_ok_def])
   \\ Cases_on ‘op = CopyStrStr’ \\ gs []
   >- (
@@ -373,8 +376,8 @@ Proof
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Aw8update’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SUBSET_DEF, PULL_EXISTS, v_ok_def]
-    \\ gvs [store_assign_def, EL_LUPDATE]
+    rw [do_app_cases] \\ gs [v_ok_def]
+    \\ gvs [store_assign_def, EL_LUPDATE, EVERY_EL]
     \\ rw [ref_ok_def])
   \\ Cases_on ‘op = Aw8sub’ \\ gs []
   >- (
@@ -387,9 +390,10 @@ Proof
   \\ Cases_on ‘op = Aw8alloc’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
-    \\ gvs [store_alloc_def, v_ok_def, SUBSET_DEF, PULL_EXISTS]
-    \\ rw [EL_APPEND_EQN]
-    \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def])
+    \\ gvs [store_alloc_def, v_ok_def]
+    \\ rw [EL_APPEND_EQN, ref_ok_def, DISJ_EQ_IMP]
+    \\ rpt strip_tac \\ gs []
+    \\ first_x_assum drule \\ gs [])
   \\ Cases_on ‘∃top. op = FP_top top’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -410,7 +414,7 @@ Proof
   \\ Cases_on ‘∃opn. op = Opn opn’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
-    \\ simp [div_exn_v_def, v_ok_def])
+    \\ simp [v_ok_def])
   \\ Cases_on ‘∃opb. op = Opb opb’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -437,17 +441,15 @@ Proof
   \\ Cases_on ‘op = Opassign’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
-    \\ gvs [v_ok_def, store_assign_def]
-    \\ rw [EL_LUPDATE, ref_ok_def])
+    \\ gvs [v_ok_def, store_assign_def, EVERY_EL, EL_LUPDATE]
+    \\ rw [ref_ok_def])
   \\ Cases_on ‘op = Opref’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
-    \\ gvs [v_ok_def, store_alloc_def, ref_ok_def, SUBSET_DEF]
-    \\ simp [EL_APPEND_EQN]
-    \\ rw [] \\ gs []
-    \\ gvs [NOT_LESS, LESS_OR_EQ, ref_ok_def])
+    \\ gvs [v_ok_def, store_alloc_def, ref_ok_def]
+    \\ rw [DISJ_EQ_IMP] \\ rpt strip_tac
+    \\ first_x_assum drule \\ gs [])
   \\ Cases_on ‘op’ \\ gs []
-  *)
 QED
 
 Theorem evaluate_v_ok_Op:
