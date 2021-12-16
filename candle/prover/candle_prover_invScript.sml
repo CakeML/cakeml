@@ -127,6 +127,13 @@ Inductive v_ok:
        env_ok ctxt env)
 End
 
+Theorem kernel_vals_Vectorv[simp]:
+  ¬kernel_vals ctxt (Vectorv vs)
+Proof
+  rw [Once v_ok_cases]
+  \\ gs [do_partial_app_def, CaseEqs ["exp", "v"]]
+QED
+
 Theorem v_ok_def =
   [“v_ok ctxt (Conv opt vs)”,
    “v_ok ctxt (Closure env n x)”,

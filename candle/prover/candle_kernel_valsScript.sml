@@ -370,6 +370,31 @@ Proof
   rw [list_type_num_def, kernel_types_def]
 QED
 
+Theorem TYPE_TYPE_Vectorv[simp]:
+  ¬TYPE_TYPE ty (Vectorv vs)
+Proof
+  Cases_on ‘ty’ \\ rw [TYPE_TYPE_def]
+QED
+
+Theorem TERM_TYPE_Vectorv[simp]:
+  ¬TERM_TYPE tm (Vectorv vs)
+Proof
+  Cases_on ‘tm’ \\ rw [TERM_TYPE_def]
+QED
+
+Theorem THM_TYPE_Vectorv[simp]:
+  ¬THM_TYPE th (Vectorv vs)
+Proof
+  Cases_on ‘th’ \\ rw [THM_TYPE_def]
+QED
+
+Theorem inferred_Vectorv[simp]:
+  ¬inferred ctxt (Vectorv vs)
+Proof
+  rw [Once inferred_cases, kernel_funs_def]
+  \\ once_rewrite_tac [kernel_funs_v_def] \\ gs []
+QED
+
 val _ = reset_translation();
 
 val _ = export_theory ();
