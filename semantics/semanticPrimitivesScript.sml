@@ -238,8 +238,9 @@ Datatype:
   |>
 End
 
-Type eval_oracle_fun = ``: num -> compiler_args``
+(* Alternative mode for Eval including an oracle.
    This is only for use in the compiler proof. *)
+Type eval_oracle_fun = ``: num -> compiler_args``
 
 Datatype:
  eval_oracle_state =
