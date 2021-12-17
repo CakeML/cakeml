@@ -3,7 +3,6 @@
 *)
 open preamble;
 open libTheory astTheory typeSystemTheory semanticPrimitivesTheory evaluateTheory;
-open terminationTheory;
 open namespacePropsTheory;
 open semanticPrimitivesPropsTheory;
 open evaluatePropsTheory;
@@ -72,6 +71,22 @@ Theorem v_unchanged[simp]:
  !tenv x. tenv with v := tenv.v = tenv
 Proof
  srw_tac[][type_env_component_equality]
+QED
+
+Theorem check_dup_ctors_thm:
+   check_dup_ctors (tvs,tn,condefs) = ALL_DISTINCT (MAP FST condefs)
+Proof
+  rw [check_dup_ctors_def] >>
+  induct_on `condefs` >>
+  rw [] >>
+  pairarg_tac >>
+  fs [] >>
+  eq_tac >>
+  rw [] >>
+  induct_on `condefs` >>
+  rw [] >>
+  pairarg_tac >>
+  fs []
 QED
 
 (* Classifying values of basic types *)
@@ -1183,6 +1198,12 @@ Proof
    >> first_x_assum irule
    >> simp []
    >> metis_tac [type_v_weakening, weakCT_refl, weakS_refl])
+ >- ((* Pas case *)
+   first_x_assum drule>>
+   rpt(disch_then drule)>>
+   simp[PULL_EXISTS,FORALL_PROD]>>
+   rpt(disch_then drule)>>
+   metis_tac[APPEND_ASSOC,CONS_APPEND])
  >- (
    first_x_assum irule
    >> simp []

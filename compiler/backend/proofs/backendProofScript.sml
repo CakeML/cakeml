@@ -3080,8 +3080,9 @@ Proof
 
   \\ (bvi_to_dataProofTheory.compile_prog_semantics
       |> SIMP_RULE std_ss [GSYM backendPropsTheory.pure_cc_def |> SIMP_RULE std_ss [LET_THM]]
-      |> REWRITE_RULE [GSYM pure_co_def]
+      |> REWRITE_RULE [GSYM pure_co_def] |> Q.GEN ‘lim’
       |> old_drule)
+
   \\ disch_then (qspec_then `dataProps$zero_limits` mp_tac)
   \\ once_rewrite_tac [dataPropsTheory.semantics_zero_limits]
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\

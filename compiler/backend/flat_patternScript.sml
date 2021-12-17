@@ -73,6 +73,12 @@ Definition compile_pat_bindings_def:
         flatLang$Let t (SOME nm) (App t (El j) [x]) exp) exp2 j_nms_used in
     let spt2 = if NULL j_nms_used then spt else insert k () spt in
     (spt2, exp3)) /\
+  compile_pat_bindings t i ((Pas p v, k, x) :: m) exp = (
+    let nm = enc_num_to_name (i + 1) [] in
+    let (spt, exp2) = compile_pat_bindings t (i + 2)
+                      ((p, i + 1, Var_local t nm) :: m) exp in
+    (insert k () spt, Let t (SOME v) x
+                            (Let t (SOME nm) (Var_local t v) exp2))) /\
   compile_pat_bindings t i ((Pref p, k, x) :: m) exp = (
     let nm = enc_num_to_name (i + 1) [] in
     let (spt, exp2) = compile_pat_bindings t (i + 2)
@@ -146,6 +152,7 @@ Definition encode_pat_def:
     (case stmp of NONE => NONE | SOME (i, NONE) => SOME (i, NONE)
         | SOME (i, SOME (ty, ctors)) => SOME (i, SOME ctors))
     (MAP encode_pat ps) /\
+  encode_pat (Pas p v) = encode_pat p /\
   encode_pat (Pref p) = Ref (encode_pat p)
 Termination
   WF_REL_TAC `measure pat_size`
@@ -162,6 +169,8 @@ Definition naive_pattern_match_def:
     (App t Equality [v; Lit t l]) (naive_pattern_match t mats) (Bool t F) /\
   naive_pattern_match t ((Pcon NONE ps, v) :: mats) =
     naive_pattern_match t (MAPi (\i p. (p, App t (El i) [v])) ps ++ mats) /\
+  naive_pattern_match t ((Pas p i, v) :: mats) =
+    naive_pattern_match t ((p, v) :: mats) /\
   naive_pattern_match t ((Pcon (SOME stmp) ps, v) :: mats) =
     If t (App t (TagLenEq (FST stmp) (LENGTH ps)) [v])
       (naive_pattern_match t (MAPi (\i p. (p, App t (El i) [v])) ps ++ mats))

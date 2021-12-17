@@ -5,9 +5,9 @@
 open preamble
      astTheory libTheory semanticPrimitivesTheory
      patternMatchesTheory patternMatchesLib
-     ml_progTheory ml_translatorTheory
+     ml_progTheory ml_translatorTheory evaluateTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory;
-open terminationTheory ml_translatorTheory integerTheory;
+open ml_translatorTheory integerTheory;
 
 val _ = new_theory "ml_pmatch";
 
@@ -34,6 +34,8 @@ val Pmatch_def = tDefine"Pmatch"`
      | SOME env' => Pmatch env' refs (p2::ps) (v2::vs)) ∧
   (Pmatch env refs [Pany] [v] = SOME env) ∧
   (Pmatch env refs [Pvar x] [v] = SOME (write x v env)) ∧
+  (Pmatch env refs [Pas p x] [v] =
+     Pmatch (write x v env) refs [p] [v]) ∧
   (Pmatch env refs [Plit l] [Litv l'] =
      if l = l' then SOME env else NONE) ∧
   (Pmatch env refs [Pcon (SOME n) ps] [Conv (SOME (t')) vs] =
@@ -114,6 +116,13 @@ val pmatch_imp_Pmatch = Q.prove(
     fs[store_lookup_def] >>
     first_x_assum(qspec_then`aenv`mp_tac) \\
     simp[])
+  >- (
+    fs [AllCaseEqs()]
+    \\ last_x_assum (qspec_then ‘(aenv with v := nsBind i v aenv.v)’ mp_tac) \\ fs []
+    \\ CASE_TAC \\ fs []
+    \\ strip_tac \\ fs []
+    \\ Cases_on ‘aenv.v’
+    \\ EVAL_TAC \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC])
   >- (
     first_x_assum(qspec_then`aenv`mp_tac)>>simp[]>>
     BasicProvers.CASE_TAC >> fs[] >>

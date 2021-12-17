@@ -11,12 +11,12 @@
   This enables the semantics of let rec to just create Closures rather
   than Recclosures.
 *)
-open preamble astTheory terminationTheory flatLangTheory;
-open flat_elimTheory flat_patternTheory;
+open preamble astTheory flatLangTheory;
+open flat_elimTheory flat_patternTheory evaluateTheory;
 
 
 val _ = new_theory"source_to_flat";
-val _ = set_grammar_ancestry ["ast", "flatLang", "termination"];
+val _ = set_grammar_ancestry ["ast", "flatLang", "evaluate"];
 val _ = numLib.prefer_num();
 val _ = temp_tight_equality ();
 
@@ -61,6 +61,7 @@ Definition compile_pat_def:
       (OPTION_JOIN (OPTION_MAP (nsLookup env.c) id))
       (MAP (compile_pat env) ps)) ∧
   (compile_pat env (Pref p) = Pref (compile_pat env p)) ∧
+  (compile_pat env (Pas p i) = Pas (compile_pat env p) i) ∧
   (compile_pat env (Ptannot p t) = compile_pat env p)
 Termination
   WF_REL_TAC `measure (pat_size o SND)` >>
@@ -158,7 +159,7 @@ Definition join_all_names_def:
     | _ => FLAT (join_all_names_aux xs [])
 End
 
-val compile_exp_def = tDefine"compile_exp"`
+Definition compile_exp_def:
   (compile_exp (t:string list) (env:environment) (Raise e) =
     Raise None (compile_exp t env e)) ∧
   (compile_exp t env (Handle e pes) =
@@ -241,12 +242,16 @@ val compile_exp_def = tDefine"compile_exp"`
   (compile_funs t env [] = []) ∧
   (compile_funs t env ((f,x,e)::funs) =
     (f,x,compile_exp (f::t) (env with v := nsBind x (Local None x) env.v) e) ::
-    compile_funs t env funs)`
-  (WF_REL_TAC `inv_image $< (\x. case x of INL (t,x,e) => exp_size e
-                                        | INR (INL (t,x,es)) => exps_size es
-                                        | INR (INR (INL (t,x,pes))) => pes_size pes
-                                        | INR (INR (INR (t,x,funs))) => funs_size funs)` >>
-   srw_tac [ARITH_ss] [size_abbrevs, astTheory.exp_size_def]);
+    compile_funs t env funs)
+Termination
+  WF_REL_TAC `inv_image $< (\x. case x of INL (t,x,e) => exp_size e
+   | INR (INL (t,x,es)) => list_size exp_size es
+   | INR (INR (INL (t,x,pes))) =>
+       list_size (pair_size pat_size exp_size) pes
+   | INR (INR (INR (t,x,funs))) =>
+       list_size (pair_size (list_size char_size)
+                  (pair_size (list_size char_size) exp_size)) funs)`
+End
 
 Theorem compile_exps_append:
    !env es es'.
@@ -361,7 +366,7 @@ Definition env_id_tuple_def:
     [Lit None (IntLit (& gen)); Lit None (IntLit (& id))]
 End
 
-val compile_decs_def = tDefine "compile_decs" `
+Definition compile_decs_def:
   (compile_decs (t:string list) n next env envs [ast$Dlet locs p e] =
      let n' = n + 4 in
      let xs = REVERSE (pat_bindings p []) in
@@ -420,9 +425,10 @@ val compile_decs_def = tDefine "compile_decs" `
      let (n'', next2, new_env2, envs2, ds') =
        compile_decs t n' next1 (extend_env new_env1 env) envs1 ds
      in
-       (n'', next2, extend_env new_env2 new_env1, envs2, d'++ds'))`
- (wf_rel_tac `measure (list_size ast$dec_size o SND o SND o SND o SND o SND)`
-  >> rw [dec1_size_eq]);
+       (n'', next2, extend_env new_env2 new_env1, envs2, d'++ds'))
+Termination
+  WF_REL_TAC `measure (list_size ast$dec_size o SND o SND o SND o SND o SND)`
+End
 
 val _ = Datatype`
   config = <| next : next_indices

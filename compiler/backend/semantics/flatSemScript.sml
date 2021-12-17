@@ -2,8 +2,9 @@
   The formal semantics of flatLang
 *)
 
-open preamble flatLangTheory
-     semanticPrimitivesPropsTheory
+open preamble
+open evaluateTheory
+open flatLangTheory semanticPrimitivesPropsTheory
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -26,8 +27,7 @@ val _ = new_theory "flatSem";
  * will bind.
  *)
 
-val _ = set_grammar_ancestry ["flatLang",
-          "semanticPrimitivesProps", "fpSem"];
+val _ = set_grammar_ancestry ["flatLang", "semanticPrimitivesProps", "fpSem"];
 val _ = temp_tight_equality();
 
 val _ = Datatype`
@@ -140,7 +140,7 @@ Definition do_eq_def:
   (do_eq_list _ _ = Eq_val F)
 Termination
   WF_REL_TAC `inv_image $< (\x. case x of INL (x,y) => v_size x
-                                         | INR (xs,ys) => v4_size xs)`
+                                        | INR (xs,ys) => v4_size xs)`
 End
 
 (* Do an application *)
@@ -559,6 +559,8 @@ Definition pmatch_def:
       pmatch_list s ps vs bindings
     else
       No_match) ∧
+  (pmatch s (Pas p i) v bindings =
+    pmatch s p v ((i,v)::bindings)) ∧
   (pmatch s (Pref p) (Loc lnum) bindings =
     case store_lookup lnum s.refs of
     | SOME (Refv v) => pmatch s p v bindings
@@ -704,7 +706,7 @@ Definition evaluate_def:
        else
        (case (do_app s op (REVERSE vs)) of
         | NONE => (s, Rerr (Rabort Rtype_error))
-        | SOME (s',r) => (s', list_result r))
+        | SOME (s',r) => (s', evaluate$list_result r))
    | res => res) ∧
   (evaluate env s [If _ e1 e2 e3] =
    case fix_clock s (evaluate env s [e1]) of

@@ -8,7 +8,7 @@
   recurisve and controlled using configurable parameters.
 *)
 open preamble closLangTheory;
-open db_varsTheory clos_ticksTheory clos_letopTheory clos_fvsTheory;
+open db_varsTheory clos_ticksTheory clos_letopTheory clos_fvsTheory clos_opTheory;
 
 val _ = new_theory "clos_known";
 
@@ -18,7 +18,7 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* This definition is written to short-circuit,
    i.e. exit as soon as possible. *)
-val get_size_sc_aux_def = tDefine "get_size_sc_aux" `
+Definition get_size_sc_aux_def:
   (get_size_sc_aux n [] = n) /\
   (get_size_sc_aux n (x::y::xs) =
      if n = 0n then n else
@@ -58,12 +58,14 @@ val get_size_sc_aux_def = tDefine "get_size_sc_aux" `
   (get_size_sc_aux n [App t loc_opt x1 xs] =
      let n = n - 1 in if n = 0 then 0 else
      let n = get_size_sc_aux n [x1] in if n = 0 then 0 else
-       get_size_sc_aux n xs)`
-  (WF_REL_TAC `measure (exp3_size o SND)`
-   \\ simp [] \\ rpt strip_tac
-   \\ `exp3_size (MAP SND fns) <= exp1_size fns`
-      by (Induct_on `fns` \\ simp [exp_size_def] \\ Cases \\ simp [exp_size_def])
-   \\ simp []);
+       get_size_sc_aux n xs)
+Termination
+  WF_REL_TAC `measure (exp3_size o SND)`
+  \\ simp [] \\ rpt strip_tac
+  \\ `exp3_size (MAP SND fns) <= exp1_size fns`
+     by (Induct_on `fns` \\ simp [exp_size_def] \\ Cases \\ simp [exp_size_def])
+  \\ simp []
+End
 
 val get_size_sc_def = Define `
   get_size_sc limit e =
@@ -71,7 +73,7 @@ val get_size_sc_def = Define `
       if n = 0 then NONE else SOME (limit + 1 - n)
 `;
 
-val get_size_aux_def = tDefine "get_size_aux" `
+Definition get_size_aux_def:
   (get_size_aux [] = 0n) /\
   (get_size_aux (x::y::xs) =
      get_size_aux [x] + get_size_aux (y::xs)) /\
@@ -95,12 +97,14 @@ val get_size_aux_def = tDefine "get_size_aux" `
   (get_size_aux [Letrec t loc_opt ws_opt fns x1] =
      1 + get_size_aux (MAP SND fns) + get_size_aux [x1]) /\
   (get_size_aux [App t loc_opt x1 xs] =
-     1 + get_size_aux [x1] + get_size_aux xs)`
-  (WF_REL_TAC `measure exp3_size`
-   \\ simp [] \\ rpt strip_tac
-   \\ `exp3_size (MAP SND fns) <= exp1_size fns`
-      by (Induct_on `fns` \\ simp [exp_size_def] \\ Cases \\ simp [exp_size_def])
-   \\ simp []);
+     1 + get_size_aux [x1] + get_size_aux xs)
+Termination
+  WF_REL_TAC `measure exp3_size`
+  \\ simp [] \\ rpt strip_tac
+  \\ `exp3_size (MAP SND fns) <= exp1_size fns`
+    by (Induct_on `fns` \\ simp [exp_size_def] \\ Cases \\ simp [exp_size_def])
+  \\ simp []
+End
 
 val get_size_aux_ind = theorem "get_size_aux_ind";
 
@@ -120,7 +124,7 @@ Proof
   simp [get_size_sc_def, get_size_def, get_size_sc_aux_correct]
 QED
 
-val free_def = tDefine "free" `
+Definition free_def:
   (free [] = ([],Empty)) /\
   (free ((x:closLang$exp)::y::xs) =
      let (c1,l1) = free [x] in
@@ -168,11 +172,11 @@ val free_def = tDefine "free" `
        ([Handle t (HD c1) (HD c2)],mk_Union l1 (Shift 1 l2))) /\
   (free [Call t ticks dest xs] =
      let (c1,l1) = free xs in
-       ([Call t ticks dest c1],l1))`
- (WF_REL_TAC `measure exp3_size`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC);
-
-val free_ind = theorem "free_ind";
+       ([Call t ticks dest c1],l1))
+Termination
+  WF_REL_TAC `measure exp3_size`
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC
+End
 
 (*
 val free_LENGTH_LEMMA = Q.prove(
@@ -224,7 +228,7 @@ QED
 val closed_def = Define `
   closed x = isEmpty (db_to_set (SND (free [x])))`
 
-val contains_closures_def = tDefine "contains_closures" `
+Definition contains_closures_def:
   (contains_closures [] = F) /\
   (contains_closures (x::y::xs) =
     if contains_closures [x] then T else
@@ -248,8 +252,10 @@ val contains_closures_def = tDefine "contains_closures" `
   (contains_closures [Letrec t loc_opt ws_opt fns x1] = T) /\
   (contains_closures [App t loc_opt x1 xs] =
      if contains_closures [x1] then T else
-       contains_closures xs)`
-  (wf_rel_tac `measure exp3_size`);
+       contains_closures xs)
+Termination
+  wf_rel_tac `measure exp3_size`
+End
 
 (* -----------------------------------------------------------------
 
@@ -275,7 +281,7 @@ val _ = Datatype `
   | Impossible`                 (* value 'returned' by Raise *)
 val val_approx_size_def = definition "val_approx_size_def"
 
-val merge_def = tDefine "merge" `
+Definition merge_def:
   (merge Impossible y = y) ∧
   (merge x Impossible = x) ∧
   (merge (Tuple tg1 xs) (Tuple tg2 ys) =
@@ -289,19 +295,20 @@ val merge_def = tDefine "merge" `
        then Clos m1 n1 e1 s1 else Other) ∧
   (merge (Int i) (Int j) = if i = j then Int i else Other) ∧
   (merge _ _ = Other)
-` (WF_REL_TAC `measure (val_approx_size o FST)` >> Induct_on `xs` >>
-   rw[val_approx_size_def] >> simp[] >>
-   rename[`MEM x xs`, `MEM y ys`, `SUC (LENGTH xs) = LENGTH ys`,
+Termination
+  WF_REL_TAC `measure (val_approx_size o FST)` >> Induct_on `xs` >>
+  rw[val_approx_size_def] >> simp[] >>
+  rename[`MEM x xs`, `MEM y ys`, `SUC (LENGTH xs) = LENGTH ys`,
           `tag + (val_approx1_size xs + _)`, `val_approx_size x < _`] >>
-   first_x_assum (qspecl_then [`tag`, `y::TL (TL ys)`, `x`, `y`] mp_tac) >>
-   impl_tac >> simp[] >> Cases_on `ys` >> fs[] >> Cases_on `xs` >> fs[] >>
-   rename1 `SUC (LENGTH _) = LENGTH ll` >> Cases_on `ll` >> fs[])
-val merge_def =
-    save_thm("merge_def[simp,compute]",
-             SIMP_RULE (bool_ss ++ ETA_ss) [] merge_def)
+  first_x_assum (qspecl_then [`tag`, `y::TL (TL ys)`, `x`, `y`] mp_tac) >>
+  impl_tac >> simp[] >> Cases_on `ys` >> fs[] >> Cases_on `xs` >> fs[] >>
+  rename1 `SUC (LENGTH _) = LENGTH ll` >> Cases_on `ll` >> fs[]
+End
+
+Theorem merge_def[simp,compute] = SIMP_RULE (bool_ss ++ ETA_ss) [] merge_def;
 
 (* Avoid MAP2 *)
-val merge_tup_def = tDefine "merge_tup" `
+Definition merge_tup_def:
   (merge_tup (Impossible,y) = y) ∧
   (merge_tup (x,Impossible) = x) ∧
   (merge_tup (Tuple tg1 xs,Tuple tg2 ys) =
@@ -316,13 +323,15 @@ val merge_tup_def = tDefine "merge_tup" `
        then Clos m1 n1 e1 s1 else Other) ∧
   (merge_tup (Int i,Int j) = if i = j then Int i else Other) ∧
   (merge_tup (_,_) = Other)
-` (WF_REL_TAC `measure (val_approx_size o FST)` >> Induct_on `xs` >>
-   rpt strip_tac>>
-   imp_res_tac MEM_ZIP>>fs[]>>
-   rw[val_approx_size_def] >> Cases_on`ys`>>fs[]>>
-   first_x_assum (first_assum o mp_then (Pos (el 2)) mp_tac) >>
-   simp[] >> rename[`_ < (tag:num) + (_ + _)`] >>
-   disch_then (qspec_then `tag` mp_tac) >> simp[])
+Termination
+  WF_REL_TAC `measure (val_approx_size o FST)` >> Induct_on `xs` >>
+  rpt strip_tac>>
+  imp_res_tac MEM_ZIP>>fs[]>>
+  rw[val_approx_size_def] >> Cases_on`ys`>>fs[]>>
+  first_x_assum (first_assum o mp_then (Pos (el 2)) mp_tac) >>
+  simp[] >> rename[`_ < (tag:num) + (_ + _)`] >>
+  disch_then (qspec_then `tag` mp_tac) >> simp[]
+End
 
 (* TODO: this function seems to throw the translator into an infinite loop
 Theorem merge_tup_pmatch:
@@ -438,10 +447,10 @@ val isGlobal_def = Define`
   (isGlobal _ ⇔ F)`;
 
 Theorem isGlobal_pmatch:
-  !op.
-  isGlobal op =
-  case op of
-    Global _ => T
+  ∀op.
+    isGlobal op =
+    case op of
+      Global _ => T
     | _ => F
 Proof
   rpt strip_tac
@@ -455,10 +464,12 @@ val gO_destApx_def = Define`
                                  else gO_None) ∧
   (gO_destApx _ = gO_None)`;
 
-val mk_Ticks_def = tDefine "mk_Ticks" `
+Definition mk_Ticks_def:
   mk_Ticks t tc n e =
-    if n = 0n then e else mk_Ticks t (tc + 1) (n - 1) (Tick (t§tc) e)`
-  (wf_rel_tac `measure (FST o SND o SND)`);
+    if n = 0n then e else mk_Ticks t (tc + 1) (n - 1) (Tick (t§tc) e)
+Termination
+  wf_rel_tac `measure (FST o SND o SND)`
+End
 
 val _ = Datatype `
   inliningDecision = inlD_Nothing
@@ -523,7 +534,7 @@ Proof
   \\ spose_not_then assume_tac \\ fs []
 QED
 
-val known_def = tDefine "known" `
+Definition known_def:
   (known c [] vs (g:val_approx spt) = ([],g)) /\
   (known c ((x:closLang$exp)::y::xs) vs g =
      let (eas1,g) = known c [x] vs g in
@@ -567,10 +578,10 @@ val known_def = tDefine "known" `
      let e =
          (if isGlobal op then
            dtcase gO_destApx a of
-             | gO_None => Op t op
+             | gO_None => SmartOp t op
              | gO_Int i => Op t (Const i)
              | gO_NullTuple tag => Op t (Cons tag)
-          else Op t op) (MAP FST ea1)
+          else SmartOp t op) (MAP FST ea1)
      in
        ([(e,a)],g)) /\
   (known c [App t loc_opt x xs] vs g =
@@ -612,14 +623,13 @@ val known_def = tDefine "known" `
                       (num_args,FST (HD (FST res)))) fns in
      let (ea1,g) = known c [x1] (clos ++ vs) g in
      let (e1,a1) = HD ea1 in
-       ([(Letrec t loc_opt NONE new_fns e1,a1)],g))`
- (wf_rel_tac `inv_image (measure I LEX measure I)
+       ([(Letrec t loc_opt NONE new_fns e1,a1)],g))
+Termination
+  wf_rel_tac `inv_image (measure I LEX measure I)
                         (\(c, xs, vs, g). (c.inline_factor, exp3_size xs))`
   \\ simp [dec_inline_factor_def] \\ rpt strip_tac
-  THEN1 (imp_res_tac exp1_size_lemma \\ decide_tac)
-  \\ imp_res_tac decide_inline_LetInline \\ fs []);
-
-val known_ind = theorem "known_ind";
+  \\ imp_res_tac decide_inline_LetInline \\ fs []
+End
 
 Theorem known_LENGTH:
    ∀limit es vs g. LENGTH (FST (known limit es vs g)) = LENGTH es

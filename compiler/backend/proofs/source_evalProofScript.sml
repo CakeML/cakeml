@@ -417,12 +417,12 @@ Theorem pmatch:
   )
 Proof
   disch_tac
-  \\ ho_match_mp_tac terminationTheory.pmatch_ind
-  \\ rw [terminationTheory.pmatch_def, match_result_rel_def,
+  \\ ho_match_mp_tac pmatch_ind
+  \\ rw [pmatch_def, match_result_rel_def,
     quotient_pairTheory.PAIR_REL_THM]
   \\ rveq \\ fs []
   \\ imp_res_tac v_to_env_id_SOME
-  \\ fs [terminationTheory.pmatch_def]
+  \\ fs [pmatch_def]
   \\ imp_res_tac LIST_REL_LENGTH
   \\ fs [ETA_THM]
   >- (
@@ -499,14 +499,14 @@ Theorem do_eq:
   LIST_REL (v_rel es) ys ys' ==>
   do_eq_list xs' ys' = Eq_val b)
 Proof
-  ho_match_mp_tac terminationTheory.do_eq_ind
-  \\ rw [terminationTheory.do_eq_def]
-  \\ rw [terminationTheory.do_eq_def]
+  ho_match_mp_tac do_eq_ind
+  \\ rw [do_eq_def]
+  \\ rw [do_eq_def]
   \\ imp_res_tac LIST_REL_LENGTH
   \\ imp_res_tac v_to_env_id_SOME
   \\ rveq \\ fs []
   \\ fs [eq_result_case_eq, bool_case_eq]
-  \\ fs [terminationTheory.do_eq_def, nat_to_v_def, lit_same_type_def]
+  \\ fs [do_eq_def, nat_to_v_def, lit_same_type_def]
   \\ rw []
 QED
 
@@ -561,9 +561,9 @@ Theorem v_to_list:
   ?ys. v_to_list y = SOME ys /\
   LIST_REL (v_rel es) xs ys
 Proof
-  recInduct terminationTheory.v_to_list_ind
-  \\ rw [terminationTheory.v_to_list_def]
-  \\ fs [terminationTheory.v_to_list_def, option_case_eq]
+  recInduct v_to_list_ind
+  \\ rw [v_to_list_def]
+  \\ fs [v_to_list_def, option_case_eq]
   \\ rveq \\ fs []
   \\ res_tac
   \\ simp []
@@ -574,9 +574,9 @@ Theorem v_to_char_list:
   v_rel es x y ==>
   v_to_char_list y = SOME xs
 Proof
-  recInduct terminationTheory.v_to_char_list_ind
-  \\ rw [terminationTheory.v_to_char_list_def]
-  \\ fs [terminationTheory.v_to_char_list_def, option_case_eq]
+  recInduct v_to_char_list_ind
+  \\ rw [v_to_char_list_def]
+  \\ fs [v_to_char_list_def, option_case_eq]
   \\ rveq \\ fs []
 QED
 
@@ -585,11 +585,11 @@ Theorem vs_to_string:
   LIST_REL (v_rel es) xs ys ==>
   vs_to_string ys = SOME s
 Proof
-  recInduct terminationTheory.vs_to_string_ind
-  \\ rw [terminationTheory.vs_to_string_def]
+  recInduct vs_to_string_ind
+  \\ rw [vs_to_string_def]
   \\ fs [option_case_eq]
   \\ rveq \\ fs []
-  \\ simp [terminationTheory.vs_to_string_def]
+  \\ simp [vs_to_string_def]
 QED
 
 Theorem sv_rel_l_cases =
@@ -687,8 +687,8 @@ QED
 Theorem concrete_v_enc_ast_t:
   !ast_t. concrete_v (enc_ast_t ast_t)
 Proof
-  recInduct terminationTheory.enc_ast_t_ind
-  \\ simp [terminationTheory.enc_ast_t_def, concrete_v_enc_id]
+  recInduct enc_ast_t_ind
+  \\ simp [enc_ast_t_def, concrete_v_enc_id]
   \\ simp [concrete_v_enc_list, EVERY_MAP]
   \\ simp [EVERY_MEM]
 QED
@@ -703,8 +703,8 @@ QED
 Theorem concrete_v_enc_pat:
   !pat. concrete_v (enc_pat pat)
 Proof
-  recInduct terminationTheory.enc_pat_ind
-  \\ simp [terminationTheory.enc_pat_def, concrete_v_enc_ast_t,
+  recInduct enc_pat_ind
+  \\ simp [enc_pat_def, concrete_v_enc_ast_t,
     concrete_v_enc_lit, concrete_v_enc_option]
   \\ simp [concrete_v_enc_list, EVERY_MAP]
   \\ simp [EVERY_MEM, PULL_EXISTS, concrete_v_enc_id]
@@ -794,8 +794,8 @@ Theorem v_to_list_concrete:
   !x xs. v_to_list x = SOME xs ==>
   concrete_v x = EVERY concrete_v xs
 Proof
-  recInduct terminationTheory.v_to_list_ind
-  \\ rw [terminationTheory.v_to_list_def]
+  recInduct v_to_list_ind
+  \\ rw [v_to_list_def]
   \\ fs [option_case_eq]
   \\ rveq \\ fs []
   \\ rfs []
@@ -804,7 +804,7 @@ QED
 Theorem maybe_all_list_SOME:
   !xs ys. maybe_all_list xs = SOME ys ==> xs = MAP SOME ys
 Proof
-  Induct \\ simp [Once terminationTheory.maybe_all_list_def]
+  Induct \\ simp [Once maybe_all_list_def]
   \\ simp [option_case_eq, PULL_EXISTS]
 QED
 
@@ -906,7 +906,7 @@ Proof
   \\ conj_asm1_tac
   >- (
     simp [es_forward_def]
-    \\ simp [lookup_env_def, FORALL_PROD, lem_listTheory.list_index_def]
+    \\ simp [lookup_env_def, FORALL_PROD, oEL_THM]
     \\ simp [bool_case_eq, option_case_eq, EL_APPEND_EQN]
   )
   \\ rpt strip_tac \\ fs []
@@ -920,7 +920,7 @@ Proof
   \\ conj_asm1_tac
   >- (
     simp [es_forward_def]
-    \\ simp [lookup_env_def, FORALL_PROD, lem_listTheory.list_index_def]
+    \\ simp [lookup_env_def, FORALL_PROD, oEL_THM]
   )
   \\ simp [EQ_SYM_EQ]
   \\ fs [es_stack_forward_def]
@@ -942,13 +942,13 @@ Proof
   rw [s_rel_def, declare_env_def]
   \\ fs []
   \\ rveq \\ fs []
-  \\ simp [lem_listTheory.list_index_def, v_to_env_id_def,
+  \\ simp [oEL_THM, v_to_env_id_def,
         v_to_nat_def, nat_to_v_def, lookup_env_def, EL_LUPDATE]
   \\ simp [EL_APPEND_EQN]
   \\ conj_asm1_tac
   >- (
     simp [es_forward_def]
-    \\ simp [lookup_env_def, FORALL_PROD, lem_listTheory.list_index_def]
+    \\ simp [lookup_env_def, FORALL_PROD, oEL_THM]
     \\ simp [bool_case_eq, option_case_eq]
     \\ rw [EL_APPEND_EQN, EL_LUPDATE]
   )
@@ -1066,10 +1066,10 @@ val eval_simulation_setup = setup (`
   es_forward (orac_s t.eval_state) es' /\
   (~ abort res' ==> es_stack_forward (orac_s t.eval_state) es'))
   `,
-  ho_match_mp_tac (name_ind_cases [``()``, ``()``, ``Dlet``] terminationTheory.full_evaluate_ind)
+  ho_match_mp_tac (name_ind_cases [``()``, ``()``, ``Dlet``] full_evaluate_ind)
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
-  \\ fs [terminationTheory.full_evaluate_def]
+  \\ fs [full_evaluate_def]
   (* FIXME: tweak name_ind_cases to skip dummy patterns *)
   \\ fs [Q.prove (`Case ((), x) = Case (x)`, simp [markerTheory.Case_def])]
   \\ rveq \\ fs []
@@ -1103,7 +1103,7 @@ Proof
   )
   \\ Cases_on `op = Eval`
   >- (
-    fs [do_eval_res_def, terminationTheory.evaluate_def, do_con_check_def]
+    fs [do_eval_res_def, evaluate_def, do_con_check_def]
     \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
     \\ drule_then (drule_then drule) do_eval_sim
     \\ rw []
@@ -1139,7 +1139,7 @@ Proof
   \\ rveq \\ fs []
   \\ fs [pair_case_eq]
   \\ rveq \\ fs []
-  \\ simp [lem_listTheory.list_index_def]
+  \\ simp [oEL_THM]
   \\ simp [state_component_equality]
   \\ qmatch_goalsub_abbrev_tac `es_forward cur_es new_es`
   \\ qsuff_tac `es_forward cur_es new_es`
@@ -1152,13 +1152,13 @@ Proof
     \\ irule env_rel_add_nsBind
     \\ simp [v_to_env_id_def, v_to_nat_def, nat_to_v_def]
     \\ fs [markerTheory.Abbrev_def, lookup_env_def,
-          lem_listTheory.list_index_def, EL_LUPDATE, EL_APPEND_EQN,
+          oEL_THM, EL_LUPDATE, EL_APPEND_EQN,
           es_stack_forward_def]
     \\ insts_tac
   )
   >- (
     fs [markerTheory.Abbrev_def, es_forward_def, FORALL_PROD]
-    \\ simp [lookup_env_def, lem_listTheory.list_index_def, option_case_eq]
+    \\ simp [lookup_env_def, oEL_THM, option_case_eq]
     \\ simp [EL_LUPDATE]
     \\ rw [EL_APPEND_EQN]
   )
@@ -1259,13 +1259,29 @@ Proof
   \\ simp [EVERY2_refl]
 QED
 
+Theorem check_dup_ctors_thm:
+   check_dup_ctors (tvs,tn,condefs) = ALL_DISTINCT (MAP FST condefs)
+Proof
+  rw [check_dup_ctors_def] >>
+  induct_on `condefs` >>
+  rw [] >>
+  pairarg_tac >>
+  fs [] >>
+  eq_tac >>
+  rw [] >>
+  induct_on `condefs` >>
+  rw [] >>
+  pairarg_tac >>
+  fs []
+QED
+
 Triviality eval_simulation_Dtype:
   ^(#get_goal eval_simulation_setup `Case (_, [Dtype _ _])`)
 Proof
   rpt disch_tac
   \\ eval_cases_tac
   \\ fs [EVERY_MEM, FORALL_PROD, MEM_MAP, EXISTS_PROD, PULL_EXISTS,
-      terminationTheory.check_dup_ctors_thm]
+      check_dup_ctors_thm]
   \\ fs [s_rel_def, state_component_equality]
   \\ insts_tac
   \\ simp []
@@ -1514,11 +1530,11 @@ Theorem evaluate_is_record_forward:
   )
 Proof
   then_select_goals [``Case [App _ _]``] (
-  ho_match_mp_tac (name_ind_cases [] terminationTheory.full_evaluate_ind)
+  ho_match_mp_tac (name_ind_cases [] full_evaluate_ind)
   \\ rpt conj_tac
   )
   \\ rpt (gen_tac ORELSE disch_tac)
-  \\ fs [terminationTheory.full_evaluate_def]
+  \\ fs [full_evaluate_def]
   \\ rveq \\ fs []
   \\ fs []
   \\ simp [record_forward_refl]
@@ -1604,10 +1620,10 @@ val insert_oracle_correct_setup = setup (
   evaluate_decs (s with eval_state updated_by insert_oracle ci orac) env decs =
   (s' with eval_state updated_by insert_oracle ci orac, res)
   )`,
-  ho_match_mp_tac (name_ind_cases [``Let``, ``Mat``, ``Dlet``] terminationTheory.full_evaluate_ind)
+  ho_match_mp_tac (name_ind_cases [``Let``, ``Mat``, ``Dlet``] full_evaluate_ind)
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
-  \\ fs [terminationTheory.full_evaluate_def]
+  \\ fs [full_evaluate_def]
   \\ fs []
   \\ rveq \\ fs []
   );
@@ -1687,7 +1703,7 @@ Theorem v_rel_concrete_v:
   (! v. concrete_v v ==> v_rel es v v) /\
   (! vs. concrete_v_list vs ==> LIST_REL (v_rel es) vs vs)
 Proof
-  ho_match_mp_tac terminationTheory.concrete_v_ind
+  ho_match_mp_tac concrete_v_ind
   \\ simp []
   \\ Cases
   \\ simp []
@@ -1758,10 +1774,10 @@ Theorem evaluate_record_suffix:
   record_forward s''.eval_state s'.eval_state
   ))
 Proof
-  ho_match_mp_tac terminationTheory.full_evaluate_ind
+  ho_match_mp_tac full_evaluate_ind
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
-  \\ fs [terminationTheory.full_evaluate_def]
+  \\ fs [full_evaluate_def]
   \\ rveq \\ fs []
   \\ simp [record_forward_refl]
   \\ fs [do_eval_res_def]

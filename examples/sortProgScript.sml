@@ -27,9 +27,9 @@ Theorem list_type_v_to_list:
     ?l'. v_to_list v = SOME l' ∧ LIST_REL A l l'
 Proof
   Induct_on `l` >>
-  rw [LIST_TYPE_def, terminationTheory.v_to_list_def]
+  rw [LIST_TYPE_def, semanticPrimitivesTheory.v_to_list_def]
   >- EVAL_TAC >>
-  rw [terminationTheory.v_to_list_def] >>
+  rw [semanticPrimitivesTheory.v_to_list_def] >>
   first_x_assum drule >>
   rw [] >>
   every_case_tac >>

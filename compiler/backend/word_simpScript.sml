@@ -171,7 +171,7 @@ val apply_if_opt_def = Define `
               SOME (SmartSeq x0 (If x1 x2 x3 (Seq q1 p2) (Seq q2 p1)))
             else NONE`
 
-val simp_if_def = tDefine "simp_if" `
+Definition simp_if_def:
   (simp_if (Seq x1 x2) =
      let y1 = simp_if x1 in
      let y2 = simp_if x2 in
@@ -188,8 +188,10 @@ val simp_if_def = tDefine "simp_if" `
           (dtcase handler of
            | NONE => NONE
            | SOME (y1,q2,y2,y3) => SOME (y1,simp_if q2,y2,y3))) /\
-  (simp_if x = x)`
-  (WF_REL_TAC `measure (wordLang$prog_size (K 0))` \\ rw [])
+  (simp_if x = x)
+Termination
+  WF_REL_TAC `measure (wordLang$prog_size (K 0))` \\ rw []
+End
 
 Theorem simp_if_pmatch:
   !prog.
@@ -250,7 +252,7 @@ val strip_const_def = Define `
        | _ => NONE) /\
   (strip_const _ = NONE)`;
 
-val const_fp_exp_def = tDefine "const_fp_exp" `
+Definition const_fp_exp_def:
   (const_fp_exp (Var v) cs =
      dtcase lookup v cs of
        | SOME x => Const x
@@ -269,11 +271,10 @@ val const_fp_exp_def = tDefine "const_fp_exp" `
                         | SOME w => Const w
                         | _ => Shift sh (Const c) n)
          | _ => Shift sh e n) /\
-  (const_fp_exp e _ = e)`
-
-  (WF_REL_TAC `measure (exp_size (\x.0) o FST)` \\ conj_tac
-  >- (Induct \\ fs [exp_size_def] \\ rw [] \\ fs [] \\ res_tac \\ fs [])
-  >- (rw []));
+  (const_fp_exp e _ = e)
+Termination
+  WF_REL_TAC `measure (exp_size (\x.0) o FST)`
+End
 
 val const_fp_exp_ind = fetch "-" "const_fp_exp_ind";
 

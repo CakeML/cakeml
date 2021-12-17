@@ -3,9 +3,8 @@
 *)
 open preamble;
 open lexer_funTheory
-open cmlPtreeConversionTheory;  (* TODO: should be included in termination *)
+open cmlPtreeConversionTheory;
 open primTypesTheory;
-open terminationTheory;
 
 val _ = new_theory "semantics";
 

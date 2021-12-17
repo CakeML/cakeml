@@ -3,7 +3,7 @@
 *)
 
 open preamble
-open libTheory astTheory namespaceTheory typeSystemTheory typeSoundInvariantsTheory terminationTheory;
+open libTheory astTheory namespaceTheory typeSystemTheory typeSoundInvariantsTheory;
 open astPropsTheory;
 open namespacePropsTheory;
 local open semanticPrimitivesPropsTheory in end
@@ -982,10 +982,16 @@ Theorem type_p_bvl:
    (!tvs tenvC ps ts bindings. type_ps tvs tenvC ps ts bindings ⇒
     !tenv'. tenv_val_exp_ok tenv' ⇒ tenv_val_exp_ok (bind_var_list tvs bindings tenv'))
 Proof
- ho_match_mp_tac type_p_ind >>
- srw_tac[][bind_var_list_def, tenv_val_exp_ok_def, num_tvs_def, bind_var_list_append] >>
- `tvs + num_tvs tenv' ≥ tvs` by decide_tac >>
- metis_tac [check_freevars_add]
+  ho_match_mp_tac type_p_strongind >>
+  srw_tac[][bind_var_list_def, tenv_val_exp_ok_def, num_tvs_def, bind_var_list_append]
+  >- (
+    `tvs + num_tvs tenv' ≥ tvs` by decide_tac >>
+    metis_tac [check_freevars_add])
+  >>
+  first_x_assum match_mp_tac>>simp[tenv_val_exp_ok_def]>>
+  imp_res_tac type_p_freevars>>
+  `tvs + num_tvs tenv' ≥ tvs` by decide_tac >>
+  metis_tac [check_freevars_add]
 QED
 
 Theorem type_p_tenvV_indep:

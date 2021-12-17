@@ -3,7 +3,7 @@
   proofs of the type inferencer.
 *)
 open preamble;
-open libTheory namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
+open libTheory namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory;
 open astPropsTheory typeSysPropsTheory;
 
 val _ = new_theory "inferProps";
@@ -596,6 +596,22 @@ Proof
   metis_tac [exc_distinct, PAIR_EQ, type_name_check_subst_success]
 QED
 
+Theorem check_dup_ctors_thm:
+   check_dup_ctors (tvs,tn,condefs) = ALL_DISTINCT (MAP FST condefs)
+Proof
+  rw [check_dup_ctors_def] >>
+  induct_on `condefs` >>
+  rw [] >>
+  pairarg_tac >>
+  fs [] >>
+  eq_tac >>
+  rw [] >>
+  induct_on `condefs` >>
+  rw [] >>
+  pairarg_tac >>
+  fs []
+QED
+
 Theorem check_ctors_success:
   !l tenvT tds s s'.
    ALL_DISTINCT (MAP (FST o SND) tds) ⇒
@@ -731,23 +747,26 @@ Theorem infer_p_bindings:
     ⇒
     (pats_bindings ps x = MAP FST env ++ x))
 Proof
-ho_match_mp_tac infer_p_ind >>
-rw [pat_bindings_def, infer_p_def, success_eqns, remove_pair_lem] >>
-rw []
->- (PairCases_on `v'` >>
-    rw [] >>
-    metis_tac [])
->- (PairCases_on `v''` >>
-    rw [] >>
-    metis_tac [])
->- (PairCases_on `v'` >>
-    rw [] >>
-    metis_tac [])
->- metis_tac []
->- (PairCases_on `v'` >>
-    PairCases_on `v''` >>
-    rw [] >>
-    metis_tac [APPEND_ASSOC])
+  ho_match_mp_tac infer_p_ind >>
+  rw [pat_bindings_def, infer_p_def, success_eqns, remove_pair_lem]
+  >- (PairCases_on `v'` >>
+      rw [] >>
+      metis_tac [])
+  >- (PairCases_on `v''` >>
+      rw [] >>
+      metis_tac [])
+  >- (PairCases_on `v'` >>
+      rw [] >>
+      metis_tac [])
+  >- (
+    PairCases_on `v'` >>
+    first_x_assum drule>>
+    simp[])
+  >- metis_tac []
+  >- (PairCases_on `v'` >>
+      PairCases_on `v''` >>
+      rw [] >>
+      metis_tac [APPEND_ASSOC])
 QED
 
 (* ---------- Dealing with the constraint set ---------- *)
@@ -1342,65 +1361,77 @@ Theorem infer_p_check_t:
     EVERY (\(x,t). check_t 0 (count st'.next_uvar) t) env ∧
     EVERY (check_t 0 (count st'.next_uvar)) ts)
 Proof
-ho_match_mp_tac infer_p_ind >>
-rw [infer_p_def, success_eqns, remove_pair_lem] >>
-rw [check_t_def]
->- (PairCases_on `v'` >>
-    fs [remove_pair_lem, EVERY_MEM] >>
-    rw [] >>
-    metis_tac [check_t_more3])
->- (PairCases_on `v'` >>
-    fs [] >>
-    metis_tac [])
->- (PairCases_on `v''` >>
-    fs [remove_pair_lem, EVERY_MAP, EVERY_MEM, MEM_COUNT_LIST] >>
-    rw [check_t_def] >>
-    `?n. st'.next_uvar = st'''.next_uvar + n`
-                by (imp_res_tac infer_p_next_uvar_mono >>
-                    qexists_tac `st'.next_uvar - st'''.next_uvar` >>
-                    srw_tac [ARITH_ss] []) >>
-    metis_tac [check_t_more3])
->- (PairCases_on `v''` >>
-    fs [remove_pair_lem, EVERY_MAP, EVERY_MEM, MEM_COUNT_LIST] >>
-    rw [check_t_def] >>
-    decide_tac)
->- (PairCases_on `v'` >>
-    fs [] >>
-    metis_tac [])
->- (PairCases_on `v'` >>
-    fs [] >>
-    metis_tac [])
->- metis_tac [type_name_check_subst_state]
->- metis_tac [type_name_check_subst_state]
->- (PairCases_on `v'` >>
-    PairCases_on `v''` >>
-    fs [] >>
-    metis_tac [infer_p_wfs])
->- (PairCases_on `v'` >>
-    PairCases_on `v''` >>
-    fs [remove_pair_lem, EVERY_MEM] >>
-    rw [] >>
-    `?n. st'.next_uvar = st''.next_uvar + n`
-                by (imp_res_tac infer_p_next_uvar_mono >>
-                    qexists_tac `st'.next_uvar - st''.next_uvar` >>
-                    srw_tac [ARITH_ss] []) >>
-    metis_tac [check_t_more3])
->- (PairCases_on `v'` >>
-    PairCases_on `v''` >>
-    fs [] >>
-    `?n. st'.next_uvar = st''.next_uvar + n`
-                by (imp_res_tac infer_p_next_uvar_mono >>
-                    qexists_tac `st'.next_uvar - st''.next_uvar` >>
-                    srw_tac [ARITH_ss] []) >>
-    metis_tac [check_t_more3])
->- (PairCases_on `v'` >>
-    PairCases_on `v''` >>
-    fs [] >>
-    `?n. st'.next_uvar = st''.next_uvar + n`
-                by (imp_res_tac infer_p_next_uvar_mono >>
-                    qexists_tac `st'.next_uvar - st''.next_uvar` >>
-                    srw_tac [ARITH_ss] []) >>
-    metis_tac [infer_p_wfs, check_t_more3])
+  ho_match_mp_tac infer_p_ind >>
+  rw [infer_p_def, success_eqns, remove_pair_lem] >>
+  rw [check_t_def]
+  >- (PairCases_on `v'` >>
+      fs [remove_pair_lem, EVERY_MEM] >>
+      rw [] >>
+      metis_tac [check_t_more3])
+  >- (PairCases_on `v'` >>
+      fs [] >>
+      metis_tac [])
+  >- (PairCases_on `v''` >>
+      fs [remove_pair_lem, EVERY_MAP, EVERY_MEM, MEM_COUNT_LIST] >>
+      rw [check_t_def] >>
+      `?n. st'.next_uvar = st'''.next_uvar + n`
+                  by (imp_res_tac infer_p_next_uvar_mono >>
+                      qexists_tac `st'.next_uvar - st'''.next_uvar` >>
+                      srw_tac [ARITH_ss] []) >>
+      metis_tac [check_t_more3])
+  >- (PairCases_on `v''` >>
+      fs [remove_pair_lem, EVERY_MAP, EVERY_MEM, MEM_COUNT_LIST] >>
+      rw [check_t_def] >>
+      decide_tac)
+  >- (PairCases_on `v'` >>
+      fs [] >>
+      metis_tac [])
+  >- (PairCases_on `v'` >>
+      fs [] >>
+      metis_tac [])
+  >- (* Pas case *)
+    (PairCases_on `v'` >>
+      fs [] >>
+      metis_tac [])
+  >- (* Pas case *)
+    (PairCases_on `v'` >>
+      fs [] >>
+      metis_tac [])
+  >- (* Pas case *)
+    (PairCases_on `v'` >>
+      fs [] >>
+      metis_tac [])
+  >- metis_tac [type_name_check_subst_state]
+  >- metis_tac [type_name_check_subst_state]
+  >- (PairCases_on `v'` >>
+      PairCases_on `v''` >>
+      fs [] >>
+      metis_tac [infer_p_wfs])
+  >- (PairCases_on `v'` >>
+      PairCases_on `v''` >>
+      fs [remove_pair_lem, EVERY_MEM] >>
+      rw [] >>
+      `?n. st'.next_uvar = st''.next_uvar + n`
+                  by (imp_res_tac infer_p_next_uvar_mono >>
+                      qexists_tac `st'.next_uvar - st''.next_uvar` >>
+                      srw_tac [ARITH_ss] []) >>
+      metis_tac [check_t_more3])
+  >- (PairCases_on `v'` >>
+      PairCases_on `v''` >>
+      fs [] >>
+      `?n. st'.next_uvar = st''.next_uvar + n`
+                  by (imp_res_tac infer_p_next_uvar_mono >>
+                      qexists_tac `st'.next_uvar - st''.next_uvar` >>
+                      srw_tac [ARITH_ss] []) >>
+      metis_tac [check_t_more3])
+  >- (PairCases_on `v'` >>
+      PairCases_on `v''` >>
+      fs [] >>
+      `?n. st'.next_uvar = st''.next_uvar + n`
+                  by (imp_res_tac infer_p_next_uvar_mono >>
+                      qexists_tac `st'.next_uvar - st''.next_uvar` >>
+                      srw_tac [ARITH_ss] []) >>
+      metis_tac [infer_p_wfs, check_t_more3])
 QED
 
 val check_infer_type_subst = Q.prove (
@@ -1481,72 +1512,74 @@ Proof
 QED
 
 Theorem infer_p_check_s:
-   (!l ienv p st t env st' tvs.
-    infer_p l ienv p st = (Success (t,env), st') ∧
-    t_wfs st.subst ∧
-    tenv_ctor_ok ienv.inf_c ∧
-    tenv_abbrev_ok ienv.inf_t ∧
-    check_s tvs (count st.next_uvar) st.subst
-    ⇒
-    check_s tvs (count st'.next_uvar) st'.subst) ∧
-   (!l ienv ps st ts env st' tvs.
-    infer_ps l ienv ps st = (Success (ts,env), st') ∧
-    t_wfs st.subst ∧
-    tenv_ctor_ok ienv.inf_c ∧
-    tenv_abbrev_ok ienv.inf_t ∧
-    check_s tvs (count st.next_uvar) st.subst
-    ⇒
-    check_s tvs (count st'.next_uvar) st'.subst)
+ (!l ienv p st t env st' tvs.
+  infer_p l ienv p st = (Success (t,env), st') ∧
+  t_wfs st.subst ∧
+  tenv_ctor_ok ienv.inf_c ∧
+  tenv_abbrev_ok ienv.inf_t ∧
+  check_s tvs (count st.next_uvar) st.subst
+  ⇒
+  check_s tvs (count st'.next_uvar) st'.subst) ∧
+ (!l ienv ps st ts env st' tvs.
+  infer_ps l ienv ps st = (Success (ts,env), st') ∧
+  t_wfs st.subst ∧
+  tenv_ctor_ok ienv.inf_c ∧
+  tenv_abbrev_ok ienv.inf_t ∧
+  check_s tvs (count st.next_uvar) st.subst
+  ⇒
+  check_s tvs (count st'.next_uvar) st'.subst)
 Proof
- ho_match_mp_tac infer_p_ind >>
- rw [infer_p_def, success_eqns, remove_pair_lem] >>
- rw []
- >- metis_tac [check_s_more]
- >- metis_tac [check_s_more]
- >- (PairCases_on `v'` >>
-     metis_tac [check_s_more2, infer_p_next_uvar_mono])
- >- (rename1 `infer_ps _ _ _ _ = (Success v1, st1)` >>
-     PairCases_on `v1` >>
-     fs [] >>
-     first_x_assum old_drule >>
-     rpt (disch_then old_drule) >>
-     old_drule (CONJUNCT2 infer_p_wfs) >>
-     rpt (disch_then old_drule) >>
-     rw []>>
-     `st1.next_uvar ≤ st1.next_uvar + LENGTH (FST v')` by decide_tac >>
-     `check_s tvs (count st'.next_uvar) st1.subst` by metis_tac [check_s_more2,ADD_COMM] >>
-     match_mp_tac pure_add_constraints_check_s >>
-     qexists_tac `st1.subst` >>
-     qexists_tac `(ZIP (v10, MAP (infer_type_subst (ZIP (FST v', MAP (λn.  Infer_Tuvar (st1.next_uvar + n)) (COUNT_LIST (LENGTH (FST v')))))) (FST (SND v'))))` >>
-     rw [] >>
-     rw [EVERY_CONJ, every_shim2, every_zip_fst, every_zip_snd, EVERY_MAP] >-
-     metis_tac [check_t_more2, arithmeticTheory.ADD_0, check_t_more4, infer_p_next_uvar_mono,
-                arithmeticTheory.LESS_EQ_TRANS, infer_p_check_t, ADD_COMM] >>
-     PairCases_on `v'` >>
-     fs [] >>
-     imp_res_tac tenv_ctor_ok_lookup >>
-     imp_res_tac check_infer_type_subst >>
-     rw [] >>
-     fs [EVERY_MEM] >>
-     metis_tac [check_t_more2, arithmeticTheory.ADD_0,arithmeticTheory.ADD_COMM])
- >- (PairCases_on `v'` >>
-     metis_tac [check_s_more2, infer_p_next_uvar_mono])
- >- (
-   irule t_unify_check_s >>
-   qexists_tac `st''.subst` >>
-   qexists_tac `t'` >>
-   qexists_tac `(infer_type_subst []  (type_name_subst ienv.inf_t t))` >>
-   rw [] >>
-   fs []
-   >- metis_tac [infer_p_wfs]
-   >- metis_tac [t_unify_check_s]
-   >- metis_tac [check_t_more2, arithmeticTheory.ADD_0, infer_p_check_t, ADD_COMM]
-   >- metis_tac [infer_type_subst_empty_check, check_freevars_type_name_subst,
-                 check_t_more2, arithmeticTheory.ADD_0, infer_p_check_t, ADD_COMM,
-                 check_t_more, type_name_check_subst_thm])
- >- (PairCases_on `v'` >>
-     PairCases_on `v''` >>
-     metis_tac [infer_p_wfs, check_s_more2, infer_p_next_uvar_mono])
+  ho_match_mp_tac infer_p_ind >>
+  rw [infer_p_def, success_eqns, remove_pair_lem] >>
+  rw []
+  >- metis_tac [check_s_more]
+  >- metis_tac [check_s_more]
+  >- (PairCases_on `v'` >>
+      metis_tac [check_s_more2, infer_p_next_uvar_mono])
+  >- (rename1 `infer_ps _ _ _ _ = (Success v1, st1)` >>
+      PairCases_on `v1` >>
+      fs [] >>
+      first_x_assum old_drule >>
+      rpt (disch_then old_drule) >>
+      old_drule (CONJUNCT2 infer_p_wfs) >>
+      rpt (disch_then old_drule) >>
+      rw []>>
+      `st1.next_uvar ≤ st1.next_uvar + LENGTH (FST v')` by decide_tac >>
+      `check_s tvs (count st'.next_uvar) st1.subst` by metis_tac [check_s_more2,ADD_COMM] >>
+      match_mp_tac pure_add_constraints_check_s >>
+      qexists_tac `st1.subst` >>
+      qexists_tac `(ZIP (v10, MAP (infer_type_subst (ZIP (FST v', MAP (λn.  Infer_Tuvar (st1.next_uvar + n)) (COUNT_LIST (LENGTH (FST v')))))) (FST (SND v'))))` >>
+      rw [] >>
+      rw [EVERY_CONJ, every_shim2, every_zip_fst, every_zip_snd, EVERY_MAP] >-
+      metis_tac [check_t_more2, arithmeticTheory.ADD_0, check_t_more4, infer_p_next_uvar_mono,
+                 arithmeticTheory.LESS_EQ_TRANS, infer_p_check_t, ADD_COMM] >>
+      PairCases_on `v'` >>
+      fs [] >>
+      imp_res_tac tenv_ctor_ok_lookup >>
+      imp_res_tac check_infer_type_subst >>
+      rw [] >>
+      fs [EVERY_MEM] >>
+      metis_tac [check_t_more2, arithmeticTheory.ADD_0,arithmeticTheory.ADD_COMM])
+  >- (PairCases_on `v'` >>
+      metis_tac [check_s_more2, infer_p_next_uvar_mono])
+  >- ( (* Pas case *) PairCases_on `v'` >>
+      metis_tac [check_s_more2, infer_p_next_uvar_mono])
+  >- (
+    irule t_unify_check_s >>
+    qexists_tac `st''.subst` >>
+    qexists_tac `t'` >>
+    qexists_tac `(infer_type_subst []  (type_name_subst ienv.inf_t t))` >>
+    rw [] >>
+    fs []
+    >- metis_tac [infer_p_wfs]
+    >- metis_tac [t_unify_check_s]
+    >- metis_tac [check_t_more2, arithmeticTheory.ADD_0, infer_p_check_t, ADD_COMM]
+    >- metis_tac [infer_type_subst_empty_check, check_freevars_type_name_subst,
+                  check_t_more2, arithmeticTheory.ADD_0, infer_p_check_t, ADD_COMM,
+                  check_t_more, type_name_check_subst_thm])
+  >- (PairCases_on `v'` >>
+      PairCases_on `v''` >>
+      metis_tac [infer_p_wfs, check_s_more2, infer_p_next_uvar_mono])
 QED
 
 Theorem check_env_more:
@@ -2939,13 +2972,13 @@ Theorem infer_p_next_id_const:
     ⇒
     st.next_id = st'.next_id)
 Proof
-ho_match_mp_tac infer_p_ind >>
-rw [infer_p_def, success_eqns, remove_pair_lem, GSYM FORALL_PROD] >>
-fs[]>>
-imp_res_tac type_name_check_subst_state >>
-fs [] >>
-res_tac >>
-fs []
+  ho_match_mp_tac infer_p_ind >>
+  rw [infer_p_def, success_eqns, remove_pair_lem, GSYM FORALL_PROD] >>
+  fs[]>>
+  imp_res_tac type_name_check_subst_state >>
+  fs [] >>
+  res_tac >>
+  fs []
 QED
 
 Theorem infer_e_next_id_const:
@@ -3600,24 +3633,24 @@ QED
 val hide_def = Define`hide x = x`;
 
 Theorem infer_p_inf_set_tids:
-    (!l cenv p st t env st'.
-    (infer_p l cenv p st = (Success (t,env), st'))
-    ⇒
-    prim_tids T tids ∧ inf_set_tids_ienv tids cenv ∧ inf_set_tids_subst tids st.subst
-    ∧ t_wfs st.subst
-    ⇒
-    inf_set_tids_subset tids t ∧
-    EVERY (inf_set_tids_subset tids o SND) env ∧
-    inf_set_tids_subst tids st'.subst) ∧
+  (!l cenv p st t env st'.
+  (infer_p l cenv p st = (Success (t,env), st'))
+  ⇒
+  prim_tids T tids ∧ inf_set_tids_ienv tids cenv ∧ inf_set_tids_subst tids st.subst
+  ∧ t_wfs st.subst
+  ⇒
+  inf_set_tids_subset tids t ∧
+  EVERY (inf_set_tids_subset tids o SND) env ∧
+  inf_set_tids_subst tids st'.subst) ∧
   (!l cenv ps st ts env st'.
-    (infer_ps l cenv ps st = (Success (ts,env), st'))
-    ⇒
-    prim_tids T tids ∧ inf_set_tids_ienv tids cenv ∧ inf_set_tids_subst tids st.subst
-    ∧ t_wfs st.subst
-    ⇒
-    EVERY (inf_set_tids_subset tids) ts ∧
-    EVERY (inf_set_tids_subset tids o SND) env ∧
-    inf_set_tids_subst tids st'.subst)
+  (infer_ps l cenv ps st = (Success (ts,env), st'))
+  ⇒
+  prim_tids T tids ∧ inf_set_tids_ienv tids cenv ∧ inf_set_tids_subst tids st.subst
+  ∧ t_wfs st.subst
+  ⇒
+  EVERY (inf_set_tids_subset tids) ts ∧
+  EVERY (inf_set_tids_subset tids o SND) env ∧
+  inf_set_tids_subst tids st'.subst)
 Proof
   Q.ISPEC_THEN`_ ∧ _ ∧ inf_set_tids_subst _ _ `(fn th => once_rewrite_tac[th])(GSYM hide_def) >>
   ho_match_mp_tac infer_p_ind >>
@@ -3667,6 +3700,12 @@ Proof
         simp[MAP_ZIP,LENGTH_COUNT_LIST,SUBSET_DEF,PULL_EXISTS]>>
         simp[MEM_MAP,PULL_EXISTS,MEM_COUNT_LIST,inf_set_tids_def]))
   >- (
+    rename1`infer_p _ _ _ _ = (Success vv,_)`>>
+    Cases_on`vv`>> first_x_assum old_drule>>
+    fs[hide_def,SUBSET_DEF,MEM_MAP,PULL_EXISTS,EVERY_MEM,inf_set_tids_subset_def]>>
+    fs[prim_tids_def,prim_type_nums_def]>>
+    metis_tac[])
+  >- ( (* Pas case *)
     rename1`infer_p _ _ _ _ = (Success vv,_)`>>
     Cases_on`vv`>> first_x_assum old_drule>>
     fs[hide_def,SUBSET_DEF,MEM_MAP,PULL_EXISTS,EVERY_MEM,inf_set_tids_subset_def]>>

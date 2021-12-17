@@ -2,7 +2,7 @@
   Translate the x64 instruction encoder and x64-specific config.
 *)
 open preamble;
-open terminationTheory
+open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
 open to_target64ProgTheory
 open x64_targetTheory x64Theory;

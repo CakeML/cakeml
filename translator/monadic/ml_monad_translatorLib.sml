@@ -10,7 +10,7 @@ open preamble
      astTheory libTheory semanticPrimitivesTheory evaluateTheory
      ml_translatorTheory ml_progTheory ml_progLib
      ml_pmatchTheory ml_monadBaseTheory ml_monad_translatorBaseTheory
-     ml_monad_translatorTheory terminationTheory cfTacticsLib
+     ml_monad_translatorTheory evaluateTheory cfTacticsLib
      Net List packLib stringSimps
 open ml_monadBaseLib
 

@@ -2,7 +2,7 @@
   Prove completeness of the type inferencer for the expression-level.
 *)
 open preamble;
-open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
+open libTheory typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory;
 open astPropsTheory;
 open typeSysPropsTheory;
 open inferPropsTheory;
@@ -1092,9 +1092,8 @@ val infer_type_subst_check_t_less = Q.prove(
     fs[infer_type_subst_def,check_t_def,check_freevars_def]>>
     fs[EVERY_MAP]>>metis_tac[]);
 
-
 Theorem infer_p_complete:
-   (!tvs tenv p t tenvE.
+  (!tvs tenv p t tenvE.
   type_p tvs tenv p t tenvE
   ⇒
   !l s ienv st constraints.
@@ -1139,8 +1138,8 @@ Theorem infer_p_complete:
 Proof
   ho_match_mp_tac type_p_strongind>>
   rw[UNCURRY,success_eqns,infer_p_def]
-  >-
-    (Q.SPECL_THEN [`t`,`st`,`s`,`tvs`,`constraints`]
+  >- (
+    Q.SPECL_THEN [`t`,`st`,`s`,`tvs`,`constraints`]
       mp_tac (GEN_ALL extend_one_props)>>
     `t_wfs s` by metis_tac[sub_completion_wfs]>>
     impl_tac >> fs[LET_THM,sub_completion_def]>>
@@ -1154,8 +1153,8 @@ Proof
     >>
       fs[simp_tenv_invC_def]>>
       metis_tac[check_freevars_empty_convert_unconvert_id])
-  >-
-    (Q.SPECL_THEN [`t`,`st`,`s`,`tvs`,`constraints`]
+  >- (
+    Q.SPECL_THEN [`t`,`st`,`s`,`tvs`,`constraints`]
       mp_tac (GEN_ALL extend_one_props)>>
     `t_wfs s` by metis_tac[sub_completion_wfs]>>
     impl_tac >> fs[LET_THM,sub_completion_def]>>
@@ -1169,12 +1168,12 @@ Proof
     >>
       fs[simp_tenv_invC_def]>>
       metis_tac[check_freevars_empty_convert_unconvert_id])
-  >>TRY(ntac 2 HINT_EXISTS_TAC >>
+  >> TRY(ntac 2 HINT_EXISTS_TAC >>
     imp_res_tac sub_completion_wfs>>
     fs[t_walkstar_eqn,convert_t_def,t_walk_eqn,Tchar_def]>>
     metis_tac[t_compat_refl,simp_tenv_invC_empty])
-  >-
-   (first_x_assum(qspecl_then [`l`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>rfs[]>>
+  >- (
+    first_x_assum(qspecl_then [`l`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>rfs[]>>
     imp_res_tac tenv_ctor_ok_lookup>>
     Q.SPECL_THEN [`st'`,`constraints'`,`s'`,`ts'`,`tvs`] mp_tac extend_multi_props>>
     impl_keep_tac >-
@@ -1297,23 +1296,38 @@ Proof
         qexists_tac`tvs` >>
         match_mp_tac check_freevars_to_check_t >>
         fs[EVERY_MEM,MEM_EL,PULL_EXISTS])
-  >-
-    (first_x_assum(qspecl_then [`l`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
+  >- (
+    first_x_assum(qspecl_then [`l`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[]>>
     ntac 2 HINT_EXISTS_TAC>>fs[]>>
     imp_res_tac infer_p_wfs>>
     imp_res_tac sub_completion_wfs>>
     fs[Once t_walkstar_eqn,Once t_walk_eqn,convert_t_def,MAP_MAP_o]>>
     fs[MAP_EQ_f])
-  >-
-    (first_x_assum(qspecl_then [`l`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
+  >- (
+    first_x_assum(qspecl_then [`l`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[]>>
     ntac 2 HINT_EXISTS_TAC>>fs[]>>
     imp_res_tac infer_p_wfs>>
     imp_res_tac sub_completion_wfs>>
     fs[Once t_walkstar_eqn,Once t_walk_eqn,SimpRHS,convert_t_def])
-  >-
-    (
+  >- ( (* Pany case *)
+    first_x_assum drule>> simp[]>>
+    rpt(disch_then drule)>>
+    disch_then(qspec_then`l` assume_tac)>>fs[]>>
+    asm_exists_tac>>simp[]>>
+    match_mp_tac simp_tenv_invC_append>>simp[simp_tenv_invC_def]>>
+    DEP_REWRITE_TAC[check_t_to_check_freevars]>>
+    CONJ_ASM1_TAC >- (
+      imp_res_tac infer_p_check_t>>simp[]>>
+      imp_res_tac(CONJUNCT1 check_t_less)>>
+      rfs[]>>
+      pop_assum(qspec_then`s'` mp_tac)>>
+      disch_then(qspec_then`tvs` mp_tac)>>simp[]>>
+      fs[t_compat_def]>>
+      fs[sub_completion_def])>>
+    metis_tac[check_t_empty_unconvert_convert_id])
+  >- (
     simp [type_name_check_subst_comp_thm] >>
     first_x_assum(qspecl_then [`l`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[]>>
@@ -1342,8 +1356,8 @@ Proof
     disch_then(qspec_then`si'` assume_tac)>>rfs[]>>
     fs[simp_tenv_invC_def]>>
     metis_tac[t_compat_trans,t_unify_wfs,pure_add_constraints_success])
-  >-
-    (last_x_assum(qspecl_then [`l`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
+  >- (
+    last_x_assum(qspecl_then [`l`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[]>>
     first_x_assum(qspecl_then [`l`, `s'`,`ienv`,`st'`,`constraints'`] mp_tac)>>
     impl_tac>>fs[]

@@ -3,7 +3,7 @@
 *)
 open preamble;
 open libTheory namespacePropsTheory typeSystemTheory astTheory
-semanticPrimitivesTheory terminationTheory inferTheory unifyTheory inferPropsTheory;
+semanticPrimitivesTheory inferTheory unifyTheory inferPropsTheory;
 open astPropsTheory typeSysPropsTheory;
 
 val _ = new_theory "envRel";

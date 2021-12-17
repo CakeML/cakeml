@@ -111,6 +111,7 @@ val _ = Datatype `
   | Pvar varN
   | Plit lit
   | Pcon ((ctor_id # type_group_id) option) (pat list)
+  | Pas pat varN
   | Pref pat`;
 
 Definition pat_bindings_def:
@@ -118,6 +119,7 @@ Definition pat_bindings_def:
   (pat_bindings (Pvar n) already_bound = n::already_bound) ∧
   (pat_bindings (Plit l) already_bound = already_bound) ∧
   (pat_bindings (Pcon _ ps) already_bound = pats_bindings ps already_bound) ∧
+  (pat_bindings (Pas p i) already_bound = pat_bindings p (i::already_bound)) ∧
   (pat_bindings (Pref p) already_bound = pat_bindings p already_bound) ∧
   (pats_bindings [] already_bound = already_bound) ∧
   (pats_bindings (p::ps) already_bound = pats_bindings ps (pat_bindings p already_bound))

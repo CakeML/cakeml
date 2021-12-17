@@ -54,6 +54,9 @@ compilation.
 [clos_numberProofScript.sml](clos_numberProofScript.sml):
 Correctness proof for clos_number
 
+[clos_opProofScript.sml](clos_opProofScript.sml):
+Correctness proof for clos_op
+
 [clos_ticksProofScript.sml](clos_ticksProofScript.sml):
 Correctness proof for clos_ticks
 
