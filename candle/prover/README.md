@@ -7,6 +7,9 @@ Useful predicates on the CakeML ast.
 [candle_kernel_funsScript.sml](candle_kernel_funsScript.sml):
 Prove that kernel functions maintain Candle prover's invariants
 
+[candle_kernel_permsScript.sml](candle_kernel_permsScript.sml):
+Prove perms theorems for kernel functions
+
 [candle_kernel_valsScript.sml](candle_kernel_valsScript.sml):
 Theorems about values from the Candle kernel program
 
