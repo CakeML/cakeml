@@ -2609,9 +2609,13 @@ val mk_flat_install_conf_def = flatPropsTheory.mk_flat_install_conf_def;
 
 Theorem config_wf_abs_conc:
   opt_eval_config_wf c' (SOME ci) ==>
-  v_fun_abs ci.config_v (ci.config_v cfg) = SOME cfg
+  v_fun_abs dom ci.config_v (ci.config_v cfg) = (if cfg IN dom then SOME cfg else NONE)
 Proof
   simp [opt_eval_config_wf_def, source_evalProofTheory.v_rel_abs, INJ_IFF]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ fs []
+  \\ CCONTR_TAC
+  \\ gs []
 QED
 
 Triviality compile_asm_config_eq:
@@ -2825,7 +2829,7 @@ Proof
     \\ rveq \\ fs []
   )
   \\ qexists_tac `SOME (OPTION_MAP (config_tuple1 o inc_config_to_config c.lab_conf.asm_conf)
-        o v_fun_abs the_ev.config_v)`
+        o v_fun_abs UNIV the_ev.config_v)`
   \\ imp_res_tac compile_inc_config_inv
   \\ imp_res_tac compile_asm_config_eq
   \\ simp [source_to_flatProofTheory.precondition_def]

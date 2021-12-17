@@ -20,18 +20,20 @@ Datatype:
     compiler_fun : ((num # num) # 'config # dec list) ->
         ('config # word8 list # word64 list) option ;
     config_v : 'config -> v ;
+    config_dom : 'config set ;
     decs_v : dec list -> v ;
+    decs_dom : (dec list) set ;
     init_state : 'config
   |>
 End
 
 Definition v_rel_abs:
-  v_fun_abs fun_v v = (some x. fun_v x = v)
+  v_fun_abs fun_dom fun_v v = (some x. fun_v x = v /\ x IN fun_dom)
 End
 
 Definition mk_compiler_fun_from_ci_def:
   mk_compiler_fun_from_ci ci (env_id, cfg_v, decs) =
-    OPTION_BIND (v_fun_abs ci.config_v cfg_v) (\cfg.
+    OPTION_BIND (v_fun_abs ci.config_dom ci.config_v cfg_v) (\cfg.
     OPTION_BIND (ci.compiler_fun (env_id, cfg, decs)) (\(cfg2, bs, ws).
     SOME (ci.config_v cfg2, bs, ws)))
 End
@@ -41,7 +43,7 @@ Overload ci_comp[local] = ``mk_compiler_fun_from_ci``;
 Definition mk_init_eval_state_def:
   mk_init_eval_state ci = EvalDecs <|
     compiler := mk_compiler_fun_from_ci ci ;
-    decode_decs := v_fun_abs ci.decs_v ;
+    decode_decs := v_fun_abs ci.decs_dom ci.decs_v ;
     env_id_counter := (0, 0, 1) ;
     compiler_state := ci.config_v ci.init_state
   |>
@@ -69,7 +71,7 @@ Definition do_eval_record_def:
   do_eval_record ci vs (orac : eval_oracle_fun) = case vs of
     | [env_id_v; st_v; decs_v; st_v2; bs_v; ws_v] =>
       let ((i, _), st, _) = orac 0 in
-      (case (v_to_env_id env_id_v, v_fun_abs ci.decs_v decs_v) of
+      (case (v_to_env_id env_id_v, v_fun_abs ci.decs_dom ci.decs_v decs_v) of
       | (SOME env_id, SOME decs) =>
         if compiler_agrees (mk_compiler_fun_from_ci ci)
             (env_id, st_v, decs) (st_v2, bs_v, ws_v) /\ st_v = st
@@ -258,7 +260,7 @@ Definition s_rel_def:
   s.eval_state = SOME (EvalDecs dec_s) /\
   orac_s.custom_do_eval = do_eval_record ci /\
   dec_s.compiler_state = (FST (SND (orac_s.oracle 0))) /\
-  dec_s.decode_decs = v_fun_abs ci.decs_v /\
+  dec_s.decode_decs = v_fun_abs ci.decs_dom ci.decs_v /\
   dec_s.compiler = mk_compiler_fun_from_ci ci /\
 (*
   (0 < FST (FST (orac_s.oracle 0)) ==>
@@ -890,6 +892,7 @@ Theorem do_eval_sim:
         (orac_s (reset_env_generation t.eval_state t2.eval_state))
   )
 Proof
+
   rw []
   \\ fs [do_eval_def, s_rel_def] \\ fs []
   \\ fs [list_case_eq, v_case_eq, option_case_eq, pair_case_eq]
