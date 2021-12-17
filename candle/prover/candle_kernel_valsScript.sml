@@ -43,13 +43,13 @@ Definition kernel_funs_def:
     dest_vartype_v;
     is_type_v;
     is_vartype_v;
-    tyvars_v;
-    type_subst_v;
+    call_tyvars_v;
+    call_type_subst_v;
 
     constants_v;
     get_const_type_v;
     new_constant_v;
-    type_of_v;
+    call_type_of_v;
  (* alphaorder_v_def *)
     is_var_v;
     is_const_v;
@@ -63,12 +63,12 @@ Definition kernel_funs_def:
     dest_const_v;
     dest_comb_v;
     dest_abs_v;
-    frees_v;
+    call_frees_v;
     freesl_v;
-    freesin_v;
-    vfree_in_v;
-    type_vars_in_term_v;
-    variant_v;
+    call_freesin_v;
+    call_vfree_in_v;
+    call_type_vars_in_term_v;
+    call_variant_v;
     vsubst_v;
     inst_v;
     rand_v;
@@ -467,4 +467,3 @@ QED
 val _ = reset_translation();
 
 val _ = export_theory ();
-

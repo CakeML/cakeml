@@ -124,7 +124,15 @@ val res = translate mk_vartype_def;
 val res = translate is_type_def;
 val res = translate is_vartype_def;
 val res = translate rev_assocd_def;
+
+Definition call_type_subst_def[simp]:
+  call_type_subst i ty = holKernel$type_subst i ty
+End
+val _ = (next_ml_names := ["type_subst_aux"]);
 val res = translate holKernelTheory.type_subst_def;
+val _ = (next_ml_names := ["type_subst"]);
+val res = translate call_type_subst_def;
+
 val res = translate alphavars_def;
 val res = translate holKernelPmatchTheory.raconv_def;
 
@@ -140,13 +148,57 @@ val res = translate holKernelPmatchTheory.is_const_def;
 val res = translate holKernelPmatchTheory.is_abs_def;
 val res = translate holKernelPmatchTheory.is_comb_def;
 val res = translate mk_var_def;
+
+Definition call_frees_def[simp]:
+  call_frees tm = holSyntaxExtra$frees tm
+End
+val _ = (next_ml_names := ["frees_aux"]);
 val res = translate holSyntaxExtraTheory.frees_def;
+val _ = (next_ml_names := ["frees"]);
+val res = translate call_frees_def;
+
 val res = translate freesl_def;
+
+Definition call_freesin_def[simp]:
+  call_freesin acc tm = freesin acc tm
+End
+val _ = (next_ml_names := ["freesin_aux"]);
 val res = translate (freesin_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = (next_ml_names := ["freesin"]);
+val res = translate call_freesin_def;
+
+Definition call_vfree_in_def[simp]:
+  call_vfree_in v tm = vfree_in v tm
+End
+val _ = (next_ml_names := ["vfree_in_aux"]);
 val res = translate holKernelPmatchTheory.vfree_in_def;
-val res = translate tyvars_def;
+val _ = (next_ml_names := ["vfree_in"]);
+val res = translate call_vfree_in_def;
+
+Definition call_tyvars_def[simp]:
+  call_tyvars x = holKernel$tyvars x
+End
+val _ = (next_ml_names := ["tyvars_aux"]);
+val res = translate holKernelTheory.tyvars_def;
+val _ = (next_ml_names := ["tyvars"]);
+val res = translate call_tyvars_def;
+
+Definition call_type_vars_in_term_def[simp]:
+  call_type_vars_in_term tm = type_vars_in_term tm
+End
+val _ = (next_ml_names := ["type_vars_in_term_aux"]);
 val res = translate type_vars_in_term_def;
+val _ = (next_ml_names := ["type_vars_in_term"]);
+val res = translate call_type_vars_in_term_def;
+
+Definition call_variant_def[simp]:
+  call_variant avoid v = variant avoid v
+End
+val _ = (next_ml_names := ["variant_aux"]);
 val res = translate holSyntaxExtraTheory.variant_def;
+val _ = (next_ml_names := ["variant"]);
+val res = translate call_variant_def;
+
 val res = translate vsubst_aux_def;
 val res = translate holKernelPmatchTheory.is_eq_def;
 val res = translate dest_thm_def;
@@ -268,7 +320,15 @@ val def = holKernelPmatchTheory.mk_abs_def |> m_translate;
 val def = get_type_arity_def |> m_translate;
 val def = mk_type_def |> m_translate;
 val def = mk_fun_ty_def |> m_translate;
+
+Definition call_type_of_def[simp]:
+  call_type_of tm = type_of tm
+End
+val _ = (next_ml_names := ["type_of_aux"]);
 val def = holKernelPmatchTheory.type_of_def |> m_translate; (* PMATCH *)
+val _ = (next_ml_names := ["type_of"]);
+val res = m_translate call_type_of_def;
+
 val def = get_const_type_def |> m_translate;
 val def = holKernelPmatchTheory.mk_comb_def |> m_translate;
 val def = can_def |> m_translate;

@@ -575,7 +575,7 @@ Definition readLine_def:
         do
           (obj,s) <- pop s; tm <- getTerm obj;
           (obj,s) <- pop s; n <- getName obj;
-          ty <- type_of tm;
+          ty <- call_type_of tm;
           eq <- mk_eq (mk_var(n,ty),tm);
           th <- new_basic_definition eq;
           return (push (Thm th) (push (Const n) s))

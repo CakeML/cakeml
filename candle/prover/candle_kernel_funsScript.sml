@@ -89,9 +89,9 @@ Proof
   >~ [‘THM ctxt th’] >- (
     Cases_on ‘th’ \\ gs [THM_TYPE_def, do_opapp_cases])
   \\ rename [‘f ∈ kernel_funs’]
-  \\ Cases_on ‘f ∈ { (* type_subst_v; freesin_v; vfree_in_v; variant_v; *) vsubst_v;
-                     inst_v; trans_v; abs_1_v; eq_mp_v; deduct_antisym_rule_v;
-                     inst_type_v; inst_1_v; trans_v }’ THEN1
+  \\ Cases_on ‘f ∈ { call_type_subst_v; call_freesin_v; call_vfree_in_v;
+                     call_variant_v; vsubst_v; inst_v; trans_v; abs_1_v; eq_mp_v;
+                     deduct_antisym_rule_v; inst_type_v; inst_1_v; trans_v }’ THEN1
    (gvs []
     \\ qpat_x_assum ‘do_opapp _ = _’ mp_tac
     \\ last_x_assum mp_tac
@@ -313,10 +313,10 @@ Proof
    (qsuff_tac ‘F’ \\ fs []
     \\ qpat_x_assum ‘do_partial_app _ _ = SOME _’ mp_tac
     \\ rewrite_tac [kernel_funs_v_def] \\ EVAL_TAC)
-  \\ Cases_on ‘f = type_subst_v’ \\ gvs [] >- cheat
-  \\ Cases_on ‘f = freesin_v’ \\ gvs [] >- cheat
-  \\ Cases_on ‘f = vfree_in_v’ \\ gvs [] >- cheat
-  \\ Cases_on ‘f = variant_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = call_type_subst_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = call_freesin_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = call_vfree_in_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = call_variant_v’ \\ gvs [] >- cheat
   \\ Cases_on ‘f = vsubst_v’ \\ gvs [] >- cheat
   \\ Cases_on ‘f = inst_v’ \\ gvs [] >- cheat
   \\ Cases_on ‘f = abs_1_v’ \\ gvs [] >- cheat
@@ -357,7 +357,6 @@ Proof
   THEN1 (strip_tac \\ fs [do_partial_app_def,AllCaseEqs()])
   \\ fs [kernel_funs_def]
   \\ TRY (rewrite_tac [kernel_funs_v_def,v_11] \\ simp [] \\ NO_TAC)
-  \\ cheat (* the line above should finish off all cases *)
 QED
 
 val _ = export_theory ();
