@@ -6,12 +6,10 @@ open preamble;
 open ml_translatorTheory ml_translatorLib ml_hol_kernelProgTheory;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory
      terminationTheory namespacePropsTheory evaluatePropsTheory
-     ast_extrasTheory finite_mapTheory pred_setTheory;
-open basisFunctionsLib holKernelProofTheory;
+     ast_extrasTheory finite_mapTheory pred_setTheory
+     holKernelProofTheory;
 
 val _ = new_theory "candle_kernel_vals";
-
-val _ = translation_extends "ml_hol_kernelProg";
 
 (*
 TODO:
@@ -204,18 +202,6 @@ Theorem THM_TYPE_HEAD_def = SIMP_RULE list_ss [] THM_TYPE_HEAD_def;
 (* -------------------------------------------------------------------------
  * THM, TERM, TYPE lemmas
  * ------------------------------------------------------------------------- *)
-
-Theorem EqualityType_TYPE_TYPE = EqualityType_rule [] “:type”;
-
-Theorem EqualityType_LIST_TYPE_TYPE_TYPE = EqualityType_rule [] “:type list”;
-
-Theorem EqualityType_TERM_TYPE = EqualityType_rule [] “:term”;
-
-Theorem EqualityType_LIST_TYPE_TERM_TYPE = EqualityType_rule [] “:term list”;
-
-Theorem EqualityType_THM_TYPE = EqualityType_rule [] “:thm”;
-
-Theorem EqualityType_LIST_TYPE_THM_TYPE = EqualityType_rule [] “:thm list”;
 
 Theorem kernel_funs_inferred[simp]:
   (∀ty. v ∈ kernel_funs ⇒ ¬TYPE_TYPE ty v) ∧
@@ -463,7 +449,5 @@ Proof
   >- (
     Cases_on ‘th’ \\ gs [THM_TYPE_def])
 QED
-
-val _ = reset_translation();
 
 val _ = export_theory ();

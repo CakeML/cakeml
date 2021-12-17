@@ -412,4 +412,10 @@ val candle_prog_thm =
 
 val _ = (print_asts := true);
 
+Theorem EqualityType_TYPE_TYPE = EqualityType_rule [] “:type”;
+
+Theorem EqualityType_TERM_TYPE = EqualityType_rule [] “:term”;
+
+Theorem EqualityType_THM_TYPE = EqualityType_rule [] “:thm”;
+
 val _ = export_theory();
