@@ -221,7 +221,11 @@ val _ = Define `
 (* Compiler checker for Eval. The current design requires the compiler
    to be run (as regular code within the semantics) before Eval is called,
    and these config parameters specify how to interpret the declarations to
-   be evaluated and check that the compiler was run correctly. *)
+   be evaluated and check that the compiler was run correctly.
+
+   Before attempting build a state of this type, find out about
+   mk_init_eval_state in source_evalProof.
+*)
 Type compiler_args = ``: ((num # num) # v # dec list)``
 Type compiler_fun = ``: compiler_args ->
      (v # word8 list # word64 list)option``
