@@ -3,11 +3,10 @@
  *)
 
 open preamble;
-open ml_translatorTheory ml_translatorLib ml_hol_kernelProgTheory;
+open ml_translatorTheory ml_hol_kernelProgTheory;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     terminationTheory namespacePropsTheory evaluatePropsTheory
-     ast_extrasTheory finite_mapTheory pred_setTheory
-     holKernelProofTheory;
+     namespacePropsTheory evaluatePropsTheory ast_extrasTheory
+     holKernelProofTheory evaluateTheory;
 
 val _ = new_theory "candle_kernel_vals";
 

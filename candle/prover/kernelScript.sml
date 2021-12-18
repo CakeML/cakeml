@@ -5,7 +5,7 @@
 open preamble;
 open ml_translatorTheory ml_translatorLib;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     terminationTheory namespacePropsTheory evaluatePropsTheory
+     evaluateTheory namespacePropsTheory evaluatePropsTheory
      ast_extrasTheory finite_mapTheory pred_setTheory;
 open basisFunctionsLib;
 
@@ -468,4 +468,3 @@ Proof
 QED
 
 val _ = export_theory ();
-

@@ -5,7 +5,7 @@
 
 open preamble helperLib;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     terminationTheory namespacePropsTheory evaluatePropsTheory
+     evaluateTheory namespacePropsTheory evaluatePropsTheory
      sptreeTheory ml_hol_kernelProgTheory;
 open permsTheory candle_kernel_valsTheory ast_extrasTheory;
 local open ml_progLib in end
@@ -13,7 +13,7 @@ local open ml_progLib in end
 val _ = new_theory "candle_prover_inv";
 
 val _ = set_grammar_ancestry [
-  "candle_kernel_vals", "ast_extras", "termination", "namespaceProps", "perms",
+  "candle_kernel_vals", "ast_extras", "evaluate", "namespaceProps", "perms",
   "semanticPrimitivesProps", "misc"];
 
 (* -------------------------------------------------------------------------

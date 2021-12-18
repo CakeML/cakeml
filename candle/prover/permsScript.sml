@@ -4,7 +4,7 @@
 
 open preamble;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     terminationTheory namespacePropsTheory evaluatePropsTheory
+     namespacePropsTheory evaluatePropsTheory evaluateTheory
      sptreeTheory ml_progTheory;
 open ast_extrasTheory;
 

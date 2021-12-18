@@ -4,7 +4,7 @@
 
 open preamble helperLib;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory sptreeTheory
-     terminationTheory namespacePropsTheory evaluatePropsTheory;
+     evaluateTheory namespacePropsTheory evaluatePropsTheory;
 open permsTheory ml_hol_kernelProgTheory ast_extrasTheory;
 
 val _ = new_theory "candle_kernel_perms";
