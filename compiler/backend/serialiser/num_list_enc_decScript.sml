@@ -277,14 +277,21 @@ Definition string_dec_def:
     | (n::ns) => (IMPLODE (safe_chr_list (TAKE n ns)), DROP n ns)
 End
 
-Theorem string_dec_thm:
-  string_dec = list_dec char_dec
+Theorem string_dec_ok:
+  dec_ok string_dec
 Proof
-  fs [FUN_EQ_THM] \\ Cases THEN1 EVAL_TAC
-  \\ fs [string_dec_def,list_dec_def,safe_chr_list_def]
-  \\ qid_spec_tac ‘t’
-  \\ qid_spec_tac ‘h’
-  \\ cheat
+  fs [dec_ok_def] \\ rw []
+  \\ fs [string_dec_def]
+  \\ CASE_TAC \\ fs []
+QED
+
+Theorem string_enc_dec_ok:
+  enc_dec_ok (list_enc char_enc) string_dec
+Proof
+  fs [enc_dec_ok_def,string_dec_ok]
+  \\ fs [list_enc_def,string_dec_def]
+  \\ Induct \\ fs [safe_chr_list_def,char_enc_def,num_enc_def]
+  \\ Cases \\ fs [ORD_CHR,safe_chr_def]
 QED
 
 (* mlstring *)
@@ -607,21 +614,19 @@ Proof
   THEN1 metis_tac [] \\ pop_assum kall_tac
   \\ ho_match_mp_tac namespace_dec'_ind \\ rw []
   \\ once_rewrite_tac [namespace_dec'_def]
-  \\ fs [UNCURRY,string_dec_thm] \\ rw [] \\ fs []
+  \\ fs [UNCURRY] \\ rw [] \\ fs []
   THEN1
-   (Cases_on ‘list_dec (prod_dec (list_dec char_dec) d) i’ \\ fs []
-    \\ ‘dec_ok (list_dec (prod_dec (list_dec char_dec) d))’ by
-     (irule list_dec_ok \\ irule prod_dec_ok \\ fs []
-      \\ metis_tac [list_enc_dec_ok, prod_enc_dec_ok, char_enc_dec_ok, enc_dec_ok_def])
+   (Cases_on ‘list_dec (prod_dec string_dec d) i’ \\ fs []
+    \\ ‘dec_ok (list_dec (prod_dec string_dec d))’ by
+     (irule list_dec_ok \\ irule prod_dec_ok \\ fs [string_dec_ok])
     \\ fs [dec_ok_def] \\ first_x_assum (qspec_then ‘i’ mp_tac) \\ fs [])
   \\ Cases_on ‘i’ \\ fs []
   \\ Cases_on ‘h=0’ \\ fs []
-  \\ Cases_on ‘list_dec char_dec t’ \\ fs []
+  \\ Cases_on ‘string_dec t’ \\ fs []
   \\ Cases_on ‘k’ \\ fs []
   \\ Cases_on ‘namespace_dec' n d r’ \\ fs []
   \\ Cases_on ‘namespace_dec'_list n d r'’ \\ fs []
-  \\ ‘dec_ok (list_dec char_dec)’ by
-    (metis_tac [list_enc_dec_ok, prod_enc_dec_ok, char_enc_dec_ok, enc_dec_ok_def])
+  \\ ‘dec_ok string_dec’ by fs [string_dec_ok]
   \\ fs [dec_ok_def]
   \\ first_x_assum (qspec_then ‘t’ mp_tac) \\ fs []
 QED
@@ -651,21 +656,18 @@ Proof
   \\ rpt (pop_assum kall_tac)
   \\ ho_match_mp_tac namespace_enc'_ind \\ rw []
   \\ fs [namespace_enc'_def,append_thm,namespace_depth_def]
-  \\ simp [Once namespace_dec'_def,string_dec_thm]
+  \\ simp [Once namespace_dec'_def]
   THEN1
    (‘enc_dec_ok
         (list_enc (prod_enc (list_enc char_enc) e))
-        (list_dec (prod_dec (list_dec char_dec) d))’ by
+        (list_dec (prod_dec string_dec d))’ by
      (irule list_enc_dec_ok
-      \\ irule prod_enc_dec_ok
-      \\ reverse conj_tac THEN1 fs [enc_dec_ok_def,dec_ok_def]
-      \\ metis_tac [list_enc_dec_ok, prod_enc_dec_ok, char_enc_dec_ok])
+      \\ irule prod_enc_dec_ok \\ fs [string_enc_dec_ok])
     \\ fs [enc_dec_ok_def] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ ‘namespace_depth_list x ≤ l - 1’ by fs []
     \\ res_tac \\ fs [])
   \\ rpt (pairarg_tac \\ fs [])
-  \\ ‘enc_dec_ok (list_enc char_enc) (list_dec char_dec)’ by
-    metis_tac [list_enc_dec_ok, prod_enc_dec_ok, char_enc_dec_ok, enc_dec_ok_def]
+  \\ ‘enc_dec_ok (list_enc char_enc) string_dec’ by fs [string_enc_dec_ok]
   \\ fs [enc_dec_ok_def] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ gvs [] \\ rev_full_simp_tac std_ss [GSYM APPEND_ASSOC] \\ gvs []
   \\ ‘namespace_depth x ≤ l - 1’ by fs [MAX_DEF]
