@@ -6,7 +6,7 @@
 *)
 open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
 open astTheory libTheory evaluateTheory semanticPrimitivesTheory
-open terminationTheory ml_progLib ml_progTheory terminationTheory
+open ml_progLib ml_progTheory evaluateTheory
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
 open cfHeapsBaseTheory basisFunctionsLib
 open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib

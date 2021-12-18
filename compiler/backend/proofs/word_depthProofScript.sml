@@ -847,7 +847,7 @@ Proof
   \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `lookup dest s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `(max_depth s.stack_size
-                       (call_graph funs dest [dest] (size funs) exp'))`
+                       (call_graph funs dest [dest] (size funs) exp))`
   THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `s1.stack_max` \\ fs [OPTION_MAP2_DEF,MAX_DEF]
 QED
@@ -879,7 +879,7 @@ Proof
   \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `lookup dest s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `(max_depth s.stack_size
-                       (call_graph funs dest [dest] (size funs) exp'))`
+                       (call_graph funs dest [dest] (size funs) exp))`
   THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `s1.stack_max` \\ fs [OPTION_MAP2_DEF,MAX_DEF]
 QED

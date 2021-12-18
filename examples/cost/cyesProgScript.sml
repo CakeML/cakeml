@@ -344,9 +344,9 @@ Proof
   fs[evaluate_to_heap_def,semanticsTheory.semantics_prog_def] >>
   rpt strip_tac >-
     (simp[semanticsTheory.evaluate_prog_with_clock_def,
-          terminationTheory.evaluate_decs_def,
+          evaluateTheory.evaluate_decs_def,
           astTheory.pat_bindings_def] >>
-     simp[terminationTheory.evaluate_def] >>
+     simp[evaluateTheory.evaluate_def] >>
      simp[semanticPrimitivesTheory.do_con_check_def,semanticPrimitivesTheory.build_conv_def] >>
      rw[evaluateTheory.dec_clock_def] >>
      fs[evaluate_ck_def] >>
@@ -358,10 +358,10 @@ Proof
     (rw[IMAGE_DEF,SUBSET_DEF] >>
      qexists_tac `SUC ck` >>
      simp[semanticsTheory.evaluate_prog_with_clock_def,
-          terminationTheory.evaluate_decs_def,
+          evaluateTheory.evaluate_decs_def,
           astTheory.pat_bindings_def
          ] >>
-     simp[terminationTheory.evaluate_def] >>
+     simp[evaluateTheory.evaluate_def] >>
      simp[semanticPrimitivesTheory.do_con_check_def,semanticPrimitivesTheory.build_conv_def] >>
      rw[evaluateTheory.dec_clock_def] >>
      fs[evaluate_ck_def] >>
@@ -369,10 +369,10 @@ Proof
   rw[PULL_EXISTS] >>
   simp[LPREFIX_fromList_fromList] >>
   simp[semanticsTheory.evaluate_prog_with_clock_def,
-       terminationTheory.evaluate_decs_def,
+       evaluateTheory.evaluate_decs_def,
        astTheory.pat_bindings_def
       ] >>
-  simp[terminationTheory.evaluate_def] >>
+  simp[evaluateTheory.evaluate_def] >>
   simp[semanticPrimitivesTheory.do_con_check_def,semanticPrimitivesTheory.build_conv_def] >>
   rw[evaluateTheory.dec_clock_def] >>
   fs[evaluate_ck_def] >>
@@ -408,11 +408,11 @@ Proof
     (case st of ML_code (sts,envs,vs,_) => sts @ envs @ vs) >>
   qabbrev_tac `maincall = ^maincall` >>
   fs[semanticsTheory.semantics_prog_def,semanticsTheory.evaluate_prog_with_clock_def,
-     terminationTheory.evaluate_def,terminationTheory.evaluate_decs_def,
+     evaluateTheory.evaluate_def,evaluateTheory.evaluate_decs_def,
      semanticPrimitivesTheory.check_dup_ctors_def,
      astTheory.pat_bindings_def,
      semanticPrimitivesTheory.combine_dec_result_def,
-     terminationTheory.pmatch_def,
+     semanticPrimitivesTheory.pmatch_def,
      semanticPrimitivesTheory.extend_dec_env_def,
      semanticPrimitivesTheory.build_tdefs_def,
      semanticPrimitivesTheory.build_constrs_def,

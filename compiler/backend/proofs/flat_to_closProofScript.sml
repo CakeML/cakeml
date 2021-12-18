@@ -522,7 +522,7 @@ val op_goal =
     ∃res2' t1.
       evaluate ([compile_op tt op xs],db,t) = (res2',t1) ∧
       state_rel s2 t1 ∧
-      result_rel (LIST_REL v_rel) v_rel (list_result res2) res2'``
+      result_rel (LIST_REL v_rel) v_rel (evaluate$list_result res2) res2'``
 
 Theorem op_refs:
   (op = Opref) \/
@@ -1276,7 +1276,7 @@ Theorem compile_single_DEEP_INTRO:
   P (flat_to_clos$compile m [exp])
 Proof
   qspecl_then [`m`, `[exp]`] assume_tac LENGTH_compile
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs [LENGTH_EQ_NUM_compute]
 QED
 
 Theorem compile_App:
@@ -1867,7 +1867,6 @@ Theorem FST_inc_compile_esgc_free:
   EVERY (flatProps$esgc_free o flatProps$dest_Dlet) (FILTER flatProps$is_Dlet decs) /\
   no_Mat_decs decs ==>
   EVERY closProps$esgc_free (FST (inc_compile_decs decs))
-
 Proof
   simp [inc_compile_decs_def]
   \\ simp [compile_decs_esgc_free]

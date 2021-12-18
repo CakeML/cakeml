@@ -240,7 +240,7 @@ Proof
   \\ TRY (qexists_tac `[]` \\ fs [mk_Apps_def] \\ NO_TAC)
   \\ fs [no_mti_def]
   \\ imp_res_tac collect_apps_acc \\ rveq \\ fs []
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_1] \\ rveq \\ fs []
+  \\ Cases_on ‘l’ \\ gvs []
   \\ drule (GEN_ALL collect_apps_cons) \\ fs []
   \\ strip_tac \\ first_x_assum drule
   \\ strip_tac \\ rveq \\ fs []
@@ -1433,7 +1433,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [EVERY_intro_multi, intro_multi_length]
   THEN1
-   (fs [quantHeuristicsTheory.LIST_LENGTH_1] \\ rveq \\ fs []
+   (fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
     \\ imp_res_tac collect_apps_acc \\ rveq \\ fs []
     \\ drule collect_apps_cons \\ fs [] \\ strip_tac
     \\ drule collect_apps_IMP_mk_Apps \\ fs [] \\ strip_tac

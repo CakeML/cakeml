@@ -132,7 +132,7 @@ val allTypes_no_tyvars_and_ok = Q.prove(
   \\ BasicProvers.PURE_FULL_CASE_TAC >- fs[type_ok_def,is_std_sig_def]
   \\ qpat_x_assum `!x. _` mp_tac >> simp[] >> strip_tac
   >> BasicProvers.PURE_FULL_CASE_TAC
-  >- (fs[quantHeuristicsTheory.LIST_LENGTH_2,is_std_sig_def,type_ok_def]
+  >- (fs[LENGTH_EQ_NUM_compute,is_std_sig_def,type_ok_def]
       \\ fs[])
   \\ fs[type_ok_def]);
 
@@ -199,10 +199,10 @@ Proof
   >- (fs[boolTheory.IN_DEF,builtin_closure_rules])
   >> qpat_x_assum `!x. _` mp_tac >> simp[]
   >> BasicProvers.PURE_FULL_CASE_TAC >> simp[builtin_closure_rules,boolTheory.IN_DEF]
-  >> fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  >> fs[LENGTH_EQ_NUM_compute]
   >> rpt(BasicProvers.VAR_EQ_TAC)
   >> fs[allTypes'_defn] >> strip_tac
-  >> rfs[quantHeuristicsTheory.LIST_LENGTH_2]
+  >> rfs[LENGTH_EQ_NUM_compute]
   >> metis_tac[builtin_closure_rules,boolTheory.IN_DEF]
 QED
 
@@ -1096,7 +1096,7 @@ Proof
   >- (fs[boolTheory.IN_DEF] \\ match_mp_tac (builtin_closure_inj) \\
       simp[boolTheory.IN_DEF])
   \\ fs[nonbuiltin_types_def,builtin_types_def,is_builtin_type_def,is_builtin_name_def,
-        quantHeuristicsTheory.LIST_LENGTH_2,boolTheory.IN_DEF]
+        LENGTH_EQ_NUM_compute,boolTheory.IN_DEF]
   \\ fs[tyvars_def,ground_types_def,LIST_UNION_EQ_NIL,type_ok_def]
   \\ metis_tac[builtin_closure_rules]
 QED

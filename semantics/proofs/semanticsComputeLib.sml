@@ -6,7 +6,7 @@ struct
 
 open HolKernel boolLib bossLib
 (*
-open astTheory gramTheory semanticPrimitivesTheory terminationTheory
+open astTheory gramTheory semanticPrimitivesTheory evaluateTheory
      lexer_funTheory tokenUtilsTheory cmlPtreeConversionTheory
 *)
 
@@ -43,7 +43,7 @@ val add_namespace_compset = computeLib.extend_compset
     ,namespaceTheory.nsLookup_def
     ,namespaceTheory.id_to_mods_def
     ,namespaceTheory.id_to_n_def
-    ,terminationTheory.nsMap_def
+    ,namespaceTheory.nsMap_def
     ],
    computeLib.Tys
     [``:('a,'b) namespace$id``
@@ -56,25 +56,25 @@ val add_ast_compset = computeLib.extend_compset
   [computeLib.Defs
     [gramTheory.nt_distinct_ths
     ,libTheory.opt_bind_def
-    ,terminationTheory.is_value_def
+    ,typeSystemTheory.is_value_def
     ,astTheory.pat_bindings_def
     ,typeSystemTheory.check_ctor_tenv_def
-    ,terminationTheory.type_subst_def
-    ,terminationTheory.check_freevars_def
-    ,terminationTheory.check_freevars_ast_def
-    ,terminationTheory.check_type_names_def
-    ,terminationTheory.type_name_subst_def
+    ,typeSystemTheory.type_subst_def
+    ,typeSystemTheory.check_freevars_def
+    ,typeSystemTheory.check_freevars_ast_def
+    ,typeSystemTheory.check_type_names_def
+    ,typeSystemTheory.type_name_subst_def
     (*,typeSystemTheory.check_exn_tenv_def*)
     (*,typeSystemTheory.tid_exn_to_tc_def*)
     ,typeSystemTheory.build_ctor_tenv_def
-    ,terminationTheory.check_dup_ctors_thm
+    ,semanticPrimitivesTheory.check_dup_ctors_def
     ,semanticPrimitivesTheory.build_constrs_def
     ,semanticPrimitivesTheory.build_tdefs_def
     ,semanticPrimitivesTheory.result_case_def
     ,semanticPrimitivesTheory.match_result_case_def
     ,semanticPrimitivesTheory.combine_dec_result_def
     ,semanticPrimitivesTheory.build_rec_env_def
-    ,terminationTheory.pmatch_def
+    ,semanticPrimitivesTheory.pmatch_def
     (*,astTheory.Texn_def
     ,astTheory.Tfn_def
     ,astTheory.Tint_def

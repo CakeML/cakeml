@@ -167,12 +167,12 @@ Proof
   \\ rw[decode_control_def,encode_control_def]
   \\ fs[] \\ rw[decode_control_def]
   \\ imp_res_tac num_to_hex_string_length_1
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_1] \\ rfs[]
+  \\ fs[LENGTH_EQ_NUM_compute] \\ rfs[]
   \\ fs[]
   \\ fs[arithmeticTheory.NOT_LESS]
   \\ qspec_then`h`strip_assume_tac stringTheory.ORD_BOUND
   \\ imp_res_tac num_to_hex_string_length_2
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rfs[]
+  \\ fs[LENGTH_EQ_NUM_compute] \\ rfs[]
   \\ rw[] \\ fs[] \\ rw[]
   \\ simp[]
   \\ qspec_then`ORD h`strip_assume_tac EVERY_isHexDigit_num_to_hex_string
@@ -1719,8 +1719,8 @@ Proof
   rw[sexpopt_def]
   \\ Cases_on`odestSXSYM s` \\ fs[dstrip_sexp_SOME] \\ rw[]
   \\ fs[odestSXSYM_def] \\ simp[EXISTS_OPTION, optsexp_def, listsexp_def]
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[] \\ fs[] \\ rw[]
-  >- (qexists_tac `SOME e1` \\ fs [] \\ EVAL_TAC)
+  \\ fs[LENGTH_EQ_NUM_compute] \\ rw[] \\ fs[] \\ rw[]
+  >- (rename [‘f e1 = SOME _’] \\ qexists_tac `SOME e1` \\ fs [] \\ EVAL_TAC)
   \\ rename[`odestSXSYM s = SOME _`] >> Cases_on `s`
   \\ fs[odestSXSYM_def, dstrip_sexp_def]
   \\ qexists_tac `NONE` \\ fs [] \\ EVAL_TAC
@@ -1784,10 +1784,11 @@ Proof
   \\ reverse(Cases_on`odestSEXSTR s`) \\ fs[]
   >- ( rw[litsexp_def])
   \\ pairarg_tac
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[]
-  \\ fs[OPTION_CHOICE_EQ_SOME, dstrip_sexp_EQ_SOME] >>
-  rw[litsexp_def, listsexp_def]
-  \\ Cases_on`e1` \\ fs[odestSXNUM_def]
+  \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
+  \\ fs[OPTION_CHOICE_EQ_SOME, dstrip_sexp_EQ_SOME]
+  \\ rw[litsexp_def, listsexp_def]
+  \\ rename [‘odestSXNUM h1 = SOME n1’]
+  \\ Cases_on`h1` \\ fs[odestSXNUM_def]
 QED
 
 Theorem idsexp_sexpid_odestSEXSTR:
@@ -1799,7 +1800,7 @@ Proof
   \\ fs[]
   \\ fs[OPTION_CHOICE_EQ_SOME]
   \\ rw[idsexp_def,listsexp_def]
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[]
+  \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
   \\ fs[]
   \\ fs[Once strip_sxcons_def]
   \\ every_case_tac \\ fs[]
@@ -1855,7 +1856,7 @@ Proof
   \\ pairarg_tac \\ fs[]
   \\ fs[dstrip_sexp_SOME, OPTION_CHOICE_EQ_SOME] >>
   rw[patsexp_def, listsexp_def]
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ rw[] \\ fs[]
   >- metis_tac[litsexp_sexplit]
   >- metis_tac[litsexp_sexplit]
@@ -1921,8 +1922,7 @@ Theorem expsexp_sexpexp:
    ∀s e. sexpexp s = SOME e ⇒ expsexp e = s
 Proof
   ho_match_mp_tac (theorem"sexpexp_ind") >>
-  simp[OPTION_GUARD_EQ_THM, quantHeuristicsTheory.LIST_LENGTH_3, PULL_EXISTS,
-       dstrip_sexp_SOME]
+  simp[OPTION_GUARD_EQ_THM, LENGTH_EQ_NUM_compute, PULL_EXISTS, dstrip_sexp_SOME]
   \\ rpt gen_tac \\ strip_tac \\ gen_tac
   \\ simp[Once sexpexp_def, EXISTS_PROD, dstrip_sexp_EQ_SOME, PULL_EXISTS]
   \\ rpt gen_tac
@@ -1935,7 +1935,7 @@ Proof
   \\ rw[]
   \\ simp[expsexp_def]
   \\ rw[]
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[]
+  \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
   \\ fs[] \\ rw[]
   \\ fs[listsexp_def] \\ fs[GSYM listsexp_def] \\ rpt conj_tac
   \\ imp_res_tac typesexp_sexptype
