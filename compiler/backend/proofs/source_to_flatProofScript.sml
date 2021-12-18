@@ -3297,7 +3297,7 @@ Proof
     \\ simp [EXTENSION, FORALL_PROD, idx_types_FORALL, idx_block_def]
     \\ simp [MEM_MAP, EXISTS_PROD, PULL_EXISTS]
     \\ rw [] \\ EQ_TAC \\ rw []
-    \\ fs [NOT_NIL_EQ_LENGTH_NOT_0, quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ fs [NOT_NIL_EQ_LENGTH_NOT_0, LENGTH_EQ_NUM_compute]
     \\ rveq \\ fs [EXISTS_PROD]
     \\ metis_tac []
   )
@@ -3830,7 +3830,7 @@ Proof
     >- (
       drule (CONJUNCT1 evaluatePropsTheory.evaluate_length) >>
       rw [] >>
-      fs [quantHeuristicsTheory.LIST_LENGTH_2] >>
+      fs [LENGTH_EQ_NUM_compute] >>
       rveq >> fs [] >>
       simp [compile_exp_def, evaluate_def] >>
       pairarg_tac >>
@@ -3989,7 +3989,7 @@ Proof
     \\ rveq \\ fs []
     \\ imp_res_tac evaluate_length
     \\ fs [compile_exps_length]
-    \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ fs [LENGTH_EQ_NUM_compute]
     \\ fs [compile_exp_def]
     \\ rw [result_rel_eqns, v_rel_eqns]
     \\ asm_exists_tac \\ fs []

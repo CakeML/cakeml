@@ -814,7 +814,7 @@ Proof
   \\ rw[calls_def]
   \\ rpt (pairarg_tac \\ fs[])
   \\ imp_res_tac calls_length
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rw[]
+  \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
   \\ every_case_tac \\ rw[]
   \\ fs[SUBSET_DEF,fv1_thm,IN_DEF,fv_GENLIST_Var_tra,fv_append]
   \\ rw[] \\ rw[]
@@ -881,7 +881,7 @@ Proof
   \\ rpt(pairarg_tac \\ fs[])
   \\ rveq \\ fs[]
   \\ imp_res_tac calls_length
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ rveq \\ fs[]
   \\ TRY (
     qmatch_goalsub_rename_tac`closLang$Letrec`
@@ -1008,7 +1008,7 @@ Theorem calls_el_sing:
 Proof
   ho_match_mp_tac calls_ind \\ rw[]
   \\ imp_res_tac calls_length
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ TRY (
     rveq \\ asm_exists_tac \\ fs[]
     \\ rpt conj_tac
@@ -1020,7 +1020,7 @@ Proof
   \\ fs[calls_def]
   \\ rpt(pairarg_tac \\ fs[]) \\ rveq
   \\ imp_res_tac calls_length
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rveq
+  \\ fs[LENGTH_EQ_NUM_compute] \\ rveq
   \\ Cases_on`i` \\ fs[]
   >- (
     asm_exists_tac \\ fs[]
@@ -1207,7 +1207,7 @@ Proof
       fs[recclosure_rel_def]
       \\ rpt(pairarg_tac \\ fs[])
       \\ every_case_tac \\ fs[calls_list_MAPi]
-      \\ imp_res_tac calls_length \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] )
+      \\ imp_res_tac calls_length \\ fs[LENGTH_EQ_NUM_compute] )
     \\ fs[] \\ asm_exists_tac
     \\ fs[EVERY_MEM,MEM_EL,LIST_REL_EL_EQN,PULL_EXISTS,env_rel_def]
     \\ simp[exists_list_GENLIST]
@@ -1246,7 +1246,7 @@ Proof
   \\ qexists_tac`g0`
   \\ rpt(pairarg_tac \\ fs[])
   \\ imp_res_tac calls_length
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ rveq \\ fs[]
   \\ CASE_TAC \\ fs[] \\ rfs[]
   \\ fs[EXISTS_MEM,EXISTS_PROD]
@@ -1300,7 +1300,7 @@ Proof
     \\ last_assum(part_match_exists_tac(el 2 o strip_conj) o concl)
     \\ qexists_tac`0` \\ simp[]
     \\ imp_res_tac calls_length \\ fs[]
-    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ fs[LENGTH_EQ_NUM_compute]
     \\ fs[calls_list_def] \\ rveq
     \\ Cases_on`new_g` \\ fs[code_list_def,subg_def,IS_SUFFIX_APPEND]
     \\ fsrw_tac[ETA_ss][]
@@ -1369,7 +1369,7 @@ Proof
     fs[revtakerev,revdroprev,recclosure_rel_def]
     \\ rpt(pairarg_tac \\ fs[])
     \\ imp_res_tac calls_length
-    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ fs[LENGTH_EQ_NUM_compute]
     \\ rveq \\ fs[PULL_EXISTS]
     \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["g0'"]))
     \\ map_every qexists_tac [`g0`,`([n,e])`,`loc`]
@@ -3073,7 +3073,7 @@ Proof
       \\ TOP_CASE_TAC \\ fs []
       \\ FULL_CASE_TAC \\ fs [] \\ rveq \\ fs []
       \\ imp_res_tac evaluate_IMP_LENGTH
-      \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
+      \\ fs [LENGTH_EQ_NUM_compute]
       \\ rveq \\ fs []
       \\ rename [`EVERY _ aa`]
       \\ `aa = [] ∨ ∃x l. aa = SNOC x l` by metis_tac [SNOC_CASES]
@@ -3119,7 +3119,7 @@ Proof
     \\ qexists_tac`if b then calls_list (None) 0 x [(num_args,exp)] else [(num_args,HD e1')]` \\ fs[]
     \\ simp[PULL_EXISTS,GSYM RIGHT_EXISTS_IMP_THM]
     \\ simp[RIGHT_EXISTS_AND_THM]
-    \\ imp_res_tac calls_length \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ imp_res_tac calls_length \\ fs[LENGTH_EQ_NUM_compute]
     \\ fs[closed_Fn,code_locs_def,IN_EVEN,GSYM ADD1,ALL_DISTINCT_APPEND]
     \\ `subg g0 (insert_each x 1 g0)`
     by ( simp[subg_def,insert_each_subspt] \\ fs[wfg_def])
@@ -3186,7 +3186,7 @@ Proof
           ALL_DISTINCT_GENLIST,EVERY_GENLIST,PULL_EXISTS]
     \\ rpt(pairarg_tac \\ fs[])
     \\ fsrw_tac[ETA_ss][]
-    \\ imp_res_tac calls_length \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ imp_res_tac calls_length \\ fs[LENGTH_EQ_NUM_compute]
     \\ rveq \\ fs[]
     \\ qpat_x_assum`_ = (_,g)`mp_tac
     \\ qpat_abbrev_tac`fns2 = calls_list _ _ _ _`
@@ -3532,7 +3532,7 @@ Proof
       \\ simp[evaluate_def]
       \\ imp_res_tac calls_length
       \\ simp[]
-      \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+      \\ fs[LENGTH_EQ_NUM_compute]
       \\ rveq \\ fs[]
       \\ strip_tac
       \\ qpat_x_assum`_ ⇒ _`mp_tac
@@ -3602,7 +3602,7 @@ Proof
       \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
       >- (CASE_TAC \\ fs[])
       \\ ntac 2 strip_tac \\ rveq
-      \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rveq
+      \\ fs[LENGTH_EQ_NUM_compute] \\ rveq
       \\ rfs[] \\ rveq
       \\ qmatch_assum_rename_tac`LIST_REL (v_rel _ _ _) ev1 ev2`
       \\ Cases_on`ev1 = []`
@@ -3710,7 +3710,7 @@ Proof
     \\ qpat_x_assum `_ = (_,_)` mp_tac
     \\ simp[evaluate_append]
     \\ imp_res_tac calls_length
-    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2,evaluate_GENLIST_Var_tra]
+    \\ fs[LENGTH_EQ_NUM_compute,evaluate_GENLIST_Var_tra]
     \\ rveq \\ fs[]
     \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
     >- (
@@ -3806,7 +3806,7 @@ Proof
       \\ disch_then (qspec_then `ck'` mp_tac) \\ fs []
       \\ imp_res_tac LIST_REL_LENGTH \\ fs []
       \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
-      \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
+      \\ fs [LENGTH_EQ_NUM_compute]
       \\ rw []
       \\ asm_exists_tac \\ fs []
       \\ fs [subg_def, subspt_def, SUBSET_DEF])
@@ -4036,7 +4036,7 @@ Proof
     \\ reverse (fs [CaseEq "result"]) \\ rveq \\ fs []
     >- (qexists_tac`ck` \\ asm_exists_tac \\ simp[] \\ rfs[] \\ NO_TAC)
     \\ imp_res_tac evaluate_IMP_LENGTH
-    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ fs[]
+    \\ fs[LENGTH_EQ_NUM_compute] \\ fs[]
     \\ first_x_assum drule
     \\ fs []
     \\ `EVERY (wfv g2 l2 t.code) rest1` by
@@ -4239,7 +4239,7 @@ Proof
     \\ fs []
     \\ asm_exists_tac \\ fs [])
   \\ imp_res_tac evaluate_IMP_LENGTH
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ rveq \\ fs []
   \\ first_x_assum drule
   \\ fs []
