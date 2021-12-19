@@ -270,28 +270,53 @@ Definition safe_chr_list_def:
   safe_chr_list ns = MAP safe_chr ns
 End
 
+Definition take_pad_def:
+  take_pad n (ns:num list) =
+    if n = 0:num then ([],ns) else
+      let (xs,ys) = take_pad (n-1) (TL ns) in
+        case ns of
+        | [] => (0::xs,ys)
+        | (x::_) => (x::xs,ys)
+End
+
 Definition string_dec_def:
   string_dec ns =
     case ns of
     | [] => ("",[])
-    | (n::ns) => (IMPLODE (safe_chr_list (TAKE n ns)), DROP n ns)
+    | (n::ns) =>
+        let (xs,ys) = take_pad n ns in
+          (IMPLODE (safe_chr_list xs), ys)
 End
 
-Theorem string_dec_ok:
-  dec_ok string_dec
+Theorem string_dec_thm:
+  string_dec = list_dec char_dec
 Proof
-  fs [dec_ok_def] \\ rw []
-  \\ fs [string_dec_def]
-  \\ CASE_TAC \\ fs []
+  fs [FUN_EQ_THM] \\ Cases THEN1 EVAL_TAC
+  \\ fs [string_dec_def,list_dec_def,safe_chr_list_def]
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ qid_spec_tac ‘t’
+  \\ qid_spec_tac ‘h’
+  \\ Induct THEN1 (EVAL_TAC \\ fs [])
+  \\ simp [Once take_pad_def]
+  \\ fs [list_dec'_def]
+  \\ Cases \\ fs []
+  \\ fs [char_dec_def,num_dec_def]
+  \\ rpt (pairarg_tac \\ gvs [safe_chr_def])
 QED
 
 Theorem string_enc_dec_ok:
   enc_dec_ok (list_enc char_enc) string_dec
 Proof
-  fs [enc_dec_ok_def,string_dec_ok]
-  \\ fs [list_enc_def,string_dec_def]
-  \\ Induct \\ fs [safe_chr_list_def,char_enc_def,num_enc_def]
-  \\ Cases \\ fs [ORD_CHR,safe_chr_def]
+  fs [string_dec_thm]
+  \\ irule list_enc_dec_ok
+  \\ fs [char_enc_dec_ok]
+QED
+
+Theorem string_dec_ok:
+  dec_ok string_dec
+Proof
+  assume_tac string_enc_dec_ok
+  \\ fs [enc_dec_ok_def]
 QED
 
 (* mlstring *)
