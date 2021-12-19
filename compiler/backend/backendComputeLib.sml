@@ -113,7 +113,6 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Tys
     [``:closLang$exp``
     ,``:closLang$op``
-    ,``:closLang$const``
     ,``:closLang$const_part``
     ,``:clos_known$val_approx``
     ,``:clos_known$globalOpt``
@@ -195,6 +194,8 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.add_part_def
     ,clos_to_bvlTheory.add_parts_def
     ,clos_to_bvlTheory.compile_const_def
+    ,clos_to_bvlTheory.Fn_to_const_def
+    ,clos_to_bvlTheory.to_const_def
     ,clos_to_bvlTheory.recc_Let0_def
     ,clos_to_bvlTheory.partial_app_fn_location_def
     ,clos_to_bvlTheory.default_config_def

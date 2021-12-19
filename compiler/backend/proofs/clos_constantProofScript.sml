@@ -6,6 +6,7 @@ open preamble closLangTheory clos_to_bvlTheory closSemTheory;
 
 val _ = new_theory "clos_constantProof";
 
+(*
 Definition make_const_def:
   make_const (ConstInt i) = Number i ∧
   make_const (ConstStr s) = ByteVector (MAP (n2w o ORD) (mlstring$explode s)) ∧
@@ -17,6 +18,7 @@ Termination
   \\ fs [const_size_def] \\ res_tac
   \\ pop_assum (qspec_then ‘t’ assume_tac) \\ fs []
 End
+*)
 
 (* naive implementation *)
 
@@ -30,6 +32,7 @@ End
 Definition parts_def:
   parts (ConstInt i) n aux = make_part n (Int i) aux ∧
   parts (ConstStr s) n aux = make_part n (Str s) aux ∧
+  parts (ConstLbl l) n aux = make_part n (Lbl l) aux ∧
   parts (ConstWord64 w) n aux = make_part n (W64 w) aux ∧
   parts (ConstCons t cs) n aux =
     (let (n, rs, aux) = parts_list cs n aux in
@@ -44,6 +47,7 @@ End
 Definition to_parts_def:
   to_parts (ConstInt i) = [Int i] ∧
   to_parts (ConstStr s) = [Str s] ∧
+  to_parts (ConstLbl l) = [Lbl l] ∧
   to_parts (ConstWord64 w) = [W64 w] ∧
   to_parts (ConstCons t cs) =
     let (n, rs, aux) = parts_list cs 0 [] in
@@ -55,6 +59,7 @@ End
 Definition build_part_def:
   build_part mem (Int i) = ConstInt i ∧
   build_part mem (Str s) = ConstStr s ∧
+  build_part mem (Lbl l) = ConstLbl l ∧
   build_part mem (W64 w) = ConstWord64 w ∧
   build_part mem (Con t ns) = ConstCons t (MAP mem ns)
 End
@@ -201,6 +206,7 @@ Proof
   \\ TRY
    ((rename [‘_ = ConstInt _’] ORELSE
      rename [‘_ = ConstStr _’] ORELSE
+     rename [‘_ = ConstLbl _’] ORELSE
      rename [‘_ = ConstWord64 _’])
     \\ fs [PULL_EXISTS]
     \\ reverse (gvs [make_part_def,AllCaseEqs()])
@@ -337,7 +343,7 @@ Proof
   \\ fs [MAP_REVERSE,MAP_MAP_o,update_tag_def]
 QED
 
-(* connection to closSem *)
+(* connection to closSem
 
 Definition build_part'_def:
   build_part' mem (Int i) = Number i ∧
@@ -358,7 +364,6 @@ End
 Theorem make_const_thm:
   make_const c = build_const' (to_parts c)
 Proof
-  cheat (*
   simp [Once (GSYM build_const_to_parts)]
   \\ fs [build_const_def,build_const'_def]
   \\ qsuff_tac ‘∀m n xs. make_const (build m n xs) = build' (make_const o m) n xs’
@@ -368,7 +373,9 @@ Proof
   \\ Cases \\ fs [make_const_def,build_part_def,build_part'_def,MAP_MAP_o,o_DEF]
   \\ rw [] \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ fs [FUN_EQ_THM] \\ fs [APPLY_UPDATE_THM]
-  \\ rw [] \\ fs [make_const_def,MAP_MAP_o,o_DEF] *)
+  \\ rw [] \\ fs [make_const_def,MAP_MAP_o,o_DEF]
 QED
+
+*)
 
 val _ = export_theory();
