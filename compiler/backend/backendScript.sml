@@ -530,36 +530,143 @@ Overload stack_remove_prog_comp[local] = ``stack_remove$prog_comp``
 Overload stack_alloc_prog_comp[local] = ``stack_alloc$prog_comp``
 Overload stack_names_prog_comp[local] = ``stack_names$prog_comp``
 
-val backend_compile_inc_progs_def = Define`
-  backend_compile_inc_progs c p_tup =
+Datatype:
+  backend_progs =
+  <| env_id : num # num
+   ; source_prog : ast$dec list
+   ; flat_prog : flatLang$dec list
+   ; clos_prog : closLang$exp list # (num # num # closLang$exp) list
+   ; bvl_prog : (num # num # bvl$exp) list
+   ; bvi_prog : (num # num # bvi$exp) list
+   ; data_prog : (num # num # dataLang$prog) list
+   ; word_prog : (num # num # 'a wordLang$prog) list
+   ; stack_prog : (num # 'a stackLang$prog) list
+   ; cur_bm : 'a word list
+   ; lab_prog : 'a sec list
+   ; target_prog : (word8 list # 'a word list) option
+   |>
+End
+
+val empty_progs_def = Define `
+  empty_progs = <| env_id := (0, 0); source_prog := []; flat_prog := [];
+    clos_prog := ([], []); bvl_prog := []; bvi_prog := [];
+    data_prog := []; word_prog := []; stack_prog := []; cur_bm := [];
+    lab_prog := []; target_prog := SOME ([], []) |>`;
+
+Definition keep_progs_def:
+  keep_progs k ps = (case k of T => ps | _ => [])
+End
+
+val compile_inc_progs_def = Define`
+  compile_inc_progs k c p_tup =
     let (env_id,p) = p_tup in
+    let ps = empty_progs with <| env_id := env_id; source_prog := p |> in
     let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
+    let ps = ps with <| flat_prog := keep_progs k p |> in
     let c = c with source_conf := c' in
     let p = flat_to_clos_inc_compile p in
+    let ps = ps with <| clos_prog := (keep_progs k ## keep_progs k) p |> in
     let (c',p) = clos_to_bvl_compile_inc c.clos_conf p in
     let c = c with clos_conf := c' in
+    let ps = ps with <| bvl_prog := keep_progs k p |> in
     let (c', p) = bvl_to_bvi_compile_inc_all c.bvl_conf p in
     let c = c with <| bvl_conf := c' |> in
+    let ps = ps with <| bvi_prog := keep_progs k p |> in
     let p = bvi_to_data_compile_prog p in
+    let ps = ps with <| data_prog := keep_progs k p |> in
     let asm_c = c.lab_conf.asm_conf in
     let dc = ensure_fp_conf_ok asm_c c.data_conf in
     let p = MAP (compile_part dc) p in
     let reg_count1 = asm_c.reg_count - (5 + LENGTH asm_c.avoid_regs) in
     let p = MAP (\p. full_compile_single asm_c.two_reg_arith reg_count1
         c.word_to_word_conf.reg_alg asm_c (p, NONE)) p in
+    let ps = ps with <| word_prog := keep_progs k p |> in
     let bm0 = c.word_conf.bitmaps in
     let (p, fs, bm) = compile_word_to_stack reg_count1 p bm0 in
     let cur_bm = DROP (LENGTH bm0) bm in
     let c = c with word_conf := <|bitmaps := bm|> in
+    let ps = ps with <| stack_prog := keep_progs k p ; cur_bm := cur_bm |> in
     let reg_count2 = asm_c.reg_count - (3 + LENGTH asm_c.avoid_regs) in
     let p = stack_to_lab$compile_no_stubs
         c.stack_conf.reg_names c.stack_conf.jump asm_c.addr_offset
         reg_count2 p in
+    let ps = ps with <| lab_prog := keep_progs k p |> in
     let target = lab_to_target$compile c.lab_conf (p:'a prog) in
-    let ps = OPTION_MAP (\(bytes, _). (bytes, c.word_conf.bitmaps)) target in
+    let ps = ps with <| target_prog := OPTION_MAP
+        (\(bytes, _). (bytes, c.word_conf.bitmaps)) target |> in
     let c = c with lab_conf updated_by (case target of NONE => I
         | SOME (_, c') => K c') in
     (c, ps)`;
+
+(* this type is used to construct the oracle in the eval semantics,
+   and must be translated so that its IsTypeRep thm is proven *)
+Datatype:
+  inc_config =
+  <| inc_source_conf : source_to_flat$config
+   ; inc_clos_conf : clos_to_bvl$config
+   ; inc_bvl_conf : bvl_to_bvi$config
+   ; inc_data_conf : data_to_word$config
+   ; inc_word_to_word_conf : word_to_word$config
+   ; inc_word_conf : 'a word_to_stack$config
+   ; inc_stack_conf : stack_to_lab$config
+   ; inc_lab_conf : lab_to_target$inc_config
+   ; inc_symbols : (mlstring # num # num) list
+   ; inc_tap_conf : tap_config
+   |>
+End
+
+Definition config_to_inc_config_def:
+  config_to_inc_config c =
+  <| inc_source_conf := c.source_conf
+   ; inc_clos_conf := c.clos_conf
+   ; inc_bvl_conf := c.bvl_conf
+   ; inc_data_conf := c.data_conf
+   ; inc_word_to_word_conf := c.word_to_word_conf
+   ; inc_word_conf := c.word_conf
+   ; inc_stack_conf := c.stack_conf
+   ; inc_lab_conf := lab_to_target$config_to_inc_config c.lab_conf
+   ; inc_symbols := c.symbols
+   ; inc_tap_conf := c.tap_conf
+   |>
+End
+
+Definition inc_config_to_config_def:
+  inc_config_to_config asm_c c =
+  <| source_conf := c.inc_source_conf
+   ; clos_conf := c.inc_clos_conf
+   ; bvl_conf := c.inc_bvl_conf
+   ; data_conf := c.inc_data_conf
+   ; word_to_word_conf := c.inc_word_to_word_conf
+   ; word_conf := c.inc_word_conf
+   ; stack_conf := c.inc_stack_conf
+   ; lab_conf := lab_to_target$inc_config_to_config asm_c c.inc_lab_conf
+   ; symbols := c.inc_symbols
+   ; tap_conf := c.inc_tap_conf
+   |>
+End
+
+val components = theorem "config_component_equality"
+
+Theorem inc_config_to_config_inv:
+  asm_c = c.lab_conf.asm_conf ==>
+  inc_config_to_config asm_c (config_to_inc_config c) = c
+Proof
+  simp [config_to_inc_config_def, inc_config_to_config_def, components]
+  \\ simp [lab_to_targetTheory.config_to_inc_config_def,
+    lab_to_targetTheory.inc_config_to_config_def,
+    lab_to_targetTheory.config_component_equality]
+QED
+
+val inc_components = theorem "inc_config_component_equality"
+
+Theorem config_to_inc_config_inv:
+  config_to_inc_config (inc_config_to_config asm_c c) = c
+Proof
+  simp [config_to_inc_config_def, inc_config_to_config_def, inc_components]
+  \\ simp [lab_to_targetTheory.config_to_inc_config_def,
+    lab_to_targetTheory.inc_config_to_config_def,
+    lab_to_targetTheory.inc_config_component_equality]
+QED
 
 Theorem to_word_0_invariant:
   (wc.reg_alg = c.word_to_word_conf.reg_alg) ⇒

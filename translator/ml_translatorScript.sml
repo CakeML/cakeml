@@ -9,7 +9,7 @@ open integerTheory ml_progTheory
      fpSemTheory;
 open mlvectorTheory mlstringTheory packLib;
 open integer_wordSyntax
-open terminationTheory
+open evaluateTheory
 local open integer_wordSyntax in end;
 open preamble;
 

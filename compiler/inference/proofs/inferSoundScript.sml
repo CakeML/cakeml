@@ -3,7 +3,7 @@
   produced by the type inferencer is a valid type for the program.
 *)
 open preamble
-open typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory infer_tTheory
+open typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory
      astPropsTheory inferPropsTheory typeSysPropsTheory infer_eSoundTheory envRelTheory type_eDetermTheory
      infer_eCompleteTheory namespacePropsTheory
 

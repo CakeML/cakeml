@@ -70,10 +70,6 @@ semanticPrimitivesTheory.
 [semanticsScript.sml](semanticsScript.sml):
 The top-level semantics of CakeML programs.
 
-[terminationScript.sml](terminationScript.sml):
-Termination proofs for functions defined in .lem files whose termination is
-not proved automatically.
-
 [tokenUtilsScript.sml](tokenUtilsScript.sml):
 Utility functions over tokens.
 TODO: perhaps should just appear in tokensTheory.

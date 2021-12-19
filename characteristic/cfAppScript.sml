@@ -352,7 +352,7 @@ Proof
   \\ Cases_on`r` \\ fs[cond_def,EQ_IMP_THM]
 QED
 
-open terminationTheory evaluatePropsTheory
+open evaluateTheory evaluatePropsTheory
 val dec_clock_def = evaluateTheory.dec_clock_def
 val evaluate_empty_state_IMP = ml_translatorTheory.evaluate_empty_state_IMP
 

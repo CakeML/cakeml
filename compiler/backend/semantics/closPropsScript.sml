@@ -1501,11 +1501,13 @@ Proof
   simp[TAKE_APPEND2] >> Cases_on `l2` >> full_simp_tac(srw_ss())[]
 QED
 
+(*
 Theorem dec_clock_with_clock[simp]:
-   dec_clock s with clock := y = s with clock := y
+   (closSem$dec_clock (s:('a,'b) closSem$state) with clock := y) = (s with clock := y)
 Proof
   EVAL_TAC
 QED
+*)
 
 fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 val case_eq_thms = pair_case_eq::bool_case_eq::list_case_eq::option_case_eq::map (prove_case_eq_thm o get_thms)

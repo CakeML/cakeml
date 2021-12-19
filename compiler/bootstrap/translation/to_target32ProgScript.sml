@@ -2,7 +2,7 @@
   Translate the final part of the compiler backend for 32-bit targets.
 *)
 open preamble;
-open terminationTheory
+open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
 open to_word32ProgTheory std_preludeTheory;
 

@@ -572,7 +572,7 @@ Proof
  qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2` >>
  cases_on `op` >>
  fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
- gvs [quantHeuristicsTheory.LIST_LENGTH_5] >>
+ gvs [LENGTH_EQ_NUM_compute] >>
  rfs [] >>
  fs [add_constraints_def, add_constraint_def, fresh_uvar_def,
    st_ex_bind_failure, st_ex_return_def, option_case_eq] >>

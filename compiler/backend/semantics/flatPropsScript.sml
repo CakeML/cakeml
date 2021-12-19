@@ -3,7 +3,7 @@
 *)
 open preamble flatSemTheory flatLangTheory
 local
-  open astTheory semanticPrimitivesPropsTheory terminationTheory
+  open astTheory semanticPrimitivesPropsTheory
        evaluatePropsTheory
 in end
 

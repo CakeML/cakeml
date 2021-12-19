@@ -5,7 +5,6 @@
 open preamble evaluateTheory
      namespaceTheory namespacePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory;
-open terminationTheory
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -100,8 +99,8 @@ Theorem evaluate_call_FFI_rel:
    (∀(s:'ffi state) e ds.
       RTC call_FFI_rel s.ffi (FST (evaluate_decs s e ds)).ffi)
 Proof
-  ho_match_mp_tac terminationTheory.full_evaluate_ind >>
-  srw_tac[][terminationTheory.full_evaluate_def, do_eval_res_def] >>
+  ho_match_mp_tac full_evaluate_ind >>
+  srw_tac[][full_evaluate_def, do_eval_res_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   TRY (
     rename1`op ≠ Opapp` >>
@@ -954,10 +953,10 @@ Theorem eval_no_eval_simulation:
   s'.eval_state = NONE /\
   evaluate_decs (s with eval_state := es) env decs = (s' with eval_state := es, res))
 Proof
-  ho_match_mp_tac (name_ind_cases [] terminationTheory.full_evaluate_ind)
+  ho_match_mp_tac (name_ind_cases [] full_evaluate_ind)
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
-  \\ fs [terminationTheory.full_evaluate_def]
+  \\ fs [full_evaluate_def]
   \\ rveq \\ fs []
   (* useful for development
   \\ TRY (rename [`Case ([App _ _])`] ORELSE cheat)
@@ -1042,12 +1041,12 @@ Theorem pmatch_not_type_error_EQ:
      (!a. pmatch envC refs p v acc = Match a ==>
           pmatch_list envC refs ps vs a <> Match_type_error))
 Proof
-  fs [terminationTheory.pmatch_def]
+  fs [pmatch_def]
   \\ reverse (rw [])
   THEN1 (every_case_tac \\ fs [])
-  \\ Cases_on `v` \\ fs [terminationTheory.pmatch_def]
+  \\ Cases_on `v` \\ fs [pmatch_def]
   \\ rename [`Conv opt`]
-  \\ Cases_on `opt` \\ fs [terminationTheory.pmatch_def]
+  \\ Cases_on `opt` \\ fs [pmatch_def]
   \\ rw [] \\ fs []
   \\ CASE_TAC \\ fs []
   \\ CASE_TAC \\ fs []
@@ -1107,8 +1106,8 @@ Theorem evaluate_history_irrelevance:
     !l. evaluate_decs (st with ffi := (st.ffi with io_events := l)) env ds =
     (st' with ffi := (st'.ffi with io_events := l ++ new_io), res))
 Proof
-  ho_match_mp_tac terminationTheory.full_evaluate_ind
-  \\ rw[terminationTheory.full_evaluate_def]
+  ho_match_mp_tac full_evaluate_ind
+  \\ rw[full_evaluate_def]
   \\ fs [do_eval_res_def,error_result_case_eq,option_case_eq,
          exp_or_val_case_eq,list_case_eq,match_result_case_eq,
          pair_case_eq,result_case_eq,bool_case_eq]

@@ -5,7 +5,7 @@
 open preamble
 open ml_hol_kernelProgTheory holKernelProofTheory
 open ml_monad_translatorBaseTheory ml_translatorLib evaluateTheory
-open terminationTheory cfStoreTheory
+open evaluateTheory cfStoreTheory
 
 val _ = new_theory"ml_hol_init"
 
