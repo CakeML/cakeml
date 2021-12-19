@@ -49,98 +49,38 @@ End
 Type env_ctor = ``: (modN, conN, (num # stamp)) namespace``
 Type env_val = ``: (modN, varN, v) namespace``
 
-val _ = Define `
- ((bind_stamp:stamp)=  (ExnStamp(( 0 : num))))`;
+val _ = Define ‘bind_stamp = ExnStamp 0’
+val _ = Define ‘chr_stamp = ExnStamp 1’
+val _ = Define ‘div_stamp = ExnStamp 2’
+val _ = Define ‘subscript_stamp = ExnStamp 3’
 
-val _ = Define `
- ((chr_stamp:stamp)=  (ExnStamp(( 1 : num))))`;
+val _ = Define ‘bind_exn_v = Conv (SOME bind_stamp) []’
+val _ = Define ‘chr_exn_v = Conv (SOME chr_stamp) []’
+val _ = Define ‘div_exn_v = Conv (SOME div_stamp) []’
+val _ = Define ‘sub_exn_v = Conv (SOME subscript_stamp) []’
 
-val _ = Define `
- ((div_stamp:stamp)=  (ExnStamp(( 2 : num))))`;
-
-val _ = Define `
- ((subscript_stamp:stamp)=  (ExnStamp(( 3 : num))))`;
-
-
-val _ = Define `
- ((bind_exn_v:v)=  (Conv (SOME bind_stamp) []))`;
-
-val _ = Define `
- ((chr_exn_v:v)=  (Conv (SOME chr_stamp) []))`;
-
-val _ = Define `
- ((div_exn_v:v)=  (Conv (SOME div_stamp) []))`;
-
-val _ = Define `
- ((sub_exn_v:v)=  (Conv (SOME subscript_stamp) []))`;
-
-
-val _ = Define `
- ((bool_type_num:num)      : num= (( 0 : num)))`;
-
-val _ = Define `
- ((list_type_num:num)      : num= (( 1 : num)))`;
-
-val _ = Define `
- ((option_type_num:num)    : num= (( 2 : num)))`;
-
-val _ = Define `
- ((lit_type_num:num)       : num= (( 3 : num)))`;
-
-val _ = Define `
- ((id_type_num:num)        : num= (( 4 : num)))`;
-
-val _ = Define `
- ((ast_t_type_num:num)     : num= (( 5 : num)))`;
-
-val _ = Define `
- ((pat_type_num:num)       : num= (( 6 : num)))`;
-
-val _ = Define `
- ((lop_type_num:num)       : num= (( 7 : num)))`;
-
-val _ = Define `
- ((opn_type_num:num)       : num= (( 8 : num)))`;
-
-val _ = Define `
- ((opb_type_num:num)       : num= (( 9 : num)))`;
-
-val _ = Define `
- ((opw_type_num:num)       : num= (( 10 : num)))`;
-
-val _ = Define `
- ((shift_type_num:num)     : num= (( 11 : num)))`;
-
-val _ = Define `
- ((word_size_type_num:num) : num= (( 12 : num)))`;
-
-val _ = Define `
- ((fp_uop_type_num:num)    : num= (( 13 : num)))`;
-
-val _ = Define `
- ((fp_bop_type_num:num)    : num= (( 14 : num)))`;
-
-val _ = Define `
- ((fp_top_type_num:num)    : num= (( 15 : num)))`;
-
-val _ = Define `
- ((fp_cmp_type_num:num)    : num= (( 16 : num)))`;
-
-val _ = Define `
- ((op_type_num:num)        : num= (( 17 : num)))`;
-
-val _ = Define `
- ((locn_type_num:num)      : num= (( 18 : num)))`;
-
-val _ = Define `
- ((locs_type_num:num)      : num= (( 19 : num)))`;
-
-val _ = Define `
- ((exp_type_num:num)       : num= (( 20 : num)))`;
-
-val _ = Define `
- ((dec_type_num:num)       : num= (( 21 : num)))`;
-
+val _ = Define ‘bool_type_num   = 0’
+val _ = Define ‘list_type_num   = 1’
+val _ = Define ‘option_type_num = 2’
+val _ = Define ‘lit_type_num    = 3’
+val _ = Define ‘id_type_num     = 4’
+val _ = Define ‘ast_t_type_num  = 5’
+val _ = Define ‘pat_type_num    = 6’
+val _ = Define ‘lop_type_num    = 7’
+val _ = Define ‘opn_type_num    = 8’
+val _ = Define ‘opb_type_num    = 9’
+val _ = Define ‘opw_type_num    = 10’
+val _ = Define ‘shift_type_num  = 11’
+val _ = Define ‘word_size_type_num = 12’
+val _ = Define ‘fp_uop_type_num = 13’
+val _ = Define ‘fp_bop_type_num = 14’
+val _ = Define ‘fp_top_type_num = 15’
+val _ = Define ‘fp_cmp_type_num = 16’
+val _ = Define ‘op_type_num     = 17’
+val _ = Define ‘locn_type_num   = 18’
+val _ = Define ‘locs_type_num   = 19’
+val _ = Define ‘exp_type_num    = 20’
+val _ = Define ‘dec_type_num    = 21’
 
 (* The result of evaluation *)
 Datatype:
@@ -173,50 +113,35 @@ Datatype:
   | Varray ('a list)
 End
 
-(*val store_v_same_type : forall 'a. store_v 'a -> store_v 'a -> bool*)
-val _ = Define `
- ((store_v_same_type:'a store_v -> 'a store_v -> bool) v1 v2=
-   ((case (v1,v2) of
-    (Refv _, Refv _) => T
-  | (W8array _,W8array _) => T
-  | (Varray _,Varray _) => T
-  | _ => F
-  )))`;
-
+Definition store_v_same_type_def:
+  store_v_same_type v1 v2 =
+    case (v1:'a store_v, v2:'a store_v) of
+    | (Refv _, Refv _) => T
+    | (W8array _,W8array _) => T
+    | (Varray _,Varray _) => T
+    | _ => F
+End
 
 (* The nth item in the list is the value at location n *)
-Type store = ``: ( 'a store_v) list``
+Type store = “:('a store_v) list”
 
-(*val empty_store : forall 'a. store 'a*)
-val _ = Define `
- ((empty_store:('a store_v)list)=  ([]))`;
+val _ = Define ‘empty_store = []:α store_v list’
 
+Definition store_lookup_def:
+  store_lookup l (st:('a store_v) list) =
+    if l < LENGTH st then SOME (EL l st) else NONE
+End
 
-(*val store_lookup : forall 'a. nat -> store 'a -> maybe (store_v 'a)*)
-val _ = Define `
- ((store_lookup:num ->('a store_v)list ->('a store_v)option) l st=
-   (if l < LENGTH st then
-    SOME (EL l st)
-  else
-    NONE))`;
+Definition store_alloc_def:
+  store_alloc (v:'a store_v) st = (st ++ [v],LENGTH st)
+End
 
-
-(*val store_alloc : forall 'a. store_v 'a -> store 'a -> store 'a * nat*)
-val _ = Define `
- ((store_alloc:'a store_v ->('a store_v)list ->('a store_v)list#num) v st=
-   ((st ++ [v]), LENGTH st))`;
-
-
-(*val store_assign : forall 'a. nat -> store_v 'a -> store 'a -> maybe (store 'a)*)
-val _ = Define `
- ((store_assign:num -> 'a store_v ->('a store_v)list ->(('a store_v)list)option) n v st=
-   (if (n < LENGTH st) /\
-     store_v_same_type (EL n st) v
-  then
-    SOME (LUPDATE v n st)
-  else
-    NONE))`;
-
+Definition store_assign_def:
+  store_assign n (v:'a store_v) st =
+    if n < LENGTH st ∧ store_v_same_type (EL n st) v then
+      SOME (LUPDATE v n st)
+    else NONE
+End
 
 (* Compiler checker for Eval. The current design requires the compiler
    to be run (as regular code within the semantics) before Eval is called,
@@ -276,45 +201,33 @@ End
 
 (* Other primitives *)
 (* Check that a constructor is properly applied *)
-(*val do_con_check : env_ctor -> maybe (id modN conN) -> nat -> bool*)
-val _ = Define `
- ((do_con_check:((string),(string),(num#stamp))namespace ->(((string),(string))id)option -> num -> bool) cenv n_opt l=
-   ((case n_opt of
+Definition do_con_check_def:
+  do_con_check (cenv:((string),(string),(num#stamp))namespace) n_opt l ⇔
+    case n_opt of
       NONE => T
-    | SOME n =>
-        (case nsLookup cenv n of
-            NONE => F
-          | SOME (l',_) => l = l'
-        )
-  )))`;
+    | SOME n => case nsLookup cenv n of NONE => F | SOME (l',v2) => l = l'
+End
 
+Definition build_conv_def:
+  build_conv (envC:((string),(string),(num#stamp))namespace) cn vs =
+  case cn of
+    NONE => SOME (Conv NONE vs)
+  | SOME id =>
+      case nsLookup envC id of
+        NONE => NONE
+      | SOME (len,stamp) => SOME (Conv (SOME stamp) vs)
+End
 
-(*val build_conv : env_ctor -> maybe (id modN conN) -> list v -> maybe v*)
-val _ = Define `
- ((build_conv:((string),(string),(num#stamp))namespace ->(((string),(string))id)option ->(v)list ->(v)option) envC cn vs=
-   ((case cn of
-      NONE =>
-        SOME (Conv NONE vs)
-    | SOME id =>
-        (case nsLookup envC id of
-            NONE => NONE
-          | SOME (len,stamp) => SOME (Conv (SOME stamp) vs)
-        )
-  )))`;
-
-
-(*val lit_same_type : lit -> lit -> bool*)
-val _ = Define `
- ((lit_same_type:lit -> lit -> bool) l1 l2=
-   ((case (l1,l2) of
-      (IntLit _, IntLit _) => T
-    | (Char _, Char _) => T
-    | (StrLit _, StrLit _) => T
-    | (Word8 _, Word8 _) => T
-    | (Word64 _, Word64 _) => T
-    | _ => F
-  )))`;
-
+Definition lit_same_type_def:
+  lit_same_type l1 l2 ⇔
+     case (l1,l2) of
+     | (IntLit _, IntLit _) => T
+     | (Char   _, Char   _) => T
+     | (StrLit _, StrLit _) => T
+     | (Word8  _, Word8  _) => T
+     | (Word64 _, Word64 _) => T
+     | _ => F
+End
 
 Datatype:
   match_result =
@@ -323,27 +236,23 @@ Datatype:
    | Match 'a
 End
 
-(*val same_type : stamp -> stamp -> bool*)
- val _ = Define `
- ((same_type:stamp -> stamp -> bool) (TypeStamp _ n1) (TypeStamp _ n2)=  (n1 = n2))
-/\ ((same_type:stamp -> stamp -> bool) (ExnStamp _) (ExnStamp _)=  T)
-/\ ((same_type:stamp -> stamp -> bool) _ _=  F)`;
+Definition same_type_def:
+  (same_type (TypeStamp v0 n1) (TypeStamp v1 n2) ⇔ n1 = n2) ∧
+  (same_type (ExnStamp v2) (ExnStamp v3) ⇔ T) ∧
+  (same_type _ _ ⇔ F)
+End
 
+Definition same_ctor_def:
+  same_ctor stamp1 stamp2 ⇔ stamp1 = (stamp2:stamp)
+End
 
-(*val same_ctor : stamp -> stamp -> bool*)
-val _ = Define `
- ((same_ctor:stamp -> stamp -> bool) stamp1 stamp2=  (stamp1 = stamp2))`;
-
-
-(*val ctor_same_type : maybe stamp -> maybe stamp -> bool*)
-val _ = Define `
- ((ctor_same_type:(stamp)option ->(stamp)option -> bool) c1 c2=
-   ((case (c1,c2) of
-      (NONE, NONE) => T
-    | (SOME stamp1, SOME stamp2) => same_type stamp1 stamp2
-    | _ => F
-  )))`;
-
+Definition ctor_same_type_def:
+  ctor_same_type c1 c2 ⇔
+   case (c1,c2) of
+     (NONE,NONE) => T
+   | (SOME stamp1,SOME stamp2) => same_type stamp1 stamp2
+   | _ => F
+End
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
  * environment with the pattern variables bound to the corresponding sub-terms
@@ -354,106 +263,73 @@ val _ = Define `
  * pattern and value come from the same type.  Match_type_error is returned
  * when one of these conditions is violated *)
 Definition pmatch_def:
-((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s Pany v' env=  (Match env))
-/\
-((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Pvar x) v' env=  (Match ((x,v')::env)))
-/\
-((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Plit l) (Litv l') env=
-   (if l = l' then
-    Match env
-  else if lit_same_type l l' then
-    No_match
-  else
-    Match_type_error))
-/\
-((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Pcon (SOME n) ps) (Conv (SOME stamp') vs) env=
-   ((case nsLookup envC n of
-      SOME (l,stamp) =>
-        if same_type stamp stamp' /\ (LENGTH ps = l) then
-          if same_ctor stamp stamp' then
-            if LENGTH vs = l then
-              pmatch_list envC s ps vs env
-            else
-              Match_type_error
-          else
-            No_match
-        else
-          Match_type_error
-    | _ => Match_type_error
-  )))
-/\
-((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Pcon NONE ps) (Conv NONE vs) env=
-   (if LENGTH ps = LENGTH vs then
-    pmatch_list envC s ps vs env
-  else
-    Match_type_error))
-/\
-((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Pref p) (Loc lnum) env=
-   ((case store_lookup lnum s of
-      SOME (Refv v) => pmatch envC s p v env
-    | SOME _ => Match_type_error
-    | NONE => Match_type_error
-  )))
-/\
-((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Pas p i) v env=
-   (pmatch envC s p v ((i,v)::env)))
-/\
-((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Ptannot p t) v env=
-   (pmatch envC s p v env))
-/\
-((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC _ _ _ env=  Match_type_error)
-/\
-((pmatch_list:((string),(string),(num#stamp))namespace ->((v)store_v)list ->(pat)list ->(v)list ->(string#v)list ->((string#v)list)match_result) envC s [] [] env=  (Match env))
-/\
-((pmatch_list:((string),(string),(num#stamp))namespace ->((v)store_v)list ->(pat)list ->(v)list ->(string#v)list ->((string#v)list)match_result) envC s (p::ps) (v::vs) env=
-   ((case pmatch envC s p v env of
-      Match_type_error => Match_type_error
-    | Match env' => pmatch_list envC s ps vs env'
-    | No_match =>
-        (case pmatch_list envC s ps vs env of
-            Match_type_error => Match_type_error
-          | _ => No_match
-        )
-  )))
-/\
-((pmatch_list:((string),(string),(num#stamp))namespace ->((v)store_v)list ->(pat)list ->(v)list ->(string#v)list ->((string#v)list)match_result) envC s _ _ env=  Match_type_error)
+  pmatch envC s Pany v' env = Match env ∧
+  pmatch envC s (Pvar x) v' env = Match ((x,v')::env) ∧
+  pmatch envC s (Plit l) (Litv l') env =
+  (if l = l' then Match env
+   else if lit_same_type l l' then No_match
+   else Match_type_error) ∧
+  pmatch envC s (Pcon (SOME n) ps) (Conv (SOME stamp') vs) env =
+  (case nsLookup envC n of
+     NONE => Match_type_error
+   | SOME (l,stamp) =>
+       if same_type stamp stamp' ∧ LENGTH ps = l then
+         if same_ctor stamp stamp' then
+           if LENGTH vs = l then pmatch_list envC s ps vs env
+           else Match_type_error
+         else No_match
+       else Match_type_error) ∧
+  pmatch envC s (Pcon NONE ps) (Conv NONE vs) env =
+  (if LENGTH ps = LENGTH vs then pmatch_list envC s ps vs env
+   else Match_type_error) ∧
+  pmatch envC s (Pref p) (Loc lnum) env =
+  (case store_lookup lnum s of
+     NONE => Match_type_error
+   | SOME (Refv v) => pmatch envC s p v env
+   | SOME (W8array v6) => Match_type_error
+   | SOME (Varray v7) => Match_type_error) ∧
+  pmatch envC s (Pas p i) v env = pmatch envC s p v ((i,v)::env) ∧
+  pmatch envC s (Ptannot p t) v env = pmatch envC s p v env ∧
+  pmatch envC s _ _ env = Match_type_error ∧
+  pmatch_list envC s [] [] env = Match env ∧
+  pmatch_list envC s (p::ps) (v::vs) env =
+  (case pmatch envC s p v env of
+     No_match =>
+       (case pmatch_list envC s ps vs env of
+          No_match => No_match
+        | Match_type_error => Match_type_error
+        | Match v1 => No_match)
+   | Match_type_error => Match_type_error
+   | Match env' => pmatch_list envC s ps vs env') ∧
+  pmatch_list envC s _ _ env = Match_type_error
 Termination
   WF_REL_TAC
   `inv_image $< (λx. case x of INL (s,a,p,b,c) => pat_size p
-                             | INR (s,a,ps,b,c) => list_size pat_size ps)`
+                            | INR (s,a,ps,b,c) => list_size pat_size ps)`
 End
 
 Definition can_pmatch_all_def:
-((can_pmatch_all:((modN),(conN),(num#stamp))namespace ->((v)store_v)list ->(pat)list -> v -> bool) envC refs [] v=  T)
-/\
-((can_pmatch_all:((modN),(conN),(num#stamp))namespace ->((v)store_v)list ->(pat)list -> v -> bool) envC refs (p::ps) v=
-   (if pmatch envC refs p v [] = Match_type_error
-  then F else can_pmatch_all envC refs ps v))
+  (can_pmatch_all envC refs [] v ⇔ T) ∧
+  (can_pmatch_all envC refs (p::ps) v ⇔
+     if pmatch envC refs p v [] = Match_type_error then F
+     else can_pmatch_all envC refs ps v)
 End
 
 (* Bind each function of a mutually recursive set of functions to its closure *)
-(*val build_rec_env : list (varN * varN * exp) -> sem_env v -> env_val -> env_val*)
-val _ = Define `
- ((build_rec_env:(varN#varN#exp)list ->(v)sem_env ->((string),(string),(v))namespace ->((string),(string),(v))namespace) funs cl_env add_to_env=
-   (FOLDR
-    (\ (f,x,e) env' .  nsBind f (Recclosure cl_env funs f) env')
-    add_to_env
-    funs))`;
-
+Definition build_rec_env_def:
+  (build_rec_env:(varN#varN#exp)list ->(v)sem_env ->((string),(string),(v))namespace
+                 ->((string),(string),(v))namespace) funs cl_env add_to_env =
+  FOLDR (λ(f,x,e) env'. nsBind f (Recclosure cl_env funs f) env')
+        add_to_env funs
+End
 
 (* Lookup in the list of mutually recursive functions *)
-(*val find_recfun : forall 'a 'b. varN -> list (varN * 'a * 'b) -> maybe ('a * 'b)*)
- val _ = Define `
- ((find_recfun:string ->(string#'a#'b)list ->('a#'b)option) n funs=
-   ((case funs of
-      [] => NONE
-    | (f,x,e) :: funs =>
-        if f = n then
-          SOME (x,e)
-        else
-          find_recfun n funs
-  )))`;
-
+Definition find_recfun_def:
+  (find_recfun:string ->(string#'a#'b)list ->('a#'b)option) n funs =
+  case funs of
+    [] => NONE
+  | (f,x,e)::funs' => if f = n then SOME (x,e) else find_recfun n funs'
+End
 
 Datatype:
   eq_result =
@@ -462,149 +338,98 @@ Datatype:
 End
 
 Definition do_eq_def:
-((do_eq:v -> v -> eq_result) (Litv l1) (Litv l2)=
-   (if lit_same_type l1 l2 then Eq_val (l1 = l2)
-  else Eq_type_error))
-/\
-((do_eq:v -> v -> eq_result) (Loc l1) (Loc l2)=  (Eq_val (l1 = l2)))
-/\
-((do_eq:v -> v -> eq_result) (Conv cn1 vs1) (Conv cn2 vs2)=
-   (if (cn1 = cn2) /\ (LENGTH vs1 = LENGTH vs2) then
-    do_eq_list vs1 vs2
-  else if ctor_same_type cn1 cn2 then
-    Eq_val F
-  else
-    Eq_type_error))
-/\
-((do_eq:v -> v -> eq_result) (Vectorv vs1) (Vectorv vs2)=
-   (if LENGTH vs1 = LENGTH vs2 then
-    do_eq_list vs1 vs2
-  else
-    Eq_val F))
-/\
-((do_eq:v -> v -> eq_result) (Closure _ _ _) (Closure _ _ _)=  (Eq_val T))
-/\
-((do_eq:v -> v -> eq_result) (Closure _ _ _) (Recclosure _ _ _)=  (Eq_val T))
-/\
-((do_eq:v -> v -> eq_result) (Recclosure _ _ _) (Closure _ _ _)=  (Eq_val T))
-/\
-((do_eq:v -> v -> eq_result) (Recclosure _ _ _) (Recclosure _ _ _)=  (Eq_val T))
-/\
-((do_eq:v -> v -> eq_result) (Env _ (gen1, id1)) (Env _ (gen2, id2))=  (Eq_val ((gen1 = gen2) /\ (id1 = id2))))
-/\
-((do_eq:v -> v -> eq_result) _ _=  Eq_type_error)
-/\
-((do_eq_list:(v)list ->(v)list -> eq_result) [] []=  (Eq_val T))
-/\
-((do_eq_list:(v)list ->(v)list -> eq_result) (v1::vs1) (v2::vs2)=
-   ((case do_eq v1 v2 of
-      Eq_type_error => Eq_type_error
-    | Eq_val r =>
-        if ~ r then
-          Eq_val F
-        else
-          do_eq_list vs1 vs2
-  )))
-/\
-((do_eq_list:(v)list ->(v)list -> eq_result) _ _=  (Eq_val F))
+  do_eq (Litv l1) (Litv l2) =
+    (if lit_same_type l1 l2 then Eq_val (l1 = l2) else Eq_type_error) ∧
+  do_eq (Loc l1) (Loc l2) = Eq_val (l1 = l2) ∧
+  do_eq (Conv cn1 vs1) (Conv cn2 vs2) =
+    (if cn1 = cn2 ∧ LENGTH vs1 = LENGTH vs2 then do_eq_list vs1 vs2
+     else if ctor_same_type cn1 cn2 then Eq_val F
+     else Eq_type_error) ∧
+  do_eq (Vectorv vs1) (Vectorv vs2) =
+    (if LENGTH vs1 = LENGTH vs2 then do_eq_list vs1 vs2 else Eq_val F) ∧
+  do_eq (Closure v0 v3 v4) (Closure v5 v6 v7) = Eq_val T ∧
+  do_eq (Closure v8 v9 v10) (Recclosure v11 v12 v13) = Eq_val T ∧
+  do_eq (Recclosure v14 v15 v16) (Closure v17 v18 v19) = Eq_val T ∧
+  do_eq (Recclosure v20 v21 v22) (Recclosure v23 v24 v25) = Eq_val T ∧
+  do_eq (Env v26 (gen1,id1)) (Env v27 (gen2,id2)) =
+    Eq_val (gen1 = gen2 ∧ id1 = id2) ∧
+  do_eq _ _ = Eq_type_error ∧
+  do_eq_list [] [] = Eq_val T ∧
+  do_eq_list (v1::vs1) (v2::vs2) =
+    (case do_eq v1 v2 of
+       Eq_val r => if ¬r then Eq_val F else do_eq_list vs1 vs2
+     | Eq_type_error => Eq_type_error) ∧
+  do_eq_list _ _ = Eq_val F
 Termination
   WF_REL_TAC `inv_image $< (λx. case x of INL (v1,v2) => v_size v1
                                         | INR (vs1,vs2) => list_size v_size vs1)`
 End
 
 (* Do an application *)
-(*val do_opapp : list v -> maybe (sem_env v * exp)*)
-val _ = Define `
- ((do_opapp:(v)list ->((v)sem_env#exp)option) vs=
-   ((case vs of
-    [Closure env n e; v] =>
-      SOME (( env with<| v := (nsBind n v env.v) |>), e)
-  | [Recclosure env funs n; v] =>
-      if ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) then
-        (case find_recfun n funs of
-            SOME (n,e) => SOME (( env with<| v := (nsBind n v (build_rec_env funs env env.v)) |>), e)
-          | NONE => NONE
-        )
-      else
-        NONE
-  | _ => NONE
-  )))`;
-
+Definition do_opapp_def:
+  do_opapp vs =
+     case vs of
+     | [Closure env n e; v] => SOME (env with v := nsBind n v env.v,e)
+     | [Recclosure env' funs n'; v] =>
+       if ALL_DISTINCT (MAP (λ(f,x,e). f) funs) then
+         case find_recfun n' funs of
+           NONE => NONE
+         | SOME (n,e) =>
+           SOME
+             (env' with v := nsBind n v (build_rec_env funs env' env'.v),e)
+       else NONE
+     | _ => NONE
+End
 
 (* If a value represents a list, get that list. Otherwise return Nothing *)
 Definition v_to_list_def:
- ((v_to_list:v ->((v)list)option) (Conv (SOME stamp) [])=
-   (if stamp = TypeStamp "[]" list_type_num then
-    SOME []
-  else
-    NONE))
-/\ ((v_to_list:v ->((v)list)option) (Conv (SOME stamp) [v1;v2])=
-   (if stamp = TypeStamp "::" list_type_num then
-    (case v_to_list v2 of
-        SOME vs => SOME (v1::vs)
-      | NONE => NONE
-    )
-  else
-    NONE))
-/\ ((v_to_list:v ->((v)list)option) _=  NONE)
+  v_to_list (Conv (SOME stamp) []) =
+    (if stamp = TypeStamp "[]" list_type_num then SOME [] else NONE) ∧
+  v_to_list (Conv (SOME stamp) [v1; v2]) =
+    (if stamp = TypeStamp "::" list_type_num then
+       case v_to_list v2 of NONE => NONE | SOME vs => SOME (v1::vs)
+     else NONE) ∧
+  v_to_list _ = NONE
 End
 
 Definition list_to_v_def:
- ((list_to_v:(v)list -> v) []=  (Conv (SOME (TypeStamp "[]" list_type_num)) []))
-/\ ((list_to_v:(v)list -> v) (x::xs)=  (Conv (SOME (TypeStamp "::" list_type_num)) [x; list_to_v xs]))
+  list_to_v [] = Conv (SOME (TypeStamp "[]" list_type_num)) [] ∧
+  list_to_v (x::xs) = Conv (SOME (TypeStamp "::" list_type_num)) [x; list_to_v xs]
 End
 
 Definition v_to_char_list_def:
- ((v_to_char_list:v ->((char)list)option) (Conv (SOME stamp) [])=
-   (if stamp = TypeStamp "[]" list_type_num then
-    SOME []
-  else
-    NONE))
-/\ ((v_to_char_list:v ->((char)list)option) (Conv (SOME stamp) [Litv (Char c);v])=
-   (if stamp = TypeStamp "::" list_type_num then
-    (case v_to_char_list v of
-        SOME cs => SOME (c::cs)
-      | NONE => NONE
-    )
-  else
-    NONE))
-/\ ((v_to_char_list:v ->((char)list)option) _=  NONE)
+  v_to_char_list (Conv (SOME stamp) []) =
+    (if stamp = TypeStamp "[]" list_type_num then SOME "" else NONE) ∧
+  v_to_char_list (Conv (SOME stamp) [Litv (Char c); v]) =
+    (if stamp = TypeStamp "::" list_type_num then
+       case v_to_char_list v of NONE => NONE | SOME cs => SOME (STRING c cs)
+     else NONE) ∧
+  v_to_char_list _ = NONE
 End
 
 Definition vs_to_string_def:
- ((vs_to_string:(v)list ->(string)option) []=  (SOME ""))
-/\ ((vs_to_string:(v)list ->(string)option) (Litv(StrLit s1)::vs)=
-   ((case vs_to_string vs of
-    SOME s2 => SOME ( STRCAT s1 s2)
-  | _ => NONE
-  )))
-/\ ((vs_to_string:(v)list ->(string)option) _=  NONE)
+  vs_to_string [] = SOME "" ∧
+  vs_to_string (Litv (StrLit s1)::vs) =
+    (case vs_to_string vs of NONE => NONE | SOME s2 => SOME (STRCAT s1 s2)) ∧
+  vs_to_string (_::v1) = NONE
 End
 
-(*val maybe_to_v : maybe v -> v*)
- val _ = Define `
- ((maybe_to_v:(v)option -> v) NONE=
-   (Conv (SOME (TypeStamp "None" option_type_num)) []))
-/\ ((maybe_to_v:(v)option -> v) (SOME v)=
-   (Conv (SOME (TypeStamp "Some" option_type_num)) [v]))`;
+Definition maybe_to_v_def:
+  maybe_to_v NONE = Conv (SOME (TypeStamp "None" option_type_num)) [] ∧
+  maybe_to_v (SOME v) = Conv (SOME (TypeStamp "Some" option_type_num)) [v]
+End
 
-
-(*val v_to_id : v -> maybe (id modN varN)*)
- val _ = Define `
- ((v_to_id:v ->(((string),(string))id)option) (Conv (SOME stamp) [Litv (StrLit s)])=
-   (if stamp = TypeStamp "Short" id_type_num then
-    SOME (Short s)
-  else
-    NONE))
-/\ ((v_to_id:v ->(((string),(string))id)option) (Conv (SOME stamp) [Litv (StrLit s); v])=
-   (if stamp = TypeStamp "Long" id_type_num then
-    (case v_to_id v of
-        SOME id => SOME (Long s id)
-      | NONE => NONE
-    )
-  else
-    NONE))
-/\ ((v_to_id:v ->(((string),(string))id)option) _=  NONE)`;
+Definition v_to_id_def:
+  v_to_id (Conv (SOME stamp) [Litv (StrLit s)]) =
+     (if stamp = TypeStamp "Short" id_type_num then
+        SOME (Short s)
+      else NONE) ∧
+  v_to_id (Conv (SOME stamp) [Litv (StrLit s); v]) =
+     (if stamp = TypeStamp "Long" id_type_num then
+        case v_to_id v of NONE => NONE | SOME id => SOME (Long s id)
+      else NONE) ∧
+  v_to_id _ = NONE
+End
 
 
 (*val enc_pair : v -> v -> v*)
@@ -944,15 +769,12 @@ val _ = Define `
 
 
 Definition maybe_all_list_def:
- ((maybe_all_list:('a option)list ->('a list)option) v=
-   ((case v of
-    [] => SOME []
-  | (NONE :: _) => NONE
-  | (SOME x :: vs) => (case maybe_all_list vs of
-      SOME xs => SOME (x :: xs)
-    | NONE => NONE
-    )
-  )))
+  maybe_all_list v =
+    case v of
+      [] => SOME []
+    | NONE::vs => NONE
+    | SOME x::vs =>
+        case maybe_all_list vs of NONE => NONE | SOME xs => SOME (x::xs)
 End
 
 (*val v_to_word8 : v -> maybe word8*)
@@ -1601,44 +1423,4 @@ val _ = Define `
  ((extend_dec_env:(v)sem_env ->(v)sem_env ->(v)sem_env) new_env env=
    (<| c := (nsAppend new_env.c env.c); v := (nsAppend new_env.v env.v) |>))`;
 
-
-(*
-val decs_to_types : list dec -> list typeN
-let decs_to_types ds =
-  List.concat (List.map (fun d ->
-        match d with
-          | Dtype locs tds -> List.map (fun (tvs,tn,ctors) -> tn) tds
-          | _ -> [] end)
-     ds)
-
-val no_dup_types : list dec -> bool
-let no_dup_types ds =
-  List.allDistinct (decs_to_types ds)
-
-val prog_to_mods : list top -> list (list modN)
-let prog_to_mods tops =
-  List.concat (List.map (fun top ->
-        match top with
-          | Tmod mn _ _ -> [[mn]]
-          | _ -> [] end)
-     tops)
-
-val no_dup_mods : list top -> set (list modN) -> bool
-let no_dup_mods tops defined_mods =
-  List.allDistinct (prog_to_mods tops) &&
-  disjoint (Set.fromList (prog_to_mods tops)) defined_mods
-
-val prog_to_top_types : list top -> list typeN
-let prog_to_top_types tops =
-  List.concat (List.map (fun top ->
-        match top with
-          | Tdec d -> decs_to_types [d]
-          | _ -> [] end)
-     tops)
-
-val no_dup_top_types : list top -> set tid_or_exn -> bool
-let no_dup_top_types tops defined_types =
-  List.allDistinct (prog_to_top_types tops) &&
-  disjoint (Set.fromList (List.map (fun tn -> TypeId (Short tn)) (prog_to_top_types tops))) defined_types
-  *)
 val _ = export_theory()
