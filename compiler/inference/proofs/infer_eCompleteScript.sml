@@ -2,7 +2,7 @@
   Prove completeness of the type inferencer for the expression-level.
 *)
 open preamble;
-open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
+open libTheory typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory;
 open astPropsTheory;
 open typeSysPropsTheory;
 open inferPropsTheory;

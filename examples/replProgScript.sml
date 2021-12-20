@@ -61,7 +61,7 @@ val envlookup_def = Define`
 
 val envlookup_v_def = definition"envlookup_v_def";
 
-open semanticPrimitivesTheory terminationTheory
+open semanticPrimitivesTheory
 
 Theorem NAMESPACE_ID_TYPE_v_to_id:
   ∀v x.

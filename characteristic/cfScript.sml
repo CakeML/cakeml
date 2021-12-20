@@ -7,7 +7,7 @@ open set_sepTheory helperLib ml_translatorTheory ConseqConv
 open ml_translatorTheory semanticPrimitivesTheory
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
 open cfNormaliseTheory cfAppTheory
-open cfTacticsBaseLib
+open cfTacticsBaseLib evaluateTheory
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -227,7 +227,7 @@ Proof
   fs [SEP_EXISTS, cond_def, STAR_def, SPLIT_emp2, PULL_EXISTS] \\
   qpat_x_assum `do_opapp _ = _` (assume_tac o REWRITE_RULE [do_opapp_def]) \\
   fs [] \\ qpat_x_assum `Fun _ _ = _` (assume_tac o GSYM) \\ fs [] \\
-  fs [evaluate_ck_def, terminationTheory.evaluate_def] \\ rw [] \\
+  fs [evaluate_ck_def, evaluate_def] \\ rw [] \\
   fs [do_opapp_def] \\
   progress SPLIT_of_SPLIT3_2u3 \\ first_x_assum progress \\
   once_rewrite_tac [CONJ_COMM] \\
@@ -256,7 +256,7 @@ Proof
     assume_tac) \\
   qmatch_assum_abbrev_tac `curried _ _ v` \\ qexists_tac `Val v` \\
   qunabbrev_tac `v` \\ fs [] \\
-  fs [evaluate_ck_def, terminationTheory.evaluate_def] \\
+  fs [evaluate_ck_def, evaluate_def] \\
   fs [LENGTH_CONS, PULL_EXISTS] \\
   qexists_tac `st.clock` \\ fs [with_clock_self] \\
   fs [GSYM naryFun_def, GSYM naryClosure_def] \\ rpt strip_tac \\
@@ -307,7 +307,7 @@ Proof
   pop_assum mp_tac \\
   simp [Once evaluate_to_heap_def] \\ rw [] \\ rveq \\ fs [] \\
   progress_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
-  fs [naryFun_def, evaluate_ck_def, terminationTheory.evaluate_def] \\ rw [] \\
+  fs [naryFun_def, evaluate_ck_def, evaluate_def] \\ rw [] \\
   fs [do_opapp_def] \\ progress SPLIT_of_SPLIT3_2u3 \\ first_x_assum progress \\
   fs [evaluate_to_heap_with_clock] \\
   once_rewrite_tac [CONJ_COMM] \\
@@ -344,7 +344,7 @@ Proof
   THEN1 (irule curried_naryClosure \\ fs [])
   THEN1 (irule app_one_naryRecclosure \\ fs [LENGTH_CONS] \\ metis_tac []) \\
   fs [naryFun_def, naryClosure_def] \\
-  fs [evaluate_ck_def, terminationTheory.evaluate_def, with_clock_self]
+  fs [evaluate_ck_def, evaluate_def, with_clock_self]
 QED
 
 Theorem letrec_pull_params_repack:
@@ -454,8 +454,8 @@ QED
 *)
 
 val pat_bindings_def = astTheory.pat_bindings_def
-val pmatch_def = terminationTheory.pmatch_def
-val pmatch_ind = terminationTheory.pmatch_ind
+val pmatch_def = pmatch_def
+val pmatch_ind = pmatch_ind
 
 (* [pat_wildcards]: computes the number of wildcards a pattern contains. *)
 
@@ -1138,7 +1138,7 @@ val app_of_htriple_valid = Q.prove (
   fs [POSTv_def, SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
   Q.REFINE_EXISTS_TAC `Val v` \\ simp [evaluate_to_heap_def] \\
   fs [POSTv_def, SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
-  fs [evaluate_ck_def, terminationTheory.evaluate_def, st2heap_clock] \\
+  fs [evaluate_ck_def, evaluate_def, st2heap_clock] \\
   progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\ fs [naryClosure_def]);
 
 val app_rec_of_htriple_valid_aux = Q.prove (
@@ -1182,7 +1182,7 @@ val app_rec_of_htriple_valid_aux = Q.prove (
       |> SIMP_RULE std_ss []]
   THEN1 (irule app_of_htriple_valid \\ fs [extend_env_def]) \\
   fs [naryFun_def, naryClosure_def] \\
-  fs [evaluate_ck_def, terminationTheory.evaluate_def, with_clock_self] \\
+  fs [evaluate_ck_def, evaluate_def, with_clock_self] \\
   fs [letrec_pull_params_cancel, letrec_pull_params_names] \\
   fs [build_rec_env_zip]);
 
@@ -1945,7 +1945,7 @@ val cf_base_case_tac =
   simp [PULL_EXISTS] \\ fs [] \\ res_tac \\
   rename1 `SPLIT (st2heap _ st) (h_i, h_k)` \\
   progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-  simp [evaluate_ck_def, terminationTheory.evaluate_def, with_clock_self_eq] \\
+  simp [evaluate_ck_def, evaluate_def, with_clock_self_eq] \\
   fs [SEP_IMP_def]
 
 val cf_strip_sound_tac =
@@ -1953,7 +1953,7 @@ val cf_strip_sound_tac =
   rpt strip_tac \\ fs []
 
 val cf_evaluate_step_tac =
-  simp [evaluate_to_heap_def, evaluate_ck_def, terminationTheory.evaluate_def] \\
+  simp [evaluate_to_heap_def, evaluate_ck_def, evaluate_def] \\
   fs [libTheory.opt_bind_def, PULL_EXISTS]
 
 val cf_strip_sound_full_tac = cf_strip_sound_tac \\ cf_evaluate_step_tac
@@ -2093,7 +2093,7 @@ val cf_letrec_sound_aux = Q.prove (
     fs [] \\ disch_then (qspecl_then [`env`, `H`, `Q`] mp_tac) \\
     fs [evaluate_to_heap_def, evaluate_ck_def] \\
     disch_then progress \\ instantiate \\
-    rfs [terminationTheory.evaluate_def]
+    rfs [evaluate_def]
   ));
 
 val _ = print "Proving cf_letrec_sound\n";
@@ -2173,7 +2173,7 @@ val cf_cases_evaluate_match = Q.prove (
   \\ fs [cf_cases_def,evaluatePropsTheory.can_pmatch_all_EVERY]
   THEN1 (
     fs [local_def] \\ first_x_assum progress \\
-    fs [terminationTheory.evaluate_def] \\
+    fs [evaluate_def] \\
     Q.REFINE_EXISTS_TAC `Exn v` \\ fs [] \\
     fs [STAR_def, STARPOST_def, SEP_IMPPOST_def, SEP_IMP_def] \\
     GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
@@ -2193,7 +2193,7 @@ val cf_cases_evaluate_match = Q.prove (
   first_assum (qspec_then `st.refs` assume_tac) \\
   qpat_x_assum `validate_pat _ _ _ _ _`
     (strip_assume_tac o REWRITE_RULE [validate_pat_def]) \\
-  simp [terminationTheory.evaluate_def] \\
+  simp [evaluate_def] \\
   full_case_tac \\ fs []
   THEN1 ((* No_match *)
     every_case_tac \\ fs []
@@ -2563,7 +2563,7 @@ Proof
       fs [is_bound_Fun_def, THE_DEF, Fun_params_def, evaluate_to_heap_def] \\ instantiate \\
       every_case_tac \\ fs[] \\ qpat_x_assum `_ = inner_body` (assume_tac o GSYM) \\
       fs [naryClosure_def, naryFun_def, Fun_params_Fun_body_NONE] \\
-      fs [Fun_params_Fun_body_repack, evaluate_ck_def, terminationTheory.evaluate_def] \\
+      fs [Fun_params_Fun_body_repack, evaluate_ck_def, evaluate_def] \\
       fs [namespaceTheory.nsOptBind_def] \\
       instantiate
     )
@@ -2737,7 +2737,7 @@ Proof
           rpt strip_tac
           THEN1 (
             cf_exp2v_evaluate_tac `st with clock := ck`
-            \\ fs [evaluateTheory.dec_clock_def]
+            \\ fs [dec_clock_def]
           )
           \\ irule lprefix_lub_subset
           \\ qexists_tac `IMAGE (λck. fromList (FST (evaluate (st with clock := ck) env' [exp])).ffi.io_events) UNIV`
@@ -2806,7 +2806,7 @@ Proof
           \\ `SPLIT3 heap (h_f', h_k, h_g' UNION h_g)` by SPLIT_TAC
           \\ instantiate \\ rw []
           THEN1 (
-            NTAC 2 (simp [Once terminationTheory.evaluate_def])
+            NTAC 2 (simp [Once evaluate_def])
             \\ cf_exp2v_evaluate_tac `st with clock := ck'` \\ fs []
             \\ NTAC 2 (pop_assum (K ALL_TAC))
             \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
@@ -2817,7 +2817,7 @@ Proof
           \\ asm_exists_tac \\ simp [SUBSET_DEF]
           \\ rw []
           THEN1 (
-            NTAC 2 (simp [Once terminationTheory.evaluate_def])
+            NTAC 2 (simp [Once evaluate_def])
             \\ drule evaluatePropsTheory.evaluate_set_clock \\ fs []
             \\ disch_then (qspec_then `ck' + 1` strip_assume_tac)
             \\ cf_exp2v_evaluate_tac `st with clock := ck1`
@@ -2826,7 +2826,7 @@ Proof
           \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
           \\ disch_then (qspec_then `ck'` mp_tac) \\ rw []
           THEN1 (
-            NTAC 2 (simp [Once terminationTheory.evaluate_def])
+            NTAC 2 (simp [Once evaluate_def])
             \\ cf_exp2v_evaluate_tac `st with clock := ck'`
             THEN1 (
               qexists_tac `fromList (FST (evaluate st' env' [exp])).ffi.io_events`
@@ -2855,7 +2855,7 @@ Proof
           \\ irule isPREFIX_TRANS
           \\ instantiate
           \\ fs [evaluatePropsTheory.io_events_mono_def]
-          \\ NTAC 2 (simp [Once terminationTheory.evaluate_def])
+          \\ NTAC 2 (simp [Once evaluate_def])
           \\ cf_exp2v_evaluate_tac `st with clock := ck'`
         )
         THEN (
@@ -2864,7 +2864,7 @@ Proof
           `SPLIT3 (st2heap (p:'ffi ffi_proj) st2) (h_f', h_k, h_g' UNION h_g)`
             by SPLIT_TAC \\ rfs [] \\
           asm_exists_tac \\ fs [] \\
-          NTAC 2 (simp [Once terminationTheory.evaluate_def]) \\
+          NTAC 2 (simp [Once evaluate_def]) \\
           (* Instantiate the clock, cleanup *)
           cf_exp2v_evaluate_tac `st with clock := ck + ck' + 1` \\
           qexists_tac `ck + ck' + 1` \\ rw [] \\

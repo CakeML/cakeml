@@ -1314,9 +1314,9 @@ Proof
   qexists_tac `events` >>
   rpt strip_tac >-
     (simp[semanticsTheory.evaluate_prog_with_clock_def,
-          terminationTheory.evaluate_decs_def,
+          evaluateTheory.evaluate_decs_def,
           astTheory.pat_bindings_def] >>
-     simp[terminationTheory.evaluate_def] >>
+     simp[evaluateTheory.evaluate_def] >>
      simp[semanticPrimitivesTheory.do_con_check_def,semanticPrimitivesTheory.build_conv_def] >>
      rw[evaluateTheory.dec_clock_def] >>
      fs[evaluate_ck_def] >>
@@ -1328,10 +1328,10 @@ Proof
     (rw[IMAGE_DEF,SUBSET_DEF] >>
      qexists_tac `SUC ck` >>
      simp[semanticsTheory.evaluate_prog_with_clock_def,
-          terminationTheory.evaluate_decs_def,
+          evaluateTheory.evaluate_decs_def,
           astTheory.pat_bindings_def
          ] >>
-     simp[terminationTheory.evaluate_def] >>
+     simp[evaluateTheory.evaluate_def] >>
      simp[semanticPrimitivesTheory.do_con_check_def,semanticPrimitivesTheory.build_conv_def] >>
      rw[evaluateTheory.dec_clock_def] >>
      fs[evaluate_ck_def] >>
@@ -1339,10 +1339,10 @@ Proof
   rw[PULL_EXISTS] >>
   simp[LPREFIX_fromList_fromList] >>
   simp[semanticsTheory.evaluate_prog_with_clock_def,
-       terminationTheory.evaluate_decs_def,
+       evaluateTheory.evaluate_decs_def,
        astTheory.pat_bindings_def
       ] >>
-  simp[terminationTheory.evaluate_def] >>
+  simp[evaluateTheory.evaluate_def] >>
   simp[semanticPrimitivesTheory.do_con_check_def,semanticPrimitivesTheory.build_conv_def] >>
   rw[evaluateTheory.dec_clock_def] >>
   fs[evaluate_ck_def] >>
@@ -1426,9 +1426,9 @@ Proof
   strip_tac >> fs[] >>
   fs[evaluate_to_heap_def,semanticsTheory.semantics_prog_def] >>
   simp[semanticsTheory.evaluate_prog_with_clock_def,
-          terminationTheory.evaluate_decs_def,
+          evaluateTheory.evaluate_decs_def,
           astTheory.pat_bindings_def] >>
-  simp[terminationTheory.evaluate_def] >>
+  simp[evaluateTheory.evaluate_def] >>
   simp[semanticPrimitivesTheory.do_con_check_def,semanticPrimitivesTheory.build_conv_def] >>
   rw[evaluateTheory.dec_clock_def] >>
   PURE_ONCE_REWRITE_TAC[CONJ_SYM] >>

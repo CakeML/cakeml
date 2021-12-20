@@ -3,7 +3,7 @@
   proofs of the type inferencer.
 *)
 open preamble;
-open libTheory namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
+open libTheory namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory;
 open astPropsTheory typeSysPropsTheory;
 
 val _ = new_theory "inferProps";
@@ -594,6 +594,22 @@ Proof
   CCONTR_TAC >>
   fs [combinTheory.o_DEF] >>
   metis_tac [exc_distinct, PAIR_EQ, type_name_check_subst_success]
+QED
+
+Theorem check_dup_ctors_thm:
+   check_dup_ctors (tvs,tn,condefs) = ALL_DISTINCT (MAP FST condefs)
+Proof
+  rw [check_dup_ctors_def] >>
+  induct_on `condefs` >>
+  rw [] >>
+  pairarg_tac >>
+  fs [] >>
+  eq_tac >>
+  rw [] >>
+  induct_on `condefs` >>
+  rw [] >>
+  pairarg_tac >>
+  fs []
 QED
 
 Theorem check_ctors_success:

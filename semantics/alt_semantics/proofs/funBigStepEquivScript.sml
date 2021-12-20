@@ -3,7 +3,6 @@
   semantics.
 *)
 open preamble evaluateTheory interpTheory semanticPrimitivesTheory
-open terminationTheory
 
 val _ = new_theory"funBigStepEquiv"
 
