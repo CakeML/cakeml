@@ -198,6 +198,14 @@ End
 
 Theorem THM_TYPE_HEAD_def = SIMP_RULE list_ss [] THM_TYPE_HEAD_def;
 
+Definition LIST_TYPE_HEAD_def:
+  LIST_TYPE_HEAD h v = ∃l:unit list. LIST_TYPE (K h) l v
+End
+
+Definition PAIR_TYPE_HEAD_def:
+  PAIR_TYPE_HEAD h1 h2 v = PAIR_TYPE (K h1) (K h2) ((),()) v
+End
+
 (* -------------------------------------------------------------------------
  * THM, TERM, TYPE lemmas
  * ------------------------------------------------------------------------- *)
@@ -270,6 +278,75 @@ QED
 (* -------------------------------------------------------------------------
  * Theorems applying kernel functions to *any* arguments (incl. wrong type)
  * ------------------------------------------------------------------------- *)
+
+val s = “s:α semanticPrimitives$state”
+
+val safe_error_goal =
+    “∃k. s' = ((s:α semanticPrimitives$state) with clock := k) ∧
+         (res = Rerr (Rabort Rtype_error) ∨
+          res = Rerr (Rraise bind_exn_v) ∨
+          res = Rerr (Rabort Rtimeout_error) :(v list, v) semanticPrimitives$result)”
+
+Triviality same_clock_exists:
+  (∃k. s = s with clock := k) = T ∧
+  (∃k. s with clock := k' = s with clock := k) = T
+Proof
+  fs [state_component_equality]
+QED
+
+Theorem evaluate_ty_check:
+  evaluate ^s env
+    [Let NONE
+       (Mat (Var (Short v))
+          [(Pcon (SOME (Short "Tyvar")) [Pvar a1], Con NONE []);
+           (Pcon (SOME (Short "Tyapp")) [Pvar a3; Pvar a4], Con NONE [])]) ee] = (s',res) ∧
+  nsLookup env.c (Short "Tyvar") = SOME (1,TypeStamp "Tyvar" type_stamp_n) ∧
+  nsLookup env.c (Short "Tyapp") = SOME (2,TypeStamp "Tyapp" type_stamp_n) ∧
+  nsLookup env.v (Short v) = SOME w ⇒
+  ^safe_error_goal ∨ TYPE_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
+Proof
+  fs [evaluate_def,same_ctor_def,pmatch_def,do_con_check_def] \\ csimp []
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ rpt strip_tac
+  \\ gvs [AllCaseEqs(),LENGTH_EQ_NUM_compute,same_clock_exists]
+  \\ Cases_on ‘w’ \\ gvs [pmatch_def]
+  \\ rename [‘Conv oo ll’] \\ Cases_on ‘oo’ \\ gvs [pmatch_def,AllCaseEqs()]
+  \\ gvs [AllCaseEqs(),LENGTH_EQ_NUM_compute]
+  \\ rpt strip_tac \\ gvs [same_ctor_def,pmatch_def]
+  \\ fs [TYPE_TYPE_HEAD_def]
+  \\ rpt (pop_assum mp_tac)
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ fs [namespaceTheory.nsOptBind_def]
+QED
+
+Theorem evaluate_tm_check:
+  evaluate ^s env
+    [Let NONE
+       (Mat (Var (Short v))
+          [(Pcon (SOME (Short "Var_1")) [Pvar a1; Pvar a2], Con NONE []);
+           (Pcon (SOME (Short "Const")) [Pvar a3; Pvar a4], Con NONE []);
+           (Pcon (SOME (Short "Comb")) [Pvar a5; Pvar a6], Con NONE []);
+           (Pcon (SOME (Short "Abs")) [Pvar a7; Pvar a8], Con NONE [])]) ee] = (s',res) ∧
+  nsLookup env.c (Short "Var_1") = SOME (2,TypeStamp "Var_1" term_stamp_n) ∧
+  nsLookup env.c (Short "Const") = SOME (2,TypeStamp "Const" term_stamp_n) ∧
+  nsLookup env.c (Short "Comb") = SOME (2,TypeStamp "Comb" term_stamp_n) ∧
+  nsLookup env.c (Short "Abs") = SOME (2,TypeStamp "Abs" term_stamp_n) ∧
+  nsLookup env.v (Short v) = SOME w ⇒
+  ^safe_error_goal ∨ TERM_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
+Proof
+  fs [evaluate_def,same_ctor_def,pmatch_def,do_con_check_def] \\ csimp []
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ rpt strip_tac
+  \\ gvs [AllCaseEqs(),LENGTH_EQ_NUM_compute,same_clock_exists]
+  \\ Cases_on ‘w’ \\ gvs [pmatch_def]
+  \\ rename [‘Conv oo ll’] \\ Cases_on ‘oo’ \\ gvs [pmatch_def,AllCaseEqs()]
+  \\ gvs [AllCaseEqs(),LENGTH_EQ_NUM_compute]
+  \\ rpt strip_tac \\ gvs [same_ctor_def,pmatch_def]
+  \\ fs [TERM_TYPE_HEAD_def]
+  \\ rpt (pop_assum mp_tac)
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ fs [namespaceTheory.nsOptBind_def]
+QED
 
 Theorem is_type_v_head:
   do_opapp [is_type_v; w] = SOME (env, exp) ∧
@@ -353,6 +430,419 @@ Proof
   \\ rpt strip_tac \\ gvs [same_ctor_def,pmatch_def]
   \\ fs [THM_TYPE_HEAD_def]
 QED
+
+Theorem check_tm_head:
+  ∀v s.
+    ∃env e s' res.
+      do_opapp [check_tm_v; v] = SOME (env,e) ∧
+      evaluate (dec_clock ^s) env [e] = (s',res) ∧
+      (^safe_error_goal ∨
+       ∃k z. s' = s with clock := k ∧ res = Rval [z] ∧
+       LIST_TYPE_HEAD TERM_TYPE_HEAD v)
+Proof
+  strip_tac \\ completeInduct_on ‘v_size v’
+  \\ rpt strip_tac \\ gvs [PULL_FORALL,AND_IMP_INTRO]
+  \\ rename [‘do_opapp [_; v]’]
+  \\ simp [check_tm_v_def]
+  \\ simp [do_opapp_def]
+  \\ once_rewrite_tac [find_recfun_def] \\ fs []
+  \\ simp_tac (srw_ss()) [Once evaluate_def]
+  \\ simp_tac (srw_ss()) [Once evaluate_def]
+  \\ rpt strip_tac
+  \\ reverse IF_CASES_TAC \\ fs []
+  THEN1 fs [dec_clock_def,same_clock_exists]
+  \\ simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+  \\ simp_tac (srw_ss()) [pmatch_def]
+  \\ reverse CASE_TAC \\ fs []
+  \\ TRY (fs [dec_clock_def,same_clock_exists] \\ NO_TAC)
+  \\ pop_assum mp_tac
+  \\ Cases_on ‘v’ \\ simp_tac (srw_ss()) [pmatch_def]
+  \\ Cases_on ‘o'’ \\ simp_tac (srw_ss()) [pmatch_def,AllCaseEqs(),same_ctor_def]
+  \\ strip_tac \\ fs []
+  THEN1
+   (rpt var_eq_tac
+    \\ simp_tac (srw_ss()) [evaluate_def]
+    \\ rpt (CASE_TAC \\ gvs [dec_clock_def,same_clock_exists,GSYM PULL_EXISTS])
+    \\ rpt (pop_assum mp_tac)
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+    \\ rpt strip_tac \\ gvs []
+    \\ fs [LIST_TYPE_HEAD_def]
+    \\ qexists_tac ‘[]’
+    \\ fs [LIST_TYPE_def])
+  \\ simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+  \\ CASE_TAC \\ fs []
+  \\ TRY (fs [dec_clock_def,same_clock_exists] \\ NO_TAC)
+  THEN1
+   (simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+    \\ simp_tac (srw_ss()) [pmatch_def,dec_clock_def,same_clock_exists])
+  \\ pop_assum mp_tac \\ simp_tac (srw_ss()) [pmatch_def,AllCaseEqs(),same_ctor_def]
+  \\ strip_tac \\ fs []
+  \\ gvs [LENGTH_EQ_NUM_compute,pmatch_def]
+  \\ qmatch_goalsub_abbrev_tac ‘xx = (_,_)’
+  \\ ‘∃res s. xx = (s,res)’ by metis_tac [PAIR]
+  \\ fs [Abbr ‘xx’]
+  \\ drule evaluate_tm_check
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ strip_tac \\ gvs [same_clock_exists]
+  \\ pop_assum mp_tac
+  \\ simp [Once evaluate_def]
+  \\ simp [Once evaluate_def]
+  \\ simp [Once evaluate_def]
+  \\ simp [Once evaluate_def]
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ fs [build_rec_env_def]
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ fs [GSYM check_tm_v_def]
+  \\ rename [‘do_opapp [_; h_tail]’]
+  \\ last_x_assum (qspecl_then [‘h_tail’,‘dec_clock s’] mp_tac)
+  \\ impl_tac THEN1 fs [v_size_def]
+  \\ strip_tac \\ fs []
+  \\ rw [] \\ fs [dec_clock_def,same_clock_exists,GSYM PULL_EXISTS]
+  \\ fs [LIST_TYPE_HEAD_def]
+  \\ qexists_tac ‘()::l’
+  \\ fs [LIST_TYPE_def,PAIR_TYPE_HEAD_def,PAIR_TYPE_def]
+  \\ rpt (pop_assum mp_tac)
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+QED
+
+Theorem check_ty_head:
+  ∀v s.
+    ∃env e s' res.
+      do_opapp [check_ty_v; v] = SOME (env,e) ∧
+      evaluate (dec_clock ^s) env [e] = (s',res) ∧
+      (^safe_error_goal ∨
+       ∃k z. s' = s with clock := k ∧ res = Rval [z] ∧
+       LIST_TYPE_HEAD TYPE_TYPE_HEAD v)
+Proof
+  strip_tac \\ completeInduct_on ‘v_size v’
+  \\ rpt strip_tac \\ gvs [PULL_FORALL,AND_IMP_INTRO]
+  \\ rename [‘do_opapp [_; v]’]
+  \\ simp [check_ty_v_def]
+  \\ simp [do_opapp_def]
+  \\ once_rewrite_tac [find_recfun_def] \\ fs []
+  \\ simp_tac (srw_ss()) [Once evaluate_def]
+  \\ simp_tac (srw_ss()) [Once evaluate_def]
+  \\ rpt strip_tac
+  \\ reverse IF_CASES_TAC \\ fs []
+  THEN1 fs [dec_clock_def,same_clock_exists]
+  \\ simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+  \\ simp_tac (srw_ss()) [pmatch_def]
+  \\ reverse CASE_TAC \\ fs []
+  \\ TRY (fs [dec_clock_def,same_clock_exists] \\ NO_TAC)
+  \\ pop_assum mp_tac
+  \\ Cases_on ‘v’ \\ simp_tac (srw_ss()) [pmatch_def]
+  \\ Cases_on ‘o'’ \\ simp_tac (srw_ss()) [pmatch_def,AllCaseEqs(),same_ctor_def]
+  \\ strip_tac \\ fs []
+  THEN1
+   (rpt var_eq_tac
+    \\ simp_tac (srw_ss()) [evaluate_def]
+    \\ rpt (CASE_TAC \\ gvs [dec_clock_def,same_clock_exists,GSYM PULL_EXISTS])
+    \\ rpt (pop_assum mp_tac)
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+    \\ rpt strip_tac \\ gvs []
+    \\ fs [LIST_TYPE_HEAD_def]
+    \\ qexists_tac ‘[]’
+    \\ fs [LIST_TYPE_def])
+  \\ simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+  \\ CASE_TAC \\ fs []
+  \\ TRY (fs [dec_clock_def,same_clock_exists] \\ NO_TAC)
+  THEN1
+   (simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+    \\ simp_tac (srw_ss()) [pmatch_def,dec_clock_def,same_clock_exists])
+  \\ pop_assum mp_tac \\ simp_tac (srw_ss()) [pmatch_def,AllCaseEqs(),same_ctor_def]
+  \\ strip_tac \\ fs []
+  \\ gvs [LENGTH_EQ_NUM_compute,pmatch_def]
+  \\ qmatch_goalsub_abbrev_tac ‘xx = (_,_)’
+  \\ ‘∃res s. xx = (s,res)’ by metis_tac [PAIR]
+  \\ fs [Abbr ‘xx’]
+  \\ drule evaluate_ty_check
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ strip_tac \\ gvs [same_clock_exists]
+  \\ pop_assum mp_tac
+  \\ simp [Once evaluate_def]
+  \\ simp [Once evaluate_def]
+  \\ simp [Once evaluate_def]
+  \\ simp [Once evaluate_def]
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ fs [build_rec_env_def]
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ fs [GSYM check_ty_v_def]
+  \\ rename [‘do_opapp [_; h_tail]’]
+  \\ last_x_assum (qspecl_then [‘h_tail’,‘dec_clock s’] mp_tac)
+  \\ impl_tac THEN1 fs [v_size_def]
+  \\ strip_tac \\ fs []
+  \\ rw [] \\ fs [dec_clock_def,same_clock_exists,GSYM PULL_EXISTS]
+  \\ fs [LIST_TYPE_HEAD_def]
+  \\ qexists_tac ‘()::l’
+  \\ fs [LIST_TYPE_def,PAIR_TYPE_HEAD_def,PAIR_TYPE_def]
+  \\ rpt (pop_assum mp_tac)
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+QED
+
+Theorem check_tm_tm_head:
+  ∀v s.
+    ∃env e s' res.
+      do_opapp [check_tm_tm_v; v] = SOME (env,e) ∧
+      evaluate (dec_clock ^s) env [e] = (s',res) ∧
+      (^safe_error_goal ∨
+       ∃k z. s' = s with clock := k ∧ res = Rval [z] ∧
+       LIST_TYPE_HEAD (PAIR_TYPE_HEAD TERM_TYPE_HEAD TERM_TYPE_HEAD) v)
+Proof
+  strip_tac \\ completeInduct_on ‘v_size v’
+  \\ rpt strip_tac \\ gvs [PULL_FORALL,AND_IMP_INTRO]
+  \\ rename [‘do_opapp [_; v]’]
+  \\ simp [check_tm_tm_v_def]
+  \\ simp [do_opapp_def]
+  \\ once_rewrite_tac [find_recfun_def] \\ fs []
+  \\ simp_tac (srw_ss()) [Once evaluate_def]
+  \\ simp_tac (srw_ss()) [Once evaluate_def]
+  \\ rpt strip_tac
+  \\ reverse IF_CASES_TAC \\ fs []
+  THEN1 fs [dec_clock_def,same_clock_exists]
+  \\ simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+  \\ simp_tac (srw_ss()) [pmatch_def]
+  \\ reverse CASE_TAC \\ fs []
+  \\ TRY (fs [dec_clock_def,same_clock_exists] \\ NO_TAC)
+  \\ pop_assum mp_tac
+  \\ Cases_on ‘v’ \\ simp_tac (srw_ss()) [pmatch_def]
+  \\ Cases_on ‘o'’ \\ simp_tac (srw_ss()) [pmatch_def,AllCaseEqs(),same_ctor_def]
+  \\ strip_tac \\ fs []
+  THEN1
+   (rpt var_eq_tac
+    \\ simp_tac (srw_ss()) [evaluate_def]
+    \\ rpt (CASE_TAC \\ gvs [dec_clock_def,same_clock_exists,GSYM PULL_EXISTS])
+    \\ rpt (pop_assum mp_tac)
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+    \\ rpt strip_tac \\ gvs []
+    \\ fs [LIST_TYPE_HEAD_def]
+    \\ qexists_tac ‘[]’
+    \\ fs [LIST_TYPE_def])
+  \\ simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+  \\ CASE_TAC \\ fs []
+  \\ TRY (fs [dec_clock_def,same_clock_exists] \\ NO_TAC)
+  THEN1
+   (simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+    \\ simp_tac (srw_ss()) [pmatch_def,dec_clock_def,same_clock_exists])
+  \\ pop_assum mp_tac \\ simp_tac (srw_ss()) [pmatch_def,AllCaseEqs(),same_ctor_def]
+  \\ strip_tac \\ fs []
+  \\ gvs [LENGTH_EQ_NUM_compute,pmatch_def]
+  \\ qmatch_goalsub_abbrev_tac ‘xx = (_,_)’
+  \\ ‘∃res s. xx = (s,res)’ by metis_tac [PAIR]
+  \\ fs [Abbr ‘xx’]
+  \\ pop_assum mp_tac
+  \\ simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+  \\ simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+  \\ reverse IF_CASES_TAC \\ fs []
+  THEN1 (rw [] \\ fs [dec_clock_def,same_clock_exists])
+  \\ simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+  \\ CASE_TAC \\ fs []
+  \\ TRY (rw [] \\ fs [dec_clock_def,same_clock_exists] \\ NO_TAC)
+  THEN1 (rw [Once evaluate_def] \\ fs [dec_clock_def,same_clock_exists])
+  \\ pop_assum mp_tac
+  \\ Cases_on ‘h’ \\ fs [pmatch_def]
+  \\ Cases_on ‘o'’ \\ fs [pmatch_def]
+  \\ simp_tac (srw_ss()) [pmatch_def,AllCaseEqs(),same_ctor_def]
+  \\ strip_tac \\ fs []
+  \\ gvs [LENGTH_EQ_NUM_compute,pmatch_def]
+  \\ strip_tac
+  \\ drule evaluate_tm_check
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ strip_tac \\ gvs [same_clock_exists]
+  \\ drule evaluate_tm_check
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ strip_tac \\ gvs [same_clock_exists]
+  \\ pop_assum mp_tac
+  \\ simp [Once evaluate_def]
+  \\ simp [Once evaluate_def]
+  \\ simp [Once evaluate_def]
+  \\ simp [Once evaluate_def]
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ fs [build_rec_env_def]
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ fs [GSYM check_tm_tm_v_def]
+  \\ rename [‘do_opapp [_; h_tail]’]
+  \\ last_x_assum (qspecl_then [‘h_tail’,‘dec_clock s’] mp_tac)
+  \\ impl_tac THEN1 fs [v_size_def]
+  \\ strip_tac \\ fs []
+  \\ rw [] \\ fs [dec_clock_def,same_clock_exists,GSYM PULL_EXISTS]
+  \\ fs [LIST_TYPE_HEAD_def]
+  \\ qexists_tac ‘()::l’
+  \\ fs [LIST_TYPE_def,PAIR_TYPE_HEAD_def,PAIR_TYPE_def]
+  \\ rpt (pop_assum mp_tac)
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+QED
+
+Theorem check_ty_ty_head:
+  ∀v s.
+    ∃env e s' res.
+      do_opapp [check_ty_ty_v; v] = SOME (env,e) ∧
+      evaluate (dec_clock ^s) env [e] = (s',res) ∧
+      (^safe_error_goal ∨
+       ∃k z. s' = s with clock := k ∧ res = Rval [z] ∧
+       LIST_TYPE_HEAD (PAIR_TYPE_HEAD TYPE_TYPE_HEAD TYPE_TYPE_HEAD) v)
+Proof
+  strip_tac \\ completeInduct_on ‘v_size v’
+  \\ rpt strip_tac \\ gvs [PULL_FORALL,AND_IMP_INTRO]
+  \\ rename [‘do_opapp [_; v]’]
+  \\ simp [check_ty_ty_v_def]
+  \\ simp [do_opapp_def]
+  \\ once_rewrite_tac [find_recfun_def] \\ fs []
+  \\ simp_tac (srw_ss()) [Once evaluate_def]
+  \\ simp_tac (srw_ss()) [Once evaluate_def]
+  \\ rpt strip_tac
+  \\ reverse IF_CASES_TAC \\ fs []
+  THEN1 fs [dec_clock_def,same_clock_exists]
+  \\ simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+  \\ simp_tac (srw_ss()) [pmatch_def]
+  \\ reverse CASE_TAC \\ fs []
+  \\ TRY (fs [dec_clock_def,same_clock_exists] \\ NO_TAC)
+  \\ pop_assum mp_tac
+  \\ Cases_on ‘v’ \\ simp_tac (srw_ss()) [pmatch_def]
+  \\ Cases_on ‘o'’ \\ simp_tac (srw_ss()) [pmatch_def,AllCaseEqs(),same_ctor_def]
+  \\ strip_tac \\ fs []
+  THEN1
+   (rpt var_eq_tac
+    \\ simp_tac (srw_ss()) [evaluate_def]
+    \\ rpt (CASE_TAC \\ gvs [dec_clock_def,same_clock_exists,GSYM PULL_EXISTS])
+    \\ rpt (pop_assum mp_tac)
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+    \\ rpt strip_tac \\ gvs []
+    \\ fs [LIST_TYPE_HEAD_def]
+    \\ qexists_tac ‘[]’
+    \\ fs [LIST_TYPE_def])
+  \\ simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+  \\ CASE_TAC \\ fs []
+  \\ TRY (fs [dec_clock_def,same_clock_exists] \\ NO_TAC)
+  THEN1
+   (simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+    \\ simp_tac (srw_ss()) [pmatch_def,dec_clock_def,same_clock_exists])
+  \\ pop_assum mp_tac \\ simp_tac (srw_ss()) [pmatch_def,AllCaseEqs(),same_ctor_def]
+  \\ strip_tac \\ fs []
+  \\ gvs [LENGTH_EQ_NUM_compute,pmatch_def]
+  \\ qmatch_goalsub_abbrev_tac ‘xx = (_,_)’
+  \\ ‘∃res s. xx = (s,res)’ by metis_tac [PAIR]
+  \\ fs [Abbr ‘xx’]
+  \\ pop_assum mp_tac
+  \\ simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+  \\ simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+  \\ reverse IF_CASES_TAC \\ fs []
+  THEN1 (rw [] \\ fs [dec_clock_def,same_clock_exists])
+  \\ simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+  \\ CASE_TAC \\ fs []
+  \\ TRY (rw [] \\ fs [dec_clock_def,same_clock_exists] \\ NO_TAC)
+  THEN1 (rw [Once evaluate_def] \\ fs [dec_clock_def,same_clock_exists])
+  \\ pop_assum mp_tac
+  \\ Cases_on ‘h’ \\ fs [pmatch_def]
+  \\ Cases_on ‘o'’ \\ fs [pmatch_def]
+  \\ simp_tac (srw_ss()) [pmatch_def,AllCaseEqs(),same_ctor_def]
+  \\ strip_tac \\ fs []
+  \\ gvs [LENGTH_EQ_NUM_compute,pmatch_def]
+  \\ strip_tac
+  \\ drule evaluate_ty_check
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ strip_tac \\ gvs [same_clock_exists]
+  \\ drule evaluate_ty_check
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ strip_tac \\ gvs [same_clock_exists]
+  \\ pop_assum mp_tac
+  \\ simp [Once evaluate_def]
+  \\ simp [Once evaluate_def]
+  \\ simp [Once evaluate_def]
+  \\ simp [Once evaluate_def]
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ fs [build_rec_env_def]
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ fs [GSYM check_ty_ty_v_def]
+  \\ rename [‘do_opapp [_; h_tail]’]
+  \\ last_x_assum (qspecl_then [‘h_tail’,‘dec_clock s’] mp_tac)
+  \\ impl_tac THEN1 fs [v_size_def]
+  \\ strip_tac \\ fs []
+  \\ rw [] \\ fs [dec_clock_def,same_clock_exists,GSYM PULL_EXISTS]
+  \\ fs [LIST_TYPE_HEAD_def]
+  \\ qexists_tac ‘()::l’
+  \\ fs [LIST_TYPE_def,PAIR_TYPE_HEAD_def,PAIR_TYPE_def]
+  \\ rpt (pop_assum mp_tac)
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+QED
+
+Theorem vsubst_v_head:
+  do_partial_app vsubst_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    LIST_TYPE_HEAD (PAIR_TYPE_HEAD TERM_TYPE_HEAD TERM_TYPE_HEAD) v ∧
+    TERM_TYPE_HEAD w
+Proof
+  rewrite_tac [vsubst_v_def]
+  \\ qmatch_goalsub_rename_tac ‘Let NONE _ (Let NONE _ ee)’
+  \\ strip_tac
+  \\ gvs [do_partial_app_def,do_opapp_def]
+  \\ pop_assum mp_tac
+  \\ ntac 5 (simp [Once evaluate_def])
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ qspecl_then [‘v’,‘s’] strip_assume_tac check_tm_tm_head
+  \\ fs [] \\ rw [] \\ fs [namespaceTheory.nsOptBind_def] \\ rewrite_tac [same_clock_exists]
+  \\ drule_then (qspec_then ‘w’ mp_tac) evaluate_tm_check
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ gvs [ml_progTheory.nsLookup_Short_def,pmatch_def,
+          ml_progTheory.nsLookup_nsBind_compute,ml_progTheory.merge_env_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ strip_tac \\ fs [same_clock_exists]
+QED
+
+Theorem inst_v_head:
+  do_partial_app inst_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    LIST_TYPE_HEAD (PAIR_TYPE_HEAD TYPE_TYPE_HEAD TYPE_TYPE_HEAD) v ∧
+    TERM_TYPE_HEAD w
+Proof
+  rewrite_tac [inst_v_def]
+  \\ qmatch_goalsub_rename_tac ‘Let NONE _ (Let NONE _ ee)’
+  \\ strip_tac
+  \\ gvs [do_partial_app_def,do_opapp_def]
+  \\ pop_assum mp_tac
+  \\ ntac 5 (simp [Once evaluate_def])
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ qspecl_then [‘v’,‘s’] strip_assume_tac check_ty_ty_head
+  \\ fs [] \\ rw [] \\ fs [namespaceTheory.nsOptBind_def] \\ rewrite_tac [same_clock_exists]
+  \\ drule_then (qspec_then ‘w’ mp_tac) evaluate_tm_check
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ gvs [ml_progTheory.nsLookup_Short_def,pmatch_def,
+          ml_progTheory.nsLookup_nsBind_compute,ml_progTheory.merge_env_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ strip_tac \\ fs [same_clock_exists]
+QED
+
+Theorem call_variant_v_head:
+  do_partial_app call_variant_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    LIST_TYPE_HEAD TERM_TYPE_HEAD v ∧
+    TERM_TYPE_HEAD w
+Proof
+  rewrite_tac [call_variant_v_def]
+  \\ qmatch_goalsub_rename_tac ‘Let NONE _ (Let NONE _ ee)’
+  \\ strip_tac
+  \\ gvs [do_partial_app_def,do_opapp_def]
+  \\ pop_assum mp_tac
+  \\ ntac 5 (simp [Once evaluate_def])
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ qspecl_then [‘v’,‘s’] strip_assume_tac check_tm_head
+  \\ fs [] \\ rw [] \\ fs [namespaceTheory.nsOptBind_def] \\ rewrite_tac [same_clock_exists]
+  \\ drule_then (qspec_then ‘w’ mp_tac) evaluate_tm_check
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ gvs [ml_progTheory.nsLookup_Short_def,pmatch_def,
+          ml_progTheory.nsLookup_nsBind_compute,ml_progTheory.merge_env_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ strip_tac \\ fs [same_clock_exists]
+QED
+
+(* -------------------------------------------------------------------------
+ * Misc. simps
+ * ------------------------------------------------------------------------- *)
 
 Theorem Conv_NOT_IN_kernel_funs[simp]:
   ~(Conv opt vs ∈ kernel_funs)
