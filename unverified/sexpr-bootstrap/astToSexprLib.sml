@@ -26,7 +26,7 @@ val string_to_exp = exp_str o fromHOLstring;
 val num_to_exp = exp_str o fromHOLnum;
 
 fun word_to_exp lit_name w =
-  let 
+  let
     val str = Arbnumcore.toString (wordsSyntax.dest_word_literal w)
   in
     exp_list [exp_str lit_name, exp_str str]
@@ -41,7 +41,20 @@ fun int_to_exp i =
       else via_num i
   end
 
-val loc_to_exp = exp_list [exp_str "0 0 0 0 0 0"];
+fun loc_to_exp xs =
+  let
+    fun loc_to_str tm =
+      if aconv tm “UNKNOWNpt” then "unk" else
+      if aconv (repeat rator tm) “POSN” then
+        "(" ^ (numSyntax.dest_numeral (rand (rator tm)) |> Arbnum.toString) ^
+        " " ^ (numSyntax.dest_numeral (rand tm) |> Arbnum.toString) ^ ")"
+      else "0 0 0"
+    fun join [] = ""
+      | join [x] = x
+      | join (x::xs) = x ^ " " ^ join xs
+  in
+    exp_list [exp_str (join (map loc_to_str xs))]
+  end
 
 val int_lit = ``ast$IntLit``;
 val char_lit = ``ast$Char``;
@@ -101,7 +114,7 @@ val app = ``ast$App``;
 val lit = ``ast$Lit``;
 val plit = ``ast$Plit``;
 fun ast_to_exp term =
-  let 
+  let
     val list_to_exp = map ast_to_exp
     fun app_to_exp const args =
       let
@@ -115,7 +128,7 @@ fun ast_to_exp term =
       let
         val exp = (exp_str o #1 o dest_const) const
         val args_exp = list_to_exp args
-      in 
+      in
         case args of [] => exp
                    | _ => exp_list (exp::args_exp)
       end
@@ -133,7 +146,7 @@ fun ast_to_exp term =
       exp_list [exp_str "Lit", lit_to_exp (hd xs)]
     else if same_const x plit then
       exp_list [exp_str "Plit", lit_to_exp (hd xs)]
-    else if same_const x locs then loc_to_exp
+    else if same_const x locs then loc_to_exp xs
     else if same_const x nil_l andalso type_of x = string_ty then exp_str "\"\""
     else if same_const x nil_l then exp_list []
     else if same_const x cons then cons_to_exp term
