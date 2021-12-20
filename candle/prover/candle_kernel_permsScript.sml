@@ -23,6 +23,13 @@ Proof
   cheat
 QED
 
+Theorem call_variant_v_perms_ok:
+  perms_ok ∅ call_variant_v
+Proof
+  cheat
+QED
+
+
 (*
 Theorem perms_ok_member_v:
   perms_ok ps member_v

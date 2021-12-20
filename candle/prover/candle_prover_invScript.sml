@@ -343,6 +343,16 @@ Proof
   \\ rw [Once v_ok_cases, subscript_stamp_def, kernel_types_def]
 QED
 
+Theorem v_ok_Cons:
+  v_ok ctxt (Conv (SOME (TypeStamp "::" 1)) [x; y]) ⇔ v_ok ctxt x ∧ v_ok ctxt y
+Proof
+  simp [Once v_ok_cases] \\ fs [kernel_types_def]
+  \\ eq_tac \\ rw [] \\ rw []
+  \\ fs [Once v_ok_cases]
+  \\ fs [do_partial_app_def,AllCaseEqs()]
+  \\ imp_res_tac inferred_Conv
+  \\ gvs [kernel_types_def]
+QED
 
 (* -------------------------------------------------------------------------
  * Lemmas about v_ok and {TYPE,TERM,THM}_TYPE{,_HEAD}
@@ -387,6 +397,25 @@ Proof
   \\ TRY (rename [‘THM ctxt th’] \\ Cases_on ‘th’ \\ gs [THM_TYPE_def])
 QED
 
+Theorem v_ok_LIST_TERM_TYPE_HEAD:
+  v_ok ctxt v ∧
+  LIST_TYPE_HEAD TERM_TYPE_HEAD v ⇒
+    ∃tms. LIST_TYPE TERM_TYPE tms v
+Proof
+  completeInduct_on ‘v_size v’
+  \\ rw [] \\ gvs [PULL_FORALL,AND_IMP_INTRO,LIST_TYPE_HEAD_def,PULL_EXISTS]
+  \\ Cases_on ‘l’ \\ fs [ml_translatorTheory.LIST_TYPE_def] \\ gvs []
+  THEN1 (qexists_tac ‘[]’ \\ fs [ml_translatorTheory.LIST_TYPE_def])
+  \\ rename [‘Conv _ [x;y]’]
+  \\ fs [v_ok_Cons]
+  \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
+  \\ last_x_assum (qspecl_then [‘y’,‘t’] mp_tac)
+  \\ impl_tac THEN1 fs [v_size_def]
+  \\ strip_tac
+  \\ qexists_tac ‘tm::tms’
+  \\ fs [ml_translatorTheory.LIST_TYPE_def]
+QED
+
 Theorem v_ok_TYPE:
   v_ok ctxt v ∧
   TYPE_TYPE ty v ⇒
@@ -429,6 +458,15 @@ Proof
   \\ gvs [Once v_ok_cases, do_partial_app_def, CaseEqs ["exp", "v"]]
 QED
 
+Theorem LIST_TYPE_TERM_TYPE_v_ok:
+  ∀tms v ctxt. LIST_TYPE TERM_TYPE tms v ∧ v_ok ctxt v ⇒ EVERY (TERM ctxt) tms
+Proof
+  Induct \\ fs [ml_translatorTheory.LIST_TYPE_def,PULL_EXISTS]
+  \\ rpt gen_tac \\ strip_tac
+  \\ fs [v_ok_Cons]
+  \\ fs [SF SFY_ss,v_ok_TERM]
+QED
+
 Theorem LIST_TYPE_perms_ok:
   ∀xs xsv.
     (∀x v. A x v ∧ MEM x xs ⇒ perms_ok ps v) ∧
@@ -467,6 +505,22 @@ Proof
   \\ drule_at (Pos last) LIST_TYPE_perms_ok
   \\ disch_then irule \\ rw []
   \\ imp_res_tac TERM_TYPE_perms_ok \\ fs []
+QED
+
+Theorem LIST_TERM_TYPE_perms_ok:
+  ∀tm v. LIST_TYPE TERM_TYPE tm v ⇒ perms_ok ps v
+Proof
+  rw []
+  \\ drule_at Any LIST_TYPE_perms_ok
+  \\ fs [TERM_TYPE_perms_ok, SF SFY_ss]
+QED
+
+Theorem LIST_TYPE_TYPE_perms_ok:
+  ∀tm v. LIST_TYPE TYPE_TYPE tm v ⇒ perms_ok ps v
+Proof
+  rw []
+  \\ drule_at Any LIST_TYPE_perms_ok
+  \\ fs [TYPE_TYPE_perms_ok, SF SFY_ss]
 QED
 
 val _ = export_theory ();

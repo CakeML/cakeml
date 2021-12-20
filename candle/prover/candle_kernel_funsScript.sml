@@ -15,6 +15,12 @@ val _ = set_grammar_ancestry [
   "candle_kernel_vals", "candle_prover_inv", "ast_extras", "evaluate",
   "namespaceProps", "perms", "semanticPrimitivesProps", "misc"];
 
+Theorem variant_thm: (* ought to be proved in holKernelProof *)
+  EVERY (TERM defs) tms ∧ TERM defs tm ∧ STATE defs s ⇒ TERM defs (variant tms tm)
+Proof
+  cheat
+QED
+
 Theorem Arrow1:
   (A --> B) f fv ∧
   do_opapp [fv; av] = SOME (env, exp) ∧
@@ -316,7 +322,38 @@ Proof
   \\ Cases_on ‘f = call_type_subst_v’ \\ gvs [] >- cheat
   \\ Cases_on ‘f = call_freesin_v’ \\ gvs [] >- cheat
   \\ Cases_on ‘f = call_vfree_in_v’ \\ gvs [] >- cheat
-  \\ Cases_on ‘f = call_variant_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = call_variant_v’ \\ gvs [] >-
+   (drule_all_then strip_assume_tac call_variant_v_head \\ gvs []
+    >- (qexists_tac ‘ctxt’ \\ fs []
+        \\ fs [state_ok_def] \\ first_assum (irule_at Any) \\ gs [])
+    \\ rename1 ‘do_opapp [g; w]’
+    \\ ‘∃tms. LIST_TYPE TERM_TYPE tms v’
+      by (irule_at Any v_ok_LIST_TERM_TYPE_HEAD \\ gs [SF SFY_ss])
+    \\ ‘∃tm2. TERM_TYPE tm2 w’
+      by (irule_at Any v_ok_TERM_TYPE_HEAD \\ gs [SF SFY_ss])
+    \\ ‘∃ps. DoEval ∉ ps ∧
+             RefAlloc ∉ ps ∧
+             W8Alloc ∉ ps ∧
+             (∀n. RefMention n ∉ ps) ∧
+             perms_ok ps call_variant_v’
+      by (irule_at Any call_variant_v_perms_ok \\ gs [])
+    \\ ‘perms_ok ps v ∧ perms_ok ps w’
+      by gs [SF SFY_ss, TERM_TYPE_perms_ok, LIST_TERM_TYPE_perms_ok]
+    \\ assume_tac call_variant_v_thm
+    \\ drule_all Arrow2
+    \\ strip_tac \\ gvs []
+    \\ irule_at (Pos last) v_ok_KernelVals
+    \\ irule_at Any v_ok_Inferred
+    \\ irule_at Any inferred_TERM
+    \\ first_assum (irule_at (Pos (el 2)))
+    \\ irule_at Any variant_thm
+    \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ ‘TERM ctxt tm2’ by imp_res_tac v_ok_TERM
+    \\ pop_assum (irule_at $ Pos $ el 2)
+    \\ fs [state_ok_def]
+    \\ first_assum (irule_at (Pos (el 2))) \\ gs []
+    \\ first_assum (irule_at (Pos (el 2))) \\ gs []
+    \\ drule_all LIST_TYPE_TERM_TYPE_v_ok \\ fs [])
   \\ Cases_on ‘f = vsubst_v’ \\ gvs [] >- cheat
   \\ Cases_on ‘f = inst_v’ \\ gvs [] >- cheat
   \\ Cases_on ‘f = abs_1_v’ \\ gvs [] >- cheat
