@@ -23,6 +23,7 @@ Datatype:
              | RefUpdate       (* Write to references                *)
              | RefAlloc        (* Allocate new references            *)
              | DoEval          (* Call Eval                          *)
+             | DoFFI           (* Call FFI                           *)
              | W8Alloc         (* Allocate byte arrays               *)
 End
 
@@ -37,7 +38,7 @@ Definition perms_ok_exp_def:
           (op = AallocEmpty ⇒ RefAlloc ∈ ps) ∧
           (op = Aw8alloc ⇒ W8Alloc ∈ ps) ∧
           (op = Opassign ⇒ RefUpdate ∈ ps) ∧
-          (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps)
+          (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps ∧ DoFFI ∈ ps)
       | _ => T
 End
 
@@ -293,11 +294,12 @@ Theorem do_app_perms:
   (op = AallocEmpty ⇒ RefAlloc ∈ ps) ∧
   (op = Aw8alloc ⇒ W8Alloc ∈ ps) ∧
   (op = Opassign ⇒ RefUpdate ∈ ps) ∧
-  (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps) ∧
+  (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps ∧ DoFFI ∈ ps) ∧
   op ≠ Opapp ∧
   op ≠ Eval ⇒
     (∀n. n < LENGTH refs1 ∧ RefMention n ∈ ps ⇒ perms_ok_ref ps (EL n refs1)) ∧
     (RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒ LENGTH refs1 = LENGTH refs) ∧
+    (DoFFI ∉ ps ⇒ ffi1 = ffi) ∧
     (∀ch out y.
        MEM (IO_event ch out y) ffi1.io_events ⇒
        MEM (IO_event ch out y) ffi.io_events ∨ FFIWrite ch ∈ ps) ∧
@@ -556,6 +558,7 @@ Theorem evaluate_perms_ok:
      evaluate s env xs = (s', res) ⇒
        (RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
        (DoEval ∉ ps ⇒ s'.next_type_stamp = s.next_type_stamp) ∧
+       (DoFFI ∉ ps ⇒ s'.ffi = s.ffi) ∧
        perms_ok_state ps s' ∧
        (∀ffi out y.
           MEM (IO_event ffi out y) s'.ffi.io_events ⇒
@@ -577,6 +580,7 @@ Theorem evaluate_perms_ok:
      evaluate_match s env v pes errv = (s', res) ⇒
        (RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
        (DoEval ∉ ps ⇒ s'.next_type_stamp = s.next_type_stamp) ∧
+       (DoFFI ∉ ps ⇒ s'.ffi = s.ffi) ∧
        perms_ok_state ps s' ∧
        (∀ffi out y.
           MEM (IO_event ffi out y) s'.ffi.io_events ⇒
@@ -593,6 +597,7 @@ Theorem evaluate_perms_ok:
      (W8Alloc ∈ ps ⇒ IMAGE RefMention UNIV ⊆ ps) ∧
      evaluate_decs s env ds = (s', res) ⇒
        (RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
+       (DoFFI ∉ ps ⇒ s'.ffi = s.ffi) ∧
        perms_ok_state ps s' ∧
        (∀ffi out y.
           MEM (IO_event ffi out y) s'.ffi.io_events ⇒
@@ -602,6 +607,7 @@ Theorem evaluate_perms_ok:
        | Rval env1 => perms_ok_env ps UNIV env1
        | _ => T)
 Proof
+
   ho_match_mp_tac full_evaluate_ind
   \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
   >~ [‘[]’] >- (
@@ -636,7 +642,10 @@ Proof
          perms_ok_env_def])
   >~ [‘Fun n e’] >- (
     gvs [evaluate_def, perms_ok_env_def, perms_ok_def, SF SFY_ss])
-  >~ [‘App op xs’] >- (
+  >~ [‘App op xs’]
+
+   >- (
+
     gvs [evaluate_def]
     \\ Cases_on ‘op = Opapp’ \\ gs []
     >- ((* Opapp *)

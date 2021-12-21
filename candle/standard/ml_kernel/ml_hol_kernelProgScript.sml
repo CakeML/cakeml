@@ -436,7 +436,7 @@ val MK_COMB_lemma = prove(
 
 val def = MK_COMB_lemma |> m_translate
 val def = holKernelPmatchTheory.ABS_def |> check [‘v’] |> m_translate
-val def = holKernelPmatchTheory.BETA_def |> m_translate
+val def = holKernelPmatchTheory.BETA_def |> check [‘tm’] |> m_translate
 val def = DEDUCT_ANTISYM_RULE_def |> m_translate
 val def = new_specification_def |> m_translate
 val def = new_basic_definition_def |> check [‘tm’] |> m_translate
@@ -484,5 +484,7 @@ Theorem EqualityType_TYPE_TYPE = EqualityType_rule [] “:type”;
 Theorem EqualityType_TERM_TYPE = EqualityType_rule [] “:term”;
 
 Theorem EqualityType_THM_TYPE = EqualityType_rule [] “:thm”;
+
+Theorem EqualityType_UPDATE_TYPE = EqualityType_rule [] “:update”;
 
 val _ = export_theory();

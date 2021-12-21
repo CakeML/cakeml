@@ -4,12 +4,13 @@
 
 open preamble helperLib;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory sptreeTheory
-     evaluateTheory namespacePropsTheory evaluatePropsTheory;
+     evaluateTheory namespacePropsTheory evaluatePropsTheory
+     candle_kernel_valsTheory;
 open permsTheory ml_hol_kernelProgTheory ast_extrasTheory;
 
 val _ = new_theory "candle_kernel_perms";
 
-val _ = set_grammar_ancestry ["ml_hol_kernelProg", "perms", "misc"];
+val _ = set_grammar_ancestry ["candle_kernel_vals", "perms", "misc"];
 
 Theorem perms_ok_concl:
   perms_ok ∅ concl_v
@@ -29,6 +30,11 @@ Proof
   cheat
 QED
 
+Theorem beta_v_perms_ok:
+  perms_ok kernel_perms beta_v
+Proof
+  cheat
+QED
 
 (*
 Theorem perms_ok_member_v:

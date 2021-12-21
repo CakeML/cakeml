@@ -6,7 +6,7 @@ open preamble;
 open ml_translatorTheory ml_hol_kernelProgTheory;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory
      namespacePropsTheory evaluatePropsTheory ast_extrasTheory
-     holKernelProofTheory evaluateTheory;
+     holKernelProofTheory evaluateTheory permsTheory;
 
 val _ = new_theory "candle_kernel_vals";
 
@@ -108,6 +108,20 @@ Definition kernel_locs_def:
                   ; the_term_constants
                   ; the_axioms
                   ; the_context}}
+End
+
+Theorem IN_kernel_locs:
+  n ∈ kernel_locs ⇔
+  Loc n = the_type_constants ∨
+  Loc n = the_term_constants ∨
+  Loc n = the_axioms ∨
+  Loc n = the_context
+Proof
+  fs [kernel_locs_def]
+QED
+
+Definition kernel_perms_def:
+  kernel_perms = IMAGE RefMention kernel_locs
 End
 
 fun get_constructors th =
@@ -833,6 +847,24 @@ Proof
   \\ qspecl_then [‘v’,‘s’] strip_assume_tac check_tm_head
   \\ fs [] \\ rw [] \\ fs [namespaceTheory.nsOptBind_def] \\ rewrite_tac [same_clock_exists]
   \\ drule_then (qspec_then ‘w’ mp_tac) evaluate_tm_check
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ gvs [ml_progTheory.nsLookup_Short_def,pmatch_def,
+          ml_progTheory.nsLookup_nsBind_compute,ml_progTheory.merge_env_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ strip_tac \\ fs [same_clock_exists]
+QED
+
+Theorem beta_v_head:
+  do_opapp [beta_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TERM_TYPE_HEAD v
+Proof
+  rewrite_tac [beta_v_def]
+  \\ qmatch_goalsub_rename_tac ‘Let NONE _ ee’
+  \\ strip_tac
+  \\ gvs [do_partial_app_def,do_opapp_def]
+  \\ drule_then (qspec_then ‘v’ mp_tac) evaluate_tm_check
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
   \\ gvs [ml_progTheory.nsLookup_Short_def,pmatch_def,
           ml_progTheory.nsLookup_nsBind_compute,ml_progTheory.merge_env_def]

@@ -73,12 +73,238 @@ Proof
   \\ gs [io_events_mono_antisym]
 QED
 
+Triviality GC_T:
+  GC s = T
+Proof
+  fs [cfHeapsBaseTheory.GC_def,set_sepTheory.SEP_EXISTS_THM]
+  \\ qexists_tac ‘λx. T’ \\ fs []
+QED
+
+Theorem MEM_st2heap: (* TODO: move *)
+  Mem l x ∈ st2heap p s ⇔
+  l < LENGTH s.refs ∧ x = EL l s.refs
+Proof
+  PairCases_on ‘p’
+  \\ fs [cfStoreTheory.st2heap_def,cfStoreTheory.ffi2heap_def,
+         cfAppTheory.store2heap_MAPi,MEM_MAPi]
+  \\ IF_CASES_TAC \\ fs []
+QED
+
+Theorem HOL_STORE_not_kernel_locs:
+  (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok refs loc s.refs) ∧
+  l < LENGTH s.refs ∧ l ∉ kernel_locs ⇒
+  (HOL_STORE refs * one (Mem l (EL l s.refs)) * GC) (st2heap p s)
+Proof
+  fs [ml_monad_translatorBaseTheory.REFS_PRED_def,HOL_STORE_def]
+  \\ fs [ml_monad_translatorBaseTheory.REF_REL_def,set_sepTheory.SEP_EXISTS_THM,
+         set_sepTheory.SEP_CLAUSES,cfHeapsBaseTheory.REF_def]
+  \\ full_simp_tac (std_ss ++ helperLib.sep_cond_ss) [set_sepTheory.cond_STAR]
+  \\ fs [cfHeapsBaseTheory.cell_def,set_sepTheory.one_STAR,GSYM set_sepTheory.STAR_ASSOC]
+  \\ fs [GC_T,MEM_st2heap]
+  \\ fs [kernel_locs_def, SF DNF_ss, MEM_st2heap]
+  \\ fs [the_type_constants_def,the_term_constants_def,the_axioms_def,
+         the_context_def,kernel_loc_ok_def,listTheory.oEL_EQ_EL]
+  \\ metis_tac []
+QED
+
+Theorem REFS_PRED_HOL_STORE:
+  (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok refs loc s.refs) ⇒
+  REFS_PRED (HOL_STORE,p) refs s
+Proof
+  fs [ml_monad_translatorBaseTheory.REFS_PRED_def,HOL_STORE_def]
+  \\ fs [ml_monad_translatorBaseTheory.REF_REL_def,set_sepTheory.SEP_EXISTS_THM,
+         set_sepTheory.SEP_CLAUSES,cfHeapsBaseTheory.REF_def]
+  \\ full_simp_tac (std_ss ++ helperLib.sep_cond_ss) [set_sepTheory.cond_STAR]
+  \\ fs [cfHeapsBaseTheory.cell_def,set_sepTheory.one_STAR,GSYM set_sepTheory.STAR_ASSOC]
+  \\ fs [GC_T,MEM_st2heap]
+  \\ fs [kernel_locs_def, SF DNF_ss]
+  \\ fs [the_type_constants_def,the_term_constants_def,the_axioms_def,
+         the_context_def,kernel_loc_ok_def,listTheory.oEL_EQ_EL]
+  \\ metis_tac []
+QED
+
+Theorem HOL_STORE_kernel_loc_ok:
+  (HOL_STORE r * frame) (st2heap p s) ∧ loc ∈ kernel_locs ⇒
+  kernel_loc_ok r loc s.refs
+Proof
+  fs [HOL_STORE_def]
+  \\ simp [ml_monad_translatorBaseTheory.REF_REL_def,set_sepTheory.SEP_EXISTS_THM,
+           set_sepTheory.SEP_CLAUSES,cfHeapsBaseTheory.REF_def]
+  \\ full_simp_tac (std_ss ++ helperLib.sep_cond_ss) [set_sepTheory.cond_STAR]
+  \\ fs [cfHeapsBaseTheory.cell_def,set_sepTheory.one_STAR,GSYM set_sepTheory.STAR_ASSOC]
+  \\ fs [GC_T,MEM_st2heap]
+  \\ strip_tac
+  \\ fs [kernel_loc_ok_def]
+  \\ fs [kernel_locs_def]
+  \\ pop_assum (fn th => fs [GSYM th] THEN assume_tac th)
+  \\ gvs [listTheory.oEL_EQ_EL]
+  \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+  \\ fs [the_type_constants_def,
+         the_term_constants_def,
+         the_axioms_def,
+         the_context_def]
+QED
+
+Triviality IMP_perms_ok_lemma:
+  (LIST_TYPE (PAIR_TYPE STRING_TYPE NUM) x1 v ⇒ perms_ok ps v) ∧
+  (LIST_TYPE (PAIR_TYPE STRING_TYPE TYPE_TYPE) x2 v ⇒ perms_ok ps v) ∧
+  (LIST_TYPE THM_TYPE x3 v ⇒ perms_ok ps v) ∧
+  (LIST_TYPE UPDATE_TYPE x4 v ⇒ perms_ok ps v)
+Proof
+  rw []
+  \\ drule_at (Pos last) LIST_TYPE_perms_ok \\ disch_then irule
+  \\ rw []
+  \\ TRY (drule_at (Pos last) PAIR_TYPE_perms_ok \\ disch_then irule)
+  \\ rw []
+  \\ imp_res_tac TYPE_TYPE_perms_ok \\ fs []
+  \\ imp_res_tac TERM_TYPE_perms_ok \\ fs []
+  \\ imp_res_tac THM_TYPE_perms_ok \\ fs []
+  \\ imp_res_tac STRING_TYPE_perms_ok \\ fs []
+  \\ imp_res_tac NUM_perms_ok \\ fs []
+  \\ imp_res_tac UPDATE_TYPE_perms_ok \\ fs []
+QED
+
+val p = “p:('a -> (string |-> ffi)) # (string list #
+           (string -> word8 list -> word8 list -> ffi -> ffi ffi_result option)) list”
+
+Theorem ArrowM1:
+  ArrowP F (HOL_STORE,^p) (PURE A) (MONAD B D) f fv ∧
+  do_opapp [fv; av] = SOME (env, exp) ∧
+  evaluate (s:'a semanticPrimitives$state) env [exp] = (s', res) ∧
+  A a av ∧ STATE ctxt refs ∧ EVERY (ref_ok ctxt) s.refs ∧
+  (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok refs loc s.refs) ∧
+  perms_ok kernel_perms av ∧
+  perms_ok kernel_perms fv ⇒
+    s.ffi = s'.ffi ∧
+    ((res = Rerr (Rabort Rtimeout_error)) ∨
+     (res = Rerr (Rabort Rtype_error)) ∨
+     s.next_type_stamp = s'.next_type_stamp ∧
+     ∃r refs2.
+       f a refs = (r,refs2) ∧
+       (∀loc. if loc ∈ kernel_locs then kernel_loc_ok refs2 loc s'.refs
+              else LLOOKUP s'.refs loc = LLOOKUP s.refs loc) ∧
+       (∀x. r = Success x ⇒ ∃rv. res = Rval [rv] ∧ B x rv) ∧
+       (∀x. r = Failure x ⇒ ∃rv. res = Rerr (Rraise rv) ∧ D x rv))
+Proof
+  fs [ml_monad_translatorTheory.ArrowP_def,ml_monad_translatorTheory.PURE_def,PULL_EXISTS]
+  \\ strip_tac \\ last_x_assum drule \\ fs []
+  \\ fs [state_ok_def]
+  \\ rename [‘STATE ctxt refs’]
+  \\ disch_then (qspecl_then [‘refs’,‘s’] mp_tac)
+  \\ impl_tac >- fs [REFS_PRED_HOL_STORE]
+  \\ disch_then (qspec_then ‘[]’ strip_assume_tac)
+  \\ fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def]
+  \\ drule_all perms_ok_do_opapp \\ strip_tac
+  \\ drule_at (Pos last) evaluate_perms_ok_exp
+  \\ disch_then drule
+  \\ impl_tac
+   >- (fs [kernel_perms_def,perms_ok_state_def]
+       \\ rw [] \\ first_x_assum drule
+       \\ fs [kernel_loc_ok_def,LLOOKUP_THM]
+       \\ strip_tac \\ gvs [perms_ok_ref_def]
+       \\ fs [kernel_locs_def]
+       \\ gvs [IN_kernel_locs]
+       \\ imp_res_tac IMP_perms_ok_lemma \\ fs [])
+  \\ simp [kernel_perms_def]
+  \\ csimp [GSYM kernel_perms_def]
+  \\ strip_tac
+  \\ drule evaluate_set_init_clock
+  \\ disch_then (qspec_then ‘s.clock’ mp_tac)
+  \\ impl_tac
+  >- (strip_tac \\ fs [ml_monad_translatorTheory.MONAD_def]
+      \\ every_case_tac \\ fs [])
+  \\ fs []
+  \\ ‘(s with refs := s.refs) = s’ by fs [state_component_equality]
+  \\ fs [] \\ reverse strip_tac \\ gvs []
+  THEN1
+   (imp_res_tac evaluatePropsTheory.evaluate_io_events_mono_imp
+    \\ fs [evaluatePropsTheory.io_events_mono_def]
+    \\ imp_res_tac rich_listTheory.IS_PREFIX_ANTISYM \\ fs [])
+  \\ gvs [] \\ pop_assum kall_tac
+  \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ fs []
+  \\ Cases_on ‘res = Rerr (Rabort Rtype_error)’ \\ fs []
+  \\ fs [ml_monad_translatorTheory.MONAD_def]
+  \\ Cases_on ‘f a refs’ \\ fs []
+  \\ reverse conj_tac
+  THEN1 (every_case_tac \\ fs [])
+  \\ ‘r = st3’ by (every_case_tac \\ fs [])
+  \\ rw []
+  THEN1
+   (‘REFS_PRED (HOL_STORE,p) refs s’ by fs [REFS_PRED_HOL_STORE]
+    \\ first_x_assum drule
+    \\ fs [ml_monad_translatorBaseTheory.REFS_PRED_def]
+    \\ first_x_assum drule \\ strip_tac
+    \\ fs [GSYM set_sepTheory.STAR_ASSOC]
+    \\ drule_all HOL_STORE_kernel_loc_ok \\ fs [])
+  \\ fs [oEL_THM] \\ rw [] \\ fs []
+  \\ ‘(HOL_STORE refs * one (Mem loc (EL loc s.refs)) * GC) (st2heap p s)’
+        by fs [HOL_STORE_not_kernel_locs]
+  \\ fs [GSYM set_sepTheory.STAR_ASSOC]
+  \\ first_x_assum drule
+  \\ fs [GSYM set_sepTheory.STAR_ASSOC]
+  \\ once_rewrite_tac [set_sepTheory.STAR_COMM]
+  \\ fs [GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR,MEM_st2heap]
+QED
+
+Theorem state_ok_with_clock[simp]:
+  state_ok ctxt (s with clock := k) ⇔ state_ok ctxt s
+Proof
+  fs [state_ok_def]
+QED
+
+Theorem EqualityType_11:
+  ∀abs x v v'. EqualityType abs ∧ abs x v ∧ abs x v' ⇒ v = v'
+Proof
+  fs [ml_translatorTheory.EqualityType_def] \\ metis_tac []
+QED
+
+Theorem IMP_EVERY_v_ok:
+  (∀loc. if loc ∈ kernel_locs then kernel_loc_ok refs loc s'.refs
+         else LLOOKUP s'.refs loc = LLOOKUP s.refs loc) ∧
+  (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok refs loc s.refs) ∧
+  EVERY (ref_ok ctxt) s.refs ∧ STATE ctxt refs ⇒
+  EVERY (ref_ok ctxt) s'.refs
+Proof
+  rw [EVERY_EL]
+  \\ last_x_assum $ qspec_then ‘n’ mp_tac
+  \\ reverse (rw [])
+  >- (gvs [LLOOKUP_THM] \\ res_tac \\ fs [] \\ gvs [] \\ metis_tac [])
+  \\ last_x_assum drule
+  \\ strip_tac
+  \\ fs [kernel_loc_ok_def]
+  \\ gvs [IN_kernel_locs]
+  \\ gvs [LLOOKUP_THM,ref_ok_def]
+  \\ last_x_assum drule
+  \\ fs [ref_ok_def]
+  \\ ‘EqualityType (LIST_TYPE (PAIR_TYPE STRING_TYPE NUM)) ∧
+      EqualityType (LIST_TYPE (PAIR_TYPE STRING_TYPE TYPE_TYPE)) ∧
+      EqualityType (LIST_TYPE THM_TYPE) ∧
+      EqualityType (LIST_TYPE UPDATE_TYPE)’ by
+   (rw []
+    \\ irule cfLetAutoTheory.EqualityType_LIST_TYPE
+    \\ fs [EqualityType_THM_TYPE]
+    \\ fs [EqualityType_UPDATE_TYPE]
+    \\ TRY (irule cfLetAutoTheory.EqualityType_PAIR_TYPE)
+    \\ fs [EqualityType_TYPE_TYPE]
+    \\ fs [ml_translatorTheory.EqualityType_NUM_BOOL])
+  \\ imp_res_tac EqualityType_11 \\ fs []
+QED
+
+Theorem HOL_EXN_TYPE_Fail_v_ok:
+  HOL_EXN_TYPE (Fail m) v ⇒ v_ok ctxt v
+Proof
+  Cases_on ‘m’
+  \\ rw [HOL_EXN_TYPE_def,ml_translatorTheory.STRING_TYPE_def]
+  \\ irule v_ok_Conv \\ fs []
+  \\ fs [Once v_ok_cases]
+QED
+
 Theorem inferred_ok:
   inferred ctxt f ∧
   state_ok ctxt s ∧
   v_ok ctxt v ∧
   do_opapp [f; v] = SOME (env, exp) ∧
-  evaluate s env [exp] = (s', res) ⇒
+  evaluate (s:'ffi state) env [exp] = (s', res) ⇒
     (∃abort. s'.ffi = s.ffi ∧ res = Rerr (Rabort abort)) ∨
     ∃ctxt'.
       state_ok ctxt' s' ∧
@@ -134,40 +360,28 @@ Proof
     \\ first_assum $ irule_at Any
     \\ first_assum $ irule_at Any
     \\ fs [])
-  \\ cheat (* (
-    gs [kernel_funs_def]
-    >~ [‘conj_v’] >- (
-      gvs [conj_v_def, do_opapp_def, evaluate_def]
-      \\ first_assum (irule_at Any) \\ simp []
-      \\ irule v_ok_KernelVals
-      \\ irule v_ok_PartialApp
-      \\ Q.LIST_EXISTS_TAC [‘conj_v’, ‘v’]
-      \\ irule_at Any v_ok_Inferred
-      \\ irule_at Any inferred_KernelFuns
-      \\ simp [kernel_funs_def]
-      \\ simp [Once do_partial_app_def, conj_v_def])
-    >~ [‘imp_v’] >- (
-      gvs [imp_v_def, do_opapp_def, evaluate_def]
-      \\ first_assum (irule_at Any) \\ simp []
-      \\ irule v_ok_KernelVals
-      \\ irule v_ok_PartialApp
-      \\ Q.LIST_EXISTS_TAC [‘imp_v’, ‘v’]
-      \\ irule_at Any v_ok_Inferred
-      \\ irule_at Any inferred_KernelFuns
-      \\ simp [kernel_funs_def]
-      \\ simp [Once do_partial_app_def, imp_v_def])
-    >~ [‘disj1_v’] >- (
-      gvs [disj1_v_def, do_opapp_def, evaluate_def]
-      \\ first_assum (irule_at Any) \\ simp []
-      \\ irule v_ok_KernelVals
-      \\ irule v_ok_PartialApp
-      \\ Q.LIST_EXISTS_TAC [‘disj1_v’, ‘v’]
-      \\ irule_at Any v_ok_Inferred
-      \\ irule_at Any inferred_KernelFuns
-      \\ simp [kernel_funs_def]
-      \\ simp [Once do_partial_app_def, disj1_v_def])
-    >~ [‘not_not_v’] >- (
-      cheat)) *)
+  \\ Cases_on ‘f = beta_v’ \\ gvs [] >-
+   (drule_all beta_v_head \\ strip_tac \\ gvs []
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ imp_res_tac v_ok_TERM \\ fs []
+    \\ assume_tac beta_v_thm
+    \\ fs [state_ok_def]
+    \\ ‘perms_ok kernel_perms v ∧ perms_ok kernel_perms beta_v’ by
+         fs [TERM_TYPE_perms_ok, SF SFY_ss, beta_v_perms_ok]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs []
+    \\ disj2_tac
+    \\ drule_all holKernelProofTheory.BETA_thm \\ strip_tac \\ gvs []
+    \\ qexists_tac ‘ctxt’ \\ fs []
+    \\ fs [PULL_EXISTS]
+    \\ first_assum $ irule_at $ Pos $ el 2
+    \\ drule_all IMP_EVERY_v_ok \\ strip_tac \\ fs []
+    \\ conj_tac >- (rw [] \\ first_x_assum $ qspec_then ‘loc’ assume_tac \\ gvs [])
+    \\ Cases_on ‘r’ \\ fs []
+    \\ imp_res_tac THM_IMP_v_ok \\ gvs []
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
+  \\ cheat
 QED
 
 Theorem Arrow2:

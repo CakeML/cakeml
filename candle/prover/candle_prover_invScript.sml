@@ -358,6 +358,39 @@ QED
  * Lemmas about v_ok and {TYPE,TERM,THM}_TYPE{,_HEAD}
  * ------------------------------------------------------------------------- *)
 
+Theorem TYPE_IMP_v_ok:
+  TYPE ctxt th ∧ TYPE_TYPE th v ⇒ v_ok ctxt v
+Proof
+  rw []
+  \\ irule v_ok_KernelVals
+  \\ irule v_ok_Inferred
+  \\ irule inferred_TYPE
+  \\ first_x_assum $ irule_at Any
+  \\ fs []
+QED
+
+Theorem TERM_IMP_v_ok:
+  TERM ctxt th ∧ TERM_TYPE th v ⇒ v_ok ctxt v
+Proof
+  rw []
+  \\ irule v_ok_KernelVals
+  \\ irule v_ok_Inferred
+  \\ irule inferred_TERM
+  \\ first_x_assum $ irule_at Any
+  \\ fs []
+QED
+
+Theorem THM_IMP_v_ok:
+  THM ctxt th ∧ THM_TYPE th v ⇒ v_ok ctxt v
+Proof
+  rw []
+  \\ irule v_ok_KernelVals
+  \\ irule v_ok_Inferred
+  \\ irule inferred_THM
+  \\ first_x_assum $ irule_at Any
+  \\ fs []
+QED
+
 Theorem v_ok_THM_TYPE_HEAD:
   v_ok ctxt v ∧
   THM_TYPE_HEAD v ⇒
@@ -477,12 +510,34 @@ Proof
   \\ gs [ml_translatorTheory.LIST_TYPE_def, perms_ok_def, SF SFY_ss]
 QED
 
+Theorem PAIR_TYPE_perms_ok:
+  (∀x v. A x v ⇒ perms_ok ps v) ∧
+  (∀x v. B x v ⇒ perms_ok ps v) ∧
+  PAIR_TYPE A B x v ⇒
+    perms_ok ps v
+Proof
+  PairCases_on ‘x’ \\ fs [ml_translatorTheory.PAIR_TYPE_def]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ simp [Once perms_ok_cases]
+QED
+
+Theorem NUM_perms_ok:
+  ∀s v. NUM s v ⇒ perms_ok ps v
+Proof
+  gvs [ml_translatorTheory.NUM_def, ml_translatorTheory.INT_def, perms_ok_def]
+QED
+
+Theorem STRING_TYPE_perms_ok:
+  ∀s v. STRING_TYPE s v ⇒ perms_ok ps v
+Proof
+  Cases \\ gvs [ml_translatorTheory.STRING_TYPE_def, perms_ok_def]
+QED
+
 Theorem TYPE_TYPE_perms_ok:
   ∀ty v. TYPE_TYPE ty v ⇒ perms_ok ps v
 Proof
   recInduct TYPE_TYPE_ind \\ rw [TYPE_TYPE_def]
-  \\ rename [‘STRING_TYPE m _’]
-  \\ Cases_on ‘m’
+  \\ imp_res_tac STRING_TYPE_perms_ok
   \\ gvs [ml_translatorTheory.STRING_TYPE_def, perms_ok_def]
   \\ metis_tac [LIST_TYPE_perms_ok]
 QED
@@ -492,9 +547,8 @@ Theorem TERM_TYPE_perms_ok:
 Proof
   Induct \\ rw [TERM_TYPE_def]
   \\ res_tac \\ fs [perms_ok_def]
-  \\ rename [‘STRING_TYPE m _’]
-  \\ Cases_on ‘m’ \\ imp_res_tac TYPE_TYPE_perms_ok
-  \\ gvs [ml_translatorTheory.STRING_TYPE_def, perms_ok_def]
+  \\ imp_res_tac STRING_TYPE_perms_ok
+  \\ imp_res_tac TYPE_TYPE_perms_ok \\ fs []
 QED
 
 Theorem THM_TYPE_perms_ok:
@@ -521,6 +575,24 @@ Proof
   rw []
   \\ drule_at Any LIST_TYPE_perms_ok
   \\ fs [TYPE_TYPE_perms_ok, SF SFY_ss]
+QED
+
+Theorem UPDATE_TYPE_perms_ok:
+  ∀u v. UPDATE_TYPE u v ⇒ perms_ok ps v
+Proof
+  Cases \\ rw [UPDATE_TYPE_def]
+  \\ imp_res_tac TYPE_TYPE_perms_ok
+  \\ imp_res_tac TERM_TYPE_perms_ok
+  \\ imp_res_tac STRING_TYPE_perms_ok
+  \\ imp_res_tac NUM_perms_ok
+  \\ fs [perms_ok_def]
+  \\ drule_at (Pos last) LIST_TYPE_perms_ok
+  \\ disch_then irule \\ rw []
+  \\ drule_at (Pos last) PAIR_TYPE_perms_ok
+  \\ disch_then irule \\ rw []
+  \\ imp_res_tac STRING_TYPE_perms_ok
+  \\ imp_res_tac NUM_perms_ok
+  \\ imp_res_tac TERM_TYPE_perms_ok \\ fs []
 QED
 
 val _ = export_theory ();
