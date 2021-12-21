@@ -1578,7 +1578,7 @@ Proof
   \\ fs [miscTheory.UNCURRY_eq_pair, PULL_EXISTS]
   \\ rpt (pairarg_tac \\ fs [])
   \\ imp_res_tac LENGTH_compile_exps_IMP
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, listTheory.LENGTH_CONS]
+  \\ fs [LENGTH_EQ_NUM_compute, listTheory.LENGTH_CONS]
   \\ rveq \\ fs [evaluate_def, v_rel_rules, GSYM PULL_FORALL]
   \\ TRY (rename [`rv_1 ≠ Rerr (Rabort Rtype_error) ==> _`]
     \\ (Cases_on `rv_1 = Rerr (Rabort Rtype_error)` >- fs [])
@@ -1595,7 +1595,7 @@ Proof
     \\ first_x_assum drule
     \\ rpt (disch_then drule)
     \\ rw []
-    \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, listTheory.LENGTH_CONS]
+    \\ fs [LENGTH_EQ_NUM_compute, listTheory.LENGTH_CONS]
     \\ rveq \\ fs []
     \\ rveq \\ fs []
   )
@@ -1606,7 +1606,7 @@ Proof
     \\ fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs [] \\ rveq \\ fs []
     \\ imp_res_tac evaluate_length
     \\ rpt (first_x_assum drule \\ rw [])
-    \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, listTheory.LENGTH_CONS]
+    \\ fs [LENGTH_EQ_NUM_compute, listTheory.LENGTH_CONS]
     \\ rveq \\ fs []
   )
   >- (
@@ -1693,7 +1693,7 @@ Proof
       \\ rw []
       \\ imp_res_tac state_rel_IMP_clock
       \\ imp_res_tac LENGTH_compile_exps_IMP
-      \\ fs [bool_case_eq, quantHeuristicsTheory.LIST_LENGTH_2]
+      \\ fs [bool_case_eq, LENGTH_EQ_NUM_compute]
       \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ]
       \\ imp_res_tac state_rel_dec_clock
       \\ last_x_assum drule
@@ -2045,7 +2045,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ imp_res_tac LENGTH_compile_exps_IMP
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, elist_globals_REVERSE]
+  \\ fs [LENGTH_EQ_NUM_compute, elist_globals_REVERSE]
   \\ rveq \\ fs []
   \\ TRY (DEP_REWRITE_TAC [set_globals_compile_pats]
     \\ imp_res_tac compile_exp_set_globals_tup
@@ -2056,7 +2056,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ first_x_assum drule
   \\ imp_res_tac LENGTH_compile_exps_IMP
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, elist_globals_REVERSE]
+  \\ fs [LENGTH_EQ_NUM_compute, elist_globals_REVERSE]
 QED
 
 Theorem FST_SND_EQ_CASE:
@@ -2184,7 +2184,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ imp_res_tac LENGTH_compile_exps_IMP
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, EVERY_REVERSE]
+  \\ fs [LENGTH_EQ_NUM_compute, EVERY_REVERSE]
   \\ rveq \\ fs []
   \\ TRY (irule esgc_free_compile_pats \\ fs [EVERY_MAP, o_DEF])
   \\ imp_res_tac compile_exp_set_globals
@@ -2195,7 +2195,7 @@ Proof
   \\ rveq \\ fs []
   \\ imp_res_tac compile_exp_set_globals
   \\ imp_res_tac LENGTH_compile_exps_IMP
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, EVERY_REVERSE]
+  \\ fs [LENGTH_EQ_NUM_compute, EVERY_REVERSE]
 QED
 
 Theorem compile_decs_esgc_free:
@@ -2314,7 +2314,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ imp_res_tac LENGTH_compile_exps_IMP
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, listTheory.LENGTH_CONS]
+  \\ fs [LENGTH_EQ_NUM_compute, listTheory.LENGTH_CONS]
   \\ rveq \\ fs []
   \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM, compile_pats_no_Mat]
   \\ simp [EVERY_MEM, MEM_MAP, FORALL_PROD, PULL_EXISTS]
@@ -2322,7 +2322,7 @@ Proof
   \\ res_tac
   \\ rpt (pairarg_tac \\ fs [])
   \\ imp_res_tac LENGTH_compile_exps_IMP
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2, listTheory.LENGTH_CONS]
+  \\ fs [LENGTH_EQ_NUM_compute, listTheory.LENGTH_CONS]
   \\ rveq \\ fs []
 QED
 
