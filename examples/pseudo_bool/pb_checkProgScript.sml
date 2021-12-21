@@ -7,6 +7,8 @@ val _ = new_theory "pb_checkProg"
 
 val _ = translation_extends"basisProg";
 
+val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
+
 val _ = register_type ``:pbpstep ``
 
 Definition noparse_string_def:
@@ -86,6 +88,69 @@ val parse_pbf_full = (append_prog o process_topdecs) `
     None => Inl (noparse_string f "OPB")
   | Some x => Inr x))`
 
+val blanks_v_thm = theorem "blanks_v_thm";
+val tokenize_v_thm = theorem "tokenize_v_thm";
+
+val b_inputAllTokensFrom_spec_specialize =
+  b_inputAllTokensFrom_spec
+  |> Q.GEN `f` |> Q.SPEC`blanks`
+  |> Q.GEN `fv` |> Q.SPEC`blanks_v`
+  |> Q.GEN `g` |> Q.ISPEC`tokenize`
+  |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
+  |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
+  |> REWRITE_RULE [blanks_v_thm,tokenize_v_thm,blanks_def] ;
+
+Theorem parse_pbf_full_spec:
+  STRING_TYPE f fv ∧
+  validArg f ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v"parse_pbf_full"(get_ml_prog_state()))
+    [fv]
+    (STDIO fs)
+    (POSTv v.
+    & (∃err. (SUM_TYPE STRING_TYPE (LIST_TYPE PB_PRECONSTRAINT_PBC_TYPE)
+    (if inFS_fname fs f then
+    (case parse_pbf_toks (MAP toks (all_lines fs f)) of
+      NONE => INL err
+    | SOME x => INR x)
+    else INL err) v)) * STDIO fs)
+Proof
+  rw[]>>
+  xcf"parse_pbf_full"(get_ml_prog_state())>>
+  reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
+  reverse (Cases_on`consistentFS fs`) >- (
+    fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def]
+    \\ xpull \\ metis_tac[]) >>
+  xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)))
+            (if inFS_fname fs f then
+               SOME(MAP (MAP tokenize o tokens blanks) (all_lines fs f))
+             else NONE) sv * STDIO fs)`
+  >- (
+    xapp_spec b_inputAllTokensFrom_spec_specialize >>
+    xsimpl>>
+    fs[FILENAME_def,validArg_def])>>
+  TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>xmatch
+  >- (
+    xlet_autop>>
+    `toks = (MAP tokenize ∘ tokens blanks)` by
+      metis_tac[toks_def,ETA_AX,o_DEF]>>
+    rw[]>> TOP_CASE_TAC>>
+    fs[OPTION_TYPE_def]
+    >- (
+      xmatch >>
+      xlet_autop>>
+      xcon>>xsimpl>>
+      simp[SUM_TYPE_def]>>metis_tac[])>>
+    xmatch>>xcon>>
+    xsimpl>>
+    simp[SUM_TYPE_def])
+  >>
+    xlet_autop>>
+    xcon>>xsimpl>>
+    simp[SUM_TYPE_def]>>metis_tac[]
+QED
+
 val r = translate strip_numbers_def;
 
 val strip_numbers_side_def = theorem "strip_numbers_side_def";
@@ -127,6 +192,57 @@ val parse_pbp_full = (append_prog o process_topdecs) `
   (case parse_pbp_toks lines of
     None => Inl (noparse_string f "PBP")
   | Some x => Inr x))`
+
+Theorem parse_pbp_full_spec:
+  STRING_TYPE f fv ∧
+  validArg f ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v"parse_pbp_full"(get_ml_prog_state()))
+    [fv]
+    (STDIO fs)
+    (POSTv v.
+    & (∃err. (SUM_TYPE STRING_TYPE (LIST_TYPE PB_CHECK_PBPSTEP_TYPE)
+    (if inFS_fname fs f then
+    (case parse_pbp_toks (MAP toks (all_lines fs f)) of
+      NONE => INL err
+    | SOME x => INR x)
+    else INL err) v)) * STDIO fs)
+Proof
+  rw[]>>
+  xcf"parse_pbp_full"(get_ml_prog_state())>>
+  reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
+  reverse (Cases_on`consistentFS fs`) >- (
+    fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def]
+    \\ xpull \\ metis_tac[]) >>
+  xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)))
+            (if inFS_fname fs f then
+               SOME(MAP (MAP tokenize o tokens blanks) (all_lines fs f))
+             else NONE) sv * STDIO fs)`
+  >- (
+    xapp_spec b_inputAllTokensFrom_spec_specialize >>
+    xsimpl>>
+    fs[FILENAME_def,validArg_def])>>
+  TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>xmatch
+  >- (
+    xlet_autop>>
+    `toks = (MAP tokenize ∘ tokens blanks)` by
+      metis_tac[toks_def,ETA_AX,o_DEF]>>
+    rw[]>> TOP_CASE_TAC>>
+    fs[OPTION_TYPE_def]
+    >- (
+      xmatch >>
+      xlet_autop>>
+      xcon>>xsimpl>>
+      simp[SUM_TYPE_def]>>metis_tac[])>>
+    xmatch>>xcon>>
+    xsimpl>>
+    simp[SUM_TYPE_def])
+  >>
+    xlet_autop>>
+    xcon>>xsimpl>>
+    simp[SUM_TYPE_def]>>metis_tac[]
+QED
 
 val r = translate lookup_def;
 val r = translate mk_BN_def;
@@ -183,8 +299,8 @@ val r = translate check_pbpstep_def;
 
 Definition result_string_def:
   (result_string Fail = INL (strlit "Proof checking failed\n")) ∧
-  (result_string (Cont _ _) = INL (strlit "Proof checking succeeded but derive contradiction\n")) ∧
-  (result_string Unsat = INR (strlit "Verified\n"))
+  (result_string (Cont _ _) = INL (strlit "Proof checking succeeded but did not derive contradiction\n")) ∧
+  (result_string (Unsat _) = INR (strlit "Verified\n"))
 End
 
 val r = translate result_string_def;
@@ -210,6 +326,73 @@ val check_unsat_2 = (append_prog o process_topdecs) `
     | Inr succ => TextIO.print succ)
   )`
 
+val check_unsat_2_sem_def = Define`
+  check_unsat_2_sem fs f1 f2 err =
+  if inFS_fname fs f1 then
+  (case parse_pbf_toks (MAP toks (all_lines fs f1)) of
+    NONE => add_stderr fs err
+  | SOME pbf =>
+    if inFS_fname fs f2 then
+      case parse_pbp_toks (MAP toks (all_lines fs f2)) of
+        SOME pbp =>
+        (case check_pbp pbf pbp of
+          INL _ => add_stderr fs err
+        | INR succ => add_stdout fs succ)
+      | NONE => add_stderr fs err
+    else add_stderr fs err)
+  else add_stderr fs err`
+
+val err_tac = xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>qexists_tac`err`>>xsimpl;
+
+Theorem check_unsat_2_spec:
+  STRING_TYPE f1 f1v ∧ validArg f1 ∧
+  STRING_TYPE f2 f2v ∧ validArg f2 ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_2"(get_ml_prog_state()))
+    [f1v; f2v]
+    (STDIO fs)
+    (POSTv uv. &UNIT_TYPE () uv *
+    SEP_EXISTS err. STDIO (check_unsat_2_sem fs f1 f2 err))
+Proof
+  rw[]>>
+  xcf "check_unsat_2" (get_ml_prog_state ())>>
+  xlet_autop>>
+  simp[check_unsat_2_sem_def]>>
+  reverse TOP_CASE_TAC>>fs[]
+  >- (
+    fs[SUM_TYPE_def]>>xmatch>>
+    err_tac)>>
+  TOP_CASE_TAC>> fs[SUM_TYPE_def]
+  >- (xmatch>> err_tac)>>
+  xmatch>>
+  xlet_autop>>
+  reverse TOP_CASE_TAC>>fs[]
+  >- (
+    fs[SUM_TYPE_def]>>xmatch>>
+    err_tac)>>
+  TOP_CASE_TAC>> fs[SUM_TYPE_def]
+  >- (xmatch>>err_tac)>>
+  xmatch>>
+  xlet_autop>>
+  TOP_CASE_TAC >> fs[SUM_TYPE_def]
+  >- (xmatch >>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>qexists_tac`x''`>>xsimpl)>>
+  xmatch>>
+  xapp_spec print_spec >> xsimpl
+  \\ qexists_tac`emp`
+  \\ asm_exists_tac \\ xsimpl
+  \\ qexists_tac`fs`>>xsimpl
+QED
+
 val check_unsat = (append_prog o process_topdecs) `
   fun check_unsat u =
   case CommandLine.arguments () of
@@ -218,18 +401,54 @@ val check_unsat = (append_prog o process_topdecs) `
 
 (* TODO: Dummy spec *)
 val check_unsat_sem_def = Define`
-  check_unsat_sem cl fs err = fs`
+  check_unsat_sem cl fs err =
+  case TL cl of
+  | [f1;f2] => check_unsat_2_sem fs f1 f2 err
+  | _ => add_stderr fs err`
 
 Theorem check_unsat_spec:
-   hasFreeFD fs
-   ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat"(get_ml_prog_state()))
-     [Conv NONE []]
-     (COMMANDLINE cl * STDIO fs)
-     (POSTv uv. &UNIT_TYPE () uv *
-     COMMANDLINE cl * SEP_EXISTS err. STDIO (check_unsat_sem cl fs err))
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v"check_unsat"(get_ml_prog_state()))
+    [Conv NONE []]
+    (COMMANDLINE cl * STDIO fs)
+    (POSTv uv. &UNIT_TYPE () uv *
+    COMMANDLINE cl * SEP_EXISTS err. STDIO (check_unsat_sem cl fs err))
 Proof
-  cheat
+  xcf"check_unsat"(get_ml_prog_state())>>
+  reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)>>
+  rpt xlet_autop >>
+  Cases_on `cl` >- fs[wfcl_def] >>
+  simp[check_unsat_sem_def]>>
+  every_case_tac>>fs[LIST_TYPE_def]>>xmatch>>
+  qmatch_asmsub_abbrev_tac`wfcl cl`
+  >- (
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    qexists_tac`COMMANDLINE cl`>>xsimpl>>
+    qexists_tac `usage_string` >> simp [theorem "usage_string_v_thm"] >>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>qexists_tac`usage_string`>>xsimpl)
+  >- (
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    qexists_tac`COMMANDLINE cl`>>xsimpl>>
+    qexists_tac `usage_string` >> simp [theorem "usage_string_v_thm"] >>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>qexists_tac`usage_string`>>xsimpl)
+  >- (
+    xapp>>xsimpl>>
+    qexists_tac`COMMANDLINE cl`>>xsimpl>>
+    fs[wfcl_def,Abbr`cl`]>>
+    qexists_tac`fs`>>xsimpl>>
+    qexists_tac`h''`>>
+    qexists_tac`h'`>>
+    xsimpl>>rw[]>>
+    qexists_tac`x`>>xsimpl)
+  >- (
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    qexists_tac`COMMANDLINE cl`>>xsimpl>>
+    qexists_tac `usage_string` >> simp [theorem "usage_string_v_thm"] >>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>qexists_tac`usage_string`>>xsimpl)
 QED
 
 Theorem check_unsat_whole_prog_spec2:
@@ -243,7 +462,7 @@ Proof
   \\ qexists_tac`check_unsat_sem cl fs x`
   \\ qexists_tac`x`
   \\ xsimpl
-  \\ rw[check_unsat_sem_def]
+  \\ rw[check_unsat_sem_def,check_unsat_2_sem_def]
   \\ every_case_tac
   \\ simp[GSYM add_stdo_with_numchars,with_same_numchars]
 QED

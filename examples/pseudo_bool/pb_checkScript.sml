@@ -118,12 +118,12 @@ Definition check_polish_def:
 End
 
 (* The result is either:
-  Unsat -> unsatisfiability proved
+  Unsat num -> unsatisfiability proved, continue with next ID
   Fail -> proof step failed (more errors can be added in imperative part)
   Cont (pbf,num) -> continue with pbf and next ID (input formula is sat equiv to the pbv)
 *)
 Datatype:
-  pbpres = Unsat | Fail | Cont pbf num
+  pbpres = Unsat num | Fail | Cont pbf num
 End
 
 Definition subst_fun_def:
@@ -146,6 +146,13 @@ Definition map_opt_def:
     | SOME a => mk_BS (map_opt f t1) a (map_opt f t2)
 End
 
+Definition fold_opt_def:
+  (fold_opt f i [] = SOME i) ∧
+  (fold_opt f i (x::xs) =
+    case f i x of NONE => NONE
+    | SOME id' => fold_opt f id' xs)
+End
+
 Definition check_pbpstep_def:
   (check_pbpstep (step:pbpstep) (fml:pbf) (id:num) =
    case step of
@@ -153,7 +160,7 @@ Definition check_pbpstep_def:
        (case lookup n fml of
           NONE => Fail
         | SOME c =>
-            if check_contradiction c then Unsat else Fail)
+            if check_contradiction c then Unsat id else Fail)
    | Delete ls =>
        Cont (FOLDL (λa b. delete b a) fml ls) id
    | Polish constr =>
@@ -163,7 +170,7 @@ Definition check_pbpstep_def:
    | Red c s pf pfs =>
        (let fml_not_c = insert id (not c) fml in
           case check_pbpsteps pf fml_not_c (id+1) of
-          | Unsat => Cont (insert id c fml) (id+1)  (* the ids are slightly off here *)
+          | Unsat id' => Cont (insert id c fml) (id'+1)  (* the ids are slightly off here *)
           | Fail => Fail
           | Cont fml' id' =>
               (* If we need a full redundancy step, then the initial steps must be satisfiability preserving *)
@@ -175,10 +182,20 @@ Definition check_pbpstep_def:
                               | NONE => F
                               | SOME steps =>
                                   let fml'_g = insert id' (not g) fml' in
-                                    check_pbpsteps steps fml'_g (id'+1) = Unsat) goals in
+                                    case check_pbpsteps steps fml'_g (id'+1) of Unsat _ => T | _ => F) goals in
                 if success then
                   Cont (insert id c fml) (id+1)  (* the ids are slightly off here *)
                 else Fail)) ∧
+              (* TODO: maybe this version with ID accumulating?
+                case fold_opt (λid (n,g).
+                  case ALOOKUP pfs n of
+                    NONE => NONE
+                  | SOME steps =>
+                    let fml'_g = insert id (not g) fml' in
+                      case check_pbpsteps steps fml'_g (id+1) of Unsat id' => SOME id' | _ => NONE
+                  ) id' goals of NONE => Fail
+               | SOME id'' => Cont (insert id c fml) (id'')
+               )) ∧ *)
   (check_pbpsteps [] fml id = Cont fml id) ∧
   (check_pbpsteps (step::steps) fml id =
    case check_pbpstep step fml id of
@@ -336,22 +353,26 @@ Theorem check_pbpstep_correct:
      id_ok fml id ⇒
      case check_pbpstep step fml id of
      | Cont fml' id' =>
+         id ≤ id' ∧
          id_ok fml' id' ∧
          (satisfiable (range fml) ⇒ satisfiable (range fml')) ∧
          ∀w. satisfies w (range fml) ∧ is_pol_con step ⇒
              satisfies w (range fml')
-     | Unsat =>
+     | Unsat id' =>
+        id ≤ id' ∧
          ¬ satisfiable (range fml)
      | Fail => T) ∧
   (∀steps fml id.
      id_ok fml id ⇒
      case check_pbpsteps steps fml id of
      | Cont fml' id' =>
+        id ≤ id' ∧
          id_ok fml' id' ∧
          (satisfiable (range fml) ⇒ satisfiable (range fml')) ∧
          ∀w. satisfies w (range fml) ∧ EVERY is_pol_con steps ⇒
              satisfies w (range fml')
-     | Unsat =>
+     | Unsat id' =>
+        id ≤ id' ∧
          ¬ satisfiable (range fml)
      | Fail => T)
 Proof
@@ -388,27 +409,28 @@ Proof
   \\ CASE_TAC
   THEN1 (pop_assum mp_tac \\ simp [Once check_pbpstep_def,AllCaseEqs()])
   \\ rename [‘_ = Cont x1 y1’]
-  \\ ‘x1 = insert id c fml ∧ y1 = id+1’ by
+  \\ ‘x1 = insert id c fml’ by
    (pop_assum mp_tac
     \\ simp [Once check_pbpstep_def,AllCaseEqs()]
     \\ rpt strip_tac \\ gvs [])
-  \\ conj_tac THEN1 gvs [id_ok_def]
   \\ gvs []
-  \\ qsuff_tac ‘c redundant_wrt (range fml)’
+  \\ qsuff_tac ‘id ≤ y1 ∧ id_ok (insert id c fml) y1 ∧ c redundant_wrt (range fml)’
   THEN1
    (fs [redundant_wrt_def] \\ rw []
     \\ irule satisfiable_subset
     \\ pop_assum $ irule_at Any
     \\ rw [SUBSET_DEF] \\ imp_res_tac range_insert_2 \\ fs [])
   \\ rewrite_tac [substitution_redundancy]
-  \\ qexists_tac ‘subst_fun s’ \\ fs []
   \\ pop_assum mp_tac
   \\ simp [Once check_pbpstep_def]
   \\ ‘id ∉ domain fml’ by fs [id_ok_def]
   \\ ‘id_ok (insert id (not c) fml) (id + 1)’ by fs [id_ok_def]
   \\ gvs []
   \\ TOP_CASE_TAC \\ fs []
-  THEN1 (gvs [sat_implies_def,satisfiable_def,range_insert] \\ metis_tac [])
+  THEN1 (
+    gvs [sat_implies_def,satisfiable_def,range_insert,id_ok_def]
+    \\ metis_tac []
+    )
   \\ IF_CASES_TAC \\ fs []
   \\ fs[o_DEF]
   \\ ‘EVERY is_pol_con pf’ by fs [EVERY_MEM]
@@ -418,12 +440,14 @@ Proof
   \\ ‘n ∉ domain s'’ by fs [id_ok_def]
   \\ fs [range_insert]
   \\ qpat_x_assum ‘_ ⇒ satisfiable _’ kall_tac
+  \\ gvs[id_ok_def]
+  \\ qexists_tac ‘subst_fun s’ \\ fs []
   \\ simp [Once implies_explode] \\ reverse (rw [])
   THEN1
    (last_x_assum (qspecl_then [‘id’,‘subst (subst_fun s) c’] mp_tac)
     \\ simp [] \\ Cases_on ‘ALOOKUP pfs id’ \\ fs []
-    \\ impl_tac THEN1 fs [id_ok_def]
     \\ gvs [GSYM unsat_iff_implies]
+    \\ TOP_CASE_TAC
     \\ strip_tac \\ CCONTR_TAC \\ fs []
     \\ fs [satisfiable_def]
     \\ gvs [range_insert]
@@ -443,7 +467,7 @@ Proof
   \\ Cases_on ‘ALOOKUP pfs a’ \\ fs []
   \\ first_x_assum (qspec_then ‘a’ mp_tac) \\ fs []
   \\ disch_then (qspec_then ‘x’ mp_tac) \\ fs []
-  \\ impl_tac THEN1 fs [id_ok_def]
+  \\ TOP_CASE_TAC \\ gvs[]
   \\ rpt strip_tac \\ fs []
   \\ imp_res_tac subst_opt_SOME \\ gvs []
   \\ gvs [satisfiable_def,range_insert]
