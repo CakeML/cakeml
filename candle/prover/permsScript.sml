@@ -542,10 +542,40 @@ Proof
 QED
 
 Theorem perms_ok_do_opapp:
-  perms_ok ps fv ∧ perms_ok ps av ∧ do_opapp [fv; av] = SOME (env,exp) ⇒
-  perms_ok_exp ps exp ∧ perms_ok_env ps (freevars exp) env
+  perms_ok ps fv ∧
+  perms_ok ps av ∧
+  do_opapp [fv; av] = SOME (env,exp) ⇒
+    perms_ok_exp ps exp ∧
+    perms_ok_env ps (freevars exp) env
 Proof
-  cheat (* this is proved below, but needed elsewhere too *)
+  rw [do_opapp_cases] \\ gs [perms_ok_def]
+  \\ gs [perms_ok_env_def, PULL_EXISTS]
+  >- (
+    Cases \\ gs [ml_progTheory.nsLookup_nsBind_compute]
+    \\ rw[ ] \\ gs [SF SFY_ss]
+    \\ res_tac \\ gs [])
+  >- (
+    gs [find_recfun_ALOOKUP]
+    \\ dxrule_then assume_tac ALOOKUP_MEM
+    \\ gs [EVERY_MEM, MEM_MAP, EXISTS_PROD, PULL_EXISTS, SF SFY_ss])
+  >- (
+    simp [build_rec_env_merge]
+    \\ Cases \\ simp [ml_progTheory.nsLookup_nsBind_compute]
+    \\ rw [] \\ gs [nsLookup_nsAppend_some, nsLookup_nsAppend_none,
+                    nsLookup_alist_to_ns_some, nsLookup_alist_to_ns_none]
+    >~ [‘ALOOKUP _ _ = SOME _’] >- (
+      dxrule_then assume_tac ALOOKUP_MEM
+      \\ gvs [MEM_MAP, EXISTS_PROD, PULL_EXISTS, perms_ok_def,
+              perms_ok_env_BIGUNION]
+      \\ rw [perms_ok_env_def]
+      \\ gs [SF SFY_ss])
+    \\ gs [ALOOKUP_NONE, MEM_MAP, EXISTS_PROD, PULL_EXISTS, find_recfun_ALOOKUP]
+    \\ gs [find_recfun_ALOOKUP]
+    \\ dxrule_then assume_tac ALOOKUP_MEM
+    \\ first_x_assum irule
+    \\ first_assum (irule_at (Pos last))
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ strip_tac \\ gvs [])
 QED
 
 Theorem evaluate_perms_ok:
@@ -878,3 +908,4 @@ Theorem evaluate_perms_ok_dec =
   |> SIMP_RULE (srw_ss()) [];
 
 val _ = export_theory ();
+

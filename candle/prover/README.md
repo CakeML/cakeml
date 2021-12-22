@@ -20,6 +20,9 @@ Proving that Candle prover maintains its invariants (i.e. v_ok)
 Definitions of invariants that are to be maintained during
 evaluate of Candle prover
 
+[candle_prover_semanticsScript.sml](candle_prover_semanticsScript.sml):
+Top-level soundness theorem for the Candle theorem prover.
+
 [kernelScript.sml](kernelScript.sml):
 Kernel types and functions.
 
