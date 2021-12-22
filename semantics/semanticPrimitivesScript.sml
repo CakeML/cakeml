@@ -767,7 +767,6 @@ val _ = Define `
      (Conv (SOME (TypeStamp "Opn" op_type_num)) [enc_opn x_1]))`;
 
 
-
 Definition maybe_all_list_def:
   maybe_all_list v =
     case v of
@@ -777,257 +776,255 @@ Definition maybe_all_list_def:
         case maybe_all_list vs of NONE => NONE | SOME xs => SOME (x::xs)
 End
 
-(*val v_to_word8 : v -> maybe word8*)
-val _ = Define `
- ((v_to_word8:v ->(word8)option) v=  ((case v of
-    Litv (Word8 w) => SOME w
-  | _ => NONE
-  )))`;
+Definition v_to_word8_def:
+  v_to_word8 v =
+    case v of
+    | Litv (Word8 w) => SOME w
+    | _ => NONE
+End
 
-
-(*val v_to_word8_list : v -> maybe (list word8)*)
-val _ = Define `
- ((v_to_word8_list:v ->((word8)list)option) v=  ((case v_to_list v of
-    SOME xs => maybe_all_list (MAP v_to_word8 xs)
-  | NONE => NONE
-  )))`;
-
-
-(*val v_to_word64 : v -> maybe word64*)
-val _ = Define `
- ((v_to_word64:v ->(word64)option) v=  ((case v of
-    Litv (Word64 w) => SOME w
-  | _ => NONE
-  )))`;
-
-
-(*val v_to_word64_list : v -> maybe (list word64)*)
-val _ = Define `
- ((v_to_word64_list:v ->((word64)list)option) v=  ((case v_to_list v of
-    SOME xs => maybe_all_list (MAP v_to_word64 xs)
-  | NONE => NONE
-  )))`;
-
-
-(*val lookup_env : eval_oracle_state -> (nat * nat) -> maybe (sem_env v)*)
-val _ = Define `
- ((lookup_env:eval_oracle_state -> num#num ->((v)sem_env)option) s (i, j)=  ((case oEL i s.envs of
-    NONE => NONE
-  | SOME gen_envs => oEL j gen_envs
-  )))`;
-
-
-(*val add_decs_generation : eval_decs_state -> eval_decs_state*)
-val _ = Define `
- ((add_decs_generation:eval_decs_state -> eval_decs_state) s=  ((case s.env_id_counter of
-    (cur_gen, next_id, next_gen) => ( s with<| env_id_counter :=
-        (next_gen,( 0 : num), (next_gen +( 1 : num))) |>)
-  )))`;
-
-
-(*val add_env_generation : eval_oracle_state -> eval_oracle_state*)
-val _ = Define `
- ((add_env_generation:eval_oracle_state -> eval_oracle_state) s=  (( s with<|
-    generation := (LENGTH s.envs) ;
-    envs := ((++) (s.envs) ([[]])) |>)))`;
-
-
-(*val declare_env : maybe eval_state -> sem_env v -> maybe (v * maybe eval_state)*)
-val _ = Define `
- ((declare_env:(eval_state)option ->(v)sem_env ->(v#(eval_state)option)option) es env=  ((case es of
-    NONE => NONE
-  | SOME (EvalDecs s) => (case s.env_id_counter of
-      (cur_gen, next_id, next_gen) => SOME (Env env (cur_gen, next_id),
-        SOME (EvalDecs ( s with<| env_id_counter :=
-            (cur_gen, (next_id +( 1 : num)), next_gen) |>)))
-    )
-  | SOME (EvalOracle s) => (case (oEL s.generation s.envs) of
-      SOME gen_envs => SOME (Conv NONE
-            [nat_to_v s.generation; nat_to_v (LENGTH gen_envs)],
-        SOME (EvalOracle ( s with<| envs := (LUPDATE ((++) gen_envs ([env])) s.generation s.envs) |>)))
+Definition v_to_word8_list_def:
+  v_to_word8_list v =
+    case v_to_list v of
     | NONE => NONE
-    )
-  )))`;
+    | SOME xs => maybe_all_list (MAP v_to_word8 xs)
+End
 
+Definition v_to_word8_list_def:
+  v_to_word8_list v =
+    case v_to_list v of
+    | NONE => NONE
+    | SOME xs => maybe_all_list (MAP v_to_word8 xs)
+End
+
+Definition v_to_word64_def:
+  v_to_word64 v =
+    case v of
+    | Litv (Word64 w) => SOME w
+    | _ => NONE
+End
+
+Definition v_to_word64_list_def:
+  v_to_word64_list v =
+    case v_to_list v of
+    | NONE => NONE
+    | SOME xs => maybe_all_list (MAP v_to_word64 xs)
+End
+
+Definition lookup_env_def:
+  lookup_env s (i,j) =
+    case oEL i s.envs of NONE => NONE | SOME gen_envs => oEL j gen_envs
+End
+
+Definition add_decs_generation_def:
+  add_decs_generation s =
+    case s.env_id_counter of
+      (cur_gen,next_id,next_gen) =>
+        s with env_id_counter := (next_gen,0,next_gen + 1)
+End
+
+Definition add_env_generation_def:
+  add_env_generation s =
+    s with <|generation := LENGTH s.envs; envs := s.envs ⧺ [[]]|>
+End
+
+Definition declare_env_def:
+  declare_env es env =
+    case es of
+    | NONE => NONE
+    | SOME (EvalDecs s) =>
+      (case s.env_id_counter of
+         (cur_gen,next_id,next_gen) =>
+           SOME
+             (Env env (cur_gen,next_id),
+              SOME
+                (EvalDecs
+                   (s with
+                    env_id_counter := (cur_gen,next_id + 1,next_gen)))))
+    | SOME (EvalOracle s') =>
+      case oEL s'.generation s'.envs of
+      | NONE => NONE
+      | SOME gen_envs =>
+        SOME
+          (Conv NONE [nat_to_v s'.generation; nat_to_v (LENGTH gen_envs)],
+           SOME
+             (EvalOracle
+                (s' with
+                 envs := LUPDATE (gen_envs ⧺ [env]) s'.generation s'.envs)))
+End
 
 (* Concrete, or first-order values, which do not contain code closures and
    are unchanged by many compiler phases. *)
 Definition concrete_v_def:
- ((concrete_v:v -> bool) v=  ((case v of
-    Litv _ => T
-  | Loc _ => T
-  | Vectorv vs => concrete_v_list vs
-  | Conv _ vs => concrete_v_list vs
-  | _ => F
-  )))
-/\
-  ((concrete_v_list:(v)list -> bool) []=  T)
-/\
-  ((concrete_v_list:(v)list -> bool) (v :: vs)=  (concrete_v v /\ concrete_v_list vs))
+  (concrete_v v ⇔
+     case v of
+     | Loc _ => T
+     | Litv _ => T
+     | Conv v_ vs => concrete_v_list vs
+     | Vectorv vs => concrete_v_list vs
+     | _ => F) ∧
+  (concrete_v_list [] ⇔ T) ∧
+  (concrete_v_list (v::vs) ⇔ concrete_v v ∧ concrete_v_list vs)
 Termination
   WF_REL_TAC `measure (λx. case x of INL v => v_size v
                                    | INR vs => list_size v_size vs)`
 End
 
-(*val compiler_agrees : compiler_fun -> compiler_args -> v * v * v -> bool*)
-val _ = Define `
- ((compiler_agrees:((num#num)#v#(dec)list ->(v#(word8)list#(word64)list)option) ->(num#num)#v#(dec)list -> v#v#v -> bool) f args (st_v, bs_v, ws_v)=  ((case
-    (f args, args, v_to_word8_list bs_v, v_to_word64_list ws_v)
-  of
-    (SOME (st, c_bs, c_ws), (_, prev_st_v, _), SOME bs, SOME ws) =>
-    (st = st_v) /\ (c_bs = bs) /\ (c_ws = ws) /\ concrete_v st_v /\
+Definition compiler_agrees_def:
+  compiler_agrees (f:((num#num)#v#(dec)list ->(v#(word8)list#(word64)list)option))
+      args (st_v,bs_v,ws_v) ⇔
+    case (f args,args,v_to_word8_list bs_v,v_to_word64_list ws_v) of
+    | (SOME (st,c_bs,c_ws),(v16,prev_st_v,_),SOME bs,SOME ws) =>
+        st = st_v ∧ c_bs = bs ∧ c_ws = ws ∧ concrete_v st_v ∧
         concrete_v prev_st_v
-  | _ => F
-  )))`;
-
+    | _ => F
+End
 
 (* get the declarations to be evaluated in the various Eval semantics *)
-(*val do_eval : list v -> maybe eval_state ->
-        maybe (sem_env v * list dec * maybe eval_state)*)
-val _ = Define `
- ((do_eval:(v)list ->(eval_state)option ->((v)sem_env#(dec)list#(eval_state)option)option) vs es=
-   ((case (es, vs) of
-    (SOME (EvalDecs s), [Env env id; st_v; decs_v; st_v2; bs_v; ws_v]) =>
-    (case s.decode_decs decs_v of
-      SOME decs => if (st_v = s.compiler_state) /\ concrete_v decs_v /\
-            compiler_agrees s.compiler (id, st_v, decs) (st_v2, bs_v, ws_v)
-        then SOME (env, decs, SOME (EvalDecs
-            (add_decs_generation ( s with<| compiler_state := st_v2 |>))))
-        else NONE
+Definition do_eval_def:
+  do_eval vs es =
+    case (es,vs) of
+    | (SOME (EvalDecs s),[Env env id; st_v; decs_v; st_v2; bs_v; ws_v]) =>
+      (case s.decode_decs decs_v of
+         NONE => NONE
+       | SOME decs =>
+         if
+           st_v = s.compiler_state ∧ concrete_v decs_v ∧
+           compiler_agrees s.compiler (id,st_v,decs) (st_v2,bs_v,ws_v)
+         then
+           SOME
+             (env,decs,
+              SOME
+                (EvalDecs
+                   (add_decs_generation (s with compiler_state := st_v2))))
+         else NONE)
+    | (SOME (EvalOracle s'),vs) =>
+      (case s'.custom_do_eval vs s'.oracle of
+         NONE => NONE
+       | SOME (env_id,oracle,decs) =>
+           case lookup_env s' env_id of
+             NONE => NONE
+           | SOME env =>
+               SOME
+               (env,decs,
+                SOME
+                (EvalOracle (add_env_generation (s' with oracle := oracle)))))
     | _ => NONE
-    )
-  | (SOME (EvalOracle s), vs) => (case s.custom_do_eval vs s.oracle of
-      SOME (env_id, oracle, decs) => (case lookup_env s env_id of
-        SOME env => SOME (env, decs, SOME (EvalOracle
-            (add_env_generation ( s with<| oracle := oracle |>))))
-      | _ => NONE
-      )
-    | _ => NONE
-    )
-  | _ => NONE
-  )))`;
-
+End
 
 (* conclude an Eval generation *)
-(*val reset_env_generation : maybe eval_state -> maybe eval_state -> maybe eval_state*)
-val _ = Define `
- ((reset_env_generation:(eval_state)option ->(eval_state)option ->(eval_state)option) prior_es es=  ((case (prior_es, es) of
-    (SOME (EvalOracle prior_s), SOME (EvalOracle s)) =>
-    SOME (EvalOracle ( s with<| generation := (prior_s.generation) |>))
-  | (SOME (EvalDecs prior_s), SOME (EvalDecs s)) => (case
-        (prior_s.env_id_counter, s.env_id_counter) of
-      ((cur_gen, next_id, _), (_, _, next_gen)) =>
-    SOME (EvalDecs ( s with<| env_id_counter := (cur_gen, next_id, next_gen) |>))
-    )
-  | _ => es
-  )))`;
+Definition reset_env_generation_def:
+  reset_env_generation prior_es es =
+    case (prior_es,es) of
+    | (SOME (EvalDecs prior_s'),SOME (EvalDecs s')) =>
+      (case (prior_s'.env_id_counter,s'.env_id_counter) of
+         ((cur_gen,next_id,v5),v6,v8,next_gen) =>
+           SOME
+             (EvalDecs
+                (s' with env_id_counter := (cur_gen,next_id,next_gen))))
+    | (SOME (EvalOracle prior_s),SOME (EvalOracle s)) =>
+      SOME (EvalOracle (s with generation := prior_s.generation))
+    | _ => es
+End
 
+Definition copy_array_def:
+  copy_array (src,srcoff) len d =
+    if
+      srcoff < 0 ∨ len < 0 ∨ LENGTH src < Num (ABS (I (srcoff + len)))
+    then
+      NONE
+    else
+      (let
+         copied =
+           TAKE (Num (ABS (I len))) (DROP (Num (ABS (I srcoff))) src)
+       in
+         case d of
+           NONE => SOME copied
+         | SOME (dst,dstoff) =>
+           if dstoff < 0 ∨ LENGTH dst < Num (ABS (I (dstoff + len))) then
+             NONE
+           else
+             SOME
+               (TAKE (Num (ABS (I dstoff))) dst ⧺ copied ⧺
+                DROP (Num (ABS (I (dstoff + len)))) dst))
+End
 
-(*val copy_array : forall 'a. list 'a * integer -> integer -> maybe (list 'a * integer) -> maybe (list 'a)*)
-val _ = Define `
- ((copy_array:'a list#int -> int ->('a list#int)option ->('a list)option) (src,srcoff) len d=
-   (if (srcoff <( 0 : int)) \/ ((len <( 0 : int)) \/ (LENGTH src < Num (ABS (I (srcoff + len))))) then NONE else
-    let copied = (TAKE (Num (ABS (I len))) (DROP (Num (ABS (I srcoff))) src)) in
-    (case d of
-      SOME (dst,dstoff) =>
-        if (dstoff <( 0 : int)) \/ (LENGTH dst < Num (ABS (I (dstoff + len)))) then NONE else
-          SOME ((TAKE (Num (ABS (I dstoff))) dst ++
-                copied) ++
-                DROP (Num (ABS (I (dstoff + len)))) dst)
-    | NONE => SOME copied
-    )))`;
+Definition ws_to_chars_def:
+  ws_to_chars (ws:word8 list) = MAP (λw. CHR (w2n w)) ws
+End
 
+Definition chars_to_ws_def:
+  chars_to_ws cs = MAP (λc. i2w (&ORD c)) cs :word8 list
+End
 
-(*val ws_to_chars : list word8 -> list char*)
-val _ = Define `
- ((ws_to_chars:(word8)list ->(char)list) ws=  (MAP (\ w .  CHR(w2n w)) ws))`;
+Definition opn_lookup_def:
+  opn_lookup n =
+    case n of
+    | Plus => $+
+    | Minus => $-
+    | Times => $*
+    | Divide => $/
+    | Modulo => $%
+End
 
+Definition opb_lookup_def:
+  opb_lookup n =
+    case n of Lt => $< | Gt => $> | Leq => $<= | Geq => ($>= : int -> int -> bool)
+End
 
-(*val chars_to_ws : list char -> list word8*)
-val _ = Define `
- ((chars_to_ws:(char)list ->(word8)list) cs=  (MAP (\ c .  i2w(int_of_num(ORD c))) cs))`;
+Definition opw8_lookup_def:
+  opw8_lookup op =
+    case op of
+    | Andw => word_and
+    | Orw => word_or
+    | Xor => word_xor
+    | Add => word_add
+    | Sub => word_sub : word8 -> word8 -> word8
+End
 
+Definition opw64_lookup_def:
+  opw64_lookup op =
+    case op of
+    | Andw => word_and
+    | Orw => word_or
+    | Xor => word_xor
+    | Add => word_add
+    | Sub => word_sub : word64 -> word64 -> word64
+End
 
-(*val opn_lookup : opn -> integer -> integer -> integer*)
-val _ = Define `
- ((opn_lookup:opn -> int -> int -> int) n : int -> int -> int=  ((case n of
-    Plus => (+)
-  | Minus => (-)
-  | Times => ( * )
-  | Divide => (/)
-  | Modulo => (%)
-)))`;
+Definition shift8_lookup_def:
+  shift8_lookup sh =
+    case sh of
+    |  Lsl => word_lsl
+    | Lsr => word_lsr
+    | Asr => word_asr
+    | Ror => word_ror : word8 -> num -> word8
+End
 
+Definition shift64_lookup_def:
+  shift64_lookup sh =
+    case sh of
+    |  Lsl => word_lsl
+    | Lsr => word_lsr
+    | Asr => word_asr
+    | Ror => word_ror : word64 -> num -> word64
+End
 
-(*val opb_lookup : opb -> integer -> integer -> bool*)
-val _ = Define `
- ((opb_lookup:opb -> int -> int -> bool) n : int -> int -> bool=  ((case n of
-    Lt => (<)
-  | Gt => (>)
-  | Leq => (<=)
-  | Geq => (>=)
-)))`;
-
-
-(*val opw8_lookup : opw -> word8 -> word8 -> word8*)
-val _ = Define `
- ((opw8_lookup:opw -> word8 -> word8 -> word8) op=  ((case op of
-    Andw => word_and
-  | Orw => word_or
-  | Xor => word_xor
-  | Add => word_add
-  | Sub => word_sub
-)))`;
-
-
-(*val opw64_lookup : opw -> word64 -> word64 -> word64*)
-val _ = Define `
- ((opw64_lookup:opw -> word64 -> word64 -> word64) op=  ((case op of
-    Andw => word_and
-  | Orw => word_or
-  | Xor => word_xor
-  | Add => word_add
-  | Sub => word_sub
-)))`;
-
-
-(*val shift8_lookup : shift -> word8 -> nat -> word8*)
-val _ = Define `
- ((shift8_lookup:shift -> word8 -> num -> word8) sh=  ((case sh of
-    Lsl => word_lsl
-  | Lsr => word_lsr
-  | Asr => word_asr
-  | Ror => word_ror
-)))`;
-
-
-(*val shift64_lookup : shift -> word64 -> nat -> word64*)
-val _ = Define `
- ((shift64_lookup:shift -> word64 -> num -> word64) sh=  ((case sh of
-    Lsl => word_lsl
-  | Lsr => word_lsr
-  | Asr => word_asr
-  | Ror => word_ror
-)))`;
-
-
-(*val Boolv : bool -> v*)
-val _ = Define `
- ((Boolv:bool -> v) b=  (if b
-  then Conv (SOME (TypeStamp "True" bool_type_num)) []
-  else Conv (SOME (TypeStamp "False" bool_type_num)) []))`;
-
+Definition Boolv_def:
+  Boolv b =
+    if b then Conv (SOME (TypeStamp "True" bool_type_num)) []
+         else Conv (SOME (TypeStamp "False" bool_type_num)) []
+End
 
 Datatype:
   exp_or_val = Exp exp | Val v
 End
 
-Type store_ffi = ``: 'v store # 'ffi ffi_state``
+Type store_ffi = “: 'v store # 'ffi ffi_state”
 
-(*val do_app : forall 'ffi. store_ffi 'ffi v -> op -> list v -> maybe (store_ffi 'ffi v * result v v)*)
-val _ = Define `
- ((do_app:((v)store_v)list#'ffi ffi_state -> op ->(v)list ->((((v)store_v)list#'ffi ffi_state)#((v),(v))result)option) ((s: v store),(t: 'ffi ffi_state)) op vs=
-   ((case (op, vs) of
+Definition do_app_def:
+  do_app (s: v store_v list, t: 'ffi ffi_state) op vs =
+    case (op, vs) of
       (ListAppend, [x1; x2]) =>
       (case (v_to_list x1, v_to_list x2) of
           (SOME xs, SOME ys) => SOME ((s,t), Rval (list_to_v (xs ++ ys)))
@@ -1353,74 +1350,57 @@ val _ = Define `
             Rval (Conv NONE [nat_to_v gen; nat_to_v id]))
     | (Env_id, [Conv NONE [gen; id]]) => SOME ((s, t),
             Rval (Conv NONE [gen; id]))
-     | _ => NONE
-  )))`;
-
+    | _ => NONE
+End
 
 (* Do a logical operation *)
-(*val do_log : lop -> v -> exp -> maybe exp_or_val*)
-val _ = Define `
- ((do_log:lop -> v -> exp ->(exp_or_val)option) l v e=
-   (if ((l = And) /\ (v = Boolv T)) \/ ((l = Or) /\ (v = Boolv F)) then
-    SOME (Exp e)
-  else if ((l = And) /\ (v = Boolv F)) \/ ((l = Or) /\ (v = Boolv T)) then
-    SOME (Val v)
-  else
-    NONE))`;
-
+Definition do_log_def:
+  do_log l v e =
+    if l = And ∧ v = Boolv T ∨ l = Or ∧ v = Boolv F then SOME (Exp e)
+    else if l = And ∧ v = Boolv F ∨ l = Or ∧ v = Boolv T then SOME (Val v)
+    else NONE
+End
 
 (* Do an if-then-else *)
-(*val do_if : v -> exp -> exp -> maybe exp*)
-val _ = Define `
- ((do_if:v -> exp -> exp ->(exp)option) v e1 e2=
-   (if v = (Boolv T) then
-    SOME e1
-  else if v = (Boolv F) then
-    SOME e2
-  else
-    NONE))`;
-
+Definition do_if_def:
+  do_if v e1 e2 =
+    if v = Boolv T then SOME e1 else if v = Boolv F then SOME e2 else NONE
+End
 
 (* Semantic helpers for definitions *)
 
-val _ = Define `
- ((build_constrs:num ->(string#'a list)list ->(string#(num#stamp))list) stamp condefs=
-   (MAP
-    (\ (conN, ts) .
-      (conN, (LENGTH ts, TypeStamp conN stamp)))
-    condefs))`;
-
+Definition build_constrs_def:
+  build_constrs stamp condefs =
+    MAP (λ(conN,ts). (conN,LENGTH ts,TypeStamp conN stamp)) condefs
+End
 
 (* Build a constructor environment for the type definition tds *)
-(*val build_tdefs : nat -> list (list tvarN * typeN * list (conN * list ast_t)) -> env_ctor*)
- val _ = Define `
- ((build_tdefs:num ->((tvarN)list#string#(string#(ast_t)list)list)list ->((string),(string),(num#stamp))namespace) next_stamp []=  (alist_to_ns []))
-/\ ((build_tdefs:num ->((tvarN)list#string#(string#(ast_t)list)list)list ->((string),(string),(num#stamp))namespace) next_stamp ((tvs,tn,condefs)::tds)=
-   (nsAppend
-    (build_tdefs (next_stamp +( 1 : num)) tds)
-    (alist_to_ns (REVERSE (build_constrs next_stamp condefs)))))`;
-
+Definition build_tdefs_def:
+  build_tdefs next_stamp ([]:((tvarN)list#string#(string#(ast_t)list)list)list) =
+    ((alist_to_ns []):((string),(string),(num#stamp))namespace) ∧
+  build_tdefs next_stamp ((tvs,tn,condefs)::tds) =
+    nsAppend (build_tdefs (next_stamp + 1) tds)
+      (alist_to_ns (REVERSE (build_constrs next_stamp condefs)))
+End
 
 (* Checks that no constructor is defined twice in a type *)
-(*val check_dup_ctors : list tvarN * typeN * list (conN * list ast_t) -> bool*)
-val _ = Define `
- ((check_dup_ctors:(tvarN)list#string#(string#(ast_t)list)list -> bool) (tvs, tn, condefs)=
-   (ALL_DISTINCT (let x2 =
-  ([]) in  FOLDR (\(n, ts) x2 .  if T then n :: x2 else x2) x2 condefs)))`;
+Definition check_dup_ctors_def:
+  check_dup_ctors ((tvs,tn,condefs):(tvarN)list#string#(string#(ast_t)list)list) ⇔
+    ALL_DISTINCT
+      (let x2 = [] in
+         FOLDR (λ(n,ts) x2. if T then n::x2 else x2) x2 condefs)
+End
 
+Definition combine_dec_result_def:
+  combine_dec_result env (r:((v sem_env),'a)result) =
+    case r of
+    | Rval env' => Rval <|v := nsAppend env'.v env.v; c := nsAppend env'.c env.c|>
+    | Rerr e => Rerr e
+End
 
-(*val combine_dec_result : forall 'a. sem_env v -> result (sem_env v) 'a -> result (sem_env v) 'a*)
-val _ = Define `
- ((combine_dec_result:(v)sem_env ->(((v)sem_env),'a)result ->(((v)sem_env),'a)result) env r=
-   ((case r of
-      Rerr e => Rerr e
-    | Rval env' => Rval <| v := (nsAppend env'.v env.v); c := (nsAppend env'.c env.c) |>
-  )))`;
-
-
-(*val extend_dec_env : sem_env v -> sem_env v -> sem_env v*)
-val _ = Define `
- ((extend_dec_env:(v)sem_env ->(v)sem_env ->(v)sem_env) new_env env=
-   (<| c := (nsAppend new_env.c env.c); v := (nsAppend new_env.v env.v) |>))`;
+Definition extend_dec_env_def:
+  extend_dec_env new_env (env: v sem_env) =
+    <|c := nsAppend new_env.c env.c; v := nsAppend new_env.v env.v|>
+End
 
 val _ = export_theory()
