@@ -56,8 +56,7 @@ Proof
   \\ simp [with_same_clock]
   \\ strip_tac \\ gvs []
   THEN1
-   (drule_at (Pos last) evaluate_perms_ok_exp
-    \\ disch_then (qspec_then ‘{}’ mp_tac)
+   (drule evaluate_empty_perms
     \\ reverse impl_tac THEN1 fs []
     \\ fs [perms_ok_state_def]
     \\ drule_all perms_ok_do_opapp \\ fs [])
@@ -190,7 +189,7 @@ Proof
   \\ disch_then (qspec_then ‘[]’ strip_assume_tac)
   \\ fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def]
   \\ drule_all perms_ok_do_opapp \\ strip_tac
-  \\ drule_at (Pos last) evaluate_perms_ok_exp
+  \\ drule evaluate_kernel_perms
   \\ disch_then drule
   \\ impl_tac
    >- (fs [kernel_perms_def,perms_ok_state_def]
@@ -399,9 +398,7 @@ Proof
   \\ ‘LENGTH s'.refs = LENGTH s.refs’
     by (gvs [do_partial_app_def, CaseEqs ["v", "exp"], do_opapp_cases,
              perms_ok_def]
-        \\ drule_at_then (Pat ‘evaluate’)
-                         (qspec_then ‘{}’ mp_tac)
-                         evaluate_perms_ok_exp
+        \\ drule evaluate_empty_perms
         \\ impl_tac \\ simp []
         \\ gs [perms_ok_state_def, perms_ok_env_def]
         \\ Cases \\ simp [ml_progTheory.nsLookup_nsBind_compute]

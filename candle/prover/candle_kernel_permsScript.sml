@@ -12,6 +12,8 @@ val _ = new_theory "candle_kernel_perms";
 
 val _ = set_grammar_ancestry ["candle_kernel_vals", "perms", "misc"];
 
+(* Functions translated with 'translate' should be proved for any ps *)
+
 Theorem call_variant_v_perms_ok:
   ∀ps. perms_ok ps call_variant_v
 Proof
@@ -23,6 +25,8 @@ Theorem perms_ok_concl:
 Proof
   cheat
 QED
+
+(* Functions translated with 'm_translate' should be proved for kernel_perms *)
 
 Theorem trans_v_perms_ok:
   perms_ok kernel_perms trans_v
@@ -90,5 +94,26 @@ Proof
   \\ gs [perms_ok_env_def]
 QED
 *)
+
+Triviality evaluate_kernel_perms_lemma:
+  ∀ps.
+    evaluate s env [exp] = (s',res) ∧
+    perms_ok_exp ps exp ∧ perms_ok_env ps (freevars exp) env ∧ perms_ok_state ps s ∧
+    DoFFI ∉ ps ∧ RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒
+    LENGTH s'.refs = LENGTH s.refs ∧ s'.ffi = s.ffi
+Proof
+  metis_tac [evaluate_perms_ok_exp]
+QED
+
+Theorem evaluate_kernel_perms =
+  evaluate_kernel_perms_lemma
+  |> Q.SPEC ‘kernel_perms’
+  |> SIMP_RULE (srw_ss()) [kernel_perms_def]
+  |> REWRITE_RULE [GSYM kernel_perms_def];
+
+Theorem evaluate_empty_perms =
+  evaluate_kernel_perms_lemma
+  |> Q.SPEC ‘{}’
+  |> SIMP_RULE (srw_ss()) [];
 
 val _ = export_theory ();
