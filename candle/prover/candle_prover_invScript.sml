@@ -234,26 +234,28 @@ Proof
   \\ first_assum (irule_at Any) \\ gs []
 QED
 
+Definition eval_state_ok_def:
+  eval_state_ok NONE = T ∧
+  eval_state_ok (SOME (EvalDecs s)) =
+    (∀v ds. s.decode_decs v = SOME ds ⇒ EVERY safe_dec ds) ∧
+  eval_state_ok _ = F
+End
+
 Definition state_ok_def:
   state_ok ctxt s ⇔
     (∀n. n ∈ kernel_types ⇒ n < s.next_type_stamp) ∧
-    EVERY (ref_ok ctxt) s.refs ∧
     EVERY (ok_event ctxt) s.ffi.io_events ∧
+    eval_state_ok s.eval_state ∧
     ∃state.
       STATE ctxt state ∧
-      ∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok state loc s.refs
+      (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok state loc s.refs) ∧
+      (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s.refs loc = SOME r ⇒ ref_ok ctxt r)
 End
 
 Theorem state_ok_dec_clock:
   state_ok ctxt (dec_clock s) = state_ok ctxt s
 Proof
   rw [state_ok_def, evaluateTheory.dec_clock_def]
-QED
-
-Theorem state_ok_with_eval_state[simp]:
-  state_ok ctxt (s with eval_state := es) = state_ok ctxt s
-Proof
-  rw [state_ok_def]
 QED
 
 (* -------------------------------------------------------------------------
