@@ -32,6 +32,7 @@ Theorem Arrow1:
     ((res = Rerr (Rabort Rtimeout_error)) ∨
      (res = Rerr (Rabort Rtype_error)) ∨
      s.refs = s'.refs ∧
+     s.eval_state = s'.eval_state ∧
      s.next_type_stamp = s'.next_type_stamp ∧
      ∃rv. res = Rval [rv] ∧
           B (f a) rv)
@@ -165,18 +166,20 @@ Theorem ArrowM1:
   ArrowP F (HOL_STORE,^p) (PURE A) (MONAD B D) f fv ∧
   do_opapp [fv; av] = SOME (env, exp) ∧
   evaluate (s:'a semanticPrimitives$state) env [exp] = (s', res) ∧
-  A a av ∧ STATE ctxt refs ∧ EVERY (ref_ok ctxt) s.refs ∧
+  A a av ∧ STATE ctxt refs ∧
   (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok refs loc s.refs) ∧
+  (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s.refs loc = SOME r ⇒ ref_ok ctxt r) ∧
   perms_ok kernel_perms av ∧
   perms_ok kernel_perms fv ⇒
     s.ffi = s'.ffi ∧
     ((res = Rerr (Rabort Rtimeout_error)) ∨
      (res = Rerr (Rabort Rtype_error)) ∨
      s.next_type_stamp = s'.next_type_stamp ∧
+     s.eval_state = s'.eval_state ∧
      ∃r refs2.
        f a refs = (r,refs2) ∧
-       (∀loc. if loc ∈ kernel_locs then kernel_loc_ok refs2 loc s'.refs
-              else LLOOKUP s'.refs loc = LLOOKUP s.refs loc) ∧
+       (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok refs2 loc s'.refs) ∧
+       (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s'.refs loc = SOME r ⇒ ref_ok ctxt r) ∧
        (∀x. r = Success x ⇒ ∃rv. res = Rval [rv] ∧ B x rv) ∧
        (∀x. r = Failure x ⇒ ∃rv. res = Rerr (Rraise rv) ∧ D x rv))
 Proof
@@ -219,8 +222,9 @@ Proof
   \\ Cases_on ‘res = Rerr (Rabort Rtype_error)’ \\ fs []
   \\ fs [ml_monad_translatorTheory.MONAD_def]
   \\ Cases_on ‘f a refs’ \\ fs []
-  \\ reverse conj_tac
-  THEN1 (every_case_tac \\ fs [])
+  \\ rewrite_tac [CONJ_ASSOC]
+  \\ reverse conj_tac THEN1 (every_case_tac \\ fs [])
+  \\ reverse conj_tac THEN1 (every_case_tac \\ fs [])
   \\ ‘r = st3’ by (every_case_tac \\ fs [])
   \\ rw []
   THEN1
@@ -238,6 +242,9 @@ Proof
   \\ fs [GSYM set_sepTheory.STAR_ASSOC]
   \\ once_rewrite_tac [set_sepTheory.STAR_COMM]
   \\ fs [GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR,MEM_st2heap]
+  \\ strip_tac
+  \\ qsuff_tac ‘ref_ok ctxt (EL loc s.refs)’ THEN1 asm_rewrite_tac []
+  \\ fs []
 QED
 
 Theorem state_ok_with_clock[simp]:
@@ -352,7 +359,7 @@ Proof
     \\ imp_res_tac v_ok_THM \\ fs []
     \\ first_assum $ irule_at Any
     \\ first_assum $ irule_at Any
-    \\ fs [])
+    \\ fs [SF SFY_ss])
   \\ Cases_on ‘f = beta_v’ \\ gvs [] >-
    (drule_all beta_v_head \\ strip_tac \\ gvs []
     >- (qexists_tac ‘ctxt’ \\ fs [])
@@ -367,9 +374,8 @@ Proof
     \\ drule_all holKernelProofTheory.BETA_thm \\ strip_tac \\ gvs []
     \\ qexists_tac ‘ctxt’ \\ fs []
     \\ fs [PULL_EXISTS]
-    \\ first_assum $ irule_at $ Pos $ el 2
-    \\ drule_all IMP_EVERY_v_ok \\ strip_tac \\ fs []
-    \\ conj_tac >- (rw [] \\ first_x_assum $ qspec_then ‘loc’ assume_tac \\ gvs [])
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs [SF SFY_ss]
     \\ Cases_on ‘r’ \\ fs []
     \\ imp_res_tac THM_IMP_v_ok \\ gvs []
     \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
@@ -390,6 +396,7 @@ Theorem Arrow2:
     ((res = Rerr (Rabort Rtimeout_error)) ∨
      (res = Rerr (Rabort Rtype_error)) ∨
      s.refs = s'.refs ∧
+     s.eval_state = s'.eval_state ∧
      s.next_type_stamp = s'.next_type_stamp ∧
      ∃rv. res = Rval [rv] ∧
           C (f a b) rv)
@@ -550,7 +557,7 @@ Proof
     \\ fs [state_ok_def]
     \\ first_assum (irule_at (Pos (el 2))) \\ gs []
     \\ first_assum (irule_at (Pos (el 2))) \\ gs []
-    \\ drule_all LIST_TYPE_TERM_TYPE_v_ok \\ fs [])
+    \\ drule_all LIST_TYPE_TERM_TYPE_v_ok \\ fs [SF SFY_ss])
   \\ Cases_on ‘f = vsubst_v’ \\ gvs [] >- cheat
   \\ Cases_on ‘f = inst_v’ \\ gvs [] >- cheat
   \\ Cases_on ‘f = abs_1_v’ \\ gvs [] >- cheat
