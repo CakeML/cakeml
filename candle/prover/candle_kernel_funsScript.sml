@@ -26,7 +26,6 @@ Theorem Arrow1:
   do_opapp [fv; av] = SOME (env, exp) ∧
   evaluate (s:'ffi semanticPrimitives$state) env [exp] = (s', res) ∧
   A a av ∧
-  DoEval ∉ ps ∧
   RefAlloc ∉ ps ∧
   W8Alloc ∉ ps ∧
   (∀n. RefMention n ∉ ps) ∧
@@ -390,7 +389,6 @@ Theorem Arrow2:
   do_opapp [gv; bv] = SOME (env, exp) ∧
   evaluate (s:'ffi semanticPrimitives$state) env [exp] = (s', res) ∧
   A a av ∧ B b bv ∧
-  DoEval ∉ ps ∧
   RefAlloc ∉ ps ∧
   W8Alloc ∉ ps ∧
   (∀n. RefMention n ∉ ps) ∧
@@ -545,8 +543,7 @@ Proof
       by (irule_at Any v_ok_LIST_TERM_TYPE_HEAD \\ gs [SF SFY_ss])
     \\ ‘∃tm2. TERM_TYPE tm2 w’
       by (irule_at Any v_ok_TERM_TYPE_HEAD \\ gs [SF SFY_ss])
-    \\ ‘∃ps. DoEval ∉ ps ∧
-             RefAlloc ∉ ps ∧
+    \\ ‘∃ps. RefAlloc ∉ ps ∧
              W8Alloc ∉ ps ∧
              (∀n. RefMention n ∉ ps) ∧
              perms_ok ps call_variant_v’
@@ -584,8 +581,7 @@ Proof
       by (irule_at Any v_ok_THM_TYPE_HEAD \\ gs [SF SFY_ss])
     \\ ‘∃th2. THM_TYPE th2 w’
       by (irule_at Any v_ok_THM_TYPE_HEAD \\ gs [SF SFY_ss])
-    \\ ‘∃ps. DoEval ∉ ps ∧
-             RefAlloc ∉ ps ∧
+    \\ ‘∃ps. RefAlloc ∉ ps ∧
              W8Alloc ∉ ps ∧
              (∀n. RefMention n ∉ ps) ∧
              perms_ok ps trans_v’
