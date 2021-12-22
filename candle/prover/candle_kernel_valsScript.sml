@@ -872,6 +872,25 @@ Proof
   \\ strip_tac \\ fs [same_clock_exists]
 QED
 
+Theorem types_v_head:
+  do_opapp [types_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    UNIT_TYPE () v
+Proof
+  rewrite_tac[types_v_def]
+  \\ gvs[do_opapp_def]
+  \\ strip_tac \\ rveq
+  \\ fs[evaluate_def, astTheory.pat_bindings_def,
+        pmatch_def, can_pmatch_all_def]
+  \\ Cases_on`v` \\ fs[pmatch_def, same_clock_exists]
+  \\ qmatch_asmsub_rename_tac`Conv co ca`
+  \\ Cases_on`co` \\ fs[pmatch_def, same_clock_exists]
+  \\ fs[CaseEqs ["list", "bool", "match_result", "option", "prod",
+                 "v", "semanticPrimitives$result"],
+        same_clock_exists, ml_translatorTheory.UNIT_TYPE_def]
+QED
+
 (* -------------------------------------------------------------------------
  * Misc. simps
  * ------------------------------------------------------------------------- *)

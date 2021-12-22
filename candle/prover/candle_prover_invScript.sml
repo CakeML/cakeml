@@ -356,6 +356,40 @@ Proof
   \\ gvs [kernel_types_def]
 QED
 
+Theorem NUM_v_ok:
+  NUM x v ==> v_ok ctxt v
+Proof
+  rw[ml_translatorTheory.NUM_def, ml_translatorTheory.INT_def]
+  \\ rw[Once v_ok_cases]
+QED
+
+Theorem STRING_TYPE_v_ok:
+  STRING_TYPE x v ==> v_ok ctxt v
+Proof
+  Cases_on`x` \\ rw[ml_translatorTheory.STRING_TYPE_def]
+  \\ rw[Once v_ok_cases]
+QED
+
+Theorem PAIR_TYPE_v_ok:
+  PAIR_TYPE A B p v /\
+  (!v. A (FST p) v ==> v_ok ctxt v) /\
+  (!v. B (SND p) v ==> v_ok ctxt v) ==>
+  v_ok ctxt v
+Proof
+  Cases_on`p` \\ rw[ml_translatorTheory.PAIR_TYPE_def]
+  \\ irule v_ok_Conv \\ rw[]
+QED
+
+Theorem LIST_TYPE_v_ok:
+  !A ls v. LIST_TYPE A ls v /\ EVERY (λx. !v. A x v ==> v_ok ctxt v) ls
+         ==> v_ok ctxt v
+Proof
+  gen_tac \\ Induct \\ rw[ml_translatorTheory.LIST_TYPE_def]
+  \\ irule v_ok_Conv
+  \\ rw[kernel_types_def]
+QED
+
+
 (* -------------------------------------------------------------------------
  * Lemmas about v_ok and {TYPE,TERM,THM}_TYPE{,_HEAD}
  * ------------------------------------------------------------------------- *)
@@ -521,6 +555,12 @@ Proof
   PairCases_on ‘x’ \\ fs [ml_translatorTheory.PAIR_TYPE_def]
   \\ rw [] \\ res_tac \\ fs []
   \\ simp [Once perms_ok_cases]
+QED
+
+Theorem UNIT_TYPE_perms_ok:
+  !u v. UNIT_TYPE u v ==> perms_ok ps v
+Proof
+  rw[ml_translatorTheory.UNIT_TYPE_def, perms_ok_def]
 QED
 
 Theorem NUM_perms_ok:

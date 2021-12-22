@@ -497,7 +497,27 @@ Proof
     \\ imp_res_tac THM_IMP_v_ok \\ gvs []
     \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
-  >~ [‘do_opapp [types_v; v]’] >- cheat
+  >~ [‘do_opapp [types_v; v]’] >- (
+    drule_all types_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac types_v_thm
+    \\ fs[state_ok_def]
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms types_v`
+    by simp[types_v_perms_ok, UNIT_TYPE_perms_ok]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs[holKernelTheory.types_def]
+    \\ fs[holKernelTheory.get_the_type_constants_def]
+    \\ gvs[]
+    \\ conj_tac >- metis_tac[]
+    \\ drule_then irule LIST_TYPE_v_ok
+    \\ rw[EVERY_MEM]
+    \\ drule_then irule PAIR_TYPE_v_ok
+    \\ conj_tac >- MATCH_ACCEPT_TAC NUM_v_ok
+    \\ MATCH_ACCEPT_TAC STRING_TYPE_v_ok
+  )
   >~ [‘do_opapp [get_type_arity_v; v]’] >- cheat
   >~ [‘do_opapp [new_type_v; v]’] >- cheat
   >~ [‘do_opapp [mk_type_v; v]’] >- cheat

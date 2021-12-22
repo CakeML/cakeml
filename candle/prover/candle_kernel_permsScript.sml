@@ -28,6 +28,13 @@ QED
 
 (* Functions translated with 'm_translate' should be proved for kernel_perms *)
 
+Theorem the_type_constants_perms_ok[simp]:
+  perms_ok kernel_perms the_type_constants
+Proof
+  rw[perms_ok_def, the_type_constants_def]
+  \\ rw[kernel_perms_def, kernel_locs_def, the_type_constants_def]
+QED
+
 Theorem trans_v_perms_ok:
   perms_ok kernel_perms trans_v
 Proof
@@ -38,6 +45,15 @@ Theorem beta_v_perms_ok:
   perms_ok kernel_perms beta_v
 Proof
   cheat
+QED
+
+Theorem types_v_perms_ok:
+  perms_ok kernel_perms types_v
+Proof
+  rw[perms_ok_def, types_v_def, astTheory.pat_bindings_def]
+  \\ rw[perms_ok_env_def] \\ pop_assum mp_tac
+  \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ rw[]
 QED
 
 (*
