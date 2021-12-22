@@ -37,7 +37,7 @@ val config_component_equality = theorem"config_component_equality";
 
 val attach_bitmaps_def = Define `
   attach_bitmaps names c (SOME (bytes, c')) =
-    SOME (bytes, c.word_conf.bitmaps,
+    SOME (bytes, append (FST c.word_conf.bitmaps),
           c with <| lab_conf := c'
                   ; symbols := MAP (\(n,p,l). (lookup_any n names «NOTFOUND»,p,l)) c'.sec_pos_len
                   |>) /\
@@ -583,7 +583,7 @@ val compile_inc_progs_def = Define`
     let ps = ps with <| word_prog := keep_progs k p |> in
     let bm0 = c.word_conf.bitmaps in
     let (p, fs, bm) = compile_word_to_stack reg_count1 p bm0 in
-    let cur_bm = DROP (LENGTH bm0) bm in
+    let cur_bm = DROP (LENGTH (append (FST bm0))) (append (FST bm)) in
     let c = c with word_conf := <|bitmaps := bm|> in
     let ps = ps with <| stack_prog := keep_progs k p ; cur_bm := cur_bm |> in
     let reg_count2 = asm_c.reg_count - (3 + LENGTH asm_c.avoid_regs) in
@@ -593,7 +593,7 @@ val compile_inc_progs_def = Define`
     let ps = ps with <| lab_prog := keep_progs k p |> in
     let target = lab_to_target$compile c.lab_conf (p:'a prog) in
     let ps = ps with <| target_prog := OPTION_MAP
-        (\(bytes, _). (bytes, c.word_conf.bitmaps)) target |> in
+        (\(bytes, _). (bytes, append (FST c.word_conf.bitmaps))) target |> in
     let c = c with lab_conf updated_by (case target of NONE => I
         | SOME (_, c') => K c') in
     (c, ps)`;
