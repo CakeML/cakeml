@@ -12,20 +12,20 @@ val _ = new_theory "candle_kernel_perms";
 
 val _ = set_grammar_ancestry ["candle_kernel_vals", "perms", "misc"];
 
+Theorem call_variant_v_perms_ok:
+  ∀ps. perms_ok ps call_variant_v
+Proof
+  cheat
+QED
+
 Theorem perms_ok_concl:
-  perms_ok ∅ concl_v
+  ∀ps. perms_ok ps concl_v
 Proof
   cheat
 QED
 
 Theorem trans_v_perms_ok:
-  perms_ok ps trans_v
-Proof
-  cheat
-QED
-
-Theorem call_variant_v_perms_ok:
-  perms_ok ∅ call_variant_v
+  perms_ok kernel_perms trans_v
 Proof
   cheat
 QED

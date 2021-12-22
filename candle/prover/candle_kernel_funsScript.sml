@@ -26,11 +26,8 @@ Theorem Arrow1:
   do_opapp [fv; av] = SOME (env, exp) ∧
   evaluate (s:'ffi semanticPrimitives$state) env [exp] = (s', res) ∧
   A a av ∧
-  RefAlloc ∉ ps ∧
-  W8Alloc ∉ ps ∧
-  (∀n. RefMention n ∉ ps) ∧
-  perms_ok ps av ∧
-  perms_ok ps fv ⇒
+  perms_ok ∅ av ∧
+  perms_ok ∅ fv ⇒
     s.ffi = s'.ffi ∧
     ((res = Rerr (Rabort Rtimeout_error)) ∨
      (res = Rerr (Rabort Rtype_error)) ∨
@@ -60,11 +57,10 @@ Proof
   \\ strip_tac \\ gvs []
   THEN1
    (drule_at (Pos last) evaluate_perms_ok_exp
-    \\ disch_then (qspec_then ‘ps’ mp_tac)
+    \\ disch_then (qspec_then ‘{}’ mp_tac)
     \\ reverse impl_tac THEN1 fs []
     \\ fs [perms_ok_state_def]
-    \\ drule_all perms_ok_do_opapp
-    \\ fs [])
+    \\ drule_all perms_ok_do_opapp \\ fs [])
   \\ mp_tac (CONJUNCT1 is_clock_io_mono_evaluate)
   \\ qmatch_asmsub_abbrev_tac ‘evaluate s env1 [e]’
   \\ disch_then (qspecl_then [`s`,`env1`,`[e]`] mp_tac)
@@ -344,7 +340,6 @@ Proof
     \\ assume_tac concl_v_thm
     \\ drule_all v_ok_THM_TYPE_HEAD \\ strip_tac
     \\ (drule_then $ drule_then $ drule_then $ drule) Arrow1
-    \\ disch_then (qspec_then ‘{}’ mp_tac)
     \\ impl_tac
     THEN1 (imp_res_tac THM_TYPE_perms_ok \\ fs [perms_ok_concl])
     \\ strip_tac \\ gvs []
@@ -389,12 +384,9 @@ Theorem Arrow2:
   do_opapp [gv; bv] = SOME (env, exp) ∧
   evaluate (s:'ffi semanticPrimitives$state) env [exp] = (s', res) ∧
   A a av ∧ B b bv ∧
-  RefAlloc ∉ ps ∧
-  W8Alloc ∉ ps ∧
-  (∀n. RefMention n ∉ ps) ∧
-  perms_ok ps av ∧
-  perms_ok ps bv ∧
-  perms_ok ps fv ⇒
+  perms_ok ∅ av ∧
+  perms_ok ∅ bv ∧
+  perms_ok ∅ fv ⇒
     s.ffi = s'.ffi ∧
     ((res = Rerr (Rabort Rtimeout_error)) ∨
      (res = Rerr (Rabort Rtype_error)) ∨
@@ -408,7 +400,7 @@ Proof
     by (gvs [do_partial_app_def, CaseEqs ["v", "exp"], do_opapp_cases,
              perms_ok_def]
         \\ drule_at_then (Pat ‘evaluate’)
-                         (qspec_then ‘ps’ mp_tac)
+                         (qspec_then ‘{}’ mp_tac)
                          evaluate_perms_ok_exp
         \\ impl_tac \\ simp []
         \\ gs [perms_ok_state_def, perms_ok_env_def]
@@ -543,12 +535,9 @@ Proof
       by (irule_at Any v_ok_LIST_TERM_TYPE_HEAD \\ gs [SF SFY_ss])
     \\ ‘∃tm2. TERM_TYPE tm2 w’
       by (irule_at Any v_ok_TERM_TYPE_HEAD \\ gs [SF SFY_ss])
-    \\ ‘∃ps. RefAlloc ∉ ps ∧
-             W8Alloc ∉ ps ∧
-             (∀n. RefMention n ∉ ps) ∧
-             perms_ok ps call_variant_v’
+    \\ ‘perms_ok {} call_variant_v’
       by (irule_at Any call_variant_v_perms_ok \\ gs [])
-    \\ ‘perms_ok ps v ∧ perms_ok ps w’
+    \\ ‘perms_ok {} v ∧ perms_ok {} w’
       by gs [SF SFY_ss, TERM_TYPE_perms_ok, LIST_TERM_TYPE_perms_ok]
     \\ assume_tac call_variant_v_thm
     \\ drule_all Arrow2
@@ -581,14 +570,9 @@ Proof
       by (irule_at Any v_ok_THM_TYPE_HEAD \\ gs [SF SFY_ss])
     \\ ‘∃th2. THM_TYPE th2 w’
       by (irule_at Any v_ok_THM_TYPE_HEAD \\ gs [SF SFY_ss])
-    \\ ‘∃ps. RefAlloc ∉ ps ∧
-             W8Alloc ∉ ps ∧
-             (∀n. RefMention n ∉ ps) ∧
-             perms_ok ps trans_v’
-      by (irule_at Any trans_v_perms_ok
-          \\ qexists_tac ‘EMPTY’ \\ gs [])
-    \\ ‘perms_ok ps v ∧ perms_ok ps w’
-      by gs [SF SFY_ss, THM_TYPE_perms_ok]
+    \\ ‘perms_ok kernel_perms v ∧ perms_ok kernel_perms w ∧
+        perms_ok kernel_perms trans_v’
+      by gs [SF SFY_ss, THM_TYPE_perms_ok, trans_v_perms_ok]
     \\ assume_tac trans_v_thm (*
     \\ drule_all Arrow2
     \\ strip_tac \\ gvs []
