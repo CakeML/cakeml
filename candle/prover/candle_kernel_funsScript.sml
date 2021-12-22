@@ -550,7 +550,7 @@ Theorem kernel_vals_ok:
         do_opapp [f; v] = SOME (env, exp) ∧
         state_ok ctxt s ∧
         v_ok ctxt v ∧
-        evaluate s env [exp] = (s', res) ⇒
+        evaluate (s:'ffi state) env [exp] = (s', res) ⇒
           (∃abort. s'.ffi = s.ffi ∧ res = Rerr (Rabort abort)) ∨
           ∃ctxt'.
             state_ok ctxt' s' ∧
@@ -621,29 +621,31 @@ Proof
   \\ Cases_on ‘f = deduct_antisym_rule_v’ \\ gvs [] >- cheat
   \\ Cases_on ‘f = inst_type_v’ \\ gvs [] >- cheat
   \\ Cases_on ‘f = inst_1_v’ \\ gvs [] >- cheat
-  \\ Cases_on ‘f = trans_v’ \\ gvs []
-  >- (
-    drule_all_then strip_assume_tac trans_v_head \\ gvs []
-    >- (first_assum (irule_at Any) \\ gs [])
-    \\ rename1 ‘do_opapp [g; w]’
+  \\ Cases_on ‘f = trans_v’ \\ gvs [] >-
+   (drule_all trans_v_head \\ strip_tac \\ gvs []
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ rename [‘do_opapp [g; w]’]
     \\ ‘∃th1. THM_TYPE th1 v’
       by (irule_at Any v_ok_THM_TYPE_HEAD \\ gs [SF SFY_ss])
     \\ ‘∃th2. THM_TYPE th2 w’
       by (irule_at Any v_ok_THM_TYPE_HEAD \\ gs [SF SFY_ss])
-    \\ ‘perms_ok kernel_perms v ∧ perms_ok kernel_perms w ∧
-        perms_ok kernel_perms trans_v’
-      by gs [SF SFY_ss, THM_TYPE_perms_ok, trans_v_perms_ok]
-    \\ assume_tac trans_v_thm (*
-    \\ drule_all Arrow2
+    \\ ‘THM ctxt th1 ∧ THM ctxt th2’ by cheat
+    \\ assume_tac trans_v_thm
+    \\ fs [state_ok_def]
+    \\ ‘perms_ok kernel_perms v ∧
+        perms_ok kernel_perms w ∧
+        perms_ok kernel_perms trans_v’ by
+         fs [THM_TYPE_perms_ok, SF SFY_ss, trans_v_perms_ok]
+    \\ drule_all ArrowM2 \\ strip_tac \\ fs []
+    \\ qexists_tac ‘ctxt’ \\ fs [SF SFY_ss]
+    \\ fs [PULL_EXISTS]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ drule_all holKernelProofTheory.TRANS_thm
     \\ strip_tac \\ gvs []
-    \\ irule_at (Pos last) v_ok_KernelVals
-    \\ irule_at Any v_ok_Inferred
-    \\ irule_at Any inferred_THM
-    \\ first_assum (irule_at (Pos (el 2)))
-    \\ irule_at Any conj_thm
-    \\ imp_res_tac v_ok_THM
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ gs [state_ok_def] *) \\ cheat)
+    \\ Cases_on ‘r’ \\ fs []
+    \\ imp_res_tac THM_IMP_v_ok \\ gvs []
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   \\ qsuff_tac ‘∃v1 v2 x. f = Closure v1 v2 x ∧ ∀n w. x ≠ Fun n w’
   THEN1 (strip_tac \\ fs [do_partial_app_def,AllCaseEqs()])
   \\ fs [kernel_funs_def]
