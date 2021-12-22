@@ -22,7 +22,6 @@ Datatype:
              | RefMention loc  (* Mention reference using pointer    *)
              | RefUpdate       (* Write to references                *)
              | RefAlloc        (* Allocate new references            *)
-             | DoEval          (* Call Eval                          *)
              | DoFFI           (* Call FFI                           *)
              | W8Alloc         (* Allocate byte arrays               *)
 End
@@ -32,7 +31,7 @@ Definition perms_ok_exp_def:
     every_exp $ λx.
       case x of
         App op xs =>
-          (op = Eval ⇒ DoEval ∈ ps) ∧
+          op ≠ Eval ∧
           (op = Opref ⇒ RefAlloc ∈ ps) ∧
           (op = Aalloc ⇒ RefAlloc ∈ ps) ∧
           (op = AallocEmpty ⇒ RefAlloc ∈ ps) ∧
@@ -295,8 +294,7 @@ Theorem do_app_perms:
   (op = Aw8alloc ⇒ W8Alloc ∈ ps) ∧
   (op = Opassign ⇒ RefUpdate ∈ ps) ∧
   (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps ∧ DoFFI ∈ ps) ∧
-  op ≠ Opapp ∧
-  op ≠ Eval ⇒
+  op ≠ Opapp ⇒
     (∀n. n < LENGTH refs1 ∧ RefMention n ∈ ps ⇒ perms_ok_ref ps (EL n refs1)) ∧
     (RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒ LENGTH refs1 = LENGTH refs) ∧
     (DoFFI ∉ ps ⇒ ffi1 = ffi) ∧
@@ -587,7 +585,7 @@ Theorem evaluate_perms_ok:
      (W8Alloc ∈ ps ⇒ IMAGE RefMention UNIV ⊆ ps) ∧
      evaluate s env xs = (s', res) ⇒
        (RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
-       (DoEval ∉ ps ⇒ s'.next_type_stamp = s.next_type_stamp) ∧
+       s'.next_type_stamp = s.next_type_stamp ∧
        (DoFFI ∉ ps ⇒ s'.ffi = s.ffi) ∧
        perms_ok_state ps s' ∧
        (∀ffi out y.
@@ -609,7 +607,7 @@ Theorem evaluate_perms_ok:
      (W8Alloc ∈ ps ⇒ IMAGE RefMention UNIV ⊆ ps) ∧
      evaluate_match s env v pes errv = (s', res) ⇒
        (RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
-       (DoEval ∉ ps ⇒ s'.next_type_stamp = s.next_type_stamp) ∧
+       s'.next_type_stamp = s.next_type_stamp ∧
        (DoFFI ∉ ps ⇒ s'.ffi = s.ffi) ∧
        perms_ok_state ps s' ∧
        (∀ffi out y.
@@ -637,7 +635,6 @@ Theorem evaluate_perms_ok:
        | Rval env1 => perms_ok_env ps UNIV env1
        | _ => T)
 Proof
-
   ho_match_mp_tac full_evaluate_ind
   \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
   >~ [‘[]’] >- (
@@ -672,10 +669,7 @@ Proof
          perms_ok_env_def])
   >~ [‘Fun n e’] >- (
     gvs [evaluate_def, perms_ok_env_def, perms_ok_def, SF SFY_ss])
-  >~ [‘App op xs’]
-
-   >- (
-
+  >~ [‘App op xs’] >- (
     gvs [evaluate_def]
     \\ Cases_on ‘op = Opapp’ \\ gs []
     >- ((* Opapp *)
@@ -734,11 +728,6 @@ Proof
     \\ ‘EVERY (λx. perms_ok_env ps (freevars x) env) xs’
       by gs [EVERY_perms_ok_env_BIGUNION, SF ETA_ss]
     \\ Cases_on ‘op = Eval’ \\ gs []
-    >- ((* Eval *)
-      gvs [CaseEqs ["result", "prod", "bool", "option"],
-           perms_ok_env_BIGUNION, EVERY_MEM, MEM_MAP, PULL_EXISTS, SF SFY_ss,
-           evaluateTheory.dec_clock_def]
-      \\ cheat)
     \\ ‘EVERY (λx. perms_ok_env ps (freevars x) env) xs’
       by gs [EVERY_perms_ok_env_BIGUNION, SF ETA_ss]
     \\ gvs [CaseEqs ["result", "prod", "bool", "option"]]
