@@ -68,6 +68,70 @@ Proof
   \\ gs [io_events_mono_antisym]
 QED
 
+Theorem Arrow2:
+  (A --> B --> C) f fv ∧
+  do_partial_app fv av = SOME gv ∧
+  do_opapp [gv; bv] = SOME (env, exp) ∧
+  evaluate (s:'ffi semanticPrimitives$state) env [exp] = (s', res) ∧
+  A a av ∧ B b bv ∧
+  perms_ok ∅ av ∧
+  perms_ok ∅ bv ∧
+  perms_ok ∅ fv ⇒
+    s.ffi = s'.ffi ∧
+    ((res = Rerr (Rabort Rtimeout_error)) ∨
+     (res = Rerr (Rabort Rtype_error)) ∨
+     s.refs = s'.refs ∧
+     s.eval_state = s'.eval_state ∧
+     s.next_type_stamp = s'.next_type_stamp ∧
+     ∃rv. res = Rval [rv] ∧
+          C (f a b) rv)
+Proof
+  strip_tac
+  \\ ‘LENGTH s'.refs = LENGTH s.refs’
+    by (gvs [do_partial_app_def, CaseEqs ["v", "exp"], do_opapp_cases,
+             perms_ok_def]
+        \\ drule evaluate_empty_perms
+        \\ impl_tac \\ simp []
+        \\ gs [perms_ok_state_def, perms_ok_env_def]
+        \\ Cases \\ simp [ml_progTheory.nsLookup_nsBind_compute]
+        \\ rw [] \\ gs []
+        \\ first_x_assum irule
+        \\ first_assum (irule_at (Pos last)) \\ gs [])
+  \\ qabbrev_tac ‘env' = write "a" av (write "b" bv (write "f" fv ARB))’
+  \\ ‘Eval env' (Var (Short "a")) (A a)’
+    by simp [Abbr ‘env'’, ml_translatorTheory.Eval_Var_SIMP]
+  \\ ‘Eval env' (Var (Short "b")) (B b)’
+    by simp [Abbr ‘env'’, ml_translatorTheory.Eval_Var_SIMP]
+  \\ ‘Eval env' (Var (Short "f")) ((A --> B --> C) f)’
+    by simp [Abbr ‘env'’, ml_translatorTheory.Eval_Var_SIMP]
+  \\ qpat_x_assum ‘(_ --> _) _ _’ kall_tac
+  \\ qpat_x_assum ‘A _ _’ kall_tac
+  \\ qpat_x_assum ‘B _ _’ kall_tac
+  \\ dxrule_all ml_translatorTheory.Eval_Arrow \\ strip_tac
+  \\ dxrule_all ml_translatorTheory.Eval_Arrow
+  \\ simp [ml_translatorTheory.Eval_def]
+  \\ disch_then (qspec_then ‘s.refs’ strip_assume_tac)
+  \\ dxrule ml_translatorTheory.evaluate_empty_state_IMP
+  \\ simp [ml_progTheory.eval_rel_def, evaluate_def, Abbr ‘env'’,
+           ml_progTheory.nsLookup_write]
+  \\ qpat_x_assum ‘do_partial_app _ _ = _’ mp_tac
+  \\ simp [do_partial_app_def, Once do_opapp_def, AllCaseEqs (), PULL_EXISTS]
+  \\ rpt gen_tac \\ strip_tac
+  \\ rpt gen_tac \\ strip_tac \\ gvs []
+  \\ qpat_x_assum ‘do_opapp _ = SOME (env,exp)’ mp_tac
+  \\ simp [do_opapp_cases]
+  \\ strip_tac \\ gvs [evaluate_def, do_opapp_cases,
+                       evaluateTheory.dec_clock_def]
+  \\ dxrule_then (qspec_then ‘s.clock’ mp_tac) evaluate_set_init_clock
+  \\ simp [with_same_clock]
+  \\ strip_tac \\ gvs []
+  \\ mp_tac (CONJUNCT1 is_clock_io_mono_evaluate)
+  \\ qmatch_asmsub_abbrev_tac ‘evaluate s env1 [e]’
+  \\ disch_then (qspecl_then [`s`,`env1`,`[e]`] mp_tac)
+  \\ rw [is_clock_io_mono_def]
+  \\ gs [io_events_mono_antisym]
+QED
+
 Triviality GC_T:
   GC s = T
 Proof
@@ -247,6 +311,62 @@ Proof
   \\ fs []
 QED
 
+Theorem ArrowM2:
+  ArrowP F (HOL_STORE,^p) (PURE A1) (ArrowM F (HOL_STORE,p) (PURE A2) (MONAD B D)) f fv ∧
+  do_partial_app fv a1v = SOME gv ∧
+  do_opapp [gv; a2v] = SOME (env, exp) ∧
+  evaluate (s:'a semanticPrimitives$state) env [exp] = (s', res) ∧
+  A1 a1 a1v ∧ A2 a2 a2v ∧ STATE ctxt refs ∧
+  (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok refs loc s.refs) ∧
+  (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s.refs loc = SOME r ⇒ ref_ok ctxt r) ∧
+  perms_ok kernel_perms a1v ∧
+  perms_ok kernel_perms a2v ∧
+  perms_ok kernel_perms fv ⇒
+    s.ffi = s'.ffi ∧
+    ((res = Rerr (Rabort Rtimeout_error)) ∨
+     (res = Rerr (Rabort Rtype_error)) ∨
+     s.next_type_stamp = s'.next_type_stamp ∧
+     s.eval_state = s'.eval_state ∧
+     ∃r refs2.
+       f a1 a2 refs = (r,refs2) ∧
+       (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok refs2 loc s'.refs) ∧
+       (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s'.refs loc = SOME r ⇒ ref_ok ctxt r) ∧
+       (∀x. r = Success x ⇒ ∃rv. res = Rval [rv] ∧ B x rv) ∧
+       (∀x. r = Failure x ⇒ ∃rv. res = Rerr (Rraise rv) ∧ D x rv))
+Proof
+  strip_tac \\ irule ArrowM1 \\ fs [SF SFY_ss]
+  \\ first_assum $ irule_at $ Pos hd
+  \\ first_assum $ irule_at $ Pos hd
+  \\ first_assum $ irule_at $ Pos hd \\ fs []
+  \\ gvs [do_partial_app_def,AllCaseEqs()]
+  \\ qexists_tac ‘p’
+  \\ conj_tac THEN1
+   (simp [Once perms_ok_cases]
+    \\ pop_assum mp_tac
+    \\ simp [Once perms_ok_cases]
+    \\ simp [perms_ok_env_def]
+    \\ fs [ml_progTheory.nsLookup_nsBind_compute]
+    \\ strip_tac \\ reverse Cases
+    \\ fs [ml_progTheory.nsLookup_nsBind_compute]
+    \\ rw [] \\ fs []
+    \\ metis_tac [namespaceTheory.id_distinct,namespaceTheory.id_11])
+  \\ fs [ml_monad_translatorTheory.ArrowP_def]
+  \\ fs [ml_monad_translatorTheory.ArrowM_def]
+  \\ fs [ml_monad_translatorTheory.PURE_def,PULL_EXISTS]
+  \\ rpt strip_tac
+  \\ last_x_assum drule_all
+  \\ fs [do_opapp_def]
+  \\ simp [Once evaluate_def]
+  \\ fs [ml_monad_translatorTheory.ArrowP_def]
+  \\ fs [ml_monad_translatorTheory.PURE_def,PULL_EXISTS]
+  \\ fs [PULL_FORALL] \\ gen_tac
+  \\ disch_then (qspec_then ‘junk’ strip_assume_tac)
+  \\ fs [GSYM PULL_FORALL]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ fs [do_opapp_def]
+QED
+
 Theorem state_ok_with_clock[simp]:
   state_ok ctxt (s with clock := k) ⇔ state_ok ctxt s
 Proof
@@ -381,70 +501,6 @@ Proof
     \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   \\ cheat
-QED
-
-Theorem Arrow2:
-  (A --> B --> C) f fv ∧
-  do_partial_app fv av = SOME gv ∧
-  do_opapp [gv; bv] = SOME (env, exp) ∧
-  evaluate (s:'ffi semanticPrimitives$state) env [exp] = (s', res) ∧
-  A a av ∧ B b bv ∧
-  perms_ok ∅ av ∧
-  perms_ok ∅ bv ∧
-  perms_ok ∅ fv ⇒
-    s.ffi = s'.ffi ∧
-    ((res = Rerr (Rabort Rtimeout_error)) ∨
-     (res = Rerr (Rabort Rtype_error)) ∨
-     s.refs = s'.refs ∧
-     s.eval_state = s'.eval_state ∧
-     s.next_type_stamp = s'.next_type_stamp ∧
-     ∃rv. res = Rval [rv] ∧
-          C (f a b) rv)
-Proof
-  strip_tac
-  \\ ‘LENGTH s'.refs = LENGTH s.refs’
-    by (gvs [do_partial_app_def, CaseEqs ["v", "exp"], do_opapp_cases,
-             perms_ok_def]
-        \\ drule evaluate_empty_perms
-        \\ impl_tac \\ simp []
-        \\ gs [perms_ok_state_def, perms_ok_env_def]
-        \\ Cases \\ simp [ml_progTheory.nsLookup_nsBind_compute]
-        \\ rw [] \\ gs []
-        \\ first_x_assum irule
-        \\ first_assum (irule_at (Pos last)) \\ gs [])
-  \\ qabbrev_tac ‘env' = write "a" av (write "b" bv (write "f" fv ARB))’
-  \\ ‘Eval env' (Var (Short "a")) (A a)’
-    by simp [Abbr ‘env'’, ml_translatorTheory.Eval_Var_SIMP]
-  \\ ‘Eval env' (Var (Short "b")) (B b)’
-    by simp [Abbr ‘env'’, ml_translatorTheory.Eval_Var_SIMP]
-  \\ ‘Eval env' (Var (Short "f")) ((A --> B --> C) f)’
-    by simp [Abbr ‘env'’, ml_translatorTheory.Eval_Var_SIMP]
-  \\ qpat_x_assum ‘(_ --> _) _ _’ kall_tac
-  \\ qpat_x_assum ‘A _ _’ kall_tac
-  \\ qpat_x_assum ‘B _ _’ kall_tac
-  \\ dxrule_all ml_translatorTheory.Eval_Arrow \\ strip_tac
-  \\ dxrule_all ml_translatorTheory.Eval_Arrow
-  \\ simp [ml_translatorTheory.Eval_def]
-  \\ disch_then (qspec_then ‘s.refs’ strip_assume_tac)
-  \\ dxrule ml_translatorTheory.evaluate_empty_state_IMP
-  \\ simp [ml_progTheory.eval_rel_def, evaluate_def, Abbr ‘env'’,
-           ml_progTheory.nsLookup_write]
-  \\ qpat_x_assum ‘do_partial_app _ _ = _’ mp_tac
-  \\ simp [do_partial_app_def, Once do_opapp_def, AllCaseEqs (), PULL_EXISTS]
-  \\ rpt gen_tac \\ strip_tac
-  \\ rpt gen_tac \\ strip_tac \\ gvs []
-  \\ qpat_x_assum ‘do_opapp _ = SOME (env,exp)’ mp_tac
-  \\ simp [do_opapp_cases]
-  \\ strip_tac \\ gvs [evaluate_def, do_opapp_cases,
-                       evaluateTheory.dec_clock_def]
-  \\ dxrule_then (qspec_then ‘s.clock’ mp_tac) evaluate_set_init_clock
-  \\ simp [with_same_clock]
-  \\ strip_tac \\ gvs []
-  \\ mp_tac (CONJUNCT1 is_clock_io_mono_evaluate)
-  \\ qmatch_asmsub_abbrev_tac ‘evaluate s env1 [e]’
-  \\ disch_then (qspecl_then [`s`,`env1`,`[e]`] mp_tac)
-  \\ rw [is_clock_io_mono_def]
-  \\ gs [io_events_mono_antisym]
 QED
 
 Theorem kernel_vals_twice_partial_app:
