@@ -100,7 +100,9 @@ Triviality evaluate_kernel_perms_lemma:
     evaluate s env [exp] = (s',res) ∧
     perms_ok_exp ps exp ∧ perms_ok_env ps (freevars exp) env ∧ perms_ok_state ps s ∧
     DoFFI ∉ ps ∧ RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒
-    LENGTH s'.refs = LENGTH s.refs ∧ s'.ffi = s.ffi
+    LENGTH s'.refs = LENGTH s.refs ∧
+    s'.ffi = s.ffi ∧
+    s'.eval_state = s.eval_state
 Proof
   metis_tac [evaluate_perms_ok_exp]
 QED

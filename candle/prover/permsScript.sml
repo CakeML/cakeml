@@ -586,6 +586,7 @@ Theorem evaluate_perms_ok:
      evaluate s env xs = (s', res) ⇒
        (RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
        s'.next_type_stamp = s.next_type_stamp ∧
+       s'.eval_state = s.eval_state ∧
        (DoFFI ∉ ps ⇒ s'.ffi = s.ffi) ∧
        perms_ok_state ps s' ∧
        (∀ffi out y.
@@ -608,6 +609,7 @@ Theorem evaluate_perms_ok:
      evaluate_match s env v pes errv = (s', res) ⇒
        (RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒ LENGTH s'.refs = LENGTH s.refs) ∧
        s'.next_type_stamp = s.next_type_stamp ∧
+       s'.eval_state = s.eval_state ∧
        (DoFFI ∉ ps ⇒ s'.ffi = s.ffi) ∧
        perms_ok_state ps s' ∧
        (∀ffi out y.
@@ -897,4 +899,3 @@ Theorem evaluate_perms_ok_dec =
   |> SIMP_RULE (srw_ss()) [];
 
 val _ = export_theory ();
-
