@@ -559,6 +559,7 @@ Theorem kernel_vals_ok:
             (∀vs. res = Rval vs ⇒ EVERY (v_ok ctxt') vs) ∧
             (∀v. res = Rerr (Rraise v) ⇒ v_ok ctxt' v)
 Proof
+
   rw [Once v_ok_cases]
   >~ [‘inferred ctxt f’] >- (
     irule_at Any inferred_ok
@@ -629,7 +630,7 @@ Proof
       by (irule_at Any v_ok_THM_TYPE_HEAD \\ gs [SF SFY_ss])
     \\ ‘∃th2. THM_TYPE th2 w’
       by (irule_at Any v_ok_THM_TYPE_HEAD \\ gs [SF SFY_ss])
-    \\ ‘THM ctxt th1 ∧ THM ctxt th2’ by cheat
+    \\ ‘THM ctxt th1 ∧ THM ctxt th2’ by (imp_res_tac v_ok_THM \\ fs [])
     \\ assume_tac trans_v_thm
     \\ fs [state_ok_def]
     \\ ‘perms_ok kernel_perms v ∧
