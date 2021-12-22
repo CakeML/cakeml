@@ -1143,6 +1143,19 @@ val type_of_state = Q.prove(
   \\ Cases_on `r` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ SRW_TAC [] []);
 
+Theorem variant_thm:
+  !tms tm. EVERY (TERM defs) tms ∧ TERM defs tm ∧ STATE defs s ⇒
+    TERM defs (variant tms tm)
+Proof
+  ho_match_mp_tac variant_ind
+  \\ rw[]
+  \\ rw[Once variant_def]
+  \\ CASE_TAC \\ rw[]
+  \\ first_x_assum irule
+  \\ rw[]
+  \\ fs[TERM_Var_SIMP]
+QED
+
 Theorem vsubst_thm:
    EVERY (\(t1,t2). TERM defs t1 /\ TERM defs t2) theta /\
     TERM defs tm /\ STATE defs s /\

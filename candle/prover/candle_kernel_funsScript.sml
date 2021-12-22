@@ -5,7 +5,8 @@
 open preamble helperLib;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory
      evaluateTheory namespacePropsTheory evaluatePropsTheory
-     sptreeTheory ml_hol_kernelProgTheory candle_kernel_permsTheory;
+     sptreeTheory holKernelProofTheory ml_hol_kernelProgTheory
+     candle_kernel_permsTheory;
 open permsTheory candle_kernel_valsTheory candle_prover_invTheory ast_extrasTheory;
 local open ml_progLib in end
 
@@ -14,12 +15,6 @@ val _ = new_theory "candle_kernel_funs";
 val _ = set_grammar_ancestry [
   "candle_kernel_vals", "candle_prover_inv", "ast_extras", "evaluate",
   "namespaceProps", "perms", "semanticPrimitivesProps", "misc"];
-
-Theorem variant_thm: (* ought to be proved in holKernelProof *)
-  EVERY (TERM defs) tms ∧ TERM defs tm ∧ STATE defs s ⇒ TERM defs (variant tms tm)
-Proof
-  cheat
-QED
 
 Theorem Arrow1:
   (A --> B) f fv ∧
