@@ -459,7 +459,9 @@ Proof
     \\ irule_at Any inferred_KernelFuns
     \\ first_assum $ irule_at Any
     \\ fs [do_partial_app_def])
-  \\ Cases_on ‘f = concl_v’ \\ gvs [] >-
+  \\ gvs [kernel_funs_def]
+  \\ rpt (qpat_x_assum ‘_ ≠ (_:v)’ kall_tac)
+  >~ [‘do_opapp [concl_v; v]’] >-
    (drule_all concl_v_head \\ strip_tac \\ gvs []
     \\ TRY (first_x_assum $ irule_at Any \\ gvs [] \\ NO_TAC)
     \\ rename [‘THM_TYPE_HEAD _’]
@@ -480,7 +482,7 @@ Proof
     \\ first_assum $ irule_at Any
     \\ first_assum $ irule_at Any
     \\ fs [SF SFY_ss])
-  \\ Cases_on ‘f = beta_v’ \\ gvs [] >-
+  >~ [‘do_opapp [beta_v; v]’] >-
    (drule_all beta_v_head \\ strip_tac \\ gvs []
     >- (qexists_tac ‘ctxt’ \\ fs [])
     \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
@@ -500,7 +502,47 @@ Proof
     \\ imp_res_tac THM_IMP_v_ok \\ gvs []
     \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
-  \\ cheat
+  >~ [‘do_opapp [types_v; v]’] >- cheat
+  >~ [‘do_opapp [get_type_arity_v; v]’] >- cheat
+  >~ [‘do_opapp [new_type_v; v]’] >- cheat
+  >~ [‘do_opapp [mk_type_v; v]’] >- cheat
+  >~ [‘do_opapp [mk_vartype_v; v]’] >- cheat
+  >~ [‘do_opapp [dest_type_v; v]’] >- cheat
+  >~ [‘do_opapp [dest_vartype_v; v]’] >- cheat
+  >~ [‘do_opapp [is_type_v; v]’] >- cheat
+  >~ [‘do_opapp [is_vartype_v; v]’] >- cheat
+  >~ [‘do_opapp [call_tyvars_v; v]’] >- cheat
+  >~ [‘do_opapp [constants_v; v]’] >- cheat
+  >~ [‘do_opapp [get_const_type_v; v]’] >- cheat
+  >~ [‘do_opapp [new_constant_v; v]’] >- cheat
+  >~ [‘do_opapp [call_type_of_v; v]’] >- cheat
+  >~ [‘do_opapp [is_var_v; v]’] >- cheat
+  >~ [‘do_opapp [is_const_v; v]’] >- cheat
+  >~ [‘do_opapp [is_abs_v; v]’] >- cheat
+  >~ [‘do_opapp [is_comb_v; v]’] >- cheat
+  >~ [‘do_opapp [mk_var_v; v]’] >- cheat
+  >~ [‘do_opapp [mk_const_v; v]’] >- cheat
+  >~ [‘do_opapp [mk_abs_v; v]’] >- cheat
+  >~ [‘do_opapp [mk_comb_v; v]’] >- cheat
+  >~ [‘do_opapp [dest_var_v; v]’] >- cheat
+  >~ [‘do_opapp [dest_const_v; v]’] >- cheat
+  >~ [‘do_opapp [dest_comb_v; v]’] >- cheat
+  >~ [‘do_opapp [dest_abs_v; v]’] >- cheat
+  >~ [‘do_opapp [call_frees_v; v]’] >- cheat
+  >~ [‘do_opapp [freesl_v; v]’] >- cheat
+  >~ [‘do_opapp [call_type_vars_in_term_v; v]’] >- cheat
+  >~ [‘do_opapp [rand_v; v]’] >- cheat
+  >~ [‘do_opapp [rator_v; v]’] >- cheat
+  >~ [‘do_opapp [dest_eq_v; v]’] >- cheat
+  >~ [‘do_opapp [dest_thm_v; v]’] >- cheat
+  >~ [‘do_opapp [hyp_v; v]’] >- cheat
+  >~ [‘do_opapp [refl_v; v]’] >- cheat
+  >~ [‘do_opapp [mk_comb_1_v; v]’] >- cheat
+  >~ [‘do_opapp [assume_v; v]’] >- cheat
+  >~ [‘do_opapp [axioms_v; v]’] >- cheat
+  >~ [‘do_opapp [new_axiom_v; v]’] >- cheat
+  >~ [‘do_opapp [new_basic_definition_v; v]’] >- cheat
+  >~ [‘do_opapp [new_basic_type_definition_v; v]’] >- cheat
 QED
 
 Theorem kernel_vals_twice_partial_app:
@@ -559,7 +601,6 @@ Theorem kernel_vals_ok:
             (∀vs. res = Rval vs ⇒ EVERY (v_ok ctxt') vs) ∧
             (∀v. res = Rerr (Rraise v) ⇒ v_ok ctxt' v)
 Proof
-
   rw [Once v_ok_cases]
   >~ [‘inferred ctxt f’] >- (
     irule_at Any inferred_ok
