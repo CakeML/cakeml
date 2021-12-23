@@ -473,10 +473,11 @@ Proof
   \\ TRY (rename [‘THM ctxt th’] \\ Cases_on ‘th’ \\ gs [THM_TYPE_def])
 QED
 
-Theorem v_ok_LIST_TERM_TYPE_HEAD:
+Theorem v_ok_LIST_TYPE_HEAD:
   v_ok ctxt v ∧
-  LIST_TYPE_HEAD TERM_TYPE_HEAD v ⇒
-    ∃tms. LIST_TYPE TERM_TYPE tms v
+  (!v. v_ok ctxt v ∧ A_HEAD v ==> ?a. A a v) ∧
+  LIST_TYPE_HEAD A_HEAD v ⇒
+    ∃tms. LIST_TYPE A tms v
 Proof
   completeInduct_on ‘v_size v’
   \\ rw [] \\ gvs [PULL_FORALL,AND_IMP_INTRO,LIST_TYPE_HEAD_def,PULL_EXISTS]
@@ -484,12 +485,57 @@ Proof
   THEN1 (qexists_tac ‘[]’ \\ fs [ml_translatorTheory.LIST_TYPE_def])
   \\ rename [‘Conv _ [x;y]’]
   \\ fs [v_ok_Cons]
-  \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
   \\ last_x_assum (qspecl_then [‘y’,‘t’] mp_tac)
   \\ impl_tac THEN1 fs [v_size_def]
   \\ strip_tac
+  \\ first_x_assum(
+       drule_then $ drule_then $ qx_choose_then`tm`strip_assume_tac)
   \\ qexists_tac ‘tm::tms’
   \\ fs [ml_translatorTheory.LIST_TYPE_def]
+QED
+
+Theorem v_ok_LIST_TERM_TYPE_HEAD:
+  v_ok ctxt v ∧
+  LIST_TYPE_HEAD TERM_TYPE_HEAD v ⇒
+    ∃tms. LIST_TYPE TERM_TYPE tms v
+Proof
+  strip_tac
+  \\ irule v_ok_LIST_TYPE_HEAD
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ metis_tac[v_ok_TERM_TYPE_HEAD]
+QED
+
+Theorem v_ok_PAIR_TYPE_HEAD:
+  v_ok ctxt v ∧
+  (!v. v_ok ctxt v ∧ A_HEAD v ==> ?a. A a v) ∧
+  (!v. v_ok ctxt v ∧ B_HEAD v ==> ?b. B b v) ∧
+  PAIR_TYPE_HEAD A_HEAD B_HEAD v ⇒
+    ∃p. PAIR_TYPE A B p v
+Proof
+  simp[PAIR_TYPE_HEAD_def]
+  \\ rw[Once v_ok_cases, ml_translatorTheory.PAIR_TYPE_def, EXISTS_PROD]
+  \\ fs[kernel_vals_Conv_NONE]
+  \\ metis_tac[]
+QED
+
+Theorem v_ok_LIST_PAIR_TYPE_HEAD:
+  v_ok ctxt v ∧
+  (!v. v_ok ctxt v ∧ A_HEAD v ==> ?a. A a v) ∧
+  (!v. v_ok ctxt v ∧ B_HEAD v ==> ?b. B b v) ∧
+  LIST_TYPE_HEAD (PAIR_TYPE_HEAD A_HEAD B_HEAD) v
+  ⇒
+  ∃ls. LIST_TYPE (PAIR_TYPE A B) ls v
+Proof
+  rpt strip_tac
+  \\ irule v_ok_LIST_TYPE_HEAD
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ rpt strip_tac
+  \\ irule v_ok_PAIR_TYPE_HEAD
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ metis_tac[]
 QED
 
 Theorem v_ok_TYPE:
