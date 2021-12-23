@@ -11,8 +11,7 @@ open preamble asmTheory wordLangTheory stackLangTheory parmoveTheory
 
 val _ = new_theory "word_to_stack";
 
-(* invariant: LENGTH (append (FST c.bitmaps)) = SND c.bitmaps *)
-val _ = Datatype `config = <| bitmaps : ('a word app_list # num) ;
+val _ = Datatype `config = <| bitmaps : 'a word list ;
                               stack_frame_size : num spt |>`;
 
 (* -- *)
@@ -350,8 +349,11 @@ val compile_def = Define `
     let k = asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs) in
     let (progs,fs,bitmaps) = compile_word_to_stack k progs (List [4w], 1) in
     let sfs = fromAList (MAP (λ((i,_),n). (i,n)) (ZIP (progs,fs))) in
-      (<| bitmaps := bitmaps;
-          stack_frame_size := sfs |>, 0::fs, (raise_stub_location,raise_stub k) :: progs)`
+      (<| bitmaps := append (FST bitmaps);
+          stack_frame_size := sfs |>, 0::fs,
+       (raise_stub_location,raise_stub k) ::
+       (store_consts_stub_location,store_consts_stub k) :: progs)
+End
 
 val stub_names_def = Define`
   stub_names () = [
