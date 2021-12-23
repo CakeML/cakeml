@@ -464,7 +464,7 @@ Proof
     \\ drule_all v_ok_THM_TYPE_HEAD \\ strip_tac
     \\ (drule_then $ drule_then $ drule_then $ drule) Arrow1
     \\ impl_tac
-    THEN1 (imp_res_tac THM_TYPE_perms_ok \\ fs [perms_ok_concl])
+    THEN1 (imp_res_tac THM_TYPE_perms_ok \\ fs [])
     \\ strip_tac \\ gvs []
     \\ qexists_tac ‘ctxt’ \\ fs []
     \\ fs [state_ok_def]
@@ -485,7 +485,7 @@ Proof
     \\ assume_tac beta_v_thm
     \\ fs [state_ok_def]
     \\ ‘perms_ok kernel_perms v ∧ perms_ok kernel_perms beta_v’ by
-         fs [TERM_TYPE_perms_ok, SF SFY_ss, beta_v_perms_ok]
+         fs [TERM_TYPE_perms_ok, SF SFY_ss]
     \\ drule_all ArrowM1 \\ strip_tac \\ fs []
     \\ disj2_tac
     \\ drule_all holKernelProofTheory.BETA_thm \\ strip_tac \\ gvs []
@@ -503,7 +503,7 @@ Proof
     \\ assume_tac types_v_thm
     \\ fs[state_ok_def]
     \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms types_v`
-    by simp[types_v_perms_ok, UNIT_TYPE_perms_ok]
+    by simp[UNIT_TYPE_perms_ok]
     \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
     \\ disj2_tac
     \\ qexists_tac`ctxt` \\ fs[]
@@ -653,7 +653,7 @@ Proof
     \\ ‘∃tm2. TERM_TYPE tm2 w’
       by (irule_at Any v_ok_TERM_TYPE_HEAD \\ gs [SF SFY_ss])
     \\ ‘perms_ok {} call_variant_v’
-      by (irule_at Any call_variant_v_perms_ok \\ gs [])
+      by (irule_at Any perms_ok_call_variant_v \\ gs [])
     \\ ‘perms_ok {} v ∧ perms_ok {} w’
       by gs [SF SFY_ss, TERM_TYPE_perms_ok, LIST_TERM_TYPE_perms_ok]
     \\ assume_tac call_variant_v_thm
@@ -692,7 +692,7 @@ Proof
     \\ ‘perms_ok kernel_perms v ∧
         perms_ok kernel_perms w ∧
         perms_ok kernel_perms trans_v’ by
-         fs [THM_TYPE_perms_ok, SF SFY_ss, trans_v_perms_ok]
+         fs [THM_TYPE_perms_ok, SF SFY_ss]
     \\ drule_all ArrowM2 \\ strip_tac \\ fs []
     \\ qexists_tac ‘ctxt’ \\ fs [SF SFY_ss]
     \\ fs [PULL_EXISTS]
