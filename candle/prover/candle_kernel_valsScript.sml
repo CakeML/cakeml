@@ -120,6 +120,22 @@ Proof
   fs [kernel_locs_def]
 QED
 
+Theorem refs_defs = LIST_CONJ
+  [ml_hol_kernelProgTheory.init_type_constants_refs_def,
+   MapProgTheory.ratio_refs_def,
+   MapProgTheory.delta_refs_def,
+   MapProgTheory.empty_refs_def,
+   TextIOProgTheory.stdin_refs_def,
+   TextIOProgTheory.stdout_refs_def,
+   TextIOProgTheory.stderr_refs_def]
+
+Theorem kernel_locs = IN_kernel_locs |>
+  SIMP_RULE (srw_ss()) [the_type_constants_def,
+                        the_term_constants_def,
+                        the_axioms_def,
+                        the_context_def,
+                        refs_defs]
+
 Definition kernel_perms_def:
   kernel_perms = IMAGE RefMention kernel_locs
 End
