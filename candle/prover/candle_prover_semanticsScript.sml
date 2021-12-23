@@ -35,18 +35,15 @@ Theorem Decls_basis_kernel = REWRITE_RULE [GSYM basis_and_kernel_def] prog_thm;
 
 val _ = max_print_depth := 100;
 
-Theorem LPREFIX_lemma:
-  !n xs l ll.
-    LPREFIX xs l /\
-    LNTH n xs = NONE /\
-    LTAKE n l = SOME ll
-    ==>
-    LPREFIX xs (fromList ll)
+Theorem LPREFIX_lemma[local]:
+  ∀n xs l ll.
+    LPREFIX xs l ∧
+    LNTH n xs = NONE ∧
+    LTAKE n l = SOME ll ⇒
+      LPREFIX xs (fromList ll)
 Proof
-  Induct \\ rpt Cases
-  \\ rw [llistTheory.fromList_def]
-  \\ res_tac
-  \\ cheat
+  Induct \\ rpt Cases \\ rw [llistTheory.fromList_def]
+  \\ gvs [LPREFIX_LCONS, SF SFY_ss]
 QED
 
 (*
@@ -65,6 +62,7 @@ THM ctxt th
 
 (* TODO move to evaluateProps (or wherever evaluate_decs_cons is)
  *)
+
 Theorem evaluate_decs_append:
   ∀ds1 s env ds2.
     evaluate_decs s env (ds1 ++ ds2) =
@@ -76,23 +74,14 @@ Theorem evaluate_decs_append:
 Proof
   Induct \\ rw []
   >- (
-    simp [extend_dec_env_def, combine_dec_result_def]
-    \\ CASE_TAC \\ gs []
-    \\ CASE_TAC \\ gs [])
+    rw [extend_dec_env_def, combine_dec_result_def]
+    \\ rpt CASE_TAC)
   \\ once_rewrite_tac [evaluate_decs_cons] \\ simp []
-  \\ CASE_TAC \\ gs []
-  \\ CASE_TAC \\ gs []
-  \\ CASE_TAC \\ gs []
-  \\ simp [combine_dec_result_def]
-  \\ CASE_TAC \\ gs []
-  \\ simp [extend_dec_env_def]
-  \\ CASE_TAC \\ gs []
-  \\ CASE_TAC \\ gs []
+  \\ gs [combine_dec_result_def, extend_dec_env_def]
+  \\ rpt CASE_TAC \\ gs []
 QED
 
 (* TODO: 'ffi *)
-
-
 
 (*
  |- state_ok ctxt s1
@@ -117,7 +106,7 @@ Theorem env_ok_extend_dec_env:
   env_ok ctxt env2 ⇒
     env_ok ctxt (extend_dec_env env1 env2)
 Proof
-  cheat
+  rw [env_ok_def, extend_dec_env_def, nsLookup_nsAppend_some] \\ gs [SF SFY_ss]
 QED
 
 Theorem semantics_thm:
@@ -133,7 +122,6 @@ Theorem semantics_thm:
          res = Diverge io_trace ⇒
            every (ok_event ctxt) io_trace)
 Proof
-
   strip_tac
   \\ Cases_on ‘res’ \\ gs []
   >~ [‘Terminate outcome io_list’] >- (
