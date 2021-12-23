@@ -990,4 +990,14 @@ Proof
     Cases_on ‘th’ \\ gs [THM_TYPE_def])
 QED
 
+Theorem inferred_Env[simp]:
+  ¬inferred ctxt1 (Env env id)
+Proof
+  fs [inferred_cases]
+  \\ conj_tac
+  >- (EVAL_TAC \\ fs [] \\ rewrite_tac [kernel_funs_v_def] \\ EVAL_TAC)
+  \\ rpt conj_tac \\ Cases
+  \\ fs [TYPE_TYPE_def,TERM_TYPE_def,THM_TYPE_def]
+QED
+
 val _ = export_theory ();

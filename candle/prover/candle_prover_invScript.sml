@@ -134,6 +134,13 @@ Proof
   \\ gs [do_partial_app_def, CaseEqs ["exp", "v"]]
 QED
 
+Theorem kernel_vals_Env[simp]:
+  ~kernel_vals ctxt1 (Env env id)
+Proof
+  rw [Once v_ok_cases]
+  \\ gs [do_partial_app_def, CaseEqs ["exp", "v"]]
+QED
+
 Theorem kernel_vals_Conv:
   kernel_vals ctxt (Conv (SOME stamp) vs) ⇒
     ∃tag m. stamp = TypeStamp tag m ∧ m ∈ kernel_types
