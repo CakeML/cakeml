@@ -34,6 +34,12 @@ val r = translate blanks_def;
 val r = translate tokenize_def;
 val r = translate nocomment_line_def;
 
+val nocomment_line_side_def = definition"nocomment_line_side_def";
+val nocomment_line_side = Q.prove(
+  `∀x. nocomment_line_side x <=> T`,
+  rw[nocomment_line_side_def])
+  |> update_precondition;
+
 val r = translate parse_lit_def;
 
 val parse_lit_side_def = definition"parse_lit_side_def";
@@ -173,7 +179,6 @@ val r = translate insert_def;
 val r = translate parse_subst_def;
 val r = translate parse_red_header_def;
 
-(* TODO: stuck because of register_type on pbpsteps *)
 val r = translate parse_pbpsteps_def;
 
 val parse_pbpsteps_side_def = theorem "parse_pbpsteps_side_def";
@@ -182,6 +187,7 @@ val parse_pbpsteps_side = Q.prove(
   Induct>>rw[Once parse_pbpsteps_side_def]>>
   intLib.ARITH_TAC) |> update_precondition;
 
+val r = translate parse_header_line_def;
 val r = translate parse_pbp_toks_def;
 
 val parse_pbp_full = (append_prog o process_topdecs) `

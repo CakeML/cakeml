@@ -47,6 +47,7 @@ Datatype:
   | Delete (num list) (* Ids to to delete *)
   | Polish constr     (* Adds a constraint, written in reverse polish notation *)
   | Red npbc subst (pbpstep list) ((num,pbpstep list) alist)
+  | NoOp              (* Debugging / other steps are parsed as no ops *)
 End
 
 (* Red steps add the constraint npbc by contradiction,
@@ -161,6 +162,7 @@ Definition check_pbpstep_def:
           NONE => Fail
         | SOME c =>
             if check_contradiction c then Unsat id else Fail)
+   | NoOp => Cont fml id
    | Delete ls =>
        Cont (FOLDL (λa b. delete b a) fml ls) id
    | Polish constr =>
@@ -170,7 +172,7 @@ Definition check_pbpstep_def:
    | Red c s pf pfs =>
        (let fml_not_c = insert id (not c) fml in
           case check_pbpsteps pf fml_not_c (id+1) of
-          | Unsat id' => Cont (insert id c fml) (id'+1)  (* the ids are slightly off here *)
+          | Unsat id' => Cont (insert id' c fml) (id'+1)
           | Fail => Fail
           | Cont fml' id' =>
               (* If we need a full redundancy step, then the initial steps must be satisfiability preserving *)
@@ -395,6 +397,7 @@ Proof
     drule satisfiable_subset>>
     disch_then match_mp_tac>>
     fs[range_FOLDL_delete])
+  \\ Cases_on ‘step = NoOp’ >- simp[check_pbpstep_def]
   \\ Cases_on ‘∃c. step = Polish c’
   THEN1
    (rw[check_pbpstep_def] \\ every_case_tac \\ rw []
@@ -404,23 +407,12 @@ Proof
     ‘id ∉ domain fml’ by fs [id_ok_def]  >>
     fs [range_insert] >>
     metis_tac [])
+  (* Red steps *)
   \\ ‘∃c s pf pfs. step = Red c s pf pfs’ by (Cases_on ‘step’ \\ fs [])
   \\ gvs []
   \\ CASE_TAC
   THEN1 (pop_assum mp_tac \\ simp [Once check_pbpstep_def,AllCaseEqs()])
   \\ rename [‘_ = Cont x1 y1’]
-  \\ ‘x1 = insert id c fml’ by
-   (pop_assum mp_tac
-    \\ simp [Once check_pbpstep_def,AllCaseEqs()]
-    \\ rpt strip_tac \\ gvs [])
-  \\ gvs []
-  \\ qsuff_tac ‘id ≤ y1 ∧ id_ok (insert id c fml) y1 ∧ c redundant_wrt (range fml)’
-  THEN1
-   (fs [redundant_wrt_def] \\ rw []
-    \\ irule satisfiable_subset
-    \\ pop_assum $ irule_at Any
-    \\ rw [SUBSET_DEF] \\ imp_res_tac range_insert_2 \\ fs [])
-  \\ rewrite_tac [substitution_redundancy]
   \\ pop_assum mp_tac
   \\ simp [Once check_pbpstep_def]
   \\ ‘id ∉ domain fml’ by fs [id_ok_def]
@@ -428,8 +420,17 @@ Proof
   \\ gvs []
   \\ TOP_CASE_TAC \\ fs []
   THEN1 (
-    gvs [sat_implies_def,satisfiable_def,range_insert,id_ok_def]
-    \\ metis_tac []
+    strip_tac >> CONJ_TAC>-
+      gvs[id_ok_def]>>
+      qsuff_tac ‘c redundant_wrt (range fml)’
+      >-
+       (fs [redundant_wrt_def] \\ rw []
+        \\ irule satisfiable_subset
+        \\ pop_assum $ irule_at Any
+        \\ rw [SUBSET_DEF] \\ imp_res_tac range_insert_2 \\ fs [])>>
+      rw[substitution_redundancy]>>
+      gvs [sat_implies_def,satisfiable_def,range_insert,id_ok_def]
+      \\ metis_tac []
     )
   \\ IF_CASES_TAC \\ fs []
   \\ fs[o_DEF]
@@ -439,6 +440,15 @@ Proof
   \\ gvs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,MEM_toAList]
   \\ ‘n ∉ domain s'’ by fs [id_ok_def]
   \\ fs [range_insert]
+  \\ CONJ_TAC >-
+    gvs[id_ok_def]>>
+  qsuff_tac ‘c redundant_wrt (range fml)’
+  >-
+   (fs [redundant_wrt_def] \\ rw []
+    \\ irule satisfiable_subset
+    \\ pop_assum $ irule_at Any
+    \\ rw [SUBSET_DEF] \\ imp_res_tac range_insert_2 \\ fs [])
+  \\ rw[substitution_redundancy]
   \\ qpat_x_assum ‘_ ⇒ satisfiable _’ kall_tac
   \\ gvs[id_ok_def]
   \\ qexists_tac ‘subst_fun s’ \\ fs []
@@ -586,7 +596,8 @@ Definition parse_constraints_def:
 End
 
 Definition nocomment_line_def:
-  (nocomment_line (INL c::cs) = (c ≠ strlit "*")) ∧
+  (nocomment_line (INL c::cs) =
+    (strlen c < 1 ∨ strsub c 0 ≠ #"*")) ∧
   (nocomment_line _ = T)
 End
 
@@ -732,15 +743,29 @@ Definition parse_pbpsteps_def:
           ((c,s,a)::xs) =>
             parse_pbpsteps ss xs (Red c s (REVERSE acc) []::a)
         | [] => NONE *)
-      else NONE
+     (* f and e steps are treated as no-ops *)
+     else if r = INL (strlit "f") ∨ r = INL (strlit "e") then
+        parse_pbpsteps ss cont (NoOp::acc)
+     else NONE
     | _ => NONE)
 End
 
+val headertrm = rconc (EVAL``toks (strlit"pseudo-Boolean proof version 1.2")``);
+
+Definition parse_header_line_def:
+  parse_header_line s = (s = ^headertrm)
+End
+
+(* Parse the tokenized pbf file *)
 Definition parse_pbp_toks_def:
   parse_pbp_toks tokss =
   let nocomments = FILTER nocomment_line tokss in
-  (* TODO: parse the header line ? *)
-  parse_pbpsteps nocomments [] []
+  case nocomments of
+    s::ss =>
+    if parse_header_line s then
+      parse_pbpsteps ss [] []
+     else NONE
+  | [] => NONE
 End
 
 (* Parse a list of strings in pbf format *)
@@ -756,27 +781,49 @@ Definition build_fml_def:
 End
 
 val pbfraw = ``[
-  strlit "* #variable= 4 #constraint= 7";
-  strlit "2 ~x1 1 ~x3 >= 1;";
-  strlit "1 ~x3 1 ~x5 >= 1 ;";
-  strlit "1 ~x1 1 ~x5 >= 1;";
-  strlit "1 ~x2 1 ~x4 1 ~x6 >= 2 ;";
-  strlit "* test comment 1234567";
-  strlit "+1 x1 +1 x2 >= 1 ;";
-  strlit "+1 x3 +1 x4 >= 1 ;";
-  strlit "+1 x5 +1 x6 >= 1 ;";
+strlit"+1 x1 +1 x2 +1 x3 +1 x4 = 2 ;";
+strlit"+1 x5 +1 x6 +1 x7 +1 x2 = 2 ;";
+strlit"+1 x8 +1 x4 +1 x9 +1 x6 = 2 ;";
+strlit"+1 x10 +1 x11 +1 x1 +1 x12 = 2 ;";
+strlit"+1 x13 +1 x14 +1 x5 +1 x11 = 2 ;";
+strlit"+1 x15 +1 x12 +1 x8 +1 x14 = 2 ;";
+strlit"+1 x16 +1 x17 +1 x10 +1 x18 = 2 ;";
+strlit"+1 x19 +1 x20 +1 x13 +1 x17 = 2 ;";
+strlit"+1 x21 +1 x18 +1 x15 +1 x20 = 2 ;";
+strlit"+1 x22 +1 x23 +1 x16 +1 x24 = 2 ;";
+strlit"+1 x25 +1 x26 +1 x19 +1 x23 = 2 ;";
+strlit"+1 x27 +1 x24 +1 x21 +1 x26 = 2 ;";
+strlit"+1 x28 +1 x29 +1 x22 +1 x30 = 2 ;";
+strlit"+1 x31 +1 x32 +1 x25 +1 x29 = 2 ;";
+strlit"+1 x33 +1 x30 +1 x27 +1 x32 = 2 ;";
+strlit"+1 x34 +1 x35 +1 x28 +1 x36 = 2 ;";
+strlit"+1 x37 +1 x38 +1 x31 +1 x35 = 2 ;";
+strlit"+1 x39 +1 x36 +1 x33 +1 x38 = 2 ;";
+strlit"+1 x40 +1 x41 +1 x34 +1 x42 = 2 ;";
+strlit"+1 x43 +1 x44 +1 x37 +1 x41 = 2 ;";
+strlit"+1 x45 +1 x42 +1 x39 +1 x44 = 2 ;";
+strlit"+1 x46 +1 x47 +1 x40 +1 x48 = 2 ;";
+strlit"+1 x49 +1 x50 +1 x43 +1 x47 = 2 ;";
+strlit"+1 x51 +1 x48 +1 x45 +1 x50 = 2 ;";
+strlit"+1 x52 +1 x53 +1 x46 +1 x54 = 2 ;";
+strlit"+1 x55 +1 x56 +1 x49 +1 x53 = 2 ;";
+strlit"+1 x3 +1 x57 +1 x52 +1 x58 = 2 ;";
+strlit"+1 x7 +1 x59 +1 x55 +1 x57 = 2 ;";
+strlit"+1 x60 +1 x54 +1 x51 +1 x56 = 2 ;";
+strlit"+1 x9 +1 x58 +1 x61 +1 x59 = 2 ;";
+strlit"+1 x60 +1 x61 = 1 ;";
 ]``;
 
 val pbf = rconc (EVAL ``THE (parse_pbf ^(pbfraw))``);
 
 val pbpraw = ``[
-  strlit"* comment";
-  strlit"pol 1 s";
-  strlit"* comment 2";
-  strlit"pol 8 2 + 3 +";
-  strlit"pol 9 2 d";
-  strlit"pol 10 4 + 5 + 6 + 7 +";
-  strlit"c 11";
+strlit"pseudo-Boolean proof version 1.2";
+strlit"f 62";
+strlit"red >= 0 ; ; begin";
+strlit" pol  63";
+strlit" c 64";
+strlit"end";
+strlit"e 65 >= 0 ;";
 ]``;
 
 val pbp = rconc (EVAL ``THE (parse_pbp ^(pbpraw))``);

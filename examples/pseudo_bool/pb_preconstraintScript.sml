@@ -83,7 +83,7 @@ Definition pbc_ge_def:
   (pbc_ge (GreaterEqual xs n) = [GreaterEqual xs n]) ∧
   (pbc_ge (Equal xs n) =
     let xs' = MAP (λ(c:int,l). (-c,l)) xs in
-      [GreaterEqual xs' (-n) ; GreaterEqual xs n])
+      [GreaterEqual xs n; GreaterEqual xs' (-n)])
 End
 
 Theorem eq_disj:
@@ -119,11 +119,8 @@ Proof
   rw[EQ_IMP_THM]
   >- (
     fs[satisfies_pbc_def,eq_disj,eval_term_negate,iSUM_negate]>>
-    intLib.ARITH_TAC)
-  >- (
-    fs[satisfies_pbc_def,eval_term_negate,iSUM_negate]>>
-    intLib.ARITH_TAC)>>
-  fs[satisfies_pbc_def]>>
+    intLib.ARITH_TAC) >>
+  fs[satisfies_pbc_def,eval_term_negate,iSUM_negate]>>
   intLib.ARITH_TAC
 QED
 
