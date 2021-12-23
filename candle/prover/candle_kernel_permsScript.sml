@@ -14,6 +14,12 @@ val _ = set_grammar_ancestry ["candle_kernel_vals", "perms", "misc"];
 
 (* Functions translated with 'translate' should be proved for any ps *)
 
+Theorem perms_ok_snd_v[simp]:
+  perms_ok ps snd_v
+Proof
+  rw[perms_ok_def, std_preludeTheory.snd_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+QED
+
 Theorem perms_ok_exists_v[simp]:
   perms_ok ps ListProg$exists_v
 Proof
@@ -62,6 +68,12 @@ Theorem perms_ok_check_tm_v[simp]:
   perms_ok ps check_tm_v
 Proof
   rw[perms_ok_def, check_tm_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+QED
+
+Theorem perms_ok_check_tm_tm_v[simp]:
+  perms_ok ps check_tm_tm_v
+Proof
+  rw[perms_ok_def, check_tm_tm_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
 QED
 
 Theorem perms_ok_check_ty_ty_v[simp]:
@@ -186,6 +198,12 @@ Proof
   rw[perms_ok_def, subtract_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
   \\ rw[]
+QED
+
+Theorem perms_ok_forall_v[simp]:
+  perms_ok ps forall_v
+Proof
+  rw[perms_ok_def, forall_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
 QED
 
 Theorem perms_ok_frees_v[simp]:
@@ -392,6 +410,14 @@ Theorem perms_ok_mk_eq_v[simp]:
   perms_ok kernel_perms mk_eq_v
 Proof
   rw[perms_ok_def, mk_eq_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ rw[]
+QED
+
+Theorem perms_ok_vsubst_v[simp]:
+  perms_ok kernel_perms vsubst_v
+Proof
+  rw[perms_ok_def, vsubst_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
   \\ rw[]
 QED

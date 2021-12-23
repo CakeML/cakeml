@@ -580,13 +580,38 @@ Proof
   \\ gvs [Once v_ok_cases, do_partial_app_def, CaseEqs ["exp", "v"]]
 QED
 
-Theorem LIST_TYPE_TERM_TYPE_v_ok:
+Theorem v_ok_LIST:
+  (!x v. A_TYPE x v ∧ v_ok ctxt v ==> A ctxt x) ==>
+  !ls v.
+    LIST_TYPE A_TYPE ls v ∧ v_ok ctxt v ⇒ EVERY (A ctxt) ls
+Proof
+  strip_tac
+  \\ Induct
+  \\ rw[ml_translatorTheory.LIST_TYPE_def]
+  \\ fs[v_ok_Cons]
+  \\ metis_tac[]
+QED
+
+Theorem v_ok_LIST_TERM:
   ∀tms v ctxt. LIST_TYPE TERM_TYPE tms v ∧ v_ok ctxt v ⇒ EVERY (TERM ctxt) tms
 Proof
-  Induct \\ fs [ml_translatorTheory.LIST_TYPE_def,PULL_EXISTS]
-  \\ rpt gen_tac \\ strip_tac
-  \\ fs [v_ok_Cons]
-  \\ fs [SF SFY_ss,v_ok_TERM]
+  rpt strip_tac
+  \\ irule v_ok_LIST
+  \\ first_assum $ irule_at Any
+  \\ first_assum $ irule_at Any
+  \\ metis_tac[v_ok_TERM]
+QED
+
+Theorem v_ok_PAIR:
+  (!x v. A_TYPE x v ∧ v_ok ctxt v ⇒ A ctxt x) ∧
+  (!x v. B_TYPE x v ∧ v_ok ctxt v ⇒ B ctxt x) ∧
+  PAIR_TYPE A_TYPE B_TYPE x v ∧ v_ok ctxt v ⇒
+    (λctxt p. A ctxt (FST p) ∧ B ctxt (SND p)) ctxt x
+Proof
+  Cases_on`x`
+  \\ rw[ml_translatorTheory.PAIR_TYPE_def]
+  \\ pop_assum mp_tac \\ rw[Once v_ok_cases]
+  \\ metis_tac[]
 QED
 
 Theorem LIST_TYPE_perms_ok:

@@ -670,8 +670,55 @@ Proof
     \\ fs [state_ok_def]
     \\ first_assum (irule_at (Pos (el 2))) \\ gs []
     \\ first_assum (irule_at (Pos (el 2))) \\ gs []
-    \\ drule_all LIST_TYPE_TERM_TYPE_v_ok \\ fs [SF SFY_ss])
-  \\ Cases_on ‘f = vsubst_v’ \\ gvs [] >- cheat
+    \\ drule_all v_ok_LIST_TERM \\ fs [SF SFY_ss])
+  \\ Cases_on ‘f = vsubst_v’ \\ gvs [] >- (
+    drule_all vsubst_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac`ctxt` \\ fs[])
+    \\ rename1 ‘do_opapp [g; w]’
+    \\ assume_tac vsubst_v_thm
+    \\ fs[state_ok_def]
+    \\ `∃ls. LIST_TYPE (PAIR_TYPE TERM_TYPE TERM_TYPE) ls v`
+    by (
+      irule v_ok_LIST_PAIR_TYPE_HEAD
+      \\ goal_assum(first_assum o mp_then Any mp_tac)
+      \\ goal_assum(first_assum o mp_then Any mp_tac)
+      \\ simp[v_ok_TERM_TYPE_HEAD]
+      \\ MATCH_ACCEPT_TAC v_ok_TERM_TYPE_HEAD )
+    \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ drule ArrowM2
+    \\ rpt(disch_then drule)
+    \\ impl_tac
+    >- (
+      simp[SF SFY_ss, TERM_TYPE_perms_ok]
+      \\ drule_at_then Any irule LIST_TYPE_perms_ok
+      \\ rpt strip_tac
+      \\ drule_at_then Any irule PAIR_TYPE_perms_ok
+      \\ simp[SF SFY_ss, TERM_TYPE_perms_ok])
+    \\ strip_tac \\ gvs[]
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ simp[]
+    \\ drule_all v_ok_TERM \\ strip_tac
+    \\ drule_at_then Any (drule_at Any) v_ok_LIST
+    \\ disch_then(qspec_then`λctxt p. TERM ctxt (FST p) ∧ TERM ctxt (SND p)`mp_tac)
+    \\ impl_tac
+    >- (
+      rpt strip_tac
+      \\ irule v_ok_PAIR
+      \\ first_assum $ irule_at Any
+      \\ first_assum $ irule_at Any
+      \\ metis_tac[v_ok_TERM] )
+    \\ simp[Once LAMBDA_PROD] \\ strip_tac
+    \\ drule_all vsubst_thm
+    \\ strip_tac \\ rveq
+    \\ conj_tac
+    >- ( first_assum $ irule_at $ Any \\ simp[SF SFY_ss] )
+    \\ Cases_on`r` \\ fs[]
+    >- (
+      irule TERM_IMP_v_ok
+      \\ first_assum $ irule_at $ Any
+      \\ rw[] )
+    \\ rename1 ‘Failure ff’ \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   \\ Cases_on ‘f = inst_v’ \\ gvs [] >- cheat
   \\ Cases_on ‘f = abs_1_v’ \\ gvs [] >- cheat
   \\ Cases_on ‘f = eq_mp_v’ \\ gvs [] >- cheat
