@@ -22,7 +22,7 @@ Theorem pmatch_v_ok:
     v_ok ctxt v ∧
     (∀n len tag m.
       nsLookup envC n = SOME (len,TypeStamp tag m) ⇒ m ∉ kernel_types) ∧
-    EVERY (ref_ok ctxt) s ∧
+    (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s loc = SOME r ⇒ ref_ok ctxt r) ∧
     EVERY (v_ok ctxt) (MAP SND ws) ⇒
       EVERY (v_ok ctxt) (MAP SND env)) ∧
   (∀envC s ps vs ws env.
@@ -30,7 +30,7 @@ Theorem pmatch_v_ok:
     EVERY (v_ok ctxt) vs ∧
     (∀n len tag m.
       nsLookup envC n = SOME (len,TypeStamp tag m) ⇒ m ∉ kernel_types) ∧
-    EVERY (ref_ok ctxt) s ∧
+    (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s loc = SOME r ⇒ ref_ok ctxt r) ∧
     EVERY (v_ok ctxt) (MAP SND ws) ⇒
       EVERY (v_ok ctxt) (MAP SND env))
 Proof
@@ -45,7 +45,7 @@ Proof
     gs [CaseEq "bool", v_ok_def, SF SFY_ss])
   >- (
     gvs [CaseEqs ["bool", "option", "store_v"], v_ok_def, SF SFY_ss]
-    \\ gs [store_lookup_def, EVERY_EL, EL_MAP] \\ rw []
+    \\ gs [store_lookup_def, EVERY_EL, EL_MAP, LLOOKUP_THM] \\ rw []
     \\ first_x_assum irule \\ gs []
     \\ first_x_assum drule \\ gs [ref_ok_def])
   >- (
@@ -133,7 +133,7 @@ Proof
   \\ rpt CASE_TAC \\ gs []
   \\ gs [state_ok_def]
   \\ first_assum (irule_at Any) \\ gs []
-  \\ first_assum (irule_at Any) \\ gs []
+  \\ first_assum (irule_at Any) \\ gs [SF SFY_ss]
 QED
 
 Theorem evaluate_v_ok_Lit:
@@ -217,7 +217,25 @@ Proof
     gs [state_ok_def]
     \\ first_assum (irule_at Any) \\ gs []
     \\ NO_TAC)
-  \\ cheat
+  \\ rename [‘state_ok ctxt1 st1’]
+  \\ ‘eval_state_ok st1.eval_state’ by fs [state_ok_def]
+  \\ gvs [do_eval_def,AllCaseEqs(),eval_state_ok_def,
+          declare_env_def,SF SFY_ss,SWAP_REVERSE_SYM]
+  \\ last_x_assum (qspec_then ‘ctxt1’ mp_tac)
+  \\ (impl_tac >-
+   (fs [] \\ qpat_x_assum ‘v_ok ctxt1 (Env env' id)’ mp_tac
+    \\ fs [candle_prover_invTheory.v_ok_def,kernel_vals_Env]
+    \\ fs [state_ok_def,dec_clock_def,eval_state_ok_def,add_decs_generation_def]
+    \\ every_case_tac \\ fs [SF SFY_ss] \\ metis_tac []))
+  \\ strip_tac
+  \\ rename [‘∀v. v_ok ctxt1 v ⇒ v_ok ctxt2 v’] \\ qexists_tac ‘ctxt2’ \\ fs []
+  \\ fs [state_ok_def,reset_env_generation_def]
+  \\ fs [candle_prover_invTheory.v_ok_def,kernel_vals_Env,SF SFY_ss]
+  \\ fs [PULL_EXISTS]
+  \\ first_x_assum $ irule_at Any \\ fs [SF SFY_ss]
+  \\ simp [nat_to_v_def,candle_prover_invTheory.v_ok_def]
+  \\ every_case_tac \\ fs [eval_state_ok_def, SF SFY_ss]
+  \\ gvs [state_ok_def,eval_state_ok_def]
 QED
 
 Theorem v_ok_v_to_list:
@@ -240,7 +258,7 @@ Theorem do_app_ok:
   op ≠ Opapp ∧
   op ≠ Eval ∧
   EVERY (v_ok ctxt) vs ∧
-  EVERY (ref_ok ctxt) refs ∧
+  (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP refs loc = SOME r ⇒ ref_ok ctxt r) ∧
   EVERY (ok_event ctxt) ffi.io_events ∧
   op ≠ FFI kernel_ffi ∧
   STATE ctxt st ∧
@@ -248,13 +266,14 @@ Theorem do_app_ok:
     ∃st1.
       STATE ctxt st1 ∧
       (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok st1 loc refs1) ∧
-      EVERY (ref_ok ctxt) refs1 ∧
+      (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP refs1 loc = SOME r ⇒ ref_ok ctxt r) ∧
       EVERY (ok_event ctxt) ffi1.io_events ∧
       case list_result res of
         Rval vs => EVERY (v_ok ctxt) vs
         | Rerr (Rraise v) => v_ok ctxt v
         | _ => T
 Proof
+  cheat (*
   strip_tac
   \\ qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
   \\ Cases_on ‘op = Env_id’ \\ gs []
@@ -571,7 +590,7 @@ Proof
     \\ drule_then assume_tac kernel_loc_ok_LENGTH \\ gs []
     \\ gs [kernel_loc_ok_def, LLOOKUP_EQ_EL, EL_APPEND_EQN]
     \\ first_assum (irule_at Any) \\ gs [])
-  \\ Cases_on ‘op’ \\ gs []
+  \\ Cases_on ‘op’ \\ gs [] *)
 QED
 
 Theorem evaluate_v_ok_Op:
@@ -611,7 +630,7 @@ Proof
   \\ rename1 ‘state_ok ctxt1 s’
   \\ ‘state_ok ctxt1 (dec_clock s)’
     by (gs [evaluateTheory.dec_clock_def, state_ok_def]
-        \\ first_assum (irule_at Any) \\ gs [])
+        \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
   \\ ‘∃f v. vs = [v; f]’
     by (gvs [do_opapp_cases]
         \\ Cases_on ‘vs’ \\ gs [])
@@ -831,7 +850,7 @@ Proof
   \\ CASE_TAC \\ gs [AC CONJ_COMM CONJ_ASSOC]
   >~ [‘Rerr err’] >- (
     CASE_TAC \\ gs []
-    \\ first_assum (irule_at Any) \\ gs [])
+    \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
   \\ first_x_assum (irule_at Any) \\ gs []
   \\ gs [env_ok_def, extend_dec_env_def, nsLookup_nsAppend_some]
   \\ rw [] \\ gs [SF SFY_ss]
@@ -843,7 +862,7 @@ Proof
   rw [evaluate_decs_def]
   >~ [‘¬ALL_DISTINCT _’] >- (
     gs [state_ok_def]
-    \\ first_assum (irule_at Any) \\ gs [])
+    \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
   \\ gvs [CaseEqs ["prod", "semanticPrimitives$result"]]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
   \\ first_x_assum (drule_all_then strip_assume_tac)
@@ -926,6 +945,7 @@ Proof
   \\ first_assum (irule_at Any) \\ gs []
   \\ gs [env_ok_def, extend_dec_env_def, SF SFY_ss]
   \\ gvs [declare_env_def, CaseEqs ["option", "eval_state", "prod"]]
+  \\ fs [eval_state_ok_def,SF SFY_ss]
   \\ Cases \\ simp [ml_progTheory.nsLookup_nsBind_compute]
   \\ rw [] \\ gs [v_ok_def, env_ok_def, nat_to_v_def, SF SFY_ss]
 QED
