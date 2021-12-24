@@ -81,7 +81,7 @@ Theorem simple_dec_simps[simp] =
 
 Definition post_state_ok_def:
   post_state_ok s ⇔
-    (∀n. n ∈ kernel_types ⇒ s.next_type_stamp < n) ∧
+    (∀n. n ∈ kernel_types ⇒ s.next_type_stamp ≤ n) ∧
     (∀loc. loc ∈ kernel_locs ⇒ LENGTH s.refs ≤ loc)
 End
 
@@ -269,7 +269,7 @@ Proof
   \\ ‘∀m tds n l t k.
         nsLookup (build_tdefs m tds) n = SOME (l, TypeStamp t k) ⇒
           m ≤ k ∧
-          k ≤ m + LENGTH tds’
+          k < m + LENGTH tds’
     by (ho_match_mp_tac build_tdefs_ind
         \\ simp [build_tdefs_def, nsLookup_nsAppend_some,
                  nsLookup_alist_to_ns_some, SF SFY_ss]
