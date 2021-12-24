@@ -122,6 +122,7 @@ QED
 
 Theorem refs_defs = LIST_CONJ
   [ml_hol_kernelProgTheory.init_type_constants_refs_def,
+   CharProgTheory.some_chars_vector_refs_def,
    MapProgTheory.ratio_refs_def,
    MapProgTheory.delta_refs_def,
    MapProgTheory.empty_refs_def,
@@ -317,11 +318,29 @@ val safe_error_goal =
           res = Rerr (Rraise bind_exn_v) ∨
           res = Rerr (Rabort Rtimeout_error) :(v list, v) semanticPrimitives$result)”
 
+Theorem do_opapp_clos:
+  do_opapp [Closure env v e; argv] = SOME (env1,e1) ⇔
+  env with v := nsBind v argv env.v = env1 ∧ e = e1
+Proof
+  fs [do_opapp_def]
+QED
+
 Triviality same_clock_exists:
   (∃k. s = s with clock := k) = T ∧
   (∃k. s with clock := k' = s with clock := k) = T
 Proof
   fs [state_component_equality]
+QED
+
+Theorem evaluate_unit_check:
+  evaluate ^s (env with v := nsBind v w env1)
+    [Mat (Var (Short v)) [(Pcon NONE [],ee)]] = (s',res) ⇒
+  ^safe_error_goal ∨ UNIT_TYPE () w
+Proof
+  csimp [evaluate_def,same_ctor_def,pmatch_def,do_con_check_def]
+  \\ rw [AllCaseEqs(),same_clock_exists]
+  \\ Cases_on ‘w’ \\ gvs [pmatch_def]
+  \\ rename [‘Conv oo ll’] \\ Cases_on ‘oo’ \\ gvs [pmatch_def,AllCaseEqs()]
 QED
 
 Theorem evaluate_ty_check:
@@ -894,17 +913,37 @@ Theorem types_v_head:
     ^safe_error_goal ∨
     UNIT_TYPE () v
 Proof
-  rewrite_tac[types_v_def]
+  rewrite_tac[kernel_funs_v_def]
   \\ gvs[do_opapp_def]
   \\ strip_tac \\ rveq
-  \\ fs[evaluate_def, astTheory.pat_bindings_def,
-        pmatch_def, can_pmatch_all_def]
-  \\ Cases_on`v` \\ fs[pmatch_def, same_clock_exists]
-  \\ qmatch_asmsub_rename_tac`Conv co ca`
-  \\ Cases_on`co` \\ fs[pmatch_def, same_clock_exists]
-  \\ fs[CaseEqs ["list", "bool", "match_result", "option", "prod",
-                 "v", "semanticPrimitives$result"],
-        same_clock_exists, ml_translatorTheory.UNIT_TYPE_def]
+  \\ drule evaluate_unit_check
+  \\ rewrite_tac []
+QED
+
+Theorem constants_v_head:
+  do_opapp [constants_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    UNIT_TYPE () v
+Proof
+  rewrite_tac[kernel_funs_v_def]
+  \\ gvs[do_opapp_def]
+  \\ strip_tac \\ rveq
+  \\ drule evaluate_unit_check
+  \\ rewrite_tac []
+QED
+
+Theorem axioms_v_head:
+  do_opapp [axioms_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    UNIT_TYPE () v
+Proof
+  rewrite_tac[kernel_funs_v_def]
+  \\ gvs[do_opapp_def]
+  \\ strip_tac \\ rveq
+  \\ drule evaluate_unit_check
+  \\ rewrite_tac []
 QED
 
 Theorem mk_vartype_v_head:
@@ -927,22 +966,70 @@ Theorem dest_type_v_head:
     ^safe_error_goal ∨
     TYPE_TYPE_HEAD v
 Proof
-  rewrite_tac[dest_type_v_def]
-  \\ gvs[do_opapp_def]
-  \\ strip_tac \\ rveq
-  \\ fs[evaluate_def, astTheory.pat_bindings_def,
-        pmatch_def, can_pmatch_all_def]
-  \\ Cases_on`v` \\ fs[pmatch_def, same_clock_exists]
-  \\ qmatch_asmsub_rename_tac`Conv co ca`
-  \\ Cases_on`co` \\ fs[pmatch_def, same_clock_exists]
-  \\ pop_assum mp_tac
-  \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
-  \\ simp[]
-  \\ rw[] \\ gvs[LENGTH_EQ_NUM_compute, pmatch_def,
-                 same_clock_exists, do_con_check_def]
-  \\ gvs[TYPE_TYPE_HEAD_def, same_ctor_def]
+  rewrite_tac[kernel_funs_v_def,do_opapp_clos]
+  \\ strip_tac \\ rveq \\ fs []
+  \\ dxrule evaluate_ty_check
+  \\ simp [ml_progTheory.nsLookup_nsBind_compute]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ strip_tac \\ simp [same_clock_exists]
 QED
 
+(*
+
+Note: these head theorems should be proved as much as possible using
+only drule with generic lemmas like evaluate_ty_check,
+evaluate_tm_check etc.
+
+TODO:
+  mk_type_v_def
+  call_type_of_v_def
+  mk_comb_1_v_def
+  get_type_arity_v
+  new_type_v
+  dest_type_v
+  dest_vartype_v
+  is_type_v
+  is_vartype_v
+  call_tyvars_v
+  get_const_type_v
+  new_constant_v
+  is_var_v_def
+  is_const_v
+  is_abs_v
+  is_comb_v
+  mk_var_v
+  mk_const_v
+  mk_abs_v
+  mk_comb_v
+  dest_var_v
+  dest_const_v
+  dest_comb_v
+  dest_abs_v
+  call_frees_v
+  freesl_v
+  call_type_vars_in_term_v
+  rand_v
+  rator_v
+  dest_eq_v
+  dest_thm_v
+  hyp_v
+  refl_v
+  assume_v
+  new_axiom_v
+  new_basic_definition_v
+  new_basic_type_definition_v
+  call_type_subst_v
+  call_freesin_v
+  call_vfree_in_v
+  vsubst_v
+  inst_v
+  abs_1_v
+  eq_mp_v
+  deduct_antisym_rule_v
+  inst_type_v
+  inst_1_v
+
+*)
 
 (* -------------------------------------------------------------------------
  * Misc. simps
