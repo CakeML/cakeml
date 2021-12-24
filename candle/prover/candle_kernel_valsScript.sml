@@ -905,6 +905,28 @@ Proof
   \\ fs[CaseEqs["v","option","prod","lit"]] \\ gvs[same_clock_exists]
 QED
 
+Theorem dest_type_v_head:
+  do_opapp [dest_type_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TYPE_TYPE_HEAD v
+Proof
+  rewrite_tac[dest_type_v_def]
+  \\ gvs[do_opapp_def]
+  \\ strip_tac \\ rveq
+  \\ fs[evaluate_def, astTheory.pat_bindings_def,
+        pmatch_def, can_pmatch_all_def]
+  \\ Cases_on`v` \\ fs[pmatch_def, same_clock_exists]
+  \\ qmatch_asmsub_rename_tac`Conv co ca`
+  \\ Cases_on`co` \\ fs[pmatch_def, same_clock_exists]
+  \\ pop_assum mp_tac
+  \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ simp[]
+  \\ rw[] \\ gvs[LENGTH_EQ_NUM_compute, pmatch_def,
+                 same_clock_exists, do_con_check_def]
+  \\ gvs[TYPE_TYPE_HEAD_def, same_ctor_def]
+QED
+
 
 (* -------------------------------------------------------------------------
  * Misc. simps

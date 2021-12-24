@@ -535,7 +535,30 @@ Proof
     \\ irule TYPE_IMP_v_ok
     \\ first_assum $ irule_at $ Any
     \\ EVAL_TAC)
-  >~ [‘do_opapp [dest_type_v; v]’] >- cheat
+  >~ [‘do_opapp [dest_type_v; v]’] >- (
+    drule_all dest_type_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac dest_type_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_all v_ok_TYPE_TYPE_HEAD \\ strip_tac
+    \\ imp_res_tac v_ok_TYPE \\ fs []
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms dest_type_v`
+    by simp[TYPE_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs [SF SFY_ss]
+    \\ drule_all dest_type_thm \\ strip_tac
+    \\ Cases_on ‘r’ \\ fs []
+    >- (
+      drule_then irule PAIR_TYPE_v_ok
+      \\ rw[STRING_TYPE_v_ok, SF SFY_ss]
+      \\ drule_then irule LIST_TYPE_v_ok
+      \\ fs[EVERY_MEM]
+      \\ metis_tac[TYPE_IMP_v_ok])
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [dest_vartype_v; v]’] >- cheat
   >~ [‘do_opapp [is_type_v; v]’] >- cheat
   >~ [‘do_opapp [is_vartype_v; v]’] >- cheat
