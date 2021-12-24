@@ -14,8 +14,6 @@ val _ = new_theory "candle_kernel_vals";
 TODO:
  - fix constructor names (Var is currently Var_1)
  - add FFI call to kernel
- - ensure all kernel functions take at most two curried arguments
-   (e.g. tweak new_basic_type_definition)
  - make sure (using local) that only intended values escape Candle kernel
  - tidy up the reference numbers, i.e. Loc values
 *)
@@ -960,18 +958,156 @@ Proof
   \\ fs[CaseEqs["v","option","prod","lit"]] \\ gvs[same_clock_exists]
 QED
 
+val one_arg_tm_or_ty_tac =
+  rewrite_tac[kernel_funs_v_def,do_opapp_clos]
+  \\ strip_tac \\ rveq \\ fs []
+  \\ (dxrule evaluate_ty_check ORELSE dxrule evaluate_tm_check)
+  \\ simp [ml_progTheory.nsLookup_nsBind_compute]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ strip_tac \\ simp [same_clock_exists];
+
 Theorem dest_type_v_head:
   do_opapp [dest_type_v; v] = SOME (env, exp) ∧
   evaluate ^s env [exp] = (s', res) ⇒
     ^safe_error_goal ∨
     TYPE_TYPE_HEAD v
 Proof
-  rewrite_tac[kernel_funs_v_def,do_opapp_clos]
-  \\ strip_tac \\ rveq \\ fs []
-  \\ dxrule evaluate_ty_check
-  \\ simp [ml_progTheory.nsLookup_nsBind_compute]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ strip_tac \\ simp [same_clock_exists]
+  one_arg_tm_or_ty_tac
+QED
+
+Theorem is_type_v_head:
+  do_opapp [is_type_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TYPE_TYPE_HEAD v
+Proof
+  one_arg_tm_or_ty_tac
+QED
+
+Theorem is_vartype_v_head:
+  do_opapp [is_vartype_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TYPE_TYPE_HEAD v
+Proof
+  one_arg_tm_or_ty_tac
+QED
+
+Theorem is_var_v_head:
+  do_opapp [is_var_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TERM_TYPE_HEAD v
+Proof
+  one_arg_tm_or_ty_tac
+QED
+
+Theorem is_const_v_head:
+  do_opapp [is_const_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TERM_TYPE_HEAD v
+Proof
+  one_arg_tm_or_ty_tac
+QED
+
+Theorem is_abs_v_head:
+  do_opapp [is_abs_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TERM_TYPE_HEAD v
+Proof
+  one_arg_tm_or_ty_tac
+QED
+
+Theorem is_comb_v_head:
+  do_opapp [is_comb_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TERM_TYPE_HEAD v
+Proof
+  one_arg_tm_or_ty_tac
+QED
+
+Theorem rand_v_head:
+  do_opapp [rand_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TERM_TYPE_HEAD v
+Proof
+  one_arg_tm_or_ty_tac
+QED
+
+Theorem rator_v_head:
+  do_opapp [rator_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TERM_TYPE_HEAD v
+Proof
+  one_arg_tm_or_ty_tac
+QED
+
+Theorem dest_var_v_head:
+  do_opapp [dest_var_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TERM_TYPE_HEAD v
+Proof
+  one_arg_tm_or_ty_tac
+QED
+
+Theorem dest_const_v_head:
+  do_opapp [dest_const_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TERM_TYPE_HEAD v
+Proof
+  one_arg_tm_or_ty_tac
+QED
+
+Theorem dest_comb_v_head:
+  do_opapp [dest_comb_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TERM_TYPE_HEAD v
+Proof
+  one_arg_tm_or_ty_tac
+QED
+
+Theorem dest_abs_v_head:
+  do_opapp [dest_abs_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TERM_TYPE_HEAD v
+Proof
+  one_arg_tm_or_ty_tac
+QED
+
+Theorem dest_vartype_v_head:
+  do_opapp [dest_vartype_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TYPE_TYPE_HEAD v
+Proof
+  one_arg_tm_or_ty_tac
+QED
+
+Theorem dest_type_v_head:
+  do_opapp [dest_type_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TYPE_TYPE_HEAD v
+Proof
+  one_arg_tm_or_ty_tac
+QED
+
+Theorem dest_eq_v_head:
+  do_opapp [dest_eq_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TERM_TYPE_HEAD v
+Proof
+  one_arg_tm_or_ty_tac
 QED
 
 (*
@@ -986,31 +1122,16 @@ TODO:
   mk_comb_1_v_def
   get_type_arity_v
   new_type_v
-  dest_type_v
-  dest_vartype_v
-  is_type_v
-  is_vartype_v
   call_tyvars_v
   get_const_type_v
   new_constant_v
-  is_var_v_def
-  is_const_v
-  is_abs_v
-  is_comb_v
   mk_var_v
   mk_const_v
   mk_abs_v
   mk_comb_v
-  dest_var_v
-  dest_const_v
-  dest_comb_v
-  dest_abs_v
   call_frees_v
   freesl_v
   call_type_vars_in_term_v
-  rand_v
-  rator_v
-  dest_eq_v
   dest_thm_v
   hyp_v
   refl_v
