@@ -144,6 +144,12 @@ Proof
   rw[perms_ok_def, try_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
 QED
 
+Theorem perms_ok_dest_vartype_v[simp]:
+  perms_ok ps dest_vartype_v
+Proof
+  rw[perms_ok_def, dest_vartype_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+QED
+
 Theorem perms_ok_dest_type_v[simp]:
   perms_ok ps dest_type_v
 Proof
