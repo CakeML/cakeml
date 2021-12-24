@@ -97,8 +97,8 @@ val (monad_parameters, store_translation, exn_specs) =
 val pure_seq_intro = prove(“x = y ⇒ ∀z. x = pure_seq z y”, fs [pure_seq_def]);
 
 fun mlstring_check s = “mlstring$strlen ^s”
-fun type_check ty = “case ^ty of Tyvar _ => () | _ => x” |> subst [“x:unit”|->“()”]
-fun term_check tm = “case ^tm of Const _ _ => () | _ => x” |> subst [“x:unit”|->“()”]
+fun type_check ty = “case ^ty of Tyvar _ => () | _ => abc” |> subst [“abc:unit”|->“()”]
+fun term_check tm = “case ^tm of Const _ _ => () | _ => abc” |> subst [“abc:unit”|->“()”]
 
 val t1 = type_check “t1:type”
 val t2 = type_check “t2:type”
@@ -187,8 +187,8 @@ val res = translate (holSyntaxExtraTheory.insert_def |> REWRITE_RULE [MEMBER_INT
 val res = translate holSyntaxExtraTheory.itlist_def;
 val res = translate holSyntaxExtraTheory.union_def;
 val res = translate (check [‘v’] mk_vartype_def);
-val res = translate is_type_def;
-val res = translate is_vartype_def;
+val res = translate (check [‘t’] is_type_def);
+val res = translate (check [‘t’] is_vartype_def);
 val res = translate rev_assocd_def;
 
 Definition call_type_subst_def[simp]:
@@ -208,11 +208,11 @@ Theorem raconv_side = Q.prove(`
   \\ ntac 4 (rw [Once (fetch "-" "raconv_side_def")]))
   |> update_precondition;
 
-val res = translate aconv_def;
-val res = translate holKernelPmatchTheory.is_var_def;
-val res = translate holKernelPmatchTheory.is_const_def;
-val res = translate holKernelPmatchTheory.is_abs_def;
-val res = translate holKernelPmatchTheory.is_comb_def;
+val res = translate (check [‘tm1’,‘tm2’] aconv_def);
+val res = translate (check [‘x’] holKernelPmatchTheory.is_var_def);
+val res = translate (check [‘x’] holKernelPmatchTheory.is_const_def);
+val res = translate (check [‘x’] holKernelPmatchTheory.is_abs_def);
+val res = translate (check [‘x’] holKernelPmatchTheory.is_comb_def);
 val res = translate (check [‘v’,‘ty’] mk_var_def);
 
 Definition call_frees_def[simp]:
@@ -247,7 +247,7 @@ End
 val _ = (next_ml_names := ["tyvars_aux"]);
 val res = translate holKernelTheory.tyvars_def;
 val _ = (next_ml_names := ["tyvars"]);
-val res = translate call_tyvars_def;
+val res = translate (check [‘x’] call_tyvars_def);
 
 Definition call_type_vars_in_term_def[simp]:
   call_type_vars_in_term tm = type_vars_in_term tm
@@ -255,7 +255,7 @@ End
 val _ = (next_ml_names := ["type_vars_in_term_aux"]);
 val res = translate type_vars_in_term_def;
 val _ = (next_ml_names := ["type_vars_in_term"]);
-val res = translate call_type_vars_in_term_def;
+val res = translate (check [‘tm’] call_type_vars_in_term_def);
 
 Definition call_variant_def[simp]:
   call_variant avoid v = variant avoid v
@@ -266,7 +266,7 @@ val _ = (next_ml_names := ["variant"]);
 val res = translate (check [‘avoid’,‘v’] call_variant_def);
 
 val res = translate vsubst_aux_def;
-val res = translate holKernelPmatchTheory.is_eq_def;
+val res = translate (check [‘tm’ ]holKernelPmatchTheory.is_eq_def);
 val res = translate dest_thm_def;
 val res = translate hyp_def;
 val res = translate concl_def;
@@ -362,7 +362,7 @@ val _ = save_thm("term_cmp_ind",
           (fetch "-" "term_compare_ind") |> RW [GSYM term_cmp_thm]);
 val res = translate (term_compare_def |> RW [GSYM term_cmp_thm]);
 
-val res = translate holKernelPmatchTheory.codomain_def;
+val res = translate (check [‘ty’] holKernelPmatchTheory.codomain_def);
 val res = translate holSyntaxTheory.typeof_def;
 val res = translate holSyntaxTheory.ordav_def;
 val res = translate holSyntaxTheory.orda_def;
@@ -373,18 +373,18 @@ val def = try_def |> m_translate;
 val def = holKernelTheory.assoc_def  (* rec *) |> m_translate;
 val def = holKernelTheory.map_def    (* rec *) |> m_translate;
 val def = holKernelTheory.forall_def (* rec *) |> m_translate;
-val def = dest_type_def |> m_translate;
-val def = dest_vartype_def |> m_translate;
-val def = holKernelPmatchTheory.dest_var_def |> m_translate;
-val def = holKernelPmatchTheory.dest_const_def |> m_translate;
-val def = holKernelPmatchTheory.dest_comb_def |> m_translate;
-val def = holKernelPmatchTheory.dest_abs_def |> m_translate;
-val def = holKernelPmatchTheory.rator_def |> m_translate;
-val def = holKernelPmatchTheory.rand_def |> m_translate;
-val def = holKernelPmatchTheory.dest_eq_def |> m_translate;
+val def = dest_type_def |> check [‘t’] |> m_translate;
+val def = dest_vartype_def |> check [‘t’] |> m_translate;
+val def = holKernelPmatchTheory.dest_var_def |> check [‘tm’] |> m_translate;
+val def = holKernelPmatchTheory.dest_const_def |> check [‘tm’] |> m_translate;
+val def = holKernelPmatchTheory.dest_comb_def |> check [‘tm’] |> m_translate;
+val def = holKernelPmatchTheory.dest_abs_def |> check [‘tm’] |> m_translate;
+val def = holKernelPmatchTheory.rator_def |> check [‘tm’] |> m_translate;
+val def = holKernelPmatchTheory.rand_def |> check [‘tm’] |> m_translate;
+val def = holKernelPmatchTheory.dest_eq_def |> check [‘tm’] |> m_translate;
 
 val def = holKernelPmatchTheory.mk_abs_def |> check [‘bod’] |> m_translate;
-val def = get_type_arity_def |> m_translate;
+val def = get_type_arity_def |> check [‘s’] |> m_translate;
 val def = mk_type_def |> check [‘tyop’,‘args’] |> m_translate;
 val def = mk_fun_ty_def |> check [‘ty1’,‘ty2’] |> m_translate;
 
@@ -409,15 +409,15 @@ val fdM_eqs = REWRITE_RULE[MEMBER_INTRO,fdM_intro]first_dup_def
 val def = fdM_eqs |> translate
 val def = REWRITE_RULE[fdM_intro]add_constants_def |> m_translate
 val def = add_def_def |> m_translate
-val def = new_constant_def (* |> check [‘name’,‘ty’] *) |> m_translate
+val def = new_constant_def |> Q.SPEC ‘n’ |> check [‘n’,‘ty’] |> m_translate
 val def = add_type_def |> m_translate
 val def = new_type_def |> m_translate
 
 val _ = next_ml_names := ["eq_mp_rule", "assume"];
 val def = holKernelPmatchTheory.EQ_MP_def |> m_translate
-val def = ASSUME_def |> m_translate
+val def = ASSUME_def |> check [‘tm’] |> m_translate
 
-val def = new_axiom_def |> m_translate
+val def = new_axiom_def |> check [‘tm’] |> m_translate
 val def = vsubst_def |> check [‘theta’,‘tm’] |> m_translate
 val def = inst_aux_def (* rec *) |> m_translate
 val def = inst_def |> check [‘tyin’,‘tm’] |> m_translate
