@@ -80,15 +80,15 @@ Theorem simple_dec_simps[simp] =
   |> LIST_CONJ;
 
 Definition post_state_ok_def:
-  post_state_ok ctxt s ⇔
+  post_state_ok s ⇔
     (∀n. n ∈ kernel_types ⇒ s.next_type_stamp < n) ∧
     (∀loc. loc ∈ kernel_locs ⇒ LENGTH s.refs ≤ loc)
 End
 
 Theorem evaluate_post_state_mono:
   evaluate s env xs = (s', res) ∧
-  post_state_ok ctxt s' ⇒
-    post_state_ok ctxt s
+  post_state_ok s' ⇒
+    post_state_ok s
 Proof
   simp [post_state_ok_def]
   \\ strip_tac
@@ -100,8 +100,8 @@ QED
 Theorem evaluate_decs_post_state_mono:
   ∀s env ds s' res.
     evaluate_decs s env ds = (s', res) ∧
-    post_state_ok ctxt s' ⇒
-      post_state_ok ctxt s
+    post_state_ok s' ⇒
+      post_state_ok s
 Proof
   ho_match_mp_tac evaluate_decs_ind
   \\ rw [evaluate_decs_def] \\ gs []
@@ -120,7 +120,7 @@ local
     |> Q.SPECL [
       ‘λs env xs. ∀res s' ctxt.
         evaluate s env xs = (s', res) ∧
-        post_state_ok ctxt s' ∧
+        post_state_ok s' ∧
         env_ok ctxt env ∧
         EVERY simple_exp xs ⇒
           case res of
@@ -130,7 +130,7 @@ local
       ‘λs env v ps errv. T’,
       ‘λs env ds. ∀res s' ctxt.
         evaluate_decs s env ds = (s', res) ∧
-        post_state_ok ctxt s' ∧
+        post_state_ok s' ∧
         env_ok ctxt env ∧
         EVERY simple_dec ds ∧
         EVERY safe_dec ds ⇒
