@@ -521,7 +521,20 @@ Proof
   >~ [‘do_opapp [get_type_arity_v; v]’] >- cheat
   >~ [‘do_opapp [new_type_v; v]’] >- cheat
   >~ [‘do_opapp [mk_type_v; v]’] >- cheat
-  >~ [‘do_opapp [mk_vartype_v; v]’] >- cheat
+  >~ [‘do_opapp [mk_vartype_v; v]’] >- (
+    drule_all mk_vartype_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac mk_vartype_v_thm
+    \\ fs[state_ok_def]
+    \\ `perms_ok ∅ v ∧ perms_ok ∅ mk_vartype_v`
+    by simp[STRING_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all Arrow1 \\ strip_tac \\ fs[]
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss]
+    \\ irule TYPE_IMP_v_ok
+    \\ first_assum $ irule_at $ Any
+    \\ EVAL_TAC)
   >~ [‘do_opapp [dest_type_v; v]’] >- cheat
   >~ [‘do_opapp [dest_vartype_v; v]’] >- cheat
   >~ [‘do_opapp [is_type_v; v]’] >- cheat

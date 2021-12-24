@@ -891,6 +891,21 @@ Proof
         same_clock_exists, ml_translatorTheory.UNIT_TYPE_def]
 QED
 
+Theorem mk_vartype_v_head:
+  do_opapp [mk_vartype_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    ?x. STRING_TYPE x v
+Proof
+  rewrite_tac[mk_vartype_v_def]
+  \\ gvs[do_opapp_def]
+  \\ strip_tac \\ rveq
+  \\ fs[evaluate_def, astTheory.pat_bindings_def,
+        pmatch_def, can_pmatch_all_def, do_app_def]
+  \\ fs[CaseEqs["v","option","prod","lit"]] \\ gvs[same_clock_exists]
+QED
+
+
 (* -------------------------------------------------------------------------
  * Misc. simps
  * ------------------------------------------------------------------------- *)
