@@ -369,5 +369,11 @@ QED
 
 Theorem evaluate_basis_v_ok_decs = el 3 (CONJUNCTS evaluate_basis_v_ok);
 
+Theorem post_state_ok_with_clock[simp]:
+  post_state_ok (s with clock := ck) = post_state_ok s
+Proof
+  rw [post_state_ok_def]
+QED
+
 val _ = export_theory ();
 
