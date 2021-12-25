@@ -554,13 +554,13 @@ val state_rel_def = Define `
     t.data_buffer = s.data_buffer ∧
     t.code_buffer = s.code_buffer ∧
     s.compile = (λ(bm0,cfg) progs.
-      let (progs,fs,bm) = word_to_stack$compile_word_to_stack k progs bm0 in
-      OPTION_MAP (λ(bytes,cfg). (bytes,DROP (LENGTH bm0) bm,(bm,cfg)))
+      let (progs,fs,bm) = word_to_stack$compile_word_to_stack k progs (Nil, LENGTH bm0) in
+      OPTION_MAP (λ(bytes,cfg). (bytes,append (FST bm),(bm0++append (FST bm),cfg)))
         (t.compile cfg progs)) ∧
     t.compile_oracle = (λn.
       let ((bm0,cfg),progs) = s.compile_oracle n in
-      let (progs,fs,bm) = word_to_stack$compile_word_to_stack k progs bm0 in
-        (cfg,progs,DROP (LENGTH bm0) bm)) ∧
+      let (progs,fs,bm) = word_to_stack$compile_word_to_stack k progs (Nil, LENGTH bm0) in
+        (cfg,progs,append (FST bm))) ∧
     (∀n. let ((bm0,cfg),progs) = s.compile_oracle n in
         EVERY (post_alloc_conventions k o SND o SND) progs ∧
         EVERY (flat_exp_conventions o SND o SND) progs ∧
@@ -573,9 +573,10 @@ val state_rel_def = Define `
        (lookup n s.code = SOME (arg_count,word_prog)) ==>
        post_alloc_conventions k word_prog /\
        flat_exp_conventions word_prog /\
-       ?bs bs2 f stack_prog.
-         word_to_stack$compile_prog word_prog arg_count k bs = (stack_prog,f,bs2) /\
-         isPREFIX bs2 t.bitmaps /\
+       ?bs i bs2 i2 f stack_prog.
+         word_to_stack$compile_prog word_prog arg_count k (bs,i) = (stack_prog,f,(bs2,i2)) /\
+         (* TODO: maybe need some kind of length bond here *)
+         isPREFIX (append bs2) (DROP (i - LENGTH (append bs)) t.bitmaps) /\
          (lookup n t.code = SOME stack_prog) /\
          the f (lookup n s.stack_size) = f
     ) /\
@@ -805,33 +806,28 @@ Proof
 QED
 
 Theorem read_bitmap_insert_bitmap:
-   ∀bs bs' i.
+   ∀bs n bs' n' i cur.
    i < dimword (:α) ∧
    IS_SOME (read_bitmap bm) ∧
-   insert_bitmap bm (bs:α word list) = (bs',i)
-   ⇒ read_bitmap (DROP (i MOD dimword (:α)) bs') = read_bitmap bm
+   n = LENGTH cur + LENGTH (append bs) ∧
+   insert_bitmap bm (bs, n) = ((bs',n'),i)
+   ⇒ read_bitmap (DROP (i MOD dimword (:α)) (cur++append bs')) = read_bitmap bm
 Proof
-  Induct >> simp[insert_bitmap_def] \\ rw[] \\ simp[]
-  >- (
-    fs[IS_PREFIX_APPEND,IS_SOME_EXISTS]
-    \\ match_mp_tac read_bitmap_append_extra
-    \\ simp[] )
-  \\ pairarg_tac >> fsrw_tac[][]
-  \\ rveq
-  \\ REWRITE_TAC[GSYM ADD1]
-  \\ REWRITE_TAC[DROP]
-  \\ first_x_assum match_mp_tac
-  \\ simp[]
+  simp[insert_bitmap_def] \\ rw[] \\ simp[DROP_LENGTH_APPEND]>>
+  metis_tac[DROP_LENGTH_APPEND,LENGTH_APPEND]
 QED
 
+(*
+TODO
 Theorem insert_bitmap_length:
-   ∀ls ls' i. insert_bitmap bm ls = (ls',i) ⇒ i ≤ LENGTH ls ∧ LENGTH ls ≤ LENGTH ls'
+   ∀ls n ls' n' i.
+   insert_bitmap bm (ls,n) = ((ls',n'),i) ∧
+   n ≤ LENGTH (append ls) ⇒
+   i ≤ LENGTH (append ls) ∧ LENGTH (append ls) ≤ LENGTH (append ls')
 Proof
-  Induct >> simp[insert_bitmap_def]
-  \\ rw[] >> simp[]
-  \\ pairarg_tac >> fs[]
-  \\ rw[] >> simp[]
+  simp[insert_bitmap_def]
 QED
+*)
 
 (*
 
@@ -970,11 +966,11 @@ val env_to_list_K_I_IMP = Q.prove(
   \\ pairarg_tac \\ fs [] \\ pairarg_tac \\ fs [])
 
 Theorem evaluate_wLive[local]:
-   wLive names bs (k,f,f') = (wlive_prog,bs') /\
+   wLive names (bs,n) (k,f,f') = (wlive_prog,(bs',n')) /\
    (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
    state_rel k f f' (s:('a,'a word list # 'c,'ffi) wordSem$state) t lens /\ 1 <= f /\
    (cut_env names s.locals = SOME env) /\
-   isPREFIX bs' t.bitmaps ==>
+   isPREFIX (append bs') (DROP (n - LENGTH (append bs)) t.bitmaps) ==>
    ?t5:('a,'c,'ffi) stackSem$state bs5.
      (evaluate (wlive_prog,t) = (NONE,t5)) /\
      state_rel k 0 0 (push_env env ^nn s with <|locals := LN; locals_size := SOME 0|>) t5 (f'::lens) /\
@@ -1020,6 +1016,7 @@ Proof
          fs[the_eqn,CaseEq"option",stack_size_eq] >>
          rveq >> fs[]
         )
+  \\ TRY(rename1`compile_prog` >> first_x_assum drule >> metis_tac[])
   \\ TRY(qmatch_goalsub_abbrev_tac`IS_SOME _` >>
          fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >> fs[the_eqn,CaseEq"option",stack_size_eq])
   \\ fsrw_tac[][wf_def]
@@ -1032,16 +1029,16 @@ Proof
     \\ `s.permute 0 = I` by fsrw_tac[] [FUN_EQ_THM] \\ fsrw_tac[] [])
   \\ fsrw_tac[] [full_read_bitmap_def,GSYM word_add_n2w]
   \\ `i < dimword(:α) ∧ (i+1) MOD dimword(:'a) ≠ 0` by (
-    fsrw_tac[][state_rel_def]
-    \\ imp_res_tac insert_bitmap_length
-    \\ fsrw_tac[][IS_PREFIX_APPEND] >> fsrw_tac[][]
-    \\ simp[] )
-  \\ drule (GEN_ALL read_bitmap_insert_bitmap)
+    cheat)
+  \\ drule (GEN_ALL read_bitmap_insert_bitmap |> INST_TYPE [beta |-> alpha])
   \\ simp[IS_SOME_EXISTS,PULL_EXISTS]
   \\ ONCE_REWRITE_TAC[CONJ_COMM]
+  \\ `n = LENGTH (TAKE (n-LENGTH (append bs)) t.bitmaps) + LENGTH (append bs)` by cheat
+  \\ pop_assum SUBST_ALL_TAC
   \\ disch_then drule
   \\ simp[read_bitmap_write_bitmap]
   \\ strip_tac
+  \\ `isPREFIX (DROP i (TAKE (n − LENGTH (append bs)) t.bitmaps ++ append bs')) (DROP i t.bitmaps) ` by cheat
   \\ fsrw_tac[][IS_PREFIX_APPEND]
   \\ imp_res_tac read_bitmap_append_extra
   \\ simp[DROP_APPEND]
@@ -1122,7 +1119,8 @@ Proof
       simp[Abbr`ls`,Abbr`Z`] ) >>
     pop_assum SUBST1_TAC >>
     fsrw_tac[][Abbr`R`]>>
-    fsrw_tac[][SORTED_EL_SUC]>>srw_tac[][]>>`n < m` by DECIDE_TAC>>
+    fsrw_tac[][SORTED_EL_SUC]>>srw_tac[][]>>
+    `n'' < m` by DECIDE_TAC>>
     fsrw_tac[][EL_GENLIST]>>DECIDE_TAC)
   \\ qhdtm_x_assum`cut_env`mp_tac
   \\ simp[MEM_MAP,MEM_FILTER,MEM_GENLIST,PULL_EXISTS,MEM_QSORT,
@@ -1476,7 +1474,7 @@ val dec_stack_lemma1 = Q.prove(`
     >>
     fsrw_tac[][abs_frame_eq_def]>>
     simp[] >>
-    fs[LENGTH_TAKE]))
+    fs[LENGTH_TAKE]));
 
 val dec_stack_lemma = Q.prove(`
   good_dimindex(:'a) ∧
@@ -2290,17 +2288,16 @@ val LASTN_HD = Q.prove(`
     simp[])
 
 Theorem insert_bitmap_isPREFIX:
-   ∀bs bs' i. insert_bitmap bm bs = (bs',i) ⇒ bs ≼ bs'
+   ∀bs bs' i.
+   insert_bitmap bm bs = (bs',i) ⇒
+   append (FST bs) ≼ append (FST bs')
 Proof
-  Induct
-  \\ rw[insert_bitmap_def,LET_THM]
-  \\ fs[IS_PREFIX_APPEND]
-  \\ pairarg_tac \\ fs[]
-  \\ rveq \\ simp[]
+  Cases>>simp[insert_bitmap_def]
 QED
 
 Theorem wLive_isPREFIX:
-   ∀a bs c q bs'. wLive a bs c = (q,bs') ⇒ bs ≼ bs'
+   ∀a bs c q bs'. wLive a bs c = (q,bs') ⇒
+   append (FST bs) ≼ append (FST bs')
 Proof
   rw[]
   \\ PairCases_on`c`
@@ -2312,7 +2309,8 @@ Proof
 QED
 
 Theorem comp_IMP_isPREFIX:
-   ∀c1 bs r q1 bs'. comp c1 bs r = (q1,bs') ==> bs ≼ bs'
+   ∀c1 bs r q1 bs'.
+   comp c1 bs r = (q1,bs') ==> append (FST bs) ≼ append (FST bs')
 Proof
   ho_match_mp_tac comp_ind
   \\ rw[comp_def,LET_THM]
@@ -2323,21 +2321,26 @@ Proof
 QED
 
 val compile_prog_isPREFIX = Q.prove(
-  `compile_prog x y k bs = (prog,fs,bs1) ==> bs ≼ bs1`,
+  `compile_prog x y k bs = (prog,fs,bs1) ==>
+  append (FST bs) ≼ append (FST bs1)`,
   fs [compile_prog_def,LET_THM] \\ rw []
   \\ pairarg_tac \\ fs []
   \\ imp_res_tac comp_IMP_isPREFIX
   \\ imp_res_tac IS_PREFIX_TRANS \\ fs []);
 
 Theorem compile_word_to_stack_isPREFIX:
-   !code k bs progs1 fs1 bs1.
-       compile_word_to_stack k code bs = (progs1,fs1,bs1) ==> bs ≼ bs1
+  ∀code k bs progs1 fs1 bs1.
+  compile_word_to_stack k code bs = (progs1,fs1,bs1) ==>
+  append (FST bs) ≼ append (FST bs1)
 Proof
   Induct \\ fs [compile_word_to_stack_def,FORALL_PROD,LET_THM] \\ rw []
   \\ pairarg_tac \\ fs []
   \\ pairarg_tac \\ fs [] \\ rw []
   \\ res_tac \\ fs []
   \\ imp_res_tac compile_prog_isPREFIX
+  \\ fs[]
+  \\ Cases_on`bitmaps'` \\ fs[]
+  \\ first_x_assum drule
   \\ imp_res_tac IS_PREFIX_TRANS \\ fs []
 QED
 
@@ -2801,6 +2804,7 @@ Proof
   Cases_on`args'`>>fs[LAST_CONS]
 QED
 
+(* TODO *)
 Theorem call_dest_lemma[local]:
   ¬bad_dest_args dest args /\
   state_rel k f f' (s:('a,'a word list # 'c,'ffi) state) t lens /\
