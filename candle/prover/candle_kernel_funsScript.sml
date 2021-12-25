@@ -538,7 +538,27 @@ Proof
     \\ Cases_on`r` \\ fs[NUM_v_ok, SF SFY_ss]
     \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
-  >~ [‘do_opapp [call_new_type_v; v]’] >- cheat
+  >~ [‘do_opapp [call_new_type_v; v]’] >- (
+    drule_all call_new_type_v_head \\ strip_tac \\ gvs[]
+    >- (first_assum $ irule_at Any \\ simp[])
+    \\ assume_tac call_new_type_v_thm
+    \\ fs[state_ok_def]
+    \\ `∃pa. PAIR_TYPE STRING_TYPE INT pa v`
+    by (
+      irule v_ok_PAIR_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ first_assum $ irule_at Any
+      \\ simp[STRING_TYPE_HEAD_def, INT_HEAD_def])
+    \\ PairCases_on`pa`
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms call_new_type_v`
+    by (
+      simp[]
+      \\ drule_at_then Any irule PAIR_TYPE_perms_ok
+      \\ simp[STRING_TYPE_perms_ok, INT_perms_ok, SF SFY_ss])
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ cheat (* should be similar to new_constant *)
+  )
   >~ [‘do_opapp [mk_type_v; v]’] >- (
     drule_all mk_type_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
@@ -1015,7 +1035,27 @@ Proof
       \\ simp[TERM_IMP_v_ok, SF SFY_ss] )
     \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
-  >~ [‘do_opapp [call_frees_v; v]’] >- cheat
+  >~ [‘do_opapp [call_frees_v; v]’] >- (
+    drule_all call_frees_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac call_frees_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_then drule v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ `perms_ok ∅ v ∧ perms_ok ∅ call_frees_v`
+    by simp[TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all Arrow1 \\ strip_tac \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss]
+    \\ drule_then irule LIST_TYPE_v_ok
+    \\ rw[EVERY_MEM]
+    \\ drule_then drule v_ok_TERM \\ strip_tac
+    \\ drule_then drule MEM_frees \\ strip_tac
+    \\ drule_at_then(Pat`TERM_TYPE`) irule TERM_IMP_v_ok
+    \\ rveq
+    \\ simp[TERM_def]
+    \\ simp[holSyntaxTheory.term_ok_def]
+    \\ fs[TYPE_def])
   >~ [‘do_opapp [freesl_v; v]’] >- cheat
   >~ [‘do_opapp [call_type_vars_in_term_v; v]’] >- cheat
   >~ [‘do_opapp [rand_v; v]’] >- (

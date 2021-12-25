@@ -1241,16 +1241,20 @@ Proof
        LET_DEF,st_ex_return_def] \\ METIS_TAC []
 QED
 
-val MEM_subtract = Q.prove(
-  `!xs ys x. MEM x (subtract xs ys) <=> MEM x xs /\ ~MEM x ys`,
-  FULL_SIMP_TAC std_ss [subtract_def,MEM_FILTER,MEM] \\ METIS_TAC []);
+Theorem MEM_subtract:
+  !xs ys x. MEM x (subtract xs ys) <=> MEM x xs /\ ~MEM x ys
+Proof
+  FULL_SIMP_TAC std_ss [subtract_def,MEM_FILTER,MEM] \\ METIS_TAC []
+QED
 
-val MEM_frees = Q.prove(
-  `!tm y. TERM defs tm /\ MEM y (frees tm) ==>
-           ?v ty. (y = Var v ty) /\ TYPE defs ty`,
+Theorem MEM_frees:
+  !tm y. TERM defs tm /\ MEM y (frees tm) ==>
+          ?v ty. (y = Var v ty) /\ TYPE defs ty
+Proof
   Induct \\ SIMP_TAC (srw_ss()) [Once frees_def]
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC Abs_Var \\ FULL_SIMP_TAC std_ss []
-  \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss [MEM_union,MEM_subtract]);
+  \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss [MEM_union,MEM_subtract]
+QED
 
 Theorem inst_aux_thm:
    !env theta tm s s' res.

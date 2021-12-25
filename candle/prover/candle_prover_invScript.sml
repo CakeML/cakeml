@@ -665,6 +665,12 @@ Proof
   rw[ml_translatorTheory.UNIT_TYPE_def, perms_ok_def]
 QED
 
+Theorem INT_perms_ok:
+  ∀s v. INT s v ⇒ perms_ok ps v
+Proof
+  gvs [ml_translatorTheory.INT_def, perms_ok_def]
+QED
+
 Theorem NUM_perms_ok:
   ∀s v. NUM s v ⇒ perms_ok ps v
 Proof

@@ -262,6 +262,14 @@ Proof
   \\ rw[]
 QED
 
+Theorem perms_ok_call_frees_v[simp]:
+  perms_ok ps call_frees_v
+Proof
+  rw[perms_ok_def, call_frees_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ rw[]
+QED
+
 Theorem perms_ok_dest_var_v[simp]:
   perms_ok ps dest_var_v
 Proof
@@ -438,6 +446,12 @@ Proof
   \\ rw[]
 QED
 
+Theorem perms_ok_can_v[simp]:
+  perms_ok ps can_v
+Proof
+  rw[perms_ok_def, can_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+QED
+
 (* Functions translated with 'm_translate' should be proved for kernel_perms *)
 
 Theorem perms_ok_the_type_constants[simp]:
@@ -611,6 +625,30 @@ Theorem perms_ok_new_constant_v[simp]:
  perms_ok kernel_perms new_constant_v
 Proof
   rw[perms_ok_def, new_constant_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ rw[]
+QED
+
+Theorem perms_ok_add_type_v[simp]:
+  perms_ok kernel_perms add_type_v
+Proof
+  rw[perms_ok_def, add_type_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ TRY(pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv))
+  \\ rw[] \\ rw[kernel_perms_def]
+QED
+
+Theorem perms_ok_new_type_v[simp]:
+  perms_ok kernel_perms new_type_v
+Proof
+  rw[perms_ok_def, new_type_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ rw[]
+QED
+
+Theorem perms_ok_call_new_type_v[simp]:
+  perms_ok kernel_perms call_new_type_v
+Proof
+  rw[perms_ok_def, call_new_type_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
   \\ rw[]
 QED
