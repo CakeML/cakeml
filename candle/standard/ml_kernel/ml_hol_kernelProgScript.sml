@@ -412,16 +412,17 @@ val def = add_def_def |> m_translate
 val def = new_constant_def |> Q.SPEC ‘n’ |> check [‘n’,‘ty’] |> m_translate
 val def = add_type_def |> m_translate
 
-Triviality new_type_alt:
-  new_type (n,arity) =
-    if arity < 0 then raise_Fail (strlit "negative arity")
-    else
-       st_ex_bind (add_type (n,arity)) (λz. add_def (NewType n arity))
-Proof
-  fs [new_type_def]
-QED
+Definition call_new_type_def:
+  call_new_type (n:mlstring, arity:int) =
+    if 0 ≤ arity then new_type (n, Num (ABS arity))
+    else raise_Fail (strlit "negative arity")
+End
 
-val def = new_type_alt |> check [‘n’] |> m_translate
+val _ = next_ml_names := ["new_type_num"];
+val def = new_type_def |> m_translate
+
+val _ = next_ml_names := ["new_type"];
+val def = call_new_type_def |> check [‘n’] |> m_translate
 
 val _ = next_ml_names := ["EQ_MP", "ASSUME"];
 val def = holKernelPmatchTheory.EQ_MP_def |> m_translate
