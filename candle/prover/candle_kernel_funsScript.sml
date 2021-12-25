@@ -538,7 +538,7 @@ Proof
     \\ Cases_on`r` \\ fs[NUM_v_ok, SF SFY_ss]
     \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
-  >~ [‘do_opapp [new_type_v; v]’] >- cheat
+  >~ [‘do_opapp [call_new_type_v; v]’] >- cheat
   >~ [‘do_opapp [mk_type_v; v]’] >- (
     drule_all mk_type_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
