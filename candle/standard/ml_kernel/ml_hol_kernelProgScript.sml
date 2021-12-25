@@ -221,7 +221,7 @@ End
 val _ = (next_ml_names := ["frees_aux"]);
 val res = translate holSyntaxExtraTheory.frees_def;
 val _ = (next_ml_names := ["frees"]);
-val res = translate call_frees_def;
+val res = translate (check [‘tm’] call_frees_def);
 
 val res = translate (check [‘tml’] freesl_def);
 
@@ -231,7 +231,7 @@ End
 val _ = (next_ml_names := ["freesin_aux"]);
 val res = translate (freesin_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = (next_ml_names := ["freesin"]);
-val res = translate (check [‘acc’] call_freesin_def);
+val res = translate (check [‘acc’,‘tm’] call_freesin_def);
 
 Definition call_vfree_in_def[simp]:
   call_vfree_in v tm = vfree_in v tm
@@ -383,7 +383,7 @@ val def = holKernelPmatchTheory.rator_def |> check [‘tm’] |> m_translate;
 val def = holKernelPmatchTheory.rand_def |> check [‘tm’] |> m_translate;
 val def = holKernelPmatchTheory.dest_eq_def |> check [‘tm’] |> m_translate;
 
-val def = holKernelPmatchTheory.mk_abs_def |> check [‘bod’] |> m_translate;
+val def = holKernelPmatchTheory.mk_abs_def |> check [‘bvar’,‘bod’] |> m_translate;
 val def = get_type_arity_def |> check [‘s’] |> m_translate;
 val def = mk_type_def |> check [‘tyop’,‘args’] |> m_translate;
 val def = mk_fun_ty_def |> check [‘ty1’,‘ty2’] |> m_translate;
@@ -411,7 +411,17 @@ val def = REWRITE_RULE[fdM_intro]add_constants_def |> m_translate
 val def = add_def_def |> m_translate
 val def = new_constant_def |> Q.SPEC ‘n’ |> check [‘n’,‘ty’] |> m_translate
 val def = add_type_def |> m_translate
-val def = new_type_def |> m_translate
+
+Triviality new_type_alt:
+  new_type (n,arity) =
+    if arity < 0 then raise_Fail (strlit "negative arity")
+    else
+       st_ex_bind (add_type (n,arity)) (λz. add_def (NewType n arity))
+Proof
+  fs [new_type_def]
+QED
+
+val def = new_type_alt |> check [‘n’] |> m_translate
 
 val _ = next_ml_names := ["eq_mp_rule", "assume"];
 val def = holKernelPmatchTheory.EQ_MP_def |> m_translate

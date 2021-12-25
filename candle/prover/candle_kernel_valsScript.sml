@@ -331,6 +331,13 @@ Proof
   fs [do_opapp_def]
 QED
 
+Theorem do_partial_app_clos:
+  do_partial_app (Closure env v (Fun n e)) argv = SOME g ⇔
+  Closure (env with v := nsBind v argv env.v) n e = g
+Proof
+  fs [do_partial_app_def]
+QED
+
 Triviality same_clock_exists:
   (∃k. s = s with clock := k) = T ∧
   (∃k. s with clock := k' = s with clock := k) = T
@@ -434,15 +441,16 @@ Proof
   \\ gvs [AllCaseEqs(),LENGTH_EQ_NUM_compute,pmatch_def]
 QED
 
-
-(*
 Theorem evaluate_mat_thm:
   evaluate ^s env
     [Mat (Var (Short v))
-       [(Pcon (SOME (Short "Sequent")) [Pvar a1], ee)]] = (s',res) ∧
+       [(Pcon (SOME (Short "Sequent")) [Pvar a1; Pvar a2], ee)]] = (s',res) ∧
   nsLookup env.c (Short "Sequent") = SOME (2,TypeStamp "Sequent" thm_stamp_n) ∧
   nsLookup env.v (Short v) = SOME w ⇒
-  ^safe_error_goal ∨ THM_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
+  ^safe_error_goal ∨
+  ∃v1 v2.
+    THM_TYPE_HEAD w ∧
+    evaluate ^s (env with v := nsBind a2 v2 (nsBind a1 v1 env.v)) [ee] = (s',res)
 Proof
   fs [evaluate_def,same_ctor_def,pmatch_def,do_con_check_def] \\ csimp []
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
@@ -453,14 +461,11 @@ Proof
   \\ gvs [AllCaseEqs(),LENGTH_EQ_NUM_compute]
   \\ rpt strip_tac \\ gvs [same_ctor_def,pmatch_def]
   \\ fs [THM_TYPE_HEAD_def]
-
-
-
   \\ rpt (pop_assum mp_tac)
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ fs [namespaceTheory.nsOptBind_def]
+  \\ fs [namespaceTheory.nsOptBind_def] \\ rpt strip_tac \\ disj2_tac
+  \\ first_x_assum $ irule_at Any
 QED
-*)
 
 Theorem is_type_v_head:
   do_opapp [is_type_v; w] = SOME (env, exp) ∧
@@ -1089,9 +1094,13 @@ Proof
   \\ fs[CaseEqs["v","option","prod","lit"]] \\ gvs[same_clock_exists]
 QED
 
-val one_arg_tm_or_ty_tac =
-  rewrite_tac[kernel_funs_v_def,do_opapp_clos]
-  \\ strip_tac \\ rveq \\ fs []
+val one_arg_tac =
+  rewrite_tac[kernel_funs_v_def]
+  \\ TRY (rename [‘Let (SOME xx) yy zz’])
+  \\ rewrite_tac [do_partial_app_clos,do_opapp_clos]
+  \\ strip_tac \\ rveq \\ rpt (pop_assum mp_tac)
+  \\ rewrite_tac [do_partial_app_clos,do_opapp_clos]
+  \\ rpt strip_tac \\ rveq \\ fs []
   \\ rpt (
     (dxrule evaluate_ty_check ORELSE
      dxrule evaluate_ty_list_check ORELSE
@@ -1100,6 +1109,7 @@ val one_arg_tm_or_ty_tac =
      dxrule evaluate_tm_list_check ORELSE
      dxrule evaluate_tm_tm_list_check ORELSE
      dxrule evaluate_str_check ORELSE
+     dxrule evaluate_mat_thm ORELSE
      dxrule evaluate_mat_pair)
     \\ simp [ml_progTheory.nsLookup_nsBind_compute]
     \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
@@ -1112,7 +1122,7 @@ Theorem dest_type_v_head:
     ^safe_error_goal ∨
     TYPE_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem is_type_v_head:
@@ -1121,7 +1131,7 @@ Theorem is_type_v_head:
     ^safe_error_goal ∨
     TYPE_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem is_vartype_v_head:
@@ -1130,7 +1140,7 @@ Theorem is_vartype_v_head:
     ^safe_error_goal ∨
     TYPE_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem is_var_v_head:
@@ -1139,7 +1149,7 @@ Theorem is_var_v_head:
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem is_const_v_head:
@@ -1148,7 +1158,7 @@ Theorem is_const_v_head:
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem is_abs_v_head:
@@ -1157,7 +1167,7 @@ Theorem is_abs_v_head:
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem is_comb_v_head:
@@ -1166,7 +1176,7 @@ Theorem is_comb_v_head:
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem rand_v_head:
@@ -1175,7 +1185,7 @@ Theorem rand_v_head:
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem rator_v_head:
@@ -1184,7 +1194,7 @@ Theorem rator_v_head:
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem dest_var_v_head:
@@ -1193,7 +1203,7 @@ Theorem dest_var_v_head:
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem dest_const_v_head:
@@ -1202,7 +1212,7 @@ Theorem dest_const_v_head:
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem dest_comb_v_head:
@@ -1211,7 +1221,7 @@ Theorem dest_comb_v_head:
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem dest_abs_v_head:
@@ -1220,7 +1230,7 @@ Theorem dest_abs_v_head:
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem dest_vartype_v_head:
@@ -1229,7 +1239,7 @@ Theorem dest_vartype_v_head:
     ^safe_error_goal ∨
     TYPE_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem dest_type_v_head:
@@ -1238,7 +1248,7 @@ Theorem dest_type_v_head:
     ^safe_error_goal ∨
     TYPE_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem dest_eq_v_head:
@@ -1247,7 +1257,7 @@ Theorem dest_eq_v_head:
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem call_tyvars_v_head:
@@ -1256,7 +1266,7 @@ Theorem call_tyvars_v_head:
     ^safe_error_goal ∨
     TYPE_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem call_type_vars_in_term_v_head:
@@ -1265,7 +1275,7 @@ Theorem call_type_vars_in_term_v_head:
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem call_type_vars_in_term_v_head:
@@ -1274,7 +1284,7 @@ Theorem call_type_vars_in_term_v_head:
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem new_basic_definition_v_head:
@@ -1283,7 +1293,7 @@ Theorem new_basic_definition_v_head:
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem get_const_type_v_head:
@@ -1292,7 +1302,7 @@ Theorem get_const_type_v_head:
     ^safe_error_goal ∨
     STRING_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem new_constant_v_head:
@@ -1301,7 +1311,7 @@ Theorem new_constant_v_head:
     ^safe_error_goal ∨
     PAIR_TYPE_HEAD STRING_TYPE_HEAD TYPE_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem mk_var_v_head:
@@ -1310,7 +1320,7 @@ Theorem mk_var_v_head:
     ^safe_error_goal ∨
     PAIR_TYPE_HEAD STRING_TYPE_HEAD TYPE_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem mk_comb_v_head:
@@ -1319,7 +1329,7 @@ Theorem mk_comb_v_head:
     ^safe_error_goal ∨
     PAIR_TYPE_HEAD TERM_TYPE_HEAD TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem get_type_arity_v_head:
@@ -1328,7 +1338,7 @@ Theorem get_type_arity_v_head:
     ^safe_error_goal ∨
     STRING_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem mk_type_v_head:
@@ -1337,7 +1347,7 @@ Theorem mk_type_v_head:
     ^safe_error_goal ∨
     PAIR_TYPE_HEAD STRING_TYPE_HEAD (LIST_TYPE_HEAD TYPE_TYPE_HEAD) v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem refl_v_head:
@@ -1346,7 +1356,7 @@ Theorem refl_v_head:
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem mk_const_v_head:
@@ -1356,7 +1366,7 @@ Theorem mk_const_v_head:
     PAIR_TYPE_HEAD STRING_TYPE_HEAD
       (LIST_TYPE_HEAD (PAIR_TYPE_HEAD TYPE_TYPE_HEAD TYPE_TYPE_HEAD)) v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem freesl_v_head:
@@ -1365,7 +1375,7 @@ Theorem freesl_v_head:
     ^safe_error_goal ∨
     LIST_TYPE_HEAD TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
 Theorem assume_v_head:
@@ -1374,19 +1384,191 @@ Theorem assume_v_head:
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
 
-(*
 Theorem hyp_v_head:
   do_opapp [hyp_v; v] = SOME (env, exp) ∧
   evaluate ^s env [exp] = (s', res) ⇒
     ^safe_error_goal ∨
+    THM_TYPE_HEAD v
+Proof
+  one_arg_tac
+QED
+
+Theorem dest_thm_v_head:
+  do_opapp [dest_thm_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    THM_TYPE_HEAD v
+Proof
+  one_arg_tac
+QED
+
+Theorem mk_comb_1_v_head:
+  do_opapp [mk_comb_1_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    PAIR_TYPE_HEAD THM_TYPE_HEAD THM_TYPE_HEAD v
+Proof
+  one_arg_tac
+QED
+
+Theorem new_basic_type_definition_v_head:
+  do_opapp [new_basic_type_definition_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    (PAIR_TYPE_HEAD STRING_TYPE_HEAD $
+       PAIR_TYPE_HEAD STRING_TYPE_HEAD $
+          PAIR_TYPE_HEAD STRING_TYPE_HEAD THM_TYPE_HEAD) v
+Proof
+  one_arg_tac
+QED
+
+Theorem call_type_subst_v_head:
+  do_partial_app call_type_subst_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    LIST_TYPE_HEAD (PAIR_TYPE_HEAD TYPE_TYPE_HEAD TYPE_TYPE_HEAD) v ∧
+    TYPE_TYPE_HEAD w
+Proof
+  one_arg_tac
+QED
+
+Theorem vsubst_v_head:
+  do_partial_app vsubst_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    LIST_TYPE_HEAD (PAIR_TYPE_HEAD TERM_TYPE_HEAD TERM_TYPE_HEAD) v ∧
+    TERM_TYPE_HEAD w
+Proof
+  one_arg_tac
+QED
+
+Theorem inst_v_head:
+  do_partial_app inst_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    LIST_TYPE_HEAD (PAIR_TYPE_HEAD TYPE_TYPE_HEAD TYPE_TYPE_HEAD) v ∧
+    TERM_TYPE_HEAD w
+Proof
+  one_arg_tac
+QED
+
+Theorem abs_1_v_head:
+  do_partial_app abs_1_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    THM_TYPE_HEAD w ∧
     TERM_TYPE_HEAD v
 Proof
-  one_arg_tm_or_ty_tac
+  one_arg_tac
 QED
-*)
+
+Theorem eq_mp_v_head:
+  do_partial_app eq_mp_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    THM_TYPE_HEAD v ∧
+    THM_TYPE_HEAD w
+Proof
+  one_arg_tac
+QED
+
+Theorem deduct_antisym_rule_v_head:
+  do_partial_app deduct_antisym_rule_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    THM_TYPE_HEAD v ∧
+    THM_TYPE_HEAD w
+Proof
+  one_arg_tac
+QED
+
+Theorem inst_type_v_head:
+  do_partial_app inst_type_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    THM_TYPE_HEAD w ∧
+    LIST_TYPE_HEAD (PAIR_TYPE_HEAD TYPE_TYPE_HEAD TYPE_TYPE_HEAD) v
+Proof
+  one_arg_tac
+QED
+
+Theorem inst_1_v_head:
+  do_partial_app inst_1_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    THM_TYPE_HEAD w ∧
+    LIST_TYPE_HEAD (PAIR_TYPE_HEAD TERM_TYPE_HEAD TERM_TYPE_HEAD) v
+Proof
+  one_arg_tac
+QED
+
+Theorem new_axiom_v_head:
+  do_opapp [new_axiom_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TERM_TYPE_HEAD v
+Proof
+  one_arg_tac
+QED
+
+Theorem call_type_of_v_head:
+  do_opapp [call_type_of_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TERM_TYPE_HEAD v
+Proof
+  one_arg_tac
+QED
+
+Theorem call_vfree_in_v_head:
+  do_partial_app call_vfree_in_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TERM_TYPE_HEAD v
+Proof
+  one_arg_tac
+QED
+
+Theorem call_freesin_v_head:
+  do_partial_app call_freesin_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    LIST_TYPE_HEAD TERM_TYPE_HEAD v ∧
+    TERM_TYPE_HEAD w
+Proof
+  one_arg_tac
+QED
+
+Theorem mk_abs_v_head:
+  do_opapp [mk_abs_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    PAIR_TYPE_HEAD TERM_TYPE_HEAD TERM_TYPE_HEAD v
+Proof
+  one_arg_tac
+QED
+
+Theorem call_frees_v_head:
+  do_opapp [call_frees_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TERM_TYPE_HEAD v
+Proof
+  one_arg_tac
+QED
 
 (*
 
@@ -1394,29 +1576,6 @@ Note: these head theorems should be proved as much as possible using
 only drule with generic lemmas like evaluate_ty_check,
 evaluate_tm_check etc.
 
-TODO:
-  hyp_v_thm
-  dest_thm_v_thm
-  mk_comb_1_v_thm
-  new_basic_type_definition_v_thm
-
-TWO ARG:
-  call_type_subst_v_thm
-  call_freesin_v_thm
-  vsubst_v_thm
-  inst_v_thm
-  abs_1_v_thm
-  eq_mp_v_thm
-  deduct_antisym_rule_v_thm
-  inst_type_v_thm
-  inst_1_v_thm
-
-FIX:
-  new_axiom_v_thm
-  mk_abs_v_thm
-  call_frees_v_thm
-  call_type_of_v_thm
-  call_vfree_in_v_thm
   new_type_v_thm
 
 *)
