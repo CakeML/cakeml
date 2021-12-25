@@ -120,6 +120,9 @@ QED
 
 Theorem refs_defs = LIST_CONJ
   [ml_hol_kernelProgTheory.init_type_constants_refs_def,
+   ml_hol_kernelProgTheory.init_term_constants_refs_def,
+   ml_hol_kernelProgTheory.init_axioms_refs_def,
+   ml_hol_kernelProgTheory.init_context_refs_def,
    CharProgTheory.some_chars_vector_refs_def,
    MapProgTheory.ratio_refs_def,
    MapProgTheory.delta_refs_def,
