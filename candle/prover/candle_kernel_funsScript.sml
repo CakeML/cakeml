@@ -697,9 +697,49 @@ Proof
     \\ drule the_term_constants_TYPE
     \\ simp[EVERY_MEM, FORALL_PROD]
     \\ Cases_on`x` \\ fs[SF SFY_ss])
-  >~ [‘do_opapp [get_const_type_v; v]’] >- cheat
+  >~ [‘do_opapp [get_const_type_v; v]’] >- (
+    drule_all get_const_type_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac get_const_type_v_thm
+    \\ fs[state_ok_def]
+    \\ fs[STRING_TYPE_HEAD_def]
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms get_const_type_v`
+    by simp[STRING_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs[holKernelTheory.get_const_type_def, ml_monadBaseTheory.st_ex_bind_def]
+    \\ fs[holKernelTheory.get_the_term_constants_def]
+    \\ drule assoc_thm
+    \\ strip_tac
+    \\ fs[SF SFY_ss]
+    \\ drule the_term_constants_TYPE
+    \\ simp[EVERY_MEM, FORALL_PROD] \\ strip_tac
+    \\ Cases_on`r` \\ fs[]
+    >- (drule_at_then Any irule TYPE_IMP_v_ok \\ simp[SF SFY_ss])
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [new_constant_v; v]’] >- cheat
-  >~ [‘do_opapp [call_type_of_v; v]’] >- cheat
+  >~ [‘do_opapp [call_type_of_v; v]’] >- (
+    drule_all call_type_of_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac call_type_of_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ imp_res_tac v_ok_TERM \\ fs []
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms call_type_of_v`
+    by simp[TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs [SF SFY_ss]
+    \\ drule_then drule type_of_thm
+    \\ strip_tac \\ fs[] \\ gvs[]
+    \\ drule_at_then Any irule TYPE_IMP_v_ok
+    \\ drule_at Any term_type
+    \\ fs[STATE_def] \\ rw[] \\ gvs[])
   >~ [‘do_opapp [is_var_v; v]’] >- (
     drule_all is_var_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])

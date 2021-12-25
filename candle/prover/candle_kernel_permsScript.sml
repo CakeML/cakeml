@@ -6,13 +6,19 @@ open preamble helperLib;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory sptreeTheory
      evaluateTheory namespacePropsTheory evaluatePropsTheory
      candle_kernel_valsTheory;
-open permsTheory ml_hol_kernelProgTheory ast_extrasTheory;
+open permsTheory ml_hol_kernelProgTheory ml_progLib ast_extrasTheory;
 
 val _ = new_theory "candle_kernel_perms";
 
 val _ = set_grammar_ancestry ["candle_kernel_vals", "perms", "misc"];
 
 (* Functions translated with 'translate' should be proved for any ps *)
+
+Theorem perms_ok_fst_v[simp]:
+  perms_ok ps fst_v
+Proof
+  rw[perms_ok_def, std_preludeTheory.fst_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+QED
 
 Theorem perms_ok_snd_v[simp]:
   perms_ok ps snd_v
@@ -56,6 +62,14 @@ Theorem perms_ok_filter_v[simp]:
   perms_ok ps ListProg$filter_v
 Proof
   rw[perms_ok_def, ListProgTheory.filter_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+QED
+
+Theorem perms_ok_fdm_v[simp]:
+  perms_ok ps fdm_v
+Proof
+  rw[perms_ok_def, fdm_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ rw[]
 QED
 
 Theorem perms_ok_strcat_v[simp]:
@@ -495,6 +509,14 @@ Proof
   \\ rw[]
 QED
 
+Theorem perms_ok_call_type_of_v[simp]:
+  perms_ok kernel_perms call_type_of_v
+Proof
+  rw[perms_ok_def, call_type_of_v_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ rw[]
+QED
+
 Theorem perms_ok_get_const_type_v[simp]:
   perms_ok kernel_perms get_const_type_v
 Proof
@@ -547,6 +569,36 @@ Theorem perms_ok_trans_v[simp]:
   perms_ok kernel_perms trans_v
 Proof
   rw[perms_ok_def, trans_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ rw[]
+QED
+
+Theorem perms_ok_add_constants_v[simp]:
+ perms_ok kernel_perms add_constants_v
+Proof
+  rw[perms_ok_def, add_constants_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ TRY(pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv))
+  \\ rw[] \\ rw[kernel_perms_def]
+QED
+
+Theorem perms_ok_the_context[simp]:
+  perms_ok kernel_perms the_context
+Proof
+  rw[the_context_def, perms_ok_def, kernel_perms_def, kernel_locs_def]
+QED
+
+Theorem perms_ok_add_def_v[simp]:
+  perms_ok kernel_perms add_def_v
+Proof
+  rw[perms_ok_def, add_def_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ TRY(pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV nsLookup_conv))
+  \\ rw[] \\ rw[kernel_perms_def]
+QED
+
+Theorem perms_ok_new_constant_v[simp]:
+ perms_ok kernel_perms new_constant_v
+Proof
+  rw[perms_ok_def, new_constant_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
   \\ rw[]
 QED

@@ -454,10 +454,11 @@ val term_type_def = Define `
     | Abs (Var _ ty) t => Tyapp (strlit "fun") [ty; term_type t]
     | _ => Tyvar (strlit "")`
 
-val term_type = Q.prove(
-  `!defs tm. CONTEXT defs ∧ TERM defs tm ==>
+Theorem term_type:
+  !defs tm. CONTEXT defs ∧ TERM defs tm ==>
     (term_type tm = typeof tm) /\
-    TYPE defs (term_type tm)`,
+    TYPE defs (term_type tm)
+Proof
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ STRIP_TAC \\ Induct \\ ONCE_REWRITE_TAC [term_type_def]
   \\ SIMP_TAC (srw_ss()) [typeof_def]
@@ -467,7 +468,8 @@ val term_type = Q.prove(
   rw[]>>fs[term_ok_def]>>rw[]>>
   TRY(fs[TYPE_def,type_ok_def]>>NO_TAC)>>
   imp_res_tac CONTEXT_std_sig >>
-  fs[TYPE_def,type_ok_def,is_std_sig_def])
+  fs[TYPE_def,type_ok_def,is_std_sig_def]
+QED
 
 Theorem type_of_has_type:
    !tm refs ty refs'.
@@ -510,9 +512,10 @@ Proof
   \\ simp [holSyntaxTheory.has_type_rules]
 QED
 
-val type_of_thm = Q.prove(
-  `!tm. TERM defs tm /\ STATE defs s ==>
-         (type_of tm s = (Success (term_type tm),s))`,
+Theorem type_of_thm:
+  !tm. TERM defs tm /\ STATE defs s ==>
+       (type_of tm s = (Success (term_type tm),s))
+Proof
   HO_MATCH_MP_TAC type_of_ind \\ SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ `CONTEXT defs` by fs[STATE_def]
@@ -540,7 +543,8 @@ val type_of_thm = Q.prove(
   \\ sg `EVERY (TYPE defs) [ty; term_type t0]`
   THEN1 FULL_SIMP_TAC std_ss [EVERY_DEF,term_type]
   \\ IMP_RES_TAC mk_fun_ty_thm
-  \\ FULL_SIMP_TAC (srw_ss()) [st_ex_bind_def]);
+  \\ FULL_SIMP_TAC (srw_ss()) [st_ex_bind_def]
+QED
 
 val alphavars_thm = Q.prove(
   `!env.
