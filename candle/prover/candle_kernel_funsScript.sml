@@ -633,30 +633,244 @@ Proof
   >~ [‘do_opapp [get_const_type_v; v]’] >- cheat
   >~ [‘do_opapp [new_constant_v; v]’] >- cheat
   >~ [‘do_opapp [call_type_of_v; v]’] >- cheat
-  >~ [‘do_opapp [is_var_v; v]’] >- cheat
-  >~ [‘do_opapp [is_const_v; v]’] >- cheat
-  >~ [‘do_opapp [is_abs_v; v]’] >- cheat
-  >~ [‘do_opapp [is_comb_v; v]’] >- cheat
+  >~ [‘do_opapp [is_var_v; v]’] >- (
+    drule_all is_var_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac is_var_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ `perms_ok ∅ v ∧ perms_ok ∅ is_var_v`
+    by simp[TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all Arrow1 \\ strip_tac \\ fs[]
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss, BOOL_v_ok])
+  >~ [‘do_opapp [is_const_v; v]’] >- (
+    drule_all is_const_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac is_const_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ `perms_ok ∅ v ∧ perms_ok ∅ is_const_v`
+    by simp[TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all Arrow1 \\ strip_tac \\ fs[]
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss, BOOL_v_ok])
+  >~ [‘do_opapp [is_abs_v; v]’] >- (
+    drule_all is_abs_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac is_abs_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ `perms_ok ∅ v ∧ perms_ok ∅ is_abs_v`
+    by simp[TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all Arrow1 \\ strip_tac \\ fs[]
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss, BOOL_v_ok])
+  >~ [‘do_opapp [is_comb_v; v]’] >- (
+    drule_all is_comb_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac is_comb_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ `perms_ok ∅ v ∧ perms_ok ∅ is_comb_v`
+    by simp[TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all Arrow1 \\ strip_tac \\ fs[]
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss, BOOL_v_ok])
   >~ [‘do_opapp [mk_var_v; v]’] >- cheat
   >~ [‘do_opapp [mk_const_v; v]’] >- cheat
   >~ [‘do_opapp [mk_abs_v; v]’] >- cheat
   >~ [‘do_opapp [mk_comb_v; v]’] >- cheat
-  >~ [‘do_opapp [dest_var_v; v]’] >- cheat
-  >~ [‘do_opapp [dest_const_v; v]’] >- cheat
-  >~ [‘do_opapp [dest_comb_v; v]’] >- cheat
-  >~ [‘do_opapp [dest_abs_v; v]’] >- cheat
+  >~ [‘do_opapp [dest_var_v; v]’] >- (
+    drule_all dest_var_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac dest_var_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ imp_res_tac v_ok_TERM \\ fs []
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms dest_var_v`
+    by simp[TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs [SF SFY_ss]
+    \\ drule_all dest_var_thm \\ strip_tac
+    \\ Cases_on ‘r’ \\ fs []
+    >- (
+      drule_then irule PAIR_TYPE_v_ok
+      \\ Cases_on`a` \\ simp[STRING_TYPE_v_ok,SF SFY_ss]
+      \\ fs[] \\ simp[TYPE_IMP_v_ok, SF SFY_ss] )
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
+  >~ [‘do_opapp [dest_const_v; v]’] >- (
+    drule_all dest_const_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac dest_const_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ imp_res_tac v_ok_TERM \\ fs []
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms dest_const_v`
+    by simp[TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs [SF SFY_ss]
+    \\ drule_all dest_const_thm \\ strip_tac
+    \\ Cases_on ‘r’ \\ fs []
+    >- (
+      drule_then irule PAIR_TYPE_v_ok
+      \\ Cases_on`a` \\ simp[STRING_TYPE_v_ok,SF SFY_ss]
+      \\ fs[] \\ simp[TYPE_IMP_v_ok, SF SFY_ss] )
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss]
+    \\ qhdtm_x_assum`dest_const`mp_tac
+    \\ simp[holKernelTheory.dest_const_def]
+    \\ CASE_TAC \\ simp[ml_monadBaseTheory.st_ex_return_def]
+    \\ simp[holKernelTheory.raise_Fail_def])
+  >~ [‘do_opapp [dest_comb_v; v]’] >- (
+    drule_all dest_comb_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac dest_comb_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ imp_res_tac v_ok_TERM \\ fs []
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms dest_comb_v`
+    by simp[TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs [SF SFY_ss]
+    \\ drule_all dest_comb_thm \\ strip_tac
+    \\ Cases_on ‘r’ \\ fs []
+    >- (
+      drule_then irule PAIR_TYPE_v_ok
+      \\ Cases_on`a` \\ fs[]
+      \\ simp[TERM_IMP_v_ok, SF SFY_ss] )
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
+  >~ [‘do_opapp [dest_abs_v; v]’] >- (
+    drule_all dest_abs_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac dest_abs_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ imp_res_tac v_ok_TERM \\ fs []
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms dest_abs_v`
+    by simp[TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs [SF SFY_ss]
+    \\ drule_all dest_abs_thm \\ strip_tac
+    \\ Cases_on ‘r’ \\ fs []
+    >- (
+      drule_then irule PAIR_TYPE_v_ok
+      \\ Cases_on`a` \\ fs[]
+      \\ simp[TERM_IMP_v_ok, SF SFY_ss] )
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [call_frees_v; v]’] >- cheat
   >~ [‘do_opapp [freesl_v; v]’] >- cheat
   >~ [‘do_opapp [call_type_vars_in_term_v; v]’] >- cheat
-  >~ [‘do_opapp [rand_v; v]’] >- cheat
-  >~ [‘do_opapp [rator_v; v]’] >- cheat
-  >~ [‘do_opapp [dest_eq_v; v]’] >- cheat
+  >~ [‘do_opapp [rand_v; v]’] >- (
+    drule_all rand_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac rand_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ imp_res_tac v_ok_TERM \\ fs []
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms rand_v`
+    by simp[TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs [SF SFY_ss]
+    \\ drule_all rand_thm \\ strip_tac
+    \\ Cases_on ‘r’ \\ fs []
+    >- simp[TERM_IMP_v_ok, SF SFY_ss]
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss]
+    \\ fs[holKernelTheory.rand_def]
+    \\ Cases_on`tm` \\ fs[ml_monadBaseTheory.st_ex_return_def]
+    \\ fs[holKernelTheory.raise_Fail_def])
+  >~ [‘do_opapp [rator_v; v]’] >- (
+    drule_all rator_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac rator_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ imp_res_tac v_ok_TERM \\ fs []
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms rator_v`
+    by simp[TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs [SF SFY_ss]
+    \\ drule_all rator_thm \\ strip_tac
+    \\ Cases_on ‘r’ \\ fs []
+    >- simp[TERM_IMP_v_ok, SF SFY_ss]
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss]
+    \\ fs[holKernelTheory.rator_def]
+    \\ Cases_on`tm` \\ fs[ml_monadBaseTheory.st_ex_return_def]
+    \\ fs[holKernelTheory.raise_Fail_def])
+  >~ [‘do_opapp [dest_eq_v; v]’] >- (
+    drule_all dest_eq_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac dest_eq_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_all v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ imp_res_tac v_ok_TERM \\ fs []
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms dest_eq_v`
+    by simp[TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs [SF SFY_ss]
+    \\ drule_all dest_eq_thm \\ strip_tac
+    \\ Cases_on ‘r’ \\ fs []
+    >- (
+      drule_then irule PAIR_TYPE_v_ok
+      \\ Cases_on`a` \\ fs[]
+      \\ simp[TERM_IMP_v_ok, SF SFY_ss] )
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [dest_thm_v; v]’] >- cheat
   >~ [‘do_opapp [hyp_v; v]’] >- cheat
   >~ [‘do_opapp [refl_v; v]’] >- cheat
   >~ [‘do_opapp [mk_comb_1_v; v]’] >- cheat
   >~ [‘do_opapp [assume_v; v]’] >- cheat
-  >~ [‘do_opapp [axioms_v; v]’] >- cheat
+  >~ [‘do_opapp [axioms_v; v]’] >- (
+    drule_all axioms_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac axioms_v_thm
+    \\ fs[state_ok_def]
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms axioms_v`
+    by simp[UNIT_TYPE_perms_ok]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs[holKernelTheory.axioms_def]
+    \\ fs[holKernelTheory.get_the_axioms_def]
+    \\ gvs[SF SFY_ss]
+    \\ drule_then irule LIST_TYPE_v_ok
+    \\ rw[EVERY_MEM]
+    \\ irule THM_IMP_v_ok
+    \\ first_assum $ irule_at $ Any
+    \\ drule the_axioms_THM
+    \\ simp[EVERY_MEM])
   >~ [‘do_opapp [new_axiom_v; v]’] >- cheat
   >~ [‘do_opapp [new_basic_definition_v; v]’] >- cheat
   >~ [‘do_opapp [new_basic_type_definition_v; v]’] >- cheat

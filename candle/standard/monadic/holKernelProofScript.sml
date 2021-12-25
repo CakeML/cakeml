@@ -281,6 +281,22 @@ Proof
   \\ asm_exists_tac \\ fs []
 QED
 
+Theorem the_axioms_THM:
+   STATE defs refs
+   ==>
+   EVERY (THM defs) refs.the_axioms
+Proof
+  rw [STATE_def, EVERY_MAP, EVERY_MEM, MEM_MAP, lift_tm_def]
+  \\ rw[THM_def]
+  \\ irule (proves_rules |> CONJUNCTS |> last)
+  \\ fs[MEM_FLAT, MEM_MAP, PULL_EXISTS]
+  \\ first_assum $ irule_at $ Any \\ simp[]
+  \\ irule extends_theory_ok
+  \\ fs[CONTEXT_def]
+  \\ first_assum $ irule_at $ Any
+  \\ simp [init_theory_ok]
+QED
+
 (* ------------------------------------------------------------------------- *)
 (* Verification of type functions                                            *)
 (* ------------------------------------------------------------------------- *)
