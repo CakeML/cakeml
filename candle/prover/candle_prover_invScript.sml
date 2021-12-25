@@ -363,6 +363,13 @@ Proof
   \\ gvs [kernel_types_def]
 QED
 
+Theorem v_ok_Conv_NONE:
+  v_ok ctxt (Conv NONE ls) =
+  EVERY (v_ok ctxt) ls
+Proof
+  rw[v_ok_def]
+QED
+
 Theorem NUM_v_ok:
   NUM x v ==> v_ok ctxt v
 Proof
@@ -607,6 +614,16 @@ Proof
   \\ first_assum $ irule_at Any
   \\ first_assum $ irule_at Any
   \\ metis_tac[v_ok_TERM]
+QED
+
+Theorem v_ok_LIST_TYPE:
+  ∀tms v ctxt. LIST_TYPE TYPE_TYPE tms v ∧ v_ok ctxt v ⇒ EVERY (TYPE ctxt) tms
+Proof
+  rpt strip_tac
+  \\ irule v_ok_LIST
+  \\ first_assum $ irule_at Any
+  \\ first_assum $ irule_at Any
+  \\ metis_tac[v_ok_TYPE]
 QED
 
 Theorem v_ok_PAIR:

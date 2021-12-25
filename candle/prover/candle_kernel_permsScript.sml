@@ -224,6 +224,22 @@ Proof
   rw[perms_ok_def, forall_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
 QED
 
+Theorem perms_ok_tyvars_v[simp]:
+  ∀ps. perms_ok ps tyvars_v
+Proof
+  rw[perms_ok_def, tyvars_v_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ rw[]
+QED
+
+Theorem perms_ok_call_tyvars_v[simp]:
+  ∀ps. perms_ok ps call_tyvars_v
+Proof
+  rw[perms_ok_def, call_tyvars_v_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ rw[]
+QED
+
 Theorem perms_ok_frees_v[simp]:
   perms_ok ps frees_v
 Proof

@@ -518,9 +518,62 @@ Proof
     \\ conj_tac >- MATCH_ACCEPT_TAC NUM_v_ok
     \\ MATCH_ACCEPT_TAC STRING_TYPE_v_ok
   )
-  >~ [‘do_opapp [get_type_arity_v; v]’] >- cheat
+  >~ [‘do_opapp [get_type_arity_v; v]’] >- (
+    drule_all get_type_arity_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac get_type_arity_v_thm
+    \\ fs[state_ok_def, STRING_TYPE_HEAD_def]
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms get_type_arity_v`
+    by simp[STRING_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs [SF SFY_ss]
+    \\ fs[holKernelTheory.get_type_arity_def, ml_monadBaseTheory.st_ex_bind_def]
+    \\ fs[holKernelTheory.get_the_type_constants_def]
+    \\ drule assoc_thm
+    \\ strip_tac
+    \\ fs[SF SFY_ss]
+    \\ Cases_on`r` \\ fs[NUM_v_ok, SF SFY_ss]
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [new_type_v; v]’] >- cheat
-  >~ [‘do_opapp [mk_type_v; v]’] >- cheat
+  >~ [‘do_opapp [mk_type_v; v]’] >- (
+    drule_all mk_type_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac mk_type_v_thm
+    \\ fs[state_ok_def]
+    \\ `∃pa. PAIR_TYPE STRING_TYPE (LIST_TYPE TYPE_TYPE) pa v`
+    by (
+      irule v_ok_PAIR_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ first_assum $ irule_at Any
+      \\ simp[STRING_TYPE_HEAD_def]
+      \\ rpt strip_tac \\ irule v_ok_LIST_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ first_assum $ irule_at Any
+      \\ MATCH_ACCEPT_TAC v_ok_TYPE_TYPE_HEAD )
+    \\ PairCases_on`pa`
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms mk_type_v`
+    by (
+      simp[]
+      \\ drule_at_then Any irule PAIR_TYPE_perms_ok
+      \\ simp[STRING_TYPE_perms_ok, LIST_TYPE_TYPE_perms_ok, SF SFY_ss])
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs [SF SFY_ss]
+    \\ fs[ml_translatorTheory.PAIR_TYPE_def]
+    \\ rveq \\ fs[v_ok_Conv_NONE]
+    \\ drule_then drule v_ok_LIST_TYPE
+    \\ strip_tac
+    \\ drule_all mk_type_thm \\ strip_tac
+    \\ Cases_on`r` \\ fs[]
+    >- metis_tac[TYPE_IMP_v_ok]
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [mk_vartype_v; v]’] >- (
     drule_all mk_vartype_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
@@ -605,7 +658,21 @@ Proof
     \\ qexists_tac`ctxt` \\ fs[]
     \\ first_assum $ irule_at $ Pos $ hd
     \\ simp[SF SFY_ss, BOOL_v_ok])
-  >~ [‘do_opapp [call_tyvars_v; v]’] >- cheat
+  >~ [‘do_opapp [call_tyvars_v; v]’] >- (
+    drule_all call_tyvars_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac call_tyvars_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_all v_ok_TYPE_TYPE_HEAD \\ strip_tac
+    \\ `perms_ok ∅ v ∧ perms_ok ∅ call_tyvars_v`
+    by simp[TYPE_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all Arrow1
+    \\ drule_all Arrow1 \\ strip_tac \\ fs[]
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss]
+    \\ drule_then irule LIST_TYPE_v_ok
+    \\ simp[STRING_TYPE_v_ok, SF SFY_ss])
   >~ [‘do_opapp [constants_v; v]’] >- (
     drule_all constants_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
