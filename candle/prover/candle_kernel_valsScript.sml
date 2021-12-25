@@ -136,7 +136,7 @@ Theorem kernel_locs = IN_kernel_locs |>
                         refs_defs]
 
 Definition kernel_perms_def:
-  kernel_perms = IMAGE RefMention kernel_locs
+  kernel_perms = IMAGE RefMention kernel_locs ∪ {RefUpdate}
 End
 
 fun get_constructors th =
