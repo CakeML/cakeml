@@ -423,7 +423,7 @@ QED
 
 val def = new_type_alt |> check [‘n’] |> m_translate
 
-val _ = next_ml_names := ["eq_mp_rule", "assume"];
+val _ = next_ml_names := ["EQ_MP", "ASSUME"];
 val def = holKernelPmatchTheory.EQ_MP_def |> m_translate
 val def = ASSUME_def |> check [‘tm’] |> m_translate
 
@@ -434,7 +434,7 @@ val def = inst_def |> check [‘tyin’,‘tm’] |> m_translate
 val def = mk_eq_def |> check [‘l’,‘r’] |> m_translate
 
 val _ = next_ml_names :=
-  ["refl_conv", "trans_rule", "mk_comb_rule", "abs_rule", "beta_conv"];
+  ["REFL", "TRANS", "MK_COMB", "ABS", "BETA"];
 val def = REFL_def |> check [‘tm’] |> m_translate
 val def = holKernelPmatchTheory.TRANS_def |> m_translate
 
@@ -443,23 +443,28 @@ val MK_COMB_lemma = prove(
                   MK_COMB (Sequent asl1 c1,Sequent asl2 c2)``,
   every_case_tac)
   |> CONV_RULE (RAND_CONV (SIMP_CONV std_ss [holKernelPmatchTheory.MK_COMB_def]));
-
 val def = MK_COMB_lemma |> m_translate
 val def = holKernelPmatchTheory.ABS_def |> check [‘v’] |> m_translate
 val def = holKernelPmatchTheory.BETA_def |> check [‘tm’] |> m_translate
+
+val _ = next_ml_names := ["DEDUCT_ANTISYM_RULE"];
 val def = DEDUCT_ANTISYM_RULE_def |> m_translate
 val def = new_specification_def |> m_translate
 val def = new_basic_definition_def |> check [‘tm’] |> m_translate
 
-val _ = next_ml_names := ["inst_type_rule", "inst_rule"];
+val _ = next_ml_names := ["INST_TYPE", "INST"];
 val def = (INST_TYPE_def |> SIMP_RULE std_ss [LET_DEF]) |> check [‘theta’] |> m_translate
 val def = (INST_def |> SIMP_RULE std_ss [LET_DEF]) |> check [‘theta’] |> m_translate
 val def = new_basic_type_definition_def |> check [‘tyname’,‘absname’,‘repname’]  |> m_translate
 
-val _ = next_ml_names := ["sym_rule"];
+val _ = next_ml_names := ["SYM"];
 val def = holKernelPmatchTheory.SYM_def |> m_translate
+
+val _ = next_ml_names := ["PROVE_HYP"];
 val def = PROVE_HYP_def |> m_translate
 val def = list_to_hypset_def |> translate
+
+val _ = next_ml_names := ["ALPHA_THM"];
 val def = ALPHA_THM_def |> check [‘h'’,‘c'’] |> m_translate
 
 val def = axioms_def |> m_translate
