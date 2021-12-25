@@ -358,6 +358,18 @@ Proof
   rw[perms_ok_def, mk_vartype_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
 QED
 
+Theorem perms_ok_mk_var_v[simp]:
+  perms_ok ps mk_var_v
+Proof
+  rw[perms_ok_def, mk_var_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+QED
+
+Theorem perms_ok_mk_abs_v[simp]:
+  perms_ok ps mk_abs_v
+Proof
+  rw[perms_ok_def, mk_abs_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+QED
+
 Theorem perms_ok_compare_aux_v[simp]:
   perms_ok ps compare_aux_v
 Proof

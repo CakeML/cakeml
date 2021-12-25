@@ -788,10 +788,141 @@ Proof
     \\ qexists_tac`ctxt` \\ fs[]
     \\ first_assum $ irule_at $ Pos $ hd
     \\ simp[SF SFY_ss, BOOL_v_ok])
-  >~ [‘do_opapp [mk_var_v; v]’] >- cheat
-  >~ [‘do_opapp [mk_const_v; v]’] >- cheat
-  >~ [‘do_opapp [mk_abs_v; v]’] >- cheat
-  >~ [‘do_opapp [mk_comb_v; v]’] >- cheat
+  >~ [‘do_opapp [mk_var_v; v]’] >- (
+    drule_all mk_var_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac mk_var_v_thm
+    \\ fs[state_ok_def]
+    \\ `∃pa. PAIR_TYPE STRING_TYPE TYPE_TYPE pa v`
+    by (
+      irule v_ok_PAIR_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ first_assum $ irule_at Any
+      \\ simp[STRING_TYPE_HEAD_def]
+      \\ MATCH_ACCEPT_TAC v_ok_TYPE_TYPE_HEAD )
+    \\ PairCases_on`pa`
+    \\ `perms_ok ∅ v ∧ perms_ok ∅ mk_var_v` by (
+      simp[]
+      \\ drule_at_then Any irule PAIR_TYPE_perms_ok
+      \\ simp[STRING_TYPE_perms_ok, TYPE_TYPE_perms_ok, SF SFY_ss])
+    \\ drule_all Arrow1 \\ strip_tac \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss]
+    \\ irule TERM_IMP_v_ok
+    \\ first_assum $ irule_at $ Any
+    \\ irule mk_var_thm
+    \\ simp[SF SFY_ss]
+    \\ fs[ml_translatorTheory.PAIR_TYPE_def]
+    \\ rveq \\ fs[v_ok_Conv_NONE]
+    \\ drule_then (drule_then irule) v_ok_TYPE)
+  >~ [‘do_opapp [mk_const_v; v]’] >- (
+    drule_all mk_const_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac mk_const_v_thm
+    \\ fs[state_ok_def]
+    \\ `∃pa. PAIR_TYPE STRING_TYPE (LIST_TYPE (PAIR_TYPE TYPE_TYPE TYPE_TYPE)) pa v`
+    by (
+      irule v_ok_PAIR_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ first_assum $ irule_at Any
+      \\ simp[STRING_TYPE_HEAD_def]
+      \\ rpt strip_tac
+      \\ irule v_ok_LIST_PAIR_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ first_assum $ irule_at Any
+      \\ MATCH_ACCEPT_TAC v_ok_TYPE_TYPE_HEAD )
+    \\ PairCases_on`pa`
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms mk_const_v` by (
+      simp[]
+      \\ drule_at_then Any irule PAIR_TYPE_perms_ok
+      \\ simp[STRING_TYPE_perms_ok, SF SFY_ss]
+      \\ rpt strip_tac \\ drule_at_then Any irule LIST_TYPE_perms_ok
+      \\ rpt strip_tac \\ drule_at_then Any irule PAIR_TYPE_perms_ok
+      \\ MATCH_ACCEPT_TAC TYPE_TYPE_perms_ok)
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss]
+    \\ drule_then drule mk_const_thm
+    \\ fs[ml_translatorTheory.PAIR_TYPE_def]
+    \\ rveq \\ fs[v_ok_Conv_NONE]
+    \\ impl_tac
+    >- (
+      `EVERY ((λctxt p. TYPE ctxt (FST p) ∧ TYPE ctxt (SND p)) ctxt) pa1`
+      suffices_by rw[EVERY_MEM, FORALL_PROD]
+      \\ drule_at_then Any irule v_ok_LIST
+      \\ simp[ml_translatorTheory.PAIR_TYPE_def, FORALL_PROD, PULL_EXISTS]
+      \\ rw[v_ok_Conv_NONE]
+      \\ metis_tac[v_ok_TYPE])
+    \\ strip_tac
+    \\ Cases_on`r` \\ gvs[]
+    >- simp[SF SFY_ss, TERM_IMP_v_ok]
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
+  >~ [‘do_opapp [mk_abs_v; v]’] >- (
+    drule_all mk_abs_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac mk_abs_v_thm
+    \\ fs[state_ok_def]
+    \\ `∃pa. PAIR_TYPE TERM_TYPE TERM_TYPE pa v`
+    by (
+      irule v_ok_PAIR_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ first_assum $ irule_at Any
+      \\ MATCH_ACCEPT_TAC v_ok_TERM_TYPE_HEAD )
+    \\ PairCases_on`pa`
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms mk_abs_v` by (
+      simp[]
+      \\ drule_at_then Any irule PAIR_TYPE_perms_ok
+      \\ MATCH_ACCEPT_TAC TERM_TYPE_perms_ok)
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss]
+    \\ drule mk_abs_thm
+    \\ fs[ml_translatorTheory.PAIR_TYPE_def]
+    \\ rveq \\ fs[v_ok_Conv_NONE]
+    \\ imp_res_tac v_ok_TERM
+    \\ disch_then drule \\ simp[]
+    \\ strip_tac
+    \\ Cases_on`r` \\ fs[] \\ gvs[]
+    \\ simp[SF SFY_ss, TERM_IMP_v_ok]
+    \\ rename1 ‘Failure ff’ \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
+  >~ [‘do_opapp [mk_comb_v; v]’] >- (
+    drule_all mk_comb_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac mk_comb_v_thm
+    \\ fs[state_ok_def]
+    \\ `∃pa. PAIR_TYPE TERM_TYPE TERM_TYPE pa v`
+    by (
+      irule v_ok_PAIR_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ first_assum $ irule_at Any
+      \\ MATCH_ACCEPT_TAC v_ok_TERM_TYPE_HEAD )
+    \\ PairCases_on`pa`
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms mk_comb_v` by (
+      simp[]
+      \\ drule_at_then Any irule PAIR_TYPE_perms_ok
+      \\ MATCH_ACCEPT_TAC TERM_TYPE_perms_ok)
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss]
+    \\ drule mk_comb_thm
+    \\ fs[ml_translatorTheory.PAIR_TYPE_def]
+    \\ rveq \\ fs[v_ok_Conv_NONE]
+    \\ imp_res_tac v_ok_TERM
+    \\ disch_then drule \\ simp[]
+    \\ strip_tac
+    \\ Cases_on`r` \\ fs[] \\ gvs[]
+    \\ simp[SF SFY_ss, TERM_IMP_v_ok]
+    \\ rename1 ‘Failure ff’ \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [dest_var_v; v]’] >- (
     drule_all dest_var_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
