@@ -470,89 +470,6 @@ Proof
   \\ first_x_assum $ irule_at Any
 QED
 
-Theorem is_type_v_head:
-  do_opapp [is_type_v; w] = SOME (env, exp) ∧
-  evaluate s env [exp] = (s', res) ⇒
-    (s = s' ∧ res = Rerr (Rabort Rtype_error)) ∨
-    (s = s' ∧ res = Rerr (Rraise bind_exn_v)) ∨
-    (s = s' ∧ res = Rerr (Rabort Rtimeout_error)) ∨
-    TYPE_TYPE_HEAD w
-Proof
-  Cases_on ‘TYPE_TYPE_HEAD w’
-  \\ fs [is_type_v_def,do_opapp_def] \\ strip_tac \\ rpt var_eq_tac
-  \\ pop_assum mp_tac
-  \\ simp [evaluate_def,astTheory.pat_bindings_def]
-  \\ gs [can_pmatch_all_def, astTheory.pat_bindings_def, pmatch_def]
-  \\ Cases_on ‘w’
-  \\ gs [can_pmatch_all_def, astTheory.pat_bindings_def, pmatch_def]
-  \\ rename [‘Conv oo ll’] \\ Cases_on ‘oo’
-  \\ gs [can_pmatch_all_def, astTheory.pat_bindings_def, pmatch_def]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ gvs [AllCaseEqs()]
-  \\ strip_tac \\ fs [] \\ gvs []
-  \\ Cases_on ‘x’ \\ gvs [same_type_def,same_ctor_def,LENGTH_EQ_NUM_compute]
-  \\ gvs [do_app_def] \\ fs [TYPE_TYPE_HEAD_def]
-QED
-
-Theorem concl_v_head:
-  do_opapp [concl_v; v] = SOME (env, exp) ∧
-  evaluate s env [exp] = (s', res) ⇒
-    (s = s' ∧ res = Rerr (Rabort Rtype_error)) ∨
-    (s = s' ∧ res = Rerr (Rraise bind_exn_v)) ∨
-    (s = s' ∧ res = Rerr (Rabort Rtimeout_error)) ∨
-    THM_TYPE_HEAD v
-Proof
-  rewrite_tac [concl_v_def]
-  \\ qmatch_goalsub_rename_tac ‘Mat _ [(_, ee)]’
-  \\ strip_tac
-  \\ gvs [trans_v_def,do_partial_app_def,do_opapp_def]
-  \\ gvs [evaluate_def,AllCaseEqs()]
-  \\ rpt (pop_assum mp_tac)
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ rpt strip_tac
-  \\ Cases_on ‘v’ \\ gvs [pmatch_def]
-  \\ rename [‘Conv oo ll’] \\ Cases_on ‘oo’ \\ gvs [pmatch_def]
-  \\ gvs [AllCaseEqs(),LENGTH_EQ_NUM_compute]
-  \\ rpt (pop_assum mp_tac)
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ rpt strip_tac \\ gvs [same_ctor_def,pmatch_def]
-  \\ gvs [THM_TYPE_HEAD_def]
-QED
-
-Theorem trans_v_head:
-  do_partial_app trans_v v = SOME g ∧
-  do_opapp [g; w] = SOME (env, exp) ∧
-  evaluate s env [exp] = (s', res) ⇒
-    (s = s' ∧ res = Rerr (Rabort Rtype_error)) ∨
-    (s = s' ∧ res = Rerr (Rraise bind_exn_v)) ∨
-    (s = s' ∧ res = Rerr (Rabort Rtimeout_error)) ∨
-    THM_TYPE_HEAD v ∧ THM_TYPE_HEAD w
-Proof
-  rewrite_tac [trans_v_def]
-  \\ qmatch_goalsub_rename_tac ‘Mat _ [(_, Mat _ [(_, ee)])]’
-  \\ strip_tac
-  \\ gvs [trans_v_def,do_partial_app_def,do_opapp_def]
-  \\ gvs [evaluate_def,AllCaseEqs()]
-  \\ rpt (pop_assum mp_tac)
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ rpt strip_tac
-  \\ Cases_on ‘v’ \\ gvs [pmatch_def]
-  \\ rename [‘Conv oo ll’] \\ Cases_on ‘oo’ \\ gvs [pmatch_def]
-  \\ gvs [AllCaseEqs(),LENGTH_EQ_NUM_compute]
-  \\ rpt (pop_assum mp_tac)
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ rpt strip_tac \\ gvs [same_ctor_def,pmatch_def]
-  \\ gvs [ml_progTheory.nsLookup_Short_def,pmatch_def,
-          ml_progTheory.nsLookup_nsBind_compute]
-  \\ Cases_on ‘v'’ \\ gvs [pmatch_def]
-  \\ Cases_on ‘o'’ \\ gvs [pmatch_def,AllCaseEqs()]
-  \\ gvs [AllCaseEqs(),LENGTH_EQ_NUM_compute]
-  \\ rpt (pop_assum mp_tac)
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ rpt strip_tac \\ gvs [same_ctor_def,pmatch_def]
-  \\ fs [THM_TYPE_HEAD_def]
-QED
-
 Theorem check_tm_head:
   ∀v s.
     ∃env e s' res.
@@ -1046,6 +963,34 @@ val prove_head_tac =
     \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
     \\ rpt strip_tac \\ simp [same_clock_exists])
   \\ fs [PAIR_TYPE_HEAD_def,PAIR_TYPE_def];
+
+Theorem is_type_v_head:
+  do_opapp [is_type_v; w] = SOME (env, exp) ∧
+  evaluate s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    TYPE_TYPE_HEAD w
+Proof
+  prove_head_tac
+QED
+
+Theorem concl_v_head:
+  do_opapp [concl_v; v] = SOME (env, exp) ∧
+  evaluate s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    THM_TYPE_HEAD v
+Proof
+  prove_head_tac
+QED
+
+Theorem trans_v_head:
+  do_partial_app trans_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env, exp) ∧
+  evaluate s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    THM_TYPE_HEAD v ∧ THM_TYPE_HEAD w
+Proof
+  prove_head_tac
+QED
 
 Theorem beta_v_head:
   do_opapp [beta_v; v] = SOME (env, exp) ∧
