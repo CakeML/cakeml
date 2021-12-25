@@ -370,6 +370,13 @@ Proof
   \\ rw[Once v_ok_cases]
 QED
 
+Theorem BOOL_v_ok:
+  BOOL x v ==> v_ok ctxt v
+Proof
+  rw[ml_translatorTheory.BOOL_def, semanticPrimitivesTheory.Boolv_def]
+  \\ rw[v_ok_Conv]
+QED
+
 Theorem STRING_TYPE_v_ok:
   STRING_TYPE x v ==> v_ok ctxt v
 Proof

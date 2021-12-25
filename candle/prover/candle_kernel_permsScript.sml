@@ -156,6 +156,18 @@ Proof
   rw[perms_ok_def, dest_type_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
 QED
 
+Theorem perms_ok_is_type_v[simp]:
+  perms_ok ps is_type_v
+Proof
+  rw[perms_ok_def, is_type_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+QED
+
+Theorem perms_ok_is_vartype_v[simp]:
+  perms_ok ps is_vartype_v
+Proof
+  rw[perms_ok_def, is_vartype_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+QED
+
 Theorem perms_ok_check_ty_v[simp]:
   perms_ok ps check_ty_v
 Proof
@@ -344,6 +356,15 @@ Theorem perms_ok_the_term_constants[simp]:
 Proof
   rw[perms_ok_def, the_term_constants_def]
   \\ rw[kernel_perms_def, kernel_locs_def, the_term_constants_def]
+QED
+
+Theorem perms_ok_constants_v[simp]:
+  perms_ok kernel_perms constants_v
+Proof
+  rw[perms_ok_def, constants_v_def, astTheory.pat_bindings_def]
+  \\ rw[perms_ok_env_def] \\ pop_assum mp_tac
+  \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ rw[]
 QED
 
 Theorem perms_ok_types_v[simp]:

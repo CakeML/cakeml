@@ -581,10 +581,55 @@ Proof
     \\ fs[holKernelTheory.dest_vartype_def]
     \\ Cases_on`ty` \\ fs[ml_monadBaseTheory.st_ex_return_def]
     \\ fs[holKernelTheory.raise_Fail_def])
-  >~ [‘do_opapp [is_type_v; v]’] >- cheat
-  >~ [‘do_opapp [is_vartype_v; v]’] >- cheat
+  >~ [‘do_opapp [is_type_v; v]’] >- (
+    drule_all is_type_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac is_type_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_all v_ok_TYPE_TYPE_HEAD \\ strip_tac
+    \\ `perms_ok ∅ v ∧ perms_ok ∅ is_type_v`
+    by simp[TYPE_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all Arrow1 \\ strip_tac \\ fs[]
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss, BOOL_v_ok])
+  >~ [‘do_opapp [is_vartype_v; v]’] >- (
+    drule_all is_vartype_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac is_vartype_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_all v_ok_TYPE_TYPE_HEAD \\ strip_tac
+    \\ `perms_ok ∅ v ∧ perms_ok ∅ is_vartype_v`
+    by simp[TYPE_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all Arrow1 \\ strip_tac \\ fs[]
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss, BOOL_v_ok])
   >~ [‘do_opapp [call_tyvars_v; v]’] >- cheat
-  >~ [‘do_opapp [constants_v; v]’] >- cheat
+  >~ [‘do_opapp [constants_v; v]’] >- (
+    drule_all constants_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac constants_v_thm
+    \\ fs[state_ok_def]
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms constants_v`
+    by simp[UNIT_TYPE_perms_ok]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ qexists_tac`ctxt` \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs[holKernelTheory.constants_def]
+    \\ fs[holKernelTheory.get_the_term_constants_def]
+    \\ gvs[SF SFY_ss]
+    \\ drule_then irule LIST_TYPE_v_ok
+    \\ rw[EVERY_MEM]
+    \\ drule_then irule PAIR_TYPE_v_ok
+    \\ conj_tac >- MATCH_ACCEPT_TAC STRING_TYPE_v_ok
+    \\ rw[]
+    \\ irule TYPE_IMP_v_ok
+    \\ first_assum $ irule_at $ Any
+    \\ drule the_term_constants_TYPE
+    \\ simp[EVERY_MEM, FORALL_PROD]
+    \\ Cases_on`x` \\ fs[SF SFY_ss])
   >~ [‘do_opapp [get_const_type_v; v]’] >- cheat
   >~ [‘do_opapp [new_constant_v; v]’] >- cheat
   >~ [‘do_opapp [call_type_of_v; v]’] >- cheat
