@@ -267,7 +267,7 @@ End
  * ------------------------------------------------------------------------- *)
 
 Definition ind_type_def:
-  ind_type = («ind», 0n)
+  ind_type = («ind», 0i)
 End
 
 Definition select_sym_def:
@@ -280,11 +280,10 @@ Definition init_reader_def:
       ax <- mk_eta_ax (); new_axiom ax;
       new_constant select_sym;
       ax <- mk_select_ax (); new_axiom ax;
-      new_type ind_type;
+      call_new_type ind_type;
       ax <- mk_infinity_ax (); new_axiom ax;
       return ()
     od
 End
 
 val _ = export_theory ();
-

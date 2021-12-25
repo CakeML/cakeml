@@ -412,7 +412,7 @@ val def = add_def_def |> m_translate
 val def = new_constant_def |> Q.SPEC ‘n’ |> check [‘n’,‘ty’] |> m_translate
 val def = add_type_def |> m_translate
 
-Definition call_new_type_def:
+Definition call_new_type_def[simp]:
   call_new_type (n:mlstring, arity:int) =
     if 0 ≤ arity then new_type (n, Num (ABS arity))
     else raise_Fail (strlit "negative arity")
