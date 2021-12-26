@@ -5,17 +5,17 @@
 open preamble helperLib;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory
      evaluateTheory namespacePropsTheory evaluatePropsTheory
-     sptreeTheory ml_hol_kernelProgTheory
+     sptreeTheory candle_kernelProgTheory
 open permsTheory candle_kernel_funsTheory candle_kernel_valsTheory
      candle_prover_invTheory candle_prover_evaluateTheory ast_extrasTheory
      candle_basis_evaluateTheory semanticsTheory;
-open holKernelProofTheory basisProgTheory ml_hol_kernelProgTheory ml_hol_kernel_funsProgTheory;
+open holKernelProofTheory basisProgTheory ml_hol_kernel_funsProgTheory;
 open ml_translatorLib ml_progTheory;
 local open ml_progLib in end
 
 val _ = new_theory "candle_prover_semantics";
 
-val _ = translation_extends "ml_hol_kernelProg";
+val _ = translation_extends "candle_kernelProg";
 
 Theorem LPREFIX_LNTH:
   ∀n xs l ll.

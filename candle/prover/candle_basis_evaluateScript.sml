@@ -5,7 +5,7 @@
 open preamble helperLib;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory
      evaluateTheory namespacePropsTheory evaluatePropsTheory
-     sptreeTheory ml_hol_kernelProgTheory
+     sptreeTheory candle_kernelProgTheory
 open candle_prover_invTheory candle_prover_evaluateTheory ast_extrasTheory;
 local open ml_progLib in end
 
@@ -391,4 +391,3 @@ Proof
 QED
 
 val _ = export_theory ();
-

@@ -3,7 +3,7 @@
  *)
 
 open preamble;
-open ml_translatorTheory ml_hol_kernel_funsProgTheory ml_hol_kernelProgTheory;
+open ml_translatorTheory ml_hol_kernel_funsProgTheory candle_kernelProgTheory;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory
      namespacePropsTheory evaluatePropsTheory ast_extrasTheory
      holKernelProofTheory evaluateTheory permsTheory;
