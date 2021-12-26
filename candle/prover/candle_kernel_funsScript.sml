@@ -415,6 +415,46 @@ Proof
   \\ fs [Once v_ok_cases]
 QED
 
+Theorem inferred_CONS:
+  !c v. inferred c v ==>
+    !x s. STATE (x::c) s /\ (!th. THM c th ==> THM (x::c) th) ==>
+          inferred (x::c) v
+Proof
+  ho_match_mp_tac inferred_strongind
+  \\ rw[]
+  \\ rw[Once inferred_cases]
+  >- metis_tac[TYPE_CONS_EXTEND]
+  >- metis_tac[TERM_CONS_EXTEND]
+  >- metis_tac[]
+QED
+
+Theorem v_ok_CONS:
+  (!c v. kernel_vals c v ⇒
+    !x s. STATE (x::c) s /\ (!th. THM c th ==> THM (x::c) th)
+    ==> kernel_vals (x::c) v) ∧
+  (!c v. v_ok c v ⇒ ∀x s.
+    !x s. STATE (x::c) s /\ (!th. THM c th ==> THM (x::c) th)
+     ==> v_ok (x::c) v) ∧
+  (∀c e. env_ok c e ⇒ ∀x s.
+    !x s. STATE (x::c) s /\ (!th. THM c th ==> THM (x::c) th)
+  ==> env_ok (x::c) e)
+Proof
+  ho_match_mp_tac v_ok_strongind
+  \\ rw[]
+  \\ rw[Once v_ok_cases]
+  >- metis_tac[inferred_CONS]
+  \\ fs[EVERY_MEM] \\ metis_tac[]
+QED
+
+Theorem ref_ok_CONS:
+  !c v. ref_ok c v ⇒ ∀x s.
+    !x s. STATE (x::c) s /\ (!th. THM c th ==> THM (x::c) th)
+     ==> ref_ok (x::c) v
+Proof
+  gen_tac \\ Cases \\ rw[ref_ok_def]
+  \\ fs[EVERY_MEM] \\ metis_tac[v_ok_CONS]
+QED
+
 Theorem inferred_ok:
   inferred ctxt f ∧
   state_ok ctxt s ∧
@@ -557,8 +597,28 @@ Proof
       \\ simp[STRING_TYPE_perms_ok, INT_perms_ok, SF SFY_ss])
     \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
     \\ disj2_tac
-    \\ cheat (* should be similar to new_constant *)
-  )
+    \\ reverse(Cases_on`0 <= pa1` \\ fs[holKernelTheory.raise_Fail_def])
+    >- (
+      gvs[]
+      \\ first_assum $ irule_at Any
+      \\ simp[SF SFY_ss]
+      \\ drule_then irule HOL_EXN_TYPE_Fail_v_ok )
+    \\ drule new_type_thm
+    \\ disch_then(qspecl_then[`pa0`,`Num(ABS pa1)`]mp_tac)
+    \\ simp[]
+    \\ reverse TOP_CASE_TAC \\ simp[]
+    >- (
+      strip_tac \\ gvs[]
+      \\ first_assum $ irule_at Any
+      \\ simp[SF SFY_ss]
+      \\ rename1 `Failure ff`
+      \\ Cases_on`ff` \\ gvs[]
+      \\ drule_then irule HOL_EXN_TYPE_Fail_v_ok )
+    \\ strip_tac \\ gvs[ml_translatorTheory.UNIT_TYPE_def,v_ok_Conv_NONE]
+    \\ first_assum $ irule_at Any
+    \\ simp[]
+    \\ reverse conj_tac >- metis_tac[v_ok_CONS]
+    \\ metis_tac[ref_ok_CONS])
   >~ [‘do_opapp [mk_type_v; v]’] >- (
     drule_all mk_type_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
@@ -740,7 +800,42 @@ Proof
     >- (drule_at_then Any irule TYPE_IMP_v_ok \\ simp[SF SFY_ss])
     \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
-  >~ [‘do_opapp [new_constant_v; v]’] >- cheat
+  >~ [‘do_opapp [new_constant_v; v]’] >- (
+    drule_all new_constant_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac new_constant_v_thm
+    \\ fs[state_ok_def]
+    \\ `∃pa. PAIR_TYPE STRING_TYPE TYPE_TYPE pa v`
+    by (
+      irule v_ok_PAIR_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ first_assum $ irule_at Any
+      \\ simp[STRING_TYPE_HEAD_def]
+      \\ MATCH_ACCEPT_TAC v_ok_TYPE_TYPE_HEAD )
+    \\ PairCases_on`pa`
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms new_constant_v`
+    by (
+      simp[]
+      \\ drule_at_then Any irule PAIR_TYPE_perms_ok
+      \\ simp[STRING_TYPE_perms_ok, TYPE_TYPE_perms_ok, SF SFY_ss])
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ fs[ml_translatorTheory.PAIR_TYPE_def]
+    \\ fs[v_ok_Conv_NONE]
+    \\ drule_then drule v_ok_TYPE \\ strip_tac
+    \\ drule_then drule new_constant_thm
+    \\ disch_then(qspec_then`pa0`mp_tac) \\ simp[]
+    \\ reverse TOP_CASE_TAC \\ simp[] \\ strip_tac \\ fs[ml_translatorTheory.UNIT_TYPE_def, v_ok_Conv_NONE]
+    >- (
+      first_assum $ irule_at Any
+      \\ fs[SF SFY_ss]
+      \\ rename1 `Failure ff`
+      \\ Cases_on`ff` \\ gvs[]
+      \\ drule_then irule HOL_EXN_TYPE_Fail_v_ok )
+    \\ first_assum $ irule_at Any
+    \\ simp[]
+    \\ reverse conj_tac >- metis_tac[v_ok_CONS]
+    \\ metis_tac[ref_ok_CONS])
   >~ [‘do_opapp [call_type_of_v; v]’] >- (
     drule_all call_type_of_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
