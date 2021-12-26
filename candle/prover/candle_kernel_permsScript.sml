@@ -212,6 +212,14 @@ Proof
   \\ rw[]
 QED
 
+Theorem perms_ok_call_type_subst_v[simp]:
+  perms_ok ps call_type_subst_v
+Proof
+  rw[perms_ok_def, call_type_subst_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
 Theorem perms_ok_itlist_v[simp]:
   perms_ok ps itlist_v
 Proof
@@ -285,6 +293,22 @@ Theorem perms_ok_freesl_v[simp]:
 Proof
   rw[perms_ok_def, freesl_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ rw[]
+QED
+
+Theorem perms_ok_freesin_v[simp]:
+  perms_ok ps freesin_v
+Proof
+  rw[perms_ok_def, freesin_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
+Theorem perms_ok_call_freesin_v[simp]:
+  perms_ok ps call_freesin_v
+Proof
+  rw[perms_ok_def, call_freesin_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 

@@ -1371,9 +1371,65 @@ Proof
    (qsuff_tac ‘F’ \\ fs []
     \\ qpat_x_assum ‘do_partial_app _ _ = SOME _’ mp_tac
     \\ rewrite_tac [kernel_funs_v_def] \\ EVAL_TAC)
-  \\ Cases_on ‘f = call_type_subst_v’ \\ gvs [] >- cheat
-  \\ Cases_on ‘f = call_freesin_v’ \\ gvs [] >- cheat
-  \\ Cases_on ‘f = call_vfree_in_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = call_type_subst_v’ \\ gvs [] >- (
+    drule_all_then strip_assume_tac call_type_subst_v_head \\ gvs[]
+    >- (qexists_tac`ctxt` \\ fs[])
+    \\ assume_tac call_type_subst_v_thm
+    \\ `∃ls. LIST_TYPE (PAIR_TYPE TYPE_TYPE TYPE_TYPE) ls v`
+    by (
+      drule_at_then (Pat`LIST_TYPE_HEAD`) irule v_ok_LIST_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ rpt strip_tac
+      \\ drule_at_then (Pat`PAIR_TYPE_HEAD`) irule v_ok_PAIR_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ MATCH_ACCEPT_TAC v_ok_TYPE_TYPE_HEAD)
+    \\ drule_then drule v_ok_TYPE_TYPE_HEAD \\ strip_tac
+    \\ drule Arrow2 \\ rpt(disch_then drule)
+    \\ impl_tac
+    >- (
+      simp[SF SFY_ss, TYPE_TYPE_perms_ok]
+      \\ drule_at_then Any irule LIST_TYPE_perms_ok
+      \\ rpt strip_tac \\ drule_at_then Any irule PAIR_TYPE_perms_ok
+      \\ simp[SF SFY_ss, TYPE_TYPE_perms_ok])
+    \\ strip_tac \\ gvs []
+    \\ fs[state_ok_def]
+    \\ first_assum $ irule_at Any
+    \\ simp[SF SFY_ss]
+    \\ drule_at_then Any irule TYPE_IMP_v_ok
+    \\ irule (CONJUNCT2(SPEC_ALL type_subst))
+    \\ simp[SF SFY_ss, v_ok_TYPE]
+    \\ drule_at_then Any (drule_at Any) v_ok_LIST
+    \\ disch_then(qspec_then`λctxt p. TYPE ctxt (FST p) ∧ TYPE ctxt (SND p)`mp_tac)
+    \\ simp[LAMBDA_PROD, FORALL_PROD]
+    \\ disch_then irule
+    \\ simp[ml_translatorTheory.PAIR_TYPE_def, PULL_EXISTS, v_ok_Conv_NONE]
+    \\ metis_tac[v_ok_TYPE])
+  \\ Cases_on ‘f = call_freesin_v’ \\ gvs [] >- (
+    drule_all_then strip_assume_tac call_freesin_v_head \\ gvs[]
+    >- (first_assum $ irule_at Any \\ rw[])
+    \\ assume_tac call_freesin_v_thm
+    \\ drule_then drule v_ok_LIST_TERM_TYPE_HEAD \\ strip_tac
+    \\ drule_then drule v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ drule Arrow2
+    \\ rpt (disch_then drule)
+    \\ impl_tac
+    >- (
+      simp[SF SFY_ss, TERM_TYPE_perms_ok]
+      \\ drule_at_then Any irule LIST_TYPE_perms_ok
+      \\ simp[SF SFY_ss, TERM_TYPE_perms_ok])
+    \\ strip_tac \\ gvs []
+    \\ fs[state_ok_def]
+    \\ first_assum $ irule_at Any
+    \\ simp[SF SFY_ss, BOOL_v_ok])
+  \\ Cases_on ‘f = call_vfree_in_v’ \\ gvs [] >- (
+    drule_all_then strip_assume_tac call_vfree_in_v_head \\ gvs[]
+    >- (first_assum $ irule_at Any \\ rw[])
+    \\ assume_tac call_vfree_in_v_thm
+    \\ drule_then drule v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ drule Arrow2
+    \\ rpt (disch_then drule)
+    \\ cheat (* seem to be missing a _HEAD assumption *)
+  )
   \\ Cases_on ‘f = call_variant_v’ \\ gvs [] >-
    (drule_all_then strip_assume_tac call_variant_v_head \\ gvs []
     >- (qexists_tac ‘ctxt’ \\ fs []
