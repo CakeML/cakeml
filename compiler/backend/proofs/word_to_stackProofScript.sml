@@ -962,18 +962,29 @@ val env_to_list_K_I_IMP = Q.prove(
   \\ res_tac \\ fs [key_val_compare_def,LET_DEF]
   \\ pairarg_tac \\ fs [] \\ pairarg_tac \\ fs [])
 
+Theorem isPREFIX_DROP:
+  ∀s t i.
+  isPREFIX s t ⇒
+  isPREFIX (DROP i s) (DROP i t)
+Proof
+  Induct>>rw[]>>
+  every_case_tac>>fs[]>>
+  Cases_on`i`>>simp[]
+QED
+
 Theorem evaluate_wLive[local]:
-   wLive names (bs,n) (k,f,f') = (wlive_prog,(bs',n')) /\
-   (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
-   state_rel k f f' (s:('a,'a word list # 'c,'ffi) wordSem$state) t lens /\ 1 <= f /\
-   (cut_env names s.locals = SOME env) /\
-   isPREFIX (append bs') (DROP (n - LENGTH (append bs)) t.bitmaps) ==>
-   ?t5:('a,'c,'ffi) stackSem$state bs5.
-     (evaluate (wlive_prog,t) = (NONE,t5)) /\
-     state_rel k 0 0 (push_env env ^nn s with <|locals := LN; locals_size := SOME 0|>) t5 (f'::lens) /\
-     state_rel k f f' s t5 lens /\
-     LENGTH t5.stack = LENGTH t.stack /\ t5.stack_space = t.stack_space /\
-     !i. i ≠ k ==> get_var i t5 = get_var i t
+  wLive names (bs,n) (k,f,f') = (wlive_prog,(bs',n')) /\
+  (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
+  state_rel k f f' (s:('a,'a word list # 'c,'ffi) wordSem$state) t lens /\ 1 <= f /\
+  (cut_env names s.locals = SOME env) /\
+  LENGTH (append bs) ≤ n ∧ n ≤ LENGTH t.bitmaps ∧
+  isPREFIX (append bs') (DROP (n - LENGTH (append bs)) t.bitmaps) ==>
+  ?t5:('a,'c,'ffi) stackSem$state bs5.
+    (evaluate (wlive_prog,t) = (NONE,t5)) /\
+    state_rel k 0 0 (push_env env ^nn s with <|locals := LN; locals_size := SOME 0|>) t5 (f'::lens) /\
+    state_rel k f f' s t5 lens /\
+    LENGTH t5.stack = LENGTH t.stack /\ t5.stack_space = t.stack_space /\
+    !i. i ≠ k ==> get_var i t5 = get_var i t
 Proof
   fsrw_tac[] [wLive_def,LET_THM] \\ rpt strip_tac \\
   `f ≠ 0` by DECIDE_TAC \\ fsrw_tac[][] \\ pop_assum kall_tac
@@ -1026,16 +1037,23 @@ Proof
     \\ `s.permute 0 = I` by fsrw_tac[] [FUN_EQ_THM] \\ fsrw_tac[] [])
   \\ fsrw_tac[] [full_read_bitmap_def,GSYM word_add_n2w]
   \\ `i < dimword(:α) ∧ (i+1) MOD dimword(:'a) ≠ 0` by (
-    cheat)
+      fs[insert_bitmap_def] >> rveq)
   \\ drule (GEN_ALL read_bitmap_insert_bitmap |> INST_TYPE [beta |-> alpha])
   \\ simp[IS_SOME_EXISTS,PULL_EXISTS]
   \\ ONCE_REWRITE_TAC[CONJ_COMM]
-  \\ `n = LENGTH (TAKE (n-LENGTH (append bs)) t.bitmaps) + LENGTH (append bs)` by cheat
+  \\ `n = LENGTH (TAKE (n-LENGTH (append bs)) t.bitmaps) + LENGTH (append bs)` by fs[LENGTH_TAKE]
   \\ pop_assum SUBST_ALL_TAC
   \\ disch_then drule
   \\ simp[read_bitmap_write_bitmap]
   \\ strip_tac
-  \\ `isPREFIX (DROP i (TAKE (n − LENGTH (append bs)) t.bitmaps ++ append bs')) (DROP i t.bitmaps) ` by cheat
+  \\ `isPREFIX (DROP i (TAKE (n − LENGTH (append bs)) t.bitmaps ++ append bs')) (DROP i t.bitmaps)` by
+    (fs[LENGTH_TAKE,insert_bitmap_def]>>rveq>>fs[]>>
+    qmatch_goalsub_abbrev_tac`DROP a b`>>
+    `DROP a b = write_bitmap names k f'` by
+      (unabbrev_all_tac>> simp[DROP_APPEND])>>
+    drule isPREFIX_DROP>>
+    disch_then(qspec_then`LENGTH (append bs)` mp_tac)>>
+    simp[DROP_APPEND,DROP_DROP,DROP_LENGTH_NIL])
   \\ fsrw_tac[][IS_PREFIX_APPEND]
   \\ imp_res_tac read_bitmap_append_extra
   \\ simp[DROP_APPEND]
