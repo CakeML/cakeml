@@ -436,7 +436,6 @@ local
               prove_write_Exn env_tm
             val th = prover env_tm
           in
-            log ".";
             prev_ths := Net.insert (env_tm, th) (!prev_ths);
             th
           end
