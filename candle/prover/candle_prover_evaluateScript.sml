@@ -21,7 +21,9 @@ Theorem pmatch_v_ok:
     pmatch envC s p v ws = Match env ∧
     v_ok ctxt v ∧
     (∀n len tag m.
-      nsLookup envC n = SOME (len,TypeStamp tag m) ⇒ m ∉ kernel_types) ∧
+      nsLookup envC n = SOME (len,TypeStamp tag m) ∧
+      m ∈ kernel_types ⇒
+        id_to_n n ∈ kernel_ctors) ∧
     (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s loc = SOME r ⇒ ref_ok ctxt r) ∧
     EVERY (v_ok ctxt) (MAP SND ws) ⇒
       EVERY (v_ok ctxt) (MAP SND env)) ∧
@@ -29,7 +31,9 @@ Theorem pmatch_v_ok:
     pmatch_list envC s ps vs ws = Match env ∧
     EVERY (v_ok ctxt) vs ∧
     (∀n len tag m.
-      nsLookup envC n = SOME (len,TypeStamp tag m) ⇒ m ∉ kernel_types) ∧
+      nsLookup envC n = SOME (len,TypeStamp tag m) ∧
+      m ∈ kernel_types ⇒
+        id_to_n n ∈ kernel_ctors) ∧
     (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s loc = SOME r ⇒ ref_ok ctxt r) ∧
     EVERY (v_ok ctxt) (MAP SND ws) ⇒
       EVERY (v_ok ctxt) (MAP SND env))
@@ -39,8 +43,10 @@ Proof
     gs [CaseEq "bool"])
   >- (
     gvs [CaseEqs ["bool", "option", "prod"], SF SFY_ss]
-    \\ gvs [v_ok_def, same_type_def, same_ctor_def]
-    \\ drule_then strip_assume_tac kernel_vals_Conv \\ gvs [SF SFY_ss])
+    \\ gvs [same_type_def, same_ctor_def]
+    \\ first_x_assum irule
+    \\ irule v_ok_Conv_alt
+    \\ first_assum (irule_at Any))
   >- (
     gs [CaseEq "bool", v_ok_def, SF SFY_ss])
   >- (
@@ -181,9 +187,9 @@ Proof
     \\ first_assum (irule_at Any) \\ gs [])
   \\ first_x_assum (drule_all_then (qx_choose_then ‘ctxt1’ assume_tac)) \\ gs []
   \\ first_assum (irule_at Any) \\ gs []
-  \\ gvs [build_conv_def, CaseEqs ["option", "prod"]]
+  \\ gvs [build_conv_def, CaseEqs ["option", "prod"], do_con_check_def]
   \\ irule v_ok_Conv \\ gs [] \\ rw []
-  \\ gs [env_ok_def, SF SFY_ss]
+  \\ strip_tac \\ gs [env_ok_def]
 QED
 
 Theorem evaluate_v_ok_Var:
@@ -930,7 +936,6 @@ Proof
         \\ drule_then assume_tac ALOOKUP_MEM
         \\ gs [build_constrs_def, MEM_MAP, EXISTS_PROD])
   \\ first_x_assum (drule_then assume_tac)
-  \\ strip_tac
   \\ first_x_assum drule_all \\ gs []
 QED
 
@@ -976,8 +981,12 @@ Proof
   \\ first_assum (irule_at Any) \\ gs []
   \\ gs [env_ok_def, extend_dec_env_def, SF SFY_ss]
   \\ conj_tac
-  \\ Cases \\ gs [ml_progTheory.nsLookup_nsBind_compute,
-                  nsLookup_nsAppend_some,
+  >- (
+    gs [nsLookup_nsAppend_some, nsLookup_nsLift, nsLookupMod_nsLift]
+    \\ Cases \\ simp []
+    \\ rw [] \\ gs [SF SFY_ss]
+    \\ simp [namespaceTheory.id_to_n_def])
+  \\ Cases \\ gs [ml_progTheory.nsLookup_nsBind_compute, nsLookup_nsAppend_some,
                   nsLookup_nsLift]
   \\ rw [] \\ gs [SF SFY_ss]
 QED
