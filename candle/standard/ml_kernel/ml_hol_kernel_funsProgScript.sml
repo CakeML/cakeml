@@ -223,9 +223,10 @@ Theorem raconv_side = Q.prove(`
   \\ ntac 4 (rw [Once (fetch "-" "raconv_side_def")]))
   |> update_precondition;
 
+val res = translate (check [‘tm1’,‘tm2’] aconv_def);
+
 val _ = ml_prog_update open_local_in_block;
 
-val res = translate (check [‘tm1’,‘tm2’] aconv_def);
 val res = translate (check [‘x’] holKernelPmatchTheory.is_var_def);
 val res = translate (check [‘x’] holKernelPmatchTheory.is_const_def);
 val res = translate (check [‘x’] holKernelPmatchTheory.is_abs_def);
@@ -287,7 +288,13 @@ val res = translate (check [‘tml’] freesl_def);
 val res = translate (check [‘x’] call_tyvars_def);
 val res = translate (check [‘tm’] call_type_vars_in_term_def);
 val res = translate (check [‘avoid’,‘v’] call_variant_def);
+
+val _ = ml_prog_update open_local_block;
+
 val res = translate (check [‘tm’ ]holKernelPmatchTheory.is_eq_def);
+
+val _ = ml_prog_update open_local_in_block;
+
 val res = translate dest_thm_def;
 val res = translate hyp_def;
 val res = translate concl_def;
@@ -412,9 +419,10 @@ val def = holKernelPmatchTheory.dest_eq_def |> check [‘tm’] |> m_translate;
 val def = holKernelPmatchTheory.mk_abs_def |> check [‘bvar’,‘bod’] |> m_translate;
 val def = get_type_arity_def |> check [‘s’] |> m_translate;
 val def = mk_type_def |> check [‘tyop’,‘args’] |> m_translate;
-val def = mk_fun_ty_def |> check [‘ty1’,‘ty2’] |> m_translate;
 
 val _ = ml_prog_update open_local_block;
+
+val def = mk_fun_ty_def |> check [‘ty1’,‘ty2’] |> m_translate;
 
 Definition call_type_of_def[simp]:
   call_type_of tm = type_of tm
@@ -480,7 +488,11 @@ val _ = ml_prog_update open_local_in_block;
 
 val def = inst_def |> check [‘tyin’,‘tm’] |> m_translate
 
+val _ = ml_prog_update open_local_block;
+
 val def = mk_eq_def |> check [‘l’,‘r’] |> m_translate
+
+val _ = ml_prog_update open_local_in_block;
 
 val _ = next_ml_names :=
   ["REFL", "TRANS", "MK_COMB", "ABS", "BETA"];
@@ -506,25 +518,11 @@ val def = (INST_TYPE_def |> SIMP_RULE std_ss [LET_DEF]) |> check [‘theta’] |
 val def = (INST_def |> SIMP_RULE std_ss [LET_DEF]) |> check [‘theta’] |> m_translate
 val def = new_basic_type_definition_def |> check [‘tyname’,‘absname’,‘repname’]  |> m_translate
 
-val _ = next_ml_names := ["SYM"];
-val def = holKernelPmatchTheory.SYM_def |> m_translate
-
-val _ = next_ml_names := ["PROVE_HYP"];
-val def = PROVE_HYP_def |> m_translate
-
 val _ = ml_prog_update open_local_block;
 
 val def = list_to_hypset_def |> translate
 
 val _ = ml_prog_update open_local_in_block;
-
-val _ = next_ml_names := ["ALPHA_THM"];
-val def = ALPHA_THM_def |> check [‘h'’,‘c'’] |> m_translate
-
-val def = axioms_def |> m_translate
-val def = types_def |> m_translate
-val def = constants_def |> m_translate
-val def = context_def |> m_translate
 
 (* The kernel module is closed in subsequent script files:
    ml_hol_kernelProgScript.sml and candle_kernelProgScript.sml *)
