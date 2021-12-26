@@ -194,15 +194,10 @@ Proof
   strip_tac
   \\ simp [state_ok_def, candle_init_state_stamp]
   \\ irule_at Any STATE_init_refs
-  \\ simp [candle_init_state_refs]
-  (* TODO:
-   *    The rest of the state; it's all OK but we cant inspect the references
-   *    until the translator is set up to store defintions. *)
-  \\ rw [LLOOKUP_EQ_EL, EL_APPEND_EQN, candle_init_state_def]
-  \\ gvs [NOT_LESS, LESS_OR_EQ, ref_ok_def, kernel_locs_def,
-          the_context_def, the_axioms_def, the_type_constants_def,
-          the_term_constants_def]
-  \\ cheat
+  \\ simp [candle_init_state_refs,kernel_locs]
+  \\ rw [LLOOKUP_EQ_EL, EL_APPEND_EQN, candle_init_state_def, refs_defs]
+  \\ ‘loc = 0’ by fs []
+  \\ fs [ref_ok_def]
 QED
 
 (* --------------------------------------------------------------------------
@@ -321,4 +316,3 @@ Proof
 QED
 
 val _ = export_theory ();
-
