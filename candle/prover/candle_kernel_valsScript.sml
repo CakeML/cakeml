@@ -89,18 +89,6 @@ Definition kernel_funs_def:
     new_basic_definition_v;
     new_basic_type_definition_v;
 
-  (* These are in the Candle kernel (but are derived in HOL light: *)
-    prove_hyp_v;
-    alpha_thm_v;
-    sym_v;
-    new_specification_v;
-    mk_fun_ty_v;
-    aconv_v;
-    is_eq_v;
-    mk_eq_v;
-
-  (* TODO: Where is this used? *)
-    context_v;
   }
 End
 
