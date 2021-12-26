@@ -456,7 +456,6 @@ Proof
     \\ fs [do_partial_app_def])
   \\ gvs [kernel_funs_def]
   \\ rpt (qpat_x_assum ‘_ ≠ (_:v)’ kall_tac)
-  >~ [‘do_opapp [Kernel_print_thm_v; v]’] >- cheat
   >~ [‘do_opapp [concl_v; v]’] >-
    (drule_all concl_v_head \\ strip_tac \\ gvs []
     \\ TRY (first_x_assum $ irule_at Any \\ gvs [] \\ NO_TAC)
@@ -754,7 +753,6 @@ Proof
     \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
     \\ disj2_tac
     \\ first_assum $ irule_at $ Pos $ hd
-    \\ first_assum $ irule_at $ Pos $ hd
     \\ fs [SF SFY_ss]
     \\ drule_then drule type_of_thm
     \\ strip_tac \\ fs[] \\ gvs[]
@@ -828,7 +826,6 @@ Proof
       \\ simp[STRING_TYPE_perms_ok, TYPE_TYPE_perms_ok, SF SFY_ss])
     \\ drule_all Arrow1 \\ strip_tac \\ fs[]
     \\ first_assum $ irule_at $ Pos $ hd
-    \\ first_assum $ irule_at $ Pos $ hd
     \\ simp[SF SFY_ss]
     \\ irule TERM_IMP_v_ok
     \\ first_assum $ irule_at $ Any
@@ -863,7 +860,6 @@ Proof
       \\ MATCH_ACCEPT_TAC TYPE_TYPE_perms_ok)
     \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
     \\ disj2_tac
-    \\ first_assum $ irule_at $ Pos $ hd
     \\ first_assum $ irule_at $ Pos $ hd
     \\ simp[SF SFY_ss]
     \\ drule_then drule mk_const_thm
@@ -901,7 +897,6 @@ Proof
     \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
     \\ disj2_tac
     \\ first_assum $ irule_at $ Pos $ hd
-    \\ first_assum $ irule_at $ Pos $ hd
     \\ simp[SF SFY_ss]
     \\ drule mk_abs_thm
     \\ fs[ml_translatorTheory.PAIR_TYPE_def]
@@ -931,7 +926,6 @@ Proof
       \\ MATCH_ACCEPT_TAC TERM_TYPE_perms_ok)
     \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
     \\ disj2_tac
-    \\ first_assum $ irule_at $ Pos $ hd
     \\ first_assum $ irule_at $ Pos $ hd
     \\ simp[SF SFY_ss]
     \\ drule mk_comb_thm
@@ -1046,7 +1040,6 @@ Proof
     by simp[TERM_TYPE_perms_ok, SF SFY_ss]
     \\ drule_all Arrow1 \\ strip_tac \\ fs[]
     \\ first_assum $ irule_at $ Pos $ hd
-    \\ first_assum $ irule_at $ Pos $ hd
     \\ simp[SF SFY_ss]
     \\ drule_then irule LIST_TYPE_v_ok
     \\ rw[EVERY_MEM]
@@ -1067,7 +1060,6 @@ Proof
     by simp[LIST_TERM_TYPE_perms_ok, SF SFY_ss]
     \\ drule_all Arrow1 \\ strip_tac \\ fs[]
     \\ first_assum $ irule_at $ Pos $ hd
-    \\ first_assum $ irule_at $ Pos $ hd
     \\ simp[SF SFY_ss]
     \\ drule_then irule LIST_TYPE_v_ok
     \\ rw[EVERY_MEM]
@@ -1087,7 +1079,6 @@ Proof
     \\ `perms_ok ∅ v ∧ perms_ok ∅ call_type_vars_in_term_v`
     by simp[TERM_TYPE_perms_ok, SF SFY_ss]
     \\ drule_all Arrow1 \\ strip_tac \\ fs[]
-    \\ first_assum $ irule_at $ Pos $ hd
     \\ first_assum $ irule_at $ Pos $ hd
     \\ simp[SF SFY_ss]
     \\ drule_then irule LIST_TYPE_v_ok
@@ -1168,7 +1159,6 @@ Proof
     by simp[THM_TYPE_perms_ok, SF SFY_ss]
     \\ drule_all Arrow1 \\ strip_tac \\ fs[]
     \\ first_assum $ irule_at $ Pos $ hd
-    \\ first_assum $ irule_at $ Pos $ hd
     \\ simp[SF SFY_ss]
     \\ drule_then irule PAIR_TYPE_v_ok
     \\ Cases_on`dest_thm th`
@@ -1190,7 +1180,6 @@ Proof
     by simp[THM_TYPE_perms_ok, SF SFY_ss]
     \\ drule_all Arrow1 \\ strip_tac \\ fs[]
     \\ first_assum $ irule_at $ Pos $ hd
-    \\ first_assum $ irule_at $ Pos $ hd
     \\ simp[SF SFY_ss]
     \\ drule_then irule LIST_TYPE_v_ok
     \\ drule_then drule v_ok_THM \\ strip_tac
@@ -1207,7 +1196,6 @@ Proof
          fs [TERM_TYPE_perms_ok, SF SFY_ss]
     \\ drule_all ArrowM1 \\ strip_tac \\ fs []
     \\ disj2_tac
-    \\ first_assum $ irule_at $ Pos $ hd
     \\ first_assum $ irule_at $ Pos $ hd
     \\ fs [SF SFY_ss]
     \\ drule_then drule v_ok_TERM \\ strip_tac
@@ -1239,7 +1227,6 @@ Proof
     \\ drule_all ArrowM1 \\ strip_tac \\ fs []
     \\ disj2_tac
     \\ first_assum $ irule_at $ Pos $ hd
-    \\ first_assum $ irule_at $ Pos $ hd
     \\ fs [SF SFY_ss]
     \\ drule_all MK_COMB_thm
     \\ strip_tac \\ gvs[]
@@ -1257,7 +1244,6 @@ Proof
          fs [TERM_TYPE_perms_ok, SF SFY_ss]
     \\ drule_all ArrowM1 \\ strip_tac \\ fs []
     \\ disj2_tac
-    \\ first_assum $ irule_at $ Pos $ hd
     \\ first_assum $ irule_at $ Pos $ hd
     \\ fs [SF SFY_ss]
     \\ drule_then drule v_ok_TERM \\ strip_tac
@@ -1290,6 +1276,11 @@ Proof
   >~ [‘do_opapp [new_axiom_v; v]’] >- cheat
   >~ [‘do_opapp [new_basic_definition_v; v]’] >- cheat
   >~ [‘do_opapp [new_basic_type_definition_v; v]’] >- cheat
+  >~ [‘do_opapp [Kernel_print_thm_v; v]’] >- cheat (* There is a head theorem for
+        this function, which means that we know the arguemnt is a THM. There is no
+        Arrow or ArrowM theorem for Kernel_print_thm, but there is a nice v theorem
+        for the function that it calls, i.e. thm_to_string. The proof of this case
+        shouldn't be too difficult, but it will be different from the other cases. *)
 QED
 
 Theorem kernel_vals_twice_partial_app:
@@ -1483,7 +1474,7 @@ Proof
       \\ drule_at_then Any irule PAIR_TYPE_perms_ok
       \\ simp[SF SFY_ss, TERM_TYPE_perms_ok])
     \\ strip_tac \\ gvs[]
-    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ qexists_tac ‘ctxt’
     \\ simp[]
     \\ drule_all v_ok_TERM \\ strip_tac
     \\ drule_at_then Any (drule_at Any) v_ok_LIST
@@ -1531,7 +1522,7 @@ Proof
       \\ drule_at_then Any irule PAIR_TYPE_perms_ok
       \\ simp[SF SFY_ss, TYPE_TYPE_perms_ok])
     \\ strip_tac \\ gvs[]
-    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ qexists_tac ‘ctxt’
     \\ simp[]
     \\ drule_all v_ok_TERM \\ strip_tac
     \\ drule_at_then Any (drule_at Any) v_ok_LIST

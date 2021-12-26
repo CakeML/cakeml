@@ -76,7 +76,7 @@ local
             | Rerr (Rraise v) =>
                 state_ok ctxt' s' ∧
                 v_ok ctxt' v
-            | _ => EVERY (ok_event ctxt') s'.ffi.io_events’,
+            | _ => EVERY ok_event s'.ffi.io_events’,
       ‘λs env v ps errv. ∀res s' ctxt.
         evaluate_match s env v ps errv = (s', res) ∧
         state_ok ctxt s ∧
@@ -93,7 +93,7 @@ local
             | Rerr (Rraise v) =>
                 state_ok ctxt' s' ∧
                 v_ok ctxt' v
-            | _ => EVERY (ok_event ctxt') s'.ffi.io_events’,
+            | _ => EVERY ok_event s'.ffi.io_events’,
       ‘λs env ds. ∀res s' ctxt.
         evaluate_decs s env ds = (s', res) ∧
         state_ok ctxt s ∧
@@ -108,7 +108,7 @@ local
             | Rerr (Rraise v) =>
                 state_ok ctxt' s'  ∧
                 v_ok ctxt' v
-            | _ => EVERY (ok_event ctxt') s'.ffi.io_events’]
+            | _ => EVERY ok_event s'.ffi.io_events’]
     |> CONV_RULE (DEPTH_CONV BETA_CONV);
   val ind_goals = ind_thm |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj
 in
@@ -265,7 +265,7 @@ Theorem do_app_ok:
   op ≠ Eval ∧
   EVERY (v_ok ctxt) vs ∧
   (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP refs loc = SOME r ⇒ ref_ok ctxt r) ∧
-  EVERY (ok_event ctxt) ffi.io_events ∧
+  EVERY ok_event ffi.io_events ∧
   op ≠ FFI kernel_ffi ∧
   STATE ctxt st ∧
   (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok st loc refs) ⇒
@@ -273,7 +273,7 @@ Theorem do_app_ok:
       STATE ctxt st1 ∧
       (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok st1 loc refs1) ∧
       (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP refs1 loc = SOME r ⇒ ref_ok ctxt r) ∧
-      EVERY (ok_event ctxt) ffi1.io_events ∧
+      EVERY ok_event ffi1.io_events ∧
       case list_result res of
         Rval vs => EVERY (v_ok ctxt) vs
         | Rerr (Rraise v) => v_ok ctxt v

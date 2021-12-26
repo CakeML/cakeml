@@ -187,19 +187,19 @@ Inductive inferred:
 End
 
 Definition kernel_ffi_def:
-  kernel_ffi = "kernel"
+  kernel_ffi = "kernel_ffi"
 End
 
 Definition thm2bytes_def:
-  thm2bytes th = []:word8 list  (* TODO: fix me *)
+  thm2bytes ctxt th =
+    MAP (n2w:num->word8) (MAP ORD (explode (thm_to_string ctxt th)))
 End
 
 Definition ok_event_def:
-  ok_event ctxt (IO_event n out y) ⇔
+  ok_event (IO_event n out y) ⇔
     n = kernel_ffi ⇒
-      ∃th v. THM ctxt th ∧
-             THM_TYPE th v ∧
-             thm2bytes th = out
+      ∃ctxt th. THM ctxt th ∧
+                thm2bytes ctxt th = out
 End
 
 (* -------------------------------------------------------------------------

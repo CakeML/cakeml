@@ -253,7 +253,7 @@ End
 Definition state_ok_def:
   state_ok ctxt s ⇔
     (∀n. n ∈ kernel_types ⇒ n < s.next_type_stamp) ∧
-    EVERY (ok_event ctxt) s.ffi.io_events ∧
+    EVERY ok_event s.ffi.io_events ∧
     eval_state_ok s.eval_state ∧
     ∃state.
       STATE ctxt state ∧
