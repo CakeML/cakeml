@@ -456,6 +456,7 @@ Proof
     \\ fs [do_partial_app_def])
   \\ gvs [kernel_funs_def]
   \\ rpt (qpat_x_assum ‘_ ≠ (_:v)’ kall_tac)
+  >~ [‘do_opapp [Kernel_print_thm_v; v]’] >- cheat
   >~ [‘do_opapp [concl_v; v]’] >-
    (drule_all concl_v_head \\ strip_tac \\ gvs []
     \\ TRY (first_x_assum $ irule_at Any \\ gvs [] \\ NO_TAC)

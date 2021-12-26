@@ -127,7 +127,12 @@ Proof
   once_rewrite_tac [basis_def]
   \\ conj_tac
   \\ EVAL_TAC
-  \\ simp [namespaceTheory.id_to_n_def]
+  \\ rpt strip_tac
+  \\ rveq
+  \\ rewrite_tac []
+  \\ pop_assum mp_tac
+  \\ rewrite_tac [IN_INSERT,namespaceTheory.id_to_n_def,CONS_11,NOT_NIL_CONS,NOT_IN_EMPTY]
+  \\ EVAL_TAC
 QED
 
 Theorem env_ok_basis_env:

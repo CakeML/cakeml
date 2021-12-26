@@ -3,12 +3,34 @@
 *)
 open preamble;
 open ml_translatorLib ml_monad_translatorLib ml_progLib ml_hol_kernel_funsProgTheory;
+open basisFunctionsLib;
 
 val _ = new_theory "candle_kernelProg";
 
 val _ = m_translation_extends "ml_hol_kernel_funsProg"
 
-(* TODO: add print_thm translation here *)
+val _ = (use_long_names := false);
+
+val _ = ml_prog_update open_local_block;
+
+Definition thm_to_string_def:
+  thm_to_string (ctxt:update list) (th:thm) = strlit "thm here!"
+End
+
+val _ = translate thm_to_string_def;
+
+val _ = ml_prog_update open_local_in_block;
+
+val _ = (append_prog o process_topdecs) `
+  val print_thm = fn th => case th of Sequent tms c =>
+    let
+      val ctxt = !the_context
+      val str = thm_to_string ctxt th
+      val arr = Word8Array.array 0 (Word8.fromInt 0)
+    in
+      #(kernel_ffi) str arr
+    end;
+`
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);

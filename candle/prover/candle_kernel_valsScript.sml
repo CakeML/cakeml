@@ -11,11 +11,7 @@ open semanticPrimitivesTheory semanticPrimitivesPropsTheory
 val _ = new_theory "candle_kernel_vals";
 
 (*
-TODO:
- - fix constructor names (Var is currently Var_1)
- - add FFI call to kernel
- - make sure (using local) that only intended values escape Candle kernel
- - tidy up the reference numbers, i.e. Loc values
+TODO: fix constructor names (Var is currently Var_1)
 *)
 
 
@@ -45,7 +41,6 @@ Definition kernel_funs_def:
     get_const_type_v;
     new_constant_v;
     call_type_of_v;
- (* alphaorder_v_def *)
     is_var_v;
     is_const_v;
     is_abs_v;
@@ -85,9 +80,10 @@ Definition kernel_funs_def:
     inst_1_v;
     axioms_v;
     new_axiom_v;
- (* definitions_v_def *)
     new_basic_definition_v;
     new_basic_type_definition_v;
+
+    Kernel_print_thm_v;
 
   }
 End
@@ -1484,6 +1480,15 @@ Theorem inst_v_head:
     ^safe_error_goal ∨
     LIST_TYPE_HEAD (PAIR_TYPE_HEAD TYPE_TYPE_HEAD TYPE_TYPE_HEAD) v ∧
     TERM_TYPE_HEAD w
+Proof
+  prove_head_tac
+QED
+
+Theorem Kernel_print_thm_v_head:
+  do_opapp [Kernel_print_thm_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    THM_TYPE_HEAD v
 Proof
   prove_head_tac
 QED
