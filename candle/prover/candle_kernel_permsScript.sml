@@ -6,11 +6,15 @@ open preamble helperLib;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory sptreeTheory
      evaluateTheory namespacePropsTheory evaluatePropsTheory
      candle_kernel_valsTheory;
-open permsTheory ml_hol_kernelProgTheory ml_progLib ast_extrasTheory;
+open permsTheory ml_hol_kernel_funsProgTheory ml_progLib ast_extrasTheory;
 
 val _ = new_theory "candle_kernel_perms";
 
 val _ = set_grammar_ancestry ["candle_kernel_vals", "perms", "misc"];
+
+val eval_nsLookup_tac =
+  rewrite_tac [ml_progTheory.nsLookup_merge_env]
+  \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
 
 (* Functions translated with 'translate' should be proved for any ps *)
 
@@ -42,7 +46,7 @@ Theorem perms_ok_length_v[simp]:
   perms_ok ps ListProg$length_v
 Proof
   rw[perms_ok_def, ListProgTheory.length_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ EVAL_TAC \\ rw[]
 QED
 
@@ -68,7 +72,7 @@ Theorem perms_ok_fdm_v[simp]:
   perms_ok ps fdm_v
 Proof
   rw[perms_ok_def, fdm_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -106,7 +110,7 @@ Theorem perms_ok_variant_v[simp]:
   perms_ok ps variant_v
 Proof
   rw[perms_ok_def, variant_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -114,7 +118,7 @@ Theorem perms_ok_call_variant_v[simp]:
   ∀ps. perms_ok ps call_variant_v
 Proof
   rw[perms_ok_def, call_variant_v_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -140,7 +144,7 @@ Theorem perms_ok_raconv_v[simp]:
   perms_ok ps raconv_v
 Proof
   rw[perms_ok_def, raconv_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -148,7 +152,7 @@ Theorem perms_ok_aconv_v[simp]:
   perms_ok ps aconv_v
 Proof
   rw[perms_ok_def, aconv_v_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -198,7 +202,7 @@ Theorem perms_ok_type_subst_v[simp]:
   perms_ok ps type_subst_v
 Proof
   rw[perms_ok_def, type_subst_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -212,7 +216,7 @@ Theorem perms_ok_insert_1_v[simp]:
   perms_ok ps insert_1_v
 Proof
   rw[perms_ok_def, insert_1_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -220,7 +224,7 @@ Theorem perms_ok_union_1_v[simp]:
   perms_ok ps union_1_v
 Proof
   rw[perms_ok_def, union_1_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -228,7 +232,7 @@ Theorem perms_ok_subtract_v[simp]:
   perms_ok ps subtract_v
 Proof
   rw[perms_ok_def, subtract_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -242,7 +246,7 @@ Theorem perms_ok_tyvars_v[simp]:
   ∀ps. perms_ok ps tyvars_v
 Proof
   rw[perms_ok_def, tyvars_v_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -250,7 +254,7 @@ Theorem perms_ok_call_tyvars_v[simp]:
   ∀ps. perms_ok ps call_tyvars_v
 Proof
   rw[perms_ok_def, call_tyvars_v_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -258,7 +262,7 @@ Theorem perms_ok_frees_v[simp]:
   perms_ok ps frees_v
 Proof
   rw[perms_ok_def, frees_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -266,7 +270,7 @@ Theorem perms_ok_call_frees_v[simp]:
   perms_ok ps call_frees_v
 Proof
   rw[perms_ok_def, call_frees_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -340,7 +344,7 @@ Theorem perms_ok_vsubst_aux_v[simp]:
   perms_ok ps vsubst_aux_v
 Proof
   rw[perms_ok_def, vsubst_aux_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -348,7 +352,7 @@ Theorem perms_ok_inst_aux_v[simp]:
   perms_ok ps inst_aux_v
 Proof
   rw[perms_ok_def, inst_aux_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -356,7 +360,7 @@ Theorem perms_ok_inst_v[simp]:
   perms_ok ps inst_v
 Proof
   rw[perms_ok_def, inst_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -388,7 +392,7 @@ Theorem perms_ok_compare_1_v[simp]:
   perms_ok ps StringProg$compare_1_v
 Proof
   rw[perms_ok_def, StringProgTheory.compare_1_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ EVAL_TAC \\ rw[]
 QED
 
@@ -396,7 +400,7 @@ Theorem perms_ok_type_cmp_v[simp]:
   perms_ok ps type_cmp_v
 Proof
   rw[perms_ok_def, type_cmp_v_def, astTheory.pat_bindings_def, perms_ok_env_def] \\ fs[] \\ rw[]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -404,7 +408,7 @@ Theorem perms_ok_term_cmp_v[simp]:
   perms_ok ps term_cmp_v
 Proof
   rw[perms_ok_def, term_cmp_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -412,7 +416,7 @@ Theorem perms_ok_ordav_v[simp]:
   perms_ok ps ordav_v
 Proof
   rw[perms_ok_def, ordav_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -426,7 +430,7 @@ Theorem perms_ok_typeof_v[simp]:
   perms_ok ps typeof_v
 Proof
   rw[perms_ok_def, typeof_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -434,7 +438,7 @@ Theorem perms_ok_orda_v[simp]:
   perms_ok ps orda_v
 Proof
   rw[perms_ok_def, orda_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -442,7 +446,7 @@ Theorem perms_ok_term_union_v[simp]:
   perms_ok ps term_union_v
 Proof
   rw[perms_ok_def, term_union_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -480,7 +484,7 @@ Theorem perms_ok_constants_v[simp]:
 Proof
   rw[perms_ok_def, constants_v_def, astTheory.pat_bindings_def]
   \\ rw[perms_ok_env_def] \\ pop_assum mp_tac
-  \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -489,7 +493,7 @@ Theorem perms_ok_types_v[simp]:
 Proof
   rw[perms_ok_def, types_v_def, astTheory.pat_bindings_def]
   \\ rw[perms_ok_env_def] \\ pop_assum mp_tac
-  \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -498,7 +502,7 @@ Theorem perms_ok_axioms_v[simp]:
 Proof
   rw[perms_ok_def, axioms_v_def, astTheory.pat_bindings_def]
   \\ rw[perms_ok_env_def] \\ pop_assum mp_tac
-  \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -507,7 +511,7 @@ Theorem perms_ok_get_type_arity_v[simp]:
 Proof
   rw[perms_ok_def, get_type_arity_v_def, perms_ok_env_def]
   \\ pop_assum mp_tac
-  \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -515,7 +519,7 @@ Theorem perms_ok_mk_type_v[simp]:
   perms_ok kernel_perms mk_type_v
 Proof
   rw[perms_ok_def, mk_type_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -523,7 +527,7 @@ Theorem perms_ok_mk_fun_ty_v[simp]:
   perms_ok kernel_perms mk_fun_ty_v
 Proof
   rw[perms_ok_def, mk_fun_ty_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -531,7 +535,7 @@ Theorem perms_ok_type_of_v[simp]:
   perms_ok kernel_perms type_of_v
 Proof
   rw[perms_ok_def, type_of_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -539,7 +543,7 @@ Theorem perms_ok_call_type_of_v[simp]:
   perms_ok kernel_perms call_type_of_v
 Proof
   rw[perms_ok_def, call_type_of_v_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -547,7 +551,7 @@ Theorem perms_ok_get_const_type_v[simp]:
   perms_ok kernel_perms get_const_type_v
 Proof
   rw[perms_ok_def, get_const_type_v_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -555,7 +559,7 @@ Theorem perms_ok_mk_const_v[simp]:
   perms_ok kernel_perms mk_const_v
 Proof
   rw[perms_ok_def, mk_const_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -563,7 +567,7 @@ Theorem perms_ok_mk_comb_v[simp]:
   perms_ok kernel_perms mk_comb_v
 Proof
   rw[perms_ok_def, mk_comb_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -571,7 +575,7 @@ Theorem perms_ok_mk_eq_v[simp]:
   perms_ok kernel_perms mk_eq_v
 Proof
   rw[perms_ok_def, mk_eq_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -579,7 +583,7 @@ Theorem perms_ok_vsubst_v[simp]:
   perms_ok kernel_perms vsubst_v
 Proof
   rw[perms_ok_def, vsubst_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -587,7 +591,7 @@ Theorem perms_ok_beta_v[simp]:
   perms_ok kernel_perms beta_v
 Proof
   rw[perms_ok_def, beta_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -595,7 +599,7 @@ Theorem perms_ok_trans_v[simp]:
   perms_ok kernel_perms trans_v
 Proof
   rw[perms_ok_def, trans_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -603,7 +607,7 @@ Theorem perms_ok_add_constants_v[simp]:
  perms_ok kernel_perms add_constants_v
 Proof
   rw[perms_ok_def, add_constants_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ TRY(pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv))
+  \\ TRY(pop_assum mp_tac \\ eval_nsLookup_tac)
   \\ rw[] \\ rw[kernel_perms_def]
 QED
 
@@ -625,7 +629,7 @@ Theorem perms_ok_new_constant_v[simp]:
  perms_ok kernel_perms new_constant_v
 Proof
   rw[perms_ok_def, new_constant_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -633,7 +637,7 @@ Theorem perms_ok_add_type_v[simp]:
   perms_ok kernel_perms add_type_v
 Proof
   rw[perms_ok_def, add_type_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ TRY(pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv))
+  \\ TRY(pop_assum mp_tac \\ eval_nsLookup_tac)
   \\ rw[] \\ rw[kernel_perms_def]
 QED
 
@@ -641,7 +645,7 @@ Theorem perms_ok_new_type_v[simp]:
   perms_ok kernel_perms new_type_v
 Proof
   rw[perms_ok_def, new_type_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
@@ -649,7 +653,7 @@ Theorem perms_ok_call_new_type_v[simp]:
   perms_ok kernel_perms call_new_type_v
 Proof
   rw[perms_ok_def, call_new_type_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 

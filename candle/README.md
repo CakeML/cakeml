@@ -6,6 +6,10 @@ Definition of the inference system for HOL with ad-hoc overloading,
 including semantics in set theory and proofs of soundness and
 consistency.
 
+[prover](prover):
+Proving that types can be encapsulated as a step towards theorem prover
+soundness.
+
 [set-theory](set-theory):
 A specification of (roughly) Zermelo's set theory.
 

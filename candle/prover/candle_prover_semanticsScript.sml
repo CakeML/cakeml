@@ -9,7 +9,7 @@ open semanticPrimitivesTheory semanticPrimitivesPropsTheory
 open permsTheory candle_kernel_funsTheory candle_kernel_valsTheory
      candle_prover_invTheory candle_prover_evaluateTheory ast_extrasTheory
      candle_basis_evaluateTheory semanticsTheory;
-open holKernelProofTheory basisProgTheory ml_hol_kernelProgTheory;
+open holKernelProofTheory basisProgTheory ml_hol_kernelProgTheory ml_hol_kernel_funsProgTheory;
 open ml_translatorLib ml_progTheory;
 local open ml_progLib in end
 

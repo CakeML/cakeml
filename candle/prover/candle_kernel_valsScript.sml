@@ -3,7 +3,7 @@
  *)
 
 open preamble;
-open ml_translatorTheory ml_hol_kernelProgTheory;
+open ml_translatorTheory ml_hol_kernel_funsProgTheory ml_hol_kernelProgTheory;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory
      namespacePropsTheory evaluatePropsTheory ast_extrasTheory
      holKernelProofTheory evaluateTheory permsTheory;
@@ -119,10 +119,10 @@ Proof
 QED
 
 Theorem refs_defs = LIST_CONJ
-  [ml_hol_kernelProgTheory.init_type_constants_refs_def,
-   ml_hol_kernelProgTheory.init_term_constants_refs_def,
-   ml_hol_kernelProgTheory.init_axioms_refs_def,
-   ml_hol_kernelProgTheory.init_context_refs_def,
+  [ml_hol_kernel_funsProgTheory.init_type_constants_refs_def,
+   ml_hol_kernel_funsProgTheory.init_term_constants_refs_def,
+   ml_hol_kernel_funsProgTheory.init_axioms_refs_def,
+   ml_hol_kernel_funsProgTheory.init_context_refs_def,
    CharProgTheory.some_chars_vector_refs_def,
    MapProgTheory.ratio_refs_def,
    MapProgTheory.delta_refs_def,
@@ -959,7 +959,7 @@ val prove_head_tac =
      dxrule evaluate_str_check ORELSE
      dxrule evaluate_mat_thm ORELSE
      dxrule evaluate_mat_pair)
-    \\ simp [ml_progTheory.nsLookup_nsBind_compute]
+    \\ simp [ml_progTheory.nsLookup_nsBind_compute,ml_progTheory.nsLookup_merge_env]
     \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
     \\ rpt strip_tac \\ simp [same_clock_exists])
   \\ fs [PAIR_TYPE_HEAD_def,PAIR_TYPE_def];
