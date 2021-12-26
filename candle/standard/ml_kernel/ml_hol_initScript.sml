@@ -3,7 +3,7 @@
   meets the invariants (STATE and HOL_STORE).
 *)
 open preamble
-open ml_hol_kernelProgTheory holKernelProofTheory
+open ml_hol_kernelProgTheory ml_hol_kernel_funsProgTheory holKernelProofTheory
 open ml_monad_translatorBaseTheory ml_translatorLib evaluateTheory
 open evaluateTheory cfStoreTheory
 
