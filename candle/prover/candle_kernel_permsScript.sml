@@ -524,10 +524,26 @@ Proof
   \\ rw[]
 QED
 
+Theorem perms_ok_image_v[simp]:
+  perms_ok ps image_v
+Proof
+  rw[perms_ok_def, image_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
 Theorem perms_ok_eq_mp_v[simp]:
   perms_ok ps eq_mp_v
 Proof
   rw[perms_ok_def, eq_mp_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
+Theorem perms_ok_inst_type_v[simp]:
+  perms_ok ps inst_type_v
+Proof
+  rw[perms_ok_def, inst_type_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
@@ -703,6 +719,14 @@ Theorem perms_ok_vsubst_v[simp]:
   perms_ok kernel_perms vsubst_v
 Proof
   rw[perms_ok_def, vsubst_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
+Theorem perms_ok_inst_1_v[simp]:
+  perms_ok kernel_perms inst_1_v
+Proof
+  rw[perms_ok_def, inst_1_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED

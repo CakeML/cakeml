@@ -1613,8 +1613,90 @@ Proof
     \\ imp_res_tac THM_IMP_v_ok \\ gvs []
     \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
-  \\ Cases_on ‘f = inst_type_v’ \\ gvs [] >- cheat
-  \\ Cases_on ‘f = inst_1_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = inst_type_v’ \\ gvs [] >- (
+    drule_all_then strip_assume_tac inst_type_v_head \\ gvs[]
+    >- (first_assum $ irule_at Any \\ rw[])
+    \\ assume_tac inst_type_v_thm
+    \\ drule_then drule v_ok_THM_TYPE_HEAD \\ strip_tac
+    \\ qmatch_asmsub_abbrev_tac`PURE A`
+    \\ `∃pa. A pa v`
+    by (
+      qunabbrev_tac`A`
+      \\ drule_at_then(Pat`LIST_TYPE_HEAD`) irule v_ok_LIST_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ rpt strip_tac
+      \\ drule_at_then(Pat`PAIR_TYPE_HEAD`) irule v_ok_PAIR_TYPE_HEAD
+      \\ simp[SF SFY_ss, v_ok_TYPE_TYPE_HEAD])
+    \\ fs[state_ok_def]
+    \\ drule ArrowM2
+    \\ rpt (disch_then drule)
+    \\ impl_tac >- (
+      simp[SF SFY_ss, THM_TYPE_perms_ok]
+      \\ qunabbrev_tac`A`
+      \\ drule_at_then Any irule LIST_TYPE_perms_ok
+      \\ rpt strip_tac
+      \\ drule_at_then Any irule PAIR_TYPE_perms_ok
+      \\ simp[SF SFY_ss, TYPE_TYPE_perms_ok])
+    \\ strip_tac \\ gvs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp [SF SFY_ss]
+    \\ drule_all v_ok_THM \\ strip_tac
+    \\ qunabbrev_tac`A`
+    \\ drule_at_then(Pat`INST_TYPE`)(drule_at Any) holKernelProofTheory.INST_TYPE_thm
+    \\ impl_tac >- (
+      simp[]
+      \\ drule_at_then Any (drule_at Any) v_ok_LIST
+      \\ disch_then(qspec_then`λctxt p. TYPE ctxt (FST p) ∧ TYPE ctxt (SND p)`mp_tac)
+      \\ simp[EVERY_MEM, FORALL_PROD]
+      \\ disch_then match_mp_tac
+      \\ simp[ml_translatorTheory.PAIR_TYPE_def,PULL_EXISTS,v_ok_Conv_NONE]
+      \\ simp[SF SFY_ss, v_ok_TYPE])
+    \\ strip_tac \\ gvs []
+    \\ cheat (* INST_TYPE_thm should say the state is the same *)
+  )
+  \\ Cases_on ‘f = inst_1_v’ \\ gvs [] >- (
+    drule_all_then strip_assume_tac inst_1_v_head \\ gvs[]
+    >- (first_assum $ irule_at Any \\ rw[])
+    \\ assume_tac inst_1_v_thm
+    \\ drule_then drule v_ok_THM_TYPE_HEAD \\ strip_tac
+    \\ qmatch_asmsub_abbrev_tac`PURE A`
+    \\ `∃ls. A ls v`
+    by (
+      qunabbrev_tac`A`
+      \\ drule_at_then(Pat`LIST_TYPE_HEAD`) irule v_ok_LIST_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ rpt strip_tac
+      \\ drule_at_then(Pat`PAIR_TYPE_HEAD`) irule v_ok_PAIR_TYPE_HEAD
+      \\ simp[SF SFY_ss, v_ok_TERM_TYPE_HEAD])
+    \\ fs[state_ok_def]
+    \\ drule ArrowM2
+    \\ rpt (disch_then drule)
+    \\ impl_tac >- (
+      simp[SF SFY_ss, THM_TYPE_perms_ok]
+      \\ qunabbrev_tac`A`
+      \\ drule_at_then Any irule LIST_TYPE_perms_ok
+      \\ rpt strip_tac
+      \\ drule_at_then Any irule PAIR_TYPE_perms_ok
+      \\ simp[SF SFY_ss, TERM_TYPE_perms_ok])
+    \\ strip_tac \\ gvs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp [SF SFY_ss]
+    \\ drule_all v_ok_THM \\ strip_tac
+    \\ qunabbrev_tac`A`
+    \\ drule_at_then(Pat`INST`)(drule_at Any) holKernelProofTheory.INST_thm
+    \\ impl_tac >- (
+      simp[]
+      \\ drule_at_then Any (drule_at Any) v_ok_LIST
+      \\ disch_then(qspec_then`λctxt p. TERM ctxt (FST p) ∧ TERM ctxt (SND p)`mp_tac)
+      \\ simp[EVERY_MEM, FORALL_PROD]
+      \\ disch_then match_mp_tac
+      \\ simp[ml_translatorTheory.PAIR_TYPE_def,PULL_EXISTS,v_ok_Conv_NONE]
+      \\ simp[SF SFY_ss, v_ok_TERM])
+    \\ strip_tac \\ gvs []
+    \\ Cases_on ‘r’ \\ fs []
+    \\ imp_res_tac THM_IMP_v_ok \\ gvs []
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   \\ Cases_on ‘f = trans_v’ \\ gvs [] >-
    (drule_all trans_v_head \\ strip_tac \\ gvs []
     >- (qexists_tac ‘ctxt’ \\ fs [])
