@@ -1439,7 +1439,8 @@ Theorem call_vfree_in_v_head:
   do_opapp [g; w] = SOME (env, exp) ∧
   evaluate ^s env [exp] = (s', res) ⇒
     ^safe_error_goal ∨
-    TERM_TYPE_HEAD v
+    TERM_TYPE_HEAD v ∧
+    TERM_TYPE_HEAD w
 Proof
   prove_head_tac
 QED

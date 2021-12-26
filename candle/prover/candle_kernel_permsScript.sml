@@ -106,6 +106,14 @@ Proof
   rw[perms_ok_def, vfree_in_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
 QED
 
+Theorem perms_ok_call_vfree_in_v[simp]:
+  perms_ok ps call_vfree_in_v
+Proof
+  rw[perms_ok_def, call_vfree_in_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
 Theorem perms_ok_variant_v[simp]:
   perms_ok ps variant_v
 Proof
@@ -516,6 +524,14 @@ Proof
   \\ rw[]
 QED
 
+Theorem perms_ok_eq_mp_v[simp]:
+  perms_ok ps eq_mp_v
+Proof
+  rw[perms_ok_def, eq_mp_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
 Theorem perms_ok_can_v[simp]:
   perms_ok ps can_v
 Proof
@@ -687,6 +703,14 @@ Theorem perms_ok_trans_v[simp]:
   perms_ok kernel_perms trans_v
 Proof
   rw[perms_ok_def, trans_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
+Theorem perms_ok_abs_1_v[simp]:
+  perms_ok kernel_perms abs_1_v
+Proof
+  rw[perms_ok_def, abs_1_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
