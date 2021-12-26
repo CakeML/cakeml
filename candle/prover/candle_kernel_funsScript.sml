@@ -1289,6 +1289,15 @@ Proof
   >~ [‘do_opapp [new_axiom_v; v]’] >- cheat
   >~ [‘do_opapp [new_basic_definition_v; v]’] >- cheat
   >~ [‘do_opapp [new_basic_type_definition_v; v]’] >- cheat
+  >~ [‘do_opapp [new_specification_v; v]’] >- cheat
+  >~ [‘do_opapp [prove_hyp_v; v]’] >- cheat
+  >~ [‘do_opapp [alpha_thm_v; v]’] >- cheat
+  >~ [‘do_opapp [sym_v; v]’] >- cheat
+  >~ [‘do_opapp [mk_fun_ty_v; v]’] >- cheat
+  >~ [‘do_opapp [aconv_v; v]’] >- cheat
+  >~ [‘do_opapp [is_eq_v; v]’] >- cheat
+  >~ [‘do_opapp [mk_eq_v; v]’] >- cheat
+  >~ [‘do_opapp [context_v; v]’] >- cheat
 QED
 
 Theorem kernel_vals_twice_partial_app:
@@ -1525,6 +1534,10 @@ Proof
     \\ imp_res_tac THM_IMP_v_ok \\ gvs []
     \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
+  \\ Cases_on ‘f = prove_hyp_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = alpha_thm_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = mk_fun_ty_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = aconv_v’ \\ gvs [] >- cheat
   \\ qsuff_tac ‘∃v1 v2 x. f = Closure v1 v2 x ∧ ∀n w. x ≠ Fun n w’
   THEN1 (strip_tac \\ fs [do_partial_app_def,AllCaseEqs()])
   \\ fs [kernel_funs_def]
