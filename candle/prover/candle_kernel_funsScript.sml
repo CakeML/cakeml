@@ -1056,8 +1056,41 @@ Proof
     \\ simp[TERM_def]
     \\ simp[holSyntaxTheory.term_ok_def]
     \\ fs[TYPE_def])
-  >~ [‘do_opapp [freesl_v; v]’] >- cheat
-  >~ [‘do_opapp [call_type_vars_in_term_v; v]’] >- cheat
+  >~ [‘do_opapp [freesl_v; v]’] >- (
+    drule_all freesl_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac freesl_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_then drule v_ok_LIST_TERM_TYPE_HEAD \\ strip_tac
+    \\ `perms_ok ∅ v ∧ perms_ok ∅ freesl_v`
+    by simp[LIST_TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all Arrow1 \\ strip_tac \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss]
+    \\ drule_then irule LIST_TYPE_v_ok
+    \\ rw[EVERY_MEM]
+    \\ drule_then drule v_ok_LIST_TERM \\ strip_tac
+    \\ drule_then drule MEM_freesl \\ strip_tac
+    \\ drule_at_then(Pat`TERM_TYPE`) irule TERM_IMP_v_ok
+    \\ rveq
+    \\ simp[TERM_def]
+    \\ simp[holSyntaxTheory.term_ok_def]
+    \\ fs[TYPE_def])
+  >~ [‘do_opapp [call_type_vars_in_term_v; v]’] >- (
+    drule_all call_type_vars_in_term_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac call_type_vars_in_term_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_then drule v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ `perms_ok ∅ v ∧ perms_ok ∅ call_type_vars_in_term_v`
+    by simp[TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all Arrow1 \\ strip_tac \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss]
+    \\ drule_then irule LIST_TYPE_v_ok
+    \\ simp[EVERY_MEM, SF SFY_ss, STRING_TYPE_v_ok])
   >~ [‘do_opapp [rand_v; v]’] >- (
     drule_all rand_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
@@ -1124,11 +1157,115 @@ Proof
       \\ simp[TERM_IMP_v_ok, SF SFY_ss] )
     \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
-  >~ [‘do_opapp [dest_thm_v; v]’] >- cheat
-  >~ [‘do_opapp [hyp_v; v]’] >- cheat
-  >~ [‘do_opapp [refl_v; v]’] >- cheat
-  >~ [‘do_opapp [mk_comb_1_v; v]’] >- cheat
-  >~ [‘do_opapp [assume_v; v]’] >- cheat
+  >~ [‘do_opapp [dest_thm_v; v]’] >- (
+    drule_all dest_thm_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac dest_thm_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_then drule v_ok_THM_TYPE_HEAD \\ strip_tac
+    \\ `perms_ok ∅ v ∧ perms_ok ∅ dest_thm_v`
+    by simp[THM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all Arrow1 \\ strip_tac \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss]
+    \\ drule_then irule PAIR_TYPE_v_ok
+    \\ Cases_on`dest_thm th`
+    \\ drule_then drule v_ok_THM \\ strip_tac
+    \\ drule_all dest_thm_thm
+    \\ simp[SF SFY_ss, TERM_IMP_v_ok]
+    \\ rpt strip_tac
+    \\ drule_then irule LIST_TYPE_v_ok
+    \\ gvs[EVERY_MEM] \\ rw[]
+    \\ res_tac
+    \\ simp[SF SFY_ss, TERM_IMP_v_ok])
+  >~ [‘do_opapp [hyp_v; v]’] >- (
+    drule_all hyp_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac hyp_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_then drule v_ok_THM_TYPE_HEAD \\ strip_tac
+    \\ `perms_ok ∅ v ∧ perms_ok ∅ hyp_v`
+    by simp[THM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all Arrow1 \\ strip_tac \\ fs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp[SF SFY_ss]
+    \\ drule_then irule LIST_TYPE_v_ok
+    \\ drule_then drule v_ok_THM \\ strip_tac
+    \\ drule_then drule hyp_thm \\ rw[EVERY_MEM]
+    \\ res_tac
+    \\ simp[SF SFY_ss, TERM_IMP_v_ok])
+  >~ [‘do_opapp [refl_v; v]’] >- (
+    drule_all refl_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac refl_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_then drule v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ ‘perms_ok kernel_perms v ∧ perms_ok kernel_perms refl_v’ by
+         fs [TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs []
+    \\ disj2_tac
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs [SF SFY_ss]
+    \\ drule_then drule v_ok_TERM \\ strip_tac
+    \\ drule_then (drule_then drule) REFL_thm
+    \\ strip_tac \\ gvs[]
+    \\ Cases_on ‘r’ \\ fs []
+    \\ imp_res_tac THM_IMP_v_ok \\ gvs []
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
+  >~ [‘do_opapp [mk_comb_1_v; v]’] >- (
+    drule_all mk_comb_1_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac mk_comb_1_v_thm
+    \\ fs[state_ok_def]
+    \\ `∃pa. PAIR_TYPE THM_TYPE THM_TYPE pa v`
+    by (
+      drule_at_then Any irule v_ok_PAIR_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ simp[SF SFY_ss, v_ok_THM_TYPE_HEAD] )
+    \\ PairCases_on`pa`
+    \\ drule_at_then Any (drule_at Any) v_ok_PAIR
+    \\ CONV_TAC(DEPTH_CONV BETA_CONV)
+    \\ disch_then(qspecl_then[`THM`,`THM`]mp_tac)
+    \\ simp[SF SFY_ss, v_ok_THM] \\ strip_tac
+    \\ ‘perms_ok kernel_perms v ∧ perms_ok kernel_perms mk_comb_1_v’
+    by ( simp[]
+         \\ drule_at_then Any irule PAIR_TYPE_perms_ok
+         \\ fs [THM_TYPE_perms_ok, SF SFY_ss] )
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs []
+    \\ disj2_tac
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs [SF SFY_ss]
+    \\ drule_all MK_COMB_thm
+    \\ strip_tac \\ gvs[]
+    \\ Cases_on ‘r’ \\ fs []
+    \\ imp_res_tac THM_IMP_v_ok \\ gvs []
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
+  >~ [‘do_opapp [assume_v; v]’] >- (
+    drule_all assume_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac assume_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_then drule v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ ‘perms_ok kernel_perms v ∧ perms_ok kernel_perms assume_v’ by
+         fs [TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs []
+    \\ disj2_tac
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ fs [SF SFY_ss]
+    \\ drule_then drule v_ok_TERM \\ strip_tac
+    \\ drule_all ASSUME_thm
+    \\ strip_tac \\ gvs[]
+    \\ Cases_on ‘r’ \\ fs []
+    \\ imp_res_tac THM_IMP_v_ok \\ gvs []
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [axioms_v; v]’] >- (
     drule_all axioms_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])

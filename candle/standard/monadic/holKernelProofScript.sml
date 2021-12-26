@@ -1256,6 +1256,16 @@ Proof
   \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss [MEM_union,MEM_subtract]
 QED
 
+Theorem MEM_freesl:
+  !tms y. EVERY (TERM defs) tms /\ MEM y (freesl tms) ==>
+  ?v ty. (y = Var v ty) /\ TYPE defs ty
+Proof
+  Induct \\ rw[freesl_def]
+  \\ fs[Once itlist_def]
+  \\ fs[MEM_union, GSYM freesl_def]
+  \\ METIS_TAC[MEM_frees]
+QED
+
 Theorem inst_aux_thm:
    !env theta tm s s' res.
       EVERY (\(t1,t2). TYPE defs t1 /\ TYPE defs t2) theta /\
