@@ -471,8 +471,15 @@ val def = ASSUME_def |> check [‘tm’] |> m_translate
 
 val def = new_axiom_def |> check [‘tm’] |> m_translate
 val def = vsubst_def |> check [‘theta’,‘tm’] |> m_translate
+
+val _ = ml_prog_update open_local_block;
+
 val def = inst_aux_def (* rec *) |> m_translate
+
+val _ = ml_prog_update open_local_in_block;
+
 val def = inst_def |> check [‘tyin’,‘tm’] |> m_translate
+
 val def = mk_eq_def |> check [‘l’,‘r’] |> m_translate
 
 val _ = next_ml_names :=
