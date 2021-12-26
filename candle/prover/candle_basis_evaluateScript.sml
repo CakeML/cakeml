@@ -121,6 +121,9 @@ local
       ‘λs env xs. ∀res s' ctxt.
         evaluate s env xs = (s', res) ∧
         post_state_ok s' ∧
+        (∀id len tag tn.
+           nsLookup env.c id = SOME (len, TypeStamp tag tn) ⇒
+             tn ∉ kernel_types) ∧
         env_ok ctxt env ∧
         EVERY simple_exp xs ⇒
           case res of
@@ -131,11 +134,19 @@ local
       ‘λs env ds. ∀res s' ctxt.
         evaluate_decs s env ds = (s', res) ∧
         post_state_ok s' ∧
+        (∀id len tag tn.
+           nsLookup env.c id = SOME (len, TypeStamp tag tn) ⇒
+             tn ∉ kernel_types) ∧
         env_ok ctxt env ∧
         EVERY simple_dec ds ∧
         EVERY safe_dec ds ⇒
             case res of
-              Rval env1 => env_ok ctxt (extend_dec_env env1 env)
+              Rval env1 =>
+                env_ok ctxt (extend_dec_env env1 env) ∧
+                (∀id len tag tn.
+                   nsLookup (extend_dec_env env1 env).c id =
+                   SOME (len, TypeStamp tag tn) ⇒
+                     tn ∉ kernel_types)
             | Rerr (Rraise v) => v_ok ctxt v
             | _ => T’]
     |> CONV_RULE (DEPTH_CONV BETA_CONV);
@@ -158,7 +169,7 @@ Theorem evaluate_basis_v_ok_Cons:
   ^(get_goal "_::_::_")
 Proof
   rw [evaluate_def]
-  \\ gvs [AllCaseEqs()]
+  \\ gvs [CaseEqs ["prod", "semanticPrimitives$result"], SF SFY_ss]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
   \\ drule_all_then assume_tac evaluate_post_state_mono \\ gs [SF SFY_ss]
 QED
@@ -174,13 +185,12 @@ Theorem evaluate_basis_v_ok_Con:
   ^(get_goal "Con cn es")
 Proof
   rw [evaluate_def]
-  \\ gvs [AllCaseEqs(), EVERY_MAP]
+  \\ gvs [CaseEqs ["option", "prod", "semanticPrimitives$result"], EVERY_MAP,
+          SF SFY_ss]
   \\ drule_all_then assume_tac evaluate_post_state_mono
   \\ gvs [build_conv_def, CaseEqs ["option", "prod"]]
   \\ irule v_ok_Conv \\ gs [] \\ rw []
-  \\ gs [post_state_ok_def]
-  \\ strip_tac
-  \\ gs [env_ok_def, SF SFY_ss]
+  \\ strip_tac \\ gs [SF SFY_ss]
 QED
 
 Theorem evaluate_basis_v_ok_Var:
@@ -195,7 +205,7 @@ Theorem evaluate_basis_v_ok_App:
   ^(get_goal "App")
 Proof
   rw [evaluate_def]
-  \\ gvs [AllCaseEqs()]
+  \\ gvs [CaseEqs ["option", "prod", "semanticPrimitives$result"], SF SFY_ss]
   \\ gvs [do_app_cases, v_ok_def]
   >- (
     irule v_ok_v_to_list
@@ -204,7 +214,7 @@ Proof
     \\ gs [post_state_ok_def])
   \\ gvs [store_alloc_def, post_state_ok_def]
   \\ strip_tac
-  \\ res_tac \\ gs []
+  \\ first_x_assum (drule_all_then assume_tac) \\ gs []
 QED
 
 Theorem evaluate_basis_v_ok_decs_Nil:
@@ -217,7 +227,7 @@ Theorem evaluate_basis_v_ok_decs_Cons:
   ^(get_goal "_::_::_:dec list")
 Proof
   rw [evaluate_decs_def]
-  \\ gvs [AllCaseEqs()]
+  \\ gvs [CaseEqs ["option", "prod", "semanticPrimitives$result"], SF SFY_ss]
   \\ drule_all_then assume_tac evaluate_decs_post_state_mono
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
@@ -237,7 +247,8 @@ Proof
            nsLookup_alist_to_ns_some, SF SFY_ss]
     \\ Cases \\ simp [ml_progTheory.nsLookup_nsBind_compute]
     \\ rw [] \\ gs [v_ok_def, env_ok_def, SF SFY_ss])
-  \\ gvs [evaluate_decs_def, CaseEqs ["prod", "semanticPrimitives$result"]]
+  \\ gvs [evaluate_decs_def, CaseEqs ["prod", "semanticPrimitives$result"],
+          SF SFY_ss]
   \\ CASE_TAC \\ gs []
   \\ Cases_on ‘p’ \\ gvs [pmatch_def]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
@@ -282,6 +293,9 @@ Proof
           \\ gs [])
         \\ drule_then assume_tac ALOOKUP_MEM
         \\ gs [build_constrs_def, MEM_MAP, EXISTS_PROD])
+  >~ [‘id_to_n id ∈ kernel_ctors’] >- (
+    first_x_assum (drule_then assume_tac)
+    \\ first_x_assum (drule_then assume_tac) \\ gs [])
   \\ strip_tac
   \\ first_x_assum (drule_all_then strip_assume_tac)
   \\ first_x_assum (drule_all_then assume_tac) \\ gs []
@@ -312,6 +326,7 @@ Proof
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod"], state_ok_def]
   \\ gs [env_ok_def, extend_dec_env_def, SF SFY_ss]
+  \\ conj_tac
   \\ Cases \\ simp [ml_progTheory.nsLookup_nsBind_compute]
   \\ rw [] \\ gs [SF SFY_ss]
 QED
@@ -320,10 +335,10 @@ Theorem evaluate_basis_v_ok_decs_Dmod:
   ^(get_goal "Dmod")
 Proof
   rw [evaluate_decs_def]
-  \\ gvs [CaseEqs ["option", "prod", "semanticPrimitives$result"]]
+  \\ gvs [CaseEqs ["option", "prod", "semanticPrimitives$result"], SF SFY_ss]
   \\ first_x_assum (drule_all_then strip_assume_tac)
   \\ gs [env_ok_def, extend_dec_env_def, SF SFY_ss]
-  \\ conj_tac
+  \\ rpt conj_tac
   \\ Cases \\ gs [ml_progTheory.nsLookup_nsBind_compute,
                   nsLookup_nsAppend_some,
                   nsLookup_nsLift]
@@ -334,13 +349,13 @@ Theorem evaluate_basis_v_ok_decs_Dlocal:
   ^(get_goal "Dlocal")
 Proof
   rw [evaluate_decs_def]
-  \\ gvs [CaseEqs ["option", "prod", "semanticPrimitives$result"]]
+  \\ gvs [CaseEqs ["option", "prod", "semanticPrimitives$result"], SF SFY_ss]
   \\ drule_all_then assume_tac evaluate_decs_post_state_mono
-  \\ first_x_assum (drule_all_then assume_tac)
+  \\ first_x_assum (drule_all_then assume_tac) \\ gs []
   \\ first_x_assum (drule_all_then assume_tac)
   \\ CASE_TAC \\ gs []
   \\ gs [env_ok_def, extend_dec_env_def, SF SFY_ss]
-  \\ conj_tac
+  \\ rpt conj_tac
   \\ Cases \\ gs [ml_progTheory.nsLookup_nsBind_compute,
                 nsLookup_nsAppend_some]
   \\ rw [] \\ gs [SF SFY_ss]
