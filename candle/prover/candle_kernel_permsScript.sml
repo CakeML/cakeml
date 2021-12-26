@@ -532,6 +532,14 @@ Proof
   \\ rw[]
 QED
 
+Theorem perms_ok_term_remove_v[simp]:
+  perms_ok ps term_remove_v
+Proof
+  rw[perms_ok_def, term_remove_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
 Theorem perms_ok_can_v[simp]:
   perms_ok ps can_v
 Proof
@@ -681,6 +689,14 @@ Theorem perms_ok_assume_v[simp]:
 Proof
   rw[perms_ok_def, assume_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
+QED
+
+Theorem perms_ok_deduct_antisym_rule_v[simp]:
+  perms_ok kernel_perms deduct_antisym_rule_v
+Proof
+  rw[perms_ok_def, deduct_antisym_rule_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
 QED
 
 Theorem perms_ok_vsubst_v[simp]:

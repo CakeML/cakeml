@@ -1561,7 +1561,6 @@ Proof
     \\ strip_tac \\ gvs[]
     \\ first_assum $ irule_at $ Pos $ hd
     \\ simp [SF SFY_ss]
-    \\ first_assum $ irule_at $ Pos $ hd
     \\ drule_all v_ok_THM \\ strip_tac
     \\ drule_all v_ok_TERM \\ strip_tac
     \\ drule_all holKernelProofTheory.ABS_thm
@@ -1582,7 +1581,6 @@ Proof
     >- simp[SF SFY_ss, THM_TYPE_perms_ok]
     \\ strip_tac \\ gvs[]
     \\ first_assum $ irule_at $ Pos $ hd
-    \\ first_assum $ irule_at $ Pos $ hd
     \\ simp [SF SFY_ss]
     \\ drule_all v_ok_THM \\ strip_tac
     \\ drule_at_then(Pat`EQ_MP`)(drule_at Any) holKernelProofTheory.EQ_MP_thm
@@ -1593,7 +1591,28 @@ Proof
     \\ imp_res_tac THM_IMP_v_ok \\ gvs []
     \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
-  \\ Cases_on ‘f = deduct_antisym_rule_v’ \\ gvs [] >- cheat
+  \\ Cases_on ‘f = deduct_antisym_rule_v’ \\ gvs [] >- (
+    drule_all_then strip_assume_tac deduct_antisym_rule_v_head \\ gvs[]
+    >- (first_assum $ irule_at Any \\ rw[])
+    \\ assume_tac deduct_antisym_rule_v_thm
+    \\ imp_res_tac v_ok_THM_TYPE_HEAD
+    \\ fs[state_ok_def]
+    \\ drule ArrowM2
+    \\ rpt (disch_then drule)
+    \\ impl_tac
+    >- simp[SF SFY_ss, THM_TYPE_perms_ok]
+    \\ strip_tac \\ gvs[]
+    \\ first_assum $ irule_at $ Pos $ hd
+    \\ simp [SF SFY_ss]
+    \\ drule_all v_ok_THM \\ strip_tac
+    \\ drule_at_then(Pat`DEDUCT_ANTISYM_RULE`)(drule_at Any) holKernelProofTheory.DEDUCT_ANTISYM_RULE_thm
+    \\ impl_tac
+    >- ( simp[] \\ drule_then (drule_then irule) v_ok_THM )
+    \\ strip_tac \\ gvs []
+    \\ Cases_on ‘r’ \\ fs []
+    \\ imp_res_tac THM_IMP_v_ok \\ gvs []
+    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   \\ Cases_on ‘f = inst_type_v’ \\ gvs [] >- cheat
   \\ Cases_on ‘f = inst_1_v’ \\ gvs [] >- cheat
   \\ Cases_on ‘f = trans_v’ \\ gvs [] >-
