@@ -121,8 +121,10 @@ Inductive v_ok:
        v_ok ctxt (Env env ns)) ∧
 [env_ok:]
   (∀ctxt env.
-     (∀n len tag m. nsLookup env.c n = SOME (len, TypeStamp tag m) ⇒
-                  m ∉ kernel_types) ∧
+     (∀id len tag tn.
+        nsLookup env.c id = SOME (len, TypeStamp tag tn) ∧
+        tn ∈ kernel_types ⇒
+          id_to_n id ∈ kernel_ctors) ∧
      (∀n v. nsLookup env.v n = SOME v ⇒ v_ok ctxt v) ⇒
        env_ok ctxt env)
 End
@@ -135,7 +137,7 @@ Proof
 QED
 
 Theorem kernel_vals_Env[simp]:
-  ~kernel_vals ctxt1 (Env env id)
+  ¬kernel_vals ctxt1 (Env env id)
 Proof
   rw [Once v_ok_cases]
   \\ gs [do_partial_app_def, CaseEqs ["exp", "v"]]
@@ -320,7 +322,6 @@ Theorem env_ok_with_nsBind:
 Proof
   simp [env_ok_def]
   \\ strip_tac
-  \\ conj_tac
   \\ Cases \\ simp [ml_progTheory.nsLookup_nsBind_compute]
   \\ rw [] \\ gs [SF SFY_ss]
 QED
@@ -743,6 +744,15 @@ Proof
   \\ imp_res_tac STRING_TYPE_perms_ok
   \\ imp_res_tac NUM_perms_ok
   \\ imp_res_tac TERM_TYPE_perms_ok \\ fs []
+QED
+
+(* TODO
+ *)
+Theorem v_ok_Conv_alt:
+  v_ok ctxt (Conv (SOME stamp) vs) ⇒
+    EVERY (v_ok ctxt) vs
+Proof
+  cheat
 QED
 
 val _ = export_theory ();
