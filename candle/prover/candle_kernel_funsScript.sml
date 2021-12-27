@@ -1862,8 +1862,12 @@ Proof
       \\ simp[ml_translatorTheory.PAIR_TYPE_def,PULL_EXISTS,v_ok_Conv_NONE]
       \\ simp[SF SFY_ss, v_ok_TYPE])
     \\ strip_tac \\ gvs []
-    \\ cheat (* INST_TYPE_thm should say the state is the same *)
-  )
+    \\ Cases_on`r` \\ fs[]
+    \\ simp[SF SFY_ss, THM_IMP_v_ok]
+    \\ rename1`Failure ff` \\ Cases_on`ff`
+    \\ fs[SF SFY_ss, HOL_EXN_TYPE_Fail_v_ok]
+    \\ cheat (* need INST_TYPE_not_clash from holKernelProof *)
+    )
   \\ Cases_on ‘f = inst_1_v’ \\ gvs [] >- (
     drule_all_then strip_assume_tac inst_1_v_head \\ gvs[]
     >- (first_assum $ irule_at Any \\ rw[])

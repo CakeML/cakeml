@@ -1272,7 +1272,7 @@ Theorem inst_aux_thm:
       EVERY (\(t1,t2). TERM defs t1 /\ TERM defs t2) env /\
       TERM defs tm /\ STATE defs s /\
       (inst_aux env theta tm s = (res, s')) ==>
-      STATE defs s' /\
+      (s' = s) /\
       case res of
       | Success t => (INST_CORE env theta tm = Result t)
       | Failure (Clash v) => (INST_CORE env theta tm = Clash v)
@@ -1323,7 +1323,8 @@ Proof
       \\ FULL_SIMP_TAC (srw_ss()) [IS_CLASH_def]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `r`)
       \\ FULL_SIMP_TAC (srw_ss()) [IS_CLASH_def,LET_THM]
-      \\ BasicProvers.CASE_TAC >> simp[])
+      \\ BasicProvers.CASE_TAC >> simp[]
+      \\ rw[] \\ fs[])
     THEN1
      (Q.PAT_X_ASSUM `Success xx = res` (ASSUME_TAC o GSYM)
       \\ FULL_SIMP_TAC (srw_ss()) []
@@ -1414,13 +1415,18 @@ Proof
     \\ (vsubst_aux_thm |> SIMP_RULE std_ss []
      |> Q.SPECL [`tm`,`[Var v ty,Var y ty]`]
      |> SIMP_RULE std_ss [EVERY_DEF,MAP]
-     |> UNDISCH_ALL |> CONJUNCT1 |> DISCH_ALL |> MP_CANON |> MATCH_MP_TAC)
+     |> UNDISCH_ALL |> CONJUNCT1 |> DISCH_ALL |> MP_CANON
+     |> Q.GEN`s` |> MATCH_MP_TAC)
     \\ ONCE_REWRITE_TAC [term_type_def]
     \\ FULL_SIMP_TAC (srw_ss()) [is_var_def]
+    \\ first_assum $ irule_at Any
     \\ REPEAT STRIP_TAC
     \\ TRY (MATCH_MP_TAC TERM_Var) \\ IMP_RES_TAC TERM
     \\ FULL_SIMP_TAC std_ss [])
   \\ STRIP_TAC
+  \\ gvs[]
+  \\ simp[holKernelTheory.dest_var_def]
+  \\ simp[ml_monadBaseTheory.st_ex_return_def]
   \\ FULL_SIMP_TAC std_ss [type_subst]
   \\ SIMP_TAC std_ss [INST_CORE_def,LET_THM]
   \\ FULL_SIMP_TAC std_ss [type_subst,IS_RESULT_def,CLASH_def]
@@ -1433,7 +1439,9 @@ Proof
    ((vsubst_aux_thm |> SIMP_RULE std_ss []
      |> Q.SPECL [`tm`,`[Var v ty,Var y ty]`]
      |> SIMP_RULE std_ss [EVERY_DEF,MAP]
-     |> UNDISCH_ALL |> CONJUNCT2 |> DISCH_ALL |> MP_CANON |> MATCH_MP_TAC)
+     |> UNDISCH_ALL |> CONJUNCT2 |> DISCH_ALL |> MP_CANON
+     |> Q.GEN`s` |> MATCH_MP_TAC)
+    \\ first_assum $ irule_at (Pat`STATE`)
     \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC (srw_ss()) [is_var_def]
     \\ ONCE_REWRITE_TAC [term_type_def] \\ SIMP_TAC (srw_ss()) []
     \\ REPEAT STRIP_TAC \\ MATCH_MP_TAC TERM_Var \\ FULL_SIMP_TAC std_ss [])
@@ -1446,7 +1454,7 @@ val inst_lemma = Q.prove(
   `EVERY (\(t1,t2). TYPE defs t1 /\ TYPE defs t2) theta /\
     TERM defs tm /\ STATE defs s /\
     (inst theta tm s = (res, s')) ==>
-    STATE defs s' /\ !t. (res = Success t) ==>
+    (s' = s) /\ !t. (res = Success t) ==>
     (t = INST theta (tm))`,
   SIMP_TAC std_ss [INST_def,inst_def] \\ Cases_on `theta = []`
   \\ ASM_SIMP_TAC std_ss [MAP,EVERY_DEF,st_ex_return_def] THEN1
@@ -1475,7 +1483,7 @@ Theorem inst_thm:
    EVERY (\(t1,t2). TYPE defs t1 /\ TYPE defs t2) theta /\
     TERM defs tm /\ STATE defs s /\
     (inst theta tm s = (res, s')) ==>
-    STATE defs s' /\ (res = Success (INST theta tm)) /\ TERM defs (INST theta tm)
+    (s' = s) /\ (res = Success (INST theta tm)) /\ TERM defs (INST theta tm)
 Proof
   ntac 2 STRIP_TAC \\ IMP_RES_TAC inst_lemma
   \\ FULL_SIMP_TAC std_ss [TERM_def] >> imp_res_tac term_ok_welltyped
@@ -1485,7 +1493,7 @@ Proof
   \\ STRIP_TAC \\ fs[]
   \\ conj_tac >- (
     fs[inst_def,st_ex_return_def]
-    \\ Cases_on`theta=[]`\\fs[]
+    \\ Cases_on`theta=[]`\\gvs[]
     \\ drule inst_aux_thm
     \\ disch_then(qspec_then`[]`mp_tac)
     \\ simp[TERM_def]
@@ -1990,9 +1998,9 @@ val image_lemma = Q.prove(
   `∀f l s g defs res s'.
       (image f l s = (res,s')) ∧ STATE defs s ⇒
       EVERY (λx. ∀s. STATE defs s ⇒
-                     ∃r s'. ((f x s = (r,s'))) ∧ STATE defs s' ∧
+                     ∃r s'. ((f x s = (r,s))) ∧
                             (∀t. (r = Success t) ⇒ (t = g x))) l ⇒
-      STATE defs s' ∧ ∀ts. (res = Success ts) ⇒ (ts = term_image g l)`,
+      (s' = s) ∧ ∀ts. (res = Success ts) ⇒ (ts = term_image g l)`,
   gen_tac >> Induct >> simp[Once image_def] >- (
     simp[st_ex_return_def,Once term_image_def] ) >>
   simp[st_ex_bind_def] >> rpt gen_tac >>
@@ -2011,7 +2019,7 @@ Theorem INST_TYPE_thm:
    EVERY (\(t1,t2). TYPE defs t1 /\ TYPE defs t2) theta /\
     THM defs th1 /\ STATE defs s /\
     (INST_TYPE theta th1 s = (res, s')) ==>
-    STATE defs s' /\ !th. (res = Success th) ==> THM defs th
+    (s' = s) /\ !th. (res = Success th) ==> THM defs th
 Proof
   Cases_on `th1` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [INST_TYPE_def,LET_DEF,st_ex_bind_def]
@@ -2033,33 +2041,13 @@ Proof
   \\ MP_TAC (inst_thm |> Q.INST [`res`|->`q`,`s'`|->`r'`,`tm`|->`t`,`s`|->`r`])
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ gvs[]
   \\ FULL_SIMP_TAC std_ss [THM_def] >>
   MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,6)) >>
   simp[EVERY_MAP] >>
   fs[EVERY_MEM,FORALL_PROD,TYPE_def] >>
   METIS_TAC[]
 QED
-
-val image_lemma = Q.prove(
-  `∀f l s g defs res s'.
-      (image f l s = (res,s')) ∧ STATE defs s ⇒
-      EVERY (λx. ∀s. STATE defs s ⇒
-                     ∃r s'. ((f x s = (r,s))) ∧
-                            (∀t. (r = Success t) ⇒ (t = g x))) l ⇒
-      (s' = s) ∧ ∀ts. (res = Success ts) ⇒ (ts = term_image g l)`,
-  gen_tac >> Induct >> simp[Once image_def] >- (
-    simp[st_ex_return_def,Once term_image_def] ) >>
-  simp[st_ex_bind_def] >> rpt gen_tac >>
-  ntac 2 strip_tac >>
-  first_x_assum(qspec_then`s`mp_tac) >> simp[] >> strip_tac >> fs[] >>
-  reverse(Cases_on`r`)>>fs[]>-(rw[]) >>
-  simp[Once term_image_def] >>
-  qpat_x_assum`X = (res,Z)`mp_tac >>
-  BasicProvers.CASE_TAC >>
-  BasicProvers.CASE_TAC >>
-  simp[st_ex_return_def] >> strip_tac >>
-  rpt BasicProvers.VAR_EQ_TAC >>
-  simp[] >> res_tac >> fs[])
 
 Theorem INST_thm:
   (INST theta th1 s = (res, s')) /\
