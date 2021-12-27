@@ -130,13 +130,12 @@ Theorem evaluate_v_ok_Cons:
   ^(get_goal "_::_::_")
 Proof
   rw [evaluate_def]
-  \\ gvs [AllCaseEqs()]
+  \\ gvs [CaseEqs ["semanticPrimitives$result", "prod"]]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
   \\ first_x_assum (drule_all_then (qx_choose_then ‘ctxt1’ assume_tac)) \\ gs []
   \\ ‘env_ok ctxt1 env’
     by gs [env_ok_def, SF SFY_ss]
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
-  \\ rpt CASE_TAC \\ gs []
   \\ gs [state_ok_def]
   \\ first_assum (irule_at Any) \\ gs []
   \\ first_assum (irule_at Any) \\ gs [SF SFY_ss]
@@ -158,6 +157,12 @@ Proof
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
 QED
 
+Theorem EXISTS_IMP[local,simp]:
+  ∃b. ∀x. P a x ⇒ P b x
+Proof
+  qexists_tac ‘a’ \\ gs []
+QED
+
 Theorem evaluate_v_ok_Handle:
   ^(get_goal "Handle e")
 Proof
@@ -165,8 +170,7 @@ Proof
   \\ gvs [AllCaseEqs(), EVERY_MAP]
   \\ first_x_assum (drule_all_then (qx_choose_then ‘ctxt1’ assume_tac)) \\ gs []
   >~ [‘¬can_pmatch_all _ _ _ _’] >- (
-    gs [state_ok_def]
-    \\ first_assum (irule_at Any) \\ gs [])
+    gs [state_ok_def])
   \\ ‘env_ok ctxt1 env’
     by gs [env_ok_def, SF SFY_ss]
   \\ first_x_assum (drule_all_then strip_assume_tac)
@@ -183,8 +187,7 @@ Proof
     \\ first_assum (irule_at Any) \\ gs [])
   >- (
     first_x_assum (drule_all_then strip_assume_tac)
-    \\ gs [state_ok_def]
-    \\ first_assum (irule_at Any) \\ gs [])
+    \\ gs [state_ok_def])
   \\ first_x_assum (drule_all_then (qx_choose_then ‘ctxt1’ assume_tac)) \\ gs []
   \\ first_assum (irule_at Any) \\ gs []
   \\ gvs [build_conv_def, CaseEqs ["option", "prod"], do_con_check_def]
@@ -198,8 +201,7 @@ Proof
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
   >- (
-    gs [state_ok_def]
-    \\ metis_tac [])
+    gs [state_ok_def])
   \\ first_assum (irule_at Any)
   \\ gs [env_ok_def, SF SFY_ss]
 QED
@@ -221,7 +223,6 @@ Proof
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
   \\ TRY (
     gs [state_ok_def]
-    \\ first_assum (irule_at Any) \\ gs []
     \\ NO_TAC)
   \\ rename [‘state_ok ctxt1 st1’]
   \\ ‘eval_state_ok st1.eval_state’ by fs [state_ok_def]
@@ -234,14 +235,14 @@ Proof
     \\ fs [state_ok_def,dec_clock_def,eval_state_ok_def,add_decs_generation_def]
     \\ every_case_tac \\ fs [SF SFY_ss] \\ metis_tac []))
   \\ strip_tac
-  \\ rename [‘∀v. v_ok ctxt1 v ⇒ v_ok ctxt2 v’] \\ qexists_tac ‘ctxt2’ \\ fs []
-  \\ fs [state_ok_def,reset_env_generation_def]
+  \\ fs [state_ok_def,reset_env_generation_def,LEFT_EXISTS_AND_THM]
   \\ fs [candle_prover_invTheory.v_ok_def,kernel_vals_Env,SF SFY_ss]
   \\ fs [PULL_EXISTS]
   \\ first_x_assum $ irule_at Any \\ fs [SF SFY_ss]
   \\ simp [nat_to_v_def,candle_prover_invTheory.v_ok_def]
   \\ every_case_tac \\ fs [eval_state_ok_def, SF SFY_ss]
   \\ gvs [state_ok_def,eval_state_ok_def]
+  \\ first_assum (irule_at Any) \\ gs [SF SFY_ss]
 QED
 
 Theorem v_ok_v_to_list:
@@ -611,9 +612,6 @@ Proof
   rw [evaluate_def]
   \\ gvs [AllCaseEqs()]
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
-  >~ [‘do_app _ _ _ = NONE’] >- (
-    first_assum (irule_at Any)
-    \\ gs [])
   \\ rename1 ‘EVERY (v_ok ctxt1)’
   \\ qexists_tac ‘ctxt1’ \\ gs []
   \\ drule do_app_ok \\ gs []
