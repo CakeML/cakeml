@@ -2,30 +2,35 @@
   Close the kernel module from ml_hol_kernel_funsProg
 *)
 open preamble;
-open ml_translatorLib ml_monad_translatorLib ml_progLib ml_hol_kernel_funsProgTheory;
+open ml_translatorLib ml_monad_translatorLib ml_progLib
+     ml_hol_kernel_funsProgTheory ml_pmatchTheory;
+open holKernelTheory;
+local open holKernelPmatchTheory in end
 
 val _ = new_theory "ml_hol_kernelProg";
 
 val _ = m_translation_extends "ml_hol_kernel_funsProg"
 
-val def = mk_eq_def |> check [‘l’,‘r’] |> m_translate
-val res = translate (check [‘tm1’,‘tm2’] aconv_def);
-val res = translate (check [‘tm’ ]holKernelPmatchTheory.is_eq_def);
-val def = mk_fun_ty_def |> check [‘ty1’,‘ty2’] |> m_translate;
+(* Translation of functions used by e.g. the OpenTheory checker. *)
+
+val def = m_translate mk_eq_def;
+val res = translate aconv_def;
+val res = translate holKernelPmatchTheory.is_eq_def;
+val def = m_translate mk_fun_ty_def;
 
 val _ = next_ml_names := ["SYM"];
-val def = holKernelPmatchTheory.SYM_def |> m_translate
+val def = m_translate holKernelPmatchTheory.SYM_def;
 
 val _ = next_ml_names := ["PROVE_HYP"];
-val def = PROVE_HYP_def |> m_translate
+val def = m_translate PROVE_HYP_def;
 
 val _ = next_ml_names := ["ALPHA_THM"];
-val def = ALPHA_THM_def |> check [‘h'’,‘c'’] |> m_translate
+val def = m_translate ALPHA_THM_def;
 
-val def = axioms_def |> m_translate
-val def = types_def |> m_translate
-val def = constants_def |> m_translate
-val def = context_def |> m_translate
+val def = m_translate axioms_def;
+val def = m_translate types_def;
+val def = m_translate constants_def;
+val def = m_translate context_def;
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
