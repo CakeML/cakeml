@@ -82,6 +82,7 @@ Definition kernel_funs_def:
     new_axiom_v;
     new_basic_definition_v;
     new_basic_type_definition_v;
+    new_specification_v;
 
     Kernel_print_thm_v;
 

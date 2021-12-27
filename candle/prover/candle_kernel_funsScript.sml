@@ -1481,6 +1481,7 @@ Proof
     \\ disch_then kall_tac
     \\ reverse conj_tac >- metis_tac[v_ok_APPEND]
     \\ metis_tac[ref_ok_APPEND])
+  >~ [‘do_opapp [new_specification_v; v]’] >- cheat
   >~ [‘do_opapp [Kernel_print_thm_v; v]’] >- (
     drule_all Kernel_print_thm_v_head
     \\ strip_tac \\ gvs[]
