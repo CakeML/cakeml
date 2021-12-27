@@ -28,9 +28,6 @@ val def = m_translate PROVE_HYP_def;
 val _ = next_ml_names := ["ALPHA_THM"];
 val def = m_translate ALPHA_THM_def;
 
-val def = m_translate axioms_def;
-val def = m_translate types_def;
-val def = m_translate constants_def;
 val def = m_translate context_def;
  *)
 

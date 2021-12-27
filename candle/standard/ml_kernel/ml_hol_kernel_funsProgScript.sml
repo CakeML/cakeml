@@ -524,6 +524,10 @@ val def = list_to_hypset_def |> translate
 
 val _ = ml_prog_update open_local_in_block;
 
+val def = m_translate axioms_def;
+val def = m_translate types_def;
+val def = m_translate constants_def;
+
 (* The kernel module is closed in subsequent script files:
    ml_hol_kernelProgScript.sml and candle_kernelProgScript.sml *)
 
