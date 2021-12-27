@@ -68,6 +68,34 @@ Proof
   rw[perms_ok_def, ListProgTheory.filter_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
 QED
 
+Theorem perms_ok_every_v[simp]:
+  perms_ok ps ListProg$every_v
+Proof
+  rw[perms_ok_def, ListProgTheory.every_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+QED
+
+Theorem perms_ok_part_v[simp]:
+  perms_ok ps ListProg$part_v
+Proof
+  rw[perms_ok_def, ListProgTheory.part_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+QED
+
+Theorem perms_ok_partition_1_v[simp]:
+  perms_ok ps ListProg$partition_1_v
+Proof
+  rw[perms_ok_def, ListProgTheory.partition_1_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
+Theorem perms_ok_qsort_v[simp]:
+  perms_ok ps ListProg$qsort_v
+Proof
+  rw[perms_ok_def, ListProgTheory.qsort_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
 Theorem perms_ok_fdm_v[simp]:
   perms_ok ps fdm_v
 Proof
@@ -80,6 +108,28 @@ Theorem perms_ok_strcat_v[simp]:
   perms_ok ps strcat_v
 Proof
   rw[perms_ok_def, StringProgTheory.strcat_v_def, perms_ok_env_def]
+QED
+
+Theorem perms_ok_string_lt_v[simp]:
+  perms_ok ps string_lt_v
+Proof
+  rw[perms_ok_def, string_lt_v_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
+Theorem perms_ok_string_le_v[simp]:
+  perms_ok ps string_le_v
+Proof
+  rw[perms_ok_def, string_le_v_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
+Theorem perms_ok_mmap_1_v[simp]:
+  perms_ok ps ml_hol_kernel_funsProg$map_1_v
+Proof
+  rw[perms_ok_def, map_1_v_def, perms_ok_env_def, astTheory.pat_bindings_def]
 QED
 
 Theorem perms_ok_check_tm_v[simp]:
@@ -562,6 +612,14 @@ Proof
   rw[perms_ok_def, can_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
 QED
 
+Theorem perms_ok_subset_v[simp]:
+  perms_ok ps subset_v
+Proof
+  rw[perms_ok_def, subset_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
 (* Functions translated with 'm_translate' should be proved for kernel_perms *)
 
 Theorem perms_ok_the_type_constants[simp]:
@@ -805,6 +863,38 @@ Theorem perms_ok_call_new_type_v[simp]:
   perms_ok kernel_perms call_new_type_v
 Proof
   rw[perms_ok_def, call_new_type_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
+Theorem perms_ok_new_axiom_v[simp]:
+ perms_ok kernel_perms new_axiom_v
+Proof
+  rw[perms_ok_def, new_axiom_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ TRY(pop_assum mp_tac \\ eval_nsLookup_tac)
+  \\ rw[] \\ rw[kernel_perms_def]
+QED
+
+Theorem perms_ok_new_specification_v[simp]:
+ perms_ok kernel_perms new_specification_v
+Proof
+  rw[perms_ok_def, new_specification_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
+Theorem perms_ok_new_basic_definition_v[simp]:
+ perms_ok kernel_perms new_basic_definition_v
+Proof
+  rw[perms_ok_def, new_basic_definition_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[] \\ rw[kernel_perms_def]
+QED
+
+Theorem perms_ok_new_basic_type_definition_v[simp]:
+ perms_ok kernel_perms new_basic_type_definition_v
+Proof
+  rw[perms_ok_def, new_basic_type_definition_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED

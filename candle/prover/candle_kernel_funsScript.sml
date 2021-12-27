@@ -415,44 +415,44 @@ Proof
   \\ fs [Once v_ok_cases]
 QED
 
-Theorem inferred_CONS:
+Theorem inferred_APPEND:
   !c v. inferred c v ==>
-    !x s. STATE (x::c) s /\ (!th. THM c th ==> THM (x::c) th) ==>
-          inferred (x::c) v
+    !x s. STATE (x ++ c) s /\ (!th. THM c th ==> THM (x ++ c) th) ==>
+          inferred (x ++ c) v
 Proof
   ho_match_mp_tac inferred_strongind
   \\ rw[]
   \\ rw[Once inferred_cases]
-  >- metis_tac[TYPE_CONS_EXTEND]
-  >- metis_tac[TERM_CONS_EXTEND]
+  >- metis_tac[TYPE_APPEND_EXTEND]
+  >- metis_tac[TERM_APPEND_EXTEND]
   >- metis_tac[]
 QED
 
-Theorem v_ok_CONS:
+Theorem v_ok_APPEND:
   (!c v. kernel_vals c v ⇒
-    !x s. STATE (x::c) s /\ (!th. THM c th ==> THM (x::c) th)
-    ==> kernel_vals (x::c) v) ∧
+    !x s. STATE (x ++ c) s /\ (!th. THM c th ==> THM (x ++ c) th)
+    ==> kernel_vals (x ++ c) v) ∧
   (!c v. v_ok c v ⇒ ∀x s.
-    !x s. STATE (x::c) s /\ (!th. THM c th ==> THM (x::c) th)
-     ==> v_ok (x::c) v) ∧
+    !x s. STATE (x ++ c) s /\ (!th. THM c th ==> THM (x ++ c) th)
+     ==> v_ok (x ++ c) v) ∧
   (∀c e. env_ok c e ⇒ ∀x s.
-    !x s. STATE (x::c) s /\ (!th. THM c th ==> THM (x::c) th)
-  ==> env_ok (x::c) e)
+    !x s. STATE (x ++ c) s /\ (!th. THM c th ==> THM (x ++ c) th)
+  ==> env_ok (x ++ c) e)
 Proof
   ho_match_mp_tac v_ok_strongind
   \\ rw[]
   \\ rw[Once v_ok_cases]
-  >- metis_tac[inferred_CONS]
+  >- metis_tac[inferred_APPEND]
   \\ fs[EVERY_MEM] \\ metis_tac[]
 QED
 
-Theorem ref_ok_CONS:
+Theorem ref_ok_APPEND:
   !c v. ref_ok c v ⇒ ∀x s.
-    !x s. STATE (x::c) s /\ (!th. THM c th ==> THM (x::c) th)
-     ==> ref_ok (x::c) v
+    !x s. STATE (x ++ c) s /\ (!th. THM c th ==> THM (x ++ c) th)
+     ==> ref_ok (x ++ c) v
 Proof
   gen_tac \\ Cases \\ rw[ref_ok_def]
-  \\ fs[EVERY_MEM] \\ metis_tac[v_ok_CONS]
+  \\ fs[EVERY_MEM] \\ metis_tac[v_ok_APPEND]
 QED
 
 Theorem inferred_ok:
@@ -617,8 +617,8 @@ Proof
     \\ strip_tac \\ gvs[ml_translatorTheory.UNIT_TYPE_def,v_ok_Conv_NONE]
     \\ first_assum $ irule_at Any
     \\ simp[]
-    \\ reverse conj_tac >- metis_tac[v_ok_CONS]
-    \\ metis_tac[ref_ok_CONS])
+    \\ reverse conj_tac >- metis_tac[v_ok_APPEND, CONS_APPEND]
+    \\ metis_tac[ref_ok_APPEND, CONS_APPEND])
   >~ [‘do_opapp [mk_type_v; v]’] >- (
     drule_all mk_type_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
@@ -834,8 +834,8 @@ Proof
       \\ drule_then irule HOL_EXN_TYPE_Fail_v_ok )
     \\ first_assum $ irule_at Any
     \\ simp[]
-    \\ reverse conj_tac >- metis_tac[v_ok_CONS]
-    \\ metis_tac[ref_ok_CONS])
+    \\ reverse conj_tac >- metis_tac[v_ok_APPEND, CONS_APPEND]
+    \\ metis_tac[ref_ok_APPEND, CONS_APPEND])
   >~ [‘do_opapp [call_type_of_v; v]’] >- (
     drule_all call_type_of_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
@@ -1368,14 +1368,128 @@ Proof
     \\ first_assum $ irule_at $ Any
     \\ drule the_axioms_THM
     \\ simp[EVERY_MEM])
-  >~ [‘do_opapp [new_axiom_v; v]’] >- cheat
-  >~ [‘do_opapp [new_basic_definition_v; v]’] >- cheat
-  >~ [‘do_opapp [new_basic_type_definition_v; v]’] >- cheat
-  >~ [‘do_opapp [Kernel_print_thm_v; v]’] >- cheat (* There is a head theorem for
-        this function, which means that we know the arguemnt is a THM. There is no
-        Arrow or ArrowM theorem for Kernel_print_thm, but there is a nice v theorem
-        for the function that it calls, i.e. thm_to_string. The proof of this case
-        shouldn't be too difficult, but it will be different from the other cases. *)
+  >~ [‘do_opapp [new_axiom_v; v]’] >- (
+    drule_all new_axiom_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac new_axiom_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_then drule v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms new_axiom_v`
+    by simp[TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ drule_then drule v_ok_TERM \\ strip_tac
+    \\ drule_then drule new_axiom_thm
+    \\ simp[]
+    \\ reverse TOP_CASE_TAC \\ simp[] \\ strip_tac
+    >- (
+      first_assum $ irule_at Any
+      \\ fs[SF SFY_ss]
+      \\ rename1 `Failure ff`
+      \\ Cases_on`ff` \\ gvs[]
+      \\ drule_then irule HOL_EXN_TYPE_Fail_v_ok )
+    \\ first_assum $ irule_at Any
+    \\ gvs[SF SFY_ss, THM_IMP_v_ok]
+    \\ reverse conj_tac >- metis_tac[v_ok_APPEND, CONS_APPEND]
+    \\ metis_tac[ref_ok_APPEND, CONS_APPEND])
+  >~ [‘do_opapp [new_basic_definition_v; v]’] >- (
+    drule_all new_basic_definition_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac new_basic_definition_v_thm
+    \\ fs[state_ok_def]
+    \\ drule_then drule v_ok_TERM_TYPE_HEAD \\ strip_tac
+    \\ `perms_ok kernel_perms v ∧ perms_ok kernel_perms new_basic_definition_v`
+    by simp[TERM_TYPE_perms_ok, SF SFY_ss]
+    \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ drule_then drule v_ok_TERM \\ strip_tac
+    \\ drule_then drule new_basic_definition_thm
+    \\ simp[]
+    \\ reverse TOP_CASE_TAC \\ simp[] \\ strip_tac
+    >- (
+      first_assum $ irule_at Any
+      \\ fs[SF SFY_ss]
+      \\ rename1 `Failure ff`
+      \\ Cases_on`ff` \\ gvs[]
+      \\ drule_then irule HOL_EXN_TYPE_Fail_v_ok )
+    \\ first_assum $ irule_at Any
+    \\ gvs[SF SFY_ss, THM_IMP_v_ok]
+    \\ reverse conj_tac >- metis_tac[v_ok_APPEND, CONS_APPEND]
+    \\ metis_tac[ref_ok_APPEND, CONS_APPEND])
+  >~ [‘do_opapp [new_basic_type_definition_v; v]’] >- (
+    drule_all new_basic_type_definition_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac new_basic_type_definition_v_thm
+    \\ qmatch_asmsub_abbrev_tac`PURE A`
+    \\ `∃pa. A pa v`
+    by (
+      qunabbrev_tac`A`
+      \\ drule_at_then(Pat`PAIR_TYPE_HEAD`)irule v_ok_PAIR_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ simp[SF SFY_ss, STRING_TYPE_HEAD_def]
+      \\ rpt strip_tac
+      \\ drule_at_then(Pat`PAIR_TYPE_HEAD`)irule v_ok_PAIR_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ simp[SF SFY_ss, STRING_TYPE_HEAD_def]
+      \\ rpt strip_tac
+      \\ drule_at_then(Pat`PAIR_TYPE_HEAD`)irule v_ok_PAIR_TYPE_HEAD
+      \\ first_assum $ irule_at Any
+      \\ simp[SF SFY_ss, STRING_TYPE_HEAD_def, v_ok_THM_TYPE_HEAD])
+    \\ PairCases_on`pa`
+    \\ fs[state_ok_def, Abbr`A`]
+    \\ drule ArrowM1
+    \\ rpt(disch_then drule)
+    \\ impl_tac >- (
+      simp[]
+      \\ drule_at_then Any irule PAIR_TYPE_perms_ok
+      \\ rw[STRING_TYPE_perms_ok, SF SFY_ss]
+      \\ drule_at_then Any irule PAIR_TYPE_perms_ok
+      \\ rw[STRING_TYPE_perms_ok, SF SFY_ss]
+      \\ drule_at_then Any irule PAIR_TYPE_perms_ok
+      \\ rw[THM_TYPE_perms_ok, STRING_TYPE_perms_ok, SF SFY_ss])
+    \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ drule_at_then Any (drule_at Any) v_ok_PAIR
+    \\ disch_then(qspecl_then[`λctxt. THM ctxt o SND o SND`,`K (K T)`]mp_tac)
+    \\ simp[]
+    \\ impl_tac
+    >- (
+      rpt strip_tac
+      \\ drule_at_then Any (drule_at Any) v_ok_PAIR
+      \\ disch_then(qspecl_then[`λctxt. THM ctxt o SND`,`K (K T)`]mp_tac)
+      \\ simp[]
+      \\ disch_then irule
+      \\ rpt strip_tac
+      \\ drule_at_then Any (drule_at Any) v_ok_PAIR
+      \\ disch_then(qspecl_then[`λctxt. THM ctxt`,`K (K T)`]mp_tac)
+      \\ simp[SF SFY_ss, v_ok_THM])
+    \\ strip_tac
+    \\ drule_all new_basic_type_definition_thm
+    \\ disch_then(qspecl_then[`pa0`,`pa2`,`pa1`]mp_tac)
+    \\ simp[]
+    \\ reverse TOP_CASE_TAC \\ simp[] \\ strip_tac
+    >- (
+      first_assum $ irule_at Any
+      \\ fs[SF SFY_ss]
+      \\ rename1 `Failure ff`
+      \\ Cases_on`ff` \\ gvs[]
+      \\ drule_then irule HOL_EXN_TYPE_Fail_v_ok )
+    \\ Cases_on`a` \\ fs[]
+    \\ first_assum $ irule_at Any
+    \\ drule PAIR_TYPE_v_ok
+    \\ simp[SF SFY_ss, THM_IMP_v_ok]
+    \\ disch_then kall_tac
+    \\ reverse conj_tac >- metis_tac[v_ok_APPEND]
+    \\ metis_tac[ref_ok_APPEND])
+  >~ [‘do_opapp [Kernel_print_thm_v; v]’] >- (
+    drule_all Kernel_print_thm_v_head
+    \\ strip_tac \\ gvs[]
+    >- (first_assum $ irule_at Any \\ simp[])
+    (* There is no Arrow or ArrowM theorem for Kernel_print_thm, but there
+    is a nice v theorem for the function that it calls, i.e. thm_to_string.
+    The proof of this case shouldn't be too difficult, but it will be
+    different from the other cases. *)
+    \\ cheat)
 QED
 
 Theorem kernel_vals_twice_partial_app:
