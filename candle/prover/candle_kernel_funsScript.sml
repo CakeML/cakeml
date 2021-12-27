@@ -1481,7 +1481,32 @@ Proof
     \\ disch_then kall_tac
     \\ reverse conj_tac >- metis_tac[v_ok_APPEND]
     \\ metis_tac[ref_ok_APPEND])
-  >~ [‘do_opapp [new_specification_v; v]’] >- cheat
+  >~ [‘do_opapp [new_specification_v; v]’] >- (
+    drule_all new_specification_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac new_specification_v_thm
+    \\ drule_then drule v_ok_THM_TYPE_HEAD \\ strip_tac
+    \\ fs[state_ok_def]
+    \\ drule ArrowM1
+    \\ rpt(disch_then drule)
+    \\ impl_tac >- simp[SF SFY_ss, THM_TYPE_perms_ok]
+    \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ drule_at_then Any (drule_at Any) v_ok_THM
+    \\ strip_tac
+    \\ drule_then drule new_specification_thm
+    \\ simp[]
+    \\ reverse TOP_CASE_TAC \\ simp[] \\ strip_tac
+    >- (
+      first_assum $ irule_at Any
+      \\ fs[SF SFY_ss]
+      \\ rename1 `Failure ff`
+      \\ Cases_on`ff` \\ gvs[]
+      \\ drule_then irule HOL_EXN_TYPE_Fail_v_ok )
+    \\ first_assum $ irule_at Any
+    \\ gvs[SF SFY_ss, THM_IMP_v_ok]
+    \\ reverse conj_tac >- metis_tac[v_ok_APPEND, CONS_APPEND]
+    \\ metis_tac[ref_ok_APPEND, CONS_APPEND])
   >~ [‘do_opapp [Kernel_print_thm_v; v]’] >- (
     drule_all Kernel_print_thm_v_head
     \\ strip_tac \\ gvs[]
@@ -1853,7 +1878,7 @@ Proof
     \\ drule_all v_ok_THM \\ strip_tac
     \\ qunabbrev_tac`A`
     \\ drule_at_then(Pat`INST_TYPE`)(drule_at Any) holKernelProofTheory.INST_TYPE_thm
-    \\ impl_tac >- (
+    \\ impl_keep_tac >- (
       simp[]
       \\ drule_at_then Any (drule_at Any) v_ok_LIST
       \\ disch_then(qspec_then`λctxt p. TYPE ctxt (FST p) ∧ TYPE ctxt (SND p)`mp_tac)
@@ -1862,12 +1887,7 @@ Proof
       \\ simp[ml_translatorTheory.PAIR_TYPE_def,PULL_EXISTS,v_ok_Conv_NONE]
       \\ simp[SF SFY_ss, v_ok_TYPE])
     \\ strip_tac \\ gvs []
-    \\ Cases_on`r` \\ fs[]
-    \\ simp[SF SFY_ss, THM_IMP_v_ok]
-    \\ rename1`Failure ff` \\ Cases_on`ff`
-    \\ fs[SF SFY_ss, HOL_EXN_TYPE_Fail_v_ok]
-    \\ cheat (* need INST_TYPE_not_clash from holKernelProof *)
-    )
+    \\ simp[SF SFY_ss, THM_IMP_v_ok])
   \\ Cases_on ‘f = inst_1_v’ \\ gvs [] >- (
     drule_all_then strip_assume_tac inst_1_v_head \\ gvs[]
     >- (first_assum $ irule_at Any \\ rw[])

@@ -1200,6 +1200,15 @@ Proof
   prove_head_tac
 QED
 
+Theorem new_specification_v_head:
+  do_opapp [new_specification_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    THM_TYPE_HEAD v
+Proof
+  prove_head_tac
+QED
+
 Theorem get_const_type_v_head:
   do_opapp [get_const_type_v; v] = SOME (env, exp) ∧
   evaluate ^s env [exp] = (s', res) ⇒
