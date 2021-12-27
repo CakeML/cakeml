@@ -15,6 +15,11 @@ local open ml_progLib in end
 
 val _ = new_theory "candle_prover_semantics";
 
+val _ = set_grammar_ancestry [
+  "misc", "semanticPrimitivesProps", "namespaceProps", "evaluate",
+   "candle_prover_inv", "candle_basis_evaluate", "candle_kernelProg",
+   "semantics" ];
+
 val _ = translation_extends "candle_kernelProg";
 
 Theorem LPREFIX_LNTH:
@@ -93,6 +98,14 @@ Proof
   simp [env_ok_def, write_cons_def, SF SFY_ss]
   \\ strip_tac
   \\ Cases \\ rw [nsLookup_nsBind_compute] \\ gs [SF SFY_ss]
+QED
+
+(* TODO move *)
+
+Theorem env_ok_nsEmpty:
+  env_ok ctxt <| v := nsEmpty; c := nsEmpty |>
+Proof
+  rw [env_ok_def]
 QED
 
 (* -------------------------------------------------------------------------
@@ -274,18 +287,13 @@ Theorem v_ok_kernel_funs[local] =
  * Now prove that candle_init_env is env_ok.
  * ------------------------------------------------------------------------- *)
 
-(* TODO move *)
-
-Theorem env_ok_empty[local]:
-  env_ok ctxt <| v := nsEmpty; c := nsEmpty |>
-Proof
-  rw [env_ok_def]
-QED
-
 (* Prove env_ok and cache intermediate results. This code is very brittle.
  *)
 
+exception EnvOkExn of term;
+
 local
+  (* Constants (can these be found in a syntax file?) *)
   val kernel_types_term = kernel_types_def |> concl |> lhs;
   val kernel_ctors_term = kernel_ctors_def |> concl |> lhs;
   val write_cons_term =
@@ -299,38 +307,44 @@ local
                        |> rator;
   val env_ok_term = env_ok_def |> concl |> lhs |> rator |> rator;
   val init_context_term = init_context_def |> concl |> lhs;
+  (* Types *)
   val env_type = env_ok_def |> concl |> lhs |> rand |> type_of;
   val inst_context = INST [“ctxt:update list”|->init_context_term];
-  val empty_net = Net.insert (“basis_env”, inst_context env_ok_basis_env)
-                             Net.empty;
-  val empty_net = Net.insert (“empty_env”, inst_context env_ok_empty_env)
-                             empty_net;
-  val empty_net = Net.insert (“<|v:=nsEmpty;c:=nsEmpty|>”,
-                             inst_context env_ok_empty)
-                             empty_net;
-  val prev_ths = ref empty_net;
+  (* Dealing with env_ok terms *)
   fun dest_env_ok tm =
     let
       val (envok_ctxt, env) = dest_comb tm
       val (envok, ctxt) = dest_comb envok_ctxt
-      val _ = same_const envok env_ok_term orelse
-              failwith "not env_ok"
-      val _ = same_const ctxt init_context_term orelse
-              failwith "not init_context"
+      val _ = same_const envok env_ok_term orelse fail ()
+      val _ = same_const ctxt init_context_term orelse fail ()
     in
       env
     end
     handle HOL_ERR _ => failwith ("dest_env_ok: not an env_ok")
   fun mk_env_ok tm =
     mk_comb (mk_comb (env_ok_term, init_context_term), tm);
+  (* Cache of previously proven theorems *)
+  fun insert_term th =
+    let
+      val th = inst_context th
+    in
+      Net.insert (dest_env_ok (concl th), th)
+    end;
+  val empty_net = List.foldl (uncurry insert_term) Net.empty
+                             [env_ok_basis_env,
+                              env_ok_empty_env,
+                              env_ok_nsEmpty];
+  val prev_ths = ref empty_net;
+  (* 'Prove' v_ok for kernel values by looking them up in the kernel funs
+   * theorem from above. *)
+  val v_ok_thms = map inst_context (CONJUNCTS v_ok_kernel_funs);
   fun prove_v_ok tm =
     let
       val goal = mk_comb (mk_comb (v_ok_term, init_context_term), tm)
-      val th = Lib.first (can (Lib.C match_term goal) o concl)
-                         (CONJUNCTS v_ok_kernel_funs)
     in
-      inst_context th
+      Lib.first (can (Lib.C match_term goal) o concl) v_ok_thms
     end;
+  (* Theorems *)
   val write_th = inst_context env_ok_write |> REWRITE_RULE [GSYM AND_IMP_INTRO];
   val merge_env_th = inst_context env_ok_merge_env
                      |> REWRITE_RULE [GSYM AND_IMP_INTRO];
@@ -339,6 +353,7 @@ local
   val write_cons_th = inst_context env_ok_write_cons
                       |> REWRITE_RULE [GSYM AND_IMP_INTRO];
   val write_exn_th = inst_context env_ok_write_Exn
+  (* Conversion *)
   fun prove_bare tm = (* bare environment *)
     let
       val {Name, Thy, Ty} = dest_thy_const tm
@@ -404,14 +419,14 @@ local
         mk_imp (pred_setSyntax.mk_in (t, kernel_types_term),
                 pred_setSyntax.mk_in (nm, kernel_ctors_term))
       val th2 = SIMP_CONV list_ss [kernel_types_def, kernel_ctors_def] goal
-      val th3 = INST [“n:num”|->m,
-                      “s:string”|->nm,
-                      “t:num”|->t,
-                      “nm:string”|->n] (MATCH_MP write_cons_th th1)
+      val th3 =
+        INST [“n:num”|->m, “s:string”|->nm, “t:num”|->t, “nm:string”|->n]
+             (MATCH_MP write_cons_th th1)
     in
       MATCH_MP th3 (EQT_ELIM th2)
     end
   and prove_write_Exn tm = (* write_cons n (ExnStamp ...) env *)
+    (* FIXME This can succeed if it's given a term with TypeStamp *)
     let
       val (wcns, env) = dest_comb tm
       val (wcn, s) = dest_comb wcns
@@ -423,9 +438,8 @@ local
       val m = s |> dest_pair |> #2 |> rand
       val k = s |> dest_pair |> #1
     in
-      INST [“n:num”|->k,
-            “m:num”|->m,
-            “nm:string”|->n] (MATCH_MP write_exn_th th1)
+      INST [“n:num”|->k, “m:num”|->m, “nm:string”|->n]
+           (MATCH_MP write_exn_th th1)
     end
   and env_ok_conv tm =
     let
@@ -438,7 +452,8 @@ local
               prove_write_mod env_tm handle HOL_ERR _ =>
               prove_write env_tm handle HOL_ERR _ =>
               prove_write_cons env_tm handle HOL_ERR _ =>
-              prove_write_Exn env_tm
+              prove_write_Exn env_tm handle HOL_ERR _ =>
+                raise EnvOkExn tm
             val th = prover env_tm
           in
             prev_ths := Net.insert (env_tm, th) (!prev_ths);
@@ -446,19 +461,20 @@ local
           end
     in
       case Net.match env_tm (!prev_ths) of
-        th::_ => th (* if concl th ~~ tm then th else prove env_tm *)
+        th::_ => th
       | _ => prove env_tm
     end;
 in
-  (*
-  fun reset_prevs () = prev_ths := empty_net;
-  fun get_prevs () = Net.listItems (!prev_ths)
-   *)
-  val prove_env_ok = env_ok_conv
+  fun reset_cache () = prev_ths := empty_net;
+  fun get_cache () = Net.listItems (!prev_ths)
+  val prove_env_ok = EQT_INTRO o env_ok_conv
 end
 
-Theorem env_ok_candle_init_env =
-  prove_env_ok “env_ok init_context candle_init_env”;
+Theorem env_ok_candle_init_env:
+  env_ok init_context candle_init_env
+Proof
+  CONV_TAC prove_env_ok
+QED
 
 (* --------------------------------------------------------------------------
  * Top-level semantics theorem.
@@ -483,13 +499,12 @@ Theorem semantics_thm:
   EVERY safe_dec prog ∧
   ffi.io_events = [] ∧
   res ≠ Fail ⇒
-    ∃ctxt.
-      (∀outcome io_list.
-         res = Terminate outcome io_list ⇒
-           EVERY (ok_event ctxt) io_list) ∧
-      (∀io_trace.
-         res = Diverge io_trace ⇒
-           every (ok_event ctxt) io_trace)
+    (∀outcome io_list.
+       res = Terminate outcome io_list ⇒
+         EVERY ok_event io_list) ∧
+    (∀io_trace.
+       res = Diverge io_trace ⇒
+         every ok_event io_trace)
 Proof
   strip_tac
   \\ Cases_on ‘res’ \\ gs []
