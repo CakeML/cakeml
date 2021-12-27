@@ -1,0 +1,51 @@
+
+val it =
+   [“Dlet unknown_loc (Pvar "the_context")
+       (App Opref [Var (Short "init_context")])”,
+    “Dlet unknown_loc (Pvar "init_context")
+       (Con (SOME (Short "::"))
+          [Con (SOME (Short "Newconst"))
+             [Lit (StrLit "=");
+              Con (SOME (... ... )) [Lit (... ... ); ... ... ]];
+           Con (SOME (Short "::"))
+             [Con (SOME (... ... )) [Lit (... ... ); ... ... ];
+              Con (... ... ) [... ... ; ... ]]])”,
+    “Dlet unknown_loc (Pvar "the_axioms")
+       (App Opref [Var (Short "init_axioms")])”,
+    “Dlet unknown_loc (Pvar "init_axioms") (Con (SOME (Short "[]")) [])”,
+    “Dlet unknown_loc (Pvar "the_term_constants")
+       (App Opref [Var (Short "init_term_constants")])”,
+    “Dlet unknown_loc (Pvar "init_term_constants")
+       (Con (SOME (Short "::"))
+          [Con NONE
+             [Lit (StrLit "=");
+              Con (SOME (... ... )) [Lit (... ... ); ... ... ]];
+           Con (SOME (Short "[]")) []])”,
+    “Dlet unknown_loc (Pvar "the_type_constants")
+       (App Opref [Var (Short "init_type_constants")])”,
+    “Dlet unknown_loc (Pvar "init_type_constants")
+       (Con (SOME (Short "::"))
+          [Con NONE [Lit (StrLit "bool"); Lit (IntLit 0)];
+           Con (SOME (Short "::"))
+             [Con NONE [Lit (... ... ); ... ... ]; Con (... ... ) []]])”,
+    “Dlet unknown_loc (Pvar "print") (Var (Long "TextIO" (Short "print")))”,
+    “Dlet unknown_loc (Pvar "stdErr")
+       (Con (SOME (Short "Outstream"))
+          [Lit (StrLit "\^@\^@\^@\^@\^@\^@\^@\^B")])”,
+    “Dlet unknown_loc (Pvar "stdOut")
+       (Con (SOME (Short "Outstream"))
+          [Lit (StrLit "\^@\^@\^@\^@\^@\^@\^@\^A")])”,
+    “Dlet unknown_loc (Pvar "stdIn")
+       (Con (SOME (Short "Instream"))
+          [Lit (StrLit "\^@\^@\^@\^@\^@\^@\^@\^@")])”,
+    “Dlet unknown_loc (Pvar "iobuff")
+       (App Aw8alloc [Lit (IntLit 2052); Lit (Word8 0w)])”,
+    “Dlet unknown_loc (Pvar "empty") (Con (SOME (Short "Tip")) [])”,
+    “Dlet unknown_loc (Pvar "delta") (Lit (IntLit 3))”,
+    “Dlet unknown_loc (Pvar "ratio") (Lit (IntLit 2))”,
+    “Dlet unknown_loc (Pvar "some_chars_vector")
+       (App VfromList
+          [Con (SOME (Short "::"))
+             [Con (SOME (Short "Some")) [Lit (Char #"\^@")];
+              Con (SOME (... ... )) [... ... [... ]; ... ... ]]])”]:
+   term list

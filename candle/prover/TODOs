@@ -1,0 +1,24 @@
+- Restore the names of functions with all-caps names in the Candle kernel
+  + REFL
+  + TRANS
+  + MK_COMB
+  + ABS
+  + BETA
+  + ASSUME
+  + EQ_MP
+  + DEDUCT_ANTISYM_RULE
+  + INST_TYPE
+  + INST
+- Finish proving the top-level theorem in candle_prover_semantics
+  + Finish proving that the candle_init_env environment is env_ok
+  + Prove that the basis program does not write to kernel FFI
+  + Finish the divergence-part
+  + Prove that all refs in the basis state are ref_ok
+- Get the Candle kernel to write out all context updates to a special FFI.
+  Maybe we can get the translator to do this automatically, instead of storing
+  it, with a custom store predicate?
+- Use the monadic translator on the OCaml parser parse-tree conversion:
+  we can use the local-refs mode to make it into a pure function. Hopefully
+  this will speed it up.
+- Get format.sml parsed into CakeML declarations so that we can put it in basis.
+

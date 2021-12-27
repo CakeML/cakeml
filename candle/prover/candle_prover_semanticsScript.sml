@@ -54,60 +54,6 @@ Proof
   \\ rpt CASE_TAC \\ gs []
 QED
 
-(* TODO move *)
-
-Theorem env_ok_write_cons:
-  env_ok ctxt env ∧
-  (t ∈ kernel_types ⇒ nm ∈ kernel_ctors) ⇒
-    env_ok ctxt (write_cons nm (n, TypeStamp s t) env)
-Proof
-  simp [env_ok_def, write_cons_def, SF SFY_ss]
-  \\ strip_tac
-  \\ Cases \\ simp [nsLookup_nsBind_compute]
-  \\ rw [] \\ gs [SF SFY_ss, namespaceTheory.id_to_n_def]
-QED
-
-(* TODO move *)
-
-Theorem env_ok_extend_dec_env:
-  env_ok ctxt env1 ∧
-  env_ok ctxt env2 ⇒
-    env_ok ctxt (extend_dec_env env1 env2)
-Proof
-  rw [env_ok_def, extend_dec_env_def, nsLookup_nsAppend_some] \\ gs [SF SFY_ss]
-QED
-
-(* TODO move *)
-
-Theorem env_ok_write_mod:
-  env_ok ctxt env1 ∧
-  env_ok ctxt env2 ⇒
-    env_ok ctxt (write_mod mn env1 env2)
-Proof
-  rw [env_ok_def, write_mod_def, nsLookup_nsAppend_some, nsLookup_nsLift,
-      CaseEq "id"]
-  \\ gs [namespaceTheory.id_to_n_def, SF SFY_ss]
-QED
-
-(* TODO move *)
-
-Theorem env_ok_write_Exn:
-  env_ok ctxt env ⇒
-  env_ok ctxt (write_cons nm (n,ExnStamp m) env)
-Proof
-  simp [env_ok_def, write_cons_def, SF SFY_ss]
-  \\ strip_tac
-  \\ Cases \\ rw [nsLookup_nsBind_compute] \\ gs [SF SFY_ss]
-QED
-
-(* TODO move *)
-
-Theorem env_ok_nsEmpty:
-  env_ok ctxt <| v := nsEmpty; c := nsEmpty |>
-Proof
-  rw [env_ok_def]
-QED
-
 (* -------------------------------------------------------------------------
  * - The basis program:
  *   basis, basis_env, basis_state
