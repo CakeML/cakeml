@@ -1511,10 +1511,107 @@ Proof
     drule_all Kernel_print_thm_v_head
     \\ strip_tac \\ gvs[]
     >- (first_assum $ irule_at Any \\ simp[])
-    (* There is no Arrow or ArrowM theorem for Kernel_print_thm, but there
-    is a nice v theorem for the function that it calls, i.e. thm_to_string.
-    The proof of this case shouldn't be too difficult, but it will be
-    different from the other cases. *)
+    \\ drule_then drule v_ok_THM_TYPE_HEAD \\ strip_tac
+    \\ drule_then drule v_ok_THM \\ strip_tac
+    \\ fs[Kernel_print_thm_v_def]
+    \\ qmatch_asmsub_abbrev_tac`Closure cenv`
+    \\ fs[do_opapp_def]
+    \\ rveq
+    \\ qhdtm_x_assum`evaluate`mp_tac
+    \\ simp[Ntimes evaluate_def 3, astTheory.pat_bindings_def, can_pmatch_all_def]
+    \\ Cases_on`th`
+    \\ imp_res_tac THM_TYPE_def
+    \\ rveq
+    \\ simp[pmatch_def]
+    \\ qmatch_goalsub_abbrev_tac`TypeStamp "Sequent" sn`
+    \\ `nsLookup cenv.c (Short"Sequent") = SOME (2, TypeStamp "Sequent" sn)`
+    by (
+      unabbrev_all_tac
+      \\ CONV_TAC ml_progLib.nsLookup_conv \\ simp[]
+      \\ CONV_TAC ml_progLib.nsLookup_conv )
+    \\ simp[]
+    \\ `nsLookup cenv.v (Short"the_context") = SOME the_context`
+    by (
+      unabbrev_all_tac
+      \\ CONV_TAC ml_progLib.nsLookup_conv \\ simp[]
+      \\ CONV_TAC ml_progLib.nsLookup_conv )
+    \\ `nsLookup cenv.v (Short"!") = SOME deref_v`
+    by (
+      unabbrev_all_tac
+      \\ CONV_TAC ml_progLib.nsLookup_conv \\ simp[]
+      \\ CONV_TAC ml_progLib.nsLookup_conv )
+    \\ simp[Ntimes evaluate_def 5]
+    \\ simp[Once do_opapp_def]
+    \\ simp[mlbasicsProgTheory.deref_v_def]
+    \\ IF_CASES_TAC \\ simp[]
+    \\ simp[Ntimes evaluate_def 2]
+    \\ drule get_the_context_thm
+    \\ simp[ml_monad_translatorTheory.EvalM_def]
+    \\ fs[state_ok_def]
+    \\ drule REFS_PRED_HOL_STORE
+    \\ strip_tac
+    \\ simp[Ntimes evaluate_def 2]
+    \\ simp[Once dec_clock_def]
+    \\ simp[Once dec_clock_def]
+    \\ strip_tac
+    \\ CASE_TAC \\ simp[]
+    >- (strip_tac \\ gvs[dec_clock_def])
+    \\ PairCases_on`x` \\ simp[]
+    \\ first_assum(first_assum o resolve_then Any mp_tac)
+    \\ pop_assum mp_tac
+    \\ simp_tac(srw_ss())[]
+    \\ strip_tac
+    \\ simp[ml_monad_translatorTheory.MONAD_def]
+    \\ simp[holKernelTheory.get_the_context_def]
+    \\ Cases_on`list_result x2` \\ simp[]
+    \\ CASE_TAC
+    \\ CASE_TAC
+    \\ strip_tac \\ simp[]
+    \\ simp[Ntimes evaluate_def 8]
+    \\ simp[namespaceTheory.nsOptBind_def]
+    \\ `nsLookup cenv.v (Short"thm_to_string") = SOME thm_to_string_v`
+    by (
+      unabbrev_all_tac
+      \\ CONV_TAC ml_progLib.nsLookup_conv \\ simp[]
+      \\ CONV_TAC ml_progLib.nsLookup_conv )
+    \\ simp[]
+    \\ `(x0,x1) = (s.refs,s.ffi)`
+    by fs[do_app_cases] \\ fs[]
+    \\ Cases_on`do_opapp [thm_to_string_v; h]` \\ simp[]
+    >- ( strip_tac \\ gvs[] )
+    \\ rveq
+    \\ PairCases_on`x` \\ simp[]
+    \\ CASE_TAC >- ( strip_tac \\ gvs[] )
+    \\ `∃v1 e1. x1 = Fun v1 e1`
+    by ( fs[do_opapp_def, thm_to_string_v_def] )
+    \\ `do_partial_app thm_to_string_v h = SOME (Closure x0 v1 e1)`
+    by ( fs[do_opapp_def, thm_to_string_v_def] \\ simp[do_partial_app_def] )
+    \\ simp[Once evaluate_def]
+    \\ qmatch_goalsub_abbrev_tac`do_opapp xx`
+    \\ Cases_on`do_opapp xx` \\ simp[]
+    >- ( strip_tac \\ gvs[dec_clock_def] )
+    \\ ntac 2 CASE_TAC
+    >- ( strip_tac \\ gvs[dec_clock_def] )
+    \\ CASE_TAC
+    \\ qunabbrev_tac`xx`
+    \\ resolve_then (Pos hd)
+         (drule_at_then (Pat`do_partial_app`)
+           (drule_then $ drule_then $ drule_at Any))
+           thm_to_string_v_thm Arrow2
+    \\ simp[dec_clock_def]
+    \\ qmatch_asmsub_rename_tac`LIST_TYPE UPDATE_TYPE st h`
+    \\ disch_then(qspec_then`st`mp_tac)
+    \\ impl_keep_tac
+    >- (
+      conj_asm1_tac >- metis_tac[]
+      \\ simp[SF SFY_ss, THM_TYPE_perms_ok]
+      \\ drule_at_then Any irule LIST_TYPE_perms_ok
+      \\ simp[SF SFY_ss, UPDATE_TYPE_perms_ok])
+    \\ strip_tac \\ gvs[]
+    \\ simp[evaluate_def, namespaceTheory.nsOptBind_def]
+    \\ qunabbrev_tac`cenv`
+    \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp[]
+    \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp[]
     \\ cheat)
 QED
 

@@ -620,6 +620,12 @@ Proof
   \\ rw[]
 QED
 
+Theorem perms_ok_thm_to_string_v[simp]:
+  perms_ok ps thm_to_string_v
+Proof
+  rw[perms_ok_def, thm_to_string_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+QED
+
 (* Functions translated with 'm_translate' should be proved for kernel_perms *)
 
 Theorem perms_ok_the_type_constants[simp]:
