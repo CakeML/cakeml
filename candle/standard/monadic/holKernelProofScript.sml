@@ -133,21 +133,25 @@ val CONTEXT_fun = Q.prove(
   EQ_TAC >> rw[] >> res_tac >> fs[] >>
   imp_res_tac ALOOKUP_MEM)
 
-val TYPE = Q.prove(
-  `(STATE defs state ==> TYPE defs (Tyvar v)) /\
-    (TYPE defs (Tyapp op tys) ==> EVERY (TYPE defs) tys)`,
+Theorem TYPE:
+  (STATE defs state ==> TYPE defs (Tyvar v)) /\
+  (TYPE defs (Tyapp op tys) ==> EVERY (TYPE defs) tys)
+Proof
   conj_tac >- (
     simp[STATE_def,TYPE_def,EVERY_MEM] >>
     rw[] >> simp[type_ok_def] ) >>
   rw[EVERY_MEM,TYPE_def] >>
-  fs[type_ok_def,EVERY_MAP,EVERY_MEM]);
+  fs[type_ok_def,EVERY_MAP,EVERY_MEM]
+QED
 
-val TERM = Q.prove(
-  `(TERM defs (Var n ty) ==> TYPE defs ty) /\
-    (TERM defs (Const n ty) ==> TYPE defs ty) /\
-    (TERM defs (Abs (Var v ty) x) ==> TERM defs x /\ TYPE defs ty) /\
-    (TERM defs (Comb x y) ==> TERM defs x /\ TERM defs y)`,
-  rw[TERM_def,TYPE_def] >> fs[term_ok_def])
+Theorem TERM:
+  (TERM defs (Var n ty) ==> TYPE defs ty) /\
+  (TERM defs (Const n ty) ==> TYPE defs ty) /\
+  (TERM defs (Abs (Var v ty) x) ==> TERM defs x /\ TYPE defs ty) /\
+  (TERM defs (Comb x y) ==> TERM defs x /\ TERM defs y)
+Proof
+  rw[TERM_def,TYPE_def] >> fs[term_ok_def]
+QED
 
 val TYPE_Fun = Q.prove(
   `CONTEXT defs ∧ TYPE defs ty1 /\ TYPE defs ty2 ==>
@@ -212,11 +216,13 @@ val INST_CORE_EMPTY = Q.prove(
   >> simp[])
   |> Q.SPECL [`tm`,`[]`] |> SIMP_RULE std_ss [EVERY_DEF] |> GEN_ALL;
 
-val THM = Q.prove(
-  `THM defs (Sequent asl c) ==> EVERY (TERM defs) asl /\ TERM defs c`,
+Theorem THM:
+  THM defs (Sequent asl c) ==> EVERY (TERM defs) asl /\ TERM defs c
+Proof
   SIMP_TAC std_ss [THM_def] \\ SIMP_TAC std_ss [EVERY_MEM] >>
   strip_tac >> imp_res_tac proves_term_ok >>
-  fs[EVERY_MEM,TERM_def,MEM_MAP,PULL_EXISTS])
+  fs[EVERY_MEM,TERM_def,MEM_MAP,PULL_EXISTS]
+QED
 
 val type_IND = type_induction
   |> Q.SPECL[`P`,`EVERY P`]

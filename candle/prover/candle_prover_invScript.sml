@@ -778,13 +778,67 @@ Proof
   \\ imp_res_tac TERM_TYPE_perms_ok \\ fs []
 QED
 
-(* TODO
- *)
+Inductive sub_conv:
+  (MEM v vs ==> sub_conv v (Conv cn vs))
+End
+
+Theorem sub_conv_ok:
+  !v w. sub_conv v w ==> v_ok ctxt w ==> v_ok ctxt v
+Proof
+  gen_tac \\ ho_match_mp_tac sub_conv_ind
+  \\ rw[]
+  \\ pop_assum mp_tac
+  \\ rw[Once v_ok_cases]
+  \\ fs[EVERY_MEM, SF SFY_ss]
+  \\ pop_assum mp_tac
+  \\ simp[Once v_ok_cases]
+  \\ simp[do_partial_app_def]
+  \\ reverse strip_tac
+  >- fs[CaseEqs["option","v","exp"]]
+  \\ fs[inferred_cases]
+  >- (
+    Cases_on`ty`
+    \\ gvs[SF SFY_ss, STRING_TYPE_v_ok, TYPE_TYPE_def]
+    \\ imp_res_tac holKernelProofTheory.TYPE
+    \\ drule_then irule LIST_TYPE_v_ok
+    \\ fs[EVERY_MEM] \\ rw[]
+    \\ res_tac
+    \\ simp[SF SFY_ss, TYPE_IMP_v_ok])
+  >- (
+    Cases_on`tm`
+    \\ gvs[SF SFY_ss, STRING_TYPE_v_ok, TERM_TYPE_def]
+    \\ imp_res_tac holKernelProofTheory.TERM
+    \\ simp[SF SFY_ss, TYPE_IMP_v_ok, TERM_IMP_v_ok]
+    \\ Cases_on`t`
+    \\ TRY (
+      fs[holKernelProofTheory.TERM_def, holSyntaxTheory.term_ok_def]
+      \\ NO_TAC)
+    \\ imp_res_tac holKernelProofTheory.TERM
+    \\ TRY (
+      rename1 `TERM_TYPE (Var x ty)`
+      \\ `TERM ctxt (Var x ty)` by (
+        fs[holKernelProofTheory.TERM_def,
+           holKernelProofTheory.TYPE_def]
+        \\ fs[holSyntaxTheory.term_ok_def]))
+    \\ simp[SF SFY_ss, TERM_IMP_v_ok])
+  \\ Cases_on`th`
+  \\ imp_res_tac holKernelProofTheory.THM
+  \\ fs[THM_TYPE_def] \\ gvs[]
+  \\ simp[SF SFY_ss, TERM_IMP_v_ok]
+  \\ drule_then irule LIST_TYPE_v_ok
+  \\ fs[EVERY_MEM] \\ rw[]
+  \\ res_tac
+  \\ simp[SF SFY_ss, TERM_IMP_v_ok]
+QED
+
 Theorem v_ok_Conv_alt:
   v_ok ctxt (Conv (SOME stamp) vs) ⇒
     EVERY (v_ok ctxt) vs
 Proof
-  cheat
+  rw[EVERY_MEM]
+  \\ drule sub_conv_rules
+  \\ disch_then (C (resolve_then Any irule) sub_conv_ok)
+  \\ first_assum $ irule_at Any
 QED
 
 val _ = export_theory ();
