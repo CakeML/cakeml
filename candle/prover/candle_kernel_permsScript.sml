@@ -5,7 +5,7 @@
 open preamble helperLib;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory sptreeTheory
      evaluateTheory namespacePropsTheory evaluatePropsTheory
-     candle_kernel_valsTheory;
+     candle_kernel_valsTheory candle_kernelProgTheory;
 open permsTheory ml_hol_kernel_funsProgTheory ml_progLib ast_extrasTheory;
 
 val _ = new_theory "candle_kernel_perms";
@@ -17,6 +17,12 @@ val eval_nsLookup_tac =
   \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
 
 (* Functions translated with 'translate' should be proved for any ps *)
+
+Theorem perms_ok_word8_fromint_v[simp]:
+  perms_ok ps word8_fromint_v
+Proof
+  rw[perms_ok_def, Word8ProgTheory.word8_fromint_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+QED
 
 Theorem perms_ok_fst_v[simp]:
   perms_ok ps fst_v

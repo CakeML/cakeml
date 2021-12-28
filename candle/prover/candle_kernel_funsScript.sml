@@ -1599,7 +1599,7 @@ Proof
            (drule_then $ drule_then $ drule_at Any))
            thm_to_string_v_thm Arrow2
     \\ simp[dec_clock_def]
-    \\ qmatch_asmsub_rename_tac`LIST_TYPE UPDATE_TYPE st h`
+    \\ qmatch_asmsub_abbrev_tac`LIST_TYPE UPDATE_TYPE st h`
     \\ disch_then(qspec_then`st`mp_tac)
     \\ impl_keep_tac
     >- (
@@ -1612,7 +1612,91 @@ Proof
     \\ qunabbrev_tac`cenv`
     \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp[]
     \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp[]
-    \\ cheat)
+    \\ TOP_CASE_TAC
+    \\ pop_assum mp_tac
+    \\ TOP_CASE_TAC
+    >- (strip_tac \\ gvs[])
+    \\ TOP_CASE_TAC
+    \\ CASE_TAC
+    >- (strip_tac \\ gvs[])
+    \\ strip_tac
+    \\ qmatch_asmsub_abbrev_tac`nsLookup cenv.v _`
+    \\ resolve_then Any (drule_then drule)
+         Word8ProgTheory.word8_fromint_v_thm Arrow1
+    \\ simp[perms_ok_Litv]
+    \\ strip_tac \\ gvs[]
+    >- (strip_tac \\ gvs[dec_clock_def])
+    >- (strip_tac \\ gvs[dec_clock_def])
+    \\ TOP_CASE_TAC
+    \\ pop_assum mp_tac \\ TOP_CASE_TAC
+    \\ pop_assum mp_tac \\ TOP_CASE_TAC
+    \\ pop_assum mp_tac \\ TOP_CASE_TAC
+    >- (rpt strip_tac \\ gvs[dec_clock_def])
+    \\ TOP_CASE_TAC
+    \\ CASE_TAC >- (rpt strip_tac \\ gvs[dec_clock_def])
+    \\ strip_tac
+    \\ qhdtm_x_assum`do_opapp`mp_tac
+    \\ simp[do_opapp_def, Word8ArrayProgTheory.Word8Array_array_v_def]
+    \\ strip_tac \\ rveq
+    \\ pop_assum mp_tac
+    \\ simp[evaluate_def]
+    \\ strip_tac \\ rveq
+    \\ strip_tac \\ rveq \\ simp[]
+    \\ CASE_TAC >- (rpt strip_tac \\ gvs[dec_clock_def])
+    \\ simp[evaluate_def]
+    \\ fs[ml_translatorTheory.WORD_def]
+    \\ simp[do_app_def]
+    \\ simp[store_alloc_def]
+    \\ strip_tac \\ rveq \\ simp[]
+    \\ qmatch_asmsub_abbrev_tac`STRING_TYPE sstr rv`
+    \\ Cases_on`sstr` \\ fs[ml_translatorTheory.STRING_TYPE_def]
+    \\ gvs[]
+    \\ simp[store_lookup_def]
+    \\ simp[EL_LENGTH_APPEND]
+    \\ reverse CASE_TAC
+    >- ( rpt strip_tac \\ gvs[dec_clock_def] )
+    \\ simp[store_assign_def, EL_LENGTH_APPEND]
+    \\ reverse IF_CASES_TAC
+    >- (
+      `F` suffices_by rw[]
+      \\ pop_assum mp_tac
+      \\ EVAL_TAC )
+    \\ simp[]
+    \\ strip_tac \\ gvs[v_ok_Conv_NONE]
+    \\ qexists_tac`ctxt` \\ gvs[dec_clock_def]
+    \\ qhdtm_x_assum`call_FFI`mp_tac
+    \\ simp[ffiTheory.call_FFI_def]
+    \\ CASE_TAC
+    \\ CASE_TAC
+    \\ strip_tac \\ gvs[]
+    \\ simp[ok_event_def]
+    \\ simp[kernel_ffi_def]
+    \\ conj_tac
+    >- (
+      first_assum $ irule_at Any
+      \\ simp[thm2bytes_def, MAP_MAP_o, o_DEF]
+      \\ AP_TERM_TAC
+      \\ fs[GSYM mlstringTheory.implode_def]
+      \\ fs[STATE_def]
+      \\ EVAL_TAC)
+    \\ first_assum $ irule_at Any
+    \\ fs[kernel_loc_ok_def]
+    \\ conj_tac
+    >- (
+      rw[]
+      \\ first_x_assum drule
+      \\ strip_tac
+      \\ fs[LLOOKUP_THM, EL_APPEND1])
+    \\ rw[]
+    \\ first_x_assum drule
+    \\ fs[LLOOKUP_THM]
+    \\ rw[]
+    \\ qmatch_asmsub_rename_tac`loc < LENGTH xx + 1`
+    \\ Cases_on`loc < LENGTH xx` \\ fs[EL_APPEND1]
+    \\ simp[EL_APPEND2]
+    \\ `loc = LENGTH xx` by fs[]
+    \\ simp[EL_LENGTH_APPEND]
+    \\ simp[ref_ok_def])
 QED
 
 Theorem kernel_vals_twice_partial_app:
