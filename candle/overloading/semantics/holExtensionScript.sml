@@ -199,7 +199,7 @@ End
 Triviality LIST_LENGTH_2:
   LENGTH l = 2 ⇔ ∃e1 e2. l = [e1; e2]
 Proof
-  fs [LENGTH_EQ_NM_compute]
+  Cases_on ‘l’ \\ fs [] \\ Cases_on ‘t’ \\ fs []
 QED
 
 Theorem allTypes'_subst_clos_dependency:

@@ -67,9 +67,12 @@ particular:
 Auxiliary files providing glue between a standard HOL installation
 and what we want to use for CakeML development.
 
+[pancake](pancake):
+The Pancake compiler, i.e. a C-like compiler built from the lower
+parts of the CakeML compiler.
+
 [semantics](semantics):
-The definition of the CakeML language. The definition is (mostly) expressed in
-[Lem](https://www.cl.cam.ac.uk/~pes20/lem), but the generated HOL is included.
+The definition of the CakeML language.
 The directory includes definitions of:
  - the concrete syntax,
  - the abstract syntax,

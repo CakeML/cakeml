@@ -9284,6 +9284,7 @@ Proof
       >> Cases_on `HD r`
       >> fs[subtype_at_def]
       >> fs[]
+      >> ‘r ≠ []’ by (Cases_on ‘r’ \\ fs [])
       >> fs[MEM_ZIP]
       >> DISJ1_TAC
       >> asm_exists_tac
