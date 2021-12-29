@@ -455,8 +455,8 @@ Proof
   strip_tac
   \\ Cases_on ‘res’ \\ gs []
   >~ [‘Terminate outcome io_list’] >- (
-    gs [semanticsTheory.semantics_prog_def]
-    \\ gs [semanticsTheory.evaluate_prog_with_clock_def]
+    gs [semantics_prog_def]
+    \\ gs [evaluate_prog_with_clock_def]
     \\ pairarg_tac \\ gvs []
     \\ assume_tac candle_prog_thm
     \\ gvs [evaluate_decs_append, CaseEqs ["prod", "semanticPrimitives$result"]]
@@ -496,32 +496,51 @@ Proof
                     λk. fromList (FST (evaluate_prog_with_clock
                                          (init_state ffi) init_env k
                                          (candle_code ++ prog))).io_events’
-  \\ gs []
+  \\ gs [] \\ rw []
+  \\ Cases_on ‘∃k v. LNTH n (ff k) = SOME v’ \\ gs []
+  >- (
+    first_x_assum (qspec_then ‘k’ assume_tac)
+    \\ first_x_assum (qspec_then ‘k’ (qx_choose_then ‘ffi1’ assume_tac))
+    \\ gs [Abbr ‘ff’, evaluate_prog_with_clock_def]
+    \\ rename1 ‘LNTH n l = SOME w’
+    \\ ‘v = w’
+      by (qpat_x_assum ‘LPREFIX _ _’ mp_tac
+          \\ gs [LPREFIX_NTH, LNTH_fromList, less_opt_def]
+          \\ disch_then (qspec_then ‘n’ assume_tac) \\ gs [])
+    \\ pairarg_tac \\ gvs []
+    \\ assume_tac candle_prog_thm \\ gs [Decls_def]
+    \\ gvs [evaluate_decs_append, CaseEqs ["semanticPrimitives$result", "prod"],
+            combine_dec_result_def]
+    >- (
+      dxrule_then (qspec_then ‘k’ mp_tac) evaluate_decs_add_to_clock
+      \\ qpat_x_assum ‘evaluate_decs _ _ candle_code = _’ assume_tac
+      \\ dxrule_then (qspec_then ‘ck1’ mp_tac) evaluate_decs_add_to_clock
+      \\ rw []
+      \\ qpat_x_assum ‘evaluate_decs _ _ prog = _’ assume_tac
+      \\ drule_then (qspec_then ‘init_context’ mp_tac)
+                    (el 3 (CONJUNCTS evaluate_v_ok))
+      \\ impl_tac
+      >- (
+        drule_then assume_tac candle_init_state_state_ok
+        \\ assume_tac env_ok_candle_init_env \\ gs []
+        \\ irule_at Any env_ok_extend_dec_env \\ gs [env_ok_init_env]
+        \\ gs [state_ok_def, semanticPrimitivesTheory.state_component_equality]
+        \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
+      \\ strip_tac \\ gs []
+      \\ gvs [LNTH_fromList, EVERY_EL])
+    \\ ‘k ≤ ck1’
+      by (dxrule_then drule evaluatePropsTheory.evaluate_decs_clock_determ
+          \\ rw [])
+    \\ drule_then (qspecl_then [‘init_state ffi’,‘init_env’,‘candle_code’]
+                  mp_tac)
+                  evaluate_decs_ffi_mono_clock
+    \\ rw [io_events_mono_def] \\ gs [])
+  \\ ‘∀k. LNTH n (ff k) = NONE’
+    by (rpt strip_tac
+        \\ Cases_on ‘LNTH n (ff k)’ \\ gs [])
+  \\ qpat_x_assum ‘∀k v. _ ≠ SOME _’ kall_tac
+  \\ ‘F’ suffices_by rw []
   \\ cheat
-(*
-    first_x_assum (qspec_then `k` assume_tac)
-    \\ first_x_assum (qspec_then `k` strip_assume_tac)
-    \\ imp_res_tac LPREFIX_LNTH
-    \\ pop_assum kall_tac
-    \\ fs [Abbr `ff`, semanticsTheory.evaluate_prog_with_clock_def]
-    \\ pairarg_tac \\ fs []
-    \\ drule kernel_evaluate_decs
-    \\ disch_then drule
-    \\ rw [extract_events_def]
-    \\ fs [EVERY_MEM, MEM_MAP, MEM_FILTER, PULL_EXISTS, ELIM_UNCURRY,
-           CaseEq "io_event"]
-    \\ PURE_CASE_TAC \\ rw []
-    \\ first_x_assum irule
-    \\ fs [LNTH_fromList]
-    \\ drule EL_MEM
-    \\ srw_tac [SATISFY_ss] []
-  \\ `!k. LNTH n (ff k) = NONE` by metis_tac [option_nchotomy] \\ fs []
-  \\ `F` suffices_by fs [] \\ rw []
-  \\ qpat_x_assum `!ub. _ ==> _` mp_tac
-  \\ simp []
-  \\ drule LNTH_LTAKE \\ rw []
-  \\ qexists_tac `fromList ll` \\ fs []
-  \\ fsrw_tac [SATISFY_ss] [LTAKE_LPREFIX, LPREFIX_lemma] *)
 QED
 
 val _ = export_theory ();
