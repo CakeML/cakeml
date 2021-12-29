@@ -491,26 +491,24 @@ Proof
     \\ dxrule_then (qspec_then ‘ck1’ mp_tac) evaluate_decs_add_to_clock
     \\ rw [] \\ gs [CaseEqs ["semanticPrimitives$result"]])
   \\ gs [semanticsTheory.semantics_prog_def]
-  \\ gs [lprefix_lub_def, PULL_EXISTS, every_LNTH]
-  \\ qabbrev_tac ‘ff : num -> io_event llist =
-                    λk. fromList (FST (evaluate_prog_with_clock
-                                         (init_state ffi) init_env k
-                                         (candle_code ++ prog))).io_events’
-  \\ gs [] \\ rw []
-  \\ Cases_on ‘∃k v. LNTH n (ff k) = SOME v’ \\ gs []
+  \\ qmatch_asmsub_abbrev_tac`IMAGE ff`
+  \\ drule lprefix_lub_is_chain \\ strip_tac
+  \\ rw[every_LNTH]
+  \\ Cases_on`∃p. p ∈ IMAGE ff UNIV ∧ LNTH n p <> NONE` \\ gs[]
   >- (
-    first_x_assum (qspec_then ‘k’ assume_tac)
+    rename1`LNTH n (ff k) <> NONE`
+    \\ `∃v. LNTH n (ff k) = SOME v` by metis_tac[option_CASES]
     \\ first_x_assum (qspec_then ‘k’ (qx_choose_then ‘ffi1’ assume_tac))
     \\ gs [Abbr ‘ff’, evaluate_prog_with_clock_def]
     \\ rename1 ‘LNTH n l = SOME w’
     \\ ‘v = w’
-      by (qpat_x_assum ‘LPREFIX _ _’ mp_tac
-          \\ gs [LPREFIX_NTH, LNTH_fromList, less_opt_def]
+      by (gs [lprefix_lub_def, LPREFIX_NTH, LNTH_fromList]
+          \\ gs[PULL_EXISTS, less_opt_def]
+          \\ last_x_assum(qspec_then`k`mp_tac) \\ simp[LNTH_fromList]
           \\ disch_then (qspec_then ‘n’ assume_tac) \\ gs [])
     \\ pairarg_tac \\ gvs []
     \\ assume_tac candle_prog_thm \\ gs [Decls_def]
-    \\ gvs [evaluate_decs_append, CaseEqs ["semanticPrimitives$result", "prod"],
-            combine_dec_result_def]
+    \\ gvs [evaluate_decs_append, CaseEqs ["semanticPrimitives$result", "prod"], combine_dec_result_def]
     >- (
       dxrule_then (qspec_then ‘k’ mp_tac) evaluate_decs_add_to_clock
       \\ qpat_x_assum ‘evaluate_decs _ _ candle_code = _’ assume_tac
@@ -535,12 +533,14 @@ Proof
                   mp_tac)
                   evaluate_decs_ffi_mono_clock
     \\ rw [io_events_mono_def] \\ gs [])
-  \\ ‘∀k. LNTH n (ff k) = NONE’
-    by (rpt strip_tac
-        \\ Cases_on ‘LNTH n (ff k)’ \\ gs [])
-  \\ qpat_x_assum ‘∀k v. _ ≠ SOME _’ kall_tac
-  \\ ‘F’ suffices_by rw []
-  \\ cheat
+  \\ `lprefix_chain_nth n (IMAGE ff UNIV) = NONE`
+  by (
+    irule not_exists_lprefix_chain_nth
+    \\ simp[PULL_EXISTS]
+    \\ metis_tac[])
+  \\ drule lprefix_lub_nth
+  \\ disch_then(qspec_then`l`mp_tac) \\ simp[]
+  \\ disch_then(qspec_then`n`mp_tac) \\ simp[]
 QED
 
 val _ = export_theory ();
