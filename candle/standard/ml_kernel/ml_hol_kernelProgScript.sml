@@ -13,7 +13,6 @@ val _ = m_translation_extends "ml_hol_kernel_funsProg"
 
 (* Translation of functions used by e.g. the OpenTheory checker. *)
 
-(* FIXME: The PMATCH translation gets stuck
 val def = m_translate mk_eq_def;
 val res = translate aconv_def;
 val res = translate holKernelPmatchTheory.is_eq_def;
@@ -29,7 +28,6 @@ val _ = next_ml_names := ["ALPHA_THM"];
 val def = m_translate ALPHA_THM_def;
 
 val def = m_translate context_def;
- *)
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);

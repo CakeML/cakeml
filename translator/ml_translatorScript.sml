@@ -86,6 +86,26 @@ val CHAR_def = Define`
 val STRING_TYPE_def = Define`
   STRING_TYPE (strlit s) = \v:v. (v = Litv (StrLit s))`;
 
+Theorem STRING_TYPE_explode:
+  STRING_TYPE s = \v. (v = Litv (StrLit (explode s)))
+Proof
+  Cases_on`s` \\ rw[STRING_TYPE_def]
+QED
+
+Theorem explode_eq:
+  explode s = l <=> s = strlit l
+Proof
+  rw[EQ_IMP_THM]
+  \\ rw[GSYM mlstringTheory.implode_def]
+QED
+
+Theorem eq_explode:
+  l = explode s <=> s = strlit l
+Proof
+  rw[EQ_IMP_THM]
+  \\ rw[GSYM mlstringTheory.implode_def]
+QED
+
 val HOL_STRING_TYPE_def = Define `
   HOL_STRING_TYPE cs = STRING_TYPE (implode cs)`
 
