@@ -5,7 +5,8 @@
 *)
 open preamble basis ml_monadBaseTheory ml_monad_translator_interfaceLib
      cfMonadTheory cfMonadLib holKernelTheory holKernelProofTheory
-     ml_hol_kernelProgTheory readerTheory readerProofTheory reader_initTheory
+     ml_hol_kernel_funsProgTheory ml_hol_kernelProgTheory
+     readerTheory readerProofTheory reader_initTheory
      prettyTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
@@ -135,6 +136,7 @@ val r = translate toAList_def;
 val r = translate obj2str_applist_def;
 val r = translate st2str_applist_def;
 
+val r = m_translate holKernelTheory.map_def;
 val r = m_translate readLine_def;
 
 Theorem readline_side[local]:
