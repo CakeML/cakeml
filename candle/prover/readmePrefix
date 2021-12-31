@@ -1,2 +1,1 @@
-Proving that types can be encapsulated as a step towards theorem prover
-soundness.
+Proof of soundness for the Candle theorem prover.

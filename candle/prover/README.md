@@ -1,5 +1,4 @@
-Proving that types can be encapsulated as a step towards theorem prover
-soundness.
+Proof of soundness for the Candle theorem prover.
 
 [ast_extrasScript.sml](ast_extrasScript.sml):
 Useful predicates on the CakeML ast.
