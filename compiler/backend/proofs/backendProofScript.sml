@@ -526,9 +526,9 @@ Theorem cake_orac_eqs:
   /\
   (
   compile c prog = SOME (b, bm, c') ==>
-  (λ((bm0,cfg),prg). (λ(prg2,fs,bm). (cfg,prg2,DROP (LENGTH bm0) bm))
+  (λ((bm0,cfg),prg). (λ(prg2,fs,bm). (cfg,prg2,append(FST bm)))
     (compile_word_to_stack (c.lab_conf.asm_conf.reg_count -
-      (LENGTH c.lab_conf.asm_conf.avoid_regs + 5)) prg bm0)) ∘
+      (LENGTH c.lab_conf.asm_conf.avoid_regs + 5)) prg (Nil, LENGTH bm0))) ∘
   cake_orac c' src (SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.word_prog) =
   cake_orac c' src (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
     (λps. (ps.stack_prog,ps.cur_bm))
@@ -2246,7 +2246,7 @@ Theorem compute_stack_frame_sizes_thm:
   compute_stack_frame_sizes c word_prog =
     let k = c.reg_count - LENGTH c.avoid_regs - 5 in
       mapi (λn (arg_count,prog).
-        FST (SND (compile_prog prog arg_count k []))) (fromAList word_prog)
+        FST (SND (compile_prog prog arg_count k (Nil,0)))) (fromAList word_prog)
 Proof
   fs [compute_stack_frame_sizes_def]
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
@@ -2348,14 +2348,14 @@ Theorem compile_word_to_stack_sfs_aux:
         (λkv.
              (FST kv,
               (λ(arg_count,prog).
-                   FST (SND (compile_prog prog arg_count k []))) (SND kv))) p)
+                   FST (SND (compile_prog prog arg_count k (Nil,0)))) (SND kv))) p)
    = fromAList (MAP (λ((i,_),n). (i,n)) (ZIP (progs',fs')))
 Proof
   ho_match_mp_tac compile_word_to_stack_ind
   \\ rw [fromAList_def,compile_word_to_stack_def] \\ fs [fromAList_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
   \\ rw [fromAList_def] \\ rveq \\ rfs []
-  \\ Cases_on `compile_prog p n k []`
+  \\ Cases_on `compile_prog p n k (Nil,0)`
   \\ PairCases_on `r` \\ rfs [] \\ rveq \\ fs []
   \\  `f = r0` suffices_by fs []
   \\ fs [compile_prog_def]
@@ -2495,7 +2495,7 @@ Definition backend_from_data_tuple_cc_def:
           (λ(progs,fs,bm).
             OPTION_MAP
               (λ(bytes,cfg).
-                (bytes, DROP (LENGTH bm0) bm,bm,cfg))
+                (bytes,append (FST bm),(bm0++append (FST bm),cfg)))
               (compile cfg
                 (MAP prog_to_section
                   (MAP
@@ -2505,7 +2505,7 @@ Definition backend_from_data_tuple_cc_def:
                         c.lab_conf.asm_conf.addr_offset
                         (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3)))
                       (MAP prog_comp progs))))))
-           (compile_word_to_stack ((c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3))-2) progs bm0))
+           (compile_word_to_stack ((c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3))-2) progs (Nil, LENGTH bm0)))
               cfg (MAP (λp. full_compile_single c.lab_conf.asm_conf.two_reg_arith (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 5))
               c.word_to_word_conf.reg_alg
               c.lab_conf.asm_conf (p,NONE)) progs)) o
@@ -2584,7 +2584,8 @@ Proof
   \\ simp [UNCURRY]
   \\ imp_res_tac known_compile_inc_retreive_spt
   \\ simp []
-  \\ every_case_tac \\ simp []
+  \\ every_case_tac
+  \\ simp [DROP_APPEND]
 QED
 
 Triviality compile_inc_progs_src_env:
@@ -3628,7 +3629,8 @@ Proof
     \\ simp_tac std_ss []
     \\ disch_then(SUBST1_TAC o SYM)
     \\ simp[full_make_init_compile, Abbr`lab_st`]
-    \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``] ) \\
+    \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``]
+    \\ simp[append_def]) \\
   simp[Abbr`z`] \\
   match_mp_tac implements'_strengthen \\
   qmatch_goalsub_abbrev_tac `semantics s_tmp start_tmp` \\
@@ -3726,7 +3728,8 @@ Proof
     \\ simp_tac std_ss []
     \\ disch_then(SUBST_ALL_TAC o SYM)
     \\ fs[full_make_init_compile, Abbr`lab_st`]
-    \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``]) \\
+    \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``]
+    \\ simp[append_def]) \\
 
   strip_tac \\
   match_mp_tac implements'_trans \\
