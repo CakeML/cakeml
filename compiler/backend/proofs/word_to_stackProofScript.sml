@@ -5,6 +5,7 @@ open preamble semanticsPropsTheory stackSemTheory wordSemTheory
      word_to_stackTheory wordPropsTheory stackPropsTheory
      parmoveTheory;
 
+(* To help interactive proofs *)
 open labPropsTheory helperLib;
 val good_dimindex_def = labPropsTheory.good_dimindex_def;
 val get_labels_def = stackSemTheory.get_labels_def;
@@ -547,7 +548,7 @@ val stack_rel_def = Define `
   lens tracks the size of each remaining stack frame on the stackLang stack
 *)
 val state_rel_def = Define `
-  state_rel k f f' (s:('a,'a word list # 'c,'ffi) wordSem$state) (t:('a,'c,'ffi) stackSem$state) lens ⇔
+  state_rel k f f' (s:('a,num # 'c,'ffi) wordSem$state) (t:('a,'c,'ffi) stackSem$state) lens ⇔
     (s.clock = t.clock) /\ (s.gc_fun = t.gc_fun) /\ (s.permute = K I) /\
     (t.ffi = s.ffi) /\ t.use_stack /\ t.use_store /\ t.use_alloc /\
     (t.memory = s.memory) /\ (t.mdomain = s.mdomain) /\ 4 < k /\
@@ -557,19 +558,19 @@ val state_rel_def = Define `
     t.data_buffer = s.data_buffer ∧
     t.code_buffer = s.code_buffer ∧
     s.compile = (λ(bm0,cfg) progs.
-      let (progs,fs,bm) = word_to_stack$compile_word_to_stack k progs (Nil, LENGTH bm0) in
-      OPTION_MAP (λ(bytes,cfg). (bytes,append (FST bm),(bm0++append (FST bm),cfg)))
+      let (progs,fs,bm) = word_to_stack$compile_word_to_stack k progs (Nil, bm0) in
+      OPTION_MAP (λ(bytes,cfg). (bytes,append (FST bm),(SND bm,cfg)))
         (t.compile cfg progs)) ∧
     t.compile_oracle = (λn.
       let ((bm0,cfg),progs) = s.compile_oracle n in
-      let (progs,fs,bm) = word_to_stack$compile_word_to_stack k progs (Nil, LENGTH bm0) in
+      let (progs,fs,bm) = word_to_stack$compile_word_to_stack k progs (Nil, bm0) in
         (cfg,progs,append (FST bm))) ∧
     (∀n. let ((bm0,cfg),progs) = s.compile_oracle n in
         EVERY (post_alloc_conventions k o SND o SND) progs ∧
         EVERY (flat_exp_conventions o SND o SND) progs ∧
         EVERY ((<>) raise_stub_location o FST) progs ∧
         EVERY ((<>) store_consts_stub_location o FST) progs ∧
-        (n = 0 ⇒ bm0 = t.bitmaps)) ∧
+        (n = 0 ⇒ bm0 = LENGTH t.bitmaps)) ∧
     domain t.code = raise_stub_location INSERT
                       store_consts_stub_location INSERT domain s.code ∧
     (!n word_prog arg_count.
@@ -981,7 +982,7 @@ QED
 Theorem evaluate_wLive[local]:
   wLive names (bs,n) (k,f,f') = (wlive_prog,(bs',n')) /\
   (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
-  state_rel k f f' (s:('a,'a word list # 'c,'ffi) wordSem$state) t lens /\ 1 <= f /\
+  state_rel k f f' (s:('a,num # 'c,'ffi) wordSem$state) t lens /\ 1 <= f /\
   (cut_env names s.locals = SOME env) /\
   LENGTH (append bs) ≤ n ∧ n - LENGTH (append bs) ≤ LENGTH t.bitmaps ∧
   isPREFIX (append bs') (DROP (n - LENGTH (append bs)) t.bitmaps) ==>
@@ -1513,7 +1514,7 @@ val dec_stack_lemma = Q.prove(`
   (t1:('a,'c,'ffi) stackSem$state).stack_space ≤ LENGTH t1.stack ∧
   enc_stack t1.bitmaps (DROP t1.stack_space t1.stack) =
       SOME (enc_stack s1.stack) /\
-    (dec_stack x0 (s1:('a,'a word list # 'c,'ffi) wordSem$state).stack = SOME x) /\
+    (dec_stack x0 (s1:('a,num # 'c,'ffi) wordSem$state).stack = SOME x) /\
     stack_rel k s1.handler s1.stack (SOME (t1.store ' Handler))
       (DROP t1.stack_space t1.stack) (LENGTH t1.stack) t1.bitmaps lens /\
     (LENGTH (enc_stack s1.stack) = LENGTH x0) ==>
@@ -1559,7 +1560,7 @@ Proof
 QED
 
 val gc_state_rel = Q.prove(
-  `(gc (s1:('a,'a word list # 'c,'ffi) wordSem$state) = SOME s2) /\ state_rel k 0 0 s1 (t1:('a,'c,'ffi) stackSem$state) lens /\ (s1.locals = LN) ==>
+  `(gc (s1:('a,num # 'c,'ffi) wordSem$state) = SOME s2) /\ state_rel k 0 0 s1 (t1:('a,'c,'ffi) stackSem$state) lens /\ (s1.locals = LN) ==>
     ?(t2:('a,'c,'ffi) stackSem$state). gc t1 = SOME t2 /\ state_rel k 0 0 s2 t2 lens
     /\ LENGTH t2.stack = LENGTH t1.stack /\ t2.stack_space = t1.stack_space
 `,
@@ -1587,9 +1588,9 @@ val gc_state_rel = Q.prove(
     );
 
 val alloc_alt = Q.prove(
-  `FST (alloc c names (s:('a,'a word list # 'c,'ffi) wordSem$state)) <>
+  `FST (alloc c names (s:('a,num # 'c,'ffi) wordSem$state)) <>
     SOME (Error:'a wordSem$result) ==>
-    (alloc c names (s:('a,'a word list # 'c,'ffi) wordSem$state) =
+    (alloc c names (s:('a,num # 'c,'ffi) wordSem$state) =
      case cut_env names s.locals of
        NONE => (SOME Error,s)
      | SOME env =>
@@ -1668,7 +1669,7 @@ Proof
 QED
 
 val alloc_IMP_alloc = Q.prove(
-  `(wordSem$alloc c names (s:('a,'a word list # 'c,'ffi) wordSem$state) = (res:'a result option,s1)) /\
+  `(wordSem$alloc c names (s:('a,num # 'c,'ffi) wordSem$state) = (res:'a result option,s1)) /\
     (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
     1 ≤ f /\
     state_rel k f f' s t5 lens /\
@@ -1683,7 +1684,7 @@ val alloc_IMP_alloc = Q.prove(
       else
         res = SOME NotEnoughSpace /\ res1 = SOME (Halt (Word 1w)) /\
         s1.clock = t1.clock /\ s1.ffi = t1.ffi`,
-  Cases_on `FST (alloc c names (s:('a,'a word list # 'c,'ffi) wordSem$state)) = SOME (Error:'a result)`
+  Cases_on `FST (alloc c names (s:('a,num # 'c,'ffi) wordSem$state)) = SOME (Error:'a result)`
   THEN1 (rpt strip_tac \\ fsrw_tac[] [] \\ rfs [])
   \\ fsrw_tac[] [alloc_alt, stackSemTheory.alloc_def]
   \\ REPEAT STRIP_TAC \\ fsrw_tac[] [push_env_set_store]
@@ -1832,7 +1833,7 @@ val word_gc_empty_frame = Q.prove(`
   fs[state_component_equality])
 
 val alloc_IMP_alloc2 = Q.prove(`
-  (wordSem$alloc c names (s:('a,'a word list # 'c,'ffi) wordSem$state) = (res:'a result option,s1)) ∧
+  (wordSem$alloc c names (s:('a,num # 'c,'ffi) wordSem$state) = (res:'a result option,s1)) ∧
   state_rel k 0 0 s t lens ∧
   domain names = {} ∧
   res ≠ SOME Error ⇒
@@ -1844,7 +1845,7 @@ val alloc_IMP_alloc2 = Q.prove(`
     else
       res = SOME NotEnoughSpace /\ res1 = SOME (Halt (Word 1w)) ∧
       s1.clock = t1.clock /\ s1.ffi = t1.ffi`,
-  Cases_on `FST (alloc c names (s:('a,'a word list # 'c,'ffi) wordSem$state)) = SOME (Error:'a result)`
+  Cases_on `FST (alloc c names (s:('a,num # 'c,'ffi) wordSem$state)) = SOME (Error:'a result)`
   THEN1 (rpt strip_tac \\ fs [] \\ rfs [])
   \\ fs [alloc_alt, stackSemTheory.alloc_def]
   \\ REPEAT STRIP_TAC \\ fs [push_env_set_store]
@@ -2374,6 +2375,7 @@ Proof
   \\ imp_res_tac IS_PREFIX_TRANS \\ fs []
 QED
 
+(* TODO 
 Theorem compile_word_to_stack_bitmaps:
    word_to_stack$compile c p = (c2,prog1) ==>
     (case c2.bitmaps of [] => F | h::v1 => 4w = h)
@@ -2381,7 +2383,7 @@ Proof
   fs [word_to_stackTheory.compile_def] \\ pairarg_tac \\ fs [] \\ rw [] \\ fs []
   \\ imp_res_tac compile_word_to_stack_isPREFIX
   \\ Cases_on `bitmaps` \\ fs []
-QED
+QED *)
 
 Theorem EVEN_DIV2_INJ:
    EVEN x ∧ EVEN y ∧ DIV2 x = DIV2 y ⇒ x = y
@@ -2836,7 +2838,7 @@ QED
 
 Theorem call_dest_lemma[local]:
   ¬bad_dest_args dest args /\
-  state_rel k f f' (s:('a,'a word list # 'c,'ffi) state) t lens /\
+  state_rel k f f' (s:('a,num # 'c,'ffi) state) t lens /\
   call_dest dest args (k,f,f') = (q0,dest') /\
   get_vars args s = SOME args' ==>
   ?t4:('a,'c,'ffi) stackSem$state.
@@ -3459,7 +3461,7 @@ QED
 
 Theorem wStackLoad_thm1:
    wReg1 (2 * n1) (k,f,f') = (l,n2) ∧
-   get_var (2*n1) (s:('a,'a word list # 'c,'ffi)wordSem$state) = SOME x ∧
+   get_var (2*n1) (s:('a,num # 'c,'ffi)wordSem$state) = SOME x ∧
    state_rel k f f' s t lens ∧
    (n1 < k ⇒ ∃t'. evaluate (kont n1, t) = (NONE, t') ∧
                   state_rel k f f' s' t' lens /\
@@ -3489,7 +3491,7 @@ QED
 
 Theorem wStackLoad_thm1_weak:
    wReg1 (2 * n1) (k,f,f') = (l,n2) ∧
-   get_var (2*n1) (s:('a,'a word list # 'c,'ffi)state) = SOME x ∧
+   get_var (2*n1) (s:('a,num # 'c,'ffi)state) = SOME x ∧
    state_rel k f f' s t lens ∧
    (n1 < k ⇒ ∃t'. evaluate (kont n1, t) = (NONE, t') ∧ state_rel k f f' s' t' lens) ∧
    (¬(n1 < k) ⇒ ∃t'. evaluate (kont k, set_var k (EL (t.stack_space + (f+k-(n1+1))) t.stack) t) = (NONE, t')
@@ -3511,7 +3513,7 @@ QED
 
 Theorem wStackLoad_thm2:
    wReg2 (2 * n1) (k,f,f') = (l,n2) ∧
-   get_var (2*n1) (s:('a,'a word list # 'c,'ffi)state) = SOME x ∧
+   get_var (2*n1) (s:('a,num # 'c,'ffi)state) = SOME x ∧
    state_rel k f f' s t lens ∧
    (n1 < k ⇒ ∃t'. evaluate (kont n1, t) = (NONE, t') ∧ state_rel k f f' s' t' lens /\ LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space) ∧
    (¬(n1 < k) ⇒ ∃t'. evaluate (kont (k+1), set_var (k+1) (EL (t.stack_space + (f+k-(n1+1))) t.stack) t) = (NONE, t')
@@ -3535,7 +3537,7 @@ QED
 
 Theorem wStackLoad_thm2_weak:
    wReg2 (2 * n1) (k,f,f') = (l,n2) ∧
-   get_var (2*n1) (s:('a,'a word list # 'c,'ffi)state) = SOME x ∧
+   get_var (2*n1) (s:('a,num # 'c,'ffi)state) = SOME x ∧
    state_rel k f f' s t lens ∧
    (n1 < k ⇒ ∃t'. evaluate (kont n1, t) = (NONE, t') ∧ state_rel k f f' s' t' lens) ∧
    (¬(n1 < k) ⇒ ∃t'. evaluate (kont (k+1), set_var (k+1) (EL (t.stack_space + (f+k-(n1+1))) t.stack) t) = (NONE, t')
@@ -4778,7 +4780,7 @@ QED
 val evaluate_wStackLoad_wReg1 = Q.prove(`
   wReg1 r (k,f,f') = (x ,r') ∧
   EVEN r ∧
-  get_var r (s:('a,'a word list # 'c,'ffi)state) = SOME (Word c) ∧
+  get_var r (s:('a,num # 'c,'ffi)state) = SOME (Word c) ∧
   state_rel k f f' s t lens ⇒
   ∃t':('a,'c,'ffi) stackSem$state.
   evaluate(wStackLoad x Skip,t) = (NONE,t') ∧
@@ -4812,7 +4814,7 @@ val evaluate_wStackLoad_clock = Q.prove(`
 val evaluate_wStackLoad_wRegImm2 = Q.prove(`
   wRegImm2 ri (k,f,f') = (x,r') ∧
   (case ri of Reg r => EVEN r | _ => T) ∧
-  get_var_imm ri (s:('a,'a word list # 'c,'ffi)state) = SOME (Word c) ∧
+  get_var_imm ri (s:('a,num # 'c,'ffi)state) = SOME (Word c) ∧
   state_rel k f f' s t lens ⇒
   ∃t':('a,'c,'ffi) stackSem$state.
   evaluate(wStackLoad x Skip, t) = (NONE,t') ∧
@@ -5287,6 +5289,23 @@ Proof
   \\ rfs[]
 QED
 
+Theorem compile_word_to_stack_IMP_LENGTH:
+  !code k bm i progs fs bm' i'.
+  compile_word_to_stack k code (bm,i) = (progs,fs,bm',i') /\
+  LENGTH (append bm) ≤ i ⇒
+  LENGTH (append bm') ≤ i' ∧
+  i - LENGTH (append bm) = i' - LENGTH (append bm')
+Proof
+  Induct >> strip_tac>>fs[compile_word_to_stack_def]>>
+  PairCases_on`h`>>fs[compile_word_to_stack_def]>>
+  rw[]>>
+  rpt(pairarg_tac>>fs[])>>
+  rw[]>>
+  Cases_on`bitmaps'`>>
+  drule compile_prog_LENGTH>>rw[]>>
+  first_x_assum drule>>rw[]
+QED
+
 val compile_word_to_stack_IMP_ALOOKUP = Q.prove(`
   !code k bs i progs fs bs' i' n arg_count word_prog x.
     compile_word_to_stack k code (bs,i) = (progs,fs,bs',i') /\
@@ -5314,7 +5333,7 @@ val compile_word_to_stack_IMP_ALOOKUP = Q.prove(`
   );
 
 val goal = ``
-   λ(prog:'a wordLang$prog,s:('a,'a word list # 'c,'ffi) wordSem$state).
+   λ(prog:'a wordLang$prog,s:('a,num # 'c,'ffi) wordSem$state).
      ∀k f f' res s1 t bs n bs' n' sprog lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
      state_rel k f f' s t lens /\
@@ -6456,11 +6475,8 @@ val Install_tac =
     \\ simp[]
     \\ pairarg_tac \\ fs[]
     \\ rw[]
-    \\ imp_res_tac compile_word_to_stack_isPREFIX
-    \\ fs[]
-    \\ pop_assum mp_tac
-    \\ simp[IS_PREFIX_APPEND] \\ strip_tac
-    \\ simp[DROP_LENGTH_NIL_rwt,DROP_APPEND] )
+    \\ Cases_on`bm'` \\ drule (GEN_ALL compile_word_to_stack_IMP_LENGTH)
+    \\ fs[])
   \\ conj_tac
   >- (
     simp[domain_union,domain_fromAList]
@@ -8827,7 +8843,7 @@ Proof
 QED
 
 Theorem comp_correct:
-   !(prog:'a wordLang$prog) (s:('a,'a word list # 'c,'ffi) wordSem$state) k f f' res s1 t bs lens.
+   !(prog:'a wordLang$prog) (s:('a,num # 'c,'ffi) wordSem$state) k f f' res s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
      state_rel k f f' s t lens /\
      post_alloc_conventions k prog /\
@@ -8877,7 +8893,7 @@ val comp_Call_lemma = comp_correct
        wordLangTheory.max_var_def,LET_DEF,MAX_DEF] |> GEN_ALL
 
 val comp_Call = Q.prove(
-  `∀start (s:('a,'a word list # 'c,'ffi) wordSem$state) k res s1 t lens.
+  `∀start (s:('a,num # 'c,'ffi) wordSem$state) k res s1 t lens.
       evaluate (Call NONE (SOME start) [0] NONE,s) = (res,s1) /\
       res ≠ SOME Error /\ state_rel k 0 0 s t lens ⇒
       ∃ck t1:(α,'c,'ffi)stackSem$state res1.
@@ -8906,7 +8922,7 @@ Proof
   rw[state_rel_def]\\metis_tac[]
 QED
 
-val s = ``(s:(α,α word list # γ,'ffi)wordSem$state)``;
+val s = ``(s:(α,num # γ,'ffi)wordSem$state)``;
 val s' = ``(s:(α,'c,'ffi)stackSem$state)``;
 val t = ``(t:(α,'c,'ffi)stackSem$state)``;
 val clock_simps =
@@ -9144,14 +9160,14 @@ val init_state_ok_def = Define `
        t.data_buffer.space_left + 1 < dimword (:'a) /\
     t.compile_oracle = (λn.
       let ((bm0,cfg),progs) = coracle n in
-      let (progs,fs,bm) = word_to_stack$compile_word_to_stack k progs (Nil, LENGTH bm0) in
+      let (progs,fs,bm) = word_to_stack$compile_word_to_stack k progs (Nil, bm0) in
         (cfg,progs,append (FST bm))) ∧
     (∀n. let ((bm0,cfg),progs) = coracle n in
         EVERY (post_alloc_conventions k o SND o SND) progs ∧
         EVERY (flat_exp_conventions o SND o SND) progs ∧
         EVERY ((<>) raise_stub_location o FST) progs ∧
         EVERY ((<>) store_consts_stub_location o FST) progs ∧
-        (n = 0 ⇒ bm0 = t.bitmaps))`
+        (n = 0 ⇒ bm0 = LENGTH t.bitmaps))`
 
 val make_init_def = Define `
   make_init k ^t code coracle =
@@ -9169,8 +9185,8 @@ val make_init_def = Define `
      ; data_buffer := t.data_buffer
      ; code_buffer := t.code_buffer
      ; compile := (λ(bm0,cfg) progs.
-      let (progs,fs,bm) = word_to_stack$compile_word_to_stack k progs (Nil, LENGTH bm0) in
-      OPTION_MAP (λ(bytes,cfg). (bytes,append (FST bm),(bm0++append (FST bm),cfg)))
+      let (progs,fs,bm) = word_to_stack$compile_word_to_stack k progs (Nil, bm0) in
+      OPTION_MAP (λ(bytes,cfg). (bytes,append (FST bm),(SND bm,cfg)))
         (t.compile cfg progs))
      ; compile_oracle := coracle
      ; be      := t.be
@@ -9456,12 +9472,12 @@ val init_state_ok_semantics' =
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
 Theorem compile_semantics:
-   ^t.code = fromAList (SND (SND (compile asm_conf code))) /\
+    ^t.code = fromAList (SND (SND (SND (compile asm_conf code)))) /\
     k = (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) /\
     init_state_ok k t coracle /\
     (ALOOKUP code raise_stub_location = NONE) /\
     (ALOOKUP code store_consts_stub_location = NONE) /\
-    (FST (compile asm_conf code)).bitmaps ≼ t.bitmaps /\
+    FST (compile asm_conf code) ≼ t.bitmaps /\
     EVERY (λn,m,prog. flat_exp_conventions prog /\
     post_alloc_conventions (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) prog) code /\
     semantics (make_init k t (fromAList code) coracle) start <> Fail ==>
@@ -9570,7 +9586,7 @@ Theorem word_to_stack_compile_lab_pres:
   let labs = extract_labels p in
   EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
   ALL_DISTINCT labs) prog ⇒
-  let (c,f,p) = compile asm_conf prog in
+  let (bytes,c,f,p) = compile asm_conf prog in
     MAP FST p = (raise_stub_location::store_consts_stub_location::MAP FST prog) ∧
     EVERY (λn,p.
       let labs = extract_labels p in
@@ -9867,7 +9883,7 @@ Theorem word_to_stack_stack_asm_convs:
     (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
     post_alloc_conventions (c.reg_count - (LENGTH c.avoid_regs +5)) p) progs ∧
     4 < (c.reg_count - (LENGTH c.avoid_regs +5)) ⇒
-  EVERY (λ(n,p). stack_asm_name c p ∧ stack_asm_remove c p) (SND(SND(compile c progs)))
+  EVERY (λ(n,p). stack_asm_name c p ∧ stack_asm_remove c p) (SND(SND(SND(compile c progs))))
 Proof
   fs[compile_def]>>pairarg_tac>>rw[]
   >- (EVAL_TAC>>fs[])
@@ -10107,7 +10123,7 @@ QED
 
 (* Gluing all the conventions together *)
 Theorem word_to_stack_stack_convs:
-  word_to_stack$compile ac p = (c',f', p') ∧
+  word_to_stack$compile ac p = (bytes,c',f', p') ∧
   EVERY (post_alloc_conventions k) (MAP (SND o SND) p) ∧
   k = (ac.reg_count- (5 +LENGTH ac.avoid_regs)) ∧
   4 ≤ k
@@ -10305,7 +10321,7 @@ Proof
 QED
 
 Theorem word_to_stack_good_code_labels:
-  compile asm_conf progs = (bs,fs,prog') ∧
+  compile asm_conf progs = (bytes,bs,fs,prog') ∧
   good_code_labels progs elabs ⇒
   stack_good_code_labels prog' elabs
 Proof
@@ -10361,7 +10377,7 @@ QED
 
 Theorem word_to_stack_good_handler_labels:
   EVERY (λ(n,m,pp). good_handlers n pp) prog ⇒
-  compile asm_conf prog = (bs,fs,prog') ⇒
+  compile asm_conf prog = (bytes,bs,fs,prog') ⇒
   stack_good_handler_labels prog'
 Proof
   fs[word_to_stackTheory.compile_def]>>
