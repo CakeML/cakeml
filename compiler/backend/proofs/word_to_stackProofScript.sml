@@ -2375,16 +2375,6 @@ Proof
   \\ imp_res_tac IS_PREFIX_TRANS \\ fs []
 QED
 
-(* TODO 
-Theorem compile_word_to_stack_bitmaps:
-   word_to_stack$compile c p = (c2,prog1) ==>
-    (case c2.bitmaps of [] => F | h::v1 => 4w = h)
-Proof
-  fs [word_to_stackTheory.compile_def] \\ pairarg_tac \\ fs [] \\ rw [] \\ fs []
-  \\ imp_res_tac compile_word_to_stack_isPREFIX
-  \\ Cases_on `bitmaps` \\ fs []
-QED *)
-
 Theorem EVEN_DIV2_INJ:
    EVEN x ∧ EVEN y ∧ DIV2 x = DIV2 y ⇒ x = y
 Proof
@@ -5304,6 +5294,17 @@ Proof
   Cases_on`bitmaps'`>>
   drule compile_prog_LENGTH>>rw[]>>
   first_x_assum drule>>rw[]
+QED
+
+(* Used in backendProof *)
+Theorem compile_word_to_stack_bitmaps:
+   word_to_stack$compile c p = (bitmaps,c2,prog1) ==>
+    (case bitmaps of [] => F | h::v1 => 4w = h) ∧ c2.bitmaps_length = LENGTH bitmaps
+Proof
+  fs [word_to_stackTheory.compile_def] \\ pairarg_tac \\ fs [] \\ rw [] \\ fs []
+  >- (imp_res_tac compile_word_to_stack_isPREFIX \\ fs[])
+  \\ Cases_on`bitmaps'`  \\ imp_res_tac compile_word_to_stack_IMP_LENGTH
+  \\ fs[]
 QED
 
 val compile_word_to_stack_IMP_ALOOKUP = Q.prove(`
