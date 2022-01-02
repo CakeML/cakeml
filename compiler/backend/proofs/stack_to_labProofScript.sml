@@ -3424,14 +3424,15 @@ Theorem IMP_init_state_ok:
        (post_alloc_conventions kkk ∘ SND ∘ SND) progs ∧
      EVERY (flat_exp_conventions ∘ SND ∘ SND) progs ∧
      EVERY ((λy. raise_stub_location ≠ y) ∘ FST) progs ∧
-     (n = 0 ⇒ bm0 = bitmaps)) (word_oracle n)) ∧
+     EVERY ((λy. store_consts_stub_location ≠ y) ∘ FST) progs ∧
+     (n = 0 ⇒ bm0 = LENGTH bitmaps)) (word_oracle n)) ∧
   stack_oracle =
   (λn.
    (λ((bm0,cfg),progs).
       (λ(progs,fs,bm). (cfg,progs,append (FST bm)))
         (compile_word_to_stack
            kkk progs
-           (Nil, LENGTH bm0))) (word_oracle n)) ∧
+           (Nil, bm0))) (word_oracle n)) ∧
     (full_make_init sc dc max_heap stk stoff bitmaps p6 lab_st save_regs data_sp stack_oracle = (fmis,SOME xxx))
     ==>
     init_state_ok kkk fmis word_oracle
