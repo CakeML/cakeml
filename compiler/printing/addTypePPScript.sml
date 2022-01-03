@@ -64,28 +64,34 @@ Definition mk_pp_tabbrev_def:
     (FOLDL (\exp nm. Fun ("pp_" ++ nm) exp) (pp_of_ast_t ast_t) tvars)
 End
 
-Definition add_pp_dec_def:
-  add_pp_dec (Dtype locs type_def) = (Dlocal [] [Dtype locs type_def;
-    mk_pp_type type_def]) /\
-  add_pp_dec (Dtabbrev locs tvars nm ast_t) = (Dlocal [] [Dtabbrev locs tvars nm ast_t;
-    mk_pp_tabbrev tvars nm ast_t]) /\
-  add_pp_dec (Dmod modN decs) = Dmod modN (MAP add_pp_dec decs) /\
-  add_pp_dec (Dlocal ldecs decs) = Dlocal (MAP add_pp_dec ldecs) (MAP add_pp_dec decs) /\
-  add_pp_dec dec = dec
-Termination
-  WF_REL_TAC `measure dec_size`
-End
-
-Definition add_pp_begin_def:
-  (add_pp_begin (Dlet _ pat _) = EXISTS (\nm. nm = "pp_list") (pat_bindings pat [])) /\
-  (add_pp_begin (Dletrec _ recs) = EXISTS (\(nm, _, _). nm = "pp_list") recs) /\
-  (add_pp_begin _ = F)
+Definition pps_for_dec_def:
+  pps_for_dec (Dtype locs type_def) = [mk_pp_type type_def] /\
+  pps_for_dec (Dtabbrev locs tvars nm ast_t) = [mk_pp_tabbrev tvars nm ast_t] /\
+  pps_for_dec dec = []
 End
 
 Definition add_pp_decs_def:
-  add_pp_decs b [] = [] /\
-  add_pp_decs F (d :: ds) = d :: (add_pp_decs (add_pp_begin d) ds) /\
-  add_pp_decs T (d :: ds) = add_pp_dec d :: ds
+  add_pp_decs [] = [] /\
+  (add_pp_decs (Dmod modN decs :: decs2) =
+    Dmod modN (add_pp_decs decs) :: add_pp_decs decs2) /\
+  (add_pp_decs (Dlocal ldecs decs :: decs2) =
+    Dlocal (add_pp_decs ldecs) (add_pp_decs decs) :: add_pp_decs decs2) /\
+  (add_pp_decs (d :: decs) = d :: pps_for_dec d ++ add_pp_decs decs)
+Termination
+  WF_REL_TAC `measure (list_size dec_size)`
+End
+
+Definition add_pp_begin_def:
+  (add_pp_begin (Dlet _ pat _) = EXISTS (\nm. nm = "pp_int") (pat_bindings pat [])) /\
+  (add_pp_begin (Dletrec _ recs) = EXISTS (\(nm, _, _). nm = "pp_int") recs) /\
+  (add_pp_begin _ = F)
+End
+
+Definition toplevel_add_decs_def:
+  toplevel_add_decs prev [] = [] /\
+  toplevel_add_decs prev (d :: ds) = d :: (if add_pp_begin d
+    then REVERSE prev ++ add_pp_decs ds
+    else toplevel_add_decs (pps_for_dec d ++ prev) ds)
 End
 
 val _ = export_theory ();
