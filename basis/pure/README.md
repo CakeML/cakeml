@@ -23,7 +23,7 @@ as an explicit argument everywhere.
 Pure functions for the Option module.
 
 [mlprettyprinterScript.sml](mlprettyprinterScript.sml):
-Pure functions for the PrettyPrinter module.
+Types and pure functions for pretty printing
 
 [mlstringLib.sml](mlstringLib.sml):
 More ML functions for manipulating HOL terms involving mlstrings.

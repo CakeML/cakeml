@@ -51,7 +51,7 @@ Definition mk_pps_for_type_def:
   mk_pps_for_type (tvars, nm, conss) =
     (pppre nm, "x", Mat (Var (Short "x"))
         (MAP (\(conN, ts). (con_xi_pat (SOME (Short conN)) (LENGTH ts),
-            App Opapp [Var (Short "pp_cons_block"); Lit (StrLit conN);
+            App Opapp [Var (Short "pp_app_block"); Lit (StrLit conN);
                 (xi_list_f_apps (MAP pp_of_ast_t ts))])) conss))
 End
 
