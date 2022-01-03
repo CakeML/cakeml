@@ -7981,6 +7981,20 @@ Definition dep_steps_inv_def:
     /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (k - k') deps deps'
 End
 
+Theorem dep_steps_inv_eq':
+  !k k' dep i j. wf_pqs dep /\ monotone (CURRY $ set dep) /\ j <= i
+  ==>
+  (?dep'. dep_steps_inv dep i dep j dep')
+  = (!k'. 0 < k' /\ k' <= i - j ==>
+  composable_len (CURRY $ set dep) k' /\ acyclic_len (CURRY $ set dep) $ SUC k')
+Proof
+  fs[dep_steps_inv_def,GSYM NRC_dep_step_acyclic_len_composable_len_eq]
+  >> rw[EQ_IMP_THM]
+  >> goal_assum $ drule_at Any
+  >> imp_res_tac NRC_dep_step_wf_pqs
+  >> fs[wf_pqs_APPEND]
+QED
+
 Theorem dep_steps_sound_cyclic_step_non_comp_step:
   !dep k deps x. wf_pqs dep /\ wf_pqs deps
     /\ dep_steps dep (SUC k) deps = x
