@@ -8233,6 +8233,41 @@ Proof
   >> fs[dep_steps_inv_def,wf_pqs_APPEND]
 QED
 
+Theorem dep_steps_sound_maybe_cyclic_len:
+  !dep k. wf_pqs dep
+    /\ dep_steps dep k dep = maybe_cyclic
+    /\ monotone $ CURRY $ set dep
+    ==> (!l. 0 < l /\ l <= k ==>
+      composable_len (CURRY $ set dep) l
+      /\ acyclic_len (CURRY $ set dep) $ SUC l)
+    /\ ?x y. has_path_to (CURRY $ set dep) (SUC k) x y
+Proof
+  rpt gen_tac >> strip_tac
+  >> drule_all_then strip_assume_tac dep_steps_sound_maybe_cyclic
+  >> conj_tac
+  >- (
+    drule $ cj 1 $ REWRITE_RULE[PULL_EXISTS,EQ_IMP_THM]dep_steps_inv_eq'
+    >> rpt $ disch_then $ drule_at Any
+    >> fs[]
+  )
+  >> Cases_on `k`
+  >- (
+    gvs[dep_steps_inv_def,has_path_to_ONE,wf_pqs_APPEND,NOT_NULL_MEM]
+    >> irule_at Any equiv_refl
+    >> `set dep (FST e,SND e)` by fs[IN_DEF]
+    >> goal_assum $ drule_at Any
+    >> fs[wf_pqs_def,ELIM_UNCURRY,EVERY_MEM]
+  )
+  >> fs[NOT_NULL_MEM,wf_pqs_APPEND,dep_steps_inv_def]
+  >> drule_at (Pos $ el 3) $ iffLR NRC_dep_step_has_path_to
+  >> fs[PULL_EXISTS,FORALL_PROD]
+  >> disch_then $ irule_at Any
+  >> `wf_pqs [FST e,SND e]` by fs[wf_pqs_def,ELIM_UNCURRY,EVERY_MEM]
+  >> goal_assum $ drule_at Any
+  >> irule_at Any equiv_refl
+  >> fs[wf_pqs_CONS]
+QED
+
 Theorem dep_steps_complete_maybe_cyclic':
   !dep k deps deps'.
     dep_steps_inv dep k deps 0 deps' /\ ~NULL deps'
@@ -8249,6 +8284,49 @@ Proof
   >> rpt $ goal_assum $ drule_at Any
   >> drule_at Any dep_step_wf_pqs
   >> fs[wf_pqs_APPEND]
+QED
+
+Theorem dep_steps_complete_maybe_cyclic:
+  !dep k deps deps'.
+    dep_steps_inv dep k dep 0 deps' /\ ~NULL deps'
+    ==> dep_steps dep k dep = maybe_cyclic
+Proof
+  rpt strip_tac
+  >> drule_all dep_steps_complete_maybe_cyclic'
+  >> fs[]
+QED
+
+Theorem dep_steps_complete_maybe_cyclic_len:
+  !dep k deps deps' x y.
+    wf_pqs dep
+    /\ monotone $ CURRY $ set dep
+    /\ (!l. 0 < l /\ l <= k ==>
+      composable_len (CURRY $ set dep) l
+      /\ acyclic_len (CURRY $ set dep) $ SUC l)
+    /\ has_path_to (CURRY $ set dep) (SUC k) x y
+    ==> dep_steps dep k dep = maybe_cyclic
+Proof
+  rpt strip_tac
+  >> irule dep_steps_complete_maybe_cyclic'
+  >> fs[dep_steps_inv_def,wf_pqs_APPEND]
+  >> drule $ iffRL dep_steps_inv_eq'
+  >> `0 <= k` by fs[]
+  >> disch_then $ drule_at_then Any assume_tac
+  >> gs[]
+  >> Cases_on `k`
+  >- (
+    spose_not_then assume_tac
+    >> gvs[has_path_to_def,path_starting_at_def,NULL_EQ,quantHeuristicsTheory.LIST_LENGTH_1]
+  )
+  >> fs[dep_steps_inv_def]
+  >> goal_assum $ drule_at Any
+  >> drule_at (Pos $ el 2) NRC_dep_step_wf_pqs
+  >> imp_res_tac has_path_to_is_const_or_type
+  >> drule_at (Pos $ el 3) $ iffRL NRC_dep_step_has_path_to
+  >> fs[wf_pqs_APPEND,NOT_NULL_MEM,FORALL_PROD]
+  >> disch_then $ drule_at Any
+  >> rw[wf_pqs_CONS]
+  >> goal_assum drule
 QED
 
 Theorem dep_steps_sound_acyclic':
