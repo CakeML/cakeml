@@ -104,6 +104,9 @@ particular it turns `Let [x0; x1; ...] (Op op [Var 0; Var 1; ...])`
 into `Op op [x0; x1; ...]`, which enables further optimisation
 later, e.g. in bvi_tailrec.
 
+[clos_liftScript.sml](clos_liftScript.sml):
+TODO: placeholder for clos_lift pass
+
 [clos_mtiScript.sml](clos_mtiScript.sml):
 This compiler phase introduces multi-argument function applications
 and function closures. This phase enables subsequent compiler phases

@@ -43,6 +43,7 @@ local open
   clos_mtiTheory
   clos_callTheory
   clos_knownTheory
+  clos_liftTheory
   clos_numberTheory
   clos_annotateTheory
 in (* clos-to-clos transformations *) end;
@@ -50,7 +51,7 @@ in (* clos-to-clos transformations *) end;
 val _ = new_theory "clos_to_bvl";
 val _ = set_grammar_ancestry [
   "backend_common",
-  "clos_mti", "clos_call", "clos_known", "clos_number",
+  "clos_mti", "clos_call", "clos_known", "clos_lift", "clos_number",
   "clos_annotate",
   "bvl_jump"
 ]
@@ -604,6 +605,7 @@ val _ = Datatype`
             ; start : num
             ; do_mti : bool
             ; known_conf : clos_known$config option
+            ; lift_n : num (* TODO placeholder name *)
             ; do_call : bool
             ; call_state : num_set # (num, num # closLang$exp) alist
             ; max_app : num
@@ -615,6 +617,7 @@ val default_config_def = Define`
     start := 1;
     do_mti := T;
     known_conf := SOME (clos_known$default_config 10);
+    lift_n := 0;
     do_call := T;
     call_state := (LN,[]);
     max_app := 10 |>`;
@@ -680,10 +683,12 @@ val compile_common_def = Define `
     let loc = if loc MOD 2 = 0 then loc else loc + 1 in
     let (n,es) = renumber_code_locs_list loc es in
     let (kc, es) = clos_known$compile c.known_conf es in
+    let (m, es) = clos_lift$compile c.lift_n es in
     let (es,g,aux) = clos_call$compile c.do_call es in
     let prog = chain_exps c.next_loc es ++ aux in
     let prog = clos_annotate$compile prog in
       (c with <| start := c.next_loc; next_loc := n; known_conf := kc;
+                 lift_n := m;
                  call_state := (g,aux) |>,
        prog)`;
 
@@ -757,7 +762,7 @@ val extract_name_def = Define `
     | NONE => (0,x::xs)
     | SOME n => (n, if xs = [] then [x] else xs)`;
 
-val compile_inc_def = Define `
+val compile_inc_def = Define`
   compile_inc max_app (es,prog) =
     let (n,real_es) = extract_name es in
         clos_to_bvl$compile_prog max_app
@@ -772,6 +777,8 @@ val clos_to_bvl_compile_inc_def = Define`
     let spt = option_val_approx_spt c.known_conf in
     let (spt, p) = known_compile_inc (known_static_conf c.known_conf) spt p in
     let c = c with <| known_conf := option_upd_val_spt spt c.known_conf |> in
+    let (m, p) = lift_compile_inc c.lift_n p in
+    let c = c with <| lift_n := m |> in
     let (c', p) = clos_call$cond_call_compile_inc c.do_call (FST c.call_state) p in
     let c = c with <| call_state := (c', []) |> in
     let p = clos_annotate$compile_inc p in
