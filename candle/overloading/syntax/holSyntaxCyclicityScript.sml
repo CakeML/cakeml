@@ -8088,7 +8088,7 @@ val dep_steps_eq_INR_thms =
   SIMP_RULE (srw_ss()) [PULL_EXISTS,DISJ_IMP_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,FORALL_AND_THM]
   dep_steps_eq_cyclic_step_non_comp_step
 
-Theorem dep_steps_cyclic_step_sound:
+Theorem dep_steps_sound_cyclic_step_len':
   !k dep p q p'.
   wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ dep_steps dep (SUC k) dep = Cyclic_step (p,q,p')
@@ -8125,7 +8125,7 @@ Proof
   >> fs[Abbr`k`]
 QED
 
-Theorem dep_steps_non_comp_step_sound:
+Theorem dep_steps_sound_non_comp_step_len:
   !k dep p q pq'.
   wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ dep_steps dep (SUC k) dep = Non_comp_step (p,q,pq')
@@ -8396,7 +8396,7 @@ Proof
   rpt strip_tac >> drule_then irule dep_steps_complete_acyclic''
 QED
 
-Theorem dep_steps_complete_acyclic_composable_len_acyclic_len:
+Theorem dep_steps_complete_acyclic_len:
   !k dep. wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ (!l. 0 < l /\ l <= k ==>
     composable_len (CURRY $ set dep) l /\ acyclic_len (CURRY $ set dep) $ SUC l)
