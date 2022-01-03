@@ -7143,9 +7143,9 @@ Proof
 QED
 
 Datatype: ext_step =
-    non_comp_step ((type+term) # (type+term) # (type+term) # (type+term))
-    | cyclic_step ((type+term) # (type+term) # (type+term))
-    | maybe_cyclic | acyclic num
+    Non_comp_step ((type+term) # (type+term) # (type+term) # (type+term))
+    | Cyclic_step ((type+term) # (type+term) # (type+term))
+    | Maybe_cyclic | Acyclic num
 End
 
 (*
@@ -7158,28 +7158,28 @@ Definition dep_step_def:
   (dep_step dep [] res = INL res)
   /\ (dep_step dep ((p,q)::ext) extd =
       case composable_step q dep [] of
-      | INR q' => INR $ non_comp_step (p,q,q') (* not composable *)
+      | INR q' => INR $ Non_comp_step (p,q,q') (* not composable *)
       | INL extd' =>
           let
             extd'' = MAP (λx. (p, x)) extd' ;
             has_cycles = FILTER (UNCURRY is_instance_LR_compute) extd''
           in case NULL has_cycles of
-          | F => INR $ cyclic_step (p,q,SND $ HD has_cycles) (* cycle found *)
+          | F => INR $ Cyclic_step (p,q,SND $ HD has_cycles) (* cycle found *)
           | T => dep_step dep ext (extd ++ extd''))
 End
 
 Theorem dep_step_INR_imp:
   !a b c x. dep_step a b c = INR x
-  ==> (?p q q'. x = non_comp_step (p,q,q'))
-  \/ (?p q q'. x = cyclic_step (p,q,q'))
+  ==> (?p q q'. x = Non_comp_step (p,q,q'))
+  \/ (?p q q'. x = Cyclic_step (p,q,q'))
 Proof
   ho_match_mp_tac dep_step_ind >> rw[dep_step_def,AllCaseEqs()]
   >> fs[AND_IMP_INTRO,FORALL_AND_THM]
 QED
 
 Theorem dep_step_INR[simp]:
-  (!dep deps deps' k. ~(dep_step dep deps deps' = INR $ acyclic k))
-  /\ (!dep deps deps'. ~(dep_step dep deps deps' = INR $ maybe_cyclic))
+  (!dep deps deps' k. ~(dep_step dep deps deps' = INR $ Acyclic k))
+  /\ (!dep deps deps'. ~(dep_step dep deps deps' = INR $ Maybe_cyclic))
 Proof
   conj_tac >> ho_match_mp_tac dep_step_ind >> rw[dep_step_def,AllCaseEqs(),DISJ_EQ_IMP] >> gs[]
 QED
@@ -7321,7 +7321,7 @@ QED
 
 Theorem dep_step_sound_cyclic_step:
   !dep rest dep'dep p q y. wf_pqs (dep ++ rest)
-  /\ dep_step dep rest dep'dep = INR $ cyclic_step (p,q,y)
+  /\ dep_step dep rest dep'dep = INR $ Cyclic_step (p,q,y)
   ==> ?pre suf extd. rest = pre ++ [(p,q)] ++ suf
     /\ (!q. MEM q pre ==>
       ?extd. composable_step (SND q) dep [] = INL extd /\
@@ -7351,7 +7351,7 @@ Theorem dep_step_complete_cyclic_step:
   /\ composable_step q dep [] = INL extd
   /\ EXISTS (λx. is_instance_LR p x) extd
   /\ q' = HD (FILTER (λx. is_instance_LR p x) extd)
-  ==> dep_step dep rest dep'dep = INR $ cyclic_step (p,q,q')
+  ==> dep_step dep rest dep'dep = INR $ Cyclic_step (p,q,q')
 Proof
   ho_match_mp_tac dep_step_ind
   >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,GSYM is_instance_LR_equiv]
@@ -7361,7 +7361,7 @@ QED
 
 Theorem dep_step_eq_cyclic_step:
   !dep rest p q q' dep'dep. wf_pqs (dep ++ rest) ==>
-  (dep_step dep rest dep'dep = INR $ cyclic_step (p,q,q'))
+  (dep_step dep rest dep'dep = INR $ Cyclic_step (p,q,q'))
   = ?pre suf extd. rest = pre ++ [(p,q)] ++ suf
     /\ (!q. MEM q pre ==>
       ?extd. composable_step (SND q) dep [] = INL extd /\
@@ -7380,7 +7380,7 @@ QED
 
 Theorem dep_step_sound_non_comp_step:
   !dep rest dep'dep p q q'. wf_pqs (dep ++ rest)
-  /\ dep_step dep rest dep'dep = INR $ non_comp_step (p,q,q')
+  /\ dep_step dep rest dep'dep = INR $ Non_comp_step (p,q,q')
   ==> (?pre suf. rest = pre ++ [(p,q)] ++ suf
   /\ (!pq. MEM pq pre ==>
     ?extd. composable_step (SND pq) dep [] = INL extd /\
@@ -7405,7 +7405,7 @@ Theorem dep_step_complete_non_comp_step:
     ?extd. composable_step (SND q) dep [] = INL extd /\
     EVERY ($~ o UNCURRY is_instance_LR) (MAP (λx. (FST q,x)) extd))
   /\ composable_step q dep [] = INR q'
-  ==> dep_step dep rest dep'dep = INR $ non_comp_step (p,q,q')
+  ==> dep_step dep rest dep'dep = INR $ Non_comp_step (p,q,q')
 Proof
   ho_match_mp_tac dep_step_ind
   >> rw[wf_pqs_APPEND,wf_pqs_CONS,dep_step_def,AllCaseEqs(),NULL_FILTER,GSYM EVERY_MEM,GSYM is_instance_LR_equiv]
@@ -7415,7 +7415,7 @@ QED
 
 Theorem dep_step_eq_non_comp_step:
   !dep rest p q q' dep'dep. wf_pqs (dep ++ rest) ==>
-  (dep_step dep rest dep'dep = INR $ non_comp_step (p,q,q'))
+  (dep_step dep rest dep'dep = INR $ Non_comp_step (p,q,q'))
   =
   (?pre suf. rest = pre ++ [(p,q)] ++ suf
   /\ (!pq. MEM pq pre ==>
@@ -7732,7 +7732,7 @@ QED
 
 Theorem dep_step_non_comp_step_has_path_to1:
   !dep p q pq'. wf_pqs dep /\ monotone (CURRY (set dep))
-  /\ dep_step dep dep [] = INR $ non_comp_step (p,q,pq')
+  /\ dep_step dep dep [] = INR $ Non_comp_step (p,q,pq')
   ==> has_path_to (CURRY $ set dep) 1 p q /\ MEM pq' dep /\ ~composable q (FST pq')
 Proof
   rpt gen_tac >> strip_tac >> conj_tac
@@ -7752,7 +7752,7 @@ QED
 
 Theorem dep_step_cyclic_step_has_path_to2:
   !dep p q p' deps'. wf_pqs dep /\ monotone (CURRY (set dep))
-  /\ dep_step dep dep deps' = INR $ cyclic_step (p,q,p')
+  /\ dep_step dep dep deps' = INR $ Cyclic_step (p,q,p')
   ==> has_path_to (CURRY $ set dep) 2 p p' /\ is_instance_LR p p'
 Proof
   rpt gen_tac >> strip_tac
@@ -7813,7 +7813,7 @@ Proof
   >> spose_not_then assume_tac
   >> fs[quantHeuristicsTheory.INL_NEQ_ELIM,quantHeuristicsTheory.ISR_exists,wf_pqs_APPEND]
   >> drule_then strip_assume_tac dep_step_INR_imp >> VAR_EQ_TAC
-  >~ [`dep_step _ _ _ = INR $ non_comp_step _`] >- (
+  >~ [`dep_step _ _ _ = INR $ Non_comp_step _`] >- (
     qhdtm_x_assum `acyclic_len` kall_tac
     >> drule_all_then strip_assume_tac dep_step_non_comp_step_has_path_to1
     >> fs[composable_len_def,IN_DEF]
@@ -7828,7 +7828,7 @@ QED
 Theorem NRC_dep_step_non_comp_step_has_path_to_SUC:
   !dep dep' p q pq' n. wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC n) dep dep'
-  /\ dep_step dep dep' [] = INR $ non_comp_step (p,q,pq')
+  /\ dep_step dep dep' [] = INR $ Non_comp_step (p,q,pq')
   ==> has_path_to (CURRY $ set dep) (SUC $ SUC n) p q /\ MEM pq' dep /\ ~composable q (FST pq')
 Proof
   rpt gen_tac >> strip_tac >> conj_tac
@@ -7855,7 +7855,7 @@ QED
 Theorem NRC_dep_step_cyclic_step_has_path_to_SUC:
   !dep dep' deps' p q p' n. wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC n) dep dep'
-  /\ dep_step dep dep' deps' = INR $ cyclic_step (p,q,p')
+  /\ dep_step dep dep' deps' = INR $ Cyclic_step (p,q,p')
   ==> has_path_to (CURRY $ set dep) (SUC $ SUC $ SUC n) p p' /\ is_instance_LR p p'
 Proof
   rpt gen_tac >> strip_tac
@@ -7941,7 +7941,7 @@ Proof
   >> qmatch_assum_rename_tac `dep_step dep dep' [] = _`
   >> qmatch_assum_abbrev_tac `NRC _ (SUC n) _ _`
   >> drule_then strip_assume_tac dep_step_INR_imp >> VAR_EQ_TAC
-  >~ [`dep_step _ _ _ = INR $ non_comp_step _`] >- (
+  >~ [`dep_step _ _ _ = INR $ Non_comp_step _`] >- (
     `composable_len (CURRY $ set dep) (SUC $ SUC n)` by fs[LESS_OR_EQ,FORALL_AND_THM,DISJ_IMP_THM]
     >> PRED_ASSUM is_forall kall_tac
     >> drule_at Any NRC_dep_step_non_comp_step_has_path_to_SUC
@@ -7976,8 +7976,8 @@ QED
 (* depth-limited expansion of the dependency relation *)
 (* usage: dep_steps dep k dep = ... *)
 Definition dep_steps_def:
-     (dep_steps dep k [] = acyclic k) (* longest dep chain *)
-  /\ (dep_steps dep 0 _  = maybe_cyclic) (* reached given depth *)
+     (dep_steps dep k [] = Acyclic k) (* longest dep chain *)
+  /\ (dep_steps dep 0 _  = Maybe_cyclic) (* reached given depth *)
   /\ (dep_steps dep (SUC k) dep' =
     case dep_step dep dep' [] of
        | INL dep' => dep_steps dep k dep'
@@ -8009,7 +8009,7 @@ QED
 Theorem dep_steps_sound_cyclic_step_non_comp_step:
   !dep k deps x. wf_pqs dep /\ wf_pqs deps
     /\ dep_steps dep (SUC k) deps = x
-    /\ (?p q q'. x = cyclic_step (p,q,q') \/ ?p q q'. x = non_comp_step (p,q,q'))
+    /\ (?p q q'. x = Cyclic_step (p,q,q') \/ ?p q q'. x = Non_comp_step (p,q,q'))
     ==> ?n deps'. dep_steps_inv dep k deps n deps'
     /\ dep_step dep deps' [] = INR x
 Proof
@@ -8046,7 +8046,7 @@ Theorem dep_steps_complete_cyclic_step_non_comp_step:
   !dep k deps deps' n x. wf_pqs dep
     /\ dep_steps_inv dep k deps n deps'
     /\ dep_step dep deps' [] = INR x
-    /\ (?p q q'. x = cyclic_step (p,q,q') \/ ?p q pq'. x = non_comp_step (p,q,pq'))
+    /\ (?p q q'. x = Cyclic_step (p,q,q') \/ ?p q pq'. x = Non_comp_step (p,q,pq'))
     ==> dep_steps dep (SUC k) deps = x
 Proof
   ho_match_mp_tac dep_steps_ind
@@ -8076,7 +8076,7 @@ QED
 
 Theorem dep_steps_eq_cyclic_step_non_comp_step:
   !dep deps k x. wf_pqs dep
-    /\ (?p q q'. x = cyclic_step (p,q,q') \/ ?p q pq'. x = non_comp_step (p,q,pq'))
+    /\ (?p q q'. x = Cyclic_step (p,q,q') \/ ?p q pq'. x = Non_comp_step (p,q,pq'))
     ==> (dep_steps dep (SUC k) dep = x
     <=> ?n deps. dep_steps_inv dep k dep n deps
     /\ dep_step dep deps [] = INR x)
@@ -8088,11 +8088,10 @@ val dep_steps_eq_INR_thms =
   SIMP_RULE (srw_ss()) [PULL_EXISTS,DISJ_IMP_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,FORALL_AND_THM]
   dep_steps_eq_cyclic_step_non_comp_step
 
-(* an understandable soundness theorem *)
 Theorem dep_steps_cyclic_step_sound:
   !k dep p q p'.
   wf_pqs dep /\ monotone (CURRY $ set dep)
-  /\ dep_steps dep (SUC k) dep = cyclic_step (p,q,p')
+  /\ dep_steps dep (SUC k) dep = Cyclic_step (p,q,p')
   ==> ?n. n <= k /\ has_path_to (CURRY (set dep)) (SUC $ SUC n) p p'
     /\ is_instance_LR p p'
     /\ !k. 0 < k /\ k <= n ==>
@@ -8129,7 +8128,7 @@ QED
 Theorem dep_steps_non_comp_step_sound:
   !k dep p q pq'.
   wf_pqs dep /\ monotone (CURRY $ set dep)
-  /\ dep_steps dep (SUC k) dep = non_comp_step (p,q,pq')
+  /\ dep_steps dep (SUC k) dep = Non_comp_step (p,q,pq')
   ==> ?n. n <= k
     /\ has_path_to (CURRY $ set dep) (SUC n) p q /\ MEM pq' dep
     /\ ~composable q (FST pq')
@@ -8166,7 +8165,7 @@ QED
 
 Theorem dep_steps_sound_cyclic_step_len:
   !dep deps k p q q'. wf_pqs dep /\ monotone (CURRY $ set dep)
-    /\ dep_steps dep k dep = cyclic_step (p,q,q')
+    /\ dep_steps dep k dep = Cyclic_step (p,q,q')
     ==> ?kk. kk <= k /\
     (!k'. 0 < k' /\ k' <= kk ==>
     composable_len (CURRY $ set dep) k' /\ acyclic_len (CURRY $ set dep) $ SUC k')
@@ -8205,7 +8204,7 @@ QED
 Theorem dep_steps_sound_maybe_cyclic':
   !dep k' deps' deps k.
     dep_steps_inv dep k deps k' deps'
-    /\ dep_steps dep k' deps' = maybe_cyclic
+    /\ dep_steps dep k' deps' = Maybe_cyclic
     ==> ?deps'. dep_steps_inv dep k deps 0 deps' /\ ~NULL deps'
 Proof
   ho_match_mp_tac dep_steps_ind
@@ -8225,7 +8224,7 @@ QED
 
 Theorem dep_steps_sound_maybe_cyclic:
   !dep k. wf_pqs dep
-    /\ dep_steps dep k dep = maybe_cyclic
+    /\ dep_steps dep k dep = Maybe_cyclic
     ==> ?deps'. dep_steps_inv dep k dep 0 deps' /\ ~NULL deps'
 Proof
   rpt strip_tac
@@ -8235,7 +8234,7 @@ QED
 
 Theorem dep_steps_sound_maybe_cyclic_len:
   !dep k. wf_pqs dep
-    /\ dep_steps dep k dep = maybe_cyclic
+    /\ dep_steps dep k dep = Maybe_cyclic
     /\ monotone $ CURRY $ set dep
     ==> (!l. 0 < l /\ l <= k ==>
       composable_len (CURRY $ set dep) l
@@ -8271,7 +8270,7 @@ QED
 Theorem dep_steps_complete_maybe_cyclic':
   !dep k deps deps'.
     dep_steps_inv dep k deps 0 deps' /\ ~NULL deps'
-    ==> dep_steps dep k deps = maybe_cyclic
+    ==> dep_steps dep k deps = Maybe_cyclic
 Proof
   ho_match_mp_tac dep_steps_ind >> rw[]
   >- (
@@ -8289,7 +8288,7 @@ QED
 Theorem dep_steps_complete_maybe_cyclic:
   !dep k deps deps'.
     dep_steps_inv dep k dep 0 deps' /\ ~NULL deps'
-    ==> dep_steps dep k dep = maybe_cyclic
+    ==> dep_steps dep k dep = Maybe_cyclic
 Proof
   rpt strip_tac
   >> drule_all dep_steps_complete_maybe_cyclic'
@@ -8304,7 +8303,7 @@ Theorem dep_steps_complete_maybe_cyclic_len:
       composable_len (CURRY $ set dep) l
       /\ acyclic_len (CURRY $ set dep) $ SUC l)
     /\ has_path_to (CURRY $ set dep) (SUC k) x y
-    ==> dep_steps dep k dep = maybe_cyclic
+    ==> dep_steps dep k dep = Maybe_cyclic
 Proof
   rpt strip_tac
   >> irule dep_steps_complete_maybe_cyclic'
@@ -8332,7 +8331,7 @@ QED
 Theorem dep_steps_sound_acyclic':
   !dep k' deps' deps k k''.
     dep_steps_inv dep k deps k' deps'
-    /\ dep_steps dep k' deps' = acyclic k''
+    /\ dep_steps dep k' deps' = Acyclic k''
     ==> dep_steps_inv dep k deps k'' []
 Proof
   ho_match_mp_tac dep_steps_ind
@@ -8351,7 +8350,7 @@ QED
 
 Theorem dep_steps_sound_acyclic:
   !dep k k'. wf_pqs dep
-    /\ dep_steps dep k dep = acyclic k'
+    /\ dep_steps dep k dep = Acyclic k'
     ==> dep_steps_inv dep k dep k' []
 Proof
   rpt strip_tac
@@ -8362,7 +8361,7 @@ QED
 Theorem dep_steps_complete_acyclic'':
   !dep k deps k''.
     dep_steps_inv dep k deps k'' []
-    ==> ?k'. dep_steps dep k deps = acyclic k'
+    ==> ?k'. dep_steps dep k deps = Acyclic k'
 Proof
   ho_match_mp_tac dep_steps_ind
   >> rw[dep_steps_def,AllCaseEqs()]
@@ -8392,7 +8391,7 @@ QED
 Theorem dep_steps_complete_acyclic':
   !dep k k''.
     dep_steps_inv dep k dep k'' []
-    ==> ?k'. dep_steps dep k dep = acyclic k'
+    ==> ?k'. dep_steps dep k dep = Acyclic k'
 Proof
   rpt strip_tac >> drule_then irule dep_steps_complete_acyclic''
 QED
@@ -8403,7 +8402,7 @@ Theorem dep_steps_complete_acyclic_composable_len_acyclic_len:
     composable_len (CURRY $ set dep) l /\ acyclic_len (CURRY $ set dep) $ SUC l)
   /\ ~NULL dep
   /\ (!x y. ~has_path_to (CURRY $ set dep) (SUC k) x y)
-  ==> ?k'. dep_steps dep (SUC k) dep = acyclic k'
+  ==> ?k'. dep_steps dep (SUC k) dep = Acyclic k'
 Proof
   rpt strip_tac
   >> gs[GSYM NRC_dep_step_acyclic_len_composable_len_eq]
@@ -8437,7 +8436,7 @@ QED
 
 Theorem dep_steps_acyclic_NOT_has_path_to:
   !dep k k' x y. wf_pqs dep /\ monotone (CURRY $ set dep)
-    /\ dep_steps dep k dep = acyclic k'
+    /\ dep_steps dep k dep = Acyclic k'
     /\ ~NULL dep
     ==> ~has_path_to (CURRY $ set dep) (SUC $ k - k') x y
 Proof
@@ -8458,7 +8457,7 @@ QED
 
 Theorem dep_steps_acyclic_NOT_has_path_to':
   !dep l k k' x y. wf_pqs dep /\ monotone (CURRY $ set dep)
-    /\ dep_steps dep k dep = acyclic k'
+    /\ dep_steps dep k dep = Acyclic k'
     /\ ~NULL dep
     /\ SUC $ k - k' <= l
     ==> ~has_path_to (CURRY $ set dep) l x y
@@ -8483,7 +8482,7 @@ QED
 
 Theorem dep_steps_sound_acyclic_len:
   !k dep k' x y. wf_pqs dep /\ monotone (CURRY $ set dep)
-    /\ dep_steps dep k dep = acyclic k' /\ 0 < k
+    /\ dep_steps dep k dep = Acyclic k' /\ 0 < k
     /\ ~NULL dep
     /\ composable_len (CURRY $ set dep) 1
     ==> !l. l <= k - k'
@@ -8526,14 +8525,14 @@ QED
 
 Theorem dep_steps_acyclic_sound:
   !k dep k'. wf_pqs dep /\ monotone (CURRY $ set dep)
-    /\ dep_steps dep (SUC k) dep = acyclic k'
+    /\ dep_steps dep (SUC k) dep = Acyclic k'
     /\ ~NULL dep
     /\ composable_len (CURRY $ set dep) 1
     ==> ~cyclic_dep (CURRY $ set dep) /\ composable_dep (CURRY $ set dep)
 Proof
   rpt gen_tac >> strip_tac
   >> simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM,acyclic_until,composable_dep_composable_len,wf_dep_wf_pqs]
-  >> qmatch_assum_rename_tac `dep_steps _ (SUC k) dep = acyclic k'`
+  >> qmatch_assum_rename_tac `dep_steps _ (SUC k) dep = Acyclic k'`
   >> `k' < SUC k` by (
     drule_all dep_steps_sound_acyclic
     >> fs[dep_steps_inv_def,wf_pqs_APPEND,LESS_OR_EQ]
@@ -8572,7 +8571,7 @@ invertible_on_compute, is_instance_LR_equiv
 *)
 Theorem dep_steps_acyclic_sound':
   !dep k k'. wf_pqs dep /\ monotone (CURRY $ set dep)
-    /\ dep_steps dep (SUC k) dep = acyclic k'
+    /\ dep_steps dep (SUC k) dep = Acyclic k'
     /\ composable_len (CURRY $ set dep) 1
     ==> terminating $ TC $ subst_clos (CURRY $ set dep)
 Proof
@@ -8610,7 +8609,7 @@ QED
 Theorem dep_steps_acyclic_sound'':
   !ctxt k k'.
     let dep = dependency_compute ctxt
-    in dep_steps dep (SUC k) dep = acyclic k'
+    in dep_steps dep (SUC k) dep = Acyclic k'
       /\ composable_len (CURRY $ set $ dep) 1
       /\ good_constspec_names ctxt
       ==> terminating $ TC $ subst_clos $ dependency ctxt
