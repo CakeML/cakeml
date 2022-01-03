@@ -8073,6 +8073,86 @@ Proof
   metis_tac[EQ_IMP_THM,dep_steps_sound_cyclic_step_non_comp_step,dep_steps_complete_cyclic_step_non_comp_step]
 QED
 
+val dep_steps_eq_INR_thms =
+  SIMP_RULE (srw_ss()) [PULL_EXISTS,DISJ_IMP_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,FORALL_AND_THM]
+  dep_steps_eq_cyclic_step_non_comp_step
+
+(* an understandable soundness theorem *)
+Theorem dep_steps_cyclic_step_sound:
+  !k dep p q p'.
+  wf_pqs dep /\ monotone (CURRY $ set dep)
+  /\ dep_steps dep (SUC k) dep = cyclic_step (p,q,p')
+  ==> ?n. n <= k /\ has_path_to (CURRY (set dep)) (SUC $ SUC n) p p'
+    /\ is_instance_LR p p'
+    /\ !k. 0 < k /\ k <= n ==>
+      composable_len (CURRY $ set dep) k
+      /\ acyclic_len (CURRY $ set dep) $ SUC k
+Proof
+  Cases >> rpt gen_tac >> strip_tac
+  >> gs[dep_steps_eq_INR_thms]
+  >- (
+    fs[dep_steps_inv_def]
+    >> irule dep_step_cyclic_step_has_path_to2
+    >> rpt $ goal_assum drule
+  )
+  >> drule $ cj 1 $ REWRITE_RULE[PULL_EXISTS,EQ_IMP_THM]dep_steps_inv_eq'
+  >> disch_then $ drule_at_then Any assume_tac
+  >> fs[dep_steps_inv_def]
+  >> reverse $ dxrule_then strip_assume_tac $ iffLR LESS_OR_EQ
+  >> gvs[NRC]
+  >- (
+    qexists_tac `0`
+    >> fs[]
+    >> irule dep_step_cyclic_step_has_path_to2
+    >> rpt $ goal_assum drule
+  )
+  >> qmatch_asmsub_rename_tac `NRC _ (SUC n - n') _ _`
+  >> `SUC n - n' = SUC $ n - n'` by fs[]
+  >> pop_assum $ fs o single
+  >> rev_drule_all_then assume_tac NRC_dep_step_cyclic_step_has_path_to_SUC
+  >> qmatch_asmsub_abbrev_tac `has_path_to _ (SUC $ SUC k)`
+  >> qexists_tac `k`
+  >> fs[Abbr`k`]
+QED
+
+Theorem dep_steps_non_comp_step_sound:
+  !k dep p q pq'.
+  wf_pqs dep /\ monotone (CURRY $ set dep)
+  /\ dep_steps dep (SUC k) dep = non_comp_step (p,q,pq')
+  ==> ?n. n <= k
+    /\ has_path_to (CURRY $ set dep) (SUC n) p q /\ MEM pq' dep
+    /\ ~composable q (FST pq')
+    /\ !k. 0 < k /\ k <= n ==>
+      composable_len (CURRY $ set dep) k
+      /\ acyclic_len (CURRY $ set dep) $ SUC k
+Proof
+  Cases >> rpt gen_tac >> strip_tac
+  >> gs[dep_steps_eq_INR_thms]
+  >- (
+    fs[dep_steps_inv_def]
+    >> irule dep_step_non_comp_step_has_path_to1
+    >> rpt $ goal_assum drule
+  )
+  >> drule $ cj 1 $ REWRITE_RULE[PULL_EXISTS,EQ_IMP_THM]dep_steps_inv_eq'
+  >> disch_then $ drule_at_then Any assume_tac
+  >> fs[dep_steps_inv_def]
+  >> reverse $ dxrule_then strip_assume_tac $ iffLR LESS_OR_EQ
+  >> gvs[NRC]
+  >- (
+    qexists_tac `0`
+    >> fs[]
+    >> irule dep_step_non_comp_step_has_path_to1
+    >> rpt $ goal_assum drule
+  )
+  >> qmatch_asmsub_rename_tac `NRC _ (SUC n - n') _ _`
+  >> `SUC n - n' = SUC $ n - n'` by fs[]
+  >> pop_assum $ fs o single
+  >> rev_drule_all_then strip_assume_tac NRC_dep_step_non_comp_step_has_path_to_SUC
+  >> qmatch_asmsub_abbrev_tac `has_path_to _ (SUC k)`
+  >> qexists_tac `k`
+  >> fs[Abbr`k`]
+QED
+
 Theorem dep_steps_sound_cyclic_step':
   !dep k' deps' deps k p q q'.
     dep_steps_inv dep k deps k' deps'
