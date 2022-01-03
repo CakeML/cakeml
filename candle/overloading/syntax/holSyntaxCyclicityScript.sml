@@ -7302,6 +7302,17 @@ Proof
   >> goal_assum $ drule_at Any >> fs[]
 QED
 
+Theorem dep_step_complete_INL_EMPTY:
+  !dep dep' deps. wf_pqs (dep ++ dep')
+    /\ (!q. MEM q dep' ==> composable_step (SND q) dep [] = INL [])
+    /\ deps = []
+  ==> dep_step dep dep' deps = INL []
+Proof
+  ho_match_mp_tac dep_step_ind
+  >> rw[dep_step_def]
+  >> gs[wf_pqs_APPEND,wf_pqs_CONS,CaseEq"sum",DISJ_IMP_THM,FORALL_AND_THM]
+QED
+
 Triviality EXISTS_LENGTH_FILTER:
   !ls f. EXISTS f ls <=> 0 < LENGTH $ FILTER f ls
 Proof
@@ -8468,6 +8479,44 @@ Theorem dep_steps_complete_acyclic':
     ==> ?k'. dep_steps dep k dep = acyclic k'
 Proof
   rpt strip_tac >> drule_then irule dep_steps_complete_acyclic''
+QED
+
+Theorem dep_steps_complete_acyclic_composable_len_acyclic_len:
+  !k dep. wf_pqs dep /\ monotone (CURRY $ set dep)
+  /\ (!l. 0 < l /\ l <= k ==>
+    composable_len (CURRY $ set dep) l /\ acyclic_len (CURRY $ set dep) $ SUC l)
+  /\ ~NULL dep
+  /\ (!x y. ~has_path_to (CURRY $ set dep) (SUC k) x y)
+  ==> ?k'. dep_steps dep (SUC k) dep = acyclic k'
+Proof
+  rpt strip_tac
+  >> gs[GSYM NRC_dep_step_acyclic_len_composable_len_eq]
+  >> irule dep_steps_complete_acyclic'
+  >> fs[dep_steps_inv_def,wf_pqs_APPEND]
+  >> qexists_tac `0`
+  >> fs[NRC_SUC_RECURSE_LEFT]
+  >> goal_assum $ drule_at Any
+  >> Cases_on `k`
+  >- (
+    gvs[has_path_to_ONE,DISJ_EQ_IMP,NOT_NULL_MEM,AND_IMP_INTRO,wf_pqs_def,ELIM_UNCURRY,EVERY_MEM]
+    >> first_x_assum $ drule_then strip_assume_tac
+    >> `set dep (FST e,SND e)` by fs[ELIM_UNCURRY,IN_DEF]
+    >> `equiv (SND e) (SND e)` by fs[equiv_refl]
+    >> first_x_assum drule_all
+    >> fs[]
+  )
+  >> irule dep_step_complete_INL_EMPTY
+  >> drule_at_then Any assume_tac NRC_dep_step_wf_pqs
+  >> drule NRC_dep_step_has_path_to
+  >> rpt $ disch_then drule
+  >> rw[wf_pqs_APPEND]
+  >> qmatch_assum_rename_tac `MEM q dep'`
+  >> `wf_pqs [q]` by fs[wf_pqs_def,EVERY_MEM]
+  >> spose_not_then kall_tac
+  >> first_x_assum drule
+  >> fs[DISJ_EQ_IMP,wf_pqs_CONS]
+  >> irule_at Any equiv_refl
+  >> fs[]
 QED
 
 Theorem dep_steps_acyclic_NOT_has_path_to:
