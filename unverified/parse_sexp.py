@@ -87,6 +87,18 @@ def count_toks (sexp, toknames):
     return 0
   return sum ([count_toks (x, toknames) for x in sexp])
 
+def count_toks (sexp, toknames):
+  q = [sexp]
+  count = 0
+  while q:
+    x = q.pop()
+    if is_atom (x):
+      if x[0] == 'tok' and x[1] in toknames:
+        count += 1
+    else:
+      q.extend(x)
+  return count
+
 def sort_pcons (sexp):
   con_s = set (["Pcon"])
   data = [(count_toks (body, con_s), nm) for (nm, body) in get_decs (sexp)]
@@ -101,6 +113,43 @@ def print_pcons (data, n = None):
   for (count, nm_atom) in reversed (data[- n:]):
     print ('%s: %d' % (nm_atom[1], count))
 
+def scan_defined (sexp, context, hidden = False, quiet = False):
+  tys = set ()
+  vals = set ()
+  if is_atom(sexp):
+    # this is allowed, e.g. 'nil' can appear in either part of Dlocal
+    return (tys, vals)
+  for x in sexp:
+    if x[0] == ('tok', 'Dtype'):
+      (_, _, tydefs) = x
+      for v in tydefs:
+        (_, nm) = v[:2]
+        tys.add (nm)
+    elif x[0] == ('tok', 'Dlocal'):
+      (_, loc, glob) = x
+      scan_defined (loc, context + ['<local>'], hidden = True)
+      (tys2, vals2) = scan_defined (glob, context, quiet = True)
+      tys.update(tys2)
+      vals.update(vals2)
+    elif x[0] == ('tok', 'Dmod'):
+      (_, nm, contents) = x
+      scan_defined (contents, context + [nm])
+    elif x[0] == ('tok', 'Dlet'):
+      (_, _, nm, body) = x
+      vals.add (nm)
+    elif x[0] == ('tok', 'Dletrec'):
+      (_, _, bodies) = x
+      for v in bodies:
+        vals.add (v[0])
+  if not quiet:
+    print ("types defined at %s: %s" % (context, tys))
+    print ("vals defined at %s: %s" % (context, vals))
+  return (tys, vals)
+
+def print_defined (sexp):
+  for x in sexp:
+    scan_defined (x, [])
+
 import argparse
 
 def main ():
@@ -109,11 +158,15 @@ def main ():
   parser.add_argument ('FILES', nargs='+', help='files to process')
   parser.add_argument ('--pcons', type=int, nargs='?', const='20', default=None,
     metavar='N', help='list N (=20) functions with most Pcon pattern-matches')
+  parser.add_argument ('--defined', action='store_true',
+    help='print what is defined in various scopes')
   args = parser.parse_args ()
   for fname in args.FILES:
     sexp = parse (open (fname))
     if args.pcons:
       print_pcons (sort_pcons (sexp), args.pcons)
+    if args.defined:
+      print_defined (sexp)
 
 if __name__ == '__main__':
   main ()
