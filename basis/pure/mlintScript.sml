@@ -15,117 +15,79 @@ Proof
   strip_tac \\ rpt(fs[Once NUMERAL_LESS_THM] >- EVAL_TAC)
 QED
 
-(* This should be smaller than the maximum smallint supported by the compiler
-(see bvl_to_bviTheory for that. 2**28-1?) Also it must be a power of the radix
-*)
-val maxSmall_DEC_def = Define`maxSmall_DEC = 100000000n`;
-val padLen_DEC_def = Define`
-  padLen_DEC = LOG 10 maxSmall_DEC`;
-val padLen_DEC_eq = save_thm("padLen_DEC_eq",CONV_RULE(RAND_CONV EVAL)padLen_DEC_def);
+(* decimal encoding is very slightly faster if we avoid dividing large big-ints
+   by 10, and instead divide them by a power of 10 that fits in 28 bits *)
+Definition exp_for_dec_enc_def:
+  exp_for_dec_enc = 8n
+End
 
-(* TODO: this might all be faster (less allocation in particular) using byte
-arrays (and therefore not in pure) Without a strcat primitive, though, this way
-could still make sense. *)
+(* compatibility with previous version*)
+Definition padLen_DEC_def:
+  padLen_DEC = exp_for_dec_enc
+End
+Theorem padLen_DEC_eq = EVAL ``padLen_DEC``
+Definition maxSmall_DEC_def1:
+  maxSmall_DEC = 10n ** exp_for_dec_enc
+End
+Theorem maxSmall_DEC_def = EVAL ``maxSmall_DEC``
 
-val zero_pad_def = Define`
-  (zero_pad 0 acc = acc) ∧
-  (zero_pad (SUC n) acc = zero_pad n (#"0" :: acc))`;
+val exp_thm = EVAL ``10n ** exp_for_dec_enc``
+val exp_tm = rhs (concl exp_thm)
 
-Theorem zero_pad_thm:
-   ∀n acc. zero_pad n acc = REPLICATE n #"0" ++ acc
+Definition num_to_rev_chars_def:
+  num_to_rev_chars i 0 k = num_to_rev_chars (i DIV ^exp_tm)
+        exp_for_dec_enc ((i MOD ^exp_tm) + k) /\
+  num_to_rev_chars i (SUC j) k = (if k < 10 /\ i = 0 then [toChar k]
+        else toChar (k MOD 10) :: num_to_rev_chars i j (k DIV 10))
+Termination
+  WF_REL_TAC `inv_image (measure I LEX measure I)
+    (\(i, j, k). (i * (10 ** j)) + k, exp_for_dec_enc - j)`
+  \\ simp [GSYM DIVISION, GSYM exp_thm]
+  \\ rw [exp_for_dec_enc_def]
+  \\ simp [EXP]
+  \\ irule (Q.prove (`a <= d /\ b <= c /\ (a < d \/ b < c) ==> (a : num) + b < c + d`, simp []))
+  \\ simp [arithmeticTheory.DIV_LESS_EQ]
+  \\ Cases_on `i = 0` \\ fs []
+End
+
+Triviality add_lt_divisible_iff:
+  y MOD n = 0n ==> (x + y < n <=> x < n /\ y = 0)
 Proof
-  Induct \\ fs [] \\ fs [zero_pad_def]
-  \\ rewrite_tac [GSYM SNOC_APPEND,SNOC_REPLICATE]
-  \\ rewrite_tac [GSYM REPLICATE]
+  rw []
+  \\ EQ_TAC
+  \\ fs []
+  \\ CCONTR_TAC \\ fs []
 QED
 
-val simple_toChars_def = Define`
-  simple_toChars pad i acc =
-    if i < 10 then zero_pad (pad-1) (toChar i :: acc)
-    else simple_toChars (pad-1) (i DIV 10) (toChar (i MOD 10) :: acc)`;
-val simple_toChars_ind = theorem"simple_toChars_ind";
-
-Theorem simple_toChars_thm:
-   ∀pad i acc. simple_toChars pad i acc =
-    REPLICATE (pad - LENGTH (num_to_dec_string i)) #"0" ++ num_to_dec_string i ++ acc
+Theorem num_to_rev_chars_thm:
+  !i j k. num_to_rev_chars i j k = REVERSE (num_to_dec_string (k + (i * (10 ** j))))
 Proof
-  ho_match_mp_tac simple_toChars_ind \\
-  rw[ASCIInumbersTheory.num_to_dec_string_def,
-     ASCIInumbersTheory.n2s_def] \\
-  rw[Once simple_toChars_def]
-  >- ( fs[NUMERAL_LESS_THM,zero_pad_thm] \\ EVAL_TAC )
-  \\ rw[Once numposrepTheory.n2l_def,SimpRHS,ADD1]
-  \\ rw[Once numposrepTheory.n2l_def,SimpRHS]
-  \\ match_mp_tac toChar_HEX
-  \\ `i MOD 10 < 10` by simp[MOD_LESS]
-  \\ rw[]
+  ho_match_mp_tac num_to_rev_chars_ind
+  \\ simp [GSYM DIVISION, GSYM exp_thm]
+  \\ simp [num_to_dec_string_def, n2s_def]
+  \\ rw []
+  >- simp [num_to_rev_chars_def, GSYM exp_thm]
+  \\ REWRITE_TAC [Once numposrepTheory.n2l_def]
+  \\ simp [num_to_rev_chars_def, ZERO_EXP, add_lt_divisible_iff]
+  \\ simp [arithmeticTheory.ADD_DIV_RWT, EXP]
+  \\ simp [arithmeticTheory.MULT_DIV |> REWRITE_RULE [Once MULT_COMM]]
+  \\ rw []
+  \\ irule toChar_HEX
+  \\ simp [Q.SPECL [`i`, `10`] arithmeticTheory.LESS_LESS_EQ_TRANS]
 QED
 
-val toChars_def = tDefine"toChars"`
-  toChars chunk rest acc =
-    if rest = 0 then simple_toChars 0 chunk acc
-    else if rest < maxSmall_DEC then
-      simple_toChars 0 rest
-        (simple_toChars padLen_DEC chunk acc)
-    else
-      toChars (rest MOD maxSmall_DEC) (rest DIV maxSmall_DEC)
-        (simple_toChars padLen_DEC chunk acc)`
-(wf_rel_tac`measure (FST o SND)`
- \\ rw[maxSmall_DEC_def,DIV_LT_X] \\ fs[maxSmall_DEC_def]);
-val toChars_ind = theorem"toChars_ind";
-
-Theorem toChars_thm:
-   ∀chunk rest acc. chunk < maxSmall_DEC ⇒
-    (toChars chunk rest acc =
-      num_to_dec_string (rest * maxSmall_DEC + chunk) ++ acc)
-Proof
-  ho_match_mp_tac toChars_ind
-  \\ rw[]
-  \\ rw[Once toChars_def]
-  \\ rw[simple_toChars_thm,REPLICATE]
-  \\ TRY (
-    qspec_then`maxSmall_DEC`mp_tac DIVISION
-    \\ impl_tac >- EVAL_TAC
-    \\ disch_then(qspec_then`rest`mp_tac)
-    \\ disch_then(CHANGED_TAC o SUBST1_TAC o SYM o ONCE_REWRITE_RULE[MULT_COMM] o CONJUNCT1))
-  \\ rw[ASCIInumbersTheory.num_to_dec_string_def,ASCIInumbersTheory.n2s_def]
-  \\ qspecl_then[`10`,`chunk + rest * maxSmall_DEC`,`padLen_DEC`]mp_tac n2l_DIV_MOD
-  \\ (impl_tac >- ( EVAL_TAC \\ simp[] ))
-  \\ disch_then (SUBST1_TAC o SYM)
-  \\ `10 ** padLen_DEC = maxSmall_DEC` by EVAL_TAC
-  \\ pop_assum (SUBST_ALL_TAC)
-  \\ simp[GSYM MAP_REVERSE,REVERSE_REPLICATE,map_replicate]
-  \\ qspecl_then[`maxSmall_DEC`,`chunk`]mp_tac DIV_MULT
-  \\ simp[]
-QED
-
-val toString_def = Define`
+Definition toString_def:
   toString i =
-    if 0i ≤ i ∧ i < 10 then
-      str (toChar (Num (ABS i)))
-    else
-      implode ((if i < 0i then "~" else "")++
-               (toChars (Num (ABS i) MOD maxSmall_DEC) (Num (ABS i) DIV maxSmall_DEC) ""))`;
+    (if 0i <= i
+        then implode (REVERSE (num_to_rev_chars (Num i) 0 0))
+        else implode ("~" ++ REVERSE (num_to_rev_chars (Num (ABS i)) 0 0)))
+End
 
 Theorem toString_thm:
    toString i = implode ((if i < 0i then "~" else "") ++ num_to_dec_string (Num (ABS i)))
 Proof
-  rw[toString_def]
-  >- (`F` by intLib.COOPER_TAC)
-  >- (
-    rw[str_def]
-    \\ AP_TERM_TAC
-    \\ `Num (ABS i) < 10` by intLib.COOPER_TAC
-    \\ simp[toChar_HEX]
-    \\ simp[ASCIInumbersTheory.num_to_dec_string_def]
-    \\ simp[ASCIInumbersTheory.n2s_def]
-    \\ simp[Once numposrepTheory.n2l_def])
-  \\ (
-    AP_TERM_TAC \\ simp[]
-    \\ `0 < maxSmall_DEC` by EVAL_TAC
-    \\ simp[toChars_thm]
-    \\ qspec_then`maxSmall_DEC`mp_tac DIVISION
-    \\ simp[] )
+  rw[toString_def, num_to_rev_chars_thm, integerTheory.INT_ABS]
+  \\ `F` by intLib.COOPER_TAC
 QED
 
 val num_to_str_def = Define `num_to_str (n:num) = toString (&n)`;

@@ -26,46 +26,12 @@ val _ = trans "<=" intSyntax.leq_tm;
 val _ = trans ">=" intSyntax.geq_tm;
 val _ = trans "~" ``\i. - (i:int)``;
 
-val _ = ml_prog_update open_local_block;
-
-val result = translate zero_pad_def
-
-val result = translate toChar_def
-val tochar_side_def = definition"tochar_side_def";
-val tochar_side = Q.prove(
-  `∀x. tochar_side x <=> (~(x < 10) ==> x < 201)`,
-  rw[tochar_side_def])
-  |> update_precondition;
-
-val result = translate simple_toChars_def
-
-val simple_toChars_side = Q.prove(
-  `∀x y z. simple_tochars_side x y z = T`,
-  ho_match_mp_tac simple_toChars_ind \\ rw[]
-  \\ rw[Once (theorem"simple_tochars_side_def")])
-  |> update_precondition;
-
-val _ = save_thm("toChars_ind",
-   toChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
-val _ = add_preferred_thy "-";
-val result = translate
-  (toChars_def |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
-
-val _ = ml_prog_update open_local_in_block;
+Definition rename_toString_def:
+  rename_toString = mlint$toString
+End
 
 val _ = next_ml_names := ["toString"];
-
-val toString_v_thm = translate
-  (toString_def |> REWRITE_RULE[maxSmall_DEC_def])
-val tostring_side = Q.prove(
-  `∀x. tostring_side x = T`,
-  rw[definition"tostring_side_def"]
-  \\ intLib.COOPER_TAC)
-  |> update_precondition;
-
-val toString_v_thm = toString_v_thm
-  |> DISCH_ALL |> REWRITE_RULE [tostring_side,ml_translatorTheory.PRECONDITION_def]
-  |> ml_translatorLib.remove_Eq_from_v_thm;
+val toString_v_thm = translate rename_toString_def;
 
 val Eval_NUM_toString = Q.prove(
   `!v. (INT --> STRING_TYPE) toString v ==>
@@ -74,7 +40,7 @@ val Eval_NUM_toString = Q.prove(
     ml_translatorTheory.AppReturns_def,num_to_str_def,
     ml_translatorTheory.NUM_def,PULL_EXISTS,FORALL_PROD]
   \\ rw [] \\ res_tac)
-  |> (fn th => MATCH_MP th toString_v_thm)
+  |> (fn th => MATCH_MP th (REWRITE_RULE [rename_toString_def] toString_v_thm))
   |> add_user_proved_v_thm;
 
 val _ = ml_prog_update open_local_block;
@@ -83,10 +49,10 @@ val th = EVAL``ORD #"0"``;
 val result = translate (fromChar_unsafe_def |> SIMP_RULE std_ss [th]);
 val result = translate fromChars_range_unsafe_def;
 
-val _ = save_thm("fromChars_unsafe_ind",
-  fromChars_unsafe_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
-val result = translate (fromChars_unsafe_def
-  |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+val result = translate padLen_DEC_eq;
+val result = translate maxSmall_DEC_def;
+
+val result = translate (fromChars_unsafe_def);
 
 val result = translate fromString_unsafe_def;
 
@@ -94,11 +60,20 @@ val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
 val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
 val fromchars_range_unsafe_side_def = theorem"fromchars_range_unsafe_side_def";
 
+Theorem fromchars_range_unsafe_side_thm:
+   ∀j i s. i + j ≤ strlen s ⇒ fromchars_range_unsafe_side i j s
+Proof
+  Induct
+  \\ rw[Once fromchars_range_unsafe_side_def]
+QED
+
 Theorem fromchars_unsafe_side_thm:
    ∀n s. n ≤ LENGTH s ⇒ fromchars_unsafe_side n (strlit s)
 Proof
   completeInduct_on`n` \\ rw[]
-  \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def]
+  \\ rw[Once fromchars_unsafe_side_def, padLen_DEC_eq]
+  \\ irule fromchars_range_unsafe_side_thm
+  \\ simp []
 QED
 
 val fromString_unsafe_side = Q.prove(
@@ -122,10 +97,7 @@ QED
 val result = translate fromChar_thm;
 val result = translate fromChars_range_def;
 
-val _ = save_thm("fromChars_ind",
-  fromChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
-val result = translate (fromChars_def
-  |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+val result = translate fromChars_def;
 
 val _ = ml_prog_update open_local_in_block;
 
@@ -139,7 +111,7 @@ Theorem fromchars_side_thm:
    ∀n s. n ≤ LENGTH s ⇒ fromchars_side n (strlit s)
 Proof
   completeInduct_on`n` \\ rw[]
-  \\ rw[Once fromchars_side_def,fromchars_range_side_def]
+  \\ rw[Once fromchars_side_def,fromchars_range_side_def, padLen_DEC_eq]
 QED
 
 val fromString_side = Q.prove(
@@ -169,6 +141,8 @@ val gcd_side = prove(
   \\ once_rewrite_tac [theorem "gcd_side_def"]
   \\ fs [ADD1] \\ rw [] \\ fs [])
   |> update_precondition;
+
+theorem "gcd_ind" |> update_precondition
 
 (* compare *)
 

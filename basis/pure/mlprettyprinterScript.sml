@@ -9,7 +9,6 @@ open
   preamble
   mlstringTheory
   mlintTheory
-  mlvectorTheory
   wordsTheory
 
 val _ = new_theory "mlprettyprinter"
@@ -86,22 +85,33 @@ Definition pp_bool_def:
   pp_bool b = PP_Data F (List [if b then (strlit "true") else (strlit "false")])
 End
 
-Definition pp_vector_def:
-  pp_vector f v = pp_app_block (strlit "Vector.fromList") [pp_list f (mlvector$toList v)]
-End
-
-(* pp of array, ref, word8array will be added later (impure)  *)
-
 Definition pp_int_def:
-  pp_int i = ppd_token (mlint$toString i)
+  pp_int (i : int) = ppd_token (mlint$toString i)
 End
 
 Definition pp_word8_def:
-  pp_word8 w = pp_app_block (strlit "Word8.fromInt") [pp_int (w2i w)]
+  pp_word8 (w : 8 word) = pp_app_block (strlit "Word8.fromInt") [pp_int (w2i w)]
 End
 
 Definition pp_word64_def:
-  pp_word64 w = pp_app_block (strlit "Word64.fromInt") [pp_int (w2i w)]
+  pp_word64 (w : 64 word) = pp_app_block (strlit "Word64.fromInt") [pp_int (w2i w)]
+End
+
+(* these initial pure and useless pps will be replaced later *)
+Definition pp_array_def:
+  pp_array f arr = ppd_token (strlit "<array>")
+End
+
+Definition pp_ref_def:
+  pp_ref r = ppd_token (strlit "<array>")
+End
+
+Definition pp_word8array_def:
+  pp_word8array arr = ppd_token (strlit "<array>")
+End
+
+Definition pp_vector_def:
+  pp_vector f v = ppd_token (strlit "<vector>")
 End
 
 val fromRat_def = Define`
