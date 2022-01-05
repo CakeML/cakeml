@@ -52,7 +52,11 @@ val result = translate fromChars_range_unsafe_def;
 val result = translate padLen_DEC_eq;
 val result = translate maxSmall_DEC_def;
 
-val result = translate (fromChars_unsafe_def);
+val _ = add_preferred_thy "-";
+val _ = save_thm("fromChars_unsafe_ind",
+  fromChars_unsafe_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+val result = translate (fromChars_unsafe_def
+  |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
 val result = translate fromString_unsafe_def;
 
@@ -60,20 +64,11 @@ val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
 val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
 val fromchars_range_unsafe_side_def = theorem"fromchars_range_unsafe_side_def";
 
-Theorem fromchars_range_unsafe_side_thm:
-   ∀j i s. i + j ≤ strlen s ⇒ fromchars_range_unsafe_side i j s
-Proof
-  Induct
-  \\ rw[Once fromchars_range_unsafe_side_def]
-QED
-
 Theorem fromchars_unsafe_side_thm:
    ∀n s. n ≤ LENGTH s ⇒ fromchars_unsafe_side n (strlit s)
 Proof
   completeInduct_on`n` \\ rw[]
-  \\ rw[Once fromchars_unsafe_side_def, padLen_DEC_eq]
-  \\ irule fromchars_range_unsafe_side_thm
-  \\ simp []
+  \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def]
 QED
 
 val fromString_unsafe_side = Q.prove(
@@ -97,7 +92,10 @@ QED
 val result = translate fromChar_thm;
 val result = translate fromChars_range_def;
 
-val result = translate fromChars_def;
+val _ = save_thm("fromChars_ind",
+  fromChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+val result = translate (fromChars_def
+  |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
 val _ = ml_prog_update open_local_in_block;
 
@@ -128,7 +126,7 @@ val result = translate fromNatString_def;
 
 (* GCD *)
 
-val gcd_def = Define `
+val gcd = Define `
   gcd a b = if a = 0n then b else gcd (b MOD a) a`
 
 val _ = delete_const "gcd"; (* keeps induction thm *)
@@ -141,8 +139,6 @@ val gcd_side = prove(
   \\ once_rewrite_tac [theorem "gcd_side_def"]
   \\ fs [ADD1] \\ rw [] \\ fs [])
   |> update_precondition;
-
-theorem "gcd_ind" |> update_precondition
 
 (* compare *)
 
