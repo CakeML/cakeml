@@ -4,6 +4,7 @@
 open preamble ml_translatorLib ml_translatorTheory ml_progLib
      mlvectorTheory IntProgTheory basisFunctionsLib
      ratLib gcdTheory ratTheory
+local open PrettyPrinterProgTheory in end
 
 val _ = new_theory"RatProg"
 
