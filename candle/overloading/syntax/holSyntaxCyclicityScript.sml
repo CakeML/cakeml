@@ -8444,40 +8444,26 @@ QED
 
 Theorem dep_steps_complete_acyclic_len:
   !k dep. wf_pqs dep /\ monotone (CURRY $ set dep)
-  /\ (!l. 0 < l /\ l <= k ==>
+  /\ (!l. 0 < l /\ l <= SUC k ==>
     composable_len (CURRY $ set dep) l /\ acyclic_len (CURRY $ set dep) $ SUC l)
   /\ ~NULL dep
-  /\ (!x y. ~has_path_to (CURRY $ set dep) (SUC k) x y)
+  /\ (!x y. ~has_path_to (CURRY $ set dep) (SUC $ SUC k) x y)
   ==> ?k'. dep_steps dep (SUC k) dep = Acyclic k'
 Proof
   rpt strip_tac
   >> gs[GSYM NRC_dep_step_acyclic_len_composable_len_eq]
   >> irule dep_steps_complete_acyclic'
-  >> fs[dep_steps_inv_def,wf_pqs_APPEND]
+  >> imp_res_tac NRC_dep_step_wf_pqs
+  >> gs[dep_steps_inv_def,wf_pqs_APPEND]
   >> qexists_tac `0`
-  >> fs[NRC_SUC_RECURSE_LEFT]
-  >> goal_assum $ drule_at Any
-  >> Cases_on `k`
-  >- (
-    gvs[has_path_to_ONE,DISJ_EQ_IMP,NOT_NULL_MEM,AND_IMP_INTRO,wf_pqs_def,ELIM_UNCURRY,EVERY_MEM]
-    >> first_x_assum $ drule_then strip_assume_tac
-    >> `set dep (FST e,SND e)` by fs[ELIM_UNCURRY,IN_DEF]
-    >> `equiv (SND e) (SND e)` by fs[equiv_refl]
-    >> first_x_assum drule_all
-    >> fs[]
-  )
-  >> irule dep_step_complete_INL_EMPTY
-  >> drule_at_then Any assume_tac NRC_dep_step_wf_pqs
-  >> drule NRC_dep_step_has_path_to
-  >> rpt $ disch_then drule
-  >> rw[wf_pqs_APPEND]
-  >> qmatch_assum_rename_tac `MEM q dep'`
-  >> `wf_pqs [q]` by fs[wf_pqs_def,EVERY_MEM]
-  >> spose_not_then kall_tac
-  >> first_x_assum drule
-  >> fs[DISJ_EQ_IMP,wf_pqs_CONS]
-  >> irule_at Any equiv_refl
+  >> qsuff_tac `NULL dep'` >- (strip_tac >> fs[NULL_EQ])
+  >> spose_not_then assume_tac
+  >> drule_at (Pos $ el 3) NRC_dep_step_has_path_to
   >> fs[]
+  >> irule_at Any equiv_refl
+  >> fs[NOT_NULL_MEM]
+  >> goal_assum $ drule_at Any
+  >> fs[wf_pqs_def,ELIM_UNCURRY,EVERY_MEM]
 QED
 
 Theorem dep_steps_acyclic_NOT_has_path_to:
