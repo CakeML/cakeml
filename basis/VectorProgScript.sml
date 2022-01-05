@@ -207,22 +207,7 @@ val collate_side_thm = Q.prove (
   `!f vec1 vec2. collate_1_side f vec1 vec2`,
   rw[collate_side_def, collate_aux_side_thm] ) |> update_precondition
 
-Definition pp_vector_def:
-  pp_vector f vec = mlprettyprinter$pp_app_block (strlit "Vector.fromList")
-    (toList vec)
-End
-
-val result = translate pp_vector_def;
-
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
-
-(* FIXME: is there a better way to add a rename? *)
-Definition rename_pp_vector_def:
-  rename_pp_vector = pp_vector
-End
-
-val _ = next_ml_names := ["pp_vector"];
-val result = translate rename_pp_vector_def;
 
 val _ = export_theory ()

@@ -26,12 +26,33 @@ val _ = trans "<=" intSyntax.leq_tm;
 val _ = trans ">=" intSyntax.geq_tm;
 val _ = trans "~" ``\i. - (i:int)``;
 
-Definition rename_toString_def:
-  rename_toString = mlint$toString
-End
+val _ = ml_prog_update open_local_block;
+
+val res = translate exp_for_dec_enc_def;
+val res = translate toChar_def;
+
+val res = translate num_to_rev_chars_def;
+
+Triviality tochar_side_dec:
+  i < 10 ==> tochar_side i
+Proof
+  EVAL_TAC \\ simp []
+QED
+
+Triviality num_to_rev_chars_side:
+  !i j k. num_to_rev_chars_side i j k
+Proof
+  ho_match_mp_tac mlintTheory.num_to_rev_chars_ind
+  \\ rw []
+  \\ ONCE_REWRITE_TAC [fetch "-" "num_to_rev_chars_side_def"]
+  \\ simp [tochar_side_dec]
+QED
+val res = update_precondition num_to_rev_chars_side;
+
+val _ = ml_prog_update open_local_in_block;
 
 val _ = next_ml_names := ["toString"];
-val toString_v_thm = translate rename_toString_def;
+val toString_v_thm = translate mlintTheory.toString_def;
 
 val Eval_NUM_toString = Q.prove(
   `!v. (INT --> STRING_TYPE) toString v ==>
@@ -40,8 +61,10 @@ val Eval_NUM_toString = Q.prove(
     ml_translatorTheory.AppReturns_def,num_to_str_def,
     ml_translatorTheory.NUM_def,PULL_EXISTS,FORALL_PROD]
   \\ rw [] \\ res_tac)
-  |> (fn th => MATCH_MP th (REWRITE_RULE [rename_toString_def] toString_v_thm))
+  |> (fn th => MATCH_MP th toString_v_thm)
   |> add_user_proved_v_thm;
+
+val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update open_local_block;
 

@@ -6,7 +6,7 @@ open preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = new_theory "basisProg"
 
-val _ = translation_extends"PrettyPrinterProg";
+val _ = translation_extends"TextIOProg";
 
 val print_e = ``Var(Long"TextIO"(Short"print"))``
 val eval_thm = let

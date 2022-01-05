@@ -64,8 +64,8 @@ CakeML foreign-function interface (FFI) uses.
 Module about the option tyoe.
 
 [PrettyPrinterProgScript.sml](PrettyPrinterProgScript.sml):
-Module providing various functions that can be used to efficiently
-pretty-print values of different types.
+Module providing pretty-printer implementation, and setup
+of the global builtin pretty-printer functions.
 
 [RatProgScript.sml](RatProgScript.sml):
 Module for computing over the rational numbers.

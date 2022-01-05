@@ -5,11 +5,11 @@
 
 open preamble astTheory libTheory semanticPrimitivesTheory whileTheory;
 open evaluateTheory ml_translatorLib ml_translatorTheory ml_progLib;
-local open pp_setupTheory decProgTheory in end
+local open decProgTheory in end
 
 val _ = new_theory "std_prelude";
 
-val _ = translation_extends "pp_setup";
+val _ = translation_extends "decProg";
 
 (* type registration *)
 

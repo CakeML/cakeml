@@ -9,6 +9,7 @@ open
   preamble
   mlstringTheory
   mlintTheory
+  mlvectorTheory
   wordsTheory
 
 val _ = new_theory "mlprettyprinter"
@@ -76,12 +77,26 @@ Definition pp_string_def:
   pp_string s = PP_Data F (List [strlit "\""; s; strlit "\""])
 End
 
-Definition pp_char_def:
-  pp_char c = PP_Data F (List [strlit "#\""; str c; strlit "\""])
-End
-
 Definition pp_bool_def:
   pp_bool b = PP_Data F (List [if b then (strlit "true") else (strlit "false")])
+End
+
+(* pretty-printers for the pretty-printer types *)
+Definition pp_app_list_def:
+  pp_app_list f (List xs) = pp_app_block (strlit "PrettyPrinter.List")
+    [pp_list f xs] /\
+  pp_app_list f Nil = ppd_token (strlit "PrettyPrinter.Nil") /\
+  pp_app_list f (Append x y) = pp_app_block (strlit "PrettyPrinter.Append")
+    [pp_app_list f x; pp_app_list f y]
+End
+
+Definition pp_pp_data_def:
+  pp_pp_data (PP_Data b d) = pp_app_block (strlit "PrettyPrinter.PP_Data")
+    [pp_bool b; pp_app_list pp_string d]
+End
+
+Definition pp_char_def:
+  pp_char c = PP_Data F (List [strlit "#\""; str c; strlit "\""])
 End
 
 Definition pp_int_def:
@@ -110,7 +125,8 @@ Definition pp_word8array_def:
 End
 
 Definition pp_vector_def:
-  pp_vector f v = ppd_token (strlit "<vector>")
+  pp_vector f v = pp_app_block (strlit "Vector.fromList")
+    [pp_list f (mlvector$toList v)]
 End
 
 val fromRat_def = Define`
