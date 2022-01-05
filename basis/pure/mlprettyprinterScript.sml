@@ -20,7 +20,6 @@ Datatype:
   pp_data = PP_Data bool (mlstring app_list)
 End
 
-(* avoid the pp_X naming scheme by using ppd_X (i.e. pp_data_X) internally *)
 Definition ppd_token_def:
   ppd_token s = PP_Data F (List [s])
 End

@@ -81,9 +81,13 @@ Termination
   WF_REL_TAC `measure (list_size dec_size)`
 End
 
+Definition pp_begin_marker_def:
+  pp_begin_marker = "pp_fun"
+End
+
 Definition add_pp_begin_def:
-  (add_pp_begin (Dlet _ pat _) = EXISTS (\nm. nm = "pp_int") (pat_bindings pat [])) /\
-  (add_pp_begin (Dletrec _ recs) = EXISTS (\(nm, _, _). nm = "pp_int") recs) /\
+  (add_pp_begin (Dlet _ pat _) = EXISTS (\nm. nm = pp_begin_marker) (pat_bindings pat [])) /\
+  (add_pp_begin (Dletrec _ recs) = EXISTS (\(nm, _, _). nm = pp_begin_marker) recs) /\
   (add_pp_begin _ = F)
 End
 

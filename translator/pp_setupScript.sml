@@ -31,7 +31,16 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-val res = translate pp_fun_def;
+val _ = ml_prog_update open_local_block;
+
+val res = translate app_intersperse_def;
+val res = translate app_list_wrap_def;
+val res = translate ppd_contents_def;
+val res = translate ppd_paren_contents_def;
+val res = translate ppd_token_def;
+
+val _ = ml_prog_update open_local_in_block;
+
 val res = translate pp_exn_def;
 val res = translate pp_paren_tuple_def;
 val res = translate pp_app_block_def;
@@ -47,7 +56,11 @@ val res = translate pp_array_def;
 val res = translate pp_word8array_def;
 val res = translate pp_vector_def;
 
-(* translate pps for numeric types, which are actually used early. *)
+val _ = ml_prog_update close_local_blocks;
+
+val _ = ml_prog_update open_local_block;
+
+(* printers for numeric types, which we want to be able to print early *)
 val res = translate mlintTheory.num_to_rev_chars_def;
 
 Triviality tochar_side_dec:
@@ -67,9 +80,21 @@ QED
 
 val res = update_precondition num_to_rev_chars_side;
 
-val res = translate pp_int_def;
+val _ = next_ml_names := ["int_to_string"];
+val res = translate mlintTheory.toString_def;
+
+val _ = ml_prog_update open_local_in_block;
+
+val res = translate (REWRITE_RULE [ppd_token_def] pp_int_def);
+
+val _ = ml_prog_update close_local_blocks;
+
 val res = translate pp_word8_def;
 val res = translate pp_word64_def;
+
+(* pp_fun is translated last. in add-pp mode, this will trigger the
+   installation of pretty-printers for previous types (from decProg) *)
+val res = translate (REWRITE_RULE [ppd_token_def] pp_fun_def);
 
 val _ = export_theory();
 
