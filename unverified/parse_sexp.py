@@ -150,6 +150,65 @@ def print_defined (sexp):
   for x in sexp:
     scan_defined (x, [])
 
+def printd (depth, s):
+  print ((' ' * depth) + s)
+
+def addh (hidden, s):
+  if hidden:
+    return '<hidden> ' + s
+  else:
+    return s
+
+def printdh (depth, hidden, s):
+  printd (depth, addh (hidden, s))
+
+def atom_name (sexp):
+  assert is_atom(sexp), ("atom_name", sexp)
+  return sexp[1]
+
+def format_defined (sexp, depth, hidden):
+  if is_atom(sexp):
+    return
+  if not is_atom(sexp[0]):
+    printd (depth, '%s (' % type(sexp))
+    format_defined_list (sexp, depth + 2, hidden)
+    printd (depth, ')')
+    return
+  xnm = atom_name(sexp[0])
+  if xnm == 'Dtype':
+    (_, _, tydefs) = sexp
+    nms = [atom_name (v[1]) for v in tydefs]
+    printd (depth, 'Dtype (%s)' % addh (hidden, ', '.join(nms)))
+  elif xnm == 'Dlocal':
+    (_, loc, glob) = sexp
+    printd (depth, 'Dlocal ([')
+    format_defined_list (loc, depth + 2, True)
+    printd (depth, '], [')
+    format_defined_list (glob, depth + 2, hidden)
+    printd (depth, '])')
+  elif xnm == 'Dmod':
+    (_, nm, contents) = sexp
+    printd (depth, 'Dmod (%s,' % atom_name (nm))
+    format_defined_list (contents, depth + 2, hidden)
+    printd (depth, ')')
+  elif xnm == 'Dlet':
+    (_, _, nm, body) = sexp
+    dnm = atom_name(nm)
+    printd (depth, 'Dlet (%s)' % addh (hidden, dnm))
+  elif xnm == 'Dletrec':
+    (_, _, bodies) = sexp
+    nms = [atom_name(v[0]) for v in bodies]
+    printd (depth, 'Dletrec (%s)' % addh(hidden, ', '.join(nms)))
+  else:
+    printd (depth, '<unknown>: ' + str(sexp[0]))
+
+def format_defined_list (sexp, depth, hidden):
+  if is_atom(sexp):
+    printd (depth, atom_name (sexp))
+  else:
+    for x in sexp:
+      format_defined (x, depth, hidden)
+
 import argparse
 
 def main ():
@@ -158,6 +217,8 @@ def main ():
   parser.add_argument ('FILES', nargs='+', help='files to process')
   parser.add_argument ('--pcons', type=int, nargs='?', const='20', default=None,
     metavar='N', help='list N (=20) functions with most Pcon pattern-matches')
+  parser.add_argument ('--summary', action='store_true',
+    help='print summary of decs in various scopes')
   parser.add_argument ('--defined', action='store_true',
     help='print what is defined in various scopes')
   args = parser.parse_args ()
@@ -167,6 +228,8 @@ def main ():
       print_pcons (sort_pcons (sexp), args.pcons)
     if args.defined:
       print_defined (sexp)
+    if args.summary:
+      format_defined_list (sexp, 0, False)
 
 if __name__ == '__main__':
   main ()
