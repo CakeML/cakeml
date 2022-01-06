@@ -6602,7 +6602,7 @@ Proof
 QED
 
 Datatype:
-  composability_result = continue ((type#type) list) | ignore | uncomposable
+  composability_result = Continue ((type#type) list) | Ignore | Uncomposable
 End
 
 (* check if q is composable at a dependency p --> _
@@ -6610,27 +6610,27 @@ End
 Definition composable_one_def:
   composable_one q p =
     case unify_LR q p of
-      | NONE => ignore
+      | NONE => Ignore
       | SOME (s_q,s_p) =>
     let sp_inv = invertible_on s_p (FV p) ;
         sq_inv = invertible_on s_q (FV q)
     in
       if sp_inv /\ ~sq_inv
       (* p is a strict instance of q, witnessed by (s_p^-1) (s_q) q = p *)
-      then ignore
+      then Ignore
       else if ~sp_inv /\ ~sq_inv
       (* both are not invertible *)
-      then uncomposable
+      then Uncomposable
       else if ~sp_inv /\ sq_inv
       (* q is a strict instance of p, witnessed by q = (s_q^-1) (s_p) p *)
-      then continue s_p (*, inverse_on s_q (tyvars q)) *)
+      then Continue s_p (*, inverse_on s_q (tyvars q)) *)
       (* both are invertible, thus q = p modulo type variable renaming *)
-      else continue []
+      else Continue []
 End
 
 Theorem composable_one_ignore:
   !p q. wf_pqs [(p,q)]
-  ==> (composable_one q p = ignore
+  ==> (composable_one q p = Ignore
     <=> orth_LR q p \/ ?s_q s_p. unify_LR q p = SOME (s_q, s_p) /\
               invertible_on s_p (FV p) /\ ~invertible_on s_q (FV q))
 Proof
@@ -6640,7 +6640,7 @@ QED
 
 Theorem composable_one_ignore':
   !p q. wf_pqs [(p,q)]
-  ==> (composable_one q p = ignore
+  ==> (composable_one q p = Ignore
     <=> (composable q p /\ ~(is_instance_LR p q)))
 Proof
   fs[composable_eq,composable_one_ignore,EQ_IMP_THM,wf_pqs_CONS]
@@ -6679,7 +6679,7 @@ QED
 
 Theorem composable_one_continue:
   !p q s. wf_pqs [(p,q)]
-  ==> (composable_one q p = continue s
+  ==> (composable_one q p = Continue s
     <=> ?s_q s_p. unify_LR q p = SOME (s_q, s_p) /\ (
         s = s_p /\ ~invertible_on s_p (FV p) /\ invertible_on s_q (FV q)
         \/ (s = [] /\ invertible_on s_p (FV p) /\ invertible_on s_q (FV q))))
@@ -6691,7 +6691,7 @@ QED
 
 Theorem composable_one_uncomposable:
   !p q. wf_pqs [(p,q)]
-  ==> (composable_one q p = uncomposable <=> ~composable q p)
+  ==> (composable_one q p = Uncomposable <=> ~composable q p)
 Proof
   dsimp[is_const_or_type_eq,composable_one_def,AllCaseEqs(),composable_def,unify_LR_def,composable_one_def,FV_def,tvars_def,wf_pqs_CONS]
   >> metis_tac[]
@@ -6705,10 +6705,10 @@ Definition composable_step_def:
   (composable_step _ [] step = INL step)
   /\ (composable_step q (p::dep) step =
     case composable_one q (FST p) of
-       | ignore => composable_step q dep step
-       | continue ρ =>
+       | Ignore => composable_step q dep step
+       | Continue ρ =>
           composable_step q dep (LR_TYPE_SUBST ρ (SND p) :: step)
-       | uncomposable => INR p (* returns a counter-example *)
+       | Uncomposable => INR p (* returns a counter-example *)
   )
 End
 
@@ -6790,16 +6790,16 @@ Proof
   >> rw[composable_step_def,AllCaseEqs(),PULL_EXISTS,EXISTS_OR_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM,FORALL_AND_THM]
   >> qmatch_goalsub_abbrev_tac `composable_one q h0`
   >> Cases_on `composable_one q h0` >> fs[]
-  >~ [`_ = ignore`] >- (
+  >~ [`_ = Ignore`] >- (
     first_x_assum irule >> goal_assum $ drule_at Any
     >> gs[composable_step_inv_def,wf_pqs_def,unify_LR_complete'',GSYM invertible_on_equiv_ts_on_FV,composable_one_ignore,unify_LR_complete'']
     >> dsimp[AC DISJ_ASSOC DISJ_COMM]
   )
-  >~ [`_ = uncomposable`] >- (
+  >~ [`_ = Uncomposable`] >- (
     last_x_assum kall_tac
     >> gs[composable_one_uncomposable,wf_pqs_def,composable_step_inv_def]
   )
-  >~ [`_ = continue ρ`] >- (
+  >~ [`_ = Continue ρ`] >- (
     first_x_assum $ irule_at Any >> goal_assum $ drule_at Any
     >> gs[composable_one_continue,composable_step_inv_def,wf_pqs_APPEND,wf_pqs_CONS,invertible_on_equiv_ts_on_FV]
     >> dsimp[AC DISJ_ASSOC DISJ_COMM,LR_TYPE_SUBST_NIL,invertible_on_equiv_ts_on_FV]
