@@ -8176,7 +8176,7 @@ val dep_steps_eq_INR_thms =
   SIMP_RULE (srw_ss()) [PULL_EXISTS,DISJ_IMP_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,FORALL_AND_THM]
   dep_steps_eq_cyclic_step_non_comp_step
 
-Theorem dep_steps_sound_cyclic_step_len':
+Theorem dep_steps_sound_cyclic_step_len:
   !k dep p q p'.
   wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ dep_steps dep (SUC k) dep = Cyclic_step (p,q,p')
@@ -8213,6 +8213,18 @@ Proof
   >> qmatch_asmsub_abbrev_tac `has_path_to _ (SUC $ SUC k)`
   >> qexists_tac `k`
   >> fs[Abbr`k`]
+QED
+
+Theorem dep_steps_sound_cyclic_step_len':
+  !k dep p q p'.
+  wf_pqs dep /\ monotone (CURRY $ set dep)
+  /\ dep_steps dep (SUC k) dep = Cyclic_step (p,q,p')
+  ==> ?n. n <= k /\ has_path_to (CURRY (set dep)) (SUC $ SUC n) p p'
+    /\ is_instance_LR p p'
+Proof
+  rpt strip_tac
+  >> drule_all_then strip_assume_tac dep_steps_sound_cyclic_step_len
+  >> rpt $ goal_assum $ drule_at Any
 QED
 
 Theorem dep_steps_sound_non_comp_step_len:
@@ -8255,41 +8267,17 @@ Proof
   >> fs[Abbr`k`]
 QED
 
-Theorem dep_steps_sound_cyclic_step_len:
-  !dep deps k p q q'. wf_pqs dep /\ monotone (CURRY $ set dep)
-    /\ dep_steps dep k dep = Cyclic_step (p,q,q')
-    ==> ?kk. kk <= k /\
-    (!k'. 0 < k' /\ k' <= kk ==>
-    composable_len (CURRY $ set dep) k' /\ acyclic_len (CURRY $ set dep) $ SUC k')
-    /\ ~(acyclic_len (CURRY $ set dep) $ SUC $ SUC kk)
+Theorem dep_steps_sound_non_comp_step_len':
+  !k dep p q pq'.
+  wf_pqs dep /\ monotone (CURRY $ set dep)
+  /\ dep_steps dep (SUC k) dep = Non_comp_step (p,q,pq')
+  ==> ?n. n <= k
+    /\ has_path_to (CURRY $ set dep) (SUC n) p q /\ MEM pq' dep
+    /\ ~composable q (FST pq')
 Proof
   rpt strip_tac
-  >> Cases_on `k`
-  >- (Cases_on `dep` >> fs[dep_steps_def])
-  >> gs[dep_steps_eq_INR_thms,dep_steps_inv_def,wf_pqs_APPEND]
-  >> reverse $ dxrule_then strip_assume_tac $ iffLR LESS_OR_EQ
-  >- (
-    qexists_tac `0`
-    >> gvs[acyclic_len_def]
-    >> drule_all_then strip_assume_tac dep_step_cyclic_step_has_path_to2
-    >> goal_assum drule_all
-  )
-  >> qmatch_assum_abbrev_tac `NRC _ kk _ _`
-  >> Cases_on `kk` >> fs[]
-  >> rev_drule NRC_dep_step_cyclic_step_has_path_to_SUC
-  >> rpt $ disch_then $ drule_at Any
-  >> disch_then strip_assume_tac
-  >> qmatch_asmsub_abbrev_tac `has_path_to _ (SUC $ SUC kk)`
-  >> qexists_tac `kk` >> fs[]
-  >> conj_tac
-  >- (
-    drule_at (Pos $ el 3) $
-      SIMP_RULE(srw_ss())[PULL_EXISTS,GSYM CONJ_ASSOC,AND_IMP_INTRO]
-      $ iffLR NRC_dep_step_acyclic_len_composable_len_eq
-      >> fs[]
-  )
-  >> fs[acyclic_len_def]
-  >> goal_assum drule_all
+  >> drule_all_then strip_assume_tac dep_steps_sound_non_comp_step_len
+  >> rpt $ goal_assum $ drule_at Any
 QED
 
 Theorem dep_steps_sound_maybe_cyclic':
