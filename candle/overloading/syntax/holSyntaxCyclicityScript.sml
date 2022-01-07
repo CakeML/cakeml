@@ -8390,6 +8390,16 @@ Proof
   >> fs[]
 QED
 
+Theorem dep_steps_eq_maybe_cyclic:
+  !dep k deps. wf_pqs dep ==>
+    (dep_steps dep k dep = Maybe_cyclic
+      <=> ?deps'. dep_steps_inv dep k dep 0 deps' /\ ~NULL deps')
+Proof
+  rw[EQ_IMP_THM]
+  >- drule_all_then irule dep_steps_sound_maybe_cyclic
+  >> drule_all_then irule dep_steps_complete_maybe_cyclic
+QED
+
 Theorem dep_steps_complete_maybe_cyclic_len:
   !dep k x y.
     wf_pqs dep
@@ -8724,19 +8734,19 @@ Proof
 QED
 
 Theorem dep_steps_eq_acyclic_len:
-  !dep k k'. wf_pqs dep /\ monotone (CURRY $ set dep) /\ ~NULL dep
+  !dep k k'. wf_pqs dep /\ monotone (CURRY $ set dep) /\ ~NULL dep /\ 0 < k
   ==> (
-    dep_steps dep (SUC k) dep = Acyclic k'
+    dep_steps dep k dep = Acyclic k'
     <=> (
-      k' <= SUC k
-      /\ (!x y. ~has_path_to (CURRY $ set dep) (SUC $ SUC k - k') x y)
-      /\ (1 < SUC k - k' ==> ?x y. has_path_to (CURRY $ set dep) (SUC k - k') x y)
-      /\ !l. 0 < l /\ l <= SUC k - k' ==>
+      k' <= k
+      /\ (!x y. ~has_path_to (CURRY $ set dep) (SUC $ k - k') x y)
+      /\ (1 < k - k' ==> ?x y. has_path_to (CURRY $ set dep) (k - k') x y)
+      /\ !l. 0 < l /\ l <= k - k' ==>
           composable_len (CURRY $ set dep) l /\ acyclic_len (CURRY $ set dep) $ SUC l)
   )
 Proof
   rpt strip_tac
-  >> fs[EQ_IMP_THM]
+  >> Cases_on `k` >> fs[EQ_IMP_THM]
   >> ntac 2 strip_tac
   >- (
     drule_at (Pos $ el 3) dep_steps_sound_acyclic_len'
