@@ -376,6 +376,17 @@ fun add_Dlet eval_thm var_str = let
         let_env_abbrev ALL_CONV, let_st_abbrev reduce_conv]
   end
 
+fun add_Denv eval_thm var_str = let
+    val (_, eval_thm_xs) = strip_comb (concl eval_thm)
+    val mp_thm = ML_code_Denv |> SPECL (
+      stringSyntax.fromMLstring var_str :: tl eval_thm_xs)
+  in ML_code_upd "add_Denv" mp_thm
+    [solve_ml_imp_mp eval_thm,
+        solve_ml_imp_conv (SIMP_CONV bool_ss []
+            THENC SIMP_CONV bool_ss [ML_code_env_def]),
+        let_env_abbrev ALL_CONV, let_st_abbrev reduce_conv]
+  end
+
 (*
 val (ML_code (ss,envs,vs,th)) = s
 val (n,v,exp) = (v_tm,w,body)

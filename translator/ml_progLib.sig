@@ -41,6 +41,10 @@ sig
                      string (* var name *) ->
                      ml_prog_state -> ml_prog_state
 
+  val add_Denv     : thm (* declare_env thm *) ->
+                     string (* var name *) ->
+                     ml_prog_state -> ml_prog_state
+
   val add_Dlet_Fun : term (* loc *) -> term -> term -> term (* terms of Dlet (Pvar _) (Fun _ _) *) ->
                      string (* v const name *) ->
                      ml_prog_state -> ml_prog_state

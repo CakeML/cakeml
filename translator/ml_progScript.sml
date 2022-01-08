@@ -454,6 +454,22 @@ Proof
   \\ fs [] \\ metis_tac []
 QED
 
+Theorem Decls_Denv:
+  ∀env s1 v s2 env2.
+    Decls env s1 [Denv v] env2 s2 ⇔
+    ∃env1 es.
+      declare_env s1.eval_state env = SOME (env1, es) ∧
+      s2 = s1 with eval_state := es ∧
+      env2 = write v env1 empty_env
+Proof
+  rw[Decls_def, evaluate_decs_def]
+  \\ TOP_CASE_TAC
+  \\ PairCases_on`x`
+  \\ simp[write_def,empty_env_def,state_component_equality]
+  \\ rw[nsEmpty_def, nsSing_def, nsBind_def]
+  \\ rw[EQ_IMP_THM]
+QED
+
 Theorem Decls_NIL:
    !env s n l env2 s2.
       Decls env s [] env2 s2 <=>
@@ -728,6 +744,34 @@ Theorem ML_code_Dlet_Fun:
 Proof
   rw [] \\ imp_res_tac ML_code_Dlet_var
   \\ fs [evaluate_def,state_component_equality,eval_rel_def]
+QED
+
+(* appending an environment *)
+
+Definition declare_env_rel_def:
+  declare_env_rel s2 env1 s3 envv ⇔
+  ∃es.
+    declare_env s2.eval_state env1 = SOME (envv, es) ∧
+    s3 = s2 with eval_state := es
+End
+
+Theorem ML_code_Denv:
+  ∀n cenv s3 envv.
+    ML_code env0 ((comm,s1,prog,env1)::bls) s2 ⇒
+    declare_env_rel s2 cenv s3 envv ⇒
+    cenv = ML_code_env env0 ((comm,s1,prog,env1)::bls) ⇒
+    let
+      env2 = write n envv env1;
+      s3_abbrev = s3
+    in
+    ML_code env0 ((comm,s1,SNOC (Denv n) prog,env2)::bls) s3_abbrev
+Proof
+  rw[ML_code_def, SNOC_APPEND, Decls_APPEND, Decls_Denv,
+     declare_env_rel_def, ML_code_env_def]
+  \\ first_assum $ irule_at Any
+  \\ first_assum $ irule_at Any
+  \\ rw[write_def, merge_env_def, empty_env_def,
+        sem_env_component_equality]
 QED
 
 (* lookup function definitions *)
