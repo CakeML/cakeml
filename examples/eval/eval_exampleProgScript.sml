@@ -40,6 +40,31 @@ val fname_to_words = process_topdecs`
 
 val res = append_prog fname_to_words;
 
+val ml_prog_state = get_ml_prog_state()
+val s2 = get_state ml_prog_state
+val locn_thm = EVAL``LENGTH ^s2.refs``
+
+Theorem ref_eval_thm:
+  !l. eval_rel
+    ^s2
+    ^(get_env ml_prog_state)
+    (App Opref [Lit l])
+    (^s2 with refs := ^s2.refs ++ [Refv (Litv l)])
+    (Loc ^(rconc locn_thm))
+Proof
+  rw[ml_progTheory.eval_rel_alt]
+  \\ rw[evaluateTheory.evaluate_def]
+  \\ rw[semanticPrimitivesTheory.do_app_def]
+  \\ rw[semanticPrimitivesTheory.store_alloc_def]
+  \\ rw[semanticPrimitivesTheory.state_component_equality]
+  \\ rw[locn_thm]
+QED
+
+val () = ml_prog_update (
+  ml_progLib.add_Dlet
+    (Q.SPEC `StrLit "initial string\n"` ref_eval_thm)
+    "the_string_ref" [])
+
 (* These decs cannot go through ml_progLib
    because it only supports declaring functions *)
 
@@ -57,9 +82,7 @@ val read_code_decs = process_topdecs`
    string after eval'ing. *)
 
 val call_eval_decs = ``
-  [Dlet unknown_loc (Pvar "the_string_ref")
-     (App Opref [Lit (StrLit "not yet eval'd\n")]);
-   Denv "env1";
+  [Denv "env1";
    Dlet unknown_loc Pany
      (App Opapp [Var (Short "print");
                  App Opderef [Var (Short "the_string_ref")]]);
