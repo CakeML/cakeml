@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/mman.h>
 #include <assert.h>
 
 /* This flag is on by default. It catches CakeML's out-of-memory exit codes
@@ -256,6 +257,14 @@ void ffidouble_toString (char *c, long clen, char *a, long alen) {
   assert (bytes_written <= 255);
 }
 
+extern void *cake_text_begin;
+extern void *cake_codebuffer_begin;
+extern void *cake_codebuffer_end;
+
+void cml_clear() {
+  __builtin___clear_cache(&cake_codebuffer_begin, &cake_codebuffer_end);
+}
+
 int main (int local_argc, char **local_argv) {
 
   argc = local_argc;
@@ -322,13 +331,25 @@ int main (int local_argc, char **local_argv) {
   if(cml_heap == NULL)
   {
     #ifdef STDERR_MEM_EXHAUST
-    fprintf(stderr,"malloc() failed to allocate sufficient CakeML heap and stack space.\n");
+    fprintf(stderr,"failed to allocate sufficient CakeML heap and stack space.\n");
+    perror("malloc");
     #endif
     exit(3);
   }
 
   cml_stack = cml_heap + cml_heap_sz;
   cml_stackend = cml_stack + cml_stack_sz;
+
+  /** Set up the "eval" code buffer to be read-write-execute. **/
+  if(mprotect(&cake_text_begin, &cake_codebuffer_end - &cake_text_begin,
+              PROT_READ | PROT_WRITE | PROT_EXEC))
+  {
+    #ifdef STDERR_MEM_EXHAUST
+    fprintf(stderr,"failed to set permissions for CakeML code buffer.\n");
+    perror("mprotect");
+    #endif
+    exit(3);
+  }
 
   cml_main(); // Passing control to CakeML
 
