@@ -4543,7 +4543,7 @@ fun translate_options options def =
                        |> MATCH_MP evaluate_empty_state_IMP
         val var_str = ml_fname
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
-        val _ = ml_prog_update (add_Dlet eval_thm var_str [])
+        val _ = ml_prog_update (add_Dlet eval_thm var_str)
         val _ = add_v_thms (fname,var_str,v_thm,pre_def)
         val v_thm = v_thm |> DISCH_ALL
                     |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
@@ -4713,7 +4713,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
       v_thm_temp
       |> PURE_REWRITE_RULE[GSYM curr_refs_eq]
       |> MATCH_MP evaluate_empty_state_IMP
-    val state' = add_Dlet eval_thm ml_fname [] state
+    val state' = add_Dlet eval_thm ml_fname state
     val _ = replace_v_thm tm v_thm
     val _ = save_thm(fname ^ "_v_thm", v_thm)
   in state' end
