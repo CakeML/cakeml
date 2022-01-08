@@ -63,7 +63,7 @@ QED
 val () = ml_prog_update (
   ml_progLib.add_Dlet
     (Q.SPEC `StrLit "initial string\n"` ref_eval_thm)
-    "the_string_ref" [])
+    "the_string_ref")
 
 (* These decs cannot go through ml_progLib
    because it only supports declaring functions *)

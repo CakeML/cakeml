@@ -365,7 +365,7 @@ fun add_Dexn loc n_tm l_tm = ML_code_upd "add_Dexn"
 fun add_Dtabbrev loc l1_tm l2_tm l3_tm = ML_code_upd "add_Dtabbrev"
     (SPECL [l1_tm,l2_tm,l3_tm,loc] ML_code_Dtabbrev) []
 
-fun add_Dlet eval_thm var_str v_thms = let
+fun add_Dlet eval_thm var_str = let
     val (_, eval_thm_xs) = strip_comb (concl eval_thm)
     val mp_thm = ML_code_Dlet_var |> SPECL (tl eval_thm_xs
         @ [stringSyntax.fromMLstring var_str,unknown_loc])

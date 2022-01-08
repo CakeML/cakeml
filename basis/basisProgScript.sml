@@ -20,7 +20,7 @@ val eval_thm = let
     \\ asm_simp_tac bool_ss [])
     |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL;
   in v_thm end
-val () = ml_prog_update (add_Dlet eval_thm "print" []);
+val () = ml_prog_update (add_Dlet eval_thm "print");
 
 val print_app_list = process_topdecs
   `fun print_app_list ls =

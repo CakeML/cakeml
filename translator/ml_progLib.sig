@@ -39,7 +39,6 @@ sig
 
   val add_Dlet     : thm (* evaluate thm *) ->
                      string (* var name *) ->
-                     thm list (* v const thms *) ->
                      ml_prog_state -> ml_prog_state
 
   val add_Dlet_Fun : term (* loc *) -> term -> term -> term (* terms of Dlet (Pvar _) (Fun _ _) *) ->
