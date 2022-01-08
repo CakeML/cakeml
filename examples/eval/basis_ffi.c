@@ -262,6 +262,10 @@ extern void *cake_text_begin;
 extern void *cake_codebuffer_begin;
 extern void *cake_codebuffer_end;
 
+void cml_clear() {
+  __builtin___clear_cache(&cake_codebuffer_begin, &cake_codebuffer_end);
+}
+
 int main (int local_argc, char **local_argv) {
 
   argc = local_argc;

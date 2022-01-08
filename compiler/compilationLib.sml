@@ -1244,6 +1244,8 @@ val export_defs = [
   ,exportTheory.comma_cat_def
   ,exportTheory.comm_strlit_def
   ,exportTheory.data_section_def
+  ,exportTheory.data_buffer_def
+  ,exportTheory.code_buffer_def
   ,exportTheory.preamble_def];
 
 val arm7_export_defs = [
