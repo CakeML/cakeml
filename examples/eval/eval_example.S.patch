@@ -1,0 +1,72 @@
+--- eval_example.S	2022-01-07 22:29:39.424145518 +0000
++++ eval_example.eval.S	2022-01-08 08:13:39.723426663 +0000
+@@ -28,7 +28,7 @@
+ # define makesym(name,base,len) _makesym name, base, len
+ #endif
+ 
+-     .file        "cake.S"
++     .file        "eval_example.eval.S"
+ 
+      .data
+      .p2align 3
+@@ -55,10 +55,18 @@
+ 	.quad 7339520,16256,16320,16380,16382,16383,63487,65534,64512,65024,65280,960,1015808,1047552,1048574,959
+ 	.quad 447,14332,12224,14336,15360,16376,16352,12256,896
+ 
++     .globl cdecl(cake_bitmaps_buffer_begin)
++cdecl(cake_bitmaps_buffer_begin):
++     .space 65536
++     .globl cdecl(cake_bitmaps_buffer_end)
++cdecl(cake_bitmaps_buffer_end):
++
+ /* Start up code */
+ 
+      .text
+-     .p2align 3
++     .p2align 12
++     .globl  cdecl(cake_text_begin)
++cdecl(cake_text_begin):
+      .globl  cdecl(cml_main)
+      .globl  cdecl(cml_heap)
+      .globl  cdecl(cml_stack)
+@@ -73,6 +81,14 @@
+      movq    cdecl(cml_heap)(%rip), %rsi     # arg2: first address of heap
+      leaq    cake_bitmaps(%rip), %rax
+      movq    %rax, 0(%rsi)                   # store bitmap pointer
++     leaq    cake_bitmaps_buffer_begin(%rip), %rax
++     movq    %rax, 8(%rsi)                   # store bitmap mutable start pointer
++     leaq    cake_bitmaps_buffer_end(%rip), %rax
++     movq    %rax, 16(%rsi)                   # store bitmap mutable end pointer
++     leaq    cake_codebuffer_begin(%rip), %rax
++     movq    %rax, 24(%rsi)                   # store code mutable start pointer
++     leaq    cake_codebuffer_end(%rip), %rax
++     movq    %rax, 32(%rsi)                   # store code mutable end pointer
+      movq    cdecl(cml_stack)(%rip), %rdx    # arg3: first address of stack
+      movq    cdecl(cml_stackend)(%rip), %rcx # arg4: first address past the stack
+      jmp     cake_main
+@@ -137,7 +153,8 @@
+      .p2align 4
+ 
+ cake_clear:
+-     callq   wcdecl(cml_exit)
++     pushq   %rax
++     ret
+      .p2align 4
+ 
+ cake_exit:
+@@ -34189,6 +34206,15 @@
+ 	.byte 0x00,0x00,0x00,0xFF,0xE1,0x90,0x49,0x8B,0x44,0x24,0x10,0x49,0x8B,0x54,0x24,0x08
+ 	.byte 0x48,0x89,0xFE,0x90,0x48,0x89,0xD7,0x49,0x83,0xEC,0x08,0x4D,0x39,0xEC,0x0F,0x82
+ 	.byte 0x8E,0xB3,0xF7,0xFF,0xE9,0x3B,0xA2,0xFB,0xFF,0x90
++
++     .globl  cdecl(cake_codebuffer_begin)
++cdecl(cake_codebuffer_begin):
++     .space 5000000
++     .p2align 12
++     .globl  cdecl(cake_codebuffer_end)
++cdecl(cake_codebuffer_end):
++     .space 4096
++
+     makesym(cml__Init_0, 0, 774)
+     makesym(cml__Halt0_1, 774, 12)
+     makesym(cml__Halt2_2, 786, 12)
