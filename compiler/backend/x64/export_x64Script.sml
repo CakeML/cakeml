@@ -74,11 +74,9 @@ val ffi_code =
      (List (MAP (\n. strlit(n ++ "\n"))
       ["cake_clear:";
        "     pushq   %rax";
-       "     pushq   %r11";
        "     pushq   %rdi";
        "     callq   wcdecl(cml_clear)";
        "     popq    %rdi";
-       "     popq    %r11";
        "     ret";
        "     .p2align 4";
        "";
