@@ -65,6 +65,25 @@ val () = ml_prog_update (
     (Q.SPEC `StrLit "initial string\n"` ref_eval_thm)
     "the_string_ref")
 
+val ml_prog_state = get_ml_prog_state()
+val s2 = get_state ml_prog_state
+val env = get_env ml_prog_state
+
+Triviality declare_env_thm:
+  declare_env_rel ^s2 ^env ^s2
+    (Env ^env (0,0))
+Proof
+  rw[ml_progTheory.declare_env_rel_def]
+  \\ qmatch_goalsub_abbrev_tac`declare_env es env`
+  \\ `declare_env es env = SOME (Env env (0,0), NONE)`
+  by cheat (* TODO: redesign to cope with eval state NONE *)
+  \\ rw[semanticPrimitivesTheory.state_component_equality]
+  \\ rw[Abbr`es`] \\ EVAL_TAC
+QED
+
+val () = ml_prog_update (
+  ml_progLib.add_Denv declare_env_thm "env1");
+
 (* These decs cannot go through ml_progLib
    because it only supports declaring functions *)
 
@@ -82,8 +101,7 @@ val read_code_decs = process_topdecs`
    string after eval'ing. *)
 
 val call_eval_decs = ``
-  [Denv "env1";
-   Dlet unknown_loc Pany
+  [Dlet unknown_loc Pany
      (App Opapp [Var (Short "print");
                  App Opderef [Var (Short "the_string_ref")]]);
    Dlet unknown_loc (Pvar "env2")
