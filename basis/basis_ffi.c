@@ -29,6 +29,11 @@ extern void *cml_heap;
 extern void *cml_stack;
 extern void *cml_stackend;
 
+extern char cake_text_begin;
+extern char cake_codebuffer_begin;
+extern char cake_codebuffer_end;
+
+
 void ffiget_arg_count (unsigned char *c, long clen, unsigned char *a, long alen) {
   a[0] = (char) argc;
   a[1] = (char) (argc / 256);
@@ -256,10 +261,6 @@ void ffidouble_toString (char *c, long clen, char *a, long alen) {
   // for the 0 byte
   assert (bytes_written <= 255);
 }
-
-extern void *cake_text_begin;
-extern void *cake_codebuffer_begin;
-extern void *cake_codebuffer_end;
 
 void cml_clear() {
   __builtin___clear_cache(&cake_codebuffer_begin, &cake_codebuffer_end);
