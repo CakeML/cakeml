@@ -35,3 +35,6 @@ can be fed into the CakeML compiler binary.
 
 [sexp_parserProgScript.sml](sexp_parserProgScript.sml):
 Translate the alternative s-expression parser.
+
+[sum_monadScript.sml](sum_monadScript.sml):
+Sum monad syntax.
