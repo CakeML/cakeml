@@ -85,9 +85,8 @@ Proof
     >> EVAL_TAC >> fs[]
   )
   >> conj_asm1_tac >- EVAL_TAC
-  >> conj_tac >- (qexists_tac `3` >> fs[dep_steps_dep_thm])
-  >> fs[composable_len_ONE_compute]
-  >> EVAL_TAC
+  >> qexists_tac `3`
+  >> fs[dep_steps_dep_thm]
 QED
 
 Overload A[local] = ``Tyvar (strlit "A")``

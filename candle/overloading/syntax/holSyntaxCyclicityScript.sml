@@ -7136,26 +7136,6 @@ Proof
   >> metis_tac[equiv_def,composable_var_renaming1]
 QED
 
-Theorem composable_len_ONE_compute:
-  !dep. wf_pqs dep /\ monotone (CURRY $ set dep)
-  ==> composable_len (CURRY $ set dep) 1 =
-  EVERY (λq.
-    EVERY (λp.
-      case unify_LR (SND q) (FST p) of
-        SOME (s_q, s_p) => if invertible_on s_q (FV $ SND q)
-          then T
-          else invertible_on s_p (FV $ FST p)
-      | NONE => T
-    ) dep
-  ) dep
-Proof
-  dsimp[composable_len_ONE,EVERY_MEM,EQ_IMP_THM,composable_def,IN_DEF]
-  >> rpt strip_tac >> TRY FULL_CASE_TAC >> gvs[AND_IMP_INTRO]
-  >- (FULL_CASE_TAC >> fs[])
-  >> first_x_assum $ rev_drule_then drule
-  >> FULL_CASE_TAC
-QED
-
 Theorem composable_dep_composable_len:
   !dep. wf_dep dep ==> composable_dep dep = !n. composable_len dep n
 Proof
@@ -8723,26 +8703,26 @@ Theorem dep_steps_sound_acyclic_len:
   !k dep k' x y. wf_pqs dep /\ monotone (CURRY $ set dep)
     /\ dep_steps dep k dep = Acyclic k' /\ 0 < k
     /\ ~NULL dep
-    /\ composable_len (CURRY $ set dep) 1
     ==> !l. l <= k - k'
       ==> acyclic_len (CURRY $ set dep) l /\ composable_len (CURRY $ set dep) l
 Proof
   Cases >> fs[] >> rpt gen_tac >> strip_tac
-  >> drule_all dep_steps_sound_acyclic
-  >> fs[dep_steps_inv_def,wf_pqs_APPEND,Once LESS_OR_EQ]
-  >> strip_tac >> fs[]
+  >> drule_all_then assume_tac dep_steps_sound_acyclic
+  >> drule $ iffLR dep_steps_inv_eq'
+  >> fs[PULL_EXISTS]
+  >> disch_then $ drule_at_then Any assume_tac
+  >> imp_res_tac $ cj 2 $ iffLR dep_steps_inv_def
+  >> dxrule_then strip_assume_tac $ iffLR LESS_OR_EQ
+  >> gvs[]
   >> dxrule_then assume_tac $ iffLR SUB_LESS_0
-  >> qmatch_assum_abbrev_tac `0n < kk` >> Cases_on `kk` >- fs[]
+  >> qmatch_assum_abbrev_tac `0n < kk`
+  >> Cases_on `kk` >- fs[]
   >> qho_match_abbrev_tac `!l. l <= SUC n' ==> P l`
   >> Cases_on `n'`
   >- (
     fs[LESS_OR_EQ,DISJ_IMP_THM,Abbr`P`]
     >> irule acyclic_len_TWO_ONE
-    >> rw[acyclic_len_def,wf_dep_wf_pqs]
-    >> drule dep_steps_acyclic_NOT_has_path_to'
-    >> rpt $ disch_then $ drule_at Any
-    >> rw[LESS_OR_EQ,DISJ_IMP_THM,FORALL_AND_THM]
-    >> fs[]
+    >> fs[wf_dep_wf_pqs,FORALL_AND_THM,AND_IMP_INTRO,LEFT_AND_OVER_OR]
   )
   >> qmatch_assum_rename_tac `0 < SUC $ SUC n''`
   >> qsuff_tac `(!l. l < 2 /\ l <= SUC $ SUC n'' ==> P l) /\ !l. 2 <= l /\ l <= SUC $ SUC n'' ==> P l`
@@ -8755,11 +8735,10 @@ Proof
       ``l < (2 : num)``
     >> rw[Abbr`P`,DISJ_IMP_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR]
     >> irule acyclic_len_TWO_ONE
-    >> fs[Once LESS_OR_EQ,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM,FORALL_AND_THM,wf_dep_wf_pqs,AND_IMP_INTRO]
+    >> fs[wf_dep_wf_pqs,FORALL_AND_THM,AND_IMP_INTRO,LEFT_AND_OVER_OR]
   )
-  >> drule_at (Pos $ el 3) NRC_dep_step_composable_len
-  >> drule_at (Pos $ el 3) NRC_dep_step_acyclic_len
-  >> rw[wf_pqs_APPEND,Abbr`P`]
+  >> unabbrev_all_tac
+  >> Cases >> fs[]
 QED
 
 Theorem dep_steps_eq_acyclic_len:
@@ -8790,7 +8769,6 @@ Theorem dep_steps_acyclic_sound:
   !k dep k'. wf_pqs dep /\ monotone (CURRY $ set dep)
     /\ dep_steps dep (SUC k) dep = Acyclic k'
     /\ ~NULL dep
-    /\ composable_len (CURRY $ set dep) 1
     ==> ~cyclic_dep (CURRY $ set dep) /\ composable_dep (CURRY $ set dep)
 Proof
   rpt gen_tac >> strip_tac
@@ -8829,13 +8807,12 @@ QED
 
 (*
 use with
-composable_len_ONE_compute, monotone_compute_eq,
+monotone_compute_eq,
 invertible_on_compute, is_instance_LR_equiv
 *)
 Theorem dep_steps_acyclic_sound':
   !dep k k'. wf_pqs dep /\ monotone (CURRY $ set dep)
     /\ dep_steps dep (SUC k) dep = Acyclic k'
-    /\ composable_len (CURRY $ set dep) 1
     ==> terminating $ TC $ subst_clos (CURRY $ set dep)
 Proof
   rw[]
@@ -8873,7 +8850,6 @@ Theorem dep_steps_acyclic_sound'':
   !ctxt k k'.
     let dep = dependency_compute ctxt
     in dep_steps dep (SUC k) dep = Acyclic k'
-      /\ composable_len (CURRY $ set $ dep) 1
       /\ good_constspec_names ctxt
       ==> terminating $ TC $ subst_clos $ dependency ctxt
 Proof
@@ -8881,25 +8857,6 @@ Proof
   >> drule_at Any dep_steps_acyclic_sound'
   >> rpt $ disch_then $ drule_at Any
   >> fs[wf_dep_dependency_ctxt,GSYM wf_dep_wf_pqs,DEPENDENCY_EQUIV,GSYM is_instance_LR_equiv,monotone_dependency_good_constspec_names]
-QED
-
-Theorem composable_len_ONE_compute'[compute]:
-  !ctxt.
-  good_constspec_names ctxt ⇒
-  composable_len (CURRY $ set $ dependency_compute ctxt) 1 =
-  EVERY (λq.
-    EVERY (λp.
-      case unify_LR (SND q) (FST p) of
-        SOME (s_q, s_p) => if invertible_on s_q (FV $ SND q)
-          then T
-          else invertible_on s_p (FV $ FST p)
-      | NONE => T
-    ) (dependency_compute ctxt)
-  ) (dependency_compute ctxt)
-Proof
-  rpt strip_tac
-  >> irule composable_len_ONE_compute
-  >> fs[wf_dep_dependency_ctxt,GSYM wf_dep_wf_pqs,DEPENDENCY_EQUIV,monotone_dependency_good_constspec_names]
 QED
 
 val _ = export_theory();
