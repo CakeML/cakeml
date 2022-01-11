@@ -1,7 +1,7 @@
 (*
   Contains the code for the entire CakeML basis library in basis_def.
 *)
-open preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
+open preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib std_preludeTheory
      CommandLineProofTheory TextIOProofTheory RuntimeProofTheory PrettyPrinterProgTheory
 
 val _ = new_theory "basisProg"

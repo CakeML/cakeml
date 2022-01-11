@@ -15,7 +15,6 @@ val _ = (
 )
 
 val _ = ml_prog_update (open_module "PrettyPrinter")
-val _ = register_type ``:'a app_list``;
 val _ = register_type ``: pp_data``;
 
 fun tr name def = (
