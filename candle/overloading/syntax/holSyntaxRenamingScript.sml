@@ -25,6 +25,15 @@ Proof
   >> res_tac
 QED
 
+Theorem REPLICATE_inj:
+  !n m x y. REPLICATE n x = REPLICATE m y <=> n = m ∧ (m > 0 ⇒ x = y)
+Proof
+  Induct
+  >> fs[EQ_IMP_THM,REPLICATE,REPLICATE_NIL]
+  >> Cases >> rw[REPLICATE]
+  >> res_tac
+QED
+
 Theorem list_max_APPEND:
   !xs ys. list_max (xs ++ ys) = MAX (list_max xs) (list_max ys)
 Proof
@@ -378,15 +387,7 @@ Proof
   >> spose_not_then assume_tac
   >> imp_res_tac $ REWRITE_RULE[EVERY_MEM] rename_apart_by_strlen_FST
   >> imp_res_tac $ REWRITE_RULE[EVERY_MEM] rename_apart_by_chr_FST
-  >> gvs[implode_def]
-  >> qmatch_assum_rename_tac `REPLICATE n chr2 = REPLICATE n' chr1`
-  >> Cases_on `n'` >- fs[]
-  >> Cases_on `n = 0` >- fs[REPLICATE]
-  >> qmatch_assum_abbrev_tac `_ < nn:num`
-  >> fs[NOT_ZERO_LT_ZERO]
-  >> qsuff_tac `MEM chr2 (REPLICATE nn chr1)` >- fs[MEM_REPLICATE_EQ]
-  >> qpat_x_assum `REPLICATE _ _ = REPLICATE _ _` $ REWRITE_TAC o single o GSYM
-  >> fs[MEM_REPLICATE]
+  >> gvs[implode_def, REPLICATE_inj]
 QED
 
 val _ = export_theory()
