@@ -5,6 +5,8 @@ INCLUDES = $(HOLDIR)/examples/formal-languages/context-free\
 	   $(CAKEMLDIR)/basis\
 	   $(CAKEMLDIR)/basis/pure\
 	   $(CAKEMLDIR)/translator\
+	   $(CAKEMLDIR)/translator/monadic\
+	   $(CAKEMLDIR)/translator/monadic/monad_base\
 	   $(CAKEMLDIR)/compiler\
 	   $(CAKEMLDIR)/compiler/parsing\
 	   $(CAKEMLDIR)/unverified/sexpr-bootstrap\
