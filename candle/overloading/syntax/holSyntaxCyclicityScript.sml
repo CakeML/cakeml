@@ -413,7 +413,6 @@ Proof
   >> irule_at Any var_renaming_compose
   >> map_every qexists_tac [`MAP SWAP e`,`e'`]
   >> fs[GSYM TYPE_SUBST_compose,GSYM clean_tysubst_TYPE_SUBST_eq,var_renaming_SWAP_IMP]
-  >> qpat_x_assum `TYPE_SUBST _ (TYPE_SUBST _ _) = _` $ fs o single o GSYM
   >> fs[var_renaming_SWAP_id]
 QED
 
@@ -1392,6 +1391,7 @@ Proof
   >> fs[Excl"TYPE_SUBST_def"]
   >> dxrule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
   >> dxrule_then imp_res_tac ALL_DISTINCT_SND_MEMs
+  >> rveq
   >> gvs[Excl"TYPE_SUBST_def"]
 QED
 
@@ -5840,9 +5840,8 @@ Proof
     >> rpt $ goal_assum $ drule_at Any
   )
   >> gs[equiv_ts_on_tyvars]
-  >> irule_at Any var_renaming_SWAP_IMP
-  >> goal_assum drule
-  >> fs[var_renaming_SWAP_id]
+  >> irule_at Any EQ_REFL
+  >> simp[]
 QED
 
 Theorem unify_TYPE_SUBST':
@@ -5900,8 +5899,8 @@ Proof
       >> rpt $ goal_assum $ drule_at Any
     )
     >> gs[equiv_ts_on_tyvars,GSYM TYPE_SUBST_compose]
-    >> irule_at Any $ GSYM var_renaming_SWAP_id
-    >> fs[var_renaming_SWAP_IMP]
+    >> irule_at Any EQ_REFL
+    >> simp[]
   )
   >> imp_res_tac unify_sound
   >> fs[equiv_ts_on_tyvars,GSYM TYPE_SUBST_compose]
@@ -5949,7 +5948,8 @@ Proof
       >> rpt $ goal_assum $ drule_at Any
     )
     >> gs[equiv_ts_on_tyvars,GSYM TYPE_SUBST_compose]
-    >> irule_at Any EQ_REFL >> fs[]
+    >> irule_at Any $ GSYM var_renaming_SWAP_id
+    >> fs[var_renaming_SWAP_IMP]
   )
   >> imp_res_tac unify_sound
   >> fs[equiv_ts_on_tyvars,GSYM TYPE_SUBST_compose]
@@ -6358,7 +6358,7 @@ Proof
   >> Cases_on `i`
   >> gs[GSYM NULL_EQ,GSYM LENGTH_NOT_NULL,GSYM EL,Excl"EL",Excl"EL_restricted",wf_pqs_def,ELIM_UNCURRY,EVERY_MEM,EL_MEM,LAST_EL,LENGTH_TAKE,FORALL_AND_THM,IMP_CONJ_THM,EL_TAKE,equal_ts_on_FV]
   >> gs[Once LESS_EQ,LESS_OR_EQ,DISJ_IMP_THM,FORALL_AND_THM,IMP_CONJ_THM]
-  >> qpat_x_assum `!n:num. _` kall_tac
+  >> first_x_assum(qspec_then ‘n’ mp_tac) >> rw[]
   >> `UNCURRY dep $ EL n pqs` by fs[path_starting_at_def,EVERY_MEM,EL_MEM]
   >> fs[ELIM_UNCURRY]
   >> qpat_assum `monotone _` $ (dxrule_then strip_assume_tac) o REWRITE_RULE[monotone_def,list_subset_set]
@@ -6366,6 +6366,9 @@ Proof
   >> rw[equiv_ts_on_FV,EL_MEM]
   >> fs[is_instance_LR_var_renaming1,EL_MEM,path_starting_at_def,sol_seq_def]
   >> fs[EL_MEM,GSYM invertible_on_FV,is_instance_LR_eq]
+  >> Cases_on ‘SUC(SUC n) = LENGTH pqs’
+  >- metis_tac[]
+  >> last_x_assum match_mp_tac >> simp[]
 QED
 
 (* paths have ascending suffixes *)
@@ -6863,11 +6866,10 @@ Proof
   >> drule_all_then strip_assume_tac composable_step_complete_INR'
   >> drule_all_then strip_assume_tac composable_step_sound_INR
   >> gvs[composable_step_INR_eq,composable_step_inv_INR_def,DISJ_EQ_IMP]
-  >> qmatch_asmsub_abbrev_tac `pre ++ [p'] ++ _ = pre' ++ [p] ++ _`
+  >> qmatch_asmsub_abbrev_tac `pre ++ [_] ++ _ = pre' ++ [_] ++ _`
   >> qpat_x_assum `_ ++ _ = _ ++ _` mp_tac
   >> ONCE_REWRITE_TAC[GSYM APPEND_ASSOC] >> REWRITE_TAC[GSYM CONS_APPEND]
   >> strip_tac
-  >> `~MEM p pre' /\ ~MEM p' pre` by (CCONTR_TAC >> gs[MEM_SPLIT])
   >> `pre = pre'` by (
     gvs[APPEND_EQ_APPEND] >> qmatch_asmsub_abbrev_tac `_::_ = l ++ _ ++ _`
     >> Cases_on `l` >> gs[]
@@ -7078,9 +7080,11 @@ Proof
   >> drule_then assume_tac $ cj 1 $ iffLR path_starting_at_def
   >> drule_then strip_assume_tac path_starting_at_LAST
   >> gs[wf_pqs_APPEND,wf_pqs_CONS,Excl"EL",Excl"EL_restricted",GSYM EL,EL_APPEND1,EL_MEM,equal_ts_on_FV]
+  >> first_x_assum(qspec_then ‘LENGTH pqs’ mp_tac) >> rw[]
   >> gs[Once LESS_EQ,GSYM ADD1,LESS_OR_EQ]
   >> gs[EL_APPEND2,EL_APPEND1,FORALL_AND_THM,DISJ_IMP_THM,equal_ts_on_FV,GSYM LR_TYPE_SUBST_compose,EL_MEM,EL_MAP]
   >> irule $ iffLR equiv_LR_TYPE_SUBST1
+  >> simp[]
   >> drule_then assume_tac $ cj 3 $ iffLR path_starting_at_def
   >> fs[equiv_def,PULL_EXISTS,GSYM ADD1]
   >> goal_assum $ drule_at $ Pos last
@@ -7781,11 +7785,12 @@ Proof
     >- (
       imp_res_tac unify_LR_sound
       >> gs[invertible_on_equiv_ts_on_FV,equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
-      >> qmatch_assum_rename_tac `LR_TYPE_SUBST e (FST _) = LR_TYPE_SUBST e' q`
-      >> map_every qexists_tac [`MAP (TYPE_SUBST (MAP SWAP e) ## I) e ++ (MAP SWAP e)`,`MAP (TYPE_SUBST (MAP SWAP e') ## I) e ++ (MAP SWAP e')`]
+      >> qmatch_assum_rename_tac `LR_TYPE_SUBST e q = LR_TYPE_SUBST e' (FST _)`
+      >> map_every qexists_tac [`MAP (TYPE_SUBST (MAP SWAP e') ## I) e' ++ (MAP SWAP e')`,`MAP (TYPE_SUBST (MAP SWAP e) ## I) e' ++ (MAP SWAP e)`]
       >> gs[LR_TYPE_SUBST_NIL,GSYM LR_TYPE_SUBST_compose,equal_ts_on_FV,var_renaming_SWAP_LR_id,equiv_def]
+      >> drule_all var_renaming_SWAP_LR_id' >> rw[]
       >> irule_at Any var_renaming_compose
-      >> map_every qexists_tac [`MAP SWAP e`,`MAP SWAP (MAP SWAP e')`]
+      >> map_every qexists_tac [`MAP SWAP e'`,`MAP SWAP (MAP SWAP e)`]
       >> fs[GSYM clean_tysubst_LR_TYPE_SUBST_eq,GSYM LR_TYPE_SUBST_compose,var_renaming_SWAP_LR_id,var_renaming_SWAP_IMP]
     )
     >> fs[invertible_on_equiv_ts_on_FV]
@@ -7893,13 +7898,16 @@ Proof
       imp_res_tac unify_LR_sound
       >> irule_at Any equiv_symm_imp
       >> gs[invertible_on_equiv_ts_on_FV,equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
-      >> qmatch_assum_rename_tac `LR_TYPE_SUBST e (FST _) = LR_TYPE_SUBST e' q`
-      >> qexists_tac `MAP (TYPE_SUBST (MAP SWAP e') ## I) e ++ (MAP SWAP e')`
+      >> qmatch_assum_rename_tac `LR_TYPE_SUBST e q = LR_TYPE_SUBST e' (FST _)`
+      >> qexists_tac `MAP (TYPE_SUBST (MAP SWAP e) ## I) e' ++ (MAP SWAP e)`
       >> gs[LR_TYPE_SUBST_NIL,GSYM LR_TYPE_SUBST_compose,equal_ts_on_FV,var_renaming_SWAP_LR_id,equiv_def]
       >> irule_at Any var_renaming_compose
       >> fs[GSYM clean_tysubst_LR_TYPE_SUBST_eq,GSYM LR_TYPE_SUBST_compose,var_renaming_SWAP_LR_id,var_renaming_SWAP_IMP]
       >> irule_at Any EQ_REFL
       >> fs[var_renaming_SWAP_IMP]
+      >> dep_rewrite.DEP_ONCE_REWRITE_TAC[has_path_to_var_renaming]
+      >> simp[var_renaming_SWAP_eq]
+      >> metis_tac[has_path_to_var_renaming,var_renaming_SWAP_eq]
     )
     >> fs[invertible_on_equiv_ts_on_FV]
     >> rev_dxrule_at_then Any assume_tac $ iffLR equiv_ts_on_FV
@@ -8192,6 +8200,7 @@ Proof
     fs[dep_steps_inv_def]
     >> irule dep_step_cyclic_step_has_path_to2
     >> rpt $ goal_assum drule
+    >> metis_tac[]
   )
   >> drule $ iffLR dep_steps_inv_eq'
   >> imp_res_tac $ cj 1 dep_step_INR_imp
@@ -8244,6 +8253,7 @@ Proof
     fs[dep_steps_inv_def]
     >> irule dep_step_non_comp_step_has_path_to1
     >> rpt $ goal_assum drule
+    >> metis_tac[]
   )
   >> drule $ iffLR dep_steps_inv_eq'
   >> imp_res_tac $ cj 1 dep_step_INR_imp
