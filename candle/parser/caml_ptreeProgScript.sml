@@ -103,33 +103,34 @@ val r = translate (def_of_const “peg_exec”);
  * Ptree conversion
  * ------------------------------------------------------------------------- *)
 
-val _ = register_type “:caml_ptree_exn”;
+val _ = use_full_type_names := false;
+
+val _ = register_exn_type “:caml_ptree_exn”;
 val CAML_PTREE_EXN_TYPE_def = theorem "CAML_PTREE_EXN_TYPE_def";
+
+val _ = use_full_type_names := true;
 
 (* Initialize the monadic translator *)
 
-val raise_functions = [raise_Fail_def];
-val handle_functions = [handle_Fail_def];
-val exn_functions = zip raise_functions handle_functions;
-val state_type = “:unit”;
-val exn_ri_def = CAML_PTREE_EXN_TYPE_def;
-
-val (monad_parameters, store_translation, exn_specs) =
+val (monad_parameters, exn_specs) =
   start_dynamic_init_fixed_store_translation
     [] [] []             (* Ref-, resizable array- and fixed-size array names *)
-    "CAML_STORE"         (* hprop name *)
+    "CAML_PTREE_STORE"   (* hprop name *)
     “:unit”              (* state type *)
-    exn_ri_def
-    exn_functions
+    CAML_PTREE_EXN_TYPE_def
+    [(raise_Fail_def, handle_Fail_def)]
     []                   (* Additional thys for types *)
     NONE;                (* store_pinv_def_opt *)
 
 (* Translate ptree conversion into code that can raise exceptions *)
 
+val r = translate grammarTheory.destTOK_def;
+val r = m_translate option_def;
+val r = m_translate destLf_def;
 val r = m_translate ptree_Op_def;
 
 Theorem ptree_op_side[local]:
-  ∀x. ptree_op_side x
+  ∀x s. ptree_op_side s x
 Proof
   rw [fetch "-" "ptree_op_side_def"] \\ gs []
   \\ rename1 ‘isSymbol xx’ \\ Cases_on ‘xx’
@@ -141,7 +142,7 @@ val _ = update_precondition ptree_op_side;
 val r = m_translate ptree_Literal_def;
 
 Theorem ptree_literal_side[local]:
-  ∀x. ptree_literal_side x
+  ∀s x. ptree_literal_side s x
 Proof
   rw [fetch "-" "ptree_literal_side_def",
       caml_lexTheory.isInt_thm,
@@ -151,7 +152,62 @@ QED
 
 val _ = update_precondition ptree_literal_side;
 
+(* TODO: Bug in the translator makes this fail when tk is returned *)
+
+Theorem expect_tok_alt:
+  ∀symb token.
+    expect_tok symb token =
+      do (s,l) <- destLf symb;
+         tk <- option (destTOK (s,l));
+         if tk = token then
+           st_ex_return token
+         else
+           raise_Fail l «Unexpected token»
+      od
+Proof
+  rw [expect_tok_def, ELIM_UNCURRY]
+QED
+
+val r = m_translate expect_tok_alt;
+
+val r = translate build_list_pat_def;
+val r = translate list_cart_prod_def;
+val r = translate cart_prod_def;
+val r = translate build_binop_def;
+val r = translate build_list_exp_def;
+val r = translate build_funapp_def;
+val r = translate build_fun_lam_def;
+val r = translate build_letrec_binding_def;
+val r = translate build_lets_def;
+val r = translate build_pmatch_def;
+val r = translate build_match_def;
+val r = translate build_handle_def;
+val r = translate build_function_def;
+val r = translate bool_to_exp_def;
+val r = translate flatten_pmatch_def;
+
+val r = translate PART_DEF;
+val r = translate PARTITION_DEF;
+
+val r = m_translate path_to_ns_def;
+val r = m_translate mapM_def;
+val r = m_translate nterm_of_def;
+
+val r = m_translate ptree_OperatorName_def;
+val r = m_translate ptree_ValueName_def;
+val r = m_translate ptree_ValuePath_def;
+val r = m_translate ptree_ModuleName_def;
+val r = m_translate ptree_ModulePath_def;
+val r = m_translate ptree_TypeConstrName_def;
+val r = m_translate ptree_TypeConstr_def;
+val r = m_translate ptree_ConstrName_def;
+val r = m_translate ptree_Constr_def;
+val r = m_translate ptree_Ident_def;
+val r = m_translate ptree_TVar_def;
+val r = m_translate ptree_Type_def;
 val r = m_translate ptree_Pattern_def;
+val r = m_translate ptree_Patterns_def;
+val r = m_translate ptree_Bool_def;
 
 (* This takes a long time.
  *)
@@ -159,15 +215,15 @@ val r = m_translate ptree_Pattern_def;
 val r = m_translate ptree_Expr_def;
 
 Theorem ptree_Expr_preconds[local]:
-  (∀x y. ptree_expr_side x y) ∧
-  (∀x. ptree_letrecbinding_side x) ∧
-  (∀x. ptree_letrecbindings_side x) ∧
-  (∀x. ptree_letbinding_side x) ∧
-  (∀x. ptree_letbindings_side x) ∧
-  (∀x. ptree_patternmatches_side x) ∧
-  (∀x. ptree_patternmatch_side x) ∧
-  (∀x. ptree_exprlist_side x) ∧
-  (∀x. ptree_exprcommas_side x)
+  (∀x y s. ptree_expr_side s x y) ∧
+  (∀x s. ptree_letrecbinding_side s x) ∧
+  (∀x s. ptree_letrecbindings_side s x) ∧
+  (∀x s. ptree_letbinding_side s x) ∧
+  (∀x s. ptree_letbindings_side s x) ∧
+  (∀x s. ptree_patternmatches_side s x) ∧
+  (∀x s. ptree_patternmatch_side s x) ∧
+  (∀x s. ptree_exprlist_side s x) ∧
+  (∀x s. ptree_exprcommas_side s x)
 Proof
   ho_match_mp_tac ptree_Expr_ind
   \\ strip_tac
@@ -191,10 +247,37 @@ QED
 
 val _ = List.app (ignore o update_precondition) (CONJUNCTS ptree_Expr_preconds);
 
+val r = m_translate ptree_ConstrArgs_def;
+val r = m_translate ptree_ConstrDecl_def;
+val r = m_translate ptree_ExcDefinition_def;
+val r = m_translate ptree_TypeRepr_def;
+val r = m_translate ptree_TypeInfo_def;
+val r = m_translate ptree_TypeName_def;
+val r = m_translate ptree_TypeParamList_def;
+val r = m_translate ptree_TypeParams_def;
+val r = m_translate ptree_TypeDef_def;
+val r = m_translate ptree_TypeDefs_def;
+
+Theorem ISL_def:
+  ISL x = case x of INL _ => T | _ => F
+Proof
+  CASE_TAC \\ rw [ISL]
+QED
+
+Theorem ISR_def:
+  ISR x = case x of INR _ => T | _ => F
+Proof
+  CASE_TAC \\ rw [ISR]
+QED
+
+val r = translate ISL_def;
+val r = translate ISR_def;
+val r = translate OUTL;
+val r = translate OUTR;
 val r = m_translate ptree_TypeDefinition_def;
 
 Theorem ptree_typedefinition_side[local]:
-  ∀x. ptree_typedefinition_side x
+  ∀s x. ptree_typedefinition_side s x
 Proof
   rw [fetch "-" "ptree_typedefinition_side_def",
       fetch "-" "outr_side_def", fetch "-" "outl_side_def"]
@@ -212,8 +295,12 @@ Proof
   \\ gvs []
 QED
 
-val _ = m_update_precondition ptree_typedefinition_side;
+val _ = update_precondition ptree_typedefinition_side;
 
+val r = translate build_dlet_def;
+
+val r = m_translate ptree_Semis_def;
+val r = m_translate ptree_ExprDec_def;
 val r = m_translate ptree_Definition_def;
 val r = m_translate ptree_Start_def;
 

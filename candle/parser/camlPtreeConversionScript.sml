@@ -63,10 +63,6 @@ Definition option_def[simp]:
   option (SOME x) = return x
 End
 
-Definition fmap_def[simp]:
-  fmap f m = handle_Fail (do x <- m; return (f x) od) fail
-End
-
 (* -------------------------------------------------------------------------
  * Parse tree conversion
  * ------------------------------------------------------------------------- *)
@@ -347,10 +343,14 @@ Definition ptree_ModulePath_def:
   ptree_ModulePath (Nd (nterm, locs) args) =
     if nterm = INL nModulePath then
       case args of
-        [arg] => fmap (λx. [x]) $ ptree_ModuleName arg
-      | [arg; dot; path] =>
+        [arg] =>
           do
-            expect_tok dot DotT;
+            x <- ptree_ModuleName arg;
+            return [x]
+          od
+      | [arg; dott; path] =>
+          do
+            expect_tok dott DotT;
             vp <- ptree_ModulePath path;
             vn <- ptree_ModuleName arg;
             return (vn::vp)
@@ -366,7 +366,11 @@ Definition ptree_ValuePath_def:
   ptree_ValuePath (Nd (nterm, locs) args) =
     if nterm = INL nValuePath then
       case args of
-        [arg] => fmap (λx. [x]) $ ptree_ValueName arg
+        [arg] =>
+          do
+            x <- ptree_ValueName arg;
+            return [x]
+          od
       | [path; dot; arg] =>
           do
             expect_tok dot DotT;
@@ -384,7 +388,11 @@ Definition ptree_Constr_def:
   ptree_Constr (Nd (nterm, locs) args) =
     if nterm = INL nConstr then
       case args of
-        [arg] => fmap (λx. [x]) $ ptree_ConstrName arg
+        [arg] =>
+          do
+            x <- ptree_ConstrName arg;
+            return [x]
+          od
       | [path; dot; arg] =>
           do
             expect_tok dot DotT;
@@ -403,7 +411,11 @@ Definition ptree_TypeConstr_def:
   ptree_TypeConstr (Nd (nterm, locs) args) =
     if nterm = INL nTypeConstr then
       case args of
-        [arg] => fmap (λx. [x]) $ ptree_TypeConstrName arg
+        [arg] =>
+          do
+            x <- ptree_TypeConstrName arg;
+            return [x]
+          od
       | [path; dot; arg] =>
           do
             expect_tok dot DotT;
@@ -522,7 +534,11 @@ Definition ptree_Type_def:
             ts <- ptree_TypeList tlist;
             return (t::ts)
           od
-      | [typ] => fmap (λt. [t]) $ ptree_Type typ
+      | [typ] =>
+          do
+            t <- ptree_Type typ;
+            return [t]
+          od
       | _ => fail locs «Impossible: nTypeLists»
     else
       fail locs «Expected a type list non-terminal») ∧
@@ -624,13 +640,19 @@ Definition ptree_Pattern_def:
           do
             n <- nterm_of arg;
             if n = INL nValueName then
-              fmap (λn. [Pvar n]) (ptree_ValueName arg)
+              do
+                n <- ptree_ValueName arg;
+                return [Pvar n]
+              od
             else if n = INL nPAny then
               ptree_Pattern nPAny arg
             else if n = INL nPList then
               ptree_Pattern nPList arg
             else if n = INL nLiteral then
-              fmap (λlit. [Plit lit]) (ptree_Literal arg)
+              do
+                lit <- ptree_Literal arg;
+                return [Plit lit]
+              od
             else
               fail locs «Impossible: nPBase»
          od
@@ -801,7 +823,11 @@ Definition ptree_Patterns_def:
   ptree_Patterns (Nd (nterm, locs) args) =
     if nterm = INL nPatterns then
       case args of
-        [pat] => fmap (λp. [p]) $ ptree_Pattern nPattern pat
+        [pat] =>
+          do
+            p <- ptree_Pattern nPattern pat;
+            return [p]
+          od
       | [pat; rest] =>
           do
             p <- ptree_Pattern nPattern pat;
@@ -1034,7 +1060,10 @@ Definition ptree_Expr_def:
             n <- nterm_of arg;
             if n = INL nLiteral then
               ptree_Bool arg ++
-              fmap Lit (ptree_Literal arg)
+              do
+                l <- ptree_Literal arg;
+                return (Lit l)
+              od
             else if n = INL nValuePath then
               do
                 cns <- ptree_ValuePath arg;
@@ -1443,7 +1472,10 @@ Definition ptree_Expr_def:
     if nterm = INL nLetRecBindings then
       case args of
         [rec] =>
-          fmap (λr. [r]) $ ptree_LetRecBinding rec
+          do
+            r <- ptree_LetRecBinding rec;
+            return [r]
+          od
       | [rec; andt; recs] =>
           do
             expect_tok andt AndT;
@@ -1498,7 +1530,10 @@ Definition ptree_Expr_def:
     if nterm = INL nLetBindings then
       case args of
         [letb] =>
-          fmap (λl. [l]) $ ptree_LetBinding letb
+          do
+            l <- ptree_LetBinding letb;
+            return [l]
+          od
       | [letb; andt; lets] =>
           do
             expect_tok andt AndT;
@@ -1638,7 +1673,10 @@ Definition ptree_ConstrDecl_def:
     if nterm = INL nConstrDecl then
       case args of
         [name] =>
-          fmap (λnm. (nm,[])) $ ptree_ConstrName name
+          do
+            nm <- ptree_ConstrName name;
+            return (nm,[])
+          od
       | [name; oft; args] =>
           do
             expect_tok oft OfT;
@@ -1743,9 +1781,15 @@ Definition ptree_TypeInfo_def:
             expect_tok eq EqualT;
             n <- nterm_of arg;
             if n = INL nType then
-              fmap INL (ptree_Type arg)
+              do
+                t <- ptree_Type arg;
+                return (INL t)
+              od
             else if n = INL nTypeRepr then
-              fmap INR (ptree_TypeRepr arg)
+              do
+                tr <- ptree_TypeRepr arg;
+                return (INR tr)
+              od
             else
               fail locs «Impossible: nTypeInfo»
           od
@@ -1797,7 +1841,10 @@ Definition ptree_TypeParams_def:
     if nterm = INL nTypeParams then
       case args of
         [tv] =>
-          fmap (λt. [t]) $ ptree_TypeName tv
+          do
+            t <- ptree_TypeName tv;
+            return [t]
+          od
       | lpar :: tv :: rest =>
           do
             expect_tok lpar LparT;
@@ -1841,7 +1888,10 @@ Definition ptree_TypeDefs_def:
     if nterm = INL nTypeDefs then
       case args of
         [td] =>
-          fmap (λt. [t]) $ ptree_TypeDef td
+          do
+            t <- ptree_TypeDef td;
+            return [t]
+          od
       | [td; andt; tds] =>
           do
             expect_tok andt AndT;
@@ -1935,8 +1985,10 @@ End
 
 Definition ptree_ExprDec_def:
   ptree_ExprDec locs pt =
-    fmap (λx. [Dlet locs (Pvar "it") x])
-         (ptree_Expr nExpr pt)
+    do
+      x <- ptree_Expr nExpr pt;
+      return [Dlet locs (Pvar "it") x]
+    od
 End
 
 Definition ptree_Definition_def:
@@ -1969,7 +2021,10 @@ Definition ptree_Definition_def:
     else if nterm = INL nTypeDefinition then
       ptree_TypeDefinition (Nd (nterm, locs) args)
     else if nterm = INL nExcDefinition then
-      fmap (λd. [d]) $ ptree_ExcDefinition (Nd (nterm, locs) args)
+      do
+        d <- ptree_ExcDefinition (Nd (nterm, locs) args);
+        return [d]
+      od
     else if nterm = INL nOpen then
       fail locs «open-declarations are not supported (yet)»
     else if nterm = INL nModuleDef then
@@ -1994,7 +2049,11 @@ Definition ptree_Definition_def:
   (ptree_ModExpr (Nd (nterm, locs) args) =
     if nterm = INL nModExpr then
       case args of
-        [path] => fmap INL $ ptree_ModulePath path
+        [path] =>
+          do
+            p <- ptree_ModulePath path;
+            return (INL p)
+          od
       | [struct; its; endt] =>
           do
             expect_tok struct StructT;
