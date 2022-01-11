@@ -49,7 +49,7 @@ End
 
 (* TODO Move to camlPtreeConversionScript.sml *)
 Definition run_ptree_conv_def:
-  run_ptree_conv ptree = run (ptree_Start ptree) ()
+  run_ptree_conv ptree st = run (ptree_Start ptree) st
 End
 
 Definition run_parser_def:
@@ -58,7 +58,7 @@ Definition run_parser_def:
       pt <- peg $ destResult $ camlpegexec nStart toks;
       case pt of
         [ptree] =>
-          (case run_ptree_conv ptree of
+          (case run_ptree_conv ptree () of
             Success x => INR x
           | Failure (Fail loc err) =>
               INL (loc, concat [«Ptree conversion: »; err]))
