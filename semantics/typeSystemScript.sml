@@ -2,7 +2,7 @@
   Specification of CakeML's type system.
 *)
 open HolKernel Parse boolLib bossLib;
-open libTheory astTheory namespaceTheory semanticPrimitivesTheory;
+open (* libTheory *) astTheory namespaceTheory semanticPrimitivesTheory;
 
 val _ = numLib.prefer_num();
 
@@ -121,22 +121,19 @@ val _ = Define `
 (* Check that the free type variables are in the given list. Every deBruijn
  * variable must be smaller than the first argument. So if it is 0, no deBruijn
  * indices are permitted. *)
-(*val check_freevars : nat -> list tvarN -> t -> bool*)
- val check_freevars_defn = Defn.Hol_multi_defns `
-
+Definition check_freevars_def:
 ((check_freevars:num ->(string)list -> t -> bool) dbmax tvs (Tvar tv)=
    (MEM tv tvs))
 /\
 ((check_freevars:num ->(string)list -> t -> bool) dbmax tvs (Tapp ts tn)=
    (EVERY (check_freevars dbmax tvs) ts))
 /\
-((check_freevars:num ->(string)list -> t -> bool) dbmax tvs (Tvar_db n)=  (n < dbmax))`;
+((check_freevars:num ->(string)list -> t -> bool) dbmax tvs (Tvar_db n)=  (n < dbmax))
+Termination
+  WF_REL_TAC `measure (t_size o SND o SND)`
+End
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) check_freevars_defn;
-
-(*val check_freevars_ast : list tvarN -> ast_t -> bool*)
- val check_freevars_ast_defn = Defn.Hol_multi_defns `
-
+Definition check_freevars_ast_def:
 ((check_freevars_ast:(string)list -> ast_t -> bool) tvs (Atvar tv)=
    (MEM tv tvs))
 /\
@@ -147,15 +144,13 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
    (check_freevars_ast tvs t1 /\ check_freevars_ast tvs t2))
 /\
 ((check_freevars_ast:(string)list -> ast_t -> bool) tvs (Atapp ts tn)=
-   (EVERY (check_freevars_ast tvs) ts))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) check_freevars_ast_defn;
-
+   (EVERY (check_freevars_ast tvs) ts))
+Termination
+  WF_REL_TAC `measure (ast_t_size o SND)`
+End
 
 (* Simultaneous substitution of types for type variables in a type *)
-(*val type_subst : Map.map tvarN t -> t -> t*)
- val type_subst_defn = Defn.Hol_multi_defns `
-
+Definition type_subst_def:
 ((type_subst:((string),(t))fmap -> t -> t) s (Tvar tv)=
    ((case FLOOKUP s tv of
       NONE => Tvar tv
@@ -165,15 +160,14 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 ((type_subst:((string),(t))fmap -> t -> t) s (Tapp ts tn)=
    (Tapp (MAP (type_subst s) ts) tn))
 /\
-((type_subst:((string),(t))fmap -> t -> t) s (Tvar_db n)=  (Tvar_db n))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) type_subst_defn;
+((type_subst:((string),(t))fmap -> t -> t) s (Tvar_db n)=  (Tvar_db n))
+Termination
+  WF_REL_TAC `measure (λ(x,y). t_size y)`
+End
 
 (* Increment the deBruijn indices in a type by n levels, skipping all levels
  * less than skip. *)
-(*val deBruijn_inc : nat -> nat -> t -> t*)
- val deBruijn_inc_defn = Defn.Hol_multi_defns `
-
+Definition deBruijn_inc_def:
 ((deBruijn_inc:num -> num -> t -> t) skip n (Tvar tv)=  (Tvar tv))
 /\
 ((deBruijn_inc:num -> num -> t -> t) skip n (Tvar_db m)=
@@ -182,14 +176,13 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   else
     Tvar_db (m + n)))
 /\
-((deBruijn_inc:num -> num -> t -> t) skip n (Tapp ts tn)=  (Tapp (MAP (deBruijn_inc skip n) ts) tn))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) deBruijn_inc_defn;
+((deBruijn_inc:num -> num -> t -> t) skip n (Tapp ts tn)=  (Tapp (MAP (deBruijn_inc skip n) ts) tn))
+Termination
+  WF_REL_TAC `measure (t_size o SND o SND)`
+End
 
 (* skip the lowest given indices and replace the next (LENGTH ts) with the given types and reduce all the higher ones *)
-(*val deBruijn_subst : nat -> list t -> t -> t*)
- val deBruijn_subst_defn = Defn.Hol_multi_defns `
-
+Definition deBruijn_subst_def:
 ((deBruijn_subst:num ->(t)list -> t -> t) skip ts (Tvar tv)=  (Tvar tv))
 /\
 ((deBruijn_subst:num ->(t)list -> t -> t) skip ts (Tvar_db n)=
@@ -201,9 +194,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
     Tvar_db n))
 /\
 ((deBruijn_subst:num ->(t)list -> t -> t) skip ts (Tapp ts' tn)=
-   (Tapp (MAP (deBruijn_subst skip ts) ts') tn))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) deBruijn_subst_defn;
+   (Tapp (MAP (deBruijn_subst skip ts) ts') tn))
+Termination
+  WF_REL_TAC `measure (λ(_,x,y). t_size y)`
+End
 
 (* Type environments *)
 Datatype:
@@ -386,9 +380,7 @@ val _ = Define `
   )))`;
 
 
-(*val check_type_names : tenv_abbrev -> ast_t -> bool*)
- val check_type_names_defn = Defn.Hol_multi_defns `
-
+Definition check_type_names_def:
 ((check_type_names:((string),(string),((string)list#t))namespace -> ast_t -> bool) tenvT (Atvar tv)=
    T)
 /\
@@ -403,14 +395,13 @@ val _ = Define `
     SOME (tvs, _) => LENGTH tvs = LENGTH ts
   | NONE => F
   ) /\
-  EVERY (check_type_names tenvT) ts))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) check_type_names_defn;
+  EVERY (check_type_names tenvT) ts))
+Termination
+  WF_REL_TAC `measure (λ(x,y). ast_t_size y)`
+End
 
 (* Substitution of type names for the type they abbreviate *)
-(*val type_name_subst : tenv_abbrev -> ast_t -> t*)
- val type_name_subst_defn = Defn.Hol_multi_defns `
-
+Definition type_name_subst_def:
 ((type_name_subst:((string),(string),((string)list#t))namespace -> ast_t -> t) tenvT (Atvar tv)=  (Tvar tv))
 /\
 ((type_name_subst:((string),(string),((string)list#t))namespace -> ast_t -> t) tenvT (Attup ts)=
@@ -424,9 +415,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   (case nsLookup tenvT tc of
     SOME (tvs, t) => type_subst (alist_to_fmap (ZIP (tvs, args))) t
   | NONE => Ttup args (* can't happen, for a type that passes the check *)
-  )))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) type_name_subst_defn;
+  )))
+Termination
+  WF_REL_TAC `measure (λ(x,y). ast_t_size y)`
+End
 
 (* Check that a type definition defines no already defined types or duplicate
  * constructors, and that the free type variables of each constructor argument
@@ -461,9 +453,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 
 (* For the value restriction on let-based polymorphism *)
-(*val is_value : exp -> bool*)
- val is_value_defn = Defn.Hol_multi_defns `
-
+Definition is_value_def:
 ((is_value:exp -> bool) (Lit _)=  T)
 /\
 ((is_value:exp -> bool) (Con _ es)=  (EVERY is_value es))
@@ -476,9 +466,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 /\
 ((is_value:exp -> bool) (Lannot e _)=  (is_value e))
 /\
-((is_value:exp -> bool) _=  F)`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) is_value_defn;
+((is_value:exp -> bool) _=  F)
+Termination
+  WF_REL_TAC `measure (exp_size)`
+End
 
 Inductive type_p:
 (! tvs tenv t.

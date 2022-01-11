@@ -337,7 +337,7 @@ val print_sexp_alt_def = tDefine"print_sexp_alt"`
    \\ imp_res_tac simpleSexpParseTheory.strip_dot_MEM_sizelt
    \\ imp_res_tac simpleSexpParseTheory.strip_dot_last_sizeleq
    \\ fsrw_tac[boolSimps.DNF_ss][] \\ simp[]
-   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rw[] \\ fs[]
+   \\ fs[LENGTH_EQ_NUM_compute] \\ rw[] \\ fs[]
    \\ res_tac \\ simp[]);
 
 Theorem print_sexp_alt_thm:
@@ -360,7 +360,7 @@ Proof
         by(first_x_assum (match_mp_tac o MP_CANON) >>
            rw[] >>
            imp_res_tac simpleSexpParseTheory.strip_dot_last_sizelt >>
-           fs[sexp_size_def] >> fs[quantHeuristicsTheory.LIST_LENGTH_2] >>
+           fs[sexp_size_def] >> fs[LENGTH_EQ_NUM_compute] >>
            fs[Once strip_dot_def,ELIM_UNCURRY] >> rveq >> fs[])) >>
   fs[STRCAT_11] >>
   qmatch_goalsub_abbrev_tac `_ a1 = _ a2` >>
@@ -381,7 +381,7 @@ val print_sexp_alt_side = Q.prove(
   `!x. print_sexp_alt_side x = T`,
   ho_match_mp_tac print_sexp_ind >> rw[] >>
   rw[Once(fetch "-" "print_sexp_alt_side_def")] >>
-  fs[quantHeuristicsTheory.LIST_LENGTH_2]) |> update_precondition;
+  fs[LENGTH_EQ_NUM_compute]) |> update_precondition;
 
 val _ = translate print_sexp_alt_thm;
 

@@ -2313,8 +2313,8 @@ Theorem pmatch_nsAppend:
     (pmatch_list ns st pats vs env = Match m
    ⇒ pmatch_list (nsAppend ns ns') st pats vs env = Match m))
 Proof
-  ho_match_mp_tac terminationTheory.pmatch_ind >>
-  rw[terminationTheory.pmatch_def]
+  ho_match_mp_tac pmatch_ind >>
+  rw[pmatch_def]
   >- (
     pop_assum mp_tac >> TOP_CASE_TAC >>
     `nsLookup (nsAppend ns ns') n = SOME x` by

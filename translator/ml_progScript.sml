@@ -4,10 +4,9 @@
 *)
 
 open preamble
-open astTheory libTheory semanticPrimitivesTheory
+open astTheory libTheory semanticPrimitivesTheory evaluateTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory;
 open mlstringTheory integerTheory;
-open terminationTheory;
 open namespaceTheory;
 open alist_treeTheory;
 

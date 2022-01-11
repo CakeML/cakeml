@@ -2917,7 +2917,7 @@ Proof
     fs [] >>
     rw [] >>
     MAP_EVERY qexists_tac
-              [‘cnds’, ‘clks’, ‘dest’, ‘diffs'’] >>
+              [‘cnds’, ‘clks’, ‘dest’, ‘diffs’] >>
     fs [] >>
     match_mp_tac pickTerm_input_cons_correct >>
     qexists_tac ‘s'’ >>
@@ -2964,7 +2964,7 @@ Proof
     fs [] >>
     rw [] >>
     MAP_EVERY qexists_tac
-              [‘out_signal’, ‘cnds’, ‘clks’, ‘dest’, ‘diffs'’] >>
+              [‘out_signal’, ‘cnds’, ‘clks’, ‘dest’, ‘diffs’] >>
     fs [] >>
     match_mp_tac pickTerm_output_cons_correct >>
     qexists_tac ‘s'’ >>

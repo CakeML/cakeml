@@ -3030,7 +3030,7 @@ Proof
     \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
     \\ imp_res_tac compile_exps_LENGTH \\ fs [MAP2_APPEND]
     \\ qunabbrev_tac `progs` \\ fs [markerTheory.Abbrev_def]
-    \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ fs [LENGTH_EQ_NUM_compute]
     \\ rveq \\ fs []
     \\ fs [chain_exps_def]
     \\ rveq \\ fs []

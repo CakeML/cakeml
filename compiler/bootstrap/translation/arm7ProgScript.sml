@@ -2,7 +2,7 @@
   Translate the ARMv7 instruction encoder and ARMv7-specific config.
 *)
 open preamble;
-open terminationTheory
+open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
 open to_target32ProgTheory
 open arm7_targetTheory armTheory;

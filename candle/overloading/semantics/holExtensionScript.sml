@@ -196,6 +196,12 @@ Definition subst_clos_term_rel_def:
    else F
 End
 
+Triviality LIST_LENGTH_2:
+  LENGTH l = 2 ⇔ ∃e1 e2. l = [e1; e2]
+Proof
+  Cases_on ‘l’ \\ fs [] \\ Cases_on ‘t’ \\ fs []
+QED
+
 Theorem allTypes'_subst_clos_dependency:
   !ty ty0 ctxt.
   ctxt extends init_ctxt /\
@@ -212,7 +218,7 @@ Proof
   Cases_on `ty0 = a`
   >- (rveq >>
       match_mp_tac TC_SUBSET >>
-      fs[quantHeuristicsTheory.LIST_LENGTH_2] >>
+      fs[LIST_LENGTH_2] >>
       rveq >> fs[subst_clos_def] >-
         (qexists_tac `Fun (Tyvar(strlit "a")) (Tyvar(strlit "aa"))` >>
          qexists_tac `Tyvar(strlit "a")` >>
@@ -237,7 +243,7 @@ Proof
   conj_tac >-
     (rveq >>
       match_mp_tac TC_SUBSET >>
-      fs[quantHeuristicsTheory.LIST_LENGTH_2] >>
+      fs[LIST_LENGTH_2] >>
       rveq >> fs[subst_clos_def] >-
         (qexists_tac `Fun (Tyvar(strlit "a")) (Tyvar(strlit "aa"))` >>
          qexists_tac `Tyvar(strlit "a")` >>
@@ -379,7 +385,7 @@ Theorem TYPE_SUBST_allTypes'_ground_types:
   set (MAP (TYPE_SUBST sigma) (allTypes' ty)) ⊆ ground_types sig
 Proof
   ho_match_mp_tac allTypes'_defn_ind >> rw[allTypes'_defn] >>
-  fs[quantHeuristicsTheory.LIST_LENGTH_2] >> rveq >>
+  fs[LIST_LENGTH_2] >> rveq >>
   conj_tac >> first_x_assum(match_mp_tac o MP_CANON) >>
   rw[] >>
   fs[ground_types_def,tyvars_def,type_ok_def,LIST_UNION_EQ_NIL]
@@ -644,7 +650,7 @@ Theorem allTypes'_TYPE_SUBST_no_tyvars:
 Proof
   ho_match_mp_tac allTypes'_defn_ind >>
   rw[allTypes'_defn] >>
-  fs[quantHeuristicsTheory.LIST_LENGTH_2,MEM_FLAT,MEM_MAP] >>
+  fs[LIST_LENGTH_2,MEM_FLAT,MEM_MAP] >>
   rveq >>
   fs[FORALL_AND_THM,DISJ_IMP_THM,tyvars_def,LIST_UNION_EQ_NIL] >>
   rveq >> res_tac
@@ -659,7 +665,7 @@ Theorem allTypes'_TYPE_SUBST_no_tyvars':
 Proof
   ho_match_mp_tac allTypes'_defn_ind >>
   rw[allTypes'_defn] >>
-  fs[quantHeuristicsTheory.LIST_LENGTH_2,MEM_FLAT,MEM_MAP] >>
+  fs[LIST_LENGTH_2,MEM_FLAT,MEM_MAP] >>
   rveq >>
   fs[FORALL_AND_THM,DISJ_IMP_THM,tyvars_def,LIST_UNION_EQ_NIL] >>
   rveq >> res_tac >>
@@ -699,7 +705,7 @@ Theorem TYPE_SUBST_allTypes'_ground_types':
   set (allTypes'(TYPE_SUBST sigma ty)) ⊆ ground_types sig
 Proof
   ho_match_mp_tac allTypes'_defn_ind >> rw[allTypes'_defn] >>
-  fs[quantHeuristicsTheory.LIST_LENGTH_2] >> rveq >>
+  fs[LIST_LENGTH_2] >> rveq >>
   fs[FORALL_AND_THM,DISJ_IMP_THM] >>
   fs[ground_types_def,tyvars_def,type_ok_def,LIST_UNION_EQ_NIL,SUBSET_DEF] >>
   rw[]
@@ -726,7 +732,7 @@ Theorem allTypes'_builtin_closure_IMP:
 Proof
  ho_match_mp_tac allTypes'_defn_ind >>
  rw[allTypes'_defn] >>
- fs[MEM_FLAT,MEM_MAP,quantHeuristicsTheory.LIST_LENGTH_2] >>
+ fs[MEM_FLAT,MEM_MAP,LIST_LENGTH_2] >>
  rveq >> fs[DISJ_IMP_THM,FORALL_AND_THM] >>
  rveq >> res_tac >>
  fs[IN_DEF]

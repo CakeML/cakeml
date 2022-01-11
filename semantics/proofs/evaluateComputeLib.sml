@@ -9,8 +9,7 @@ open semanticPrimitivesTheory evaluateTheory
     [computeLib.Extenders [semanticsComputeLib.add_ast_compset,semanticsComputeLib.add_namespace_compset]
     ,computeLib.Tys [``:'ffi semanticPrimitives$state``]
     ,computeLib.Defs
-      [evaluate_def
-      ,terminationTheory.evaluate_decs_def
+      [full_evaluate_def
       (*
       ,evaluate_tops_def
       ,evaluate_prog_def

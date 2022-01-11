@@ -3,7 +3,7 @@
   succeeds.
 *)
 open preamble astTheory namespaceTheory typeSystemTheory;
-open terminationTheory namespacePropsTheory;
+open namespacePropsTheory;
 open typeSysPropsTheory typeSoundInvariantsTheory inferPropsTheory
 
 val _ = new_theory "type_dCanon"

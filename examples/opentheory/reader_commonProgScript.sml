@@ -5,7 +5,8 @@
 *)
 open preamble basis ml_monadBaseTheory ml_monad_translator_interfaceLib
      cfMonadTheory cfMonadLib holKernelTheory holKernelProofTheory
-     ml_hol_kernelProgTheory readerTheory readerProofTheory reader_initTheory
+     ml_hol_kernel_funsProgTheory ml_hol_kernelProgTheory
+     readerTheory readerProofTheory reader_initTheory
      prettyTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
@@ -94,6 +95,7 @@ val r = translate stringTheory.isDigit_def;
 (* TODO This could be done in the Kernel module *)
 
 val _ = (use_mem_intro := true);
+val _ = translate rev_assocd_def
 val tymatch_ind = save_thm ("tymatch_ind",
   REWRITE_RULE [GSYM rev_assocd_thm] holSyntaxExtraTheory.tymatch_ind);
 val _ = add_preferred_thy"-";
@@ -134,6 +136,7 @@ val r = translate toAList_def;
 val r = translate obj2str_applist_def;
 val r = translate st2str_applist_def;
 
+val r = m_translate holKernelTheory.map_def;
 val r = m_translate readLine_def;
 
 Theorem readline_side[local]:
