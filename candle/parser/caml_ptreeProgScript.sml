@@ -5,7 +5,7 @@
 
 open preamble camlPEGTheory camlPtreeConversionTheory;
 open camlPtreeConversionTheory caml_lexProgTheory;
-open ml_translatorLib ml_translatorTheory;
+open ml_translatorLib ml_monad_translatorLib ml_translatorTheory;
 
 val _ = new_theory "caml_ptreeProg";
 
@@ -103,7 +103,30 @@ val r = translate (def_of_const “peg_exec”);
  * Ptree conversion
  * ------------------------------------------------------------------------- *)
 
-val r = translate ptree_Op_def;
+val _ = register_type “:caml_ptree_exn”;
+val CAML_PTREE_EXN_TYPE_def = theorem "CAML_PTREE_EXN_TYPE_def";
+
+(* Initialize the monadic translator *)
+
+val raise_functions = [raise_Fail_def];
+val handle_functions = [handle_Fail_def];
+val exn_functions = zip raise_functions handle_functions;
+val state_type = “:unit”;
+val exn_ri_def = CAML_PTREE_EXN_TYPE_def;
+
+val (monad_parameters, store_translation, exn_specs) =
+  start_dynamic_init_fixed_store_translation
+    [] [] []             (* Ref-, resizable array- and fixed-size array names *)
+    "CAML_STORE"         (* hprop name *)
+    “:unit”              (* state type *)
+    exn_ri_def
+    exn_functions
+    []                   (* Additional thys for types *)
+    NONE;                (* store_pinv_def_opt *)
+
+(* Translate ptree conversion into code that can raise exceptions *)
+
+val r = m_translate ptree_Op_def;
 
 Theorem ptree_op_side[local]:
   ∀x. ptree_op_side x
@@ -115,7 +138,7 @@ QED
 
 val _ = update_precondition ptree_op_side;
 
-val r = translate ptree_Literal_def;
+val r = m_translate ptree_Literal_def;
 
 Theorem ptree_literal_side[local]:
   ∀x. ptree_literal_side x
@@ -128,12 +151,12 @@ QED
 
 val _ = update_precondition ptree_literal_side;
 
-val r = translate ptree_Pattern_def;
+val r = m_translate ptree_Pattern_def;
 
 (* This takes a long time.
  *)
 
-val r = translate ptree_Expr_def;
+val r = m_translate ptree_Expr_def;
 
 Theorem ptree_Expr_preconds[local]:
   (∀x y. ptree_expr_side x y) ∧
@@ -168,7 +191,7 @@ QED
 
 val _ = List.app (ignore o update_precondition) (CONJUNCTS ptree_Expr_preconds);
 
-val r = translate ptree_TypeDefinition_def;
+val r = m_translate ptree_TypeDefinition_def;
 
 Theorem ptree_typedefinition_side[local]:
   ∀x. ptree_typedefinition_side x
@@ -189,10 +212,10 @@ Proof
   \\ gvs []
 QED
 
-val _ = update_precondition ptree_typedefinition_side;
+val _ = m_update_precondition ptree_typedefinition_side;
 
-val r = translate ptree_Definition_def;
-val r = translate ptree_Start_def;
+val r = m_translate ptree_Definition_def;
+val r = m_translate ptree_Start_def;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val () = ml_translatorLib.clean_on_exit := true;

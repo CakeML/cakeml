@@ -4,7 +4,7 @@
 
 open preamble camlPEGTheory camlPtreeConversionTheory;
 open caml_parserTheory caml_ptreeProgTheory;
-open ml_translatorLib ml_translatorTheory;
+open ml_translatorLib ml_monad_translatorLib ml_translatorTheory;
 open sexp_parserProgTheory;
 
 val _ = new_theory "caml_parserProg";
@@ -95,6 +95,9 @@ val _ = update_precondition safe_substring_side;
 
 val r = translate get_nth_line_def;
 val r = translate locs_to_string_def;
+
+val r = m_translate_run run_ptree_conv_def;
+
 val r = translate run_parser_def;
 
 (* TODO move these to the PEG script *)
@@ -321,12 +324,12 @@ QED
 
 val _ = update_precondition run_parser_side;
 
-val r = translate run_def;
+val r = translate run_main_def;
 
-Theorem run_side[local]:
-  ∀x. run_side x
+Theorem run_main_side[local]:
+  ∀x. run_main_side x
 Proof
-  rw [fetch "-" "run_side_def", run_lexer_def]
+  rw [fetch "-" "run_main_side_def", run_lexer_def]
 QED
 
 val _ = update_precondition run_side;
