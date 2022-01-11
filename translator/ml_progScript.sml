@@ -736,7 +736,7 @@ QED
 (* appending a Let *)
 
 Theorem ML_code_Dlet_var:
-   !cenv e s3 x n locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
+  ∀cenv e s3 x n locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
     eval_rel s2 cenv e s3 x ==>
     cenv = ML_code_env env0 ((comm, s1, prog, env1) :: bls) ==>
     let env2 = write n x env1 in let s3_abbrev = s3 in
@@ -749,7 +749,7 @@ Proof
 QED
 
 Theorem ML_code_Dlet_Fun:
-   !n v e locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
+  ∀n v e locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
     let code_env = ML_code_env env0 ((comm, s1, prog, env1) :: bls) in
     let v_abbrev = Closure code_env v e in
     let env2 = write n v_abbrev env1 in
@@ -758,6 +758,38 @@ Theorem ML_code_Dlet_Fun:
 Proof
   rw [] \\ imp_res_tac ML_code_Dlet_var
   \\ fs [evaluate_def,state_component_equality,eval_rel_def]
+QED
+
+Theorem ML_code_Dlet_Var_Var:
+  ∀n vname locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
+    let cenv = ML_code_env env0 ((comm, s1, prog, env1) :: bls) in
+    ∀x. nsLookup cenv.v vname = SOME x ==>
+    let env2 = write n x env1 in
+    ML_code env0 ((comm, s1, SNOC (Dlet locs (Pvar n) (Var vname)) prog, env2)
+        :: bls) s2
+Proof
+  rw []
+  \\ irule (SIMP_RULE std_ss [LET_THM] ML_code_Dlet_var)
+  \\ first_x_assum $ irule_at $ Pos hd
+  \\ fs [eval_rel_def,evaluate_def,state_component_equality]
+QED
+
+Theorem ML_code_Dlet_Var_Ref_Var:
+  ∀n vname locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
+    let cenv = ML_code_env env0 ((comm, s1, prog, env1) :: bls) in
+    ∀x. nsLookup cenv.v vname = SOME x ==>
+    let len = LENGTH s2.refs in
+    let loc = Loc len in
+    let env2 = write n loc env1 in
+    let s2_abbrev = s2 with refs := s2.refs ++ [Refv x] in
+    ML_code env0 ((comm, s1, SNOC (Dlet locs (Pvar n) (App Opref [Var vname])) prog, env2)
+        :: bls) s2_abbrev
+Proof
+  rw []
+  \\ irule (SIMP_RULE std_ss [LET_THM] ML_code_Dlet_var)
+  \\ first_x_assum $ irule_at $ Pos hd
+  \\ fs [eval_rel_def,evaluate_def,state_component_equality,AllCaseEqs(),
+         do_app_def,store_alloc_def]
 QED
 
 (* appending an environment *)

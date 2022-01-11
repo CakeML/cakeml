@@ -49,6 +49,10 @@ sig
                      string (* v const name *) ->
                      ml_prog_state -> ml_prog_state
 
+  val add_Dlet_Var_Ref_Var : term -> term -> term -> string -> ml_prog_state -> ml_prog_state
+
+  val add_Dlet_Var_Var : term -> term -> term -> ml_prog_state -> ml_prog_state
+
   val add_Dletrec  : term (* loc *) -> term (* funs *) ->
                      string list (* names of v consts *) ->
                      ml_prog_state -> ml_prog_state

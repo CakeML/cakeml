@@ -260,6 +260,28 @@ fun let_v_abbrev nm conv op_nm (th, ML_code (ss, envs, vs, ml_th)) = let
     val (th, abbrev_defs) = cond_let_abbrev false false nm conv op_nm th
   in (th, ML_code (ss, envs, abbrev_defs @ vs, ml_th)) end
 
+(*
+val tm = ``!n. n = 5 ==> n < 8``
+*)
+fun unwind_forall_conv tm =
+  let
+    val (v,_) = dest_forall tm
+  in
+    (QUANT_CONV (RAND_CONV (UNBETA_CONV v))
+     THENC (REWR_CONV UNWIND_FORALL_THM1 ORELSEC
+            REWR_CONV UNWIND_FORALL_THM2)
+     THENC BETA_CONV) tm
+  end
+
+fun forall_nsLookup_upd nm (th,x) =
+  (CONV_RULE
+    (QUANT_CONV
+      ((RATOR_CONV o RAND_CONV o RATOR_CONV o RAND_CONV) nsLookup_conv
+       THENC (RATOR_CONV o RAND_CONV) (REWR_CONV SOME_11))
+     THENC unwind_forall_conv) th,
+   x) handle HOL_ERR _ =>
+  failwith "forall_nsLookup_upd: nsLookup failed to produce SOME"
+
 fun solve_ml_imp f nm (th, ML_code code) = let
     val msg = "solve_ml_imp: " ^ nm ^ ": not imp"
     val _ = is_imp (concl th) orelse (print (msg ^ "\n\n");
@@ -397,6 +419,21 @@ fun add_Dlet_Fun loc n v exp v_name = ML_code_upd "add_Dlet_Fun"
     [let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
         let_v_abbrev v_name ALL_CONV, let_env_abbrev ALL_CONV]
 
+fun add_Dlet_Var_Var loc n var_name = ML_code_upd "add_Dlet_Var_Var"
+    (SPECL [n, var_name, loc] ML_code_Dlet_Var_Var)
+    [let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
+     forall_nsLookup_upd,
+     let_env_abbrev ALL_CONV]
+
+fun add_Dlet_Var_Ref_Var loc n var_name v_name = ML_code_upd "add_Dlet_Var_Ref_Var"
+    (SPECL [n, var_name, loc] ML_code_Dlet_Var_Ref_Var)
+    [let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
+     forall_nsLookup_upd,
+     let_conv_ML_upd EVAL,
+     let_v_abbrev v_name ALL_CONV,
+     let_env_abbrev ALL_CONV,
+     let_st_abbrev reduce_conv]
+
 val Recclosure_pat =
   semanticPrimitivesTheory.v_nchotomy
   |> concl |> find_term (fn tm => total (fst o dest_const o fst o strip_comb
@@ -442,7 +479,6 @@ fun close_local_blocks code = case get_block_names code of
 (*
 val dec_tm = dec1_tm
 *)
-
 fun add_dec dec_tm pick_name s =
   if is_Dexn dec_tm then let
     val (loc,x1,x2) = dest_Dexn dec_tm
@@ -469,6 +505,26 @@ fun add_dec dec_tm pick_name s =
     val prefix = get_mod_prefix s
     val v_name = prefix ^ pick_name (stringSyntax.fromHOLstring v_tm) ^ "_v"
     in add_Dlet_Fun loc v_tm w body v_name s end
+  else if is_Dlet dec_tm
+          andalso is_Var (rand dec_tm)
+          andalso is_Pvar (rand (rator dec_tm)) then let
+    val (loc,p,f) = dest_Dlet dec_tm
+    val v_tm = dest_Pvar p
+    val var_name = dest_Var f
+    in add_Dlet_Var_Var loc v_tm var_name s end
+  else if is_Dlet dec_tm
+          andalso is_App (rand dec_tm)
+          andalso aconv Opref (rand (rator (rand dec_tm)))
+          andalso length (fst (listSyntax.dest_list (rand (rand dec_tm)))) = 1
+          andalso is_Var (rand (rator (rand (rand dec_tm))))
+          andalso is_Pvar (rand (rator dec_tm)) then let
+    val (loc,p,f) = dest_Dlet dec_tm
+    val v_tm = dest_Pvar p
+    val (_,args) = dest_App f
+    val var_name = dest_Var (listSyntax.dest_list args |> fst |> hd)
+    val prefix = get_mod_prefix s
+    val v_name = prefix ^ pick_name (stringSyntax.fromHOLstring v_tm) ^ "_v"
+    in add_Dlet_Var_Ref_Var loc v_tm var_name v_name s end
   else if is_Dmod dec_tm then let
     val (name,(*spec,*)decs) = dest_Dmod dec_tm
     val ds = fst (listSyntax.dest_list decs)
