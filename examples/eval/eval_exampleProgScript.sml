@@ -65,6 +65,111 @@ val () = ml_prog_update (
     (Q.SPEC `StrLit "initial string\n"` ref_eval_thm)
     "the_string_ref")
 
+open evaluatePropsTheory evaluateTheory ml_progTheory
+     semanticPrimitivesTheory
+
+Theorem evaluate_eval_state_NONE:
+  (∀s:'ffi state env exps s' res.
+     evaluate s env exps = (s', res) ⇒
+     (s.eval_state = NONE ⇔ s'.eval_state = NONE)) ∧
+  (∀s:'ffi state env x pes err_x s' res.
+     evaluate_match s env x pes err_x = (s', res) ⇒
+     (s.eval_state = NONE ⇔ s'.eval_state = NONE)) ∧
+  (∀s:'ffi state env decs s' res.
+     evaluate_decs s env decs = (s', res) ⇒
+     (s.eval_state = NONE ⇔ s'.eval_state = NONE))
+Proof
+  ho_match_mp_tac full_evaluate_ind
+  \\ rw[evaluate_def, evaluate_decs_def,
+        CaseEqs["prod","result","option","match_result",
+                "error_result","bool","exp_or_val"]]
+  \\ gs[dec_clock_def]
+  \\ gvs[do_eval_res_def,CaseEqs["option","prod"]]
+  \\ gvs[declare_env_def,CaseEqs["option"]]
+  \\ gvs[do_eval_def,CaseEqs[
+           "prod","option","eval_state","list","v"]]
+  \\ gvs[reset_env_generation_def,
+         CaseEqs["prod","option","eval_state"]]
+QED
+
+Theorem Decls_eval_state_NONE:
+  Decls env st decls res_env res_st ==>
+  (res_st.eval_state = NONE <=> st.eval_state = NONE)
+Proof
+  rw[Decls_def]
+  \\ drule (CONJUNCT2 (CONJUNCT2 evaluate_eval_state_NONE))
+  \\ simp[]
+QED
+
+Theorem Decls_add_eval_state:
+  Decls env st decls res_env res_st ∧
+  st.eval_state = NONE
+  ⇒
+  Decls env (st with eval_state := es) decls res_env
+    (res_st with eval_state := es)
+Proof
+  rw[Decls_def]
+  \\ drule(CONJUNCT2(CONJUNCT2 eval_no_eval_simulation))
+  \\ simp[]
+  \\ disch_then(qspec_then`es`mp_tac) \\ rw[]
+  \\ metis_tac[]
+QED
+
+Theorem ML_code_eval_state_NONE_EVERY:
+  !env bls st.
+    ML_code env bls st /\
+    (bls <> [] ==> (FST(SND(HD bls))).eval_state = NONE)
+    ==> EVERY (\bl. (FST(SND bl)).eval_state = NONE) bls
+Proof
+  ho_match_mp_tac ML_code_ind
+  \\ rw[ML_code_def] \\ fs[]
+  \\ Cases_on`bls` \\ gs[]
+  \\ PairCases_on`h` \\ fs[]
+  \\ fs[ML_code_def]
+  \\ imp_res_tac Decls_eval_state_NONE
+  \\ gvs[]
+QED
+
+Theorem ML_code_env_eq:
+  !env bls1 bls2.
+  LIST_REL (λbl1 bl2. SND(SND(SND bl1)) = SND(SND(SND bl2))) bls1 bls2 ==>
+  ML_code_env env bls1 = ML_code_env env bls2
+Proof
+  ho_match_mp_tac ML_code_env_ind
+  \\ rw[ML_code_env_def]
+  \\ PairCases_on`bl2`
+  \\ rw[ML_code_env_def]
+  \\ AP_TERM_TAC
+  \\ first_x_assum irule
+  \\ simp[]
+QED
+
+Theorem ML_code_add_eval_state:
+  ML_code env0 bls s2 ==>
+  (bls <> [] ==> (FST(SND(HD bls))).eval_state = NONE) ==>
+  ML_code env0
+    (MAP (λ(comm,st,decls,env).
+           (comm,st with eval_state := es,decls,env)) bls)
+    (s2 with eval_state := es)
+Proof
+  ntac 2 strip_tac
+  \\ drule ML_code_eval_state_NONE_EVERY
+  \\ impl_tac >- rw[]
+  \\ pop_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ map_every qid_spec_tac [`s2`,`bls`,`env0`]
+  \\ ho_match_mp_tac ML_code_ind
+  \\ rw[ML_code_def]
+  \\ irule Decls_add_eval_state \\ gvs[]
+  \\ qmatch_goalsub_abbrev_tac`Decls env2`
+  \\ `env2 = ML_code_env env0 bls` suffices_by rw[]
+  \\ simp[Abbr`env2`]
+  \\ irule ML_code_env_eq
+  \\ simp[LIST_REL_MAP1]
+  \\ irule EVERY2_refl
+  \\ simp[FORALL_PROD]
+QED
+
 val ml_prog_state = get_ml_prog_state()
 val s2 = get_state ml_prog_state
 val env = get_env ml_prog_state
