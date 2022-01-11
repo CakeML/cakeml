@@ -4845,4 +4845,40 @@ fun mltDefine name q tac = let
   val _ = print "\n\n"
   in def end;
 
+(*
+val name = "hello"
+val tm = ``1:num``
+*)
+fun declare_new_ref name tm = let
+  val init_val_th = hol2deep tm
+  val ml_thm = get_ml_prog_state ()
+                 |> ml_progLib.clean_state
+                 |> ml_progLib.get_thm
+  val state_tm = ml_thm |> concl |> rand
+  val env_tm = MATCH_MP ML_code_Dlet_var ml_thm
+    |> REWRITE_RULE [ML_code_env_def]
+    |> SPEC_ALL |> concl |> rand |> rator |> rand |> rand
+  val env_var = init_val_th |> concl |> rator |> rator |> rand
+  val init_val_th1 = INST [env_var|->env_tm] init_val_th |> D |> clean_assumptions
+  val _ = MP (D init_val_th1) TRUTH handle HOL_ERR _ =>
+          failwith "translate_new_ref failed: translation of init value has preconditions"
+  val th = MATCH_MP new_ref_thm init_val_th1
+  val th = CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) th
+  val th = MP th TRUTH handle HOL_ERR _ =>
+          failwith "translate_new_ref failed: init value not simple enough to prove no refs changed during evaluation of init value"
+  val lemma = ISPEC state_tm (Q.GEN `s` evaluate_empty_state_IMP)
+  val s_refs_pat =  evaluate_empty_state_IMP |> concl |> rand |> rator |> rand
+      |> rator |> rand |> rand |> rator |> rand
+  val tm = find_term (can (match_term s_refs_pat)) (concl lemma)
+  val rw_lemma = EVAL tm
+  val lemma1 = PURE_REWRITE_RULE [rw_lemma] lemma
+  val th = th |> SPEC (rw_lemma |> concl |> rand)
+  val res = new_specification(name ^ "_def",[name ^ "_init_val",name ^ "_loc"],th)
+  val eval_rel_thm = CONJUNCT1 res
+  val v_def = CONJUNCT2 res
+  val th = MATCH_MP lemma1 eval_rel_thm |> PURE_REWRITE_RULE [APPEND]
+  (* add_Dlet th name (get_ml_prog_state ()) *)
+  val _ = ml_prog_update (add_Dlet th name)
+  in save_thm(name ^ "_def",v_def) end
+
 end
