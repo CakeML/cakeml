@@ -5,12 +5,13 @@
 open preamble caml_lexTheory camlPEGTheory camlPtreeConversionTheory;
 open mlintTheory mlstringTheory;
 open fromSexpTheory simpleSexpParseTheory;
+open sum_monadTheory;
 
 val _ = new_theory "caml_parser";
 
 val _ = set_grammar_ancestry [
   "misc", "caml_lex", "camlPEG", "camlPtreeConversion",
-  "mlstring", "mlint" ];
+  "mlstring", "mlint", "sum_monad" ];
 
 val _ = monadsyntax.temp_enable_monad "sum";
 
@@ -46,17 +47,22 @@ Definition peg_def:
   peg (Success (_: (caml_lex$token # locs) list) x _) = return x
 End
 
+(* TODO Move to camlPtreeConversionScript.sml *)
+Definition run_ptree_conv_def:
+  run_ptree_conv ptree = run (ptree_Start ptree) ()
+End
+
 Definition run_parser_def:
   run_parser toks =
     do
       pt <- peg $ destResult $ camlpegexec nStart toks;
       case pt of
         [ptree] =>
-          (case ptree_Start ptree of
-            INR x => INR x
-          | INL (loc, err) =>
-              fail (loc, concat [«Ptree conversion: »; err]))
-      | _ => fail (unknown_loc, «Impossible: run_parser»)
+          (case run_ptree_conv ptree of
+            Success x => INR x
+          | Failure (Fail loc err) =>
+              INL (loc, concat [«Ptree conversion: »; err]))
+      | _ => INL (unknown_loc, «Impossible: run_parser»)
     od
 End
 
@@ -123,8 +129,8 @@ Definition locs_to_string_def:
     | _ => implode "unknown location")
 End
 
-Definition run_def:
-  run inp =
+Definition run_main_def:
+  run_main inp =
     case run_lexer inp of
       INL locs =>
         INL $ concat [«Lexing failed at: »;
