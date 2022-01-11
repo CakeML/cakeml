@@ -5654,8 +5654,7 @@ Proof
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
-  \\ qpat_x_assum`is =
-   Conv instreambuffered_con_stamp [fdv; rr; wr; buff]` mp_tac
+  \\ qpat_x_assum`is = Conv _ [fdv; rr; wr; buff]` mp_tac
   \\ rveq \\ strip_tac \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
