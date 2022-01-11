@@ -546,6 +546,14 @@ fun unpack_ml_prog_state t =
   ML_code (unpack_4tuple (unpack_list unpack_thm) (unpack_list unpack_thm)
     (unpack_list unpack_thm) unpack_thm t)
 
+fun set_eval_state es (ML_code (ss,envs,vs,th)) = let
+  val th1 = MATCH_MP ML_code_set_eval_state th
+  val th2 = th1 |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
+  val th3 = MP th2 TRUTH handle HOL_ERR _ =>
+            failwith "set_eval_state: unable to prove that eval_state was NONE"
+  val th4 = SPEC es th3
+  in ML_code (ss,envs,vs,th4) end
+
 fun clean_state (ML_code (ss,envs,vs,th)) = let
   fun FIRST_CONJUNCT th = CONJUNCTS th |> hd handle HOL_ERR _ => th
   fun delete_def def = let

@@ -61,6 +61,8 @@ sig
                      (string -> string) (* pick name for v abbrev const *) ->
                      ml_prog_state -> ml_prog_state
 
+  val set_eval_state : term (* new eval_state *) -> ml_prog_state -> ml_prog_state
+
   val nsLookup_conv : conv
   val nsLookup_pf_conv : conv
 

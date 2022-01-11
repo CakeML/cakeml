@@ -209,7 +209,7 @@ Proof
 QED
 
 val write_conses_def = Define `
-  write_conses ([] :(tvarN, type_ident # stamp) alist) env = env /\
+  write_conses [] env = env /\
   write_conses ((n,y)::xs) env =
     write_cons n y (write_conses xs env)`;
 
@@ -548,6 +548,17 @@ Proof
   METIS_TAC [SNOC_APPEND, Decls_APPEND]
 QED
 
+Theorem Decls_set_eval_state:
+  Decls env1 s1 ds env2 s2 ∧ s1.eval_state = NONE ⇒
+  ∀es.
+    Decls env1 (s1 with eval_state := es) ds env2
+               (s2 with eval_state := es)
+Proof
+  rw [Decls_def]
+  \\ drule_then (qspec_then ‘es’ assume_tac) (CONJUNCTS eval_no_eval_simulation |> last)
+  \\ gvs []
+  \\ pop_assum $ irule_at Any
+QED
 
 (* The translator and CF tools use the following definition of ML_code
    to build (and verify) an ML program within the logic. The goal is to
@@ -558,19 +569,22 @@ QED
    local objects can also be built up one statement at a time.
 *)
 
-val ML_code_env_def = Define `(ML_code_env env [] = env)
-    /\ (ML_code_env env ((comm, st, decls, res_env) :: bls)
-        = merge_env res_env (ML_code_env env bls))`;
+Definition ML_code_env_def:
+  (ML_code_env env [] = env) ∧
+  (ML_code_env env ((comm, st, decls, res_env) :: bls)
+        = merge_env res_env (ML_code_env env bls))
+End
 
-val ML_code_def = Define `(ML_code env [] res_st <=> T)
-    /\ (ML_code env
-        (((comment : string # string), st, decls, res_env) :: bls)
-        res_st <=> (ML_code env bls st
-            /\ Decls (ML_code_env env bls) st decls res_env res_st))`;
+Definition ML_code_def:
+  (ML_code env [] res_st <=> T) ∧
+  (ML_code env (((comment : string # string), st, decls, res_env) :: bls) res_st <=>
+     ML_code env bls st ∧
+     Decls (ML_code_env env bls) st decls res_env res_st)
+End
 
 (* retreive the Decls from a toplevel ML_code *)
 Theorem ML_code_Decls:
-   ML_code env1 [(comm, st1, prog, env2)] st2 ==>
+  ML_code env1 [(comm, st1, prog, env2)] st2 ==>
     Decls env1 st1 prog env2 st2
 Proof
   fs [ML_code_def, ML_code_env_def]
@@ -772,6 +786,19 @@ Proof
   \\ first_assum $ irule_at Any
   \\ rw[write_def, merge_env_def, empty_env_def,
         sem_env_component_equality]
+QED
+
+(* setting the eval_state *)
+
+Theorem ML_code_set_eval_state: (* only supported at the top-level for simplicity *)
+  ML_code env0 [(comm,s1,prog,env1)] s2 ⇒
+  s1.eval_state = NONE ⇒
+  ∀es. ML_code env0 [(comm,s1 with eval_state := SOME es,prog,env1)]
+                          (s2 with eval_state := SOME es)
+Proof
+  rw [ML_code_def]
+  \\ drule_all Decls_set_eval_state
+  \\ fs []
 QED
 
 (* lookup function definitions *)
