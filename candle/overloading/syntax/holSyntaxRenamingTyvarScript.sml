@@ -2270,11 +2270,7 @@ Proof
   rw[EQ_IMP_THM] >> rw[list_complement_def,EVERY_MEM]
   >> fs[MEM_MAP,MEM_FILTER,list_complement_def]
   >> rw[]
-  >- (
-    spose_not_then assume_tac
-    >> last_x_assum imp_res_tac
-    >> gvs[]
-  )
+  >- metis_tac[]
   >- (goal_assum $ drule_at Any >> fs[])
   >> spose_not_then assume_tac
   >> rpt $ first_x_assum $ qspec_then `y` assume_tac
