@@ -2153,5 +2153,10 @@ Definition ptree_Start_def:
       fail locs «Expected the start non-terminal»
 End
 
+Definition run_ptree_conv_def:
+  run_ptree_conv ptree st = run (ptree_Start ptree) st
+End
+
+
 val _ = export_theory ();
 

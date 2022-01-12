@@ -47,11 +47,6 @@ Definition peg_def:
   peg (Success (_: (caml_lex$token # locs) list) x _) = return x
 End
 
-(* TODO Move to camlPtreeConversionScript.sml *)
-Definition run_ptree_conv_def:
-  run_ptree_conv ptree st = run (ptree_Start ptree) st
-End
-
 Definition run_parser_def:
   run_parser toks =
     do
