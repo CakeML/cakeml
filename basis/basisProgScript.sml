@@ -74,6 +74,20 @@ Proof
   \\ xapp \\ xsimpl
 QED
 
+val _ = (append_prog o process_topdecs)
+  `fun print_pp pp = print_app_list (PrettyPrinter.toAppList pp)`;
+
+Theorem print_pp_spec:
+   ∀pp lv out. PP_DATA_TYPE pp lv ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "print_pp" (get_ml_prog_state())) [lv]
+     (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (concat (append (ppd_contents pp)))))
+Proof
+  xcf "print_pp" (get_ml_prog_state())
+  \\ xlet_auto >- xsimpl
+  \\ xapp
+  \\ xsimpl
+QED
+
 val basis_st = get_ml_prog_state ();
 
 val basis_prog = basis_st |> remove_snocs |> ml_progLib.get_prog;

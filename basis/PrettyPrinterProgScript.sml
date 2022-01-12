@@ -26,11 +26,11 @@ val _ = ml_prog_update open_local_block;
 
 val res = translate app_intersperse_def;
 val res = translate app_list_wrap_def;
-val res = translate ppd_contents_def;
 val res = translate ppd_paren_contents_def;
 
 val _ = ml_prog_update open_local_in_block;
 
+val res = tr "toAppList" ppd_contents_def;
 val res = tr "token" ppd_token_def;
 val res = tr "paren_tuple" pp_paren_tuple_def;
 val res = tr "app_block" pp_app_block_def;
