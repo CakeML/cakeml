@@ -114,6 +114,7 @@ compiler/parsing/tests
 compiler/inference/tests
 
 # compiler translation
+compiler/repl
 compiler/bootstrap/translation
 
 # compiler sexpr bootstrap
