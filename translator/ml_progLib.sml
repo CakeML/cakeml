@@ -276,7 +276,7 @@ fun unwind_forall_conv tm =
 fun forall_nsLookup_upd nm (th,x) =
   (CONV_RULE
     (QUANT_CONV
-      ((RATOR_CONV o RAND_CONV o RATOR_CONV o RAND_CONV) nsLookup_conv
+      ((RATOR_CONV o RAND_CONV o RATOR_CONV o RAND_CONV) (nsLookup_conv THENC EVAL)
        THENC (RATOR_CONV o RAND_CONV) (REWR_CONV SOME_11))
      THENC unwind_forall_conv) th,
    x) handle HOL_ERR _ =>
@@ -519,12 +519,12 @@ fun add_dec dec_tm pick_name s =
           andalso is_Var (rand (rator (rand (rand dec_tm))))
           andalso is_Pvar (rand (rator dec_tm)) then let
     val (loc,p,f) = dest_Dlet dec_tm
-    val v_tm = dest_Pvar p
+    val n = dest_Pvar p
     val (_,args) = dest_App f
     val var_name = dest_Var (listSyntax.dest_list args |> fst |> hd)
     val prefix = get_mod_prefix s
-    val v_name = prefix ^ pick_name (stringSyntax.fromHOLstring v_tm) ^ "_v"
-    in add_Dlet_Var_Ref_Var loc v_tm var_name v_name s end
+    val v_name = prefix ^ pick_name (stringSyntax.fromHOLstring n) ^ "_v"
+    in add_Dlet_Var_Ref_Var loc n var_name v_name s end
   else if is_Dmod dec_tm then let
     val (name,(*spec,*)decs) = dest_Dmod dec_tm
     val ds = fst (listSyntax.dest_list decs)
