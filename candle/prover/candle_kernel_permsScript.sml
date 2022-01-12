@@ -102,14 +102,6 @@ Proof
   \\ rw[]
 QED
 
-Theorem perms_ok_fdm_v[simp]:
-  perms_ok ps fdm_v
-Proof
-  rw[perms_ok_def, fdm_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ eval_nsLookup_tac
-  \\ rw[]
-QED
-
 Theorem perms_ok_strcat_v[simp]:
   perms_ok ps strcat_v
 Proof
@@ -821,6 +813,14 @@ Theorem perms_ok_abs_1_v[simp]:
   perms_ok kernel_perms abs_1_v
 Proof
   rw[perms_ok_def, abs_1_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
+Theorem perms_ok_check_for_dups_v[simp]:
+  perms_ok ps check_for_dups_v
+Proof
+  rw[perms_ok_def, check_for_dups_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
