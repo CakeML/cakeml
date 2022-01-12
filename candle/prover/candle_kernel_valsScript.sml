@@ -10,10 +10,6 @@ open semanticPrimitivesTheory semanticPrimitivesPropsTheory
 
 val _ = new_theory "candle_kernel_vals";
 
-(*
-TODO: fix constructor names (Var is currently Var_1)
-*)
-
 
 (* -------------------------------------------------------------------------
  * 'inferred' relation
@@ -399,14 +395,14 @@ Theorem evaluate_tm_check:
   evaluate ^s env
     [Let NONE
        (Mat (Var (Short v))
-          [(Pcon (SOME (Short "Var_1")) [Pvar a1; Pvar a2], Con NONE []);
+          [(Pcon (SOME (Short "Var"))   [Pvar a1; Pvar a2], Con NONE []);
            (Pcon (SOME (Short "Const")) [Pvar a3; Pvar a4], Con NONE []);
-           (Pcon (SOME (Short "Comb")) [Pvar a5; Pvar a6], Con NONE []);
-           (Pcon (SOME (Short "Abs")) [Pvar a7; Pvar a8], Con NONE [])]) ee] = (s',res) ∧
-  nsLookup env.c (Short "Var_1") = SOME (2,TypeStamp "Var_1" term_stamp_n) ∧
+           (Pcon (SOME (Short "Comb"))  [Pvar a5; Pvar a6], Con NONE []);
+           (Pcon (SOME (Short "Abs"))   [Pvar a7; Pvar a8], Con NONE [])]) ee] = (s',res) ∧
+  nsLookup env.c (Short "Var")   = SOME (2,TypeStamp "Var" term_stamp_n) ∧
   nsLookup env.c (Short "Const") = SOME (2,TypeStamp "Const" term_stamp_n) ∧
-  nsLookup env.c (Short "Comb") = SOME (2,TypeStamp "Comb" term_stamp_n) ∧
-  nsLookup env.c (Short "Abs") = SOME (2,TypeStamp "Abs" term_stamp_n) ∧
+  nsLookup env.c (Short "Comb")  = SOME (2,TypeStamp "Comb" term_stamp_n) ∧
+  nsLookup env.c (Short "Abs")   = SOME (2,TypeStamp "Abs" term_stamp_n) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨ TERM_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
 Proof
