@@ -114,9 +114,10 @@ val _ = use_full_type_names := true;
 
 val (monad_parameters, exn_specs) =
   start_dynamic_init_fixed_store_translation
-    [] [] []             (* Ref-, resizable array- and fixed-size array names *)
+    [("dummy", get_dummy_def, set_dummy_def)]
+    [] []             (* Ref-, resizable array- and fixed-size array names *)
     "CAML_PTREE_STORE"   (* hprop name *)
-    “:unit”              (* state type *)
+    “:caml_ptree_state”  (* state type *)
     CAML_PTREE_EXN_TYPE_def
     [(raise_Fail_def, handle_Fail_def)]
     []                   (* Additional thys for types *)
@@ -137,7 +138,7 @@ Proof
   \\ gs [caml_lexTheory.destSymbol_def, caml_lexTheory.isSymbol_def]
 QED
 
-val _ = update_precondition ptree_op_side;
+val _ = update_local_precondition ptree_op_side;
 
 val r = m_translate ptree_Literal_def;
 
@@ -150,7 +151,7 @@ Proof
       caml_lexTheory.isString_thm] \\ gs []
 QED
 
-val _ = update_precondition ptree_literal_side;
+val _ = update_local_precondition ptree_literal_side;
 
 (* TODO: Bug in the translator makes this fail when tk is returned *)
 
@@ -245,7 +246,8 @@ Proof
   \\ simp [Once (fetch "-" "ptree_expr_side_def")]
 QED
 
-val _ = List.app (ignore o update_precondition) (CONJUNCTS ptree_Expr_preconds);
+val _ = List.app (ignore o update_local_precondition)
+                 (CONJUNCTS ptree_Expr_preconds);
 
 val r = m_translate ptree_ConstrArgs_def;
 val r = m_translate ptree_ConstrDecl_def;
@@ -295,7 +297,7 @@ Proof
   \\ gvs []
 QED
 
-val _ = update_precondition ptree_typedefinition_side;
+val _ = update_local_precondition ptree_typedefinition_side;
 
 val r = translate build_dlet_def;
 
@@ -303,6 +305,8 @@ val r = m_translate ptree_Semis_def;
 val r = m_translate ptree_ExprDec_def;
 val r = m_translate ptree_Definition_def;
 val r = m_translate ptree_Start_def;
+
+val r = m_translate_run run_ptree_conv_def;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val () = ml_translatorLib.clean_on_exit := true;

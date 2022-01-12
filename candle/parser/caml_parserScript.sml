@@ -53,7 +53,7 @@ Definition run_parser_def:
       pt <- peg $ destResult $ camlpegexec nStart toks;
       case pt of
         [ptree] =>
-          (case run_ptree_conv ptree () of
+          (case run_ptree_conv ptree init_caml_ptree_state of
             Success x => INR x
           | Failure (Fail loc err) =>
               INL (loc, concat [«Ptree conversion: »; err]))

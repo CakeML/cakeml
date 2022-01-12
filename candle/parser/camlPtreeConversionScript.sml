@@ -15,7 +15,16 @@ Datatype:
   caml_ptree_exn = Fail locs mlstring
 End
 
-val _ = define_monad_exception_functions “:caml_ptree_exn” “:unit”;
+Datatype:
+  caml_ptree_state = <| dummy : num |>
+End
+
+Definition init_caml_ptree_state_def:
+  init_caml_ptree_state = <| dummy := 0n |>
+End
+
+val _ = define_monad_access_funs “:caml_ptree_state”;
+val _ = define_monad_exception_functions “:caml_ptree_exn” “:caml_ptree_state”;
 
 val st_ex_monadinfo : monadinfo = {
   bind = “st_ex_bind”,
@@ -33,7 +42,7 @@ val _ = enable_monad "st_ex";
 Overload return[local] = “st_ex_return”;
 Overload fail[local] = “raise_Fail”;
 
-Type M[local,pp] = “: (unit, 'a, caml_ptree_exn) M”
+Type M[local,pp] = “:(caml_ptree_state, 'a, caml_ptree_exn) M”
 
 Definition mapM_def:
   mapM f [] = return [] ∧

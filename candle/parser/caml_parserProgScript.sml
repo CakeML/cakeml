@@ -96,7 +96,7 @@ val _ = update_precondition safe_substring_side;
 val r = translate get_nth_line_def;
 val r = translate locs_to_string_def;
 
-val r = m_translate_run run_ptree_conv_def;
+val r = translate init_ptree_state_def;
 
 val r = translate run_parser_def;
 
