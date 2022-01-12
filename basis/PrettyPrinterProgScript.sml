@@ -7,12 +7,15 @@ open
   ml_translatorLib
   ml_progLib
   mlprettyprinterTheory
+  astSyntax
 local open IntProgTheory in end
 
 val _ = (
   new_theory "PrettyPrinterProg";
   translation_extends "IntProg"
 )
+
+val existing_types = get_prog (get_ml_prog_state ()) |> find_terms is_Dtype;
 
 val _ = ml_prog_update (open_module "PrettyPrinter")
 val _ = register_type ``: pp_data``;
@@ -72,14 +75,25 @@ val res = tr "pp_string" rename_pp_string_def;
 val res = translate pp_ref_def;
 val res = translate pp_array_def;
 val res = translate pp_word8array_def;
+val res = translate pp_fun_def;
 
+(* pretty printers for numeric types *)
 val res = translate pp_int_def;
 val res = translate pp_word8_def;
 val res = translate pp_word64_def;
 
-(* pp_fun is translated last. in add-pp mode, this will trigger the
-   installation of pretty-printers for previous types
-   (i.e. types from decProg and the translator setup) *)
-val res = translate pp_fun_def;
+(* install pretty-printers for previously existing types *)
+(* (e.g. from decProg and other early translator setup) *)
+
+val pps_for_dec_tm = pps_for_dec_def |> BODY_CONJUNCTS |> hd
+    |> concl |> lhs |> strip_comb |> fst
+fun dec_pps tm = mk_comb (pps_for_dec_tm, tm)
+val decss = listSyntax.mk_list (map dec_pps existing_types, decs_ty)
+val pps_eval = ``FLAT ^decss`` |> EVAL
+val pps_fin = rhs (concl pps_eval) |> listSyntax.dest_list |> fst
+
+fun add_pps pps prog_st = foldl (fn (pp, prog_st) => add_dec pp I prog_st) prog_st pps
+
+val _ = ml_prog_update (add_pps pps_fin)
 
 val _ = export_theory ()

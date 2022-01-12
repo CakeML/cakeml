@@ -91,11 +91,10 @@ Definition add_pp_begin_def:
   (add_pp_begin _ = F)
 End
 
-Definition toplevel_add_decs_def:
-  toplevel_add_decs prev [] = [] /\
-  toplevel_add_decs prev (d :: ds) = d :: (if add_pp_begin d
-    then REVERSE prev ++ add_pp_decs ds
-    else toplevel_add_decs (pps_for_dec d ++ prev) ds)
+Definition toplevel_add_pp_decs_def:
+  toplevel_add_pp_decs _ [] = [] /\
+  toplevel_add_pp_decs T (d :: ds) = add_pp_decs [d] ++ toplevel_add_pp_decs T ds /\
+  toplevel_add_pp_decs F (d :: ds) = d :: toplevel_add_pp_decs (add_pp_begin d) ds
 End
 
 val _ = export_theory ();
