@@ -5355,120 +5355,127 @@ Proof
   rw[wf_pqs_def,wf_dep_def,EVERY_MEM,IN_DEF,ELIM_UNCURRY,FORALL_PROD]
 QED
 
-(* Lemma 5.17 *)
-Theorem cyclic_eq_not_terminating:
+Theorem not_terminating_imp_cyclic:
   !dep. monotone dep
   /\ composable_dep dep
   /\ wf_dep dep
   /\ FINITE $ UNCURRY dep
-  ==>
-  (~ (terminating $ TC $ subst_clos dep) <=> cyclic_dep dep)
+  /\ ~ (terminating $ TC $ subst_clos dep)
+  ==> cyclic_dep dep
 Proof
-  rw[EQ_IMP_THM]
-  >- (
-    dxrule_then assume_tac $ ONCE_REWRITE_RULE[MONO_NOT_EQ] terminating_TC
-    >> `?rs pqs. sol_seq_inf rs pqs /\ every (UNCURRY dep) pqs
-      /\ !i. ?n. i < n /\ LNTH i pqs = LNTH n pqs
-    ` by (
-      `?rs pqs. sol_seq_inf rs pqs /\ every (UNCURRY dep) pqs` by (
-        fs[prim_recTheory.WF_IFF_WELLFOUNDED,prim_recTheory.wellfounded_def,terminating_def]
-        >> qabbrev_tac `Q = λ(rs,pq) n. dep (FST pq) (SND pq)
-            /\ LR_TYPE_SUBST rs (FST pq) = f n /\ LR_TYPE_SUBST rs (SND pq) = f $ SUC n
-            /\ is_const_or_type (FST pq) /\ is_const_or_type (SND pq)`
-        >> `!n. ?rspq. Q rspq n` by (
-          rw[Abbr`Q`,EXISTS_PROD]
-          >> rename[`SUC n`]
-          >> first_x_assum $ qspec_then `n` assume_tac
-          >> drule_all_then strip_assume_tac wf_dep_subst_clos
-          >> gvs[is_const_or_type_eq,subst_clos_def,wf_dep_def,LR_TYPE_SUBST_cases,INST_def,INST_CORE_def]
-          >> res_tac >> gvs[LR_TYPE_SUBST_cases,INST_def,INST_CORE_def]
-          >> goal_assum $ drule_at Any
-          >> fs[LR_TYPE_SUBST_cases]
-          >> rpt $ irule_at Any EQ_REFL
-        )
-        >> `!n. Q (@rspq. Q rspq n) n` by metis_tac[]
-        >> qpat_x_assum `!n. ?rspq. _` kall_tac
-        >> `!n pq rs. Q (@rspq. Q rspq n) n ==> pq = SND (@rspq. Q rspq n)
-            ==> rs = FST (@rspq. Q rspq n) ==> dep (FST pq) (SND pq)
-            /\ LR_TYPE_SUBST rs (FST pq) = f n /\ LR_TYPE_SUBST rs (SND pq) = f $ SUC n
-            /\ is_const_or_type (FST pq) /\ is_const_or_type (SND pq)` by (
-            gvs[FORALL_AND_THM,IMP_CONJ_THM,AND_IMP_INTRO,ELIM_UNCURRY]
-            >> rpt conj_tac
-            >> gen_tac
-            >> rename[`n:num`]
-            >> first_x_assum $ qspec_then `n` mp_tac
-            >> fs[Abbr`Q`,ELIM_UNCURRY]
-        )
-        >> qexists_tac `LMAP (λn. FST $ @rspq. Q rspq n) (LGENLIST I NONE)`
-        >> qexists_tac `LMAP (λn. SND $ @rspq. Q rspq n) (LGENLIST I NONE)`
-        >> conj_tac
-        >- (
-          rw[sol_seq_inf_def,LNTH_LMAP,LGENLIST_num,wf_pqs_inf_def,every_LNTH,LNTH_LMAP]
-          >- (
-            qmatch_goalsub_abbrev_tac `SUC _`
-            >> rename[`SUC n:num`]
-            >> first_assum $ qspec_then `n` mp_tac
-            >> first_x_assum $ qspec_then `SUC n` mp_tac >> fs[]
-          )
-          >> fs[FORALL_AND_THM,AND_IMP_INTRO]
-        )
-        >> fs[every_LNTH,LNTH_LMAP,LGENLIST_num,ELIM_UNCURRY]
+  rpt strip_tac
+  >> dxrule_then assume_tac $ ONCE_REWRITE_RULE[MONO_NOT_EQ] terminating_TC
+  >> `?rs pqs. sol_seq_inf rs pqs /\ every (UNCURRY dep) pqs
+    /\ !i. ?n. i < n /\ LNTH i pqs = LNTH n pqs
+  ` by (
+    `?rs pqs. sol_seq_inf rs pqs /\ every (UNCURRY dep) pqs` by (
+      fs[prim_recTheory.WF_IFF_WELLFOUNDED,prim_recTheory.wellfounded_def,terminating_def]
+      >> qabbrev_tac `Q = λ(rs,pq) n. dep (FST pq) (SND pq)
+          /\ LR_TYPE_SUBST rs (FST pq) = f n /\ LR_TYPE_SUBST rs (SND pq) = f $ SUC n
+          /\ is_const_or_type (FST pq) /\ is_const_or_type (SND pq)`
+      >> `!n. ?rspq. Q rspq n` by (
+        rw[Abbr`Q`,EXISTS_PROD]
+        >> rename[`SUC n`]
+        >> first_x_assum $ qspec_then `n` assume_tac
+        >> drule_all_then strip_assume_tac wf_dep_subst_clos
+        >> gvs[is_const_or_type_eq,subst_clos_def,wf_dep_def,LR_TYPE_SUBST_cases,INST_def,INST_CORE_def]
+        >> res_tac >> gvs[LR_TYPE_SUBST_cases,INST_def,INST_CORE_def]
+        >> goal_assum $ drule_at Any
+        >> fs[LR_TYPE_SUBST_cases]
+        >> rpt $ irule_at Any EQ_REFL
       )
-      >> drule_at Any finite_repeats
-      >> impl_keep_tac
-      >- fs[sol_seq_inf_def]
-      >> strip_tac
-      >> drule_then (qspec_then `SUC k` assume_tac) sol_seq_inf_LDROP
-      >> goal_assum drule
-      >> drule_at_then Any (irule_at Any) every_THE_LDROP >> rw[]
-      >> first_x_assum $ qspec_then `i+SUC k` strip_assume_tac >> fs[]
-      >> qexists_tac `n - SUC k`
-      >> dep_rewrite.DEP_REWRITE_TAC[LNTH_THE_DROP]
-      >> fs[infin_or_leq_def]
+      >> `!n. Q (@rspq. Q rspq n) n` by metis_tac[]
+      >> qpat_x_assum `!n. ?rspq. _` kall_tac
+      >> `!n pq rs. Q (@rspq. Q rspq n) n ==> pq = SND (@rspq. Q rspq n)
+          ==> rs = FST (@rspq. Q rspq n) ==> dep (FST pq) (SND pq)
+          /\ LR_TYPE_SUBST rs (FST pq) = f n /\ LR_TYPE_SUBST rs (SND pq) = f $ SUC n
+          /\ is_const_or_type (FST pq) /\ is_const_or_type (SND pq)` by (
+          gvs[FORALL_AND_THM,IMP_CONJ_THM,AND_IMP_INTRO,ELIM_UNCURRY]
+          >> rpt conj_tac
+          >> gen_tac
+          >> rename[`n:num`]
+          >> first_x_assum $ qspec_then `n` mp_tac
+          >> fs[Abbr`Q`,ELIM_UNCURRY]
+      )
+      >> qexists_tac `LMAP (λn. FST $ @rspq. Q rspq n) (LGENLIST I NONE)`
+      >> qexists_tac `LMAP (λn. SND $ @rspq. Q rspq n) (LGENLIST I NONE)`
+      >> conj_tac
+      >- (
+        rw[sol_seq_inf_def,LNTH_LMAP,LGENLIST_num,wf_pqs_inf_def,every_LNTH,LNTH_LMAP]
+        >- (
+          qmatch_goalsub_abbrev_tac `SUC _`
+          >> rename[`SUC n:num`]
+          >> first_assum $ qspec_then `n` mp_tac
+          >> first_x_assum $ qspec_then `SUC n` mp_tac >> fs[]
+        )
+        >> fs[FORALL_AND_THM,AND_IMP_INTRO]
+      )
+      >> fs[every_LNTH,LNTH_LMAP,LGENLIST_num,ELIM_UNCURRY]
     )
-    >> drule_all_then strip_assume_tac ascending_infinite_suffix
-    >> rename[`LDROP k`]
-    >> first_x_assum $ qspec_then `k` strip_assume_tac
-    >> rename[`k < n`]
-    >> qabbrev_tac `l = n - k`
-    >> `0 < l` by fs[Abbr`l`]
-    >> drule_then (qspec_then `SUC l` assume_tac) seq_asc_inf_seq_asc_LTAKE
-    >> qmatch_assum_abbrev_tac `seq_asc pqs'`
-    >> qspecl_then [`pqs'`,`dep`,`PRE $ LENGTH pqs'`] mp_tac seq_asc_mg_sol_path
-    >> `~LFINITE pqs /\ LENGTH pqs' = SUC l` by
-      fs[sol_seq_inf_def,Abbr`pqs'`,NOT_LFINITE_LENGTH,NOT_LFINITE_LDROP]
-    >> `!k'. EVERY (UNCURRY dep) (THE (LTAKE k' (THE $ LDROP k pqs)))` by (
-      strip_tac
-      >> irule every_LTAKE_EVERY
-      >> irule_at Any every_THE_LDROP
-      >> goal_assum $ drule_at Any
-      >> drule_then (qspec_then `k` assume_tac) NOT_LFINITE_LDROP
-      >> drule_then (qspec_then `k'` strip_assume_tac) NOT_LFINITE_TAKE
-      >> fs[]
-      >> goal_assum drule
-    )
-    >> impl_keep_tac >> fs[Abbr`pqs'`]
-    >> dep_rewrite.DEP_REWRITE_TAC[NOT_LFINITE_LENGTH,NOT_LFINITE_LDROP,TAKE_LTAKE_EQ_LTAKE_LTAKE]
-    >> rw[cyclic_dep_def]
-    >> imp_res_tac mg_sol_seq_LENGTH
-    >> `LENGTH rs' = l` by fs[NOT_LFINITE_LENGTH,NOT_LFINITE_LDROP]
-    >> qmatch_assum_abbrev_tac `seq_asc pqs'`
+    >> drule_at Any finite_repeats
+    >> impl_keep_tac
+    >- fs[sol_seq_inf_def]
+    >> strip_tac
+    >> drule_then (qspec_then `SUC k` assume_tac) sol_seq_inf_LDROP
     >> goal_assum drule
-    >> REWRITE_TAC[GSYM EL]
-    >> dep_rewrite.DEP_REWRITE_TAC[EL_TAKE,GSYM LAST_EL]
-    >> rw[NOT_LFINITE_LENGTH,NOT_LFINITE_LDROP,NOT_NIL_EQ_LENGTH_NOT_0]
-    >> match_mp_tac has_mg_sol_leq_imp
-    >> rpt $ goal_assum $ drule_at Any
-    >> fs[seq_asc_def]
-    >> first_x_assum drule_all
-    >> qabbrev_tac `l = LENGTH pqs'`
-    >> qunabbrev_tac `pqs'`
-    >> fs[]
-    >> REWRITE_TAC[GSYM EL]
-    >> dep_rewrite.DEP_REWRITE_TAC[TAKE_LTAKE_EQ_LTAKE_LTAKE,EL_LTAKE_LDROP_LNTH]
-    >> gvs[NOT_LFINITE_LDROP]
-    >> qpat_x_assum `_ - _ = LENGTH _` $ fs o single o GSYM
+    >> drule_at_then Any (irule_at Any) every_THE_LDROP >> rw[]
+    >> first_x_assum $ qspec_then `i+SUC k` strip_assume_tac >> fs[]
+    >> qexists_tac `n - SUC k`
+    >> dep_rewrite.DEP_REWRITE_TAC[LNTH_THE_DROP]
+    >> fs[infin_or_leq_def]
   )
+  >> drule_all_then strip_assume_tac ascending_infinite_suffix
+  >> rename[`LDROP k`]
+  >> first_x_assum $ qspec_then `k` strip_assume_tac
+  >> rename[`k < n`]
+  >> qabbrev_tac `l = n - k`
+  >> `0 < l` by fs[Abbr`l`]
+  >> drule_then (qspec_then `SUC l` assume_tac) seq_asc_inf_seq_asc_LTAKE
+  >> qmatch_assum_abbrev_tac `seq_asc pqs'`
+  >> qspecl_then [`pqs'`,`dep`,`PRE $ LENGTH pqs'`] mp_tac seq_asc_mg_sol_path
+  >> `~LFINITE pqs /\ LENGTH pqs' = SUC l` by
+    fs[sol_seq_inf_def,Abbr`pqs'`,NOT_LFINITE_LENGTH,NOT_LFINITE_LDROP]
+  >> `!k'. EVERY (UNCURRY dep) (THE (LTAKE k' (THE $ LDROP k pqs)))` by (
+    strip_tac
+    >> irule every_LTAKE_EVERY
+    >> irule_at Any every_THE_LDROP
+    >> goal_assum $ drule_at Any
+    >> drule_then (qspec_then `k` assume_tac) NOT_LFINITE_LDROP
+    >> drule_then (qspec_then `k'` strip_assume_tac) NOT_LFINITE_TAKE
+    >> fs[]
+    >> goal_assum drule
+  )
+  >> impl_keep_tac >> fs[Abbr`pqs'`]
+  >> dep_rewrite.DEP_REWRITE_TAC[NOT_LFINITE_LENGTH,NOT_LFINITE_LDROP,TAKE_LTAKE_EQ_LTAKE_LTAKE]
+  >> rw[cyclic_dep_def]
+  >> imp_res_tac mg_sol_seq_LENGTH
+  >> `LENGTH rs' = l` by fs[NOT_LFINITE_LENGTH,NOT_LFINITE_LDROP]
+  >> qmatch_assum_abbrev_tac `seq_asc pqs'`
+  >> goal_assum drule
+  >> REWRITE_TAC[GSYM EL]
+  >> dep_rewrite.DEP_REWRITE_TAC[EL_TAKE,GSYM LAST_EL]
+  >> rw[NOT_LFINITE_LENGTH,NOT_LFINITE_LDROP,NOT_NIL_EQ_LENGTH_NOT_0]
+  >> match_mp_tac has_mg_sol_leq_imp
+  >> rpt $ goal_assum $ drule_at Any
+  >> fs[seq_asc_def]
+  >> first_x_assum drule_all
+  >> qabbrev_tac `l = LENGTH pqs'`
+  >> qunabbrev_tac `pqs'`
+  >> fs[]
+  >> REWRITE_TAC[GSYM EL]
+  >> dep_rewrite.DEP_REWRITE_TAC[TAKE_LTAKE_EQ_LTAKE_LTAKE,EL_LTAKE_LDROP_LNTH]
+  >> gvs[NOT_LFINITE_LDROP]
+  >> qpat_x_assum `_ - _ = LENGTH _` $ fs o single o GSYM
+QED
+
+Theorem cyclic_imp_not_terminating:
+  !dep. monotone dep
+  /\ wf_dep dep
+  /\ FINITE $ UNCURRY dep
+  /\ cyclic_dep dep
+  ==> ~ (terminating $ TC $ subst_clos dep)
+Proof
+  rpt gen_tac >> strip_tac
   >> fs[cyclic_dep_def,is_instance_LR_eq,path_starting_at_def]
   >> qhdtm_x_assum `equiv_ts_on` mp_tac
   >> dep_rewrite.DEP_REWRITE_TAC[equiv_ts_on_FV,LR_TYPE_SUBST_NIL]
@@ -5559,6 +5566,18 @@ Proof
   >> map_every (fn x => qhdtm_x_assum x kall_tac) [`FST`,`LR_TYPE_SUBST`]
   >> qexists_tac `λn. FUNPOW (LR_TYPE_SUBST s') n (FST $ HD pqs)`
   >> Induct >> fs[FUNPOW_SUC,TC_subst_clos_LR_TYPE_SUBST]
+QED
+
+(* Lemma 5.17 *)
+Theorem cyclic_eq_not_terminating:
+  !dep. monotone dep
+  /\ composable_dep dep
+  /\ wf_dep dep
+  /\ FINITE $ UNCURRY dep
+  ==>
+  (~ (terminating $ TC $ subst_clos dep) <=> cyclic_dep dep)
+Proof
+  rw[EQ_IMP_THM,cyclic_imp_not_terminating,not_terminating_imp_cyclic]
 QED
 
 Definition monotone_compute_def:
