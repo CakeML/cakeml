@@ -195,10 +195,10 @@ val r = m_translate mapM_def;
 val r = m_translate nterm_of_def;
 
 val r = m_translate ptree_OperatorName_def;
-val r = m_translate ptree_ValueName_def;
-val r = m_translate ptree_ValuePath_def;
 val r = m_translate ptree_ModuleName_def;
 val r = m_translate ptree_ModulePath_def;
+val r = m_translate ptree_ValueName_def;
+val r = m_translate ptree_ValuePath_def;
 val r = m_translate ptree_TypeConstrName_def;
 val r = m_translate ptree_TypeConstr_def;
 val r = m_translate ptree_ConstrName_def;
