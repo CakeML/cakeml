@@ -202,6 +202,17 @@ evaluate ck env s1 (Let n e1 e2) bv)
 ==>
 evaluate ck env s (Let n e1 e2) (s', Rerr err))
 
+∧
+  (∀ck env mn e env' s s' res.
+     open_mod mn env = SOME env' ∧
+     evaluate ck env' s e (s', res) ⇒
+       evaluate ck env s (Open md e) (s', res))
+
+∧
+  (∀ck env mn s.
+     open_mod mn env = NONE ⇒
+       evaluate ck env s (Open md e) (s', res))
+
 /\ (! ck env funs e bv s.
 (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) /\
 evaluate ck ( env with<| v := (build_rec_env funs env env.v) |>) s e bv)
@@ -343,6 +354,15 @@ evaluate_dec ck env st (Denv n)
 ==>
 evaluate_dec ck env st (Denv n) (st, Rerr (Rabort Rtype_error)))
 
+∧
+  (∀ck env s mn env'.
+    open_mod mn env = SOME env' ⇒
+      evaluate_dec ck env s (Dopen mn) (s, Rval env'))
+∧
+  (∀ck env s mn.
+    open_mod mn env = NONE ⇒
+      evaluate_dec ck env s (Dopen mn) (s, Rerr (Rabort Rtype_error)))
+
 /\ (! ck env tvs tn t s locs.
 T
 ==>
@@ -391,6 +411,7 @@ evaluate_decs ck env s1 (d::ds) (s2, Rerr e))
 evaluate_decs ck (extend_dec_env new_env env) s2 ds (s3, r))
 ==>
 evaluate_decs ck env s1 (d::ds) (s3, combine_dec_result new_env r))
+
 End
 
 (*
