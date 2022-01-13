@@ -276,6 +276,21 @@ val _ = Define `
   | NONE => nsLookup tenv.v id
   )))`;
 
+Definition tenvOpen_def:
+  tenvOpen mn (tenv: type_env) =
+    case nsLookupMod tenv.v [mn] of
+      NONE => NONE
+    | SOME envV =>
+        case nsLookupMod tenv.c [mn] of
+          NONE => NONE
+        | SOME envC =>
+            case nsLookupMod tenv.t [mn] of
+              NONE => NONE
+            | SOME envT =>
+                SOME <| v := nsAppend envV tenv.v;
+                        c := nsAppend envC tenv.c;
+                        t := nsAppend envT tenv.t |>
+End
 
 (*val num_tvs : tenv_val_exp -> nat*)
  val _ = Define `
@@ -652,6 +667,12 @@ type_e tenv (opt_bind_name n(( 0 : num)) t1 tenvE) e2 t2)
 ==>
 type_e tenv tenvE (Let n e1 e2) t2)
 
+∧
+(∀tenv tenv' tenvE mn e t.
+   tenvOpen mn tenv = SOME tenv' ∧
+   type_e tenv' tenvE e t ⇒
+     type_e tenv tenvE (Open mn e) t)
+
 (*
 and
 
@@ -821,6 +842,10 @@ DISJOINT decls1 decls2)
 ==>
 type_d extra_checks tenv (Dlocal lds ds) (decls1 UNION decls2) tenv2)
 
+∧
+(∀extra_checks tenv mn tenv'.
+   tenvOpen mn tenv = SOME tenv' ⇒
+     type_d extra_checks tenv (Dopen mn) {} tenv')
 
 /\ (! extra_checks tenv.
 T
