@@ -180,6 +180,9 @@ Datatype:
   | If exp exp exp
   (* Pattern matching *)
   | Mat exp ((pat # exp) list)
+  (* A 'let open' expression to bring the contents of a module into scope
+     when evaluating the sub-expression. *)
+  | Open modN exp
   (* A let expression
      A Nothing value for the binding indicates that this is a
      sequencing expression, that is: (e1; e2). *)
@@ -219,6 +222,8 @@ Datatype:
   | Dlocal (dec list) (dec list)
   (* Store current lexical env in an env value *)
   | Denv tvarN
+  (* Bring the contents of a module into scope *)
+  | Dopen modN
 End
 
 (* Accumulates the bindings of a pattern *)

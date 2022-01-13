@@ -1403,4 +1403,15 @@ Definition extend_dec_env_def:
     <|c := nsAppend new_env.c env.c; v := nsAppend new_env.v env.v|>
 End
 
+Definition open_mod_def:
+  open_mod mn env =
+    case nsLookupMod env.v [mn] of
+      NONE => NONE
+    | SOME envV =>
+        case nsLookupMod env.c [mn] of
+          NONE => NONE
+        | SOME envC => SOME <| c:= nsAppend envC env.c;
+                               v := nsAppend envV env.v |>
+End
+
 val _ = export_theory()

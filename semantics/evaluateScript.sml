@@ -158,6 +158,11 @@ Definition evaluate_def[nocompute]:
          else (st',Rerr (Rabort Rtype_error))
      | (st',Rerr v8) => (st',Rerr v8))
   ∧
+  evaluate st env [Open mn e] =
+    (case open_env mn env of
+       SOME env' => evaluate st env' e
+     | NONE => (st,Rerr (Rabort Rtype_error)))
+  ∧
   evaluate st env [Let xo e1 e2] =
     (case fix_clock st (evaluate st env [e1]) of
        (st',Rval v) =>
@@ -246,6 +251,11 @@ Definition evaluate_def[nocompute]:
     case fix_clock st (evaluate_decs st env lds) of
       (st1,Rval env1) => evaluate_decs st1 (extend_dec_env env1 env) ds
     | (st1,Rerr v7) => (st1,Rerr v7)
+  ∧
+  evaluate_decs st env [Dopen mn] =
+    case open_env mn env of
+      SOME env' => (st, env')
+    | NONE => (st,Rerr (Rabort Rtype_error))
 Termination
   WF_REL_TAC ‘inv_image ($< LEX $<)
     (λx. case x of
