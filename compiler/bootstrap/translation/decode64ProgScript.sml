@@ -237,8 +237,8 @@ Proof
     \\ xapp \\ xsimpl
     \\ qexists_tac ‘[]’
     \\ qexists_tac ‘fname’
-    \\ fs [decProgTheory.OPTION_TYPE_def,LIST_TYPE_def])
-  \\ gvs [decProgTheory.OPTION_TYPE_def,LIST_TYPE_def]
+    \\ fs [std_preludeTheory.OPTION_TYPE_def,LIST_TYPE_def])
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def,LIST_TYPE_def]
   \\ xmatch
   \\ xlet_auto THEN1 xsimpl
   \\ xlet_auto \\ xsimpl
@@ -273,7 +273,7 @@ Proof
    (drule read_config_spec \\ fs []
     \\ disch_then drule \\ strip_tac
     \\ xapp \\ fs [x64ProgTheory.x64_config_v_thm])
-  \\ gvs [decProgTheory.OPTION_TYPE_def]
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
   \\ xmatch \\ xvar \\ xsimpl
   \\ metis_tac [encode_backend_config_thm]
 QED
@@ -294,7 +294,7 @@ Proof
    (drule read_config_spec \\ fs []
     \\ disch_then drule \\ strip_tac
     \\ xapp \\ fs [arm8ProgTheory.arm8_config_v_thm])
-  \\ gvs [decProgTheory.OPTION_TYPE_def]
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
   \\ xmatch \\ xvar \\ xsimpl
   \\ metis_tac [encode_backend_config_thm]
 QED
