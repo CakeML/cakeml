@@ -1083,40 +1083,49 @@ Theorem type_e_freevars:
    tenv_val_exp_ok tenvE ∧ tenv_val_ok tenv.v ⇒
    EVERY (check_freevars (num_tvs tenvE) []) (MAP SND env))
 Proof
- ho_match_mp_tac type_e_strongind >>
- srw_tac[][check_freevars_def, num_tvs_def, type_op_cases,
-     tenv_val_ok_def, bind_tvar_def, bind_var_list_def, opt_bind_name_def] >>
- full_simp_tac(srw_ss())[check_freevars_def]
- >- metis_tac [deBruijn_subst_check_freevars]
- >- metis_tac []
- >- (
-   fs [lookup_var_def, lookup_varE_def]
-   >> every_case_tac
-   >> fs []
-   >> rw []
-   >- (
-     drule nsLookup_nsAll
-     >> disch_then drule
-     >> simp []
-     >> rw []
-     >> irule deBruijn_subst_check_freevars2
-     >> simp [])
-   >- metis_tac [tveLookup_freevars_subst, DECIDE ``x+0n = x ∧ 0n+x = x``]
-   >- (
-     drule nsLookup_nsAll
-     >> disch_then drule
-     >> simp []
-     >> rw []
-     >> irule deBruijn_subst_check_freevars2
-     >> simp []))
- >- fs [tenv_val_exp_ok_def]
- >- (cases_on `pes` >>
-     full_simp_tac(srw_ss())[] >>
-     fs [FORALL_PROD, RES_FORALL]
-     >> metis_tac [pair_CASES, type_p_freevars, tenv_val_exp_ok_bvl])
- >- (every_case_tac >>
-     fs [num_tvs_def, tenv_val_exp_ok_def])
- >- metis_tac [tenv_val_exp_ok_bvl_funs, num_tvs_bind_var_list]
+  ho_match_mp_tac type_e_strongind >>
+  srw_tac[][check_freevars_def, num_tvs_def, type_op_cases,
+      tenv_val_ok_def, bind_tvar_def, bind_var_list_def, opt_bind_name_def] >>
+  full_simp_tac(srw_ss())[check_freevars_def]
+  >- metis_tac [deBruijn_subst_check_freevars]
+  >- metis_tac []
+  >- (
+    fs [lookup_var_def, lookup_varE_def]
+    >> every_case_tac
+    >> fs []
+    >> rw []
+    >- (
+      drule nsLookup_nsAll
+      >> disch_then drule
+      >> simp []
+      >> rw []
+      >> irule deBruijn_subst_check_freevars2
+      >> simp [])
+    >- metis_tac [tveLookup_freevars_subst, DECIDE ``x+0n = x ∧ 0n+x = x``]
+    >- (
+      drule nsLookup_nsAll
+      >> disch_then drule
+      >> simp []
+      >> rw []
+      >> irule deBruijn_subst_check_freevars2
+      >> simp []))
+  >- fs [tenv_val_exp_ok_def]
+  >- (cases_on `pes` >>
+      full_simp_tac(srw_ss())[] >>
+      fs [FORALL_PROD, RES_FORALL]
+      >> metis_tac [pair_CASES, type_p_freevars, tenv_val_exp_ok_bvl])
+  >- (every_case_tac >>
+      fs [num_tvs_def, tenv_val_exp_ok_def])
+  >- (gvs [tenvOpen_def, CaseEq "option"]
+      \\ first_x_assum irule
+      \\ irule nsAll_nsAppend \\ gs []
+      \\ Cases_on ‘tenv.v’
+      \\ gs [nsLookupMod_def, CaseEq "option", nsAll_def]
+      \\ rw []
+      \\ first_x_assum irule
+      \\ qexists_tac ‘Long mn id’
+      \\ simp [nsLookup_def])
+  >- metis_tac [tenv_val_exp_ok_bvl_funs, num_tvs_bind_var_list]
 QED
 
 Theorem type_e_subst:
@@ -1434,6 +1443,19 @@ Proof
           match_mp_tac tenv_ok_bind_var_list_tvs >>
           metis_tac []])
           *)
+ >- (
+     first_x_assum irule \\ gs []
+     \\ gvs [tenvOpen_def, CaseEq "option"]
+     \\ irule_at Any tenv_abbrev_ok_merge \\ gs []
+     \\ irule_at Any tenv_ctor_ok_merge \\ gs []
+     \\ irule_at Any nsAll_nsAppend \\ gs []
+     \\ Cases_on ‘tenv.v’ \\ Cases_on ‘tenv.c’ \\ Cases_on ‘tenv.t’
+     \\ gs [nsLookupMod_def, CaseEq "option", nsAll_def, tenv_ctor_ok_def,
+            tenv_abbrev_ok_def]
+     \\ rw []
+     \\ first_x_assum irule
+     \\ qexists_tac ‘Long mn id’
+     \\ gs [nsLookup_def])
  >- (qexists_tac `MAP (λ(x,t').
                  (x,
                   deBruijn_subst (num_tvs tenvE1)
@@ -2401,6 +2423,23 @@ Proof
  >> simp []
 QED
 
+Theorem tenv_ok_tenvOpen:
+  tenv_ok tenv ∧
+  tenvOpen mn tenv = SOME tenv' ⇒
+    tenv_ok tenv'
+Proof
+  rw [tenv_ok_def]
+  THENL [
+    gs [tenv_val_ok_def] \\ Cases_on ‘tenv.v’,
+    gs [tenv_ctor_ok_def] \\ Cases_on ‘tenv.c’,
+    gs [tenv_abbrev_ok_def] \\ Cases_on ‘tenv.t’]
+  \\ gs [nsAll_def, tenvOpen_def, CaseEq "option"]
+  \\ rw [] \\ gs [nsLookup_nsAppend_some, CaseEq "option", nsLookupMod_def]
+  \\ first_x_assum irule
+  \\ FIRST [qexists_tac ‘Long mn id’ \\ gs [nsLookup_def] \\ NO_TAC,
+            qexists_tac ‘id’ \\ gs [nsLookup_def]]
+QED
+
 Theorem type_d_tenv_ok_helper:
   (∀check tenv d tdecs tenv'.
    type_d check tenv d tdecs tenv' ⇒
@@ -2413,82 +2452,83 @@ Theorem type_d_tenv_ok_helper:
    ⇒
    tenv_ok tenv')
 Proof
- ho_match_mp_tac type_d_ind >>
- rw [tenv_ctor_ok_def, tenvLift_def]
- >- (
-   fs [tenv_ok_def] >>
-   drule (CONJUNCT1 type_p_freevars)
-   >> rw [tenv_val_ok_def]
-   >> irule nsAll_alist_to_ns
-   >> fs [EVERY_MEM]
-   >> rw []
-   >> pairarg_tac
-   >> fs []
-   >> pairarg_tac
-   >> fs [tenv_add_tvs_def, MEM_MAP]
-   >> pairarg_tac
-   >> fs []
-   >> rw []
-   >> metis_tac [SND])
- >- (
-   fs [tenv_ok_def] >>
-   drule (CONJUNCT1 type_p_freevars)
-   >> rw [tenv_val_ok_def]
-   >> irule nsAll_alist_to_ns
-   >> fs [EVERY_MEM]
-   >> rw []
-   >> pairarg_tac
-   >> fs []
-   >> pairarg_tac
-   >> fs [tenv_add_tvs_def, MEM_MAP]
-   >> pairarg_tac
-   >> fs []
-   >> rw []
-   >> metis_tac [SND])
- >- (
-   fs [tenv_ok_def] >>
-   rw [tenv_val_ok_def]
-   >> irule nsAll_alist_to_ns
-   >> simp [tenv_add_tvs_def, EVERY_MAP]
-   >> drule (List.nth (CONJUNCTS type_e_freevars, 2))
-   >> simp [tenv_val_exp_ok_def, EVERY_MAP, LAMBDA_PROD]
-   >> disch_then irule
-   >> irule tenv_val_exp_ok_bvl_funs
-   >> simp [tenv_val_exp_ok_def]
-   >> metis_tac [])
- >- (
-   fs [tenv_ok_def, tenv_abbrev_ok_def] >>
-   rw []
-   >- (
-     irule check_ctor_tenv_ok >>
-     rw []
-     >> simp [tenv_abbrev_ok_def]
-     >> irule nsAll_nsAppend
-     >> simp []
-     >> irule nsAll_alist_to_ns
-     >> simp [MAP2_MAP, EVERY_MAP, EVERY_MEM, MEM_MAP]
-     >> rw []
-     >> rpt (pairarg_tac >> fs [])
-     >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
-   >- (
-     irule nsAll_alist_to_ns
-     >> simp [MAP2_MAP, EVERY_MAP, EVERY_MEM, MEM_MAP]
-     >> rw []
-     >> rpt (pairarg_tac >> fs [])
-     >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM]))
- >- (
-   fs [tenv_ok_def, tenv_abbrev_ok_def] >>
-   irule check_freevars_type_name_subst
-   >> simp [tenv_abbrev_ok_def])
- >- (
-   fs [tenv_ok_def, tenv_ctor_ok_def] >>
-   fs [EVERY_MAP, EVERY_MEM]
-   >> rw []
-   >> irule check_freevars_type_name_subst
-   >> simp [tenv_abbrev_ok_def])
- >- fs [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]
- >- metis_tac [extend_dec_tenv_ok]
- >- metis_tac [extend_dec_tenv_ok]
+  ho_match_mp_tac type_d_ind >>
+  rw [tenv_ctor_ok_def, tenvLift_def]
+  >- (
+    fs [tenv_ok_def] >>
+    drule (CONJUNCT1 type_p_freevars)
+    >> rw [tenv_val_ok_def]
+    >> irule nsAll_alist_to_ns
+    >> fs [EVERY_MEM]
+    >> rw []
+    >> pairarg_tac
+    >> fs []
+    >> pairarg_tac
+    >> fs [tenv_add_tvs_def, MEM_MAP]
+    >> pairarg_tac
+    >> fs []
+    >> rw []
+    >> metis_tac [SND])
+  >- (
+    fs [tenv_ok_def] >>
+    drule (CONJUNCT1 type_p_freevars)
+    >> rw [tenv_val_ok_def]
+    >> irule nsAll_alist_to_ns
+    >> fs [EVERY_MEM]
+    >> rw []
+    >> pairarg_tac
+    >> fs []
+    >> pairarg_tac
+    >> fs [tenv_add_tvs_def, MEM_MAP]
+    >> pairarg_tac
+    >> fs []
+    >> rw []
+    >> metis_tac [SND])
+  >- (
+    fs [tenv_ok_def] >>
+    rw [tenv_val_ok_def]
+    >> irule nsAll_alist_to_ns
+    >> simp [tenv_add_tvs_def, EVERY_MAP]
+    >> drule (List.nth (CONJUNCTS type_e_freevars, 2))
+    >> simp [tenv_val_exp_ok_def, EVERY_MAP, LAMBDA_PROD]
+    >> disch_then irule
+    >> irule tenv_val_exp_ok_bvl_funs
+    >> simp [tenv_val_exp_ok_def]
+    >> metis_tac [])
+  >- (
+    fs [tenv_ok_def, tenv_abbrev_ok_def] >>
+    rw []
+    >- (
+      irule check_ctor_tenv_ok >>
+      rw []
+      >> simp [tenv_abbrev_ok_def]
+      >> irule nsAll_nsAppend
+      >> simp []
+      >> irule nsAll_alist_to_ns
+      >> simp [MAP2_MAP, EVERY_MAP, EVERY_MEM, MEM_MAP]
+      >> rw []
+      >> rpt (pairarg_tac >> fs [])
+      >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
+    >- (
+      irule nsAll_alist_to_ns
+      >> simp [MAP2_MAP, EVERY_MAP, EVERY_MEM, MEM_MAP]
+      >> rw []
+      >> rpt (pairarg_tac >> fs [])
+      >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM]))
+  >- (
+    fs [tenv_ok_def, tenv_abbrev_ok_def] >>
+    irule check_freevars_type_name_subst
+    >> simp [tenv_abbrev_ok_def])
+  >- (
+    fs [tenv_ok_def, tenv_ctor_ok_def] >>
+    fs [EVERY_MAP, EVERY_MEM]
+    >> rw []
+    >> irule check_freevars_type_name_subst
+    >> simp [tenv_abbrev_ok_def])
+  >- fs [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]
+  >- metis_tac [extend_dec_tenv_ok]
+  >- (drule_all tenv_ok_tenvOpen \\ gs [])
+  >- metis_tac [extend_dec_tenv_ok]
 QED
 
 Theorem type_d_tenv_ok:
