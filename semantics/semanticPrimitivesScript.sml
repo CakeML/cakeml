@@ -1404,7 +1404,7 @@ Definition extend_dec_env_def:
 End
 
 Definition open_mod_def:
-  open_mod mn env =
+  open_mod mn (env: v sem_env) =
     case nsLookupMod env.v [mn] of
       NONE => NONE
     | SOME envV =>
