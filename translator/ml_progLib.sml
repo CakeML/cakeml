@@ -116,7 +116,7 @@ val nsLookup_rewrs = List.concat (map BODY_CONJUNCTS
         boolTheory.REFL_CLAUSE,
         nsLookup_pf_nsBind, nsLookup_Short_nsAppend, nsLookup_Mod1_nsAppend,
         nsLookup_Short_Bind, nsLookup_Mod1_Bind, nsLookup_merge_env_eqs,
-        nsLookup_empty_eqs])
+        nsLookup_empty_eqs, alistTheory.ALOOKUP_def])
 
 fun nsLookup_conv tm = REPEATC (BETA_CONV ORELSEC FIRST_CONV
   (map REWR_CONV nsLookup_rewrs
