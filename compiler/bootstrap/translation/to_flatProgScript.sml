@@ -1,14 +1,14 @@
 (*
   Translate backend phases up to and including flatLang.
 *)
-open preamble ml_translatorLib ml_translatorTheory basisProgTheory
+open preamble ml_translatorLib ml_translatorTheory decProgTheory
 
 local open source_to_flatTheory in end;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = new_theory "to_flatProg";
-val _ = translation_extends "basisProg";
+val _ = translation_extends "decProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_flatProg");
 
