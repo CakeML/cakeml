@@ -205,90 +205,93 @@ val type_e_weakening_lem = Q.prove (
     ∀tenv' tenvE'. weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_es tenv' tenvE' es ts) ∧
  (!tenv tenvE funs bindings. type_funs tenv tenvE funs bindings ⇒
     ∀tenv' tenvE'. weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_funs tenv' tenvE' funs bindings)`,
- ho_match_mp_tac type_e_ind >>
- rw [weak_def] >>
- rw [Once type_e_cases]
- >- metis_tac [weak_tenvE_freevars]
- >- (fs [RES_FORALL] >>
-     rw [] >>
-     PairCases_on `x` >>
-     fs [] >>
-     res_tac >>
-     fs [] >>
-     qexists_tac `bindings` >>
-     rw []
-     >- metis_tac [weak_def, type_p_weakening, weak_tenvE_def] >>
-     first_x_assum match_mp_tac >>
-     rw [weak_def, weak_tenvE_bind_var_list])
- >- (fs [EVERY_MEM] >>
-     metis_tac [eLookupC_weak, weak_tenvE_freevars])
- >- (
-   fs [lookup_var_def]
-   >> Cases_on `lookup_varE n tenvE`
-   >> fs []
-   >- (
-     drule weak_tenvE_freevars
-     >> fs [weak_tenvE_def]
-     >> CASE_TAC
-     >> rfs [lookup_varE_def]
-     >- (
-       drule eLookupV_weak
-       >> disch_then drule
-       >> rw [tscheme_inst_def]
-       >> rw []
-       >> qexists_tac `MAP (deBruijn_subst 0 targs) subst`
-       >> rw [EVERY_MAP]
-       >- metis_tac [deBruijn_subst2, deBruijn_inc0]
-       >> rw [EVERY_MEM]
-       >> match_mp_tac deBruijn_subst_check_freevars2
-       >> rw []
-       >> metis_tac [EVERY_MEM])
-     >- (
-       Cases_on `n`
-       >> fs []
-       >> metis_tac [NOT_SOME_NONE, pair_CASES]))
-   >- (
-     rw []
-     >> fs [weak_tenvE_def]
-     >> Cases_on `n`
-     >> rfs [lookup_varE_def]
-     >> metis_tac [check_freevars_add, EVERY_MEM]))
- >- metis_tac [weak_tenvE_freevars, weak_tenvE_bind]
- >- (
-   first_x_assum match_mp_tac >>
-   rw [] >>
-   metis_tac [weak_tenvE_bind, weak_tenvE_freevars])
- >- metis_tac [weak_tenvE_freevars]
- >- (fs [RES_FORALL] >>
-     qexists_tac `t` >>
-     rw [] >>
-     PairCases_on `x` >>
-     fs [] >>
-     res_tac >>
-     fs [] >>
-     qexists_tac `bindings` >>
-     rw []
-     >- metis_tac [weak_def, type_p_weakening, weak_tenvE_def] >>
-     first_x_assum match_mp_tac >>
-     rw [weak_tenvE_bind_var_list])
- >- (
-   qexists_tac `t` >>
-   rw [] >>
-   first_x_assum match_mp_tac >>
-   rw [] >>
-   metis_tac [weak_tenvE_opt_bind, weak_tenvE_bind_tvar])
- (* COMPLETENESS >- metis_tac [weak_tenvE_opt_bind, weak_tenvE_bind_tvar], *)
- >- (
-   qexists_tac `bindings` >>
-   rw [] >>
-   first_x_assum match_mp_tac >>
-   rw [] >>
-   metis_tac [weak_tenvE_bind_var_list, weak_tenvE_bind_tvar])
- >- metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar, weak_tenvE_freevars]
- >- (
-   first_x_assum match_mp_tac  >>
-   rw [] >>
-   metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar, weak_tenvE_freevars]));
+  ho_match_mp_tac type_e_ind >>
+  rw [weak_def] >>
+  rw [Once type_e_cases]
+  >- metis_tac [weak_tenvE_freevars]
+  >- (fs [RES_FORALL] >>
+      rw [] >>
+      PairCases_on `x` >>
+      fs [] >>
+      res_tac >>
+      fs [] >>
+      qexists_tac `bindings` >>
+      rw []
+      >- metis_tac [weak_def, type_p_weakening, weak_tenvE_def] >>
+      first_x_assum match_mp_tac >>
+      rw [weak_def, weak_tenvE_bind_var_list])
+  >- (fs [EVERY_MEM] >>
+      metis_tac [eLookupC_weak, weak_tenvE_freevars])
+  >- (
+    fs [lookup_var_def]
+    >> Cases_on `lookup_varE n tenvE`
+    >> fs []
+    >- (
+      drule weak_tenvE_freevars
+      >> fs [weak_tenvE_def]
+      >> CASE_TAC
+      >> rfs [lookup_varE_def]
+      >- (
+        drule eLookupV_weak
+        >> disch_then drule
+        >> rw [tscheme_inst_def]
+        >> rw []
+        >> qexists_tac `MAP (deBruijn_subst 0 targs) subst`
+        >> rw [EVERY_MAP]
+        >- metis_tac [deBruijn_subst2, deBruijn_inc0]
+        >> rw [EVERY_MEM]
+        >> match_mp_tac deBruijn_subst_check_freevars2
+        >> rw []
+        >> metis_tac [EVERY_MEM])
+      >- (
+        Cases_on `n`
+        >> fs []
+        >> metis_tac [NOT_SOME_NONE, pair_CASES]))
+    >- (
+      rw []
+      >> fs [weak_tenvE_def]
+      >> Cases_on `n`
+      >> rfs [lookup_varE_def]
+      >> metis_tac [check_freevars_add, EVERY_MEM]))
+  >- metis_tac [weak_tenvE_freevars, weak_tenvE_bind]
+  >- (
+    first_x_assum match_mp_tac >>
+    rw [] >>
+    metis_tac [weak_tenvE_bind, weak_tenvE_freevars])
+  >- metis_tac [weak_tenvE_freevars]
+  >- (fs [RES_FORALL] >>
+      qexists_tac `t` >>
+      rw [] >>
+      PairCases_on `x` >>
+      fs [] >>
+      res_tac >>
+      fs [] >>
+      qexists_tac `bindings` >>
+      rw []
+      >- metis_tac [weak_def, type_p_weakening, weak_tenvE_def] >>
+      first_x_assum match_mp_tac >>
+      rw [weak_tenvE_bind_var_list])
+  >- (
+    qexists_tac `t` >>
+    rw [] >>
+    first_x_assum match_mp_tac >>
+    rw [] >>
+    metis_tac [weak_tenvE_opt_bind, weak_tenvE_bind_tvar])
+  (* COMPLETENESS >- metis_tac [weak_tenvE_opt_bind, weak_tenvE_bind_tvar], *)
+  >- (
+    cheat (* TODO *)
+  )
+  >- (
+    qexists_tac `bindings` >>
+    rw [] >>
+    first_x_assum match_mp_tac >>
+    rw [] >>
+    metis_tac [weak_tenvE_bind_var_list, weak_tenvE_bind_tvar])
+  >- metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar, weak_tenvE_freevars]
+  >- (
+    first_x_assum match_mp_tac  >>
+    rw [] >>
+    metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar, weak_tenvE_freevars]));
 
 Theorem type_e_weakening:
  (!tenv tenvE e t tenv' tenvE'.
@@ -651,43 +654,46 @@ Theorem type_d_weakening:
   ⇒
   type_ds check tenv'' d decls tenv')
 Proof
- ho_match_mp_tac type_d_ind >>
- rw [] >>
- simp [Once type_d_cases] >>
- rw []
- >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,weak_def,weak_tenvE_refl]
- >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,weak_def,weak_tenvE_refl]
- >- metis_tac[LESS_EQ_REFL,GREATER_EQ,type_e_weakening,weak_def,weak_tenvE_refl]
- >- (
-  qexists_tac `type_identities` >>
-  fs [weak_def, DISJOINT_DEF(*, weak_decls_other_mods_def*), EXTENSION] (*
-  >> rw [MEM_MAP]
-  >> CCONTR_TAC
-  >> fs []
-  >> rw []
-  >> pairarg_tac
-  >> fs []
-  >> first_x_assum drule
-  >> rw []
-  >> fs [weak_decls_def, SUBSET_DEF, MEM_MAP, FORALL_PROD]
-  >> metis_tac []*))
- >- fs [weak_def]
- >- fs [weak_def]
- >- fs [weak_def]
- >- fs [weak_def]
- >- (
-   fs [weak_def, DISJOINT_DEF, (*weak_decls_other_mods_def,*) EXTENSION]
-   >> metis_tac [])
- >- (
-  `tenv_ok tenv'`
-      suffices_by (metis_tac [extend_dec_tenv_ok, weak_extend_dec_tenv])
-    \\ metis_tac [type_d_tenv_ok_helper]
+  ho_match_mp_tac type_d_ind >>
+  rw [] >>
+  simp [Once type_d_cases] >>
+  rw []
+  >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,weak_def,weak_tenvE_refl]
+  >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,weak_def,weak_tenvE_refl]
+  >- metis_tac[LESS_EQ_REFL,GREATER_EQ,type_e_weakening,weak_def,weak_tenvE_refl]
+  >- (
+   qexists_tac `type_identities` >>
+   fs [weak_def, DISJOINT_DEF(*, weak_decls_other_mods_def*), EXTENSION] (*
+   >> rw [MEM_MAP]
+   >> CCONTR_TAC
+   >> fs []
+   >> rw []
+   >> pairarg_tac
+   >> fs []
+   >> first_x_assum drule
+   >> rw []
+   >> fs [weak_decls_def, SUBSET_DEF, MEM_MAP, FORALL_PROD]
+   >> metis_tac []*))
+  >- fs [weak_def]
+  >- fs [weak_def]
+  >- fs [weak_def]
+  >- fs [weak_def]
+  >- (
+    fs [weak_def, DISJOINT_DEF, (*weak_decls_other_mods_def,*) EXTENSION]
+    >> metis_tac [])
+  >- (
+   `tenv_ok tenv'`
+       suffices_by (metis_tac [extend_dec_tenv_ok, weak_extend_dec_tenv])
+     \\ metis_tac [type_d_tenv_ok_helper]
+   )
+  >- (
+    cheat (* TODO *)
   )
- >- (
-  `tenv_ok tenv'`
-      suffices_by (metis_tac [extend_dec_tenv_ok, weak_extend_dec_tenv])
-    \\ metis_tac [type_d_tenv_ok_helper]
-  )
+  >- (
+   `tenv_ok tenv'`
+       suffices_by (metis_tac [extend_dec_tenv_ok, weak_extend_dec_tenv])
+     \\ metis_tac [type_d_tenv_ok_helper]
+   )
 QED
 
    (*
