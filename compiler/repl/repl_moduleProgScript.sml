@@ -4,15 +4,15 @@
   the end of bootstrap translation).
 
   This REPL module defines some references:
-   - REPL.prompt : Ref string
+   - REPL.prompt : string ref
       -- the string that the default input function prints before reading
          user input (by default this is "> ")
-   - REPL.isEOF : Ref bool
+   - REPL.isEOF : bool ref
       -- true means that all user input has been read (e.g. if we have
          reached the end of stdin)
-   - REPL.nextString : Ref string
+   - REPL.nextString : string ref
       -- contains the next user input (if isEOF is false)
-   - REPL.readNextString : Ref (unit -> unit)
+   - REPL.readNextString : (unit -> unit) ref
       -- the function that the REPL uses to read user input; it is this
          function that assigns new values to REPL.isEOF and REPL.nextString.
 
