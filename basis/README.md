@@ -109,6 +109,11 @@ Proof about the code in the byte-array module Word8Array.
 [Word8ProgScript.sml](Word8ProgScript.sml):
 Module about the built-in word8 type.
 
+[addPrettyPrintersLib.sml](addPrettyPrintersLib.sml):
+Library code for applying the type-dec to pp-dec functions
+to the ml_progLib state. Used in the basis to install
+default pretty-printers for some of the basis types.
+
 [basisFunctionsLib.sml](basisFunctionsLib.sml):
 Functions that aid building the CakeML code for the basis library.
 

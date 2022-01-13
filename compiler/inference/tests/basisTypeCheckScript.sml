@@ -9,13 +9,14 @@ val _ = new_theory "basisTypeCheck"
 
 (* A simple test for the inferencer, precomputes the basis config, but doesn't store it as a constant *)
 val cmp = wordsLib.words_compset ()
+val basis_def = basisProgTheory.basis_def
 val () = computeLib.extend_compset
     [computeLib.Extenders
       [inferenceComputeLib.add_inference_compset,
       basicComputeLib.add_basic_compset
       ],
      computeLib.Defs
-      [basisProgTheory.basis_def
+      [basis_def
       ],
     computeLib.Tys
     [    ]
@@ -31,10 +32,11 @@ in
     val x = test |> concl |> rhs
     val _ = if can (match_term ``infer$Success _``) x then () else
             if can (match_term ``infer$Failure _``) x then let
-              val msg = x |> rand |> rand |> rand |> stringSyntax.fromHOLstring
-              in failwith ("Type inference failed for basis with message: " ^ msg) end
-              handle HOL_ERR _ =>
-              failwith "Type inference failed for basis. (Also failed to fully evaluate type inferencer error message)"
+              val msg = x |> rand |> rand |> rand
+              in case total stringSyntax.fromHOLstring msg of
+                SOME s => failwith ("Type inference failed for basis with message: " ^ s)
+                | NONE => failwith "Type inference failed for basis. (Also failed to fully evaluate type inferencer error message)"
+            end
             else failwith "Failed to fully evaluate type inferencer applied to basis."
     val _ = print "\nTypes of all basis functions:\n\n"
     val x = x |> rand
