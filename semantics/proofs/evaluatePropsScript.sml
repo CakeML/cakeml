@@ -775,7 +775,7 @@ Theorem evaluate_ffi_intro:
 Proof
   ho_match_mp_tac full_evaluate_ind
   \\ rpt strip_tac \\ fs [full_evaluate_def,combine_dec_result_def]
-  \\ fs [pair_case_eq, CaseEq "result", CaseEq "error_result", bool_case_eq,
+  \\ gs [pair_case_eq, CaseEq "result", CaseEq "error_result", bool_case_eq,
         option_case_eq, list_case_eq, CaseEq "exp_or_val", do_eval_res_def]
   \\ full_simp_tac bool_ss [CaseEq "match_result"]
   \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] \\ rveq \\ fs []
