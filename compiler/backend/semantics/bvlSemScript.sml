@@ -165,7 +165,7 @@ val do_app_def = Define `
          | _ => Error)
     | (SetGlobal n,[v]) =>
         (case get_global n s.globals of
-         | SOME NONE => Rval (Unit,
+         | SOME _ => Rval (Unit,
              s with globals := (LUPDATE (SOME v) n s.globals))
          | _ => Error)
     | (AllocGlobal,[]) =>
