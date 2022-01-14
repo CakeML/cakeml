@@ -21,7 +21,7 @@ val env = get_ml_prog_state () |> get_env
 
 Triviality declare_env_thm:
   declare_env_rel ^s ^env
-    (^s with eval_state := SOME (EvalDecs (eval_state_var with env_id_counter := (0,1,0))))
+    (^s with eval_state := SOME (EvalDecs (eval_state_var with env_id_counter := (0,1,1))))
     (Env ^env (0,0))
 Proof
   fs [semanticPrimitivesTheory.declare_env_def,ml_progTheory.declare_env_rel_def]

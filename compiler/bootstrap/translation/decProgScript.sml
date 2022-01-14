@@ -34,4 +34,20 @@ val _ = register_type ``:locs``;
 val _ = register_type ``:exp``;
 val _ = register_type ``:dec``;
 
+Theorem IsTypeRep_AST_DEC_v:
+  IsTypeRep AST_DEC_v AST_DEC_TYPE
+Proof
+  irule_at Any (fetch_v_fun “:ast$dec” |> snd |> hd)
+  \\ irule_at Any (fetch_v_fun “:'a list” |> snd |> hd)
+  \\ rpt (irule_at Any (fetch_v_fun “:ast$exp” |> snd |> hd))
+  \\ rpt (irule_at Any (fetch_v_fun “:'a # 'b” |> snd |> hd))
+  \\ rpt (irule_at Any (fetch_v_fun “:ast$exp” |> snd |> hd))
+  \\ rpt (irule_at Any (fetch_v_fun “:ast$pat” |> snd |> hd))
+  \\ rpt (irule_at Any (fetch_v_fun “:ast$lit” |> snd |> hd))
+  \\ rpt (irule_at Any (fetch_v_fun “:word8” |> snd |> hd))
+  \\ rpt (irule_at Any (fetch_v_fun “:word64” |> snd |> hd))
+  \\ rpt (irule_at Any (fetch_v_fun “:string” |> snd |> hd))
+  \\ fs []
+QED
+
 val _ = export_theory();
