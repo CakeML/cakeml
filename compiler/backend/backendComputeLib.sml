@@ -31,7 +31,7 @@ val add_backend_compset = computeLib.extend_compset
     ,``:bvl_to_bvi$config``
     ,``:data_to_word$config``
     ,``:word_to_word$config``
-    ,``:'a word_to_stack$config``
+    ,``:word_to_stack$config``
     ,``:stack_to_lab$config``
     ,``:'a lab_to_target$config``
     ,``:'a asm_config``
