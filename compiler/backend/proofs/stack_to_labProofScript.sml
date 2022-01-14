@@ -3424,7 +3424,6 @@ Theorem IMP_init_state_ok:
        (post_alloc_conventions kkk ∘ SND ∘ SND) progs ∧
      EVERY (flat_exp_conventions ∘ SND ∘ SND) progs ∧
      EVERY ((λy. raise_stub_location ≠ y) ∘ FST) progs ∧
-     EVERY ((λy. store_consts_stub_location ≠ y) ∘ FST) progs ∧
      (n = 0 ⇒ bm0 = LENGTH bitmaps)) (word_oracle n)) ∧
   stack_oracle =
   (λn.

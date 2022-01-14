@@ -345,7 +345,7 @@ val compile_word_to_stack_def = Define `
      let (progs,fs,bitmaps) = compile_word_to_stack k progs bitmaps in
        ((i,prog)::progs,f::fs,bitmaps))`
 
-val compile_def = Define `
+Definition compile_def:
   compile asm_conf progs =
     let k = asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs) in
     let (progs,fs,bitmaps) = compile_word_to_stack k progs (List [4w], 1) in
@@ -353,8 +353,7 @@ val compile_def = Define `
       (append (FST bitmaps),
        <| bitmaps_length := SND bitmaps;
           stack_frame_size := sfs |>, 0::fs,
-       (raise_stub_location,raise_stub k) ::
-       (store_consts_stub_location,store_consts_stub k) :: progs)
+       (raise_stub_location,raise_stub k) :: progs)
 End
 
 val stub_names_def = Define`

@@ -401,7 +401,7 @@ val res = encode_for_rec “:clos_to_bvl$config”;
 val res = encode_for_rec “:environment”;
 val res = encode_for_rec “:environment_store”;
 val res = encode_for_rec “:source_to_flat$config”;
-val res = encode_for_rec “:'a word_to_stack$config”;
+val res = encode_for_rec “:word_to_stack$config”;
 val res = encode_for_rec “:'a lab_to_target$config”;
 val res = encode_for_rec “:'a backend$config”;
 
