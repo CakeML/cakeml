@@ -6,6 +6,9 @@ Definition of the inference system for HOL with ad-hoc overloading,
 including semantics in set theory and proofs of soundness and
 consistency.
 
+[prover](prover):
+Proof of soundness for the Candle theorem prover.
+
 [set-theory](set-theory):
 A specification of (roughly) Zermelo's set theory.
 
