@@ -471,14 +471,14 @@ val whole_prog_spec2_def = Define`
 
 Theorem whole_prog_spec2_semantics_prog:
    ∀fname fv.
-     Decls env1 (init_state (basis_ffi cl fs)) prog env2 st2 ==>
+     Decls env1 (init_state (basis_ffi cl fs) with eval_state := es) prog env2 st2 ==>
      lookup_var fname env2 = SOME fv ==>
      whole_prog_spec2 fv cl fs sprop Q ==>
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
      (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME Q => Q) h1)
    ==>
    ∃io_events fs'.
-     semantics_prog (init_state (basis_ffi cl fs)) env1
+     semantics_prog (init_state (basis_ffi cl fs) with eval_state := es) env1
        (SNOC ^main_call prog) (Terminate Success io_events) /\
      extract_fs fs io_events = SOME fs' ∧ Q fs'
 Proof
@@ -524,14 +524,14 @@ QED
 
 Theorem whole_prog_spec_semantics_prog:
    ∀fname fv.
-     Decls env1 (init_state (basis_ffi cl fs)) prog env2 st2 ==>
+     Decls env1 (init_state (basis_ffi cl fs) with eval_state := es) prog env2 st2 ==>
      lookup_var fname env2 = SOME fv ==>
      whole_prog_spec fv cl fs sprop Q ==>
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
      (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME Q => Q) h1)
    ==>
    ∃io_events fs'.
-     semantics_prog (init_state (basis_ffi cl fs)) env1
+     semantics_prog (init_state (basis_ffi cl fs) with eval_state := es) env1
        (SNOC ^main_call prog) (Terminate Success io_events) /\
      extract_fs fs io_events = SOME fs' ∧ Q fs'
 Proof
@@ -552,14 +552,14 @@ QED
 
 Theorem whole_prog_spec_semantics_prog_ffidiv:
    ∀fname fv.
-     Decls env1 (init_state (basis_ffi cl fs)) prog env2 st2 ==>
+     Decls env1 (init_state (basis_ffi cl fs) with eval_state := es) prog env2 st2 ==>
      lookup_var fname env2 = SOME fv ==>
      whole_prog_ffidiv_spec fv cl fs Q ==>
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
      (COMMANDLINE cl * STDIO fs * RUNTIME) h1)
    ==>
    ∃io_events fs' n c b.
-     semantics_prog (init_state (basis_ffi cl fs)) env1
+     semantics_prog (init_state (basis_ffi cl fs) with eval_state := es) env1
        (SNOC ^main_call prog)
        (Terminate (FFI_outcome(Final_event n c b FFI_diverged)) io_events) /\
      extract_fs fs io_events = SOME fs' ∧ Q n c b fs'
@@ -720,6 +720,12 @@ Proof
   rw[]
   \\ qexists_tac `s` \\ qexists_tac `C DIFF s`
   \\ SPLIT_TAC
+QED
+
+Theorem same_eval_state:
+  (s with eval_state := s.eval_state) = s
+Proof
+  fs [semanticPrimitivesTheory.state_component_equality]
 QED
 
 val _ = export_theory();
