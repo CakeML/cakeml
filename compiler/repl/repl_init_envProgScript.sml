@@ -12,7 +12,7 @@ val _ = translation_extends "repl_moduleProg";
 (* we set the env_id_counter field of the eval_state *)
 
 val _ = ml_prog_update (ml_progLib.set_eval_state
-          “EvalDecs (eval_state_var with env_id_counter := (0,0,0))”)
+          “EvalDecs (eval_state_var with env_id_counter := (0,0,1))”)
 
 (* we declare a Denv *)
 
