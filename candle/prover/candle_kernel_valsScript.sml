@@ -115,18 +115,11 @@ Proof
   fs [kernel_locs_def]
 QED
 
-Theorem refs_defs = LIST_CONJ
-  [ml_hol_kernel_funsProgTheory.init_type_constants_refs_def,
-   ml_hol_kernel_funsProgTheory.init_term_constants_refs_def,
-   ml_hol_kernel_funsProgTheory.init_axioms_refs_def,
-   ml_hol_kernel_funsProgTheory.init_context_refs_def,
-   CharProgTheory.some_chars_vector_refs_def,
-   MapProgTheory.ratio_refs_def,
-   MapProgTheory.delta_refs_def,
-   MapProgTheory.empty_refs_def,
-   TextIOProgTheory.stdin_refs_def,
-   TextIOProgTheory.stdout_refs_def,
-   TextIOProgTheory.stderr_refs_def]
+val context_refs_defs = the_context_def |> concl |> find_terms (listSyntax.is_length)
+  |> map (dest_thy_const o listSyntax.dest_length)
+  |> map (fn cn => fetch (#Thy cn) (#Name cn ^ "_def"))
+
+Theorem refs_defs = LIST_CONJ context_refs_defs
 
 Theorem kernel_locs = IN_kernel_locs |>
   SIMP_RULE (srw_ss()) [the_type_constants_def,

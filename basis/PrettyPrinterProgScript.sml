@@ -77,7 +77,9 @@ val res = tr "pp_string" rename_pp_string_def;
 val res = translate pp_ref_def;
 val res = translate pp_array_def;
 val res = translate pp_word8array_def;
-val res = translate pp_fun_def;
+
+(* candle proofs need constants in the basis to be defined as literals *)
+val res = translate (REWRITE_RULE [ppd_token_def] pp_fun_def);
 
 (* pretty printers for numeric types *)
 val res = translate pp_int_def;
