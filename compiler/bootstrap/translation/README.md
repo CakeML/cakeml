@@ -22,7 +22,7 @@ Finish translation of the 64-bit version of the compiler.
 [decProgScript.sml](decProgScript.sml):
 Translation of CakeML source AST
 
-[decode64ProgScript.sml](decode64ProgScript.sml):
+[decodeProgScript.sml](decodeProgScript.sml):
 Translate the compiler's state decoder.
 
 [explorerProgScript.sml](explorerProgScript.sml):

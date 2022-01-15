@@ -34,6 +34,8 @@ val _ = register_type ``:locs``;
 val _ = register_type ``:exp``;
 val _ = register_type ``:dec``;
 
+Theorem IsTypeRep_LIST_v = fetch_v_fun “:'a list” |> snd |> hd;
+
 Theorem IsTypeRep_AST_DEC_v:
   IsTypeRep AST_DEC_v AST_DEC_TYPE
 Proof

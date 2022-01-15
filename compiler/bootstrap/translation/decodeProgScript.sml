@@ -3,13 +3,13 @@
 *)
 open preamble basisFunctionsLib
      num_list_enc_decTheory num_tree_enc_decTheory backend_enc_decTheory
-     mipsProgTheory ml_translatorLib ml_translatorTheory cfLib
+     explorerProgTheory ml_translatorLib ml_translatorTheory cfLib
 
-val _ = new_theory "decode64Prog"
+val _ = new_theory "decodeProg"
 
-val _ = translation_extends "mipsProg";
+val _ = translation_extends "explorerProg";
 
-val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "decode64Prog");
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "decodeProg");
 
 (* translator setup *)
 
@@ -55,6 +55,24 @@ fun def_of_const tm = let
   in def end
 
 val _ = (find_def_for_const := def_of_const);
+
+(* --- *)
+
+val _ = register_type “:backend$inc_config”
+
+Theorem IsTypeRep_BACKEND_INC_CONFIG_v:
+  IsTypeRep BACKEND_INC_CONFIG_v BACKEND_INC_CONFIG_TYPE
+Proof
+  irule_at Any (fetch_v_fun “:backend$inc_config” |> snd |> hd) \\ fs []
+QED
+
+Theorem INJ_BACKEND_INC_CONFIG_v[simp]:
+  INJ BACKEND_INC_CONFIG_v UNIV UNIV
+Proof
+  irule ml_translatorTheory.IsTypeRep_EqualityType_INJ
+  \\ irule_at Any IsTypeRep_BACKEND_INC_CONFIG_v
+  \\ fs [EqualityType_rule [] “:backend$inc_config”]
+QED
 
 (* --- *)
 
@@ -183,18 +201,17 @@ val def = clos_to_bvl_config_dec_def
 val res = translate def;
 
 val _ = ml_translatorLib.use_string_type true;
-val def = lab_to_target_config_dec_def |> INST_TYPE [alpha|->“:64”]
+val def = lab_to_target_inc_config_dec_def
           |> REWRITE_RULE [GSYM string_dec_thm]
 val res = translate def;
 val _ = ml_translatorLib.use_string_type false;
 
-val _ = register_type “:64 backend$config”;
-
-val def = config_dec_def |> INST_TYPE [alpha|->“:64”]
+val def = inc_config_dec_def
 val res = translate def;
 
-val res = translate (decode_backend_config_def |> INST_TYPE [alpha|->“:64”]);
+val res = translate decode_backend_config_def;
 
+(*
 Definition char_cons_def:
   char_cons (x:char) l = x::(l:char list)
 End
@@ -298,6 +315,7 @@ Proof
   \\ xmatch \\ xvar \\ xsimpl
   \\ metis_tac [encode_backend_config_thm]
 QED
+*)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
