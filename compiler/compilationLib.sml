@@ -994,10 +994,10 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
              REWR_CONV from_stack_def THENC
              RAND_CONV (RATOR_CONV eval) THENC
              REWR_CONV_BETA LET_THM THENC
-             RAND_CONV (REWR_CONV stack_to_labTheory.compile_def))))
+             (RATOR_CONV o RAND_CONV) (REWR_CONV stack_to_labTheory.compile_def))))
 
       val stack_rawcall_compile =
-        (stack_to_lab_thmA |> concl |> rand |> rand |> rand);
+        (stack_to_lab_thmA |> concl |> rand |> rator |> rand |> rand);
 
       val rawcall_thm = time_with_size (term_size o rand o concl) "stack_rawcall"
                           eval stack_rawcall_compile;
@@ -1012,8 +1012,8 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
       val stack_to_lab_thmA' =
         stack_to_lab_thmA
-        |> (CONV_RULE(PATH_CONV "rrr" (K rawcall_thm') THENC
-                      PATH_CONV "rr" (REWR_CONV_BETA LET_THM)))
+        |> (CONV_RULE(PATH_CONV "rlrr" (K rawcall_thm') THENC
+                      PATH_CONV "rlr" (REWR_CONV_BETA LET_THM)))
 
       (* stack_alloc *)
 
@@ -1033,7 +1033,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
       val stack_to_lab_thm0 =
         stack_to_lab_thmA'
-        |> (CONV_RULE(PATH_CONV "rrr" (
+        |> (CONV_RULE(PATH_CONV "rlrr" (
                  REWR_CONV stack_allocTheory.compile_def THENC
                  FORK_CONV(eval,
                    RAND_CONV(REWR_CONV stack_prog_def) THENC
@@ -1041,17 +1041,17 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
                  listLib.APPEND_CONV)))
 
       val stack_alloc_prog_def =
-        mk_abbrev"stack_alloc_prog"(stack_to_lab_thm0 |> rconc |> rand |> rand)
+        mk_abbrev"stack_alloc_prog"(stack_to_lab_thm0 |> rconc |> rator |> rand |> rand)
       val temp_defs = (mk_abbrev_name"stack_alloc_prog") :: temp_defs
 
       val stack_to_lab_thm1 =
         stack_to_lab_thm0
         |> CONV_RULE(RAND_CONV(
-             RAND_CONV (
-               RAND_CONV(REWR_CONV(SYM stack_alloc_prog_def)) THENC
+             (RATOR_CONV o RAND_CONV) (
+               RAND_CONV (REWR_CONV(SYM stack_alloc_prog_def)) THENC
                REWR_CONV_BETA LET_THM)))
 
-      val tm5 = stack_to_lab_thm1 |> rconc |> rand
+      val tm5 = stack_to_lab_thm1 |> rconc |> rator |> rand
 
       val stack_remove_thm0 =
         tm5 |>
@@ -1093,7 +1093,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       val stack_to_lab_thm2 =
         stack_to_lab_thm1
         |> CONV_RULE(RAND_CONV(
-             RAND_CONV(
+             (RATOR_CONV o RAND_CONV)(
                REWR_CONV stack_remove_thm THENC
                RAND_CONV(REWR_CONV(SYM stack_remove_prog_def)) THENC
                REWR_CONV_BETA LET_THM THENC
@@ -1101,7 +1101,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
                REWR_CONV_BETA LET_THM THENC
                RAND_CONV(REWR_CONV stack_namesTheory.compile_def))))
 
-      val tm7 = stack_to_lab_thm2 |> rconc |> rand |> rand
+      val tm7 = stack_to_lab_thm2 |> rconc |> rator |> rand |> rand
 
       val prog_comp_nm_tm = tm7 |> rator |> rand
 
@@ -1129,10 +1129,10 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
       val stack_to_lab_thm3 =
         stack_to_lab_thm2
-        |> CONV_RULE(RAND_CONV(RAND_CONV(
+        |> CONV_RULE(RAND_CONV((RATOR_CONV o RAND_CONV)(
              RAND_CONV(REWR_CONV stack_names_thm))))
 
-      val tm8 = stack_to_lab_thm3 |> rconc |> rand
+      val tm8 = stack_to_lab_thm3 |> rconc |> rator |> rand
 
       val prog_to_section_tm = tm8 |> rator |> rand
 
@@ -1148,15 +1148,15 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
       val stack_to_lab_thm4 =
         stack_to_lab_thm3
-        |> CONV_RULE(RAND_CONV(RAND_CONV(
+        |> CONV_RULE(RAND_CONV((RATOR_CONV o RAND_CONV)(
              RAND_CONV(REWR_CONV stack_names_prog_def) THENC
              map_ths_conv ths)))
 
-      val lab_prog_def = mk_abbrev lab_prog_name (stack_to_lab_thm4 |> rconc |> rand);
+      val lab_prog_def = mk_abbrev lab_prog_name (stack_to_lab_thm4 |> rconc |> rator |> rand);
 
       val stack_to_lab_thm =
         stack_to_lab_thm4 |>
-        CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM lab_prog_def))))
+        CONV_RULE(RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(SYM lab_prog_def)))))
 
       val () = List.app delete_binding temp_defs
 
