@@ -58,6 +58,10 @@ val _ = (find_def_for_const := def_of_const);
 
 (* --- *)
 
+val _ = ml_translatorLib.use_string_type true;
+val _ = register_type “:lab_to_target$inc_config”
+val _ = ml_translatorLib.use_string_type false;
+
 val _ = register_type “:backend$inc_config”
 
 Theorem IsTypeRep_BACKEND_INC_CONFIG_v:
@@ -206,12 +210,10 @@ val def = lab_to_target_inc_config_dec_def
 val res = translate def;
 val _ = ml_translatorLib.use_string_type false;
 
-val def = inc_config_dec_def
-val res = translate def;
+val res = translate inc_config_dec_def;
 
 val res = translate decode_backend_config_def;
 
-(*
 Definition char_cons_def:
   char_cons (x:char) l = x::(l:char list)
 End
@@ -219,10 +221,10 @@ End
 val char_cons_v_thm = translate char_cons_def;
 
 val _ = (append_prog o process_topdecs) `
-  fun read_config x fname =
+  fun read_config fname =
     case TextIO.foldChars char_cons [] (Some fname) of
       None     => None
-    | Some res => Some (decode_backend_config x (List.rev res))`
+    | Some res => Some (decode_backend_config (List.rev res))`
 
 Theorem foldl_char_cons:
   ∀ys xs. foldl char_cons xs ys = REVERSE ys ++ xs
@@ -232,13 +234,13 @@ QED
 
 Theorem read_config_spec:
   file_content fs fname = SOME content ∧ hasFreeFD fs ∧
-  FILENAME fname fnamev ∧ ASM_ASM_CONFIG_TYPE x xv ⇒
-  app (p:'ffi ffi_proj) decode64Prog_read_config_v [xv; fnamev]
+  FILENAME fname fnamev ⇒
+  app (p:'ffi ffi_proj) decodeProg_read_config_v [fnamev]
     (STDIO fs)
-    (POSTv retv. STDIO fs * cond (OPTION_TYPE BACKEND_CONFIG_TYPE
-                                    (SOME (decode_backend_config x content)) retv))
+    (POSTv retv. STDIO fs * cond (OPTION_TYPE BACKEND_INC_CONFIG_TYPE
+                                    (SOME (decode_backend_config content)) retv))
 Proof
-  xcf_with_def "decode64Prog.read_config" (fetch "-" "decode64Prog_read_config_v_def")
+  xcf_with_def "decodeProg.read_config" (fetch "-" "decodeProg_read_config_v_def")
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ gvs []
@@ -264,58 +266,29 @@ Proof
 QED
 
 val _ = (append_prog o process_topdecs) `
-  fun read_x64_config fname =
-    case read_config x64Prog.x64_config fname of
+  fun read_inc_config fname =
+    case read_config fname of
       Some c => c
-    | None   => Runtime.exit 5;
-  fun read_arm8_config fname =
-    case read_config arm8Prog.arm8_config fname of
-      Some c => c
-    | None   => Runtime.exit 5;
-`;
+    | None   => Runtime.exit 5; `
 
-Theorem read_x64_config_spec:
+Theorem read_inc_config_spec:
   file_content fs fname = SOME (encode_backend_config c) ∧
-  hasFreeFD fs ∧ FILENAME fname fnamev ∧
-  c.lab_conf.asm_conf = x64_config ⇒
-  app (p:'ffi ffi_proj) decode64Prog_read_x64_config_v [fnamev]
+  hasFreeFD fs ∧ FILENAME fname fnamev ⇒
+  app (p:'ffi ffi_proj) decodeProg_read_inc_config_v [fnamev]
     (STDIO fs)
-    (POSTv retv. STDIO fs * cond (BACKEND_CONFIG_TYPE c retv))
+    (POSTv retv. STDIO fs * cond (BACKEND_INC_CONFIG_TYPE c retv))
 Proof
-  xcf_with_def "decode64Prog.read_x64_config"
-    (fetch "-" "decode64Prog_read_x64_config_v_def")
-  \\ xlet ‘POSTv retv. STDIO fs * cond (OPTION_TYPE BACKEND_CONFIG_TYPE
-          (SOME (decode_backend_config x64_config (encode_backend_config c))) retv)’
+  xcf_with_def "decodeProg.read_inc_config"
+    (fetch "-" "decodeProg_read_inc_config_v_def")
+  \\ xlet ‘POSTv retv. STDIO fs * cond (OPTION_TYPE BACKEND_INC_CONFIG_TYPE
+          (SOME (decode_backend_config (encode_backend_config c))) retv)’
   THEN1
    (drule read_config_spec \\ fs []
-    \\ disch_then drule \\ strip_tac
-    \\ xapp \\ fs [x64ProgTheory.x64_config_v_thm])
+    \\ disch_then drule \\ strip_tac \\ xapp \\ fs [])
   \\ gvs [std_preludeTheory.OPTION_TYPE_def]
   \\ xmatch \\ xvar \\ xsimpl
   \\ metis_tac [encode_backend_config_thm]
 QED
-
-Theorem read_arm8_config_spec:
-  file_content fs fname = SOME (encode_backend_config c) ∧
-  hasFreeFD fs ∧ FILENAME fname fnamev ∧
-  c.lab_conf.asm_conf = arm8_config ⇒
-  app (p:'ffi ffi_proj) decode64Prog_read_arm8_config_v [fnamev]
-    (STDIO fs)
-    (POSTv retv. STDIO fs * cond (BACKEND_CONFIG_TYPE c retv))
-Proof
-  xcf_with_def "decode64Prog.read_arm8_config"
-    (fetch "-" "decode64Prog_read_arm8_config_v_def")
-  \\ xlet ‘POSTv retv. STDIO fs * cond (OPTION_TYPE BACKEND_CONFIG_TYPE
-          (SOME (decode_backend_config arm8_config (encode_backend_config c))) retv)’
-  THEN1
-   (drule read_config_spec \\ fs []
-    \\ disch_then drule \\ strip_tac
-    \\ xapp \\ fs [arm8ProgTheory.arm8_config_v_thm])
-  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
-  \\ xmatch \\ xvar \\ xsimpl
-  \\ metis_tac [encode_backend_config_thm]
-QED
-*)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
