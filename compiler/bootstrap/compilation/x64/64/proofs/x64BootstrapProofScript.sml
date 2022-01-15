@@ -10,13 +10,13 @@ val _ = new_theory"x64BootstrapProof";
 Theorem compile_correct_eval:
   compile c prog = SOME (bytes,bitmaps,c') ⇒
    let (s0,env) = THE (prim_sem_env (ffi: 'ffi ffi_state)) in
-     ¬semantics_prog (add_eval_state ev s0) env prog Fail ∧ backend_config_ok c ∧
-     mc_conf_ok mc ∧ mc_init_ok c mc ∧ opt_eval_config_wf c' ev ∧
-     installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names ffi
-       (heap_regs c.stack_conf.reg_names) mc ms ⇒
-     machine_sem mc ffi ms ⊆
-       extend_with_resource_limit
-         (semantics_prog (add_eval_state ev s0) env prog)
+   ¬semantics_prog (add_eval_state ev s0) env prog Fail ∧ backend_config_ok c ∧
+   mc_conf_ok mc ∧ mc_init_ok c mc ∧ opt_eval_config_wf c' ev ∧
+   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names ffi
+     (heap_regs c.stack_conf.reg_names) mc ms ⇒
+   machine_sem mc ffi ms ⊆
+     extend_with_resource_limit
+       (semantics_prog (add_eval_state ev s0) env prog)
 Proof
   fs [LET_THM] \\ pairarg_tac \\ rw []
   \\ mp_tac compile_correct' \\ fs []
@@ -38,20 +38,19 @@ Definition compiler_instance_def:
   compiler_instance =
     <| init_state := config_to_inc_config cake_config ;
        compiler_fun := compile_inc_progs_for_eval cake_config.lab_conf.asm_conf ;
-       config_v := ARB ;
        config_dom := UNIV ;
+       config_v := BACKEND_INC_CONFIG_v ;
        decs_dom := ARB ;
        decs_v := LIST_v AST_DEC_v |>
 End
 
 Triviality compiler_instance_lemma:
-  INJ compiler_instance.config_v 𝕌(:64 inc_config) 𝕌(:semanticPrimitives$v) ∧
+  INJ compiler_instance.config_v 𝕌(:inc_config) 𝕌(:semanticPrimitives$v) ∧
   compiler_instance.init_state = config_to_inc_config cake_config ∧
   compiler_instance.compiler_fun =
     compile_inc_progs_for_eval cake_config.lab_conf.asm_conf
 Proof
   fs [compiler_instance_def]
-  \\ cheat (* INJ *)
 QED
 
 Definition the_EvalDecs_def:
