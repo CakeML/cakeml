@@ -11,7 +11,7 @@ val confs = LIST_CONJ
    to_dataBootstrapTheory.bvi_conf_def]
 
 val encode_backend_config_cake_config_lemma =
-  “encode_backend_config cake_config”
+  “encode_backend_config (config_to_inc_config cake_config)”
   |> (SIMP_CONV (srw_ss()) [cake_config_def,confs,encode_backend_config_def] THENC EVAL);
 
 Definition config_enc_str_def:
