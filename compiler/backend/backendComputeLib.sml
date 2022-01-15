@@ -31,7 +31,7 @@ val add_backend_compset = computeLib.extend_compset
     ,``:bvl_to_bvi$config``
     ,``:data_to_word$config``
     ,``:word_to_word$config``
-    ,``:'a word_to_stack$config``
+    ,``:word_to_stack$config``
     ,``:stack_to_lab$config``
     ,``:'a lab_to_target$config``
     ,``:'a asm_config``
@@ -137,7 +137,9 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_mtiTheory.collect_args_def
     ,clos_mtiTheory.collect_apps_def
     ,clos_mtiTheory.compile_def
-      (* ---- clos_number ---- *)
+      (* ---- clos_lift ---- *)
+    ,clos_liftTheory.compile_def
+       (* ---- clos_number ---- *)
     ,clos_numberTheory.renumber_code_locs_def
     ]
   ,computeLib.Defs (theory_computes "clos_annotate")
@@ -232,6 +234,7 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.make_name_alist_def
     ,clos_to_bvlTheory.get_src_names_def
     ,clos_to_bvlTheory.add_src_names_def
+    ,clos_to_bvlTheory.compile_build_def
       (* ---- bvl_inline ---- *)
     ,bvl_inlineTheory.tick_inline_def
     ,bvl_inlineTheory.is_small_aux_def
