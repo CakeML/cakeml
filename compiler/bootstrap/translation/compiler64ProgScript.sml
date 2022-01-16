@@ -279,12 +279,87 @@ val nonzero_exit_code_for_error_msg_def = Define `
 val res = translate compilerTheory.is_error_msg_def;
 val res = translate nonzero_exit_code_for_error_msg_def;
 
+(* incremental compilers
+
+val res = translate (backendTheory.empty_progs_def |> spec64)
+val res = translate backendTheory.keep_progs_def
+val res = translate source_to_flatTheory.lookup_env_id_def
+val res = translate source_to_flatTheory.store_env_id_def
+val res = translate source_to_flatTheory.inc_compile_prog_def
+val res = translate source_to_flatTheory.inc_compile_def
+val res = translate flat_to_closTheory.inc_compile_decs_def
+val res = translate clos_mtiTheory.compile_inc_def
+val res = translate clos_mtiTheory.cond_mti_compile_inc_def
+val res = translate clos_knownTheory.reset_inline_factor_def
+val res = translate clos_knownTheory.compile_inc_def
+val res = translate clos_letopTheory.compile_inc_def
+val res = translate clos_fvsTheory.compile_inc_def
+val res = translate clos_ticksTheory.compile_inc_def
+val res = translate clos_knownTheory.known_compile_inc_def
+val res = translate clos_callTheory.compile_inc_def
+val res = translate clos_callTheory.cond_call_compile_inc_def
+val res = translate clos_annotateTheory.compile_inc_def
+val res = translate clos_numberTheory.ignore_table_def
+val res = translate miscTheory.make_even_def
+val res = translate clos_numberTheory.compile_inc_def
+val res = translate clos_knownTheory.option_val_approx_spt_def
+val res = translate clos_knownTheory.option_upd_val_spt_def
+val res = translate clos_knownTheory.known_static_conf_def
+val res = translate clos_to_bvlTheory.compile_inc_def
+
+Theorem extract_name_eq: (* this needs a pmatch *)
+  extract_name [] = (0,[]) ∧
+  extract_name (x::xs) =
+    case x of
+    | Op t (Const n) [] =>
+        (if n < 0 then (0,x::xs) else (Num (ABS n),if xs = [] then [x] else xs))
+    | _ => (0,x::xs)
+Proof
+  fs [clos_to_bvlTheory.extract_name_def]
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘o'’ \\ fs []
+  \\ Cases_on ‘l’ \\ fs []
+  \\ Cases_on ‘i’ \\ fs []
+QED
+
+val res = translate extract_name_eq
+val res = translate clos_to_bvlTheory.clos_to_bvl_compile_inc_def
+val res = translate bvl_inlineTheory.compile_inc_def
+val res = translate bvl_to_bviTheory.compile_inc_def
+val res = translate bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def
+val res = translate (stack_to_labTheory.compile_no_stubs_def |> spec64)
+
+val res = translate (backendTheory.compile_inc_progs_def
+  |> REWRITE_RULE [backendTheory.ensure_fp_conf_ok_def] |> spec64)
+*)
+
+(* fun eval_prim env s1 decs s2 bs ws = Eval [env,s1,decs,s2,bs,ws] *)
+val _ = append_prog
+  “[Dlet (Locs (POSN 1 2) (POSN 2 30))
+      (Pvar "eval_prim")
+      (Fun "env" (Fun "s1" (Fun "decs" (Fun "s2" (Fun "bs" (Fun "ws"
+         (App Eval [Var (Short "env"); Var (Short "s1");
+                    Var (Short "decs"); Var (Short "s2");
+                    Var (Short "bs"); Var (Short "ws")])))))))]”
+
+val _ = (append_prog o process_topdecs) `
+  fun run_interactive_repl cl = ()`;
+
+Definition has_repl_flag_def:
+  has_repl_flag cl ⇔ MEM (strlit "--repl") cl ∨ MEM (strlit "--candle") cl
+End
+
+val _ = (next_ml_names := ["compiler_has_repl_flag"]);
+val res = translate (has_repl_flag_def |> REWRITE_RULE [MEMBER_INTRO]);
+
 val main = process_topdecs`
   fun main u =
     let
       val cl = CommandLine.arguments ()
     in
-      if compiler_has_help_flag cl then
+      if compiler_has_repl_flag cl then
+        run_interactive_repl cl
+      else if compiler_has_help_flag cl then
         print compiler_help_string
       else if compiler_has_version_flag cl then
         print compiler_current_build_info_str
@@ -299,6 +374,7 @@ val res = append_prog main;
 val main_v_def = fetch "-" "main_v_def";
 
 Theorem main_spec:
+   ¬has_repl_flag (TL cl) ⇒
    app (p:'ffi ffi_proj) main_v
      [Conv NONE []] (STDIO fs * COMMANDLINE cl)
      (POSTv uv.
@@ -308,11 +384,7 @@ Theorem main_spec:
 Proof
   xcf_with_def "main" main_v_def
   \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ xlet_auto
-  >- (
-    (* TODO: xlet_auto: why doesn't xsimpl work here on its own? *)
-    CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`cl`
-    \\ xsimpl )
+  \\ xlet_auto >- xsimpl
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
   (* TODO: it would be nice if this followed more directly.
            either (or both):
@@ -331,6 +403,9 @@ Proof
   \\ conj_tac >- metis_tac[] \\ rw[]
   \\ imp_res_tac stdin_11 \\ rw[]
   \\ imp_res_tac stdin_get_file_content
+  \\ xlet_auto >- xsimpl
+  \\ xif
+  \\ first_x_assum $ irule_at $ Pos hd \\ simp []
   \\ xlet_auto >- xsimpl
   \\ xif
   >-
@@ -380,10 +455,12 @@ Proof
 QED
 
 Theorem main_whole_prog_spec:
+   ¬has_repl_flag (TL cl) ⇒
    whole_prog_spec main_v cl fs NONE
     ((=) (full_compile_64 (TL cl) (get_stdin fs) fs))
 Proof
-  simp[whole_prog_spec_def,UNCURRY]
+  strip_tac
+  \\ simp[whole_prog_spec_def,UNCURRY]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ reverse conj_tac >-
@@ -391,12 +468,12 @@ Proof
        GSYM fastForwardFD_with_numchars,
        GSYM add_stdo_with_numchars, with_same_numchars]
   \\ simp [SEP_CLAUSES]
-  \\ match_mp_tac(MP_CANON(MATCH_MP app_wgframe main_spec))
+  \\ match_mp_tac (MP_CANON(MATCH_MP app_wgframe (UNDISCH main_spec)))
   \\ xsimpl
 QED
 
 val (semantics_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) "main" main_whole_prog_spec;
+  whole_prog_thm (get_ml_prog_state()) "main" (main_whole_prog_spec |> UNDISCH);
 
 val compiler64_prog_def = Define`compiler64_prog = ^prog_tm`;
 
