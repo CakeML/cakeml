@@ -42,8 +42,8 @@ Definition read_while_def:
 End
 
 Theorem read_while_thm:
-   !cs s cs' s'.
-       (read_while P cs s = (s',cs')) ==> STRLEN cs' <= STRLEN cs
+   ∀cs s cs' s'.
+       (read_while P cs s = (s',cs')) ⇒ STRLEN cs' <= STRLEN cs
 Proof
   Induct THEN SRW_TAC [][read_while_def] THEN SRW_TAC [][] THEN
   RES_TAC THEN FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND] THEN DECIDE_TAC
@@ -87,7 +87,7 @@ Termination
 End
 
 Theorem read_string_thm:
-  ∀s t l l' x1 x2. (read_string s t l = (x1, l', x2)) ==>
+  ∀s t l l' x1 x2. (read_string s t l = (x1, l', x2)) ⇒
                    (LENGTH x2 <= LENGTH s + LENGTH t)
 Proof
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
@@ -120,7 +120,7 @@ Definition skip_comment_def:
 End
 
 Theorem skip_comment_thm:
-   !xs d l l' str. (skip_comment xs d l = SOME (str, l')) ==> LENGTH str <= LENGTH xs
+   ∀xs d l l' str. (skip_comment xs d l = SOME (str, l')) ⇒ LENGTH str <= LENGTH xs
 Proof
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ HO_MATCH_MP_TAC (fetch "-" "skip_comment_ind") \\ REPEAT STRIP_TAC
@@ -286,7 +286,7 @@ Proof
 QED
 
 Theorem lem2[local]:
-  ((let (x,y) = z a in f x y) ==> P a) = (let (x,y) = z a in (f x y ==> P a))
+  ((let (x,y) = z a in f x y) ⇒ P a) = (let (x,y) = z a in (f x y ⇒ P a))
 Proof
   EQ_TAC THEN
   SRW_TAC [] [LET_THM] THEN
@@ -306,8 +306,8 @@ val listeq = CaseEq "list"
 val optioneq = CaseEq "option"
 
 Theorem next_sym_LESS:
-   !input l s l' rest.
-     (next_sym input l = SOME (s, l', rest)) ==> LENGTH rest < LENGTH input
+   ∀input l s l' rest.
+     (next_sym input l = SOME (s, l', rest)) ⇒ LENGTH rest < LENGTH input
 Proof
   ho_match_mp_tac (fetch "-" "next_sym_ind") >>
   simp[next_sym_def, bool_case_eq, listeq, optioneq] >> rw[] >> fs[] >>
@@ -434,7 +434,7 @@ Definition next_token_def:
 End
 
 Theorem next_token_LESS:
-   !s l l' rest input. (next_token input l = SOME (s, l', rest)) ==>
+   ∀s l l' rest input. (next_token input l = SOME (s, l', rest)) ⇒
                    LENGTH rest < LENGTH input
 Proof
   NTAC 5 STRIP_TAC THEN Cases_on `next_sym input l`
@@ -492,7 +492,7 @@ Definition toplevel_semi_dex_def:
 End
 
 Theorem toplevel_semi_dex_non0[local]:
-  !i d toks j. (toplevel_semi_dex i d toks = SOME j) ==> 0 < j
+  ∀i d toks j. (toplevel_semi_dex i d toks = SOME j) ⇒ 0 < j
 Proof
   induct_on `toks` >>
   fs [toplevel_semi_dex_def] >>
@@ -515,7 +515,7 @@ Termination
   fs [toplevel_semi_dex_def] >>
   cases_on `h` >>
   fs [] >>
-  metis_tac [toplevel_semi_dex_non0, DECIDE ``0 < 1:num``, DECIDE ``!x:num. 0 < x + 1``]
+  metis_tac [toplevel_semi_dex_non0, DECIDE ``0 < 1:num``, DECIDE ``∀x:num. 0 < x + 1``]
 End
 
 val _ = export_theory();

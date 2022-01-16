@@ -80,4 +80,8 @@ val basis_prog = basis_st |> remove_snocs |> ml_progLib.get_prog;
 
 val basis_def = Define `basis = ^basis_prog`;
 
+Theorem basis_Decls_thm =
+  ml_progLib.get_Decls_thm basis_st
+  |> REWRITE_RULE [GSYM basis_def];
+
 val _ = export_theory ()

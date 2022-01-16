@@ -2289,7 +2289,7 @@ fun prove_EvalPatRel goal hol2deep = let
     goal |> rand |> dest_pabs |> snd |> hol2deep |> hyp
          |> filter (can (match_term lookup_cons_pat))
   val pat = get_term "not eq"
-  fun badtype ty = Lib.mem ty [listSyntax.mk_list_type alpha,numSyntax.num]
+  fun badtype ty = Lib.mem ty [listSyntax.mk_list_type alpha,numSyntax.num, mlstringSyntax.mlstring_ty]
   fun tac (hs,gg) = let
     val find_neg = find_term (fn tm => can (match_term pat) tm andalso
                                        not(badtype(type_of(boolSyntax.rhs(dest_neg tm)))))
@@ -2342,7 +2342,7 @@ fun prove_EvalPatRel goal hol2deep = let
           (rpt (CHANGED_TAC
                  (every_case_tac >> TRY(fs[] >> NO_TAC) >> tac2)) >>
                   fs [same_type_def,CaseEq"match_result",pmatch_def,
-                      lit_same_type_def,CaseEq"bool",INT_def,NUM_def,CHAR_def] >>
+                      lit_same_type_def,CaseEq"bool",INT_def,NUM_def,CHAR_def,STRING_TYPE_explode,explode_eq,eq_explode] >>
                   rpt var_eq_tac)))
   in th end handle HOL_ERR e =>
   (prove_EvalPatRel_fail := goal;

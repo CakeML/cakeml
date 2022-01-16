@@ -1,33 +1,36 @@
 (*
-  Close the kernel module from ml_hol_kernel_funsProg
+  Adds Candle specific functions to the kernel module from ml_hol_kernel_funsProg
 *)
 open preamble;
-open ml_translatorLib ml_monad_translatorLib ml_progLib
-     ml_hol_kernel_funsProgTheory ml_pmatchTheory;
-open holKernelTheory;
-local open holKernelPmatchTheory in end
+open ml_translatorLib ml_monad_translatorLib ml_progLib ml_hol_kernel_funsProgTheory;
+open basisFunctionsLib;
 
-val _ = new_theory "ml_hol_kernelProg";
+val _ = new_theory "candle_kernelProg";
 
 val _ = m_translation_extends "ml_hol_kernel_funsProg"
 
-(* Translation of functions used by e.g. the OpenTheory checker. *)
+val _ = (use_long_names := false);
 
-val def = m_translate mk_eq_def;
-val res = translate aconv_def;
-val res = translate holKernelPmatchTheory.is_eq_def;
-val def = m_translate mk_fun_ty_def;
+val _ = ml_prog_update open_local_block;
 
-val _ = next_ml_names := ["SYM"];
-val def = m_translate holKernelPmatchTheory.SYM_def;
+Definition thm_to_string_def:
+  thm_to_string (ctxt:update list) (th:thm) = strlit "thm here!"
+End
 
-val _ = next_ml_names := ["PROVE_HYP"];
-val def = m_translate PROVE_HYP_def;
+val _ = translate thm_to_string_def;
 
-val _ = next_ml_names := ["ALPHA_THM"];
-val def = m_translate ALPHA_THM_def;
+val _ = ml_prog_update open_local_in_block;
 
-val def = m_translate context_def;
+val _ = (append_prog o process_topdecs) `
+  val print_thm = fn th => case th of Sequent tms c =>
+    let
+      val ctxt = !the_context
+      val str = thm_to_string ctxt th
+      val arr = Word8Array.array 0 (Word8.fromInt 0)
+    in
+      #(kernel_ffi) str arr
+    end;
+`
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
