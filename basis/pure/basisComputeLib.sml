@@ -14,7 +14,6 @@ val add_basis_compset = computeLib.extend_compset
      mlstringTheory.concat_thm,
      mlstringTheory.explode_thm,
      mloptionTheory.getOpt_def,
-     mlintTheory.zero_pad_def,
      mlintTheory.toChar_def,
      mlintTheory.maxSmall_DEC_def,
      mlintTheory.padLen_DEC_eq,
