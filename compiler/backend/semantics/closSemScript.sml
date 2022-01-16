@@ -34,6 +34,7 @@ Type clos_co = ``:num -> 'c # clos_prog``
 val _ = Datatype `
   state =
     <| globals : (closSem$v option) list
+     ; mutable_global : closSem$v option
      ; refs    : num |-> closSem$v ref
      ; ffi     : 'ffi ffi_state
      ; clock   : num
@@ -170,6 +171,12 @@ Definition do_app_def:
          | _ => Error)
     | (AllocGlobal,[]) =>
         Rval (Unit, s with globals := s.globals ++ [NONE])
+    | (GlobalsPtr,[]) =>
+        (case s.mutable_global of
+          NONE => Error
+        | SOME v => (Rval(v,s)))
+    | (SetGlobalsPtr, [v]) =>
+        Rval (Unit, s with mutable_global := SOME v)
     | (Const i,[]) => Rval (Number i, s)
     | (Build p,[]) =>
         (case p of
@@ -739,6 +746,7 @@ val initial_state_def = Define`
     compile := cc;
     compile_oracle := co;
     globals := [];
+    mutable_global := NONE;
     refs := FEMPTY
   |>`;
 

@@ -1983,7 +1983,8 @@ val simple_state_rel_def = Define `
         FLOOKUP s.refs ptr = SOME (ValueArray w1) ∧
         LIST_REL vr w1 w) /\
     (!s t. sr s t ==> s.ffi = t.ffi /\ FDOM s.refs = FDOM t.refs /\
-                      LIST_REL (OPTREL vr) s.globals t.globals) /\
+                      LIST_REL (OPTREL vr) s.globals t.globals /\
+                      (OPTREL vr) s.mutable_global t.mutable_global) /\
     (!f s t.
       sr s t ==> sr (s with ffi := f)
                     (t with ffi := f)) /\
@@ -1996,7 +1997,10 @@ val simple_state_rel_def = Define `
          (t with refs := t.refs |+ (p,ValueArray ys))) /\
     (!s t xs ys.
       sr s t /\ LIST_REL (OPTREL vr) xs ys ==>
-      sr (s with globals := xs) (t with globals := ys))`
+      sr (s with globals := xs) (t with globals := ys)) /\
+    (!s t x y.
+      sr s t /\ (OPTREL vr) x y ==>
+      sr (s with mutable_global := x) (t with mutable_global := y))`
 
 Theorem simple_state_rel_ffi:
    simple_state_rel vr sr /\ sr s t ==> s.ffi = t.ffi
@@ -2260,7 +2264,6 @@ Proof
   \\ Cases_on `opp = Length \/ (?b. opp = BoundsCheckByte b) \/
                opp = BoundsCheckArray \/ opp = LengthByte \/
                opp = DerefByteVec \/ opp = DerefByte \/
-               opp = GlobalsPtr \/ opp = SetGlobalsPtr \/
                opp = El \/ (?n. opp = ElemAt n)`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
@@ -2348,6 +2351,23 @@ Proof
     \\ fs [closSemTheory.Unit_def]
     \\ match_mp_tac simple_state_rel_update_globals \\ fs []
     \\ fs [OPTREL_def] \\ fs [simple_state_rel_def])
+  \\ Cases_on `opp = GlobalsPtr` THEN1
+   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
+    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
+    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
+    \\ fs[simple_state_rel_def]
+    \\ last_x_assum drule
+    \\ simp[OPTREL_def]
+    \\ metis_tac[])
+  \\ Cases_on `opp = SetGlobalsPtr` THEN1
+   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
+    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
+    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
+    \\ rfs [simple_val_rel_def] \\ rveq \\ fs []
+    \\ fs [closSemTheory.Unit_def]
+    \\ fs[simple_state_rel_def])
   \\ Cases_on `opp = RefArray \/ opp = Ref \/ (?b. opp = RefByte b)` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
@@ -2870,7 +2890,8 @@ Definition adj_orac_rel_def:
      (!n x y. s1.compile_oracle n = (x, y) ==>
         OPTION_MAP (I ## (I ## f)) (s1.compile x y) = cc (f x) y) /\
      s2 = <|
-      globals := s1.globals; refs := s1.refs;
+      globals := s1.globals; mutable_global := s1.mutable_global;
+      refs := s1.refs;
       ffi := s1.ffi; clock := s1.clock;
       compile := cc;
       compile_oracle := (f ## I) o s1.compile_oracle;

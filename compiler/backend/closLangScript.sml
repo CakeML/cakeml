@@ -116,6 +116,7 @@ val pure_op_def = Define `
       FFI _ => F
     | SetGlobal _ => F
     | AllocGlobal => F
+    | SetGlobalsPtr => F
     | (RefByte _) => F
     | RefArray => F
     | UpdateByte => F
