@@ -342,8 +342,34 @@ val _ = append_prog
                     Var (Short "decs"); Var (Short "s2");
                     Var (Short "bs"); Var (Short "ws")])))))))]”
 
+(* TODO: define eval function *)
+(* TODO: define check_and_tweak function *)
+(* TODO: define report_error function *)
+(* TODO: define report_exn function *)
+
 val _ = (append_prog o process_topdecs) `
-  fun run_interactive_repl cl = ()`;
+  fun repl parse types conf env decs input_str =
+    (* input_str is passed in here only for error reporting purposes *)
+    case check_and_tweak decs types input_str of
+      Error msg => repl parse types conf env (report_error msg) ""
+    | Success (safe_decs, new_types) =>
+      (* here safe_decs are guaranteed to not crash;
+         the last declaration of safe_decs calls !REPL.readNextString *)
+      case eval conf env safe_decs of
+        CompileError msg => repl parse types conf env (report_error msg) ""
+      | EvalException e  => repl parse types conf env (report_exn e) ""
+      | EvalResult new_env =>
+        (* check whether the program that ran has loaded in new input *)
+        if !REPL.isEOF then () (* exit if there is no new input *) else
+          let val new_input = !REPL.nextString in
+            (* if there is new input: parse the input and recurse *)
+            case parse new_input of
+              Error msg        => repl parse types conf env (report_error msg) ""
+            | Success new_decs => repl parse new_types conf new_env new_decs new_input
+          end `
+
+val _ = (append_prog o process_topdecs) `
+  fun run_interactive_repl cl = () (* TODO: call repl *) `
 
 Definition has_repl_flag_def:
   has_repl_flag cl ⇔ MEM (strlit "--repl") cl ∨ MEM (strlit "--candle") cl
