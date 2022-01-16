@@ -348,6 +348,7 @@ val state_rel_def = Define`
     (s.clock = t.clock) ∧
     (s.max_app = t.max_app) ∧
     LIST_REL (OPTREL (v_rel g l t.code)) s.globals t.globals ∧
+    (OPTREL (v_rel g l t.code)) s.mutable_global t.mutable_global /\
     fmap_rel (ref_rel (v_rel g l t.code)) s.refs t.refs ∧
     s.code = FEMPTY`;
 

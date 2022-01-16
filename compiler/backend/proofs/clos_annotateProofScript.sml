@@ -238,6 +238,7 @@ val state_rel_def = Define `
     (t.compile_oracle = (I ## (annotate 0) ## compile) o s.compile_oracle) /\
     (s.compile = (λcfg (es,aux). t.compile cfg (annotate 0 es, compile aux))) /\
     EVERY2 (OPTREL v_rel) s.globals t.globals /\
+    (OPTREL v_rel) s.mutable_global t.mutable_global /\
     (FDOM s.refs = FDOM t.refs) /\
     (!n r1.
       (FLOOKUP s.refs n = SOME r1) ==>
