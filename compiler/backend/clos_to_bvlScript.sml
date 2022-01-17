@@ -164,10 +164,13 @@ End
 (* / Extraction of constant *)
 
 val num_added_globals_def = Define
-  `num_added_globals = 1n`;
+  `num_added_globals = 2n`;
 
 val partial_app_label_table_loc_def = Define
   `partial_app_label_table_loc = 0n`;
+
+val clos_mutable_glob_loc_def = Define
+  `clos_mutable_glob_loc = 1n`;
 
 Definition compile_build_def:
   compile_build [Str s] = Build [Str s] ∧
@@ -185,6 +188,8 @@ val compile_op_def = Define`
   compile_op DerefByteVec = DerefByte ∧
   compile_op (SetGlobal n) = SetGlobal (n + num_added_globals) ∧
   compile_op (Global n) = Global (n + num_added_globals) ∧
+  compile_op SetGlobalsPtr = SetGlobal clos_mutable_glob_loc ∧
+  compile_op GlobalsPtr = Global clos_mutable_glob_loc ∧
   compile_op (Build ps) = compile_build ps ∧
   compile_op x = x`
 val _ = export_rewrites["compile_op_def"];
@@ -202,6 +207,8 @@ Theorem compile_op_pmatch:
       | DerefByteVec => DerefByte
       | SetGlobal n => SetGlobal (n + num_added_globals)
       | Global n => Global (n + num_added_globals)
+      | SetGlobalsPtr => SetGlobal clos_mutable_glob_loc
+      | GlobalsPtr => Global clos_mutable_glob_loc
       | Build ps => compile_build ps
       | x => x
 Proof
@@ -412,7 +419,7 @@ val init_code_def = Define `
 
 val init_globals_def = Define `
   init_globals max_app start_loc =
-    Let [Op AllocGlobal []]
+    Let [Op AllocGlobal []; Op AllocGlobal []]
     (Let
       [Op (SetGlobal partial_app_label_table_loc)
         [Op (Cons tuple_tag)

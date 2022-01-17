@@ -995,6 +995,11 @@ val compile_oracle_inv_def = Define `
        EVERY (λp. every_Fn_SOME [SND (SND p)]) ps /\
        EVERY (λp. every_Fn_vs_SOME [SND (SND p)]) ps`;
 
+Definition clos_mutable_glob_inv_def:
+  clos_mutable_glob_inv rel _ NONE = F ∧
+  clos_mutable_glob_inv rel v (SOME w) = OPTREL rel v w
+End
+
 (*
 val dummy_compile_oracle_inv = mk_var("compile_oracle_inv",
   type_of(#1(strip_comb(lhs(concl(SPEC_ALL compile_oracle_inv_def))))))
@@ -1007,6 +1012,7 @@ val state_rel_def = Define `
     (s.ffi = t.ffi) /\
     LIST_REL (OPTREL (v_rel s.max_app f t.refs t.code)) s.globals (DROP num_added_globals t.globals) /\
     get_global 0 t.globals = SOME (SOME (global_table s.max_app)) ∧
+    clos_mutable_glob_inv (v_rel s.max_app f t.refs t.code) s.mutable_global (get_global 1 t.globals) ∧
     INJ ($' f) (FDOM f) (FRANGE f) /\
     (∀x y bs. FLOOKUP f x = SOME y ⇒ FLOOKUP t.refs y ≠ SOME (ByteArray T bs)) /\
     (FDOM f = FDOM s.refs) /\
@@ -1211,6 +1217,15 @@ val OPTREL_v_rel_NEW_F = Q.prove(
   Cases_on `x` \\ Cases_on `y` \\ full_simp_tac(srw_ss())[OPTREL_def]
   \\ METIS_TAC [v_rel_NEW_F]) |> MP_CANON;
 
+Theorem clos_mutable_glob_inv_mono:
+  (∀x y. R1 x y ⇒ R2 x y) ⇒
+  clos_mutable_glob_inv R1 l1 l2 ⇒ clos_mutable_glob_inv R2 l1 l2
+Proof
+  Cases_on ‘l2’ \\ fs [clos_mutable_glob_inv_def]
+  \\ Cases_on ‘l1’ \\ fs [clos_mutable_glob_inv_def]
+  \\ Cases_on ‘x’ \\ fs [clos_mutable_glob_inv_def]
+QED
+
 Theorem state_rel_UPDATE_REF:
    state_rel f2 p1 t2 ∧
    FLOOKUP f2 dst = SOME r2 ∧
@@ -1228,6 +1243,14 @@ Proof
     first_assum(match_exists_tac o concl) >> simp[] >>
     rpt strip_tac >>
     match_mp_tac OPTREL_v_rel_UPDATE_REF >>
+    fs[IN_FRANGE_FLOOKUP]
+    \\ asm_exists_tac \\ fs[] )
+  >- (
+    match_mp_tac(MP_CANON(GEN_ALL clos_mutable_glob_inv_mono)) \\
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    rpt strip_tac >>
+    match_mp_tac v_rel_UPDATE_REF >>
     fs[IN_FRANGE_FLOOKUP]
     \\ asm_exists_tac \\ fs[] )
   >- (
@@ -1275,6 +1298,13 @@ Proof
     first_assum(match_exists_tac o concl) >> simp[] >>
     rpt strip_tac >>
     match_mp_tac OPTREL_v_rel_NEW_REF >>
+    fs[IN_FRANGE_FLOOKUP])
+  >- (
+    match_mp_tac(MP_CANON(GEN_ALL clos_mutable_glob_inv_mono)) \\
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    rpt strip_tac >>
+    match_mp_tac v_rel_NEW_REF >>
     fs[IN_FRANGE_FLOOKUP])
   >- (
     rw[] \\ spose_not_then strip_assume_tac
@@ -1385,6 +1415,12 @@ Proof
   \\ rw [] \\ fs [v_rel_SIMP, closSemTheory.list_to_v_def, list_to_v_def]
 QED
 
+Triviality DROP_LUPDATE_EQ_DROP:
+  ∀n i l x. i < n ⇒ DROP n (LUPDATE x i l) = DROP n l
+Proof
+  Induct_on ‘l’ \\ Cases_on ‘i’ \\ fs [LUPDATE_def]
+QED
+
 Theorem do_app[local]:
    (do_app op xs s1 = Rval (v,s2)) /\
    state_rel f s1 t1 /\
@@ -1409,6 +1445,20 @@ Proof
     \\ imp_res_tac v_to_list \\ fs [] \\ rveq \\ rfs [] \\ rw []
     \\ match_mp_tac list_to_v_v_rel
     \\ fs [EVERY2_APPEND_suff])
+  \\ Cases_on ‘op = SetGlobalsPtr’ THEN1
+   (rw []
+    \\ gvs [do_app_def, closSemTheory.do_app_def, case_eq_thms, PULL_EXISTS]
+    \\ gvs [clos_mutable_glob_loc_def,state_rel_def]
+    \\ Cases_on ‘get_global 1 t1.globals’ \\ fs [clos_mutable_glob_inv_def]
+    \\ Cases_on ‘x’ \\ fs [get_global_def,HD_LUPDATE,EL_LUPDATE]
+    \\ fs [clos_mutable_glob_inv_def,SF SFY_ss]
+    \\ fs [DROP_LUPDATE_EQ_DROP,num_added_globals_def])
+  \\ Cases_on ‘op = GlobalsPtr’ THEN1
+   (rw []
+    \\ gvs [do_app_def, closSemTheory.do_app_def, case_eq_thms, PULL_EXISTS]
+    \\ gvs [clos_mutable_glob_loc_def,state_rel_def]
+    \\ Cases_on ‘get_global 1 t1.globals’ \\ fs [clos_mutable_glob_inv_def]
+    \\ Cases_on ‘x’ \\ fs [])
   \\ Cases_on `?i. op = LessConstSmall i` THEN1
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def])
@@ -1552,6 +1602,7 @@ Proof
       MATCH_MP_TAC EVERY2_LUPDATE_same >>
       rev_full_simp_tac(srw_ss())[OPTREL_def] )
     >- fs [get_global_def, HD_LUPDATE]
+    >- fs [get_global_def, EL_LUPDATE]
     >- metis_tac [])
   >- (
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -1562,13 +1613,18 @@ Proof
       irule EVERY2_APPEND_suff >>
       simp [optionTheory.OPTREL_def] >>
       fs [get_global_def] >>
-      `1 - LENGTH t1.globals = 0` by decide_tac >>
+      `2 - LENGTH t1.globals = 0` by
+        (every_case_tac \\ fs [clos_mutable_glob_inv_def]) >>
       simp [])
     >- (
       fs [get_global_def] >>
       Cases_on `t1.globals` >>
       fs [])
-    >- metis_tac[])
+    >- (
+      fs [get_global_def] >>
+      Cases_on `t1.globals` >> fs [] >>
+      Cases_on `t` >> fs [clos_mutable_glob_inv_def]) >>
+    metis_tac[])
   >- (
     Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
@@ -3132,6 +3188,13 @@ Proof
     match_mp_tac OPTREL_v_rel_NEW_REF >>
     simp[LEAST_NOTIN_FDOM] )
   \\ conj_tac >-
+   (match_mp_tac(MP_CANON(GEN_ALL clos_mutable_glob_inv_mono)) >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    rpt strip_tac >>
+    match_mp_tac v_rel_NEW_REF >>
+    simp[LEAST_NOTIN_FDOM] )
+  \\ conj_tac >-
    (rw[FLOOKUP_UPDATE]
     >-
      (fs[FLOOKUP_DEF]
@@ -3468,7 +3531,6 @@ Proof
     \\ fsrw_tac[ARITH_ss][inc_clock_def]
     \\ Q.EXISTS_TAC `f2'` \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC SUBMAP_TRANS \\ full_simp_tac(srw_ss())[])
-
   THEN1 (* Op *)
    (Cases_on `op = Install` THEN1
      (rveq \\ fs [] \\ rveq
@@ -3553,6 +3615,10 @@ Proof
         \\ rpt strip_tac
         THEN1
          (first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+          \\ Cases \\ Cases \\ fs [OPTREL_def]
+          \\ strip_tac \\ match_mp_tac v_rel_union \\ fs [])
+        THEN1
+         (first_x_assum (fn th => mp_tac th \\ match_mp_tac clos_mutable_glob_inv_mono)
           \\ Cases \\ Cases \\ fs [OPTREL_def]
           \\ strip_tac \\ match_mp_tac v_rel_union \\ fs [])
         THEN1 (res_tac \\ fs[])
@@ -3772,14 +3838,12 @@ Proof
       \\ match_mp_tac LIST_REL_IMP_LAST \\ fs []
       \\ disj2_tac \\ CCONTR_TAC \\ fs []
       )
-
     \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[cEval_def,compile_exps_def,METIS_PROVE []
          “(if b1 ∧ b2 then x else y) = z ⇔ b1 ∧ b2 ∧ x = z ∨ (b1 ⇒ ~b2) ∧ y = z”]
     THEN1 (rename [‘to_const’] \\ cheat)
     \\ qpat_x_assum ‘v6 = IsConstant ⇒ _’ kall_tac
     \\ SRW_TAC [] [bEval_def]
-
     \\ `?p. evaluate (xs,env,s) = p` by full_simp_tac(srw_ss())[] \\ PairCases_on `p` \\ full_simp_tac(srw_ss())[]
     \\ `?cc. compile_exps s.max_app xs aux1 = cc` by full_simp_tac(srw_ss())[] \\ PairCases_on `cc` \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[LET_DEF,PULL_FORALL] \\ SRW_TAC [] []
@@ -3874,6 +3938,12 @@ Proof
           \\ MATCH_MP_TAC OPTREL_v_rel_NEW_REF \\ full_simp_tac(srw_ss())[]
           \\ MATCH_MP_TAC OPTREL_v_rel_NEW_F \\ full_simp_tac(srw_ss())[])
         THEN1
+         (Q.PAT_X_ASSUM `clos_mutable_glob_inv ppp qqq rrr` MP_TAC
+          \\ MATCH_MP_TAC clos_mutable_glob_inv_mono
+          \\ REPEAT STRIP_TAC
+          \\ MATCH_MP_TAC v_rel_NEW_REF \\ full_simp_tac(srw_ss())[]
+          \\ MATCH_MP_TAC v_rel_NEW_F \\ full_simp_tac(srw_ss())[])
+        THEN1
          (Q.PAT_X_ASSUM `INJ ($' f2) (FDOM f2) (FRANGE f2)` MP_TAC
           \\ REPEAT (Q.PAT_X_ASSUM `INJ xx yy zz` (K ALL_TAC))
           \\ full_simp_tac(srw_ss())[INJ_DEF,FAPPLY_FUPDATE_THM,FRANGE_DEF]
@@ -3924,6 +3994,12 @@ Proof
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
           \\ MATCH_MP_TAC OPTREL_v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
+          \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
+        THEN1
+         (Q.PAT_X_ASSUM `clos_mutable_glob_inv tt yy _` MP_TAC
+          \\ MATCH_MP_TAC clos_mutable_glob_inv_mono
+          \\ REPEAT STRIP_TAC
+          \\ MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
           \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
         THEN1 (
           pop_assum mp_tac \\ rw[]
@@ -3990,6 +4066,16 @@ Proof
           reverse conj_tac >- (
             simp[Abbr`pp`,LEAST_NOTIN_FDOM] ) >>
           match_mp_tac OPTREL_v_rel_NEW_F >>
+          simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM] ) >>
+        conj_tac >- (
+          match_mp_tac(MP_CANON(GEN_ALL clos_mutable_glob_inv_mono)) >>
+          ONCE_REWRITE_TAC[CONJ_COMM] >>
+          first_assum(match_exists_tac o concl) >> simp[] >>
+          rpt strip_tac >>
+          match_mp_tac v_rel_NEW_REF >>
+          reverse conj_tac >- (
+            simp[Abbr`pp`,LEAST_NOTIN_FDOM] ) >>
+          match_mp_tac v_rel_NEW_F >>
           simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM] ) >>
         conj_tac >- (
           match_mp_tac INJ_FAPPLY_FUPDATE >> simp[] >>
@@ -4074,6 +4160,16 @@ Proof
           match_mp_tac OPTREL_v_rel_NEW_F >>
           simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM] ) >>
         conj_tac >- (
+          match_mp_tac(MP_CANON(GEN_ALL clos_mutable_glob_inv_mono)) >>
+          ONCE_REWRITE_TAC[CONJ_COMM] >>
+          first_assum(match_exists_tac o concl) >> simp[] >>
+          rpt strip_tac >>
+          match_mp_tac v_rel_NEW_REF >>
+          reverse conj_tac >- (
+            simp[Abbr`pp`,LEAST_NOTIN_FDOM] ) >>
+          match_mp_tac v_rel_NEW_F >>
+          simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM] ) >>
+        conj_tac >- (
           match_mp_tac INJ_FAPPLY_FUPDATE >> simp[] >>
           spose_not_then strip_assume_tac >>
           full_simp_tac(srw_ss())[SUBSET_DEF] >> res_tac >>
@@ -4134,6 +4230,12 @@ Proof
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
           \\ MATCH_MP_TAC OPTREL_v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
+          \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
+        THEN1
+         (Q.PAT_X_ASSUM `clos_mutable_glob_inv _ _ _` MP_TAC
+          \\ MATCH_MP_TAC clos_mutable_glob_inv_mono
+          \\ REPEAT STRIP_TAC
+          \\ MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
           \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
         THEN1 (
           pop_assum mp_tac \\ rw[] \\
@@ -4198,6 +4300,12 @@ Proof
           \\ REPEAT STRIP_TAC
           \\ MATCH_MP_TAC OPTREL_v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
           \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
+        THEN1
+         (Q.PAT_X_ASSUM `clos_mutable_glob_inv _ _ _` MP_TAC
+          \\ MATCH_MP_TAC clos_mutable_glob_inv_mono
+          \\ REPEAT STRIP_TAC
+          \\ MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
+          \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
         THEN1 (
           pop_assum mp_tac \\ rw[] \\
           first_x_assum match_mp_tac \\
@@ -4254,6 +4362,13 @@ Proof
           first_assum(match_exists_tac o concl) >> simp[] >>
           rpt strip_tac >>
           match_mp_tac OPTREL_v_rel_NEW_REF >>
+          simp[LEAST_NOTIN_FDOM] ) >>
+        conj_tac >- (
+          match_mp_tac(MP_CANON(GEN_ALL clos_mutable_glob_inv_mono)) >>
+          ONCE_REWRITE_TAC[CONJ_COMM] >>
+          first_assum(match_exists_tac o concl) >> simp[] >>
+          rpt strip_tac >>
+          match_mp_tac v_rel_NEW_REF >>
           simp[LEAST_NOTIN_FDOM] ) >>
         conj_tac >- (
           rw[FLOOKUP_UPDATE]
@@ -4321,6 +4436,13 @@ Proof
         ONCE_REWRITE_TAC[CONJ_COMM] >>
         asm_exists_tac \\ fs[] \\ rw[] \\
         match_mp_tac OPTREL_v_rel_NEW_REF \\
+        simp[Abbr`ptr`,LEAST_NOTIN_FDOM])
+      \\ conj_tac
+      >- (
+        match_mp_tac(MP_CANON(GEN_ALL clos_mutable_glob_inv_mono)) >>
+        ONCE_REWRITE_TAC[CONJ_COMM] >>
+        asm_exists_tac \\ fs[] \\ rw[] \\
+        match_mp_tac v_rel_NEW_REF \\
         simp[Abbr`ptr`,LEAST_NOTIN_FDOM])
       \\ conj_tac
       >- (
@@ -4565,10 +4687,15 @@ Proof
         \\ full_simp_tac(srw_ss())[])
     THEN1
      (reverse (REPEAT STRIP_TAC) THEN1
-       (full_simp_tac(srw_ss())[state_rel_def,Abbr`t1refs`] \\ STRIP_TAC THEN1
+       (full_simp_tac(srw_ss())[state_rel_def,Abbr`t1refs`]
+        \\ STRIP_TAC THEN1
          (Q.PAT_X_ASSUM `LIST_REL ppp s.globals (DROP _ t1.globals)` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ METIS_TAC [OPTREL_v_rel_NEW_REF])
+        \\ STRIP_TAC THEN1
+         (Q.PAT_X_ASSUM `clos_mutable_glob_inv _ _ _` MP_TAC
+          \\ MATCH_MP_TAC clos_mutable_glob_inv_mono
+          \\ METIS_TAC [v_rel_NEW_REF])
         \\ STRIP_TAC >- (
           rw[FLOOKUP_UPDATE]
           \\ first_x_assum MATCH_MP_TAC
@@ -5640,7 +5767,7 @@ val evaluate_init1 = Q.prove(`
   (∀n. n < mapp2 ⇒
   partial_app_fn_location mapp1 tot n ∈ domain st.code) ⇒
   bvlSem$evaluate (REVERSE
-  (GENLIST (λprev. Op (Label (partial_app_fn_location mapp1 tot prev))[]) mapp2) ,[Unit],st) =
+  (GENLIST (λprev. Op (Label (partial_app_fn_location mapp1 tot prev))[]) mapp2) ,[Unit;Unit],st) =
   (Rval (REVERSE
   (GENLIST (λprev. CodePtr (partial_app_fn_location mapp1 tot prev)) mapp2)),st)`,
   Induct>>fs[bvlSemTheory.evaluate_def]>>
@@ -5654,7 +5781,7 @@ val evaluate_init = Q.prove(`
   partial_app_fn_location mapp1 m n ∈ domain st.code) ⇒
   bvlSem$evaluate (REVERSE
   (FLAT (GENLIST (λtot. GENLIST
-  (λprev. Op (Label (partial_app_fn_location mapp1 tot prev))[]) tot) mapp2)) ,[Unit],st) =
+  (λprev. Op (Label (partial_app_fn_location mapp1 tot prev))[]) tot) mapp2)) ,[Unit;Unit],st) =
     (Rval (REVERSE
     (FLAT (GENLIST (λtot. GENLIST
     (λprev. CodePtr (partial_app_fn_location mapp1 tot prev)) tot) mapp2))),st)`,
@@ -7205,11 +7332,12 @@ Proof
   \\ rw[init_globals_def]
   \\ rw[bvlSemTheory.evaluate_def, bvlSemTheory.do_app_def]
   \\ fs[bvlSemTheory.dec_clock_def]
-  \\ Q.ISPECL_THEN[`max_app`,`max_app`,`initial_state ffi code2 co2 cc2 kk with globals := [NONE]`]
+  \\ Q.ISPECL_THEN[`max_app`,`max_app`,
+                   `initial_state ffi code2 co2 cc2 kk with globals := [NONE;NONE]`]
         (mp_tac o Q.GEN`kk`)evaluate_init
   \\ simp[GSYM PULL_FORALL]
   \\ impl_tac
-  >- ( simp[domain_lookup] \\ metis_tac[init_code_def] )
+  >- (simp[domain_lookup] \\ metis_tac[init_code_def])
   \\ simp[]
   \\ disch_then kall_tac
   \\ simp[Once get_global_def]
@@ -7231,7 +7359,8 @@ Proof
   \\ fs[EVAL``(initial_state ffi max_app code co cc k).code``]
   \\ imp_res_tac FEVERY_FLOOKUP \\ fs[]
   \\ fs[EVAL``(initial_state ffi max_app code co cc k).clock``]
-  \\ disch_then(qspec_then`initial_state ffi code2 co2 cc2 k with globals := [SOME (global_table max_app)]`mp_tac)
+  \\ disch_then(qspec_then`initial_state ffi code2 co2 cc2 k with
+                           globals := [SOME (global_table max_app); NONE]`mp_tac)
   \\ fs[EVAL``(initial_state ffi code co cc k).code``]
   \\ disch_then(qspec_then`FEMPTY`mp_tac)
   \\ impl_tac
@@ -7239,6 +7368,7 @@ Proof
     fs[state_rel_def, closSemTheory.initial_state_def, bvlSemTheory.initial_state_def]
     \\ conj_tac >- EVAL_TAC
     \\ conj_tac >- EVAL_TAC
+    \\ conj_tac >- (EVAL_TAC \\ fs [])
     \\ metis_tac[init_code_def])
   \\ strip_tac
   \\ qexists_tac`ck+1`

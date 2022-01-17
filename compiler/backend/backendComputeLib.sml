@@ -212,6 +212,7 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.generate_generic_app_def
     ,clos_to_bvlTheory.num_added_globals_def
     ,clos_to_bvlTheory.partial_app_label_table_loc_def
+    ,clos_to_bvlTheory.clos_mutable_glob_loc_def
     ,clos_to_bvlTheory.partial_app_fn_location_code_def
     ,clos_to_bvlTheory.init_globals_def
     ,clos_to_bvlTheory.mk_cl_call_def
