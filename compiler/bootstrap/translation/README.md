@@ -13,6 +13,16 @@ Translate the ARMv7 instruction encoder and ARMv7-specific config.
 [arm8ProgScript.sml](arm8ProgScript.sml):
 Translate the ARMv8 instruction encoder and ARMv8-specific config.
 
+[caml_lexProgScript.sml](caml_lexProgScript.sml):
+Translation of the OCaml lexer.
+
+[caml_parserProgScript.sml](caml_parserProgScript.sml):
+Translation of the functions in caml_parserScript.sml
+
+[caml_ptreeProgScript.sml](caml_ptreeProgScript.sml):
+Translation of the functions in camlPEGScript.sml and
+camlPtreeConversionScript.sm
+
 [compiler32ProgScript.sml](compiler32ProgScript.sml):
 Finish translation of the 32-bit version of the compiler.
 
