@@ -79,6 +79,7 @@ val r = translate destIdent_PMATCH;
 
 val _ = ml_translatorLib.use_string_type false;
 
+(*
 val r = translate unhex_alt_def;
 
 Theorem unhex_alt_side[local]:
@@ -91,6 +92,7 @@ Proof
 QED
 
 val _ = update_precondition unhex_alt_side;
+ *)
 
 (*
 val r = translate numposrepTheory.l2n_def;
@@ -112,7 +114,10 @@ val r = translate oct2num_def;
 Theorem hex2num_side[local]:
   ∀x. hex2num_side x
 Proof
-  simp [fetch "-" "hex2num_side_def", fetch "-" "s2n_side_def", l2n_side]
+  simp [fetch "-" "hex2num_side_def", lexerProgTheory.s2n_side_def,
+        lexerProgTheory.l2n_side, lexerProgTheory.unhex_alt_side_def,
+        lexerProgTheory.unhex_side_def, isHexDigit_def]
+  \\ Cases \\ rw [ORD_CHR] \\ gs []
 QED
 
 val _ = update_precondition hex2num_side;
@@ -120,7 +125,10 @@ val _ = update_precondition hex2num_side;
 Theorem oct2num_side[local]:
   ∀x. oct2num_side x
 Proof
-  simp [fetch "-" "oct2num_side_def", fetch "-" "s2n_side_def", l2n_side]
+  simp [fetch "-" "oct2num_side_def", lexerProgTheory.s2n_side_def,
+        lexerProgTheory.l2n_side, lexerProgTheory.unhex_alt_side_def,
+        lexerProgTheory.unhex_side_def, isHexDigit_def]
+  \\ Cases \\ rw [ORD_CHR] \\ gs []
 QED
 
 val _ = update_precondition oct2num_side;
@@ -128,7 +136,10 @@ val _ = update_precondition oct2num_side;
 Theorem bin2num_side[local]:
   ∀x. bin2num_side x
 Proof
-  simp [fetch "-" "bin2num_side_def", fetch "-" "s2n_side_def", l2n_side]
+  simp [fetch "-" "bin2num_side_def", lexerProgTheory.s2n_side_def,
+        lexerProgTheory.l2n_side, lexerProgTheory.unhex_alt_side_def,
+        lexerProgTheory.unhex_side_def, isHexDigit_def]
+  \\ Cases \\ rw [ORD_CHR] \\ gs []
 QED
 
 val _ = update_precondition bin2num_side;
@@ -136,7 +147,10 @@ val _ = update_precondition bin2num_side;
 Theorem dec2num_side[local]:
   ∀x. dec2num_side x
 Proof
-  simp [fetch "-" "dec2num_side_def", fetch "-" "s2n_side_def", l2n_side]
+  simp [fetch "-" "dec2num_side_def", lexerProgTheory.s2n_side_def,
+        lexerProgTheory.l2n_side, lexerProgTheory.unhex_alt_side_def,
+        lexerProgTheory.unhex_side_def, isHexDigit_def]
+  \\ Cases \\ rw [ORD_CHR] \\ gs []
 QED
 
 val _ = update_precondition dec2num_side;
@@ -148,9 +162,11 @@ Theorem scan_escseq_side[local]:
 Proof
   rw [fetch "-" "scan_escseq_side_def"]
   >- (
-    simp [hex2num_def, s2n_def, numposrepTheory.l2n_def, unhex_alt_def]
+    simp [hex2num_def, s2n_def, numposrepTheory.l2n_def,
+          lexer_implTheory.unhex_alt_def]
     \\ intLib.ARITH_TAC)
-  \\ simp [oct2num_def, s2n_def, numposrepTheory.l2n_def, unhex_alt_def]
+  \\ simp [oct2num_def, s2n_def, numposrepTheory.l2n_def,
+           lexer_implTheory.unhex_alt_def]
   \\ ‘isHexDigit v11 ∧ isHexDigit v9 ∧ isHexDigit v13’
     by (Cases_on ‘v11’ \\ Cases_on ‘v9’
         \\ gs [isHexDigit_def, isOctDigit_def])
