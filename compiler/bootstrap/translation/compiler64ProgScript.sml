@@ -327,13 +327,13 @@ End
 val _ = register_type “:('a,'b,'c,'d,'e) eval_res”;
 
 val _ = (append_prog o process_topdecs) `
-  fun eval (s1,next_gen) (env,id) decs =
-    case compiler_for_eval (id,s1,decs) of
+  fun eval ((s1,next_gen), (env,id), decs) =
+    case compiler_for_eval ((id,0),s1,decs) of
       None => Compiler_error "ERROR: failed to compile input"
     | Some (s2,bs,ws) =>
         let
           val new_env = eval_prim (env,s1,decs,s2,bs,ws)
-        in Eval_result (new_env,(next_gen+1,0)) (s2,next_gen+1) end
+        in Eval_result (new_env,next_gen) (s2,next_gen+1) end
         handle e => Eval_exn e (s2,next_gen+1) `
 
 val exn_msg_dec = process_topdecs ‘
@@ -364,36 +364,37 @@ val read_next_dec =
            Con NONE []])]”
 
 Definition check_and_tweak_def:
-  check_and_tweak decs types input_str =
+  check_and_tweak (decs, types, input_str) =
     let all_decs = decs ++ ^read_next_dec in
       case infertype_prog types all_decs of
       | Success new_types => Success (all_decs, new_types)
       | Failure (loc,msg) =>
-          Failure (concat [msg; implode " at "; locs_to_string input_str loc])
+          Failure (concat [implode "ERROR: "; msg; implode " at ";
+                           locs_to_string input_str loc])
 End
 
 val _ = (next_ml_names := ["check_and_tweak"]);
 val r = translate check_and_tweak_def;
 
 val _ = (append_prog o process_topdecs) `
-  fun repl parse types conf env decs input_str =
+  fun repl (parse, types, conf, env, decs, input_str) =
     (* input_str is passed in here only for error reporting purposes *)
-    case check_and_tweak decs types input_str of
-      Failure msg => repl parse types conf env (report_error msg) ""
+    case check_and_tweak (decs, types, input_str) of
+      Failure msg => repl (parse, types, conf, env, report_error msg, "")
     | Success (safe_decs, new_types) =>
       (* here safe_decs are guaranteed to not crash;
          the last declaration of safe_decs calls !REPL.readNextString *)
-      case eval conf env safe_decs of
-        Compile_error msg => repl parse types conf env (report_error msg) ""
-      | Eval_exn e new_conf => repl parse types new_conf env (report_exn e) ""
+      case eval (conf, env, safe_decs) of
+        Compile_error msg => repl (parse, types, conf, env, report_error msg, "")
+      | Eval_exn e new_conf => repl (parse, types, new_conf, env, report_exn e, "")
       | Eval_result new_env new_conf =>
         (* check whether the program that ran has loaded in new input *)
         if !REPL.isEOF then () (* exit if there is no new input *) else
           let val new_input = !REPL.nextString in
             (* if there is new input: parse the input and recurse *)
             case parse new_input of
-              Inl msg      => repl parse types new_conf env (report_error msg) ""
-            | Inr new_decs => repl parse new_types new_conf new_env new_decs new_input
+              Inl msg      => repl (parse, new_types, new_conf, new_env, report_error msg, "")
+            | Inr new_decs => repl (parse, new_types, new_conf, new_env, new_decs, new_input)
           end `
 
 Definition candle_prog_def:
