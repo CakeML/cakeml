@@ -5,7 +5,7 @@
 open preamble camlPEGTheory camlPtreeConversionTheory;
 open caml_parserTheory caml_ptreeProgTheory;
 open ml_translatorLib ml_translatorTheory;
-open sexp_parserProgTheory;
+open caml_lexProgTheory;
 
 val _ = new_theory "caml_parserProg";
 
@@ -13,7 +13,7 @@ val _ = set_grammar_ancestry [
   "misc", "camlPEG", "camlPtreeConversion", "caml_parser",
   "ml_translator" ];
 
-val _ = translation_extends "sexp_parserProg";
+val _ = translation_extends "caml_lexProg";
 
 val _ =
   temp_bring_to_front_overload "nType" {Name="nType", Thy="camlPEG"};
@@ -68,6 +68,115 @@ fun def_of_const tm = let
 val _ = (find_def_for_const := def_of_const);
 
 val _ = ml_translatorLib.use_string_type true;
+
+(* -------------------------------------------------------------------------
+ * Ptree conversion
+ * ------------------------------------------------------------------------- *)
+
+Theorem bind_thm:
+  bind x f = case x of INL err => INL err | INR y => f y
+Proof
+  Cases_on ‘x’ \\ rw [bind_def]
+QED
+
+Theorem ignore_bind_thm:
+  ignore_bind x y = case x of INL err => INL err | _ => y
+Proof
+  Cases_on ‘x’ \\ rw [ignore_bind_def, bind_def]
+QED
+
+val extra_preprocessing = ref [MEMBER_INTRO,MAP,bind_thm,ignore_bind_thm];
+
+val r = translate ptree_Op_def;
+
+Theorem ptree_op_side[local]:
+  ∀x. ptree_op_side x
+Proof
+  rw [fetch "-" "ptree_op_side_def"] \\ gs []
+  \\ rename1 ‘isSymbol xx’ \\ Cases_on ‘xx’
+  \\ gs [caml_lexTheory.destSymbol_def, caml_lexTheory.isSymbol_def]
+QED
+
+val _ = update_precondition ptree_op_side;
+
+val r = translate ptree_Literal_def;
+
+Theorem ptree_literal_side[local]:
+  ∀x. ptree_literal_side x
+Proof
+  rw [fetch "-" "ptree_literal_side_def",
+      caml_lexTheory.isInt_thm,
+      caml_lexTheory.isChar_thm,
+      caml_lexTheory.isString_thm] \\ gs []
+QED
+
+val _ = update_precondition ptree_literal_side;
+
+val r = translate ptree_Pattern_def;
+
+(* This takes a long time.
+ *)
+
+val r = translate ptree_Expr_def;
+
+Theorem ptree_Expr_preconds[local]:
+  (∀x y. ptree_expr_side x y) ∧
+  (∀x. ptree_letrecbinding_side x) ∧
+  (∀x. ptree_letrecbindings_side x) ∧
+  (∀x. ptree_letbinding_side x) ∧
+  (∀x. ptree_letbindings_side x) ∧
+  (∀x. ptree_patternmatches_side x) ∧
+  (∀x. ptree_patternmatch_side x) ∧
+  (∀x. ptree_exprlist_side x) ∧
+  (∀x. ptree_exprcommas_side x)
+Proof
+  ho_match_mp_tac ptree_Expr_ind
+  \\ strip_tac
+  >- simp [Once (fetch "-" "ptree_expr_side_def")]
+  \\ strip_tac
+  >- (
+    reverse (Induct_on ‘nterm’) \\ gs []
+    >- simp [Once (fetch "-" "ptree_expr_side_def")]
+    \\ qx_gen_tac ‘et’ \\ qx_gen_tac ‘nterm’
+    \\ Cases_on ‘nterm ≠ et’ \\ gs []
+    >- (
+      rpt strip_tac
+      \\ simp [Once (fetch "-" "ptree_expr_side_def")])
+    \\ simp [SF CONJ_ss]
+    \\ rpt strip_tac
+    \\ simp [Once (fetch "-" "ptree_expr_side_def")]
+    \\ rw [] \\ gs [caml_lexTheory.isSymbol_thm])
+  \\ rw []
+  \\ simp [Once (fetch "-" "ptree_expr_side_def")]
+QED
+
+val _ = List.app (ignore o update_precondition) (CONJUNCTS ptree_Expr_preconds);
+
+val r = translate ptree_TypeDefinition_def;
+
+Theorem ptree_typedefinition_side[local]:
+  ∀x. ptree_typedefinition_side x
+Proof
+  rw [fetch "-" "ptree_typedefinition_side_def",
+      fetch "-" "outr_side_def", fetch "-" "outl_side_def"]
+  \\ gs [EVERY_MEM, FORALL_PROD, quantHeuristicsTheory.ISR_exists,
+         quantHeuristicsTheory.ISL_exists, SF SFY_ss]
+  \\ res_tac \\ gs []
+  \\ qpat_x_assum ‘PARTITION _ _ = _’ (assume_tac o SYM)
+  \\ gs [PARTITION_DEF]
+  \\ drule_then assume_tac PARTs_HAVE_PROP
+  \\ gs [FORALL_PROD]
+  \\ gs [EVERY_MEM, FORALL_PROD, quantHeuristicsTheory.ISR_exists,
+         quantHeuristicsTheory.ISL_exists, SF SFY_ss]
+  \\ strip_tac
+  \\ res_tac
+  \\ gvs []
+QED
+
+val _ = update_precondition ptree_typedefinition_side;
+
+val r = translate ptree_Definition_def;
+val r = translate ptree_Start_def;
 
 (* -------------------------------------------------------------------------
  * Parser front-end
@@ -321,16 +430,6 @@ Proof
 QED
 
 val _ = update_precondition run_parser_side;
-
-val r = translate run_def;
-
-Theorem run_side[local]:
-  ∀x. run_side x
-Proof
-  rw [fetch "-" "run_side_def", run_lexer_def]
-QED
-
-val _ = update_precondition run_side;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val () = ml_translatorLib.clean_on_exit := true;
