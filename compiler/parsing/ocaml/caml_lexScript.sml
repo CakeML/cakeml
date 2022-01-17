@@ -2,9 +2,12 @@
   Lexer for the OCaml frontend.
  *)
 
-open preamble locationTheory;
+open preamble locationTheory lexer_implTheory;
+
+val _ = set_grammar_ancestry [ "misc", "location", "lexer_impl", "lexer_fun" ];
 
 val _ = new_theory "caml_lex";
+
 
 (* TODO
  * - Location spans might be wrong just about everywhere
@@ -149,10 +152,6 @@ End
  *   intn-lit  ::= int-lit "n"
  *)
 
-Definition unhex_alt_def:
-  unhex_alt x = if isHexDigit x then UNHEX x else 0n
-End
-
 Definition isOctDigit_def:
   isOctDigit c ⇔ 48 ≤ ORD c ∧ ORD c ≤ 55
 End
@@ -209,18 +208,6 @@ Proof
   \\ drule_then assume_tac take_while_aux_thm
   \\ gs []
 QED
-
-(* next_loc, next_line are copied from semantics/lexer_funScript.sml *)
-
-Definition next_loc_def:
-  next_loc n (POSN r c) = POSN r (c+n) ∧
-  next_loc n x = x
-End
-
-Definition next_line_def:
-  next_line (POSN r c) = POSN (r+1) 0 ∧
-  next_line x = x
-End
 
 Definition skip_comment_def:
   skip_comment cs d loc =
@@ -705,10 +692,6 @@ Definition lexer_fun_aux_def:
 Termination
   wf_rel_tac ‘measure (LENGTH o FST)’ \\ rw []
   \\ drule_then assume_tac next_token_thm \\ gs []
-End
-
-Definition init_loc_def:
-   init_loc = POSN 0 0
 End
 
 Definition lexer_fun_def:
