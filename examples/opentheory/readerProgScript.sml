@@ -4,8 +4,8 @@
 *)
 open preamble basis ml_monadBaseTheory ml_monad_translatorLib cfMonadTheory
      cfMonadLib holKernelTheory holKernelProofTheory ml_hol_kernelProgTheory
-     readerTheory readerProofTheory prettyTheory reader_commonProgTheory
-     reader_initTheory;
+     ml_hol_kernel_funsProgTheory readerTheory readerProofTheory
+     prettyTheory reader_commonProgTheory reader_initTheory;
 
 val _ = new_theory "readerProg"
 val _ = m_translation_extends "reader_commonProg"

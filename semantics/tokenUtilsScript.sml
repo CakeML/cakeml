@@ -10,65 +10,61 @@ local open grammarTheory in end
 val _ = new_theory "tokenUtils"
 val _ = set_grammar_ancestry ["tokens", "grammar"]
 
-val isInt_def = Define`
+Definition isInt_def[simp]:
   isInt (IntT i) = T ∧
   isInt _ = F
-`;
-val _ = export_rewrites ["isInt_def"]
+End
 
-val isString_def = Define`
+Definition isString_def[simp]:
   isString (StringT _) = T ∧
   isString _ = F
-`;
-val _ = export_rewrites ["isString_def"]
+End
 
-val isAlphaT_def = Define`
+Definition isAlphaT_def[simp]:
   isAlphaT (AlphaT s) = T ∧
   isAlphaT _ = F
-`;
-val _ = export_rewrites ["isAlphaT_def"]
+End
 
-val isSymbolT_def = Define`isSymbolT (SymbolT s) = T ∧ isSymbolT _ = F`
-val _ = export_rewrites ["isSymbolT_def"]
+Definition isSymbolT_def[simp]:
+  isSymbolT (SymbolT s) = T ∧
+  isSymbolT _ = F
+End
 
-val isAlphaSym_def = Define`
+Definition isAlphaSym_def[simp]:
   isAlphaSym (AlphaT _) = T ∧
   isAlphaSym (SymbolT _) = T ∧
   isAlphaSym _ = F
-`;
-val _ = export_rewrites ["isAlphaSym_def"]
+End
 
-val isTyvarT_def = Define`isTyvarT (TyvarT _) = T ∧ isTyvarT _ = F`
-val _ = export_rewrites ["isTyvarT_def"]
+Definition isTyvarT_def[simp]:
+  isTyvarT (TyvarT _) = T ∧
+  isTyvarT _ = F
+End
 
-val isWhitespaceT_def = Define`
+Definition isWhitespaceT_def[simp]:
   (isWhitespaceT (WhitespaceT _) ⇔ T) ∧
   (isWhitespaceT _ ⇔ F)
-`
+End
 
-val isCharT_def = Define`
+Definition isCharT_def[simp]:
   (isCharT (CharT _) ⇔ T) ∧
   (isCharT _ ⇔ F)
-`;
-val _ = export_rewrites ["isCharT_def"]
+End
 
-val isWordT_def = Define`
+Definition isWordT_def[simp]:
   (isWordT (WordT _) ⇔ T) ∧
   (isWordT _ ⇔ F)
-`;
-val _ = export_rewrites ["isWordT_def"]
+End
 
-val isLongidT_def = Define`
+Definition isLongidT_def[simp]:
   (isLongidT (LongidT _ _) ⇔ T) ∧
   (isLongidT _ ⇔ F)
-`
-val _ = export_rewrites ["isLongidT_def"]
+End
 
-val destLongidT_def = Define`
+Definition destLongidT_def[simp]:
   (destLongidT (LongidT str s) = SOME (str,s)) ∧
   (destLongidT _ = NONE)
-`
-val _ = export_rewrites ["destLongidT_def"]
+End
 
 Theorem destLongidT_EQ_SOME[simp]:
    destLongidT t = SOME strs ⇔ ∃str s. t = LongidT str s ∧ strs = (str, s)
@@ -76,22 +72,22 @@ Proof
   Cases_on `t` >> simp[] >> metis_tac[]
 QED
 
-val destTyvarPT_def = Define`
+Definition destTyvarPT_def[simp]:
   (destTyvarPT (Lf (TOK (TyvarT s),_)) = SOME s) ∧
   (destTyvarPT _ = NONE)
-`;
-val _ = export_rewrites ["destTyvarPT_def"]
+End
 
-val destLf_def = Define`(destLf (Lf (x,_)) = SOME x) ∧ (destLf _ = NONE)`;
-val _ = export_rewrites ["destLf_def"]
+Definition destLf_def[simp]:
+  (destLf (Lf (x,_)) = SOME x) ∧ (destLf _ = NONE)
+End
 
-val destTOK_def = Define`(destTOK (TOK t) = SOME t) ∧ (destTOK _ = NONE)`;
-val _ = export_rewrites ["destTOK_def"]
+Definition destTOK_def[simp]:
+  (destTOK (TOK t) = SOME t) ∧ (destTOK _ = NONE)
+End
 
-val destAlphaT_def = Define`
+Definition destAlphaT_def[simp]:
   (destAlphaT (AlphaT s) = SOME s) ∧ (destAlphaT _ = NONE)
-`;
-val _ = export_rewrites ["destAlphaT_def"]
+End
 
 Theorem destAlphaT_EQ_SOME[simp]:
    destAlphaT t = SOME s ⇔ t = AlphaT s
@@ -99,11 +95,10 @@ Proof
   Cases_on `t` >> simp[]
 QED
 
-val destSymbolT_def = Define`
+Definition destSymbolT_def[simp]:
   (destSymbolT (SymbolT s) = SOME s) ∧
   (destSymbolT _ = NONE)
-`;
-val _ = export_rewrites ["destSymbolT_def"]
+End
 
 Theorem destSymbolT_EQ_SOME[simp]:
    destSymbolT t = SOME s ⇔ t = SymbolT s
@@ -111,40 +106,34 @@ Proof
   Cases_on `t` >> simp[]
 QED
 
-val destIntT_def = Define`
+Definition destIntT_def[simp]:
   (destIntT (IntT i) = SOME i) ∧
   (destIntT _ = NONE)
-`;
-val _ = export_rewrites ["destIntT_def"]
+End
 
-val destCharT_def = Define`
+Definition destCharT_def[simp]:
   (destCharT (CharT c) = SOME c) ∧
   (destCharT _ = NONE)
-`;
-val _ = export_rewrites ["destCharT_def"]
+End
 
-val destStringT_def = Define`
+Definition destStringT_def[simp]:
   (destStringT (StringT s) = SOME s) ∧
   (destStringT _ = NONE)
-`;
-val _ = export_rewrites ["destStringT_def"]
+End
 
-val destWordT_def = Define`
+Definition destWordT_def[simp]:
   (destWordT (WordT w) = SOME w) ∧
   (destWordT _ = NONE)
-`;
-val _ = export_rewrites ["destWordT_def"]
+End
 
-val destFFIT_def = Define`
+Definition destFFIT_def[simp]:
   (destFFIT (FFIT s) = SOME s) ∧
   (destFFIT _ = NONE)
-`;
-val _ = export_rewrites ["destFFIT_def"]
+End
 
-val destREPLIDT_def = Define`
+Definition destREPLIDT_def[simp]:
   (destREPLIDT (REPLIDT s) = SOME s) ∧
   (destREPLIDT _ = NONE)
-`;
-val _ = export_rewrites ["destREPLIDT_def"]
+End
 
 val _ = export_theory()

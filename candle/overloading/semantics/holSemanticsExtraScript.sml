@@ -437,7 +437,7 @@ Proof
   >> ho_match_mp_tac allTypes'_defn_ind >> rpt strip_tac
   >> fs[allTypes'_defn,nonbuiltin_types_def,is_builtin_type_def]
   >> every_case_tac >> fs[is_builtin_type_def,EVERY_MEM,MEM_FLAT,MEM_MAP,PULL_EXISTS]
-  >> fs[quantHeuristicsTheory.LIST_LENGTH_2,is_builtin_name_def]
+  >> fs[listTheory.LENGTH_EQ_NUM_compute,is_builtin_name_def]
   >- metis_tac[]
 QED
 
@@ -536,6 +536,12 @@ Proof
   metis_tac[]
 QED
 
+Triviality LIST_LENGTH_2:
+  LENGTH l = 2 ⇔ ∃e1 e2. l = [e1; e2]
+Proof
+  Cases_on ‘l’ \\ fs [] \\ Cases_on ‘t’ \\ fs []
+QED
+
 Theorem allTypes'_no_tyvars:
   !ty x. MEM x (allTypes' ty) /\ tyvars ty = [] ==> tyvars x = []
 Proof
@@ -544,7 +550,7 @@ Proof
   >> qpat_x_assum `_ = _` kall_tac
   >> fs[MEM_FOLDR_LIST_UNION,allTypes'_defn]
   >> EVERY_CASE_TAC >> fs[]
-  >> fs[quantHeuristicsTheory.LIST_LENGTH_2] >> rveq >> fs[]
+  >> fs[LIST_LENGTH_2] >> rveq >> fs[]
   >> fs[DISJ_IMP_THM,FORALL_AND_THM]
   >- (`tyvars e1 = []`
       by(CCONTR_TAC >> `?z. MEM z (tyvars e1)` by(Cases_on `tyvars e1` >> fs[] >> metis_tac[])

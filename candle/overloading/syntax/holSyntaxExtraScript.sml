@@ -522,7 +522,7 @@ Proof
   >- (
     PURE_FULL_CASE_TAC
     >> rw[GSYM PULL_EXISTS]
-    >> rw[quantHeuristicsTheory.LIST_LENGTH_1]
+    >> rw[LENGTH_EQ_NUM_compute]
     >> fs[AC CONJ_ASSOC CONJ_COMM]
   )
   >> Cases_on `t`
@@ -9284,6 +9284,7 @@ Proof
       >> Cases_on `HD r`
       >> fs[subtype_at_def]
       >> fs[]
+      >> ‘r ≠ []’ by (Cases_on ‘r’ \\ fs [])
       >> fs[MEM_ZIP]
       >> DISJ1_TAC
       >> asm_exists_tac
@@ -13124,7 +13125,7 @@ Proof
   ho_match_mp_tac allTypes'_defn_ind >>
   rw[tyvars_def,allTypes'_defn] >>
   fs[tyvars_def] >>
-  fs[MEM_FLAT,MEM_MAP,quantHeuristicsTheory.LIST_LENGTH_2] >> rveq >> fs[DISJ_IMP_THM,FORALL_AND_THM] >>
+  fs[MEM_FLAT,MEM_MAP,LENGTH_EQ_NUM_compute] >> rveq >> fs[DISJ_IMP_THM,FORALL_AND_THM] >>
   rveq >> res_tac >> simp[]
 QED
 

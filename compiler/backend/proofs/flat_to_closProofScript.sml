@@ -1276,7 +1276,7 @@ Theorem compile_single_DEEP_INTRO:
   P (flat_to_clos$compile m [exp])
 Proof
   qspecl_then [`m`, `[exp]`] assume_tac LENGTH_compile
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs [LENGTH_EQ_NUM_compute]
 QED
 
 Theorem compile_App:
