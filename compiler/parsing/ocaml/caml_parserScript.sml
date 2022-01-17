@@ -135,10 +135,7 @@ Definition run_def:
             INL $ concat [«Parsing failed at: »;
                           locs_to_string (implode inp) (SOME loc);
                           «\nwith this error: »; err ]
-        | INR tree =>
-            INR $ simpleSexpParse$print_sexp
-                $ fromSexp$listsexp
-                $ MAP fromSexp$decsexp tree
+        | INR tree => INR tree
 End
 
 val _ = export_theory ();
