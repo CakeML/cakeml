@@ -103,10 +103,18 @@ Proof
   fs[EVERY_REVERSE]
 QED
 
+(* like toString in mlint, but prints negatives with "-" not "~" *)
+Definition toStdString_def:
+  toStdString i =
+    (if 0i <= i
+        then implode (REVERSE (num_to_rev_chars (Num i) 0 0))
+        else implode ("-" ++ REVERSE (num_to_rev_chars (Num (ABS i)) 0 0)))
+End
+
 val print_clause_def = Define`
   (print_clause [] = strlit "0\n") ∧
   (print_clause (x::xs) =
-    mlint$toString x ^ strlit(" ") ^ print_clause xs)`
+    toStdString x ^ strlit(" ") ^ print_clause xs)`
 
 Theorem tokens_unchanged:
   EVERY ($~ o P) (explode ls) ∧ ¬ NULL (explode ls) ⇒
@@ -117,17 +125,35 @@ Proof
   simp[GSYM mlstringTheory.TOKENS_eq_tokens]
 QED
 
-Theorem tokens_blanks_toString:
-  tokens blanks (mlint$toString h) = [mlint$toString h]
+Triviality blanks_HEX:
+  MEM i (GENLIST I 16) ==> ~ blanks (HEX i)
+Proof
+  rw_tac std_ss [EVAL ``GENLIST I 16``]
+  \\ full_simp_tac bool_ss [MEM]
+  \\ simp [blanks_def]
+QED
+
+Theorem fromString_toStdString[simp]:
+   !i:int. fromString (toStdString i) = SOME i
+Proof
+  rw [toStdString_def, num_to_rev_chars_thm, toString_thm, mlstringTheory.implode_def]
+  \\ simp [fromString_toString_Num]
+  \\ DEP_REWRITE_TAC [fromString_thm]
+  \\ simp [EVERY_isDigit_num_to_dec_string, ASCIInumbersTheory.toNum_toString]
+  \\ intLib.COOPER_TAC
+QED
+
+Theorem tokens_blanks_toStdString:
+  tokens blanks (toStdString h) = [toStdString h]
 Proof
   match_mp_tac tokens_unchanged>>
-  simp [toString_thm, num_to_dec_string_def, n2s_def, EVERY_MAP] >>
+  simp [toStdString_def, num_to_rev_chars_thm, num_to_dec_string_def, n2s_def] >>
+  rw [EVAL ``blanks #"-"``] >>
   simp_tac std_ss [NULL_LENGTH, LENGTH_REVERSE, LENGTH_MAP, numposrepTheory.LENGTH_n2l] >>
-  rw [EVAL ``blanks #"~"``] >>
+  rw [EVERY_MAP] >>
   irule listTheory.EVERY_MONOTONIC >>
   irule_at Any numposrepTheory.n2l_BOUND >>
-  rw [] >>
-  fs [Q.prove (`0 < i ==> (i > k <=> k = PRE i \/ PRE i > k)`, simp []), blanks_def]
+  simp [blanks_HEX]
 QED
 
 Theorem tokens_print_clause_nonempty:
@@ -156,7 +182,7 @@ Proof
   `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   disch_then kall_tac>>
-  simp[tokens_blanks_toString]>>
+  simp[tokens_blanks_toStdString]>>
   simp[tokenize_def]>>
   Cases_on`tokens blanks (print_clause ys)`
   >-
@@ -194,7 +220,7 @@ val parse_header_line_def = Define`
 
 val print_header_line_def = Define`
   print_header_line v len =
-  strlit ("p cnf ") ^  mlint$toString (&v) ^ strlit(" ") ^ mlint$toString (&len) ^ strlit("\n")`
+  strlit ("p cnf ") ^  toStdString (&v) ^ strlit(" ") ^ toStdString (&len) ^ strlit("\n")`
 
 Theorem parse_header_line_print_header_line:
   parse_header_line (toks (print_header_line v len)) = SOME(v,len)
@@ -212,13 +238,13 @@ Proof
   `blanks #"\n" ∧ str #"\n" = strlit "\n"` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   unabbrev_all_tac>>
-  simp[tokens_blanks_toString]>>
+  simp[tokens_blanks_toStdString]>>
   rw[]>>
   `tokens blanks (strlit "p") = [strlit "p"]` by EVAL_TAC>>
   `tokens blanks (strlit "cnf") = [strlit "cnf"]` by EVAL_TAC>>
   `tokens blanks (strlit "") = []` by EVAL_TAC>>
   simp[tokenize_def,parse_header_line_def]>>
-  simp[tokens_blanks_toString]>>
+  simp[tokens_blanks_toStdString]>>
   EVAL_TAC>>
   simp[integerTheory.INT_POS, integerTheory.INT_GE_CALCULATE]
 QED
@@ -337,7 +363,7 @@ Proof
   `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
   simp[toks_def]>>
   drule mlstringTheory.tokens_append>>simp[]>>
-  simp[tokens_blanks_toString,tokenize_def,nocomment_line_def]
+  simp[tokens_blanks_toStdString,tokenize_def,nocomment_line_def]
 QED
 
 Theorem parse_dimacs_body_MAP_print_clause:
@@ -744,7 +770,7 @@ Proof
   DEP_REWRITE_TAC[mlstringTheory.tokens_append]>>simp[]>>
   CONJ_TAC >- EVAL_TAC>>
   fs[wf_clause_def]>>
-  simp[tokens_blanks_toString]>>
+  simp[tokens_blanks_toStdString]>>
   simp[tokenize_def]>>
   simp[parse_until_zero_def]
 QED
@@ -773,7 +799,7 @@ Proof
     `strlit" " = str #" "` by EVAL_TAC>>
     simp[toks_def]>>
     DEP_REWRITE_TAC[mlstringTheory.tokens_append]>>
-    simp[tokens_blanks_toString,tokenize_def]>>
+    simp[tokens_blanks_toStdString,tokenize_def]>>
     EVAL_TAC)>>
   qpat_x_assum`_=_` sym_sub_tac>>
   simp[parse_until_zero_print_clause]
