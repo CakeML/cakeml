@@ -104,6 +104,20 @@ val r = translate (def_of_const “peg_exec”);
  * Ptree conversion
  * ------------------------------------------------------------------------- *)
 
+Theorem bind_thm:
+  bind x f = case x of INL err => INL err | INR y => f y
+Proof
+  Cases_on ‘x’ \\ rw [bind_def]
+QED
+
+Theorem ignore_bind_thm:
+  ignore_bind x y = case x of INL err => INL err | _ => y
+Proof
+  Cases_on ‘x’ \\ rw [ignore_bind_def, bind_def]
+QED
+
+val extra_preprocessing = ref [MEMBER_INTRO,MAP,bind_thm,ignore_bind_thm];
+
 val r = translate ptree_Op_def;
 
 Theorem ptree_op_side[local]:
