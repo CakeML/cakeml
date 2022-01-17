@@ -11,7 +11,7 @@ val _ = translation_extends "caml_parserProg";
 
 val main = process_topdecs ‘
   fun main u =
-    case run_main (TextIO.inputAll TextIO.stdIn) of
+    case run (TextIO.inputAll TextIO.stdIn) of
       Inl err => TextIO.output TextIO.stdErr (err ^ "\n")
     | Inr out => TextIO.print (out ^ "\n");
   ’;
@@ -22,7 +22,7 @@ val main_v_def = fetch "-" "main_v_def";
 
 Definition caml_parse_def:
   caml_parse inp fs =
-    case run_main inp of
+    case run inp of
       INL err => add_stderr (fastForwardFD fs 0) (err ^ «\n»)
     | INR out => add_stdout (fastForwardFD fs 0) (implode out ^ «\n»)
 End
@@ -55,7 +55,7 @@ Proof
   \\ ‘HOL_STRING_TYPE (DROP pos inp) sv’
     by gs [HOL_STRING_TYPE_def]
   \\ xlet_auto >- xsimpl
-  \\ Cases_on ‘run_main (DROP pos inp)’ \\ gs [SUM_TYPE_def] \\ xmatch
+  \\ Cases_on ‘run (DROP pos inp)’ \\ gs [SUM_TYPE_def] \\ xmatch
   >- (
     xlet_auto >- xsimpl
     \\ xapp_spec output_stderr_spec

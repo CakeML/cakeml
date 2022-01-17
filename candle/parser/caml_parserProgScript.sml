@@ -4,7 +4,7 @@
 
 open preamble camlPEGTheory camlPtreeConversionTheory;
 open caml_parserTheory caml_ptreeProgTheory;
-open ml_translatorLib ml_monad_translatorLib ml_translatorTheory;
+open ml_translatorLib ml_translatorTheory;
 open sexp_parserProgTheory;
 
 val _ = new_theory "caml_parserProg";
@@ -56,7 +56,8 @@ fun def_of_const tm = let
     DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy name
-  val def = def_from_thy (#Thy res) name handle HOL_ERR _ =>
+  val def = def_from_thy "termination" name handle HOL_ERR _ =>
+            def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
   val def = def |> RW (!extra_preprocessing)
                 |> CONV_RULE (DEPTH_CONV BETA_CONV)
@@ -95,9 +96,6 @@ val _ = update_precondition safe_substring_side;
 
 val r = translate get_nth_line_def;
 val r = translate locs_to_string_def;
-
-val r = translate init_ptree_state_def;
-
 val r = translate run_parser_def;
 
 (* TODO move these to the PEG script *)
@@ -324,12 +322,12 @@ QED
 
 val _ = update_precondition run_parser_side;
 
-val r = translate run_main_def;
+val r = translate run_def;
 
-Theorem run_main_side[local]:
-  ∀x. run_main_side x
+Theorem run_side[local]:
+  ∀x. run_side x
 Proof
-  rw [fetch "-" "run_main_side_def", run_lexer_def]
+  rw [fetch "-" "run_side_def", run_lexer_def]
 QED
 
 val _ = update_precondition run_side;
