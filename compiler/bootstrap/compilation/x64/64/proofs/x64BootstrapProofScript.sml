@@ -232,6 +232,19 @@ Proof
   \\ EVAL_TAC
 QED
 
+(*
+
+  (cur_gen,next_id,next_gen) --> (next_gen,0,next_gen + 1)
+
+  (cur_gen,next_id,next_gen) --> (cur_gen,next_id), (cur_gen,next_id + 1,next_gen)
+
+  (cur_gen,next_id,v5),v6,v8,next_gen) --> (cur_gen,next_id,next_gen)
+
+semanticPrimitivesTheory.add_decs_generation_def
+semanticPrimitivesTheory.declare_env_def
+semanticPrimitivesTheory.reset_env_generation_def
+*)
+
 Theorem evaliate_Eval:
   nsLookup env.v (Short "env") = SOME (Env env1 id1) ⇒
   nsLookup env.v (Short "decs") = SOME decs_v ⇒

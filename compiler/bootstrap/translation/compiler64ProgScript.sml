@@ -427,6 +427,7 @@ val _ = (append_prog o process_topdecs) `
       val env = repl_init_env
       val decs = []
       val input_str = ""
+      val _ = TextIO.print "This is the CakeML REPL.\n"
     in
       repl parse types conf env decs input_str
     end`
