@@ -336,6 +336,7 @@ val wfv_ind = theorem"wfv_ind";
 val wfv_state_def = Define`
   wfv_state g l code s ⇔
     EVERY (OPTION_ALL (wfv g l code)) s.globals ∧
+    (OPTION_ALL (wfv g l code)) s.mutable_global ∧
     FEVERY (every_refv (wfv g l code) o SND) s.refs ∧
     s.code = FEMPTY`;
 
@@ -1928,6 +1929,8 @@ Proof
       \\ qspec_tac (`s2.globals`,`w`) \\ Induct \\ fs []
       \\ Cases \\ fs [OPTREL_def])
     THEN1
+      (Cases_on`s2.mutable_global`>>fs[OPTREL_def])
+    THEN1
       (match_mp_tac (FEVERY_STRENGTHEN_THM |> CONJUNCT2) \\ fs [])
     THEN1
       (match_mp_tac (FEVERY_STRENGTHEN_THM |> CONJUNCT2) \\ fs []
@@ -1949,7 +1952,10 @@ Proof
       (qsuff_tac `xs = ys` \\ fs []
        \\ qpat_x_assum `_ xs ys` mp_tac
        \\ qspec_tac (`xs`,`xs`) \\ qspec_tac (`ys`,`ys`)
-       \\ Induct \\ fs [PULL_EXISTS] \\ Cases  \\ Cases \\ fs [OPTREL_def]))
+       \\ Induct \\ fs [PULL_EXISTS] \\ Cases  \\ Cases \\ fs [OPTREL_def])
+    THEN1 (Cases_on`x`>> fs[OPTREL_def])
+    THEN1 (Cases_on`x`>> fs[OPTREL_def])
+    )
   \\ fs [AC CONJ_ASSOC CONJ_COMM]
   \\ rpt (disch_then assume_tac) \\ fs [AND_IMP_INTRO]
   \\ first_x_assum match_mp_tac
@@ -2192,6 +2198,13 @@ Proof
   \\ conj_tac >- (
     first_x_assum (fn t => mp_tac t \\ match_mp_tac LIST_REL_mono)
     \\ rpt gen_tac
+    \\ match_mp_tac OPTREL_MONO
+    \\ rw []
+    \\ drule_then irule (GEN_ALL v_rel_SUBMAP_subg)
+    \\ fs [SUBMAP_FUNION_ID, DISJOINT_SYM]
+  )
+  \\ conj_tac >- (
+    qpat_x_assum `OPTREL _ _ _` mp_tac
     \\ match_mp_tac OPTREL_MONO
     \\ rw []
     \\ drule_then irule (GEN_ALL v_rel_SUBMAP_subg)

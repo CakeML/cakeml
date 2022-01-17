@@ -1519,7 +1519,7 @@ Proof
   \\ disch_then (qspec_then `initial_state ffi max_app FEMPTY
        (pure_co (compile_inc max_app) ∘ co) cc k` mp_tac)
   \\ impl_tac
-  THEN1 (fs [state_rel_def,initial_state_def,FMAP_REL_def])
+  THEN1 (fs [state_rel_def,initial_state_def,FMAP_REL_def, v_rel_opt_def])
   \\ strip_tac \\ fs []
   \\ qexists_tac `0`
   \\ fs [] \\ fs [state_rel_def]
