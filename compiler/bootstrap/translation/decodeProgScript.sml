@@ -70,12 +70,15 @@ Proof
   irule_at Any (fetch_v_fun “:backend$inc_config” |> snd |> hd) \\ fs []
 QED
 
+Theorem EqualityType_BACKEND_INC_CONFIG_TYPE =
+  EqualityType_rule [] “:backend$inc_config”;
+
 Theorem INJ_BACKEND_INC_CONFIG_v[simp]:
   INJ BACKEND_INC_CONFIG_v UNIV UNIV
 Proof
   irule ml_translatorTheory.IsTypeRep_EqualityType_INJ
   \\ irule_at Any IsTypeRep_BACKEND_INC_CONFIG_v
-  \\ fs [EqualityType_rule [] “:backend$inc_config”]
+  \\ fs [EqualityType_BACKEND_INC_CONFIG_TYPE]
 QED
 
 (* --- *)

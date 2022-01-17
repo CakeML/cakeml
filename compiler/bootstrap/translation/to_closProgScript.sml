@@ -133,6 +133,8 @@ val flat_to_clos_compile_side = Q.prove(
 
 val r = translate flat_to_closTheory.compile_decs_def;
 
+val r = translate flat_to_closTheory.inc_compile_decs_def;
+
 (* ------------------------------------------------------------------------- *)
 (* clos_mti                                                                  *)
 (* ------------------------------------------------------------------------- *)
@@ -150,6 +152,9 @@ val clos_mti_intro_multi_side = Q.prove(`
   simp[Once (fetch "-" "clos_mti_intro_multi_side_def")]>>
   metis_tac[])|>update_precondition
 
+val r = translate clos_mtiTheory.compile_inc_def;
+val r = translate clos_mtiTheory.cond_mti_compile_inc_def;
+
 (* ------------------------------------------------------------------------- *)
 (* clos_number                                                               *)
 (* ------------------------------------------------------------------------- *)
@@ -159,6 +164,10 @@ val clos_mti_intro_multi_side = Q.prove(`
  *     to renumber_code_locs_list_def
  *)
 val r = translate clos_numberTheory.renumber_code_locs_def;
+
+val r = translate clos_numberTheory.ignore_table_def;
+val r = translate miscTheory.make_even_def;
+val r = translate clos_numberTheory.compile_inc_def;
 
 (* ------------------------------------------------------------------------- *)
 (* clos_op                                                                   *)
@@ -263,6 +272,13 @@ val clos_fvs_remove_fvs_side = Q.prove(`
 
 val r = translate clos_knownTheory.compile_def;
 
+val r = translate clos_knownTheory.reset_inline_factor_def;
+val r = translate clos_knownTheory.compile_inc_def;
+val r = translate clos_knownTheory.known_compile_inc_def;
+val r = translate clos_knownTheory.option_val_approx_spt_def;
+val r = translate clos_knownTheory.option_upd_val_spt_def;
+val r = translate clos_knownTheory.known_static_conf_def;
+
 (* ------------------------------------------------------------------------- *)
 (* clos_call                                                                 *)
 (* ------------------------------------------------------------------------- *)
@@ -294,6 +310,8 @@ val clos_call_calls_side = Q.prove(`
   rw[GSYM LAMBDA_PROD]) |> update_precondition;
 
 val r = translate clos_callTheory.compile_def;
+val r = translate clos_callTheory.compile_inc_def;
+val r = translate clos_callTheory.cond_call_compile_inc_def;
 
 (* ------------------------------------------------------------------------- *)
 (* clos_annotate                                                             *)
@@ -327,6 +345,16 @@ val clos_annotate_compile_side = Q.prove(
   EVAL_TAC \\ rw[clos_annotate_alt_free_side] \\
   METIS_TAC[clos_annotateTheory.shift_SING,clos_annotateTheory.alt_free_SING,
             FST,PAIR,list_distinct]) |> update_precondition;
+
+val r = translate clos_annotateTheory.compile_inc_def;
+
+val clos_annotate_compile_inc_side = Q.prove(
+  `∀x. clos_annotate_compile_inc_side x = T`,
+  EVAL_TAC \\ rw[clos_annotate_alt_free_side]) |> update_precondition;
+
+val r = translate clos_letopTheory.compile_inc_def;
+val r = translate clos_fvsTheory.compile_inc_def;
+val r = translate clos_ticksTheory.compile_inc_def;
 
 (* ------------------------------------------------------------------------- *)
 

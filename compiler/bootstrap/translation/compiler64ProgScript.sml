@@ -279,59 +279,37 @@ val nonzero_exit_code_for_error_msg_def = Define `
 val res = translate compilerTheory.is_error_msg_def;
 val res = translate nonzero_exit_code_for_error_msg_def;
 
-(* incremental compilers
+(* incremental compiler *)
 
-val res = translate (backendTheory.empty_progs_def |> spec64)
-val res = translate backendTheory.keep_progs_def
-val res = translate source_to_flatTheory.lookup_env_id_def
-val res = translate source_to_flatTheory.store_env_id_def
-val res = translate source_to_flatTheory.inc_compile_prog_def
-val res = translate source_to_flatTheory.inc_compile_def
-val res = translate flat_to_closTheory.inc_compile_decs_def
-val res = translate clos_mtiTheory.compile_inc_def
-val res = translate clos_mtiTheory.cond_mti_compile_inc_def
-val res = translate clos_knownTheory.reset_inline_factor_def
-val res = translate clos_knownTheory.compile_inc_def
-val res = translate clos_letopTheory.compile_inc_def
-val res = translate clos_fvsTheory.compile_inc_def
-val res = translate clos_ticksTheory.compile_inc_def
-val res = translate clos_knownTheory.known_compile_inc_def
-val res = translate clos_callTheory.compile_inc_def
-val res = translate clos_callTheory.cond_call_compile_inc_def
-val res = translate clos_annotateTheory.compile_inc_def
-val res = translate clos_numberTheory.ignore_table_def
-val res = translate miscTheory.make_even_def
-val res = translate clos_numberTheory.compile_inc_def
-val res = translate clos_knownTheory.option_val_approx_spt_def
-val res = translate clos_knownTheory.option_upd_val_spt_def
-val res = translate clos_knownTheory.known_static_conf_def
-val res = translate clos_to_bvlTheory.compile_inc_def
+Definition compiler_for_eval_def:
+  compiler_for_eval = compile_inc_progs_for_eval x64_config
+End
 
-Theorem extract_name_eq: (* this needs a pmatch *)
-  extract_name [] = (0,[]) ∧
-  extract_name (x::xs) =
-    case x of
-    | Op t (Const n) [] =>
-        (if n < 0 then (0,x::xs) else (Num (ABS n),if xs = [] then [x] else xs))
-    | _ => (0,x::xs)
+Triviality upper_w2w_eq_I:
+  backend$upper_w2w = (I:word64 -> word64)
 Proof
-  fs [clos_to_bvlTheory.extract_name_def]
-  \\ Cases_on ‘x’ \\ fs []
-  \\ Cases_on ‘o'’ \\ fs []
-  \\ Cases_on ‘l’ \\ fs []
-  \\ Cases_on ‘i’ \\ fs []
+  fs [backendTheory.upper_w2w_def,FUN_EQ_THM]
 QED
 
-val res = translate extract_name_eq
-val res = translate clos_to_bvlTheory.clos_to_bvl_compile_inc_def
-val res = translate bvl_inlineTheory.compile_inc_def
-val res = translate bvl_to_bviTheory.compile_inc_def
-val res = translate bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def
-val res = translate (stack_to_labTheory.compile_no_stubs_def |> spec64)
+val compiler_for_eval_alt =
+  “compiler_for_eval (x,y,z)”
+  |> SIMP_CONV std_ss [backendTheory.compile_inc_progs_for_eval_eq,
+                       compiler_for_eval_def, EVAL “x64_config.reg_count”,
+                       backendTheory.ensure_fp_conf_ok_def,
+                       EVAL “LENGTH x64_config.avoid_regs”,
+                       EVAL “x64_config.fp_reg_count”,
+                       EVAL “x64_config.two_reg_arith”,listTheory.MAP_ID,
+                       EVAL “x64_config.addr_offset”,upper_w2w_eq_I,
+                       EVAL “x64_config.ISA”, EVAL “x86_64 = ARMv7”]
 
-val res = translate (backendTheory.compile_inc_progs_def
-  |> REWRITE_RULE [backendTheory.ensure_fp_conf_ok_def] |> spec64)
-*)
+val r = translate (lab_to_targetTheory.inc_config_to_config_def |> spec64);
+val r = translate (lab_to_targetTheory.config_to_inc_config_def |> spec64);
+val r = translate (backendTheory.inc_config_to_config_def |> spec64);
+val r = translate (backendTheory.config_to_inc_config_def |> spec64);
+val r = translate (word_to_wordTheory.compile_single_def |> spec64);
+val r = translate (word_to_wordTheory.full_compile_single_def |> spec64);
+val _ = (next_ml_names := ["compiler_for_eval"]);
+val r = translate compiler_for_eval_alt;
 
 (* fun eval_prim env s1 decs s2 bs ws = Eval [env,s1,decs,s2,bs,ws] *)
 val _ = append_prog

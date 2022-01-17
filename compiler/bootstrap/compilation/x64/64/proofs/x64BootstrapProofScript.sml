@@ -97,6 +97,7 @@ val cake_compiled_thm =
 
 open evaluateTheory
 open semanticPrimitivesTheory
+open backendProofTheory
 
 Definition compiler_inst_def:
   compiler_inst c = (λ(x,y,z).

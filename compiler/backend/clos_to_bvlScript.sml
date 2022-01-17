@@ -642,13 +642,29 @@ val compile_def = Define `
     let c = c with start := num_stubs c.max_app - 1 in
       (c, code_sort prog', func_names)`;
 
-(* TODO: there needs to be a PMATCH version of this for translation *)
 val extract_name_def = Define `
   extract_name [] = (0,[]) /\
   extract_name (x :: xs) =
     dtcase (some n. ?t. x = Op t (Const (& n)) []) of
     | NONE => (0,x::xs)
     | SOME n => (n, if xs = [] then [x] else xs)`;
+
+Theorem extract_name_pmatch:
+  extract_name xs =
+    dtcase xs of
+    | [] => (0,xs)
+    | (x::xs) =>
+      case x of
+        (Op t (Const i) []) => (if i < 0 then (0,x::xs) else
+                                 (Num (ABS i), if xs = [] then [x] else xs))
+      | _ => (0,x::xs)
+Proof
+  Cases_on ‘xs’ \\ fs [extract_name_def]
+  \\ Cases_on ‘h’ \\ fs []
+  \\ Cases_on ‘l’ \\ fs []
+  \\ Cases_on ‘o'’ \\ fs []
+  \\ Cases_on ‘i’ \\ fs []
+QED
 
 val compile_inc_def = Define `
   compile_inc max_app (es,prog) =

@@ -55,6 +55,12 @@ QED
 
 (* -- *)
 
+Theorem backend_upper_w2w[simp]:
+  backend$upper_w2w = data_to_word_gcProof$upper_w2w
+Proof
+  fs [backendTheory.upper_w2w_def, data_to_word_gcProofTheory.upper_w2w_def, FUN_EQ_THM]
+QED
+
 val backend_config_ok_def = Define`
   backend_config_ok (c:'a config) ⇔
     c.source_conf = prim_src_config ∧
@@ -2466,16 +2472,6 @@ Theorem add_eval_state_ffi:
 Proof
   Cases_on `opt_ev` \\ simp [add_eval_state_def]
 QED
-
-Definition compile_inc_progs_for_eval_def:
-  compile_inc_progs_for_eval asm_c x =
-  let (env_id, inc_c', decs) = x in
-  let c' = inc_config_to_config asm_c inc_c' in
-  let (c'', ps) = compile_inc_progs T c' (env_id, decs) in
-    OPTION_MAP (\(bs, ws). (config_to_inc_config c'', bs,
-            MAP data_to_word_gcProof$upper_w2w ws))
-        ps.target_prog
-End
 
 Definition opt_eval_config_wf_def:
   opt_eval_config_wf c' (SOME ci) = (

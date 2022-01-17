@@ -52,4 +52,10 @@ Proof
   \\ fs []
 QED
 
+Theorem EqualityType_AST_DEC_TYPE =
+  EqualityType_rule [] “:dec”;
+
+Theorem EqualityType_LIST_TYPE_AST_DEC_TYPE =
+  EqualityType_rule [] “:dec list”;
+
 val _ = export_theory();

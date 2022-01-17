@@ -144,6 +144,8 @@ val res = translate source_to_flatTheory.compile_flat_def;
 
 val res = translate source_to_flatTheory.compile_def;
 
+val res = translate source_to_flatTheory.inc_compile_def;
+
 (* ------------------------------------------------------------------------- *)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
