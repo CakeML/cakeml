@@ -1,13 +1,13 @@
 (*
-  Translation of the functions and types in caml_lexScript.sml
+  Translation of the OCaml lexer.
  *)
 
 open preamble caml_lexTheory;
-open basisProgTheory ml_translatorLib ml_translatorTheory;
+open parserProgTheory ml_translatorLib ml_translatorTheory;
 
 val _ = new_theory "caml_lexProg";
 
-val _ = translation_extends "basisProg";
+val _ = translation_extends "parserProg";
 
 (* -------------------------------------------------------------------------
  * Translator setup
@@ -26,7 +26,6 @@ fun list_mk_fun_type [ty] = ty
   | list_mk_fun_type _ = fail()
 
 val _ = add_preferred_thy "-";
-(*val _ = add_preferred_thy "termination";*)
 
 Theorem NOT_NIL_AND_LEMMA:
    (b <> [] /\ x) = if b = [] then F else x
@@ -45,8 +44,7 @@ fun def_of_const tm = let
     DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy name
-  val def = def_from_thy "termination" name handle HOL_ERR _ =>
-            def_from_thy (#Thy res) name handle HOL_ERR _ =>
+  val def = def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
   val def = def |> RW (!extra_preprocessing)
                 |> CONV_RULE (DEPTH_CONV BETA_CONV)
@@ -94,6 +92,7 @@ QED
 
 val _ = update_precondition unhex_alt_side;
 
+(*
 val r = translate numposrepTheory.l2n_def;
 
 Theorem l2n_side[local]:
@@ -103,6 +102,7 @@ Proof
 QED
 
 val _ = update_precondition l2n_side;
+ *)
 
 val r = translate hex2num_def;
 val r = translate dec2num_def;
