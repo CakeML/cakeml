@@ -114,6 +114,12 @@ Proof
   fs [FUN_EQ_THM,FORALL_PROD]
 QED
 
+Theorem cake_config_lab_conf_asm_conf:
+  cake_config.lab_conf.asm_conf = x64_config
+Proof
+  rewrite_tac [cake_config_def] \\ EVAL_TAC
+QED
+
 Theorem mk_init_eval_state_lemma =
   “mk_init_eval_state compiler_instance”
   |> SIMP_CONV (srw_ss()) [compiler_instance_def,
@@ -137,17 +143,11 @@ Proof
   \\ rw [] \\ res_tac \\ imp_res_tac no_closures_IMP_concrete_v
 QED
 
-Theorem EqualityType_LIST_TYPE_AST_DEC_TYPE:
-  EqualityType (LIST_TYPE AST_DEC_TYPE)
-Proof
-  cheat
-QED
+val EqualityType_LIST_TYPE_AST_DEC_TYPE =
+  decProgTheory.EqualityType_LIST_TYPE_AST_DEC_TYPE;
 
-Theorem EqualityType_BACKEND_INC_CONFIG_TYPE:
-  EqualityType BACKEND_INC_CONFIG_TYPE
-Proof
-  cheat
-QED
+val EqualityType_BACKEND_INC_CONFIG_TYPE =
+  decodeProgTheory.EqualityType_BACKEND_INC_CONFIG_TYPE;
 
 Theorem concrete_v_decs:
   LIST_TYPE AST_DEC_TYPE decs v ⇒ concrete_v v
@@ -196,7 +196,7 @@ Theorem v_fun_abs_BACKEND_INC_CONFIG_v:
   BACKEND_INC_CONFIG_TYPE s1 s1_v ⇒
   v_fun_abs 𝕌(:inc_config) BACKEND_INC_CONFIG_v s1_v = SOME s1
 Proof
-  fs [source_evalProofTheory.v_rel_abs,BACKEND_INC_CONFIG_TYPE_IMP]
+  fs [source_evalProofTheory.v_rel_abs,BACKEND_INC_CONFIG_IMP]
   \\ strip_tac \\ imp_res_tac BACKEND_INC_CONFIG_IMP \\ fs []
 QED
 
