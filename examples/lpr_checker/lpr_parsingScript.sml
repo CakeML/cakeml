@@ -103,12 +103,8 @@ Proof
   fs[EVERY_REVERSE]
 QED
 
-(* like toString in mlint, but prints negatives with "-" not "~" *)
 Definition toStdString_def:
-  toStdString i =
-    (if 0i <= i
-        then implode (REVERSE (num_to_rev_chars (Num i) 0 0))
-        else implode ("-" ++ REVERSE (num_to_rev_chars (Num (ABS i)) 0 0)))
+  toStdString i = int_to_string #"-" i
 End
 
 val print_clause_def = Define`
@@ -125,35 +121,27 @@ Proof
   simp[GSYM mlstringTheory.TOKENS_eq_tokens]
 QED
 
-Triviality blanks_HEX:
-  MEM i (GENLIST I 16) ==> ~ blanks (HEX i)
-Proof
-  rw_tac std_ss [EVAL ``GENLIST I 16``]
-  \\ full_simp_tac bool_ss [MEM]
-  \\ simp [blanks_def]
-QED
-
 Theorem fromString_toStdString[simp]:
    !i:int. fromString (toStdString i) = SOME i
 Proof
-  rw [toStdString_def, num_to_rev_chars_thm, toString_thm, mlstringTheory.implode_def]
-  \\ simp [fromString_toString_Num]
-  \\ DEP_REWRITE_TAC [fromString_thm]
-  \\ simp [EVERY_isDigit_num_to_dec_string, ASCIInumbersTheory.toNum_toString]
-  \\ intLib.COOPER_TAC
+  simp [toStdString_def]
+QED
+
+Triviality isDigit_not_blanks:
+  isDigit c ==> ~ blanks c
+Proof
+  CCONTR_TAC \\ fs [blanks_def] \\ fs [isDigit_def]
 QED
 
 Theorem tokens_blanks_toStdString:
   tokens blanks (toStdString h) = [toStdString h]
 Proof
   match_mp_tac tokens_unchanged>>
-  simp [toStdString_def, num_to_rev_chars_thm, num_to_dec_string_def, n2s_def] >>
+  simp [toStdString_def, int_to_string_thm, NULL_EQ] >>
   rw [EVAL ``blanks #"-"``] >>
-  simp_tac std_ss [NULL_LENGTH, LENGTH_REVERSE, LENGTH_MAP, numposrepTheory.LENGTH_n2l] >>
-  rw [EVERY_MAP] >>
   irule listTheory.EVERY_MONOTONIC >>
-  irule_at Any numposrepTheory.n2l_BOUND >>
-  simp [blanks_HEX]
+  irule_at Any ASCIInumbersTheory.EVERY_isDigit_num_to_dec_string >>
+  simp [isDigit_not_blanks]
 QED
 
 Theorem tokens_print_clause_nonempty:

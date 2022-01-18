@@ -76,18 +76,31 @@ Proof
   \\ simp [Q.SPECL [`i`, `10`] arithmeticTheory.LESS_LESS_EQ_TRANS]
 QED
 
-Definition toString_def:
-  toString i =
+Definition int_to_string_def:
+  int_to_string neg_char i =
     (if 0i <= i
         then implode (REVERSE (num_to_rev_chars (Num i) 0 0))
-        else implode ("~" ++ REVERSE (num_to_rev_chars (Num (ABS i)) 0 0)))
+        else implode ([neg_char] ++ REVERSE (num_to_rev_chars (Num (ABS i)) 0 0)))
 End
+
+Definition toString_def1:
+  toString i = int_to_string #"~" i
+End
+
+Theorem toString_def = toString_def1 |> REWRITE_RULE [int_to_string_def]
+
+Theorem int_to_string_thm:
+  int_to_string neg_char i =
+  implode ((if i < 0i then [neg_char] else []) ++ num_to_dec_string (Num (ABS i)))
+Proof
+  rw[int_to_string_def, num_to_rev_chars_thm, integerTheory.INT_ABS]
+  \\ `F` by intLib.COOPER_TAC
+QED
 
 Theorem toString_thm:
    toString i = implode ((if i < 0i then "~" else "") ++ num_to_dec_string (Num (ABS i)))
 Proof
-  rw[toString_def, num_to_rev_chars_thm, integerTheory.INT_ABS]
-  \\ `F` by intLib.COOPER_TAC
+  simp [toString_def1, int_to_string_thm]
 QED
 
 val num_to_str_def = Define `num_to_str (n:num) = toString (&n)`;
@@ -367,26 +380,33 @@ Proof
   \\ simp[integerTheory.INT_OF_NUM]
 QED
 
+Triviality fromString_helper:
+  HD (toString (i : num)) = c ==> isDigit c
+Proof
+  qspec_then `i` mp_tac EVERY_isDigit_num_to_dec_string
+  \\ Cases_on `toString i : string` \\ fs []
+  \\ rw []
+  \\ simp []
+QED
+
+Theorem fromString_int_to_string[simp]:
+   neg_char = #"~" \/ neg_char = #"-" ==>
+   fromString (int_to_string neg_char i) = SOME i
+Proof
+  simp [int_to_string_thm,implode_def]
+  \\ disch_tac
+  \\ DEP_REWRITE_TAC [fromString_thm]
+  \\ rw [EVERY_isDigit_num_to_dec_string, EVERY_DROP]
+  \\ gs [ASCIInumbersTheory.toNum_toString]
+  \\ simp [Q.prove (`&(Num (ABS i)) = (if i < 0 then (- i) else i)`, intLib.COOPER_TAC)]
+  \\ drule_then (mp_tac o CONV_RULE EVAL) fromString_helper
+  \\ simp []
+QED
+
 Theorem fromString_toString[simp]:
    !i:int. fromString (toString i) = SOME i
 Proof
-  rw [toString_thm,implode_def]
-  \\ qmatch_goalsub_abbrev_tac `strlit sss`
-  \\ qspec_then `sss` mp_tac fromString_thm
-  THEN1
-   (reverse impl_tac THEN1
-     (fs [Abbr`sss`,toString_thm,ASCIInumbersTheory.toNum_toString]
-      \\ rw [] \\ last_x_assum mp_tac \\ intLib.COOPER_TAC)
-    \\ fs [Abbr `sss`,EVERY_isDigit_num_to_dec_string])
-  \\ `HD sss ≠ #"~" ∧ HD sss ≠ #"-" ∧ HD sss ≠ #"+"` by
-   (fs [Abbr `sss`]
-    \\ qspec_then `Num (ABS i)` mp_tac EVERY_isDigit_num_to_dec_string
-    \\ Cases_on `num_to_dec_string (Num (ABS i))`
-    \\ fs []
-    \\ CCONTR_TAC \\ fs [] \\ rveq  \\ fs [isDigit_def])
-  \\ fs [Abbr `sss`,EVERY_isDigit_num_to_dec_string]
-  \\ fs [toString_thm,ASCIInumbersTheory.toNum_toString]
-  \\ rw [] \\ last_x_assum mp_tac \\ intLib.COOPER_TAC
+  simp [toString_def1]
 QED
 
 Theorem fromNatString_toString[simp]:

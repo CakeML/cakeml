@@ -51,8 +51,10 @@ val res = update_precondition num_to_rev_chars_side;
 
 val _ = ml_prog_update open_local_in_block;
 
+val int_to_string_v_thm = translate mlintTheory.int_to_string_def;
+
 val _ = next_ml_names := ["toString"];
-val toString_v_thm = translate mlintTheory.toString_def;
+val toString_v_thm = translate mlintTheory.toString_def1;
 
 val Eval_NUM_toString = Q.prove(
   `!v. (INT --> STRING_TYPE) toString v ==>
