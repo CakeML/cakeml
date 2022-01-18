@@ -328,9 +328,9 @@ val _ = register_type “:('a,'b,'c,'d,'e) eval_res”;
 
 val _ = (append_prog o process_topdecs) `
   fun eval ((s1,next_gen), (env,id), decs) =
-    case compiler_for_eval ((id,0),s1,decs) of
-      None => Compiler_error "ERROR: failed to compile input"
-    | Some (s2,bs,ws) =>
+    case compiler_for_eval ((id,0),(s1,decs)) of
+      None => Compile_error "ERROR: failed to compile input"
+    | Some (s2,(bs,ws)) =>
         let
           val new_env = eval_prim (env,s1,decs,s2,bs,ws)
         in Eval_result (new_env,next_gen) (s2,next_gen+1) end
@@ -379,7 +379,7 @@ val r = translate check_and_tweak_def;
 val _ = (append_prog o process_topdecs) `
   fun repl (parse, types, conf, env, decs, input_str) =
     (* input_str is passed in here only for error reporting purposes *)
-    case check_and_tweak (decs, types, input_str) of
+    case check_and_tweak (decs, (types, input_str)) of
       Failure msg => repl (parse, types, conf, env, report_error msg, "")
     | Success (safe_decs, new_types) =>
       (* here safe_decs are guaranteed to not crash;
@@ -425,7 +425,7 @@ val _ = (append_prog o process_topdecs) `
       val parse = compiler64Prog.compiler_parse_cml_input
       val types = init_types ()
       val conf = (decodeProg.read_inc_config "config_enc_str.txt", 1)
-      val env = repl_init_env
+      val env = (repl_init_env, 0)
       val decs = []
       val input_str = ""
       val _ = TextIO.print "This is the CakeML REPL.\n"
