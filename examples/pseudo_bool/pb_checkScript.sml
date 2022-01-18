@@ -88,19 +88,6 @@ End
 Type pbf = ``:npbc spt``;
 Type pbp = ``:pbpstep list``;
 
-(* Computes the LHS term of the slack of a constraint under
-  a partial assignment p (list of literals) *)
-Definition lslack_def:
-  lslack (PBC ls num) p =
-  SUM (MAP FST (FILTER (λ(a,b). ¬MEM (negate b) p) ls))
-End
-
-Definition check_contradiction_def:
-  check_contradiction (PBC ls num) =
-  let l = lslack (PBC ls num) [] in
-    l < num
-End
-
 Definition check_polish_def:
   (check_polish fml (Id n) = lookup n fml) ∧
   (check_polish fml (Add c1 c2) =
@@ -274,26 +261,6 @@ Proof
   >- (
     (* weaken case *)
     metis_tac[compact_weaken])
-QED
-
-Theorem check_contradiction_unsat:
-  check_contradiction c ⇒
-  ¬satisfies_npbc w c
-Proof
-  Cases_on`c`>>
-  rw[check_contradiction_def,satisfies_npbc_def,lslack_def]>>
-  qmatch_asmsub_abbrev_tac`MAP FST lss`>>
-  `lss = l` by
-    fs[Abbr`lss`,FILTER_EQ_ID,EVERY_MEM,FORALL_PROD]>>
-  rw[]>>
-  `SUM (MAP (eval_term w) l) ≤ SUM (MAP FST l)` by
-      (match_mp_tac SUM_MAP_same_LE>>
-      fs[EVERY_MEM,FORALL_PROD]>>
-      rw[]>>
-      rename1`eval_lit w r`>>
-      assume_tac eval_lit_bool>>
-      fs[])>>
-  fs[]
 QED
 
 Theorem range_FOLDL_delete:

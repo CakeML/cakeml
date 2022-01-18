@@ -256,8 +256,8 @@ val r = translate mk_BS_def;
 val r = translate delete_def;
 val r = translate build_fml_def;
 
-val r = translate (lslack_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
-val r = translate (check_contradiction_def |> SIMP_RULE std_ss[LET_DEF]);
+val r = translate (pb_constraintTheory.lslack_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
+val r = translate (pb_constraintTheory.check_contradiction_def |> SIMP_RULE std_ss[LET_DEF]);
 
 (* polish *)
 val r = translate pb_constraintTheory.term_lt_def;
@@ -287,6 +287,7 @@ val r = translate pb_constraintTheory.not_def;
 
 val r = translate subst_fun_def;
 
+val r = translate pb_constraintTheory.imp_def;
 val r = translate pb_constraintTheory.is_Pos_def;
 val r = translate pb_constraintTheory.subst_aux_def;
 val r = translate pb_constraintTheory.partition_def;

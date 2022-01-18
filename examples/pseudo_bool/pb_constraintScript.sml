@@ -623,16 +623,75 @@ Proof
   \\ gvs []
 QED
 
+(* The returned flag is T if any literal touched by the constraint is
+  itself assigned to T under the substitution *)
 Definition subst_opt_aux_def:
   subst_opt_aux f [] = ([],[],0,T) ∧
   subst_opt_aux f ((c,l)::rest) =
     let (old,new,k,same) = subst_opt_aux f rest in
       case f (get_var l) of
       | NONE => ((c,l)::old,new,k,same)
-      | SOME (INL b) => (old,new,if is_Pos l = b then k+c else k,F)
+      | SOME (INL b) =>
+        if is_Pos l = b then
+          (old,new, k+c, same)
+        else
+          (old,new, k, F)
       | SOME (INR n) => let x = (if is_Pos l then n else negate n) in
                           (old,(c,x)::new,k,F)
 End
+
+(* Computes the LHS term of the slack of a constraint under
+  a partial assignment p (list of literals) *)
+Definition lslack_def:
+  lslack (PBC ls num) p =
+  SUM (MAP FST (FILTER (λ(a,b). ¬MEM (negate b) p) ls))
+End
+
+Definition check_contradiction_def:
+  check_contradiction (PBC ls num) =
+  let l = lslack (PBC ls num) [] in
+    l < num
+End
+
+Theorem check_contradiction_unsat:
+  check_contradiction c ⇒
+  ¬satisfies_npbc w c
+Proof
+  Cases_on`c`>>
+  rw[check_contradiction_def,satisfies_npbc_def,lslack_def]>>
+  qmatch_asmsub_abbrev_tac`MAP FST lss`>>
+  `lss = l` by
+    fs[Abbr`lss`,FILTER_EQ_ID,EVERY_MEM,FORALL_PROD]>>
+  rw[]>>
+  `SUM (MAP (eval_term w) l) ≤ SUM (MAP FST l)` by
+      (match_mp_tac SUM_MAP_same_LE>>
+      fs[EVERY_MEM,FORALL_PROD]>>
+      rw[]>>
+      rename1`eval_lit w r`>>
+      assume_tac eval_lit_bool>>
+      fs[])>>
+  fs[]
+QED
+
+(* constraint c1 implies constraint c2 *)
+Definition imp_def:
+  imp c1 c2 ⇔
+  check_contradiction (add c1 (not c2))
+End
+
+Theorem imp_thm:
+  imp c1 c2 ∧
+  satisfies_npbc w c1 ⇒ satisfies_npbc w c2
+Proof
+  rw[imp_def]>>
+  drule add_thm>>
+  strip_tac>>
+  CCONTR_TAC>>
+  fs[GSYM not_thm]>>
+  first_x_assum drule>>
+  drule check_contradiction_unsat>>
+  metis_tac[]
+QED
 
 Definition subst_opt_def:
   subst_opt f (PBC l n) =
@@ -640,14 +699,15 @@ Definition subst_opt_def:
       if same then NONE else
         let (sorted,k2) = clean_up new in
         let (result,k3) = add_lists old sorted in
-          SOME (PBC result (n - (k + k2 + k3)))
+        let res = PBC result (n - (k + k2 + k3)) in
+        if imp (PBC l n) res then NONE
+        else SOME res
 End
 
-Theorem subst_opt_aux_thm:
+Theorem subst_opt_aux_thm_1:
   ∀rest f old new k same.
     subst_opt_aux f rest = (old,new,k,same) ⇒
-    subst_aux f rest = (old,new,k) ∧
-    (old ≠ rest ∨ new ≠ [] ∨ k ≠ 0 ⇒ ~same)
+    subst_aux f rest = (old,new,k)
 Proof
   Induct \\ fs [FORALL_PROD,subst_aux_def,subst_opt_aux_def]
   \\ rpt strip_tac
@@ -662,22 +722,47 @@ Theorem subst_opt_SOME:
 Proof
   Cases_on ‘c’ \\ fs [subst_opt_def,subst_def]
   \\ rpt (pairarg_tac \\ fs [])
-  \\ drule_all subst_opt_aux_thm
+  \\ drule_all subst_opt_aux_thm_1
   \\ rw [] \\ gvs []
+QED
+
+Theorem subst_opt_aux_thm_2:
+  ∀rest f old new k.
+  subst_opt_aux f rest = (old,new,k,T) ⇒
+  SUM (MAP (eval_term (assign f w)) rest) ≥ SUM (MAP (eval_term w) rest)
+Proof
+  Induct \\ fs[FORALL_PROD,subst_opt_aux_def]
+  \\ rpt strip_tac
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [AllCaseEqs()]
+  \\ first_x_assum drule
+  >-
+    (Cases_on`p_2`>>fs[assign_def]) >>
+  Cases_on`p_2`>>fs[assign_def]>>
+  Cases_on`w n`>>fs[]
 QED
 
 Theorem subst_opt_NONE:
   subst_opt f c = NONE ⇒
-  satisfies_npbc w (subst f c) = satisfies_npbc w c
+  satisfies_npbc w c ⇒ satisfies_npbc w (subst f c)
 Proof
-  Cases_on ‘c’ \\ fs [subst_opt_def,subst_def]
+  Cases_on ‘c’ \\ fs [subst_opt_def]
   \\ rpt (pairarg_tac \\ fs [])
-  \\ strip_tac \\ gvs []
-  \\ drule_then assume_tac subst_opt_aux_thm
-  \\ gvs [EVAL “clean_up []”]
-  \\ Cases_on ‘l’ \\ fs [add_lists_def]
+  \\ rw[]
+  >- (
+    simp[subst_def]>>
+    rpt (pairarg_tac \\ fs [])>>
+    drule subst_opt_aux_thm_1>>
+    rw[]>>fs[]>>rw[]>>
+    drule imp_thm>>
+    disch_then drule>>
+    fs[])
+  \\ fs[subst_thm]
+  \\ fs[satisfies_npbc_def]
+  \\ drule subst_opt_aux_thm_2
+  \\ disch_then(qspec_then`w` assume_tac)
+  \\ intLib.ARITH_TAC
 QED
-
 
 (* subst is compact *)
 
