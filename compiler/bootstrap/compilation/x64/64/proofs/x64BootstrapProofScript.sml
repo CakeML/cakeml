@@ -3,7 +3,7 @@
 *)
 open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
-     compiler64ProgTheory x64BootstrapTheory
+     compiler64ProgTheory x64BootstrapTheory replProofTheory
 
 val _ = new_theory"x64BootstrapProof";
 
@@ -34,10 +34,6 @@ val with_clos_conf_simp = prove(
   fs [mc_init_ok_def,FUN_EQ_THM,backend_config_ok_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ EVAL_TAC);
 
-Definition decs_allowed_def:
-  decs_allowed (s:ast$dec list) = T
-End
-
 Definition compiler_instance_def:
   compiler_instance =
     <| init_state := config_to_inc_config cake_config ;
@@ -55,6 +51,12 @@ Triviality compiler_instance_lemma:
     compile_inc_progs_for_eval cake_config.lab_conf.asm_conf
 Proof
   fs [compiler_instance_def]
+QED
+
+Theorem cake_config_lab_conf_asm_conf:
+  cake_config.lab_conf.asm_conf = x64_config
+Proof
+  once_rewrite_tac [cake_config_def] \\ EVAL_TAC
 QED
 
 Definition the_EvalDecs_def:
@@ -90,35 +92,10 @@ val compile_correct_applied =
 val cake_compiled_thm =
   CONJ compile_correct_applied cake_output
   |> DISCH_ALL
-  |> check_thm
+ (* |> check_thm *)
   |> curry save_thm "cake_compiled_thm";
 
-(* TODO: compose this with a correctness theorem for compiler_x64? *)
-
-open evaluateTheory
-open semanticPrimitivesTheory
-open backendProofTheory
-
-Definition compiler_inst_def:
-  compiler_inst c = (λ(x,y,z).
-                do
-                  cfg <- v_fun_abs 𝕌(:inc_config) BACKEND_INC_CONFIG_v y;
-                  (cfg2,bs,ws) <- compile_inc_progs_for_eval c (x,cfg,z);
-                  SOME (BACKEND_INC_CONFIG_v cfg2,bs,ws)
-                od)
-End
-
-Triviality mk_compiler_fun_from_ci_tuple:
-  mk_compiler_fun_from_ci c = (λ(x,y,z). mk_compiler_fun_from_ci c (x,y,z))
-Proof
-  fs [FUN_EQ_THM,FORALL_PROD]
-QED
-
-Theorem cake_config_lab_conf_asm_conf:
-  cake_config.lab_conf.asm_conf = x64_config
-Proof
-  rewrite_tac [cake_config_def] \\ EVAL_TAC
-QED
+(* --- *)
 
 Theorem mk_init_eval_state_lemma =
   “mk_init_eval_state compiler_instance”
@@ -127,177 +104,5 @@ Theorem mk_init_eval_state_lemma =
   |> ONCE_REWRITE_RULE [mk_compiler_fun_from_ci_tuple]
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_compiler_fun_from_ci_def,
         GSYM compiler_inst_def,cake_config_lab_conf_asm_conf];
-
-Theorem no_closures_IMP_concrete_v:
-  (∀v. no_closures v ⇒ concrete_v v) ∧
-  (∀v. EVERY no_closures v ⇒ concrete_v_list v)
-Proof
-  ho_match_mp_tac concrete_v_ind \\ rw []
-  \\ Cases_on ‘v’ \\ fs [ml_translatorTheory.no_closures_def, SF ETA_ss]
-QED
-
-Triviality EqualityType_concrete_v:
-  a x v ∧ EqualityType a ⇒ concrete_v v
-Proof
-  fs [ml_translatorTheory.EqualityType_def]
-  \\ rw [] \\ res_tac \\ imp_res_tac no_closures_IMP_concrete_v
-QED
-
-val EqualityType_LIST_TYPE_AST_DEC_TYPE =
-  decProgTheory.EqualityType_LIST_TYPE_AST_DEC_TYPE;
-
-val EqualityType_BACKEND_INC_CONFIG_TYPE =
-  decodeProgTheory.EqualityType_BACKEND_INC_CONFIG_TYPE;
-
-Theorem concrete_v_decs:
-  LIST_TYPE AST_DEC_TYPE decs v ⇒ concrete_v v
-Proof
-  rw [] \\ drule EqualityType_concrete_v
-  \\ fs [EqualityType_LIST_TYPE_AST_DEC_TYPE]
-QED
-
-Theorem concrete_v_inc_config:
-  BACKEND_INC_CONFIG_TYPE c v ⇒ concrete_v v
-Proof
-  rw [] \\ drule EqualityType_concrete_v
-  \\ fs [EqualityType_BACKEND_INC_CONFIG_TYPE]
-QED
-
-Theorem cake_config_lab_conf_asm_conf:
-  cake_config.lab_conf.asm_conf = x64_config
-Proof
-  once_rewrite_tac [cake_config_def] \\ EVAL_TAC
-QED
-
-Theorem LIST_TYPE_AST_DEC_IMP:
-  LIST_TYPE AST_DEC_TYPE decs decs_v ⇒
-  ∀x. LIST_v AST_DEC_v x = decs_v ⇔ x = decs
-Proof
-  assume_tac EqualityType_LIST_TYPE_AST_DEC_TYPE
-  \\ rw []
-  \\ ‘IsTypeRep (LIST_v AST_DEC_v) (LIST_TYPE AST_DEC_TYPE)’ by
-      (irule decProgTheory.IsTypeRep_LIST_v
-       \\ fs [decProgTheory.IsTypeRep_AST_DEC_v])
-  \\ fs [ml_translatorTheory.IsTypeRep_def]
-  \\ fs [ml_translatorTheory.EqualityType_def]
-QED
-
-Theorem BACKEND_INC_CONFIG_IMP:
-  BACKEND_INC_CONFIG_TYPE c v ⇒
-  ∀x. BACKEND_INC_CONFIG_v x = v ⇔ x = c
-Proof
-  assume_tac EqualityType_BACKEND_INC_CONFIG_TYPE
-  \\ rw [] \\ assume_tac decodeProgTheory.IsTypeRep_BACKEND_INC_CONFIG_v
-  \\ fs [ml_translatorTheory.IsTypeRep_def]
-  \\ fs [ml_translatorTheory.EqualityType_def]
-QED
-
-Theorem v_fun_abs_BACKEND_INC_CONFIG_v:
-  BACKEND_INC_CONFIG_TYPE s1 s1_v ⇒
-  v_fun_abs 𝕌(:inc_config) BACKEND_INC_CONFIG_v s1_v = SOME s1
-Proof
-  fs [source_evalProofTheory.v_rel_abs,BACKEND_INC_CONFIG_IMP]
-  \\ strip_tac \\ imp_res_tac BACKEND_INC_CONFIG_IMP \\ fs []
-QED
-
-Theorem v_to_word64_list_thm:
-  ∀ws ws_v. LIST_TYPE WORD ws ws_v ⇒ v_to_word64_list ws_v = SOME ws
-Proof
-  Induct \\ fs [ml_translatorTheory.LIST_TYPE_def,v_to_word64_list_def,
-                v_to_list_def,list_type_num_def]
-  THEN1 EVAL_TAC \\ rw []
-  \\ fs [ml_translatorTheory.LIST_TYPE_def,v_to_word64_list_def,
-         v_to_list_def,list_type_num_def]
-  \\ res_tac \\ fs []
-  \\ gvs [AllCaseEqs(),PULL_EXISTS]
-  \\ res_tac \\ fs []
-  \\ simp [Once maybe_all_list_def,AllCaseEqs()]
-  \\ gvs [ml_translatorTheory.WORD_def]
-  \\ EVAL_TAC
-QED
-
-Theorem v_to_word8_list_thm:
-  ∀bs bs_v. LIST_TYPE WORD bs bs_v ⇒ v_to_word8_list bs_v = SOME bs
-Proof
-  Induct \\ fs [ml_translatorTheory.LIST_TYPE_def,v_to_word8_list_def,
-                v_to_list_def,list_type_num_def]
-  THEN1 EVAL_TAC \\ rw []
-  \\ fs [ml_translatorTheory.LIST_TYPE_def,v_to_word8_list_def,
-         v_to_list_def,list_type_num_def]
-  \\ res_tac \\ fs []
-  \\ gvs [AllCaseEqs(),PULL_EXISTS]
-  \\ res_tac \\ fs []
-  \\ simp [Once maybe_all_list_def,AllCaseEqs()]
-  \\ gvs [ml_translatorTheory.WORD_def]
-  \\ EVAL_TAC
-QED
-
-(*
-
-  (cur_gen,next_id,next_gen) --> (next_gen,0,next_gen + 1)
-
-  (cur_gen,next_id,next_gen) --> (cur_gen,next_id), (cur_gen,next_id + 1,next_gen)
-
-  (cur_gen,next_id,v5),v6,v8,next_gen) --> (cur_gen,next_id,next_gen)
-
-semanticPrimitivesTheory.add_decs_generation_def
-semanticPrimitivesTheory.declare_env_def
-semanticPrimitivesTheory.reset_env_generation_def
-*)
-
-Theorem evaliate_Eval:
-  nsLookup env.v (Short "env") = SOME (Env env1 id1) ⇒
-  nsLookup env.v (Short "decs") = SOME decs_v ⇒
-  nsLookup env.v (Short "s1") = SOME s1_v ⇒
-  nsLookup env.v (Short "s2") = SOME s2_v ⇒
-  nsLookup env.v (Short "bs") = SOME bs_v ⇒
-  nsLookup env.v (Short "ws") = SOME ws_v ⇒
-  LIST_TYPE AST_DEC_TYPE decs decs_v ∧ decs_allowed decs ∧
-  BACKEND_INC_CONFIG_TYPE s1 s1_v ∧
-  BACKEND_INC_CONFIG_TYPE s2 s2_v ∧
-  LIST_TYPE WORD ws ws_v ∧
-  LIST_TYPE WORD bs bs_v ∧
-  compile_inc_progs_for_eval x64_config (id1,s1,decs) = SOME (s2,bs,ws) ∧
-  st.eval_state = SOME (EvalDecs s) ∧
-  s.compiler = compiler_inst x64_config ∧
-  s.compiler_state = s1_v ∧
-  s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ⇒
-  evaluate st env [App Eval [Var (Short "env"); Var (Short "s1");
-                             Var (Short "decs"); Var (Short "s2");
-                             Var (Short "bs"); Var (Short "ws")]] =
-    let st = (st with eval_state := SOME (EvalDecs
-                   (add_decs_generation (s with compiler_state := s2_v)))) in
-      if st.clock = 0 then (st, Rerr (Rabort Rtimeout_error)) else
-        case evaluate_decs (dec_clock st) env1 decs of
-        | (st2,Rval env2) =>
-            (case declare_env st2.eval_state (extend_dec_env env2 env1) of
-               NONE => (st2,Rerr (Rabort Rtype_error))
-             | SOME (x,es2) =>
-               (st2 with
-                eval_state :=
-                  reset_env_generation (SOME (EvalDecs s)) es2,Rval [x]))
-        | (st2,Rerr (Rraise v7)) =>
-            (st2 with
-             eval_state :=
-               reset_env_generation (SOME (EvalDecs s)) st2.eval_state,
-             Rerr (Rraise v7))
-        | (st2,Rerr (Rabort a)) => (st2,Rerr (Rabort a))
-Proof
-  fs [evaluate_def,do_eval_res_def]
-  \\ fs [do_eval_def]
-  \\ rpt strip_tac
-  \\ ‘v_fun_abs decs_allowed (LIST_v AST_DEC_v) decs_v = SOME decs’ by
-   (fs [source_evalProofTheory.v_rel_abs]
-    \\ drule LIST_TYPE_AST_DEC_IMP \\ fs []
-    \\ DEEP_INTRO_TAC some_intro \\ fs [IN_DEF])
-  \\ ‘compiler_agrees (compiler_inst x64_config) (id1,s1_v,decs) (s2_v,bs_v,ws_v)’ by
-   (fs [compiler_agrees_def,compiler_inst_def]
-    \\ imp_res_tac v_fun_abs_BACKEND_INC_CONFIG_v \\ fs []
-    \\ imp_res_tac v_to_word64_list_thm
-    \\ imp_res_tac v_to_word8_list_thm
-    \\ imp_res_tac BACKEND_INC_CONFIG_IMP
-    \\ imp_res_tac concrete_v_inc_config \\ fs [])
-  \\ fs [concrete_v_decs,SF SFY_ss]
-QED
 
 val _ = export_theory();
