@@ -1,5 +1,5 @@
 (*
-  Proves an end-to-end correctness theorem for the bootstrapped compiler.
+  Verification of the function (called repl) that implements the REPL
 *)
 open preamble
 open semanticsPropsTheory backendProofTheory x64_configProofTheory compiler64ProgTheory
