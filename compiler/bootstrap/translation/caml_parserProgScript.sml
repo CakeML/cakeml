@@ -84,7 +84,7 @@ Proof
   Cases_on ‘x’ \\ rw [ignore_bind_def, bind_def]
 QED
 
-val extra_preprocessing = ref [MEMBER_INTRO,MAP,bind_thm,ignore_bind_thm];
+val _ = extra_preprocessing := [MEMBER_INTRO,MAP,bind_thm,ignore_bind_thm];
 
 val _ = use_long_names := true;
 
