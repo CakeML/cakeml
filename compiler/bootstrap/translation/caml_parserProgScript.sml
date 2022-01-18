@@ -45,6 +45,11 @@ Proof
 QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
+fun preprocess def =
+  def |> RW (!extra_preprocessing)
+      |> CONV_RULE (DEPTH_CONV BETA_CONV)
+      |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]
+      |> REWRITE_RULE [NOT_NIL_AND_LEMMA];
 
 fun def_of_const tm = let
   val res = dest_thy_const tm handle HOL_ERR _ =>
@@ -58,10 +63,7 @@ fun def_of_const tm = let
   val def = def_from_thy "termination" name handle HOL_ERR _ =>
             def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
-  val def = def |> RW (!extra_preprocessing)
-                |> CONV_RULE (DEPTH_CONV BETA_CONV)
-                |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]
-                |> REWRITE_RULE [NOT_NIL_AND_LEMMA]
+  val def = preprocess def
   in def end
 
 val _ = (find_def_for_const := def_of_const);
@@ -78,17 +80,12 @@ Proof
   Cases_on ‘x’ \\ rw [bind_def]
 QED
 
-Theorem ignore_bind_thm:
-  ignore_bind x y = case x of INL err => INL err | _ => y
-Proof
-  Cases_on ‘x’ \\ rw [ignore_bind_def, bind_def]
-QED
-
-val _ = extra_preprocessing := [MEMBER_INTRO,MAP,bind_thm,ignore_bind_thm];
+val _ = extra_preprocessing :=
+  [MEMBER_INTRO,MAP,bind_thm,ignore_bind_def,fail_def,return_def]
 
 val _ = use_long_names := true;
 
-val r = translate ptree_Op_def;
+val r = preprocess ptree_Op_def |> translate;
 
 Theorem ptree_op_side[local]:
   ∀x. camlptreeconversion_ptree_op_side x
@@ -100,7 +97,7 @@ QED
 
 val _ = update_precondition ptree_op_side;
 
-val r = translate ptree_Literal_def;
+val r = preprocess ptree_Literal_def |> translate;
 
 Theorem ptree_literal_side[local]:
   ∀x. camlptreeconversion_ptree_literal_side x
@@ -113,12 +110,12 @@ QED
 
 val _ = update_precondition ptree_literal_side;
 
-val r = translate ptree_Pattern_def;
+val r = preprocess ptree_Pattern_def |> translate;
 
 (* This takes a long time.
  *)
 
-val r = translate ptree_Expr_def;
+val r = preprocess ptree_Expr_def |> translate;
 
 Theorem ptree_Expr_preconds[local]:
   (∀x y. camlptreeconversion_ptree_expr_side x y) ∧
@@ -153,7 +150,7 @@ QED
 
 val _ = List.app (ignore o update_precondition) (CONJUNCTS ptree_Expr_preconds);
 
-val r = translate ptree_TypeDefinition_def;
+val r = preprocess ptree_TypeDefinition_def |> translate;
 
 Theorem ptree_typedefinition_side[local]:
   ∀x. camlptreeconversion_ptree_typedefinition_side x
@@ -176,12 +173,14 @@ QED
 
 val _ = update_precondition ptree_typedefinition_side;
 
-val r = translate ptree_Definition_def;
-val r = translate ptree_Start_def;
+val r = preprocess ptree_Definition_def |> translate;
+val r = preprocess ptree_Start_def |> translate;
 
 (* -------------------------------------------------------------------------
  * Parser front-end
  * ------------------------------------------------------------------------- *)
+
+val _ = extra_preprocessing := [MEMBER_INTRO,MAP]
 
 val r = translate run_lexer_def;
 val r = translate run_parser_def;
