@@ -2869,36 +2869,8 @@ QED
 val _ = translate abs_compute;
 
 val _ = translate max_lit_def;
-val _ = translate toChar_def;
 
-val tochar_side_def = definition"tochar_side_def";
-val tochar_side = Q.prove(
-  `∀x. tochar_side x <=> (~(x < 10) ==> x < 201)`,
-  rw[tochar_side_def])
-  |> update_precondition;
-
-val _ = translate zero_pad_def
-val _ = translate simple_toChars_def
-
-val simple_toChars_side = Q.prove(
-  `∀x y z. simple_tochars_side x y z = T`,
-  ho_match_mp_tac simple_toChars_ind \\ rw[]
-  \\ rw[Once (theorem"simple_tochars_side_def")])
-  |> update_precondition;
-
-val _ = save_thm("toChars_ind",
-   toChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
-val _ = add_preferred_thy "-";
-val _ = translate
-  (toChars_def |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
-
-val toStdString_v_thm = translate
-  (toStdString_def |> REWRITE_RULE[maxSmall_DEC_def])
-val tostdstring_side = Q.prove(
-  `∀x. tostdstring_side x = T`,
-  rw[definition"tostdstring_side_def"]
-  \\ intLib.COOPER_TAC)
-  |> update_precondition;
+val toStdString_v_thm = translate toStdString_def;
 
 val _ = translate print_clause_def;
 
