@@ -4,6 +4,9 @@ and Candle read-eval-print loop (REPL).
 [repl_init_envProgScript.sml](repl_init_envProgScript.sml):
 This file partially instantiates the eval_state and inserts a Denv declaration.
 
+[repl_init_propsScript.sml](repl_init_propsScript.sml):
+Evaluate some lookups in the REPL types and env
+
 [repl_init_typesScript.sml](repl_init_typesScript.sml):
 This file runs the type inferencer on the declarations of the basis,
 Candle kernel and REPL module, i.e. everything in the user-visible
