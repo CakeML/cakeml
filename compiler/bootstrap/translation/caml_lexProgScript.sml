@@ -79,33 +79,6 @@ val r = translate destIdent_PMATCH;
 
 val _ = ml_translatorLib.use_string_type false;
 
-(*
-val r = translate unhex_alt_def;
-
-Theorem unhex_alt_side[local]:
-  ∀x. unhex_alt_side x
-Proof
-  Cases
-  \\ rw [fetch "-" "unhex_alt_side_def", isHexDigit_def]
-  \\ once_rewrite_tac [fetch "-" "unhex_side_def"]
-  \\ SRW_TAC [DNF_ss] [] \\ gs []
-QED
-
-val _ = update_precondition unhex_alt_side;
- *)
-
-(*
-val r = translate numposrepTheory.l2n_def;
-
-Theorem l2n_side[local]:
-  ∀b a. a ≠ 0 ⇒ l2n_side a b
-Proof
-  Induct \\ rw [Once (fetch "-" "l2n_side_def")]
-QED
-
-val _ = update_precondition l2n_side;
- *)
-
 val r = translate hex2num_def;
 val r = translate dec2num_def;
 val r = translate bin2num_def;
