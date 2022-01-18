@@ -36,3 +36,7 @@ The CakeML parser.
 
 [proofs](proofs):
 Correctness proof for the CakeML compiler.
+
+[repl](repl):
+Some definitions and proofs used in the proof of the CakeML
+and Candle read-eval-print loop (REPL).

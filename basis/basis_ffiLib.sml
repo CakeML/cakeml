@@ -124,9 +124,14 @@ fun whole_prog_thm st name spec =
         else if same_const whole_prog_spec_tm ``whole_prog_ffidiv_spec`` then
           (whole_prog_spec_semantics_prog_ffidiv,sets2,sets_thm2)
        else raise(call_ERR "Conclusion must be a whole_prog_spec or whole_prog_spec2 or whole_prog_ffidiv_spec")
+    val ffi_v = st |> get_Decls_thm |> concl |> free_vars
+                   |> first (fn v => fst (dest_var v) = "ffi")
+    val s_th = (st |> get_Decls_thm |> GEN ffi_v |> ISPEC basis_ffi_tm) |> SPEC_ALL
     val th =
       whole_prog_spec_thm
-        |> C MATCH_MP (st |> get_Decls_thm |> GEN_ALL |> ISPEC basis_ffi_tm)
+        |> (fn th => MATCH_MP th s_th handle HOL_ERR _ =>
+                     MATCH_MP th (PURE_ONCE_REWRITE_RULE [GSYM same_eval_state] s_th)
+                     |> PURE_REWRITE_RULE [same_eval_state])
         |> SPEC(stringSyntax.fromMLstring name)
         |> CONV_RULE(QUANT_CONV(LAND_CONV(LAND_CONV EVAL THENC SIMP_CONV std_ss [])))
         |> CONV_RULE(HO_REWR_CONV UNWIND_FORALL_THM1)

@@ -61,6 +61,12 @@ val init_term_constants_def = Define `
 val init_axioms_def = Define `
   init_axioms = []:thm list`;
 
+Triviality init_axioms_alt:
+  init_axioms = TL [Sequent [] (Var (strlit "") (Tyvar (strlit "")))]
+Proof
+  EVAL_TAC
+QED
+
 val init_context_def = Define `
   init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))`;
 
@@ -69,7 +75,7 @@ val refs_init_list = [
   set_the_type_constants_def),
   ("the_term_constants", init_term_constants_def, get_the_term_constants_def,
   set_the_term_constants_def),
-  ("the_axioms", init_axioms_def, get_the_axioms_def, set_the_axioms_def),
+  ("the_axioms", init_axioms_alt, get_the_axioms_def, set_the_axioms_def),
   ("the_context", init_context_def, get_the_context_def, set_the_context_def)
 ];
 
@@ -443,12 +449,38 @@ val def = mk_const_def |> Q.SPEC ‘n’ |> check [‘n’,‘theta’] |> m_tra
 
 val _ = ml_prog_update open_local_block;
 
-val fdM_def = new_definition("fdM_def",``fdM = first_dup``)
-val fdM_intro = SYM fdM_def
-val fdM_ind = save_thm("fdM_ind",REWRITE_RULE[MEMBER_INTRO]first_dup_ind)
-val fdM_eqs = REWRITE_RULE[MEMBER_INTRO,fdM_intro]first_dup_def
-val def = fdM_eqs |> translate
-val def = REWRITE_RULE[fdM_intro]add_constants_def |> m_translate
+Definition check_for_dups_def:
+  check_for_dups ls cs =
+    case ls of
+    | [] => st_ex_return ()
+    | (x::xs) => if MEMBER x cs then
+                   raise_Fail
+                      («add_constants: » ^ x ^
+                       « appears twice or has already been declared»)
+                 else check_for_dups xs (x::cs)
+End
+
+Theorem add_constants_alt:
+  add_constants ls =
+       st_ex_bind get_the_term_constants (λcs.
+       st_ex_bind (check_for_dups (MAP FST ls) (MAP FST cs)) (λ_.
+         (set_the_term_constants (ls ++ cs))))
+Proof
+  fs [add_constants_def]
+  \\ AP_TERM_TAC \\ fs [FUN_EQ_THM]
+  \\ strip_tac
+  \\ qspec_tac (‘MAP FST cs’,‘ys’)
+  \\ qspec_tac (‘MAP FST ls’,‘xs’)
+  \\ Induct_on ‘xs’
+  \\ simp [Once first_dup_def,Once check_for_dups_def,st_ex_return_def,
+           st_ex_bind_def,MEMBER_INTRO]
+  \\ rw [] \\ fs [raise_Fail_def]
+  \\ simp [Once first_dup_def,st_ex_bind_def]
+QED
+
+val res = m_translate check_for_dups_def
+val res = m_translate add_constants_alt
+
 val def = add_def_def |> m_translate
 
 val _ = ml_prog_update open_local_in_block;
@@ -491,6 +523,7 @@ val def = inst_def |> check [‘tyin’,‘tm’] |> m_translate
 val _ = ml_prog_update open_local_block;
 
 val def = mk_eq_def |> check [‘l’,‘r’] |> m_translate
+val def = list_to_hypset_def |> translate
 
 val _ = ml_prog_update open_local_in_block;
 
@@ -517,12 +550,6 @@ val _ = next_ml_names := ["INST_TYPE", "INST"];
 val def = (INST_TYPE_def |> SIMP_RULE std_ss [LET_DEF]) |> check [‘theta’] |> m_translate
 val def = (INST_def |> SIMP_RULE std_ss [LET_DEF]) |> check [‘theta’] |> m_translate
 val def = new_basic_type_definition_def |> check [‘tyname’,‘absname’,‘repname’]  |> m_translate
-
-val _ = ml_prog_update open_local_block;
-
-val def = list_to_hypset_def |> translate
-
-val _ = ml_prog_update open_local_in_block;
 
 val def = m_translate axioms_def;
 val def = m_translate types_def;
