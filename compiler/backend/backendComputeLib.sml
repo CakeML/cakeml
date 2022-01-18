@@ -138,11 +138,11 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_mtiTheory.collect_apps_def
     ,clos_mtiTheory.compile_def
       (* ---- clos_lift ---- *)
-    ,clos_liftTheory.compile_def
        (* ---- clos_number ---- *)
     ,clos_numberTheory.renumber_code_locs_def
     ]
   ,computeLib.Defs (theory_computes "clos_annotate")
+  ,computeLib.Defs (theory_computes "clos_lift")
   ,computeLib.Defs
     [clos_callTheory.calls_def
     ,clos_callTheory.free_def
