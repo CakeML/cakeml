@@ -1,5 +1,4 @@
 INCLUDES = $(HOLDIR)/examples/formal-languages/context-free\
-<<<<<<< HEAD
 	   $(CAKEMLDIR)/misc\
 	   $(CAKEMLDIR)/basis\
 	   $(CAKEMLDIR)/characteristic\
