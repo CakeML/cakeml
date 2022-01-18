@@ -2,10 +2,9 @@
   Translation of the functions in caml_parserScript.sml
  *)
 
-open preamble camlPEGTheory camlPtreeConversionTheory;
-open caml_parserTheory caml_ptreeProgTheory;
-open ml_translatorLib ml_translatorTheory;
+open preamble camlPEGTheory camlPtreeConversionTheory caml_parserTheory;
 open caml_lexProgTheory;
+open ml_translatorLib ml_translatorTheory;
 
 val _ = new_theory "caml_parserProg";
 
@@ -87,12 +86,14 @@ QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP,bind_thm,ignore_bind_thm];
 
+val _ = use_long_names := true;
+
 val r = translate ptree_Op_def;
 
 Theorem ptree_op_side[local]:
-  ∀x. ptree_op_side x
+  ∀x. camlptreeconversion_ptree_op_side x
 Proof
-  rw [fetch "-" "ptree_op_side_def"] \\ gs []
+  rw [fetch "-" "camlptreeconversion_ptree_op_side_def"] \\ gs []
   \\ rename1 ‘isSymbol xx’ \\ Cases_on ‘xx’
   \\ gs [caml_lexTheory.destSymbol_def, caml_lexTheory.isSymbol_def]
 QED
@@ -102,9 +103,9 @@ val _ = update_precondition ptree_op_side;
 val r = translate ptree_Literal_def;
 
 Theorem ptree_literal_side[local]:
-  ∀x. ptree_literal_side x
+  ∀x. camlptreeconversion_ptree_literal_side x
 Proof
-  rw [fetch "-" "ptree_literal_side_def",
+  rw [fetch "-" "camlptreeconversion_ptree_literal_side_def",
       caml_lexTheory.isInt_thm,
       caml_lexTheory.isChar_thm,
       caml_lexTheory.isString_thm] \\ gs []
@@ -120,34 +121,34 @@ val r = translate ptree_Pattern_def;
 val r = translate ptree_Expr_def;
 
 Theorem ptree_Expr_preconds[local]:
-  (∀x y. ptree_expr_side x y) ∧
-  (∀x. ptree_letrecbinding_side x) ∧
-  (∀x. ptree_letrecbindings_side x) ∧
-  (∀x. ptree_letbinding_side x) ∧
-  (∀x. ptree_letbindings_side x) ∧
-  (∀x. ptree_patternmatches_side x) ∧
-  (∀x. ptree_patternmatch_side x) ∧
-  (∀x. ptree_exprlist_side x) ∧
-  (∀x. ptree_exprcommas_side x)
+  (∀x y. camlptreeconversion_ptree_expr_side x y) ∧
+  (∀x. camlptreeconversion_ptree_letrecbinding_side x) ∧
+  (∀x. camlptreeconversion_ptree_letrecbindings_side x) ∧
+  (∀x. camlptreeconversion_ptree_letbinding_side x) ∧
+  (∀x. camlptreeconversion_ptree_letbindings_side x) ∧
+  (∀x. camlptreeconversion_ptree_patternmatches_side x) ∧
+  (∀x. camlptreeconversion_ptree_patternmatch_side x) ∧
+  (∀x. camlptreeconversion_ptree_exprlist_side x) ∧
+  (∀x. camlptreeconversion_ptree_exprcommas_side x)
 Proof
   ho_match_mp_tac ptree_Expr_ind
   \\ strip_tac
-  >- simp [Once (fetch "-" "ptree_expr_side_def")]
+  >- simp [Once (fetch "-" "camlptreeconversion_ptree_expr_side_def")]
   \\ strip_tac
   >- (
     reverse (Induct_on ‘nterm’) \\ gs []
-    >- simp [Once (fetch "-" "ptree_expr_side_def")]
+    >- simp [Once (fetch "-" "camlptreeconversion_ptree_expr_side_def")]
     \\ qx_gen_tac ‘et’ \\ qx_gen_tac ‘nterm’
     \\ Cases_on ‘nterm ≠ et’ \\ gs []
     >- (
       rpt strip_tac
-      \\ simp [Once (fetch "-" "ptree_expr_side_def")])
+      \\ simp [Once (fetch "-" "camlptreeconversion_ptree_expr_side_def")])
     \\ simp [SF CONJ_ss]
     \\ rpt strip_tac
-    \\ simp [Once (fetch "-" "ptree_expr_side_def")]
+    \\ simp [Once (fetch "-" "camlptreeconversion_ptree_expr_side_def")]
     \\ rw [] \\ gs [caml_lexTheory.isSymbol_thm])
   \\ rw []
-  \\ simp [Once (fetch "-" "ptree_expr_side_def")]
+  \\ simp [Once (fetch "-" "camlptreeconversion_ptree_expr_side_def")]
 QED
 
 val _ = List.app (ignore o update_precondition) (CONJUNCTS ptree_Expr_preconds);
@@ -155,10 +156,10 @@ val _ = List.app (ignore o update_precondition) (CONJUNCTS ptree_Expr_preconds);
 val r = translate ptree_TypeDefinition_def;
 
 Theorem ptree_typedefinition_side[local]:
-  ∀x. ptree_typedefinition_side x
+  ∀x. camlptreeconversion_ptree_typedefinition_side x
 Proof
-  rw [fetch "-" "ptree_typedefinition_side_def",
-      fetch "-" "outr_side_def", fetch "-" "outl_side_def"]
+  rw [fetch "-" "camlptreeconversion_ptree_typedefinition_side_def",
+      fetch "-" "sum_outr_side_def", fetch "-" "sum_outl_side_def"]
   \\ gs [EVERY_MEM, FORALL_PROD, quantHeuristicsTheory.ISR_exists,
          quantHeuristicsTheory.ISL_exists, SF SFY_ss]
   \\ res_tac \\ gs []
@@ -182,29 +183,7 @@ val r = translate ptree_Start_def;
  * Parser front-end
  * ------------------------------------------------------------------------- *)
 
-val r = translate find_next_newline_def;
-
-Theorem find_next_newline_side[local]:
-  ∀x y. find_next_newline_side x y
-Proof
-  ho_match_mp_tac find_next_newline_ind \\ rw []
-  \\ simp [Once (fetch "-" "find_next_newline_side_def")]
-QED
-
-val _ = update_precondition find_next_newline_side;
-
-val r = translate safe_substring_def;
-
-Theorem safe_substring_side[local]:
-  ∀x y z. safe_substring_side x y z
-Proof
-  rw [fetch "-" "safe_substring_side_def"]
-QED
-
-val _ = update_precondition safe_substring_side;
-
-val r = translate get_nth_line_def;
-val r = translate locs_to_string_def;
+val r = translate run_lexer_def;
 val r = translate run_parser_def;
 
 (* TODO move these to the PEG script *)
@@ -422,14 +401,26 @@ Theorem owhile_Start_total =
   SIMP_RULE (srw_ss()) [pegexecTheory.coreloop_def] coreloop_Start_total;
 
 Theorem run_parser_side[local]:
-  ∀x. run_parser_side x
+  ∀x. caml_parser_run_parser_side x
 Proof
-  rw [fetch "-" "run_parser_side_def", peg_exec_side_def, coreloop_side_def]
+  rw [fetch "-" "caml_parser_run_parser_side_def",
+      parserProgTheory.peg_exec_side_def,
+      parserProgTheory.coreloop_side_def]
   \\ qspec_then ‘x’ strip_assume_tac owhile_Start_total
-  \\ gs [INTRO_FLOOKUP, SF ETA_ss]
+  \\ gs [parserProgTheory.INTRO_FLOOKUP, SF ETA_ss]
 QED
 
 val _ = update_precondition run_parser_side;
+
+val r = translate run_def;
+
+Theorem run_side[local]:
+  ∀x. caml_parser_run_side x
+Proof
+  rw [fetch "-" "caml_parser_run_side_def", run_lexer_def]
+QED
+
+val _ = update_precondition run_side;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val () = ml_translatorLib.clean_on_exit := true;
