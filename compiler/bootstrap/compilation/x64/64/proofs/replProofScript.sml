@@ -251,20 +251,22 @@ Theorem evaluate_eval:
                [Litv (StrLit msg)]] ∧
         s1 = st with <|clock := st.clock − ck; refs := st.refs ++ junk|> ∨
         (∃f. res = Rerr (Rabort (Rffi_error f))) ∨
-        (∃exn st7 ck1 ck2 s2_v.
+        (∃exn st7 ck1 ck2 s2_v s2.
            evaluate_decs (st with
              <|clock := st.clock − ck1; refs := st.refs ++ junk;
                eval_state := NONE|>) env1 decs = (st7,Rerr (Rraise exn)) ∧
+           BACKEND_INC_CONFIG_TYPE s2 s2_v ∧
            res = Rval [Conv (SOME (TypeStamp "Eval_exn" eval_res_stamp))
                         [exn; Conv NONE [s2_v; Litv (IntLit (&next_gen + 1))]]] ∧
            s1 = st7 with <| clock := st7.clock - ck2 ;
                             eval_state := SOME (EvalDecs
              (s with <|compiler_state := s2_v;
                 env_id_counter := (cur_gen1,next_id1,next_gen1 + 1)|>)) |>) ∨
-        (∃env2 st7 ck1 ck2 s2_v.
+        (∃env2 st7 ck1 ck2 s2_v s2.
            evaluate_decs (st with
              <|clock := st.clock − ck1; refs := st.refs ++ junk;
                eval_state := NONE|>) env1 decs = (st7,Rval env2) ∧
+           BACKEND_INC_CONFIG_TYPE s2 s2_v ∧
            res = Rval [Conv (SOME (TypeStamp "Eval_result" eval_res_stamp))
              [Conv NONE
                 [Env (extend_dec_env env2 env1) (next_gen1,0);
@@ -398,6 +400,7 @@ Proof
     \\ fs [add_decs_generation_def,reset_env_generation_def]
     \\ qexists_tac ‘junk’ \\ fs []
     \\ first_x_assum $ irule_at $ Pos hd
+    \\ first_x_assum $ irule_at $ Pos hd
     \\ qexists_tac ‘2’ \\ fs []
     \\ simp [semanticPrimitivesTheory.state_component_equality])
   \\ fs [declare_env_def,add_decs_generation_def,reset_env_generation_def]
@@ -423,39 +426,393 @@ Proof
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [opn_lookup_def]
   \\ qexists_tac ‘junk’ \\ fs []
   \\ first_x_assum $ irule_at $ Pos hd
+  \\ first_x_assum $ irule_at $ Pos hd
   \\ qexists_tac ‘2’ \\ fs []
   \\ simp [semanticPrimitivesTheory.state_component_equality]
 QED
 
-(*
-omax_print_depth := 18
-*)
+Datatype:
+  simple_type = Bool | Str | Exn
+End
+
+Definition to_type_def:
+  to_type Bool = Infer_Tapp [] Tbool_num ∧
+  to_type Str = Infer_Tapp [] Tstring_num ∧
+  to_type Exn = Infer_Tapp [] Texn_num
+End
+
+Definition check_ref_types_def:
+  check_ref_types types (env :semanticPrimitives$v sem_env) (name,ty,loc) ⇔
+    nsLookup types.inf_v name = SOME (0,Infer_Tapp [to_type ty] Tref_num) ∧
+    nsLookup env.v name = SOME (Loc loc)
+End
 
 Inductive repl_types:
 [repl_types_init:]
-  (∀ffi decs types (s:'ffi state) env.
+  (∀ffi rs decs types (s:'ffi state) env.
      infertype_prog init_config decs = Success types ∧
-     evaluate$evaluate_decs (init_state ffi) init_env decs = (s,Rval env) ⇒
-     repl_types ffi (types,s,env)) ∧
+     evaluate$evaluate_decs (init_state ffi) init_env decs = (s,Rval env) ∧
+     EVERY (check_ref_types types env) rs ⇒
+     repl_types (ffi,rs) (types,s,env)) ∧
 [repl_types_skip:]
-  (∀ffi types junk ck t e (s:'ffi state) env.
-     repl_types ffi (types,s,res) ⇒
-     repl_types ffi (types,s with <| refs := s.refs ++ junk ;
+  (∀ffi rs types junk ck t e (s:'ffi state) env.
+     repl_types (ffi,rs) (types,s,env) ⇒
+     repl_types (ffi,rs) (types,s with <| refs := s.refs ++ junk ;
                                      clock := s.clock - ck ;
                                      next_type_stamp := s.next_type_stamp + t ;
                                      next_exn_stamp := s.next_exn_stamp + e |>,env)) ∧
 [repl_types_eval:]
-  (∀ffi types new_types (s:'ffi state) env new_env new_s.
-     repl_types ffi (types,s,res) ∧
+  (∀ffi rs decs types new_types (s:'ffi state) env new_env new_s.
+     repl_types (ffi,rs) (types,s,env) ∧
      infertype_prog types decs = Success new_types ∧
      evaluate$evaluate_decs s env decs = (new_s,Rval new_env) ⇒
-     repl_types ffi (new_types,new_s,new_env)) ∧
+     repl_types (ffi,rs) (new_types,new_s,new_env)) ∧
 [repl_types_exn:]
-  (∀ffi types new_types (s:'ffi state) env e new_s.
-     repl_types ffi (types,s,res) ∧
+  (∀ffi rs decs types new_types (s:'ffi state) env e new_s.
+     repl_types (ffi,rs) (types,s,env) ∧
      infertype_prog types decs = Success new_types ∧
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ⇒
-     repl_types ffi (types,new_s,env))
+     repl_types (ffi,rs) (types,new_s,env)) ∧
+[repl_types_exn_assign:]
+  (∀ffi rs decs types new_types (s:'ffi state) env e new_s name loc new_store.
+     repl_types (ffi,rs) (types,s,env) ∧
+     infertype_prog types decs = Success new_types ∧
+     evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ∧
+     MEM (name,Exn,loc) rs ∧
+     store_assign loc (Refv e) new_s.refs = SOME new_store ⇒
+     repl_types (ffi,rs) (types,new_s with refs := new_store,env)) ∧
+[repl_types_str_assign:]
+  (∀ffi rs types (s:'ffi state) env t name loc new_store.
+     repl_types (ffi,rs) (types,s,env) ∧
+     MEM (name,Str,loc) rs ∧
+     store_assign loc (Refv (Litv (StrLit t))) s.refs = SOME new_store ⇒
+     repl_types (ffi,rs) (types,s with refs := new_store,env))
 End
+
+Definition ref_lookup_ok_def:
+  ref_lookup_ok refs (name:(string,string) id,ty,loc) =
+    ∃v:semanticPrimitives$v.
+      store_lookup loc refs = SOME (Refv v) ∧
+      (ty = Bool ⇒ v = Boolv T ∨ v = Boolv F) ∧
+      (ty = Str ⇒ ∃t. v = Litv (StrLit t))
+End
+
+Theorem repl_types_thm:
+  ∀(ffi:'ffi ffi_state) rs types s env.
+    repl_types (ffi,rs) (types,s,env) ⇒
+      EVERY (ref_lookup_ok s.refs) rs ∧
+      ∀decs new_t new_s res.
+        infertype_prog types decs = Success new_t ∧
+        evaluate_decs s env decs = (new_s,res) ⇒
+        res ≠ Rerr (Rabort Rtype_error)
+Proof
+  cheat
+QED
+
+Theorem repl_types_alt:
+  repl_types (ffi,rs) (types,s,env) ∧
+  infertype_prog types decs = Success new_t ⇒
+  evaluate_decs s env decs ≠ (new_s,Rerr (Rabort Rtype_error))
+Proof
+  rpt strip_tac
+  \\ imp_res_tac repl_types_thm \\ fs []
+QED
+
+Theorem repl_types_clock_refs:
+  repl_types (ffi,rs) (types,st with eval_state := NONE,env1) ⇒
+  repl_types (ffi,rs)
+    (types, st with <| clock := st.clock − ck;
+                       refs := st.refs ++ junk;
+                       eval_state := NONE |>,env1)
+Proof
+  cheat (*
+  strip_tac
+  \\ drule repl_types_skip
+  \\ disch_then (qspecl_then [‘junk’,‘ck’,‘0’,‘0’] mp_tac)
+  \\ match_mp_tac (DECIDE “x = y ⇒ x ⇒ y”)
+  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ fs [state_component_equality] *)
+QED
+
+Definition repl_rs_def:
+  repl_rs = [(Long "REPL" (Short "isEOF"),Bool,5:num);
+             (Long "REPL" (Short "nextString"),Str,6)]
+  (* TODO: fix loc numbers and add exn ref *)
+End
+
+Theorem check_and_tweak:
+  check_and_tweak (decs,types,input_str) = INR (safe_decs,new_types) ⇒
+  infertype_prog types safe_decs = Success new_types ∧ decs_allowed safe_decs
+Proof
+  cheat
+QED
+
+Theorem evaluate_clock_decs:
+  evaluate_decs s env xs = (s1,res) ⇒ s1.clock ≤ s.clock
+Proof
+  rw []
+  \\ qspecl_then [‘s’,‘env’,‘xs’] mp_tac
+       (evaluatePropsTheory.is_clock_io_mono_evaluate |> CONJUNCTS |> last)
+  \\ fs [evaluatePropsTheory.is_clock_io_mono_def]
+QED
+
+Theorem evaluate_decs_with_NONE:
+  evaluate_decs s env1 safe_decs = (s1,res) ∧ s.eval_state = NONE ∧
+  res ≠ Rerr (Rabort Rtype_error) ⇒
+  evaluate_decs s env1 safe_decs = (s1 with eval_state := NONE,res)
+Proof
+  cheat
+QED
+
+val _ = Parse.hide "types";
+val _ = Parse.hide "types_v";
+
+Theorem evaluate_repl:
+  ∀(st:'ffi semanticPrimitives$state) s repl_str arg_str
+   env s1_v types cur_gen next_id next_gen env1
+   parse_v types_v conf_v env_v decs_v input_str_v
+   types decs input_str env_id s1 parse.
+     st.eval_state = SOME (EvalDecs s) ∧
+     s.compiler = compiler_inst x64_config ∧
+     s.compiler_state = s1_v ∧
+     s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
+     s.env_id_counter = (cur_gen,next_id,next_gen) ∧
+     BACKEND_INC_CONFIG_TYPE s1 s.compiler_state ∧
+     LIST_TYPE AST_DEC_TYPE decs decs_v ∧
+     INFER_INF_ENV_TYPE types types_v ∧
+     STRING_TYPE input_str input_str_v ∧
+     (HOL_STRING_TYPE --> SUM_TYPE STRING_TYPE (LIST_TYPE AST_DEC_TYPE)) parse parse_v ∧
+     env_v = Conv NONE [Env env1 (env_id,0); Litv (IntLit (&env_id))] ∧
+     conf_v = Conv NONE [s1_v; Litv (IntLit (&next_gen))] ∧
+     repl_types (ffi,repl_rs) (types,st with eval_state := NONE,env1) ∧
+     nsLookup env.v repl_str = SOME repl_v ⇒
+     nsLookup env.v arg_str =
+       SOME (Conv NONE [parse_v; types_v; conf_v; env_v; decs_v; input_str_v]) ⇒
+     ∃res s1.
+       evaluate st env [App Opapp [Var repl_str; Var arg_str]] = (s1,res) ∧
+       res ≠ Rerr (Rabort Rtype_error)
+Proof
+
+  strip_tac \\ completeInduct_on ‘st.clock’
+  \\ rpt strip_tac \\ gvs [PULL_FORALL]
+  (* expand App repl *)
+  \\ simp [evaluate_def,repl_v_def]
+  \\ simp [do_opapp_def,find_recfun_def]
+  \\ IF_CASES_TAC \\ simp []
+  \\ rename [‘evaluate _ _ [Mat _ _]’]
+  \\ simp [Once evaluate_def]
+  \\ simp [can_pmatch_all_def,pmatch_def,evaluate_Var]
+  \\ simp [Once evaluate_def,astTheory.pat_bindings_def,pmatch_def]
+  (* calling check_and_tweak *)
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def]
+  \\ rename [‘evaluate _ _ [App Opapp _]’]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_list,build_rec_env_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ rename [‘do_opapp [compiler64prog_check_and_tweak_v;_]’]
+  \\ qmatch_goalsub_abbrev_tac ‘do_opapp [_; arg_v]’
+  \\ assume_tac compiler64prog_check_and_tweak_v_thm
+  \\ ‘PAIR_TYPE (LIST_TYPE AST_DEC_TYPE)
+        (PAIR_TYPE INFER_INF_ENV_TYPE STRING_TYPE) (decs,types,input_str) arg_v’ by
+    fs [Abbr‘arg_v’,PAIR_TYPE_def]
+  \\ drule_all Arrow_IMP
+  \\ fs [dec_clock_def]
+  \\ disch_then (qspec_then ‘(st with clock := st.clock − 2)’ strip_assume_tac)
+  \\ fs [] \\ IF_CASES_TAC \\ fs []
+  \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ gvs []
+  (* case split on result of check_and_tweak *)
+  \\ rename [‘evaluate _ _ [Mat _ _]’]
+  \\ Cases_on ‘check_and_tweak (decs,types,input_str)’
+  \\ gvs [inferProgTheory.INFER_EXC_TYPE_def]
+  THEN1
+   (rename [‘_ = INL msg’]
+    \\ simp [Once evaluate_def]
+    \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,std_preludeTheory.SUM_TYPE_def]
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+    \\ simp [Once evaluate_def]
+    \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,astTheory.pat_bindings_def]
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def]
+    (* call report_error *)
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def]
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+    \\ unabbrev_all_tac
+    \\ assume_tac compiler64prog_report_error_v_thm
+    \\ drule_all Arrow_IMP
+    \\ qmatch_goalsub_abbrev_tac ‘(st2, Rerr (Rabort Rtimeout_error))’
+    \\ disch_then (qspec_then ‘dec_clock st2’ strip_assume_tac) \\ fs []
+    \\ fs [] \\ IF_CASES_TAC \\ fs []
+    \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ gvs [dec_clock_def]
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def,evaluate_Lit]
+    (* recursive call *)
+    \\ last_x_assum irule \\ gvs [Abbr‘st2’]
+    \\ conj_tac THEN1 rewrite_tac [GSYM repl_v_def]
+    \\ rpt (first_assum $ irule_at Any)
+    \\ rewrite_tac [GSYM APPEND_ASSOC]
+    \\ irule repl_types_clock_refs \\ fs [])
+  \\ rename [‘_ = INR xx’] \\ PairCases_on ‘xx’
+  \\ rename [‘_ = INR (safe_decs,new_types)’]
+  \\ simp [Once evaluate_def]
+  \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,std_preludeTheory.SUM_TYPE_def,
+          PAIR_TYPE_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+  \\ simp [Once evaluate_def]
+  \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,astTheory.pat_bindings_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def]
+  \\ simp [astTheory.pat_bindings_def,pmatch_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def]
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate st6 env6’
+  \\ ‘st6.eval_state = SOME (EvalDecs s)’ by fs [Abbr‘st6’]
+  \\ drule (evaluate_eval |> Q.INST [‘arg_str’|->‘"f"’]) \\ simp []
+  \\ ‘nsLookup env6.v (Short "eval") = SOME eval_v’ by
+   (fs [Abbr‘env6’]
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [])
+  \\ drule check_and_tweak \\ strip_tac
+  \\ disch_then $ drule_then drule
+  \\ gvs [Abbr‘env6’]
+  \\ disch_then drule
+  \\ impl_tac
+  THEN1
+   (gvs [Abbr‘st6’] \\ rw []
+    \\ irule_at Any repl_types_alt
+    \\ first_assum $ irule_at Any
+    \\ rewrite_tac [GSYM APPEND_ASSOC]
+    \\ irule_at Any repl_types_clock_refs
+    \\ first_assum $ irule_at Any)
+  \\ strip_tac \\ fs []
+  \\ Cases_on ‘∃f. res = Rerr (Rabort (Rffi_error f))’ \\ fs []
+  \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ fs []
+  \\ gvs []
+  (* Compile_error case *)
+  THEN1
+   (simp [Once evaluate_def,evaluate_Var]
+    \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,std_preludeTheory.SUM_TYPE_def]
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+    \\ simp [Once evaluate_def]
+    \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,astTheory.pat_bindings_def]
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def]
+    (* call report_error *)
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def]
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+    \\ unabbrev_all_tac
+    \\ assume_tac compiler64prog_report_error_v_thm
+    \\ ‘STRING_TYPE (strlit msg) (Litv (StrLit msg))’ by fs [STRING_TYPE_def]
+    \\ drule_all Arrow_IMP
+    \\ qmatch_goalsub_abbrev_tac ‘(st2, Rerr (Rabort Rtimeout_error))’
+    \\ disch_then (qspec_then ‘dec_clock st2’ strip_assume_tac) \\ fs []
+    \\ fs [] \\ IF_CASES_TAC \\ fs []
+    \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ gvs [dec_clock_def]
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def,evaluate_Lit]
+    (* recursive call *)
+    \\ last_x_assum irule \\ gvs [Abbr‘st2’]
+    \\ conj_tac THEN1 rewrite_tac [GSYM repl_v_def]
+    \\ rpt (first_assum $ irule_at Any)
+    \\ rewrite_tac [GSYM APPEND_ASSOC]
+    \\ irule repl_types_clock_refs \\ fs [])
+  (* Eval exn case *)
+  THEN1
+   (simp [Once evaluate_def,evaluate_Var]
+    \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,std_preludeTheory.SUM_TYPE_def]
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+    \\ simp [Once evaluate_def]
+    \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,astTheory.pat_bindings_def]
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+    \\ simp [Once evaluate_def]
+    \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,astTheory.pat_bindings_def]
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def]
+    (* call report_error *)
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def]
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+    \\ unabbrev_all_tac
+    \\ assume_tac (compiler64prog_report_exn_v_thm
+         |> INST_TYPE [“:'a”|->“:semanticPrimitives$v”] |> GEN_ALL)
+    \\ pop_assum (qspec_then ‘λx v. x = v’ assume_tac)
+    \\ ‘(λx v. x = v) exn exn’ by fs []
+    \\ drule_all Arrow_IMP
+    \\ qmatch_goalsub_abbrev_tac ‘(st2, Rerr (Rabort Rtimeout_error))’
+    \\ disch_then (qspec_then ‘dec_clock st2’ strip_assume_tac) \\ fs []
+    \\ fs [] \\ IF_CASES_TAC \\ fs []
+    \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ gvs [dec_clock_def]
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def,evaluate_Lit]
+    \\ drule evaluate_clock_decs \\ strip_tac \\ fs []
+    (* recursive call *)
+    \\ last_x_assum irule \\ gvs [Abbr‘st2’]
+    \\ conj_tac THEN1 rewrite_tac [GSYM repl_v_def]
+    \\ rpt (first_assum $ irule_at Any)
+    \\ rewrite_tac [GSYM APPEND_ASSOC,integerTheory.INT_ADD_CALCULATE]
+    \\ irule repl_types_clock_refs \\ fs []
+    \\ irule repl_types_exn
+    \\ first_assum $ irule_at (Pos hd)
+    \\ irule_at Any evaluate_decs_with_NONE
+    \\ first_assum $ irule_at Any \\ simp []
+    \\ rewrite_tac [GSYM APPEND_ASSOC]
+    \\ irule repl_types_clock_refs \\ simp [])
+  (* Eval_result case *)
+  \\ simp [Once evaluate_def,evaluate_Var]
+  \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,std_preludeTheory.SUM_TYPE_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+  \\ simp [Once evaluate_def]
+  \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,astTheory.pat_bindings_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+  \\ simp [Once evaluate_def]
+  \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,astTheory.pat_bindings_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+  \\ simp [Once evaluate_def]
+  \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,astTheory.pat_bindings_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+  \\ ‘repl_types (ffi,repl_rs) (new_types,st7 with eval_state := NONE,env2)’ by
+   (irule repl_types_eval
+    \\ drule check_and_tweak \\ strip_tac
+    \\ first_assum $ irule_at (Pos hd)
+    \\ irule_at Any evaluate_decs_with_NONE
+    \\ first_assum $ irule_at Any \\ simp [Abbr‘st6’]
+    \\ rewrite_tac [GSYM APPEND_ASSOC]
+    \\ irule repl_types_clock_refs \\ simp [])
+  \\ simp [Once evaluate_def,evaluate_Var]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_list]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+  (* evaluating !REPL.isEOF *)
+  \\ simp [mlbasicsProgTheory.deref_v_def,do_opapp_def]
+  \\ IF_CASES_TAC \\ fs [dec_clock_def]
+  \\ simp [Once evaluate_def,evaluate_Var,do_app_def]
+  \\ ‘∃eof_n bv. isEOF_loc = Loc eof_n ∧
+       store_lookup eof_n st7.refs = SOME (Refv (Boolv bv))’ by cheat
+  \\ fs []
+  (* evaluate if *)
+  \\ rename [‘evaluate _ _ [If _ _ _]’]
+  \\ simp [Once evaluate_def,evaluate_Var,namespaceTheory.nsOptBind_def,do_if_def]
+  \\ IF_CASES_TAC THEN1 simp [evaluate_Con]
+  \\ simp []
+  (* let new_input = ... *)
+
+
+
+  \\ cheat
+QED
+
+(*
+max_print_depth := 12
+*)
 
 val _ = export_theory();

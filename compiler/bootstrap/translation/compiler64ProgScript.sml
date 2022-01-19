@@ -367,10 +367,10 @@ Definition check_and_tweak_def:
   check_and_tweak (decs, types, input_str) =
     let all_decs = decs ++ ^read_next_dec in
       case infertype_prog types all_decs of
-      | Success new_types => Success (all_decs, new_types)
+      | Success new_types => INR (all_decs, new_types)
       | Failure (loc,msg) =>
-          Failure (concat [implode "ERROR: "; msg; implode " at ";
-                           locs_to_string input_str loc])
+          INL (concat [implode "ERROR: "; msg; implode " at ";
+                       locs_to_string input_str loc])
 End
 
 val _ = (next_ml_names := ["check_and_tweak"]);
@@ -380,8 +380,8 @@ val _ = (append_prog o process_topdecs) `
   fun repl (parse, types, conf, env, decs, input_str) =
     (* input_str is passed in here only for error reporting purposes *)
     case check_and_tweak (decs, (types, input_str)) of
-      Failure msg => repl (parse, types, conf, env, report_error msg, "")
-    | Success (safe_decs, new_types) =>
+      Inl msg => repl (parse, types, conf, env, report_error msg, "")
+    | Inr (safe_decs, new_types) =>
       (* here safe_decs are guaranteed to not crash;
          the last declaration of safe_decs calls !REPL.readNextString *)
       case eval (conf, env, safe_decs) of
