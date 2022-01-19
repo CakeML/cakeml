@@ -932,10 +932,6 @@ Definition monotone_def:
     !x y. R x y ==> list_subset (FV y) (FV x)
 End
 
-Definition monotone_compute_def:
-  monotone_compute = T (*EVERY (\(x,y). list_subset (ARB(*sum_tyvars*) x) (ARB(*sum_tyvars*) y))*)
-End
-
 (* overload is_instance to terms: c is an instance of c0  if  (is_instance c0 c) *)
 Overload is_instance = ``λc0 c. ∃sigma. c = INST sigma c0``
 
@@ -973,12 +969,6 @@ End
 Definition wf_ctxt_def:
   wf_ctxt ctxt =
   (orth_ctxt ctxt /\ terminating(subst_clos(dependency ctxt)))
-End
-
-(* The cyclicity check ensures that the dependency relation terminates.
- *)
-Definition cyclic_def:
-  cyclic = ARB:(update list -> bool)
 End
 
 Definition constspec_ok_def:
