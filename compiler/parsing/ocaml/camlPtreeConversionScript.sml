@@ -2088,6 +2088,7 @@ Definition ptree_ModuleType_def:
             ty <- ptree_ModuleType modtype;
             return ()
           od
+      | _ => fail (locs, «Impossible: nModuleType»)
     else
       fail (locs, «Expected a module-type declaration non-terminal»)) ∧
   (ptree_SigSpec (Lf (_, locs)) =
@@ -2207,6 +2208,7 @@ Definition ptree_ModuleType_def:
             ty <- ptree_ModuleType typ;
             return ()
           od
+      | _ => fail (locs, «Impossible: nModTypeAssign»)
     else
       fail (locs, «Expected a signature assignment non-terminal»)) ∧
   (ptree_ModTypeAsc (Lf (_, locs)) =
@@ -2261,6 +2263,7 @@ Definition ptree_ModuleType_def:
             ty <- ptree_ModuleType ty;
             return ()
           od
+      | _ => fail (locs, «Impossible: nModAscApp»)
     else
       fail (locs, «Expected a moduletype-ascription non-terminal»)) *)
 End
