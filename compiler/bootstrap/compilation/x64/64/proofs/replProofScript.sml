@@ -22,12 +22,6 @@ Definition compiler_inst_def:
                 od)
 End
 
-Triviality mk_compiler_fun_from_ci_tuple:
-  mk_compiler_fun_from_ci c = (λ(x,y,z). mk_compiler_fun_from_ci c (x,y,z))
-Proof
-  fs [FUN_EQ_THM,FORALL_PROD]
-QED
-
 Theorem no_closures_IMP_concrete_v:
   (∀v. no_closures v ⇒ concrete_v v) ∧
   (∀v. EVERY no_closures v ⇒ concrete_v_list v)

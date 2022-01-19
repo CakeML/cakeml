@@ -97,6 +97,12 @@ val cake_compiled_thm =
 
 (* --- *)
 
+Triviality mk_compiler_fun_from_ci_tuple:
+  mk_compiler_fun_from_ci c = (λ(x,y,z). mk_compiler_fun_from_ci c (x,y,z))
+Proof
+  fs [FUN_EQ_THM,FORALL_PROD]
+QED
+
 Theorem mk_init_eval_state_lemma =
   “mk_init_eval_state compiler_instance”
   |> SIMP_CONV (srw_ss()) [compiler_instance_def,
