@@ -173,6 +173,7 @@ QED
 
 val _ = update_precondition ptree_typedefinition_side;
 
+val r = preprocess ptree_ModuleType_def |> translate;
 val r = preprocess ptree_Definition_def |> translate;
 val r = preprocess ptree_Start_def |> translate;
 
@@ -322,7 +323,12 @@ val npeg0_rwts =
         “nExcDefinition”, “nPAny”, “nPList”, “nPBase”, “nPLazy”, “nPConstr”,
         “nPApp”, “nPCons”, “nPProd”, “nPOr”, “nPAs”, “nPattern”, “nPatterns”,
         “nTopLet”, “nTopLetRec”, “nOpen”, “nSemis”, “nExprItem”, “nExprItems”,
-        “nModuleDef”, “nDefinition”,  “nDefItem”, “nModExpr”, “nModuleItem” ];
+        “nModuleDef”, “nModTypeName”, “nModTypePath”, “nSigSpec”, “nExcType”,
+        “nValType”, “nOpenMod”, “nIncludeMod”, “nModTypeAsc”,
+        “nModTypeAssign”, “nSigItem”, “nSigItems”, “nModuleType”,
+        “nModAscApp”, “nModAscApps”,
+        “nModuleTypeDef”, “nDefinition”, “nDefItem”, “nModExpr”, “nModuleItem”
+      ];
 
 fun wfnt(t,acc) = let
   val th =
@@ -357,8 +363,13 @@ val topo_nts =
         “nType”, “nTypeList”, “nTypeLists”, “nTypeParams”, “nTypeDef”,
         “nTypeDefs”, “nConstrDecl”, “nTypeReprs”, “nTypeRepr”, “nTypeInfo”,
         “nConstrArgs”, “nExcDefinition”, “nTopLet”, “nTopLetRec”, “nOpen”,
-        “nSemis”, “nExprItem”, “nExprItems”, “nModuleDef”, “nModExpr”,
-        “nDefinition”, “nDefItem”, “nModuleItem”, “nModuleItems”, “nStart”];
+        “nSemis”, “nExprItem”, “nExprItems”, “nModuleDef”,
+        “nModTypeName”, “nModTypePath”, “nSigSpec”, “nExcType”,
+        “nValType”, “nOpenMod”, “nIncludeMod”, “nModTypeAsc”,
+        “nModTypeAssign”, “nSigItem”, “nSigItems”, “nModuleType”,
+        “nModAscApp”, “nModAscApps”,
+        “nModuleTypeDef”, “nModExpr”, “nDefinition”, “nDefItem”, “nModuleItem”,
+        “nModuleItems”, “nStart”];
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",
