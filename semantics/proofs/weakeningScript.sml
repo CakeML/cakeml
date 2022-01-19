@@ -198,6 +198,24 @@ Proof
  metis_tac [weak_def, check_freevars_add, EVERY_MEM, eLookupC_weak]
 QED
 
+Theorem tenvOpen_weaken:
+  tenvOpen mn tenv = SOME otenv ∧
+  wtenv.t = tenv.t ∧ weak_tenv wtenv tenv ⇒
+  ∃wotenv. tenvOpen mn wtenv = SOME wotenv ∧
+  wotenv.t = otenv.t ∧ weak_tenv wotenv otenv
+Proof
+  rw[tenvOpen_def, CaseEq"option", PULL_EXISTS]
+  \\ fs[weak_tenv_def]
+  \\ drule_then drule nsSub_nsLookupMod \\ strip_tac
+  \\ simp[]
+  \\ qmatch_asmsub_abbrev_tac`nsSub R _.v`
+  \\ `R = λi x y. tscheme_inst x y`
+  by simp[FUN_EQ_THM, tscheme_inst2_def, Abbr`R`]
+  \\ fs[]
+  \\ drule_then drule(Q.ISPEC`tenv.v`(Q.GEN`env1`nsSub_nsLookupMod))
+  \\ rw[]
+QED
+
 val type_e_weakening_lem = Q.prove (
 `(!tenv tenvE e t. type_e tenv tenvE e t ⇒
     ∀tenv' tenvE'. weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_e tenv' tenvE' e t) ∧
