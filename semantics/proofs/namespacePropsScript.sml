@@ -342,6 +342,28 @@ Proof
   fs []
 QED
 
+Theorem nsLookupMod_path_append:
+  !env p1 p2. nsLookupMod env (p1 ++ p2) =
+  OPTION_BIND (nsLookupMod env p1) (\env. nsLookupMod env p2)
+Proof
+  ho_match_mp_tac nsLookupMod_ind
+  \\ rw[nsLookupMod_def]
+  \\ CASE_TAC \\ fs[]
+QED
+
+Theorem nsLookupMod_nsLookup_append:
+  ∀env path envm i v.
+    nsLookupMod env path = SOME envm ∧
+    nsLookup envm i = SOME v ⇒
+    nsLookup env (mk_id (path ++ id_to_mods i) (id_to_n i)) = SOME v
+Proof
+  ho_match_mp_tac nsLookupMod_ind
+  \\ rw[nsLookupMod_def, mk_id_thm]
+  \\ fs[CaseEq "option"] \\ fs[]
+  \\ simp[mk_id_def]
+  \\ simp[nsLookup_def]
+QED
+
 (* -------------- alist_to_ns --------------- *)
 
 Theorem nsLookup_alist_to_ns_some:
@@ -754,6 +776,42 @@ Proof
    disj2_tac
    >> qexists_tac `[h]`
    >> simp [nsLookupMod_def])
+QED
+
+Theorem nsSub_nsLookupMod:
+  nsSub (λi x y. R x y) env1 env2 ∧
+  nsLookupMod env1 path = SOME enva
+  ⇒
+  ∃envb. nsLookupMod env2 path = SOME envb ∧
+  nsSub (λi x y. R x y) enva envb
+Proof
+  rw[nsSub_def]
+  \\ Cases_on`nsLookupMod env2 path`
+  >- (res_tac \\ fs[])
+  \\ simp[]
+  \\ reverse conj_tac
+  >- (
+    Cases_on`path` \\ fs[nsLookupMod_def]
+    \\ rpt strip_tac
+    \\ Cases_on`env2` \\ Cases_on`env1`
+    \\ fs[nsLookupMod_def, CaseEq"option"]
+    \\ first_x_assum(qspec_then`h::(t++path)`mp_tac)
+    \\ simp[nsLookupMod_def]
+    \\ simp[nsLookupMod_path_append] )
+  \\ rw[]
+  \\ drule_then drule nsLookupMod_nsLookup_append
+  \\ strip_tac
+  \\ drule nsLookup_to_nsLookupMod
+  \\ simp[id_to_mods_mk_id]
+  \\ simp[nsLookupMod_path_append]
+  \\ qpat_x_assum`nsLookup env1 _ = _`mp_tac
+  \\ drule nsLookup_to_nsLookupMod \\ rw[]
+  \\ first_x_assum drule
+  \\ strip_tac
+  \\ drule nsLookup_to_nsLookupMod \\ rw[]
+  \\ fs[nsLookupMod_path_append] \\ fs[] \\ rw[]
+  \\ drule_then drule nsLookupMod_nsLookup_append
+  \\ simp[id_to_mods_def, id_to_n_def, mk_id_thm]
 QED
 
 val alist_rel_restr_def = Define `
