@@ -1084,9 +1084,7 @@ val _ = Define`
          let upd = (ConstSpec T (MAP (λ((s,ty),r). (s,r)) eqs) p);
              dep = dependency_compute (upd::ctxt)
          in
-         if ~(monotone_compute dep) then
-           failwith (strlit "new_overloading_specification: dependency relation is not monotone.")
-         else if ~(orth_ctxt (upd::ctxt)) (* TODO: use a computable version of this *) then
+         if ~(orth_ctxt (upd::ctxt)) (* TODO: use a computable version of this *) then
            failwith (strlit "new_overloading_specification: theory is not orthogonal.")
          else if ~(^composable_len_tm) then
            failwith (strlit "new_overloading_specification: dependency relation is not monotone.")

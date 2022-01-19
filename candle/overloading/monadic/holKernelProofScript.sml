@@ -2707,7 +2707,6 @@ Proof
   rveq >>
   IF_CASES_TAC >- simp[raise_Fail_def] >>
   IF_CASES_TAC >- simp[raise_Fail_def] >>
-  IF_CASES_TAC >- simp[raise_Fail_def] >>
   BasicProvers.CASE_TAC
   >- simp[raise_Fail_def]
   >- simp[raise_Fail_def]
