@@ -1118,6 +1118,7 @@ Proof
       fs [num_tvs_def, tenv_val_exp_ok_def])
   >- (gvs [tenvOpen_def, CaseEq "option"]
       \\ first_x_assum irule
+      \\ simp[extend_dec_tenv_def]
       \\ irule nsAll_nsAppend \\ gs []
       \\ Cases_on ‘tenv.v’
       \\ gs [nsLookupMod_def, CaseEq "option", nsAll_def]
@@ -1445,7 +1446,7 @@ Proof
           *)
  >- (
      first_x_assum irule \\ gs []
-     \\ gvs [tenvOpen_def, CaseEq "option"]
+     \\ gvs [tenvOpen_def, CaseEq "option", extend_dec_tenv_def]
      \\ irule_at Any tenv_abbrev_ok_merge \\ gs []
      \\ irule_at Any tenv_ctor_ok_merge \\ gs []
      \\ irule_at Any nsAll_nsAppend \\ gs []

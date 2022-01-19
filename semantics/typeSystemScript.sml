@@ -287,9 +287,7 @@ Definition tenvOpen_def:
             case nsLookupMod tenv.t [mn] of
               NONE => NONE
             | SOME envT =>
-                SOME <| v := nsAppend envV tenv.v;
-                        c := nsAppend envC tenv.c;
-                        t := nsAppend envT tenv.t |>
+                SOME <| v := envV ; c := envC ; t := envT |>
 End
 
 (*val num_tvs : tenv_val_exp -> nat*)
@@ -670,7 +668,7 @@ type_e tenv tenvE (Let n e1 e2) t2)
 ∧
 (∀tenv tenv' tenvE mn e t.
    tenvOpen mn tenv = SOME tenv' ∧
-   type_e tenv' tenvE e t ⇒
+   type_e (extend_dec_tenv tenv' tenv) tenvE e t ⇒
      type_e tenv tenvE (Open mn e) t)
 
 (*
