@@ -1084,7 +1084,7 @@ val _ = Define`
          let upd = (ConstSpec T (MAP (λ((s,ty),r). (s,r)) eqs) p);
              dep = dependency_compute (upd::ctxt)
          in
-         if ~(orth_ctxt (upd::ctxt)) (* TODO: use a computable version of this *) then
+         if ~(orth_ctxt_compute (upd::ctxt)) then
            failwith (strlit "new_overloading_specification: theory is not orthogonal.")
          else if ~(^composable_len_tm) then
            failwith (strlit "new_overloading_specification: dependency relation is not monotone.")
@@ -1100,7 +1100,6 @@ val _ = Define`
                 failwith (strlit "new_overloading_specification: cyclicity check on non-composable theory.")
             | Acyclic _ =>
                 do
-                  (* TODO: orth_ctxt*)
                   add_def upd;
                   let ilist = MAP (λ(s,ty). (Const s ty, Var s ty)) vars in
                   let p = vsubst_aux ilist p in

@@ -2744,7 +2744,8 @@ Proof
           metis_tac[WELLTYPED_LEMMA]) >>
        simp[constspec_ok_def] >>
        reverse conj_asm1_tac
-       >- (gvs[MEM_MAP,PULL_EXISTS] >>
+       >- (conj_asm1_tac >- fs[GSYM orth_ctxt_compute_eq] >>
+           gvs[MEM_MAP,PULL_EXISTS] >>
            rw[] >>
            gvs[EVERY_MEM] >>
            res_tac >>
