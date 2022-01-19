@@ -60,10 +60,13 @@ Definition pp_paren_tuple_def:
   )
 End
 
+Definition pp_spaced_block_def:
+  pp_spaced_block xs = PP_Data (LENGTH xs > 1)
+    (app_intersperse (strlit " ") (MAP ppd_paren_contents xs))
+End
+
 Definition pp_app_block_def:
-  pp_app_block nm [] = PP_Data F (List [nm]) /\
-  pp_app_block nm xs = PP_Data T (app_intersperse (strlit " ")
-    (List [nm] :: MAP ppd_paren_contents xs))
+  pp_app_block nm xs = pp_spaced_block (ppd_token nm :: xs)
 End
 
 Definition pp_list_def:

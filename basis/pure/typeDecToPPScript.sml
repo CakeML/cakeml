@@ -65,7 +65,7 @@ Definition mk_pps_for_type_def:
     let (v, exp) = FOLDR (\nm (v, exp). (pppre nm, Fun v exp))
         ("x", Mat (Var (Short "x"))
             (MAP (\(conN, ts). (con_x_i_pat (SOME (Short conN)) (LENGTH ts),
-                rpt_app (Var (mod_pp (Short "block"))) [Lit (StrLit conN);
+                rpt_app (Var (mod_pp (Short "app_block"))) [Lit (StrLit conN);
                     (x_i_list_f_apps (MAP pp_of_ast_t ts))])) conss)) tvars
     in
     (pppre nm, v, exp)

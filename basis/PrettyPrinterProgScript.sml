@@ -15,7 +15,8 @@ val _ = (
   translation_extends "IntProg"
 )
 
-val previous_prog = get_prog (get_ml_prog_state ());
+val previous_prog_pps = get_prog (get_ml_prog_state ())
+  |> addPrettyPrintersLib.pps_of_global_tys;
 
 val _ = ml_prog_update (open_module "PrettyPrinter")
 
@@ -38,7 +39,8 @@ val _ = ml_prog_update open_local_in_block;
 val res = tr "toAppList" ppd_contents_def;
 val res = tr "token" ppd_token_def;
 val res = tr "tuple" pp_paren_tuple_def;
-val res = tr "block" pp_app_block_def;
+val res = tr "spaced_block" pp_spaced_block_def;
+val res = tr "app_block" pp_app_block_def;
 val res = translate pp_list_def;
 val res = translate pp_bool_def;
 val res = translate pp_string_def;
@@ -87,7 +89,6 @@ val res = translate pp_word8_def;
 val res = translate pp_word64_def;
 
 (* setup pretty-printers for previously existing types *)
-val pps = addPrettyPrintersLib.pps_of_global_tys previous_prog;
-val _ = ml_prog_update (addPrettyPrintersLib.add_pps pps)
+val _ = ml_prog_update (addPrettyPrintersLib.add_pps previous_prog_pps)
 
 val _ = export_theory ()
