@@ -26,7 +26,7 @@ Proof
 QED
 
 Theorem REPLICATE_inj:
-  !n m x y. REPLICATE n x = REPLICATE m y <=> n = m ∧ (m > 0 ⇒ x = y)
+  !n m x y. REPLICATE n x = REPLICATE m y <=> n = m ∧ (0 < m ⇒ x = y)
 Proof
   Induct
   >> fs[EQ_IMP_THM,REPLICATE,REPLICATE_NIL]
