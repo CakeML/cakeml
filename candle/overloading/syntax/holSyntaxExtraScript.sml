@@ -8441,6 +8441,80 @@ Proof
   >> fs[TYPE_SUBST_triv_eq]
 QED
 
+(* a computable version of orth_ctxt *)
+
+Definition orth_ctxt_compute_def:
+  orth_ctxt_compute ctxt =
+    EVERY (λx1.
+      EVERY (λx2.
+        case x1 of
+        | ConstSpec ov1 cl1 prop1 =>
+          (case x2 of
+          | ConstSpec ov2 cl2 prop2 =>
+            EVERY (λ(name1,trm1).
+              EVERY (λ(name2,trm2).
+                if (name1,trm1) <> (name2,trm2) then
+                  if name1 = name2 then
+                    case unify (typeof trm1) (typeof trm2) of
+                    | NONE => T
+                    | _ => F
+                  else T
+                else T
+              ) cl2
+            ) cl1
+          | _ => T)
+        | TypeDefn name1 pred1 abs1 rep1 =>
+          (case x2 of
+          | TypeDefn name2 pred2 abs2 rep2 =>
+            if (name1,pred1,abs1,rep1) <> (name2,pred2,abs2,rep2)
+            then
+              case unify (Tyapp name1 $ MAP Tyvar $ mlstring_sort $ tvars pred1)
+                    (Tyapp name2 $ MAP Tyvar $ mlstring_sort $ tvars pred2) of
+              | NONE => T
+              | _ => F
+            else T
+          | _ => T)
+        | _ => T
+      ) ctxt
+    ) ctxt
+End
+
+Theorem orth_ctxt_compute_eq:
+  !ctxt. orth_ctxt ctxt = orth_ctxt_compute ctxt
+Proof
+  rw[orth_ctxt_def,orth_ctxt_compute_def,EQ_IMP_THM,EVERY_MEM,AllCaseEqs(),DISJ_EQ_IMP]
+  >> every_case_tac
+  >- (
+    first_x_assum $ dxrule_then dxrule
+    >> PRED_ASSUM is_forall kall_tac
+    >> rw[ELIM_UNCURRY,FORALL_PROD]
+    >> first_x_assum $ dxrule_then dxrule
+    >> rw[orth_ci_def,GSYM unify_complete']
+  )
+  >- (
+    first_x_assum $ dxrule_then $ dxrule_then assume_tac
+    >> PRED_ASSUM is_forall kall_tac
+    >> spose_not_then assume_tac
+    >> gs[mlstring_sort_def,GSYM unify_complete']
+  )
+  >- (
+    first_x_assum $ rev_dxrule_then $ dxrule_then assume_tac
+    >> spose_not_then assume_tac
+    >> fs[]
+    >> first_x_assum $ dxrule_then assume_tac
+    >> fs[]
+    >> first_x_assum $ dxrule_then assume_tac
+    >> gs[orth_ci_def,unify_complete,IS_SOME_EXISTS]
+  )
+  >- (
+    first_x_assum $ rev_dxrule_then $ dxrule_then assume_tac
+    >> spose_not_then assume_tac
+    >> fs[]
+    >> first_x_assum $ dxrule_then assume_tac
+    >> gs[unify_complete,IS_SOME_EXISTS,mlstring_sort_def]
+  )
+QED
+
 (* if possible generate a certificate for ti <= t
  * i.e. ti is an instance of t
  * instance_subst [(ti,t)] []
