@@ -517,8 +517,7 @@ Theorem repl_types_alt:
   infertype_prog types decs = Success new_t ⇒
   evaluate_decs s env decs ≠ (new_s,Rerr (Rabort Rtype_error))
 Proof
-  rpt strip_tac
-  \\ imp_res_tac repl_types_thm \\ fs []
+  rw [] \\ imp_res_tac repl_types_thm \\ fs []
 QED
 
 Theorem repl_types_clock_refs:
@@ -528,13 +527,11 @@ Theorem repl_types_clock_refs:
                        refs := st.refs ++ junk;
                        eval_state := NONE |>,env1)
 Proof
-  cheat (*
-  strip_tac
-  \\ drule repl_types_skip
+  strip_tac \\ drule repl_types_skip
   \\ disch_then (qspecl_then [‘junk’,‘ck’,‘0’,‘0’] mp_tac)
-  \\ match_mp_tac (DECIDE “x = y ⇒ x ⇒ y”)
+  \\ match_mp_tac (DECIDE “x = y ⇒ x ⇒ y”) \\ fs []
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
-  \\ fs [state_component_equality] *)
+  \\ fs [state_component_equality]
 QED
 
 Theorem repl_types_clock_refs_ffi:
@@ -544,13 +541,11 @@ Theorem repl_types_clock_refs_ffi:
                        refs := st.refs ++ junk; ffi := st.ffi ;
                        eval_state := NONE |>,env1)
 Proof
-  cheat (*
-  strip_tac
-  \\ drule repl_types_skip
+  strip_tac \\ drule repl_types_skip
   \\ disch_then (qspecl_then [‘junk’,‘ck’,‘0’,‘0’] mp_tac)
-  \\ match_mp_tac (DECIDE “x = y ⇒ x ⇒ y”)
+  \\ match_mp_tac (DECIDE “x = y ⇒ x ⇒ y”) \\ fs []
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
-  \\ fs [state_component_equality] *)
+  \\ fs [state_component_equality]
 QED
 
 Definition the_Loc_def:
@@ -560,14 +555,15 @@ End
 Definition repl_rs_def:
   repl_rs = [(Long "REPL" (Short "isEOF"),      Bool, the_Loc isEOF_loc);
              (Long "REPL" (Short "nextString"), Str,  the_Loc nextString_loc)]
-  (* TODO: fix loc numbers and add exn ref *)
+  (* TODO: add exn ref *)
 End
 
 Theorem check_and_tweak:
   check_and_tweak (decs,types,input_str) = INR (safe_decs,new_types) ⇒
   infertype_prog types safe_decs = Success new_types ∧ decs_allowed safe_decs
 Proof
-  cheat
+  fs [check_and_tweak_def,AllCaseEqs()] \\ rw []
+  \\ fs [decs_allowed_def]
 QED
 
 Theorem evaluate_clock_decs:
@@ -584,7 +580,10 @@ Theorem evaluate_decs_with_NONE:
   res ≠ Rerr (Rabort Rtype_error) ⇒
   evaluate_decs s env1 safe_decs = (s1 with eval_state := NONE,res)
 Proof
-  cheat
+  strip_tac
+  \\ drule (evaluatePropsTheory.eval_no_eval_simulation |> CONJUNCTS |> last)
+  \\ fs [] \\ rw [GSYM PULL_FORALL]
+  \\ fs [state_component_equality]
 QED
 
 Theorem evaluate_repl:
@@ -909,8 +908,12 @@ Proof
   \\ irule repl_types_clock_refs_ffi \\ fs []
 QED
 
+Theorem evaluate_repl_thm =
+  evaluate_repl |> SIMP_RULE std_ss [] |> SPEC_ALL
+  |> Q.INST [‘cur_gen’|->‘0’,‘next_id’|->‘1’,‘next_gen’|->‘1’,‘env_id’|->‘0’];
+
 (*
-max_print_depth := 12
+max_print_depth := 25
 *)
 
 val _ = export_theory();
