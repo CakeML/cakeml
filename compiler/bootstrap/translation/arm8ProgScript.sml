@@ -151,7 +151,7 @@ val binopimm = binopimm_aux |> CONJUNCTS |> map(fn th => th
 
 val binopimmth = reconstruct_case ``arm8_enc (Inst (Arith (Binop b n n0 (Imm c))))`` (rand o rator o rator o rator o rand o rand o rand) binopimm
 
-val binopth = reconstruct_case ``arm8_enc(Inst (Arith (Binop b n n0 r)))`` (rand o rand o rand o rand) [binopregth,binopimmth]
+val binopth = reconstruct_case ``arm8_enc(Inst (Arith (Binop b n n0 r)))`` (rand o rand o rand o rand) [binopregth,binopimmth];
 
 val shiftths =
   shift
@@ -165,14 +165,14 @@ val shiftths =
   |> map (fn th => th |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO])
 
 val shiftth = reconstruct_case ``arm8_enc(Inst (Arith (Shift s n n0 n1)))``
-  (rand o funpow 3 rator o funpow 3 rand) shiftths
+  (rand o funpow 3 rator o funpow 3 rand) shiftths;
 
 val arm8_enc1_3_aux = binopth :: shiftth :: map (fn th => th |>
 SIMP_RULE (srw_ss()) defaults |> wc_simp |> we_simp |> gconv |>
 SIMP_RULE std_ss [SHIFT_ZERO]) rest
 
 val arm8_enc1_3 = reconstruct_case ``arm8_enc (Inst (Arith a))`` (rand
-o rand o rand) arm8_enc1_3_aux
+o rand o rand) arm8_enc1_3_aux;
 
 val arm8_enc1_4_aux = el 4 arm8_enc1s |> SIMP_RULE (srw_ss() ++ LET_ss
   ++ DatatypeSimps.expand_type_quants_ss [``:64 addr``,``:memop``])
@@ -184,7 +184,7 @@ val arm8_enc1_4 = reconstruct_case
   ``arm8_enc (Inst (Mem m n a))``
   (rand o rand o rand) [reconstruct_case
   ``arm8_enc (Inst (Mem m n (Addr n' c)))``
-  (rand o rator o rator o rand o rand) arm8_enc1_4_aux]
+  (rand o rator o rator o rand o rand) arm8_enc1_4_aux];
 
 val arm8_enc1_5 = el 5 arm8_enc1s
 
@@ -200,7 +200,7 @@ val arm8_enc3_aux = arm8_enc3
   |> map (fn th => th
      |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss[``:cmp``])
                   (Q.ISPEC `LIST_BIND` COND_RAND:: COND_RATOR::defaults)
-     |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO])
+     |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]);
 
 val arm8_enc3_1 = el 1 arm8_enc3_aux
 val arm8_enc3_2 = el 2 arm8_enc3_aux
@@ -227,7 +227,7 @@ val arm8_simp5 = arm8_enc5 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults
 
 val arm8_simp6 = arm8_enc6 |> SIMP_RULE (srw_ss() ++ LET_ss)
 (Q.ISPEC`LIST_BIND`COND_RAND :: COND_RATOR ::word_mul_def :: defaults)
-|> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+|> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO];
 
 val arm8_enc_thm = reconstruct_case ``arm8_enc i`` rand
 [arm8_simp1,arm8_simp2,arm8_simp3,arm8_simp4,arm8_simp5,arm8_simp6]
@@ -302,7 +302,7 @@ val v2w_Ones = Q.prove(`
 val _ = translate bitstringTheory.zero_extend_def
 val _ = translate bitstringTheory.fixwidth_def
 val _ = translate bitstringTheory.field_def
-val _ = translate bitstringTheory.v2n_def
+val _ = translate bitstringTheory.v2n_def;
 
 (* TODO: already in lexerProg but not stored *)
 val l2n_side = Q.prove(`
@@ -342,7 +342,7 @@ val res = translate (specv64 ``:'M`` DecodeBitMasks_def |> SIMP_RULE
 val decodebitmasks_side = Q.prove(`
   decodebitmasks_side x ⇔ T`,
   PairCases_on`x`>>EVAL_TAC>>fs[] >>
-  simp_tac std_ss [GSYM LENGTH_NIL,LENGTH_GENLIST]) |> update_precondition
+  simp_tac std_ss [GSYM LENGTH_NIL,LENGTH_GENLIST]) |> update_precondition;
 
 val res = translate (INST_TYPE [``:'N``|->``:64``] EncodeBitMask_def
  |> SIMP_RULE std_ss [notw] |> gconv)

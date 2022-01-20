@@ -158,6 +158,7 @@ val _ = translate (compilerTheory.parse_sexp_input_def
 val def = spec64 (compilerTheory.compile_def);
 val res = translate def;
 
+val _ = print "About to translate basis (this takes some time)";
 val res = translate basisProgTheory.basis_def
 
 val res = translate (primTypesTheory.prim_tenv_def
@@ -573,7 +574,7 @@ val semantics_compiler64_prog =
   |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
   |> curry save_thm "semantics_compiler64_prog";
 
-(* saving a tidied up final theorem *)
+(* saving a tidied up final theorem
 
 val th =
   get_ml_prog_state ()
@@ -599,6 +600,8 @@ val th1 = th
 Theorem Decls_FRONT_compiler64_prog = th1
 
 Theorem LAST_compiler64_prog = EVAL “LAST compiler64_prog”;
+
+*)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();
