@@ -62,7 +62,9 @@ val init_axioms_def = Define `
   init_axioms = []:thm list`;
 
 Triviality init_axioms_alt:
-  init_axioms = TL [Sequent [] (Var (strlit "") (Tyvar (strlit "")))]
+  init_axioms = case [Sequent [] (Var (strlit "") (Tyvar (strlit "")))] of
+                | [] => []
+                | (_ :: xs) => xs
 Proof
   EVAL_TAC
 QED
