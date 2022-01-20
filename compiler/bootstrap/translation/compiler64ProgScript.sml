@@ -357,24 +357,8 @@ End
 val _ = (next_ml_names := ["report_error"]);
 val r = translate report_error_def;
 
-val read_next_dec =
-  “[Dlet (Locs UNKNOWNpt UNKNOWNpt) Pany
-       (App Opapp
-          [App Opderef [Var (Long "REPL" (Short "readNextString"))];
-           Con NONE []])]”
-
-Definition check_and_tweak_def:
-  check_and_tweak (decs, types, input_str) =
-    let all_decs = decs ++ ^read_next_dec in
-      case infertype_prog types all_decs of
-      | Success new_types => INR (all_decs, new_types)
-      | Failure (loc,msg) =>
-          INL (concat [implode "ERROR: "; msg; implode " at ";
-                       locs_to_string input_str loc])
-End
-
 val _ = (next_ml_names := ["check_and_tweak"]);
-val r = translate check_and_tweak_def;
+val r = translate repl_check_and_tweakTheory.check_and_tweak_def;
 
 val _ = (append_prog o process_topdecs) `
   fun repl (parse, types, conf, env, decs, input_str) =

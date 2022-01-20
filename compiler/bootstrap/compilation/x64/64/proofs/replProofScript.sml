@@ -5,13 +5,9 @@ open preamble
 open semanticsPropsTheory backendProofTheory x64_configProofTheory compiler64ProgTheory
 open evaluateTheory
 open semanticPrimitivesTheory ml_translatorTheory
-open backendProofTheory repl_typesTheory
+open backendProofTheory repl_typesTheory repl_check_and_tweakTheory
 
 val _ = new_theory"replProof";
-
-Definition decs_allowed_def:
-  decs_allowed (s:ast$dec list) = T  (* TODO: fix *)
-End
 
 Definition compiler_inst_def:
   compiler_inst c = (λ(x,y,z).
@@ -478,14 +474,6 @@ Definition repl_rs_def:
              (Long "REPL" (Short "nextString"), Str,  the_Loc nextString_loc)]
   (* TODO: add exn ref *)
 End
-
-Theorem check_and_tweak:
-  check_and_tweak (decs,types,input_str) = INR (safe_decs,new_types) ⇒
-  infertype_prog types safe_decs = Success new_types ∧ decs_allowed safe_decs
-Proof
-  fs [check_and_tweak_def,AllCaseEqs()] \\ rw []
-  \\ fs [decs_allowed_def]
-QED
 
 Theorem evaluate_clock_decs:
   evaluate_decs s env xs = (s1,res) ⇒ s1.clock ≤ s.clock

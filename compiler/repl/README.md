@@ -1,6 +1,11 @@
 Some definitions and proofs used in the proof of the CakeML
 and Candle read-eval-print loop (REPL).
 
+[repl_check_and_tweakScript.sml](repl_check_and_tweakScript.sml):
+The REPL type checks and modifies the decs given as input. This file
+defines the function that implements this and proves that the
+function will only produce type checked and allowed declarations.
+
 [repl_init_envProgScript.sml](repl_init_envProgScript.sml):
 This file partially instantiates the eval_state and inserts a Denv declaration.
 
