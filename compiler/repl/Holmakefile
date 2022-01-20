@@ -1,5 +1,7 @@
 INCLUDES = $(CAKEMLDIR)/candle/prover $(CAKEMLDIR)/basis $(CAKEMLDIR)/translator \
-           $(CAKEMLDIR)/characteristic $(CAKEMLDIR)/compiler/inference
+           $(CAKEMLDIR)/compiler/inference $(CAKEMLDIR)/compiler/inference/proofs \
+           $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs \
+           $(CAKEMLDIR)/characteristic
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

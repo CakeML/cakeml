@@ -16,3 +16,6 @@ initial environment of the read-eval-print loop.
 Module for the configurable part of the REPL. Note that this file
 does not contain the code for the main loop of the REPL (which is at
 the end of bootstrap translation).
+
+[repl_typesScript.sml](repl_typesScript.sml):
+Proofs about how the REPL uses types and the type inferencer
