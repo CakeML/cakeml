@@ -71,14 +71,13 @@ End
 
 Definition pp_val_eq_def:
   pp_val_eq nm pp_f v = pp_app_block (strlit "val")
-    [ppd_token (implode nm); ppd_token (strlit "="); pp_f v]
+    [ppd_token (implode nm); ppd_token (strlit "="); pp_f v; ppd_token ("\n")]
 End
 
-Definition pp_val_eq_def:
-  pp_val_eq nm pp_f v = pp_app_block (strlit "val")
-    [ppd_token (implode nm); ppd_token (strlit "="); pp_f v]
+Definition pp_val_hidden_type_def:
+  pp_val_hidden_type nm = pp_app_block (strlit "val")
+    [ppd_token (implode nm); ppd_token (strlit ": <hidden type>\n")]
 End
-
 
 Definition pp_list_def:
   pp_list f xs = PP_Data F (app_list_wrap (strlit "[")

@@ -74,13 +74,13 @@ Definition id_str_def:
 End
 
 Definition print_of_val_def:
-  print_of_val tn (nm, inf_t) = (case inf_t_to_ast_t tn inf_t of
-      NONE => []
-    | SOME ast_t =>
-    [Dlet unknown_loc Pany (App Opapp [Var (Short "print_pp");
-        rpt_app (Var (Long "PrettyPrinter" (Short "val_eq")))
-            [Lit (StrLit (id_str nm)); pp_of_ast_t ast_t; Var nm]])]
-  )
+  print_of_val tn (nm, inf_t) =
+    let idl = Lit (StrLit (id_str nm)) in
+    Dlet unknown_loc Pany (App Opapp [Var (Short "print_pp");
+        (case inf_t_to_ast_t tn inf_t of
+          NONE => App Opapp [Var (Long "PrettyPrinter" (Short "val_hidden_type")); idl]
+        | SOME ast_t => rpt_app (Var (Long "PrettyPrinter" (Short "val_eq")))
+            [idl; pp_of_ast_t ast_t; Var nm])])
 End
 
 Definition val_prints_def:
