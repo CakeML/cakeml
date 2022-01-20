@@ -563,7 +563,7 @@ Proof
 QED
 val _ = export_rewrites["WELLTYPED_CLAUSES"]
 
-(* wellformed_compute acutally also checks the syntax (through the has_type relation) *)
+(* wellformed_compute actually also checks the syntax (through the has_type relation) *)
 Theorem WELLFORMED_COMPUTE_EQUIV:
   !t. welltyped t = wellformed_compute t
 Proof
@@ -572,14 +572,15 @@ Proof
   >> fs[welltyped_def]
   >> Cases_on `typeof t`
   >> rw[is_fun_def,domain_raw]
-  >- (
-    PURE_FULL_CASE_TAC
-    >> rw[GSYM PULL_EXISTS]
-    >> rw[LENGTH_EQ_NUM_compute]
-    >> fs[AC CONJ_ASSOC CONJ_COMM]
-  )
-  >> Cases_on `t`
-  >> rw[wellformed_compute_def]
+  >> rw[EQ_IMP_THM] >> rw[]
+  >> simpLib.global_simp_tac
+       {elimvars = true, strip = true, droptrues = true, oldestfirst=true}
+       bool_ss
+       [LENGTH_NIL,LENGTH_CONS,ONE,TWO,HD]
+  >> rw[]
+  >> fs[wellformed_compute_def]
+  >> Cases_on ‘t’
+  >> fs[wellformed_compute_def]
 QED
 
 (* Alpha-equivalence *)

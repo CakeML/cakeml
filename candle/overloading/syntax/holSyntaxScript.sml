@@ -99,9 +99,13 @@ Definition wellformed_compute_def:
   /\ (wellformed_compute (Const n ty) = T)
   /\ (wellformed_compute (Comb s t) =
     (wellformed_compute s
-    /\ wellformed_compute t
-    /\ is_fun (typeof s)
-    /\ (domain (typeof s) = typeof t))
+    /\ wellformed_compute t ∧
+    (case typeof s of
+       Tyapp n tys =>
+         (n = strlit "fun") ∧
+         (LENGTH tys = 2) ∧
+         (HD tys = typeof t)
+     | Tyvar _ => F))
   )
   /\ (wellformed_compute (Abs (Var x ty) t) = wellformed_compute t)
   /\ (wellformed_compute (Abs _ _) = F)
