@@ -41,6 +41,8 @@ val res = tr "token" ppd_token_def;
 val res = tr "tuple" pp_paren_tuple_def;
 val res = tr "spaced_block" pp_spaced_block_def;
 val res = tr "app_block" pp_app_block_def;
+val res = tr "val_eq" pp_val_eq_def;
+
 val res = translate pp_list_def;
 val res = translate pp_bool_def;
 val res = translate pp_string_def;

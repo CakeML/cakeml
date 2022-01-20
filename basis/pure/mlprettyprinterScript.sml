@@ -69,6 +69,17 @@ Definition pp_app_block_def:
   pp_app_block nm xs = pp_spaced_block (ppd_token nm :: xs)
 End
 
+Definition pp_val_eq_def:
+  pp_val_eq nm pp_f v = pp_app_block (strlit "val")
+    [ppd_token (implode nm); ppd_token (strlit "="); pp_f v]
+End
+
+Definition pp_val_eq_def:
+  pp_val_eq nm pp_f v = pp_app_block (strlit "val")
+    [ppd_token (implode nm); ppd_token (strlit "="); pp_f v]
+End
+
+
 Definition pp_list_def:
   pp_list f xs = PP_Data F (app_list_wrap (strlit "[")
     (app_intersperse (strlit "; ") (MAP (\x. ppd_contents (f x)) xs))
