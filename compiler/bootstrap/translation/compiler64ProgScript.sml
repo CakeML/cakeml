@@ -423,7 +423,7 @@ val _ = (append_prog o process_topdecs) `
       val decs = []
       val input_str = ""
     in
-      repl parse types conf env decs input_str
+      repl (parse, types, conf, env, decs, input_str)
     end`
 
 val _ = (append_prog o process_topdecs) `
