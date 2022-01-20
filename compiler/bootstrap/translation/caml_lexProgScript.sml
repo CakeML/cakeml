@@ -140,13 +140,16 @@ Proof
     \\ intLib.ARITH_TAC)
   \\ simp [oct2num_def, s2n_def, numposrepTheory.l2n_def,
            lexer_implTheory.unhex_alt_def]
-  \\ ‘isHexDigit v11 ∧ isHexDigit v9 ∧ isHexDigit v13’
-    by (Cases_on ‘v11’ \\ Cases_on ‘v9’
+  \\ rename [‘8 * ((if isHexDigit a then _ else 0) MOD 8 +
+           8 * (if isHexDigit b then _ else 0) MOD 8) +
+           (if isHexDigit c then _ else 0) MOD 8 < 256’]
+  \\ ‘isHexDigit a ∧ isHexDigit c ∧ isHexDigit b’
+    by (Cases_on ‘a’ \\ Cases_on ‘c’
         \\ gs [isHexDigit_def, isOctDigit_def])
   \\ gs []
-  \\ ‘UNHEX v13 MOD 8 < 4’
+  \\ ‘UNHEX b MOD 8 < 4’
     by (gs [LESS_OR_EQ, NUMERAL_LESS_THM]
-        \\ Cases_on ‘v13’ \\ gs [UNHEX_def])
+        \\ Cases_on ‘b’ \\ gvs [UNHEX_def])
   \\ intLib.ARITH_TAC
 QED
 
@@ -170,4 +173,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val () = ml_translatorLib.clean_on_exit := true;
 
 val _ = export_theory ();
-
