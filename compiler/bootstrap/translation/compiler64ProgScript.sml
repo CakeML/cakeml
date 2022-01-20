@@ -397,40 +397,57 @@ val _ = (append_prog o process_topdecs) `
             | Inr new_decs => repl (parse, new_types, new_conf, new_env, new_decs, new_input)
           end `
 
-Definition candle_prog_def:
-  candle_prog = DROP (LENGTH basis) repl_prog
-End
-
-Theorem repl_prog_eq_basis_candle:
-  repl_prog = basis ++ candle_prog
-Proof
-  EVAL_TAC
-QED
-
-val r = translate (candle_prog_def |> CONV_RULE (RAND_CONV EVAL));
-
-Definition init_types_def:
-  init_types (u:unit) =
-    case infertype_prog init_config (basis ++ candle_prog) of
-    | Failure _ => init_config
-    | Success t => t
-End
 
 val _ = (next_ml_names := ["init_types"]);
-val r = translate init_types_def;
+val r = translate repl_init_typesTheory.repl_prog_types_def;
+
+Definition parse_cakeml_syntax_def:
+  parse_cakeml_syntax input =
+    case parse_prog (lexer_fun (explode input)) of
+    | Success _ x _ => INR x
+    | Failure l _ => INL (strlit "Parsing failed at " ^ locs_to_string input (SOME l))
+End
+
+Definition parse_ocaml_syntax_def:
+  parse_ocaml_syntax input =
+    case caml_parser$run (explode input) of
+    | INR res => INR res
+    | INL (l,err) => INL
+       (err ^ «\nParsing failed at » ^ locs_to_string input (SOME l))
+End
+
+Definition select_parse_def:
+  slect_parse cl =
+    if MEMBER (strlit "--candle") cl
+    then parse_ocaml_syntax
+    else parse_cakeml_syntax
+End
+
+val r = translate parse_cakeml_syntax_def;
+val r = translate parse_ocaml_syntax_def;
+val _ = (next_ml_names := ["select_parse"]);
+val r = translate select_parse_def;
+
+val _ = (append_prog o process_topdecs) `
+  fun start_repl (cl,s1) =
+    let
+      val parse = select_parse cl
+      val types = init_types
+      val conf = (s1,1)
+      val env = (repl_init_env, 0)
+      val decs = []
+      val input_str = ""
+    in
+      repl parse types conf env decs input_str
+    end`
 
 val _ = (append_prog o process_topdecs) `
   fun run_interactive_repl cl =
     let
-      val parse = compiler64Prog.compiler_parse_cml_input
-      val types = init_types ()
-      val conf = (decodeProg.read_inc_config "config_enc_str.txt", 1)
-      val env = (repl_init_env, 0)
-      val decs = []
-      val input_str = ""
-      val _ = TextIO.print "This is the CakeML REPL.\n"
+      val _ = TextIO.print "Welcome to the CakeML read-eval-print loop.\n"
+      val s1 = decodeProg.read_inc_config "config_enc_str.txt"
     in
-      repl parse types conf env decs input_str
+      start_repl (cl,s1)
     end`
 
 Definition has_repl_flag_def:
@@ -571,6 +588,33 @@ val semantics_compiler64_prog =
   |> DISCH_ALL
   |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
   |> curry save_thm "semantics_compiler64_prog";
+
+(* saving a tidied up final theorem *)
+
+val th =
+  get_ml_prog_state ()
+  |> ml_progLib.clean_state
+  |> ml_progLib.remove_snocs
+  |> ml_progLib.get_thm
+  |> REWRITE_RULE [ml_progTheory.ML_code_def]
+
+Triviality BUTLAST_compiler64_prog:
+  ^(mk_eq(concl th |> rator |> rator |> rand,“BUTLAST compiler64_prog”))
+Proof
+  CONV_TAC (RAND_CONV (ONCE_REWRITE_CONV [compiler64_prog_def]))
+  \\ CONV_TAC (RAND_CONV (PURE_REWRITE_CONV [listTheory.FRONT_CONS]))
+  \\ EVAL_TAC
+QED
+
+val th1 = th
+  |> CONV_RULE (PATH_CONV "llr" (REWR_CONV BUTLAST_compiler64_prog))
+  |> CONV_RULE (RAND_CONV (EVAL THENC REWRITE_CONV
+       (DB.find "_refs_def" |> map (fst o snd)) THENC
+       SIMP_CONV std_ss [APPEND_NIL,APPEND]))
+
+Theorem Decls_FRONT_compiler64_prog = th1
+
+Theorem LAST_compiler64_prog = EVAL “LAST compiler64_prog”;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();

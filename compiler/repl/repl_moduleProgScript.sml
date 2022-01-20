@@ -28,9 +28,12 @@ val _ = translation_extends "candle_kernelProg";
 
 val _ = ml_prog_update (open_module "REPL");
 
-val res = declare_new_ref "isEOF"      “F”;
-val res = declare_new_ref "prompt"     “strlit "> "”;
-val res = declare_new_ref "nextString" “strlit ""”;
+val tidy_up =
+  SIMP_RULE std_ss [candle_kernel_valsTheory.refs_defs,LENGTH_APPEND,LENGTH];
+
+Theorem isEOF_def      = declare_new_ref "isEOF"      “F”           |> tidy_up
+Theorem prompt_def     = declare_new_ref "prompt"     “strlit "> "” |> tidy_up
+Theorem nextString_def = declare_new_ref "nextString" “strlit ""”   |> tidy_up
 
 val _ = ml_prog_update open_local_block;
 
