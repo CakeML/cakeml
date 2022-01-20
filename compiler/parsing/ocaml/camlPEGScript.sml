@@ -213,8 +213,12 @@ Datatype:
     (* hol-light specific operators *)
     | nEHolInfix | nHolInfixOp
     (* different sorts of names *)
-    | nValueName | nOperatorName | nConstrName | nTypeConstrName | nModuleName
-    | nValuePath | nConstr | nTypeConstr | nModulePath
+    | nValuePath | nValueName
+    | nConstr | nConstrName
+    | nTypeConstr | nTypeConstrName
+    | nModulePath | nModuleName
+    | nModTypePath | nModTypeName
+    | nOperatorName
     (* expressions *)
     | nLiteral | nIdent | nEBase | nEList
     | nEApp | nEConstr | nEFunapp | nEAssert | nELazy
@@ -235,9 +239,13 @@ Datatype:
     (* types *)
     | nTypeList | nTypeLists
     | nTVar | nTBase | nTConstr | nTProd | nTFun | nType
+    (* module types *)
+    | nSigSpec | nSigItems | nSigItem | nModTypeAssign | nModTypeAsc
+    | nModAscApp | nModAscApps | nValType | nExcType | nModuleTypeDef
+    | nIncludeMod | nOpenMod
     (* definitions *)
     | nDefinition | nTopLet | nTopLetRec | nModuleItem | nModuleItems | nOpen
-    | nModExpr | nModuleDef
+    | nModExpr | nModuleDef | nModuleType
     | nSemis | nExprItem | nExprItems | nDefItem
     (* misc *)
     | nShiftOp | nMultOp | nAddOp | nRelOp | nAndOp | nOrOp | nCatOp | nPrefixOp
@@ -295,7 +303,12 @@ Definition camlPEG_def[nocompute]:
       (INL nModulePath,
        seql [pnt nModuleName; try (seql [tokeq DotT; pnt nModulePath] I)]
             (bindNT nModulePath));
-      (* -- Definitions ---------------------------------------------------- *)
+      (INL nModTypeName,
+       pegf (tokIdP identMixed) (bindNT nModTypeName));
+      (INL nModTypePath,
+       seql [pnt nModulePath; tokeq DotT; pnt nModTypeName]
+            (bindNT nModTypePath));
+      (* -- Definitions (module items) ------------------------------------- *)
       (INL nSemis,
        seql [tokeq SemisT; try (pnt nSemis)]
             (bindNT nSemis));
@@ -339,11 +352,67 @@ Definition camlPEG_def[nocompute]:
                       pnt nTypeDefinition;
                       pnt nExcDefinition;
                       pnt nOpen;
+                      pnt nModuleTypeDef;
                       pnt nModuleDef;
-                      (* module type *)
                       (* include moduleexpr *)
+                      (* functor versions of the moduletype thing *)
                       ])
             (bindNT nDefinition));
+      (* -- Module types (signatures) -------------------------------------- *)
+      (INL nExcType,
+       seql [tokeq ExceptionT; pnt nConstrDecl]
+            (bindNT nExcType));
+      (INL nValType,
+       seql [tokeq ValT; pnt nValueName; tokeq ColonT; pnt nType]
+            (bindNT nValType));
+      (INL nModAscApp,
+       seql [tokeq LparT; pnt nModuleName; tokeq ColonT;
+             pnt nModuleType; tokeq RparT]
+            (bindNT nModAscApp));
+      (INL nModAscApps,
+       seql [pnt nModAscApp; try (pnt nModAscApps)]
+            (bindNT nModAscApps));
+      (INL nModTypeAsc,
+       seql [tokeq ModuleT; tokeq TypeT; pnt nModuleName;
+             try (pnt nModAscApps);
+             tokeq ColonT; pnt nModuleType]
+            (bindNT nModTypeAsc));
+      (INL nModTypeAssign,
+       seql [tokeq ModuleT; tokeq TypeT; pnt nModTypeName;
+             try (seql [tokeq EqualT; pnt nModuleType] I)]
+            (bindNT nModTypeAssign));
+      (INL nOpenMod,
+       seql [tokeq OpenT; pnt nModulePath]
+            (bindNT nOpenMod));
+      (INL nIncludeMod,
+       seql [tokeq IncludeT; pnt nModulePath]
+            (bindNT nIncludeMod));
+      (INL nSigItem,
+       pegf (choicel [pnt nTypeDefinition;
+                      pnt nExcType;
+                      pnt nValType;
+                      pnt nModTypeAsc;
+                      pnt nModTypeAssign;
+                      pnt nOpenMod;
+                      pnt nIncludeMod;
+                     ])
+            (bindNT nSigItem));
+      (INL nSigItems,
+       seql [pnt nSigItem; try (pnt nSemis); try (pnt nSigItems)]
+            (bindNT nSigItems));
+      (INL nSigSpec,
+       seql [tokeq SigT; try (pnt nSigItems); tokeq EndT]
+            (bindNT nSigSpec));
+      (INL nModuleType,
+       pegf (choicel [pnt nModTypePath;
+                      pnt nSigSpec;
+                      seql [tokeq LparT; pnt nModuleType; tokeq RparT] I;
+                      (* functor syntax *)])
+            (bindNT nModuleType));
+      (INL nModuleTypeDef,
+       seql [tokeq ModuleT; tokeq TypeT; pnt nModTypeName; tokeq EqualT;
+             pnt nModuleType]
+            (bindNT nModuleTypeDef));
       (* -- Typedef -------------------------------------------------------- *)
       (INL nExcDefinition,
        seql [tokeq ExceptionT;

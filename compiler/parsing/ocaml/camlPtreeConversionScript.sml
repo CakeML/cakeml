@@ -351,6 +351,23 @@ Definition ptree_ModuleName_def:
       fail (locs, «Expected modulename non-terminal»)
 End
 
+Definition ptree_ModTypeName_def:
+  ptree_ModTypeName (Lf (_, locs)) =
+    fail (locs, «Expected modtypename non-terminal») ∧
+  ptree_ModTypeName (Nd (nterm, locs) args) =
+    if nterm = INL nModTypeName then
+      case args of
+        [arg] =>
+          do
+            lf <- destLf arg;
+            tk <- option $ destTOK lf;
+            option $ destIdent tk
+          od
+      | _ => fail (locs, «Impossible: nModTypeName»)
+    else
+      fail (locs, «Expected modtypename non-terminal»)
+End
+
 Definition ptree_ModulePath_def:
   ptree_ModulePath (Lf (_, locs)) =
     fail (locs, «Expected module-path non-terminal») ∧
@@ -422,6 +439,24 @@ Definition ptree_TypeConstr_def:
             return (vp ++ [vn])
           od
       | _ => fail (locs, «Impossible: nTypeConstr»)
+    else
+      fail (locs, «Expected typeconstr non-terminal»)
+End
+
+Definition ptree_ModTypePath_def:
+  ptree_ModTypePath (Lf (_, locs)) =
+    fail (locs, «Expected modtypepath non-terminal») ∧
+  ptree_ModTypePath (Nd (nterm, locs) args) =
+    if nterm = INL nModTypePath then
+      case args of
+        [path; dot; arg] =>
+          do
+            expect_tok dot DotT;
+            vp <- ptree_ModulePath path;
+            vn <- ptree_ModTypeName arg;
+            return (vp ++ [vn])
+          od
+      | _ => fail (locs, «Impossible: nModTypePath»)
     else
       fail (locs, «Expected typeconstr non-terminal»)
 End
@@ -1661,6 +1696,24 @@ Definition ptree_ConstrDecl_def:
       fail (locs, «Expected a constructor declaration non-terminal»)
 End
 
+Definition ptree_ExcType_def:
+  ptree_ExcType (Lf (_, locs)) =
+    fail (locs, «Expected an exception type declaration non-terminal») ∧
+  ptree_ExcType (Nd (nterm, locs) args) =
+    if nterm = INL nExcType then
+      case args of
+        [exnt; cdecl] =>
+          do
+            expect_tok exnt ExceptionT;
+            (nm, args) <- ptree_ConstrDecl cdecl;
+            return () (* No types in the CakeML ast *)
+          od
+      | _ =>
+          fail (locs, «Impossible: nExcType»)
+    else
+      fail (locs, «Expected an exception type declaration non-terminal»)
+End
+
 Definition ptree_ExcDefinition_def:
   ptree_ExcDefinition (Lf (_, locs)) =
     fail (locs, «Expected an exception definition non-terminal») ∧
@@ -1949,6 +2002,272 @@ Definition ptree_ExprDec_def:
          (ptree_Expr nExpr pt)
 End
 
+Definition ptree_ValType_def:
+  ptree_ValType (Lf (_, locs)) =
+    fail (locs, «Expected a val-type declaration non-terminal») ∧
+  ptree_ValType (Nd (nterm, locs) args) =
+    if nterm = INL nValType then
+      case args of
+        [valt; valn; colont; typ] =>
+          do
+            expect_tok valt ValT;
+            expect_tok colont ColonT;
+            nm <- ptree_ValueName valn;
+            ty <- ptree_Type typ;
+            return ()
+          od
+      | _ => fail (locs, «Impossible: nValType»)
+    else
+      fail (locs, «Expected a val-type declaration non-terminal»)
+End
+
+Definition ptree_OpenMod_def:
+  ptree_OpenMod (Lf (_, locs)) =
+    fail (locs, «Expected a module-open non-terminal») ∧
+  ptree_OpenMod (Nd (nterm, locs) args) =
+    if nterm = INL nOpenMod then
+      case args of
+        [opent; modpath] =>
+          do
+            expect_tok opent OpenT;
+            ps <- ptree_ModulePath modpath;
+            return ()
+          od
+      | _ => fail (locs, «Impossible: nOpenMod»)
+    else
+      fail (locs, «Expected a module-open non-terminal»)
+End
+
+Definition ptree_IncludeMod_def:
+  ptree_IncludeMod (Lf (_, locs)) =
+    fail (locs, «Expected a module-open non-terminal») ∧
+  ptree_IncludeMod (Nd (nterm, locs) args) =
+    if nterm = INL nIncludeMod then
+      case args of
+        [opent; modpath] =>
+          do
+            expect_tok opent IncludeT;
+            ps <- ptree_ModulePath modpath;
+            return ()
+          od
+      | _ => fail (locs, «Impossible: nIncludeMod»)
+    else
+      fail (locs, «Expected a module-open non-terminal»)
+End
+
+(* This is currently a no-op since there are no module types. It will report
+   an error if someone uses something like a functor or anything like that,
+   though.
+ *)
+Definition ptree_ModuleType_def:
+  (ptree_ModuleType (Lf (_, locs)) =
+    fail (locs, «Expected a module-type declaration non-terminal»)) ∧
+  (ptree_ModuleType (Nd (nterm, locs) args) =
+    if nterm = INL nModuleType then
+      case args of
+        [arg] =>
+          do
+            nt <- nterm_of arg;
+            if nt = INL nModTypePath then
+              do
+                ptree_ModTypePath arg;
+                return ()
+              od
+            else if nt = INL nSigSpec then
+              do
+                ptree_SigSpec arg;
+                return ()
+              od
+            else
+              fail (locs, «Impossible: nModuleType»)
+          od
+      | [lpar; modtype; rpar] =>
+          do
+            expect_tok lpar LparT;
+            expect_tok rpar RparT;
+            ty <- ptree_ModuleType modtype;
+            return ()
+          od
+      | _ => fail (locs, «Impossible: nModuleType»)
+    else
+      fail (locs, «Expected a module-type declaration non-terminal»)) ∧
+  (ptree_SigSpec (Lf (_, locs)) =
+    fail (locs, «Expected a signature spec non-terminal»)) ∧
+  (ptree_SigSpec (Nd (nterm, locs) args) =
+    if nterm = INL nSigSpec then
+      case args of
+        [sigt; sigits; endt] =>
+          do
+            expect_tok sigt SigT;
+            expect_tok endt EndT;
+            ptree_SigItems sigits;
+            return ()
+          od
+      | [sigt; endt] =>
+          do
+            expect_tok sigt SigT;
+            expect_tok endt EndT;
+            return ()
+          od
+      | _ => fail (locs, «Impossible: nSigSpec»)
+    else
+      fail (locs, «Expected a signature spec non-terminal»)) ∧
+  (ptree_SigItems (Lf (_, locs)) =
+    fail (locs, «Expected a signature item list non-terminal»)) ∧
+  (ptree_SigItems (Nd (nterm, locs) args) =
+    if nterm = INL nSigItems then
+      case args of
+        [sigit; semis; sigits] =>
+          do
+            ptree_Semis semis;
+            x <- ptree_SigItem sigit;
+            xs <- ptree_SigItems sigits;
+            return (x::xs)
+          od
+      | [sigit; rest] =>
+          do
+            ptree_Semis rest;
+            x <- ptree_SigItem sigit;
+            return [x]
+          od ++
+          do
+            x <- ptree_SigItem sigit;
+            xs <- ptree_SigItems rest;
+            return (x::xs)
+          od
+      | _ => fail (locs, «Impossible: nSigItems»)
+    else
+      fail (locs, «Expected a signature item list non-terminal»)) ∧
+  (ptree_SigItem (Lf (_, locs)) =
+    fail (locs, «Expected a signature item non-terminal»)) ∧
+  (ptree_SigItem (Nd (nterm, locs) args) =
+    if nterm = INL nSigItem then
+      case args of
+        [arg] =>
+          do
+            nt <- nterm_of arg;
+            if nt = INL nTypeDefinition then
+              do
+                ptree_TypeDefinition arg;
+                return ()
+              od
+            else if nt = INL nExcType then
+              do
+                ptree_ExcType arg;
+                return ()
+              od
+            else if nt = INL nValType then
+              do
+                ptree_ValType arg;
+                return ()
+              od
+            else if nt = INL nModTypeAsc then
+              do
+                ptree_ModTypeAsc arg;
+                return ()
+              od
+            else if nt = INL nModTypeAssign then
+              do
+                ptree_ModTypeAssign arg;
+                return ()
+              od
+            else if nt = INL nOpenMod then
+              do
+                ptree_OpenMod arg;
+                return ()
+              od
+            else if nt = INL nIncludeMod then
+              do
+                ptree_IncludeMod arg;
+                return ()
+              od
+            else
+              fail (locs, «Impossible: nSigItem»)
+          od
+      | _ => fail (locs, «Impossible: nSigItem»)
+    else
+      fail (locs, «Expected a signature item non-terminal»)) ∧
+  (ptree_ModTypeAssign (Lf (_, locs)) =
+    fail (locs, «Expected a signature assignment non-terminal»)) ∧
+  (ptree_ModTypeAssign (Nd (nterm, locs) args) =
+    if nterm = INL nModTypeAssign then
+      case args of
+        [modt; typet; name] =>
+          do
+            expect_tok modt ModuleT;
+            expect_tok typet TypeT;
+            nm <- ptree_ModTypeName name;
+            return ()
+          od
+      | [modt; typet; name; eqt; typ] =>
+          do
+            expect_tok modt ModuleT;
+            expect_tok typet TypeT;
+            expect_tok eqt EqualT;
+            nm <- ptree_ModTypeName name;
+            ty <- ptree_ModuleType typ;
+            return ()
+          od
+      | _ => fail (locs, «Impossible: nModTypeAssign»)
+    else
+      fail (locs, «Expected a signature assignment non-terminal»)) ∧
+  (ptree_ModTypeAsc (Lf (_, locs)) =
+    fail (locs, «Expected a signature ascription non-terminal»)) ∧
+  (ptree_ModTypeAsc (Nd (nterm, locs) args) =
+    if nterm = INL nModTypeAsc then
+      case args of
+        [modt; typet; modname; apps; colont; typ] =>
+          fail (locs, concat [«Functor syntax is not supported»;
+                              « (you attempted to apply a functor type)»])
+      | [modt; typet; modname; colont; typ] =>
+          do
+            expect_tok modt ModuleT;
+            expect_tok typet TypeT;
+            expect_tok colont ColonT;
+            nm <- ptree_ModuleName modname;
+            ty <- ptree_ModuleType typ;
+            return ()
+          od
+      | _ => fail (locs, «Impossible: nModTypeAsc»)
+    else
+      fail (locs, «Expected a module ascription non-terminal»))
+  (* This is for converting functor syntax if someone ever gets around to
+     implementing that: *)
+  (* ∧
+  (ptree_ModAscApps (Lf (_, locs)) =
+    fail (locs, «Expected a moduletype-ascription list non-terminal»)) ∧
+  (ptree_ModAscApps (Nd (nterm, locs) args) =
+    if nterm = INL nModAscApps then
+      case args of
+        [arg] => fmap (λx. [x]) $ ptree_ModAscApp arg
+      | [arg; rest] =>
+          do
+            x <- ptree_ModAscApp arg;
+            xs <- ptree_ModAscApps rest;
+            return (x::xs)
+          od
+      | _ => fail (locs, «Impossible: nModAscApps»)
+    else
+      fail (locs, «Expected a moduletype-ascription list non-terminal»)) ∧
+  (ptree_ModAscApp (Lf (_, locs)) =
+    fail (locs, «Expected a moduletype-ascription non-terminal»)) ∧
+  (ptree_ModAscApp (Nd (nterm, locs) args) =
+    if nterm = INL nModAscApp then
+      case args of
+        [lpar; modname; colont; typ; rpar] =>
+          do
+            expect_tok lpar LparT;
+            expect_tok colont ColonT;
+            expect_tok rpar RparT;
+            nm <- ptree_ModuleName modname;
+            ty <- ptree_ModuleType ty;
+            return ()
+          od
+      | _ => fail (locs, «Impossible: nModAscApp»)
+    else
+      fail (locs, «Expected a moduletype-ascription non-terminal»)) *)
+End
+
 Definition ptree_Definition_def:
   (ptree_Definition (Lf (_, locs)) =
     fail (locs, «Expected a top-level definition non-terminal»)) ∧
@@ -1982,6 +2301,18 @@ Definition ptree_Definition_def:
       fmap (λd. [d]) $ ptree_ExcDefinition (Nd (nterm, locs) args)
     else if nterm = INL nOpen then
       fail (locs, «open-declarations are not supported (yet)»)
+    else if nterm = INL nModuleTypeDef then
+      case args of
+        [modt; typet; name; eqt; typ] =>
+          do
+            expect_tok modt ModuleT;
+            expect_tok typet TypeT;
+            expect_tok eqt EqualT;
+            nm <- ptree_ModTypeName name;
+            ty <- ptree_ModuleType typ;
+            return []
+          od
+      | _ => fail (locs, «Impossible: nModuleTypeDef»)
     else if nterm = INL nModuleDef then
       case args of
         [modt; modid; eq; mexpr] =>
