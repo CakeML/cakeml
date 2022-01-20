@@ -811,6 +811,7 @@ Inductive dependency:
        dependency ctxt (INL (Tyapp name (MAP Tyvar tynames))) (INL(Tyvar tyname))) /\
   (!ctxt name pred abs rep rep_type abs_type ty0 const.
        MEM (TypeDefn name pred abs rep) ctxt /\
+       is_fun(typeof pred) /\
        rep_type = domain(typeof pred) /\
        abs_type = Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred))))) /\
        MEM ty0 (abs_type::allTypes' rep_type) /\
@@ -826,14 +827,19 @@ Definition dependency_compute_def:
   dependency_compute = FLAT o MAP (λx.
     case x of
         (TypeDefn name t abs rep) =>
-          let rep_type = domain(typeof t);
-              abs_type = Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars t)))));
-              ty = INL abs_type
+          let abs_type = Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars t)))));
+               ty = INL abs_type
           in
            (MAP (λv. (ty, INR v)) (allCInsts t)
-           ++ MAP (λv. (ty, INL v)) (allTypes t)
-           ++ MAP (λv. (INR(Const abs (Fun rep_type abs_type)), INL v)) (abs_type::allTypes' rep_type)
-           ++ MAP (λv. (INR(Const rep (Fun abs_type rep_type)), INL v)) (abs_type::allTypes' rep_type))
+           ++ MAP (λv. (ty, INL v)) (allTypes t))
+           ++
+          (case typeof t of
+             Tyapp name [rep_type; _] =>
+               (if name = strlit "fun" then
+                  MAP (λv. (INR(Const abs (Fun rep_type abs_type)), INL v)) (abs_type::allTypes' rep_type)
+                  ++ MAP (λv. (INR(Const rep (Fun abs_type rep_type)), INL v)) (abs_type::allTypes' rep_type)
+                else [])
+           | _ => [])
         | (ConstSpec ov cl _) =>
           FLAT (MAP (λ(cname,t).
             if ~ wellformed_compute t then [] else

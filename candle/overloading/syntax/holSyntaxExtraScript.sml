@@ -4037,6 +4037,9 @@ Proof
   >> asm_exists_tac
   >> rw[MEM_FLAT,MEM_MAP]
   >> rw[PULL_EXISTS]
+  >> rpt(PURE_TOP_CASE_TAC >> rw[])
+  >> gvs[is_fun_def]
+  >> gvs[MEM_MAP]
   >> asm_exists_tac
   >> rw[MEM_MAP]
   >> fs[GSYM (SPEC ``cdefn:term`` WELLFORMED_COMPUTE_EQUIV),welltyped_def]
@@ -4065,8 +4068,14 @@ Proof
         >> rw[]
       )
       >> fs[GSYM (SPEC ``t':term`` WELLFORMED_COMPUTE_EQUIV),WELLTYPED]
-  ) >>
-  metis_tac[]
+  )
+  >- metis_tac[]
+  >- metis_tac[]
+  >- (rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
+      gvs[MEM_MAP] >>
+      ‘is_fun(typeof t)’ by simp[is_fun_def] >>
+      metis_tac[domain_def])
+  >> metis_tac[]
 QED
 
 Theorem DEPENDENCY_EQUIV:
