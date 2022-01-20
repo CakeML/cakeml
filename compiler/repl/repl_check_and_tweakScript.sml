@@ -5,25 +5,31 @@
 *)
 open preamble
 open semanticsPropsTheory evaluateTheory semanticPrimitivesTheory
-open inferTheory compilerTheory
+open inferTheory compilerTheory candle_prover_invTheory
+
+val _ = Parse.hide "types"
 
 val _ = new_theory "repl_check_and_tweak";
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
 Definition decs_allowed_def:
-  decs_allowed (s:ast$dec list) = T  (* TODO: fix *)
+  decs_allowed (decs:ast$dec list) = EVERY candle_prover_inv$safe_dec decs
 End
 
 val read_next_dec =
   “[Dlet (Locs UNKNOWNpt UNKNOWNpt) Pany
        (App Opapp
           [App Opderef [Var (Long "REPL" (Short "readNextString"))];
-           Con NONE []])]”
+           Con NONE []])]”;
 
 Definition check_and_tweak_def:
   check_and_tweak (decs, types, input_str) =
     let all_decs = decs ++ ^read_next_dec in
-      case infertype_prog types all_decs of
-      | Success new_types => INR (all_decs, new_types)
+      dtcase infertype_prog types all_decs of
+      | Success new_types =>
+          if decs_allowed all_decs then INR (all_decs, new_types)
+          else INL (strlit "ERROR: input contains reserved constructor/FFI names")
       | Failure (loc,msg) =>
           INL (concat [strlit "ERROR: "; msg; strlit " at ";
                        locs_to_string input_str loc])
@@ -36,5 +42,29 @@ Proof
   fs [check_and_tweak_def,AllCaseEqs()] \\ rw []
   \\ fs [decs_allowed_def]
 QED
+
+(* pmatch lemmas *)
+
+Triviality safe_exp_pmatch_lemma:
+  safe_exp =
+     every_exp $ λx. case x of
+                     | Con opt xs => (dtcase opt of
+                                      | SOME id => let n = id_to_n id in n ∉ kernel_ctors
+                                      | NONE => T)
+                     | App op xs' => op ≠ FFI kernel_ffi
+                     | _ => T
+Proof
+  CONV_TAC(ONCE_DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ rw [safe_exp_def,FUN_EQ_THM]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ rw [safe_exp_def,FUN_EQ_THM]
+  \\ CASE_TAC \\ fs []
+  \\ CASE_TAC \\ fs []
+QED
+
+Theorem safe_exp_pmatch = safe_exp_pmatch_lemma
+  |> SIMP_RULE std_ss [candle_kernel_valsTheory.kernel_ctors_def,
+                       candle_kernel_valsTheory.kernel_ffi_def,
+                       IN_UNION,IN_INSERT,NOT_IN_EMPTY,GSYM CONJ_ASSOC]
 
 val _ = export_theory();

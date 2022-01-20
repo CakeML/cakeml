@@ -8,6 +8,8 @@ open repl_init_envProgTheory;
 
 val _ = new_theory "decProg";
 
+val _ = set_grammar_ancestry ["ast","ml_translator","ml_pmatch"];
+
 val _ = translation_extends "repl_init_envProg";
 
 val _ = use_string_type true;
@@ -57,5 +59,12 @@ Theorem EqualityType_AST_DEC_TYPE =
 
 Theorem EqualityType_LIST_TYPE_AST_DEC_TYPE =
   EqualityType_rule [] “:dec list”;
+
+val r = translate ast_extrasTheory.every_exp_def;
+val r = translate ast_extrasTheory.every_dec_def;
+val r = translate namespaceTheory.id_to_n_def;
+val r = translate repl_check_and_tweakTheory.safe_exp_pmatch;
+val r = translate candle_prover_invTheory.safe_dec_def;
+val r = translate repl_check_and_tweakTheory.decs_allowed_def;
 
 val _ = export_theory();
