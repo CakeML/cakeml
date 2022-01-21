@@ -1062,9 +1062,6 @@ val _ = Define`
          let p = vsubst_aux ilist p in
          return (Sequent [] p) od od`
 
-val composable_len_tm =
-  composable_len_ONE_compute |> concl |> strip_forall |> snd |> strip_imp |> snd |> rhs
-
 val _ = Define`
   new_overloading_specification (Sequent eqs p) =
     do eqs <-
@@ -1086,8 +1083,6 @@ val _ = Define`
          in
          if ~(orth_ctxt_compute (upd::ctxt)) then
            failwith (strlit "new_overloading_specification: theory is not orthogonal.")
-         else if ~(^composable_len_tm) then
-           failwith (strlit "new_overloading_specification: dependency relation is not monotone.")
          else
            (dtcase dep_steps dep 32767 dep of
               Maybe_cyclic =>

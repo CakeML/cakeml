@@ -2714,7 +2714,6 @@ Proof
   simp[] >> strip_tac >>
   rveq >>
   IF_CASES_TAC >- simp[raise_Fail_def] >>
-  IF_CASES_TAC >- simp[raise_Fail_def] >>
   BasicProvers.CASE_TAC
   >- simp[raise_Fail_def]
   >- simp[raise_Fail_def]
@@ -2767,7 +2766,6 @@ Proof
        match_mp_tac(holSyntaxCyclicityTheory.dep_steps_acyclic_sound'' |> SIMP_RULE std_ss [LET_THM]) >>
        qmatch_asmsub_abbrev_tac ‘dep_steps _ clock’ >>
        qexists_tac ‘clock - 1’ >> simp[Abbr ‘clock’] >>
-       conj_asm2_tac >- fs[holSyntaxCyclicityTheory.composable_len_ONE_compute',o_DEF] >>
        fs[GSYM extends_def] >>
        drule extends_IMP_good_constspec_names >>
        simp[Abbr ‘ctxt’,Once good_constspec_names_CONS] >>
