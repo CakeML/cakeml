@@ -1411,6 +1411,9 @@ val do_app = Q.prove(
   \\ Cases_on `?i. op = LessConstSmall i` THEN1
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def])
+  \\ Cases_on `?i. op = EqualInt i` THEN1
+    (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
+     \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def])
   \\ Cases_on `op = BoundsCheckBlock` THEN1
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def]
@@ -1483,6 +1486,15 @@ val do_app = Q.prove(
     Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
     Cases_on `h` >> fs []>>
     Cases_on `t` >> fs []>>
+    rpt strip_tac >> rveq \\ fs [] >>
+    fs[v_rel_SIMP] \\ rw[] >>
+    rveq \\ fs [listTheory.LIST_REL_EL_EQN]) >>
+  Cases_on `∃n. op = ElemAt n`
+  >- (
+    fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def,bvlSemTheory.do_eq_def] >>
+    Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
+    Cases_on `h` >> fs []>>
+    Cases_on `t` >> fs [CaseEq"bool",PULL_EXISTS]>>
     rpt strip_tac >> rveq \\ fs [] >>
     fs[v_rel_SIMP] \\ rw[] >>
     rveq \\ fs [listTheory.LIST_REL_EL_EQN]) >>
@@ -3018,7 +3030,7 @@ Proof
     \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
     \\ imp_res_tac compile_exps_LENGTH \\ fs [MAP2_APPEND]
     \\ qunabbrev_tac `progs` \\ fs [markerTheory.Abbrev_def]
-    \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ fs [LENGTH_EQ_NUM_compute]
     \\ rveq \\ fs []
     \\ fs [chain_exps_def]
     \\ rveq \\ fs []

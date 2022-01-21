@@ -18,22 +18,22 @@ Datatype:
 End
 
 Datatype:
- oracle_result = Oracle_return 'ffi (word8 list) | Oracle_final ffi_outcome
+  oracle_result = Oracle_return 'ffi (word8 list) | Oracle_final ffi_outcome
 End
 
 Type oracle_function = “:'ffi -> word8 list -> word8 list -> 'ffi oracle_result”
 Type oracle = “:string -> 'ffi oracle_function”
 
 (* An I/O event, IO_event s bytes bytes2, represents the call of FFI function s with
-* immutable input bytes and mutable input map fst bytes2,
-* returning map snd bytes2 in the mutable array. *)
+ * immutable input bytes and mutable input map fst bytes2,
+ * returning map snd bytes2 in the mutable array. *)
 
 Datatype:
   io_event = IO_event string (word8 list) ((word8 # word8) list)
 End
 
 Datatype:
- final_event = Final_event string (word8 list) (word8 list) ffi_outcome
+  final_event = Final_event string (word8 list) (word8 list) ffi_outcome
 End
 
 Datatype:
@@ -44,38 +44,33 @@ Datatype:
    |>
 End
 
-(*val initial_ffi_state : forall 'ffi. oracle 'ffi -> 'ffi -> ffi_state 'ffi*)
-val _ = Define `
- ((initial_ffi_state:(string -> 'ffi oracle_function) -> 'ffi -> 'ffi ffi_state) oc ffi=
- (<| oracle      := oc
- ; ffi_state   := ffi
- ; io_events   := ([])
- |>))`;
-
-Datatype:
-  ffi_result = FFI_return ('ffi ffi_state) (word8 list) | FFI_final final_event
+Definition initial_ffi_state_def:
+  initial_ffi_state oc (ffi:'ffi) =
+    <| oracle := oc; ffi_state := ffi; io_events := [] |>
 End
 
-(*val call_FFI : forall 'ffi. ffi_state 'ffi -> string -> list word8 -> list word8 -> ffi_result 'ffi*)
-val _ = Define `
- ((call_FFI:'ffi ffi_state -> string ->(word8)list ->(word8)list -> 'ffi ffi_result) st s conf bytes=
-   (if ~ (s = "") then
-    (case st.oracle s st.ffi_state conf bytes of
-      Oracle_return ffi' bytes' =>
-        if LENGTH bytes' = LENGTH bytes then
-          (FFI_return
-            ( st with<| ffi_state := ffi'
-                    ; io_events :=
-                        (st.io_events ++
-                          [IO_event s conf (ZIP (bytes, bytes'))])
-            |>)
-            bytes')
-        else FFI_final(Final_event s conf bytes FFI_failed)
-    | Oracle_final outcome =>
-          FFI_final(Final_event s conf bytes outcome)
-    )
-  else FFI_return st bytes))`;
+Datatype:
+  ffi_result = FFI_return ('ffi ffi_state) (word8 list)
+             | FFI_final final_event
+End
 
+Definition call_FFI_def:
+  call_FFI (st:'ffi ffi_state) s conf bytes =
+    if s ≠ "" then
+      case st.oracle s st.ffi_state conf bytes of
+        Oracle_return ffi' bytes' =>
+          if LENGTH bytes' = LENGTH bytes then
+            FFI_return
+              (st with
+               <|ffi_state := ffi';
+                 io_events :=
+                   st.io_events ++ [IO_event s conf (ZIP (bytes,bytes'))]|>)
+              bytes'
+          else FFI_final (Final_event s conf bytes FFI_failed)
+      | Oracle_final outcome =>
+        FFI_final (Final_event s conf bytes outcome)
+    else FFI_return st bytes
+End
 
 Datatype:
   outcome = Success | Resource_limit_hit | FFI_outcome final_event
@@ -99,19 +94,17 @@ Datatype:
   | Fail
 End
 
-
 (* trace-based semantics can be recovered as an instance of oracle-based
  * semantics as follows. *)
 
-(*val trace_oracle : oracle (llist io_event)*)
-val _ = Define `
- ((trace_oracle:string ->(io_event)llist ->(word8)list ->(word8)list ->((io_event)llist)oracle_result) s io_trace conf input=
-   ((case LHD io_trace of
-    SOME (IO_event s' conf' bytes2) =>
-      if (s = s') /\ (MAP FST bytes2 = input) /\ (conf = conf') then
+Definition trace_oracle_def:
+  trace_oracle s io_trace conf input =
+    case LHD io_trace of
+    | NONE => Oracle_final FFI_failed
+    | SOME (IO_event s' conf' bytes2) =>
+      if s = s' ∧ MAP FST bytes2 = input ∧ conf = conf' then
         Oracle_return (THE (LTL io_trace)) (MAP SND bytes2)
       else Oracle_final FFI_failed
-  | _ => Oracle_final FFI_failed
-  )))`;
+End
 
 val _ = export_theory()

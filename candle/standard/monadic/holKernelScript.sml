@@ -1108,7 +1108,7 @@ val _ = Define `
 *)
 
 val new_basic_type_definition_def = Define `
-  new_basic_type_definition tyname absname repname thm =
+  new_basic_type_definition (tyname, absname, repname, thm) =
     dtcase thm of (Sequent asl c) =>
     do ok0 <- can get_type_arity tyname ;
        ok1 <- can get_const_type absname ;

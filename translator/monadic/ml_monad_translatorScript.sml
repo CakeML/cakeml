@@ -4,7 +4,7 @@
 *)
 open ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
 open astTheory libTheory semanticPrimitivesTheory evaluateTheory evaluatePropsTheory
-open terminationTheory ml_progLib ml_progTheory
+open evaluateTheory ml_progLib ml_progTheory
 open set_sepTheory Satisfy
 open cfHeapsBaseTheory AC_Sort
 open ml_monadBaseTheory ml_monad_translatorBaseTheory
@@ -218,6 +218,58 @@ Proof
   \\ TRY (Cases_on `e`) \\ fs []
   \\ imp_res_tac evaluate_sing \\ fs [] \\ rveq \\ fs []
   \\ imp_res_tac REFS_PRED_FRAME_trans
+QED
+
+(* bind ignore *)
+Theorem EvalM_bind_ignore:
+   (EvalM ro env st e1 (MONAD b c (x:('refs, 'b, 'c) M))
+          (H:('refs -> hprop) # 'ffi ffi_proj)) /\
+   (EvalM ro env (SND (x st)) e2 (MONAD a c (f:('refs, 'a, 'c) M)) H) ==>
+   EvalM ro env st (Let NONE e1 e2) (MONAD a c (st_ex_ignore_bind x f)) H
+Proof
+  rw[EvalM_def,MONAD_def,st_ex_return_def,PULL_EXISTS, CONTAINER_def] \\ fs[]
+  \\ last_x_assum drule \\ rw[]
+  \\ imp_res_tac REFS_PRED_FRAME_imp
+  \\ Cases_on `x st` \\ fs []
+  \\ rename1 `x st = (succ,new_state)`
+  \\ simp [evaluate_def,pair_case_eq,PULL_EXISTS]
+  \\ reverse (Cases_on `succ`) \\ fs []
+  THEN1
+   (Cases_on `res` \\ fs[] \\ rw [] \\ Cases_on `e`
+    \\ fs [st_ex_ignore_bind_def] \\ rveq \\ asm_exists_tac \\ fs [])
+  \\ fs[st_ex_ignore_bind_def]
+  \\ Cases_on `res` \\ fs []
+  \\ drule evaluate_sing \\ strip_tac \\ rveq \\ fs []
+  \\ last_x_assum drule \\ rw[]
+  \\ Cases_on `f new_state` \\ fs []
+  \\ drule evaluate_set_clock
+  \\ qpat_x_assum `evaluate _ _ _ = _` kall_tac
+  \\ disch_then (qspec_then `s2'.clock` mp_tac)
+  \\ impl_tac THEN1 (CCONTR_TAC \\ fs [] \\ EVERY_CASE_TAC \\ fs [])
+  \\ strip_tac \\ fs [] \\ pop_assum mp_tac
+  \\ drule evaluate_set_clock \\ fs []
+  \\ disch_then (qspec_then `ck1` mp_tac)
+  \\ rpt strip_tac \\ fs []
+  \\ asm_exists_tac \\ fs [write_def,namespaceTheory.nsOptBind_def]
+  \\ Cases_on `q` \\ fs []
+  \\ Cases_on `res'` \\ fs []
+  \\ TRY (Cases_on `e`) \\ fs []
+  \\ imp_res_tac evaluate_sing \\ fs [] \\ rveq \\ fs []
+  \\ imp_res_tac REFS_PRED_FRAME_trans
+QED
+
+Theorem EvalM_pure_seq:
+  Eval env e1 (c y) ∧
+  EvalM ro env st e2 (MONAD a b x) ^H ⇒
+  EvalM ro env st (Let NONE e1 e2) (MONAD a b (pure_seq y x)) ^H
+Proof
+  rw []
+  \\ ‘pure_seq y x = monad_ignore_bind (ex_return y) x’ by
+    fs [pure_seq_def,st_ex_ignore_bind_def,st_ex_return_def, FUN_EQ_THM]
+  \\ fs [] \\ irule EvalM_bind_ignore \\ fs []
+  \\ conj_tac
+  >- (qexists_tac ‘c’ \\ fs [EvalM_return])
+  \\ fs [st_ex_return_def]
 QED
 
 (* lift ro refinement invariants *)

@@ -521,9 +521,9 @@ Theorem do_app_SOME_flat_state_rel:
                 flat_state_rel reachable new_state new_removed_state ∧
                 do_app removed_state op l =
                     SOME (new_removed_state, result) ∧
-                domain (find_sem_prim_res_globals (list_result result)) ⊆
+                domain (find_sem_prim_res_globals (evaluate$list_result result)) ⊆
                     domain reachable ∧
-                EVERY ($~ ∘ v_has_Eval) (result_vs (list_result result))
+                EVERY ($~ ∘ v_has_Eval) (result_vs (evaluate$list_result result))
 Proof
   rw []
   \\ qpat_assum `flat_state_rel _ _ _` (mp_tac o REWRITE_RULE [flat_state_rel_def])

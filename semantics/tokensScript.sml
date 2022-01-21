@@ -4,8 +4,6 @@
 *)
 open HolKernel Parse boolLib bossLib;
 
-val _ = numLib.prefer_num();
-
 local open integerTheory stringTheory in end;
 val _ = new_theory "tokens"
 val _ = set_grammar_ancestry ["integer", "string"];

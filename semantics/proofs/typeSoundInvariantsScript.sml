@@ -4,7 +4,7 @@
 *)
 open HolKernel Parse boolLib bossLib;
 open astTheory namespaceTheory semanticPrimitivesTheory typeSystemTheory;
-open terminationTheory namespacePropsTheory;
+open namespacePropsTheory;
 
 val _ = new_theory "typeSoundInvariants"
 

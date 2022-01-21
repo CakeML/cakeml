@@ -4,7 +4,7 @@
 *)
 open ml_monad_translatorBaseTheory ml_monad_translatorTheory cfHeapsBaseTheory set_sepTheory pred_setTheory cfStoreTheory Satisfy
 open semanticPrimitivesTheory cfTacticsLib evaluateTheory ml_translatorTheory
-open terminationTheory
+open evaluateTheory
 
 val _ = new_theory"cfMonad"
 

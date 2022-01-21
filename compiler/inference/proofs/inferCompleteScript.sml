@@ -8,7 +8,6 @@ open preamble semanticPrimitivesTheory namespacePropsTheory
      astTheory astPropsTheory typeSystemTheory typeSysPropsTheory
      unifyTheory inferTheory inferPropsTheory envRelTheory
      infer_eSoundTheory infer_eCompleteTheory type_eDetermTheory type_dCanonTheory;
-open terminationTheory
 
 val _ = new_theory "inferComplete";
 

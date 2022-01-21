@@ -65,7 +65,7 @@ End
 Definition mk_forall_def:
   mk_forall (v, P) =
     do
-      ty <- type_of v;
+      ty <- call_type_of v;
       all <- mk_univ ty;
       pabs <- mk_abs (v, P);
       mk_comb (all, pabs)
@@ -181,7 +181,7 @@ End
 Definition mk_exists_def:
   mk_exists (v, P) =
     do
-      ty <- type_of v;
+      ty <- call_type_of v;
       ex <- mk_ex ty;
       pabs <- mk_abs (v, P);
       mk_comb (ex, pabs)
@@ -193,7 +193,7 @@ End
 Definition mk_surj_def:
   mk_surj f dom codom =
     do
-      ty <- type_of f;
+      ty <- call_type_of f;
       y <- return (mk_var («y», codom));
       x <- return (mk_var («x», dom));
       fx <- mk_comb (f, x);
@@ -208,7 +208,7 @@ End
 Definition mk_inj_def:
   mk_inj f dom =
     do
-      ty <- type_of f;
+      ty <- call_type_of f;
       x <- return (mk_var («x», dom));
       y <- return (mk_var («y», dom));
       fx <- mk_comb (f, x);
@@ -267,7 +267,7 @@ End
  * ------------------------------------------------------------------------- *)
 
 Definition ind_type_def:
-  ind_type = («ind», 0n)
+  ind_type = («ind», 0i)
 End
 
 Definition select_sym_def:
@@ -280,11 +280,10 @@ Definition init_reader_def:
       ax <- mk_eta_ax (); new_axiom ax;
       new_constant select_sym;
       ax <- mk_select_ax (); new_axiom ax;
-      new_type ind_type;
+      call_new_type ind_type;
       ax <- mk_infinity_ax (); new_axiom ax;
       return ()
     od
 End
 
 val _ = export_theory ();
-
