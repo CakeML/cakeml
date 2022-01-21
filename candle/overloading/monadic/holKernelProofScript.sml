@@ -1569,7 +1569,7 @@ Proof
        tvars_def,MEM_LIST_UNION]
   \\ IMP_RES_TAC TERM_Var \\ FULL_SIMP_TAC std_ss [pred_setTheory.IN_UNION]
 QED
-        
+
 Theorem QSORT_type_vars_in_term:
   (QSORT $<= (MAP explode (type_vars_in_term P)) = STRING_SORT (MAP explode (tvars P)))
 Proof
@@ -2920,14 +2920,12 @@ Proof
       imp_res_tac freesin_IMP >>
       rfs[TERM_def] >> METIS_TAC[]) >>
     imp_res_tac THM >> rfs[TERM_Comb] >>
-    imp_res_tac QSORT_type_vars_in_term >>
     imp_res_tac THM_term_ok_bool >>
-    fs[term_ok_def] >>
+    fs[term_ok_def,QSORT_type_vars_in_term] >>
     rfs[WELLTYPED] >>
     simp[Abbr`s2`,Abbr`s1`,Abbr`vs`,Abbr`l1`] >>
     CONJ_TAC >- (
-      qpat_x_assum`_ = STRING_SORT _` (mp_tac o Q.AP_TERM`LENGTH`)>>
-      qpat_x_assum`_ = STRING_SORT _` (mp_tac o Q.AP_TERM`LENGTH`)>>
+      qspec_then ‘P’ (mp_tac o Q.AP_TERM ‘LENGTH’) (GEN_ALL QSORT_type_vars_in_term) >>
       simp[LENGTH_QSORT,LENGTH_STRING_SORT,LENGTH_MAP,tvars_ALL_DISTINCT]) >>
     METIS_TAC[term_type]) >>
   qmatch_assum_abbrev_tac`Abbrev(l1 = [(absname,absty);(repname,repty)])` >>
@@ -3105,15 +3103,14 @@ Proof
     >- METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok]
     \\ simp [Abbr`s2`,conexts_of_upd_def]
     \\ imp_res_tac QSORT_type_vars_in_term
-    \\ simp [equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
+    \\ simp [equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX,QSORT_type_vars_in_term])
   \\ conj_tac
   >-
    (match_mp_tac (List.nth(CONJUNCTS proves_rules,9))
     \\ conj_tac
     >- METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok]
     \\ simp [Abbr`s2`,conexts_of_upd_def]
-    \\ imp_res_tac QSORT_type_vars_in_term
-    \\ simp [equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
+    \\ simp [QSORT_type_vars_in_term,equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
   \\ Cases
   \\ once_rewrite_tac [THM_def]
   \\ strip_tac
