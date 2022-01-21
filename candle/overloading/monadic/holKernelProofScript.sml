@@ -1532,40 +1532,47 @@ val freesin_IMP = Q.prove(
   \\ FULL_SIMP_TAC std_ss [MEM]
   \\ FULL_SIMP_TAC (srw_ss()) [term_11]);
 
-val ALL_DISTINCT_union = Q.prove(
-  `!xs. ALL_DISTINCT (holSyntaxExtra$union xs ys) = ALL_DISTINCT ys`,
+Theorem ALL_DISTINCT_union:
+  !xs. ALL_DISTINCT (holSyntaxExtra$union xs ys) = ALL_DISTINCT ys
+Proof
   Induct \\ SIMP_TAC (srw_ss()) [union_def,Once itlist_def,insert_def]
-  \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss [union_def]);
+  \\ SRW_TAC [] [] \\ FULL_SIMP_TAC std_ss [union_def]
+QED
 
-val ALL_DISTINCT_tyvars_ALT = Q.prove(
-  `!h. ALL_DISTINCT (tyvars (h:type))`,
+Theorem ALL_DISTINCT_tyvars_ALT:
+  !h. ALL_DISTINCT (tyvars (h:type))
+Proof
   HO_MATCH_MP_TAC type_IND \\ REPEAT STRIP_TAC
   \\ SIMP_TAC (srw_ss()) [Once holKernelTheory.tyvars_def]
   \\ Induct_on `l` \\ SIMP_TAC (srw_ss()) [Once itlist_def,MAP]
-  \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_union]);
+  \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_union]
+QED
 
-val ALL_DISTINCT_type_vars_in_term = Q.prove(
-  `!P. ALL_DISTINCT (type_vars_in_term P)`,
+Theorem ALL_DISTINCT_type_vars_in_term:
+  !P. ALL_DISTINCT (type_vars_in_term P)
+Proof
   Induct \\ SIMP_TAC (srw_ss()) [Once type_vars_in_term_def]
   \\ FULL_SIMP_TAC std_ss [tyvars_ALL_DISTINCT,ALL_DISTINCT_union]
-  \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_tyvars_ALT]);
+  \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_tyvars_ALT]
+QED
 
-val MEM_type_vars_in_term = Q.prove(
-  `!rhs v. TERM defs rhs ==>
-            (MEM v (type_vars_in_term rhs) = MEM v (tvars rhs))`,
+Theorem MEM_type_vars_in_term:
+  !rhs v. (MEM v (type_vars_in_term rhs) = MEM v (tvars rhs))
+Proof
   Induct
   \\ SIMP_TAC (srw_ss()) [Once type_vars_in_term_def,tvars_def,tyvars_thm]
   THEN1 (FULL_SIMP_TAC std_ss [MEM_union,MEM_LIST_UNION] \\ REPEAT STRIP_TAC
     \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss [])
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC Abs_Var
-  \\ FULL_SIMP_TAC std_ss [] \\ POP_ASSUM (K ALL_TAC)
+  \\ FULL_SIMP_TAC std_ss []
   \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss [MEM_union,
        tvars_def,MEM_LIST_UNION]
-  \\ IMP_RES_TAC TERM_Var \\ FULL_SIMP_TAC std_ss [pred_setTheory.IN_UNION]);
-
-val QSORT_type_vars_in_term = Q.prove(
-  `TERM defs P ==>
-    (QSORT $<= (MAP explode (type_vars_in_term P)) = STRING_SORT (MAP explode (tvars P)))`,
+  \\ IMP_RES_TAC TERM_Var \\ FULL_SIMP_TAC std_ss [pred_setTheory.IN_UNION]
+QED
+        
+Theorem QSORT_type_vars_in_term:
+  (QSORT $<= (MAP explode (type_vars_in_term P)) = STRING_SORT (MAP explode (tvars P)))
+Proof
   REPEAT STRIP_TAC \\
   MATCH_MP_TAC (MP_CANON sortingTheory.SORTED_PERM_EQ) \\
   qexists_tac`$<=` >>
@@ -1587,7 +1594,8 @@ val QSORT_type_vars_in_term = Q.prove(
              ,ALL_DISTINCT_type_vars_in_term
              ,ALL_DISTINCT_MAP_explode] ) >>
   simp[ALL_DISTINCT_STRING_SORT] >>
-  METIS_TAC[sortingTheory.QSORT_MEM,MEM_type_vars_in_term,MEM_MAP])
+  METIS_TAC[sortingTheory.QSORT_MEM,MEM_type_vars_in_term,MEM_MAP]
+QED
 
 (* ------------------------------------------------------------------------- *)
 (* Verification of thm functions                                             *)
