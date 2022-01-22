@@ -103,6 +103,16 @@ Proof
   \\ simp[]
 QED
 
+Theorem inf_set_tids_ienv_init_config[simp]:
+  inf_set_tids_ienv (count start_type_id) init_config
+Proof
+  EVAL_TAC
+  \\ rpt conj_tac
+  \\ Cases \\ simp[namespaceTheory.nsLookup_def]
+  \\ rw[] \\ simp[]
+  \\ EVAL_TAC \\ simp[]
+QED
+
 Theorem repl_types_F_thm:
   ∀(ffi:'ffi ffi_state) rs types s env.
     repl_types F (ffi,rs) (types,s,env) ⇒
