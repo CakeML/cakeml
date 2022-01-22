@@ -9,23 +9,6 @@ open preamble
 
 val _ = new_theory"ag32BootstrapProof";
 
-Theorem compile_correct_eval:
-  compile c prog = SOME (bytes,bitmaps,c') ⇒
-   let (s0,env) = THE (prim_sem_env (ffi: 'ffi ffi_state)) in
-   ¬semantics_prog (add_eval_state ev s0) env prog Fail ∧ backend_config_ok c ∧
-   mc_conf_ok mc ∧ mc_init_ok c mc ∧ opt_eval_config_wf c' ev ∧
-   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names ffi
-     (heap_regs c.stack_conf.reg_names) mc ms ⇒
-   machine_sem mc ffi ms ⊆
-     extend_with_resource_limit
-       (semantics_prog (add_eval_state ev s0) env prog)
-Proof
-  fs [LET_THM] \\ pairarg_tac \\ rw []
-  \\ mp_tac compile_correct' \\ fs []
-  \\ rw [extend_with_resource_limit'_def]
-  \\ fs [extend_with_resource_limit_def,SUBSET_DEF]
-QED
-
 val with_clos_conf_simp = prove(
   ``(mc_init_ok (ag32_backend_config with <| clos_conf := z ; bvl_conf updated_by
                     (λc. c with <|inline_size_limit := t1; exp_cut := t2|>) |>) =
@@ -62,10 +45,6 @@ Theorem cake_config_lab_conf_asm_conf:
 Proof
   once_rewrite_tac [ag32BootstrapTheory.config_def] \\ EVAL_TAC
 QED
-
-Definition the_EvalDecs_def:
-  the_EvalDecs (EvalDecs x) = x
-End
 
 val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
   semantics_compiler32_prog
@@ -143,7 +122,7 @@ val compile_correct_applied =
 Theorem cake_compiled_thm =
   CONJ compile_correct_applied cake_output
   |> DISCH_ALL
- (* |> check_thm; *)
+  |> check_thm;
 
 Theorem cake_installed:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
