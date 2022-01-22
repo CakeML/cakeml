@@ -23,10 +23,18 @@ val read_next_dec =
           [App Opderef [Var (Long "REPL" (Short "readNextString"))];
            Con NONE []])]”;
 
+Definition infertype_prog_inc_def:
+  infertype_prog_inc (ienv, next_id) prog =
+  case infer_ds ienv prog (init_infer_state <| next_id := next_id |>) of
+    (Success new_ienv, st) =>
+    (Success (extend_dec_ienv new_ienv ienv, st.next_id))
+  | (Failure x, _) => Failure x
+End
+
 Definition check_and_tweak_def:
   check_and_tweak (decs, types, input_str) =
     let all_decs = decs ++ ^read_next_dec in
-      dtcase infertype_prog types all_decs of
+      dtcase infertype_prog_inc types all_decs of
       | Success new_types =>
           if decs_allowed all_decs then INR (all_decs, new_types)
           else INL (strlit "ERROR: input contains reserved constructor/FFI names")
@@ -37,7 +45,7 @@ End
 
 Theorem check_and_tweak: (* used in replProof *)
   check_and_tweak (decs,types,input_str) = INR (safe_decs,new_types) ⇒
-  infertype_prog types safe_decs = Success new_types ∧ decs_allowed safe_decs
+  infertype_prog_inc types safe_decs = Success new_types ∧ decs_allowed safe_decs
 Proof
   fs [check_and_tweak_def,AllCaseEqs()] \\ rw []
   \\ fs [decs_allowed_def]
