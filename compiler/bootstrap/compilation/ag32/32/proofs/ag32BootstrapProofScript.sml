@@ -9,13 +9,22 @@ open preamble
 
 val _ = new_theory"ag32BootstrapProof";
 
-val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
-  semantics_compiler32_prog
-  |> Q.GENL[`cl`,`fs`]
-  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
-
-val (cake_sem,cake_output) = cake_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (cake_not_fail,cake_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_sem |> CONJ_PAIR
+Theorem compile_correct_eval:
+  compile c prog = SOME (bytes,bitmaps,c') ⇒
+   let (s0,env) = THE (prim_sem_env (ffi: 'ffi ffi_state)) in
+   ¬semantics_prog (add_eval_state ev s0) env prog Fail ∧ backend_config_ok c ∧
+   mc_conf_ok mc ∧ mc_init_ok c mc ∧ opt_eval_config_wf c' ev ∧
+   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names ffi
+     (heap_regs c.stack_conf.reg_names) mc ms ⇒
+   machine_sem mc ffi ms ⊆
+     extend_with_resource_limit
+       (semantics_prog (add_eval_state ev s0) env prog)
+Proof
+  fs [LET_THM] \\ pairarg_tac \\ rw []
+  \\ mp_tac compile_correct' \\ fs []
+  \\ rw [extend_with_resource_limit'_def]
+  \\ fs [extend_with_resource_limit_def,SUBSET_DEF]
+QED
 
 val with_clos_conf_simp = prove(
   ``(mc_init_ok (ag32_backend_config with <| clos_conf := z ; bvl_conf updated_by
@@ -26,6 +35,49 @@ val with_clos_conf_simp = prove(
       backend_config_ok ag32_backend_config))``,
   fs [mc_init_ok_def,FUN_EQ_THM,backend_config_ok_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ EVAL_TAC);
+
+Overload cake_config = “ag32Bootstrap$config”;
+
+Definition compiler_instance_def:
+  compiler_instance =
+    <| init_state := config_to_inc_config cake_config ;
+       compiler_fun := compile_inc_progs_for_eval cake_config.lab_conf.asm_conf ;
+       config_dom := UNIV ;
+       config_v := BACKEND_INC_CONFIG_v ;
+       decs_dom := decs_allowed ;
+       decs_v := LIST_v AST_DEC_v |>
+End
+
+Triviality compiler_instance_lemma:
+  INJ compiler_instance.config_v 𝕌(:inc_config) 𝕌(:semanticPrimitives$v) ∧
+  compiler_instance.init_state = config_to_inc_config cake_config ∧
+  compiler_instance.compiler_fun =
+    compile_inc_progs_for_eval cake_config.lab_conf.asm_conf
+Proof
+  fs [compiler_instance_def]
+QED
+
+Theorem cake_config_lab_conf_asm_conf:
+  cake_config.lab_conf.asm_conf = ag32_config
+Proof
+  once_rewrite_tac [ag32BootstrapTheory.config_def] \\ EVAL_TAC
+QED
+
+Definition the_EvalDecs_def:
+  the_EvalDecs (EvalDecs x) = x
+End
+
+val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
+  semantics_compiler32_prog
+  |> Q.INST[‘eval_state_var’|->‘the_EvalDecs (mk_init_eval_state compiler_instance)’]
+  |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_init_eval_state_def,the_EvalDecs_def]
+  |> SIMP_RULE (srw_ss()) [GSYM source_evalProofTheory.mk_init_eval_state_def
+                           |> SIMP_RULE (srw_ss()) []]
+  |> Q.GENL[`cl`,`fs`]
+  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
+
+val (cake_sem,cake_output) = cake_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
+val (cake_not_fail,cake_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_sem |> CONJ_PAIR
 
 val ffi_names =
   ``config.lab_conf.ffi_names``
@@ -72,9 +124,11 @@ val cake_startup_clock_def =
   |> SIMP_RULE bool_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]);
 
 val compile_correct_applied =
-  MATCH_MP compile_correct cake_compiled
+  MATCH_MP compile_correct_eval cake_compiled
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO,
                          with_clos_conf_simp]
+  |> Q.INST [‘ev’|->‘SOME compiler_instance’]
+  |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,compiler_instance_lemma]
   |> C MATCH_MP cake_not_fail
   |> C MATCH_MP ag32_backend_config_ok
   |> REWRITE_RULE[cake_sem_sing,AND_IMP_INTRO]
@@ -84,6 +138,12 @@ val compile_correct_applied =
   |> C MATCH_MP is_ag32_machine_config_ag32_machine_config
   |> Q.GEN`cbspace` |> Q.SPEC`0`
   |> Q.GEN`data_sp` |> Q.SPEC`0`
+  |> REWRITE_RULE[AND_IMP_INTRO]
+
+Theorem cake_compiled_thm =
+  CONJ compile_correct_applied cake_output
+  |> DISCH_ALL
+ (* |> check_thm; *)
 
 Theorem cake_installed:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
@@ -104,15 +164,13 @@ Proof
   \\ simp[]
   \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
-  \\ conj_tac >- EVAL_TAC
   \\ asm_exists_tac \\ simp[]
 QED
 
-val cake_machine_sem =
+Theorem cake_machine_sem =
   compile_correct_applied
   |> C MATCH_MP (UNDISCH cake_installed)
-  |> DISCH_ALL
-  |> curry save_thm "cake_machine_sem";
+  |> DISCH_ALL;
 
 (* TODO: move *)
 
