@@ -540,9 +540,9 @@ Proof
   \\ rename [‘evaluate _ _ [App Opapp _]’]
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_list,build_rec_env_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ rename [‘do_opapp [compiler64prog_check_and_tweak_v;_]’]
+  \\ rename [‘do_opapp [repl_check_and_tweak_check_and_tweak_v;_]’]
   \\ qmatch_goalsub_abbrev_tac ‘do_opapp [_; arg_v]’
-  \\ assume_tac compiler64prog_check_and_tweak_v_thm
+  \\ assume_tac repl_check_and_tweak_check_and_tweak_v_thm
   \\ ‘PAIR_TYPE (LIST_TYPE AST_DEC_TYPE)
         (PAIR_TYPE INFER_INF_ENV_TYPE STRING_TYPE) (decs,types,input_str) arg_v’ by
     fs [Abbr‘arg_v’,PAIR_TYPE_def]
@@ -823,8 +823,78 @@ Theorem evaluate_repl_thm =
              ‘input_str’|->‘strlit""’,‘decs’|->‘[]’] |> GEN_ALL
   |> SIMP_RULE std_ss [STRING_TYPE_def,LIST_TYPE_def] |> SPEC_ALL;
 
+Theorem evaluate_start_repl:
+  (st:'ffi semanticPrimitives$state).eval_state = SOME (EvalDecs s) ∧
+  s.compiler = compiler_inst x64_config ∧
+  s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
+  s.env_id_counter = (0,1,1) ∧
+  BACKEND_INC_CONFIG_TYPE s1 s.compiler_state ∧
+  LIST_TYPE STRING_TYPE cl cl_v ∧
+  repl_types (ffi,repl_rs) (repl_prog_types,st with eval_state := NONE,
+    merge_env repl_moduleProg_env_5 init_env) ∧
+  nsLookup env.v start_repl_str = SOME start_repl_v ⇒
+  nsLookup env.v arg_str = SOME (Conv NONE [cl_v; s.compiler_state]) ⇒
+  ∃res s1.
+    evaluate st env [App Opapp [Var start_repl_str; Var arg_str]] = (s1,res) ∧
+    res ≠ Rerr (Rabort Rtype_error)
+Proof
+  rpt strip_tac
+  (* expand App start_repl *)
+  \\ simp [evaluate_def,start_repl_v_def]
+  \\ simp [do_opapp_def,find_recfun_def]
+  \\ IF_CASES_TAC \\ simp []
+  \\ rename [‘evaluate _ _ [Mat _ _]’]
+  \\ simp [Once evaluate_def]
+  \\ simp [can_pmatch_all_def,pmatch_def,evaluate_Var]
+  \\ simp [Once evaluate_def,astTheory.pat_bindings_def,pmatch_def]
+  (* calling select_parse *)
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def]
+  \\ rename [‘evaluate _ _ [App Opapp _]’]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_list,build_rec_env_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ rename [‘do_opapp [compiler64prog_slect_parse_v;_]’]
+  \\ assume_tac compiler64prog_slect_parse_v_thm
+  \\ drule_all Arrow_IMP
+  \\ fs [dec_clock_def]
+  \\ disch_then (qspec_then ‘(st with clock := st.clock − 2)’ strip_assume_tac)
+  \\ fs [] \\ IF_CASES_TAC \\ fs []
+  \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ gvs []
+  (* let types = init_types *)
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  (* let conf = ... *)
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  (* let env = ... *)
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  (* let decs = [] *)
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit,do_con_check_def,build_conv_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  (* let input_str = "" *)
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  (* call repl *)
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ irule (GEN_ALL evaluate_repl_thm)
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ conj_tac >- EVAL_TAC
+  \\ assume_tac repl_init_types_repl_prog_types_v_thm
+  \\ rpt (first_assum $ irule_at Any)
+  \\ rpt (irule_at Any repl_types_clock_refs)
+  \\ metis_tac []
+QED
+
 (*
-max_print_depth := 25
+max_print_depth := 12
 *)
 
 val _ = export_theory();

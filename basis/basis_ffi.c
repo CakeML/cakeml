@@ -34,6 +34,10 @@ extern char cake_codebuffer_begin;
 extern char cake_codebuffer_end;
 
 
+void ffikernel_ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
+
+}
+
 void ffiget_arg_count (unsigned char *c, long clen, unsigned char *a, long alen) {
   a[0] = (char) argc;
   a[1] = (char) (argc / 256);
