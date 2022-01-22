@@ -5,7 +5,7 @@ open preamble
 open semanticsPropsTheory evaluateTheory semanticPrimitivesTheory
 open inferTheory inferSoundTheory typeSoundTheory semanticsTheory
      envRelTheory primSemEnvTheory typeSoundInvariantsTheory
-     namespacePropsTheory inferPropsTheory
+     namespacePropsTheory inferPropsTheory repl_check_and_tweakTheory
 open ml_progTheory
 
 val _ = new_theory "repl_types";
@@ -29,9 +29,9 @@ End
 Inductive repl_types:
 [repl_types_init:]
   (∀ffi rs decs types (s:'ffi semanticPrimitives$state) env b.
-     infertype_prog init_config decs = Success types ∧
+     infertype_prog_inc (init_config, start_type_id) decs = Success types ∧
      evaluate$evaluate_decs (init_state ffi) init_env decs = (s,Rval env) ∧
-     EVERY (check_ref_types types (extend_dec_env env init_env)) rs ⇒
+     EVERY (check_ref_types (FST types) (extend_dec_env env init_env)) rs ⇒
      repl_types b (ffi,rs) (types,s,extend_dec_env env init_env)) ∧
 [repl_types_skip:]
   (∀ffi rs types junk ck t e (s:'ffi semanticPrimitives$state) env.
@@ -43,20 +43,20 @@ Inductive repl_types:
 [repl_types_eval:]
   (∀ffi rs decs types new_types (s:'ffi semanticPrimitives$state) env new_env new_s b.
      repl_types b (ffi,rs) (types,s,env) ∧
-     infertype_prog types decs = Success new_types ∧
+     infertype_prog_inc types decs = Success new_types ∧
      evaluate$evaluate_decs s env decs = (new_s,Rval new_env) ⇒
      repl_types b (ffi,rs) (new_types,new_s,extend_dec_env new_env env)) ∧
 [repl_types_exn:]
   (∀ffi rs decs types new_types (s:'ffi semanticPrimitives$state) env e new_s b.
      repl_types b (ffi,rs) (types,s,env) ∧
-     infertype_prog types decs = Success new_types ∧
+     infertype_prog_inc types decs = Success new_types ∧
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ⇒
      repl_types b (ffi,rs) (types,new_s,env)) ∧
 [repl_types_exn_assign:]
   (∀ffi rs decs types new_types (s:'ffi semanticPrimitives$state) env e
     new_s name loc new_store b.
      repl_types b (ffi,rs) (types,s,env) ∧
-     infertype_prog types decs = Success new_types ∧
+     infertype_prog_inc types decs = Success new_types ∧
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ∧
      MEM (name,Exn,loc) rs ∧
      store_assign loc (Refv e) new_s.refs = SOME new_store ⇒
@@ -285,18 +285,16 @@ Theorem repl_types_F_thm:
     repl_types F (ffi,rs) (types,s,env) ⇒
       EVERY (ref_lookup_ok s.refs) rs ∧
       ∀decs new_t new_s res.
-        infertype_prog types decs = Success new_t ∧
+        infertype_prog_inc types decs = Success new_t ∧
         evaluate_decs s env decs = (new_s,res) ⇒
         res ≠ Rerr (Rabort Rtype_error)
 Proof
   Induct_on`repl_types`
-  \\ rw[infertype_prog_def, CaseEq"exc", init_infer_state_def] \\ fs[PULL_EXISTS]
-  \\ qmatch_asmsub_abbrev_tac`infer_ds _ _ s0`
+  \\ rw[infertype_prog_inc_def, CaseEqs["infer$exc","prod"], init_infer_state_def]
   >- (
-    Cases_on`infer_ds init_config decs s0` \\ fs[] \\ rw[]
-    \\ drule (CONJUNCT2 infer_d_sound)
+    drule (CONJUNCT2 infer_d_sound)
     \\ disch_then (resolve_then Any mp_tac env_rel_init_config)
-    \\ impl_tac >- simp[Abbr`s0`] \\ strip_tac
+    \\ impl_tac >- simp[] \\ strip_tac
     \\ fs[EVERY_MEM, FORALL_PROD] \\ rw[]
     \\ first_x_assum drule
     \\ rw[check_ref_types_def, ref_lookup_ok_def]
@@ -305,7 +303,7 @@ Proof
     \\ resolve_then Any (qspecl_then[`ids`,`ffi`]mp_tac)
          (GSYM init_state_env_thm)
          prim_type_sound_invariants
-    \\ impl_tac >- ( simp[Abbr`ids`, Abbr`s0`] \\ EVAL_TAC )
+    \\ impl_tac >- ( simp[Abbr`ids`] \\ EVAL_TAC )
     \\ strip_tac \\ strip_tac
     \\ first_x_assum drule \\ strip_tac
     \\ fs[type_sound_invariant_def]
@@ -367,7 +365,7 @@ Theorem repl_types_thm:
     repl_types b (ffi,rs) (types,s,env) ⇒
       EVERY (ref_lookup_ok s.refs) rs ∧
       ∀decs new_t new_s res.
-        infertype_prog types decs = Success new_t ∧
+        infertype_prog_inc types decs = Success new_t ∧
         evaluate_decs s env decs = (new_s,res) ⇒
         res ≠ Rerr (Rabort Rtype_error)
 Proof
