@@ -5,7 +5,7 @@ open preamble
 open semanticsPropsTheory evaluateTheory semanticPrimitivesTheory
 open inferTheory inferSoundTheory typeSoundTheory semanticsTheory
      envRelTheory primSemEnvTheory typeSoundInvariantsTheory
-     namespacePropsTheory
+     namespacePropsTheory inferPropsTheory
 open ml_progTheory
 
 val _ = new_theory "repl_types";
@@ -31,8 +31,8 @@ Inductive repl_types:
   (∀ffi rs decs types (s:'ffi semanticPrimitives$state) env b.
      infertype_prog init_config decs = Success types ∧
      evaluate$evaluate_decs (init_state ffi) init_env decs = (s,Rval env) ∧
-     EVERY (check_ref_types types env) rs ⇒
-     repl_types b (ffi,rs) (types,s,env)) ∧
+     EVERY (check_ref_types types (extend_dec_env env init_env)) rs ⇒
+     repl_types b (ffi,rs) (types,s,extend_dec_env env init_env)) ∧
 [repl_types_skip:]
   (∀ffi rs types junk ck t e (s:'ffi semanticPrimitives$state) env.
      repl_types T (ffi,rs) (types,s,env) ⇒
@@ -128,8 +128,7 @@ Proof
     \\ resolve_then Any (qspecl_then[`ids`,`ffi`]mp_tac)
          (GSYM init_state_env_thm)
          prim_type_sound_invariants
-    \\ impl_tac
-    >- ( simp[Abbr`ids`, Abbr`s0`] \\ EVAL_TAC )
+    \\ impl_tac >- ( simp[Abbr`ids`, Abbr`s0`] \\ EVAL_TAC )
     \\ strip_tac \\ strip_tac
     \\ first_x_assum drule \\ strip_tac
     \\ fs[type_sound_invariant_def]
@@ -138,8 +137,9 @@ Proof
     \\ first_x_assum(qspec_then`l`mp_tac)
     \\ fs[type_all_env_def]
     \\ drule_then drule nsAll2_nsLookup1
-    \\ fs[extend_dec_ienv_def, init_config_def]
-    \\ simp[ienv_to_tenv_def, nsLookup_nsMap]
+    \\ fs[typeSystemTheory.extend_dec_tenv_def, extend_dec_ienv_def, init_config_def]
+    \\ simp[ienv_to_tenv_def, nsLookup_nsMap,
+            primTypesTheory.prim_tenv_def, nsAppend_nsEmpty]
     \\ simp[Once type_v_cases, convert_t_def]
     \\ simp[EVAL``Tref_num = Tarray_num``]
     \\ strip_tac \\ strip_tac
@@ -157,9 +157,23 @@ Proof
       \\ rpt strip_tac
       \\ reverse(Cases_on`stamp`)
       >- ( res_tac \\ pop_assum mp_tac \\ EVAL_TAC )
+      \\ qmatch_asmsub_rename_tac`TypeStamp cn n`
+      \\ `same_type (TypeStamp "True" bool_type_num) (TypeStamp cn n)`
+      by ( first_x_assum irule \\ simp[] )
+      \\ pop_assum mp_tac
+      \\ simp[same_type_def]
+      \\ strip_tac \\ rw[]
+      \\ `cn = "True" ∨ cn = "False"` by metis_tac[NOT_SOME_NONE]
+      \\ rveq
       \\ EVAL_TAC
-      \\ spose_not_then strip_assume_tac
-      \\ cheat )
+      \\ qhdtm_x_assum`FLOOKUP`mp_tac
+      \\ qhdtm_x_assum`FLOOKUP`mp_tac
+      \\ qhdtm_x_assum`FLOOKUP`mp_tac
+      \\ simp[]
+      \\ rpt strip_tac
+      \\ rveq
+      \\ qhdtm_x_assum`LIST_REL`mp_tac
+      \\ simp[])
     \\ qhdtm_x_assum`ctMap_ok`mp_tac
     \\ simp[ctMap_ok_def]
     \\ spose_not_then strip_assume_tac
