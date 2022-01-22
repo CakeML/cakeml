@@ -11,6 +11,14 @@ val _ = Parse.hide "types"
 
 val _ = new_theory "repl_check_and_tweak";
 
+Definition infertype_prog_inc_def:
+  infertype_prog_inc (ienv, next_id) prog =
+  case infer_ds ienv prog (init_infer_state <| next_id := next_id |>) of
+    (Success new_ienv, st) =>
+    (Success (extend_dec_ienv new_ienv ienv, st.next_id))
+  | (Failure x, _) => Failure x
+End
+
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 Definition decs_allowed_def:
@@ -22,14 +30,6 @@ val read_next_dec =
        (App Opapp
           [App Opderef [Var (Long "REPL" (Short "readNextString"))];
            Con NONE []])]”;
-
-Definition infertype_prog_inc_def:
-  infertype_prog_inc (ienv, next_id) prog =
-  case infer_ds ienv prog (init_infer_state <| next_id := next_id |>) of
-    (Success new_ienv, st) =>
-    (Success (extend_dec_ienv new_ienv ienv, st.next_id))
-  | (Failure x, _) => Failure x
-End
 
 Definition check_and_tweak_def:
   check_and_tweak (decs, types, input_str) =
