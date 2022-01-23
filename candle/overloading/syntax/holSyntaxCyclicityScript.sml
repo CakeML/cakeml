@@ -2582,6 +2582,21 @@ Proof
   >> fs[]
 QED
 
+Theorem path_starting_at_0_mg_sol':
+  !rs pqs dep. monotone dep
+  /\ sol_seq rs pqs
+  /\ 0 < LENGTH pqs
+  /\ EVERY (UNCURRY dep) pqs
+  /\ invertible_on (HD rs) (FV (FST (HD pqs)))
+  ==> mg_sol_seq rs pqs
+Proof
+  rpt strip_tac
+  >> imp_res_tac sol_seq_is_const_or_type_FST
+  >> drule_then irule path_starting_at_0_mg_sol
+  >> fs[path_starting_at_def,sol_seq_def,invertible_on_equiv_ts_on_FV]
+  >> simp[Once equiv_ts_on_symm]
+QED
+
 Theorem id_sol_mg_sol_equiv':
   !rs pqs dep i.
   0 < LENGTH rs /\ i < LENGTH rs
@@ -3766,6 +3781,31 @@ Proof
   >> asm_rewrite_tac[]
   >> drule_then (ONCE_REWRITE_TAC o single) $ REWRITE_RULE[NULL_EQ] CONS
   >> asm_rewrite_tac[]
+QED
+
+(* the essence of 5.11 *)
+Theorem mg_sol_exists_essence:
+  !rs pqs dep.
+  0 < LENGTH pqs
+  /\ sol_seq rs pqs
+  /\ EVERY (UNCURRY dep) pqs
+  /\ monotone dep
+  /\ composable_dep dep
+  ==> ?rs' k. mg_sol_seq rs' pqs
+    /\ invertible_on (EL k rs') (FV (FST (EL k pqs)))
+    /\ k < LENGTH rs'
+Proof
+  rpt strip_tac
+  >> imp_res_tac sol_seq_LENGTH
+  >> drule_at (Pat `sol_seq _ _`) mg_sol_exists
+  >> fs[]
+  >> disch_then $ drule_then assume_tac
+  >> gs[]
+  >> rpt $ goal_assum $ drule_at Any
+  >> gs[path_starting_at_def,Once equiv_ts_on_symm]
+  >> drule_all_then strip_assume_tac mg_sol_seq_is_const_or_type
+  >> gs[GSYM invertible_on_equiv_ts_on_FV]
+  >> rpt $ goal_assum drule
 QED
 
 (* Definition 5.12 *)
