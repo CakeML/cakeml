@@ -20,11 +20,16 @@ and both passes only activate after those functions appear in the source AST.
 
 
 
+[addPrintValsScript.sml](addPrintValsScript.sml):
+The second pass of the add-printing process. Type checks
+the AST and adds code to print "val x = ..." for every
+variable "x" bound in a declaration. This requires type
+checking to know the type of "x".
+
 [addTypePPScript.sml](addTypePPScript.sml):
 The first pass of adding print functions to source AST.
 Runs prior to type inference, and defines a pretty-print
 function per datatype definition.
 
 [test](test):
-This directory contains tests that run the pretty-printer passes inside the HOL
-logic and check the type correctness of the resulting code.
+Tests for the pretty-printer apparatus.
