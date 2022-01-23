@@ -141,7 +141,8 @@ End
 Definition val_prints_def:
   val_prints tn ienv =
     let tn2 = update_type_names ienv tn in
-    let prints = MAP (print_of_val tn2) (MAP (I ## SND) (nsContents ienv.inf_v)) in
+    let prints = MAP (print_of_val tn2)
+        (MAP (I ## SND) (REVERSE (nsContents (ns_nub ienv.inf_v)))) in
     (prints, tn2)
 End
 
