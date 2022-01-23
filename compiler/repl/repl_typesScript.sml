@@ -86,6 +86,7 @@ Inductive repl_types_TS:
 [repl_types_TS_init:]
   (∀ffi rs decs tids tenv (s:'ffi semanticPrimitives$state) env.
      type_ds T prim_tenv decs tids tenv ∧
+     DISJOINT tids {Tlist_num; Tbool_num; Texn_num} ∧
      evaluate$evaluate_decs (init_state ffi) init_env decs = (s,Rval env) ∧
      EVERY (check_ref_types_TS (extend_dec_tenv tenv prim_tenv) (extend_dec_env env init_env)) rs ⇒
      repl_types_TS (ffi,rs) (extend_dec_tenv tenv prim_tenv,s,extend_dec_env env init_env)) ∧
@@ -242,7 +243,93 @@ Proof
   fs[convert_t_to_type]
 QED
 
-Theorem repl_types_TS:
+Definition ref_lookup_ok_def:
+  ref_lookup_ok refs (name:(string,string) id,ty,loc) =
+    ∃v:semanticPrimitives$v.
+      store_lookup loc refs = SOME (Refv v) ∧
+      (ty = Bool ⇒ v = Boolv T ∨ v = Boolv F) ∧
+      (ty = Str ⇒ ∃t. v = Litv (StrLit t))
+End
+
+Theorem repl_types_TS_thm:
+  ∀(ffi:'ffi ffi_state) rs tenv s env.
+    repl_types_TS (ffi,rs) (tenv,s,env) ⇒
+      EVERY (ref_lookup_ok s.refs) rs ∧
+      ∀decs new_tids new_tenv new_s res.
+        type_ds T tenv decs new_tids new_tenv ∧
+        evaluate_decs s env decs = (new_s,res) ⇒
+        res ≠ Rerr (Rabort Rtype_error)
+Proof
+  Induct_on`repl_types_TS`
+  \\ CONJ_TAC
+  >- (
+    cheat
+    (*
+      fs[EVERY_MEM, FORALL_PROD] \\ rw[]
+      \\ first_x_assum drule
+      \\ rw[check_ref_types_def, ref_lookup_ok_def]
+      \\ drule_then drule decs_type_sound \\ simp[]
+      \\ resolve_then Any (qspecl_then[`tids`,`ffi`]mp_tac)
+           (GSYM init_state_env_thm)
+           prim_type_sound_invariants
+      \\ impl_tac >- fs[]
+      \\ strip_tac \\ strip_tac
+      \\ first_x_assum drule \\ strip_tac
+      \\ fs[type_sound_invariant_def]
+      \\ fs[type_s_def]
+      \\ qmatch_goalsub_rename_tac`store_lookup l s.refs`
+      \\ first_x_assum(qspec_then`l`mp_tac)
+      \\ fs[type_all_env_def]
+      \\ drule_then drule nsAll2_nsLookup1
+      \\ fs[typeSystemTheory.extend_dec_tenv_def, extend_dec_ienv_def, init_config_def]
+      \\ simp[ienv_to_tenv_def, nsLookup_nsMap,
+              primTypesTheory.prim_tenv_def, nsAppend_nsEmpty]
+      \\ simp[Once type_v_cases, convert_t_def]
+      \\ simp[EVAL``Tref_num = Tarray_num``]
+      \\ strip_tac \\ strip_tac
+      \\ first_x_assum drule
+      \\ Cases_on`v` \\ simp[type_sv_def]
+      \\ fs[good_ctMap_def, ctMap_has_bools_def]
+      \\ rw[] \\ fs[to_type_def, convert_t_def]
+      \\ pop_assum mp_tac
+      \\ simp[Once type_v_cases]
+      \\ rw[] \\ TRY (ntac 4 (pop_assum mp_tac) \\ EVAL_TAC \\ NO_TAC)
+      \\ TRY (drule_then drule typeSysPropsTheory.type_funs_Tfn \\ rw[])
+      >- (
+        qhdtm_x_assum`ctMap_ok`mp_tac
+        \\ simp[ctMap_ok_def]
+        \\ rpt strip_tac
+        \\ reverse(Cases_on`stamp`)
+        >- ( res_tac \\ pop_assum mp_tac \\ EVAL_TAC )
+        \\ qmatch_asmsub_rename_tac`TypeStamp cn n`
+        \\ `same_type (TypeStamp "True" bool_type_num) (TypeStamp cn n)`
+        by ( first_x_assum irule \\ simp[] )
+        \\ pop_assum mp_tac
+        \\ simp[same_type_def]
+        \\ strip_tac \\ rw[]
+        \\ `cn = "True" ∨ cn = "False"` by metis_tac[NOT_SOME_NONE]
+        \\ rveq
+        \\ EVAL_TAC
+        \\ qhdtm_x_assum`FLOOKUP`mp_tac
+        \\ qhdtm_x_assum`FLOOKUP`mp_tac
+        \\ qhdtm_x_assum`FLOOKUP`mp_tac
+        \\ simp[]
+        \\ rpt strip_tac
+        \\ rveq
+        \\ qhdtm_x_assum`LIST_REL`mp_tac
+        \\ simp[])
+      \\ qhdtm_x_assum`ctMap_ok`mp_tac
+      \\ simp[ctMap_ok_def]
+      \\ spose_not_then strip_assume_tac
+      \\ reverse(Cases_on`stamp`)
+      >- ( res_tac \\ pop_assum mp_tac \\ EVAL_TAC )
+      \\ res_tac
+      \\ ntac 2 (pop_assum mp_tac)
+      \\ EVAL_TAC *))
+  \\ cheat
+QED
+
+Theorem repl_types_F_repl_types_TS:
   ∀(ffi:'ffi ffi_state) rs types s env.
     repl_types F (ffi,rs) (types,s,env) ⇒
     repl_types_TS (ffi,rs) (ienv_to_tenv (FST types),s,env)
@@ -260,6 +347,7 @@ Proof
     \\ simp[ienv_to_tenv_extend,ienv_to_tenv_init_config]
     \\ match_mp_tac repl_types_TS_init
     \\ asm_exists_tac \\ simp[]
+    \\ CONJ_TAC>- EVAL_TAC
     \\ qpat_x_assum`_ _ rs` mp_tac
     \\ match_mp_tac EVERY_MONOTONIC
     \\ rw[]
@@ -315,14 +403,6 @@ Proof
     metis_tac[repl_types_TS_str_assign]
 QED
 
-Definition ref_lookup_ok_def:
-  ref_lookup_ok refs (name:(string,string) id,ty,loc) =
-    ∃v:semanticPrimitives$v.
-      store_lookup loc refs = SOME (Refv v) ∧
-      (ty = Bool ⇒ v = Boolv T ∨ v = Boolv F) ∧
-      (ty = Str ⇒ ∃t. v = Litv (StrLit t))
-End
-
 Theorem repl_types_F_thm:
   ∀(ffi:'ffi ffi_state) rs types s env.
     repl_types F (ffi,rs) (types,s,env) ⇒
@@ -332,75 +412,28 @@ Theorem repl_types_F_thm:
         evaluate_decs s env decs = (new_s,res) ⇒
         res ≠ Rerr (Rabort Rtype_error)
 Proof
-  Induct_on`repl_types`
-  \\ rw[infertype_prog_inc_def, CaseEqs["infer$exc","prod"], init_infer_state_def]
-  >- (
-    drule (CONJUNCT2 infer_d_sound)
-    \\ disch_then (resolve_then Any mp_tac env_rel_init_config)
-    \\ impl_tac >- simp[] \\ strip_tac
-    \\ fs[EVERY_MEM, FORALL_PROD] \\ rw[]
-    \\ first_x_assum drule
-    \\ rw[check_ref_types_def, ref_lookup_ok_def]
-    \\ drule_then drule decs_type_sound \\ simp[]
-    \\ qmatch_asmsub_abbrev_tac`type_ds _ _ _ ids`
-    \\ resolve_then Any (qspecl_then[`ids`,`ffi`]mp_tac)
-         (GSYM init_state_env_thm)
-         prim_type_sound_invariants
-    \\ impl_tac >- ( simp[Abbr`ids`] \\ EVAL_TAC )
-    \\ strip_tac \\ strip_tac
-    \\ first_x_assum drule \\ strip_tac
-    \\ fs[type_sound_invariant_def]
-    \\ fs[type_s_def]
-    \\ qmatch_goalsub_rename_tac`store_lookup l s.refs`
-    \\ first_x_assum(qspec_then`l`mp_tac)
-    \\ fs[type_all_env_def]
-    \\ drule_then drule nsAll2_nsLookup1
-    \\ fs[typeSystemTheory.extend_dec_tenv_def, extend_dec_ienv_def, init_config_def]
-    \\ simp[ienv_to_tenv_def, nsLookup_nsMap,
-            primTypesTheory.prim_tenv_def, nsAppend_nsEmpty]
-    \\ simp[Once type_v_cases, convert_t_def]
-    \\ simp[EVAL``Tref_num = Tarray_num``]
-    \\ strip_tac \\ strip_tac
-    \\ first_x_assum drule
-    \\ Cases_on`v` \\ simp[type_sv_def]
-    \\ fs[good_ctMap_def, ctMap_has_bools_def]
-    \\ rw[] \\ fs[to_type_def, convert_t_def]
-    \\ pop_assum mp_tac
-    \\ simp[Once type_v_cases]
-    \\ rw[] \\ TRY (ntac 4 (pop_assum mp_tac) \\ EVAL_TAC \\ NO_TAC)
-    \\ TRY (drule_then drule typeSysPropsTheory.type_funs_Tfn \\ rw[])
-    >- (
-      qhdtm_x_assum`ctMap_ok`mp_tac
-      \\ simp[ctMap_ok_def]
-      \\ rpt strip_tac
-      \\ reverse(Cases_on`stamp`)
-      >- ( res_tac \\ pop_assum mp_tac \\ EVAL_TAC )
-      \\ qmatch_asmsub_rename_tac`TypeStamp cn n`
-      \\ `same_type (TypeStamp "True" bool_type_num) (TypeStamp cn n)`
-      by ( first_x_assum irule \\ simp[] )
-      \\ pop_assum mp_tac
-      \\ simp[same_type_def]
-      \\ strip_tac \\ rw[]
-      \\ `cn = "True" ∨ cn = "False"` by metis_tac[NOT_SOME_NONE]
-      \\ rveq
-      \\ EVAL_TAC
-      \\ qhdtm_x_assum`FLOOKUP`mp_tac
-      \\ qhdtm_x_assum`FLOOKUP`mp_tac
-      \\ qhdtm_x_assum`FLOOKUP`mp_tac
-      \\ simp[]
-      \\ rpt strip_tac
-      \\ rveq
-      \\ qhdtm_x_assum`LIST_REL`mp_tac
-      \\ simp[])
-    \\ qhdtm_x_assum`ctMap_ok`mp_tac
-    \\ simp[ctMap_ok_def]
-    \\ spose_not_then strip_assume_tac
-    \\ reverse(Cases_on`stamp`)
-    >- ( res_tac \\ pop_assum mp_tac \\ EVAL_TAC )
-    \\ res_tac
-    \\ ntac 2 (pop_assum mp_tac)
-    \\ EVAL_TAC )
-  \\ cheat
+  ntac 6 strip_tac
+  \\ imp_res_tac repl_types_F_repl_types_TS
+  \\ drule repl_types_TS_thm
+  \\ strip_tac
+  \\ rw[]
+  \\ rename1`_ A decs = Success _`
+  \\ `∃tys id. A = (tys,id)` by metis_tac[PAIR]
+  \\ qpat_x_assum`_ = Success _` mp_tac
+  \\ simp[infertype_prog_inc_def]
+  \\ every_case_tac \\ simp[]
+  \\ drule (CONJUNCT2 infer_d_sound)
+  \\ disch_then(qspec_then `ienv_to_tenv tys` mp_tac)
+  \\ impl_tac >- (
+    drule repl_types_next_id
+    \\ simp[init_infer_state_def]
+    \\ metis_tac[repl_types_ienv_ok, env_rel_ienv_to_tenv,FST])
+  \\ strip_tac
+  \\ `FST A = tys` by fs[]
+  \\ pop_assum SUBST_ALL_TAC
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ simp[]
 QED
 
 Theorem repl_types_thm:
