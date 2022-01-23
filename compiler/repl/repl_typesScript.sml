@@ -181,20 +181,48 @@ QED
 Theorem repl_types_ienv_ok:
   ∀b (ffi:'ffi ffi_state) rs types s env.
   repl_types b (ffi,rs) (types,s,env) ⇒
-  ienv_ok {} types
+  ienv_ok {} (FST types)
 Proof
   Induct_on`repl_types`
-  \\ rw[infertype_prog_def, CaseEq"exc", init_infer_state_def]
+  \\ rw[infertype_prog_inc_def, CaseEq"exc"]
   \\ fs[PULL_EXISTS]
-  \\ qmatch_asmsub_abbrev_tac`infer_ds _ _ s0`
   >- (
-    Cases_on`infer_ds init_config decs s0` \\ fs[] \\ rw[]
+    every_case_tac
+    \\ fs[]
     \\ drule (CONJUNCT2 infer_d_check)
-    \\ metis_tac[ienv_ok_extend_dec_ienv,ienv_ok_init_config])
-  >> (
-    Cases_on`infer_ds types decs s0` \\ fs[] \\ rw[]
+    \\ rw[]
+    \\ match_mp_tac ienv_ok_extend_dec_ienv
+    \\ fs[ienv_ok_init_config])
+  >- (
+    rename1`_ tys decs = Success _`
+    \\ Cases_on`tys` \\ fs[infertype_prog_inc_def]
+    \\ every_case_tac \\ fs[]
     \\ drule (CONJUNCT2 infer_d_check)
-    \\ metis_tac[ienv_ok_extend_dec_ienv,ienv_ok_init_config])
+    \\ rw[]
+    \\ match_mp_tac ienv_ok_extend_dec_ienv
+    \\ metis_tac[])
+QED
+
+Theorem repl_types_next_id:
+  ∀b (ffi:'ffi ffi_state) rs types s env.
+  repl_types b (ffi,rs) (types,s,env) ⇒
+  start_type_id ≤ SND types
+Proof
+  Induct_on`repl_types`
+  \\ rw[infertype_prog_inc_def, CaseEq"exc"]
+  \\ fs[PULL_EXISTS]
+  >- (
+    every_case_tac
+    \\ fs[]
+    \\ drule (CONJUNCT2 infer_d_next_id_mono)
+    \\ rw[init_infer_state_def])
+  >- (
+    rename1`_ tys decs = Success _`
+    \\ Cases_on`tys` \\ fs[infertype_prog_inc_def]
+    \\ every_case_tac \\ fs[]
+    \\ drule (CONJUNCT2 infer_d_next_id_mono)
+    \\ simp[init_infer_state_def]
+    \\ rw[])
 QED
 
 Theorem convert_t_to_type:
@@ -217,17 +245,18 @@ QED
 Theorem repl_types_TS:
   ∀(ffi:'ffi ffi_state) rs types s env.
     repl_types F (ffi,rs) (types,s,env) ⇒
-    repl_types_TS (ffi,rs) (ienv_to_tenv types,s,env)
+    repl_types_TS (ffi,rs) (ienv_to_tenv (FST types),s,env)
 Proof
   Induct_on`repl_types`
-  \\ rw[infertype_prog_def, CaseEq"exc", init_infer_state_def]
+  \\ rw[infertype_prog_inc_def, CaseEq"exc", init_infer_state_def]
   \\ fs[PULL_EXISTS]
   >- (
-    qmatch_asmsub_abbrev_tac`infer_ds _ _ s0`
-    \\ Cases_on`infer_ds init_config decs s0` \\ fs[] \\ rw[]
+    every_case_tac \\ fs[]
     \\ drule (CONJUNCT2 infer_d_sound)
     \\ disch_then (resolve_then Any mp_tac env_rel_init_config)
-    \\ impl_tac >- simp[Abbr`s0`] \\ strip_tac
+    \\ impl_tac>- simp[]
+    \\ strip_tac
+    \\ rveq
     \\ simp[ienv_to_tenv_extend,ienv_to_tenv_init_config]
     \\ match_mp_tac repl_types_TS_init
     \\ asm_exists_tac \\ simp[]
@@ -238,35 +267,49 @@ Proof
     \\ match_mp_tac check_ref_types_check_ref_types_TS
     \\ metis_tac[])
   >- (
-    qmatch_asmsub_abbrev_tac`infer_ds _ _ s0`
-    \\ Cases_on`infer_ds types decs s0` \\ fs[] \\ rw[]
+    rename1`_ A decs = Success _`
+    \\ `∃tys id. A = (tys,id)` by metis_tac[PAIR]
+    \\ rw[] \\ fs[infertype_prog_inc_def]
+    \\ every_case_tac \\ fs[]
     \\ drule (CONJUNCT2 infer_d_sound)
-    \\ disch_then(qspec_then `ienv_to_tenv types` mp_tac)
+    \\ disch_then(qspec_then `ienv_to_tenv tys` mp_tac)
     \\ impl_tac >- (
-      simp[Abbr`s0`]>>
-      metis_tac[repl_types_ienv_ok, env_rel_ienv_to_tenv])
+      drule repl_types_next_id
+      \\ simp[init_infer_state_def]
+      \\ metis_tac[repl_types_ienv_ok, env_rel_ienv_to_tenv,FST])
     \\ strip_tac
+    \\ rw[]
     \\ simp[ienv_to_tenv_extend]
     \\ metis_tac[repl_types_TS_eval])
   >- (
-    qmatch_asmsub_abbrev_tac`infer_ds _ _ s0`
-    \\ Cases_on`infer_ds types decs s0` \\ fs[] \\ rw[]
+    rename1`_ A decs = Success _`
+    \\ `∃tys id. A = (tys,id)` by metis_tac[PAIR]
+    \\ rw[] \\ fs[infertype_prog_inc_def]
+    \\ every_case_tac \\ fs[]
     \\ drule (CONJUNCT2 infer_d_sound)
-    \\ disch_then(qspec_then `ienv_to_tenv types` mp_tac)
+    \\ disch_then(qspec_then `ienv_to_tenv tys` mp_tac)
     \\ impl_tac >- (
-      simp[Abbr`s0`]>>
-      metis_tac[repl_types_ienv_ok, env_rel_ienv_to_tenv])
+      drule repl_types_next_id
+      \\ simp[init_infer_state_def]
+      \\ metis_tac[repl_types_ienv_ok, env_rel_ienv_to_tenv,FST])
     \\ strip_tac
+    \\ rw[]
+    \\ simp[ienv_to_tenv_extend]
     \\ metis_tac[repl_types_TS_exn])
   >- (
-    qmatch_asmsub_abbrev_tac`infer_ds _ _ s0`
-    \\ Cases_on`infer_ds types decs s0` \\ fs[] \\ rw[]
+    rename1`_ A decs = Success _`
+    \\ `∃tys id. A = (tys,id)` by metis_tac[PAIR]
+    \\ rw[] \\ fs[infertype_prog_inc_def]
+    \\ every_case_tac \\ fs[]
     \\ drule (CONJUNCT2 infer_d_sound)
-    \\ disch_then(qspec_then `ienv_to_tenv types` mp_tac)
+    \\ disch_then(qspec_then `ienv_to_tenv tys` mp_tac)
     \\ impl_tac >- (
-      simp[Abbr`s0`]>>
-      metis_tac[repl_types_ienv_ok, env_rel_ienv_to_tenv])
+      drule repl_types_next_id
+      \\ simp[init_infer_state_def]
+      \\ metis_tac[repl_types_ienv_ok, env_rel_ienv_to_tenv,FST])
     \\ strip_tac
+    \\ rw[]
+    \\ simp[ienv_to_tenv_extend]
     \\ metis_tac[repl_types_TS_exn_assign])
   >>
     metis_tac[repl_types_TS_str_assign]
