@@ -28,9 +28,9 @@ End
 
 Inductive repl_types:
 [repl_types_init:]
-  (∀ffi rs decs types (s:'ffi semanticPrimitives$state) env b.
+  (∀ffi rs decs types (s:'ffi semanticPrimitives$state) env ck b.
      infertype_prog_inc (init_config, start_type_id) decs = Success types ∧
-     evaluate$evaluate_decs (init_state ffi) init_env decs = (s,Rval env) ∧
+     evaluate$evaluate_decs (init_state ffi with clock := ck) init_env decs = (s,Rval env) ∧
      EVERY (check_ref_types (FST types) (extend_dec_env env init_env)) rs ⇒
      repl_types b (ffi,rs) (types,s,extend_dec_env env init_env)) ∧
 [repl_types_skip:]
@@ -84,10 +84,10 @@ End
 
 Inductive repl_types_TS:
 [repl_types_TS_init:]
-  (∀ffi rs decs tids tenv (s:'ffi semanticPrimitives$state) env.
+  (∀ffi rs decs tids tenv (s:'ffi semanticPrimitives$state) env ck.
      type_ds T prim_tenv decs tids tenv ∧
      DISJOINT tids {Tlist_num; Tbool_num; Texn_num} ∧
-     evaluate$evaluate_decs (init_state ffi) init_env decs = (s,Rval env) ∧
+     evaluate$evaluate_decs (init_state ffi with clock := ck) init_env decs = (s,Rval env) ∧
      EVERY (check_ref_types_TS (extend_dec_tenv tenv prim_tenv) (extend_dec_env env init_env)) rs ⇒
      repl_types_TS (ffi,rs) (extend_dec_tenv tenv prim_tenv,s,extend_dec_env env init_env)) ∧
 [repl_types_TS_eval:]
@@ -273,7 +273,11 @@ Proof
            (GSYM init_state_env_thm)
            prim_type_sound_invariants
       \\ impl_tac >- fs[]
-      \\ strip_tac \\ strip_tac
+      \\ strip_tac
+      \\ ‘type_sound_invariant (init_state ffi with clock := ck)
+            init_env ctMap FEMPTY tids prim_tenv’ by
+        fs [type_sound_invariant_def,consistent_ctMap_def,SF SFY_ss]
+      \\ strip_tac
       \\ first_x_assum drule \\ strip_tac
       \\ fs[type_sound_invariant_def]
       \\ fs[type_s_def]
@@ -347,7 +351,8 @@ Proof
     \\ simp[ienv_to_tenv_extend,ienv_to_tenv_init_config]
     \\ match_mp_tac repl_types_TS_init
     \\ asm_exists_tac \\ simp[]
-    \\ CONJ_TAC>- EVAL_TAC
+    \\ last_x_assum $ irule_at Any
+    \\ rpt (CONJ_TAC >- EVAL_TAC)
     \\ qpat_x_assum`_ _ rs` mp_tac
     \\ match_mp_tac EVERY_MONOTONIC
     \\ rw[]
