@@ -89,36 +89,39 @@ Inductive repl_types_TS:
      DISJOINT tids {Tlist_num; Tbool_num; Texn_num} ∧
      evaluate$evaluate_decs (init_state ffi with clock := ck) init_env decs = (s,Rval env) ∧
      EVERY (check_ref_types_TS (extend_dec_tenv tenv prim_tenv) (extend_dec_env env init_env)) rs ⇒
-     repl_types_TS (ffi,rs) (extend_dec_tenv tenv prim_tenv,s,extend_dec_env env init_env)) ∧
+     repl_types_TS (ffi,rs) (tids,extend_dec_tenv tenv prim_tenv,s,extend_dec_env env init_env)) ∧
 [repl_types_TS_eval:]
-  (∀ffi rs decs tenv (s:'ffi semanticPrimitives$state) env
+  (∀ffi rs decs tids tenv (s:'ffi semanticPrimitives$state) env
     new_tids new_tenv new_env new_s.
-     repl_types_TS (ffi,rs) (tenv,s,env) ∧
+     repl_types_TS (ffi,rs) (tids,tenv,s,env) ∧
      type_ds T tenv decs new_tids new_tenv ∧
+     DISJOINT tids new_tids ∧
      evaluate$evaluate_decs s env decs = (new_s,Rval new_env) ⇒
-     repl_types_TS (ffi,rs) (extend_dec_tenv new_tenv tenv,new_s,extend_dec_env new_env env)) ∧
+     repl_types_TS (ffi,rs) (tids ∪ new_tids,extend_dec_tenv new_tenv tenv,new_s,extend_dec_env new_env env)) ∧
 [repl_types_TS_exn:]
-  (∀ffi rs decs tenv (s:'ffi semanticPrimitives$state) env
+  (∀ffi rs decs tids tenv (s:'ffi semanticPrimitives$state) env
     new_tids new_tenv new_s e.
-     repl_types_TS (ffi,rs) (tenv,s,env) ∧
+     repl_types_TS (ffi,rs) (tids,tenv,s,env) ∧
      type_ds T tenv decs new_tids new_tenv ∧
+     DISJOINT tids new_tids ∧
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ⇒
-     repl_types_TS (ffi,rs) (tenv,new_s,env)) ∧
+     repl_types_TS (ffi,rs) (tids ∪ new_tids,tenv,new_s,env)) ∧
 [repl_types_TS_exn_assign:]
-  (∀ffi rs decs tenv (s:'ffi semanticPrimitives$state) env
+  (∀ffi rs decs tids tenv (s:'ffi semanticPrimitives$state) env
     new_tids new_tenv new_s e name loc new_store.
-     repl_types_TS (ffi,rs) (tenv,s,env) ∧
+     repl_types_TS (ffi,rs) (tids,tenv,s,env) ∧
      type_ds T tenv decs new_tids new_tenv ∧
+     DISJOINT tids new_tids ∧
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ∧
      MEM (name,Exn,loc) rs ∧
      store_assign loc (Refv e) new_s.refs = SOME new_store ⇒
-     repl_types_TS (ffi,rs) (tenv,new_s with refs := new_store,env)) ∧
+     repl_types_TS (ffi,rs) (tids ∪ new_tids,tenv,new_s with refs := new_store,env)) ∧
 [repl_types_TS_str_assign:]
-  (∀ffi rs tenv (s:'ffi semanticPrimitives$state) env t name loc new_store.
-     repl_types_TS (ffi,rs) (tenv,s,env) ∧
+  (∀ffi rs tids tenv (s:'ffi semanticPrimitives$state) env t name loc new_store.
+     repl_types_TS (ffi,rs) (tids,tenv,s,env) ∧
      MEM (name,Str,loc) rs ∧
      store_assign loc (Refv (Litv (StrLit t))) s.refs = SOME new_store ⇒
-     repl_types_TS (ffi,rs) (tenv,s with refs := new_store,env))
+     repl_types_TS (ffi,rs) (tids,tenv,s with refs := new_store,env))
 End
 
 Theorem init_config_tenv_to_ienv:
@@ -263,11 +266,12 @@ Proof
 QED
 
 Theorem repl_types_TS_thm:
-  ∀(ffi:'ffi ffi_state) rs tenv s env.
-    repl_types_TS (ffi,rs) (tenv,s,env) ⇒
+  ∀(ffi:'ffi ffi_state) rs tids tenv s env.
+    repl_types_TS (ffi,rs) (tids,tenv,s,env) ⇒
       EVERY (ref_lookup_ok s.refs) rs ∧
       ∀decs new_tids new_tenv new_s res.
         type_ds T tenv decs new_tids new_tenv ∧
+        DISJOINT tids new_tids ∧
         evaluate_decs s env decs = (new_s,res) ⇒
         res ≠ Rerr (Rabort Rtype_error)
 Proof
@@ -339,33 +343,64 @@ Proof
       \\ res_tac
       \\ ntac 2 (pop_assum mp_tac)
       \\ EVAL_TAC)
-    \\ rpt gen_tac \\ strip_tac \\ strip_tac
+    \\ rpt gen_tac \\ strip_tac
+    \\ CCONTR_TAC \\ fs[]
     \\ drule_then drule decs_type_sound
     \\ simp[]
     \\ fs[type_sound_invariant_def, consistent_ctMap_def]
     \\ first_assum $ irule_at Any \\ simp[]
     \\ reverse conj_tac >- metis_tac[]
-    \\ `DISJOINT new_tids tids` suffices_by (
-      fs[IN_DISJOINT, SUBSET_DEF]
-      \\ strip_tac \\ spose_not_then strip_assume_tac
-      \\ `x NOTIN tids` by metis_tac[]
-      \\ `x IN FRANGE ((SND o SND) o_f ctMap)` by metis_tac[]
-      \\ `x IN prim_type_ids` by metis_tac[]
-      \\ fs[IN_FRANGE_FLOOKUP, FLOOKUP_o_f, CaseEq"option"]
-      \\ rveq \\ PairCases_on`v` \\ fs[] \\ rveq
-      \\ drule (CONJUNCT2 type_d_tids_disjoint)
-      \\ simp[IN_DISJOINT]
-      \\ first_assum $ irule_at Any
-      \\ pop_assum mp_tac
-      \\ EVAL_TAC )
-    \\ cheat)
+    \\  fs[IN_DISJOINT, SUBSET_DEF]
+    \\ strip_tac \\ spose_not_then strip_assume_tac
+    \\ `x NOTIN tids` by metis_tac[]
+    \\ `x IN FRANGE ((SND o SND) o_f ctMap)` by metis_tac[]
+    \\ `x IN prim_type_ids` by metis_tac[]
+    \\ fs[IN_FRANGE_FLOOKUP, FLOOKUP_o_f, CaseEq"option"]
+    \\ rveq \\ PairCases_on`v` \\ fs[] \\ rveq
+    \\ drule (CONJUNCT2 type_d_tids_disjoint)
+    \\ simp[IN_DISJOINT]
+    \\ first_assum $ irule_at Any
+    \\ pop_assum mp_tac
+    \\ EVAL_TAC )
   \\ cheat
+QED
+
+Theorem DISJOINT_set_ids:
+  tids ⊆ count id ⇒
+  DISJOINT tids (set_ids id id')
+Proof
+  rw[set_ids_def,count_def,DISJOINT_DEF,EXTENSION,SUBSET_DEF]>>
+  CCONTR_TAC>>
+  fs[]>>
+  first_x_assum drule>>
+  fs[]
+QED
+
+Theorem set_ids_SUBSET[simp]:
+  set_ids id id' ⊆ count id'
+Proof
+  rw[set_ids_def,count_def,SUBSET_DEF]
+QED
+
+Theorem count_id_MORE:
+  tids ⊆ count id ∧ id ≤ id' ⇒ tids ⊆ count id'
+Proof
+  rw[count_def,SUBSET_DEF]>>
+  first_x_assum drule>>
+  fs[]
+QED
+
+Theorem set_ids_UNION:
+  id ≤ id' ∧ sid ≤ id ⇒
+  set_ids sid id' = set_ids sid id ∪ set_ids id id'
+Proof
+  rw[set_ids_def,EXTENSION,EQ_IMP_THM]
 QED
 
 Theorem repl_types_F_repl_types_TS:
   ∀(ffi:'ffi ffi_state) rs types s env.
     repl_types F (ffi,rs) (types,s,env) ⇒
-    repl_types_TS (ffi,rs) (ienv_to_tenv (FST types),s,env)
+    repl_types_TS (ffi,rs) (set_ids start_type_id (SND types),ienv_to_tenv (FST types),s,env)
 Proof
   Induct_on`repl_types`
   \\ rw[infertype_prog_inc_def, CaseEq"exc", init_infer_state_def]
@@ -378,10 +413,11 @@ Proof
     \\ strip_tac
     \\ rveq
     \\ simp[ienv_to_tenv_extend,ienv_to_tenv_init_config]
-    \\ match_mp_tac repl_types_TS_init
-    \\ asm_exists_tac \\ simp[]
-    \\ last_x_assum $ irule_at Any
+    \\ irule_at Any repl_types_TS_init
+    \\ simp[]
     \\ rpt (CONJ_TAC >- EVAL_TAC)
+    \\ reverse CONJ_TAC >-
+      (asm_exists_tac >> fs[])
     \\ qpat_x_assum`_ _ rs` mp_tac
     \\ match_mp_tac EVERY_MONOTONIC
     \\ rw[]
@@ -400,9 +436,17 @@ Proof
       \\ simp[init_infer_state_def]
       \\ metis_tac[repl_types_ienv_ok, env_rel_ienv_to_tenv,FST])
     \\ strip_tac
-    \\ rw[]
+    \\ imp_res_tac (CONJUNCT2 infer_d_next_id_mono)
+    \\ drule repl_types_next_id
+    \\ rveq \\ fs[init_infer_state_def]
+    \\ strip_tac
+    \\ drule_then drule set_ids_UNION
+    \\ disch_then SUBST_ALL_TAC
     \\ simp[ienv_to_tenv_extend]
-    \\ metis_tac[repl_types_TS_eval])
+    \\ irule_at Any repl_types_TS_eval
+    \\ CONJ_TAC >-
+      (match_mp_tac DISJOINT_set_ids>>simp[init_infer_state_def])
+    \\ asm_exists_tac \\ simp[])
   >- (
     rename1`_ A decs = Success _`
     \\ `∃tys id. A = (tys,id)` by metis_tac[PAIR]
@@ -415,9 +459,19 @@ Proof
       \\ simp[init_infer_state_def]
       \\ metis_tac[repl_types_ienv_ok, env_rel_ienv_to_tenv,FST])
     \\ strip_tac
-    \\ rw[]
+    \\ imp_res_tac (CONJUNCT2 infer_d_next_id_mono)
+    \\ drule repl_types_next_id
+    \\ rveq \\ fs[init_infer_state_def]
+    \\ strip_tac
+    \\ drule_then drule set_ids_UNION
+    \\ disch_then SUBST_ALL_TAC
     \\ simp[ienv_to_tenv_extend]
-    \\ metis_tac[repl_types_TS_exn])
+    (* TODO: repl_types needs to use the correct IDs *)
+    \\ cheat
+    (* \\ irule_at Any repl_types_TS_exn
+    \\ CONJ_TAC >-
+      (match_mp_tac DISJOINT_set_ids>>simp[init_infer_state_def])
+    \\ asm_exists_tac \\ simp[] *))
   >- (
     rename1`_ A decs = Success _`
     \\ `∃tys id. A = (tys,id)` by metis_tac[PAIR]
@@ -430,9 +484,7 @@ Proof
       \\ simp[init_infer_state_def]
       \\ metis_tac[repl_types_ienv_ok, env_rel_ienv_to_tenv,FST])
     \\ strip_tac
-    \\ rw[]
-    \\ simp[ienv_to_tenv_extend]
-    \\ metis_tac[repl_types_TS_exn_assign])
+    \\ cheat (* see above *) )
   >>
     metis_tac[repl_types_TS_str_assign]
 QED
@@ -446,7 +498,8 @@ Theorem repl_types_F_thm:
         evaluate_decs s env decs = (new_s,res) ⇒
         res ≠ Rerr (Rabort Rtype_error)
 Proof
-  ntac 6 strip_tac
+  rpt gen_tac
+  \\ strip_tac
   \\ imp_res_tac repl_types_F_repl_types_TS
   \\ drule repl_types_TS_thm
   \\ strip_tac
@@ -463,11 +516,14 @@ Proof
     \\ simp[init_infer_state_def]
     \\ metis_tac[repl_types_ienv_ok, env_rel_ienv_to_tenv,FST])
   \\ strip_tac
+  \\ strip_tac
   \\ `FST A = tys` by fs[]
   \\ pop_assum SUBST_ALL_TAC
   \\ first_x_assum drule
-  \\ disch_then drule
-  \\ simp[]
+  \\ disch_then match_mp_tac
+  \\ fs[init_infer_state_def]
+  \\ match_mp_tac DISJOINT_set_ids
+  \\ simp[set_ids_SUBSET]
 QED
 
 Theorem repl_types_thm:
