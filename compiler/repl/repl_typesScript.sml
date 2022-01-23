@@ -251,6 +251,17 @@ Definition ref_lookup_ok_def:
       (ty = Str ⇒ ∃t. v = Litv (StrLit t))
 End
 
+Theorem type_d_tids_disjoint:
+  (!b tenv d tids tenv'.
+   type_d b tenv d tids tenv' ⇒
+     DISJOINT tids (set (Tlist_num::Tbool_num::prim_type_nums))) ∧
+  (!b tenv ds tids tenv'.
+   type_ds b tenv ds tids tenv' ⇒
+     DISJOINT tids (set (Tlist_num::Tbool_num::prim_type_nums)))
+Proof
+  ho_match_mp_tac typeSystemTheory.type_d_ind \\ rw[]
+QED
+
 Theorem repl_types_TS_thm:
   ∀(ffi:'ffi ffi_state) rs tenv s env.
     repl_types_TS (ffi,rs) (tenv,s,env) ⇒
@@ -263,22 +274,22 @@ Proof
   Induct_on`repl_types_TS`
   \\ CONJ_TAC
   >- (
-    rw[]
+    rpt gen_tac \\ strip_tac \\ simp[]
+    \\ drule_then drule decs_type_sound \\ simp[]
+    \\ resolve_then Any (qspecl_then[`tids`,`ffi`]mp_tac)
+         (GSYM init_state_env_thm)
+         prim_type_sound_invariants
+    \\ impl_tac >- fs[]
+    \\ strip_tac \\ strip_tac
+    \\ ‘type_sound_invariant (init_state ffi with clock := ck)
+          init_env ctMap FEMPTY tids prim_tenv’ by
+      fs [type_sound_invariant_def,consistent_ctMap_def,SF SFY_ss]
+    \\ first_x_assum drule \\ strip_tac
+    \\ conj_tac
     >- (
       fs[EVERY_MEM, FORALL_PROD] \\ rw[]
       \\ first_x_assum drule
       \\ rw[check_ref_types_TS_def, ref_lookup_ok_def]
-      \\ drule_then drule decs_type_sound \\ simp[]
-      \\ resolve_then Any (qspecl_then[`tids`,`ffi`]mp_tac)
-           (GSYM init_state_env_thm)
-           prim_type_sound_invariants
-      \\ impl_tac >- fs[]
-      \\ strip_tac
-      \\ ‘type_sound_invariant (init_state ffi with clock := ck)
-            init_env ctMap FEMPTY tids prim_tenv’ by
-        fs [type_sound_invariant_def,consistent_ctMap_def,SF SFY_ss]
-      \\ strip_tac
-      \\ first_x_assum drule \\ strip_tac
       \\ fs[type_sound_invariant_def]
       \\ fs[type_s_def]
       \\ qmatch_goalsub_rename_tac`store_lookup l s.refs`
@@ -328,7 +339,25 @@ Proof
       \\ res_tac
       \\ ntac 2 (pop_assum mp_tac)
       \\ EVAL_TAC)
-    \\ CCONTR_TAC \\ fs[]
+    \\ rpt gen_tac \\ strip_tac \\ strip_tac
+    \\ drule_then drule decs_type_sound
+    \\ simp[]
+    \\ fs[type_sound_invariant_def, consistent_ctMap_def]
+    \\ first_assum $ irule_at Any \\ simp[]
+    \\ reverse conj_tac >- metis_tac[]
+    \\ `DISJOINT new_tids tids` suffices_by (
+      fs[IN_DISJOINT, SUBSET_DEF]
+      \\ strip_tac \\ spose_not_then strip_assume_tac
+      \\ `x NOTIN tids` by metis_tac[]
+      \\ `x IN FRANGE ((SND o SND) o_f ctMap)` by metis_tac[]
+      \\ `x IN prim_type_ids` by metis_tac[]
+      \\ fs[IN_FRANGE_FLOOKUP, FLOOKUP_o_f, CaseEq"option"]
+      \\ rveq \\ PairCases_on`v` \\ fs[] \\ rveq
+      \\ drule (CONJUNCT2 type_d_tids_disjoint)
+      \\ simp[IN_DISJOINT]
+      \\ first_assum $ irule_at Any
+      \\ pop_assum mp_tac
+      \\ EVAL_TAC )
     \\ cheat)
   \\ cheat
 QED
