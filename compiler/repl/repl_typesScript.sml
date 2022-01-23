@@ -263,11 +263,11 @@ Proof
   Induct_on`repl_types_TS`
   \\ CONJ_TAC
   >- (
-    cheat
-    (*
+    rw[]
+    >- (
       fs[EVERY_MEM, FORALL_PROD] \\ rw[]
       \\ first_x_assum drule
-      \\ rw[check_ref_types_def, ref_lookup_ok_def]
+      \\ rw[check_ref_types_TS_def, ref_lookup_ok_def]
       \\ drule_then drule decs_type_sound \\ simp[]
       \\ resolve_then Any (qspecl_then[`tids`,`ffi`]mp_tac)
            (GSYM init_state_env_thm)
@@ -281,16 +281,14 @@ Proof
       \\ first_x_assum(qspec_then`l`mp_tac)
       \\ fs[type_all_env_def]
       \\ drule_then drule nsAll2_nsLookup1
-      \\ fs[typeSystemTheory.extend_dec_tenv_def, extend_dec_ienv_def, init_config_def]
-      \\ simp[ienv_to_tenv_def, nsLookup_nsMap,
-              primTypesTheory.prim_tenv_def, nsAppend_nsEmpty]
-      \\ simp[Once type_v_cases, convert_t_def]
+      \\ fs[typeSystemTheory.extend_dec_tenv_def]
+      \\ simp[Once type_v_cases]
       \\ simp[EVAL``Tref_num = Tarray_num``]
       \\ strip_tac \\ strip_tac
       \\ first_x_assum drule
       \\ Cases_on`v` \\ simp[type_sv_def]
       \\ fs[good_ctMap_def, ctMap_has_bools_def]
-      \\ rw[] \\ fs[to_type_def, convert_t_def]
+      \\ rw[] \\ fs[to_type_TS_def]
       \\ pop_assum mp_tac
       \\ simp[Once type_v_cases]
       \\ rw[] \\ TRY (ntac 4 (pop_assum mp_tac) \\ EVAL_TAC \\ NO_TAC)
@@ -325,7 +323,9 @@ Proof
       >- ( res_tac \\ pop_assum mp_tac \\ EVAL_TAC )
       \\ res_tac
       \\ ntac 2 (pop_assum mp_tac)
-      \\ EVAL_TAC *))
+      \\ EVAL_TAC)
+    \\ CCONTR_TAC \\ fs[]
+    \\ cheat)
   \\ cheat
 QED
 
