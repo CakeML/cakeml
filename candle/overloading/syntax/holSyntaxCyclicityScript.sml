@@ -26,6 +26,9 @@ QED
 
 (* lemmata on lists *)
 
+Theorem FRONT_TAKE_PRE =
+  GSYM $ REWRITE_RULE[GSYM NULL_EQ] TAKE_PRE_LENGTH
+
 Theorem ALL_DISTINCT_MAP_PAIR_FILTER:
   (!s f. ALL_DISTINCT (MAP FST s) ==> ALL_DISTINCT (MAP FST (FILTER f s)))
   /\ !s f. ALL_DISTINCT (MAP SND s) ==> ALL_DISTINCT (MAP SND (FILTER f s))
@@ -3643,11 +3646,11 @@ QED
 
 (* Lemma 5.11, Kunčar 2015 *)
 Theorem mg_sol_exists'[local]:
-  !rs pqs r pq dep. (
+  !rs pqs r pq dep.
   sol_seq (r::rs) (pq::pqs)
   /\ EVERY (UNCURRY dep) (pq::pqs)
   /\ monotone dep
-  /\ composable_dep dep)
+  /\ composable_dep dep
   ==> ?rs' k. mg_sol_seq rs' (pq::pqs)
     /\ path_starting_at dep k rs' (pq::pqs)
 Proof
@@ -3742,12 +3745,12 @@ QED
 
 (* Lemma 5.11, Kunčar 2015 *)
 Theorem mg_sol_exists:
-  !rs pqs dep. (
+  !rs pqs dep.
   0 < LENGTH rs
   /\ sol_seq rs pqs
   /\ EVERY (UNCURRY dep) pqs
   /\ monotone dep
-  /\ composable_dep dep)
+  /\ composable_dep dep
   ==> ?rs' k. mg_sol_seq rs' pqs
     /\ path_starting_at dep k rs' pqs
 Proof
@@ -3867,45 +3870,40 @@ Theorem leq_geq_monotone_composable:
   \/ has_mg_sol_geq (FRONT pqs) (FST (LAST pqs))
 Proof
   rw[]
-  >> `LENGTH rs = LENGTH pqs` by fs[sol_seq_def]
+  >> imp_res_tac sol_seq_LENGTH
   >> `1 < LENGTH pqs` by fs[]
-  >> qspecl_then [`TL (FRONT rs)`,`TL (FRONT pqs)`,`HD rs`,`HD pqs`,`dep`] mp_tac mg_sol_exists'
-  >> imp_res_tac CONS_FRONT
-  >> ASM_REWRITE_TAC[]
-  >> `~NULL pqs` by (CCONTR_TAC >> fs[NULL_EQ])
-  >> `~NULL rs` by (CCONTR_TAC >> fs[NULL_EQ] >> rfs[])
-  >> drule sol_seq_TAKE
-  >> disch_then (qspec_then `PRE (LENGTH rs)` assume_tac)
-  >> rfs[EVERY_FRONT,REWRITE_RULE[GSYM NULL_EQ] TAKE_PRE_LENGTH]
+  >> qspecl_then [`FRONT rs`,`FRONT pqs`] mp_tac mg_sol_exists
+  >> disch_then $ drule_at Any
+  >> gs[NULL_EQ,NOT_NIL_EQ_LENGTH_NOT_0,LENGTH_FRONT,EVERY_FRONT,FRONT_TAKE_PRE,sol_seq_TAKE]
+  >> impl_tac >- DECIDE_TAC
   >> rw[]
-  >> qspecl_then [`pqs`,`rs`,`rs'`,`dep`,`PRE(LENGTH rs)`,`k`] mp_tac sol_ex_non_orth
-  >> rw[REWRITE_RULE[GSYM NULL_EQ] TAKE_PRE_LENGTH,has_mg_sol_leq_def,has_mg_sol_geq_def]
+  >> drule_at_then (Pat `path_starting_at _ _ _ _`) drule sol_ex_non_orth
+  >> gs[iffLR SUC_PRE,TAKE_PRE_LENGTH,NOT_NIL_EQ_LENGTH_NOT_0]
+  >> rw[has_mg_sol_leq_def,has_mg_sol_geq_def]
   >- (
-    DISJ2_TAC
-    >> goal_assum (first_assum o mp_then Any mp_tac)
-    >> imp_res_tac sol_seq_is_const_or_type
-    >> `~NULL rs'` by (CCONTR_TAC >> fs[mg_sol_seq_def,sol_seq_def,NULL_EQ])
-    >> `LENGTH rs' = PRE(LENGTH pqs)` by fs[mg_sol_seq_def,sol_seq_def,LENGTH_FRONT,NULL_EQ]
-    >> `~NULL (FRONT pqs)` by (CCONTR_TAC >> Cases_on `pqs` >> fs[FRONT_CONS_EQ_NIL,NULL_EQ])
-    >> `0 < PRE (LENGTH pqs)` by (CCONTR_TAC >> fs[])
-    >> `PRE (LENGTH (FRONT pqs)) < LENGTH (FRONT pqs)` by (
-      fs[REWRITE_RULE[GSYM NULL_EQ]LENGTH_FRONT]
-      >> fs[INV_PRE_LESS]
-    )
-    >> fs[REWRITE_RULE[GSYM NULL_EQ] LAST_EL,EL_FRONT,REWRITE_RULE[GSYM NULL_EQ]LENGTH_FRONT]
+    disj2_tac
+    >> goal_assum $ drule_at Any
+    >> imp_res_tac mg_sol_seq_LENGTH
+    >> `0 < PRE (LENGTH pqs)` by DECIDE_TAC
+    >> gs[NOT_NIL_EQ_LENGTH_NOT_0,LAST_EL,FRONT_TAKE_PRE,NULL_EQ,LENGTH_FRONT]
+    >> fs[LAST_EL,GSYM NULL_EQ,GSYM LENGTH_NOT_NULL,LENGTH_TAKE]
+    >> `PRE $ LENGTH pqs < LENGTH pqs` by DECIDE_TAC
+    >> drule_all_then (simp o single) sol_seq_is_const_or_type_FST
+    >> dep_rewrite.DEP_REWRITE_TAC[EL_TAKE]
+    >> ASM_REWRITE_TAC[]
+    >> DECIDE_TAC
   )
-  >> DISJ1_TAC
-  >> goal_assum (first_assum o mp_then Any mp_tac)
-  >> imp_res_tac sol_seq_is_const_or_type
-  >> `~NULL rs'` by (CCONTR_TAC >> fs[mg_sol_seq_def,sol_seq_def,NULL_EQ])
-  >> `LENGTH rs' = PRE(LENGTH pqs)` by fs[mg_sol_seq_def,sol_seq_def,LENGTH_FRONT,NULL_EQ]
-  >> `~NULL (FRONT pqs)` by (CCONTR_TAC >> Cases_on `pqs` >> fs[FRONT_CONS_EQ_NIL,NULL_EQ])
-  >> `0 < PRE (LENGTH pqs)` by (CCONTR_TAC >> fs[])
-  >> `PRE (LENGTH (FRONT pqs)) < LENGTH (FRONT pqs)` by (
-    fs[REWRITE_RULE[GSYM NULL_EQ]LENGTH_FRONT]
-    >> fs[INV_PRE_LESS]
-  )
-  >> fs[REWRITE_RULE[GSYM NULL_EQ] LAST_EL,EL_FRONT,REWRITE_RULE[GSYM NULL_EQ]LENGTH_FRONT]
+  >> disj1_tac
+  >> goal_assum $ drule_at Any
+  >> imp_res_tac mg_sol_seq_LENGTH
+  >> `0 < PRE (LENGTH pqs)` by DECIDE_TAC
+  >> gs[NOT_NIL_EQ_LENGTH_NOT_0,LAST_EL,FRONT_TAKE_PRE,NULL_EQ,LENGTH_FRONT]
+  >> fs[LAST_EL,GSYM NULL_EQ,GSYM LENGTH_NOT_NULL,LENGTH_TAKE]
+  >> `PRE $ LENGTH pqs < LENGTH pqs` by DECIDE_TAC
+  >> drule_all_then (simp o single) sol_seq_is_const_or_type_FST
+  >> dep_rewrite.DEP_REWRITE_TAC[EL_TAKE]
+  >> ASM_REWRITE_TAC[]
+  >> DECIDE_TAC
 QED
 
 (* Definition 5.14 *)
@@ -4057,18 +4055,6 @@ Proof
   >> drule LTAKE_LNTH_EL
   >> disch_then imp_res_tac
   >> rfs[option_CLAUSES]
-QED
-
-Theorem FRONT_TAKE_PRE:
-  !ls. ~NULL ls ==> FRONT ls = TAKE (PRE (LENGTH ls)) ls
-Proof
-  rw[NULL_EQ]
-  >> qspecl_then [`PRE (LENGTH ls)`,`FRONT ls`] mp_tac TAKE_APPEND1
-  >> drule LENGTH_FRONT
-  >> disch_then (fn x => fs[GSYM x])
-  >> disch_then (qspec_then `[LAST ls]` (mp_tac o GSYM))
-  >> imp_res_tac APPEND_FRONT_LAST
-  >> fs[]
 QED
 
 Theorem LDROP_LUNFOLD_LGENLIST[local]:
@@ -4635,8 +4621,7 @@ Proof
   )
   >> fs[] >> rveq
   >> drule_all_then (qspec_then `PRE k` mp_tac) leq_geq_monotone_composable_LTAKE
-  >> dep_rewrite.DEP_ONCE_REWRITE_TAC[cj 1 $ REWRITE_RULE[EQ_IMP_THM] SUC_PRE]
-  >> rw[]
+  >> rw[iffLR SUC_PRE]
   >> qpat_x_assum `~has_mg_sol_leq _ _` kall_tac
   >> qexists_tac `k`
   >> `wf_pqs [THE (LNTH k pqs)]` by (
