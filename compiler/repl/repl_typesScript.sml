@@ -265,6 +265,61 @@ Proof
   ho_match_mp_tac typeSystemTheory.type_d_ind \\ rw[]
 QED
 
+Theorem ref_lookup_ok_store_assign:
+  EVERY (ref_lookup_ok store) rs ∧
+  MEM (n,Str,loc) rs ∧
+  store_assign loc (Refv (Litv (StrLit t))) store = SOME new_store ⇒
+  EVERY (ref_lookup_ok new_store) rs
+Proof
+  simp[store_assign_def]>>
+  simp[EVERY_MEM,FORALL_PROD] >>
+  rw[]>>fs[ref_lookup_ok_def]>>
+  first_assum drule>>
+  pop_assum mp_tac>>
+  first_x_assum drule>>
+  rw[]>>
+  fs[store_lookup_def,EL_LUPDATE]>>
+  IF_CASES_TAC
+  >- (
+    rw[]>>fs[Boolv_def])>>
+  metis_tac[]
+QED
+
+Theorem type_d_assign_str:
+  nsLookup tenv.v n = SOME (0,Tapp [Tapp [] Tstring_num ] Tref_num) ==>
+  type_d T tenv
+  (Dlet ARB Pany (App Opassign [Var n; Lit (StrLit t)]))
+  {}  <|v := nsEmpty; c := nsEmpty; t := nsEmpty|>
+Proof
+  rw[]
+  \\ simp[Once typeSystemTheory.type_d_cases,typeSystemTheory.is_value_def]
+  \\ simp[astTheory.pat_bindings_def]
+  \\ simp[Once typeSystemTheory.type_p_cases]
+  \\ simp[typeSystemTheory.tenv_add_tvs_def]
+  \\ simp[typeSystemTheory.type_pe_determ_def]
+  \\ simp[Once typeSystemTheory.type_p_cases]
+  \\ simp[Once typeSystemTheory.type_p_cases]
+  \\ simp[Once typeSystemTheory.type_e_cases]
+  \\ simp[Once typeSystemTheory.type_e_cases]
+  \\ simp[Once typeSystemTheory.type_e_cases]
+  \\ simp[Once typeSystemTheory.type_e_cases]
+  \\ simp[Once typeSystemTheory.type_e_cases]
+  \\ simp[Once typeSystemTheory.type_e_cases]
+  \\ simp[Once typeSystemTheory.type_op_def]
+  \\ simp[PULL_EXISTS,typeSystemTheory.check_freevars_def]
+  \\ simp[typeSystemTheory.lookup_var_def]
+  \\ EVAL_TAC
+QED
+
+(* todo: is this true? *)
+Theorem repl_types_TS_check_ref_types:
+  ∀(ffi:'ffi ffi_state) rs tids tenv s env.
+    repl_types_TS (ffi,rs) (tids,tenv,s,env) ⇒
+    EVERY (check_ref_types_TS tenv env) rs
+Proof
+  cheat
+QED
+
 Theorem repl_types_TS_thm:
   ∀(ffi:'ffi ffi_state) rs tids tenv s env.
     repl_types_TS (ffi,rs) (tids,tenv,s,env) ⇒
@@ -362,7 +417,45 @@ Proof
     \\ first_assum $ irule_at Any
     \\ pop_assum mp_tac
     \\ EVAL_TAC )
-  \\ cheat
+  \\ CONJ_TAC >-
+    cheat
+  \\ CONJ_TAC >-
+    cheat
+  \\ CONJ_TAC >-
+    cheat
+  \\ (
+    rpt gen_tac \\ strip_tac \\ fs[]
+    \\ CONJ_TAC >-
+      metis_tac[ref_lookup_ok_store_assign]
+    \\ rpt gen_tac
+    \\ qabbrev_tac`
+      dec = Dlet ARB Pany (App Opassign [Var name'; Lit (StrLit t)])`
+    \\ first_x_assum(qspec_then`dec::decs` mp_tac)
+    \\ simp[Once evaluatePropsTheory.evaluate_decs_cons]
+    \\ simp[Abbr`dec`,evaluate_decs_def,astTheory.pat_bindings_def]
+    \\ simp[evaluate_def]
+    \\ drule repl_types_TS_check_ref_types
+    \\ simp[EVERY_MEM,FORALL_PROD]
+    \\ strip_tac \\ first_x_assum drule
+    \\ simp[check_ref_types_TS_def]
+    \\ strip_tac
+    \\ simp[do_app_def]
+    \\ simp[pmatch_def, extend_dec_env_def]
+    \\ qmatch_goalsub_abbrev_tac` _ ss env decs`
+    \\ `ss = s with refs := new_store` by (
+      simp[Abbr`ss`]
+      \\ simp[semanticPrimitivesTheory.state_component_equality])
+    \\ rw[] \\ fs[combine_dec_result_def]
+    \\ qpat_x_assum`!x. _` mp_tac
+    \\ simp[Once typeSystemTheory.type_d_cases]
+    \\ fs[to_type_TS_def]
+    \\ drule type_d_assign_str
+    \\ disch_then(qspec_then`t` assume_tac)
+    \\ qmatch_asmsub_abbrev_tac`type_d T _ _ _ te`
+    \\ disch_then (qspecl_then[`new_tids`,`new_tenv`] mp_tac)
+    \\ rw[] \\ simp[]
+    \\ pop_assum (qspecl_then[`te`,`new_tenv`,`{}`,`new_tids`] mp_tac)
+    \\ simp[typeSystemTheory.extend_dec_tenv_def,Abbr`te`])
 QED
 
 Theorem DISJOINT_set_ids:
