@@ -27,6 +27,9 @@ val _ = translation_extends "candle_kernelProg";
 
 val _ = ml_prog_update (open_module "REPL");
 
+val tidy_up =
+  SIMP_RULE (srw_ss()) (LENGTH :: (DB.find "refs_def" |> map (fst o snd)));
+
 (* declares: val exn = ref Bind; *)
 val bind_e = ``App Opref [Con (SOME (Short "Bind")) []]``
 val eval_thm = let
@@ -41,14 +44,12 @@ val eval_thm = let
     \\ asm_simp_tac bool_ss [] \\ fs [])
     |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
     |> CONV_RULE (PATH_CONV "lr" EVAL)
-    |> SIMP_RULE (srw_ss()) (DB.find "refs_def" |> map (fst o snd))
   val v_tm = v_thm |> concl |> strip_comb |> #2 |> last
   val v_def = define_abbrev false "exn" v_tm
   in v_thm |> REWRITE_RULE [GSYM v_def] end
 val _ = ml_prog_update (add_Dlet eval_thm "exn");
 
-val tidy_up = SIMP_RULE std_ss [LENGTH];
-
+Theorem exn_def        = fetch "-" "exn_def"                      |> tidy_up;
 Theorem isEOF_def      = declare_new_ref "isEOF"      “F”         |> tidy_up;
 Theorem nextString_def = declare_new_ref "nextString" “strlit ""” |> tidy_up;
 
