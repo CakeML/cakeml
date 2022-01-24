@@ -1062,6 +1062,60 @@ val _ = Define`
          let p = vsubst_aux ilist p in
          return (Sequent [] p) od od`
 
+Definition lr_type_subst_def:
+  lr_type_subst subst s =
+    dtcase s of
+      INL x =>
+        return(INL(type_subst subst x))
+    | INR x =>
+        do
+          t <- inst subst x;
+          return(INR t)
+        od
+End
+
+Definition composable_step_compute_def:
+  (composable_step_compute v0 [] step = return(INL step)) ∧
+  (composable_step_compute q (p::dep) step =
+    dtcase composable_one q (FST p) of
+      Continue ρ =>
+        do
+          s <- lr_type_subst ρ (SND p);
+          composable_step_compute q dep (s::step)
+        od
+      | Ignore => composable_step_compute q dep step
+      | Uncomposable => return(INR p))
+End
+
+Definition dep_step_compute_def:
+  (dep_step_compute dep [] res = return(INL res)) ∧
+  (dep_step_compute dep ((p,q)::ext) extd =
+   do
+     res <- composable_step_compute q dep [];
+     dtcase res of
+       INL extd' =>
+         (let
+            extd'' = MAP (λx. (p,x)) extd';
+            has_cycles = FILTER (UNCURRY is_instance_LR_compute) extd''
+          in
+            if NULL has_cycles then dep_step_compute dep ext (extd ++ extd'')
+            else return(INR (Cyclic_step (p,q,SND (HD has_cycles)))))
+     | INR q' => return(INR (Non_comp_step (p,q,q')))
+   od)
+End
+
+Definition dep_steps_compute_def:
+  (dep_steps_compute dep k [] = return(Acyclic k)) ∧
+  (dep_steps_compute dep 0 (_::_) = return Maybe_cyclic) ∧
+  (dep_steps_compute dep (SUC k) (x::xs) =
+   do
+     res <- dep_step_compute dep (x::xs) [];
+     (dtcase res of
+        INL dep' => dep_steps_compute dep k dep'
+      | INR x => return x)
+   od)
+End
+
 val _ = Define`
   new_overloading_specification (Sequent eqs p) =
     do eqs <-
@@ -1084,22 +1138,25 @@ val _ = Define`
          if ~(orth_ctxt_compute (upd::ctxt)) then
            failwith (strlit "new_overloading_specification: theory is not orthogonal.")
          else
-           (dtcase dep_steps dep 32767 dep of
-              Maybe_cyclic =>
-                failwith (strlit "new_overloading_specification: cyclicity check timed out.")
-            | Cyclic_step _ =>
-                (* TODO: more informative error message *)
-                failwith (strlit "new_overloading_specification: cyclicity check failed.")
-            | Non_comp_step _ =>
-                (* TODO: is this what Non_comp_step means? *)
-                failwith (strlit "new_overloading_specification: cyclicity check on non-composable theory.")
-            | Acyclic _ =>
-                do
-                  add_def upd;
-                  let ilist = MAP (λ(s,ty). (Const s ty, Var s ty)) vars in
-                  let p = vsubst_aux ilist p in
-                  return (Sequent [] p)
-                od)
+           do
+             res <- dep_steps_compute dep 32767 dep;
+             (dtcase res of
+                Maybe_cyclic =>
+                  failwith (strlit "new_overloading_specification: cyclicity check timed out.")
+              | Cyclic_step _ =>
+                  (* TODO: more informative error message *)
+                  failwith (strlit "new_overloading_specification: cyclicity check failed.")
+              | Non_comp_step _ =>
+                  (* TODO: is this what Non_comp_step means? *)
+                  failwith (strlit "new_overloading_specification: cyclicity check on non-composable theory.")
+              | Acyclic _ =>
+                  do
+                    add_def upd;
+                    let ilist = MAP (λ(s,ty). (Const s ty, Var s ty)) vars in
+                    let p = vsubst_aux ilist p in
+                    return (Sequent [] p)
+                  od)
+           od
          od od`
 
 (*

@@ -2577,6 +2577,562 @@ Proof
   gvs[EVERY_MEM,MEM_MAP,PULL_EXISTS]
 QED
 
+Definition TYPE_OR_TERM_def:
+  (TYPE_OR_TERM ctxt (INL ty) ⇔ TYPE ctxt ty) ∧
+  (TYPE_OR_TERM ctxt (INR tm) ⇔ TERM ctxt tm)
+End
+
+Triviality unify_LR_cases =
+  holSyntaxCyclicityTheory.unify_LR_ind
+  |> Q.SPEC ‘λct1 ct2. (x = ct1) ∧ (y = ct2) ⇒ P’
+  |> CONV_RULE (DEPTH_CONV BETA_CONV)
+  |> Q.GEN ‘P’
+  |> Q.GEN ‘y’
+  |> Q.GEN ‘x’
+  |> SIMP_RULE std_ss []
+
+Theorem unify_types_ok:
+  ∀tys1 tys2 tys3.
+  EVERY (λ(x,y). TYPE ctxt x ∧ TYPE ctxt y) tys1 ∧
+  EVERY (λ(x,y). TYPE ctxt x ∧ TYPE ctxt y) tys2 ∧
+  (unify_types tys1 tys2 = SOME tys3) ⇒
+  EVERY (λ(x,y). TYPE ctxt x ∧ TYPE ctxt y) tys3
+Proof
+  ho_match_mp_tac unify_types_ind >>
+  rw[unify_types_def] >>
+  gvs[every_zip_split] >>
+  first_x_assum match_mp_tac >>
+  gvs[TYPE_def,type_ok_def] >>
+  gvs[EVERY_CONJ,ELIM_UNCURRY,EVERY_MAP] >>
+  gvs[EVERY_MEM] >>
+  rw[] >>
+  match_mp_tac type_ok_TYPE_SUBST_alt >>
+  gvs[REV_ASSOCD_def] >> rw[type_ok_def]
+QED
+
+Theorem normalise_tyvars_subst_type_ok:
+  ∀ctxt ty n n0 subst chr.
+    TYPE ctxt ty ∧ EVERY (λ(x,y). TYPE ctxt x ∧ TYPE ctxt y) subst ⇒
+    EVERY (λ(x,y). TYPE ctxt x ∧ TYPE ctxt y) (SND(normalise_tyvars_subst ty n n0 subst chr))
+Proof
+  strip_tac >>
+  ho_match_mp_tac normalise_tyvars_subst_ind >>
+  rw[normalise_tyvars_subst_def,TYPE_def,type_ok_def] >>
+  qmatch_goalsub_abbrev_tac ‘FOLDL f a ls’ >>
+  qspecl_then
+    [‘λ(n,subst). EVERY (λ(x,y). type_ok (tysof ctxt) x ∧ type_ok (tysof ctxt) y) subst’,
+     ‘f’,‘ls’,‘a’] mp_tac FOLDL_invariant >>
+  unabbrev_all_tac >>
+  simp[] >>
+  impl_tac
+  >- (gvs[ELIM_UNCURRY] >>
+      rw[] >>
+      first_x_assum drule >>
+      rw[] >>
+      first_x_assum match_mp_tac >>
+      simp[] >>
+      gvs[EVERY_MEM]) >>
+  simp[ELIM_UNCURRY]
+QED
+
+Theorem unify_type_ok:
+  TYPE ctxt ty1 ∧ TYPE ctxt ty2 ∧
+  (unify ty1 ty2 = SOME (u1,u2)) ⇒
+  EVERY (λ(x,y). TYPE ctxt x ∧ TYPE ctxt y) u1 ∧
+  EVERY (λ(x,y). TYPE ctxt x ∧ TYPE ctxt y) u2
+Proof
+  rw[unify_def,normalise_tyvars_rec_def] >>
+  gvs[AllCaseEqs()] >>
+  drule_at (Pos last) unify_types_ok >>
+  disch_then (qspec_then ‘ctxt’ mp_tac) >>
+  (impl_tac
+   >- (gvs[TYPE_def] >>
+       conj_tac >> match_mp_tac type_ok_TYPE_SUBST >>
+       simp[] >>
+       rename1 ‘normalise_tyvars_subst the_type’ >>
+       qpat_x_assum ‘type_ok _ the_type’ assume_tac >>
+       drule(normalise_tyvars_subst_type_ok |> REWRITE_RULE [TYPE_def]) >>
+       simp[EVERY_MAP,ELIM_UNCURRY,EVERY_CONJ])) >>
+  rw[] >>
+  gvs[EVERY_MAP,ELIM_UNCURRY,EVERY_CONJ] >>
+  (conj_asm2_tac
+   >- (simp[EVERY_MEM,TYPE_def] >>
+       rw[] >>
+       match_mp_tac type_ok_TYPE_SUBST >>
+       gvs[TYPE_def] >>
+       gvs[EVERY_MAP] >>
+       gvs[EVERY_MEM] >>
+       rename1 ‘normalise_tyvars_subst the_type’ >>
+       qpat_x_assum ‘type_ok _ the_type’ assume_tac >>
+       drule(normalise_tyvars_subst_type_ok |> REWRITE_RULE [TYPE_def]) >>
+       rw[EVERY_MEM] >>
+       gvs[EVERY_MEM,PULL_FORALL,ELIM_UNCURRY] >>
+       first_x_assum (drule_at (Pat ‘MEM _ _’)) >>
+       simp[]) >>
+   gvs[EVERY_MEM,TYPE_def] >> rw[] >>
+   rename1 ‘normalise_tyvars_subst the_type’ >>
+   qpat_x_assum ‘type_ok _ the_type’ assume_tac >>
+   drule(normalise_tyvars_subst_type_ok |> REWRITE_RULE [TYPE_def]) >>
+   rw[EVERY_MEM] >>
+   gvs[EVERY_MEM,PULL_FORALL,ELIM_UNCURRY] >>
+   first_x_assum (drule_at (Pat ‘MEM _ _’)) >>
+   simp[])
+QED
+
+Theorem composable_step_compute_thm:
+  ∀q xs step ctxt s.
+   TYPE_OR_TERM ctxt q ∧ STATE ctxt s ∧
+   EVERY (λ(x,y). TYPE_OR_TERM ctxt x ∧ TYPE_OR_TERM ctxt y) xs
+   ⇒
+   case composable_step_compute q xs step s of
+     (Failure res, s') => (s' = s)
+   | (Success res, s') => (res = composable_step q xs step) ∧ (s' = s)
+Proof
+  Induct_on ‘xs’
+  >- (rw[composable_step_compute_def,holSyntaxCyclicityTheory.composable_step_def,
+         st_ex_return_def,FUN_EQ_THM,LR_TYPE_SUBST_def]) >>
+  rpt GEN_TAC >>
+  disch_then strip_assume_tac >>
+  gvs[holSyntaxCyclicityTheory.composable_step_def,composable_step_compute_def,
+      st_ex_return_def,FUN_EQ_THM,LR_TYPE_SUBST_def] >>
+  reverse CASE_TAC >- metis_tac[] >>
+  gvs[FUN_EQ_THM,st_ex_return_def,st_ex_bind_def,lr_type_subst_def] >>
+  rename1 ‘SND tup’ >> PairCases_on ‘tup’ >> Cases_on ‘tup1’
+  >- (gvs[FUN_EQ_THM,st_ex_return_def,st_ex_bind_def,lr_type_subst_def,AllCaseEqs(),
+          type_subst] >>
+      metis_tac[]) >>
+  gvs[] >>
+  reverse(ntac 2 CASE_TAC) >>
+  drule_at Any inst_thm >>
+  disch_then(qspec_then ‘ctxt’ mp_tac) >>
+  (impl_tac
+   >- (gvs[TYPE_OR_TERM_def] >>
+       gvs[holSyntaxCyclicityTheory.composable_one_def,AllCaseEqs()] >>
+       rename1 ‘unify_LR t1 t2’ >>
+       qspecl_then [‘t1’,‘t2’] match_mp_tac unify_LR_cases >>
+       rw[] >> gvs[holSyntaxCyclicityTheory.unify_LR_def] >>
+       drule_at (Pat ‘_ = _’) unify_type_ok >>
+       gvs[TYPE_OR_TERM_def,TERM_def] >>
+       gvs[STATE_def,CONTEXT_def] >>
+       drule is_std_sig_extends >>
+       simp[is_std_sig_init] >>
+       strip_tac >>
+       imp_res_tac term_ok_type_ok >>
+       gvs[type_ok_def,TYPE_def])) >>
+  rw[] >>
+  first_x_assum match_mp_tac >>
+  metis_tac[]
+QED
+
+Theorem composable_step_compute_inv:
+  ∀q xs step ctxt s.
+   TYPE_OR_TERM ctxt q ∧ STATE ctxt s ∧
+   EVERY (λ(x,y). TYPE_OR_TERM ctxt x ∧ TYPE_OR_TERM ctxt y) xs ∧
+   EVERY (TYPE_OR_TERM ctxt) step ∧
+   (composable_step_compute q xs step s = (Success(INL res), s')) ⇒
+   EVERY (TYPE_OR_TERM ctxt) res
+Proof
+  Induct_on ‘xs’
+  >- (rw[composable_step_compute_def,holSyntaxCyclicityTheory.composable_step_def,
+         st_ex_return_def,FUN_EQ_THM,LR_TYPE_SUBST_def] >> rw[]) >>
+  rpt GEN_TAC >>
+  disch_then strip_assume_tac >>
+  gvs[holSyntaxCyclicityTheory.composable_step_def,composable_step_compute_def,
+      st_ex_return_def,FUN_EQ_THM,LR_TYPE_SUBST_def] >>
+  rename1 ‘FST tup’ >> PairCases_on ‘tup’ >> Cases_on ‘tup1’
+  >- (PURE_FULL_CASE_TAC >>
+      gvs[FUN_EQ_THM,st_ex_return_def,st_ex_bind_def,lr_type_subst_def,AllCaseEqs(),
+          type_subst] >>
+      first_x_assum match_mp_tac >>
+      goal_assum(drule_at (Pos last)) >>
+      simp[] >>
+      gvs[TYPE_OR_TERM_def,TYPE_def] >>
+      drule_then match_mp_tac type_ok_TYPE_SUBST >>
+      gvs[holSyntaxCyclicityTheory.composable_one_def,AllCaseEqs()] >>
+      rename1 ‘unify_LR t1 t2’ >>
+      qspecl_then [‘t1’,‘t2’] match_mp_tac unify_LR_cases >>
+      rw[] >> gvs[holSyntaxCyclicityTheory.unify_LR_def] >>
+      drule_at (Pat ‘_ = _’) unify_type_ok >>
+      gvs[TYPE_OR_TERM_def,TERM_def] >>
+      gvs[GSYM TYPE_def |> REWRITE_RULE[GSYM FUN_EQ_THM],EVERY_MAP,ELIM_UNCURRY,EVERY_CONJ] >>
+      gvs[TYPE_def,STATE_def,CONTEXT_def] >>
+      drule is_std_sig_extends >>
+      simp[is_std_sig_init] >>
+      strip_tac >>
+      imp_res_tac term_ok_type_ok >>
+      gvs[type_ok_def,TYPE_def] >>
+      qspecl_then [‘t1’,‘t2’] match_mp_tac unify_LR_cases >>
+      rw[] >> gvs[holSyntaxCyclicityTheory.unify_LR_def] >>
+      drule_at (Pat ‘_ = _’) unify_type_ok >>
+      gvs[TYPE_OR_TERM_def,TERM_def] >>
+      gvs[STATE_def,CONTEXT_def] >>
+      drule is_std_sig_extends >>
+      simp[is_std_sig_init] >>
+      strip_tac >>
+      imp_res_tac term_ok_type_ok >>
+      gvs[type_ok_def,TYPE_def]) >>
+  PURE_FULL_CASE_TAC >>
+  gvs[FUN_EQ_THM,st_ex_return_def,st_ex_bind_def,lr_type_subst_def,AllCaseEqs(),
+      type_subst]
+  >- (first_x_assum match_mp_tac >>
+      first_assum(irule_at (Pos last)) >>
+      drule_at Any inst_thm >>
+      disch_then(qspec_then ‘ctxt’ mp_tac) >>
+      impl_tac
+      >- (gvs[TYPE_OR_TERM_def] >>
+          gvs[holSyntaxCyclicityTheory.composable_one_def,AllCaseEqs()] >>
+          rename1 ‘unify_LR t1 t2’ >>
+          qspecl_then [‘t1’,‘t2’] match_mp_tac unify_LR_cases >>
+          rw[] >> gvs[holSyntaxCyclicityTheory.unify_LR_def] >>
+          drule_at (Pat ‘_ = _’) unify_type_ok >>
+          gvs[TYPE_OR_TERM_def,TERM_def] >>
+          gvs[STATE_def,CONTEXT_def] >>
+          drule is_std_sig_extends >>
+          simp[is_std_sig_init] >>
+          strip_tac >>
+          imp_res_tac term_ok_type_ok >>
+          gvs[type_ok_def,TYPE_def]) >>
+      rw[] >>
+      gvs[TYPE_OR_TERM_def]) >>
+  metis_tac[]
+QED
+
+Theorem dep_step_compute_thm:
+  ∀dep ext extd s ctxt.
+   EVERY (λ(x,y). TYPE_OR_TERM ctxt x ∧ TYPE_OR_TERM ctxt y) dep ∧
+   EVERY (λ(x,y). TYPE_OR_TERM ctxt x ∧ TYPE_OR_TERM ctxt y) ext ∧
+   STATE ctxt s ⇒
+   case dep_step_compute dep ext extd s of
+     (Success res, s') => (res = dep_step dep ext extd) ∧ (s' = s)
+   | (Failure res, s') => s' = s
+Proof
+  ho_match_mp_tac holSyntaxCyclicityTheory.dep_step_ind >>
+  rpt conj_tac >> rpt(gen_tac ORELSE disch_then strip_assume_tac) >>
+  gvs[holSyntaxCyclicityTheory.dep_step_def,dep_step_compute_def,
+      st_ex_return_def,st_ex_bind_def] >>
+  pop_assum (strip_assume_tac o SIMP_RULE (srw_ss()) [AllCaseEqs()]) >>
+  gvs[] >>
+  rename1 ‘composable_step_compute t dep [] s’ >>
+  qspecl_then [‘t’,‘dep’,‘[]’] mp_tac composable_step_compute_thm >>
+  rpt(disch_then drule) >>
+  ntac 2 TOP_CASE_TAC >>
+  rw[] >>
+  CASE_TAC >> gvs[] >>
+  IF_CASES_TAC >> gvs[] >>
+  gvs[NULL_EQ] >>
+  first_x_assum match_mp_tac >>
+  rpt(goal_assum drule)
+QED
+
+Theorem dep_step_compute_type_ok:
+  ∀dep ext extd s ctxt res s'.
+   EVERY (λ(x,y). TYPE_OR_TERM ctxt x ∧ TYPE_OR_TERM ctxt y) dep ∧
+   EVERY (λ(x,y). TYPE_OR_TERM ctxt x ∧ TYPE_OR_TERM ctxt y) ext ∧
+   EVERY (λ(x,y). TYPE_OR_TERM ctxt x ∧ TYPE_OR_TERM ctxt y) extd ∧
+   STATE ctxt s ∧
+   (dep_step_compute dep ext extd s = (Success(INL res), s')) ⇒
+   EVERY (λ(x,y). TYPE_OR_TERM ctxt x ∧ TYPE_OR_TERM ctxt y) res
+Proof
+  ho_match_mp_tac holSyntaxCyclicityTheory.dep_step_ind >>
+  rpt conj_tac >> rpt(gen_tac ORELSE disch_then strip_assume_tac) >>
+  gvs[holSyntaxCyclicityTheory.dep_step_def,dep_step_compute_def,
+      st_ex_return_def,st_ex_bind_def] >>
+  pop_assum (strip_assume_tac o SIMP_RULE (srw_ss()) [AllCaseEqs()]) >>
+  gvs[] >>
+  rename1 ‘composable_step_compute t dep [] s’ >>
+  qspecl_then [‘t’,‘dep’,‘[]’] mp_tac composable_step_compute_thm >>
+  rpt(disch_then drule) >>
+  disch_then strip_assume_tac >>
+  gvs[] >>
+  PURE_FULL_CASE_TAC >> gvs[] >>
+  PURE_FULL_CASE_TAC >> gvs[NULL_EQ] >>
+  first_x_assum match_mp_tac >>
+  rpt(goal_assum drule) >>
+  goal_assum(drule_at (Pat ‘STATE _ _’)) >>
+  goal_assum(drule_at (Pat ‘_ = _’)) >>
+  simp[EVERY_MAP] >>
+  drule_at (Pat ‘_ = _’) composable_step_compute_inv >>
+  rpt(disch_then drule) >>
+  simp[] >>
+  metis_tac[]
+QED
+
+Theorem dep_steps_compute_thm:
+  ∀dep n xs s ctxt.
+   EVERY (λ(x,y). TYPE_OR_TERM ctxt x ∧ TYPE_OR_TERM ctxt y) dep ∧
+   EVERY (λ(x,y). TYPE_OR_TERM ctxt x ∧ TYPE_OR_TERM ctxt y) xs ∧
+   STATE ctxt s ⇒
+   case dep_steps_compute dep n xs s of
+     (Success res, s') => (res = dep_steps dep n xs) ∧ (s' = s)
+   | (Failure res, s') => s' = s
+Proof
+  ho_match_mp_tac dep_steps_compute_ind >>
+  rpt conj_tac >> rpt(gen_tac ORELSE disch_then strip_assume_tac) >>
+  gvs[dep_steps_compute_def,holSyntaxCyclicityTheory.dep_steps_def,
+      st_ex_return_def,st_ex_bind_def] >>
+  reverse(ntac 2 CASE_TAC) >>
+  rename1 ‘dep_step_compute dep (x::xs) [] s’ >>
+  qspecl_then [‘dep’,‘x::xs’,‘[]’,‘s’] mp_tac dep_step_compute_thm >>
+  disch_then drule >>
+  rw[] >>
+  CASE_TAC >> gvs[] >>
+  first_x_assum match_mp_tac >>
+  rpt(goal_assum drule) >>
+  simp[] >>
+  drule_at (Pat ‘_ = _’) dep_step_compute_type_ok >>
+  rpt(disch_then drule) >>
+  simp[]
+QED
+
+(* TODO: MOVE *)
+Theorem MEM_ConstSpec_ALOOKUP_const_list:
+  ctxt extends [] ∧ MEM (ConstSpec ov cl prop) ctxt ∧ MEM (name,trm) cl
+  ⇒
+  ∃ty. (ALOOKUP (const_list ctxt) name = SOME ty) ∧ is_instance ty (typeof trm)
+Proof
+  rw[MEM_SPLIT] >>
+  FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND] >>
+  imp_res_tac extends_NIL_DISJOINT >>
+  drule_then strip_assume_tac extends_APPEND_NIL >>
+  fs[extends_NIL_CONS_extends] >>
+  gvs[updates_cases,constspec_ok_def] >>
+  rw[] >> gvs[DISJ_IMP_THM,FORALL_AND_THM]
+  >- (simp[ALOOKUP_APPEND] >>
+      reverse TOP_CASE_TAC
+      >- (imp_res_tac ALOOKUP_MEM >>
+          gvs[DISJOINT_DEF] >>
+          gvs[FUN_EQ_THM,MEM_MAP,FORALL_PROD] >> metis_tac[]) >>
+      metis_tac[]) >>
+  simp[ALOOKUP_APPEND] >>
+  reverse CASE_TAC
+  >- (imp_res_tac ALOOKUP_MEM >>
+      gvs[DISJOINT_DEF] >>
+      gvs[FUN_EQ_THM,MEM_MAP,FORALL_PROD,ALL_DISTINCT_APPEND,PULL_EXISTS,EXISTS_PROD]) >>
+  simp[ALOOKUP_MAP] >>
+  CASE_TAC >>
+  gvs[] >>
+  imp_res_tac ALOOKUP_MEM >>
+  gvs[FUN_EQ_THM,MEM_MAP,FORALL_PROD,ALL_DISTINCT_APPEND,PULL_EXISTS,EXISTS_PROD]
+QED
+
+Theorem MEM_TypeDefn_type_ok:
+  ctxt extends [] ∧ MEM (TypeDefn name pred abs rep) ctxt ⇒
+  type_ok (tysof ctxt)
+          (Tyapp name
+             (MAP Tyvar
+                (MAP implode (STRING_SORT (MAP explode (tvars pred))))))
+Proof
+  rw[MEM_SPLIT] >>
+  FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND] >>
+  imp_res_tac extends_NIL_DISJOINT >>
+  drule_then strip_assume_tac extends_APPEND_NIL >>
+  fs[extends_NIL_CONS_extends] >>
+  gvs[updates_cases,constspec_ok_def] >>
+  simp[type_ok_def,FLOOKUP_FUNION,FLOOKUP_UPDATE] >>
+  reverse TOP_CASE_TAC
+  >- (imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP,FORALL_PROD]) >>
+  rw[EVERY_MEM,MEM_MAP,PULL_EXISTS,type_ok_def]
+QED
+
+Theorem MEM_NewType_type_ok:
+  ctxt extends [] ∧ MEM (NewType name arity) ctxt ⇒
+  (ALOOKUP (type_list ctxt) name = SOME arity)
+Proof
+  rw[MEM_SPLIT] >>
+  FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND] >>
+  imp_res_tac extends_NIL_DISJOINT >>
+  drule_then strip_assume_tac extends_APPEND_NIL >>
+  fs[extends_NIL_CONS_extends] >>
+  gvs[updates_cases] >>
+  simp[type_ok_def,ALOOKUP_APPEND] >>
+  reverse TOP_CASE_TAC
+  >- (imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP,FORALL_PROD])
+QED
+
+Theorem MEM_NewType_type_ok:
+  ctxt extends [] ∧ MEM (NewType name arity) ctxt ⇒
+  (ALOOKUP (type_list ctxt) name = SOME arity)
+Proof
+  rw[MEM_SPLIT] >>
+  FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND] >>
+  imp_res_tac extends_NIL_DISJOINT >>
+  drule_then strip_assume_tac extends_APPEND_NIL >>
+  fs[extends_NIL_CONS_extends] >>
+  gvs[updates_cases] >>
+  simp[type_ok_def,ALOOKUP_APPEND] >>
+  reverse TOP_CASE_TAC
+  >- (imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP,FORALL_PROD])
+QED
+
+Theorem MEM_TypeDefn_type_ok':
+  ctxt extends [] ∧ MEM (TypeDefn name pred abs rep) ctxt ⇒
+  (ALOOKUP (type_list ctxt) name = SOME(LENGTH(tvars pred)))
+Proof
+  rw[MEM_SPLIT] >>
+  FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND] >>
+  imp_res_tac extends_NIL_DISJOINT >>
+  drule_then strip_assume_tac extends_APPEND_NIL >>
+  fs[extends_NIL_CONS_extends] >>
+  gvs[updates_cases] >>
+  simp[type_ok_def,ALOOKUP_APPEND] >>
+  reverse TOP_CASE_TAC
+  >- (imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP,FORALL_PROD])
+QED
+
+Theorem MEM_TypeDefn_ALOOKUP_abs:
+  ctxt extends [] ∧ MEM (TypeDefn name pred abs rep) ctxt ⇒
+  (ALOOKUP (const_list ctxt) abs = SOME(Fun (domain (typeof pred))
+                                        (Tyapp name
+                                         (MAP Tyvar
+                                          (MAP implode (STRING_SORT (MAP explode (tvars pred))))))))
+Proof
+  rw[MEM_SPLIT] >>
+  FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND] >>
+  imp_res_tac extends_NIL_DISJOINT >>
+  drule_then strip_assume_tac extends_APPEND_NIL >>
+  fs[extends_NIL_CONS_extends] >>
+  gvs[updates_cases,constspec_ok_def] >>
+  simp[type_ok_def,ALOOKUP_APPEND] >>
+  reverse TOP_CASE_TAC
+  >- (imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP,FORALL_PROD]) >>
+  rw[EVERY_MEM,MEM_MAP,PULL_EXISTS,type_ok_def]
+QED
+
+Theorem MEM_TypeDefn_ALOOKUP_rep:
+  ctxt extends [] ∧ MEM (TypeDefn name pred abs rep) ctxt ⇒
+  (ALOOKUP (const_list ctxt) rep = SOME(Fun (Tyapp name
+                                         (MAP Tyvar
+                                          (MAP implode (STRING_SORT (MAP explode (tvars pred))))))
+                                         (domain (typeof pred))))
+Proof
+  rw[MEM_SPLIT] >>
+  FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND] >>
+  imp_res_tac extends_NIL_DISJOINT >>
+  drule_then strip_assume_tac extends_APPEND_NIL >>
+  fs[extends_NIL_CONS_extends] >>
+  gvs[updates_cases,constspec_ok_def] >>
+  simp[type_ok_def,ALOOKUP_APPEND] >>
+  reverse TOP_CASE_TAC
+  >- (imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP,FORALL_PROD]) >>
+  rw[EVERY_MEM,MEM_MAP,PULL_EXISTS,type_ok_def]
+QED
+
+Theorem dependency_ok:
+  STATE defs r ∧
+  LIST_REL
+          (λe ((s,ty),t).
+               (e = Var s ty === t) ∧ t has_type ty ∧ CLOSED t ∧
+               (∀v. MEM v (tvars t) ⇒ MEM v (tyvars (typeof t))) ∧
+               term_ok (sigof defs) t ∧ type_ok (tysof defs) ty) l a ∧
+  (∀name ty.
+          MEM (name,ty) (MAP FST a) ⇒
+          ∃ty'.
+            MEM (NewConst name ty') r.the_context ∧ is_instance ty' ty ∧
+            (ALOOKUP r.the_term_constants name = SOME ty') ∧
+            ¬is_reserved_name name) ∧
+  dependency
+          (ConstSpec T (MAP (λ((s,ty),r). (s,r)) a) t::r.the_context) p_1 p_2 ⇒
+  TYPE_OR_TERM defs p_1 ∧ TYPE_OR_TERM defs p_2
+Proof
+  rw[STATE_def,CONTEXT_def] >>
+  gvs[TYPE_OR_TERM_def] >>
+  fs[LIST_REL_CONJ,ELIM_UNCURRY,LIST_REL_EVERY,LIST_REL_MAP_EQ,EVERY_CONJ,EVERY_MAP,tyvars_EQ_thm] >>
+  gvs[dependency_cases,MEM_MAP,PULL_EXISTS,FORALL_PROD,EVERY_MEM,TYPE_OR_TERM_def,TERM_def,TYPE_def] >>
+  drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
+  drule_then (assume_tac o C MATCH_MP is_std_sig_init ) is_std_sig_extends >>
+  TRY(drule_all_then MATCH_ACCEPT_TAC MEM_TypeDefn_type_ok) >>
+  TRY(imp_res_tac extends_update_ok_NewConst >> NO_TAC)
+  >- (rename1 ‘FST(FST x)’ >> PairCases_on ‘x’ >> gvs[] >>
+      res_tac >>
+      simp[term_ok_def] >>
+      imp_res_tac WELLTYPED_LEMMA >>
+      rveq >>
+      metis_tac[])
+  >- (imp_res_tac extends_update_ok_ConstSpec >>
+      imp_res_tac WELLTYPED_LEMMA >>
+      rveq >>
+      simp[term_ok_def] >>
+      imp_res_tac MEM_ConstSpec_ALOOKUP_const_list >>
+      gvs[] >>
+      metis_tac[])
+  >- (rename1 ‘FST(FST x)’ >> PairCases_on ‘x’ >> gvs[] >>
+      res_tac >>
+      simp[term_ok_def] >>
+      imp_res_tac WELLTYPED_LEMMA >>
+      rveq >>
+      metis_tac[])
+  >- (imp_res_tac extends_update_ok_ConstSpec >>
+      imp_res_tac WELLTYPED_LEMMA >>
+      rveq >>
+      simp[term_ok_def] >>
+      imp_res_tac MEM_ConstSpec_ALOOKUP_const_list >>
+      gvs[] >>
+      metis_tac[])
+  >- (rw[type_ok_def,EVERY_MEM,MEM_MAP] >> imp_res_tac MEM_NewType_type_ok >>
+      rw[type_ok_def])
+  >- (simp[term_ok_def] >>
+      drule term_ok_clauses >> simp[] >> disch_then kall_tac >>
+      simp[type_ok_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,MEM_TypeDefn_type_ok] >>
+      imp_res_tac MEM_TypeDefn_ALOOKUP_abs >>
+      imp_res_tac MEM_TypeDefn_type_ok' >>
+      imp_res_tac extends_update_ok_TypeDefn' >>
+      simp[] >>
+      qexists_tac ‘[]’ >>
+      simp[])
+  >- (simp[term_ok_def] >>
+      drule term_ok_clauses >> simp[] >> disch_then kall_tac >>
+      simp[type_ok_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,MEM_TypeDefn_type_ok] >>
+      imp_res_tac MEM_TypeDefn_ALOOKUP_rep >>
+      imp_res_tac MEM_TypeDefn_type_ok' >>
+      imp_res_tac extends_update_ok_TypeDefn' >>
+      simp[] >>
+      qexists_tac ‘[]’ >>
+      simp[])
+  >- (simp[term_ok_def] >>
+      drule term_ok_clauses >> simp[] >> disch_then kall_tac >>
+      simp[type_ok_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,MEM_TypeDefn_type_ok] >>
+      imp_res_tac MEM_TypeDefn_ALOOKUP_abs >>
+      imp_res_tac MEM_TypeDefn_type_ok' >>
+      imp_res_tac extends_update_ok_TypeDefn' >>
+      simp[] >>
+      qexists_tac ‘[]’ >>
+      simp[])
+  >- (simp[term_ok_def] >>
+      drule term_ok_clauses >> simp[] >> disch_then kall_tac >>
+      simp[type_ok_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,MEM_TypeDefn_type_ok] >>
+      imp_res_tac MEM_TypeDefn_ALOOKUP_rep >>
+      imp_res_tac MEM_TypeDefn_type_ok' >>
+      imp_res_tac extends_update_ok_TypeDefn' >>
+      simp[] >>
+      qexists_tac ‘[]’ >>
+      simp[])
+  >- (drule_then MATCH_MP_TAC allCInsts_term_ok >>
+      metis_tac[PAIR,FST,SND])
+  >- (drule_then MATCH_MP_TAC allCInsts_term_ok >>
+      imp_res_tac extends_update_ok_ConstSpec)
+  >- (qspec_then ‘sigof r.the_context’ mp_tac (allTypes_type_ok |> CONV_RULE(RESORT_FORALL_CONV rev)) >>
+      simp[] >>
+      disch_then(drule_then match_mp_tac) >>
+      metis_tac[PAIR,FST,SND])
+  >- (qspec_then ‘sigof r.the_context’ mp_tac (allTypes_type_ok |> CONV_RULE(RESORT_FORALL_CONV rev)) >>
+      simp[] >>
+      disch_then(drule_then match_mp_tac) >>
+      imp_res_tac extends_update_ok_ConstSpec)
+  >- (qspec_then ‘sigof r.the_context’ mp_tac (allTypes_type_ok |> CONV_RULE(RESORT_FORALL_CONV rev)) >>
+      simp[] >>
+      disch_then(drule_then match_mp_tac) >>
+      imp_res_tac extends_update_ok_TypeDefn)
+  >- (drule_then MATCH_MP_TAC allCInsts_term_ok >>
+      imp_res_tac extends_update_ok_TypeDefn)
+  >- (drule_then match_mp_tac allTypes'_type_ok >>
+      imp_res_tac extends_update_ok_NewConst)
+  >- simp[type_ok_def]
+  >- (drule_then match_mp_tac allTypes'_type_ok >>
+      imp_res_tac extends_update_ok_TypeDefn')
+  >- (drule_then match_mp_tac allTypes'_type_ok >>
+      imp_res_tac extends_update_ok_TypeDefn')
+QED
+
 Theorem new_overloading_specification_thm:
    THM defs th /\ STATE defs s ==>
     case new_overloading_specification th s of
@@ -2714,6 +3270,19 @@ Proof
   simp[] >> strip_tac >>
   rveq >>
   IF_CASES_TAC >- simp[raise_Fail_def] >>
+  simp[] >>
+  qmatch_goalsub_abbrev_tac ‘dep_steps_compute a1 a2 a3 a4’ >>
+  qspecl_then [‘a1’, ‘a2’,‘a3’,‘a4’, ‘defs’] mp_tac dep_steps_compute_thm >>
+  MAP_EVERY qunabbrev_tac [‘a1’, ‘a2’,‘a3’,‘a4’] >>
+  impl_tac >-
+    (simp[EVERY_MEM,FORALL_PROD] >>
+     rpt gen_tac >>
+     strip_tac >>
+     dxrule DEPENDENCY_IMP2 >>
+     strip_tac >>
+     imp_res_tac dependency_ok >> simp[]) >>
+  reverse(ntac 2 BasicProvers.CASE_TAC) >>
+  rw[] >>
   BasicProvers.CASE_TAC
   >- simp[raise_Fail_def]
   >- simp[raise_Fail_def]
