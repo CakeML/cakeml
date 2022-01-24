@@ -31,5 +31,8 @@ The first pass of adding print functions to source AST.
 Runs prior to type inference, and defines a pretty-print
 function per datatype definition.
 
+[printTweaksScript.sml](printTweaksScript.sml):
+The top-level printing adjustment, as called by the REPL.
+
 [test](test):
 Tests for the pretty-printer apparatus.
