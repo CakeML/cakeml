@@ -6,7 +6,7 @@ open semanticsPropsTheory evaluateTheory semanticPrimitivesTheory
 open inferTheory inferSoundTheory typeSoundTheory semanticsTheory
      envRelTheory primSemEnvTheory typeSoundInvariantsTheory
      namespacePropsTheory inferPropsTheory repl_check_and_tweakTheory
-open ml_progTheory
+open ml_progTheory evaluate_skipTheory
 
 val _ = new_theory "repl_types";
 
@@ -646,6 +646,164 @@ Proof
   \\ simp[set_ids_SUBSET]
 QED
 
+Theorem repl_types_set_clock:
+  ∀ffi rs t s env.
+    repl_types F (ffi,rs) (t,s,env) ⇒
+    ∀ck. repl_types F (ffi,rs) (t,s with clock := ck,env)
+Proof
+  Induct_on ‘repl_types’ \\ rpt conj_tac \\ rpt gen_tac \\ rw []
+  >- (* init *)
+   (drule evaluatePropsTheory.evaluate_decs_set_clock \\ fs []
+    \\ disch_then (qspec_then ‘ck'’ strip_assume_tac)
+    \\ irule_at Any repl_types_init \\ fs []
+    \\ rpt (first_assum $ irule_at Any))
+  >- (* eval *)
+   (drule evaluatePropsTheory.evaluate_decs_set_clock \\ fs []
+    \\ disch_then (qspec_then ‘ck’ strip_assume_tac)
+    \\ irule_at Any repl_types_eval \\ fs []
+    \\ rpt (first_assum $ irule_at Any))
+  >- (* exn *)
+   (drule evaluatePropsTheory.evaluate_decs_set_clock \\ fs []
+    \\ disch_then (qspec_then ‘ck’ strip_assume_tac)
+    \\ irule_at Any repl_types_exn \\ fs []
+    \\ rpt (first_assum $ irule_at Any))
+  >- (* exn_assign *)
+   (drule evaluatePropsTheory.evaluate_decs_set_clock \\ fs []
+    \\ disch_then (qspec_then ‘ck’ strip_assume_tac)
+    \\ ‘new_s with <|clock := ck; refs := new_store|> =
+        (new_s with clock := ck) with refs := new_store’ by fs []
+    \\ asm_rewrite_tac []
+    \\ irule_at Any repl_types_exn_assign \\ fs []
+    \\ rpt (first_assum $ irule_at Any))
+  \\ gvs []
+  \\ ‘s with <|clock := ck; refs := new_store|> =
+      (s with clock := ck) with refs := new_store’ by fs []
+  \\ asm_rewrite_tac []
+  \\ irule_at Any repl_types_str_assign \\ fs []
+  \\ rpt (first_assum $ irule_at Any)
+QED
+
+Triviality INJ_count_ADD:
+  INJ f a (count k) ⇒ INJ f a (count (t + k))
+Proof
+  fs [INJ_DEF] \\ rw [] \\ res_tac \\ fs []
+QED
+
+Theorem repl_types_T_F:
+  ∀(ffi:'ffi ffi_state) rs types t env1.
+    repl_types T (ffi,rs) (types,t,env1) ⇒
+    ∃s env fr ft fe l.
+      repl_types F (ffi,rs) (types,s,env) ∧
+      state_rel l fr ft fe s t ∧
+      env_rel fr ft fe env env1 ∧
+      EVERY (λ(a,b,loc). loc < l) rs
+Proof
+  Induct_on ‘repl_types’ \\ rpt conj_tac \\ rpt gen_tac \\ rw []
+  >- (* init *)
+   (drule evaluate_decs_init \\ rw [] \\ gvs []
+    \\ first_assum $ irule_at Any
+    \\ first_assum $ irule_at Any
+    \\ irule_at Any repl_types_init
+    \\ rpt (first_assum $ irule_at Any)
+    \\ fs [EVERY_MEM,FORALL_PROD] \\ rw []
+    \\ res_tac
+    \\ fs [check_ref_types_def,env_rel_def]
+    \\ res_tac \\ fs [Once v_rel_cases]
+    \\ fs [FLOOKUP_DEF])
+  >- (* skip *)
+   (‘repl_types F (ffi,rs) (types',s' with clock := s'.clock - ck,env')’
+           by (irule_at Any repl_types_set_clock \\ fs [])
+    \\ pop_assum $ irule_at Any
+    \\ rpt (last_assum $ irule_at $ Pos last)
+    \\ fs [state_rel_def,SF SFY_ss]
+    \\ rw []
+    \\ first_x_assum (qspec_then ‘n’ assume_tac)
+    \\ gvs [EL_APPEND1]
+    \\ irule INJ_count_ADD \\ fs [])
+  >- (* eval *)
+   (gvs []
+    \\ irule_at Any repl_types_eval
+    \\ ntac 2 (first_assum $ irule_at $ Pos hd)
+    \\ rename [‘state_rel l fr ft fe s1 s2’,‘env_rel fr ft fe env1 env2’]
+    \\ Cases_on ‘evaluate_decs s1 env1 decs’ \\ gvs []
+    \\ drule_all evaluate_decs_skip \\ gvs []
+    \\ strip_tac
+    \\ Cases_on ‘r’ \\ fs [res_rel_def]
+    \\ rpt (first_assum $ irule_at $ Pos hd))
+  >- (* exn *)
+   (gvs []
+    \\ irule_at Any repl_types_exn
+    \\ ntac 2 (first_assum $ irule_at $ Pos hd)
+    \\ rename [‘state_rel l fr ft fe s1 s2’,‘env_rel fr ft fe env1 env2’]
+    \\ Cases_on ‘evaluate_decs s1 env1 decs’ \\ gvs []
+    \\ drule_all evaluate_decs_skip \\ gvs []
+    \\ strip_tac
+    \\ Cases_on ‘r’ \\ fs [res_rel_def]
+    \\ rename [‘_ (Rerr e1) _’]
+    \\ Cases_on ‘e1’ \\ fs [res_rel_def]
+    \\ rpt (first_assum $ irule_at $ Pos hd)
+    \\ rpt (first_assum $ irule_at $ Pos last)
+    \\ irule env_rel_update
+    \\ rpt (first_assum $ irule_at $ Pos last))
+  >- (* exn_assign *)
+   (gvs []
+    \\ irule_at Any repl_types_exn_assign
+    \\ ntac 2 (first_assum $ irule_at $ Pos hd)
+    \\ rename [‘state_rel l fr ft fe s1 s2’,‘env_rel fr ft fe env1 env2’]
+    \\ Cases_on ‘evaluate_decs s1 env1 decs’ \\ gvs []
+    \\ drule_all evaluate_decs_skip \\ gvs []
+    \\ strip_tac
+    \\ Cases_on ‘r’ \\ fs [res_rel_def]
+    \\ rename [‘_ (Rerr e1) _’]
+    \\ Cases_on ‘e1’ \\ fs [res_rel_def]
+    \\ rpt (first_assum $ irule_at $ Pos hd)
+    \\ first_assum $ irule_at $ Pos last
+    \\ irule_at Any env_rel_update
+    \\ rpt (first_assum $ irule_at $ Pos hd)
+    \\ fs [state_rel_def,store_assign_def]
+    \\ fs [EL_LUPDATE,EVERY_MEM] \\ res_tac
+    \\ Cases_on ‘EL loc new_s.refs’ \\ fs [store_v_same_type_def]
+    \\ res_tac \\ fs []
+    \\ first_assum (qspec_then ‘loc’ assume_tac)
+    \\ qpat_x_assum ‘FLOOKUP fr loc = SOME loc’ assume_tac \\ fs []
+    \\ qpat_x_assum ‘loc < LENGTH q.refs’ assume_tac
+    \\ fs [] \\ gvs []
+    \\ Cases_on ‘EL loc q.refs’ \\ fs [ref_rel_def]
+    \\ strip_tac \\ first_x_assum (qspec_then ‘n’ mp_tac) \\ fs [EL_LUPDATE]
+    \\ reverse IF_CASES_TAC \\ fs []
+    \\ strip_tac \\ fs []
+    \\ ‘FLOOKUP fr1 loc = SOME loc ∧ loc < LENGTH q.refs’ by (res_tac \\ fs [])
+    \\ ‘n = loc ⇔ m = loc’ by
+     (fs [FLOOKUP_DEF]
+      \\ qpat_x_assum ‘INJ ($' fr1) (count (LENGTH q.refs)) _’ mp_tac
+      \\ simp_tac (srw_ss()) [INJ_DEF] \\ metis_tac [])
+    \\ asm_rewrite_tac []
+    \\ rw [] \\ fs [] \\ rw [ref_rel_def]
+    \\ fs [FLOOKUP_DEF] \\ gvs [])
+  >- (* str_assign *)
+   (gvs []
+    \\ irule_at Any repl_types_str_assign
+    \\ ntac 2 (first_assum $ irule_at $ Pos hd)
+    \\ ntac 2 (first_assum $ irule_at $ Pos last)
+    \\ gvs [store_assign_def,EVERY_MEM]
+    \\ res_tac \\ fs []
+    \\ rename [‘state_rel l fr ft fe s1 s2’,‘env_rel fr ft fe env1 env2’]
+    \\ fs [state_rel_def]
+    \\ qexists_tac ‘t’ \\ fs []
+    \\ fs [EL_LUPDATE] \\ res_tac
+    \\ Cases_on ‘EL loc s2.refs’ \\ fs [store_v_same_type_def]
+    \\ first_assum (qspec_then ‘loc’ assume_tac)
+    \\ qpat_x_assum ‘FLOOKUP fr loc = SOME loc’ assume_tac \\ fs []
+    \\ gvs [] \\ Cases_on ‘EL loc s1.refs’ \\ fs [ref_rel_def]
+    \\ rw []
+    >- fs [ref_rel_def,Once v_rel_cases]
+    \\ first_x_assum (qspec_then ‘n’ mp_tac) \\ fs []
+    \\ rw [] \\ fs [] \\ rw []
+    \\ fs [FLOOKUP_DEF] \\ gvs []
+    \\ qpat_x_assum ‘INJ ($' fr) (count (LENGTH _)) _’ mp_tac
+    \\ simp_tac (srw_ss()) [INJ_DEF] \\ metis_tac [])
+QED
+
 Theorem repl_types_thm:
   ∀(ffi:'ffi ffi_state) b rs types s env.
     repl_types b (ffi,rs) (types,s,env) ⇒
@@ -655,8 +813,28 @@ Theorem repl_types_thm:
         evaluate_decs s env decs = (new_s,res) ⇒
         res ≠ Rerr (Rabort Rtype_error)
 Proof
-  cheat (* Magnus: I believe this can be proved using an
-           evaluate-simulation proof from repl_types_F_thm *)
+  reverse (Cases_on ‘b’) >- metis_tac [repl_types_F_thm]
+  \\ rpt gen_tac \\ strip_tac
+  \\ drule repl_types_T_F \\ strip_tac
+  \\ drule repl_types_F_thm
+  \\ rpt strip_tac
+  >-
+   (fs [EVERY_MEM,FORALL_PROD] \\ rw [] \\ res_tac
+    \\ fs [ref_lookup_ok_def,state_rel_def] \\ res_tac
+    \\ gvs [store_lookup_def]
+    \\ rename [‘n1 < LENGTH s'.refs’]
+    \\ first_x_assum (qspec_then ‘n1’ mp_tac) \\ fs []
+    \\ Cases_on ‘EL n1 s'.refs’ \\ strip_tac \\ fs [ref_rel_def]
+    \\ rename [‘xx = Str’] \\ Cases_on ‘xx’
+    \\ gvs [semanticPrimitivesTheory.Boolv_def]
+    \\ gvs [v_rel_cases]
+    \\ Cases_on ‘t2’ \\ gvs [stamp_rel_cases])
+  \\ gvs []
+  \\ first_x_assum $ drule_then assume_tac
+  \\ Cases_on ‘evaluate_decs s' env' decs’ \\ fs []
+  \\ drule_all evaluate_decs_skip \\ strip_tac \\ gvs []
+  \\ Cases_on ‘r’ \\ fs []
+  \\ Cases_on ‘e’ \\ fs []
 QED
 
 val _ = export_theory();
