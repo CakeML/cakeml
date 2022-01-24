@@ -37,6 +37,7 @@ val res = translate pp_paren_contents_def;
 val _ = ml_prog_update open_local_in_block;
 
 val res = tr "toAppList" pp_contents_def;
+val res = tr "no_parens" pp_no_parens_def;
 val res = tr "token" pp_token_def;
 val res = tr "tuple" pp_paren_tuple_def;
 val res = tr "spaced_block" pp_spaced_block_def;
