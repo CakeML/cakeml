@@ -9,16 +9,18 @@ open evaluateTheory semanticPrimitivesTheory evaluatePropsTheory
 val _ = new_theory "evaluate_skip";
 
 Inductive stamp_rel:
-  (∀(ft: num |-> num) (fe: num |-> num).
-    stamp_rel ft fe NONE NONE)
-  ∧
   (∀ft fe n m1 m2.
     FLOOKUP ft m1 = SOME m2 ⇒
-    stamp_rel ft fe (SOME (TypeStamp n m1)) (SOME (TypeStamp n m2)))
+    stamp_rel ft fe (TypeStamp n m1) (TypeStamp n m2))
   ∧
   (∀ft fe m1 m2.
     FLOOKUP fe m1 = SOME m2 ⇒
-    stamp_rel ft fe (SOME (ExnStamp m1)) (SOME (ExnStamp m2)))
+    stamp_rel ft fe (ExnStamp m1) (ExnStamp m2))
+End
+
+Definition ctor_rel_def:
+  ctor_rel ft fe envc1 (envc2: (modN, conN, (num # stamp)) namespace) ⇔
+    ∀n. OPTREL ((=) ### (stamp_rel ft fe)) (nsLookup envc1 n) (nsLookup envc2 n)
 End
 
 Inductive v_rel:
@@ -26,25 +28,39 @@ Inductive v_rel:
      v_rel (fr: num |-> num) (ft: num |-> num) (fe: num |-> num) (Litv l) (Litv l))
   ∧
   (∀fr ft fe t1 t2 xs ys.
-     LIST_REL (v_rel fr ft fe) xs ys ∧ stamp_rel ft fe t1 t2 ⇒
+     LIST_REL (v_rel fr ft fe) xs ys ∧ OPTREL (stamp_rel ft fe) t1 t2 ⇒
      v_rel fr ft fe (Conv t1 xs) (Conv t2 ys))
+  ∧
+  (∀fr ft fe xs ys.
+     LIST_REL (v_rel fr ft fe) xs ys ⇒
+     v_rel fr ft fe (Vectorv xs) (Vectorv ys))
   ∧
   (∀fr ft fe l1 l2.
      FLOOKUP fr l1 = SOME l2 ⇒
-     v_rel (fr: num |-> num) (ft: num |-> num) (fe: num |-> num) (Loc l1) (Loc l2))
+     v_rel fr ft fe (Loc l1) (Loc l2))
+  ∧
+  (∀fr ft fe env1 env2 n e.
+     v_rel fr ft fe (Closure env1 n e) (Closure env2 n e))
+  ∧
+  (∀fr ft fe env1 env2 fns n.
+     v_rel fr ft fe (Recclosure env1 fns n) (Recclosure env2 fns n))
+  ∧
+  (∀fr ft fe env1 env2.
+     ctor_rel ft fe env1.c env2.c ∧
+     (∀n. nsLookup env1.v n = NONE ⇒ nsLookup env2.v n = NONE) ∧
+     (∀n v. nsLookup env1.v n = SOME v ⇒
+            ∃w. nsLookup env2.v n = SOME w ∧ v_rel fr ft fe v w) ⇒
+     env_rel fr ft fe env1 env2)
 End
 
-Definition env_rel_def:
-  env_rel fr ft fe env env1 ⇔
-    (∀n:(string,string) id. nsLookup env.v n = NONE ⇒ nsLookup env1.v n = NONE) ∧
-    ∀n v. nsLookup env.v n = SOME v ⇒
-          ∃w. nsLookup env1.v n = SOME w ∧ v_rel fr ft fe v w
-End
+Theorem env_rel_def =
+  “env_rel fr ft fe env1 env2” |> SIMP_CONV std_ss [Once v_rel_cases];
 
 Definition ref_rel_def:
-  (ref_rel f (Refv v) (Refv w) = f v w) ∧
-  (ref_rel f (Varray vs) (Varray ws) = LIST_REL f vs ws) ∧
-  (ref_rel f x y = (x = y))
+  ref_rel f (Refv v)    (Refv w)    = f v w            ∧
+  ref_rel f (Varray vs) (Varray ws) = LIST_REL f vs ws ∧
+  ref_rel f (W8array a) (W8array b) = (a = b)          ∧
+  ref_rel f _           _           = F
 End
 
 Definition state_rel_def:
@@ -61,6 +77,11 @@ Definition state_rel_def:
     t.ffi = s.ffi ∧
     (∀n. n < l ⇒ FLOOKUP fr n = SOME (n:num) ∧ n < LENGTH s.refs) ∧
     FLOOKUP ft bool_type_num = SOME bool_type_num ∧
+    FLOOKUP ft list_type_num = SOME list_type_num ∧
+    FLOOKUP fe 0 = SOME 0 ∧ (* Bind      *)
+    FLOOKUP fe 1 = SOME 1 ∧ (* Chr       *)
+    FLOOKUP fe 2 = SOME 2 ∧ (* Div       *)
+    FLOOKUP fe 3 = SOME 3 ∧ (* Subscript *)
     (∀n. if n < LENGTH s.refs then
            (∃m. FLOOKUP fr n = SOME m ∧
                 m < LENGTH t.refs ∧
@@ -69,11 +90,10 @@ Definition state_rel_def:
 End
 
 Definition res_rel_def[simp]:
-  (res_rel f g (Rval e) (Rval e1) ⇔ f e e1) ∧
-  (res_rel f g (Rerr e) (Rval e1) ⇔ F) ∧
-  (res_rel f g (Rval e) (Rerr e1) ⇔ F) ∧
+  (res_rel f g (Rval e)          (Rval e1)          ⇔ f e e1) ∧
   (res_rel f g (Rerr (Rraise e)) (Rerr (Rraise e1)) ⇔ g e e1) ∧
-  (res_rel f g x y ⇔ x = y)
+  (res_rel f g (Rerr (Rabort e)) (Rerr (Rabort e1)) ⇔ e = e1) ∧
+  (res_rel f g x y                                  ⇔ F)
 End
 
 Theorem env_rel_update:
@@ -82,6 +102,15 @@ Theorem env_rel_update:
 Proof
   cheat
 QED
+
+(*
+Definition env_rel_def:  (* TODO: delete this *)
+  env_rel fr ft fe env1 env2 ⇔
+     (∀n. nsLookup env1 n = NONE ⇒ nsLookup env2 n = NONE) ∧
+     (∀n v. nsLookup env1 n = SOME v ⇒
+            ∃w. nsLookup env2 n = SOME w ∧ v_rel fr ft fe v w)
+End
+*)
 
 Theorem evaluate_decs_skip:
   ∀s env decs t s1 res fr ft fe env1 l.
