@@ -63,8 +63,8 @@ Theorem EqualityType_LIST_TYPE_AST_DEC_TYPE =
 val r = translate ast_extrasTheory.every_exp_def;
 val r = translate ast_extrasTheory.every_dec_def;
 val r = translate namespaceTheory.id_to_n_def;
-val r = translate repl_check_and_tweakTheory.safe_exp_pmatch;
+val r = translate repl_decs_allowedTheory.safe_exp_pmatch;
 val r = translate candle_prover_invTheory.safe_dec_def;
-val r = translate repl_check_and_tweakTheory.decs_allowed_def;
+val r = translate repl_decs_allowedTheory.decs_allowed_def;
 
 val _ = export_theory();

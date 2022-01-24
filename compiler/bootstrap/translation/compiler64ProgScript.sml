@@ -382,7 +382,6 @@ val _ = (append_prog o process_topdecs) `
             | Inr new_decs => repl (parse, new_types, new_conf, new_env, new_decs, new_input)
           end `
 
-
 val _ = (next_ml_names := ["init_types"]);
 val r = translate repl_init_typesTheory.repl_prog_types_def;
 
@@ -402,7 +401,7 @@ Definition parse_ocaml_syntax_def:
 End
 
 Definition select_parse_def:
-  slect_parse cl =
+  select_parse cl =
     if MEMBER (strlit "--candle") cl
     then parse_ocaml_syntax
     else parse_cakeml_syntax
@@ -413,6 +412,13 @@ val r = translate parse_ocaml_syntax_def;
 val _ = (next_ml_names := ["select_parse"]);
 val r = translate select_parse_def;
 
+Definition init_next_string_def:
+  init_next_string cl = if MEM (strlit "--candle") cl then "candle" else ""
+End
+
+val _ = (next_ml_names := ["init_next_string"]);
+val res = translate (init_next_string_def |> REWRITE_RULE [MEMBER_INTRO]);
+
 val _ = (append_prog o process_topdecs) `
   fun start_repl (cl,s1) =
     let
@@ -422,6 +428,7 @@ val _ = (append_prog o process_topdecs) `
       val env = (repl_init_env, 0)
       val decs = []
       val input_str = ""
+      val _ = (REPL.nextString := init_next_string cl)
     in
       repl (parse, types, conf, env, decs, input_str)
     end`
@@ -430,7 +437,8 @@ val _ = (append_prog o process_topdecs) `
   fun run_interactive_repl cl =
     let
       val _ = TextIO.print "Welcome to the CakeML read-eval-print loop.\n"
-      val s1 = decodeProg.read_inc_config "config_enc_str.txt"
+      val cs = REPL.charsFrom "config_enc_str.txt"
+      val s1 = decodeProg.decode_backend_config cs
     in
       start_repl (cl,s1)
     end`

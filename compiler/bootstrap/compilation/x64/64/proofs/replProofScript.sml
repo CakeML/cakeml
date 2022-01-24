@@ -674,7 +674,7 @@ Proof
     \\ assume_tac (compiler64prog_report_exn_v_thm
          |> INST_TYPE [“:'a”|->“:semanticPrimitives$v”] |> GEN_ALL)
     \\ pop_assum (qspec_then ‘λx v. x = v’ assume_tac)
-    \\ ‘(λx v. x = v) exn exn’ by fs []
+    \\ ‘(λx v. x = v) exn' exn'’ by fs []
     \\ drule_all Arrow_IMP
     \\ qmatch_goalsub_abbrev_tac ‘(st2, Rerr (Rabort Rtimeout_error))’
     \\ disch_then (qspec_then ‘dec_clock st2’ strip_assume_tac) \\ fs []
@@ -831,7 +831,7 @@ Theorem evaluate_start_repl:
   BACKEND_INC_CONFIG_TYPE s1 s.compiler_state ∧
   LIST_TYPE STRING_TYPE cl cl_v ∧
   repl_types (ffi,repl_rs) (repl_prog_types,st with eval_state := NONE,
-    merge_env repl_moduleProg_env_5 init_env) ∧
+    merge_env repl_moduleProg_env_8 init_env) ∧
   nsLookup env.v start_repl_str = SOME start_repl_v ⇒
   nsLookup env.v arg_str = SOME (Conv NONE [cl_v; s.compiler_state]) ⇒
   ∃res s1.
@@ -853,8 +853,8 @@ Proof
   \\ rename [‘evaluate _ _ [App Opapp _]’]
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_list,build_rec_env_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ rename [‘do_opapp [compiler64prog_slect_parse_v;_]’]
-  \\ assume_tac compiler64prog_slect_parse_v_thm
+  \\ rename [‘do_opapp [compiler64prog_select_parse_v;_]’]
+  \\ assume_tac compiler64prog_select_parse_v_thm
   \\ drule_all Arrow_IMP
   \\ fs [dec_clock_def]
   \\ disch_then (qspec_then ‘(st with clock := st.clock − 2)’ strip_assume_tac)
@@ -880,6 +880,47 @@ Proof
   (* let input_str = "" *)
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,evaluate_Lit]
+  (* call init_next_string *)
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ rename [‘evaluate _ _ [App Opapp _]’]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_list,build_rec_env_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ rename [‘do_opapp [compiler64prog_init_next_string_v;_]’]
+  \\ assume_tac compiler64prog_init_next_string_v_thm
+  \\ drule_all Arrow_IMP
+  \\ fs [dec_clock_def]
+  \\ qmatch_goalsub_abbrev_tac ‘(st2, Rerr (Rabort Rtimeout_error))’
+  \\ disch_then (qspec_then ‘(st2 with clock := st2.clock − 1)’ strip_assume_tac)
+  \\ fs [] \\ IF_CASES_TAC \\ fs [Abbr‘st2’]
+  \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ gvs []
+  (* update REPL.nextString *)
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ fs [mlbasicsProgTheory.assign_v_def,do_opapp_def,dec_clock_def]
+  \\ IF_CASES_TAC \\ fs []
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ IF_CASES_TAC >- fs []
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate st7 env7 [App Opassign _]’
+  \\ ‘repl_types (ffi,repl_rs) (repl_prog_types,st7 with eval_state := NONE,
+         merge_env repl_moduleProg_env_8 init_env)’ by
+   (unabbrev_all_tac \\ fs [] \\ rewrite_tac [GSYM APPEND_ASSOC]
+    \\ irule repl_types_clock_refs \\ fs [])
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit,Abbr‘env7’]
+  \\ fs [do_app_def]
+  \\ ‘∃next_n inp. nextString_loc = Loc next_n ∧
+       store_lookup next_n st7.refs = SOME (Refv (Litv (StrLit inp)))’ by
+   (drule repl_types_thm \\ strip_tac \\ fs [repl_rs_def]
+    \\ fs [repl_moduleProgTheory.nextString_def,the_Loc_def,ref_lookup_ok_def])
+  \\ fs [] \\ fs [store_assign_def,store_lookup_def,store_v_same_type_def]
+  \\ unabbrev_all_tac \\ fs []
   (* call repl *)
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,evaluate_Lit]
@@ -889,8 +930,14 @@ Proof
   \\ conj_tac >- EVAL_TAC
   \\ assume_tac repl_init_types_repl_prog_types_v_thm
   \\ rpt (first_assum $ irule_at Any)
-  \\ rpt (irule_at Any repl_types_clock_refs)
-  \\ metis_tac []
+  \\ qexists_tac ‘ffi’
+  \\ drule repl_types_str_assign
+  \\ fs [repl_rs_def,the_Loc_def,store_assign_def,store_v_same_type_def]
+  \\ fs [HOL_STRING_TYPE_def,STRING_TYPE_def,mlstringTheory.implode_def]
+  \\ disch_then (qspec_then ‘init_next_string cl’ mp_tac)
+  \\ match_mp_tac (DECIDE “x = y ⇒ (x ⇒ y)”)
+  \\ rpt AP_TERM_TAC
+  \\ fs [semanticPrimitivesTheory.state_component_equality]
 QED
 
 (*
