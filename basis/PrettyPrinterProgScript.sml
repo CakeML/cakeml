@@ -32,12 +32,12 @@ val _ = ml_prog_update open_local_block;
 
 val res = translate app_intersperse_def;
 val res = translate app_list_wrap_def;
-val res = translate ppd_paren_contents_def;
+val res = translate pp_paren_contents_def;
 
 val _ = ml_prog_update open_local_in_block;
 
-val res = tr "toAppList" ppd_contents_def;
-val res = tr "token" ppd_token_def;
+val res = tr "toAppList" pp_contents_def;
+val res = tr "token" pp_token_def;
 val res = tr "tuple" pp_paren_tuple_def;
 val res = tr "spaced_block" pp_spaced_block_def;
 val res = tr "app_block" pp_app_block_def;
@@ -83,15 +83,15 @@ val res = translate pp_ref_def;
 val res = translate pp_array_def;
 val res = translate pp_word8array_def;
 
-(* candle proofs need constants in the basis to be defined as literals *)
-val res = translate (REWRITE_RULE [ppd_token_def] pp_fun_def);
+(* candle needs constants in the basis to be defined as literals, no funcalls *)
+val res = translate (REWRITE_RULE [pp_token_def] pp_fun_def);
 
 (* pretty printers for numeric types *)
 val res = translate pp_int_def;
 val res = translate pp_word8_def;
 val res = translate pp_word64_def;
 
-(* setup pretty-printers for previously existing types *)
+(* setup pretty-printers for previously existing global types *)
 val _ = ml_prog_update (addPrettyPrintersLib.add_pps previous_prog_pps)
 
 val _ = export_theory ()

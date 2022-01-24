@@ -21,17 +21,17 @@ Datatype:
   pp_data = PP_Data bool (mlstring app_list)
 End
 
-Definition ppd_token_def:
-  ppd_token s = PP_Data F (List [s])
+Definition pp_token_def:
+  pp_token s = PP_Data F (List [s])
 End
 
 Definition pp_fun_def:
-  pp_fun = ppd_token (strlit "<fun>")
+  pp_fun = pp_token (strlit "<fun>")
 End
 
 (* there is a plan to replace this with an impure extensible implementation *)
 Definition pp_exn_def:
-  pp_exn e = ppd_token (strlit "<exn>")
+  pp_exn e = pp_token (strlit "<exn>")
 End
 
 Definition app_intersperse_def:
@@ -40,39 +40,43 @@ Definition app_intersperse_def:
   app_intersperse c (x :: y :: zs) = Append (Append x (List [c])) (app_intersperse c (y :: zs))
 End
 
-Definition ppd_contents_def:
-  ppd_contents (PP_Data _ xs) = xs
+Definition pp_contents_def:
+  pp_contents (PP_Data _ xs) = xs
+End
+
+Definition pp_no_parens_def:
+  pp_no_parens pp = PP_Data F (pp_contents pp)
 End
 
 Definition app_list_wrap_def:
   app_list_wrap l xs r = Append (List [l]) (Append xs (List [r]))
 End
 
-Definition ppd_paren_contents_def:
-  ppd_paren_contents (PP_Data F xs) = xs /\
-  ppd_paren_contents (PP_Data T xs) = app_list_wrap (strlit "(") xs (strlit ")")
+Definition pp_paren_contents_def:
+  pp_paren_contents (PP_Data F xs) = xs /\
+  pp_paren_contents (PP_Data T xs) = app_list_wrap (strlit "(") xs (strlit ")")
 End
 
 Definition pp_paren_tuple_def:
   pp_paren_tuple pps = PP_Data F (app_list_wrap (strlit "(")
-    (app_intersperse (strlit ", ") (MAP ppd_contents pps))
+    (app_intersperse (strlit ", ") (MAP pp_contents pps))
     (strlit ")")
   )
 End
 
 Definition pp_spaced_block_def:
   pp_spaced_block xs = PP_Data (LENGTH xs > 1)
-    (app_intersperse (strlit " ") (MAP ppd_paren_contents xs))
+    (app_intersperse (strlit " ") (MAP pp_paren_contents xs))
 End
 
 Definition pp_app_block_def:
-  pp_app_block nm xs = pp_spaced_block (ppd_token nm :: xs)
+  pp_app_block nm xs = pp_spaced_block (pp_token nm :: xs)
 End
 
 Definition pp_val_eq_def:
   pp_val_eq nm pp_f v ty = PP_Data F (Append
     (List [strlit "val "; nm; strlit " = "])
-    (Append (ppd_contents (pp_f v)) (List [strlit ": "; ty; strlit "\n"])))
+    (Append (pp_contents (pp_f v)) (List [strlit ": "; ty; strlit "\n"])))
 End
 
 Definition pp_val_hidden_type_def:
@@ -82,7 +86,7 @@ End
 
 Definition pp_list_def:
   pp_list f xs = PP_Data F (app_list_wrap (strlit "[")
-    (app_intersperse (strlit "; ") (MAP (\x. ppd_contents (f x)) xs))
+    (app_intersperse (strlit "; ") (MAP (\x. pp_contents (f x)) xs))
     (strlit "]")
   )
 End
@@ -99,7 +103,7 @@ End
 Definition pp_app_list_def:
   pp_app_list f (List xs) = pp_app_block (strlit "PrettyPrinter.List")
     [pp_list f xs] /\
-  pp_app_list f Nil = ppd_token (strlit "PrettyPrinter.Nil") /\
+  pp_app_list f Nil = pp_token (strlit "PrettyPrinter.Nil") /\
   pp_app_list f (Append x y) = pp_app_block (strlit "PrettyPrinter.Append")
     [pp_app_list f x; pp_app_list f y]
 End
@@ -114,7 +118,7 @@ Definition pp_char_def:
 End
 
 Definition pp_int_def:
-  pp_int (i : int) = ppd_token (mlint$toString i)
+  pp_int (i : int) = pp_token (mlint$toString i)
 End
 
 Definition pp_word8_def:
@@ -127,15 +131,15 @@ End
 
 (* these initial pure and useless pps will be replaced later *)
 Definition pp_array_def:
-  pp_array f arr = ppd_token (strlit "<array>")
+  pp_array f arr = pp_token (strlit "<array>")
 End
 
 Definition pp_ref_def:
-  pp_ref r = ppd_token (strlit "<array>")
+  pp_ref r = pp_token (strlit "<array>")
 End
 
 Definition pp_word8array_def:
-  pp_word8array arr = ppd_token (strlit "<array>")
+  pp_word8array arr = pp_token (strlit "<array>")
 End
 
 Definition pp_vector_def:

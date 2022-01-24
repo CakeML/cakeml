@@ -4,7 +4,6 @@
 open preamble ml_translatorLib ml_translatorTheory ml_progLib
      ListProgTheory basisFunctionsLib;
 open mlvectorTheory;
-local open mlprettyprinterTheory in end;
 
 val _ = new_theory"VectorProg"
 
