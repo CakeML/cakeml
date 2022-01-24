@@ -26,6 +26,23 @@ Definition check_ref_types_def:
     nsLookup env.v name = SOME (Loc loc)
 End
 
+Definition roll_back_def:
+  roll_back (old_ienv, old_next_id) (new_ienv, new_next_id) =
+    (old_ienv, new_next_id)
+End
+
+Theorem FST_roll_back[simp]:
+  FST (roll_back x y) = FST x
+Proof
+  Cases_on`x` \\ Cases_on`y` \\ rw[roll_back_def]
+QED
+
+Theorem SND_roll_back[simp]:
+  SND (roll_back x y) = SND y
+Proof
+  Cases_on`x` \\ Cases_on`y` \\ rw[roll_back_def]
+QED
+
 Inductive repl_types:
 [repl_types_init:]
   (∀ffi rs decs types (s:'ffi semanticPrimitives$state) env ck b.
@@ -51,7 +68,7 @@ Inductive repl_types:
      repl_types b (ffi,rs) (types,s,env) ∧
      infertype_prog_inc types decs = Success new_types ∧
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ⇒
-     repl_types b (ffi,rs) (types,new_s,env)) ∧
+     repl_types b (ffi,rs) (roll_back types new_types,new_s,env)) ∧
 [repl_types_exn_assign:]
   (∀ffi rs decs types new_types (s:'ffi semanticPrimitives$state) env e
     new_s name loc new_store b.
@@ -60,7 +77,7 @@ Inductive repl_types:
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ∧
      MEM (name,Exn,loc) rs ∧
      store_assign loc (Refv e) new_s.refs = SOME new_store ⇒
-     repl_types b (ffi,rs) (types,new_s with refs := new_store,env)) ∧
+     repl_types b (ffi,rs) (roll_back types new_types,new_s with refs := new_store,env)) ∧
 [repl_types_str_assign:]
   (∀ffi rs types (s:'ffi semanticPrimitives$state) env t name loc new_store b.
      repl_types b (ffi,rs) (types,s,env) ∧
@@ -220,10 +237,10 @@ Proof
     \\ fs[]
     \\ drule (CONJUNCT2 infer_d_next_id_mono)
     \\ rw[init_infer_state_def])
-  >- (
+  \\ (
     rename1`_ tys decs = Success _`
     \\ Cases_on`tys` \\ fs[infertype_prog_inc_def]
-    \\ every_case_tac \\ fs[]
+    \\ fs[CaseEqs["infer$exc","prod"]] \\ fs[]
     \\ drule (CONJUNCT2 infer_d_next_id_mono)
     \\ simp[init_infer_state_def]
     \\ rw[])
@@ -544,7 +561,7 @@ Proof
     rename1`_ A decs = Success _`
     \\ `∃tys id. A = (tys,id)` by metis_tac[PAIR]
     \\ rw[] \\ fs[infertype_prog_inc_def]
-    \\ every_case_tac \\ fs[]
+    \\ fs[CaseEqs["infer$exc","prod"]] \\ rveq
     \\ drule (CONJUNCT2 infer_d_sound)
     \\ disch_then(qspec_then `ienv_to_tenv tys` mp_tac)
     \\ impl_tac >- (
@@ -559,17 +576,16 @@ Proof
     \\ drule_then drule set_ids_UNION
     \\ disch_then SUBST_ALL_TAC
     \\ simp[ienv_to_tenv_extend]
-    (* TODO: repl_types needs to use the correct IDs *)
-    \\ cheat
-    (* \\ irule_at Any repl_types_TS_exn
+    \\ irule_at Any repl_types_TS_exn
     \\ CONJ_TAC >-
       (match_mp_tac DISJOINT_set_ids>>simp[init_infer_state_def])
-    \\ asm_exists_tac \\ simp[] *))
+    \\ asm_exists_tac \\ simp[]
+    \\ metis_tac[])
   >- (
     rename1`_ A decs = Success _`
     \\ `∃tys id. A = (tys,id)` by metis_tac[PAIR]
     \\ rw[] \\ fs[infertype_prog_inc_def]
-    \\ every_case_tac \\ fs[]
+    \\ fs[CaseEqs["infer$exc","prod"]] \\ rveq
     \\ drule (CONJUNCT2 infer_d_sound)
     \\ disch_then(qspec_then `ienv_to_tenv tys` mp_tac)
     \\ impl_tac >- (
@@ -577,7 +593,18 @@ Proof
       \\ simp[init_infer_state_def]
       \\ metis_tac[repl_types_ienv_ok, env_rel_ienv_to_tenv,FST])
     \\ strip_tac
-    \\ cheat (* see above *) )
+    \\ simp[ienv_to_tenv_extend]
+    \\ drule_then drule repl_types_TS_exn_assign
+    \\ simp[init_infer_state_def]
+    \\ imp_res_tac (CONJUNCT2 infer_d_next_id_mono)
+    \\ drule repl_types_next_id
+    \\ fs[init_infer_state_def] \\ strip_tac
+    \\ simp[GSYM set_ids_UNION]
+    \\ disch_then irule
+    \\ CONJ_TAC >-
+      (match_mp_tac DISJOINT_set_ids>>simp[])
+    \\ asm_exists_tac \\ simp[]
+    \\ metis_tac[])
   >>
     metis_tac[repl_types_TS_str_assign]
 QED
