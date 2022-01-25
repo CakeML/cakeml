@@ -93,6 +93,11 @@ Proof
   Induct >> rw[DROP_def,TAKE_def]
 QED
 
+Theorem set_SUBSET_EVERY:
+  !pqs dep. set pqs SUBSET dep <=> EVERY dep pqs
+Proof
+  fs[EVERY_MEM,IN_DEF,SUBSET_DEF]
+QED
 
 (* lemmata on LR_TYPE_SUBST *)
 
@@ -1775,6 +1780,15 @@ Proof
   intLib.COOPER_TAC
 QED
 
+Theorem type_size_eq:
+  !a ty typs. type_size' (Tyvar a) = 1
+  /\ type_size' (Tyapp ty typs) = 1 + (LENGTH typs) + (SUM $ MAP type_size' typs)
+Proof
+  rw[type_size'_def]
+  >> Induct_on `typs`
+  >> fs[type_size'_def]
+QED
+
 Theorem is_instance_NOT_is_instance_imp':
   !t t'. is_instance t t' /\ ~(is_instance t' t)
   ==> CARD (set (tyvars t')) < CARD (set (tyvars t))
@@ -2586,14 +2600,14 @@ Theorem path_starting_at_0_mg_sol':
   !rs pqs dep. monotone dep
   /\ sol_seq rs pqs
   /\ 0 < LENGTH pqs
-  /\ EVERY (UNCURRY dep) pqs
+  /\ set pqs SUBSET UNCURRY dep
   /\ invertible_on (HD rs) (FV (FST (HD pqs)))
   ==> mg_sol_seq rs pqs
 Proof
   rpt strip_tac
   >> imp_res_tac sol_seq_is_const_or_type_FST
   >> drule_then irule path_starting_at_0_mg_sol
-  >> fs[path_starting_at_def,sol_seq_def,invertible_on_equiv_ts_on_FV]
+  >> fs[path_starting_at_def,sol_seq_def,invertible_on_equiv_ts_on_FV,set_SUBSET_EVERY]
   >> simp[Once equiv_ts_on_symm]
 QED
 
@@ -2693,6 +2707,42 @@ Proof
     >> goal_assum $ drule_at Any >> fs[]
   )
   >> fs[]
+QED
+
+Theorem sol_ex_non_orth':
+  !pqs rs rs' dep p q k.
+  sol_seq rs (pqs++[(p,q)])
+  /\ set pqs SUBSET (UNCURRY dep)
+  /\ (p,q) IN UNCURRY dep
+  /\ composable_dep dep
+  /\ monotone dep
+  /\ mg_sol_seq rs' pqs
+  /\ invertible_on (EL k rs') (FV (FST (EL k pqs)))
+  /\ k < LENGTH rs'
+  ==>
+    is_instance_LR (LR_TYPE_SUBST (LAST rs') (SND (LAST pqs))) p
+    \/
+    is_instance_LR p (LR_TYPE_SUBST (LAST rs') (SND (LAST pqs)))
+Proof
+  rpt strip_tac
+  >> drule sol_ex_non_orth
+  >> imp_res_tac sol_seq_LENGTH
+  >> imp_res_tac mg_sol_seq_LENGTH
+  >> gs[set_SUBSET_EVERY,GSYM ADD1,FRONT_TAKE_PRE,LAST_EL,GSYM NULL_EQ,GSYM LENGTH_NOT_NULL,EL_TAKE,IN_DEF,TAKE_APPEND1,EL_APPEND2,EL_APPEND1]
+  >> rpt $ disch_then $ drule_at Any
+  >> disch_then irule
+  >> qexists_tac `k`
+  >> dxrule_at Any $ iffLR invertible_on_equiv_ts_on_FV
+  >> impl_tac
+  >- (
+    drule sol_seq_is_const_or_type_FST
+    >> fs[GSYM ADD1]
+    >> drule_then assume_tac prim_recTheory.LESS_SUC
+    >> disch_then $ dxrule
+    >> gs[EL_APPEND1]
+  )
+  >> rw[Once equiv_ts_on_symm]
+  >> gs[path_starting_at_def,LENGTH_TAKE,EVERY_DROP,EL_TAKE,EVERY_TAKE,wf_pqs_def,mg_sol_seq_def,sol_seq_DROP,sol_seq_def]
 QED
 
 Theorem mg_sol_ext_leq'[local]:
@@ -3788,24 +3838,24 @@ Theorem mg_sol_exists_essence:
   !rs pqs dep.
   0 < LENGTH pqs
   /\ sol_seq rs pqs
-  /\ EVERY (UNCURRY dep) pqs
+  /\ set pqs SUBSET (UNCURRY dep)
   /\ monotone dep
   /\ composable_dep dep
   ==> ?rs' k. mg_sol_seq rs' pqs
     /\ invertible_on (EL k rs') (FV (FST (EL k pqs)))
-    /\ k < LENGTH rs'
+    /\ k < LENGTH pqs
 Proof
   rpt strip_tac
   >> imp_res_tac sol_seq_LENGTH
   >> drule_at (Pat `sol_seq _ _`) mg_sol_exists
-  >> fs[]
+  >> fs[set_SUBSET_EVERY]
   >> disch_then $ drule_then assume_tac
   >> gs[]
-  >> rpt $ goal_assum $ drule_at Any
+  >> goal_assum $ drule_at (Pat `mg_sol_seq _ _`)
   >> gs[path_starting_at_def,Once equiv_ts_on_symm]
   >> drule_all_then strip_assume_tac mg_sol_seq_is_const_or_type
   >> gs[GSYM invertible_on_equiv_ts_on_FV]
-  >> rpt $ goal_assum drule
+  >> rpt $ goal_assum $ drule_at Any
 QED
 
 (* Definition 5.12 *)
@@ -7014,6 +7064,20 @@ Theorem composable_dep_composable_len:
 Proof
   rpt strip_tac
   >> dsimp[composable_dep_eq',composable_len_def,ELIM_UNCURRY,FORALL_PROD,AC CONJ_ASSOC CONJ_COMM]
+QED
+
+(* for presentation *)
+Theorem algorithm_justification:
+  !dep. wf_dep dep
+  /\ monotone dep
+  /\ FINITE $ UNCURRY dep
+  /\ (!n. composable_len dep n)
+  /\ (!n. acyclic_len dep n)
+  ==> terminating $ TC $ subst_clos dep
+Proof
+  rpt gen_tac >> strip_tac
+  >> gs $ map GSYM
+    [composable_dep_composable_len,acyclic_until,cyclic_eq_not_terminating]
 QED
 
 Datatype: ext_step =
