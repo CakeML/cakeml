@@ -5234,38 +5234,6 @@ Proof
   >> fs[]
 QED
 
-Theorem list_max_mono_last:
-  !ls. ~NULL ls /\ (!i j. EL i ls <= EL (SUC i) ls)
-  ==> list_max ls = LAST ls
-Proof
-  Induct >> fs[]
-  >> Cases_on `ls` >- rw[list_max_def]
-  >> rpt strip_tac
-  >> qpat_x_assum `_ ==> _` mp_tac
-  >> impl_tac
-  >- (rw[] >> first_x_assum $ qspec_then `SUC i` mp_tac >> fs[])
-  >> first_x_assum $ qspec_then `0` mp_tac
-  >> rw[]
-  >> `h <= list_max (h::t)` by fs[list_max_def]
-  >> ONCE_REWRITE_TAC[list_max_def]
-  >> rw[]
-QED
-
-Theorem llist_mono_leq:
-  !ll.
-  (!i. less_opt (SUC i) (LLENGTH ll) ==> (THE (LNTH i ll)):num <= THE $ LNTH (SUC i) ll)
-  <=> (!i j. i < j /\ less_opt j (LLENGTH ll) ==> THE (LNTH i ll) <= THE $ LNTH j ll)
-Proof
-  fs[EQ_IMP_THM]
-  >> ntac 3 strip_tac
-  >> Induct >> rw[]
-  >> dxrule_then assume_tac $ cj 1 $ REWRITE_RULE[EQ_IMP_THM,Once LESS_OR_EQ] LESS_EQ
-  >> fs[]
-  >> irule LESS_EQ_TRANS
-  >> ntac 3 $ first_x_assum $ irule_at Any
-  >> fs[less_opt_cases]
-QED
-
 Theorem finite_repeats:
   !s ll. ~LFINITE ll
   /\ FINITE s
