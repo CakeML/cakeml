@@ -16,7 +16,7 @@ Definition infertype_prog_inc_def:
   case infer_ds ienv prog (init_infer_state <| next_id := next_id |>) of
     (Success new_ienv, st) =>
     (Success (extend_dec_ienv new_ienv ienv, st.next_id))
-  | (Failure x, _) => Failure x
+  | (Failure x, _) => infer$Failure x
 End
 
 val read_next_dec =
@@ -48,18 +48,18 @@ QED
 (* used in repl_types and repl-function in compiler64Prog *)
 
 Definition roll_back_def:
-  roll_back (old_ienv, old_next_id) (new_ienv, new_next_id) =
+  roll_back ((old_ienv:inf_env, old_next_id:num), (new_ienv:inf_env, new_next_id:num)) =
     (old_ienv, new_next_id)
 End
 
 Theorem FST_roll_back[simp]:
-  FST (roll_back x y) = FST x
+  FST (roll_back (x, y)) = FST x
 Proof
   Cases_on`x` \\ Cases_on`y` \\ rw[roll_back_def]
 QED
 
 Theorem SND_roll_back[simp]:
-  SND (roll_back x y) = SND y
+  SND (roll_back (x, y)) = SND y
 Proof
   Cases_on`x` \\ Cases_on`y` \\ rw[roll_back_def]
 QED

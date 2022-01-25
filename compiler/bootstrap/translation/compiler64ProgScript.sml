@@ -358,6 +358,19 @@ End
 val _ = (next_ml_names := ["report_error"]);
 val r = translate report_error_def;
 
+val _ = (next_ml_names := ["roll_back"]);
+val r = translate repl_check_and_tweakTheory.roll_back_def;
+
+val _ = (next_ml_names := ["infertype_prog_inc"]);
+val r = translate (repl_check_and_tweakTheory.infertype_prog_inc_def
+                   |> SIMP_RULE (srw_ss()) [inferTheory.init_infer_state_def]);
+
+val lemma = prove(“∀x y. repl_check_and_tweak_infertype_prog_inc_side x y”,
+  fs [FORALL_PROD,fetch "-" "repl_check_and_tweak_infertype_prog_inc_side_def"]
+  \\ rw [] \\ irule_at Any (inferProgTheory.infer_d_side_thm |> CONJUNCT2)
+  \\ EVAL_TAC \\ fs [inferPropsTheory.t_wfs_FEMPTY])
+  |> update_precondition
+
 val _ = (next_ml_names := ["check_and_tweak"]);
 val r = translate repl_check_and_tweakTheory.check_and_tweak_def;
 
@@ -371,7 +384,8 @@ val _ = (append_prog o process_topdecs) `
          the last declaration of safe_decs calls !REPL.readNextString *)
       case eval (conf, env, safe_decs) of
         Compile_error msg => repl (parse, types, conf, env, report_error msg, "")
-      | Eval_exn e new_conf => repl (parse, types, new_conf, env, report_exn e, "")
+      | Eval_exn e new_conf =>
+        repl (parse, roll_back (types, new_types), new_conf, env, report_exn e, "")
       | Eval_result new_env new_conf =>
         (* check whether the program that ran has loaded in new input *)
         if !REPL.isEOF then () (* exit if there is no new input *) else
@@ -582,11 +596,11 @@ val semantics_compiler64_prog =
   |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
   |> curry save_thm "semantics_compiler64_prog";
 
-(* saving a tidied up final theorem
+(* saving a tidied up final theorem *)
 
 val th =
   get_ml_prog_state ()
-  |> ml_progLib.clean_state
+ (* |> ml_progLib.clean_state *)
   |> ml_progLib.remove_snocs
   |> ml_progLib.get_thm
   |> REWRITE_RULE [ml_progTheory.ML_code_def]
@@ -609,7 +623,6 @@ Theorem Decls_FRONT_compiler64_prog = th1
 
 Theorem LAST_compiler64_prog = EVAL “LAST compiler64_prog”;
 
-*)
-
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)
 val _ = export_theory();

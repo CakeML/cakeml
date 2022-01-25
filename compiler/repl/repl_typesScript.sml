@@ -51,7 +51,7 @@ Inductive repl_types:
      repl_types b (ffi,rs) (types,s,env) ∧
      infertype_prog_inc types decs = Success new_types ∧
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ⇒
-     repl_types b (ffi,rs) (roll_back types new_types,new_s,env)) ∧
+     repl_types b (ffi,rs) (roll_back (types, new_types),new_s,env)) ∧
 [repl_types_exn_assign:]
   (∀ffi rs decs types new_types (s:'ffi semanticPrimitives$state) env e
     new_s name loc new_store b.
@@ -60,7 +60,7 @@ Inductive repl_types:
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ∧
      MEM (name,Exn,loc) rs ∧
      store_assign loc (Refv e) new_s.refs = SOME new_store ⇒
-     repl_types b (ffi,rs) (roll_back types new_types,new_s with refs := new_store,env)) ∧
+     repl_types b (ffi,rs) (roll_back (types, new_types),new_s with refs := new_store,env)) ∧
 [repl_types_str_assign:]
   (∀ffi rs types (s:'ffi semanticPrimitives$state) env t name loc new_store b.
      repl_types b (ffi,rs) (types,s,env) ∧

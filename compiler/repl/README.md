@@ -15,6 +15,9 @@ function will only produce type checked and allowed declarations.
 The REPL puts some restrictions on what decs are acceptable as user input.
 This file defines what those restrictions are.
 
+[repl_initScript.sml](repl_initScript.sml):
+Proves repl_types for the initial env and types from which the REPL starts.
+
 [repl_init_envProgScript.sml](repl_init_envProgScript.sml):
 This file partially instantiates the eval_state and inserts a Denv declaration.
 

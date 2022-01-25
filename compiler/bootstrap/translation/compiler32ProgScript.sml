@@ -389,4 +389,5 @@ val semantics_compiler32_prog =
   |> curry save_thm "semantics_compiler32_prog";
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)
 val _ = export_theory();

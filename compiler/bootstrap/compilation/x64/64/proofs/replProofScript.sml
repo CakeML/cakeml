@@ -5,7 +5,7 @@ open preamble
 open semanticsPropsTheory backendProofTheory x64_configProofTheory compiler64ProgTheory
 open evaluateTheory
 open semanticPrimitivesTheory ml_translatorTheory
-open backendProofTheory repl_typesTheory repl_check_and_tweakTheory
+open backendProofTheory repl_typesTheory repl_check_and_tweakTheory repl_initTheory
 
 val _ = new_theory"replProof";
 
@@ -430,16 +430,16 @@ QED
 val _ = map Parse.hide ["types","types_v","parse","parse_v"];
 
 Theorem repl_types_alt:
-  repl_types (ffi,rs) (types,s,env) ∧
-  infertype_prog types decs = Success new_t ⇒
+  repl_types T (ffi,rs) (types,s,env) ∧
+  infertype_prog_inc types decs = Success new_t ⇒
   evaluate_decs s env decs ≠ (new_s,Rerr (Rabort Rtype_error))
 Proof
   rw [] \\ imp_res_tac repl_types_thm \\ fs []
 QED
 
 Theorem repl_types_clock_refs:
-  repl_types (ffi,rs) (types,st with eval_state := NONE,env1) ⇒
-  repl_types (ffi,rs)
+  repl_types T (ffi,rs) (types,st with eval_state := NONE,env1) ⇒
+  repl_types T (ffi,rs)
     (types, st with <| clock := st.clock − ck;
                        refs := st.refs ++ junk;
                        eval_state := NONE |>,env1)
@@ -452,8 +452,8 @@ Proof
 QED
 
 Theorem repl_types_clock_refs_ffi:
-  repl_types (ffi,rs) (types,st with eval_state := NONE,env1) ⇒
-  repl_types (ffi,rs)
+  repl_types T (ffi,rs) (types,st with eval_state := NONE,env1) ⇒
+  repl_types T (ffi,rs)
     (types, st with <| clock := st.clock − ck;
                        refs := st.refs ++ junk; ffi := st.ffi ;
                        eval_state := NONE |>,env1)
@@ -464,16 +464,6 @@ Proof
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ fs [state_component_equality]
 QED
-
-Definition the_Loc_def:
-  the_Loc (semanticPrimitives$Loc n) = n
-End
-
-Definition repl_rs_def:
-  repl_rs = [(Long "REPL" (Short "isEOF"),      Bool, the_Loc isEOF_loc);
-             (Long "REPL" (Short "nextString"), Str,  the_Loc nextString_loc)]
-  (* TODO: add exn ref *)
-End
 
 Theorem evaluate_clock_decs:
   evaluate_decs s env xs = (s1,res) ⇒ s1.clock ≤ s.clock
@@ -507,12 +497,12 @@ Theorem evaluate_repl:
      s.env_id_counter = (cur_gen,next_id,next_gen) ∧
      BACKEND_INC_CONFIG_TYPE s1 s.compiler_state ∧
      LIST_TYPE AST_DEC_TYPE decs decs_v ∧
-     INFER_INF_ENV_TYPE types types_v ∧
+     PAIR_TYPE INFER_INF_ENV_TYPE NUM types types_v ∧
      STRING_TYPE input_str input_str_v ∧
      (STRING_TYPE --> SUM_TYPE STRING_TYPE (LIST_TYPE AST_DEC_TYPE)) parse parse_v ∧
      env_v = Conv NONE [Env env1 (env_id,0); Litv (IntLit (&env_id))] ∧
      conf_v = Conv NONE [s1_v; Litv (IntLit (&next_gen))] ∧
-     repl_types (ffi,repl_rs) (types,st with eval_state := NONE,env1) ∧
+     repl_types T (ffi,repl_rs) (types,st with eval_state := NONE,env1) ∧
      nsLookup env.v repl_str = SOME repl_v ⇒
      nsLookup env.v arg_str =
        SOME (Conv NONE [parse_v; types_v; conf_v; env_v; decs_v; input_str_v]) ⇒
@@ -544,7 +534,8 @@ Proof
   \\ qmatch_goalsub_abbrev_tac ‘do_opapp [_; arg_v]’
   \\ assume_tac repl_check_and_tweak_check_and_tweak_v_thm
   \\ ‘PAIR_TYPE (LIST_TYPE AST_DEC_TYPE)
-        (PAIR_TYPE INFER_INF_ENV_TYPE STRING_TYPE) (decs,types,input_str) arg_v’ by
+        (PAIR_TYPE (PAIR_TYPE INFER_INF_ENV_TYPE NUM) STRING_TYPE)
+           (decs,types,input_str) arg_v’ by
     fs [Abbr‘arg_v’,PAIR_TYPE_def]
   \\ drule_all Arrow_IMP
   \\ fs [dec_clock_def]
@@ -683,8 +674,29 @@ Proof
     \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
              namespaceTheory.nsOptBind_def,evaluate_Lit]
     \\ drule evaluate_clock_decs \\ strip_tac \\ fs []
+    (* call roll_back *)
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def]
+    \\ rename [‘evaluate _ _ [App Opapp _]’]
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def]
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+    \\ qmatch_goalsub_abbrev_tac ‘do_opapp [_; arg_v]’
+    \\ assume_tac repl_check_and_tweak_roll_back_v_thm
+    \\ ‘PAIR_TYPE (PAIR_TYPE INFER_INF_ENV_TYPE NUM)
+                  (PAIR_TYPE INFER_INF_ENV_TYPE NUM) (types,new_types) arg_v’ by
+      fs [Abbr‘arg_v’,PAIR_TYPE_def]
+    \\ drule_all Arrow_IMP
+    \\ fs [dec_clock_def]
+    \\ qmatch_goalsub_abbrev_tac ‘(st3, Rerr (Rabort Rtimeout_error))’
+    \\ disch_then (qspec_then ‘dec_clock st3’ strip_assume_tac) \\ fs []
+    \\ fs [] \\ IF_CASES_TAC \\ fs []
+    \\ unabbrev_all_tac \\ gvs [dec_clock_def]
+    \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ gvs []
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def,evaluate_Lit]
     (* recursive call *)
-    \\ last_x_assum irule \\ gvs [Abbr‘st2’]
+    \\ last_x_assum irule \\ gvs []
     \\ conj_tac THEN1 rewrite_tac [GSYM repl_v_def]
     \\ rpt (first_assum $ irule_at Any)
     \\ rewrite_tac [GSYM APPEND_ASSOC,integerTheory.INT_ADD_CALCULATE]
@@ -708,7 +720,7 @@ Proof
   \\ simp [Once evaluate_def]
   \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,astTheory.pat_bindings_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
-  \\ ‘repl_types (ffi,repl_rs)
+  \\ ‘repl_types T (ffi,repl_rs)
                  (new_types,st7 with eval_state := NONE, extend_dec_env env2 env1)’ by
    (irule repl_types_eval
     \\ drule check_and_tweak \\ strip_tac
@@ -830,7 +842,7 @@ Theorem evaluate_start_repl:
   s.env_id_counter = (0,1,1) ∧
   BACKEND_INC_CONFIG_TYPE s1 s.compiler_state ∧
   LIST_TYPE STRING_TYPE cl cl_v ∧
-  repl_types (ffi,repl_rs) (repl_prog_types,st with eval_state := NONE,
+  repl_types T (ffi,repl_rs) (repl_prog_types,st with eval_state := NONE,
     merge_env repl_moduleProg_env_8 init_env) ∧
   nsLookup env.v start_repl_str = SOME start_repl_v ⇒
   nsLookup env.v arg_str = SOME (Conv NONE [cl_v; s.compiler_state]) ⇒
@@ -908,7 +920,7 @@ Proof
            namespaceTheory.nsOptBind_def,evaluate_Lit]
   \\ IF_CASES_TAC >- fs []
   \\ qmatch_goalsub_abbrev_tac ‘evaluate st7 env7 [App Opassign _]’
-  \\ ‘repl_types (ffi,repl_rs) (repl_prog_types,st7 with eval_state := NONE,
+  \\ ‘repl_types T (ffi,repl_rs) (repl_prog_types,st7 with eval_state := NONE,
          merge_env repl_moduleProg_env_8 init_env)’ by
    (unabbrev_all_tac \\ fs [] \\ rewrite_tac [GSYM APPEND_ASSOC]
     \\ irule repl_types_clock_refs \\ fs [])
