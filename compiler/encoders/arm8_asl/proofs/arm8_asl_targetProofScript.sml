@@ -16,7 +16,7 @@ val _ = wordsLib.output_words_as_hex();
 val _ = set_grammar_ancestry [
           "arm8",
           "armv86a_termination",
-          "l3_equivalence",
+          "l3_equivalenceProof",
           "arm8_target",
           "arm8_asl_target"
           ];
@@ -25,6 +25,37 @@ val _ = set_trace "Goalstack.howmany_printed_subgoals" 1;
 *)
 
 (********** Lemmas **********)
+
+Theorem arm8_asl_ok_def:
+  arm8_asl_ok asl ⇔
+    asl_sys_regs_ok asl ∧
+    (PSTATE_ref.read_from asl.regstate).ProcState_EL = 0w ∧ (* EL0 *)
+    ¬word_bit 4 (SCTLR_EL1_ref.read_from asl.regstate) ∧ (* ¬SCTLR_EL1.SA0 *)
+    ¬word_bit 24 (SCTLR_EL1_ref.read_from asl.regstate) ∧ (* ¬SCTLR_EL1.EOE *)
+    ¬word_bit 37 (TCR_EL1_ref.read_from asl.regstate) ∧ (* ¬TCR_EL1.TBI0 *)
+    ¬word_bit 38 (TCR_EL1_ref.read_from asl.regstate) ∧ (* ¬TCR_EL1.TBI1 *)
+    aligned 2 (PC_ref.read_from asl.regstate) ∧ (* aligned 2 PC *)
+    arm8_asl_mem_ok asl ∧ arm8_asl_regs_ok asl
+Proof
+  rw[arm8_asl_ok_def] >>
+  eq_tac >> simp[] >> EVAL_TAC >> rw[]
+QED
+
+Theorem arm8_asl_proj_def:
+  arm8_asl_proj (memory : word64 set) asl = (
+    PSTATE_ref.read_from asl.regstate,
+    SCTLR_EL1_ref.read_from asl.regstate,
+    TCR_EL1_ref.read_from asl.regstate,
+    R_ref.read_from asl.regstate,
+    fun2set ($' asl.memstate o w2n, memory),
+    PC_ref.read_from asl.regstate,
+    asl_sys_regs_ok asl,
+    arm8_asl_mem_ok asl,
+    arm8_asl_regs_ok asl
+    )
+Proof
+  EVAL_TAC >> eq_tac >> rw[]
+QED
 
 Theorem exists_state_rel:
   ∀asl. arm8_asl_regs_ok asl ∧ arm8_asl_mem_ok asl ⇔ ∃l3. state_rel l3 asl
