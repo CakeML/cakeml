@@ -8,6 +8,8 @@ open evaluateTheory semanticPrimitivesTheory evaluatePropsTheory
 
 val _ = new_theory "evaluate_skip";
 
+val _ = numLib.prefer_num ();
+
 Inductive stamp_rel:
   (∀ft fe n m1 m2.
     FLOOKUP ft m1 = SOME m2 ⇒
@@ -96,21 +98,126 @@ Definition res_rel_def[simp]:
   (res_rel f g x y                                  ⇔ F)
 End
 
-Theorem env_rel_update:
-  env_rel fr ft fe env1 env2 ∧ fr ⊑ fr1 ∧ ft ⊑ ft1 ∧ fe ⊑ fe1 ⇒
-  env_rel fr1 ft1 fe1 env1 env2
+Theorem stamp_rel_update:
+  ∀ft fe x y.
+    stamp_rel ft fe x y ⇒
+      ∀ft1 fe1.
+        ft ⊑ ft1 ∧ fe ⊑ fe1 ⇒
+          stamp_rel ft1 fe1 x y
 Proof
-  cheat
+  ho_match_mp_tac stamp_rel_ind \\ rw []
+  \\ gs [stamp_rel_rules, FLOOKUP_SUBMAP, SF SFY_ss]
 QED
 
-(*
-Definition env_rel_def:  (* TODO: delete this *)
-  env_rel fr ft fe env1 env2 ⇔
-     (∀n. nsLookup env1 n = NONE ⇒ nsLookup env2 n = NONE) ∧
-     (∀n v. nsLookup env1 n = SOME v ⇒
-            ∃w. nsLookup env2 n = SOME w ∧ v_rel fr ft fe v w)
-End
-*)
+Theorem ctor_rel_update:
+  ctor_rel ft fe envc1 envc2 ∧
+  ft ⊑ ft1 ∧
+  fe ⊑ fe1 ⇒
+    ctor_rel ft1 fe1 envc1 envc2
+Proof
+  rw [ctor_rel_def, OPTREL_def]
+  \\ first_x_assum (qspec_then ‘n’ strip_assume_tac) \\ gs []
+  \\ PairCases_on ‘x0’ \\ PairCases_on ‘y0’ \\ gs [PAIR_MAP]
+  \\ irule stamp_rel_update
+  \\ gs [SF SFY_ss]
+QED
+
+Theorem v_rel_update:
+  (∀fr ft fe v w.
+    v_rel fr ft fe v w ⇒
+      ∀fr1 ft1 fe1.
+        fr ⊑ fr1 ∧
+        ft ⊑ ft1 ∧
+        fe ⊑ fe1 ⇒
+          v_rel fr1 ft1 fe1 v w) ∧
+  (∀fr ft fe env1 env2.
+   env_rel fr ft fe env1 env2 ⇒
+     ∀fr1 ft1 fe1.
+       fr ⊑ fr1 ∧
+       ft ⊑ ft1 ∧
+       fe ⊑ fe1 ⇒
+         env_rel fr1 ft1 fe1 env1 env2)
+Proof
+  ho_match_mp_tac v_rel_ind \\ rw []
+  \\ FIRST (map irule (CONJUNCTS v_rel_rules)) \\ gs []
+  >- (
+    irule_at Any LIST_REL_mono
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ irule OPTREL_MONO
+    \\ first_assum (irule_at Any) \\ gs [] \\ rw []
+    \\ irule stamp_rel_update
+    \\ gs [SF SFY_ss]
+  )
+  >- (
+    irule_at Any LIST_REL_mono
+    \\ first_assum (irule_at Any) \\ gs [])
+  >- (
+    irule FLOOKUP_SUBMAP
+    \\ first_assum (irule_at Any) \\ gs [])
+  \\ rw []
+  >- (
+    first_x_assum (drule_all_then strip_assume_tac)
+    \\ gs [])
+  \\ irule ctor_rel_update
+  \\ gs [SF SFY_ss]
+QED
+
+Theorem env_rel_update = CONJUNCT2 v_rel_update;
+
+Theorem fmap_greatest[local]:
+  ∀m. ∃y. ∀x. x ∈ FRANGE m ⇒ x < y
+Proof
+  Induct \\ rw []
+  \\ qmatch_goalsub_rename_tac ‘_ = z ∨ _’
+  \\ qexists_tac ‘SUC y + z’
+  \\ qx_gen_tac ‘k’
+  \\ rw [] \\ gs []
+  \\ mp_tac (Q.ISPECL [‘x’,‘m: 'a |-> num’, ‘λx. x < y’]
+                      (GEN_ALL IN_FRANGE_DOMSUB_suff))
+  \\ rw [] \\ gs []
+  \\ first_x_assum drule \\ gs []
+QED
+
+Theorem state_rel_with_next_exn_stamp:
+  state_rel l fr ft fe s t ⇒
+    ∃fe1.
+      fe ⊑ fe1 ∧
+      state_rel l fr ft fe1 (s with next_exn_stamp := s.next_exn_stamp + extra)
+                            (t with next_exn_stamp := t.next_exn_stamp + extra)
+Proof
+  rw [state_rel_def] \\ gs []
+  \\ qspec_then ‘fe’ (qx_choose_then ‘j’ assume_tac) fmap_greatest
+  \\ qabbrev_tac ‘keys = GENLIST ($+ (SUC s.next_exn_stamp)) extra’
+  \\ qabbrev_tac ‘vals = GENLIST ($+ j) extra’
+  \\ ‘MAP FST (ZIP (keys, vals)) = keys’
+    by gs [Abbr ‘keys’, Abbr ‘vals’, MAP_ZIP]
+  \\ ‘ALL_DISTINCT (MAP FST (ZIP (keys, vals))) ∧
+      ALL_DISTINCT (MAP FST (REVERSE (ZIP (keys, vals))))’
+    by rw [ALL_DISTINCT_GENLIST, MAP_REVERSE, Abbr ‘keys’]
+  \\ qexists_tac ‘fe |++ ZIP (keys, vals)’
+  \\ conj_tac
+  >- (
+    rw [SUBMAP_DEF, FDOM_FUPDATE_LIST]
+    \\ ‘¬MEM x (MAP FST (ZIP (keys, vals)))’
+      by (strip_tac \\ gvs [Abbr ‘keys’, MEM_GENLIST])
+    \\ drule_then (qspec_then ‘fe’ mp_tac) FUPDATE_LIST_APPLY_NOT_MEM
+    \\ simp [])
+  \\ conj_tac
+  >- cheat
+  \\ conj_tac
+  >- (
+    simp [FDOM_FUPDATE_LIST]
+    \\ cheat
+  )
+  \\ ‘∀k. k < s.next_exn_stamp ⇒ ¬MEM k keys’
+    by (rpt strip_tac \\ gvs [Abbr ‘keys’, MEM_GENLIST])
+  \\ drule MEM_ALOOKUP
+  \\ disch_then (assume_tac o GSYM)
+  \\ simp [flookup_fupdate_list, REVERSE_ZIP]
+  \\ ntac 4 CASE_TAC \\ gs [Abbr ‘keys’, Abbr ‘vals’, MEM_ZIP, ADD1, flookup_thm]
+  \\ rw []
+  \\ cheat (* ref_rel_mono *)
+QED
 
 Theorem evaluate_decs_skip:
   ∀s env decs t s1 res fr ft fe env1 l.
@@ -124,7 +231,62 @@ Theorem evaluate_decs_skip:
                                                 (extend_dec_env env1' env1))
         (v_rel fr1 ft1 fe1) res res1
 Proof
-  cheat
+  ho_match_mp_tac evaluate_decs_ind \\ rw []
+  >- ((* nil *)
+    simp [extend_dec_env_def]
+    \\ first_assum (irule_at Any) \\ gs [])
+  >- ((* cons *)
+    gvs [evaluate_decs_def, CaseEqs ["prod", "result"], PULL_EXISTS]
+    >~ [‘Rerr err’] >- (
+        first_x_assum (drule_all_then strip_assume_tac) \\ gs []
+        \\ first_assum (irule_at Any)
+        \\ Cases_on ‘res1’ \\ gs [res_rel_def])
+    \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
+    \\ Cases_on ‘res1’ \\ gs [res_rel_def]
+    \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
+    \\ gs [combine_dec_result_def]
+    \\ cheat)
+  >~ [‘Dlet locs p e’] >- (
+    gvs [evaluate_decs_def, CaseEqs ["prod", "result", "bool", "match_result"],
+         PULL_EXISTS]
+    \\ cheat (* evaluate theorem *))
+  >~ [‘Dletrec locs funs’] >- (
+    cheat
+  )
+  >~ [‘Dtype locs tds’] >- (
+    cheat
+  )
+  >~ [‘Dtabbrev locs tvs tn t’] >- (
+    cheat
+  )
+  >~ [‘Denv n’] >- (
+    cheat
+  )
+  >~ [‘Dexn locs cn ts’] >- (
+    gvs [evaluate_decs_def, CaseEqs ["prod", "result"], PULL_EXISTS]
+    \\ irule_at Any SUBMAP_REFL
+    \\ irule_at Any SUBMAP_REFL
+    \\ drule_then (qspec_then ‘1’ strip_assume_tac)
+                  state_rel_with_next_exn_stamp
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ cheat (* env_rel_extend_dec_env *)
+  )
+  >~ [‘Dmod mn decs’] >- (
+    gvs [evaluate_decs_def, CaseEqs ["prod", "result"], PULL_EXISTS]
+    \\ first_x_assum (drule_all_then strip_assume_tac)
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ Cases_on ‘res1’ \\ gs [res_rel_def, extend_dec_env_def]
+    \\ cheat (* env_rel nsAppend *)
+  )
+  >~ [‘Dlocal ds1 ds2’] >- (
+    gvs [evaluate_decs_def, CaseEqs ["prod", "result"], PULL_EXISTS]
+    \\ first_x_assum (drule_all_then strip_assume_tac)
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ Cases_on ‘res1’ \\ gs [res_rel_def]
+    \\ first_x_assum (drule_all_then strip_assume_tac)
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ cheat (* env_rel transitive *)
+  )
 QED
 
 Theorem evaluate_decs_init:
