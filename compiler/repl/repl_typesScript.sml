@@ -476,8 +476,86 @@ Proof
       first_assum $ irule_at Any
       \\ fs[SUBSET_DEF]
       \\ metis_tac[] )
-    \\ conj_tac>-
-      cheat
+    \\ conj_tac>- (
+      fs[EVERY_MEM, FORALL_PROD] \\ rw[]
+      \\ first_x_assum drule
+      \\ rw[ref_lookup_ok_def]
+      \\ fs[type_sound_invariant_def]
+      \\ fs[type_s_def]
+      \\ qmatch_asmsub_rename_tac`store_lookup l s.refs`
+      \\ last_x_assum(qspec_then`l`mp_tac) \\ simp[]
+      \\ strip_tac \\ gs[]
+      \\ first_x_assum(qspec_then`l`mp_tac) \\ simp[]
+      \\ fs[store_type_extension_def]
+      \\ simp[FLOOKUP_FUNION]
+      \\ first_x_assum(qspec_then`l`mp_tac) \\ simp[]
+      \\ rpt strip_tac \\ gs[]
+      \\ qhdtm_x_assum`type_sv`mp_tac
+      \\ qhdtm_x_assum`type_sv`mp_tac
+      \\ Cases_on`st` \\ simp[type_sv_def]
+      \\ qmatch_asmsub_rename_tac`store_lookup l new_s.refs = SOME sv`
+      \\ Cases_on`sv` \\ simp[type_sv_def]
+      \\ ntac 4 strip_tac
+      >- (
+        first_x_assum drule \\ rveq
+        \\ reverse(Cases_on`∃b. v = Boolv b`) >- gvs[] \\ fs[]
+        \\ rveq
+        \\ ntac 2 (pop_assum mp_tac)
+        \\ `Boolv b = Conv
+              (SOME (TypeStamp (if b then "True" else "False")
+                     bool_type_num)) []` by rw[Boolv_def]
+        \\ pop_assum SUBST_ALL_TAC
+        \\ simp[Once type_v_cases]
+        \\ strip_tac \\ rveq
+        \\ simp[Once type_v_cases]
+        \\ fs[good_ctMap_def, ctMap_has_bools_def]
+        \\ `ti = Tbool_num` by ( Cases_on`b` \\ fs[] )
+        \\ simp[Once type_v_cases]
+        \\ strip_tac \\ TRY (qpat_x_assum`Tbool_num = _`mp_tac \\ EVAL_TAC \\ NO_TAC)
+        \\ TRY (
+          drule_then drule typeSysPropsTheory.type_funs_Tfn
+          \\ EVAL_TAC \\ rw[] \\ NO_TAC)
+        \\ rveq
+        \\ simp[Boolv_def]
+        \\ qhdtm_x_assum`ctMap_ok`mp_tac
+        \\ simp[ctMap_ok_def]
+        \\ rpt strip_tac
+        \\ reverse(Cases_on`stamp`)
+        >- ( res_tac \\ pop_assum mp_tac \\ EVAL_TAC )
+        \\ qmatch_asmsub_rename_tac`TypeStamp cn n`
+        \\ `same_type (TypeStamp "True" bool_type_num) (TypeStamp cn n)`
+        by ( first_x_assum irule \\ simp[] )
+        \\ pop_assum mp_tac
+        \\ simp[same_type_def]
+        \\ strip_tac \\ rveq
+        \\ `cn = "True" ∨ cn = "False"` by metis_tac[NOT_SOME_NONE]
+        \\ rveq
+        \\ qhdtm_x_assum`FLOOKUP`mp_tac
+        \\ qhdtm_x_assum`FLOOKUP`mp_tac
+        \\ qhdtm_x_assum`FLOOKUP`mp_tac
+        \\ simp[]
+        \\ rpt strip_tac
+        \\ rveq
+        \\ qhdtm_x_assum`LIST_REL`mp_tac
+        \\ simp[])
+      \\ fs[] \\ rveq
+      \\ imp_res_tac type_v_invert_strlit \\ fs[]
+      \\ qhdtm_x_assum`type_v`mp_tac
+      \\ simp[Once type_v_cases]
+      \\ strip_tac \\ TRY (qpat_x_assum`Tstring_num = _`mp_tac \\ EVAL_TAC \\ NO_TAC)
+      \\ TRY (
+        drule_then drule typeSysPropsTheory.type_funs_Tfn
+        \\ EVAL_TAC \\ rw[] \\ NO_TAC)
+      \\ rw[]
+      \\ fs[good_ctMap_def]
+      \\ qhdtm_x_assum`ctMap_ok`mp_tac
+      \\ simp[ctMap_ok_def]
+      \\ spose_not_then strip_assume_tac
+      \\ reverse(Cases_on`stamp`)
+      >- ( res_tac \\ pop_assum mp_tac \\ EVAL_TAC )
+      \\ res_tac
+      \\ ntac 2 (pop_assum mp_tac)
+      \\ EVAL_TAC)
     \\ rpt gen_tac \\ strip_tac
     \\ CCONTR_TAC \\ fs[]
     \\ drule_then drule decs_type_sound
