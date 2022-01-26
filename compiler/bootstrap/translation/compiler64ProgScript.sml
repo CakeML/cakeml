@@ -450,7 +450,6 @@ val _ = (append_prog o process_topdecs) `
 val _ = (append_prog o process_topdecs) `
   fun run_interactive_repl cl =
     let
-      val _ = TextIO.print "Welcome to the CakeML read-eval-print loop.\n"
       val cs = REPL.charsFrom "config_enc_str.txt"
       val s1 = decodeProg.decode_backend_config cs
     in

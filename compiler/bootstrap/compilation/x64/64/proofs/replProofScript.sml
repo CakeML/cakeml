@@ -508,10 +508,12 @@ Theorem evaluate_repl:
        SOME (Conv NONE [parse_v; types_v; conf_v; env_v; decs_v; input_str_v]) ⇒
      ∃res s1.
        evaluate st env [App Opapp [Var repl_str; Var arg_str]] = (s1,res) ∧
-       res ≠ Rerr (Rabort Rtype_error)
+       res ≠ Rerr (Rabort Rtype_error) ∧
+       (∀vs. res = Rval vs ⇒ vs = [Conv NONE []])
 Proof
   strip_tac \\ completeInduct_on ‘st.clock’
-  \\ rpt strip_tac \\ gvs [PULL_FORALL]
+  \\ rpt strip_tac \\ gvs [PULL_FORALL,AND_IMP_INTRO]
+  \\ gvs [GSYM PULL_FORALL]
   (* expand App repl *)
   \\ simp [evaluate_def,repl_v_def]
   \\ simp [do_opapp_def,find_recfun_def]
@@ -848,7 +850,8 @@ Theorem evaluate_start_repl:
   nsLookup env.v arg_str = SOME (Conv NONE [cl_v; s.compiler_state]) ⇒
   ∃res s1.
     evaluate st env [App Opapp [Var start_repl_str; Var arg_str]] = (s1,res) ∧
-    res ≠ Rerr (Rabort Rtype_error)
+    res ≠ Rerr (Rabort Rtype_error) ∧
+    (∀vs. res = Rval vs ⇒ vs = [Conv NONE []])
 Proof
   rpt strip_tac
   (* expand App start_repl *)
@@ -950,6 +953,163 @@ Proof
   \\ match_mp_tac (DECIDE “x = y ⇒ (x ⇒ y)”)
   \\ rpt AP_TERM_TAC
   \\ fs [semanticPrimitivesTheory.state_component_equality]
+QED
+
+Theorem BUTLAST_LAST:
+  ∀xs. ~NULL xs ⇒ xs = BUTLAST xs ++ [LAST xs]
+Proof
+  Induct \\ fs []
+  \\ Cases_on ‘xs’ \\ fs []
+QED
+
+val ffi_inst = type_of “basis_ffi _ _” |> dest_type |> snd |> hd
+
+Theorem evaluate_decs_compiler64_prog:
+  s.compiler = compiler_inst x64_config ∧
+  s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
+  s.env_id_counter = (0,0,1) ∧
+  has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
+  BACKEND_INC_CONFIG_TYPE conf s.compiler_state ∧
+  file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ∧
+  evaluate_decs (init_state (basis_ffi cl fs) with
+                            <| clock := ck; eval_state := (SOME (EvalDecs s)) |>)
+      init_env compiler64_prog = (s1,res) ⇒
+  res ≠ Rerr (Rabort Rtype_error)
+Proof
+  rw [] \\ pop_assum mp_tac
+  \\ ‘~NULL compiler64_prog’ by
+   (once_rewrite_tac [compiler64_prog_def] \\ rewrite_tac [NULL])
+  \\ drule BUTLAST_LAST
+  \\ disch_then (once_rewrite_tac o single)
+  \\ strip_tac
+  \\ assume_tac (Decls_FRONT_compiler64_prog
+       |> REWRITE_RULE [ml_progTheory.ML_code_env_def]
+       |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi cl fs’
+       |> Q.INST [‘eval_state_var’|->‘s’])
+  \\ drule repl_types_repl_prog
+  \\ disch_then drule
+  \\ disch_then (qspec_then ‘encode_backend_config conf’ mp_tac)
+  \\ impl_tac >-
+   (fs [] \\ simp (find "repl_moduleProg_st" |> map (fst o snd))
+    \\ simp (find "refs_def" |> map (fst o snd)))
+  \\ qpat_abbrev_tac ‘ppp = W8array _ :: _’ \\ pop_assum kall_tac
+  \\ pop_assum kall_tac
+  \\ pop_assum kall_tac
+  \\ strip_tac \\ fs [LAST_compiler64_prog]
+  \\ qpat_x_assum ‘evaluate_decs _ _ _ = _’ mp_tac
+  (* calling main *)
+  \\ fs [evaluate_decs_def,astTheory.pat_bindings_def]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ rewrite_tac [main_v_def]
+  \\ rewrite_tac [EVAL “semanticPrimitives$do_opapp
+       [Recclosure env [("main","u", e)] "main"; Conv NONE []]”] \\ simp []
+  \\ IF_CASES_TAC >- (fs [] \\ rw [] \\ fs [])
+  \\ fs [dec_clock_def]
+  (* inside main *)
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ IF_CASES_TAC >- (rw [] \\ fs [])
+  (* evaluate e_cl *)
+  \\ fs [dec_clock_def]
+  \\ qabbrev_tac ‘ev = (EvalDecs (s with env_id_counter := (0,1,1)))’
+  \\ drule (evaluatePropsTheory.eval_no_eval_simulation |> CONJUNCTS |> hd)
+  \\ disch_then (qspec_then ‘SOME ev’ mp_tac)
+  \\ impl_tac >- (fs [] \\ Cases_on ‘res_cl’ \\ fs [])
+  \\ strip_tac \\ fs []
+  \\ Cases_on ‘res_cl = Rerr (Rabort Rtimeout_error)’ >- (rw [] \\ fs [])
+  \\ fs []
+  (* call compiler_has_repl_flag *)
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ assume_tac compiler64prog_has_repl_flag_v_thm
+  \\ drule_all (Arrow_IMP |> INST_TYPE [“:'ffi”|->ffi_inst])
+  \\ disch_then (qspec_then ‘(dec_clock (s_cl with eval_state := SOME ev))’ strip_assume_tac)
+  \\ fs []
+  \\ IF_CASES_TAC >- (rw[] \\ fs [])
+  \\ fs []
+  \\ Cases_on ‘res' = Rerr (Rabort Rtimeout_error)’ >- (rw [] \\ fs [])
+  \\ gvs []
+  (* if *)
+  \\ gvs [BOOL_def]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit,do_if_def]
+  \\ fs [dec_clock_def]
+  (* call run_interactive_repl *)
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ rewrite_tac [run_interactive_repl_v_def,EVAL “semanticPrimitives$do_opapp
+       [Recclosure env [(n, u, e)] n; cl_v]”] \\ simp []
+  \\ IF_CASES_TAC >- (fs [] \\ rw [] \\ fs [])
+  \\ fs [dec_clock_def]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [dec_clock_def]
+  (* charsFrom *)
+  \\ rename [‘do_opapp [REPL_charsFrom_v; _]’]
+  \\ first_x_assum (qspecl_then [‘ck’,‘junk’] strip_assume_tac)
+  \\ simp []
+  \\ IF_CASES_TAC >- (fs [] \\ rw [] \\ fs [])
+  \\ drule (evaluatePropsTheory.eval_no_eval_simulation |> CONJUNCTS |> hd)
+  \\ disch_then (qspec_then ‘SOME ev’ mp_tac)
+  \\ impl_tac >- (fs [] \\ Cases_on ‘res_pr’ \\ fs [])
+  \\ strip_tac \\ fs []
+  \\ Cases_on ‘res_pr = Rerr (Rabort Rtimeout_error)’ >- (rw [] \\ fs [])
+  \\ fs []
+  (* decode_backend_config *)
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [dec_clock_def]
+  \\ assume_tac decodeProgTheory.decode_backend_config_v_thm
+  \\ drule_all (Arrow_IMP |> INST_TYPE [“:'ffi”|->ffi_inst])
+  \\ disch_then (qspec_then ‘s_pr with <|clock := s_pr.clock − 1;
+                               eval_state := SOME ev|>’ strip_assume_tac)
+  \\ fs []
+  \\ IF_CASES_TAC >- (rw[] \\ fs [])
+  \\ fs []
+  \\ Cases_on ‘res' = Rerr (Rabort Rtimeout_error)’ >- (rw [] \\ fs [])
+  \\ gvs []
+  (* start_repl *)
+  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+           namespaceTheory.nsOptBind_def,evaluate_Lit]
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate st8 env8’
+  \\ qspecl_then
+       [‘st8’,‘env8’,‘Short "start_repl"’,‘Short "a"’,‘basis_ffi cl fs’,‘TL cl’] mp_tac
+    (Q.GENL [‘st’,‘env’,‘start_repl_str’,‘arg_str’,‘ffi’,‘cl’,‘s1’,‘s’] evaluate_start_repl)
+  \\ simp [Abbr‘st8’,Abbr‘env8’,Abbr‘ev’]
+  \\ fs [backend_enc_decTheory.encode_backend_config_thm]
+  \\ disch_then drule
+  \\ ‘u = s.compiler_state’ by
+    (assume_tac EqualityType_BACKEND_INC_CONFIG_TYPE
+     \\ fs [EqualityType_def]
+     \\ res_tac \\ metis_tac [])
+  \\ gvs []
+  \\ impl_tac
+  >-
+   (CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [dec_clock_def]
+    \\ irule repl_types_clock_refs
+    \\ qsuff_tac ‘(s_pr with eval_state := NONE) = s_pr’ >- fs []
+    \\ fs [semanticPrimitivesTheory.state_component_equality])
+  \\ strip_tac \\ simp []
+  \\ rename [‘res9 ≠ Rerr (Rabort Rtype_error)’]
+  \\ Cases_on ‘res9 = Rerr (Rabort Rtype_error)’ >- fs []
+  \\ fs []
+  \\ reverse (Cases_on ‘res9’) \\ fs [] >- (rw [] \\ fs [])
+  \\ simp [pmatch_def] \\ rw []
 QED
 
 (*
