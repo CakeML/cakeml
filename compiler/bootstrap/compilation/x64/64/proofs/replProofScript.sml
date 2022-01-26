@@ -962,6 +962,13 @@ Proof
   \\ Cases_on ‘xs’ \\ fs []
 QED
 
+Triviality BACKEND_INC_CONFIG_TYPE_v:
+  BACKEND_INC_CONFIG_TYPE conf u ⇒
+  u = BACKEND_INC_CONFIG_v conf
+Proof
+  rw [] \\ imp_res_tac BACKEND_INC_CONFIG_IMP \\ fs []
+QED
+
 val ffi_inst = type_of “basis_ffi _ _” |> dest_type |> snd |> hd
 
 Theorem evaluate_decs_compiler64_prog:
@@ -969,7 +976,7 @@ Theorem evaluate_decs_compiler64_prog:
   s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
   s.env_id_counter = (0,0,1) ∧
   has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  BACKEND_INC_CONFIG_TYPE conf s.compiler_state ∧
+  s.compiler_state = BACKEND_INC_CONFIG_v conf ∧
   file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ∧
   evaluate_decs (init_state (basis_ffi cl fs) with
                             <| clock := ck; eval_state := (SOME (EvalDecs s)) |>)
@@ -1092,11 +1099,9 @@ Proof
     (Q.GENL [‘st’,‘env’,‘start_repl_str’,‘arg_str’,‘ffi’,‘cl’,‘s1’,‘s’] evaluate_start_repl)
   \\ simp [Abbr‘st8’,Abbr‘env8’,Abbr‘ev’]
   \\ fs [backend_enc_decTheory.encode_backend_config_thm]
+  \\ drule BACKEND_INC_CONFIG_TYPE_v \\ strip_tac
+  \\ gvs []
   \\ disch_then drule
-  \\ ‘u = s.compiler_state’ by
-    (assume_tac EqualityType_BACKEND_INC_CONFIG_TYPE
-     \\ fs [EqualityType_def]
-     \\ res_tac \\ metis_tac [])
   \\ gvs []
   \\ impl_tac
   >-

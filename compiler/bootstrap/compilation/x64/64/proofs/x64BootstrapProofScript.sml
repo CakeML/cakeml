@@ -89,4 +89,13 @@ Theorem mk_init_eval_state_lemma =
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_compiler_fun_from_ci_def,
         GSYM compiler_inst_def,cake_config_lab_conf_asm_conf];
 
+(*
+val compile_correct_applied =
+  MATCH_MP compile_correct_eval cake_compiled
+  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO,
+                         with_clos_conf_simp]
+  |> Q.INST [‘ev’|->‘SOME compiler_instance’]
+  |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,compiler_instance_lemma]
+*)
+
 val _ = export_theory();

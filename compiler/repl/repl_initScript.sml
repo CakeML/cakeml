@@ -2,7 +2,7 @@
   Proves repl_types for the initial env and types from which the REPL starts.
 *)
 open preamble
-     ml_progTheory ml_progLib repl_typesTheory
+     ml_progTheory ml_progLib repl_typesTheory basis_ffiTheory
      repl_init_envProgTheory repl_moduleProgTheory repl_init_typesTheory
 
 val _ = new_theory "repl_init";
