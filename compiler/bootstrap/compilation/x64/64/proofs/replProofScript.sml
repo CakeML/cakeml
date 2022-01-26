@@ -9,6 +9,8 @@ open backendProofTheory repl_typesTheory repl_check_and_tweakTheory repl_initThe
 
 val _ = new_theory"replProof";
 
+val _ = (max_print_depth := 12);
+
 Definition compiler_inst_def:
   compiler_inst c = (λ(x,y,z).
                 do
@@ -1117,8 +1119,22 @@ Proof
   \\ simp [pmatch_def] \\ rw []
 QED
 
-(*
-max_print_depth := 12
-*)
+Theorem semantics_prog_compiler64_prog:
+  s.compiler = compiler_inst x64_config ∧
+  s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
+  s.env_id_counter = (0,0,1) ∧ has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧
+  STD_streams fs ∧ hasFreeFD fs ∧
+  s.compiler_state = BACKEND_INC_CONFIG_v conf ∧
+  file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ⇒
+  Fail ∉ semantics_prog
+           (init_state (basis_ffi cl fs) with eval_state := SOME (EvalDecs s))
+           init_env compiler64_prog
+Proof
+  fs [IN_DEF,semanticsTheory.semantics_prog_def] \\ rpt strip_tac
+  \\ mp_tac (Q.GENL [‘ck’,‘res’,‘s1’] evaluate_decs_compiler64_prog) \\ fs []
+  \\ fs [semanticsTheory.evaluate_prog_with_clock_def]
+  \\ pairarg_tac \\ gvs []
+  \\ qexists_tac ‘k’ \\ fs []
+QED
 
 val _ = export_theory();
