@@ -2564,16 +2564,28 @@ Definition no_change_refs_def:
   no_change_refs (Lannot e _) = no_change_refs e /\
   no_change_refs (Mat e pats) =
     (no_change_refs e /\ EVERY no_change_refs (MAP SND pats)) /\
-  no_change_refs (App p es) =
-    (EVERY no_change_refs es ∧ (p = VfromList ∨ p = Opb Leq ∨ p = Opb Lt)) /\
+  no_change_refs (App oper es) = ((case oper of
+          Opassign => F
+        | Opapp => F
+        | Eval => F
+        | Opref => F
+        | Aw8alloc => F
+        | Aw8update => F
+        | Aw8update_unsafe => F
+        | CopyStrAw8 => F
+        | CopyAw8Aw8 => F
+        | Aalloc => F
+        | AallocEmpty => F
+        | Aupdate => F
+        | Aupdate_unsafe => F
+        | FFI _ => F
+        | _ => T) ∧ EVERY no_change_refs es) /\
   no_change_refs _ = F
 Termination
   WF_REL_TAC `measure exp_size`
-  \\ `!es a. MEM a es ==> exp_size a < exp6_size es`
-       by (Induct \\ fs [exp_size_def] \\ rw [] \\ res_tac \\ fs [])
-  \\ `!es a. MEM a (MAP SND es) ==> exp_size a < exp3_size es`
-       by (Induct \\ fs [exp_size_def,FORALL_PROD] \\ rw [] \\ res_tac \\ fs [])
-  \\ rw [] \\ res_tac \\ fs []
+  \\ simp [MEM_MAP, EXISTS_PROD]
+  \\ rw [MEM_SPLIT]
+  \\ simp [exp_size_eq, list_size_APPEND, list_size_def, basicSizeTheory.pair_size_def]
 End
 
 Theorem evaluate_no_change_refs:
@@ -2588,7 +2600,8 @@ Proof
   \\ fs [no_change_refs_def] \\ rw []
   \\ gvs [evaluate_def,AllCaseEqs(),semanticPrimitivesTheory.do_if_def]
   \\ fs [SF ETA_ss]
-  \\ gvs [do_app_def,AllCaseEqs()]
+  \\ gvs []
+  \\ fs [do_app_cases] \\ rveq \\ fs []
 QED
 
 Theorem eval_rel_no_change_refs:

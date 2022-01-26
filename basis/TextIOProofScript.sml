@@ -829,7 +829,7 @@ Overload TypeStamp_InstreamBuffered = “TypeStamp "InstreamBuffered" 12”;
 val INSTREAM_BUFFERED_def = Define `
   INSTREAM_BUFFERED bactive is =
     SEP_EXISTS rr r wr w buff bcontent fd fdv.
-      & (is = (Conv (SOME (TypeStamp_InstreamBuffered)) [fdv; rr; wr; buff]) /\
+      & (is = (Conv instreambuffered_con_stamp [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
@@ -839,7 +839,7 @@ val INSTREAM_BUFFERED_def = Define `
 val INSTREAM_BUFFERED_FD_def = Define `
   INSTREAM_BUFFERED_FD bactive fd is =
     SEP_EXISTS rr r wr w buff bcontent fdv.
-      & (is = (Conv (SOME (TypeStamp_InstreamBuffered)) [fdv; rr; wr; buff]) /\
+      & (is = (Conv instreambuffered_con_stamp [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
@@ -849,7 +849,7 @@ val INSTREAM_BUFFERED_FD_def = Define `
 val INSTREAM_BUFFERED_BL_FD_def = Define `
   INSTREAM_BUFFERED_BL_FD bcontent bactive fd is =
     SEP_EXISTS rr r wr w buff fdv.
-      & (is = (Conv (SOME (TypeStamp_InstreamBuffered)) [fdv; rr; wr; buff]) /\
+      & (is = (Conv instreambuffered_con_stamp [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
@@ -859,7 +859,7 @@ val INSTREAM_BUFFERED_BL_FD_def = Define `
 val INSTREAM_BUFFERED_BL_FD_RW_def = Define `
   INSTREAM_BUFFERED_BL_FD_RW bcontent bactive fd r w is =
     SEP_EXISTS rr wr buff fdv.
-      & (is = (Conv (SOME (TypeStamp_InstreamBuffered)) [fdv; rr; wr; buff]) /\
+      & (is = (Conv instreambuffered_con_stamp [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
@@ -2360,7 +2360,7 @@ QED
 
 Theorem b_refillBuffer_with_read_spec:
   !fd fdv fs content pos.
-  is = (Conv (SOME (TypeStamp_InstreamBuffered)) [fdv; rr; wr; isbuff]) /\
+  is = (Conv instreambuffered_con_stamp [fdv; rr; wr; isbuff]) /\
   get_file_content fs fd = SOME(content, pos) ⇒
   get_mode fs fd = SOME ReadMode ⇒
   app (p:'ffi ffi_proj) TextIO_b_refillBuffer_with_read_v [is;]

@@ -17,6 +17,7 @@ val _ = register_type ``:'a option``;
 val _ = register_type ``:'a list``;
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:'a + 'b``;
+val _ = register_type ``:'a app_list``;
 
 (* pair *)
 

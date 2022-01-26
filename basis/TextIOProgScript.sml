@@ -47,6 +47,13 @@ val instreamBuffered_def = (append_prog o process_topdecs)
     (int ref)   (* write index *)
     byte_array`;
 
+val cur_env = get_env (get_ml_prog_state());
+val stamp_eval = EVAL ``nsLookup (^cur_env).c (Short "InstreamBuffered")``
+val instreambuffered_con_stamp = rhs (concl stamp_eval)
+
+Definition instreambuffered_con_stamp_def[simp]:
+  instreambuffered_con_stamp = OPTION_MAP SND ^instreambuffered_con_stamp
+End
 
 val _ = (next_ml_names := ["get_out"]);
 val _ = translate get_out_def;

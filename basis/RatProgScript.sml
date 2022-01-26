@@ -4,10 +4,11 @@
 open preamble ml_translatorLib ml_translatorTheory ml_progLib
      mlvectorTheory IntProgTheory basisFunctionsLib
      ratLib gcdTheory ratTheory
+local open PrettyPrinterProgTheory in end
 
 val _ = new_theory"RatProg"
 
-val _ = translation_extends "IntProg";
+val _ = translation_extends "PrettyPrinterProg";
 
 val _ = ml_prog_update open_local_block;
 

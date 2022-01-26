@@ -61,12 +61,10 @@ val REF_NUM_def = Define `
 val REF_ARRAY_def = Define `
   REF_ARRAY loc arr content = REF loc arr * ARRAY arr content`;
 
-
-
 val HASHTABLE_def = Define
  `HASHTABLE a b hf cmp h v =
     SEP_EXISTS ur ar hfv vlv arr cmpv heuristic_size.
-      &(v = (Conv (SOME (TypeStamp "Hashtable" 8)) [ur; ar; hfv; cmpv]) /\
+      &(v = (Conv hashtable_con_stamp [ur; ar; hfv; cmpv]) /\
         (a --> NUM) hf hfv /\
         (a --> a --> ORDERING_TYPE) cmp cmpv /\
         TotOrd cmp /\
@@ -507,7 +505,7 @@ Proof
       \\ fs[REF_ARRAY_def, REF_NUM_def]
       \\ xsimpl)
     \\ xcon
-    \\ fs[HASHTABLE_def]
+    \\ fs[HASHTABLE_def, hashtable_con_stamp_def]
     \\ xsimpl
     \\ qexists_tac `(REPLICATE 1 mpv)`
     \\ qexists_tac `arr`
@@ -535,7 +533,7 @@ Proof
       \\ fs[REF_ARRAY_def, REF_NUM_def]
       \\ xsimpl)
   \\ xcon
-  \\ fs[HASHTABLE_def]
+  \\ fs[HASHTABLE_def, hashtable_con_stamp_def]
   \\ xsimpl
   \\ qexists_tac `(REPLICATE size' mpv)`
   \\ qexists_tac `arr`
@@ -809,7 +807,7 @@ Theorem hashtable_staticInsert_spec:
         (POSTv uv. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp (h|+(k,v)) htv)
 Proof
 xcf_with_def "Hashtable.staticInsert" Hashtable_staticInsert_v_def
-\\ fs[HASHTABLE_def]
+\\ fs[HASHTABLE_def, hashtable_con_stamp_def]
 \\ xpull
 \\ xmatch
 \\ fs[hashtable_inv_def]
@@ -1075,7 +1073,7 @@ Theorem hashtable_toAscList_spec:
         * HASHTABLE a b hf cmp h htv)
 Proof
   xcf_with_def "Hashtable.toAscList" Hashtable_toAscList_v_def
-  \\fs[HASHTABLE_def]
+  \\fs[HASHTABLE_def, hashtable_con_stamp_def]
   \\xpull
   \\fs[hashtable_inv_def]
   \\xmatch
@@ -1132,7 +1130,7 @@ Theorem hashtable_doubleCapacity_spec:
           HASHTABLE a b hf cmp h htv)
 Proof
   xcf_with_def "Hashtable.doubleCapacity" Hashtable_doubleCapacity_v_def
-  \\ fs[HASHTABLE_def]
+  \\ fs[HASHTABLE_def, hashtable_con_stamp_def]
   \\ xpull
   \\ xmatch
   \\ xlet `POSTv oldArr. &(oldArr = arr) *
@@ -1155,11 +1153,11 @@ Proof
     xapp
     \\MAP_EVERY qexists_tac [`emp`,`hf`, `h`, `cmp`, `b`, `a`]
     \\xsimpl
-    \\fs[HASHTABLE_def]
+    \\fs[HASHTABLE_def, hashtable_con_stamp_def]
     \\xsimpl
     \\MAP_EVERY qexists_tac [`vlv`,`arr`, `heuristic_size`]
     \\ xsimpl)
-  \\ fs[HASHTABLE_def,REF_NUM_def]
+  \\ fs[HASHTABLE_def, hashtable_con_stamp_def,REF_NUM_def]
   \\ xpull
   \\ rename [`REF_ARRAY ar arr1 vlv1`]
   \\ rveq
@@ -1178,7 +1176,7 @@ Proof
   \\ xlet_auto >- xsimpl
   \\ xapp
   \\ asm_exists_tac \\ fs []
-  \\ fs [HASHTABLE_def,REF_NUM_def,REF_ARRAY_def]
+  \\ fs [HASHTABLE_def, hashtable_con_stamp_def,REF_NUM_def,REF_ARRAY_def]
   \\ xsimpl
   \\ fs [PULL_EXISTS]
   \\ rpt (asm_exists_tac \\ fs [])
@@ -1209,7 +1207,7 @@ Theorem hashtable_insert_spec:
           HASHTABLE a b hf cmp (h|+(k,v)) htv)
 Proof
      xcf_with_def "Hashtable.insert" Hashtable_insert_v_def
-  \\ fs[HASHTABLE_def]
+  \\ fs[HASHTABLE_def, hashtable_con_stamp_def]
   \\ fs[REF_ARRAY_def]
   \\ xpull
   \\ xmatch
@@ -1236,7 +1234,8 @@ Proof
   \\fs[REF_NUM_def]
   \\xpull
   >-(xif
-    >-(fs[REF_ARRAY_def] \\ xapp \\ fs[HASHTABLE_def, REF_NUM_def] \\ xsimpl
+    >-(fs[REF_ARRAY_def] \\ xapp
+      \\ fs[HASHTABLE_def, hashtable_con_stamp_def, REF_NUM_def] \\ xsimpl
       \\ fs[PULL_EXISTS]
       \\CONV_TAC(RESORT_EXISTS_CONV List.rev)
       \\ rpt (asm_exists_tac \\ fs[]) \\ xsimpl
@@ -1246,15 +1245,15 @@ Proof
     >-( fs[REF_ARRAY_def]
       \\xlet `POSTv uv. HASHTABLE a b hf cmp h htv`
       >-( xapp \\ xsimpl
-        \\ fs[HASHTABLE_def, REF_ARRAY_def, REF_NUM_def] \\ xsimpl
+        \\ fs[HASHTABLE_def, hashtable_con_stamp_def, REF_ARRAY_def, REF_NUM_def] \\ xsimpl
         \\ fs[PULL_EXISTS]
         \\ rpt (asm_exists_tac \\ fs[]) \\ xsimpl
         \\ rpt strip_tac
         \\ asm_exists_tac \\ fs[])
-      >-(  fs[HASHTABLE_def, REF_NUM_def, REF_ARRAY_def]
+      >-(  fs[HASHTABLE_def, hashtable_con_stamp_def, REF_NUM_def, REF_ARRAY_def]
         \\ xpull
         \\ xapp
-        \\ fs[HASHTABLE_def, REF_ARRAY_def, REF_NUM_def]
+        \\ fs[HASHTABLE_def, hashtable_con_stamp_def, REF_ARRAY_def, REF_NUM_def]
         \\ xsimpl
         \\ fs[PULL_EXISTS]
         \\ rpt (asm_exists_tac \\ fs[]) \\ xsimpl
@@ -1271,7 +1270,7 @@ Theorem hashtable_lookup_spec:
                     HASHTABLE a b hf cmp h htv)
 Proof
   xcf_with_def "Hashtable.lookup" Hashtable_lookup_v_def
-  \\ fs[HASHTABLE_def, REF_ARRAY_def]
+  \\ fs[HASHTABLE_def, hashtable_con_stamp_def, REF_ARRAY_def]
   \\ xpull
   \\ xmatch
   \\ xlet_auto
@@ -1315,7 +1314,7 @@ Theorem hashtable_delete_spec:
         (POSTv uv. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp (h \\ k) htv)
 Proof
   xcf_with_def "Hashtable.delete" Hashtable_delete_v_def
-  \\ fs [HASHTABLE_def, REF_ARRAY_def, hashtable_inv_def]
+  \\ fs [HASHTABLE_def, hashtable_con_stamp_def, REF_ARRAY_def, hashtable_inv_def]
   \\ xpull
   \\ xmatch
   \\ xlet_auto >- xsimpl
@@ -1402,7 +1401,7 @@ Theorem hashtable_clear_spec:
         (POSTv uv. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp FEMPTY htv)
 Proof
   xcf_with_def "Hashtable.clear" Hashtable_clear_v_def
-  \\ fs[HASHTABLE_def, REF_ARRAY_def, hashtable_inv_def]
+  \\ fs[HASHTABLE_def, hashtable_con_stamp_def, REF_ARRAY_def, hashtable_inv_def]
   \\ xpull
   \\ xmatch
   \\ xlet_auto
