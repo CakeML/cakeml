@@ -445,7 +445,9 @@ Proof
 QED
 
 Theorem semantics_thm:
-  semantics_prog (init_state ffi) init_env (candle_code ++ prog) res ∧
+  semantics_prog (init_state ffi with eval_state := es)
+                 init_env (candle_code ++ prog) res ∧
+  eval_state_ok es ∧
   EVERY safe_dec prog ∧
   ffi.io_events = [] ∧
   res ≠ Fail ⇒
@@ -463,6 +465,8 @@ Proof
     \\ gs [evaluate_prog_with_clock_def]
     \\ pairarg_tac \\ gvs []
     \\ assume_tac candle_prog_thm
+    \\ dxrule_then (qspec_then ‘es’ mp_tac) Decls_set_eval_state
+    \\ rw [Once init_state_def]
     \\ gvs [evaluate_decs_append, CaseEqs ["prod", "semanticPrimitives$result"]]
     >- (
       gs [ml_progTheory.Decls_def]
@@ -511,7 +515,10 @@ Proof
           \\ last_x_assum(qspec_then`k`mp_tac) \\ simp[LNTH_fromList]
           \\ disch_then (qspec_then ‘n’ assume_tac) \\ gs [])
     \\ pairarg_tac \\ gvs []
-    \\ assume_tac candle_prog_thm \\ gs [Decls_def]
+    \\ assume_tac candle_prog_thm
+    \\ dxrule_then (qspec_then ‘es’ mp_tac) Decls_set_eval_state
+    \\ rw [Once init_state_def]
+    \\ gs [Decls_def]
     \\ gvs [evaluate_decs_append, CaseEqs ["semanticPrimitives$result", "prod"], combine_dec_result_def]
     >- (
       dxrule_then (qspec_then ‘k’ mp_tac) evaluate_decs_add_to_clock
@@ -533,7 +540,7 @@ Proof
     \\ ‘k ≤ ck1’
       by (dxrule_then drule evaluatePropsTheory.evaluate_decs_clock_determ
           \\ rw [])
-    \\ drule_then (qspecl_then [‘init_state ffi’,‘init_env’,‘candle_code’]
+    \\ drule_then (qspecl_then [‘init_state ffi with eval_state := es’,‘init_env’,‘candle_code’]
                   mp_tac)
                   evaluate_decs_ffi_mono_clock
     \\ rw [io_events_mono_def] \\ gs [])
@@ -559,6 +566,10 @@ Theorem events_of_semantics:
   ∀e. e IN events_of res ⇒ ok_event e
 Proof
   rw [IN_DEF]
+  \\ ‘init_state ffi = init_state ffi with eval_state := NONE’
+    by rw [init_state_def]
+  \\ pop_assum SUBST_ALL_TAC
+  \\ ‘eval_state_ok NONE’ by gs [eval_state_ok_def]
   \\ drule_all semantics_thm
   \\ Cases_on ‘res’ \\ fs [events_of_def]
   \\ fs [every_LNTH,LSET_def,EVERY_MEM,IN_DEF] \\ rw []
@@ -571,7 +582,11 @@ Theorem events_of_semantics_with_eval_state:
   EVERY safe_dec prog ∧ ffi.io_events = [] ∧ res ≠ Fail ⇒
   ∀e. e IN events_of res ⇒ ok_event e
 Proof
-  cheat
+  strip_tac
+  \\ drule_all semantics_thm
+  \\ Cases_on ‘res’ \\ fs [events_of_def]
+  \\ fs [every_LNTH,LSET_def,EVERY_MEM,IN_DEF] \\ rw []
+  \\ res_tac
 QED
 
 val _ = export_theory ();
