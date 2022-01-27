@@ -1015,6 +1015,9 @@ Proof
     \\ fs [EVERY_MEM,FORALL_PROD] \\ rw []
     \\ res_tac
     \\ fs [check_ref_types_def,env_rel_def]
+    \\ imp_res_tac nsAll2_nsLookup1
+    \\ imp_res_tac nsAll2_nsLookup2
+    \\ gs [] \\ gvs []
     \\ res_tac \\ fs [Once v_rel_cases]
     \\ fs [FLOOKUP_DEF])
   >- (* skip *)
