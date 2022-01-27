@@ -315,6 +315,33 @@ Proof
   Induct_on`type_v` \\ rw[]
 QED
 
+Theorem ref_lookup_ok_store_assign_exn:
+  EVERY (ref_lookup_ok store) rs ∧
+  MEM (n,Exn,loc) rs ∧
+  type_v 0 ctMap tenvS e (Tapp [] Texn_num) ∧ ctMap_ok ctMap ∧
+  store_assign loc (Refv e) store = SOME new_store ⇒
+  EVERY (ref_lookup_ok new_store) rs
+Proof
+  simp[store_assign_def]>>
+  simp[EVERY_MEM,FORALL_PROD] >>
+  rw[]>>fs[ref_lookup_ok_def]>>
+  first_assum drule>>
+  pop_assum mp_tac>>
+  first_x_assum drule>>
+  rw[]>>
+  fs[store_lookup_def,EL_LUPDATE]>>
+  reverse IF_CASES_TAC >- metis_tac[]
+  \\ rw[]>>fs[Boolv_def] >> rw[]
+  \\ fs[Once type_v_cases]
+  \\ TRY(qpat_x_assum`Texn_num = _`mp_tac \\ EVAL_TAC)
+  \\ TRY ( drule_then drule typeSysPropsTheory.type_funs_Tfn \\ rw[] )
+  \\ fs[ctMap_ok_def]
+  \\ Cases_on`stamp` \\ fs[]
+  \\ res_tac
+  \\ pop_assum mp_tac
+  \\ EVAL_TAC
+QED
+
 Theorem type_v_invert_exn:
   ∀n ct tenv l ty.
   l = Conv (SOME (ExnStamp s)) ls ∧
@@ -350,6 +377,33 @@ Proof
     \\ qpat_x_assum`EL l st = _` SUBST_ALL_TAC
     \\ Cases_on`st'`\\fs[type_sv_def]
     \\ metis_tac[type_v_invert_strlit,type_v_cases] )
+  \\ metis_tac[]
+QED
+
+Theorem type_s_store_assign_exn:
+  type_s ctMap st tenvS ∧
+  EVERY (ref_lookup_ok st) rs ∧
+  MEM (n,Exn,loc) rs ∧
+  ctMap_ok ctMap ∧
+  type_v 0 ctMap tenvS e (Tapp [] Texn_num) ∧
+  store_assign loc (Refv e) st = SOME new_st ⇒
+  type_s ctMap new_st tenvS
+Proof
+  simp[store_assign_def]
+  \\ strip_tac
+  \\ fs[EVERY_MEM]
+  \\ first_x_assum drule
+  \\ simp[ref_lookup_ok_def]
+  \\ strip_tac
+  \\ fs[type_s_def,store_assign_def,type_sv_def]
+  \\ rw[] \\ fs[store_lookup_def]
+  \\ fs[EL_LUPDATE]
+  \\ pop_assum mp_tac \\ rw[]
+  >- (
+    `type_sv ctMap tenvS (EL l st) st'` by metis_tac[]
+    \\ qpat_x_assum`EL l st = _` SUBST_ALL_TAC
+    \\ Cases_on`st'`\\fs[type_sv_def]
+    \\ imp_res_tac type_v_invert_exn \\ fs[])
   \\ metis_tac[]
 QED
 
