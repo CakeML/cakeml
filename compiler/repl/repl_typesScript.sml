@@ -26,6 +26,24 @@ Definition check_ref_types_def:
     nsLookup env.v name = SOME (Loc loc)
 End
 
+Definition roll_back_def:
+  roll_back (old_ienv:inf_env, old_next_id:num)
+            (new_ienv:inf_env, new_next_id:num) =
+    (old_ienv, new_next_id)
+End
+
+Theorem FST_roll_back[simp]:
+  FST (roll_back x y) = FST x
+Proof
+  Cases_on`x` \\ Cases_on`y` \\ rw[roll_back_def]
+QED
+
+Theorem SND_roll_back[simp]:
+  SND (roll_back x y) = SND y
+Proof
+  Cases_on`x` \\ Cases_on`y` \\ rw[roll_back_def]
+QED
+
 Inductive repl_types:
 [repl_types_init:]
   (∀ffi rs decs types (s:'ffi semanticPrimitives$state) env ck b.
@@ -51,7 +69,7 @@ Inductive repl_types:
      repl_types b (ffi,rs) (types,s,env) ∧
      infertype_prog_inc types decs = Success new_types ∧
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ⇒
-     repl_types b (ffi,rs) (roll_back (types, new_types),new_s,env)) ∧
+     repl_types b (ffi,rs) (roll_back types new_types,new_s,env)) ∧
 [repl_types_exn_assign:]
   (∀ffi rs decs types new_types (s:'ffi semanticPrimitives$state) env e
     new_s name loc new_store b.
@@ -60,7 +78,7 @@ Inductive repl_types:
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ∧
      MEM (name,Exn,loc) rs ∧
      store_assign loc (Refv e) new_s.refs = SOME new_store ⇒
-     repl_types b (ffi,rs) (roll_back (types, new_types),new_s with refs := new_store,env)) ∧
+     repl_types b (ffi,rs) (roll_back types new_types,new_s with refs := new_store,env)) ∧
 [repl_types_str_assign:]
   (∀ffi rs types (s:'ffi semanticPrimitives$state) env t name loc new_store b.
      repl_types b (ffi,rs) (types,s,env) ∧

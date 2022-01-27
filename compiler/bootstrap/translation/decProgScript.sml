@@ -14,8 +14,13 @@ val _ = translation_extends "repl_init_envProg";
 
 val _ = use_string_type true;
 
-val _ = register_type ``:'a list``;
-val _ = register_type ``:'a option``;
+(* this is a hack to make the translator avoid these names *)
+Datatype:
+  dummy = Tyvar | Tyapp | Var | Const | Abs | Comb | Sequent
+End
+val _ = register_type ``:dummy``;
+(* end of hack *)
+
 val _ = register_type ``:lit``;
 val _ = register_type ``:('a,'b) id``;
 val _ = register_type ``:ast_t``;

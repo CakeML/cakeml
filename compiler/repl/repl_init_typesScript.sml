@@ -51,6 +51,11 @@ end
 
 Theorem repl_prog_types_thm = result;
 
+(*
+val basis_tn = EVAL ``update_type_names basis_ienv empty_type_names``
+    |> concl |> rhs
+*)
+
 (* -- evaluate lookups on repl_prog's env and types -- *)
 
 val env = Decls_repl_prog |> concl |> rator |> rand

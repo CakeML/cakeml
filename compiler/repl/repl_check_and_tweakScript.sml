@@ -5,19 +5,11 @@
 *)
 open preamble
 open semanticsPropsTheory evaluateTheory semanticPrimitivesTheory
-open inferTheory compilerTheory repl_decs_allowedTheory
+open inferTheory compilerTheory repl_decs_allowedTheory printTweaksTheory
 
 val _ = Parse.hide "types"
 
 val _ = new_theory "repl_check_and_tweak";
-
-Definition infertype_prog_inc_def:
-  infertype_prog_inc (ienv, next_id) prog =
-  case infer_ds ienv prog (init_infer_state <| next_id := next_id |>) of
-    (Success new_ienv, st) =>
-    (Success (extend_dec_ienv new_ienv ienv, st.next_id))
-  | (Failure x, _) => infer$Failure x
-End
 
 val read_next_dec =
   “[Dlet (Locs UNKNOWNpt UNKNOWNpt) Pany
@@ -28,40 +20,47 @@ val read_next_dec =
 Definition check_and_tweak_def:
   check_and_tweak (decs, types, input_str) =
     let all_decs = decs ++ ^read_next_dec in
-      case infertype_prog_inc types all_decs of
-      | Success new_types =>
-          if decs_allowed all_decs then INR (all_decs, new_types)
+      case add_print_features types all_decs of
+      | Success (new_decs,new_types) =>
+          if decs_allowed new_decs then INR (new_decs, new_types)
           else INL (strlit "ERROR: input contains reserved constructor/FFI names")
       | Failure (loc,msg) =>
           INL (concat [strlit "ERROR: "; msg; strlit " at ";
                        locs_to_string input_str loc])
 End
 
+(* main correctness result *)
+
+Definition infertype_prog_inc_def:
+  infertype_prog_inc (ienv, next_id) prog =
+  case infer_ds ienv prog (init_infer_state <| next_id := next_id |>) of
+    (Success new_ienv, st) =>
+    (Success (extend_dec_ienv new_ienv ienv, st.next_id))
+  | (Failure x, _) => Failure x
+End
+
 Theorem check_and_tweak: (* used in replProof *)
   check_and_tweak (decs,types,input_str) = INR (safe_decs,new_types) ⇒
-  infertype_prog_inc types safe_decs = Success new_types ∧ decs_allowed safe_decs
+  infertype_prog_inc (SND types) safe_decs = Success (SND new_types) ∧
+  decs_allowed safe_decs
 Proof
   fs [check_and_tweak_def,AllCaseEqs()] \\ rw []
-  \\ fs [decs_allowed_def]
+  \\ drule add_print_features_succ \\ rw []
+  \\ fs [infertype_prog_inc_def]
 QED
 
 (* used in repl_types and repl-function in compiler64Prog *)
 
 Definition roll_back_def:
-  roll_back ((old_ienv:inf_env, old_next_id:num), (new_ienv:inf_env, new_next_id:num)) =
-    (old_ienv, new_next_id)
+  roll_back ((old_tn:type_names, old_ienv:inf_env, old_next_id:num),
+             (new_tn:type_names, new_ienv:inf_env, new_next_id:num)) =
+    (old_tn, old_ienv, new_next_id)
 End
 
 Theorem FST_roll_back[simp]:
-  FST (roll_back (x, y)) = FST x
+  FST (roll_back (SND x, y)) = FST (SND x)
 Proof
-  Cases_on`x` \\ Cases_on`y` \\ rw[roll_back_def]
-QED
-
-Theorem SND_roll_back[simp]:
-  SND (roll_back (x, y)) = SND y
-Proof
-  Cases_on`x` \\ Cases_on`y` \\ rw[roll_back_def]
+  PairCases_on`x` \\ PairCases_on`y` \\ rw[roll_back_def]
 QED
 
 val _ = export_theory();
