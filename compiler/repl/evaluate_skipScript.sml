@@ -287,12 +287,21 @@ Definition match_res_rel_def[simp]:
   (match_res_rel R _ _ ⇔ F)
 End
 
+Theorem stamp_rel_same:
+  stamp_rel ft fe x y ⇒
+    case x of
+      TypeStamp n m =>
+        ∃m1. y = TypeStamp n m1
+    same_type x y
+
 Theorem pmatch_update:
   (∀envC s p v ws res.
     pmatch envC s p v ws = res ⇒
-      ∀envC' s' v' ws' res'.
+      ∀envC' s' v' ws' res' ns ms.
         ctor_rel ft fe envC envC' ∧
         v_rel fr ft fe v v' ∧
+        INJ ($' ft) (FDOM ft) ns ∧
+        INJ ($' fe) (FDOM fe) ms ∧
         LIST_REL (λ(n,v) (m,w). n = m ∧ v_rel fr ft fe v w) ws ws' ∧
         pmatch envC' s' p v' ws' = res' ∧
         (∀n. if n < LENGTH s then
@@ -303,8 +312,10 @@ Theorem pmatch_update:
             LIST_REL (λ(n,v) (m,w). n = m ∧ v_rel fr ft fe v w)
                      env env') res res') ∧
   (∀envC s ps vs ws res.
-    pmatch_list envC s ps vs ws = env ⇒
-      ∀envC' s' vs' ws' res'.
+    pmatch_list envC s ps vs ws = res ⇒
+      ∀envC' s' vs' ws' res' ns ms.
+        INJ ($' ft) (FDOM ft) ns ∧
+        INJ ($' fe) (FDOM fe) ms ∧
         ctor_rel ft fe envC envC' ∧
         LIST_REL (v_rel fr ft fe) vs vs' ∧
         LIST_REL (λ(n,v) (m,w). n = m ∧ v_rel fr ft fe v w) ws ws' ∧
@@ -319,41 +330,48 @@ Theorem pmatch_update:
 Proof
   ho_match_mp_tac pmatch_ind \\ rw [] \\ gvs [pmatch_def, v_rel_def, SF SFY_ss]
   >- (rw [] \\ gs [])
-  \\ cheat (*
   >- (
     gvs [CaseEqs ["bool", "option", "prod"], v_rel_def, pmatch_def]
     \\ rename1 ‘pmatch _ _ _ (Conv tt _)’
     \\ Cases_on ‘tt’ \\ gvs [pmatch_def, CaseEqs ["prod", "option", "bool"]]
-    \\ first_x_assum irule
-    \\ first_assum (irule_at Any) \\ gs [])
+    \\ CASE_TAC \\ gs []
+    >- (
+      gs [ctor_rel_def]
+      \\ drule_all_then assume_tac nsAll2_nsLookup_none \\ gs [])
+    \\ CASE_TAC \\ gs [ctor_rel_def]
+    \\ drule_all_then strip_assume_tac nsAll2_nsLookup1 \\ gs []
+    \\ PairCases_on ‘v2’ \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ gs []
+    \\ gvs [stamp_rel_cases, same_ctor_def, same_type_def]
+    \\ rw [] \\ gs []
+    \\ TRY (first_x_assum irule \\ gs [SF SFY_ss])
+    \\ fs [INJ_DEF] \\ fs [flookup_thm] \\ gs [])
   >- (
-    gvs [CaseEq "bool", v_rel_def, pmatch_def]
-    \\ rename1 ‘pmatch _ _ _ (Conv tt _)’
-    \\ Cases_on ‘tt’ \\ gvs [pmatch_def, CaseEq "bool"]
+    rename1 ‘pmatch _ _ _ (Conv tt _)’
+    \\ Cases_on ‘tt’ \\ gvs [pmatch_def, CaseEqs ["prod", "option", "bool"]]
+    \\ rw [] \\ gs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ gs []
     \\ first_x_assum irule
-    \\ first_assum (irule_at Any) \\ gs [])
+    \\ gs [SF SFY_ss])
   >- (
-    gvs [CaseEqs ["bool", "option", "store_v"], v_rel_def, pmatch_def]
-    \\ gvs [store_lookup_def]
-    \\ first_x_assum irule
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ gvs [LIST_REL_EL_EQN]
-    \\ first_x_assum (qspec_then ‘lnum’ assume_tac)
-    \\ gs [ref_rel_def])
+    CASE_TAC \\ gs [store_lookup_def] \\ gvs []
+    >- (
+      first_x_assum (qspec_then ‘lnum’ assume_tac) \\ gs [])
+    \\ first_assum (qspec_then ‘lnum’ mp_tac)
+    \\ IF_CASES_TAC \\ simp_tac std_ss [] \\ rw [] \\ gs []
+    \\ rpt CASE_TAC \\ gs [ref_rel_def]
+    \\ first_x_assum irule \\ gs [SF SFY_ss])
   >- (
-    gvs [CaseEq "bool", v_rel_def, pmatch_def, PULL_EXISTS]
-    \\ first_x_assum irule
-    \\ first_assum (irule_at Any) \\ gs [])
+    rename1 ‘pmatch _ _ _ (Conv tt _)’
+    \\ Cases_on ‘tt’ \\ gvs [pmatch_def, CaseEqs ["prod", "option", "bool"]])
   >- (
-    gvs [CaseEq "bool", v_rel_def, pmatch_def, PULL_EXISTS]
-    \\ first_x_assum irule
-    \\ first_assum (irule_at Any) \\ gs [])
+    rename1 ‘pmatch _ _ _ (Conv tt _)’
+    \\ Cases_on ‘tt’ \\ gvs [pmatch_def, CaseEqs ["prod", "option", "bool"]])
   >- (
-    gvs [CaseEq "match_result"]
-    \\ first_x_assum irule
-    \\ first_x_assum drule_all \\ rw []
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ first_assum (irule_at Any) \\ gs []) *)
+    Cases_on ‘pmatch envC s p v ws’ \\ gs []
+    \\ rpt (first_x_assum drule_all \\ rw [] \\ gs [])
+    \\ rpt (CASE_TAC \\ gs [])
+    \\ first_x_assum irule \\ gs [SF SFY_ss])
 QED
 
 local
@@ -460,8 +478,10 @@ Proof
 QED
 
 Theorem can_pmatch_all_thm:
-  ∀ps envc1 s v envc2 t w.
+  ∀ps envc1 s v envc2 t w ms ns.
     ctor_rel ft fe envc1 envc2 ∧
+    INJ ($' ft) (FDOM ft) ns ∧
+    INJ ($' fe) (FDOM fe) ms ∧
     (∀n. if n < LENGTH s then
            ∃m. FLOOKUP fr n = SOME m ∧ m < LENGTH t ∧
            ref_rel (v_rel fr ft fe) (EL n s) (EL m t)
@@ -510,10 +530,16 @@ Proof
     \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
     \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
     \\ gs [state_rel_def, env_rel_def]
-    \\ drule_all_then assume_tac can_pmatch_all_thm \\ gs [])
+    \\ drule can_pmatch_all_thm \\ gs []
+    \\ rpt (disch_then drule)
+    \\ disch_then (qspec_then ‘MAP FST pes’ assume_tac)
+    \\ gs [SF SFY_ss])
   \\ first_assum (irule_at (Pat ‘state_rel’)) \\ gs []
   \\ gs [state_rel_def, env_rel_def]
-  \\ drule_all_then assume_tac can_pmatch_all_thm \\ gs []
+  \\ drule can_pmatch_all_thm \\ gs []
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspec_then ‘MAP FST pes’ assume_tac)
+  \\ gs [SF SFY_ss]
 QED
 
 Theorem do_con_check_update:
@@ -1107,14 +1133,18 @@ Proof
     \\ first_assum (irule_at Any) \\ gs []
     \\ gs [state_rel_def, env_rel_def]
     \\ qpat_x_assum ‘v_rel _ _ _ bind_exn_v _’ kall_tac
-    \\ drule_all_then assume_tac can_pmatch_all_thm \\ gs []
+    \\ drule can_pmatch_all_thm \\ gs []
+    \\ rpt (disch_then drule)
+    \\ disch_then (qspec_then ‘MAP FST pes’ assume_tac) \\ gs []
     \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
     \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
     \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs [])
   \\ first_assum (irule_at Any)
   \\ gs [state_rel_def, env_rel_def]
   \\ qpat_x_assum ‘v_rel _ _ _ bind_exn_v _’ kall_tac
-  \\ drule_all_then assume_tac can_pmatch_all_thm \\ gs []
+  \\ drule can_pmatch_all_thm \\ gs []
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspec_then ‘MAP FST pes’ assume_tac) \\ gs []
 QED
 
 Theorem evaluate_update_Let:
