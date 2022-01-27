@@ -8,14 +8,6 @@ local open dep_rewrite in end
 
 val _ = new_theory "printTweaks";
 
-Definition infertype_prog_inc_def:
-  infertype_prog_inc (ienv, next_id) prog =
-  case infer_ds ienv prog (init_infer_state <| next_id := next_id |>) of
-    (Success new_ienv, st) =>
-    (Success (extend_dec_ienv new_ienv ienv, st.next_id))
-  | (Failure x, _) => Failure x
-End
-
 Definition add_print_features_def:
   add_print_features st decs =
   let decs2 = add_pp_decs decs in
@@ -27,16 +19,17 @@ Definition add_print_features_def:
   (case infer_ds ienv2 prints inf_st of
   (Success prints_ienv, inf_st2) =>
       (Success (decs2 ++ prints, (tn2, extend_dec_ienv prints_ienv ienv2, inf_st2.next_id)))
+  | (Failure x, _) =>
+      (* handle errors in type-checking the pretty print step by skipping it *)
+      (Success (decs2, (tn2, ienv2, inf_st.next_id)))
+  )
+  | (Failure x, _) =>
+      (* maybe the default pretty-printer decs are the problem *)
+  (case infer_ds ienv decs (init_infer_state <| next_id := next_id |>) of
+  (Success ienv3, inf_st3) => (Success (decs, (tn, extend_dec_ienv ienv3 ienv, inf_st3.next_id)))
   | (Failure x, _) => Failure x
   )
-  | (Failure x, _) => Failure x
 End
-
-Triviality extend_dec_simps = LIST_CONJ [
-    MATCH_MP EQ_IMPLIES (GSYM
-        (REWRITE_CONV [extend_dec_ienv_def] ``extend_dec_ienv x y = x``)),
-    MATCH_MP EQ_IMPLIES (GSYM
-        (REWRITE_CONV [extend_dec_ienv_def] ``extend_dec_ienv x y = y``))]
 
 Triviality eq_inf_x =
   ``(v1 with inf_v := v2.inf_v) = v2`` |> REWRITE_CONV [inf_env_component_equality]
