@@ -612,7 +612,6 @@ Proof
   \\ gs [state_rel_def, do_eval_def]
 QED
 
-(* TODO this statement is wrong; fix later *)
 Theorem do_app_update:
   do_app (s.refs,s.ffi) op vs = res ∧
   state_rel l fr ft fe s t ∧
@@ -628,22 +627,24 @@ Theorem do_app_update:
                 ∃s1 t1.
                   s1.refs = refs1 ∧ s1.ffi = ffi1 ∧
                   t1.refs = refs1' ∧ t1.ffi = ffi1' ∧
+                  s1.next_exn_stamp = s.next_exn_stamp ∧
+                  t1.next_exn_stamp = t.next_exn_stamp ∧
+                  s1.next_type_stamp = s.next_type_stamp ∧
+                  t1.next_type_stamp = t.next_type_stamp ∧
                   state_rel l fr1 ft1 fe1 s1 t1 ∧
                   res_rel (v_rel fr1 ft1 fe1) (v_rel fr1 ft1 fe1) res res1)
               res res1
 Proof
-  cheat (*
   strip_tac
-  \\ qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
   \\ Cases_on ‘op = Env_id’ \\ gs []
   >- (
-    rw [semanticPrimitivesPropsTheory.do_app_cases] \\ gs []
-    \\ simp [Once v_rel_cases]
-    v_rel
-    gs [SF SFY_ss]
-    \\ simp [v_ok_def, nat_to_v_def]
-    \\ first_assum (irule_at Any) \\ gs [SF SFY_ss]
-    )
+    Cases_on ‘res’ \\ gvs [do_app_def, CaseEqs ["list", "v", "option", "prod"],
+                           v_rel_def, OPTREL_def]
+    \\ rpt (irule_at Any SUBMAP_REFL)
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ simp [v_rel_def, nat_to_v_def]
+    \\ first_assum (irule_at Any) \\ gs [])
+  \\ cheat (*
   \\ Cases_on ‘∃chn. op = FFI chn’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -993,19 +994,43 @@ Proof
   \\ gvs [CaseEqs ["prod", "result", "option"], PULL_EXISTS]
   \\ first_x_assum (drule_all_then strip_assume_tac)
   \\ Cases_on ‘res1’ \\ gs []
-  \\ first_assum (irule_at Any) \\ gs []
+  >~ [‘res_rel _ _ (Rerr err1) (Rerr err2)’] >- (
+    first_assum (irule_at Any)
+    \\ gs [])
   \\ dxrule_then assume_tac EVERY2_REVERSE
-  \\ drule_all_then strip_assume_tac do_app_update
-  \\ gs [OPTREL_def]
+  \\ drule_all_then strip_assume_tac do_app_update \\ gs []
+  \\ gs [OPTREL_def, SF SFY_ss]
   \\ rpt (pairarg_tac \\ gvs [])
-  \\ first_assum (irule_at Any)
-  \\ first_assum (irule_at Any)
   \\ irule_at Any res_rel_list_result
-  \\ rename1 ‘res_rel _ _ r1 r2’
-  \\ Cases_on ‘r1’ \\ Cases_on ‘r2’ \\ gs []
-  \\ cheat (* fix later when do_app theorem is correct *)
+  \\ first_assum (irule_at Any)
+  \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
+  \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
+  \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
+  \\ gs [state_rel_def]
 QED
 
+Theorem do_opapp_update:
+  do_opapp vs = res1 ∧
+  do_opapp ws = res2 ∧
+  LIST_REL (v_rel fr ft fe) vs ws ⇒
+    OPTREL (λ(env1,x1) (env2,x2). env_rel fr ft fe env1 env2) res1 res2
+Proof
+  cheat (*
+  rw [OPTREL_def]
+  \\ Cases_on ‘do_opapp vs’ \\ Cases_on ‘do_opapp ws’ \\ gs []
+  \\ PairCases_on ‘x’ \\ gs []
+  \\ gvs [semanticPrimitivesPropsTheory.do_opapp_cases]
+  \\ gs [v_rel_def, do_opapp_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ irule
+  \\ gs [PULL_EXISTS]
+  \\ CASE_TAC \\ gs []
+  \\ gs [CaseEqs ["list", "v", "option"], PULL_EXISTS]
+  \\ rw [LAMBDA_PROD, SF DNF_ss]
+  \\ gvs [do_opapp_def] *)
+QED
+
+(* TODO v_rel doesn't peek into closure envs so no way to prove this I guess? *)
 Theorem evaluate_update_Opapp:
   op = Opapp ⇒ ^(get_goal "App")
 Proof
@@ -1016,13 +1041,9 @@ Proof
     \\ first_assum (irule_at Any) \\ gs []
     \\ first_assum (irule_at Any) \\ gs []
     \\ Cases_on ‘res1’ \\ gs []
-    \\ cheat (* do_opapp *))
+    \\ cheat)
   >~ [‘s.clock = 0’] >- (
-    first_x_assum (drule_all_then strip_assume_tac)
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ Cases_on ‘res1’ \\ gs []
-    \\ cheat (* do_opapp *))
+    cheat (* do_opapp *))
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
   \\ Cases_on ‘res1’ \\ gs []
   \\ cheat (* do_opapp *)
