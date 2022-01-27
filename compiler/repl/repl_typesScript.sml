@@ -715,56 +715,19 @@ Proof
       \\ pop_assum mp_tac
       \\ EVAL_TAC )
     \\ strip_tac
-    \\ simp[METIS_PROVE [] ``A ∧ B /\C ⇔ B ∧ A ∧ C``]
-    \\ conj_asm1_tac >- (
-      `EVERY (ref_lookup_ok new_s.refs) rs` by ref_ok_tac
-      \\ fs[EVERY_MEM, store_assign_def,FORALL_PROD]
-      \\ rveq \\ fs[ref_lookup_ok_def,store_lookup_def,EL_LUPDATE]
-      \\ rpt strip_tac
-      \\ first_assum drule
-      \\ pop_assum mp_tac
-      \\ first_x_assum drule
-      \\ IF_CASES_TAC \\ fs[]
-      \\ ntac 3 strip_tac \\ fs[]
-      \\ `p_1' = Exn` by
-        (Cases_on`p_1'` \\ gs[Boolv_def])
-      \\ fs[]
-      \\ qhdtm_x_assum`type_v`mp_tac
-      \\ simp[Once type_v_cases]
-      \\ strip_tac\\ TRY (qpat_x_assum`Texn_num = _`mp_tac \\ EVAL_TAC \\ NO_TAC)
-      \\ TRY (
-        drule_then drule typeSysPropsTheory.type_funs_Tfn
-        \\ EVAL_TAC \\ rw[] \\ NO_TAC)
-      \\ rw[]
-      \\ fs[good_ctMap_def,type_sound_invariant_def]
-      \\ qhdtm_x_assum`ctMap_ok`mp_tac
-      \\ simp[ctMap_ok_def]
-      \\ spose_not_then strip_assume_tac
-      \\ reverse(Cases_on`stamp`)
-      >- metis_tac[]
-      \\ res_tac
-      \\ qpat_x_assum`~_ _ _` mp_tac
-      \\ EVAL_TAC)
-    \\ `type_s ctMap' new_store tenvS'` by
-      cheat (*
-      fs[store_assign_def] \\ rveq
-      \\ fs[type_s_def, store_lookup_def, EL_LUPDATE]
-      \\ rpt strip_tac
-      \\ first_assum(qspec_then`loc`mp_tac)
-      \\ first_x_assum(qspec_then`l`mp_tac)
-      \\ simp[]
-      \\ IF_CASES_TAC \\ simp[]
-      \\ fs[EVERY_MEM]
-      \\ first_x_assum drule
-      \\ simp[ref_lookup_ok_def,store_lookup_def,EL_LUPDATE]
-      \\ Cases_on`EL loc new_s.refs` \\ fs[store_v_same_type_def]
-      \\ Cases_on`st` \\ simp[type_sv_def] \\ rw[]
-      *)
+    \\ `EVERY (ref_lookup_ok new_s.refs) rs` by ref_ok_tac
+    \\ `type_s ctMap' new_store tenvS'` by (
+      match_mp_tac (GEN_ALL type_s_store_assign_exn)
+      \\ fs[type_sound_invariant_def,good_ctMap_def]
+      \\ metis_tac[])
     \\ conj_tac >- (
       fs[type_sound_invariant_def, consistent_ctMap_def]
       \\ first_assum $ irule_at (Pat `type_all_env`)
       \\ simp[SF SFY_ss]
       \\ fs[SUBSET_DEF] \\ metis_tac[])
+    \\ conj_tac >- (
+      fs[type_sound_invariant_def, good_ctMap_def]
+      \\ metis_tac[GEN_ALL ref_lookup_ok_store_assign_exn])
     \\ rpt gen_tac \\ strip_tac
     \\ CCONTR_TAC \\ fs[]
     \\ drule_then drule decs_type_sound
