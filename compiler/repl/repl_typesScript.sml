@@ -269,7 +269,8 @@ Definition ref_lookup_ok_def:
     ∃v:semanticPrimitives$v.
       store_lookup loc refs = SOME (Refv v) ∧
       (ty = Bool ⇒ v = Boolv T ∨ v = Boolv F) ∧
-      (ty = Str ⇒ ∃t. v = Litv (StrLit t))
+      (ty = Str ⇒ ∃t. v = Litv (StrLit t)) ∧
+      (ty = Exn ⇒ ∃s ls. v = Conv (SOME (ExnStamp s)) ls)
 End
 
 Theorem type_d_tids_disjoint:
@@ -299,34 +300,10 @@ Proof
   fs[store_lookup_def,EL_LUPDATE]>>
   IF_CASES_TAC
   >- (
-    rw[]>>fs[Boolv_def])>>
+    rw[]>>fs[Boolv_def] >>
+    CCONTR_TAC >> gs[]
+    )>>
   metis_tac[]
-QED
-
-Theorem type_d_assign_str:
-  nsLookup tenv.v n = SOME (0,Tapp [Tapp [] Tstring_num ] Tref_num) ==>
-  type_d T tenv
-  (Dlet ARB Pany (App Opassign [Var n; Lit (StrLit t)]))
-  {}  <|v := nsEmpty; c := nsEmpty; t := nsEmpty|>
-Proof
-  rw[]
-  \\ simp[Once typeSystemTheory.type_d_cases,typeSystemTheory.is_value_def]
-  \\ simp[astTheory.pat_bindings_def]
-  \\ simp[Once typeSystemTheory.type_p_cases]
-  \\ simp[typeSystemTheory.tenv_add_tvs_def]
-  \\ simp[typeSystemTheory.type_pe_determ_def]
-  \\ simp[Once typeSystemTheory.type_p_cases]
-  \\ simp[Once typeSystemTheory.type_p_cases]
-  \\ simp[Once typeSystemTheory.type_e_cases]
-  \\ simp[Once typeSystemTheory.type_e_cases]
-  \\ simp[Once typeSystemTheory.type_e_cases]
-  \\ simp[Once typeSystemTheory.type_e_cases]
-  \\ simp[Once typeSystemTheory.type_e_cases]
-  \\ simp[Once typeSystemTheory.type_e_cases]
-  \\ simp[Once typeSystemTheory.type_op_def]
-  \\ simp[PULL_EXISTS,typeSystemTheory.check_freevars_def]
-  \\ simp[typeSystemTheory.lookup_var_def]
-  \\ EVAL_TAC
 QED
 
 Theorem type_v_invert_strlit:
@@ -336,6 +313,18 @@ Theorem type_v_invert_strlit:
   ty = Tstring
 Proof
   Induct_on`type_v` \\ rw[]
+QED
+
+Theorem type_v_invert_exn:
+  ∀n ct tenv l ty.
+  l = Conv (SOME (ExnStamp s)) ls ∧
+  ctMap_ok ct ∧
+  type_v n ct tenv l ty ⇒
+  ty = Tapp [] Texn_num
+Proof
+  Induct_on`type_v` \\ rw[]
+  \\ fs[ctMap_ok_def]
+  \\ last_x_assum drule \\ rw[] \\ gs[]
 QED
 
 Theorem type_s_store_assign_StrLit:
@@ -423,24 +412,46 @@ val ref_ok_tac =
     \\ qhdtm_x_assum`LIST_REL`mp_tac
     \\ EVAL_TAC
     \\ simp[])
-  \\ fs[] \\ rveq
-  \\ imp_res_tac type_v_invert_strlit \\ fs[]
-  \\ qhdtm_x_assum`type_v`mp_tac
-  \\ simp[Once type_v_cases]
-  \\ strip_tac \\ TRY (qpat_x_assum`Tstring_num = _`mp_tac \\ EVAL_TAC \\ NO_TAC)
-  \\ TRY (
-    drule_then drule typeSysPropsTheory.type_funs_Tfn
-    \\ EVAL_TAC \\ rw[] \\ NO_TAC)
-  \\ rw[]
-  \\ fs[good_ctMap_def]
-  \\ qhdtm_x_assum`ctMap_ok`mp_tac
-  \\ simp[ctMap_ok_def]
-  \\ spose_not_then strip_assume_tac
-  \\ reverse(Cases_on`stamp`)
-  >- ( res_tac \\ pop_assum mp_tac \\ EVAL_TAC )
-  \\ res_tac
-  \\ ntac 2 (pop_assum mp_tac)
-  \\ EVAL_TAC
+  >- (
+    strip_tac
+    \\ fs[] \\ rveq
+    \\ imp_res_tac type_v_invert_strlit \\ fs[]
+    \\ qhdtm_x_assum`type_v`mp_tac
+    \\ simp[Once type_v_cases]
+    \\ strip_tac \\ TRY (qpat_x_assum`Tstring_num = _`mp_tac \\ EVAL_TAC \\ NO_TAC)
+    \\ TRY (
+      drule_then drule typeSysPropsTheory.type_funs_Tfn
+      \\ EVAL_TAC \\ rw[] \\ NO_TAC)
+    \\ rw[]
+    \\ fs[good_ctMap_def]
+    \\ qhdtm_x_assum`ctMap_ok`mp_tac
+    \\ simp[ctMap_ok_def]
+    \\ spose_not_then strip_assume_tac
+    \\ reverse(Cases_on`stamp`)
+    >- ( res_tac \\ pop_assum mp_tac \\ EVAL_TAC )
+    \\ res_tac
+    \\ ntac 2 (pop_assum mp_tac)
+    \\ EVAL_TAC)
+  \\ (
+    strip_tac
+    \\ fs[] \\ rveq
+    \\ imp_res_tac type_v_invert_exn \\ gs[good_ctMap_def]
+    \\ qhdtm_x_assum`type_v`mp_tac
+    \\ simp[Once type_v_cases]
+    \\ strip_tac\\ TRY (qpat_x_assum`Texn_num = _`mp_tac \\ EVAL_TAC \\ NO_TAC)
+    \\ TRY (
+      drule_then drule typeSysPropsTheory.type_funs_Tfn
+      \\ EVAL_TAC \\ rw[] \\ NO_TAC)
+    \\ rw[]
+    \\ fs[good_ctMap_def]
+    \\ qhdtm_x_assum`ctMap_ok`mp_tac
+    \\ simp[ctMap_ok_def]
+    \\ spose_not_then strip_assume_tac
+    \\ reverse(Cases_on`stamp`)
+    >- metis_tac[]
+    \\ res_tac
+    \\ ntac 2 (pop_assum mp_tac)
+    \\ EVAL_TAC);
 
 Theorem repl_types_TS_thm:
   ∀(ffi:'ffi ffi_state) rs tids tenv s env.
@@ -520,14 +531,24 @@ Proof
         \\ rveq
         \\ qhdtm_x_assum`LIST_REL`mp_tac
         \\ simp[])
-      \\ qhdtm_x_assum`ctMap_ok`mp_tac
-      \\ simp[ctMap_ok_def]
-      \\ spose_not_then strip_assume_tac
-      \\ reverse(Cases_on`stamp`)
-      >- ( res_tac \\ pop_assum mp_tac \\ EVAL_TAC )
-      \\ res_tac
-      \\ ntac 2 (pop_assum mp_tac)
-      \\ EVAL_TAC)
+      >- (
+        qhdtm_x_assum`ctMap_ok`mp_tac
+        \\ simp[ctMap_ok_def]
+        \\ spose_not_then strip_assume_tac
+        \\ reverse(Cases_on`stamp`)
+        >- ( res_tac \\ pop_assum mp_tac \\ EVAL_TAC )
+        \\ res_tac
+        \\ ntac 2 (pop_assum mp_tac)
+        \\ EVAL_TAC)
+      \\
+        qhdtm_x_assum`ctMap_ok`mp_tac
+        \\ simp[ctMap_ok_def]
+        \\ rpt strip_tac
+        \\ Cases_on`stamp`
+        >- (
+          res_tac \\
+          ntac 2 (pop_assum mp_tac) \\ EVAL_TAC)
+        \\ metis_tac[])
     \\ rpt gen_tac \\ strip_tac
     \\ CCONTR_TAC \\ fs[]
     \\ drule_then drule decs_type_sound
@@ -658,31 +679,63 @@ Proof
       \\ pop_assum mp_tac
       \\ EVAL_TAC )
     \\ strip_tac
-    \\ conj_tac >- (
-      fs[type_sound_invariant_def, consistent_ctMap_def]
-      \\ first_assum $ irule_at (Pat `type_all_env`)
-      \\ simp[SF SFY_ss]
-      \\ conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-      \\ fs[store_assign_def] \\ rveq
+    \\ simp[METIS_PROVE [] ``A ∧ B /\C ⇔ B ∧ A ∧ C``]
+    \\ conj_asm1_tac >- (
+      `EVERY (ref_lookup_ok new_s.refs) rs` by ref_ok_tac
+      \\ fs[EVERY_MEM, store_assign_def,FORALL_PROD]
+      \\ rveq \\ fs[ref_lookup_ok_def,store_lookup_def,EL_LUPDATE]
+      \\ rpt strip_tac
+      \\ first_assum drule
+      \\ pop_assum mp_tac
+      \\ first_x_assum drule
+      \\ IF_CASES_TAC \\ fs[]
+      \\ ntac 3 strip_tac \\ fs[]
+      \\ `p_1' = Exn` by
+        (Cases_on`p_1'` \\ gs[Boolv_def])
+      \\ fs[]
+      \\ qhdtm_x_assum`type_v`mp_tac
+      \\ simp[Once type_v_cases]
+      \\ strip_tac\\ TRY (qpat_x_assum`Texn_num = _`mp_tac \\ EVAL_TAC \\ NO_TAC)
+      \\ TRY (
+        drule_then drule typeSysPropsTheory.type_funs_Tfn
+        \\ EVAL_TAC \\ rw[] \\ NO_TAC)
+      \\ rw[]
+      \\ fs[good_ctMap_def,type_sound_invariant_def]
+      \\ qhdtm_x_assum`ctMap_ok`mp_tac
+      \\ simp[ctMap_ok_def]
+      \\ spose_not_then strip_assume_tac
+      \\ reverse(Cases_on`stamp`)
+      >- metis_tac[]
+      \\ res_tac
+      \\ qpat_x_assum`~_ _ _` mp_tac
+      \\ EVAL_TAC)
+    \\ `type_s ctMap' new_store tenvS'` by
+      cheat (*
+      fs[store_assign_def] \\ rveq
       \\ fs[type_s_def, store_lookup_def, EL_LUPDATE]
       \\ rpt strip_tac
       \\ first_assum(qspec_then`loc`mp_tac)
       \\ first_x_assum(qspec_then`l`mp_tac)
       \\ simp[]
       \\ IF_CASES_TAC \\ simp[]
+      \\ fs[EVERY_MEM]
+      \\ first_x_assum drule
+      \\ simp[ref_lookup_ok_def,store_lookup_def,EL_LUPDATE]
       \\ Cases_on`EL loc new_s.refs` \\ fs[store_v_same_type_def]
       \\ Cases_on`st` \\ simp[type_sv_def] \\ rw[]
-      \\ cheat (* should be similar to cheat below *))
-    \\ conj_tac >- cheat (* similar to ref_ok_tac *)
+      *)
+    \\ conj_tac >- (
+      fs[type_sound_invariant_def, consistent_ctMap_def]
+      \\ first_assum $ irule_at (Pat `type_all_env`)
+      \\ simp[SF SFY_ss]
+      \\ fs[SUBSET_DEF] \\ metis_tac[])
     \\ rpt gen_tac \\ strip_tac
     \\ CCONTR_TAC \\ fs[]
     \\ drule_then drule decs_type_sound
     \\ simp[]
     \\ fs[type_sound_invariant_def, consistent_ctMap_def]
     \\ first_assum $ irule_at Any \\ simp[]
-    \\ reverse conj_tac >- (
-      conj_tac >- metis_tac[]
-      \\ cheat (* should be proved earlier *))
+    \\ reverse conj_tac >-  metis_tac[]
     \\  fs[IN_DISJOINT, SUBSET_DEF]
     \\ strip_tac \\ spose_not_then strip_assume_tac
     \\ `x NOTIN tids` by metis_tac[]
