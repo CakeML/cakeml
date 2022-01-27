@@ -4,6 +4,7 @@
 open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
      compiler64ProgTheory x64BootstrapTheory replProofTheory
+     candle_prover_semanticsTheory
 
 val _ = new_theory"x64BootstrapProof";
 
@@ -71,7 +72,7 @@ val compile_correct_applied =
 Theorem cake_compiled_thm =
   CONJ compile_correct_applied cake_output
   |> DISCH_ALL
-  |> check_thm;
+(*  |> check_thm;  *)
 
 (* --- *)
 
@@ -89,13 +90,98 @@ Theorem mk_init_eval_state_lemma =
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_compiler_fun_from_ci_def,
         GSYM compiler_inst_def,cake_config_lab_conf_asm_conf];
 
-(*
-val compile_correct_applied =
+Overload config_env_str = “encode_backend_config (config_to_inc_config cake_config)”
+
+Theorem repl_not_fail =
+  semantics_prog_compiler64_prog
+  |> Q.GEN ‘s’ |> ISPEC (mk_init_eval_state_lemma |> concl |> rand |> rand)
+  |> REWRITE_RULE [GSYM mk_init_eval_state_lemma]
+  |> SIMP_RULE (srw_ss()) [IN_DEF]
+  |> Q.INST [‘conf’|->‘config_to_inc_config cake_config’]
+  |> REWRITE_RULE [GSYM (SIMP_CONV (srw_ss()) [] “hasFreeFD fs”)];
+
+val compile_correct_applied2 =
   MATCH_MP compile_correct_eval cake_compiled
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO,
                          with_clos_conf_simp]
   |> Q.INST [‘ev’|->‘SOME compiler_instance’]
-  |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,compiler_instance_lemma]
-*)
+  |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,
+      x64_configProofTheory.x64_backend_config_ok,compiler_instance_lemma]
+  |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi cl fs’
+
+Definition repl_ready_to_run_def:
+  repl_ready_to_run cl fs (mc,ms) ⇔
+    ∃cbspace data_sp.
+      has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
+      hasFreeFD fs ∧
+      file_content fs «config_enc_str.txt» = SOME config_env_str ∧
+      mc_conf_ok mc ∧ mc_init_ok x64_backend_config mc ∧
+      installed cake_code cbspace cake_data data_sp
+        cake_config.lab_conf.ffi_names (basis_ffi cl fs)
+        (heap_regs x64_backend_config.stack_conf.reg_names) mc ms
+End
+
+Overload machine_sem = “λffi (mc,ms). targetSem$machine_sem mc ffi ms”
+
+Triviality isPREFIX_MEM:
+  ∀xs ys. isPREFIX xs ys ⇒ ∀x. MEM x xs ⇒ MEM x ys
+Proof
+  Induct \\ fs [] \\ Cases_on ‘ys’ \\ fs [] \\ metis_tac []
+QED
+
+Triviality LPREFIX_MEM:
+  ∀xs ys. LPREFIX (fromList xs) ys ⇒ ∀x. MEM x xs ⇒ x IN LSET ys
+Proof
+  Induct \\ fs [] \\ Cases_on ‘ys’ \\ fs []
+  \\ fs [LPREFIX_LCONS] \\ metis_tac []
+QED
+
+Theorem candle_top_level_soundness:
+  repl_ready_to_run cl fs ms ∧ machine_sem (basis_ffi cl fs) ms res ⇒
+  res ≠ Fail ∧
+  ∀e. e IN events_of res ⇒ ok_event e
+Proof
+  PairCases_on ‘ms’ \\ rewrite_tac [repl_ready_to_run_def]
+  \\ strip_tac
+  \\ mp_tac repl_not_fail
+  \\ impl_tac >- fs []
+  \\ strip_tac
+  \\ drule_all compile_correct_applied2
+  \\ fs [SUBSET_DEF,extend_with_resource_limit_def]
+  \\ strip_tac
+  \\ ‘res ≠ Fail’ by
+   (CCONTR_TAC \\ gvs [IN_DEF]
+    \\ first_x_assum drule \\ fs [])
+  \\ rw []
+  \\ ‘∃res1.
+        semantics_prog
+          (init_state (basis_ffi cl fs) with
+           eval_state := SOME (mk_init_eval_state compiler_instance))
+          init_env compiler64_prog res1 ∧
+        e ∈ events_of res1 ∧ res1 ≠ Fail’ by
+   (fs [IN_DEF]
+    \\ first_x_assum drule \\ fs [] \\ rw []
+    \\ first_assum $ irule_at Any \\ fs [events_of_def]
+    \\ imp_res_tac isPREFIX_MEM \\ fs [IN_DEF]
+    \\ imp_res_tac LPREFIX_MEM \\ fs [IN_DEF])
+  \\ qsuff_tac ‘∃prog. compiler64_prog = candle_code ++ prog ∧ EVERY safe_dec prog’
+  >-
+   (strip_tac \\ gvs []
+    \\ drule events_of_semantics_with_eval_state
+    \\ disch_then irule \\ fs []
+    \\ simp [basis_ffiTheory.basis_ffi_def]
+    \\ fs [candle_prover_invTheory.eval_state_ok_def,mk_init_eval_state_lemma]
+    \\ fs [source_evalProofTheory.v_rel_abs]
+    \\ rpt gen_tac
+    \\ DEEP_INTRO_TAC some_intro
+    \\ fs [repl_decs_allowedTheory.decs_allowed_def,IN_DEF])
+  \\ qexists_tac ‘DROP (LENGTH candle_code) compiler64_prog’
+  \\ once_rewrite_tac [candle_kernelProgTheory.candle_code_def]
+  \\ rewrite_tac [LENGTH]
+  \\ once_rewrite_tac [compiler64_prog_def]
+  \\ PURE_REWRITE_TAC [rich_listTheory.DROP]
+  \\ rewrite_tac [APPEND]
+  \\ EVAL_TAC
+QED
 
 val _ = export_theory();

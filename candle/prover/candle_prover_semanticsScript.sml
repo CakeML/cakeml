@@ -547,4 +547,31 @@ Proof
   \\ disch_then(qspec_then`n`mp_tac) \\ simp[]
 QED
 
+Definition events_of_def:
+  events_of (Terminate _ io_list) = set io_list ∧
+  events_of (Diverge io_llist) = LSET io_llist ∧
+  events_of Fail = 𝕌(:io_event)
+End
+
+Theorem events_of_semantics:
+  semantics_prog (init_state ffi) init_env (candle_code ++ prog) res ∧
+  EVERY safe_dec prog ∧ ffi.io_events = [] ∧ res ≠ Fail ⇒
+  ∀e. e IN events_of res ⇒ ok_event e
+Proof
+  rw [IN_DEF]
+  \\ drule_all semantics_thm
+  \\ Cases_on ‘res’ \\ fs [events_of_def]
+  \\ fs [every_LNTH,LSET_def,EVERY_MEM,IN_DEF] \\ rw []
+  \\ res_tac
+QED
+
+Theorem events_of_semantics_with_eval_state:
+  semantics_prog (init_state ffi with eval_state := ev)
+    init_env (candle_code ++ prog) res ∧ eval_state_ok ev ∧
+  EVERY safe_dec prog ∧ ffi.io_events = [] ∧ res ≠ Fail ⇒
+  ∀e. e IN events_of res ⇒ ok_event e
+Proof
+  cheat
+QED
+
 val _ = export_theory ();
