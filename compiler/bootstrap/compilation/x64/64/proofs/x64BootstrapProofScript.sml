@@ -136,6 +136,55 @@ Proof
   \\ fs [LPREFIX_LCONS] \\ metis_tac []
 QED
 
+val _ = (max_print_depth := 12)
+
+Definition safe_dec'_def:
+  safe_dec' (Dlet locs pat x) = safe_exp x ∧
+  safe_dec' (Dletrec locs' funs) = EVERY safe_exp (MAP (SND ∘ SND) funs) ∧
+  safe_dec' _ = T
+End
+
+Theorem safe_dec_thm:
+  safe_dec = every_dec safe_dec'
+Proof
+  fs [candle_prover_invTheory.safe_dec_def]
+  \\ AP_TERM_TAC
+  \\ fs [FUN_EQ_THM]
+  \\ Cases
+  \\ fs [safe_dec'_def]
+QED
+
+Definition safe_exp'_def:
+  (safe_exp' (Con (SOME i) _) = (id_to_n i ∉ kernel_ctors)) ∧
+  (safe_exp' (App (FFI n) _) = (n ≠ kernel_ffi)) ∧
+  (safe_exp' _ = T)
+End
+
+Theorem safe_exp_thm:
+  safe_exp = every_exp safe_exp'
+Proof
+  fs [candle_prover_invTheory.safe_exp_def]
+  \\ AP_TERM_TAC
+  \\ fs [FUN_EQ_THM]
+  \\ Cases
+  \\ fs [safe_exp'_def]
+  \\ rw [] \\ Cases_on ‘o'’ \\ fs [safe_exp'_def]
+QED
+
+Triviality MAP_SND:
+  MAP SND [] = [] ∧
+  MAP SND ((x1,x2)::xs) = x2 :: MAP SND xs
+Proof
+  fs []
+QED
+
+Triviality MAP_SND_SND:
+  MAP (SND ∘ SND) [] = [] ∧
+  MAP (SND ∘ SND) ((x1,x2,x3)::xs) = x3 :: MAP (SND ∘ SND) xs
+Proof
+  fs []
+QED
+
 Theorem candle_top_level_soundness:
   repl_ready_to_run cl fs ms ∧ machine_sem (basis_ffi cl fs) ms res ⇒
   res ≠ Fail ∧
@@ -181,7 +230,14 @@ Proof
   \\ once_rewrite_tac [compiler64_prog_def]
   \\ PURE_REWRITE_TAC [rich_listTheory.DROP]
   \\ rewrite_tac [APPEND]
-  \\ EVAL_TAC
+  \\ rewrite_tac [safe_dec_thm,EVERY_DEF,safe_dec'_def,MAP_SND_SND,
+                  safe_exp_thm,safe_exp'_def,MAP_SND,namespaceTheory.id_to_n_def,
+                  ast_extrasTheory.every_exp_def
+                    |> CONV_RULE (DEPTH_CONV ETA_CONV),
+                  ast_extrasTheory.every_dec_def
+                    |> CONV_RULE (DEPTH_CONV ETA_CONV)]
+  (* \\ rpt conj_tac \\ TRY (EVAL_TAC \\ NO_TAC) *)
+  \\ EVAL_TAC \\ cheat (* arg, somewhere Var is used as a constructor *)
 QED
 
 val _ = export_theory();
