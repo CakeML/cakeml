@@ -287,13 +287,6 @@ Definition match_res_rel_def[simp]:
   (match_res_rel R _ _ ⇔ F)
 End
 
-Theorem stamp_rel_same:
-  stamp_rel ft fe x y ⇒
-    case x of
-      TypeStamp n m =>
-        ∃m1. y = TypeStamp n m1
-    same_type x y
-
 Theorem pmatch_update:
   (∀envC s p v ws res.
     pmatch envC s p v ws = res ⇒
