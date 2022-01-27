@@ -11,6 +11,7 @@ Definition prime_def:
 End
 
 DB.find"divides";
+DB.find"MULT_CLAUSES";
 DB.match ["arithmetic"] “x=0 ∨ x'=0”;
 
 Theorem divisibility:
@@ -20,4 +21,16 @@ Proof
   \\ qexists_tac ‘0’
   \\ rw[]
 QED
+
+DB.match ["arithmetic"] “m <= m * x”
+DB.match ["arithmetic"] “∃x. n = m * x”
+         
+Theorem euclid:
+  ∀m n. m divides n ⇒ m <= n ∨ (n=0)
+Proof
+  rw[divides_def]
+  \\ rw[]
+QED
+        
+        
         
