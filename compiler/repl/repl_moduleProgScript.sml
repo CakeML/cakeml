@@ -36,7 +36,7 @@ val _ = (append_prog o process_topdecs) `
     (case th of Sequent _ _ =>
      PrettyPrinter.pp_string "<thm>");
   fun pp_update up =
-    ((case up of NewAxiom _ => () | _ => ());
+    ((case up of Newaxiom _ => () | _ => ());
      PrettyPrinter.pp_string "<update>"); `
 
 val _ = ml_prog_update (open_module "REPL");
