@@ -1,5 +1,9 @@
-open arithmeticTheory;
+(*
+  Example from Tutorial
+*)
 
+open arithmeticTheory;
+ 
 Definition divides_def:
   divides a b = ∃x. b = a * x
 End
@@ -10,11 +14,7 @@ Definition prime_def:
   prime p ⇔ p ≠ 1 ∧ ∀x. x divides p ⇒ (x=1) ∨ (x=p)
 End
 
-DB.find"divides";
-DB.find"MULT_CLAUSES";
-DB.match ["arithmetic"] “x=0 ∨ x'=0”;
-
-Theorem divisibility:
+Theorem DIVIDES_0:
   ∀x. x divides 0
 Proof
   rw[divides_def]
@@ -22,15 +22,114 @@ Proof
   \\ rw[]
 QED
 
-DB.match ["arithmetic"] “m <= m * x”
-DB.match ["arithmetic"] “∃x. n = m * x”
-         
-Theorem euclid:
+Theorem DIVIDES_ZERO:
+  ∀x. 0 divides x ⇔ (x = 0)
+Proof
+  metis_tac [divides_def, MULT_CLAUSES]
+QED
+
+Theorem DIVIDES_ONE:
+  ∀x. x divides 1 ⇔ (x = 1)
+Proof
+  metis_tac [divides_def, MULT_CLAUSES, MULT_EQ_1]
+QED
+
+Theorem DIVIDES_REFL:
+  ∀x. x divides x
+Proof
+  metis_tac [divides_def, MULT_CLAUSES]
+QED
+
+Theorem DIVIDES_TRANS:
+  ∀a b c. a divides b ∧ b divides c ⇒ a divides c
+Proof
+  metis_tac [divides_def, MULT_ASSOC]
+QED
+
+Theorem DIVIDES_ADD:
+  ∀d a b. d divides a ∧ d divides b ⇒ d divides (a+b)
+Proof
+  metis_tac [divides_def, LEFT_ADD_DISTRIB]
+QED
+
+Theorem DIVIDES_SUB:
+  ∀d a b. d divides a ∧ d divides b ⇒ d divides (a-b)
+Proof
+  metis_tac [divides_def, LEFT_SUB_DISTRIB]
+QED
+
+Theorem DIVIDES_ADDL:
+  ∀d a b. d divides a ∧ d divides (a+b) ⇒ d divides b
+Proof
+  metis_tac [ADD_SUB, ADD_SYM, DIVIDES_SUB]
+QED
+
+Theorem DIVIDES_LMUL:
+  ∀d a x. d divides a ⇒ d divides (x*a)
+Proof
+  metis_tac [divides_def, MULT_ASSOC, MULT_SYM]
+QED
+
+Theorem DIVIDES_RMUL:
+  ∀d a x. d divides a ⇒ d divides (a*x)
+Proof
+  metis_tac [MULT_SYM, DIVIDES_LMUL]
+QED
+
+Theorem DIVIDES_LE:
   ∀m n. m divides n ⇒ m <= n ∨ (n=0)
 Proof
   rw[divides_def]
   \\ rw[]
 QED
+
+(*
+Theorem DIVIDES_FACT:
+  ∀m n. 0 < m ∧ m ≤ n ⇒ m divides (FACT n)
+Proof
+  ‘∀m p. 0 < m ==> m divides (FACT(m+p))’ suffices_by metis_tac[LESS_EQ_EXISTS]
+  \\ Induct_on ‘p’
+  \\ rw[FACT, ADD_CLAUSES, DIVIDES_RMUL]
+  \\ Cases_on ‘m’
+  \\ fs[FACT, DIVIDES_LMUL, DIVIDES_REFL]
+QED
+*)
+
+Theorem DIVIDES_FACT:
+  ∀m n. 0 < m ∧ m ≤ n ⇒ m divides (FACT n)
+Proof
+  Induct_on ‘n - m’
+  \\ rw[] |>
+  >- (‘m = n’ by rw[]
+      \\ ‘∃k. m = SUC k’ by (Cases_on ‘m’ \\ fs[])
+      \\ metis_tac [FACT, DIVIDES_RMUL, DIVIDES_REFL])
+  >- (‘0 < n’ by rw[]
+      \\ ‘∃k. n = SUC k’ by (Cases_on ‘n’ \\ fs[])
+      \\ rw[FACT,DIVIDES_RMUL])
+QED
+
+Theorem NOT_PRIME_0:
+  ~prime 0
+Proof
+  rw[prime_def, DIVIDES_0]
+QED
+
+Theorem NOT_PRIME_1:
+  ~prime 1
+Proof
+  rw[prime_def]
+QED
         
-        
-        
+Theorem PRIME_2:
+  prime 2
+Proof
+  rw[prime_def]
+  \\ metis_tac[DIVIDES_LE, DIVIDES_ZERO, DECIDE “2≠0”, DECIDE “x<=2 ⇔ (x=0) ∨ (x=1) ∨ (x=2)”]
+QED
+
+Theorem PRIME_POS:
+  ∀p. prime p ⇒ 0 < p
+Proof
+  Cases
+  \\ rw[NOT_PRIME_0]
+QED
