@@ -25,6 +25,20 @@ val _ = new_theory"repl_moduleProg";
 
 val _ = translation_extends "candle_kernelProg";
 
+val _ = (append_prog o process_topdecs) `
+  fun pp_type ty =
+    ((case ty of Tyvar _ => () | _ => ());
+     PrettyPrinter.pp_string "<type>");
+  fun pp_term tm =
+    ((case tm of Var _ _ => () | _ => ());
+     PrettyPrinter.pp_string "<term>");
+  fun pp_thm th =
+    (case th of Sequent _ _ =>
+     PrettyPrinter.pp_string "<thm>");
+  fun pp_update up =
+    ((case up of NewAxiom _ => () | _ => ());
+     PrettyPrinter.pp_string "<update>"); `
+
 val _ = ml_prog_update (open_module "REPL");
 
 val tidy_up =
