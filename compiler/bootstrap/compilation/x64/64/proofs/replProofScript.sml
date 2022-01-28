@@ -5,7 +5,7 @@ open preamble
 open semanticsPropsTheory backendProofTheory x64_configProofTheory compiler64ProgTheory
 open evaluateTheory
 open semanticPrimitivesTheory ml_translatorTheory
-open backendProofTheory repl_typesTheory repl_check_and_tweakTheory repl_initTheory
+open repl_typesTheory repl_check_and_tweakTheory repl_initTheory
 
 val _ = new_theory"replProof";
 
@@ -487,6 +487,9 @@ Proof
   \\ fs [state_component_equality]
 QED
 
+Overload TYPES_TYPE =
+  “PAIR_TYPE ADDPRINTVALS_TYPE_NAMES_TYPE (PAIR_TYPE INFER_INF_ENV_TYPE NUM)”
+
 Theorem evaluate_repl:
   ∀(st:'ffi semanticPrimitives$state) s repl_str arg_str
    env s1_v types cur_gen next_id next_gen env1
@@ -499,12 +502,12 @@ Theorem evaluate_repl:
      s.env_id_counter = (cur_gen,next_id,next_gen) ∧
      BACKEND_INC_CONFIG_TYPE s1 s.compiler_state ∧
      LIST_TYPE AST_DEC_TYPE decs decs_v ∧
-     PAIR_TYPE INFER_INF_ENV_TYPE NUM types types_v ∧
+     TYPES_TYPE types types_v ∧
      STRING_TYPE input_str input_str_v ∧
      (STRING_TYPE --> SUM_TYPE STRING_TYPE (LIST_TYPE AST_DEC_TYPE)) parse parse_v ∧
      env_v = Conv NONE [Env env1 (env_id,0); Litv (IntLit (&env_id))] ∧
      conf_v = Conv NONE [s1_v; Litv (IntLit (&next_gen))] ∧
-     repl_types T (ffi,repl_rs) (types,st with eval_state := NONE,env1) ∧
+     repl_types T (ffi,repl_rs) (SND types,st with eval_state := NONE,env1) ∧
      nsLookup env.v repl_str = SOME repl_v ⇒
      nsLookup env.v arg_str =
        SOME (Conv NONE [parse_v; types_v; conf_v; env_v; decs_v; input_str_v]) ⇒
@@ -537,8 +540,7 @@ Proof
   \\ rename [‘do_opapp [repl_check_and_tweak_check_and_tweak_v;_]’]
   \\ qmatch_goalsub_abbrev_tac ‘do_opapp [_; arg_v]’
   \\ assume_tac repl_check_and_tweak_check_and_tweak_v_thm
-  \\ ‘PAIR_TYPE (LIST_TYPE AST_DEC_TYPE)
-        (PAIR_TYPE (PAIR_TYPE INFER_INF_ENV_TYPE NUM) STRING_TYPE)
+  \\ ‘PAIR_TYPE (LIST_TYPE AST_DEC_TYPE) (PAIR_TYPE TYPES_TYPE STRING_TYPE)
            (decs,types,input_str) arg_v’ by
     fs [Abbr‘arg_v’,PAIR_TYPE_def]
   \\ drule_all Arrow_IMP
@@ -687,8 +689,7 @@ Proof
     \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
     \\ qmatch_goalsub_abbrev_tac ‘do_opapp [_; arg_v]’
     \\ assume_tac repl_check_and_tweak_roll_back_v_thm
-    \\ ‘PAIR_TYPE (PAIR_TYPE INFER_INF_ENV_TYPE NUM)
-                  (PAIR_TYPE INFER_INF_ENV_TYPE NUM) (types,new_types) arg_v’ by
+    \\ ‘PAIR_TYPE TYPES_TYPE TYPES_TYPE (types,new_types) arg_v’ by
       fs [Abbr‘arg_v’,PAIR_TYPE_def]
     \\ drule_all Arrow_IMP
     \\ fs [dec_clock_def]
@@ -705,6 +706,9 @@ Proof
     \\ rpt (first_assum $ irule_at Any)
     \\ rewrite_tac [GSYM APPEND_ASSOC,integerTheory.INT_ADD_CALCULATE]
     \\ irule repl_types_clock_refs \\ fs []
+    \\ ‘SND (roll_back (types,new_types)) = roll_back (SND types) (SND new_types)’
+       by (PairCases_on ‘types’ \\ PairCases_on ‘new_types’ \\ fs [] \\ EVAL_TAC)
+    \\ fs []
     \\ irule repl_types_exn
     \\ first_assum $ irule_at (Pos hd)
     \\ irule_at Any evaluate_decs_with_NONE
@@ -725,7 +729,8 @@ Proof
   \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,astTheory.pat_bindings_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
   \\ ‘repl_types T (ffi,repl_rs)
-                 (new_types,st7 with eval_state := NONE, extend_dec_env env2 env1)’ by
+                 (SND new_types,
+                  st7 with eval_state := NONE, extend_dec_env env2 env1)’ by
    (irule repl_types_eval
     \\ drule check_and_tweak \\ strip_tac
     \\ first_assum $ irule_at (Pos hd)
@@ -945,8 +950,9 @@ Proof
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
   \\ conj_tac >- EVAL_TAC
-  \\ assume_tac repl_init_types_repl_prog_types_v_thm
+  \\ assume_tac repl_init_types_repl_init_types_v_thm
   \\ rpt (first_assum $ irule_at Any)
+  \\ simp [repl_init_typesTheory.repl_init_types_def]
   \\ qexists_tac ‘ffi’
   \\ drule repl_types_str_assign
   \\ fs [repl_rs_def,the_Loc_def,store_assign_def,store_v_same_type_def]

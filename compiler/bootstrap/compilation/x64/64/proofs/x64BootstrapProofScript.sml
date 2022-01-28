@@ -185,6 +185,14 @@ Proof
   fs []
 QED
 
+local
+  fun cross [] xs = []
+    | cross (y::ys) xs = map (fn x => (y,x)) xs @ cross ys xs;
+  val cs = List.tabulate(256,(fn n => stringSyntax.mk_chr(numSyntax.term_of_int n)))
+in
+  val char_eq_lemmas = cross cs cs |> map mk_eq |> map EVAL;
+end
+
 Theorem candle_top_level_soundness:
   repl_ready_to_run cl fs ms ∧ machine_sem (basis_ffi cl fs) ms res ⇒
   res ≠ Fail ∧
@@ -236,8 +244,10 @@ Proof
                     |> CONV_RULE (DEPTH_CONV ETA_CONV),
                   ast_extrasTheory.every_dec_def
                     |> CONV_RULE (DEPTH_CONV ETA_CONV)]
-  (* \\ rpt conj_tac \\ TRY (EVAL_TAC \\ NO_TAC) *)
-  \\ EVAL_TAC \\ cheat (* arg, somewhere Var is used as a constructor *)
+  \\ rewrite_tac [EVAL “"[]" ∉ kernel_ctors”, EVAL “"::" ∉ kernel_ctors”]
+  \\ rewrite_tac
+       ([EVAL “kernel_ctors”,CONS_11,NOT_CONS_NIL,NOT_NIL_CONS,
+           IN_INSERT,NOT_IN_EMPTY,EVAL “kernel_ffi”] @ char_eq_lemmas)
 QED
 
 val _ = export_theory();
