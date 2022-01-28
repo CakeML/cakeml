@@ -9,7 +9,7 @@
 *)
 
 open HolKernel Parse boolLib bossLib;
-open astTheory;
+open astTheory mlintTheory;
 local open stringTheory stringSyntax in end;
 
 val _ = new_theory "typeDecToPP";
@@ -32,12 +32,12 @@ End
 
 Definition con_x_i_pat_def:
   con_x_i_pat cname n =
-    Pcon cname (GENLIST (\i. Pvar ("x" ++ num_to_hex_string i)) n)
+    Pcon cname (GENLIST (\i. Pvar ("x" ++ mlstring$explode (mlint$toString (& i)))) n)
 End
 
 Definition x_i_list_f_apps_def:
   x_i_list_f_apps fs = mk_list_exp
-    (MAPi (\i f. App Opapp [f; Var (Short ("x" ++ num_to_hex_string i))]) fs)
+    (MAPi (\i f. App Opapp [f; Var (Short ("x" ++ mlstring$explode (mlint$toString (& i))))]) fs)
 End
 
 Definition mod_pp_def:
@@ -87,4 +87,3 @@ Definition pps_for_dec_def:
 End
 
 val _ = export_theory ();
-

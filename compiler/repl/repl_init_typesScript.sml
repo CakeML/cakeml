@@ -51,31 +51,19 @@ end
 
 Theorem repl_prog_types_thm = result;
 
-(*
-val basis_tn = EVAL ``update_type_names basis_ienv empty_type_names``
-    |> concl |> rhs
-*)
+Definition repl_init_types_def:
+  repl_init_types =
+    (update_type_names (FST repl_prog_types) empty_type_names,repl_prog_types)
+End
 
-(* -- evaluate lookups on repl_prog's env and types -- *)
+Theorem repl_init_types_eq = repl_init_types_def
+  |> CONV_RULE (RAND_CONV
+       (REWRITE_CONV [fetch "-" "repl_prog_types_def"] THENC EVAL));
 
 val env = Decls_repl_prog |> concl |> rator |> rand
 
 Definition repl_prog_env_def:
   repl_prog_env = merge_env ^env init_env
 End
-
-Theorem isEOF_lookup = LIST_CONJ
- [EVAL “nsLookup (FST repl_prog_types).inf_v (Long "REPL" (Short "isEOF"))”
-  |> REWRITE_RULE [GSYM (EVAL “Tbool_num”),GSYM (EVAL “Tref_num”)],
-  (SIMP_CONV std_ss [repl_prog_env_def] THENC ml_progLib.nsLookup_conv)
-     “nsLookup repl_prog_env.v (Long "REPL" (Short "isEOF"))”,
-  isEOF_def |> CONJUNCT2 |> SIMP_RULE std_ss [LENGTH,LENGTH_APPEND]]
-
-Theorem nextString_props = LIST_CONJ
- [EVAL “nsLookup (FST repl_prog_types).inf_v (Long "REPL" (Short "nextString"))”
-  |> REWRITE_RULE [GSYM (EVAL “Tstring_num”),GSYM (EVAL “Tref_num”)],
-  (SIMP_CONV std_ss [repl_prog_env_def] THENC ml_progLib.nsLookup_conv)
-     “nsLookup repl_prog_env.v (Long "REPL" (Short "nextString"))”,
-  nextString_def |> CONJUNCT2 |> SIMP_RULE std_ss [LENGTH,LENGTH_APPEND]]
 
 val _ = export_theory ();

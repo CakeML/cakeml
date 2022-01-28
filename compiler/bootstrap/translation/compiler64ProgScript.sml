@@ -361,16 +361,6 @@ val r = translate report_error_def;
 val _ = (next_ml_names := ["roll_back"]);
 val r = translate repl_check_and_tweakTheory.roll_back_def;
 
-val _ = (next_ml_names := ["infertype_prog_inc"]);
-val r = translate (repl_check_and_tweakTheory.infertype_prog_inc_def
-                   |> SIMP_RULE (srw_ss()) [inferTheory.init_infer_state_def]);
-
-val lemma = prove(“∀x y. repl_check_and_tweak_infertype_prog_inc_side x y”,
-  fs [FORALL_PROD,fetch "-" "repl_check_and_tweak_infertype_prog_inc_side_def"]
-  \\ rw [] \\ irule_at Any (inferProgTheory.infer_d_side_thm |> CONJUNCT2)
-  \\ EVAL_TAC \\ fs [inferPropsTheory.t_wfs_FEMPTY])
-  |> update_precondition
-
 val _ = (next_ml_names := ["check_and_tweak"]);
 val r = translate repl_check_and_tweakTheory.check_and_tweak_def;
 
@@ -397,7 +387,7 @@ val _ = (append_prog o process_topdecs) `
           end `
 
 val _ = (next_ml_names := ["init_types"]);
-val r = translate repl_init_typesTheory.repl_prog_types_def;
+val r = translate repl_init_typesTheory.repl_init_types_eq;
 
 Definition parse_cakeml_syntax_def:
   parse_cakeml_syntax input =
