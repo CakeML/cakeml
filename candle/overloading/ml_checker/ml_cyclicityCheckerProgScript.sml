@@ -122,7 +122,7 @@ val _ = (append_prog o process_topdecs) ‘
                     parse_list_innards parse_elem cs True (elem::acc)))
     | [] =>
         if one_more_elem then None
-        else Some(rev acc, [])’
+        else Some(List.rev acc, [])’
 
 val _ = (append_prog o process_topdecs) ‘
   fun parse_list parse_elem cs =
