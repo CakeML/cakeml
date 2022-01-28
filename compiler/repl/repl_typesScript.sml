@@ -26,6 +26,24 @@ Definition check_ref_types_def:
     nsLookup env.v name = SOME (Loc loc)
 End
 
+Definition roll_back_def:
+  roll_back (old_ienv:inf_env, old_next_id:num)
+            (new_ienv:inf_env, new_next_id:num) =
+    (old_ienv, new_next_id)
+End
+
+Theorem FST_roll_back[simp]:
+  FST (roll_back x y) = FST x
+Proof
+  Cases_on`x` \\ Cases_on`y` \\ rw[roll_back_def]
+QED
+
+Theorem SND_roll_back[simp]:
+  SND (roll_back x y) = SND y
+Proof
+  Cases_on`x` \\ Cases_on`y` \\ rw[roll_back_def]
+QED
+
 Inductive repl_types:
 [repl_types_init:]
   (∀ffi rs decs types (s:'ffi semanticPrimitives$state) env ck b.
