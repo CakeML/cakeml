@@ -612,6 +612,113 @@ Proof
   \\ gs [state_rel_def, do_eval_def]
 QED
 
+Theorem state_rel_store_lookup:
+  state_rel l fr ft fe s t ∧
+  FLOOKUP fr n = SOME m ⇒
+    OPTREL (ref_rel (v_rel fr ft fe))
+           (store_lookup n s.refs)
+           (store_lookup m t.refs)
+Proof
+  rw [OPTREL_def, store_lookup_def, state_rel_def]
+  \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+QED
+
+Theorem v_rel_v_to_list:
+  ∀x1 res1 x2 res2.
+    v_rel fr ft fe x1 x2 ∧
+    v_to_list x1 = res1 ∧
+    v_to_list x2 = res2 ∧
+    INJ ($' ft) (FDOM ft) (count ns) ∧
+    FLOOKUP ft list_type_num = SOME list_type_num ∧
+    list_type_num < ns ⇒
+      OPTREL (LIST_REL (v_rel fr ft fe)) res1 res2
+Proof
+  ho_match_mp_tac v_to_list_ind \\ gs []
+  \\ rw [] \\ gvs [v_rel_def, v_to_list_def]
+  \\ gvs [OPTREL_def, stamp_rel_cases, v_to_list_def, flookup_thm]
+  >- (
+    Cases_on ‘m1 = list_type_num’ \\ gs []
+    \\ rpt strip_tac \\ gvs []
+    \\ gs [INJ_DEF])
+  \\ gs [CaseEq "option"]
+  \\ Cases_on ‘m1 = list_type_num ∧ n = "::"’ \\ gvs []
+  >- (
+    first_x_assum (drule_all_then assume_tac)
+    \\ gs [])
+  \\ Cases_on ‘m1 = list_type_num’ \\ gs [] \\ rw []
+  \\ gs [INJ_DEF]
+QED
+
+Theorem v_rel_vs_to_string:
+  ∀x1 res1 x2 res2.
+    LIST_REL (v_rel fr ft fe) x1 x2 ∧
+    vs_to_string x1 = res1 ∧
+    vs_to_string x2 = res2 ∧
+    INJ ($' ft) (FDOM ft) (count ns) ∧
+    FLOOKUP ft list_type_num = SOME list_type_num ∧
+    list_type_num < ns ⇒
+      res1 = res2
+Proof
+  ho_match_mp_tac vs_to_string_ind \\ gs []
+  \\ rw [] \\ gvs [v_rel_def, vs_to_string_def]
+  \\ gs [CaseEq "option"]
+  \\ first_x_assum (drule_all_then assume_tac)
+  \\ gs [option_nchotomy]
+QED
+
+Theorem v_rel_list_to_v:
+  ∀x1 xs1 x2 xs2.
+    v_to_list x1 = SOME xs1 ∧
+    v_to_list x2 = SOME xs2 ∧
+    LIST_REL (v_rel fr ft fe) xs1 xs2 ∧
+    FLOOKUP ft list_type_num = SOME list_type_num ⇒
+      v_rel fr ft fe (list_to_v xs1) (list_to_v xs2)
+Proof
+  ho_match_mp_tac v_to_list_ind
+  \\ rw [] \\ gvs [v_to_list_def, list_to_v_def, v_rel_def, stamp_rel_cases,
+                   CaseEq "option"]
+  \\ Cases_on ‘x2’ \\ gs [v_to_list_def]
+  \\ rename1 ‘Conv opt ws’ \\ Cases_on ‘opt’ \\ gs [v_to_list_def]
+  \\ rename1 ‘Conv (SOME opt) ws’ \\ Cases_on ‘ws’ \\ gs [v_to_list_def]
+  \\ rename1 ‘Conv (SOME opt) (w::ws)’ \\ Cases_on ‘ws’ \\ gs [v_to_list_def]
+  \\ Cases_on ‘t’ \\ gvs [v_to_list_def, CaseEq "option"]
+  \\ first_assum (irule_at Any) \\ gs [SF SFY_ss]
+QED
+
+Theorem v_rel_v_to_char_list:
+  ∀x1 res1 x2 res2.
+    v_rel fr ft fe x1 x2 ∧
+    v_to_char_list x1 = res1 ∧
+    v_to_char_list x2 = res2 ∧
+    INJ ($' ft) (FDOM ft) (count ns) ∧
+    FLOOKUP ft list_type_num = SOME list_type_num ∧
+    list_type_num < ns ⇒
+      res1 = res2
+Proof
+  ho_match_mp_tac v_to_char_list_ind \\ gs []
+  \\ rw [] \\ gvs [v_rel_def, v_to_char_list_def]
+  \\ gvs [CaseEq "bool", OPTREL_def, stamp_rel_cases]
+  \\ gs [v_to_char_list_def]
+  >- (
+    Cases_on ‘m1 = list_type_num’ \\ gs []
+    \\ rpt strip_tac \\ gvs []
+    \\ gs [INJ_DEF, flookup_thm])
+  \\ gs [CaseEq "option"]
+  \\ Cases_on ‘m1 = list_type_num ∧ n = "::"’ \\ gvs []
+  >- (
+    first_x_assum (drule_all_then assume_tac)
+    \\ gs [option_nchotomy])
+  \\ Cases_on ‘m1 = list_type_num’ \\ gs [] \\ rw []
+  \\ gs [INJ_DEF, flookup_thm]
+QED
+
+Theorem v_to_list_list_to_v:
+  ∀xs.
+    v_to_list (list_to_v xs) = SOME xs
+Proof
+  Induct \\ rw [list_to_v_def, v_to_list_def]
+QED
+
 Theorem do_app_update:
   do_app (s.refs,s.ffi) op vs = res ∧
   state_rel l fr ft fe s t ∧
@@ -640,182 +747,441 @@ Proof
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, CaseEqs ["list", "v", "option", "prod"],
                            v_rel_def, OPTREL_def]
-    \\ rpt (irule_at Any SUBMAP_REFL)
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ simp [v_rel_def, nat_to_v_def]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs [v_rel_def, nat_to_v_def]
     \\ first_assum (irule_at Any) \\ gs [])
-  \\ cheat (*
   \\ Cases_on ‘∃chn. op = FFI chn’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs []
-    \\ gvs [ffiTheory.call_FFI_def, store_lookup_def, store_assign_def,
-            CaseEqs ["bool", "list", "option", "oracle_result",
-                     "ffi$ffi_result"], EVERY_EL, EL_LUPDATE]
-    \\ rw [v_ok_def, EL_APPEND_EQN]
-    \\ first_assum (irule_at Any)
-    \\ csimp [oEL_LUPDATE]
-    \\ rw [] \\ gs [NOT_LESS, LESS_OR_EQ, ok_event_def, ref_ok_def, SF SFY_ss]
-    \\ irule kernel_loc_ok_LUPDATE1 \\ gs []
-    \\ strip_tac \\ gvs [v_ok_def])
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"], PULL_EXISTS]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup
+    \\ ‘t.ffi = s.ffi’
+      by gs [state_rel_def]
+    \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gvs [ref_rel_def]
+    >- (
+      gvs [CaseEqs ["ffi_result", "option", "bool", "oracle_result"],
+              ffiTheory.call_FFI_def, PULL_EXISTS, state_rel_def]
+      \\ gs [store_assign_def, store_lookup_def, v_rel_def])
+    \\ gvs [CaseEqs ["ffi_result", "option", "bool", "oracle_result"],
+            ffiTheory.call_FFI_def, PULL_EXISTS, EXISTS_PROD, v_rel_def,
+            store_assign_def, store_lookup_def]
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r1; ffi := f1; clock := s.clock;
+          next_type_stamp := nts1; next_exn_stamp := nes1;
+          eval_state := NONE |>’ \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r2; ffi := f2; clock := t.clock;
+          next_type_stamp := nts2; next_exn_stamp := nes2;
+          eval_state := NONE |>’ \\ gs []
+    \\ gs [state_rel_def, EL_LUPDATE]
+    \\ qx_gen_tac ‘n1’ \\ rw [] \\ gs [ref_rel_def]
+    \\ first_x_assum (qspec_then ‘n1’ assume_tac) \\ gs []
+    \\ rw [] \\ gs []
+    \\ qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac \\ rw [INJ_DEF]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ gs [])
   \\ Cases_on ‘op = ConfigGC’ \\ gs []
   >- (
-    rw [do_app_cases, oEL_LUPDATE] \\ gs [SF SFY_ss]
-    \\ simp [v_ok_def]
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
     \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = ListAppend’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs []
-    \\ dxrule_all_then assume_tac v_ok_v_to_list
-    \\ dxrule_all_then assume_tac v_ok_v_to_list
-    \\ ‘EVERY (v_ok ctxt) (xs ++ ys)’
-      by gs []
-    \\ pop_assum mp_tac
-    \\ rename1 ‘EVERY (v_ok ctxt) zs ⇒ _’
-    \\ qid_spec_tac ‘zs’
-    \\ Induct \\ simp [list_to_v_def, v_ok_def]
-    \\ rw [] \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
+    ‘FLOOKUP ft list_type_num = SOME list_type_num ∧
+     INJ ($' ft) (FDOM ft) (count t.next_type_stamp) ∧
+     list_type_num < t.next_type_stamp’
+      by (gs [state_rel_def]
+          \\ qpat_x_assum ‘INJ ($' ft) _ _’ mp_tac \\ rw [INJ_DEF]
+          \\ rpt (first_x_assum (qspec_then ‘list_type_num’ assume_tac))
+          \\ gs [flookup_thm])
+    \\ Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                              CaseEqs ["list", "v", "option", "prod", "lit"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ dxrule v_rel_v_to_list
+    \\ rpt (disch_then drule) \\ gs []
+    \\ disch_then drule \\ rw [OPTREL_def]
+    \\ gs [option_nchotomy]
+    \\ dxrule v_rel_v_to_list
+    \\ rpt (disch_then drule) \\ gs []
+    \\ disch_then drule \\ rw [OPTREL_def]
+    \\ first_assum (irule_at Any)
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ irule v_rel_list_to_v \\ gs []
+    \\ irule_at Any v_to_list_list_to_v
+    \\ irule_at Any v_to_list_list_to_v
+    \\ gs [LIST_REL_EL_EQN, EL_APPEND_EQN]
+    \\ rw [] \\ gs[])
   \\ Cases_on ‘op = Aw8sub_unsafe’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [v_ok_def]
-    \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ rw [] \\ gs []
+    \\ first_assum (irule_at Any) \\ gs [v_rel_def])
   \\ Cases_on ‘op = Aw8update_unsafe’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [v_ok_def]
-    \\ gvs [store_lookup_def, store_assign_def, EVERY_EL, EL_LUPDATE]
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ rw [SF CONJ_ss, oEL_LUPDATE] \\ gs [ref_ok_def, SF SFY_ss]
-    \\ irule kernel_loc_ok_LUPDATE1 \\ gs []
-    \\ strip_tac \\ gs [])
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ gvs [store_assign_def, store_lookup_def]
+    \\ rw [] \\ gs [v_rel_def]
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r1; ffi := f1; clock := s.clock;
+          next_type_stamp := nts1; next_exn_stamp := nes1;
+          eval_state := NONE |>’ \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r2; ffi := f2; clock := t.clock;
+          next_type_stamp := nts2; next_exn_stamp := nes2;
+          eval_state := NONE |>’ \\ gs []
+    \\ gs [state_rel_def, EL_LUPDATE]
+    \\ qx_gen_tac ‘n1’
+    \\ first_x_assum (qspec_then ‘n1’ assume_tac)
+    \\ rw [] \\ gs [ref_rel_def]
+    \\ qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac \\ rw [INJ_DEF]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ gs [])
   \\ Cases_on ‘op = Aupdate_unsafe’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [v_ok_def]
-    \\ gvs [store_lookup_def, store_assign_def, EVERY_EL, EL_LUPDATE]
-    \\ rw [] \\ gs [EVERY_EL, EL_LUPDATE, ref_ok_def]
-    \\ first_assum (irule_at Any)
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ gvs [store_assign_def, store_lookup_def, store_v_same_type_def]
+    \\ rw [] \\ gs [v_rel_def]
+    \\ drule_then assume_tac LIST_REL_LENGTH \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r1; ffi := f1; clock := s.clock;
+          next_type_stamp := nts1; next_exn_stamp := nes1;
+          eval_state := NONE |>’ \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r2; ffi := f2; clock := t.clock;
+          next_type_stamp := nts2; next_exn_stamp := nes2;
+          eval_state := NONE |>’ \\ gs []
+    \\ gs [state_rel_def, EL_LUPDATE]
+    \\ qx_gen_tac ‘n1’
+    \\ first_x_assum (qspec_then ‘n1’ assume_tac)
+    \\ rw [] \\ gs [ref_rel_def]
+    \\ gvs [LIST_REL_EL_EQN, EL_LUPDATE]
     \\ rw [] \\ gs []
-    >- (
-      irule kernel_loc_ok_LUPDATE1 \\ gs []
-      \\ strip_tac \\ gvs [v_ok_def])
-    \\ gvs [oEL_LUPDATE, CaseEq "bool", SF SFY_ss]
-    \\ rw [ref_ok_def, EVERY_EL, EL_LUPDATE] \\ rw []
-    \\ first_x_assum drule
-    \\ gs [LLOOKUP_EQ_EL, ref_ok_def, EVERY_EL])
+    \\ qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac \\ rw [INJ_DEF]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ gs [])
   \\ Cases_on ‘op = Asub_unsafe’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ gvs [store_lookup_def, v_ok_def, LLOOKUP_EQ_EL, EVERY_EL]
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ first_x_assum drule_all
-    \\ gs [ref_ok_def, EVERY_EL])
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ rw [] \\ gs []
+    \\ gs [LIST_REL_EL_EQN]
+    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = Aupdate’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [v_ok_def, SF SFY_ss]
-    \\ gvs [store_lookup_def, store_assign_def, EVERY_EL, EL_LUPDATE]
-    \\ first_assum (irule_at Any) \\ gs [LLOOKUP_EQ_EL]
-    \\ rw [ref_ok_def, EVERY_EL, EL_LUPDATE] \\ rw []
-    >- (
-      irule kernel_loc_ok_LUPDATE1 \\ gs []
-      \\ strip_tac \\ gvs [v_ok_def])
-    \\ first_x_assum drule_all
-    \\ gs [ref_ok_def, EVERY_EL])
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ gvs [store_assign_def, store_lookup_def, store_v_same_type_def]
+    \\ rw [] \\ gs [v_rel_def]
+    \\ drule_then assume_tac LIST_REL_LENGTH \\ gvs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r1; ffi := f1; clock := s.clock;
+          next_type_stamp := nts1; next_exn_stamp := nes1;
+          eval_state := NONE |>’ \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r2; ffi := f2; clock := t.clock;
+          next_type_stamp := nts2; next_exn_stamp := nes2;
+          eval_state := NONE |>’ \\ gs []
+    \\ gs [state_rel_def, EL_LUPDATE, sub_exn_v_def, v_rel_def, stamp_rel_cases,
+           subscript_stamp_def]
+    \\ qx_gen_tac ‘n1’
+    \\ first_x_assum (qspec_then ‘n1’ assume_tac)
+    \\ rw [] \\ gs [ref_rel_def]
+    \\ gvs [LIST_REL_EL_EQN, EL_LUPDATE]
+    \\ rw [] \\ gs []
+    \\ qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac \\ rw [INJ_DEF]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ gs [])
   \\ Cases_on ‘op = Alength’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def, v_rel_def]
+    \\ gvs [store_assign_def, store_lookup_def, store_v_same_type_def]
+    \\ drule_then assume_tac LIST_REL_LENGTH \\ gvs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r1; ffi := f1; clock := s.clock;
+          next_type_stamp := nts1; next_exn_stamp := nes1;
+          eval_state := NONE |>’ \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r2; ffi := f2; clock := t.clock;
+          next_type_stamp := nts2; next_exn_stamp := nes2;
+          eval_state := NONE |>’ \\ gs []
+    \\ gs [state_rel_def])
   \\ Cases_on ‘op = Asub’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ gvs [store_lookup_def, v_ok_def, EVERY_EL, LLOOKUP_EQ_EL]
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ first_x_assum drule_all
-    \\ gs [ref_ok_def, EVERY_EL])
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ rw [] \\ gs []
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ gs [state_rel_def, sub_exn_v_def, v_rel_def, stamp_rel_cases,
+           subscript_stamp_def]
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r1; ffi := f1; clock := s.clock;
+          next_type_stamp := nts1; next_exn_stamp := nes1;
+          eval_state := NONE |>’ \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r2; ffi := f2; clock := t.clock;
+          next_type_stamp := nts2; next_exn_stamp := nes2;
+          eval_state := NONE |>’ \\ gs [])
   \\ Cases_on ‘op = AallocEmpty’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ gvs [v_ok_def, store_alloc_def, EVERY_EL, LLOOKUP_EQ_EL]
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ rw [EL_APPEND_EQN] \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def]
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ TRY (rpt (irule_at Any SUBMAP_REFL) \\ gs [] \\ NO_TAC)
+    \\ rpt (pairarg_tac \\ gs []) \\ gvs []
+    \\ gvs [store_alloc_def, v_rel_def, PULL_EXISTS]
+    \\ qexists_tac ‘fr |+ (LENGTH s.refs,LENGTH t.refs)’
+    \\ irule_at Any SUBMAP_REFL
+    \\ irule_at Any SUBMAP_REFL
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r1; ffi := f1; clock := s.clock;
+          next_type_stamp := nts1; next_exn_stamp := nes1;
+          eval_state := NONE |>’ \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r2; ffi := f2; clock := t.clock;
+          next_type_stamp := nts2; next_exn_stamp := nes2;
+          eval_state := NONE |>’ \\ gs []
+    \\ gs [state_rel_def, FLOOKUP_UPDATE]
+    \\ conj_tac
     >- (
-      gs [kernel_loc_ok_def, LLOOKUP_EQ_EL, EL_APPEND_EQN]
-      \\ first_x_assum (drule_then strip_assume_tac)
-      \\ rw [] \\ gs [SF SFY_ss])
+      qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac
+      \\ simp [INJ_DEF, FAPPLY_FUPDATE_THM]
+      \\ rw [] \\ gs []
+      \\ first_x_assum drule \\ gs []
+      \\ first_x_assum drule \\ gs [])
+    \\ simp [count_add1]
     \\ strip_tac
-    \\ first_x_assum (drule_then assume_tac)
-    \\ drule kernel_loc_ok_LENGTH \\ gs [])
+    >- (
+      qx_gen_tac ‘n’
+      \\ rw [] \\ gs []
+      \\ first_x_assum drule \\ gs [])
+    \\ qx_gen_tac ‘n’
+    \\ first_x_assum (qspec_then ‘n’ assume_tac)
+    \\ rw [] \\ gs [EL_LENGTH_APPEND, ref_rel_def]
+    \\ gs [EL_APPEND_EQN]
+    \\ irule ref_rel_mono
+    \\ first_assum (irule_at Any) \\ rw []
+    \\ irule v_rel_update
+    \\ Q.LIST_EXISTS_TAC [‘fe’,‘fr’,‘ft’] \\ gs [])
   \\ Cases_on ‘op = Aalloc’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ gvs [v_ok_def, store_alloc_def, EVERY_EL, LLOOKUP_EQ_EL]
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ rw [EL_APPEND_EQN] \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def]
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ TRY (rpt (irule_at Any SUBMAP_REFL) \\ gs [] \\ NO_TAC)
+    \\ rpt (pairarg_tac \\ gs []) \\ gvs []
+    \\ gvs [store_alloc_def, v_rel_def, PULL_EXISTS, CaseEqs ["bool", "option"],
+            v_rel_def, sub_exn_v_def, stamp_rel_cases, subscript_stamp_def]
     >- (
-      gs [kernel_loc_ok_def, LLOOKUP_EQ_EL, EL_APPEND_EQN]
-      \\ first_x_assum (drule_then strip_assume_tac)
-      \\ rw [] \\ gs [SF SFY_ss])
+      rpt (irule_at Any SUBMAP_REFL \\ gs [])
+      \\ first_assum (irule_at Any)
+      \\ gs [state_rel_def])
+    \\ qexists_tac ‘fr |+ (LENGTH s.refs,LENGTH t.refs)’
+    \\ irule_at Any SUBMAP_REFL
+    \\ irule_at Any SUBMAP_REFL
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r1; ffi := f1; clock := s.clock;
+          next_type_stamp := nts1; next_exn_stamp := nes1;
+          eval_state := NONE |>’ \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r2; ffi := f2; clock := t.clock;
+          next_type_stamp := nts2; next_exn_stamp := nes2;
+          eval_state := NONE |>’ \\ gs []
+    \\ gs [state_rel_def, FLOOKUP_UPDATE, count_add1]
+    \\ conj_tac
+    >- (
+      qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac
+      \\ simp [INJ_DEF, FAPPLY_FUPDATE_THM]
+      \\ rw [] \\ gs []
+      \\ first_x_assum drule \\ gs []
+      \\ first_x_assum drule \\ gs [])
     \\ strip_tac
-    \\ first_x_assum (drule_then assume_tac)
-    \\ drule kernel_loc_ok_LENGTH \\ gs [])
+    >- (
+      qx_gen_tac ‘n’
+      \\ rw [] \\ gs []
+      \\ first_x_assum drule \\ gs [])
+    \\ qx_gen_tac ‘n’
+    \\ first_x_assum (qspec_then ‘n’ assume_tac)
+    \\ rw [] \\ gs [EL_APPEND_EQN, ref_rel_def, LIST_REL_REPLICATE_same]
+    >- (
+      rw []
+      \\ irule v_rel_update
+      \\ first_assum (irule_at (Pat ‘v_rel’)) \\ gs [])
+    \\ irule ref_rel_mono
+    \\ first_assum (irule_at Any) \\ rw []
+    \\ irule v_rel_update
+    \\ first_assum (irule_at (Pat ‘v_rel’)) \\ gs [])
   \\ Cases_on ‘op = Vlength’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
     \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
+    \\ gs [LIST_REL_EL_EQN])
   \\ Cases_on ‘op = Vsub’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ rw [] \\ gvs [CaseEqs ["bool", "option"]]
+    \\ gvs [store_alloc_def, v_rel_def, PULL_EXISTS, CaseEqs ["bool", "option"],
+            v_rel_def, sub_exn_v_def, stamp_rel_cases, subscript_stamp_def]
     \\ first_assum (irule_at Any)
-    \\ gs [v_ok_def, EVERY_EL])
+    \\ gs [state_rel_def, LIST_REL_EL_EQN])
   \\ Cases_on ‘op = VfromList’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ drule_all v_ok_v_to_list
-    \\ simp [v_ok_def])
+    ‘FLOOKUP ft list_type_num = SOME list_type_num ∧
+     INJ ($' ft) (FDOM ft) (count t.next_type_stamp) ∧
+     list_type_num < t.next_type_stamp’
+      by (gs [state_rel_def]
+          \\ qpat_x_assum ‘INJ ($' ft) _ _’ mp_tac \\ rw [INJ_DEF]
+          \\ rpt (first_x_assum (qspec_then ‘list_type_num’ assume_tac))
+          \\ gs [flookup_thm])
+    \\ Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                              CaseEqs ["list", "v", "option", "prod", "lit",
+                                       "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ rename1 ‘v_rel _ _ _ x1 x2’
+    \\ ‘∃res. v_to_list x2 = res’ by gs []
+    \\ drule_all v_rel_v_to_list \\ rw [OPTREL_def]
+    \\ first_assum (irule_at Any) \\ gs [v_rel_def]
+    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = Strcat’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
+    ‘FLOOKUP ft list_type_num = SOME list_type_num ∧
+     INJ ($' ft) (FDOM ft) (count t.next_type_stamp) ∧
+     list_type_num < t.next_type_stamp’
+      by (gs [state_rel_def]
+          \\ qpat_x_assum ‘INJ ($' ft) _ _’ mp_tac \\ rw [INJ_DEF]
+          \\ rpt (first_x_assum (qspec_then ‘list_type_num’ assume_tac))
+          \\ gs [flookup_thm])
+    \\ Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                              CaseEqs ["list", "v", "option", "prod", "lit",
+                                       "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ rename1 ‘v_rel _ _ _ x1 x2’
+    \\ ‘∃res. v_to_list x2 = res’ by gs []
+    \\ drule_all v_rel_v_to_list \\ rw [OPTREL_def]
+    \\ gs [option_nchotomy]
+    \\ rename1 ‘LIST_REL _ y1 y2’
+    \\ ‘∃res. vs_to_string y2 = res’ by gs []
+    \\ drule_all v_rel_vs_to_string \\ rw []
+    \\ gs [v_rel_def]
     \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
+    \\ irule_at Any EQ_REFL \\ gs [])
   \\ Cases_on ‘op = Strlen’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = Strsub’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ rw [] \\ gvs []
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ gs [v_rel_def, sub_exn_v_def, stamp_rel_cases, subscript_stamp_def,
+           state_rel_def])
   \\ Cases_on ‘op = Explode’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ rename1 ‘MAP _ xs’
-    \\ qid_spec_tac ‘xs’
-    \\ Induct \\ simp [list_to_v_def, v_ok_def])
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ gs [v_rel_def]
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ irule v_rel_list_to_v
+    \\ irule_at Any v_to_list_list_to_v
+    \\ irule_at Any v_to_list_list_to_v
+    \\ gs [state_rel_def, EVERY2_MAP, LIST_REL_EL_EQN, v_rel_def])
   \\ Cases_on ‘op = Implode’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
+    ‘FLOOKUP ft list_type_num = SOME list_type_num ∧
+     INJ ($' ft) (FDOM ft) (count t.next_type_stamp) ∧
+     list_type_num < t.next_type_stamp’
+      by (gs [state_rel_def]
+          \\ qpat_x_assum ‘INJ ($' ft) _ _’ mp_tac \\ rw [INJ_DEF]
+          \\ rpt (first_x_assum (qspec_then ‘list_type_num’ assume_tac))
+          \\ gs [flookup_thm])
+    \\ Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                              CaseEqs ["list", "v", "option", "prod", "lit",
+                                       "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ rename1 ‘v_rel _ _ _ x1 x2’
+    \\ ‘∃res. v_to_char_list x2 = res’ by gs []
+    \\ drule_all v_rel_v_to_char_list \\ rw []
     \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
+    \\ gs [v_rel_def])
   \\ Cases_on ‘∃opb. op = Chopb opb’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [Boolv_def]
-    \\ rw [v_ok_def])
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ gs [Boolv_def] \\ rw []
+    \\ gs [v_rel_def, stamp_rel_cases, state_rel_def])
   \\ Cases_on ‘op = Chr’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ rw [] \\ gs [v_rel_def, chr_exn_v_def, stamp_rel_cases, chr_stamp_def,
+                    state_rel_def])
   \\ Cases_on ‘op = Ord’ \\ gs []
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ first_assum (irule_at Any) \\ gs [])
+  \\ cheat (*
   \\ Cases_on ‘op = CopyAw8Aw8’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def, SF SFY_ss]
