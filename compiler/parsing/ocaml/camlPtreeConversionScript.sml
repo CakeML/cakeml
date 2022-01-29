@@ -2135,6 +2135,15 @@ Definition ptree_ModuleType_def:
             xs <- ptree_SigItems rest;
             return (x::xs)
           od
+      | [sigit] =>
+          do
+            ptree_Semis rest;
+            return []
+          od ++
+          do
+            x <- ptree_SigItem sigit;
+            return [x]
+          od
       | _ => fail (locs, «Impossible: nSigItems»)
     else
       fail (locs, «Expected a signature item list non-terminal»)) ∧
