@@ -30,7 +30,7 @@ val () = ENABLE_PMATCH_CASES();
 Definition parse_strlit_innards_def:
   parse_strlit_innards cs acc =
   (case cs of
-           (#"\194" :: #"\187"::cs) => SOME (REVERSE acc,cs)
+           (#"\"" ::cs) => SOME (acc,cs)
          | (x::cs) =>
              parse_strlit_innards cs (x::acc)
          | [] => NONE)
@@ -53,7 +53,7 @@ val ind_lemma = Q.prove(
 Definition parse_strlit_def:
   parse_strlit cs =
   (case cs of
-    (#"\194" :: #"\171"::cs) => parse_strlit_innards cs []
+    (#"\"" :: cs) => parse_strlit_innards cs []
    | _ => NONE)
 End
 
@@ -97,16 +97,18 @@ val _ = (append_prog o process_topdecs) ‘
   ’
 
 val _ = (append_prog o process_topdecs) ‘
-  fun parse_list_innards parse_elem cs one_more_elem acc =
+  fun parse_list_innards is_ordered parse_elem cs one_more_elem acc =
     case cs of
       c::cs =>
         if Char.isSpace c then
-          parse_list_innards parse_elem cs one_more_elem acc
+          parse_list_innards is_ordered parse_elem cs one_more_elem acc
         else if c = #"]" then
           if one_more_elem then
             None
-          else
+          else (if is_ordered then
             Some(List.rev acc,cs)
+          else
+            Some(acc,cs))
         else
           (case parse_elem (c::cs) of
              None => None
@@ -116,22 +118,28 @@ val _ = (append_prog o process_topdecs) ‘
                     (* end of list *)
                     (case parse_token #"]" cs of
                        None => None
-                     | Some cs => Some(List.rev (elem::acc), cs)
+                     | Some cs =>
+                        if is_ordered then
+                          Some(List.rev (elem::acc),cs)
+                        else
+                          Some(elem::acc,cs)
                     )
                 | Some cs =>
-                    parse_list_innards parse_elem cs True (elem::acc)))
+                    parse_list_innards is_ordered parse_elem cs True (elem::acc)))
     | [] =>
         if one_more_elem then None
-        else Some(List.rev acc, [])’
+        else if is_ordered then
+          Some(List.rev acc, [])
+        else Some (acc, [])’
 
 val _ = (append_prog o process_topdecs) ‘
-  fun parse_list parse_elem cs =
+  fun parse_list is_ordered parse_elem cs =
     case cs of
       c::cs =>
         if Char.isSpace c then
-          parse_list parse_elem cs
+          parse_list is_ordered parse_elem cs
         else if c = #"[" then
-          parse_list_innards parse_elem cs False []
+          parse_list_innards is_ordered parse_elem cs False []
         else None
     | [] => None’
 
@@ -146,7 +154,7 @@ val _ = (append_prog o process_topdecs) ‘
       (case parse_string (parse_skip_space cs) of
          None => None
        | Some (name, cs) =>
-           (case parse_list parse_type cs of
+           (case parse_list True parse_type cs of
               None => None
             | Some (tylist, cs) => Some (Kernel.Tyapp name tylist, cs)))
   | _ => None’
@@ -172,12 +180,12 @@ val _ = (append_prog o process_topdecs) ‘
 val _ = (append_prog o process_topdecs) ‘
   fun parse_sum parse_inl parse_inr cs =
     let val cs = parse_skip_space cs in
-    case parse_inl cs of
+    case parse_inr cs of
       None =>
-        (case parse_inr cs of
+        (case parse_inl cs of
           None => None
-        | Some (inr, cs) => Some (Inr inr, cs))
-    | Some (inl, cs) => Some (Inl inl, cs)
+        | Some (inl, cs) => Some (Inl inl, cs))
+    | Some (inr, cs) => Some (Inr inr, cs)
     end’
 
 val _ = (append_prog o process_topdecs)
@@ -190,7 +198,7 @@ val _ = (append_prog o process_topdecs)
   ‘fun main u =
      let val cs = String.explode(TextIO.inputAll TextIO.stdIn)
      in
-        case parse_list hol_type_sum_pairs cs of
+        case parse_list False hol_type_sum_pairs cs of
           None => print "Parse error!\n"
         | Some(deps,_) =>
             (case Kernel.dep_steps_compute deps 32767 deps of
