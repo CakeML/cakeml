@@ -2137,7 +2137,7 @@ Definition ptree_ModuleType_def:
           od
       | [sigit] =>
           do
-            ptree_Semis rest;
+            ptree_Semis sigit;
             return []
           od ++
           do
