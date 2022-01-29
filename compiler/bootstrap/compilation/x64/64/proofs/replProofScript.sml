@@ -851,8 +851,8 @@ Theorem evaluate_start_repl:
   s.env_id_counter = (0,1,1) ∧
   BACKEND_INC_CONFIG_TYPE s1 s.compiler_state ∧
   LIST_TYPE STRING_TYPE cl cl_v ∧
-  repl_types T (ffi,repl_rs) (repl_prog_types,st with eval_state := NONE,
-    merge_env repl_moduleProg_env_8 init_env) ∧
+  repl_types T (ffi,repl_rs)
+               (repl_prog_types, st with eval_state := NONE, repl_init_env) ∧
   nsLookup env.v start_repl_str = SOME start_repl_v ⇒
   nsLookup env.v arg_str = SOME (Conv NONE [cl_v; s.compiler_state]) ⇒
   ∃res s1.
@@ -930,8 +930,8 @@ Proof
            namespaceTheory.nsOptBind_def,evaluate_Lit]
   \\ IF_CASES_TAC >- fs []
   \\ qmatch_goalsub_abbrev_tac ‘evaluate st7 env7 [App Opassign _]’
-  \\ ‘repl_types T (ffi,repl_rs) (repl_prog_types,st7 with eval_state := NONE,
-         merge_env repl_moduleProg_env_8 init_env)’ by
+  \\ ‘repl_types T (ffi,repl_rs)
+        (repl_prog_types, st7 with eval_state := NONE, repl_init_env)’ by
    (unabbrev_all_tac \\ fs [] \\ rewrite_tac [GSYM APPEND_ASSOC]
     \\ irule repl_types_clock_refs \\ fs [])
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
