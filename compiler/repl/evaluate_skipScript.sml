@@ -2145,18 +2145,4 @@ Proof
   \\ drule_all env_rel_update \\  gs []
 QED
 
-Theorem evaluate_decs_init:
-  evaluate_decs (init_state ffi with clock := ck) init_env decs = (s,Rval env) ⇒
-  ∃fr ft fe.
-     fr = FUN_FMAP I (count (LENGTH s.refs)) ∧
-     ft = FUN_FMAP I (count s.next_type_stamp) ∧
-     fe = FUN_FMAP I (count s.next_exn_stamp) ∧
-     state_rel (LENGTH s.refs) fr ft fe s s ∧
-     env_rel fr ft fe (extend_dec_env env init_env)
-                      (extend_dec_env env init_env)
-Proof
-  cheat (* deal with this separately *)
-QED
-
 val _ = export_theory();
-

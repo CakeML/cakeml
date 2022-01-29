@@ -1,6 +1,10 @@
 Some definitions and proofs used in the proof of the CakeML
 and Candle read-eval-print loop (REPL).
 
+[evaluate_initScript.sml](evaluate_initScript.sml):
+Lemma used in repl_typesTheory: that evaluate_skip's invariant
+holds at initialisation.
+
 [evaluate_skipScript.sml](evaluate_skipScript.sml):
 Lemmas used in repl_typesTheory. These lemmas show that a plain
 evaluate run can be replicated in a state with junk refs, extra type
