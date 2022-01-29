@@ -6,7 +6,7 @@ open semanticsPropsTheory evaluateTheory semanticPrimitivesTheory
 open inferTheory inferSoundTheory typeSoundTheory semanticsTheory
      envRelTheory primSemEnvTheory typeSoundInvariantsTheory
      namespacePropsTheory inferPropsTheory repl_check_and_tweakTheory
-open ml_progTheory evaluate_skipTheory
+open ml_progTheory evaluate_skipTheory evaluate_initTheory
 
 val _ = new_theory "repl_types";
 
