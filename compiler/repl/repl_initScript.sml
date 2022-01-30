@@ -50,9 +50,9 @@ Definition the_Loc_def:
 End
 
 Definition repl_rs_def:
-  repl_rs = [(Long "REPL" (Short "isEOF"),      Bool, the_Loc isEOF_loc);
-             (Long "REPL" (Short "nextString"), Str,  the_Loc nextString_loc);
-             (Long "REPL" (Short "exn"),        Exn,  the_Loc exn)]
+  repl_rs = [(Long "Repl" (Short "isEOF"),      Bool, the_Loc isEOF_loc);
+             (Long "Repl" (Short "nextString"), Str,  the_Loc nextString_loc);
+             (Long "Repl" (Short "exn"),        Exn,  the_Loc exn)]
 End
 
 Overload repl_init_env =
@@ -123,7 +123,7 @@ Theorem Decls_evaluate_decs_lemma:
      ∃cl_v.
        LIST_TYPE STRING_TYPE (TL cl) cl_v ∧ res_cl = Rval [cl_v] ∧
        ∀ck junk hello. ∃env_pr e_pr res_pr s_pr.
-         do_opapp [REPL_charsFrom_v; Litv (StrLit "config_enc_str.txt")] =
+         do_opapp [Repl_charsFrom_v; Litv (StrLit "config_enc_str.txt")] =
            SOME (env_pr,e_pr) ∧
          evaluate (s_cl with
                     <|clock := s_cl.clock − (ck + 3);

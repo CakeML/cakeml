@@ -3,16 +3,16 @@
   does not contain the code for the main loop of the REPL (which is at
   the end of bootstrap translation).
 
-  This REPL module defines some references:
-   - REPL.isEOF : bool ref
+  This Repl module defines some references:
+   - Repl.isEOF : bool ref
       -- true means that all user input has been read (e.g. if we have
          reached the end of stdin)
-   - REPL.nextString : string ref
+   - Repl.nextString : string ref
       -- contains the next user input (if isEOF is false)
-   - REPL.readNextString : (unit -> unit) ref
-      -- the function that the REPL uses to read user input; it is this
-         function that assigns new values to REPL.isEOF and REPL.nextString
-   - REPL.exn : exn
+   - Repl.readNextString : (unit -> unit) ref
+      -- the function that the Repl uses to read user input; it is this
+         function that assigns new values to Repl.isEOF and Repl.nextString
+   - Repl.exn : exn
       -- the most recent exception to propagate to the top
 
   At runtine, users are allowed (encouraged?) to change these references.
@@ -39,7 +39,7 @@ val _ = (append_prog o process_topdecs) `
     ((case up of Newaxiom _ => () | _ => ());
      PrettyPrinter.pp_string "<update>"); `
 
-val _ = ml_prog_update (open_module "REPL");
+val _ = ml_prog_update (open_module "Repl");
 
 val tidy_up =
   SIMP_RULE (srw_ss()) (LENGTH :: (DB.find "refs_def" |> map (fst o snd)));
@@ -115,7 +115,7 @@ Theorem Decls_repl_prog =
   ml_progLib.get_Decls_thm (get_ml_prog_state ())
   |> REWRITE_RULE [GSYM repl_prog_def];
 
-(* verification of REPL.charsFrom *)
+(* verification of Repl.charsFrom *)
 
 Triviality foldl_char_cons:
   ∀xs ys. foldl char_cons ys xs = REVERSE xs ++ ys
@@ -126,11 +126,11 @@ QED
 Theorem charsFrom_spec:
   file_content fs fname = SOME content ∧ hasFreeFD fs ∧
   FILENAME fname fnamev ⇒
-  app (p:'ffi ffi_proj) REPL_charsFrom_v [fnamev]
+  app (p:'ffi ffi_proj) Repl_charsFrom_v [fnamev]
     (STDIO fs)
     (POSTv retv. STDIO fs * cond (LIST_TYPE CHAR content retv))
 Proof
-  xcf_with_def "REPL.charsFrom" (fetch "-" "REPL_charsFrom_v_def")
+  xcf_with_def "Repl.charsFrom" (fetch "-" "Repl_charsFrom_v_def")
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet ‘POSTv retv. STDIO fs *

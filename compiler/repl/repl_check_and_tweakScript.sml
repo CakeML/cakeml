@@ -14,7 +14,7 @@ val _ = new_theory "repl_check_and_tweak";
 val read_next_dec =
   “[Dlet (Locs UNKNOWNpt UNKNOWNpt) Pany
        (App Opapp
-          [App Opderef [Var (Long "REPL" (Short "readNextString"))];
+          [App Opderef [Var (Long "Repl" (Short "readNextString"))];
            Con NONE []])]”;
 
 Definition check_and_tweak_def:

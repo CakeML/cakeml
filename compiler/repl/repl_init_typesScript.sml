@@ -37,7 +37,7 @@ in
                           "(Also failed to fully evaluate type inferencer error message)")
               in failwith ("Type inference failed with message: " ^ msg) end
             else failwith "Failed to fully evaluate type inferencer applied to repl_prog."
-    val _ = print "\nTypes of all basis, Candle and REPL functions:\n\n"
+    val _ = print "\nTypes of all basis, Candle and Repl functions:\n\n"
     val x = x |> rand |> rator |> rand
     val strs = EVAL ``inf_env_to_types_string ^x``
                  |> concl |> rand |> listSyntax.dest_list |> fst

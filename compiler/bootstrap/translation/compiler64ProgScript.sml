@@ -371,15 +371,15 @@ val _ = (append_prog o process_topdecs) `
       Inl msg => repl (parse, types, conf, env, report_error msg, "")
     | Inr (safe_decs, new_types) =>
       (* here safe_decs are guaranteed to not crash;
-         the last declaration of safe_decs calls !REPL.readNextString *)
+         the last declaration of safe_decs calls !Repl.readNextString *)
       case eval (conf, env, safe_decs) of
         Compile_error msg => repl (parse, types, conf, env, report_error msg, "")
       | Eval_exn e new_conf =>
         repl (parse, roll_back (types, new_types), new_conf, env, report_exn e, "")
       | Eval_result new_env new_conf =>
         (* check whether the program that ran has loaded in new input *)
-        if !REPL.isEOF then () (* exit if there is no new input *) else
-          let val new_input = !REPL.nextString in
+        if !Repl.isEOF then () (* exit if there is no new input *) else
+          let val new_input = !Repl.nextString in
             (* if there is new input: parse the input and recurse *)
             case parse new_input of
               Inl msg      => repl (parse, new_types, new_conf, new_env, report_error msg, "")
@@ -432,7 +432,7 @@ val _ = (append_prog o process_topdecs) `
       val env = (repl_init_env, 0)
       val decs = []
       val input_str = ""
-      val _ = (REPL.nextString := init_next_string cl)
+      val _ = (Repl.nextString := init_next_string cl)
     in
       repl (parse, types, conf, env, decs, input_str)
     end`
@@ -440,7 +440,7 @@ val _ = (append_prog o process_topdecs) `
 val _ = (append_prog o process_topdecs) `
   fun run_interactive_repl cl =
     let
-      val cs = REPL.charsFrom "config_enc_str.txt"
+      val cs = Repl.charsFrom "config_enc_str.txt"
       val s1 = decodeProg.decode_backend_config cs
     in
       start_repl (cl,s1)
