@@ -979,6 +979,10 @@ QED
 
 val ffi_inst = type_of “basis_ffi _ _” |> dest_type |> snd |> hd
 
+(*
+  max_print_depth := 50
+*)
+
 Theorem evaluate_decs_compiler64_prog:
   s.compiler = compiler_inst x64_config ∧
   s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
