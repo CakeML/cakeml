@@ -11,22 +11,15 @@ val _ = Parse.hide "types"
 
 val _ = new_theory "repl_check_and_tweak";
 
-val read_next_dec =
-  “[Dlet (Locs UNKNOWNpt UNKNOWNpt) Pany
-       (App Opapp
-          [App Opderef [Var (Long "Repl" (Short "readNextString"))];
-           Con NONE []])]”;
-
 Definition check_and_tweak_def:
   check_and_tweak (decs, types, input_str) =
-    let all_decs = decs ++ ^read_next_dec in
-      case add_print_features types all_decs of
-      | Success (new_decs,new_types) =>
-          if decs_allowed new_decs then INR (new_decs, new_types)
-          else INL (strlit "ERROR: input contains reserved constructor/FFI names")
-      | Failure (loc,msg) =>
-          INL (concat [strlit "ERROR: "; msg; strlit " at ";
-                       locs_to_string input_str loc])
+    case add_print_then_read types decs of
+    | Success (new_decs,new_types) =>
+        if decs_allowed new_decs then INR (new_decs, new_types)
+        else INL (strlit "ERROR: input contains reserved constructor/FFI names")
+    | Failure (loc,msg) =>
+        INL (concat [strlit "ERROR: "; msg; strlit " at ";
+                     locs_to_string input_str loc])
 End
 
 (* main correctness result *)
@@ -45,22 +38,16 @@ Theorem check_and_tweak: (* used in replProof *)
   decs_allowed safe_decs
 Proof
   fs [check_and_tweak_def,AllCaseEqs()] \\ rw []
-  \\ drule add_print_features_succ \\ rw []
+  \\ drule add_print_then_read_succ \\ rw []
   \\ fs [infertype_prog_inc_def]
 QED
 
-(* used in repl_types and repl-function in compiler64Prog *)
+(* used in repl-function in compiler64Prog *)
 
 Definition roll_back_def:
   roll_back ((old_tn:type_names, old_ienv:inf_env, old_next_id:num),
              (new_tn:type_names, new_ienv:inf_env, new_next_id:num)) =
     (old_tn, old_ienv, new_next_id)
 End
-
-Theorem FST_roll_back[simp]:
-  FST (roll_back (SND x, y)) = FST (SND x)
-Proof
-  PairCases_on`x` \\ PairCases_on`y` \\ rw[roll_back_def]
-QED
 
 val _ = export_theory();

@@ -73,11 +73,23 @@ val r = translate
   (printTweaksTheory.add_print_features_def
    |> SIMP_RULE (srw_ss()) [inferTheory.init_infer_state_def]);
 
-val lemma = prove(“printtweaks_add_print_features_side x y = T”,
+val lemma1 = prove(“printtweaks_add_print_features_side x y = T”,
   rw [fetch "-" "printtweaks_add_print_features_side_def"]
   \\ irule (inferProgTheory.infer_d_side_thm |> CONJUNCT2) \\ fs []
   \\ irule (inferPropsTheory.infer_d_wfs |> CONJUNCT2) \\ fs []
   \\ first_x_assum $ irule_at Any \\ fs [])
+  |> update_precondition;
+
+val r = translate printTweaksTheory.add_print_then_read_def;
+
+val lemma2 = prove(“printtweaks_add_print_then_read_side x y = T”,
+  rw [fetch "-" "printtweaks_add_print_then_read_side_def"]
+  \\ PairCases_on ‘x’
+  \\ fs [printTweaksTheory.add_print_features_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [printTweaksTheory.add_print_features_def,AllCaseEqs()]
+  \\ imp_res_tac (inferPropsTheory.infer_d_wfs |> CONJUNCT2) \\ fs []
+  \\ irule (inferProgTheory.infer_d_side_thm |> CONJUNCT2) \\ fs [])
   |> update_precondition;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
