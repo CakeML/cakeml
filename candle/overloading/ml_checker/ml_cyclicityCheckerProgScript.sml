@@ -196,21 +196,33 @@ val _ = (append_prog o process_topdecs)
 
 val _ = (append_prog o process_topdecs)
   ‘fun main u =
-     let val cs = String.explode(TextIO.inputAll TextIO.stdIn)
+     let val cs = String.explode(TextIO.inputAll TextIO.stdIn);
      in
-        case parse_list False hol_type_sum_pairs cs of
+        (case parse_list False hol_type_sum_pairs cs of
           None => print "Parse error!\n"
         | Some(deps,_) =>
-            (case Kernel.dep_steps_compute deps 32767 deps of
-               Kernel.Maybe_cyclic =>
-                 print "Cyclicity check timed out!\n"
-             | Kernel.Cyclic_step _ =>
-                 print "Found a cycle!\n"
-             | Kernel.Non_comp_step _ =>
-                 print "Dependency graph is non-composable!\n"
-             | Kernel.Acyclic _ =>
-                 print "SUCCESS: Dependency graph is acyclic!\n"
-            )
+            (let
+                val new_deps =
+                    List.map(fn (x,y) =>
+                              (case x of Inl x => Inl x
+                                      | Inr(a,b) => Inr (Kernel.Const a b),
+                               case y of Inl x => Inl x
+                                       | Inr(a,b) => Inr(Kernel.Const a b))
+                            ) deps
+             in
+               (case Kernel.dep_steps_compute new_deps 32767 new_deps of
+                  Kernel.Maybe_cyclic =>
+                    print "Cyclicity check timed out!\n"
+                | Kernel.Cyclic_step _ =>
+                    print "Found a cycle!\n"
+                | Kernel.Non_comp_step _ =>
+                    print "Dependency graph is non-composable!\n"
+                | Kernel.Acyclic _ =>
+                    print "SUCCESS: Dependency graph is acyclic!\n")
+             end
+            ))
+            handle Kernel.Fail s => print s
+                 | _ => print "Unhandled exception raised!\n"
      end
   ’
 
