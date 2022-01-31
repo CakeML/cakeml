@@ -30,7 +30,7 @@ val () = ENABLE_PMATCH_CASES();
 Definition parse_strlit_innards_def:
   parse_strlit_innards cs acc =
   (case cs of
-           (#"\"" ::cs) => SOME (acc,cs)
+           (#"\"" ::cs) => SOME (REVERSE acc,cs)
          | (x::cs) =>
              parse_strlit_innards cs (x::acc)
          | [] => NONE)
@@ -207,7 +207,7 @@ val _ = (append_prog o process_topdecs) ‘
               | (Kernel.Tyapp s [t]) => present_type t ^ " " ^ s
               | (Kernel.Tyapp s l) =>
                   let
-                    val ps = String.concat(intersperse_commas(map present_type l))
+                    val ps = String.concat(intersperse_commas(List.map present_type l))
                   in
                     "(" ^ ps ^ ") " ^ s
                   end’
@@ -215,7 +215,7 @@ val _ = (append_prog o process_topdecs) ‘
 val _ = (append_prog o process_topdecs) ‘
   fun present_tot ty =
     case ty of (Inl ty) => present_type ty
-            | (Inr(Kernel.Const name tys)) => name ^ " : " ^ present_type ty’
+            | (Inr(Kernel.Const name ty)) => name ^ " : " ^ present_type ty’
 
 val _ = (append_prog o process_topdecs)
   ‘fun main u =
