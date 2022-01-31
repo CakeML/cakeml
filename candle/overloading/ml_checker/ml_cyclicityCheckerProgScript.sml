@@ -215,7 +215,7 @@ val _ = (append_prog o process_topdecs) ‘
 val _ = (append_prog o process_topdecs) ‘
   fun present_tot ty =
     case ty of (Inl ty) => present_type ty
-            | (Inr(Kernel.Const name ty)) => name ^ " : " ^ present_type ty’
+            | (Inr(Kernel.Const name tys)) => name ^ " : " ^ present_type ty’
 
 val _ = (append_prog o process_topdecs)
   ‘fun main u =
@@ -236,7 +236,7 @@ val _ = (append_prog o process_topdecs)
                (case Kernel.dep_steps_compute new_deps 32767 new_deps of
                   Kernel.Maybe_cyclic =>
                     print "Cyclicity check timed out!\n"
-                | Kernel.Cyclic_step (tot1,tot2,tot3) =>
+                | Kernel.Cyclic_step (tot1,(tot2,tot3)) =>
                     (print "Found a cycle!\n";
                      print("  " ^ present_tot tot1 ^ "\n");
                      print("  " ^ present_tot tot2 ^ "\n");
