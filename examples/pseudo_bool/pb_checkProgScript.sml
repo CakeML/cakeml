@@ -165,27 +165,63 @@ val strip_numbers_side = Q.prove(
   Induct>>rw[Once strip_numbers_side_def]>>
   intLib.ARITH_TAC) |> update_precondition;
 
-val r = translate parse_polish_def;
+val r = translate parse_cutting_def;
 
-val parse_polish_side_def = theorem "parse_polish_side_def";
-val parse_polish_side = Q.prove(
-  `∀x y. parse_polish_side x y <=> T`,
-  Induct>>rw[Once parse_polish_side_def]>>
+val parse_cutting_side_def = theorem "parse_cutting_side_def";
+val parse_cutting_side = Q.prove(
+  `∀x y. parse_cutting_side x y <=> T`,
+  Induct>>rw[Once parse_cutting_side_def]>>
   intLib.ARITH_TAC) |> update_precondition;
 
 val r = translate parse_var_def;
 
 val r = translate insert_def;
 val r = translate parse_subst_def;
+
+val r = translate parse_constraint_npbc_def;
 val r = translate parse_red_header_def;
 
-val r = translate parse_pbpsteps_def;
+val r = translate parse_pbpstep_def;
 
-val parse_pbpsteps_side_def = theorem "parse_pbpsteps_side_def";
-val parse_pbpsteps_side = Q.prove(
-  `∀x y z. parse_pbpsteps_side x y z <=> T`,
-  Induct>>rw[Once parse_pbpsteps_side_def]>>
+val parse_pbpstep_side_def = fetch "-" "parse_pbpstep_side_def";
+val parse_pbpstep_side = Q.prove(
+  `∀x. parse_pbpstep_side x <=> T`,
+  rw[Once parse_pbpstep_side_def]>>fs[]>>
   intLib.ARITH_TAC) |> update_precondition;
+
+val r = translate parse_subgoal_num_def;
+
+val parse_subgoal_num_side_def = fetch "-" "parse_subgoal_num_side_def";
+val parse_subgoal_num_side = Q.prove(
+  `∀x. parse_subgoal_num_side x <=> T`,
+  rw[Once parse_subgoal_num_side_def]>>fs[]>>
+  intLib.ARITH_TAC) |> update_precondition;
+
+val r = translate_no_ind parse_pbpsteps_thm;
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp r))`,
+  rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ fs [FORALL_PROD]
+  >- (imp_res_tac parse_pbpsteps_LENGTH \\ gs[])
+  >- (imp_res_tac parse_pbpsteps_LENGTH \\ gs[])
+  >- (imp_res_tac parse_pbpsteps_LENGTH \\ gs[])
+  >- (
+    rw[] >> first_x_assum match_mp_tac>>
+    last_x_assum kall_tac>>
+    last_x_assum kall_tac>>
+    imp_res_tac parse_pbpsteps_LENGTH \\ gs[] )
+  >- (
+    rw[]>>fs[]>>
+    first_x_assum match_mp_tac>>
+    last_x_assum kall_tac>>
+    last_x_assum kall_tac>>
+    imp_res_tac parse_pbpsteps_LENGTH \\ gs[] )
+  ) |> update_precondition;
 
 val r = translate parse_header_line_def;
 val r = translate parse_pbp_toks_def;
@@ -259,7 +295,7 @@ val r = translate build_fml_def;
 val r = translate (pb_constraintTheory.lslack_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
 val r = translate (pb_constraintTheory.check_contradiction_def |> SIMP_RULE std_ss[LET_DEF]);
 
-(* polish *)
+(* cutting *)
 val r = translate pb_constraintTheory.term_lt_def;
 val r = translate pb_constraintTheory.add_terms_def;
 val r = translate pb_constraintTheory.add_lists_def;
@@ -278,7 +314,7 @@ val divide_side = Q.prove(
   EVAL_TAC>>
   rw[EQ_IMP_THM]) |> update_precondition
 
-val r = translate check_polish_def;
+val r = translate check_cutting_def;
 
 val r = translate FOLDL
 
@@ -302,7 +338,9 @@ val r = translate map_opt_def;
 val r = translate pb_constraintTheory.subst_opt_aux_def;
 val r = translate (pb_constraintTheory.subst_opt_def |> SIMP_RULE std_ss [LET_THM]);
 
-val r = translate check_pbpstep_def;
+val r = translate extract_clauses_def;
+
+val r = translate (check_pbpstep_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
 
 Definition result_string_def:
   (result_string Fail = INL (strlit "Proof checking failed\n")) ∧
