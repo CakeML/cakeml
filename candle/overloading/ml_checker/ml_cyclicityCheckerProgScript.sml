@@ -215,7 +215,7 @@ val _ = (append_prog o process_topdecs) ‘
 val _ = (append_prog o process_topdecs) ‘
   fun present_tot ty =
     case ty of (Inl ty) => present_type ty
-            | (Inr(Kernel.Const name ty)) => name ^ " : " ^ ty’
+            | (Inr(Kernel.Const name ty)) => name ^ " : " ^ present_type ty’
 
 val _ = (append_prog o process_topdecs)
   ‘fun main u =
