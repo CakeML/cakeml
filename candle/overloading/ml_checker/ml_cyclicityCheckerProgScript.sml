@@ -194,6 +194,29 @@ val _ = (append_prog o process_topdecs)
 val _ = (append_prog o process_topdecs)
   ‘fun hol_type_sum_pairs x = parse_pair parse_sum_hol_type parse_sum_hol_type x’
 
+val _ = (append_prog o process_topdecs) ‘
+  fun intersperse_commas l =
+      case l of [] => []
+             | [e] => [e]
+             | e::l => e:: "," :: intersperse_commas l’
+
+val _ = (append_prog o process_topdecs) ‘
+  fun present_type ty =
+      case ty of (Kernel.Tyvar s) => "'" ^ s
+              | (Kernel.Tyapp s []) => s
+              | (Kernel.Tyapp s [t]) => present_type t ^ " " ^ s
+              | (Kernel.Tyapp s l) =>
+                  let
+                    val ps = String.concat(intersperse_commas(map present_type l))
+                  in
+                    "(" ^ ps ^ ") " ^ s
+                  end’
+
+val _ = (append_prog o process_topdecs) ‘
+  fun present_tot ty =
+    case ty of (Inl ty) => present_type ty
+            | (Inr(Const name ty)) => name ^ " : " ^ ty’
+
 val _ = (append_prog o process_topdecs)
   ‘fun main u =
      let val cs = String.explode(TextIO.inputAll TextIO.stdIn);
@@ -213,8 +236,12 @@ val _ = (append_prog o process_topdecs)
                (case Kernel.dep_steps_compute new_deps 32767 new_deps of
                   Kernel.Maybe_cyclic =>
                     print "Cyclicity check timed out!\n"
-                | Kernel.Cyclic_step _ =>
-                    print "Found a cycle!\n"
+                | Kernel.Cyclic_step (tot1,tot2,tot3) =>
+                    (print "Found a cycle!\n";
+                     print("  " ^ present_tot tot1 ^ "\n");
+                     print("  " ^ present_tot tot2 ^ "\n");
+                     print("  " ^ present_tot tot3 ^ "\n")
+                    )
                 | Kernel.Non_comp_step _ =>
                     print "Dependency graph is non-composable!\n"
                 | Kernel.Acyclic _ =>
