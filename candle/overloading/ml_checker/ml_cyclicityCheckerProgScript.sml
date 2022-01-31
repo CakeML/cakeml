@@ -231,21 +231,30 @@ val _ = (append_prog o process_topdecs)
                                       | Inr(a,b) => Inr (Kernel.Const a b),
                                case y of Inl x => Inl x
                                        | Inr(a,b) => Inr(Kernel.Const a b))
-                            ) deps
+                            ) deps ;
+                val max_depth = 32767 ;
              in
-               (case Kernel.dep_steps_compute new_deps 32767 new_deps of
+               (case Kernel.dep_steps_compute new_deps max_depth new_deps of
                   Kernel.Maybe_cyclic =>
                     print "Cyclicity check timed out!\n"
                 | Kernel.Cyclic_step (tot1,(tot2,tot3)) =>
                     (print "Found a cycle!\n";
-                     print("  " ^ present_tot tot1 ^ "\n");
-                     print("  " ^ present_tot tot2 ^ "\n");
-                     print("  " ^ present_tot tot3 ^ "\n")
+                     print("  The path from " ^ present_tot tot1 ^ "\n");
+                     print("  to " ^ present_tot tot2 ^ "\n");
+                     print("  starts a cycle " ^ present_tot tot3 ^ "\n")
                     )
-                | Kernel.Non_comp_step _ =>
-                    print "Dependency graph is non-composable!\n"
-                | Kernel.Acyclic _ =>
-                    print "SUCCESS: Dependency graph is acyclic!\n")
+                | Kernel.Non_comp_step (p,(q,(p',_))) =>
+                    (print "Dependency graph is non-composable!\n";
+                     print("  The path from " ^ present_tot p ^ "\n");
+                     print("  to " ^ present_tot q ^ "\n");
+                     print("  does not compose with " ^ present_tot p' ^ "\n")
+                    )
+                | Kernel.Acyclic k =>
+                    (print "SUCCESS: Dependency graph is acyclic!\n";
+                     print("  Longest checked path: "
+                            ^ (Int.toString (max_depth - k)) ^ "\n")
+                    )
+                )
              end
             ))
             handle Kernel.Fail s => print s
