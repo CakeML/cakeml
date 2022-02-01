@@ -355,7 +355,8 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   (SOME “V "mod"”)
   ;
 
-(* Oops: lexer should support parenthesized star *)
+(* TODO: lexer should support parenthesized star *)
+
 (*
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "f (+) 10"
@@ -435,6 +436,41 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
                Lit (IntLit 2))]”)
   ;
 
+(* pattern match with guard;
+ * expression matched on is bound to a variable to be re-used in else-branch of
+ * condition on P, in order to execute its side effects only once. All remaining
+ * pattern match rows (after the guarded row) are duplicated in the else-branch
+ * of the condition on P.
+ *)
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  " match x with \
+  \ | h::t when P -> z \
+  \ | _ -> w"
+  (SOME “Let (SOME "") (V "x")
+             (Mat (V "")
+                  [(Pc "::" [Pvar "h"; Pvar "t"],
+                    If (V "P") (V "z")
+                       (Mat (V "") [(Pany, V "w")]));
+                   (Pany, V "w")])”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  " try f x with E1 _ -> g x\
+  \            | E2 -> h"
+  (SOME “Handle (App Opapp [V "f"; V "x"])
+                [(Pc "E1" [Pany], App Opapp [V "g"; V "x"]);
+                 (Pc "E2" [], V "h")]”)
+  ;
+
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  " function C1 _ -> A\
+  \        | C2 -> B"
+  (SOME “Fun "" (Mat (V "")
+                     [(Pc "C1" [Pany], V "A");
+                      (Pc "C2" [], V "B")])”)
+  ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "[3;4]"
@@ -475,9 +511,173 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   (SOME “App Opapp [V "FUNCTION"; Con NONE [V "x"; Lit (IntLit 3)]]”)
   ;
 
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "- 3"
+  (SOME “App Opapp [Var (Long "Int" (Short "~")); Lit (IntLit 3)]”)
+  ;
+
+(* TODO: floating point literals not handled; not sure how to handle.
+ *       call Double.fromString on them? *)
+
+(*
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "-. 3.0"
+  (SOME “App Opapp [Var (Long "Double" (Short "~")); Lit (IntLit 3)]”)
+  ;
+ *)
+
+(* if without the else *)
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "if a then b"
+  (SOME “If (V "a") (V "b") (Con NONE [])”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "if a;c then b"
+  (SOME “If (Let NONE (V "a") (V "c")) (V "b") (Con NONE [])”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "if a then b;c"
+  (SOME “If (V "a") (Let NONE (V "b") (V "c")) (Con NONE [])”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Con (a,b,c)"
+  (SOME “C "Con" [Con NONE [V "a"; V "b"; V "c"]]”)
+  ;
+
+(* -------------------------------------------------------------------------
+ * Declarations
+ * ------------------------------------------------------------------------- *)
+
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  " let v = A\
+  \ and c = B"
+  (SOME “[Dlet L (Pvar "v") (V "A");
+          Dlet L (Pvar "c") (V "B")]”)
+  ;
+
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  " let rec f x = A\
+  \ and g y = B"
+  (SOME “[Dletrec L [("f", "x", V "A");
+                     ("g", "y", V "B")]]”)
+  ;
+
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  "type t = s"
+  (SOME “[Dtabbrev L [] "t" (Atapp [] (Short "s"))]”)
+  ;
+
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  "type ('a, 'b) t = Cn of 'a * 'b"
+  (SOME “[Dtype L [(["a"; "b"], "t", [("Cn", [Attup [Atvar "a"; Atvar "b"]])])]]”)
+  ;
+
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  "type ('a, 'b) t = Cn of ('a)"
+  (SOME “[Dtype L [(["a"; "b"], "t", [("Cn", [Atvar "a"])])]]”)
+  ;
+
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  " type t = C1\
+  \        | C2\
+  \ and s = D1 of t"
+  (SOME “[Dtype L [([], "t", [("C1", []); ("C2", [])]);
+                   ([], "s", [("D1", [Atapp [] (Short "t")])])]]”)
+  ;
+
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  "exception This of 'a * 'b"
+  (SOME “[Dexn L "This" [Attup [Atvar "a"; Atvar "b"]]]”)
+  ;
+
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  "exception This of 'a"
+  (SOME “[Dexn L "This" [Atvar "a"]]”)
+  ;
+
+(* -------------------------------------------------------------------------
+ * Some larger examples with modules
+ * ------------------------------------------------------------------------- *)
+
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  " module Queue = struct\
+  \   type 'a queue = 'a list * 'a list\
+  \   ;;\
+  \   let enqueue (xs, ys) y = (xs, y::ys)\
+  \   ;;\
+  \   let rec dequeue (xs, ys) =\
+  \     match xs with\
+  \     | x::xs -> Some (x, (xs, ys))\
+  \     | [] ->\
+  \         (match ys with\
+  \         | [] -> None\
+  \         | _ -> dequeue (List.rev ys, []))\
+  \   ;;\
+  \   let empty = ([], [])\
+  \   ;;\
+  \   let flush (xs, ys) = xs @ List.rev ys\
+  \   ;;\
+  \ end (* struct *)"
+  NONE
+  ;
+
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  " module Buffer = struct\
+  \   type 'a buffer = 'a Queue.queue ref\
+  \   ;;\
+  \   let enqueue q x = q := Queue.enqueue (!q) x\
+  \   ;;\
+  \   let dequeue q =\
+  \     match Queue.dequeue (!q) with\
+  \     | None -> None\
+  \     | Some (x, q') ->\
+  \         q := q';\
+  \         Some x\
+  \   ;;\
+  \   let empty () = ref Queue.empty\
+  \   ;;\
+  \   let flush q =\
+  \     let els = Queue.flush (!q) in\
+  \     q := Queue.empty;\
+  \     els\
+  \   ;;\
+  \ end (* struct *)"
+  NONE
+  ;
+
 (* -------------------------------------------------------------------------
  * Modules
  * ------------------------------------------------------------------------- *)
+
+val _ = parsetest0 “nSigSpec” “ptree_SigSpec”
+  "sig val x : t end"
+  NONE
+  ;
+
+val _ = parsetest0 “nModuleType” “ptree_nModuleType”
+  "sig val x : t end"
+  NONE
+  ;
+val _ = parsetest0 “nModuleType” “ptree_nModuleType”
+  "SIGNATURENAME"
+  NONE
+  ;
+
+val _ = parsetest0 “nModuleType” “ptree_nModuleType”
+  "Module.SIGnaturename"
+  NONE
+  ;
+val _ = parsetest0 “nModuleTypeDef” “ptree_nModuleTypeDef”
+  " module type Modulename = sig \
+  \   val x : t \
+  \   val y : d \
+  \ end"
+  NONE
+  ;
 
 (*
 
