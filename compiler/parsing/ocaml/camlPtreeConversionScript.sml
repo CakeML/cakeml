@@ -1758,8 +1758,8 @@ Definition ptree_ExcDefinition_def:
             (nm, args) <- ptree_ConstrDecl cdecl;
             (* OCaml expects zero or single argument constructors *)
             case args of
-              [] => return (Dexn locs nm [])
-            | _ => return (Dexn locs nm [Attup args])
+              _::_::_ => return (Dexn locs nm [Attup args])
+            | _ => return (Dexn locs nm args)
           od
       | [exnt; lhsid; eq; rhsid] =>
           fail (locs, «Exception abbreviation is not supported»)
@@ -1836,7 +1836,12 @@ Definition ptree_TypeInfo_def:
             if n = INL nType then
               fmap INL (ptree_Type arg)
             else if n = INL nTypeRepr then
-              fmap INR (ptree_TypeRepr arg)
+              do
+                tr <- ptree_TypeRepr arg;
+                return $ INR $
+                  MAP (λ(n,ts). case ts of _::_::_ => (n, [Attup ts])
+                                         | _ => (n, ts)) tr
+              od
             else
               fail (locs, «Impossible: nTypeInfo»)
           od
@@ -1961,7 +1966,7 @@ Definition ptree_TypeDefinition_def:
           do
             expect_tok typet TypeT;
             expect_tok nrec NonrecT;
-            tdefs <- ptree_TypeDefs tds;
+            tdefs <- fmap REVERSE $ ptree_TypeDefs tds;
             if EVERY (λ(locs,tys,nm,trs). ISL trs) tdefs then
               return $ MAP (λ(locs,tys,nm,trs). Dtabbrev locs tys nm (OUTL trs))
                            tdefs
@@ -1976,7 +1981,7 @@ Definition ptree_TypeDefinition_def:
       | [typet; tds] =>
           do
             expect_tok typet TypeT;
-            tdefs <- ptree_TypeDefs tds;
+            tdefs <- fmap REVERSE $ ptree_TypeDefs tds;
             (abbrevs,datas) <<- PARTITION (λ(_,tys,nm,trs). ISL trs) tdefs;
             abbrevs <<-
               MAP (λ(locs,tys,nm,trs). Dtabbrev locs tys nm (OUTL trs))
