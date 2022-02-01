@@ -6192,7 +6192,6 @@ End
 Theorem has_path_to_eq:
   has_path_to dep k x y =
     ?rs pqs. path_starting_at dep 0 rs pqs /\ k = LENGTH pqs
-      /\ invertible_on (HD rs) (FV $ FST $ HD pqs)
       /\ x = FST $ HD pqs
       /\ equiv y (LR_TYPE_SUBST (LAST rs) (SND $ LAST pqs))
 Proof
@@ -6254,19 +6253,9 @@ Theorem has_path_to_equiv:
   /\ has_path_to dep k x y /\ equiv y z
   ==> has_path_to dep k x z
 Proof
-  rw[has_path_to_def]
-  >> goal_assum drule
-  >> qmatch_goalsub_abbrev_tac `equiv _ xx`
-  >> `is_const_or_type xx` by (
-    unabbrev_all_tac
-    >> drule_then assume_tac $ cj 1 $ iffLR path_starting_at_def
-    >> imp_res_tac path_starting_at_LENGTH
-    >> gs[wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,LENGTH_NOT_NULL,NULL_EQ,LAST_EL]
-    >> fs[EL_MEM,GSYM LENGTH_NOT_NULL,GSYM NULL_EQ]
-  )
-  >> irule_at Any equiv_trans
-  >> qpat_assum `equiv _ xx` $ irule_at Any
-  >> metis_tac[equiv_symm_imp,equiv_is_const_or_type]
+  rw[equiv_def]
+  >> imp_res_tac has_path_to_is_const_or_type
+  >> gs[has_path_to_var_renaming]
 QED
 
 Theorem has_path_to_ONE:
