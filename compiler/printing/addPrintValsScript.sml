@@ -102,23 +102,16 @@ Termination
   WF_REL_TAC `measure (infer_t_size o SND)`
 End
 
-Definition inf_t_to_pp_def:
-  inf_t_to_pp tn (Infer_Tuvar n) = pp_token (strlit "'t_u_" ^ mlint$toString (&n)) /\
-  inf_t_to_pp tn (Infer_Tvar_db n) = pp_token (strlit "'t_" ^ mlint$toString (&n)) /\
-  inf_t_to_pp tn (Infer_Tapp ts ti) =
-    let tss = MAP (inf_t_to_pp tn) ts in
-    if ti = Tfn_num
-    then pp_spaced_block (TAKE 1 tss ++ [pp_token (strlit "->")] ++ MAP pp_no_parens (DROP 1 tss))
-    else if ti = Ttup_num
-    then pp_paren_tuple tss
-    else
-    let tc_str = case sptree$lookup ti tn.id_map of
-        NONE => strlit "<undeclared>" | SOME (_, nm) => implode nm
-    in
-    if NULL ts then pp_token tc_str
-    else pp_spaced_block (tss ++ [pp_token tc_str])
-Termination
-  WF_REL_TAC `measure (infer_t_size o SND)`
+Definition type_con_name_def:
+  type_con_name tn ti =
+  (case sptree$lookup ti tn.id_map of
+      NONE => strlit "<undeclared>"
+    | SOME (_, nm) => implode nm
+  )
+End
+
+Definition inf_t_to_s_def:
+  inf_t_to_s tn t = FST (inf_type_to_string_rec (type_con_name tn) t)
 End
 
 Definition id_str_def:
@@ -129,7 +122,7 @@ End
 Definition print_of_val_def:
   print_of_val tn (nm, inf_t) =
     let idl = Lit (StrLit (id_str nm)) in
-    let tstr = Lit (StrLit (explode (concat (append (pp_contents (inf_t_to_pp tn inf_t)))))) in
+    let tstr = Lit (StrLit (explode (inf_t_to_s tn inf_t))) in
     Dlet unknown_loc Pany (App Opapp [Var (Short "print_pp");
         (case inf_t_to_ast_t tn inf_t of
           NONE => rpt_app (Var (Long "PrettyPrinter" (Short "val_hidden_type"))) [idl; tstr]

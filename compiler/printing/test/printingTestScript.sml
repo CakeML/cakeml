@@ -100,7 +100,8 @@ val infer_example_eval = inf_eval ``infer_ds basis_ienv test_prog_pp ^start_st``
 
 val infer_example_ienv = concl infer_example_eval |> rhs
     |> dest_pair |> fst |> rand
-val infer_example_st = concl infer_example_eval |> rhs |> dest_pair |> snd
+val infer_example = concl infer_example_eval |> rhs
+val infer_example_st = infer_example |> dest_pair |> snd
 
 val _ = if can (match_term ``(infer$Success _, _)``) infer_example then () else
     (print_term infer_example; failwith ("type inference failed on example prog"))
@@ -133,7 +134,9 @@ val _ = if can (match_term ``(infer$Success _)``) prog_rhs then () else
     (print_term prog_rhs;
         failwith ("test printing/inference assembly failed"))
 
-val full_prog = rand prog_rhs |> dest_pair |> fst
+val upd_prog = rand prog_rhs |> dest_pair |> fst
+val full_prog_eval = EVAL ``basis ++ ^upd_prog``;
+val full_prog = rhs (concl full_prog_eval);
 
 val res = astToSexprLib.write_ast_to_file "example_print.sexp" full_prog
 

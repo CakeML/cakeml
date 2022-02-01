@@ -393,6 +393,7 @@ val ty_var_name_side =
 
 val _ = translate infer_tTheory.commas_def;
 val _ = translate infer_tTheory.add_parens_def;
+val _ = translate infer_tTheory.inf_type_to_string_rec_def;
 val _ = translate infer_tTheory.inf_type_to_string_def;
 val _ = translate ns_to_alist_def;
 val _ = translate inf_env_to_types_string_def;

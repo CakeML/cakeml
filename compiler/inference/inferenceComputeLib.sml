@@ -34,6 +34,7 @@ in
     ,check_ctors_def
     ,check_ctor_types_def
     ,inf_type_to_string_def
+    ,inf_type_to_string_rec_def
     ,infer_d_def
     ,infer_e_def
     ,infer_p_def
