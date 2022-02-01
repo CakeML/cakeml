@@ -6,6 +6,9 @@ Definition of a PEG for (a subset of) OCaml.
 [camlPtreeConversionScript.sml](camlPtreeConversionScript.sml):
 A theory for converting OCaml parse trees to abstract syntax.
 
+[camlTestsScript.sml](camlTestsScript.sml):
+Some tests for the OCaml parser.
+
 [caml_lexScript.sml](caml_lexScript.sml):
 Lexer for the OCaml frontend.
 
