@@ -525,7 +525,8 @@ Definition ptree_Type_def:
       | _ => fail (locs, «Impossible: nTConstr»)
     else if nterm = INL nTProd then
       case args of
-        arg::rest =>
+        [arg] => ptree_Type arg
+      | arg::rest =>
           do
             ty <- ptree_Type arg;
             ts <- ptree_StarTypes rest;
