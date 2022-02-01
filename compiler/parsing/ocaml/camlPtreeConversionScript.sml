@@ -449,7 +449,8 @@ Definition ptree_ModTypePath_def:
   ptree_ModTypePath (Nd (nterm, locs) args) =
     if nterm = INL nModTypePath then
       case args of
-        [path; dot; arg] =>
+        [arg] => fmap (λvn. [vn]) $ ptree_ModTypeName arg
+      | [path; dot; arg] =>
           do
             expect_tok dot DotT;
             vp <- ptree_ModulePath path;

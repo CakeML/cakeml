@@ -306,8 +306,9 @@ Definition camlPEG_def[nocompute]:
       (INL nModTypeName,
        pegf (tokIdP identMixed) (bindNT nModTypeName));
       (INL nModTypePath,
-       seql [pnt nModulePath; tokeq DotT; pnt nModTypeName]
-            (bindNT nModTypePath));
+       choicel [pegf (pnt nModTypeName) (bindNT nModTypePath);
+                seql [pnt nModulePath; tokeq DotT; pnt nModTypeName]
+                     (bindNT nModTypePath)]);
       (* -- Definitions (module items) ------------------------------------- *)
       (INL nSemis,
        seql [tokeq SemisT; try (pnt nSemis)]

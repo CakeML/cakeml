@@ -662,6 +662,7 @@ val _ = parsetest0 “nModuleType” “ptree_nModuleType”
   "sig val x : t end"
   NONE
   ;
+
 val _ = parsetest0 “nModuleType” “ptree_nModuleType”
   "SIGNATURENAME"
   NONE
@@ -671,8 +672,9 @@ val _ = parsetest0 “nModuleType” “ptree_nModuleType”
   "Module.SIGnaturename"
   NONE
   ;
+
 val _ = parsetest0 “nModuleTypeDef” “ptree_nModuleTypeDef”
-  " module type Modulename = sig \
+  " module type SIGNAME = sig \
   \   val x : t \
   \   val y : d \
   \ end"
