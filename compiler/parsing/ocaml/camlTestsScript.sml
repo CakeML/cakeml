@@ -194,6 +194,46 @@ val _ = tytest0 "('a,'b) d"
  * Patterns
  * ------------------------------------------------------------------------- *)
 
+val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+  "x as y"
+  (SOME “[Pas (Pvar "x") "y"]”)
+  ;
+
+val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+  "x | y"
+  (SOME “[Pvar "x"; Pvar "y"]”)
+  ;
+
+val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+  "Some x | y"
+  (SOME “[Pc "Some" [Pvar "x"]; Pvar "y"]”)
+  ;
+
+val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+  "y,z,x"
+  (SOME “[Pcon NONE [Pvar "y"; Pvar "z"; Pvar "x"]]”)
+  ;
+
+val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+  "(x: int)"
+  (SOME “[Ptannot (Pvar "x") (Atapp [] (Short "int"))]”)
+  ;
+
+val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+  "Aa (Bb (Cc x))"
+  (SOME “[Pc "Aa" [Pc "Bb" [Pc "Cc" [Pvar "x"]]]]”)
+  ;
+
+val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+  "a :: 1"
+  (SOME “[Pc "::" [Pvar "a"; Plit (IntLit 1)]]”)
+  ;
+
+val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+  "[a,b ; c]"
+  (SOME “[Pc "::" [Pcon NONE [Pvar "a"; Pvar "b"];
+                   Pc "::" [Pvar "c"; Pc "[]" []]]]”)
+  ;
 
 (* -------------------------------------------------------------------------
  * Expressions
