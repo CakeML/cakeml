@@ -932,7 +932,11 @@ Definition build_lets_def:
   build_lets binds body =
     FOLDR (λbind rest.
              case bind of
-               INL (p,x) =>
+               INL (Pvar v,x) =>
+                 Let (SOME v) x rest
+             | INL (Pany,x) =>
+                 Let NONE x rest
+             | INL (p,x) =>
                  Mat x [p, rest]
              | INR (f, ps, bd) =>
                  Let (SOME f) (build_fun_lam bd ps) rest)
