@@ -911,14 +911,22 @@ End
 (* Builds a sequence of lets out of a list of let bindings.
  *)
 
+Definition SmartBind_def:
+  SmartBind =
+    FOLDR (λp rest.
+      case p of
+        Pvar v => Fun v rest
+      | _ => Fun "" (Mat (Var (Short "")) [(p, rest)]))
+End
+
 Definition build_lets_def:
   build_lets binds body =
     FOLDR (λbind rest.
              case bind of
                INL (p,x) =>
                  Mat x [p, rest]
-             | INR (f,_,x) =>
-                 Let (SOME f) x rest)
+             | INR (f, ps, bd) =>
+                 Let (SOME f) (SmartBind bd ps) rest)
           binds body
 End
 
@@ -1512,9 +1520,7 @@ Definition ptree_Expr_def:
             case ps of
               [p] => return (INL (p, bd))
             | _ =>
-              fail (locs, concat [
-                            «Or-patterns are not allowed in let bindings»;
-                            « like this one: 'let' <pattern> '=' <expr';;»])
+              fail (locs, «Or-patterns are not allowed in let (rec) bindings»)
           od
       | [id; pats; eq; bod] =>
           do
@@ -1522,7 +1528,10 @@ Definition ptree_Expr_def:
             nm <- ptree_ValueName id;
             ps <- ptree_Patterns pats;
             bd <- ptree_Expr nExpr bod;
-            return $ INR (nm, "", build_letrec_binding "" ps bd)
+            (if EXISTS (λp. case p of [_] => F | _ => T) ps then
+              fail (locs, «Or-patterns are not allowed in let (rec) bindings»)
+             else return ());
+            return $ INR (nm, MAP HD ps, bd)
           od
       | [id; pats; colon; type; eq; bod] =>
           do
@@ -1532,7 +1541,10 @@ Definition ptree_Expr_def:
             ps <- ptree_Patterns pats;
             ty <- ptree_Type type;
             bd <- ptree_Expr nExpr bod;
-            return $ INR (nm, "", build_letrec_binding "" ps (Tannot bd ty))
+            (if EXISTS (λp. case p of [_] => F | _ => T) ps then
+              fail (locs, «Or-patterns are not allowed in let (rec) bindings»)
+             else return ());
+            return $ INR (nm, MAP HD ps, Tannot bd ty)
           od
       | _ => fail (locs, «Impossible: nLetBinding»)
     else
@@ -1969,8 +1981,10 @@ Definition build_dlet_def:
   build_dlet locs binds =
     MAP (λbind.
            case bind of
-             INL (p, x) => Dlet locs p x
-           | INR (f,_,x) => Dlet locs (Pvar f) x)
+             INL (p, x) =>
+               Dlet locs p x
+           | INR (f,ps,bd) =>
+               Dlet locs (Pvar f) (SmartBind bd ps))
         binds
 End
 
