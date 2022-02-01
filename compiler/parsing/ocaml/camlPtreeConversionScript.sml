@@ -1986,9 +1986,11 @@ Definition ptree_TypeDefinition_def:
             abbrevs <<-
               MAP (λ(locs,tys,nm,trs). Dtabbrev locs tys nm (OUTL trs))
                   abbrevs;
-            datas <<-
-              Dtype locs (MAP (λ(_,tys,nm,trs). (tys,nm,OUTR trs)) datas);
-            return (datas::abbrevs)
+            case datas of
+              [] => return abbrevs
+            | _ => let datas = Dtype locs
+                     (MAP (λ(_,tys,nm,trs). (tys,nm,OUTR trs)) datas)
+                   in return (datas::abbrevs)
           od
       | _ => fail (locs, «Impossible: nTypeDefinition»)
     else
