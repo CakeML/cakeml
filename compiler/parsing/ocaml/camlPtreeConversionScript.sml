@@ -972,19 +972,30 @@ Definition build_pmatch_def:
       (pat,If guard body (cn (Var (Short bv)) rs))::rs
 End
 
+(* If a pattern is guarded then we need to bind the expression we match on
+ * to a variable (to only execute its effects once) so that the guard can
+ * refer to it.
+ *)
+
 Definition build_match_def:
-  build_match bv pmatch x =
-    Let (SOME bv) x (Mat (Var (Short bv)) (build_pmatch bv Mat pmatch))
+  build_match x pmatch =
+    if EXISTS (λ(p,x,g). case g of SOME _ => T | _ => F) pmatch then
+      Let (SOME "") x (Mat (Var (Short "")) (build_pmatch "" Mat pmatch))
+    else
+      Mat x (build_pmatch "" Mat pmatch)
 End
 
 Definition build_handle_def:
-  build_handle bv pmatch x =
-    Let (SOME bv) x (Handle (Var (Short bv)) (build_pmatch bv Handle pmatch))
+  build_handle x pmatch =
+    if EXISTS (λ(p,x,g). case g of SOME _ => T | _ => F) pmatch then
+      Let (SOME "") x (Handle (Var (Short "")) (build_pmatch "" Handle pmatch))
+    else
+      Handle x (build_pmatch "" Handle pmatch)
 End
 
 Definition build_function_def:
-  build_function bv pmatch =
-    Fun bv (Mat (Var (Short bv)) (build_pmatch bv Mat pmatch))
+  build_function pmatch =
+    Fun "" (Mat (Var (Short "")) (build_pmatch "" Mat pmatch))
 End
 
 (* Turn a boolean literal into a constructor expression.
@@ -1390,7 +1401,7 @@ Definition ptree_Expr_def:
             expect_tok witht WithT;
             x <- ptree_Expr nExpr expr;
             ps <- ptree_PatternMatch pmatch;
-            return (build_match "" (flatten_pmatch ps) x)
+            return (build_match x (flatten_pmatch ps))
           od
       | _ => fail (locs, «Impossible: nEMatch»)
     else if nterm = INL nEFun then
@@ -1423,7 +1434,7 @@ Definition ptree_Expr_def:
           do
             expect_tok funct FunctionT;
             ps <- ptree_PatternMatch pmatch;
-            return (build_function "" (flatten_pmatch ps))
+            return (build_function (flatten_pmatch ps))
           od
       | _ => fail (locs, «Impossible: nEFunction»)
     else if nterm = INL nETry then
@@ -1434,7 +1445,7 @@ Definition ptree_Expr_def:
             expect_tok witht WithT;
             x <- ptree_Expr nExpr expr;
             ps <- ptree_PatternMatch pmatch;
-            return (build_handle "" (flatten_pmatch ps) x)
+            return (build_handle x (flatten_pmatch ps))
           od
       | _ => fail (locs, «Impossible: nETry»)
     else if nterm = INL nEWhile then
