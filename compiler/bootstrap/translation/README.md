@@ -49,6 +49,9 @@ Translate the MIPS instruction encoder and MIPS-specific config.
 [parserProgScript.sml](parserProgScript.sml):
 Translate the compiler's parser.
 
+[printingProgScript.sml](printingProgScript.sml):
+Translate the pretty printing functions for the REPL
+
 [reg_allocProgScript.sml](reg_allocProgScript.sml):
 Translate the compiler's register allocator.
 
