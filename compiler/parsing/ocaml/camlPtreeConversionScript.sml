@@ -1401,12 +1401,9 @@ Definition ptree_Expr_def:
             expect_tok rarrow RarrowT;
             ps <- ptree_Patterns params;
             x <- ptree_Expr nExpr expr;
-            return (Fun "" (Mat (Var (Short ""))
-                           (MAP (λps. case ps of
-                                        [] => (Pany, Var (Short ""))
-                                      | p::ps =>
-                                              (p, build_fun_lam x ps))
-                                ps)))
+            (if EVERY (λp. case p of [_] => T | _ => F) ps then return () else
+              fail (locs, «Or-patterns are not allowed in fun expressions»));
+            return (build_fun_lam x (MAP HD ps))
           od
       | [funt; params; colon; typ; rarrow; expr] =>
           do
@@ -1415,13 +1412,9 @@ Definition ptree_Expr_def:
             ps <- ptree_Patterns params;
             x <- ptree_Expr nExpr expr;
             ty <- ptree_Type typ;
-            return (Tannot (Fun "" (Mat (Var (Short ""))
-                                   (MAP (λps. case ps of
-                                                      (* this never happens:*)
-                                                [] => (Pany, Var (Short ""))
-                                              | p::ps =>
-                                                  (p, build_fun_lam x ps))
-                                        ps))) ty)
+            (if EVERY (λp. case p of [_] => T | _ => F) ps then return () else
+              fail (locs, «Or-patterns are not allowed in fun expressions»));
+            return (Tannot (build_fun_lam x (MAP HD ps)) ty)
           od
       | _ => fail (locs, «Impossible: nEFun»)
     else if nterm = INL nEFunction then
