@@ -416,8 +416,8 @@ Definition camlPEG_def[nocompute]:
       (* -- Typedef -------------------------------------------------------- *)
       (INL nExcDefinition,
        seql [tokeq ExceptionT;
-             choicel [pnt nConstrDecl;
-                      seql [pnt nConstrName; tokeq EqualT; pnt nConstr] I]]
+             choicel [seql [pnt nConstrName; tokeq EqualT; pnt nConstr] I;
+                      pnt nConstrDecl]]
             (bindNT nExcDefinition));
       (INL nTypeDefinition,
        seql [tokeq TypeT; try (tokeq NonrecT); pnt nTypeDefs]
