@@ -1756,17 +1756,13 @@ Definition ptree_ExcDefinition_def:
           do
             expect_tok exnt ExceptionT;
             (nm, args) <- ptree_ConstrDecl cdecl;
-            return (Dexn locs nm args)
+            (* OCaml expects zero or single argument constructors *)
+            case args of
+              [] => return (Dexn locs nm [])
+            | _ => return (Dexn locs nm [Attup args])
           od
       | [exnt; lhsid; eq; rhsid] =>
-          do
-            expect_tok exnt ExceptionT;
-            expect_tok eq EqualT;
-            lhs <- ptree_ConstrName lhsid;
-            cns <- ptree_Constr rhsid;
-            rhs <- path_to_ns locs cns;
-            return (Dexn locs lhs [Atapp [] rhs])
-          od
+          fail (locs, «Exception abbreviation is not supported»)
       | _ => fail (locs, «Impossible: nExcDefinition»)
     else
       fail (locs, «Expected an exception definition non-terminal»)
