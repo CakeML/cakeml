@@ -18,6 +18,7 @@ Overload Tf = “λt. Lf (TOK t, unknown_loc)”;
 Overload vbinop = “λopn a1 a2. App Opapp [App Opapp [Var opn; a1]; a2]”;
 Overload V = “λvnm. Var (Short vnm)”;
 Overload Pc = “λcnm. Pcon (SOME (Short cnm))”;
+Overload C = “λcnm. Con (SOME (Short cnm))”
 
 (*
 Overload EREL =
@@ -138,26 +139,56 @@ fun tytest0 s r = parsetest0 “nType” “ptree_Type” s (SOME r);
 val tytest = parsetest “nType” “ptree_Type”;
 
 val _ = tytest0 "'a"
-  “Atvar "a"”;
+  “Atvar "a"”
+  ;
 
 val _ = tytest0 "'a * 'b"
-  “Attup [Atvar "a"; Atvar "b"]”;
+  “Attup [Atvar "a"; Atvar "b"]”
+  ;
 
 val _ = tytest0 "'a * 'b * 'c"
-  “Attup [Atvar "a"; Atvar "b"; Atvar "c"]”;
+  “Attup [Atvar "a"; Atvar "b"; Atvar "c"]”
+  ;
 
 val _ = tytest0 "'a * 'b -> 'c"
-  “Atfun (Attup [Atvar "a"; Atvar "b"]) (Atvar "c")”;
+  “Atfun (Attup [Atvar "a"; Atvar "b"]) (Atvar "c")”
+  ;
 
 val _ = tytest0 "('a, 'b) blorb"
-  “Atapp [Atvar "a"; Atvar "b"] (Short "blorb")”;
+  “Atapp [Atvar "a"; Atvar "b"] (Short "blorb")”
+  ;
 
 val _ = tytest0 "Foo.blorb"
-  “Atapp [] (Long "Foo" (Short "blorb"))”;
-(*
-val nt = “nType”; val sem = “ptree_Type”; val s = "'a * 'b";
-val opt = SOME “Attup [Atvar "a"; Atvar "b"]”;
-*)
+  “Atapp [] (Long "Foo" (Short "blorb"))”
+  ;
+
+val _ = tytest0 "'a * bool"
+  “Attup [Atvar "a"; Atapp [] (Short "bool")]”
+  ;
+
+val _ = tytest0 "'a * bool * 'c"
+  “Attup [Atvar "a"; Atapp [] (Short "bool"); Atvar "c"]”
+  ;
+
+val _ = tytest0 "'a * bool -> 'a"
+  “Atfun (Attup [Atvar "a"; Atapp [] (Short "bool")]) (Atvar "a")”
+  ;
+
+val _ = tytest0 "'a * (bool * 'c)"
+  “Attup [Atvar "a"; Attup [Atapp [] (Short "bool"); Atvar "c"]]”
+  ;
+
+val _ = tytest0 "('a * bool) * 'c"
+  “Attup [Attup [Atvar "a"; Atapp [] (Short "bool")]; Atvar "c"]”
+  ;
+
+val _ = tytest0 "('a * 'b)"
+  “Attup [Atvar "a"; Atvar "b"]”
+  ;
+
+val _ = tytest0 "('a,'b) d"
+ “Atapp [Atvar "a"; Atvar "b"] (Short "d")”
+ ;
 
 (* -------------------------------------------------------------------------
  * Patterns
@@ -251,6 +282,159 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   (SOME “Fun "x" (Fun "y" (Fun "z" (V "y")))”)
   ;
 
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "fun z (x, y) w -> x + y"
+  (SOME “Fun "z" (Fun "" (Mat (V "")
+                     [(Pcon NONE [Pvar "x"; Pvar "y"],
+                       Fun "w" (vbinop (Short "+") (V "x") (V "y")))]))”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "(x : int)"
+  (SOME “Tannot (V "x") (Atapp [] (Short "int"))”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "(x : int) + 3"
+  (SOME “vbinop (Short "+") (Tannot (V "x") (Atapp [] (Short "int")))
+                            (Lit (IntLit 3))”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "(=)"
+  (SOME “V "="”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "(THEN)"
+  (SOME “V "THEN"”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "(mod)"
+  (SOME “V "mod"”)
+  ;
+
+(* Oops: lexer should support parenthesized star *)
+(*
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "f (+) 10"
+  (SOME “App Opapp [App Opapp [V "f"; V "*"]; Lit (IntLit 10)]”)
+  ;
+ *)
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "f (+) 10"
+  (SOME “App Opapp [App Opapp [V "f"; V "+"]; Lit (IntLit 10)]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "(+) 10 11"
+  (SOME “App Opapp [App Opapp [V "+"; Lit (IntLit 10)]; Lit (IntLit 11)]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "(THEN) t1 t2"
+  (SOME “App Opapp [App Opapp [V "THEN"; V "t1"]; V "t2"]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "t1 THEN t2"
+  (SOME “vbinop (Short "THEN") (V "t1") (V "t2")”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "t1 * t2"
+  (SOME “vbinop (Short "*") (V "t1") (V "t2")”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "()"
+  (SOME “Con NONE []”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "begin end"
+  (SOME “Con NONE []”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Some begin end"
+  (SOME “C "Some" [Con NONE []]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  " match x with\
+  \ | [] -> 3\
+  \ | [e;_] -> e"
+  (SOME “Mat (Var (Short "x"))
+             [(Pc "[]" [], Lit (IntLit 3));
+              (Pc "::" [Pvar "e"; Pc "::" [Pany; Pc "[]" []]],
+                       V "e")]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  " match x with\
+  \ | Some 3 | Some 4 -> e\
+  \ | _ -> d"
+  (SOME “Mat (V "x")
+             [(Pc "Some" [Plit (IntLit 3)], V "e");
+              (Pc "Some" [Plit (IntLit 4)], V "e");
+              (Pany, V "d")]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  " match x with \
+  \ | [] -> 3\
+  \ | [] :: _ -> 1\
+  \ | (h::t) :: rest -> 2"
+  (SOME “Mat (V "x")
+             [(Pc "[]" [], Lit (IntLit 3));
+              (Pc "::" [Pc "[]" []; Pany], Lit (IntLit 1));
+              (Pc "::" [Pc "::" [Pvar "h"; Pvar "t"]; Pvar "rest"],
+               Lit (IntLit 2))]”)
+  ;
+
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "[3;4]"
+  (SOME “C "::" [Lit (IntLit 3); C "::" [Lit (IntLit 4); C "[]" []]]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "[ ]"
+  (SOME “C "[]" []”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "3::t = l"
+  (SOME “vbinop (Short "=")
+                (C "::" [Lit (IntLit 3); V "t"])
+                (V "l")”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "3 < x = true"
+  (SOME “vbinop (Short "=")
+                (vbinop (Short "<") (Lit (IntLit 3)) (V "x"))
+                (C "True" [])”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "(x,y,4)"
+  (SOME “Con NONE [V "x"; V "y"; Lit (IntLit 4)]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Cons (x,3)"
+  (SOME “C "Cons" [Con NONE [V "x"; Lit (IntLit 3)]]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "FUNCTION (x,3)"
+  (SOME “App Opapp [V "FUNCTION"; Con NONE [V "x"; Lit (IntLit 3)]]”)
+  ;
+
 (* -------------------------------------------------------------------------
  * Modules
  * ------------------------------------------------------------------------- *)
@@ -288,18 +472,6 @@ val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
           "a as (b as c)"
           (SOME “Pas (Pas (Pvar "c") "b") "a"”)
 
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "x : int"
-          (SOME ``Tannot (Var (Short "x")) (Atapp [] (Short "int"))``)
-
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "(x : int) + 3"
-          (SOME ``vbinop (Short "+")
-                         (Tannot (Var (Short "x"))
-                                 (Atapp [] (Short "int")))
-                         (Lit (IntLit 3))``)
-
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "op="
-          (SOME ``Var (Short "=")``)
-
 val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec``
           "val x = 10"
           (SOME ``Dlet locs (Pvar "x") (Lit (IntLit 10))``)
@@ -332,7 +504,6 @@ val _ = parsetest0 ``nTopLevelDecs`` ``ptree_TopLevelDecs`` "; ; "
                    (SOME ``[] : dec list``)
 val _ = parsetest0 ``nTopLevelDecs`` ``ptree_TopLevelDecs`` ""
                    (SOME ``[] : dec list``)
-
 
 val _ = parsetest0 “nDecl” “ptree_Decl”
                    "local val x = 3; val z = 10; in val y = x; end"
@@ -368,29 +539,6 @@ val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "fun f (x,y) (SOME z) = x * y + z"
                                                    (Var (Short "z")))]))])]``)
 
 
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "op*" (SOME ``Var (Short "*")``)
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "f op* 10"
-                   (SOME ``OLDAPP (OLDAPP (Var (Short "f")) (Var (Short "*")))
-                                  (Lit (IntLit 10))``)
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "f op+ 10"
-                   (SOME ``OLDAPP (OLDAPP (Var (Short "f")) (Var (Short "+")))
-                                  (Lit (IntLit 10))``)
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "op*(2,3)"
-                   (SOME ``OLDAPP (Var (Short "*"))
-                              (Con NONE [Lit (IntLit 2); Lit (IntLit 3)])``)
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "op tHEN(t1,t2)"
-                   (SOME ``OLDAPP (Var (Short "tHEN"))
-                              (Con NONE [Var (Short "t1"); Var (Short "t2")])``)
-
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "2 * 3"
-                   (SOME ``vbinop (Short "*")
-                              (Lit (IntLit 2))
-                              (Lit (IntLit 3))``)
-
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "()"
-                   (SOME ``Con NONE []``)
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "SOME ()"
-                   (SOME ``Con (SOME (Short "SOME")) [Con NONE []]``)
 
 val _ = parsetest0 ``nSpecLine`` ``ptree_SpecLine`` "type 'a foo = 'a list"
                    (SOME ``() (* Stabbrev ["'a"] "foo"
@@ -412,64 +560,6 @@ val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val [] = f x"
           (SOME ``Dlet locs (Pcon (SOME (Short "[]")) [])
                            (OLDAPP (Var (Short "f"))
                                     (Var (Short "x")))``)
-val _ = parsetest0 ``nE`` ``ptree_Expr nE``
-                   "case x of [] => 3 | [] :: _ => 1 | (h::t) :: rest => 2"
-          (SOME ``Mat (Var (Short "x"))
-                    [(Pcon (SOME (Short "[]")) [],Lit (IntLit 3));
-                     (Pcon (SOME (Short "::"))
-                               [Pcon (SOME (Short "[]")) []; Pany],
-                      Lit (IntLit 1));
-                     (Pcon (SOME (Short "::"))
-                               [Pcon (SOME (Short "::"))
-                                         [Pvar "h"; Pvar "t"];
-                                Pvar "rest"],
-                      Lit (IntLit 2))]``)
-
-
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "case x of [] => 3 | [e, _] => e"
-           (SOME ``Mat (Var (Short "x"))
-                     [(Pcon (SOME (Short "[]")) [],Lit (IntLit 3));
-                      (Pcon (SOME (Short "::"))
-                                [Pvar "e";
-                                 Pcon (SOME (Short "::"))
-                                          [Pany;
-                                           Pcon (SOME (Short "[]")) []]],
-                       Var (Short "e"))]``)
-
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "[3,4]"
-                   (SOME ``Con (SOME (Short "::"))
-                             [Lit (IntLit 3);
-                              Con (SOME (Short "::"))
-                                      [Lit (IntLit 4);
-                                       Con (SOME (Short "[]")) []]]``)
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "[]"
-                   (SOME ``Con (SOME (Short "[]")) []``);
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "3::t = l"
-                   (SOME ``OLDAPP
-                            (OLDAPP (Var (Short "="))
-                                     (Con (SOME (Short "::"))
-                                              [Lit (IntLit 3);
-                                               Var (Short "t")]))
-                            (Var (Short "l"))``)
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "3 < x = True"
-                   (SOME ``vbinop (Short "=")
-                                  (vbinop (Short "<")
-                                          (Lit (IntLit 3))
-                                          (Var (Short "x")))
-                                  (Con (SOME (Short "True")) [])``)
-
-val _ = tytest0 "'a * bool"
-                ``Attup [Atvar "'a"; Atapp [] (Short "bool")]``
-
-val _ = tytest0 "'a * bool * 'c"
-                ``Attup [Atvar "'a";
-                         Atapp [] (Short "bool");
-                         Atvar "'c"]``
-
-val _ = tytest "'a * bool -> 'a"
-val _ = tytest "'a * (bool * 'c)"
-val _ = tytest "(bool * int)"
-val _ = tytest "(bool list * int) * bool"
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Foo"
                    (SOME ``Dexn locs "Foo" []``)
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Bar int"
@@ -489,19 +579,6 @@ val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "(x,3)"
 val _ = parsetest “nPas” “ptree_Pattern nPas” "t as C(x,y)"
 val _ = parsetest “nPattern” “ptree_Pattern nPattern”
                   "x3 as [C _ (x as [y,z]), D]"
-
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "(x,y,4)"
-                   (SOME ``Con NONE [Var (Short "x");
-                                         Var (Short "y");
-                                         Lit (IntLit 4)]``);
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "C(x,3)"
-                   (SOME ``Con (SOME (Short "C"))
-                               [Con NONE [Var (Short "x"); Lit (IntLit 3)]]``)
-val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "f(x,3)"
-                   (SOME ``OLDAPP (Var (Short "f"))
-                                   (Con NONE
-                                            [Var (Short "x");
-                                             Lit (IntLit 3)])``)
 
 val _ = tytest "'a"
 val _ = tytest "'a -> bool"
