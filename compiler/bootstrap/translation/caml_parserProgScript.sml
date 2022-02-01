@@ -74,6 +74,8 @@ val _ = ml_translatorLib.use_string_type true;
  * Ptree conversion
  * ------------------------------------------------------------------------- *)
 
+val r = translate FLAT;
+
 Theorem bind_thm:
   bind x f = case x of INL err => INL err | INR y => f y
 Proof
@@ -166,9 +168,9 @@ Proof
   \\ gs [FORALL_PROD]
   \\ gs [EVERY_MEM, FORALL_PROD, quantHeuristicsTheory.ISR_exists,
          quantHeuristicsTheory.ISL_exists, SF SFY_ss]
-  \\ strip_tac
-  \\ res_tac
-  \\ gvs []
+  \\ strip_tac \\ gvs []
+  \\ gs [SF DNF_ss, SF SFY_ss]
+  \\ res_tac \\ fs []
 QED
 
 val _ = update_precondition ptree_typedefinition_side;

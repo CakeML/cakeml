@@ -1415,7 +1415,7 @@ Definition ptree_Expr_def:
             x <- ptree_Expr nExpr expr;
             (if EVERY (λp. case p of [_] => T | _ => F) ps then return () else
               fail (locs, «Or-patterns are not allowed in fun expressions»));
-            return (build_fun_lam x (MAP HD ps))
+            return (build_fun_lam x (FLAT ps))
           od
       | [funt; params; colon; typ; rarrow; expr] =>
           do
@@ -1426,7 +1426,7 @@ Definition ptree_Expr_def:
             ty <- ptree_Type typ;
             (if EVERY (λp. case p of [_] => T | _ => F) ps then return () else
               fail (locs, «Or-patterns are not allowed in fun expressions»));
-            return (Tannot (build_fun_lam x (MAP HD ps)) ty)
+            return (Tannot (build_fun_lam x (FLAT ps)) ty)
           od
       | _ => fail (locs, «Impossible: nEFun»)
     else if nterm = INL nEFunction then
@@ -1498,7 +1498,7 @@ Definition ptree_Expr_def:
             bd <- ptree_Expr nExpr expr;
             (if EVERY (λp. case p of [_] => T | _ => F) ps then return () else
               fail (locs, «Or-patterns are not allowed in let (rec) bindings»));
-            return (nm, MAP HD ps, Tannot bd ty)
+            return (nm, FLAT ps, Tannot bd ty)
           od
       | [id; pats; eq; expr] =>
           do
@@ -1508,7 +1508,7 @@ Definition ptree_Expr_def:
             bd <- ptree_Expr nExpr expr;
             (if EVERY (λp. case p of [_] => T | _ => F) ps then return () else
               fail (locs, «Or-patterns are not allowed in let (rec) bindings»));
-            return (nm, MAP HD ps, bd)
+            return (nm, FLAT ps, bd)
           od
       | _ => fail (locs, «Impossible: nLetRecBinding»)
     else
@@ -1553,7 +1553,7 @@ Definition ptree_Expr_def:
             bd <- ptree_Expr nExpr bod;
             (if EVERY (λp. case p of [_] => T | _ => F) ps then return () else
               fail (locs, «Or-patterns are not allowed in let (rec) bindings»));
-            return $ INR (nm, MAP HD ps, bd)
+            return $ INR (nm, FLAT ps, bd)
           od
       | [id; pats; colon; type; eq; bod] =>
           do
@@ -1565,7 +1565,7 @@ Definition ptree_Expr_def:
             bd <- ptree_Expr nExpr bod;
             (if EVERY (λp. case p of [_] => T | _ => F) ps then return () else
               fail (locs, «Or-patterns are not allowed in let (rec) bindings»));
-            return $ INR (nm, MAP HD ps, Tannot bd ty)
+            return $ INR (nm, FLAT ps, Tannot bd ty)
           od
       | _ => fail (locs, «Impossible: nLetBinding»)
     else
@@ -1747,6 +1747,15 @@ Definition ptree_ExcType_def:
       fail (locs, «Expected an exception type declaration non-terminal»)
 End
 
+(* Ensure types get 0 or 1 arguments by wrapping >1 arguments in a tuple. *)
+
+Definition ctor_tup_def:
+  ctor_tup tys =
+    case tys of
+      _::_::_ => [Attup tys]
+    | _ => tys
+End
+
 Definition ptree_ExcDefinition_def:
   ptree_ExcDefinition (Lf (_, locs)) =
     fail (locs, «Expected an exception definition non-terminal») ∧
@@ -1757,10 +1766,7 @@ Definition ptree_ExcDefinition_def:
           do
             expect_tok exnt ExceptionT;
             (nm, args) <- ptree_ConstrDecl cdecl;
-            (* OCaml expects zero or single argument constructors *)
-            case args of
-              _::_::_ => return (Dexn locs nm [Attup args])
-            | _ => return (Dexn locs nm args)
+            return $ Dexn locs nm (ctor_tup args)
           od
       | [exnt; lhsid; eq; rhsid] =>
           fail (locs, «Exception abbreviation is not supported»)
@@ -1839,9 +1845,7 @@ Definition ptree_TypeInfo_def:
             else if n = INL nTypeRepr then
               do
                 tr <- ptree_TypeRepr arg;
-                return $ INR $
-                  MAP (λ(n,ts). case ts of _::_::_ => (n, [Attup ts])
-                                         | _ => (n, ts)) tr
+                return $ INR $ MAP (λ(n,ts). (n, ctor_tup ts)) tr
               od
             else
               fail (locs, «Impossible: nTypeInfo»)
