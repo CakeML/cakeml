@@ -78,6 +78,67 @@ Definition fmap_def[simp]:
 End
 
 (* -------------------------------------------------------------------------
+ * Compatibility layer
+ * ------------------------------------------------------------------------- *)
+
+(* Fix some constructor applications that needs to be in CakeML's curried
+ * style. These are things from basis and Candle; all new constructors will
+ * get tupled arguments.
+ *)
+
+Definition compatCurryP_def:
+  compatCurryP id pat =
+    case id of
+      Long _ _ => Pcon (SOME id) [pat]
+    | Short nm =>
+        if nm = "Abs" ∨ nm = "Var" ∨ nm = "Const" ∨ nm = "Comb" ∨
+           nm = "Sequent" ∨ nm = "PP_Data" then
+          case pat of
+            Pcon NONE ps => Pcon (SOME id) ps
+          | _ => Pcon (SOME id) [pat]
+        else
+          Pcon (SOME id) [pat]
+End
+
+Definition compatCurryE_def:
+  compatCurryE id exp =
+    case id of
+      Long _ _ => Con (SOME id) [exp]
+    | Short nm =>
+        if nm = "Abs" ∨ nm = "Var" ∨ nm = "Const" ∨ nm = "Comb" ∨
+           nm = "Sequent" ∨ nm = "PP_Data" then
+          case exp of
+            Con NONE xs => Con (SOME id) xs
+          | _ => Con (SOME id) [exp]
+        else
+          Con (SOME id) [exp]
+End
+
+(* Rename some constructors from basis that Candle needs (but otherwise cannot
+ * parse).
+ *)
+
+Definition compatCons_def:
+  compatCons cn =
+    if cn = "Bad_file_name" then "BadFileName"
+    else if cn = "Pp_data" then "PP_Data"
+    else cn
+End
+
+(* Rename some module names from basis that Candle needs (but otherwise cannot
+ * parse).
+ *)
+
+Definition compatModName_def:
+  compatModName mn =
+    if mn = "Text_io" then "TextIO"
+    else if mn = "Pretty_printer" then "PrettyPrinter"
+    else if mn = "Command_line" then "CommandLine"
+    else if mn = "Word8_array" then "Word8Array"
+    else mn
+End
+
+(* -------------------------------------------------------------------------
  * Parse tree conversion
  * ------------------------------------------------------------------------- *)
 
@@ -300,16 +361,6 @@ Definition ptree_ValueName_def:
       fail (locs, «Expected value-name non-terminal»)
 End
 
-(* Rename some constructors from basis that Candle needs (but otherwise cannot
- * parse).
- *)
-
-Definition compatCons_def:
-  compatCons cn =
-    if cn = "Bad_file_name" then "BadFileName"
-    else if cn = "Pp_data" then "PP_Data"
-    else cn
-End
 
 Definition ptree_ConstrName_def:
   ptree_ConstrName (Lf (_, locs)) =
@@ -343,19 +394,6 @@ Definition ptree_TypeConstrName_def:
       | _ => fail (locs, «Impossible: nTypeConstrName»)
     else
       fail (locs, «Expected typeconstr-name non-terminal»)
-End
-
-(* Rename some module names from basis that Candle needs (but otherwise cannot
- * parse).
- *)
-
-Definition compatModName_def:
-  compatModName mn =
-    if mn = "Text_io" then "TextIO"
-    else if mn = "Pretty_printer" then "PrettyPrinter"
-    else if mn = "Command_line" then "CommandLine"
-    else if mn = "Word8_array" then "Word8Array"
-    else mn
 End
 
 Definition ptree_ModuleName_def:
@@ -765,7 +803,7 @@ Definition ptree_Pattern_def:
             cns <- ptree_Constr id;
             id <- path_to_ns locs cns;
             ps <- ptree_Pattern nPLazy pat;
-            return (MAP (λp. Pcon (SOME id) [p]) ps)
+            return (MAP (λp. compatCurryP id p) ps)
           od
       | _ => fail (locs, «Impossible: nPConstr»)
     else if nterm = INL nPApp then
@@ -1181,7 +1219,7 @@ Definition ptree_Expr_def:
             cns <- ptree_Constr consid;
             id <- path_to_ns locs cns;
             x <- ptree_Expr nEBase expr;
-            return (Con (SOME id) [x])
+            return $ compatCurryE id x
           od
       | _ => fail (locs, «Impossible: nEConstr»)
     else if nterm = INL nEFunapp then
