@@ -655,22 +655,30 @@ val _ = parsetest0 “nDefinition” “ptree_Definition”
 
 val _ = parsetest0 “nSigSpec” “ptree_SigSpec”
   "sig val x : t end"
-  NONE
+  (SOME “()”)
   ;
 
-val _ = parsetest0 “nModuleType” “ptree_nModuleType”
+val _ = parsetest0 “nModuleType” “ptree_ModuleType”
   "sig val x : t end"
-  NONE
+  (SOME “()”)
   ;
 
-val _ = parsetest0 “nModuleType” “ptree_nModuleType”
+val _ = parsetest0 “nModuleType” “ptree_ModuleType”
   "SIGNATURENAME"
-  NONE
+  (SOME “()”)
   ;
 
-val _ = parsetest0 “nModuleType” “ptree_nModuleType”
+val _ = parsetest0 “nModuleType” “ptree_ModuleType”
   "Module.SIGnaturename"
-  NONE
+  (SOME “()”)
+  ;
+
+val _ = parsetest0 “nModuleTypeDef” “ptree_Definition”
+  " module type SIGNAME = sig \
+  \   val x : t \
+  \   val y : d \
+  \ end"
+  (SOME “[]:dec list”)
   ;
 
 val _ = parsetest0 “nModuleTypeDef” “ptree_nModuleTypeDef”
