@@ -89,10 +89,16 @@ End
 Definition compatCurryP_def:
   compatCurryP id pat =
     case id of
-      Long _ _ => Pcon (SOME id) [pat]
+      Long mn vn =>
+        if mn = "PrettyPrinter" ∧ vn = Short "PP_Data" then
+          case pat of
+            Pcon NONE ps => Pcon (SOME id) ps
+          | _ => Pcon (SOME id) [pat]
+        else
+          Pcon (SOME id) [pat]
     | Short nm =>
         if nm = "Abs" ∨ nm = "Var" ∨ nm = "Const" ∨ nm = "Comb" ∨
-           nm = "Sequent" ∨ nm = "PP_Data" then
+           nm = "Sequent" then
           case pat of
             Pcon NONE ps => Pcon (SOME id) ps
           | _ => Pcon (SOME id) [pat]
@@ -103,10 +109,16 @@ End
 Definition compatCurryE_def:
   compatCurryE id exp =
     case id of
-      Long _ _ => Con (SOME id) [exp]
+      Long mn vn =>
+        if mn = "PrettyPrinter" ∧ vn = Short "PP_Data" then
+          case exp of
+            Con NONE xs => Con (SOME id) xs
+          | _ => Con (SOME id) [exp]
+        else
+          Con (SOME id) [exp]
     | Short nm =>
         if nm = "Abs" ∨ nm = "Var" ∨ nm = "Const" ∨ nm = "Comb" ∨
-           nm = "Sequent" ∨ nm = "PP_Data" then
+           nm = "Sequent" then
           case exp of
             Con NONE xs => Con (SOME id) xs
           | _ => Con (SOME id) [exp]
