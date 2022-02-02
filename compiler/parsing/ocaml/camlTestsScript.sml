@@ -17,6 +17,7 @@ Overload Tf = “λt. Lf (TOK t, unknown_loc)”;
 
 Overload vbinop = “λopn a1 a2. App Opapp [App Opapp [Var opn; a1]; a2]”;
 Overload V = “λvnm. Var (Short vnm)”;
+Overload Pv = “λvnm. Pvar vnm”;
 Overload Pc = “λcnm. Pcon (SOME (Short cnm))”;
 Overload C = “λcnm. Con (SOME (Short cnm))”
 
@@ -819,6 +820,16 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "Comb (Var (v, s), Const (w, t))"
   (SOME “C "Comb" [C "Var" [V "v"; V "s"]; C "Const" [V "w"; V "t"]]”)
   ;
+
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "Comb (Var (v, s), Const (w, t))"
+  (SOME “Pc "Comb" [Pc "Var" [Pv "v"; Pv "s"]; Pc "Const" [Pv "w"; Pv "t"]]”)
+  ;
+
+(* TODO
+ *   It's not necessary, but it would be nice if we can turn
+ *   e.g. Comb _ into Comb _ _.
+ *)
 
 (*
 
