@@ -681,12 +681,90 @@ val _ = parsetest0 “nModuleTypeDef” “ptree_Definition”
   (SOME “[]:dec list”)
   ;
 
-val _ = parsetest0 “nModuleTypeDef” “ptree_nModuleTypeDef”
-  " module type SIGNAME = sig \
-  \   val x : t \
-  \   val y : d \
-  \ end"
-  NONE
+(* -------------------------------------------------------------------------
+ * Candle compatibility layer.
+ *
+ * We replace all on the left in this list, with what's on the right:
+ *
+ * Modules:
+ *   Text_io        -> TextIO
+ *   Word8_array    -> Word8Array
+ *   Command_line   -> CommandLine
+ *   Pretty_printer -> PrettyPrinter
+ *
+ * Constructors:
+ *   Bad_file_name  -> BadFileName
+ *   Pp_data        -> PP_Data
+ *
+ * This is done for constructor names and module names.
+ *
+ * We also curry all constructor application patterns and constructor
+ * applications that come from this list:
+ *
+ *   Abs, Comb, Var, Const (two arguments)
+ *   Sequent               (two arguments)
+ *   PP_Data               (two arguments)
+ *
+ * ------------------------------------------------------------------------- *)
+
+val _ = parsetest0 “nConstrName” “ptree_ConstrName”
+  "Bad_file_name"
+  (SOME “"BadFileName"”)
+  ;
+
+val _ = parsetest0 “nConstrName” “ptree_ConstrName”
+  "Pp_data"
+  (SOME “"PP_Data"”)
+  ;
+
+val _ = parsetest0 “nModuleName” “ptree_ModuleName”
+  "Text_io"
+  (SOME “"TextIO"”)
+  ;
+
+val _ = parsetest0 “nModuleName” “ptree_ModuleName”
+  "Word8_array"
+  (SOME “"Word8Array"”)
+  ;
+
+val _ = parsetest0 “nModuleName” “ptree_ModuleName”
+  "Command_line"
+  (SOME “"CommandLine"”)
+  ;
+
+val _ = parsetest0 “nModuleName” “ptree_ModuleName”
+  "Pretty_printer"
+  (SOME “"PrettyPrinter"”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Comb (x, y)"
+  (SOME “C "Comb" [V "x"; V "y"]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Abs (x, y)"
+  (SOME “C "Abs" [V "x"; V "y"]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Var (x, y)"
+  (SOME “C "Var" [V "x"; V "y"]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Sequent (x, y)"
+  (SOME “C "Sequent" [V "x"; V "y"]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Const (x, y)"
+  (SOME “C "Const" [V "x"; V "y"]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Pp_data (x, y)"
+  (SOME “C "PP_Data" [V "x"; V "y"]”)
   ;
 
 (*
