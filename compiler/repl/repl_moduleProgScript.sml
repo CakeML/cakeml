@@ -28,16 +28,19 @@ val _ = translation_extends "candle_kernelProg";
 val _ = (append_prog o process_topdecs) `
   fun pp_type ty =
     ((case ty of Tyvar _ => () | _ => ());
-     PrettyPrinter.pp_string "<type>");
+     PrettyPrinter.token "<type>");
+  fun pp_hol_type ty =
+    ((case ty of Tyvar _ => () | _ => ());
+     PrettyPrinter.token "<hol_type>");
   fun pp_term tm =
     ((case tm of Var _ _ => () | _ => ());
-     PrettyPrinter.pp_string "<term>");
+     PrettyPrinter.token "<term>");
   fun pp_thm th =
     (case th of Sequent _ _ =>
-     PrettyPrinter.pp_string "<thm>");
+     PrettyPrinter.token "<thm>");
   fun pp_update up =
     ((case up of Newaxiom _ => () | _ => ());
-     PrettyPrinter.pp_string "<update>"); `
+     PrettyPrinter.token "<update>"); `
 
 val _ = ml_prog_update (open_module "Repl");
 
