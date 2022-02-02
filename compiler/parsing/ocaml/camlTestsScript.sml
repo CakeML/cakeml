@@ -239,6 +239,36 @@ val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
  * Expressions
  * ------------------------------------------------------------------------- *)
 
+val _ = parsetest0 “nValuePath” “ptree_ValuePath”
+  "Aa.B_b.c"
+  (SOME “["Aa"; "B_b"; "c"]”)
+  ;
+
+val _ = parsetest0 “nValuePath” “ptree_ValuePath”
+  "B_b.cDEF"
+  (SOME “["B_b"; "cDEF"]”)
+  ;
+
+val _ = parsetest0 “nValuePath” “ptree_ValuePath”
+  "cDEF"
+  (SOME “["cDEF"]”)
+  ;
+
+val _ = parsetest0 “nConstr” “ptree_Constr”
+  "Cd"
+  (SOME “["Cd"]”)
+  ;
+
+val _ = parsetest0 “nConstr” “ptree_Constr”
+  "Ab.Cd"
+  (SOME “["Ab"; "Cd"]”)
+  ;
+
+val _ = parsetest0 “nModulePath” “ptree_ModulePath”
+  "Mm.Nn"
+  (SOME “["Mm"; "Nn"]”)
+  ;
+
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "let [x; y] = z in w"
   (SOME “Mat (V "z")
@@ -717,6 +747,16 @@ val _ = parsetest0 “nConstrName” “ptree_ConstrName”
   (SOME “"PP_Data"”)
   ;
 
+val _ = parsetest0 “nConstr” “ptree_Constr”
+  "Text_io.Bad_file_name"
+  (SOME “["TextIO"; "BadFileName"]”)
+  ;
+
+val _ = parsetest0 “nConstr” “ptree_Constr”
+  "Pretty_printer.Pp_data"
+  (SOME “["PrettyPrinter"; "PP_Data"]”)
+  ;
+
 val _ = parsetest0 “nModuleName” “ptree_ModuleName”
   "Text_io"
   (SOME “"TextIO"”)
@@ -736,6 +776,14 @@ val _ = parsetest0 “nModuleName” “ptree_ModuleName”
   "Pretty_printer"
   (SOME “"PrettyPrinter"”)
   ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Pretty_printer.token"
+  (SOME “Var (Long "PrettyPrinter" (Short "token"))”)
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Pretty_printer.Text_io.stuff"
+  (SOME “Var (Long "PrettyPrinter" (Long "TextIO" (Short "stuff")))”)
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "Comb (x, y)"
@@ -763,8 +811,13 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
-  "Pp_data (x, y)"
-  (SOME “C "PP_Data" [V "x"; V "y"]”)
+  "Pretty_printer.Pp_data (x, y)"
+  (SOME “Con (SOME (Long "PrettyPrinter" (Short "PP_Data"))) [V "x"; V "y"]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Comb (Var (v, s), Const (w, t))"
+  (SOME “C "Comb" [C "Var" [V "v"; V "s"]; C "Const" [V "w"; V "t"]]”)
   ;
 
 (*
