@@ -6389,40 +6389,39 @@ Proof
   >> gs[GSYM LENGTH_NOT_NULL,GSYM NULL_EQ]
 QED
 
-Definition acyclic_len_def:
-  acyclic_len dep k = !x y. has_path_to dep k x y ==> ~is_instance_LR x y
+Definition cyclic_len_def:
+  cyclic_len dep k = ?x y. has_path_to dep k x y /\ is_instance_LR x y
 End
 
-Theorem acyclic_len_simps[simp]:
-  acyclic_len dep 0
+Theorem cyclic_len_simps[simp]:
+  ~cyclic_len dep 0
 Proof
-  fs[acyclic_len_def,path_starting_at_def]
+  fs[cyclic_len_def,path_starting_at_def]
 QED
 
-Theorem acyclic_len_ONE:
+Theorem cyclic_len_ONE:
   !dep. wf_pqs dep /\ monotone (CURRY $ set dep) ==>
-    acyclic_len (CURRY $ set dep) 1
+    ~cyclic_len (CURRY $ set dep) 1
     = EVERY ($~ o UNCURRY is_instance_LR) dep
 Proof
-  rw[EQ_IMP_THM,wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,FORALL_AND_THM,IMP_CONJ_THM,acyclic_len_def,has_path_to_ONE,PULL_EXISTS,IN_DEF]
+  rw[EQ_IMP_THM,wf_pqs_def,EVERY_MEM,ELIM_UNCURRY,FORALL_AND_THM,IMP_CONJ_THM,cyclic_len_def,has_path_to_ONE,PULL_EXISTS,IN_DEF,DISJ_EQ_IMP]
   >- (first_x_assum irule >> fs[] >> irule_at Any equiv_refl >> fs[GSYM PAIR])
   >> ntac 3 $ first_x_assum $ drule_then assume_tac
   >> gvs[equiv_def,is_instance_LR_var_renaming2]
 QED
 
-Theorem acyclic_until:
-  !dep. wf_dep dep ==>
-  ~cyclic_dep dep = (!k. acyclic_len dep k)
+Theorem cyclic_until:
+  !dep. wf_dep dep ==> cyclic_dep dep = (?k. cyclic_len dep k)
 Proof
-  rw[cyclic_dep_eq,acyclic_len_def,has_path_to_def,DISJ_EQ_IMP,PULL_EXISTS,AND_IMP_INTRO]
+  rw[cyclic_dep_eq,cyclic_len_def,DISJ_EQ_IMP,PULL_EXISTS,AND_IMP_INTRO]
 QED
 
-Theorem acyclic_len_TWO_ONE:
-  !dep. wf_dep dep /\ monotone dep /\ acyclic_len dep 2 ==> acyclic_len dep 1
+Theorem NOT_cyclic_len_TWO_ONE:
+  !dep. wf_dep dep /\ monotone dep /\ cyclic_len dep 1 ==> cyclic_len dep 2
 Proof
   simp[GSYM AND_IMP_INTRO]
   >> gen_tac >> ntac 2 strip_tac
-  >> rw[Once MONO_NOT_EQ,acyclic_len_def,has_path_to_ONE,Once is_instance_LR_eq,equiv_def]
+  >> rw[cyclic_len_def,has_path_to_ONE,Once is_instance_LR_eq,equiv_def]
   >> gs[LR_TYPE_SUBST_compose]
   >> qmatch_asmsub_abbrev_tac `LR_TYPE_SUBST r x`
   >> map_every qexists_tac [`x`,`LR_TYPE_SUBST (MAP (TYPE_SUBST r ## I) r ++ r) x`]
@@ -7061,12 +7060,13 @@ Theorem algorithm_justification:
   /\ monotone dep
   /\ FINITE $ UNCURRY dep
   /\ (!n. composable_len dep n)
-  /\ (!n. acyclic_len dep n)
+  /\ (!n. ~cyclic_len dep n)
   ==> terminating $ TC $ subst_clos dep
 Proof
-  rpt gen_tac >> strip_tac
-  >> gs $ map GSYM
-    [composable_dep_composable_len,acyclic_until,cyclic_eq_not_terminating]
+  simp[GSYM AND_IMP_INTRO]
+  >> gen_tac >> ntac 4 strip_tac
+  >> fs[Once MONO_NOT_EQ]
+  >> gs[GSYM composable_dep_composable_len,cyclic_eq_not_terminating,cyclic_until]
 QED
 
 Datatype: ext_step =
@@ -7525,14 +7525,14 @@ Proof
   >> fs[]
 QED
 
-Theorem NRC_dep_step_acyclic_len':
+Theorem NRC_dep_step_NOT_cyclic_len':
   !k dep dep'. wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') (SUC k) dep dep'
-  ==> acyclic_len (CURRY $ set dep) $ SUC $ SUC k
+  ==> ~(cyclic_len (CURRY $ set dep) $ SUC $ SUC k)
 Proof
   Cases >> rpt gen_tac >> strip_tac
   >- (
-    rw[acyclic_len_def] >> gvs[Once NRC_SUC_RECURSE_LEFT]
+    rw[DISJ_EQ_IMP,cyclic_len_def] >> gvs[Once NRC_SUC_RECURSE_LEFT]
     >> imp_res_tac has_path_to_is_const_or_type
     >> drule_at Any $ iffRL dep_step_has_path_to2
     >> fs[FORALL_PROD]
@@ -7548,7 +7548,7 @@ Proof
   )
   >> drule_at Any $ iffRL NRC_dep_step_has_path_to
   >> drule_at Any NRC_dep_step_wf_pqs
-  >> rw[acyclic_len_def]
+  >> rw[DISJ_EQ_IMP,cyclic_len_def]
   >> imp_res_tac has_path_to_is_const_or_type
   >> gvs[Once NRC_SUC_RECURSE_LEFT,FORALL_PROD,wf_pqs_APPEND]
   >> first_x_assum $ drule_at_then Any assume_tac
@@ -7563,16 +7563,16 @@ Proof
   >> gvs[EVERY_MAP,EVERY_MEM,ELIM_UNCURRY,o_DEF]
 QED
 
-Theorem NRC_dep_step_acyclic_len:
+Theorem NRC_dep_step_NOT_cyclic_len:
   !k k' dep dep'. wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') k dep dep'
-  ==> !k'. 1 < k' /\ k' <= SUC k ==> acyclic_len (CURRY $ set dep) k'
+  ==> !k'. 1 < k' /\ k' <= SUC k ==> ~(cyclic_len (CURRY $ set dep) k')
 Proof
   rw[]
   >> qmatch_assum_rename_tac `NRC _ k _ _` >> Cases_on `k` >> fs[]
   >> qmatch_assum_rename_tac `1 < k` >> Cases_on `k` >> fs[]
   >> qmatch_assum_rename_tac `1 < (SUC k)` >> Cases_on `k` >> fs[]
-  >> drule_at_then Any irule NRC_dep_step_acyclic_len' >> fs[]
+  >> drule_at_then Any irule NRC_dep_step_NOT_cyclic_len' >> fs[]
   >> irule NRC_shorter
   >> goal_assum $ drule_at Any
   >> fs[]
@@ -7732,10 +7732,10 @@ Proof
   >> fs[MEM_FILTER,Abbr`f`]
 QED
 
-Theorem acyclic_len_composable_len_NRC_dep_step2:
+Theorem NOT_cyclic_len_composable_len_NRC_dep_step2:
   !dep. wf_pqs dep /\ monotone (CURRY (set dep))
   /\ composable_len (CURRY (set dep)) 1
-  /\ acyclic_len (CURRY (set dep)) 2
+  /\ ~(cyclic_len (CURRY (set dep)) 2)
   ==> ?deps'. dep_step dep dep [] = INL deps'
 Proof
   rpt strip_tac
@@ -7743,14 +7743,14 @@ Proof
   >> fs[quantHeuristicsTheory.INL_NEQ_ELIM,quantHeuristicsTheory.ISR_exists,wf_pqs_APPEND]
   >> drule_then strip_assume_tac dep_step_INR_imp >> VAR_EQ_TAC
   >~ [`dep_step _ _ _ = INR $ Non_comp_step _`] >- (
-    qhdtm_x_assum `acyclic_len` kall_tac
+    qpat_x_assum `~(cyclic_len _ _)` kall_tac
     >> drule_all_then strip_assume_tac dep_step_non_comp_step_has_path_to1
     >> fs[composable_len_def,IN_DEF]
     >> res_tac
   )
   >> qhdtm_x_assum `composable_len` kall_tac
   >> dxrule_all_then strip_assume_tac dep_step_cyclic_step_has_path_to2
-  >> fs[acyclic_len_def]
+  >> fs[DISJ_EQ_IMP,cyclic_len_def]
   >> res_tac
 QED
 
@@ -7853,10 +7853,10 @@ Proof
   >> fs[Abbr`f`,MEM_FILTER]
 QED
 
-Theorem acyclic_len_composable_len_NRC_dep_step:
+Theorem NOT_cyclic_len_composable_len_NRC_dep_step:
   !k dep. wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ (!k'. 0 < k' /\ k' <= k ==>
-  composable_len (CURRY $ set dep) k' /\ acyclic_len (CURRY $ set dep) $ SUC k')
+  composable_len (CURRY $ set dep) k' /\ ~(cyclic_len (CURRY $ set dep) $ SUC k'))
   ==> ?dep'. NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') k dep dep'
 Proof
   Induct >> fs[] >> rpt strip_tac
@@ -7865,7 +7865,7 @@ Proof
   >> goal_assum $ drule_at Any
   >> Cases_on `k`
   >- (
-    drule acyclic_len_composable_len_NRC_dep_step2
+    drule NOT_cyclic_len_composable_len_NRC_dep_step2
     >> fs[LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,LESS_OR_EQ,FORALL_AND_THM,DISJ_IMP_THM]
   )
   >> spose_not_then assume_tac
@@ -7882,24 +7882,24 @@ Proof
     >> fs[composable_len_def,IN_DEF]
     >> res_tac
   )
-  >> `acyclic_len (CURRY $ set dep) (SUC $ SUC $ SUC n)` by fs[LESS_OR_EQ,FORALL_AND_THM,DISJ_IMP_THM]
+  >> `~(cyclic_len (CURRY $ set dep) (SUC $ SUC $ SUC n))` by fs[LESS_OR_EQ,FORALL_AND_THM,DISJ_IMP_THM]
   >> PRED_ASSUM is_forall kall_tac
   >> drule_all_then strip_assume_tac NRC_dep_step_cyclic_step_has_path_to_SUC
-  >> fs[acyclic_len_def]
+  >> fs[DISJ_EQ_IMP,cyclic_len_def]
   >> res_tac
 QED
 
-Theorem NRC_dep_step_acyclic_len_composable_len_eq:
+Theorem NRC_dep_step_NOT_cyclic_len_composable_len_eq:
   !k k' dep. wf_pqs dep /\ monotone (CURRY $ set dep)
   ==>
   (?dep'. NRC (λdep' dep''. dep_step dep dep' [] = INL dep'') k dep dep')
   = (!k'. 0 < k' /\ k' <= k ==>
-  composable_len (CURRY $ set dep) k' /\ acyclic_len (CURRY $ set dep) $ SUC k')
+  composable_len (CURRY $ set dep) k' /\ ~(cyclic_len (CURRY $ set dep) $ SUC k'))
 Proof
-  dsimp[EQ_IMP_THM,acyclic_len_composable_len_NRC_dep_step]
+  dsimp[EQ_IMP_THM,NOT_cyclic_len_composable_len_NRC_dep_step]
   >> conj_tac >- metis_tac[NRC_dep_step_composable_len]
   >> ntac 3 gen_tac >> Cases >> rw[]
-  >> drule NRC_dep_step_acyclic_len
+  >> drule NRC_dep_step_NOT_cyclic_len
   >> rpt $ disch_then $ drule
   >> disch_then irule
   >> fs[]
@@ -7953,9 +7953,9 @@ Theorem dep_steps_inv_eq':
   = (
     (1 < i - j ==> ?x y. has_path_to (CURRY $ set dep) (i - j) x y )
     /\ !k'. 0 < k' /\ k' <= i - j ==>
-    composable_len (CURRY $ set dep) k' /\ acyclic_len (CURRY $ set dep) $ SUC k')
+    composable_len (CURRY $ set dep) k' /\ ~(cyclic_len (CURRY $ set dep) $ SUC k'))
 Proof
-  rw[dep_steps_inv_def,GSYM NRC_dep_step_acyclic_len_composable_len_eq,EQ_IMP_THM]
+  rw[dep_steps_inv_def,GSYM NRC_dep_step_NOT_cyclic_len_composable_len_eq,EQ_IMP_THM]
   (* has_path_to *)
   >- (
     qmatch_assum_rename_tac `NRC _ k _ _`
@@ -8117,7 +8117,7 @@ Theorem dep_steps_sound_cyclic_step_len:
     /\ is_instance_LR p p'
     /\ !k. 0 < k /\ k <= n ==>
       composable_len (CURRY $ set dep) k
-      /\ acyclic_len (CURRY $ set dep) $ SUC k
+      /\ ~(cyclic_len (CURRY $ set dep) $ SUC k)
 Proof
   Cases >> rpt gen_tac >> strip_tac
   >> gs[dep_steps_eq_INR_thms]
@@ -8170,7 +8170,7 @@ Theorem dep_steps_sound_non_comp_step_len:
     /\ ~composable q (FST pq')
     /\ !k. 0 < k /\ k <= n ==>
       composable_len (CURRY $ set dep) k
-      /\ acyclic_len (CURRY $ set dep) $ SUC k
+      /\ ~(cyclic_len (CURRY $ set dep) $ SUC k)
 Proof
   Cases >> rpt gen_tac >> strip_tac
   >> gs[dep_steps_eq_INR_thms]
@@ -8256,7 +8256,7 @@ Theorem dep_steps_sound_maybe_cyclic_len:
     /\ monotone $ CURRY $ set dep
     ==> (!l. 0 < l /\ l <= k ==>
       composable_len (CURRY $ set dep) l
-      /\ acyclic_len (CURRY $ set dep) $ SUC l)
+      /\ ~(cyclic_len (CURRY $ set dep) $ SUC l))
     /\ ?x y. has_path_to (CURRY $ set dep) (SUC k) x y
 Proof
   rpt gen_tac >> strip_tac
@@ -8341,7 +8341,7 @@ Theorem dep_steps_complete_maybe_cyclic_len:
     /\ monotone $ CURRY $ set dep
     /\ (!l. 0 < l /\ l <= k ==>
       composable_len (CURRY $ set dep) l
-      /\ acyclic_len (CURRY $ set dep) $ SUC l)
+      /\ ~(cyclic_len (CURRY $ set dep) $ SUC l))
     /\ has_path_to (CURRY $ set dep) (SUC k) x y
     ==> dep_steps dep k dep = Maybe_cyclic
 Proof
@@ -8391,7 +8391,7 @@ Theorem dep_steps_eq_maybe_cyclic_len:
     <=>
     (!l. 0 < l /\ l <= k ==>
       composable_len (CURRY $ set dep) l
-      /\ acyclic_len (CURRY $ set dep) $ SUC l)
+      /\ ~(cyclic_len (CURRY $ set dep) $ SUC l))
     /\ ?x y. has_path_to (CURRY $ set dep) (SUC k) x y)
 Proof
   rpt strip_tac
@@ -8488,14 +8488,14 @@ Theorem dep_steps_complete_acyclic_len:
   !k dep k'. wf_pqs dep /\ monotone (CURRY $ set dep)
   /\ k' <= SUC k
   /\ (!l. 0 < l /\ l <= SUC k - k' ==>
-    composable_len (CURRY $ set dep) l /\ acyclic_len (CURRY $ set dep) $ SUC l)
+    composable_len (CURRY $ set dep) l /\ ~(cyclic_len (CURRY $ set dep) $ SUC l))
   /\ ~NULL dep
   /\ (1 < SUC k - k' ==> ?x y. has_path_to (CURRY $ set dep) (SUC k - k') x y)
   /\ (!x y. ~has_path_to (CURRY $ set dep) (SUC $ SUC k - k') x y)
   ==> dep_steps dep (SUC k) dep = Acyclic k'
 Proof
   rpt strip_tac
-  >> gs[GSYM NRC_dep_step_acyclic_len_composable_len_eq]
+  >> gs[GSYM NRC_dep_step_NOT_cyclic_len_composable_len_eq]
   >> irule dep_steps_complete_acyclic'
   >> imp_res_tac NRC_dep_step_wf_pqs
   >> reverse $ gvs[dep_steps_inv_def,wf_pqs_APPEND,LESS_OR_EQ]
@@ -8603,7 +8603,7 @@ Theorem dep_steps_sound_acyclic_len':
     /\ ~NULL dep
     ==>
       ((!l. 0 < l /\ l <= SUC k - k' ==>
-        composable_len (CURRY $ set dep) l /\ acyclic_len (CURRY $ set dep) $ SUC l)
+        composable_len (CURRY $ set dep) l /\ ~(cyclic_len (CURRY $ set dep) $ SUC l))
       /\ (1 < SUC k - k' ==> ?x y. has_path_to (CURRY $ set dep) (SUC k - k') x y)
       /\ (!x y. ~has_path_to (CURRY $ set dep) (SUC $ SUC k - k') x y))
 Proof
@@ -8630,7 +8630,7 @@ Theorem dep_steps_sound_acyclic_len:
     /\ dep_steps dep k dep = Acyclic k' /\ 0 < k
     /\ ~NULL dep
     ==> !l. l <= k - k'
-      ==> acyclic_len (CURRY $ set dep) l /\ composable_len (CURRY $ set dep) l
+      ==> ~(cyclic_len (CURRY $ set dep) l) /\ composable_len (CURRY $ set dep) l
 Proof
   Cases >> fs[] >> rpt gen_tac >> strip_tac
   >> drule_all_then assume_tac dep_steps_sound_acyclic
@@ -8647,7 +8647,8 @@ Proof
   >> Cases_on `n'`
   >- (
     fs[LESS_OR_EQ,DISJ_IMP_THM,Abbr`P`]
-    >> irule acyclic_len_TWO_ONE
+    >> strip_tac
+    >> dxrule_at Any NOT_cyclic_len_TWO_ONE
     >> fs[wf_dep_wf_pqs,FORALL_AND_THM,AND_IMP_INTRO,LEFT_AND_OVER_OR]
   )
   >> qmatch_assum_rename_tac `0 < SUC $ SUC n''`
@@ -8660,7 +8661,8 @@ Proof
       (REWRITE_CONV [GSYM rich_listTheory.COUNT_LIST_COUNT,GSYM pred_setTheory.IN_COUNT] THENC EVAL)
       ``l < (2 : num)``
     >> rw[Abbr`P`,DISJ_IMP_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR]
-    >> irule acyclic_len_TWO_ONE
+    >> strip_tac
+    >> dxrule_at Any NOT_cyclic_len_TWO_ONE
     >> fs[wf_dep_wf_pqs,FORALL_AND_THM,AND_IMP_INTRO,LEFT_AND_OVER_OR]
   )
   >> unabbrev_all_tac
@@ -8676,7 +8678,8 @@ Theorem dep_steps_eq_acyclic_len:
       /\ (!x y. ~has_path_to (CURRY $ set dep) (SUC $ k - k') x y)
       /\ (1 < k - k' ==> ?x y. has_path_to (CURRY $ set dep) (k - k') x y)
       /\ !l. 0 < l /\ l <= k - k' ==>
-          composable_len (CURRY $ set dep) l /\ acyclic_len (CURRY $ set dep) $ SUC l)
+          composable_len (CURRY $ set dep) l
+          /\ ~(cyclic_len (CURRY $ set dep) $ SUC l))
   )
 Proof
   rpt strip_tac
@@ -8698,7 +8701,7 @@ Theorem dep_steps_acyclic_sound:
     ==> ~cyclic_dep (CURRY $ set dep) /\ composable_dep (CURRY $ set dep)
 Proof
   rpt gen_tac >> strip_tac
-  >> simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM,acyclic_until,composable_dep_composable_len,wf_dep_wf_pqs]
+  >> simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM,cyclic_until,composable_dep_composable_len,wf_dep_wf_pqs]
   >> qmatch_assum_rename_tac `dep_steps _ (SUC k) dep = Acyclic k'`
   >> `k' < SUC k` by (
     drule_all dep_steps_sound_acyclic
@@ -8711,7 +8714,7 @@ Proof
     >> rpt $ disch_then $ drule_at Any
     >> fs[]
   )
-  >> simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM,wf_dep_wf_pqs,acyclic_len_def,composable_len_def,GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
+  >> simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM,wf_dep_wf_pqs,DISJ_EQ_IMP,cyclic_len_def,composable_len_def,GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
   >> drule dep_steps_acyclic_NOT_has_path_to'
   >> rpt $ disch_then $ drule_at Any
   >> fs[NOT_LESS_EQUAL]
