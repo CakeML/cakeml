@@ -294,8 +294,14 @@ Definition camlPEG_def[nocompute]:
       (INL nValuePath,
        seql [try (seql [pnt nModulePath; tokeq DotT] I); pnt nValueName]
             (bindNT nValuePath));
+      (* Can't use nModulePath in nConstr, because it would parse the
+         nConstrName as a nModuleName (because they're the same). But we can
+         do this:
+            constr ::= mod-name "." constr / constr-name
+       *)
       (INL nConstr,
-       seql [try (seql [pnt nModulePath; tokeq DotT] I); pnt nConstrName]
+       pegf (choicel [seql [pnt nModuleName; tokeq DotT; pnt nConstr] I;
+                      pnt nConstrName])
             (bindNT nConstr));
       (INL nTypeConstr,
        seql [try (seql [pnt nModulePath; tokeq DotT] I); pnt nTypeConstrName]

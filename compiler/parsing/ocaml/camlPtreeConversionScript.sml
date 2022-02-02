@@ -474,12 +474,12 @@ Definition ptree_Constr_def:
     if nterm = INL nConstr then
       case args of
         [arg] => fmap (λx. [x]) $ ptree_ConstrName arg
-      | [path; dot; arg] =>
+      | [name; dot; rest] =>
           do
             expect_tok dot DotT;
-            vp <- ptree_ModulePath path;
-            vn <- ptree_ConstrName arg;
-            return (vp ++ [vn])
+            vp <- ptree_ModuleName name;
+            vn <- ptree_Constr rest;
+            return (vp::vn)
           od
       | _ => fail (locs, «Impossible: nConstr»)
     else
