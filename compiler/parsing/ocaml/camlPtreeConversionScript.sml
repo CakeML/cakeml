@@ -300,6 +300,17 @@ Definition ptree_ValueName_def:
       fail (locs, «Expected value-name non-terminal»)
 End
 
+(* Rename some constructors from basis that Candle needs (but otherwise cannot
+ * parse).
+ *)
+
+Definition compatCons_def:
+  compatCons cn =
+    if cn = "Bad_file_name" then "BadFileName"
+    else if cn = "Pp_data" then "PP_Data"
+    else cn
+End
+
 Definition ptree_ConstrName_def:
   ptree_ConstrName (Lf (_, locs)) =
     fail (locs, «Expected constr-name non-terminal») ∧
@@ -310,7 +321,7 @@ Definition ptree_ConstrName_def:
           do
             lf <- destLf arg;
             tk <- option $ destTOK lf;
-            option $ destIdent tk
+            fmap compatCons $ option $ destIdent tk
           od
       | _ => fail (locs, «Impossible: nConstrName»)
     else
@@ -334,6 +345,19 @@ Definition ptree_TypeConstrName_def:
       fail (locs, «Expected typeconstr-name non-terminal»)
 End
 
+(* Rename some module names from basis that Candle needs (but otherwise cannot
+ * parse).
+ *)
+
+Definition compatModName_def:
+  compatModName mn =
+    if mn = "Text_io" then "TextIO"
+    else if mn = "Pretty_printer" then "PrettyPrinter"
+    else if mn = "Command_line" then "CommandLine"
+    else if mn = "Word8_array" then "Word8Array"
+    else mn
+End
+
 Definition ptree_ModuleName_def:
   ptree_ModuleName (Lf (_, locs)) =
     fail (locs, «Expected modulename non-terminal») ∧
@@ -344,7 +368,7 @@ Definition ptree_ModuleName_def:
           do
             lf <- destLf arg;
             tk <- option $ destTOK lf;
-            option $ destIdent tk
+            fmap compatModName $ option $ destIdent tk
           od
       | _ => fail (locs, «Impossible: nModuleName»)
     else
