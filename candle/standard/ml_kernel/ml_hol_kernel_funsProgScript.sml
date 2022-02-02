@@ -41,6 +41,12 @@ val _ = register_type ``:thm``;
 val _ = register_type ``:update``;
 val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
 
+(* add an abbreviation mapping hol_type to type for HOL Light *)
+
+val _ = ml_prog_update
+  (add_Dtabbrev “unknown_loc” “[]:string list” “"hol_type"”
+                “Atapp [] (Short "type")”);
+
 val _ = ml_prog_update (open_module "Kernel");
 
 val _ = ml_prog_update open_local_block;
