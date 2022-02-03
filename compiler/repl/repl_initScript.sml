@@ -160,6 +160,13 @@ Proof
   \\ fs [namespaceTheory.nsAppend_def]
 QED
 
+Theorem parts_ok_basis_ffi:
+  parts_ok (basis_ffi cls fs) (basis_proj1,basis_proj2)
+Proof
+  mp_tac basis_ffiTheory.parts_ok_basis_st
+  \\ fs (DB.find "TextIOProg_st" |> map (fst o snd))
+QED
+
 Theorem st2heap_basis:
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
   (repl_prog_st cl fs).refs ≼ st.refs ∧
@@ -168,7 +175,49 @@ Theorem st2heap_basis:
     SPLIT (st2heap (basis_proj1,basis_proj2) st) (h_i,h_k) ∧
     (COMMANDLINE cl * STDIO fs) h_i
 Proof
-  cheat
+  rw []
+  \\ qsuff_tac ‘∃h_i.
+        h_i SUBSET st2heap (basis_proj1,basis_proj2) st ∧
+        (COMMANDLINE cl * STDIO fs) h_i’
+  >- (rw [] \\ pop_assum $ irule_at Any
+      \\ rename [‘SPLIT xx’] \\ qexists_tac ‘xx DIFF h_i’
+      \\ fs [SUBSET_DEF,set_sepTheory.SPLIT_def,IN_DISJOINT,EXTENSION] \\ metis_tac [])
+  \\ fs [set_sepTheory.STAR_def,PULL_EXISTS]
+  \\ drule_at Any (DISCH_ALL STDIO_precond |> REWRITE_RULE [AND_IMP_INTRO])
+  \\ disch_then (drule_at Any)
+  \\ fs (DB.find "refs_def" |> map (fst o snd))
+  \\ disch_then $ irule_at Any
+  \\ fs [CommandLineProofTheory.COMMANDLINE_def,set_sepTheory.cond_STAR]
+  \\ fs [clFFITheory.cl_ffi_part_def]
+  \\ fs [cfHeapsBaseTheory.IOx_def]
+  \\ fs [cfHeapsBaseTheory.IO_def]
+  \\ fs [GSYM clFFITheory.cl_ffi_part_def]
+  \\ fs [set_sepTheory.SEP_EXISTS_THM,PULL_EXISTS,set_sepTheory.cond_STAR]
+  \\ fs [set_sepTheory.one_def]
+  \\ fs [set_sepTheory.SPLIT_def,PULL_EXISTS]
+  \\ fs [EVAL “MAP FST (SND (SND fs_ffi_part))”]
+  \\ qmatch_goalsub_abbrev_tac ‘Mem rr’
+  \\ ‘∃v. LENGTH v ≥ 2052 ∧ Mem rr (W8array v) ∈ st2heap (basis_proj1,basis_proj2) st’ by
+   (unabbrev_all_tac
+    \\ fs [cfStoreTheory.st2heap_def,cfStoreTheory.store2heap_def]
+    \\ fs [repl_prog_st_def]
+    \\ every_case_tac \\ fs []
+    \\ gvs []
+    \\ qmatch_goalsub_abbrev_tac ‘W8array (_::ys)’
+    \\ qexists_tac ‘0w::ys’ \\ fs [EVAL  “store2heap_aux 0 (W8array x :: xs)”]
+    \\ unabbrev_all_tac \\ EVAL_TAC)
+  \\ rpt (pop_assum $ irule_at Any)
+  \\ fs [cfStoreTheory.st2heap_def,cfAppTheory.FFI_part_NOT_IN_store2heap]
+  \\ simp [cfStoreTheory.ffi2heap_def]
+  \\ unabbrev_all_tac
+  \\ pop_assum mp_tac
+  \\ simp [repl_prog_st_def]
+  \\ disch_then (assume_tac o GSYM) \\ fs [parts_ok_basis_ffi]
+  \\ fs [basis_proj2_def,SF DNF_ss]
+  \\ fs [basis_proj1_def,SF DNF_ss]
+  \\ Cases_on ‘(basis_ffi cl fs).ffi_state’ \\ fs []
+  \\ fs [basis_ffi_def]
+  \\ EVAL_TAC
 QED
 
 Theorem repl_types_repl_prog:
