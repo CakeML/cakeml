@@ -18,6 +18,10 @@ val _ =
   temp_bring_to_front_overload "nType" {Name="nType", Thy="camlPEG"};
 val _ =
   temp_bring_to_front_overload "nPattern" {Name="nPattern", Thy="camlPEG"};
+val _ = temp_bring_to_front_overload "pegf" {Name="pegf", Thy="camlPEG"};
+val _ = temp_bring_to_front_overload "seql" {Name="seql", Thy="camlPEG"};
+val _ = temp_bring_to_front_overload "choicel" {Name="choicel", Thy="camlPEG"};
+val _ = temp_bring_to_front_overload "pnt" {Name="pnt", Thy="camlPEG"};
 
 (* -------------------------------------------------------------------------
  * Translator setup
@@ -318,6 +322,7 @@ fun pegnt(t,acc) = let
               simp pegnt_case_ths
               \\ simp [camlpeg_rules_applied]
               \\ simp [FDOM_camlPEG, pegf_def, seql_def, choicel_def,
+                       tokPragma_def,
                        peg_linfix_def, tokeq_def, try_def, pegf_def]
               \\ simp (peg0_rwts @ acc))
   val nm = "peg0_" ^ term_to_string t
@@ -350,7 +355,7 @@ val npeg0_rwts =
         “nModuleDef”, “nModTypeName”, “nModTypePath”, “nSigSpec”, “nExcType”,
         “nValType”, “nOpenMod”, “nIncludeMod”, “nModTypeAsc”,
         “nModTypeAssign”, “nSigItem”, “nSigItems”, “nModuleType”,
-        “nModAscApp”, “nModAscApps”,
+        “nModAscApp”, “nModAscApps”, “nCakeMLPragma”,
         “nModuleTypeDef”, “nDefinition”, “nDefItem”, “nModExpr”, “nModuleItem”
       ];
 
@@ -361,7 +366,7 @@ fun wfnt(t,acc) = let
                    [camlpeg_rules_applied ,
                     wfpeg_pnt, FDOM_camlPEG, try_def,
                     choicel_def, seql_def, tokIdP_def, identMixed_def,
-                    identLower_def,
+                    identLower_def, tokPragma_def,
                     tokeq_def, peg_linfix_def] THEN
           simp(wfpeg_rwts @ npeg0_rwts @ peg0_rwts @ acc))
 in
@@ -391,7 +396,7 @@ val topo_nts =
         “nModTypeName”, “nModTypePath”, “nSigSpec”, “nExcType”,
         “nValType”, “nOpenMod”, “nIncludeMod”, “nModTypeAsc”,
         “nModTypeAssign”, “nSigItem”, “nSigItems”, “nModuleType”,
-        “nModAscApp”, “nModAscApps”,
+        “nModAscApp”, “nModAscApps”, “nCakeMLPragma”,
         “nModuleTypeDef”, “nModExpr”, “nDefinition”, “nDefItem”, “nModuleItem”,
         “nModuleItems”, “nStart”];
 
@@ -416,7 +421,7 @@ Theorem PEG_wellformed[simp]:
 Proof
   simp [pegTheory.wfG_def, pegTheory.Gexprs_def, pegTheory.subexprs_def,
         subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
-        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
+        choicel_def, seql_def, pegf_def, tokeq_def, try_def, tokPragma_def,
         peg_linfix_def, tokSymP_def, tokIdP_def]
   \\ simp (cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
 QED
