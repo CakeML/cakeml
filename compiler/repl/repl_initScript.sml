@@ -135,24 +135,6 @@ Theorem Repl_charsFrom_lemma[local] =
   |> Q.GEN ‘fnamev’ |> SIMP_RULE std_ss [EVAL “FILENAME «config_enc_str.txt» fnamev”]
   |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC];
 
-Theorem repl_types_skip_alt:
-  repl_types T (ffi,rs) (types,s,env) ∧
-  s.ffi = s1.ffi ∧
-  s.refs ≼ s1.refs ∧
-  s1.clock ≤ s.clock ∧
-  s.eval_state = s1.eval_state ∧
-  s.next_type_stamp ≤ s1.next_type_stamp ∧
-  s.next_exn_stamp ≤ s1.next_exn_stamp ⇒
-  repl_types T (ffi,rs) (types,s1,env)
-Proof
-  rw [] \\ gvs [LESS_EQ_EXISTS,rich_listTheory.IS_PREFIX_APPEND]
-  \\ drule repl_types_skip
-  \\ disch_then (qspecl_then [‘l’,‘p’,‘p'’,‘p''’] mp_tac)
-  \\ match_mp_tac (METIS_PROVE [] “b = c ⇒ b ⇒ c”)
-  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
-  \\ fs [semanticPrimitivesTheory.state_component_equality]
-QED
-
 Theorem repl_types_clock:
   repl_types T x (types,s,env) ⇒
   ∀k. repl_types T x (types,s with clock := s.clock - k,env)
@@ -167,26 +149,6 @@ Theorem repl_types_refs:
 Proof
   rw [] \\ PairCases_on ‘x’
   \\ drule_then irule repl_types_skip_alt \\ gs []
-QED
-
-Theorem infertype_prog_inc_CommandLine_arguments:
-  infertype_prog_inc repl_prog_types
-    [Dlet unknown_loc Pany
-      (App Opapp
-        [Var (Long "CommandLine" (Short "arguments"));
-         Con NONE []])] = Success repl_prog_types
-Proof
-  cheat
-QED
-
-Theorem infertype_prog_inc_Repl_charsFrom:
-  infertype_prog_inc repl_prog_types
-    [Dlet unknown_loc Pany
-      (App Opapp
-        [Var (Long "Repl" (Short "charsFrom"));
-         Lit (StrLit "config_enc_str.txt")])] = Success repl_prog_types
-Proof
-  cheat
 QED
 
 Theorem extend_dec_env_empty:
@@ -325,27 +287,29 @@ Proof
   \\ strip_tac \\ gvs []
   \\ drule_then (qspec_then ‘1’ assume_tac) repl_types_clock \\ gvs []
   \\ assume_tac infertype_prog_inc_CommandLine_arguments
+  \\ drule_then (qspec_then ‘ck'+1’ assume_tac) repl_types_set_clock
   \\ drule_then drule repl_types_eval \\ fs []
   \\ pop_assum kall_tac
   \\ simp [evaluateTheory.evaluate_decs_def,astTheory.pat_bindings_def]
   \\ simp [evaluateTheory.evaluate_def,semanticPrimitivesTheory.do_con_check_def]
   \\ simp [semanticPrimitivesTheory.build_conv_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ ‘1 < q.clock’ by cheat
   \\ fs [evaluateTheory.dec_clock_def,semanticPrimitivesTheory.pmatch_def,
-         extend_dec_env_empty]
+         extend_dec_env_empty,Abbr‘s12’]
   \\ strip_tac
   \\ drule_then (qspec_then ‘junk’ assume_tac) repl_types_refs \\ fs []
-  \\ drule_then (qspec_then ‘ck''' + 2’ assume_tac) repl_types_clock \\ fs []
+  \\ drule_then (qspec_then ‘ck44+1’ assume_tac) repl_types_set_clock
   \\ assume_tac infertype_prog_inc_Repl_charsFrom
   \\ drule_then drule repl_types_eval \\ fs []
   \\ pop_assum kall_tac
   \\ simp [evaluateTheory.evaluate_decs_def,astTheory.pat_bindings_def]
   \\ simp [evaluateTheory.evaluate_def,semanticPrimitivesTheory.do_con_check_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ IF_CASES_TAC >- cheat
   \\ fs [evaluateTheory.dec_clock_def,semanticPrimitivesTheory.pmatch_def,
-         extend_dec_env_empty]
+         extend_dec_env_empty,Abbr‘s13’]
+  \\ strip_tac
+  \\ irule repl_types_set_clock
+  \\ asm_rewrite_tac []
 QED
 
 val _ = export_theory();

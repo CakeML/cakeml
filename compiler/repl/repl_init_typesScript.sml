@@ -66,4 +66,26 @@ Definition repl_prog_env_def:
   repl_prog_env = merge_env ^env init_env
 End
 
+Theorem infertype_prog_inc_CommandLine_arguments:
+  infertype_prog_inc repl_prog_types
+    [Dlet unknown_loc Pany
+      (App Opapp
+        [Var (Long "CommandLine" (Short "arguments"));
+         Con NONE []])] = Success repl_prog_types
+Proof
+  rewrite_tac [fetch "-" "repl_prog_types_def"]
+  \\ CONV_TAC inf_eval
+QED
+
+Theorem infertype_prog_inc_Repl_charsFrom:
+  infertype_prog_inc repl_prog_types
+    [Dlet unknown_loc Pany
+      (App Opapp
+        [Var (Long "Repl" (Short "charsFrom"));
+         Lit (StrLit "config_enc_str.txt")])] = Success repl_prog_types
+Proof
+  rewrite_tac [fetch "-" "repl_prog_types_def"]
+  \\ CONV_TAC inf_eval
+QED
+
 val _ = export_theory ();

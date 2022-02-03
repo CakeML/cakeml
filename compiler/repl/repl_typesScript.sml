@@ -971,10 +971,28 @@ Proof
   \\ simp[set_ids_SUBSET]
 QED
 
+Theorem repl_types_skip_alt:
+  repl_types T (ffi,rs) (t,s,env) ∧
+  s.ffi = s1.ffi ∧
+  s.refs ≼ s1.refs ∧
+  s1.clock ≤ s.clock ∧
+  s.eval_state = s1.eval_state ∧
+  s.next_type_stamp ≤ s1.next_type_stamp ∧
+  s.next_exn_stamp ≤ s1.next_exn_stamp ⇒
+  repl_types T (ffi,rs) (t,s1,env)
+Proof
+  rw [] \\ gvs [LESS_EQ_EXISTS,rich_listTheory.IS_PREFIX_APPEND]
+  \\ drule repl_types_skip
+  \\ disch_then (qspecl_then [‘l’,‘p’,‘p'’,‘p''’] mp_tac)
+  \\ match_mp_tac (METIS_PROVE [] “b = c ⇒ b ⇒ c”)
+  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ fs [semanticPrimitivesTheory.state_component_equality]
+QED
+
 Theorem repl_types_set_clock:
-  ∀ffi rs t s env.
-    repl_types F (ffi,rs) (t,s,env) ⇒
-    ∀ck. repl_types F (ffi,rs) (t,s with clock := ck,env)
+  ∀b ffi rs t s env.
+    repl_types b (ffi,rs) (t,s,env) ⇒
+    ∀ck. repl_types b (ffi,rs) (t,s with clock := ck,env)
 Proof
   Induct_on ‘repl_types’ \\ rpt conj_tac \\ rpt gen_tac \\ rw []
   >- (* init *)
@@ -982,6 +1000,9 @@ Proof
     \\ disch_then (qspec_then ‘ck'’ strip_assume_tac)
     \\ irule_at Any repl_types_init \\ fs []
     \\ rpt (first_assum $ irule_at Any))
+  >- (* init *)
+   (irule repl_types_skip_alt \\ fs []
+   \\ qexists_tac ‘s with clock := ck'’ \\ fs [])
   >- (* eval *)
    (drule evaluatePropsTheory.evaluate_decs_set_clock \\ fs []
     \\ disch_then (qspec_then ‘ck’ strip_assume_tac)
