@@ -7,37 +7,22 @@ open preamble
 
 val _ = new_theory "repl_init";
 
-val _ = (max_print_depth := 12);
-
-val th1 = repl_prog_types_thm
-val th2 = Decls_repl_prog |> REWRITE_RULE [GSYM repl_prog_def,SNOC]
-
 val _ = Parse.hide "types"
 
-Theorem imp_repl_types[local]:
-  infertype_prog_inc (init_config,start_type_id) decs = Success types ⇒
-  Decls init_env (init_state ffi) decs env s0 ⇒
-  EVERY (check_ref_types (FST types) (extend_dec_env env init_env)) rs ⇒
-  evaluate_decs (init_state ffi with clock := ck) init_env decs = (s,res) ⇒
-  res = Rerr (Rabort Rtimeout_error) ∨
-  res = Rval env ∧
-  ∃ck.
-    s = (s0 with clock := s.clock) ∧
-    repl_types T (ffi,rs) (types,s0 with clock := ck,extend_dec_env env init_env)
-Proof
-  rw [] \\ fs [Decls_def]
-  \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ fs []
-  \\ drule_all evaluatePropsTheory.evaluate_decs_add_to_clock
-  \\ disch_then (qspec_then ‘ck1’ mp_tac) \\ fs []
-  \\ ntac 2 (pop_assum mp_tac)
-  \\ drule evaluatePropsTheory.evaluate_decs_add_to_clock
-  \\ disch_then (qspec_then ‘ck’ mp_tac) \\ fs [] \\ rw []
-  \\ fs [semanticPrimitivesTheory.state_component_equality]
-  \\ irule_at Any repl_types_init
-  \\ last_x_assum $ irule_at Any
-  \\ last_x_assum $ irule_at Any
-  \\ fs []
-QED
+val _ = (max_print_depth := 12);
+
+val th2 = Decls_repl_prog |> REWRITE_RULE [GSYM repl_prog_def,SNOC]
+          |> CONV_RULE (RAND_CONV EVAL)
+          |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi cl fs’
+          |> REWRITE_RULE (APPEND::(DB.find "refs_def" |> map (fst o snd)))
+
+Overload repl_prog_env = (th2 |> concl |> rator |> rand);
+
+Definition repl_prog_st_def:
+  repl_prog_st cl fs = ^(th2 |> concl |> rand)
+End
+
+val th2 = REWRITE_RULE [GSYM repl_prog_st_def] th2;
 
 Theorem merge_env_intro:
   extend_dec_env = merge_env
@@ -92,50 +77,183 @@ Proof
   \\ CASE_TAC \\ fs []
 QED
 
-Theorem Decls_evaluate_decs_lemma:
-  infertype_prog_inc (init_config,start_type_id) decs = Success types ⇒
-  Decls init_env (init_state (basis_ffi cl fs)) decs env1 s_basis ⇒
-  EVERY (check_ref_types (FST types) (extend_dec_env env1 init_env)) rs ⇒
+Triviality app_frame:
+  app p f xs P Q ⇒ ∀H. app p f xs (P * H) (Q *+ H)
+Proof
+  rw []
+  \\ drule_then irule cfAppTheory.app_wgframe
+  \\ qexists_tac ‘H’ \\ fs []
+  \\ fs [set_sepTheory.SEP_IMP_REFL,cfHeapsBaseTheory.SEP_IMPPOST_def]
+  \\ Cases
+  \\ fs [cfHeapsBaseTheory.STARPOST_def]
+  \\ irule (cfHeapsBaseTheory.SEP_IMP_frame_single_l
+     |> ONCE_REWRITE_RULE [set_sepTheory.STAR_COMM])
+  \\ fs [set_sepTheory.SEP_IMP_def,set_sepTheory.emp_def,cfHeapsBaseTheory.GC_def]
+  \\ rw [set_sepTheory.SEP_EXISTS_THM]
+  \\ qexists_tac ‘K T’ \\ fs []
+QED
+
+Triviality app_frame_POSTv:
+  app p f xs P ($POSTv Q) ⇒ ∀H. app p f xs (P * H) (POSTv v. Q v * H)
+Proof
+  rw [] \\ drule_then (qspec_then ‘H’ mp_tac) app_frame
+  \\ match_mp_tac (METIS_PROVE [] “b=c ⇒ b ⇒ c”)
+  \\ AP_TERM_TAC
+  \\ fs [FUN_EQ_THM,cfHeapsBaseTheory.POSTv_def]
+  \\ fs [cfHeapsBaseTheory.POST_def]
+  \\ fs [cfHeapsBaseTheory.STARPOST_def]
+  \\ Cases \\ fs [set_sepTheory.SEP_CLAUSES]
+QED
+
+Theorem CommandLine_arguments_lemma[local] =
+  CommandLineProofTheory.CommandLine_arguments_spec
+  |> Q.GEN ‘uv’
+  |> SIMP_RULE std_ss [ml_translatorTheory.UNIT_TYPE_def]
+  |> MATCH_MP app_frame_POSTv
+  |> Q.ISPEC ‘STDIO fs’
+  |> SIMP_RULE (srw_ss()++helperLib.sep_cond_ss)
+      [cfAppTheory.app_def,cfAppTheory.app_basic_def,
+       cfDivTheory.POSTv_eq,PULL_EXISTS,set_sepTheory.cond_STAR,
+       cfAppTheory.evaluate_to_heap_def]
+  |> SIMP_RULE std_ss [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
+  |> Q.GEN ‘p’ |> Q.ISPEC ‘(basis_proj1, basis_proj2)’ |> SPEC_ALL;
+
+Theorem Repl_charsFrom_lemma[local] =
+  charsFrom_spec |> UNDISCH
+  |> MATCH_MP app_frame_POSTv
+  |> Q.ISPEC ‘COMMANDLINE cl’
+  |> SIMP_RULE (srw_ss()++helperLib.sep_cond_ss)
+      [cfAppTheory.app_def,cfAppTheory.app_basic_def,
+       cfDivTheory.POSTv_eq,PULL_EXISTS,set_sepTheory.cond_STAR,
+       cfAppTheory.evaluate_to_heap_def]
+  |> SIMP_RULE std_ss [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
+  |> Q.GEN ‘p’ |> Q.ISPEC ‘(basis_proj1, basis_proj2)’ |> SPEC_ALL
+  |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  |> Q.GEN ‘fname’ |> Q.SPEC ‘strlit "config_enc_str.txt"’
+  |> REWRITE_RULE [GSYM AND_IMP_INTRO]
+  |> UNDISCH |> UNDISCH
+  |> Q.GEN ‘fnamev’ |> SIMP_RULE std_ss [EVAL “FILENAME «config_enc_str.txt» fnamev”]
+  |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC];
+
+Theorem repl_types_skip_alt:
+  repl_types T (ffi,rs) (types,s,env) ∧
+  s.ffi = s1.ffi ∧
+  s.refs ≼ s1.refs ∧
+  s1.clock ≤ s.clock ∧
+  s.eval_state = s1.eval_state ∧
+  s.next_type_stamp ≤ s1.next_type_stamp ∧
+  s.next_exn_stamp ≤ s1.next_exn_stamp ⇒
+  repl_types T (ffi,rs) (types,s1,env)
+Proof
+  rw [] \\ gvs [LESS_EQ_EXISTS,rich_listTheory.IS_PREFIX_APPEND]
+  \\ drule repl_types_skip
+  \\ disch_then (qspecl_then [‘l’,‘p’,‘p'’,‘p''’] mp_tac)
+  \\ match_mp_tac (METIS_PROVE [] “b = c ⇒ b ⇒ c”)
+  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ fs [semanticPrimitivesTheory.state_component_equality]
+QED
+
+Theorem repl_types_clock:
+  repl_types T x (types,s,env) ⇒
+  ∀k. repl_types T x (types,s with clock := s.clock - k,env)
+Proof
+  rw [] \\ PairCases_on ‘x’
+  \\ drule_then irule repl_types_skip_alt \\ gs []
+QED
+
+Theorem repl_types_refs:
+  repl_types T x (types,s,env) ⇒
+  ∀k. repl_types T x (types,s with refs := s.refs ++ k,env)
+Proof
+  rw [] \\ PairCases_on ‘x’
+  \\ drule_then irule repl_types_skip_alt \\ gs []
+QED
+
+Theorem infertype_prog_inc_CommandLine_arguments:
+  infertype_prog_inc repl_prog_types
+    [Dlet unknown_loc Pany
+      (App Opapp
+        [Var (Long "CommandLine" (Short "arguments"));
+         Con NONE []])] = Success repl_prog_types
+Proof
+  cheat
+QED
+
+Theorem infertype_prog_inc_Repl_charsFrom:
+  infertype_prog_inc repl_prog_types
+    [Dlet unknown_loc Pany
+      (App Opapp
+        [Var (Long "Repl" (Short "charsFrom"));
+         Lit (StrLit "config_enc_str.txt")])] = Success repl_prog_types
+Proof
+  cheat
+QED
+
+Theorem extend_dec_env_empty:
+  extend_dec_env <|v := nsEmpty; c := nsEmpty|> env = env
+Proof
+  EVAL_TAC
+  \\ fs [semanticPrimitivesTheory.sem_env_component_equality]
+  \\ Cases_on ‘env.v’ \\ Cases_on ‘env.c’
+  \\ fs [namespaceTheory.nsAppend_def]
+QED
+
+Theorem st2heap_basis:
+  wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
+  (repl_prog_st cl fs).refs ≼ st.refs ∧
+  (repl_prog_st cl fs).ffi = st.ffi ⇒
+  ∃h_i h_k.
+    SPLIT (st2heap (basis_proj1,basis_proj2) st) (h_i,h_k) ∧
+    (COMMANDLINE cl * STDIO fs) h_i
+Proof
+  cheat
+QED
+
+Theorem repl_types_repl_prog:
   Decls init_env
     (init_state (basis_ffi cl fs) with
-     eval_state := SOME (EvalDecs (s with env_id_counter := ns))) xs env st ∧
+     eval_state := SOME (EvalDecs (s with env_id_counter := ns))) xs env
+    st ∧
   evaluate_decs
     (init_state (basis_ffi cl fs) with
-     <|clock := ck; eval_state := SOME (EvalDecs s)|>) init_env (xs ++ ys) = (s1,res) ∧
-  s.env_id_counter = ns ∧
-  isPREFIX decs xs ∧
-  isPREFIX s_basis.refs st.refs ∧
-  s_basis.next_type_stamp ≤ st.next_type_stamp ∧
-  s_basis.next_exn_stamp ≤ st.next_exn_stamp ∧
-  st.ffi = s_basis.ffi ∧
-  wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  file_content fs (strlit "config_enc_str.txt") = SOME content ⇒
+     <|clock := ck; eval_state := SOME (EvalDecs s)|>) init_env (xs ++ ys) =
+  (s1,res) ∧ s.env_id_counter = ns ∧ repl_prog ≼ xs ∧
+  (repl_prog_st cl fs).refs ≼ st.refs ∧
+  (repl_prog_st cl fs).next_type_stamp ≤ st.next_type_stamp ∧
+  (repl_prog_st cl fs).next_exn_stamp ≤ st.next_exn_stamp ∧
+  st.ffi = (repl_prog_st cl fs).ffi ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
+  hasFreeFD fs ∧ file_content fs «config_enc_str.txt» = SOME content ⇒
   res = Rerr (Rabort Rtimeout_error) ∨
   ∃ck1 r1 env_cl e_cl s_cl res_cl.
-    evaluate_decs (st with clock := ck1) (extend_dec_env env init_env) ys =
-      (s1,r1) ∧ combine_dec_result env r1 = res ∧
-    repl_types T (basis_ffi cl fs,rs) (types,st with
-      <| eval_state := NONE; clock := ck1 |>,extend_dec_env env1 init_env) ∧
+    evaluate_decs (st with clock := ck1) (merge_env env init_env) ys =
+    (s1,r1) ∧ combine_dec_result env r1 = res ∧
+    repl_types T (basis_ffi cl fs,repl_rs)
+      (repl_prog_types,st with <|eval_state := NONE; clock := ck1|>,
+       repl_init_env) ∧
     do_opapp [CommandLine_arguments_v; Conv NONE []] = SOME (env_cl,e_cl) ∧
-    evaluate (st with <| eval_state := NONE; clock := ck1 - 2 |>) env_cl
+    evaluate (st with <|eval_state := NONE; clock := ck1 − 2|>) env_cl
       [e_cl] = (s_cl,res_cl) ∧
     (res_cl ≠ Rerr (Rabort Rtimeout_error) ⇒
      ∃cl_v.
        LIST_TYPE STRING_TYPE (TL cl) cl_v ∧ res_cl = Rval [cl_v] ∧
-       ∀ck junk hello. ∃env_pr e_pr res_pr s_pr.
+       ∀ck junk. ∃env_pr e_pr res_pr s_pr.
          do_opapp [Repl_charsFrom_v; Litv (StrLit "config_enc_str.txt")] =
-           SOME (env_pr,e_pr) ∧
-         evaluate (s_cl with
-                    <|clock := s_cl.clock − (ck + 3);
-                      refs := s_cl.refs ++ junk |>)
-                   env_pr [e_pr] = (s_pr,res_pr) ∧
+         SOME (env_pr,e_pr) ∧
+         evaluate
+           (s_cl with
+            <|clock := s_cl.clock − (ck + 3); refs := s_cl.refs ++ junk|>)
+           env_pr [e_pr] = (s_pr,res_pr) ∧
          (res_pr ≠ Rerr (Rabort Rtimeout_error) ⇒
           ∃pr_v.
             res_pr = Rval [pr_v] ∧ LIST_TYPE CHAR content pr_v ∧
-            repl_types T (basis_ffi cl fs,rs) (types,s_pr,extend_dec_env env1 init_env)))
+            repl_types T (basis_ffi cl fs,repl_rs)
+              (repl_prog_types,s_pr,repl_init_env)))
 Proof
-  rpt strip_tac
-  \\ gvs [evaluate_decs_append]
+  assume_tac repl_prog_types_thm
+  \\ assume_tac th2
+  \\ assume_tac repl_rs_thm
+  \\ rpt strip_tac
+  \\ gvs [evaluate_decs_append,merge_env_intro]
   \\ ‘(s with env_id_counter := s.env_id_counter) = s’ by
       fs [semanticPrimitivesTheory.eval_decs_state_component_equality]
   \\ fs [] \\ pop_assum kall_tac
@@ -157,16 +275,77 @@ Proof
   \\ CASE_TAC \\ strip_tac \\ gvs []
   \\ qexists_tac ‘q.clock’ \\ fs []
   \\ simp [GSYM PULL_EXISTS]
-  \\ conj_asm1_tac
-  >- cheat
-  \\ cheat
+  \\ conj_asm1_tac >-
+   (rewrite_tac [GSYM merge_env_intro]
+    \\ irule repl_types_skip_alt \\ fs []
+    \\ irule_at Any repl_types_init
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ last_x_assum mp_tac
+    \\ fs [Decls_def,merge_env_intro] \\ rw []
+    \\ drule evaluatePropsTheory.evaluate_decs_set_clock
+    \\ disch_then (qspec_then ‘q.clock’ mp_tac)
+    \\ fs [] \\ rw []
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ fs [] \\ EVAL_TAC)
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate s12’
+  \\ ‘∃h_i h_k.
+        SPLIT (st2heap (basis_proj1,basis_proj2) s12) (h_i,h_k) ∧
+        (COMMANDLINE cl * STDIO fs) h_i’ by
+   (fs [cfStoreTheory.st2heap_def,Abbr‘s12’]
+    \\ qpat_x_assum ‘st.ffi = _’ (assume_tac o GSYM)
+    \\ fs [GSYM cfStoreTheory.st2heap_def]
+    \\ drule_all st2heap_basis
+    \\ strip_tac \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
+  \\ drule_all CommandLine_arguments_lemma
+  \\ strip_tac \\ fs []
+  \\ fs [cfAppTheory.evaluate_ck_def]
+  \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
+  \\ disch_then $ qspec_then ‘s12.clock’ mp_tac \\ fs []
+  \\ strip_tac \\ gvs []
+  \\ rpt gen_tac
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate s13’
+  \\ drule Repl_charsFrom_lemma \\ simp []
+  \\ ‘∃h1 h2. SPLIT (st2heap (basis_proj1,basis_proj2) s13) (h1,h2) ∧
+                (COMMANDLINE cl * STDIO fs) h1’ by
+   (qpat_x_assum ‘SPLIT3 _ _’ mp_tac \\ unabbrev_all_tac
+    \\ qpat_x_assum ‘(COMMANDLINE cl * STDIO fs) h_f’ mp_tac
+    \\ rpt (pop_assum kall_tac)
+    \\ fs [cfStoreTheory.st2heap_def,cfAppTheory.store2heap_append_many]
+    \\ rename [‘x ∪ y ∪ z’]
+    \\ fs [set_sepTheory.SPLIT_def,cfHeapsBaseTheory.SPLIT3_def]
+    \\ rw [] \\ last_x_assum $ irule_at $ Pos last
+    \\ qexists_tac ‘(h_k ∪ h_g ∪ y) DIFF h_f’ \\ fs [UNION_ASSOC]
+    \\ fs [IN_DISJOINT,EXTENSION] \\ metis_tac [])
+  \\ disch_then drule_all
+  \\ strip_tac \\ fs []
+  \\ fs [cfAppTheory.evaluate_ck_def]
+  \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
+  \\ rename [‘evaluate (s13 with clock := ck44) env4 [exp4] = (st5,Rval [v5])’]
+  \\ disch_then $ qspec_then ‘s13.clock’ mp_tac \\ fs []
+  \\ strip_tac \\ gvs []
+  \\ drule_then (qspec_then ‘1’ assume_tac) repl_types_clock \\ gvs []
+  \\ assume_tac infertype_prog_inc_CommandLine_arguments
+  \\ drule_then drule repl_types_eval \\ fs []
+  \\ pop_assum kall_tac
+  \\ simp [evaluateTheory.evaluate_decs_def,astTheory.pat_bindings_def]
+  \\ simp [evaluateTheory.evaluate_def,semanticPrimitivesTheory.do_con_check_def]
+  \\ simp [semanticPrimitivesTheory.build_conv_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ ‘1 < q.clock’ by cheat
+  \\ fs [evaluateTheory.dec_clock_def,semanticPrimitivesTheory.pmatch_def,
+         extend_dec_env_empty]
+  \\ strip_tac
+  \\ drule_then (qspec_then ‘junk’ assume_tac) repl_types_refs \\ fs []
+  \\ drule_then (qspec_then ‘ck''' + 2’ assume_tac) repl_types_clock \\ fs []
+  \\ assume_tac infertype_prog_inc_Repl_charsFrom
+  \\ drule_then drule repl_types_eval \\ fs []
+  \\ pop_assum kall_tac
+  \\ simp [evaluateTheory.evaluate_decs_def,astTheory.pat_bindings_def]
+  \\ simp [evaluateTheory.evaluate_def,semanticPrimitivesTheory.do_con_check_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ IF_CASES_TAC >- cheat
+  \\ fs [evaluateTheory.dec_clock_def,semanticPrimitivesTheory.pmatch_def,
+         extend_dec_env_empty]
 QED
-
-Theorem repl_types_repl_prog =
-  Decls_evaluate_decs_lemma
-  |> C MATCH_MP th1
-  |> C MATCH_MP (th2 |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi cl fs’)
-  |> REWRITE_RULE [merge_env_intro]
-  |> C MATCH_MP repl_rs_thm
 
 val _ = export_theory();
