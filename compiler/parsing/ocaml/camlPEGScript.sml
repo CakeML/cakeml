@@ -89,6 +89,11 @@ Definition tokIdP_def:
     tok (λt. (do s <- destIdent t; assert (P s) od) = SOME ()) mktokLf
 End
 
+Definition tokPragma_def:
+  tokPragma =
+    tok (λt. (do s <- destPragma t; return () od) = SOME ()) mktokLf
+End
+
 Definition pnt_def:
   pnt ntsym = nt (INL ntsym) I
 End
@@ -250,6 +255,8 @@ Datatype:
     (* misc *)
     | nShiftOp | nMultOp | nAddOp | nRelOp | nAndOp | nOrOp | nCatOp | nPrefixOp
     | nAssignOp | nStart
+    (* Declarations through CakeML pragmas *)
+    | nCakeMLPragma
 End
 
 (* Definition of the OCaml PEG.
@@ -263,6 +270,9 @@ Definition camlPEG_def[nocompute]:
     notFAIL  := "Not combinator failed";
     start := pnt nStart;
     rules := FEMPTY |++ [
+      (* -- CakeML code pragmas -------------------------------------------- *)
+      (INL nCakeMLPragma,
+       pegf (tokPragma) (bindNT nCakeMLPragma));
       (* -- HOL Light specific ops ----------------------------------------- *)
       (INL nHolInfixOp,
        pegf (choicel [tokeq FuncompT; tokeq F_FT; tokeq THEN_T; tokeq THENC_T;
@@ -362,6 +372,8 @@ Definition camlPEG_def[nocompute]:
                       pnt nOpen;
                       pnt nModuleTypeDef;
                       pnt nModuleDef;
+                      (* CakeML code pragmas: *)
+                      pnt nCakeMLPragma;
                       (* include moduleexpr *)
                       (* functor versions of the moduletype thing *)
                       ])
