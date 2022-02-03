@@ -2395,6 +2395,11 @@ Definition ptree_ModuleType_def:
       fail (locs, «Expected a moduletype-ascription non-terminal»)) *)
 End
 
+Definition peg_def:
+  peg (Failure locn err) = fail (locn, implode err) ∧
+  peg (Success (_: (tokens$token # locs) list) x _) = return x
+End
+
 Definition ptree_Definition_def:
   (ptree_Definition (Lf (_, locs)) =
     fail (locs, «Expected a top-level definition non-terminal»)) ∧
@@ -2403,6 +2408,24 @@ Definition ptree_Definition_def:
       case args of
         [arg] => ptree_Definition arg
       | _ => fail (locs, «Impossible: nDefinition»)
+    else if nterm = INL nCakeMLPragma then
+      case args of
+        [arg] =>
+          do
+            lf <- destLf arg;
+            tk <- option $ destTOK lf;
+            str <- option $ destPragma tk;
+            toks <<- lexer_fun$lexer_fun str;
+            if EXISTS (λt. FST t = LexErrorT) toks then
+              fail (locs, «The CakeML lexer failed»)
+            else
+              do
+                pts <- peg (destResult (cmlpegexec nTopLevelDecs toks));
+                pt <- option $ oHD pts;
+                option $ ptree_TopLevelDecs pt
+              od ++ fail (locs, «The CakeML parser failed»)
+          od
+      | _ => fail (locs, «Impossible: nCakeMLPragma»)
     else if nterm = INL nTopLet then
       case args of
         [lett; lbs] =>

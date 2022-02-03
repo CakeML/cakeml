@@ -9,6 +9,13 @@ local open ASCIInumbersLib stringSyntax in end
 
 val _ = new_theory "camlTests"
 
+val _ = set_grammar_ancestry [
+  "misc", "pegexec", "caml_lex", "camlPEG", "camlPtreeConversion", "ast"
+  ]
+
+val _ = bring_to_front_overload "nType" {Name="nType", Thy="camlPEG"};
+val _ = bring_to_front_overload "nPattern" {Name="nPattern", Thy="camlPEG"};
+
 Type NT = “:camlNT inf”;
 Overload mkNT = “INL : camlNT -> NT”;
 Overload TK = “TOK : token -> (token,camlNT) grammar$symbol”;
@@ -131,6 +138,31 @@ in
 end;
 
 fun parsetest t1 t2 s = parsetest0 t1 t2 s NONE;
+
+(* -------------------------------------------------------------------------
+ * CakeML escape hatch
+ * ------------------------------------------------------------------------- *)
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let x = 2 ;; (*CML val x = 5; print \"z\"; fun ref x = Ref x; *)"
+  (SOME “[Dlet L1 (Pv "x") (Lit (IntLit 2));
+          Dlet L2 (Pv "x") (Lit (IntLit 5));
+          Dlet L3 (Pv "it") (App Opapp [V "print"; Lit (StrLit "z")]);
+          Dletrec L4 [("ref","x", App Opref [V "x"])]]”)
+  ;
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "(*CML val x = x; (*CML comments and pragmas are skipped *) val y = y;*)"
+  (SOME “[Dlet L1 (Pv "x") (V "x");
+          Dlet L2 (Pv "y") (V "y")]”)
+  ;
+
+(* This fails, as expected:
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let x = (*CML val x = x; *) 6;;"
+  NONE
+  ;
+ *)
 
 (* -------------------------------------------------------------------------
  * Types
