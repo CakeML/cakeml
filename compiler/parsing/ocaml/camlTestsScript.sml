@@ -240,6 +240,11 @@ val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
  * Expressions
  * ------------------------------------------------------------------------- *)
 
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "let _ = Ref x in z"
+  (SOME “Let NONE (App Opref [V "x"]) (V "z")”)
+  ;
+
 val _ = parsetest0 “nValuePath” “ptree_ValuePath”
   "Aa.B_b.c"
   (SOME “["Aa"; "B_b"; "c"]”)

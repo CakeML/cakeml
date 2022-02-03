@@ -122,6 +122,8 @@ Definition compatCurryE_def:
           case exp of
             Con NONE xs => Con (SOME id) xs
           | _ => Con (SOME id) [exp]
+        else if nm = "Ref" then
+          App Opref [exp]
         else
           Con (SOME id) [exp]
 End
