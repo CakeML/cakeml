@@ -100,6 +100,9 @@ val fields_side_thm = Q.prove (
   `!f s. fields_side f s`,
   rw [fields_side_def, fields_aux_side_thm] ) |> update_precondition
 
+val _ = next_ml_names := ["findi"];
+val result = translate str_findi_def;
+
 val _ = ml_prog_update open_local_block;
 val result = translate isStringThere_aux_def;
 val isStringThere_aux_side_def = theorem"isstringthere_aux_side_def";

@@ -91,8 +91,79 @@ Definition pp_list_def:
   )
 End
 
+Definition escape_char_def:
+  escape_char c =
+    if c = #"\t"
+    then SOME (strlit "\\t")
+    else if c = #"\n"
+    then SOME (strlit "\\n")
+    else if c = #"\\"
+    then SOME (strlit "\\\\")
+    else if c = #"\""
+    then SOME (strlit "\\\"")
+    else NONE
+End
+
+Definition escape_char_str_def:
+  escape_char_str c = case escape_char c of
+    NONE => [c]
+  | SOME s => explode s
+End
+
+Definition escape_str_def:
+  escape_str i s = case str_findi (\c. IS_SOME (escape_char c)) i s of
+    NONE => List [substring s i (strlen s - i)]
+  | SOME j => Append (List [substring s i (j - i);
+        case escape_char (strsub s j) of NONE => strlit "" | SOME s => s])
+    (escape_str (j + 1) s)
+Termination
+  WF_REL_TAC `measure (\(i, s). strlen s - i)`
+  \\ rw []
+  \\ drule str_findi_range
+  \\ simp []
+End
+
+Triviality findi_map_escape_char_str:
+  !P i s. P = IS_SOME o escape_char ==>
+  FLAT (MAP escape_char_str (DROP i (explode s))) =
+  case str_findi P i s of
+    NONE => DROP i (explode s)
+  | SOME j => TAKE (j - i) (DROP i (explode s))
+    ++ (case escape_char (strsub s j) of NONE => "" | SOME s => explode s)
+    ++ FLAT (MAP escape_char_str (DROP (j + 1) (explode s)))
+Proof
+  recInduct str_findi_ind
+  \\ rw []
+  \\ simp [Once str_findi_def]
+  \\ rw []
+  \\ simp [listTheory.DROP_LENGTH_TOO_LONG]
+  \\ `DROP i (explode s) = strsub s i :: DROP (i + 1) (explode s)`
+    by (Cases_on `s` \\ fs [DROP_EL_CONS])
+  \\ fs [escape_char_str_def, IS_SOME_EXISTS]
+  \\ EVERY_CASE_TAC \\ fs []
+  \\ imp_res_tac str_findi_range
+  \\ simp [TAKE_def]
+QED
+
+Theorem escape_str_thm:
+  !i s. concat (append (escape_str i s)) =
+  implode (FLAT (MAP escape_char_str (DROP i (explode s))))
+Proof
+  recInduct escape_str_ind
+  \\ rw []
+  \\ simp [Once (Q.SPEC `\c. IS_SOME (escape_char c)` findi_map_escape_char_str), FUN_EQ_THM]
+  \\ simp [Once escape_str_def]
+  \\ Cases_on `s`
+  \\ EVERY_CASE_TAC \\ fs []
+  \\ rw [substring_def, SEG_TAKE_DROP, mlstringTheory.concat_def, implode_def]
+  \\ imp_res_tac str_findi_range
+  \\ fs [mlstringTheory.concat_def, implode_def]
+  \\ imp_res_tac (Q.prove (`!s. x = SOME s ==> ?xs. s = strlit xs`, Cases \\ simp []))
+  \\ simp []
+QED
+
 Definition pp_string_def:
-  pp_string s = PP_Data F (List [strlit "\""; s; strlit "\""])
+  pp_string s = PP_Data F (app_list_wrap (strlit "\"") (escape_str 0 s) (strlit "\""))
 End
 
 Definition pp_bool_def:

@@ -513,6 +513,54 @@ Proof
   rw [fields_def, fields_aux_length]
 QED
 
+Definition str_findi_def:
+  str_findi P i s = if i < strlen s
+    then if P (strsub s i) then SOME i else str_findi P (i + 1) s
+    else NONE
+Termination
+  WF_REL_TAC `measure (\(P, i, s). strlen s - i)`
+End
+
+Theorem str_findi_range:
+  !P i s. str_findi P i s = SOME j ==> i <= j /\ j < strlen s
+Proof
+  recInduct str_findi_ind
+  \\ rpt gen_tac
+  \\ disch_tac
+  \\ simp [Once str_findi_def]
+  \\ rw []
+  \\ fs []
+QED
+
+Theorem OLEAST_LE_STEP:
+  (OLEAST j. i <= j /\ P j) = (if P i then SOME i
+    else (OLEAST j. i + 1 <= j /\ P j))
+Proof
+  rw []
+  \\ simp [whileTheory.OLEAST_EQ_SOME]
+  \\ qmatch_goalsub_abbrev_tac `opt1 = $OLEAST _`
+  \\ Cases_on `opt1`
+  \\ fs [whileTheory.OLEAST_EQ_SOME]
+  \\ rw []
+  \\ fs [LESS_EQ |> REWRITE_RULE [ADD1] |> GSYM, arithmeticTheory.LT_LE]
+  \\ CCONTR_TAC
+  \\ fs []
+  \\ metis_tac []
+QED
+
+Theorem str_findi_OLEAST:
+  !P i s. str_findi P i s = (OLEAST j. i <= j /\ j < strlen s /\ P (strsub s j))
+Proof
+  recInduct str_findi_ind
+  \\ rw []
+  \\ simp [Once OLEAST_LE_STEP]
+  \\ simp [Once str_findi_def]
+  \\ rw []
+  \\ fs []
+  \\ CCONTR_TAC
+  \\ fs []
+QED
+
 val isStringThere_aux_def = Define`
   (isStringThere_aux s1 s2 s1i s2i 0 = T) /\
   (isStringThere_aux s1 s2 s1i s2i (SUC len) =

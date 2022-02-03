@@ -47,6 +47,23 @@ val res = tr "val_hidden_type" pp_val_hidden_type_def;
 
 val res = translate pp_list_def;
 val res = translate pp_bool_def;
+val res = translate escape_char_def;
+val res = translate escape_str_def;
+
+Triviality escape_str_side:
+  !i s. escape_str_side i s <=> i <= strlen s
+Proof
+  recInduct escape_str_ind
+  \\ rw []
+  \\ simp [Once (theorem "escape_str_side_def")]
+  \\ Cases_on `str_findi (\c. IS_SOME (escape_char c)) i s`
+  \\ fs []
+  \\ imp_res_tac mlstringTheory.str_findi_range
+  \\ simp []
+QED
+
+val res = update_precondition escape_str_side;
+
 val res = translate pp_string_def;
 
 val res = translate pp_app_list_def;
