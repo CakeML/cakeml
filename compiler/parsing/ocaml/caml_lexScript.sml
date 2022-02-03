@@ -38,6 +38,8 @@ Datatype:
     | FuncompT | F_FT
     | THEN_T | THENC_T | THENL_T | THEN_TCL_T
     | ORELSE_T | ORELSEC_T | ORELSE_TCL_T
+    (* CakeML pragma *)
+    | PragmaT string
     (* literals and identifiers: *)
     | IntT int
     | CharT char
@@ -127,6 +129,22 @@ Proof
   Cases_on ‘x’ \\ rw [isIdent_def]
 QED
 
+Definition isPragma_def:
+  isPragma (PragmaT s) = T ∧
+  isPragma _ = F
+End
+
+Definition destPragma_def[simp]:
+  destPragma (PragmaT s) = SOME s ∧
+  destPragma _ = NONE
+End
+
+Theorem isPragma_thm:
+  isPragma x ⇔ ∃y. x = PragmaT y
+Proof
+  Cases_on ‘x’ \\ rw [isPragma_def]
+QED
+
 (* -------------------------------------------------------------------------
  * Pre-tokens
  * ------------------------------------------------------------------------- *)
@@ -137,6 +155,7 @@ Datatype:
     | StringS string
     | CharS char
     | OtherS string
+    | PragmaS string
     | ErrorS
 End
 
@@ -375,6 +394,36 @@ Definition scan_number_def:
               rest)
 End
 
+Definition scan_pragma_def:
+  scan_pragma (level: num) (n: num) cs loc =
+  case cs of
+    x::y::xs =>
+      if x = #"(" ∧ y = #"*" then
+        scan_pragma (level + 1) (n + 2) xs (next_loc 2 loc)
+      else if x = #"*" ∧ y = #")" then
+        let loc' = next_loc 2 loc in
+          if level = 0 then
+            SOME (n, next_loc 2 loc, xs)
+          else
+            scan_pragma (level - 1) (n + 2) xs loc'
+      else if x = #"\n" then
+        scan_pragma level (n + 1) (y::xs) (next_line loc)
+      else
+        scan_pragma level (n + 1) (y::xs) (next_loc 1 loc)
+  | _ => NONE
+End
+
+Theorem scan_pragma_thm:
+  ∀l n cs loc m loc' rest.
+    scan_pragma l n cs loc = SOME (m, loc', rest) ⇒
+      LENGTH rest ≤ LENGTH cs ∧
+      n ≤ m
+Proof
+  ho_match_mp_tac scan_pragma_ind \\ rw []
+  \\ rgs [Once scan_pragma_def, CaseEqs ["option", "list", "bool"]]
+  \\ gvs []
+QED
+
 Theorem scan_number_thm:
   scan_number f g off cs loc = SOME (sym, locs, ds) ⇒
     LENGTH ds ≤ LENGTH cs
@@ -435,6 +484,13 @@ Definition next_sym_def:
           else SOME res
     else if isPREFIX "*)" (c::cs) then
       SOME (ErrorS, Locs loc (next_loc 2 loc), TL cs)
+    else if isPREFIX (#"(" :: #"*" :: "CML") (c::cs) then
+      case scan_pragma 0 0 (DROP 4 cs) loc of
+      | NONE => SOME (ErrorS, Locs loc loc, "")
+      | SOME (n, loc', rest) =>
+          SOME (PragmaS (TAKE n (DROP 4 cs)),
+                Locs loc loc',
+                rest)
     else if isPREFIX [#"("; #"*"] (c::cs) then
       case skip_comment (TL cs) 0 (next_loc 2 loc) of
       | NONE => SOME (ErrorS, Locs loc (next_loc 2 loc), "")
@@ -489,6 +545,7 @@ Proof
   \\ map_every imp_res_tac [
     scan_number_thm,
     scan_strlit_thm,
+    scan_pragma_thm,
     scan_charlit_thm ] \\ gs []
   \\ gs [NOT_NIL_EQ_LENGTH_NOT_0, LENGTH_TL]
   \\ imp_res_tac skip_comment_thm \\ gs []
@@ -502,12 +559,15 @@ Proof
   \\ imp_res_tac take_while_thm
   \\ gs [NOT_NIL_EQ_LENGTH_NOT_0, LENGTH_TL]
   \\ imp_res_tac scan_charlit_thm \\ gs []
+  \\ imp_res_tac scan_pragma_thm \\ gs []
   \\ Cases_on ‘cs’ \\ gs []
   \\ imp_res_tac skip_comment_thm \\ gs []
   \\ Cases_on ‘c’ \\ gs []
 QED
 
 (*
+EVAL “next_sym "(*CML (* foo *) bar *)" loc”
+
 EVAL “next_sym "'foo'" loc”
 EVAL “next_sym "-0X2f" loc”
 EVAL “next_sym "0x2f" loc”
@@ -657,6 +717,7 @@ Definition sym2token_def:
     | StringS s => StringT s
     | CharS c => CharT c
     | ErrorS => LexErrorT
+    | PragmaS s => PragmaT s
     | OtherS s => get_token s
 End
 
@@ -680,6 +741,9 @@ EVAL “next_token "let foo = 3;; (* bar *)" loc”
 EVAL “next_token "-33 + 44" loc”
 EVAL “next_token "* /" loc”
 EVAL “next_token "**" loc”
+EVAL “next_token "(*CML (* foo bar *) baz\n\nasdf*)" loc”
+EVAL “next_token "(* CML (* foo bar *) baz\n\nasdf*)" loc” (* = NONE *)
+EVAL “next_token "(*CL (* foo bar *) baz\n\nasdf*)" loc” (* = NONE *)
  *)
 
 Definition lexer_fun_aux_def:
@@ -707,6 +771,7 @@ EVAL “lexer_fun "( )"”
 EVAL “lexer_fun "X.x"”
 EVAL “lexer_fun "x"”
 EVAL “lexer_fun "3 <+> 5 FOO"”
+EVAL “lexer_fun "4;;\n(*CML code *)"”
  *)
 
 (* -------------------------------------------------------------------------
@@ -810,6 +875,26 @@ Theorem destIdent_PMATCH:
   ∀x. destIdent x =
         case x of
           IdentT s => SOME s
+        | _ => NONE
+Proof
+  CONV_TAC (DEPTH_CONV PMCONV)
+  \\ Cases \\ rw []
+QED
+
+Theorem isPragma_PMATCH:
+  ∀x. isPragma x =
+        case x of
+          PragmaT s => T
+        | _ => F
+Proof
+  CONV_TAC (DEPTH_CONV PMCONV)
+  \\ Cases \\ rw [isPragma_def]
+QED
+
+Theorem destPragma_PMATCH:
+  ∀x. destPragma x =
+        case x of
+          PragmaT s => SOME s
         | _ => NONE
 Proof
   CONV_TAC (DEPTH_CONV PMCONV)
