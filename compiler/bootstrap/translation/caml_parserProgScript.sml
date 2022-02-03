@@ -177,6 +177,28 @@ val _ = update_precondition ptree_typedefinition_side;
 
 val r = preprocess ptree_ModuleType_def |> translate;
 val r = preprocess ptree_Definition_def |> translate;
+
+Theorem ptree_definition_side:
+  (∀x. camlptreeconversion_ptree_definition_side x) ∧
+  (∀x. camlptreeconversion_ptree_modexpr_side x) ∧
+  (∀x. camlptreeconversion_ptree_moduleitems_side x) ∧
+  (∀x. camlptreeconversion_ptree_moduleitem_side x) ∧
+  (∀x. camlptreeconversion_ptree_exprordefn_side x)
+Proof
+  ho_match_mp_tac ptree_Definition_ind \\ rw []
+  \\ simp [Once (fetch "-" "camlptreeconversion_ptree_definition_side_def")]
+  \\ rw []
+  \\ simp [parserProgTheory.parse_prog_side_def,
+           parserProgTheory.peg_exec_side_def,
+           parserProgTheory.coreloop_side_def]
+  \\ rename [‘lexer_fun inp’]
+  \\ qspec_then ‘lexer_fun inp’ strip_assume_tac
+                cmlPEGTheory.owhile_TopLevelDecs_total
+  \\ fs [parserProgTheory.INTRO_FLOOKUP, SF ETA_ss]
+QED
+
+val _ = List.map update_precondition (CONJUNCTS ptree_definition_side);
+
 val r = preprocess ptree_Start_def |> translate;
 
 (* -------------------------------------------------------------------------
