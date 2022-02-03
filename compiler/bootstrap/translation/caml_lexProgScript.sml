@@ -73,6 +73,8 @@ val r = translate isSymbol_PMATCH;
 val r = translate destSymbol_PMATCH;
 val r = translate isIdent_PMATCH;
 val r = translate destIdent_PMATCH;
+val r = translate isPragma_PMATCH;
+val r = translate destPragma_PMATCH;
 
 (* The rest of the lexer works on character lists.
  *)
