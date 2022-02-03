@@ -1382,258 +1382,189 @@ Proof
   \\ gs [env_ok_def, env_rel_def, ctor_rel_def]
 QED
 
-(*
+Theorem env_ok_extend_dec_env:
+  env_ok s env ∧
+  state_ok s ∧
+  env_ok s env1 ⇒
+    env_ok s (extend_dec_env env1 env)
+Proof
+  rw [env_ok_def]
+  \\ irule env_rel_extend_dec_env \\ gs []
+QED
+
+Theorem env_ok_nsAppend:
+  env_ok s env ∧
+  state_ok s ∧
+  env_ok s env1 ⇒
+    env_ok s <| v := nsAppend env1.v env.v; c := nsAppend env1.c env.c |>
+Proof
+  rw [env_ok_def]
+  \\ irule env_rel_nsAppend \\ gs []
+QED
+
 Theorem evaluate_ok_decs_Cons:
   ^(get_goal "_::_::_:dec list")
 Proof
-  rw [evaluate_decs_def]
-  \\ gvs [CaseEqs ["prod", "result"], PULL_EXISTS]
-  \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
-  \\ Cases_on ‘res1’ \\ gs []
-  >~ [‘res_rel _ _ (Rerr _) (Rerr _)’] >- (
-    first_assum (irule_at Any) \\ gs []
-    \\ first_assum (irule_at Any) \\ gs [])
-  \\ drule_all_then assume_tac env_rel_update
-  \\ dxrule_then (drule_then assume_tac) env_rel_extend_dec_env
-  \\ first_x_assum (drule_all_then strip_assume_tac)
-  \\ first_assum (irule_at (Pat ‘state_rel’))
-  \\ first_assum (irule_at Any)
-  \\ irule_at Any EQ_REFL
-  \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
-  \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
-  \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
+  simp [evaluate_decs_def]
+  \\ strip_tac \\ rpt gen_tac \\ strip_tac
+  \\ qpat_x_assum ‘_ = (t,res)’ mp_tac
+  \\ TOP_CASE_TAC \\ fs []
+  \\ reverse TOP_CASE_TAC \\ fs []
+  >- (
+    rw [] \\ gs [])
+  \\ simp [CaseEq "prod"]
+  \\ strip_tac \\ gvs []
+  \\ rename1 ‘combine_dec_result vs res’
+  \\ ‘res ≠ Rerr (Rabort Rtype_error)’
+    by (strip_tac \\ gs [combine_dec_result_def])
   \\ gs [combine_dec_result_def]
-  \\ rpt CASE_TAC \\ gs []
-  \\ gs [extend_dec_env_def]
-  \\ gs [env_rel_def, ctor_rel_def]
-  \\ irule_at Any nsAll2_nsAppend
-  \\ irule_at Any nsAll2_nsAppend \\ gs []
-  \\ irule_at Any nsAll2_mono
-  \\ first_assum (irule_at Any) \\ gs []
-  \\ irule_at Any nsAll2_mono
-  \\ first_assum (irule_at Any) \\ gs []
-  \\ simp [FORALL_PROD]
-  \\ rw [] \\ (irule_at Any stamp_rel_update ORELSE irule_at Any v_rel_update)
-  \\ gs [SF SFY_ss]
+  \\ CASE_TAC \\ gs []
+  \\ qpat_x_assum ‘env_ok _ env’ assume_tac
+  \\ drule_then (qspec_then ‘vs’ assume_tac) env_ok_extend_dec_env \\ gs []
+  \\ rename1 ‘env_ok st2 (extend_dec_env vs env)’
+  \\ qspecl_then [‘st’,‘env’,‘[d1]’] mp_tac is_clock_io_mono_evaluate_decs
+  \\ qspecl_then [‘st2’,‘extend_dec_env vs env’,‘d2::ds’] mp_tac
+                 is_clock_io_mono_evaluate_decs
+  \\ rw [is_clock_io_mono_def]
+  >~ [‘env_ok t <| v := _; c := _ |>’] >- (
+    irule env_ok_nsAppend \\ gs []
+    \\ gs [env_ok_def]
+    \\ irule env_rel_update
+    \\ first_assum (irule_at Any)
+    \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
+  \\ gs [env_ok_def]
+  \\ irule env_rel_update
+  \\ first_assum (irule_at Any)
+  \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]
 QED
 
 Theorem evaluate_ok_decs_Dlet:
   ^(get_goal "Dlet")
 Proof
   rw [evaluate_decs_def]
-  >~ [‘¬ALL_DISTINCT _’] >- (
-    first_assum (irule_at Any) \\ gs [SF SFY_ss])
-  \\ gvs [CaseEqs ["prod", "result"], PULL_EXISTS]
-  \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
-  \\ Cases_on ‘res1’ \\ gs []
-  >~ [‘res_rel _ _ (Rerr err1) (Rerr err2)’] >- (
-    Cases_on ‘err1’ \\ Cases_on ‘err2’ \\ gs []
-    \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
-  \\ first_assum (irule_at Any) \\ gs [SF SFY_ss]
+  \\ gvs [CaseEqs ["prod", "result", "match_result"]]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
-  \\ ‘∃res. pmatch env.c s1.refs p x [] = res’ by gs []
-  \\ drule_all_then assume_tac env_rel_update
-  \\ gs [state_rel_def, env_rel_def]
-  \\ drule (CONJUNCT1 pmatch_update)
-  \\ rpt (disch_then drule) \\ simp []
-  \\ rpt (disch_then drule) \\ rw []
-  \\ rename1 ‘v_rel _ _ _ x y’
-  \\ Cases_on ‘pmatch env.c s1.refs p x []’
-  \\ Cases_on ‘pmatch env1.c t1.refs p y []’ \\ gs []
-  \\ rw [v_rel_def, bind_exn_v_def, Once stamp_rel_cases, bind_stamp_def,
-         ctor_rel_def]
+  \\ drule pmatch_ok \\ gs [] \\ rw []
+  \\ gs [env_ok_def, env_rel_def, ctor_rel_def]
   \\ irule nsAll2_alist_to_ns \\ gs []
+  \\ gvs [LIST_REL_EL_EQN, v_ok_def, EVERY_EL, ELIM_UNCURRY, EL_MAP]
 QED
 
 Theorem evaluate_ok_decs_Dletrec:
   ^(get_goal "Dletrec")
 Proof
   rw [evaluate_decs_def]
-  >~ [‘¬ALL_DISTINCT _’] >- (
-    first_assum (irule_at Any) \\ gs [])
-  \\ gvs [CaseEqs ["prod", "result"], PULL_EXISTS]
-  \\ first_assum (irule_at Any) \\ gs []
-  \\ gs [env_rel_def, ctor_rel_def, PULL_EXISTS, SF SFY_ss,
+  \\ gvs [CaseEqs ["prod", "result"]]
+  \\ gs [env_rel_def, ctor_rel_def, env_ok_def,
          semanticPrimitivesPropsTheory.build_rec_env_merge]
   \\ irule_at Any nsAll2_alist_to_ns
   \\ gs [EVERY2_MAP, LAMBDA_PROD]
   \\ rw [v_rel_def, LIST_REL_EL_EQN, ELIM_UNCURRY, env_rel_def, ctor_rel_def]
 QED
 
-Theorem state_rel_with_next_type_stamp:
-  state_rel l fr ft fe s t ⇒
-    state_rel l fr
-      (ft ⊌ FUN_FMAP (λn. n - s.next_type_stamp + t.next_type_stamp)
-                     (IMAGE ($+ s.next_type_stamp) (count extra))) fe
-      (s with next_type_stamp := extra + s.next_type_stamp)
-      (t with next_type_stamp := extra + t.next_type_stamp)
+Theorem state_ok_with_next_type_stamp:
+  state_ok s ∧
+  env_ok s env ⇒
+    let s' = s with next_type_stamp := extra + s.next_type_stamp in
+    state_ok s' ∧
+    env_ok s' env
 Proof
-  simp [state_rel_def] \\ strip_tac
-  \\ gs [flookup_thm, FUNION_DEF]
-  \\ conj_tac
+  rw [state_ok_def, state_rel_def]
+  \\ gs [FLOOKUP_FUN_FMAP, INJ_IFF, FUN_FMAP_DEF]
   >- (
-    qpat_x_assum ‘INJ ($' ft) _ _’ mp_tac
-    \\ qpat_x_assum ‘FDOM ft = _’ mp_tac
-    \\ rpt (pop_assum kall_tac)
-    \\ rw [INJ_IFF, FUNION_DEF]
-    \\ rw [FUN_FMAP_DEF] \\ gs [CaseEq "bool"]
-    \\ res_tac \\ fs [])
-  \\ once_rewrite_tac [ADD_COMM] \\ simp [count_add]
-  \\ qx_gen_tac ‘m’ \\ strip_tac
-  \\ last_x_assum drule \\ rw []
-  \\ irule ref_rel_mono
-  \\ first_assum (irule_at Any) \\ rw []
-  \\ irule v_rel_update
-  \\ first_assum (irule_at (Pat ‘v_rel’))
-  \\ gs [SUBMAP_FUNION_ID]
+    strip_tac
+    \\ first_x_assum (drule_then assume_tac)
+    \\ irule ref_rel_mono
+    \\ first_assum (irule_at Any) \\ rw []
+    \\ irule v_rel_update
+    \\ first_assum (irule_at Any)
+    \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
+  \\ gs [env_ok_def, env_rel_def]
+  \\ irule_at Any ctor_rel_update
+  \\ first_assum (irule_at Any)
+  \\ irule_at Any nsAll2_mono
+  \\ first_assum (irule_at Any)
+  \\ simp [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO] \\ rw []
+  \\ irule_at Any v_rel_update
+  \\ first_assum (irule_at Any)
+  \\ simp [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]
 QED
 
-Theorem state_rel_with_next_exn_stamp:
-  state_rel l fr ft fe s t ⇒
-    state_rel l fr ft
-      (fe ⊌ FUN_FMAP (λn. n - s.next_exn_stamp + t.next_exn_stamp)
-                     (IMAGE ($+ s.next_exn_stamp) (count extra)))
-      (s with next_exn_stamp := extra + s.next_exn_stamp)
-      (t with next_exn_stamp := extra + t.next_exn_stamp)
+Theorem state_ok_with_next_exn_stamp:
+  state_ok s ∧
+  env_ok s env ⇒
+    let s' = s with next_exn_stamp := extra + s.next_exn_stamp in
+    state_ok s' ∧
+    env_ok s' env
 Proof
-  simp [state_rel_def] \\ strip_tac
-  \\ gs [flookup_thm, FUNION_DEF]
-  \\ conj_tac
+  rw [state_ok_def, state_rel_def]
+  \\ gs [FLOOKUP_FUN_FMAP, INJ_IFF, FUN_FMAP_DEF]
   >- (
-    qpat_x_assum ‘INJ ($' fe) _ _’ mp_tac
-    \\ qpat_x_assum ‘FDOM fe = _’ mp_tac
-    \\ rpt (pop_assum kall_tac)
-    \\ rw [INJ_IFF, FUNION_DEF]
-    \\ rw [FUN_FMAP_DEF] \\ gs [CaseEq "bool"]
-    \\ res_tac \\ fs [])
-  \\ once_rewrite_tac [ADD_COMM] \\ simp [count_add]
-  \\ qx_gen_tac ‘m’ \\ strip_tac
-  \\ last_x_assum drule \\ rw []
-  \\ irule ref_rel_mono
-  \\ first_assum (irule_at Any) \\ rw []
-  \\ irule v_rel_update
-  \\ first_assum (irule_at (Pat ‘v_rel’))
-  \\ gs [SUBMAP_FUNION_ID]
+    strip_tac
+    \\ first_x_assum (drule_then assume_tac)
+    \\ irule ref_rel_mono
+    \\ first_assum (irule_at Any) \\ rw []
+    \\ irule v_rel_update
+    \\ first_assum (irule_at Any)
+    \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
+  \\ gs [env_ok_def, env_rel_def]
+  \\ irule_at Any ctor_rel_update
+  \\ first_assum (irule_at Any)
+  \\ irule_at Any nsAll2_mono
+  \\ first_assum (irule_at Any)
+  \\ simp [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO] \\ rw []
+  \\ irule_at Any v_rel_update
+  \\ first_assum (irule_at Any)
+  \\ simp [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]
 QED
 
 Theorem evaluate_ok_decs_Dtype:
   ^(get_goal "Dtype")
 Proof
-  rw [evaluate_decs_def]
-  >~ [‘¬EVERY check_dup_ctors _’] >- (
-    first_assum (irule_at (Pat ‘state_rel’))
-    \\ gs [])
+  simp [evaluate_decs_def]
+  \\ strip_tac
+  \\ gvs [CaseEq "bool"]
   \\ drule_all_then (qspec_then ‘LENGTH tds’ assume_tac)
-                    state_rel_with_next_type_stamp
-  \\ rw []
-  \\ first_assum (irule_at Any)
-  \\ gs [SUBMAP_FUNION_ID]
-  \\ gvs [env_rel_def, ctor_rel_def, state_rel_def]
-  \\ qpat_x_assum ‘INJ ($' (FUNION _ _)) _ _’ mp_tac
-  \\ qpat_x_assum ‘INJ ($' ft) _ _’ mp_tac
-  \\ qpat_x_assum ‘FDOM ft = _’ mp_tac
+                    state_ok_with_next_type_stamp
+  \\ gs []
+  \\ pop_assum kall_tac
+  \\ pop_assum mp_tac
   \\ rpt (pop_assum kall_tac)
-  \\ rename1 ‘_ _ (build_tdefs n _) (_ m _)’
-  \\ qid_spec_tac ‘ft’
+  \\ rw [state_ok_def, env_ok_def, state_rel_def, env_rel_def]
+  \\ simp [ctor_rel_def]
+  \\ rename1 ‘_ (_ _ (count (LENGTH tds + n))) (_ _ (count m))’
   \\ qid_spec_tac ‘m’
   \\ qid_spec_tac ‘tds’
   \\ qid_spec_tac ‘n’
+  \\ rpt (pop_assum kall_tac)
   \\ ho_match_mp_tac build_tdefs_ind
-  \\ rw [build_tdefs_def]
+  \\ simp [build_tdefs_def] \\ rw []
   \\ irule nsAll2_nsAppend \\ gs []
   \\ irule_at Any nsAll2_alist_to_ns \\ gs []
-  \\ conj_tac
-  >- (
-    gs [build_constrs_def, EVERY2_MAP, LAMBDA_PROD, stamp_rel_cases]
-    \\ gvs [LIST_REL_EL_EQN] \\ rw []
-    \\ rpt (pairarg_tac \\ gvs [])
-    \\ gs [flookup_thm]
-    \\ conj_tac >- (qexists_tac ‘0’ \\ simp [])
-    \\ simp [FUNION_DEF]
-    \\ qmatch_goalsub_abbrev_tac ‘FUN_FMAP f D’
-    \\ ‘n ∈ D’
-      by (gs [Abbr ‘D’] \\ qexists_tac ‘0’ \\ gs [])
-    \\ ‘FINITE D’
-      by gs [Abbr ‘D’]
-    \\ drule_then (qspec_then ‘f’ mp_tac) FUN_FMAP_DEF \\ rw []
-    \\ gs [Abbr ‘f’])
-  \\ gs [ADD1]
-  \\ ‘FDOM (ft |+ (n, m)) = count (n + 1)’
-    by rw [EXTENSION]
-  \\ ‘INJ ($' (ft |+ (n, m))) (count (n + 1)) (count (m + 1))’
-    by (gs [INJ_IFF, FAPPLY_FUPDATE_THM]
-        \\ rw [] \\ gs []
-        \\ rename1 ‘x < n + 1’ \\ ‘x < n’ by gs []
-        \\ res_tac \\ fs [])
-  \\ ‘INJ ($' (FUNION (ft |+ (n,m)) (FUN_FMAP (λx. x - (n + 1) + (m + 1))
-                                    (IMAGE ($+ (n + 1)) (count (LENGTH tds))))))
-                                    (count (n + (LENGTH tds + 1)))
-                                    (count (m + (LENGTH tds + 1)))’
-    by (qmatch_goalsub_abbrev_tac ‘($' ft')’
-        \\ ‘∀k. k < n + LENGTH tds + 1 ⇒
-                if k < n then ft' ' k = ft ' k else
-                if k = n then ft' ' k = m else
-                ft' ' k = k + m - n’
-          by (csimp [Abbr ‘ft'’, FUNION_DEF, FAPPLY_FUPDATE_THM]
-              \\ rw [DISJ_EQ_IMP]
-              \\ qmatch_goalsub_abbrev_tac ‘FUN_FMAP f D’
-              \\ ‘k ∈ D’
-                by (gs [Abbr ‘D’] \\ qexists_tac ‘k - n - 1’ \\ gs [])
-              \\ ‘FINITE D’
-                by gs [Abbr ‘D’]
-              \\ drule_then (qspec_then ‘f’ mp_tac) FUN_FMAP_DEF \\ rw []
-              \\ gs [Abbr ‘f’])
-        \\ qpat_x_assum ‘INJ ($' ft) _ _’ mp_tac
-        \\ rw [INJ_IFF]
-        >- (
-          gs [] \\ res_tac \\ fs [COND_EXPAND]
-          \\ res_tac \\ fs [])
-        \\ rw [EQ_IMP_THM] \\ gs []
-        \\ first_assum drule_all
-        \\ ntac 2 (pop_assum mp_tac)
-        \\ first_x_assum drule_all
-        \\ rw [] \\ gs []
-        \\ res_tac \\ fs [])
-  \\ first_x_assum (drule_then (qspec_then ‘m + 1’ mp_tac))
-  \\ rw []
-  \\ irule nsAll2_mono
-  \\ first_assum (irule_at Any) \\ gs []
-  \\ simp [FORALL_PROD]
-  \\ rw [stamp_rel_cases]
-  \\ gs [flookup_thm, FUN_FMAP_DEF, FUNION_DEF, FAPPLY_FUPDATE_THM, SF CONJ_ss]
-  \\ Cases_on ‘m1 = n’ \\ gvs []
-  \\ conj_tac >- (qexists_tac ‘0’ \\ simp [])
-  \\ qmatch_goalsub_abbrev_tac ‘FUN_FMAP f D’
-  \\ ‘m1 ∈ D’
-    by (gs [Abbr ‘D’] \\ qexists_tac ‘0’ \\ gs [])
-  \\ ‘FINITE D’
-    by gs [Abbr ‘D’]
-  \\ drule_then (qspec_then ‘f’ mp_tac) FUN_FMAP_DEF \\ rw []
-  \\ gs [Abbr ‘f’]
+  \\ gs [build_constrs_def, EVERY2_MAP, LAMBDA_PROD, stamp_rel_cases,
+         FLOOKUP_FUN_FMAP]
+  \\ simp [LIST_REL_EL_EQN, ELIM_UNCURRY, ADD1]
 QED
 
 Theorem evaluate_ok_decs_Dtabbrev:
   ^(get_goal "Dtabbrev")
 Proof
   rw [evaluate_decs_def]
-  \\ first_assum (irule_at Any) \\ gs []
-  \\ simp [env_rel_def, ctor_rel_def]
+  \\ gs [env_ok_def, env_rel_def, ctor_rel_def]
 QED
 
-Theorem state_rel_declare_env[local]:
-  state_rel l fr ft fe s t ⇒
-    (∀env. declare_env s.eval_state env = NONE) ∧
-    (∀env. declare_env t.eval_state env = NONE)
+Theorem state_ok_declare_env[local]:
+  state_ok s ⇒
+    ∀env. declare_env s.eval_state env = NONE
 Proof
-  rw [state_rel_def, declare_env_def]
+  rw [state_ok_def, state_rel_def, declare_env_def]
 QED
 
 Theorem evaluate_ok_decs_Denv:
   ^(get_goal "Denv")
 Proof
   rw [evaluate_decs_def]
-  \\ drule_then assume_tac state_rel_declare_env \\ gs []
-  \\ first_assum (irule_at Any) \\ gs []
+  \\ gs [state_ok_declare_env]
 QED
 
 Theorem evaluate_ok_decs_Dexn:
@@ -1641,12 +1572,10 @@ Theorem evaluate_ok_decs_Dexn:
 Proof
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod"]]
-  \\ drule_then (qspec_then ‘1’ assume_tac)
-                state_rel_with_next_exn_stamp \\ gs []
-  \\ first_assum (irule_at (Pat ‘state_rel’)) \\ gs []
-  \\ simp [SUBMAP_FUNION_ID]
-  \\ gs [env_rel_def, ctor_rel_def, stamp_rel_cases, flookup_thm,
-         FUNION_DEF, state_rel_def, FUN_FMAP_DEF]
+  \\ drule_all_then (qspec_then ‘1’ assume_tac)
+                    state_ok_with_next_exn_stamp \\ gs []
+  \\ gs [env_ok_def, env_rel_def, ctor_rel_def, stamp_rel_cases,
+         FLOOKUP_FUN_FMAP]
 QED
 
 Theorem evaluate_ok_decs_Dmod:
@@ -1654,29 +1583,32 @@ Theorem evaluate_ok_decs_Dmod:
 Proof
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod", "result"]]
-  \\ first_x_assum (drule_all_then strip_assume_tac)
-  \\ Cases_on ‘res1’ \\ gs []
-  \\ first_assum (irule_at Any) \\ gs []
-  \\ gs [env_rel_def, ctor_rel_def]
+  \\ gs [env_ok_def, env_rel_def, ctor_rel_def]
 QED
 
 Theorem evaluate_ok_decs_Dlocal:
   ^(get_goal "Dlocal")
 Proof
-  rw [evaluate_decs_def]
-  \\ gvs [CaseEqs ["option", "prod", "result"]]
-  \\ first_x_assum (drule_all_then strip_assume_tac)
-  \\ drule_all_then assume_tac env_rel_update
-  \\ Cases_on ‘res1’ \\ gs []
-  >~ [‘res_rel _ _ (Rerr _) (Rerr _)’] >- (
-    first_assum (irule_at Any)
-    \\ gs [])
-  \\ dxrule_then (drule_then assume_tac) env_rel_extend_dec_env
-  \\ first_x_assum (drule_all_then strip_assume_tac)
-  \\ first_assum (irule_at Any) \\ gs []
-  \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
-  \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
-  \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
+  simp [evaluate_decs_def]
+  \\ strip_tac
+  \\ rpt gen_tac \\ strip_tac
+  \\ qpat_x_assum ‘_ = (t,res)’ mp_tac
+  \\ TOP_CASE_TAC \\ fs []
+  \\ reverse TOP_CASE_TAC \\ fs []
+  >- (
+    rw [] \\ gs [])
+  \\ strip_tac \\ gs []
+  \\ rename1 ‘env_ok st2 (extend_dec_env env1 env)’
+  \\ qpat_x_assum ‘env_ok _ env’ assume_tac
+  \\ drule_then (qspec_then ‘env1’ assume_tac) env_ok_extend_dec_env \\ gs []
+  \\ qspecl_then [‘st’,‘env’,‘lds’] mp_tac is_clock_io_mono_evaluate_decs
+  \\ qspecl_then [‘st2’,‘extend_dec_env env1 env’,‘ds’] mp_tac
+                  is_clock_io_mono_evaluate_decs
+  \\ rw [is_clock_io_mono_def]
+  \\ gs [env_ok_def]
+  \\ irule env_rel_update
+  \\ first_assum (irule_at Any)
+  \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]
 QED
 
 Theorem evaluate_ok:
@@ -1701,46 +1633,24 @@ Proof
                   evaluate_ok_decs_Dmod, evaluate_ok_decs_Dlocal]
 QED
 
- *)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 (* -------------------------------------------------------------------------
  *
  * ------------------------------------------------------------------------- *)
 
-Theorem state_rel_init:
-  state_rel 0 FEMPTY (FUN_FMAP I (count 2)) (FUN_FMAP I (count 4))
-  (init_state ffi with clock := ck)
-  (init_state ffi with clock := ck)
+Theorem state_ok_init:
+  state_ok (init_state ffi with clock := ck)
 Proof
-  rw[state_rel_def, ml_progTheory.init_state_def, FLOOKUP_FUN_FMAP]
-  \\ rw[INJ_DEF, FUN_FMAP_DEF]
-  \\ EVAL_TAC
+  rw [state_ok_def, state_rel_def, init_state_def, FLOOKUP_FUN_FMAP,
+      INJ_IFF, FUN_FMAP_DEF, bool_type_num_def, list_type_num_def]
 QED
 
-Theorem env_rel_init:
-  env_rel FEMPTY (FUN_FMAP I (count 2)) (FUN_FMAP I (count 4))
-    init_env init_env
+Theorem env_ok_init:
+  env_ok (init_state ffi with clock := ck) init_env
 Proof
-  rw[env_rel_def, ml_progTheory.init_env_def,
-     GSYM namespaceTheory.nsEmpty_def]
-  \\ rw[ctor_rel_def, namespaceTheory.nsAll2_def]
-  \\ rw[namespaceTheory.nsSub_def]
-  \\ Cases_on`id` \\ fs[namespaceTheory.nsLookup_def]
-  \\ pop_assum mp_tac \\ rw[]
-  \\ rw[stamp_rel_cases, FLOOKUP_FUN_FMAP]
+  rw [env_ok_def, env_rel_def, init_env_def, GSYM namespaceTheory.nsEmpty_def]
+  \\ rw [ctor_rel_def, namespaceTheory.nsAll2_def, namespaceTheory.nsSub_def]
+  \\ Cases_on ‘id’ \\ fs [namespaceTheory.nsLookup_def]
+  \\ gvs [CaseEq "bool", stamp_rel_cases, FLOOKUP_FUN_FMAP, init_state_def]
 QED
 
 Theorem evaluate_decs_init:
@@ -1753,51 +1663,10 @@ Theorem evaluate_decs_init:
      env_rel fr ft fe (extend_dec_env env init_env)
                       (extend_dec_env env init_env)
 Proof
-  rpt strip_tac \\ simp[]
-  \\ drule (el 3 (CONJUNCTS evaluate_update))
-  \\ disch_then(resolve_then Any mp_tac state_rel_init)
-  \\ disch_then(resolve_then Any mp_tac env_rel_init)
-  \\ simp[]
-  \\ strip_tac
-  \\ reverse conj_tac
-  >- (
-    irule env_rel_extend_dec_env
-    \\ conj_tac
-    >- (
-      irule env_rel_update
-      \\ goal_assum(resolve_then Any mp_tac env_rel_init)
-      \\ simp[FUN_FMAP_SUBMAP_SUBSET]
-      \\ conj_tac \\ irule COUNT_MONO
-      \\ gs[state_rel_def, FLOOKUP_DEF]
-      \\ rpt(qpat_x_assum`_ < _`mp_tac)
-      \\ EVAL_TAC \\ simp[] )
-    \\ cheat)
-  \\ fs[state_rel_def, FLOOKUP_FUN_FMAP]
-  \\ conj_tac
-  >- (
-    rpt (qhdtm_x_assum`INJ`mp_tac)
-    \\ rewrite_tac[INJ_DEF]
-    \\ simp_tac(std_ss ++ pred_setLib.PRED_SET_ss)[FUN_FMAP_DEF])
-  \\ conj_tac
-  >- (
-    rpt (qhdtm_x_assum`INJ`mp_tac)
-    \\ rewrite_tac[INJ_DEF]
-    \\ simp_tac(std_ss ++ pred_setLib.PRED_SET_ss)[FUN_FMAP_DEF])
-  \\ conj_tac
-  >- (
-    rpt (qhdtm_x_assum`INJ`mp_tac)
-    \\ rewrite_tac[INJ_DEF]
-    \\ simp_tac(std_ss ++ pred_setLib.PRED_SET_ss)[FUN_FMAP_DEF])
-  \\ conj_tac >- gs[FLOOKUP_DEF]
-  \\ conj_tac >- gs[FLOOKUP_DEF]
-  \\ conj_tac >- gs[FLOOKUP_DEF]
-  \\ conj_tac >- gs[FLOOKUP_DEF]
-  \\ conj_tac >- gs[FLOOKUP_DEF]
-  \\ conj_tac >- gs[FLOOKUP_DEF]
-  \\ rw[]
-  \\ first_x_assum (qspec_then`n`mp_tac)
-  \\ rw[]
-  \\ cheat
+  rpt strip_tac \\ simp [GSYM state_ok_def, GSYM env_ok_def]
+  \\ drule (el 3 (CONJUNCTS evaluate_ok))
+  \\ rw [state_ok_init, env_ok_init]
+  \\ irule env_ok_extend_dec_env \\ gs []
 QED
 
 val _ = export_theory();
