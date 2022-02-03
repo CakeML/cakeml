@@ -96,20 +96,20 @@ Definition pp_string_def:
 End
 
 Definition pp_bool_def:
-  pp_bool b = PP_Data F (List [if b then (strlit "true") else (strlit "false")])
+  pp_bool b = PP_Data F (List [if b then (strlit "True") else (strlit "False")])
 End
 
 (* pretty-printers for the pretty-printer types *)
 Definition pp_app_list_def:
-  pp_app_list f (List xs) = pp_app_block (strlit "PrettyPrinter.List")
+  pp_app_list f (List xs) = pp_app_block (strlit "List")
     [pp_list f xs] /\
-  pp_app_list f Nil = pp_token (strlit "PrettyPrinter.Nil") /\
-  pp_app_list f (Append x y) = pp_app_block (strlit "PrettyPrinter.Append")
+  pp_app_list f Nil = pp_token (strlit "Nil") /\
+  pp_app_list f (Append x y) = pp_app_block (strlit "Append")
     [pp_app_list f x; pp_app_list f y]
 End
 
 Definition pp_pp_data_def:
-  pp_pp_data (PP_Data b d) = pp_app_block (strlit "PrettyPrinter.PP_Data")
+  pp_pp_data (PP_Data b d) = pp_app_block (strlit "PP_Data")
     [pp_bool b; pp_app_list pp_string d]
 End
 
@@ -129,17 +129,17 @@ Definition pp_word64_def:
   pp_word64 (w : 64 word) = pp_app_block (strlit "Word64.fromInt") [pp_int (w2i w)]
 End
 
-(* these initial pure and useless pps will be replaced later *)
+(* these initial pure and useless pps might be replaced later *)
 Definition pp_array_def:
   pp_array f arr = pp_token (strlit "<array>")
 End
 
 Definition pp_ref_def:
-  pp_ref r = pp_token (strlit "<array>")
+  pp_ref f r = pp_token (strlit "<ref>")
 End
 
 Definition pp_word8array_def:
-  pp_word8array arr = pp_token (strlit "<array>")
+  pp_word8array arr = pp_token (strlit "<w8array>")
 End
 
 Definition pp_vector_def:
