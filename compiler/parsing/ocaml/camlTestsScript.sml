@@ -241,6 +241,16 @@ val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
  * ------------------------------------------------------------------------- *)
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "let (:=) x = z in w"
+  (SOME “Let (SOME ":=") (Fun "x" (V "z")) (V "w")”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "(:=)"
+  (SOME “(V ":=")”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "let _ = Ref x in z"
   (SOME “Let NONE (App Opref [V "x"]) (V "z")”)
   ;

@@ -283,7 +283,8 @@ Definition camlPEG_def[nocompute]:
                       pnt nOrOp;
                       pnt nHolInfixOp;
                       pnt nCatOp;
-                      pnt nPrefixOp ])
+                      pnt nPrefixOp;
+                      pnt nAssignOp ])
             (bindNT nOperatorName));
       (INL nConstrName,
        pegf (tokIdP identUpperLower) (bindNT nConstrName));
