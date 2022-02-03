@@ -99,7 +99,7 @@ Theorem DIVIDES_FACT:
   ∀m n. 0 < m ∧ m ≤ n ⇒ m divides (FACT n)
 Proof
   Induct_on ‘n - m’
-  \\ rw[] |>
+  \\ rw[]
   >- (‘m = n’ by rw[]
       \\ ‘∃k. m = SUC k’ by (Cases_on ‘m’ \\ fs[])
       \\ metis_tac [FACT, DIVIDES_RMUL, DIVIDES_REFL])
@@ -124,7 +124,12 @@ Theorem PRIME_2:
   prime 2
 Proof
   rw[prime_def]
-  \\ metis_tac[DIVIDES_LE, DIVIDES_ZERO, DECIDE “2≠0”, DECIDE “x<=2 ⇔ (x=0) ∨ (x=1) ∨ (x=2)”]
+  \\ drule DIVIDES_LE
+  \\ simp[]           
+  \\ CCONTR_TAC
+  \\ gvs[]
+  \\ ‘x=0’ by decide_tac (* M-h M-s to reach subgoal *)
+  \\ gvs[divides_def]
 QED
 
 Theorem PRIME_POS:
@@ -132,4 +137,28 @@ Theorem PRIME_POS:
 Proof
   Cases
   \\ rw[NOT_PRIME_0]
+QED
+
+Theorem PRIME_FACTOR:
+    ∀n. ~(n = 1) ⇒ ∃p. prime p ∧ p divides n
+Proof
+  completeInduct_on ‘n’
+  \\ rw[]
+  \\ Cases_on ‘prime n’
+  >- metis_tac [DIVIDES_REFL]
+  >- (‘∃x. x divides n ∧ x ≠ 1 ∧ x ≠ n’ by metis_tac [prime_def]
+      \\ ‘x < n ∨ (n = 0)’ by metis_tac [DIVIDES_LE, LESS_OR_EQ]
+      >- metis_tac [DIVIDES_TRANS]
+      >- (rw[]
+          \\ metis_tac [PRIME_2, DIVIDES_0]))
+QED
+
+Theorem Euclid:
+  ∀n. ∃p. n < p ∧ prime p
+Proof
+  spose_not_then strip_assume_tac
+  \\ mp_tac (SPEC “FACT n + 1” PRIME_FACTOR)
+  \\ rw [FACT_LESS, DECIDE “~(x=0) ⇔ 0<x ”]
+  \\ metis_tac [NOT_PRIME_1, NOT_LESS, PRIME_POS,
+               DIVIDES_FACT, DIVIDES_ADDL, DIVIDES_ONE]        
 QED
