@@ -2027,6 +2027,16 @@ Definition ptree_TypeDef_def:
             nm <- ptree_TypeConstrName id;
             trs <- ptree_TypeInfo info;
             return (locs, [], nm, trs)
+          od ++
+          do
+            tys <- ptree_TypeParams id;
+            nm <- ptree_TypeConstrName info;
+            return (locs, tys, nm, INR [])
+          od
+      | [id] =>
+          do
+            nm <- ptree_TypeConstrName id;
+            return (locs, [], nm, INR [])
           od
       | _ => fail (locs, «Impossible: nTypeDef»)
     else

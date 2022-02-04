@@ -799,8 +799,33 @@ val _ = parsetest0 “nDefinition” “ptree_Definition”
   ;
 
 (* -------------------------------------------------------------------------
- * Modules
+ * Modules (structs, signatures)
  * ------------------------------------------------------------------------- *)
+
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  "type ('a,'b) t"
+  (SOME “[Dtype L [(["a"; "b"], "t", [])]]”)
+  ;
+
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  "type tyname"
+  (SOME “[Dtype L [([], "tyname", [])]]”)
+  ;
+
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  "type ('a,'b) t = B1 | A1"
+  (SOME “[Dtype L [(["a"; "b"], "t", [("B1", []); ("A1", [])])]]”)
+  ;
+
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  "type t = B1 | A1"
+  (SOME “[Dtype L [([], "t", [("B1", []); ("A1", [])])]]”)
+  ;
+
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  "type t = z"
+  (SOME “[Dtabbrev L [] "t" (Atapp [] (Short "z"))]”)
+  ;
 
 val _ = parsetest0 “nSigSpec” “ptree_SigSpec”
   "sig val x : t end"

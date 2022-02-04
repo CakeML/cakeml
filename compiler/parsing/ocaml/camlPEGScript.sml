@@ -448,7 +448,8 @@ Definition camlPEG_def[nocompute]:
        seql [tokeq TypeT; try (tokeq NonrecT); pnt nTypeDefs]
             (bindNT nTypeDefinition));
       (INL nTypeDef,
-       seql [try (pnt nTypeParams); pnt nTypeConstrName; pnt nTypeInfo]
+       seql [try (pnt nTypeParams); pnt nTypeConstrName;
+             try (pnt nTypeInfo)]
             (bindNT nTypeDef));
       (INL nTypeDefs,
        seql [pnt nTypeDef; try (seql [tokeq AndT; pnt nTypeDefs] I)]
