@@ -283,6 +283,14 @@ val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
  * ------------------------------------------------------------------------- *)
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "[let x = a in x; let y = b in y]"
+  (SOME “
+    C "::" [Let (SOME "x") (V "a")
+                (Let NONE (V "x")
+                          (Let (SOME "y") (V "b") (V "y")));
+            C "[]" []]”);
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "match x with \
   \ | a -> f; c \
   \ | b -> q; w"
