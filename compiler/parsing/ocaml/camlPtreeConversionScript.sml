@@ -3,6 +3,7 @@
  *)
 
 open preamble caml_lexTheory camlPEGTheory astTheory;
+local open cmlParseTheory lexer_implTheory in end
 
 val _ = new_theory "camlPtreeConversion";
 
