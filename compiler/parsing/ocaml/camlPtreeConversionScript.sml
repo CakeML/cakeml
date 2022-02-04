@@ -1126,11 +1126,15 @@ Definition ptree_Expr_def:
       fail (locs, «ptree_Expr»)
     else if nterm = INL nExpr then
       case args of
+        [arg] => ptree_Expr nESeq arg
+      | _ => fail (locs, «Impossible: nExpr»)
+    else if nterm = INL nExprs then
+      case args of
         [arg] =>
           do
             n <- nterm_of arg;
-            if n = INL nESeq then
-              ptree_Expr nESeq arg
+            if n = INL nEIf then
+              ptree_Expr nEIf arg
             else if n = INL nELet then
               ptree_Expr nELet arg
             else if n = INL nELetRec then
@@ -1431,8 +1435,8 @@ Definition ptree_Expr_def:
             expect_tok thent ThenT;
             expect_tok elset ElseT;
             x1 <- ptree_Expr nExpr x;
-            y1 <- ptree_Expr nExpr y;
-            z1 <- ptree_Expr nExpr z;
+            y1 <- ptree_Expr nExprs y;
+            z1 <- ptree_Expr nExprs z;
             return (If x1 y1 z1)
           od
       | [ift; x; thent; y] =>
@@ -1440,7 +1444,7 @@ Definition ptree_Expr_def:
             expect_tok ift IfT;
             expect_tok thent ThenT;
             x1 <- ptree_Expr nExpr x;
-            y1 <- ptree_Expr nExpr y;
+            y1 <- ptree_Expr nExprs y;
             return (If x1 y1 (Con NONE []))
           od
       | [exp] => ptree_Expr nEAssign exp
@@ -1451,7 +1455,7 @@ Definition ptree_Expr_def:
           do
             expect_tok semi SemiT;
             x1 <- ptree_Expr nEIf x;
-            y1 <- ptree_Expr nESeq y;
+            y1 <- ptree_Expr nExpr y;
             return (Let NONE x1 y1)
           od
       | [x] => ptree_Expr nEIf x
@@ -1745,7 +1749,7 @@ Definition ptree_Expr_def:
        ptree_ExprList xs
      od ++
      do
-       y <- ptree_Expr nEIf x;
+       y <- ptree_Expr nExprs x;
        ys <- ptree_ExprList xs;
        return (y::ys)
      od) ∧

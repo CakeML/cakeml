@@ -231,7 +231,7 @@ Datatype:
     | nEAdd | nECons | nECat | nERel
     | nEAnd | nEOr | nEProd | nEAssign | nEIf | nESeq
     | nEMatch | nETry | nEFun | nEFunction | nELet | nELetRec
-    | nEWhile | nEFor | nExpr
+    | nEWhile | nEFor | nExprs | nExpr
     (* pattern matches *)
     | nLetBinding | nLetBindings | nLetRecBinding | nLetRecBindings
     | nPatternMatch | nPatternMatches
@@ -505,8 +505,8 @@ Definition camlPEG_def[nocompute]:
       (* -- Expr16 --------------------------------------------------------- *)
       (INL nEList,
        seql [tokeq LbrackT;
-             try (seql [pnt nEIf;
-                        rpt (seql [tokeq SemiT; pnt nEIf] I) FLAT;
+             try (seql [pnt nExprs;
+                        rpt (seql [tokeq SemiT; pnt nExprs] I) FLAT;
                         try (tokeq SemiT)] I);
              tokeq RbrackT]
             (bindNT nEList));
@@ -627,15 +627,11 @@ Definition camlPEG_def[nocompute]:
             (bindNT nEAssign));
       (* -- Expr2 ---------------------------------------------------------- *)
       (INL nEIf,
-       pegf (choicel [seql [tokeq IfT; pnt nExpr; tokeq ThenT; pnt nExpr;
-                            try (seql [tokeq ElseT; pnt nExpr] I)] I;
+       pegf (choicel [seql [tokeq IfT; pnt nExpr; tokeq ThenT; pnt nExprs;
+                            try (seql [tokeq ElseT; pnt nExprs] I)] I;
                       pnt nEAssign])
             (bindNT nEIf));
       (* -- Expr1 ---------------------------------------------------------- *)
-      (INL nESeq,
-       seql [pnt nEIf; try (seql [tokeq SemiT; pnt nESeq] I)]
-            (bindNT nESeq));
-      (* -- Expr0 ---------------------------------------------------------- *)
       (INL nELetRec,
        seql [tokeq LetT; tokeq RecT; pnt nLetRecBindings;
              tokeq InT; pnt nExpr]
@@ -658,7 +654,6 @@ Definition camlPEG_def[nocompute]:
       (INL nETry,
        seql [tokeq TryT; pnt nExpr; tokeq WithT; pnt nPatternMatch]
             (bindNT nETry));
-      (* -- Expr: everything else  ----------------------------------------- *)
       (INL nEWhile,
        seql [tokeq WhileT; pnt nExpr; tokeq DoT; pnt nExpr; tokeq DoneT]
             (bindNT nEWhile));
@@ -667,16 +662,27 @@ Definition camlPEG_def[nocompute]:
              choicel [tokeq ToT; tokeq DowntoT]; pnt nExpr;
              tokeq DoT; pnt nExpr; tokeq DoneT]
             (bindNT nEFor));
-      (INL nExpr,
+      (* All expressions but ; *)
+      (INL nExprs,
        pegf (choicel [
-               (* e1: *)
-               pnt nESeq;
-               (* e0: *)
-               pnt nELetRec; pnt nELet; pnt nEMatch; pnt nEFun; pnt nEFunction;
+               (* expr2 *)
+               pnt nEIf;
+               (* expr1 *)
+               pnt nELetRec;
+               pnt nELet;
+               pnt nEMatch;
+               pnt nEFun;
+               pnt nEFunction;
                pnt nETry;
-               (* everything else: *)
-               pnt nEWhile; pnt nEFor])
-            (bindNT nExpr));
+               pnt nEWhile;
+               pnt nEFor])
+            (bindNT nExprs));
+      (* -- Expr: ---------------------------------------------------------- *)
+      (INL nESeq,
+       seql [pnt nEIf; try (seql [tokeq SemiT; pnt nExpr] I)]
+            (bindNT nESeq));
+      (INL nExpr,
+       pegf (pnt nESeq) (bindNT nExpr));
       (* -- Pattern matches ------------------------------------------------ *)
       (INL nPatternMatch,
        seql [try (tokeq BarT); pnt nPatternMatches]
