@@ -711,6 +711,15 @@ val _ = parsetest0 “nDefinition” “ptree_Definition”
   (SOME “[Dexn L "This" [Atvar "a"]]”)
   ;
 
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  "type 'a tree = Lf1 | Nd of 'a tree * 'a * 'a tree | Lf2 of int"
+  (SOME “[Dtype L [(["a"], "tree",
+                   [("Lf1", []);
+                    ("Nd", [Attup [Atapp [Atvar "a"] (Short "tree");
+                                   Atvar "a";
+                                   Atapp [Atvar "a"] (Short "tree")]]);
+                    ("Lf2", [Atapp [] (Short "int")])])]]”);
+
 (* -------------------------------------------------------------------------
  * Some larger examples with modules
  * ------------------------------------------------------------------------- *)
