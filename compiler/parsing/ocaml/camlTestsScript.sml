@@ -143,6 +143,16 @@ fun parsetest t1 t2 s = parsetest0 t1 t2 s NONE;
  * CakeML escape hatch
  * ------------------------------------------------------------------------- *)
 
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "raise (Fail \"5\")"
+  (SOME “Raise (C "Fail" [Lit (StrLit "5")])”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "raise (f x)"
+  (SOME “Raise (App Opapp [V "f"; V "x"])”)
+  ;
+
 val _ = parsetest0 “nStart” “ptree_Start”
   "let x = 2 ;; (*CML val x = 5; print \"z\"; fun ref x = Ref x; *)"
   (SOME “[Dlet L1 (Pv "x") (Lit (IntLit 2));
