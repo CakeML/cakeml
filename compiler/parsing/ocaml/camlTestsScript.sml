@@ -284,7 +284,7 @@ val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "(+) ; 2"
-  (SOME “Let NONE (V "+") (Lit (IntLit 2))”
+  (SOME “Let NONE (V "+") (Lit (IntLit 2))”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
