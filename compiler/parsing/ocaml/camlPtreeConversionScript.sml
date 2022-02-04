@@ -954,7 +954,15 @@ Definition build_list_exp_def:
 End
 
 Definition build_funapp_def:
-  build_funapp f xs = FOLDL (λa b. App Opapp [a; b]) f xs
+  build_funapp f xs =
+    FOLDL (λa b.
+      case a of
+        Var (Short id) =>
+          if id = "raise" then
+            Raise b
+          else
+            App Opapp [a; b]
+      | _ => App Opapp [a; b]) f xs
 End
 
 (* Turns a curried lambda with patterns, e.g. “fun a [3;4] c -> e”
