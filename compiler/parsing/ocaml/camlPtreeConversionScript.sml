@@ -119,7 +119,7 @@ Definition compatCurryE_def:
           Con (SOME id) [exp]
     | Short nm =>
         if nm = "Abs" ∨ nm = "Var" ∨ nm = "Const" ∨ nm = "Comb" ∨
-           nm = "Tyapp"a ∨ nm = "Sequent" ∨ nm = "Append" then
+           nm = "Tyapp" ∨ nm = "Sequent" ∨ nm = "Append" then
           case exp of
             Con NONE xs => Con (SOME id) xs
           | _ => Con (SOME id) [exp]
