@@ -34,20 +34,8 @@ val res = translate app_intersperse_def;
 val res = translate app_list_wrap_def;
 val res = translate pp_paren_contents_def;
 
-val _ = ml_prog_update open_local_in_block;
-
-val res = tr "toAppList" pp_contents_def;
-val res = tr "no_parens" pp_no_parens_def;
-val res = tr "token" pp_token_def;
-val res = tr "tuple" pp_paren_tuple_def;
-val res = tr "spaced_block" pp_spaced_block_def;
-val res = tr "app_block" pp_app_block_def;
-val res = tr "val_eq" pp_val_eq_def;
-val res = tr "val_hidden_type" pp_val_hidden_type_def;
-
-val res = translate pp_list_def;
-val res = translate pp_bool_def;
 val res = translate escape_char_def;
+val res = translate escape_char_str_def;
 val res = translate escape_str_def;
 
 Triviality escape_str_side:
@@ -64,6 +52,21 @@ QED
 
 val res = update_precondition escape_str_side;
 
+val _ = ml_prog_update open_local_in_block;
+
+val res = tr "toAppList" pp_contents_def;
+val res = tr "no_parens" pp_no_parens_def;
+val res = tr "token" pp_token_def;
+val res = tr "tuple" pp_paren_tuple_def;
+val res = tr "spaced_block" pp_spaced_block_def;
+val res = tr "app_block" pp_app_block_def;
+val res = tr "val_eq" pp_val_eq_def;
+val res = tr "val_hidden_type" pp_val_hidden_type_def;
+
+val res = translate pp_list_def;
+val res = translate pp_bool_def;
+
+val res = translate pp_char_def;
 val res = translate pp_string_def;
 
 val res = translate pp_app_list_def;
@@ -76,10 +79,9 @@ val _ = ml_prog_update (close_module NONE);
 (* pretty-printers for global (builtin) types, at global scope *)
 
 val res = translate pp_exn_def;
-val res = translate pp_char_def;
 val res = translate pp_vector_def;
 
-(* add global names for the printers needed to define pp_pp_data *)
+(* add global names for some printers, esp. those used in pp_pp_data *)
 Definition rename_pp_list_def:
   rename_pp_list = pp_list
 End
@@ -89,6 +91,11 @@ Definition rename_pp_bool_def:
   rename_pp_bool = pp_bool
 End
 val res = tr "pp_bool" rename_pp_bool_def;
+
+Definition rename_pp_char_def:
+  rename_pp_char = pp_char
+End
+val res = tr "pp_char" rename_pp_char_def;
 
 Definition rename_pp_string_def:
   rename_pp_string = pp_string
