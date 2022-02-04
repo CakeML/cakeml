@@ -977,6 +977,15 @@ Proof
   rw [] \\ imp_res_tac BACKEND_INC_CONFIG_IMP \\ fs []
 QED
 
+Theorem repl_prog_isPREFIX:
+  repl_prog ≼ FRONT compiler64_prog
+Proof
+  rewrite_tac [listTheory.isPREFIX_THM,repl_moduleProgTheory.repl_prog_def,
+               compiler64ProgTheory.compiler64_prog_def,FRONT_CONS,
+               locationTheory.unknown_loc_def]
+  \\ EVAL_TAC
+QED
+
 val ffi_inst = type_of “basis_ffi _ _” |> dest_type |> snd |> hd
 
 (*
@@ -1010,7 +1019,7 @@ Proof
   \\ disch_then (qspec_then ‘encode_backend_config conf’ mp_tac)
   \\ impl_tac >-
    (fs [] \\ simp (find "repl_moduleProg_st" |> map (fst o snd))
-    \\ simp (find "refs_def" |> map (fst o snd)))
+    \\ simp (repl_prog_isPREFIX :: (find "refs_def" |> map (fst o snd))))
   \\ qpat_abbrev_tac ‘ppp = W8array _ :: _’ \\ pop_assum kall_tac
   \\ pop_assum kall_tac
   \\ pop_assum kall_tac
