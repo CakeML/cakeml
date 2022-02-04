@@ -48,6 +48,21 @@ Definition x4_def:
   x4 = SOME (Ex_A 3 x3)
 End
 
+Definition x_list_bool_def:
+  x_list_bool = [T; F; T]
+End
+
+Definition x_list_chars_def:
+  x_list_chars = ["hello"; "there"] ++
+    GENLIST (\n. if n < 32 then "dummy" else [CHR n]) 127
+End
+
+Theorem x_list_chars_thm = EVAL ``x_list_chars``
+
+Definition x_list_strs_def:
+  x_list_strs = MAP implode x_list_chars ++ [implode (FLAT x_list_chars)]
+End
+
 val res = register_type ``: example``;
 val res = translate TAKE_def;
 val res = translate DROP_def;
@@ -57,6 +72,10 @@ val res = translate x1_def;
 val res = translate x2_def;
 val res = translate x3_def;
 val res = translate x4_def;
+
+val res = translate x_list_bool_def;
+val res = translate x_list_chars_thm;
+val res = translate x_list_strs_def;
 
 val _ = ml_prog_update remove_snocs;
 
@@ -96,6 +115,8 @@ val _ = (max_print_depth := 20);
 val start_st_eval = EVAL ``(init_infer_state <| next_id := basis_infer_st.next_id |>)``
 val start_st = start_st_eval |> concl |> rhs
 
+val _ = print "Setup done, doing type inference of program.\n";
+
 val infer_example_eval = inf_eval ``infer_ds basis_ienv test_prog_pp ^start_st``
 
 val infer_example_ienv = concl infer_example_eval |> rhs
@@ -106,33 +127,41 @@ val infer_example_st = infer_example |> dest_pair |> snd
 val _ = if can (match_term ``(infer$Success _, _)``) infer_example then () else
     (print_term infer_example; failwith ("type inference failed on example prog"))
 
+val _ = print "Fetching type-name info and adding print statements.\n"
+
 val basis_tn = EVAL ``update_type_names basis_ienv empty_type_names``
     |> concl |> rhs
 
 val example_prints_eval = EVAL ``val_prints ^basis_tn ^infer_example_ienv``
 val example_print_decs = concl example_prints_eval |> rhs |> dest_pair |> fst
 
-val infer_with_prints_eval = inf_eval ``infer_ds basis_ienv
-    (test_prog_pp ++ ^example_print_decs) ^infer_example_st``
+val _ = print "Type-checking extended program.\n"
+
+val infer_with_prints_eval = inf_eval
+    ``infer_ds (extend_dec_ienv ^infer_example_ienv basis_ienv)
+        ^example_print_decs ^infer_example_st``
 val infer_with_prints = concl infer_with_prints_eval |> rhs
 
 val _ = if can (match_term ``(infer$Success _, _)``) infer_with_prints then () else
     (print_term infer_with_prints;
         failwith ("type inference failed on example prog with prints"))
 
+val _ = print "Combining to single theorem.\n"
+
 (* show the above is a step-by-step evaluation of add_print_features *)
 val assembled = ``add_print_features (^basis_tn, basis_ienv, basis_infer_st.next_id) test_prog``
-  |> (SIMP_CONV (srw_ss ()) [add_print_features_def, LET_THM, TRUTH,
-    REWRITE_RULE [GSYM test_prog_pp_def] with_pp_eval,
-    start_st_eval, infer_example_eval, example_prints_eval
-  ]
-  THENC inf_eval
+  |> (SIMP_CONV (srw_ss ()) [add_print_features_def, LET_THM,
+        REWRITE_RULE [GSYM test_prog_pp_def] with_pp_eval,
+        start_st_eval, infer_example_eval, example_prints_eval,
+        infer_with_prints_eval]
   )
 
 val prog_rhs = assembled |> concl |> rhs
 val _ = if can (match_term ``(infer$Success _)``) prog_rhs then () else
     (print_term prog_rhs;
         failwith ("test printing/inference assembly failed"))
+
+val _ = print "Writing sexp output.\n"
 
 val upd_prog = rand prog_rhs |> dest_pair |> fst
 val full_prog_eval = EVAL ``basis ++ ^upd_prog``;
