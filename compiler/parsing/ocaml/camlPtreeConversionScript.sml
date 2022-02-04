@@ -527,12 +527,12 @@ Definition ptree_ModTypePath_def:
     if nterm = INL nModTypePath then
       case args of
         [arg] => fmap (λvn. [vn]) $ ptree_ModTypeName arg
-      | [path; dot; arg] =>
+      | [name; dot; rest] =>
           do
             expect_tok dot DotT;
-            vp <- ptree_ModulePath path;
-            vn <- ptree_ModTypeName arg;
-            return (vp ++ [vn])
+            vm <- ptree_ModuleName name;
+            vp <- ptree_ModTypePath rest;
+            return (vm :: vp)
           od
       | _ => fail (locs, «Impossible: nModTypePath»)
     else
@@ -2499,6 +2499,20 @@ Definition ptree_Definition_def:
             | INR decs =>
                 return [Dmod nm decs]
           od
+      | [modt; modid; colon; modty; eq; mexpr] =>
+          do
+            expect_tok modt ModuleT;
+            expect_tok eq EqualT;
+            expect_tok colon ColonT;
+            ptree_ModuleType modty;
+            nm <- ptree_ModuleName modid;
+            mx <- ptree_ModExpr mexpr;
+            case mx of
+              INL name =>
+                fail (locs, «Structure assignment is not supported (yet?)»)
+            | INR decs =>
+                return [Dmod nm decs]
+          od
       | _ => fail (locs, «Impossible: nModuleDef»)
     else
       fail (locs, «Expected a top-level definition non-terminal»)) ∧
@@ -2508,6 +2522,12 @@ Definition ptree_Definition_def:
     if nterm = INL nModExpr then
       case args of
         [path] => fmap INL $ ptree_ModulePath path
+      | [struct; endt] =>
+          do
+            expect_tok struct StructT;
+            expect_tok endt EndT;
+            return (INR [])
+          od
       | [struct; its; endt] =>
           do
             expect_tok struct StructT;

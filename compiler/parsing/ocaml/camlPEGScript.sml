@@ -322,10 +322,13 @@ Definition camlPEG_def[nocompute]:
             (bindNT nModulePath));
       (INL nModTypeName,
        pegf (tokIdP (λx. T)) (bindNT nModTypeName));
+      (* Can't use nModulePath in nModTypePath because of similar reasons to
+         nConstr (there's some ambiguity).
+       *)
       (INL nModTypePath,
-       choicel [pegf (pnt nModTypeName) (bindNT nModTypePath);
-                seql [pnt nModulePath; tokeq DotT; pnt nModTypeName]
-                     (bindNT nModTypePath)]);
+       pegf (choicel [seql [pnt nModuleName; tokeq DotT; pnt nModTypePath] I;
+                      pnt nModTypeName])
+            (bindNT nModTypePath));
       (* -- Definitions (module items) ------------------------------------- *)
       (INL nSemis,
        seql [tokeq SemisT; try (pnt nSemis)]
@@ -359,10 +362,12 @@ Definition camlPEG_def[nocompute]:
             (bindNT nOpen));
       (INL nModExpr,
        pegf (choicel [pnt nModulePath;
-                      seql [tokeq StructT; pnt nModuleItems; tokeq EndT] I])
+                      seql [tokeq StructT; try (pnt nModuleItems); tokeq EndT] I])
             (bindNT nModExpr));
       (INL nModuleDef,
-       seql [tokeq ModuleT; pnt nModuleName; tokeq EqualT; pnt nModExpr]
+       seql [tokeq ModuleT; pnt nModuleName;
+             try (seql [tokeq ColonT; pnt nModuleType] I);
+             tokeq EqualT; pnt nModExpr]
             (bindNT nModuleDef));
       (INL nDefinition,
        pegf (choicel [pnt nTopLetRec;
