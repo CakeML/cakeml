@@ -282,6 +282,27 @@ val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
  * Expressions
  * ------------------------------------------------------------------------- *)
 
+val _ = parsetest0 “nDefinition” “ptree_Definition”
+  " let print_stdout printer data =\
+  \   let st = empty () in\
+  \   printer st data;\
+  \   let tok = to_token st in\
+  \   let apps = Pretty_core.print (!margin) tok in\
+  \   App_list.iter (output_string stdout) apps"
+  (SOME “[Dlet L (Pv "print_stdout") (Fun "printer" (Fun "data"
+            (Let (SOME "st") (App Opapp [V "empty"; Con NONE []])
+              (Let NONE (App Opapp [App Opapp [V "printer"; V "st"]; V "data"])
+                (Let (SOME "tok") (App Opapp [V "to_token"; V "st"])
+                  (Let (SOME "apps")
+                    (App Opapp [App Opapp [Var (Long "Pretty_core"
+                                                 (Short "print"));
+                                           App Opapp [V "!"; V "margin"]];
+                                V "tok"])
+                    (App Opapp [App Opapp [Var (Long "App_list" (Short "iter"));
+                                           App Opapp [V "output_string";
+                                                      V "stdout"]];
+                                V "apps"])))))))]”);
+
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "if x;y then  z"
   (SOME “If (Let NONE (V "x") (V "y")) (V "z") (Con NONE [])”);
