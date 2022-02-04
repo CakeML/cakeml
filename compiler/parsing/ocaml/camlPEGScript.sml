@@ -321,7 +321,7 @@ Definition camlPEG_def[nocompute]:
        seql [pnt nModuleName; try (seql [tokeq DotT; pnt nModulePath] I)]
             (bindNT nModulePath));
       (INL nModTypeName,
-       pegf (tokIdP identMixed) (bindNT nModTypeName));
+       pegf (tokIdP (λx. T)) (bindNT nModTypeName));
       (INL nModTypePath,
        choicel [pegf (pnt nModTypeName) (bindNT nModTypePath);
                 seql [pnt nModulePath; tokeq DotT; pnt nModTypeName]
