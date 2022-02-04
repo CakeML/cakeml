@@ -185,7 +185,7 @@ Definition pp_pp_data_def:
 End
 
 Definition pp_char_def:
-  pp_char c = PP_Data F (List [strlit "#\""; str c; strlit "\""])
+  pp_char c = PP_Data F (List [strlit "#\""; implode (escape_char_str c); strlit "\""])
 End
 
 Definition pp_int_def:
