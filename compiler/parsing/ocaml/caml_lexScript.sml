@@ -461,19 +461,6 @@ Definition next_sym_def:
           scan_number isDigit (λs. &dec2num s) 0 (c::cs) loc
       else
         scan_number isDigit (λs. &dec2num s) 0 (c::cs) loc
-    else if c = #"-" ∧ cs ≠ "" ∧ isDigit (HD cs) then
-      let (c, cs) = (HD cs, TL cs) in
-        if c = #"0" ∧ cs ≠ "" then
-          if HD cs = #"x" ∨ HD cs = #"X" then
-            scan_number isHexDigit (λs. -&hex2num s) 2 (TL cs) loc
-          else if HD cs = #"o" ∨ HD cs = #"O" then
-            scan_number isOctDigit (λs. -&oct2num s) 2 (TL cs) loc
-          else if HD cs = #"b" ∨ HD cs = #"B" then
-            scan_number isBinDigit (λs. -&bin2num s) 2 (TL cs) loc
-          else
-            scan_number isDigit (λs. -&dec2num s) 0 (c::cs) loc
-        else
-          scan_number isDigit (λs. -&dec2num s) 0 (c::cs) loc
     else if c = #"\"" then
       scan_strlit [] cs (next_loc 1 loc)
     else if c = #"'" then

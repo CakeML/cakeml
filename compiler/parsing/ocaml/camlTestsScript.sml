@@ -283,6 +283,21 @@ val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
  * ------------------------------------------------------------------------- *)
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "(n-1)"
+  (SOME “vbinop (Short "-") (V "n") (Lit (IntLit 1))”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "(n -1)"
+  (SOME “vbinop (Short "-") (V "n") (Lit (IntLit 1))”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "-1"
+  (SOME “App Opapp [Var (Long "Int" (Short "~")); Lit (IntLit 1)]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "(+) ; 2"
   (SOME “Let NONE (V "+") (Lit (IntLit 2))”)
   ;
