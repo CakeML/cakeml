@@ -10,6 +10,7 @@ open semanticPrimitivesTheory semanticPrimitivesPropsTheory
 
 val _ = new_theory "candle_kernel_vals";
 
+val _ = (max_print_depth := 10);
 
 (* -------------------------------------------------------------------------
  * 'inferred' relation
@@ -311,7 +312,8 @@ val safe_error_goal =
     “∃k. s' = ((s:α semanticPrimitives$state) with clock := k) ∧
          (res = Rerr (Rabort Rtype_error) ∨
           res = Rerr (Rraise bind_exn_v) ∨
-          res = Rerr (Rabort Rtimeout_error) :(v list, v) semanticPrimitives$result)”
+          res = Rerr (Rabort Rtimeout_error)
+            :(semanticPrimitives$v list, semanticPrimitives$v) semanticPrimitives$result)”
 
 Theorem do_opapp_clos:
   do_opapp [Closure env v e; argv] = SOME (env1,e1) ⇔
@@ -904,7 +906,7 @@ Proof
   \\ strip_tac \\ rveq
   \\ fs[evaluate_def, astTheory.pat_bindings_def,
         pmatch_def, can_pmatch_all_def, do_app_def]
-  \\ fs[CaseEqs["v","option","prod","lit"]] \\ gvs[same_clock_exists]
+  \\ fs[AllCaseEqs()] \\ gvs[same_clock_exists]
 QED
 
 Theorem call_new_type_v_head:

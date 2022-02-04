@@ -83,7 +83,7 @@ Theorem Arrow2:
 Proof
   strip_tac
   \\ ‘LENGTH s'.refs = LENGTH s.refs’
-    by (gvs [do_partial_app_def, CaseEqs ["v", "exp"], do_opapp_cases,
+    by (gvs [do_partial_app_def, AllCaseEqs(), do_opapp_cases,
              perms_ok_def]
         \\ drule evaluate_empty_perms
         \\ impl_tac \\ simp []
@@ -469,6 +469,7 @@ Theorem inferred_ok:
       (∀vs. res = Rval vs ⇒ EVERY (v_ok ctxt') vs) ∧
       (∀v. res = Rerr (Rraise v) ⇒ v_ok ctxt' v)
 Proof
+
   rw [Once inferred_cases]
   >~ [‘TYPE ctxt ty’] >- (
     Cases_on ‘ty’ \\ gs [TYPE_TYPE_def, do_opapp_cases])
@@ -1508,6 +1509,9 @@ Proof
     \\ reverse conj_tac >- metis_tac[v_ok_APPEND, CONS_APPEND]
     \\ metis_tac[ref_ok_APPEND, CONS_APPEND])
   >~ [‘do_opapp [Kernel_print_thm_v; v]’] >- (
+
+
+
     drule_all Kernel_print_thm_v_head
     \\ strip_tac \\ gvs[]
     >- (first_assum $ irule_at Any \\ simp[])
@@ -1583,9 +1587,15 @@ Proof
     \\ PairCases_on`x` \\ simp[]
     \\ CASE_TAC >- ( strip_tac \\ gvs[] )
     \\ `∃v1 e1. x1 = Fun v1 e1`
-    by ( fs[do_opapp_def, thm_to_string_v_def] )
+    by (qpat_x_assum ‘do_opapp [thm_to_string_v; h] = SOME (x0,x1)’ mp_tac
+        \\ once_rewrite_tac [thm_to_string_v_def]
+        \\ rename [‘Closure eee _ (Fun _ xxx)’]
+        \\ EVAL_TAC \\ rw [] \\ gvs [])
     \\ `do_partial_app thm_to_string_v h = SOME (Closure x0 v1 e1)`
-    by ( fs[do_opapp_def, thm_to_string_v_def] \\ simp[do_partial_app_def] )
+    by (qpat_x_assum ‘do_opapp [thm_to_string_v; h] = SOME (x0,x1)’ mp_tac
+        \\ once_rewrite_tac [thm_to_string_v_def]
+        \\ rename [‘Closure eee _ (Fun _ xxx)’]
+        \\ EVAL_TAC \\ rw [] \\ gvs [])
     \\ simp[Once evaluate_def]
     \\ qmatch_goalsub_abbrev_tac`do_opapp xx`
     \\ Cases_on`do_opapp xx` \\ simp[]
