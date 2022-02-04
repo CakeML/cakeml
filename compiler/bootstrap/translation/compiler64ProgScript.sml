@@ -330,7 +330,7 @@ val _ = register_type “:('a,'b,'c,'d,'e) eval_res”;
 val _ = (append_prog o process_topdecs) `
   fun eval ((s1,next_gen), (env,id), decs) =
     case compiler_for_eval ((id,0),(s1,decs)) of
-      None => Compile_error "ERROR: failed to compile input"
+      None => Compile_error "ERROR: failed to compile input\n"
     | Some (s2,(bs,ws)) =>
         let
           val new_env = eval_prim (env,s1,decs,s2,bs,ws)
@@ -338,7 +338,7 @@ val _ = (append_prog o process_topdecs) `
         handle e => Eval_exn e (s2,next_gen+1) `
 
 val exn_msg_dec = process_topdecs ‘
-  val _ = TextIO.print "ERROR: top-level exception"’
+  val _ = TextIO.print "ERROR: top-level exception\n"’
 
 Definition report_exn_def:
   report_exn e = ^exn_msg_dec

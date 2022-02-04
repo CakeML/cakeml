@@ -62,11 +62,11 @@ val _ = (find_def_for_const := def_of_const);
 
 (* parsing: peg_exec and cmlPEG *)
 
-val res = register_type``:(token,MMLnonT,locs) parsetree``;
+val res = register_type``:(tokens$token,MMLnonT,locs) parsetree``;
 val res = register_type``:MMLnonT``;
 
 (* checking GRAMMAR_PARSETREE_TYPE etc is known to be an EqualityType *)
-val EqType_PT_rule = EqualityType_rule [] ``:(token,MMLnonT,locs) parsetree``;
+val EqType_PT_rule = EqualityType_rule [] ``:(tokens$token,MMLnonT,locs) parsetree``;
 
 val _ = translate (def_of_const ``validAddSym``);
 
