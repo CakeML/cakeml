@@ -682,7 +682,9 @@ Definition camlPEG_def[nocompute]:
        seql [pnt nEIf; try (seql [tokeq SemiT; pnt nExpr] I)]
             (bindNT nESeq));
       (INL nExpr,
-       pegf (pnt nESeq) (bindNT nExpr));
+       pegf (choicel [pnt nESeq;
+                      pnt nExprs])
+            (bindNT nExpr));
       (* -- Pattern matches ------------------------------------------------ *)
       (INL nPatternMatch,
        seql [try (tokeq BarT); pnt nPatternMatches]

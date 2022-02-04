@@ -1126,7 +1126,16 @@ Definition ptree_Expr_def:
       fail (locs, «ptree_Expr»)
     else if nterm = INL nExpr then
       case args of
-        [arg] => ptree_Expr nESeq arg
+        [arg] =>
+          do
+            n <- nterm_of arg;
+            if n = INL nESeq then
+              ptree_Expr nESeq arg
+            else if n = INL nExprs then
+              ptree_Expr nExprs arg
+            else
+              fail (locs, «Impossible: nExpr»)
+          od
       | _ => fail (locs, «Impossible: nExpr»)
     else if nterm = INL nExprs then
       case args of
