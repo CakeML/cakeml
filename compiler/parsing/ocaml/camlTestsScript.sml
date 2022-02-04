@@ -297,7 +297,7 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
     Let NONE (V "foo")
         (Let NONE (If (V "b") (App Opapp [V "print"; Con NONE []])
                       (Con NONE []))
-                  (V "bar")”);
+                  (V "bar"))”);
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "foo; let x = z in y ; bar"
