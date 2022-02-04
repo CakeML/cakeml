@@ -283,6 +283,30 @@ val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
  * ------------------------------------------------------------------------- *)
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "if b then let x = z in a; b"
+  (SOME “
+    If (V "b")
+       (Let (SOME "x") (V "z")
+            (Let NONE (V "a") (V "b")))
+       (Con NONE [])”);
+
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "foo; if b then print (); bar"
+  (SOME “
+    Let NONE (V "foo")
+        (Let NONE (If (V "b") (App Opapp [V "print"; Con NONE []])
+                      (Con NONE []))
+                  (V "bar")”);
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "foo; let x = z in y ; bar"
+  (SOME “
+    Let NONE (V "foo")
+        (Let (SOME "x") (V "z")
+             (Let NONE (V "y") (V "bar")))”);
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "let (:=) x = z in w"
   (SOME “Let (SOME ":=") (Fun "x" (V "z")) (V "w")”)
   ;
