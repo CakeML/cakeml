@@ -283,6 +283,15 @@ val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
  * ------------------------------------------------------------------------- *)
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "match x with \
+  \ | a -> f; c \
+  \ | b -> q; w"
+  (SOME “
+    Mat (V "x")
+        [(Pv "a", Let NONE (V "f") (V "c"));
+         (Pv "b", Let NONE (V "q") (V "w"))]”);
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "if b then let x = z in a; b"
   (SOME “
     If (V "b")
