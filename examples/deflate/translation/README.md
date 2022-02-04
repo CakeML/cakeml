@@ -1,4 +1,4 @@
-Translation scripts for deflate and other compression scripts.
+Translation scripts for puzzle encodings.
 
 [compilation](compilation):
 Compilation scripts for puzzle encodings.
