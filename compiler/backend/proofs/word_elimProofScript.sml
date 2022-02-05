@@ -381,13 +381,14 @@ Proof
 QED
 
 Theorem domain_get_memory:
-     ∀ mem (mdom : 'a word set) n . (n ∈ domain (get_memory mem mdom)
-    ⇔ (∃ k n1 . k ∈ mdom ∧ mem k = Loc n n1))
+     ∀ mem (mdom : 'a word set) n .
+       n ∈ domain (get_memory mem mdom) ⇔
+         ∃ k n1 . k ∈ mdom ∧ mem k = Loc n n1
 Proof
     fs[get_memory_def, IMAGE_DEF] >> fs[FILTER_MAP, MAP_MAP_o] >> rw[] >>
-    `FINITE mdom` by metis_tac[WORD_FINITE] >>
-    fs[MEM_MAP, MEM_FILTER] >> `FINITE {mem x | x ∈ mdom}` by
-        metis_tac[FINITE_mdom_mem] >>
+    fs[MEM_MAP, MEM_FILTER] >>
+    `FINITE {mem x | x ∈ mdom}` by
+      metis_tac[FINITE_mdom_mem, WORD_FINITE] >>
     rw[MEM_SET_TO_LIST] >>
     EQ_TAC >> rw[]
     >- (Cases_on `mem x` >> fs[dest_word_loc_def] >> metis_tac[])
