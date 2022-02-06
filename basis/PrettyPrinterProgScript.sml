@@ -34,23 +34,21 @@ val res = translate app_intersperse_def;
 val res = translate app_list_wrap_def;
 val res = translate pp_paren_contents_def;
 
-val res = translate escape_char_def;
-val res = translate escape_char_str_def;
-val res = translate escape_str_def;
+val _ = translate escape_str_app_list_def;
 
-Triviality escape_str_side:
-  !i s. escape_str_side i s <=> i <= strlen s
+Triviality escape_str_app_list_side:
+  !i s. escape_str_app_list_side i s <=> i <= strlen s
 Proof
-  recInduct escape_str_ind
+  recInduct escape_str_app_list_ind
   \\ rw []
-  \\ simp [Once (theorem "escape_str_side_def")]
+  \\ simp [Once (theorem "escape_str_app_list_side_def")]
   \\ Cases_on `str_findi (\c. IS_SOME (escape_char c)) i s`
   \\ fs []
   \\ imp_res_tac mlstringTheory.str_findi_range
   \\ simp []
 QED
 
-val res = update_precondition escape_str_side;
+val res = update_precondition escape_str_app_list_side;
 
 val _ = ml_prog_update open_local_in_block;
 

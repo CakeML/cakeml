@@ -91,31 +91,12 @@ Definition pp_list_def:
   )
 End
 
-Definition escape_char_def:
-  escape_char c =
-    if c = #"\t"
-    then SOME (strlit "\\t")
-    else if c = #"\n"
-    then SOME (strlit "\\n")
-    else if c = #"\\"
-    then SOME (strlit "\\\\")
-    else if c = #"\""
-    then SOME (strlit "\\\"")
-    else NONE
-End
-
-Definition escape_char_str_def:
-  escape_char_str c = case escape_char c of
-    NONE => [c]
-  | SOME s => explode s
-End
-
-Definition escape_str_def:
-  escape_str i s = case str_findi (\c. IS_SOME (escape_char c)) i s of
+Definition escape_str_app_list_def:
+  escape_str_app_list i s = case str_findi (\c. IS_SOME (escape_char c)) i s of
     NONE => List [substring s i (strlen s - i)]
   | SOME j => Append (List [substring s i (j - i);
         case escape_char (strsub s j) of NONE => strlit "" | SOME s => s])
-    (escape_str (j + 1) s)
+    (escape_str_app_list (j + 1) s)
 Termination
   WF_REL_TAC `measure (\(i, s). strlen s - i)`
   \\ rw []
@@ -145,14 +126,14 @@ Proof
   \\ simp [TAKE_def]
 QED
 
-Theorem escape_str_thm:
-  !i s. concat (append (escape_str i s)) =
+Theorem escape_str_app_list_thm:
+  !i s. concat (append (escape_str_app_list i s)) =
   implode (FLAT (MAP escape_char_str (DROP i (explode s))))
 Proof
-  recInduct escape_str_ind
+  recInduct escape_str_app_list_ind
   \\ rw []
   \\ simp [Once (Q.SPEC `\c. IS_SOME (escape_char c)` findi_map_escape_char_str), FUN_EQ_THM]
-  \\ simp [Once escape_str_def]
+  \\ simp [Once escape_str_app_list_def]
   \\ Cases_on `s`
   \\ EVERY_CASE_TAC \\ fs []
   \\ rw [substring_def, SEG_TAKE_DROP, mlstringTheory.concat_def, implode_def]
@@ -163,8 +144,16 @@ Proof
 QED
 
 Definition pp_string_def:
-  pp_string s = PP_Data F (app_list_wrap (strlit "\"") (escape_str 0 s) (strlit "\""))
+  pp_string s = PP_Data F (app_list_wrap (strlit "\"") (escape_str_app_list 0 s) (strlit "\""))
 End
+
+Theorem pp_string_thm:
+  concat (append (pp_contents (pp_string s))) = escape_str s
+Proof
+  simp [pp_string_def, pp_contents_def, app_list_wrap_def, concat_cons,
+    escape_str_app_list_thm, concat_append, escape_str_def]
+  \\ simp [implode_def, strcat_def, mlstringTheory.concat_def]
+QED
 
 Definition pp_bool_def:
   pp_bool b = PP_Data F (List [if b then (strlit "True") else (strlit "False")])

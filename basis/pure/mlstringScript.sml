@@ -198,6 +198,12 @@ Proof
   rw[strcat_def,concat_def] \\ CASE_TAC \\ rw[]
 QED
 
+Theorem concat_append:
+  concat (xs ++ ys) = concat xs ^ concat ys
+Proof
+  Induct_on `xs` \\ simp [concat_cons]
+QED
+
 Theorem implode_STRCAT:
    !l1 l2.
     implode(STRCAT l1 l2) = implode l1 ^ implode l2
@@ -1042,6 +1048,29 @@ Theorem collate_thm:
 Proof
   rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm, collate_aux_less_thm]
 QED
+
+Definition escape_char_def:
+  escape_char c =
+    if c = #"\t"
+    then SOME (strlit "\\t")
+    else if c = #"\n"
+    then SOME (strlit "\\n")
+    else if c = #"\\"
+    then SOME (strlit "\\\\")
+    else if c = #"\""
+    then SOME (strlit "\\\"")
+    else NONE
+End
+
+Definition escape_char_str_def:
+  escape_char_str c = case escape_char c of
+    NONE => [c]
+  | SOME s => explode s
+End
+
+Definition escape_str_def:
+  escape_str s = implode ("\"" ++ FLAT (MAP escape_char_str (explode s)) ++ "\"")
+End
 
 Theorem ALL_DISTINCT_MAP_implode:
    ALL_DISTINCT ls ⇒ ALL_DISTINCT (MAP implode ls)
