@@ -283,6 +283,23 @@ val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
  * ------------------------------------------------------------------------- *)
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "x && y"
+  (SOME “Log And (V "x") (V "y")”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "x || y"
+  (SOME “Log Or (V "x") (V "y")”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "if x || y then x && y"
+  (SOME “If (Log Or (V "x") (V "y"))
+            (Log And (V "x") (V "y"))
+            (Con NONE [])”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "(n-1)"
   (SOME “vbinop (Short "-") (V "n") (Lit (IntLit 1))”)
   ;

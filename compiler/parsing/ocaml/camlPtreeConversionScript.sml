@@ -941,7 +941,13 @@ End
  *)
 
 Definition build_binop_def:
-  build_binop symb x y = App Opapp [App Opapp [Var (Short symb); x]; y]
+  build_binop symb x y =
+    if symb = "&&" then
+      Log And x y
+    else if symb = "||" then
+      Log Or x y
+    else
+      App Opapp [App Opapp [Var (Short symb); x]; y]
 End
 
 (* Turns a list literal expression “[x; y; z]” into the
