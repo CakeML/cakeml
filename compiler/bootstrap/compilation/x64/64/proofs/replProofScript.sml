@@ -989,7 +989,7 @@ QED
 val ffi_inst = type_of “basis_ffi _ _” |> dest_type |> snd |> hd
 
 (*
-  max_print_depth := 50
+  max_print_depth := 15
 *)
 
 Theorem evaluate_decs_compiler64_prog:
@@ -1019,7 +1019,9 @@ Proof
   \\ disch_then (qspec_then ‘encode_backend_config conf’ mp_tac)
   \\ impl_tac >-
    (fs [] \\ simp (find "repl_moduleProg_st" |> map (fst o snd))
-    \\ simp (repl_prog_isPREFIX :: (find "refs_def" |> map (fst o snd))))
+    \\ simp (repl_prog_isPREFIX :: (find "refs_def" |> map (fst o snd)))
+    \\ fs [repl_prog_st_def])
+  \\ fs [repl_prog_st_def]
   \\ qpat_abbrev_tac ‘ppp = W8array _ :: _’ \\ pop_assum kall_tac
   \\ pop_assum kall_tac
   \\ pop_assum kall_tac
@@ -1033,7 +1035,7 @@ Proof
   \\ rewrite_tac [main_v_def]
   \\ rewrite_tac [EVAL “semanticPrimitives$do_opapp
        [Recclosure env [("main","u", e)] "main"; Conv NONE []]”] \\ simp []
-  \\ IF_CASES_TAC >- (fs [] \\ rw [] \\ fs [])
+  \\ IF_CASES_TAC >- (fs [] \\ rw [] \\ fs [combine_dec_result_def])
   \\ fs [dec_clock_def]
   (* inside main *)
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
@@ -1043,15 +1045,16 @@ Proof
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,evaluate_Lit]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ IF_CASES_TAC >- (rw [] \\ fs [])
+  \\ IF_CASES_TAC >- (rw [] \\ fs [combine_dec_result_def])
   (* evaluate e_cl *)
   \\ fs [dec_clock_def]
   \\ qabbrev_tac ‘ev = (EvalDecs (s with env_id_counter := (0,1,1)))’
   \\ drule (evaluatePropsTheory.eval_no_eval_simulation |> CONJUNCTS |> hd)
   \\ disch_then (qspec_then ‘SOME ev’ mp_tac)
-  \\ impl_tac >- (fs [] \\ Cases_on ‘res_cl’ \\ fs [])
+  \\ impl_tac >- (fs [] \\ Cases_on ‘res_cl’ \\ fs [combine_dec_result_def])
   \\ strip_tac \\ fs []
-  \\ Cases_on ‘res_cl = Rerr (Rabort Rtimeout_error)’ >- (rw [] \\ fs [])
+  \\ Cases_on ‘res_cl = Rerr (Rabort Rtimeout_error)’
+  >- (rw [] \\ fs [combine_dec_result_def])
   \\ fs []
   (* call compiler_has_repl_flag *)
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
@@ -1063,9 +1066,10 @@ Proof
   \\ drule_all (Arrow_IMP |> INST_TYPE [“:'ffi”|->ffi_inst])
   \\ disch_then (qspec_then ‘(dec_clock (s_cl with eval_state := SOME ev))’ strip_assume_tac)
   \\ fs []
-  \\ IF_CASES_TAC >- (rw[] \\ fs [])
+  \\ IF_CASES_TAC >- (rw[] \\ fs [combine_dec_result_def])
   \\ fs []
-  \\ Cases_on ‘res' = Rerr (Rabort Rtimeout_error)’ >- (rw [] \\ fs [])
+  \\ Cases_on ‘res' = Rerr (Rabort Rtimeout_error)’
+  >- (rw [] \\ fs [combine_dec_result_def])
   \\ gvs []
   (* if *)
   \\ gvs [BOOL_def]
@@ -1078,7 +1082,7 @@ Proof
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
   \\ rewrite_tac [run_interactive_repl_v_def,EVAL “semanticPrimitives$do_opapp
        [Recclosure env [(n, u, e)] n; cl_v]”] \\ simp []
-  \\ IF_CASES_TAC >- (fs [] \\ rw [] \\ fs [])
+  \\ IF_CASES_TAC >- (fs [] \\ rw [] \\ fs [combine_dec_result_def])
   \\ fs [dec_clock_def]
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,evaluate_Lit]
@@ -1089,12 +1093,13 @@ Proof
   \\ rename [‘do_opapp [REPL_charsFrom_v; _]’]
   \\ first_x_assum (qspecl_then [‘ck’,‘junk’] strip_assume_tac)
   \\ simp []
-  \\ IF_CASES_TAC >- (fs [] \\ rw [] \\ fs [])
+  \\ IF_CASES_TAC >- (fs [] \\ rw [] \\ fs [combine_dec_result_def])
   \\ drule (evaluatePropsTheory.eval_no_eval_simulation |> CONJUNCTS |> hd)
   \\ disch_then (qspec_then ‘SOME ev’ mp_tac)
-  \\ impl_tac >- (fs [] \\ Cases_on ‘res_pr’ \\ fs [])
+  \\ impl_tac >- (fs [] \\ Cases_on ‘res_pr’ \\ fs [combine_dec_result_def])
   \\ strip_tac \\ fs []
-  \\ Cases_on ‘res_pr = Rerr (Rabort Rtimeout_error)’ >- (rw [] \\ fs [])
+  \\ Cases_on ‘res_pr = Rerr (Rabort Rtimeout_error)’
+  >- (rw [] \\ fs [combine_dec_result_def])
   \\ fs []
   (* decode_backend_config *)
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
@@ -1107,9 +1112,10 @@ Proof
   \\ disch_then (qspec_then ‘s_pr with <|clock := s_pr.clock − 1;
                                eval_state := SOME ev|>’ strip_assume_tac)
   \\ fs []
-  \\ IF_CASES_TAC >- (rw[] \\ fs [])
+  \\ IF_CASES_TAC >- (rw[] \\ fs [combine_dec_result_def])
   \\ fs []
-  \\ Cases_on ‘res' = Rerr (Rabort Rtimeout_error)’ >- (rw [] \\ fs [])
+  \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’
+  >- (rw [] \\ fs [combine_dec_result_def])
   \\ gvs []
   (* start_repl *)
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
@@ -1132,10 +1138,10 @@ Proof
     \\ fs [semanticPrimitivesTheory.state_component_equality])
   \\ strip_tac \\ simp []
   \\ rename [‘res9 ≠ Rerr (Rabort Rtype_error)’]
-  \\ Cases_on ‘res9 = Rerr (Rabort Rtype_error)’ >- fs []
+  \\ Cases_on ‘res9 = Rerr (Rabort Rtype_error)’ >- fs [combine_dec_result_def]
   \\ fs []
-  \\ reverse (Cases_on ‘res9’) \\ fs [] >- (rw [] \\ fs [])
-  \\ simp [pmatch_def] \\ rw []
+  \\ reverse (Cases_on ‘res9’) \\ fs [] >- (rw [] \\ fs [combine_dec_result_def])
+  \\ simp [pmatch_def] \\ rw [combine_dec_result_def] \\ fs []
 QED
 
 Theorem semantics_prog_compiler64_prog:
