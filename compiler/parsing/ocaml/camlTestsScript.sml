@@ -283,6 +283,17 @@ val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
  * ------------------------------------------------------------------------- *)
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "match !myref () with a -> b"
+  (SOME “Mat (App Opapp [App Opapp [V "!"; V "myref"]; Con NONE []])
+             ([(Pv "a", V "b")])”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "f !myref"
+  (SOME “App Opapp [V "f"; App Opapp [V "!"; V "myref"]]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "x && y"
   (SOME “Log And (V "x") (V "y")”)
   ;

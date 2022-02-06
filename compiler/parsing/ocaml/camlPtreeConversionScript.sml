@@ -1241,7 +1241,7 @@ Definition ptree_Expr_def:
         [assr; expr] =>
           do
             expect_tok assr AssertT;
-            x <- ptree_Expr nEBase expr;
+            x <- ptree_Expr nEPrefix expr;
             return (App Opapp [Var (Short "assert"); x])
           od
       | _ => fail (locs, «Impossible: nEAssert»)
@@ -1250,7 +1250,7 @@ Definition ptree_Expr_def:
         [lazy; expr] =>
           do
             expect_tok lazy LazyT;
-            x <- ptree_Expr nEBase expr;
+            x <- ptree_Expr nEPrefix expr;
             return (App Opapp [Var (Short "lazy"); x])
           od
       | _ => fail (locs, «Impossible: nELazy»)
@@ -1260,17 +1260,17 @@ Definition ptree_Expr_def:
           do
             cns <- ptree_Constr consid;
             id <- path_to_ns locs cns;
-            x <- ptree_Expr nEBase expr;
+            x <- ptree_Expr nEPrefix expr;
             return $ compatCurryE id x
           od
       | _ => fail (locs, «Impossible: nEConstr»)
     else if nterm = INL nEFunapp then
       case args of
-        [exp] => ptree_Expr nEBase exp
+        [exp] => ptree_Expr nEPrefix exp
       | [fexp; aexp] =>
           do
             f <- ptree_Expr nEFunapp fexp;
-            x <- ptree_Expr nEBase aexp;
+            x <- ptree_Expr nEPrefix aexp;
             return (build_funapp f [x])
           od
       | _ => fail (locs, «Impossible: nEFunapp»)
@@ -1287,8 +1287,8 @@ Definition ptree_Expr_def:
               ptree_Expr nEConstr arg
             else if n = INL nEFunapp then
               ptree_Expr nEFunapp arg
-            else if n = INL nEBase then
-              ptree_Expr nEBase arg
+            else if n = INL nEPrefix then
+              ptree_Expr nEPrefix arg
             else
               fail (locs, «Impolssible: nEApp»)
           od
@@ -1298,10 +1298,10 @@ Definition ptree_Expr_def:
         [opn; expr] =>
           do
             op <- ptree_Op opn;
-            x <- ptree_Expr nEApp expr;
+            x <- ptree_Expr nEBase expr;
             return (App Opapp [Var (Short op); x])
           od
-      | [arg] => ptree_Expr nEApp arg
+      | [arg] => ptree_Expr nEBase arg
       | _ => fail (locs, «Impossible: nEPrefix»)
     else if nterm = INL nENeg then
       case args of
@@ -1309,7 +1309,7 @@ Definition ptree_Expr_def:
           do
             lf <- destLf pref;
             tk <- option $ destTOK lf;
-            x <- ptree_Expr nEPrefix expr;
+            x <- ptree_Expr nEApp expr;
             if tk = MinusT then
               return (App Opapp [Var (Long "Int" (Short "~")); x])
             else if tk = MinusFT then
@@ -1320,7 +1320,7 @@ Definition ptree_Expr_def:
             else
               fail (locs, «Impossible: nEPrefix»)
           od
-      | [arg] => ptree_Expr nEPrefix arg
+      | [arg] => ptree_Expr nEApp arg
       | _ => fail (locs, «Impossible: nEPrefix»)
     else if nterm = INL nEShift then
       case args of

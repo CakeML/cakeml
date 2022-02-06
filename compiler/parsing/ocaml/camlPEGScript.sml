@@ -538,30 +538,30 @@ Definition camlPEG_def[nocompute]:
          seql [tokeq BeginT; pnt nExpr; tokeq EndT] (bindNT nEBase)
        ]);
       (* -- Expr15 --------------------------------------------------------- *)
+      (INL nPrefixOp,
+       pegf (tokSymP validPrefixSym)
+            (bindNT nPrefixOp));
+      (INL nEPrefix,
+       seql [try (pnt nPrefixOp); pnt nEBase] (bindNT nEPrefix));
+      (* -- Expr14 --------------------------------------------------------- *)
       (INL nEAssert,
-       seql [tokeq AssertT; pnt nEBase] (bindNT nEAssert));
+       seql [tokeq AssertT; pnt nEPrefix] (bindNT nEAssert));
       (INL nELazy,
-       seql [tokeq LazyT; pnt nEBase] (bindNT nELazy));
+       seql [tokeq LazyT; pnt nEPrefix] (bindNT nELazy));
       (INL nEConstr,
-       seql [pnt nConstr; pnt nEBase] (bindNT nEConstr));
+       seql [pnt nConstr; pnt nEPrefix] (bindNT nEConstr));
       (INL nEFunapp,
-       seql [pnt nEBase; rpt (pnt nEBase) FLAT]
+       seql [pnt nEPrefix; rpt (pnt nEPrefix) FLAT]
             (λl. case l of
                    [] => []
                  | h::t => [FOLDL (λa b. mkNd (INL nEFunapp) [a; b])
                                   (mkNd (INL nEFunapp) [h]) t]));
       (INL nEApp,
-       pegf (choicel (MAP pnt [nELazy; nEAssert; nEConstr; nEFunapp; nEBase]))
+       pegf (choicel (MAP pnt [nELazy; nEAssert; nEConstr; nEFunapp; nEPrefix]))
             (bindNT nEApp));
-      (* -- Expr14 --------------------------------------------------------- *)
-      (INL nPrefixOp,
-       pegf (tokSymP validPrefixSym)
-            (bindNT nPrefixOp));
-      (INL nEPrefix,
-       seql [try (pnt nPrefixOp); pnt nEApp] (bindNT nEPrefix));
       (* -- Expr13 --------------------------------------------------------- *)
       (INL nENeg,
-       seql [try (choicel [tokeq MinusT; tokeq MinusFT]); pnt nEPrefix]
+       seql [try (choicel [tokeq MinusT; tokeq MinusFT]); pnt nEApp]
             (bindNT nENeg));
       (* -- Expr12 --------------------------------------------------------- *)
       (INL nShiftOp,
