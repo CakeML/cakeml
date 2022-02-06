@@ -72,7 +72,6 @@ val compile_correct_applied =
 Theorem cake_compiled_thm =
   CONJ compile_correct_applied cake_output
   |> DISCH_ALL
-(*  |> check_thm;  *)
 
 (* --- *)
 
@@ -92,6 +91,26 @@ Theorem mk_init_eval_state_lemma =
 
 Overload config_env_str = “encode_backend_config (config_to_inc_config cake_config)”
 
+Overload init_eval_state_for =
+  “λcl fs. (init_state (basis_ffi cl fs) with
+        eval_state := SOME (mk_init_eval_state compiler_instance))”
+
+Theorem candle_soundness:
+  res ∈ semantics_prog (init_eval_state_for cl fs) init_env
+    (candle_code ++ prog) ∧ EVERY safe_dec prog ∧ res ≠ Fail ⇒
+  ∀e. e ∈ events_of res ⇒ ok_event e
+Proof
+  rw [IN_DEF]
+  \\ drule_then irule events_of_semantics_with_eval_state
+  \\ fs [IN_DEF]
+  \\ simp [basis_ffiTheory.basis_ffi_def]
+  \\ fs [candle_prover_invTheory.eval_state_ok_def,mk_init_eval_state_lemma]
+  \\ fs [source_evalProofTheory.v_rel_abs]
+  \\ rpt gen_tac
+  \\ DEEP_INTRO_TAC some_intro
+  \\ fs [repl_decs_allowedTheory.decs_allowed_def,IN_DEF]
+QED
+
 Theorem repl_not_fail =
   semantics_prog_compiler64_prog
   |> Q.GEN ‘s’ |> ISPEC (mk_init_eval_state_lemma |> concl |> rand |> rand)
@@ -99,6 +118,17 @@ Theorem repl_not_fail =
   |> SIMP_RULE (srw_ss()) [IN_DEF]
   |> Q.INST [‘conf’|->‘config_to_inc_config cake_config’]
   |> REWRITE_RULE [GSYM (SIMP_CONV (srw_ss()) [] “hasFreeFD fs”)];
+
+Overload basis_init_ok =
+  “λcl fs. STD_streams fs ∧ wfFS fs ∧ wfcl cl ∧ hasFreeFD fs ∧
+           file_content fs «config_enc_str.txt» = SOME config_env_str”;
+
+Theorem repl_not_fail_thm:
+  has_repl_flag (TL cl) ∧ basis_init_ok cl fs ⇒
+  Fail ∉ semantics_prog (init_eval_state_for cl fs) init_env compiler64_prog
+Proof
+  rw [IN_DEF] \\ irule repl_not_fail \\ fs []
+QED
 
 val compile_correct_applied2 =
   MATCH_MP compile_correct_eval cake_compiled
@@ -123,6 +153,18 @@ End
 
 Overload machine_sem = “λffi (mc,ms). targetSem$machine_sem mc ffi ms”
 
+Theorem compile_correct_applied:
+  Fail ∉ semantics_prog (init_eval_state_for cl fs) init_env compiler64_prog ∧
+  repl_ready_to_run cl fs ms ⇒
+  machine_sem (basis_ffi cl fs) ms ⊆
+    extend_with_resource_limit
+      (semantics_prog (init_eval_state_for cl fs) init_env compiler64_prog)
+Proof
+  PairCases_on ‘ms’ \\ rw [IN_DEF,repl_ready_to_run_def]
+  \\ irule compile_correct_applied2 \\ fs []
+  \\ first_x_assum $ irule_at Any
+QED
+
 Triviality isPREFIX_MEM:
   ∀xs ys. isPREFIX xs ys ⇒ ∀x. MEM x xs ⇒ MEM x ys
 Proof
@@ -134,6 +176,13 @@ Triviality LPREFIX_MEM:
 Proof
   Induct \\ fs [] \\ Cases_on ‘ys’ \\ fs []
   \\ fs [LPREFIX_LCONS] \\ metis_tac []
+QED
+
+Theorem repl_ready_to_run_imp:
+  repl_ready_to_run cl fs ms ⇒
+  has_repl_flag (TL cl) ∧ basis_init_ok cl fs
+Proof
+  PairCases_on ‘ms’ \\ rw [repl_ready_to_run_def] \\ fs []
 QED
 
 val _ = (max_print_depth := 12)
@@ -193,46 +242,10 @@ in
   val char_eq_lemmas = cross cs cs |> map mk_eq |> map EVAL;
 end
 
-Theorem candle_top_level_soundness:
-  repl_ready_to_run cl fs ms ∧ machine_sem (basis_ffi cl fs) ms res ⇒
-  res ≠ Fail ∧
-  ∀e. e IN events_of res ⇒ ok_event e
+Theorem compiler64_prog_eq_candle_code_append: (* this is very slow *)
+  ∃prog. compiler64_prog = candle_code ++ prog ∧ EVERY safe_dec prog
 Proof
-  PairCases_on ‘ms’ \\ rewrite_tac [repl_ready_to_run_def]
-  \\ strip_tac
-  \\ mp_tac repl_not_fail
-  \\ impl_tac >- fs []
-  \\ strip_tac
-  \\ drule_all compile_correct_applied2
-  \\ fs [SUBSET_DEF,extend_with_resource_limit_def]
-  \\ strip_tac
-  \\ ‘res ≠ Fail’ by
-   (CCONTR_TAC \\ gvs [IN_DEF]
-    \\ first_x_assum drule \\ fs [])
-  \\ rw []
-  \\ ‘∃res1.
-        semantics_prog
-          (init_state (basis_ffi cl fs) with
-           eval_state := SOME (mk_init_eval_state compiler_instance))
-          init_env compiler64_prog res1 ∧
-        e ∈ events_of res1 ∧ res1 ≠ Fail’ by
-   (fs [IN_DEF]
-    \\ first_x_assum drule \\ fs [] \\ rw []
-    \\ first_assum $ irule_at Any \\ fs [events_of_def]
-    \\ imp_res_tac isPREFIX_MEM \\ fs [IN_DEF]
-    \\ imp_res_tac LPREFIX_MEM \\ fs [IN_DEF])
-  \\ qsuff_tac ‘∃prog. compiler64_prog = candle_code ++ prog ∧ EVERY safe_dec prog’
-  >-
-   (strip_tac \\ gvs []
-    \\ drule events_of_semantics_with_eval_state
-    \\ disch_then irule \\ fs []
-    \\ simp [basis_ffiTheory.basis_ffi_def]
-    \\ fs [candle_prover_invTheory.eval_state_ok_def,mk_init_eval_state_lemma]
-    \\ fs [source_evalProofTheory.v_rel_abs]
-    \\ rpt gen_tac
-    \\ DEEP_INTRO_TAC some_intro
-    \\ fs [repl_decs_allowedTheory.decs_allowed_def,IN_DEF])
-  \\ qexists_tac ‘DROP (LENGTH candle_code) compiler64_prog’
+  qexists_tac ‘DROP (LENGTH candle_code) compiler64_prog’
   \\ once_rewrite_tac [candle_kernelProgTheory.candle_code_def]
   \\ rewrite_tac [LENGTH]
   \\ once_rewrite_tac [compiler64_prog_def]
@@ -249,5 +262,41 @@ Proof
        ([EVAL “kernel_ctors”,CONS_11,NOT_CONS_NIL,NOT_NIL_CONS,
            IN_INSERT,NOT_IN_EMPTY,EVAL “kernel_ffi”] @ char_eq_lemmas)
 QED
+
+Theorem events_of_extend_with_resource_limit:
+  e ∈ events_of res1 ∧ res1 ∈ sem1 ∧
+  sem1 ⊆ extend_with_resource_limit sem2 ⇒
+  ∃res2. e ∈ events_of res2 ∧ res2 ∈ sem2
+Proof
+  fs [IN_DEF,SUBSET_DEF,extend_with_resource_limit_def] \\ rw []
+  \\ first_x_assum drule \\ fs [] \\ rw []
+  \\ first_assum $ irule_at Any \\ fs [events_of_def]
+  \\ imp_res_tac isPREFIX_MEM \\ fs [IN_DEF]
+  \\ imp_res_tac LPREFIX_MEM \\ fs [IN_DEF]
+QED
+
+Theorem candle_top_level_soundness:
+  repl_ready_to_run cl fs ms ∧ res ∈ machine_sem (basis_ffi cl fs) ms ⇒
+  res ≠ Fail ∧
+  ∀e. e ∈ events_of res ⇒ ok_event e
+Proof
+  strip_tac
+  \\ drule_all_then strip_assume_tac repl_ready_to_run_imp
+  \\ imp_res_tac repl_not_fail_thm
+  \\ drule_all compile_correct_applied
+  \\ strip_tac
+  \\ ‘res ≠ Fail’ by
+   (CCONTR_TAC \\ gvs [IN_DEF,extend_with_resource_limit_def,SUBSET_DEF]
+    \\ first_x_assum drule \\ fs [])
+  \\ rw []
+  \\ drule_all events_of_extend_with_resource_limit \\ rw []
+  \\ strip_assume_tac compiler64_prog_eq_candle_code_append \\ gvs []
+  \\ drule_then irule candle_soundness
+  \\ fs [] \\ CCONTR_TAC \\ fs []
+QED
+
+val _ = print "Checking that no cheats were used in the proofs.\n";
+val _ = candle_top_level_soundness |> check_thm;
+val _ = cake_compiled_thm |> check_thm;
 
 val _ = export_theory();
