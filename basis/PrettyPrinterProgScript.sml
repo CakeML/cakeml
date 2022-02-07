@@ -100,6 +100,11 @@ Definition rename_pp_string_def:
 End
 val res = tr "pp_string" rename_pp_string_def;
 
+Definition rename_pp_app_list_def:
+  rename_pp_app_list = pp_app_list
+End
+val res = tr "pp_app_list" rename_pp_app_list_def;
+
 (* useless pretty-printers for impure types.
    should be replaced later in the basis *)
 val res = translate pp_ref_def;
