@@ -42,7 +42,7 @@ Proof
   recInduct escape_str_app_list_ind
   \\ rw []
   \\ simp [Once (theorem "escape_str_app_list_side_def")]
-  \\ Cases_on `str_findi (\c. IS_SOME (escape_char c)) i s`
+  \\ Cases_on `str_findi (\c. IS_SOME (char_escape_seq c)) i s`
   \\ fs []
   \\ imp_res_tac mlstringTheory.str_findi_range
   \\ simp []

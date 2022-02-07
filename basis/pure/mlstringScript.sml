@@ -1049,8 +1049,8 @@ Proof
   rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm, collate_aux_less_thm]
 QED
 
-Definition escape_char_def:
-  escape_char c =
+Definition char_escape_seq_def:
+  char_escape_seq c =
     if c = #"\t"
     then SOME (strlit "\\t")
     else if c = #"\n"
@@ -1062,14 +1062,18 @@ Definition escape_char_def:
     else NONE
 End
 
-Definition escape_char_str_def:
-  escape_char_str c = case escape_char c of
+Definition char_escaped_def:
+  char_escaped c = case char_escape_seq c of
     NONE => [c]
   | SOME s => explode s
 End
 
 Definition escape_str_def:
-  escape_str s = implode ("\"" ++ FLAT (MAP escape_char_str (explode s)) ++ "\"")
+  escape_str s = implode ("\"" ++ FLAT (MAP char_escaped (explode s)) ++ "\"")
+End
+
+Definition escape_char_def:
+  escape_char c = implode ("#\"" ++ char_escaped c ++ "\"")
 End
 
 Theorem ALL_DISTINCT_MAP_implode:

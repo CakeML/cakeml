@@ -92,10 +92,10 @@ Definition pp_list_def:
 End
 
 Definition escape_str_app_list_def:
-  escape_str_app_list i s = case str_findi (\c. IS_SOME (escape_char c)) i s of
+  escape_str_app_list i s = case str_findi (\c. IS_SOME (char_escape_seq c)) i s of
     NONE => List [substring s i (strlen s - i)]
   | SOME j => Append (List [substring s i (j - i);
-        case escape_char (strsub s j) of NONE => strlit "" | SOME s => s])
+        case char_escape_seq (strsub s j) of NONE => strlit "" | SOME s => s])
     (escape_str_app_list (j + 1) s)
 Termination
   WF_REL_TAC `measure (\(i, s). strlen s - i)`
@@ -104,14 +104,14 @@ Termination
   \\ simp []
 End
 
-Triviality findi_map_escape_char_str:
-  !P i s. P = IS_SOME o escape_char ==>
-  FLAT (MAP escape_char_str (DROP i (explode s))) =
+Triviality findi_map_escape:
+  !P i s. P = IS_SOME o char_escape_seq ==>
+  FLAT (MAP char_escaped (DROP i (explode s))) =
   case str_findi P i s of
     NONE => DROP i (explode s)
   | SOME j => TAKE (j - i) (DROP i (explode s))
-    ++ (case escape_char (strsub s j) of NONE => "" | SOME s => explode s)
-    ++ FLAT (MAP escape_char_str (DROP (j + 1) (explode s)))
+    ++ (case char_escape_seq (strsub s j) of NONE => "" | SOME s => explode s)
+    ++ FLAT (MAP char_escaped (DROP (j + 1) (explode s)))
 Proof
   recInduct str_findi_ind
   \\ rw []
@@ -120,7 +120,7 @@ Proof
   \\ simp [listTheory.DROP_LENGTH_TOO_LONG]
   \\ `DROP i (explode s) = strsub s i :: DROP (i + 1) (explode s)`
     by (Cases_on `s` \\ fs [DROP_EL_CONS])
-  \\ fs [escape_char_str_def, IS_SOME_EXISTS]
+  \\ fs [char_escaped_def, IS_SOME_EXISTS]
   \\ EVERY_CASE_TAC \\ fs []
   \\ imp_res_tac str_findi_range
   \\ simp [TAKE_def]
@@ -128,11 +128,11 @@ QED
 
 Theorem escape_str_app_list_thm:
   !i s. concat (append (escape_str_app_list i s)) =
-  implode (FLAT (MAP escape_char_str (DROP i (explode s))))
+  implode (FLAT (MAP char_escaped (DROP i (explode s))))
 Proof
   recInduct escape_str_app_list_ind
   \\ rw []
-  \\ simp [Once (Q.SPEC `\c. IS_SOME (escape_char c)` findi_map_escape_char_str), FUN_EQ_THM]
+  \\ simp [Once (Q.SPEC `\c. IS_SOME (char_escape_seq c)` findi_map_escape), FUN_EQ_THM]
   \\ simp [Once escape_str_app_list_def]
   \\ Cases_on `s`
   \\ EVERY_CASE_TAC \\ fs []
@@ -174,8 +174,18 @@ Definition pp_pp_data_def:
 End
 
 Definition pp_char_def:
-  pp_char c = PP_Data F (List [strlit "#\""; implode (escape_char_str c); strlit "\""])
+  pp_char c = PP_Data F (List [strlit "#\""; case char_escape_seq c of NONE => implode [c]
+    | SOME s => s; strlit "\""])
 End
+
+Theorem pp_char_thm:
+  concat (append (pp_contents (pp_char c))) = escape_char c
+Proof
+  simp [pp_char_def, escape_char_def, char_escaped_def]
+  \\ every_case_tac
+  \\ simp [pp_contents_def, mlstringTheory.concat_def, implode_def]
+  \\ every_case_tac \\ simp []
+QED
 
 Definition pp_int_def:
   pp_int (i : int) = pp_token (mlint$toString i)
