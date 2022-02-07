@@ -8,6 +8,24 @@ local open dep_rewrite in end
 
 val _ = new_theory "printTweaks";
 
+Definition print_failure_message_def:
+  print_failure_message s =
+  Dlet unknown_loc Pany (App Opapp [Var (Short "print_pp");
+        (App Opapp [Var (Long "PrettyPrinter" (Short "failure_message"));
+            Lit (StrLit (explode s))])])
+End
+
+Definition add_err_message_def:
+  add_err_message s decs tn ienv inf_st =
+  (* something's gone wrong, try to add a message *)
+  let pmsg = [print_failure_message s] in
+  case infer_ds ienv pmsg inf_st of
+  (Success msg_ienv, inf_st2) =>
+      (Success (decs ++ pmsg, (tn, extend_dec_ienv msg_ienv ienv, inf_st2)))
+  (* if even that fails, skip it *)
+  | (Failure _, _) => Success (decs, (tn, ienv, inf_st))
+End
+
 Definition add_print_features_def:
   add_print_features st decs =
   let decs2 = add_pp_decs decs in
@@ -19,14 +37,14 @@ Definition add_print_features_def:
   (case infer_ds ienv2 prints inf_st of
   (Success prints_ienv, inf_st2) =>
       (Success (decs2 ++ prints, (tn2, extend_dec_ienv prints_ienv ienv2, inf_st2)))
-  | (Failure x, _) =>
-      (* handle errors in type-checking the pretty print step by skipping it *)
-      (Success (decs2, (tn2, ienv2, inf_st)))
+  | (Failure x, _) => add_err_message (strlit "adding val pretty-prints: " ^ SND x)
+        decs2 tn2 ienv2 inf_st
   )
   | (Failure x, _) =>
-      (* maybe the default pretty-printer decs are the problem *)
+  (* maybe the default pretty-printer decs are the problem *)
   (case infer_ds ienv decs (init_infer_state <| next_id := next_id |>) of
-  (Success ienv3, inf_st3) => (Success (decs, (tn, extend_dec_ienv ienv3 ienv, inf_st3)))
+  (Success ienv3, inf_st3) => add_err_message (strlit "adding type pp funs: " ^ SND x)
+        decs tn (extend_dec_ienv ienv3 ienv) inf_st3
   | (Failure x, _) => Failure x
   )
 End
@@ -84,7 +102,7 @@ Theorem add_print_features_succ:
   st = (tn, ienv, next_id) /\ st2 = (tn2, extend_dec_ienv ienv2 ienv, inf_st2) /\
   infer_ds ienv decs2 (init_infer_state <| next_id := next_id |>) = (Success ienv2, inf_st2)
 Proof
-  fs [add_print_features_def]
+  fs [add_print_features_def, add_err_message_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ simp [pairTheory.pair_case_eq, exc_case_eq]
   \\ rw []

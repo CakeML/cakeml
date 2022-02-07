@@ -84,6 +84,11 @@ Definition pp_val_hidden_type_def:
     (List [strlit "val "; nm; strlit ": <hidden type "; ty; strlit ">\n"])
 End
 
+Definition pp_failure_message_def:
+  pp_failure_message s = PP_Data F
+    (List [strlit "<failure: "; s; strlit ">\n"])
+End
+
 Definition pp_list_def:
   pp_list f xs = PP_Data F (app_list_wrap (strlit "[")
     (app_intersperse (strlit "; ") (MAP (\x. pp_contents (f x)) xs))
