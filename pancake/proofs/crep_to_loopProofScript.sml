@@ -33,7 +33,8 @@ Definition state_rel_def:
    s.memaddrs = t.mdomain ∧
    s.clock = t.clock ∧
    s.be = t.be ∧
-   s.ffi = t.ffi
+   s.ffi = t.ffi ∧
+   s.base_addr = t.base_addr
 End
 
 (*
@@ -159,7 +160,8 @@ Theorem state_rel_intro:
   s.memaddrs = t.mdomain ∧
   s.clock = t.clock ∧
   s.be = t.be ∧
-  s.ffi = t.ffi
+  s.ffi = t.ffi ∧
+  s.base_addr = t.base_addr
 Proof
   rw [state_rel_def]
 QED
@@ -813,7 +815,8 @@ Proof
   last_x_assum drule_all >>
   strip_tac >> rfs [] >>
   qexists_tac ‘ck’ >> fs [] >>
-  fs [loopSemTheory.eval_def, wlab_wloc_def]) >>
+  fs [loopSemTheory.eval_def, wlab_wloc_def])
+  >-(
   rw [] >>
   fs [crepSemTheory.eval_def, CaseEq "option", CaseEq "word_lab"] >>
   rveq >> fs [compile_exp_def] >>
@@ -919,7 +922,11 @@ Proof
    fs [lookup_inter, lookup_insert] >>
    res_tac >> fs [] >> rveq >> fs [] >>
    ‘n <= tmp2’ by (fs [ctxt_max_def] >> res_tac >> fs []) >>
-   fs [domain_lookup])
+   fs [domain_lookup])) >>
+  fs [crepSemTheory.eval_def, compile_exp_def] >> rveq >>
+  fs [nested_seq_def, evaluate_def, eval_def, wlab_wloc_def, state_rel_clock_add_zero]>>
+  qexists_tac ‘0’ >>
+  fs[state_rel_def, state_component_equality]
 QED
 
 Theorem comp_exps_preserves_eval:
@@ -4007,7 +4014,6 @@ QED
 Theorem distinct_make_funcs:
   !crep_code. distinct_funcs (make_funcs crep_code)
 Proof
-  cheat (*
   rw [distinct_funcs_def] >>
   fs [make_funcs_def] >>
   qmatch_asmsub_abbrev_tac ‘MAP2 _ (GENLIST _ _) ps’ >>
@@ -4017,13 +4023,13 @@ Proof
   strip_tac >>
   fs [MEM_EL] >>
   ‘n < MIN (LENGTH (MAP FST crep_code))
-   (LENGTH (MAP2 (λx y. (x,y)) (GENLIST I (LENGTH crep_code)) ps))’ by
+   (LENGTH (MAP2 (λx y. (x,y)) (GENLIST (λn. n + first_name) (LENGTH crep_code)) ps))’ by
     fs [LENGTH_MAP] >>
   dxrule (INST_TYPE [“:'a”|->“:'a”,
                      “:'b”|->“:num # num”,
                      “:'c” |-> “:'a # num # num”] EL_MAP2) >>
   ‘n' < MIN (LENGTH (MAP FST crep_code))
-   (LENGTH (MAP2 (λx y. (x,y)) (GENLIST I (LENGTH crep_code)) ps))’ by
+   (LENGTH (MAP2 (λx y. (x,y)) (GENLIST (λn. n + first_name) (LENGTH crep_code)) ps))’ by
     fs [LENGTH_MAP]  >>
   dxrule (INST_TYPE [“:'a”|->“:'a”,
                      “:'b”|->“:num # num”,
@@ -4031,19 +4037,19 @@ Proof
   disch_then (qspec_then ‘(λx y. (x,y))’ assume_tac) >>
   disch_then (qspec_then ‘(λx y. (x,y))’ assume_tac) >>
   fs [] >> rveq >> fs [] >>
-  ‘n < MIN (LENGTH (GENLIST I (LENGTH crep_code))) (LENGTH ps)’ by
+  ‘n < MIN (LENGTH (GENLIST (λn. n + first_name) (LENGTH crep_code))) (LENGTH ps)’ by
     fs [LENGTH_GENLIST] >>
   drule (INST_TYPE [“:'a”|->“:num”,
                      “:'b”|->“:num”,
                      “:'c” |-> “:num # num”] EL_MAP2) >>
-  ‘n' < MIN (LENGTH (GENLIST I (LENGTH crep_code))) (LENGTH ps)’ by
+  ‘n' < MIN (LENGTH (GENLIST (λn. n + first_name) (LENGTH crep_code))) (LENGTH ps)’ by
     fs [LENGTH_GENLIST] >>
   dxrule (INST_TYPE [“:'a”|->“:num”,
                      “:'b”|->“:num”,
                      “:'c” |-> “:num # num”] EL_MAP2) >>
   disch_then (qspec_then ‘(λx y. (x,y))’ assume_tac) >>
   disch_then (qspec_then ‘(λx y. (x,y))’ assume_tac) >>
-  fs [] >> rveq >> fs [] *)
+  fs [] >> rveq >> fs []
 QED
 
 
@@ -4093,8 +4099,7 @@ Proof
    fs [ALL_DISTINCT_GENLIST]) >>
   fs [Abbr ‘ls’] >>
   fs [MAP_MAP_o] >>
-  cheat (*
-  ‘LENGTH (GENLIST I (LENGTH crep_code)) = LENGTH crep_code’ by fs [] >>
+  ‘LENGTH (GENLIST (λn. n + first_name) (LENGTH crep_code)) = LENGTH crep_code’ by fs [] >>
   drule (INST_TYPE [“:'a”|->“:num”,
                       “:'b”|->“:mlstring”,
                       “:'c”|->“:num”,
@@ -4102,7 +4107,7 @@ Proof
                       “:'e”|-> “:'a prog”] map_map2_fst) >>
   disch_then (qspec_then ‘λparams body. loop_live$optimise
                           (comp_func (make_funcs crep_code)
-                           params body)’ mp_tac) >> fs [] *)
+                           params body)’ mp_tac) >> fs []
 QED
 
 Theorem mk_ctxt_code_imp_code_rel:
@@ -4112,7 +4117,6 @@ Theorem mk_ctxt_code_imp_code_rel:
             (alist_to_fmap crep_code)
             (fromAList (crep_to_loop$compile_prog crep_code))
 Proof
-  cheat (*
   rw [code_rel_def, mk_ctxt_def]
   >- fs [distinct_make_funcs] >>
   fs [mk_ctxt_def, make_funcs_def] >>
@@ -4159,7 +4163,7 @@ Proof
     fs []) >>
    fs [Abbr ‘ps’] >>
    qmatch_goalsub_abbrev_tac ‘MAP2 _ _ ps’ >>
-   ‘n < MIN (LENGTH (GENLIST I (LENGTH crep_code))) (LENGTH ps)’ by fs [Abbr ‘ps’] >>
+   ‘n < MIN (LENGTH (GENLIST (λn. n + first_name) (LENGTH crep_code))) (LENGTH ps)’ by fs [Abbr ‘ps’] >>
    drule (INST_TYPE [“:'a”|->“:num”,
                      “:'b”|->“:num”,
                      “:'c”|-> “:num # num”] EL_MAP2) >>
@@ -4200,7 +4204,7 @@ Proof
   fs [comp_func_def] >>
   fs [mk_ctxt_def, make_vmap_def, make_funcs_def] >>
   fs [loop_liveTheory.optimise_def, ocompile_def] >>
-  fs [pan_commonPropsTheory.list_max_i_genlist] *)
+  fs [pan_commonPropsTheory.list_max_i_genlist]
 QED
 
 
@@ -4208,7 +4212,6 @@ Theorem make_funcs_domain_compile_prog:
   !start lc crep_code. FLOOKUP (make_funcs crep_code) start = SOME (lc,0) ==>
     lc ∈ domain (fromAList (compile_prog crep_code))
 Proof
-  cheat (*
   rw [] >>
   fs [domain_fromAList] >>
   fs [make_funcs_def] >>
@@ -4219,9 +4222,9 @@ Proof
   qexists_tac ‘n’ >>
   conj_tac
   >- fs [compile_prog_def] >>
-  qmatch_asmsub_abbrev_tac ‘MAP2 _ (GENLIST I _) ps’ >>
+  qmatch_asmsub_abbrev_tac ‘MAP2 _ (GENLIST (λn. n + first_name) _) ps’ >>
   ‘n < MIN (LENGTH (MAP FST crep_code))
-   (LENGTH (MAP2 (λx y. (x,y)) (GENLIST I (LENGTH crep_code)) ps))’ by
+   (LENGTH (MAP2 (λx y. (x,y)) (GENLIST (λn. n + first_name) (LENGTH crep_code)) ps))’ by
     fs [Abbr ‘ps’, LENGTH_MAP] >>
   dxrule (INST_TYPE [“:'a”|->“:mlstring”,
                      “:'b”|->“:num # num”,
@@ -4238,7 +4241,7 @@ Proof
   pop_assum kall_tac >>
   fs [Abbr ‘pps’] >>
   qmatch_goalsub_abbrev_tac ‘EL n (MAP2 ffs _ _)’ >>
-  ‘n < MIN (LENGTH (GENLIST I (LENGTH crep_code)))
+  ‘n < MIN (LENGTH (GENLIST (λn. n + first_name) (LENGTH crep_code)))
    (LENGTH crep_code)’ by fs [] >>
   dxrule (INST_TYPE [“:'a”|->“:num”,
                      “:'b”|->“:mlstring # num list # 'a crepLang$prog”,
@@ -4249,13 +4252,13 @@ Proof
   fs [Abbr ‘ffs’] >>
   cases_on ‘EL n crep_code’ >> fs [] >>
   cases_on ‘r’ >> fs [] >>
-  ‘n < MIN (LENGTH (GENLIST I (LENGTH crep_code)))
+  ‘n < MIN (LENGTH (GENLIST (λn. n + first_name) (LENGTH crep_code)))
    (LENGTH ps)’ by fs [Abbr ‘ps’] >>
   dxrule (INST_TYPE [“:'a”|->“:num”,
                      “:'b”|->“:num”,
                      “:'c” |-> “:num # num”] EL_MAP2) >>
   disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
-  strip_tac >> fs [] *)
+  strip_tac >> fs []
 QED
 
 (* move to pan_commonProps *)
@@ -4281,10 +4284,9 @@ QED
 
 
 Theorem initial_prog_make_funcs_el:
-  !prog start n. FLOOKUP (make_funcs prog) start = SOME (n,0) ==>
+  !prog start n. FLOOKUP (make_funcs prog) start = SOME (n + first_name,0) ==>
    (start, [], (SND o SND) (EL n prog)) = EL n prog /\ n < LENGTH prog
 Proof
-  cheat (*
   rw [] >>
   fs [crep_to_loopTheory.make_funcs_def] >>
   dxrule ALOOKUP_MEM >>
@@ -4323,7 +4325,7 @@ Proof
   fs [] >>
   cases_on ‘EL n prog’ >>
   fs [] >>
-  cases_on ‘r’ >> fs [] *)
+  cases_on ‘r’ >> fs []
 QED
 
 Theorem compile_prog_distinct_params:
@@ -4353,7 +4355,7 @@ QED
 Theorem state_rel_imp_semantics:
   !s t crep_code start prog lc. s.memaddrs = t.mdomain ∧
   s.be = t.be ∧
-  s.ffi = t.ffi ∧
+  s.ffi = t.ffi ∧ s.base_addr = t.base_addr ∧
   mem_rel (make_funcs crep_code) s.memory t.memory ∧
   globals_rel (make_funcs crep_code) s.globals t.globals ∧
   ALL_DISTINCT (MAP FST crep_code) ∧

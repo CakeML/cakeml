@@ -24,7 +24,8 @@ Definition crep_state_def:
      memaddrs := s.memaddrs;
      clock    := s.clock;
      be       := s.be;
-     ffi      := s.ffi|>
+     ffi      := s.ffi;
+     base_addr := s.base_addr|>
 End
 
 (* wlab_wloc should have taken only funcs of context *)
@@ -42,7 +43,8 @@ Definition loop_state_def:
      code     := fromAList (crep_to_loop$compile_prog crep_code);
      clock    := ck;
      be       := s.be;
-     ffi      := s.ffi|>
+     ffi      := s.ffi;
+     base_addr := s.base_addr|>
 End
 
 
@@ -274,7 +276,7 @@ Theorem crep_to_loop_intermediate_label:
     ALL_DISTINCT (MAP FST pan_code) ⇒
     ∃n. n < LENGTH pan_code ∧ EL n pan_code = (start,[],prog) ∧
         FLOOKUP (crep_to_loop$make_funcs
-                 (pan_to_crep$compile_prog (pan_simp$compile_prog pan_code))) start = SOME (n,0)
+                 (pan_to_crep$compile_prog (pan_simp$compile_prog pan_code))) start = SOME (n+first_name,0)
 Proof
   rw [] >>
   dxrule ALOOKUP_MEM >>
@@ -374,6 +376,9 @@ Theorem state_rel_imp_semantics:
   t.mdomain = s.memaddrs ∧
   t.be = s.be ∧
   t.ffi = s.ffi ∧
+  IS_SOME (FLOOKUP t.store CurrHeap) ∧
+  isWord (THE (FLOOKUP t.store CurrHeap)) ∧
+  theWord (THE (FLOOKUP t.store CurrHeap)) = s.base_addr ∧
   ALL_DISTINCT (MAP FST pan_code) ∧
   ALOOKUP pan_code start = SOME ([],prog) ∧
   lc < LENGTH pan_code ∧ EL lc pan_code = (start,[],prog) ∧
@@ -383,7 +388,7 @@ Theorem state_rel_imp_semantics:
   FDOM s.eshapes = FDOM ((get_eids pan_code):mlstring |-> 'a word) ∧
   lookup 0 t.locals = SOME (Loc 1 0) /\
   semantics s start <> Fail ==>
-    semantics (t:('a,'b, 'ffi) wordSem$state) lc =
+    semantics (t:('a,'b, 'ffi) wordSem$state) (lc+first_name) =
     semantics (s:('a,'ffi) panSem$state) start
 Proof
   rw [] >>
@@ -499,7 +504,7 @@ Proof
   disch_then (qspecl_then [‘ccode’,
                            ‘start’, ‘comp_func (make_funcs pcode)
                                      (get_eids pcode) [] (compile prog)’,
-                           ‘lc’] mp_tac) >>
+                           ‘lc+first_name’] mp_tac) >>
   impl_tac
   >- (
    fs [Abbr ‘ccode’, Abbr ‘pcode’, Abbr ‘pst’, Abbr ‘cst’,
@@ -630,7 +635,7 @@ Proof
       fs [distinct_params_def]) >>
     fs []) >>
   drule fstate_rel_imp_semantics >>
-  disch_then (qspecl_then [‘lc’,
+  disch_then (qspecl_then [‘lc+first_name’,
      ‘loop_live$optimise (comp_func (make_funcs ccode) [] cprog)’] mp_tac) >>
   impl_tac
   >- (
