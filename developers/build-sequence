@@ -74,6 +74,9 @@ candle/standard/monadic
 candle/standard/ml_kernel
 candle/overloading/syntax
 candle/overloading/semantics
+candle/overloading/monadic
+candle/overloading/ml_kernel
+candle/overloading/ml_checker
 candle/prover
 
 # pancake
