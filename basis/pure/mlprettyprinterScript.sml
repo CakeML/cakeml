@@ -222,6 +222,18 @@ Definition pp_vector_def:
     [pp_list f (mlvector$toList v)]
 End
 
+(* values of this type should never appear in programs.
+   it is used to monomorphise some expressions so they
+   can be printed safely. *)
+Datatype:
+  default_type = Default_Type
+End
+
+Definition pp_default_type_def:
+  pp_default_type v = case v of Default_Type =>
+    pp_token (strlit "<val of default type: this should be impossible>")
+End
+
 val fromRat_def = Define`
   fromRat (n:int, d:num) =
   if d = 1 then List [mlint$toString n]

@@ -87,11 +87,15 @@ Definition update_type_names_def:
   )
 End
 
-Definition inf_t_to_ast_t_def:
-  inf_t_to_ast_t tn (Infer_Tuvar n) = SOME (Atvar ("'t_u_" ++ explode (mlint$toString (&n)))) /\
-  inf_t_to_ast_t tn (Infer_Tvar_db n) = SOME (Atvar ("'t_" ++ explode (mlint$toString (&n)))) /\
-  inf_t_to_ast_t tn (Infer_Tapp ts ti) =
-    OPTION_BIND (OPT_MMAP (inf_t_to_ast_t tn) ts) (\ts.
+(* map the inferred type of a val to its AST counterpart, monomorphising
+   any type variables to PrettyPrinter.default_type *)
+Definition inf_t_to_ast_t_mono_def:
+  inf_t_to_ast_t_mono tn (Infer_Tuvar _) =
+    SOME (Atapp [] (Long "PrettyPrinter" (Short "default_type"))) /\
+  inf_t_to_ast_t_mono tn (Infer_Tvar_db _) =
+    SOME (Atapp [] (Long "PrettyPrinter" (Short "default_type"))) /\
+  inf_t_to_ast_t_mono tn (Infer_Tapp ts ti) =
+    OPTION_BIND (OPT_MMAP (inf_t_to_ast_t_mono tn) ts) (\ts.
     if ti = Tfn_num then
       (case ts of [t1; t2] => SOME (Atfun t1 t2) | _ => NONE)
     else if ti = Ttup_num then SOME (Attup ts)
@@ -124,7 +128,7 @@ Definition print_of_val_def:
     let idl = Lit (StrLit (id_str nm)) in
     let tstr = Lit (StrLit (explode (inf_t_to_s tn inf_t))) in
     Dlet unknown_loc Pany (App Opapp [Var (Short "print_pp");
-        (case inf_t_to_ast_t tn inf_t of
+        (case inf_t_to_ast_t_mono tn inf_t of
           NONE => rpt_app (Var (Long "PrettyPrinter" (Short "val_hidden_type"))) [idl; tstr]
         | SOME ast_t => rpt_app (Var (Long "PrettyPrinter" (Short "val_eq")))
             [idl; pp_of_ast_t ast_t; Var nm; tstr])])

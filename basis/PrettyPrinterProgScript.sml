@@ -22,6 +22,7 @@ val _ = ml_prog_update (open_module "PrettyPrinter")
 
 val _ = (use_full_type_names := false);
 val _ = register_type ``: pp_data``;
+val _ = register_type ``: default_type``;
 
 fun tr name def = (
   next_ml_names := [name];
@@ -71,6 +72,8 @@ val res = translate pp_string_def;
 
 val res = translate pp_app_list_def;
 val res = translate pp_pp_data_def;
+
+val res = translate pp_default_type_def;
 
 val _ = ml_prog_update close_local_blocks;
 

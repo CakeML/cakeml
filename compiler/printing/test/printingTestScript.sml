@@ -77,11 +77,13 @@ val res = translate x_list_bool_def;
 val res = translate x_list_chars_thm;
 val res = translate x_list_strs_def;
 
+val dlet_empty = ``Dlet unknown_loc (Pvar "x_app_list_empty") (Con (SOME (Short "Nil")) [])``
+
 val _ = ml_prog_update remove_snocs;
 
 val prog = get_prog (get_ml_prog_state ());
 
-val new_prog_eval = EVAL ``DROP (LENGTH basis) (^prog)``;
+val new_prog_eval = EVAL ``DROP (LENGTH basis) (^prog ++ [^dlet_empty])``;
 val test_prog = rhs (concl new_prog_eval)
 
 Definition test_prog_def:
