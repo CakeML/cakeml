@@ -28,11 +28,11 @@ End
 
 Definition add_print_features_def:
   add_print_features st decs =
-  let decs2 = add_pp_decs decs in
   let (tn, ienv, next_id) = st in
+  let decs2 = add_pp_decs tn.pp_fixes decs in
   case infer_ds ienv decs2 (init_infer_state <| next_id := next_id |>) of
   (Success decs_ienv, inf_st) =>
-  let (prints, tn2) = val_prints tn decs_ienv in
+  let (prints, tn2) = val_prints tn ienv decs_ienv in
   let ienv2 = extend_dec_ienv decs_ienv ienv in
   (case infer_ds ienv2 prints inf_st of
   (Success prints_ienv, inf_st2) =>

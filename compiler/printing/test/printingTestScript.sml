@@ -90,7 +90,13 @@ Definition test_prog_def:
   test_prog = ^test_prog
 End
 
-val with_pp_eval = EVAL ``add_pp_decs test_prog``;
+val basis_tn_eval = EVAL ``tn_setup_fixes basis_ienv
+        (update_type_names basis_ienv empty_type_names)``
+val basis_tn_res = basis_tn_eval |> concl |> rhs
+val (unfixed, basis_tn) = dest_pair basis_tn_res
+(* FIXME: should probably be an error that things weren't fixed *)
+
+val with_pp_eval = EVAL ``add_pp_decs ^basis_tn.pp_fixes test_prog``;
 val with_pp = rhs (concl with_pp_eval);
 
 Definition test_prog_pp_def:
@@ -131,10 +137,7 @@ val _ = if can (match_term ``(infer$Success _, _)``) infer_example then () else
 
 val _ = print "Fetching type-name info and adding print statements.\n"
 
-val basis_tn = EVAL ``update_type_names basis_ienv empty_type_names``
-    |> concl |> rhs
-
-val example_prints_eval = EVAL ``val_prints ^basis_tn ^infer_example_ienv``
+val example_prints_eval = EVAL ``val_prints ^basis_tn basis_ienv ^infer_example_ienv``
 val example_print_decs = concl example_prints_eval |> rhs |> dest_pair |> fst
 
 val _ = print "Type-checking extended program.\n"
@@ -172,3 +175,4 @@ val full_prog = rhs (concl full_prog_eval);
 val res = astToSexprLib.write_ast_to_file "example_print.sexp" full_prog
 
 val _ = export_theory ();
+

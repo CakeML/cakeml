@@ -21,56 +21,31 @@ Termination
   WF_REL_TAC `measure (namespace_size (K 0) (K 0) (K 0))`
 End
 
+(* The inferencer builds a mapping from type names to its internal
+   type numbers, but the printer needs a reverse mapping to print
+   inferred types. It maintains a mapping from type numbers to the
+   list of names that have mapped to that type, whether or not they
+   are current.
+
+   There is also a mapping for "fixes" for type identifiers that
+   were not defined with a matching pretty-printer, which is expected
+   to only apply to some basis types.
+*)
 Datatype:
   type_names = <|
-    id_map : (((modN, varN) id) list # string)  num_map ;
-    nm_map : (modN, varN, num option) namespace
+    id_map : (((modN, varN) id) list) num_map ;
+    pp_fixes : (modN, varN, (modN, varN) id) namespace
   |>
 End
 
 Definition empty_type_names_def:
-  empty_type_names = <| id_map := sptree$LN ; nm_map := nsEmpty |>
+  empty_type_names = <| id_map := sptree$LN; pp_fixes := nsEmpty |>
 End
 
-Definition delete_nm_def:
-  delete_nm id_map n nm = (case sptree$lookup n id_map of
-      NONE => id_map
-    | SOME (ids, short_nm) => sptree$insert n (FILTER (\nm2. nm2 <> nm) ids, short_nm) id_map)
-End
-
-Definition add_nm_def:
-  add_nm id_map n nm = (case sptree$lookup n id_map of
-      NONE => sptree$insert n ([nm], id_to_n nm) id_map
-    | SOME (ids, short_nm) => sptree$insert n (nm :: ids, short_nm) id_map)
-End
-
-(* the inferencer builds a mapping from type names to its internal
-   type numbers. we need to maintain a reverse mapping back to names *)
 Definition add_type_name_def:
-  add_type_name (nm, opt_id) tn =
-    let id_map1 = (case nsLookup tn.nm_map (Short nm) of
-        SOME (SOME n) => delete_nm tn.id_map n (Short nm)
-      | _ => tn.id_map
-    ) in
-    let id_map2 = case opt_id of NONE => id_map1
-        | SOME n => add_nm id_map1 n (Short nm) in
-    tn with <| id_map := id_map2; nm_map := nsBind nm opt_id tn.nm_map |>
-End
-
-Definition add_mod_type_names_def:
-  add_mod_type_names v_ns (mod_nm, m) tn =
-    let removed_contents = (case nsLookupMod tn.nm_map [mod_nm] of
-        NONE => []
-      | SOME m' => nsContents m'
-    ) in
-    let id_map1 = FOLDR (\(nm, opt_id) id_map. case opt_id of NONE => id_map
-        | SOME n => delete_nm id_map n nm) tn.id_map removed_contents in
-    let added = nsContents m in
-    let added_ok = FILTER (\(nm, _). IS_SOME
-            (nsLookup v_ns (pp_prefix (Long mod_nm nm)))) added in
-    let id_map2 = FOLDR (\(nm, opt_id) id_map. case opt_id of NONE => id_map
-        | SOME n => add_nm id_map n (Long mod_nm nm)) id_map1 added_ok in
-    tn with <| id_map := id_map2 ; nm_map := nsAppend (nsLift mod_nm m) tn.nm_map |>
+  add_type_name nm id id_map =
+    let prev = case sptree$lookup id id_map of NONE => [] | SOME nms => nms in
+    sptree$insert id (nm :: prev) id_map
 End
 
 Definition t_info_id_def:
@@ -79,38 +54,84 @@ Definition t_info_id_def:
 End
 
 Definition update_type_names_def:
-  update_type_names ienv tn = (case nsMap t_info_id ienv.inf_t of
-    Bind locs mods =>
-    let tn1 = FOLDR add_type_name tn locs in
-    let tn2 = FOLDR (add_mod_type_names ienv.inf_v) tn1 mods in
-    tn2
-  )
+  update_type_names ienv tn =
+    let new = MAP (I ## t_info_id) (nsContents ienv.inf_t) in
+    tn with <| id_map := FOLDR (\(nm, opt_id) id_map. case opt_id of NONE => id_map
+        | SOME id => add_type_name nm id id_map) tn.id_map new |>
+End
+
+Definition strip_tapp_fun_def:
+  strip_tapp_fun (Infer_Tapp [x; f] n) = (if n = Tfn_num
+    then let (ys, t) = strip_tapp_fun f in
+    (x :: ys, t)
+    else ([], Infer_Tapp [x; f] n)) /\
+  strip_tapp_fun t = ([], t)
+End
+
+Definition tn_current_def:
+  tn_current ienv id nm = case nsLookup ienv.inf_v (pp_prefix nm) of
+    NONE => F
+  | SOME (_, t) =>
+    let (params, _) = strip_tapp_fun t in
+    (case LAST params of
+        Infer_Tapp _ id2 => id2 = id
+      | Infer_Tvar_db _ => T
+      | _ => F
+    )
+End
+
+Definition add_to_namespace_def:
+  add_to_namespace (Short nm) x ns = nsBind nm x ns /\
+  add_to_namespace (Long mnm id) x ns = (
+    let m = case nsLookupMod ns [mnm] of NONE => nsEmpty | SOME m => m in
+    nsAppend (nsLift mnm (add_to_namespace id x m)) ns)
+End
+
+Definition mk_namespace_def:
+  mk_namespace xs = FOLDR (\(id, x). add_to_namespace id x) nsEmpty xs
+End
+
+Definition tn_setup_fixes_def:
+  tn_setup_fixes ienv tn =
+    let info = MAP (\(i, ns). MAP (\n. (n, tn_current ienv i n)) ns)
+        (toSortedAList tn.id_map) in
+    let cannot_fix = MAP FST (FLAT (FILTER ($~ o EXISTS SND) info)) in
+    let fixes = FLAT (MAP (\ns. case FIND SND ns of
+        NONE => []
+      | SOME (nm, _) => FLAT (MAP (\(nm2, ok). if ok then [] else [(nm2, nm)]) ns)) info) in
+    (cannot_fix, tn with <| pp_fixes := mk_namespace fixes |>)
+End
+
+Definition get_tn_current_def:
+  get_tn_current ienv tn id = case sptree$lookup id tn.id_map of
+    NONE => NONE
+  | SOME ids => FIND (tn_current ienv id) ids
 End
 
 (* map the inferred type of a val to its AST counterpart, monomorphising
    any type variables to PrettyPrinter.default_type *)
 Definition inf_t_to_ast_t_mono_def:
-  inf_t_to_ast_t_mono tn (Infer_Tuvar _) =
+  inf_t_to_ast_t_mono ienv tn (Infer_Tuvar _) =
     SOME (Atapp [] (Long "PrettyPrinter" (Short "default_type"))) /\
-  inf_t_to_ast_t_mono tn (Infer_Tvar_db _) =
+  inf_t_to_ast_t_mono ienv tn (Infer_Tvar_db _) =
     SOME (Atapp [] (Long "PrettyPrinter" (Short "default_type"))) /\
-  inf_t_to_ast_t_mono tn (Infer_Tapp ts ti) =
-    OPTION_BIND (OPT_MMAP (inf_t_to_ast_t_mono tn) ts) (\ts.
+  inf_t_to_ast_t_mono ienv tn (Infer_Tapp ts ti) =
+    OPTION_BIND (OPT_MMAP (inf_t_to_ast_t_mono ienv tn) ts) (\ts.
     if ti = Tfn_num then
       (case ts of [t1; t2] => SOME (Atfun t1 t2) | _ => NONE)
     else if ti = Ttup_num then SOME (Attup ts)
     else
-    OPTION_BIND (sptree$lookup ti tn.id_map) (\(nms, _).
-      case nms of [] => NONE | (nm :: _) => SOME (Atapp ts nm)))
+    OPTION_BIND (get_tn_current ienv tn ti) (\nm. SOME (Atapp ts nm)))
 Termination
-  WF_REL_TAC `measure (infer_t_size o SND)`
+  WF_REL_TAC `measure (infer_t_size o SND o SND)`
 End
 
 Definition type_con_name_def:
   type_con_name tn ti =
   (case sptree$lookup ti tn.id_map of
       NONE => strlit "<undeclared>"
-    | SOME (_, nm) => implode nm
+    | SOME [] => strlit "<undeclared>"
+    | SOME nms => implode (id_to_n (LAST nms))
   )
 End
 
@@ -124,21 +145,22 @@ Definition id_str_def:
 End
 
 Definition print_of_val_def:
-  print_of_val tn (nm, inf_t) =
+  print_of_val ienv tn (nm, inf_t) =
     let idl = Lit (StrLit (id_str nm)) in
     let tstr = Lit (StrLit (explode (inf_t_to_s tn inf_t))) in
     Dlet unknown_loc Pany (App Opapp [Var (Short "print_pp");
-        (case inf_t_to_ast_t_mono tn inf_t of
+        (case inf_t_to_ast_t_mono ienv tn inf_t of
           NONE => rpt_app (Var (Long "PrettyPrinter" (Short "val_hidden_type"))) [idl; tstr]
         | SOME ast_t => rpt_app (Var (Long "PrettyPrinter" (Short "val_eq")))
-            [idl; pp_of_ast_t ast_t; Var nm; tstr])])
+            [idl; pp_of_ast_t tn.pp_fixes ast_t; Var nm; tstr])])
 End
 
 Definition val_prints_def:
-  val_prints tn ienv =
-    let tn2 = update_type_names ienv tn in
-    let prints = MAP (print_of_val tn2)
-        (MAP (I ## SND) (REVERSE (nsContents (ns_nub ienv.inf_v)))) in
+  val_prints tn prev_ienv decs_ienv =
+    let tn2 = update_type_names decs_ienv tn in
+    let full_ienv = extend_dec_ienv decs_ienv prev_ienv in
+    let prints = MAP (print_of_val full_ienv tn2)
+        (MAP (I ## SND) (REVERSE (nsContents (ns_nub decs_ienv.inf_v)))) in
     (prints, tn2)
 End
 

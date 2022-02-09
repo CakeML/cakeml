@@ -82,6 +82,7 @@ val _ = ml_prog_update (close_module NONE);
 (* pretty-printers for global (builtin) types, at global scope *)
 
 val res = translate pp_exn_def;
+val res = translate pp_unit_def;
 val res = translate pp_vector_def;
 
 (* add global names for some printers, esp. those used in pp_pp_data *)

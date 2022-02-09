@@ -96,6 +96,10 @@ Definition pp_list_def:
   )
 End
 
+Definition pp_unit_def:
+  pp_unit u = pp_token (strlit "()")
+End
+
 Definition escape_str_app_list_def:
   escape_str_app_list i s = case str_findi (\c. IS_SOME (char_escape_seq c)) i s of
     NONE => List [substring s i (strlen s - i)]

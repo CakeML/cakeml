@@ -7,7 +7,7 @@ structure addPrettyPrintersLib = struct
 
 open ml_progLib astSyntax listSyntax
   HolKernel bossLib boolSyntax Drule
-local open typeDecToPPTheory in end
+local open typeDecToPPTheory namespaceTheory in end
 
 val no_decs = mk_list ([], dec_ty)
 
@@ -24,9 +24,16 @@ fun dec_global_only t = if is_Dmod t
 val pps_for_dec_tm = typeDecToPPTheory.pps_for_dec_def |> BODY_CONJUNCTS |> hd
     |> concl |> lhs |> strip_comb |> fst
 
+val ns_ty = pps_for_dec_tm |> type_of |> dom_rng |> fst
+
+val nsEmpty1 = namespaceTheory.nsEmpty_def |> concl |> lhs
+val nsEmpty = nsEmpty1 |> inst (match_type (type_of nsEmpty1) ns_ty)
+
+val pps_for_dec_empty = mk_icomb (pps_for_dec_tm, nsEmpty)
+
 fun pps_of_global_tys prog = let
     val gl = dec_global_only prog
-    val app = mk_flat (mk_map (pps_for_dec_tm, gl))
+    val app = mk_flat (mk_map (pps_for_dec_empty, gl))
     val eval = EVAL app
     val res = rhs (concl eval)
     val (pp_decs, _) = dest_list res
