@@ -753,6 +753,13 @@ val toString_def = Define `
 val _ = (next_ml_names := ["toString"]);
 val v = translate toString_def;
 
+Definition pp_rat_def:
+  pp_rat r = mlprettyprinter$pp_token (toString r)
+End
+
+val _ = (next_ml_names := ["pp_rat"]);
+val v = translate pp_rat_def;
+
 Definition pair_num_def:
   pair_num (RatPair i n) = i
 End
