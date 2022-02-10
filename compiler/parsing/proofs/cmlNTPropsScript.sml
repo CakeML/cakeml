@@ -83,9 +83,15 @@ Proof
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]
 QED
 
+Theorem firstSet_nStructure[simp]:
+  firstSet cmlG [NT (mkNT nStructure)] = {StructureT}
+Proof
+  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]
+QED
+
 Theorem firstSet_nDecl[simp]:
   firstSet cmlG [NT (mkNT nDecl)] =
-  {ValT; FunT; DatatypeT;ExceptionT;TypeT;LocalT}
+  {ValT; FunT; DatatypeT;ExceptionT;TypeT;LocalT;StructureT}
 Proof
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ]
@@ -93,7 +99,7 @@ QED
 
 Theorem firstSet_nDecls[simp]:
   firstSet cmlG [NN nDecls] =
-  {ValT; DatatypeT; FunT; SemicolonT; ExceptionT; TypeT; LocalT}
+  {ValT; DatatypeT; FunT; SemicolonT; ExceptionT; TypeT; LocalT;StructureT}
 Proof
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
@@ -149,20 +155,6 @@ Theorem firstSet_nListOps[simp]:
 Proof
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ, INSERT_COMM, IMAGE_GSPEC1]
-QED
-
-Theorem firstSet_nStructure[simp]:
-  firstSet cmlG [NT (mkNT nStructure)] = {StructureT}
-Proof
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]
-QED
-
-
-Theorem firstSet_nTopLevelDec[simp]:
-  firstSet cmlG [NT (mkNT nTopLevelDec)] =
-  {ValT; FunT; DatatypeT; StructureT; ExceptionT; TypeT; LocalT}
-Proof
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ, INSERT_COMM]
 QED
 
 Theorem firstSet_nSpecLine[simp]:
