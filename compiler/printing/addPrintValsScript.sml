@@ -73,7 +73,8 @@ Definition tn_current_def:
     NONE => F
   | SOME (_, t) =>
     let (params, _) = strip_tapp_fun t in
-    (case LAST params of
+    (if NULL params then F else
+     case LAST params of
         Infer_Tapp _ id2 => id2 = id
       | Infer_Tvar_db _ => T
       | _ => F
@@ -174,4 +175,3 @@ Definition val_prints_def:
 End
 
 val _ = export_theory ();
-

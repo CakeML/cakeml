@@ -62,7 +62,7 @@ Proof
 QED
 
 val r = translate
-  (addPrintValsTheory.inf_t_to_ast_t_def
+  (addPrintValsTheory.inf_t_to_ast_t_mono_def
    |> SIMP_RULE std_ss [Once (GSYM OPT_MAP_I)]);
 
 val r = translate addPrintValsTheory.print_of_val_def;
@@ -74,18 +74,21 @@ val r = translate
    |> SIMP_RULE (srw_ss()) [inferTheory.init_infer_state_def]);
 
 val lemma1 = prove(“printtweaks_add_print_features_side x y = T”,
-  rw [fetch "-" "printtweaks_add_print_features_side_def"]
-  \\ irule (inferProgTheory.infer_d_side_thm |> CONJUNCT2) \\ fs []
-  \\ irule (inferPropsTheory.infer_d_wfs |> CONJUNCT2) \\ fs []
-  \\ first_x_assum $ irule_at Any \\ fs [])
+  rw [fetch "-" "printtweaks_add_print_features_side_def",
+      fetch "-" "printtweaks_add_err_message_side_def"]
+  \\ TRY (irule (inferProgTheory.infer_d_side_thm |> CONJUNCT2)) \\ fs []
+  \\ TRY (irule (inferPropsTheory.infer_d_wfs |> CONJUNCT2)) \\ fs []
+  \\ TRY (first_x_assum $ irule_at Any) \\ fs [])
   |> update_precondition;
 
 val r = translate printTweaksTheory.add_print_then_read_def;
 
 val lemma2 = prove(“printtweaks_add_print_then_read_side x y = T”,
   rw [fetch "-" "printtweaks_add_print_then_read_side_def"]
-  \\ PairCases_on ‘x’
-  \\ fs [printTweaksTheory.add_print_features_def,AllCaseEqs()]
+  \\ TRY (PairCases_on ‘x’)
+  \\ fs [printTweaksTheory.add_print_features_def,AllCaseEqs(),
+         fetch "-" "printtweaks_add_err_message_side_def",
+         printTweaksTheory.add_err_message_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ gvs [printTweaksTheory.add_print_features_def,AllCaseEqs()]
   \\ imp_res_tac (inferPropsTheory.infer_d_wfs |> CONJUNCT2) \\ fs []
