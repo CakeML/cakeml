@@ -29,6 +29,10 @@ Definition pp_fun_def:
   pp_fun = pp_token (strlit "<fun>")
 End
 
+Definition pp_unprintable_def:
+  pp_unprintable s = PP_Data F (List [strlit "<val of unprintable type "; s; strlit ">"])
+End
+
 (* there is a plan to replace this with an impure extensible implementation *)
 Definition pp_exn_def:
   pp_exn e = pp_token (strlit "<exn>")

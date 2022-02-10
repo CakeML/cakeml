@@ -63,6 +63,7 @@ val res = tr "val_eq" pp_val_eq_def;
 val res = tr "val_eq" pp_val_eq_def;
 val res = tr "val_hidden_type" pp_val_hidden_type_def;
 val res = tr "failure_message" pp_failure_message_def;
+val res = tr "unprintable" pp_unprintable_def;
 
 val res = translate pp_list_def;
 val res = translate pp_bool_def;

@@ -34,7 +34,7 @@ End
 Datatype:
   type_names = <|
     id_map : (((modN, varN) id) list) num_map ;
-    pp_fixes : (modN, varN, (modN, varN) id) namespace
+    pp_fixes : (modN, varN, ((modN, varN) id) option) namespace
   |>
 End
 
@@ -95,17 +95,31 @@ Definition tn_setup_fixes_def:
   tn_setup_fixes ienv tn =
     let info = MAP (\(i, ns). MAP (\n. (n, tn_current ienv i n)) ns)
         (toSortedAList tn.id_map) in
-    let cannot_fix = MAP FST (FLAT (FILTER ($~ o EXISTS SND) info)) in
-    let fixes = FLAT (MAP (\ns. case FIND SND ns of
-        NONE => []
-      | SOME (nm, _) => FLAT (MAP (\(nm2, ok). if ok then [] else [(nm2, nm)]) ns)) info) in
-    (cannot_fix, tn with <| pp_fixes := mk_namespace fixes |>)
+    let fixes = FLAT (MAP (\ns.
+        let not_ok = MAP FST (FILTER ($~ o SND) ns) in
+        if NULL not_ok then []
+        else
+        let fst_ok = OPTION_MAP FST (FIND SND ns) in
+        MAP (\nm. (nm, fst_ok)) not_ok)
+     info) in
+    tn with <| pp_fixes := mk_namespace fixes |>
 End
 
-Definition get_tn_current_def:
-  get_tn_current ienv tn id = case sptree$lookup id tn.id_map of
-    NONE => NONE
-  | SOME ids => FIND (tn_current ienv id) ids
+Definition init_type_names_def:
+  init_type_names ienv = tn_setup_fixes ienv
+    (update_type_names ienv empty_type_names)
+End
+
+Definition get_tn_ok_def:
+  get_tn_ok ienv tn id = OPTION_BIND (sptree$lookup id tn.id_map)
+    (\ids. case (ids, FIND (tn_current ienv id) ids) of
+        (_, SOME current_id) => SOME current_id
+      | ([], NONE) => NONE
+      | (id :: _, NONE) => (case nsLookup tn.pp_fixes id of
+          NONE => NONE
+        | SOME _ => (* it's ok to use this, pp_of_ast_t will cope *)
+            SOME id
+      ))
 End
 
 (* map the inferred type of a val to its AST counterpart, monomorphising
@@ -121,7 +135,7 @@ Definition inf_t_to_ast_t_mono_def:
       (case ts of [t1; t2] => SOME (Atfun t1 t2) | _ => NONE)
     else if ti = Ttup_num then SOME (Attup ts)
     else
-    OPTION_BIND (get_tn_current ienv tn ti) (\nm. SOME (Atapp ts nm)))
+    OPTION_BIND (get_tn_ok ienv tn ti) (\nm. SOME (Atapp ts nm)))
 Termination
   WF_REL_TAC `measure (infer_t_size o SND o SND)`
 End
@@ -139,14 +153,9 @@ Definition inf_t_to_s_def:
   inf_t_to_s tn t = FST (inf_type_to_string_rec (type_con_name tn) t)
 End
 
-Definition id_str_def:
-  id_str (Short s) = s /\
-  id_str (Long mnm id) = (mnm ++ "." ++ id_str id)
-End
-
 Definition print_of_val_def:
   print_of_val ienv tn (nm, inf_t) =
-    let idl = Lit (StrLit (id_str nm)) in
+    let idl = Lit (StrLit (id_to_str nm)) in
     let tstr = Lit (StrLit (explode (inf_t_to_s tn inf_t))) in
     Dlet unknown_loc Pany (App Opapp [Var (Short "print_pp");
         (case inf_t_to_ast_t_mono ienv tn inf_t of

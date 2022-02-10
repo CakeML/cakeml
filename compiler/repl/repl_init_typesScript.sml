@@ -52,8 +52,7 @@ end
 Theorem repl_prog_types_thm = result;
 
 Definition repl_init_types_def:
-  repl_init_types =
-    (update_type_names (FST repl_prog_types) empty_type_names,repl_prog_types)
+  repl_init_types = (init_type_names (FST repl_prog_types), repl_prog_types)
 End
 
 Theorem repl_init_types_eq = repl_init_types_def

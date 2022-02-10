@@ -63,6 +63,10 @@ Definition x_list_strs_def:
   x_list_strs = MAP implode x_list_chars ++ [implode (FLAT x_list_chars)]
 End
 
+Definition x_maps_def:
+  x_maps = [(1i, mlmap$fromList (mlint$int_cmp) [(1i, "x"); (2, "y")])]
+End
+
 val res = register_type ``: example``;
 val res = translate TAKE_def;
 val res = translate DROP_def;
@@ -77,6 +81,8 @@ val res = translate x_list_bool_def;
 val res = translate x_list_chars_thm;
 val res = translate x_list_strs_def;
 
+val res = translate x_maps_def;
+
 val dlet_empty = ``Dlet unknown_loc (Pvar "x_app_list_empty") (Con (SOME (Short "Nil")) [])``
 
 val _ = ml_prog_update remove_snocs;
@@ -90,11 +96,8 @@ Definition test_prog_def:
   test_prog = ^test_prog
 End
 
-val basis_tn_eval = EVAL ``tn_setup_fixes basis_ienv
-        (update_type_names basis_ienv empty_type_names)``
-val basis_tn_res = basis_tn_eval |> concl |> rhs
-val (unfixed, basis_tn) = dest_pair basis_tn_res
-(* FIXME: should probably be an error that things weren't fixed *)
+val basis_tn_eval = EVAL ``init_type_names basis_ienv``;
+val basis_tn = basis_tn_eval |> concl |> rhs
 
 val with_pp_eval = EVAL ``add_pp_decs ^basis_tn.pp_fixes test_prog``;
 val with_pp = rhs (concl with_pp_eval);
@@ -172,7 +175,9 @@ val upd_prog = rand prog_rhs |> dest_pair |> fst
 val full_prog_eval = EVAL ``basis ++ ^upd_prog``;
 val full_prog = rhs (concl full_prog_eval);
 
-val res = astToSexprLib.write_ast_to_file "example_print.sexp" full_prog
+val res = astToSexprLib.write_ast_to_file "example_print.sexp" full_prog;
+
+val _ = print "Success.\n";
 
 val _ = export_theory ();
 
