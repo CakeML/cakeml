@@ -39,11 +39,11 @@ findNumRepeatingChar    c []                    = return 0
 *)
 
 open preamble;
-
 open stringLib stringTheory;
-
 open rich_listTheory;
 open pathTheory;
+
+val _ = new_theory "compression";
 
 Definition append_char_def:
   append_char s (c:char) = s ++ [c]
@@ -54,12 +54,13 @@ Definition remove_last_def:
   remove_last ((x::xs ): char list) = [x] ++ remove_last xs
 End
 
-EVAL “remove_last (append_char "hello" s)”
+(*
+EVAL “remove_last (append_char "hello" s)”;
+EVAL “remove_last "hello"”;
+EVAL “append_char "hello" "s"”;
+*)
 
-EVAL “remove_last "hello"”
-
-EVAL “append_char "hello" "s"”
-
+(*
 Theorem correctness:
   ∀s c. remove_last (append_char s c) = s
 Proof
@@ -68,5 +69,8 @@ Proof
   \\ rw[compr_def, decompr_def]
   \\ rw[STRCAT_def]
 QED
+*)
 
-        DB.find "strcat"
+DB.find "strcat";
+
+val _ = export_theory();
