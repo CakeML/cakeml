@@ -30,7 +30,7 @@ decompr str tab = do
 
 findNumRepeatingChar :: Char -> String -> Num
 findNumRepeatingChar 	c str(s:ss) | c == s 	= return 1 + find... c ss
-									| otherwise = return 0
+                                    | otherwise = return 0
 findNumRepeatingChar	c []		= return 0
 
 -- When changing to dynamic
@@ -38,12 +38,34 @@ findNumRepeatingChar	c []		= return 0
 
 *)
 
+open preamble;
 
+open stringLib stringTheory;
 
-Definition compr_def:
-  compr s = s
+open rich_listTheory;
+     open pathTheory;
+
+Definition append_char_def:
+  append_char s (c:char) = s ++ [c]
 End
 
-Definition decompr_def:
-  decompr s = s
+Definition remove_last_def:
+  remove_last ((x::[]): char list)  = [] ∧
+  remove_last ((x::xs ): char list) = [x] ++ remove_last xs
 End
+
+EVAL “remove_last (append_char "hello" s)”
+
+EVAL “remove_last "hello"”
+
+EVAL “append_char "hello" "s"”
+
+Theorem correctness:
+  ∀s c. remove_last (append_char s c) = s
+Proof
+  Induct_on ‘s’
+  \\ rw[compr_def, decompr_def]
+  \\ rw[STRCAT_def]
+QED
+
+        DB.find "strcat"
