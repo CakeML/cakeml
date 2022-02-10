@@ -1,7 +1,10 @@
 Scripts relevant to the formalisation of the DEFLATE algorithm
 
-[expScript.sml](expScript.sml):
-testestestes
+[LearningTests](LearningTests):
+Scripts relevant to learning HOL
 
-[less_lemmaScript.sml](less_lemmaScript.sml):
-testestestes
+[compressionScript.sml](compressionScript.sml):
+First simple compressor
+
+[translation](translation):
+Translation scripts for puzzle encodings.
