@@ -98,6 +98,7 @@ val _ = ml_prog_update (add_Dlet eval_thm "count");
 val _ = (append_prog o process_topdecs) ‘
   fun inc () =
     let val res = !count in
+      count := res + 1;
       if res = 1000 then
         (count := 0; True)
       else False
