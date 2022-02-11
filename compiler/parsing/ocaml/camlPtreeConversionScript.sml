@@ -1143,14 +1143,12 @@ Definition ptree_Expr_def:
               fail (locs, «Impossible: nExpr»)
           od
       | _ => fail (locs, «Impossible: nExpr»)
-    else if nterm = INL nExprs then
+    else if nterm = INL nEInExprs then
       case args of
         [arg] =>
           do
             n <- nterm_of arg;
-            if n = INL nEIf then
-              ptree_Expr nEIf arg
-            else if n = INL nELet then
+            if n = INL nELet then
               ptree_Expr nELet arg
             else if n = INL nELetRec then
               ptree_Expr nELetRec arg
@@ -1166,6 +1164,19 @@ Definition ptree_Expr_def:
               ptree_Expr nEWhile arg
             else if n = INL nEFor then
               ptree_Expr nEFor arg
+            else
+              fail (locs, «Expected an expression non-terminal»)
+          od
+      | _ => fail (locs, «Impossible: nEInExpr»)
+    else if nterm = INL nExprs then
+      case args of
+        [arg] =>
+          do
+            n <- nterm_of arg;
+            if n = INL nEIf then
+              ptree_Expr nEIf arg
+            else if n = INL nEInExprs then
+              ptree_Expr nEInExprs arg
             else
               fail (locs, «Expected an expression non-terminal»)
           od

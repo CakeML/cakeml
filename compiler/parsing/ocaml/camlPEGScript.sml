@@ -232,6 +232,7 @@ Datatype:
     | nEAnd | nEOr | nEProd | nEAssign | nEIf | nESeq
     | nEMatch | nETry | nEFun | nEFunction | nELet | nELetRec
     | nEWhile | nEFor | nExprs | nExpr
+    | nEInExprs (* expressions that bind everything to the right *)
     (* pattern matches *)
     | nLetBinding | nLetBindings | nLetRecBinding | nLetRecBindings
     | nPatternMatch | nPatternMatches
@@ -668,12 +669,9 @@ Definition camlPEG_def[nocompute]:
              choicel [tokeq ToT; tokeq DowntoT]; pnt nExpr;
              tokeq DoT; pnt nExpr; tokeq DoneT]
             (bindNT nEFor));
-      (* All expressions but ; *)
-      (INL nExprs,
+      (* These expressions will consume everything to the right *)
+      (INL nEInExprs,
        pegf (choicel [
-               (* expr2 *)
-               pnt nEIf;
-               (* expr1 *)
                pnt nELetRec;
                pnt nELet;
                pnt nEMatch;
@@ -682,6 +680,14 @@ Definition camlPEG_def[nocompute]:
                pnt nETry;
                pnt nEWhile;
                pnt nEFor])
+            (bindNT nEInExprs));
+      (* All expressions but ; *)
+      (INL nExprs,
+       pegf (choicel [
+               (* expr2 *)
+               pnt nEIf;
+               (* expr1 *)
+               pnt nEInExprs])
             (bindNT nExprs));
       (* -- Expr: ---------------------------------------------------------- *)
       (INL nESeq,
