@@ -110,7 +110,7 @@ val _ = (append_prog o process_topdecs) ‘
   fun poll () =
     if inc () then
       let val _ = #(poll_sigint) "" sigint in
-        if Word8Array.sub sigint 0 = Word.fromInt 1 then
+        if Word8Array.sub sigint 0 = Word8.fromInt 1 then
           raise Interrupt
         else ()
       end
