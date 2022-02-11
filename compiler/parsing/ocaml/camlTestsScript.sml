@@ -288,6 +288,47 @@ val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
  * ------------------------------------------------------------------------- *)
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "true || let y = z in y"
+  (SOME “Log Or (C "True" []) (Let (SOME "y") (V "z") (V "y"))”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "let y = z in y || true"
+  (SOME “Let (SOME "y") (V "z") (Log Or (V "y") (C "True" []))”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "0 + match x with y -> z"
+  (SOME (“vbinop (Short "+") (Lit (IntLit 0)) (Mat (V "x") [(Pv "y", V "z")])”))
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "- fun x -> x"
+  (SOME “App Opapp [Var (Long "Int" (Short "~")); Fun "x" (V "x")]”)
+  ;
+
+val _ = parsetest0 “nENeg” “ptree_Expr nENeg”
+  " - let y = z in y"
+  (SOME “App Opapp [Var (Long "Int" (Short "~"));
+                    Let (SOME "y") (V "z") (V "y")]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "a, [], fun x -> ()"
+  (SOME “Con NONE [V "a"; C "[]" []; Fun "x" (Con NONE [])]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "a, match x with y -> z, w"
+  (SOME “Con NONE [V "a"; Mat (V "x") [(Pv "y", Con NONE [V "z"; V "w"])]]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "match x with y -> z, w"
+  (SOME “Mat (V "x") [(Pv "y", Con NONE [V "z"; V "w"])]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "match !myref () with a -> b"
   (SOME “Mat (App Opapp [App Opapp [V "!"; V "myref"]; Con NONE []])
              ([(Pv "a", V "b")])”)

@@ -231,8 +231,8 @@ Datatype:
     | nEAdd | nECons | nECat | nERel
     | nEAnd | nEOr | nEProd | nEAssign | nEIf | nESeq
     | nEMatch | nETry | nEFun | nEFunction | nELet | nELetRec
-    | nEWhile | nEFor | nExprs | nExpr
-    | nEInExprs (* expressions that bind everything to the right *)
+    | nEWhile | nEFor | nExpr
+    | nEUnclosed (* expressions that bind everything to the right *)
     (* pattern matches *)
     | nLetBinding | nLetBindings | nLetRecBinding | nLetRecBindings
     | nPatternMatch | nPatternMatches
@@ -512,8 +512,8 @@ Definition camlPEG_def[nocompute]:
       (* -- Expr16 --------------------------------------------------------- *)
       (INL nEList,
        seql [tokeq LbrackT;
-             try (seql [pnt nExprs;
-                        rpt (seql [tokeq SemiT; pnt nExprs] I) FLAT;
+             try (seql [pnt nEIf;
+                        rpt (seql [tokeq SemiT; pnt nEIf] I) FLAT;
                         try (tokeq SemiT)] I);
              tokeq RbrackT]
             (bindNT nEList));
@@ -561,84 +561,11 @@ Definition camlPEG_def[nocompute]:
        pegf (choicel (MAP pnt [nELazy; nEAssert; nEConstr; nEFunapp; nEPrefix]))
             (bindNT nEApp));
       (* -- Expr13 --------------------------------------------------------- *)
-      (INL nENeg,
-       seql [try (choicel [tokeq MinusT; tokeq MinusFT]); pnt nEApp]
-            (bindNT nENeg));
-      (* -- Expr12 --------------------------------------------------------- *)
-      (INL nShiftOp,
-       pegf (choicel [tokSymP validShiftOp; tokeq LslT; tokeq LsrT; tokeq AsrT])
-            (bindNT nShiftOp));
-      (INL nEShift,
-       seql [pnt nENeg; try (seql [pnt nShiftOp; pnt nEShift] I)]
-            (bindNT nEShift));
-      (* -- Expr11 --------------------------------------------------------- *)
-      (INL nMultOp,
-       pegf (choicel [tokeq StarT; tokeq ModT; tokeq LandT; tokeq LorT;
-                      tokeq LxorT; tokSymP validMultOp])
-            (bindNT nMultOp));
-      (INL nEMult,
-       peg_linfix (INL nEMult) (pnt nEShift) (pnt nMultOp));
-      (* -- Expr10 --------------------------------------------------------- *)
-      (INL nAddOp,
-       pegf (choicel [tokeq PlusT; tokeq MinusT; tokeq MinusFT;
-                      tokSymP validAddOp])
-            (bindNT nAddOp));
-      (INL nEAdd,
-       peg_linfix (INL nEAdd) (pnt nEMult) (pnt nAddOp));
-      (* -- Expr9 ---------------------------------------------------------- *)
-      (INL nECons,
-       seql [pnt nEAdd; try (seql [tokeq ColonsT; pnt nECons] I)]
-            (bindNT nECons));
-      (* -- Expr8 ---------------------------------------------------------- *)
-      (INL nCatOp,
-       pegf (tokSymP validCatOp)
-            (bindNT nCatOp));
-      (INL nECat,
-       seql [pnt nECons; try (seql [pnt nCatOp; pnt nECat] I)]
-            (bindNT nECat));
-      (* -- Expr7 ---------------------------------------------------------- *)
-      (INL nRelOp,
-       pegf (choicel [tokeq EqualT; tokeq LessT; tokeq GreaterT; tokeq NeqT;
-                      tokSymP validRelOp])
-            (bindNT nRelOp));
-      (INL nERel,
-       peg_linfix (INL nERel) (pnt nECat) (pnt nRelOp));
-      (* -- Expr6 ---------------------------------------------------------- *)
-      (INL nAndOp,
-       pegf (choicel [tokeq AmpT; tokeq AndalsoT])
-            (bindNT nAndOp));
-      (INL nEAnd,
-       seql [pnt nERel; try (seql [pnt nAndOp; pnt nEAnd] I)]
-            (bindNT nEAnd));
-      (* -- Expr5 ---------------------------------------------------------- *)
-      (INL nOrOp,
-       pegf (choicel [tokeq OrelseT; tokeq OrT])
-            (bindNT nOrOp));
-      (INL nEOr,
-       seql [pnt nEAnd; try (seql [pnt nOrOp; pnt nEOr] I)]
-            (bindNT nEOr));
-      (* -- Expr 4.5 ------------------------------------------------------- *)
-      (INL nEHolInfix,
-       peg_linfix (INL nEHolInfix) (pnt nEOr) (pnt nHolInfixOp));
-      (* -- Expr4 ---------------------------------------------------------- *)
-      (INL nEProd,
-       seql [pnt nEHolInfix;
-             rpt (seql [tokeq CommaT; pnt nEHolInfix] I) FLAT]
-            (bindNT nEProd));
-      (* -- Expr3: assignments --------------------------------------------- *)
-      (INL nAssignOp,
-       pegf (choicel [tokeq UpdateT; tokeq LarrowT])
-            (bindNT nAssignOp));
-      (INL nEAssign,
-       seql [pnt nEProd; try (seql [pnt nAssignOp; pnt nEAssign] I)]
-            (bindNT nEAssign));
-      (* -- Expr2 ---------------------------------------------------------- *)
-      (INL nEIf,
-       pegf (choicel [seql [tokeq IfT; pnt nExpr; tokeq ThenT; pnt nExprs;
-                            try (seql [tokeq ElseT; pnt nExprs] I)] I;
-                      pnt nEAssign])
-            (bindNT nEIf));
-      (* -- Expr1 ---------------------------------------------------------- *)
+      (INL nEUnclosed,
+       pegf (choicel [
+               pnt nELetRec; pnt nELet; pnt nEMatch; pnt nEFun; pnt nEFunction;
+               pnt nETry; pnt nEWhile; pnt nEFor; pnt nEApp])
+            (bindNT nEUnclosed));
       (INL nELetRec,
        seql [tokeq LetT; tokeq RecT; pnt nLetRecBindings;
              tokeq InT; pnt nExpr]
@@ -669,33 +596,92 @@ Definition camlPEG_def[nocompute]:
              choicel [tokeq ToT; tokeq DowntoT]; pnt nExpr;
              tokeq DoT; pnt nExpr; tokeq DoneT]
             (bindNT nEFor));
-      (* These expressions will consume everything to the right *)
-      (INL nEInExprs,
-       pegf (choicel [
-               pnt nELetRec;
-               pnt nELet;
-               pnt nEMatch;
-               pnt nEFun;
-               pnt nEFunction;
-               pnt nETry;
-               pnt nEWhile;
-               pnt nEFor])
-            (bindNT nEInExprs));
-      (* All expressions but ; *)
-      (INL nExprs,
-       pegf (choicel [
-               (* expr2 *)
-               pnt nEIf;
-               (* expr1 *)
-               pnt nEInExprs])
-            (bindNT nExprs));
+      (* -- Expr12 --------------------------------------------------------- *)
+      (INL nENeg,
+       seql [try (choicel [tokeq MinusT; tokeq MinusFT]);
+             (* try the non-closed expressions or an application *)
+             pnt nEUnclosed]
+            (bindNT nENeg));
+      (* -- Expr11 --------------------------------------------------------- *)
+      (INL nShiftOp,
+       pegf (choicel [tokSymP validShiftOp; tokeq LslT; tokeq LsrT; tokeq AsrT])
+            (bindNT nShiftOp));
+      (INL nEShift,
+       seql [pnt nENeg; try (seql [pnt nShiftOp; pnt nEShift] I)]
+            (bindNT nEShift));
+      (* -- Expr10 --------------------------------------------------------- *)
+      (INL nMultOp,
+       pegf (choicel [tokeq StarT; tokeq ModT; tokeq LandT; tokeq LorT;
+                      tokeq LxorT; tokSymP validMultOp])
+            (bindNT nMultOp));
+      (INL nEMult,
+       peg_linfix (INL nEMult) (pnt nEShift) (pnt nMultOp));
+      (* -- Expr9 ---------------------------------------------------------- *)
+      (INL nAddOp,
+       pegf (choicel [tokeq PlusT; tokeq MinusT; tokeq MinusFT;
+                      tokSymP validAddOp])
+            (bindNT nAddOp));
+      (INL nEAdd,
+       peg_linfix (INL nEAdd) (pnt nEMult) (pnt nAddOp));
+      (* -- Expr8 ---------------------------------------------------------- *)
+      (INL nECons,
+       seql [pnt nEAdd; try (seql [tokeq ColonsT; pnt nECons] I)]
+            (bindNT nECons));
+      (* -- Expr7 ---------------------------------------------------------- *)
+      (INL nCatOp,
+       pegf (tokSymP validCatOp)
+            (bindNT nCatOp));
+      (INL nECat,
+       seql [pnt nECons; try (seql [pnt nCatOp; pnt nECat] I)]
+            (bindNT nECat));
+      (* -- Expr6 ---------------------------------------------------------- *)
+      (INL nRelOp,
+       pegf (choicel [tokeq EqualT; tokeq LessT; tokeq GreaterT; tokeq NeqT;
+                      tokSymP validRelOp])
+            (bindNT nRelOp));
+      (INL nERel,
+       peg_linfix (INL nERel) (pnt nECat) (pnt nRelOp));
+      (* -- Expr5 ---------------------------------------------------------- *)
+      (INL nAndOp,
+       pegf (choicel [tokeq AmpT; tokeq AndalsoT])
+            (bindNT nAndOp));
+      (INL nEAnd,
+       seql [pnt nERel; try (seql [pnt nAndOp; pnt nEAnd] I)]
+            (bindNT nEAnd));
+      (* -- Expr4 ---------------------------------------------------------- *)
+      (INL nOrOp,
+       pegf (choicel [tokeq OrelseT; tokeq OrT])
+            (bindNT nOrOp));
+      (INL nEOr,
+       seql [pnt nEAnd; try (seql [pnt nOrOp; pnt nEOr] I)]
+            (bindNT nEOr));
+      (* -- Expr 3.5 ------------------------------------------------------- *)
+      (INL nEHolInfix,
+       peg_linfix (INL nEHolInfix) (pnt nEOr) (pnt nHolInfixOp));
+      (* -- Expr3 ---------------------------------------------------------- *)
+      (INL nEProd,
+       seql [pnt nEHolInfix;
+             rpt (seql [tokeq CommaT; pnt nEHolInfix] I) FLAT]
+            (bindNT nEProd));
+      (* -- Expr2: assignments --------------------------------------------- *)
+      (INL nAssignOp,
+       pegf (choicel [tokeq UpdateT; tokeq LarrowT])
+            (bindNT nAssignOp));
+      (INL nEAssign,
+       seql [pnt nEProd; try (seql [pnt nAssignOp; pnt nEAssign] I)]
+            (bindNT nEAssign));
+      (* -- Expr1 ---------------------------------------------------------- *)
+      (INL nEIf,
+       pegf (choicel [seql [tokeq IfT; pnt nExpr; tokeq ThenT; pnt nEIf;
+                            try (seql [tokeq ElseT; pnt nEIf] I)] I;
+                      pnt nEAssign])
+            (bindNT nEIf));
       (* -- Expr: ---------------------------------------------------------- *)
       (INL nESeq,
        seql [pnt nEIf; try (seql [tokeq SemiT; pnt nExpr] I)]
             (bindNT nESeq));
       (INL nExpr,
-       pegf (choicel [pnt nESeq;
-                      pnt nExprs])
+       pegf (choicel [pnt nESeq])
             (bindNT nExpr));
       (* -- Pattern matches ------------------------------------------------ *)
       (INL nPatternMatch,

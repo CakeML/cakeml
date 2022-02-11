@@ -1130,18 +1130,9 @@ Definition ptree_Expr_def:
       fail (locs, «ptree_Expr»)
     else if nterm = INL nExpr then
       case args of
-        [arg] =>
-          do
-            n <- nterm_of arg;
-            if n = INL nESeq then
-              ptree_Expr nESeq arg
-            else if n = INL nExprs then
-              ptree_Expr nExprs arg
-            else
-              fail (locs, «Impossible: nExpr»)
-          od
+        [arg] => ptree_Expr nESeq arg
       | _ => fail (locs, «Impossible: nExpr»)
-    else if nterm = INL nEInExprs then
+    else if nterm = INL nEUnclosed then
       case args of
         [arg] =>
           do
@@ -1162,23 +1153,12 @@ Definition ptree_Expr_def:
               ptree_Expr nEWhile arg
             else if n = INL nEFor then
               ptree_Expr nEFor arg
+            else if n = INL nEApp then
+              ptree_Expr nEApp arg
             else
               fail (locs, «Expected an expression non-terminal»)
           od
-      | _ => fail (locs, «Impossible: nEInExpr»)
-    else if nterm = INL nExprs then
-      case args of
-        [arg] =>
-          do
-            n <- nterm_of arg;
-            if n = INL nEIf then
-              ptree_Expr nEIf arg
-            else if n = INL nEInExprs then
-              ptree_Expr nEInExprs arg
-            else
-              fail (locs, «Expected an expression non-terminal»)
-          od
-      | _ => fail (locs, «Impossible: nExpr»)
+      | _ => fail (locs, «Impossible: nEUnclosed»)
     else if nterm = INL nEList then
       case args of
         lbrack::rest =>
@@ -1318,7 +1298,7 @@ Definition ptree_Expr_def:
           do
             lf <- destLf pref;
             tk <- option $ destTOK lf;
-            x <- ptree_Expr nEApp expr;
+            x <- ptree_Expr nEUnclosed expr;
             if tk = MinusT then
               return (App Opapp [Var (Long "Int" (Short "~")); x])
             else if tk = MinusFT then
@@ -1329,7 +1309,7 @@ Definition ptree_Expr_def:
             else
               fail (locs, «Impossible: nEPrefix»)
           od
-      | [arg] => ptree_Expr nEApp arg
+      | [arg] => ptree_Expr nEUnclosed arg
       | _ => fail (locs, «Impossible: nEPrefix»)
     else if nterm = INL nEShift then
       case args of
@@ -1459,8 +1439,8 @@ Definition ptree_Expr_def:
             expect_tok thent ThenT;
             expect_tok elset ElseT;
             x1 <- ptree_Expr nExpr x;
-            y1 <- ptree_Expr nExprs y;
-            z1 <- ptree_Expr nExprs z;
+            y1 <- ptree_Expr nEIf y;
+            z1 <- ptree_Expr nEIf z;
             return (If x1 y1 z1)
           od
       | [ift; x; thent; y] =>
@@ -1468,7 +1448,7 @@ Definition ptree_Expr_def:
             expect_tok ift IfT;
             expect_tok thent ThenT;
             x1 <- ptree_Expr nExpr x;
-            y1 <- ptree_Expr nExprs y;
+            y1 <- ptree_Expr nEIf y;
             return (If x1 y1 (Con NONE []))
           od
       | [exp] => ptree_Expr nEAssign exp
@@ -1773,7 +1753,7 @@ Definition ptree_Expr_def:
        ptree_ExprList xs
      od ++
      do
-       y <- ptree_Expr nExprs x;
+       y <- ptree_Expr nEIf x;
        ys <- ptree_ExprList xs;
        return (y::ys)
      od) ∧
