@@ -21,13 +21,23 @@
 
   At runtine, users are allowed (encouraged?) to change these references.
 
-  The Interrupt module contains this function:
+  The Interrupt module contains:
   - Interrupt.poll : unit -> unit
+    -- This function checks whether an INT signal has been trapped by the
+       runtime, and raises the Interrupt exception (defined outside of this
+       module) if that has happened. Users are responsible of calling
+       Interrupt.poll at the start of functions that might loop forever, or
+       the interrupt will not be detected.
 
-  This function checks whether an INT signal has been trapped by the runtime,
-  and raises the Interrupt exception (defined outside of this module) if that
-  has happened. Users are responsible of calling Interrupt.poll at the start of
-  functions that might loop forever, or the interrupt will not be detected.
+       The FFI call is performed with a frequency controlled by another
+       reference:
+  - Interrupt.freq : int ref
+    -- Default value is 1000, meaning that the FFI call occurs after 1000 steps.
+       All values below 1 are treated as 1.
+
+
+  You can set and get
+
 *)
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib basisFunctionsLib
@@ -77,30 +87,20 @@ val eval_thm = let
   in v_thm |> REWRITE_RULE [GSYM v_def] end
 val _ = ml_prog_update (add_Dlet eval_thm "sigint");
 
-val count_e = “App Opref [Lit (IntLit 0)]”;
-val eval_thm = let
-  val env = get_ml_prog_state () |> ml_progLib.get_env
-  val st = get_ml_prog_state () |> ml_progLib.get_state
-  val new_st = “^st with refs := ^st.refs ++ [Refv (Litv (IntLit 0))]”
-  val goal = list_mk_icomb (prim_mk_const {Thy="ml_prog", Name="eval_rel"},
-    [st, env, count_e, new_st, mk_var ("x", semanticPrimitivesSyntax.v_ty)])
-  val lemma = goal |> (EVAL THENC SIMP_CONV(srw_ss())[semanticPrimitivesTheory.state_component_equality])
-  val v_thm = prove(mk_imp(lemma |> concl |> rand, goal),
-    rpt strip_tac \\ rveq \\ match_mp_tac(#2(EQ_IMP_RULE lemma))
-    \\ asm_simp_tac bool_ss [])
-    |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL;
-  val v_tm = v_thm |> concl |> strip_comb |> #2 |> last
-  val v_def = define_abbrev false "count_loc" v_tm
-  in v_thm |> REWRITE_RULE [GSYM v_def] end
-val _ = ml_prog_update (add_Dlet eval_thm "count");
+Theorem count_eval_thm = declare_new_ref "count" “1000:int”;
 
+val _ = ml_prog_update open_local_in_block;
+
+Theorem freq_eval_thm = declare_new_ref "freq" “1000:int”;
+
+val _ = ml_prog_update open_local_block;
 
 val _ = (append_prog o process_topdecs) ‘
   fun inc () =
     let val res = !count in
-      count := res + 1;
-      if res = 1000 then
-        (count := 0; True)
+      count := res - 1;
+      if res < 2 then
+        (count := max 1 (!freq) ; True)
       else False
     end;
   ’;
