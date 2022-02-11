@@ -238,6 +238,11 @@ val _ = tytest0 "('a,'b) d"
  * ------------------------------------------------------------------------- *)
 
 val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+  "false::[]"
+  (SOME “[Pc "::" [Pc "False" []; Pc "[]" []]]”)
+  ;
+
+val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
   "x as y"
   (SOME “[Pas (Pvar "x") "y"]”)
   ;

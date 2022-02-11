@@ -691,6 +691,30 @@ Definition ptree_Literal_def:
       fail (locs, «Expected a literal non-terminal»)
 End
 
+Definition bool2id_def:
+  bool2id b = Short (if b then "True" else "False")
+End
+
+Definition ptree_Bool_def:
+  ptree_Bool (Lf (_, locs)) =
+    fail (locs, «Expected a boolean literal non-terminal») ∧
+  ptree_Bool (Nd (nterm, locs) args) =
+    if nterm = INL nLiteral then
+      case args of
+        [arg] =>
+          do
+            lf <- destLf arg;
+            tk <- option $ destTOK lf;
+            if tk = TrueT ∨ tk = FalseT then
+              return (bool2id (tk = TrueT))
+            else
+              fail (locs, «not a boolean literal»)
+          od
+      | _ => fail (locs, «Impossible: nLiteral (bool)»)
+    else
+      fail (locs, «Expected a boolean literal non-terminal»)
+End
+
 (* Turns a list literal pattern “[x; y; z]” into the
  * constructor pattern “x::y::z::[]”.
  *)
@@ -754,7 +778,8 @@ Definition ptree_Pattern_def:
             else if n = INL nPList then
               ptree_Pattern nPList arg
             else if n = INL nLiteral then
-              fmap (λlit. [Plit lit]) (ptree_Literal arg)
+              fmap (λlit. [Plit lit]) (ptree_Literal arg) ++
+              fmap (λb. [Pcon (SOME b) []]) (ptree_Bool arg)
             else
               fail (locs, «Impossible: nPBase»)
          od
@@ -1090,38 +1115,11 @@ Definition build_function_def:
     Fun "" (Mat (Var (Short "")) (build_pmatch "" Mat pmatch))
 End
 
-(* Turn a boolean literal into a constructor expression.
- *)
-
-Definition bool_to_exp_def:
-  bool_to_exp b = Con (SOME (Short (if b then "True" else "False"))) []
-End
-
 (* Flatten the row-alternatives in a pattern-match.
  *)
 
 Definition flatten_pmatch_def:
   flatten_pmatch pss = FLAT (MAP (λ(ps,x,w). MAP (λp. (p,x,w)) ps) pss)
-End
-
-Definition ptree_Bool_def:
-  ptree_Bool (Lf (_, locs)) =
-    fail (locs, «Expected a boolean literal non-terminal») ∧
-  ptree_Bool (Nd (nterm, locs) args) =
-    if nterm = INL nLiteral then
-      case args of
-        [arg] =>
-          do
-            lf <- destLf arg;
-            tk <- option $ destTOK lf;
-            if tk = TrueT ∨ tk = FalseT then
-              return (bool_to_exp (tk = TrueT))
-            else
-              fail (locs, «not a boolean literal»)
-          od
-      | _ => fail (locs, «Impossible: nLiteral (bool)»)
-    else
-      fail (locs, «Expected a boolean literal non-terminal»)
 End
 
 Definition ptree_Expr_def:
@@ -1227,7 +1225,7 @@ Definition ptree_Expr_def:
           do
             n <- nterm_of arg;
             if n = INL nLiteral then
-              ptree_Bool arg ++
+              fmap (λid. Con (SOME id) []) (ptree_Bool arg) ++
               fmap Lit (ptree_Literal arg)
             else if n = INL nValuePath then
               do
@@ -1592,7 +1590,7 @@ Definition ptree_Expr_def:
             l <- ptree_Expr nExpr lbd;
             b <- ptree_Expr nExpr body;
             return (build_funapp (Var (Short "for"))
-                                 [bool_to_exp (tk = ToT);
+                                 [Con (SOME (bool2id (tk = ToT))) [];
                                   Var (Short id); u; l; b])
           od
       | _ => fail (locs, «Impossible: nEFor»)
