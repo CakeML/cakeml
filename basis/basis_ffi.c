@@ -386,9 +386,15 @@ int main (int local_argc, char **local_argv) {
     exit(3);
   }
 
-  /* Set up the signal handler for SIGINTs. */
+  /* Set up the signal handler for SIGINTs when running the REPL. */
   #ifndef __WIN32
-  signal(SIGINT, do_sigint);
+  for (int i = 0; i < local_argc; i++) {
+      if (strcmp(local_argv[i], "--repl") == 0 ||
+          strcmp(local_argv[i], "--candle") == 0) {
+        signal(SIGINT, do_sigint);
+        break;
+      }
+  }
   #endif
 
   cml_main(); // Passing control to CakeML
