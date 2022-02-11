@@ -179,20 +179,23 @@ End
 
 (* Modules and type constructors according to HOL light are words that start
  * with a capital letter and then only lowercase letters, digits or ticks.
+ * There has to be at least one character in the tail of the string, and at
+ * least one of those need to be lowercase.
  *)
 
 Definition identUpperLower_def:
   identUpperLower s ⇔
     s ≠ "" ∧
     isUpper (HD s) ∧
-    ¬NULL (TL s) ∧
-    idChar isLower (TL s)
+    idChar isLower (TL s) ∧
+    EXISTS isLower (TL s)
 End
 
 (* Names of values according to HOL light are all combinations of identifier
  * characters (alphanumerics, underscore and tick) _except_ those that are
- * module names or type constructors: if the name starts with an uppercase
- * letter then the rest must contain at least one uppercase letter.
+ * module names or type constructors. In particular, if there are letters in
+ * the tail of the string, then at least one of those letters must be
+ * uppercase.
  *)
 
 Definition identMixed_def:
@@ -200,7 +203,8 @@ Definition identMixed_def:
     s ≠ "" ∧
     idChar isAlpha (TL s) ∧
     ((isLower (HD s) ∨ HD s = #"_") ∨
-     (isUpper (HD s) ∧ ¬NULL (TL s) ⇒ EXISTS isUpper (TL s)))
+     (isUpper (HD s) ∧
+      ¬NULL (TL s) ⇒ EXISTS isAlpha (TL s) ⇒ EXISTS isUpper (TL s)))
 End
 
 (* Names of types start with a lowercase letter or underscore.
