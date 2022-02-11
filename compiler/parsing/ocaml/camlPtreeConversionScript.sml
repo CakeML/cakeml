@@ -873,10 +873,10 @@ Definition ptree_Pattern_def:
       | _ => fail (locs, «Impossible: nPCons»)
     else if nterm = INL nPProd then
       case args of
-        [pat] => ptree_Pattern nPCons pat
+        [pat] => ptree_Pattern nPAs pat
       | pat::pats =>
           do
-            p <- ptree_Pattern nPCons pat;
+            p <- ptree_Pattern nPAs pat;
             ps <- ptree_PatternCommas pats;
             return (MAP (λps. Pcon NONE ps) (list_cart_prod (p::ps)))
           od
@@ -894,18 +894,18 @@ Definition ptree_Pattern_def:
       | _ => fail (locs, «Impossible: nPOr»)
     else if nterm = INL nPAs then
       case args of
-        [pat] => ptree_Pattern nPOr pat
+        [pat] => ptree_Pattern nPCons pat
       | [pat; ast; id] =>
           do
             expect_tok ast AsT;
-            p <- ptree_Pattern nPOr pat;
+            p <- ptree_Pattern nPCons pat;
             nm <- ptree_Ident id;
             return (MAP (λp. Pas p nm) p)
           od
       | _ => fail (locs, «Impossible: nPAs»)
     else if nterm = INL nPattern then
       case args of
-        [pat] => ptree_Pattern nPAs pat
+        [pat] => ptree_Pattern nPOr pat
       | _ => fail (locs, «Impossible: nPattern»)
     else
       fail (locs, «Expected a pattern non-terminal»)) ∧
@@ -933,7 +933,7 @@ Definition ptree_Pattern_def:
       ptree_PatternCommas ps
     od ++
     do
-      q <- ptree_Pattern nPCons p;
+      q <- ptree_Pattern nPAs p;
       qs <- ptree_PatternCommas ps;
       return (q::qs)
     od)

@@ -238,6 +238,23 @@ val _ = tytest0 "('a,'b) d"
  * ------------------------------------------------------------------------- *)
 
 val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+  "Cc a as i, Dd b as j"
+  (SOME “[Pcon NONE [Pas (Pc "Cc" [Pv "a"]) "i";
+                     Pas (Pc "Dd" [Pv "b"]) "j"]]”)
+  ;
+
+
+val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+  "a, b | c, d"
+  (SOME “[Pcon NONE [Pv "a"; Pv "b"];
+          Pcon NONE [Pv "c"; Pv "d"]]”)
+  ;
+
+val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+  "Comb (a,b) as c, d"
+  (SOME “[Pcon NONE [Pas (Pc "Comb" [Pv "a"; Pv "b"]) "c"; Pv "d"]]”)
+
+val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
   "false::[]"
   (SOME “[Pc "::" [Pc "False" []; Pc "[]" []]]”)
   ;

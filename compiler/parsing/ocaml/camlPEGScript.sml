@@ -748,19 +748,19 @@ Definition camlPEG_def[nocompute]:
        seql [pnt nPApp; try (seql [tokeq ColonsT; pnt nPCons] I)]
             (bindNT nPCons));
       (* -- Pat4 ----------------------------------------------------------- *)
-      (INL nPProd,
-       seql [pnt nPCons; rpt (seql [tokeq CommaT; pnt nPCons] I) FLAT]
-            (bindNT nPProd));
+      (INL nPAs,
+       seql [pnt nPCons; try (seql [tokeq AsT; pnt nIdent] I)]
+            (bindNT nPAs));
       (* -- Pat3 ----------------------------------------------------------- *)
+      (INL nPProd,
+       seql [pnt nPAs; rpt (seql [tokeq CommaT; pnt nPAs] I) FLAT]
+            (bindNT nPProd));
+      (* -- Pat2 ----------------------------------------------------------- *)
       (INL nPOr,
        peg_linfix (INL nPOr) (pnt nPProd) (tokeq BarT));
-      (* -- Pat2 ----------------------------------------------------------- *)
-      (INL nPAs,
-       seql [pnt nPOr; try (seql [tokeq AsT; pnt nIdent] I)]
-            (bindNT nPAs));
       (* -- Pat1 ----------------------------------------------------------- *)
       (INL nPattern,
-       pegf (pnt nPAs) (bindNT nPattern));
+       pegf (pnt nPOr) (bindNT nPattern));
       (INL nPatterns,
        seql [pnt nPattern; try (pnt nPatterns)]
             (bindNT nPatterns));
