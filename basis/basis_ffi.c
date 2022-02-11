@@ -12,11 +12,21 @@
 #include <sys/mman.h>
 #include <assert.h>
 
+#ifndef __WIN32
+#include <signal.h>
+#endif
+
 /* This flag is on by default. It catches CakeML's out-of-memory exit codes
  * and prints a helpful message to stderr.
  * Note that this is not specified by the basis library.
  * */
 #define STDERR_MEM_EXHAUST
+
+/* This is set to 1 when the runtime traps a SIGINT */
+
+#ifndef __WIN32
+volatile sig_atomic_t caught_sigint = 0;
+#endif
 
 /* clFFI (command line) */
 
@@ -33,9 +43,29 @@ extern char cake_text_begin;
 extern char cake_codebuffer_begin;
 extern char cake_codebuffer_end;
 
+/* Signal handler for SIGINT */
+
+#ifndef __WIN32
+void do_sigint(int sig_num)
+{
+    signal(SIGINT, do_sigint);
+    caught_sigint = 1;
+}
+#endif
+
+void ffipoll_sigint (unsigned char *c, long clen, unsigned char *a, long alen)
+{
+    if (alen < 1) {
+        return;
+    }
+    a[0] = (unsigned char) caught_sigint;
+    caught_sigint = 0;
+}
 
 void ffikernel_ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
-
+    for (long i = 0; i < clen; i++) {
+        putc(c[i], stdout);
+    }
 }
 
 void ffiget_arg_count (unsigned char *c, long clen, unsigned char *a, long alen) {
@@ -355,6 +385,11 @@ int main (int local_argc, char **local_argv) {
     #endif
     exit(3);
   }
+
+  /* Set up the signal handler for SIGINTs. */
+  #ifndef __WIN32
+  signal(SIGINT, do_sigint);
+  #endif
 
   cml_main(); // Passing control to CakeML
 
