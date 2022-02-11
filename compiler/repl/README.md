@@ -31,9 +31,10 @@ Candle kernel and REPL module, i.e. everything in the user-visible
 initial environment of the read-eval-print loop.
 
 [repl_moduleProgScript.sml](repl_moduleProgScript.sml):
-Module for the configurable part of the REPL. Note that this file
-does not contain the code for the main loop of the REPL (which is at
-the end of bootstrap translation).
+This file defines two modules:
+- Repl, for the configurable part of the REPL,
+- Interrupt, for the INT signal polling mechanism, which raises the
+  Interrupt exception.
 
 [repl_typesScript.sml](repl_typesScript.sml):
 Proofs about how the REPL uses types and the type inferencer

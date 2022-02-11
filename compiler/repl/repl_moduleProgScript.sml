@@ -1,7 +1,11 @@
 (*
-  Module for the configurable part of the REPL. Note that this file
-  does not contain the code for the main loop of the REPL (which is at
-  the end of bootstrap translation).
+  This file defines two modules:
+  - Repl, for the configurable part of the REPL,
+  - Interrupt, for the INT signal polling mechanism, which raises the
+    Interrupt exception.
+
+  Note that this file does not contain the code for the main loop of the REPL
+  (which is at the end of bootstrap translation).
 
   This Repl module defines some references:
    - Repl.isEOF : bool ref
@@ -16,6 +20,14 @@
       -- the most recent exception to propagate to the top
 
   At runtine, users are allowed (encouraged?) to change these references.
+
+  The Interrupt module contains this function:
+  - Interrupt.poll : unit -> unit
+
+  This function checks whether an INT signal has been trapped by the runtime,
+  and raises the Interrupt exception (defined outside of this module) if that
+  has happened. Users are responsible of calling Interrupt.poll at the start of
+  functions that might loop forever, or the interrupt will not be detected.
 *)
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib basisFunctionsLib
@@ -42,10 +54,77 @@ val _ = (append_prog o process_topdecs) `
     ((case up of Newaxiom _ => () | _ => ());
      PrettyPrinter.token "<update>"); `
 
-val _ = ml_prog_update (open_module "Repl");
+val _ = (append_prog o process_topdecs) ‘exception Interrupt;’;
+
+val _ = ml_prog_update (open_module "Interrupt");
+
+val _ = ml_prog_update open_local_block;
+
+val sigint_e = “App Aw8alloc [Lit (IntLit 1); Lit (Word8 0w)]”;
+val eval_thm = let
+  val env = get_ml_prog_state () |> ml_progLib.get_env
+  val st = get_ml_prog_state () |> ml_progLib.get_state
+  val new_st = “^st with refs := ^st.refs ++ [W8array [0w]]”
+  val goal = list_mk_icomb (prim_mk_const {Thy="ml_prog", Name="eval_rel"},
+    [st, env, sigint_e, new_st, mk_var ("x", semanticPrimitivesSyntax.v_ty)])
+  val lemma = goal |> (EVAL THENC SIMP_CONV(srw_ss())[semanticPrimitivesTheory.state_component_equality])
+  val v_thm = prove(mk_imp(lemma |> concl |> rand, goal),
+    rpt strip_tac \\ rveq \\ match_mp_tac(#2(EQ_IMP_RULE lemma))
+    \\ asm_simp_tac bool_ss [])
+    |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL;
+  val v_tm = v_thm |> concl |> strip_comb |> #2 |> last
+  val v_def = define_abbrev false "sigint_loc" v_tm
+  in v_thm |> REWRITE_RULE [GSYM v_def] end
+val _ = ml_prog_update (add_Dlet eval_thm "sigint");
+
+val count_e = “App Opref [Lit (IntLit 0)]”;
+val eval_thm = let
+  val env = get_ml_prog_state () |> ml_progLib.get_env
+  val st = get_ml_prog_state () |> ml_progLib.get_state
+  val new_st = “^st with refs := ^st.refs ++ [Refv (Litv (IntLit 0))]”
+  val goal = list_mk_icomb (prim_mk_const {Thy="ml_prog", Name="eval_rel"},
+    [st, env, count_e, new_st, mk_var ("x", semanticPrimitivesSyntax.v_ty)])
+  val lemma = goal |> (EVAL THENC SIMP_CONV(srw_ss())[semanticPrimitivesTheory.state_component_equality])
+  val v_thm = prove(mk_imp(lemma |> concl |> rand, goal),
+    rpt strip_tac \\ rveq \\ match_mp_tac(#2(EQ_IMP_RULE lemma))
+    \\ asm_simp_tac bool_ss [])
+    |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL;
+  val v_tm = v_thm |> concl |> strip_comb |> #2 |> last
+  val v_def = define_abbrev false "count_loc" v_tm
+  in v_thm |> REWRITE_RULE [GSYM v_def] end
+val _ = ml_prog_update (add_Dlet eval_thm "count");
+
+
+val _ = (append_prog o process_topdecs) ‘
+  fun inc () =
+    let val res = !count in
+      if res = 1000 then
+        (count := 0; True)
+      else False
+    end;
+  ’;
+
+val _ = ml_prog_update open_local_in_block;
+
+val _ = (append_prog o process_topdecs) ‘
+  fun poll () =
+    if inc () then
+      let val _ = #(poll_sigint) "" sigint in
+        if Word8Array.sub sigint 0 = Word.fromInt 1 then
+          raise Interrupt
+        else ()
+      end
+    else ();
+  ’;
+
+val _ = ml_prog_update close_local_blocks;
+
+val _ = ml_prog_update (close_module NONE);
 
 val tidy_up =
   SIMP_RULE (srw_ss()) (LENGTH :: (DB.find "refs_def" |> map (fst o snd)));
+
+val _ = ml_prog_update (open_module "Repl");
 
 (* declares: val exn = ref Bind; *)
 val bind_e = ``App Opref [Con (SOME (Short "Bind")) []]``
