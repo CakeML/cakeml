@@ -90,8 +90,8 @@ val refs_init_list = [
 val rarrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
 val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm) list;
 
-val raise_functions = [raise_Fail_def, raise_Clash_def];
-val handle_functions = [handle_Fail_def, handle_Clash_def];
+val raise_functions = [raise_Failure_def, raise_Clash_def];
+val handle_functions = [handle_Failure_def, handle_Clash_def];
 val exn_functions = zip raise_functions handle_functions;
 
 val store_hprop_name = "HOL_STORE";
@@ -462,7 +462,7 @@ Definition check_for_dups_def:
     case ls of
     | [] => st_ex_return ()
     | (x::xs) => if MEMBER x cs then
-                   raise_Fail
+                   raise_Failure
                       («add_constants: » ^ x ^
                        « appears twice or has already been declared»)
                  else check_for_dups xs (x::cs)
@@ -482,7 +482,7 @@ Proof
   \\ Induct_on ‘xs’
   \\ simp [Once first_dup_def,Once check_for_dups_def,st_ex_return_def,
            st_ex_bind_def,MEMBER_INTRO]
-  \\ rw [] \\ fs [raise_Fail_def]
+  \\ rw [] \\ fs [raise_Failure_def]
   \\ simp [Once first_dup_def,st_ex_bind_def]
 QED
 
@@ -502,7 +502,7 @@ val def = add_type_def |> m_translate
 Definition call_new_type_def[simp]:
   call_new_type (n:mlstring, arity:int) =
     if 0 ≤ arity then new_type (n, Num (ABS arity))
-    else raise_Fail (strlit "negative arity")
+    else raise_Failure (strlit "negative arity")
 End
 
 val _ = next_ml_names := ["new_type_num"];

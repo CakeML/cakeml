@@ -407,7 +407,7 @@ Proof
 QED
 
 Theorem HOL_EXN_TYPE_Fail_v_ok:
-  HOL_EXN_TYPE (Fail m) v ⇒ v_ok ctxt v
+  HOL_EXN_TYPE (Failure m) v ⇒ v_ok ctxt v
 Proof
   Cases_on ‘m’
   \\ rw [HOL_EXN_TYPE_def,ml_translatorTheory.STRING_TYPE_def]
@@ -598,7 +598,7 @@ Proof
       \\ simp[STRING_TYPE_perms_ok, INT_perms_ok, SF SFY_ss])
     \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
     \\ disj2_tac
-    \\ reverse(Cases_on`0 <= pa1` \\ fs[holKernelTheory.raise_Fail_def])
+    \\ reverse(Cases_on`0 <= pa1` \\ fs[holKernelTheory.raise_Failure_def])
     >- (
       gvs[]
       \\ first_assum $ irule_at Any
@@ -714,7 +714,7 @@ Proof
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss]
     \\ fs[holKernelTheory.dest_vartype_def]
     \\ Cases_on`ty` \\ fs[ml_monadBaseTheory.st_ex_return_def]
-    \\ fs[holKernelTheory.raise_Fail_def])
+    \\ fs[holKernelTheory.raise_Failure_def])
   >~ [‘do_opapp [is_type_v; v]’] >- (
     drule_all is_type_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
@@ -1081,7 +1081,7 @@ Proof
     \\ qhdtm_x_assum`dest_const`mp_tac
     \\ simp[holKernelTheory.dest_const_def]
     \\ CASE_TAC \\ simp[ml_monadBaseTheory.st_ex_return_def]
-    \\ simp[holKernelTheory.raise_Fail_def])
+    \\ simp[holKernelTheory.raise_Failure_def])
   >~ [‘do_opapp [dest_comb_v; v]’] >- (
     drule_all dest_comb_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
@@ -1200,7 +1200,7 @@ Proof
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss]
     \\ fs[holKernelTheory.rand_def]
     \\ Cases_on`tm` \\ fs[ml_monadBaseTheory.st_ex_return_def]
-    \\ fs[holKernelTheory.raise_Fail_def])
+    \\ fs[holKernelTheory.raise_Failure_def])
   >~ [‘do_opapp [rator_v; v]’] >- (
     drule_all rator_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
@@ -1222,7 +1222,7 @@ Proof
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss]
     \\ fs[holKernelTheory.rator_def]
     \\ Cases_on`tm` \\ fs[ml_monadBaseTheory.st_ex_return_def]
-    \\ fs[holKernelTheory.raise_Fail_def])
+    \\ fs[holKernelTheory.raise_Failure_def])
   >~ [‘do_opapp [dest_eq_v; v]’] >- (
     drule_all dest_eq_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])

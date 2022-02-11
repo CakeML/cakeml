@@ -257,7 +257,7 @@ val _ = (append_prog o process_topdecs) `
     in
       print_app_list (msg_success st (Kernel.context ()))
     end
-    handle Kernel.Fail e => TextIO.output TextIO.stdErr e;
+    handle Failure e => TextIO.output TextIO.stdErr e;
   `;
 
 (*
@@ -276,7 +276,7 @@ val _ = (append_prog o process_topdecs) `
         in
           print_app_list (msg_success st (Kernel.context ()))
         end
-        handle Kernel.Fail e => TextIO.output TextIO.stdErr e;
+        handle Failure e => TextIO.output TextIO.stdErr e;
   `;
 
 Theorem POSTve_POSTv[local]:
@@ -343,7 +343,7 @@ Proof
     \\ xsimpl
     \\ rw [UNIT_TYPE_def])
   \\ xhandle ‘POSTe ev.
-                &HOL_EXN_TYPE (Fail m) ev *
+                &HOL_EXN_TYPE (Failure m) ev *
                 HOL_STORE r *
                 STDIO (fastForwardFD fs 0)’
   >-
@@ -442,7 +442,7 @@ Proof
     \\ Q.LIST_EXISTS_TAC [‘HOL_STORE refs'’, ‘fs’]
     \\ xsimpl)
   \\ xhandle ‘POSTe ev.
-                &HOL_EXN_TYPE (Fail m) ev *
+                &HOL_EXN_TYPE (Failure m) ev *
                 HOL_STORE r *
                 STDIO fs’
   >-

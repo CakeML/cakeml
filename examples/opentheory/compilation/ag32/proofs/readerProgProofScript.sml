@@ -127,7 +127,7 @@ Theorem reader_extract_writes:
          err = extract_writes 2 events;
          refs = SND (init_reader () init_refs) in
      case reader (MAP (tokenize o str_prefix) (lines_of (implode inp))) refs of
-       (Failure (Fail e), refs) =>
+       (Failure (Failure e), refs) =>
          (out = "") ∧
          (err = explode e)
      | (Success (s, _), refs) =>

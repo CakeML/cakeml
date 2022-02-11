@@ -10,7 +10,7 @@ open preamble ml_monadBaseTheory holKernelTheory holKernelProofTheory
 val _ = new_theory"readerProof";
 
 Overload return[local] = “st_ex_return”;
-Overload failwith[local] = “raise_Fail”;
+Overload failwith[local] = “raise_Failure”;
 
 val case_eq_thms =
   CaseEqs ["prod", "exc", "hol_exn", "term", "thm",
@@ -26,7 +26,7 @@ Theorem find_axiom_not_clash[simp]:
   find_axiom (a,b) c ≠ (Failure (Clash tm),refs)
 Proof
   Cases_on `a`
-  \\ rw [find_axiom_def, st_ex_bind_def, raise_Fail_def, st_ex_return_def,
+  \\ rw [find_axiom_def, st_ex_bind_def, raise_Failure_def, st_ex_return_def,
          case_eq_thms, axioms_def, get_the_axioms_def, bool_case_eq]
   \\ PURE_CASE_TAC \\ fs []
 QED
@@ -138,7 +138,7 @@ QED
 Theorem BETA_CONV_not_clash[simp]:
   BETA_CONV t s ≠ (Failure (Clash tm),r)
 Proof
-  rw [BETA_CONV_def, handle_Fail_def, st_ex_bind_def, raise_Fail_def]
+  rw [BETA_CONV_def, handle_Failure_def, st_ex_bind_def, raise_Failure_def]
   \\ PURE_CASE_TAC \\ rw [case_eq_thms, UNCURRY]
   \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs []
 QED
@@ -147,8 +147,8 @@ Theorem readLine_not_clash[simp]:
   ∀c. readLine s c refs ≠ (Failure (Clash tm),refs')
 Proof
   Cases
-  \\ simp [readLine_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def,
-           handle_Clash_def, handle_Fail_def, ELIM_UNCURRY]
+  \\ simp [readLine_def, st_ex_bind_def, st_ex_return_def, raise_Failure_def,
+           handle_Clash_def, handle_Failure_def, ELIM_UNCURRY]
   \\ strip_tac
   \\ fs [case_eq_thms, map_not_clash_thm]
   \\ rveq \\ fs []
@@ -165,7 +165,7 @@ Proof
   >- simp [readLines_def, st_ex_return_def]
   \\ strip_tac
   \\ simp [Once readLines_def]
-  \\ rw [handle_Fail_def, st_ex_bind_def, raise_Fail_def]
+  \\ rw [handle_Failure_def, st_ex_bind_def, raise_Failure_def]
   \\ fsrw_tac [SATISFY_ss, DNF_ss] [case_eq_thms]
 QED
 
@@ -378,7 +378,7 @@ Theorem find_axiom_thm:
     refs = refs' ∧
     ∀thm. res = Success thm ⇒ THM defs thm
 Proof
-  rw [find_axiom_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def,
+  rw [find_axiom_def, st_ex_bind_def, st_ex_return_def, raise_Failure_def,
       case_eq_thms, PULL_EXISTS]
   \\ dxrule_all axioms_thm \\ rw []
   \\ FULL_CASE_TAC \\ fs [] \\ rveq
@@ -392,7 +392,7 @@ Theorem assoc_ALOOKUP:
       ∀t. res = Success t ⇒ ALOOKUP l s = SOME t
 Proof
   Induct
-  \\ simp [Once assoc_def, FORALL_PROD, raise_Fail_def, st_ex_return_def]
+  \\ simp [Once assoc_def, FORALL_PROD, raise_Failure_def, st_ex_return_def]
   \\ rw []
   \\ fsrw_tac [SATISFY_ss] []
 QED
@@ -409,12 +409,12 @@ Proof
   \\ rpt gen_tac
   \\ strip_tac
   \\ qhdtm_x_assum `type_of` mp_tac
-  \\ simp [Once type_of_def, st_ex_return_def, st_ex_bind_def, raise_Fail_def,
+  \\ simp [Once type_of_def, st_ex_return_def, st_ex_bind_def, raise_Failure_def,
            dest_type_def]
   \\ fs [TERM_def, TYPE_def, type_ok_def, term_ok_def]
   \\ rw [] \\ fs []
   \\ fs [case_eq_thms, type_ok_def, mk_fun_ty_def, mk_type_def, st_ex_bind_def,
-         st_ex_return_def, raise_Fail_def, try_def, otherwise_def,
+         st_ex_return_def, raise_Failure_def, try_def, otherwise_def,
          get_type_arity_def, get_the_type_constants_def]
   \\ every_case_tac \\ fs [] \\ rveq
   \\ first_x_assum drule_all \\ rw []
@@ -496,7 +496,7 @@ Theorem getNum_thm:
     refs = refs'
 Proof
   Cases_on ‘obj’
-  \\ rw [getNum_def, raise_Fail_def, st_ex_return_def]
+  \\ rw [getNum_def, raise_Failure_def, st_ex_return_def]
   \\ fs []
 QED
 
@@ -505,7 +505,7 @@ Theorem getName_thm:
     refs = refs'
 Proof
   Cases_on ‘obj’
-  \\ rw [getName_def, raise_Fail_def, st_ex_return_def]
+  \\ rw [getName_def, raise_Failure_def, st_ex_return_def]
   \\ fs []
 QED
 
@@ -516,7 +516,7 @@ Theorem getList_thm:
     ∀ls. res = Success ls ⇒ EVERY (OBJ defs) ls
 Proof
   Cases_on ‘obj’
-  \\ rw [getList_def, raise_Fail_def, st_ex_return_def, OBJ_def]
+  \\ rw [getList_def, raise_Failure_def, st_ex_return_def, OBJ_def]
   \\ fsrw_tac [ETA_ss] [OBJ_def]
 QED
 
@@ -525,7 +525,7 @@ Theorem getTypeOp_thm:
     refs = refs'
 Proof
   Cases_on ‘obj’
-  \\ rw [getTypeOp_def, raise_Fail_def, st_ex_return_def]
+  \\ rw [getTypeOp_def, raise_Failure_def, st_ex_return_def]
   \\ fs []
 QED
 
@@ -536,7 +536,7 @@ Theorem getType_thm:
     ∀ty. res = Success ty ⇒ TYPE defs ty
 Proof
   Cases_on ‘obj’
-  \\ rw [getType_def, raise_Fail_def, st_ex_return_def]
+  \\ rw [getType_def, raise_Failure_def, st_ex_return_def]
   \\ fs [OBJ_def]
 QED
 
@@ -559,7 +559,7 @@ Theorem getConst_thm:
     refs = refs'
 Proof
   Cases_on ‘obj’
-  \\ rw [getConst_def, raise_Fail_def, st_ex_return_def]
+  \\ rw [getConst_def, raise_Failure_def, st_ex_return_def]
   \\ fs []
 QED
 
@@ -573,7 +573,7 @@ Theorem getVar_thm:
         TYPE defs ty
 Proof
   Cases_on ‘obj’
-  \\ rw [getVar_def, raise_Fail_def, st_ex_return_def]
+  \\ rw [getVar_def, raise_Failure_def, st_ex_return_def]
   \\ fs [OBJ_def]
 QED
 
@@ -584,7 +584,7 @@ Theorem getTerm_thm:
     ∀tm. res = Success tm ⇒ TERM defs tm
 Proof
   Cases_on ‘obj’
-  \\ rw [getTerm_def, raise_Fail_def, st_ex_return_def] \\ fs []
+  \\ rw [getTerm_def, raise_Failure_def, st_ex_return_def] \\ fs []
   \\ fs [OBJ_def]
 QED
 
@@ -609,7 +609,7 @@ Theorem getThm_thm:
     ∀thm. res = Success thm ⇒ THM defs thm
 Proof
   Cases_on ‘obj’
-  \\ rw [getThm_def, raise_Fail_def, st_ex_return_def]
+  \\ rw [getThm_def, raise_Failure_def, st_ex_return_def]
   \\ fs [OBJ_def]
 QED
 
@@ -622,7 +622,7 @@ Theorem pop_thm:
         OBJ defs a ∧
         READER_STATE defs st'
 Proof
-  rw [pop_def, raise_Fail_def, st_ex_return_def]
+  rw [pop_def, raise_Failure_def, st_ex_return_def]
   \\ Cases_on `st.stack`
   \\ fsrw_tac [SATISFY_ss] [READER_STATE_def, state_component_equality]
   \\ rfs []
@@ -634,7 +634,7 @@ Theorem peek_thm:
     refs = refs' ∧
     ∀obj. res = Success obj ⇒ OBJ defs obj
 Proof
-  rw [peek_def, raise_Fail_def, st_ex_return_def]
+  rw [peek_def, raise_Failure_def, st_ex_return_def]
   \\ Cases_on `st.stack`
   \\ fs [READER_STATE_def]
   \\ rw []
@@ -678,7 +678,7 @@ Theorem getPair_thm:
           OBJ defs b
 Proof
   ho_match_mp_tac getPair_ind
-  \\ simp [getPair_def, raise_Fail_def, st_ex_return_def, OBJ_def]
+  \\ simp [getPair_def, raise_Failure_def, st_ex_return_def, OBJ_def]
 QED
 
 Theorem getTys_thm:
@@ -693,7 +693,7 @@ Theorem getTys_thm:
           TYPE defs ty
 Proof
   ho_match_mp_tac getPair_ind
-  \\ simp [getPair_def, raise_Fail_def, st_ex_return_def, OBJ_def,
+  \\ simp [getPair_def, raise_Failure_def, st_ex_return_def, OBJ_def,
            getTys_def, st_ex_bind_def, case_eq_thms]
   \\ rw []
   \\ drule_all getName_thm \\ rw []
@@ -734,7 +734,7 @@ Theorem getTms_thm:
 Proof
   Cases
   \\ simp [getTms_def, LAMBDA_PROD, st_ex_return_def, st_ex_bind_def,
-           raise_Fail_def, getPair_def, case_eq_thms, EXISTS_PROD]
+           raise_Failure_def, getPair_def, case_eq_thms, EXISTS_PROD]
   \\ rw []
   \\ drule_all getPair_thm \\ rw []
   \\ drule_all getVar_thm \\ rw []
@@ -773,7 +773,7 @@ Theorem getNvs_thm:
 Proof
   Cases_on ‘obj’
   \\ simp [getNvs_def, LAMBDA_PROD, st_ex_bind_def, st_ex_return_def,
-           raise_Fail_def, getPair_def, case_eq_thms, EXISTS_PROD]
+           raise_Failure_def, getPair_def, case_eq_thms, EXISTS_PROD]
   \\ rw []
   \\ drule_all getPair_thm \\ rw []
   \\ drule_all getName_thm \\ rw []
@@ -835,7 +835,7 @@ Theorem BETA_CONV_thm:
       ∀thm. res = Success thm ⇒ THM defs thm
 Proof
   Cases
-  \\ simp [BETA_CONV_def, LAMBDA_PROD, handle_Fail_def, raise_Fail_def,
+  \\ simp [BETA_CONV_def, LAMBDA_PROD, handle_Failure_def, raise_Failure_def,
            st_ex_bind_def, st_ex_return_def, case_eq_thms, dest_comb_def,
            dest_abs_def, EXISTS_PROD]
   \\ rw []
@@ -873,7 +873,7 @@ Theorem readLine_thm:
       STATE (ds ++ defs) refs' ∧
       ∀st'. res = Success st' ⇒ READER_STATE (ds ++ defs) st'
 Proof
-  simp [readLine_def, st_ex_bind_def, st_ex_return_def, raise_Fail_def,
+  simp [readLine_def, st_ex_bind_def, st_ex_return_def, raise_Failure_def,
         LAMBDA_PROD, EXISTS_PROD, FORALL_PROD]
   \\ Cases_on ‘cmd = version’ \\ simp []
   >-
@@ -1088,7 +1088,7 @@ Proof
     \\ dxrule_then drule_all pop_thm \\ rw [] \\ fsp [])
   \\ Cases_on ‘cmd = pragma’ \\ simp []
   >-
-   (rw [case_eq_thms, LAMBDA_PROD, EXISTS_PROD, handle_Fail_def]
+   (rw [case_eq_thms, LAMBDA_PROD, EXISTS_PROD, handle_Failure_def]
     \\ fs [bool_case_eq, COND_RATOR] \\ rveq
     \\ dxrule_then drule_all pop_thm \\ rw [] \\ fsp []
     \\ dxrule_all getName_thm \\ rw [] \\ fsp [])
@@ -1211,8 +1211,8 @@ Proof
   recInduct readLines_ind
   \\ gen_tac \\ Cases \\ rw []
   \\ qhdtm_x_assum `readLines` mp_tac
-  \\ rw [Once readLines_def, st_ex_return_def, st_ex_bind_def, handle_Fail_def,
-         case_eq_thms, raise_Fail_def]
+  \\ rw [Once readLines_def, st_ex_return_def, st_ex_bind_def, handle_Failure_def,
+         case_eq_thms, raise_Failure_def]
   \\ fsp [next_line_thm]
   \\ drule_all readLine_thm
   \\ rw [] \\ fs []
@@ -1612,7 +1612,7 @@ Proof
   \\ fsrw_tac [SATISFY_ss] []
   \\ ‘TERM (d'::d::init_refs.the_context) select_const’
     by (fs [new_constant_def, add_constants_def, get_the_term_constants_def,
-            set_the_term_constants_def, raise_Fail_def, case_eq_thms,
+            set_the_term_constants_def, raise_Failure_def, case_eq_thms,
             st_ex_bind_def, add_def_def]
         \\ FULL_CASE_TAC \\ rw []
         \\ fs [get_the_context_def, set_the_context_def] \\ rw []
@@ -1626,7 +1626,7 @@ Proof
   \\ last_x_assum (mp_then Any drule mk_infinity_ax_thm)
   \\ (impl_tac >-
    (fs [new_type_def, st_ex_bind_def, add_type_def, st_ex_return_def,
-        raise_Fail_def, case_eq_thms, bool_case_eq, COND_RATOR, can_def,
+        raise_Failure_def, case_eq_thms, bool_case_eq, COND_RATOR, can_def,
         otherwise_def, get_type_arity_def, get_the_type_constants_def,
         set_the_type_constants_def, add_def_def, get_the_context_def,
         set_the_context_def] \\ rw []
@@ -1671,7 +1671,7 @@ Definition read_stdin_def:
         (Success (s, _), refs) =>
           (add_stdout fs' (concat (append (msg_success s refs.the_context))),
            refs, SOME s)
-      | (Failure (Fail e), refs) =>
+      | (Failure (Failure e), refs) =>
           (add_stderr fs' e, refs, NONE)
 End
 
@@ -1689,7 +1689,7 @@ Definition read_file_def:
         | (Success (s,_), refs) =>
             (add_stdout fs (concat (append (msg_success s refs.the_context))),
              refs, SOME s)
-        | (Failure (Fail e), refs) =>
+        | (Failure (Failure e), refs) =>
             (add_stderr fs e, refs, NONE))
      else
        (add_stderr fs (msg_bad_name fnm), refs, NONE))
@@ -1757,7 +1757,7 @@ End
 
 Theorem readLines_Fail_not_empty:
   ∀st ls refs err refs'.
-    readLines st ls refs = (Failure (Fail err), refs') ⇒
+    readLines st ls refs = (Failure (Failure err), refs') ⇒
       err <> «»
 Proof
   recInduct readLines_ind
@@ -1766,7 +1766,7 @@ Proof
   >- simp [Once readLines_def, st_ex_return_def]
   \\ rw []
   \\ simp [Once readLines_def]
-  \\ rw [st_ex_return_def, st_ex_bind_def, handle_Fail_def, raise_Fail_def,
+  \\ rw [st_ex_return_def, st_ex_bind_def, handle_Failure_def, raise_Failure_def,
          case_eq_thms, line_Fail_def, mlstringTheory.concat_def]
 QED
 
