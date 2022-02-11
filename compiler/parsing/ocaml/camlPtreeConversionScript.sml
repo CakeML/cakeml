@@ -101,7 +101,8 @@ Definition compatCurryP_def:
         if nm = "Abs" ∨ nm = "Var" ∨ nm = "Const" ∨ nm = "Comb" ∨
            nm = "Tyapp" ∨ nm = "Sequent" ∨ nm = "Append" then
           case pat of
-            Pcon NONE ps => Pcon (SOME id) ps
+          | Pany => Pcon (SOME id) [Pany; Pany]
+          | Pcon NONE ps => Pcon (SOME id) ps
           | _ => Pcon (SOME id) [pat]
         else
           Pcon (SOME id) [pat]

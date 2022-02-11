@@ -1224,5 +1224,11 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
  *   e.g. Comb _ into Comb _ _.
  *)
 
+val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+  "Var _, Comb _"
+  (SOME “[Pcon NONE [Pc "Var" [Pany; Pany]; Pc "Comb" [Pany; Pany]]]”)
+  ;
+
+
 val _ = export_theory ();
 
