@@ -20,6 +20,50 @@ Overload "#" = ``$orth_ci``
 val cpn_distinct = TypeBase.distinct_of ``:ordering``
 val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
 
+(* list properties *)
+
+Theorem FST_SND_SWAP:
+  FST o SWAP = SND
+  /\ SND o SWAP = FST
+Proof
+  rw[FUN_EQ_THM,SWAP_def]
+QED
+
+Theorem ALL_DISTINCT_FST_MEMs:
+  !x v w s. ALL_DISTINCT (MAP FST s)
+  /\ MEM (x,v) s /\ MEM (x,w) s
+  ==> v = w
+Proof
+  rw[]
+  >> qpat_x_assum `MEM _ s` (assume_tac o REWRITE_RULE[MEM_SPLIT])
+  >> fs[]
+  >> `~MEM x (MAP FST l1) /\ ~MEM x (MAP FST l2)` by (
+    imp_res_tac (Q.ISPEC `FST` MEM_MAP_f)
+    >> fs[ALL_DISTINCT_APPEND]
+  )
+  >> `~MEM (x,v) l1 /\ ~MEM (x,v) l2` by (
+    CCONTR_TAC
+    >> fs[]
+    >> imp_res_tac (Q.ISPEC `FST` MEM_MAP_f)
+    >> fs[]
+  )
+  >> fs[]
+QED
+
+Theorem ALL_DISTINCT_SND_MEMs:
+  !x v w s. ALL_DISTINCT (MAP SND s)
+  /\ MEM (v,x) s /\ MEM (w,x) s
+  ==> v = w
+Proof
+  ONCE_REWRITE_TAC[GSYM FST_SND_SWAP]
+  >> rw[GSYM MAP_MAP_o]
+  >> imp_res_tac (Q.ISPEC `SWAP` MEM_MAP_f)
+  >> fs[SWAP_def]
+  >> match_mp_tac ALL_DISTINCT_FST_MEMs
+  >> goal_assum (first_assum o mp_then Any mp_tac)
+  >> fs[]
+QED
+
 (* contraposition of an equivalence *)
 fun ccontr_equiv(x) =
   let val (a,b) = EQ_IMP_RULE (SPEC_ALL x)
@@ -224,6 +268,15 @@ Theorem TYPE_SUBST_Tyapp_ident:
   ==> !ty. MEM ty tys ==> TYPE_SUBST s ty = ty
 Proof
   rw[MEM_SPLIT] >> fs[ELIM_UNCURRY,APPEND_LENGTH_EQ]
+QED
+
+Theorem TYPE_SUBST_eq_id:
+  !ty s. TYPE_SUBST s ty = ty
+  <=> !x. MEM x (tyvars ty) ==> TYPE_SUBST s (Tyvar x) = Tyvar x
+Proof
+  rpt gen_tac
+  >> CONV_TAC $ LAND_CONV $ RAND_CONV $ REWR_CONV $ GSYM TYPE_SUBST_NIL
+  >> fs[TYPE_SUBST_tyvars,Excl"TYPE_SUBST_def",GSYM TYPE_SUBST_def,EQ_SYM_EQ]
 QED
 
 Theorem TYPE_SUBST_reduce:
@@ -510,7 +563,7 @@ Proof
 QED
 val _ = export_rewrites["WELLTYPED_CLAUSES"]
 
-(* wellformed_compute acutally also checks the syntax (through the has_type relation) *)
+(* wellformed_compute actually also checks the syntax (through the has_type relation) *)
 Theorem WELLFORMED_COMPUTE_EQUIV:
   !t. welltyped t = wellformed_compute t
 Proof
@@ -519,14 +572,15 @@ Proof
   >> fs[welltyped_def]
   >> Cases_on `typeof t`
   >> rw[is_fun_def,domain_raw]
-  >- (
-    PURE_FULL_CASE_TAC
-    >> rw[GSYM PULL_EXISTS]
-    >> rw[LENGTH_EQ_NUM_compute]
-    >> fs[AC CONJ_ASSOC CONJ_COMM]
-  )
-  >> Cases_on `t`
-  >> rw[wellformed_compute_def]
+  >> rw[EQ_IMP_THM] >> rw[]
+  >> simpLib.global_simp_tac
+       {elimvars = true, strip = true, droptrues = true, oldestfirst=true}
+       bool_ss
+       [LENGTH_NIL,LENGTH_CONS,ONE,TWO,HD]
+  >> rw[]
+  >> fs[wellformed_compute_def]
+  >> Cases_on ‘t’
+  >> fs[wellformed_compute_def]
 QED
 
 (* Alpha-equivalence *)
@@ -3983,6 +4037,9 @@ Proof
   >> asm_exists_tac
   >> rw[MEM_FLAT,MEM_MAP]
   >> rw[PULL_EXISTS]
+  >> rpt(PURE_TOP_CASE_TAC >> rw[])
+  >> gvs[is_fun_def]
+  >> gvs[MEM_MAP]
   >> asm_exists_tac
   >> rw[MEM_MAP]
   >> fs[GSYM (SPEC ``cdefn:term`` WELLFORMED_COMPUTE_EQUIV),welltyped_def]
@@ -4011,14 +4068,22 @@ Proof
         >> rw[]
       )
       >> fs[GSYM (SPEC ``t':term`` WELLFORMED_COMPUTE_EQUIV),WELLTYPED]
-  ) >>
-  metis_tac[]
+  )
+  >- metis_tac[]
+  >- metis_tac[]
+  >- (rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
+      gvs[MEM_MAP] >>
+      ‘is_fun(typeof t)’ by simp[is_fun_def] >>
+      metis_tac[domain_def])
+  >> metis_tac[]
 QED
 
 Theorem DEPENDENCY_EQUIV:
-  !x y ctxt. MEM (x,y) (dependency_compute ctxt) = dependency ctxt x y
+  !ctxt. CURRY $ set (dependency_compute ctxt) = dependency ctxt
 Proof
-  rpt GEN_TAC >> EQ_TAC >> rw[DEPENDENCY_IMP1,DEPENDENCY_IMP2]
+  rw[FUN_EQ_THM,EQ_IMP_THM]
+  >> (irule DEPENDENCY_IMP2 ORELSE dxrule DEPENDENCY_IMP1)
+  >> fs[IN_DEF]
 QED
 
 (* extension is transitive *)
@@ -4676,6 +4741,12 @@ Definition normalise_tyvars_rec_def:
     in (TYPE_SUBST subst ty, subst))
 End
 
+Theorem normalise_tyvars_rec_FST_SND:
+  FST (normalise_tyvars_rec ty chr) = TYPE_SUBST (SND (normalise_tyvars_rec ty chr)) ty
+Proof
+  fs[normalise_tyvars_rec_def]
+QED
+
 Theorem distinct_varnames[local]:
   !ty chr n n0. n > n0 /\ n0 = list_max (MAP $strlen (tyvars ty))
   ==> ~MEM (strlit (REPLICATE n chr)) (tyvars ty)
@@ -4881,7 +4952,7 @@ Proof
   >> rw[normalise_tyvars_subst_def]
 QED
 
-Theorem normalise_tyvars_rec_distinct_fst[local]:
+Theorem normalise_tyvars_rec_distinct_fst:
   !ty chr. ALL_DISTINCT (MAP FST (SND (normalise_tyvars_rec ty chr)))
 Proof
   rw[normalise_tyvars_rec_def]
@@ -5077,12 +5148,6 @@ Proof
   >> metis_tac[UNION_ASSOC]
 QED
 
-Theorem MEM_MAP_f:
-  !f l a. MEM a l ==> MEM (f a) (MAP f l)
-Proof
-  rw[MEM_MAP] >> qexists_tac `a` >> fs[]
-QED
-
 Theorem normalise_tyvars_rec_domain:
   !ty chr. set (MAP SND (SND (normalise_tyvars_rec ty chr))) = set(MAP Tyvar (tyvars ty))
 Proof
@@ -5110,9 +5175,7 @@ Theorem normalise_tyvars_rec_domain_imp:
   (!ty chr x. MEM x (MAP SND (SND (normalise_tyvars_rec ty chr))) ==> MEM x (MAP Tyvar (tyvars ty)))
   /\ (!ty chr x. MEM x (MAP Tyvar (tyvars ty)) ==> MEM x (MAP SND (SND (normalise_tyvars_rec ty chr))))
 Proof
-  rw[]
-  >- ((qspecl_then [`ty`,`chr`] assume_tac) normalise_tyvars_rec_domain >> imp_res_tac set_MEM)
-  >> ((qspecl_then [`ty`,`chr`] assume_tac) (GSYM normalise_tyvars_rec_domain) >> imp_res_tac set_MEM)
+  rpt strip_tac >> qspecl_then [`ty`,`chr`] assume_tac normalise_tyvars_rec_domain >> fs[]
 QED
 
 Theorem TYPE_SUBST_replacing_all:
@@ -5155,6 +5218,22 @@ Proof
   >> rw[MEM_MAP]
   >> first_x_assum (qspec_then `f` assume_tac)
   >> fs[]
+QED
+
+Theorem ALL_DISTINCT_MAP_inj':
+  !l f. (!x y. MEM x l /\ MEM y l ==> (f x = f y <=> x = y))
+  ==> ALL_DISTINCT l = ALL_DISTINCT (MAP f l)
+Proof
+  Induct >> rw[MEM_MAP]
+  >> first_x_assum $ qspec_then `f` mp_tac
+  >> impl_tac
+  >- (rpt strip_tac >> fs[DISJ_IMP_THM])
+  >> fs[DISJ_IMP_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,FORALL_AND_THM,EQ_IMP_THM]
+  >> ntac 2 $ pop_assum kall_tac
+  >> rw[EQ_IMP_THM,DISJ_EQ_IMP]
+  >> spose_not_then assume_tac
+  >> first_x_assum $ drule_then $ drule_then assume_tac
+  >> gvs[]
 QED
 
 Theorem normalise_tyvars_rec_len:
@@ -5464,12 +5543,12 @@ Proof
   >> imp_res_tac normalise_tyvars_rec_chr_diff
   >> first_x_assum (qspecl_then [`ty2`,`ty1`] assume_tac)
   >> CCONTR_TAC
-  >> (qspecl_then [`ty1`,`chr1`] assume_tac) normalise_tyvars_rec_subst_snd_distinct
-  >> (qspecl_then [`ty2`,`chr2`] assume_tac) normalise_tyvars_rec_subst_snd_distinct
-  >> (qspecl_then [`ty1`,`chr1`] assume_tac) normalise_tyvars_rec_ineq
-  >> (qspecl_then [`ty2`,`chr2`] assume_tac) normalise_tyvars_rec_ineq
-  >> (qspecl_then [`ty1`,`chr1`] assume_tac) normalise_tyvars_rec_renames
-  >> (qspecl_then [`ty2`,`chr2`] assume_tac) normalise_tyvars_rec_renames
+  >> qspecl_then [`ty1`,`chr1`] assume_tac normalise_tyvars_rec_subst_snd_distinct
+  >> qspecl_then [`ty2`,`chr2`] assume_tac normalise_tyvars_rec_subst_snd_distinct
+  >> qspecl_then [`ty1`,`chr1`] assume_tac normalise_tyvars_rec_ineq
+  >> qspecl_then [`ty2`,`chr2`] assume_tac normalise_tyvars_rec_ineq
+  >> qspecl_then [`ty1`,`chr1`] assume_tac normalise_tyvars_rec_renames
+  >> qspecl_then [`ty2`,`chr2`] assume_tac normalise_tyvars_rec_renames
   >> fs[NULL_FILTER,list_inter_def,normalise_tyvars_rec_def,MEM_MAP,renaming_def]
   >> qmatch_assum_abbrev_tac `MEM _ (tyvars (TYPE_SUBST subst1 ty1))`
   >> qmatch_assum_abbrev_tac `MEM _ (tyvars (TYPE_SUBST subst2 ty2))`
@@ -5544,6 +5623,18 @@ Proof
   >> Induct >> fs[clean_tysubst_def]
   >> Cases >> Cases_on `r`
   >> rw[clean_tysubst_def,EVERY_FILTER_IMP]
+QED
+
+Theorem clean_tysubst_MEM:
+  !a x s. MEM (a, Tyvar x) (clean_tysubst s)
+  ==> TYPE_SUBST (clean_tysubst s) (Tyvar x) = a
+Proof
+  rpt strip_tac
+  >> drule_then assume_tac $ Q.ISPEC `SND` MEM_MAP_f
+  >> fs[Excl"TYPE_SUBST_def"]
+  >> dxrule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
+  >> dxrule_at_then Any (rev_dxrule_at Any) ALL_DISTINCT_SND_MEMs
+  >> fs[clean_tysubst_prop]
 QED
 
 val clean_tysubst_prop_conj = CONJUNCTS clean_tysubst_prop
@@ -5847,6 +5938,25 @@ Theorem orth_ty_symm:
   !(ty1:type) ty2. (ty1 # ty2) = (ty2 # ty1)
 Proof
   rw[EQ_IMP_THM,orth_ty_symm_imp]
+QED
+
+Theorem orth_ty_simp[simp]:
+  !ty:type. ~(ty # ty)
+Proof
+  fs[orth_ty_def]
+QED
+
+Theorem orth_ty_simp'[simp]:
+  !ty:type s. ~(ty # TYPE_SUBST s ty)
+Proof
+  rpt gen_tac >> irule $ ONCE_REWRITE_RULE[MONO_NOT_EQ] orth_ty_instance1
+  >> qmatch_goalsub_abbrev_tac `TYPE_SUBST s ty` >> qexists_tac `s` >> simp[]
+QED
+
+Theorem orth_ty_simp''[simp]:
+  !ty:type s. ~(TYPE_SUBST s ty # ty)
+Proof
+  ONCE_REWRITE_TAC[orth_ty_symm] >> simp[]
 QED
 
 Definition unifiable_def:
@@ -6332,8 +6442,18 @@ Proof
   >> fs[normalise_tyvars_rec_def]
 QED
 
+Definition unify_types_measure:
+  unify_types_measure = λ((tytups:(type,type)alist),(sigma:(type,type)alist)).
+    let
+      dist_tyvar = CARD (BIGUNION (set (MAP (UNCURRY $UNION) (MAP (W $## (set o $tyvars)) tytups))))
+;
+      acc_type_size = SUM (MAP ((UNCURRY $+) o (W $## $type_size')) tytups);
+      num_shape = LENGTH (FILTER (λx. case x of (Tyapp _ _, Tyvar _) => T | _ => F) tytups)
+    in (dist_tyvar, acc_type_size, num_shape)
+End
+
 (* Unify two types and return two type substitutions as a certificate *)
-val unify_types_def = Hol_defn "unify_types" `
+Definition unify_types_def:
   (unify_types [] sigma = SOME sigma)
   /\ (unify_types ((Tyapp a atys, Tyapp b btys)::l) sigma =
     if a = b /\ LENGTH atys = LENGTH btys
@@ -6355,21 +6475,10 @@ val unify_types_def = Hol_defn "unify_types" `
       l' = MAP (subst_a ## subst_a) l;
       sigma' = MAP (subst_a ## I) sigma
     in unify_types l' ((ty, Tyvar a)::sigma') (* variable elimination *)
-  )`;
-
-Definition unify_types_measure:
-  unify_types_measure = λ((tytups:(type,type)alist),(sigma:(type,type)alist)).
-    let
-      dist_tyvar = CARD (BIGUNION (set (MAP (UNCURRY $UNION) (MAP (W $## (set o $tyvars)) tytups))))
-;
-      acc_type_size = SUM (MAP ((UNCURRY $+) o (W $## $type_size')) tytups);
-      num_shape = LENGTH (FILTER (λx. case x of (Tyapp _ _, Tyvar _) => T | _ => F) tytups)
-    in (dist_tyvar, acc_type_size, num_shape)
-End
-
-val (unify_types_def,unify_types_ind) = Defn.tprove(
-  unify_types_def,
-  WF_REL_TAC `inv_image (prim_rec$< LEX (prim_rec$< LEX prim_rec$<)) unify_types_measure`
+  )
+Termination
+  WF_REL_TAC `inv_image (prim_rec$< LEX (prim_rec$< LEX prim_rec$<))
+    unify_types_measure`
   >> strip_tac
   (* decomposition rule *)
   >- (
@@ -6558,7 +6667,7 @@ val (unify_types_def,unify_types_ind) = Defn.tprove(
       >> fs[]
     )
     >> qunabbrev_tac `aa`
-    >> fs[]
+    >> fs[UNION_ASSOC]
   )
   (* trivial rule (for variables) *)
   >- (
@@ -6590,7 +6699,7 @@ val (unify_types_def,unify_types_ind) = Defn.tprove(
     )
     >> simp[type_size'_def]
   )
-);
+End
 
 Theorem MEM_ZIP_EQTUP_MAP[local]:
   !l1 l2 f. LENGTH l1 = LENGTH l2
@@ -6727,12 +6836,10 @@ Definition unify_def:
     let
       (t1,s1) = normalise_tyvars_rec ty1 #"a";
       (t2,s2) = normalise_tyvars_rec ty2 #"b";
-      sigma = unify_types [(t1,t2)] [];
-      (* tyin2 o tyin1 = *)
-      o_tyinst tyin2 tyin1 = (MAP (TYPE_SUBST tyin2 ## I) tyin1) ++ tyin2
-    in if IS_SOME sigma
-      then SOME (o_tyinst (THE sigma) s1, o_tyinst (THE sigma) s2)
-      else NONE
+    in case unify_types [(t1,t2)] [] of
+      SOME sigma => SOME ((MAP (TYPE_SUBST sigma ## I) s1) ++ sigma,
+        (MAP (TYPE_SUBST sigma ## I) s2) ++ sigma)
+      | NONE => NONE
 End
 
 (* Soundness of unify_types *)
@@ -7473,6 +7580,76 @@ Proof
   >> fs[]
 QED
 
+Definition idempotent_def:
+  idempotent s = (TYPE_SUBST s o TYPE_SUBST s = TYPE_SUBST s)
+End
+
+Theorem idempotent_NIL:
+  idempotent []
+Proof
+  fs[idempotent_def,TYPE_SUBST_NIL,FUN_EQ_THM]
+QED
+
+Theorem idempotent_clean_tysubst:
+  !s. idempotent s =
+    !ty. TYPE_SUBST (clean_tysubst s) (TYPE_SUBST (clean_tysubst s) ty)
+      = TYPE_SUBST (clean_tysubst s) ty
+Proof
+  fs[idempotent_def,GSYM clean_tysubst_TYPE_SUBST_eq,FUN_EQ_THM]
+QED
+
+Theorem idempotent_thm:
+  !s. idempotent s <=>
+    !x. MEM (Tyvar x) (MAP SND $ clean_tysubst s)
+    ==> ~MEM x (FLAT $ MAP tyvars $ MAP FST $ clean_tysubst s)
+Proof
+  fs[EQ_IMP_THM,idempotent_clean_tysubst,FUN_EQ_THM]
+  >> rpt strip_tac
+  >- (
+    qmatch_asmsub_abbrev_tac `TYPE_SUBST s' _`
+    >> dxrule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
+    >> Cases_on `MEM x (tyvars b)`
+    >- (
+      Cases_on `b` >- (
+        qspec_then `s` assume_tac clean_tysubst_ineq
+        >> gs[tyvars_def,EVERY_MEM,ELIM_UNCURRY] >> res_tac >> fs[]
+      )
+      >> fs[GSYM subtype_at_tyvars]
+      >> drule_then (qspec_then `s'` assume_tac) subtype_at_TYPE_SUBST
+      >> first_x_assum $ qspec_then `Tyvar x` assume_tac
+      >> gs[]
+    )
+    >> gvs[MEM_FLAT,MEM_MAP]
+    >> rev_dxrule_then strip_assume_tac $ cj 1 $ REWRITE_RULE[EQ_IMP_THM] $ GSYM subtype_at_tyvars
+    >> first_x_assum $ qspec_then `SND y'` assume_tac
+    >> `?a. SND y' = Tyvar a` by (
+      qunabbrev_tac `s'`
+      >> imp_res_tac $ Q.ISPEC `SND` MEM_MAP_f
+      >> imp_res_tac $ REWRITE_RULE[EVERY_MEM] clean_tysubst_SND_Tyvar
+      >> fs[ELIM_UNCURRY]
+    )
+    >> drule_then (qspec_then `s'` assume_tac) subtype_at_TYPE_SUBST
+    >> Cases_on `y'` >> gvs[]
+    >> dxrule_at Any TYPE_SUBST_MEM'
+    >> impl_keep_tac >- fs[Abbr`s'`,clean_tysubst_ALL_DISTINCT_MAP_SND] >> strip_tac
+    >> drule_all_then assume_tac TYPE_SUBST_MEM' >> gvs[]
+    >> qpat_x_assum `Tyvar _ = _` $ (fn x => fs[GSYM x,tyvars_def])
+  )
+  >> qmatch_goalsub_abbrev_tac `TYPE_SUBST s' _`
+  >> rw[TYPE_SUBST_tyvars,TYPE_SUBST_compose]
+  >> REWRITE_TAC $ map GSYM [TYPE_SUBST_compose,TYPE_SUBST_def]
+  >> reverse $ Cases_on `MEM (Tyvar x) (MAP SND s')`
+  >- fs[TYPE_SUBST_drop_all]
+  >> res_tac
+  >> dxrule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND >> fs[]
+  >> CONV_TAC $ LAND_CONV $ REWR_CONV $ GSYM TYPE_SUBST_NIL
+  >> rw[TYPE_SUBST_tyvars,REV_ASSOCD_def]
+  >> irule REV_ASSOCD_NOT_MEM_drop
+  >> first_x_assum $ match_mp_tac o ONCE_REWRITE_RULE[MONO_NOT_EQ]
+  >> rw[MEM_FLAT,MEM_MAP,PULL_EXISTS]
+  >> goal_assum drule >> fs[]
+QED
+
 Definition unify_types_invariant_def:
   unify_types_invariant orig_l l sigma =
     (* The substitution's domain is not in the worklist *)
@@ -7503,10 +7680,16 @@ Definition unify_types_invariant_def:
         (subtype_at (TYPE_SUBST sigma x) p = SOME a /\ subtype_at (TYPE_SUBST sigma y) p = SOME b)
         \/ (subtype_at (TYPE_SUBST sigma x) p = SOME b /\ subtype_at (TYPE_SUBST sigma y) p = SOME a)))
     (* If we have a certificate for two not unifiable types then the
-       original list could not have been unifiable *)
-    /\ (?s. EVERY (λ(x,y). TYPE_SUBST s x = TYPE_SUBST s y) orig_l
+       original list could not have been unifiable;
+       most general unifier *)
+    /\ (!s. EVERY (λ(x,y). TYPE_SUBST s x = TYPE_SUBST s y) orig_l
       ==> ?s'. EVERY (λ(x,y). (TYPE_SUBST s' o TYPE_SUBST sigma) x
-        = (TYPE_SUBST s' o TYPE_SUBST sigma) y) orig_l)
+        = (TYPE_SUBST s' o TYPE_SUBST sigma) y
+        /\ (TYPE_SUBST s' o TYPE_SUBST sigma) x = TYPE_SUBST s x
+        /\ (TYPE_SUBST s' o TYPE_SUBST sigma) y = TYPE_SUBST s y
+        ) orig_l)
+    /\ EVERY (UNCURRY $<>) sigma
+    /\ idempotent sigma
 (*    (* The substitution's domain is not work list *)
     /\ (!a. MEM (Tyvar a) (MAP SND sigma) ==>
          ~MEM a (FLAT(MAP (tyvars o FST) l)) /\ ~MEM a (FLAT(MAP (tyvars o SND) l)))
@@ -7555,7 +7738,6 @@ Proof
   fs (map (SIMP_RULE (srw_ss()) [IN_DEF]) [MEM_FOLDR_LIST_UNION,MEM_FLAT,MEM_MAP])
   \\ rw[EQ_IMP_THM] \\ metis_tac[]
 QED
-
 
 Theorem unify_types_invariant_pres2[local]:
   unify_types_invariant orig_l ((Tyapp a atys, Tyapp b btys)::l) sigma
@@ -7619,8 +7801,7 @@ Proof
   )
   >- (
     fs[unify_types_invariant_def]
-    >> asm_exists_tac
-    >> rw[]
+    >> goal_assum $ drule
   )
 QED
 
@@ -7846,47 +8027,108 @@ Proof
       >> fs[]
     )
   )
+  >> conj_tac
   >- (
-    fs[unify_types_invariant_def,EVERY_MEM,unifiable_def,ELIM_UNCURRY]
-    >> rw[EVERY_MEM,ELIM_UNCURRY,unifiable_def]
-    >> first_x_assum (qspecl_then [`Tyvar a`,`ty`] mp_tac)
-    >> rw[]
+    qx_gen_tac `s` >> strip_tac
+    >> fs[unify_types_invariant_def,EVERY_MEM,unifiable_def,ELIM_UNCURRY]
+    >> first_x_assum $ drule_then strip_assume_tac
+    >> qpat_x_assum `!a b. _ \/ _ ==> _` $ assume_tac o cj 1 o
+      Ho_Rewrite.REWRITE_RULE[FORALL_AND_THM,DISJ_IMP_THM,IMP_CONJ_THM]
+    >> fs[]
     >> qmatch_asmsub_abbrev_tac `subtype_at (TYPE_SUBST _ x) p = SOME in_x`
     >> qmatch_asmsub_abbrev_tac `subtype_at (TYPE_SUBST _ y) p = SOME in_y`
-    >> qexists_tac `s`
-    >> rw[]
-    >> fs[]
-    >> qexists_tac `s'`
-    >> rpt strip_tac
-    >> qpat_x_assum `!x. _` kall_tac
-    >> first_assum drule
-    >> first_x_assum (qspec_then `(x,y)` mp_tac)
-    >> rw[]
+    >> qmatch_asmsub_rename_tac `TYPE_SUBST s' $ TYPE_SUBST sigma _`
+    >> qexists_tac `s'` >> strip_tac >> fs[]
     >> `TYPE_SUBST s' in_x = TYPE_SUBST s' in_y` by (
-      (qspecl_then [`TYPE_SUBST sigma x`,`p`,`s'`,`in_x`] mp_tac) subtype_at_TYPE_SUBST
-      >> (qspecl_then [`TYPE_SUBST sigma y`,`p`,`s'`,`in_y`] mp_tac) subtype_at_TYPE_SUBST
-      >> rw[]
+      drule_then (qspec_then `s'` assume_tac) subtype_at_TYPE_SUBST
+      >> rev_drule_then (qspec_then `s'` assume_tac) subtype_at_TYPE_SUBST
+      >> ntac 2 $ first_x_assum $ drule_then strip_assume_tac
+      >> gs[FORALL_AND_THM,IMP_CONJ_THM]
     )
-    >> unabbrev_all_tac
     >> `TYPE_SUBST ((ty,Tyvar a)::MAP (TYPE_SUBST [(ty,Tyvar a)] ## I) sigma)
       = TYPE_SUBST [(ty,Tyvar a)] o TYPE_SUBST sigma` by (
       rw[FUN_EQ_THM,TYPE_SUBST_compose,TYPE_SUBST_tyvars]
-      >> match_mp_tac REV_ASSOCD_reorder
+      >> irule REV_ASSOCD_reorder
       >> rw[ALL_DISTINCT,MAP_MAP_o]
       >- fs[o_PAIR_MAP,ALL_DISTINCT_APPEND]
       >- (
-        qpat_x_assum `!x. MEM _ (tyvars (Tyvar a)) \/ _ ==> ~MEM _ _` (qspec_then `a` mp_tac)
-        >> unabbrev_all_tac
+        unabbrev_all_tac
+        >> qpat_x_assum `!x. MEM _ (tyvars (Tyvar a)) \/ _ ==> ~MEM _ _` $ qspec_then `a` mp_tac
         >> rw[MEM_MAP,tyvars_def]
       )
       >- fs[o_PAIR_MAP]
-      >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [INSERT_SING_UNION]))
+      >> CONV_TAC $ RHS_CONV $ PURE_ONCE_REWRITE_CONV [INSERT_SING_UNION]
       >> fs[AC UNION_ASSOC UNION_COMM]
     )
     >> unabbrev_all_tac
-    >> rw[]
-    >> assume_tac TYPE_SUBST_eating
-    >> fs[FUN_EQ_THM]
+    >> (dxrule_then assume_tac TYPE_SUBST_eating
+      ORELSE
+        dxrule_then assume_tac $
+          CONV_RULE (ONCE_DEPTH_CONV $ LAND_CONV SYM_CONV) TYPE_SUBST_eating)
+    >> gs[FUN_EQ_THM]
+  )
+  >> conj_asm1_tac
+  >- (
+    rw[EVERY_MEM,MEM_MAP]
+    >> fs[unify_types_invariant_def,ELIM_UNCURRY]
+    >> rename[`MEM y sigma`]
+    >> PairCases_on `y`
+    >> drule_then assume_tac $ Q.ISPEC `SND` MEM_MAP_f
+    >> qpat_x_assum `!x. _ ==> ?y. _` $ drule_then strip_assume_tac
+    >> qpat_x_assum `EVERY _ _` (fn x =>
+      drule_then strip_assume_tac $ SIMP_RULE std_ss [EVERY_MEM] x
+      >> drule_then strip_assume_tac $ SIMP_RULE std_ss [EVERY_MEM,Once subtype_at_eq] x
+    )
+    >> qpat_x_assum `!x. MEM x $ MAP SND sigma ==> _` $ drule_then strip_assume_tac
+    >> gvs[] >> Cases_on `y0` >> rw[TYPE_SUBST_def,REV_ASSOCD_def]
+  )
+  (* idempotent *)
+  >- (
+    fs[idempotent_thm,unify_types_invariant_def,clean_tysubst_id]
+    >> `clean_tysubst sigma = sigma` by (
+      irule clean_tysubst_id >> rw[]
+      >> fs[GSYM EVERY_MEM]
+      >> qpat_x_assum `EVERY _ $ MAP SND _` $ mp_tac o REWRITE_RULE[EVERY_MAP]
+      >> match_mp_tac EVERY_MONOTONIC
+      >> fs[ELIM_UNCURRY]
+    )
+    >> pop_assum $ fs o single
+    >> dep_rewrite.DEP_REWRITE_TAC[clean_tysubst_id]
+    >> conj_asm1_tac
+    >- (
+      fs[ALL_DISTINCT,MAP_MAP_o,o_DEF,ETA_THM,EVERY_MAP,GSYM EVERY_MEM]
+      >> spose_not_then $ strip_assume_tac o REWRITE_RULE[MEM_MAP]
+      >> fs[EVERY_MEM] >> res_tac >> gs[]
+    )
+    >> dsimp[MEM_FLAT,MEM_MAP] >> CCONTR_TAC >> fs[]
+    >- (
+      fs[tyvars_TYPE_SUBST,REV_ASSOCD_def]
+      >> FULL_CASE_TAC >> fs[tyvars_def]
+    )
+    >- (
+      dxrule_then assume_tac $ Q.ISPEC `SND` MEM_MAP_f
+      >> fs[DISJ_IMP_THM,FORALL_AND_THM]
+      >> res_tac
+      >> gs[]
+    )
+    >- (
+      fs[tyvars_TYPE_SUBST,REV_ASSOCD_def]
+      >> FULL_CASE_TAC >> fs[]
+      >- (
+        imp_res_tac $ Q.ISPEC `SND` MEM_MAP_f
+        >> gvs[FORALL_AND_THM,DISJ_IMP_THM]
+        >> res_tac
+        >> gvs[]
+      )
+      >> rename[`MEM x $ tyvars $ Tyvar x'`,`Tyvar x = SND yy`]
+      >> PairCases_on `yy`
+      >> imp_res_tac $ Q.ISPEC `SND` MEM_MAP_f
+      >> imp_res_tac $ Q.ISPEC `FST` MEM_MAP_f
+      >> gvs[tyvars_def]
+      >> qpat_x_assum `!x. MEM (Tyvar x) $ MAP SND sigma ==> _` drule
+      >> rw[PULL_EXISTS,MEM_FLAT,MEM_MAP]
+      >> rpt $ goal_assum drule
+    )
   )
 QED
 
@@ -7919,11 +8161,12 @@ QED
 Theorem unify_types_invariant_init:
   !orig_l. unify_types_invariant orig_l orig_l []
 Proof
-  simp[unify_types_invariant_def] \\ rw[]
+  simp[unify_types_invariant_def,idempotent_NIL] \\ rw[]
   >- (fs[LIST_REL_EVERY_ZIP,EVERY_MEM,ZIP_MAP,MEM_MAP] \\ Cases \\ rw[]
   \\ Cases_on `x` \\ fs[equal_upto_rules])
   >- (asm_exists_tac >> qexists_tac `[]` >> fs[subtype_at_def])
-  >> rpt(qexists_tac `[]` >> rw[])
+  >> qmatch_asmsub_abbrev_tac `TYPE_SUBST s`
+  >> qexists_tac `s` >> fs[]
 QED
 
 Theorem unify_types_IMP_invariant:
@@ -7946,13 +8189,10 @@ Theorem unify_types_sound_list:
        ==> EVERY (λ(ty1,ty2). TYPE_SUBST sigma ty1 = TYPE_SUBST sigma ty2) l
 Proof
   rpt strip_tac
-  >> (qspecl_then [`sigma`,`Tyapp a (MAP FST l)`,`Tyapp a (MAP SND l)`] assume_tac) unify_types_sound
-  >> fs[unify_types_def]
+  >> qspecl_then [`sigma`,`Tyapp a (MAP FST l)`,`Tyapp a (MAP SND l)`] assume_tac unify_types_sound
+  >> fs[unify_types_def,EVERY_MEM,ELIM_UNCURRY]
   >> FULL_CASE_TAC
-  >- fs[MAP_EQ_f,EVERY_MEM,ELIM_UNCURRY]
-  >> fs[MAP_EQ_EVERY2,LIST_REL_EVERY_ZIP,ZIP_MAP]
-  >> fs[LAMBDA_PROD,MAP_MAP_o,o_DEF]
-  >> fs[EVERY_MAP,ELIM_UNCURRY]
+  >> gs[MAP_EQ_f,MAP_EQ_EVERY2,LIST_REL_EVERY_ZIP,ZIP_MAP,EVERY_MAP,MAP_MAP_o,o_DEF,EVERY_MEM,ELIM_UNCURRY]
 QED
 
 Theorem unify_types_complete_cyclic_non_unifiable:
@@ -7975,7 +8215,7 @@ Proof
   `type_size(TYPE_SUBST s (Tyvar a)) = type_size(TYPE_SUBST s ty)`
     by rw[] >>
   pop_assum mp_tac >>
-  rpt(pop_assum kall_tac) >>
+  rpt $ pop_assum kall_tac >>
   rw[]
 QED
 
@@ -7990,163 +8230,142 @@ Proof
   >> rw[LENGTH_MAP]
 QED
 
+Theorem unify_types_invariant_Tyapp:
+  unify_types_invariant [(ty1,ty2)] ((Tyapp a atys,Tyapp b btys)::l) sigma
+  /\ TYPE_SUBST θ (TYPE_SUBST sigma ty1) = TYPE_SUBST θ (TYPE_SUBST sigma ty2)
+  ==> TYPE_SUBST θ (Tyapp a atys) = TYPE_SUBST θ (Tyapp b btys)
+Proof
+  rw[Excl"TYPE_SUBST_def",unify_types_invariant_def,FORALL_AND_THM,DISJ_IMP_THM,AND_IMP_INTRO]
+  >> qmatch_asmsub_abbrev_tac `subtype_at (TYPE_SUBST _ ty1) p = SOME in_ty1`
+  >> qmatch_asmsub_abbrev_tac `subtype_at (TYPE_SUBST _ ty2) p = SOME in_ty2`
+  >> qmatch_asmsub_abbrev_tac `TYPE_SUBST θ (TYPE_SUBST sigma _)`
+  >> drule_then (qspec_then `θ` assume_tac) subtype_at_TYPE_SUBST
+  >> rev_drule_then (qspec_then `θ` assume_tac) subtype_at_TYPE_SUBST
+  >> dxrule_then assume_tac $ cj 1 $ REWRITE_RULE[EQ_IMP_THM] subtype_at_eq
+  >> gs[]
+QED
+
 Theorem unify_types_complete_step[local]:
   !l sigma ty1 ty2.
   unify_types_invariant [(ty1,ty2)] l sigma
   /\ unifiable (TYPE_SUBST sigma ty1) (TYPE_SUBST sigma ty2)
-  ==> IS_SOME (unify_types l sigma)
+  ==> ?s. unify_types l sigma = SOME s /\ idempotent s
+    /\ clean_tysubst s = s
+    /\ !s'. TYPE_SUBST s' ty1 = TYPE_SUBST s' ty2
+          ==> is_instance (TYPE_SUBST s ty2) (TYPE_SUBST s' ty2)
 Proof
   ho_match_mp_tac unify_types_ind
   >> strip_tac
-  >- rw[unify_types_invariant_def,unify_types_def]
+  >- (
+    rw[unify_types_invariant_def,unify_types_def,idempotent_NIL]
+    >> fs[clean_tysubst_id,GSYM EVERY_MEM,EVERY_MAP,idempotent_def,FUN_EQ_THM]
+    >> first_x_assum $ drule_then strip_assume_tac
+    >> metis_tac[EQ_SYM_EQ]
+  )
   >> strip_tac
   >- (
     rw[unify_types_def]
-    >- (
-      first_x_assum match_mp_tac
-      >> qexists_tac `ty1`
-      >> qexists_tac `ty2`
-      >> fs[unify_types_invariant_def,equal_upto_eq]
-      >> asm_exists_tac
-      >> fs[]
+    >> qmatch_assum_abbrev_tac `unify_types_invariant _ ((Tyapp a atys,Tyapp b btys)::_) _`
+    >> `a = b /\ LENGTH atys = LENGTH btys` by (
+      gs[unifiable_def]
+      >> drule_all $ unify_types_invariant_Tyapp
+      >> fs[TYPE_SUBST_def,LIST_EQ_REWRITE]
     )
-    >- (
-      rfs[]
-      >> first_x_assum match_mp_tac
-      >> qexists_tac `ty1`
-      >> qexists_tac `ty2`
-      >> fs[]
-      >> match_mp_tac (GEN_ALL unify_types_invariant_pres2)
-      >> asm_exists_tac
-      >> fs[]
-    )
-    >> CCONTR_TAC
     >> fs[]
-    >> (
-      fs[unifiable_def,unify_types_invariant_def]
-      >> first_x_assum (qspecl_then [`Tyapp a atys`,`Tyapp b btys`] assume_tac)
-      >> fs[]
-      >> qmatch_assum_abbrev_tac `subtype_at (TYPE_SUBST _ ty1) _ = SOME in_ty1`
-      >> qmatch_assum_abbrev_tac `subtype_at (TYPE_SUBST _ ty2) _ = SOME in_ty2`
-      >> imp_res_tac subtype_at_TYPE_SUBST
-      >> NTAC 2 (first_x_assum (qspec_then `s` assume_tac))
-      >> rfs[]
-      >> imp_res_tac unify_types_complete_arity_non_unifiable
-      >> TRY ((first_x_assum (qspecl_then [`s`,`btys`,`atys`] assume_tac))
-        ORELSE (first_x_assum (qspecl_then [`s`,`b`,`a`] assume_tac)))
-      >> unabbrev_all_tac
-      >> fs[]
-      >> fs[]
+    >- (
+      first_x_assum irule
+      >> drule_then (irule_at Any) unify_types_invariant_pres1 >> fs[]
+    )
+    >- (
+      first_x_assum irule
+      >> drule_then (irule_at Any) unify_types_invariant_pres2 >> fs[]
     )
   )
   >> strip_tac
   >- (
     rpt strip_tac
-    >> first_x_assum (qspecl_then [`ty1`,`ty2`] assume_tac)
-    >> imp_res_tac unify_types_invariant_pres3
-    >> fs[unify_types_def]
+    >> dxrule_then assume_tac unify_types_invariant_pres3
+    >> first_x_assum dxrule_all >> fs[unify_types_def]
   )
-  >> (
-    rw[unify_types_def]
-    >- (
-      first_x_assum match_mp_tac
-      >> qexists_tac `ty1`
-      >> qexists_tac `ty2`
-      >> fs[unify_types_invariant_def,equal_upto_eq]
-      >> asm_exists_tac
-      >> fs[]
-    )
-    >- (
-      imp_res_tac unify_types_complete_cyclic_non_unifiable
-      >> CCONTR_TAC
-      >> fs[unifiable_def,unify_types_invariant_def,tyvars_def]
-      >> qpat_x_assum `!x. (_ = _) \/ _ ==> _` (qspec_then `a` assume_tac)
-      >> fs[]
-      >> NTAC 2 (
-        qmatch_assum_abbrev_tac `MEM a (tyvars ty_a)`
-        >> qmatch_assum_abbrev_tac `TYPE_SUBST _ (_ _ ty_a) = TYPE_SUBST _ (_ _ ty_ty)`
-          ORELSE qmatch_assum_abbrev_tac `TYPE_SUBST _ (_ _ ty_ty) = TYPE_SUBST _ (_ _ ty_a)`
-        >> first_x_assum (qspecl_then [`Tyvar a`,`ty`] assume_tac)
-        >> fs[]
-        >> imp_res_tac subtype_at_TYPE_SUBST
-        >> NTAC 2 (first_x_assum (qspec_then `s'` assume_tac))
-        >> rfs[]
-      )
-    )
-    >> drule(GEN_ALL unify_types_invariant_pres5)
-    >> rw[]
-    >> first_x_assum match_mp_tac
-    >> asm_exists_tac
-    >> rw[]
-    >> qpat_x_assum `unify_types_invariant _ (MAP _ _) _` kall_tac
-    >> fs[unifiable_def,unify_types_invariant_def,tyvars_def]
-    >> qmatch_goalsub_abbrev_tac `TYPE_SUBST ts ty1`
-    >> qpat_x_assum `!x. (_ = _) \/ _ ==> _` (qspec_then `a` assume_tac)
-    >> fs[]
+  >> rw[unify_types_def]
+  >- (
+    first_x_assum irule
+    >> rpt $ goal_assum $ drule_at Any
+    >> fs[unify_types_invariant_def,equal_upto_eq]
+  )
+  >- (
+    drule_at Any unify_types_complete_cyclic_non_unifiable
+    >> CCONTR_TAC
+    >> fs[unifiable_def,unify_types_invariant_def,tyvars_def,FORALL_AND_THM,DISJ_IMP_THM]
     >> NTAC 2 (
       qmatch_assum_abbrev_tac `MEM a (tyvars ty_a)`
       >> qmatch_assum_abbrev_tac `TYPE_SUBST _ (_ _ ty_a) = TYPE_SUBST _ (_ _ ty_ty)`
         ORELSE qmatch_assum_abbrev_tac `TYPE_SUBST _ (_ _ ty_ty) = TYPE_SUBST _ (_ _ ty_a)`
-      >> first_x_assum (qspecl_then [`Tyvar a`,`ty`] assume_tac)
-      >> fs[]
-      >> NTAC 2 (
-        imp_res_tac subtype_at_TYPE_SUBST
-        >> NTAC 2 (first_x_assum (qspec_then `s` assume_tac))
-        >> `TYPE_SUBST s ty = TYPE_SUBST s (Tyvar a)` by rfs[]
-        >> imp_res_tac TYPE_SUBST_eating
-        >> `TYPE_SUBST ((ty,Tyvar a)::MAP (TYPE_SUBST [(ty,Tyvar a)] ## I) sigma)
-          = TYPE_SUBST [(ty,Tyvar a)] o TYPE_SUBST sigma` by (
-          rw[FUN_EQ_THM,TYPE_SUBST_compose,TYPE_SUBST_tyvars]
-          >> match_mp_tac REV_ASSOCD_reorder
-          >> rw[ALL_DISTINCT,MAP_MAP_o]
-          >- fs[o_PAIR_MAP,ALL_DISTINCT_APPEND]
-          >- (
-            qpat_x_assum `!x. (_ = _) \/ _ ==> ~MEM _ _` (qspec_then `a` mp_tac)
-            >> unabbrev_all_tac
-            >> rw[MEM_MAP,tyvars_def]
-            >- (
-              Cases_on `Tyvar a = SND y` >> rw[]
-              >> first_x_assum (qspec_then `y'` mp_tac)
-              >> rw[]
-              >- (DISJ1_TAC >> Cases_on `y'` >> Cases_on `y` >> fs[PAIR_MAP_THM])
-              >> fs[]
-            )
-            >> rw[MAP_MAP_o,o_PAIR_MAP]
-          )
-          >> unabbrev_all_tac
-          >> fs[AC UNION_ASSOC UNION_COMM]
-          >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [INSERT_SING_UNION]))
-          >> fs[]
-        )
-        >> unabbrev_all_tac
-        >> rfs[FUN_EQ_THM]
-        >> pop_assum kall_tac
-        >> qexists_tac `s`
-        >> fs[]
-      )
+      >> drule_then (qspec_then `s` assume_tac) subtype_at_TYPE_SUBST
+      >> rev_drule_then (qspec_then `s` assume_tac) subtype_at_TYPE_SUBST
+      >> rfs[GSYM TYPE_SUBST_def,Excl"TYPE_SUBST_def"]
     )
-    >> qexists_tac `s`
-    >> unabbrev_all_tac
-    >> fs[FUN_EQ_THM]
+  )
+  >- (
+    drule unify_types_invariant_pres5 >> rw[]
+    >> first_x_assum $ dxrule
+    >> fs[unifiable_def,unify_types_invariant_def,tyvars_def,DISJ_IMP_THM,FORALL_AND_THM]
+    >> qmatch_goalsub_abbrev_tac `TYPE_SUBST ts ty1`
+    >> ntac 4 (
+      qmatch_assum_abbrev_tac `MEM a (tyvars ty_a)`
+      >> qmatch_assum_abbrev_tac `TYPE_SUBST s (_ _ ty_a) = TYPE_SUBST _ (_ _ ty_ty)`
+        ORELSE qmatch_assum_abbrev_tac `TYPE_SUBST s (_ _ ty_ty) = TYPE_SUBST _ (_ _ ty_a)`
+      >> drule_then (qspec_then `s` assume_tac) subtype_at_TYPE_SUBST
+      >> rev_drule_then (qspec_then `s` assume_tac) subtype_at_TYPE_SUBST
+      >> `TYPE_SUBST s ty = TYPE_SUBST s (Tyvar a)` by rfs[]
+      >> drule_then assume_tac TYPE_SUBST_eating
+      >> `TYPE_SUBST ((ty,Tyvar a)::MAP (TYPE_SUBST [(ty,Tyvar a)] ## I) sigma)
+        = TYPE_SUBST [(ty,Tyvar a)] o TYPE_SUBST sigma` by (
+        rw[FUN_EQ_THM,TYPE_SUBST_compose,TYPE_SUBST_tyvars]
+        >> irule REV_ASSOCD_reorder
+        >> unabbrev_all_tac
+        >> fs[ALL_DISTINCT,MAP_MAP_o,o_PAIR_MAP,ALL_DISTINCT_APPEND]
+        >> CONV_TAC $ RHS_CONV $ ONCE_DEPTH_CONV $ REWR_CONV INSERT_SING_UNION
+        >> fs[AC UNION_ASSOC UNION_COMM]
+      )
+      >> unabbrev_all_tac
+      >> fs[FUN_EQ_THM,idempotent_def]
+      >> impl_tac >- (qexists_tac `s` >> fs[])
+      >> strip_tac
+      >> rpt $ goal_assum drule
+    )
   )
 QED
 
 Theorem unify_types_complete:
-  !ty1 ty2. unifiable ty1 ty2 = IS_SOME (unify_types [(ty1,ty2)] [])
+  !ty1 ty2. unifiable ty1 ty2 <=> IS_SOME $ unify_types [(ty1,ty2)] []
 Proof
-  rw[EQ_IMP_THM]
+  rw[EQ_IMP_THM,IS_SOME_EXISTS]
   >- (
-    match_mp_tac unify_types_complete_step
-    >> fs[TYPE_SUBST_NIL]
-    >> qexists_tac `ty1`
-    >> qexists_tac `ty2`
-    >> assume_tac unify_types_invariant_init
-    >> fs[]
+    qmatch_goalsub_abbrev_tac `unify_types l _`
+    >> qspec_then `l` assume_tac unify_types_invariant_init
+    >> qunabbrev_tac `l`
+    >> dxrule_then assume_tac unify_types_complete_step
+    >> gs[TYPE_SUBST_NIL]
   )
-  >> rw[is_instance_refl,ELIM_UNCURRY,unifiable_def]
-  >> qexists_tac `THE (unify_types [(ty1,ty2)] [])`
-  >> match_mp_tac unify_types_sound
-  >> fs[option_CLAUSES]
+  >> fs[unifiable_def]
+  >> drule_then (irule_at Any) unify_types_sound
+QED
+
+Theorem unify_types_props:
+  !s ty1 ty2. unify_types [(ty1,ty2)] [] = SOME s
+  ==> idempotent s /\ clean_tysubst s = s
+    /\ !s'. TYPE_SUBST s' ty1 = TYPE_SUBST s' ty2
+          ==> is_instance (TYPE_SUBST s ty2) (TYPE_SUBST s' ty2)
+Proof
+  rpt gen_tac >> strip_tac
+  >> qmatch_asmsub_abbrev_tac `unify_types l _`
+  >> qspec_then `l` assume_tac unify_types_invariant_init
+  >> qunabbrev_tac `l`
+  >> dxrule unify_types_complete_step
+  >> impl_tac
+  >- (fs[TYPE_SUBST_NIL,unifiable_def] >> drule_then (irule_at Any) unify_types_sound)
+  >> fs[]
 QED
 
 Theorem unify_sound:
@@ -8154,27 +8373,26 @@ Theorem unify_sound:
        ==> TYPE_SUBST s1 ty1 = TYPE_SUBST s2 ty2
 Proof
   rw[unify_def,ELIM_UNCURRY,IS_SOME_EXISTS]
-  >> fs[THE_DEF]
+  >> every_case_tac >> gvs[]
   >> imp_res_tac unify_types_sound
-  >> fs[GSYM TYPE_SUBST_compose]
-  >> fs[normalise_tyvars_rec_def]
+  >> fs[GSYM TYPE_SUBST_compose,normalise_tyvars_rec_def]
 QED
 
 Theorem unify_complete:
   !ty1 ty2. ~(ty1 # ty2) = IS_SOME (unify ty1 ty2)
 Proof
   rw[]
-  >> (qspecl_then [`ty1`,`ty2`,`#"a"`,`#"b"`] assume_tac) normalise_tyvars_rec_chr_diff2
-  >> (qspecl_then [`ty1`,`ty2`,`#"a"`,`#"b"`] assume_tac) orth_ty_normalise
-  >> fs[unify_def]
-  >> pop_assum kall_tac
-  >> imp_res_tac (GSYM unifiable_orth_ty_equiv)
-  >> rpt (qpat_x_assum `_ ==> _` kall_tac)
-  >> fs[]
-  >> fs[unify_types_complete,ELIM_UNCURRY]
-  >> FULL_CASE_TAC
+  >> qspecl_then [`ty1`,`ty2`,`#"a"`,`#"b"`] assume_tac normalise_tyvars_rec_chr_diff2
+  >> qspecl_then [`ty1`,`ty2`,`#"a"`,`#"b"`] assume_tac orth_ty_normalise
+  >> fs[unify_def,GSYM unifiable_orth_ty_equiv,unify_types_complete,ELIM_UNCURRY]
+  >> every_case_tac
   >> fs[IS_SOME_DEF]
 QED
+
+Theorem unify_complete' =
+    SIMP_RULE std_ss [GSYM FORALL_AND_THM,GSYM EQ_IMP_THM] $
+    SIMP_RULE std_ss [FORALL_AND_THM] $ ONCE_REWRITE_RULE[MONO_NOT_EQ] $
+    REWRITE_RULE[EQ_IMP_THM] unify_complete
 
 Theorem TYPE_SUBST_Tyvar_eq[local]:
   !t s a ty. TYPE_SUBST s (Tyvar a) = TYPE_SUBST s ty
@@ -8231,6 +8449,80 @@ Proof
   >> qpat_x_assum `REV_ASSOCD _ _ _ = _` (assume_tac o GSYM o ONCE_REWRITE_RULE [GSYM TYPE_SUBST_def])
   >> pop_assum (fn x => ONCE_REWRITE_TAC[x])
   >> fs[TYPE_SUBST_triv_eq]
+QED
+
+(* a computable version of orth_ctxt *)
+
+Definition orth_ctxt_compute_def:
+  orth_ctxt_compute ctxt =
+    EVERY (λx1.
+      EVERY (λx2.
+        case x1 of
+        | ConstSpec ov1 cl1 prop1 =>
+          (case x2 of
+          | ConstSpec ov2 cl2 prop2 =>
+            EVERY (λ(name1,trm1).
+              EVERY (λ(name2,trm2).
+                if (name1,trm1) <> (name2,trm2) then
+                  if name1 = name2 then
+                    case unify (typeof trm1) (typeof trm2) of
+                    | NONE => T
+                    | _ => F
+                  else T
+                else T
+              ) cl2
+            ) cl1
+          | _ => T)
+        | TypeDefn name1 pred1 abs1 rep1 =>
+          (case x2 of
+          | TypeDefn name2 pred2 abs2 rep2 =>
+            if (name1,pred1,abs1,rep1) <> (name2,pred2,abs2,rep2)
+            then
+              case unify (Tyapp name1 $ MAP Tyvar $ mlstring_sort $ tvars pred1)
+                    (Tyapp name2 $ MAP Tyvar $ mlstring_sort $ tvars pred2) of
+              | NONE => T
+              | _ => F
+            else T
+          | _ => T)
+        | _ => T
+      ) ctxt
+    ) ctxt
+End
+
+Theorem orth_ctxt_compute_eq:
+  !ctxt. orth_ctxt ctxt = orth_ctxt_compute ctxt
+Proof
+  rw[orth_ctxt_def,orth_ctxt_compute_def,EQ_IMP_THM,EVERY_MEM,AllCaseEqs(),DISJ_EQ_IMP]
+  >> every_case_tac
+  >- (
+    first_x_assum $ dxrule_then dxrule
+    >> PRED_ASSUM is_forall kall_tac
+    >> rw[ELIM_UNCURRY,FORALL_PROD]
+    >> first_x_assum $ dxrule_then dxrule
+    >> rw[orth_ci_def,GSYM unify_complete']
+  )
+  >- (
+    first_x_assum $ dxrule_then $ dxrule_then assume_tac
+    >> PRED_ASSUM is_forall kall_tac
+    >> spose_not_then assume_tac
+    >> gs[mlstring_sort_def,GSYM unify_complete']
+  )
+  >- (
+    first_x_assum $ rev_dxrule_then $ dxrule_then assume_tac
+    >> spose_not_then assume_tac
+    >> fs[]
+    >> first_x_assum $ dxrule_then assume_tac
+    >> fs[]
+    >> first_x_assum $ dxrule_then assume_tac
+    >> gs[orth_ci_def,unify_complete,IS_SOME_EXISTS]
+  )
+  >- (
+    first_x_assum $ rev_dxrule_then $ dxrule_then assume_tac
+    >> spose_not_then assume_tac
+    >> fs[]
+    >> first_x_assum $ dxrule_then assume_tac
+    >> gs[unify_complete,IS_SOME_EXISTS,mlstring_sort_def]
+  )
 QED
 
 (* if possible generate a certificate for ti <= t
@@ -14981,6 +15273,35 @@ QED
 Definition extends_init_def:
   extends_init ctxt = (ctxt extends init_ctxt)
 End
+
+Definition good_constspec_names_def:
+  good_constspec_names ctxt ⇔
+  ∀overload eqs prop.
+     MEM (ConstSpec overload eqs prop) ctxt ⇒
+     EVERY
+     (λt. (∀v. MEM v (tvars t) ⇒ MEM v (tyvars (typeof t))))
+     (MAP SND eqs)
+End
+
+Theorem dependency_FV_mono_lemma:
+  ∀x y.
+    dependency ctxt x y ∧ good_constspec_names ctxt
+    ⇒ set (FV y) ⊆ set (FV x)
+Proof
+  rw[dependency_cases,FV_def,SUBSET_DEF]
+  >> fs[]
+  >> TRY (drule_then strip_assume_tac allCInsts_is_Const >> rveq)
+  >> fs[tvars_def,tyvars_def,MEM_FOLDR_LIST_UNION,MEM_MAP,PULL_EXISTS]
+  >> TRY (drule_all_then assume_tac allCInsts_tyvars
+    ORELSE drule_all_then assume_tac MEM_tyvars_allTypes
+    ORELSE drule_all_then assume_tac MEM_tyvars_allTypes')
+  >> ASM_REWRITE_TAC[]
+  >> qpat_x_assum `MEM (ConstSpec _ _ _) ctxt` (strip_assume_tac o ONCE_REWRITE_RULE[MEM_SPLIT])
+  >> rveq
+  >> gvs[good_constspec_names_def,DISJ_IMP_THM,FORALL_AND_THM,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+  >> res_tac
+  >> fs[] >> metis_tac[WELLTYPED_LEMMA]
+QED
 
 Theorem dependency_FV_mono:
   ∀x y. ctxt extends [] /\ dependency ctxt x y
