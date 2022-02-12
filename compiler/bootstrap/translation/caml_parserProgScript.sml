@@ -211,6 +211,17 @@ val r = preprocess ptree_Start_def |> translate;
 
 val _ = extra_preprocessing := [MEMBER_INTRO,MAP]
 
+Triviality and_or_imp_lemma:
+  (b ∨ c ⇔ if b then T else c) ∧
+  (b ∧ c ⇔ if b then c else F) ∧
+  ((b ⇒ c) ⇔ if b then c else T) ∧
+  ((if ~b then x else y) = if b then y else x)
+Proof
+  Cases_on ‘b’ \\ Cases_on ‘c’ \\ fs []
+QED
+
+val r = translate (identMixed_def |> PURE_REWRITE_RULE [and_or_imp_lemma]);
+
 val r = translate run_lexer_def;
 val r = translate run_parser_def;
 
@@ -467,4 +478,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val () = ml_translatorLib.clean_on_exit := true;
 
 val _ = export_theory ();
-
