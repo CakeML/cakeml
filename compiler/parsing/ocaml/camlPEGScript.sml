@@ -857,6 +857,8 @@ Proof
   simp[finite_mapTheory.FRANGE_DEF, pred_setTheory.EXTENSION] >> metis_tac[]
 QED
 
+val camlpeg_rules_applied = fetch "-" "camlpeg_rules_applied";
+
 val peg_range =
     SIMP_CONV (srw_ss())
               [FDOM_camlPEG, frange_image, camlpeg_rules_applied]
