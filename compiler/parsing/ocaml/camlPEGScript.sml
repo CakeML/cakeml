@@ -204,7 +204,7 @@ Definition identMixed_def:
     idChar isAlpha (TL s) ∧
     ((isLower (HD s) ∨ HD s = #"_") ∨
      (isUpper (HD s) ∧
-      ¬NULL (TL s) ⇒ EXISTS isAlpha (TL s) ⇒ EXISTS isUpper (TL s)))
+      (EXISTS isAlpha (TL s) ⇒ EXISTS isUpper (TL s))))
 End
 
 (* Names of types start with a lowercase letter or underscore.
