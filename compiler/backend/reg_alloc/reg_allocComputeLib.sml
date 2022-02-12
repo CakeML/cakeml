@@ -190,8 +190,8 @@ fun alloc_aux alg k [] n = (print"\n";[])
           SOME (dest_int_sptree (optionSyntax.dest_some sc)) else NONE
       val res = reg_alloc alg sc_poly k moves_poly clash_tree_poly force_poly in
     case res of
-      Success s => s:: alloc_aux alg k xs (n+1)
-    | Failure e => raise ERR "reg_alloc" "failure"
+      M_success s => s:: alloc_aux alg k xs (n+1)
+    | M_failure e => raise ERR "reg_alloc" "failure"
   end
 |   alloc_aux _ _ _ _ = raise General.Bind;
 
