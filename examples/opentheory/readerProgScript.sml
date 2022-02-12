@@ -327,7 +327,7 @@ Proof
       \\ rfs [])
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- (xcon \\ xsimpl)
-    \\ rename1 ‘(Success _, refs1)’
+    \\ rename1 ‘(M_success _, refs1)’
     \\ drule_then (qspecl_then [‘p’, ‘refs1’] strip_assume_tac) context_spec
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- xsimpl
@@ -432,7 +432,7 @@ Proof
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- (xcon \\ xsimpl)
     \\ rveq \\ fs []
-    \\ rename1 ‘(Success _, refs1)’
+    \\ rename1 ‘(M_success _, refs1)’
     \\ drule_then (qspecl_then [‘p’, ‘refs1’] strip_assume_tac) context_spec
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- xsimpl
@@ -470,14 +470,14 @@ val _ = (append_prog o process_topdecs) `
 
 Theorem init_reader_spec:
   ∀uv state.
-    (∃s. init_reader () refs = (Success (), s)) ∧
+    (∃s. init_reader () refs = (M_success (), s)) ∧
     UNIT_TYPE () uv ⇒
       app (p: 'ffi ffi_proj) init_reader_v [uv]
         (HOL_STORE refs)
         (POSTv rv.
           SEP_EXISTS refs'.
             HOL_STORE refs' *
-            &(init_reader () refs = (Success (),refs')) *
+            &(init_reader () refs = (M_success (),refs')) *
             &UNIT_TYPE () rv)
 Proof
   rw []
@@ -486,7 +486,7 @@ Proof
 QED
 
 Theorem reader_main_spec:
-  (∃s. init_reader () refs = (Success (), s)) ∧
+  (∃s. init_reader () refs = (M_success (), s)) ∧
   input_exists fs cl ⇒
     app (p:'ffi ffi_proj) reader_main_v
       [Conv NONE []]

@@ -127,10 +127,10 @@ Theorem reader_extract_writes:
          err = extract_writes 2 events;
          refs = SND (init_reader () init_refs) in
      case reader (MAP (tokenize o str_prefix) (lines_of (implode inp))) refs of
-       (Failure (Failure e), refs) =>
+       (M_failure (Failure e), refs) =>
          (out = "") ∧
          (err = explode e)
-     | (Success (s, _), refs) =>
+     | (M_success (s, _), refs) =>
          (is_set_theory ^mem ==>
            (∀asl c.
               MEM (Sequent asl c) s.thms ⇒
