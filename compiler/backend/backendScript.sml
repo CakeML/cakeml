@@ -372,9 +372,9 @@ val from_livesets_def = Define`
         NONE =>
           let cp =
             (case select_reg_alloc alg spillcosts k heu_moves tree forced of
-              Success col =>
+              M_success col =>
                 (apply_colour (total_colour col) prog)
-            | Failure _ => prog (*cannot happen*)) in
+            | M_failure _ => prog (*cannot happen*)) in
           (name_num,arg_count,remove_must_terminate cp)
       | SOME col_prog => (name_num,arg_count,remove_must_terminate col_prog)) prog_with_oracles in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
