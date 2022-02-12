@@ -1543,7 +1543,7 @@ Proof
 QED
 
 val print_def = Define `
-  print s = (\fs. (Success (), add_stdout fs s))`
+  print s = (\fs. (M_success (), add_stdout fs s))`
 
 Theorem EvalM_print:
    Eval env exp (STRING_TYPE x) /\
@@ -1586,7 +1586,7 @@ Proof
 QED
 
 val print_err_def = Define `
-  print_err s = (\fs. (Success (), add_stderr fs s))`;
+  print_err s = (\fs. (M_success (), add_stderr fs s))`;
 
 Theorem EvalM_print_err:
    Eval env exp (STRING_TYPE x) /\
@@ -6289,9 +6289,9 @@ QED
 
 val inputLinesFrom_def = Define `
   inputLinesFrom f =
-    (\fs. (Success (if inFS_fname fs f then
-                      SOME(all_lines fs f)
-                    else NONE), fs))`;
+    (\fs. (M_success (if inFS_fname fs f then
+                        SOME(all_lines fs f)
+                      else NONE), fs))`;
 
 Theorem EvalM_inputLinesFrom:
    Eval env exp (FILENAME f) /\
@@ -7437,9 +7437,9 @@ QED
 
 Definition b_inputAllTokensStdIn_def:
   b_inputAllTokensStdIn f g=
-  (\fs. (Success (SOME (MAP (MAP g o tokens f)
-                      (lines_of (implode (THE (stdin_content fs)))))),
-         fastForwardFD fs 0))
+  (\fs. (M_success (SOME (MAP (MAP g o tokens f)
+                        (lines_of (implode (THE (stdin_content fs)))))),
+           fastForwardFD fs 0))
 End
 
 (* Theorem EvalM_b_inputAllTokensStdIn: *)
@@ -7737,7 +7737,7 @@ QED
 
 Definition b_inputLinesStdIn_def:
   b_inputLinesStdIn =
-    λfs. (Success (lines_of (implode (THE (stdin_content fs)))), fastForwardFD fs 0)
+    λfs. (M_success (lines_of (implode (THE (stdin_content fs)))), fastForwardFD fs 0)
 End
 
 Theorem EvalM_b_inputLinesStdIn:
