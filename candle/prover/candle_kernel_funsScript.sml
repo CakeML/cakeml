@@ -239,8 +239,8 @@ Theorem ArrowM1:
        f a refs = (r,refs2) ∧
        (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok refs2 loc s'.refs) ∧
        (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s'.refs loc = SOME r ⇒ ref_ok ctxt r) ∧
-       (∀x. r = Success x ⇒ ∃rv. res = Rval [rv] ∧ B x rv) ∧
-       (∀x. r = Failure x ⇒ ∃rv. res = Rerr (Rraise rv) ∧ D x rv))
+       (∀x. r = M_success x ⇒ ∃rv. res = Rval [rv] ∧ B x rv) ∧
+       (∀x. r = M_failure x ⇒ ∃rv. res = Rerr (Rraise rv) ∧ D x rv))
 Proof
   fs [ml_monad_translatorTheory.ArrowP_def,ml_monad_translatorTheory.PURE_def,PULL_EXISTS]
   \\ strip_tac \\ last_x_assum drule \\ fs []
@@ -326,8 +326,8 @@ Theorem ArrowM2:
        f a1 a2 refs = (r,refs2) ∧
        (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok refs2 loc s'.refs) ∧
        (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s'.refs loc = SOME r ⇒ ref_ok ctxt r) ∧
-       (∀x. r = Success x ⇒ ∃rv. res = Rval [rv] ∧ B x rv) ∧
-       (∀x. r = Failure x ⇒ ∃rv. res = Rerr (Rraise rv) ∧ D x rv))
+       (∀x. r = M_success x ⇒ ∃rv. res = Rval [rv] ∧ B x rv) ∧
+       (∀x. r = M_failure x ⇒ ∃rv. res = Rerr (Rraise rv) ∧ D x rv))
 Proof
   strip_tac \\ irule ArrowM1 \\ fs [SF SFY_ss]
   \\ first_assum $ irule_at $ Pos hd
