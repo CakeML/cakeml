@@ -27,7 +27,7 @@ CMLS = $(wildcard *.cml)
 CML_PROGS = $(patsubst %.cml,%.cake$(SUFF),$(CMLS))
 
 # Links the CakeML compiler and compiles all the .cml files in this directory
-all: cake$(SUFF) $(CML_PROGS)
+all: cake$(SUFF)
 
 # Linking the CakeML compiler
 

@@ -1,0 +1,20 @@
+(*
+  File that executes first when the CakeML REPL boots
+*)
+val _ = print "Executing code in repl_boot.cml\n";
+
+local
+  val input_stream = TextIO.b_openStdIn ();
+  fun finish aux =
+    (case aux of
+       [] => (Repl.isEOF := True; Repl.nextString := ""; print "End of input.\n")
+     | _  => (Repl.isEOF := False; Repl.nextString := String.implode (List.rev aux)));
+  fun next aux =
+    (case TextIO.b_input1 input_stream of
+       None => finish aux
+     | Some c => if c = #";" then finish (c::c::aux) else
+                   next (c::aux));
+  fun read () = (print "> "; next []);
+in
+  val _ = (Repl.readNextString := read);
+end

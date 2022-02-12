@@ -10,6 +10,9 @@ Lemmas used in repl_typesTheory. These lemmas show that a plain
 evaluate run can be replicated in a state with junk refs, extra type
 stamps and unused exception definitions.
 
+[repl_boot.cml](repl_boot.cml):
+File that executes first when the CakeML REPL boots
+
 [repl_check_and_tweakScript.sml](repl_check_and_tweakScript.sml):
 The REPL type checks and modifies the decs given as input. This file
 defines the function that implements this and proves that the

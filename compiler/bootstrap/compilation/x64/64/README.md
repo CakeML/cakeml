@@ -10,6 +10,9 @@ library, as a thin wrapper around the relevant system calls.
 This directory contains the end-to-end correctness theorem for the
 64-bit version of the CakeML compiler.
 
+[repl_boot.cml](repl_boot.cml):
+File that executes first when the CakeML REPL boots
+
 [sexprBootstrap32Script.sml](sexprBootstrap32Script.sml):
 Produces an sexp print-out of the bootstrap translated compiler
 definition for the 32-bit version of the compiler.
