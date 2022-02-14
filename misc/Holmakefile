@@ -8,3 +8,12 @@ README_SOURCES = preamble.sml $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wil
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
+
+EXTRA_CLEANS = cakeml-heap
+
+ifdef POLY
+all: cakeml-heap
+
+cakeml-heap: preamble.uo
+	$(HOLDIR)/bin/buildheap -o $@ $<
+endif
