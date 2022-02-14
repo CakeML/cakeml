@@ -34,6 +34,7 @@ compiler/encoders/asm
 compiler/encoders/x64
 compiler/encoders/arm7
 compiler/encoders/arm8
+compiler/encoders/arm8_asl
 compiler/encoders/mips
 compiler/encoders/riscv
 compiler/encoders/ag32
@@ -54,12 +55,14 @@ compiler/backend/serialiser
 compiler/encoders/x64/proofs
 compiler/encoders/arm7/proofs
 compiler/encoders/arm8/proofs
+compiler/encoders/arm8_asl/proofs
 compiler/encoders/mips/proofs
 compiler/encoders/riscv/proofs
 compiler/encoders/ag32/proofs
 compiler/backend/x64/proofs
 compiler/backend/arm7/proofs
 compiler/backend/arm8/proofs
+compiler/backend/arm8_asl
 compiler/backend/mips/proofs
 compiler/backend/riscv/proofs
 compiler/backend/ag32/proofs
@@ -74,6 +77,9 @@ candle/standard/monadic
 candle/standard/ml_kernel
 candle/overloading/syntax
 candle/overloading/semantics
+candle/overloading/monadic
+candle/overloading/ml_kernel
+candle/overloading/ml_checker
 candle/prover
 
 # pancake
