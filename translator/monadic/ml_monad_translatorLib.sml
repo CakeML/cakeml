@@ -461,7 +461,7 @@ fun abbrev_nsLookup_code th = let
 
   fun find_abbrev (name, code) = let
     val n = Theory.temp_binding ("[[ " ^ name ^ "_code ]]")
-    val code_def = new_definition(n,mk_eq(mk_var(n,type_of code),code))
+    val code_def = Definition.new_definition(n,mk_eq(mk_var(n,type_of code),code))
   in code_def end
   val abbrevs = List.map find_abbrev name_code_pairs
 in
@@ -2916,7 +2916,7 @@ fun abbrev_code (fname,ml_fname,def,th,v) = let
   val th = th |> UNDISCH_ALL
   val exp = th |> concl |> rator |> rator |> rand
   val n = Theory.temp_binding ("[[ " ^ fname ^ "_code ]]")
-  val code_def = new_definition(n,mk_eq(mk_var(n,type_of exp),exp))
+  val code_def = Definition.new_definition(n,mk_eq(mk_var(n,type_of exp),exp))
   val th =
     CONV_RULE ((RATOR_CONV o RATOR_CONV o RAND_CONV) (K (GSYM code_def))) th
   in (code_def,(fname,ml_fname,def,th,v)) end

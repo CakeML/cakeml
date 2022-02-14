@@ -185,7 +185,7 @@ fun define_abbrev for_eval name tm = let
              val n = mk_var(name,mk_type("fun",[type_of vars, type_of tm]))
              in mk_eq(mk_comb(n,vars),tm) end
   val def_name = name ^ "_def"
-  val def = (*Definition.*)new_definition(def_name,tm)
+  val def = Definition.new_definition(def_name,tm)
   val _ = if for_eval then computeLib.add_persistent_funs [def_name] else ()
   in def end
 

@@ -7422,7 +7422,8 @@ Theorem alloc_size_dimword:
    good_dimindex (:'a) ==>
     alloc_size (dimword (:'a)) = -1w:'a word
 Proof
-  fs [alloc_size_def,EVAL ``good_dimindex (:'a)``] \\ rw [] \\ fs []
+  simp[alloc_size_def,EVAL ``good_dimindex (:'a)``] \\ rw [] \\ rpt strip_tac \\
+  gs[]
 QED
 
 val alloc_fail_lemma = alloc_lemma

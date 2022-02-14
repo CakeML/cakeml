@@ -3360,7 +3360,7 @@ fun generate_sig_thms results = let
     val sig_const_nm = cake_name ^ "_sig";
     val sig_const_tm = mk_var(sig_const_nm, spec_ty);
 
-    val def = new_definition(sig_const_nm, mk_eq(sig_const_tm, sval));
+    val def = Definition.new_definition(sig_const_nm, mk_eq(sig_const_tm, sval));
     in def end *)
 
   val signatures = map (fn (_, ml_fname, def, _, _) => sig_of_const ml_fname (const_from_def def))
@@ -3940,7 +3940,7 @@ fun abbrev_code (fname,ml_fname,def,th,v) = let
   val th = th |> UNDISCH_ALL
   val exp = th |> concl |> rator |> rand
   val n = Theory.temp_binding ("[[ " ^ fname ^ "_code ]]")
-  val code_def = new_definition(n,mk_eq(mk_var(n,type_of exp),exp))
+  val code_def = Definition.new_definition(n,mk_eq(mk_var(n,type_of exp),exp))
   val th = CONV_RULE ((RATOR_CONV o RAND_CONV) (K (GSYM code_def))) th
   in (code_def,(fname,ml_fname,def,th,v)) end
 

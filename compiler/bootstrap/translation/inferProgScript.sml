@@ -241,6 +241,9 @@ Theorem ts_unify_side_def = Q.prove(`
   THEN FULL_SIMP_TAC std_ss [])
   |> update_precondition;
 
+val r = translate alist_nub_def;
+val r = translate (ns_nub_def |> DefnBase.one_line_ify NONE);
+
 val _ = save_thm("anub_ind",REWRITE_RULE[MEMBER_INTRO]miscTheory.anub_ind)
 val _ = translate (REWRITE_RULE[MEMBER_INTRO] miscTheory.anub_def)
 
