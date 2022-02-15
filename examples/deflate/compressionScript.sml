@@ -8,8 +8,6 @@ Haskell inspired pseudo code for a simple compressor and decompressor
 -- Datatype for our lookup table
 Type Table = [(String, String)]
 
-lookup :: String -> Table -> String
-
 findSymbol :: String -> Table -> (String, String)
 
 translateSymbol :: String -> Table -> String
@@ -28,11 +26,6 @@ decompr str tab = do
         let out = translateSymbol sym tab
         return out ++ decompr left tab
 
-findNumRepeatingChar :: Char -> String -> Num
-findNumRepeatingChar    c str(s:ss) | c == s    = return 1 + find... c ss
-                                    | otherwise = return 0
-findNumRepeatingChar    c []                    = return 0
-
 -- When changing to dynamic
 -- createTable :: String -> Table
 
@@ -41,36 +34,63 @@ findNumRepeatingChar    c []                    = return 0
 open preamble;
 open stringLib stringTheory;
 open rich_listTheory;
-open pathTheory;
+open alistTheory;
+
 
 val _ = new_theory "compression";
 
-Definition append_char_def:
-  append_char s (c:char) = s ++ [c]
-End
-
-Definition remove_last_def:
-  remove_last ((x::[]): char list)  = [] ∧
-  remove_last ((x::xs ): char list) = [x] ++ remove_last xs
-End
-
 (*
-EVAL “remove_last (append_char "hello" s)”;
-EVAL “remove_last "hello"”;
-EVAL “append_char "hello" "s"”;
+Function that find how many repeating char can be found counting from the first char in the string
 *)
 
+
+
 (*
-Theorem correctness:
-  ∀s c. remove_last (append_char s c) = s
-Proof
-  cheat
-  Induct_on ‘s’
-  \\ rw[compr_def, decompr_def]
-  \\ rw[STRCAT_def]
-QED
+Table for stored keys and values for a Dictionary compressor
+Properties:
+* no dulicate values
+* no key is a prefix to another key
+
+compr :: String -> Table -> String:
+compr str(s:ss) tab = do
+      let n = findNumRepeatingChar s ss
+      let out = lookup ( repeat n s ) tab
+      return  out ++ compr (drop n str) tab
+compr [] tab =  return ""
+
 *)
 
-DB.find "strcat";
+
+Definition findRptChar_def:
+  findRptChar [] : num = 1 ∧
+  findRptChar ((x::y::xs): char list) = if x = y then 1 + findRptChar (y::xs) else 1
+End
+
+Definition splitAt_def:
+  splitAt s n = (TAKE n s, DROP n s)
+End
+
+Definition compr_def:
+  compr [] tab = [] ∧
+  compr (s: string) (tab: string |-> string) =
+  let
+    n = findRptChar s;
+    (rpt, rest) = splitAt s n;
+    code = FLOOKUP tab rpt;
+    cout = case code of
+             SOME x => x
+           | NONE => rpt;
+  in
+    cout :: (compr rest tab)
+Termination
+  WF_REL_TAC ‘measure $ λ(s, _). LENGTH s’ THEN cheat
+End
+
+EVAL “compr "hhhej" FEMPTY ”
+
+
+Definition decompr_def:
+  decompr a = a
+End
 
 val _ = export_theory();
