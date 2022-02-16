@@ -2,35 +2,6 @@
 First simple compressor
 *)
 
-(*
-Haskell inspired pseudo code for a simple compressor and decompressor
-
--- Datatype for our lookup table
-Type Table = [(String, String)]
-
-findSymbol :: String -> Table -> (String, String)
-
-translateSymbol :: String -> Table -> String
-
-
-compr :: String -> Table -> String:
-compr str(s:ss) tab = do
-      let n = findNumRepeatingChar s ss
-      let out = lookup ( repeat n s ) tab
-      return  out ++ compr (drop n str) tab
-compr [] tab =  return ""
-
-decompr :: String -> Table -> String
-decompr str tab = do
-        let sym, left = findSymbol str tab
-        let out = translateSymbol sym tab
-        return out ++ decompr left tab
-
--- When changing to dynamic
--- createTable :: String -> Table
-
-*)
-
 open preamble;
 open stringLib stringTheory;
 open rich_listTheory;
@@ -42,27 +13,9 @@ val _ = new_theory "compression";
 (*
 Function that find how many repeating char can be found counting from the first char in the string
 *)
-
-
-
-(*
-Table for stored keys and values for a Dictionary compressor
-Properties:
-* no dulicate values
-* no key is a prefix to another key
-
-compr :: String -> Table -> String:
-compr str(s:ss) tab = do
-      let n = findNumRepeatingChar s ss
-      let out = lookup ( repeat n s ) tab
-      return  out ++ compr (drop n str) tab
-compr [] tab =  return ""
-
-*)
-
-
 Definition findRptChar_def:
-  findRptChar [] : num = 1 ∧
+  findRptChar [] : num = 0 ∧
+  findRptChar (x::[]) = 1 ∧
   findRptChar ((x::y::xs): char list) = if x = y then 1 + findRptChar (y::xs) else 1
 End
 
@@ -72,25 +25,66 @@ End
 
 Definition compr_def:
   compr [] tab = [] ∧
-  compr (s: string) (tab: string |-> string) =
+  compr (s: string) tab =
   let
     n = findRptChar s;
     (rpt, rest) = splitAt s n;
-    code = FLOOKUP tab rpt;
+    code = ALOOKUP tab rpt;
     cout = case code of
              SOME x => x
            | NONE => rpt;
   in
-    cout :: (compr rest tab)
+    cout ++ (compr rest tab)
 Termination
-  WF_REL_TAC ‘measure $ λ(s, _). LENGTH s’ THEN cheat
+  WF_REL_TAC ‘measure $ λ(s, _). LENGTH s’
+  \\ rw[splitAt_def]
+  \\ rename1 ‘STRING h t’
+  \\ Cases_on ‘t’
+  \\ rw[findRptChar_def]
 End
 
-EVAL “compr "hhhej" FEMPTY ”
+EVAL “compr "hhhej" [("hhh", "f")]”;
+
+
+Definition ALOOKUP_SND_def:
+  (ALOOKUP_SND [] q = NONE) /\
+  (ALOOKUP_SND ((x,y)::t) q = if y = q then SOME x else ALOOKUP_SND t q)
+End
+
+Definition KEYLEN_def:
+  KEYLEN []      sm tab :num = 0 ∧
+  KEYLEN (s::ss) sm tab :num =
+  let
+    match = sm ++ [s];
+    t = EXISTS (λ(_,y). IS_PREFIX y match) tab;
+  in
+    if t then (1 + KEYLEN ss match tab) else 0
+End
+
+EVAL “KEYLEN "bcdefgh" ""  [("xxxxxx", "bc"); ("YYYYYY", "fg"); ("123", "e")]”
 
 
 Definition decompr_def:
-  decompr a = a
+  decompr [] tab = [] ∧
+  decompr (s: string) tab =
+  let
+    len = KEYLEN s "" tab;
+  in
+    if len = 0 then (TAKE 1 s) ++ (decompr (DROP 1 s) tab) else
+      let
+        str = TAKE len s;
+        v = ALOOKUP_SND tab str;
+        out = case v of
+                SOME x => x
+              | NONE => str;
+      in
+        out ++ (decompr (DROP len s) tab)
+Termination
+  WF_REL_TAC ‘measure $ λ(s, _). LENGTH s’
+  \\rw[]
 End
+
+EVAL “decompr "aabbbbbcdefgh" [("xxxx", "b"); ("YYYYYY", "fg"); ("123", "e")] ”
+
 
 val _ = export_theory();
