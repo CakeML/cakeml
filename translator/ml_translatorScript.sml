@@ -1601,15 +1601,14 @@ end;
 
 (* list definition *)
 
-val LIST_TYPE_def = Define `
-  (!a x_2 x_1 v.
-     LIST_TYPE a (x_2::x_1) v <=>
+Definition LIST_TYPE_def:
+  (LIST_TYPE a (x_2::x_1) v <=>
      ?v2_1 v2_2.
        v = Conv (SOME (TypeStamp "::" 1)) [v2_1; v2_2] /\
        a x_2 v2_1 /\ LIST_TYPE a x_1 v2_2) /\
-  !a v.
-     LIST_TYPE a [] v <=>
-     v = Conv (SOME (TypeStamp "[]" 1)) []`
+  (LIST_TYPE a [] v <=>
+     v = Conv (SOME (TypeStamp "[]" 1)) [])
+End
 
 val LIST_TYPE_SIMP' = Q.prove(
   `!xs b. CONTAINER LIST_TYPE
@@ -1656,10 +1655,10 @@ QED
 
 (* pair definition *)
 
-val PAIR_TYPE_def = Define `
-  !b c x_2 x_1 v.
+Definition PAIR_TYPE_def:
     PAIR_TYPE b c (x_2:'b,x_1:'c) v <=>
-    ?v1_1 v1_2. v = Conv NONE [v1_1; v1_2] /\ b x_2 v1_1 /\ c x_1 v1_2`;
+    ?v1_1 v1_2. v = Conv NONE [v1_1; v1_2] /\ b x_2 v1_1 /\ c x_1 v1_2
+End
 
 val PAIR_TYPE_SIMP = Q.prove(
   `!x. CONTAINER PAIR_TYPE (\y v. if y = FST x then a y v else ARB)
