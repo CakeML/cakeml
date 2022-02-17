@@ -4,9 +4,7 @@ First simple compressor
 
 open preamble;
 open stringLib stringTheory;
-open rich_listTheory;
-open alistTheory;
-
+open rich_listTheory alistTheory listTheory;
 
 val _ = new_theory "compression";
 
@@ -61,7 +59,7 @@ Definition KEYLEN_def:
     if t then (1 + KEYLEN ss match tab) else 0
 End
 
-EVAL “KEYLEN "bcdefgh" ""  [("xxxxxx", "bc"); ("YYYYYY", "fg"); ("123", "e")]”
+EVAL “KEYLEN "bcdefgh" ""  [("xxxxxx", "bc"); ("YYYYYY", "fg"); ("123", "e")]”;
 
 
 Definition decompr_def:
@@ -84,7 +82,7 @@ Termination
   \\rw[]
 End
 
-EVAL “decompr "aabbbbbcdefgh" [("xxxx", "b"); ("YYYYYY", "fg"); ("123", "e")] ”
+EVAL “decompr "aabbbbbcdefgh" [("xxxx", "b"); ("YYYYYY", "fg"); ("123", "e")] ”;
 
 
 val _ = export_theory();

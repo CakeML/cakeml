@@ -1,7 +1,10 @@
 Translation scripts for puzzle encodings.
 
 [compilation](compilation):
-Compilation scripts for puzzle encodings.
+Test readme prefix
+
+[compressionProgScript.sml](compressionProgScript.sml):
+Encoding program for simple compression
 
 [testProgScript.sml](testProgScript.sml):
 Encoding program for testing
