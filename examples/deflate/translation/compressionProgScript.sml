@@ -12,12 +12,16 @@ val _ = translation_extends "lispProg";
 val _ = show_assums := true;
 
 val res = translate findRptChar_def;
+
+val res = translate TAKE;
+val res = translate DROP;
+
 val res = translate splitAt_def
 val res = translate compr_def;
 val res = translate ALOOKUP_SND_def;
 val res = translate KEYLEN_def;
 val res = translate decompr_def;
-
+val res = translate compression_def;
 
 Definition parse_input_def:
   parse_input s = ("hardcoded text", [("hard", "3");("coded", "1")])
@@ -29,7 +33,7 @@ Definition main_function_def:
   let
     (text, tab) = parse_input s;
   in
-    List [compr text tab]
+    List [strlit "Compressed output:\n"; compression text tab]
 End
 
 val res = translate parse_input_def;

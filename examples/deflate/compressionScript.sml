@@ -41,6 +41,7 @@ Termination
   \\ rw[findRptChar_def]
 End
 
+
 EVAL “compr "hhhej" [("hhh", "f")]”;
 
 
@@ -83,6 +84,19 @@ Termination
 End
 
 EVAL “decompr "aabbbbbcdefgh" [("xxxx", "b"); ("YYYYYY", "fg"); ("123", "e")] ”;
+
+
+Definition compression_def:
+  compression s tab =
+  let
+    compr_res = compr s tab;
+  in
+    if ((decompr compr_res tab = s) ∧ (compr_res ≠ s))
+    then compr_res
+    else "Uncompressed: " ++ s
+End
+
+EVAL “compression "hhhej" [("hhh", "f")]”;
 
 
 val _ = export_theory();
