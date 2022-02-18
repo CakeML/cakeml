@@ -19,8 +19,10 @@ val res = translate DROP;
 val res = translate splitAt_def
 val res = translate compr_def;
 val res = translate ALOOKUP_SND_def;
-val res = translate KEYLEN_def;
+val res = translate key_len_def;
+val res = translate key_len_snd_def;
 val res = translate decompr_def;
+val res = translate compr_alt_def;
 val res = translate compression_def;
 
 Definition parse_input_def:
