@@ -1,30 +1,25 @@
 (*
-  Encoding program for simple compression
+  Encoding program for simple decompression
 *)
 open preamble basis miscTheory set_sepTheory listTheory lispProgTheory;
 open compressionTheory;
 open (* for parsing: *) parsingTheory source_valuesTheory;
 
-val _ = new_theory "compressionProg";
+val _ = new_theory "decompressionProg";
 
 val _ = translation_extends "lispProg";
 
 val _ = show_assums := true;
 
-val res = translate findRptChar_def;
-
 val res = translate TAKE;
 val res = translate DROP;
 
-val res = translate splitAt_def
-val res = translate compr_def;
 val res = translate ALOOKUP_SND_def;
 val res = translate KEYLEN_def;
 val res = translate decompr_def;
-val res = translate compression_def;
 
 Definition parse_input_def:
-  parse_input s = (explode s, [("xxxx", "b"); ("YYYYYY", "fg"); ("123", "e")])
+  parse_input s = (explode s, [("xxxx", "b"); ("YYYYYY", "fg"); ("123", "e")] )
 End
 
 Definition main_function_def:
@@ -32,10 +27,11 @@ Definition main_function_def:
   let
     (text, tab) = parse_input s;
   in
-    List [implode (compression text tab)]
+    List [implode (decompr text tab)]
 End
 
-EVAL “main_function (implode "sfaaa")”;
+EVAL “main_function (implode "b")”;
+
 
 val res = translate parse_input_def;
 val res = translate main_function_def;
@@ -57,8 +53,8 @@ val prog =
                                 |> (fn tm => “^tm ++ ^main”)
   |> EVAL |> concl |> rand
 
-Definition compression_prog_def:
-  compression_prog = ^prog
+Definition decompression_prog_def:
+  decompression_prog = ^prog
 End
 
 val _ = export_theory();

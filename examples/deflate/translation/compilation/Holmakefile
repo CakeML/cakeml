@@ -1,11 +1,17 @@
 INCLUDES = $(CAKEMLDIR)/examples/deflate  $(CAKEMLDIR)/examples/deflate/translation $(CAKEMLDIR)/compiler
 
-all: $(DEFAULT_TARGETS) README.md testtest
+all: $(DEFAULT_TARGETS) README.md testtest compression decompression
 .PHONY: all
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
+
+compression: compressionCompileTheory.uo
+	gcc -o compression compression.S $(CAKEMLDIR)/basis/basis_ffi.c 
+
+decompression: decompressionCompileTheory.uo
+	gcc -o decompression decompression.S $(CAKEMLDIR)/basis/basis_ffi.c
 
 testtest: testCompileTheory.uo
 	gcc -o testtest testtest.S $(CAKEMLDIR)/basis/basis_ffi.c
