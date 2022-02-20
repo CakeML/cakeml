@@ -877,59 +877,67 @@ Definition parse_pbpstep_def:
       else NONE)
 End
 
+Definition parse_pbpsteps_aux_def:
+  parse_pbpsteps_aux c s pf =
+    if s = LN then
+       case pf of [] => SOME (Con c [])
+       | [(NONE,p)] => SOME (Con c p)
+       | _ => NONE
+    else SOME (Red c s pf)
+End
+
+Definition parse_redundancy_header_def:
+  (parse_redundancy_header [] = NONE) ∧
+  (parse_redundancy_header (r::rs) =
+    if r = INL (strlit"end") then SOME (INL ())
+    else
+    if r = INL (strlit"proofgoal") then
+       case parse_subgoal_num rs of NONE => NONE
+       | SOME ind => SOME (INR ind)
+    else NONE)
+End
+
 Definition parse_pbpsteps_def:
-  (parse_pbpsteps ([]:(mlstring + int) list list) acc = SOME (REVERSE acc, [])) ∧
+  (parse_pbpsteps ([]:(mlstring + int) list list) acc = NONE) ∧
   (parse_pbpsteps (s::ss) acc =
-    case parse_pbpstep s of NONE => SOME (REVERSE acc, (s::ss))
+    case parse_pbpstep s of NONE => SOME (REVERSE acc, s, ss)
     | SOME (INL step) => parse_pbpsteps ss (step::acc)
     | SOME (INR (c,s)) =>
       case parse_redundancy ss [] of
         NONE => NONE
       | SOME (pf,rest) =>
-      if LENGTH rest < LENGTH ss then
-        (if s = LN then
-          case pf of [] => parse_pbpsteps rest (Con c []::acc)
-          | [(NONE,p)] => parse_pbpsteps rest (Con c p::acc)
-          | _ => NONE
-        else parse_pbpsteps rest (Red c s pf::acc))
-      else NONE ) ∧
+        if LENGTH rest < LENGTH ss then
+          case parse_pbpsteps_aux c s pf of
+            NONE => NONE
+          | SOME step => parse_pbpsteps rest (step :: acc)
+        else NONE) ∧
   (parse_redundancy ss (acc:(( (num + unit) option,pbpstep list) alist)) =
     case parse_pbpsteps ss [] of
       NONE => NONE
-    | SOME (pf,rest) =>
-      if LENGTH rest ≤ LENGTH ss then
+    | SOME (pf,s,rest) =>
+      if LENGTH rest < LENGTH ss then
         let acc' = if pf = [] then acc else (NONE,pf)::acc in
-        case rest of [] => NONE
-        | s::ss =>
-        case s of [] => NONE
-        | r::rs =>
-          if r = INL (strlit "end") then SOME (REVERSE acc', ss)
-          else if r = INL (strlit"proofgoal") then
-            case parse_subgoal_num rs of NONE => NONE
-            | SOME ind =>
-              case parse_pbpsteps ss [] of NONE => NONE
-              | SOME (pf,rest) =>
-              if LENGTH rest ≤ LENGTH ss then
-                (case rest of [] => NONE
-                  | h::rest2 =>
-                  if h = [INL (strlit "end")] then
+        (case parse_redundancy_header s of
+          NONE => NONE
+        | SOME (INL u) => SOME (REVERSE acc', rest)
+        | SOME (INR ind) =>
+            case parse_pbpsteps rest [] of
+              NONE => NONE
+            | SOME (pf,h,rest2) =>
+              if LENGTH rest2 < LENGTH ss then
+                (if h = [INL (strlit "end")] then
                     parse_redundancy rest2 ((SOME ind,pf)::acc')
-                  else NONE
-                )
-              else NONE
-          else NONE
-      else NONE)
+                  else NONE)
+              else NONE )
+      else NONE )
 Termination
-WF_REL_TAC ‘measure (
-    sum_size (λx. 2 * (LENGTH o FST) x)
-     (λx. 1 + 2 * (LENGTH o FST) x) )’
+  WF_REL_TAC `measure (sum_size (λx. 2 * (LENGTH o FST) x) (λx. 1 + 2 * (LENGTH o FST) x) )’
   \\ rw[] \\ fs[]
 End
 
 Theorem parse_pbpsteps_LENGTH:
-  (∀ss acc pf rest.
-  parse_pbpsteps ss acc = SOME (pf,rest) ⇒
-    LENGTH rest ≤ LENGTH ss) ∧
+  (∀ss acc pf s rest.
+  parse_pbpsteps ss acc = SOME (pf,s,rest) ⇒ LENGTH rest < LENGTH ss) ∧
   (∀ss acc pf rest.
   parse_redundancy ss acc = SOME (pf,rest) ⇒
     LENGTH rest < LENGTH ss)
@@ -945,47 +953,47 @@ Proof
   >- (
     pop_assum mp_tac>>
     simp[Once parse_pbpsteps_def]>>
-    every_case_tac>>fs[]>>fs[]>>rw[]>>
-    gs[ADD1])
+    TOP_CASE_TAC>>fs[]>>
+    TOP_CASE_TAC>>fs[]>>
+    TOP_CASE_TAC>>fs[]>>
+    TOP_CASE_TAC>>fs[]>>
+    TOP_CASE_TAC>>fs[]
+    >-(rw[]>>fs[])>>
+    TOP_CASE_TAC>>fs[]>>
+    TOP_CASE_TAC>>fs[]>>
+    TOP_CASE_TAC>>fs[]>>
+    rw[]>>fs[]>>rfs[])
 QED
 
 Theorem parse_pbpsteps_thm:
-  (∀acc. parse_pbpsteps ([]:(mlstring + int) list list) acc = SOME (REVERSE acc, [])) ∧
+  (∀acc. parse_pbpsteps ([]:(mlstring + int) list list) acc = NONE) ∧
   (∀s ss acc.
     parse_pbpsteps (s::ss) acc =
-    case parse_pbpstep s of NONE => SOME (REVERSE acc, (s::ss))
+    case parse_pbpstep s of NONE => SOME (REVERSE acc, s, ss)
     | SOME (INL step) => parse_pbpsteps ss (step::acc)
     | SOME (INR (c,s)) =>
       case parse_redundancy ss [] of
         NONE => NONE
       | SOME (pf,rest) =>
-        if s = LN then
-          case pf of [] => parse_pbpsteps rest (Con c []::acc)
-          | [(NONE,p)] => parse_pbpsteps rest (Con c p::acc)
-          | _ => NONE
-        else parse_pbpsteps rest (Red c s pf::acc)) ∧
+        case parse_pbpsteps_aux c s pf of
+          NONE => NONE
+        | SOME step => parse_pbpsteps rest (step :: acc)) ∧
   (∀ss acc.
     parse_redundancy ss (acc:(( (num + unit) option,pbpstep list) alist)) =
     case parse_pbpsteps ss [] of
       NONE => NONE
-    | SOME (pf,rest) =>
-        let acc' = if pf = [] then acc else (NONE,pf)::acc in
-        case rest of [] => NONE
-        | s::ss =>
-        case s of [] => NONE
-        | r::rs =>
-          if r = INL (strlit "end") then SOME (REVERSE acc', ss)
-          else if r = INL (strlit"proofgoal") then
-            case parse_subgoal_num rs of NONE => NONE
-            | SOME ind =>
-              case parse_pbpsteps ss [] of NONE => NONE
-              | SOME (pf,rest) =>
-                case rest of [] => NONE
-                | h::rest2 =>
-                if h = [INL (strlit "end")] then
-                   parse_redundancy rest2 ((SOME ind,pf)::acc')
-                else NONE
-          else NONE)
+    | SOME (pf,s,rest) =>
+      let acc' = if pf = [] then acc else (NONE,pf)::acc in
+      (case parse_redundancy_header s of
+        NONE => NONE
+      | SOME (INL u) => SOME (REVERSE acc', rest)
+      | SOME (INR ind) =>
+          case parse_pbpsteps rest [] of
+            NONE => NONE
+          | SOME (pf,h,rest2) =>
+              (if h = [INL (strlit "end")] then
+                  parse_redundancy rest2 ((SOME ind,pf)::acc')
+                else NONE)))
 Proof
   rw[]
   >-
@@ -1001,6 +1009,37 @@ Proof
     fs[])
 QED
 
+(* Parse 1 top level step *)
+Definition parse_top_def:
+  (parse_top [] = NONE) ∧
+  (parse_top (s::ss) =
+    case parse_pbpstep s of NONE => NONE
+    | SOME (INL step) => SOME (step,ss)
+    | SOME (INR (c,s)) =>
+      case parse_redundancy ss [] of
+        NONE => NONE
+      | SOME (pf,rest) =>
+        case parse_pbpsteps_aux c s pf of
+          NONE => NONE
+        | SOME step => SOME (step,rest))
+End
+
+Definition parse_tops_def:
+  (parse_tops [] = SOME []) ∧
+  (parse_tops ss =
+    case parse_top ss of NONE => NONE
+    | SOME (step,rest) =>
+      case parse_tops rest of NONE => NONE
+      | SOME sts => SOME (step::sts))
+Termination
+  WF_REL_TAC `measure (LENGTH)`>>
+  rw[parse_top_def]>>
+  every_case_tac>>fs[]>>
+  fs[]>>rw[]>>rveq>>
+  imp_res_tac parse_pbpsteps_LENGTH>>
+  fs[]
+End
+
 val headertrm = rconc (EVAL``toks (strlit"pseudo-Boolean proof version 1.2")``);
 
 Definition parse_header_line_def:
@@ -1014,9 +1053,7 @@ Definition parse_pbp_toks_def:
   case nocomments of
     s::ss =>
     if parse_header_line s then
-      case parse_pbpsteps ss [] of NONE => NONE
-      | SOME (pf,rest) =>
-        if rest = [] then SOME pf else NONE
+      parse_tops ss
     else NONE
   | [] => NONE
 End
@@ -1035,14 +1072,17 @@ End
 
 (*
 val pbpraw = ``[
-strlit"pseudo-Boolean proof version 1.2";
 strlit"        c 1";
 strlit"red 1 x1 >= 1 ; x1 -> x3 x3 -> x5 x5 -> x1 x2 -> x4 x4 -> x6 x6 -> x2 ; begin";
 strlit"        c 1";
 strlit"        c 1";
 strlit"red 1 x1 >= 1 ; ; begin";
 strlit"        c 1";
+strlit"red 1 x1 >= 1 ; x1 -> x3 x3 -> x5 x5 -> x1 x2 -> x4 x4 -> x6 x6 -> x2 ; begin";
 strlit"        c 1";
+strlit"        c 1";
+strlit"        c 1";
+strlit"    end";
 strlit"        c 1";
 strlit"    end";
 strlit"    proofgoal #1";
@@ -1062,9 +1102,14 @@ strlit"    end";
 strlit"    c 1";
 strlit"    end";
 strlit"    c 1";
-strlit"    c 1";
-strlit"    c 1";
+strlit"red 1 x1 >= 1 ; x1 -> x3 x3 -> x5 x5 -> x1 x2 -> x4 x4 -> x6 x6 -> x2 ; begin";
+strlit"        c 1";
+strlit"        c 1";
+strlit"        c 1";
+strlit"    end";
 ]``;
+
+EVAL``parse_tops (MAP toks ^(pbpraw))``
 
 val pbp = rconc (EVAL ``(parse_pbp ^(pbpraw))``);
 *)
