@@ -2839,6 +2839,7 @@ fun mutual_to_single_line_def def = let
   (* get induction theorem *)
   val ind = get_induction_for_def def
   (* collapse to one line per function *)
+  val def = DefnBase.one_line_ify NONE def
   fun mk_arg_vars xs = let
     fun aux [] = []
       | aux (x::xs) = mk_var("v" ^ (int_to_string (length xs + 1)),type_of x)
