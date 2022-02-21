@@ -87,16 +87,16 @@ End
 EVAL “gen_fix_codes 34”;
 
 Definition create_dict_def:
-  create_dict s =
+  create_fixed_dict s =
   let
     keys = mergesort (λ x y. LENGTH x > LENGTH y) $ extract_keys s
   in
     ZIP (keys, gen_fix_codes $ LENGTH keys)
 End
-EVAL “create_dict "asdfg"”;
+EVAL “create_fixed_dict "asdfg"”;
 
 Definition lorem_dict:
-  lorem_dict = create_dict "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+  lorem_dict = create_fixed_dict "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
 End
 (*EVAL “lorem_dict”;*)
 
@@ -125,20 +125,19 @@ Definition compression_def:
 End
 
 Definition compression_proof_def:
-  compression (s:string)=
+  compression_proof (s:string)=
   let
     compr_res = compression s
   in
-    if (((expansion compr_res) = s) ∧ (compr_res ≠ s))
+    if expansion compr_res = s
     then "Compressed: " ++ compr_res
     else "Uncompressed: " ++ s
 End
 
-EVAL “LENGTH (compression "Lorem ipsum dolor sit amet, consectetur adipiscing elit.")”;
-
-EVAL “LENGTH "Lorem ipsum dolor sit amet, consectetur adipiscing elit."”;
-EVAL “expansion "Compressed: ffhhej" [("hhh", "f")]”;
-
+(* WARNING TAKES LONG TIME  *)
+EVAL “compression "Lorem ipsum dolor sit amet, consectetur adipiscing elit."”;
+EVAL “expansion "Compressed: 000110000000101000000100000000011000000010000000001000000000000"”;
+EVAL “let s = "Duis quis quam dolor. Quisque elementum fermentum nunc. Nunc placerat, elit id consectetur sodales, metus urna consequat urna, quis auctor nunc massa " in expansion $ compression s = s”
 
 
 val _ = export_theory();
