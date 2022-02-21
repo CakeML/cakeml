@@ -4946,10 +4946,8 @@ QED
 Theorem lookup_adjust_var_fromList2:
    lookup (adjust_var n) (fromList2 (w::ws)) = lookup n (fromList ws)
 Proof
-  full_simp_tac(srw_ss())[lookup_fromList2,EVEN_adjust_var,lookup_fromList]
-  \\ full_simp_tac(srw_ss())[adjust_var_def]
-  \\ once_rewrite_tac [MULT_COMM]
-  \\ full_simp_tac(srw_ss())[GSYM MULT_CLAUSES,MULT_DIV]
+  simp[lookup_fromList2,EVEN_adjust_var,lookup_fromList, adjust_var_def,
+       GSYM ADD1]
 QED
 
 Theorem stack_rel_IMP_size_of_stack:
