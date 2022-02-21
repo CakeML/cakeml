@@ -1,3 +1,8 @@
+(*
+  This file gives the CakeML REPL multi-line input and file loading
+  capabilities.
+ *)
+
 fun failwith msg = raise Failure msg;
 
 (* ------------------------------------------------------------------------- *
