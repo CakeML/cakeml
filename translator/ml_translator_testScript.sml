@@ -62,6 +62,15 @@ val _ = (ml_translatorLib.trace_timing_to
 
 val res = translate ZIP2_def;
 
+Theorem ZIP_ind:
+  ∀P. (∀v. (∀x4 x3 x2 x1. v = (x4::x3,x2::x1) ⇒ P (x3,x1)) ⇒ P v) ⇒ ∀v. P v
+Proof
+  simp [FORALL_PROD] \\ gen_tac \\ strip_tac
+  \\ Induct \\ rw []
+QED
+
+val res = translate ZIP_def;
+
 val res = translate APPEND;
 val res = translate REVERSE_DEF;
 val res = translate mllistTheory.tabulate_aux_def;
@@ -239,7 +248,17 @@ val test_def = xDefine "test" `test x = (case x of
   | E1 (x, y) => REVERSE (test x) ++ test y)`
 ;
 
-val _ = translate_no_ind test_def;
+val res = translate_no_ind test_def;
+
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp res))`,
+  rpt gen_tac \\ strip_tac
+  \\ ho_match_mp_tac (fetch "-" "test_ind")
+  \\ strip_tac
+  \\ strip_tac
+  \\ last_x_assum irule
+  \\ rw [])
+  |> update_precondition;
 
 (* registering types inside modules *)
 

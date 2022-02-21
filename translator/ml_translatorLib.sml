@@ -923,7 +923,9 @@ in
     in () end;
   val _ = Theory.register_hook(
             "CakeML.ml_translator",
-            (fn TheoryDelta.ExportTheory _ => finalise_translation() | _ => ()))
+            (fn TheoryDelta.ExportTheory _ =>
+                  (finalise_translation() handle HOL_ERR e => (print ("WARNING: ml_translatorLib export:\n" ^ #message e ^ "\n")))
+                | _ => ()))
 
 end
 
@@ -2694,7 +2696,7 @@ fun single_line_def def = let
     |> REWRITE_RULE [EVAL (mk_PRECONDITION T)]
     |> UNDISCH_ALL |> CONV_RULE (BINOP_CONV (REWR_CONV CONTAINER_def))
   in (lemma,SOME ind) end end
-  handle HOL_ERR _ => failwith("Preprocessor failed: unable to reduce definition to single line.")
+  handle HOL_ERR e => failwith("single_line_def failed: " ^ #message e)
 
 fun remove_pair_abs def = let
   fun args tm = let val (x,y) = dest_comb tm in args x @ [y] end
@@ -2738,15 +2740,24 @@ fun find_ind_thm def = let
   val const = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL |> concl
                   |> dest_eq |> fst |> repeat rator
   val r = dest_thy_const const
-  val ind = fetch_from_thy (#Thy r) ((#Name r) ^ "_trans_ind")
-            handle HOL_ERR _ =>
-            fetch_from_thy (#Thy r) ((#Name r) ^ "_ind")
-            handle HOL_ERR _ =>
-            fetch_from_thy (#Thy r) ((#Name r) ^ "_IND")
-            handle HOL_ERR _ =>
-            fetch_from_thy (#Thy r) ("ConstMult_ind")
-            handle HOL_ERR _ => TRUTH
-  in ind end
+  in fetch_from_thy "-" ((#Name r) ^ "_trans_ind")
+     handle HOL_ERR _ =>
+     fetch_from_thy "-" ((#Name r) ^ "_ind")
+     handle HOL_ERR _ =>
+     (case DefnBase.lookup_indn const of
+        NONE => failwith "DefnBase.lookup_indn returned NONE"
+      | SOME (ind, _) => ind)
+     handle HOL_ERR _ =>
+     fetch_from_thy (#Thy r) ((#Name r) ^ "_trans_ind")
+     handle HOL_ERR _ =>
+     fetch_from_thy (#Thy r) ((#Name r) ^ "_ind")
+     handle HOL_ERR _ =>
+     fetch_from_thy (#Thy r) ((#Name r) ^ "_IND")
+     handle HOL_ERR _ =>
+     fetch_from_thy (#Thy r) ("ConstMult_ind")
+     handle HOL_ERR _ => failwith ("find_ind_thm failed for " ^ term_to_string const ^
+                                   " defined in " ^ #Thy r ^ "Theory;")
+  end
 
 fun split_let_and_conv tm = let
   val (xs,b) = pairSyntax.dest_anylet tm
@@ -2768,76 +2779,11 @@ fun list_mk_fun_type [ty] = ty
       mk_fun_type ty1 (list_mk_fun_type tys)
   | list_mk_fun_type _ = fail()
 
-fun get_induction_for_def def = let
-  val names = def |> SPEC_ALL |> CONJUNCTS |> map (fn x => x |>SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator |> dest_thy_const) |> mk_set
-  fun get_ind [] = raise ERR "get_ind" "Bind Error"
-    | get_ind [res] =
-      (fetch_from_thy (#Thy res) ((#Name res) ^ "_trans_ind") handle HOL_ERR _ =>
-       (fetch_from_thy (#Thy res) ((#Name res) ^ "_ind") handle HOL_ERR _ =>
-        (fetch_from_thy (#Thy res) ((#Name res) ^ "_IND"))))
-    | get_ind (res::ths) = (get_ind [res]) handle HOL_ERR _ => get_ind ths
-  in
-    get_ind names
-  end handle HOL_ERR _ => let
-  fun mk_arg_vars xs = let
-    fun aux [] = []
-      | aux (x::xs) = mk_var("v" ^ (int_to_string (length xs + 1)),type_of x)
-                       :: aux xs
-    in (rev o aux o rev) xs end
-  fun f tm = let
-    val (lhs,rhs) = dest_eq tm
-    val (const,args) = strip_comb lhs
-    val vargs = mk_arg_vars args
-    val args = pairSyntax.list_mk_pair args
-    in (const,vargs,args,rhs) end
-  val cs = def |> CONJUNCTS |> map (f o concl o SPEC_ALL)
-  val cnames = map (fn (x,_,_,_) => x) cs |> op_mk_set aconv
-  val cs = map (fn c => (c, map (fn (x,y,z,q) => (y,z,q))
-                              (filter (fn (x,_,_,_) => aconv c x) cs))) cnames
-           |> map (fn (c,x) => (c,hd (map (fn (x,y,z) => x) x),
-                                map (fn (x,y,z) => (y,z)) x))
-  fun split_at P [] = fail()
-    | split_at P (x::xs) = if P x then ([],x,xs) else let
-        val (x1,y1,z1) = split_at P xs
-        in (x::x1,y1,z1) end
-  fun find_pat_match (_,args,pats) = let
-    val pat = hd pats |> fst
-    val vs = pairSyntax.list_mk_pair args
-    val ss = fst (match_term vs pat)
-    val xs = map (subst ss) args
-    in (split_at (not o is_var) xs) end
-  val xs = map find_pat_match cs
-  val ty = map (fn (_,x,_) => type_of x) xs |> hd
-  val raw_ind = TypeBase.induction_of ty
-  fun my_mk_var ty = mk_var("pat_var", ty)
-  val index = ref 0
-  fun goal_step (xs,t,ys) = let
-    val v = my_mk_var (type_of t)
-    val args = xs @ [v] @ ys
-    val P = mk_var("P" ^ (int_to_string (!index)) ,
-              list_mk_fun_type ((map type_of args) @ [bool]))
-    val _ = (index := (!index) + 1)
-    val prop = list_mk_comb(P,args)
-    val goal = list_mk_forall(args,prop)
-    val step = mk_abs(v,list_mk_forall(xs @ ys,prop))
-    in (P,(goal,step)) end
-  val res = map goal_step xs
-  fun ISPEC_LIST [] th = th
-    | ISPEC_LIST (x::xs) th = ISPEC_LIST xs (ISPEC x th)
-  val ind = ISPEC_LIST (map (snd o snd) res) raw_ind
-            |> CONV_RULE (DEPTH_CONV BETA_CONV)
-  val goal1 = ind |> concl |> dest_imp |> snd
-  val goal2 = list_mk_conj (map (fst o snd) res)
-  val goal = mk_imp(goal1,goal2)
-  val lemma = auto_prove "get_induction_for" (goal, REPEAT STRIP_TAC THEN ASM_REWRITE_TAC [])
-  val ind = MP lemma (ind |> UNDISCH_ALL) |> DISCH_ALL
-            |> GENL (map fst res)
-  in ind end handle HOL_ERR _ =>
-  failwith "unable to construct induction theorem from TypeBase info"
+fun the (SOME x) = x | the _ = failwith("the of NONE")
 
 fun mutual_to_single_line_def def = let
   (* get induction theorem *)
-  val ind = get_induction_for_def def
+  val ind = if is_rec_def def then SOME (find_ind_thm def) else NONE
   (* collapse to one line per function *)
   val def = DefnBase.one_line_ify NONE def
   fun mk_arg_vars xs = let
@@ -2878,9 +2824,9 @@ fun mutual_to_single_line_def def = let
     in (list_mk_abs(args,gg),gg) end
   val gs = map goal_line cs
   val target = map snd gs |> list_mk_conj
-  in if concl def ~~ target then (def |> CONJUNCTS,SOME ind) else let
+  in if concl def ~~ target then (def |> CONJUNCTS,ind) else let
   val goals = map fst gs
-  val lemma = ISPECL goals ind
+  val lemma = ISPECL goals (the ind)
   val goal = lemma |> concl |> dest_imp |> fst
   val _ = if can (find_term is_arb) (concl def) then true else
             not (can (find_term is_arb) goal) orelse
@@ -2892,9 +2838,11 @@ fun mutual_to_single_line_def def = let
   val def2 = MP lemma lemma1
              |> CONV_RULE (DEPTH_CONV BETA_CONV)
              |> CONJUNCTS |> map SPEC_ALL
-  in (def2,SOME ind) end end handle HOL_ERR _ => let
+  in (def2,ind) end end handle HOL_ERR e1 => let
   val (def,ind) = single_line_def def
   in ([def],ind) end
+  handle HOL_ERR e2 => failwith("mutual_to_single_line_def failed: " ^
+                                  #message e1 ^ " and " ^ #message e2);
 
 val builtin_terops =
   [Eval_substring,
@@ -3961,8 +3909,6 @@ fun find_def_for_const_wrapper tm = let
   in def end
 
 fun force_thm_the (SOME x) = x | force_thm_the NONE = TRUTH
-
-fun the (SOME x) = x | the _ = failwith("the of NONE")
 
 fun prove_ind_thm ind ind_thm_goal =
 (*
