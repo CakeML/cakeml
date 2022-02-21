@@ -312,8 +312,7 @@ Theorem parse_pbpsteps_spec:
            &(Fail_exn e ∧ parse_redundancy ss acc = NONE))
       ))
 Proof
-  cheat
-  (* ho_match_mp_tac parse_pbpsteps_ind>>
+  ho_match_mp_tac parse_pbpsteps_ind>>
   rw[]
   >- (
     xcf "parse_pbpsteps" (get_ml_prog_state ())>>
@@ -341,7 +340,7 @@ Proof
     simp[Fail_exn_def]>>
     metis_tac[])
   >-(
-    xcf "parse_pbpsteps" (get_ml_prog_state ())>>
+    xcfs ["parse_pbpsteps","parse_redundancy"] (get_ml_prog_state ())>>
     `?l ls. lines = l::ls` by
       (Cases_on`lines`>>fs[])>>
     rw[]>>
@@ -422,8 +421,10 @@ Proof
                     INSTREAM_LINES fd fdv lines'
                       (forwardFD (forwardFD fs fd k) fd k') *
                     &(Fail_exn e ∧ parse_redundancy ss [] = NONE)))`
-    >-
-      cheat
+    >- (
+      xapp>>
+      simp[LIST_TYPE_def]>>
+      metis_tac[])
     >- (
       xsimpl>>
       rw[]>>simp[Once parse_pbpsteps_thm]>>
@@ -475,7 +476,7 @@ Proof
     qexists_tac`k+(k'+x')`>>
     qexists_tac`x''`>>
     xsimpl)>>
-  xcf "parse_redundancy" (get_ml_prog_state ())>>
+  xcfs ["parse_pbpsteps","parse_redundancy"] (get_ml_prog_state ())>>
   xlet_autop>>
   simp[Once parse_pbpsteps_thm]>>
   first_x_assum drule>>
@@ -501,8 +502,7 @@ Proof
              &(Fail_exn e ∧
               parse_pbpsteps (MAP toks lines) [] = NONE)))`
   >-
-    (* xapp doesn't work... *)
-    cheat
+    xapp
   >- (
     xsimpl>>
     simp[Once parse_pbpsteps_thm]>>
@@ -548,22 +548,30 @@ Proof
   disch_then(qspec_then`lines'` mp_tac)>> simp[]>>
   strip_tac>>
   xlet`
-  (POSTve
-     (λv.
-          SEP_EXISTS k lines' acc' s lno' rest'.
-            STDIO (forwardFD fs fd k) *
-            INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-            &(PAIR_TYPE (LIST_TYPE PB_CHECK_PBPSTEP_TYPE)
-               (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NUM) (acc',s,lno') v ∧
-             parse_pbpsteps rest [] = SOME (acc',s,rest') ∧
-             MAP toks lines' = rest'))
-     (λe.
-          SEP_EXISTS k lines'.
-            STDIO (forwardFD fs fd k) *
-            INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-            &(Fail_exn e ∧ parse_pbpsteps rest [] = NONE)))`
-  >-
-    cheat (* xapp fails for weird reason *)
+    (POSTve
+       (λv.
+            SEP_EXISTS k lines' acc' s lno' rest'.
+              STDIO (forwardFD fs fd k) *
+              INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+              &(PAIR_TYPE (LIST_TYPE PB_CHECK_PBPSTEP_TYPE)
+                 (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NUM) (acc',s,lno') v ∧
+               parse_pbpsteps rest [] = SOME (acc',s,rest') ∧
+               MAP toks lines' = rest'))
+       (λe.
+            SEP_EXISTS k lines'.
+              STDIO (forwardFD fs fd k) *
+              INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+              &(Fail_exn e ∧ parse_pbpsteps rest [] = NONE)))`
+  >- (
+    xapp>>xsimpl>>
+    qexists_tac`emp`>>qexists_tac`forwardFD fs fd k`>>
+    qexists_tac`fd`>>xsimpl>>
+    rw[PAIR_TYPE_def]
+    >- (
+      asm_exists_tac>>simp[forwardFD_o]>>
+      qexists_tac`k+x`>>qexists_tac`x'`>>xsimpl)>>
+    simp[forwardFD_o]>>
+    qexists_tac`k+x`>>qexists_tac`x'`>>xsimpl)
   >- (
     xsimpl>>
     simp[Once parse_pbpsteps_thm]>>
@@ -589,7 +597,25 @@ Proof
   xlet_autop>>
   xlet_autop>>
   xapp>>
-  cheat *)
+  xsimpl>>
+  first_assum (irule_at Any o SYM)>>
+  first_x_assum (irule_at Any)>>
+  simp[LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]>>
+  imp_res_tac parse_pbpsteps_LENGTH>>
+  `LENGTH lines''= LENGTH rest'` by
+    metis_tac[LENGTH_MAP]>>
+  simp[]>>xsimpl>>
+  qexists_tac`forwardFD fs fd k`>>
+  qexists_tac`fd`>>
+  qexists_tac`emp`>>
+  xsimpl>>rw[]
+  >- (
+    asm_exists_tac>>
+    simp[forwardFD_o]>>
+    qexists_tac`k+x'`>>qexists_tac`x''`>>xsimpl)>>
+  simp[Once parse_pbpsteps_thm]>>
+  simp[forwardFD_o]>>
+  qexists_tac`k+x'`>>qexists_tac`x''`>>xsimpl
 QED
 
 val parse_redundancy_spec = save_thm("parse_redundancy_spec",el 2 (CONJUNCTS parse_pbpsteps_spec));
