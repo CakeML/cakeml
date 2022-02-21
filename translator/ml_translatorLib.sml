@@ -924,7 +924,8 @@ in
   val _ = Theory.register_hook(
             "CakeML.ml_translator",
             (fn TheoryDelta.ExportTheory _ =>
-                  (finalise_translation() handle HOL_ERR e => (print ("WARNING: ml_translatorLib export:\n" ^ #message e ^ "\n")))
+                  (finalise_translation() handle HOL_ERR e =>
+                     (print ("WARNING: ml_translatorLib export:\n" ^ #message e ^ "\n"); raise HOL_ERR e))
                 | _ => ()))
 
 end
