@@ -205,7 +205,7 @@ fun naryFun_repack_conv tm =
 val naryClosure_repack_conv =
   (RAND_CONV naryFun_repack_conv) THENC (REWR_CONV (GSYM naryClosure_def))
 
-fun xcf_with_def name f_def =
+fun xcf_with_defs name f_defs =
   let
     val Closure_tac =
       CONV_TAC (DEPTH_CONV naryClosure_repack_conv) \\
@@ -221,7 +221,8 @@ fun xcf_with_def name f_def =
         CONV_TAC (
           DEPTH_CONV (
             REWR_CONV letrec_pull_params_repack THENC
-            REWR_CONV (GSYM f_def)))
+            EVERY_CONV (map (fn def =>
+              TRY_CONV (REWR_CONV (GSYM def))) f_defs)))
     fun closure_tac (g as (_, w)) =
       let val (_, c, _, _, _) = cfAppSyntax.dest_app w in
           if is_Closure c then
@@ -234,15 +235,19 @@ fun xcf_with_def name f_def =
       handle HOL_ERR _ =>
              err_tac "xcf" "goal is not an app" g
   in
-    rpt strip_tac \\ simp [f_def] \\ closure_tac \\ reduce_tac
+    rpt strip_tac \\ simp f_defs \\ closure_tac \\ reduce_tac
   end;
 
-fun xcf name st =
+fun xcfs names st =
   let
-    val f_def = fetch_def name st
+    val f_defs = map (fn name => fetch_def name st) names
   in
-    xcf_with_def name f_def
+    xcf_with_defs names f_defs
   end;
+
+fun xcf_with_def name f_def = xcf_with_defs name [f_def];
+
+fun xcf name st = xcfs [name] st;
 
 (* [xlet] *)
 

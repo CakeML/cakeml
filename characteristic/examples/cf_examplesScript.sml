@@ -377,4 +377,52 @@ val example_ffidiv_spec = Q.prove (
       >> xapp >> xsimpl >> rw[] >> qexists_tac `x` >> xsimpl)
   >> xcon >> xsimpl);
 
+val example_mutrec = (append_prog o process_topdecs) `
+  fun is_even n =
+    if n = 0 then True else is_odd(n-1)
+  and is_odd n =
+    if n = 0 then False else is_even(n-1)`
+
+Definition even_odd_def:
+  (even n = if n = 0n then T else odd (n-1)) ∧
+  (odd n = if n = 0n then F else even (n-1))
+End
+
+Theorem example_mutrec:
+  (∀n nv.
+  NUM n nv ⇒
+  app (p:'ffi ffi_proj) is_even_v [nv]
+       (ARB)
+       (POSTv v. ARB * &(BOOL (even n) v) )) ∧
+  (∀n nv.
+  NUM n nv ⇒
+  app (p:'ffi ffi_proj) is_odd_v [nv]
+       (ARB)
+       (POSTv v. ARB * &(BOOL (odd n) v)))
+Proof
+  ho_match_mp_tac even_odd_ind>>
+  rw[]
+  >- (
+    xcfs ["is_odd","is_even"](get_ml_prog_state())>>
+    xlet_auto>- xsimpl>>
+    xif
+    >-(
+      xcon>> xsimpl>> simp[Once even_odd_def]>>
+      EVAL_TAC)>>
+    xlet_auto >- xsimpl>>
+    xapp>>
+    xsimpl>>
+    rw[]>>simp[Once even_odd_def])>>
+  xcfs ["is_odd","is_even"](get_ml_prog_state())>>
+  xlet_auto>- xsimpl>>
+  xif
+  >-(
+    xcon>> xsimpl>> simp[Once even_odd_def]>>
+    EVAL_TAC)>>
+  xlet_auto >- xsimpl>>
+  xapp>>
+  xsimpl>>
+  rw[]>>simp[Once even_odd_def]
+QED
+
 val _ = export_theory();
