@@ -53,22 +53,8 @@ val result = translate LAST_DEF;
 val _ = next_ml_names := ["getItem"];
 val result = translate getItem_def;
 
-Theorem nth_ind:
-  ∀P. (∀l. P l 0) ∧ (∀l n. (∀l. P l n) ⇒ P l (SUC n)) ⇒ ∀l n. P l n
-Proof
-  gen_tac \\ strip_tac \\ Induct_on ‘n’ \\ fs []
-QED
-
 val result = translate (EL |> REWRITE_RULE[GSYM nth_def]);
 val nth_side_def = theorem"nth_side_def";
-
-Theorem take_ind:
-  ∀P. (∀n. P [] n) ∧ (∀l a n. (∀n. P l n) ⇒ P (a::l) n) ⇒ ∀n l. P l n
-Proof
-  gen_tac \\ strip_tac \\ Induct_on ‘l’ \\ fs []
-QED
-
-Theorem drop_ind = take_ind;
 
 val result = translate (TAKE_def |> REWRITE_RULE[GSYM take_def]);
 val result = translate (DROP_def |> REWRITE_RULE[GSYM drop_def]);
@@ -115,12 +101,6 @@ val app = process_topdecs`
   fun app f ls = case ls of [] => ()
     | (x::xs) => (f x; app f xs)`;
 val _ = ml_prog_update(ml_progLib.add_prog app pick_name)
-
-Theorem FIND_ind:
-  ∀P. (∀f. P f []) ∧ (∀l a f. (∀f. P f l) ⇒ P f (a::l)) ⇒ ∀f l. P f l
-Proof
-  ntac 2 strip_tac \\ Induct_on `l` \\ fs []
-QED
 
 val result = translate FIND_thm;
 
@@ -238,13 +218,6 @@ end
 
 val result = translate collate_def;
 
-Theorem ZIP_ind:
-  ∀P. (∀v. (∀x4 x3 x2 x1. v = (x4::x3,x2::x1) ⇒ P (x3,x1)) ⇒ P v) ⇒ ∀v. P v
-Proof
-  simp [FORALL_PROD] \\ gen_tac \\ strip_tac
-  \\ Induct \\ rw []
-QED
-
 val result = translate ZIP_def;
 
 val result = translate MEMBER_def;
@@ -277,12 +250,6 @@ val nth_side_def = Q.prove(
   Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "nth_side_def"]
   THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
   |> update_precondition;
-
-Theorem LUPDATE_ind:
-  ∀P. (∀e n. P e n []) ∧ (∀e n x xs. (∀e n. P e n xs) ⇒ P e n (x::xs)) ⇒ ∀e n xs. P e n xs
-Proof
-  ntac 2 strip_tac \\ Induct_on ‘xs’ \\ fs []
-QED
 
 val _ = next_ml_names := ["update"];
 val result = translate LUPDATE_def;

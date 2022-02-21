@@ -339,8 +339,7 @@ val type_cmp_thm = Q.prove(
 val _ = add_preferred_thy "-";
 val _ = save_thm("type_cmp_ind",
           (fetch "-" "type_compare_ind") |> RW [GSYM type_cmp_thm]);
-val res = translate (type_compare_def |> RW [GSYM type_cmp_thm]
-                       |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ);
+val res = translate (type_compare_def |> RW [GSYM type_cmp_thm]);
 
 val term_compare_def = Define `
   term_compare t1 t2 =
