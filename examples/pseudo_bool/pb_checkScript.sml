@@ -897,6 +897,14 @@ Definition parse_redundancy_header_def:
     else NONE)
 End
 
+Definition mk_acc_def:
+  mk_acc pf (acc:(( (num + unit) option,pbpstep list) alist)) = if pf = [] then acc else (NONE,pf)::acc
+End
+
+Definition check_head_def:
+  check_head (h:(mlstring + int) list ) = (h = [INL (strlit"end")])
+End
+
 Definition parse_pbpsteps_def:
   (parse_pbpsteps ([]:(mlstring + int) list list) acc = NONE) ∧
   (parse_pbpsteps (s::ss) acc =
@@ -916,7 +924,7 @@ Definition parse_pbpsteps_def:
       NONE => NONE
     | SOME (pf,s,rest) =>
       if LENGTH rest < LENGTH ss then
-        let acc' = if pf = [] then acc else (NONE,pf)::acc in
+        let acc' = mk_acc pf acc in
         (case parse_redundancy_header s of
           NONE => NONE
         | SOME (INL u) => SOME (REVERSE acc', rest)
@@ -925,7 +933,7 @@ Definition parse_pbpsteps_def:
               NONE => NONE
             | SOME (pf,h,rest2) =>
               if LENGTH rest2 < LENGTH ss then
-                (if h = [INL (strlit "end")] then
+                (if check_head h then
                     parse_redundancy rest2 ((SOME ind,pf)::acc')
                   else NONE)
               else NONE )
@@ -983,7 +991,7 @@ Theorem parse_pbpsteps_thm:
     case parse_pbpsteps ss [] of
       NONE => NONE
     | SOME (pf,s,rest) =>
-      let acc' = if pf = [] then acc else (NONE,pf)::acc in
+      let acc' = mk_acc pf acc in
       (case parse_redundancy_header s of
         NONE => NONE
       | SOME (INL u) => SOME (REVERSE acc', rest)
@@ -991,7 +999,7 @@ Theorem parse_pbpsteps_thm:
           case parse_pbpsteps rest [] of
             NONE => NONE
           | SOME (pf,h,rest2) =>
-              (if h = [INL (strlit "end")] then
+              (if check_head h then
                   parse_redundancy rest2 ((SOME ind,pf)::acc')
                 else NONE)))
 Proof
@@ -1011,29 +1019,29 @@ QED
 
 (* Parse 1 top level step *)
 Definition parse_top_def:
-  (parse_top [] = NONE) ∧
+  (parse_top [] = SOME NONE) ∧
   (parse_top (s::ss) =
     case parse_pbpstep s of NONE => NONE
-    | SOME (INL step) => SOME (step,ss)
+    | SOME (INL step) => SOME (SOME (step,ss))
     | SOME (INR (c,s)) =>
       case parse_redundancy ss [] of
         NONE => NONE
       | SOME (pf,rest) =>
         case parse_pbpsteps_aux c s pf of
           NONE => NONE
-        | SOME step => SOME (step,rest))
+        | SOME step => SOME (SOME (step,rest)))
 End
 
 Definition parse_tops_def:
-  (parse_tops [] = SOME []) ∧
   (parse_tops ss =
     case parse_top ss of NONE => NONE
-    | SOME (step,rest) =>
+    | SOME NONE => SOME []
+    | SOME (SOME (step,rest)) =>
       case parse_tops rest of NONE => NONE
       | SOME sts => SOME (step::sts))
 Termination
   WF_REL_TAC `measure (LENGTH)`>>
-  rw[parse_top_def]>>
+  Cases>>rw[parse_top_def]>>
   every_case_tac>>fs[]>>
   fs[]>>rw[]>>rveq>>
   imp_res_tac parse_pbpsteps_LENGTH>>
@@ -1111,7 +1119,6 @@ strlit"    end";
 
 EVAL``parse_tops (MAP toks ^(pbpraw))``
 
-val pbp = rconc (EVAL ``(parse_pbp ^(pbpraw))``);
 *)
 
 val _ = export_theory ();
