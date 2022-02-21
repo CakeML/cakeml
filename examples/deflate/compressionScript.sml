@@ -75,14 +75,14 @@ EVAL “key_len_snd "bcdefgh" ""  [("xxxxxx", "bc"); ("YYYYYY", "fg"); ("123", "
 Definition compr_alt_def:
   compr_alt [] tab = [] ∧
   compr_alt (s: string) tab =
-  let len = key_len s "" tab; in
+  let len = key_len s "" tab in
     if len = 0 then (TAKE 1 s) ++ (compr_alt (DROP 1 s) tab) else
       let
         str = TAKE len s;
         v = ALOOKUP tab str;
-        out = case v of
+        out = (case v of
                 SOME x => x
-              | NONE => str;
+              | NONE => str);
       in
         out ++ (compr_alt (DROP len s) tab)
 Termination
