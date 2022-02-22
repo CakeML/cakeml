@@ -13,11 +13,6 @@ val _ = new_theory "compression";
 (*          Substitution function           *)
 (********************************************)
 
-Definition FLIP_ALIST_def:
-  FLIP_ALIST [] = [] ∧
-  FLIP_ALIST ((x, y)::t) = (y,x):: FLIP_ALIST t
-End
-
 Definition find_match_def:
   find_match []         tab         = ([],[]) ∧
   find_match s          []          = ([],[]) ∧
@@ -36,16 +31,15 @@ Definition tab_sub_def:
   in
     if LENGTH match <= 0
     then
-      [". Compression failed."]
+      ". Compression failed."
     else
-      value :: (tab_sub (DROP (LENGTH match) s) tab)
+      value ++ (tab_sub (DROP (LENGTH match) s) tab)
 Termination
   WF_REL_TAC ‘measure $ λ(s, _). LENGTH s’
   \\ rpt (Cases_on ‘match’
   \\ gvs[find_match_def])
 End
-
-EVAL “tab_sub "Ahhhhej" [("hhh", "f")]”;
+EVAL “tab_sub "Ahhhhej" [("hhh", "f"); ("A", "sjsj"); ("hej", "jeh")]”;
 
 
 (********************************************)
@@ -61,7 +55,7 @@ Definition extract_fixed_substrings_def:
                                  then []
                                  else TAKE n (x::xs) :: extract_fixed_substrings xs n
 End
-EVAL “extract_substrings "asdefg" 2”;
+EVAL “extract_fixed_substrings "asdefg" 2”;
 
 Definition extract_substrings_n:
   extract_substrings_n s n = nub $ FLAT $ GENLIST (λ l. if l < 2 then [] else  extract_fixed_substrings s l) n
@@ -102,6 +96,11 @@ End
 (*      Compression & Expansion functions          *)
 (***************************************************)
 
+Definition FLIP_ALIST_def:
+  FLIP_ALIST [] = [] ∧
+  FLIP_ALIST ((x, y)::t) = (y,x):: FLIP_ALIST t
+End
+
 Definition expansion_def:
   expansion (s:string) =
   let
@@ -134,7 +133,7 @@ End
 (* WARNING TAKES LONG TIME  *)
 EVAL “compression "Lorem ipsum dolor sit amet, consectetur adipiscing elit."”;
 EVAL “expansion "Compressed: 000110011000101110000101001000100100000011111000011010000010101000010000000001011000000110000000001100011111"”;
-EVAL “let s = "Duis quis quam dolor. Quisque elementum fermentum nunc. Nunc placerat, elit id consectetur sodales, metus urna consequat urna, quis auctor nunc massa " in expansion $ compression s = s”
+EVAL “let s = "Duis quis quam dolor. Quisq" in expansion $ compression s = s”;
 
 
 val _ = export_theory();
