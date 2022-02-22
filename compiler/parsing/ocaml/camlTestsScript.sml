@@ -1249,13 +1249,13 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Comb (Var (v, s), Const (w, t))"
-  (SOME “Pc "Comb" [Pc "Var" [Pv "v"; Pv "s"]; Pc "Const" [Pv "w"; Pv "t"]]”)
+  (SOME “[Pc "Comb" [Pc "Var" [Pv "v"; Pv "s"]; Pc "Const" [Pv "w"; Pv "t"]]]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Append (Append (v, s), Append (w, t))"
-  (SOME “Pc "Append" [Pc "Append" [Pv "v"; Pv "s"];
-                      Pc "Append" [Pv "w"; Pv "t"]]”)
+  (SOME “[Pc "Append" [Pc "Append" [Pv "v"; Pv "s"];
+                       Pc "Append" [Pv "w"; Pv "t"]]]”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
