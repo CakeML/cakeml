@@ -41,14 +41,8 @@ Definition tab_sub_def:
       value :: (tab_sub (DROP (LENGTH match) s) tab)
 Termination
   WF_REL_TAC ‘measure $ λ(s, _). LENGTH s’
-  \\ rw[find_match_def]
-  \\ rename1 ‘STRING h t’
-  \\ Cases_on ‘t’
-  \\ rw[]
-  \\ Cases_on ‘match’
-  \\ gvs[find_match_def]
-  \\ Cases_on ‘match’
-  \\ gvs[find_match_def]
+  \\ rpt (Cases_on ‘match’
+  \\ gvs[find_match_def])
 End
 
 EVAL “tab_sub "Ahhhhej" [("hhh", "f")]”;
