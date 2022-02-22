@@ -58,6 +58,14 @@ Definition peg_linfix_def:
                   | h::_ => [mk_linfix tgtnt (mkNd tgtnt [h]) b])
 End
 
+Definition peg_linfix'_def:
+  peg_linfix' tgtnt topsym rptsym opsym =
+    seq topsym (rpt (seq opsym rptsym (++)) FLAT)
+        (λa b. case a of
+                   [] => []
+                  | h::_ => [mk_linfix tgtnt (mkNd tgtnt [h]) b])
+End
+
 Definition choicel_def:
   choicel [] = not (empty []) [] ∧
   choicel (h::t) = choice h (choicel t) sumID
@@ -244,8 +252,14 @@ Datatype:
     | nTypeDefinition | nTypeDef | nTypeDefs | nTypeParams | nTypeInfo
     | nTypeRepr | nTypeReprs | nConstrDecl | nConstrArgs | nExcDefinition
     (* patterns *)
-    | nPAny | nPBase | nPLazy | nPConstr | nPApp | nPCons | nPProd
-    | nPOr | nPAs | nPList | nPattern | nPatterns
+    | nPAny
+    | nPBase | nPConstr | nPApp | nPCons | nPProd | nPOr | nPAs | nPList
+    | nPattern
+    | nPBaseL | nPConstrL | nPAppL | nPConsL | nPProdL | nPOrL | nPAsL
+    | nPListL | nPatternL
+    | nPBaseR | nPConstrR | nPAppR | nPConsR | nPProdR | nPOrR | nPAsR
+    | nPListR | nPatternR
+    | nPatterns
     (* types *)
     | nTypeList | nTypeLists
     | nTVar | nTBase | nTConstr | nTProd | nTFun | nType
@@ -715,7 +729,9 @@ Definition camlPEG_def[nocompute]:
       (INL nLetBindings,
        seql [pnt nLetBinding; try (seql [tokeq AndT; pnt nLetBindings] I)]
             (bindNT nLetBindings));
-      (* -- Pat8 ----------------------------------------------------------- *)
+      (* -- Pat6 ----------------------------------------------------------- *)
+      (INL nPAny,
+       pegf (tokeq AnyT) (bindNT nPAny));
       (INL nPList,
        seql [tokeq LbrackT;
              try (seql [pnt nPattern;
@@ -723,8 +739,20 @@ Definition camlPEG_def[nocompute]:
                         try (tokeq SemiT)] I);
              tokeq RbrackT]
             (bindNT nPList));
-      (INL nPAny,
-       pegf (tokeq AnyT) (bindNT nPAny));
+      (INL nPListL,
+       seql [tokeq LbrackT;
+             try (seql [pnt nPatternL;
+                        rpt (seql [tokeq SemiT; pnt nPatternL] I) FLAT;
+                        try (tokeq SemiT)] I);
+             tokeq RbrackT]
+            (bindNT nPListL));
+      (INL nPListR,
+       seql [tokeq LbrackT;
+             try (seql [pnt nPatternL;
+                        rpt (seql [tokeq SemiT; pnt nPatternR] I) FLAT;
+                        try (tokeq SemiT)] I);
+             tokeq RbrackT]
+            (bindNT nPListR));
       (INL nPBase,
        pegf (choicel [pnt nLiteral;
                       pnt nValueName;
@@ -735,36 +763,89 @@ Definition camlPEG_def[nocompute]:
                             try (seql [tokeq ColonT; pnt nType] I);
                             tokeq RparT] I])
             (bindNT nPBase));
-      (* -- Pat7 ----------------------------------------------------------- *)
-      (INL nPLazy,
-       seql [try (tokeq LazyT); pnt nPBase]
-            (bindNT nPLazy));
-      (* -- Pat6 ----------------------------------------------------------- *)
-      (INL nPConstr,
-       pegf (choicel [seql [pnt nConstr; try (pnt nPLazy)] I;
-                      pnt nPLazy])
-            (bindNT nPConstr));
-      (INL nPApp,
-       pegf (choicel [pnt nPConstr; pnt nPLazy])
-            (bindNT nPApp));
+      (INL nPBaseL,
+       pegf (choicel [pnt nLiteral;
+                      pnt nValueName;
+                      pnt nPAny;
+                      pnt nPListL;
+                      seql [tokeq LparT; tokeq RparT] I;
+                      seql [tokeq LparT; pnt nPatternL;
+                            try (seql [tokeq ColonT; pnt nType] I);
+                            tokeq RparT] I])
+            (bindNT nPBaseL));
+      (INL nPBaseR,
+       pegf (choicel [pnt nLiteral;
+                      pnt nValueName;
+                      pnt nPAny;
+                      pnt nPListR;
+                      seql [tokeq LparT; tokeq RparT] I;
+                      seql [tokeq LparT; pnt nPatternR;
+                            try (seql [tokeq ColonT; pnt nType] I);
+                            tokeq RparT] I])
+            (bindNT nPBaseR));
       (* -- Pat5 ----------------------------------------------------------- *)
-      (INL nPCons,
-       seql [pnt nPApp; try (seql [tokeq ColonsT; pnt nPCons] I)]
-            (bindNT nPCons));
+      (INL nPConstr,
+       seql [pnt nConstr; try (pnt nPBase)]
+            (bindNT nPConstr));
+      (INL nPConstrL,
+       seql [pnt nConstr; try (pnt nPBaseL)]
+            (bindNT nPConstrL));
+      (INL nPConstrR,
+       seql [pnt nConstr; try (pnt nPBaseR)]
+            (bindNT nPConstrR));
+      (INL nPApp,
+       pegf (choicel [pnt nPatternL; pnt nPConstr; pnt nPBase])
+            (bindNT nPApp));
+      (INL nPAppL,
+       pegf (choicel [pnt nPConstrL; pnt nPBaseL])
+            (bindNT nPAppL));
+      (INL nPAppR,
+       pegf (choicel [pnt nPConstrR; pnt nPBaseR])
+            (bindNT nPAppR));
       (* -- Pat4 ----------------------------------------------------------- *)
-      (INL nPAs,
-       seql [pnt nPCons; try (seql [tokeq AsT; pnt nIdent] I)]
-            (bindNT nPAs));
+      (INL nPCons,
+       seql [pnt nPApp; try (seql [tokeq ColonsT; pnt nPConsR] I)]
+            (bindNT nPCons));
+      (INL nPConsL,
+       seql [pnt nPAppL; try (seql [tokeq ColonsT; pnt nPConsL] I)]
+            (bindNT nPConsL));
+      (INL nPConsR,
+       seql [pnt nPAppR; try (seql [tokeq ColonsT; pnt nPConsR] I)]
+            (bindNT nPConsR));
       (* -- Pat3 ----------------------------------------------------------- *)
       (INL nPProd,
-       seql [pnt nPAs; rpt (seql [tokeq CommaT; pnt nPAs] I) FLAT]
+       seql [pnt nPCons; rpt (seql [tokeq CommaT; pnt nPConsR] I) FLAT]
             (bindNT nPProd));
+      (INL nPProdL,
+       seql [pnt nPConsL; rpt (seql [tokeq CommaT; pnt nPConsL] I) FLAT]
+            (bindNT nPProdL));
+      (INL nPProdR,
+       seql [pnt nPConsR; rpt (seql [tokeq CommaT; pnt nPConsR] I) FLAT]
+            (bindNT nPProdR));
       (* -- Pat2 ----------------------------------------------------------- *)
       (INL nPOr,
-       peg_linfix (INL nPOr) (pnt nPProd) (tokeq BarT));
+       peg_linfix' (INL nPOr) (pnt nPProd) (pnt nPProdR) (tokeq BarT));
+      (INL nPOrL,
+       peg_linfix (INL nPOrL) (pnt nPProdL) (tokeq BarT));
+      (INL nPOrR,
+       peg_linfix (INL nPOrR) (pnt nPProdR) (tokeq BarT));
       (* -- Pat1 ----------------------------------------------------------- *)
+      (INL nPAs,
+       seql [pnt nPOr; rpt (seql [tokeq AsT; pnt nIdent] I) FLAT]
+            (bindNT nPAs));
+      (INL nPAsL,
+       seql [pnt nPOrL; tokeq AsT; pnt nIdent;
+             rpt (seql [tokeq AsT; pnt nIdent] I) FLAT]
+            (bindNT nPAsL));
+      (INL nPAsR,
+       seql [pnt nPOrR; rpt (seql [tokeq AsT; pnt nIdent] I) FLAT]
+            (bindNT nPAsR));
       (INL nPattern,
-       pegf (pnt nPOr) (bindNT nPattern));
+       pegf (pnt nPAs) (bindNT nPattern));
+      (INL nPatternL,
+       pegf (pnt nPAsL) (bindNT nPatternL));
+      (INL nPatternR,
+       pegf (pnt nPAsR) (bindNT nPatternR));
       (INL nPatterns,
        seql [pnt nPattern; try (pnt nPatterns)]
             (bindNT nPatterns));
@@ -959,8 +1040,8 @@ fun pegnt(t,acc) = let
               simp pegnt_case_ths
               \\ simp [camlpeg_rules_applied]
               \\ simp [FDOM_camlPEG, pegf_def, seql_def, choicel_def,
-                       tokPragma_def,
-                       peg_linfix_def, tokeq_def, try_def, pegf_def]
+                       tokPragma_def, peg_linfix_def, peg_linfix'_def,
+                       tokeq_def, try_def, pegf_def]
               \\ simp (peg0_rwts @ acc))
   val nm = "peg0_" ^ term_to_string t
   val th' = save_thm(nm, SIMP_RULE bool_ss [pnt_def] th)
@@ -977,15 +1058,18 @@ val npeg0_rwts =
         “nModuleName”, “nValuePath”, “nConstr”, “nTypeConstr”, “nModulePath”,
         “nLiteral”, “nIdent”, “nEList”, “nEConstr”, “nEBase”, “nEPrefix”,
         “nELazy”, “nEAssert”, “nEFunapp”, “nEApp”, “nLetBinding”, “nPAny”,
-        “nPList”, “nPBase”, “nPLazy”, “nPConstr”, “nPApp”, “nPCons”, “nPAs”,
-        “nPProd”, “nPOr”, “nPattern”, “nPatterns”, “nLetBindings”,
-        “nLetRecBinding”, “nLetRecBindings”, “nPatternMatches”, “nPatternMatch”,
-        “nEMatch”, “nETry”, “nEFun”, “nEFunction”, “nELet”, “nELetRec”,
-        “nEWhile”, “nEFor”, “nEUnclosed”, “nENeg”, “nEShift”, “nEMult”, “nEAdd”,
-        “nECons”, “nECat”, “nERel”, “nEAnd”, “nEOr”, “nEHolInfix”, “nEProd”,
-        “nEAssign”, “nEIf”, “nESeq”, “nExpr”, “nTypeDefinition”, “nTypeDef”,
-        “nTypeDefs”, “nTVar”, “nTBase”, “nTConstr”, “nTProd”, “nTFun”, “nType”,
-        “nTypeList”, “nTypeLists”, “nTypeParams”, “nConstrDecl”, “nTypeReprs”,
+        “nPListL”, “nPBaseL”, “nPConstrL”, “nPAppL”, “nPConsL”, “nPProdL”,
+        “nPOrL”, “nPAsL”, “nPatternL”, “nPListR”, “nPBaseR”, “nPConstrR”,
+        “nPAppR”, “nPConsR”, “nPProdR”, “nPOrR”, “nPAsR”, “nPatternR”, “nPList”,
+        “nPBase”, “nPConstr”, “nPApp”, “nPCons”, “nPProd”, “nPOr”, “nPAs”,
+        “nPattern”, “nPatterns”, “nLetBindings”, “nLetRecBinding”,
+        “nLetRecBindings”, “nPatternMatches”, “nPatternMatch”, “nEMatch”,
+        “nETry”, “nEFun”, “nEFunction”, “nELet”, “nELetRec”, “nEWhile”, “nEFor”,
+        “nEUnclosed”, “nENeg”, “nEShift”, “nEMult”, “nEAdd”, “nECons”, “nECat”,
+        “nERel”, “nEAnd”, “nEOr”, “nEHolInfix”, “nEProd”, “nEAssign”, “nEIf”,
+        “nESeq”, “nExpr”, “nTypeDefinition”, “nTypeDef”, “nTypeDefs”, “nTVar”,
+        “nTBase”, “nTConstr”, “nTProd”, “nTFun”, “nType”, “nTypeList”,
+        “nTypeLists”, “nTypeParams”, “nConstrDecl”, “nTypeReprs”,
         “nTypeRepr”, “nTypeInfo”, “nConstrArgs”, “nExcDefinition”, “nTopLet”,
         “nTopLetRec”, “nOpen”, “nSemis”, “nExprItem”, “nExprItems”,
         “nModuleDef”, “nModTypeName”, “nModTypePath”, “nSigSpec”, “nExcType”,
@@ -1003,7 +1087,7 @@ fun wfnt(t,acc) = let
                     wfpeg_pnt, FDOM_camlPEG, try_def,
                     choicel_def, seql_def, tokIdP_def, identMixed_def,
                     identLower_def, tokPragma_def,
-                    tokeq_def, peg_linfix_def] THEN
+                    tokeq_def, peg_linfix_def, peg_linfix'_def] THEN
           simp(wfpeg_rwts @ npeg0_rwts @ peg0_rwts @ acc))
 in
   th::acc
@@ -1011,13 +1095,16 @@ end;
 
 val topo_nts =
       [ “nShiftOp”, “nMultOp”, “nAddOp”, “nRelOp”, “nAndOp”, “nOrOp”,
-        “nHolInfixOp”, “nCatOp”, “nPrefixOp”, “nAssignOp”,
-        “nValueName”, “nOperatorName”, “nConstrName”, “nTypeConstrName”,
-        “nModuleName”, “nModulePath”, “nValuePath”, “nConstr”, “nTypeConstr”,
-        “nLiteral”, “nIdent”, “nEList”, “nEConstr”, “nEBase”, “nEPrefix”,
-        “nELazy”, “nEAssert”, “nEFunapp”, “nEApp”, “nPAny”, “nPList”, “nPBase”,
-        “nPLazy”, “nPConstr”, “nPApp”, “nPCons”, “nPAs”, “nPProd”, “nPOr”,
-        “nPattern”, “nPatterns”, “nLetBinding”, “nLetBindings”, “nLetRecBinding”,
+        “nHolInfixOp”, “nCatOp”, “nPrefixOp”, “nAssignOp”, “nValueName”,
+        “nOperatorName”, “nConstrName”, “nTypeConstrName”, “nModuleName”,
+        “nModulePath”, “nValuePath”, “nConstr”, “nTypeConstr”, “nLiteral”,
+        “nIdent”, “nEList”, “nEConstr”, “nEBase”, “nEPrefix”, “nELazy”,
+        “nEAssert”, “nEFunapp”, “nEApp”, “nPAny”, “nPListL”, “nPBaseL”,
+        “nPConstrL”, “nPAppL”, “nPConsL”, “nPProdL”, “nPOrL”, “nPAsL”,
+        “nPatternL”, “nPListR”, “nPBaseR”, “nPConstrR”, “nPAppR”, “nPConsR”,
+        “nPProdR”, “nPOrR”, “nPAsR”, “nPatternR”, “nPList”, “nPBase”,
+        “nPConstr”, “nPApp”, “nPCons”, “nPProd”, “nPOr”, “nPAs”, “nPattern”,
+        “nPatterns”, “nLetBinding”, “nLetBindings”, “nLetRecBinding”,
         “nLetRecBindings”, “nPatternMatches”, “nPatternMatch”, “nEMatch”,
         “nETry”, “nEFun”, “nEFunction”, “nELet”, “nELetRec”, “nEWhile”, “nEFor”,
         “nEUnclosed”, “nENeg”, “nEShift”, “nEMult”, “nEAdd”, “nECons”, “nECat”,
@@ -1055,7 +1142,7 @@ Proof
   simp [pegTheory.wfG_def, pegTheory.Gexprs_def, pegTheory.subexprs_def,
         subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
         choicel_def, seql_def, pegf_def, tokeq_def, try_def, tokPragma_def,
-        peg_linfix_def, tokSymP_def, tokIdP_def]
+        peg_linfix_def, peg_linfix'_def, tokSymP_def, tokIdP_def]
   \\ simp (cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
 QED
 

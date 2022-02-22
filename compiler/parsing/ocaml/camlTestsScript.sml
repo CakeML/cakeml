@@ -294,64 +294,109 @@ val _ = tytest0 "('a,'b) d"
  * Patterns
  * ------------------------------------------------------------------------- *)
 
-val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
-  "Cc a as i, Dd b as j"
-  (SOME “[Pcon NONE [Pas (Pc "Cc" [Pv "a"]) "i";
-                     Pas (Pc "Dd" [Pv "b"]) "j"]]”)
+(* Pat' needs to go before constructor application and parentheses *)
+
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "Cc a as i, Dd b as j" (* = ((Cc a as i), Dd b) as j *)
+  (SOME “[Pas (Pcon NONE [Pas (Pc "Cc" [Pv "a"]) "i"; Pc "Dd" [Pv "b"]]) "j"]”)
   ;
 
+(* FIXME *)
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "(x) as i :: j" (* = (x as i) :: j *)
+  (SOME “[Pc "::" [Pas (Pv "x") "i"; Pv "j"]]”)
+  ;
 
-val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+(* , is below :: in prec. but we can raise it by wrapping it with 'as i' *)
+
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "x,y as i :: j"
+  (SOME “[Pc "::" [Pas (Pcon NONE [Pv "x"; Pv "y"]) "i"; Pv "j"]]”)
+  ;
+
+(* can nest 'as' arbitrarily deep (though its a pretty useless feature) *)
+
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "x as i as j as k :: j"
+  (SOME “[Pc "::" [Pas (Pas (Pas (Pv "x") "i") "j") "k"; Pv "j"]]”)
+  ;
+
+(* as needs to bind anything to its left *)
+
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "x as i :: y as j"
+  (SOME “[Pas (Pc "::" [Pas (Pv "x") "i"; Pv "y"]) "j"]”)
+  ;
+
+(* FIXME *)
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "x as i :: y as j :: z as k"
+  (SOME “[Pas (Pc "::" [
+                 Pas (Pc "::" [Pas (Pv "x") "i"; Pv "y"]) "j"; Pv "z"])
+              "k"]”)
+  ;
+
+(* FIXME *)
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "x,y as i :: y as j :: z as k"
+  (SOME “[Pas (Pc "::" [
+                 Pas (Pc "::" [Pas (Pcon NONE [Pv "x"; Pv "y"]) "i";
+                               Pv "y"]) "j";
+                 Pv "z"]) "k"]”)
+  ;
+
+val _ = parsetest0 “nPattern” “ptree_Pattern”
   "a, b | c, d"
   (SOME “[Pcon NONE [Pv "a"; Pv "b"];
           Pcon NONE [Pv "c"; Pv "d"]]”)
   ;
 
-val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+(* FIXME Must aliases be removed from nPattern? *)
+val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Comb (a,b) as c, d"
   (SOME “[Pcon NONE [Pas (Pc "Comb" [Pv "a"; Pv "b"]) "c"; Pv "d"]]”)
 
-val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+val _ = parsetest0 “nPattern” “ptree_Pattern”
   "false::[]"
   (SOME “[Pc "::" [Pc "False" []; Pc "[]" []]]”)
   ;
 
-val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+val _ = parsetest0 “nPattern” “ptree_Pattern”
   "x as y"
   (SOME “[Pas (Pvar "x") "y"]”)
   ;
 
-val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+val _ = parsetest0 “nPattern” “ptree_Pattern”
   "x | y"
   (SOME “[Pvar "x"; Pvar "y"]”)
   ;
 
-val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Some x | y"
   (SOME “[Pc "Some" [Pvar "x"]; Pvar "y"]”)
   ;
 
-val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+val _ = parsetest0 “nPattern” “ptree_Pattern”
   "y,z,x"
   (SOME “[Pcon NONE [Pvar "y"; Pvar "z"; Pvar "x"]]”)
   ;
 
-val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+val _ = parsetest0 “nPattern” “ptree_Pattern”
   "(x: int)"
   (SOME “[Ptannot (Pvar "x") (Atapp [] (Short "int"))]”)
   ;
 
-val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Aa (Bb (Cc x))"
   (SOME “[Pc "Aa" [Pc "Bb" [Pc "Cc" [Pvar "x"]]]]”)
   ;
 
-val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+val _ = parsetest0 “nPattern” “ptree_Pattern”
   "a :: 1"
   (SOME “[Pc "::" [Pvar "a"; Plit (IntLit 1)]]”)
   ;
 
-val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+val _ = parsetest0 “nPattern” “ptree_Pattern”
   "[a,b ; c]"
   (SOME “[Pc "::" [Pcon NONE [Pvar "a"; Pvar "b"];
                    Pc "::" [Pvar "c"; Pc "[]" []]]]”)
@@ -1219,12 +1264,7 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
                      C "Append" [V "w"; V "t"]]”)
   ;
 
-(* TODO
- *   It's not necessary, but it would be nice if we can turn
- *   e.g. Comb _ into Comb _ _.
- *)
-
-val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Var _, Comb _"
   (SOME “[Pcon NONE [Pc "Var" [Pany; Pany]; Pc "Comb" [Pany; Pany]]]”)
   ;
