@@ -18,37 +18,40 @@ Definition FLIP_ALIST_def:
   FLIP_ALIST ((x, y)::t) = (y,x):: FLIP_ALIST t
 End
 
-Definition key_len_def:
-  key_len []      sm tab :num = 0 ∧
-  key_len (s::ss) sm tab :num =
+Definition find_match_def:
+  find_match []         tab         = ([],[]) ∧
+  find_match s          []          = ([],[]) ∧
+  find_match (s:string) ((k,v)::ts) =
   let
-    match = sm ++ [s];
-    t = EXISTS (λ(x,_). IS_PREFIX x match) tab;
+    prefix = IS_PREFIX s k;
   in
-    if t then (1 + key_len ss match tab) else 0
+    if prefix then (k,v) else find_match s ts
 End
-
-EVAL “key_len "hhhej" "" [("hhh", "f")]”;
 
 Definition tab_sub_def:
   tab_sub [] tab = [] ∧
   tab_sub (s: string) tab =
-  let len = key_len s "" tab in
-    if len = 0 then (TAKE 1 s) ++ (tab_sub (DROP 1 s) tab) else
-      let
-        str = TAKE len s;
-        v = ALOOKUP tab str;
-        out = (case v of
-                SOME x => x
-              | NONE => str);
-      in
-        out ++ (tab_sub (DROP len s) tab)
+  let
+    (match, value) = find_match s tab;
+  in
+    if LENGTH match <= 0
+    then
+      [". Compression failed."]
+    else
+      value :: (tab_sub (DROP (LENGTH match) s) tab)
 Termination
   WF_REL_TAC ‘measure $ λ(s, _). LENGTH s’
-  \\rw[]
+  \\ rw[find_match_def, NOT_LESS, NOT_LESS_EQUAL]
+  \\ rename1 ‘STRING h t’
+  \\ Cases_on ‘t’
+  \\ Cases_on ‘match’
+  \\ Cases_on ‘value’
+  \\ Cases_on ‘tab’
+  \\ rw[find_match_def]
+  \\ metis_tac[find_match_def]
 End
 
-EVAL “tab_sub "hhhhej" [("hhh", "f")]”;
+EVAL “tab_sub "Ahhhhej" [("hhh", "f")]”;
 
 
 (********************************************)
@@ -136,7 +139,7 @@ End
 
 (* WARNING TAKES LONG TIME  *)
 EVAL “compression "Lorem ipsum dolor sit amet, consectetur adipiscing elit."”;
-EVAL “expansion "Compressed: 000110000000101000000100000000011000000010000000001000000000000"”;
+EVAL “expansion "Compressed: 000110011000101110000101001000100100000011111000011010000010101000010000000001011000000110000000001100011111"”;
 EVAL “let s = "Duis quis quam dolor. Quisque elementum fermentum nunc. Nunc placerat, elit id consectetur sodales, metus urna consequat urna, quis auctor nunc massa " in expansion $ compression s = s”
 
 
