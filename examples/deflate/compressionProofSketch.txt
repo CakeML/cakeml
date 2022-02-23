@@ -1,0 +1,74 @@
+To prove:
+
+dictionary:
+
+[0] the dictionary has all base characters
+
+[1] the ditionary has a match/prefix all strings
+ -  needs: [0]
+
+[2] all strings can be formulated as a list of keys from the dictionary
+ -  needs: [1]
+
+[3] no code is a prefix to another
+
+[4] keys are sorted by descending length to avoid clashes i.e. "anan" will always be chosen before "an"
+ 
+
+tab_sub:
+[5] given a list of keys corresponding to a dictionary, there exists only one resulting list of codes 
+ - 	needs: [2, 3, 4] 
+
+
+compresssion:
+ - 	needs: [5]
+
+expansion:
+ - 	needs: [5]
+ 
+ 
+compression_proof:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

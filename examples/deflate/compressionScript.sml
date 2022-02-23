@@ -47,7 +47,7 @@ EVAL “tab_sub "Ahhhhej" [("hhh", "f"); ("A", "sjsj"); ("hej", "jeh")]”;
 (********************************************)
 
 Definition base_keys_def:
-  base_keys = GENLIST (λ x. n2s x) 128
+  base_keys = GENLIST (λ x. n2s x) 256
 End
 
 Definition extract_fixed_substrings_def:
@@ -77,7 +77,7 @@ Definition gen_fix_codes:
 End
 EVAL “gen_fix_codes 34”;
 
-Definition create_dict_def:
+Definition create_fixed_dict_def:
   create_fixed_dict s =
   let
     keys = mergesort (λ x y. LENGTH x > LENGTH y) $ extract_keys s
@@ -86,7 +86,7 @@ Definition create_dict_def:
 End
 EVAL “create_fixed_dict "asdfg"”;
 
-Definition lorem_dict:
+Definition lorem_dict_def:
   lorem_dict = create_fixed_dict "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
 End
 (*EVAL “lorem_dict”;*)
