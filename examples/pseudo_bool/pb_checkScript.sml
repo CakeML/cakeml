@@ -104,10 +104,10 @@ End
   The result is either:
   Unsat num    : unsatisfiability proved, continue with next ID
   Fail         : proof step failed (more errors can be added in imperative part)
-  Cont pbf num : continue with pbf and next ID (input formula is sat equiv to the pbv)
+  Cont 'a num : continue with state 'a and next ID (input formula is sat equiv to the pbv)
 *)
 Datatype:
-  pbpres = Unsat num | Fail | Cont pbf num
+  pbpres = Unsat num | Fail | Cont 'a num
 End
 
 Definition subst_fun_def:
