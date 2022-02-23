@@ -705,6 +705,32 @@ Proof
       \\ fs[] \\metis_tac[TAKE_LENGTH_ID]
 QED
 
+Triviality SEP_EXISTS_cond:
+  (SEP_EXISTS h. h * & b) s ⇔ b
+Proof
+  Cases_on ‘b’ \\ fs [set_sepTheory.SEP_CLAUSES,SEP_F_def]
+  \\ fs [SEP_EXISTS_THM] \\ qexists_tac ‘K T’ \\ fs []
+QED
+
+Triviality IMP_app:
+  f = Closure v1 env (Fun v2 x) ∧
+  app p (Closure (v1 with v := nsBind env x1 v1.v) v2 x) (x2::xs) H Q ⇒
+  app p f (x1::x2::xs) H Q
+Proof
+  simp [app_def]
+  \\ rw [app_basic_def]
+  \\ fs [semanticPrimitivesTheory.do_opapp_def,cfDivTheory.POSTv_eq,PULL_EXISTS]
+  \\ ‘SPLIT3 (st2heap p st) (h_i,h_k,{})’ by fs [SPLIT_def,SPLIT3_def]
+  \\ first_x_assum $ irule_at Any
+  \\ rw [evaluate_to_heap_def,evaluate_ck_def,evaluateTheory.evaluate_def,PULL_EXISTS]
+  \\ fs [cfStoreTheory.st2heap_def,SEP_EXISTS_THM,cond_STAR]
+  \\ first_x_assum $ irule_at Any \\ fs []
+QED
+
+val eval_nsLookup_tac =
+  rewrite_tac [ml_progTheory.nsLookup_merge_env]
+  \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+
 Theorem array_lookup_spec:
   NUM n nv ⇒
   app (p : 'ffi ffi_proj)
@@ -715,16 +741,42 @@ Theorem array_lookup_spec:
       ARRAY arrv arrlsv *
       &(v = any_el n arrlsv defaultv))
 Proof
-  cheat (* Array_lookup_v_def *)
+  (* this can unfortunately not be proved using CF since CF rules for
+     Asub don't allow reasoning about out of bounds indexing *)
+  rw [] \\ rpt (irule_at Any IMP_app) \\ fs []
+  \\ fs [app_def,app_basic_def,cfDivTheory.POSTv_eq,PULL_EXISTS,SEP_EXISTS_THM]
+  \\ fs [Array_lookup_v_def]
+  \\ rw [semanticPrimitivesTheory.do_opapp_def,cond_STAR]
+  \\ first_assum $ irule_at Any \\ fs []
+  \\ ‘SPLIT3 (st2heap p st) (h_i,h_k,{})’ by fs [SPLIT_def,SPLIT3_def]
+  \\ first_assum $ irule_at Any \\ fs []
+  \\ rw [evaluate_to_heap_def,evaluate_ck_def]
+  \\ qexists_tac ‘100’
+  \\ fs [evaluateTheory.evaluate_def]
+  \\ eval_nsLookup_tac \\ fs [evaluateTheory.dec_clock_def]
+  \\ rw [semanticPrimitivesTheory.do_opapp_def,Array_sub_v_def]
+  \\ fs [evaluateTheory.evaluate_def]
+  \\ rw [semanticPrimitivesTheory.do_app_def]
+  \\ gvs [ARRAY_def,SEP_EXISTS_THM,cond_STAR,NUM_def,INT_def]
+  \\ gvs [cell_def,one_def,EVAL “pat_bindings Pany []”]
+  \\ ‘store_lookup loc st.refs = SOME (Varray arrlsv)’ by
+   (fs [semanticPrimitivesTheory.store_lookup_def]
+    \\ ‘Mem loc (Varray arrlsv) IN st2heap p st’ by
+         (fs [SPLIT_def,EXTENSION] \\ metis_tac [])
+    \\ fs [cfStoreTheory.st2heap_def]
+    \\ imp_res_tac cfStoreTheory.store2heap_IN_LENGTH \\ fs []
+    \\ imp_res_tac cfStoreTheory.store2heap_IN_EL \\ fs []
+    \\ fs [cfStoreTheory.Mem_NOT_IN_ffi2heap])
+  \\ fs [GREATER_EQ]
+  \\ Cases_on ‘n < LENGTH arrlsv’ \\ fs [any_el_ALT]
+  >- fs [cfStoreTheory.st2heap_def]
+  \\ fs [semanticPrimitivesTheory.can_pmatch_all_def]
+  \\ fs [semanticPrimitivesTheory.pmatch_def]
+  \\ eval_nsLookup_tac \\ fs [evaluateTheory.dec_clock_def]
+  \\ fs [EVAL “nsLookup_Short nsEmpty n”]
+  \\ eval_nsLookup_tac \\ fs [evaluateTheory.dec_clock_def]
+  \\ fs [cfStoreTheory.st2heap_def]
 QED
-
-Definition resize_update_list_def:
-  resize_update_list ls default v n =
-    if n < LENGTH ls then
-      LUPDATE v n ls
-    else
-      LUPDATE v n (ls ++ REPLICATE (n * 2 + 1 - LENGTH ls) default)
-End
 
 Theorem array_updateResize_spec:
   NUM n nv ⇒
@@ -732,7 +784,7 @@ Theorem array_updateResize_spec:
     Array_updateResize_v
     [arrv; defaultv; nv; xv]
     (ARRAY arrv arrlsv)
-    (POSTv v. ARRAY v (resize_update_list arrlsv defaultv xv n))
+    (POSTv v. ARRAY v (update_resize arrlsv defaultv xv n))
 Proof
   cheat (* Array_updateResize_v_def *)
 QED

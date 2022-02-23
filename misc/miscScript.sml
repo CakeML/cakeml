@@ -566,10 +566,18 @@ Proof
   \\ metis_tac[]
 QED
 
-(* should be composition of oEL and as-yet-undefined "THEdflt" *)
+(* should be composition of oEL and as-yet-undefined "THE default" *)
 val any_el_def = Define `
   (any_el n [] d = d) /\
   (any_el n (x::xs) d = if n = 0 then x else any_el (n-1:num) xs d)`
+
+Definition update_resize_def:
+  update_resize ls default v n =
+    if n < LENGTH ls then
+      LUPDATE v n ls
+    else
+      LUPDATE v n (ls ++ REPLICATE (n * 2 + 1 - LENGTH ls) default)
+End
 
 val list_max_def = Define `
   (list_max [] = 0:num) /\

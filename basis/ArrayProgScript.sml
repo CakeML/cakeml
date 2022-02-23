@@ -378,11 +378,11 @@ val array_collate = process_topdecs
 val _ = append_prog array_collate;
 
 val _ = (append_prog o process_topdecs) `
-  fun lookup arr default n =
+  val lookup = fn arr => fn default => fn n =>
     sub arr n handle _ => default`
 
 val _ = (append_prog o process_topdecs) `
-  fun updateResize arr default n v =
+  val updateResize = fn arr => fn default => fn n => fn v =>
     (update arr n v; arr) handle _ =>
     let
       val arr' = array (2*n+1) default
