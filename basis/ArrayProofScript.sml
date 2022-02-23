@@ -705,4 +705,36 @@ Proof
       \\ fs[] \\metis_tac[TAKE_LENGTH_ID]
 QED
 
+Theorem array_lookup_spec:
+  NUM n nv ⇒
+  app (p : 'ffi ffi_proj)
+    Array_lookup_v
+    [arrv; defaultv; nv]
+    (ARRAY arrv arrlsv)
+    (POSTv v.
+      ARRAY arrv arrlsv *
+      &(v = any_el n arrlsv defaultv))
+Proof
+  cheat (* Array_lookup_v_def *)
+QED
+
+Definition resize_update_list_def:
+  resize_update_list ls default v n =
+    if n < LENGTH ls then
+      LUPDATE v n ls
+    else
+      LUPDATE v n (ls ++ REPLICATE (n * 2 + 1 - LENGTH ls) default)
+End
+
+Theorem array_updateResize_spec:
+  NUM n nv ⇒
+  app (p : 'ffi ffi_proj)
+    Array_updateResize_v
+    [arrv; defaultv; nv; xv]
+    (ARRAY arrv arrlsv)
+    (POSTv v. ARRAY v (resize_update_list arrlsv defaultv xv n))
+Proof
+  cheat (* Array_updateResize_v_def *)
+QED
+
 val _ = export_theory();
