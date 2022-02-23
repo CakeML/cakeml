@@ -218,6 +218,12 @@ end
 
 val result = translate collate_def;
 
+Theorem ZIP_ind:
+  ∀P. (∀v. (∀x4 x3 x2 x1. v = (x4::x3,x2::x1) ⇒ P (x3,x1)) ⇒ P v) ⇒ ∀v. P v
+Proof
+  simp [FORALL_PROD] \\ ntac 2 strip_tac \\ Induct \\ rw []
+QED
+
 val result = translate ZIP_def;
 
 val result = translate MEMBER_def;
@@ -251,8 +257,23 @@ val nth_side_def = Q.prove(
   THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
   |> update_precondition;
 
+Theorem LUPDATE_ind:
+  ∀P. (∀e n. P e n []) ∧ (∀e n x xs. (∀e n. P e n xs) ⇒ P e n (x::xs)) ⇒ ∀e n xs. P e n xs
+Proof
+  ntac 2 strip_tac \\ Induct_on ‘xs’ \\ fs []
+QED
+
+Theorem LUPDATE_eq:
+  LUPDATE e n xs =
+    case xs of
+    | [] => []
+    | y::ys => if n = 0 then e :: ys else y :: LUPDATE e (n-1) ys
+Proof
+  Cases_on ‘xs’ \\ fs [LUPDATE_DEF,PRE_SUB1]
+QED
+
 val _ = next_ml_names := ["update"];
-val result = translate LUPDATE_def;
+val result = translate LUPDATE_eq;
 
 val _ = (next_ml_names := ["compare"]);
 val _ = translate mllistTheory.list_compare_def;
