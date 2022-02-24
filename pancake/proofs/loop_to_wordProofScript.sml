@@ -263,6 +263,7 @@ Proof
   >> ‘2 * k + 2 = (SUC k) * 2’ by fs []
   >> asm_rewrite_tac [MATCH_MP MULT_DIV (DECIDE “0 < 2:num”)]
   >> fs [lookup_fromList]
+  >> rewrite_tac [GSYM ADD1,EL,TL]
 QED
 
 Theorem domain_mk_new_cutset_not_empty:
