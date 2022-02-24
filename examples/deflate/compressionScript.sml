@@ -104,6 +104,21 @@ Definition FLIP_ALIST_def:
   FLIP_ALIST ((x, y)::t) = (y,x):: FLIP_ALIST t
 End
 
+Theorem FLIP_ALIST_inv:
+  ∀x y l. FLIP_ALIST (FLIP_ALIST ((x,y)::l)) = ((x,y)::l)
+Proof
+  rpt strip_tac
+  \\ Induct_on ‘(x,y)’
+  \\ rpt strip_tac
+  \\ gvs[FLIP_ALIST_def]
+  \\ Induct_on ‘l’
+  \\ gvs[FLIP_ALIST_def]
+  \\ strip_tac
+  \\ Cases_on ‘h’
+  \\ gvs[FLIP_ALIST_def]
+QED
+
+
 Definition decompress_def:
   decompress (s:string) = tab_sub s (FLIP_ALIST lorem_dict)
 End
