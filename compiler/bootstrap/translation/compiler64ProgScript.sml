@@ -338,25 +338,37 @@ val _ = (append_prog o process_topdecs) `
         handle e => Eval_exn e (s2,next_gen+1) `
 
 val exn_msg_dec = process_topdecs ‘
-  val _ = TextIO.print "ERROR: top-level exception\n"’
+  val _ = (TextIO.print (!Repl.errorMessage);
+           print_pp (pp_exn (!Repl.exn));
+           print "\n")’
 
-Definition report_exn_def:
-  report_exn e = ^exn_msg_dec
+Definition report_exn_dec_def:
+  report_exn_dec = ^exn_msg_dec
 End
 
-val _ = (next_ml_names := ["report_exn"]);
-val r = translate report_exn_def;
+val _ = (next_ml_names := ["report_exn_dec"]);
+val r = translate report_exn_dec_def;
 
-Definition report_error_def:
-  report_error msg =
-    [Dlet (Locs UNKNOWNpt UNKNOWNpt) Pany
-       (App Opapp
-          [Var (Long "TextIO" (Short "print"));
-           Lit (StrLit (explode msg))])]
+val _ = (append_prog o process_topdecs) `
+  fun report_exn e =
+    (Repl.exn := e;
+     Repl.errorMessage := "EXCEPTION: ";
+     report_exn_dec)`
+
+val error_msg_dec = process_topdecs ‘
+  val _ = (TextIO.print (!Repl.errorMessage))’
+
+Definition report_error_dec_def:
+  report_error_dec = ^error_msg_dec
 End
 
-val _ = (next_ml_names := ["report_error"]);
-val r = translate report_error_def;
+val _ = (next_ml_names := ["report_error_dec"]);
+val r = translate report_error_dec_def;
+
+val _ = (append_prog o process_topdecs) `
+  fun report_error msg =
+    (Repl.errorMessage := msg;
+     report_error_dec)`
 
 val _ = (next_ml_names := ["roll_back"]);
 val r = translate repl_check_and_tweakTheory.roll_back_def;
