@@ -224,7 +224,17 @@ Proof
   simp [FORALL_PROD] \\ ntac 2 strip_tac \\ Induct \\ rw []
 QED
 
-val result = translate ZIP_def;
+Theorem ZIP_eq:
+  ZIP x =
+    case x of
+    | (x::xs,y::ys) => (x,y) :: ZIP (xs,ys)
+    | _ => []
+Proof
+  PairCases_on ‘x’ \\ fs [ZIP_def]
+  \\ Cases_on ‘x0’ \\ Cases_on ‘x1’ \\ fs [ZIP_def]
+QED
+
+val result = translate ZIP_eq;
 
 val result = translate MEMBER_def;
 
