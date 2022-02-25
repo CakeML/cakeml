@@ -5,7 +5,7 @@ First simple compressor
 open preamble;
 open stringLib stringTheory string_numTheory ASCIInumbersTheory;
 open rich_listTheory alistTheory listTheory;
-open mergesortTheory;
+open sortingTheory;
 val _ = new_theory "compression";
 
 
@@ -59,7 +59,6 @@ Proof
   strip_tac
   \\ rw[base_keys_def]
   \\ Cases_on ‘h’
-  \\ rw[]
   \\ cheat
 QED
 
@@ -92,7 +91,7 @@ End
 Definition create_fixed_dict_def:
   create_fixed_dict s =
   let
-    keys = mergesort (λ x y. LENGTH y < LENGTH x) $ extract_keys s
+    keys = QSORT (λ x y. LENGTH y < LENGTH x) $ extract_keys s
   in
     ZIP (keys, gen_fix_codes $ LENGTH keys)
 End
@@ -189,7 +188,7 @@ Theorem compress_main_inv:
  ∀s. decompress_main (compress_main s) = s
 Proof
   strip_tac
-  \\ rw[decompression_main_def, compression_main_def]
+  \\ rw[decompress_main_def, compress_main_def]
   \\ cheat
 
 
