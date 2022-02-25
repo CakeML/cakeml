@@ -1,10 +1,15 @@
 To prove:
 
+alist:
+
+[] prove flip flip list = list
+
+
 dictionary:
 
 [0] the dictionary has all base characters
 
-[1] the ditionary has a match/prefix all strings
+[1] the dictionary has a match/prefix all strings
  -  needs: [0]
 
 [2] all strings can be formulated as a list of keys from the dictionary
@@ -20,14 +25,14 @@ tab_sub:
  - 	needs: [2, 3, 4] 
 
 
-compresssion:
+compress:
  - 	needs: [5]
 
-expansion:
+decompress:
  - 	needs: [5]
  
  
-compression_proof:
+compress_main:
 
 
 

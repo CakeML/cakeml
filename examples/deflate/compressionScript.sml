@@ -14,33 +14,27 @@ val _ = new_theory "compression";
 (********************************************)
 
 Definition find_match_def:
-  find_match []         tab         = ([],[]) ∧ (* Proof could be simpler if this line is removed. *)
   find_match s          []          = ([],[]) ∧
   find_match (s:string) ((k,v)::ts) =
-  let
-    prefix = IS_PREFIX s k;
-  in
-    if prefix then (k,v) else find_match s ts
+  if (IS_PREFIX s k)
+  then (k,v)
+  else find_match s ts
 End
 
 Definition tab_sub_def:
   tab_sub [] tab = [] ∧
   tab_sub (s: string) tab =
-  let
-    (match, value) = find_match s tab;
-  in
-    if LENGTH match <= 0
-    then
-      ". Compression failed."
-    else
-      value ++ (tab_sub (DROP (LENGTH match) s) tab)
+  case (find_match s tab) of
+  | ([],[]) => ""
+  | (match, value) => value ++ (tab_sub (DROP (LENGTH match) s) tab)
 Termination
   WF_REL_TAC ‘measure $ λ(s, _). LENGTH s’
-  \\ rpt (Cases_on ‘match’
-  \\ gvs[find_match_def])
-End
-EVAL “tab_sub "Ahhhhej" [("hhh", "f"); ("A", "sjsj"); ("hej", "jeh")]”;
+  \\ rpt strip_tac
+  \\ gvs[find_match_def]
+  \\ gvs[find_match_def]
 
+
+End
 
 (********************************************)
 (*          Generate dictionary             *)
@@ -50,6 +44,24 @@ Definition base_keys_def:
   base_keys = GENLIST (λ x. [CHR x]) 256
 End
 
+Theorem base_keys_not_empty:
+  base_keys ≠ []
+Proof
+  rw[base_keys_def]
+QED
+
+Theorem base_keys_length:
+  LENGTH base_keys = 256
+Proof
+  rw[base_keys_def, LENGTH]
+QED
+
+Theorem base_keys_contain:
+
+Proof
+
+QED
+
 Definition extract_fixed_substrings_def:
   extract_fixed_substrings [] n = [] ∧
   extract_fixed_substrings (x::xs) n =
@@ -57,18 +69,15 @@ Definition extract_fixed_substrings_def:
   then []
   else TAKE n (x::xs) :: extract_fixed_substrings xs n
 End
-EVAL “extract_fixed_substrings "asdefg" 2”;
 
 Definition extract_substrings_n:
   extract_substrings_n s n =
   nub $ FLAT $ GENLIST (λ l. if l < 2 then [] else  extract_fixed_substrings s l) n
 End
-EVAL “extract_substrings_n "abcdefghij" 4”;
 
 Definition extract_keys_def:
   extract_keys s = base_keys ++ extract_substrings_n s 6
 End
-EVAL “extract_keys "hejsan svejsan"”;
 
 Definition gen_fix_codes:
   gen_fix_codes n =
@@ -78,7 +87,6 @@ Definition gen_fix_codes:
   in
     GENLIST bit_transform n
 End
-EVAL “gen_fix_codes 34”;
 
 Definition create_fixed_dict_def:
   create_fixed_dict s =
@@ -87,16 +95,14 @@ Definition create_fixed_dict_def:
   in
     ZIP (keys, gen_fix_codes $ LENGTH keys)
 End
-EVAL “create_fixed_dict "asdfg"”;
 
 Definition lorem_dict_def:
   lorem_dict = create_fixed_dict "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
 End
-EVAL “lorem_dict”;
 
 
 (***************************************************)
-(*      Compression & Expansion functions          *)
+(*              FLIP_ALIST + THeorems              *)
 (***************************************************)
 
 Definition FLIP_ALIST_def:
@@ -104,19 +110,34 @@ Definition FLIP_ALIST_def:
   FLIP_ALIST ((x, y)::t) = (y,x):: FLIP_ALIST t
 End
 
-Theorem FLIP_ALIST_inv:
-  ∀x y l. FLIP_ALIST (FLIP_ALIST ((x,y)::l)) = ((x,y)::l)
+Theorem FLIP_ALIST_EMPTY: FLIP_ALIST [] = []
+Proof rw[FLIP_ALIST_def]
+QED
+
+Theorem FLIP_ALIST_o:
+  ∀x y l. FLIP_ALIST ((x,y)::l) = ((y,x):: FLIP_ALIST l)
 Proof
   rpt strip_tac
   \\ Induct_on ‘(x,y)’
   \\ rpt strip_tac
   \\ gvs[FLIP_ALIST_def]
+QED
+
+Theorem FLIP_ALIST_inv:
+  ∀x y l. FLIP_ALIST (FLIP_ALIST ((x,y)::l)) = ((x,y)::l)
+Proof
+  rpt strip_tac
+  \\ gvs[FLIP_ALIST_o, FLIP_ALIST_def]
   \\ Induct_on ‘l’
-  \\ gvs[FLIP_ALIST_def]
+  \\ gvs[FLIP_ALIST_o, FLIP_ALIST_def]
   \\ strip_tac
   \\ Cases_on ‘h’
-  \\ gvs[FLIP_ALIST_def]
+  \\ gvs[FLIP_ALIST_o]
 QED
+
+(***************************************************)
+(*      Compression & Expansion functions          *)
+(***************************************************)
 
 
 Definition decompress_def:
@@ -147,23 +168,16 @@ Definition decompress_main_def:
     else s
 End
 
-EVAL “compress_main "Lorem ipsum dolor sit amet, consectetur adipiscing elit."”;
-
-EVAL “decompress_main "Compressed: 000110011000101110000101001000100100000011111000011010000010101000010000000001011000000110000000001110100000"”;
-
 Theorem compress_inv:
   ∀s. decompress (compress s) = s
 Proof
   strip_tac
-  \\ gvs[decompress_def, compress_def, tab_sub_def, FLIP_ALIST_def]
-
-
-
-
-
-
-
-
+  \\ gvs[decompress_def, compress_def, tab_sub_def]
+  \\ Cases_on ‘s’
+  \\ gvs[decompress_def, compress_def, tab_sub_def]
+  \\ Cases_on ‘t’
+  \\ rw[decompress_def, compress_def, tab_sub_def, FLIP_ALIST_def]
+  \\cheat
 
 
 
