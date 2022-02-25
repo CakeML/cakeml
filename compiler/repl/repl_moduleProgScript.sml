@@ -22,21 +22,18 @@
   At runtine, users are allowed (encouraged?) to change these references.
 
   The Interrupt module contains:
-  - Interrupt.poll : unit -> unit
+  - Interrupt.check : unit -> unit
     -- This function checks whether an INT signal has been trapped by the
        runtime, and raises the Interrupt exception (defined outside of this
        module) if that has happened. Users are responsible of calling
        Interrupt.poll at the start of functions that might loop forever, or
        the interrupt will not be detected.
-
-       The FFI call is performed with a frequency controlled by another
-       reference:
+  - Interrupt.poll : unit -> unit
+    -- Same as above, but here the checks are performed with a
+       frequency controlled by another reference:
   - Interrupt.freq : int ref
     -- Default value is 1000, meaning that the FFI call occurs after 1000 steps.
        All values below 1 are treated as 1.
-
-
-  You can set and get
 
 *)
 open preamble
@@ -108,13 +105,13 @@ val _ = (append_prog o process_topdecs) ‘
 val _ = ml_prog_update open_local_in_block;
 
 val _ = (append_prog o process_topdecs) ‘
-  fun checkInterrupt () =
+  fun check () =
     let val _ = #(poll_sigint) "" sigint in
       if Word8Array.sub sigint 0 = Word8.fromInt 1 then
         raise Interrupt
       else ()
     end;
-  fun poll () = if inc () then checkInterrupt () else ();
+  fun poll () = if inc () then check () else ();
   ’;
 
 val _ = ml_prog_update close_local_blocks;

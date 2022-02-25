@@ -566,21 +566,45 @@ Proof
     \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
              namespaceTheory.nsOptBind_def]
     \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
-    \\ unabbrev_all_tac
-    \\ assume_tac compiler64prog_report_error_v_thm
-    \\ drule_all Arrow_IMP
-    \\ qmatch_goalsub_abbrev_tac ‘(st2, Rerr (Rabort Rtimeout_error))’
-    \\ disch_then (qspec_then ‘dec_clock st2’ strip_assume_tac) \\ fs []
-    \\ fs [] \\ IF_CASES_TAC \\ fs []
-    \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ gvs [dec_clock_def]
+    \\ simp [dec_clock_def,report_error_v_def,do_opapp_def,EVAL “find_recfun s [(s,y,x)]”]
+    \\ fs [] \\ IF_CASES_TAC >- fs []
+    \\ ntac 3 (simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+                     namespaceTheory.nsOptBind_def,build_rec_env_def])
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+    \\ simp [dec_clock_def,mlbasicsProgTheory.assign_v_def,do_opapp_def]
+    \\ fs [] \\ IF_CASES_TAC >- fs []
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def]
+    \\ fs [] \\ IF_CASES_TAC >- fs []
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def,do_app_def]
+    \\ simp [repl_moduleProgTheory.errorMessage_def]
+    \\ ‘repl_types T (ffi,repl_rs)
+          (SND types,st with <| eval_state := NONE ; refs := st.refs ++ junk |>,env1)’
+         by (drule_then irule repl_types_skip_alt \\ fs [])
+    \\ ‘MEM (Long "Repl" (Short "errorMessage"),Str,
+             the_Loc errorMessage_loc) repl_rs’ by simp [repl_rs_def]
+    \\ drule_then drule repl_types_str_assign
+    \\ simp [store_assign_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
+    \\ Cases_on ‘msg’ \\ gvs [STRING_TYPE_def]
+    \\ rename [‘(Refv (Litv (StrLit sss)))’]
+    \\ disch_then (qspec_then ‘sss’ mp_tac)
+    \\ impl_keep_tac
+    >-
+     (drule repl_types_thm \\ simp [EVERY_MEM]
+      \\ strip_tac \\ first_x_assum drule
+      \\ simp [ref_lookup_ok_def]
+      \\ simp [store_lookup_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
+      \\ strip_tac \\ fs [store_v_same_type_def])
+    \\ simp [] \\ strip_tac
     \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
              namespaceTheory.nsOptBind_def,evaluate_Lit]
     (* recursive call *)
-    \\ last_x_assum irule \\ gvs [Abbr‘st2’]
+    \\ last_x_assum irule \\ gvs []
     \\ conj_tac THEN1 rewrite_tac [GSYM repl_v_def]
+    \\ assume_tac compiler64prog_report_error_dec_v_thm
     \\ rpt (first_assum $ irule_at Any)
-    \\ rewrite_tac [GSYM APPEND_ASSOC]
-    \\ irule repl_types_clock_refs \\ fs [])
+    \\ drule_then irule repl_types_skip_alt \\ fs [])
   \\ rename [‘_ = INR xx’] \\ PairCases_on ‘xx’
   \\ rename [‘_ = INR (safe_decs,new_types)’]
   \\ simp [Once evaluate_def]
@@ -634,22 +658,44 @@ Proof
     \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
              namespaceTheory.nsOptBind_def]
     \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
-    \\ unabbrev_all_tac
-    \\ assume_tac compiler64prog_report_error_v_thm
-    \\ ‘STRING_TYPE (strlit msg) (Litv (StrLit msg))’ by fs [STRING_TYPE_def]
-    \\ drule_all Arrow_IMP
-    \\ qmatch_goalsub_abbrev_tac ‘(st2, Rerr (Rabort Rtimeout_error))’
-    \\ disch_then (qspec_then ‘dec_clock st2’ strip_assume_tac) \\ fs []
-    \\ fs [] \\ IF_CASES_TAC \\ fs []
-    \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ gvs [dec_clock_def]
+    \\ simp [dec_clock_def,report_error_v_def,do_opapp_def,EVAL “find_recfun s [(s,y,x)]”]
+    \\ fs [] \\ IF_CASES_TAC >- fs []
+    \\ ntac 3 (simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+                     namespaceTheory.nsOptBind_def,build_rec_env_def])
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+    \\ simp [dec_clock_def,mlbasicsProgTheory.assign_v_def,do_opapp_def]
+    \\ fs [] \\ IF_CASES_TAC >- fs []
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def]
+    \\ fs [] \\ IF_CASES_TAC >- fs []
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def,do_app_def]
+    \\ simp [repl_moduleProgTheory.errorMessage_def]
+    \\ ‘repl_types T (ffi,repl_rs)
+          (SND types,st6 with <| eval_state := NONE ; refs := st6.refs ++ junk' |>,env1)’
+         by (drule_then irule repl_types_skip_alt \\ fs [Abbr‘st6’]
+             \\ simp_tac std_ss [GSYM APPEND_ASSOC,rich_listTheory.IS_PREFIX_APPEND3])
+    \\ ‘MEM (Long "Repl" (Short "errorMessage"),Str,
+             the_Loc errorMessage_loc) repl_rs’ by simp [repl_rs_def]
+    \\ drule_then drule repl_types_str_assign
+    \\ simp [store_assign_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
+    \\ disch_then (qspec_then ‘msg’ mp_tac)
+    \\ impl_keep_tac
+    >-
+     (drule repl_types_thm \\ simp [EVERY_MEM]
+      \\ strip_tac \\ pop_assum kall_tac \\ pop_assum drule
+      \\ simp [ref_lookup_ok_def] \\ unabbrev_all_tac \\ fs []
+      \\ simp [store_lookup_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
+      \\ strip_tac \\ fs [store_v_same_type_def])
+    \\ simp [] \\ strip_tac
     \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
              namespaceTheory.nsOptBind_def,evaluate_Lit]
     (* recursive call *)
-    \\ last_x_assum irule \\ gvs [Abbr‘st2’]
+    \\ last_x_assum irule \\ unabbrev_all_tac \\ gvs []
     \\ conj_tac THEN1 rewrite_tac [GSYM repl_v_def]
+    \\ assume_tac compiler64prog_report_error_dec_v_thm
     \\ rpt (first_assum $ irule_at Any)
-    \\ rewrite_tac [GSYM APPEND_ASSOC]
-    \\ irule repl_types_clock_refs \\ fs [])
+    \\ drule_then irule repl_types_skip_alt \\ fs [])
   (* Eval exn case *)
   THEN1
    (simp [Once evaluate_def,evaluate_Var]
@@ -663,23 +709,74 @@ Proof
     \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
     \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
              namespaceTheory.nsOptBind_def]
-    (* call report_error *)
+    (* call report_exn *)
     \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
              namespaceTheory.nsOptBind_def]
     \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
-    \\ unabbrev_all_tac
-    \\ assume_tac (compiler64prog_report_exn_v_thm
-         |> INST_TYPE [“:'a”|->“:semanticPrimitives$v”] |> GEN_ALL)
-    \\ pop_assum (qspec_then ‘λx v. x = v’ assume_tac)
-    \\ ‘(λx v. x = v) exn' exn'’ by fs []
-    \\ drule_all Arrow_IMP
-    \\ qmatch_goalsub_abbrev_tac ‘(st2, Rerr (Rabort Rtimeout_error))’
-    \\ disch_then (qspec_then ‘dec_clock st2’ strip_assume_tac) \\ fs []
-    \\ fs [] \\ IF_CASES_TAC \\ fs []
-    \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ gvs [dec_clock_def]
+    \\ simp [dec_clock_def,report_exn_v_def,do_opapp_def,EVAL “find_recfun s [(s,y,x)]”]
+    \\ fs [] \\ IF_CASES_TAC >- fs []
+    \\ ntac 3 (simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+                     namespaceTheory.nsOptBind_def,build_rec_env_def])
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+    \\ simp [dec_clock_def,mlbasicsProgTheory.assign_v_def,do_opapp_def]
+    \\ fs [] \\ IF_CASES_TAC >- fs []
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def]
+    \\ fs [] \\ IF_CASES_TAC >- fs []
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def,do_app_def]
+    \\ simp [repl_moduleProgTheory.exn_def]
+    \\ ‘repl_types T (ffi,repl_rs)
+          (SND types,st6 with <| clock := st6.clock - ck1 ;
+                                 refs := st6.refs ++ junk' ;
+                                 eval_state := NONE |>,env1)’
+         by (drule_then irule repl_types_skip_alt \\ fs [Abbr‘st6’]
+             \\ simp_tac std_ss [GSYM APPEND_ASSOC,rich_listTheory.IS_PREFIX_APPEND3])
+    \\ ‘MEM (Long "Repl" (Short "exn"),Exn,the_Loc exn) repl_rs’ by simp [repl_rs_def]
+    \\ drule_then drule repl_types_exn_assign
+    \\ disch_then drule
+    \\ disch_then drule
+    \\ Cases_on ‘store_assign (the_Loc exn) (Refv exn') st7.refs’
+    >-
+     (qsuff_tac ‘F’ \\ fs [] \\ pop_assum mp_tac \\ simp []
+      \\ fs [store_assign_def]
+      \\ drule_all repl_types_exn \\ strip_tac
+      \\ drule repl_types_thm \\ simp [EVERY_MEM]
+      \\ strip_tac \\ pop_assum kall_tac \\ pop_assum drule
+      \\ simp [ref_lookup_ok_def] \\ unabbrev_all_tac \\ fs []
+      \\ simp [store_lookup_def,repl_moduleProgTheory.exn_def,the_Loc_def]
+      \\ strip_tac \\ fs [store_v_same_type_def])
+    \\ fs [] \\ strip_tac \\ fs []
+    \\ fs [repl_moduleProgTheory.exn_def,the_Loc_def]
+    \\ ntac 3 (simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+                     namespaceTheory.nsOptBind_def,do_app_def])
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def]
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+    \\ simp [dec_clock_def,mlbasicsProgTheory.assign_v_def,do_opapp_def]
+    \\ fs [] \\ IF_CASES_TAC >- fs []
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def]
+    \\ fs [] \\ IF_CASES_TAC >- fs []
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def,do_app_def]
+    \\ simp [repl_moduleProgTheory.errorMessage_def]
+    \\ qmatch_goalsub_abbrev_tac ‘StrLit msg_e’
+    \\ ‘MEM (Long "Repl" (Short "errorMessage"),Str,
+             the_Loc errorMessage_loc) repl_rs’ by simp [repl_rs_def]
+    \\ drule_then drule repl_types_str_assign
+    \\ simp [store_assign_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
+    \\ disch_then (qspec_then ‘msg_e’ mp_tac)
+    \\ impl_keep_tac
+    >-
+     (drule repl_types_thm \\ simp [EVERY_MEM]
+      \\ strip_tac \\ first_x_assum drule
+      \\ simp [ref_lookup_ok_def]
+      \\ simp [store_lookup_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
+      \\ strip_tac \\ fs [store_v_same_type_def])
+    \\ simp [] \\ strip_tac
     \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
              namespaceTheory.nsOptBind_def,evaluate_Lit]
-    \\ drule evaluate_clock_decs \\ strip_tac \\ fs []
     (* call roll_back *)
     \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
              namespaceTheory.nsOptBind_def]
@@ -701,20 +798,18 @@ Proof
     \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
              namespaceTheory.nsOptBind_def,evaluate_Lit]
     (* recursive call *)
-    \\ last_x_assum irule \\ gvs []
+    \\ last_x_assum irule \\ unabbrev_all_tac \\ gvs []
+    \\ conj_tac THEN1 (imp_res_tac evaluate_clock \\ fs [])
     \\ conj_tac THEN1 rewrite_tac [GSYM repl_v_def]
+    \\ assume_tac compiler64prog_report_exn_dec_v_thm
     \\ rpt (first_assum $ irule_at Any)
     \\ rewrite_tac [GSYM APPEND_ASSOC,integerTheory.INT_ADD_CALCULATE]
-    \\ irule repl_types_clock_refs \\ fs []
     \\ ‘SND (roll_back (types,new_types)) = roll_back (SND types) (SND new_types)’
        by (PairCases_on ‘types’ \\ PairCases_on ‘new_types’ \\ fs [] \\ EVAL_TAC)
     \\ fs []
-    \\ irule repl_types_exn
-    \\ first_assum $ irule_at (Pos hd)
-    \\ irule_at Any evaluate_decs_with_NONE
-    \\ first_assum $ irule_at Any \\ simp []
-    \\ rewrite_tac [GSYM APPEND_ASSOC]
-    \\ irule repl_types_clock_refs \\ simp [])
+    \\ drule_then irule repl_types_skip_alt \\ fs []
+    \\ drule evaluate_decs_with_NONE \\ fs []
+    \\ simp [semanticPrimitivesTheory.state_component_equality])
   (* Eval_result case *)
   \\ simp [Once evaluate_def,evaluate_Var]
   \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,std_preludeTheory.SUM_TYPE_def]
@@ -792,29 +887,54 @@ Proof
     \\ simp [Once evaluate_def]
     \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,astTheory.pat_bindings_def]
     \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def]
     (* call report_error *)
     \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
              namespaceTheory.nsOptBind_def]
     \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
-    \\ unabbrev_all_tac
-    \\ assume_tac compiler64prog_report_error_v_thm
-    \\ drule_all Arrow_IMP
-    \\ simp [Once evaluate_def,evaluate_Var,evaluate_list]
-    \\ simp [evaluate_Var,namespaceTheory.nsOptBind_def]
+    \\ simp [dec_clock_def,report_error_v_def,do_opapp_def,EVAL “find_recfun s [(s,y,x)]”]
+    \\ fs [] \\ IF_CASES_TAC >- fs []
+    \\ ntac 3 (simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+                     namespaceTheory.nsOptBind_def,build_rec_env_def])
     \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
-    \\ qmatch_goalsub_abbrev_tac ‘(st2, Rerr (Rabort Rtimeout_error))’
-    \\ disch_then (qspec_then ‘dec_clock st2’ strip_assume_tac) \\ fs []
-    \\ fs [] \\ IF_CASES_TAC \\ fs []
-    \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ gvs [dec_clock_def]
+    \\ simp [dec_clock_def,mlbasicsProgTheory.assign_v_def,do_opapp_def]
+    \\ fs [] \\ IF_CASES_TAC >- fs []
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def]
+    \\ fs [] \\ IF_CASES_TAC >- fs []
+    \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
+             namespaceTheory.nsOptBind_def,do_app_def]
+    \\ simp [repl_moduleProgTheory.errorMessage_def]
+    \\ ‘repl_types T (ffi,repl_rs)
+          (SND new_types,st7 with <| eval_state := NONE ; refs := st7.refs ++ junk'' |>,
+           extend_dec_env env2 env1)’
+         by (drule_then irule repl_types_skip_alt \\ fs [])
+    \\ ‘MEM (Long "Repl" (Short "errorMessage"),Str,
+             the_Loc errorMessage_loc) repl_rs’ by simp [repl_rs_def]
+    \\ drule_then drule repl_types_str_assign
+    \\ simp [store_assign_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
+    \\ Cases_on ‘msg’ \\ gvs [STRING_TYPE_def]
+    \\ rename [‘(Refv (Litv (StrLit sss)))’]
+    \\ disch_then (qspec_then ‘sss’ mp_tac)
+    \\ impl_keep_tac
+    >-
+     (drule repl_types_thm \\ simp [EVERY_MEM]
+      \\ strip_tac \\ first_x_assum drule
+      \\ simp [ref_lookup_ok_def]
+      \\ simp [store_lookup_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
+      \\ strip_tac \\ fs [store_v_same_type_def])
+    \\ simp [] \\ strip_tac
     \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
              namespaceTheory.nsOptBind_def,evaluate_Lit]
     (* recursive call *)
-    \\ last_x_assum irule \\ gvs [Abbr‘st2’]
-    \\ drule evaluate_clock_decs \\ strip_tac \\ fs []
+    \\ last_x_assum irule \\ gvs []
+    \\ conj_tac THEN1 (imp_res_tac evaluate_clock \\ fs [])
     \\ conj_tac THEN1 rewrite_tac [GSYM repl_v_def]
+    \\ assume_tac compiler64prog_report_error_dec_v_thm
     \\ rpt (first_assum $ irule_at Any)
     \\ rewrite_tac [GSYM APPEND_ASSOC,integerTheory.INT_ADD_CALCULATE]
-    \\ irule repl_types_clock_refs_ffi \\ fs [])
+    \\ drule_then irule repl_types_skip_alt \\ fs [])
   (* parse is successful *)
   \\ rename [‘_ = INR new_decs’]
   \\ simp [Once evaluate_def,evaluate_Var]

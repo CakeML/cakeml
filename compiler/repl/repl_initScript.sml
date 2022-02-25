@@ -35,9 +35,10 @@ Definition the_Loc_def:
 End
 
 Definition repl_rs_def:
-  repl_rs = [(Long "Repl" (Short "isEOF"),      Bool, the_Loc isEOF_loc);
-             (Long "Repl" (Short "nextString"), Str,  the_Loc nextString_loc);
-             (Long "Repl" (Short "exn"),        Exn,  the_Loc exn)]
+  repl_rs = [(Long "Repl" (Short "isEOF"),        Bool, the_Loc isEOF_loc);
+             (Long "Repl" (Short "nextString"),   Str,  the_Loc nextString_loc);
+             (Long "Repl" (Short "errorMessage"), Str,  the_Loc errorMessage_loc);
+             (Long "Repl" (Short "exn"),          Exn,  the_Loc exn)]
 End
 
 Overload repl_init_env =
@@ -51,7 +52,7 @@ Proof
   \\ rewrite_tac [repl_prog_types_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ EVAL_TAC \\ fs [nextString_def,isEOF_def,the_Loc_def,exn_def]
+  \\ EVAL_TAC \\ fs [nextString_def,errorMessage_def,isEOF_def,the_Loc_def,exn_def]
 QED
 
 Theorem evaluate_decs_append: (* TODO: move to evaluateProps *)
