@@ -54,9 +54,13 @@ Proof
 QED
 
 Theorem base_keys_contain:
-
+  ∀s. s = STRING h [] ⇒ MEM s base_keys
 Proof
-
+  strip_tac
+  \\ rw[base_keys_def]
+  \\ Cases_on ‘h’
+  \\ rw[]
+  \\ cheat
 QED
 
 Definition extract_fixed_substrings_def:
