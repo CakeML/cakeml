@@ -25,15 +25,12 @@ Definition tab_sub_def:
   tab_sub [] tab = [] ∧
   tab_sub (s: string) tab =
   case (find_match s tab) of
-  | ([],[]) => ""
+  | ([],_) => ""
   | (match, value) => value ++ (tab_sub (DROP (LENGTH match) s) tab)
 Termination
   WF_REL_TAC ‘measure $ λ(s, _). LENGTH s’
   \\ rpt strip_tac
   \\ gvs[find_match_def]
-  \\ gvs[find_match_def]
-
-
 End
 
 (********************************************)
