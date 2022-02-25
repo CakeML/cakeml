@@ -8,6 +8,7 @@ open rich_listTheory alistTheory listTheory;
 open sortingTheory;
 val _ = new_theory "compression";
 
+    show_types := true
 
 (********************************************)
 (*          Substitution function           *)
@@ -53,14 +54,26 @@ Proof
   rw[base_keys_def, LENGTH]
 QED
 
-Theorem base_keys_contain:
+
+Theorem base_keys_contains_all_chars1:
   ∀s. s = STRING h [] ⇒ MEM s base_keys
 Proof
-  strip_tac
-  \\ rw[base_keys_def]
+  REWRITE_TAC [base_keys_def, listTheory.MEM_GENLIST]
   \\ Cases_on ‘h’
-  \\ cheat
+  \\ simp []
+  \\ irule_at Any EQ_REFL
+  \\ simp []
 QED
+
+Theorem base_keys_contains_all_chars2:
+  ∀s. s = STRING h [] ⇒ MEM s base_keys
+Proof
+  Cases_on ‘h’
+  \\ simp_tac std_ss [base_keys_def, listTheory.MEM_GENLIST, listTheory.CONS_11]
+  \\ metis_tac []
+QED
+
+
 
 Definition extract_fixed_substrings_def:
   extract_fixed_substrings [] n = [] ∧
