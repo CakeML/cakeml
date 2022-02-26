@@ -998,7 +998,7 @@ Definition ptree_PPattern_def:
             cns <- ptree_Constr cn;
             id <- path_to_ns locs cns;
             return $ Pp_con (SOME id) []
-          od
+          od ++ ptree_PPattern cn
       | [cn; pat] =>
           do
             cns <- ptree_Constr cn;
