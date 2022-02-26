@@ -5,6 +5,16 @@
 
 fun failwith msg = raise Failure msg;
 
+fun pp_exn e =
+  case e of
+    Chr  => PrettyPrinter.token "Chr"
+  | Div  => PrettyPrinter.token "Div"
+  | Bind => PrettyPrinter.token "Bind"
+  | Subscript => PrettyPrinter.token "Subscript"
+  | Interrupt => PrettyPrinter.token "Interrupt"
+  | Failure s => PrettyPrinter.app_block "Failure" [PrettyPrinter.pp_string s]
+  | _ => PrettyPrinter.token "<exn>";
+
 (* ------------------------------------------------------------------------- *
  * Operations on filenames
  * ------------------------------------------------------------------------- *)
