@@ -735,7 +735,8 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPBase));
       (* -- Pat2 ----------------------------------------------------------- *)
       (INL nPCons, (* ::= constr p? *)
-       seql [pnt nConstr; try (pnt nPBase)]
+       pegf (choicel [seql [pnt nConstr; try (pnt nPBase)] I;
+                      pnt nPBase])
             (bindNT nPCons));
       (INL nPAs, (* ::= p ('as' id)* *)
        seql [pnt nPCons; rpt (seql [tokeq AsT; pnt nIdent] I) FLAT]
