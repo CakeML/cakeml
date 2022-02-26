@@ -294,14 +294,11 @@ val _ = tytest0 "('a,'b) d"
  * Patterns
  * ------------------------------------------------------------------------- *)
 
-(* Pat' needs to go before constructor application and parentheses *)
-
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Cc a as i, Dd b as j" (* = ((Cc a as i), Dd b) as j *)
   (SOME “[Pas (Pcon NONE [Pas (Pc "Cc" [Pv "a"]) "i"; Pc "Dd" [Pv "b"]]) "j"]”)
   ;
 
-(* FIXME *)
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "(x) as i :: j" (* = (x as i) :: j *)
   (SOME “[Pc "::" [Pas (Pv "x") "i"; Pv "j"]]”)
@@ -317,6 +314,11 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
 (* can nest 'as' arbitrarily deep (though its a pretty useless feature) *)
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "x as i as j as k"
+  (SOME “[Pas (Pas (Pas (Pv "x") "i") "j") "k"]”)
+  ;
+
+val _ = parsetest0 “nPattern” “ptree_Pattern”
   "x as i as j as k :: j"
   (SOME “[Pc "::" [Pas (Pas (Pas (Pv "x") "i") "j") "k"; Pv "j"]]”)
   ;
@@ -328,7 +330,6 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
   (SOME “[Pas (Pc "::" [Pas (Pv "x") "i"; Pv "y"]) "j"]”)
   ;
 
-(* FIXME *)
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "x as i :: y as j :: z as k"
   (SOME “[Pas (Pc "::" [
@@ -336,7 +337,6 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
               "k"]”)
   ;
 
-(* FIXME *)
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "x,y as i :: y as j :: z as k"
   (SOME “[Pas (Pc "::" [
@@ -351,7 +351,6 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
           Pcon NONE [Pv "c"; Pv "d"]]”)
   ;
 
-(* FIXME Must aliases be removed from nPattern? *)
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Comb (a,b) as c, d"
   (SOME “[Pcon NONE [Pas (Pc "Comb" [Pv "a"; Pv "b"]) "c"; Pv "d"]]”)
@@ -379,6 +378,31 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "y,z,x"
   (SOME “[Pcon NONE [Pvar "y"; Pvar "z"; Pvar "x"]]”)
+  ;
+
+(* Make sure or-patterns distribute OK *)
+
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "Some (x | Inl (y | z))"
+  (SOME “[Pc "Some" [Pv "x"];
+          Pc "Some" [Pc "Inl" [Pv "y"]];
+          Pc "Some" [Pc "Inl" [Pv "z"]]]”)
+  ;
+
+(* TODO *)
+
+(* Make sure the precedence parser can handle commas correctly
+   (they are non-associative)
+ *)
+
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "(y,z),x"
+  (SOME “[Pcon NONE [Pcon NONE [Pvar "y"; Pvar "z"]; Pvar "x"]]”)
+  ;
+
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "y,(z,x)"
+  (SOME “[Pcon NONE [Pv "y"; Pcon NONE [Pvar "z"; Pvar "x"]]]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
@@ -1271,4 +1295,13 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
 
 
 val _ = export_theory ();
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let x = 2 ;; (*CML val x = 5; print \"z\"; fun ref x = Ref x; *)"
+  (SOME “[Dlet L1 (Pv "x") (Lit (IntLit 2));
+          Dlet L2 (Pv "x") (Lit (IntLit 5));
+          Dlet L3 (Pv "it") (App Opapp [V "print"; Lit (StrLit "z")]);
+          Dletrec L4 [("ref","x", App Opref [V "x"])]]”)
+  ;
+
 

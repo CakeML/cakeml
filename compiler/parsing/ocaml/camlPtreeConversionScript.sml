@@ -109,7 +109,7 @@ Definition ppat_to_pat_def:
   ppat_to_pat (Pp_tannot pp t) =
     (MAP (λp. Ptannot p t) (ppat_to_pat pp)) ∧
   ppat_to_pat (Pp_con id pps) =
-    (MAP (λps. Pcon id ps) (MAP ppat_to_pat pps)) ∧
+    (MAP (λps. Pcon id ps) (list_cart_prod (MAP ppat_to_pat pps))) ∧
   ppat_to_pat (Pp_alias pp ns) =
     (MAP (λp. FOLDL Pas p ns) (ppat_to_pat pp)) ∧
   ppat_to_pat (Pp_or p1 p2) =
