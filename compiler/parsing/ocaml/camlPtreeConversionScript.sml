@@ -108,6 +108,19 @@ Datatype:
        | Pp_alias ppat (varN list)
 End
 
+Definition ppat_size'_def:
+  ppat_size' Pp_any = 0 ∧
+  ppat_size' (Pp_var a) = 1 ∧
+  ppat_size' (Pp_lit a) = 1 ∧
+  ppat_size' (Pp_con x xs) = (1 + list_size ppat_size' xs) ∧
+  ppat_size' (Pp_prod xs) = (1 + list_size ppat_size' xs) ∧
+  ppat_size' (Pp_or x y) = (1 + ppat_size' x + ppat_size' y) ∧
+  ppat_size' (Pp_tannot x y) = (1 + ppat_size' x) ∧
+  ppat_size' (Pp_alias x y) = (1 + ppat_size' x)
+Termination
+  WF_REL_TAC ‘measure ppat_size’
+End
+
 (* Convert ppat patterns to CakeML patterns by distributing or-patterns at the
  * top-level (returning a list of patterns).
  *)
@@ -813,38 +826,11 @@ val _ = disable_monad "option";
  *)
 
 Definition dest_alias_def:
-  dest_alias (Pp_alias pp ns) = SOME (pp, ns) ∧
-  dest_alias _ = NONE
+  dest_alias pp =
+    case pp of
+      Pp_alias pp ns => SOME (pp, ns)
+    | _ => NONE
 End
-
-Definition grabPairs_def[simp]:
-  grabPairs vf opf A [] = return (REVERSE A) ∧
-  grabPairs vf opf A [_] = fail (unknown_loc, «grabPairs»)  ∧
-  grabPairs vf opf A (pt1 :: pt2 :: rest) =
-    do
-      opv <- opf pt1;
-      v <- vf pt2;
-      case dest_alias v of
-        SOME (pp, ns) =>
-          grabPairs vf opf (INR (INR ns) ::
-                            INL po_alias ::
-                            INR (INL pp) ::
-                            INL opv :: A) rest
-      | _ => grabPairs vf opf (INR (INL v) :: INL opv :: A) rest
-    od
-End
-
-Theorem grabPairs_cong[defncong]:
-  ∀opf1 opf2 l1 l2 vf1 vf2 A1 A2 .
-    opf1 = opf2 ∧ l1 = l2 ∧ (∀e. MEM e l2 ⇒ vf1 e = vf2 e) ∧ A1 = A2 ⇒
-    grabPairs vf1 opf1 A1 l1 = grabPairs vf2 opf2 A2 l2
-Proof
-  simp[] >> qx_genl_tac [‘opf2’, ‘l2’, ‘vf1’, ‘vf2’] >>
-  completeInduct_on ‘LENGTH l2’ >>
-  gs[SF DNF_ss] >> Cases_on ‘l2’ >> simp[DISJ_IMP_THM, FORALL_AND_THM] >>
-  rpt strip_tac >> gvs[] >> rename [‘grabPairs _ _ _ (h::t)’] >>
-  Cases_on ‘t’ >> simp[]
-QED
 
 Definition tok2ppo:
   tok2ppo pt =
@@ -897,14 +883,14 @@ End
 
 Definition resolve_precs_def:
   resolve_precs xs =
-    let res =  precparser$precparse <|
-                 rules := tok_action;
-                 reduce := ppat_reduce;
-                 lift := OUTR;
-                 isOp := ISL;
-                 mkApp := (λx y. NONE);
-               |> ([], xs) in
-    case res of
+    case precparser$precparse <|
+           rules := (λx. tok_action x);
+           reduce := (λx op y. ppat_reduce x op y);
+           (* All x's should be INR's *)
+           lift := (λx. case x of INR y => y | _ => INR []);
+           isOp := (λx. ISL x);
+           mkApp := (λx y. NONE);
+         |> ([], xs) of
       SOME (INL ppat) => return $ ppat_close ppat
     | _ => fail (unknown_loc, «resolve_precs»)
 End
@@ -1029,7 +1015,7 @@ Definition ptree_PPattern_def:
                         NONE => [INR (INL p)]
                       | SOME (pp,ns) =>
                           [INR (INR ns); INL po_alias; INR (INL pp)];
-            precs <- grabPairs ptree_PPattern tok2ppo start rest;
+            precs <- grabPairs start rest;
             resolve_precs precs
           od
     else if nterm = INL nPattern then
@@ -1054,10 +1040,28 @@ Definition ptree_PPattern_def:
        q <- ptree_PPattern p;
        qs <- ptree_PPatternList ps;
        return (q::qs)
-     od)
+     od) ∧
+  (grabPairs A [] = return (REVERSE A)) ∧
+  (grabPairs A [_] = fail (unknown_loc, «grabPairs»))  ∧
+  (grabPairs A (pt1 :: pt2 :: rest) =
+    do
+      opv <- tok2ppo pt1;
+      v <- ptree_PPattern pt2;
+      case dest_alias v of
+        SOME (pp, ns) =>
+          grabPairs (INR (INR ns):: INL po_alias:: INR (INL pp):: INL opv:: A)
+                    rest
+      | _ => grabPairs (INR (INL v):: INL opv:: A) rest
+    od)
 Termination
-  WF_REL_TAC ‘measure $ sum_size psize $ list_size psize’
+  WF_REL_TAC ‘measure $ sum_size psize
+                      $ sum_size (list_size psize)
+                      $ pair_size ((K 0)) $ list_size psize’
+  \\ simp [parsetree_size_lemma]
 End
+
+Theorem ptree_PPattern_ind =
+  SIMP_RULE (srw_ss() ++ CONJ_ss) [] ptree_PPattern_ind;
 
 Definition ptree_Pattern_def:
   ptree_Pattern p = fmap ppat_to_pat (ptree_PPattern p)
