@@ -389,8 +389,6 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
           Pc "Some" [Pc "Inl" [Pv "z"]]]”)
   ;
 
-(* TODO *)
-
 (* Make sure the precedence parser can handle commas correctly
    (they are non-associative)
  *)

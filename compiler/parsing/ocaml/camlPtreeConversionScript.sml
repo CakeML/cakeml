@@ -79,6 +79,15 @@ Definition fmap_def[simp]:
   fmap f (INL err) = INL err
 End
 
+(* Builds the n-ary cartesian product of n lists (of any lengths).
+ *)
+
+Definition list_cart_prod_def:
+  list_cart_prod [] = [[]] ∧
+  list_cart_prod (xs::xss) =
+    FLAT (MAP (λx. MAP (λy. x::y) (list_cart_prod xss)) xs)
+End
+
 (* -------------------------------------------------------------------------
  * Compatibility layer
  * ------------------------------------------------------------------------- *)
@@ -93,6 +102,7 @@ Datatype:
        | Pp_var varN
        | Pp_lit lit
        | Pp_con ((modN, conN) id option) (ppat list)
+       | Pp_prod (ppat list) (* these are used to trick the pattern parser *)
        | Pp_or ppat ppat
        | Pp_tannot ppat ast_t
        | Pp_alias ppat (varN list)
@@ -110,6 +120,8 @@ Definition ppat_to_pat_def:
     (MAP (λp. Ptannot p t) (ppat_to_pat pp)) ∧
   ppat_to_pat (Pp_con id pps) =
     (MAP (λps. Pcon id ps) (list_cart_prod (MAP ppat_to_pat pps))) ∧
+  ppat_to_pat (Pp_prod pps) =
+    (MAP (λps. Pcon NONE ps) (list_cart_prod (MAP ppat_to_pat pps))) ∧
   ppat_to_pat (Pp_alias pp ns) =
     (MAP (λp. FOLDL Pas p ns) (ppat_to_pat pp)) ∧
   ppat_to_pat (Pp_or p1 p2) =
@@ -752,23 +764,6 @@ Definition ptree_Bool_def:
       fail (locs, «Expected a boolean literal non-terminal»)
 End
 
-(* Builds the cartesian product of two lists (of equal length).
- *)
-
-Definition cart_prod_def:
-  cart_prod ps qs =
-    FLAT (MAP (λp. ZIP (REPLICATE (LENGTH qs) p, qs)) ps)
-End
-
-(* Builds the n-ary cartesian product of n lists (of any lengths).
- *)
-
-Definition list_cart_prod_def:
-  list_cart_prod [] = [[]] ∧
-  list_cart_prod (xs::xss) =
-    FLAT (MAP (λx. MAP (λy. x::y) (list_cart_prod xss)) xs)
-End
-
 Definition nterm_of_def:
   nterm_of (Lf (_, locs)) = fail (locs, «nterm_of: Not a parsetree node») ∧
   nterm_of (Nd (nterm, _) args) = return nterm
@@ -871,25 +866,31 @@ End
  * trm: ppat + varN list
  *)
 
+Definition ppat_close_def:
+  ppat_close (Pp_prod pps) = Pp_con NONE pps ∧
+  ppat_close pps = pps
+End
+
 Definition ppat_reduce_def:
   ppat_reduce a op b =
     case op of
       INL po_or =>
         (case (a, b) of
-           (INL x, INL y) => SOME (INL (Pp_or x y))
+           (INL x, INL y) => SOME (INL (Pp_or (ppat_close x) y))
          | _ => NONE)
     | INL po_prod =>
         (case (a, b) of
-           (INL (Pp_con NONE ps), INL y) => SOME (INL (Pp_con NONE (ps ++ [y])))
-         | (INL x, INL y) => SOME (INL (Pp_con NONE [x; y]))
+           (INL (Pp_prod ps), INL y) => SOME (INL (Pp_prod (ps ++ [y])))
+         | (INL x, INL y) => SOME (INL (Pp_prod [x; y]))
          | _ => NONE)
     | INL po_cons =>
         (case (a, b) of
-           (INL x, INL y) => SOME (INL (Pp_con (SOME (Short "::")) [x; y]))
+           (INL x, INL y) =>
+             SOME (INL (Pp_con (SOME (Short "::")) [ppat_close x; y]))
          | _ => NONE)
     | INL po_alias =>
         (case (a, b) of
-           (INL x, INR y) => SOME (INL (Pp_alias x y))
+           (INL x, INR y) => SOME (INL (Pp_alias (ppat_close x) y))
          | _ => NONE)
     | _ => NONE
 End
@@ -904,7 +905,7 @@ Definition resolve_precs_def:
                  mkApp := (λx y. NONE);
                |> ([], xs) in
     case res of
-      SOME (INL ppat) => return ppat
+      SOME (INL ppat) => return $ ppat_close ppat
     | _ => fail (unknown_loc, «resolve_precs»)
 End
 
