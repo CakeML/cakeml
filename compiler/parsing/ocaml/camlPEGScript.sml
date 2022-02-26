@@ -58,14 +58,6 @@ Definition peg_linfix_def:
                   | h::_ => [mk_linfix tgtnt (mkNd tgtnt [h]) b])
 End
 
-Definition peg_linfix'_def:
-  peg_linfix' tgtnt topsym rptsym opsym =
-    seq topsym (rpt (seq opsym rptsym (++)) FLAT)
-        (λa b. case a of
-                   [] => []
-                  | h::_ => [mk_linfix tgtnt (mkNd tgtnt [h]) b])
-End
-
 Definition choicel_def:
   choicel [] = not (empty []) [] ∧
   choicel (h::t) = choice h (choicel t) sumID
@@ -252,13 +244,7 @@ Datatype:
     | nTypeDefinition | nTypeDef | nTypeDefs | nTypeParams | nTypeInfo
     | nTypeRepr | nTypeReprs | nConstrDecl | nConstrArgs | nExcDefinition
     (* patterns *)
-    | nPAny
-    | nPBase | nPConstr | nPApp | nPCons | nPProd | nPOr | nPAs | nPList
-    | nPattern
-    | nPBaseL | nPConstrL | nPAppL | nPConsL | nPProdL | nPOrL | nPAsL
-    | nPListL | nPatternL
-    | nPBaseR | nPConstrR | nPAppR | nPConsR | nPProdR | nPOrR | nPAsR
-    | nPListR | nPatternR
+    | nPAny | nPList | nPPar | nPBase | nPCons | nPAs | nPOps | nPattern
     | nPatterns
     (* types *)
     | nTypeList | nTypeLists
@@ -729,123 +715,38 @@ Definition camlPEG_def[nocompute]:
       (INL nLetBindings,
        seql [pnt nLetBinding; try (seql [tokeq AndT; pnt nLetBindings] I)]
             (bindNT nLetBindings));
-      (* -- Pat6 ----------------------------------------------------------- *)
-      (INL nPAny,
+      (* -- Pat3 ----------------------------------------------------------- *)
+      (INL nPAny, (* ::= '_' *)
        pegf (tokeq AnyT) (bindNT nPAny));
-      (INL nPList,
+      (INL nPList, (* ::= '[' (p ';')* p? ']' *)
        seql [tokeq LbrackT;
-             try (seql [pnt nPattern;
-                        rpt (seql [tokeq SemiT; pnt nPattern] I) FLAT;
-                        try (tokeq SemiT)] I);
+             rpt (seql [pnt nPattern; tokeq SemiT] I) FLAT; try (pnt nPattern);
              tokeq RbrackT]
             (bindNT nPList));
-      (INL nPListL,
-       seql [tokeq LbrackT;
-             try (seql [pnt nPatternL;
-                        rpt (seql [tokeq SemiT; pnt nPatternL] I) FLAT;
-                        try (tokeq SemiT)] I);
-             tokeq RbrackT]
-            (bindNT nPListL));
-      (INL nPListR,
-       seql [tokeq LbrackT;
-             try (seql [pnt nPatternL;
-                        rpt (seql [tokeq SemiT; pnt nPatternR] I) FLAT;
-                        try (tokeq SemiT)] I);
-             tokeq RbrackT]
-            (bindNT nPListR));
-      (INL nPBase,
-       pegf (choicel [pnt nLiteral;
-                      pnt nValueName;
-                      pnt nPAny;
-                      pnt nPList;
-                      seql [tokeq LparT; tokeq RparT] I;
-                      seql [tokeq LparT; pnt nPattern;
-                            try (seql [tokeq ColonT; pnt nType] I);
-                            tokeq RparT] I])
+      (INL nPPar, (* ::= '(' (p (':' ty)?)? ')' *)
+       seql [tokeq LparT;
+             try (seql [pnt nPattern;
+                        try (seql [tokeq ColonT; pnt nType] I)] I);
+             tokeq RparT]
+            (bindNT nPPar));
+      (INL nPBase, (* ::= any / var / lit / list / '(' p ')' *)
+       pegf (choicel [pnt nLiteral; pnt nValueName; pnt nPAny; pnt nPList;
+                      pnt nPPar])
             (bindNT nPBase));
-      (INL nPBaseL,
-       pegf (choicel [pnt nLiteral;
-                      pnt nValueName;
-                      pnt nPAny;
-                      pnt nPListL;
-                      seql [tokeq LparT; tokeq RparT] I;
-                      seql [tokeq LparT; pnt nPatternL;
-                            try (seql [tokeq ColonT; pnt nType] I);
-                            tokeq RparT] I])
-            (bindNT nPBaseL));
-      (INL nPBaseR,
-       pegf (choicel [pnt nLiteral;
-                      pnt nValueName;
-                      pnt nPAny;
-                      pnt nPListR;
-                      seql [tokeq LparT; tokeq RparT] I;
-                      seql [tokeq LparT; pnt nPatternR;
-                            try (seql [tokeq ColonT; pnt nType] I);
-                            tokeq RparT] I])
-            (bindNT nPBaseR));
-      (* -- Pat5 ----------------------------------------------------------- *)
-      (INL nPConstr,
-       seql [pnt nConstr; try (pnt nPBase)]
-            (bindNT nPConstr));
-      (INL nPConstrL,
-       seql [pnt nConstr; try (pnt nPBaseL)]
-            (bindNT nPConstrL));
-      (INL nPConstrR,
-       seql [pnt nConstr; try (pnt nPBaseR)]
-            (bindNT nPConstrR));
-      (INL nPApp,
-       pegf (choicel [pnt nPatternL; pnt nPConstr; pnt nPBase])
-            (bindNT nPApp));
-      (INL nPAppL,
-       pegf (choicel [pnt nPConstrL; pnt nPBaseL])
-            (bindNT nPAppL));
-      (INL nPAppR,
-       pegf (choicel [pnt nPConstrR; pnt nPBaseR])
-            (bindNT nPAppR));
-      (* -- Pat4 ----------------------------------------------------------- *)
-      (INL nPCons,
-       seql [pnt nPApp; try (seql [tokeq ColonsT; pnt nPConsR] I)]
-            (bindNT nPCons));
-      (INL nPConsL,
-       seql [pnt nPAppL; try (seql [tokeq ColonsT; pnt nPConsL] I)]
-            (bindNT nPConsL));
-      (INL nPConsR,
-       seql [pnt nPAppR; try (seql [tokeq ColonsT; pnt nPConsR] I)]
-            (bindNT nPConsR));
-      (* -- Pat3 ----------------------------------------------------------- *)
-      (INL nPProd,
-       seql [pnt nPCons; rpt (seql [tokeq CommaT; pnt nPConsR] I) FLAT]
-            (bindNT nPProd));
-      (INL nPProdL,
-       seql [pnt nPConsL; rpt (seql [tokeq CommaT; pnt nPConsL] I) FLAT]
-            (bindNT nPProdL));
-      (INL nPProdR,
-       seql [pnt nPConsR; rpt (seql [tokeq CommaT; pnt nPConsR] I) FLAT]
-            (bindNT nPProdR));
       (* -- Pat2 ----------------------------------------------------------- *)
-      (INL nPOr,
-       peg_linfix' (INL nPOr) (pnt nPProd) (pnt nPProdR) (tokeq BarT));
-      (INL nPOrL,
-       peg_linfix (INL nPOrL) (pnt nPProdL) (tokeq BarT));
-      (INL nPOrR,
-       peg_linfix (INL nPOrR) (pnt nPProdR) (tokeq BarT));
-      (* -- Pat1 ----------------------------------------------------------- *)
-      (INL nPAs,
-       seql [pnt nPOr; rpt (seql [tokeq AsT; pnt nIdent] I) FLAT]
+      (INL nPCons, (* ::= constr p? *)
+       seql [pnt nConstr; try (pnt nPBase)]
+            (bindNT nPCons));
+      (INL nPAs, (* ::= p ('as' id)* *)
+       seql [pnt nPCons; rpt (seql [tokeq AsT; pnt nIdent] I) FLAT]
             (bindNT nPAs));
-      (INL nPAsL,
-       seql [pnt nPOrL; tokeq AsT; pnt nIdent;
-             rpt (seql [tokeq AsT; pnt nIdent] I) FLAT]
-            (bindNT nPAsL));
-      (INL nPAsR,
-       seql [pnt nPOrR; rpt (seql [tokeq AsT; pnt nIdent] I) FLAT]
-            (bindNT nPAsR));
+      (* -- Pat1 ----------------------------------------------------------- *)
+      (INL nPOps,
+       seql [pnt nPAs; rpt (seql [tok (λt. t = ColonsT ∨ t = CommaT ∨ t = BarT)
+                                      mktokLf; pnt nPAs] I) FLAT]
+            (bindNT nPOps));
       (INL nPattern,
-       pegf (pnt nPAs) (bindNT nPattern));
-      (INL nPatternL,
-       pegf (pnt nPAsL) (bindNT nPatternL));
-      (INL nPatternR,
-       pegf (pnt nPAsR) (bindNT nPatternR));
+       pegf (pnt nPOps) (bindNT nPattern));
       (INL nPatterns,
        seql [pnt nPattern; try (pnt nPatterns)]
             (bindNT nPatterns));
@@ -1040,8 +941,8 @@ fun pegnt(t,acc) = let
               simp pegnt_case_ths
               \\ simp [camlpeg_rules_applied]
               \\ simp [FDOM_camlPEG, pegf_def, seql_def, choicel_def,
-                       tokPragma_def, peg_linfix_def, peg_linfix'_def,
-                       tokeq_def, try_def, pegf_def]
+                       tokPragma_def, peg_linfix_def, tokeq_def, try_def,
+                       pegf_def]
               \\ simp (peg0_rwts @ acc))
   val nm = "peg0_" ^ term_to_string t
   val th' = save_thm(nm, SIMP_RULE bool_ss [pnt_def] th)
@@ -1058,25 +959,21 @@ val npeg0_rwts =
         “nModuleName”, “nValuePath”, “nConstr”, “nTypeConstr”, “nModulePath”,
         “nLiteral”, “nIdent”, “nEList”, “nEConstr”, “nEBase”, “nEPrefix”,
         “nELazy”, “nEAssert”, “nEFunapp”, “nEApp”, “nLetBinding”, “nPAny”,
-        “nPListL”, “nPBaseL”, “nPConstrL”, “nPAppL”, “nPConsL”, “nPProdL”,
-        “nPOrL”, “nPAsL”, “nPatternL”, “nPListR”, “nPBaseR”, “nPConstrR”,
-        “nPAppR”, “nPConsR”, “nPProdR”, “nPOrR”, “nPAsR”, “nPatternR”, “nPList”,
-        “nPBase”, “nPConstr”, “nPApp”, “nPCons”, “nPProd”, “nPOr”, “nPAs”,
-        “nPattern”, “nPatterns”, “nLetBindings”, “nLetRecBinding”,
-        “nLetRecBindings”, “nPatternMatches”, “nPatternMatch”, “nEMatch”,
-        “nETry”, “nEFun”, “nEFunction”, “nELet”, “nELetRec”, “nEWhile”, “nEFor”,
-        “nEUnclosed”, “nENeg”, “nEShift”, “nEMult”, “nEAdd”, “nECons”, “nECat”,
-        “nERel”, “nEAnd”, “nEOr”, “nEHolInfix”, “nEProd”, “nEAssign”, “nEIf”,
-        “nESeq”, “nExpr”, “nTypeDefinition”, “nTypeDef”, “nTypeDefs”, “nTVar”,
-        “nTBase”, “nTConstr”, “nTProd”, “nTFun”, “nType”, “nTypeList”,
-        “nTypeLists”, “nTypeParams”, “nConstrDecl”, “nTypeReprs”,
-        “nTypeRepr”, “nTypeInfo”, “nConstrArgs”, “nExcDefinition”, “nTopLet”,
-        “nTopLetRec”, “nOpen”, “nSemis”, “nExprItem”, “nExprItems”,
-        “nModuleDef”, “nModTypeName”, “nModTypePath”, “nSigSpec”, “nExcType”,
-        “nValType”, “nOpenMod”, “nIncludeMod”, “nModTypeAsc”, “nModTypeAssign”,
-        “nSigItem”, “nSigItems”, “nModuleType”, “nModAscApp”, “nModAscApps”,
-        “nCakeMLPragma”, “nModuleTypeDef”, “nDefinition”, “nDefItem”,
-        “nModExpr”, “nModuleItem”
+        “nPList”, “nPPar”, “nPBase”, “nPCons”, “nPAs”, “nPOps”, “nPattern”,
+        “nPatterns”, “nLetBindings”, “nLetRecBinding”, “nLetRecBindings”,
+        “nPatternMatches”, “nPatternMatch”, “nEMatch”, “nETry”, “nEFun”,
+        “nEFunction”, “nELet”, “nELetRec”, “nEWhile”, “nEFor”, “nEUnclosed”,
+        “nENeg”, “nEShift”, “nEMult”, “nEAdd”, “nECons”, “nECat”, “nERel”,
+        “nEAnd”, “nEOr”, “nEHolInfix”, “nEProd”, “nEAssign”, “nEIf”, “nESeq”,
+        “nExpr”, “nTypeDefinition”, “nTypeDef”, “nTypeDefs”, “nTVar”, “nTBase”,
+        “nTConstr”, “nTProd”, “nTFun”, “nType”, “nTypeList”, “nTypeLists”,
+        “nTypeParams”, “nConstrDecl”, “nTypeReprs”, “nTypeRepr”, “nTypeInfo”,
+        “nConstrArgs”, “nExcDefinition”, “nTopLet”, “nTopLetRec”, “nOpen”,
+        “nSemis”, “nExprItem”, “nExprItems”, “nModuleDef”, “nModTypeName”,
+        “nModTypePath”, “nSigSpec”, “nExcType”, “nValType”, “nOpenMod”,
+        “nIncludeMod”, “nModTypeAsc”, “nModTypeAssign”, “nSigItem”, “nSigItems”,
+        “nModuleType”, “nModAscApp”, “nModAscApps”, “nCakeMLPragma”,
+        “nModuleTypeDef”, “nDefinition”, “nDefItem”, “nModExpr”, “nModuleItem”
       ];
 
 fun wfnt(t,acc) = let
@@ -1087,7 +984,7 @@ fun wfnt(t,acc) = let
                     wfpeg_pnt, FDOM_camlPEG, try_def,
                     choicel_def, seql_def, tokIdP_def, identMixed_def,
                     identLower_def, tokPragma_def,
-                    tokeq_def, peg_linfix_def, peg_linfix'_def] THEN
+                    tokeq_def, peg_linfix_def] THEN
           simp(wfpeg_rwts @ npeg0_rwts @ peg0_rwts @ acc))
 in
   th::acc
@@ -1099,26 +996,23 @@ val topo_nts =
         “nOperatorName”, “nConstrName”, “nTypeConstrName”, “nModuleName”,
         “nModulePath”, “nValuePath”, “nConstr”, “nTypeConstr”, “nLiteral”,
         “nIdent”, “nEList”, “nEConstr”, “nEBase”, “nEPrefix”, “nELazy”,
-        “nEAssert”, “nEFunapp”, “nEApp”, “nPAny”, “nPListL”, “nPBaseL”,
-        “nPConstrL”, “nPAppL”, “nPConsL”, “nPProdL”, “nPOrL”, “nPAsL”,
-        “nPatternL”, “nPListR”, “nPBaseR”, “nPConstrR”, “nPAppR”, “nPConsR”,
-        “nPProdR”, “nPOrR”, “nPAsR”, “nPatternR”, “nPList”, “nPBase”,
-        “nPConstr”, “nPApp”, “nPCons”, “nPProd”, “nPOr”, “nPAs”, “nPattern”,
-        “nPatterns”, “nLetBinding”, “nLetBindings”, “nLetRecBinding”,
-        “nLetRecBindings”, “nPatternMatches”, “nPatternMatch”, “nEMatch”,
-        “nETry”, “nEFun”, “nEFunction”, “nELet”, “nELetRec”, “nEWhile”, “nEFor”,
-        “nEUnclosed”, “nENeg”, “nEShift”, “nEMult”, “nEAdd”, “nECons”, “nECat”,
-        “nERel”, “nEAnd”, “nEOr”, “nEHolInfix”, “nEProd”, “nEAssign”, “nEIf”,
-        “nESeq”, “nExpr”, “nTypeDefinition”, “nTVar”, “nTBase”, “nTConstr”,
-        “nTProd”, “nTFun”, “nType”, “nTypeList”, “nTypeLists”, “nTypeParams”,
-        “nTypeDef”, “nTypeDefs”, “nConstrDecl”, “nTypeReprs”, “nTypeRepr”,
-        “nTypeInfo”, “nConstrArgs”, “nExcDefinition”, “nTopLet”, “nTopLetRec”,
-        “nOpen”, “nSemis”, “nExprItem”, “nExprItems”, “nModuleDef”,
-        “nModTypeName”, “nModTypePath”, “nSigSpec”, “nExcType”, “nValType”,
-        “nOpenMod”, “nIncludeMod”, “nModTypeAsc”, “nModTypeAssign”, “nSigItem”,
-        “nSigItems”, “nModuleType”, “nModAscApp”, “nModAscApps”,
-        “nCakeMLPragma”, “nModuleTypeDef”, “nModExpr”, “nDefinition”,
-        “nDefItem”, “nModuleItem”, “nModuleItems”, “nStart”];
+        “nEAssert”, “nEFunapp”, “nEApp”, “nPAny”, “nPList”, “nPPar”, “nPBase”,
+        “nPCons”, “nPAs”, “nPOps”, “nPattern”, “nPatterns”, “nLetBinding”,
+        “nLetBindings”, “nLetRecBinding”, “nLetRecBindings”, “nPatternMatches”,
+        “nPatternMatch”, “nEMatch”, “nETry”, “nEFun”, “nEFunction”, “nELet”,
+        “nELetRec”, “nEWhile”, “nEFor”, “nEUnclosed”, “nENeg”, “nEShift”,
+        “nEMult”, “nEAdd”, “nECons”, “nECat”, “nERel”, “nEAnd”, “nEOr”,
+        “nEHolInfix”, “nEProd”, “nEAssign”, “nEIf”, “nESeq”, “nExpr”,
+        “nTypeDefinition”, “nTVar”, “nTBase”, “nTConstr”, “nTProd”, “nTFun”,
+        “nType”, “nTypeList”, “nTypeLists”, “nTypeParams”, “nTypeDef”,
+        “nTypeDefs”, “nConstrDecl”, “nTypeReprs”, “nTypeRepr”, “nTypeInfo”,
+        “nConstrArgs”, “nExcDefinition”, “nTopLet”, “nTopLetRec”, “nOpen”,
+        “nSemis”, “nExprItem”, “nExprItems”, “nModuleDef”, “nModTypeName”,
+        “nModTypePath”, “nSigSpec”, “nExcType”, “nValType”, “nOpenMod”,
+        “nIncludeMod”, “nModTypeAsc”, “nModTypeAssign”, “nSigItem”, “nSigItems”,
+        “nModuleType”, “nModAscApp”, “nModAscApps”, “nCakeMLPragma”,
+        “nModuleTypeDef”, “nModExpr”, “nDefinition”, “nDefItem”, “nModuleItem”,
+        “nModuleItems”, “nStart”];
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",
@@ -1142,7 +1036,7 @@ Proof
   simp [pegTheory.wfG_def, pegTheory.Gexprs_def, pegTheory.subexprs_def,
         subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
         choicel_def, seql_def, pegf_def, tokeq_def, try_def, tokPragma_def,
-        peg_linfix_def, peg_linfix'_def, tokSymP_def, tokIdP_def]
+        peg_linfix_def, tokSymP_def, tokIdP_def]
   \\ simp (cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
 QED
 

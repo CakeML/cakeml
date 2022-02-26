@@ -3,6 +3,7 @@
  *)
 
 open preamble caml_lexTheory camlPEGTheory astTheory;
+open precparserTheory;
 local open cmlParseTheory lexer_implTheory in end
 
 val _ = new_theory "camlPtreeConversion";
@@ -82,6 +83,41 @@ End
  * Compatibility layer
  * ------------------------------------------------------------------------- *)
 
+(* Resolving precedences and lifting or-patterns to the top at the same time
+ * is just too annoying. Until the CakeML syntax supports the latter, we can
+ * use this pre-pattern type
+ *)
+
+Datatype:
+  ppat = Pp_any
+       | Pp_var varN
+       | Pp_lit lit
+       | Pp_con ((modN, conN) id option) (ppat list)
+       | Pp_or ppat ppat
+       | Pp_tannot ppat ast_t
+       | Pp_alias ppat (varN list)
+End
+
+(* Convert ppat patterns to CakeML patterns by distributing or-patterns at the
+ * top-level (returning a list of patterns).
+ *)
+
+Definition ppat_to_pat_def:
+  ppat_to_pat Pp_any = [Pany] ∧
+  ppat_to_pat (Pp_var v) = [Pvar v] ∧
+  ppat_to_pat (Pp_lit l) = [Plit l] ∧
+  ppat_to_pat (Pp_tannot pp t) =
+    (MAP (λp. Ptannot p t) (ppat_to_pat pp)) ∧
+  ppat_to_pat (Pp_con id pps) =
+    (MAP (λps. Pcon id ps) (MAP ppat_to_pat pps)) ∧
+  ppat_to_pat (Pp_alias pp ns) =
+    (MAP (λp. FOLDL Pas p ns) (ppat_to_pat pp)) ∧
+  ppat_to_pat (Pp_or p1 p2) =
+    ppat_to_pat p1 ++ ppat_to_pat p2
+Termination
+  WF_REL_TAC ‘measure ppat_size’
+End
+
 (* Fix some constructor applications that needs to be in CakeML's curried
  * style. These are things from basis and Candle; all new constructors will
  * get tupled arguments.
@@ -93,19 +129,19 @@ Definition compatCurryP_def:
       Long mn vn =>
         if mn = "PrettyPrinter" ∧ vn = Short "PP_Data" then
           case pat of
-            Pcon NONE ps => Pcon (SOME id) ps
-          | _ => Pcon (SOME id) [pat]
+            Pp_con NONE ps => Pp_con (SOME id) ps
+          | _ => Pp_con (SOME id) [pat]
         else
-          Pcon (SOME id) [pat]
+          Pp_con (SOME id) [pat]
     | Short nm =>
         if nm = "Abs" ∨ nm = "Var" ∨ nm = "Const" ∨ nm = "Comb" ∨
            nm = "Tyapp" ∨ nm = "Sequent" ∨ nm = "Append" then
           case pat of
-          | Pany => Pcon (SOME id) [Pany; Pany]
-          | Pcon NONE ps => Pcon (SOME id) ps
-          | _ => Pcon (SOME id) [pat]
+          | Pp_any => Pp_con (SOME id) [Pp_any; Pp_any]
+          | Pp_con NONE ps => Pp_con (SOME id) ps
+          | _ => Pp_con (SOME id) [pat]
         else
-          Pcon (SOME id) [pat]
+          Pp_con (SOME id) [pat]
 End
 
 Definition compatCurryE_def:
@@ -716,16 +752,6 @@ Definition ptree_Bool_def:
       fail (locs, «Expected a boolean literal non-terminal»)
 End
 
-(* Turns a list literal pattern “[x; y; z]” into the
- * constructor pattern “x::y::z::[]”.
- *)
-
-Definition build_list_pat_def:
-  build_list_pat =
-    FOLDR (λt p. Pcon (SOME (Short "::")) [t; p])
-          (Pcon (SOME (Short "[]")) [])
-End
-
 (* Builds the cartesian product of two lists (of equal length).
  *)
 
@@ -748,10 +774,139 @@ Definition nterm_of_def:
   nterm_of (Nd (nterm, _) args) = return nterm
 End
 
-(* The parse trees contain or-patterns. “ptree_Pattern” creates one result
- * for each alternative in a or-pattern, as if all or-patterns were pulled up
- * to the top of the tree.
+(* This code was adapted from the following parser code in the pure repository:
+ * github.com/CakeML/pure/blob/master/compiler/parsing/cst_to_astScript.sml
  *)
+
+val _ = enable_monad "option";
+
+Datatype:
+  prec = Left | Right | NonAssoc
+End
+
+Datatype:
+  pp_op = po_cons | po_prod | po_or | po_alias
+End
+
+Definition tokprec_def:
+  tokprec op: (num # prec) option =
+    case op of
+      po_cons => SOME (3, Right)
+    | po_prod => SOME (2, NonAssoc)
+    | po_or => SOME (1, Left)
+    | po_alias => SOME (0, NonAssoc)
+    | _ => NONE
+End
+
+Definition tok_action_def:
+  tok_action (INL stktok, INL inptok) =
+    do
+      (stkprec, stka) <- tokprec stktok;
+      (inpprec, inpa) <- tokprec inptok;
+      if inpprec < stkprec then SOME Reduce
+      else if stkprec < inpprec then SOME Shift
+      else if stka ≠ inpa then NONE
+      else if stka = Left then SOME Reduce
+      else SOME Shift
+    od ∧
+  tok_action _ = NONE
+End
+
+val _ = disable_monad "option";
+
+(* Alias-patterns collapse into a pattern, an operator, and an identifier list.
+ *)
+
+Definition dest_alias_def:
+  dest_alias (Pp_alias pp ns) = SOME (pp, ns) ∧
+  dest_alias _ = NONE
+End
+
+
+Definition grabPairs_def[simp]:
+  grabPairs vf opf A [] = return (REVERSE A) ∧
+  grabPairs vf opf A [_] = fail (unknown_loc, «grabPairs»)  ∧
+  grabPairs vf opf A (pt1 :: pt2 :: rest) =
+    do
+      opv <- opf pt1;
+      v <- vf pt2;
+      case dest_alias v of
+        SOME (pp, ns) =>
+          grabPairs vf opf (INR (INR ns) ::
+                            INL po_alias ::
+                            INR (INL pp) ::
+                            INL opv :: A) rest
+      | _ => grabPairs vf opf (INR (INL v) :: INL opv :: A) rest
+    od
+End
+
+Theorem grabPairs_cong[defncong]:
+  ∀opf1 opf2 l1 l2 vf1 vf2 A1 A2 .
+    opf1 = opf2 ∧ l1 = l2 ∧ (∀e. MEM e l2 ⇒ vf1 e = vf2 e) ∧ A1 = A2 ⇒
+    grabPairs vf1 opf1 A1 l1 = grabPairs vf2 opf2 A2 l2
+Proof
+  simp[] >> qx_genl_tac [‘opf2’, ‘l2’, ‘vf1’, ‘vf2’] >>
+  completeInduct_on ‘LENGTH l2’ >>
+  gs[SF DNF_ss] >> Cases_on ‘l2’ >> simp[DISJ_IMP_THM, FORALL_AND_THM] >>
+  rpt strip_tac >> gvs[] >> rename [‘grabPairs _ _ _ (h::t)’] >>
+  Cases_on ‘t’ >> simp[]
+QED
+
+Definition tok2ppo:
+  tok2ppo pt =
+    do
+      lf <- destLf pt;
+      tk <- option $ destTOK lf;
+      if tk = ColonsT then
+        return po_cons
+      else if tk = CommaT then
+        return po_prod
+      else if tk = BarT then
+        return po_or
+      else
+        fail (unknown_loc, «ppatOp: impossible»)
+    od
+End
+
+(* tok: pp_op + (ppat + varN list)
+ * trm: ppat + varN list
+ *)
+
+Definition ppat_reduce_def:
+  ppat_reduce a op b =
+    case op of
+      INL po_or =>
+        (case (a, b) of
+           (INL x, INL y) => SOME (INL (Pp_or x y))
+         | _ => NONE)
+    | INL po_prod =>
+        (case (a, b) of
+           (INL (Pp_con NONE ps), INL y) => SOME (INL (Pp_con NONE (ps ++ [y])))
+         | _ => NONE)
+    | INL po_cons =>
+        (case (a, b) of
+           (INL x, INL y) => SOME (INL (Pp_con (SOME (Short "::")) [x; y]))
+         | _ => NONE)
+    | INL po_alias =>
+        (case (a, b) of
+           (INL x, INR y) => SOME (INL (Pp_alias x y))
+         | _ => NONE)
+    | _ => NONE
+End
+
+Definition resolve_precs_def:
+  resolve_precs xs =
+    let res =  precparser$precparse <|
+                 rules := tok_action;
+                 reduce := ppat_reduce;
+                 lift := OUTR;
+                 isOp := ISL;
+                 mkApp := (λx y. NONE);
+               |> ([], xs) in
+    case res of
+      SOME (INL ppat) => return ppat
+    | _ => fail (unknown_loc, «resolve_precs»)
+End
 
 Definition ptree_AsIds_def:
   ptree_AsIds [] = return [] ∧
@@ -765,167 +920,144 @@ Definition ptree_AsIds_def:
     od
 End
 
-Definition ptree_Pattern_def:
-  (ptree_Pattern (Lf (_, locs)) =
+(* Turns a list literal pattern “[x; y; z]” into the
+ * constructor pattern “x::y::z::[]”.
+ *)
+
+Definition build_list_ppat_def:
+  build_list_ppat =
+    FOLDR (λt p. Pp_con (SOME (Short "::")) [t; p])
+          (Pp_con (SOME (Short "[]")) [])
+End
+
+Definition ptree_PPattern_def:
+  (ptree_PPattern (Lf (_, locs)) =
     fail (locs, «Expected a pattern non-terminal»)) ∧
-  (ptree_Pattern (Nd (nterm, locs) args) =
+  (ptree_PPattern (Nd (nterm, locs) args) =
     if nterm = INL nPAny then
       case args of
         [arg] =>
           do
             expect_tok arg AnyT;
-            return [Pany]
+            return Pp_any
           od
       | _ => fail (locs, «Impossible: nPAny»)
-    else if nterm = INL nPBase ∨ nterm = INL nPBaseL ∨ nterm = INL nPBaseR then
+    else if nterm = INL nPList then
       case args of
-        [arg] =>
+        lbrack::rest =>
           do
-            n <- nterm_of arg;
-            if n = INL nValueName then
-              fmap (λn. [Pvar n]) (ptree_ValueName arg)
-            else if n = INL nLiteral then
-              fmap (λlit. [Plit lit]) (ptree_Literal arg) ++
-              fmap (λb. [Pcon (SOME b) []]) (ptree_Bool arg)
-            else if n = INL nPAny ∨ n = INL nPList ∨ n = INL nPListL ∨
-                    n = INL nPListR then
-              ptree_Pattern arg
-            else
-              fail (locs, «Impossible: nPBase»)
-         od
-      | [l; r] =>
+            expect_tok lbrack LbrackT;
+            ps <- ptree_PPatternList rest;
+            return $ build_list_ppat ps
+          od
+      | _ => fail (locs, «Impossible: nPList»)
+    else if nterm = INL nPPar then
+      case args of
+        [l; r] =>
           do
             expect_tok l LparT;
             expect_tok r RparT;
-            return [Pcon NONE []]
+            return $ Pp_con NONE []
           od
       | [l; p; r] =>
           do
             expect_tok l LparT;
             expect_tok r RparT;
-            ptree_Pattern p
+            ptree_PPattern p
           od
       | [lpar; pat; colon; typ; rpar] =>
           do
             expect_tok lpar LparT;
             expect_tok rpar RparT;
             expect_tok colon ColonT;
-            ps <- ptree_Pattern pat;
+            p <- ptree_PPattern pat;
             ty <- ptree_Type typ;
-            return (MAP (λp. Ptannot p ty) ps)
+            return $ Pp_tannot p ty
           od
-      | _ => fail (locs, «Impossible: nPBase»)
-    else if nterm = INL nPList ∨ nterm = INL nPListL ∨ nterm = INL nPListR then
+      | _ => fail (locs, «Impossible: nPPar»)
+    else if nterm = INL nPBase then
       case args of
-        lbrack::rest =>
+        [arg] =>
           do
-            expect_tok lbrack LbrackT;
-            pats <- ptree_PatternList rest;
-            return (MAP build_list_pat (list_cart_prod pats))
-          od
-      | _ => fail (locs, «Impossible: nPList»)
-    else if nterm = INL nPConstr ∨ nterm = INL nPConstrL ∨
-            nterm = INL nPConstrR then
+            n <- nterm_of arg;
+            if n = INL nValueName then
+              fmap Pp_var (ptree_ValueName arg)
+            else if n = INL nLiteral then
+              fmap Pp_lit (ptree_Literal arg) ++
+              fmap (λb. Pp_con (SOME b) []) (ptree_Bool arg)
+            else if n = INL nPAny ∨ n = INL nPList ∨ n = INL nPPar then
+              ptree_PPattern arg
+            else
+              fail (locs, «Impossible: nPBase»)
+         od
+      | _ => fail (locs, «Impossible: nPBase»)
+    else if nterm = INL nPCons then
       case args of
         [cn] =>
           do
             cns <- ptree_Constr cn;
             id <- path_to_ns locs cns;
-            return [Pcon (SOME id) []]
+            return $ Pp_con (SOME id) []
           od
       | [cn; pat] =>
           do
             cns <- ptree_Constr cn;
             id <- path_to_ns locs cns;
-            ps <- ptree_Pattern pat;
-            return (MAP (λp. compatCurryP id p) ps)
-          od
-      | _ => fail (locs, «Impossible: nPConstr»)
-    else if nterm = INL nPApp ∨ nterm = INL nPAppL ∨ nterm = INL nPAppR then
-      case args of
-        [pat] => ptree_Pattern pat
-      | _ => fail (locs, «Impossible: nPApp»)
-    else if nterm = INL nPCons ∨ nterm = INL nPConsL ∨ nterm = INL nPConsR then
-      case args of
-        [pat] => ptree_Pattern pat
-      | [p1; colons; p2] =>
-          do
-            expect_tok colons ColonsT;
-            ps <- ptree_Pattern p1;
-            qs <- ptree_Pattern p2;
-            return (MAP (λ(p,q). Pcon (SOME (Short "::")) [p; q])
-                        (cart_prod ps qs))
+            p <- ptree_PPattern pat;
+            return $ compatCurryP id p
           od
       | _ => fail (locs, «Impossible: nPCons»)
-    else if nterm = INL nPProd ∨ nterm = INL nPProdL ∨ nterm = INL nPProdR then
-      case args of
-        [pat] => ptree_Pattern pat
-      | pat::pats =>
-          do
-            p <- ptree_Pattern pat;
-            ps <- ptree_PatternCommas pats;
-            return (MAP (λps. Pcon NONE ps) (list_cart_prod (p::ps)))
-          od
-      | _ => fail (locs, «Impossible: nPProd»)
-    else if nterm = INL nPOr ∨ nterm = INL nPOrL ∨ nterm = INL nPOrR then
-      case args of
-        [pat] => ptree_Pattern pat
-      | [p1; bar; p2] =>
-          do
-            expect_tok bar BarT;
-            ps <- ptree_Pattern p1;
-            qs <- ptree_Pattern p2;
-            return (ps ++ qs)
-          od
-      | _ => fail (locs, «Impossible: nPOr»)
-    else if nterm = INL nPAs ∨ nterm = INL nPAsL ∨ nterm = INL nPAsR then
+    else if nterm = INL nPAs then
       case args of
         pat :: asids =>
           do
-            ps <- ptree_Pattern pat;
+            p <- ptree_PPattern pat;
             nms <- ptree_AsIds asids;
-            return (MAP (λp. FOLDL Pas p nms) ps)
+            return $ Pp_alias p nms
           od
       | _ => fail (locs, «Impossible: nPAs»)
-    else if nterm = INL nPattern ∨ nterm = INL nPatternL ∨
-            nterm = INL nPatternR then
+    else if nterm = INL nPOps then
       case args of
-        [pat] => ptree_Pattern pat
+        [] => fail (locs, «Impossible: nPOps» )
+      | pat::rest => ARB
+          do
+            p <- ptree_PPattern pat;
+            start <<- case dest_alias p of
+                        NONE => [INR (INL p)]
+                      | SOME (pp,ns) =>
+                          [INR (INR ns); INL po_alias; INR (INL pp)];
+            precs <- grabPairs ptree_PPattern tok2ppo start rest;
+            resolve_precs precs
+          od
+    else if nterm = INL nPattern then
+      case args of
+        [pat] => ptree_PPattern pat
       | _ => fail (locs, «Impossible: nPattern»)
     else
       fail (locs, «Expected a pattern non-terminal»)) ∧
-  (ptree_PatternList [] =
+  (ptree_PPatternList [] =
     fail (unknown_loc, «Pattern lists cannot be empty»)) ∧
-  (ptree_PatternList [t] =
+  (ptree_PPatternList [t] =
      do
        expect_tok t RbrackT;
        return []
      od) ∧
-  (ptree_PatternList (p::ps) =
+  (ptree_PPatternList (p::ps) =
      do
        expect_tok p SemiT;
-       ptree_PatternList ps
+       ptree_PPatternList ps
      od ++
      do
-       q <- ptree_Pattern p;
-       qs <- ptree_PatternList ps;
+       q <- ptree_PPattern p;
+       qs <- ptree_PPatternList ps;
        return (q::qs)
-     od) ∧
-  (ptree_PatternCommas [] = return []) ∧
-  (ptree_PatternCommas (p::ps) =
-    do
-      expect_tok p CommaT;
-      ptree_PatternCommas ps
-    od ++
-    do
-      q <- ptree_Pattern p;
-      qs <- ptree_PatternCommas ps;
-      return (q::qs)
-    od)
+     od)
 Termination
-  WF_REL_TAC ‘measure $ sum_size psize
-                      $ sum_size (list_size psize)
-                                 (SUC o list_size psize)’
+  WF_REL_TAC ‘measure $ sum_size psize $ list_size psize’
+End
+
+Definition ptree_Pattern_def:
+  ptree_Pattern p = fmap ppat_to_pat (ptree_PPattern p)
 End
 
 Definition ptree_Patterns_def:
