@@ -789,13 +789,12 @@ Datatype:
 End
 
 Definition tokprec_def:
-  tokprec op: (num # prec) option =
+  tokprec op: (num # prec) option = SOME $
     case op of
-      po_cons => SOME (3, Right)
-    | po_prod => SOME (2, NonAssoc)
-    | po_or => SOME (1, Left)
-    | po_alias => SOME (0, NonAssoc)
-    | _ => NONE
+      po_cons => (3, Right)
+    | po_prod => (2, Left)
+    | po_or => (1, Left)
+    | po_alias => (0, NonAssoc)
 End
 
 Definition tok_action_def:
@@ -803,9 +802,10 @@ Definition tok_action_def:
     do
       (stkprec, stka) <- tokprec stktok;
       (inpprec, inpa) <- tokprec inptok;
-      if inpprec < stkprec then SOME Reduce
+      if stka = NonAssoc then SOME Reduce (* only po_alias *)
+      else if inpprec < stkprec then SOME Reduce
       else if stkprec < inpprec then SOME Shift
-      else if stka ≠ inpa then NONE
+      else if stka ≠ inpa ∨ stka = NonAssoc then NONE
       else if stka = Left then SOME Reduce
       else SOME Shift
     od ∧
@@ -821,7 +821,6 @@ Definition dest_alias_def:
   dest_alias (Pp_alias pp ns) = SOME (pp, ns) ∧
   dest_alias _ = NONE
 End
-
 
 Definition grabPairs_def[simp]:
   grabPairs vf opf A [] = return (REVERSE A) ∧
@@ -882,6 +881,7 @@ Definition ppat_reduce_def:
     | INL po_prod =>
         (case (a, b) of
            (INL (Pp_con NONE ps), INL y) => SOME (INL (Pp_con NONE (ps ++ [y])))
+         | (INL x, INL y) => SOME (INL (Pp_con NONE [x; y]))
          | _ => NONE)
     | INL po_cons =>
         (case (a, b) of
@@ -1013,13 +1013,15 @@ Definition ptree_PPattern_def:
           do
             p <- ptree_PPattern pat;
             nms <- ptree_AsIds asids;
-            return $ Pp_alias p nms
+            case nms of
+              [] => return p
+            | _ => return $ Pp_alias p nms
           od
       | _ => fail (locs, «Impossible: nPAs»)
     else if nterm = INL nPOps then
       case args of
         [] => fail (locs, «Impossible: nPOps» )
-      | pat::rest => ARB
+      | pat::rest =>
           do
             p <- ptree_PPattern pat;
             start <<- case dest_alias p of
