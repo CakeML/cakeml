@@ -559,9 +559,33 @@ val def = (INST_TYPE_def |> SIMP_RULE std_ss [LET_DEF]) |> check [‘theta’] |
 val def = (INST_def |> SIMP_RULE std_ss [LET_DEF]) |> check [‘theta’] |> m_translate
 val def = new_basic_type_definition_def |> check [‘tyname’,‘absname’,‘repname’]  |> m_translate
 
-val def = m_translate axioms_def;
-val def = m_translate types_def;
-val def = m_translate constants_def;
+val _ = ml_prog_update open_local_block;
+
+val def = list_to_hypset_def |> translate
+
+val _ = ml_prog_update open_local_in_block;
+
+Triviality axioms_eq:
+  axioms u = one_CASE u get_the_axioms
+Proof
+  fs [axioms_def]
+QED
+
+Triviality types_eq:
+  types u = one_CASE u get_the_type_constants
+Proof
+  fs [types_def]
+QED
+
+Triviality constants_eq:
+  constants u = one_CASE u get_the_term_constants
+Proof
+  fs [constants_def]
+QED
+
+val def = m_translate axioms_eq;
+val def = m_translate types_eq;
+val def = m_translate constants_eq;
 
 (* The kernel module is closed in subsequent script files:
    ml_hol_kernelProgScript.sml and candle_kernelProgScript.sml *)

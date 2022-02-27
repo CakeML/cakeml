@@ -2654,11 +2654,6 @@ fun single_line_def def = let
   fun find_def name =
     Theory.current_definitions ()
     |> first (fn (s,_) => s = name) |> snd
-  val curried = find_def "generated_definition_curried_def"
-  val c = curried |> SPEC_ALL |> concl |> dest_eq |> snd |> rand
-  val c2 = curried |> SPEC_ALL |> concl |> dest_eq |> fst
-  val c1 = curried |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
-  val tupled = find_def "generated_definition_tupled_primitive_def"
   val ind = fetch "-" "generated_definition_ind"
   val tys = ind |> concl |> dest_forall |> fst |> type_of |> dest_type |> snd
   val vv = mk_var("very unlikely name",el 2 tys)
@@ -2666,33 +2661,7 @@ fun single_line_def def = let
                 |> CONV_RULE (DEPTH_CONV BETA_CONV)
                 |> CONV_RULE (RAND_CONV (SIMP_CONV std_ss []))
                 |> GEN vv
-  val cc = tupled |> concl |> dest_eq |> fst
-  val (v,tm) = tupled |> concl |> rand |> rand |> dest_abs
-  val (a,tm) = dest_abs tm
-  val tm = (REWRITE_CONV [GSYM FALSE_def,GSYM TRUE_def] THENC
-            SIMP_CONV std_ss [Once pair_case_def,GSYM curried]) (subst [a|->c,v|->cc] tm)
-           |> concl |> rand |> rand
-  val vs = free_vars tm
-  val goal = mk_eq(mk_CONTAINER c2, mk_CONTAINER tm)
-  val pre_tm =
-    if not (can (find_term is_arb) goal) then T else let
-      val vs = curried |> SPEC_ALL |> concl |> dest_eq |> fst |> dest_args |> tl
-      val pre_tm = pattern_complete def vs
-      in pre_tm end
-  val vs = filter (fn x => not (tmem x vs)) (free_vars goal)
-  val goal = subst (map (fn v => v |-> oneSyntax.one_tm) vs) goal
-  val goal = subst [mk_comb(c1,oneSyntax.one_tm)|->const] goal
-  val goal = mk_imp(pre_tm,goal)
-  val lemma = auto_prove "single_line_def-2" (goal,
-    SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,TRUE_def,FALSE_def] \\ SRW_TAC [] []
-    \\ BasicProvers.EVERY_CASE_TAC
-    \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [def]))
-    \\ SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,TRUE_def,FALSE_def]
-    \\ SRW_TAC [] [LET_THM]
-    \\ CONV_TAC (DEPTH_CONV ETA_CONV)
-    \\ POP_ASSUM MP_TAC \\ REWRITE_TAC [PRECONDITION_def])
-    |> REWRITE_RULE [EVAL (mk_PRECONDITION T)]
-    |> UNDISCH_ALL |> CONV_RULE (BINOP_CONV (REWR_CONV CONTAINER_def))
+  val lemma = DefnBase.one_line_ify NONE def
   in (lemma,SOME ind) end end
   handle HOL_ERR _ => failwith("Preprocessor failed: unable to reduce definition to single line.")
 
