@@ -234,15 +234,16 @@ structure Lexer = struct
         fun scan_while acc pred =
           let
             fun nom acc =
-              case peekChar () of
-                None => None
-              | Some c =>
-                  if pred c then
-                    (nextChar ();
-                     nom (c::acc))
-                  else
-                    Some (String.implode (List.rev acc))
-              | _ => Some (String.implode (List.rev acc))
+              (Interrupt.check ();
+               case peekChar () of
+                 None => None
+               | Some c =>
+                   if pred c then
+                     (nextChar ();
+                      nom (c::acc))
+                   else
+                     Some (String.implode (List.rev acc))
+               | _ => Some (String.implode (List.rev acc)))
           in
             nom acc
           end
@@ -252,21 +253,22 @@ structure Lexer = struct
               if level = 0 then
                 Some (String.implode (#"(" :: #"*"::List.rev acc))
               else
-                case nextChar () of
-                  Some #"(" =>
-                    (case peekChar () of
-                       Some #"*" =>
-                         (nextChar ();
-                          nom (#"*" :: #"("::acc) (level + 1))
-                     | _ => nom (#"("::acc) level)
-                | Some #"*" =>
-                    (case peekChar () of
-                       Some #")" =>
-                         (nextChar ();
-                          nom (#")" :: #"*"::acc) (level - 1))
-                     | _ => nom (#"*" :: acc) level)
-                | Some c => nom (c::acc) level
-                | None => None
+                (Interrupt.check ();
+                 case nextChar () of
+                   Some #"(" =>
+                     (case peekChar () of
+                        Some #"*" =>
+                          (nextChar ();
+                           nom (#"*" :: #"("::acc) (level + 1))
+                      | _ => nom (#"("::acc) level)
+                 | Some #"*" =>
+                     (case peekChar () of
+                        Some #")" =>
+                          (nextChar ();
+                           nom (#")" :: #"*"::acc) (level - 1))
+                      | _ => nom (#"*" :: acc) level)
+                 | Some c => nom (c::acc) level
+                 | None => None)
           in
             nom [] 1
           end
@@ -313,17 +315,18 @@ structure Lexer = struct
         fun scan_escaped ch =
           let
             fun nom acc =
-              case nextChar () of
-                None => None
-              | Some #"\\" =>
-                  (case nextChar () of
-                     None => nom (#"\\"::acc)
-                   | Some c => nom (c:: #"\\"::acc))
-              | Some c =>
-                  if c = ch then
-                    Some (String.implode (List.rev acc))
-                  else
-                    nom (c::acc)
+              (Interrupt.check ();
+               case nextChar () of
+                 None => None
+               | Some #"\\" =>
+                   (case nextChar () of
+                      None => nom (#"\\"::acc)
+                    | Some c => nom (c:: #"\\"::acc))
+               | Some c =>
+                   if c = ch then
+                     Some (String.implode (List.rev acc))
+                   else
+                     nom (c::acc))
            in
              nom []
           end
@@ -374,7 +377,7 @@ structure Lexer = struct
               else
                 Some (T_other (String.str c))
       in
-        nextToken
+        fn () => (Interrupt.check (); nextToken ())
       end
   end (* local *)
 end (* struct *)
@@ -385,16 +388,15 @@ end (* struct *)
 
  structure CakeML = struct
   val loadPath = Ref [Filename.currentDir];
-  val stdIn = TextIO.b_openStdIn ();
-  val (input1 : (unit -> char option) ref) =
-    Ref (fn () => TextIO.b_input1 stdIn);
+  val (input1: (unit -> char option) ref) =
+    Ref (fn () => TextIO.input1 TextIO.stdIn);
   val prompt1 = Ref "> ";
   val prompt2 = Ref "# ";
   val userInput = Ref True;
   val unquote = Ref (fn (s: string) => s);
   (**)
   local
-    val prompt = Ref (!prompt2)
+    val prompt = Ref (!prompt2);
   (**)
   local
     val lookahead = Ref (None: char option);
@@ -512,57 +514,72 @@ end (* struct *)
       Some tok => Some tok
     | None => scan1 ();
   val output_buffer = (Buffer.empty () : Lexer.token Buffer.buffer);
+  exception Repl_error;
   fun scan level =
-    case next () of
-      None => None
-    | Some (Lexer.T_done) =>
-        (userInput := True;
-         scan level)
-    | Some (Lexer.T_directive dir fname) =>
-        let val lines = load dir fname in
-          if List.null lines then scan level else
-            (userInput := False;
-             scan_lines lines;
-             scan level)
-        end
-    | Some tok =>
-        let val _ = Buffer.push_back output_buffer tok in
-          (* TODO:
-           * It might be reasonable to flush input when an 'end' is seen
-           *)
-          case tok of
-            Lexer.T_let => scan (level + 1)
-          | Lexer.T_local => scan (level + 1)
-          | Lexer.T_struct => scan (level + 1)
-          | Lexer.T_sig => scan (level + 1)
-          | Lexer.T_lpar => scan (level + 1)
-          | Lexer.T_end => scan (level - 1)
-          | Lexer.T_rpar => scan (level - 1)
-          | Lexer.T_semi =>
-              if level = 0 then
-                (prompt := !prompt1;
-                 Some (Buffer.flush output_buffer))
-              else
-                scan level
-          | Lexer.T_newline =>
-              if !userInput then
-                (print (!prompt);
-                 prompt := !prompt2;
-                 scan level)
-              else
-                scan level
-          | _ => scan level
-        end;
+    (case next () of
+       None => None
+     | Some (Lexer.T_done) =>
+         (userInput := True;
+          scan level)
+     | Some (Lexer.T_directive dir fname) =>
+         let val lines = load dir fname in
+           if List.null lines then scan level else
+             (userInput := False;
+              scan_lines lines;
+              scan level)
+         end
+     | Some tok =>
+         let val _ = Buffer.push_back output_buffer tok in
+           (* TODO:
+            * It might be reasonable to flush input when an 'end' is seen
+            *)
+           case tok of
+             Lexer.T_let => scan (level + 1)
+           | Lexer.T_local => scan (level + 1)
+           | Lexer.T_struct => scan (level + 1)
+           | Lexer.T_sig => scan (level + 1)
+           | Lexer.T_lpar => scan (level + 1)
+           | Lexer.T_end => scan (level - 1)
+           | Lexer.T_rpar => scan (level - 1)
+           | Lexer.T_semi =>
+               if level = 0 then
+                 (prompt := !prompt1;
+                  Some (Buffer.flush output_buffer))
+               else
+                 scan level
+           | Lexer.T_newline =>
+               if !userInput then
+                 (print (!prompt);
+                  prompt := !prompt2;
+                  scan level)
+               else
+                 scan level
+           | _ => scan level
+         end)
+    handle Interrupt =>
+      (print "Compilation interrupted\n";
+       raise Repl_error);
+  fun checkError () =
+    let val err = !Repl.errorMessage in
+      Repl.errorMessage := "";
+      if err <> "" then raise Repl_error else ()
+    end;
   fun next () =
-    case scan 0 of
-      None =>
-        (Repl.isEOF := True;
-         Repl.nextString := "")
-    | Some ts =>
-        (Repl.isEOF := False;
-         Repl.nextString :=
-           String.concat
-             (List.map (Lexer.tok2string (Some (!unquote))) ts));
+    (checkError ();
+     case scan 0 of
+       None =>
+         (Repl.isEOF := True;
+          Repl.nextString := "")
+     | Some ts =>
+         (Repl.isEOF := False;
+          Repl.nextString :=
+            String.concat
+              (List.map (Lexer.tok2string (Some (!unquote))) ts)))
+    handle Repl_error =>
+      (if not (!userInput) then print (!prompt1) else ();
+       Buffer.flush input_buffer;
+       Buffer.flush output_buffer;
+       Repl.nextString := "");
   in
     val _ = Repl.readNextString := (fn () =>
       (print (!prompt1);
