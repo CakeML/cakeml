@@ -279,6 +279,7 @@ let scan nextChar peekChar =
     is_digit c || c = '_' || c = 'l' || c = 'L' || c = 'n' in
   let scan_while acc pred =
     let rec nom acc =
+      Interrupt.check ();
       match peekChar () with
       | None -> None
       | Some c when pred c ->
@@ -288,6 +289,7 @@ let scan nextChar peekChar =
     nom acc in
   let scan_comment () =
     let rec nom acc level =
+      Interrupt.check ();
       if level = 0 then
         Some (String.implode ('('::'*'::List.rev acc))
       else
@@ -366,6 +368,7 @@ let scan nextChar peekChar =
               end in
   let scan_escaped ch =
     let rec nom acc =
+      Interrupt.check ();
       match nextChar () with
       | None -> None
       | Some '\\' ->
@@ -430,7 +433,7 @@ let scan nextChar peekChar =
           scan_spaces c
         else
           Some (T_other (String.str c)) in
-  nextToken
+  fun () -> Interrupt.check (); nextToken ()
 ;;
 
 end;; (* struct *)
@@ -442,15 +445,16 @@ end;; (* struct *)
 module Cakeml = struct
 
 let loadPath = ref [Filename.currentDir];;
-let stdIn = Text_io.b_openStdIn ();;
 let (input1 : (unit -> char option) ref) =
-  ref (fun () -> Text_io.b_input1 stdIn);;
+  ref (fun () -> Text_io.input1 Text_io.stdIn);;
 
 let prompt1 = ref "# ";;
 let prompt2 = ref "  ";;
 let userInput = ref true;;
 
 let unquote = ref (fun (s: string) -> s);;
+
+exception Repl_error;;
 
 let () =
   let prompt = ref (!prompt2) in
@@ -559,43 +563,56 @@ let () =
     | None -> scan1 () in
   let output_buffer = (Buffer.empty () : Lexer.token Buffer.buffer) in
   let rec scan level =
-    match next () with
-    | None -> None
-    | Some (Lexer.T_done) ->
-        userInput := true;
-        scan level
-    | Some (Lexer.T_directive (dir, fname)) ->
-        let lines = load dir fname in
-        if List.null lines then scan level else
-          begin
-            userInput := false;
-            scan_lines lines;
+    try match next () with
+        | None -> None
+        | Some (Lexer.T_done) ->
+            userInput := true;
             scan level
-          end
-    | Some tok ->
-        Buffer.push_back output_buffer tok;
-        match tok with
-        | Lexer.T_begin | Lexer.T_struct | Lexer.T_sig ->
-            scan (level + 1)
-        | Lexer.T_end -> scan (level - 1)
-        | Lexer.T_semis when level = 0 ->
-            prompt := !prompt1;
-            Some (Buffer.flush output_buffer)
-        | Lexer.T_newline when !userInput ->
-            print (!prompt);
-            prompt := !prompt2;
-            scan level
-        | _ -> scan level in
+        | Some (Lexer.T_directive (dir, fname)) ->
+            let lines = load dir fname in
+            if List.null lines then scan level else
+              begin
+                userInput := false;
+                scan_lines lines;
+                scan level
+              end
+        | Some tok ->
+            Buffer.push_back output_buffer tok;
+            match tok with
+            | Lexer.T_begin | Lexer.T_struct | Lexer.T_sig ->
+                scan (level + 1)
+            | Lexer.T_end -> scan (level - 1)
+            | Lexer.T_semis when level = 0 ->
+                prompt := !prompt1;
+                Some (Buffer.flush output_buffer)
+            | Lexer.T_newline when !userInput ->
+                print (!prompt);
+                prompt := !prompt2;
+                scan level
+            | _ -> scan level
+    with Interrupt ->
+      print "Compilation interrupted\n";
+      raise Repl_error in
+  let checkError () =
+    let err = !Repl.errorMessage in
+    Repl.errorMessage := "";
+    if err <> "" then raise Repl_error in
   let next () =
-    match scan 0 with
-    | None ->
-        Repl.isEOF := true;
-        Repl.nextString := ""
-    | Some ts ->
-        Repl.isEOF := false;
-        Repl.nextString :=
-          String.concat
-            (List.map (Lexer.string_of_token (Some (!unquote))) ts) in
+    try checkError ();
+        match scan 0 with
+        | None ->
+            Repl.isEOF := true;
+            Repl.nextString := ""
+        | Some ts ->
+            Repl.isEOF := false;
+            Repl.nextString :=
+              String.concat
+                (List.map (Lexer.string_of_token (Some (!unquote))) ts)
+    with Repl_error ->
+      if not (!userInput) then print (!prompt1);
+      Buffer.flush input_buffer;
+      Buffer.flush output_buffer;
+      Repl.nextString := "" in
   Repl.readNextString := (fun () ->
     print (!prompt1);
     next ();
