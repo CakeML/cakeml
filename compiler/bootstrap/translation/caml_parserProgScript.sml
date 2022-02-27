@@ -116,6 +116,23 @@ QED
 
 val _ = update_precondition ptree_literal_side;
 
+val r = translate (DefnBase.one_line_ify NONE precparserTheory.precparse_def)
+
+Theorem precparse_side:
+  ∀x y. precparser_precparse_side x y
+Proof
+  simp [FORALL_PROD]
+  \\ ho_match_mp_tac precparserTheory.precparse_ind \\ rw []
+  \\ rw [fetch "-" "precparser_precparse_side_def"] \\ gs []
+  \\ Cases_on ‘stk0’ \\ Cases_on ‘strm0’ \\ gs [precparserTheory.isFinal_def]
+  \\ Cases_on ‘h’ \\ gs [precparserTheory.isFinal_def,
+                         fetch "-" "sum_outr_side_def"]
+QED
+
+val _ = update_precondition precparse_side;
+
+val r = preprocess ptree_PPattern_def |> translate;
+
 val r = preprocess ptree_Pattern_def |> translate;
 
 (* This takes a long time.
