@@ -28,21 +28,6 @@ Overload Pv = “λvnm. Pvar vnm”;
 Overload Pc = “λcnm. Pcon (SOME (Short cnm))”;
 Overload C = “λcnm. Con (SOME (Short cnm))”
 
-(*
-Overload EREL =
-  ``λl. NN nE [NN nEhandle
-                  [NN nElogicOR
-                      [NN nElogicAND
-                          [NN nEtyped [NN nEbefore [NN nEcomp l]]]]]]``
-Overload EB = ``λl. EREL [NN nErel [NN nElistop [NN nEadd [NN nEmult [NN nEapp [NN nEbase l]]]]]]``
-
-Overload OLDAPP = ``λt1 t2. App Opapp [t1; t2]``
-(* Overload "" = ``λt1 t2. App Opapp [t1; t2]`` *)
-Overload vbinop = ``λopn a1 a2. App Opapp [App Opapp [Var opn; a1]; a2]``
-Overload V = ``λvnm. Var (Short vnm)``
-Overload Pc = ``λcnm. Pcon (SOME (Short cnm))``
- *)
-
 val _ = temp_add_user_printer
   ("locsprinter", “Locs x y”,
    (fn gs => fn be => fn sysp => fn {add_string,...} =>
@@ -422,6 +407,24 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
   "[a,b ; c]"
   (SOME “[Pc "::" [Pcon NONE [Pvar "a"; Pvar "b"];
                    Pc "::" [Pvar "c"; Pc "[]" []]]]”)
+  ;
+
+(* Nesting with all three pattern operators at once. The alias distributes over
+ * both sides due to the or-pattern which is apparently what happens in OCaml
+ * as well (madness).
+ *)
+
+val _ = parsetest0 “nPattern” “ptree_PPattern”
+  "a,b :: c, d | zs as i"
+  (SOME “ Pp_alias (Pp_or (Pp_con NONE [
+             Pp_var "a"; Pp_con (SOME (Short "::")) [Pp_var "b"; Pp_var "c"];
+             Pp_var "d"]) (Pp_var "zs")) ["i"]”)
+  ;
+
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "a,b :: c, d | zs as i"
+  (SOME (“[Pas (Pcon NONE [Pv "a"; Pc "::" [Pv "b"; Pv "c"]; Pv "d"]) "i";
+           Pas (Pv "zs") "i"]”))
   ;
 
 (* -------------------------------------------------------------------------
