@@ -11,35 +11,38 @@ val _ = translation_extends "lispProg";
 
 val _ = show_assums := true;
 
-val res = translate findRptChar_def;
-
 val res = translate TAKE;
 val res = translate DROP;
+val res = translate LENGTH;
 
-val res = translate splitAt_def
-val res = translate compr_def;
-val res = translate ALOOKUP_SND_def;
-val res = translate key_len_def;
-val res = translate key_len_snd_def;
-val res = translate decompr_def;
-val res = translate compr_alt_def;
-val res = translate compression_def;
+val res = translate MEM;
+val res = translate nub_def;
+val res = translate FLAT;
+val res = translate SNOC;
+val res = translate GENLIST;
+val res = translate LOG;
+val res = translate PAD_LEFT;
+val res = translate QSORT;
+val res = translate ZIP;
 
-Definition parse_input_def:
-  parse_input s = (explode s, [("xxxx", "b"); ("YYYYYY", "fg"); ("123", "e")])
-End
+val res = translate find_match_def;
+val res = translate tab_sub_def;
+val res = translate base_keys_def;
+val res = translate extract_fixed_substrings_def;
+val res = translate extract_substrings_n;
+val res = translate extract_keys_def;
+val res = translate gen_fix_codes;
+val res = translate create_fixed_dict_def;
+val res = translate lorem_dict_def;
+val res = translate FLIP_ALIST_def;
+
+val res = translate compress;
+val res = translate compress_main_def;
 
 Definition main_function_def:
-  main_function (s:mlstring) =
-  let
-    (text, tab) = parse_input s;
-  in
-    List [implode (compression text tab)]
+  main_function (s:mlstring) = List [implode (compress_main (explode s))]
 End
 
-EVAL “main_function (implode "sfaaa")”;
-
-val res = translate parse_input_def;
 val res = translate main_function_def;
 
 val _ = type_of “main_function” = “:mlstring -> mlstring app_list”
