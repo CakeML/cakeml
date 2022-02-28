@@ -8,8 +8,6 @@ open rich_listTheory alistTheory listTheory;
 open sortingTheory;
 val _ = new_theory "compression";
 
-    show_types := true
-
 (********************************************)
 (*          Substitution function           *)
 (********************************************)
@@ -162,24 +160,29 @@ Definition compress_def:
 End
 
 Definition compress_main_def:
-  compress_main (s:string)=
-  let
-    compr_res = compress s
-  in
-    if decompress compr_res = s
-    then "Compressed: " ++ compr_res
-    else "Uncompressed: " ++ s
+  compress_main (s:string) =
+  if decompress (compress s) = s
+  then "Compressed: " ++ compress s
+  else "Uncompressed: " ++ s
 End
 
 Definition decompress_main_def:
   decompress_main s =
-  let
-    comp_prefix = "Compressed: "
-  in
-    if IS_PREFIX s comp_prefix
-    then decompress (DROP (LENGTH comp_prefix) s)
-    else s
+  if IS_PREFIX s "Compressed: "
+  then decompress (DROP (LENGTH "Compressed: ") s)
+  else DROP (LENGTH "Uncompressed: ")  s
 End
+
+Theorem compress_main_inv:
+ ∀s. decompress_main (compress_main s) = s
+Proof
+  REWRITE_TAC[decompress_main_def, compress_main_def]
+  \\ strip_tac
+  \\ CASE_TAC
+  \\ simp[]
+QED
+
+
 
 Theorem compress_inv:
   ∀s. decompress (compress s) = s
@@ -191,21 +194,8 @@ Proof
   \\ Cases_on ‘t’
   \\ rw[decompress_def, compress_def, tab_sub_def, FLIP_ALIST_def]
   \\cheat
-
-
-
 QED
 
-
-Theorem compress_main_inv:
- ∀s. decompress_main (compress_main s) = s
-Proof
-  strip_tac
-  \\ rw[decompress_main_def, compress_main_def]
-  \\ cheat
-
-
-QED
 
 
 
