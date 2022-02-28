@@ -1183,7 +1183,7 @@ val update_earliest_arr = process_topdecs`
   case ls of [] => earr
   | n::ns =>
     let val updmin = list_min_opt_arr (Some v) earr [n] in
-      update_earliest_arr (Array.updateResize earr None (index n)) v ns
+      update_earliest_arr (Array.updateResize earr None (index n) updmin) v ns
     end` |> append_prog
 
 Theorem LIST_REL_update_resize:
@@ -1238,7 +1238,7 @@ Proof
     simp[list_min_opt_def])>>
   rpt xlet_autop>>
   rename1` nonev = _`>>
-  xlet` POSTv v. ARRAY v (update_resize earliestv nonev rv (index h))`
+  xlet`POSTv v. ARRAY v (update_resize earliestv nonev rv (index h))`
   >- (
     xapp>>xsimpl>>
     asm_exists_tac>>simp[])>>
@@ -1248,7 +1248,6 @@ Proof
   match_mp_tac LIST_REL_update_resize>>fs[OPTION_TYPE_def]
 QED
 
-(* TODO below *)
 val result = translate sorted_insert_def;
 
 val check_earliest_arr = process_topdecs`
@@ -1259,12 +1258,10 @@ val check_earliest_arr = process_topdecs`
     if i >= old then
       (if i < new
       then
-        (if Array.length fml <= i then check_earliest_arr fml x old new is
-        else
-          case Unsafe.sub fml i of
-            None => check_earliest_arr fml x old new is
-          | Some ci =>
-            not(List.member x ci) andalso check_earliest_arr fml x old new is)
+        case Array.lookup fml None i of
+          None => check_earliest_arr fml x old new is
+        | Some ci =>
+          not(List.member x ci) andalso check_earliest_arr fml x old new is
       else
         check_earliest_arr fml x old new is)
     else True` |> append_prog;
@@ -1289,10 +1286,9 @@ Proof
   fs[LIST_TYPE_def,check_earliest_def]
   >- (
     xmatch>>xcon>>
-    xsimpl)
-  >>
+    xsimpl) >>
   xmatch>>
-  rpt xlet_autop>>
+  xlet_autop>>
   reverse (Cases_on`h ≥ old`)>>fs[]
   >- (
     xif>>asm_exists_tac>>xsimpl>>
@@ -1301,23 +1297,19 @@ Proof
   xlet_autop>>
   reverse xif>>fs[]
   >- (xapp>>xsimpl)>>
-  xlet_autop>>
-  xlet_autop>>
-  `LENGTH fmlls = LENGTH fmllsv` by
-    metis_tac[LIST_REL_LENGTH]>>
-  xif
-  >- (
-    simp[list_lookup_def]>>
-    xapp>>xsimpl)>>
-  xlet_autop>>
-  simp[list_lookup_def]>>
-  `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  `LENGTH fmlls = LENGTH fmllsv` by metis_tac[LIST_REL_LENGTH]>>
+  `OPTION_TYPE (LIST_TYPE INT) (any_el h fmlls NONE) v'` by (
+    rw[any_el_ALT]>>
+    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  qpat_x_assum`v' = _` (assume_tac o SYM)>>
   TOP_CASE_TAC>>fs[OPTION_TYPE_def]
-  >-
-    (xmatch >> xapp>>xsimpl)>>
+  >- (
+    xmatch>>
+    xapp>>xsimpl)>>
   xmatch>>
-  xlet_autop>>
-  xlet_autop>>
+  rpt xlet_autop>>
   xlog>>
   IF_CASES_TAC>>fs[MEMBER_INTRO]>>xsimpl>>
   xapp>>xsimpl
@@ -1336,14 +1328,12 @@ val hint_earliest_arr = process_topdecs`
     else
       let val p = safe_hd c
           val ip = index (~p) in
-          if Array.length earr <= ip then earr
-          else
-          (case Unsafe.sub earr ip of
+          (case Array.lookup earr None ip of
             None => earr
           | Some mini =>
             if check_earliest_arr fml (~p) mini lm inds
             then
-              resize_update_arr (Some lm) ip earr
+              Array.updateResize earr None ip (Some lm)
             else
               earr)
       end
@@ -1376,12 +1366,11 @@ Proof
   xif
   >- (xvar>>xsimpl)>>
   rpt xlet_autop>>
-  simp[list_lookup_def]>>
   `LENGTH earliest = LENGTH earliestv` by metis_tac[LIST_REL_LENGTH]>>
-  xif>>fs[]
-  >- (xvar>>xsimpl)>>
-  xlet_autop>>
-  `OPTION_TYPE NUM (EL (index (-safe_hd c)) earliest) (EL (index (-safe_hd c)) earliestv)` by fs[LIST_REL_EL_EQN]>>
+  `OPTION_TYPE NUM (any_el (index (-safe_hd c)) earliest NONE) v'` by (
+    rw[any_el_ALT]>>
+    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  qpat_x_assum`v' = _` (assume_tac o SYM)>>
   TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>
   xmatch
   >-
@@ -1389,13 +1378,11 @@ Proof
   rpt xlet_autop>>
   reverse xif>>fs[]
   >- (xvar>>xsimpl)>>
-  xlet_autop>>
-  xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``NUM``)>>
+  rpt xlet_autop>>
+  xapp>>
   xsimpl>>
-  asm_exists_tac>>simp[]>>
-  asm_exists_tac>>simp[]>>
-  qexists_tac`SOME (list_min ik)`>>
-  simp[OPTION_TYPE_def]
+  asm_exists_tac>>xsimpl>>
+  match_mp_tac LIST_REL_update_resize>>fs[OPTION_TYPE_def]
 QED
 
 val every_less_def = Define`
@@ -1418,7 +1405,7 @@ val check_lpr_step_arr = process_topdecs`
           val earr = hint_earliest_arr c w ik fml ls earr
           val ls = is_PR_arr lno fml ls carr earr p c w i0 ik
           val earr = update_earliest_arr earr n c in
-            (resize_update_arr (Some c) n fml, sorted_insert n ls, carr, earr) end
+            (Array.updateResize fml None n (Some c), sorted_insert n ls, carr, earr) end
     else
       raise Fail (format_failure lno ("Overwrite not permitted for clause index <= " ^ Int.toString mindel))
     ` |> append_prog
@@ -1562,24 +1549,15 @@ Proof
   fs[unwrap_TYPE_def]>>
   TOP_CASE_TAC>>fs[]>>
   rpt xlet_autop>>
-  xlet`(POSTv resv.
-      W8ARRAY carrv Clist' *
-      ARRAY Earrv'' earliestv'' *
-      SEP_EXISTS fmllsv'.
-      ARRAY resv fmllsv' *
-      &(LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (update_resize fmlls NONE (SOME l) n) fmllsv'))`
-  >- (
-    xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``(LIST_TYPE INT)``)>>
-    xsimpl>>
-    asm_exists_tac>>simp[]>>
-    asm_exists_tac>>simp[]>>
-    qexists_tac`SOME l`>>simp[OPTION_TYPE_def])
-  >>
-  rw[]>>fs[]>>xcon>>xsimpl>>
+  xcon>>xsimpl>>
   simp[OPTION_TYPE_def,LIST_TYPE_def]>>rw[]
+  >- (
+    fs[]>>
+    metis_tac[bounded_fml_update_resize,bounded_fml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist])
   >-
-    metis_tac[bounded_fml_update_resize,bounded_fml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist]>>
-  simp[LENGTH_resize_Clist]
+    (match_mp_tac LIST_REL_update_resize>>simp[OPTION_TYPE_def])>>
+  fs[]>>
+  metis_tac[LENGTH_resize_Clist]
 QED
 
 (* A version of contains_clauses_list that returns an error clause (if any) *)
@@ -1608,7 +1586,7 @@ QED
 val contains_clauses_sing_list_def = Define`
   (contains_clauses_sing_list fml [] cls ccls = SOME cls) ∧
   (contains_clauses_sing_list fml (i::is) cls ccls =
-  case list_lookup fml NONE i of
+  case any_el i fml NONE of
     NONE => contains_clauses_sing_list fml is cls ccls
   | SOME v =>
     if canon_clause v = ccls then NONE
@@ -1640,9 +1618,7 @@ val contains_clauses_sing_arr =  (append_prog o process_topdecs)`
   case ls of
     [] => Some cls
   | (i::is) =>
-  if Array.length fml <= i then contains_clauses_sing_arr fml is cls ccls
-  else
-  case Unsafe.sub fml i of
+  case Array.lookup fml None i of
     None => contains_clauses_sing_arr fml is cls ccls
   | Some v =>
     if canon_clause v = ccls then None
@@ -1671,23 +1647,22 @@ Proof
     xcon>>xsimpl>>
     simp[OPTION_TYPE_def])>>
   xmatch>> rpt(xlet_autop)>>
-  simp[list_lookup_def]>>
+  xlet_auto>>
   `LENGTH fmlls = LENGTH fmllsv` by
     metis_tac[LIST_REL_LENGTH]>>
-  IF_CASES_TAC >> fs[]>>
-  xif>> asm_exists_tac>> xsimpl
-  >- (xapp >> xsimpl)>>
-  xlet_autop >>
-  `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by
-    fs[LIST_REL_EL_EQN]>>
-  TOP_CASE_TAC >> fs[OPTION_TYPE_def]
-  >- (xmatch>> xapp>> xsimpl) >>
-  xmatch>>
-  xlet_autop>>
-  xlet_autop>>
-  xif
-  >- (xcon>>xsimpl>>simp[OPTION_TYPE_def])>>
-  xapp>>simp[]
+  `OPTION_TYPE (LIST_TYPE INT) (any_el h fmlls NONE) v'` by (
+    rw[any_el_ALT]>>
+    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  qpat_x_assum`v' = _` (assume_tac o SYM)>>
+  TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>
+  xmatch
+  >- (xapp>>xsimpl)>>
+  rpt xlet_autop>>
+  xif>- (
+    xcon>>
+    xsimpl>>simp[OPTION_TYPE_def])>>
+  xapp>>
+  simp[]
 QED
 
 val hash_ins = (append_prog o process_topdecs)`
@@ -1703,9 +1678,7 @@ val reindex_hash = (append_prog o process_topdecs)`
   case ls of
     [] => ()
   | (i::is) =>
-  if Array.length fml <= i then reindex_hash fml canon is ht
-  else
-  case Unsafe.sub fml i of
+  case Array.lookup fml None i of
     None => reindex_hash fml canon is ht
   | Some v =>
     (hash_ins ht (if canon then canon_clause v else v) i;
@@ -1865,21 +1838,17 @@ Proof
     xsimpl)>>
   xmatch>>
   rpt xlet_autop>>
-  simp[list_lookup_def]>>
   `LENGTH fmlls = LENGTH fmllsv` by
     metis_tac[LIST_REL_LENGTH]>>
-  xif
-  >- (xapp >> xsimpl>>
-    qexists_tac`emp`>>qexists_tac`h'`>>xsimpl)>>
-  xlet_autop >>
-  `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by
-    fs[LIST_REL_EL_EQN]>>
-  Cases_on`EL h fmlls`>>
-  fs[OPTION_TYPE_def]
+  `OPTION_TYPE (LIST_TYPE INT) (any_el h fmlls NONE) v'` by (
+    rw[any_el_ALT]>>
+    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  qpat_x_assum`v' = _` (assume_tac o SYM)>>
+  Cases_on`any_el h fmlls NONE` >>fs[OPTION_TYPE_def]>>
+  xmatch
   >- (
-    xmatch>> xapp>> xsimpl>>
+    xapp>> xsimpl>>
     qexists_tac`emp`>>qexists_tac`h'`>>xsimpl)>>
-  xmatch>>
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
   xlet`POSTv v. &(LIST_TYPE INT (if canon then canon_clause x else x) v) * ARRAY fmlv fmllsv *
@@ -2761,7 +2730,7 @@ val fill_arr = process_topdecs`
     case ls of [] => arr
     | (x::xs) =>
     case x of (i,v) =>
-      fill_arr (resize_update_arr (Some v) i arr) xs` |> append_prog
+      fill_arr (Array.updateResize arr None i (Some v)) xs` |> append_prog
 
 Theorem fill_arr_spec:
   ∀ls lsv arrv arrls arrlsv.
@@ -2782,17 +2751,12 @@ Proof
   >- (xvar>>xsimpl)>>
   Cases_on`h`>>fs[PAIR_TYPE_def]>>
   xmatch>>
-  xlet_autop >>
-  xlet`(POSTv resv.
-      SEP_EXISTS fmllsv'.
-      ARRAY resv fmllsv' *
-      &(LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (update_resize arrls NONE (SOME r) q) fmllsv') )`
-  >- (
-    xapp >> xsimpl>>
-    simp[OPTION_TYPE_def] )
-  >>
+  rpt xlet_autop >>
+  xlet_auto >>
   xapp>>
-  xsimpl
+  fs[]>>
+  match_mp_tac LIST_REL_update_resize>>fs[]>>
+  simp[OPTION_TYPE_def]
 QED
 
 Theorem all_distinct_map_fst_rev:
@@ -2864,11 +2828,11 @@ Proof
   metis_tac[]
 QED
 
-Theorem list_lookup_update_earliest:
+Theorem any_el_update_earliest:
   ∀cl ls x y.
   index y = x ⇒
-  list_lookup (update_earliest ls v cl) NONE x =
-  case list_lookup ls NONE x of
+  any_el x (update_earliest ls v cl) NONE =
+  case any_el x ls NONE of
     NONE => if MEM y cl then SOME v else NONE
   | SOME k =>
     if MEM y cl then SOME (MIN k v) else SOME k
@@ -2877,23 +2841,23 @@ Proof
   >-
     (rw[]>>TOP_CASE_TAC>>simp[])>>
   rw[]>>
-  qmatch_goalsub_abbrev_tac`list_lookup (update_earliest lss _ _)_ _`>>
+  qmatch_goalsub_abbrev_tac`any_el _ (update_earliest lss _ _) _`>>
   simp[]
   >- (
     first_x_assum(qspecl_then[`lss`,`index h`,`h`] mp_tac)>>
-    simp[Abbr`lss`,list_lookup_update_resize]>>
+    simp[Abbr`lss`,any_el_update_resize]>>
     strip_tac>>
     IF_CASES_TAC>>simp[]>>
-    Cases_on`list_lookup ls NONE (index h)`>>simp[min_opt_def,MIN_DEF])
+    Cases_on`any_el (index h) ls NONE`>>simp[min_opt_def,MIN_DEF])
   >- (
     first_x_assum(qspecl_then[`lss`,`index y`,`y`] mp_tac)>>
-    simp[Abbr`lss`,list_lookup_update_resize]>>
+    simp[Abbr`lss`,any_el_update_resize]>>
     strip_tac>>
     IF_CASES_TAC>>simp[]>>
-    Cases_on`list_lookup ls NONE (index h)`>>simp[min_opt_def,MIN_DEF])>>
+    Cases_on`any_el (index h) ls NONE`>>simp[min_opt_def,MIN_DEF])>>
   fs[]>>
   first_x_assum(qspecl_then[`lss`,`y`] mp_tac)>>
-  simp[Abbr`lss`,list_lookup_update_resize]>>
+  simp[Abbr`lss`,any_el_update_resize]>>
   `index y ≠ index h` by fs[index_11]>>
   simp[]
 QED
@@ -2923,6 +2887,7 @@ Theorem fml_rel_FOLDL_update_resize:
   (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
 Proof
   rw[fml_rel_def]>>
+  simp[any_el_ALT]>>
   reverse IF_CASES_TAC
   >- (
     fs[lookup_build_fml]>>
@@ -3021,6 +2986,5 @@ Proof
   qexists_tac`k`>>simp[]>>
   metis_tac[fml_rel_contains_clauses_list]
 QED
-
 
 val _ = export_theory();
