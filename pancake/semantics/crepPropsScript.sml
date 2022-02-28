@@ -173,7 +173,7 @@ Proof
    fs [MEM_FLAT, MEM_MAP] >>
    metis_tac [EL_MEM]) >>
   rpt gen_tac >>
-  strip_tac >> fs [var_cexp_def, ETA_AX] >>
+  rpt strip_tac >> fs [var_cexp_def, ETA_AX] >>
   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
   rveq >> metis_tac []
 QED
@@ -363,7 +363,8 @@ Theorem evaluate_seq_stores_mem_state_rel:
                ((ad,Word addr)::ZIP (es,vs))) = (res,t) ==>
    res = NONE ∧ t.memory = m ∧
    t.memaddrs = s.memaddrs ∧ (t.be ⇔ s.be) /\
-   t.ffi = s.ffi ∧ t.code = s.code /\ t.clock = s.clock
+   t.ffi = s.ffi ∧ t.code = s.code /\ t.clock = s.clock /\
+   t.base_addr = s.base_addr
 Proof
   Induct >> rpt gen_tac >> strip_tac >> rfs [] >> rveq
   >- fs [stores_def, nested_seq_def, evaluate_def,
@@ -525,7 +526,7 @@ Proof
    fs [MEM_FLAT, MEM_MAP] >>
    metis_tac [EL_MEM]) >>
   rpt gen_tac >>
-  strip_tac >> fs [exps_def, ETA_AX] >>
+  rpt strip_tac >> fs [exps_def, ETA_AX] >>
   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
   rveq >> metis_tac []
 QED

@@ -51,7 +51,8 @@ Definition state_rel_def:
   s.memaddrs = t.memaddrs ∧
   s.clock = t.clock ∧
   s.be = t.be ∧
-  s.ffi = t.ffi
+  s.ffi = t.ffi ∧
+  s.base_addr = t.base_addr
 End
 
 Definition locals_rel_def:
@@ -333,19 +334,27 @@ Proof
    rveq >>
    fs [panLangTheory.size_of_shape_def, shape_of_def] >>
    fs [eval_def] >>
-   every_case_tac >> fs [] >> EVAL_TAC) >>
-  rpt gen_tac >> strip_tac >>
+   every_case_tac >> fs [] >> EVAL_TAC)
+  >- (
+  rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.eval_def] >>
   fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
   fs [compile_exp_def] >>
   cases_on ‘compile_exp ct e’ >>
   first_x_assum drule_all >>
-  strip_tac >> fs [] >>
+  rpt strip_tac >> fs [] >>
   fs [panLangTheory.size_of_shape_def, shape_of_def, flatten_def] >>
   rveq >>
   fs [panLangTheory.size_of_shape_def, shape_of_def] >> rveq >>
   fs [eval_def] >>  every_case_tac >>
-  fs [panLangTheory.size_of_shape_def, shape_of_def]
+  fs [panLangTheory.size_of_shape_def, shape_of_def])>>
+  rpt strip_tac >>
+  fs [panSemTheory.eval_def] >>
+  fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
+  fs [compile_exp_def] >>
+  fs [panLangTheory.size_of_shape_def, shape_of_def, flatten_def] >>
+  fs [eval_def] >>
+  fs[state_component_equality, state_rel_def]
 QED
 
 

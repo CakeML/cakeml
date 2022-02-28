@@ -40,6 +40,9 @@ Definition state_rel_def:
     t.clock = s.clock ∧
     t.be = s.be ∧
     t.ffi = s.ffi ∧
+    IS_SOME (FLOOKUP t.store CurrHeap) ∧
+    isWord (THE (FLOOKUP t.store CurrHeap)) ∧
+    s.base_addr = theWord (THE (FLOOKUP t.store CurrHeap)) ∧
     globals_rel s.globals t.store ∧
     code_rel s.code t.code
 End
@@ -48,6 +51,8 @@ val goal =
   ``λ(prog, s). ∀res s1 t ctxt retv l.
       evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
       state_rel s t ∧ locals_rel ctxt s.locals t.locals ∧
+      IS_SOME (FLOOKUP t.store CurrHeap) ∧
+      isWord (THE (FLOOKUP t.store CurrHeap)) ∧
       lookup 0 t.locals = SOME retv ∧ no_Loops prog ∧
       ~(isWord retv) ∧
       domain (acc_vars prog LN) ⊆ domain ctxt ⇒
@@ -117,6 +122,7 @@ Theorem state_rel_intro:
     t.clock = s.clock ∧
     t.be = s.be ∧
     t.ffi = s.ffi ∧
+    s.base_addr = theWord (THE (FLOOKUP t.store CurrHeap)) ∧
     globals_rel s.globals t.store ∧
     code_rel s.code t.code
 Proof
@@ -315,7 +321,7 @@ Theorem comp_exp_preserves_eval:
   !s e v t ctxt.
    eval s e = SOME v ∧
    state_rel s t /\ locals_rel ctxt s.locals t.locals ==>
-    word_exp t (comp_exp ctxt e) = SOME v
+   word_exp t (comp_exp ctxt e) = SOME v
 Proof
   ho_match_mp_tac eval_ind >>
   rw [] >>
@@ -334,22 +340,26 @@ Proof
    fs [state_rel_def, mem_load_def,
        loopSemTheory.mem_load_def])
   >- (
-   fs [CaseEq "option"] >>
-   qsuff_tac
-   ‘the_words (MAP (λa. word_exp t a)
-               (MAP (λa. comp_exp ctxt a) wexps)) = SOME ws’
-   >- fs [] >>
-   ntac 2 (pop_assum mp_tac) >>
-   ntac 2 (pop_assum kall_tac) >>
-   rpt (pop_assum mp_tac) >>
-   qid_spec_tac ‘ws’ >>
-   qid_spec_tac ‘wexps’ >>
-   Induct >> rw [] >>
-   last_assum mp_tac >>
-   impl_tac >- metis_tac [] >>
-   fs [the_words_def, CaseEq"option", CaseEq"word_loc"] >>
-   rveq >> fs []) >>
-  fs [CaseEq"option", CaseEq"word_loc"] >> rveq >> fs []
+  fs [CaseEq "option"] >>
+  qsuff_tac
+  ‘the_words (MAP (λa. word_exp t a)
+              (MAP (λa. comp_exp ctxt a) wexps)) = SOME ws’
+  >- fs [] >>
+  ntac 2 (pop_assum mp_tac) >>
+  ntac 2 (pop_assum kall_tac) >>
+  rpt (pop_assum mp_tac) >>
+  qid_spec_tac ‘ws’ >>
+  qid_spec_tac ‘wexps’ >>
+  Induct >> rw [] >>
+  last_assum mp_tac >>
+  impl_tac >- metis_tac [] >>
+  fs [the_words_def, CaseEq"option", CaseEq"word_loc"] >>
+  rveq >> fs [])
+  >- (fs [CaseEq"option", CaseEq"word_loc"] >> rveq >> fs []) >>
+  fs[state_rel_def] >>
+  Cases_on ‘FLOOKUP t.store CurrHeap’ >> fs[] >>
+  rename1 ‘x’ >>
+  Cases_on ‘x’ >> fs[theWord_def, isWord_def]
 QED
 
 
@@ -446,6 +456,7 @@ Proof
    IF_CASES_TAC >> fs []) >>
   rename [‘state_rel s2 t2’] >>
   first_x_assum drule >>
+  fs[state_rel_def]>>
   rpt (disch_then drule) >>
   disch_then (qspec_then ‘l'’ mp_tac) >>
   impl_tac
@@ -1063,8 +1074,9 @@ Proof
      fs [Abbr ‘ctxt’] >>
      match_mp_tac locals_rel_mk_ctxt_ln >>
      fs []) >>
-    conj_tac
-    >- (
+    conj_tac >- fs[state_rel_def] >>
+    conj_tac >- fs[state_rel_def]
+    >> (
      fs [no_Loops_def, no_Loop_def] >>
      fs [every_prog_def]) >>
     conj_tac >- fs [wordSemTheory.isWord_def] >>
@@ -1103,8 +1115,9 @@ Proof
       fs [Abbr ‘ctxt’] >>
       match_mp_tac locals_rel_mk_ctxt_ln >>
       fs []) >>
-     conj_tac
-     >- (
+    conj_tac >- fs[state_rel_def] >>
+    conj_tac >- fs[state_rel_def]
+     >> (
       fs [no_Loops_def, no_Loop_def] >>
       fs [every_prog_def]) >>
      fs [wordSemTheory.isWord_def, loopLangTheory.acc_vars_def]) >>
@@ -1146,8 +1159,9 @@ Proof
     fs [Abbr ‘ctxt’] >>
     match_mp_tac locals_rel_mk_ctxt_ln >>
     fs []) >>
-   conj_tac
-   >- (
+    conj_tac >- fs[state_rel_def] >>
+    conj_tac >- fs[state_rel_def]
+     >> (
     fs [no_Loops_def, no_Loop_def] >>
     fs [every_prog_def]) >>
    conj_tac >- fs [wordSemTheory.isWord_def] >>
@@ -1187,8 +1201,9 @@ Proof
     fs [Abbr ‘ctxt’] >>
     match_mp_tac locals_rel_mk_ctxt_ln >>
     fs []) >>
-   conj_tac
-   >- (
+    conj_tac >- fs[state_rel_def] >>
+    conj_tac >- fs[state_rel_def]
+     >> (
     fs [no_Loops_def, no_Loop_def] >>
     fs [every_prog_def]) >>
    conj_tac >- fs [wordSemTheory.isWord_def] >>
@@ -1225,8 +1240,9 @@ Proof
     fs [Abbr ‘ctxt’] >>
     match_mp_tac locals_rel_mk_ctxt_ln >>
     fs []) >>
-   conj_tac
-   >- (
+    conj_tac >- fs[state_rel_def] >>
+    conj_tac >- fs[state_rel_def]
+     >> (
     fs [no_Loops_def, no_Loop_def] >>
     fs [every_prog_def]) >>
    conj_tac >- fs [wordSemTheory.isWord_def] >>
@@ -1299,8 +1315,9 @@ Proof
     fs [Abbr ‘ctxt’] >>
     match_mp_tac locals_rel_mk_ctxt_ln >>
     fs []) >>
-   impl_tac
-   >- (
+   impl_tac >- fs[state_rel_def] >>
+   impl_tac>- fs[state_rel_def] >>
+   impl_tac >- (
     fs [no_Loops_def, no_Loop_def] >>
     fs [every_prog_def]) >>
    impl_tac >- fs [wordSemTheory.isWord_def] >>
@@ -1331,6 +1348,8 @@ Proof
    fs [Abbr ‘ctxt’] >>
    match_mp_tac locals_rel_mk_ctxt_ln >>
    fs []) >>
+   impl_tac >- fs[state_rel_def] >>
+   impl_tac>- fs[state_rel_def] >>
   impl_tac
   >- (
    fs [no_Loops_def, no_Loop_def] >>

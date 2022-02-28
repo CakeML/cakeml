@@ -44,8 +44,11 @@ Compilation from panLang to crepLang.
 [pan_to_crepScript.sml](pan_to_crepScript.sml):
 Compilation from panLang to crepLang.
 
+[pan_to_targetScript.sml](pan_to_targetScript.sml):
+Compiler from Pancake to machine code
+
 [pan_to_wordScript.sml](pan_to_wordScript.sml):
-Correctness proof for --
+Compiler from pan to word
 
 [proofs](proofs):
 Proofs files for compiling Pancake.
@@ -56,11 +59,23 @@ Semantics for Pancake and its intermediate languages.
 [taParserScript.sml](taParserScript.sml):
 Parser for compactDSL programs
 
+[ta_comp_exampleScript.sml](ta_comp_exampleScript.sml):
+This is an example compilation of a TA program
+
 [ta_progs](ta_progs):
-Same TA programs
+Some sample timed automata (TA) programs.
+
+[temp](temp):
+Temporary files
 
 [timeLangScript.sml](timeLangScript.sml):
 Abstract syntax for timeLang
 
+[time_evalScript.sml](time_evalScript.sml):
+Evaluation of compilation of a timeLang program
+
 [time_to_panScript.sml](time_to_panScript.sml):
 Compilation from timeLang to panLang
+
+[time_to_targetScript.sml](time_to_targetScript.sml):
+Compiler from timeLang to machine code
