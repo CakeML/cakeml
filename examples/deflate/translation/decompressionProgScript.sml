@@ -1,7 +1,7 @@
 (*
   Encoding program for simple decompression
 *)
-open preamble basis miscTheory set_sepTheory listTheory lispProgTheory rich_listTheory;
+open preamble basis miscTheory set_sepTheory listTheory lispProgTheory logrootTheory;
 open compressionTheory;
 open (* for parsing: *) parsingTheory source_valuesTheory;
 
@@ -16,8 +16,8 @@ val res = translate TAKE;
 val res = translate DROP;
 val res = translate LENGTH;
 
-val res = translate MEM;
-val res = translate nub_def;
+val res = translate ml_translatorTheory.MEMBER_def;
+val res = translate (nub_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate FLAT;
 val res = translate SNOC;
 val res = translate GENLIST;
