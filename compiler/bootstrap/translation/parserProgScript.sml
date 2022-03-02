@@ -111,9 +111,11 @@ val _ = translate (def_of_const ``peg_exec``);
 
 (* parsing: cmlvalid *)
 
-val monad_unitbind_assert = Q.prove(
-  `!b x. OPTION_IGNORE_BIND (OPTION_GUARD b) x = if b then x else NONE`,
-  Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
+Theorem monad_unitbind_assert:
+  !b x. OPTION_IGNORE_BIND (OPTION_GUARD b) x = if b then x else NONE
+Proof
+  Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []
+QED
 
 val _ = translate grammarTheory.ptree_head_def
 
