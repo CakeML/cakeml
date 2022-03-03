@@ -142,6 +142,7 @@ val clos_to_bvl_compile_side = Q.prove(`
 (* ------------------------------------------------------------------------- *)
 
 val r = translate bvl_constTheory.dest_simple_pmatch;
+val r = translate bvl_constTheory.dest_EqualInt_pmatch;
 val r = translate bvl_constTheory.case_op_const_pmatch;
 val r = translate bvl_constTheory.SmartOp_flip_pmatch;
 (* val r = translate bvl_constTheory.SmartOp2_pmatch *) (* prove_EvalPatBind *)

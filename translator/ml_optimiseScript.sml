@@ -18,7 +18,7 @@ open preamble
      astTheory libTheory semanticPrimitivesTheory
      ml_progTheory ml_translatorTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory;
-open terminationTheory ml_translatorTheory
+open evaluateTheory ml_translatorTheory
 
 val _ = new_theory "ml_optimise";
 

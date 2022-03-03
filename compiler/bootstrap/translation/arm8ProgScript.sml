@@ -2,7 +2,7 @@
   Translate the ARMv8 instruction encoder and ARMv8-specific config.
 *)
 open preamble;
-open terminationTheory
+open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
 open x64ProgTheory
 open arm8_targetTheory arm8Theory;
@@ -352,7 +352,7 @@ val res = translate arm8_enc_thm
 val _ = translate (valid_immediate_def |> SIMP_RULE bool_ss
 [IN_INSERT,NOT_IN_EMPTY]|> econv)
 
-val res = translate (arm8_config_def |> SIMP_RULE bool_ss
+Theorem arm8_config_v_thm = translate (arm8_config_def |> SIMP_RULE bool_ss
 [IN_INSERT,NOT_IN_EMPTY]|> econv)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;

@@ -6,10 +6,10 @@
 open integerTheory ml_progTheory
      astTheory libTheory semanticPrimitivesTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory
-     fpValTreeTheory fpSemTheory fpSemPropsTheory;
+     fpOptTheory fpValTreeTheory fpSemTheory fpSemPropsTheory;
 open mlvectorTheory mlstringTheory packLib;
 open integer_wordSyntax
-open terminationTheory
+open evaluateTheory
 local open integer_wordSyntax in end;
 open preamble;
 
@@ -23,6 +23,10 @@ Type state = ``:'ffi semanticPrimitives$state``
 val _ = augment_srw_ss [rewrites [getOpClass_def]];
 
 (* Definitions *)
+
+Definition no_assertions_def:
+  no_assertions x y z = T
+End
 
 Definition empty_state_def:
   empty_state = <|
@@ -93,6 +97,26 @@ val CHAR_def = Define`
 
 val STRING_TYPE_def = Define`
   STRING_TYPE (strlit s) = \v:v. (v = Litv (StrLit s))`;
+
+Theorem STRING_TYPE_explode:
+  STRING_TYPE s = \v. (v = Litv (StrLit (explode s)))
+Proof
+  Cases_on`s` \\ rw[STRING_TYPE_def]
+QED
+
+Theorem explode_eq:
+  explode s = l <=> s = strlit l
+Proof
+  rw[EQ_IMP_THM]
+  \\ rw[GSYM mlstringTheory.implode_def]
+QED
+
+Theorem eq_explode:
+  l = explode s <=> s = strlit l
+Proof
+  rw[EQ_IMP_THM]
+  \\ rw[GSYM mlstringTheory.implode_def]
+QED
 
 val HOL_STRING_TYPE_def = Define `
   HOL_STRING_TYPE cs = STRING_TYPE (implode cs)`
@@ -394,13 +418,18 @@ val EqualityType_def = Define `
     (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> ((v1 = v2) = (x1 = x2))) /\
     (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> types_match v1 v2)`;
 
-Triviality Eq_lemma:
-   n < dimword (:'a) /\ dimindex (:α) <= k ==>
-    (n * 2n ** (k − dimindex (:α))) < 2 ** k
+Triviality LSL_n2w_eq:
+  a < 2 ** (dimindex (:'a) - n) /\ b < 2 ** (dimindex (:'a) - n) /\
+    n <= dimindex (:'a) ==>
+  ((n2w a ≪ n) = ((n2w b : 'a word) ≪ n) <=> a = b)
 Proof
-  fs [dimword_def] \\ rw []
-  \\ fs [LESS_EQ_EXISTS] \\ rw [] \\ fs [EXP_ADD]
-  \\ simp_tac std_ss [Once MULT_COMM] \\ fs []
+  rw [WORD_MUL_LSL, word_mul_n2w]
+  \\ qsuff_tac `(a * 2 ** n) < dimword (:'a) /\ (b * 2 ** n) < dimword (:'a)`
+  \\ simp []
+  \\ qsuff_tac `(2 : num) ** dimindex(:'a) = (2 ** (dimindex (:α) − n)) * (2 ** n)`
+  \\ simp_tac bool_ss [dimword_def]
+  \\ simp []
+  \\ simp [GSYM EXP_ADD]
 QED
 
 Theorem EqualityType_NUM_BOOL:
@@ -417,33 +446,40 @@ Proof
   \\ fs [w2w_def] \\ Cases_on `x1`
   \\ fs[STRING_TYPE_def] \\ EVAL_TAC
   \\ Cases_on `x2` \\ fs[STRING_TYPE_def] \\ EVAL_TAC
-  \\ fs [WORD_MUL_LSL,word_mul_n2w]
-  \\ imp_res_tac Eq_lemma \\ fs []
-  \\ fs [MULT_EXP_MONO |> Q.SPECL [`p`,`1`] |> SIMP_RULE bool_ss [EVAL ``SUC 1``]]
+  \\ DEP_REWRITE_TAC [LSL_n2w_eq]
+  \\ simp [GSYM dimword_def]
 QED
 
-Theorem EqualityType_measure:
-   !m. (!n : num. EqualityType (And TY (\x. m x < n))) ==> EqualityType TY
+Definition EqualityType_at_def:
+  EqualityType_at (abs:'a->v->bool) x <=>
+    (!v. abs x v ==> no_closures v) /\
+    (!v x2 v2. abs x v /\ abs x2 v2 ==> ((v = v2) = (x = x2))) /\
+    (!v x2 v2. abs x v /\ abs x2 v2 ==> types_match v v2)
+End
+
+Theorem EqualityType_eq_at:
+  EqualityType TY = (!x. EqualityType_at TY x)
 Proof
-  rpt strip_tac
-  \\ RULE_ASSUM_TAC (Q.GENL [`x`, `y`] o Q.SPEC `MAX (SUC (m x)) (SUC (m y))`)
-  \\ fs [EqualityType_def, And_def]
-  \\ metis_tac [prim_recTheory.LESS_SUC_REFL]
+  simp [EqualityType_def, EqualityType_at_def]
+  \\ metis_tac []
 QED
 
-val trivial4_def = Define `trivial4 x y a b = T`;
-
-val Conv_args_def = Define `Conv_args v = (case v of
-  | Conv _ vs => vs
-  | _ => [v])`;
+Theorem EqualityType_at_eq_Case_rearranged:
+  EqualityType_at TY x <=>
+  !y vx vy. Case (x, y, vx, vy) ==>
+  TY x vx /\ TY y vy ==>
+  (x = y ==> vx = vy ==> no_closures vx)
+        /\ (vx = vy <=> x = y) /\ types_match vx vy
+Proof
+  fs [EqualityType_at_def, markerTheory.Case_def] \\ metis_tac []
+QED
 
 Theorem EqualityType_def_rearranged:
-   EqualityType abs = (!x y vx vy. trivial4 x y vx vy
-    ==> abs x vx /\ abs y vy
+   EqualityType abs = (!x y vx vy. abs x vx /\ abs y vy
     ==> (x = y ==> vx = vy ==> no_closures vx)
         /\ (vx = vy <=> x = y) /\ types_match vx vy)
 Proof
-  fs [EqualityType_def, trivial4_def] \\ metis_tac []
+  fs [EqualityType_def] \\ metis_tac []
 QED
 
 Theorem EqualityType_from_ONTO:
@@ -486,6 +522,93 @@ Proof
         types_match_def, ctor_same_type_def, listTheory.EL_ALL_DISTINCT_EL_EQ,
         same_type_def]
   \\ metis_tac (map TypeBase.one_one_of [``:stamp``, ``:'a option``, ``: v``])
+QED
+
+Definition UNIT_v_def:
+  UNIT_v (u : unit) = (Conv NONE [])
+End
+
+Definition INT_v_def:
+  INT_v i = Litv (IntLit i)
+End
+
+Definition NUM_v_def:
+  NUM_v n = INT_v (& n)
+End
+
+Definition BOOL_v_def:
+  BOOL_v b = Boolv b
+End
+
+Definition WORD_v_def:
+  WORD_v (w:'a word) =
+    if dimindex (:'a) <= 8
+    then Litv (Word8 (w2w w << (8 - dimindex (:'a))))
+    else if dimindex (:'a) <= 64
+    then Litv (Word64 (w2w w << (64 - dimindex (:'a))))
+    else Conv NONE []
+End
+
+Definition CHAR_v_def:
+  CHAR_v (c:char) = Litv (Char c)
+End
+
+Definition STRING_v_def:
+  STRING_v (strlit s) = Litv (StrLit s)
+End
+
+Definition HOL_STRING_v_def:
+  HOL_STRING_v cs = STRING_v (implode cs)
+End
+
+Triviality types_match_list_REPLICATE:
+  !n m. types_match_list (REPLICATE n x) (REPLICATE m y) =
+  (n = m /\ (0 < n ==> types_match x y))
+Proof
+  Induct \\ simp [] \\ Cases \\ simp [types_match_def]
+  \\ metis_tac []
+QED
+
+(* nearly all types with equality will be fully representable within v *)
+Definition IsTypeRep_def:
+  IsTypeRep f R <=> (!x. R x (f x : v))
+End
+
+Theorem IsTypeRep_EqualityType_Unique:
+  EqualityType R ==> IsTypeRep f R ==> IsTypeRep g R ==>
+  g = f
+Proof
+  rw [EqualityType_def, FUN_EQ_THM]
+  \\ rpt (first_x_assum (qspecl_then [`x`, `f x`, `x`, `g x`] mp_tac))
+  \\ fs [IsTypeRep_def]
+QED
+
+Theorem IsTypeRep_EqualityType_INJ:
+  EqualityType R ==> IsTypeRep f R ==> INJ f UNIV UNIV
+Proof
+  rw [EqualityType_def, pred_setTheory.INJ_DEF]
+  \\ rpt (first_x_assum (qspecl_then [`x`, `f x`, `y`, `f y`] mp_tac))
+  \\ fs [IsTypeRep_def]
+QED
+
+Definition DUMMY_TYPE_REP_v:
+  DUMMY_TYPE_REP_v x = UNIT_v ()
+End
+
+Theorem IsTypeRep_NUM_BOOL:
+  IsTypeRep NUM_v NUM /\ IsTypeRep INT_v INT /\
+  IsTypeRep BOOL_v BOOL /\
+  IsTypeRep CHAR_v CHAR /\
+  IsTypeRep UNIT_v UNIT_TYPE /\
+  IsTypeRep STRING_v STRING_TYPE /\
+  IsTypeRep HOL_STRING_v HOL_STRING_TYPE /\
+  (dimindex (:'a) <= 64 ==> IsTypeRep WORD_v (WORD : 'a word -> v -> bool))
+Proof
+  simp [] \\ EVAL_TAC \\ simp []
+  \\ rpt (conj_tac ORELSE disch_tac)
+  \\ Cases
+  \\ EVAL_TAC
+  \\ rw []
 QED
 
 Theorem types_match_list_length:
@@ -1441,6 +1564,7 @@ Proof
   \\ first_x_assum (qspec_then `ck2 + ck2'` (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true)))
   \\ fs[fp_translate_def, compress_word_def, fp_top_def, do_fpoptimise_def, do_fprw_def, rwAllWordTree_def,
         semanticPrimitivesTheory.shift_fp_opts_def, fpState_component_equality, state_component_equality]
+  \\ Cases_on ‘f’ \\ fs[compress_word_def, fpValTreeTheory.fp_top_def, fp_top_comp_def]
 QED
 
 local
@@ -1569,6 +1693,19 @@ Proof
   ntac 2 gen_tac \\ Induct \\ rw[LIST_TYPE_def]
 QED
 
+Definition LIST_v_def:
+  LIST_v a_v [] = Conv (SOME (TypeStamp "[]" 1)) [] /\
+  LIST_v a_v (x :: xs) = Conv (SOME (TypeStamp "::" 1)) [a_v x; LIST_v a_v xs]
+End
+
+Theorem IsTypeRep_LIST:
+  IsTypeRep a_v a ==> IsTypeRep (LIST_v a_v) (LIST_TYPE a)
+Proof
+  rw [] \\ fs [IsTypeRep_def]
+  \\ Induct
+  \\ simp [LIST_v_def, LIST_TYPE_def]
+QED
+
 (* pair definition *)
 
 val PAIR_TYPE_def = Define `
@@ -1582,6 +1719,16 @@ val PAIR_TYPE_SIMP = Q.prove(
         PAIR_TYPE (a:('a -> v -> bool)) (b:('b -> v -> bool)) x`,
   Cases \\ SIMP_TAC std_ss [PAIR_TYPE_def,CONTAINER_def,FUN_EQ_THM])
   |> GSYM |> SPEC_ALL |> curry save_thm "PAIR_TYPE_SIMP";
+
+Definition PAIR_v_def:
+  PAIR_v a_v b_v (x, y) = Conv NONE [a_v x; b_v y]
+End
+
+Theorem IsTypeRep_PAIR:
+  IsTypeRep a_v a /\ IsTypeRep b_v b ==> IsTypeRep (PAIR_v a_v b_v) (PAIR_TYPE a b)
+Proof
+  simp [IsTypeRep_def, FORALL_PROD, PAIR_v_def, PAIR_TYPE_def]
+QED
 
 (* characters *)
 
@@ -1945,6 +2092,18 @@ QED
 val VECTOR_TYPE_def = Define `
   VECTOR_TYPE a (Vector l) v <=>
     ?l'. v = Vectorv l' /\ LENGTH l = LENGTH l' /\ LIST_REL a l l'`;
+
+Definition VECTOR_v_def:
+  VECTOR_v v_a (Vector l) = Vectorv (MAP v_a l)
+End
+
+Theorem IsTypeRep_VECTOR:
+  IsTypeRep v_a a ==> IsTypeRep (VECTOR_v v_a) (VECTOR_TYPE a)
+Proof
+  rw [] \\ fs [IsTypeRep_def]
+  \\ Cases
+  \\ simp [VECTOR_TYPE_def, VECTOR_v_def, EVERY2_MAP, listTheory.EVERY2_refl]
+QED
 
 Theorem Eval_sub:
   !env x1 x2 a n v.
@@ -2457,6 +2616,7 @@ Definition no_change_refs_def:
   no_change_refs (Lannot e _) = no_change_refs e /\
   no_change_refs (Mat e pats) =
     (no_change_refs e /\ EVERY no_change_refs (MAP SND pats)) /\
+  no_change_refs (App p es) = (p = VfromList ∧ EVERY no_change_refs es) /\
   no_change_refs _ = F
 Termination
   WF_REL_TAC `measure exp_size`
@@ -2467,116 +2627,26 @@ Termination
   \\ rw [] \\ res_tac \\ fs []
 End
 
+Theorem evaluate_no_change_refs:
+  (∀(s:'ffi state) env es s1 vs.
+     evaluate s env es = (s1,Rval vs) ∧ EVERY no_change_refs es ⇒
+     s1.refs = s.refs) ∧
+  (∀(s:'ffi state) env v pes errv s1 vs.
+     evaluate_match s env v pes errv = (s1,Rval vs) ∧ EVERY no_change_refs (MAP SND pes) ⇒
+     s1.refs = s.refs)
+Proof
+  ho_match_mp_tac evaluate_ind
+  \\ fs [no_change_refs_def] \\ rw []
+  \\ gvs [evaluate_def,AllCaseEqs(),semanticPrimitivesTheory.do_if_def]
+  \\ fs [SF ETA_ss]
+  \\ gvs [do_app_def,AllCaseEqs()]
+QED
+
 Theorem eval_rel_no_change_refs:
   !exp s1 s2 env res.
     eval_rel s1 env exp s2 res /\ no_change_refs exp ==> s1.refs = s2.refs
 Proof
-  recInduct no_change_refs_ind
-  \\ rw [] \\ fs [no_change_refs_def]
-  \\ fs [eval_rel_def,evaluate_def,CaseEq"option",pair_case_eq,CaseEq"result",CaseEq"bool"]
-  \\ rveq \\ fs []
-  \\ fs [state_component_equality,PULL_EXISTS]
-  \\ res_tac \\ fs []
-  THEN1
-   (imp_res_tac evaluate_sing \\ rveq \\ fs [] \\ rveq \\ fs []
-    \\ last_x_assum (qspecl_then
-         [`s1`,`st' with clock := s1.clock`,`env`,`v''`,`ck1`,`st'.clock`] mp_tac)
-    \\ fs [with_same_clock]
-    \\ first_x_assum (qspecl_then
-         [`st'`,`s2 with clock := st'.clock`,`env with v := nsOptBind v4 v'' env.v`,
-            `res`,`st'.clock`,`ck2`] mp_tac)
-    \\ fs [with_same_clock])
-  \\ fs [do_if_def,CaseEq"bool"] \\ rveq \\ fs []
-  \\ imp_res_tac evaluate_sing \\ rveq \\ fs [] \\ rveq \\ fs []
-  THEN1
-   (last_x_assum (qspecl_then
-         [`s1`,`st' with clock := s1.clock`,`env`,`Boolv T`,`ck1`,`st'.clock`] mp_tac)
-    \\ fs [with_same_clock]
-    \\ last_x_assum (qspecl_then
-         [`st'`,`s2 with clock := st'.clock`,`env`,`res`,`st'.clock`,`ck2`] mp_tac)
-    \\ fs [with_same_clock])
-  THEN1
-   (last_x_assum (qspecl_then
-         [`s1`,`st' with clock := s1.clock`,`env`,`Boolv F`,`ck1`,`st'.clock`] mp_tac)
-    \\ fs [with_same_clock]
-    \\ last_x_assum (qspecl_then
-         [`st'`,`s2 with clock := st'.clock`,`env`,`res`,`st'.clock`,`ck2`] mp_tac)
-    \\ last_x_assum (qspecl_then
-         [`st'`,`s2 with clock := st'.clock`,`env`,`res`,`st'.clock`,`ck2`] mp_tac)
-    \\ fs [with_same_clock])
-  THEN1
-   (fs [EVERY_MEM]
-    \\ `!a. MEM a es <=> MEM a (REVERSE es)` by fs []
-    \\ rename [`evaluate _ _ ys = _`] \\ fs []
-    \\ pop_assum kall_tac
-    \\ pop_assum mp_tac
-    \\ pop_assum kall_tac
-    \\ pop_assum mp_tac
-    \\ pop_assum kall_tac
-    \\ pop_assum mp_tac
-    \\ pop_assum mp_tac
-    \\ qid_spec_tac `s1`
-    \\ qid_spec_tac `s2`
-    \\ qid_spec_tac `ck1`
-    \\ qid_spec_tac `ck2`
-    \\ qid_spec_tac `vs`
-    \\ qid_spec_tac `ys`
-    \\ Induct
-    THEN1 (fs [evaluate_def,state_component_equality])
-    \\ rewrite_tac [GSYM AND_IMP_INTRO] \\ rpt gen_tac \\ strip_tac
-    \\ once_rewrite_tac [evaluate_cons]
-    \\ fs [CaseEq"result",pair_case_eq] \\ rpt strip_tac
-    \\ rveq \\ fs []
-    \\ fs [PULL_FORALL]
-    \\ imp_res_tac evaluate_sing \\ rveq \\ fs [] \\ rveq \\ fs []
-    \\ first_assum (qspecl_then [`h`,`s1`,`s' with clock := s1.clock`,
-          `env`,`v`,`ck1`,`s'.clock`] mp_tac)
-    \\ simp_tac (srw_ss()) [] \\ asm_rewrite_tac []
-    \\ simp_tac (srw_ss()) [] \\ asm_rewrite_tac [with_same_clock]
-    \\ strip_tac
-    \\ `s1.refs = (s' with clock := s2.clock).refs` by
-               (simp_tac (srw_ss()) [] \\ asm_rewrite_tac [])
-    \\ pop_assum (fn th => rewrite_tac [th])
-    \\ last_x_assum (match_mp_tac o MP_CANON) \\ fs []
-    \\ qexists_tac `vs''`
-    \\ qexists_tac `ck2`
-    \\ qexists_tac `s'.clock`
-    \\ asm_rewrite_tac [with_same_clock]
-    \\ metis_tac [])
-  THEN1
-   (fs [EVERY_MEM]
-    \\ pop_assum kall_tac
-    \\ first_x_assum (qspecl_then [`s1`,`st' with clock := s1.clock`,
-          `env`,`v'`,`ck1`,`st'.clock`] mp_tac)
-    \\ simp [with_same_clock] \\ strip_tac
-    \\ pop_assum kall_tac
-    \\ pop_assum mp_tac
-    \\ pop_assum kall_tac
-    \\ pop_assum mp_tac
-    \\ pop_assum kall_tac
-    \\ pop_assum kall_tac
-    \\ pop_assum kall_tac
-    \\ pop_assum mp_tac
-    \\ qid_spec_tac `st'`
-    \\ qid_spec_tac `s2`
-    \\ qid_spec_tac `ck2`
-    \\ qid_spec_tac `res`
-    \\ qid_spec_tac `pats`
-    \\ Induct
-    THEN1 (fs [evaluate_def,state_component_equality])
-    \\ Cases
-    \\ rewrite_tac [GSYM AND_IMP_INTRO] \\ rpt gen_tac \\ strip_tac
-    \\ once_rewrite_tac [evaluate_def]
-    \\ fs [CaseEq"result",pair_case_eq,CaseEq"bool",CaseEq"match_result"] \\ rpt strip_tac
-    THEN1
-     (last_x_assum (match_mp_tac o MP_CANON) \\ fs []
-      \\ fs [state_component_equality]
-      \\ metis_tac [])
-    \\ qsuff_tac `(st' with clock := s2.clock).refs = s2.refs`
-    THEN1 (simp_tac (srw_ss()) [])
-    \\ first_x_assum (match_mp_tac o MP_CANON)
-    \\ last_x_assum kall_tac \\ qexists_tac `r` \\ simp []
-    \\ metis_tac [with_same_clock])
+  rw [eval_rel_def] \\ imp_res_tac evaluate_no_change_refs \\ fs []
 QED
 
 Theorem Eval_constant:

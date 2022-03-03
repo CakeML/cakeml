@@ -27,6 +27,7 @@ val tokmap0 =
                 ("_", ``UnderbarT``),
                 ("and", ``AndT``),
                 ("andalso", ``AndalsoT``),
+                ("as", ``AsT``),
                 ("before", ``AlphaT "before"``),
                 ("Bind", ``AlphaT "Bind"``),
                 ("case", ``CaseT``),
@@ -196,7 +197,8 @@ val cmlG_def = mk_grammar_def ginfo
  PConApp ::= ConstructorName | PConApp Pbase ;
  Papp ::= PConApp Pbase | Pbase ;
  Pcons ::= Papp "::" Pcons | Papp ;
- Pattern ::= Pcons | Pcons ":" Type ;
+ Pas ::= V "as" Pcons | Pcons ;
+ Pattern ::= Pas | Pas ":" Type ;
  Ptuple ::= "(" ")" | "(" PatternList ")";
  PatternList ::= Pattern | Pattern "," PatternList ;
  PbaseList1 ::= Pbase | Pbase PbaseList1 ;
@@ -222,9 +224,9 @@ val cmlG_def = mk_grammar_def ginfo
  TopLevelDec ::= Structure | Decl ;
  TopLevelDecs ::= E ";" TopLevelDecs | TopLevelDec NonETopLevelDecs
                |  ";" TopLevelDecs | ;
- NonETopLevelDecs ::= TopLevelDec NonETopLevelDecs | ";" TopLevelDecs | ;
+ NonETopLevelDecs ::= TopLevelDec NonETopLevelDecs | ";" TopLevelDecs | ; (*
  REPLCommand ::= <REPLIDT> Ebase ;
- TopLevel ::= REPLCommand | TopLevelDecs ;
+ TopLevel ::= REPLCommand | TopLevelDecs ; *)
 `;
 
 Type NT = ``:MMLnonT inf``

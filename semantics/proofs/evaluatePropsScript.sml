@@ -6,7 +6,6 @@ open preamble evaluateTheory
      namespaceTheory namespacePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      fpSemPropsTheory;
-open terminationTheory
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -102,8 +101,8 @@ Theorem evaluate_call_FFI_rel:
    (∀(s:'ffi state) e ds.
       RTC call_FFI_rel s.ffi (FST (evaluate_decs s e ds)).ffi)
 Proof
-  ho_match_mp_tac terminationTheory.full_evaluate_ind >>
-  srw_tac[][terminationTheory.full_evaluate_def, do_eval_res_def] >>
+  ho_match_mp_tac full_evaluate_ind >>
+  srw_tac[][full_evaluate_def, do_eval_res_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   fs[shift_fp_opts_def, astTheory.isFpBool_def] >>
   TRY (
@@ -941,7 +940,11 @@ local
       \\ `s1.fp_state = s2.fp_state`
         by ( (drule fpSemPropsTheory.evaluate_fp_stable \\ disch_then drule \\ fs[]) ORELSE (
            imp_res_tac evaluate_fp_opts_inv \\ gs[state_component_equality, fpState_component_equality, FUN_EQ_THM]
-           \\ rpt strip_tac \\ qpat_x_assum `∀ x. q.fp_state.opts _ = _` $ gs o single o GSYM))
+           \\ rpt strip_tac \\ qpat_x_assum `∀ x. q.fp_state.opts _ = _` $ gs o single o GSYM)
+             \\ ‘s1.fp_state.choices = s2.fp_state.choices’
+               by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv
+                   \\ fs[fpState_component_equality, dec_clock_def])
+             \\ gs[])
       \\ fs[fpState_component_equality, state_component_equality];
 in
 Theorem evaluate_fp_intro_strict:
@@ -972,12 +975,13 @@ Proof
   ho_match_mp_tac full_evaluate_ind \\ rpt strip_tac
   \\ fs[full_evaluate_def, state_component_equality, fpState_component_equality]
   \\ qpat_x_assum `_ = (_, _)` mp_tac
-  >- (ntac 2 (reverse TOP_CASE_TAC \\ fs[]) >- trivial
-      \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[])
-      \\ rpt strip_tac \\ rveq \\ fs[]
-      \\ rename [`evaluate s1 env [e1] = (s2, Rval r)`,
-                 `evaluate s2 env _ = (s3, _)`]
-      \\ by_eq)
+  >- (
+    ntac 2 (reverse TOP_CASE_TAC \\ fs[]) >- trivial
+    \\ ntac 2 (reverse TOP_CASE_TAC \\ fs[])
+    \\ rpt strip_tac \\ rveq \\ fs[]
+    \\ rename [`evaluate s1 env [e1] = (s2, Rval r)`,
+               `evaluate s2 env _ = (s3, _)`]
+    \\ by_eq)
   >- (ntac 2 (TOP_CASE_TAC \\ fs[]) \\ trivial)
   >- (ntac 2 (TOP_CASE_TAC \\ fs[]) >- trivial
       \\ reverse TOP_CASE_TAC \\ fs[] >- trivial
@@ -1657,10 +1661,10 @@ Theorem eval_no_eval_simulation:
   s'.eval_state = NONE /\
   evaluate_decs (s with eval_state := es) env decs = (s' with eval_state := es, res))
 Proof
-  ho_match_mp_tac (name_ind_cases [] terminationTheory.full_evaluate_ind)
+  ho_match_mp_tac (name_ind_cases [] full_evaluate_ind)
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
-  \\ fs [terminationTheory.full_evaluate_def]
+  \\ fs [full_evaluate_def]
   \\ rveq \\ fs []
   (* useful for development
   \\ TRY (rename [`Case ([App _ _])`] ORELSE cheat)
@@ -1751,12 +1755,12 @@ Theorem pmatch_not_type_error_EQ:
      (!a. pmatch envC refs p v acc = Match a ==>
           pmatch_list envC refs ps vs a <> Match_type_error))
 Proof
-  fs [terminationTheory.pmatch_def]
+  fs [pmatch_def]
   \\ reverse (rw [])
   THEN1 (every_case_tac \\ fs [])
-  \\ Cases_on `v` \\ fs [terminationTheory.pmatch_def]
+  \\ Cases_on `v` \\ fs [pmatch_def]
   \\ rename [`Conv opt`]
-  \\ Cases_on `opt` \\ fs [terminationTheory.pmatch_def]
+  \\ Cases_on `opt` \\ fs [pmatch_def]
   \\ rw [] \\ fs []
   \\ CASE_TAC \\ fs []
   \\ CASE_TAC \\ fs []
@@ -1816,8 +1820,8 @@ Theorem evaluate_history_irrelevance:
     !l. evaluate_decs (st with ffi := (st.ffi with io_events := l)) env ds =
     (st' with ffi := (st'.ffi with io_events := l ++ new_io), res))
 Proof
-  ho_match_mp_tac terminationTheory.full_evaluate_ind
-  \\ rw[terminationTheory.full_evaluate_def]
+  ho_match_mp_tac full_evaluate_ind
+  \\ rw[full_evaluate_def]
   \\ TRY (Cases_on ‘getOpClass op’ \\ gs[])
   \\ fs [do_eval_res_def,error_result_case_eq,option_case_eq,
          exp_or_val_case_eq,list_case_eq,match_result_case_eq,

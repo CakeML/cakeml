@@ -114,6 +114,11 @@ functions. This phase is vital for good performance.
 This simple compiler phase walks the program and gives each closure
 a unique numeric name.
 
+[clos_opScript.sml](clos_opScript.sml):
+This is file implements a "smart" version of ClosLang's Op
+constructor. When possible, this smart constructor breaks
+the operation into faster separate operators.
+
 [clos_ticksScript.sml](clos_ticksScript.sml):
 This simple compiler phase removes all Tick operations. Tick
 operations appear as a side effect of function inlining, and can be
@@ -242,6 +247,9 @@ This directory contains the definition of the semantics for each
 intermediate language that is used in the compiler backend. This
 directory also contains generic properties about the semantics of each
 intermediate language.
+
+[serialiser](serialiser):
+Proofs and automation for serialising HOL values.
 
 [source_to_flatScript.sml](source_to_flatScript.sml):
 This is the compiler phase that translates the CakeML source

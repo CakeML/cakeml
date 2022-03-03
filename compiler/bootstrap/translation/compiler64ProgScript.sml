@@ -2,7 +2,7 @@
   Finish translation of the 64-bit version of the compiler.
 *)
 open preamble
-     mipsProgTheory compilerTheory
+     decode64ProgTheory compilerTheory
      exportTheory
      ml_translatorLib ml_translatorTheory
 open cfLib basis
@@ -11,7 +11,7 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory"compiler64Prog";
 
-val _ = translation_extends "mipsProg";
+val _ = translation_extends "decode64Prog";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler64Prog");
 val _ = ml_translatorLib.use_string_type true;
@@ -132,10 +132,29 @@ val res = translate (spec64 word_to_string_def);
 
 (* compilerTheory *)
 
-val def = spec64 (PURE_REWRITE_RULE[fromSexpTheory.sexpdec_alt_intro1]compilerTheory.compile_def);
+val res = translate compilerTheory.find_next_newline_def;
 
+Theorem find_next_newline_side = prove(
+  “∀n s. compiler_find_next_newline_side n s”,
+  ho_match_mp_tac compilerTheory.find_next_newline_ind \\ rw []
+  \\ once_rewrite_tac [fetch "-" "compiler_find_next_newline_side_def"]
+  \\ fs []) |> update_precondition;
+
+val res = translate compilerTheory.safe_substring_def;
+
+Theorem safe_substring_side = prove(
+  “compiler_safe_substring_side s n l”,
+  fs [fetch "-" "compiler_safe_substring_side_def"])
+  |> update_precondition;
+
+val _ = translate compilerTheory.get_nth_line_def;
 val _ = translate compilerTheory.locs_to_string_def;
-val res = translate def
+val _ = translate compilerTheory.parse_cml_input_def;
+val _ = translate (compilerTheory.parse_sexp_input_def
+                   |> PURE_REWRITE_RULE[fromSexpTheory.sexpdec_alt_intro1]);
+
+val def = spec64 (compilerTheory.compile_def);
+val res = translate def;
 
 val res = translate basisProgTheory.basis_def
 
@@ -251,7 +270,9 @@ val res = translate compilerTheory.help_string_def;
 val nonzero_exit_code_for_error_msg_def = Define `
   nonzero_exit_code_for_error_msg e =
     if compiler$is_error_msg e then
-      ml_translator$force_out_of_memory_error () else ()`;
+      (let a = empty_ffi (strlit "nonzero_exit") in
+         ml_translator$force_out_of_memory_error ())
+    else ()`;
 
 val res = translate compilerTheory.is_error_msg_def;
 val res = translate nonzero_exit_code_for_error_msg_def;

@@ -334,6 +334,10 @@ val infer_p_def = tDefine "infer_p" `
   do (t,tenv) <- infer_p l ienv p;
     return (Infer_Tapp [t] Tref_num, tenv)
   od) ∧
+(infer_p l ienv (Pas p v) =
+  do (t,tenv) <- infer_p l ienv p;
+    return (t, tenv++[(v,t)])
+  od) ∧
 (infer_p l ienv (Ptannot p t) =
  do (t',tenv) <- infer_p l ienv p;
     t'' <- type_name_check_subst l
@@ -584,7 +588,7 @@ Proof
  qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2 \/ IS_PREFIX _ m3` >>
  cases_on `op` >>
  fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
- gvs [quantHeuristicsTheory.LIST_LENGTH_5] >>
+ gvs [LENGTH_EQ_NUM_compute] >>
  rfs [] >>
  fs [add_constraints_def, add_constraint_def, fresh_uvar_def,
    st_ex_bind_failure, st_ex_return_def, option_case_eq] >>

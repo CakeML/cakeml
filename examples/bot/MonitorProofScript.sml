@@ -1002,7 +1002,7 @@ Proof
       xsimpl \\ simp[FLAT_TUP_def])
     >>
       rw[LIST_TYPE_def] \\
-      fs[terminationTheory.v_to_list_def] \\
+      fs[semanticPrimitivesTheory.v_to_list_def] \\
       last_x_assum match_mp_tac \\
       xmatch \\
       xlet_auto >- xsimpl >>
@@ -1014,7 +1014,7 @@ Proof
       simp[FLAT_TUP_def]>>
       fs[LUPDATE_APPEND2]>>
       `LENGTH rest = 4 + (4 * LENGTH ls)` by fs[ADD1]>>
-      fs[quantHeuristicsTheory.LIST_LENGTH_4]>>
+      fs[LENGTH_EQ_NUM_compute]>>
       simp[LUPDATE_compute])
   >>
     rpt(xlet_auto>- xsimpl)>>

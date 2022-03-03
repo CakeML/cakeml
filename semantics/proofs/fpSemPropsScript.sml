@@ -2,8 +2,9 @@
   Properties of floating-point value tree semantics
 *)
 
-open preamble fpSemTheory fpOptPropsTheory fpValTreeTheory semanticPrimitivesTheory evaluateTheory;
-open terminationTheory;
+open fpSemTheory fpOptPropsTheory fpValTreeTheory
+     semanticPrimitivesTheory evaluateTheory;
+open preamble;
 
 val _ = new_theory "fpSemProps";
 
@@ -64,7 +65,8 @@ local
          (s1.fp_state.canOpt = s2.fp_state.canOpt) /\
          (s1.fp_state.real_sem <=> s2.fp_state.real_sem) /\
          (! a b c. s1.fp_state.assertions a b c = s2.fp_state.assertions a b c)”
-  val eval_ind_thm = Q.SPECL [‘^eval_goal’, ‘^eval_match_goal’, ‘^eval_decs_goal’] (INST_TYPE [“:'ffi” |-> “:'a”] full_evaluate_ind)
+  val eval_ind_thm = Q.SPECL [‘^eval_goal’, ‘^eval_match_goal’, ‘^eval_decs_goal’]
+                    (INST_TYPE [“:'ffi” |-> “:'a”] full_evaluate_ind)
 in
 Theorem evaluate_fp_opts_inv_local[local]:
   (! (s1:'a state) env e.
@@ -222,7 +224,7 @@ local
          ∃ hN.
            evaluate_decs (st1 with fp_state := st1.fp_state with opts := h) env decls =
              (s2 with fp_state := s2.fp_state with opts := hN, r)”
-  val indThm = terminationTheory.full_evaluate_ind
+  val indThm = full_evaluate_ind
     |> ISPEC eval_goal |> SPEC eval_match_goal |> SPEC eval_decs_goal;
   val eval_fp_opt_invs = evaluate_fp_opts_inv;
   val eval_fp_opt_inv = CONJ_LIST 2 eval_fp_opt_invs |> hd
@@ -577,7 +579,7 @@ local
          ∃ fpOpt fpOpt2.
            evaluate_decs (st1 with fp_state := st1.fp_state with <| rws := opts; opts := fpOpt |>) env decs =
            (st2 with fp_state := st2.fp_state with <| rws := opts; opts := fpOpt2|>, res)”
-  val indThm = terminationTheory.full_evaluate_ind
+  val indThm = full_evaluate_ind
     |> ISPEC eval_goal |> SPEC eval_match_goal |> SPEC eval_decs_goal
   val eval_step =  ntac 2 (reverse TOP_CASE_TAC \\ fs[]);
   val semState_comp_eq = semanticPrimitivesTheory.state_component_equality;

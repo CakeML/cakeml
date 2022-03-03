@@ -10,7 +10,7 @@ open preamble
      astTheory libTheory semanticPrimitivesTheory evaluateTheory
      ml_translatorTheory ml_progTheory ml_progLib
      ml_pmatchTheory ml_monadBaseTheory ml_monad_translatorBaseTheory
-     ml_monad_translatorTheory terminationTheory cfTacticsLib
+     ml_monad_translatorTheory evaluateTheory cfTacticsLib
      Net List packLib stringSimps
 open ml_monadBaseLib
 
@@ -105,6 +105,7 @@ local
      ("EXC_TYPE_aux_const",``EXC_TYPE_aux``),
      ("return_pat",``st_ex_return x``),
      ("bind_pat",``st_ex_bind x y``),
+     ("pure_seq_pat",``pure_seq x y``),
      ("otherwise_pat",``x otherwise y``),
      ("if_statement_pat",``if b then (x:('a,'b,'c) M) else (y:('a,'b,'c) M)``),
      ("PreImp_EvalM_abs",
@@ -190,6 +191,7 @@ val run_const = get_term "run_const";
 val EXC_TYPE_aux_const = get_term "EXC_TYPE_aux_const";
 val return_pat = get_term "return_pat";
 val bind_pat = get_term "bind_pat";
+val pure_seq_pat = get_term "pure_seq_pat";
 val otherwise_pat = get_term "otherwise_pat";
 val if_statement_pat = get_term "if_statement_pat";
 val PreImp_EvalM_abs = get_term "PreImp_EvalM_abs";
@@ -459,7 +461,7 @@ fun abbrev_nsLookup_code th = let
 
   fun find_abbrev (name, code) = let
     val n = Theory.temp_binding ("[[ " ^ name ^ "_code ]]")
-    val code_def = new_definition(n,mk_eq(mk_var(n,type_of code),code))
+    val code_def = Definition.new_definition(n,mk_eq(mk_var(n,type_of code),code))
   in code_def end
   val abbrevs = List.map find_abbrev name_code_pairs
 in
@@ -2171,6 +2173,15 @@ and m2deep tm =
     val th2 = inst_EvalM_env v th2
     val result = inst_EvalM_bind th1 th2
     in check_inv "bind" tm result end else
+  (* pure_seq *)
+  if can (match_term pure_seq_pat) tm then let
+    val _ = debug_print "pure_seq" tm
+    val x1 = tm |> rator |> rand
+    val x2 = tm |> rand
+    val th1 = hol2deep x1
+    val th2 = m2deep x2
+    val result = MATCH_MP EvalM_pure_seq (CONJ th1 th2)
+    in check_inv "pure_seq" tm result end else
   (* otherwise *)
   if can (match_term otherwise_pat) tm then let
     val _ = debug_print "otherwise" tm
@@ -2905,7 +2916,7 @@ fun abbrev_code (fname,ml_fname,def,th,v) = let
   val th = th |> UNDISCH_ALL
   val exp = th |> concl |> rator |> rator |> rand
   val n = Theory.temp_binding ("[[ " ^ fname ^ "_code ]]")
-  val code_def = new_definition(n,mk_eq(mk_var(n,type_of exp),exp))
+  val code_def = Definition.new_definition(n,mk_eq(mk_var(n,type_of exp),exp))
   val th =
     CONV_RULE ((RATOR_CONV o RATOR_CONV o RAND_CONV) (K (GSYM code_def))) th
   in (code_def,(fname,ml_fname,def,th,v)) end

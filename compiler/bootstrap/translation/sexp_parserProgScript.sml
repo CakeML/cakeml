@@ -28,6 +28,7 @@ val r = translate simpleSexpPEGTheory.pnt_def
 val r = translate pegTheory.ignoreR_def
 val r = translate pegTheory.ignoreL_def
 val r = translate simpleSexpTheory.arb_sexp_def
+val r = translate simpleSexpPEGTheory.sumID_def
 val r = translate simpleSexpPEGTheory.choicel_def
 
 val r = translate simpleSexpPEGTheory.tokeq_def
@@ -67,16 +68,16 @@ val parse_sexp_side = Q.prove(
   \\ fs[pegexecTheory.coreloop_def]
   \\ qmatch_abbrev_tac`IS_SOME (OWHILE a b c)`
   \\ qmatch_assum_abbrev_tac`OWHILE a b' c = _`
-  \\ `b = b'`
-  by (
-    simp[Abbr`b`,Abbr`b'`,FUN_EQ_THM]
-    \\ Cases \\ simp[]
-    \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
-    \\ TOP_CASE_TAC \\ simp[]
-    \\ TOP_CASE_TAC \\ simp[]
-    \\ TOP_CASE_TAC \\ simp[]
-    \\ TOP_CASE_TAC \\ simp[] ) \\
-  fs[]) |> update_precondition;
+  \\ qsuff_tac `b = b'` THEN1 fs []
+  \\ simp[Abbr`b`,Abbr`b'`,FUN_EQ_THM]
+  \\ rpt gen_tac
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
+  \\ Cases_on ‘k’ \\ TRY (fs [] \\ NO_TAC)
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]) |> update_precondition;
 
 val r = fromSexpTheory.sexplist_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM]
@@ -241,6 +242,10 @@ val r = fromSexpTheory.sexpopt_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
         |> translate;
 
+val r = fromSexpTheory.sexplocpt_def
+        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
+        |> translate;
+
 val r = fromSexpTheory.sexplocn_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
         |> translate;
@@ -334,7 +339,7 @@ val print_sexp_alt_def = tDefine"print_sexp_alt"`
    \\ imp_res_tac simpleSexpParseTheory.strip_dot_MEM_sizelt
    \\ imp_res_tac simpleSexpParseTheory.strip_dot_last_sizeleq
    \\ fsrw_tac[boolSimps.DNF_ss][] \\ simp[]
-   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rw[] \\ fs[]
+   \\ fs[LENGTH_EQ_NUM_compute] \\ rw[] \\ fs[]
    \\ res_tac \\ simp[]);
 
 Theorem print_sexp_alt_thm:
@@ -357,7 +362,7 @@ Proof
         by(first_x_assum (match_mp_tac o MP_CANON) >>
            rw[] >>
            imp_res_tac simpleSexpParseTheory.strip_dot_last_sizelt >>
-           fs[sexp_size_def] >> fs[quantHeuristicsTheory.LIST_LENGTH_2] >>
+           fs[sexp_size_def] >> fs[LENGTH_EQ_NUM_compute] >>
            fs[Once strip_dot_def,ELIM_UNCURRY] >> rveq >> fs[])) >>
   fs[STRCAT_11] >>
   qmatch_goalsub_abbrev_tac `_ a1 = _ a2` >>
@@ -378,7 +383,7 @@ val print_sexp_alt_side = Q.prove(
   `!x. print_sexp_alt_side x = T`,
   ho_match_mp_tac print_sexp_ind >> rw[] >>
   rw[Once(fetch "-" "print_sexp_alt_side_def")] >>
-  fs[quantHeuristicsTheory.LIST_LENGTH_2]) |> update_precondition;
+  fs[LENGTH_EQ_NUM_compute]) |> update_precondition;
 
 val _ = translate print_sexp_alt_thm;
 
@@ -464,6 +469,7 @@ val _ = translate patsexp_def;
 val _ = translate opsexp_def;
 val _ = translate lopsexp_def;
 val _ = translate scsexp_def;
+val _ = translate locssexp_def;
 val _ = translate expsexp_def;
 val _ = translate type_defsexp_def;
 val _ = translate decsexp_def;

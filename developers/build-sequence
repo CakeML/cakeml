@@ -50,6 +50,7 @@ compiler/inference/proofs
 compiler/backend/semantics
 compiler/backend/reg_alloc/proofs
 compiler/backend/proofs
+compiler/backend/serialiser
 compiler/encoders/x64/proofs
 compiler/encoders/arm7/proofs
 compiler/encoders/arm8/proofs
@@ -73,6 +74,13 @@ candle/standard/monadic
 candle/standard/ml_kernel
 candle/overloading/syntax
 candle/overloading/semantics
+candle/prover
+
+# pancake
+pancake
+pancake/ffi
+pancake/semantics
+pancake/proofs
 
 # examples and tests
 characteristic/examples
@@ -86,8 +94,6 @@ examples/compilation/ag32
 examples/compilation/ag32/proofs
 examples/cost
 examples/lpr_checker
-examples/lpr_checker/compilation
-examples/lpr_checker/compilation/proofs
 examples/lpr_checker/array
 examples/lpr_checker/array/compilation
 examples/lpr_checker/array/compilation/proofs

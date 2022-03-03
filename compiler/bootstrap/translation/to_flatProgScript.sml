@@ -89,7 +89,7 @@ val res = translate sumTheory.ISL;
 val res = translate sumTheory.ISR;
 
 val res = translate source_to_flatTheory.alloc_tags1_def;
-val res = translate (DefnBase.one_line_ify NONE terminationTheory.nsMap_def);
+val res = translate (DefnBase.one_line_ify NONE namespaceTheory.nsMap_def);
 val res = translate source_to_flatTheory.alloc_tags_def;
 val res = translate source_to_flatTheory.alloc_env_ref_def;
 val res = translate source_to_flatTheory.glob_alloc_def;

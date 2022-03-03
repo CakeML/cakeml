@@ -6,7 +6,7 @@ open HolKernel Parse boolLib bossLib
 open cmlPEGTheory gramTheory cmlPtreeConversionTheory
      grammarTheory lexer_funTheory lexer_implTheory
 
-local open ASCIInumbersLib in end
+local open ASCIInumbersLib stringSyntax in end
 
 val _ = new_theory "cmlTests"
 
@@ -52,6 +52,7 @@ fun aconv_mod_locs t1 t2 =
   |  _ => false
 
 val result_t = ``Result``
+val success_t = “Success”
 fun parsetest0 nt sem s opt = let
   val s_t = stringSyntax.lift_string bool s
   val _ = print ("**********\nLexing "^s^"\n")
@@ -60,7 +61,7 @@ fun parsetest0 nt sem s opt = let
   val _ = print ("Lexes to : " ^ term_to_string ttoks ^ "\n")
   val _ = print ("Parsing\n")
   val evalth = time EVAL
-                    ``peg_exec cmlPEG (nt (mkNT ^nt) I) ^t [] done failed``
+                   “peg_exec cmlPEG (nt (mkNT ^nt) I) ^t [] NONE [] done failed”
   val r = rhs (concl evalth)
   fun diag(s,t) = let
     fun pp (s,t) =
@@ -76,10 +77,11 @@ fun parsetest0 nt sem s opt = let
 
 in
   if same_const (rator r) result_t then
-    if optionSyntax.is_some (rand r) then let
-      val pair = rand (rand r)
-      val remaining_input = pair |> rator |> rand
-      val res = pair |> rand |> rator |> rand
+    if same_const (rand r |> strip_comb |> #1) success_t then let
+        val (_, args) = strip_comb (rand r)
+        val remaining_input = hd args
+        val resl = hd (tl args) (* should be singleton list *)
+        val res = lhand resl (* extract h of CONS h NIL *)
     in
       if listSyntax.is_nil remaining_input then let
         val _ = diag ("EVAL to: ", res)
@@ -89,7 +91,7 @@ in
       in
         if aconv fringe_t ttoks then let
           val ptree_res =
-              case Lib.total mk_comb(sem,res) of
+              case Lib.total mk_icomb(sem,res) of
                   NONE => optionSyntax.mk_none bool
                 | SOME t =>
                   let
@@ -113,7 +115,7 @@ in
         end
         else die ("Fringe not preserved!", ttoks)
       end
-      else die ("REMAINING INPUT:", pair)
+      else die ("REMAINING INPUT:", remaining_input)
     end
     else die ("FAILED:", r)
   else die ("NO RESULT:", r)
@@ -123,7 +125,9 @@ fun parsetest t1 t2 s = parsetest0 t1 t2 s NONE
 fun tytest0 s r = parsetest0 ``nType`` ``ptree_Type nType`` s (SOME r)
 val tytest = parsetest ``nType`` ``ptree_Type nType``
 
+(* There is no longer something called 'elab_decs' in the codebase:
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
+ *)
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE``
          "let val _ = print \"foo\"\
@@ -163,12 +167,12 @@ val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0wxf"
 val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0w3"
           (SOME ``Dlet locs (Pvar "w") (Lit (Word64 3w))``)
 
-val _ = parsetest0 ``nPattern`` ``ptree_pattern nPattern`` "(x:int) :: _"
+val _ = parsetest0 ``nPattern`` ``ptree_Pattern nPattern`` "(x:int) :: _"
           (SOME ``Pcon (SOME (Short "::")) [
                      Ptannot (Pvar "x") (Atapp [] (Short "int"));
                      Pany]``)
 
-val _ = parsetest0 ``nPattern`` ``ptree_pattern nPattern``
+val _ = parsetest0 ``nPattern`` ``ptree_Pattern nPattern``
           "(_, x::y :int list, z)"
           (SOME ``Pcon NONE [
                      Pany;
@@ -176,6 +180,10 @@ val _ = parsetest0 ``nPattern`` ``ptree_pattern nPattern``
                              (Atapp [Atapp [] (Short "int")]
                                     (Short "list"));
                      Pvar "z"]``)
+
+val _ = parsetest0 “nPattern” “ptree_Pattern nPattern”
+          "a as (b as c)"
+          (SOME “Pas (Pas (Pvar "c") "b") "a"”)
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "x : int"
           (SOME ``Tannot (Var (Short "x")) (Atapp [] (Short "int"))``)
@@ -356,11 +364,13 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "3 < x = True"
                                   (Con (SOME (Short "True")) [])``)
 
 val _ = tytest0 "'a * bool"
-                ``Atapp [Atvar "'a"; Atapp [] (Short "bool")] TC_tup``
+                ``Attup [Atvar "'a"; Atapp [] (Short "bool")]``
+
 val _ = tytest0 "'a * bool * 'c"
-                ``Atapp [Atvar "'a";
+                ``Attup [Atvar "'a";
                          Atapp [] (Short "bool");
-                         Atvar "'c"] TC_tup``
+                         Atvar "'c"]``
+
 val _ = tytest "'a * bool -> 'a"
 val _ = tytest "'a * (bool * 'c)"
 val _ = tytest "(bool * int)"
@@ -381,6 +391,10 @@ val _ = parsetest ``nPtuple`` ``ptree_Pattern nPtuple`` "(x,y)"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C x"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x,y)"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "(x,3)"
+val _ = parsetest “nPas” “ptree_Pattern nPas” "t as C(x,y)"
+val _ = parsetest “nPattern” “ptree_Pattern nPattern”
+                  "x3 as [C _ (x as [y,z]), D]"
+
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "(x,y,4)"
                    (SOME ``Con NONE [Var (Short "x");
                                          Var (Short "y");
@@ -467,11 +481,16 @@ val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec``
 val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec``
                   "structure s :> sig val x : int; end = struct val x = 3 end"
 val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec`` "val x = 10"
+
+(* elab_decls doesn't exist:
+
 val _ = parsetest ``nDecls`` elab_decls "fun f x y = x + y"
 val _ = parsetest ``nDecls`` elab_decls
                   "datatype 'a list = Nil | Cons 'a ('a list) \
                   \fun map f l = case l of Nil => Nil \
                   \                      | Cons h t => Cons(f h, map f t)"
+*)
+
 val _ = parsetest0 “nDecl” “ptree_Decl”
           "datatype 'a Tree = Lf1 | Nd ('a Tree) 'a ('a Tree) | Lf2 int"
           (SOME “Dtype _ [(["'a"], "Tree",
@@ -488,8 +507,10 @@ val _ = parsetest0 “nDecl” “ptree_Decl”
                                     Atvar "'a";
                                     Atapp [Atvar "'a"] (Short "Tree")]);
                             ("Lf2", [Atapp [] (Short "int")])])]”)
+(*
 val _ = parsetest ``nDecls`` elab_decls "val x = f()"
 val _ = parsetest ``nDecls`` elab_decls "val () = f x"
+*)
 val _ = parsetest0 ``nDecls`` “ptree_Decls” "val x = Ref False;"
                    (SOME “[Dlet someloc (Pvar "x")
                                 (App Opref [Con (SOME (Short "False")) []])]”)
@@ -505,8 +526,10 @@ val _ = parsetest0 “nE” “ptree_Expr nE” "op Ref"
                    (SOME “Con (SOME (Short "Ref")) []”);
 val _ = parsetest0 “nE” “ptree_Expr nE” "Ref"
                    (SOME “Con (SOME (Short "Ref")) []”);
+(*
 val _ = parsetest ``nDecls`` elab_decls "val x = (y := 3);"
 val _ = parsetest ``nDecls`` elab_decls "val _ = (y := 3);"
+*)
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "(f x; 3)"
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "!x"
                    (SOME “App Opapp [V "!"; V "x"]”)

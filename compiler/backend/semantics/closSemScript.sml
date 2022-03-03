@@ -29,10 +29,6 @@ val _ = Datatype `
   | Closure (num option) (v list) (v list) num closLang$exp
   | Recclosure (num option) (v list) (v list) ((num # closLang$exp) list) num`
 
-Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp) list``
-
-Type clos_cc = ``:'c -> clos_prog -> (word8 list # word64 list # 'c) option``
-
 Type clos_co = ``:num -> 'c # clos_prog``
 
 val _ = Datatype `
@@ -191,6 +187,8 @@ val do_app_def = Define `
              then Rval (EL (Num i) xs, s)
              else Error)
          | _ => Error)
+    | (ElemAt n,[Block tag xs]) =>
+        if n < LENGTH xs then Rval (EL n xs, s) else Error
     | (ListAppend, [x1; x2]) =>
         (case (v_to_list x1, v_to_list x2) of
         | (SOME xs, SOME ys) => Rval (list_to_v (xs ++ ys), s)
@@ -287,6 +285,8 @@ val do_app_def = Define `
         Rval (Boolv (LENGTH xs = l),s)
     | (TagLenEq n l,[Block tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
+    | (EqualInt i,[Number j]) =>
+        Rval (Boolv (i = j), s)
     | (Equal,[x1;x2]) =>
         (case do_eq x1 x2 of
          | Eq_val b => Rval (Boolv b, s)

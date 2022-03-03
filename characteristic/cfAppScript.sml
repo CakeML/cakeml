@@ -216,6 +216,25 @@ Proof
   Cases_on `n` \\ fs [Once curried_def]
 QED
 
+Theorem app_basic_SEP_EXISTS:
+  app_basic p f h (SEP_EXISTS x. P x) q ⇔ ∀x. app_basic p f h (P x) q
+Proof
+  fs [app_basic_def,SEP_EXISTS_THM,PULL_EXISTS] \\ metis_tac []
+QED
+
+Theorem app_SEP_EXISTS:
+  ∀args p f q P.
+    app p f args (SEP_EXISTS x. P x) q ⇔ ∀x. app p f args (P x) q
+Proof
+  strip_tac \\ completeInduct_on ‘LENGTH args’
+  \\ rw [] \\ gvs [PULL_FORALL]
+  \\ Cases_on ‘args’ \\ fs [app_def]
+  \\ Cases_on ‘t’ \\ fs [app_def]
+  THEN1 (fs [app_basic_def,SEP_EXISTS_THM,PULL_EXISTS] \\ metis_tac [])
+  \\ eq_tac \\ rw []
+  \\ fs [app_basic_SEP_EXISTS]
+QED
+
 (* app_over_app / app_over_take *)
 
 (** When [curried n f] holds and the number of the arguments [xs] is less than
@@ -335,7 +354,7 @@ Proof
   \\ Cases_on`r` \\ fs[cond_def,EQ_IMP_THM]
 QED
 
-open terminationTheory evaluatePropsTheory
+open evaluateTheory evaluatePropsTheory
 val dec_clock_def = evaluateTheory.dec_clock_def
 val evaluate_empty_state_IMP = ml_translatorTheory.evaluate_empty_state_IMP
 

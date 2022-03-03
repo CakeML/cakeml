@@ -2,7 +2,7 @@
   Translate the x64 instruction encoder and x64-specific config.
 *)
 open preamble;
-open terminationTheory
+open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
 open to_target64ProgTheory
 open x64_targetTheory x64Theory;
@@ -303,7 +303,7 @@ val x64_enc_thm = reconstruct_case ``x64_enc i`` rand
 
 val res = translate (GEN_ALL x64_enc_thm)
 
-val _ = translate (x64_config_def |> gconv)
+Theorem x64_config_v_thm = translate (x64_config_def |> gconv);
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

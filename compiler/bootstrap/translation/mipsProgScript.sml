@@ -2,7 +2,7 @@
   Translate the MIPS instruction encoder and MIPS-specific config.
 *)
 open preamble;
-open terminationTheory
+open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
 open riscvProgTheory
 open mips_targetTheory mipsTheory;
@@ -190,7 +190,7 @@ val mips_enc_thm = reconstruct_case ``mips_enc i`` rand
 
 val res = translate mips_enc_thm
 
-val res = translate (mips_config_def |> SIMP_RULE bool_ss
+Theorem mips_config_v_thm = translate (mips_config_def |> SIMP_RULE bool_ss
 [IN_INSERT,NOT_IN_EMPTY]|> econv)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;

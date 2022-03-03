@@ -575,7 +575,7 @@ Definition readLine_def:
         do
           (obj,s) <- pop s; tm <- getTerm obj;
           (obj,s) <- pop s; n <- getName obj;
-          ty <- type_of tm;
+          ty <- call_type_of tm;
           eq <- mk_eq (mk_var(n,ty),tm);
           th <- new_basic_definition eq;
           return (push (Thm th) (push (Const n) s))
@@ -596,7 +596,7 @@ Definition readLine_def:
           (obj,s) <- pop s; rep <- getName obj;
           (obj,s) <- pop s; abs <- getName obj;
           (obj,s) <- pop s; nm <- getName obj;
-          (th1,th2) <- new_basic_type_definition nm abs rep th;
+          (th1,th2) <- new_basic_type_definition (nm, abs, rep, th);
           (_,a) <- dest_eq (concl th1);
           th1 <- ABS a th1;
           th2 <- SYM th2;
@@ -975,4 +975,3 @@ Proof
 QED
 
 val _ = export_theory()
-

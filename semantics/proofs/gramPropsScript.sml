@@ -47,9 +47,7 @@ val NT_rank_def = Define`
       | INL n =>
         if n = nElist1                 then 16
         else if n = nEseq              then 16
-        else if n = nTopLevel          then 17
         else if n = nTopLevelDecs      then 16
-        else if n = nREPLCommand       then 16
 (*      else if n = nREPLTop           then 16 *)
         else if n = nElist2            then 16
         else if n = nE                 then 15
@@ -96,11 +94,12 @@ val NT_rank_def = Define`
         else if n = nPbaseList1        then  4
         else if n = nPapp              then  4
         else if n = nPcons             then  5
-        else if n = nPattern           then  6
-        else if n = nPatternList       then  7
-        else if n = nPEs               then  8
-        else if n = nPE                then  7
-        else if n = nPE'               then  7
+        else if n = nPas               then  6
+        else if n = nPattern           then  7
+        else if n = nPatternList       then  8
+        else if n = nPEs               then  9
+        else if n = nPE                then  8
+        else if n = nPE'               then  8
         else if n = nLetDecs           then  2
         else if n = nLetDec            then  1
         else if n = nDtypeDecl         then  3
@@ -254,7 +253,7 @@ val nullacc =
            “nPapp”, “nPattern”, “nRelOps”, “nMultOps”,
            “nAddOps”, “nDconstructor”, “nFDecl”,
            “nPatternList”, “nPbaseList1”, “nElist2”,
-           “nEseq”, “nEtuple”, “nTopLevelDecs”, “nTopLevelDec”, “nTopLevel”]
+           “nEseq”, “nEtuple”, “nTopLevelDecs”, “nTopLevelDec”]
 
 local
   fun appthis th = let

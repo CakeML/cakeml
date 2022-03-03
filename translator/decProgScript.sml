@@ -3,7 +3,7 @@
 *)
 
 open preamble astTheory semanticPrimitivesTheory;
-open terminationTheory ml_translatorLib ml_translatorTheory ml_progLib;
+open ml_translatorLib ml_translatorTheory ml_progLib;
 
 val _ = new_theory "decProg";
 
@@ -70,8 +70,10 @@ val REALOPS_REAL_UOP_TYPE_def = my_fetch "REALOPS_REAL_UOP_TYPE_def";
 val REALOPS_REAL_BOP_TYPE_def = my_fetch "REALOPS_REAL_BOP_TYPE_def";
 val REALOPS_REAL_CMP_TYPE_def = my_fetch "REALOPS_REAL_CMP_TYPE_def";
 val AST_OP_TYPE_def = my_fetch "AST_OP_TYPE_def";
+(*
 val LOCATION_LOCN_TYPE_def = my_fetch "LOCATION_LOCN_TYPE_def";
 val LOCATION_LOCS_TYPE_def = my_fetch "LOCATION_LOCS_TYPE_def";
+*)
 val AST_EXP_TYPE_def = my_fetch "AST_EXP_TYPE_def";
 val AST_DEC_TYPE_def = my_fetch "AST_DEC_TYPE_def";
 
@@ -206,6 +208,7 @@ Proof
     REALOPS_REAL_CMP_TYPE_eq_enc]
 QED
 
+(*
 Theorem LOCATION_LOCN_TYPE_eq_enc:
   !l v. LOCATION_LOCN_TYPE l v <=> v = enc_locn l
 Proof
@@ -218,6 +221,9 @@ Proof
   Induct
   \\ fs [LOCATION_LOCS_TYPE_def,enc_locs_def,type_num_defs,LOCATION_LOCN_TYPE_eq_enc]
 QED
+*)
+
+(*
 
 Theorem FPVALTREE_FP_OPT_TYPE_eq_enc:
   ∀ sc. FPVALTREE_FP_OPT_TYPE sc v ⇔ v = enc_scope sc
@@ -231,7 +237,7 @@ Theorem AST_EXP_TYPE_eq_enc:
 Proof
   recInduct enc_exp_ind \\ rpt conj_tac \\ rpt gen_tac
   \\ fs [AST_EXP_TYPE_def,enc_exp_def,AST_OP_TYPE_eq_enc,AST_LIT_TYPE_eq_enc,
-         AST_AST_T_TYPE_eq_enc,AST_LOP_TYPE_eq_enc,LOCATION_LOCS_TYPE_eq_enc,
+         AST_AST_T_TYPE_eq_enc,AST_LOP_TYPE_eq_enc,(*LOCATION_LOCS_TYPE_eq_enc,*)
          NAMESPACE_ID_TYPE_eq_enc,type_num_defs, FPVALTREE_FP_OPT_TYPE_eq_enc]
   \\ rw []
   THEN1
@@ -398,6 +404,7 @@ Theorem AST_DEC_TYPE_eq_v_to_decs:
 Proof
   simp [AST_DEC_TYPE_eq_enc,semanticPrimitivesPropsTheory.v_to_decs_eq_decs_to_v]
 QED
+*)
 
 val _ = (print_asts := true);
 val _ = export_theory();

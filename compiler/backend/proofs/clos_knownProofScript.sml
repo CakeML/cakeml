@@ -4,7 +4,7 @@
 
 open preamble local open bagLib in end
 open closPropsTheory clos_knownTheory clos_knownPropsTheory closSemTheory
-     closLangTheory db_varsTheory backendPropsTheory
+     closLangTheory db_varsTheory backendPropsTheory clos_opProofTheory
 local open clos_letopProofTheory clos_ticksProofTheory clos_fvsProofTheory in end
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -259,17 +259,14 @@ QED
 
 (* Value approximation is sgc free *)
 
-val val_approx_sgc_free_def = tDefine "val_approx_gc_free" `
+Definition val_approx_sgc_free_def:
   (val_approx_sgc_free (ClosNoInline m n) <=> T) /\
   (val_approx_sgc_free (Clos m n e s) <=> set_globals e = {||}) /\
   (val_approx_sgc_free (Tuple tag vas) <=> EVERY val_approx_sgc_free vas) /\
   (val_approx_sgc_free _ <=> T)
-` (WF_REL_TAC `measure val_approx_size`
-   \\ Induct_on `vas` \\ simp []
-   \\ rw [] THEN1 simp [val_approx_size_def]
-   \\ first_x_assum drule
-   \\ disch_then (qspec_then `tag` assume_tac)
-   \\ fs [val_approx_size_def]);
+Termination
+  WF_REL_TAC `measure val_approx_size`
+End
 
 val val_approx_sgc_free_def = save_thm(
   "val_approx_sgc_free_def[simp]",
@@ -514,6 +511,12 @@ QED
 
 val fv_max_def = Define `fv_max n xs = !v. fv v xs ==> v < n`;
 
+Theorem fv_max_SmartOp:
+  fv_max n [Op t op xs] ⇒ fv_max n [SmartOp t op xs]
+Proof
+  fs [fv_max_def,fv1_SmartOp]
+QED
+
 Theorem fv_alt:
    !n xs. fv n xs <=> has_var n (SND (free xs))
 Proof
@@ -709,7 +712,7 @@ val value_ind =
   TypeBase.induction_of ``:closSem$v``
    |> Q.SPECL [`P`, `EVERY P`]
    |> SIMP_RULE (srw_ss()) []
-   |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> Q.GEN `P`
+   |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> Q.GEN `P`;
 
 Theorem do_app_ssgc:
    !opn args s0 res.
@@ -761,6 +764,9 @@ Proof
   >- (simp[PULL_FORALL] \\ rw []
       \\ fs [ssgc_free_def] \\ res_tac
       \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
+      \\ fs [EVERY_EL] \\ rw [] \\ res_tac \\ fs [])
+  >- (simp[PULL_FORALL] \\ rw []
+      \\ fs [ssgc_free_def] \\ res_tac
       \\ fs [EVERY_EL] \\ rw [] \\ res_tac \\ fs [])
   >- (simp[ssgc_free_def] >>
       rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
@@ -1276,7 +1282,7 @@ Proof
   THEN1 (drule known_op_preserves_esgc_free
          \\ simp [EVERY_REVERSE]
          \\ strip_tac
-         \\ every_case_tac \\ simp []
+         \\ every_case_tac \\ simp [SmartOp_simp]
          \\ rename [`isGlobal opn`] \\ Cases_on `opn` \\ fs [isGlobal_def]
          \\ fs [known_op_def, op_gbag_def])
   THEN1 (fs [inlD_case_eq]
@@ -1350,7 +1356,7 @@ Proof
   \\ fs [] \\ rveq
   \\ fs [closLangTheory.pure_def]
   \\ every_case_tac
-  \\ fs [closLangTheory.pure_def, closLangTheory.pure_op_def, ETA_THM]
+  \\ fs [closLangTheory.pure_def, closLangTheory.pure_op_def, ETA_THM, SmartOp_simp]
 QED
 
 Theorem evaluate_mk_Ticks_rw:
@@ -1447,7 +1453,7 @@ Proof
   THEN1
    (fs [fv_max_def] \\ rw [] \\ res_tac)
   THEN1
-   (every_case_tac \\ fs [fv_max_rw])
+   (every_case_tac \\ fs [fv_max_rw] \\ irule fv_max_SmartOp \\ fs [fv_max_rw])
   THEN1
    (fs [inlD_case_eq] \\ rveq \\ fs [fv_max_rw]
     \\ rpt (pairarg_tac \\ fs [])
@@ -1781,10 +1787,6 @@ Proof
    rw [] \\ imp_res_tac evaluate_IMP_shift_seq
    \\ metis_tac [oracle_gapprox_disjoint_shift_seq_unique_set_globals]
 QED
-
-val compile_inc_def = Define `
-  compile_inc c g (es,xs) =
-    let (eas, g') = known (reset_inline_factor c) es [] g in (g', MAP FST eas, xs)`;
 
 val say = say0 "known_correct_approx";
 
@@ -2395,7 +2397,7 @@ Proof
   Induct \\ fs [closSemTheory.v_size_def]
 QED
 
-val v_rel_def = tDefine "v_rel" `
+Definition v_rel_def:
   (v_rel c g (Number i) v <=> v = Number i) /\
   (v_rel c g (Word64 w) v <=> v = Word64 w) /\
   (v_rel c g (ByteVector ws) v <=> v = ByteVector ws) /\
@@ -2425,9 +2427,10 @@ val v_rel_def = tDefine "v_rel" `
        LIST_REL val_approx_val aenv env1a /\
        LIST_REL (f_rel c (clos ++ aenv) g) funs1 funs2 /\
        v = Recclosure loc_opt args2 (env2a ++ env2b) funs2 i else F)
-  `
-  (WF_REL_TAC `measure (v_size o FST o SND o SND)` \\ simp [v1_size_append, v_size_def]
-   \\ rpt strip_tac \\ imp_res_tac v_size_lemma \\ simp []);
+Termination
+  WF_REL_TAC `measure (v_size o FST o SND o SND)` \\ simp [v1_size_append, v_size_def]
+  \\ rpt strip_tac \\ imp_res_tac v_size_lemma \\ simp []
+End
 
 val v_rel_def = save_thm("v_rel_def[simp,compute]",
   v_rel_def |> SIMP_RULE (bool_ss ++ ETA_ss) []);
@@ -2946,8 +2949,8 @@ QED
 
 val say = say0 "known_correct0";
 
-val known_correct0 = Q.prove(
-  `(!xs env1full (s0:(val_approx num_map#'c,'ffi) closSem$state) res1 s env1 xenv1
+Theorem known_correct0[local]:
+   (!xs env1full (s0:(val_approx num_map#'c,'ffi) closSem$state) res1 s env1 xenv1
      env2 xenv2 t0 c g0 g aenv eas.
       evaluate (xs, env1full, s0) = (res1, s) /\
       known c xs aenv g0 = (eas, g) /\
@@ -3002,7 +3005,8 @@ val known_correct0 = Q.prove(
         state_rel c (next_g s) s t /\
         state_globals_approx s (next_g s) /\
         is_state_oracle (compile_inc c) s.compile_oracle /\
-        oracle_gapprox_disjoint (next_g s) s.compile_oracle)`,
+        oracle_gapprox_disjoint (next_g s) s.compile_oracle)
+Proof
   ho_match_mp_tac (evaluate_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3`
                    |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
   \\ rpt strip_tac \\ fs [fv_max_rw, mglobals_disjoint_rw] \\ rveq
@@ -3261,8 +3265,10 @@ val known_correct0 = Q.prove(
     THEN1 (strip_tac \\ rveq \\ fs []
            \\ Cases_on `opn` \\ simp [isGlobal_def, evaluate_def]
            \\ Cases_on `apx` \\ simp [gO_destApx_def] \\ rveq
+           \\ TRY (irule_at Any SmartOp_thm)
            \\ fs [known_op_def, NULL_EQ, bool_case_eq] \\ rveq
-           \\ fs [evaluate_def])
+           \\ fs [evaluate_def]
+           \\ strip_tac \\ gvs [])
     \\ rename1 `evaluate (_, _, s0) = (_, s1)`
     \\ strip_tac
     \\ `state_oracle_mglobals_disjoint s1`
@@ -3291,7 +3297,7 @@ val known_correct0 = Q.prove(
           \\ rpt (pairarg_tac \\ fs []) \\ rveq
           \\ fs [compile_inc_def]
           \\ pairarg_tac \\ fs [] \\ rveq \\ metis_tac [SND])
-      \\ simp [isGlobal_def, evaluate_def, do_install_def]
+      \\ simp [isGlobal_def, evaluate_def, do_install_def, SmartOp_Install]
       \\ Cases_on `t.compile q (r0, [])`
       THEN1 (fs [state_rel_def, state_cc_def, state_co_def]
              \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ rfs []
@@ -3513,10 +3519,12 @@ val known_correct0 = Q.prove(
       \\ fs [])
     THEN1
      (qmatch_goalsub_abbrev_tac `evaluate ([op_part _], _, _)`
-      \\ `?tr. op_part = Op tr opn` by (fs [Abbr `op_part`] \\ metis_tac [])
+      \\ `?tr. op_part = SmartOp tr opn` by (fs [Abbr `op_part`]
+                                             \\ metis_tac [SmartOp_Cons,SmartOp_Const])
       \\ qpat_x_assum `~(_ /\ _)` kall_tac
       \\ qpat_x_assum `Abbrev _` kall_tac
       \\ rw []
+      \\ irule_at Any clos_opProofTheory.SmartOp_thm
       \\ simp [evaluate_def]
       \\ qmatch_asmsub_abbrev_tac `do_app _ vvs _`
       \\ qmatch_goalsub_abbrev_tac `do_app _ wws _`
@@ -3535,6 +3543,7 @@ val known_correct0 = Q.prove(
       \\ `state_globals_approx s0 g0 ∧ oracle_gapprox_disjoint g0 s0.compile_oracle`
          by metis_tac [state_globals_approx_subspt, oracle_gapprox_disjoint_subspt]
       \\ simp [] \\ strip_tac
+      \\ TRY (strip_tac \\ gvs [])
       \\ qpat_assum `do_app _ _ s1 = _` (mp_then Any mp_tac known_op_correct_approx)
       \\ disch_then drule \\ simp [Abbr `vvs`] \\ strip_tac
       \\ `ssgc_free s1 /\ EVERY vsgc_free vs`
@@ -4460,7 +4469,8 @@ val known_correct0 = Q.prove(
           \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
           \\ imp_res_tac evaluate_SING \\ rveq \\ fs [] \\ rveq \\ fs []
           \\ fs [CONV_RULE (LHS_CONV SYM_CONV) REVERSE_EQ_NIL, DROP_NIL]
-          \\ simp [DROP_LENGTH_TOO_LONG]))));
+          \\ simp [DROP_LENGTH_TOO_LONG])))
+QED
 
 Theorem semantics_known:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY co
@@ -4550,7 +4560,8 @@ Proof
   THEN1 (simp [Once code_locs_cons, code_locs_append, LIST_TO_BAG_APPEND]
          \\ srw_tac [bagLib.SBAG_SOLVE_ss] [])
   THEN1 (qpat_abbrev_tac `gooblygook = gO_destApx _`
-         \\ Cases_on `gooblygook` \\ simp [code_locs_def])
+         \\ Cases_on `gooblygook` \\ simp [code_locs_def,code_locs_SmartOp])
+  \\ simp [code_locs_def,code_locs_SmartOp]
   THEN1 (fs [inlD_case_eq] \\ rw []
          \\ fs [code_locs_def, code_locs_append, LIST_TO_BAG_APPEND]
          \\ srw_tac [bagLib.SBAG_SOLVE_ss] []
@@ -4608,7 +4619,7 @@ val syntax_ok_def = Define`
 
 Overload fvs_compile = ``clos_fvs$compile``
 
-val fvs_inc = ``clos_fvsProof$compile_inc : clos_prog -> clos_prog``;
+val fvs_inc = ``clos_fvs$compile_inc : clos_prog -> clos_prog``;
 
 val syntax_oracle_ok_def = Define`
   syntax_oracle_ok c xs co conf ⇔
@@ -4623,63 +4634,58 @@ val known_cc_def = Define `
   known_cc known_conf cc =
     (case known_conf of
      | SOME kcfg =>
-       (pure_cc clos_fvsProof$compile_inc
+       (pure_cc clos_fvs$compile_inc
          (state_cc (compile_inc kcfg)
-           (pure_cc clos_ticksProof$compile_inc
-             (pure_cc clos_letopProof$compile_inc
+           (pure_cc clos_ticks$compile_inc
+             (pure_cc clos_letop$compile_inc
                (cc:'b clos_cc):'b clos_cc):'b clos_cc)))
      | NONE      => state_cc (CURRY I) cc :(val_approx num_map # 'b) clos_cc)`;
 
 val known_co_def = Define `
   known_co known_conf (co : (val_approx num_map # 'b) clos_co) =
     (case known_conf of
-     | SOME kcfg => (pure_co clos_letopProof$compile_inc o
-                       ((pure_co clos_ticksProof$compile_inc o
+     | SOME kcfg => (pure_co clos_letop$compile_inc o
+                       ((pure_co clos_ticks$compile_inc o
                           (state_co (compile_inc kcfg)
-                            (pure_co clos_fvsProof$compile_inc o co)
+                            (pure_co clos_fvs$compile_inc o co)
                             : 'b clos_co)) : 'b clos_co))
      | NONE      => (state_co (CURRY I) co) : 'b clos_co)`;
 
 Theorem known_co_eq_pure_state:
   known_co known_conf co =
     pure_co (if IS_SOME known_conf
-        then clos_letopProof$compile_inc
-            o (clos_ticksProof$compile_inc : clos_prog -> clos_prog)
+        then clos_letop$compile_inc
+            o (clos_ticks$compile_inc : clos_prog -> clos_prog)
         else I) o
     state_co (case known_conf of SOME kcfg => compile_inc kcfg
         | NONE => CURRY I)
-    (pure_co (if IS_SOME known_conf then clos_fvsProof$compile_inc else I) o co)
+    (pure_co (if IS_SOME known_conf then clos_fvs$compile_inc else I) o co)
 Proof
   fs [known_co_def]
   \\ CASE_TAC
   \\ fs [pure_co_I, pure_co_comb_pure_co]
 QED
 
-
-val option_val_approx_spt_def = Define `
-  option_val_approx_spt kc = (case kc of NONE => LN
-    | SOME kcfg => kcfg.val_approx_spt)`;
-
 val known_mk_co_def = Define `
   known_mk_co kc kc' mk =
-    add_state_co (if IS_SOME kc then clos_knownProof$compile_inc (THE kc)
+    add_state_co (if IS_SOME kc then clos_known$compile_inc (THE kc)
         else CURRY I)
     (option_val_approx_spt kc')
     (mk o pure_co_progs (if IS_SOME kc then
-          clos_letopProof$compile_inc
-              ∘ (clos_ticksProof$compile_inc : clos_prog -> clos_prog)
+          clos_letop$compile_inc
+              ∘ (clos_ticks$compile_inc : clos_prog -> clos_prog)
         else I))
-    o pure_co_progs (if IS_SOME kc then clos_fvsProof$compile_inc else I)`
+    o pure_co_progs (if IS_SOME kc then clos_fvs$compile_inc else I)`
 
 val known_co_progs_def = Define `
   known_co_progs kc kc' =
     pure_co_progs (if IS_SOME kc then
-          clos_letopProof$compile_inc
-              ∘ (clos_ticksProof$compile_inc : clos_prog -> clos_prog)
+          clos_letop$compile_inc
+              ∘ (clos_ticks$compile_inc : clos_prog -> clos_prog)
         else I)
-    o state_co_progs (if IS_SOME kc then clos_knownProof$compile_inc (THE kc)
+    o state_co_progs (if IS_SOME kc then clos_known$compile_inc (THE kc)
         else CURRY I) (case kc' of NONE => LN | SOME kcfg => kcfg.val_approx_spt)
-    o pure_co_progs (if IS_SOME kc then clos_fvsProof$compile_inc else I)`
+    o pure_co_progs (if IS_SOME kc then clos_fvs$compile_inc else I)`
 
 Theorem known_co_known_mk_co:
   clos_knownProof$known_co kc
@@ -4695,7 +4701,7 @@ Proof
 QED
 
 Theorem fvs_compile_uncurry:
-  clos_fvsProof$compile_inc p = (remove_fvs 0 (FST p), [])
+  clos_fvs$compile_inc p = (remove_fvs 0 (FST p), [])
 Proof
   Cases_on`p` \\ EVAL_TAC
 QED
@@ -4826,13 +4832,13 @@ Proof
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ first_x_assum (qspec_then `n` assume_tac) \\ fs [] \\ rfs []
     \\ Cases_on`co n` \\ fs[backendPropsTheory.pure_co_def]
-    \\ Cases_on`r` \\ fs[clos_fvsProofTheory.compile_inc_def])
+    \\ Cases_on`r` \\ fs[clos_fvsTheory.compile_inc_def])
   \\ disch_then (fn th => fs [th])
   \\ drule (GEN_ALL clos_letopProofTheory.semantics_let_op)
   \\ reverse impl_tac \\ fs [] \\ rw []
   \\ first_x_assum (qspec_then `n` assume_tac) \\ fs []
   \\ qmatch_assum_abbrev_tac `SND pp = []`
-  \\ Cases_on `pp` \\ fs [clos_ticksProofTheory.compile_inc_def]
+  \\ Cases_on `pp` \\ fs [clos_ticksTheory.compile_inc_def]
   \\ fs []
 QED
 
@@ -4932,7 +4938,7 @@ Proof
   \\ TRY ( match_mp_tac val_approx_every_Fn_SOME_merge \\ fs[] )
   \\ fs[IS_SOME_EXISTS, any_el_ALT, EVERY_REPLICATE] \\ rveq \\ fs[]
   >- ( rw[] \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS] )
-  >- ( CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] )
+  >- ( CASE_TAC \\ fs[every_Fn_SOME_SmartOp] \\ CASE_TAC \\ fs[every_Fn_SOME_SmartOp] )
   >- ( imp_res_tac known_op_every_Fn_SOME \\ fs[EVERY_REVERSE])
   >- ( imp_res_tac known_op_every_Fn_SOME \\ fs[EVERY_REVERSE])
   >- (
@@ -5049,7 +5055,7 @@ Proof
   \\ TRY ( match_mp_tac val_approx_every_Fn_vs_NONE_merge \\ fs[] )
   \\ fs[IS_SOME_EXISTS, any_el_ALT, EVERY_REPLICATE] \\ rveq \\ fs[]
   >- ( rw[] \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS] )
-  >- ( CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] )
+  >- ( imp_res_tac every_Fn_vs_NONE_SmartOp \\ CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] )
   >- ( imp_res_tac known_op_every_Fn_vs_NONE \\ fs[EVERY_REVERSE])
   >- ( imp_res_tac known_op_every_Fn_vs_NONE \\ fs[EVERY_REVERSE])
   >- (
@@ -5110,7 +5116,7 @@ Proof
   \\ TRY ( match_mp_tac val_approx_every_Fn_vs_NONE_merge \\ fs[] )
   \\ fs[IS_SOME_EXISTS, any_el_ALT, EVERY_REPLICATE] \\ rveq \\ fs[]
   >- ( rw[] \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS] )
-  >- ( CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] )
+  >- ( imp_res_tac every_Fn_vs_NONE_SmartOp \\ CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] )
   >- ( imp_res_tac known_op_every_Fn_vs_NONE \\ fs[EVERY_REVERSE])
   >- ( imp_res_tac known_op_every_Fn_vs_NONE \\ fs[EVERY_REVERSE])
   >- (
@@ -5157,17 +5163,14 @@ QED
 
 (* no_Labels *)
 
-val val_approx_no_Labels_def = tDefine "val_approx_no_Labels" `
+Definition val_approx_no_Labels_def:
   (val_approx_no_Labels (ClosNoInline m n) <=> T) /\
   (val_approx_no_Labels (Clos m n e s) <=> no_Labels e) /\
   (val_approx_no_Labels (Tuple tag vas) <=> EVERY val_approx_no_Labels vas) /\
   (val_approx_no_Labels _ <=> T)
-` (WF_REL_TAC `measure val_approx_size`
-   \\ Induct_on `vas` \\ simp []
-   \\ rw [] THEN1 simp [val_approx_size_def]
-   \\ first_x_assum drule
-   \\ disch_then (qspec_then `tag` assume_tac)
-   \\ fs [val_approx_size_def]);
+Termination
+  WF_REL_TAC `measure val_approx_size`
+End
 
 Theorem decide_inline_no_Labels:
    val_approx_no_Labels b ∧ decide_inline a b c d = inlD_LetInline e ⇒
@@ -5177,9 +5180,10 @@ Proof
   \\ fs[val_approx_no_Labels_def]
 QED
 
-val globals_approx_no_Labels_def = Define`
+Definition globals_approx_no_Labels_def:
   globals_approx_no_Labels g =
-    (∀c d. lookup c g = SOME d ⇒ val_approx_no_Labels d)`;
+    (∀c d. lookup c g = SOME d ⇒ val_approx_no_Labels d)
+End
 
 Theorem val_approx_no_Labels_merge:
    ∀a b. val_approx_no_Labels a ∧ val_approx_no_Labels b ⇒
@@ -5247,7 +5251,7 @@ Proof
   \\ TRY (match_mp_tac val_approx_no_Labels_merge \\ fs [])
   \\ fs[IS_SOME_EXISTS, any_el_ALT, EVERY_REPLICATE] \\ rveq \\ fs[]
   >- (rw[] \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,val_approx_no_Labels_def] )
-  >- (IF_CASES_TAC \\ fs[] \\ CASE_TAC \\ fs[] )
+  >- (rw [no_Labels_SmartOp] \\ CASE_TAC \\ fs [no_Labels_SmartOp])
   \\ fs [val_approx_no_Labels_def]
   >- (imp_res_tac known_op_no_Labels \\ fs[EVERY_REVERSE])
   >- (imp_res_tac known_op_no_Labels \\ fs[EVERY_REVERSE])
@@ -5313,17 +5317,14 @@ QED
 
 (* obeys_max_app *)
 
-val val_approx_obeys_max_app_def = tDefine "val_approx_obeys_max_app" `
+Definition val_approx_obeys_max_app_def:
   (val_approx_obeys_max_app k (ClosNoInline m n) <=> T) /\
   (val_approx_obeys_max_app k (Clos m n e s) <=> obeys_max_app k e) /\
   (val_approx_obeys_max_app k (Tuple tag vas) <=> EVERY (val_approx_obeys_max_app k) vas) /\
   (val_approx_obeys_max_app k _ <=> T)
-` (WF_REL_TAC `measure (val_approx_size o SND)`
-   \\ Induct_on `vas` \\ simp []
-   \\ rw [] THEN1 simp [val_approx_size_def]
-   \\ first_x_assum drule
-   \\ disch_then (qspec_then `tag` assume_tac)
-   \\ fs [val_approx_size_def]);
+Termination
+  WF_REL_TAC `measure (val_approx_size o SND)`
+End
 
 Theorem decide_inline_obeys_max_app:
    val_approx_obeys_max_app k b ∧ decide_inline a b c d = inlD_LetInline e ⇒
@@ -5409,7 +5410,7 @@ Proof
   \\ TRY (match_mp_tac val_approx_obeys_max_app_merge \\ fs [])
   \\ fs[IS_SOME_EXISTS, any_el_ALT, EVERY_REPLICATE] \\ rveq \\ fs[]
   >- (rw[] \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,val_approx_obeys_max_app_def] )
-  >- (IF_CASES_TAC \\ fs[] \\ CASE_TAC \\ fs[] )
+  >- (imp_res_tac obeys_max_app_SmartOp \\ IF_CASES_TAC \\ fs[] \\ CASE_TAC \\ fs[] )
   \\ fs [val_approx_obeys_max_app_def]
   >- (imp_res_tac known_op_obeys_max_app \\ fs[EVERY_REVERSE])
   >- (imp_res_tac known_op_obeys_max_app \\ fs[EVERY_REVERSE])

@@ -161,6 +161,22 @@ val clos_mti_intro_multi_side = Q.prove(`
 val r = translate clos_numberTheory.renumber_code_locs_def;
 
 (* ------------------------------------------------------------------------- *)
+(* clos_op                                                                   *)
+(* ------------------------------------------------------------------------- *)
+
+val r = translate clos_opTheory.is_Var_pmatch;
+val r = translate clos_opTheory.dest_Const_pmatch;
+val r = translate clos_opTheory.dest_Cons_pmatch;
+val r = translate clos_opTheory.dest_ElemAt_pmatch;
+val r = translate clos_opTheory.dest_TagEq_pmatch;
+val r = translate clos_opTheory.dest_LenEq_pmatch;
+val r = translate clos_opTheory.dest_TagLenEq_pmatch;
+val r = translate clos_opTheory.dest_Op_pmatch;
+val r = translate clos_opTheory.eq_direct_def;
+val r = translate clos_opTheory.eq_pure_list_def;
+val r = translate clos_opTheory.SmartOp_def;
+
+(* ------------------------------------------------------------------------- *)
 (* clos_known                                                                *)
 (* ------------------------------------------------------------------------- *)
 

@@ -189,15 +189,6 @@ Inductive v_rel:
    v_rel max_app (Recclosure p argenv env es k) (Recclosure p' argenv' env' es' k))
 End
 
-val compile_inc_def = Define `
-  compile_inc n xs =
-    (* leave space in the naming for the daisy chaining of clos_to_bvl *)
-    let n1 = make_even (n + MAX (LENGTH xs) 1) in
-    let (m,ys) = renumber_code_locs_list n1 xs in
-      (* embed the name of the first free slot (n) in the code *)
-      (* no code will be generated for this pure Const expression *)
-      (m, Op None (Const (&n)) [] :: ys)`;
-
 val state_rel_def = Define `
   state_rel (s:(num#'c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (s.clock = t.clock) /\ (s.ffi = t.ffi) /\ (t.max_app = s.max_app) /\
@@ -510,6 +501,13 @@ fun DFOCUS_PAT pat thm = let
       end
     val (thm, P, Ps) = UN [] thm
   in DISCH P (List.foldl (uncurry DISCH) thm Ps) end
+
+Theorem ignore_table_imp:
+   ignore_table f st p = (st',p') ⇒ SND p' = SND p
+Proof
+  Cases_on`p` \\ EVAL_TAC
+  \\ pairarg_tac \\ rw[] \\ rw[]
+QED
 
 val do_install = Q.prove(
   `state_rel s1 s2 ∧

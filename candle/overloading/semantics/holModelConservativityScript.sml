@@ -7239,7 +7239,7 @@ Proof
                (drule models_ConstSpec_witnesses_model_ext >>
                 disch_then(fn thm => first_x_assum(mp_then (Pos last) mp_tac thm)) >>
                 disch_then(qspec_then ‘HD ctxt’ mp_tac) >>
-                simp[quantHeuristicsTheory.HD_TL_EQ_THMS] >>
+                (*simp[quantHeuristicsTheory.HD_TL_EQ_THMS] >>*)
                 simp[Q.prove(‘∀l. l ≠ [] ⇒ HD l :: TL l = l’,Cases>>simp[])] >>
                 rpt(disch_then(fn thm => first_x_assum(mp_then Any mp_tac thm))) >>
                 impl_tac >-
@@ -7497,7 +7497,7 @@ Proof
               (drule models_ConstSpec_witnesses_model_ext >>
                disch_then(fn thm => first_x_assum(mp_then (Pos last) mp_tac thm)) >>
                disch_then(qspec_then ‘HD ctxt’ mp_tac) >>
-               simp[quantHeuristicsTheory.HD_TL_EQ_THMS] >>
+               (*simp[quantHeuristicsTheory.HD_TL_EQ_THMS] >>*)
                simp[Q.prove(‘∀l. l ≠ [] ⇒ HD l :: TL l = l’,Cases>>simp[])] >>
                rpt(disch_then(fn thm => first_x_assum(mp_then Any mp_tac thm))) >>
                impl_tac >-

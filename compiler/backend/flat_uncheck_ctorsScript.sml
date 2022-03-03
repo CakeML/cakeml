@@ -1,7 +1,7 @@
 (*
   This compiler phase replaces tuples with constructors (with tag 0).
 *)
-open preamble astTheory terminationTheory flatLangTheory;
+open preamble astTheory flatLangTheory;
 
 val _ = numLib.prefer_num();
 
@@ -9,19 +9,18 @@ val _ = new_theory "flat_uncheck_ctors";
 val _ = set_grammar_ancestry ["flatLang", "lib"];
 val _ = temp_tight_equality ();
 
-val compile_pat_def = tDefine "compile_pat" `
+Definition compile_pat_def:
   (compile_pat flatLang$Pany = flatLang$Pany) ∧
   (compile_pat (Pvar v) = Pvar v) ∧
   (compile_pat (Plit l) = Plit l) ∧
   (compile_pat (Pcon tag ps) = Pcon (SOME (the (0,NONE) tag)) (MAP compile_pat ps)) ∧
-  (compile_pat (Pref p) = Pref (compile_pat p))`
- (WF_REL_TAC `measure pat_size` >>
-  rw [] >>
-  Induct_on `ps` >>
-  rw [pat_size_def] >>
-  fs []);
+  (compile_pat (Pas p v) = Pas (compile_pat p) v) ∧
+  (compile_pat (Pref p) = Pref (compile_pat p))
+Termination
+  WF_REL_TAC `measure pat_size` >> rw []
+End
 
-val compile_def = tDefine "compile" `
+Definition compile_def:
   (compile [] = []) /\
   (compile [Raise t e] = [Raise t (HD (compile [e]))]) /\
   (compile [Handle t e pes] =
@@ -36,27 +35,10 @@ val compile_def = tDefine "compile" `
   (compile [Let t vo e1 e2] = [Let t vo (HD (compile [e1])) (HD (compile [e2]))]) /\
   (compile [Letrec t funs e] =
       [Letrec t (MAP (\(a, b, e). (a,b, HD (compile [e]))) funs) (HD (compile [e]))]) /\
-  (compile (x::y::xs) = compile [x] ++ compile (y::xs))`
- (WF_REL_TAC `measure exp6_size`
-  \\ simp []
-  \\ conj_tac
-  >- (
-     gen_tac
-     \\ Induct_on `funs`
-     \\ rw [exp_size_def]
-     \\ rw [exp_size_def]
-     \\ res_tac \\ rw []
-     \\ first_x_assum (qspec_then ‘t’ assume_tac) \\ fs []
-  )
-  >- (
-     rpt strip_tac
-     \\ Induct_on `pes`
-     \\ rw [exp_size_def]
-     \\ rw [exp_size_def]
-     \\ res_tac \\ rw []
-  ));
-
-val compile_ind = theorem"compile_ind";
+  (compile (x::y::xs) = compile [x] ++ compile (y::xs))
+Termination
+  WF_REL_TAC `measure exp6_size` \\ simp []
+End
 
 Theorem compile_length[simp]:
    ! es. LENGTH (compile es) = LENGTH es
@@ -119,9 +101,10 @@ Proof
   \\ fs[]
 QED
 
-val compile_decs = Define `
+Definition compile_decs_def:
   (compile_decs [] = []) ∧
   (compile_decs (flatLang$Dlet e :: ds) = flatLang$Dlet (HD (compile [e])) :: compile_decs ds) ∧
-  (compile_decs (_::ds) = compile_decs ds)`;
+  (compile_decs (_::ds) = compile_decs ds)
+End
 
 val _ = export_theory();

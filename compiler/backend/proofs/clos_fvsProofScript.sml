@@ -97,9 +97,6 @@ Inductive ref_rel:
     ref_rel (ValueArray xs) (ValueArray ys))
 End
 
-val compile_inc_def = Define `
-  compile_inc (e, xs) = (clos_fvs$compile e, [])`;
-
 val state_rel_def = Define `
   state_rel (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state) <=>
     (!n. SND (SND (s.compile_oracle n)) = []) /\

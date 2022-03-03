@@ -60,6 +60,12 @@ Parsing and pretty printing of s-expressions
 [lpr_checker](lpr_checker):
 An LPR checker built on CakeML
 
+[md5ProgScript.sml](md5ProgScript.sml):
+Translate md5 function
+
+[md5Script.sml](md5Script.sml):
+Functional definition of md5 hash based on HOL/src/portableML/poly/MD5.sml
+
 [opentheory](opentheory):
 Implementation of an OpenTheory reader based on the Candle kernel.
 

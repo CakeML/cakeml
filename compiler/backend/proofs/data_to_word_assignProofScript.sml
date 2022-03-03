@@ -9666,7 +9666,7 @@ Proof
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ clean_tac
   \\ fs[state_rel_thm] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -10003,8 +10003,9 @@ Proof
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ clean_tac
+  \\ rename [‘get_vars [e1;e2] x.locals’]
   \\ simp[state_rel_thm] \\ eval_tac
   \\ fs[state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -10137,7 +10138,7 @@ Proof
   \\ fs[do_app,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ qhdtm_x_assum`$some`mp_tac
   \\ DEEP_INTRO_TAC some_intro \\ fs[]
   \\ strip_tac \\ clean_tac
@@ -10147,7 +10148,7 @@ Proof
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ disch_then drule0 \\ fs[] \\ strip_tac
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ clean_tac \\ fs[]
   \\ qmatch_asmsub_rename_tac`Number (&w2n ww)`
   \\ `small_int (:α) (&w2n ww)` by simp[small_int_w2n]
@@ -10493,7 +10494,7 @@ Proof
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ clean_tac
   \\ simp[assign_def]
   \\ TOP_CASE_TAC \\ fs[]
@@ -10707,8 +10708,9 @@ Proof
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ clean_tac
+  \\ rename[‘get_vars [e1;e2] x.locals’]
   \\ fs[state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
@@ -10806,8 +10808,9 @@ Proof
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ clean_tac
+  \\ rename[‘get_vars [e1;e2;e3] x.locals’]
   \\ fs[state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
@@ -10967,8 +10970,9 @@ Proof
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ clean_tac
+  \\ rename[‘get_vars [e1;e2] x.locals’]
   \\ fs[state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
@@ -11111,8 +11115,9 @@ Proof
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_1]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ clean_tac
+  \\ rename[‘get_vars [e1] x.locals’]
   \\ fs[state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
@@ -11489,9 +11494,10 @@ Proof
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs[]
   \\ fs[do_app,allowed_op_def] \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ clean_tac
+  \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ clean_tac
+  \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
+  \\ rename [‘get_vars [e1;e2;e3] x.locals’]
   \\ imp_res_tac get_vars_3_IMP
   \\ fs [] \\ rveq
   \\ fs[] \\ rveq
@@ -11593,9 +11599,9 @@ Proof
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs[]
   \\ fs[do_app,allowed_op_def] \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
+  \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
+  \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
   \\ imp_res_tac get_vars_2_IMP
   \\ fs[state_rel_thm,set_var_def,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -12822,9 +12828,10 @@ Proof
   \\ fs[do_app,allowed_op_def] \\ clean_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
+  \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
+  \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
+  \\ rename [‘get_vars [e1;e2] x.locals’]
   \\ fs [bvlSemTheory.Unit_def] \\ rveq
   \\ fs [GSYM bvlSemTheory.Unit_def] \\ rveq
   \\ imp_res_tac get_vars_2_imp
@@ -13245,9 +13252,10 @@ Proof
   \\ fs[do_app, allowed_op_def] \\ clean_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
+  \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ clean_tac
+  \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
+  \\ rename [‘get_vars [e1;e2] x.locals’]
   \\ fs [bvlSemTheory.Unit_def] \\ rveq
   \\ fs [GSYM bvlSemTheory.Unit_def] \\ rveq
   \\ imp_res_tac get_vars_2_imp
