@@ -422,10 +422,10 @@ Proof
    fs [panSemTheory.eval_def] >>
    fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
    fs []) >>
-  rpt gen_tac >> strip_tac >>
+  rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.eval_def] >>
   fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
-  fs []
+  fs [state_rel_def, state_component_equality]
 QED
 
 
@@ -524,7 +524,7 @@ Proof
    fs [] >>
    imp_res_tac compile_eval_correct >>
    fs []) >>
-  rpt gen_tac >> strip_tac >>
+  rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.eval_def] >>
   fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
   fs [] >>

@@ -34,3 +34,6 @@ theory context.
 
 [holSoundnessScript.sml](holSoundnessScript.sml):
 Proves soundness of the inference system: any provable sequent is valid.
+
+[holSyntaxCyclicityExampleScript.sml](holSyntaxCyclicityExampleScript.sml):
+* example of acyclic theory

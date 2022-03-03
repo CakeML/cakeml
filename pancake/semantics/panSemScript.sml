@@ -37,6 +37,7 @@ Datatype:
      ; clock       : num
      ; be          : bool
      ; ffi         : 'ffi ffi_state
+     ; base_addr   : 'a word
   (* ; gaddrs      : decname |-> ('a word) (* num? *) *)
   (* TODISC: this maps decname to its starting address in the memory and relative size *)|>
 End
@@ -162,7 +163,9 @@ Definition eval_def:
   (eval s (Shift sh e n) =
     case eval s e of
      | SOME (ValWord w) => OPTION_MAP ValWord (word_sh sh w n)
-     | _ => NONE)
+     | _ => NONE) /\
+  (eval s BaseAddr =
+        SOME (ValWord s.base_addr))
 Termination
   wf_rel_tac `measure (exp_size ARB o SND)`
   \\ rpt strip_tac \\ imp_res_tac MEM_IMP_exp_size

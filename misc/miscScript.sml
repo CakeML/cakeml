@@ -2209,9 +2209,8 @@ Theorem domain_fromList2:
    ∀q. domain(fromList2 q) = set(GENLIST (λx. 2n*x) (LENGTH q))
 Proof
   rw[EXTENSION,domain_lookup,lookup_fromList2,MEM_GENLIST,
-     lookup_fromList,EVEN_EXISTS]
-  \\ rw[EQ_IMP_THM] \\ rename1`2 * m`
-  \\ qspecl_then[`2`,`m`]mp_tac MULT_DIV \\ simp[]
+     lookup_fromList,EVEN_EXISTS, PULL_EXISTS, SF CONJ_ss] \\
+  metis_tac[]
 QED
 
 Theorem UNCURRY_eq_pair:

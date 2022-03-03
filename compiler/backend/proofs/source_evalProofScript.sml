@@ -1509,6 +1509,7 @@ Proof
   )
 QED
 
+Overload shift_seq = “misc$shift_seq”
 Definition do_eval_oracle_def:
   do_eval_oracle (f : compiler_fun) vs (orac : eval_oracle_fun) =
   case vs of
