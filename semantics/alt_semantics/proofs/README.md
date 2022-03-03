@@ -13,7 +13,7 @@ unclocked version.
 [bigSmallEquivScript.sml](bigSmallEquivScript.sml):
 Big step/small step equivalence
 
-[bigSmallInvariants.lem](bigSmallInvariants.lem):
+[bigSmallInvariantsScript.sml](bigSmallInvariantsScript.sml):
 Invariants used in the proof relating the big-step and small-step
 version of the CakeML source semantics.
 
