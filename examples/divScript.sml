@@ -318,8 +318,8 @@ QED
 (* TODO: Move REPLICATE_LIST and lemmas to an appropriate theory *)
 
 val REPLICATE_LIST_def = Define `
-  (!l. REPLICATE_LIST l 0 = []) /\
-  (!l n. REPLICATE_LIST l (SUC n) = REPLICATE_LIST l n ++ l)`
+  (REPLICATE_LIST l 0 = []) /\
+  (REPLICATE_LIST l (SUC n) = REPLICATE_LIST l n ++ l)`
 
 Theorem REPLICATE_LIST_SNOC:
   !x n. SNOC x (REPLICATE_LIST [x] n) = REPLICATE_LIST [x] (SUC n)

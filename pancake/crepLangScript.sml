@@ -28,6 +28,7 @@ Datatype:
       | Op binop (exp list)
       | Cmp cmp exp exp
       | Shift shift exp num
+      | BaseAddr
 End
 
 Datatype:
@@ -119,7 +120,8 @@ Definition var_cexp_def:
   (var_cexp (LoadGlob a) = []) ∧
   (var_cexp (Op bop es) = FLAT (MAP var_cexp es)) ∧
   (var_cexp (Cmp c e1 e2) = var_cexp e1 ++ var_cexp e2) ∧
-  (var_cexp (Shift sh e num) = var_cexp e)
+  (var_cexp (Shift sh e num) = var_cexp e) ∧
+  (var_cexp BaseAddr = [])
 Termination
   wf_rel_tac `measure (\e. exp_size ARB e)` >>
   rpt strip_tac >>
@@ -167,7 +169,8 @@ Definition exps_def:
   (exps (LoadGlob a) = [LoadGlob a]) ∧
   (exps (Op bop es) = FLAT (MAP exps es)) ∧
   (exps (Cmp c e1 e2) = exps e1 ++ exps e2) ∧
-  (exps (Shift sh e num) = exps e)
+  (exps (Shift sh e num) = exps e) ∧
+  (exps BaseAddr = [BaseAddr])
 Termination
   wf_rel_tac `measure (\e. exp_size ARB e)` >>
   rpt strip_tac >>

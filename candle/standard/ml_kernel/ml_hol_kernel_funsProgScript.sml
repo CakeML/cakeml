@@ -524,9 +524,27 @@ val def = list_to_hypset_def |> translate
 
 val _ = ml_prog_update open_local_in_block;
 
-val def = m_translate axioms_def;
-val def = m_translate types_def;
-val def = m_translate constants_def;
+Triviality axioms_eq:
+  axioms u = one_CASE u get_the_axioms
+Proof
+  fs [axioms_def]
+QED
+
+Triviality types_eq:
+  types u = one_CASE u get_the_type_constants
+Proof
+  fs [types_def]
+QED
+
+Triviality constants_eq:
+  constants u = one_CASE u get_the_term_constants
+Proof
+  fs [constants_def]
+QED
+
+val def = m_translate axioms_eq;
+val def = m_translate types_eq;
+val def = m_translate constants_eq;
 
 (* The kernel module is closed in subsequent script files:
    ml_hol_kernelProgScript.sml and candle_kernelProgScript.sml *)

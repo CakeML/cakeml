@@ -251,7 +251,7 @@ Proof
       \\ fs[] )
   \\ DEP_REWRITE_TAC[ADD_DIV_RWT]
   \\ qspecl_then[`4`,`LENGTH ll`]mp_tac MULT_DIV
-  \\ simp[Abbr`x`] \\ disch_then kall_tac
+  \\ simp[Abbr`x`]
   \\ rewrite_tac[GSYM APPEND_ASSOC]
   \\ DEP_ONCE_REWRITE_TAC[EL_APPEND2]
   \\ simp[]

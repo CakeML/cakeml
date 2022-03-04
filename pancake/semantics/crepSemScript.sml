@@ -27,7 +27,8 @@ Datatype:
      ; memaddrs    : ('a word) set
      ; clock       : num
      ; be          : bool
-     ; ffi         : 'ffi ffi_state |>
+     ; ffi         : 'ffi ffi_state
+     ; base_addr   : 'a word |>
 End
 
 val state_component_equality = theorem"state_component_equality";
@@ -114,7 +115,9 @@ Definition eval_def:
   (eval s (Shift sh e n) =
     case eval s e of
      | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
-     | _ => NONE)
+     | _ => NONE) /\
+  (eval s BaseAddr =
+        SOME (Word s.base_addr))
 Termination
   wf_rel_tac `measure (exp_size ARB o SND)`
   \\ rpt strip_tac \\ imp_res_tac MEM_IMP_exp_size
