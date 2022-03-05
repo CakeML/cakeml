@@ -1074,8 +1074,10 @@ Proof
   \\ rpt (first_assum $ irule_at Any)
   \\ simp [repl_init_typesTheory.repl_init_types_def]
   \\ qexists_tac ‘ffi’
-  \\ drule repl_types_str_assign
-  \\ fs [repl_rs_def,the_Loc_def,store_assign_def,store_v_same_type_def]
+  \\ ‘MEM (Long "Repl" (Short "nextString"),Str,the_Loc nextString_loc) repl_rs’ by
+        fs [repl_rs_def]
+  \\ drule_then drule repl_types_str_assign
+  \\ fs [the_Loc_def,store_assign_def,store_v_same_type_def]
   \\ fs [HOL_STRING_TYPE_def,STRING_TYPE_def,mlstringTheory.implode_def]
   \\ disch_then (qspec_then ‘init_next_string cl’ mp_tac)
   \\ match_mp_tac (DECIDE “x = y ⇒ (x ⇒ y)”)
