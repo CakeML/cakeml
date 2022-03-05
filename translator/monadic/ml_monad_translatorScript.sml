@@ -153,8 +153,8 @@ val MONAD_def = Define `
                                     (state1:'refs)
                                     (state2:'refs,res: (v list,v) result) =
     case (x state1, res) of
-      ((Success y, st), Rval [v]) => (st = state2) /\ a y v
-    | ((Failure e, st), Rerr (Rraise v)) => (st = state2) /\
+      ((M_success y, st), Rval [v]) => (st = state2) /\ a y v
+    | ((M_failure e, st), Rerr (Rraise v)) => (st = state2) /\
                                               b e v
     | _ => F`
 
@@ -185,7 +185,7 @@ Theorem EvalM_bind:
    (!z v. b z v ==> a2 z ==>
       EvalM ro (write name v env) (SND (x st)) e2
         (MONAD a c ((f z):('refs, 'a, 'c) M)) H) ==>
-   (a1 /\ !z. (CONTAINER(FST(x st) = Success z) ==> a2 z)) ==>
+   (a1 /\ !z. (CONTAINER(FST(x st) = M_success z) ==> a2 z)) ==>
    EvalM ro env st (Let (SOME name) e1 e2) (MONAD a c (ex_bind x f)) H
 Proof
   rw[EvalM_def,MONAD_def,st_ex_return_def,PULL_EXISTS, CONTAINER_def] \\ fs[]
@@ -1038,12 +1038,12 @@ Theorem EvalM_handle:
    handle_fun x1 x2 arity a2 bind_names a H.
   (!s E s1.
      CORRECT_CONS E ==>
-     x1 s = (Failure E, s1) ==>
+     x1 s = (M_failure E, s1) ==>
      handle_fun x1 x2 s = x2 E s1)
    ==>
   (!s.
     (!E s1.
-       CORRECT_CONS E ==> x1 s <> (Failure E, s1)) ==>
+       CORRECT_CONS E ==> x1 s <> (M_failure E, s1)) ==>
        handle_fun x1 x2 s = x1 s)
   ==>
   (!E ev. EXN_TYPE E ev ==>
@@ -1071,7 +1071,7 @@ Theorem EvalM_handle:
           (MONAD a EXN_TYPE (x2 E)) H)) ==>
      (!st' E.
         a1 /\
-        (CONTAINER (x1 st = (Failure E, st') /\ CORRECT_CONS E) ==> a2 st' E))
+        (CONTAINER (x1 st = (M_failure E, st') /\ CORRECT_CONS E) ==> a2 st' E))
     ==>
       EvalM ro env st
         (Handle exp1 [(Pcon (SOME cons_name)
@@ -1206,7 +1206,7 @@ Theorem EvalM_raise:
      LIST_CONJ (MAP (\(P,v). P v) (ZIP(EVAL_CONDS,values))) ==>
      EXN_TYPE E (Conv (SOME (ExnStamp stamp)) values))
   ==>
-  f st = (Failure E, st) ==>
+  f st = (M_failure E, st) ==>
   LENGTH exprs = arity ==>
   LENGTH EVAL_CONDS = arity ==>
   lookup_cons cons_name env = SOME (arity, ExnStamp stamp) ==>
@@ -1244,7 +1244,7 @@ Theorem EvalM_read_heap:
    !vname loc TYPE EXC_TYPE H get_var.
     (nsLookup env.v (Short vname) = SOME loc) ==>
     EvalM ro env st (App Opderef [Var (Short vname)])
-    (MONAD TYPE EXC_TYPE (λrefs. (Success (get_var refs), refs)))
+    (MONAD TYPE EXC_TYPE (λrefs. (M_success (get_var refs), refs)))
     ((λrefs. REF_REL TYPE loc (get_var refs) * H refs), (p:'ffi ffi_proj))
 Proof
   rw[EvalM_def, REF_REL_def]
@@ -1277,7 +1277,7 @@ Theorem EvalM_write_heap:
   CONTAINER (PINV st ==> PINV (set_var x st)) ==>
   Eval env exp (TYPE x) ==>
   EvalM ro env st (App Opassign [Var (Short vname); exp])
-  ((MONAD UNIT_TYPE EXC_TYPE) (λrefs. (Success (), set_var x refs)))
+  ((MONAD UNIT_TYPE EXC_TYPE) (λrefs. (M_success (), set_var x refs)))
   ((λrefs. REF_REL TYPE loc (get_var refs) * H refs * &PINV refs), p:'ffi ffi_proj)
 Proof
   rw[REF_REL_def]
@@ -2962,8 +2962,8 @@ val evaluate_handle_all_Rabort = Q.prove(
 
 val evaluate_Success_CONS = Q.prove(
   `evaluate s env [e] = (s', Rval [v]) ==>
-  lookup_cons (Short "Success") env = SOME (1,TypeStamp "Success" exc_stamp) ==>
-  evaluate s env [Con (SOME (Short "Success")) [e]] = (s', Rval [Conv (SOME (TypeStamp "Success" exc_stamp)) [v]])`,
+  lookup_cons (Short "M_success") env = SOME (1,TypeStamp "M_success" exc_stamp) ==>
+  evaluate s env [Con (SOME (Short "M_success")) [e]] = (s', Rval [Conv (SOME (TypeStamp "M_success" exc_stamp)) [v]])`,
   rw[]
   \\ rw[evaluate_def]
   \\ fs[lookup_cons_def]
@@ -2974,8 +2974,8 @@ val evaluate_Success_CONS = Q.prove(
 
 val evaluate_Success_CONS_err = Q.prove(
   `evaluate s env [e] = (s', Rerr v) ==>
-  lookup_cons (Short "Success") env = SOME (1,TypeStamp "Success" exc_stamp) ==>
-  evaluate s env [Con (SOME (Short "Success")) [e]] = (s', Rerr v)`,
+  lookup_cons (Short "M_success") env = SOME (1,TypeStamp "M_success" exc_stamp) ==>
+  evaluate s env [Con (SOME (Short "M_success")) [e]] = (s', Rerr v)`,
   rw[]
   \\ rw[evaluate_def]
   \\ fs[lookup_cons_def]
@@ -2986,20 +2986,20 @@ val evaluate_Success_CONS_err = Q.prove(
 (* For the dynamic store initialisation *)
 (* It is not possible to use register_type here... *)
 val EXC_TYPE_aux_def = Define `
-       (EXC_TYPE_aux stamp a b (Failure x_2) v ⇔
-        ∃v2_1. v = Conv (SOME (TypeStamp "Failure" stamp)) [v2_1]
+       (EXC_TYPE_aux stamp a b (M_failure x_2) v ⇔
+        ∃v2_1. v = Conv (SOME (TypeStamp "M_failure" stamp)) [v2_1]
                         ∧ b x_2 v2_1) ∧
-       (EXC_TYPE_aux stamp a b (Success x_1) v ⇔
-        ∃v1_1. v = Conv (SOME (TypeStamp "Success" stamp)) [v1_1]
+       (EXC_TYPE_aux stamp a b (M_success x_1) v ⇔
+        ∃v1_1. v = Conv (SOME (TypeStamp "M_success" stamp)) [v1_1]
                         ∧ a x_1 v1_1)`;
 
 Theorem EvalM_to_EvalSt:
   ∀exc_stamp TYPE EXN_TYPE x exp H init_state env.
     EvalM T env init_state exp (MONAD TYPE EXN_TYPE x) H ⇒
-    lookup_cons (Short "Success") env = SOME (1, TypeStamp "Success" exc_stamp) ⇒
-    lookup_cons (Short "Failure") env = SOME (1, TypeStamp "Failure" exc_stamp) ⇒
+    lookup_cons (Short "M_success") env = SOME (1, TypeStamp "M_success" exc_stamp) ⇒
+    lookup_cons (Short "M_failure") env = SOME (1, TypeStamp "M_failure" exc_stamp) ⇒
     EvalSt env init_state
-      (handle_all (Con (SOME (Short "Success")) [exp]) "Failure")
+      (handle_all (Con (SOME (Short "M_success")) [exp]) "M_failure")
       (EXC_TYPE_aux exc_stamp TYPE EXN_TYPE (run x init_state)) H
 Proof
   rw[EvalM_def, EvalSt_def]
@@ -3010,7 +3010,7 @@ Proof
       imp_res_tac evaluate_sing \\ rveq \\ fs []
       \\ IMP_RES_TAC evaluate_Success_CONS
       \\ first_x_assum (fn x => MATCH_MP evaluate_handle_all_Rval x |> ASSUME_TAC)
-      \\ first_x_assum (qspec_then `"Failure"` ASSUME_TAC)
+      \\ first_x_assum (qspec_then `"M_failure"` ASSUME_TAC)
       \\ asm_exists_tac \\ fs []
       \\ fs[MONAD_def, run_def, EXC_TYPE_aux_def]
       \\ Cases_on `x init_state'`
@@ -3032,7 +3032,7 @@ Proof
   \\ Cases_on `q` \\ fs[]
   \\ LAST_ASSUM IMP_RES_TAC
   \\ qexists_tac `s2`
-  \\ qexists_tac `Conv (SOME (TypeStamp "Failure" exc_stamp)) [a]`
+  \\ qexists_tac `Conv (SOME (TypeStamp "M_failure" exc_stamp)) [a]`
   \\ qexists_tac `r`
   \\ qexists_tac `ck`
   \\ rw[handle_all_def]

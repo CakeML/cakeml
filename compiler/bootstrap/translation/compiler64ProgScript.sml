@@ -2,7 +2,7 @@
   Finish translation of the 64-bit version of the compiler.
 *)
 open preamble
-     decode64ProgTheory compilerTheory
+     mipsProgTheory compilerTheory
      exportTheory
      ml_translatorLib ml_translatorTheory
 open cfLib basis
@@ -11,7 +11,7 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory"compiler64Prog";
 
-val _ = translation_extends "decode64Prog";
+val _ = translation_extends "mipsProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler64Prog");
 val _ = ml_translatorLib.use_string_type true;
@@ -97,6 +97,8 @@ val export_byte_to_string_side_def = prove(
 
 val res = translate split16_def;
 val res = translate preamble_def;
+val res = translate (data_buffer_def |> CONV_RULE (RAND_CONV EVAL));
+val res = translate (code_buffer_def |> CONV_RULE (RAND_CONV EVAL));
 
 (* val res = translate space_line_def; *)
 
@@ -156,6 +158,7 @@ val _ = translate (compilerTheory.parse_sexp_input_def
 val def = spec64 (compilerTheory.compile_def);
 val res = translate def;
 
+val _ = print "About to translate basis (this takes some time)";
 val res = translate basisProgTheory.basis_def
 
 val res = translate (primTypesTheory.prim_tenv_def
@@ -277,12 +280,199 @@ val nonzero_exit_code_for_error_msg_def = Define `
 val res = translate compilerTheory.is_error_msg_def;
 val res = translate nonzero_exit_code_for_error_msg_def;
 
+(* incremental compiler *)
+
+Definition compiler_for_eval_def:
+  compiler_for_eval = compile_inc_progs_for_eval x64_config
+End
+
+Triviality upper_w2w_eq_I:
+  backend$upper_w2w = (I:word64 -> word64)
+Proof
+  fs [backendTheory.upper_w2w_def,FUN_EQ_THM]
+QED
+
+val compiler_for_eval_alt =
+  “compiler_for_eval (id,c,decs)”
+  |> SIMP_CONV std_ss [backendTheory.compile_inc_progs_for_eval_eq,
+                       compiler_for_eval_def, EVAL “x64_config.reg_count”,
+                       backendTheory.ensure_fp_conf_ok_def,
+                       EVAL “LENGTH x64_config.avoid_regs”,
+                       EVAL “x64_config.fp_reg_count”,
+                       EVAL “x64_config.two_reg_arith”,listTheory.MAP_ID,
+                       EVAL “x64_config.addr_offset”,upper_w2w_eq_I,
+                       EVAL “x64_config.ISA”, EVAL “x86_64 = ARMv7”]
+
+val r = translate (lab_to_targetTheory.inc_config_to_config_def |> spec64);
+val r = translate (lab_to_targetTheory.config_to_inc_config_def |> spec64);
+val r = translate (backendTheory.inc_config_to_config_def |> spec64);
+val r = translate (backendTheory.config_to_inc_config_def |> spec64);
+val r = translate (word_to_wordTheory.compile_single_def |> spec64);
+val r = translate (word_to_wordTheory.full_compile_single_def |> spec64);
+val _ = (next_ml_names := ["compiler_for_eval"]);
+val r = translate compiler_for_eval_alt;
+
+(* fun eval_prim env s1 decs s2 bs ws = Eval [env,s1,decs,s2,bs,ws] *)
+val _ = append_prog
+  “[Dlet (Locs (POSN 1 2) (POSN 2 21)) (Pvar "eval_prim")
+     (Fun "x" (Mat (Var (Short "x"))
+       [(Pcon NONE [Pvar "env"; Pvar "s1"; Pvar "decs";
+                    Pvar "s2"; Pvar "bs"; Pvar "ws"],
+         App Eval [Var (Short "env"); Var (Short "s1"); Var (Short "decs");
+                   Var (Short "s2"); Var (Short "bs"); Var (Short "ws")])]))]”
+
+Datatype:
+  eval_res = Compile_error 'a | Eval_result 'b 'c | Eval_exn 'd 'e
+End
+
+val _ = register_type “:('a,'b,'c,'d,'e) eval_res”;
+
+val _ = (append_prog o process_topdecs) `
+  fun eval ((s1,next_gen), (env,id), decs) =
+    case compiler_for_eval ((id,0),(s1,decs)) of
+      None => Compile_error "ERROR: failed to compile input\n"
+    | Some (s2,(bs,ws)) =>
+        let
+          val new_env = eval_prim (env,s1,decs,s2,bs,ws)
+        in Eval_result (new_env,next_gen) (s2,next_gen+1) end
+        handle e => Eval_exn e (s2,next_gen+1) `
+
+val exn_msg_dec = process_topdecs ‘
+  val _ = (TextIO.print (!Repl.errorMessage);
+           print_pp (pp_exn (!Repl.exn));
+           print "\n")’
+
+Definition report_exn_dec_def:
+  report_exn_dec = ^exn_msg_dec
+End
+
+val _ = (next_ml_names := ["report_exn_dec"]);
+val r = translate report_exn_dec_def;
+
+val _ = (append_prog o process_topdecs) `
+  fun report_exn e =
+    (Repl.exn := e;
+     Repl.errorMessage := "EXCEPTION: ";
+     report_exn_dec)`
+
+val error_msg_dec = process_topdecs ‘
+  val _ = (TextIO.print (!Repl.errorMessage))’
+
+Definition report_error_dec_def:
+  report_error_dec = ^error_msg_dec
+End
+
+val _ = (next_ml_names := ["report_error_dec"]);
+val r = translate report_error_dec_def;
+
+val _ = (append_prog o process_topdecs) `
+  fun report_error msg =
+    (Repl.errorMessage := msg;
+     report_error_dec)`
+
+val _ = (next_ml_names := ["roll_back"]);
+val r = translate repl_check_and_tweakTheory.roll_back_def;
+
+val _ = (next_ml_names := ["check_and_tweak"]);
+val r = translate repl_check_and_tweakTheory.check_and_tweak_def;
+
+val _ = (append_prog o process_topdecs) `
+  fun repl (parse, types, conf, env, decs, input_str) =
+    (* input_str is passed in here only for error reporting purposes *)
+    case check_and_tweak (decs, (types, input_str)) of
+      Inl msg => repl (parse, types, conf, env, report_error msg, "")
+    | Inr (safe_decs, new_types) =>
+      (* here safe_decs are guaranteed to not crash;
+         the last declaration of safe_decs calls !Repl.readNextString *)
+      case eval (conf, env, safe_decs) of
+        Compile_error msg => repl (parse, types, conf, env, report_error msg, "")
+      | Eval_exn e new_conf =>
+        repl (parse, roll_back (types, new_types), new_conf, env, report_exn e, "")
+      | Eval_result new_env new_conf =>
+        (* check whether the program that ran has loaded in new input *)
+        if !Repl.isEOF then () (* exit if there is no new input *) else
+          let val new_input = !Repl.nextString in
+            (* if there is new input: parse the input and recurse *)
+            case parse new_input of
+              Inl msg      => repl (parse, new_types, new_conf, new_env, report_error msg, "")
+            | Inr new_decs => repl (parse, new_types, new_conf, new_env, new_decs, new_input)
+          end `
+
+val _ = (next_ml_names := ["init_types"]);
+val r = translate repl_init_typesTheory.repl_init_types_eq;
+
+Definition parse_cakeml_syntax_def:
+  parse_cakeml_syntax input =
+    case parse_prog (lexer_fun (explode input)) of
+    | Success _ x _ => INR x
+    | Failure l _ => INL (strlit "Parsing failed at " ^ locs_to_string input (SOME l))
+End
+
+Definition parse_ocaml_syntax_def:
+  parse_ocaml_syntax input =
+    case caml_parser$run (explode input) of
+    | INR res => INR res
+    | INL (l,err) => INL
+       (err ^ «\nParsing failed at » ^ locs_to_string input (SOME l))
+End
+
+Definition select_parse_def:
+  select_parse cl =
+    if MEMBER (strlit "--candle") cl
+    then parse_ocaml_syntax
+    else parse_cakeml_syntax
+End
+
+val r = translate parse_cakeml_syntax_def;
+val r = translate parse_ocaml_syntax_def;
+val _ = (next_ml_names := ["select_parse"]);
+val r = translate select_parse_def;
+
+Definition init_next_string_def:
+  init_next_string cl = if MEM (strlit "--candle") cl then "candle" else ""
+End
+
+val _ = (next_ml_names := ["init_next_string"]);
+val res = translate (init_next_string_def |> REWRITE_RULE [MEMBER_INTRO]);
+
+val _ = (append_prog o process_topdecs) `
+  fun start_repl (cl,s1) =
+    let
+      val parse = select_parse cl
+      val types = init_types
+      val conf = (s1,1)
+      val env = (repl_init_env, 0)
+      val decs = []
+      val input_str = ""
+      val _ = (Repl.nextString := init_next_string cl)
+    in
+      repl (parse, types, conf, env, decs, input_str)
+    end`
+
+val _ = (append_prog o process_topdecs) `
+  fun run_interactive_repl cl =
+    let
+      val cs = Repl.charsFrom "config_enc_str.txt"
+      val s1 = decodeProg.decode_backend_config cs
+    in
+      start_repl (cl,s1)
+    end`
+
+Definition has_repl_flag_def:
+  has_repl_flag cl ⇔ MEM (strlit "--repl") cl ∨ MEM (strlit "--candle") cl
+End
+
+val _ = (next_ml_names := ["compiler_has_repl_flag"]);
+val res = translate (has_repl_flag_def |> REWRITE_RULE [MEMBER_INTRO]);
+
 val main = process_topdecs`
   fun main u =
     let
       val cl = CommandLine.arguments ()
     in
-      if compiler_has_help_flag cl then
+      if compiler_has_repl_flag cl then
+        run_interactive_repl cl
+      else if compiler_has_help_flag cl then
         print compiler_help_string
       else if compiler_has_version_flag cl then
         print compiler_current_build_info_str
@@ -297,6 +487,7 @@ val res = append_prog main;
 val main_v_def = fetch "-" "main_v_def";
 
 Theorem main_spec:
+   ¬has_repl_flag (TL cl) ⇒
    app (p:'ffi ffi_proj) main_v
      [Conv NONE []] (STDIO fs * COMMANDLINE cl)
      (POSTv uv.
@@ -306,11 +497,7 @@ Theorem main_spec:
 Proof
   xcf_with_def "main" main_v_def
   \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ xlet_auto
-  >- (
-    (* TODO: xlet_auto: why doesn't xsimpl work here on its own? *)
-    CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`cl`
-    \\ xsimpl )
+  \\ xlet_auto >- xsimpl
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
   (* TODO: it would be nice if this followed more directly.
            either (or both):
@@ -329,6 +516,9 @@ Proof
   \\ conj_tac >- metis_tac[] \\ rw[]
   \\ imp_res_tac stdin_11 \\ rw[]
   \\ imp_res_tac stdin_get_file_content
+  \\ xlet_auto >- xsimpl
+  \\ xif
+  \\ first_x_assum $ irule_at $ Pos hd \\ simp []
   \\ xlet_auto >- xsimpl
   \\ xif
   >-
@@ -378,10 +568,12 @@ Proof
 QED
 
 Theorem main_whole_prog_spec:
+   ¬has_repl_flag (TL cl) ⇒
    whole_prog_spec main_v cl fs NONE
     ((=) (full_compile_64 (TL cl) (get_stdin fs) fs))
 Proof
-  simp[whole_prog_spec_def,UNCURRY]
+  strip_tac
+  \\ simp[whole_prog_spec_def,UNCURRY]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ reverse conj_tac >-
@@ -389,12 +581,12 @@ Proof
        GSYM fastForwardFD_with_numchars,
        GSYM add_stdo_with_numchars, with_same_numchars]
   \\ simp [SEP_CLAUSES]
-  \\ match_mp_tac(MP_CANON(MATCH_MP app_wgframe main_spec))
+  \\ match_mp_tac (MP_CANON(MATCH_MP app_wgframe (UNDISCH main_spec)))
   \\ xsimpl
 QED
 
 val (semantics_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) "main" main_whole_prog_spec;
+  whole_prog_thm (get_ml_prog_state()) "main" (main_whole_prog_spec |> UNDISCH);
 
 val compiler64_prog_def = Define`compiler64_prog = ^prog_tm`;
 
@@ -405,5 +597,33 @@ val semantics_compiler64_prog =
   |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
   |> curry save_thm "semantics_compiler64_prog";
 
+(* saving a tidied up final theorem *)
+
+val th =
+  get_ml_prog_state ()
+ (* |> ml_progLib.clean_state *)
+  |> ml_progLib.remove_snocs
+  |> ml_progLib.get_thm
+  |> REWRITE_RULE [ml_progTheory.ML_code_def]
+
+Triviality BUTLAST_compiler64_prog:
+  ^(mk_eq(concl th |> rator |> rator |> rand,“BUTLAST compiler64_prog”))
+Proof
+  CONV_TAC (RAND_CONV (ONCE_REWRITE_CONV [compiler64_prog_def]))
+  \\ CONV_TAC (RAND_CONV (PURE_REWRITE_CONV [listTheory.FRONT_CONS]))
+  \\ EVAL_TAC
+QED
+
+val th1 = th
+  |> CONV_RULE (PATH_CONV "llr" (REWR_CONV BUTLAST_compiler64_prog))
+  |> CONV_RULE (RAND_CONV (EVAL THENC REWRITE_CONV
+       (DB.find "_refs_def" |> map (fst o snd)) THENC
+       SIMP_CONV std_ss [APPEND_NIL,APPEND]))
+
+Theorem Decls_FRONT_compiler64_prog = th1
+
+Theorem LAST_compiler64_prog = EVAL “LAST compiler64_prog”;
+
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)
 val _ = export_theory();

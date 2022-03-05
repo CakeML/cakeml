@@ -106,11 +106,11 @@ add_constraint (l : loc_err_info) t1 t2 =
     dtcase t_unify st.subst t1 t2 of
       | NONE =>
           (Failure (l.loc, concat [implode "Type mismatch between ";
-                                   FST (inf_type_to_string l.err
-                                         (t_walkstar st.subst t1));
+                                   inf_type_to_string l.err
+                                         (t_walkstar st.subst t1);
                                    implode " and ";
-                                   FST (inf_type_to_string l.err
-                                         (t_walkstar st.subst t2))]), st)
+                                   inf_type_to_string l.err
+                                         (t_walkstar st.subst t2)]), st)
       | SOME s =>
           (Success (), st with <| subst := s |>)`;
 
@@ -1116,7 +1116,7 @@ val inf_env_to_types_string_def = Define `
   inf_env_to_types_string s =
     let l = ns_to_alist (ns_nub s.inf_v) in
     let xs = MAP (\(n,_,t). concat [implode n; strlit ": ";
-                                    FST (inf_type_to_string s.inf_t t);
+                                    inf_type_to_string s.inf_t t;
                                     strlit "\n";]) l in
       (* QSORT mlstring_le *) REVERSE xs`
 

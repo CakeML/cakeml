@@ -9,13 +9,24 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/mman.h>
 #include <assert.h>
+
+#ifndef __WIN32
+#include <signal.h>
+#endif
 
 /* This flag is on by default. It catches CakeML's out-of-memory exit codes
  * and prints a helpful message to stderr.
  * Note that this is not specified by the basis library.
  * */
 #define STDERR_MEM_EXHAUST
+
+/* This is set to 1 when the runtime traps a SIGINT */
+
+#ifndef __WIN32
+volatile sig_atomic_t caught_sigint = 0;
+#endif
 
 /* clFFI (command line) */
 
@@ -27,6 +38,35 @@ extern void cml_main(void);
 extern void *cml_heap;
 extern void *cml_stack;
 extern void *cml_stackend;
+
+extern char cake_text_begin;
+extern char cake_codebuffer_begin;
+extern char cake_codebuffer_end;
+
+/* Signal handler for SIGINT */
+
+#ifndef __WIN32
+void do_sigint(int sig_num)
+{
+    signal(SIGINT, do_sigint);
+    caught_sigint = 1;
+}
+#endif
+
+void ffipoll_sigint (unsigned char *c, long clen, unsigned char *a, long alen)
+{
+    if (alen < 1) {
+        return;
+    }
+    a[0] = (unsigned char) caught_sigint;
+    caught_sigint = 0;
+}
+
+void ffikernel_ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
+    for (long i = 0; i < clen; i++) {
+        putc(c[i], stdout);
+    }
+}
 
 void ffiget_arg_count (unsigned char *c, long clen, unsigned char *a, long alen) {
   a[0] = (char) argc;
@@ -256,6 +296,10 @@ void ffidouble_toString (char *c, long clen, char *a, long alen) {
   assert (bytes_written <= 255);
 }
 
+void cml_clear() {
+  __builtin___clear_cache(&cake_codebuffer_begin, &cake_codebuffer_end);
+}
+
 int main (int local_argc, char **local_argv) {
 
   argc = local_argc;
@@ -322,13 +366,36 @@ int main (int local_argc, char **local_argv) {
   if(cml_heap == NULL)
   {
     #ifdef STDERR_MEM_EXHAUST
-    fprintf(stderr,"malloc() failed to allocate sufficient CakeML heap and stack space.\n");
+    fprintf(stderr,"failed to allocate sufficient CakeML heap and stack space.\n");
+    perror("malloc");
     #endif
     exit(3);
   }
 
   cml_stack = cml_heap + cml_heap_sz;
   cml_stackend = cml_stack + cml_stack_sz;
+
+  /** Set up the "eval" code buffer to be read-write-execute. **/
+  if(mprotect(&cake_text_begin, &cake_codebuffer_end - &cake_text_begin,
+              PROT_READ | PROT_WRITE | PROT_EXEC))
+  {
+    #ifdef STDERR_MEM_EXHAUST
+    fprintf(stderr,"failed to set permissions for CakeML code buffer.\n");
+    perror("mprotect");
+    #endif
+    exit(3);
+  }
+
+  /* Set up the signal handler for SIGINTs when running the REPL. */
+  #ifndef __WIN32
+  for (int i = 0; i < local_argc; i++) {
+      if (strcmp(local_argv[i], "--repl") == 0 ||
+          strcmp(local_argv[i], "--candle") == 0) {
+        signal(SIGINT, do_sigint);
+        break;
+      }
+  }
+  #endif
 
   cml_main(); // Passing control to CakeML
 

@@ -62,11 +62,11 @@ val _ = (find_def_for_const := def_of_const);
 
 (* parsing: peg_exec and cmlPEG *)
 
-val res = register_type``:(token,MMLnonT,locs) parsetree``;
+val res = register_type``:(tokens$token,MMLnonT,locs) parsetree``;
 val res = register_type``:MMLnonT``;
 
 (* checking GRAMMAR_PARSETREE_TYPE etc is known to be an EqualityType *)
-val EqType_PT_rule = EqualityType_rule [] ``:(token,MMLnonT,locs) parsetree``;
+val EqType_PT_rule = EqualityType_rule [] ``:(tokens$token,MMLnonT,locs) parsetree``;
 
 val _ = translate (def_of_const ``validAddSym``);
 
@@ -111,9 +111,11 @@ val _ = translate (def_of_const ``peg_exec``);
 
 (* parsing: cmlvalid *)
 
-val monad_unitbind_assert = Q.prove(
-  `!b x. OPTION_IGNORE_BIND (OPTION_GUARD b) x = if b then x else NONE`,
-  Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
+Theorem monad_unitbind_assert:
+  !b x. OPTION_IGNORE_BIND (OPTION_GUARD b) x = if b then x else NONE
+Proof
+  Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []
+QED
 
 val _ = translate grammarTheory.ptree_head_def
 

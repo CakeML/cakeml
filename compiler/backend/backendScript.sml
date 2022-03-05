@@ -26,7 +26,7 @@ val _ = Datatype`config =
    ; bvl_conf : bvl_to_bvi$config
    ; data_conf : data_to_word$config
    ; word_to_word_conf : word_to_word$config
-   ; word_conf : 'a word_to_stack$config
+   ; word_conf : word_to_stack$config
    ; stack_conf : stack_to_lab$config
    ; lab_conf : 'a lab_to_target$config
    ; symbols : (mlstring # num # num) list
@@ -36,12 +36,12 @@ val _ = Datatype`config =
 val config_component_equality = theorem"config_component_equality";
 
 val attach_bitmaps_def = Define `
-  attach_bitmaps names c (SOME (bytes, c')) =
-    SOME (bytes, c.word_conf.bitmaps,
+  attach_bitmaps names c bm (SOME (bytes, c')) =
+    SOME (bytes, bm,
           c with <| lab_conf := c'
                   ; symbols := MAP (\(n,p,l). (lookup_any n names «NOTFOUND»,p,l)) c'.sec_pos_len
                   |>) /\
-  attach_bitmaps names c NONE = NONE`
+  attach_bitmaps names c bm NONE = NONE`
 
 val compile_tap_def = Define`
   compile_tap c p =
@@ -69,7 +69,7 @@ val compile_tap_def = Define`
       stack_remove$stub_names ())) names in
     let td = tap_word c.tap_conf (p,names) td in
     let _ = empty_ffi (strlit "finished: data_to_word") in
-    let (c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
+    let (bm,c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
     let td = tap_stack c.tap_conf (p,names) td in
     let c = c with word_conf := c' in
     let _ = empty_ffi (strlit "finished: word_to_stack") in
@@ -79,7 +79,7 @@ val compile_tap_def = Define`
       (c.lab_conf.asm_conf.addr_offset) p in
     let td = tap_lab c.tap_conf (p,names) td in
     let _ = empty_ffi (strlit "finished: stack_to_lab") in
-    let res = attach_bitmaps names c
+    let res = attach_bitmaps names c bm
       (lab_to_target$compile c.lab_conf (p:'a prog)) in
     let _ = empty_ffi (strlit "finished: lab_to_target") in
       (res, td)`;
@@ -150,23 +150,23 @@ QED
 val to_stack_def = Define`
   to_stack c p =
   let (c,p,names) = to_word c p in
-  let (c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
+  let (bm,c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
   let c = c with word_conf := c' in
-  (c,p,names)`;
+  (bm,c,p,names)`;
 
 val to_lab_def = Define`
   to_lab c p =
-  let (c,p,names) = to_stack c p in
+  let (bm,c,p,names) = to_stack c p in
   let p = stack_to_lab$compile
     c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
     (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
     (c.lab_conf.asm_conf.addr_offset) p in
-  (c,p:'a prog,names)`;
+  (bm,c,p:'a prog,names)`;
 
 val to_target_def = Define`
   to_target c p =
-  let (c,p,names) = to_lab c p in
-    attach_bitmaps names c (lab_to_target$compile c.lab_conf p)`;
+  let (bm,c,p,names) = to_lab c p in
+    attach_bitmaps names c bm (lab_to_target$compile c.lab_conf p)`;
 
 Theorem compile_eq_to_target:
    compile = to_target
@@ -202,22 +202,22 @@ val prim_config_eq = save_thm("prim_config_eq",
   EVAL ``prim_config`` |> SIMP_RULE std_ss [FUNION_FUPDATE_1,FUNION_FEMPTY_1]);
 
 val from_lab_def = Define`
-  from_lab c names p =
-    attach_bitmaps names c (lab_to_target$compile c.lab_conf p)`;
+  from_lab c names p bm =
+    attach_bitmaps names c bm (lab_to_target$compile c.lab_conf p)`;
 
 val from_stack_def = Define`
-  from_stack c names p =
+  from_stack c names p bm =
   let p = stack_to_lab$compile
     c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
     (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
     (c.lab_conf.asm_conf.addr_offset) p in
-  from_lab c names (p:'a prog)`;
+  from_lab c names (p:'a prog) bm`;
 
 val from_word_def = Define`
   from_word c names p =
-  let (c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
+  let (bm,c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
   let c = c with word_conf := c' in
-  from_stack c names p`;
+  from_stack c names p bm`;
 
 val from_word_0_def = Define`
   from_word_0 c names p =
@@ -372,9 +372,9 @@ val from_livesets_def = Define`
         NONE =>
           let cp =
             (case select_reg_alloc alg spillcosts k heu_moves tree forced of
-              Success col =>
+              M_success col =>
                 (apply_colour (total_colour col) prog)
-            | Failure _ => prog (*cannot happen*)) in
+            | M_failure _ => prog (*cannot happen*)) in
           (name_num,arg_count,remove_must_terminate cp)
       | SOME col_prog => (name_num,arg_count,remove_must_terminate col_prog)) prog_with_oracles in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
@@ -581,10 +581,10 @@ val compile_inc_progs_def = Define`
     let p = MAP (\p. full_compile_single asm_c.two_reg_arith reg_count1
         c.word_to_word_conf.reg_alg asm_c (p, NONE)) p in
     let ps = ps with <| word_prog := keep_progs k p |> in
-    let bm0 = c.word_conf.bitmaps in
-    let (p, fs, bm) = compile_word_to_stack reg_count1 p bm0 in
-    let cur_bm = DROP (LENGTH bm0) bm in
-    let c = c with word_conf := <|bitmaps := bm|> in
+    let bm0 = c.word_conf.bitmaps_length in
+    let (p, fs, bm) = compile_word_to_stack reg_count1 p (Nil, bm0) in
+    let cur_bm = append (FST bm) in
+    let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in
     let ps = ps with <| stack_prog := keep_progs k p ; cur_bm := cur_bm |> in
     let reg_count2 = asm_c.reg_count - (3 + LENGTH asm_c.avoid_regs) in
     let p = stack_to_lab$compile_no_stubs
@@ -593,7 +593,7 @@ val compile_inc_progs_def = Define`
     let ps = ps with <| lab_prog := keep_progs k p |> in
     let target = lab_to_target$compile c.lab_conf (p:'a prog) in
     let ps = ps with <| target_prog := OPTION_MAP
-        (\(bytes, _). (bytes, c.word_conf.bitmaps)) target |> in
+        (\(bytes, _). (bytes, cur_bm)) target |> in
     let c = c with lab_conf updated_by (case target of NONE => I
         | SOME (_, c') => K c') in
     (c, ps)`;
@@ -607,7 +607,7 @@ Datatype:
    ; inc_bvl_conf : bvl_to_bvi$config
    ; inc_data_conf : data_to_word$config
    ; inc_word_to_word_conf : word_to_word$config
-   ; inc_word_conf : 'a word_to_stack$config
+   ; inc_word_conf : word_to_stack$config
    ; inc_stack_conf : stack_to_lab$config
    ; inc_lab_conf : lab_to_target$inc_config
    ; inc_symbols : (mlstring # num # num) list
@@ -668,6 +668,19 @@ Proof
     lab_to_targetTheory.inc_config_component_equality]
 QED
 
+val upper_w2w_def = Define `
+  upper_w2w (w:'a word) =
+    if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64`;
+
+Definition compile_inc_progs_for_eval_def:
+  compile_inc_progs_for_eval asm_c x =
+  let (env_id, inc_c', decs) = x in
+  let c' = inc_config_to_config asm_c inc_c' in
+  let (c'', ps) = compile_inc_progs T c' (env_id, decs) in
+    OPTION_MAP (\(bs, ws). (config_to_inc_config c'', bs, MAP upper_w2w ws))
+        ps.target_prog
+End
+
 Theorem to_word_0_invariant:
   (wc.reg_alg = c.word_to_word_conf.reg_alg) ⇒
   ((to_word_0 (c with word_to_word_conf:=wc) p) =
@@ -699,6 +712,44 @@ Theorem TAKE_DROP_PAIR_LEMMA:
   LENGTH xs = n ⇒ (TAKE n xs, DROP n xs) = (xs, [])
 Proof
   rw []
+QED
+
+Theorem compile_inc_progs_for_eval_eq:
+  compile_inc_progs_for_eval asm_c' (env_id,inc_c,p) =
+    let c = inc_config_to_config asm_c' inc_c in
+    let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
+    let c = c with source_conf := c' in
+    let p = flat_to_clos_inc_compile p in
+    let (c',p) = clos_to_bvl_compile_inc c.clos_conf p in
+    let c = c with clos_conf := c' in
+    let (c', p) = bvl_to_bvi_compile_inc_all c.bvl_conf p in
+    let c = c with <| bvl_conf := c' |> in
+    let p = bvi_to_data_compile_prog p in
+    let asm_c = c.lab_conf.asm_conf in
+    let dc = ensure_fp_conf_ok asm_c' c.data_conf in
+    let p = MAP (compile_part dc) p in
+    let reg_count1 = asm_c'.reg_count - (5 + LENGTH asm_c'.avoid_regs) in
+    let p = MAP (\p. full_compile_single asm_c'.two_reg_arith reg_count1
+        c.word_to_word_conf.reg_alg asm_c' (p, NONE)) p in
+    let bm0 = c.word_conf.bitmaps_length in
+    let (p, fs, bm) = compile_word_to_stack reg_count1 p (Nil, bm0) in
+    let cur_bm = append (FST bm) in
+    let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in
+    let reg_count2 = asm_c'.reg_count - (3 + LENGTH asm_c'.avoid_regs) in
+    let p = stack_to_lab$compile_no_stubs
+        c.stack_conf.reg_names c.stack_conf.jump asm_c'.addr_offset
+        reg_count2 p in
+    let target = lab_to_target$compile c.lab_conf (p:'a prog) in
+    let c = c with lab_conf updated_by (case target of NONE => I
+                                        | SOME (_, c') => K c') in
+      OPTION_MAP (λx. (config_to_inc_config c,FST x,MAP upper_w2w cur_bm)) target
+Proof
+  fs [compile_inc_progs_for_eval_def,compile_inc_progs_def]
+  \\ rpt (pairarg_tac \\ gvs [EVAL “(inc_config_to_config asm_c' inc_c).lab_conf.asm_conf”])
+  \\ fs [optionTheory.OPTION_MAP_COMPOSE]
+  \\ AP_THM_TAC
+  \\ AP_TERM_TAC
+  \\ fs [FUN_EQ_THM,FORALL_PROD]
 QED
 
 val _ = export_theory();

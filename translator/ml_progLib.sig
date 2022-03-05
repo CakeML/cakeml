@@ -39,12 +39,19 @@ sig
 
   val add_Dlet     : thm (* evaluate thm *) ->
                      string (* var name *) ->
-                     thm list (* v const thms *) ->
+                     ml_prog_state -> ml_prog_state
+
+  val add_Denv     : thm (* declare_env thm *) ->
+                     string (* var name *) ->
                      ml_prog_state -> ml_prog_state
 
   val add_Dlet_Fun : term (* loc *) -> term -> term -> term (* terms of Dlet (Pvar _) (Fun _ _) *) ->
                      string (* v const name *) ->
                      ml_prog_state -> ml_prog_state
+
+  val add_Dlet_Var_Ref_Var : term -> term -> term -> string -> ml_prog_state -> ml_prog_state
+
+  val add_Dlet_Var_Var : term -> term -> term -> ml_prog_state -> ml_prog_state
 
   val add_Dletrec  : term (* loc *) -> term (* funs *) ->
                      string list (* names of v consts *) ->
@@ -57,6 +64,8 @@ sig
   val add_prog     : term (* prog i.e. list of top *) ->
                      (string -> string) (* pick name for v abbrev const *) ->
                      ml_prog_state -> ml_prog_state
+
+  val set_eval_state : term (* new eval_state *) -> ml_prog_state -> ml_prog_state
 
   val nsLookup_conv : conv
   val nsLookup_pf_conv : conv

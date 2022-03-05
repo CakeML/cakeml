@@ -227,27 +227,27 @@ val r = translate str_prefix_def;
 (* Things needed by whole_prog_spec                                          *)
 (* ------------------------------------------------------------------------- *)
 
+val st = get_state (get_ml_prog_state ())
+val refs = EVAL ``(^st).refs`` |> concl |> rhs |> listSyntax.strip_append;
+val t = `` init_type_constants_v``;
+fun prior_length t = let
+    val refv_t = mk_Refv t
+    val n = index (can (find_term (term_eq refv_t))) refs
+    val xs = List.take (refs, n)
+    val ns = mapfilter (length o fst o listSyntax.dest_list) xs
+    val ys = filter (not o can (listSyntax.dest_list)) xs
+      |> listSyntax.list_mk_append
+  in numSyntax.mk_plus (numSyntax.term_of_int (sum ns), listSyntax.mk_length ys) end
+
 Theorem HOL_STORE_init_precond:
    HOL_STORE init_refs
-   {Mem (1+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
-                             ++some_chars_vector_refs
-                             ++stderr_refs++init_type_constants_refs)))
+   {Mem (^(prior_length ``init_type_constants_v``))
         (Refv init_type_constants_v);
-    Mem (2+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
-                             ++some_chars_vector_refs
-                             ++stderr_refs++init_type_constants_refs
-                             ++init_term_constants_refs)))
+    Mem (^(prior_length ``init_term_constants_v``))
         (Refv init_term_constants_v);
-    Mem (3+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
-                             ++some_chars_vector_refs
-                             ++stderr_refs++init_type_constants_refs
-                             ++init_term_constants_refs++init_axioms_refs)))
+    Mem (^(prior_length ``init_axioms_v``))
         (Refv init_axioms_v);
-    Mem (4+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
-                             ++some_chars_vector_refs
-                             ++stderr_refs++init_type_constants_refs
-                             ++init_term_constants_refs++init_axioms_refs
-                             ++init_context_refs)))
+    Mem (^(prior_length ``init_context_v``))
         (Refv init_context_v)}
 Proof
   qmatch_goalsub_abbrev_tac`1 + l1`

@@ -2,7 +2,7 @@
   Define the target compiler configuration for ARMv8.
 *)
 open HolKernel Parse boolLib bossLib
-open asmLib arm8_stepTheory;
+open asmLib arm8_stepTheory arithmeticTheory wordsTheory;
 
 val () = new_theory "arm8_target"
 
@@ -306,5 +306,47 @@ val (arm8_config, arm8_asm_ok) =
 
 val arm8_config = save_thm("arm8_config", arm8_config)
 val arm8_asm_ok = save_thm("arm8_asm_ok", arm8_asm_ok)
+
+(* lemmas used in bootstrap translation *)
+
+Definition log2_def:
+  log2 n =
+  if n < 2 then 0n
+  else (log2 (n DIV 2)) + 1
+End
+
+Theorem LOG2_log2:
+  ∀n. n ≠ 0 ⇒
+  log2 n = LOG2 n
+Proof
+  ho_match_mp_tac (fetch "-" "log2_ind")>>rw[]>>
+  simp[Once log2_def,bitTheory.LOG2_def]>>
+  PURE_REWRITE_TAC [Once numeral_bitTheory.LOG_compute]>>
+  IF_CASES_TAC>>fs[ADD1,GSYM bitTheory.LOG2_def]>>
+  first_assum match_mp_tac>>
+  `2 ≤ n` by fs[]>>
+  drule bitTheory.DIV_GT0>>
+  fs[]
+QED
+
+Theorem hsb_compute:
+  HighestSetBit (w:word7) =
+  if w = 0w then -1 else w2i(n2w(log2 (w2n w)):word7)
+Proof
+  rw[word_log2_def,arm8Theory.HighestSetBit_def]>>
+  `w2n w ≠ 0` by fs[]>>
+  metis_tac[LOG2_log2]
+QED
+
+Theorem v2w_Ones:
+  (v2w (Ones n)):word6 = n2w (2 ** n -1)
+Proof
+  rw[arm8Theory.Ones_def]>>
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss][]>>
+  rewrite_tac [bitstringTheory.word_index_v2w,word_index_n2w] >>
+  simp [bitstringTheory.testbit, listTheory.PAD_LEFT,bitTheory.BIT_EXP_SUB1]>>
+  eq_tac>>
+  fs[listTheory.EL_GENLIST]
+QED
 
 val () = export_theory ()

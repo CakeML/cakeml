@@ -118,8 +118,10 @@ translator/okasaki-examples
 translator/other-examples
 compiler/parsing/tests
 compiler/inference/tests
+compiler/printing/test
 
 # compiler translation
+compiler/repl
 compiler/bootstrap/translation
 
 # compiler sexpr bootstrap

@@ -10,10 +10,7 @@ open semanticPrimitivesTheory semanticPrimitivesPropsTheory
 
 val _ = new_theory "candle_kernel_vals";
 
-(*
-TODO: fix constructor names (Var is currently Var_1)
-*)
-
+val _ = (max_print_depth := 10);
 
 (* -------------------------------------------------------------------------
  * 'inferred' relation
@@ -115,18 +112,11 @@ Proof
   fs [kernel_locs_def]
 QED
 
-Theorem refs_defs = LIST_CONJ
-  [ml_hol_kernel_funsProgTheory.init_type_constants_refs_def,
-   ml_hol_kernel_funsProgTheory.init_term_constants_refs_def,
-   ml_hol_kernel_funsProgTheory.init_axioms_refs_def,
-   ml_hol_kernel_funsProgTheory.init_context_refs_def,
-   CharProgTheory.some_chars_vector_refs_def,
-   MapProgTheory.ratio_refs_def,
-   MapProgTheory.delta_refs_def,
-   MapProgTheory.empty_refs_def,
-   TextIOProgTheory.stdin_refs_def,
-   TextIOProgTheory.stdout_refs_def,
-   TextIOProgTheory.stderr_refs_def]
+val context_refs_defs = the_context_def |> concl |> find_terms (listSyntax.is_length)
+  |> map (dest_thy_const o listSyntax.dest_length)
+  |> map (fn cn => fetch (#Thy cn) (#Name cn ^ "_def"))
+
+Theorem refs_defs = LIST_CONJ context_refs_defs
 
 Theorem kernel_locs = IN_kernel_locs |>
   SIMP_RULE (srw_ss()) [the_type_constants_def,
@@ -322,7 +312,8 @@ val safe_error_goal =
     “∃k. s' = ((s:α semanticPrimitives$state) with clock := k) ∧
          (res = Rerr (Rabort Rtype_error) ∨
           res = Rerr (Rraise bind_exn_v) ∨
-          res = Rerr (Rabort Rtimeout_error) :(v list, v) semanticPrimitives$result)”
+          res = Rerr (Rabort Rtimeout_error)
+            :(semanticPrimitives$v list, semanticPrimitives$v) semanticPrimitives$result)”
 
 Theorem do_opapp_clos:
   do_opapp [Closure env v e; argv] = SOME (env1,e1) ⇔
@@ -399,14 +390,14 @@ Theorem evaluate_tm_check:
   evaluate ^s env
     [Let NONE
        (Mat (Var (Short v))
-          [(Pcon (SOME (Short "Var_1")) [Pvar a1; Pvar a2], Con NONE []);
+          [(Pcon (SOME (Short "Var"))   [Pvar a1; Pvar a2], Con NONE []);
            (Pcon (SOME (Short "Const")) [Pvar a3; Pvar a4], Con NONE []);
-           (Pcon (SOME (Short "Comb")) [Pvar a5; Pvar a6], Con NONE []);
-           (Pcon (SOME (Short "Abs")) [Pvar a7; Pvar a8], Con NONE [])]) ee] = (s',res) ∧
-  nsLookup env.c (Short "Var_1") = SOME (2,TypeStamp "Var_1" term_stamp_n) ∧
+           (Pcon (SOME (Short "Comb"))  [Pvar a5; Pvar a6], Con NONE []);
+           (Pcon (SOME (Short "Abs"))   [Pvar a7; Pvar a8], Con NONE [])]) ee] = (s',res) ∧
+  nsLookup env.c (Short "Var")   = SOME (2,TypeStamp "Var" term_stamp_n) ∧
   nsLookup env.c (Short "Const") = SOME (2,TypeStamp "Const" term_stamp_n) ∧
-  nsLookup env.c (Short "Comb") = SOME (2,TypeStamp "Comb" term_stamp_n) ∧
-  nsLookup env.c (Short "Abs") = SOME (2,TypeStamp "Abs" term_stamp_n) ∧
+  nsLookup env.c (Short "Comb")  = SOME (2,TypeStamp "Comb" term_stamp_n) ∧
+  nsLookup env.c (Short "Abs")   = SOME (2,TypeStamp "Abs" term_stamp_n) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨ TERM_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
 Proof
@@ -915,7 +906,7 @@ Proof
   \\ strip_tac \\ rveq
   \\ fs[evaluate_def, astTheory.pat_bindings_def,
         pmatch_def, can_pmatch_all_def, do_app_def]
-  \\ fs[CaseEqs["v","option","prod","lit"]] \\ gvs[same_clock_exists]
+  \\ fs[AllCaseEqs()] \\ gvs[same_clock_exists]
 QED
 
 Theorem call_new_type_v_head:
