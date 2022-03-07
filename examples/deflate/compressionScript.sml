@@ -5,7 +5,7 @@ First simple compressor
 open preamble;
 open stringLib stringTheory string_numTheory ASCIInumbersTheory;
 open rich_listTheory alistTheory listTheory;
-open sortingTheory;
+open sortingTheory arithmeticTheory;
 val _ = new_theory "compression";
 
 (********************************************)
@@ -90,10 +90,20 @@ Definition extract_keys_def:
   extract_keys s = base_keys ++ extract_substrings_n s 6
 End
 
+Definition LOG2_def:
+  LOG2 (n:num) :num = if ((DIV2 n) < 1) then 1 else 1 + LOG2 (DIV2 n)
+Termination
+  WF_REL_TAC ‘measure $ λ(n). n’
+  \\ simp[DIV2_def]
+  \\ strip_tac
+  \\ Induct_on ‘n’
+  \\ rw[]
+End
+
 Definition gen_fix_codes:
   gen_fix_codes n =
   let
-    len = (LOG 2 n)+1;
+    len = (LOG2 n);
     bit_transform = (λ l. PAD_LEFT #"0" len (num_to_bin_string l));
   in
     GENLIST bit_transform n
@@ -181,8 +191,6 @@ Proof
   \\ CASE_TAC
   \\ simp[]
 QED
-
-
 
 Theorem compress_inv:
   ∀s. decompress (compress s) = s

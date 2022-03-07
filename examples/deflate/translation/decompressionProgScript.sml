@@ -1,7 +1,7 @@
 (*
   Encoding program for simple decompression
 *)
-open preamble basis miscTheory set_sepTheory listTheory lispProgTheory logrootTheory;
+open preamble basis miscTheory set_sepTheory listTheory lispProgTheory arithmeticTheory numposrepTheory;
 open compressionTheory;
 open (* for parsing: *) parsingTheory source_valuesTheory;
 
@@ -10,7 +10,6 @@ val _ = new_theory "decompressionProg";
 val _ = translation_extends "lispProg";
 
 val _ = show_assums := true;
-
 
 val res = translate TAKE;
 val res = translate DROP;
@@ -21,10 +20,18 @@ val res = translate (nub_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate FLAT;
 val res = translate SNOC;
 val res = translate GENLIST;
-val res = translate LOG;
+val res = translate DIV2_def;
+val res = translate LOG2_def;
 val res = translate PAD_LEFT;
-val res = translate QSORT;
-val res = translate ZIP;
+val res = translate n2l_def;
+val res = translate n2s_def;
+val res = translate HEX_def;
+val res = translate num_to_bin_string_def;
+val res = translate PART_DEF;
+val res = translate PARTITION_DEF;
+val res = translate QSORT_DEF;
+val res = translate ZIP_def;
+val res = translate IS_PREFIX;
 
 val res = translate find_match_def;
 val res = translate tab_sub_def;
@@ -37,7 +44,7 @@ val res = translate create_fixed_dict_def;
 val res = translate lorem_dict_def;
 val res = translate FLIP_ALIST_def;
 
-val res = translate decompress;
+val res = translate decompress_def;
 val res = translate decompress_main_def;
 
 Definition main_function_def:
