@@ -3104,4 +3104,381 @@ Proof
 QED
 
 
+(**********
+
+  Equate IO events for diverging executions.
+
+**********)
+
+Inductive e_step_to_match:
+  (ALL_DISTINCT (pat_bindings p []) ∧
+   pmatch env.c (FST s) p v [] = Match env' ∧
+   RTC e_step_reln (env with v := nsAppend (alist_to_ns env') env.v, s, Exp e, [])
+    (env'', s', ev, cs)
+  ⇒ e_step_to_match env s v ((p,e)::pes) s') ∧
+
+  (ALL_DISTINCT (pat_bindings p []) ∧
+   pmatch env.c (FST s) p v [] = No_match ∧
+   e_step_to_match env s v pes s'
+  ⇒ e_step_to_match env s v ((p,e)::pes) s')
+End
+
+Theorem big_clocked_to_unclocked:
+  evaluate T env s e (s',r) ∧
+  r ≠ Rerr (Rabort Rtimeout_error) ⇒
+  evaluate F env s e (s' with clock := s.clock, r)
+Proof
+  rw[] >> drule clocked_min_counter >> rw[] >>
+  simp[big_clocked_unclocked_equiv] >> goal_assum drule
+QED
+
+Theorem big_clocked_to_unclocked_list:
+  ∀env s e r.
+  evaluate_list T env s e r ∧
+  SND r ≠ Rerr (Rabort Rtimeout_error) ⇒
+  evaluate_list F env s e (FST r with clock := s.clock, SND r)
+Proof
+  rw[] >> PairCases_on `r` >> gvs[] >>
+  drule clocked_min_counter_list >> rw[] >>
+  drule $ cj 2 big_unclocked_ignore >> simp[] >>
+  disch_then $ qspec_then `s.clock` mp_tac >>
+  qsuff_tac `s with clock := s.clock = s` >> rw[] >>
+  simp[state_component_equality]
+QED
+
+Theorem to_small_st_with_clock[simp]:
+  to_small_st (s with clock := ck) = to_small_st s
+Proof
+  rw[to_small_st_def]
+QED
+
+Theorem e_step_to_match_Cmat:
+  ∀env s v pes s'.  e_step_to_match env s v pes s' ⇒
+  ∀env''. ∃ev env' cs.
+    RTC e_step_reln (env'', s, Val v, [(Cmat () pes v, env)]) (env', s', ev, cs)
+Proof
+  ntac 3 strip_tac >> ho_match_mp_tac e_step_to_match_ind >> rw[] >>
+  irule_at Any $ cj 2 RTC_rules >>
+  simp[e_step_reln_def, e_step_def, continue_def, SF SFY_ss]
+QED
+
+Theorem e_step_to_Con:
+  ∀left mid right env s e sm vals cn vs.
+  small_eval_list env s (e::left) (sm,Rval vals) ∧
+  do_con_check env.c cn (LENGTH left + LENGTH right + LENGTH vs + 2)
+  ⇒
+  RTC e_step_reln
+    (env,s,Exp e,[Ccon cn vs () (left ++ [mid] ++ right),env])
+    (env,sm,Exp mid,[Ccon cn (REVERSE vals ++ vs) () right,env])
+Proof
+  Induct >> rw[] >> gvs[ADD1]
+  >- (
+    ntac 2 $ gvs[Once small_eval_list_cases] >>
+    drule e_step_add_ctxt >> simp[] >>
+    disch_then $ qspec_then `[Ccon cn vs () (mid::right),env]` assume_tac >>
+    simp[Once RTC_CASES_RTC_TWICE] >> goal_assum drule >>
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, continue_def, push_def]
+    ) >>
+  qpat_x_assum `small_eval_list _ _ _ _` mp_tac >>
+  simp[Once small_eval_list_cases] >> rw[] >>
+  drule e_step_add_ctxt >> simp[] >>
+  disch_then $ qspec_then
+    `[Ccon cn vs () (h::(left ++ [mid] ++ right)),env]` assume_tac >>
+  simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
+  irule_at Any $ cj 2 RTC_rules >>
+  simp[e_step_reln_def, e_step_def, continue_def, push_def] >>
+  last_x_assum drule >>
+  disch_then $ qspecl_then [`mid`,`right`,`cn`,`v::vs`] mp_tac >>
+  simp[ADD1, APPEND_ASSOC_CONS]
+QED
+
+Theorem e_step_to_App_mid:
+  ∀left mid right env s e sm vals op vs.
+  small_eval_list env s (e::left) (sm, Rval vals) ⇒
+  RTC e_step_reln
+    (env,s,Exp e,[Capp op vs () (left ++ [mid] ++ right),env])
+    (env,sm,Exp mid,[Capp op (REVERSE vals ++ vs) () right,env])
+Proof
+  Induct >> rw[] >> gvs[]
+  >- (
+    ntac 2 $ gvs[Once small_eval_list_cases] >>
+    drule e_step_add_ctxt >> simp[] >>
+    disch_then $ qspec_then `[Capp op vs () (mid::right),env]` assume_tac >>
+    simp[Once RTC_CASES_RTC_TWICE] >> goal_assum drule >>
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, continue_def, push_def]
+    ) >>
+  qpat_x_assum `small_eval_list _ _ _ _` mp_tac >>
+  simp[Once small_eval_list_cases] >> rw[] >>
+  drule e_step_add_ctxt >> simp[] >>
+  disch_then $ qspec_then
+    `[Capp op vs () (h::(left ++ [mid] ++ right)),env]` assume_tac >>
+  simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
+  irule_at Any $ cj 2 RTC_rules >>
+  simp[e_step_reln_def, e_step_def, continue_def, push_def] >>
+  last_x_assum drule >>
+  disch_then $ qspecl_then [`mid`,`right`,`op`,`v::vs`] mp_tac >>
+  simp[ADD1, APPEND_ASSOC_CONS]
+QED
+
+Theorem small_eval_list_Rval_APPEND:
+  small_eval_list env s (left ++ right) (s', Rval vs) ⇔
+  ∃lvs rvs sl. vs = lvs ++ rvs ∧
+    small_eval_list env s left (sl, Rval lvs) ∧
+    small_eval_list env sl right (s', Rval rvs)
+Proof
+  reverse eq_tac >> rw[]
+  >- (
+    ntac 2 $ pop_assum mp_tac >>
+    qid_spec_tac `lvs` >> Induct_on `small_eval_list` >> rw[] >> gvs[] >>
+    simp[Once small_eval_list_cases, SF SFY_ss]
+    ) >>
+  pop_assum mp_tac >>
+  map_every qid_spec_tac [`vs`,`right`,`left`] >>
+  Induct_on `small_eval_list` >> rw[]
+  >- (ntac 2 $ simp[Once small_eval_list_cases]) >>
+  Cases_on `left` >> gvs[]
+  >- (ntac 2 $ simp[Once small_eval_list_cases] >> goal_assum drule >> simp[]) >>
+  simp[Once small_eval_list_cases, PULL_EXISTS] >>
+  goal_assum $ drule_at Any >>
+  pop_assum $ qspecl_then [`t`,`right`] mp_tac >> rw[] >>
+  irule_at Any EQ_REFL >> gvs[SF SFY_ss]
+QED
+
+Theorem e_step_over_App_Opapp:
+  ∀env s e es s' vals vs.
+    small_eval_list env s (e::es) (s', Rval vals) ∧
+    do_opapp (REVERSE vals ++ vs) = SOME (env', ea) ⇒
+  RTC e_step_reln
+    (env,s,Exp e,[Capp Opapp vs () es,env])
+    (env',s',Exp ea,[])
+Proof
+  rw[] >> Cases_on `es` >> gvs[]
+  >- (
+    ntac 2 $ gvs[Once small_eval_list_cases] >>
+    dxrule e_step_add_ctxt >> simp[] >>
+    disch_then $ qspec_then `[Capp Opapp vs () [],env]` assume_tac >>
+    simp[Once RTC_CASES_RTC_TWICE] >> goal_assum drule >>
+    irule $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, continue_def, application_thm]
+    ) >>
+  qmatch_goalsub_abbrev_tac `Capp _ _ _ l` >>
+  `l ≠ []` by (unabbrev_all_tac >> gvs[]) >> qpat_x_assum `Abbrev _` kall_tac >>
+  Cases_on `l` using SNOC_CASES >> gvs[SNOC_APPEND] >>
+  last_x_assum mp_tac >> rewrite_tac[Once $ GSYM APPEND] >>
+  rewrite_tac[small_eval_list_Rval_APPEND] >> strip_tac >> gvs[] >>
+  rev_dxrule e_step_to_App_mid >>
+  disch_then $ qspecl_then [`x`,`[]`,`Opapp`,`vs`] assume_tac >> gvs[] >>
+  simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
+  ntac 2 $ gvs[Once small_eval_list_cases] >>
+  dxrule e_step_add_ctxt >> simp[] >>
+  disch_then $ qspec_then `[Capp Opapp (REVERSE lvs ++ vs) () [],env]` assume_tac >>
+  simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
+  irule $ cj 2 RTC_rules >> gvs[REVERSE_APPEND] >>
+  simp[e_step_reln_def, e_step_def, continue_def, application_thm]
+QED
+
+Theorem big_exp_to_small_exp_timeout_lemma:
+  (∀ck env ^s e r.
+     evaluate ck env s e r ⇒ ∀s'. r = (s', Rerr (Rabort Rtimeout_error)) ∧ ck ⇒
+     ∃env' ev cs.
+      RTC e_step_reln (env, to_small_st s, Exp e, [])
+        (env', to_small_st s', ev, cs)) ∧
+  (∀ck env ^s es r.
+     evaluate_list ck env s es r ⇒ ∀s'. r = (s', Rerr (Rabort Rtimeout_error)) ∧ ck ⇒
+     ∃left mid right sl vs env' ev cs. es = left ++ [mid] ++ right ∧
+      small_eval_list env (to_small_st s) left (sl, Rval vs) ∧
+      RTC e_step_reln (env, sl, Exp mid, [])
+        (env', to_small_st s', ev, cs)) ∧
+  (∀ck env (s:'ffi state) v pes err_v r.
+     evaluate_match ck env s v pes err_v r ⇒
+     ∀s'. r = (s', Rerr (Rabort Rtimeout_error)) ∧ ck ⇒
+     e_step_to_match env (to_small_st s) v pes (to_small_st s'))
+Proof
+  ho_match_mp_tac evaluate_strongind >> rw[]
+  >- ( (* Raise *)
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def] >>
+    drule e_step_add_ctxt >> simp[SF SFY_ss]
+    )
+  >- ( (* Handle - match *)
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def] >>
+    last_x_assum assume_tac >> dxrule big_clocked_to_unclocked >> rw[] >>
+    dxrule $ cj 1 big_exp_to_small_exp >> rw[to_small_res_def, small_eval_def] >>
+    dxrule e_step_add_ctxt >> simp[] >>
+    disch_then $ qspec_then `[Chandle () pes,env]` assume_tac >>
+    simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, continue_def] >>
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, continue_def, Once to_small_st_def] >>
+    dxrule e_step_to_match_Cmat >> disch_then $ irule_at Any
+    )
+  >- ( (* Handle - expression timeout *)
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def] >>
+    drule e_step_add_ctxt >> simp[SF SFY_ss]
+    )
+  >- ( (* Con *)
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def] >>
+    Cases_on `left` >> gvs[]
+    >- (gvs[Once small_eval_list_cases] >> drule e_step_add_ctxt >> simp[SF SFY_ss]) >>
+    dxrule e_step_to_Con >>
+    disch_then $ qspecl_then [`mid`,`right`,`cn`,`[]`] mp_tac >> simp[] >>
+    `LENGTH (h::(t ++ [mid] ++ right)) = LENGTH (REVERSE es)` by asm_rewrite_tac[] >>
+    gvs[ADD1] >> rw[] >> simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
+    dxrule e_step_add_ctxt >> simp[SF SFY_ss]
+    )
+  >- ( (* App Opapp - after application *)
+    dxrule big_clocked_to_unclocked_list >> rw[] >>
+    dxrule $ cj 2 big_exp_to_small_exp >> rw[] >>
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def, application_thm] >>
+    Cases_on `es` using SNOC_CASES >> gvs[REVERSE_SNOC]
+    >- (
+      gvs[Once small_eval_list_cases, to_small_res_def] >>
+      last_x_assum $ assume_tac o GSYM >> simp[SF SFY_ss]
+      ) >>
+    gvs[to_small_res_def] >> dxrule e_step_over_App_Opapp >>
+    disch_then $ qspecl_then [`env'`,`e`,`[]`] assume_tac >> gvs[] >>
+    simp[Once RTC_CASES_RTC_TWICE, SF SFY_ss]
+    )
+  >- ( (* App Opapp - at application *)
+    dxrule big_clocked_to_unclocked_list >> rw[] >>
+    dxrule $ cj 2 big_exp_to_small_exp >> rw[] >>
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def, application_thm] >>
+    Cases_on `es` using SNOC_CASES >> gvs[REVERSE_SNOC]
+    >- (
+      gvs[Once small_eval_list_cases, to_small_res_def] >>
+      last_x_assum $ assume_tac o GSYM >> simp[] >> irule_at Any $ cj 1 RTC_rules
+      ) >>
+    gvs[to_small_res_def] >> dxrule e_step_over_App_Opapp >>
+    disch_then $ qspecl_then [`env'`,`e`,`[]`] assume_tac >> gvs[SF SFY_ss]
+    )
+  >- ( (* App - do_app timeout *)
+    drule do_app_not_timeout >> simp[]
+    )
+  >- ( (* App - before application *)
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def, application_thm] >>
+    Cases_on `left` >> simp[]
+    >- (gvs[Once small_eval_list_cases] >> dxrule e_step_add_ctxt >> simp[SF SFY_ss]) >>
+    dxrule e_step_to_App_mid >>
+    disch_then $ qspecl_then [`mid`,`right`,`op`,`[]`] assume_tac >> gvs[] >>
+    simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
+    dxrule e_step_add_ctxt >> simp[SF SFY_ss]
+    )
+  >- ( (* Log - after do_log *)
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def] >>
+    rev_dxrule big_clocked_to_unclocked >> rw[] >>
+    dxrule $ cj 1 big_exp_to_small_exp >> rw[to_small_res_def, small_eval_def] >>
+    dxrule e_step_add_ctxt >> simp[] >>
+    disch_then $ qspec_then `[Clog op () e2,env]` assume_tac >>
+    simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, continue_def, SF SFY_ss]
+    )
+  >- ( (* Log - before do_log *)
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def] >>
+    dxrule e_step_add_ctxt >> simp[SF SFY_ss]
+    )
+  >- ( (* If - after do_if *)
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def] >>
+    rev_dxrule big_clocked_to_unclocked >> rw[] >>
+    dxrule $ cj 1 big_exp_to_small_exp >> rw[to_small_res_def, small_eval_def] >>
+    dxrule e_step_add_ctxt >> simp[] >>
+    disch_then $ qspec_then `[Cif () e2 e3,env]` assume_tac >>
+    simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, continue_def, SF SFY_ss]
+    )
+  >- ( (* If - before do_if *)
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def] >>
+    dxrule e_step_add_ctxt >> simp[SF SFY_ss]
+    )
+  >- ( (* Mat - after match *)
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def] >>
+    rev_dxrule big_clocked_to_unclocked >> rw[] >>
+    dxrule $ cj 1 big_exp_to_small_exp >> rw[to_small_res_def, small_eval_def] >>
+    dxrule e_step_add_ctxt >> simp[] >>
+    disch_then $ qspec_then `[Cmat_check () pes bind_exn_v,env]` assume_tac >>
+    simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, continue_def, Once to_small_st_def] >>
+    pop_assum mp_tac >> ntac 2 $ pop_assum kall_tac >>
+    Induct_on `e_step_to_match` >> rw[] >>
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, continue_def, SF SFY_ss]
+    )
+  >- ( (* Mat - before match *)
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def] >>
+    dxrule e_step_add_ctxt >> simp[SF SFY_ss]
+    )
+  >- ( (* Let - after binding *)
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def] >>
+    rev_dxrule big_clocked_to_unclocked >> rw[] >>
+    dxrule $ cj 1 big_exp_to_small_exp >> rw[to_small_res_def, small_eval_def] >>
+    dxrule e_step_add_ctxt >> simp[] >>
+    disch_then $ qspec_then `[Clet n () e',env]` assume_tac >>
+    simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, continue_def, SF SFY_ss]
+    )
+  >- ( (* Let - before binding *)
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def] >>
+    dxrule e_step_add_ctxt >> simp[SF SFY_ss]
+    )
+  >- ( (* Letrec - after binding *)
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def, SF SFY_ss]
+    )
+  >- ( (* Tannot *)
+    irule_at Any $ cj 2 RTC_rules >> simp[e_step_reln_def, e_step_def, push_def] >>
+    dxrule e_step_add_ctxt >> simp[SF SFY_ss]
+    )
+  >- ( (* Lannot *)
+    irule_at Any $ cj 2 RTC_rules >> simp[e_step_reln_def, e_step_def, push_def] >>
+    dxrule e_step_add_ctxt >> simp[SF SFY_ss]
+    )
+  >- ( (* list - base case *)
+    qexists_tac `[]` >> simp[Once small_eval_list_cases, SF SFY_ss]
+    )
+  >- ( (* list *)
+    qexists_tac `e::left` >> simp[Once small_eval_list_cases, PULL_EXISTS] >>
+    rpt $ goal_assum $ drule_at Any >>
+    dxrule big_clocked_to_unclocked >> rw[] >>
+    dxrule $ cj 1 big_exp_to_small_exp >> rw[to_small_res_def, small_eval_def] >>
+    simp[SF SFY_ss]
+    )
+  >- ( (* match - base case *)
+    simp[Once e_step_to_match_cases] >> disj1_tac >>
+    simp[Once to_small_st_def, SF SFY_ss]
+    )
+  >- ( (* match *)
+    simp[Once e_step_to_match_cases] >> disj2_tac >>
+    simp[Once to_small_st_def, SF SFY_ss]
+    )
+QED
+
+Theorem big_exp_to_small_exp_timeout:
+  ∀ck env ^s e s'.
+    evaluate T env s e (s', Rerr (Rabort Rtimeout_error)) ⇒
+    ∃env' ev cs.
+      RTC e_step_reln (env, to_small_st s, Exp e, []) (env', to_small_st s', ev, cs)
+Proof
+  rw[big_exp_to_small_exp_timeout_lemma]
+QED
+
 val _ = export_theory ();
