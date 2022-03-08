@@ -1895,6 +1895,32 @@ Proof
   metis_tac[small_exp_safety2, small_exp_safety1]
 QED
 
+Theorem e_diverges_big_clocked:
+  e_diverges env (to_small_st s) e ⇔
+  ∀ck. ∃s'. evaluate T env (s with clock := ck) e (s', Rerr (Rabort Rtimeout_error))
+Proof
+  rw[] >> eq_tac >> rw[]
+  >- (
+    drule_at Concl $ iffLR untyped_safety_exp >> rw[] >>
+    `∀r. ¬evaluate F env s e r` by (
+      CCONTR_TAC >> gvs[] >> drule $ cj 1 big_exp_to_small_exp >> gvs[]) >>
+    gvs[big_clocked_unclocked_equiv_timeout] >> metis_tac[]
+    )
+  >- (
+    `∀r. ¬evaluate F env s e r` by (
+      simp[big_clocked_unclocked_equiv_timeout] >> rw[] >>
+      pop_assum $ qspec_then `c` assume_tac >> gvs[] >>
+      goal_assum drule >> drule $ cj 1 big_clocked_timeout_0 >> simp[]) >>
+    `∀r. ¬small_eval env (to_small_st s) e [] r` by (
+      CCONTR_TAC >> gvs[] >>
+      PairCases_on `r` >>
+      `(r0,r1) = to_small_st (s with <| refs := r0; ffi := r1 |>)` by
+        simp[to_small_st_def] >>
+      pop_assum SUBST_ALL_TAC >> drule $ iffLR small_big_exp_equiv >> simp[]) >>
+    CCONTR_TAC >> gvs[GSYM untyped_safety_exp]
+    )
+QED
+
 Triviality to_small_st_surj:
   ∀s. ∃y. s = to_small_st y
 Proof
@@ -2799,6 +2825,17 @@ Proof
     )
 QED
 
+Theorem small_eval_decs_determ:
+  ∀env st ds r1 r2.
+    small_eval_decs env st ds r1 ∧ small_eval_decs env st ds r2 ⇒ r1 = r2
+Proof
+  Induct_on `small_eval_decs` >> rw[]
+  >- gvs[Once small_eval_decs_cases] >>
+  pop_assum mp_tac >> rw[Once small_eval_decs_cases] >> gvs[] >>
+  rev_drule small_eval_dec_determ >> disch_then drule >> strip_tac >> gvs[] >>
+  first_x_assum drule >> rw[] >> gvs[]
+QED
+
 Triviality small_decl_diverges_prefix:
   ∀env a b.
     (decl_step_reln env)꙳ a b ∧
@@ -2983,6 +3020,45 @@ Proof
   Cases_on `e` >> simp[]
 QED
 
+Theorem small_big_decs_equiv:
+  ∀env (st:'ffi state) d r.  st.eval_state = NONE ⇒
+    evaluate_decs F env st ds r = small_eval_decs env st ds r
+Proof
+  rw[] >> eq_tac >> rw[]
+  >- (drule $ cj 2 big_dec_to_small_dec >> simp[]) >>
+  Cases_on `∃res. evaluate_decs F env st ds res` >> gvs[]
+  >- (
+    drule small_eval_decs_determ >>
+    drule $ cj 2 big_dec_to_small_dec >> simp[] >> strip_tac >>
+    disch_then drule >> rw[] >> gvs[]
+    ) >>
+  drule $ iffRL $ cj 2 untyped_safety_decs >> simp[] >>
+  goal_assum $ drule_at Any >> CCONTR_TAC >> gvs[] >>
+  drule_at Any $ cj 3 $ cj 2 dec_diverges_imp_small_decl_diverges >> simp[] >>
+  qexistsl_tac [`env`,`[]`,`empty_dec_env`,`empty_dec_env`,`empty_dec_env`] >>
+  simp[collapse_env_def, small_decl_diverges_def] >>
+  PairCases_on `r` >> Cases_on `r1` >> gvs[]
+  >- (
+    qspecl_then [`env`,`st`,`[]`,`st`,`empty_dec_env`,`ds`,`r0`,`a`]
+      mp_tac small_eval_decs_Rval_Dlocal >>
+    simp[Once small_eval_decs_cases] >> simp[small_eval_dec_def] >>
+    simp[Once RTC_CASES1, decl_step_reln_def, decl_step_def] >>
+    simp[Once RTC_CASES1, decl_step_reln_def, decl_step_def, decl_continue_def] >>
+    strip_tac >> goal_assum drule >> simp[decl_step_def, decl_continue_def]
+    )
+  >- (
+    qspecl_then [`env`,`st`,`[]`,`ds`,`r0`,`e`]
+      mp_tac small_eval_decs_Rerr_Dlocal >>
+    ntac 2 $ simp[Once small_eval_decs_cases] >>
+    rw[small_eval_dec_def] >>
+    gvs[Once RTC_CASES1, decl_step_reln_def, decl_step_def]
+    >- (Cases_on `e` >> gvs[]) >>
+    gvs[Once RTC_CASES1, decl_step_reln_def, decl_step_def, decl_continue_def]
+    >- (Cases_on `e` >> gvs[]) >>
+    goal_assum drule >> Cases_on `e` >> gvs[]
+    )
+QED
+
 Theorem small_big_dec_equiv_diverge:
   ∀env (st:'ffi state) d.  st.eval_state = NONE ⇒
     dec_diverges env st d = small_decl_diverges env (st, Decl d, [])
@@ -2996,5 +3072,36 @@ Proof
   simp[GSYM small_decl_total] >>
   drule $ cj 1 big_dec_to_small_dec >> simp[] >> disch_then $ irule_at Any
 QED
+
+Theorem small_big_decs_equiv_diverge:
+  ∀env (st:'ffi state) ds.  st.eval_state = NONE ⇒
+    decs_diverges env st ds = small_decl_diverges env (st, Decl (Dlocal [] ds), [])
+Proof
+  rw[] >> eq_tac >> rw[]
+  >- (
+    drule $ cj 3 $ cj 2 dec_diverges_imp_small_decl_diverges >>
+    disch_then $ qspecl_then
+      [`env`,`[]`,`empty_dec_env`,`empty_dec_env`,`empty_dec_env`] mp_tac >>
+    simp[collapse_env_def] >> rw[small_decl_diverges_def] >>
+    pop_assum mp_tac >> simp[Once RTC_CASES1] >>
+    rw[] >> gvs[decl_step_reln_def, decl_step_def] >>
+    pop_assum mp_tac >> simp[Once RTC_CASES1] >>
+    rw[] >> gvs[decl_step_reln_def, decl_step_def, decl_continue_def]
+    ) >>
+  CCONTR_TAC >> qpat_x_assum `small_decl_diverges _ _` mp_tac >> simp[] >>
+  drule_all $ iffRL $ cj 2 untyped_safety_decs >> strip_tac >> gvs[] >>
+  simp[GSYM small_decl_total] >>
+  drule $ cj 2 big_dec_to_small_dec >> simp[] >>
+  PairCases_on `r` >> Cases_on `r1` >> rw[]
+  >- (
+    irule_at Any small_eval_decs_Rval_Dlocal >>
+    simp[Once small_eval_decs_cases] >> goal_assum drule
+    )
+  >- (
+    irule_at Any small_eval_decs_Rerr_Dlocal >>
+    ntac 2 $ simp[Once small_eval_decs_cases] >> goal_assum drule
+    )
+QED
+
 
 val _ = export_theory ();

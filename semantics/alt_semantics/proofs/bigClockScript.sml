@@ -237,6 +237,18 @@ Proof
              big_unclocked_ignore, big_unclocked]
 QED
 
+Theorem big_clocked_unclocked_equiv_list:
+  !s env e s' r1.
+    evaluate_list F env s e (s', r1) =
+    ?c. evaluate_list T env (s with clock := c) e (s' with clock := 0,r1) ∧
+        (r1 ≠ Rerr (Rabort Rtimeout_error)) ∧
+        (s.clock = s'.clock)
+Proof
+  metis_tac [with_clock_clock, with_same_clock, add_clock,
+             big_unclocked_ignore, big_unclocked_unchanged, FST, SND,
+             with_clock_with_clock]
+QED
+
 Triviality wf_lem:
   WF (($< :(num->num->bool)) LEX measure exp_size)
 Proof
@@ -624,6 +636,15 @@ Proof
   `s'.clock ≤ s.clock` by metis_tac [clock_monotone, PAIR_EQ, FST, SND, pair_CASES] >>
   `s'.clock = 0 + s'.clock ∧ s.clock = (s.clock - s'.clock) + s'.clock:num` by decide_tac >>
   metis_tac [sub_from_counter]
+QED
+
+Theorem clocked_min_counter_list:
+  ∀s env e s' r'.
+    evaluate_list T env s e (s',r')
+  ⇒ evaluate_list T env (s with clock := s.clock - s'.clock) e (s' with clock := 0, r')
+Proof
+  rw[] >> irule $ cj 2 sub_from_counter >> simp[] >>
+  imp_res_tac clock_monotone >> gvs[]
 QED
 
 Theorem evaluate_decs_clocked_to_unclocked_lemma[local]:
