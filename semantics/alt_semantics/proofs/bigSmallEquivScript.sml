@@ -2,7 +2,7 @@
   Big step/small step equivalence
 *)
 open preamble;
-open libTheory semanticPrimitivesTheory bigStepTheory smallStepTheory;
+open libTheory semanticPrimitivesTheory bigStepTheory smallStepTheory ffiTheory;
 open bigSmallInvariantsTheory semanticPrimitivesPropsTheory determTheory bigClockTheory;
 open bigStepPropsTheory;
 
@@ -3480,5 +3480,238 @@ Theorem big_exp_to_small_exp_timeout:
 Proof
   rw[big_exp_to_small_exp_timeout_lemma]
 QED
+
+Theorem do_app_ffi_changed:
+  do_app (st, ffi) op vs = SOME ((st', ffi'), res) ∧
+  ffi ≠ ffi' ⇒
+  ∃s conf lnum ws ffi_st ws'.
+    op = FFI s ∧
+    vs = [Litv (StrLit conf); Loc lnum] ∧
+    store_lookup lnum st = SOME (W8array ws) ∧
+    s ≠ "" ∧
+    ffi.oracle s ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
+      Oracle_return ffi_st ws' ∧
+    LENGTH ws = LENGTH ws' ∧
+    st' = LUPDATE (W8array ws') lnum st ∧
+    ffi'.oracle = ffi.oracle ∧
+    ffi'.ffi_state = ffi_st ∧
+    ffi'.io_events =
+      ffi.io_events ++
+        [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))]
+Proof
+  simp[semanticPrimitivesTheory.do_app_def] >>
+  every_case_tac >> gvs[store_alloc_def, store_assign_def] >>
+  strip_tac >> gvs[call_FFI_def] >>
+  every_case_tac >> gvs[]
+QED
+
+Theorem do_app_ffi_unchanged:
+  ∀st ffi op vs st' ffi' res.
+    (∀s. op ≠ FFI s) ∧
+    do_app (st, ffi) op vs = SOME ((st', ffi'), res)
+  ⇒ ffi = ffi'
+Proof
+  rpt gen_tac >>
+  simp[semanticPrimitivesTheory.do_app_def] >>
+  every_case_tac >> gvs[store_alloc_def]
+QED
+
+Theorem application_ffi_unchanged:
+  ∀op env st ffi vs cs env' st' ffi' ev cs'.
+    (∀s. op ≠ FFI s) ∧
+    application op env (st, ffi) vs cs = Estep (env', (st', ffi'), ev, cs')
+  ⇒ ffi = ffi'
+Proof
+  rpt gen_tac >> rw[application_thm, return_def]
+  >- (every_case_tac >> gvs[]) >>
+  qspecl_then [`st`,`ffi`,`op`,`vs`] assume_tac do_app_ffi_unchanged >>
+  every_case_tac >> gvs[]
+QED
+
+Theorem e_step_ffi_changed:
+  e_step (env, (st, ffi), ev, cs) = Estep (env', (st', ffi'), ev', cs') ∧
+  ffi ≠ ffi' ⇒
+  ∃ s conf lnum ccs ws ffi_st ws'.
+    ev = Val (Litv (StrLit conf)) ∧
+    cs = (Capp (FFI s) [Loc lnum] () [], env') :: ccs ∧
+    store_lookup lnum st = SOME (W8array ws) ∧
+    s ≠ "" ∧
+    ffi.oracle s ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
+      Oracle_return ffi_st ws' ∧
+    LENGTH ws = LENGTH ws' ∧
+    ev' = Val (Conv NONE []) ∧
+    cs' = ccs ∧
+    st' = LUPDATE (W8array ws') lnum st ∧
+    ffi'.oracle = ffi.oracle ∧
+    ffi'.ffi_state = ffi_st ∧
+    ffi'.io_events =
+      ffi.io_events ++
+        [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))]
+Proof
+  simp[e_step_def] >>
+  every_case_tac >> gvs[return_def, push_def, continue_def]
+  >- (
+    strip_tac >> rename1 `application op _ _ _ _` >>
+    Cases_on `∀s. op ≠ FFI s` >> gvs[]
+    >- (irule application_ffi_unchanged >> rpt $ goal_assum drule) >>
+    gvs[application_def, do_app_def]
+    ) >>
+  every_case_tac >> gvs[] >>
+  rename1 `application op _ _ _ _` >>
+  (
+    strip_tac >> Cases_on `∀s. op ≠ FFI s` >> gvs[]
+    >- (drule_all application_ffi_unchanged >> gvs[]) >>
+    gvs[application_def, do_app_def, call_FFI_def] >>
+    every_case_tac >> gvs[return_def, store_lookup_def, store_assign_def]
+  )
+QED
+
+Theorem RTC_e_step_reln_isPREFIX:
+  ∀env s ev cs env' s' ev' cs'.
+    RTC e_step_reln (env,s,ev,cs) (env',s',ev',cs')
+  ⇒ (SND s).io_events ≼ (SND s').io_events
+Proof
+  Induct_on `RTC` >> rw[] >- simp[IS_PREFIX_REFL] >>
+  rename1 `(_,_) = ctxt` >> PairCases_on `ctxt` >> gvs[] >>
+  PairCases_on `s` >> gvs[e_step_reln_def] >>
+  Cases_on `s1 = ctxt2` >> gvs[] >>
+  drule_all e_step_ffi_changed >> rw[] >>
+  irule IS_PREFIX_APPEND1 >> gvs[SF SFY_ss]
+QED
+
+Theorem evaluate_list_T_total:
+  ∀es env s. ∃r. evaluate_list T env s es r
+Proof
+  Induct >> rw[Once evaluate_cases, SF DNF_ss] >>
+  qspecl_then [`s`,`env`,`h`] assume_tac big_clocked_total >> gvs[] >>
+  Cases_on `r` >> gvs[SF SFY_ss] >>
+  first_x_assum $ qspecl_then [`env`,`s'`] assume_tac >> gvs[] >>
+  PairCases_on `r` >> Cases_on `r1` >>  gvs[SF SFY_ss]
+QED
+
+Theorem evaluate_match_T_total:
+  ∀pes env s v err. ∃r. evaluate_match T env s v pes err r
+Proof
+  Induct >> rw[Once evaluate_cases, SF DNF_ss] >> PairCases_on `h` >> gvs[] >>
+  Cases_on `ALL_DISTINCT (pat_bindings h0 [])` >> gvs[] >>
+  Cases_on `pmatch env.c s.refs h0 v []` >> gvs[] >>
+  metis_tac[big_clocked_total]
+QED
+
+Theorem evaluate_ctxt_T_total:
+  ∀env s c v. ∃r.  evaluate_ctxt T env s c v r
+Proof
+  rw[] >> simp[Once evaluate_ctxt_cases] >> Cases_on `c` >> gvs[SF DNF_ss]
+  >- (
+    qspecl_then [`l0`,`env`,`s`] assume_tac evaluate_list_T_total >> gvs[] >>
+    PairCases_on `r` >> Cases_on `r1` >> gvs[SF SFY_ss] >>
+    Cases_on `o' = Opapp` >> gvs[]
+    >- (
+      Cases_on `do_opapp (REVERSE a ++ [v] ++ l)` >> gvs[SF SFY_ss] >>
+      PairCases_on `x` >> Cases_on `r0.clock = 0` >> gvs[SF SFY_ss] >>
+      metis_tac[big_clocked_total]
+      )
+    >- (
+      Cases_on `do_app (r0.refs,r0.ffi) o' (REVERSE a ++ [v] ++ l)` >> gvs[SF SFY_ss] >>
+      PairCases_on `x` >> gvs[SF SFY_ss]
+      )
+    )
+  >- (
+    Cases_on `do_log l v e` >> gvs[] >> Cases_on `x` >> gvs[] >>
+    metis_tac[big_clocked_total]
+    )
+  >- (Cases_on `do_if v e e0` >> gvs[] >> metis_tac[big_clocked_total])
+  >- (
+    Cases_on `can_pmatch_all env.c s.refs (MAP FST l) v` >> gvs[] >>
+    metis_tac[evaluate_match_T_total]
+    )
+  >- metis_tac[evaluate_match_T_total]
+  >- metis_tac[big_clocked_total]
+  >- (
+    Cases_on `do_con_check env.c o' (LENGTH l0 + (LENGTH l + 1))` >> gvs[] >>
+    qspecl_then [`l0`,`env`,`s`] assume_tac evaluate_list_T_total >> gvs[] >>
+    PairCases_on `r` >> Cases_on `r1` >> gvs[SF SFY_ss] >>
+    metis_tac[do_con_check_build_conv]
+    )
+QED
+
+Theorem evaluate_ctxts_T_total:
+  ∀cs s res. ∃r.  evaluate_ctxts T s cs res r
+Proof
+  Induct >> rw[] >> simp[Once evaluate_ctxts_cases] >> gvs[SF DNF_ss] >>
+  PairCases_on `h` >> simp[] >> Cases_on `res` >> rw[]
+  >- metis_tac[evaluate_ctxt_T_total, PAIR] >>
+  Cases_on `∃pes. h0 = Chandle () pes` >> gvs[] >>
+  Cases_on `e` >> gvs[] >>
+  Cases_on `can_pmatch_all h1.c s.refs (MAP FST pes) a` >> gvs[] >>
+  metis_tac[evaluate_match_T_total, PAIR]
+QED
+
+Theorem evaluate_state_T_total:
+  ∀env s ev cs. ∃r. evaluate_state T (env,s,ev,cs) r
+Proof
+  rw[] >> simp[Once evaluate_state_cases] >>
+  PairCases_on `s` >> Cases_on `ev` >> gvs[] >>
+  metis_tac[evaluate_ctxts_T_total, big_clocked_total, PAIR]
+QED
+
+Theorem evaluate_io_events_mono:
+  (∀ck env ^s e r.
+    evaluate ck env s e r ⇒
+    s.ffi.io_events ≼ (FST r).ffi.io_events) ∧
+  (∀ck env ^s es r.
+    evaluate_list ck env s es r ⇒
+    s.ffi.io_events ≼ (FST r).ffi.io_events) ∧
+  (∀ck env ^s v pes err_v r.
+    evaluate_match ck env s v pes err_v r ⇒
+    s.ffi.io_events ≼ (FST r).ffi.io_events)
+Proof
+  ho_match_mp_tac evaluate_ind >> rw[]
+  >~ [`do_app`]
+  >- (
+    Cases_on `∀s. op ≠ FFI s` >> gvs[]
+    >- (drule_all do_app_ffi_unchanged >> rw[] >> gvs[]) >>
+    gvs[do_app_def] >> every_case_tac >> gvs[] >>
+    gvs[call_FFI_def] >> every_case_tac >> gvs[IS_PREFIX_APPEND]
+    ) >>
+  metis_tac[IS_PREFIX_TRANS]
+QED
+
+Theorem evaluate_ctxt_io_events_mono:
+  ∀ck env ^s c v r.
+    evaluate_ctxt ck env s c v r ⇒
+    s.ffi.io_events ≼ (FST r).ffi.io_events
+Proof
+  Induct_on `evaluate_ctxt` >> rw[] >>
+  imp_res_tac evaluate_io_events_mono >> gvs[] >>
+  gvs[IS_PREFIX_APPEND] >>
+  Cases_on `∀s. op ≠ FFI s` >> gvs[]
+  >- (drule_all do_app_ffi_unchanged >> rw[] >> gvs[]) >>
+  gvs[do_app_def] >> every_case_tac >> gvs[] >>
+  gvs[call_FFI_def] >> every_case_tac >> gvs[]
+QED
+
+Theorem evaluate_ctxts_io_events_mono:
+  ∀ck ^s cs v r.
+    evaluate_ctxts ck s cs v r ⇒
+    s.ffi.io_events ≼ (FST r).ffi.io_events
+Proof
+  gen_tac >> ho_match_mp_tac evaluate_ctxts_ind >> rw[] >>
+  imp_res_tac evaluate_io_events_mono >>
+  imp_res_tac evaluate_ctxt_io_events_mono >> gvs[] >>
+  metis_tac[IS_PREFIX_TRANS]
+QED
+
+Theorem evaluate_state_io_events_mono:
+  ∀ck env st c v r.
+    evaluate_state ck (env, st, ev, cs) r ⇒
+    (SND st).io_events ≼ (FST r).ffi.io_events
+Proof
+  rw[evaluate_state_cases] >> gvs[] >>
+  imp_res_tac evaluate_io_events_mono >>
+  imp_res_tac evaluate_ctxts_io_events_mono >> gvs[] >>
+  metis_tac[IS_PREFIX_TRANS]
+QED
+
 
 val _ = export_theory ();
