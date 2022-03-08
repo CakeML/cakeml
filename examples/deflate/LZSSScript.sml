@@ -12,6 +12,13 @@ open ringBufferTheory;
 
 val _ = new_theory"LZSS";
 
+
+Datatype:
+  LZSS = Lit 'a | LenDist (num # num)
+End
+
+Overload LAST32k = “LASTN 32768”
+
 Definition matchLength_def[simp]:
   (matchLength s []:num = 0) ∧
   (matchLength [] l = 0) ∧
@@ -19,26 +26,6 @@ Definition matchLength_def[simp]:
    if (s = l)
    then (1 + (matchLength ss ls))
    else 0)
-End
-
-Definition matchLengthRB_def:
-  (matchLengthRB (rb,0):num = 0) ∧
-  (matchLengthRB (rb,split) =
-  let
-    l = list_of_ringBuffer rb;
-  in
-    matchLength l (DROP split l))
-End
-
-Definition matchLengthRB'_def:
-  (matchLengthRB' (rb,split) si li :num =
-  if rb.size ≤ li
-  then 0
-  else if rbEL si rb = rbEL li rb ∧ rbEL li rb ≠ NONE ∧ rbEL si rb ≠ NONE
-  then 1 + (matchLengthRB' (rb,split) (SUC si) (SUC li))
-  else 0)
-Termination
-  WF_REL_TAC ‘measure (λ (rb,split), si, li. rb.size - li)’
 End
 
 (* find the longest, right-most match *)
@@ -52,42 +39,13 @@ Definition getMatch_def[simp]:
       else (next_ml,next_md+1))
 End
 
-EVAL “getMatch "sabbbbbbbbbbabbb" "abbbc"”;
-
-Definition matches_def:
-  matches s l = {(len,dist)| TAKE len l = TAKE len $ DROP dist s}
-End
-
-EVAL “matches "abbshhhwtttttt" "abb"”
-
-Definition longestMatches_def:
-  longestMatches s l = {(len,dist) | ((len,dist) IN matches s l) ∧
-  (∀ len' dist'. (len',dist') IN matches s l ⇒ len' ≤ len )}
-End
-
-EVAL “longestMatches "bbabbababbbbbbbb" "abbbbbb"”
-
-Datatype:
-  LZSS = Lit 'a | LenDist (num # num)
-End
-
 Definition LZmatch_def[simp]:
-  (LZmatch s [] = NONE) ∧
-  (LZmatch search lookahead =
-  let match = getMatch search lookahead
-  in if FST match < 3
-     then SOME $ Lit (HD search)
-     else SOME $ LenDist (FST match, (LENGTH search - (SND match))))
-End
-
-EVAL “LZmatch "aabbccddeeffgghh" "bccdef"”
-
-EVAL “LZmatch "aabbccddeeffgghh" "gghh"”
-
-EVAL “LZmatch "aabbccddeeffgghh" "gh"”
-
-Definition backMatches_def:
-  backMatches s l = {(bl,bd)| TAKE bl l = TAKE bl $ DROP (LENGTH s - bd) s}
+  (LZmatch b [] = NONE) ∧
+  (LZmatch buffer lookahead =
+  let match = getMatch buffer lookahead
+  in if FST match < 3                       (* This looks like LZSS and not LZ77 *)
+     then SOME $ Lit (HD lookahead)
+     else SOME $ LenDist (FST match, (LENGTH buffer - (SND match))))
 End
 
 (* fixed parameter ordering to here FIXME *)
@@ -103,7 +61,12 @@ Definition tripleLength_def:
 End
 
 
-Overload LAST32k = “LASTN 32768”
+(*
+s:
+split:
+bufsize:
+looksize:
+        *)
 
 (* new version which takes buffer size as a parameter and searches into lookahead *)
 Definition LZcomp_def:
@@ -131,12 +94,43 @@ Termination
   simp[MAX_DEF,MIN_DEF]
 End
 
+EVAL “LZcomp "aaaaaabbcbbbbaaaacaaaaada" 0 10 5 ”;
+
+
+(* new version which takes buffer size as a parameter and searches into lookahead *)
+Definition LZcompLP_def:
+  LZcompLP s split bufSize lookSize =
+  if LENGTH s ≤ split ∨ s = [] ∨ bufSize = 0 ∨ lookSize = 0 then []
+  else
+    let match = LZmatch (TAKE split s) (TAKE lookSize (DROP split s));
+        len = case match of
+              | NONE => 1
+              | SOME $ LenDist (ml,_) => MAX ml 1
+              | SOME $ Lit _ => 1;
+        bufDrop = (split + len) - bufSize;
+        recurse = (LZcompLP (DROP bufDrop s) (split + len - bufDrop) bufSize lookSize)
+    in case match of
+       | NONE => recurse
+       | SOME m => m::recurse
+Termination
+  WF_REL_TAC ‘measure $ λ(s,split,_,_). MIN (LENGTH s) (LENGTH s - split)’ >>
+  rw[NOT_LESS_EQUAL] >>
+  CASE_TAC
+  >- (Cases_on ‘split + 1 < bufSize’ >> gs[NOT_LESS,MIN_DEF]) >>
+  CASE_TAC
+  >- (Cases_on ‘split + 1 < bufSize’ >> gs[NOT_LESS,MIN_DEF]) >>
+  CASE_TAC >>
+  simp[MAX_DEF,MIN_DEF]
+End
+
+EVAL “LZcompLP "aaaaaabbcbbbbaaaacaaaaada" 0 258 258”;
+
 (* old and broken, but has stuff proved about it *)
 Definition LZcompress_def:
   (LZcompress s [] [] = []) ∧
   (LZcompress s [] t = []) ∧
   (LZcompress search lookahead [] =
-   let match = LZmatch lookahead search;
+   let match = LZmatch search lookahead;
        len = case match of
              | NONE => 1
              | SOME $ LenDist (ml,_) => MAX ml 1
@@ -148,7 +142,7 @@ Definition LZcompress_def:
       | NONE => recurse
       | SOME m => m::recurse) ∧
   (LZcompress search lookahead remainder =
-   let match = LZmatch lookahead search;
+   let match = LZmatch search lookahead;
        len = case match of
              | NONE => 1
              | SOME $ LenDist (ml,_) => MAX ml 1
@@ -202,12 +196,55 @@ Definition LZSS_decompress_def:
   LZSS_decompress s = LZdecompress [] s
 End
 
-(* lookup data refinement *)
+
+(****************************************
+*****                              ******
+*****       Used by theorems       ******
+*****                              ******
+****************************************)
+
+Definition matches_def:
+  matches s l = {(len,dist)| TAKE len l = TAKE len $ DROP dist s}
+End
+
+Definition longestMatches_def:
+  longestMatches s l = {(len,dist) | ((len,dist) IN matches s l) ∧
+  (∀ len' dist'. (len',dist') IN matches s l ⇒ len' ≤ len )}
+End
+
+
+Definition backMatches_def:
+  backMatches s l = {(bl,bd)| TAKE bl l = TAKE bl $ DROP (LENGTH s - bd) s}
+End
+
+Definition matchLengthRB_def:
+  (matchLengthRB (rb,0):num = 0) ∧
+  (matchLengthRB (rb,split) =
+  let
+    l = list_of_ringBuffer rb;
+  in
+    matchLength l (DROP split l))
+End
+
+Definition matchLengthRB'_def:
+  (matchLengthRB' (rb,split) si li :num =
+  if rb.size ≤ li
+  then 0
+  else if rbEL si rb = rbEL li rb ∧ rbEL li rb ≠ NONE ∧ rbEL si rb ≠ NONE
+  then 1 + (matchLengthRB' (rb,split) (SUC si) (SUC li))
+  else 0)
+Termination
+  WF_REL_TAC ‘measure (λ (rb,split), si, li. rb.size - li)’
+End
+
 
 (***************************************
+******                            ******
 ******          Theorems          ******
 ******                            ******
 ***************************************)
+
+
 
 
 Theorem matchLength_nil[simp]: matchLength [] l = 0
@@ -653,5 +690,7 @@ Proof
   simp[LZ_inv_thm]
 QED
 
+
+(* lookup data refinement *)
 
 val _ = export_theory();
