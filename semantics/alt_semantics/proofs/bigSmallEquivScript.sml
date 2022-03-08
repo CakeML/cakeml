@@ -1478,29 +1478,29 @@ Proof
 QED
 
 Theorem evaluate_ctxts_cons:
-  !s1 f cs res1 bv.
-    evaluate_ctxts s1 (f::cs) res1 bv =
+  !ck s1 f cs res1 bv.
+    evaluate_ctxts ck s1 (f::cs) res1 bv =
     ((?c s2 env v' res2 v.
         (res1 = Rval v) ∧
         (f = (c,env)) ∧
-        evaluate_ctxt env s1 c v (s2, res2) ∧
-        evaluate_ctxts s2 cs res2 bv) ∨
+        evaluate_ctxt ck env s1 c v (s2, res2) ∧
+        evaluate_ctxts ck s2 cs res2 bv) ∨
      (?c env err.
         (res1 = Rerr err) ∧
         (f = (c,env)) ∧
         ((∀pes. c ≠ Chandle () pes) ∨ ∀v. err ≠ Rraise v) ∧
-        evaluate_ctxts s1 cs res1 bv) ∨
+        evaluate_ctxts ck s1 cs res1 bv) ∨
      (?pes s2 env v' res2 v.
         (res1 = Rerr (Rraise v)) ∧
         (f = (Chandle () pes,env)) ∧
         can_pmatch_all env.c s1.refs (MAP FST pes) v ∧
-        evaluate_match F env s1 v pes v (s2, res2) ∧
-        evaluate_ctxts s2 cs res2 bv) ∨
+        evaluate_match ck env s1 v pes v (s2, res2) ∧
+        evaluate_ctxts ck s2 cs res2 bv) ∨
      (?pes env v' res2 v.
         (res1 = Rerr (Rraise v)) ∧
         (f = (Chandle () pes,env)) ∧
         ~can_pmatch_all env.c s1.refs (MAP FST pes) v ∧
-        evaluate_ctxts s1 cs (Rerr (Rabort Rtype_error)) bv))
+        evaluate_ctxts ck s1 cs (Rerr (Rabort Rtype_error)) bv))
 Proof
   srw_tac[][] >>
   srw_tac[][Once evaluate_ctxts_cases] >>
@@ -1527,175 +1527,87 @@ srw_tac [boolSimps.DNF_ss] [] >>
 metis_tac [DECIDE ``SUC x = x + 1``, pair_CASES, REVERSE_APPEND];
 
 Theorem evaluate_state_app_cons:
-  evaluate_state (env,s,Exp e,(Capp op [] () es,env)::c) bv
-  ⇒ evaluate_state (env,s,Exp (App op (REVERSE es++[e])),c) bv
+  evaluate_state ck (env,s,Exp e,(Capp op [] () es,env)::c) bv
+  ⇒ evaluate_state ck (env,s,Exp (App op (REVERSE es++[e])),c) bv
 Proof
-  srw_tac[][evaluate_state_cases] >>
-  srw_tac[][Once evaluate_cases] >>
-  full_simp_tac(srw_ss())[evaluate_ctxts_cons] >> srw_tac[][] >>
-  ONCE_REWRITE_TAC[CONJ_COMM] >>
-  first_assum(match_exists_tac o concl) >> srw_tac[][] >- (
-  full_simp_tac(srw_ss())[Once evaluate_ctxt_cases, REVERSE_REVERSE, REVERSE_APPEND] >> srw_tac[][] >>
-  srw_tac[][Once evaluate_cases,PULL_EXISTS] >>
-  full_simp_tac(srw_ss())[] >>
-  TRY (
-    disj1_tac >>
-    CONV_TAC(STRIP_QUANT_CONV
-             (move_conj_left(same_const``bigStep$evaluate`` o fst o strip_comb))) >>
-    first_assum(match_exists_tac o concl) >> srw_tac[][] >>
-    TRY(first_assum(split_pair_match o concl)) >>
-    TRY(CONV_TAC(STRIP_QUANT_CONV
-                 (move_conj_left(same_const``bigStep$evaluate_list`` o fst o strip_comb)))) >>
-    first_assum(match_exists_tac o concl) >> srw_tac[][] >> NO_TAC) >>
-  TRY (
-    disj2_tac >> disj1_tac >>
-    srw_tac[][Once evaluate_cases,PULL_EXISTS] >>
-    first_assum(match_exists_tac o concl) >> srw_tac[][] >>
-    first_assum(match_exists_tac o concl) >> srw_tac[][] >> NO_TAC ) >>
-  rpt disj2_tac >>
-  srw_tac[][Once evaluate_cases] >> disj2_tac >>
-  first_assum(match_exists_tac o concl) >> srw_tac[][]) >>
-  rpt disj2_tac >>
-  srw_tac[][Once evaluate_cases]
+  rw[evaluate_state_cases] >> rw[Once evaluate_cases] >>
+  reverse $ gvs[evaluate_ctxts_cons] >> goal_assum $ drule_at Any >>
+  qexistsl_tac [`clk`,`eval`] >> simp[]
+  >- (rpt disj2_tac >> simp[Once evaluate_cases]) >>
+  full_simp_tac(srw_ss())[Once evaluate_ctxt_cases, REVERSE_REVERSE, REVERSE_APPEND] >>
+  rw[Once evaluate_cases, PULL_EXISTS] >> gvs[]
+  >- (disj1_tac >> simp[SF SFY_ss])
+  >- (disj2_tac >> disj1_tac >> simp[Once evaluate_cases, PULL_EXISTS, SF SFY_ss])
+  >- (disj2_tac >> disj1_tac >> simp[Once evaluate_cases, PULL_EXISTS, SF SFY_ss])
+  >- (disj1_tac >> irule_at Any EQ_REFL >> simp[SF SFY_ss])
+  >- (disj2_tac >> disj1_tac >> simp[Once evaluate_cases, PULL_EXISTS, SF SFY_ss])
+  >- (rpt disj2_tac >> simp[Once evaluate_cases, SF SFY_ss])
 QED
 
 Theorem one_step_backward:
-  !env s e c s' env' e' c' bv.
-    (e_step (env,s,e,c) = Estep (env',s',e',c')) ∧
-    evaluate_state (env',s',e',c') bv
-    ⇒
-    evaluate_state (env,s,e,c) bv
+  ∀env s e c s' env' e' c' ck bv.
+    e_step (env,s,e,c) = Estep (env',s',e',c') ∧
+    evaluate_state ck (env',s',e',c') bv
+  ⇒ evaluate_state ck (env,s,e,c) bv
 Proof
-  srw_tac[][e_step_def] >>
-  cases_on `e` >>
-  full_simp_tac(srw_ss())[]
-  >- (cases_on `e''` >>
-      full_simp_tac(srw_ss())[push_def, return_def] >>
-      srw_tac[][]
-      >- (fs[evaluate_ctxts_cons, evaluate_state_cases, evaluate_ctxt_cases] >>
-          srw_tac[][Once evaluate_cases] >>
-          metis_tac [])
-      >- (fs[evaluate_ctxts_cons, evaluate_state_cases, evaluate_ctxt_cases] >>
-          rveq \\ fs [] \\ TRY (goal_assum (first_assum o mp_then Any mp_tac))
-          >- (srw_tac[][Once evaluate_cases] \\ metis_tac [])
-          >- (srw_tac[][Once evaluate_cases] \\ Cases_on `err` \\ fs [] \\ metis_tac [])
-          >- (srw_tac[][Once evaluate_cases] \\ metis_tac [])
-          \\ srw_tac[][Once evaluate_cases] \\ metis_tac [])
-      >- tac3
-      >- (every_case_tac >>
-          full_simp_tac(srw_ss())[] >>
-          srw_tac[][] >>
-          full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-          srw_tac[][] >>
-          full_simp_tac(srw_ss())[] >>
-          tac3)
-      >- (every_case_tac >>
-          full_simp_tac(srw_ss())[] >>
-          srw_tac[][] >>
-          tac3)
-      >- tac3
-      >- (
-       Cases_on `s` >>
-       Cases_on `REVERSE l` >>
-       full_simp_tac(srw_ss())[application_thm,do_opapp_def,do_app_def] >>
-       srw_tac[][] >>
-       full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-       metis_tac[evaluate_state_app_cons])
-      >- tac3
-      >- tac3
-      >- tac3
-      >- tac3
-      >- (every_case_tac >>
-          full_simp_tac(srw_ss())[] >>
-          srw_tac[][] >>
-          tac3)
-      >- tac3
-      >- tac3)
-  >- (full_simp_tac(srw_ss())[continue_def] >>
-      cases_on `c` >>
-      full_simp_tac(srw_ss())[] >>
-      cases_on `h` >>
-      full_simp_tac(srw_ss())[] >>
-      cases_on `q` >>
-      full_simp_tac(srw_ss())[] >>
-      every_case_tac >>
-      full_simp_tac(srw_ss())[push_def, return_def, application_def] >>
-      srw_tac[][] >>
-      full_simp_tac (srw_ss() ++ ARITH_ss) [evaluate_state_cases, evaluate_ctxts_cons, evaluate_ctxt_cases, oneTheory.one,
-                                            evaluate_ctxts_cons, evaluate_ctxt_cases, arithmeticTheory.ADD1]
-      >- metis_tac []
-      >- (rveq \\ fs [])
-      >- (
-       srw_tac[][] >>
-       every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-       full_simp_tac(srw_ss())[do_app_def] >> every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-       srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
-       srw_tac[][Once evaluate_cases] >>
-       metis_tac[] )
-      >- (
-       srw_tac[][] >>
-       every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-       srw_tac[][Once(CONJUNCT2 evaluate_cases)] >>
-       srw_tac[][Once(CONJUNCT2 evaluate_cases)] >>
-       srw_tac[][Once(CONJUNCT2 evaluate_cases)] >>
-       full_simp_tac(srw_ss())[evaluate_ctxts_cons] >>
-       full_simp_tac(srw_ss())[Once evaluate_ctxt_cases] >> srw_tac[][] >>
-       metis_tac [pair_CASES]
-       )
-      >- (
-       srw_tac[][Once evaluate_cases,PULL_EXISTS] >>
-       srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
-       first_assum(match_exists_tac o concl) >> srw_tac[][] >>
-       first_assum(match_exists_tac o concl) >> srw_tac[][] >>
-       metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] )
-      >- (
-       srw_tac[][Once evaluate_cases] >>
-       srw_tac[boolSimps.DNF_ss][] >> disj2_tac >> disj1_tac >>
-       srw_tac[][Once evaluate_cases] >>
-       srw_tac[boolSimps.DNF_ss][] >>
-       first_assum(match_exists_tac o concl) >> srw_tac[][] >>
-       first_assum(match_exists_tac o concl) >> srw_tac[][] >>
-       metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC])
-      >- (
-       srw_tac[][Once evaluate_cases] >>
-       srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
-       metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC])
-      >- (
-       srw_tac[][Once evaluate_cases] >>
-       srw_tac[boolSimps.DNF_ss][] >> disj2_tac >> disj1_tac >>
-       srw_tac[][Once evaluate_cases] >>
-       srw_tac[boolSimps.DNF_ss][] >>
-       metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC])
-      >- (
-       srw_tac[boolSimps.DNF_ss][] >>
-       rpt disj2_tac >>
-       srw_tac[][Once evaluate_cases] >>
-       metis_tac[])
-      >- (
-       srw_tac[boolSimps.DNF_ss][] >>
-       rpt disj2_tac >>
-       srw_tac[][Once evaluate_cases] >>
-       metis_tac[])
-      >- metis_tac []
-      >- metis_tac []
-      >- (fs [] \\ rfs [] \\ asm_exists_tac \\ fs [])
-      >- (ONCE_REWRITE_TAC [evaluate_cases] >>
-          srw_tac[][])
-      >- (ONCE_REWRITE_TAC [evaluate_cases] >>
-          srw_tac[][] >>
-          metis_tac [FST])
-      >- (ONCE_REWRITE_TAC [evaluate_cases] >>
-          srw_tac[][] >> full_simp_tac(srw_ss())[] >> metis_tac [])
-      >- metis_tac [] >>
-      every_case_tac >>
-      full_simp_tac (srw_ss()++ARITH_ss++boolSimps.DNF_ss) [] >>
-      ONCE_REWRITE_TAC [evaluate_cases] >>
-      srw_tac[][] >>
-      metis_tac [APPEND_ASSOC, APPEND, REVERSE_APPEND, REVERSE_REVERSE, REVERSE_DEF])
+  rw[e_step_def] >> Cases_on `e` >> gvs[]
+  >- (
+    Cases_on `e''` >> gvs[push_def, return_def]
+    >- (
+      gvs[evaluate_ctxts_cons, evaluate_state_cases, evaluate_ctxt_cases] >>
+      simp[Once evaluate_cases] >> metis_tac[]
+      )
+    >- (
+      gvs[evaluate_ctxts_cons, evaluate_state_cases, evaluate_ctxt_cases] >>
+      goal_assum $ drule_at Any >> simp[Once evaluate_cases]
+      >- metis_tac[]
+      >- (Cases_on `err` >> gvs[] >> metis_tac[]) >>
+      metis_tac[]
+      )
+    >- tac3
+    >- (every_case_tac >> gvs[SWAP_REVERSE_SYM, evaluate_state_cases] >> tac3)
+    >- (every_case_tac >> gvs[] >> tac3)
+    >- tac3
+    >- (
+      PairCases_on `s` >>
+      FULL_CASE_TAC >> gvs[application_thm, do_opapp_def, do_app_def] >>
+      gvs[SWAP_REVERSE_SYM] >>
+      metis_tac[evaluate_state_app_cons]
+      ) >>
+    every_case_tac >> gvs[] >> tac3
+    )
+  >- (
+    PairCases_on `s` >> gvs[continue_def] >>
+    Cases_on `c` >> gvs[] >> PairCases_on `h` >> gvs[] >> Cases_on `h0` >> gvs[] >>
+    every_case_tac >> gvs[push_def, return_def, application_thm] >>
+    gvs[evaluate_state_cases, evaluate_ctxts_cons, evaluate_ctxt_cases,
+        evaluate_ctxts_cons, evaluate_ctxt_cases, ADD1, SF SFY_ss]
+    >- (Cases_on `ck` >> gvs[SF SFY_ss])
+    >- (
+      once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
+      every_case_tac >> gvs[SF DNF_ss, SF SFY_ss] >>
+      disj1_tac >> qexists_tac `clk + 1` >> simp[SF SFY_ss]
+      )
+    >- (
+      once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
+      every_case_tac >> gvs[SF DNF_ss, SF SFY_ss] >>
+      gvs[evaluate_ctxts_cons] >> gvs[evaluate_ctxt_cases, SF SFY_ss]
+      )
+    >>~ [`evaluate_match`]
+    >- (
+      once_rewrite_tac[cj 2 evaluate_cases] >> simp[SF DNF_ss] >>
+      metis_tac[CONS_APPEND, APPEND_ASSOC]
+      )
+    >- simp[Once evaluate_cases, SF SFY_ss]
+    >- (simp[Once evaluate_cases, SF SFY_ss] >> metis_tac[])
+    >- (simp[Once evaluate_cases, SF SFY_ss] >> metis_tac[]) >>
+    once_rewrite_tac[cj 2 evaluate_cases] >> simp[SF DNF_ss] >>
+    metis_tac[CONS_APPEND, APPEND_ASSOC]
+    )
 QED
 
 Theorem evaluate_ctxts_type_error:
-  !a s c. evaluate_ctxts s c (Rerr (Rabort a)) (s,Rerr (Rabort a))
+  !a s c ck. evaluate_ctxts ck s c (Rerr (Rabort a)) (s,Rerr (Rabort a))
 Proof
   induct_on `c` >>
   srw_tac[][] >>
@@ -1705,16 +1617,16 @@ Proof
 QED
 
 Theorem evaluate_ctxts_type_error_matchable:
-  !a s c. s' = s ⇒ evaluate_ctxts s c (Rerr (Rabort a)) (s',Rerr (Rabort a))
+  !a s c ck. s' = s ⇒ evaluate_ctxts ck s c (Rerr (Rabort a)) (s',Rerr (Rabort a))
 Proof
   metis_tac[evaluate_ctxts_type_error]
 QED
 
 Theorem one_step_backward_type_error:
   !env s e c.
-    (e_step (env,to_small_st s,e,c) = Eabort a) ∧ s.eval_state = NONE
+    e_step (env,to_small_st s,e,c) = Eabort a
     ⇒
-    evaluate_state (env,to_small_st s,e,c)
+    evaluate_state F (env,to_small_st s,e,c)
                    ((s with <| next_type_stamp := 0; next_exn_stamp := 0; clock := 0 |>),
                     Rerr (Rabort a))
 Proof
@@ -1730,8 +1642,8 @@ Proof
   full_simp_tac(srw_ss())[] >>
   srw_tac[][to_small_st_def]
   >> TRY (
-    match_mp_tac evaluate_ctxts_type_error_matchable >>
-    srw_tac[][state_component_equality] )
+    irule_at Any evaluate_ctxts_type_error_matchable >>
+    srw_tac[][state_component_equality])
   >- (
     full_simp_tac(srw_ss())[application_thm] >>
     pop_assum mp_tac >> srw_tac[][] >>
@@ -1741,9 +1653,9 @@ Proof
     srw_tac[][Once evaluate_cases] >>
     srw_tac[][Once evaluate_cases] >>
     full_simp_tac(srw_ss())[return_def] >>
-    match_mp_tac evaluate_ctxts_type_error_matchable >>
-    srw_tac[][state_component_equality] ) >>
-  metis_tac[do_con_check_build_conv,NOT_SOME_NONE]) >>
+    srw_tac[][state_component_equality]) >>
+  metis_tac[do_con_check_build_conv,NOT_SOME_NONE]
+  ) >>
   full_simp_tac(srw_ss())[continue_def] >>
   cases_on `c` >> full_simp_tac(srw_ss())[] >>
   cases_on `h` >> full_simp_tac(srw_ss())[] >>
@@ -1762,79 +1674,79 @@ Proof
   imp_res_tac do_app_not_timeout >>
   full_simp_tac(srw_ss())[to_small_st_def] >> srw_tac[][] >>
   srw_tac[DNF_ss][] >>
-  match_mp_tac evaluate_ctxts_type_error_matchable >>
+  irule_at Any evaluate_ctxts_type_error_matchable >>
   srw_tac[][state_component_equality] ) >>
   srw_tac[][Once evaluate_cases] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [arithmeticTheory.ADD1,to_small_st_def] >>
   srw_tac[][Once evaluate_cases] >>
   srw_tac[DNF_ss][] >> full_simp_tac(srw_ss())[to_small_st_def] >>
-  ((match_mp_tac evaluate_ctxts_type_error_matchable >>
+  ((irule_at Any evaluate_ctxts_type_error_matchable >>
     srw_tac[][state_component_equality]) ORELSE
    metis_tac[do_con_check_build_conv,NOT_SOME_NONE])
 QED
 
 Theorem small_exp_to_big_exp:
-  !st st'.
-    e_step_reln^* st st' ⇒
-    !r.
-      evaluate_state st' r
-      ⇒
-      evaluate_state st r
+  ∀ck st st'. RTC e_step_reln st st' ⇒
+    ∀r. evaluate_state ck st' r ⇒ evaluate_state ck st r
 Proof
-  HO_MATCH_MP_TAC RTC_INDUCT_RIGHT1 >>
-  srw_tac[][e_step_reln_def] >>
-  PairCases_on `st` >>
-  PairCases_on `st'` >>
-  PairCases_on `st''` >>
-  srw_tac[][] >>
+  Induct_on `RTC` >> rw[e_step_reln_def] >>
+  map_every PairCases_on [`st`,`st'`,`st''`] >>
   metis_tac [one_step_backward]
 QED
 
 Theorem evaluate_state_no_ctxt:
-  !env (s:'a state) e r.
-    evaluate_state (env,to_small_st s,Exp e,[]) r
+  !env (s:'a state) e r ck.
+    evaluate_state F (env,to_small_st s,Exp e,[]) r
     ⇔
       evaluate F env (s with <| next_type_stamp := 0; next_exn_stamp := 0; clock := 0;
-                                eval_state := NONE |>) e r
+                                eval_state := (FST r).eval_state |>) e r
 Proof
   srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
   srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
   full_simp_tac(srw_ss())[to_small_st_def] >>
-  Cases_on`r`>>simp[]>>
-  rpt AP_THM_TAC >> AP_TERM_TAC >>
-  simp[state_component_equality]
+  Cases_on`r`>>simp[]>> reverse $ eq_tac >> rw[]
+  >- (
+    qexists_tac `q.eval_state` >>
+    qmatch_asmsub_abbrev_tac `evaluate _ _ s1` >>
+    qmatch_goalsub_abbrev_tac `evaluate _ _ s2` >>
+    qsuff_tac `s1 = s2` >> rw[] >> gvs[] >>
+    unabbrev_all_tac >> simp[state_component_equality]
+    )
+  >- (
+    imp_res_tac evaluate_no_new_types_exns >> gvs[] >>
+    qmatch_asmsub_abbrev_tac `evaluate _ _ s1` >>
+    qmatch_goalsub_abbrev_tac `evaluate _ _ s2` >>
+    qsuff_tac `s1 = s2` >> rw[] >> gvs[] >>
+    unabbrev_all_tac >> simp[state_component_equality]
+    )
 QED
 
 Theorem evaluate_state_val_no_ctxt:
   !env (s:'a state) e.
-    evaluate_state (env,to_small_st s,Val e,[]) r
+    evaluate_state F (env,to_small_st s,Val e,[]) r
     ⇔
       (r = (s with <| next_type_stamp := 0; next_exn_stamp := 0;
-                      clock := 0; eval_state := NONE |>, Rval e))
+                      clock := 0; eval_state := (FST r).eval_state |>, Rval e))
 Proof
   srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
   srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
   full_simp_tac(srw_ss())[to_small_st_def] >>
-  eq_tac >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[state_component_equality]
+  PairCases_on `r` >> eq_tac >> rw[state_component_equality]
 QED
 
 Theorem evaluate_state_val_raise_ctxt:
   !env (s:'a state) v env'.
-    evaluate_state (env,to_small_st s,Val v,[(Craise (), env')]) r
+    evaluate_state F (env,to_small_st s,Val v,[(Craise (), env')]) r
     ⇔
       (r = (s with <| next_type_stamp := 0; next_exn_stamp := 0;
-                      clock := 0; eval_state := NONE |>, Rerr (Rraise v)))
+                      clock := 0; eval_state := (FST r).eval_state |>, Rerr (Rraise v)))
 Proof
   srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
   srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
   srw_tac[][evaluate_ctxt_cases] >>
   srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
   full_simp_tac(srw_ss())[to_small_st_def] >>
-  eq_tac >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[state_component_equality]
+  PairCases_on `r` >> eq_tac >> rw[state_component_equality]
 QED
 
 Theorem evaluate_change_state = Q.prove(
@@ -1844,12 +1756,11 @@ Theorem evaluate_change_state = Q.prove(
 
 Theorem small_big_exp_equiv:
  !env s e s' r.
-  s.eval_state = NONE ⇒
-  (small_eval env (to_small_st s) e [] (to_small_st s',r) ∧
+   small_eval env (to_small_st s) e [] (to_small_st s',r) ∧
    s.clock = s'.clock ∧ s.next_type_stamp = s'.next_type_stamp ∧
    s.next_exn_stamp = s'.next_exn_stamp ∧ s.eval_state = s'.eval_state
    ⇔
-   evaluate F env s e (s',r))
+   evaluate F env s e (s',r)
 Proof
  srw_tac[][] >>
  eq_tac
@@ -1858,10 +1769,16 @@ Proof
      [all_tac,
       cases_on `e'`] >>
      full_simp_tac(srw_ss())[small_eval_def] >>
-     imp_res_tac small_exp_to_big_exp >>
-     full_simp_tac(srw_ss())[evaluate_state_val_no_ctxt, evaluate_state_no_ctxt, evaluate_state_val_raise_ctxt] >>
-     imp_res_tac evaluate_ignores_types_exns >>
-     full_simp_tac(srw_ss())[] >> TRY (
+     imp_res_tac $ Q.SPEC `F` small_exp_to_big_exp >>
+     full_simp_tac(srw_ss())[evaluate_state_val_no_ctxt, evaluate_state_no_ctxt,
+                             evaluate_state_val_raise_ctxt] >>
+     TRY (
+         gvs[FORALL_PROD] >>
+         first_x_assum $ qspec_then
+          `s' with <| clock := 0; next_type_stamp := 0; next_exn_stamp := 0 |>` mp_tac >>
+         impl_tac >- simp[state_component_equality] >> strip_tac >>
+         imp_res_tac evaluate_ignores_types_exns >>
+         full_simp_tac(srw_ss())[] >>
          pop_assum (qspecl_then [`s.next_exn_stamp`, `s.next_type_stamp`] mp_tac) >>
          srw_tac[][] >>
          match_mp_tac evaluate_change_state >>
