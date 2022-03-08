@@ -122,15 +122,11 @@ Inductive evaluate_ctxts:
 End
 
 Inductive evaluate_state:
- ((¬ck ⇒ clk = 0) ∧
-  evaluate ck env <| ffi := ffi; clock := clk; refs := refs; next_type_stamp := 0;
-                     next_exn_stamp := 0; eval_state := eval |> e (st, res) ∧
+  (evaluate ck env (s:'a state with <| ffi := ffi; refs := refs |>) e (st:'a state, res) ∧
   evaluate_ctxts ck st c res bv
       ⇒ evaluate_state ck (env, (refs, ffi), Exp e, c) bv) ∧
 
- ((¬ck ⇒ clk = 0) ∧
-  evaluate_ctxts ck <| ffi := ffi; clock := clk; refs := refs; next_type_stamp := 0;
-                       next_exn_stamp := 0; eval_state := eval |> c (Rval v) bv
+  (evaluate_ctxts ck (s with <| ffi := ffi; refs := refs |>) c (Rval v) bv
       ⇒ evaluate_state ck (env, (refs, ffi), Val v, c) bv)
 End
 

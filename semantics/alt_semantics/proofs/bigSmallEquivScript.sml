@@ -1532,7 +1532,7 @@ Theorem evaluate_state_app_cons:
 Proof
   rw[evaluate_state_cases] >> rw[Once evaluate_cases] >>
   reverse $ gvs[evaluate_ctxts_cons] >> goal_assum $ drule_at Any >>
-  qexistsl_tac [`clk`,`eval`] >> simp[]
+  qexists_tac `s'` >> simp[]
   >- (rpt disj2_tac >> simp[Once evaluate_cases]) >>
   full_simp_tac(srw_ss())[Once evaluate_ctxt_cases, REVERSE_REVERSE, REVERSE_APPEND] >>
   rw[Once evaluate_cases, PULL_EXISTS] >> gvs[]
@@ -1582,11 +1582,13 @@ Proof
     every_case_tac >> gvs[push_def, return_def, application_thm] >>
     gvs[evaluate_state_cases, evaluate_ctxts_cons, evaluate_ctxt_cases,
         evaluate_ctxts_cons, evaluate_ctxt_cases, ADD1, SF SFY_ss]
-    >- (Cases_on `ck` >> gvs[SF SFY_ss])
     >- (
       once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
       every_case_tac >> gvs[SF DNF_ss, SF SFY_ss] >>
-      disj1_tac >> qexists_tac `clk + 1` >> simp[SF SFY_ss]
+      disj1_tac >> qexists_tac `s with clock := s.clock + 1` >>
+      `s with <| clock := s.clock; refs := refs; ffi := ffi |> =
+       s with <| refs := refs; ffi := ffi |>` by gvs[state_component_equality] >>
+      simp[SF SFY_ss]
       )
     >- (
       once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
@@ -1594,13 +1596,9 @@ Proof
       gvs[evaluate_ctxts_cons] >> gvs[evaluate_ctxt_cases, SF SFY_ss]
       )
     >>~ [`evaluate_match`]
-    >- (
-      once_rewrite_tac[cj 2 evaluate_cases] >> simp[SF DNF_ss] >>
-      metis_tac[CONS_APPEND, APPEND_ASSOC]
-      )
     >- simp[Once evaluate_cases, SF SFY_ss]
-    >- (simp[Once evaluate_cases, SF SFY_ss] >> metis_tac[])
-    >- (simp[Once evaluate_cases, SF SFY_ss] >> metis_tac[]) >>
+    >- simp[Once evaluate_cases, SF SFY_ss]
+    >- simp[Once evaluate_cases, SF SFY_ss] >>
     once_rewrite_tac[cj 2 evaluate_cases] >> simp[SF DNF_ss] >>
     metis_tac[CONS_APPEND, APPEND_ASSOC]
     )
@@ -1626,9 +1624,7 @@ Theorem one_step_backward_type_error:
   !env s e c.
     e_step (env,to_small_st s,e,c) = Eabort a
     ⇒
-    evaluate_state F (env,to_small_st s,e,c)
-                   ((s with <| next_type_stamp := 0; next_exn_stamp := 0; clock := 0 |>),
-                    Rerr (Rabort a))
+    evaluate_state ck (env,to_small_st s,e,c) (s, Rerr (Rabort a))
 Proof
   srw_tac[][e_step_def] >>
   cases_on `e` >>
@@ -1643,7 +1639,7 @@ Proof
   srw_tac[][to_small_st_def]
   >> TRY (
     irule_at Any evaluate_ctxts_type_error_matchable >>
-    srw_tac[][state_component_equality])
+    srw_tac[SFY_ss][state_component_equality] >> rpt $ irule_at Any EQ_REFL)
   >- (
     full_simp_tac(srw_ss())[application_thm] >>
     pop_assum mp_tac >> srw_tac[][] >>
@@ -1653,7 +1649,8 @@ Proof
     srw_tac[][Once evaluate_cases] >>
     srw_tac[][Once evaluate_cases] >>
     full_simp_tac(srw_ss())[return_def] >>
-    srw_tac[][state_component_equality]) >>
+    srw_tac[][state_component_equality] >>
+    rpt $ irule_at Any EQ_REFL) >>
   metis_tac[do_con_check_build_conv,NOT_SOME_NONE]
   ) >>
   full_simp_tac(srw_ss())[continue_def] >>
@@ -1663,25 +1660,27 @@ Proof
   every_case_tac >>
   full_simp_tac(srw_ss())[evaluate_state_cases, push_def, return_def] >>
   srw_tac[][evaluate_ctxts_cons, evaluate_ctxt_cases, to_small_st_def] >>
-  srw_tac[][PULL_EXISTS] >- (
-  full_simp_tac(srw_ss())[application_thm] >>
-  every_case_tac >> full_simp_tac(srw_ss())[return_def] >>
-  srw_tac[][oneTheory.one] >>
-  srw_tac[][Once evaluate_cases] >>
-  srw_tac[][Once evaluate_cases] >>
-  srw_tac[][Once evaluate_cases] >>
-  imp_res_tac do_app_type_error >>
-  imp_res_tac do_app_not_timeout >>
-  full_simp_tac(srw_ss())[to_small_st_def] >> srw_tac[][] >>
-  srw_tac[DNF_ss][] >>
-  irule_at Any evaluate_ctxts_type_error_matchable >>
-  srw_tac[][state_component_equality] ) >>
+  srw_tac[][PULL_EXISTS]
+  >- (
+    full_simp_tac(srw_ss())[application_thm] >>
+    every_case_tac >> full_simp_tac(srw_ss())[return_def] >>
+    srw_tac[][oneTheory.one] >>
+    srw_tac[][Once evaluate_cases] >>
+    srw_tac[][Once evaluate_cases] >>
+    srw_tac[][Once evaluate_cases] >>
+    imp_res_tac do_app_type_error >>
+    imp_res_tac do_app_not_timeout >>
+    full_simp_tac(srw_ss())[to_small_st_def] >> srw_tac[][] >>
+    srw_tac[DNF_ss][] >>
+    rpt disj1_tac >> irule_at Any evaluate_ctxts_type_error_matchable >>
+    srw_tac[][state_component_equality] >> rpt $ irule_at Any EQ_REFL
+    ) >>
   srw_tac[][Once evaluate_cases] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [arithmeticTheory.ADD1,to_small_st_def] >>
   srw_tac[][Once evaluate_cases] >>
   srw_tac[DNF_ss][] >> full_simp_tac(srw_ss())[to_small_st_def] >>
   ((irule_at Any evaluate_ctxts_type_error_matchable >>
-    srw_tac[][state_component_equality]) ORELSE
+    srw_tac[][state_component_equality] >> rpt $ irule_at Any EQ_REFL) ORELSE
    metis_tac[do_con_check_build_conv,NOT_SOME_NONE])
 QED
 
@@ -1696,57 +1695,41 @@ QED
 
 Theorem evaluate_state_no_ctxt:
   !env (s:'a state) e r ck.
-    evaluate_state F (env,to_small_st s,Exp e,[]) r
-    ⇔
-      evaluate F env (s with <| next_type_stamp := 0; next_exn_stamp := 0; clock := 0;
-                                eval_state := (FST r).eval_state |>) e r
+    evaluate_state F (env,to_small_st s,Exp e,[]) r ⇔
+    evaluate F env (FST r with <| refs := s.refs; ffi := s.ffi |>) e r
 Proof
   srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
   srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
   full_simp_tac(srw_ss())[to_small_st_def] >>
-  Cases_on`r`>>simp[]>> reverse $ eq_tac >> rw[]
-  >- (
-    qexists_tac `q.eval_state` >>
-    qmatch_asmsub_abbrev_tac `evaluate _ _ s1` >>
-    qmatch_goalsub_abbrev_tac `evaluate _ _ s2` >>
-    qsuff_tac `s1 = s2` >> rw[] >> gvs[] >>
-    unabbrev_all_tac >> simp[state_component_equality]
-    )
-  >- (
-    imp_res_tac evaluate_no_new_types_exns >> gvs[] >>
-    qmatch_asmsub_abbrev_tac `evaluate _ _ s1` >>
-    qmatch_goalsub_abbrev_tac `evaluate _ _ s2` >>
-    qsuff_tac `s1 = s2` >> rw[] >> gvs[] >>
-    unabbrev_all_tac >> simp[state_component_equality]
-    )
+  Cases_on`r`>>simp[]>> reverse $ eq_tac >> rw[SF SFY_ss] >>
+  imp_res_tac evaluate_no_new_types_exns >> gvs[] >>
+  qmatch_asmsub_abbrev_tac `evaluate _ _ s1` >>
+  qmatch_goalsub_abbrev_tac `evaluate _ _ s2` >>
+  qsuff_tac `s1 = s2` >> rw[] >> gvs[] >>
+  unabbrev_all_tac >> simp[state_component_equality] >>
+  drule $ cj 1 big_unclocked >> rw[]
 QED
 
 Theorem evaluate_state_val_no_ctxt:
   !env (s:'a state) e.
-    evaluate_state F (env,to_small_st s,Val e,[]) r
-    ⇔
-      (r = (s with <| next_type_stamp := 0; next_exn_stamp := 0;
-                      clock := 0; eval_state := (FST r).eval_state |>, Rval e))
+    evaluate_state F (env,to_small_st s,Val e,[]) r ⇔
+    ∃s':'a state. r = (s' with <| refs := s.refs; ffi := s.ffi |>, Rval e)
 Proof
   srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
   srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
-  full_simp_tac(srw_ss())[to_small_st_def] >>
-  PairCases_on `r` >> eq_tac >> rw[state_component_equality]
+  full_simp_tac(srw_ss())[to_small_st_def]
 QED
 
 Theorem evaluate_state_val_raise_ctxt:
   !env (s:'a state) v env'.
-    evaluate_state F (env,to_small_st s,Val v,[(Craise (), env')]) r
-    ⇔
-      (r = (s with <| next_type_stamp := 0; next_exn_stamp := 0;
-                      clock := 0; eval_state := (FST r).eval_state |>, Rerr (Rraise v)))
+    evaluate_state F (env,to_small_st s,Val v,[(Craise (), env')]) r ⇔
+    ∃s':'a state. r = (s' with <| refs := s.refs; ffi := s.ffi |>, Rerr (Rraise v))
 Proof
   srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
   srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
   srw_tac[][evaluate_ctxt_cases] >>
   srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
-  full_simp_tac(srw_ss())[to_small_st_def] >>
-  PairCases_on `r` >> eq_tac >> rw[state_component_equality]
+  full_simp_tac(srw_ss())[to_small_st_def]
 QED
 
 Theorem evaluate_change_state = Q.prove(
@@ -1762,48 +1745,29 @@ Theorem small_big_exp_equiv:
    ⇔
    evaluate F env s e (s',r)
 Proof
- srw_tac[][] >>
- eq_tac
- >- (srw_tac[][] >>
-     cases_on `r` >|
-     [all_tac,
-      cases_on `e'`] >>
-     full_simp_tac(srw_ss())[small_eval_def] >>
-     imp_res_tac $ Q.SPEC `F` small_exp_to_big_exp >>
-     full_simp_tac(srw_ss())[evaluate_state_val_no_ctxt, evaluate_state_no_ctxt,
-                             evaluate_state_val_raise_ctxt] >>
-     TRY (
-         gvs[FORALL_PROD] >>
-         first_x_assum $ qspec_then
-          `s' with <| clock := 0; next_type_stamp := 0; next_exn_stamp := 0 |>` mp_tac >>
-         impl_tac >- simp[state_component_equality] >> strip_tac >>
-         imp_res_tac evaluate_ignores_types_exns >>
-         full_simp_tac(srw_ss())[] >>
-         pop_assum (qspecl_then [`s.next_exn_stamp`, `s.next_type_stamp`] mp_tac) >>
-         srw_tac[][] >>
-         match_mp_tac evaluate_change_state >>
-         imp_res_tac big_unclocked >>
-         first_x_assum(qspec_then`s.clock`strip_assume_tac) >>
-         first_assum(match_exists_tac o concl) >>
-         simp[state_component_equality] >> NO_TAC) >>
-     (imp_res_tac one_step_backward_type_error >>
-         full_simp_tac(srw_ss())[] >>
-         res_tac >>
-         imp_res_tac evaluate_ignores_types_exns >>
-         pop_assum (qspecl_then [`s.next_exn_stamp`, `s.next_type_stamp`] mp_tac) >>
-         srw_tac[][] >>
-         pop_assum mp_tac >>
-         ntac 3 (pop_assum kall_tac) >> strip_tac >>
-         match_mp_tac evaluate_change_state >>
-         imp_res_tac big_unclocked >>
-         first_x_assum(qspec_then`s.clock`strip_assume_tac) >>
-         first_assum(match_exists_tac o concl) >>
-         simp[state_component_equality]))
- >- (srw_tac[][] >>
-     imp_res_tac big_exp_to_small_exp >>
-     full_simp_tac(srw_ss())[small_eval_def, to_small_res_def] >>
-     metis_tac [evaluate_no_new_types_exns, FST, big_unclocked])
+  rw[] >> reverse eq_tac
+  >- (
+    rw[] >> imp_res_tac big_exp_to_small_exp >>
+    gvs[small_eval_def, to_small_res_def] >>
+    metis_tac[evaluate_no_new_types_exns, big_unclocked, FST]
+    ) >>
+  rw[] >> reverse (Cases_on `r` >| [all_tac, Cases_on `e'`]) >>
+  gvs[small_eval_def] >> imp_res_tac $ Q.SPEC `F` small_exp_to_big_exp >>
+  gvs[evaluate_state_val_no_ctxt, evaluate_state_no_ctxt,
+      evaluate_state_val_raise_ctxt, PULL_EXISTS]
+  >- (
+    imp_res_tac one_step_backward_type_error >>
+    pop_assum $ qspec_then `F` assume_tac >>
+    irule evaluate_change_state >> first_x_assum $ irule_at Any >>
+    simp[state_component_equality]
+    ) >>
+  pop_assum $ qspec_then `s'` assume_tac >>
+  imp_res_tac evaluate_ignores_types_exns >> gvs[] >>
+  pop_assum $ qspecl_then [`s.next_exn_stamp`, `s.next_type_stamp`] assume_tac >>
+  irule evaluate_change_state >> first_x_assum $ irule_at Any >>
+  imp_res_tac big_unclocked >> gvs[state_component_equality]
 QED
+
 
 (* ---------------------- Small step determinacy ------------------------- *)
 
