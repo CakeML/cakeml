@@ -2,14 +2,12 @@
 Formalization written by Alexander Cox
 *)
 
-open HolKernel boolLib bossLib Parse;
+open preamble;
 
-open listTheory;
-open rich_listTheory;
+open listTheory  rich_listTheory;
 open optionTheory;
 open pairTheory;
 open arithmeticTheory;
-load "ringBufferTheory";
 open ringBufferTheory;
 
 val _ = new_theory"LZSS";
@@ -22,22 +20,6 @@ Definition matchLength_def[simp]:
    then (1 + (matchLength ss ls))
    else 0)
 End
-
-Theorem matchLength_nil[simp]: matchLength [] l = 0
-Proof Cases_on ‘l’ >> simp[]
-QED
-
-Theorem matchLength_nil2[simp]: matchLength s [] = 0
-Proof Cases_on ‘s’ >> simp[]
-QED
-
-Theorem matchLengthWorks:
-  ∀ s l len. matchLength s l  = len ⇒ (TAKE len s) = (TAKE len l)
-Proof
-  Induct_on ‘l’ >- simp[] >>
-  Cases_on ‘s’ >- simp[] >>
-  rw[]
-QED
 
 Definition matchLengthRB_def:
   (matchLengthRB (rb,0):num = 0) ∧
@@ -58,6 +40,192 @@ Definition matchLengthRB'_def:
 Termination
   WF_REL_TAC ‘measure (λ (rb,split), si, li. rb.size - li)’
 End
+
+(* find the longest, right-most match *)
+Definition getMatch_def[simp]:
+  (getMatch [] l : num # num = (0,0)) ∧
+  (getMatch s [] = (0,0)) ∧
+  (getMatch (s::ss) (l::ls) =
+   let ml = matchLength (s::ss) (l::ls);
+       (next_ml,next_md) = getMatch ss (l::ls)
+   in if next_ml < ml then (ml,0)
+      else (next_ml,next_md+1))
+End
+
+EVAL “getMatch "sabbbbbbbbbbabbb" "abbbc"”;
+
+Definition matches_def:
+  matches s l = {(len,dist)| TAKE len l = TAKE len $ DROP dist s}
+End
+
+EVAL “matches "abbshhhwtttttt" "abb"”
+
+Definition longestMatches_def:
+  longestMatches s l = {(len,dist) | ((len,dist) IN matches s l) ∧
+  (∀ len' dist'. (len',dist') IN matches s l ⇒ len' ≤ len )}
+End
+
+EVAL “longestMatches "bbabbababbbbbbbb" "abbbbbb"”
+
+Datatype:
+  LZSS = Lit 'a | LenDist (num # num)
+End
+
+Definition LZmatch_def[simp]:
+  (LZmatch s [] = NONE) ∧
+  (LZmatch search lookahead =
+  let match = getMatch search lookahead
+  in if FST match < 3
+     then SOME $ Lit (HD search)
+     else SOME $ LenDist (FST match, (LENGTH search - (SND match))))
+End
+
+EVAL “LZmatch "aabbccddeeffgghh" "bccdef"”
+
+EVAL “LZmatch "aabbccddeeffgghh" "gghh"”
+
+EVAL “LZmatch "aabbccddeeffgghh" "gh"”
+
+Definition backMatches_def:
+  backMatches s l = {(bl,bd)| TAKE bl l = TAKE bl $ DROP (LENGTH s - bd) s}
+End
+
+(* fixed parameter ordering to here FIXME *)
+
+Definition LZinit_def:
+  LZinit s = ([],
+              TAKE (MIN 258 (LENGTH s))   s,
+              DROP ((MIN 258 (LENGTH s))) s)
+End
+
+Definition tripleLength_def:
+  tripleLength (a,b,c) = LENGTH a + LENGTH b + LENGTH c
+End
+
+
+Overload LAST32k = “LASTN 32768”
+
+(* new version which takes buffer size as a parameter and searches into lookahead *)
+Definition LZcomp_def:
+  LZcomp s split bufSize lookSize =
+  if LENGTH s ≤ split ∨ s = [] ∨ split = 0 ∨ bufSize = 0 ∨ lookSize = 0 then []
+  else
+    let match = LZmatch s (TAKE lookSize (DROP split s));
+        len = case match of
+              | NONE => 1
+              | SOME $ LenDist (ml,_) => MAX ml 1
+              | SOME $ Lit _ => 1;
+        bufDrop = (split + len) - bufSize;
+        recurse = (LZcomp (DROP bufDrop s) (split + len) bufSize lookSize)
+    in case match of
+       | NONE => recurse
+       | SOME m => m::recurse
+Termination
+  WF_REL_TAC ‘measure $ λ(s,split,_,_). MIN (LENGTH s) (LENGTH s - split)’ >>
+  rw[NOT_LESS_EQUAL] >>
+  CASE_TAC
+  >- (Cases_on ‘split + 1 < bufSize’ >> gs[NOT_LESS,MIN_DEF]) >>
+  CASE_TAC
+  >- (Cases_on ‘split + 1 < bufSize’ >> gs[NOT_LESS,MIN_DEF]) >>
+  CASE_TAC >>
+  simp[MAX_DEF,MIN_DEF]
+End
+
+(* old and broken, but has stuff proved about it *)
+Definition LZcompress_def:
+  (LZcompress s [] [] = []) ∧
+  (LZcompress s [] t = []) ∧
+  (LZcompress search lookahead [] =
+   let match = LZmatch lookahead search;
+       len = case match of
+             | NONE => 1
+             | SOME $ LenDist (ml,_) => MAX ml 1
+             | SOME $ Lit _ => 1;
+       search = search ++ (TAKE len lookahead);
+       lookahead = DROP len lookahead ;
+       recurse = (LZcompress (LAST32k search) lookahead [])
+   in case match of
+      | NONE => recurse
+      | SOME m => m::recurse) ∧
+  (LZcompress search lookahead remainder =
+   let match = LZmatch lookahead search;
+       len = case match of
+             | NONE => 1
+             | SOME $ LenDist (ml,_) => MAX ml 1
+             | SOME $ Lit _ => 1;
+       search = search ++ (TAKE len lookahead);
+       lookahead = (DROP len lookahead) ++ (TAKE len remainder) ;
+       remainder = DROP len remainder;
+       recurse = (LZcompress (LAST32k search) lookahead remainder)
+   in case match of
+      | NONE => recurse
+      | SOME m => m::recurse)
+Termination
+  WF_REL_TAC ‘measure $ λ(s,l,r). LENGTH l + LENGTH r’ >>
+  rw[] >>
+  Cases_on ‘getMatch (v10::v11) search’ >>
+  gvs[MAX_DEF] >>
+  simp[LENGTH_TAKE_EQ] >>
+  cheat
+End
+
+Definition LZSS_compress_def:
+  LZSS_compress s =
+   let (searchBuffer,lookaheadBuffer,remainder) = LZinit s;
+   in LZcompress searchBuffer lookaheadBuffer remainder
+End
+
+Definition resolveLenDist_def[simp]:
+  (resolveLenDist [] _ = NONE) ∧
+  (resolveLenDist s (l,d) =
+   if (LENGTH s < d) ∨ (LENGTH s < l) ∨ d < 1 ∨ l < 1
+   then NONE
+   else
+     SOME $ TAKE l $ DROP (LENGTH s - d) s)
+End
+
+Definition LZdecompress_def:
+  (LZdecompress de [] = de) ∧
+  (LZdecompress de (next::t) =
+   let
+     newde =
+     case next of
+     | Lit a => SNOC a de
+     | LenDist ld => case (resolveLenDist de ld) of
+                     | NONE => de
+                     | SOME s => de ++ s
+   in
+     LZdecompress newde t)
+End
+
+Definition LZSS_decompress_def:
+  LZSS_decompress s = LZdecompress [] s
+End
+
+(* lookup data refinement *)
+
+(***************************************
+******          Theorems          ******
+******                            ******
+***************************************)
+
+
+Theorem matchLength_nil[simp]: matchLength [] l = 0
+Proof Cases_on ‘l’ >> simp[]
+QED
+
+Theorem matchLength_nil2[simp]: matchLength s [] = 0
+Proof Cases_on ‘s’ >> simp[]
+QED
+
+Theorem matchLengthWorks:
+  ∀ s l len. matchLength s l  = len ⇒ (TAKE len s) = (TAKE len l)
+Proof
+  Induct_on ‘l’ >- simp[] >>
+  Cases_on ‘s’ >- simp[] >>
+  rw[]
+QED
+
 
 Theorem MOD_lemma:
   0 < y ∧ y ≤ x ∧ x < 2 * y ⇒ (x MOD y = x - y)
@@ -138,16 +306,6 @@ Proof
 *)
 QED
 
-(* find the longest, right-most match *)
-Definition getMatch_def[simp]:
-  (getMatch [] l : num # num = (0,0)) ∧
-  (getMatch s [] = (0,0)) ∧
-  (getMatch (s::ss) (l::ls) =
-   let ml = matchLength (s::ss) (l::ls);
-       (next_ml,next_md) = getMatch ss (l::ls)
-   in if next_ml < ml then (ml,0)
-      else (next_ml,next_md+1))
-End
 
 Theorem getMatch_nil2[simp]:
   getMatch s [] = (0,0)
@@ -170,9 +328,6 @@ Proof
   simp[]
 QED
 
-Definition matches_def:
-  matches s l = {(len,dist)| TAKE len l = TAKE len $ DROP dist s}
-End
 
 Theorem matches_alt:
   (len,dist) IN matches s l ⇒ TAKE len l = TAKE len $ DROP dist s
@@ -192,10 +347,6 @@ Proof
   metis_tac[matches_def, getMatchWorks]
 QED
 
-Definition longestMatches_def:
-  longestMatches s l = {(len,dist) | ((len,dist) IN matches s l) ∧
-  (∀ len' dist'. (len',dist') IN matches s l ⇒ len' ≤ len )}
-End
 
 (* Theorem getMatchLongestMatches: *)
 (*   ∀s t. getMatch s t IN longestMatches s t *)
@@ -213,21 +364,6 @@ Theorem matches_has_zeros:
 Proof simp[matches_def]
 QED
 
-Datatype: LZSS = Lit 'a | LenDist (num # num)
-End
-
-Definition LZmatch_def[simp]:
-  (LZmatch s [] = NONE) ∧
-  (LZmatch search lookahead =
-  let match = getMatch search lookahead
-  in if FST match < 3
-     then SOME $ Lit (HD search)
-     else SOME $ LenDist (FST match, (LENGTH search - (SND match))))
-End
-
-Definition backMatches_def:
-  backMatches s l = {(bl,bd)| TAKE bl l = TAKE bl $ DROP (LENGTH s - bd) s}
-End
 
 Theorem backMatches_alt:
   (len,dist) IN backMatches s l ⇒ TAKE len l = TAKE len $ DROP (LENGTH s - dist) s
@@ -277,18 +413,6 @@ Proof
   drule getMatchInBounds >> simp[]
 QED
 
-(* fixed parameter ordering to here FIXME *)
-
-Definition LZinit_def:
-  LZinit s = ([],
-              TAKE (MIN 258 (LENGTH s))   s,
-              DROP ((MIN 258 (LENGTH s))) s)
-End
-
-Definition tripleLength_def:
-  tripleLength (a,b,c) = LENGTH a + LENGTH b + LENGTH c
-End
-
 
 Theorem LZinit_sameLength:
   ∀s. tripleLength $ LZinit s = LENGTH s
@@ -298,71 +422,6 @@ Proof
   rw[MIN_DEF,LENGTH_TAKE_EQ]
 QED
 
-Overload LAST32k = “LASTN 32768”
-
-(* new version which takes buffer size as a parameter and searches into lookahead *)
-Definition LZcomp_def:
-  LZcomp s split bufSize lookSize =
-  if LENGTH s ≤ split ∨ s = [] ∨ split = 0 ∨ bufSize = 0 ∨ lookSize = 0 then []
-  else
-    let match = LZmatch s (TAKE lookSize (DROP split s));
-        len = case match of
-              | NONE => 1
-              | SOME $ LenDist (ml,_) => MAX ml 1
-              | SOME $ Lit _ => 1;
-        bufDrop = (split + len) - bufSize;
-        recurse = (LZcomp (DROP bufDrop s) (split + len) bufSize lookSize)
-    in case match of
-       | NONE => recurse
-       | SOME m => m::recurse
-Termination
-  WF_REL_TAC ‘measure $ λ(s,split,_,_). MIN (LENGTH s) (LENGTH s - split)’ >>
-  rw[NOT_LESS_EQUAL] >>
-  CASE_TAC
-  >- (Cases_on ‘split + 1 < bufSize’ >> gs[NOT_LESS,MIN_DEF]) >>
-  CASE_TAC
-  >- (Cases_on ‘split + 1 < bufSize’ >> gs[NOT_LESS,MIN_DEF]) >>
-  CASE_TAC >>
-  simp[MAX_DEF,MIN_DEF]
-End
-
-(* old and broken, but has stuff proved about it *)
-Definition LZcompress_def:
-  (LZcompress s [] [] = []) ∧
-  (LZcompress s [] t = []) ∧
-  (LZcompress search lookahead [] =
-   let match = LZmatch lookahead search;
-       len = case match of
-             | NONE => 1
-             | SOME $ LenDist (ml,_) => MAX ml 1
-             | SOME $ Lit _ => 1;
-       search = search ++ (TAKE len lookahead);
-       lookahead = DROP len lookahead ;
-       recurse = (LZcompress (LAST32k search) lookahead [])
-   in case match of
-      | NONE => recurse
-      | SOME m => m::recurse) ∧
-  (LZcompress search lookahead remainder =
-   let match = LZmatch lookahead search;
-       len = case match of
-             | NONE => 1
-             | SOME $ LenDist (ml,_) => MAX ml 1
-             | SOME $ Lit _ => 1;
-       search = search ++ (TAKE len lookahead);
-       lookahead = (DROP len lookahead) ++ (TAKE len remainder) ;
-       remainder = DROP len remainder;
-       recurse = (LZcompress (LAST32k search) lookahead remainder)
-   in case match of
-      | NONE => recurse
-      | SOME m => m::recurse)
-Termination
-  WF_REL_TAC ‘measure $ λ(s,l,r). LENGTH l + LENGTH r’ >>
-  rw[] >>
-  Cases_on ‘getMatch (v10::v11) search’ >>
-  gvs[MAX_DEF] >>
-  simp[LENGTH_TAKE_EQ] >>
-  cheat
-End
 
 (* put into rich list theory *)
 Theorem LASTN_NILL[simp]:
@@ -400,20 +459,6 @@ Proof
         *)
 QED
 
-Definition LZSS_compress_def:
-  LZSS_compress s =
-   let (searchBuffer,lookaheadBuffer,remainder) = LZinit s;
-   in LZcompress searchBuffer lookaheadBuffer remainder
-End
-
-Definition resolveLenDist_def[simp]:
-  (resolveLenDist [] _ = NONE) ∧
-  (resolveLenDist s (l,d) =
-   if (LENGTH s < d) ∨ (LENGTH s < l) ∨ d < 1 ∨ l < 1
-   then NONE
-   else
-     SOME $ TAKE l $ DROP (LENGTH s - d) s)
-End
 
 Theorem resolveLenDist_thm[simp]:
   resolveLenDist t (l,d) = SOME s ⇒ s = TAKE l $ DROP (LENGTH t - d) t
@@ -482,19 +527,6 @@ Proof
   simp[])*)
 QED
 
-Definition LZdecompress_def:
-  (LZdecompress de [] = de) ∧
-  (LZdecompress de (next::t) =
-   let
-     newde =
-     case next of
-     | Lit a => SNOC a de
-     | LenDist ld => case (resolveLenDist de ld) of
-                     | NONE => de
-                     | SOME s => de ++ s
-   in
-     LZdecompress newde t)
-End
 
 Theorem LZdecompress_NIL:
   ∀s t. LZdecompress s t = [] ⇒ s = []
@@ -613,9 +645,6 @@ Proof
       metis_tac[LZcompress_LENGTH_NIL_REMAINDER])
 QED
 
-Definition LZSS_decompress_def:
-  LZSS_decompress s = LZdecompress [] s
-End
 
 Theorem LZSS_decompressWindow:
   ∀s.LZSS_decompress(LZSS_compress s) = s
@@ -624,6 +653,5 @@ Proof
   simp[LZ_inv_thm]
 QED
 
-(* lookup data refinement *)
 
 val _ = export_theory();
