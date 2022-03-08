@@ -1929,10 +1929,8 @@ QED
 
 Theorem untyped_safety_decs:
   (∀d (s:'ffi state) env.
-     s.eval_state = NONE ⇒
      (∃r. evaluate_dec F env s d r) = ¬dec_diverges env s d) ∧
   (∀ds (s:'ffi state) env.
-     s.eval_state = NONE ⇒
      (∃r. evaluate_decs F env s ds r) = ¬decs_diverges env s ds)
 Proof
   ho_match_mp_tac astTheory.dec_induction >> rw[] >>
@@ -1968,26 +1966,26 @@ Proof
     )
   >- (
     gvs[EXISTS_PROD, PULL_EXISTS, declare_env_def] >>
-    ntac 3 $ pop_assum $ mp_tac o GSYM >>
+    ntac 2 $ pop_assum $ mp_tac o GSYM >>
     gvs[] >> rw[] >> eq_tac >> rw[] >> gvs[] >>
-    imp_res_tac evaluate_dec_eval_state >> gvs[] >>
     metis_tac[result_nchotomy, decs_determ, PAIR_EQ, result_11, result_distinct]
     )
-  >- (gvs[EXISTS_PROD, declare_env_def])
+  >- (
+    gvs[EXISTS_PROD, SF DNF_ss] >>
+    Cases_on `declare_env s'.eval_state env` >> gvs[] >> Cases_on `x` >> gvs[]
+    )
   >- (
     gvs[EXISTS_PROD, declare_env_def] >>
     ntac 2 $ pop_assum $ mp_tac o GSYM >> rw[] >> eq_tac >> rw[] >>
-    imp_res_tac evaluate_dec_eval_state >> gvs[] >> res_tac >>
-    imp_res_tac evaluate_dec_eval_state >> gvs[] >>
     metis_tac[result_nchotomy, result_distinct, decs_determ, PAIR_EQ, result_11]
     )
 QED
 
 Theorem untyped_safety_decs_alt:
-  ∀d (s:'ffi state) env.  s.eval_state = NONE ⇒
+  ∀d (s:'ffi state) env.
     (∀r. ¬evaluate_dec F env s d r) = dec_diverges env s d
 Proof
-  rw[] >> drule $ cj 1 untyped_safety_decs >> metis_tac[]
+  rw[] >> metis_tac[cj 1 untyped_safety_decs]
 QED
 
 
@@ -2303,59 +2301,10 @@ Proof
   every_case_tac >> gvs[e_step_def, continue_def]
 QED
 
-Theorem decl_step_eval_state_NONE:
-  ∀benv (st:'ffi state) dev c st' dev' c'.
-    decl_step benv (st, dev, c) = Dstep (st', dev', c') ∧
-    st.eval_state = NONE
-  ⇒ st'.eval_state = NONE
-Proof
-  rw[decl_step_def] >> every_case_tac >> gvs[] >>
-  gvs[decl_continue_def, declare_env_def] >> every_case_tac >> gvs[]
-QED
-
-Theorem RTC_decl_step_reln_eval_state_NONE:
-  ∀benv (st : 'ffi state) dev c st' dev' c'.
-    (decl_step_reln benv)꙳ (st, dev, c) (st', dev', c') ∧
-    st.eval_state = NONE
-  ⇒ st'.eval_state = NONE
-Proof
-  rw[] >>
-  qsuff_tac `
-    ∀a b. (decl_step_reln benv)꙳ a b ⇒
-    ∀(st:'ffi state) dev c st' dev' c'.
-      a = (st, dev, c) ∧ b = (st', dev', c') ∧
-      st.eval_state = NONE
-    ⇒ st'.eval_state = NONE`
-  >- (rw[] >> metis_tac[]) >>
-  Induct_on `RTC (decl_step_reln benv)` >> rw[] >> simp[] >>
-  PairCases_on `a'` >> gvs[] >> first_x_assum irule >>
-  gvs[decl_step_reln_def] >>
-  drule decl_step_eval_state_NONE >> simp[]
-QED
-
-Theorem small_eval_decs_eval_state_NONE:
-  ∀env (st : 'ffi state) ds st' res.
-    small_eval_decs env st ds (st', res) ∧
-    st.eval_state = NONE
-  ⇒ st'.eval_state = NONE
-Proof
-  Induct_on `small_eval_decs` >> rw[]
-  >- (
-    first_x_assum irule >> simp[] >>
-    irule RTC_decl_step_reln_eval_state_NONE >> gvs[small_eval_dec_def] >>
-    rpt $ goal_assum drule
-    )
-  >- (
-    irule RTC_decl_step_reln_eval_state_NONE >> gvs[small_eval_dec_def] >>
-    PairCases_on `dst'` >> rpt $ goal_assum drule
-    )
-QED
-
 Theorem small_eval_decs_Rval_Dmod_lemma[local]:
   ∀env (st:'ffi state) decs st' new_env envc envb enva mn.
     small_eval_decs env st decs (st', Rval new_env) ∧
-    env = envc +++ envb +++ enva ∧
-    st.eval_state = NONE
+    env = envc +++ envb +++ enva
   ⇒ (decl_step_reln enva)꙳ (st,Env envc,[Cdmod mn envb decs])
      (st', Env $ lift_dec_env mn (new_env +++ envc +++ envb), [])
 Proof
@@ -2368,15 +2317,13 @@ Proof
     mp_tac RTC_decl_step_reln_ctxt_weaken >>
   simp[collapse_env_def] >> disch_then drule >> simp[] >> strip_tac >>
   irule $ iffRL RTC_CASES_RTC_TWICE >> goal_assum drule >>
-  irule $ iffRL RTC_CASES_RTC_TWICE >> first_x_assum $ irule_at Any >> simp[] >>
-  simp[extend_dec_env_def] >>
-  irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+  irule $ iffRL RTC_CASES_RTC_TWICE >>
+  first_x_assum $ irule_at Any >> simp[extend_dec_env_def]
 QED
 
 Theorem small_eval_decs_Rval_Dmod:
   ∀env st ds res st' new_env mn.
-   small_eval_decs env st ds (st', Rval new_env) ∧
-   st.eval_state = NONE
+   small_eval_decs env st ds (st', Rval new_env)
   ⇒ small_eval_dec env (st, Decl (Dmod mn ds), [])
       (st', Rval $ lift_dec_env mn new_env)
 Proof
@@ -2388,8 +2335,7 @@ QED
 Theorem small_eval_decs_Rerr_Dmod_lemma[local]:
   ∀env (st:'ffi state) decs st' err envc envb enva mn.
     small_eval_decs env st decs (st', Rerr err) ∧
-    env = envc +++ envb +++ enva ∧
-    st.eval_state = NONE
+    env = envc +++ envb +++ enva
   ⇒ ∃dst.
      (decl_step_reln enva)꙳ (st,Env envc,[Cdmod mn envb decs]) (st', dst) ∧
      decl_step enva (st', dst) = Rerr_to_decl_step_result err
@@ -2411,14 +2357,12 @@ Proof
     mp_tac RTC_decl_step_reln_ctxt_weaken >>
   simp[collapse_env_def] >> disch_then drule >> simp[] >> strip_tac >>
   irule_at Any $ iffRL RTC_CASES_RTC_TWICE >> goal_assum drule >>
-  first_x_assum irule >> simp[] >>
-  irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+  first_x_assum irule >> simp[]
 QED
 
 Theorem small_eval_decs_Rerr_Dmod:
   ∀env st ds res st' err mn.
-   small_eval_decs env st ds (st', Rerr err) ∧
-   st.eval_state = NONE
+   small_eval_decs env st ds (st', Rerr err)
   ⇒ small_eval_dec env (st, Decl (Dmod mn ds), []) (st', Rerr err)
 Proof
   rw[] >> drule small_eval_decs_Rerr_Dmod_lemma >>
@@ -2430,8 +2374,7 @@ QED
 Theorem small_eval_decs_Rval_Dlocal_lemma_1[local]:
   ∀env (st:'ffi state) decs st' new_env envc envb enva gds.
     small_eval_decs env st decs (st', Rval new_env) ∧
-    env = envc +++ envb +++ enva ∧
-    st.eval_state = NONE
+    env = envc +++ envb +++ enva
   ⇒ (decl_step_reln enva)꙳ (st,Env envc,[CdlocalL envb decs gds])
      (st', Env empty_dec_env,
       [CdlocalG (new_env +++ envc +++ envb) empty_dec_env gds])
@@ -2445,16 +2388,14 @@ Proof
     mp_tac RTC_decl_step_reln_ctxt_weaken >>
   simp[collapse_env_def] >> disch_then drule >> simp[] >> strip_tac >>
   irule $ iffRL RTC_CASES_RTC_TWICE >> goal_assum drule >>
-  irule $ iffRL RTC_CASES_RTC_TWICE >> first_x_assum $ irule_at Any >> simp[] >>
-  simp[extend_dec_env_def] >>
-  irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+  irule $ iffRL RTC_CASES_RTC_TWICE >>
+  first_x_assum $ irule_at Any >> simp[extend_dec_env_def]
 QED
 
 Theorem small_eval_decs_Rval_Dlocal_lemma_2[local]:
   ∀env (st:'ffi state) decs st' new_env envc lenv genv enva.
     small_eval_decs env st decs (st', Rval new_env) ∧
-    env = envc +++ genv +++ lenv +++ enva ∧
-    st.eval_state = NONE
+    env = envc +++ genv +++ lenv +++ enva
   ⇒ (decl_step_reln enva)꙳ (st,Env envc,[CdlocalG lenv genv decs])
      (st', Env $ new_env +++ envc +++ genv, [])
 Proof
@@ -2467,16 +2408,14 @@ Proof
     mp_tac RTC_decl_step_reln_ctxt_weaken >>
   simp[collapse_env_def] >> disch_then drule >> simp[] >> strip_tac >>
   irule $ iffRL RTC_CASES_RTC_TWICE >> goal_assum drule >>
-  irule $ iffRL RTC_CASES_RTC_TWICE >> first_x_assum $ irule_at Any >> simp[] >>
-  simp[extend_dec_env_def] >>
-  irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+  irule $ iffRL RTC_CASES_RTC_TWICE >>
+  first_x_assum $ irule_at Any >> simp[extend_dec_env_def]
 QED
 
 Theorem small_eval_decs_Rval_Dlocal:
   ∀env (st:'ffi state) lds st' lenv gds st'' genv.
    small_eval_decs env st lds (st', Rval lenv) ∧
-   small_eval_decs (lenv +++ env) st' gds (st'', Rval genv) ∧
-   st.eval_state = NONE
+   small_eval_decs (lenv +++ env) st' gds (st'', Rval genv)
   ⇒ small_eval_dec env (st, Decl (Dlocal lds gds), []) (st'', Rval $ genv)
 Proof
   rw[] >>
@@ -2486,18 +2425,14 @@ Proof
   simp[] >> strip_tac >> strip_tac >>
   drule small_eval_decs_Rval_Dlocal_lemma_2 >>
   disch_then $ qspecl_then [`empty_dec_env`,`lenv`,`empty_dec_env`,`env`] mp_tac >>
-  simp[] >> impl_tac >> rw[]
-  >- (irule small_eval_decs_eval_state_NONE >> rpt $ goal_assum drule) >>
-  simp[small_eval_dec_def] >>
-  simp[Once RTC_CASES1, SF decl_step_ss] >>
+  rw[] >> simp[small_eval_dec_def] >> simp[Once RTC_CASES1, SF decl_step_ss] >>
   irule $ iffRL RTC_CASES_RTC_TWICE >> goal_assum drule >> simp[]
 QED
 
 Theorem small_eval_decs_Rerr_Dlocal_lemma_1[local]:
   ∀env (st:'ffi state) decs st' err envc envb enva gds.
     small_eval_decs env st decs (st', Rerr err) ∧
-    env = envc +++ envb +++ enva ∧
-    st.eval_state = NONE
+    env = envc +++ envb +++ enva
   ⇒ ∃dst.
       (decl_step_reln enva)꙳ (st,Env envc,[CdlocalL envb decs gds]) (st', dst) ∧
       decl_step enva (st', dst) = Rerr_to_decl_step_result err
@@ -2519,15 +2454,13 @@ Proof
     mp_tac RTC_decl_step_reln_ctxt_weaken >>
   simp[collapse_env_def] >> disch_then drule >> simp[] >> strip_tac >>
   irule_at Any $ iffRL RTC_CASES_RTC_TWICE >> goal_assum drule >>
-  first_x_assum $ irule_at Any >> simp[] >>
-  irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+  first_x_assum $ irule_at Any >> simp[]
 QED
 
 Theorem small_eval_decs_Rerr_Dlocal_lemma_2[local]:
   ∀env (st:'ffi state) decs st' err envc lenv genv enva.
     small_eval_decs env st decs (st', Rerr err) ∧
-    env = envc +++ genv +++ lenv +++ enva ∧
-    st.eval_state = NONE
+    env = envc +++ genv +++ lenv +++ enva
   ⇒ ∃dst.
       (decl_step_reln enva)꙳ (st,Env envc,[CdlocalG lenv genv decs]) (st',dst) ∧
       decl_step enva (st',dst) = Rerr_to_decl_step_result err
@@ -2549,17 +2482,15 @@ Proof
     mp_tac RTC_decl_step_reln_ctxt_weaken >>
   simp[collapse_env_def] >> disch_then drule >> simp[] >> strip_tac >>
   irule_at Any $ iffRL RTC_CASES_RTC_TWICE >> goal_assum drule >>
-  first_x_assum $ irule_at Any >> simp[] >>
-  irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+  first_x_assum $ irule_at Any >> simp[]
 QED
 
 Theorem small_eval_decs_Rerr_Dlocal:
-  ∀env st lds gds res st' err mn.
+  ∀env st lds gds st' err.
    (small_eval_decs env st lds (st', Rerr err) ∨
     ∃st'' new_env.
       small_eval_decs env st lds (st'', Rval new_env) ∧
-      small_eval_decs (new_env +++ env) st'' gds (st', Rerr err)) ∧
-   st.eval_state = NONE
+      small_eval_decs (new_env +++ env) st'' gds (st', Rerr err))
   ⇒ small_eval_dec env (st, Decl (Dlocal lds gds), []) (st', Rerr err)
 Proof
   rw[small_eval_dec_def] >>
@@ -2568,19 +2499,16 @@ Proof
   irule_at Any $ iffRL RTC_CASES_RTC_TWICE >>
   irule_at Any small_eval_decs_Rval_Dlocal_lemma_1 >>
   goal_assum drule >> simp[] >>
-  irule small_eval_decs_Rerr_Dlocal_lemma_2 >> simp[] >>
-  irule small_eval_decs_eval_state_NONE >> rpt $ goal_assum drule
+  irule small_eval_decs_Rerr_Dlocal_lemma_2 >> simp[]
 QED
 
 Theorem big_dec_to_small_dec:
   (∀ck env (st:'ffi state) d r.
-    evaluate_dec ck env st d r ⇒
-    ¬ck ∧ st.eval_state = NONE
+    evaluate_dec ck env st d r ⇒ ¬ck
   ⇒ small_eval_dec env (st, Decl d, []) r) ∧
 
   (∀ck env (st:'ffi state) ds r.
-    evaluate_decs ck env st ds r ⇒
-    ¬ck ∧ st.eval_state = NONE
+    evaluate_decs ck env st ds r ⇒ ¬ck
   ⇒ small_eval_decs env st ds r)
 Proof
   ho_match_mp_tac evaluate_dec_ind >> rw[small_eval_dec_def] >> gvs[]
@@ -2653,7 +2581,7 @@ Proof
     irule_at Any RTC_REFL >> simp[decl_step_def] >>
     IF_CASES_TAC >> gvs[] >> pop_assum mp_tac >> simp[]
     )
-  >- (irule RTC_SINGLE >> simp[SF decl_step_ss] >> gvs[declare_env_def])
+  >- (irule RTC_SINGLE >> simp[SF decl_step_ss, collapse_env_def])
   >- (irule_at Any RTC_REFL >> simp[SF decl_step_ss, collapse_env_def])
   >- (irule RTC_SINGLE >> simp[SF decl_step_ss, empty_dec_env_def])
   >- (irule RTC_SINGLE >> simp[SF decl_step_ss])
@@ -2668,13 +2596,11 @@ Proof
     >- (
       irule small_eval_decs_Rval_Dlocal >> simp[] >>
       goal_assum drule >> first_x_assum irule >>
-      irule small_eval_decs_eval_state_NONE >>
       rpt $ goal_assum drule
       )
     >- (
       irule small_eval_decs_Rerr_Dlocal >> simp[] >> disj2_tac >>
       goal_assum drule >> first_x_assum irule >>
-      irule small_eval_decs_eval_state_NONE >>
       rpt $ goal_assum drule
       )
     )
@@ -2689,9 +2615,7 @@ Proof
   >- (
     simp[Once small_eval_decs_cases] >> disj1_tac >>
     irule_at Any EQ_REFL >> simp[small_eval_dec_def] >>
-    goal_assum drule >> simp[] >>
-    first_x_assum irule >>
-    irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+    goal_assum drule >> simp[]
     )
 QED
 
@@ -2903,21 +2827,18 @@ QED
 
 Theorem dec_diverges_imp_small_decl_diverges:
   (∀env (st:'ffi state) d. dec_diverges env st d ⇒
-    ∀env' cs. collapse_env env' cs = env ∧ st.eval_state = NONE ⇒
+    ∀env' cs. collapse_env env' cs = env ⇒
       small_decl_diverges env' (st, Decl d, cs)) ∧
 
   (∀env (st:'ffi state) ds. decs_diverges env st ds ⇒
     (∀env' cs enva envb mn.
-      enva +++ envb +++ collapse_env env' cs = env ∧
-      st.eval_state = NONE
+      enva +++ envb +++ collapse_env env' cs = env
      ⇒ small_decl_diverges env' (st, Env enva, Cdmod mn envb ds :: cs)) ∧
     (∀env' cs enva envb gds.
-      enva +++ envb +++ collapse_env env' cs = env ∧
-      st.eval_state = NONE
+      enva +++ envb +++ collapse_env env' cs = env
      ⇒ small_decl_diverges env' (st, Env enva, CdlocalL envb ds gds :: cs)) ∧
     (∀env' cs enva lenv genv.
-      enva +++ genv +++ lenv +++ collapse_env env' cs = env ∧
-      st.eval_state = NONE
+      enva +++ genv +++ lenv +++ collapse_env env' cs = env
      ⇒ small_decl_diverges env' (st, Env enva, CdlocalG lenv genv ds :: cs)))
 Proof
   ho_match_mp_tac dec_diverges_ind >> rw[]
@@ -2938,8 +2859,7 @@ Proof
     disch_then $ qspecl_then [`empty_dec_env`,`empty_dec_env`] mp_tac >> simp[] >>
     disch_then $ qspec_then `ds` assume_tac >>
     drule RTC_decl_step_reln_ctxt_weaken >> simp[] >> disch_then $ irule_at Any >>
-    first_x_assum $ irule >> simp[] >>
-    irule small_eval_decs_eval_state_NONE >> rpt $ goal_assum drule
+    first_x_assum $ irule >> simp[]
     )
   >- (
     irule small_decl_diverges_prefix >>
@@ -2969,8 +2889,7 @@ Proof
       mp_tac RTC_decl_step_reln_ctxt_weaken >>
     simp[collapse_env_def] >> gvs[small_eval_dec_def] >>
     disch_then drule >> simp[] >> disch_then $ irule_at Any >>
-    first_x_assum irule >> simp[] >>
-    irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+    first_x_assum irule >> simp[]
     )
   >- (
     irule small_decl_diverges_prefix >>
@@ -2981,8 +2900,7 @@ Proof
       mp_tac RTC_decl_step_reln_ctxt_weaken >>
     simp[collapse_env_def] >> gvs[small_eval_dec_def] >>
     disch_then drule >> simp[] >> disch_then $ irule_at Any >>
-    first_x_assum irule >> simp[] >>
-    irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+    first_x_assum irule >> simp[]
     )
   >- (
     irule small_decl_diverges_prefix >>
@@ -2993,13 +2911,12 @@ Proof
       mp_tac RTC_decl_step_reln_ctxt_weaken >>
     simp[collapse_env_def] >> gvs[small_eval_dec_def] >>
     disch_then drule >> simp[] >> disch_then $ irule_at Any >>
-    first_x_assum irule >> simp[] >>
-    irule RTC_decl_step_reln_eval_state_NONE >> rpt $ goal_assum drule
+    first_x_assum irule >> simp[]
     )
 QED
 
 Theorem small_big_dec_equiv:
-  ∀env (st:'ffi state) d r.  st.eval_state = NONE ⇒
+  ∀env (st:'ffi state) d r.
     evaluate_dec F env st d r = small_eval_dec env (st, Decl d, []) r
 Proof
   rw[] >> eq_tac >> rw[]
@@ -3010,8 +2927,7 @@ Proof
     drule $ cj 1 big_dec_to_small_dec >> simp[] >> strip_tac >>
     disch_then drule >> rw[] >> gvs[]
     ) >>
-  drule $ iffLR untyped_safety_decs_alt >>
-  disch_then drule >> strip_tac >>
+  drule $ iffLR untyped_safety_decs_alt >> strip_tac >>
   drule_at Any $ cj 1 dec_diverges_imp_small_decl_diverges >> simp[] >>
   qexistsl_tac [`env`,`[]`] >> simp[collapse_env_def] >>
   simp[small_decl_diverges_def] >>
@@ -3021,7 +2937,7 @@ Proof
 QED
 
 Theorem small_big_decs_equiv:
-  ∀env (st:'ffi state) d r.  st.eval_state = NONE ⇒
+  ∀env (st:'ffi state) d r.
     evaluate_decs F env st ds r = small_eval_decs env st ds r
 Proof
   rw[] >> eq_tac >> rw[]
@@ -3032,8 +2948,7 @@ Proof
     drule $ cj 2 big_dec_to_small_dec >> simp[] >> strip_tac >>
     disch_then drule >> rw[] >> gvs[]
     ) >>
-  drule $ iffRL $ cj 2 untyped_safety_decs >> simp[] >>
-  goal_assum $ drule_at Any >> CCONTR_TAC >> gvs[] >>
+  qspecl_then [`ds`,`st`,`env`] assume_tac $ iffRL $ cj 2 untyped_safety_decs >> gvs[] >>
   drule_at Any $ cj 3 $ cj 2 dec_diverges_imp_small_decl_diverges >> simp[] >>
   qexistsl_tac [`env`,`[]`,`empty_dec_env`,`empty_dec_env`,`empty_dec_env`] >>
   simp[collapse_env_def, small_decl_diverges_def] >>
@@ -3060,7 +2975,7 @@ Proof
 QED
 
 Theorem small_big_dec_equiv_diverge:
-  ∀env (st:'ffi state) d.  st.eval_state = NONE ⇒
+  ∀env (st:'ffi state) d.
     dec_diverges env st d = small_decl_diverges env (st, Decl d, [])
 Proof
   rw[] >> eq_tac >> rw[]
@@ -3074,7 +2989,7 @@ Proof
 QED
 
 Theorem small_big_decs_equiv_diverge:
-  ∀env (st:'ffi state) ds.  st.eval_state = NONE ⇒
+  ∀env (st:'ffi state) ds.
     decs_diverges env st ds = small_decl_diverges env (st, Decl (Dlocal [] ds), [])
 Proof
   rw[] >> eq_tac >> rw[]
