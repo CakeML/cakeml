@@ -3388,12 +3388,187 @@ Proof
 QED
 
 Theorem big_exp_to_small_exp_timeout:
-  ∀ck env ^s e s'.
+  ∀env ^s e s'.
     evaluate T env s e (s', Rerr (Rabort Rtimeout_error)) ⇒
     ∃env' ev cs.
       RTC e_step_reln (env, to_small_st s, Exp e, []) (env', to_small_st s', ev, cs)
 Proof
   rw[big_exp_to_small_exp_timeout_lemma]
+QED
+
+Theorem decl_step_to_Dmod:
+  ∀left mid right env ^s sm envm envc envb enva mn.
+    small_eval_decs env s left (sm, Rval envm) ∧
+    env = envc +++ envb +++ enva
+  ⇒ RTC (decl_step_reln enva)
+      (s, Env envc, [Cdmod mn envb (left ++ [mid] ++ right)])
+      (sm, Decl mid, [Cdmod mn (envm +++ envc +++ envb) right])
+Proof
+  Induct >> rw[] >> gvs[]
+  >- (
+    gvs[Once small_eval_decs_cases] >>
+    irule RTC_SUBSET >>
+    simp[decl_step_reln_def, decl_step_def, decl_continue_def]
+    ) >>
+  qpat_x_assum `small_eval_decs _ _ _ _` mp_tac >>
+  simp[Once small_eval_decs_cases] >> rw[small_eval_dec_def] >>
+  simp[Once RTC_CASES1, decl_step_reln_def, decl_step_def, decl_continue_def] >>
+  qspecl_then [`enva`,`[Cdmod mn (envc +++ envb) (left ++ [mid] ++ right)]`]
+    mp_tac RTC_decl_step_reln_ctxt_weaken >>
+  simp[collapse_env_def] >> disch_then drule >> rw[] >>
+  simp[Once RTC_CASES_RTC_TWICE] >> goal_assum drule >>
+  `∃envl. r = Rval envl` by (Cases_on `r` >> gvs[combine_dec_result_def]) >> gvs[] >>
+  `envm = envl +++ env` by gvs[combine_dec_result_def, extend_dec_env_def] >> gvs[] >>
+  once_rewrite_tac[GSYM extend_dec_env_assoc] >> last_x_assum irule >> simp[]
+QED
+
+Theorem decl_step_to_Dlocal_global:
+  ∀left mid right env ^s sm envm envd envc envb enva.
+    small_eval_decs env s left (sm, Rval envm) ∧
+    env = envd +++ envc +++ envb +++ enva
+  ⇒ RTC (decl_step_reln enva)
+      (s, Env envd, [CdlocalG envb envc (left ++ [mid] ++ right)])
+      (sm, Decl mid, [CdlocalG envb (envm +++ envd +++ envc) right])
+Proof
+  Induct >> rw[] >> gvs[]
+  >- (
+    gvs[Once small_eval_decs_cases] >>
+    irule RTC_SUBSET >>
+    simp[decl_step_reln_def, decl_step_def, decl_continue_def]
+    ) >>
+  qpat_x_assum `small_eval_decs _ _ _ _` mp_tac >>
+  simp[Once small_eval_decs_cases] >> rw[small_eval_dec_def] >>
+  simp[Once RTC_CASES1, decl_step_reln_def, decl_step_def, decl_continue_def] >>
+  qspecl_then [`enva`,`[CdlocalG envb (envd +++ envc) (left ++ [mid] ++ right)]`]
+    mp_tac RTC_decl_step_reln_ctxt_weaken >>
+  simp[collapse_env_def] >> disch_then drule >> rw[] >>
+  simp[Once RTC_CASES_RTC_TWICE] >> goal_assum drule >>
+  `∃envl. r = Rval envl` by (Cases_on `r` >> gvs[combine_dec_result_def]) >> gvs[] >>
+  `envm = envl +++ env` by gvs[combine_dec_result_def, extend_dec_env_def] >> gvs[] >>
+  once_rewrite_tac[GSYM extend_dec_env_assoc] >> last_x_assum irule >> simp[]
+QED
+
+Theorem decl_step_to_Dlocal_local:
+  ∀left mid right env ^s sm envm envc envb enva ds.
+    small_eval_decs env s left (sm, Rval envm) ∧
+    env = envc +++ envb +++ enva
+  ⇒ RTC (decl_step_reln enva)
+      (s, Env envc, [CdlocalL envb (left ++ [mid] ++ right) ds])
+      (sm, Decl mid, [CdlocalL (envm +++ envc +++ envb) right ds])
+Proof
+  Induct >> rw[] >> gvs[]
+  >- (
+    gvs[Once small_eval_decs_cases] >>
+    irule RTC_SUBSET >>
+    simp[decl_step_reln_def, decl_step_def, decl_continue_def]
+    ) >>
+  qpat_x_assum `small_eval_decs _ _ _ _` mp_tac >>
+  simp[Once small_eval_decs_cases] >> rw[small_eval_dec_def] >>
+  simp[Once RTC_CASES1, decl_step_reln_def, decl_step_def, decl_continue_def] >>
+  qspecl_then [`enva`,`[CdlocalL (envc +++ envb) (left ++ [mid] ++ right) ds]`]
+    mp_tac RTC_decl_step_reln_ctxt_weaken >>
+  simp[collapse_env_def] >> disch_then drule >> rw[] >>
+  simp[Once RTC_CASES_RTC_TWICE] >> goal_assum drule >>
+  `∃envl. r = Rval envl` by (Cases_on `r` >> gvs[combine_dec_result_def]) >> gvs[] >>
+  `envm = envl +++ env` by gvs[combine_dec_result_def, extend_dec_env_def] >> gvs[] >>
+  once_rewrite_tac[GSYM extend_dec_env_assoc] >> last_x_assum irule >> simp[]
+QED
+
+Theorem big_dec_to_small_dec_timeout_lemma:
+  (∀ck env ^s d r.
+     evaluate_dec ck env s d r ⇒ ∀s'. r = (s', Rerr (Rabort Rtimeout_error)) ∧ ck ⇒
+     ∃dev dcs.
+      RTC (decl_step_reln env)
+        (s with clock := s'.clock, Decl d, []) (s', dev, dcs)) ∧
+  (∀ck env ^s ds r.
+     evaluate_decs ck env s ds r ⇒ ∀s'. r = (s', Rerr (Rabort Rtimeout_error)) ∧ ck ⇒
+     ∃left mid right sl envl dev dcs. ds = left ++ [mid] ++ right ∧
+      small_eval_decs env
+        (s with clock := s'.clock) left (sl with clock := s'.clock, Rval envl) ∧
+      RTC (decl_step_reln (envl +++ env))
+        (sl with clock := s'.clock, Decl mid, []) (s', dev, dcs))
+Proof
+  ho_match_mp_tac evaluate_dec_strongind >> rw[]
+  >- ( (* Dlet *)
+    drule big_exp_to_small_exp_timeout >> rw[] >>
+    dxrule e_step_reln_decl_step_reln >>
+    disch_then $ qspecl_then [`env`,`s with clock := s'.clock`,`locs`,`p`,`[]`] mp_tac >>
+    gvs[to_small_st_def] >>
+    `s with <| clock := s'.clock; refs := s.refs; ffi := s.ffi |> =
+     s with clock := s'.clock` by gvs[state_component_equality] >>
+    qsuff_tac `s with <| clock := s'.clock; refs := s'.refs; ffi := s'.ffi |> = s'` >>
+    rw[]
+    >- (
+      irule_at Any $ cj 2 RTC_RULES >>
+      simp[decl_step_reln_def, decl_step_def, collapse_env_def, SF SFY_ss]
+      )
+    >- (
+      gvs[state_component_equality] >>
+      drule $ cj 1 evaluate_no_new_types_exns >> simp[]
+      )
+    )
+  >- ( (* Dmod *)
+    irule_at Any $ cj 2 RTC_RULES >> simp[decl_step_reln_def, decl_step_def] >>
+    dxrule decl_step_to_Dmod >>
+    disch_then $ qspecl_then
+      [`mid`,`right`,`empty_dec_env`,`empty_dec_env`,`env`,`mn`] mp_tac >> rw[] >>
+    simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
+    qspecl_then [`env`,`[Cdmod mn envl right]`]
+      mp_tac RTC_decl_step_reln_ctxt_weaken >>
+    simp[collapse_env_def] >> disch_then dxrule >> simp[SF SFY_ss]
+    )
+  >- (
+    rev_dxrule $ cj 2 evaluate_decs_clocked_to_unclocked >> simp[] >>
+    disch_then $ qspec_then `s''.clock` assume_tac >> gvs[with_same_clock] >>
+    dxrule $ cj 2 big_dec_to_small_dec >> simp[] >> strip_tac >>
+    dxrule small_eval_decs_Rval_Dlocal_lemma_1 >>
+    disch_then $ qspecl_then
+      [`empty_dec_env`,`empty_dec_env`,`env`,`left ++ [mid] ++ right`] mp_tac >>
+    rw[] >>
+    irule_at Any $ cj 2 RTC_RULES >> simp[decl_step_reln_def, decl_step_def] >>
+    simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
+    drule decl_step_to_Dlocal_global >>
+    disch_then $ qspecl_then
+      [`mid`,`right`,`empty_dec_env`,`empty_dec_env`,`new_env`,`env`] mp_tac >>
+    rw[] >> simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
+    qspecl_then [`env`,`[CdlocalG new_env envl right]`]
+      mp_tac RTC_decl_step_reln_ctxt_weaken >>
+    simp[collapse_env_def] >> disch_then dxrule >> simp[SF SFY_ss]
+    )
+  >- (
+    irule_at Any $ cj 2 RTC_RULES >> simp[decl_step_reln_def, decl_step_def] >>
+    drule decl_step_to_Dlocal_local >>
+    disch_then $ qspecl_then
+      [`mid`,`right`,`empty_dec_env`,`empty_dec_env`,`env`,`ds'`] mp_tac >>
+    rw[] >> simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
+    qspecl_then [`env`,`[CdlocalL envl right ds']`]
+      mp_tac RTC_decl_step_reln_ctxt_weaken >>
+    simp[collapse_env_def] >> disch_then dxrule >> simp[SF SFY_ss]
+    )
+  >- (
+    qexists_tac `[]` >> simp[Once small_eval_decs_cases] >>
+    irule_at Any EQ_REFL >> simp[SF SFY_ss]
+    )
+  >- (
+    Cases_on `r` >> gvs[combine_dec_result_def] >>
+    qexists_tac `d::left` >> simp[] >>
+    simp[Once small_eval_decs_cases, SF DNF_ss, GSYM CONJ_ASSOC] >>
+    rpt $ goal_assum $ dxrule_at Any >>
+    simp[combine_dec_result_def, extend_dec_env_def] >>
+    rev_dxrule $ cj 1 evaluate_decs_clocked_to_unclocked >> simp[] >>
+    disch_then $ qspec_then `s3.clock` assume_tac >>
+    dxrule $ cj 1 big_dec_to_small_dec >> simp[]
+    )
+QED
+
+Theorem big_dec_to_small_dec_timeout:
+  ∀env ^s d s'.
+    evaluate_dec T env s d (s', Rerr (Rabort Rtimeout_error)) ⇒
+    ∃dev dcs.
+      RTC (decl_step_reln env)
+        (s with clock := s'.clock, Decl d, []) (s', dev, dcs)
+Proof
+  rw[big_dec_to_small_dec_timeout_lemma]
 QED
 
 Theorem do_app_ffi_changed:
