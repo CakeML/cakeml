@@ -8,6 +8,7 @@ open rich_listTheory alistTheory listTheory;
 open sortingTheory arithmeticTheory;
 val _ = new_theory "compression";
 
+
 (********************************************)
 (*          Substitution function           *)
 (********************************************)
@@ -31,6 +32,7 @@ Termination
   \\ rpt strip_tac
   \\ gvs[find_match_def]
 End
+
 
 (********************************************)
 (*          Generate dictionary             *)
@@ -70,8 +72,6 @@ Proof
   \\ simp_tac std_ss [base_keys_def, listTheory.MEM_GENLIST, listTheory.CONS_11]
   \\ metis_tac []
 QED
-
-
 
 Definition extract_fixed_substrings_def:
   extract_fixed_substrings [] n = [] ∧
@@ -123,7 +123,7 @@ End
 
 
 (***************************************************)
-(*              FLIP_ALIST + THeorems              *)
+(*              FLIP_ALIST + Theorems              *)
 (***************************************************)
 
 Definition FLIP_ALIST_def:
@@ -156,10 +156,10 @@ Proof
   \\ gvs[FLIP_ALIST_o]
 QED
 
+
 (***************************************************)
 (*      Compression & Expansion functions          *)
 (***************************************************)
-
 
 Definition decompress_def:
   decompress (s:string) = tab_sub s (FLIP_ALIST lorem_dict)
@@ -191,21 +191,5 @@ Proof
   \\ CASE_TAC
   \\ simp[]
 QED
-
-Theorem compress_inv:
-  ∀s. decompress (compress s) = s
-Proof
-  strip_tac
-  \\ gvs[decompress_def, compress_def, tab_sub_def]
-  \\ Cases_on ‘s’
-  \\ gvs[decompress_def, compress_def, tab_sub_def]
-  \\ Cases_on ‘t’
-  \\ rw[decompress_def, compress_def, tab_sub_def, FLIP_ALIST_def]
-  \\cheat
-QED
-
-
-
-
 
 val _ = export_theory();
