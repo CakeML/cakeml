@@ -130,4 +130,71 @@ Inductive evaluate_state:
       ⇒ evaluate_state ck (env, s, Val v, c) bv)
 End
 
+Definition lift_dec_result_def:
+  lift_dec_result mn (Rval env) = Rval (lift_dec_env mn env) ∧
+  lift_dec_result mn (Rerr r) = Rerr r
+End
+
+val _ = set_fixity "+++" (Infixl 480);
+Overload "+++" = “extend_dec_env”;
+
+Inductive evaluate_dec_ctxt:
+  (evaluate_decs ck (env' +++ env +++ benv) s ds (s',r)
+    ⇒ evaluate_dec_ctxt ck benv s (Cdmod mn env ds) env'
+        (s', lift_dec_result mn (combine_dec_result (env' +++ env) r))) ∧
+
+  (evaluate_decs ck (env' +++ lenv +++ benv) s lds (ls, Rerr err)
+    ⇒ evaluate_dec_ctxt ck benv s (CdlocalL lenv lds gds) env' (ls, Rerr err)) ∧
+
+  (evaluate_decs ck (env' +++ lenv +++ benv) s lds (ls, Rval lenv') ∧
+   evaluate_decs ck (lenv' +++ env' +++ lenv +++ benv) ls gds (gs, r)
+    ⇒ evaluate_dec_ctxt ck benv s (CdlocalL lenv lds gds) env' (gs, r)) ∧
+
+  (evaluate_decs ck (env' +++ genv +++ lenv +++ benv) s gds (gs, r)
+    ⇒ evaluate_dec_ctxt ck benv s (CdlocalG lenv genv gds) env'
+        (gs, combine_dec_result (env' +++ genv) r))
+End
+
+Inductive evaluate_dec_ctxts:
+  evaluate_dec_ctxts ck benv s [] r (s, r) ∧
+
+  (evaluate_dec_ctxt ck (collapse_env benv cs) s1 c env (s2, r) ∧
+   evaluate_dec_ctxts ck benv s2 cs r res
+    ⇒ evaluate_dec_ctxts ck benv s1 (c::cs) (Rval env) res) ∧
+
+  (evaluate_dec_ctxts ck benv s cs (Rerr err) (s, Rerr err))
+End
+
+Inductive evaluate_dec_state:
+  (evaluate_dec_ctxts ck benv (st with clock := clk) dcs (Rval env) res
+    ⇒ evaluate_dec_state ck benv (st, Env env, dcs) res) ∧
+
+  (evaluate_dec ck (collapse_env benv dcs) (st with clock := clk) d (st',r) ∧
+   evaluate_dec_ctxts ck benv st' dcs r res
+    ⇒ evaluate_dec_state ck benv (st, Decl d, dcs) res) ∧
+
+  (evaluate_state ck (env, st, ev, cs) (st', Rerr err)
+    ⇒ evaluate_dec_state ck benv (st, ExpVal env ev cs locs pat, dcs) (st', Rerr err)) ∧
+
+  (evaluate_state ck (env, st, ev, cs) (st', Rval v) ∧
+   (ALL_DISTINCT (pat_bindings pats []) ⇒
+      pmatch (collapse_env benv dcs).c st'.refs pats v [] = Match_type_error)
+    ⇒ evaluate_dec_state ck benv (st, ExpVal env ev cs locs pats, dcs)
+        (st', Rerr (Rabort Rtype_error))) ∧
+
+  (evaluate_state ck (env, st, ev, cs) (st', Rval v) ∧
+   ALL_DISTINCT (pat_bindings pats []) ∧
+   pmatch (collapse_env benv dcs).c st'.refs pats v [] = No_match
+    ⇒ evaluate_dec_state ck benv (st, ExpVal env ev cs locs pats, dcs)
+        (st', Rerr (Rraise bind_exn_v))) ∧
+
+  (evaluate_state ck (env, st, ev, cs) (st', Rval v) ∧
+   ALL_DISTINCT (pat_bindings pats []) ∧
+   pmatch (collapse_env benv dcs).c st'.refs pats v [] = Match new_vals ∧
+   evaluate_dec_ctxts ck benv st' dcs
+    (Rval <| v := alist_to_ns new_vals; c := nsEmpty |>) res
+    ⇒ evaluate_dec_state ck benv (st, ExpVal env ev cs locs pats, dcs) res)
+End
+
+
 val _ = export_theory()

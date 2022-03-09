@@ -1952,9 +1952,6 @@ QED
 
 **********)
 
-val _ = set_fixity "+++" (Infixl 480);
-Overload "+++" = “extend_dec_env”;
-
 val decl_step_ss = simpLib.named_rewrites "decl_step_ss"
   [decl_step_reln_def, decl_step_def, decl_continue_def];
 
@@ -3526,6 +3523,163 @@ Theorem big_dec_to_small_dec_timeout:
         (s with clock := s'.clock, Decl d, []) (s', dev, dcs)
 Proof
   rw[big_dec_to_small_dec_timeout_lemma]
+QED
+
+Triviality combine_dec_result_alt:
+  combine_dec_result env (Rval env') = Rval (env' +++ env) ∧
+  combine_dec_result env (Rerr e) = Rerr e
+Proof
+  rw[combine_dec_result_def, extend_dec_env_def]
+QED
+
+Triviality evaluate_state_no_ctxt_alt:
+  evaluate_state ck (env,s,Exp e,[]) r ⇔
+  ∃clk. evaluate ck env (s with clock := clk) e r
+Proof
+  ntac 2 $ rw[evaluate_state_cases, Once evaluate_ctxts_cases] >>
+  PairCases_on `r` >> simp[]
+QED
+
+Triviality evaluate_state_val_no_ctxt_alt:
+  evaluate_state ck (env,s,Val e,[]) r ⇔
+  ∃clk. r = (s with clock := clk, Rval e)
+Proof
+  ntac 2 $ rw[evaluate_state_cases, Once evaluate_ctxts_cases]
+QED
+
+Theorem evaluate_dec_ctxts_Rerr[simp]:
+  evaluate_dec_ctxts ck benv s dcs (Rerr err) r ⇔ r = (s, Rerr err)
+Proof
+  rw[Once evaluate_dec_ctxts_cases] >> eq_tac >> rw[]
+QED
+
+Theorem combine_dec_result_simps[simp]:
+  combine_dec_result empty_dec_env r = r ∧
+  (combine_dec_result env r = Rerr err ⇔ r = Rerr err) ∧
+  (Rerr err = combine_dec_result env r ⇔ r = Rerr err) ∧
+  (combine_dec_result env (Rerr err) = Rerr err)
+Proof
+  rw[combine_dec_result_def, empty_dec_env_def] >> CASE_TAC >> simp[] >>
+  eq_tac >> rw[]
+QED
+
+Theorem one_step_backward_dec:
+  decl_step benv (st, dev, dcs) = Dstep (st', dev', dcs') ∧
+  evaluate_dec_state ck benv (st', dev', dcs') res
+  ⇒ evaluate_dec_state ck benv (st, dev, dcs) res
+Proof
+  rw[decl_step_def] >> Cases_on `dev` >> gvs[]
+  >- (
+    Cases_on `d` >> gvs[]
+    >~ [`Dlet`]
+    >- (
+      every_case_tac >> gvs[] >> last_x_assum mp_tac >>
+      once_rewrite_tac[evaluate_dec_state_cases] >> rw[] >> gvs[] >>
+      simp[Once evaluate_dec_cases, SF DNF_ss] >>
+      gvs[evaluate_state_no_ctxt_alt] >> metis_tac[]
+      )
+    >~ [`Dmod`]
+    >- (
+      gvs[evaluate_dec_state_cases] >>
+      gvs[Once evaluate_dec_ctxts_cases, evaluate_dec_ctxt_cases] >>
+      simp[Once evaluate_dec_cases, SF DNF_ss] >>
+      Cases_on `r'` >>
+      gvs[combine_dec_result_alt, lift_dec_result_def, lift_dec_env_def, SF SFY_ss]
+      )
+    >~ [`Dlocal`]
+    >- (
+      every_case_tac >> gvs[] >> gvs[evaluate_dec_state_cases] >>
+      gvs[Once evaluate_dec_ctxts_cases, evaluate_dec_ctxt_cases] >>
+      simp[Once evaluate_dec_cases, SF DNF_ss, SF SFY_ss]
+      ) >>
+    every_case_tac >> gvs[] >> gvs[evaluate_dec_state_cases, empty_dec_env_def] >>
+    simp[Once evaluate_dec_cases, SF DNF_ss, SF SFY_ss]
+    )
+  >- (
+    Cases_on `e` >> gvs[]
+    >- (
+      every_case_tac >> gvs[] >> gvs[evaluate_dec_state_cases] >>
+      imp_res_tac one_step_backward >>
+      qsuff_tac `st with <| refs := st.refs; ffi := st.ffi |> = st` >>
+      rw[] >> gvs[state_component_equality, SF SFY_ss]
+      ) >>
+    Cases_on `l = []` >> gvs[]
+    >- (
+      every_case_tac >> gvs[evaluate_dec_state_cases] >>
+      simp[evaluate_state_val_no_ctxt_alt, PULL_EXISTS, SF SFY_ss]
+      ) >>
+    Cases_on `∃env. l = [Craise (), env]` >> gvs[] >>
+    `∃env' refs' ffi' ev' ec'.
+      e_step (s,(st.refs,st.ffi),Val v,l) = Estep (env',(refs',ffi'),ev',ec') ∧
+      st' = st with <| refs := refs'; ffi := ffi' |> ∧
+      dev' = ExpVal env' ev' ec' l0 p ∧ dcs' = dcs` by gvs[AllCaseEqs()] >>
+    last_x_assum kall_tac >> gvs[] >>
+    gvs[evaluate_dec_state_cases] >>
+    imp_res_tac one_step_backward >>
+    qsuff_tac `st with <| refs := st.refs; ffi := st.ffi |> = st` >>
+    rw[] >> gvs[state_component_equality, SF SFY_ss]
+    )
+  >- (
+    gvs[decl_continue_def] >> Cases_on `dcs` >> gvs[] >>
+    Cases_on `h` >> gvs[] >> Cases_on `l` >> gvs[evaluate_dec_state_cases] >>
+    simp[Once evaluate_dec_ctxts_cases, evaluate_dec_ctxt_cases, SF DNF_ss] >>
+    gvs[collapse_env_def]
+    >- (
+      simp[Once evaluate_dec_cases] >>
+      gvs[combine_dec_result_def, lift_dec_result_def, SF SFY_ss]
+      )
+    >- (
+      simp[Once evaluate_dec_cases, SF DNF_ss] >>
+      simp[combine_dec_result_alt, lift_dec_result_def] >>
+      reverse $ Cases_on `r` >> gvs[] >- metis_tac[] >>
+      disj2_tac >> goal_assum drule >>
+      gvs[Once evaluate_dec_ctxts_cases, evaluate_dec_ctxt_cases] >>
+      goal_assum drule >>
+      Cases_on `r'` >> gvs[combine_dec_result_alt, lift_dec_result_def]
+      )
+    >- (
+      ntac 2 $ simp[Once evaluate_dec_cases] >>
+      gvs[Once evaluate_dec_ctxts_cases, evaluate_dec_ctxt_cases] >>
+      gvs[extend_dec_env_def, SF SFY_ss]
+      )
+    >- (
+      simp[Once evaluate_dec_cases, SF DNF_ss, GSYM DISJ_ASSOC] >>
+      Cases_on `r` >> gvs[SF SFY_ss] >> disj2_tac >>
+      gvs[Once evaluate_dec_ctxts_cases, evaluate_dec_ctxt_cases, SF SFY_ss] >>
+      disj2_tac >> simp[Once evaluate_dec_cases, SF DNF_ss, GSYM CONJ_ASSOC] >>
+      rpt $ goal_assum $ drule_at Any >> simp[combine_dec_result_alt]
+      )
+    >- (
+      simp[Once evaluate_dec_cases, combine_dec_result_alt] >>
+      gvs[extend_dec_env_def, SF SFY_ss]
+      )
+    >- (
+      simp[Once evaluate_dec_cases, SF DNF_ss] >>
+      Cases_on `r` >> gvs[SF SFY_ss] >> disj2_tac >>
+      gvs[Once evaluate_dec_ctxts_cases, evaluate_dec_ctxt_cases] >>
+      rpt $ goal_assum drule >> Cases_on `r'` >> gvs[combine_dec_result_alt]
+      )
+    )
+QED
+
+Theorem small_dec_to_big_dec:
+  ∀env st dev dcs st' dev' dcs' ck.
+    RTC (decl_step_reln env) (st,dev,dcs) (st',dev',dcs') ⇒
+    evaluate_dec_state ck env (st',dev',dcs') r
+    ⇒ evaluate_dec_state ck env (st,dev,dcs) r
+Proof
+  gen_tac >> Induct_on `RTC` >> rw[decl_step_reln_def] >> simp[] >>
+  metis_tac[one_step_backward_dec, PAIR]
+QED
+
+Theorem evaluate_dec_state_no_ctxt:
+  evaluate_dec_state ck env (st, Decl d, []) r ⇔
+  ∃clk. evaluate_dec ck env (st with clock := clk) d r
+Proof
+  rw[evaluate_dec_state_cases] >>
+  rw[Once evaluate_dec_ctxts_cases, SF DNF_ss] >>
+  eq_tac >> rw[] >> gvs[collapse_env_def, SF SFY_ss] >>
+  PairCases_on `r` >> gvs[SF SFY_ss]
 QED
 
 Theorem do_app_ffi_changed:
