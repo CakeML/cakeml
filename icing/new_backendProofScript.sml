@@ -2,7 +2,7 @@
   Proof of a new overall compiler correctness theorem for
   the global constant lifting, showing that it is semantics preserving
 **)
-open semanticPrimitivesTheory evaluateTheory terminationTheory
+open semanticPrimitivesTheory evaluateTheory
      icing_rewriterTheory icing_optimisationsTheory
      icing_optimisationProofsTheory fpOptTheory fpValTreeTheory
      namespacePropsTheory ml_progTheory
@@ -13,6 +13,7 @@ open preamble;
 
 val _ = new_theory "new_backendProof";
 
+(*
 Theorem pull_words_correct:
  let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
   semantics_prog s env prog = semantics_prog s env (lift_constants_decl prog)
@@ -389,6 +390,6 @@ Theorem pull_words_correct_simp =
                     GSYM ml_progTheory.init_state_def,
                     GSYM ml_progTheory.init_env_def] pull_words_correct
   |> CONV_RULE pairLib.let_CONV;
-
+*)
 
 val _ = export_theory();

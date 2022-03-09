@@ -3,8 +3,8 @@
   Definitions in this file correspond to the function ‘planOpts’
   from Section 5 of the PrincessCake paper.
 **)
-open semanticPrimitivesTheory evaluateTheory terminationTheory
-     icing_rewriterTheory icing_optimisationsTheory fpOptTheory fpValTreeTheory
+open semanticPrimitivesTheory evaluateTheory icing_rewriterTheory
+     icing_optimisationsTheory fpOptTheory fpValTreeTheory
      source_to_sourceTheory;
 
 open preamble;
@@ -51,7 +51,7 @@ Definition canonicalize_app_def:
         canonicalize_sub e
     | _ => (e, [])
 Termination
-  WF_REL_TAC ‘measure (λe. exp_size e)’ \\ fs[]
+  wf_rel_tac ‘measure (λe. exp_size e)’ \\ fs[]
   \\ rpt strip_tac
   \\ fs[astTheory.exp_size_def]
   \\ fs[astTheory.op_size_def, fpValTreeTheory.fp_bop_size_def]
@@ -128,25 +128,7 @@ Definition canonicalize_def:
   (* We do not apply any canonicalization plan to the rest *)
   canonicalize cfg e = (e, [])
 Termination
-  WF_REL_TAC ‘measure (λ (cfg, e). exp_size e)’ \\ fs[]
-  \\ strip_tac
-  >- (
-  Induct_on ‘pes’ \\ fs[]
-  \\ rpt strip_tac \\ rveq
-  \\ first_x_assum (qspecl_then [‘e’, ‘cfg’, ‘e_can’, ‘plan_left’, ‘p’, ‘e'’] strip_assume_tac)
-  \\ pop_assum imp_res_tac \\ fs[astTheory.exp_size_def]
-  )
-  >- (
-  strip_tac
-  \\ Induct_on ‘exps’ \\ fs[]
-  \\ rpt strip_tac \\ fs[astTheory.exp_size_def]
-  >- (
-    first_x_assum (qspecl_then [‘op’, ‘a’] strip_assume_tac)
-    \\ pop_assum imp_res_tac \\ fs[]
-    )
-  \\ qpat_x_assum ‘∀ mod a. _ ⇒ exp_size a < _’ (qspecl_then [‘mod’, ‘a’] strip_assume_tac)
-  \\ pop_assum imp_res_tac \\ fs[]
-  )
+  wf_rel_tac ‘measure (λ (cfg, e). exp_size e)’
 End
 
 Definition post_order_dfs_for_plan_def:
@@ -215,25 +197,7 @@ Definition post_order_dfs_for_plan_def:
   (* We do not apply any canonicalization plan to the rest *)
   post_order_dfs_for_plan f cfg e = (e, [])
 Termination
-  WF_REL_TAC ‘measure (λ (f, cfg, e). exp_size e)’ \\ fs[]
-  \\ strip_tac
-  >- (
-  Induct_on ‘pes’ \\ fs[]
-  \\ rpt strip_tac \\ rveq
-  \\ first_x_assum (qspecl_then [‘e’, ‘cfg’, ‘f’, ‘e_can’, ‘plan_left’, ‘p’, ‘e'’] strip_assume_tac)
-  \\ pop_assum imp_res_tac \\ fs[astTheory.exp_size_def]
-  )
-  >- (
-  strip_tac
-  \\ Induct_on ‘exps’ \\ fs[]
-  \\ rpt strip_tac \\ fs[astTheory.exp_size_def]
-  >- (
-    first_x_assum (qspecl_then [‘op’, ‘a’] strip_assume_tac)
-    \\ pop_assum imp_res_tac \\ fs[]
-    )
-  \\ qpat_x_assum ‘∀ mod a. _ ⇒ exp_size a < _’ (qspecl_then [‘mod’, ‘a’] strip_assume_tac)
-  \\ pop_assum imp_res_tac \\ fs[]
-  )
+  wf_rel_tac ‘measure (λ (f, cfg, e). exp_size e)’
 End
 
 Definition optimise_linear_interpolation_def:

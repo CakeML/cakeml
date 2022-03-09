@@ -6,6 +6,7 @@
 open preamble semanticsTheory namespacePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      evaluatePropsTheory evaluateTheory experimentalLib
+     fpOptTheory
 
 val _ = new_theory "source_evalProof";
 
@@ -1123,7 +1124,7 @@ Proof
   \\ insts_tac
   \\ Cases_on `getOpClass op`
   >- (
-    fs [do_eval_res_def, terminationTheory.evaluate_def, do_con_check_def]
+    fs [do_eval_res_def, evaluate_def, do_con_check_def]
     \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
     \\ drule_then (drule_then drule) do_eval_sim
     \\ rw []
@@ -1163,21 +1164,8 @@ Proof
   )
   >~ [‘getOpClass op = Icing’]
   >- (
-    fs [do_eval_res_def, evaluate_def, do_con_check_def]
-    \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
-    \\ drule_then (drule_then drule) do_eval_sim
-    \\ rw []
-    \\ fs []
-    \\ drule_then assume_tac s_rel_clock
-    \\ fs [bool_case_eq] \\ rveq \\ fs []
-    \\ insts_tac
-    \\ fs [EVAL ``(dec_clock x).eval_state``]
-    \\ eval_cases_tac
-    \\ insts_tac
-    \\ TRY (drule_then (drule_then (qsubterm_then `declare_env _ _` mp_tac))
-        declare_env_sim
-      \\ impl_tac
-      \\ (irule env_rel_extend_dec_env ORELSE disch_tac))
+    rveq \\ gs[CaseEq"option", CaseEq"prod"]
+    \\ drule_then (drule_then assume_tac) do_app_sim
     \\ insts_tac
     \\ ‘r ≠ Rerr (Rabort Rtype_error)’ by (every_case_tac \\ gs[do_fprw_def, CaseEq"result"])
     \\ gs[s_rel_def] \\ rveq \\ gs[]
@@ -1187,7 +1175,7 @@ Proof
       Cases_on ‘a’ \\ gs[shift_fp_opts_def]
       \\ rveq \\ gs[]
       \\ simp[state_component_equality]
-      \\ Cases_on ‘st'.fp_state.opts 0’ \\ gs[terminationTheory.rwAllWordTree_def, terminationTheory.rwAllBoolTree_def]
+      \\ Cases_on ‘st'.fp_state.opts 0’ \\ gs[rwAllWordTree_def, rwAllBoolTree_def]
       \\ TRY (rename1 ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’
               \\ Cases_on ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
       \\ TRY (rename1 ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’
@@ -1203,7 +1191,7 @@ Proof
       Cases_on ‘a’ \\ gs[shift_fp_opts_def]
       \\ rveq \\ gs[]
       \\ simp[state_component_equality]
-      \\ Cases_on ‘st'.fp_state.opts 0’ \\ gs[terminationTheory.rwAllWordTree_def, terminationTheory.rwAllBoolTree_def]
+      \\ Cases_on ‘st'.fp_state.opts 0’ \\ gs[rwAllWordTree_def, rwAllBoolTree_def]
       \\ TRY (rename1 ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’
               \\ Cases_on ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
       \\ TRY (rename1 ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’
@@ -1410,8 +1398,8 @@ Theorem do_fpoptimise_length:
   LENGTH (do_fpoptimise annot l) = LENGTH l
 Proof
   Induct_on ‘l’ >>
-  simp[Once fpSemPropsTheory.do_fpoptimise_cons, terminationTheory.do_fpoptimise_def] >>
-  rpt strip_tac >> Cases_on ‘h’ >> fs[terminationTheory.do_fpoptimise_def]
+  simp[Once fpSemPropsTheory.do_fpoptimise_cons, do_fpoptimise_def] >>
+  rpt strip_tac >> Cases_on ‘h’ >> fs[do_fpoptimise_def]
 QED
 
 Theorem do_fpoptimise_env_id:
@@ -1419,7 +1407,7 @@ Theorem do_fpoptimise_env_id:
   ∃ v2. do_fpoptimise annot [v] = [v2] ∧ v_to_env_id v2 = SOME id
 Proof
   gs[v_to_env_id_def, v_to_nat_def, CaseEq"v", CaseEq"list", CaseEq"option", CaseEq"lit"]
-  \\ rpt strip_tac \\ gs[terminationTheory.do_fpoptimise_def]
+  \\ rpt strip_tac \\ gs[do_fpoptimise_def]
 QED
 
 Theorem v_rel_do_fpoptimise:
@@ -1430,15 +1418,15 @@ Proof
   measureInduct_on ‘semanticPrimitives$v1_size vs’ >> Cases_on ‘vs’
   >> fs[LIST_REL_def] >> rpt strip_tac
   >- (
-   fs[terminationTheory.do_fpoptimise_def])
+   fs[do_fpoptimise_def])
   >> first_assum (qspec_then ‘t’ assume_tac)
   >> fs[semanticPrimitivesTheory.v_size_def]
   >> simp[Once fpSemPropsTheory.do_fpoptimise_cons]
-  >> Cases_on ‘h’ >> simp[terminationTheory.do_fpoptimise_def]
+  >> Cases_on ‘h’ >> simp[do_fpoptimise_def]
   >> fs[Once v_rel_cases]
   >> first_x_assum (qspec_then ‘ys’ assume_tac)
   >> simp[Once fpSemPropsTheory.do_fpoptimise_cons]
-  >> gs[terminationTheory.do_fpoptimise_def]
+  >> gs[do_fpoptimise_def]
   >- (
    first_x_assum $ qspec_then ‘l’ assume_tac
    >> fs[semanticPrimitivesTheory.v_size_def])

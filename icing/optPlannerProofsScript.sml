@@ -1,7 +1,7 @@
 (**
   Correctness proof for optimization planner
 **)
-open semanticPrimitivesTheory evaluateTheory terminationTheory
+open semanticPrimitivesTheory evaluateTheory
      icing_rewriterTheory icing_optimisationsTheory
      icing_optimisationProofsTheory fpOptTheory fpValTreeTheory
      optPlannerTheory source_to_sourceTheory source_to_sourceProofsTheory
@@ -657,7 +657,8 @@ Proof
         >> first_x_assum $ mp_then Any mp_tac canonicalize_for_distributivity_upper_bound
         >> disch_then drule >> gs[])
       >- (imp_res_tac canonicalize_for_distributivity_upper_bound_alt >> gs[])
-      >> last_x_assum $ mp_then Any mp_tac apply_distributivity_local_plan
+      >> qpat_x_assum ‘apply_distributivity_local _ (App _ _) = SOME _’
+                      $ mp_then Any mp_tac apply_distributivity_local_plan
       >> rpt $ disch_then drule >> rpt strip_tac >> gs[]
       >> first_x_assum $ mp_then Any mp_tac canonicalize_for_distributivity_upper_bound_alt
       >> rpt $ disch_then drule >> gs[])
@@ -679,7 +680,10 @@ Proof
       >> disch_then drule >> gs[])
     >- (
       imp_res_tac MEM_MAP_plan_to_path_index
-      >> simple_case_tac)
+      >> first_x_assum $ mp_then Any mp_tac apply_distributivity_local_plan
+      >> rpt $ disch_then drule >> rpt strip_tac >> gs[]
+      >> first_x_assum $ mp_then Any mp_tac canonicalize_for_distributivity_upper_bound
+      >> disch_then drule >> gs[])
     >- (
       imp_res_tac MEM_MAP_plan_to_path_index
       >> imp_res_tac canonicalize_for_distributivity_upper_bound_alt
@@ -707,7 +711,8 @@ Proof
       imp_res_tac MEM_MAP_plan_to_path_index
       >> imp_res_tac canonicalize_for_distributivity_upper_bound_alt
       >> gs[])
-    >> last_x_assum $ mp_then Any mp_tac apply_distributivity_local_plan
+    >> qpat_x_assum ‘apply_distributivity_local _ (App _ _) = SOME _’
+                    $ mp_then Any mp_tac apply_distributivity_local_plan
     >> rpt $ disch_then drule >> rpt strip_tac >> gs[]
     >> first_x_assum $ mp_then Any mp_tac canonicalize_for_distributivity_upper_bound_alt
     >> disch_then drule >> gs[])

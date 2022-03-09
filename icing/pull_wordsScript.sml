@@ -2,7 +2,7 @@
   Implementation and correctness proof of the global constant lifting
   (Section 7.2)
 **)
-open semanticPrimitivesTheory evaluateTheory terminationTheory
+open semanticPrimitivesTheory evaluateTheory
      icing_rewriterTheory icing_optimisationsTheory
      icing_optimisationProofsTheory fpOptTheory fpValTreeTheory
      namespacePropsTheory ml_progTheory
@@ -608,6 +608,7 @@ Proof
   >> qexists_tac ‘Long h id’ >> gs[namespaceTheory.id_to_mods_def]
 QED
 
+(*
 Theorem env_rel_strict_nsAppend:
   env_rel_strict env1 env2 al ∧
   env_rel_strict env3 env4 al ⇒
@@ -697,6 +698,7 @@ Proof
   >> impl_tac >- gs[]
   >> strip_tac >> gs[]
 QED
+*)
 
 Theorem env_rel_build_rec_env_decl:
   env_rel env1 env2 al ∧
@@ -807,8 +809,8 @@ Proof
     >> imp_res_tac ALOOKUP_MEM
     >> gs[IN_DISJOINT,MEM_FLAT,MEM_MAP,FORALL_PROD] >> rveq
     >- gs[]
-    >- metis_tac[]
     >- gs[]
+    >- metis_tac[]
     >> metis_tac[])
   >> gs[namespacePropsTheory.nsLookup_nsAppend_some,
         namespacePropsTheory.nsLookup_alist_to_ns_some]
@@ -1106,17 +1108,16 @@ Proof
     >> rpt (TOP_CASE_TAC >> gs[])
     >> strip_tac >> res_tac
     >> gs[astTheory.pat_bindings_def])
-  >- (gs[astTheory.pat_bindings_def])
   >> qpat_x_assum `_ = Match _` mp_tac
   >> rpt (TOP_CASE_TAC >> gs[])
   >> strip_tac >> res_tac
   >> gs[astTheory.pat_bindings_def]
   >> gs[SUBSET_DEF] >> rpt strip_tac
   >> res_tac >> gs[]
-  >- (simp[Once semanticPrimitivesPropsTheory.pat_bindings_accum])
+  >> TRY (simp[Once semanticPrimitivesPropsTheory.pat_bindings_accum])
   >> last_x_assum $ qspec_then ‘x’ mp_tac
-  >> impl_tac >- gs[]
-  >> strip_tac >> gs[]
+  >> impl_tac
+  >> rpt strip_tac >> gs[]
   >> simp[Once semanticPrimitivesPropsTheory.pat_bindings_accum]
 QED
 
@@ -1424,10 +1425,13 @@ Proof
     >> imp_res_tac v_rel_v_to_list >> gs[OPTREL_def]
     >> irule v_rel_list_to_v_app >> gs[])
   >- trivial_tac
-  >> mem_tac >> rveq
-  >> irule EVERY2_LUPDATE_same >> gs[]
+  >- (mem_tac >> rveq >> irule EVERY2_LUPDATE_same >> gs[])
+  >- (mem_tac >> rveq >> irule EVERY2_LUPDATE_same >> gs[])
+  >> fp_tac >> simp[nat_to_v_def]
 QED
 
+
+(*
 Theorem replace_constants_exp_thm:
   (∀(s:'ffi state) env es s1 res t env1 al.
      DISJOINT (set (FLAT (MAP gather_used_identifiers_exp es)))
@@ -1626,7 +1630,9 @@ Proof
       \\ rename [‘res_rel (list_result g1) (list_result g2)’]
       \\ Cases_on ‘g1’ \\ Cases_on ‘g2’ \\ gvs []
       \\ Cases_on ‘e’ \\ Cases_on ‘e'’ \\ gvs [])
-    \\ ‘getOpClass op = Icing’ by (Cases_on ‘getOpClass op’ \\ fs [])
+    \\ ‘getOpClass op = Icing’ by (
+      Cases_on ‘getOpClass op’ \\ fs [astTheory.getOpClass_def]
+      \\ Cases_on ‘op’ \\ gs[])
     \\ gvs [AllCaseEqs()]
     \\ Cases_on ‘do_app (t1.refs,t1.ffi) op (REVERSE a')’ \\ fs []
     \\ PairCases_on ‘x’ \\ gvs []
@@ -1750,6 +1756,7 @@ Proof
     \\ fs [PULL_EXISTS,FORALL_PROD] \\ rw []
     \\ irule env_rel_update_lemma \\ fs [])
 QED
+*)
 
 Theorem evaluate_decs_app:
   ∀ (s1:'ffi state) env ds1 ds2 s2 r.
@@ -1789,6 +1796,7 @@ Proof
   >> rpt strip_tac >> rveq >> gs[]
 QED
 
+(**
 Theorem build_decl_list_lemma:
   ∀ (s1:'ffi state) env1 env ws1 ws2.
     (∀ x w.
@@ -1858,6 +1866,7 @@ Proof
   >> pop_assum $ rewrite_tac o single
   >> gs[extend_dec_env_def]
 QED
+**)
 
 Theorem MEM_used_ids_not_mem_vars:
   ∀ ws x es n.
@@ -1961,6 +1970,7 @@ Proof
   >> gs[]
 QED
 
+(*
 Theorem replace_constants_decl_thm:
   ∀(s:'ffi state) env ds s1 res t env1 al.
      DISJOINT (set (gather_used_identifiers_decl ds))
@@ -2084,6 +2094,7 @@ Proof
        >> gs[])
   >> Cases_on ‘e’ >> Cases_on ‘e'’ >> gs[]
 QED
+*)
 
 (*
 Theorem lift_constants_decl_thm:

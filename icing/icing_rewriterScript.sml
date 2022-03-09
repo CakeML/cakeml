@@ -4,7 +4,6 @@
   Correctness proofs are in icing_rewriterProofsScript.
 *)
 open bossLib fpValTreeTheory pureExpsTheory;
-open terminationTheory;
 
 open preamble;
 

@@ -13,8 +13,8 @@ open bossLib ml_translatorLib;
 open semanticPrimitivesTheory evaluatePropsTheory;
 open fpValTreeTheory fpSemPropsTheory fpOptTheory fpOptPropsTheory
      icing_optimisationsTheory icing_rewriterTheory source_to_sourceProofsTheory
-     floatToRealTheory floatToRealProofsTheory
-     pureExpsTheory terminationTheory binary_ieeeTheory;
+     floatToRealTheory floatToRealProofsTheory evaluateTheory
+     pureExpsTheory binary_ieeeTheory;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -83,7 +83,7 @@ Proof
   \\ res_tac
   \\ first_x_assum (qspecl_then [`v2`, `b`] assume_tac)
   \\ fs[]
-  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, maybe_map_def]
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, option_map_def]
 QED
 
 Theorem rwAllWordTree_comp_right:
@@ -98,7 +98,7 @@ Proof
   \\ res_tac
   \\ first_x_assum (qspecl_then [`v1`, `b`] assume_tac)
   \\ fs[]
-  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, maybe_map_def]
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, option_map_def]
 QED
 
 (**
@@ -416,17 +416,17 @@ Proof
   \\ TRY (qpat_x_assum `isPureExp _` mp_tac \\ simp[isPureExp_def])
   \\ TRY (qpat_x_assum `isFpArithExp _` mp_tac \\ simp[isFpArithExp_def])
   >- (
-    fs[terminationTheory.evaluate_def, CaseEq"option"] \\ rveq
+    fs[evaluate_def, CaseEq"option"] \\ rveq
     \\ fs state_eqs \\ qexistsl_tac [‘[]’] \\ fs[do_fprw_def, rwAllWordTree_def])
   >- (
-    fs[terminationTheory.evaluate_def, CaseEq"option", astTheory.getOpClass_def,
+    fs[evaluate_def, CaseEq"option", astTheory.getOpClass_def,
        do_app_def]
     \\ rveq \\ rpt strip_tac
     \\ fs state_eqs \\ qexistsl_tac [‘[]’] \\ fs[do_fprw_def, rwAllWordTree_def])
   >- (
-  fs[quantHeuristicsTheory.LIST_LENGTH_1] \\ rpt strip_tac \\ rveq
+  fs[quantHeuristicsTheory.LENGTH_TO_EXISTS_CONS] \\ rpt strip_tac \\ rveq
   \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
-  \\ simp[terminationTheory.evaluate_def, CaseEq"option",
+  \\ simp[evaluate_def, CaseEq"option",
           astTheory.getOpClass_def, do_app_def, CaseEq"result"]
   \\ ntac 2 (TOP_CASE_TAC \\ fs[])
   \\ imp_res_tac evaluate_sing \\ rveq \\ gs[]
@@ -461,9 +461,9 @@ Proof
   \\ asm_exists_tac \\ fs[] \\ rveq  \\ fs[rwAllWordTree_def]
   \\ fp_inv_tac)
   >- (
-  fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rpt strip_tac \\ rveq
+  fs[quantHeuristicsTheory.LENGTH_TO_EXISTS_CONS] \\ rpt strip_tac \\ rveq
   \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
-  \\ simp[terminationTheory.evaluate_def, CaseEq"option",
+  \\ simp[evaluate_def, CaseEq"option",
           astTheory.getOpClass_def, do_app_def, CaseEq"result", evaluate_case_case]
   \\ ntac 2 (TOP_CASE_TAC \\ fs[])
   \\ ntac 2 (TOP_CASE_TAC \\ fs[])
@@ -521,9 +521,9 @@ Proof
   \\ TOP_CASE_TAC \\ fs[fp_bop_def, rwAllWordTree_def, fp_translate_def]
   \\ rveq \\ fs[fp_translate_def] \\ fp_inv_tac)
   >- (
-  fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rpt strip_tac \\ rveq
+  fs[quantHeuristicsTheory.LENGTH_TO_EXISTS_CONS] \\ rpt strip_tac \\ rveq
   \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
-  \\ simp[SimpL “$==>”, terminationTheory.evaluate_def, CaseEq"option",
+  \\ simp[SimpL “$==>”, evaluate_def, CaseEq"option",
           astTheory.getOpClass_def, do_app_def, CaseEq"result", evaluate_case_case]
   \\ ntac 6 (TOP_CASE_TAC \\ fs[])
   \\ imp_res_tac evaluate_sing \\ rveq \\ gs[]
@@ -574,7 +574,7 @@ Proof
              (st4.fp_state.opts 0) st4.fp_state.rws of
                    | NONE => []
                    | SOME _ => (st4.fp_state.opts 0))’
-  \\ simp[terminationTheory.evaluate_def, astTheory.getOpClass_def, do_app_def]
+  \\ simp[evaluate_def, astTheory.getOpClass_def, do_app_def]
   \\ qpat_x_assum `evaluate _ _ [e2] = _` $ mp_then Any mp_tac $ CONJUNCT1 evaluate_add_choices
   \\ disch_then (qspec_then ‘choices''’ assume_tac)
   \\ fs state_eqs
@@ -842,7 +842,7 @@ Proof
   \\ rveq
   \\ qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
   \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
-         Once terminationTheory.evaluate_def, Once evaluate_cons, evaluate_case_case]
+         Once evaluate_def, Once evaluate_cons, evaluate_case_case]
   \\ ntac 2 (simp[Once evaluate_def, astTheory.isFpBool_def, astTheory.getOpClass_def, do_app_def])
   \\ ntac 2 (TOP_CASE_TAC \\ fs[])
   \\ imp_res_tac evaluate_sing \\ rveq
@@ -859,7 +859,7 @@ Proof
         \\ res_tac
         \\ fs[state_component_equality, shift_fp_opts_def, CaseEq"option", CaseEq"v"])
   \\ ntac 2(simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
-                 Once terminationTheory.evaluate_def, Once evaluate_cons,
+                 Once evaluate_def, Once evaluate_cons,
                  evaluate_case_case, do_app_def])
   \\ qpat_assum `evaluate _ _ [e1] = _`
                 (mp_then Any mp_tac isPureExp_evaluate_change_oracle)
@@ -1111,7 +1111,7 @@ Proof
   \\ rveq
   \\ qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
   \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
-         Once terminationTheory.evaluate_def, Once evaluate_cons, evaluate_case_case]
+         Once evaluate_def, Once evaluate_cons, evaluate_case_case]
   \\ ntac 2 (TOP_CASE_TAC \\ fs[])
   \\ imp_res_tac evaluate_sing \\ rveq
   \\ fs[do_app_def] \\ ntac 3 (TOP_CASE_TAC \\ fs[])
@@ -1187,7 +1187,7 @@ Proof
              else []’] mp_tac)
   \\ impl_tac >- fp_inv_tac
   \\ strip_tac \\ fs state_eqs
-  \\ simp[terminationTheory.evaluate_def, astTheory.isFpBool_def, astTheory.getOpClass_def,
+  \\ simp[evaluate_def, astTheory.isFpBool_def, astTheory.getOpClass_def,
          semanticPrimitivesTheory.do_app_def]
   \\ qexists_tac ‘oracle’ \\ qexists_tac ‘st1.fp_state.choices’
   \\ pop_assum mp_tac \\ qmatch_goalsub_abbrev_tac ‘evaluate st1Upd _ _ = _’
@@ -1253,10 +1253,10 @@ Proof
   \\ rveq
   \\ qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
   \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
-         Once terminationTheory.evaluate_def, Once evaluate_cons, evaluate_case_case]
+         Once evaluate_def, Once evaluate_cons, evaluate_case_case]
   \\ ntac 2 (TOP_CASE_TAC \\ fs[])
   \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
-         Once terminationTheory.evaluate_def, Once evaluate_cons, evaluate_case_case]
+         Once evaluate_def, Once evaluate_cons, evaluate_case_case]
   \\ ntac 4 (TOP_CASE_TAC \\ fs[])
   \\ imp_res_tac evaluate_sing \\ rveq
   \\ fs[do_app_def]
@@ -1381,7 +1381,7 @@ Proof
              else []’] mp_tac)
   \\ impl_tac >- fp_inv_tac
   \\ strip_tac \\ fs state_eqs
-  \\ simp[terminationTheory.evaluate_def, astTheory.isFpBool_def, astTheory.getOpClass_def,
+  \\ simp[evaluate_def, astTheory.isFpBool_def, astTheory.getOpClass_def,
          semanticPrimitivesTheory.do_app_def]
   \\ qexists_tac ‘oracle’ \\ qexists_tac ‘st1.fp_state.choices’
   \\ pop_assum mp_tac \\ qmatch_goalsub_abbrev_tac ‘evaluate st1Upd _ _ = _’
@@ -1442,11 +1442,11 @@ Proof
   \\ qpat_x_assum `_ = App _ _` (fs o single)
   \\ qpat_x_assum `_ = e1` (fs o single)
   \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
-         Once terminationTheory.evaluate_def, Once evaluate_cons, evaluate_case_case]
+         Once evaluate_def, Once evaluate_cons, evaluate_case_case]
   \\ ‘st2 = st1 with fp_state := st2.fp_state’
     by (imp_res_tac isPureExp_same_ffi \\ fs[isPureExp_def]
         \\ res_tac \\ fs[state_component_equality])
-  \\ ntac 2 (simp[Once terminationTheory.evaluate_def, evaluate_case_case, astTheory.getOpClass_def])
+  \\ ntac 2 (simp[Once evaluate_def, evaluate_case_case, astTheory.getOpClass_def])
   \\ simp[Once do_app_def]
   \\ qpat_assum `evaluate _ _ [e1] = _`
                 (mp_then Any mp_tac isPureExp_evaluate_change_oracle)
@@ -1513,7 +1513,7 @@ Proof
   \\ rveq
   \\ qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
   \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
-         Once terminationTheory.evaluate_def, Once evaluate_cons, evaluate_case_case]
+         Once evaluate_def, Once evaluate_cons, evaluate_case_case]
   \\ ntac 2 (TOP_CASE_TAC \\ fs[])
   \\ imp_res_tac evaluate_sing \\ rveq
   \\ fs[do_app_def] \\ ntac 3 (TOP_CASE_TAC \\ fs[])
@@ -1526,7 +1526,7 @@ Proof
         \\ res_tac
         \\ fs[state_component_equality, shift_fp_opts_def, CaseEq"option", CaseEq"v"])
   \\ ntac 3(simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
-                 Once terminationTheory.evaluate_def, Once evaluate_cons,
+                 Once evaluate_def, Once evaluate_cons,
                  evaluate_case_case, do_app_def])
   \\ qpat_assum `evaluate _ _ [e1] = _`
                 (mp_then Any mp_tac isPureExp_evaluate_change_oracle)
@@ -1597,11 +1597,11 @@ Proof
   \\ qpat_x_assum `_ = App _ _` (fs o single)
   \\ qpat_x_assum `_ = e1` (fs o single)
   \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
-         Once terminationTheory.evaluate_def, Once evaluate_cons, evaluate_case_case]
+         Once evaluate_def, Once evaluate_cons, evaluate_case_case]
   \\ ‘st2 = st1 with fp_state := st2.fp_state’
     by (imp_res_tac isPureExp_same_ffi \\ fs[isPureExp_def]
         \\ res_tac \\ fs[state_component_equality])
-  \\ ntac 2 (simp[Once terminationTheory.evaluate_def, evaluate_case_case, astTheory.getOpClass_def])
+  \\ ntac 2 (simp[Once evaluate_def, evaluate_case_case, astTheory.getOpClass_def])
   \\ simp[Once do_app_def]
   \\ qpat_assum `evaluate _ _ [e1] = _`
                 (mp_then Any mp_tac isPureExp_evaluate_change_oracle)

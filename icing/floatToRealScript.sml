@@ -2,8 +2,7 @@
   Translation from CakeML floating-point computations to
   CakeML real-number computations.
 *)
-open semanticPrimitivesTheory evaluateTheory terminationTheory
-     fpOptTheory fpValTreeTheory;
+open semanticPrimitivesTheory evaluateTheory fpOptTheory fpValTreeTheory;
 
 open preamble;
 
@@ -70,22 +69,7 @@ Definition realify_def:
   realify (Lannot e l) = Lannot (realify e) l ∧
   realify (FpOptimise sc e) = FpOptimise sc (realify e)
 Termination
-  wf_rel_tac ‘measure exp_size’ \\ fs[astTheory.exp_size_def] \\ rpt conj_tac
-  >- (Induct_on `ses` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
-  >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
-  >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
-  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[])
-  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `mod` assume_tac) \\ fs[])
+  wf_rel_tac ‘measure exp_size’
 End
 
 val _ = export_theory();

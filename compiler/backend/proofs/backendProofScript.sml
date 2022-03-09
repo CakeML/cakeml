@@ -353,7 +353,7 @@ QED
 
 Theorem attach_bitmaps_SOME:
   attach_bitmaps names c v = SOME r ==>
-  ?bytes c'. v = SOME (bytes, c') /\ r = (bytes,c.word_conf.bitmaps,c with <| lab_conf := c'; symbols := MAP (\(n,p,l). (lookup_any n names «NOTFOUND»,p,l)) c'.sec_pos_len |>)
+  ?bytes c'. v = SOME (bytes, c') /\ r = (bytes,c.word_conf.bitmaps,c with <| lab_conf := c'; symbols := MAP (\ (n,p,l). (lookup_any n names «NOTFOUND»,p,l)) c'.sec_pos_len |>)
 Proof
   Cases_on `THE v` \\ Cases_on `v` \\ fs [attach_bitmaps_def]
 QED
@@ -387,7 +387,7 @@ Proof
 QED
 
 val cake_orac_config_inv_f =
-  ``(\(sc, cc, bc, mc). (sc.pattern_cfg, cc.max_app, cc.do_call, IS_SOME cc.known_conf,
+  ``(\ (sc, cc, bc, mc). (sc.pattern_cfg, cc.max_app, cc.do_call, IS_SOME cc.known_conf,
         known_static_conf cc.known_conf, cc.do_mti, bc.inline_size_limit,
         bc.split_main_at_seq, bc.exp_cut, mc))
     o (\c. (c.source_conf, c.clos_conf, c.bvl_conf, c.data_conf,
@@ -647,7 +647,7 @@ QED
 
 Theorem from_lab_conf_EX:
   from_lab c names p = SOME (bytes, bitmap, c') ==>
-  ?lc. c' = c with <| lab_conf := lc; symbols := MAP (\(n,p,l). (lookup_any n names «NOTFOUND»,p,l)) lc.sec_pos_len |>
+  ?lc. c' = c with <| lab_conf := lc; symbols := MAP (\ (n,p,l). (lookup_any n names «NOTFOUND»,p,l)) lc.sec_pos_len |>
 Proof
   Cases_on `THE (compile c.lab_conf p)`
   \\ Cases_on `compile c.lab_conf p`
@@ -1551,7 +1551,7 @@ Proof
 QED
 
 Theorem oracle_monotonic_cake_orac_to_I:
-  oracle_monotonic (\(cfg, p). f (cfg_f cfg, p_f p)) R init_st
+  oracle_monotonic (\ (cfg, p). f (cfg_f cfg, p_f p)) R init_st
     (cake_orac c' syntax I I) ==>
   oracle_monotonic f R init_st (cake_orac c' syntax cfg_f p_f)
 Proof
@@ -2472,7 +2472,7 @@ Definition compile_inc_progs_for_eval_def:
   let (env_id, inc_c', decs) = x in
   let c' = inc_config_to_config asm_c inc_c' in
   let (c'', ps) = compile_inc_progs T c' (env_id, decs) in
-    OPTION_MAP (\(bs, ws). (config_to_inc_config c'', bs,
+    OPTION_MAP (\ (bs, ws). (config_to_inc_config c'', bs,
             MAP data_to_word_gcProof$upper_w2w (DROP (LENGTH c'.word_conf.bitmaps) ws)))
         ps.target_prog
 End
@@ -2553,7 +2553,7 @@ Theorem backend_from_flat_tuple_cc_eq_compile_inc_progs:
     (MAP (flat_pattern$compile_dec prim_src_config.pattern_cfg)
       (SND (inc_compile_prog env_id src_cfg decs))) =
   let (c'', ps) = compile_inc_progs T c' (env_id, decs) in
-    OPTION_MAP (\(bs, ws). (bs,
+    OPTION_MAP (\ (bs, ws). (bs,
         MAP data_to_word_gcProof$upper_w2w (DROP (LENGTH c'.word_conf.bitmaps) ws),
         SND (config_tuple1 c''))) ps.target_prog
 Proof
@@ -2633,7 +2633,7 @@ Triviality cake_orac_extended_wf:
   compile (c : 'a config) prog = SOME (b,bm,c') /\
   opt_eval_config_wf c' (SOME ci) ==>
   orac_extended_wf (mk_compiler_fun_from_ci ci)
-    ((\(cfg,id,ds). (id, ci.config_v (config_to_inc_config cfg),ds)) ∘
+    ((\ (cfg,id,ds). (id, ci.config_v (config_to_inc_config cfg),ds)) ∘
     cake_orac c' syntax I (λps. (ps.env_id,ps.source_prog)))
 Proof
   rw [source_evalProofTheory.orac_extended_wf_def, cake_orac_SUC]
@@ -2744,7 +2744,7 @@ Theorem source_eval_semantics:
 Proof
   rw []
   \\ qabbrev_tac `orac =
-        (\(cfg, id, ds). (id, (THE ev).config_v (config_to_inc_config cfg), ds))
+        (\ (cfg, id, ds). (id, (THE ev).config_v (config_to_inc_config cfg), ds))
             o
         cake_orac c'
             (\i. case get_oracle (THE ev) (add_eval_state ev s0) env prog i of

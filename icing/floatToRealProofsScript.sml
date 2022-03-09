@@ -6,7 +6,7 @@
 open icing_rewriterTheory source_to_sourceTheory fpOptTheory fpOptPropsTheory
      fpSemPropsTheory semanticPrimitivesTheory evaluateTheory
      semanticsTheory semanticsPropsTheory pureExpsTheory floatToRealTheory
-     evaluatePropsTheory terminationTheory fpSemPropsTheory mllistTheory;
+     evaluatePropsTheory fpSemPropsTheory mllistTheory;
      local open ml_progTheory in end;
 open icingTacticsLib preamble;
 

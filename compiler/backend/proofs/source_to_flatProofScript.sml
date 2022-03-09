@@ -786,8 +786,10 @@ val do_eq = Q.prove (
      `(false_tag, SOME bool_id) <> (q,r)` by (CCONTR_TAC >> fs[])) >>
     fs[ctor_same_type_def] >>
     COND_CASES_TAC >> gs[] >> rveq >> res_tac
-    >> Cases_on ‘ts’ >> gs[semanticPrimitivesTheory.ctor_same_type_def, ctor_same_type_def, same_type_def]) >>
+    >> Cases_on ‘ts’ >> gs[semanticPrimitivesTheory.ctor_same_type_def, ctor_same_type_def, same_type_def]
+       ) >>
   TRY every_case_tac >>
+  gs[lit_same_type_def] >>
   metis_tac [SOME_11, genv_c_ok_def
     |> SIMP_RULE (srw_ss()) [semanticPrimitivesTheory.ctor_same_type_def]]
   );
@@ -1673,7 +1675,7 @@ Proof
   srw_tac[][semanticPrimitivesTheory.pmatch_def, flatSemTheory.pmatch_def, compile_pat_def] >>
   full_simp_tac(srw_ss())[match_result_rel_def, flatSemTheory.pmatch_def, v_rel_eqns] >>
   imp_res_tac LIST_REL_LENGTH
-  >- (fs[compile_pat_def, v_rel_eqns] >> rveq >> fs[terminationTheory.pmatch_def] >>
+  >- (fs[compile_pat_def, v_rel_eqns] >> rveq >> fs[pmatch_def] >>
     TOP_CASE_TAC >- simp [match_result_rel_def] >>
     fs [] >>
     qmatch_assum_rename_tac `nsLookup _ _ = SOME p` >>
@@ -1795,11 +1797,11 @@ Proof
   measureInduct_on ‘semanticPrimitives$v1_size vs’ >> Cases_on ‘vs’ >>
   fs[LIST_REL_def] >> rpt strip_tac
   >- (
-   fs[terminationTheory.do_fpoptimise_def]) >>
+   fs[do_fpoptimise_def]) >>
   first_assum (qspec_then ‘t’ assume_tac) >>
   fs[semanticPrimitivesTheory.v_size_def] >>
   simp[Once fpSemPropsTheory.do_fpoptimise_cons] >>
-  Cases_on ‘h’ >> simp[terminationTheory.do_fpoptimise_def] >>
+  Cases_on ‘h’ >> simp[do_fpoptimise_def] >>
   fs[Once v_rel_cases]
   >- (
    first_x_assum (qspec_then ‘l’ assume_tac) >>

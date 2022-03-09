@@ -178,12 +178,7 @@ Definition freevars_list_def:
   freevars_list (e1::es) =
     freevars_list [e1] ++ freevars_list es
 Termination
-  wf_rel_tac `measure exp6_size` \\ fs[]
-  \\ Induct_on `pes` \\ fs[]
-  \\ rpt strip_tac \\ simp[astTheory.exp_size_def]  \\ rveq
-  \\ res_tac
-  >- (simp[astTheory.exp_size_def])
-  \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[]
+  wf_rel_tac `measure exp6_size`
 End
 
 Definition checkFreevars_def:

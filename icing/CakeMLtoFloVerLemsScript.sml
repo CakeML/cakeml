@@ -41,12 +41,7 @@ Definition freevars_def:
   freevars (e1::es) =
     freevars [e1] UNION freevars es
 Termination
-  wf_rel_tac `measure exp6_size` \\ fs[]
-  \\ Induct_on `pes` \\ fs[]
-  \\ rpt strip_tac \\ simp[astTheory.exp_size_def]  \\ rveq
-  \\ res_tac
-  >- (simp[astTheory.exp_size_def])
-  \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[]
+  wf_rel_tac `measure exp6_size`
 End
 
 Theorem lookupCMLVar_id_l:

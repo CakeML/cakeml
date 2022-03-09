@@ -6,7 +6,7 @@ struct
   open fpOptTheory fpOptPropsTheory
        fpSemPropsTheory semanticPrimitivesTheory evaluateTheory
        semanticsTheory semanticsPropsTheory
-       evaluatePropsTheory terminationTheory fpSemPropsTheory mllistTheory;
+       evaluatePropsTheory fpSemPropsTheory mllistTheory;
   local open ml_progTheory in end;
   open preamble;
 

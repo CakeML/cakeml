@@ -5,13 +5,14 @@
 (* HOL4 *)
 open machine_ieeeTheory realTheory realLib RealArith;
 (* CakeML *)
-open semanticPrimitivesTheory terminationTheory compilerTheory ml_translatorTheory;
+open semanticPrimitivesTheory evaluateTheory compilerTheory ml_translatorTheory;
 (* FloVer *)
 open ExpressionsTheory ExpressionSemanticsTheory CommandsTheory
      EnvironmentsTheory IEEE_connectionTheory
      FloverMapTheory TypeValidatorTheory;
 (* Icing *)
-open source_to_sourceTheory CakeMLtoFloVerTheory CakeMLtoFloVerLemsTheory floatToRealTheory floatToRealProofsTheory;
+open fpSemTheory source_to_sourceTheory CakeMLtoFloVerTheory
+     CakeMLtoFloVerLemsTheory floatToRealTheory floatToRealProofsTheory;
 open preamble;
 
 val _ = new_theory "CakeMLtoFloVerProofs";
@@ -427,7 +428,7 @@ Proof
     \\ fs[MachineTypeTheory.mTypeToR_def, perturb_def]
     \\ EVAL_TAC \\ fs[state_component_equality])
   >- (
-   simp[terminationTheory.evaluate_def]
+   simp[evaluate_def]
    \\ qmatch_goalsub_abbrev_tac ‘evaluate stUpd env [realify f]’
    \\ ‘stUpd.fp_state.real_sem’
      by (unabbrev_all_tac \\ TOP_CASE_TAC
@@ -535,7 +536,7 @@ Proof
      \\ fs[Once toRCmd_def, Once toREvalCmd_def, bstep_cases] \\ rveq
      \\ drule CakeML_FloVer_real_sim_exp \\ fs[]
      \\ rpt (disch_then drule) \\ fs[])
-  \\ simp[realify_def, terminationTheory.evaluate_def]
+  \\ simp[realify_def, evaluate_def]
   \\ qmatch_goalsub_abbrev_tac ‘evaluate stUpd env [realify f]’
   \\ ‘stUpd.fp_state.real_sem’ by (unabbrev_all_tac \\ TOP_CASE_TAC \\ fs[])
   \\ first_x_assum drule
@@ -679,7 +680,7 @@ Proof
     \\ fs[fpValTreeTheory.fp_top_def, fpSemTheory.compress_word_def]
     \\ EVAL_TAC)
   >- (
-   simp[terminationTheory.evaluate_def]
+   simp[evaluate_def]
    \\ qmatch_goalsub_abbrev_tac ‘evaluate stUpd env [f]’
    \\ ‘stUpd.fp_state.canOpt = FPScope NoOpt’
       by (unabbrev_all_tac \\ fs[])
@@ -792,7 +793,7 @@ Proof
      \\ fs[bstep_float_def]
      \\ drule CakeML_FloVer_float_sim_exp \\ rpt (disch_then drule)
      \\ strip_tac \\ fs[])
-  \\ simp[terminationTheory.evaluate_def]
+  \\ simp[evaluate_def]
   \\ qmatch_goalsub_abbrev_tac ‘evaluate stUpd env _’
   \\ ‘stUpd.fp_state.canOpt = FPScope NoOpt’ by (unabbrev_all_tac \\ fs[])
   \\ fs[freevars_def]
@@ -800,8 +801,11 @@ Proof
   \\ rpt (disch_then drule)
   \\ strip_tac \\ fs[]
   \\ Cases_on ‘fp’ \\ fs[v_word_eq_def]
-  \\ rveq \\ EVAL_TAC \\ fs[fpSemTheory.compress_word_def, v_word_eq_def]
-  \\ unabbrev_all_tac \\ fs[state_component_equality, fpState_component_equality]
+  \\ rveq \\ EVAL_TAC
+  \\ unabbrev_all_tac
+  \\ fs[fpSemTheory.compress_word_def, v_word_eq_def, fp_uop_comp_def,
+        fp_bop_comp_def, fp_top_comp_def, fpfma_def,
+        state_component_equality, fpState_component_equality]
 QED
 
 Theorem CakeML_FloVer_float_sim_exp_strict:
@@ -936,7 +940,7 @@ Proof
     \\ fs[fpValTreeTheory.fp_top_def, fpSemTheory.compress_word_def]
     \\ EVAL_TAC)
   >- (
-   simp[terminationTheory.evaluate_def]
+   simp[evaluate_def]
    \\ qmatch_goalsub_abbrev_tac ‘evaluate stUpd env [f]’
    \\ ‘stUpd.fp_state.canOpt = Strict’
       by (unabbrev_all_tac \\ fs[])
@@ -1049,7 +1053,7 @@ Proof
      \\ fs[bstep_float_def]
      \\ drule CakeML_FloVer_float_sim_exp_strict \\ rpt (disch_then drule)
      \\ strip_tac \\ fs[])
-  \\ simp[terminationTheory.evaluate_def]
+  \\ simp[evaluate_def]
   \\ qmatch_goalsub_abbrev_tac ‘evaluate stUpd env _’
   \\ ‘stUpd.fp_state.canOpt = Strict’ by (unabbrev_all_tac \\ fs[])
   \\ fs[freevars_def]
@@ -1057,8 +1061,11 @@ Proof
   \\ rpt (disch_then drule)
   \\ strip_tac \\ fs[]
   \\ Cases_on ‘fp’ \\ fs[v_word_eq_def]
-  \\ rveq \\ EVAL_TAC \\ fs[fpSemTheory.compress_word_def, v_word_eq_def]
-  \\ unabbrev_all_tac \\ fs[state_component_equality, fpState_component_equality]
+  \\ rveq \\ EVAL_TAC
+  \\ unabbrev_all_tac
+  \\ fs[fpSemTheory.compress_word_def, v_word_eq_def, fp_uop_comp_def,
+        fp_bop_comp_def, fp_top_comp_def, fpfma_def,
+        state_component_equality, fpState_component_equality]
 QED
 
 Triviality state_eq_fpstate:
@@ -1080,7 +1087,7 @@ Theorem CakeML_FloVer_float_sim_noopt:
     v_word_eq (FP_WordTree fp) vF
 Proof
   rpt strip_tac
-  \\ fs[terminationTheory.evaluate_def, toFloVerCmd_def, freevars_def]
+  \\ fs[evaluate_def, toFloVerCmd_def, freevars_def]
   \\ Cases_on ‘st.fp_state.canOpt = Strict’ \\ fs[]
   >- (
    drule CakeML_FloVer_float_sim_strict
@@ -1311,7 +1318,7 @@ Proof
     \\ fs[fpSemTheory.compress_word_def, fpSemTheory.fp_top_comp_def])
   >- (
    qpat_x_assum `evaluate _ _ _= _` mp_tac
-   \\ simp[terminationTheory.evaluate_def]
+   \\ simp[evaluate_def]
    \\ rpt (TOP_CASE_TAC \\ fs[])
    \\ rpt strip_tac \\ fs[] \\ rveq
    \\ ‘(st with fp_state := st.fp_state with canOpt := FPScope NoOpt).fp_state.canOpt = FPScope NoOpt’
@@ -1428,7 +1435,7 @@ Proof
      \\ fs[bstep_float_def]
      \\ drule FloVer_CakeML_float_sim_exp \\ rpt (disch_then drule)
      \\ strip_tac \\ fs[])
-  \\ pop_assum mp_tac \\ simp[terminationTheory.evaluate_def]
+  \\ pop_assum mp_tac \\ simp[evaluate_def]
   \\ qmatch_goalsub_abbrev_tac ‘evaluate stUpd env _’
   \\ ‘stUpd.fp_state.canOpt = FPScope NoOpt’ by (unabbrev_all_tac \\ fs[])
   \\ rpt (TOP_CASE_TAC \\ fs[]) \\ rpt strip_tac \\ rveq

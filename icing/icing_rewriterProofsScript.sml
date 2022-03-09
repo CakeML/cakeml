@@ -5,7 +5,7 @@
 open icing_rewriterTheory source_to_sourceTheory fpOptTheory fpOptPropsTheory
      fpSemPropsTheory semanticPrimitivesTheory evaluateTheory
      semanticsTheory semanticsPropsTheory floatToRealTheory
-     evaluatePropsTheory terminationTheory fpSemPropsTheory;
+     evaluatePropsTheory fpSemPropsTheory;
 open preamble;
 
 val _ = new_theory "icing_rewriterProofs";
@@ -39,7 +39,8 @@ Proof
     \\ TOP_CASE_TAC \\ fs[fp_translate_def, do_fprw_def, CaseEq"option"]
     \\ rveq \\ fs[fp_translate_def])
   >- (
-    fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rveq
+    fs [quantHeuristicsTheory.LENGTH_TO_EXISTS_CONS] \\ rveq
+    \\ rename1 ‘isFpArithExpList [e1;e2]’
     \\ simp[Once evaluate_def, astTheory.getOpClass_def, astTheory.isFpBool_def]
     \\ first_x_assum (qspec_then ‘env’ mp_tac) \\ impl_tac
     >- (fs[] \\ metis_tac[])
@@ -54,7 +55,8 @@ Proof
     \\ TOP_CASE_TAC \\ fs[fp_translate_def, do_fprw_def, CaseEq"option"]
     \\ rveq \\ fs[fp_translate_def])
   >- (
-    fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rveq
+    fs [quantHeuristicsTheory.LENGTH_TO_EXISTS_CONS] \\ rveq
+    \\ rename1 ‘isFpArithExpList [e1;e2;e3]’
     \\ simp[Once evaluate_def, astTheory.getOpClass_def, astTheory.isFpBool_def]
     \\ first_x_assum (qspec_then ‘env’ mp_tac) \\ impl_tac
     >- (fs[] \\ metis_tac[])
@@ -111,13 +113,14 @@ Proof
     \\ gs[fpState_component_equality,
          semanticPrimitivesTheory.state_component_equality])
   >- (
-    fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rveq
+    fs [quantHeuristicsTheory.LENGTH_TO_EXISTS_CONS] \\ rveq
+    \\ rename1 ‘isFpArithExpList [e1; e2]’
     \\ simp[Once evaluate_def, astTheory.getOpClass_def, astTheory.isFpBool_def]
     \\ first_x_assum (qspec_then ‘env’ mp_tac) \\ impl_tac
     >- (fs[] \\ metis_tac[])
     \\ disch_then (fn th => qspec_then ‘e1’ strip_assume_tac th
                    \\ qspec_then ‘e2’ strip_assume_tac th)
-    \\ fs[]
+    \\ gs[]
     \\ simp[Once evaluate_cons]
     \\ pop_assum $ qspec_then ‘st’ mp_tac \\ impl_tac \\ fs[]
     \\ strip_tac \\ gs[]
@@ -126,7 +129,8 @@ Proof
     \\ fs[do_app_def, fpState_component_equality,
          semanticPrimitivesTheory.state_component_equality])
   >- (
-    fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rveq
+    fs [quantHeuristicsTheory.LENGTH_TO_EXISTS_CONS] \\ rveq
+    \\ rename1 ‘isFpArithExpList [e1; e2; e3]’
     \\ simp[Once evaluate_def, astTheory.getOpClass_def, astTheory.isFpBool_def]
     \\ first_x_assum (qspec_then ‘env’ mp_tac) \\ impl_tac
     >- (fs[] \\ metis_tac[])

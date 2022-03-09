@@ -12,7 +12,7 @@ open semanticPrimitivesTheory evaluatePropsTheory;
 open fpValTreeTheory fpSemPropsTheory fpOptTheory fpOptPropsTheory
      icing_optimisationsTheory icing_rewriterTheory source_to_sourceProofsTheory
      floatToRealTheory floatToRealProofsTheory icing_optimisationProofsTheory
-     pureExpsTheory terminationTheory binary_ieeeTheory realLib realTheory RealArith;
+     evaluateTheory pureExpsTheory binary_ieeeTheory realLib realTheory RealArith;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -826,7 +826,7 @@ Proof
     >- (gs[isFpArithExp_def, freeVars_real_bound_def] \\ imp_res_tac evaluate_fp_opts_inv \\ gs[])
     \\ disch_then $ qspec_then ‘st1’ strip_assume_tac
     \\ gs[state_component_equality,fpState_component_equality])
-  \\ gs[state_component_equality, fpState_component_equality]
+  \\ gs[] \\ rveq \\ gs[state_component_equality, fpState_component_equality]
   \\ fs[EVAL “fp64_to_real 0w”]
   \\ ‘float_to_real <|Sign := 0w: word1; Exponent := 0w: word11; Significand := 0w: 52 word|> = 0’
     by (
@@ -859,7 +859,7 @@ Proof
     >- (gs[isFpArithExp_def, freeVars_real_bound_def] \\ imp_res_tac evaluate_fp_opts_inv \\ gs[])
     \\ disch_then $ qspec_then ‘st1’ strip_assume_tac
     \\ gs[state_component_equality,fpState_component_equality])
-  \\ gs[state_component_equality, fpState_component_equality]
+  \\ gs[] \\ rveq \\ gs[state_component_equality, fpState_component_equality]
   \\ fs[EVAL “(fp64_to_real 0x3FF0000000000000w)”]
   \\ fs[EVAL “real_bop (getRealBop FP_Mul) r (float_to_real <|Sign := (0w :word1); Exponent := (1023w :word11); Significand := (0w :52 word)|>)”]
   \\ fs[float_to_real]

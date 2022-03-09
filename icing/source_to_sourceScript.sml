@@ -6,7 +6,7 @@
   The optimiser definitions rely on the low-level functions from
   icing_rewriterScript implementing pattern matching and pattern instantiation.
 *)
-open semanticPrimitivesTheory evaluateTheory terminationTheory
+open semanticPrimitivesTheory evaluateTheory
      icing_rewriterTheory icing_optimisationsTheory fpOptTheory fpValTreeTheory;
 
 open preamble;
@@ -118,20 +118,7 @@ Definition no_optimisations_def:
     Lannot (no_optimisations cfg e) l /\
   no_optimisations cfg (FpOptimise sc e) = FpOptimise NoOpt (no_optimisations cfg e)
 Termination
-  WF_REL_TAC `measure (\ (c,e). exp_size e)` \\ fs[]
-  \\ rpt conj_tac
-  >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
-  >- (Induct_on `pes` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `e` assume_tac) \\ fs[])
-  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `op` assume_tac) \\ fs[])
-  >- (Induct_on `exps` \\ fs[astTheory.exp_size_def]
-      \\ rpt strip_tac \\ res_tac \\ rveq \\ fs[astTheory.exp_size_def]
-      \\ first_x_assum (qspec_then `mod` assume_tac) \\ fs[])
+  WF_REL_TAC `measure (\ (c,e). exp_size e)`
 End
 
 Definition no_optimise_pass_def:

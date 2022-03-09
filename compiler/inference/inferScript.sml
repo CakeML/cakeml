@@ -551,15 +551,12 @@ constrain_op l op ts =
    | (Aupdate_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Aw8update_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
-<<<<<<< HEAD
    | (Real_uop _, _) => failwith l (implode "Reals do not have a type")
    | (Real_bop _, _) => failwith l (implode "Reals do not have a type")
    | (Real_cmp _, _) => failwith l (implode "Reals do not have a type")
    | (RealFromFP, _) => failwith l (implode "Reals do not have a type")
-=======
    | (Eval, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Env_id, _) => failwith l (implode "Unsafe ops do not have a type")
->>>>>>> master
    | _ => failwith l (op_n_args_msg op (LENGTH ts))
 End
 
@@ -593,14 +590,9 @@ Proof
  fs [add_constraints_def, add_constraint_def, fresh_uvar_def,
    st_ex_bind_failure, st_ex_return_def, option_case_eq] >>
  rw [] >>
-<<<<<<< HEAD
- fs [mlstringTheory.concat_thm, Abbr `m1`, Abbr `m2`, Abbr `m3`] >>
- fs [failwith_def] >> rveq >> fs []
-=======
  fs [mlstringTheory.concat_thm] >>
  fs [failwith_def] >> rw [] >> fs [] >>
  unabbrev_all_tac >> fs []
->>>>>>> master
 QED
 
 val infer_e_def = tDefine "infer_e" `

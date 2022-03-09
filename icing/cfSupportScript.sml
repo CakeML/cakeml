@@ -152,9 +152,7 @@ val _ = append_prog (reader3_def |> concl |> rhs);
 **)
 Definition reader4_def:
   reader4 =
-  [Dletrec
-   (Locs <|row := 2; col := 4; offset := 0|>
-    <|row := 9; col := 38; offset := 0|>)
+  [Dletrec unknown_loc
    [("reader4","u",
      Let (SOME "a") (Con NONE [])
          (Let (SOME "cl")
@@ -228,9 +226,7 @@ val _ = append_prog (reader4_def |> concl |> rhs);
 **)
 Definition reader6_def:
   reader6 =
-   [Dletrec
-    (Locs <|row := 1; col := 17; offset := 0|>
-     <|row := 10; col := 54; offset := 0|>)
+   [Dletrec unknown_loc
     [("reader6","u",
       Let (SOME "a") (Con NONE [])
           (Let (SOME "cl")
@@ -450,9 +446,7 @@ fun reader8 u =
 **)
 Definition reader8_def:
   reader8 =
-  [Dletrec
-   (Locs <|row := 1; col := 17; offset := 0|>
-    <|row := 12; col := 70; offset := 0|>)
+  [Dletrec unknown_loc
    [("reader8","u",
      Let (SOME "a") (Con NONE [])
          (Let (SOME "cl")
@@ -890,9 +884,7 @@ fun reader8 u =
 **)
 Definition reader9_def:
   reader9 =
-  [Dletrec
-   (Locs <|row := 1; col := 17; offset := 0|>
-    <|row := 13; col := 78; offset := 0|>)
+  [Dletrec unknown_loc
    [("reader9","u",
      Let (SOME "a") (Con NONE [])
          (Let (SOME "cl")
@@ -1809,7 +1801,7 @@ Proof
   xcf "reader6" st
   \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
   \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_7]
+  \\ fs [quantHeuristicsTheory.LENGTH_TO_EXISTS_CONS]
   \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull \\ gs[])
   \\ ‘~ NULL cl’ by fs[wfcl_def,NULL_EQ]
   \\ xlet_auto >- xsimpl
@@ -1957,12 +1949,12 @@ Proof
   xcf "reader9" st
   \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
   \\ xlet_auto_spec (SOME CommandLine_arguments_spec) >- (xcon \\ xsimpl)
-  \\ imp_res_tac quantHeuristicsTheory.LIST_LENGTH_10
+  \\ fs [quantHeuristicsTheory.LENGTH_TO_EXISTS_CONS]
   \\ reverse(Cases_on`wfcl cl`)
   >- (fs[COMMANDLINE_def] \\ xpull_core \\ rpt strip_tac
       >- (rewrite_tac[Once cf_let_def] \\ simp[local_is_local])
       \\ gs[])
-  \\ ‘~ NULL cl’ by fs[wfcl_def,NULL_EQ]
+  \\ ‘~ NULL cl’ by fs[wfcl_def,NULL_EQ] \\ rveq
   \\ xlet_auto_spec (SOME CommandLine_arguments_spec)
   >- (qexists_tac ‘STDIO fs’ \\ xsimpl)
   \\ xlet_auto_spec (SOME hd_spec) >- xsimpl

@@ -4,8 +4,6 @@
 *)
 open bossLib semanticPrimitivesTheory fpValTreeTheory fpOptTheory
      fpOptPropsTheory fpSemPropsTheory;
-open terminationTheory;
-
 open icingTacticsLib preamble;
 
 val _ = new_theory "pureExps";
@@ -199,7 +197,7 @@ local
               evaluate_match s env v pl err_v =
                 (s with <| fp_state := s.fp_state with
                   <| opts := fpOpts; choices := s.fp_state.choices + (s2.fp_state.choices - s1.fp_state.choices)|> |>, r)``;
-  val indThm = terminationTheory.evaluate_ind
+  val indThm = evaluate_ind
     |> ISPEC eval_goal |> SPEC eval_match_goal
   val isPureExpList_single_thm =
     SIMP_RULE std_ss [] (EVAL ``isPureExpList [e] = isPureExp e``);

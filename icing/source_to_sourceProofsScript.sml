@@ -9,7 +9,7 @@ open icing_rewriterTheory icing_rewriterProofsTheory source_to_sourceTheory
      fpOptTheory fpOptPropsTheory
      fpSemPropsTheory semanticPrimitivesTheory evaluateTheory
      semanticsTheory semanticsPropsTheory pureExpsTheory floatToRealTheory
-     floatToRealProofsTheory evaluatePropsTheory terminationTheory
+     floatToRealProofsTheory evaluatePropsTheory namespaceTheory
      fpSemPropsTheory mllistTheory optPlannerTheory;
      local open ml_progTheory in end;
 open icingTacticsLib preamble;
@@ -28,7 +28,7 @@ val choice_mono =
 Theorem nsMap_nsBind:
   nsMap f (nsBind x v env) = nsBind x (f v) (nsMap f env)
 Proof
-  Cases_on ‘env’ \\ gs[namespaceTheory.nsBind_def, terminationTheory.nsMap_def]
+  Cases_on ‘env’ \\ gs[namespaceTheory.nsBind_def, nsMap_def]
 QED
 
 (* TODO: Move *)
@@ -789,21 +789,23 @@ Proof
   ho_match_mp_tac isDoubleExp_ind
   \\ rpt strip_tac \\ gs[isDoubleExp_def]
   >- (Cases_on ‘path’ \\ gs[freeVars_arithExp_bound_def])
+  >~ [‘Let x e1 e2’]
   >- (
     Cases_on ‘path’ \\ gs[freeVars_arithExp_bound_def]
     >- (first_x_assum irule \\ gs[freeVars_fp_bound_def])
     \\ rpt strip_tac \\ first_x_assum irule
     \\ gs[freeVars_fp_bound_def]
-    \\ rpt strip_tac \\ rename1 ‘y IN FV e2’
+    \\ last_x_assum $ qspec_then ‘env’ mp_tac
+    \\ impl_tac >- gs[]
+    \\ rpt strip_tac
     \\ Cases_on ‘x’ \\ gs[namespaceTheory.nsOptBind_def]
-    \\ rename1 ‘nsBind x (HD v) env.v’
-    \\ Cases_on ‘y = Short x’ \\ rveq \\ gs[]
     \\ imp_res_tac evaluate_sing \\ rveq \\ gs[]
-    \\ ‘∃ fp. v' = (FP_WordTree fp)’
-       by (drule (CONJUNCT1 isDoubleExp_evaluates)
-           \\ disch_then (qspecl_then [‘env’, ‘st1’, ‘st2’, ‘[v']’] mp_tac)
-           \\ impl_tac \\ gs[freeVars_fp_bound_def])
-    \\ rveq \\ gs[])
+    \\ rename1 ‘y IN FV e2’
+    \\ Cases_on ‘y’ \\ gs[ml_progTheory.nsLookup_nsBind_compute]
+    \\ COND_CASES_TAC \\ gs[] \\ rveq
+    \\ last_x_assum $ mp_then Any drule (CONJUNCT1 isDoubleExp_evaluates)
+    \\ gs[] \\ disch_then irule
+    \\ gs[freeVars_fp_bound_def])
   >- (
     Cases_on ‘path’ \\ gs[freeVars_arithExp_bound_def]
     \\ Cases_on ‘p’ \\ gs[freeVars_arithExp_bound_def, EVERYi_def]
@@ -854,21 +856,23 @@ Proof
   ho_match_mp_tac isDoubleExp_ind
   \\ rpt strip_tac \\ gs[isDoubleExp_def]
   >- (Cases_on ‘path’ \\ gs[freeVars_realExp_bound_def])
+  >~ [‘Let x e1 e2’]
   >- (
     Cases_on ‘path’ \\ gs[freeVars_realExp_bound_def]
     >- (first_x_assum irule \\ gs[freeVars_real_bound_def])
     \\ rpt strip_tac \\ first_x_assum irule
     \\ gs[freeVars_real_bound_def]
-    \\ rpt strip_tac \\ rename1 ‘y IN FV e2’
+    \\ last_x_assum $ qspec_then ‘env’ mp_tac
+    \\ impl_tac >- gs[]
+    \\ rpt strip_tac
     \\ Cases_on ‘x’ \\ gs[namespaceTheory.nsOptBind_def]
-    \\ rename1 ‘nsBind x (HD v) env.v’
-    \\ Cases_on ‘y = Short x’ \\ rveq \\ gs[]
     \\ imp_res_tac evaluate_sing \\ rveq \\ gs[]
-    \\ ‘∃ rn. v' = Real rn’
-       by (drule (CONJUNCT1 isDoubleExp_evaluates_real)
-           \\ disch_then (qspecl_then [‘env’, ‘st1’, ‘st2’, ‘[v']’] mp_tac)
-           \\ impl_tac \\ gs[freeVars_real_bound_def])
-    \\ rveq \\ gs[])
+    \\ rename1 ‘y IN FV e2’
+    \\ Cases_on ‘y’ \\ gs[ml_progTheory.nsLookup_nsBind_compute]
+    \\ COND_CASES_TAC \\ gs[] \\ rveq
+    \\ last_x_assum $ mp_then Any drule (CONJUNCT1 isDoubleExp_evaluates_real)
+    \\ gs[] \\ disch_then irule
+    \\ gs[freeVars_real_bound_def])
   >- (
     Cases_on ‘path’ \\ gs[freeVars_realExp_bound_def]
     \\ Cases_on ‘p’ \\ gs[freeVars_realExp_bound_def, EVERYi_def]
