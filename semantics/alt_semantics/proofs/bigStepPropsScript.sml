@@ -30,24 +30,31 @@ Proof
   srw_tac[][]
 QED
 
-Theorem evaluate_ignores_types_exns:
+Theorem evaluate_ignores_types_exns_eval:
   (∀ck env ^st e r.
      evaluate ck env st e r ⇒
-     ∀x y. evaluate ck env (st with <| next_type_stamp := x; next_exn_stamp := y |>) e
-                    ((FST r) with <| next_type_stamp := x; next_exn_stamp := y |>, SND r)) ∧
+     ∀x y z.
+      evaluate ck env
+        (st with <| next_type_stamp := x; next_exn_stamp := y; eval_state := z |>) e
+        ((FST r) with <| next_type_stamp := x; next_exn_stamp := y; eval_state := z|>,
+          SND r)) ∧
   (∀ck env ^st es r.
      evaluate_list ck env st es r ⇒
-     ∀x y. evaluate_list ck env (st with <| next_type_stamp := x; next_exn_stamp := y |>) es
-                         ((FST r) with <| next_type_stamp := x; next_exn_stamp := y |>, SND r)) ∧
+     ∀x y z. evaluate_list ck env
+        (st with <| next_type_stamp := x; next_exn_stamp := y; eval_state := z |>) es
+        ((FST r) with <| next_type_stamp := x; next_exn_stamp := y; eval_state := z|>,
+          SND r)) ∧
   (∀ck env ^st v pes err_v r.
      evaluate_match ck env st v pes err_v r ⇒
-     ∀x y. evaluate_match ck env (st with <| next_type_stamp := x; next_exn_stamp := y |>) v pes err_v
-                          ((FST r) with <| next_type_stamp := x; next_exn_stamp := y |>, SND r))
+     ∀x y z. evaluate_match ck env
+        (st with <| next_type_stamp := x; next_exn_stamp := y; eval_state := z |>)
+        v pes err_v
+        ((FST r) with <| next_type_stamp := x; next_exn_stamp := y; eval_state := z|>,
+          SND r))
 Proof
   ho_match_mp_tac bigStepTheory.evaluate_ind >>
-  srw_tac[][] >>
-  srw_tac[][Once evaluate_cases, state_component_equality] >>
-  metis_tac [state_accfupds, K_DEF]
+  rw[] >> rw[Once evaluate_cases, state_component_equality] >>
+  metis_tac[state_accfupds, K_DEF]
 QED
 
 Theorem evaluate_dec_eval_state:

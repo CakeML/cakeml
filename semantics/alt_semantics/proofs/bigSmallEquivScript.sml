@@ -1762,8 +1762,9 @@ Proof
     simp[state_component_equality]
     ) >>
   pop_assum $ qspec_then `s'` assume_tac >>
-  imp_res_tac evaluate_ignores_types_exns >> gvs[] >>
-  pop_assum $ qspecl_then [`s.next_exn_stamp`, `s.next_type_stamp`] assume_tac >>
+  imp_res_tac evaluate_ignores_types_exns_eval >> gvs[] >>
+  pop_assum $ qspecl_then
+    [`s.eval_state`,`s.next_exn_stamp`,`s.next_type_stamp`] assume_tac >>
   irule evaluate_change_state >> first_x_assum $ irule_at Any >>
   imp_res_tac big_unclocked >> gvs[state_component_equality]
 QED
