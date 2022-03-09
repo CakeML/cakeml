@@ -1532,7 +1532,7 @@ Theorem evaluate_state_app_cons:
 Proof
   rw[evaluate_state_cases] >> rw[Once evaluate_cases] >>
   reverse $ gvs[evaluate_ctxts_cons] >> goal_assum $ drule_at Any >>
-  qexists_tac `s'` >> simp[]
+  qexists_tac `clk` >> simp[]
   >- (rpt disj2_tac >> simp[Once evaluate_cases]) >>
   full_simp_tac(srw_ss())[Once evaluate_ctxt_cases, REVERSE_REVERSE, REVERSE_APPEND] >>
   rw[Once evaluate_cases, PULL_EXISTS] >> gvs[]
@@ -1545,10 +1545,11 @@ Proof
 QED
 
 Theorem one_step_backward:
-  ∀env s e c s' env' e' c' ck bv.
-    e_step (env,s,e,c) = Estep (env',s',e',c') ∧
-    evaluate_state ck (env',s',e',c') bv
-  ⇒ evaluate_state ck (env,s,e,c) bv
+  ∀env (s:α state) e c env' e' c' ck (bv:α state # (v,v) result)
+   refs ffi refs' ffi'.
+    e_step (env,(refs,ffi),e,c) = Estep (env',(refs',ffi'),e',c') ∧
+    evaluate_state ck (env',s with <| refs := refs'; ffi := ffi' |>,e',c') bv
+  ⇒ evaluate_state ck (env,s with <| refs := refs; ffi := ffi |>,e,c) bv
 Proof
   rw[e_step_def] >> Cases_on `e` >> gvs[]
   >- (
@@ -1569,15 +1570,13 @@ Proof
     >- (every_case_tac >> gvs[] >> tac3)
     >- tac3
     >- (
-      PairCases_on `s` >>
       FULL_CASE_TAC >> gvs[application_thm, do_opapp_def, do_app_def] >>
-      gvs[SWAP_REVERSE_SYM] >>
-      metis_tac[evaluate_state_app_cons]
+      gvs[SWAP_REVERSE_SYM] >> metis_tac[evaluate_state_app_cons]
       ) >>
     every_case_tac >> gvs[] >> tac3
     )
   >- (
-    PairCases_on `s` >> gvs[continue_def] >>
+    gvs[continue_def] >>
     Cases_on `c` >> gvs[] >> PairCases_on `h` >> gvs[] >> Cases_on `h0` >> gvs[] >>
     every_case_tac >> gvs[push_def, return_def, application_thm] >>
     gvs[evaluate_state_cases, evaluate_ctxts_cons, evaluate_ctxt_cases,
@@ -1585,10 +1584,7 @@ Proof
     >- (
       once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
       every_case_tac >> gvs[SF DNF_ss, SF SFY_ss] >>
-      disj1_tac >> qexists_tac `s with clock := s.clock + 1` >>
-      `s with <| clock := s.clock; refs := refs; ffi := ffi |> =
-       s with <| refs := refs; ffi := ffi |>` by gvs[state_component_equality] >>
-      simp[SF SFY_ss]
+      disj1_tac >> qexists_tac `clk + 1` >> simp[SF SFY_ss]
       )
     >- (
       once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
@@ -1624,7 +1620,7 @@ Theorem one_step_backward_type_error:
   !env s e c.
     e_step (env,to_small_st s,e,c) = Eabort a
     ⇒
-    evaluate_state ck (env,to_small_st s,e,c) (s, Rerr (Rabort a))
+    evaluate_state ck (env,s,e,c) (s, Rerr (Rabort a))
 Proof
   srw_tac[][e_step_def] >>
   cases_on `e` >>
@@ -1685,51 +1681,44 @@ Proof
 QED
 
 Theorem small_exp_to_big_exp:
-  ∀ck st st'. RTC e_step_reln st st' ⇒
-    ∀r. evaluate_state ck st' r ⇒ evaluate_state ck st r
+  ∀ck env refs (ffi:α ffi_state) e c env' refs' ffi' e' c'.
+    RTC e_step_reln (env,(refs,ffi),e,c) (env',(refs',ffi'),e',c') ⇒
+    ∀(s:α state) r.
+      evaluate_state ck (env',s with <| refs := refs'; ffi := ffi' |>,e',c') r
+    ⇒ evaluate_state ck (env,s with <| refs := refs; ffi := ffi |>,e,c) r
 Proof
-  Induct_on `RTC` >> rw[e_step_reln_def] >>
-  map_every PairCases_on [`st`,`st'`,`st''`] >>
-  metis_tac [one_step_backward]
+  Induct_on `RTC` >> rw[e_step_reln_def] >> simp[] >>
+  metis_tac[one_step_backward, PAIR]
 QED
 
 Theorem evaluate_state_no_ctxt:
   !env (s:'a state) e r ck.
-    evaluate_state F (env,to_small_st s,Exp e,[]) r ⇔
-    evaluate F env (FST r with <| refs := s.refs; ffi := s.ffi |>) e r
+    evaluate_state F (env,s,Exp e,[]) r ⇔
+    evaluate F env (s with clock := (FST r).clock) e r
 Proof
-  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
-  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
-  full_simp_tac(srw_ss())[to_small_st_def] >>
-  Cases_on`r`>>simp[]>> reverse $ eq_tac >> rw[SF SFY_ss] >>
-  imp_res_tac evaluate_no_new_types_exns >> gvs[] >>
-  qmatch_asmsub_abbrev_tac `evaluate _ _ s1` >>
-  qmatch_goalsub_abbrev_tac `evaluate _ _ s2` >>
-  qsuff_tac `s1 = s2` >> rw[] >> gvs[] >>
-  unabbrev_all_tac >> simp[state_component_equality] >>
-  drule $ cj 1 big_unclocked >> rw[]
+  rw[evaluate_state_cases, Once evaluate_ctxts_cases] >>
+  eq_tac >> rw[] >> gvs[]
+  >- (imp_res_tac big_unclocked >> gvs[])
+  >- (PairCases_on `r` >> gvs[SF SFY_ss])
 QED
 
 Theorem evaluate_state_val_no_ctxt:
   !env (s:'a state) e.
-    evaluate_state F (env,to_small_st s,Val e,[]) r ⇔
-    ∃s':'a state. r = (s' with <| refs := s.refs; ffi := s.ffi |>, Rval e)
+    evaluate_state F (env,s,Val e,[]) r ⇔
+    ∃clk. r = (s with clock := clk, Rval e)
 Proof
-  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
-  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
-  full_simp_tac(srw_ss())[to_small_st_def]
+  rw[evaluate_state_cases, Once evaluate_ctxts_cases] >>
+  rw[Once evaluate_ctxts_cases]
 QED
 
 Theorem evaluate_state_val_raise_ctxt:
   !env (s:'a state) v env'.
-    evaluate_state F (env,to_small_st s,Val v,[(Craise (), env')]) r ⇔
-    ∃s':'a state. r = (s' with <| refs := s.refs; ffi := s.ffi |>, Rerr (Rraise v))
+    evaluate_state F (env,s,Val v,[(Craise (), env')]) r ⇔
+    ∃clk. r = (s with clock := clk, Rerr (Rraise v))
 Proof
-  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
-  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
-  srw_tac[][evaluate_ctxt_cases] >>
-  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
-  full_simp_tac(srw_ss())[to_small_st_def]
+  rw[evaluate_state_cases, Once evaluate_ctxts_cases] >>
+  ntac 2 $ rw[Once evaluate_ctxts_cases] >>
+  rw[evaluate_ctxt_cases]
 QED
 
 Theorem evaluate_change_state = Q.prove(
@@ -1752,16 +1741,19 @@ Proof
     metis_tac[evaluate_no_new_types_exns, big_unclocked, FST]
     ) >>
   rw[] >> reverse (Cases_on `r` >| [all_tac, Cases_on `e'`]) >>
-  gvs[small_eval_def] >> imp_res_tac $ Q.SPEC `F` small_exp_to_big_exp >>
+  gvs[small_eval_def, to_small_st_def] >>
+  imp_res_tac $ Q.SPEC `F` small_exp_to_big_exp >>
   gvs[evaluate_state_val_no_ctxt, evaluate_state_no_ctxt,
       evaluate_state_val_raise_ctxt, PULL_EXISTS]
   >- (
-    imp_res_tac one_step_backward_type_error >>
+    imp_res_tac $ SRULE [to_small_st_def] one_step_backward_type_error >>
     pop_assum $ qspec_then `F` assume_tac >>
     irule evaluate_change_state >> first_x_assum $ irule_at Any >>
-    simp[state_component_equality]
+    simp[state_component_equality] >> irule_at Any EQ_REFL >> simp[] >>
+    qsuff_tac `s' with <| refs := s'.refs; ffi := s'.ffi |> = s'` >>
+    rw[] >> simp[state_component_equality]
     ) >>
-  pop_assum $ qspec_then `s'` assume_tac >>
+  pop_assum $ qspecl_then [`s'`,`s'.clock`] assume_tac >>
   imp_res_tac evaluate_ignores_types_exns_eval >> gvs[] >>
   pop_assum $ qspecl_then
     [`s.eval_state`,`s.next_exn_stamp`,`s.next_type_stamp`] assume_tac >>
@@ -3706,7 +3698,7 @@ Theorem evaluate_state_T_total:
   ∀env s ev cs. ∃r. evaluate_state T (env,s,ev,cs) r
 Proof
   rw[] >> simp[Once evaluate_state_cases] >>
-  PairCases_on `s` >> Cases_on `ev` >> gvs[] >>
+  Cases_on `ev` >> gvs[] >>
   metis_tac[evaluate_ctxts_T_total, big_clocked_total, PAIR]
 QED
 
@@ -3758,9 +3750,9 @@ Proof
 QED
 
 Theorem evaluate_state_io_events_mono:
-  ∀ck env st c v r.
+  ∀ck env st ev cs r.
     evaluate_state ck (env, st, ev, cs) r ⇒
-    (SND st).io_events ≼ (FST r).ffi.io_events
+    st.ffi.io_events ≼ (FST r).ffi.io_events
 Proof
   rw[evaluate_state_cases] >> gvs[] >>
   imp_res_tac evaluate_io_events_mono >>

@@ -122,12 +122,12 @@ Inductive evaluate_ctxts:
 End
 
 Inductive evaluate_state:
-  (evaluate ck env (s:'a state with <| ffi := ffi; refs := refs |>) e (st:'a state, res) ∧
+  (evaluate ck env (s:'a state with clock := clk) e (st:'a state, res) ∧
   evaluate_ctxts ck st c res bv
-      ⇒ evaluate_state ck (env, (refs, ffi), Exp e, c) bv) ∧
+      ⇒ evaluate_state ck (env, s, Exp e, c) bv) ∧
 
-  (evaluate_ctxts ck (s with <| ffi := ffi; refs := refs |>) c (Rval v) bv
-      ⇒ evaluate_state ck (env, (refs, ffi), Val v, c) bv)
+  (evaluate_ctxts ck (s with clock := clk) c (Rval v) bv
+      ⇒ evaluate_state ck (env, s, Val v, c) bv)
 End
 
 val _ = export_theory()
