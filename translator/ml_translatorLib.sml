@@ -2651,10 +2651,17 @@ fun single_line_def def = let
   val lemma  = def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
   val def_tm = (subst [const|->mk_comb(v,oneSyntax.one_tm)] (concl lemma))
   val _ = Pmatch.with_classic_heuristic quietDefine [ANTIQUOTE def_tm]
+(*
+  val qDefine = TotalDefn.qDefine "generated_definition[notuserdef]"
+  val _ = Pmatch.with_classic_heuristic qDefine [ANTIQUOTE def_tm]
+*)
   fun find_def name =
     Theory.current_definitions ()
     |> first (fn (s,_) => s = name) |> snd
   val ind = fetch "-" "generated_definition_ind"
+  val _ = (delete_const "generated_definition" handle HOL_ERR e => ())
+  val _ = (Theory.delete_binding "generated_definition_def" handle HOL_ERR e => ())
+  val _ = (Theory.delete_binding "generated_definition_ind" handle HOL_ERR e => ())
   val tys = ind |> concl |> dest_forall |> fst |> type_of |> dest_type |> snd
   val vv = mk_var("very unlikely name",el 2 tys)
   val ind = ind |> SPEC (mk_abs(mk_var("x",hd tys),vv))
