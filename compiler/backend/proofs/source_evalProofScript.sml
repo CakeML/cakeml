@@ -668,130 +668,6 @@ Proof
   \\ fs [EVERY_EL, LIST_REL_EL_EQN, LIST_EQ_REWRITE]
 QED
 
-Theorem concrete_v_enc_option:
-  !opt. concrete_v (enc_option opt) = (!x. opt = SOME x ==> concrete_v x)
-Proof
-  Cases \\ simp [enc_option_def]
-QED
-
-Theorem concrete_v_enc_list:
-  !xs. concrete_v (enc_list xs) = EVERY concrete_v xs
-Proof
-  Induct \\ simp [enc_list_def]
-QED
-
-Theorem concrete_v_enc_id:
-  !id. concrete_v (enc_id id)
-Proof
-  Induct \\ simp [enc_id_def]
-QED
-
-Theorem concrete_v_enc_ast_t:
-  !ast_t. concrete_v (enc_ast_t ast_t)
-Proof
-  recInduct enc_ast_t_ind
-  \\ simp [enc_ast_t_def, concrete_v_enc_id]
-  \\ simp [concrete_v_enc_list, EVERY_MAP]
-  \\ simp [EVERY_MEM]
-QED
-
-Theorem concrete_v_enc_lit:
-  !lit. concrete_v (enc_lit lit)
-Proof
-  Cases
-  \\ simp [enc_lit_def]
-QED
-
-Theorem concrete_v_enc_pat:
-  !pat. concrete_v (enc_pat pat)
-Proof
-  recInduct enc_pat_ind
-  \\ simp [enc_pat_def, concrete_v_enc_ast_t,
-    concrete_v_enc_lit, concrete_v_enc_option]
-  \\ simp [concrete_v_enc_list, EVERY_MAP]
-  \\ simp [EVERY_MEM, PULL_EXISTS, concrete_v_enc_id]
-QED
-
-Theorem concrete_v_enc_lop:
-  !lop. concrete_v (enc_lop lop)
-Proof
-  Cases
-  \\ simp [enc_lop_def]
-QED
-
-Theorem concrete_v_enc_opn:
-  !opn. concrete_v (enc_opn opn)
-Proof
-  Cases
-  \\ simp [enc_opn_def]
-QED
-
-Theorem concrete_v_enc_opb:
-  !opb. concrete_v (enc_opb opb)
-Proof
-  Cases
-  \\ simp [enc_opb_def]
-QED
-
-Theorem concrete_v_enc_opw:
-  !opw. concrete_v (enc_opw opw)
-Proof
-  Cases
-  \\ simp [enc_opw_def]
-QED
-
-Theorem concrete_v_enc_word_size:
-  !word_size. concrete_v (enc_word_size word_size)
-Proof
-  Cases
-  \\ simp [enc_word_size_def]
-QED
-
-Theorem concrete_v_enc_shift:
-  !shift. concrete_v (enc_shift shift)
-Proof
-  Cases
-  \\ simp [enc_shift_def]
-QED
-
-Theorem concrete_v_enc_fp_cmp:
-  !fp_cmp. concrete_v (enc_fp_cmp fp_cmp)
-Proof
-  Cases
-  \\ simp [enc_fp_cmp_def]
-QED
-
-Theorem concrete_v_enc_fp_uop:
-  !fp_uop. concrete_v (enc_fp_uop fp_uop)
-Proof
-  Cases
-  \\ simp [enc_fp_uop_def]
-QED
-
-Theorem concrete_v_enc_fp_bop:
-  !fp_bop. concrete_v (enc_fp_bop fp_bop)
-Proof
-  Cases
-  \\ simp [enc_fp_bop_def]
-QED
-
-Theorem concrete_v_enc_fp_top:
-  !fp_top. concrete_v (enc_fp_top fp_top)
-Proof
-  Cases
-  \\ simp [enc_fp_top_def]
-QED
-
-Theorem concrete_v_enc_op:
-  !op. concrete_v (enc_op op)
-Proof
-  Cases
-  \\ simp [enc_op_def, concrete_v_enc_opn, concrete_v_enc_opb,
-    concrete_v_enc_opw, concrete_v_enc_word_size, concrete_v_enc_shift,
-    nat_to_v_def, concrete_v_enc_fp_cmp, concrete_v_enc_fp_uop,
-    concrete_v_enc_fp_bop, concrete_v_enc_fp_top]
-QED
-
 Theorem v_to_list_concrete:
   !x xs. v_to_list x = SOME xs ==>
   concrete_v x = EVERY concrete_v xs
@@ -892,7 +768,6 @@ Theorem do_eval_sim:
         (orac_s (reset_env_generation t.eval_state t2.eval_state))
   )
 Proof
-
   rw []
   \\ fs [do_eval_def, s_rel_def] \\ fs []
   \\ fs [list_case_eq, v_case_eq, option_case_eq, pair_case_eq]
