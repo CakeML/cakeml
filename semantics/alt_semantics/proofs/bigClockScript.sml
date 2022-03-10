@@ -953,4 +953,15 @@ Proof
   disj2_tac >> goal_assum dxrule >> metis_tac[PAIR]
 QED
 
+Theorem big_dec_unclocked_no_timeout:
+  (∀ck env ^s d r.
+    evaluate_dec ck env s d r ⇒ ¬ck ⇒ SND r ≠ Rerr (Rabort Rtimeout_error)) ∧
+  (∀ck env ^s ds r.
+    evaluate_decs ck env s ds r ⇒ ¬ck ⇒ SND r ≠ Rerr (Rabort Rtimeout_error))
+Proof
+  ho_match_mp_tac evaluate_dec_ind >> rw[] >> gvs[] >>
+  imp_res_tac big_unclocked >> gvs[] >>
+  Cases_on `r` >> gvs[combine_dec_result_def]
+QED
+
 val _ = export_theory ();

@@ -1939,10 +1939,64 @@ Proof
 QED
 
 Theorem untyped_safety_decs_alt:
-  ∀d (s:'ffi state) env.
-    (∀r. ¬evaluate_dec F env s d r) = dec_diverges env s d
+  (∀d (s:'ffi state) env.
+    (∀r. ¬evaluate_dec F env s d r) = dec_diverges env s d) ∧
+  (∀ds (s:'ffi state) env.
+    (∀r. ¬evaluate_decs F env s ds r) = decs_diverges env s ds)
 Proof
-  rw[] >> metis_tac[cj 1 untyped_safety_decs]
+  rw[] >> metis_tac[untyped_safety_decs]
+QED
+
+Theorem dec_diverges_big_clocked:
+  dec_diverges env st d ⇔
+  ∀ck. ∃st'.
+    evaluate_dec T env (st with clock := ck) d (st', Rerr (Rabort Rtimeout_error))
+Proof
+  rw[] >> eq_tac >> rw[]
+  >- (
+    gvs[GSYM untyped_safety_decs_alt] >>
+    qspecl_then [`env`,`st with clock := ck`,`d`]
+      assume_tac big_clocked_dec_total >> gvs[] >>
+    qsuff_tac `∃st'. r = (st', Rerr (Rabort Rtimeout_error))` >>
+    rw[] >> gvs[SF SFY_ss] >>
+    CCONTR_TAC >> gvs[] >> PairCases_on `r` >> gvs[] >>
+    drule $ cj 1 evaluate_decs_clocked_to_unclocked >> simp[] >>
+    qexists_tac `st.clock` >> simp[with_same_clock]
+    )
+  >- (
+    simp[GSYM untyped_safety_decs_alt] >> rw[] >>
+    CCONTR_TAC >> gvs[] >> PairCases_on `r` >>
+    drule $ cj 1 evaluate_decs_unclocked_to_clocked >> strip_tac >> gvs[] >>
+    last_x_assum $ qspec_then `c` assume_tac >> gvs[] >>
+    drule $ cj 1 decs_determ >> disch_then rev_drule >> strip_tac >> gvs[] >>
+    rev_drule $ cj 1 big_dec_unclocked_no_timeout >> simp[]
+    )
+QED
+
+Theorem decs_diverges_big_clocked:
+  decs_diverges env st ds ⇔
+  ∀ck. ∃st'.
+    evaluate_decs T env (st with clock := ck) ds (st', Rerr (Rabort Rtimeout_error))
+Proof
+  rw[] >> eq_tac >> rw[]
+  >- (
+    gvs[GSYM untyped_safety_decs_alt] >>
+    qspecl_then [`ds`,`env`,`st with clock := ck`]
+      assume_tac big_clocked_decs_total >> gvs[] >>
+    qsuff_tac `∃st'. r = (st', Rerr (Rabort Rtimeout_error))` >>
+    rw[] >> gvs[SF SFY_ss] >>
+    CCONTR_TAC >> gvs[] >> PairCases_on `r` >> gvs[] >>
+    drule $ cj 2 evaluate_decs_clocked_to_unclocked >> simp[] >>
+    qexists_tac `st.clock` >> simp[with_same_clock]
+    )
+  >- (
+    simp[GSYM untyped_safety_decs_alt] >> rw[] >>
+    CCONTR_TAC >> gvs[] >> PairCases_on `r` >>
+    drule $ cj 2 evaluate_decs_unclocked_to_clocked >> strip_tac >> gvs[] >>
+    last_x_assum $ qspec_then `c` assume_tac >> gvs[] >>
+    drule $ cj 2 decs_determ >> disch_then rev_drule >> strip_tac >> gvs[] >>
+    rev_drule $ cj 2 big_dec_unclocked_no_timeout >> simp[]
+    )
 QED
 
 
@@ -2881,7 +2935,7 @@ Proof
     drule $ cj 1 big_dec_to_small_dec >> simp[] >> strip_tac >>
     disch_then drule >> rw[] >> gvs[]
     ) >>
-  drule $ iffLR untyped_safety_decs_alt >> strip_tac >>
+  drule $ iffLR $ cj 1 untyped_safety_decs_alt >> strip_tac >>
   drule_at Any $ cj 1 dec_diverges_imp_small_decl_diverges >> simp[] >>
   qexistsl_tac [`env`,`[]`] >> simp[collapse_env_def] >>
   simp[small_decl_diverges_def] >>
@@ -3525,6 +3579,23 @@ Proof
   rw[big_dec_to_small_dec_timeout_lemma]
 QED
 
+Theorem big_decs_to_small_decs_timeout:
+  ∀env ^s ds s'.
+    evaluate_decs T env s ds (s', Rerr (Rabort Rtimeout_error)) ⇒
+    ∃dev dcs.
+      RTC (decl_step_reln env)
+        (s with clock := s'.clock, Decl (Dlocal [] ds), []) (s', dev, dcs)
+Proof
+  rw[] >> drule $ cj 2 big_dec_to_small_dec_timeout_lemma >> rw[] >> gvs[] >>
+  ntac 2 $ irule_at Any $ cj 2 RTC_RULES >>
+  simp[decl_step_reln_def, decl_step_def, decl_continue_def] >>
+  simp[Once RTC_CASES_RTC_TWICE] >> irule_at Any decl_step_to_Dlocal_global >>
+  goal_assum drule >> simp[] >>
+  qspecl_then [`env`,`[CdlocalG empty_dec_env envl right]`]
+    mp_tac RTC_decl_step_reln_ctxt_weaken >>
+  simp[collapse_env_def] >> disch_then drule >> simp[SF SFY_ss]
+QED
+
 Triviality combine_dec_result_alt:
   combine_dec_result env (Rval env') = Rval (env' +++ env) ∧
   combine_dec_result env (Rerr e) = Rerr e
@@ -3696,6 +3767,7 @@ Proof
 QED
 
 Theorem e_step_ffi_changed:
+  ∀env st ffi ev cs ffi' env' st' ev' cs'.
   e_step (env, (st, ffi), ev, cs) = Estep (env', (st', ffi'), ev', cs') ∧
   ffi ≠ ffi' ⇒
   ∃ s conf lnum ccs ws ffi_st ws'.
@@ -3715,7 +3787,7 @@ Theorem e_step_ffi_changed:
       ffi.io_events ++
         [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))]
 Proof
-  simp[e_step_def] >>
+  rpt gen_tac >> simp[e_step_def] >>
   every_case_tac >> gvs[return_def, push_def, continue_def]
   >- (
     strip_tac >> rename1 `application op _ _ _ _` >>
@@ -3731,6 +3803,45 @@ Proof
     gvs[application_def, do_app_def, call_FFI_def] >>
     every_case_tac >> gvs[return_def, store_lookup_def, store_assign_def]
   )
+QED
+
+Theorem decl_step_ffi_changed:
+  decl_step benv (st, dev, dcs) = Dstep (st', dev', dcs') ∧ st.ffi ≠ st'.ffi ⇒
+  ∃env conf s lnum env' ccs locs pat ws ffi_st ws'.
+    dev = ExpVal env (Val (Litv (StrLit conf)))
+            ((Capp (FFI s) [Loc lnum] () [], env')::ccs) locs pat ∧
+    store_lookup lnum st.refs = SOME (W8array ws) ∧
+    s ≠ "" ∧
+    st.ffi.oracle s st.ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
+      Oracle_return ffi_st ws' ∧
+    LENGTH ws = LENGTH ws' ∧
+    dev' = ExpVal env' (Val (Conv NONE [])) ccs locs pat ∧
+    st' = st with <|
+            refs := LUPDATE (W8array ws') lnum st.refs;
+            ffi := st.ffi with <|
+              ffi_state := ffi_st;
+              io_events := st.ffi.io_events ++
+                 [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))] |>
+            |> ∧
+    dcs = dcs'
+Proof
+  simp[decl_step_def] >>
+  Cases_on `∃d. dev = Decl d` >> gvs[]
+  >- (every_case_tac >> gvs[state_component_equality]) >>
+  Cases_on `∃e. dev = Env e` >> gvs[]
+  >- (simp[decl_continue_def] >> every_case_tac >> gvs[state_component_equality]) >>
+  TOP_CASE_TAC >> gvs[] >>
+  qmatch_goalsub_abbrev_tac `e_step_result_CASE stepe` >>
+  qpat_abbrev_tac `foo = e_step_result_CASE _ _ _ _` >> strip_tac >>
+  qspecl_then [`s`,`st.refs`,`st.ffi`,`e`,`l`,`st'.ffi`] assume_tac e_step_ffi_changed >>
+  gvs[Abbr `stepe`] >> last_x_assum assume_tac >> last_x_assum mp_tac >>
+  TOP_CASE_TAC >> gvs[]
+  >- (unabbrev_all_tac >> gvs[] >> every_case_tac >> gvs[state_component_equality]) >>
+  TOP_CASE_TAC >> gvs[]
+  >- (every_case_tac >> gvs[state_component_equality]) >>
+  every_case_tac >> gvs[Abbr `foo`, state_component_equality] >> rw[] >> gvs[] >>
+  gvs[e_step_def, continue_def, application_thm, do_app_def, call_FFI_def,
+      return_def, store_assign_def, store_lookup_def, store_v_same_type_def]
 QED
 
 Theorem RTC_e_step_reln_io_events_mono:

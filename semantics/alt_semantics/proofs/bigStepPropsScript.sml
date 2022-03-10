@@ -59,9 +59,9 @@ QED
 
 Theorem evaluate_dec_eval_state:
   (∀ck env ^st d r.
-     evaluate_dec ck env st d r ⇒ st.eval_state = NONE ⇒ (FST r).eval_state = NONE) ∧
+     evaluate_dec ck env st d r ⇒ (st.eval_state = NONE ⇔ (FST r).eval_state = NONE)) ∧
   (∀ck env ^st ds r.
-     evaluate_decs ck env st ds r ⇒ st.eval_state = NONE ⇒ (FST r).eval_state = NONE)
+     evaluate_decs ck env st ds r ⇒ (st.eval_state = NONE ⇔ (FST r).eval_state = NONE))
 Proof
   ho_match_mp_tac bigStepTheory.evaluate_dec_ind >> srw_tac[][] >>
   imp_res_tac evaluate_no_new_types_exns >> gvs [] >>
