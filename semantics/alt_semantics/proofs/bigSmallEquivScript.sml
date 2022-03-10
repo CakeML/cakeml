@@ -4,7 +4,7 @@
 open preamble;
 open libTheory semanticPrimitivesTheory bigStepTheory smallStepTheory ffiTheory;
 open bigSmallInvariantsTheory semanticPrimitivesPropsTheory determTheory bigClockTheory;
-open bigStepPropsTheory evaluatePropsTheory;
+open bigStepPropsTheory evaluatePropsTheory funBigStepEquivTheory;
 
 val _ = new_theory "bigSmallEquiv";
 
@@ -3844,17 +3844,66 @@ Proof
       return_def, store_assign_def, store_lookup_def, store_v_same_type_def]
 QED
 
+Theorem io_events_mono_e_step:
+  e_step e1 = Estep e2 ⇒
+  io_events_mono (SND $ FST $ SND e1) (SND $ FST $ SND e2)
+Proof
+  PairCases_on `e1` >> PairCases_on `e2` >> gvs[] >> rw[] >>
+  rename1 `e_step (env1,(st1,ffi1),ev1,cs1) = _ (env2,(st2,ffi2),ev2,cs2)` >>
+  Cases_on `ffi1 = ffi2` >- simp[io_events_mono_refl] >>
+  drule_all e_step_ffi_changed >> rw[] >> gvs[] >>
+  rw[io_events_mono_def]
+QED
+
+Theorem io_events_mono_decl_step:
+  decl_step env dst1 = Dstep dst2 ⇒
+  io_events_mono (FST dst1).ffi (FST dst2).ffi
+Proof
+  PairCases_on `dst1` >> PairCases_on `dst2` >> gvs[] >> rw[] >>
+  Cases_on `dst10.ffi = dst20.ffi` >- simp[io_events_mono_refl] >>
+  drule_all decl_step_ffi_changed >> rw[] >> gvs[] >>
+  rw[io_events_mono_def]
+QED
+
 Theorem RTC_e_step_reln_io_events_mono:
   ∀env s ev cs env' s' ev' cs'.
     RTC e_step_reln (env,s,ev,cs) (env',s',ev',cs')
   ⇒ io_events_mono (SND s) (SND s')
 Proof
   Induct_on `RTC` >> rw[] >> simp[] >>
-  rename1 `(_,_) = ctxt` >> PairCases_on `ctxt` >> gvs[] >>
-  PairCases_on `s` >> gvs[e_step_reln_def] >>
-  Cases_on `s1 = ctxt2` >> gvs[] >>
-  drule_all e_step_ffi_changed >> rw[] >>
-  gvs[io_events_mono_def, IS_PREFIX_APPEND1, IS_PREFIX_APPEND]
+  rename1 `(_,_) = ctxt` >> PairCases_on `ctxt` >> gvs[e_step_reln_def] >>
+  imp_res_tac io_events_mono_e_step >> gvs[] >>
+  metis_tac[io_events_mono_trans]
+QED
+
+Theorem RTC_decl_step_reln_io_events_mono:
+  ∀env s s'.
+    RTC (decl_step_reln env) s s'
+  ⇒ io_events_mono (FST s).ffi (FST s').ffi
+Proof
+  gen_tac >> Induct_on `RTC` >> rw[] >> simp[] >>
+  PairCases_on `s` >> PairCases_on `s'` >> gvs[decl_step_reln_def] >>
+  imp_res_tac io_events_mono_decl_step >> gvs[] >>
+  metis_tac[io_events_mono_trans]
+QED
+
+Triviality decl_step_reln_functional:
+  ∀env a b1 b2. decl_step_reln env a b1 ∧ decl_step_reln env a b2 ⇒ b1 = b2
+Proof
+  rw[decl_step_reln_def] >> gvs[]
+QED
+
+Triviality RTC_decl_step_confl = RTC_functional_confluence |>
+  Q.ISPEC `decl_step_reln env` |>
+  Lib.C MATCH_MP (Q.ID_SPEC decl_step_reln_functional);
+
+Theorem lprefix_chain_RTC_decl_step_reln:
+  lprefix_chain
+    { fromList (FST st').ffi.io_events | RTC (decl_step_reln env) st st' }
+Proof
+  rw[lprefix_chain_def] >> simp[LPREFIX_fromList, from_toList] >>
+  rev_drule RTC_decl_step_confl >> disch_then drule >> rw[] >>
+  imp_res_tac RTC_decl_step_reln_io_events_mono >> gvs[io_events_mono_def]
 QED
 
 Theorem evaluate_match_T_total:
@@ -3921,6 +3970,44 @@ Proof
   rw[] >> simp[Once evaluate_state_cases] >>
   Cases_on `ev` >> gvs[] >>
   metis_tac[evaluate_ctxts_T_total, big_clocked_total, PAIR]
+QED
+
+Theorem evaluate_dec_ctxt_T_total:
+  ∀env st dc env'. ∃r. evaluate_dec_ctxt T env st dc env' r
+Proof
+  rw[] >> simp[evaluate_dec_ctxt_cases, SF DNF_ss] >>
+  Cases_on `dc` >> gvs[] >>
+  metis_tac[big_clocked_decs_total, PAIR, result_nchotomy]
+QED
+
+Theorem evaluate_dec_ctxts_T_total:
+  ∀dcs env st res. ∃r. evaluate_dec_ctxts T env st dcs res r
+Proof
+  Induct >> rw[Once evaluate_dec_ctxts_cases, SF DNF_ss] >>
+  Cases_on `res` >> gvs[] >>
+  qspecl_then [`collapse_env env dcs`,`st`,`h`,`a`]
+    assume_tac evaluate_dec_ctxt_T_total >>
+  metis_tac[PAIR]
+QED
+
+Theorem evaluate_dec_state_T_total:
+  ∀env s. ∃r. evaluate_dec_state T env s r
+Proof
+  rw[evaluate_dec_state_cases, SF DNF_ss] >>
+  PairCases_on `s` >> gvs[] >> Cases_on `s1` >> gvs[]
+  >- (
+    qspecl_then [`collapse_env env s2`,`s0`,`d`] assume_tac big_clocked_dec_total >>
+    metis_tac[with_same_clock, evaluate_dec_ctxts_T_total, PAIR]
+    )
+  >- (
+    qspecl_then [`s`,`s0`,`e`,`l`] assume_tac evaluate_state_T_total >>
+    gvs[] >> PairCases_on `r` >>
+    Cases_on `r1` >> gvs[SF SFY_ss] >> disj2_tac >>
+    Cases_on `ALL_DISTINCT (pat_bindings p [])` >> gvs[SF SFY_ss] >>
+    Cases_on `pmatch (collapse_env env s2).c r0.refs p a []` >> gvs[SF SFY_ss] >>
+    metis_tac[evaluate_dec_ctxts_T_total]
+    )
+  >- metis_tac[evaluate_dec_ctxts_T_total]
 QED
 
 Theorem evaluate_ctxt_io_events_mono:
@@ -3990,15 +4077,90 @@ Proof
 QED
 
 Theorem lprefix_chain_evaluate_decs:
-  s.eval_state = NONE ⇒
+  st.eval_state = NONE ⇒
   lprefix_chain
     { fromList s.ffi.io_events |
-        ∃k r. evaluate_decs T env (st with clock := k) prog (s,r) }
+        ∃k r. evaluate_decs T env (st with clock := k) prog (^s,r) }
 Proof
   rw[lprefix_chain_def] >> simp[LPREFIX_fromList, from_toList] >>
-  rev_drule RTC_e_step_confl >> disch_then drule >> rw[]
-  >- (disj1_tac >> irule RTC_e_step_reln_isPREFIX >> simp[SF SFY_ss])
-  >- (disj2_tac >> irule RTC_e_step_reln_isPREFIX >> simp[SF SFY_ss])
+  `(st with clock := k).eval_state = NONE ∧
+   (st with clock := k').eval_state = NONE` by gvs[] >>
+  dxrule_all $ iffRL functional_evaluate_decs >>
+  rev_dxrule_all $ iffRL functional_evaluate_decs >> rw[] >>
+  Cases_on `k ≤ k'` >> gvs[]
+  >- (
+    drule $ INST_TYPE [alpha |-> ``:'ffi``] evaluate_decs_ffi_mono_clock >>
+    disch_then $ qspecl_then [`st`,`env`,`prog`] assume_tac >> gvs[io_events_mono_def]
+    )
+  >- (
+    `k' ≤ k` by gvs[] >>
+    drule $ INST_TYPE [alpha |-> ``:'ffi``] evaluate_decs_ffi_mono_clock >>
+    disch_then $ qspecl_then [`st`,`env`,`prog`] assume_tac >> gvs[io_events_mono_def]
+    )
+QED
+
+Theorem decl_step_ignore_clock:
+  decl_step env (st,dev,dcs) = Dstep (st',dev',dcs') ⇒
+  decl_step env (st with clock := clk,dev,dcs) = Dstep (st' with clock := clk,dev',dcs')
+Proof
+  Cases_on `dev` >> rw[decl_step_def]
+  >- (Cases_on `d` >> gvs[] >> every_case_tac >> gvs[])
+  >- (
+    Cases_on `e` >> gvs[] >- (every_case_tac >> gvs[]) >>
+    Cases_on `l = []` >> gvs[] >- (every_case_tac >> gvs[]) >>
+    Cases_on `∃env. l = [Craise (), env]` >> gvs[] >>
+    `∃env' refs' ffi' ev' ec'.
+      e_step (s,(st.refs,st.ffi),Val v,l) = Estep (env',(refs',ffi'),ev',ec') ∧
+      st' = st with <| refs := refs'; ffi := ffi' |> ∧
+      dev' = ExpVal env' ev' ec' l0 p ∧ dcs' = dcs` by gvs[AllCaseEqs()] >>
+    last_x_assum kall_tac >> every_case_tac >> gvs[]
+    )
+  >- (gvs[decl_continue_def] >> every_case_tac >> gvs[])
+QED
+
+Theorem RTC_decl_step_reln_ignore_clock:
+  ∀env clk st dev dcs st' dev' dcs'.
+    RTC (decl_step_reln env) (st,dev,dcs) (st',dev',dcs') ⇒
+    RTC (decl_step_reln env)
+      (st with clock := clk,dev,dcs) (st' with clock := clk,dev',dcs')
+Proof
+  ntac 2 gen_tac >> Induct_on `RTC` >> rw[] >> simp[] >>
+  gvs[decl_step_reln_def] >> rename1 `Dstep foo` >> PairCases_on `foo` >> gvs[] >>
+  irule $ cj 2 RTC_RULES >> goal_assum $ dxrule_at Any >>
+  simp[decl_step_reln_def] >> metis_tac[decl_step_ignore_clock]
+QED
+
+Theorem lprefix_lub_big_small:
+  st.eval_state = NONE ∧ decs_diverges env st prog ⇒
+  lprefix_lub
+    { fromList s.ffi.io_events |
+        ∃k r. evaluate_decs T env (st with clock := k) prog (s,r) } =
+  lprefix_lub
+    { fromList (FST s).ffi.io_events |
+        (decl_step_reln env)꙳ (st, Decl (Dlocal [] prog), []) s }
+Proof
+  rw[FUN_EQ_THM] >> irule lprefix_lub_equiv_chain >>
+  irule_at Any IMP_equiv_lprefix_chain >>
+  simp[lprefix_chain_evaluate_decs, lprefix_chain_RTC_decl_step_reln] >>
+  rw[lprefix_rel_def, PULL_EXISTS, LPREFIX_fromList, from_toList]
+  >- (
+    gvs[decs_diverges_big_clocked] >>
+    `r = Rerr (Rabort Rtimeout_error)` by (
+      first_x_assum $ qspec_then `k` assume_tac >> gvs[] >>
+      drule $ cj 2 decs_determ >> disch_then rev_drule >> simp[]) >>
+    gvs[] >> drule big_decs_to_small_decs_timeout >> rw[] >>
+    drule RTC_decl_step_reln_ignore_clock >>
+    disch_then $ qspec_then `st.clock` mp_tac >> rw[with_same_clock, SF SFY_ss] >>
+    goal_assum drule >> simp[]
+    )
+  >- (
+    PairCases_on `s` >> drule small_dec_to_big_dec >>
+    qspecl_then [`env`,`(s0,s1,s2)`] assume_tac evaluate_dec_state_T_total >> gvs[] >>
+    disch_then drule >> strip_tac >> gvs[evaluate_dec_state_no_ctxt] >>
+    ntac 2 $ gvs[Once evaluate_dec_cases] >> gvs[extend_dec_env_def] >>
+    PairCases_on `r` >> gvs[] >> goal_assum drule >>
+    imp_res_tac evaluate_dec_state_io_events_mono >> gvs[io_events_mono_def]
+    )
 QED
 
 
