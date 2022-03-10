@@ -10,7 +10,7 @@ open pairTheory;
 open arithmeticTheory;
 open ringBufferTheory;
 
-val _ = new_theory"LZSS";
+val _ = new_theory"LZSSrb";
 
 Datatype:
   LZSS = Lit 'a | LenDist (num # num)
@@ -231,25 +231,12 @@ Termination
   \\ rpt (CASE_TAC \\ simp[])
 End
 
-EVAL “LZcomp "hej jag heter heter jag nej heterogen" 0 258 258”;
-
-(*
-Definition LZSS_to_string_def:
-  LZSS_to_string [] = [] ∧
-  LZSS_to_string ((Lit a)::ss) =
-  "0" ++ a::LZSS_to_string ss ∧
-  LZSS_to_string ((LenDist (ml, md))::ss) =
-  "1" ++ num_to_dec_string ml ++ num_to_dec_string md ++ LZSS_to_string ss
-End
-
-Definition string_to_LZSS_def:
-  string_to_LZSS [] = [] ∧
-  string_to_LZSS (a::ss) = if a = #"0" then Lit HD ss else if
-                           End
-*)
-
 Definition LZSS_compress_def:
-  LZSS_compress s = LZcomp s 0 258 258
+  LZSSRB_compress s =
+  let
+    (rb, remainder) = LZinit s
+  in
+    LZcompRB rb remainder
 End
 
 
@@ -286,8 +273,8 @@ Definition LZSS_decompress_def:
   LZSS_decompress s = LZdecompress [] s
 End
 
-EVAL “LZSS_compress "hejsan jag heter bert ert ert ert jag har lagt en fjert "”;
-EVAL “LZSS_decompress (LZSS_compress "hejsan jag heter bert ert ert ert jag har lagt en fjert ")”;
+EVAL “LZSS_compress "hejsan jag heter bert ert ert ert jag har lagt en fjert"”;
+EVAL “LZSS_decompress (LZSS_compress "hejsan jag heter bert ert ert ert jag har lagt en fjert")”;
 
 
 (******************************************************

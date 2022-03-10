@@ -17,6 +17,7 @@ End
 Overload rbNIL = “λx. x.buffer = []”
 Overload iMAX = “λx.LENGTH x.buffer”
 
+(* Definitions for counting successors, predecessors and MOD with regards to the circular nature of the ring buffer  *)
 Definition iSUC[simp]:
   iSUC rb i = (SUC i) MOD iMAX rb
 End
@@ -72,8 +73,7 @@ End
 Theorem list_of_ringBuffer_size0:
   ∀rb. rb.size = 0 ⇒ rb.start ≤ rb.size ⇒ list_of_ringBuffer rb = []
 Proof
-  rw[list_of_ringBuffer_def] >>
-  Cases_on ‘rb.buffer’ >> gs[]
+  rw[list_of_ringBuffer_def]
 QED
 
 Definition WFrb_def:
@@ -174,6 +174,7 @@ Proof
 
 
 
+
 Definition ringBuffer_of_list_def:
   ringBuffer_of_list l size start =
   <| buffer := l ;
@@ -192,8 +193,7 @@ End
 Theorem list_of_ringBuffer_inv_thm:
   ∀l. list_of_ringBuffer $ rb_of_list l = l
 Proof
-  simp[ringBuffer_of_list_def,rb_of_list_def,list_of_ringBuffer_def] >>
-  Cases_on ‘l’ >> simp[]
+  simp[ringBuffer_of_list_def,rb_of_list_def,list_of_ringBuffer_def]
 QED
 
 Theorem list_of_ringBuffer_LENGTH:
@@ -218,16 +218,31 @@ Definition rbUPDATEL_def:
   (rbUPDATEL (s::ss) n rb = rbUPDATEL ss (SUC n) (rbUPDATE s n rb))
 End
 
+EVAL “rb_of_list [1;2;3;4;5;6]”;
+
+EVAL “rbCONS 1 (empty_rb 4 0)”;
+
+EVAL “rbCONS 9 (rb_of_list [1;2;3;4;5;6])”;
+
+EVAL “rbAPPEND (empty_rb 4 0) [10;11]”;
+
+EVAL “rbAPPEND_REVERSE (empty_rb 4 0) [10;11]”;
+
+EVAL “rbPREPEND (empty_rb 4 0) [10;11]”;
+
+EVAL “rbPREPEND_REVERSE (empty_rb 4 0) [10;11]”;
+
+
 Definition rbCONS_def:
   rbCONS e rb =
-  if rb.size < LENGTH rb.buffer
-  then let index = iPRE rb rb.start
-       in rb with <| buffer := (LUPDATE e index rb.buffer);
-                     size := rb.size + 1;
-                     start  := index |>
-  else let index = iPRE rb rb.start
-       in rb with <| buffer := (LUPDATE e index rb.buffer);
-                     start  := index |>
+  let index = iPRE rb rb.start
+  in
+    if rb.size < LENGTH rb.buffer
+    then rb with <| buffer := (LUPDATE e index rb.buffer);
+                    size := rb.size + 1;
+                    start  := index |>
+    else rb with <| buffer := (LUPDATE e index rb.buffer);
+                    start  := index |>
 End
 
 Definition rbSNOC_def:
@@ -248,7 +263,8 @@ End
 
 Theorem rbAPPEND_NIL[simp]:
   ∀rb. rbAPPEND rb [] = rb
-Proof EVAL_TAC >> simp[]
+Proof
+  EVAL_TAC >> simp[]
 QED
 
 val ringBuffer_ce = theorem "ringBuffer_component_equality";
@@ -309,6 +325,5 @@ Theorem rbPREPEND_REVERSE_NIL[simp]:
   ∀rb. rbPREPEND_REVERSE rb [] = rb
 Proof EVAL_TAC >> simp[]
 QED
-
 
 val _ = export_theory();

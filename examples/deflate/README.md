@@ -3,6 +3,9 @@ Scripts relevant to the formalisation of the DEFLATE algorithm
 [LZSSScript.sml](LZSSScript.sml):
 Formalization written by Alexander Cox
 
+[LZSSrbScript.sml](LZSSrbScript.sml):
+Formalization written by Alexander Cox
+
 [LearningTests](LearningTests):
 Scripts relevant to learning HOL
 
