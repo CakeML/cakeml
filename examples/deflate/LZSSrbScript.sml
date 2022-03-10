@@ -81,7 +81,7 @@ bufsize: hur långt bak vi får titta
 looksize: hur långt fram vi får titta *)
 
 Definition LZinit:
-  LZinit s :  =
+  LZinit s  =
   let
     rb = empty_rb (DICT_SIZE - LOOK_SIZE) #"0";
     rb = rbAPPEND rb (TAKE LOOK_SIZE s);
@@ -154,8 +154,8 @@ Definition LZSS_decompress_def:
   LZSS_decompress s = LZdecompress [] s
 End
 
-EVAL “LZSS_compress "hejsan jag heter bert ert ert ert jag har lagt en fjert"”;
-EVAL “LZSS_decompress (LZSS_compress "hejsan jag heter bert ert ert ert jag har lagt en fjert")”;
+EVAL “LZSSRB_compress "hejsan hejsan hejsan jag heter bert ert ert ert jag har lagt en fjert"”;
+EVAL “LZSS_decompress (LZSSRB_compress "hejsan jag heter bert ert ert ert jag har lagt en fjert")”;
 
 
 (******************************************************
