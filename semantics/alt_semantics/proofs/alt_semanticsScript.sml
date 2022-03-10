@@ -73,4 +73,28 @@ Proof
     )
 QED
 
+Theorem small_step_semantics:
+  st.eval_state = NONE ⇒ (
+  (semantics_prog st env prog (Terminate Success io_list) ⇔
+    ∃st' res ex env'.
+      small_eval_decs env st prog (st', res) ∧
+      (res = Rval env' ∨ res = Rerr (Rraise ex)) ∧
+      st'.ffi.io_events = io_list) ∧
+  (semantics_prog st env prog (Diverge io_trace) ⇔
+    small_decl_diverges env (st, Decl (Dlocal [] prog), []) ∧
+    lprefix_lub
+      { fromList (FST s).ffi.io_events |
+          (decl_step_reln env)꙳ (st, Decl (Dlocal [] prog), []) s }
+      io_trace) ∧
+  (semantics_prog st env prog Fail ⇔
+    ∃st'.
+      small_eval_decs env st prog (st', Rerr (Rabort Rtype_error)))
+  )
+Proof
+  rw[big_step_semantics, small_big_decs_equiv] >>
+  simp[GSYM small_big_decs_equiv_diverge, GSYM decs_diverges_big_clocked] >>
+  Cases_on `decs_diverges env st prog` >> gvs[] >>
+  simp[lprefix_lub_big_small]
+QED
+
 val _ = export_theory();
