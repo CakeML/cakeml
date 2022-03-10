@@ -138,7 +138,7 @@ EVAL “
 
 (* find the longest, right-most match *)
 Definition getMatchRB_def[simp]:
-  getMatchRB rb si li : num # num =
+  getMatchRB rb (si:num) (li:num) : num # num =
   if li < si + 2
   then (0,0)
   else
@@ -160,8 +160,9 @@ EVAL “
    rb = empty_rb rb_size #" ";
    rb = rbAPPEND rb (TAKE rb_size s);
    rb = rbAPPEND rb (TAKE look (DROP rb_size s));
+   a = getMatchRB rb 0 (rb.size - look);
  in
-  (rb, getMatchRB rb 0 (rb.size-look))
+  getMatchRB rb 0 (rb.size - look)
      ”;
 
 Overload DICT_SIZE = “32 :num”
@@ -212,32 +213,22 @@ EVAL “LZinit "hej nej jag heter faktiskt inte ejnar jag heter gudrud hejsan ne
 
 Definition LZcompRB_def:
   LZcompRB rb s =
-  if s = [] then [] (* Call LZend() *)
+  if LENGTH s = 0 then [] (* Call LZend() *)
   else
-    let match = LZmatchRB  rb (rb.size - LOOK_SIZE);
-        len = case match of
-              | NONE => 1
-              | SOME $ LenDist (ml,_) => MAX ml 1
-              | SOME $ Lit _ => 1;
-        recurse = LZcompRB (rbAPPEND rb (TAKE len s)) (DROP len s);
+    let
+      match = LZmatchRB  rb (rb.size - LOOK_SIZE);
+      len = case match of
+            | NONE => 1
+            | SOME $ LenDist (ml,_) => MAX 1 ml
+            | SOME $ Lit _ => 1;
+      recurse = LZcompRB (rbAPPEND rb (TAKE len s)) (DROP len s);
     in case match of
        | NONE => recurse
        | SOME m => m::recurse
 Termination
-
   WF_REL_TAC ‘measure $ λ(rb,s). LENGTH s’
   \\ rpt strip_tac
-  \\ CASE_TAC
-  \\ simp[]
-  \\ Cases_on ‘s’
-
-
-  \\ CASE_TAC
-  >- (Cases_on ‘split + 1 < bufSize’ >> gs[NOT_LESS,MIN_DEF]) >>
-  CASE_TAC
-  >- (Cases_on ‘split + 1 < bufSize’ >> gs[NOT_LESS,MIN_DEF]) >>
-  CASE_TAC >>
-  simp[MAX_DEF,MIN_DEF]
+  \\ rpt (CASE_TAC \\ simp[])
 End
 
 EVAL “LZcomp "hej jag heter heter jag nej heterogen" 0 258 258”;
