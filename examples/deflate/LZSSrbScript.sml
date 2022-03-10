@@ -112,6 +112,37 @@ Termination
   \\ rpt (CASE_TAC \\ simp[])
 End
 
+(*
+Definition LZcompRB_def:
+  LZcompRB (rb : char ringBuffer) (s :string) look =
+  if look ≤ 0 ∧ s = [] then []
+  else
+    let
+      match = LZmatchRB  rb (rb.size - look);
+      len = case match of
+              NONE => 1
+            | SOME $ LenDist (ml,_) => MAX 1 ml
+            | SOME $ Lit _ => 1;
+      recurse = if s = []
+                then LZcompRB rb [] (look - len)
+                else LZcompRB (rbAPPEND rb (TAKE len s)) (DROP len s) look;
+    in case match of
+       | NONE => recurse
+       | SOME m => m::recurse
+Termination
+
+  WF_REL_TAC ‘measure $ λ(rb,s,look). look + LENGTH s’
+  \\ rpt strip_tac
+  \\ rpt (CASE_TAC \\ simp[])
+
+
+         rw[]
+  \\ Cases_on ‘s’
+  \\ simp[]
+
+End
+*)
+
 Definition LZSSRB_compress_def:
   LZSSRB_compress s =
   let
