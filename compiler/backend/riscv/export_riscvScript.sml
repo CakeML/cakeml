@@ -76,8 +76,10 @@ val riscv_export_def = Define `
       (SmartAppend (List preamble)
       (SmartAppend (List (data_section ".quad"))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
-      (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code))))
+      (SmartAppend (List data_buffer)
+      (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code)))))
       (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
-      (emit_symbols syms))`;
+      (SmartAppend (List code_buffer)
+      (emit_symbols syms)))`;
 
 val _ = export_theory ();

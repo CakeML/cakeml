@@ -1,12 +1,12 @@
 (*
   Contains the code for the entire CakeML basis library in basis_def.
 *)
-open preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
+open preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib std_preludeTheory
      CommandLineProofTheory TextIOProofTheory RuntimeProofTheory PrettyPrinterProgTheory
 
 val _ = new_theory "basisProg"
 
-val _ = translation_extends"PrettyPrinterProg";
+val _ = translation_extends"TextIOProg";
 
 val print_e = ``Var(Long"TextIO"(Short"print"))``
 val eval_thm = let
@@ -20,7 +20,7 @@ val eval_thm = let
     \\ asm_simp_tac bool_ss [])
     |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL;
   in v_thm end
-val () = ml_prog_update (add_Dlet eval_thm "print" []);
+val () = ml_prog_update (add_Dlet eval_thm "print");
 
 val print_app_list = process_topdecs
   `fun print_app_list ls =
@@ -72,6 +72,20 @@ Proof
   xcf"print_int"(get_ml_prog_state())
   \\ xlet_auto >- xsimpl
   \\ xapp \\ xsimpl
+QED
+
+val _ = (append_prog o process_topdecs)
+  `fun print_pp pp = print_app_list (PrettyPrinter.toAppList pp)`;
+
+Theorem print_pp_spec:
+   ∀pp lv out. PP_DATA_TYPE pp lv ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "print_pp" (get_ml_prog_state())) [lv]
+     (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (concat (append (pp_contents pp)))))
+Proof
+  xcf "print_pp" (get_ml_prog_state())
+  \\ xlet_auto >- xsimpl
+  \\ xapp
+  \\ xsimpl
 QED
 
 val basis_st = get_ml_prog_state ();

@@ -23,7 +23,7 @@ as an explicit argument everywhere.
 Pure functions for the Option module.
 
 [mlprettyprinterScript.sml](mlprettyprinterScript.sml):
-Pure functions for the PrettyPrinter module.
+Types and pure functions for pretty printing
 
 [mlstringLib.sml](mlstringLib.sml):
 More ML functions for manipulating HOL terms involving mlstrings.
@@ -39,3 +39,8 @@ Pure functions for the Vector module.
 
 [mlvectorSyntax.sml](mlvectorSyntax.sml):
 ML functions for manipulating HOL terms and types involving vectors.
+
+[typeDecToPPScript.sml](typeDecToPPScript.sml):
+Maps a Dtype or Dtabbrev declaration (the ast syntax) to
+the default pretty-printer function definition for it
+(also as ast syntax).

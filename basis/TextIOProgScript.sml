@@ -47,6 +47,13 @@ val instreamBuffered_def = (append_prog o process_topdecs)
     (int ref)   (* write index *)
     byte_array`;
 
+val cur_env = get_env (get_ml_prog_state());
+val stamp_eval = EVAL ``nsLookup (^cur_env).c (Short "InstreamBuffered")``
+val instreambuffered_con_stamp = rhs (concl stamp_eval)
+
+Definition instreambuffered_con_stamp_def[simp]:
+  instreambuffered_con_stamp = OPTION_MAP SND ^instreambuffered_con_stamp
+End
 
 val _ = (next_ml_names := ["get_out"]);
 val _ = translate get_out_def;
@@ -109,7 +116,7 @@ val eval_thm = let
   val v_def = define_abbrev false "iobuff_loc" v_tm
   in v_thm |> REWRITE_RULE [GSYM v_def] end
 
-val _ = ml_prog_update (add_Dlet eval_thm "iobuff" []);
+val _ = ml_prog_update (add_Dlet eval_thm "iobuff");
 
 val _ = ml_prog_update open_local_in_block;
 

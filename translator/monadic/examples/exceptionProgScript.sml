@@ -27,11 +27,11 @@ Overload handle_fail = ``handle_Fail1``
 (* It is possible to define the exception handling functions by hand:
 
 val failwith_def = Define `
-  failwith x = \(state : state_refs). (Failure (Fail1 x), state)`;
+  failwith x = \(state : state_refs). (M_failure (Fail1 x), state)`;
 val handle_fail_def = Define `
   handle_fail x f = \(state : state_refs). dtcase x state of
-    (Success x, state) => (Success x, state)
-  | (Failure (Fail1 e), state) => f e state
+    (M_success x, state) => (M_success x, state)
+  | (M_failure (Fail1 e), state) => f e state
   | other => other`
 ...
 

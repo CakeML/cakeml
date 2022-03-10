@@ -2615,15 +2615,28 @@ Definition no_change_refs_def:
   no_change_refs (Lannot e _) = no_change_refs e /\
   no_change_refs (Mat e pats) =
     (no_change_refs e /\ EVERY no_change_refs (MAP SND pats)) /\
-  no_change_refs (App p es) = (p = VfromList ∧ EVERY no_change_refs es) /\
+  no_change_refs (App oper es) = ((case oper of
+          Opassign => F
+        | Opapp => F
+        | Eval => F
+        | Opref => F
+        | Aw8alloc => F
+        | Aw8update => F
+        | Aw8update_unsafe => F
+        | CopyStrAw8 => F
+        | CopyAw8Aw8 => F
+        | Aalloc => F
+        | AallocEmpty => F
+        | Aupdate => F
+        | Aupdate_unsafe => F
+        | FFI _ => F
+        | _ => T) ∧ EVERY no_change_refs es) /\
   no_change_refs _ = F
 Termination
   WF_REL_TAC `measure exp_size`
-  \\ `!es a. MEM a es ==> exp_size a < exp6_size es`
-       by (Induct \\ fs [exp_size_def] \\ rw [] \\ res_tac \\ fs [])
-  \\ `!es a. MEM a (MAP SND es) ==> exp_size a < exp3_size es`
-       by (Induct \\ fs [exp_size_def,FORALL_PROD] \\ rw [] \\ res_tac \\ fs [])
-  \\ rw [] \\ res_tac \\ fs []
+  \\ simp [MEM_MAP, EXISTS_PROD]
+  \\ rw [MEM_SPLIT]
+  \\ simp [exp_size_eq, list_size_APPEND, list_size_def, basicSizeTheory.pair_size_def]
 End
 
 Theorem evaluate_no_change_refs:
@@ -2638,7 +2651,8 @@ Proof
   \\ fs [no_change_refs_def] \\ rw []
   \\ gvs [evaluate_def,AllCaseEqs(),semanticPrimitivesTheory.do_if_def]
   \\ fs [SF ETA_ss]
-  \\ gvs [do_app_def,AllCaseEqs()]
+  \\ gvs []
+  \\ fs [do_app_cases] \\ rveq \\ fs []
 QED
 
 Theorem eval_rel_no_change_refs:
@@ -3044,6 +3058,28 @@ Proof
   \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS,MAP_REVERSE]
   \\ asm_exists_tac \\ fs []
   \\ fs [GSYM EVERY2_REVERSE1]
+QED
+
+(* translation of a new ref *)
+
+Theorem new_ref_thm:
+  Eval env e (a (x:'a)) ⇒
+  no_change_refs e ⇒
+  ∀refs.
+    ∃init_v loc_v.
+      eval_rel (empty_state with refs := refs) env (App Opref [e])
+               (empty_state with refs := refs ++ [Refv init_v]) loc_v ∧
+      a x init_v ∧ loc_v = Loc (LENGTH refs)
+Proof
+  fs [Eval_def] \\ rw []
+  \\ first_x_assum (qspec_then ‘refs’ strip_assume_tac)
+  \\ drule_all eval_rel_no_change_refs \\ fs []
+  \\ fs [eval_rel_def]
+  \\ fs [evaluate_def] \\ rw []
+  \\ first_assum $ irule_at $ Pos last
+  \\ fs [do_app_def,store_alloc_def,AllCaseEqs()]
+  \\ first_assum $ irule_at $ Pos hd
+  \\ fs [state_component_equality]
 QED
 
 val _ = export_theory();

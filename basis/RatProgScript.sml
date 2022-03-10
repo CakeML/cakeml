@@ -4,10 +4,11 @@
 open preamble ml_translatorLib ml_translatorTheory ml_progLib
      mlvectorTheory IntProgTheory basisFunctionsLib
      ratLib gcdTheory ratTheory
+local open PrettyPrinterProgTheory in end
 
 val _ = new_theory"RatProg"
 
-val _ = translation_extends "IntProg";
+val _ = translation_extends "PrettyPrinterProg";
 
 val _ = ml_prog_update open_local_block;
 
@@ -751,6 +752,13 @@ val toString_def = Define `
 
 val _ = (next_ml_names := ["toString"]);
 val v = translate toString_def;
+
+Definition pp_rat_def:
+  pp_rat r = mlprettyprinter$pp_token (toString r)
+End
+
+val _ = (next_ml_names := ["pp_rat"]);
+val v = translate pp_rat_def;
 
 Definition pair_num_def:
   pair_num (RatPair i n) = i

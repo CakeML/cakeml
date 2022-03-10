@@ -49,6 +49,9 @@ val compiler_prog_thm = mk_thm([],mk_eq(lhs(concl(compiler_prog_def)),new_prog))
 *)
 val compiler64_prog_thm = compiler64_prog_def;
 
+(* uncomment the line below for debugging purposes *)
+(* val compiler64_prog_thm = prove(“compiler64_prog = []”,cheat); *)
+
 val to_data_x64_thm = save_thm("to_data_x64_thm",
   compilationLib.compile_to_data
     cs init_conf_def compiler64_prog_thm "data_prog_x64");

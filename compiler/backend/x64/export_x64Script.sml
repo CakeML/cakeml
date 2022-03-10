@@ -22,7 +22,9 @@ val startup =
       ["/* Start up code */";
        "";
        "     .text";
-       "     .p2align 3";
+       "     .p2align 12";
+       "     .globl  cdecl(cake_text_begin)";
+       "cdecl(cake_text_begin):";
        "     .globl  cdecl(cml_main)";
        "     .globl  cdecl(cml_heap)";
        "     .globl  cdecl(cml_stack)";
@@ -37,6 +39,14 @@ val startup =
        "     movq    cdecl(cml_heap)(%rip), %rsi     # arg2: first address of heap";
        "     leaq    cake_bitmaps(%rip), %rax";
        "     movq    %rax, 0(%rsi)                   # store bitmap pointer";
+       "     leaq    cake_bitmaps_buffer_begin(%rip), %rax";
+       "     movq    %rax, 8(%rsi)                   # store bitmap mutable start pointer";
+       "     leaq    cake_bitmaps_buffer_end(%rip), %rax";
+       "     movq    %rax, 16(%rsi)                  # store bitmap mutable end pointer";
+       "     leaq    cake_codebuffer_begin(%rip), %rax";
+       "     movq    %rax, 24(%rsi)                  # store code mutable start pointer";
+       "     leaq    cake_codebuffer_end(%rip), %rax";
+       "     movq    %rax, 32(%rsi)                  # store code mutable end pointer";
        "     movq    cdecl(cml_stack)(%rip), %rdx    # arg3: first address of stack";
        "     movq    cdecl(cml_stackend)(%rip), %rcx # arg4: first address past the stack";
        "     jmp     cake_main";
@@ -63,7 +73,11 @@ val ffi_code =
      (ffi_asm (REVERSE ffi_names))
      (List (MAP (\n. strlit(n ++ "\n"))
       ["cake_clear:";
-       "     callq   wcdecl(cml_exit)";
+       "     pushq   %rax";
+       "     pushq   %rdi";
+       "     callq   wcdecl(cml_clear)";
+       "     popq    %rdi";
+       "     ret";
        "     .p2align 4";
        "";
        "cake_exit:";
@@ -111,9 +125,11 @@ val x64_export_def = Define `
       (SmartAppend (List preamble)
       (SmartAppend (List (data_section ".quad"))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
-      (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code))))
+      (SmartAppend (List data_buffer)
+      (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code)))))
       (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
-      (emit_symbols syms)))
+      (SmartAppend (List code_buffer)
+      (emit_symbols syms))))
       (^windows_ffi_code)`;
 
 (*

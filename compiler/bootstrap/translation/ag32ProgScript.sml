@@ -24,23 +24,23 @@ val r = translate ag32Theory.funcT2num_thm;
 val r = translate ag32Theory.shiftT2num_thm;
 
 val enc_eq = prove(
-  ``enc (func,w,a,b,opc) =
+  ``ag32$enc (func,w,a,b,opc') =
         (w2w (ri2bits w) << 25 ||
          w2w (ri2bits a) << 17 ||
          w2w (ri2bits b) << 10 ||
          w2w ((n2w (funcT2num func)):word4) << 6 ||
-         w2w opc)``,
+         w2w opc')``,
   fs [enc_def] \\ blastLib.BBLAST_TAC);
 
 val r = translate enc_eq;
 
 val encShift_eq = prove(
-  ``encShift (sh,w,a,b,opc) =
+  ``encShift (sh,w,a,b,opc') =
         (w2w (ri2bits w) << 25 ||
          w2w (ri2bits a) << 17 ||
          w2w (ri2bits b) << 10 ||
          w2w ((n2w (shiftT2num sh)):word4) << 6 ||
-         w2w opc)``,
+         w2w opc')``,
   fs [encShift_def] \\ blastLib.BBLAST_TAC);
 
 val r = translate encShift_eq;
