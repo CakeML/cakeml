@@ -12,7 +12,10 @@ open ringBufferTheory;
 
 val _ = new_theory"LZSS";
 
-Overload LAST32k = “LASTN 32768”
+Datatype:
+  LZSS = Lit 'a | LenDist (num # num)
+End
+
 
 Definition matchLength_def[simp]:
   (matchLength s []:num = 0) ∧
@@ -34,10 +37,7 @@ Definition getMatch_def[simp]:
       else (next_ml,next_md+1))
 End
 
-
-Datatype:
-  LZSS = Lit 'a | LenDist (num # num)
-End
+EVAL “getMatch "hejsan" "ejsa"”;
 
 Definition LZmatch_def[simp]:
   (LZmatch b [] = NONE) ∧
@@ -48,14 +48,6 @@ Definition LZmatch_def[simp]:
      else SOME $ LenDist (FST match, (LENGTH buffer - (SND match))))
 End
 
-
-
-(* new version which takes buffer size as a parameter and searches into lookahead
-
-s: vår buffer ++ allt vi inte hanterat
-split: hur långt vi kommit i s
-bufsize: hur långt bak vi får titta
-looksize: hur långt fram vi får titta *)
 
 Definition LZcomp_def:
   LZcomp s split bufSize lookSize =
@@ -75,6 +67,172 @@ Termination
   WF_REL_TAC ‘measure $ λ(s,split,_,_). MIN (LENGTH s) (LENGTH s - split)’ >>
   rw[NOT_LESS_EQUAL] >>
   CASE_TAC
+  >- (Cases_on ‘split + 1 < bufSize’ >> gs[NOT_LESS,MIN_DEF]) >>
+  CASE_TAC
+  >- (Cases_on ‘split + 1 < bufSize’ >> gs[NOT_LESS,MIN_DEF]) >>
+  CASE_TAC >>
+  simp[MAX_DEF,MIN_DEF]
+End
+
+EVAL “LZcomp "hej jag heter heter jag nej heterogen" 0 258 258”;
+
+(*
+Definition LZSS_to_string_def:
+  LZSS_to_string [] = [] ∧
+  LZSS_to_string ((Lit a)::ss) =
+  "0" ++ a::LZSS_to_string ss ∧
+  LZSS_to_string ((LenDist (ml, md))::ss) =
+  "1" ++ num_to_dec_string ml ++ num_to_dec_string md ++ LZSS_to_string ss
+End
+
+Definition string_to_LZSS_def:
+  string_to_LZSS [] = [] ∧
+  string_to_LZSS (a::ss) = if a = #"0" then Lit HD ss else if
+                           End
+*)
+
+Definition LZSS_compress_def:
+  LZSS_compress s = LZcomp s 0 258 258
+End
+
+
+
+EVAL “
+ let
+   s = "aabbccddeeffgghhiijjkkllmmnnooppaabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvxxyyzz";
+   dict = 32;
+   look = 8;
+   rb_size = dict + look;
+   rb = empty_rb rb_size #" ";
+   rb = rbAPPEND rb (TAKE rb_size s);
+   rb = rbAPPEND rb (TAKE look (DROP rb_size s));
+ in
+   list_of_ringBuffer rb
+     ”;
+
+
+Definition matchLengthRB_def:
+  (matchLengthRB rb si li :num =
+   if rb.size ≤ li
+   then 0
+   else if rbEL si rb = rbEL li rb ∧ rbEL li rb ≠ NONE ∧ rbEL si rb ≠ NONE
+   then 1 + (matchLengthRB rb (SUC si) (SUC li))
+   else 0)
+Termination
+  WF_REL_TAC ‘measure (λ rb, si, li. rb.size - li)’
+End
+
+EVAL “
+ let
+   s = "aabbccddeeffgghhiijjkkllmmnnooppaabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvxxyyzz";
+   dict = 32;
+   look = 8;
+   rb_size = dict + look;
+   rb = empty_rb rb_size #" ";
+   rb = rbAPPEND rb (TAKE rb_size s);
+   rb = rbAPPEND rb (TAKE look (DROP rb_size s));
+ in
+   matchLengthRB rb 2 34
+     ”;
+
+
+(* find the longest, right-most match *)
+Definition getMatchRB_def[simp]:
+  getMatchRB rb si li : num # num =
+  if li < si + 2
+  then (0,0)
+  else
+    let ml = matchLengthRB' rb si li;
+       (next_ml,next_md) = getMatchRB rb (SUC si) li
+    in if next_ml < ml then (ml,0)
+       else (next_ml,next_md+1)
+Termination
+  WF_REL_TAC ‘measure (λ rb, si, li. li - si + 2)’
+End
+
+
+EVAL “
+ let
+   s = "hej nej ja men ejej jomen vissthej nej ja men ejej jomen vissthej nej ja men ejej jomen vissthej nej ja men ejej jomen visst";
+   dict = 40;
+   look = 8;
+   rb_size = dict + look;
+   rb = empty_rb rb_size #" ";
+   rb = rbAPPEND rb (TAKE rb_size s);
+   rb = rbAPPEND rb (TAKE look (DROP rb_size s));
+ in
+  (rb, getMatchRB rb 0 (rb.size-look))
+     ”;
+
+Overload DICT_SIZE = “32 :num”
+Overload LOOK_SIZE = “8 :num”
+
+Overload DICTIONARY = “TAKE DICT_SIZE”
+Overload LOOKAHEAD = “LASTN LOOK_SIZE”
+
+
+Definition LZmatchRB_def[simp]:
+  LZmatchRB rb li =
+   let match = getMatchRB rb 0 li
+   in if FST match < 3
+      then
+        case rbEL li rb of
+          SOME a => SOME $ Lit a
+        | NONE => NONE
+      else SOME $ LenDist (FST match, (rb.size - LOOK_SIZE  - (SND match)))
+End
+
+
+EVAL “
+ let
+   s = "hej nej ja men ejej jomen vissthej nej ja men ejej jomen vissthej nej ja men ejej jomen vissthej nej ja men ejej jomen visst";
+   dict = 40;
+   look = 8;
+   rb_size = dict + look;
+   rb = empty_rb rb_size #" ";
+   rb = rbAPPEND rb (TAKE rb_size s);
+   rb = rbAPPEND rb (TAKE look (DROP rb_size s));
+ in
+  (list_of_ringBuffer rb, LZmatchRB rb (rb.size-look))
+     ”;
+
+(* new version which takes buffer size as a parameter and searches into lookahead
+
+s: vår buffer ++ allt vi inte hanterat
+split: hur långt vi kommit i s
+bufsize: hur långt bak vi får titta
+looksize: hur långt fram vi får titta *)
+
+Definition LZinit:
+  LZinit s =
+  (rb_of_list (TAKE (DICT_SIZE + LOOK_SIZE) s), DROP (DICT_SIZE + LOOK_SIZE) s)
+End
+
+EVAL “LZinit "hej nej jag heter faktiskt inte ejnar jag heter gudrud hejsan nej hej"”;
+
+Definition LZcompRB_def:
+  LZcompRB rb s =
+  if s = [] then [] (* Call LZend() *)
+  else
+    let match = LZmatchRB  rb (rb.size - LOOK_SIZE);
+        len = case match of
+              | NONE => 1
+              | SOME $ LenDist (ml,_) => MAX ml 1
+              | SOME $ Lit _ => 1;
+        recurse = LZcompRB (rbAPPEND rb (TAKE len s)) (DROP len s);
+    in case match of
+       | NONE => recurse
+       | SOME m => m::recurse
+Termination
+
+  WF_REL_TAC ‘measure $ λ(rb,s). LENGTH s’
+  \\ rpt strip_tac
+  \\ CASE_TAC
+  \\ simp[]
+  \\ Cases_on ‘s’
+
+
+  \\ CASE_TAC
   >- (Cases_on ‘split + 1 < bufSize’ >> gs[NOT_LESS,MIN_DEF]) >>
   CASE_TAC
   >- (Cases_on ‘split + 1 < bufSize’ >> gs[NOT_LESS,MIN_DEF]) >>
@@ -170,32 +328,6 @@ Proof
   \\ simp[]
 QED
 *)
-
-(****************************************
-*****                              ******
-*****       Used by theorems       ******
-*****                              ******
-****************************************)
-
-Definition matchLengthRB_def:
-  (matchLengthRB (rb,0):num = 0) ∧
-  (matchLengthRB (rb,split) =
-  let
-    l = list_of_ringBuffer rb;
-  in
-    matchLength l (DROP split l))
-End
-
-Definition matchLengthRB'_def:
-  (matchLengthRB' (rb,split) si li :num =
-  if rb.size ≤ li
-  then 0
-  else if rbEL si rb = rbEL li rb ∧ rbEL li rb ≠ NONE ∧ rbEL si rb ≠ NONE
-  then 1 + (matchLengthRB' (rb,split) (SUC si) (SUC li))
-  else 0)
-Termination
-  WF_REL_TAC ‘measure (λ (rb,split), si, li. rb.size - li)’
-End
 
 (* lookup data refinement *)
 
