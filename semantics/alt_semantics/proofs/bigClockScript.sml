@@ -868,4 +868,79 @@ Theorem evaluate_decs_unclocked_to_clocked =
   CONJUNCTS |> map (Q.SPEC `F`) |> LIST_CONJ |>
   SIMP_RULE (srw_ss()) [FORALL_PROD, AND_IMP_INTRO];
 
+Triviality wf_dec_lem:
+  WF $ ($< : num -> num -> bool) LEX measure dec_size
+Proof
+  simp[WF_LEX]
+QED
+
+Triviality dec_ind = MATCH_MP WF_INDUCTION_THM wf_dec_lem;
+
+Theorem evaluate_decs_total_lemma:
+  ∀ds env ^s clk.
+    (∀clk' d env ^s. clk' < clk ⇒
+      ∃s' r. evaluate_dec T env (s with clock := clk') d (s', r)) ∧
+    (∀d env ^s. dec_size d < dec1_size ds ⇒
+      ∃s' r. evaluate_dec T env (s with clock := clk) d (s', r))
+  ⇒ ∃s' r. evaluate_decs T env (s with clock := clk) ds (s',r)
+Proof
+  Induct >> rw[] >> simp[Once evaluate_dec_cases] >>
+  gvs[SF DNF_ss, astTheory.dec_size_def] >>
+  first_assum $ qspecl_then [`h`,`env`,`s`] mp_tac >>
+  impl_tac >- simp[] >> strip_tac >> gvs[] >>
+  Cases_on `r` >> gvs[SF SFY_ss] >> disj2_tac >> goal_assum drule >>
+  simp[Once $ GSYM with_same_clock] >> last_x_assum irule >> rw[] >>
+  imp_res_tac evaluate_decs_clock_mono >> gvs[] >>
+  Cases_on `s'.clock = clk` >> gvs[]
+QED
+
+Theorem big_clocked_dec_total:
+  ∀env st d.  ∃r. evaluate_dec T env st d r
+Proof
+  qsuff_tac
+    `∀cd env st.
+      ∃st' r. evaluate_dec T env (st with clock := FST cd) (SND cd) (st', r)`
+  >- (
+    rw[] >> first_x_assum $ qspecl_then [`(st.clock, d)`,`env`,`st`] assume_tac >>
+    gvs[with_same_clock, SF SFY_ss]
+    ) >>
+  Induct using dec_ind >> rw[] >>
+  PairCases_on `cd` >> rename1 `clk,d` >> gvs[FORALL_PROD, LEX_DEF_THM, SF DNF_ss] >>
+  Cases_on `d` >> rw[Once evaluate_dec_cases, SF DNF_ss]
+  >- ( (* Dlet *)
+    Cases_on `ALL_DISTINCT (pat_bindings p [])` >> gvs[] >>
+    qspecl_then [`st with clock := clk`,`env`,`e`] assume_tac big_clocked_total >>
+    gvs[] >> Cases_on `r` >> gvs[SF SFY_ss] >>
+    Cases_on `pmatch env.c s'.refs p a []` >> gvs[SF SFY_ss]
+    )
+  >- rw[DISJ_EQ_IMP]
+  >- (
+    gvs[astTheory.dec_size_def] >>
+    drule_at Any evaluate_decs_total_lemma >>
+    disch_then $ qspecl_then [`l`,`env`,`st`] mp_tac >> impl_tac >> rw[] >>
+    Cases_on `r` >> gvs[SF SFY_ss]
+    )
+  >- (
+    gvs[astTheory.dec_size_def] >>
+    drule_at Any evaluate_decs_total_lemma >>
+    disch_then $ qspecl_then [`l`,`env`,`st`] mp_tac >> impl_tac >> rw[] >>
+    Cases_on `r` >> gvs[SF SFY_ss] >> disj1_tac >> goal_assum drule >>
+    dxrule $ cj 2 evaluate_decs_clock_mono >> rw[] >> gvs[] >>
+    simp[Once $ GSYM with_same_clock] >> irule evaluate_decs_total_lemma >>
+    rw[] >> Cases_on `s'.clock = clk` >> gvs[]
+    )
+  >- (
+    Cases_on `declare_env st.eval_state env` >> gvs[] >> PairCases_on `x` >> gvs[]
+    )
+QED
+
+Theorem big_clocked_decs_total:
+  ∀ds env st. ∃r. evaluate_decs T env st ds r
+Proof
+  Induct >> rw[] >> simp[Once evaluate_dec_cases, SF DNF_ss] >>
+  qspecl_then [`env`,`st`,`h`] assume_tac big_clocked_dec_total >> gvs[] >>
+  PairCases_on `r` >> Cases_on `r1` >> gvs[SF SFY_ss] >>
+  disj2_tac >> goal_assum dxrule >> metis_tac[PAIR]
+QED
+
 val _ = export_theory ();
