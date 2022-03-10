@@ -520,6 +520,16 @@ Proof
   metis_tac [big_clocked_total_lem, FST, SND, with_same_clock]
 QED
 
+Theorem big_clocked_list_total:
+  ∀es env s. ∃r. evaluate_list T env s es r
+Proof
+  Induct >> rw[Once evaluate_cases, SF DNF_ss] >>
+  qspecl_then [`s`,`env`,`h`] assume_tac big_clocked_total >> gvs[] >>
+  Cases_on `r` >> gvs[SF SFY_ss] >>
+  first_x_assum $ qspecl_then [`env`,`s'`] assume_tac >> gvs[] >>
+  PairCases_on `r` >> Cases_on `r1` >>  gvs[SF SFY_ss]
+QED
+
 Theorem big_clocked_timeout_0:
   (∀ck env ^s e r1.
      evaluate ck env s e r1 ⇒

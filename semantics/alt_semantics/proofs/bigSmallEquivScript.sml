@@ -3682,41 +3682,6 @@ Proof
   PairCases_on `r` >> gvs[SF SFY_ss]
 QED
 
-Theorem do_app_ffi_changed:
-  do_app (st, ffi) op vs = SOME ((st', ffi'), res) ∧
-  ffi ≠ ffi' ⇒
-  ∃s conf lnum ws ffi_st ws'.
-    op = FFI s ∧
-    vs = [Litv (StrLit conf); Loc lnum] ∧
-    store_lookup lnum st = SOME (W8array ws) ∧
-    s ≠ "" ∧
-    ffi.oracle s ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
-      Oracle_return ffi_st ws' ∧
-    LENGTH ws = LENGTH ws' ∧
-    st' = LUPDATE (W8array ws') lnum st ∧
-    ffi'.oracle = ffi.oracle ∧
-    ffi'.ffi_state = ffi_st ∧
-    ffi'.io_events =
-      ffi.io_events ++
-        [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))]
-Proof
-  simp[semanticPrimitivesTheory.do_app_def] >>
-  every_case_tac >> gvs[store_alloc_def, store_assign_def] >>
-  strip_tac >> gvs[call_FFI_def] >>
-  every_case_tac >> gvs[]
-QED
-
-Theorem do_app_ffi_unchanged:
-  ∀st ffi op vs st' ffi' res.
-    (∀s. op ≠ FFI s) ∧
-    do_app (st, ffi) op vs = SOME ((st', ffi'), res)
-  ⇒ ffi = ffi'
-Proof
-  rpt gen_tac >>
-  simp[semanticPrimitivesTheory.do_app_def] >>
-  every_case_tac >> gvs[store_alloc_def]
-QED
-
 Theorem application_ffi_unchanged:
   ∀op env st ffi vs cs env' st' ffi' ev cs'.
     (∀s. op ≠ FFI s) ∧
@@ -3780,16 +3745,6 @@ Proof
   irule IS_PREFIX_APPEND1 >> gvs[SF SFY_ss]
 QED
 
-Theorem evaluate_list_T_total:
-  ∀es env s. ∃r. evaluate_list T env s es r
-Proof
-  Induct >> rw[Once evaluate_cases, SF DNF_ss] >>
-  qspecl_then [`s`,`env`,`h`] assume_tac big_clocked_total >> gvs[] >>
-  Cases_on `r` >> gvs[SF SFY_ss] >>
-  first_x_assum $ qspecl_then [`env`,`s'`] assume_tac >> gvs[] >>
-  PairCases_on `r` >> Cases_on `r1` >>  gvs[SF SFY_ss]
-QED
-
 Theorem evaluate_match_T_total:
   ∀pes env s v err. ∃r. evaluate_match T env s v pes err r
 Proof
@@ -3804,7 +3759,7 @@ Theorem evaluate_ctxt_T_total:
 Proof
   rw[] >> simp[Once evaluate_ctxt_cases] >> Cases_on `c` >> gvs[SF DNF_ss]
   >- (
-    qspecl_then [`l0`,`env`,`s`] assume_tac evaluate_list_T_total >> gvs[] >>
+    qspecl_then [`l0`,`env`,`s`] assume_tac big_clocked_list_total >> gvs[] >>
     PairCases_on `r` >> Cases_on `r1` >> gvs[SF SFY_ss] >>
     Cases_on `o' = Opapp` >> gvs[]
     >- (
@@ -3830,7 +3785,7 @@ Proof
   >- metis_tac[big_clocked_total]
   >- (
     Cases_on `do_con_check env.c o' (LENGTH l0 + (LENGTH l + 1))` >> gvs[] >>
-    qspecl_then [`l0`,`env`,`s`] assume_tac evaluate_list_T_total >> gvs[] >>
+    qspecl_then [`l0`,`env`,`s`] assume_tac big_clocked_list_total >> gvs[] >>
     PairCases_on `r` >> Cases_on `r1` >> gvs[SF SFY_ss] >>
     metis_tac[do_con_check_build_conv]
     )
@@ -3854,28 +3809,6 @@ Proof
   rw[] >> simp[Once evaluate_state_cases] >>
   Cases_on `ev` >> gvs[] >>
   metis_tac[evaluate_ctxts_T_total, big_clocked_total, PAIR]
-QED
-
-Theorem evaluate_io_events_mono:
-  (∀ck env ^s e r.
-    evaluate ck env s e r ⇒
-    s.ffi.io_events ≼ (FST r).ffi.io_events) ∧
-  (∀ck env ^s es r.
-    evaluate_list ck env s es r ⇒
-    s.ffi.io_events ≼ (FST r).ffi.io_events) ∧
-  (∀ck env ^s v pes err_v r.
-    evaluate_match ck env s v pes err_v r ⇒
-    s.ffi.io_events ≼ (FST r).ffi.io_events)
-Proof
-  ho_match_mp_tac evaluate_ind >> rw[]
-  >~ [`do_app`]
-  >- (
-    Cases_on `∀s. op ≠ FFI s` >> gvs[]
-    >- (drule_all do_app_ffi_unchanged >> rw[] >> gvs[]) >>
-    gvs[do_app_def] >> every_case_tac >> gvs[] >>
-    gvs[call_FFI_def] >> every_case_tac >> gvs[IS_PREFIX_APPEND]
-    ) >>
-  metis_tac[IS_PREFIX_TRANS]
 QED
 
 Theorem evaluate_ctxt_io_events_mono:
