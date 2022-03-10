@@ -16,101 +16,6 @@ Datatype:
   LZSS = Lit 'a | LenDist (num # num)
 End
 
-
-Definition matchLength_def[simp]:
-  (matchLength s []:num = 0) ∧
-  (matchLength [] l = 0) ∧
-  (matchLength (s::ss) (l::ls) =
-   if (s = l)
-   then (1 + (matchLength ss ls))
-   else 0)
-End
-
-(* find the longest, right-most match *)
-Definition getMatch_def[simp]:
-  (getMatch [] l : num # num = (0,0)) ∧
-  (getMatch s [] = (0,0)) ∧
-  (getMatch (s::ss) (l::ls) =
-   let ml = matchLength (s::ss) (l::ls);
-       (next_ml,next_md) = getMatch ss (l::ls)
-   in if next_ml < ml then (ml,0)
-      else (next_ml,next_md+1))
-End
-
-EVAL “getMatch "hejsan" "ejsa"”;
-
-Definition LZmatch_def[simp]:
-  (LZmatch b [] = NONE) ∧
-  (LZmatch buffer lookahead =
-  let match = getMatch buffer lookahead
-  in if FST match < 3                       (* This looks like LZSS and not LZ77 *)
-     then SOME $ Lit (HD lookahead)
-     else SOME $ LenDist (FST match, (LENGTH buffer - (SND match))))
-End
-
-
-Definition LZcomp_def:
-  LZcomp s split bufSize lookSize =
-  if LENGTH s ≤ split ∨ s = [] ∨ bufSize = 0 ∨ lookSize = 0 then []
-  else
-    let match = LZmatch (TAKE split s) (TAKE lookSize (DROP split s));
-        len = case match of
-              | NONE => 1
-              | SOME $ LenDist (ml,_) => MAX ml 1
-              | SOME $ Lit _ => 1;
-        bufDrop = (split + len) - bufSize;
-        recurse = (LZcomp (DROP bufDrop s) (split + len - bufDrop) bufSize lookSize)
-    in case match of
-       | NONE => recurse
-       | SOME m => m::recurse
-Termination
-  WF_REL_TAC ‘measure $ λ(s,split,_,_). MIN (LENGTH s) (LENGTH s - split)’ >>
-  rw[NOT_LESS_EQUAL] >>
-  CASE_TAC
-  >- (Cases_on ‘split + 1 < bufSize’ >> gs[NOT_LESS,MIN_DEF]) >>
-  CASE_TAC
-  >- (Cases_on ‘split + 1 < bufSize’ >> gs[NOT_LESS,MIN_DEF]) >>
-  CASE_TAC >>
-  simp[MAX_DEF,MIN_DEF]
-End
-
-EVAL “LZcomp "hej jag heter heter jag nej heterogen" 0 258 258”;
-
-(*
-Definition LZSS_to_string_def:
-  LZSS_to_string [] = [] ∧
-  LZSS_to_string ((Lit a)::ss) =
-  "0" ++ a::LZSS_to_string ss ∧
-  LZSS_to_string ((LenDist (ml, md))::ss) =
-  "1" ++ num_to_dec_string ml ++ num_to_dec_string md ++ LZSS_to_string ss
-End
-
-Definition string_to_LZSS_def:
-  string_to_LZSS [] = [] ∧
-  string_to_LZSS (a::ss) = if a = #"0" then Lit HD ss else if
-                           End
-*)
-
-Definition LZSS_compress_def:
-  LZSS_compress s = LZcomp s 0 258 258
-End
-
-
-
-EVAL “
- let
-   s = "aabbccddeeffgghhiijjkkllmmnnooppaabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvxxyyzz";
-   dict = 32;
-   look = 8;
-   rb_size = dict + look;
-   rb = empty_rb rb_size #" ";
-   rb = rbAPPEND rb (TAKE rb_size s);
-   rb = rbAPPEND rb (TAKE look (DROP rb_size s));
- in
-   list_of_ringBuffer rb
-     ”;
-
-
 Definition matchLengthRB_def:
   (matchLengthRB rb si li :num =
    if rb.size ≤ li
@@ -121,20 +26,6 @@ Definition matchLengthRB_def:
 Termination
   WF_REL_TAC ‘measure (λ rb, si, li. rb.size - li)’
 End
-
-EVAL “
- let
-   s = "aabbccddeeffgghhiijjkkllmmnnooppaabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvxxyyzz";
-   dict = 32;
-   look = 8;
-   rb_size = dict + look;
-   rb = empty_rb rb_size #" ";
-   rb = rbAPPEND rb (TAKE rb_size s);
-   rb = rbAPPEND rb (TAKE look (DROP rb_size s));
- in
-   matchLengthRB rb 2 34
-     ”;
-
 
 (* find the longest, right-most match *)
 Definition getMatchRB_def[simp]:
@@ -149,21 +40,6 @@ Definition getMatchRB_def[simp]:
 Termination
   WF_REL_TAC ‘measure (λ rb, si, li. li - si + 2)’
 End
-
-
-EVAL “
- let
-   s = "hej nej ja men ejej jomen vissthej nej ja men ejej jomen vissthej nej ja men ejej jomen vissthej nej ja men ejej jomen visst";
-   dict = 40;
-   look = 8;
-   rb_size = dict + look;
-   rb = empty_rb rb_size #" ";
-   rb = rbAPPEND rb (TAKE rb_size s);
-   rb = rbAPPEND rb (TAKE look (DROP rb_size s));
-   a = getMatchRB rb 0 (rb.size - look);
- in
-  getMatchRB rb 0 (rb.size - look)
-     ”;
 
 Overload DICT_SIZE = “32 :num”
 Overload LOOK_SIZE = “8 :num”
@@ -205,14 +81,19 @@ bufsize: hur långt bak vi får titta
 looksize: hur långt fram vi får titta *)
 
 Definition LZinit:
-  LZinit s =
-  (rb_of_list (TAKE (DICT_SIZE + LOOK_SIZE) s), DROP (DICT_SIZE + LOOK_SIZE) s)
+  LZinit s :  =
+  let
+    rb = empty_rb (DICT_SIZE - LOOK_SIZE) #"0";
+    rb = rbAPPEND rb (TAKE LOOK_SIZE s);
+    s = DROP LOOK_SIZE s;
+  in
+    (rb, s)
 End
 
 EVAL “LZinit "hej nej jag heter faktiskt inte ejnar jag heter gudrud hejsan nej hej"”;
 
 Definition LZcompRB_def:
-  LZcompRB rb s =
+  LZcompRB (rb : char ringBuffer) (s :string) =
   if LENGTH s = 0 then [] (* Call LZend() *)
   else
     let
@@ -231,7 +112,7 @@ Termination
   \\ rpt (CASE_TAC \\ simp[])
 End
 
-Definition LZSS_compress_def:
+Definition LZSSRB_compress_def:
   LZSSRB_compress s =
   let
     (rb, remainder) = LZinit s
