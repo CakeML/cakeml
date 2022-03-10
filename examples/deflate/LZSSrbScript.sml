@@ -142,7 +142,7 @@ Definition getMatchRB_def[simp]:
   if li < si + 2
   then (0,0)
   else
-    let ml = matchLengthRB' rb si li;
+    let ml = matchLengthRB rb si li;
        (next_ml,next_md) = getMatchRB rb (SUC si) li
     in if next_ml < ml then (ml,0)
        else (next_ml,next_md+1)
