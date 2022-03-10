@@ -21,7 +21,7 @@ version of the CakeML source semantics.
 A few properties about the relational big-step semantics.
 
 [determScript.sml](determScript.sml):
-Determinism for the relational big-step semantics
+Determinism for the small-step and relational big-step semantics
 
 [funBigStepEquivScript.sml](funBigStepEquivScript.sml):
 Relate functional big-step semantics with relational big-step
@@ -32,3 +32,6 @@ Compset for evaluating the functional big-step semantics.
 
 [interpScript.sml](interpScript.sml):
 Deriviation of a functional big-step semantics from the relational one.
+
+[smallStepPropsScript.sml](smallStepPropsScript.sml):
+Properties about the small-step semantics.

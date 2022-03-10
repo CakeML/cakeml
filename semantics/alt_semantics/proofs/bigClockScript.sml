@@ -657,6 +657,29 @@ Proof
   imp_res_tac clock_monotone >> gvs[]
 QED
 
+Theorem big_clocked_to_unclocked:
+  evaluate T env s e (s',r) ∧
+  r ≠ Rerr (Rabort Rtimeout_error) ⇒
+  evaluate F env s e (s' with clock := s.clock, r)
+Proof
+  rw[] >> drule clocked_min_counter >> rw[] >>
+  simp[big_clocked_unclocked_equiv] >> goal_assum drule
+QED
+
+Theorem big_clocked_to_unclocked_list:
+  ∀env s e r.
+  evaluate_list T env s e r ∧
+  SND r ≠ Rerr (Rabort Rtimeout_error) ⇒
+  evaluate_list F env s e (FST r with clock := s.clock, SND r)
+Proof
+  rw[] >> PairCases_on `r` >> gvs[] >>
+  drule clocked_min_counter_list >> rw[] >>
+  drule $ cj 2 big_unclocked_ignore >> simp[] >>
+  disch_then $ qspec_then `s.clock` mp_tac >>
+  qsuff_tac `s with clock := s.clock = s` >> rw[] >>
+  simp[state_component_equality]
+QED
+
 Theorem evaluate_decs_clocked_to_unclocked_lemma[local]:
   (∀ck env (st:'ffi semanticPrimitives$state) d res.
     evaluate_dec ck env st d res ⇒ ck ∧
@@ -963,5 +986,6 @@ Proof
   imp_res_tac big_unclocked >> gvs[] >>
   Cases_on `r` >> gvs[combine_dec_result_def]
 QED
+
 
 val _ = export_theory ();

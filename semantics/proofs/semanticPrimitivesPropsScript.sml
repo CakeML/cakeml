@@ -175,6 +175,49 @@ Proof
  metis_tac [pat_bindings_accum]
 QED
 
+Theorem pmatch_nsAppend:
+  (∀ns st pat v env m ns'.
+    (pmatch ns st pat v env = No_match
+   ⇒ pmatch (nsAppend ns ns') st pat v env = No_match) ∧
+    (pmatch ns st pat v env = Match m
+   ⇒ pmatch (nsAppend ns ns') st pat v env = Match m)) ∧
+  (∀ns st pats vs env m ns'.
+    (pmatch_list ns st pats vs env = No_match
+   ⇒ pmatch_list (nsAppend ns ns') st pats vs env = No_match) ∧
+    (pmatch_list ns st pats vs env = Match m
+   ⇒ pmatch_list (nsAppend ns ns') st pats vs env = Match m))
+Proof
+  ho_match_mp_tac pmatch_ind >>
+  rw[pmatch_def]
+  >- (
+    pop_assum mp_tac >> TOP_CASE_TAC >>
+    `nsLookup (nsAppend ns ns') n = SOME x` by
+      gvs[namespacePropsTheory.nsLookup_nsAppend_some] >>
+    gvs[] >> PairCases_on `x` >> gvs[] >>
+    rpt (TOP_CASE_TAC >> gvs[])
+    )
+  >- (
+    pop_assum mp_tac >> TOP_CASE_TAC >>
+    `nsLookup (nsAppend ns ns') n = SOME x` by
+      gvs[namespacePropsTheory.nsLookup_nsAppend_some] >>
+    gvs[] >> PairCases_on `x` >> gvs[] >>
+    rpt (TOP_CASE_TAC >> gvs[])
+    )
+  >- (TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[])
+  >- (TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[])
+  >- (
+    pop_assum mp_tac >> TOP_CASE_TAC >> gvs[] >>
+    TOP_CASE_TAC >> gvs[]
+    )
+  >- (
+    pop_assum mp_tac >> TOP_CASE_TAC >> gvs[] >>
+    TOP_CASE_TAC >> gvs[]
+    )
+QED
+
+Theorem pmatch_nsAppend_No_match = pmatch_nsAppend |> cj 1 |> cj 1;
+Theorem pmatch_nsAppend_Match = pmatch_nsAppend |> cj 1 |> cj 2;
+
 Theorem pmatch_acc:
   (!envc store p v env env' env2.
     (pmatch envc store p v env = Match env' ⇔
@@ -450,6 +493,26 @@ Proof
   simp[do_app_def] >> every_case_tac >> gvs[store_alloc_def, store_assign_def] >>
   strip_tac >> gvs[call_FFI_def] >>
   every_case_tac >> gvs[]
+QED
+
+Theorem do_app_not_timeout:
+  do_app s op vs = SOME (s', Rerr (Rabort a))
+  ⇒
+  a ≠ Rtimeout_error
+Proof
+  Cases_on `s` >>
+  srw_tac[][do_app_cases] >>
+  every_case_tac >>
+  srw_tac[][]
+QED
+
+Theorem do_app_type_error:
+  do_app s op es = SOME (x,Rerr (Rabort a)) ⇒ x = s
+Proof
+  PairCases_on `s` >>
+  srw_tac[][do_app_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[LET_THM,UNCURRY] >>
+  every_case_tac >> full_simp_tac(srw_ss())[]
 QED
 
 val build_rec_env_help_lem = Q.prove (

@@ -135,9 +135,6 @@ Definition lift_dec_result_def:
   lift_dec_result mn (Rerr r) = Rerr r
 End
 
-val _ = set_fixity "+++" (Infixl 480);
-Overload "+++" = “extend_dec_env”;
-
 Inductive evaluate_dec_ctxt:
   (evaluate_decs ck (env' +++ env +++ benv) s ds (s',r)
     ⇒ evaluate_dec_ctxt ck benv s (Cdmod mn env ds) env'

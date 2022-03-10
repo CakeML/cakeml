@@ -2,7 +2,7 @@
   A few properties about the relational big-step semantics.
 *)
 open preamble;
-open semanticPrimitivesTheory ffiTheory semanticPrimitivesPropsTheory;
+open semanticPrimitivesTheory semanticPrimitivesPropsTheory;
 open bigStepTheory evaluatePropsTheory;
 
 val _ = new_theory "bigStepProps";
