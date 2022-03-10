@@ -3,7 +3,7 @@
 *)
 open preamble;
 open semanticPrimitivesTheory ffiTheory semanticPrimitivesPropsTheory;
-open bigStepTheory;
+open bigStepTheory evaluatePropsTheory;
 
 val _ = new_theory "bigStepProps";
 
@@ -68,26 +68,37 @@ Proof
   gvs [declare_env_def,AllCaseEqs()]
 QED
 
-Theorem evaluate_io_events_mono:
+Theorem big_evaluate_io_events_mono:
   (∀ck env ^st e r.
     evaluate ck env st e r ⇒
-    st.ffi.io_events ≼ (FST r).ffi.io_events) ∧
+    io_events_mono (st.ffi) (FST r).ffi) ∧
   (∀ck env ^st es r.
     evaluate_list ck env st es r ⇒
-    st.ffi.io_events ≼ (FST r).ffi.io_events) ∧
+    io_events_mono (st.ffi) (FST r).ffi) ∧
   (∀ck env ^st v pes err_v r.
     evaluate_match ck env st v pes err_v r ⇒
-    st.ffi.io_events ≼ (FST r).ffi.io_events)
+    io_events_mono (st.ffi) (FST r).ffi)
 Proof
   ho_match_mp_tac evaluate_ind >> rw[]
   >~ [`do_app`]
   >- (
-    Cases_on `∀s. op ≠ FFI s` >> gvs[]
-    >- (drule_all do_app_ffi_unchanged >> rw[] >> gvs[]) >>
-    gvs[do_app_def] >> every_case_tac >> gvs[] >>
-    gvs[call_FFI_def] >> every_case_tac >> gvs[IS_PREFIX_APPEND]
+    drule do_app_io_events_mono >> rw[] >>
+    metis_tac[io_events_mono_trans]
     ) >>
-  metis_tac[IS_PREFIX_TRANS]
+  metis_tac[io_events_mono_trans]
+QED
+
+Theorem evaluate_dec_io_events_mono:
+  (∀ck env ^st d r.
+    evaluate_dec ck env st d r ⇒
+    io_events_mono (st.ffi) (FST r).ffi) ∧
+  (∀ck env ^st ds r.
+    evaluate_decs ck env st ds r ⇒
+    io_events_mono (st.ffi) (FST r).ffi)
+Proof
+  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+  imp_res_tac big_evaluate_io_events_mono >> gvs[] >>
+  metis_tac[io_events_mono_trans]
 QED
 
 

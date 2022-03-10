@@ -4,7 +4,7 @@
 open preamble;
 open libTheory semanticPrimitivesTheory bigStepTheory smallStepTheory ffiTheory;
 open bigSmallInvariantsTheory semanticPrimitivesPropsTheory determTheory bigClockTheory;
-open bigStepPropsTheory;
+open bigStepPropsTheory evaluatePropsTheory;
 
 val _ = new_theory "bigSmallEquiv";
 
@@ -3690,7 +3690,8 @@ Theorem application_ffi_unchanged:
 Proof
   rpt gen_tac >> rw[application_thm, return_def]
   >- (every_case_tac >> gvs[]) >>
-  qspecl_then [`st`,`ffi`,`op`,`vs`] assume_tac do_app_ffi_unchanged >>
+  qspecl_then [`st`,`ffi`,`op`,`vs`]
+    assume_tac semanticPrimitivesPropsTheory.do_app_ffi_unchanged >>
   every_case_tac >> gvs[]
 QED
 
@@ -3732,17 +3733,17 @@ Proof
   )
 QED
 
-Theorem RTC_e_step_reln_isPREFIX:
+Theorem RTC_e_step_reln_io_events_mono:
   ∀env s ev cs env' s' ev' cs'.
     RTC e_step_reln (env,s,ev,cs) (env',s',ev',cs')
-  ⇒ (SND s).io_events ≼ (SND s').io_events
+  ⇒ io_events_mono (SND s) (SND s')
 Proof
-  Induct_on `RTC` >> rw[] >- simp[IS_PREFIX_REFL] >>
+  Induct_on `RTC` >> rw[] >> simp[] >>
   rename1 `(_,_) = ctxt` >> PairCases_on `ctxt` >> gvs[] >>
   PairCases_on `s` >> gvs[e_step_reln_def] >>
   Cases_on `s1 = ctxt2` >> gvs[] >>
   drule_all e_step_ffi_changed >> rw[] >>
-  irule IS_PREFIX_APPEND1 >> gvs[SF SFY_ss]
+  gvs[io_events_mono_def, IS_PREFIX_APPEND1, IS_PREFIX_APPEND]
 QED
 
 Theorem evaluate_match_T_total:
@@ -3814,37 +3815,79 @@ QED
 Theorem evaluate_ctxt_io_events_mono:
   ∀ck env ^s c v r.
     evaluate_ctxt ck env s c v r ⇒
-    s.ffi.io_events ≼ (FST r).ffi.io_events
+    io_events_mono s.ffi (FST r).ffi
 Proof
-  Induct_on `evaluate_ctxt` >> rw[] >>
-  imp_res_tac evaluate_io_events_mono >> gvs[] >>
-  gvs[IS_PREFIX_APPEND] >>
-  Cases_on `∀s. op ≠ FFI s` >> gvs[]
-  >- (drule_all do_app_ffi_unchanged >> rw[] >> gvs[]) >>
-  gvs[do_app_def] >> every_case_tac >> gvs[] >>
-  gvs[call_FFI_def] >> every_case_tac >> gvs[]
+  rw[evaluate_ctxt_cases] >> gvs[] >> every_case_tac >> gvs[] >>
+  imp_res_tac big_evaluate_io_events_mono >> gvs[] >>
+  imp_res_tac do_app_io_events_mono >>
+  metis_tac[io_events_mono_trans]
 QED
 
 Theorem evaluate_ctxts_io_events_mono:
   ∀ck ^s cs v r.
     evaluate_ctxts ck s cs v r ⇒
-    s.ffi.io_events ≼ (FST r).ffi.io_events
+    io_events_mono (s.ffi) (FST r).ffi
 Proof
   gen_tac >> ho_match_mp_tac evaluate_ctxts_ind >> rw[] >>
-  imp_res_tac evaluate_io_events_mono >>
+  imp_res_tac big_evaluate_io_events_mono >>
   imp_res_tac evaluate_ctxt_io_events_mono >> gvs[] >>
-  metis_tac[IS_PREFIX_TRANS]
+  metis_tac[io_events_mono_trans]
 QED
 
 Theorem evaluate_state_io_events_mono:
   ∀ck env st ev cs r.
     evaluate_state ck (env, st, ev, cs) r ⇒
-    st.ffi.io_events ≼ (FST r).ffi.io_events
+    io_events_mono (st.ffi) (FST r).ffi
 Proof
   rw[evaluate_state_cases] >> gvs[] >>
-  imp_res_tac evaluate_io_events_mono >>
+  imp_res_tac big_evaluate_io_events_mono >>
   imp_res_tac evaluate_ctxts_io_events_mono >> gvs[] >>
-  metis_tac[IS_PREFIX_TRANS]
+  metis_tac[io_events_mono_trans]
+QED
+
+Theorem evaluate_dec_ctxt_io_events_mono:
+  ∀ck env ^s c v r.
+    evaluate_dec_ctxt ck env s c v r ⇒
+    io_events_mono s.ffi (FST r).ffi
+Proof
+  rw[evaluate_dec_ctxt_cases] >> gvs[] >>
+  imp_res_tac evaluate_dec_io_events_mono >> gvs[] >>
+  metis_tac[io_events_mono_trans]
+QED
+
+Theorem evaluate_dec_ctxts_io_events_mono:
+  ∀ck env ^s cs v r.
+    evaluate_dec_ctxts ck env s cs v r ⇒
+    io_events_mono s.ffi (FST r).ffi
+Proof
+  ntac 2 gen_tac >> Induct_on `evaluate_dec_ctxts` >> rw[] >>
+  imp_res_tac evaluate_dec_ctxt_io_events_mono >> gvs[] >>
+  metis_tac[io_events_mono_trans]
+QED
+
+Theorem evaluate_dec_state_io_events_mono:
+  ∀ck env s r.
+    evaluate_dec_state ck env s r ⇒
+    io_events_mono (FST s).ffi (FST r).ffi
+Proof
+  rw[evaluate_dec_state_cases] >>
+  map_every imp_res_tac [
+    evaluate_state_io_events_mono,
+    evaluate_dec_io_events_mono,
+    evaluate_dec_ctxts_io_events_mono] >> gvs[] >>
+  metis_tac[io_events_mono_trans]
+QED
+
+Theorem lprefix_chain_evaluate_decs:
+  s.eval_state = NONE ⇒
+  lprefix_chain
+    { fromList s.ffi.io_events |
+        ∃k r. evaluate_decs T env (st with clock := k) prog (s,r) }
+Proof
+  rw[lprefix_chain_def] >> simp[LPREFIX_fromList, from_toList] >>
+  rev_drule RTC_e_step_confl >> disch_then drule >> rw[]
+  >- (disj1_tac >> irule RTC_e_step_reln_isPREFIX >> simp[SF SFY_ss])
+  >- (disj2_tac >> irule RTC_e_step_reln_isPREFIX >> simp[SF SFY_ss])
 QED
 
 
