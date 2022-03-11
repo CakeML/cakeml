@@ -51,7 +51,6 @@ type op =
   | Equality
   (* FP operations *)
   | FP_cmp of fp_cmp
-  (* | FP_pred of fp_pred *)
   | FP_uop of fp_uop
   | FP_bop of fp_bop
   | FP_top of fp_top
@@ -147,7 +146,6 @@ val isFpBool: op -> bool
 let isFpBool op =
   match op with
   | FP_cmp _ -> true
-  (* | FP_pred _ -> true *)
   | _ -> false
   end
 

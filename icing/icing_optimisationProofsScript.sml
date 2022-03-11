@@ -737,8 +737,8 @@ Proof
    \\ fsrw_tac [SATISFY_ss] [])
   \\ rveq \\ fs[]
   \\ qpat_x_assum `_ = (_, _)` (mp_tac o SIMP_RULE std_ss [evaluate_def])
-  \\ simp[REVERSE_DEF, astTheory.getOpClass_def, astTheory.isFpBool_def,
-          Once evaluate_cons, evaluate_case_case]
+  \\ simp[REVERSE_DEF, astTheory.isFpBool_def, Once evaluate_cons,
+          evaluate_case_case]
   \\ ntac 4 (TOP_CASE_TAC \\ fs[])
   \\ imp_res_tac evaluate_sing \\ rveq \\ fs[]
   \\ simp[do_app_def, CaseEq"option", CaseEq"v", CaseEq"prod"]
@@ -797,7 +797,6 @@ Proof
   \\ gs (fp_translate_def :: state_eqs) \\ unabbrev_all_tac
   \\ rpt conj_tac
   >- fp_inv_tac
-  >- (fp_inv_tac \\ fs[FUN_EQ_THM])
   >- fp_inv_tac
   \\ qpat_x_assum `_ = Rval _` (fs o single o GSYM)
   \\ simp[do_fprw_def, rwAllWordTree_def, nth_len]
@@ -851,7 +850,6 @@ Proof
   \\ ‘q.fp_state.canOpt = FPScope Opt’ by fp_inv_tac
   \\ gs[] \\ rpt strip_tac \\ rveq
   \\ rename1 ‘evaluate _ env [e1] = (st2, Rval [v])’
-  \\ ‘st1.fp_state.assertions = st2.fp_state.assertions’ by (fp_inv_tac \\ gs[FUN_EQ_THM])
   \\ ‘~ st2.fp_state.real_sem’ by fp_inv_tac
   \\ ‘st1.fp_state.rws = st2.fp_state.rws’ by fp_inv_tac
   \\ ‘st2 = st1 with fp_state := st2.fp_state’
@@ -928,7 +926,6 @@ Proof
              ‘evaluate st3 env [e1] = (st4, Rval [v1])’]
   \\ ‘st4.fp_state.canOpt = FPScope Opt’ by fp_inv_tac
   \\ ‘st4.fp_state.rws = st1.fp_state.rws’ by fp_inv_tac
-  \\ ‘st1.fp_state.assertions = st4.fp_state.assertions’ by (fp_inv_tac \\ gs[FUN_EQ_THM])
   \\ ‘~ st4.fp_state.real_sem’ by fp_inv_tac
   \\ gs[]
   \\ ‘st2 = st1 with fp_state := st2.fp_state ∧
@@ -1199,7 +1196,6 @@ Proof
   \\ fs([fp_translate_def, shift_fp_opts_def] @ state_eqs) \\ rveq
   \\ rpt conj_tac
   >- (unabbrev_all_tac \\ fp_inv_tac)
-  >- (fp_inv_tac \\ fs[FUN_EQ_THM])
   >- fp_inv_tac
   \\ simp[do_fprw_def, rwAllWordTree_def, nth_len]
   \\ simp[EVAL ``rwFp_pathWordTree fp_times_two_to_add Here
@@ -1264,7 +1260,6 @@ Proof
              ‘evaluate st2 env [e1] = (st3, Rval [v2])’,
              ‘evaluate st3 env [e1] = (st4, Rval [v3])’]
   \\ ‘st4.fp_state.canOpt = FPScope Opt’ by fp_inv_tac
-  \\ ‘st1.fp_state.assertions = st4.fp_state.assertions’ by (fp_inv_tac \\ fs[FUN_EQ_THM])
   \\ ‘~ st4.fp_state.real_sem’ by fp_inv_tac
   \\ ‘st4 = st1 with fp_state := st4.fp_state ∧
       st3 = st1 with fp_state := st3.fp_state ∧
@@ -1476,7 +1471,6 @@ Proof
   \\ rpt conj_tac
   >- fp_inv_tac
   >- fp_inv_tac
-  >- (fp_inv_tac \\ fs[FUN_EQ_THM])
   >- fp_inv_tac
   \\ simp[do_fprw_def, rwAllWordTree_def, nth_len]
   \\ simp[EVAL ``rwFp_pathWordTree fp_plus_zero Here
@@ -1555,7 +1549,6 @@ Proof
   \\ fs([fp_translate_def, shift_fp_opts_def] @ state_eqs) \\ rveq
   \\ rpt conj_tac
   >- fp_inv_tac
-  >- (fp_inv_tac \\ fs[FUN_EQ_THM])
   >- fp_inv_tac
   \\ simp[do_fprw_def, rwAllWordTree_def, nth_len]
   \\ simp[EVAL ``rwFp_pathWordTree fp_times_minus_one_neg Here
@@ -1631,7 +1624,6 @@ Proof
   \\ rpt conj_tac
   >- fp_inv_tac
   >- fp_inv_tac
-  >- (fp_inv_tac \\ fs[FUN_EQ_THM])
   >- fp_inv_tac
   \\ simp[do_fprw_def, rwAllWordTree_def, nth_len]
   \\ simp[EVAL ``rwFp_pathWordTree fp_times_one Here
@@ -1708,7 +1700,6 @@ Proof
   \\ simp([do_app_def, shift_fp_opts_def] @ state_eqs)
   \\ rpt conj_tac
   >- fp_inv_tac
-  >- (fp_inv_tac \\ fs[FUN_EQ_THM])
   >- fp_inv_tac
   \\ qpat_x_assum `_ = Rval _` (fs o single o GSYM)
   \\ simp[do_fprw_def, rwAllWordTree_def, nth_len]
@@ -1884,7 +1875,6 @@ Proof
   \\ fs state_eqs
   \\ rpt conj_tac
   >- fp_inv_tac
-  >- (fp_inv_tac \\ fs[FUN_EQ_THM])
   >- fp_inv_tac
   \\ qpat_x_assum ‘_ = Rval _’ (fs o single o GSYM)
   \\ simp[Once do_fprw_def, rwAllWordTree_def, nth_len]
@@ -2061,7 +2051,6 @@ Proof
   >- fp_inv_tac
   \\ strip_tac
   \\ ‘st2.fp_state.rws = st1.fp_state.rws’ by fp_inv_tac
-  \\ ‘st1.fp_state.assertions = st2.fp_state.assertions’ by (fp_inv_tac \\ gs[FUN_EQ_THM])
   \\ ‘~ st2.fp_state.real_sem’ by fp_inv_tac
   \\ ‘st1N.fp_state.rws = st1.fp_state.rws’ by fp_inv_tac
   \\ ‘st2N.fp_state.rws = st1.fp_state.rws’ by fp_inv_tac
@@ -2278,7 +2267,6 @@ Proof
   \\ fs state_eqs
   \\ rpt conj_tac
   >- fp_inv_tac
-  >- (fp_inv_tac \\ fs[FUN_EQ_THM])
   >- fp_inv_tac
   \\ qpat_x_assum `_ = Rval _` (fs o single o GSYM)
   \\ simp[do_fprw_def, rwAllWordTree_def, nth_len]
@@ -2386,7 +2374,6 @@ Proof
   \\ fs state_eqs
   \\ rpt conj_tac
   >- fp_inv_tac
-  >- (fp_inv_tac \\ fs[FUN_EQ_THM])
   >- fp_inv_tac
   \\ qpat_x_assum `_ = Rval _` (fs o single o GSYM)
   \\ simp[do_fprw_def, rwAllWordTree_def, nth_len]
@@ -2555,7 +2542,6 @@ Proof
   \\ fs state_eqs
   \\ rpt conj_tac
   >- fp_inv_tac
-  >- (fp_inv_tac \\ fs[FUN_EQ_THM])
   >- fp_inv_tac
   \\ qpat_x_assum `_ = Rval _` (fs o single o GSYM)
   \\ simp[Once do_fprw_def, rwAllWordTree_def, nth_len]

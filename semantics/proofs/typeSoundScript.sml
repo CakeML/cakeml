@@ -13,7 +13,7 @@ local open primSemEnvTheory in end;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "getOpClass_def"]
 
 val _ = new_theory "typeSound";
 
@@ -1122,7 +1122,7 @@ Proof
     fs[isFpBool_def] >>
     irule type_v_valtree)
   >> TRY ( (* FP cmp *)
-    (rename1`FP_cmp` ORELSE rename1`FP_pred`) >>
+    (rename1`FP_cmp`) >>
     rw [do_app_cases, PULL_EXISTS] >>
     qexists_tac `tenvS` >> fs[store_type_extension_refl, fp_translate_def] >>
     conj_tac >> fs[isFpBool_def] >>

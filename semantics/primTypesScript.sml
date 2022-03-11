@@ -39,7 +39,6 @@ Definition prim_sem_env_def:
        opts := (λ x. []);
        choices := 0;
        canOpt := Strict;
-       assertions := (λ x y z. T);
        real_sem := F;
      |>
    |>,

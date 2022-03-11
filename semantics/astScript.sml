@@ -67,7 +67,6 @@ Datatype:
   | Equality
   (* FP operations *)
   | FP_cmp fp_cmp
-  (* | FP_pred of fp_pred *)
   | FP_uop fp_uop
   | FP_bop fp_bop
   | FP_top fp_top
@@ -145,12 +144,10 @@ Datatype:
   | Icing (* 64-bit floating-points *)
   | Reals (* real numbers *)
 End
-
-(*val getOpClass : op -> op_class*)
-val _ = Define `
- ((getOpClass:op -> op_class) op=
-   ((case op of
-    FP_cmp _ => Icing
+Definition getOpClass_def[simp]:
+ getOpClass op =
+ case op of
+   FP_cmp _ => Icing
   | FP_top _ => Icing
   | FP_bop _ => Icing
   | FP_uop _ => Icing
@@ -161,18 +158,11 @@ val _ = Define `
   | Opapp => FunApp
   | Eval => EvalOp
   | _ => Simple
-)))`;
+End
 
-
-(*val isFpBool: op -> bool*)
-val _ = Define `
- ((isFpBool:op -> bool) op=
-   ((case op of
-    FP_cmp _ => T
-  (* | FP_pred _ -> true *)
-  | _ => F
-  )))`;
-
+Definition isFpBool_def:
+  isFpBool op = case op of FP_cmp _ => T | _ => F
+End
 
 (* Logical operations *)
 Datatype:

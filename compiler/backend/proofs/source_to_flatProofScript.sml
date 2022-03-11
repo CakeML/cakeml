@@ -12,7 +12,7 @@ local open flat_elimProofTheory flat_patternProofTheory in end
 val _ = new_theory "source_to_flatProof";
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "getOpClass_def"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val grammar_ancestry =

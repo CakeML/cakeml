@@ -191,7 +191,6 @@ Datatype:
    ; opts: num -> rewrite_app list
    ; choices: num
    ; canOpt : optChoice
-   ; assertions : num -> v store -> v sem_env -> bool
    ; real_sem : bool
    |>
 End
@@ -1636,9 +1635,11 @@ End
 Definition shift_fp_opts_def:
   shift_fp_opts s =
   (s with <| fp_state :=
-             (( s.fp_state with<|
-                  opts := (\ x .  s.fp_state.opts (x +( 1 : num)));
-                  choices := (s.fp_state.choices +( 1 : num)) |>)) |>)
+             s.fp_state with <|
+                opts := (\ x . s.fp_state.opts (x + 1));
+                choices := (s.fp_state.choices + 1)
+             |>
+          |>)
 End
 
 val _ = export_theory()

@@ -151,8 +151,9 @@ Proof
          eval_list_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM],
          eval_match_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM]]
   \\ fs [evaluate_def,pair_case_eq,result_case_eq,PULL_EXISTS,
-         bool_case_eq,option_case_eq,state_component_equality]
-  \\ TRY (rename1 `getOpClass op` \\ Cases_on `getOpClass op` \\ fs[])
+         bool_case_eq,option_case_eq,state_component_equality,
+         Excl "getOpClass_def"]
+  \\ TRY (rename1 ‘getOpClass op’ \\ Cases_on `getOpClass op` \\ fs[])
   \\ rpt strip_tac \\ fs []
   \\ rveq \\ fs [BOTTOM_UP_OPT_def] \\ fs [evaluate_def]
   \\ TRY (first_x_assum match_mp_tac) \\ fs [evaluate_def]
@@ -365,9 +366,6 @@ Proof
     \\ fsrw_tac [SATISFY_ss] []
    )
 QED
-
-(* To make proving the theorems easier: *)
- val _ = augment_srw_ss [rewrites [getOpClass_def]];
 
 Theorem BOTTOM_UP_OPT_THM = BOTTOM_UP_OPT_THM1
     |> UNDISCH_ALL |> CONJUNCTS |> hd |> SIMP_RULE bool_ss []

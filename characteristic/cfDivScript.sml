@@ -24,8 +24,6 @@ val _ = ml_translatorLib.translation_extends "std_prelude";
 
 val st = ``st:'ffi semanticPrimitives$state``
 
-val _ = augment_srw_ss [rewrites[astTheory.getOpClass_def]];
-
 Theorem POSTd_eq:
   $POSTd Q r h <=> ?io1. r = Div io1 /\ Q io1 /\ emp h
 Proof

@@ -2267,8 +2267,6 @@ val cf_cases_evaluate_match = Q.prove (
   \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS] \\ rw [] \\ res_tac \\
   imp_res_tac (CONJUNCT1 pmatch_NIL_IMP) \\ fs []);
 
-val _ = augment_srw_ss [rewrites[astTheory.getOpClass_def]];
-
 val _ = print "Proving cf_ffi_sound\n";
 val cf_ffi_sound = Q.prove (
   `sound (p:'ffi ffi_proj) (App (FFI ffi_index) [c; r]) (\env. local (\H Q.
@@ -2555,7 +2553,6 @@ Proof
   \\ rw [] \\ res_tac \\ fs [pmatch_NIL_IMP]
 QED
 
-(* MARKER : CONTINUE HERE*)
 Theorem cf_sound:
    !p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)
 Proof

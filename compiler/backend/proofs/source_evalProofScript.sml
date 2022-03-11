@@ -13,6 +13,8 @@ val _ = new_theory "source_evalProof";
 val _ = set_grammar_ancestry ["ast", "string",
     "semantics", "semanticPrimitivesProps"];
 
+val _ = temp_delsimps ["getOpClass_def"]
+
 (* The things the translator is expected to produce from the
    compiler definition etc. *)
 

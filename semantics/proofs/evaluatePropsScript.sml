@@ -105,34 +105,8 @@ Proof
   srw_tac[][full_evaluate_def, do_eval_res_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   fs[shift_fp_opts_def, astTheory.isFpBool_def] >>
-  TRY (
-    rename1 `getOpClass op = Simple` >>
-    Cases_on `op` >> fs[astTheory.getOpClass_def] >>
-    imp_res_tac do_app_call_FFI_rel >>
-    metis_tac[RTC_TRANSITIVE, transitive_def]) >>
-  TRY (
-    rename1 `getOpClass op = Reals` >>
-    Cases_on `op` >> fs[astTheory.getOpClass_def] >>
-    imp_res_tac do_app_call_FFI_rel >>
-    metis_tac[RTC_TRANSITIVE, transitive_def]) >>
-  TRY (
-    rename1 `getOpClass op = Icing` >>
-    Cases_on `op` >> fs[astTheory.getOpClass_def] >>
-    imp_res_tac do_app_call_FFI_rel >>
-    metis_tac[RTC_TRANSITIVE, transitive_def]) >>
-  TRY (
-    rename1 `getOpClass op = FunApp` >>
-    Cases_on `op` >> fs[astTheory.getOpClass_def] >>
-    rev_full_simp_tac(srw_ss())[dec_clock_def] >>
-    metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
-  TRY (
-    rename1 `getOpClass op = EvalOp` >>
-    Cases_on `op` >> fs[astTheory.getOpClass_def] >>
-    rev_full_simp_tac(srw_ss())[dec_clock_def] >>
-    rveq >> gs[state_component_equality] >>
-    metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
-  rfs [] >> fs [dec_clock_def] >>
-  fsrw_tac [SATISFY_ss] [RTC_TRANSITIVE] >>
+  imp_res_tac do_app_call_FFI_rel >>
+  rev_full_simp_tac(srw_ss())[dec_clock_def] >>
   metis_tac[RTC_TRANSITIVE,transitive_def,FST]
 QED
 

@@ -43,8 +43,7 @@ local
          s1.fp_state.rws = s2.fp_state.rws /\
          s1.fp_state.choices <= s2.fp_state.choices /\
          (s1.fp_state.canOpt = s2.fp_state.canOpt) /\
-         (s1.fp_state.real_sem <=> s2.fp_state.real_sem) /\
-         (! a b c. s1.fp_state.assertions a b c = s2.fp_state.assertions a b c)”
+         (s1.fp_state.real_sem <=> s2.fp_state.real_sem)”
   val eval_match_goal =
      “λ (s1:'a state) env v pes errv.
        ∀ s2 r.
@@ -53,8 +52,7 @@ local
          s1.fp_state.rws = s2.fp_state.rws /\
          s1.fp_state.choices <= s2.fp_state.choices /\
          (s1.fp_state.canOpt = s2.fp_state.canOpt) /\
-         (s1.fp_state.real_sem <=> s2.fp_state.real_sem) /\
-         (! a b c. s1.fp_state.assertions a b c = s2.fp_state.assertions a b c)”
+         (s1.fp_state.real_sem <=> s2.fp_state.real_sem)”
   val eval_decs_goal =
     “λ s1 env decls.
        ∀ s2 r.
@@ -63,8 +61,7 @@ local
          s1.fp_state.rws = s2.fp_state.rws /\
          s1.fp_state.choices <= s2.fp_state.choices /\
          (s1.fp_state.canOpt = s2.fp_state.canOpt) /\
-         (s1.fp_state.real_sem <=> s2.fp_state.real_sem) /\
-         (! a b c. s1.fp_state.assertions a b c = s2.fp_state.assertions a b c)”
+         (s1.fp_state.real_sem <=> s2.fp_state.real_sem)”
   val eval_ind_thm = Q.SPECL [‘^eval_goal’, ‘^eval_match_goal’, ‘^eval_decs_goal’]
                     (INST_TYPE [“:'ffi” |-> “:'a”] full_evaluate_ind)
 in
@@ -132,40 +129,6 @@ QED
 
 
 Theorem evaluate_decs_fp_opts_inv = CONJUNCT2 $ CONJUNCT2 evaluate_fp_opts_inv
-(*  UNUSED
-  !s1 env decls s2 r.
-    evaluate_decs s1 env decls = (s2, r) ==>
-    (!x. s1.fp_state.opts (x + (s2.fp_state.choices - s1.fp_state.choices)) = s2.fp_state.opts x) /\
-    s1.fp_state.rws = s2.fp_state.rws /\
-    s1.fp_state.choices <= s2.fp_state.choices /\
-    (s1.fp_state.canOpt = s2.fp_state.canOpt) /\
-    (s1.fp_state.real_sem <=> s2.fp_state.real_sem) /\
-    (! a b c. s1.fp_state.assertions a b c = s2.fp_state.assertions a b c)
-Proof
-  ho_match_mp_tac evaluate_decs_ind \\ rpt gen_tac
-  \\ rpt conj_tac \\ rpt gen_tac
-  \\ rpt (disch_then assume_tac) \\ rpt gen_tac
-  \\ fs[evaluate_decs_def]
-  >- (ntac 2 (reverse TOP_CASE_TAC \\ fs[])
-      >- (rpt strip_tac \\ fs[])
-      \\ TOP_CASE_TAC \\ fs[]
-      \\ rpt strip_tac \\ fs[] \\ rveq \\ fs[]
-      \\ rpt (qpat_x_assum `! x. _ _ = _ _` (fn thm => fs[GSYM thm])))
-  >- (pop_assum mp_tac
-      \\ ntac 3 (reverse TOP_CASE_TAC \\ fs[])
-      \\ imp_res_tac evaluate_fp_opts_inv \\ rpt strip_tac \\ rveq \\ fs[])
-  >- (pop_assum mp_tac
-      \\ TOP_CASE_TAC \\ rpt strip_tac \\ rveq \\ fs[])
-  >- (rpt strip_tac \\ rveq \\ fs[])
-  >- (ntac 2 (reverse TOP_CASE_TAC \\ fs[])
-      >- (rpt strip_tac \\ fs[])
-      \\ rpt strip_tac \\ fs[]
-      \\ rpt (qpat_x_assum `! x. _ _ = _ _` (fn thm => fs[GSYM thm])))
-  >- (ntac 2 (reverse TOP_CASE_TAC \\ fs[])
-      \\ rpt strip_tac \\ fs[]
-      \\ rpt (qpat_x_assum `! x. _ _ = _ _` (fn thm => fs[GSYM thm])))
-QED
-*)
 
 Theorem evaluate_decs_fp_stable:
   ! s1 env decls s2 r.

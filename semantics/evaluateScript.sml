@@ -115,7 +115,7 @@ Definition evaluate_def[nocompute]:
      |EvalOp =>
         (case fix_clock st' (do_eval_res (REVERSE vs) st') of
           (st1, Rval (env1, decs)) =>
-            if st1.clock =( 0 : num) then
+            if st1.clock = 0 then
               (st1, Rerr (Rabort Rtimeout_error))
             else
               (case fix_clock (dec_clock st1)

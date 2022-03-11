@@ -45,7 +45,6 @@ End
 
 Datatype:
  fp_bool_val =
-     (* | Fp_pred of fp_pred * fp_word_val *)
        Fp_cmp fp_cmp fp_word_val fp_word_val
      | Fp_bopt fp_opt fp_bool_val
 End

@@ -14,14 +14,13 @@ val _ = new_theory "fpOpt"
 
 Datatype:
  fp_pat =
-       Word  word64
-     | PatVar  num
-     | Unop  fp_uop  fp_pat
-     | Binop  fp_bop  fp_pat  fp_pat
-     | Terop  fp_top  fp_pat  fp_pat  fp_pat
-     (* | Pred  fp_pred * fp_pat *)
-     | Cmp  fp_cmp  fp_pat  fp_pat
-     | Optimise  fp_opt  fp_pat
+       Word word64
+     | PatVar num
+     | Unop fp_uop fp_pat
+     | Binop fp_bop fp_pat fp_pat
+     | Terop fp_top fp_pat fp_pat fp_pat
+     | Cmp fp_cmp fp_pat fp_pat
+     | Optimise fp_opt fp_pat
 End
 
 (* Substitutions are maps (paired lists) from numbers to 'a *)
@@ -59,81 +58,81 @@ End
   that we do not double match a fp_pattern to different expressions
  *)
 Definition matchWordTree_def:
- matchWordTree (Word w1) (Fp_const w2) s =
-   (if (w1 = w2) then SOME s else NONE) ∧
- matchWordTree (PatVar n) v s =
-   (case substLookup s n of
-      SOME v1 => if v1 = v then SOME s else NONE
-    | NONE => SOME (substAdd n v s)) ∧
- matchWordTree (Unop op1 p) (Fp_uop op2 v) s =
-   (if (op1 = op2) then matchWordTree p v s
-    else NONE) ∧
- matchWordTree (Binop b1 p1 p2) (Fp_bop b2 v1 v2) s =
-   (if (b1 = b2) then
-      (case matchWordTree p1 v1 s of
-         NONE => NONE
-       | SOME s1 => matchWordTree p2 v2 s1
-      )
-    else NONE) ∧
- matchWordTree (Terop t1 p1 p2 p3) (Fp_top t2 v1 v2 v3) s =
- (if (t1 = t2) then
-    (case matchWordTree p1 v1 s of
-       NONE => NONE
-     | SOME s1 =>
-         (case matchWordTree p2 v2 s1 of
-            NONE => NONE
-          | SOME s2 => matchWordTree p3 v3 s2))
-  else NONE) ∧
- matchWordTree (Optimise fp_opt1 p) (Fp_wopt fp_opt2 v) s =
-   (if fp_opt1 = fp_opt2 then matchWordTree p v s else NONE) ∧
- matchWordTree _ _ s =  NONE
+  matchWordTree (Word w1) (Fp_const w2) s =
+    (if (w1 = w2) then SOME s else NONE) ∧
+  matchWordTree (PatVar n) v s =
+    (case substLookup s n of
+       SOME v1 => if v1 = v then SOME s else NONE
+     | NONE => SOME (substAdd n v s)) ∧
+  matchWordTree (Unop op1 p) (Fp_uop op2 v) s =
+    (if (op1 = op2) then matchWordTree p v s
+     else NONE) ∧
+  matchWordTree (Binop b1 p1 p2) (Fp_bop b2 v1 v2) s =
+    (if (b1 = b2) then
+       (case matchWordTree p1 v1 s of
+          NONE => NONE
+        | SOME s1 => matchWordTree p2 v2 s1
+       )
+     else NONE) ∧
+  matchWordTree (Terop t1 p1 p2 p3) (Fp_top t2 v1 v2 v3) s =
+  (if (t1 = t2) then
+     (case matchWordTree p1 v1 s of
+        NONE => NONE
+      | SOME s1 =>
+          (case matchWordTree p2 v2 s1 of
+             NONE => NONE
+           | SOME s2 => matchWordTree p3 v3 s2))
+   else NONE) ∧
+  matchWordTree (Optimise fp_opt1 p) (Fp_wopt fp_opt2 v) s =
+    (if fp_opt1 = fp_opt2 then matchWordTree p v s else NONE) ∧
+  matchWordTree _ _ s =  NONE
 End
 
 Definition matchBoolTree_def:
- matchBoolTree (Optimise fp_opt1 p) (Fp_bopt fp_opt2 v) s =
-   (if fp_opt1 = fp_opt2 then (matchBoolTree p v s) else NONE) ∧
- matchBoolTree (Cmp cmp1 p1 p2) (Fp_cmp cmp2 v1 v2) s =
-   (if (cmp1 = cmp2) then
-      (case matchWordTree p1 v1 s of
-         NONE => NONE
-       | SOME s1 => matchWordTree p2 v2 s1)
-    else NONE) ∧
- matchBoolTree _ _ _ =  NONE
+  matchBoolTree (Optimise fp_opt1 p) (Fp_bopt fp_opt2 v) s =
+    (if fp_opt1 = fp_opt2 then (matchBoolTree p v s) else NONE) ∧
+  matchBoolTree (Cmp cmp1 p1 p2) (Fp_cmp cmp2 v1 v2) s =
+    (if (cmp1 = cmp2) then
+       (case matchWordTree p1 v1 s of
+          NONE => NONE
+        | SOME s1 => matchWordTree p2 v2 s1)
+     else NONE) ∧
+  matchBoolTree _ _ _ =  NONE
 End
 
 (* Instantiate a given fp_pattern with a substitution into a value tree *)
 Definition instWordTree_def:
- instWordTree (Word w) s = (SOME (Fp_const w)) ∧
- instWordTree (PatVar n) s = (substLookup s n) ∧
- instWordTree (Unop u p) s =
-   (case instWordTree p s of
-      NONE => NONE
-    | SOME v => SOME (Fp_uop u v)) ∧
- instWordTree (Binop op p1 p2) s =
-   (case (instWordTree p1 s, instWordTree p2 s) of
-      (SOME v1, SOME v2) => SOME (Fp_bop op v1 v2)
-    | (_, _) => NONE) ∧
- instWordTree (Terop op p1 p2 p3) s =
-   (case (instWordTree p1 s, instWordTree p2 s , instWordTree p3 s) of
-      (SOME v1, SOME v2, SOME v3) => SOME (Fp_top op v1 v2 v3)
-    | (_, _, _) => NONE) ∧
- instWordTree (Optimise fp_opt p) s =
-   (case instWordTree p s of
-      NONE => NONE
-    | SOME v => SOME (Fp_wopt fp_opt v)) ∧
- instWordTree _ _=  NONE
+  instWordTree (Word w) s = (SOME (Fp_const w)) ∧
+  instWordTree (PatVar n) s = (substLookup s n) ∧
+  instWordTree (Unop u p) s =
+    (case instWordTree p s of
+       NONE => NONE
+     | SOME v => SOME (Fp_uop u v)) ∧
+  instWordTree (Binop op p1 p2) s =
+    (case (instWordTree p1 s, instWordTree p2 s) of
+       (SOME v1, SOME v2) => SOME (Fp_bop op v1 v2)
+     | (_, _) => NONE) ∧
+  instWordTree (Terop op p1 p2 p3) s =
+    (case (instWordTree p1 s, instWordTree p2 s , instWordTree p3 s) of
+       (SOME v1, SOME v2, SOME v3) => SOME (Fp_top op v1 v2 v3)
+     | (_, _, _) => NONE) ∧
+  instWordTree (Optimise fp_opt p) s =
+    (case instWordTree p s of
+       NONE => NONE
+     | SOME v => SOME (Fp_wopt fp_opt v)) ∧
+  instWordTree _ _=  NONE
 End
 
 Definition instBoolTree_def:
- instBoolTree (Optimise fp_opt p) s =
-   (case instBoolTree p s of
-      NONE => NONE
-    | SOME v => SOME (Fp_bopt fp_opt v)) ∧
- instBoolTree (Cmp cmp p1 p2) s =
-   (case (instWordTree p1 s, instWordTree p2 s) of
-      (SOME v1, SOME v2) => SOME (Fp_cmp cmp v1 v2)
-    | (_, _) => NONE) ∧
- instBoolTree _ _ =  NONE
+  instBoolTree (Optimise fp_opt p) s =
+    (case instBoolTree p s of
+       NONE => NONE
+     | SOME v => SOME (Fp_bopt fp_opt v)) ∧
+  instBoolTree (Cmp cmp p1 p2) s =
+    (case (instWordTree p1 s, instWordTree p2 s) of
+       (SOME v1, SOME v2) => SOME (Fp_cmp cmp v1 v2)
+     | (_, _) => NONE) ∧
+  instBoolTree _ _ =  NONE
 End
 
 (* Define a floating-point rewrite as a pair of a source and target fp_pattern *)
