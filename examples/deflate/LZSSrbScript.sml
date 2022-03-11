@@ -16,6 +16,9 @@ Datatype:
   LZSS = Lit 'a | LenDist (num # num)
 End
 
+Overload DICT_SIZE = “32768 :num”
+Overload LOOK_SIZE = “258 :num”
+
 Definition matchLengthRB_def:
   (matchLengthRB rb si li :num =
    if rb.size ≤ li
@@ -40,12 +43,6 @@ Definition getMatchRB_def[simp]:
 Termination
   WF_REL_TAC ‘measure (λ rb, si, li. li - si + 2)’
 End
-
-Overload DICT_SIZE = “32 :num”
-Overload LOOK_SIZE = “8 :num”
-
-Overload DICTIONARY = “TAKE DICT_SIZE”
-Overload LOOKAHEAD = “LASTN LOOK_SIZE”
 
 
 Definition LZmatchRB_def[simp]:
@@ -73,49 +70,22 @@ EVAL “
   (list_of_ringBuffer rb, LZmatchRB rb (rb.size-look))
      ”;
 
-(* new version which takes buffer size as a parameter and searches into lookahead
-
-s: vår buffer ++ allt vi inte hanterat
-split: hur långt vi kommit i s
-bufsize: hur långt bak vi får titta
-looksize: hur långt fram vi får titta *)
-
 Definition LZinit:
   LZinit s  =
   let
-    rb = empty_rb (DICT_SIZE - LOOK_SIZE) #"0";
+    rb = empty_rb (DICT_SIZE + LOOK_SIZE) #"0";
     rb = rbAPPEND rb (TAKE LOOK_SIZE s);
     s = DROP LOOK_SIZE s;
   in
-    (rb, s)
+    (rb, s, LOOK_SIZE)
 End
 
-EVAL “LZinit "hej nej jag heter faktiskt inte ejnar jag heter gudrud hejsan nej hej"”;
+(*EVAL “LZinit "hej nej jag heter faktiskt inte ejnar jag heter gudrud hejsan nej hej"”;*)
 
-Definition LZcompRB_def:
-  LZcompRB (rb : char ringBuffer) (s :string) =
-  if LENGTH s = 0 then [] (* Call LZend() *)
-  else
-    let
-      match = LZmatchRB  rb (rb.size - LOOK_SIZE);
-      len = case match of
-            | NONE => 1
-            | SOME $ LenDist (ml,_) => MAX 1 ml
-            | SOME $ Lit _ => 1;
-      recurse = LZcompRB (rbAPPEND rb (TAKE len s)) (DROP len s);
-    in case match of
-       | NONE => recurse
-       | SOME m => m::recurse
-Termination
-  WF_REL_TAC ‘measure $ λ(rb,s). LENGTH s’
-  \\ rpt strip_tac
-  \\ rpt (CASE_TAC \\ simp[])
-End
 
-(*
 Definition LZcompRB_def:
   LZcompRB (rb : char ringBuffer) (s :string) look =
-  if look ≤ 0 ∧ s = [] then []
+  if  look = 0 then []
   else
     let
       match = LZmatchRB  rb (rb.size - look);
@@ -123,32 +93,31 @@ Definition LZcompRB_def:
               NONE => 1
             | SOME $ LenDist (ml,_) => MAX 1 ml
             | SOME $ Lit _ => 1;
-      recurse = if s = []
-                then LZcompRB rb [] (look - len)
-                else LZcompRB (rbAPPEND rb (TAKE len s)) (DROP len s) look;
+      look = case s of
+               [] => look-len
+             | _  => look;
+      (*********
+     look = if s = []
+             then look-len
+             else look;
+      *********)
+      recurse = LZcompRB (rbAPPEND rb (TAKE len s)) (DROP len s) look;
     in case match of
        | NONE => recurse
        | SOME m => m::recurse
 Termination
-
   WF_REL_TAC ‘measure $ λ(rb,s,look). look + LENGTH s’
   \\ rpt strip_tac
   \\ rpt (CASE_TAC \\ simp[])
-
-
-         rw[]
-  \\ Cases_on ‘s’
-  \\ simp[]
-
 End
-*)
+
 
 Definition LZSSRB_compress_def:
   LZSSRB_compress s =
   let
-    (rb, remainder) = LZinit s
+    (rb, remainder, look) = LZinit s
   in
-    LZcompRB rb remainder
+    LZcompRB rb remainder look
 End
 
 
