@@ -255,20 +255,19 @@ Theorem do_opapp_cases:
     (ALL_DISTINCT (MAP (\(f,x,e). f) funs)) ∧
     (env' = env'' with <| v :=  nsBind n'' v2 (build_rec_env funs env'' env''.v) |> ∧ (v = e))))
 Proof
-  srw_tac[][do_opapp_def] >>
+  gvs [AllCaseEqs(),do_opapp_def] \\ rpt strip_tac \\ gvs [] >>
   cases_on `vs` >> srw_tac[][] >>
-  every_case_tac >> metis_tac []
+  Cases_on ‘t’ \\ fs [] \\ Cases_on ‘h’ \\ fs [] >>
+  eq_tac \\ rw [] \\ fs []
 QED
 
 Theorem do_app_NONE_ffi:
    do_app (refs,ffi) op args = NONE ⇒
    do_app (refs,ffi') op args = NONE
 Proof
-  rw[do_app_def]
-  \\ Cases_on `op` \\ fs []
-  \\ every_case_tac \\ fs[]
-  \\ TRY pairarg_tac \\ fs[]
-  \\ fs[store_assign_def,store_v_same_type_def]
+  Cases_on `op` \\ fs [do_app_def]
+  \\ gvs [AllCaseEqs()] \\ rpt strip_tac \\ gvs []
+  \\ rpt (pairarg_tac \\ gvs[])
   \\ every_case_tac \\ fs[]
   \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
 QED
@@ -279,12 +278,12 @@ Theorem do_app_SOME_ffi_same:
    do_app (refs,ffi') op args = SOME ((refs',ffi'),r)
 Proof
   rw[]
-  \\ fs[do_app_cases]
-  \\ rw[] \\ fs[]
+  \\ gvs [do_app_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs [])
   \\ fs[ffiTheory.call_FFI_def]
-  \\ every_case_tac \\ fs[]
-  \\ rveq \\ fs[ffiTheory.ffi_state_component_equality]
+  \\ gvs [do_app_def,AllCaseEqs()]
   \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
+  \\ rveq \\ fs[ffiTheory.ffi_state_component_equality]
 QED
 
 Theorem do_app_ffi_unchanged:
@@ -294,7 +293,9 @@ Theorem do_app_ffi_unchanged:
   ⇒ ffi = ffi'
 Proof
   rpt gen_tac >> simp[do_app_def] >>
-  every_case_tac >> gvs[store_alloc_def]
+  gvs [AllCaseEqs()] >>
+  rpt strip_tac >> gvs [] >>
+  rpt (pairarg_tac \\ gvs [])
 QED
 
 Theorem do_app_ffi_changed:
@@ -315,9 +316,8 @@ Theorem do_app_ffi_changed:
       ffi.io_events ++
         [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))]
 Proof
-  simp[do_app_def] >> every_case_tac >> gvs[store_alloc_def, store_assign_def] >>
-  strip_tac >> gvs[call_FFI_def] >>
-  every_case_tac >> gvs[]
+  simp[do_app_def,AllCaseEqs(),store_alloc_def,store_assign_def,call_FFI_def] >>
+  rpt strip_tac >> gvs []
 QED
 
 Theorem do_app_not_timeout:
@@ -336,8 +336,7 @@ Theorem do_app_type_error:
 Proof
   PairCases_on `s` >>
   srw_tac[][do_app_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[LET_THM,UNCURRY] >>
-  every_case_tac >> full_simp_tac(srw_ss())[]
+  gvs [AllCaseEqs(),store_alloc_def]
 QED
 
 val build_rec_env_help_lem = Q.prove (
