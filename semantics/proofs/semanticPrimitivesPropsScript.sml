@@ -3,7 +3,7 @@
 *)
 
 open preamble;
-open libTheory astTheory namespaceTheory semanticPrimitivesTheory;
+open libTheory astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
 open namespacePropsTheory;
 open boolSimps;
 
@@ -174,6 +174,49 @@ Proof
  srw_tac[][] >>
  metis_tac [pat_bindings_accum]
 QED
+
+Theorem pmatch_nsAppend:
+  (∀ns st pat v env m ns'.
+    (pmatch ns st pat v env = No_match
+   ⇒ pmatch (nsAppend ns ns') st pat v env = No_match) ∧
+    (pmatch ns st pat v env = Match m
+   ⇒ pmatch (nsAppend ns ns') st pat v env = Match m)) ∧
+  (∀ns st pats vs env m ns'.
+    (pmatch_list ns st pats vs env = No_match
+   ⇒ pmatch_list (nsAppend ns ns') st pats vs env = No_match) ∧
+    (pmatch_list ns st pats vs env = Match m
+   ⇒ pmatch_list (nsAppend ns ns') st pats vs env = Match m))
+Proof
+  ho_match_mp_tac pmatch_ind >>
+  rw[pmatch_def]
+  >- (
+    pop_assum mp_tac >> TOP_CASE_TAC >>
+    `nsLookup (nsAppend ns ns') n = SOME x` by
+      gvs[namespacePropsTheory.nsLookup_nsAppend_some] >>
+    gvs[] >> PairCases_on `x` >> gvs[] >>
+    rpt (TOP_CASE_TAC >> gvs[])
+    )
+  >- (
+    pop_assum mp_tac >> TOP_CASE_TAC >>
+    `nsLookup (nsAppend ns ns') n = SOME x` by
+      gvs[namespacePropsTheory.nsLookup_nsAppend_some] >>
+    gvs[] >> PairCases_on `x` >> gvs[] >>
+    rpt (TOP_CASE_TAC >> gvs[])
+    )
+  >- (TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[])
+  >- (TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[])
+  >- (
+    pop_assum mp_tac >> TOP_CASE_TAC >> gvs[] >>
+    TOP_CASE_TAC >> gvs[]
+    )
+  >- (
+    pop_assum mp_tac >> TOP_CASE_TAC >> gvs[] >>
+    TOP_CASE_TAC >> gvs[]
+    )
+QED
+
+Theorem pmatch_nsAppend_No_match = pmatch_nsAppend |> cj 1 |> cj 1;
+Theorem pmatch_nsAppend_Match = pmatch_nsAppend |> cj 1 |> cj 2;
 
 Theorem pmatch_acc:
   (!envc store p v env env' env2.
@@ -417,6 +460,59 @@ Proof
   \\ every_case_tac \\ fs[]
   \\ rveq \\ fs[ffiTheory.ffi_state_component_equality]
   \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
+QED
+
+Theorem do_app_ffi_unchanged:
+  ∀st ffi op vs st' ffi' res.
+    (∀s. op ≠ FFI s) ∧
+    do_app (st, ffi) op vs = SOME ((st', ffi'), res)
+  ⇒ ffi = ffi'
+Proof
+  rpt gen_tac >> simp[do_app_def] >>
+  every_case_tac >> gvs[store_alloc_def]
+QED
+
+Theorem do_app_ffi_changed:
+  do_app (st, ffi) op vs = SOME ((st', ffi'), res) ∧
+  ffi ≠ ffi' ⇒
+  ∃s conf lnum ws ffi_st ws'.
+    op = FFI s ∧
+    vs = [Litv (StrLit conf); Loc lnum] ∧
+    store_lookup lnum st = SOME (W8array ws) ∧
+    s ≠ "" ∧
+    ffi.oracle s ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
+      Oracle_return ffi_st ws' ∧
+    LENGTH ws = LENGTH ws' ∧
+    st' = LUPDATE (W8array ws') lnum st ∧
+    ffi'.oracle = ffi.oracle ∧
+    ffi'.ffi_state = ffi_st ∧
+    ffi'.io_events =
+      ffi.io_events ++
+        [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))]
+Proof
+  simp[do_app_def] >> every_case_tac >> gvs[store_alloc_def, store_assign_def] >>
+  strip_tac >> gvs[call_FFI_def] >>
+  every_case_tac >> gvs[]
+QED
+
+Theorem do_app_not_timeout:
+  do_app s op vs = SOME (s', Rerr (Rabort a))
+  ⇒
+  a ≠ Rtimeout_error
+Proof
+  Cases_on `s` >>
+  srw_tac[][do_app_cases] >>
+  every_case_tac >>
+  srw_tac[][]
+QED
+
+Theorem do_app_type_error:
+  do_app s op es = SOME (x,Rerr (Rabort a)) ⇒ x = s
+Proof
+  PairCases_on `s` >>
+  srw_tac[][do_app_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[LET_THM,UNCURRY] >>
+  every_case_tac >> full_simp_tac(srw_ss())[]
 QED
 
 val build_rec_env_help_lem = Q.prove (
