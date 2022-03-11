@@ -1076,4 +1076,7 @@ Definition extend_dec_env_def:
     <|c := nsAppend new_env.c env.c; v := nsAppend new_env.v env.v|>
 End
 
+val _ = set_fixity "+++" (Infixl 480);
+Overload "+++" = “extend_dec_env”;
+
 val _ = export_theory()

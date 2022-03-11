@@ -2,7 +2,8 @@
   Relate functional big-step semantics with relational big-step
   semantics.
 *)
-open preamble evaluateTheory interpTheory semanticPrimitivesTheory
+open preamble evaluateTheory evaluatePropsTheory
+     interpTheory semanticPrimitivesTheory
 
 val _ = new_theory"funBigStepEquiv"
 
@@ -87,10 +88,10 @@ QED
 
 Theorem functional_evaluate_decs:
   s.eval_state = NONE ⇒
-  (evaluate_decs s env decs = (s',r) ⇒
+  (evaluate_decs s env decs = (s',r) ⇔
    evaluate_decs T env s decs (s',r))
 Proof
-  rw[evaluate_decs_eq_run_eval_decs,run_eval_decs_spec]
+  rw[evaluate_decs_eq_run_eval_decs,evaluate_decs_run_eval_decs]
 QED
 
 Theorem functional_evaluate:

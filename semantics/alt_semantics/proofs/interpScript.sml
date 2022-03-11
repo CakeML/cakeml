@@ -417,4 +417,24 @@ Proof
   metis_tac []
 QED
 
+Theorem evaluate_dec_run_eval_dec:
+  ∀env d r st. evaluate_dec T env st d r ⇔ run_eval_dec env st d = r
+Proof
+  rw[] >> reverse eq_tac >> rw[] >>
+  Cases_on `run_eval_dec env st d`
+  >- metis_tac[run_eval_decs_spec] >>
+  drule $ cj 1 run_eval_decs_spec >> rw[] >>
+  metis_tac[decs_determ]
+QED
+
+Theorem evaluate_decs_run_eval_decs:
+  ∀env ds r st. evaluate_decs T env st ds r ⇔ run_eval_decs env st ds = r
+Proof
+  rw[] >> reverse eq_tac >> rw[] >>
+  Cases_on `run_eval_decs env st ds`
+  >- metis_tac[run_eval_decs_spec] >>
+  drule $ cj 2 run_eval_decs_spec >> rw[] >>
+  metis_tac[decs_determ]
+QED
+
 val _ = export_theory ();
