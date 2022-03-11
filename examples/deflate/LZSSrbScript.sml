@@ -20,15 +20,66 @@ Overload DICT_SIZE = “32768 :num”
 Overload LOOK_SIZE = “258 :num”
 
 Definition matchLengthRB_def:
-  (matchLengthRB rb si li :num =
+  matchLengthRB rb si li :num =
    if rb.size ≤ li
    then 0
    else if rbEL si rb = rbEL li rb ∧ rbEL li rb ≠ NONE ∧ rbEL si rb ≠ NONE
    then 1 + (matchLengthRB rb (SUC si) (SUC li))
-   else 0)
+   else 0
 Termination
   WF_REL_TAC ‘measure (λ rb, si, li. rb.size - li)’
 End
+
+
+Theorem TAKE_EL_DROP:
+  n < LENGTH l ∧ EL n l = a ⇒ l = TAKE n l ++ [a] ++ DROP (n + 1) l
+Proof
+  rpt strip_tac >>
+  ‘l = TAKE n l ++ DROP n l’ by simp[GSYM TAKE_DROP] >>
+  ‘DROP n l = [a] ++ DROP (n + 1) l’ by simp[DROP_EL_CONS] >>
+  Cases_on ‘DROP n l’
+  >- gs[CONS_APPEND] >>
+  gs[DROP_EL_CONS]
+QED
+
+(* PROOF HELP *)
+Definition matchLength_def[simp]:
+  (matchLength s [] :num = 0) ∧
+  (matchLength [] l = 0) ∧
+  (matchLength (s::ss) (l::ls) =
+   if (s = l)
+   then (1 + (matchLength ss ls))
+   else 0)
+End
+
+Theorem matchLengthRB_correct:
+  ∀rb si li.
+    WFrb rb ∧ li < rb.size ∧ si ≤ li ⇒
+    (matchLengthRB rb si li =
+    matchLength (DROP si $ list_of_ringBuffer rb) (DROP li $ list_of_ringBuffer rb))
+Proof
+cheat (*
+        recInduct matchLengthRB_ind >> rw[] >>
+  simp[Once matchLengthRB_def] >> rw[] >> gs[] (* 3 *)
+  >- (drule list_of_ringBuffer_LENGTH >>
+      simp[DROP_LENGTH_TOO_LONG])
+  >- (drule_then assume_tac list_of_ringBuffer_LENGTH >>
+      ‘0 < rb.size’ by simp[] >>
+      Cases_on ‘list_of_ringBuffer rb’ >> gs[] >>
+      Cases_on ‘rbEL li rb’ >> gs[] >>
+      gs[rbEL_EL] >>
+      ‘h::t = (TAKE si (h::t)) ++ [x] ++ (DROP si t)’
+        by (Cases_on ‘si’ >> gs[EL,ADD1] >>
+            irule TAKE_EL_DROP >> simp[]) >>
+      ‘DROP si (h::t) = [x] ++ DROP si t’ by simp[DROP_EL_CONS] >>
+      ‘DROP li (h::t) = [x] ++ DROP li t’ by simp[DROP_EL_CONS] >>
+      simp[])
+  >-
+  Induct_on ‘l’
+  >- csimp[list_of_ringBuffer_nil] >>
+     cheat
+*)
+QED
 
 (* find the longest, right-most match *)
 Definition getMatchRB_def[simp]:

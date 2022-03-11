@@ -80,6 +80,8 @@ Definition WFrb_def:
   WFrb rb ⇔ rb.size ≤ iMAX rb ∧ rb.start < iMAX rb
 End
 
+
+
 Theorem list_of_ringBuffer_nil:
   WFrb rb ⇒ (list_of_ringBuffer rb = [] ⇔ rb.size = 0)
 Proof
@@ -207,6 +209,45 @@ Proof
   simp[LENGTH_TAKE_EQ]
 QED
 
+
+
+Theorem MOD_lemma:
+  0 < y ∧ y ≤ x ∧ x < 2 * y ⇒ (x MOD y = x - y)
+Proof
+  strip_tac >> drule_then (qspec_then ‘x’ strip_assume_tac) DIVISION >>
+  qabbrev_tac ‘q = x DIV y’ >> qabbrev_tac ‘r = x MOD y’ >>
+  markerLib.RM_ALL_ABBREVS_TAC >> gvs[] >> ‘q = 1’ suffices_by simp[] >>
+  ‘r < 2*y - q * y’ by simp[] >>
+  fs[GSYM RIGHT_SUB_DISTRIB] >>
+  ‘q < 2’ by (CCONTR_TAC >> ‘2 - q = 0’ by simp[] >> pop_assum SUBST_ALL_TAC >>
+              gs[]) >>
+  ‘q ≠ 0’ by (strip_tac >> gs[]) >> simp[]
+QED
+
+Theorem rbEL_EL:
+  WFrb rb ⇒
+  (rbEL i rb = SOME e ⇔
+     i < rb.size ∧ EL i (list_of_ringBuffer rb) = e)
+Proof
+  simp[rbEL_def, list_of_ringBuffer_def, WFrb_def, oEL_THM] >>
+  Cases_on ‘i < rb.size’ >> simp[] >>
+  Cases_on ‘rb.buffer = []’ >> gs[] >> strip_tac >>
+  Cases_on ‘i + rb.start < iMAX rb’ >> simp[]
+  >- (‘LENGTH (DROP rb.start rb.buffer) = iMAX rb - rb.start’ by simp[] >>
+      Cases_on ‘rb.size ≤ iMAX rb - rb.start’
+      >- simp[EL_APPEND1, EL_TAKE, EL_DROP] >>
+      simp[TAKE_LENGTH_TOO_LONG] >> simp[EL_APPEND1, EL_DROP]) >>
+  ‘(i + rb.start) MOD iMAX rb = i + rb.start - iMAX rb’
+    by (irule MOD_lemma >> simp[]) >>
+  simp[] >>
+  ‘LENGTH (DROP rb.start rb.buffer) = iMAX rb - rb.start’ by simp[] >>
+  Cases_on ‘rb.size ≤ iMAX rb - rb.start’
+  >- (simp[EL_APPEND2, EL_TAKE, EL_DROP] >>
+      ‘i + rb.start - iMAX rb = i - rb.size’ by simp[] >> simp[]) >>
+  simp[EL_APPEND2, EL_TAKE, EL_DROP, TAKE_LENGTH_TOO_LONG]
+QED
+
+
 Definition rbUPDATE_def:
   rbUPDATE e n rb =
   rb with buffer updated_by
@@ -325,5 +366,6 @@ Theorem rbPREPEND_REVERSE_NIL[simp]:
   ∀rb. rbPREPEND_REVERSE rb [] = rb
 Proof EVAL_TAC >> simp[]
 QED
+
 
 val _ = export_theory();
