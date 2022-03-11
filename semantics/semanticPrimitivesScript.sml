@@ -934,6 +934,11 @@ Definition do_app_def:
     | (AallocEmpty, [Conv NONE []]) =>
         let (s',lnum) = (store_alloc (Varray []) s) in
           SOME ((s',t), Rval (Loc lnum))
+    | (AallocFixed, vs) =>
+        let (s',lnum) =
+          (store_alloc (Varray vs) s)
+        in
+          SOME ((s',t), Rval (Loc lnum))
     | (Asub, [Loc lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (Varray vs) =>

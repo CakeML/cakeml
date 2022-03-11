@@ -2575,6 +2575,7 @@ Definition no_change_refs_def:
         | CopyAw8Aw8 => F
         | Aalloc => F
         | AallocEmpty => F
+        | AallocFixed => F
         | Aupdate => F
         | Aupdate_unsafe => F
         | FFI _ => F

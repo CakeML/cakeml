@@ -35,6 +35,7 @@ Definition perms_ok_exp_def:
           (op = Opref ⇒ RefAlloc ∈ ps) ∧
           (op = Aalloc ⇒ RefAlloc ∈ ps) ∧
           (op = AallocEmpty ⇒ RefAlloc ∈ ps) ∧
+          (op = AallocFixed ⇒ RefAlloc ∈ ps) ∧
           (op = Aw8alloc ⇒ W8Alloc ∈ ps) ∧
           (op = Opassign ⇒ RefUpdate ∈ ps) ∧
           (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps ∧ DoFFI ∈ ps)
@@ -291,6 +292,7 @@ Theorem do_app_perms:
   (op = Opref ⇒ RefAlloc ∈ ps) ∧
   (op = Aalloc ⇒ RefAlloc ∈ ps) ∧
   (op = AallocEmpty ⇒ RefAlloc ∈ ps) ∧
+  (op = AallocFixed ⇒ RefAlloc ∈ ps) ∧
   (op = Aw8alloc ⇒ W8Alloc ∈ ps) ∧
   (op = Opassign ⇒ RefUpdate ∈ ps) ∧
   (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps ∧ DoFFI ∈ ps) ∧
@@ -376,6 +378,12 @@ Proof
     \\ first_x_assum drule_all
     \\ gs [perms_ok_ref_def, EVERY_EL])
   \\ Cases_on ‘op = AallocEmpty’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gvs [perms_ok_def, store_alloc_def, SUBSET_DEF, PULL_EXISTS]
+    \\ rw [EL_APPEND_EQN]
+    \\ gs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
+  \\ Cases_on ‘op = AallocFixed’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
     \\ gvs [perms_ok_def, store_alloc_def, SUBSET_DEF, PULL_EXISTS]

@@ -1121,6 +1121,51 @@ Proof
     \\ first_assum (irule_at Any) \\ rw []
     \\ irule v_rel_update
     \\ first_assum (irule_at (Pat ‘v_rel’)) \\ gs [])
+  \\ Cases_on ‘op = AallocFixed’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ TRY (rpt (irule_at Any SUBMAP_REFL) \\ gs [] \\ NO_TAC)
+    \\ rpt (pairarg_tac \\ gs []) \\ gvs []
+    \\ gvs [store_alloc_def, v_rel_def, PULL_EXISTS, CaseEqs ["bool", "option"],
+            v_rel_def, sub_exn_v_def, stamp_rel_cases, subscript_stamp_def]
+    \\ qexists_tac ‘fr |+ (LENGTH s.refs,LENGTH t.refs)’
+    \\ irule_at Any SUBMAP_REFL
+    \\ irule_at Any SUBMAP_REFL
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r1; ffi := f1; clock := s.clock;
+          next_type_stamp := nts1; next_exn_stamp := nes1;
+          eval_state := NONE |>’ \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r2; ffi := f2; clock := t.clock;
+          next_type_stamp := nts2; next_exn_stamp := nes2;
+          eval_state := NONE |>’ \\ gs []
+    \\ gs [state_rel_def, FLOOKUP_UPDATE, count_add1]
+    \\ conj_tac
+    >- (
+      qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac
+      \\ simp [INJ_DEF, FAPPLY_FUPDATE_THM]
+      \\ rw [] \\ gs []
+      \\ first_x_assum drule \\ gs []
+      \\ first_x_assum drule \\ gs [])
+    \\ strip_tac
+    >- (
+      qx_gen_tac ‘n’
+      \\ rw [] \\ gs []
+      \\ first_x_assum drule \\ gs [])
+    \\ qx_gen_tac ‘n’
+    \\ first_x_assum (qspec_then ‘n’ assume_tac)
+    \\ rw [] \\ gs [EL_APPEND_EQN, ref_rel_def, LIST_REL_REPLICATE_same]
+    >- (
+      qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+      \\ match_mp_tac LIST_REL_mono \\ rw []
+      \\ irule v_rel_update
+      \\ first_assum (irule_at (Pat ‘v_rel’)) \\ gs [])
+    \\ irule ref_rel_mono
+    \\ first_assum (irule_at Any) \\ rw []
+    \\ irule v_rel_update
+    \\ first_assum (irule_at (Pat ‘v_rel’)) \\ gs [])
   \\ Cases_on ‘op = Vlength’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
