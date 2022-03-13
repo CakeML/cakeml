@@ -163,7 +163,7 @@ val _ = (append_prog o process_topdecs) `
     case TextIO.foldChars char_cons [] (Some fname) of
       Some res => List.rev res
     | None     => (print ("ERROR: Unable to read file: " ^ fname ^ "\n");
-                   Runtime.exit(5); raise Bind); `
+                   raise Bind); `
 
 val _ = ml_prog_update open_local_block;
 
