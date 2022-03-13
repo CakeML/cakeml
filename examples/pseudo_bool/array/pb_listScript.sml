@@ -61,39 +61,38 @@ Definition check_pbpstep_list_def:
   case step of
     Contradiction n =>
       (case any_el n fml NONE of
-        NONE => (fml, NONE)
+        NONE => NONE
       | SOME c =>
         if check_contradiction c
-        then (fml, SOME (T,id, inds))
-        else (fml, NONE))
+        then SOME (fml, T,id, inds)
+        else NONE)
   | Check n c =>
     if any_el n fml NONE = SOME c
-    then (fml, SOME (F, id, inds))
-    else (fml, NONE)
-  | NoOp => (fml, SOME (F, id, inds))
+    then SOME (fml, F, id, inds)
+    else NONE
+  | NoOp => SOME (fml, F, id, inds)
   | Delete ls =>
       if EVERY ($<= mindel) ls then
-        (list_delete_list ls fml, SOME(F, id, inds))
+        SOME(list_delete_list ls fml, F, id, inds)
       else
-        (fml,NONE)
+        NONE
   | Cutting constr =>
     (case check_cutting_list fml constr of
-      NONE => (fml,NONE)
+      NONE => NONE
     | SOME c =>
-      (update_resize fml NONE (SOME c) id, SOME(F, (id+1), sorted_insert id inds)))
+      SOME (update_resize fml NONE (SOME c) id, F, (id+1), sorted_insert id inds))
   | Con c pf =>
     let fml_not_c = update_resize fml NONE (SOME (not c)) id in
     (case check_pbpsteps_list pf fml_not_c inds id (id+1) of
-      (fml', SOME (T, id' ,inds')) =>
+      SOME (fml', T, id' ,inds') =>
         let rfml = rollback fml' id id' in
-        (* TODO: rfml may be a subset of fml because there might have been deletions *)
-        (update_resize rfml NONE (SOME c) id', SOME(F, (id'+1), sorted_insert id' inds'))
-    | (fml',_) => (fml',NONE))
-  | _ => (fml,NONE)) ∧
-  (check_pbpsteps_list [] fml inds mindel id = (fml, SOME (F, id, inds))) ∧
+        SOME(update_resize rfml NONE (SOME c) id', F, (id'+1), sorted_insert id' inds')
+    | _ => NONE)
+  | _ => NONE) ∧
+  (check_pbpsteps_list [] fml inds mindel id = SOME (fml, F, id, inds)) ∧
   (check_pbpsteps_list (step::steps) fml inds mindel id =
     case check_pbpstep_list step fml inds mindel id of
-      (fml', SOME (F, id', inds')) =>
+      SOME (fml', F, id', inds') =>
         check_pbpsteps_list steps fml' inds' mindel id'
     | res => res)
 Termination
@@ -214,9 +213,9 @@ QED
 
 Theorem check_pbpstep_list_id:
   (∀step fmlls inds mindel id fmlls' b id' inds'.
-  check_pbpstep_list step fmlls inds mindel id = (fmlls', SOME (b,id',inds')) ⇒ id ≤ id') ∧
+  check_pbpstep_list step fmlls inds mindel id = SOME (fmlls', b,id',inds') ⇒ id ≤ id') ∧
   (∀steps fmlls inds mindel id fmlls' b id' inds'.
-  check_pbpsteps_list steps fmlls inds mindel id = (fmlls', SOME (b,id',inds')) ⇒ id ≤ id')
+  check_pbpsteps_list steps fmlls inds mindel id = SOME (fmlls', b,id',inds') ⇒ id ≤ id')
 Proof
   ho_match_mp_tac check_pbpstep_list_ind>>
   rw[]
@@ -237,11 +236,11 @@ QED
 
 Theorem check_pbpstep_list_id_upper:
   (∀step fmlls inds mindel id fmlls' b id' inds'.
-  check_pbpstep_list step fmlls inds mindel id = (fmlls', SOME (b,id',inds')) ∧
+  check_pbpstep_list step fmlls inds mindel id = SOME (fmlls', b,id',inds') ∧
   (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ⇒
   (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE)) ∧
   (∀steps fmlls inds mindel id fmlls' b id' inds'.
-  check_pbpsteps_list steps fmlls inds mindel id = (fmlls', SOME (b,id',inds')) ∧
+  check_pbpsteps_list steps fmlls inds mindel id = SOME (fmlls', b,id',inds') ∧
   (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ⇒
   (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE))
 Proof
@@ -258,7 +257,7 @@ Proof
   >-
     gvs [AllCaseEqs(),check_pbpstep_def,check_pbpstep_list_def]
   >- (
-    qpat_x_assum`_=(_,_)`mp_tac>>
+    qpat_x_assum`_= SOME _ `mp_tac>>
     simp[Once check_pbpstep_list_def,AllCaseEqs()] >>
     rw[]>>first_x_assum drule
     >- (
@@ -271,11 +270,11 @@ QED
 
 Theorem check_pbpstep_list_mindel:
   (∀step fmlls inds mindel id fmlls' res n.
-  check_pbpstep_list step fmlls inds mindel id = (fmlls', res) ∧
+  check_pbpstep_list step fmlls inds mindel id = SOME (fmlls', res) ∧
   mindel ≤ id ∧
   n < mindel ⇒ any_el n fmlls NONE = any_el n fmlls' NONE) ∧
   (∀steps fmlls inds mindel id fmlls' res n.
-  check_pbpsteps_list steps fmlls inds mindel id = (fmlls', res) ∧
+  check_pbpsteps_list steps fmlls inds mindel id = SOME (fmlls', res) ∧
   mindel ≤ id ∧
   n < mindel ⇒ any_el n fmlls NONE = any_el n fmlls' NONE)
 Proof
@@ -290,19 +289,13 @@ Proof
       rw[any_el_update_resize]
     >- (
       first_x_assum(qspec_then`n`mp_tac)>>
-      simp[any_el_update_resize])
-    >- (
-      first_x_assum(qspec_then`n`mp_tac)>>
       simp[any_el_update_resize]>>
       drule (el 2 (CONJUNCTS check_pbpstep_list_id))>>
-      simp[rollback_def,any_el_list_delete_list,MEM_MAP])
-    >- (
-      first_x_assum(qspec_then`n`mp_tac)>>
-      simp[any_el_update_resize]))
+      simp[rollback_def,any_el_list_delete_list,MEM_MAP]))
   >-
     fs[check_pbpstep_list_def]
   >- (
-    qpat_x_assum`_=(_,res)` mp_tac>>
+    qpat_x_assum`_=SOME _` mp_tac>>
     simp[Once check_pbpstep_list_def,AllCaseEqs()] >>
     rw[]>>first_x_assum drule>>
     simp[]>>
@@ -339,14 +332,14 @@ Theorem fml_rel_check_pbpstep_list:
   fml_rel fml fmlls ∧
   (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
   mindel ≤ id ∧
-  check_pbpstep_list step fmlls inds mindel id = (fmlls', SOME (b,id',inds')) ⇒
+  check_pbpstep_list step fmlls inds mindel id = SOME (fmlls', b,id',inds') ⇒
   if b then check_pbpstep step fml id = Unsat id'
   else ∃fml'. check_pbpstep step fml id = Cont fml' id' ∧ fml_rel fml' fmlls') ∧
   (∀steps fmlls inds mindel id fmlls' b id' inds' fml.
   fml_rel fml fmlls ∧
   (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
   mindel ≤ id ∧
-  check_pbpsteps_list steps fmlls inds mindel id = (fmlls', SOME (b,id',inds')) ⇒
+  check_pbpsteps_list steps fmlls inds mindel id = SOME (fmlls', b,id',inds') ⇒
   if b then check_pbpsteps steps fml id = Unsat id'
   else ∃fml'. check_pbpsteps steps fml id = Cont fml' id' ∧ fml_rel fml' fmlls')
 Proof
