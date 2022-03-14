@@ -1,0 +1,2 @@
+INCLUDES = Infra semantics
+OPTIONS = QUIT_ON_FAILURE
