@@ -20,14 +20,15 @@ Overload DICT_SIZE = “32768 :num”
 Overload LOOK_SIZE = “258 :num”
 
 Definition matchLengthRB_def:
-  matchLengthRB rb si li :num =
-   if rb.size ≤ li
+  matchLengthRB rb si li split :num =
+   if rb.size ≤ li ∨ split ≤ si
    then 0
    else if rbEL si rb = rbEL li rb ∧ rbEL li rb ≠ NONE ∧ rbEL si rb ≠ NONE
-   then 1 + (matchLengthRB rb (SUC si) (SUC li))
+   then 1 + (matchLengthRB rb (SUC si) (SUC li) split)
    else 0
 Termination
-  WF_REL_TAC ‘measure (λ rb, si, li. rb.size - li)’
+  WF_REL_TAC ‘measure (λ rb, si, li, split. MIN (rb.size - li) (split - si))’
+  \\ simp[MIN_DEF]
 End
 
 
@@ -55,7 +56,7 @@ End
 Theorem matchLengthRB_correct:
   ∀rb si li.
     WFrb rb ∧ li < rb.size ∧ si ≤ li ⇒
-    (matchLengthRB rb si li =
+    (matchLengthRB rb si li li =
     matchLength (DROP si $ list_of_ringBuffer rb) (DROP li $ list_of_ringBuffer rb))
 Proof
 cheat (*
@@ -83,75 +84,60 @@ QED
 
 (* find the longest, right-most match *)
 Definition getMatchRB_def[simp]:
-  getMatchRB rb (si:num) (li:num) : num # num =
-  if li < si + 2
+  getMatchRB rb (si:num) (li:num): num # num =
+  if li <= si
   then (0,0)
   else
-    let ml = matchLengthRB rb si li;
-       (next_ml,next_md) = getMatchRB rb (SUC si) li
-    in if next_ml < ml then (ml,0)
-       else (next_ml,next_md+1)
+    let
+      ml = matchLengthRB rb si li li;
+      (next_ml,next_md) = getMatchRB rb (SUC si) li;
+    in
+      if next_ml < ml
+      then (ml,0)
+      else (next_ml,next_md+1)
 Termination
-  WF_REL_TAC ‘measure (λ rb, si, li. li - si + 2)’
+  WF_REL_TAC ‘measure (λ rb, si, li. li - si)’
 End
-
 
 Definition LZmatchRB_def[simp]:
   LZmatchRB rb li =
    let match = getMatchRB rb 0 li
-   in if FST match < 3
+   in if FST match < 3 ∨ li = 0
       then
         case rbEL li rb of
           SOME a => SOME $ Lit a
         | NONE => NONE
-      else SOME $ LenDist (FST match, (rb.size - LOOK_SIZE  - (SND match)))
+      else SOME $ LenDist (FST match, (li  - (SND match)))
 End
-
-
-EVAL “
- let
-   s = "hej nej ja men ejej jomen vissthej nej ja men ejej jomen vissthej nej ja men ejej jomen vissthej nej ja men ejej jomen visst";
-   dict = 40;
-   look = 8;
-   rb_size = dict + look;
-   rb = empty_rb rb_size #" ";
-   rb = rbAPPEND rb (TAKE rb_size s);
-   rb = rbAPPEND rb (TAKE look (DROP rb_size s));
- in
-  (list_of_ringBuffer rb, LZmatchRB rb (rb.size-look))
-     ”;
 
 Definition LZinit:
   LZinit s  =
   let
-    rb = empty_rb (DICT_SIZE + LOOK_SIZE) #"0";
-    rb = rbAPPEND rb (TAKE LOOK_SIZE s);
-    s = DROP LOOK_SIZE s;
+    (dict, look) = (if LENGTH s ≤ LOOK_SIZE
+                    then (0, LENGTH s)
+                    else
+                      if LENGTH s <= (LOOK_SIZE + DICT_SIZE)
+                      then (LENGTH s - LOOK_SIZE, LOOK_SIZE)
+                      else (DICT_SIZE, LOOK_SIZE));
+    rb = empty_rb (dict + look) #"0";
+    rb = rbAPPEND rb (TAKE look s);
+    s = DROP look s;
   in
-    (rb, s, LOOK_SIZE)
+    (rb, s, look)
 End
-
-(*EVAL “LZinit "hej nej jag heter faktiskt inte ejnar jag heter gudrud hejsan nej hej"”;*)
-
-
 Definition LZcompRB_def:
   LZcompRB (rb : char ringBuffer) (s :string) look =
   if  look = 0 then []
   else
     let
       match = LZmatchRB  rb (rb.size - look);
-      len = case match of
-              NONE => 1
-            | SOME $ LenDist (ml,_) => MAX 1 ml
-            | SOME $ Lit _ => 1;
-      look = case s of
-               [] => look-len
-             | _  => look;
-      (*********
-     look = if s = []
-             then look-len
-             else look;
-      *********)
+      len = (case match of
+               NONE => 1
+             | SOME $ LenDist (ml,_) => MAX 1 ml
+             | SOME $ Lit _ => 1);
+      look = (case s of
+                [] => look-len
+              | _  => look);
       recurse = LZcompRB (rbAPPEND rb (TAKE len s)) (DROP len s) look;
     in case match of
        | NONE => recurse
@@ -161,8 +147,6 @@ Termination
   \\ rpt strip_tac
   \\ rpt (CASE_TAC \\ simp[])
 End
-
-
 Definition LZSSRB_compress_def:
   LZSSRB_compress s =
   let
@@ -170,7 +154,10 @@ Definition LZSSRB_compress_def:
   in
     LZcompRB rb remainder look
 End
-
+EVAL “LZinit "hej nej ne"”;
+EVAL “LZSSRB_compress "hej nej ne"”;
+EVAL “LZSS_decompress (LZSSRB_compress "hej nej ne")”;
+        (* "hejsan jag heter bert ert ert ert jag har lagt en fjert" *)
 
 (******************************************************
 *****                                             *****
@@ -205,8 +192,10 @@ Definition LZSS_decompress_def:
   LZSS_decompress s = LZdecompress [] s
 End
 
+
 EVAL “LZSSRB_compress "hejsan hejsan hejsan jag heter bert ert ert ert jag har lagt en fjert"”;
-EVAL “LZSS_decompress (LZSSRB_compress "hejsan jag heter bert ert ert ert jag har lagt en fjert")”;
+
+EVAL “LZSS_decompress (LZSSRB_compress "hejsan hejsan hejsan jag heter bert ert ert ert jag har lagt en fjert")”;
 
 
 (******************************************************
