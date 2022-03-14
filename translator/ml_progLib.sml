@@ -398,10 +398,6 @@ fun add_Dlet eval_thm var_str = let
         let_env_abbrev ALL_CONV, let_st_abbrev reduce_conv]
   end
 
-val exp = “Lit (Word64 0w)”
-  val loc = unknown_loc
-  val n = “"bar"”
-
 fun add_Dlet_lit loc n exp =
   let
     val theVal = EVAL (Parse.Term ‘case evaluate s env [^exp] of |(_, Rval [v]) => v’) |> concl |> rhs
