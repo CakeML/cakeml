@@ -140,7 +140,7 @@ Proof
   \\ rewrite_tac[ffi_names, THE_DEF]
   \\ disch_then drule
   \\ strip_tac
-  \\ simp[]
+  \\ simp[ag32_memoryTheory.ffi_exitpcs_def]
   \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ asm_exists_tac \\ simp[]
