@@ -1,6 +1,6 @@
 (*
-  predicate to check whether an expression is pure, i.e. does not use memory
-  or the FFI
+  Implements a predicate to check whether an expression is pure, i.e. does not
+  use memory or the FFI
 *)
 open bossLib semanticPrimitivesTheory fpValTreeTheory fpOptTheory
      fpOptPropsTheory fpSemPropsTheory;
