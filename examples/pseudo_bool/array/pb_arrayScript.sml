@@ -187,6 +187,108 @@ val r = translate pb_constraintTheory.negate_def;
 val r = translate (pb_constraintTheory.lslack_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
 val r = translate (pb_constraintTheory.check_contradiction_def |> SIMP_RULE std_ss[LET_DEF]);
 
+(* TODO:  can use Unsafe.update instead of Array.update *)
+val list_delete_arr = process_topdecs`
+  fun list_delete_arr ls fml =
+    case ls of
+      [] => ()
+    | (i::is) =>
+      if Array.length fml <= i then list_delete_arr is fml
+      else
+        (Array.update fml i None; list_delete_arr is fml)` |> append_prog
+
+Theorem list_delete_arr_spec:
+  ∀ls lsv fmlls fmllsv.
+  (LIST_TYPE NUM) ls lsv ∧
+  LIST_REL (OPTION_TYPE PB_CONSTRAINT_NPBC_TYPE) fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "list_delete_arr" (get_ml_prog_state()))
+    [lsv; fmlv]
+    (ARRAY fmlv fmllsv)
+    (POSTv resv.
+      &UNIT_TYPE () resv *
+      SEP_EXISTS fmllsv'.
+      ARRAY fmlv fmllsv' *
+      &(LIST_REL (OPTION_TYPE PB_CONSTRAINT_NPBC_TYPE) (list_delete_list ls fmlls) fmllsv') )
+Proof
+  Induct>>
+  rw[]>>simp[list_delete_list_def]>>
+  xcf "list_delete_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def]
+  >- (
+    xmatch>>
+    xcon>>xsimpl) >>
+  xmatch>>
+  xlet_auto >- xsimpl>>
+  xlet_auto >- xsimpl>>
+  `LENGTH fmlls = LENGTH fmllsv` by
+    metis_tac[LIST_REL_LENGTH]>>
+  IF_CASES_TAC >> fs[]>>
+  xif>> asm_exists_tac>> xsimpl
+  >- (xapp >> xsimpl)>>
+  xlet_auto >- (xcon>>xsimpl)>>
+  xlet_auto >- xsimpl>>
+  xapp>>xsimpl>>
+  match_mp_tac EVERY2_LUPDATE_same>> simp[OPTION_TYPE_def]
+QED
+
+val every_less_def = Define`
+  every_less (mindel:num) cls ⇔ EVERY ($<= mindel) cls`
+
+val _ = translate every_less_def;
+
+Definition mk_ids_def:
+  mk_ids id_start (id_end:num) =
+  if id_start < id_end then id_start::mk_ids (id_start+1) id_end else []
+Termination
+  WF_REL_TAC `measure (λ(a,b). b-a)`
+End
+
+val _ = translate mk_ids_def;
+
+val rollback_arr = process_topdecs`
+  fun rollback_arr fml id_start id_end =
+  list_delete_arr (mk_ids id_start id_end) fml` |> append_prog
+
+Theorem mk_ids_MAP_COUNT_LIST:
+  ∀start end.
+  mk_ids start end =
+  MAP ($+ start) (COUNT_LIST (end − start))
+Proof
+  ho_match_mp_tac mk_ids_ind>>rw[]>>
+  simp[Once mk_ids_def]>>rw[]>>gs[]>>
+  Cases_on`end-start`>>fs[COUNT_LIST_def]>>
+  `end-(start+1) = n` by fs[]>>
+  simp[MAP_MAP_o,MAP_EQ_f]
+QED
+
+Theorem rollback_arr_spec:
+  NUM start startv ∧
+  NUM end endv ∧
+  LIST_REL (OPTION_TYPE PB_CONSTRAINT_NPBC_TYPE) fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "rollback_arr" (get_ml_prog_state()))
+    [fmlv;startv; endv]
+    (ARRAY fmlv fmllsv)
+    (POSTv resv.
+      &UNIT_TYPE () resv *
+      SEP_EXISTS fmllsv'.
+      ARRAY fmlv fmllsv' *
+      &(LIST_REL (OPTION_TYPE PB_CONSTRAINT_NPBC_TYPE) (rollback fmlls start end) fmllsv') )
+Proof
+  xcf"rollback_arr"(get_ml_prog_state ())>>
+  xlet_autop>>
+  xapp>>
+  asm_exists_tac>>xsimpl>>
+  asm_exists_tac>>xsimpl>>
+  rw[]>>fs[rollback_def]>>
+  metis_tac[mk_ids_MAP_COUNT_LIST]
+QED
+
+val res = translate not_def;
+
 val check_pbpstep_arr = process_topdecs`
   fun check_pbpstep_arr lno step fml inds mindel id =
   case step of
@@ -204,11 +306,26 @@ val check_pbpstep_arr = process_topdecs`
       if c = c' then (fml, (False, (id, inds)))
       else raise Fail (format_failure lno ("constraint id check failed")))
   | Noop => (fml, (False, (id, inds)))
+  | Delete ls =>
+      if every_less mindel ls then
+        (list_delete_arr ls fml; (fml, (False, (id, inds))))
+      else
+        raise Fail (format_failure lno ("Deletion not permitted for constraint index < " ^ Int.toString mindel))
+  | Con_1 c pf =>
+    let val fml_not_c = Array.updateResize fml None id (Some (not_1 c)) in
+      (case check_pbpsteps_arr lno pf fml_not_c inds id (id+1) of
+        (fml', (True, (id' ,inds'))) =>
+          let val u = rollback_arr fml' id id' in
+            (Array.updateResize fml' None id' (Some c), (False, ((id'+1), sorted_insert id' inds')))
+          end
+      | _ => raise Fail (format_failure lno ("Subproof did not derive contradiction")))
+    end
   | Cutting constr =>
     let val c = check_cutting_arr lno fml constr
         val fml' = Array.updateResize fml None id (Some c) in
       (fml', (False, (id+1,sorted_insert id inds)))
     end
+  | _ => raise Fail (format_failure lno ("Proof step not supported"))
   and check_pbpsteps_arr lno steps fml inds mindel id =
   case steps of
     [] => (fml, (False, (id, inds)))
@@ -330,7 +447,25 @@ Proof
       simp[PAIR_TYPE_def,BOOL_def]>>
       asm_exists_tac>>xsimpl>>
       EVAL_TAC)
-    >- (* Delete *) cheat
+    >- ( (* Delete *)
+      fs[PB_CHECK_PBPSTEP_TYPE_def]>>
+      xmatch>>
+      xlet_autop>>
+      fs[every_less_def]>>
+      reverse IF_CASES_TAC >>
+      gs[]>>xif>>
+      asm_exists_tac>>simp[]
+      >- (
+        rpt xlet_autop>>
+        simp[check_pbpstep_list_def]>>
+        xraise>>xsimpl>>
+        qexists_tac`fmlv`>>qexists_tac`fmllsv`>>xsimpl)>>
+      rpt xlet_autop>>
+      xcon>>xsimpl
+      >- (
+        simp[PAIR_TYPE_def]>>
+        asm_exists_tac>>xsimpl)>>
+      simp[check_pbpstep_list_def])
     >- ((* Cutting *)
       fs[PB_CHECK_PBPSTEP_TYPE_def,check_pbpstep_list_def]>>
       xmatch>>
@@ -350,8 +485,59 @@ Proof
       match_mp_tac LIST_REL_update_resize>>simp[]>>
       EVAL_TAC>>
       metis_tac[])
-    >- ( (* Con *) cheat)
-    >- ( (* Red *) cheat)
+    >- ( (* Con *)
+      fs[PB_CHECK_PBPSTEP_TYPE_def,check_pbpstep_list_def]>>
+      xmatch>>
+      rpt xlet_autop>>
+      xlet_auto>>
+      rpt xlet_autop>>
+      (* for some reason xapp doesn't work?? *)
+      first_x_assum drule>>
+      qpat_x_assum`NUM lno lnov` assume_tac>>
+      rpt(disch_then drule)>>
+      `LIST_REL (OPTION_TYPE PB_CONSTRAINT_NPBC_TYPE)
+        (update_resize fmlls NONE (SOME (not n)) id)
+        (update_resize fmllsv (Conv (SOME (TypeStamp "None" 2)) [])
+                (Conv (SOME (TypeStamp "Some" 2)) [v]) id)` by
+        (match_mp_tac LIST_REL_update_resize>>fs[OPTION_TYPE_def])>>
+      rpt (disch_then drule)>>
+      strip_tac>>
+      xlet_autop
+      >- (
+        xsimpl>>
+        rw[]>>xsimpl>>
+        qexists_tac`x`>>qexists_tac`x'`>>
+        xsimpl)>>
+      pop_assum mp_tac>> TOP_CASE_TAC>>
+      fs[]>>
+      PairCases_on`x`>>fs[PAIR_TYPE_def]>>
+      rw[] >> rename1`BOOL _ bv`
+      >- (
+        `bv = Conv (SOME (TypeStamp "True" 0)) []` by
+          (qpat_x_assum`BOOL _ _` mp_tac>>
+          EVAL_TAC>>simp[])>>
+        xmatch>>
+        rpt xlet_autop>>
+        xlet_auto>>
+        xcon>>xsimpl>>
+        simp[PAIR_TYPE_def]>>
+        qmatch_goalsub_abbrev_tac`ARRAY _ ls`>>
+        qexists_tac`ls`>>xsimpl>>
+        simp[Abbr`ls`]>>
+        match_mp_tac LIST_REL_update_resize>>simp[OPTION_TYPE_def])>>
+      `bv = Conv (SOME (TypeStamp "False" 0)) []` by
+        (qpat_x_assum`BOOL _ _` mp_tac>>
+        EVAL_TAC>>simp[])>>
+      xmatch>>
+      rpt xlet_autop>>
+      xraise>>xsimpl>>
+      qexists_tac`fmlv'`>>qexists_tac`fmllsv'`>>xsimpl)
+    >- ( (* Red *)
+      fs[PB_CHECK_PBPSTEP_TYPE_def,check_pbpstep_list_def]>>
+      xmatch>>
+      rpt xlet_autop>>
+      xraise>>xsimpl>>
+      qexists_tac`fmlv`>>qexists_tac`fmllsv`>>xsimpl)
     >- ( (* Check *)
       fs[PB_CHECK_PBPSTEP_TYPE_def,check_pbpstep_list_def]>>
       xmatch>>
