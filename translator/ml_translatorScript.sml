@@ -1189,18 +1189,17 @@ Proof
   \\ imp_res_tac Eval_word_add_lemma \\ fs []
 QED
 
-val Eval_word_sub_lemma = Q.prove(
-  `dimindex (:'a) <= k /\ n' < dimword (:α) ==>
+Theorem Eval_word_sub_lemma[local]:
+  dimindex (:'a) <= k /\ n' < dimword (:α) ==>
     (n * 2 ** (k − dimindex (:α)) +
       (2 ** k − (n' * 2 ** (k − dimindex (:α))) MOD 2 ** k) MOD 2 ** k) MOD 2 ** k =
-    ((n + dimword (:α) − n') * 2 ** (k − dimindex (:α))) MOD 2 ** k`,
+    ((n + dimword (:α) − n') * 2 ** (k − dimindex (:α))) MOD 2 ** k
+Proof
   fs [LESS_EQ_EXISTS,dimword_def] \\ rw []
   \\ fs [RIGHT_ADD_DISTRIB,RIGHT_SUB_DISTRIB,EXP_ADD]
-  \\ full_simp_tac std_ss [DISTRIB_ANY,MOD_COMMON_FACTOR_ANY] \\ AP_TERM_TAC
-  \\ once_rewrite_tac [EQ_SYM_EQ] \\ fs [Once (GSYM MOD_PLUS)]
-  \\ `n + 2 ** dimindex (:α) − n' = n + (2 ** dimindex (:α) − n')` by decide_tac
-  \\ pop_assum (fn th => once_rewrite_tac [th])
-  \\ fs [Once (GSYM MOD_PLUS)]);
+  \\ full_simp_tac std_ss [DISTRIB_ANY,MOD_COMMON_FACTOR_ANY]
+  \\ simp[]
+QED
 
 Theorem Eval_word_sub:
     Eval env x1 (WORD (w1:'a word)) /\
