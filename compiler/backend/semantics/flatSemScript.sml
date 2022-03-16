@@ -410,6 +410,11 @@ val do_app_def = Define `
         store_alloc (Varray (REPLICATE (Num (ABS n)) v)) s.refs
       in
         SOME (s with refs := s', Rval (Loc lnum))
+  | (AallocFixed, vs) =>
+    let (s',lnum) =
+      store_alloc (Varray vs) s.refs
+    in
+      SOME (s with refs := s', Rval (Loc lnum))
   | (Asub, [Loc lnum; Litv (IntLit i)]) =>
     (case store_lookup lnum s.refs of
      | SOME (Varray vs) =>
