@@ -94,7 +94,11 @@ End
 
 (* Resolving precedences and lifting or-patterns to the top at the same time
  * is just too annoying. Until the CakeML syntax supports the latter, we can
- * use this pre-pattern type
+ * use this pre-pattern type.
+ *
+ * Pp_prod and Pp_as correspond to Pp_con NONE and Pp_alias and are used to
+ * trick the precparser into producing n-ary tuples and suffixes (i.e. the
+ * as-patterns).
  *)
 
 Datatype:
@@ -102,10 +106,11 @@ Datatype:
        | Pp_var varN
        | Pp_lit lit
        | Pp_con ((modN, conN) id option) (ppat list)
-       | Pp_prod (ppat list) (* these are used to trick the pattern parser *)
+       | Pp_prod (ppat list)
        | Pp_or ppat ppat
        | Pp_tannot ppat ast_t
        | Pp_alias ppat (varN list)
+       | Pp_as ppat varN
 End
 
 Definition ppat_size'_def:
@@ -116,7 +121,8 @@ Definition ppat_size'_def:
   ppat_size' (Pp_prod xs) = (1 + list_size ppat_size' xs) ∧
   ppat_size' (Pp_or x y) = (1 + ppat_size' x + ppat_size' y) ∧
   ppat_size' (Pp_tannot x y) = (1 + ppat_size' x) ∧
-  ppat_size' (Pp_alias x y) = (1 + ppat_size' x)
+  ppat_size' (Pp_alias x y) = (1 + ppat_size' x) ∧
+  ppat_size' (Pp_as x y) = (1 + ppat_size' x)
 Termination
   WF_REL_TAC ‘measure ppat_size’
 End
@@ -137,6 +143,8 @@ Definition ppat_to_pat_def:
     (MAP (λps. Pcon NONE ps) (list_cart_prod (MAP ppat_to_pat pps))) ∧
   ppat_to_pat (Pp_alias pp ns) =
     (MAP (λp. FOLDL Pas p ns) (ppat_to_pat pp)) ∧
+  ppat_to_pat (Pp_as pp n) =
+    (MAP (λp. Pas p n) (ppat_to_pat pp)) ∧
   ppat_to_pat (Pp_or p1 p2) =
     ppat_to_pat p1 ++ ppat_to_pat p2
 Termination
@@ -854,6 +862,7 @@ End
 
 Definition ppat_close_def:
   ppat_close (Pp_prod pps) = Pp_con NONE pps ∧
+  ppat_close (Pp_alias pp vs) = FOLDL Pp_as pp vs ∧
   ppat_close pps = pps
 End
 

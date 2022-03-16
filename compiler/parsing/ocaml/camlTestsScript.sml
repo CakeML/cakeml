@@ -416,15 +416,31 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
 
 val _ = parsetest0 “nPattern” “ptree_PPattern”
   "a,b :: c, d | zs as i"
-  (SOME “ Pp_alias (Pp_or (Pp_con NONE [
+  (SOME “ Pp_as (Pp_or (Pp_con NONE [
              Pp_var "a"; Pp_con (SOME (Short "::")) [Pp_var "b"; Pp_var "c"];
-             Pp_var "d"]) (Pp_var "zs")) ["i"]”)
+             Pp_var "d"]) (Pp_var "zs")) "i"”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "a,b :: c, d | zs as i"
   (SOME (“[Pas (Pcon NONE [Pv "a"; Pc "::" [Pv "b"; Pv "c"]; Pv "d"]) "i";
            Pas (Pv "zs") "i"]”))
+  ;
+
+val _ = parsetest0 “nPattern” “ptree_PPattern”
+  "(y as z)"
+  NONE
+
+
+val _ = parsetest0 “nPattern” “ptree_PPattern”
+  "Cn(x,(y as z))"
+  (SOME “Pp_con (SOME (Short "Cn"))
+                [Pp_con NONE [Pp_var "x"; Pp_as (Pp_var "y") "z"]]”)
+  ;
+
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "Cn(x,(y as z))"
+  (SOME “[Pc "Cn" [Pcon NONE [Pv "x"; Pas (Pv "y") "z"]]]”)
   ;
 
 (* -------------------------------------------------------------------------
@@ -1295,8 +1311,6 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
   ;
 
 
-val _ = export_theory ();
-
 val _ = parsetest0 “nStart” “ptree_Start”
   "let x = 2 ;; (*CML val x = 5; print \"z\"; fun ref x = Ref x; *)"
   (SOME “[Dlet L1 (Pv "x") (Lit (IntLit 2));
@@ -1305,4 +1319,5 @@ val _ = parsetest0 “nStart” “ptree_Start”
           Dletrec L4 [("ref","x", App Opref [V "x"])]]”)
   ;
 
+val _ = export_theory ();
 
