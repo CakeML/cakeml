@@ -110,6 +110,20 @@ Definition LZmatchRB_def[simp]:
       else SOME $ LenDist (FST match, (li  - (SND match)))
 End
 
+
+(*
+Should rewrite to better account for inputstreams instead of strings
+*)
+
+(*
+add proof that checks that the lookahead always is the correct size
+*)
+
+(*
+Add invariant for the length and distance so that an illegal value can't be created
+*)
+
+
 Definition LZinit:
   LZinit s  =
   let
@@ -164,6 +178,20 @@ EVAL “LZSS_decompress (LZSSRB_compress "hej nej ne")”;
 *****               Decopmression                 *****
 *****                                             *****
 ******************************************************)
+
+
+
+
+
+
+
+
+
+(*
+Should rewrite the decompressor to use a ringbuffer to better account for inputstreams instead of strings
+*)
+
+
 
 Definition resolveLenDist_def[simp]:
   (resolveLenDist [] _ = NONE) ∧
