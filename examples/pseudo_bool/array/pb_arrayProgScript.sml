@@ -3,7 +3,7 @@
 *)
 open preamble basis pb_constraintTheory pb_listTheory;
 
-val _ = new_theory "pb_array"
+val _ = new_theory "pb_arrayProg"
 
 val _ = translation_extends"basisProg";
 
@@ -106,7 +106,7 @@ Theorem check_cutting_arr_spec:
           | SOME x => PB_CONSTRAINT_NPBC_TYPE x v))
       (λe.
       ARRAY fmlv fmllsv *
-        & (check_cutting_list fmlls constr = NONE)))
+        & (Fail_exn e ∧ check_cutting_list fmlls constr = NONE)))
 Proof
   Induct_on`constr`>>
   xcf"check_cutting_arr"(get_ml_prog_state ())
@@ -123,7 +123,8 @@ Proof
     xmatch
     >- (
       rpt xlet_autop>>
-      xraise>> xsimpl)>>
+      xraise>> xsimpl>>
+      metis_tac[Fail_exn_def])>>
     xvar>>xsimpl)
   >- ( (* Add *)
     fs[check_cutting_list_def,PB_CHECK_CONSTR_TYPE_def]>>
@@ -150,7 +151,8 @@ Proof
     reverse IF_CASES_TAC>>xif>>asm_exists_tac>>fs[]
     >- (
       rpt xlet_autop>>
-      xraise>>xsimpl)>>
+      xraise>>xsimpl>>
+      simp[Fail_exn_def]>>metis_tac[])>>
     xlet_autop>- xsimpl>>
     xapp>>xsimpl>>
     asm_exists_tac>>simp[]>>
@@ -355,6 +357,75 @@ Proof
   fs[EL_REPLICATE]
 QED
 
+val PB_PRECONSTRAINT_LIT_TYPE_def = fetch "-" "PB_PRECONSTRAINT_LIT_TYPE_def";
+val PB_CONSTRAINT_NPBC_TYPE_def = fetch "-" "PB_CONSTRAINT_NPBC_TYPE_def";
+
+Theorem NUM_no_closures:
+  (NUM n v ⇒ no_closures v) ∧
+  (NUM n v ∧ NUM n' v' ⇒ (n=n' ⇔ v=v')) ∧
+  (NUM n v ∧ NUM n' v' ⇒ types_match v v')
+Proof
+  mp_tac EqualityType_NUM_BOOL>>
+  EVAL_TAC>>
+  simp[]
+QED
+
+Theorem EqualityType_PB_PRECONSTRAINT_LIT_TYPE:
+  EqualityType PB_PRECONSTRAINT_LIT_TYPE
+Proof
+  EVAL_TAC>>
+  rw[]
+  >- (
+    Cases_on`x1`>>
+    fs[PB_PRECONSTRAINT_LIT_TYPE_def]>>
+    simp[no_closures_def]>>
+    metis_tac[NUM_no_closures])
+  >- (
+    Cases_on`x1`>>Cases_on`x2`>>
+    fs[PB_PRECONSTRAINT_LIT_TYPE_def]>>
+    metis_tac[NUM_no_closures])
+  >- (
+    Cases_on`x1`>>Cases_on`x2`>>
+    fs[PB_PRECONSTRAINT_LIT_TYPE_def]>>
+    EVAL_TAC>>
+    metis_tac[NUM_no_closures])
+QED
+
+Theorem LIST_TYPE_no_closures:
+  (LIST_TYPE (PAIR_TYPE NUM PB_PRECONSTRAINT_LIT_TYPE) n v ⇒ no_closures v) ∧
+  (LIST_TYPE (PAIR_TYPE NUM PB_PRECONSTRAINT_LIT_TYPE) n v ∧
+   LIST_TYPE (PAIR_TYPE NUM PB_PRECONSTRAINT_LIT_TYPE) n' v' ⇒ (n=n' ⇔ v=v')) ∧
+  (LIST_TYPE (PAIR_TYPE NUM PB_PRECONSTRAINT_LIT_TYPE) n v ∧
+   LIST_TYPE (PAIR_TYPE NUM PB_PRECONSTRAINT_LIT_TYPE) n' v' ⇒ types_match v v')
+Proof
+  `EqualityType (LIST_TYPE (PAIR_TYPE NUM PB_PRECONSTRAINT_LIT_TYPE))` by
+    (match_mp_tac EqualityType_LIST_TYPE>>
+    metis_tac[EqualityType_PAIR_TYPE, EqualityType_NUM_BOOL,EqualityType_PB_PRECONSTRAINT_LIT_TYPE])>>
+  pop_assum mp_tac>>
+  EVAL_TAC>>simp[]>>
+  metis_tac[]
+QED
+
+Theorem EqualityType_PB_CONSTRAINT_NPBC_TYPE:
+  EqualityType PB_CONSTRAINT_NPBC_TYPE
+Proof
+  EVAL_TAC>>rw[]
+  >- (
+    Cases_on`x1`>>
+    fs[PB_CONSTRAINT_NPBC_TYPE_def]>>
+    simp[no_closures_def]>>
+    metis_tac[NUM_no_closures, LIST_TYPE_no_closures])
+  >- (
+    Cases_on`x1`>>Cases_on`x2`>>
+    fs[PB_CONSTRAINT_NPBC_TYPE_def]>>
+    metis_tac[NUM_no_closures, LIST_TYPE_no_closures])
+  >- (
+    Cases_on`x1`>>Cases_on`x2`>>
+    fs[PB_CONSTRAINT_NPBC_TYPE_def]>>
+    EVAL_TAC>>
+    metis_tac[NUM_no_closures, LIST_TYPE_no_closures])
+QED
+
 Theorem check_pbpstep_arr_spec:
   (∀step fmlls inds mindel id stepv lno lnov idv indsv fmlv fmllsv mindelv.
   PB_CHECK_PBPSTEP_TYPE step stepv ∧
@@ -382,7 +453,7 @@ Theorem check_pbpstep_arr_spec:
       (λe.
         SEP_EXISTS fmlv' fmllsv'.
         ARRAY fmlv' fmllsv' *
-        & (check_pbpstep_list step fmlls inds mindel id = NONE)))) ∧
+        & (Fail_exn e ∧ check_pbpstep_list step fmlls inds mindel id = NONE)))) ∧
   (∀steps fmlls inds mindel id stepsv lno lnov idv indsv fmlv fmllsv mindelv.
   LIST_TYPE PB_CHECK_PBPSTEP_TYPE steps stepsv ∧
   NUM lno lnov ∧
@@ -409,7 +480,7 @@ Theorem check_pbpstep_arr_spec:
       (λe.
         SEP_EXISTS fmlv' fmllsv'.
         ARRAY fmlv' fmllsv' *
-        & (check_pbpsteps_list steps fmlls inds mindel id = NONE))))
+        & (Fail_exn e ∧ check_pbpsteps_list steps fmlls inds mindel id = NONE))))
 Proof
   ho_match_mp_tac check_pbpstep_list_ind>>
   rw[]>>fs[]
@@ -432,7 +503,8 @@ Proof
         rpt xlet_autop>>
         simp[check_pbpstep_list_def]>>
         xraise>>xsimpl>>
-        qexists_tac`fmlv`>>qexists_tac`fmllsv`>>xsimpl)>>
+        qexists_tac`fmlv`>>qexists_tac`fmllsv`>>xsimpl>>
+        simp[Fail_exn_def]>>metis_tac[])>>
       xmatch >>
       xlet_autop>>
       reverse IF_CASES_TAC>>xif>>asm_exists_tac>>simp[]
@@ -440,7 +512,8 @@ Proof
         rpt xlet_autop>>
         simp[check_pbpstep_list_def]>>
         xraise>>xsimpl>>
-        qexists_tac`fmlv`>>qexists_tac`fmllsv`>>xsimpl)>>
+        qexists_tac`fmlv`>>qexists_tac`fmllsv`>>xsimpl>>
+        simp[Fail_exn_def]>>metis_tac[])>>
       rpt xlet_autop>>
       simp[check_pbpstep_list_def]>>
       xcon>>xsimpl>>
@@ -459,7 +532,8 @@ Proof
         rpt xlet_autop>>
         simp[check_pbpstep_list_def]>>
         xraise>>xsimpl>>
-        qexists_tac`fmlv`>>qexists_tac`fmllsv`>>xsimpl)>>
+        qexists_tac`fmlv`>>qexists_tac`fmllsv`>>xsimpl>>
+        simp[Fail_exn_def]>>metis_tac[])>>
       rpt xlet_autop>>
       xcon>>xsimpl
       >- (
@@ -531,13 +605,15 @@ Proof
       xmatch>>
       rpt xlet_autop>>
       xraise>>xsimpl>>
-      qexists_tac`fmlv'`>>qexists_tac`fmllsv'`>>xsimpl)
+      qexists_tac`fmlv'`>>qexists_tac`fmllsv'`>>xsimpl>>
+      metis_tac[Fail_exn_def])
     >- ( (* Red *)
       fs[PB_CHECK_PBPSTEP_TYPE_def,check_pbpstep_list_def]>>
       xmatch>>
       rpt xlet_autop>>
       xraise>>xsimpl>>
-      qexists_tac`fmlv`>>qexists_tac`fmllsv`>>xsimpl)
+      qexists_tac`fmlv`>>qexists_tac`fmllsv`>>xsimpl>>
+      metis_tac[Fail_exn_def])
     >- ( (* Check *)
       fs[PB_CHECK_PBPSTEP_TYPE_def,check_pbpstep_list_def]>>
       xmatch>>
@@ -553,11 +629,11 @@ Proof
         rpt xlet_autop>>
         xraise>>
         xsimpl>>
-        qexists_tac`fmlv`>>qexists_tac`fmllsv`>>xsimpl)>>
+        qexists_tac`fmlv`>>qexists_tac`fmllsv`>>xsimpl>>
+        simp[Fail_exn_def]>>metis_tac[])>>
       xlet_auto >-
         (xsimpl>>
-        (* prove equality type *)
-        cheat)>>
+        simp[EqualityType_PB_CONSTRAINT_NPBC_TYPE])>>
       xif>>rpt xlet_autop
       >- (
         xcon>>xsimpl>>
@@ -565,7 +641,8 @@ Proof
         asm_exists_tac>>xsimpl)>>
       xraise>>
       xsimpl>>
-      qexists_tac`fmlv`>>qexists_tac`fmllsv`>>xsimpl)
+      qexists_tac`fmlv`>>qexists_tac`fmllsv`>>xsimpl>>
+      metis_tac[Fail_exn_def])
     >- ( (*No Op*)
       fs[PB_CHECK_PBPSTEP_TYPE_def,check_pbpstep_list_def]>>
       xmatch>>
