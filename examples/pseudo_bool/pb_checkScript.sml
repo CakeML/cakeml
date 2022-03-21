@@ -1054,6 +1054,25 @@ Definition parse_header_line_def:
   parse_header_line s = (s = ^headertrm)
 End
 
+val fromString_unsafe_def = Define`
+  fromString_unsafe str =
+    if strlen str = 0
+    then 0i
+    else if strsub str 0 = #"~" ∨
+            strsub str 0 = #"-"
+      then ~&fromChars_unsafe (strlen str - 1)
+                              (substring str 1 (strlen str - 1))
+      else &fromChars_unsafe (strlen str) str`;
+
+val tokenize_fast_def = Define`
+  tokenize_fast (s:mlstring) =
+  if strlen s = 0 then INL s
+  else
+  let c = ORD (strsub s 0) in
+  if 48 ≤ c ∧ c ≤ 57
+  then INR (fromString_unsafe s)
+  else INL s`
+
 (* Parse the tokenized pbf file *)
 Definition parse_pbp_toks_def:
   parse_pbp_toks tokss =
@@ -1078,46 +1097,16 @@ Definition build_fml_def:
     build_fml (id+1) ss (insert id s acc))
 End
 
+Definition toks_fast_def:
+  toks_fast s = MAP tokenize_fast (tokens blanks s)
+End
+
 (*
 val pbpraw = ``[
-strlit"        c 1";
-strlit"red 1 x1 >= 1 ; x1 -> x3 x3 -> x5 x5 -> x1 x2 -> x4 x4 -> x6 x6 -> x2 ; begin";
-strlit"        c 1";
-strlit"        c 1";
-strlit"red 1 x1 >= 1 ; ; begin";
-strlit"        c 1";
-strlit"red 1 x1 >= 1 ; x1 -> x3 x3 -> x5 x5 -> x1 x2 -> x4 x4 -> x6 x6 -> x2 ; begin";
-strlit"        c 1";
-strlit"        c 1";
-strlit"        c 1";
-strlit"    end";
-strlit"        c 1";
-strlit"    end";
-strlit"    proofgoal #1";
-strlit"        c 1";
-strlit"        c 1";
-strlit"    end";
-strlit"        c 1";
-strlit"        c 1";
-strlit"    proofgoal 2";
-strlit"        c 1";
-strlit"        c 1";
-strlit"    end";
-strlit"    proofgoal 1";
-strlit"        c 1";
-strlit"        c 1";
-strlit"    end";
-strlit"    c 1";
-strlit"    end";
-strlit"    c 1";
-strlit"red 1 x1 >= 1 ; x1 -> x3 x3 -> x5 x5 -> x1 x2 -> x4 x4 -> x6 x6 -> x2 ; begin";
-strlit"        c 1";
-strlit"        c 1";
-strlit"        c 1";
-strlit"    end";
+strlit"  e 679 1 x121 1 ~x127 1 ~x134 1 x144 1 ~x153 1 ~x154 1 x159 1 x165 >= 1 ;"
 ]``;
 
-EVAL``parse_tops (MAP toks ^(pbpraw))``
+EVAL``(MAP toks_fast ^(pbpraw))``
 
 *)
 

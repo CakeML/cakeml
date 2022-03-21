@@ -202,9 +202,80 @@ val r = translate parse_redundancy_header_def;
 val r = translate mk_acc_def;
 val r = translate check_head_def;
 
+open mlintTheory;
+
+(* TODO: Mostly copied from mlintTheory *)
+val result = translate fromChar_unsafe_def;
+
+val fromChars_range_unsafe_tail_def = Define`
+  fromChars_range_unsafe_tail l 0       str mul acc = acc ∧
+  fromChars_range_unsafe_tail l (SUC n) str mul acc =
+    fromChars_range_unsafe_tail l n str (mul * 10)  (acc + fromChar_unsafe (strsub str (l + n)) * mul)`;
+
+Theorem fromChars_range_unsafe_tail_eq:
+  ∀n l s mul acc.
+  fromChars_range_unsafe_tail l n s mul acc = (fromChars_range_unsafe l n s) * mul + acc
+Proof
+  Induct>>rw[fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]
+QED
+
+Theorem fromChars_range_unsafe_alt:
+  fromChars_range_unsafe l n s = fromChars_range_unsafe_tail l n s 1 0
+Proof
+  rw[fromChars_range_unsafe_tail_eq]
+QED
+
+val result = translate fromChars_range_unsafe_tail_def;
+val result = translate fromChars_range_unsafe_alt;
+
+val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
+  |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp res))`,
+  rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ fs [FORALL_PROD]>>
+  fs[padLen_DEC_eq,ADD1]
+  )
+  |> update_precondition;
+
+val result = translate pb_checkTheory.fromString_unsafe_def;
+
+val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
+val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
+val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_side_def";
+val fromchars_range_unsafe_side_def = fetch "-" "fromchars_range_unsafe_side_def";
+
+Theorem fromchars_unsafe_side_thm:
+   ∀n s. n ≤ LENGTH s ⇒ fromchars_unsafe_side n (strlit s)
+Proof
+  completeInduct_on`n` \\ rw[]
+  \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def,fromchars_range_unsafe_tail_side_def]
+QED
+
+val fromString_unsafe_side = Q.prove(
+  `∀x. fromstring_unsafe_side x = T`,
+  Cases
+  \\ rw[fromstring_unsafe_side_def]
+  \\ Cases_on`s` \\ fs[mlstringTheory.substring_def]
+  \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID]
+  \\ match_mp_tac fromchars_unsafe_side_thm
+  \\ rw[]) |> update_precondition;
+
+val _ = translate tokenize_fast_def;
+
+val tokenize_fast_side = Q.prove(
+  `∀x. tokenize_fast_side x = T`,
+  EVAL_TAC >> fs[]) |> update_precondition;
+
 val parse_pbpsteps = process_topdecs`
   fun parse_pbpsteps fd lno acc =
-    case TextIO.b_inputLineTokens fd blanks tokenize of
+    case TextIO.b_inputLineTokens fd blanks tokenize_fast of
       None => raise Fail (format_failure lno "reached EOF while reading PBP steps")
     | Some s =>
     case parse_pbpstep s of None => (List.rev acc,(s,lno))
@@ -229,22 +300,22 @@ val parse_pbpsteps = process_topdecs`
     ` |> append_prog;
 
 val blanks_v_thm = theorem "blanks_v_thm";
-val tokenize_v_thm = theorem "tokenize_v_thm";
+val tokenize_fast_v_thm = theorem "tokenize_fast_v_thm";
 
 val b_inputLineTokens_specialize =
   b_inputLineTokens_spec_lines
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
-  |> Q.GEN `g` |> Q.ISPEC`tokenize`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
+  |> Q.GEN `g` |> Q.ISPEC`tokenize_fast`
+  |> Q.GEN `gv` |> Q.ISPEC`tokenize_fast_v`
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def] ;
+  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_fast_v_thm,blanks_def] ;
 
 Theorem parse_pbpsteps_spec:
   (!ss acc fd fdv lines lno lnov accv fs.
   NUM lno lnov ∧
   LIST_TYPE (PB_CHECK_PBPSTEP_TYPE) acc accv ∧
-  MAP toks lines = ss
+  MAP toks_fast lines = ss
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_pbpsteps" (get_ml_prog_state()))
@@ -259,7 +330,7 @@ Theorem parse_pbpsteps_spec:
             PAIR_TYPE (LIST_TYPE (PB_CHECK_PBPSTEP_TYPE))
               (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NUM) (acc',s,lno') v ∧
             parse_pbpsteps ss acc = SOME(acc',s,rest) ∧
-            MAP toks lines' = rest))
+            MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
            STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
@@ -268,7 +339,7 @@ Theorem parse_pbpsteps_spec:
   (∀ss acc fd fdv lines lno lnov accv fs.
   NUM lno lnov ∧
   LIST_TYPE (PAIR_TYPE (OPTION_TYPE (SUM_TYPE NUM UNIT_TYPE))(LIST_TYPE (PB_CHECK_PBPSTEP_TYPE))) acc accv ∧
-  MAP toks lines = ss
+  MAP toks_fast lines = ss
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_redundancy" (get_ml_prog_state()))
@@ -283,7 +354,7 @@ Theorem parse_pbpsteps_spec:
             PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (SUM_TYPE NUM UNIT_TYPE)) (LIST_TYPE (PB_CHECK_PBPSTEP_TYPE))))
               NUM (acc',lno') v ∧
             parse_redundancy ss acc = SOME(acc',rest) ∧
-            MAP toks lines' = rest
+            MAP toks_fast lines' = rest
             ) )
       (λe.
          SEP_EXISTS k lines'.
@@ -328,7 +399,7 @@ Proof
             SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
             INSTREAM_LINES fd fdv ls (forwardFD fs fd k) *
-            & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks l)) v)’
+            & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast l)) v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
       \\ qexists_tac ‘emp’
@@ -336,7 +407,7 @@ Proof
       \\ qexists_tac ‘fs’
       \\ qexists_tac ‘fd’ \\ xsimpl \\ fs []
       \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl
-      \\ simp[toks_def]) >>
+      \\ simp[toks_fast_def]) >>
     fs[OPTION_TYPE_def]>>
     xmatch>>
     xlet_autop>>
@@ -393,7 +464,7 @@ Proof
                       (forwardFD (forwardFD fs fd k) fd k') *
                       &(PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (SUM_TYPE NUM UNIT_TYPE)) (LIST_TYPE (PB_CHECK_PBPSTEP_TYPE)))) NUM (acc',lno') v ∧
                        parse_redundancy ss [] = SOME (acc',rest) ∧
-                       MAP toks lines' = rest))
+                       MAP toks_fast lines' = rest))
              (λe.
                   SEP_EXISTS k' lines'.
                     STDIO (forwardFD (forwardFD fs fd k) fd k') *
@@ -472,14 +543,14 @@ Proof
              &(PAIR_TYPE (LIST_TYPE PB_CHECK_PBPSTEP_TYPE)
                 (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
                    NUM) (acc',s,lno') v ∧
-              parse_pbpsteps (MAP toks lines) [] =
-              SOME (acc',s,rest) ∧ MAP toks lines' = rest))
+              parse_pbpsteps (MAP toks_fast lines) [] =
+              SOME (acc',s,rest) ∧ MAP toks_fast lines' = rest))
       (λe.
            SEP_EXISTS k lines'.
              STDIO (forwardFD fs fd k) *
              INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
              &(Fail_exn e ∧
-              parse_pbpsteps (MAP toks lines) [] = NONE)))`
+              parse_pbpsteps (MAP toks_fast lines) [] = NONE)))`
   >-
     xapp
   >- (
@@ -535,7 +606,7 @@ Proof
               &(PAIR_TYPE (LIST_TYPE PB_CHECK_PBPSTEP_TYPE)
                  (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NUM) (acc',s,lno') v ∧
                parse_pbpsteps rest [] = SOME (acc',s,rest') ∧
-               MAP toks lines' = rest'))
+               MAP toks_fast lines' = rest'))
        (λe.
             SEP_EXISTS k lines'.
               STDIO (forwardFD fs fd k) *
@@ -601,7 +672,7 @@ val parse_redundancy_spec = save_thm("parse_redundancy_spec",el 2 (CONJUNCTS par
 
 val parse_top = process_topdecs`
   fun parse_top fd lno =
-    case TextIO.b_inputLineTokens fd blanks tokenize of
+    case TextIO.b_inputLineTokens fd blanks tokenize_fast of
       None => None
     | Some s =>
     case parse_pbpstep s of None => raise Fail (format_failure lno "Unable to parse top-level step")
@@ -615,7 +686,7 @@ val parse_top = process_topdecs`
 Theorem parse_top_spec:
   !ss fd fdv lines lno lnov fs.
   NUM lno lnov ∧
-  MAP toks lines = ss
+  MAP toks_fast lines = ss
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_top" (get_ml_prog_state()))
@@ -634,7 +705,7 @@ Theorem parse_top_spec:
                 lines' = []
             | SOME (SOME (step,rest)) =>
                 OPTION_TYPE (PAIR_TYPE PB_CHECK_PBPSTEP_TYPE NUM) (SOME (step,lno')) v ∧
-                MAP toks lines' = rest))
+                MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
            STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
@@ -669,7 +740,7 @@ Proof
       SEP_EXISTS k.
       STDIO (forwardFD fs fd k) *
       INSTREAM_LINES fd fdv ls (forwardFD fs fd k) *
-      & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks l)) v)’
+      & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast l)) v)’
   THEN1 (
     xapp_spec b_inputLineTokens_specialize
     \\ qexists_tac ‘emp’
@@ -677,7 +748,7 @@ Proof
     \\ qexists_tac ‘fs’
     \\ qexists_tac ‘fd’ \\ xsimpl \\ fs []
     \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl
-    \\ simp[toks_def]) >>
+    \\ simp[toks_fast_def]) >>
   fs[OPTION_TYPE_def]>>
   xmatch>>
   xlet_autop>>
@@ -713,7 +784,7 @@ Proof
                       (forwardFD (forwardFD fs fd k) fd k') *
                       &(PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (SUM_TYPE NUM UNIT_TYPE)) (LIST_TYPE (PB_CHECK_PBPSTEP_TYPE)))) NUM (acc',lno') v ∧
                        parse_redundancy t [] = SOME (acc',rest) ∧
-                       MAP toks lines' = rest))
+                       MAP toks_fast lines' = rest))
              (λe.
                   SEP_EXISTS k' lines'.
                     STDIO (forwardFD (forwardFD fs fd k) fd k') *
@@ -787,7 +858,7 @@ Theorem check_unsat''_spec:
   NUM id idv ∧
   LIST_REL (OPTION_TYPE PB_CONSTRAINT_NPBC_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
-  MAP toks lines = ss
+  MAP toks_fast lines = ss
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
@@ -815,7 +886,7 @@ Proof
   ho_match_mp_tac (fetch "-" "parse_and_run_ind")>>rw[]>>
   xcf "check_unsat''" (get_ml_prog_state ())>>
   simp[Once parse_and_run_def]>>
-  Cases_on`parse_top (MAP toks lines)`>>fs[]
+  Cases_on`parse_top (MAP toks_fast lines)`>>fs[]
   >- ((* parse_top NONE *)
     xlet `(POSTe e.
          SEP_EXISTS k lines' fmlv' fmllsv'.
@@ -842,14 +913,14 @@ Proof
        INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
        ARRAY fmlv fmllsv *
         &(
-            case parse_top (MAP toks lines) of
+            case parse_top (MAP toks_fast lines) of
               NONE => F
             | SOME NONE =>
                 OPTION_TYPE PB_CHECK_PBPSTEP_TYPE NONE v ∧
                 lines' = []
             | SOME (SOME (step,rest)) =>
                 OPTION_TYPE (PAIR_TYPE PB_CHECK_PBPSTEP_TYPE NUM) (SOME (step,lno')) v ∧
-                MAP toks lines' = rest))`
+                MAP toks_fast lines' = rest))`
   >- (
     xapp>>xsimpl>>
     asm_exists_tac>>simp[]>>
@@ -923,7 +994,7 @@ val r = translate parse_header_line_def;
 
 val check_header = process_topdecs`
   fun check_header fd =
-    case TextIO.b_inputLineTokens fd blanks tokenize of
+    case TextIO.b_inputLineTokens fd blanks tokenize_fast of
       None => raise Fail (format_failure 0 "Unable to parse header")
     | Some s =>
     if parse_header_line s then () else
@@ -931,7 +1002,7 @@ val check_header = process_topdecs`
 
 Theorem check_header_spec:
   !ss fd fdv lines fs.
-  MAP toks lines = ss
+  MAP toks_fast lines = ss
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_header" (get_ml_prog_state()))
@@ -979,7 +1050,7 @@ Proof
       SEP_EXISTS k.
       STDIO (forwardFD fs fd k) *
       INSTREAM_LINES fd fdv ls (forwardFD fs fd k) *
-      & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks l)) v)’
+      & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast l)) v)’
   THEN1 (
     xapp_spec b_inputLineTokens_specialize
     \\ qexists_tac ‘emp’
@@ -987,7 +1058,7 @@ Proof
     \\ qexists_tac ‘fs’
     \\ qexists_tac ‘fd’ \\ xsimpl \\ fs []
     \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl
-    \\ simp[toks_def]) >>
+    \\ simp[toks_fast_def]) >>
   fs[OPTION_TYPE_def]>>
   xmatch>>
   xlet_autop>>
@@ -1027,7 +1098,7 @@ val check_unsat' = process_topdecs `
 
 Definition parse_pbp_def:
   parse_pbp strs =
-  case MAP toks strs of
+  case MAP toks_fast strs of
     s::ss =>
     if parse_header_line s then
       parse_tops ss
