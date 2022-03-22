@@ -11,7 +11,7 @@ open arithmeticTheory;
 open ringBufferTheory;
 open LZSSTheory;
 
-val _ = new_theory"Huffman";
+val _ = new_theory"huffman";
 
 
 
