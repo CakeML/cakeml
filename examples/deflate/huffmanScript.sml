@@ -19,10 +19,20 @@ Datatype:
 End
 
 
-Definition get_frequencies_def:
-
+Definition get_freq_def:
+  get_freq [] ls tot = (ls, tot) ∧
+  get_freq (s::ss) ls tot =
+  let
+    ls' = (case ALOOKUP ls s of
+             NONE => (s,1)::ls
+           | SOME n => AFUPDKEY s (n. n+1) ls)
+  in
+    get_freq ss ls' tot+1
 End
-
+Definition get_frequencies_def:
+  get_frequencies input = get_freq input [] 0
+End
+EVAL “get_frequencies "aaabbc"”;
 
 Definition create_tree_def:
 
