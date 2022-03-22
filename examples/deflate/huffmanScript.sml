@@ -80,18 +80,30 @@ Definition get_huffman_codes_def:
     get_huffman_codes (Leaf c) code ls = (c,code)::ls ∧
     get_huffman_codes (Node ltr rtr) code ls =
     let
-      left = get_huffman_codes ltr (T::code) ls;
-      right = get_huffman_codes rtr (F::code) ls
+      left = get_huffman_codes ltr (code++[T]) ls;
+      right = get_huffman_codes rtr (code++[F]) ls
     in
         (left++right)
 End
 
-Definition huffman_encoding_def:
-  huffman_encoding s =
+Definition encode_def:
+  encode "" ls = [] ∧
+  encode ((s::ss):string) ls =
   let
-    huff_tree = build_huffman_tree s
+    res = ALOOKUP ls s
   in
-    (huff_tree, get_huffman_codes huff_tree [] [])
+    case res of
+      NONE => []
+    | SOME b => b ++ encode ss ls
+End
+
+Definition huffman_encoding_def:
+  huffman_encoding (s:string) =
+  let
+    huff_tree = build_huffman_tree s;
+    assoc_list = get_huffman_codes huff_tree [] []
+  in
+    (huff_tree, encode s assoc_list)
 End
 
 (* EVAL “huffman_encoding "aaaaaaaaaaaabbcdddddddddddddddddddddddrrrrrrrrrrrrrrrrrrrrrrrrrrrr"”
