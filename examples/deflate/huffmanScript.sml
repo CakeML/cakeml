@@ -18,6 +18,11 @@ Datatype:
   Tree = Leaf α | Node Tree Tree
 End
 
+
+(******************************************
+               Frequencies
+*******************************************)
+
 Definition get_freq_def:
   get_freq [] ls = ls ∧
   get_freq (s::ss) ls =
@@ -33,19 +38,18 @@ Definition get_frequencies_def:
   get_frequencies (input:string) = get_freq input []
 End
 
-EVAL “get_frequencies "ababca"”;
-
 Definition convert_frequencies_def:
   convert_frequencies ls = MAP (λ (c,(f:num)). (Leaf c, f)) ls
 End
-
-EVAL “convert_frequencies (get_frequencies "aaabbc")”;
 
 Definition sort_frequencies_def:
   sort_frequencies ls = QSORT (λ (_,(f1:num)) (_,(f2:num)). f1 < f2) ls
 End
 
-EVAL “sort_frequencies (convert_frequencies (get_frequencies "ababca"))”;
+
+(******************************************
+             Huffman tree
+*******************************************)
 
 Definition create_tree_def:
   create_tree ((c,f)::[]) = [(c,f)] ∧
@@ -59,9 +63,6 @@ Termination
   \\ rw[sort_frequencies_def]
 End
 
-EVAL “let s = sort_frequencies (convert_frequencies (get_frequencies "ababca"))
-     in create_tree s”;
-
 Definition build_huffman_tree_def:
   build_huffman_tree (s:string) =
   (let
@@ -70,6 +71,51 @@ Definition build_huffman_tree_def:
      FST (HD (create_tree freqs)))
 End
 
-EVAL “build_huffman_tree "aaabbc"”
+
+(******************************************
+              Huffman encoding
+*******************************************)
+
+Definition get_huffman_codes_def:
+    get_huffman_codes (Leaf c) code ls = (c,code)::ls ∧
+    get_huffman_codes (Node ltr rtr) code ls =
+    let
+      left = get_huffman_codes ltr (T::code) ls;
+      right = get_huffman_codes rtr (F::code) ls
+    in
+        (left++right)
+End
+
+Definition huffman_encoding_def:
+  huffman_encoding s =
+  let
+    huff_tree = build_huffman_tree s
+  in
+    (huff_tree, get_huffman_codes huff_tree [] [])
+End
+
+(* EVAL “huffman_encoding "aaaaaaaaaaaabbcdddddddddddddddddddddddrrrrrrrrrrrrrrrrrrrrrrrrrrrr"”
+   gives: [(#"r",[T]); (#"c",[T; T; T; F]); (#"b",[F; T; T; F]); (#"a",[F; T; F]); (#"d",[F; F])] *)
+
+
+(******************************************
+             Huffman decoding
+*******************************************)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 val _ = export_theory();
