@@ -22,14 +22,19 @@ Definition find_match_def:
 End
 
 Definition tab_sub_def:
-  tab_sub [] tab = [] ∧
   tab_sub (s: string) tab =
-  case (find_match s tab) of
-  | ([],_) => ""
-  | (match, value) => value ++ (tab_sub (DROP (LENGTH match) s) tab)
+  if s = "" then []
+  else
+    let (match, value) = find_match s tab
+    in
+      if match = [] then ""
+      else value ++ (tab_sub (DROP (LENGTH match) s) tab)
 Termination
   WF_REL_TAC ‘measure $ λ(s, _). LENGTH s’
   \\ rpt strip_tac
+  \\ Cases_on ‘s’
+  \\ gvs[find_match_def]
+  \\ Cases_on ‘match’
   \\ gvs[find_match_def]
 End
 
