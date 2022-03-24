@@ -43,7 +43,7 @@ Theorem arm8_asl_compile_correct:
   compile arm8_backend_config prog = SOME (bytes, bitmaps, config') ⇒
     let (s,env) = THE (prim_sem_env ffi) in
     ¬semantics_prog s env prog Fail ∧
-    installed bytes cbspace bitmaps data_sp config'.lab_conf.ffi_names ffi (1,3) mc ms
+    installed bytes cbspace bitmaps data_sp config'.lab_conf.ffi_names (1,3) mc ms
     ⇒ machine_sem mc ffi ms ⊆
         extend_with_resource_limit (semantics_prog s env prog)
 Proof
