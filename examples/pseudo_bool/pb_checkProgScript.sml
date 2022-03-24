@@ -783,9 +783,11 @@ val r = translate (pb_constraintTheory.lslack_def |> SIMP_RULE std_ss [MEMBER_IN
 val r = translate (pb_constraintTheory.check_contradiction_def |> SIMP_RULE std_ss[LET_DEF]);
 
 (* cutting *)
+val r = translate listTheory.REV_DEF;
 val r = translate pb_constraintTheory.term_lt_def;
 val r = translate pb_constraintTheory.add_terms_def;
-val r = translate pb_constraintTheory.add_lists_def;
+val r = translate pb_constraintTheory.add_lists'_def;
+val r = translate pb_constraintTheory.add_lists'_thm;
 val r = translate pb_constraintTheory.add_def;
 
 val r = translate pb_constraintTheory.multiply_def;

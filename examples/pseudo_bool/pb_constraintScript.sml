@@ -72,16 +72,16 @@ End
 (* addition -- implementation *)
 
 Definition add_terms_def:
-  add_terms (c1,Pos n) (c2,Pos _) = ([(c1+c2:num,Pos n)],0:num) ∧
-  add_terms (c1,Neg n) (c2,Neg _) = ([(c1+c2,Neg n)],0) ∧
-  add_terms (c1,Pos n) (c2,Neg _) =
-    (if c1 = c2 then ([],c1) else
-     if c1 < c2 then ([(c2-c1,Neg n)],c1) else
-                     ([(c1-c2,Pos n)],c2)) ∧
-  add_terms (c1,Neg n) (c2,Pos _) =
-    (if c1 = c2 then ([],c1) else
-     if c1 < c2 then ([(c2-c1,Pos n)],c1) else
-                     ([(c1-c2,Neg n)],c2))
+  add_terms (c1,Pos n) (c2,Pos _) zs k = ((c1+c2:num,Pos n)::zs,k:num) ∧
+  add_terms (c1,Neg n) (c2,Neg _) zs k = ((c1+c2,Neg n)::zs,k) ∧
+  add_terms (c1,Pos n) (c2,Neg _) zs k =
+    (if c1 = c2 then (zs,k+c1) else
+     if c1 < c2 then ((c2-c1,Neg n)::zs,k+c1) else
+                     ((c1-c2,Pos n)::zs,k+c2)) ∧
+  add_terms (c1,Neg n) (c2,Pos _) zs k =
+    (if c1 = c2 then (zs,k+c1) else
+     if c1 < c2 then ((c2-c1,Pos n)::zs,k+c1) else
+                     ((c1-c2,Neg n)::zs,k+c2))
 End
 
 Definition add_lists_def:
@@ -96,9 +96,8 @@ Definition add_lists_def:
       let (zs,n) = add_lists (x::xs) ys in
         (y::zs,n)
     else
-      let (z,n1) = add_terms x y in
       let (zs,n2) = add_lists xs ys in
-        (z++zs,n1+n2)
+        add_terms x y zs n2
 End
 
 Definition add_def:
@@ -110,9 +109,9 @@ End
 (* addition -- proof *)
 
 Theorem add_terms_thm:
-  add_terms x y = (zs,d) ∧ ~term_lt x y ∧ ~term_lt y x ⇒
-  eval_term w x + eval_term w y =
-  SUM (MAP (eval_term w) zs) + d
+  add_terms x y zs k = (zs1,d) ∧ ~term_lt x y ∧ ~term_lt y x ⇒
+  eval_term w x + eval_term w y + SUM (MAP (eval_term w) zs) + k =
+  SUM (MAP (eval_term w) zs1) + d
 Proof
   PairCases_on ‘x’ \\ PairCases_on ‘y’ \\ rw []
   \\ ‘get_var y1 = get_var x1’ by fs [] \\ fs [] \\ gvs []
@@ -162,14 +161,16 @@ Proof
   \\ Cases_on ‘term_lt x y’ \\ fs []
   \\ Cases_on ‘term_lt y x’ \\ fs []
   \\ rpt (pairarg_tac \\ gvs [])
-  \\ ‘(∃c l. z = [(c,l)] ∧ get_var l = get_var (SND x)) ∨ z = []’ by
-    gvs [AllCaseEqs(),add_terms_def |> DefnBase.one_line_ify NONE]
-  \\ gvs []
-  THEN1 (Cases_on ‘x’ \\ fs [] \\ Cases_on ‘x'’ \\ fs [])
-  \\ last_x_assum irule \\ fs []
-  \\ rw [] \\ rename [‘SORTED _ (_::ll)’]
-  \\ Cases_on ‘ll’ \\ fs []
-  \\ Cases_on ‘x'’ \\ Cases_on ‘x’ \\ Cases_on ‘y’ \\ Cases_on ‘h'’ \\ gvs []
+  \\ gvs [AllCaseEqs(),add_terms_def |> DefnBase.one_line_ify NONE]
+  \\ PairCases_on ‘x'’ \\ gvs []
+  \\ rename [‘~(k1<k2)’]
+  \\ ‘k1 = k2’ by fs [] \\ gvs []
+  \\ ‘SORTED term_lt ((c1,Pos k1)::l2) ∧
+      SORTED term_lt ((c1,Neg k1)::l2)’ by
+   (Cases_on ‘l2’ \\ fs [SORTED_DEF,term_lt_def]
+    \\ Cases_on ‘h'’ \\ fs [term_lt_def])
+  \\ last_x_assum drule_all
+  \\ Cases_on ‘h’ \\ fs []
 QED
 
 Theorem add_lists_sorted:
@@ -198,14 +199,18 @@ Proof
     \\ drule add_lists_sorted_lemma \\ fs [])
   \\ rpt (pairarg_tac \\ gvs [])
   \\ rename [‘get_var l1 < get_var l2’]
-  \\ ‘z = [] ∨ ∃c l. z = [(c,l)] ∧ get_var l = get_var l1’ by
-    gvs [AllCaseEqs(),add_terms_def |> DefnBase.one_line_ify NONE]
-  \\ gvs [] \\ Cases_on ‘zs’ \\ fs []
-  \\ drule add_lists_sorted_lemma
-  \\ disch_then irule \\ rw []
-  \\ rename [‘_::l5’]
-  \\ Cases_on ‘l5’ \\ fs []
-  \\ Cases_on ‘h'’ \\ fs []
+  \\ gvs [AllCaseEqs(),add_terms_def |> DefnBase.one_line_ify NONE]
+  \\ Cases_on ‘zs’ \\ fs []
+  \\ rename [‘~(k1<k2)’]
+  \\ ‘k1 = k2’ by fs [] \\ gvs []
+  \\ ‘SORTED term_lt ((c,Pos k1)::l)’ by
+   (Cases_on ‘l’ \\ fs [SORTED_DEF,term_lt_def]
+    \\ Cases_on ‘h'’ \\ fs [term_lt_def])
+  \\ ‘SORTED term_lt ((c,Pos k1)::l')’ by
+   (Cases_on ‘l'’ \\ fs [SORTED_DEF,term_lt_def]
+    \\ Cases_on ‘h'’ \\ fs [term_lt_def])
+  \\ drule_all add_lists_sorted_lemma
+  \\ Cases_on ‘h’ \\ fs []
 QED
 
 Theorem compact_add:
@@ -213,6 +218,46 @@ Theorem compact_add:
 Proof
   Cases_on ‘c1’ \\ Cases_on ‘c2’ \\ fs [add_def]
   \\ pairarg_tac \\ fs [] \\ metis_tac [add_lists_sorted]
+QED
+
+(* faster version of add_lists *)
+
+Definition add_lists'_def:
+  add_lists' xs ys zs n =
+    case xs of
+    | [] => (REV zs ys,n)
+    | (x::xs1) =>
+    case ys of
+    | [] => (REV zs xs,n)
+    | (y::ys1) =>
+      let (_,xl) = x in
+      let (_,yl) = y in
+      let xn = get_var xl in
+      let yn = get_var yl in
+        if xn < yn then add_lists' xs1 ys (x::zs) n else
+        if yn < xn then add_lists' xs ys1 (y::zs) n else
+          let (zs1,n1) = add_terms x y zs n in
+            add_lists' xs1 ys1 zs1 n1
+End
+
+Theorem add_lists'_thm:
+  add_lists xs ys = add_lists' xs ys [] 0
+Proof
+  qsuff_tac ‘∀xs ys zs n.
+    add_lists' xs ys zs n =
+      let (zs0,n0) = add_lists xs ys in
+        (REVERSE zs ++ zs0, n0+n)’
+  >- (fs [] \\ pairarg_tac \\ fs [])
+  \\ ho_match_mp_tac add_lists'_ind
+  \\ rpt gen_tac \\ strip_tac
+  \\ once_rewrite_tac [add_lists'_def]
+  \\ Cases_on ‘xs’ \\ fs [add_lists_def,REV_REVERSE_LEM]
+  \\ Cases_on ‘ys’ \\ fs [add_lists_def,REV_REVERSE_LEM]
+  \\ rename [‘term_lt h1 h2’]
+  \\ PairCases_on ‘h1’ \\ PairCases_on ‘h2’ \\ fs []
+  \\ rpt (IF_CASES_TAC \\ fs [])
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [DefnBase.one_line_ify NONE add_terms_def,AllCaseEqs()]
 QED
 
 (* division *)
