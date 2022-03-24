@@ -1,5 +1,8 @@
 A checker for pseudo-boolean constraints
 
+[array](array):
+Improving the pseudoboolean proof checker with arrays (manually)
+
 [compilation](compilation):
 Compiling the pseudo-boolean constraints checker
 
