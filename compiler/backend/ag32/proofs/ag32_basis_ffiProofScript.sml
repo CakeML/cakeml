@@ -6138,7 +6138,7 @@ Theorem ag32_good_init_state:
    ∃io_regs cc_regs.
    good_init_state (ag32_machine_config ffi_names (LENGTH code) (LENGTH data))
      (FUNPOW Next startup_clock ms0)
-     (basis_ffi cl fs) code 0
+     code 0
      ((init_asm_state code data ffi_names (cl,inp)) with
        mem_domain := (ag32_machine_config ffi_names (LENGTH code) (LENGTH data)).prog_addresses)
      (λk. Word
@@ -6246,13 +6246,9 @@ Proof
     \\ fs[ag32_targetTheory.ag32_ok_def]
     \\ fs[ag32_targetTheory.ag32_config_def]
     >- (
-      fs[ffiTheory.call_FFI_def]
-      \\ rveq
-      \\ reverse conj_tac
-      >- (
-        rw[]
-        \\ rw[APPLY_UPDATE_THM, targetSemTheory.get_reg_value_def, EVAL``ALOOKUP ffi_exitpcs ""``] )
-      \\ rw[]
+      rw[]
+      \\ rw[APPLY_UPDATE_THM, targetSemTheory.get_reg_value_def,
+         EVAL``ALOOKUP ffi_exitpcs ""``]
       \\ irule EQ_SYM
       \\ irule asm_write_bytearray_id
       \\ gen_tac \\ strip_tac
@@ -6283,9 +6279,6 @@ Proof
       \\ fs[IS_SOME_EXISTS]
       \\ rpt(IF_CASES_TAC \\ simp[targetSemTheory.get_reg_value_def]))
     \\ rw[]
-    \\ rfs[ffiTheory.call_FFI_def]
-    \\ `st.oracle = (basis_ffi cl fs).oracle` by metis_tac[evaluatePropsTheory.RTC_call_FFI_rel_consts]
-    \\ fs[basis_ffiTheory.basis_ffi_def]
     \\ `EL index ffi_names ∈ set(MAP FST FFI_codes)` by (
       fs[SUBSET_DEF]
       \\ fs[FFI_codes_def, ffi_exitpcs_def]
@@ -6296,14 +6289,6 @@ Proof
     \\ qpat_x_assum`MEM nm _`mp_tac
     \\ simp[Once FFI_codes_def]
     \\ strip_tac \\ rveq \\ fs[]
-    \\ qmatch_asmsub_abbrev_tac`oracle_result_CASE r`
-    \\ pop_assum mp_tac
-    \\ simp[basis_ffiTheory.basis_ffi_oracle_def]
-    \\ strip_tac \\ fs[Abbr`r`]
-    \\ fs[CaseEq"option",CaseEq"bool",CaseEq"oracle_result"]
-    \\ pairarg_tac \\ fs[]
-    \\ fs[CaseEq"option",CaseEq"bool",CaseEq"oracle_result",CaseEq"ffi_result"]
-    \\ rveq \\ fs[]
     \\ simp[ag32_ffi_mem_update_def]
     \\ qmatch_goalsub_abbrev_tac`asm_write_bytearray p new_bytes m2`
     \\ `asm_write_bytearray p new_bytes m2 a = asm_write_bytearray p new_bytes t1.mem a`
@@ -6315,14 +6300,8 @@ Proof
       \\ simp[ag32_prog_addresses_def]
       \\ qpat_x_assum` _ < memory_size`mp_tac
       \\ EVAL_TAC \\ simp[])
-    \\ TRY (
-      CHANGED_TAC(fs[fsFFITheory.ffi_read_def])
-      \\ fs[CaseEq"list"] \\ rveq
-      \\ PURE_TOP_CASE_TAC \\ fs[]
-      \\ PURE_TOP_CASE_TAC \\ fs[]
-      \\ PURE_TOP_CASE_TAC \\ fs[]
-      \\ reverse IF_CASES_TAC >- rw[]
-      \\ rw[]
+    >- (
+      ntac 3 (PURE_TOP_CASE_TAC >> simp[]) >> IF_CASES_TAC >> rw[]
       \\ qmatch_goalsub_abbrev_tac`set_mem_word x y m a`
       \\ qpat_x_assum`m a = _`(SUBST1_TAC o SYM)
       \\ irule set_mem_word_neq
@@ -6333,7 +6312,7 @@ Proof
       \\ qpat_x_assum`_ < memory_size`mp_tac
       \\ EVAL_TAC
       \\ Cases_on`a` \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w]
-      \\ NO_TAC)
+      )
     \\ reverse IF_CASES_TAC
     >- (
       rw[APPLY_UPDATE_THM]
@@ -6345,32 +6324,11 @@ Proof
     \\ rw[]
     \\ fs[targetSemTheory.read_ffi_bytearrays_def]
     \\ fs[targetSemTheory.read_ffi_bytearray_def]
-    \\ fs[fsFFITheory.ffi_write_def]
-    \\ fs[CaseEq"list"] \\ rveq
-    \\ qhdtm_x_assum`OPTION_CHOICE`mp_tac
-    \\ rewrite_tac[OPTION_CHOICE_EQUALS_OPTION]
-    \\ reverse strip_tac
-    >- (
-      pop_assum mp_tac \\ simp[LUPDATE_def]
-      \\ strip_tac \\ rveq
-      \\ qpat_x_assum`_ = 0w`mp_tac
-      \\ simp[] )
-    \\ fs[]
-    \\ pairarg_tac \\ fs[] \\ rveq
-    \\ rw[]
-    \\ irule asm_write_bytearray_unchanged
+    \\ ntac 4 (PURE_TOP_CASE_TAC >> simp[])
+    \\ irule asm_write_bytearray_unchanged \\ simp[]
     \\ fs[EVAL``output_offset``, output_buffer_size_def]
-    \\ fs[LENGTH_TAKE_EQ, fsFFITheory.write_def]
-    \\ pairarg_tac \\ fs[]
-    \\ qpat_x_assum`_ ∈ _.mem_domain`mp_tac
-    \\ qpat_x_assum`_ = _.mem_domain`(mp_tac o SYM)
-    \\ simp[ag32_prog_addresses_def]
-    \\ strip_tac
-    \\ CONV_TAC(LAND_CONV EVAL)
-    \\ qpat_x_assum`_ < memory_size`mp_tac
-    \\ CONV_TAC(LAND_CONV EVAL)
-    \\ Cases_on`a` \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w]
-    \\ rw[MIN_DEF])
+    \\ cheat (* TODO problem here *)
+    )
   \\ conj_tac >- (
     rw[targetSemTheory.ccache_interfer_ok_def, ag32_machine_config_def,
        lab_to_targetTheory.ffi_offset_def, ag32_ccache_interfer_def,
@@ -6505,7 +6463,7 @@ Theorem ag32_installed:
      x ∉ ag32_startup_addresses ⇒
        ((FUNPOW Next startup_clock ms0).MEM x = ms0.MEM x))
    ⇒
-   installed code 0 data 0 (SOME ffi_names) (basis_ffi cl fs)
+   installed code 0 data 0 (SOME ffi_names)
      (heap_regs ag32_backend_config.stack_conf.reg_names)
      (ag32_machine_config ffi_names (LENGTH code) (LENGTH data))
      (FUNPOW Next startup_clock ms0)
@@ -6523,7 +6481,7 @@ Proof
   \\ disch_then drule
   \\ disch_then drule
   \\ strip_tac
-  \\ qmatch_asmsub_abbrev_tac`good_init_state _ _ _ _ _ t`
+  \\ qmatch_asmsub_abbrev_tac`good_init_state _ _ _ _ t`
   \\ qexists_tac`t` \\ simp[Abbr`t`]
   \\ asm_exists_tac \\ fs[]
   \\ qhdtm_x_assum`good_init_state` mp_tac

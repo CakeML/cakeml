@@ -39,17 +39,21 @@ val ag32_ffi_mem_update_def = Define`
   ag32_ffi_mem_update name conf bytes new_bytes mem =
     if (name = "write") then
       if (HD new_bytes = 0w) then
-        case bytes of (n1 :: n0 :: off1 :: off0 :: tll) =>
+        case bytes of
+        | (n1 :: n0 :: off1 :: off0 :: tll) =>
           let k = MIN (w22n [n1; n0]) output_buffer_size in
           let written = TAKE k (DROP (w22n [off1; off0]) tll) in
             asm_write_bytearray (n2w output_offset) (conf ++ [0w;0w;n1;n0] ++ written) mem
+        | _ => mem
       else ((n2w output_offset) =+ 1w) mem
     else if (name = "read") then
-      case new_bytes of (zz :: k1 :: k0 :: _) =>
+      case new_bytes of
+      | (zz :: k1 :: k0 :: _) =>
         if (zz = 0w) then
           set_mem_word (n2w stdin_offset)
             (get_mem_word mem (n2w stdin_offset) + n2w (w22n [k1; k0])) mem
         else mem
+      | _ => mem
     else mem`;
 
 val ag32_ffi_interfer_def = Define`
