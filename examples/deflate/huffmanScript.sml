@@ -94,7 +94,7 @@ Definition encode_def:
   in
     case res of
       NONE => []
-    | SOME b => b ++ encode ss ls
+    | SOME b => b++encode ss ls
 End
 
 Definition huffman_encoding_def:
@@ -106,16 +106,70 @@ Definition huffman_encoding_def:
     (huff_tree, encode s assoc_list)
 End
 
-(* EVAL “huffman_encoding "aaaaaaaaaaaabbcdddddddddddddddddddddddrrrrrrrrrrrrrrrrrrrrrrrrrrrr"”
-   gives: [(#"r",[T]); (#"c",[T; T; T; F]); (#"b",[F; T; T; F]); (#"a",[F; T; F]); (#"d",[F; F])] *)
+EVAL “huffman_encoding "abcd"”;
 
 
 (******************************************
              Huffman decoding
 *******************************************)
 
+(*Definition FLIP_ALIST_def:
+  FLIP_ALIST [] = [] ∧
+  FLIP_ALIST ((x, y)::t) = (y,x):: FLIP_ALIST t
+End
 
+Definition decode_def:
+  decode ls [] c = [] ∧
+  decode ls code c =
+  if (LEN code) < c
+  then []
+  else
+    let
+      flip = FLIP_ALIST ls;
+      match = ALOOKUP flip (TAKE c code)
+    in
+      case match of
+        NONE => decode ls code (c+1)
+      | SOME c => [c]++(decode ls (DROP c code) 1)
+End
+ *)
 
+Definition decode_char_def:
+  decode_char (Leaf c) [] = SOME c ∧
+  decode_char (Leaf c) code = NONE ∧
+  decode_char (Node ltr rtr) [] = NONE ∧
+  decode_char (Node ltr rtr) (x::xs) =
+  case x of
+    T => decode_char ltr xs
+  | F => decode_char rtr xs
+End
+
+Definition decode_def:
+  decode tree ((c::cs) :bool list) ([]   :bool list) = decode tree cs [c] ∧
+  decode tree ([]      :bool list) (code :bool list) =
+  let
+    res = decode_char tree code
+  in
+    case res of
+      NONE => ""
+    | SOME r => r ∧
+  decode tree ((c::cs) :bool list) (code :bool list) =
+  let
+    res = decode_char tree code
+  in
+    case res of
+      NONE => decode tree cs (APPEND code [c])
+    | SOME r => r::(decode tree cs [c])
+End
+
+EVAL “let
+        (tree, code) = huffman_encoding "abcd"
+      in
+     decode tree code []”;
+
+Definition huffman_decoding_def:
+  huffman_decoding tree code = decode tree tree code
+End
 
 
 
