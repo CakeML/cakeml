@@ -181,6 +181,7 @@ val ffi_interfer_ok_def = Define`
        index < LENGTH mc_conf.ffi_names ∧
        read_ffi_bytearrays mc_conf ms2 = (SOME bytes, SOME bytes2) ∧
        LENGTH new_bytes = LENGTH bytes2 ∧
+       (EL index mc_conf.ffi_names = "" ⇒ new_bytes = bytes2) ∧
        (mc_conf.prog_addresses = t1.mem_domain) ∧
        target_state_rel mc_conf.target
          (t1 with pc := -n2w ((3 + index) * ffi_offset) + pc) ms2 ∧
