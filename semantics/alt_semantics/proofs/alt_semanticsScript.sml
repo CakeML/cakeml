@@ -4,7 +4,8 @@
 *)
 open preamble semanticsTheory bigStepTheory smallStepTheory
      semanticPrimitivesPropsTheory bigClockTheory
-     funBigStepEquivTheory bigSmallEquivTheory
+     smallStepPropsTheory itree_semanticsPropsTheory
+     funBigStepEquivTheory bigSmallEquivTheory itree_semanticsEquivTheory
 
 val _ = new_theory "alt_semantics";
 
@@ -100,5 +101,104 @@ Proof
   Cases_on `decs_diverges env st prog` >> gvs[] >>
   simp[lprefix_lub_big_small]
 QED
+
+Theorem itree_semantics:
+  st.eval_state = NONE ⇒ (
+  (semantics_prog st env prog (Terminate outcome io_list) ⇔
+    ∃n io res.
+      trace_prefix n (itree_ffi st) (itree_of st env prog) = (io, SOME res) ∧
+      io_list = st.ffi.io_events ++ io ∧
+      if outcome = Success then res = Termination
+      else ∃s conf ws f.
+              outcome = FFI_outcome (Final_event s conf ws f) ∧
+              res = FinalFFI (s,conf,ws) f) ∧
+  (semantics_prog st env prog (Diverge io_trace) ⇔
+    (∀n. ∃io. trace_prefix n (itree_ffi st) (itree_of st env prog) = (io, NONE)) ∧
+    lprefix_lub
+      { fromList (st.ffi.io_events ++ io) | io |
+        ∃n res. trace_prefix n (itree_ffi st) (itree_of st env prog) = (io,res) }
+      io_trace) ∧
+  (semantics_prog st env prog Fail ⇔
+    ∃n io. trace_prefix n (itree_ffi st) (itree_of st env prog) = (io, SOME Error))
+  )
+Proof
+  rw[small_step_semantics]
+  >- ( (* termination *)
+    eq_tac >> rw[] >> Cases_on `outcome` >> gvs[]
+    >- (imp_res_tac small_eval_decs_trace_prefix_termination >> simp[SF SFY_ss])
+    >- (imp_res_tac small_eval_decs_trace_prefix_termination >> simp[SF SFY_ss])
+    >- (
+      Cases_on `f` >>
+      imp_res_tac small_eval_decs_trace_prefix_ffi_error >> simp[SF SFY_ss]
+      )
+    >- (drule trace_prefix_small_eval_decs_termination >> rw[SF SFY_ss, SF DNF_ss])
+    >- (imp_res_tac trace_prefix_small_eval_decs_ffi_error >> simp[SF SFY_ss])
+    )
+  >- ( (* divergence *)
+    `small_decl_diverges env (st,Decl (Dlocal [] prog),[]) =
+     (∀n. ∃io. trace_prefix n (itree_ffi st) (itree_of st env prog) = (io,NONE))` by (
+      eq_tac >> rw[]
+      >- (
+        CCONTR_TAC >> gvs[] >>
+        qpat_x_assum `small_decl_diverges _ _` mp_tac >> simp[] >>
+        rw[GSYM small_decl_total, small_eval_decs_eq_Dlocal] >>
+        Cases_on `trace_prefix n (itree_ffi st) (itree_of st env prog)` >> gvs[] >>
+        Cases_on `r` >> gvs[] >> Cases_on `x` >> gvs[]
+        >- (imp_res_tac trace_prefix_small_eval_decs_termination >> simp[SF SFY_ss])
+        >- (imp_res_tac trace_prefix_small_eval_decs_type_error >> simp[SF SFY_ss])
+        >- (
+          PairCases_on `p` >>
+          imp_res_tac trace_prefix_small_eval_decs_ffi_error >> simp[SF SFY_ss]
+          )
+        )
+      >- (
+        CCONTR_TAC >> gvs[GSYM small_decl_total, small_eval_decs_eq_Dlocal] >>
+        last_x_assum assume_tac >> last_x_assum mp_tac >> simp[] >>
+        PairCases_on `b` >> Cases_on `b1` >> gvs[]
+        >- (
+          imp_res_tac small_eval_decs_trace_prefix_termination >>
+          qexists_tac `n` >> simp[]
+          ) >>
+        Cases_on `e` >> gvs[]
+        >- (
+          imp_res_tac small_eval_decs_trace_prefix_termination >>
+          qexists_tac `n` >> simp[]
+          ) >>
+        Cases_on `a` >> gvs[]
+        >- (
+          imp_res_tac small_eval_decs_trace_prefix_type_error >>
+          qexists_tac `n` >> simp[]
+          )
+        >- (
+          gvs[GSYM bigSmallEquivTheory.small_big_decs_equiv] >>
+          imp_res_tac bigClockTheory.big_dec_unclocked_no_timeout >> gvs[]
+          )
+        >- (
+          Cases_on `f` >> imp_res_tac small_eval_decs_trace_prefix_ffi_error >>
+          qexists_tac `n` >> simp[]
+          )
+        )
+      ) >>
+    reverse $ Cases_on `small_decl_diverges env (st,Decl (Dlocal [] prog),[])` >>
+    gvs[] >- metis_tac[] >>
+    irule lprefix_lub_equiv_chain >> irule_at Any IMP_equiv_lprefix_chain >>
+    simp[lprefix_chain_RTC_decl_step_reln, lprefix_chain_trace_prefix] >>
+    rw[lprefix_rel_def, PULL_EXISTS, LPREFIX_fromList, from_toList]
+    >- (
+      PairCases_on `s` >> drule decl_step_trace_prefix_io_events >> rw[] >>
+      goal_assum drule >> simp[]
+      )
+    >- (
+      `res = NONE` by (first_x_assum $ qspec_then `n` assume_tac >> gvs[]) >> gvs[] >>
+      drule trace_prefix_decl_step_io_events >> rw[] >> goal_assum drule >> simp[]
+      )
+    )
+  >- ( (* type error *)
+    eq_tac >> rw[]
+    >- (drule small_eval_decs_trace_prefix_type_error >> rw[] >> simp[SF SFY_ss])
+    >- (drule trace_prefix_small_eval_decs_type_error >> rw[SF SFY_ss])
+    )
+QED
+
 
 val _ = export_theory();

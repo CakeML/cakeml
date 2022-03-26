@@ -243,30 +243,6 @@ Proof
   eq_tac >> rw[] >> gvs[call_FFI_def, AllCaseEqs()]
 QED
 
-Theorem machine_sem_unique:
-  machine_sem mc ffi ms b1 ∧ machine_sem mc ffi ms b2 ⇒ b1 = b2
-Proof
-  rw[DefnBase.one_line_ify NONE machine_sem_def] >>
-  Cases_on `b1` >> gvs[] >> Cases_on `b2` >> gvs[]
-  >- imp_res_tac unique_lprefix_lub
-  >- (last_x_assum $ qspec_then `k` assume_tac >> gvs[])
-  >- (last_x_assum $ qspec_then `k` assume_tac >> gvs[])
-  >- (last_x_assum $ qspec_then `k` assume_tac >> gvs[])
-  >- (
-    gvs[evaluate_evaluate'] >> rpt (pairarg_tac >> gvs[]) >>
-    dxrule evaluate'_agree >> disch_then dxrule >> rw[]
-    )
-  >- (
-    gvs[evaluate_evaluate'] >> rpt (pairarg_tac >> gvs[]) >>
-    dxrule evaluate'_agree >> disch_then dxrule >> rw[]
-    )
-  >- (last_x_assum $ qspec_then `k` assume_tac >> gvs[])
-  >- (
-    gvs[evaluate_evaluate'] >> rpt (pairarg_tac >> gvs[]) >>
-    dxrule evaluate'_agree >> disch_then dxrule >> rw[]
-    )
-QED
-
 
 (*********** halt_rel **********)
 

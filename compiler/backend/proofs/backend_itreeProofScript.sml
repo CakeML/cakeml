@@ -3,7 +3,7 @@
 *)
 open preamble;
 open semanticsPropsTheory evaluatePropsTheory ffiTheory targetPropsTheory
-     backendProofTheory primSemEnvTheory;
+     backendProofTheory primSemEnvTheory alt_semanticsTheory;
 open target_itreeSemTheory target_itreePropsTheory target_itreeEquivTheory
      itree_semanticsTheory itree_semanticsPropsTheory itree_semanticsEquivTheory;
 
