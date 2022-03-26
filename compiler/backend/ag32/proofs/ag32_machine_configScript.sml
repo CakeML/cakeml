@@ -41,6 +41,7 @@ val ag32_ffi_mem_update_def = Define`
       if (HD new_bytes = 0w) then
         case bytes of
         | (n1 :: n0 :: off1 :: off0 :: tll) =>
+          if LENGTH conf ≠ 8 then mem else
           let k = MIN (w22n [n1; n0]) output_buffer_size in
           let written = TAKE k (DROP (w22n [off1; off0]) tll) in
             asm_write_bytearray (n2w output_offset) (conf ++ [0w;0w;n1;n0] ++ written) mem

@@ -3043,7 +3043,20 @@ Proof
     simp[Abbr`m'`]
     \\ IF_CASES_TAC
     >- (
-      DEP_REWRITE_TAC[get_mem_word_asm_write_bytearray_UNCHANGED_LT]
+      IF_CASES_TAC
+      >- (
+        DEP_REWRITE_TAC[get_mem_word_asm_write_bytearray_UNCHANGED_LT]
+        \\ conj_tac
+        >- (
+          EVAL_TAC \\ fs[]
+          \\ Cases_on`ms.R 3w` \\ fs[]
+          \\ fs[word_ls_n2w, word_lo_n2w]
+          \\ fs[EVAL``heap_start_offset``] )
+        \\ DEP_REWRITE_TAC[get_mem_word_UPDATE]
+        \\ conj_tac >- EVAL_TAC
+        \\ simp[])
+      \\ pop_assum kall_tac
+      \\ DEP_REWRITE_TAC[get_mem_word_asm_write_bytearray_UNCHANGED_LT]
       \\ conj_tac
       >- (
         EVAL_TAC \\ fs[]
@@ -3076,19 +3089,13 @@ Proof
   \\ simp[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
   \\ rw[]
   \\ simp[Abbr`m'`]
-  \\ rw[]
+  \\ reverse IF_CASES_TAC
   >- (
-    irule EQ_SYM
-    \\ irule asm_write_bytearray_unchanged_all_words
-    \\ conj_tac
+    simp[APPLY_UPDATE_THM]
+    \\ IF_CASES_TAC
     >- (
-      simp[IN_all_words, LENGTH_TAKE_EQ_MIN]
+      pop_assum mp_tac
       \\ EVAL_TAC
-      \\ simp[DISJ_EQ_IMP]
-      \\ qmatch_goalsub_abbrev_tac`LENGTH conf + (k + _)`
-      \\ `k ≤ 2048` by simp[Abbr`k`]
-      \\ reverse(Cases_on`LENGTH conf = 8` \\ fs[])
-      >- ( rveq \\ fs[LUPDATE_def] )
       \\ fs[EVAL``cline_size``] )
     \\ irule EQ_SYM
     \\ irule asm_write_bytearray_unchanged_all_words
@@ -3104,12 +3111,38 @@ Proof
     \\ rw[]
     \\ pop_assum mp_tac
     \\ EVAL_TAC
-    \\ fs[EVAL``cline_size``] )
-  \\ simp[APPLY_UPDATE_THM]
+    \\ fs[EVAL``cline_size``]
+    )
   \\ IF_CASES_TAC
   >- (
-    pop_assum mp_tac
+    irule EQ_SYM
+    \\ irule asm_write_bytearray_unchanged_all_words
+    \\ conj_tac
+    >- (
+      simp[IN_all_words, word_add_n2w, ADD1, DISJ_EQ_IMP]
+      \\ Cases_on`ms.R 3w` \\ fs[EVAL``heap_start_offset``, ADD1]
+      \\ simp[word_add_n2w, EVAL``startup_code_size``]
+      \\ rw[]
+      \\ fs[EVAL``cline_size``]
+      \\ fs[word_lo_n2w, word_ls_n2w] )
+    \\ simp[APPLY_UPDATE_THM]
+    \\ rw[]
+    \\ pop_assum mp_tac
     \\ EVAL_TAC
+    \\ fs[EVAL``cline_size``]
+    )
+  \\ pop_assum kall_tac
+  \\ irule EQ_SYM
+  \\ irule asm_write_bytearray_unchanged_all_words
+  \\ conj_tac
+  >- (
+    simp[IN_all_words, LENGTH_TAKE_EQ_MIN]
+    \\ EVAL_TAC
+    \\ simp[DISJ_EQ_IMP]
+    \\ qmatch_goalsub_abbrev_tac`LENGTH conf + (k + _)`
+    \\ `k ≤ 2048` by simp[Abbr`k`]
+    \\ reverse(Cases_on`LENGTH conf = 8` \\ fs[])
+    >- ( rveq \\ fs[LUPDATE_def] )
     \\ fs[EVAL``cline_size``] )
   \\ irule EQ_SYM
   \\ irule asm_write_bytearray_unchanged_all_words
@@ -4186,6 +4219,10 @@ Proof
     \\ simp[ag32_ffi_mem_domain_def]
     \\ EVAL_TAC
     \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w] )
+  \\ `LENGTH conf = 8` by (
+    fs[fsFFITheory.ffi_write_def]
+    \\ fs[OPTION_CHOICE_EQUALS_OPTION, LUPDATE_def] \\ rveq \\ fs[] )
+  \\ fs[]
   \\ irule asm_write_bytearray_unchanged
   \\ qpat_x_assum`_ = w2n (ms.R 4w)`(assume_tac o SYM)
   \\ Cases_on`ms.R 3w` \\ fs[memory_size_def]
@@ -4193,7 +4230,6 @@ Proof
   \\ fs[word_add_n2w]
   \\ fs[EVAL``output_offset``]
   \\ Cases_on`x` \\ fs[word_lo_n2w, word_ls_n2w]
-  \\ qmatch_goalsub_abbrev_tac`LENGTH conf + ll`
   \\ pop_assum mp_tac
   \\ simp[LENGTH_TAKE_EQ]
   \\ reverse IF_CASES_TAC
@@ -4204,11 +4240,7 @@ Proof
     \\ pairarg_tac \\ fs[fsFFITheory.write_def]
     \\ pairarg_tac \\ fs[] \\ rveq )
   \\ simp[EVAL``output_buffer_size``]
-  \\ `LENGTH conf = 8` by (
-    fs[fsFFITheory.ffi_write_def]
-    \\ fs[OPTION_CHOICE_EQUALS_OPTION, LUPDATE_def] \\ rveq \\ fs[] )
   \\ strip_tac
-  \\ simp[Abbr`ll`]
   \\ conj_tac >- simp[MIN_DEF]
   \\ conj_tac
   >- (
@@ -6324,10 +6356,19 @@ Proof
     \\ rw[]
     \\ fs[targetSemTheory.read_ffi_bytearrays_def]
     \\ fs[targetSemTheory.read_ffi_bytearray_def]
-    \\ ntac 4 (PURE_TOP_CASE_TAC >> simp[])
+    \\ ntac 5 (PURE_TOP_CASE_TAC >> simp[])
     \\ irule asm_write_bytearray_unchanged \\ simp[]
     \\ fs[EVAL``output_offset``, output_buffer_size_def]
-    \\ cheat (* TODO problem here *)
+    \\ fs[LENGTH_TAKE_EQ, fsFFITheory.write_def]
+    \\ qpat_x_assum`_ ∈ _.mem_domain`mp_tac
+    \\ qpat_x_assum`_ = _.mem_domain`(mp_tac o SYM)
+    \\ simp[ag32_prog_addresses_def]
+    \\ strip_tac
+    \\ CONV_TAC(LAND_CONV EVAL)
+    \\ qpat_x_assum`_ < memory_size`mp_tac
+    \\ CONV_TAC(LAND_CONV EVAL)
+    \\ Cases_on`a` \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w]
+    \\ rw[MIN_DEF]
     )
   \\ conj_tac >- (
     rw[targetSemTheory.ccache_interfer_ok_def, ag32_machine_config_def,
