@@ -141,7 +141,7 @@ Definition evaluate_def[nocompute]:
         let fp_opt =
           (if (st'.fp_state.canOpt = FPScope Opt)
           then
-            ((case (do_fprw r (st'.fp_state.opts(( 0 : num))) (st'.fp_state.rws)) of
+            ((case (do_fprw r (st'.fp_state.opts 0) st'.fp_state.rws) of
             (* if it fails, just use the old value tree *)
               NONE => r
             | SOME r_opt => r_opt

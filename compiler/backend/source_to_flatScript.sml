@@ -115,6 +115,7 @@ val astOp_to_flatOp_def = Define `
   | Vsub => flatLang$Vsub
   | Vlength => flatLang$Vlength
   | Aalloc => flatLang$Aalloc
+  | AallocFixed => flatLang$AallocFixed
   | Asub => flatLang$Asub
   | Alength => flatLang$Alength
   | Aupdate => flatLang$Aupdate

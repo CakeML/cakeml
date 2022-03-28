@@ -15,6 +15,13 @@ Proof
   Cases_on `vs` \\ fs[do_fpoptimise_def]
 QED
 
+Theorem do_fpoptimise_LENGTH:
+  LENGTH (do_fpoptimise annot vs) = LENGTH vs
+Proof
+  Induct_on `vs` \\ fs[do_fpoptimise_def]
+  \\ rpt strip_tac \\ Cases_on `h` \\ fs[do_fpoptimise_def, Once do_fpoptimise_cons]
+QED
+
 Theorem fp_opts_mono[local]:
   ! (fps1 fps2 fps3:fpState) n m.
     (! x. fps1.opts (n + x) = fps2.opts x) /\
@@ -107,13 +114,26 @@ Theorem fpOp_determ:
   ! op refs refsN (ffi1 ffi2:'a ffi_state) (ffi3:'b ffi_state) r vl.
     getOpClass op = Icing /\
     do_app (refs, ffi1) op vl = SOME ((refsN, ffi2), r) ==>
-    do_app (refs, ffi3) op vl = SOME ((refsN, ffi3), r)
+    do_app (refs, ffi3) op vl = SOME ((refs, ffi3), r)
 Proof
   rpt strip_tac \\ Cases_on `op` \\ fs[astTheory.getOpClass_def]
   \\ rpt (qpat_x_assum `do_app _ _ _ = _` mp_tac)
   \\ fs[do_app_def]
   \\ rpt (TOP_CASE_TAC \\ fs[])
 QED
+
+Theorem realOp_determ:
+  ! op refs refsN (ffi1 ffi2:'a ffi_state) (ffi3:'b ffi_state) r vl.
+    getOpClass op = Reals /\
+    do_app (refs, ffi1) op vl = SOME ((refsN, ffi2), r) ==>
+    do_app (refs, ffi3) op vl = SOME ((refs, ffi3), r)
+Proof
+  rpt strip_tac \\ Cases_on `op` \\ fs[astTheory.getOpClass_def]
+  \\ rpt (qpat_x_assum `do_app _ _ _ = _` mp_tac)
+  \\ fs[do_app_def]
+  \\ rpt (TOP_CASE_TAC \\ fs[])
+QED
+
 
 Theorem evaluate_fp_stable:
   ! (s1 s2) env exps r.

@@ -1446,7 +1446,7 @@ Proof
   \\ rfs [dec_clock_def]
   \\ TRY (drule_then (drule_then assume_tac) io_events_mono_antisym)
   \\ fs []
-  \\ TRY (rename1 ‘getOpClass op = Icing’
+  \\ TRY (rename1 ‘_ = Icing’
           \\ qpat_x_assum ‘∀ outcome. _ ≠ Rerr (Rabort _)’ mp_tac
           \\ ntac 4 TOP_CASE_TAC \\ gs[shift_fp_opts_def])
   \\ TRY (imp_res_tac do_app_io_events_mono
@@ -1456,6 +1456,7 @@ Proof
   \\ fsrw_tac [SATISFY_ss] [do_app_NONE_ffi]
   \\ TRY (drule_then (simp o single) do_app_ffi_unchanged)
   \\ imp_res_tac fpOp_determ \\ gs[shift_fp_opts_def]
+  \\ imp_res_tac (INST_TYPE [beta |-> alpha] fpOp_determ) \\ gs[shift_fp_opts_def]
   \\ TOP_CASE_TAC  \\ gs[state_component_equality, shift_fp_opts_def]
 QED
 

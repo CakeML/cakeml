@@ -232,6 +232,7 @@ val flat_op_to_display_def = Define `
     | Vsub => empty_item (strlit "Vsub")
     | Vlength => empty_item (strlit "Vlength")
     | Aalloc => empty_item (strlit "Aalloc")
+    | AallocFixed => empty_item (strlit "AallocFixed")
     | Asub => empty_item (strlit "Asub")
     | Asub_unsafe => empty_item (strlit "Asub_unsafe")
     | Alength => empty_item (strlit "Alength")

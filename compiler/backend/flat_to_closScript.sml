@@ -158,6 +158,7 @@ Definition compile_op_def:
     | WordFromInt W8 => arg1 xs (\x. Op t Mod [Op t (Const 256) []; x])
     | WordToInt W8 => arg1 xs (\x. x)
     | Aw8length => Op t LengthByte xs
+    | AallocFixed => Op t Ref xs
     | Aalloc => Let t xs (If t (Op t Less [Op t (Const 0) []; Var t 1])
                                (Raise t (Op t (Cons subscript_tag) []))
                                (Op t RefArray [Var t 0; Var t 1]))

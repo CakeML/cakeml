@@ -457,6 +457,23 @@ Proof
     \\ irule_at Any v_rel_update
     \\ first_assum (irule_at Any)
     \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
+  \\ Cases_on ‘op = AallocFixed’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, store_alloc_def, with_same_refs_and_ffi]
+    \\ gs [state_ok_def, ref_ok_thm, state_rel_def, EVERY_EL, INJ_IFF,
+           FLOOKUP_FUN_FMAP, EL_APPEND_EQN]
+    \\ rw [] \\ gs [FUN_FMAP_DEF, ref_rel_def, NOT_LESS, LESS_OR_EQ, ref_ok_def]
+    >- (
+      irule ref_rel_mono
+      \\ first_assum (irule_at Any) \\ rw []
+      \\ irule_at Any v_rel_update
+      \\ first_assum (irule_at Any)
+      \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
+    \\ rw [Once listTheory.LIST_REL_EL_EQN]
+    \\ irule_at Any v_rel_update
+    \\ first_x_assum drule \\ rw [v_ok_def]
+    \\ pop_assum $ irule_at Any
+    \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
   \\ Cases_on ‘op = Vlength’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, store_alloc_def, with_same_refs_and_ffi])
@@ -1155,4 +1172,3 @@ Proof
 QED
 
 val _ = export_theory();
-

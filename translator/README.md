@@ -1,8 +1,5 @@
 A proof-producing translator from HOL functions to CakeML.
 
-[decProgScript.sml](decProgScript.sml):
-Translation of CakeML source AST
-
 [ml_module_demoScript.sml](ml_module_demoScript.sml):
 Demonstration of using the translator to produce a CakeML module.
 
@@ -59,9 +56,6 @@ algorithms in "Purely Functional Data Structures" by Chris Okasaki (1996).
 
 [other-examples](other-examples):
 A few other examples of HOL functions that can be translated into CakeML.
-
-[pp_setupScript.sml](pp_setupScript.sml):
-Install manually defined components of the pretty-printer.
 
 [std_preludeScript.sml](std_preludeScript.sml):
 Translations of various useful HOL functions and datatypes, to serve as a

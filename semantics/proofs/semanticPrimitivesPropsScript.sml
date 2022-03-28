@@ -3,7 +3,7 @@
 *)
 
 open preamble;
-open libTheory astTheory namespaceTheory semanticPrimitivesTheory;
+open libTheory astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
 open namespacePropsTheory;
 open boolSimps;
 
@@ -42,36 +42,6 @@ Theorem extend_dec_env_assoc[simp]:
 Proof
  rw [extend_dec_env_def]
 QED
-
- (*
-Theorem Tword_simp[simp]:
-   (∀z1 z2. (Tword z1 = Tword z2) ⇔ (z1 = z2)) ∧
-   (∀z1 z2. (TC_word z1 = TC_word z2) ⇔ (z1 = z2)) ∧
-   (∀z. TC_word z ≠ TC_string) ∧
-   (∀z. TC_word z ≠ TC_tup) ∧
-   (∀z. TC_word z ≠ TC_word8array) ∧
-   (∀z. (TC_word z = TC_word8) ⇔ (z = W8)) ∧
-   (∀z. (TC_word z = TC_word64) ⇔ (z = W64)) ∧
-   (∀z. (TC_word8 = TC_word z) ⇔ (z = W8)) ∧
-   (∀z. (TC_word64 = TC_word z) ⇔ (z = W64)) ∧
-   (Tword8 ≠ Tword64) ∧
-   (∀z. Tword z ≠ Tchar) ∧
-   (∀z. Tword z ≠ Tint) ∧
-   (∀z v. Tword z ≠ Tvar v) ∧
-   (∀z v. Tword z ≠ Tvar_db v) ∧
-   (∀z. (Tword8 = Tword z) ⇔ (z = W8)) ∧
-   (∀z. (Tword64 = Tword z) ⇔ (z = W64)) ∧
-   (∀z. (Tword z = Tword8) ⇔ (z = W8)) ∧
-   (∀z. (Tword z = Tword64) ⇔ (z = W64)) ∧
-   (∀n a. (Tword W8 = Tapp a n) ⇔ (a = [] ∧ n = TC_word8)) ∧
-   (∀n a. (Tword W64 = Tapp a n) ⇔ (a = [] ∧ n = TC_word64)) ∧
-   (∀z a n. (Tword z = Tapp a n) ⇔ (a = [] ∧ n = TC_word z)) ∧
-   (∀n a. (Tword8 = Tapp a n) ⇔ (a = [] ∧ n = TC_word8)) ∧
-   (∀n a. (Tword64 = Tapp a n) ⇔ (a = [] ∧ n = TC_word64))
-Proof
-  rpt conj_tac \\ rpt Cases \\ EVAL_TAC \\ metis_tac[]
-QED
-  *)
 
 val opw_lookup_def = Define`
   (opw_lookup Andw = word_and) ∧
@@ -175,6 +145,49 @@ Proof
  metis_tac [pat_bindings_accum]
 QED
 
+Theorem pmatch_nsAppend:
+  (∀ns st pat v env m ns'.
+    (pmatch ns st pat v env = No_match
+   ⇒ pmatch (nsAppend ns ns') st pat v env = No_match) ∧
+    (pmatch ns st pat v env = Match m
+   ⇒ pmatch (nsAppend ns ns') st pat v env = Match m)) ∧
+  (∀ns st pats vs env m ns'.
+    (pmatch_list ns st pats vs env = No_match
+   ⇒ pmatch_list (nsAppend ns ns') st pats vs env = No_match) ∧
+    (pmatch_list ns st pats vs env = Match m
+   ⇒ pmatch_list (nsAppend ns ns') st pats vs env = Match m))
+Proof
+  ho_match_mp_tac pmatch_ind >>
+  rw[pmatch_def]
+  >- (
+    pop_assum mp_tac >> TOP_CASE_TAC >>
+    `nsLookup (nsAppend ns ns') n = SOME x` by
+      gvs[namespacePropsTheory.nsLookup_nsAppend_some] >>
+    gvs[] >> PairCases_on `x` >> gvs[] >>
+    rpt (TOP_CASE_TAC >> gvs[])
+    )
+  >- (
+    pop_assum mp_tac >> TOP_CASE_TAC >>
+    `nsLookup (nsAppend ns ns') n = SOME x` by
+      gvs[namespacePropsTheory.nsLookup_nsAppend_some] >>
+    gvs[] >> PairCases_on `x` >> gvs[] >>
+    rpt (TOP_CASE_TAC >> gvs[])
+    )
+  >- (TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[])
+  >- (TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[])
+  >- (
+    pop_assum mp_tac >> TOP_CASE_TAC >> gvs[] >>
+    TOP_CASE_TAC >> gvs[]
+    )
+  >- (
+    pop_assum mp_tac >> TOP_CASE_TAC >> gvs[] >>
+    TOP_CASE_TAC >> gvs[]
+    )
+QED
+
+Theorem pmatch_nsAppend_No_match = pmatch_nsAppend |> cj 1 |> cj 1;
+Theorem pmatch_nsAppend_Match = pmatch_nsAppend |> cj 1 |> cj 2;
+
 Theorem pmatch_acc:
   (!envc store p v env env' env2.
     (pmatch envc store p v env = Match env' ⇔
@@ -229,151 +242,6 @@ val do_app_cases = save_thm ("do_app_cases",
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
    ALL_CONV));
 
-(*
-Theorem do_app_cases:
- !st op st' vs v.
-  (do_app st op vs = SOME (st',v))
-  =
-  ((?op' n1 n2.
-    (op = Opn op') ∧ (vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∧
-    (((((op' = Divide) ∨ (op' = Modulo)) ∧ (n2 = 0)) ∧
-     (st' = st) ∧ (v = Rerr (Rraise (prim_exn "Div")))) ∨
-     ~(((op' = Divide) ∨ (op' = Modulo)) ∧ (n2 = 0)) ∧
-     (st' = st) ∧ (v = Rval (Litv (IntLit (opn_lookup op' n1 n2)))))) ∨
-  (?op' n1 n2.
-    (op = Opb op') ∧ (vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∧
-    (st = st') ∧ (v = Rval (Boolv (opb_lookup op' n1 n2)))) ∨
-  ((op = Equality) ∧ (st = st') ∧
-    ((?v1 v2.
-      (vs = [v1;v2]) ∧
-      ((?b. (do_eq v1 v2 = Eq_val b) ∧ (v = Rval (Boolv b))) ∨
-       ((do_eq v1 v2 = Eq_closure) ∧ (v = Rerr (Rraise (prim_exn "Eq")))))))) ∨
-  (?lnum v2.
-    (op = Opassign) ∧ (vs = [Loc lnum; v2]) ∧ (store_assign lnum (Refv v2) st = SOME st') ∧
-     (v = Rval (Conv NONE []))) ∨
-  (?lnum v2.
-    (op = Opref) ∧ (vs = [v2]) ∧ (store_alloc (Refv v2) st = (st',lnum)) ∧
-     (v = Rval (Loc lnum))) ∨
-  (?lnum v2.
-    (st = st') ∧
-    (op = Opderef) ∧ (vs = [Loc lnum]) ∧ (store_lookup lnum st = SOME (Refv v2)) ∧
-    (v = Rval v2)) ∨
-  (?i w.
-      (op = Aw8alloc) ∧ (vs = [Litv (IntLit i); Litv (Word8 w)]) ∧
-      (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Subscript")) ∧ (st = st')) ∨
-       (?lnum. ~(i < 0) ∧
-        (st',lnum) = store_alloc (W8array (REPLICATE (Num (ABS i)) w)) st ∧
-        v = Rval (Loc lnum)))) ∨
-  (?ws lnum i.
-    (op = Aw8sub) ∧ (vs = [Loc lnum; Litv (IntLit i)]) ∧ (st = st') ∧
-    store_lookup lnum st = SOME (W8array ws) ∧
-    (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Subscript"))) ∨
-     ((~(i < 0) ∧ Num (ABS i) ≥ LENGTH ws ∧
-       v = Rerr (Rraise (prim_exn "Subscript")))) ∨
-     (~(i < 0) ∧
-      Num (ABS i) < LENGTH ws ∧
-      (v = Rval (Litv (Word8 (EL (Num(ABS i)) ws))))))) ∨
-  (?lnum ws.
-    (op = Aw8length) ∧ (vs = [Loc lnum]) ∧ st = st' ∧
-    store_lookup lnum st = SOME (W8array ws) ∧
-    v = Rval (Litv (IntLit (&(LENGTH ws))))) ∨
-  (?ws lnum i w.
-    (op = Aw8update) ∧ (vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∧
-    store_lookup lnum st = SOME (W8array ws) ∧
-    (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Subscript")) ∧ st = st') ∨
-     ((~(i < 0) ∧ Num (ABS i) ≥ LENGTH ws ∧ st = st' ∧
-       v = Rerr (Rraise (prim_exn "Subscript")))) ∨
-     (~(i < 0) ∧
-      Num (ABS i) < LENGTH ws ∧
-      store_assign lnum (W8array (LUPDATE w (Num (ABS i)) ws)) st = SOME st' ∧
-      v = Rval (Conv NONE [])))) ∨
-  (?n.
-    (op = Chr) ∧ (vs = [Litv(IntLit n)]) ∧ st = st' ∧
-    ((n < 0 ∧ v = Rerr (Rraise (prim_exn "Chr"))) ∨
-     (n > 255 ∧ v = Rerr (Rraise (prim_exn "Chr"))) ∨
-     (~(n < 0) ∧ ~(n > 255) ∧ v = Rval (Litv(Char(CHR(Num(ABS n)))))))) ∨
-  (?c.
-    (op = Ord) ∧ (vs = [Litv(Char c)]) ∧ st = st' ∧
-    (v = Rval(Litv(IntLit(&(ORD c)))))) ∨
-  (?opb c1 c2.
-    (op = Chopb opb) ∧ (vs = [Litv(Char c1);Litv(Char c2)]) ∧
-    (st = st') ∧ (v = Rval(Boolv(opb_lookup opb (&(ORD c1)) (&(ORD c2)))))) ∨
-  (?str.
-    (op = Explode) ∧ (vs = [Litv(StrLit str)]) ∧
-    st = st' ∧
-    v = Rval (char_list_to_v (EXPLODE str))) ∨
-  (?vs' v'.
-    (op = Implode) ∧ (vs = [v']) ∧ (SOME vs' = v_to_char_list v') ∧
-    st = st' ∧
-    v = Rval (Litv (StrLit (IMPLODE vs')))) ∨
-  (?str.
-    (op = Strlen) ∧ (vs = [Litv(StrLit str)]) ∧
-    st = st' ∧
-    v = Rval (Litv(IntLit(&(STRLEN str))))) ∨
-  (?vs' v'.
-    (op = VfromList) ∧ (vs = [v']) ∧ (SOME vs' = v_to_list v') ∧
-    st = st' ∧
-    v = Rval (Vectorv vs')) ∨
-  (?vs' lnum i.
-    (op = Vsub) ∧ (vs = [Vectorv vs'; Litv (IntLit i)]) ∧ (st = st') ∧
-    (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Subscript"))) ∨
-     ((~(i < 0) ∧ Num (ABS i) ≥ LENGTH vs' ∧
-       v = Rerr (Rraise (prim_exn "Subscript")))) ∨
-     (~(i < 0) ∧
-      Num (ABS i) < LENGTH vs' ∧
-      (v = Rval (EL (Num(ABS i)) vs'))))) ∨
-  (?vs'.
-    (op = Vlength) ∧ (vs = [Vectorv vs']) ∧ st = st' ∧
-    v = Rval (Litv (IntLit (&(LENGTH vs'))))) ∨
-  (?i v'.
-      (op = Aalloc) ∧ (vs = [Litv (IntLit i); v']) ∧
-      (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Subscript")) ∧ (st = st')) ∨
-       (?lnum. ~(i < 0) ∧
-        (st',lnum) = store_alloc (Varray (REPLICATE (Num (ABS i)) v')) st ∧
-        v = Rval (Loc lnum)))) ∨
-  (?vs' lnum i.
-    (op = Asub) ∧ (vs = [Loc lnum; Litv (IntLit i)]) ∧ (st = st') ∧
-    store_lookup lnum st = SOME (Varray vs') ∧
-    (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Subscript"))) ∨
-     ((~(i < 0) ∧ Num (ABS i) ≥ LENGTH vs' ∧
-       v = Rerr (Rraise (prim_exn "Subscript")))) ∨
-     (~(i < 0) ∧
-      Num (ABS i) < LENGTH vs' ∧
-      (v = Rval (EL (Num(ABS i)) vs'))))) ∨
-  (?lnum vs'.
-    (op = Alength) ∧ (vs = [Loc lnum]) ∧ st = st' ∧
-    store_lookup lnum st = SOME (Varray vs') ∧
-    v = Rval (Litv (IntLit (&(LENGTH vs'))))) ∨
-  (?vs' lnum i v'.
-    (op = Aupdate) ∧ (vs = [Loc lnum; Litv (IntLit i); v']) ∧
-    store_lookup lnum st = SOME (Varray vs') ∧
-    (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Subscript")) ∧ st = st') ∨
-     ((~(i < 0) ∧ Num (ABS i) ≥ LENGTH vs' ∧ st = st' ∧
-       v = Rerr (Rraise (prim_exn "Subscript")))) ∨
-     (~(i < 0) ∧
-      Num (ABS i) < LENGTH vs' ∧
-      store_assign lnum (Varray (LUPDATE v' (Num (ABS i)) vs')) st = SOME st' ∧
-      v = Rval (Conv NONE [])))))
-Proof
- SIMP_TAC (srw_ss()) [do_app_def] >>
- cases_on `op` >>
- srw_tac[][] >>
- cases_on `vs` >>
- srw_tac[][] >>
- every_case_tac >>
- srw_tac[][] >>
- full_simp_tac (srw_ss()++ARITH_ss) [] >>
- TRY (eq_tac >> srw_tac[][] >> NO_TAC) >>
- TRY (cases_on `do_eq v1 v2`) >>
- srw_tac[][] >>
- UNABBREV_ALL_TAC >>
- full_simp_tac (srw_ss()++ARITH_ss) [] >>
- every_case_tac >>
- srw_tac[][] >>
- metis_tac []
-QED
- *)
-
 Theorem do_opapp_cases:
    ∀env' vs v.
     (do_opapp vs = SOME (env',v))
@@ -387,20 +255,19 @@ Theorem do_opapp_cases:
     (ALL_DISTINCT (MAP (\ (f,x,e). f) funs)) ∧
     (env' = env'' with <| v :=  nsBind n'' v2 (build_rec_env funs env'' env''.v) |> ∧ (v = e))))
 Proof
-  srw_tac[][do_opapp_def] >>
+  gvs [AllCaseEqs(),do_opapp_def] \\ rpt strip_tac \\ gvs [] >>
   cases_on `vs` >> srw_tac[][] >>
-  every_case_tac >> metis_tac []
+  Cases_on ‘t’ \\ fs [] \\ Cases_on ‘h’ \\ fs [] >>
+  eq_tac \\ rw [] \\ fs []
 QED
 
 Theorem do_app_NONE_ffi:
    do_app (refs,ffi) op args = NONE ⇒
    do_app (refs,ffi') op args = NONE
 Proof
-  rw[do_app_def]
-  \\ Cases_on `op` \\ fs []
-  \\ every_case_tac \\ fs[]
-  \\ TRY pairarg_tac \\ fs[]
-  \\ fs[store_assign_def,store_v_same_type_def]
+  Cases_on `op` \\ fs [do_app_def]
+  \\ gvs [AllCaseEqs()] \\ rpt strip_tac \\ gvs []
+  \\ rpt (pairarg_tac \\ gvs[])
   \\ every_case_tac \\ fs[]
   \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
 QED
@@ -411,12 +278,118 @@ Theorem do_app_SOME_ffi_same:
    do_app (refs,ffi') op args = SOME ((refs',ffi'),r)
 Proof
   rw[]
-  \\ fs[do_app_cases]
-  \\ rw[] \\ fs[]
+  \\ gvs [do_app_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs [])
   \\ fs[ffiTheory.call_FFI_def]
-  \\ every_case_tac \\ fs[]
-  \\ rveq \\ fs[ffiTheory.ffi_state_component_equality]
+  \\ gvs [do_app_def,AllCaseEqs()]
   \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
+  \\ rveq \\ fs[ffiTheory.ffi_state_component_equality]
+QED
+
+Theorem do_app_ffi_unchanged:
+  ∀st ffi op vs st' ffi' res.
+    (∀s. op ≠ FFI s) ∧
+    do_app (st, ffi) op vs = SOME ((st', ffi'), res)
+  ⇒ ffi = ffi'
+Proof
+  rpt gen_tac >> simp[do_app_def] >>
+  gvs [AllCaseEqs()] >>
+  rpt strip_tac >> gvs [] >>
+  rpt (pairarg_tac \\ gvs [])
+QED
+
+Theorem do_app_ffi_changed:
+  do_app (st, ffi) op vs = SOME ((st', ffi'), res) ∧
+  ffi ≠ ffi' ⇒
+  ∃s conf lnum ws ffi_st ws'.
+    op = FFI s ∧
+    vs = [Litv (StrLit conf); Loc lnum] ∧
+    store_lookup lnum st = SOME (W8array ws) ∧
+    s ≠ "" ∧
+    ffi.oracle s ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
+      Oracle_return ffi_st ws' ∧
+    LENGTH ws = LENGTH ws' ∧
+    st' = LUPDATE (W8array ws') lnum st ∧
+    ffi'.oracle = ffi.oracle ∧
+    ffi'.ffi_state = ffi_st ∧
+    ffi'.io_events =
+      ffi.io_events ++
+        [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))]
+Proof
+  simp[do_app_def,AllCaseEqs(),store_alloc_def,store_assign_def,call_FFI_def] >>
+  rpt strip_tac >> gvs []
+QED
+
+Theorem do_app_not_timeout:
+  do_app s op vs = SOME (s', Rerr (Rabort a))
+  ⇒
+  a ≠ Rtimeout_error
+Proof
+  Cases_on `s` >>
+  srw_tac[][do_app_cases] >>
+  every_case_tac >>
+  srw_tac[][]
+QED
+
+Theorem do_app_type_error:
+  do_app s op es = SOME (x,Rerr (Rabort a)) ⇒ x = s
+Proof
+  PairCases_on `s` >>
+  srw_tac[][do_app_def] >>
+  gvs [AllCaseEqs(),store_alloc_def]
+QED
+
+Theorem do_app_ffi_unchanged:
+  ∀st ffi op vs st' ffi' res.
+    (∀s. op ≠ FFI s) ∧
+    do_app (st, ffi) op vs = SOME ((st', ffi'), res)
+  ⇒ ffi = ffi'
+Proof
+  rpt gen_tac >> simp[do_app_def] >>
+  every_case_tac >> gvs[store_alloc_def]
+QED
+
+Theorem do_app_ffi_changed:
+  do_app (st, ffi) op vs = SOME ((st', ffi'), res) ∧
+  ffi ≠ ffi' ⇒
+  ∃s conf lnum ws ffi_st ws'.
+    op = FFI s ∧
+    vs = [Litv (StrLit conf); Loc lnum] ∧
+    store_lookup lnum st = SOME (W8array ws) ∧
+    s ≠ "" ∧
+    ffi.oracle s ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
+      Oracle_return ffi_st ws' ∧
+    LENGTH ws = LENGTH ws' ∧
+    st' = LUPDATE (W8array ws') lnum st ∧
+    ffi'.oracle = ffi.oracle ∧
+    ffi'.ffi_state = ffi_st ∧
+    ffi'.io_events =
+      ffi.io_events ++
+        [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))]
+Proof
+  simp[do_app_def] >> every_case_tac >> gvs[store_alloc_def, store_assign_def] >>
+  strip_tac >> gvs[call_FFI_def] >>
+  every_case_tac >> gvs[]
+QED
+
+Theorem do_app_not_timeout:
+  do_app s op vs = SOME (s', Rerr (Rabort a))
+  ⇒
+  a ≠ Rtimeout_error
+Proof
+  Cases_on `s` >>
+  srw_tac[][do_app_cases] >>
+  every_case_tac >>
+  srw_tac[][]
+QED
+
+Theorem do_app_type_error:
+  do_app s op es = SOME (x,Rerr (Rabort a)) ⇒ x = s
+Proof
+  PairCases_on `s` >>
+  srw_tac[][do_app_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[LET_THM,UNCURRY] >>
+  every_case_tac >> full_simp_tac(srw_ss())[]
 QED
 
 val build_rec_env_help_lem = Q.prove (
@@ -445,96 +418,6 @@ srw_tac[][do_con_check_def, build_conv_def] >>
 every_case_tac >>
 full_simp_tac(srw_ss())[]
 QED
-
-(*
-Theorem same_ctor_and_same_tid:
- !cn1 tn1 cn2 tn2.
-  same_tid tn1 tn2 ∧
-  same_ctor (cn1,tn1) (cn2,tn2)
-  ⇒
-  tn1 = tn2 ∧ cn1 = cn2
-Proof
- cases_on `tn1` >>
- cases_on `tn2` >>
- full_simp_tac(srw_ss())[same_tid_def, same_ctor_def]
-QED
-
-Theorem same_tid_refl[simp]:
-   same_tid t t
-Proof
-  Cases_on`t`>>EVAL_TAC
-QED
-
-Theorem same_tid_sym:
- !tn1 tn2. same_tid tn1 tn2 = same_tid tn2 tn1
-Proof
- cases_on `tn1` >>
- cases_on `tn2` >>
- srw_tac[][same_tid_def] >>
- metis_tac []
-QED
-
-Theorem same_tid_diff_ctor:
-   !cn1 cn2 t1 t2.
-    same_tid t1 t2 ∧ ~same_ctor (cn1, t1) (cn2, t2)
-    ⇒
-    (cn1 ≠ cn2) ∨ (cn1 = cn2 ∧ ?mn1 mn2. t1 = TypeExn mn1 ∧ t2 = TypeExn mn2 ∧ mn1 ≠ mn2)
-Proof
-  srw_tac[][] >>
-  cases_on `t1` >>
-  cases_on `t2` >>
-  full_simp_tac(srw_ss())[same_tid_def, same_ctor_def]
-QED
-
-Theorem same_tid_tid:
-   (same_tid (TypeId x) y ⇔ (y = TypeId x)) ∧
-   (same_tid y (TypeId x) ⇔ (y = TypeId x))
-Proof
-  Cases_on`y`>>EVAL_TAC>>srw_tac[][EQ_IMP_THM]
-QED
-
-Theorem build_tdefs_cons:
- (!tvs tn ctors tds mn.
-  build_tdefs mn ((tvs,tn,ctors)::tds) =
-    nsAppend (build_tdefs mn tds)
-           (alist_to_ns (REVERSE (MAP (\(conN,ts). (conN, LENGTH ts, TypeId (mk_id mn tn))) ctors)))) ∧
- (!mn. build_tdefs mn [] = nsEmpty)
-Proof
- srw_tac[][build_tdefs_def, REVERSE_APPEND]
-QED
-*)
-
- (*
-Theorem MAP_FST_build_tdefs:
-   set (MAP FST (build_tdefs mn ls)) =
-    set (MAP FST (FLAT (MAP (SND o SND) ls)))
-Proof
-  Induct_on`ls`>>simp[build_tdefs_cons] >>
-  qx_gen_tac`p`>>PairCases_on`p`>>simp[build_tdefs_cons,MAP_REVERSE] >>
-  simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
-  metis_tac[UNION_COMM]
-QED
-  *)
-
-  (*
-Theorem check_dup_ctors_cons:
- !tvs ts ctors tds.
-  check_dup_ctors ((tvs,ts,ctors)::tds)
-  ⇒
-  check_dup_ctors tds
-Proof
-induct_on `tds` >>
-srw_tac[][check_dup_ctors_def, LET_THM, RES_FORALL] >>
-PairCases_on `h` >>
-full_simp_tac(srw_ss())[] >>
-pop_assum MP_TAC >>
-pop_assum (fn _ => all_tac) >>
-induct_on `ctors` >>
-srw_tac[][] >>
-PairCases_on `h` >>
-full_simp_tac(srw_ss())[]
-QED
-*)
 
 val map_error_result_def = Define`
   (map_error_result f (Rraise e) = Rraise (f e)) ∧
@@ -876,185 +759,10 @@ val FV_dec_def = Define`
   (FV_dec (Dexn _ _ _) = {})`
 val _ = export_rewrites["FV_dec_def"]
 
-Theorem compress_list_same_length:
-  LENGTH (compress_list vs) = LENGTH vs
-Proof
-  Induct_on `vs` \\ fs[compress_def]
-QED
-
-(*
-val new_dec_vs_def = Define`
-  (new_dec_vs (Dtype _ _) = []) ∧
-  (new_dec_vs (Dtabbrev _ _ _ _) = []) ∧
-  (new_dec_vs (Dexn _ _ _) = []) ∧
-  (new_dec_vs (Dlet _ p e) = pat_bindings p []) ∧
-  (new_dec_vs (Dletrec _ funs) = MAP FST funs)`
-val _ = export_rewrites["new_dec_vs_def"];
-
-Overload new_decs_vs = ``λdecs. FLAT (REVERSE (MAP new_dec_vs decs))``
-
-val FV_decs_def = Define`
-  (FV_decs [] = {}) ∧
-  (FV_decs (d::ds) = FV_dec d ∪ ((FV_decs ds) DIFF (set (MAP Short (new_dec_vs d)))))`
-
-val FV_top_def = Define`
-  (FV_top (Tdec d) = FV_dec d) ∧
-  (FV_top (Tmod mn _ ds) = FV_decs ds)`
-val _ = export_rewrites["FV_top_def"];
-
-val new_top_vs_def = Define`
-  new_top_vs (Tdec d) = MAP Short (new_dec_vs d) ∧
-  new_top_vs (Tmod mn _ ds) = MAP (Long mn o Short) (new_decs_vs ds)`
-val _ = export_rewrites["new_top_vs_def"];
-
-val FV_prog_def = Define`
-  (FV_prog [] = {}) ∧
-  (FV_prog (t::ts) = FV_top t ∪ ((FV_prog ts) DIFF (set (new_top_vs t))))`
-
-val all_env_dom_def = Define`
-  all_env_dom (envM,envC,envE) =
-    IMAGE Short (set (MAP FST envE)) ∪
-    { Long m x | ∃e. ALOOKUP envM m = SOME e ∧ MEM x (MAP FST e) }`;
-*)
-
-Theorem enc_lit_11[simp]:
-  !i j. enc_lit i = enc_lit j <=> i = j
-Proof
-  Cases_on `i` \\ Cases_on `j` \\ fs [enc_lit_def]
-QED
-
-Theorem enc_id_11[simp]:
-  !i j. enc_id i = enc_id j <=> i = j
-Proof
-  Induct_on `i` \\ Cases_on `j` \\ fs [enc_id_def]
-QED
-
-Theorem enc_list_11[simp]:
-  !i j. enc_list i = enc_list j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_list_def]
-QED
-
-Theorem enc_option_11[simp]:
-  !i j. enc_option i = enc_option j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_option_def]
-QED
-
-Theorem enc_ast_t_11[simp]:
-  !i j. enc_ast_t i = enc_ast_t j <=> i = j
-Proof
-  recInduct enc_ast_t_ind \\ rw []
-  \\ Cases_on `j` \\ fs [enc_ast_t_def]
-  THEN1
-    (Cases_on `y = i` \\ fs [] \\ rveq
-    \\ pop_assum mp_tac \\ qspec_tac (`l`,`l`)
-    \\ Induct_on `x` \\ Cases_on `l` \\ fs [])
-  \\ pop_assum mp_tac \\ qspec_tac (`l`,`l`)
-  \\ Induct_on `x` \\ Cases_on `l` \\ fs []
-QED
-
-Theorem enc_pat_11[simp]:
-  !i j. enc_pat i = enc_pat j <=> i = j
-Proof
-  recInduct enc_pat_ind \\ rw []
-  \\ Cases_on `j` \\ fs [enc_pat_def]
-  \\ rename [`OPTION_MAP _ x = _ y`]
-  \\ `OPTION_MAP enc_id x = OPTION_MAP enc_id y <=> x = y` by
-       (Cases_on `x` \\ Cases_on `y` \\ fs [])
-  \\ fs [] \\ Cases_on `x = y` \\ fs []
-  \\ qspec_tac (`l`,`l`) \\ rename [`MAP _ xs`]
-  \\ Induct_on `xs` \\ rw [] \\ Cases_on `l` \\ fs []
-QED
-
-Theorem enc_lop_11[simp]:
-  !i j. enc_lop i = enc_lop j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_lop_def]
-QED
-
-Theorem enc_opn_11[simp]:
-  !i j. enc_opn i = enc_opn j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_opn_def]
-QED
-
-Theorem enc_opb_11[simp]:
-  !i j. enc_opb i = enc_opb j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_opb_def]
-QED
-
-Theorem enc_opw_11[simp]:
-  !i j. enc_opw i = enc_opw j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_opw_def]
-QED
-
-Theorem enc_shift_11[simp]:
-  !i j. enc_shift i = enc_shift j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_shift_def]
-QED
-
-Theorem enc_word_size_11[simp]:
-  !i j. enc_word_size i = enc_word_size j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_word_size_def]
-QED
-
-Theorem enc_fp_uop_11[simp]:
-  !i j. enc_fp_uop i = enc_fp_uop j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_fp_uop_def]
-QED
-
-Theorem enc_fp_bop_11[simp]:
-  !i j. enc_fp_bop i = enc_fp_bop j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_fp_bop_def]
-QED
-
-Theorem enc_fp_top_11[simp]:
-  !i j. enc_fp_top i = enc_fp_top j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_fp_cmp_def]
-QED
-
-Theorem enc_fp_cmp_11[simp]:
-  !i j. enc_fp_cmp i = enc_fp_cmp j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_fp_cmp_def]
-QED
-
-Theorem enc_real_uop_11[simp]:
-  !i j. enc_real_uop i = enc_real_uop j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_real_uop_def]
-QED
-
-Theorem enc_real_bop_11[simp]:
-  !i j. enc_real_bop i = enc_real_bop j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_real_bop_def]
-QED
-
-Theorem enc_real_cmp_11[simp]:
-  !i j. enc_real_cmp i = enc_real_cmp j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_real_cmp_def]
-QED
-
 Theorem nat_to_v_11[simp]:
   !i j. nat_to_v i = nat_to_v j <=> i = j
 Proof
   simp [nat_to_v_def]
-QED
-
-Theorem enc_op_11[simp]:
-  !i j. enc_op i = enc_op j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_op_def]
 QED
 
 Theorem concrete_v_list[simp]:

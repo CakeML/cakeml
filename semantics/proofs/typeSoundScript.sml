@@ -1410,13 +1410,6 @@ Proof
   EQ_TAC \\ Induct_on `vs` \\ fs[] \\ rpt strip_tac \\ res_tac
 QED
 
-Theorem do_fpoptimise_LENGTH:
-  LENGTH (do_fpoptimise annot vs) = LENGTH vs
-Proof
-  Induct_on `vs` \\ fs[do_fpoptimise_def]
-  \\ rpt strip_tac \\ Cases_on `h` \\ fs[do_fpoptimise_def, Once do_fpoptimise_cons]
-QED
-
 Theorem do_fpoptimise_preserves_type:
 ! vs ts n ctMap tenvS annot.
   LIST_REL (type_v n ctMap tenvS) vs ts ==>

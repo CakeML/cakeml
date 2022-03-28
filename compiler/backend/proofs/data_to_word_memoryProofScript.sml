@@ -1323,8 +1323,8 @@ val isSomeDataElement_heap_lookup_lemma3 = Q.prove(
   THEN1 (DISJ1_TAC \\ DECIDE_TAC)
   \\ `el_length x <= n` by DECIDE_TAC \\ full_simp_tac std_ss []);
 
-val IMP_heap_store_unused = Q.prove(
-  `unused_space_inv a sp (heap:('a,'b) heap_element list) /\
+Theorem IMP_heap_store_unused[local]:
+  unused_space_inv a sp (heap:('a,'b) heap_element list) /\
     el_length x <= sp ==>
     ?heap2. (heap_store_unused a sp x heap = (heap2,T)) /\
             unused_space_inv a (sp - el_length x) heap2 /\
@@ -1341,7 +1341,8 @@ val IMP_heap_store_unused = Q.prove(
              ({a | isSomeDataElement (heap_lookup a heap2)} =
                a + sp - el_length x
                  INSERT {a | isSomeDataElement (heap_lookup a heap)})) /\
-            heap_store_rel heap heap2`,
+            heap_store_rel heap heap2
+Proof
   rpt strip_tac \\ asm_simp_tac std_ss [heap_store_unused_def,heap_store_rel_def]
   \\ `sp <> 0` by (Cases_on `x` \\ full_simp_tac std_ss [el_length_def] \\ DECIDE_TAC)
   \\ full_simp_tac std_ss [unused_space_inv_def]
@@ -1373,7 +1374,7 @@ val IMP_heap_store_unused = Q.prove(
         sp - el_length x` by DECIDE_TAC \\ full_simp_tac std_ss []
     \\ simp_tac std_ss [heap_lookup_def]
     \\ srw_tac [] [isSomeDataElement_def,el_length_def]
-    \\ reverse (full_simp_tac std_ss []) THEN1 (`F` by DECIDE_TAC)
+    \\ reverse (full_simp_tac std_ss [])
     \\ Cases_on `x` \\ full_simp_tac std_ss [el_length_def]
     \\ `F` by DECIDE_TAC)
   \\ strip_tac THEN1
@@ -1440,7 +1441,8 @@ val IMP_heap_store_unused = Q.prove(
   \\ `el_length (Unused (sp - 1)) = sp` by
    (full_simp_tac (srw_ss()) [heap_length_APPEND,heap_length_heap_expand,
       el_length_def,heap_length_def] \\ DECIDE_TAC)
-  \\ full_simp_tac std_ss []);
+  \\ full_simp_tac std_ss [] \\ fs[]
+QED
 
 val IMP_heap_store_unused_alt = Q.prove(
   `unused_space_inv a sp (heap:('a,'b) heap_element list) /\

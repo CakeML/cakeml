@@ -399,6 +399,20 @@ Proof
     \\ strip_tac
     \\ first_x_assum (drule_then assume_tac)
     \\ drule kernel_loc_ok_LENGTH \\ gs [])
+  \\ Cases_on ‘op = AallocFixed’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [SF SFY_ss]
+    \\ gvs [v_ok_def, store_alloc_def, EVERY_EL, LLOOKUP_EQ_EL]
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ rw [EL_APPEND_EQN] \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def]
+    >- (
+      gs [kernel_loc_ok_def, LLOOKUP_EQ_EL, EL_APPEND_EQN]
+      \\ first_x_assum (drule_then strip_assume_tac)
+      \\ rw [] \\ gs [SF SFY_ss])
+    \\ gvs [EVERY_EL]
+    \\ strip_tac
+    \\ first_x_assum (drule_then assume_tac)
+    \\ drule kernel_loc_ok_LENGTH \\ gs [])
   \\ Cases_on ‘op = Vlength’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
