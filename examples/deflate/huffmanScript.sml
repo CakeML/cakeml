@@ -106,7 +106,7 @@ Definition huffman_encoding_def:
     (huff_tree, encode s assoc_list)
 End
 
-EVAL “huffman_encoding "abcd"”;
+EVAL “huffman_encoding "aabcccd"”;
 
 
 (******************************************
@@ -135,8 +135,8 @@ End
  *)
 
 Definition decode_char_def:
-  decode_char (Leaf c) [] = SOME c ∧
-  decode_char (Leaf c) code = NONE ∧
+  decode_char (Leaf (c:char)) [] = SOME c ∧
+  decode_char (Leaf (c:char)) code = NONE ∧
   decode_char (Node ltr rtr) [] = NONE ∧
   decode_char (Node ltr rtr) (x::xs) =
   case x of
@@ -145,31 +145,37 @@ Definition decode_char_def:
 End
 
 Definition decode_def:
-  decode tree ((c::cs) :bool list) ([]   :bool list) = decode tree cs [c] ∧
-  decode tree ([]      :bool list) (code :bool list) =
+  decode tree ((b::bs) :bool list) ([]   :bool list) :string = (decode tree bs [b]) ∧
+  decode tree ([]      :bool list) (code :bool list) :string = (
   let
     res = decode_char tree code
   in
     case res of
-      NONE => ""
-    | SOME r => r ∧
-  decode tree ((c::cs) :bool list) (code :bool list) =
+      NONE => []
+    | SOME (r:char) => [r:char]) ∧
+  decode tree ((b::bs) :bool list) (code :bool list) :string = (
   let
     res = decode_char tree code
   in
     case res of
-      NONE => decode tree cs (APPEND code [c])
-    | SOME r => r::(decode tree cs [c])
+      NONE => decode tree bs (code++[b])
+    | SOME (r:char) => [r]++(decode tree bs [b]))
 End
 
 EVAL “let
-        (tree, code) = huffman_encoding "abcd"
+        (tree, code) = huffman_encoding "abbbbbcddd"
       in
      decode tree code []”;
 
 Definition huffman_decoding_def:
-  huffman_decoding tree code = decode tree tree code
+  huffman_decoding tree code = decode tree code []
 End
+
+
+EVAL “let
+        (tree, code) = huffman_encoding "hejsan svejsan"
+      in
+        huffman_decoding tree code”;
 
 
 
