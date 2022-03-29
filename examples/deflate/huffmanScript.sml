@@ -15,7 +15,7 @@ val _ = new_theory"huffman";
 
 
 Datatype:
-  Tree = Leaf α | Node Tree Tree
+  Tree = Empty | Leaf α | Node Tree Tree
 End
 
 
@@ -113,28 +113,8 @@ EVAL “huffman_encoding "aabcccd"”;
              Huffman decoding
 *******************************************)
 
-(*Definition FLIP_ALIST_def:
-  FLIP_ALIST [] = [] ∧
-  FLIP_ALIST ((x, y)::t) = (y,x):: FLIP_ALIST t
-End
-
-Definition decode_def:
-  decode ls [] c = [] ∧
-  decode ls code c =
-  if (LEN code) < c
-  then []
-  else
-    let
-      flip = FLIP_ALIST ls;
-      match = ALOOKUP flip (TAKE c code)
-    in
-      case match of
-        NONE => decode ls code (c+1)
-      | SOME c => [c]++(decode ls (DROP c code) 1)
-End
- *)
-
 Definition decode_char_def:
+  decode_char Empty _ = NONE ∧
   decode_char (Leaf (c:char)) [] = SOME c ∧
   decode_char (Leaf (c:char)) code = NONE ∧
   decode_char (Node ltr rtr) [] = NONE ∧
@@ -168,19 +148,48 @@ EVAL “let
      decode tree code []”;
 
 Definition huffman_decoding_def:
-  huffman_decoding tree code = decode tree code []
+  huffman_decoding (tree, code) = decode tree code []
 End
 
 
 EVAL “let
         (tree, code) = huffman_encoding "hejsan svejsan"
       in
-        huffman_decoding tree code”;
+        huffman_decoding (tree, code)”;
+
+Definition huffman_enc_main_def:
+  huffman_enc_main s =
+  if huffman_decoding (huffman_encoding s) = s
+  then (huffman_encoding s, s, T)
+  else ((Empty, []), s, F)
+End
+
+Definition huffman_dec_main_def:
+  huffman_dec_main ((tree, code), s, b) =
+  if b
+  then (huffman_decoding (tree, code))
+  else s
+End
+
+EVAL “let
+        ((tree, code), b) = huffman_enc_main "hejsan svejsan"
+      in
+        huffman_dec_main ((tree, code), b)”;
+
+(*
+Theorem huffman_inverse:
+  ∀s. huffman_dec_main (huffman_enc_main s) = s
+Proof
 
 
+  REWRITE_TAC[huffman_enc_main_def, huffman_dec_main_def]
+  \\ strip_tac
+  \\ CASE_TAC
+  \\ simp[]
 
 
-
+QED
+*)
 
 
 
