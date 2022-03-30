@@ -2990,9 +2990,45 @@ QED
 Theorem evaluate_size_inv_pres:
   ∀prog s res s1.
   dataSem$evaluate (prog,s) = (res,s1) ∧
-  size_inv s ⇒ size_inv s1
+  size_inv s ⇒
+  size_inv s1 ∧
+  (∀ts tag l.
+     res = SOME (Rval (Block ts tag l)) ∧ l ≠ [] ⇒
+     LLOOKUP s1.all_blocks ts = SOME (Block ts tag l)) ∧
+  (∀ts tag l.
+     res = SOME (Rerr (Rraise (Block ts tag l))) ∧ l ≠ [] ⇒
+     LLOOKUP s1.all_blocks ts = SOME (Block ts tag l))
 Proof
+  let val lookup_tac =
+      fs[evaluate_def,CaseEq"option",set_var_def,
+         CaseEq"bool",CaseEq"result",CaseEq"prod",
+         cut_state_opt_def,cut_state_def,get_vars_def,
+         jump_exc_def,CaseEq "list", CaseEq "stack",
+         flush_state_def,CaseEq "result", CaseEq "error_result",
+         pop_env_def]
+      \\ TRY (drule do_app_Rerr \\ simp[])
+  in
   recInduct evaluate_ind \\ rpt strip_tac
+  >~[‘LLOOKUP _ _ = SOME _’] >- lookup_tac
+  >~[‘LLOOKUP _ _ = SOME _’] >- lookup_tac
+  >~[‘LLOOKUP _ _ = SOME _’] >- lookup_tac
+  >~[‘LLOOKUP _ _ = SOME _’] >- lookup_tac
+  >~[‘LLOOKUP _ _ = SOME _’] >- lookup_tac
+  >~[‘LLOOKUP _ _ = SOME _’] >- lookup_tac
+  >~[‘LLOOKUP _ _ = SOME _’] >- lookup_tac
+  >~[‘LLOOKUP _ _ = SOME _’] >- lookup_tac
+  >~[‘LLOOKUP _ _ = SOME _’] >- lookup_tac
+  >~[‘LLOOKUP _ _ = SOME _’] >- lookup_tac
+  >~[‘LLOOKUP _ _ = SOME _’] >- lookup_tac
+  (* Raise (lookup) *)
+  >~[‘LLOOKUP _ _ = SOME _’]
+  >- (lookup_tac
+      \\ fs[evaluate_def,CaseEq "option",get_var_def,jump_exc_def]
+      \\ rveq \\ simp[Once size_inv_const]
+      \\ gs[size_inv_def,all_blocks_inv_def,
+            all_blocks_roots_inv_def,stack_to_vs_def]
+      \\ first_x_assum irule \\ simp[MEM_toList]
+      \\ metis_tac [])
   (* Skip *)
   >- (fs[evaluate_def] \\ rveq \\ fs[])
   (* Move *)
@@ -3055,189 +3091,40 @@ Proof
             stack_to_vs_def,all_blocks_roots_inv_def]
       \\ rveq \\ rw[]
       \\ gs[get_var_def,MEM_toList,lookup_inter_alt,lookup_def])
+  (* Return (lookup) *)
+  >- (lookup_tac
+      \\ gs[size_inv_def,all_blocks_inv_def,stack_to_vs_def,
+            all_blocks_roots_inv_def,get_var_def,state_component_equality,
+            MEM_toList,lookup_inter_alt,lookup_def]
+      \\ metis_tac [])
+  >- lookup_tac
   >- ((* Seq *)
       fs[evaluate_def,ELIM_UNCURRY,CaseEq"bool"]
       \\ Cases_on `evaluate (c1,s)` \\ res_tac
       \\ fs[] \\ metis_tac[])
+  (* Seq (lookup) *)
+  >- (lookup_tac
+      \\ rpt (pairarg_tac \\ gs[])
+      \\ EVERY_CASE_TAC \\ gs[])
+  >- (lookup_tac
+      \\ rpt (pairarg_tac \\ gs[])
+      \\ EVERY_CASE_TAC \\ gs[])
   (* If *)
   >- (fs[evaluate_def,CaseEq"option",CaseEq"bool"] \\ rveq \\ fs[])
+  (* If (lookup) *)
+  >- lookup_tac
+  >- lookup_tac
   (* Call *)
-  \\ ntac 3 (pop_assum mp_tac)
-  \\ rw[evaluate_def,CaseEq"option",CaseEq"bool",CaseEq"prod",flush_state_def,
-     CaseEq "result", CaseEq "error_result",
-     pop_env_def,
-     CaseEq "list", CaseEq "stack"]
-  \\ TRY(first_x_assum ACCEPT_TAC)
-   >- (gs[size_inv_def,all_blocks_inv_def,cut_env_def,
-          stack_to_vs_def,all_blocks_roots_inv_def,
-          get_var_def,MEM_toList,lookup_inter_alt,lookup_def])
-  >- (first_x_assum drule \\ rpt(disch_then drule) \\ rw[]
-      \\ first_x_assum irule \\ rw[call_env_def,dec_clock_def]
-      \\ simp[Once size_inv_const]
-      \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
-          stack_to_vs_def,all_blocks_roots_inv_def]
-      \\ rw[] \\ rveq
-      \\ gs [get_var_def,MEM_toList,lookup_inter_alt,lookup_def,lookup_fromList]
-      \\ drule find_code_args_cases \\ rw[]
-      >- (first_x_assum irule \\ simp[]
-          \\ disj1_tac \\ gs[get_vars_def] \\ disj1_tac
-          \\ irule MEM_get_vars_lookup_locals
-          \\ asm_exists_tac \\ simp[MEM_EL]
-          \\ asm_exists_tac \\ simp[])
-      >- (first_x_assum irule \\ simp[]
-          \\ disj1_tac \\ disj1_tac
-          \\ irule MEM_get_vars_lookup_locals
-          \\ asm_exists_tac \\ simp[MEM_EL]
-          \\ irule_at Any LESS_TRANS
-          \\ asm_exists_tac \\ simp[]
-          \\ drule EL_FRONT
-          \\ Cases_on ‘xs’
-          >- (gs[get_vars_def]
-              \\ Cases_on ‘dest’
-              \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
-              \\ qmatch_asmsub_abbrev_tac ‘LENGTH aa’
-              \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
-              \\ gs[])
-          \\ rw[]))
-  >- (first_x_assum drule \\ rpt(disch_then drule) \\ rw[]
-      \\ first_x_assum irule \\ rw[call_env_def,dec_clock_def]
-      \\ simp[Once size_inv_const]
-      \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
-          stack_to_vs_def,all_blocks_roots_inv_def]
-      \\ rw[] \\ rveq
-      \\ gs [get_var_def,MEM_toList,lookup_inter_alt,lookup_def,lookup_fromList]
-      \\ drule find_code_args_cases \\ rw[]
-      >- (first_x_assum irule \\ simp[]
-          \\ disj1_tac \\ gs[get_vars_def] \\ disj1_tac
-          \\ irule MEM_get_vars_lookup_locals
-          \\ asm_exists_tac \\ simp[MEM_EL]
-          \\ asm_exists_tac \\ simp[])
-      >- (first_x_assum irule \\ simp[]
-          \\ disj1_tac \\ disj1_tac
-          \\ irule MEM_get_vars_lookup_locals
-          \\ asm_exists_tac \\ simp[MEM_EL]
-          \\ irule_at Any LESS_TRANS
-          \\ asm_exists_tac \\ simp[]
-          \\ drule EL_FRONT
-          \\ Cases_on ‘xs’
-          >- (gs[get_vars_def]
-              \\ Cases_on ‘dest’
-              \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
-              \\ qmatch_asmsub_abbrev_tac ‘LENGTH aa’
-              \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
-              \\ gs[])
-          \\ rw[]))
-  >- (Cases_on `handler`
-      \\ first_x_assum drule >> rpt(disch_then drule)
-      \\ fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
-      \\ simp[Once size_inv_const]
-      \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
-            stack_to_vs_def,all_blocks_roots_inv_def,
-            toList_def,toListA_def])
-  >- (first_x_assum drule >> rpt(disch_then drule)
-      \\ disch_then irule
-      \\ pop_assum kall_tac
-      \\ fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
-      \\ simp[Once size_inv_const]
-      \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
-            stack_to_vs_def,all_blocks_roots_inv_def]
-      \\ rw[] \\ rveq
-      \\ gs [get_var_def,MEM_toList,lookup_inter_alt,lookup_def,lookup_fromList]
-      \\ drule find_code_args_cases \\ rw[]
-      >- (first_x_assum irule \\ simp[]
-          \\ disj1_tac \\ disj1_tac
-          \\ irule MEM_get_vars_lookup_locals
-          \\ asm_exists_tac \\ simp[MEM_EL]
-          \\ asm_exists_tac \\ simp[])
-      >- (first_x_assum irule \\ simp[]
-          \\ disj1_tac \\ disj1_tac
-          \\ irule MEM_get_vars_lookup_locals
-          \\ asm_exists_tac \\ simp[MEM_EL]
-          \\ irule_at Any LESS_TRANS
-          \\ asm_exists_tac \\ simp[]
-          \\ drule EL_FRONT
-          \\ Cases_on ‘xs’
-          >- (gs[get_vars_def]
-              \\ Cases_on ‘dest’
-              \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
-              \\ qmatch_asmsub_abbrev_tac ‘LENGTH aa’
-              \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
-              \\ gs[])
-          \\ rw[])
-      >- (first_x_assum irule \\ simp[]
-          \\ Cases_on ‘MEM (Block ts tag l) (toList (inter s.locals names))’
-          >- (gs[MEM_toList] \\ disj1_tac \\ disj1_tac
-              \\ gs[lookup_inter_EQ] \\ asm_exists_tac \\ simp[])
-          >- (disj1_tac \\ disj2_tac \\ gs[MEM_FLAT,MEM_MAP]
-              \\ rveq
-              \\ first_assum (irule_at Any)
-              \\ qexists_tac ‘y’ \\ simp[]
-              \\ Cases_on ‘handler’ \\ gs[push_env_def,extract_stack_def]
-              \\ rveq))
-      >- (first_x_assum irule \\ simp[]
-          \\ Cases_on ‘MEM (Block ts tag l) (toList (inter s.locals names))’
-          >- (gs[MEM_toList] \\ disj1_tac \\ disj1_tac
-              \\ gs[lookup_inter_EQ] \\ asm_exists_tac \\ simp[])
-          >- (disj1_tac \\ disj2_tac \\ gs[MEM_FLAT,MEM_MAP]
-              \\ rveq
-              \\ first_assum (irule_at Any)
-              \\ qexists_tac ‘y’ \\ simp[]
-              \\ Cases_on ‘handler’ \\ gs[push_env_def,extract_stack_def]
-              \\ rveq)))
-  >- (first_x_assum drule >> rpt(disch_then drule)
-      \\ disch_then irule
-      \\ pop_assum kall_tac
-      \\ fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
-      \\ simp[Once size_inv_const]
-      \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
-            stack_to_vs_def,all_blocks_roots_inv_def]
-      \\ rw[] \\ rveq
-      \\ gs [get_var_def,MEM_toList,lookup_inter_alt,lookup_def,lookup_fromList]
-      \\ drule find_code_args_cases \\ rw[]
-      >- (first_x_assum irule \\ simp[]
-          \\ disj1_tac \\ disj1_tac
-          \\ irule MEM_get_vars_lookup_locals
-          \\ asm_exists_tac \\ simp[MEM_EL]
-          \\ asm_exists_tac \\ simp[])
-      >- (first_x_assum irule \\ simp[]
-          \\ disj1_tac \\ disj1_tac
-          \\ irule MEM_get_vars_lookup_locals
-          \\ asm_exists_tac \\ simp[MEM_EL]
-          \\ irule_at Any LESS_TRANS
-          \\ asm_exists_tac \\ simp[]
-          \\ drule EL_FRONT
-          \\ Cases_on ‘xs’
-          >- (gs[get_vars_def]
-              \\ Cases_on ‘dest’
-              \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
-              \\ qmatch_asmsub_abbrev_tac ‘LENGTH aa’
-              \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
-              \\ gs[])
-          \\ rw[])
-      >- (first_x_assum irule \\ simp[]
-          \\ Cases_on ‘MEM (Block ts tag l) (toList (inter s.locals names))’
-          >- (gs[MEM_toList] \\ disj1_tac \\ disj1_tac
-              \\ gs[lookup_inter_EQ] \\ asm_exists_tac \\ simp[])
-          >- (disj1_tac \\ disj2_tac \\ gs[MEM_FLAT,MEM_MAP]
-              \\ rveq
-              \\ first_assum (irule_at Any)
-              \\ qexists_tac ‘y’ \\ simp[]
-              \\ Cases_on ‘handler’ \\ gs[push_env_def,extract_stack_def]
-              \\ rveq))
-      >- (first_x_assum irule \\ simp[]
-          \\ Cases_on ‘MEM (Block ts tag l) (toList (inter s.locals names))’
-          >- (gs[MEM_toList] \\ disj1_tac \\ disj1_tac
-              \\ gs[lookup_inter_EQ] \\ asm_exists_tac \\ simp[])
-          >- (disj1_tac \\ disj2_tac \\ gs[MEM_FLAT,MEM_MAP]
-              \\ rveq
-              \\ first_assum (irule_at Any)
-              \\ qexists_tac ‘y’ \\ simp[]
-              \\ Cases_on ‘handler’ \\ gs[push_env_def,extract_stack_def]
-              \\ rveq)))
-  >- (first_x_assum drule \\ rpt(disch_then drule)
-      \\ pop_assum kall_tac
-      \\ impl_tac
-      >- (fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
+  >- (ntac 5 (pop_assum mp_tac)
+      \\ rw[evaluate_def,CaseEq"option",CaseEq"bool",CaseEq"prod",
+            flush_state_def,CaseEq "result", CaseEq "error_result",
+            pop_env_def,CaseEq "list", CaseEq "stack"]
+      \\ TRY(first_x_assum ACCEPT_TAC)
+      >- (gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+             stack_to_vs_def,all_blocks_roots_inv_def,
+             get_var_def,MEM_toList,lookup_inter_alt,lookup_def])
+      >- (first_x_assum drule \\ rpt(disch_then drule) \\ rw[]
+          \\ first_x_assum irule \\ rw[call_env_def,dec_clock_def]
           \\ simp[Once size_inv_const]
           \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
                 stack_to_vs_def,all_blocks_roots_inv_def]
@@ -3245,58 +3132,442 @@ Proof
           \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
                  lookup_def,lookup_fromList]
           \\ drule find_code_args_cases \\ rw[]
-          >- (first_x_assum irule \\ simp[]
-              \\ disj1_tac \\ disj1_tac
-              \\ irule MEM_get_vars_lookup_locals
-              \\ asm_exists_tac \\ simp[MEM_EL]
-              \\ asm_exists_tac \\ simp[])
-          >- (first_x_assum irule \\ simp[]
-              \\ disj1_tac \\ disj1_tac
-              \\ irule MEM_get_vars_lookup_locals
-              \\ asm_exists_tac \\ simp[MEM_EL]
-              \\ irule_at Any LESS_TRANS
-              \\ asm_exists_tac \\ simp[]
-              \\ drule EL_FRONT
-              \\ Cases_on ‘xs’
+          >- metis_tac [MEM_get_vars_lookup_locals,MEM_EL,get_vars_def]
+          >- (Cases_on ‘xs’
               >- (gs[get_vars_def]
                   \\ Cases_on ‘dest’
                   \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
-                  \\ qmatch_asmsub_abbrev_tac ‘LENGTH aa’
                   \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
                   \\ gs[])
-              \\ rw[])
+              \\ metis_tac [MEM_get_vars_lookup_locals,MEM_FRONT,MEM_EL]))
+      >- (first_x_assum drule \\ rpt(disch_then drule) \\ rw[]
+          \\ gs [IMP_CONJ_THM]
+          \\ first_x_assum irule \\ rw[call_env_def,dec_clock_def]
+          \\ simp[Once size_inv_const]
+          \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                stack_to_vs_def,all_blocks_roots_inv_def]
+          \\ rw[] \\ rveq
+          \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                 lookup_def,lookup_fromList]
+          \\ drule find_code_args_cases \\ rw[]
+          >- metis_tac [MEM_get_vars_lookup_locals,MEM_EL,get_vars_def]
+          >- (Cases_on ‘xs’
+              >- (gs[get_vars_def]
+                  \\ Cases_on ‘dest’
+                  \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
+                  \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
+                  \\ gs[])
+              \\ metis_tac [MEM_get_vars_lookup_locals,MEM_FRONT,MEM_EL]))
+      >- (Cases_on `handler`
+          \\ first_x_assum drule >> rpt(disch_then drule)
+          \\ fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
+          \\ simp[Once size_inv_const]
+          \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                stack_to_vs_def,all_blocks_roots_inv_def,
+                toList_def,toListA_def])
+      >- (first_x_assum drule >> rpt(disch_then drule)
+          \\ pop_assum kall_tac
+          \\ rw[] \\ first_x_assum irule
+          \\ fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
+          \\ simp[Once size_inv_const]
+          \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                stack_to_vs_def,all_blocks_roots_inv_def]
+          \\ rw[] \\ rveq
+          \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                 lookup_def,lookup_fromList]
+          \\ drule find_code_args_cases \\ rw[]
+          >- metis_tac [MEM_get_vars_lookup_locals,MEM_EL,get_vars_def]
+          >- (Cases_on ‘xs’
+              >- (gs[get_vars_def]
+                  \\ Cases_on ‘dest’
+                  \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
+                  \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
+                  \\ gs[])
+              \\ metis_tac [MEM_get_vars_lookup_locals,MEM_FRONT,MEM_EL])
           >- (first_x_assum irule \\ simp[]
               \\ Cases_on ‘MEM (Block ts tag l) (toList (inter s.locals names))’
-              >- (gs[MEM_toList] \\ disj1_tac \\ disj1_tac
-                  \\ gs[lookup_inter_EQ] \\ asm_exists_tac \\ simp[])
-              >- (disj1_tac \\ disj2_tac \\ gs[MEM_FLAT,MEM_MAP]
-                  \\ rveq
-                  \\ first_assum (irule_at Any)
-                  \\ qexists_tac ‘y’ \\ simp[]
+              >- metis_tac [MEM_toList,lookup_inter_EQ]
+              >- (disj1_tac \\ disj2_tac \\ gs[MEM_FLAT,MEM_MAP] \\ rveq
+                  \\ first_assum (irule_at Any) \\ qexists_tac ‘y’ \\ simp[]
                   \\ Cases_on ‘handler’ \\ gs[push_env_def,extract_stack_def]
                   \\ rveq))
           >- (first_x_assum irule \\ simp[]
               \\ Cases_on ‘MEM (Block ts tag l) (toList (inter s.locals names))’
-              >- (gs[MEM_toList] \\ disj1_tac \\ disj1_tac
-                  \\ gs[lookup_inter_EQ] \\ asm_exists_tac \\ simp[])
-              >- (disj1_tac \\ disj2_tac \\ gs[MEM_FLAT,MEM_MAP]
-                  \\ rveq
-                  \\ first_assum (irule_at Any)
-                  \\ qexists_tac ‘y’ \\ simp[]
+              >- metis_tac [MEM_toList,lookup_inter_EQ]
+              >- (disj1_tac \\ disj2_tac \\ gs[MEM_FLAT,MEM_MAP] \\ rveq
+                  \\ first_assum (irule_at Any) \\ qexists_tac ‘y’ \\ simp[]
                   \\ Cases_on ‘handler’ \\ gs[push_env_def,extract_stack_def]
                   \\ rveq)))
-      \\ rw[set_var_def]
-      \\ simp[Once size_inv_const]
-      \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
-            stack_to_vs_def,all_blocks_roots_inv_def]
-      \\ rw[] \\ rveq
-      \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
-             lookup_def,lookup_fromList]
-      \\ drule find_code_args_cases \\ rw[]
-      \\ cheat)
-  \\ cheat
+      >- (first_x_assum drule >> rpt(disch_then drule)
+          \\ pop_assum kall_tac
+          \\ rw [] \\ gs[IMP_CONJ_THM]
+          \\ first_x_assum irule
+          \\ fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
+          \\ simp[Once size_inv_const]
+          \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                stack_to_vs_def,all_blocks_roots_inv_def]
+          \\ rw[] \\ rveq
+          \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                 lookup_def,lookup_fromList]
+          \\ drule find_code_args_cases \\ rw[]
+          >- metis_tac [MEM_get_vars_lookup_locals,MEM_EL,get_vars_def]
+          >- (Cases_on ‘xs’
+              >- (gs[get_vars_def]
+                  \\ Cases_on ‘dest’
+                  \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
+                  \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
+                  \\ gs[])
+              \\ metis_tac [MEM_get_vars_lookup_locals,MEM_FRONT,MEM_EL])
+          >- (first_x_assum irule \\ simp[]
+              \\ Cases_on ‘MEM (Block ts tag l) (toList (inter s.locals names))’
+              >- metis_tac [MEM_toList,lookup_inter_EQ]
+              >- (disj1_tac \\ disj2_tac \\ gs[MEM_FLAT,MEM_MAP] \\ rveq
+                  \\ first_assum (irule_at Any) \\ qexists_tac ‘y’ \\ simp[]
+                  \\ Cases_on ‘handler’ \\ gs[push_env_def,extract_stack_def]
+                  \\ rveq))
+          >- (first_x_assum irule \\ simp[]
+              \\ Cases_on ‘MEM (Block ts tag l) (toList (inter s.locals names))’
+              >- metis_tac [MEM_toList,lookup_inter_EQ]
+              >- (disj1_tac \\ disj2_tac \\ gs[MEM_FLAT,MEM_MAP] \\ rveq
+                  \\ first_assum (irule_at Any) \\ qexists_tac ‘y’ \\ simp[]
+                  \\ Cases_on ‘handler’ \\ gs[push_env_def,extract_stack_def]
+                  \\ rveq)))
+      >- (first_x_assum drule \\ rpt(disch_then drule)
+          \\ pop_assum kall_tac
+          \\ impl_tac
+          >- (fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
+              \\ simp[Once size_inv_const]
+              \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                    stack_to_vs_def,all_blocks_roots_inv_def]
+              \\ rw[] \\ rveq
+              \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                     lookup_def,lookup_fromList]
+              \\ drule find_code_args_cases \\ rw[]
+              >- metis_tac [MEM_get_vars_lookup_locals,MEM_EL,get_vars_def]
+              >- (Cases_on ‘xs’
+                  >- (gs[get_vars_def]
+                      \\ Cases_on ‘dest’
+                      \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
+                      \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
+                      \\ gs[])
+                  \\ metis_tac [MEM_get_vars_lookup_locals,MEM_FRONT,MEM_EL])
+              >- (first_x_assum irule \\ simp[]
+                  \\ Cases_on ‘MEM (Block ts tag l) (toList (inter s.locals names))’
+                  >- metis_tac [MEM_toList,lookup_inter_EQ]
+                  >- (disj1_tac \\ disj2_tac \\ gs[MEM_FLAT,MEM_MAP] \\ rveq
+                      \\ first_assum (irule_at Any) \\ qexists_tac ‘y’ \\ simp[]
+                      \\ Cases_on ‘handler’ \\ gs[push_env_def,extract_stack_def]
+                      \\ rveq))
+              >- (first_x_assum irule \\ simp[]
+                  \\ Cases_on ‘MEM (Block ts tag l) (toList (inter s.locals names))’
+                  >- metis_tac [MEM_toList,lookup_inter_EQ]
+                  >- (disj1_tac \\ disj2_tac \\ gs[MEM_FLAT,MEM_MAP] \\ rveq
+                      \\ first_assum (irule_at Any) \\ qexists_tac ‘y’ \\ simp[]
+                      \\ Cases_on ‘handler’ \\ gs[push_env_def,extract_stack_def]
+                      \\ rveq)))
+          \\ rw[set_var_def]
+          \\ simp[Once size_inv_const]
+          \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                stack_to_vs_def,all_blocks_roots_inv_def]
+          \\ rw[] \\ rveq
+          \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                 lookup_def,lookup_fromList]
+          \\ gs[lookup_insert] \\ Cases_on ‘k = n’ \\ gs[]
+          \\ last_x_assum irule \\ simp[]
+          \\ disj1_tac \\ disj1_tac \\ disj2_tac
+          \\ simp[extract_stack_def,MEM_toList]
+          \\ asm_exists_tac \\ simp[])
+      >- (first_x_assum drule \\ rpt(disch_then drule)
+          \\ pop_assum kall_tac
+          \\ impl_tac
+          >- (fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
+              \\ simp[Once size_inv_const]
+              \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                    stack_to_vs_def,all_blocks_roots_inv_def]
+              \\ rw[] \\ rveq
+              \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                     lookup_def,lookup_fromList]
+              \\ drule find_code_args_cases \\ rw[]
+              >- metis_tac [MEM_get_vars_lookup_locals,MEM_EL,get_vars_def]
+              >- (Cases_on ‘xs’
+                  >- (gs[get_vars_def]
+                      \\ Cases_on ‘dest’
+                      \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
+                      \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
+                      \\ gs[])
+                  \\ metis_tac [MEM_get_vars_lookup_locals,MEM_FRONT,MEM_EL])
+              >- (first_x_assum irule \\ simp[]
+                  \\ Cases_on ‘MEM (Block ts tag l) (toList (inter s.locals names))’
+                  >- metis_tac [MEM_toList,lookup_inter_EQ]
+                  >- (disj1_tac \\ disj2_tac \\ gs[MEM_FLAT,MEM_MAP] \\ rveq
+                      \\ first_assum (irule_at Any) \\ qexists_tac ‘y’ \\ simp[]
+                      \\ Cases_on ‘handler’ \\ gs[push_env_def,extract_stack_def]
+                      \\ rveq))
+              >- (first_x_assum irule \\ simp[]
+                  \\ Cases_on ‘MEM (Block ts tag l) (toList (inter s.locals names))’
+                  >- metis_tac [MEM_toList,lookup_inter_EQ]
+                  >- (disj1_tac \\ disj2_tac \\ gs[MEM_FLAT,MEM_MAP] \\ rveq
+                      \\ first_assum (irule_at Any) \\ qexists_tac ‘y’ \\ simp[]
+                      \\ Cases_on ‘handler’ \\ gs[push_env_def,extract_stack_def]
+                      \\ rveq)))
+          \\ rw[set_var_def]
+          \\ simp[Once size_inv_const]
+          \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                stack_to_vs_def,all_blocks_roots_inv_def]
+          \\ rw[] \\ rveq
+          \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                 lookup_def,lookup_fromList]
+          \\ gs[lookup_insert] \\ Cases_on ‘k = n’ \\ gs[]
+          \\ last_x_assum irule \\ simp[]
+          \\ disj1_tac \\ disj1_tac \\ disj2_tac
+          \\ simp[extract_stack_def,MEM_toList]
+          \\ asm_exists_tac \\ simp[])
+      >- (first_x_assum drule \\ rpt(disch_then drule) \\ gs[]
+          \\ rw[IMP_CONJ_THM]
+          \\ first_x_assum irule
+          \\ fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
+          \\ simp[Once size_inv_const]
+          \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                stack_to_vs_def,all_blocks_roots_inv_def]
+          \\ rw[] \\ rveq
+          \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                 lookup_def,lookup_fromList]
+          >- (first_x_assum irule \\ simp[]
+              \\ drule find_code_args_cases \\ rw[]
+              >- metis_tac [MEM_get_vars_lookup_locals,MEM_EL,get_vars_def]
+              >- (Cases_on ‘xs’
+                  >- (gs[get_vars_def]
+                      \\ Cases_on ‘dest’
+                      \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
+                      \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
+                      \\ gs[])
+                  \\ metis_tac [MEM_get_vars_lookup_locals,MEM_FRONT,MEM_EL]))
+          >- (first_x_assum irule \\ simp[] \\ gs[extract_stack_def]
+              \\ metis_tac [MEM_toList,lookup_inter_EQ]))
+      >- (qpat_x_assum ‘evaluate _ = (SOME _,_)’ mp_tac
+          \\ ONCE_REWRITE_TAC [IS_SOME_DEF] \\ strip_tac
+          \\ first_x_assum drule \\ rpt(disch_then drule)
+          \\ impl_tac
+          >- (ntac 2 (pop_assum kall_tac)
+              \\ fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
+              \\ simp[Once size_inv_const]
+              \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                    stack_to_vs_def,all_blocks_roots_inv_def]
+              \\ rw[] \\ rveq
+              \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                     lookup_def,lookup_fromList]
+              >- (first_x_assum irule \\ simp[]
+                  \\ drule find_code_args_cases \\ rw[]
+                  >- metis_tac [MEM_get_vars_lookup_locals,MEM_EL,get_vars_def]
+                  >- (Cases_on ‘xs’
+                      >- (gs[get_vars_def]
+                          \\ Cases_on ‘dest’
+                          \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
+                          \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
+                          \\ gs[])
+                      \\ metis_tac [MEM_get_vars_lookup_locals,MEM_FRONT,MEM_EL]))
+              >- (first_x_assum irule \\ simp[] \\ gs[extract_stack_def]
+                  \\ metis_tac [MEM_toList,lookup_inter_EQ]))
+          \\ strip_tac
+          \\ first_x_assum drule \\ rpt(disch_then drule)
+          \\ ONCE_REWRITE_TAC [IMP_CONJ_THM] \\ strip_tac
+          \\ first_x_assum irule
+          \\ fs[set_var_def]
+          \\ simp[Once size_inv_const]
+          \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                stack_to_vs_def,all_blocks_roots_inv_def]
+          \\ rw[] \\ rveq
+          \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                 lookup_def,lookup_fromList]
+          \\ Cases_on ‘x' = Block ts tag l’
+          \\ rveq
+          >- first_x_assum (fn thm => irule thm \\ simp[] \\ NO_TAC)
+          >- (ntac 3 (pop_assum mp_tac)
+              \\ ntac 2 (pop_assum kall_tac)
+              \\ rw[]
+              \\ first_x_assum irule \\ simp[]
+              \\ gs[lookup_insert]
+              \\ Cases_on ‘k = n'’ \\ gs[]
+              \\ metis_tac []))
+      >- (first_x_assum drule \\ rpt(disch_then drule)
+          \\ ONCE_REWRITE_TAC [IMP_CONJ_THM]
+          \\ strip_tac \\ first_x_assum irule
+          \\ ntac 2 (pop_assum kall_tac)
+          \\ fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
+          \\ simp[Once size_inv_const]
+          \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                stack_to_vs_def,all_blocks_roots_inv_def]
+          \\ rw[] \\ rveq
+          \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                 lookup_def,lookup_fromList]
+          >- (first_x_assum irule \\ simp[]
+              \\ drule find_code_args_cases \\ rw[]
+              >- metis_tac [MEM_get_vars_lookup_locals,MEM_EL,get_vars_def]
+              >- (Cases_on ‘xs’
+                  >- (gs[get_vars_def]
+                      \\ Cases_on ‘dest’
+                      \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
+                      \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
+                      \\ gs[])
+                  \\ metis_tac [MEM_get_vars_lookup_locals,MEM_FRONT,MEM_EL]))
+          >- (gs[MEM_FLAT,MEM_MAP] \\ rveq
+              \\ Cases_on ‘handler’
+              \\ gs[push_env_def,extract_stack_def]
+              \\ rveq
+              \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                     lookup_def,lookup_fromList]
+              \\ first_x_assum irule \\ simp[]
+              \\ metis_tac [MEM_toList,lookup_inter_EQ])))
+  >- (rpt (pop_assum mp_tac)
+      \\ rw[evaluate_def,CaseEq"option",CaseEq"bool",CaseEq"prod",
+            flush_state_def,CaseEq "result", CaseEq "error_result",
+            pop_env_def,CaseEq "list", CaseEq "stack"]
+      \\ TRY(first_x_assum ACCEPT_TAC)
+      >- (first_x_assum drule \\ rpt(disch_then drule)
+          \\ ONCE_REWRITE_TAC [IMP_CONJ_THM]
+          \\ strip_tac \\  gs[] \\ first_x_assum irule
+          \\ fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
+          \\ simp[Once size_inv_const]
+          \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                stack_to_vs_def,all_blocks_roots_inv_def]
+          \\ rw[] \\ rveq
+          \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                 lookup_def,lookup_fromList]
+          \\ drule find_code_args_cases \\ rw[]
+          >- metis_tac [MEM_get_vars_lookup_locals,MEM_EL,get_vars_def]
+          >- (Cases_on ‘xs’
+              >- (gs[get_vars_def]
+                  \\ Cases_on ‘dest’
+                  \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
+                  \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
+                  \\ gs[])
+              \\ metis_tac [MEM_get_vars_lookup_locals,MEM_FRONT,MEM_EL]))
+      >- (qpat_x_assum ‘evaluate (prog,_) = _’ mp_tac
+          \\ ONCE_REWRITE_TAC [IS_SOME_DEF] \\ strip_tac
+          \\ first_x_assum drule \\ rpt(disch_then drule)
+          \\ impl_tac
+          >- (ntac 2 (pop_assum kall_tac)
+              \\ fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
+              \\ simp[Once size_inv_const]
+              \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                    stack_to_vs_def,all_blocks_roots_inv_def]
+              \\ rw[] \\ rveq
+              \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                     lookup_def,lookup_fromList]
+              \\ drule find_code_args_cases \\ rw[]
+              >- metis_tac [MEM_get_vars_lookup_locals,MEM_EL,get_vars_def]
+              >- (Cases_on ‘xs’
+                  >- (gs[get_vars_def]
+                      \\ Cases_on ‘dest’
+                      \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
+                      \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
+                      \\ gs[])
+                  \\ metis_tac [MEM_get_vars_lookup_locals,MEM_FRONT,MEM_EL])
+              >- metis_tac [extract_stack_def,MEM_toList,lookup_inter_EQ]
+              >- metis_tac [extract_stack_def,MEM_toList,lookup_inter_EQ])
+          \\ strip_tac
+          \\ first_x_assum drule \\ rpt(disch_then drule)
+          \\ ONCE_REWRITE_TAC [IMP_CONJ_THM]
+          \\ strip_tac \\  gs[] \\ first_x_assum irule
+          \\ pop_assum kall_tac
+          \\ fs[set_var_def]
+          \\ simp[Once size_inv_const]
+          \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                stack_to_vs_def,all_blocks_roots_inv_def]
+          \\ rw[] \\ rveq
+          \\ gs [MEM_toList,lookup_inter_alt,
+                 lookup_def,lookup_fromList,
+                 lookup_insert]
+          \\ Cases_on ‘k = n'’ \\ gs[]
+          \\ first_x_assum (fn thm => irule thm \\ simp[] \\ disj1_tac)
+          \\ disj1_tac \\ asm_exists_tac \\ simp[]))
+  >- (rpt (pop_assum mp_tac)
+      \\ rw[evaluate_def,CaseEq"option",CaseEq"bool",CaseEq"prod",
+            flush_state_def,CaseEq "result", CaseEq "error_result",
+            pop_env_def,CaseEq "list", CaseEq "stack"]
+      \\ TRY(first_x_assum ACCEPT_TAC)
+      >- (first_x_assum drule \\ rpt(disch_then drule)
+          \\ ONCE_REWRITE_TAC [IMP_CONJ_THM]
+          \\ strip_tac \\  gs[] \\ first_x_assum irule
+          \\ fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
+          \\ simp[Once size_inv_const]
+          \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                stack_to_vs_def,all_blocks_roots_inv_def]
+          \\ rw[] \\ rveq
+          \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                 lookup_def,lookup_fromList]
+          \\ drule find_code_args_cases \\ rw[]
+          >- metis_tac [MEM_get_vars_lookup_locals,MEM_EL,get_vars_def]
+          >- (Cases_on ‘xs’
+              >- (gs[get_vars_def]
+                  \\ Cases_on ‘dest’
+                  \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
+                  \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
+                  \\ gs[])
+              \\ metis_tac [MEM_get_vars_lookup_locals,MEM_FRONT,MEM_EL]))
+      >- (qpat_x_assum ‘evaluate (prog,_) = _’ mp_tac
+          \\ ONCE_REWRITE_TAC [IS_SOME_DEF] \\ strip_tac
+          \\ first_x_assum drule \\ rpt(disch_then drule)
+          \\ ONCE_REWRITE_TAC [IMP_CONJ_THM]
+          \\ strip_tac \\ gs[] \\ first_x_assum irule
+          \\ fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
+          \\ simp[Once size_inv_const]
+          \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                stack_to_vs_def,all_blocks_roots_inv_def]
+          \\ rw[] \\ rveq
+          \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                 lookup_def,lookup_fromList]
+          \\ drule find_code_args_cases \\ rw[]
+          >- metis_tac [MEM_get_vars_lookup_locals,MEM_EL,get_vars_def]
+          >- (Cases_on ‘xs’
+              >- (gs[get_vars_def]
+                  \\ Cases_on ‘dest’
+                  \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
+                  \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
+                  \\ gs[])
+              \\ metis_tac [MEM_get_vars_lookup_locals,MEM_FRONT,MEM_EL])
+          >- metis_tac [extract_stack_def,MEM_toList,lookup_inter_EQ]
+          >- metis_tac [extract_stack_def,MEM_toList,lookup_inter_EQ])
+      >- (qpat_x_assum ‘evaluate (prog,_) = _’ mp_tac
+          \\ ONCE_REWRITE_TAC [IS_SOME_DEF] \\ strip_tac
+          \\ first_x_assum drule \\ rpt(disch_then drule)
+          \\ impl_tac
+          >- (ntac 2 (pop_assum kall_tac)
+              \\ fs[call_env_def,dec_clock_def,push_env_def,set_var_def]
+              \\ simp[Once size_inv_const]
+              \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                    stack_to_vs_def,all_blocks_roots_inv_def]
+              \\ rw[] \\ rveq
+              \\ gs [get_var_def,MEM_toList,lookup_inter_alt,
+                     lookup_def,lookup_fromList]
+              \\ drule find_code_args_cases \\ rw[]
+              >- metis_tac [MEM_get_vars_lookup_locals,MEM_EL,get_vars_def]
+              >- (Cases_on ‘xs’
+                  >- (gs[get_vars_def]
+                      \\ Cases_on ‘dest’
+                      \\ gs [find_code_def,CaseEq"option",CaseEq"prod"]
+                      \\ qpat_x_assum ‘[] = _’ (ASSUME_TAC o GSYM)
+                      \\ gs[])
+                  \\ metis_tac [MEM_get_vars_lookup_locals,MEM_FRONT,MEM_EL])
+              >- metis_tac [extract_stack_def,MEM_toList,lookup_inter_EQ]
+              >- metis_tac [extract_stack_def,MEM_toList,lookup_inter_EQ])
+          \\ strip_tac
+          \\ first_x_assum drule \\ rpt(disch_then drule)
+          \\ ONCE_REWRITE_TAC [IMP_CONJ_THM]
+          \\ strip_tac \\  gs[] \\ first_x_assum irule
+          \\ pop_assum kall_tac
+          \\ fs[set_var_def]
+          \\ simp[Once size_inv_const]
+          \\ gs[size_inv_def,all_blocks_inv_def,cut_env_def,
+                stack_to_vs_def,all_blocks_roots_inv_def]
+          \\ rw[] \\ rveq
+          \\ gs [MEM_toList,lookup_inter_alt,
+                 lookup_def,lookup_fromList,
+                 lookup_insert]
+          \\ Cases_on ‘k = n'’ \\ gs[]
+          \\ first_x_assum (fn thm => irule thm \\ simp[] \\ disj1_tac)
+          \\ disj1_tac \\ asm_exists_tac \\ simp[]))
+end
 QED
-
-
 
 val _ = export_theory();
