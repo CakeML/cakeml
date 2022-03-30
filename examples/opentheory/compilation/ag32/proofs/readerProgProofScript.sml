@@ -98,7 +98,7 @@ Proof
   \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ conj_tac >- (EVAL_TAC)
-  \\ asm_exists_tac
+  \\ rpt $ goal_assum $ drule_at Any
   \\ simp[]
   \\ fs[ffi_names]
 QED
