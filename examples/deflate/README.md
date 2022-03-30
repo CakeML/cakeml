@@ -12,6 +12,9 @@ Scripts relevant to learning HOL
 [compressionScript.sml](compressionScript.sml):
 First simple compressor
 
+[deflateScript.sml](deflateScript.sml):
+First simple compressor
+
 [huffmanScript.sml](huffmanScript.sml):
 Script for Huffman encodings.
 
