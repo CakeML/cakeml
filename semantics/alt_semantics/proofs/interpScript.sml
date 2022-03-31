@@ -136,7 +136,8 @@ val _ = temp_delsimps["getOpClass_def"]
 Theorem getOpClass_opClass:
   (getOpClass op = FunApp ⇔ opClass op FunApp) ∧
   (getOpClass op = Simple ⇔ opClass op Simple) ∧
-  (getOpClass op = Icing ⇔ opClass op Icing)
+  (getOpClass op = Icing ⇔ opClass op Icing) ∧
+  (getOpClass op = Reals ⇔ opClass op Reals)
 Proof
   Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases]
 QED

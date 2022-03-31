@@ -33,7 +33,7 @@ Datatype:
   | Ccon (((modN, conN)id)option) (v list) unit (exp list)
   | Ctannot unit ast_t
   | Clannot unit locs
-  | Coptimise fpState fp_opt unit
+  | Coptimise optChoice fp_opt unit
 End
 
 Type ctxt = ``: ctxt_frame # v sem_env``
@@ -52,7 +52,7 @@ Type small_state = ``: v sem_env # ('ffi, v) store_ffi # fpState # exp_or_val # 
 Datatype:
   e_step_result =
      Estep ('ffi small_state)
-   | Eabort abort
+   | Eabort (fpState # abort)
    | Estuck
 End
 
@@ -76,6 +76,12 @@ Definition shift_fp_state_def:
   fp with <| opts := (λ x. fp.opts (x + 1)); choices := fp.choices + 1 |>
 End
 
+Definition fix_fp_state_def:
+  fix_fp_state [] fp = fp ∧
+  fix_fp_state ((Coptimise oldSc sc (),env)::cs) fp = fix_fp_state cs (fp with canOpt := oldSc) ∧
+  fix_fp_state (c :: cs) fp = fix_fp_state cs fp
+End
+
 (*val application : forall 'ffi. op -> sem_env v -> store_ffi 'ffi v -> list v -> list ctxt -> e_step_result 'ffi*)
 val _ = Define `
  (application:op ->(v)sem_env ->(v)store#'ffi ffi_state -> fpState ->(v)list ->(ctxt)list -> 'ffi e_step_result) op env s fp vs c=
@@ -83,10 +89,10 @@ val _ = Define `
       FunApp =>
       (case do_opapp vs of
           SOME (env,e) => Estep (env, s, fp, Exp e, c)
-        | NONE => Eabort Rtype_error)
+        | NONE => Eabort (fix_fp_state c fp, Rtype_error))
     | Icing =>
       (case do_app s op vs of
-         NONE => Eabort Rtype_error
+         NONE => Eabort (fix_fp_state c fp, Rtype_error)
        | SOME (s',r) =>
         let fp_opt =
           (if fp.canOpt = FPScope Opt then
@@ -108,7 +114,7 @@ val _ = Define `
         in
           (case fp_res of
               Rerr (Rraise v) => Estep (env,s', fpN, Val v,((Craise () ,env)::c))
-            | Rerr (Rabort a) => Eabort a
+            | Rerr (Rabort a) => Eabort (fix_fp_state c fpN, a)
             | Rval v => return env s' fpN v c))
     | Reals =>
       if fp.real_sem then
@@ -116,20 +122,20 @@ val _ = Define `
           SOME (s',r) =>
           (case r of
               Rerr (Rraise v) => Estep (env,s', fp, Val v,((Craise () ,env)::c))
-            | Rerr (Rabort a) => Eabort a
+            | Rerr (Rabort a) => Eabort (fix_fp_state c fp, a)
             | Rval v => return env s' fp v c
           )
-        | NONE => Eabort Rtype_error)
-      else Eabort Rtype_error (** TODO: needed? (shift_fp_opts st', Rerr (Rabort Rtype_error))) **)
+        | NONE => Eabort (fix_fp_state c fp, Rtype_error))
+      else Eabort (fix_fp_state c (shift_fp_state fp), Rtype_error)
      | _ =>
       (case do_app s op vs of
           SOME (s',r) =>
           (case r of
               Rerr (Rraise v) => Estep (env,s', fp, Val v,((Craise () ,env)::c))
-            | Rerr (Rabort a) => Eabort a
+            | Rerr (Rabort a) => Eabort (fix_fp_state c fp, a)
             | Rval v => return env s' fp v c
           )
-        | NONE => Eabort Rtype_error)
+        | NONE => Eabort (fix_fp_state c fp, Rtype_error))
     )`;
 
 (* apply a context to a value *)
@@ -143,6 +149,8 @@ val _ = Define `
             [] => Estuck
           | ((Chandle ()  pes,env') :: c) =>
               Estep (env,s,fp,Val v,((Cmat_check ()  pes v, env')::c))
+          | ((Coptimise oldSc sc (), env) :: c) =>
+              Estep (env, s, fp with canOpt := oldSc, Val v,((Craise (), env)::c))
           | _::c => Estep (env,s,fp,Val v,((Craise () ,env)::c))
         )
     | (Chandle ()  pes, env) :: c =>
@@ -155,50 +163,50 @@ val _ = Define `
         (case do_log l v e of
             SOME (Exp e) => Estep (env, s, fp, Exp e, c)
           | SOME (Val v) => return env s fp v c
-          | NONE => Eabort Rtype_error
+          | NONE => Eabort (fix_fp_state c fp, Rtype_error)
         )
     | (Cif ()  e1 e2, env) :: c =>
         (case do_if v e1 e2 of
             SOME e => Estep (env, s, fp, Exp e, c)
-          | NONE => Eabort Rtype_error
+          | NONE => Eabort (fix_fp_state c fp, Rtype_error)
         )
     | (Cmat_check ()  pes err_v, env) :: c =>
         if can_pmatch_all env.c (FST s) (MAP FST pes) v then
           Estep (env, s, fp, Val v, ((Cmat ()  pes err_v,env)::c))
         else
-          Eabort Rtype_error
+          Eabort (fix_fp_state c fp, Rtype_error)
     | (Cmat ()  [] err_v, env) :: c =>
         Estep (env, s, fp, Val err_v, ((Craise () , env) ::c))
     | (Cmat ()  ((p,e)::pes) err_v, env) :: c =>
         if ALL_DISTINCT (pat_bindings p []) then
           (case pmatch env.c (FST s) p v [] of
-              Match_type_error => Eabort Rtype_error
+              Match_type_error => Eabort (fix_fp_state c fp, Rtype_error)
             | No_match => Estep (env, s, fp, Val v, ((Cmat ()  pes err_v,env)::c))
             | Match env' => Estep (( env with<| v := (nsAppend (alist_to_ns env') env.v) |>), s, fp, Exp e, c)
           )
         else
-          Eabort Rtype_error
+          Eabort (fix_fp_state c fp, Rtype_error)
     | (Clet n ()  e, env) :: c =>
         Estep (( env with<| v := (nsOptBind n v env.v) |>), s, fp, Exp e, c)
     | (Ccon n vs ()  [], env) :: c =>
         if do_con_check env.c n (LENGTH vs +( 1 : num)) then
            (case build_conv env.c n (v::vs) of
-               NONE => Eabort Rtype_error
+               NONE => Eabort (fix_fp_state c fp, Rtype_error)
              | SOME v => return env s fp v c
            )
         else
-          Eabort Rtype_error
+          Eabort (fix_fp_state c fp, Rtype_error)
     | (Ccon n vs ()  (e::es), env) :: c =>
         if do_con_check env.c n (((LENGTH vs +( 1 : num)) +( 1 : num)) + LENGTH es) then
           push env s fp e (Ccon n (v::vs) ()  es) c
         else
-          Eabort Rtype_error
+          Eabort (fix_fp_state c fp, Rtype_error)
     | (Ctannot ()  t, env) :: c =>
         return env s fp v c
     | (Clannot ()  l, env) :: c =>
         return env s fp v c
-    | (Coptimise oldFp sc (), env) :: c =>
-        return env s oldFp v c
+    | (Coptimise oldSc sc (), env) :: c =>
+        return env s (fp with canOpt := oldSc) (HD (do_fpoptimise sc [v])) c
   )))`;
 
 
@@ -226,17 +234,17 @@ val _ = Define `
                 (case REVERSE es of
                     [] =>
                       (case build_conv env.c n [] of
-                          NONE => Eabort Rtype_error
+                          NONE => Eabort (fix_fp_state c fp, Rtype_error)
                         | SOME v => return env s fp v c
                       )
                   | e::es =>
                       push env s fp e (Ccon n [] ()  es) c
                 )
               else
-                Eabort Rtype_error
+                Eabort (fix_fp_state c fp, Rtype_error)
           | Var n =>
               (case nsLookup env.v n of
-                  NONE => Eabort Rtype_error
+                  NONE => Eabort (fix_fp_state c fp, Rtype_error)
                 | SOME v =>
                     return env s fp v c
               )
@@ -252,7 +260,7 @@ val _ = Define `
           | Let n e1 e2 => push env s fp e1 (Clet n ()  e2) c
           | Letrec funs e =>
               if ~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)) then
-                Eabort Rtype_error
+                Eabort (fix_fp_state c fp, Rtype_error)
               else
                 Estep (( env with<| v := (build_rec_env funs env env.v) |>),
                        s, fp, Exp e, c)
@@ -260,7 +268,7 @@ val _ = Define `
           | Lannot e l => push env s fp e (Clannot ()  l) c
           | FpOptimise sc e =>
               let fpN = if fp.canOpt = Strict then fp else fp with canOpt := FPScope sc in
-              push env s fpN e (Coptimise fp sc ()) c
+              push env s fpN e (Coptimise fp.canOpt sc ()) c
         )
   )))`;
 
@@ -284,9 +292,9 @@ val _ = Define `
    (? env' env''. (RTC (e_step_reln)) (env,s,fp,Exp e,c) (env',s',fp',Val v,[(Craise () , env'')])))
 /\
 ((small_eval:(v)sem_env ->(v)store#'ffi ffi_state -> fpState -> exp ->(ctxt)list ->((v)store#'ffi ffi_state)#fpState#((v),(v))result -> bool) env s fp e c (s', fp', Rerr (Rabort a))=
-   (? env' e' c'.
-    (RTC (e_step_reln)) (env,s,fp,Exp e,c) (env',s',fp',e',c') /\
-    (e_step (env',s',fp',e',c') = Eabort a)))`;
+   (? env' e' c' fp''.
+    (RTC (e_step_reln)) (env,s,fp,Exp e,c) (env',s',fp'',e',c') /\
+    (e_step (env',s',fp'',e',c') = Eabort (fp', a))))`;
 
 
 (*val e_diverges : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> bool*)
@@ -325,9 +333,9 @@ Type small_decl_state = ``: 'ffi state # decl_eval # decl_ctxt``
 Datatype:
   decl_step_result =
     Dstep ('ffi small_decl_state)
-  | Dabort abort
+  | Dabort (fpState # abort)
   | Ddone
-  | Draise v
+  | Draise (fpState # v)
 End
 
 (* Helper functions *)
@@ -387,20 +395,20 @@ val _ = Define `
         Dlet locs p e =>
           if ALL_DISTINCT (pat_bindings p []) then
             Dstep (st, ExpVal (collapse_env benv c) (Exp e) [] locs p, c)
-          else Dabort Rtype_error
+          else Dabort (st.fp_state, Rtype_error)
       | Dletrec locs funs =>
           if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) then
             Dstep (st,
               Env <| v := (build_rec_env funs (collapse_env benv c) nsEmpty); c := nsEmpty |>,
               c)
-          else Dabort Rtype_error
+          else Dabort (st.fp_state, Rtype_error)
       | Dtype locs tds =>
           if EVERY check_dup_ctors tds then
             Dstep (
               ( st with<| next_type_stamp := (st.next_type_stamp + LENGTH tds) |>),
               Env <| v := nsEmpty; c := (build_tdefs st.next_type_stamp tds) |>,
               c)
-          else Dabort Rtype_error
+          else Dabort (st.fp_state, Rtype_error)
       | Dtabbrev locs tvs n t => Dstep (st, Env empty_dec_env, c)
       | Dexn locs cn ts =>
           Dstep (
@@ -416,7 +424,7 @@ val _ = Define `
             SOME (x, es') =>
              Dstep (( st with<| eval_state := es' |>),
               Env <| v := (nsSing n x) ; c := nsEmpty |>, c)
-          | NONE => Dabort Rtype_error
+          | NONE => Dabort (st.fp_state, Rtype_error)
           )
       )
 
@@ -429,17 +437,17 @@ val _ = Define `
             (case pmatch (collapse_env benv c).c st.refs p v [] of
               Match new_vals =>
                 Dstep (st, Env <| v := (alist_to_ns new_vals); c := nsEmpty |>, c)
-            | No_match => Draise bind_exn_v
-            | Match_type_error => Dabort Rtype_error
+            | No_match => Draise (st.fp_state, bind_exn_v)
+            | Match_type_error => Dabort (st.fp_state, Rtype_error)
             )
-          else Dabort Rtype_error
-      | (Val v, ((Craise () , env')::[])) => Draise v
+          else Dabort (st.fp_state, Rtype_error)
+      | (Val v, ((Craise () , env')::[])) => Draise (st.fp_state, v)
       | _ =>
         (case e_step (env, (st.refs, st.ffi), st.fp_state, ev, ec) of
           Estep (env', (refs', ffi'), fp', ev', ec') =>
             Dstep (( st with<| refs := refs' ; ffi := ffi'; fp_state := fp'|>),
               ExpVal env' ev' ec' locs p, c)
-        | Eabort a => Dabort a
+        | Eabort (fp, a) => Dabort (fp, a)
         | Estuck => Ddone (* cannot happen *)
         )
       )
@@ -461,14 +469,14 @@ val _ = Define `
    ((RTC (decl_step_reln env)) dst (st, Env e, [])))
 /\
 ((small_eval_dec:(v)sem_env -> 'ffi state#decl_eval#decl_ctxt -> 'ffi state#(((v)sem_env),(v))result -> bool) env dst (st, Rerr (Rraise v))=
-   (? dev' dcs'.
-    (RTC (decl_step_reln env)) dst (st, dev', dcs') /\
-    (decl_step env (st, dev', dcs') = Draise v)))
+   (? dev' dcs' fp.
+    (RTC (decl_step_reln env)) dst (st with fp_state := fp, dev', dcs') /\
+    (decl_step env (st with fp_state := fp, dev', dcs') = Draise (st.fp_state, v))))
 /\
 ((small_eval_dec:(v)sem_env -> 'ffi state#decl_eval#decl_ctxt -> 'ffi state#(((v)sem_env),(v))result -> bool) env dst (st, Rerr (Rabort v))=
-   (? dev' dcs'.
-    (RTC (decl_step_reln env)) dst (st, dev', dcs') /\
-    (decl_step env (st, dev', dcs') = Dabort v)))`;
+   (? dev' dcs' fp.
+    (RTC (decl_step_reln env)) dst (st with fp_state := fp, dev', dcs') /\
+    (decl_step env (st with fp_state := fp, dev', dcs') = Dabort (st.fp_state, v))))`;
 
 
 (*val small_decl_diverges : forall 'ffi. sem_env v -> small_decl_state 'ffi -> bool*)
