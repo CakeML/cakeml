@@ -119,7 +119,6 @@ EVAL “huffman_encoding [Lit "#a"; Lit "#a"; Lit "#b"; Lit "#c"; Lit "#c"; Lit 
 Definition decode_char_def:
   decode_char Empty _ = NONE ∧
   decode_char (Leaf c) [] = SOME c ∧
-  decode_char (Leaf c) code = NONE ∧
   decode_char (Node ltr rtr) [] = NONE ∧
   decode_char (Node ltr rtr) (x::xs) =
   case x of
@@ -130,19 +129,19 @@ End
 Definition decode_def:
   decode tree ((b::bs) :bool list) ([]   :bool list) :α LZSS list = (decode tree bs [b]) ∧
   decode tree ([]      :bool list) (code :bool list) :α LZSS list = (
-  let
-    res = decode_char tree code
-  in
-    case res of
-      NONE     => []
-    | SOME (r) => ([Lit r]:α LZSS list)) ∧
+    let
+      res = decode_char tree code
+    in
+      case res of
+        NONE     => []
+      | SOME (r) => ([r]:α LZSS list)) ∧
   decode tree ((b::bs) :bool list) (code :bool list) :α LZSS list = (
-  let
-    res = decode_char tree code
-  in
-    case res of
-      NONE     => decode tree bs (code++[b])
-    | SOME (r) => ([Lit r]:α LZSS list)++(decode tree bs [b]))
+    let
+      res = decode_char tree code
+    in
+      case res of
+        NONE     => decode tree bs (code++[b])
+      | SOME (r) => ([r]:α LZSS list)++(decode tree bs [b]))
 End
 
 EVAL “let
