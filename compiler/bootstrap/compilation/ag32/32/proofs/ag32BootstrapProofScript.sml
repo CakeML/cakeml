@@ -144,6 +144,7 @@ Proof
   \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ asm_exists_tac \\ simp[]
+  \\ last_x_assum $ irule_at Any \\ fs []
 QED
 
 Theorem cake_machine_sem =
