@@ -100,8 +100,8 @@ Definition encode_def:
     | SOME b => b++encode ss ls
 End
 
-Definition huffman_encoding_def:
-  huffman_encoding (l:α LZSS list) =
+Definition huff_enc_dyn_def:
+  huff_enc_dyn (l:α LZSS list) =
   let
     huff_tree = build_huffman_tree l;
     assoc_list = get_huffman_codes huff_tree [] []
@@ -109,8 +109,7 @@ Definition huffman_encoding_def:
     (huff_tree, encode l assoc_list)
 End
 
-EVAL “huffman_encoding [Lit "#a"; Lit "#a"; Lit "#b"; Lit "#c"; Lit "#c"; Lit "#c"; Lit "#d"]”;
-
+EVAL “huff_enc_dyn [Lit "#a"; Lit "#a"; Lit "#b"; Lit "#c"; Lit "#c"; Lit "#c"; Lit "#d"]”;
 
 (******************************************
              Huffman decoding
@@ -145,7 +144,7 @@ Definition decode_def:
 End
 
 EVAL “let
-        (tree, code) = huffman_encoding [Lit "#a"; Lit "#a"; Lit "#b"; Lit "#c"; Lit "#c"; Lit "#c"; Lit "#d"]
+        (tree, code) = huff_enc_dyn [Lit "#a"; Lit "#a"; Lit "#b"; Lit "#c"; Lit "#c"; Lit "#c"; Lit "#d"]
       in
      decode tree code []”;
 
@@ -153,16 +152,10 @@ Definition huffman_decoding_def:
   huffman_decoding (tree, code) = decode tree code []
 End
 
-
-EVAL “let
-        (tree, code) = huffman_encoding "hejsan svejsan"
-      in
-        huffman_decoding (tree, code)”;
-
 Definition huffman_enc_main_def:
   huffman_enc_main s =
-  if huffman_decoding (huffman_encoding s) = s
-  then (huffman_encoding s, s, T)
+  if huffman_decoding (huff_enc_dyn s) = s
+  then (huff_enc_dyn s, s, T)
   else ((Empty, []), s, F)
 End
 
@@ -172,11 +165,6 @@ Definition huffman_dec_main_def:
   then (huffman_decoding (tree, code))
   else s
 End
-
-EVAL “let
-        ((tree, code), b) = huffman_enc_main "hejsan svejsan"
-      in
-        huffman_dec_main ((tree, code), b)”;
 
 (*
 Theorem huffman_inverse:
