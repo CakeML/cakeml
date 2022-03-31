@@ -24,18 +24,21 @@ End
 *******************************************)
 
 Definition get_freq_def:
-  get_freq [] ls = ls ∧
+  get_freq []      ls = ls ∧
   get_freq (s::ss) ls =
-  let
-    ls' = (case ALOOKUP ls s of
-             NONE => (s,1:num)::ls
-           | SOME n => AFUPDKEY s (λ n. n + 1) ls)
-  in
-    get_freq ss ls'
+  case s of
+    Lit c =>
+      (let
+         ls' = (case ALOOKUP ls s of
+                 NONE => (s,1:num)::ls
+               | SOME n => AFUPDKEY s (λ n. n + 1) ls)
+       in
+        get_freq ss ls')
+  | LenDist (l, d) => get_freq ss ls
 End
 
 Definition get_frequencies_def:
-  get_frequencies (input:string) = get_freq input []
+  get_frequencies (input:α LZSS list) = get_freq input []
 End
 
 Definition convert_frequencies_def:
@@ -64,7 +67,7 @@ Termination
 End
 
 Definition build_huffman_tree_def:
-  build_huffman_tree (s:string) =
+  build_huffman_tree (s:α LZSS list) =
   (let
      freqs = sort_frequencies (convert_frequencies (get_frequencies s))
    in
@@ -87,8 +90,8 @@ Definition get_huffman_codes_def:
 End
 
 Definition encode_def:
-  encode "" ls = [] ∧
-  encode ((s::ss):string) ls =
+  encode [] ls = [] ∧
+  encode ((s::ss):α LZSS list) ls =
   let
     res = ALOOKUP ls s
   in
@@ -98,15 +101,15 @@ Definition encode_def:
 End
 
 Definition huffman_encoding_def:
-  huffman_encoding (s:string) =
+  huffman_encoding (l:α LZSS list) =
   let
-    huff_tree = build_huffman_tree s;
+    huff_tree = build_huffman_tree l;
     assoc_list = get_huffman_codes huff_tree [] []
   in
-    (huff_tree, encode s assoc_list)
+    (huff_tree, encode l assoc_list)
 End
 
-EVAL “huffman_encoding "aabcccd"”;
+EVAL “huffman_encoding [Lit "#a"; Lit "#a"; Lit "#b"; Lit "#c"; Lit "#c"; Lit "#c"; Lit "#d"]”;
 
 
 (******************************************
@@ -115,8 +118,8 @@ EVAL “huffman_encoding "aabcccd"”;
 
 Definition decode_char_def:
   decode_char Empty _ = NONE ∧
-  decode_char (Leaf (c:char)) [] = SOME c ∧
-  decode_char (Leaf (c:char)) code = NONE ∧
+  decode_char (Leaf c) [] = SOME c ∧
+  decode_char (Leaf c) code = NONE ∧
   decode_char (Node ltr rtr) [] = NONE ∧
   decode_char (Node ltr rtr) (x::xs) =
   case x of
@@ -125,25 +128,25 @@ Definition decode_char_def:
 End
 
 Definition decode_def:
-  decode tree ((b::bs) :bool list) ([]   :bool list) :string = (decode tree bs [b]) ∧
-  decode tree ([]      :bool list) (code :bool list) :string = (
+  decode tree ((b::bs) :bool list) ([]   :bool list) :α LZSS list = (decode tree bs [b]) ∧
+  decode tree ([]      :bool list) (code :bool list) :α LZSS list = (
   let
     res = decode_char tree code
   in
     case res of
-      NONE => []
-    | SOME (r:char) => [r:char]) ∧
-  decode tree ((b::bs) :bool list) (code :bool list) :string = (
+      NONE     => []
+    | SOME (r) => ([Lit r]:α LZSS list)) ∧
+  decode tree ((b::bs) :bool list) (code :bool list) :α LZSS list = (
   let
     res = decode_char tree code
   in
     case res of
-      NONE => decode tree bs (code++[b])
-    | SOME (r:char) => [r]++(decode tree bs [b]))
+      NONE     => decode tree bs (code++[b])
+    | SOME (r) => ([Lit r]:α LZSS list)++(decode tree bs [b]))
 End
 
 EVAL “let
-        (tree, code) = huffman_encoding "abbbbbcddd"
+        (tree, code) = huffman_encoding [Lit "#a"; Lit "#a"; Lit "#b"; Lit "#c"; Lit "#c"; Lit "#c"; Lit "#d"]
       in
      decode tree code []”;
 
