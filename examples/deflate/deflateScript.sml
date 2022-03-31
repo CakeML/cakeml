@@ -99,12 +99,11 @@ Proof
       ‘n' DIV 2 * 2 + n' MOD 2 = n'’ by metis_tac[GSYM DIVISION] >> fs[] )
 QED
 
-Definition pad0:
+Definition pad0_def:
   pad0 n bl = PAD_LEFT F n bl
 End
 
-
-Definition get_codes_from_len:
+Definition get_codes_from_len_def:
   get_codes_from_len  [] n nc = [] ∧
   get_codes_from_len (0::ls) n nc = get_codes_from_len ls (SUC n) nc ∧
   get_codes_from_len (l::ls) n nc =
@@ -115,7 +114,6 @@ Definition get_codes_from_len:
       (n, pad0 l $ TN2BL code) :: get_codes_from_len ls (SUC n) nc
 End
 
-
 EVAL “
  let
    ls = [3;3;3;3;3;2;4;4];
@@ -123,11 +121,10 @@ EVAL “
    nc = next_code bl;
    codes = get_codes_from_len ls 0 nc;
  in
-    codes
- ”;
+   codes
+   ”;
 
-
-Definition fixed_huff_tree:
+Definition fixed_huff_tree_def:
   fixed_huff_tree =
    let
      ls = (REPLICATE 144 8) ++ (REPLICATE 112 9) ++ (REPLICATE 24 7) ++ (REPLICATE 8 8);
@@ -137,7 +134,42 @@ Definition fixed_huff_tree:
    in
      codes
 End
-EVAL “fixed_huff_tree”
+EVAL “fixed_huff_tree”;
 
+(* (5-bit code value, number of extra bits after value, inclusive exclusive range for extra bits) *)
+Definition dist_table:
+  dist_table =
+  [ (0, 0, (1,2));
+    (1, 0, (2,3));
+    (2, 0, (3,4));
+    (3, 0, (4,5));
+    (4, 1, (5,7));
+    (5, 1, (7,9));
+    (6, 2, (9,13));
+    (7, 2, (13,17));
+    (8, 3, (17,25));
+    (9, 3, (25,33));
+    (10,4, (33,49));
+    (11,4, (49,65));
+    (12,5, (65,97));
+    (13,5, (97,129));
+    (14,6, (129,192));
+    (15,6, (193,256));
+    (16,7, (257,385));
+    (17,7, (385,513));
+    (18,8, (513,768));
+    (19,8, (769,1025));
+    (20,9, (1025,1537));
+    (21,9, (1537,2049));
+    (22,10,(2049,3073));
+    (23,10,(3073,4097));
+    (24,11,(4097,6145));
+    (25,11,(6145,8193));
+    (26,12,(8193,12289));
+    (27,12,(12289,16384));
+    (28,13,(16384,24576));
+    (29,13,(24577,32769));
+]
+End
 
 val _ = export_theory();
