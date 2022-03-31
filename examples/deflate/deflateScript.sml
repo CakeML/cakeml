@@ -59,16 +59,6 @@ End
 
 EVAL “next_code (bl_count [3;3;3;3;3;2;4;4])”;
 
-(* binary numbers in little-endian format *)
-Definition tbl2n_def[simp]:
-  tbl2n [] = 0n /\
-  tbl2n (T::t) = 2*tbl2n t + 1 /\
-  tbl2n (F::t) = 2*tbl2n t
-End
-
-(* binary numbers in big-endian format *)
-Overload TN2BL = “\n. REVERSE (inv_tbl2n n)”
-
 Definition inv_tbl2n_def:
   inv_tbl2n 0n = [] /\
   inv_tbl2n a = if EVEN a then [F]++(inv_tbl2n (a DIV 2))
@@ -79,25 +69,9 @@ Termination
   rw[DIV_LE_MONOTONE,DIV_LESS,DIV_LESS_EQ]
 End
 
-Theorem tbl2n_inv_tbl2n[simp]:
-  tbl2n (inv_tbl2n n) = n
-Proof
-  completeInduct_on ‘n’ >> Cases_on‘n’ >> simp[tbl2n_def,inv_tbl2n_def] >>
-  Cases_on‘EVEN (SUC n')’ >>
-  simp[tbl2n_def]
-  >- (‘2 * (SUC n' DIV 2) = (SUC n' DIV 2)*2’ by simp[MULT_COMM] >>
-      ‘0<2n’ by simp[] >>
-      ‘SUC n' MOD 2=0’ by metis_tac[EVEN_MOD2] >>
-      ‘SUC n' DIV 2 * 2 + SUC n' MOD 2 = SUC n'’ by metis_tac[GSYM DIVISION] >>
-      fs[])
-  >- (‘0<2n’ by simp[] >> ‘n' DIV 2 <= n'’ by simp[DIV_LESS_EQ] >>
-      ‘n' DIV 2 < SUC n'’ by
-        simp[LESS_EQ_IMP_LESS_SUC] >> fs[] >>
-      ‘EVEN n'’ by metis_tac[ODD,EVEN_OR_ODD] >>
-      ‘2 * (n' DIV 2) =  (n' DIV 2)*2’ by simp[MULT_COMM] >> ‘0<2n’ by simp[] >>
-      ‘n' MOD 2=0’ by metis_tac[EVEN_MOD2] >>
-      ‘n' DIV 2 * 2 + n' MOD 2 = n'’ by metis_tac[GSYM DIVISION] >> fs[] )
-QED
+
+(* binary numbers in big-endian format *)
+Overload TN2BL = “\n. REVERSE (inv_tbl2n n)”
 
 Definition pad0_def:
   pad0 n bl = PAD_LEFT F n bl
@@ -111,7 +85,7 @@ Definition get_codes_from_len_def:
     code = EL l nc;
     nc = LUPDATE (SUC code) l nc;
   in
-      (n, pad0 l $ TN2BL code) :: get_codes_from_len ls (SUC n) nc
+      (n, pad0 l (TN2BL code)) :: get_codes_from_len ls (SUC n) nc
 End
 
 EVAL “
