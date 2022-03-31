@@ -128,7 +128,7 @@ Theorem cake_installed:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) (cl,inp)) ms0 ⇒
-   installed code 0 data 0 config.lab_conf.ffi_names (basis_ffi cl fs)
+   installed code 0 data 0 config.lab_conf.ffi_names
      (heap_regs ag32_backend_config.stack_conf.reg_names)
      (cake_machine_config) (FUNPOW Next (cake_startup_clock ms0 inp cl) ms0)
 Proof
@@ -144,6 +144,7 @@ Proof
   \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ asm_exists_tac \\ simp[]
+  \\ last_x_assum $ irule_at Any \\ fs []
 QED
 
 Theorem cake_machine_sem =

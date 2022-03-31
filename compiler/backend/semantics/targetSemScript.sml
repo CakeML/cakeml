@@ -176,22 +176,21 @@ val get_reg_value_def = Define `
 (* ffi_interfer_ok: the FFI interference oracle is ok:
    target_state_rel is preserved for any FFI behaviour *)
 val ffi_interfer_ok_def = Define`
-  ffi_interfer_ok ffi pc io_regs mc_conf ⇔
-    (!ms2 k index new_bytes t1 bytes bytes2 st new_st.
+  ffi_interfer_ok pc io_regs mc_conf ⇔
+    (∀ms2 k index new_bytes t1 bytes bytes2.
        index < LENGTH mc_conf.ffi_names ∧
        read_ffi_bytearrays mc_conf ms2 = (SOME bytes, SOME bytes2) ∧
-       call_FFI_rel^* ffi st ∧
-       call_FFI st (EL index mc_conf.ffi_names) bytes bytes2 = FFI_return new_st new_bytes ∧
+       LENGTH new_bytes = LENGTH bytes2 ∧
+       (EL index mc_conf.ffi_names = "" ⇒ new_bytes = bytes2) ∧
        (mc_conf.prog_addresses = t1.mem_domain) ∧
        target_state_rel mc_conf.target
-         (t1 with
-          pc := -n2w ((3 + index) * ffi_offset) + pc)
-       ms2 /\
-       aligned mc_conf.target.config.code_alignment (t1.regs (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n)) ==>
-       target_state_rel mc_conf.target
+         (t1 with pc := -n2w ((3 + index) * ffi_offset) + pc) ms2 ∧
+       aligned mc_conf.target.config.code_alignment
+        (t1.regs (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n))
+    ⇒ target_state_rel mc_conf.target
         (t1 with
          <|regs :=
-            (\a.
+            (λa.
              get_reg_value
                (if MEM a mc_conf.callee_saved_regs then NONE else io_regs k (EL index mc_conf.ffi_names) a)
                (t1.regs a) I);
@@ -231,7 +230,7 @@ val ccache_interfer_ok_def = Define`
 
 val good_init_state_def = Define `
   good_init_state
-    (mc_conf: ('a,'state,'b) machine_config) ms ffi bytes
+    (mc_conf: ('a,'state,'b) machine_config) ms bytes
     cbspace
     t m dm
     io_regs cc_regs
@@ -245,7 +244,7 @@ val good_init_state_def = Define `
     (n2w (2 ** t.align - 1) && t.pc) = 0w /\
 
     interference_ok mc_conf.next_interfer (mc_conf.target.proj mc_conf.prog_addresses) /\
-    ffi_interfer_ok ffi t.pc io_regs mc_conf ∧
+    ffi_interfer_ok t.pc io_regs mc_conf ∧
     ccache_interfer_ok t.pc cc_regs mc_conf ∧
 
     (* code memory relation *)
@@ -270,10 +269,10 @@ val good_init_state_def = Define `
    i.e., the range of the data memory
 *)
 val installed_def = Define`
-  installed bytes cbspace bitmaps data_sp ffi_names ffi (r1,r2) mc_conf ms ⇔
+  installed bytes cbspace bitmaps data_sp ffi_names (r1,r2) mc_conf ms ⇔
     ∃t m io_regs cc_regs bitmap_ptr bitmaps_dm.
       let heap_stack_dm = { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } in
-      good_init_state mc_conf ms ffi bytes cbspace t m (heap_stack_dm ∪ bitmaps_dm) io_regs cc_regs ∧
+      good_init_state mc_conf ms bytes cbspace t m (heap_stack_dm ∪ bitmaps_dm) io_regs cc_regs ∧
       byte_aligned (t.regs r1) /\
       byte_aligned (t.regs r2) /\
       byte_aligned bitmap_ptr /\

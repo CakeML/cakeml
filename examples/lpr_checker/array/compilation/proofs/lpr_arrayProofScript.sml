@@ -39,7 +39,7 @@ val check_unsat_compiled_thm =
 val installed_x64_def = Define `
   installed_x64 ((code, data, cfg) :
       (word8 list # word64 list # 64 backend$config))
-    ffi mc ms
+    mc ms
   <=>
     ?cbspace data_sp.
       is_x64_machine_config mc /\
@@ -47,7 +47,6 @@ val installed_x64_def = Define `
         code cbspace
         data data_sp
         cfg.lab_conf.ffi_names
-        ffi
         (heap_regs x64_backend_config.stack_conf.reg_names) mc ms
     `;
 
@@ -59,7 +58,7 @@ val check_unsat_code_def = Define `
 val cake_lpr_run_def = Define`
   cake_lpr_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  installed_x64 check_unsat_code (basis_ffi cl fs) mc ms`
+  installed_x64 check_unsat_code mc ms`
 
 Theorem concat_success_str:
   ∀a b c. concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString (d:num); strlit "\n"] ≠ success_str a b c
