@@ -6,6 +6,9 @@ Alternative definitions of the semantics:
 A clocked relational big-step semantics for CakeML. This semantics
 is no longer used in the CakeML development.
 
+[itree_semanticsScript.sml](itree_semanticsScript.sml):
+An itree-based semantics for CakeML
+
 [proofs](proofs):
 The direcory contains proofs about the old relational semantics for
 CakeML. This directory might be deleted in the future.
