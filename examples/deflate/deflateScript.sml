@@ -147,6 +147,22 @@ Definition dist_table:
 End
 
 
+
+Definition encode_LZSS_len_def:
+  encode_LZSS (l: char LZSS) : num =
+  case l of
+    Lit c => ORD c
+  | LenDist (l, d) => find_in_table l len_table ((λ (a, b, c). a) (HD len_table))
+End
+
+Definition find_in_table:
+  find_in_table v []
+  find_in_table v (((curr, bits, value): num # num # num)::tab) prev  =
+  if curr <= v
+  then find_in_table v tab curr
+  else prev
+End
+
 (* (5-bit code value, number of extra bits after value, inclusive exclusive range for extra bits) *)
 Definition len_table:
   len_table =
