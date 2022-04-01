@@ -45,13 +45,13 @@ Theorem reader_compiled_thm =
 Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
       (word8 list # word64 list # 64 backend$config))
-    ffi mc ms ⇔
+    mc ms ⇔
     ∃cbspace data_sp.
       is_x64_machine_config mc ∧
       installed
         code cbspace
         data data_sp
-        cfg.lab_conf.ffi_names ffi
+        cfg.lab_conf.ffi_names
         (heap_regs x64_backend_config.stack_conf.reg_names) mc ms
 End
 
@@ -67,7 +67,7 @@ Theorem machine_code_sound:
    wfcl cl ∧
    wfFS fs ∧
    STD_streams fs ⇒
-     (installed_x64 reader_code (basis_ffi cl fs) mc ms ⇒
+     (installed_x64 reader_code mc ms ⇒
         machine_sem mc (basis_ffi cl fs) ms ⊆
           extend_with_resource_limit
             {Terminate Success (reader_io_events cl fs)}) ∧

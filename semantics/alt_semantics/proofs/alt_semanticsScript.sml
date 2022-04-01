@@ -10,12 +10,14 @@ val _ = new_theory "alt_semantics";
 
 Theorem big_step_semantics:
   st.eval_state = NONE ⇒ (
-  (semantics_prog st env prog (Terminate Success io_list) ⇔
+  (semantics_prog st env prog (Terminate outcome io_list) ⇔
     ∃st' res ex env'.
       evaluate_decs F env st prog (st', res) ∧
-      (res = Rval env' ∨ res = Rerr (Rraise ex)) ∧
-      st'.ffi.io_events = io_list) ∧
-  (semantics_prog st env prog (Diverge io_trace) ⇔
+      st'.ffi.io_events = io_list ∧
+      if outcome = Success then
+        res = Rval env' ∨ res = Rerr (Rraise ex)
+      else ∃f. outcome = FFI_outcome f ∧ res = Rerr (Rabort $ Rffi_error f)) ∧
+   (semantics_prog st env prog (Diverge io_trace) ⇔
       (∀k. ∃st'.
         evaluate_decs T env (st with clock := k) prog
           (st',Rerr (Rabort Rtimeout_error))) ∧
@@ -42,7 +44,7 @@ Proof
     simp[evaluate_prog_with_clock_def] >>
     drule $ cj 2 evaluate_decs_unclocked_to_clocked >>
     simp[GSYM functional_evaluate_decs] >> strip_tac >> gvs[] >>
-    qexists_tac `c` >> simp[]
+    qexists_tac `c` >> simp[] >> every_case_tac >> gvs[]
     )
   >- (
     simp[semantics_prog_def, evaluate_prog_with_clock_def] >>
@@ -75,11 +77,13 @@ QED
 
 Theorem small_step_semantics:
   st.eval_state = NONE ⇒ (
-  (semantics_prog st env prog (Terminate Success io_list) ⇔
+  (semantics_prog st env prog (Terminate outcome io_list) ⇔
     ∃st' res ex env'.
       small_eval_decs env st prog (st', res) ∧
-      (res = Rval env' ∨ res = Rerr (Rraise ex)) ∧
-      st'.ffi.io_events = io_list) ∧
+      st'.ffi.io_events = io_list ∧
+      if outcome = Success then
+        res = Rval env' ∨ res = Rerr (Rraise ex)
+      else ∃f. outcome = FFI_outcome f ∧ res = Rerr (Rabort $ Rffi_error f)) ∧
   (semantics_prog st env prog (Diverge io_trace) ⇔
     small_decl_diverges env (st, Decl (Dlocal [] prog), []) ∧
     lprefix_lub

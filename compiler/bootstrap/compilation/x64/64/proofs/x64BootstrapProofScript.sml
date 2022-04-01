@@ -147,7 +147,7 @@ Definition repl_ready_to_run_def:
       file_content fs «config_enc_str.txt» = SOME config_env_str ∧
       mc_conf_ok mc ∧ mc_init_ok x64_backend_config mc ∧
       installed cake_code cbspace cake_data data_sp
-        cake_config.lab_conf.ffi_names (basis_ffi cl fs)
+        cake_config.lab_conf.ffi_names
         (heap_regs x64_backend_config.stack_conf.reg_names) mc ms
 End
 
