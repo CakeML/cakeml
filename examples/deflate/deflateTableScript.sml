@@ -8,7 +8,7 @@ open rich_listTheory alistTheory listTheory;
 open sortingTheory arithmeticTheory;
 open LZSSrbTheory;
 
-val _ = new_theory "deflate";
+val _ = new_theory "deflateTable";
 
 
 (* (5-bit code value, number of extra bits after value, inclusive exclusive range for extra bits) *)
@@ -82,7 +82,6 @@ Definition len_table:
 ]
 End
 
-
 Definition find_in_table:
   find_in_table v [] prev = prev ∧
   find_in_table v (((curr, bits, value): num # num # num)::tab) prev  =
@@ -91,12 +90,16 @@ Definition find_in_table:
   else prev
 End
 
+EVAL “find_in_table 67 len_table ((λ (a, b, c). a) (HD len_table))”;
+
 Definition encode_LZSS_len_def:
-  encode_LZSS l : num =
+  encode_LZSS_len l : num =
   case l of
     Lit c => ORD c
   | LenDist (l, d) => find_in_table l len_table ((λ (a, b, c). a) (HD len_table))
 End
 
+EVAL “encode_LZSS_len (Lit #"g")”;
+EVAL “encode_LZSS_len (LenDist (20, 20))”;
 
 val _ = export_theory();

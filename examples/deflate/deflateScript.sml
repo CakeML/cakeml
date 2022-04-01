@@ -8,7 +8,7 @@ open rich_listTheory alistTheory listTheory;
 open sortingTheory arithmeticTheory;
 open LZSSrbTheory;
 
-val _ = new_theory "fixHuffTree";
+val _ = new_theory "deflate";
 
 
 
@@ -62,6 +62,7 @@ End
 
 EVAL “next_code (bl_count [3;3;3;3;3;2;4;4])”;
 
+(*  From kraft_ineq  *)
 Definition inv_tbl2n_def:
   inv_tbl2n 0n = [] /\
   inv_tbl2n a = if EVEN a then [F]++(inv_tbl2n (a DIV 2))
@@ -71,8 +72,6 @@ Termination
   irule LESS_EQ_LESS_TRANS >> qexists_tac‘v’ >> ‘0<2n’ by simp[] >>
   rw[DIV_LE_MONOTONE,DIV_LESS,DIV_LESS_EQ]
 End
-
-
 (* binary numbers in big-endian format *)
 Overload TN2BL = “\n. REVERSE (inv_tbl2n n)”
 

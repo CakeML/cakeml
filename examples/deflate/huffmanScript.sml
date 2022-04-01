@@ -10,6 +10,7 @@ open pairTheory;
 open arithmeticTheory;
 open ringBufferTheory;
 open LZSSrbTheory;
+open deflateTableTheory;
 
 val _ = new_theory"huffman";
 
@@ -26,15 +27,13 @@ End
 Definition get_freq_def:
   get_freq []      ls = ls ∧
   get_freq (s::ss) ls =
-  case s of
-    Lit c =>
-      (let
-         ls' = (case ALOOKUP ls s of
-                 NONE => (s,1:num)::ls
-               | SOME n => AFUPDKEY s (λ n. n + 1) ls)
-       in
-        get_freq ss ls')
-  | LenDist (l, d) => get_freq ss ls
+  let
+    n = encode_LZSS_len s;
+    ls' = (case ALOOKUP ls n of
+             NONE => (n,1:num)::ls
+           | SOME n => AFUPDKEY n (λ a. a + 1) ls)
+  in
+    get_freq ss ls'
 End
 
 Definition get_frequencies_def:
@@ -110,6 +109,8 @@ Definition huff_enc_dyn_def:
 End
 
 EVAL “huff_enc_dyn [Lit "#a"; Lit "#a"; Lit "#b"; Lit "#c"; Lit "#c"; Lit "#c"; Lit "#d"]”;
+
+
 
 (******************************************
              Huffman decoding
