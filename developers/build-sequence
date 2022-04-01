@@ -120,6 +120,11 @@ compiler/parsing/tests
 compiler/inference/tests
 compiler/printing/test
 
+# Floating-Point optimizer
+icing/flover
+icing/
+icing/examples
+
 # compiler translation
 compiler/repl
 compiler/bootstrap/translation
