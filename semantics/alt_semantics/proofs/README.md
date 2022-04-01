@@ -33,5 +33,11 @@ Compset for evaluating the functional big-step semantics.
 [interpScript.sml](interpScript.sml):
 Deriviation of a functional big-step semantics from the relational one.
 
+[itree_semanticsEquivScript.sml](itree_semanticsEquivScript.sml):
+Relating the itree- and FFI state-based CakeML semantics
+
+[itree_semanticsPropsScript.sml](itree_semanticsPropsScript.sml):
+Properties about the itree- and FFI state-based CakeML semantics
+
 [smallStepPropsScript.sml](smallStepPropsScript.sml):
 Properties about the small-step semantics.
