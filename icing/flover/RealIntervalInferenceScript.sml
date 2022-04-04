@@ -13,7 +13,8 @@ val _ = new_theory "RealIntervalInference";
 
 val _ = monadsyntax.enable_monadsyntax();
 val _ = List.app monadsyntax.enable_monad ["option"];
-val _ = type_abbrev ("ivMap", ``:(real # real) fMap``);
+
+Type ivMap = “:(real#real) fMap”;
 
 Definition ITERCOUNT_def:
   ITERCOUNT = 4:num

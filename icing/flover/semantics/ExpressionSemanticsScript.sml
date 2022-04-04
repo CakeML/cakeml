@@ -8,7 +8,8 @@ open preambleFloVer;
 
 val _ = new_theory "ExpressionSemantics";
 
-val _ = temp_overload_on("abs",``real$abs``);
+Overload abs = “real$abs”
+
 (**
   Define a perturbation function to ease writing of basic definitions
 **)
@@ -94,8 +95,7 @@ Theorem eval_expr_cases =
      ``eval_expr E Gamma (Unop u e) res m``,
      ``eval_expr E Gamma (Binop n e1 e2) res m``,
      ``eval_expr E Gamma (Fma e1 e2 e3) res m``,
-     ``eval_expr E Gamma (Downcast m1 e1) res m2``]
-  |> LIST_CONJ |> curry save_thm "eval_expr_cases";
+     ``eval_expr E Gamma (Downcast m1 e1) res m2``] |> LIST_CONJ
 
 val [Var_load, Const_dist, Unop_neg, Unop_inv, Unop_sqrt, Downcast_dist, Binop_dist, Fma_dist] =
   CONJ_LIST 8 eval_expr_rules;

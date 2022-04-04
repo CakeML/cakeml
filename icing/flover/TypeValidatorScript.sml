@@ -1,3 +1,7 @@
+(**
+  Simple Type Inference algorithm with correctness proof to infer machine type
+  assignments for FloVer's input expressions
+**)
 open realTheory realLib sptreeTheory;
 open ExpressionsTheory MachineTypeTheory FloverTactics ExpressionAbbrevsTheory
      ExpressionSemanticsTheory CommandsTheory FloverMapTheory ResultsTheory;
@@ -57,32 +61,35 @@ Proof
   \\ rpt (asm_exists_tac \\ fs[])
 QED
 
-val validTypes_exec = store_thm (
-  "validTypes_exec",
-  ``! e Gamma m.
+Theorem validTypes_exec:
+  ! e Gamma m.
       validTypes e Gamma /\
       FloverMapTree_find e Gamma = SOME m ==>
       ! E v mG.
         eval_expr E (toRExpMap Gamma) e v mG ==>
-        mG = m``,
+        mG = m
+Proof
   rpt strip_tac \\ IMP_RES_TAC validTypes_single
   \\ rename1 `FloverMapTree_find e Gamma = SOME mG2`
   \\ `m = mG2`  by (fs[])
   \\ rveq
   \\ first_x_assum irule
-  \\ qexistsl_tac [`E`, `Gamma`, `v`] \\ fs[]);
+  \\ qexistsl_tac [`E`, `Gamma`, `v`] \\ fs[]
+QED
 
-val isMonotone_def = Define `
+Definition isMonotone_def:
   isMonotone NONE mNew = T /\
-  isMonotone (SOME mOld) mNew = (mOld = mNew)`;
+  isMonotone (SOME mOld) mNew = (mOld = mNew)
+End
 
-val addMono_def = Define `
+Definition addMono_def:
   addMono e m map =
     case FloverMapTree_find e map of
     | SOME mOld => Fail "Nonmonotonic map update"
-    | NONE => Succes (FloverMapTree_insert e m map)`;
+    | NONE => Succes (FloverMapTree_insert e m map)
+End
 
-val _ = Parse.temp_overload_on ("insert", Term`FloverMapTree_insert`);
+Overload insert[local] = “FloverMapTree_insert”
 
 Definition getValidMap_def:
   getValidMap Gamma e akk =
@@ -206,11 +213,11 @@ End
 
 val tMap_def = FloverMapTree_correct;
 
-val toRExpMap_char = store_thm (
-  "toRExpMap_char",
-  ``!e m akk.
-    toRExpMap (FloverMapTree_insert e m akk) e = SOME m``,
-  fs[toRExpMap_def, tMap_def]);
+Theorem toRExpMap_char:
+  !e m akk. toRExpMap (FloverMapTree_insert e m akk) e = SOME m
+Proof
+  fs[toRExpMap_def, tMap_def]
+QED
 
 val by_monotonicity =
   once_rewrite_tac [map_find_add]
@@ -310,13 +317,13 @@ Proof
   \\ by_monotonicity
 QED
 
-val validTypes_mono = store_thm (
-  "validTypes_mono",
-  ``! e map1 map2.
+Theorem validTypes_mono:
+  ! e map1 map2.
       (! e m. FloverMapTree_find e map1 = SOME m ==>
               FloverMapTree_find e map2 = SOME m) /\
       validTypes e map1 ==>
-      validTypes e map2``,
+      validTypes e map2
+Proof
   Induct_on `e` \\ fs[Once validTypes_def]
   \\ rpt strip_tac
   \\ simp [Once validTypes_def]
@@ -358,16 +365,18 @@ val validTypes_mono = store_thm (
       \\ qexists_tac `map1` \\ simp[GSYM validTypes_def])
   >- (qexists_tac `m1` \\ fs[])
   \\ rpt strip_tac \\ first_x_assum irule
-  \\ qexistsl_tac [`E`, `Gamma2`, `v`] \\ fs[]);
+  \\ qexistsl_tac [`E`, `Gamma2`, `v`] \\ fs[]
+QED
 
-val map_find_mono = store_thm (
-  "map_find_mono",
-  ``! e1 e2 m1 m2 Gamma.
-      FloverMapTree_mem e2 Gamma = F /\
-      FloverMapTree_find e1 Gamma = SOME m1 ==>
-      FloverMapTree_find e1 (FloverMapTree_insert e2 m2 Gamma) = SOME m1``,
+Theorem map_find_mono:
+  ! e1 e2 m1 m2 Gamma.
+    FloverMapTree_mem e2 Gamma = F /\
+    FloverMapTree_find e1 Gamma = SOME m1 ==>
+    FloverMapTree_find e1 (FloverMapTree_insert e2 m2 Gamma) = SOME m1
+Proof
   rpt strip_tac \\ fs[map_find_add]
-  \\ Cases_on `e1 = e2` \\ fs[FloverMapTree_mem_def]);
+  \\ Cases_on `e1 = e2` \\ fs[FloverMapTree_mem_def]
+QED
 
 Theorem getValidMap_correct:
   ∀ e Gamma akk res.
@@ -799,11 +808,11 @@ Proof
   \\ fs[eval_expr_cases, toRExpMap_def] \\ rveq \\ fs[]
 QED
 
-val getValidMap_top_contained = store_thm (
-  "getValidMap_top_contained",
-  ``! e akk Gamma res.
+Theorem getValidMap_top_contained:
+  ! e akk Gamma res.
       getValidMap Gamma e akk = Succes res ==>
-      FloverMapTree_mem e res``,
+      FloverMapTree_mem e res
+Proof
   Induct_on `e` \\ simp[Once getValidMap_def] \\ rpt strip_tac
   >- (EVERY_CASE_TAC \\ rveq \\ fs[FloverMapTree_mem_def, map_find_add])
   >- (EVERY_CASE_TAC \\ rveq \\ fs[FloverMapTree_mem_def, map_find_add])
@@ -826,17 +835,19 @@ val getValidMap_top_contained = store_thm (
   \\ Cases_on `getValidMap Gamma e akk` \\ fs[]
   \\ res_tac
   \\ fs[addMono_def]
-  \\ EVERY_CASE_TAC \\ rveq \\ fs[FloverMapTree_mem_def, map_find_add]);
+  \\ EVERY_CASE_TAC \\ rveq \\ fs[FloverMapTree_mem_def, map_find_add]
+QED
 
-val getValidMap_top_correct = store_thm (
-  "getValidMap_top_correct",
-  ``! e akk Gamma res.
+Theorem getValidMap_top_correct:
+  ! e akk Gamma res.
       (! e. FloverMapTree_mem e akk ==> validTypes e akk) /\
       getValidMap Gamma e akk = Succes res ==>
-      validTypes e res``,
-  metis_tac[getValidMap_correct, getValidMap_top_contained]);
+      validTypes e res
+Proof
+  metis_tac[getValidMap_correct, getValidMap_top_contained]
+QED
 
-val validTypesCmd_def = Define `
+Definition validTypesCmd_def:
   validTypesCmd f Gamma =
     ((case f of
     | Let m x e g =>
@@ -853,11 +864,11 @@ val validTypesCmd_def = Define `
         (! e m. FloverMapTree_find e Gamma = SOME m ==>
                 FloverMapTree_find e Gamma2 = SOME m) /\
         bstep f E (toRExpMap Gamma2) v m ==>
-        m = mT))`;
+        m = mT))
+End
 
-val validTypesCmd_single = store_thm (
-  "validTypesCmd_single",
-  ``! f Gamma.
+Theorem validTypesCmd_single:
+  ! f Gamma.
       validTypesCmd f Gamma ==>
       ? mT.
         FloverMapTree_find (getRetExp f) Gamma = SOME mT /\
@@ -865,10 +876,12 @@ val validTypesCmd_single = store_thm (
           (! e m. FloverMapTree_find e Gamma = SOME m ==>
                   FloverMapTree_find e Gamma2 = SOME m) /\
           bstep f E (toRExpMap Gamma2) v m ==>
-          m = mT``,
-  Cases_on `f` \\ simp[Once validTypesCmd_def] \\ rpt strip_tac \\ metis_tac[]);
+          m = mT
+Proof
+  Cases_on `f` \\ simp[Once validTypesCmd_def] \\ rpt strip_tac \\ metis_tac[]
+QED
 
-val getValidMapCmd_def = Define `
+Definition getValidMapCmd_def:
   getValidMapCmd Gamma (Let m x e g) akk =
     do
       res_e <- getValidMap Gamma e akk;
@@ -883,14 +896,15 @@ val getValidMapCmd_def = Define `
           od
         else Fail "Incorrect type for let-bound variable"
     od /\
-  getValidMapCmd Gamma (Ret e) akk = getValidMap Gamma e akk`;
+  getValidMapCmd Gamma (Ret e) akk = getValidMap Gamma e akk
+End
 
-val getValidMapCmd_mono = store_thm (
-  "getValidMapCmd_mono",
-  ``! f Gamma akk res.
+Theorem getValidMapCmd_mono:
+  ! f Gamma akk res.
       getValidMapCmd Gamma f akk = Succes res ==>
       ! e m. FloverMapTree_find e akk = SOME m ==>
-             FloverMapTree_find e res = SOME m``,
+             FloverMapTree_find e res = SOME m
+Proof
   Induct_on `f` \\ simp[Once getValidMapCmd_def]
   THENL [ ALL_TAC , MATCH_ACCEPT_TAC getValidMap_mono]
   \\ rpt strip_tac
@@ -907,17 +921,18 @@ val getValidMapCmd_mono = store_thm (
         by (irule getValidMap_mono \\ qexistsl_tac [`Gamma`, `akk`, `e`]
             \\ fs[])
       \\ fs[])
-  \\ irule getValidMap_mono \\ ntac 2 (find_exists_tac \\ fs[]));
+  \\ irule getValidMap_mono \\ ntac 2 (find_exists_tac \\ fs[])
+QED
 
-val getValidMapCmd_correct = store_thm (
-  "getValidMapCmd_correct",
-  ``! f Gamma akk res.
+Theorem getValidMapCmd_correct:
+  ! f Gamma akk res.
       (! e. FloverMapTree_mem e akk ==>
             validTypes e akk) /\
       getValidMapCmd Gamma f akk = Succes res ==>
       validTypesCmd f res /\
       (! e. FloverMapTree_mem e res ==>
-            validTypes e res)``,
+            validTypes e res)
+Proof
   Induct_on `f` \\ simp[getValidMapCmd_def]
   \\ rpt gen_tac \\ rpt (disch_then assume_tac) \\ fs[]
   >- (Cases_on `getValidMap Gamma e akk` \\ fs[option_case_eq]
@@ -966,7 +981,8 @@ val getValidMapCmd_correct = store_thm (
   \\ IMP_RES_TAC validTypes_single
   \\ qexists_tac `mG` \\ fs[getRetExp_def]
   \\ rpt strip_tac \\ fs[bstep_cases]
-  \\ first_x_assum irule \\ ntac 2 (find_exists_tac \\ fs[]));
+  \\ first_x_assum irule \\ ntac 2 (find_exists_tac \\ fs[])
+QED
 
 Theorem validTypes_defined_usedVars:
   ∀ e Gamma.

@@ -1,4 +1,4 @@
- (**
+(**
    This file contains the HOL4 implementation of the error bound validator as well
    as its soundness proof. The function validErrorbound is the Error bound
    validator from the certificate checking process. Under the assumption that a

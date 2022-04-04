@@ -7,30 +7,34 @@ open preambleFloVer;
 
 val _ = new_theory "Expressions";
 
-val _ = temp_overload_on("abs",``real$abs``);
+Overload abs = “real$abs”
+
 (**
-  EXPRESSIONS WILL use binary operators.
+  expressions will use binary operators.
   Define them first
 **)
-val _ = Datatype `
-  binop = Plus | Sub | Mult | Div`;
+Datatype:
+  binop = Plus | Sub | Mult | Div
+End
 
 (**
   Next define an evaluation function for binary operators.
   Errors are added on the exprression evaluation level later
 *)
-val evalBinop_def = Define `
+Definition evalBinop_def:
   evalBinop Plus v1 v2 = v1 + v2 /\
   evalBinop Sub  v1 v2 = v1 - v2 /\
   evalBinop Mult v1 v2 = v1 * v2 /\
-  evalBinop Div  v1 v2 = v1 / (v2:real)`;
+  evalBinop Div  v1 v2 = v1 / (v2:real)
+End
 
 (**
 Expressions will use unary operators.
 Define them first
 **)
-val _ = Datatype `
-  unop = Neg | Inv | Sqrt`
+Datatype:
+  unop = Neg | Inv | Sqrt
+End
 
 (**
 Define evaluation for unary operators on reals.
@@ -93,49 +97,5 @@ Definition usedVars_def:
       | Downcast m e1 => usedVars e1
       | _ => LN
 End
-
-(* (** *)
-(*   Analogous lemma for unary exprressions *)
-(* **) *)
-(* val unary_unfolding = store_thm("unary_unfolding", *)
-(* ``!(u:unop) (e1:(real)expr) (m:mType) E defVars (v:real). *)
-(*        (eval_expr E defVars (Unop Inv e1) v m <=> *)
-(*        (?(v1:real). *)
-(*           eval_expr E defVars e1 v1 m /\ *)
-(*           eval_expr (updEnv 1 v1 emptyEnv) (updDefVars 1 m defVars) (Unop Inv (Var 1)) v m))``, *)
-(*   fs [updEnv_def, updDefVars_def, eval_expr_cases,APPLY_UPDATE_THM,PULL_EXISTS] *)
-(*   \\ metis_tac []); *)
-
-(*
-  Using the parametric Expressions, define boolean Expressions for conditionals
-*)
-(* val _ = Datatype ` *)
-(*   bexpr = Leq ('v expr) ('v expr) *)
-(*        | Less ('v expr) ('v expr)` *)
-
-(*
-  Define evaluation of boolean exprressions
-*)
-(* val (bval_expr_rules, bval_expr_ind, bval_expr_cases) = Hol_reln ` *)
-(*   (!E defVars e1 e2 v1 v2 m. *)
-(*       eval_expr E defVars e1 v1 m /\ *)
-(*       eval_expr E defVars e2 v2 m ==> *)
-(*       bval E defVars m (Leq e1 e2) (v1 <= v2))/\ *)
-(*   (!E defVars e1 e2 v1 v2 m. *)
-(*       eval_expr E defVars e1 v1 m /\ *)
-(*       eval_expr E defVars e2 v2 m ==> *)
-(*       bval E defVars m (Less e1 e2) (v1 < v2))`; *)
-
-(* val bval_expr_cases = *)
-(*   map (GEN_ALL o SIMP_CONV (srw_ss()) [Once bval_expr_cases]) *)
-(*     [``bval E defVars m (Leq e1 e2) res``, *)
-(*      ``bval E defVars m (Less e1 e2) res``] *)
-(*   |> LIST_CONJ |> curry save_thm "bval_expr_cases"; *)
-
-(* (** *)
-(*   Simplify arithmetic later by making > >= only abbreviations *)
-(* **) *)
-(* val _ = overload_on("Gr",``\(e1:('v)expr). \(e2:('v)expr). Less e2 e1``); *)
-(* val _ = overload_on("Greq",``\(e1:('v)expr). \(e2:('v)expr). Leq e2 e1``); *)
 
 val _ = export_theory();

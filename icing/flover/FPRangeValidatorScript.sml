@@ -18,9 +18,9 @@ open preambleFloVer;
 
 val _ = new_theory "FPRangeValidator";
 
-val _ = temp_overload_on("abs",``real$abs``);
+Overload abs[local] = “real$abs”
 
-val FPRangeValidator_def = Define `
+Definition FPRangeValidator_def:
   FPRangeValidator (e:real expr) A typeMap dVars =
     case FloverMapTree_find e A, FloverMapTree_find e typeMap of
       | SOME (iv_e, err_e), SOME m =>
@@ -58,28 +58,31 @@ val FPRangeValidator_def = Define `
                       then normal_or_zero /\ recRes
                       else
                           F)
-      | _, _ => F`;
+      | _, _ => F
+End
 
-val normalOrZero_def = Define `
+Definition normalOrZero_def:
   normalOrZero iv_e_float m =
     ((normal (IVlo iv_e_float) m \/ (IVlo iv_e_float) = 0) /\
-     (normal (IVhi iv_e_float) m \/ (IVhi iv_e_float) = 0))`;
+     (normal (IVhi iv_e_float) m \/ (IVhi iv_e_float) = 0))
+End
 
-val FPRangeValidatorCmd_def = Define `
+Definition FPRangeValidatorCmd_def:
   (FPRangeValidatorCmd ((Let m x e g):real cmd) A typeMap dVars =
      if FPRangeValidator e A typeMap dVars
      then FPRangeValidatorCmd g A typeMap (insert x () dVars)
      else F) /\
   (FPRangeValidatorCmd (Ret e) A typeMap dVars =
-   FPRangeValidator e A typeMap dVars)`;
+   FPRangeValidator e A typeMap dVars)
+End
 
-val enclosure_to_abs = store_thm (
-  "enclosure_to_abs",
-  ``!a b c.
+Theorem enclosure_to_abs:
+  !a b c.
      a <= b /\ b <= c /\
     (0 < a \/ c < 0 ) ==>
     (abs a <= abs b /\ abs b <= abs c) \/
-    (abs c <= abs b /\ abs b <= abs a)``,
+    (abs c <= abs b /\ abs b <= abs a)
+Proof
   rpt strip_tac \\ fs[]
   >- (`0 < b` by REAL_ASM_ARITH_TAC
       \\ `0 <= a /\ 0 <= b` by REAL_ASM_ARITH_TAC
@@ -91,21 +94,22 @@ val enclosure_to_abs = store_thm (
   >- (`~ (0 <= b)` by REAL_ASM_ARITH_TAC
       \\ `~ (0 <= a)` by REAL_ASM_ARITH_TAC
       \\ `~ (0 <= c)` by REAL_ASM_ARITH_TAC
-      \\ fs[realTheory.abs]));
+      \\ fs[realTheory.abs])
+QED
 
 fun assume_all l =
   case l of
       t :: ls => assume_tac t \\ assume_all ls
     | NIL =>  ALL_TAC;
 
-val normal_enclosing = store_thm (
-  "normal_enclosing",
-  ``!v m vHi vLo.
+Theorem normal_enclosing:
+  !v m vHi vLo.
       (0 < vLo \/ vHi < 0) /\
       normal vLo m /\
       normal vHi m /\
       vLo <= v /\ v <= vHi ==>
-    normal v m``,
+      normal v m
+Proof
   rpt gen_tac
   \\ disch_then (fn thm => assume_all (CONJ_LIST 4  thm))
   \\ `(abs vLo <= abs v /\ abs v <= abs vHi) \/ (abs vHi <= abs v /\ abs v <= abs vLo)`
@@ -114,7 +118,8 @@ val normal_enclosing = store_thm (
   \\ fs[normal_def]
   \\ rveq
   \\ fs[]
-  \\ RealArith.REAL_ASM_ARITH_TAC);
+  \\ RealArith.REAL_ASM_ARITH_TAC
+QED
 
 val solve_tac =
   rpt (qpat_x_assum `!x. _` kall_tac)

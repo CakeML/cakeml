@@ -1,3 +1,6 @@
+(**
+  Small changes to computeLib for FloVer
+**)
 structure FloverCompLib =
 struct
 open computeLib;

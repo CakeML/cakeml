@@ -18,9 +18,10 @@ val _ = new_theory "IntervalValidation";
 val _ = temp_delsimps ["RMUL_LEQNORM"]
 
 val _ = Parse.hide "delta"; (* so that it can be used as a variable *)
-val _ = temp_overload_on("abs",``real$abs``);
-val _ = temp_overload_on("max",``real$max``);
-val _ = temp_overload_on("min",``real$min``);
+
+Overload abs[local] = “real$abs”
+Overload max[local] = “real$max”
+Overload min[local] = “real$min”
 
 (** Define a global iteration count for square roots **)
 Definition ITERCOUNT_def:
@@ -618,24 +619,27 @@ Proof
       \\ fs[valid_def, IVlo_def, IVhi_def])
 QED
 
-val validIntervalbounds_noDivzero_real = store_thm("validIntervalbounds_noDivzero_real",
-  ``!(f1 f2:real expr) A (P:precond) (dVars:num_set).
+Theorem validIntervalbounds_noDivzero_real:
+  !(f1 f2:real expr) A (P:precond) (dVars:num_set).
       validIntervalbounds (Binop Div f1 f2) A P dVars ==>
       ?iv err.
       FloverMapTree_find f2 A = SOME (iv,err) /\
-      noDivzero (SND iv) (FST iv)``,
+      noDivzero (SND iv) (FST iv)
+Proof
   rpt strip_tac \\ fs[Once validIntervalbounds_eq]
-  \\ fs[noDivzero_def, IVhi_def, IVlo_def]);
+  \\ fs[noDivzero_def, IVhi_def, IVlo_def]
+QED
 
-val validRanges_validates_iv = store_thm (
-  "validRanges_validates_iv",
-  ``! e Gamma E A.
-      validRanges e A E Gamma ==>
+Theorem validRanges_validates_iv:
+  ! e Gamma E A.
+    validRanges e A E Gamma ==>
       ? iv err.
         FloverMapTree_find e A = SOME (iv, err) /\
-        valid iv``,
+        valid iv
+Proof
   Induct_on `e` \\ simp[Once validRanges_def]
   \\ rpt strip_tac
-  \\ fs[valid_def] \\ real_prove);
+  \\ fs[valid_def] \\ real_prove
+QED
 
 val _ = export_theory();

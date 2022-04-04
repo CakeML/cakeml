@@ -10,9 +10,10 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = new_theory "IntervalArith";
 
-val _ = temp_overload_on("abs",``real$abs``);
-val _ = temp_overload_on("max",``real$max``);
-val _ = temp_overload_on("min",``real$min``);
+Overload abs[local] = “real$abs”
+Overload max[local] = “real$max”
+Overload min[local] = “real$min”
+
 (**
   Define validity of an interval, requiring that the lower bound is less than or equal to the upper bound.
   Containement is defined such that if x is contained in the interval, it must lie between the lower and upper bound.
@@ -136,20 +137,24 @@ Proof
   metis_tac (iv_ss @ [REAL_LE_TRANS])
 QED
 
-val contained_implies_subset = store_thm ("contained_implies_subset",
-``!(a:real) (iv:interval).
-  contained a iv ==> isSupersetInterval (pointInterval a) iv``,
-fs iv_ss);
+Theorem contained_implies_subset:
+  !(a:real) (iv:interval).
+    contained a iv ==> isSupersetInterval (pointInterval a) iv
+Proof
+  fs iv_ss
+QED
 
-val validPointInterval = store_thm("validPointInterval",
-``!(a:real).
-  contained a (pointInterval a)``,
-fs iv_ss);
+Theorem validPointInterval:
+  !(a:real). contained a (pointInterval a)
+Proof
+  fs iv_ss
+QED
 
-val min4_correct = store_thm ("min4_correct",
-``!a b c d.
-  let m = min4 a b c d in
-    m <= a /\ m <= b /\ m <= c /\ m <= d``,
+Theorem min4_correct:
+  !a b c d.
+    let m = min4 a b c d in
+      m <= a /\ m <= b /\ m <= c /\ m <= d
+Proof
 rpt strip_tac \\fs [min4_def] \\ conj_tac \\
 try (fs [REAL_MIN_LE1]) \\ conj_tac
 >- (`min b (min c d) <= b` by fs[REAL_MIN_LE1] \\
@@ -172,12 +177,14 @@ try (fs [REAL_MIN_LE1]) \\ conj_tac
        match_mp_tac REAL_LE_TRANS \\
        `min b (min c d) <= min c d` by fs[REAL_MIN_LE2] \\
        HINT_EXISTS_TAC \\
-       fs [REAL_MIN_LE2])));
+        fs [REAL_MIN_LE2]))
+QED
 
-val max4_correct = store_thm ("max4_correct",
-``!a b c d.
+Theorem max4_correct:
+  !a b c d.
   let m = max4 a b c d in
-    a <= m /\ b <= m /\ c <= m /\ d <= m``,
+    a <= m /\ b <= m /\ c <= m /\ d <= m
+Proof
 rpt strip_tac \\fs [max4_def] \\ conj_tac \\
 try (fs [REAL_LE_MAX1]) \\ conj_tac
 >-(`b <= max b (max c d)` by fs[REAL_LE_MAX1] \\
@@ -200,22 +207,27 @@ fs [REAL_LE_MAX2])
        match_mp_tac REAL_LE_TRANS \\
        `max c d <= max b (max c d)` by fs[REAL_LE_MAX2] \\
        HINT_EXISTS_TAC \\
-       fs [REAL_LE_MAX2] )));
+        fs [REAL_LE_MAX2] ))
+QED
 
-val interval_negation_valid = store_thm ("interval_negation_valid",
-``!iv a.
-  contained a iv ==> contained (- a) (negateInterval iv)``,
-fs iv_ss);
+Theorem interval_negation_valid:
+  !iv a. contained a iv ==> contained (- a) (negateInterval iv)
+Proof
+  fs iv_ss
+QED
 
-val iv_neg_preserves_valid = store_thm ("iv_neg_preserves_valid",
-  ``!iv.
-      valid iv ==> valid (negateInterval iv)``,
-  fs [valid_def, negateInterval_def, IVlo_def, IVhi_def]);
+Theorem iv_neg_preserves_valid:
+  !iv.
+    valid iv ==> valid (negateInterval iv)
+Proof
+  fs [valid_def, negateInterval_def, IVlo_def, IVhi_def]
+QED
 
-val interval_inversion_valid = store_thm ("interval_inversion_valid",
-  ``!iv a.
+Theorem interval_inversion_valid:
+  !iv a.
     (IVhi iv < 0 \/ 0 < IVlo iv) /\ contained a iv ==>
-      contained (inv a) (invertInterval iv)``,
+    contained (inv a) (invertInterval iv)
+Proof
   fs iv_ss \\ rpt strip_tac \\ once_rewrite_tac [GSYM REAL_INV_1OVER]
   (* First subgoal *)
   >- (once_rewrite_tac [GSYM REAL_LE_NEG]
@@ -250,7 +262,8 @@ val interval_inversion_valid = store_thm ("interval_inversion_valid",
   >- (rewrite_tac [GSYM REAL_INV_1OVER]
       \\ `inv a <= inv (FST iv) <=> FST iv <= a`
            by (match_mp_tac REAL_INV_LE_ANTIMONO \\ REAL_ASM_ARITH_TAC)
-      \\ REAL_ASM_ARITH_TAC));
+      \\ REAL_ASM_ARITH_TAC)
+QED
 
 Theorem iv_inv_preserves_valid:
   ∀ iv.
@@ -283,8 +296,9 @@ Proof
   \\ irule SQRT_MONO_LE \\ gs[]
 QED
 
-val interval_addition_valid = store_thm ("interval_addition_valid",
-``!iv1 iv2. validIntervalAdd iv1 iv2 (addInterval iv1 iv2)``,
+Theorem interval_addition_valid:
+  !iv1 iv2. validIntervalAdd iv1 iv2 (addInterval iv1 iv2)
+Proof
 fs iv_ss \\ rpt strip_tac
 (* First subgoal, lower bound *)
 >- (`FST iv1 + FST iv2 <= a + b`
@@ -295,37 +309,43 @@ fs iv_ss \\ rpt strip_tac
 >- (`a + b <= SND iv1 + SND iv2`
      by (match_mp_tac REAL_LE_ADD2 \\ fs []) \\
    match_mp_tac REAL_LE_TRANS \\
-   HINT_EXISTS_TAC \\ strip_tac \\ fs [REAL_LE_MAX]));
+    HINT_EXISTS_TAC \\ strip_tac \\ fs [REAL_LE_MAX])
+QED
 
-val iv_add_preserves_valid = store_thm ("iv_add_preserves_valid",
-  ``!iv1 iv2.
+Theorem iv_add_preserves_valid:
+  !iv1 iv2.
       valid iv1 /\ valid iv2 ==>
-      valid (addInterval iv1 iv2)``,
+      valid (addInterval iv1 iv2)
+Proof
   fs [valid_def, addInterval_def, IVlo_def, IVhi_def, absIntvUpd_def, min4_def, max4_def]
   \\ rpt strip_tac
   \\ match_mp_tac REAL_LE_TRANS
   \\ qexists_tac `FST iv1 + FST iv2` \\ fs [REAL_MIN_LE1]
   \\ match_mp_tac REAL_LE_TRANS
-  \\ qexists_tac `FST iv1 + FST iv2` \\ fs [REAL_LE_MAX1]);
+  \\ qexists_tac `FST iv1 + FST iv2` \\ fs [REAL_LE_MAX1]
+QED
 
-val interval_subtraction_valid = store_thm ("interval_subtraction_valid",
-``!iv1 iv2.
-  validIntervalSub iv1 iv2 (subtractInterval iv1 iv2)``,
+Theorem interval_subtraction_valid:
+  !iv1 iv2. validIntervalSub iv1 iv2 (subtractInterval iv1 iv2)
+Proof
 rpt gen_tac \\ Cases_on `iv2` \\ rewrite_tac (iv_ss @ [real_sub]) \\
 rpt gen_tac \\ strip_tac \\
 (** TODO: FIXME, use qspecl_then or sth else **)
 match_mp_tac (REWRITE_RULE (iv_ss @ [FST,SND]) (SPECL [``iv1:interval``,``(-r,-q):interval``] interval_addition_valid)) \\
-fs []);
+fs []
+QED
 
-val iv_sub_preserves_valid = store_thm ("iv_sub_preserves_valid",
-  ``!iv1 iv2.
+Theorem iv_sub_preserves_valid:
+  !iv1 iv2.
       valid iv1 /\ valid iv2 ==>
-      valid (subtractInterval iv1 iv2)``,
+      valid (subtractInterval iv1 iv2)
+Proof
   once_rewrite_tac [subtractInterval_def]
   \\ rpt strip_tac
   \\ match_mp_tac iv_add_preserves_valid
   \\ conj_tac \\ fs []
-  \\ match_mp_tac iv_neg_preserves_valid \\ fs []);
+  \\ match_mp_tac iv_neg_preserves_valid \\ fs []
+QED
 
 Theorem interval_multiplication_valid:
   !iv1 iv2 a b.
@@ -456,63 +476,77 @@ rpt gen_tac \\ Cases_on `iv2` \\ rewrite_tac (iv_ss @ [real_div, REAL_MUL_LID])
     (iv_ss @ [FST, SND, real_div, REAL_MUL_LID]) (SPECL [``(q,r):interval``, ``b:real``] interval_inversion_valid))
 QED
 
-val iv_div_preserves_valid = store_thm ("iv_div_preserves_valid",
-  ``!iv1 iv2.
-      valid iv1 /\ valid iv2 /\ (IVhi iv2 < 0 \/ 0 < IVlo iv2) ==>
-      valid (divideInterval iv1 iv2)``,
+Theorem iv_div_preserves_valid:
+  !iv1 iv2.
+    valid iv1 /\ valid iv2 /\ (IVhi iv2 < 0 \/ 0 < IVlo iv2) ==>
+    valid (divideInterval iv1 iv2)
+Proof
   once_rewrite_tac [divideInterval_def]
   \\ rpt strip_tac
   \\ match_mp_tac iv_mult_preserves_valid
   \\ fs []
   \\ match_mp_tac iv_inv_preserves_valid
-  \\ fs []);
+  \\ fs []
+QED
 
 (** Properties of the maxAbs function **)
-val contained_leq_maxAbs = store_thm ("contained_leq_maxAbs",
-  ``!a iv. contained a iv ==> abs a <= maxAbs iv``,
-  rpt strip_tac\\ fs iv_ss \\ match_mp_tac maxAbs \\ fs []);
+Theorem contained_leq_maxAbs:
+  !a iv. contained a iv ==> abs a <= maxAbs iv
+Proof
+  rpt strip_tac\\ fs iv_ss \\ match_mp_tac maxAbs \\ fs []
+QED
 
-val contained_leq_maxAbs_val = store_thm ("contained_leq_maxAbs_val",
-  ``!a iv. contained a iv ==> a <= maxAbs iv``,
+Theorem contained_leq_maxAbs_val:
+  !a iv. contained a iv ==> a <= maxAbs iv
+Proof
   rpt strip_tac \\ fs iv_ss \\
   `abs a <= max (abs (FST iv)) (abs (SND iv))`
     by (match_mp_tac (REWRITE_RULE iv_ss contained_leq_maxAbs) \\ fs []) \\
-  REAL_ASM_ARITH_TAC);
+  REAL_ASM_ARITH_TAC
+QED
 
-val contained_leq_maxAbs_neg_val = store_thm ("contained_leq_maxAbs_neg_val",
-  ``!a iv. contained a iv ==> - a <= maxAbs iv``,
+Theorem contained_leq_maxAbs_neg_val:
+  !a iv. contained a iv ==> - a <= maxAbs iv
+Proof
   rpt strip_tac\\ fs iv_ss \\
   `abs a <= max (abs (FST iv)) (abs (SND iv))` by (match_mp_tac (REWRITE_RULE iv_ss contained_leq_maxAbs) \\ fs []) \\
-  REAL_ASM_ARITH_TAC);
+  REAL_ASM_ARITH_TAC
+QED
 
-val distance_gives_iv = store_thm ("distance_gives_iv",
-  ``!a b e iv. contained a iv /\ abs (a - b) <= e ==> contained b (widenInterval iv e)``,
+Theorem distance_gives_iv:
+  !a b e iv. contained a iv /\ abs (a - b) <= e ==> contained b (widenInterval iv e)
+Proof
   fs iv_ss \\ rpt strip_tac \\
   `(b:real) - e <= a /\ a <= b + e` by REAL_ASM_ARITH_TAC \\
-  REAL_ASM_ARITH_TAC);
+  REAL_ASM_ARITH_TAC
+QED
 
-val minAbs_positive_iv_is_lo = store_thm ("minAbs_positive_iv_is_lo",
-  ``!(a b:real).
+Theorem minAbs_positive_iv_is_lo:
+  !(a b:real).
     (0 < a) /\
-  (a <= b) ==>
-  (minAbsFun (a,b) = a)``,
+    (a <= b) ==>
+    (minAbsFun (a,b) = a)
+Proof
   rpt (strip_tac) \\
   fs[minAbsFun_def] \\
   `abs a = a` by (fs[ABS_REFL] \\ REAL_ASM_ARITH_TAC) \\
   `abs b = b` by (fs[ABS_REFL] \\ REAL_ASM_ARITH_TAC) \\
-  metis_tac[REAL_MIN_ALT]);
+  metis_tac[REAL_MIN_ALT]
+QED
 
-val minAbs_negative_iv_is_hi = store_thm ("minAbs_negative_iv_is_hi",
-  ``!(a b:real).
+Theorem minAbs_negative_iv_is_hi:
+  !(a b:real).
     (b < 0) /\
   (a <= b) ==>
-  (minAbsFun (a,b) = - b)``,
+    (minAbsFun (a,b) = - b)
+Proof
   rpt (strip_tac) \\
   fs[minAbsFun_def] \\
   `abs a = - a` by REAL_ASM_ARITH_TAC \\
   `abs b = - b` by REAL_ASM_ARITH_TAC \\
   ntac 2 (pop_assum (fn thm => rewrite_tac [thm])) \\
   `-b <= -a` by fs[] \\
-  metis_tac[REAL_MIN_ALT]);
+  metis_tac[REAL_MIN_ALT]
+QED
 
 val _ = export_theory();

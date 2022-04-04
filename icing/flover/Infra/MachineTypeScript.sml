@@ -10,10 +10,10 @@ open preambleFloVer;
 
 val _ = new_theory "MachineType";
 
-val _ = temp_overload_on("abs",``real$abs``);
+Overload abs[local] = “real$abs”
+
 val _ = monadsyntax.enable_monadsyntax();
 val _ = List.app monadsyntax.enable_monad ["option"];
-
 
 Datatype:
   mType = REAL | M16 | M32 | M64 | F num num bool (* first num is word length, second is fractional bits, bool is for sign of fractional bits *)

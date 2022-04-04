@@ -1,12 +1,17 @@
+(**
+  A simple Map datatype for FloVer, implement a version based on lists and one
+  based on trees
+**)
 open MachineTypeTheory ExpressionsTheory;
 open preambleFloVer;
 
 val _ = new_theory "FloverMap";
 
-val _ = Datatype `
-  cmp = Lt | Eq | Gt`;
+Datatype:
+  cmp = Lt | Eq | Gt
+End
 
-val exprCompare_def = Define `
+Definition exprCompare_def:
   exprCompare (e1:real expr) e2 =
     case e1, e2 of
       |(Var (n1:num)), (Var n2) =>
@@ -71,30 +76,36 @@ val exprCompare_def = Define `
          | Gt => Gt)
       | _ , Fma e1 e2 e3 => Lt
       | Fma e1 e2 e3, _ => Gt
-      |_ , _ => Gt`;
+      |_ , _ => Gt
+End
 
-val exprCompare_refl = store_thm (
-  "exprCompare_refl",
-  ``!e. exprCompare e e = Eq``,
+Theorem exprCompare_refl:
+  !e. exprCompare e e = Eq
+Proof
   Induct \\ rpt strip_tac \\ simp[ Once exprCompare_def]
-  \\ Cases_on `b` \\ fs[] );
+  \\ Cases_on `b` \\ fs[]
+QED
 
-val FloverMapList_insert_def = Define `
+Definition FloverMapList_insert_def:
   (FloverMapList_insert e k NIL = [(e,k)]) /\
   (FloverMapList_insert e k ((e1,l1) :: el) =
    case exprCompare e e1 of
      | Lt => (e,k)::(e1,l1)::el
      | Eq  => (e1,l1) :: el
-     | Gt => (e1,l1):: FloverMapList_insert e k el)`;
+     | Gt => (e1,l1):: FloverMapList_insert e k el)
+End
 
-val FloverMapList_find_def = Define `
+Definition FloverMapList_find_def:
   (FloverMapList_find e NIL = NONE) /\
-  (FloverMapList_find e ((e1,k)::el) = if exprCompare e e1 = Eq then SOME k else FloverMapList_find e el)`;
+  (FloverMapList_find e ((e1,k)::el) = if exprCompare e e1 = Eq then SOME k
+                                       else FloverMapList_find e el)
+End
 
-val _ = Datatype `
-  binTree = Node 'a binTree binTree | Leaf 'a | LeafN`;
+Datatype:
+  binTree = Node 'a binTree binTree | Leaf 'a | LeafN
+End
 
-val FloverMapTree_insert_def = Define `
+Definition FloverMapTree_insert_def:
   (FloverMapTree_insert e k LeafN = Leaf (e,k)) /\
   (FloverMapTree_insert e k (Leaf (e1,k1)) =
      case (exprCompare e e1) of
@@ -105,9 +116,10 @@ val FloverMapTree_insert_def = Define `
      case (exprCompare e e1) of
             | Lt => Node (e1,k1) (FloverMapTree_insert e k tl) tr
             | Eq => (Node (e1, k) tl tr)
-            | Gt => Node (e1,k1) tl (FloverMapTree_insert e k tr))`;
+            | Gt => Node (e1,k1) tl (FloverMapTree_insert e k tr))
+End
 
-val FloverMapTree_find_def = Define `
+Definition FloverMapTree_find_def:
   (FloverMapTree_find e (LeafN) = NONE) /\
   (FloverMapTree_find e (Leaf (e1,k1)) =
      if exprCompare e e1 = Eq then SOME k1 else NONE) /\
@@ -115,30 +127,34 @@ val FloverMapTree_find_def = Define `
     case (exprCompare e e1) of
       | Lt => FloverMapTree_find e tl
       | Eq => SOME k1
-      | Gt => FloverMapTree_find e tr)`;
+      | Gt => FloverMapTree_find e tr)
+End
 
-val FloverMapTree_mem_def = Define `
+Definition FloverMapTree_mem_def:
   FloverMapTree_mem e tMap =
     case (FloverMapTree_find e tMap) of
       | SOME _ => T
-      | _ => F`;
+      | _ => F
+End
 
-val FloverMapTree_empty_def = Define `
-  FloverMapTree_empty = LeafN `;
+Definition FloverMapTree_empty_def:
+  FloverMapTree_empty = LeafN
+End
 
-val FloverMapTree_find_injective = store_thm (
-  "FloverMapTree_find_injective",
-  ``!e a b Tree.
+Theorem FloverMapTree_find_injective:
+  !e a b Tree.
       FloverMapTree_find e Tree = SOME a /\
       FloverMapTree_find e Tree = SOME b ==>
-      a = b``,
+      a = b
+Proof
   rpt strip_tac
-  \\ Cases_on `Tree` \\ fs[FloverMapTree_find_def]);
+  \\ Cases_on `Tree` \\ fs[FloverMapTree_find_def]
+QED
 
-val FloverMapTree_correct = store_thm (
-  "FloverMapTree_correct",
-  ``!Tree k v.
-      FloverMapTree_find k (FloverMapTree_insert k v Tree) = SOME v``,
+Theorem FloverMapTree_correct:
+  !Tree k v.
+      FloverMapTree_find k (FloverMapTree_insert k v Tree) = SOME v
+Proof
   Induct_on `Tree`
   \\ fs[FloverMapTree_find_def, FloverMapTree_insert_def]
   \\ rpt strip_tac \\ fs[exprCompare_refl]
@@ -146,11 +162,12 @@ val FloverMapTree_correct = store_thm (
       \\ Cases_on `exprCompare k q` \\ fs[FloverMapTree_find_def]
       \\ first_x_assum irule \\ fs[])
   \\ Cases_on `a` \\ fs[FloverMapTree_insert_def]
-  \\ Cases_on `exprCompare k q` \\ fs[FloverMapTree_find_def, exprCompare_refl]);
+  \\ Cases_on `exprCompare k q` \\ fs[FloverMapTree_find_def, exprCompare_refl]
+QED
 
-val exprCompare_eq = store_thm (
-  "exprCompare_eq",
-  ``!e1 e2. exprCompare e1 e2 = Eq <=> e1 = e2``,
+Theorem exprCompare_eq:
+  !e1 e2. exprCompare e1 e2 = Eq <=> e1 = e2
+Proof
   Induct_on `e1` \\ Cases_on `e2` \\ simp[Once exprCompare_def] \\ rpt strip_tac
   >- (EVERY_CASE_TAC \\ fs[])
   >- (EVERY_CASE_TAC \\ fs[])
@@ -165,11 +182,12 @@ val exprCompare_eq = store_thm (
       \\ first_x_assum (qspec_then `e` assume_tac)
       \\ EVERY_CASE_TAC \\ fs[])
   \\ first_x_assum (qspec_then `e` assume_tac)
-  \\ every_case_tac \\ fs[]);
+  \\ every_case_tac \\ fs[]
+QED
 
-val exprCompare_neq = store_thm (
-  "exprCompare_neq",
-  ``!e1 e2. exprCompare e1 e2 <> Eq <=> e1 <> e2``,
+Theorem exprCompare_neq:
+  !e1 e2. exprCompare e1 e2 <> Eq <=> e1 <> e2
+Proof
   Induct_on `e1` \\ Cases_on `e2` \\ simp[Once exprCompare_def] \\ rpt strip_tac
   >- (EVERY_CASE_TAC \\ fs[])
   >- (EVERY_CASE_TAC \\ fs[])
@@ -184,15 +202,16 @@ val exprCompare_neq = store_thm (
       \\ first_x_assum (qspec_then `e` assume_tac)
       \\ EVERY_CASE_TAC \\ fs[])
   \\ first_x_assum (qspec_then `e` assume_tac)
-  \\ every_case_tac \\ fs[]);
+  \\ every_case_tac \\ fs[]
+QED
 
-val map_find_add = store_thm (
-  "map_find_add",
-  ``! e1 e2 m map1.
+Theorem map_find_add:
+  ! e1 e2 m map1.
       FloverMapTree_find e1 (FloverMapTree_insert e2 m map1) =
       if (e1 = e2)
       then SOME m
-      else FloverMapTree_find e1 map1``,
+      else FloverMapTree_find e1 map1
+Proof
   Induct_on `map1` \\ rpt strip_tac
   \\ fs[FloverMapTree_insert_def, FloverMapTree_find_def, exprCompare_eq]
   >- (Cases_on `a` \\ fs[FloverMapTree_insert_def]
@@ -228,14 +247,16 @@ val map_find_add = store_thm (
   >- (Cases_on `e1 = e2` \\ fs[])
   \\ `e2 <> e1`
       by (Cases_on `exprCompare e2 e1 = Eq` \\ fs[exprCompare_neq])
-  \\ fs[]);
+  \\ fs[]
+QED
 
-val map_mem_add = store_thm (
-  "map_mem_add",
-  ``!e1 e2 m map1.
+Theorem map_mem_add:
+  !e1 e2 m map1.
       FloverMapTree_mem e1 (FloverMapTree_insert e2 m map1) =
-      (e1 = e2 \/ FloverMapTree_mem e1 map1)``,
+      (e1 = e2 \/ FloverMapTree_mem e1 map1)
+Proof
   fs[FloverMapTree_mem_def, map_find_add]
-  \\ rpt strip_tac \\ Cases_on `e1 = e2` \\ fs[]);
+  \\ rpt strip_tac \\ Cases_on `e1 = e2` \\ fs[]
+QED
 
 val _ = export_theory();

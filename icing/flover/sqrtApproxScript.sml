@@ -1,3 +1,9 @@
+(**
+  Simple approximation of sqrt as it is not computable in HOL4 using
+  newton iterations.
+  As the iteration may fail, the process "self-validates", checkign that
+  the result is an over/under-approximation of the real sqrt
+**)
 open transcTheory realTheory realLib RealArith bossLib limTheory;
 open preambleFloVer;
 

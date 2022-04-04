@@ -1,3 +1,8 @@
+(**
+  An inductive relation relating real-numbered environments with
+  an environment with "errors", i.e. where variables are bound to
+  finite-precision values
+**)
 open simpLib realTheory realLib RealArith sptreeTheory;
 open AbbrevsTheory ExpressionAbbrevsTheory RealSimpsTheory CommandsTheory
      FloverTactics FloverMapTheory MachineTypeTheory;
@@ -5,7 +10,7 @@ open preambleFloVer;
 
 val _ = new_theory "Environments";
 
-val _ = temp_overload_on("abs",``real$abs``);
+Overload abs[local] = “real$abs”
 
 Definition approxEnv_def:
   approxEnv E1 Gamma absEnv (fVars:num_set) (dVars:num_set) E2 =
@@ -98,8 +103,7 @@ Proof
    \\ fs[]
 QED
 
-val approxEnv_rules = LIST_CONJ [approxEnvRefl, approxEnvUpdFree, approxEnvUpdBound]
-val _ = save_thm ("approxEnv_rules", approxEnv_rules);
+Theorem approxEnv_rules = LIST_CONJ [approxEnvRefl, approxEnvUpdFree, approxEnvUpdBound]
 
 Theorem approxEnv_gives_value:
   !E1 E2 x v (fVars:num_set) (dVars:num_set) absenv Gamma.

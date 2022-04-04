@@ -1,3 +1,7 @@
+(**
+  Connect FloVer's idealized machine semantics to 64-bit
+  IEEE-754 floating-point semantics
+**)
 open machine_ieeeTheory binary_ieeeTheory lift_ieeeTheory realTheory RealArith;
 open MachineTypeTheory ExpressionsTheory RealSimpsTheory FloverTactics
      CertificateCheckerTheory FPRangeValidatorTheory IntervalValidationTheory
@@ -9,7 +13,8 @@ open preambleFloVer;
 
 val _ = new_theory "IEEE_connection";
 
-val _ = temp_overload_on("abs",``real$abs``);
+Overload abs[local] = “real$abs”
+
 val _ = diminish_srw_ss ["RMULCANON_ss","RMULRELNORM_ss"]
 
 (** FloVer assumes rounding with ties to even, thus we exprlicitly define
@@ -295,30 +300,41 @@ Proof
   \\ `w2n c0 = 2047` by fs[] \\ fs[]
   \\ TOP_CASE_TAC \\ fs[minValue_pos_def, minExponentPos_def]
   \\ fs[REAL_ABS_MUL, POW_M1]
-  >- (`44942328371557897693232629769725618340449424473557664318357520289433168951375240783177119330601884005280028469967848339414697442203604155623211857659868531094441973356216371319075554900311523529863270738021251442209537670585615720368478277635206809290837627671146574559986811484619929076208839082406056034304⁻¹ <=  inv 1`
-        by (irule REAL_INV_LE_ANTIMONO_IMPR \\ fs[])
-      \\ fs[pow_simp1, REAL_DIV_LZERO, ABS_1, REAL_OF_NUM_POW, abs]
-      \\ `179769313486231590772930519078902473361797697894230657273430081157732675805500963132708477322407536021120113879871393357658789768814416622492847430639474124377767893424865485276302219601246094119453082952085005768838150682342462881473913110540827237163350510684586298239947245938479716304835356329624224137216 < inv 1`
-      by (irule REAL_LTE_TRANS \\ asm_exists_tac \\ fs[])
-      \\ fs[REAL_INV1])
+  >- (
+    qpat_x_assum ‘_ < inv _’ mp_tac
+    \\ qmatch_goalsub_abbrev_tac ‘_ < inv cst1 ⇒ _’
+    \\ strip_tac
+    \\ `inv cst1 <= inv 1`
+        by (unabbrev_all_tac \\ irule REAL_INV_LE_ANTIMONO_IMPR \\ fs[])
+    \\ fs[pow_simp1, REAL_DIV_LZERO, ABS_1, REAL_OF_NUM_POW, abs]
+    \\ qpat_x_assum ‘_ < inv cst1’ mp_tac
+    \\ qmatch_goalsub_abbrev_tac ‘cst2 < inv cst1’ \\ strip_tac
+    \\ `cst2 < inv 1`
+      by (unabbrev_all_tac \\ irule REAL_LTE_TRANS \\ asm_exists_tac \\ fs[])
+    \\ unabbrev_all_tac \\ fs[REAL_INV1])
   \\ Cases_on `c1` \\ fs[]
   \\ `1 < abs (1 + &n / 4503599627370496)`
-    by (
-    fs[abs]
-    \\ `0:real <= 1 + &n / 4503599627370496`
-           by (irule REAL_LE_TRANS
-               \\ qexists_tac `1` \\ fs[]
-               \\ irule REAL_LE_DIV \\ fs[])
-    \\ fs[]
-    \\ once_rewrite_tac [GSYM REAL_ADD_RID]
-    \\ once_rewrite_tac [GSYM REAL_ADD_ASSOC]
-    \\ fs[]
-    \\ irule REAL_LT_DIV \\ fs[])
-  \\ `44942328371557897693232629769725618340449424473557664318357520289433168951375240783177119330601884005280028469967848339414697442203604155623211857659868531094441973356216371319075554900311523529863270738021251442209537670585615720368478277635206809290837627671146574559986811484619929076208839082406056034304⁻¹ <=  inv 1`
-    by (irule REAL_INV_LE_ANTIMONO_IMPR \\ fs[])
+    by (fs[abs]
+        \\ `0:real <= 1 + &n / 4503599627370496`
+               by (irule REAL_LE_TRANS
+                   \\ qexists_tac `1` \\ fs[]
+                   \\ irule REAL_LE_DIV \\ fs[])
+        \\ fs[]
+        \\ once_rewrite_tac [GSYM REAL_ADD_RID]
+        \\ once_rewrite_tac [GSYM REAL_ADD_ASSOC]
+        \\ fs[]
+        \\ irule REAL_LT_DIV \\ fs[])
+  \\ qpat_x_assum ‘_ < inv _’ mp_tac
+  \\ qmatch_goalsub_abbrev_tac ‘_ < inv cst1 ⇒ _’
+  \\ `inv cst1 <=  inv 1`
+    by (unabbrev_all_tac \\ irule REAL_INV_LE_ANTIMONO_IMPR \\ fs[])
+  \\ strip_tac
   \\ fs[pow_simp1, REAL_DIV_LZERO, ABS_1, REAL_OF_NUM_POW, abs]
-  \\ `179769313486231590772930519078902473361797697894230657273430081157732675805500963132708477322407536021120113879871393357658789768814416622492847430639474124377767893424865485276302219601246094119453082952085005768838150682342462881473913110540827237163350510684586298239947245938479716304835356329624224137216 < inv 1`
-    by (irule REAL_LTE_TRANS \\ once_rewrite_tac[CONJ_COMM]
+  \\ qpat_x_assum ‘_ < inv cst1’ mp_tac
+  \\ qmatch_goalsub_abbrev_tac ‘(cst2 * _) < inv cst1’
+  \\ strip_tac
+  \\ `cst2 < inv 1`
+    by (unabbrev_all_tac \\ irule REAL_LTE_TRANS \\ once_rewrite_tac[CONJ_COMM]
         \\ rewrite_tac[REAL_INV1] \\ asm_exists_tac \\ fs[]
         \\ qmatch_goalsub_abbrev_tac `cst1 < cst2`
         \\ `0 <= (1:real) + &n / 4503599627370496`
@@ -332,7 +348,7 @@ Proof
         \\ once_rewrite_tac [GSYM REAL_MUL_ASSOC] \\ irule REAL_LT_LMUL_IMP
         \\ fs[]
         \\ unabbrev_all_tac \\ fs[])
-  \\ fs[REAL_INV1]
+  \\ unabbrev_all_tac \\ fs[REAL_INV1]
 QED
 
 Theorem validValue_gives_float_value:

@@ -13,60 +13,69 @@ We treat a function mapping an exprression arguing on fractions as value type
 to pairs of intervals on rationals and rational errors as the analysis result
 **)
 
-val _ = type_abbrev ("fMap", ``:(real expr # 'a) binTree``);
-val _ = type_abbrev ("typeMap", ``:mType fMap``);
-val _ = type_abbrev ("analysisResult", ``:((real # real) # real) fMap``);
+Overload fMap = ``:(real expr # 'a) binTree``
+Overload typeMap = ``:mType fMap``
+Overload analysisResult = ``:((real # real) # real) fMap``
 
-val updDefVars_def = Define `
+Definition updDefVars_def:
   updDefVars (x:real expr) (m:mType) (defVars:real expr -> mType option)
     (y:real expr) :mType option =
-    if y = x then SOME m else defVars y`;
+    if y = x then SOME m else defVars y
+End
 
-val toRExpMap_def = Define `
+Definition toRExpMap_def:
   toRExpMap (tMap:typeMap) =
-  \e. FloverMapTree_find e tMap`;
+  \e. FloverMapTree_find e tMap
+End
 
-val toRTMap_def = Define `
+Definition toRTMap_def:
   toRTMap (Gamma: real expr -> mType option) (Var v) =
     (case Gamma (Var v) of
     |SOME m => SOME REAL
     |_ => NONE) /\
-  toRTMap tMap e = SOME REAL`;
+  toRTMap tMap e = SOME REAL
+End
 
+Theorem no_cycle_unop:
+  !e u. e <> Unop u e
+Proof
+  Induct_on `e` \\ fs[expr_distinct]
+QED
 
-val no_cycle_unop = store_thm (
-  "no_cycle_unop",
-  ``!e u. e <> Unop u e``,
-  Induct_on `e` \\ fs[expr_distinct]);
+Theorem no_cycle_cast:
+  !e m. e <> Downcast m e
+Proof
+  Induct_on `e` \\ fs[expr_distinct]
+QED
 
-val no_cycle_cast = store_thm (
-  "no_cycle_cast",
-  ``!e m. e <> Downcast m e``,
-  Induct_on `e` \\ fs[expr_distinct])
+Theorem no_cycle_binop_left:
+  !e1 e2 b. e1 <> Binop b e1 e2
+Proof
+  Induct_on `e1` \\ fs[expr_distinct]
+QED
 
-val no_cycle_binop_left = store_thm (
-  "no_cycle_binop_left",
-  ``!e1 e2 b. e1 <> Binop b e1 e2``,
-  Induct_on `e1` \\ fs[expr_distinct]);
+Theorem no_cycle_binop_right:
+  !e1 e2 b. e2 <> Binop b e1 e2
+Proof
+  Induct_on `e2` \\ fs[expr_distinct]
+QED
 
-val no_cycle_binop_right = store_thm (
-  "no_cycle_binop_right",
-  ``!e1 e2 b. e2 <> Binop b e1 e2``,
-  Induct_on `e2` \\ fs[expr_distinct]);
+Theorem no_cycle_fma_left:
+  !e1 e2 e3. e1 <> Fma e1 e2 e3
+Proof
+  Induct_on `e1` \\ fs[expr_distinct]
+QED
 
-val no_cycle_fma_left = store_thm (
-  "no_cycle_fma_left",
-  ``!e1 e2 e3. e1 <> Fma e1 e2 e3``,
-  Induct_on `e1` \\ fs[expr_distinct]);
+Theorem no_cycle_fma_center:
+  !e1 e2 e3. e2 <> Fma e1 e2 e3
+Proof
+  Induct_on `e2` \\ fs[expr_distinct]
+QED
 
-val no_cycle_fma_center = store_thm (
-  "no_cycle_fma_center",
-  ``!e1 e2 e3. e2 <> Fma e1 e2 e3``,
-  Induct_on `e2` \\ fs[expr_distinct]);
-
-val no_cycle_fma_right = store_thm (
-  "no_cycle_fma_right",
-  ``!e1 e2 e3. e3 <> Fma e1 e2 e3``,
-  Induct_on `e3` \\ fs[expr_distinct]);
+Theorem no_cycle_fma_right:
+  !e1 e2 e3. e3 <> Fma e1 e2 e3
+Proof
+  Induct_on `e3` \\ fs[expr_distinct]
+QED
 
 val _ = export_theory()

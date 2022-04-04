@@ -1,25 +1,31 @@
+(**
+  Recursive correctness predicate for a range analysis with some supporting
+  theorems
+**)
 open FloverTactics AbbrevsTheory RealSimpsTheory TypeValidatorTheory
      ExpressionSemanticsTheory ssaPrgsTheory IntervalArithTheory CommandsTheory;
 open preambleFloVer;
 
 val _ = new_theory "RealRangeArith";
 
-val dVars_range_valid_def = Define `
+Definition dVars_range_valid_def:
   dVars_range_valid (dVars:num_set) (E:num -> real option) (A:analysisResult) =
     !(v:num). v IN domain dVars ==>
        ?vR iv err.
          E v = SOME vR /\
          (FloverMapTree_find ((Var v):real expr) A = SOME (iv, err)) /\
-         (FST iv) <= vR /\ vR <= (SND iv)`;
+         (FST iv) <= vR /\ vR <= (SND iv)
+End
 
-val fVars_P_sound_def = Define `
+Definition fVars_P_sound_def:
   fVars_P_sound (fVars:num_set) (E:env) (P:precond) =
     !(v:num).
       v IN domain fVars ==>
       ?vR. E v = SOME vR /\
-        FST (P v) <= vR /\ vR <= SND (P v)`;
+           FST (P v) <= vR /\ vR <= SND (P v)
+End
 
-val validRanges_def = Define `
+Definition validRanges_def:
   validRanges e A E Gamma =
   ((case e of
       | Var x => T
@@ -45,30 +51,33 @@ val validRanges_def = Define `
   (? iv err vR.
     FloverMapTree_find e A = SOME (iv, err) /\
     eval_expr E Gamma (toREval e) vR REAL /\
-    (IVlo iv <= vR /\ vR <= IVhi iv)))`;
+    (IVlo iv <= vR /\ vR <= IVhi iv)))
+End
 
-val validRanges_single = store_thm (
-  "validRanges_single",
-  ``! e A E Gamma.
-      validRanges e A E Gamma ==>
-      ? iv err vR.
-        FloverMapTree_find e A = SOME (iv, err) /\
-        eval_expr E Gamma (toREval e) vR REAL /\
-        (IVlo iv <= vR /\ vR <= IVhi iv)``,
+Theorem validRanges_single:
+  ! e A E Gamma.
+    validRanges e A E Gamma ==>
+    ? iv err vR.
+      FloverMapTree_find e A = SOME (iv, err) /\
+      eval_expr E Gamma (toREval e) vR REAL /\
+      (IVlo iv <= vR /\ vR <= IVhi iv)
+Proof
   rpt strip_tac \\ Cases_on `e` \\ fs[Once validRanges_def]
-  \\ find_exists_tac \\ fs[]);
+  \\ find_exists_tac \\ fs[]
+QED
 
-val validRanges_swap = store_thm (
-  "validRanges_swap",
-  ``! Gamma1 Gamma2 e A E.
+Theorem validRanges_swap:
+  ! Gamma1 Gamma2 e A E.
       (! n. Gamma1 n = Gamma2 n) /\
       validRanges e A E Gamma1 ==>
-      validRanges e A E Gamma2``,
+      validRanges e A E Gamma2
+Proof
   Induct_on `e` \\ simp[Once validRanges_def] \\ rpt strip_tac
   \\ simp[Once validRanges_def]
-  \\ rpt conj_tac \\ metis_tac []);
+  \\ rpt conj_tac \\ metis_tac []
+QED
 
-val validRangesCmd_def = Define `
+Definition validRangesCmd_def:
   validRangesCmd f A E Gamma =
   ((case f of
       | Let m x e g =>
@@ -79,25 +88,28 @@ val validRangesCmd_def = Define `
   ? iv_e err_e vR.
     FloverMapTree_find (getRetExp f) A = SOME (iv_e, err_e) /\
     bstep (toREvalCmd f) E Gamma vR REAL /\
-    (IVlo iv_e <= vR /\ vR <= IVhi iv_e))`;
+    (IVlo iv_e <= vR /\ vR <= IVhi iv_e))
+End
 
-val validRangesCmd_single = store_thm (
-  "validRangesCmd_single",
-  ``! f A E Gamma.
+Theorem validRangesCmd_single:
+  ! f A E Gamma.
       validRangesCmd f A E Gamma ==>
       ? iv_e err_e vR.
         FloverMapTree_find (getRetExp f) A = SOME (iv_e, err_e) /\
         bstep (toREvalCmd f) E Gamma vR REAL /\
-        (IVlo iv_e <= vR /\ vR <= IVhi iv_e)``,
-  Cases_on `f` \\ simp[Once validRangesCmd_def] \\ metis_tac[]);
+        (IVlo iv_e <= vR /\ vR <= IVhi iv_e)
+Proof
+  Cases_on `f` \\ simp[Once validRangesCmd_def] \\ metis_tac[]
+QED
 
-val validRangesCmd_swap = store_thm (
-  "validRangesCmd_swap",
-  ``! f A E Gamma1 Gamma2.
+Theorem validRangesCmd_swap:
+  ! f A E Gamma1 Gamma2.
       (! n. Gamma1 n = Gamma2 n) /\
       validRangesCmd f A E Gamma1 ==>
-      validRangesCmd f A E Gamma2``,
+      validRangesCmd f A E Gamma2
+Proof
   Induct_on `f` \\ simp[Once validRangesCmd_def] \\ rpt strip_tac
-  \\ simp[Once validRangesCmd_def] \\ rpt conj_tac \\ metis_tac[]);
+  \\ simp[Once validRangesCmd_def] \\ rpt conj_tac \\ metis_tac[]
+QED
 
 val _ = export_theory();

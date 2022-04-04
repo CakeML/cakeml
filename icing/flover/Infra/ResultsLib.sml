@@ -1,3 +1,6 @@
+(**
+  A monad for results used by FlOVer
+**)
 structure ResultsLib =
 struct
 

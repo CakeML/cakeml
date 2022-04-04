@@ -13,7 +13,8 @@ open AbbrevsTheory ExpressionsTheory FloverTactics ExpressionAbbrevsTheory
 open preambleFloVer;
 
 val _ = new_theory "CertificateChecker";
-val _ = temp_overload_on("abs",``real$abs``);
+
+Overload abs[local] = “real$abs”;
 
 (** Certificate checking function **)
 Definition CertificateChecker_def:

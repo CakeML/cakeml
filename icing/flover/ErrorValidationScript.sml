@@ -17,11 +17,10 @@ open preambleFloVer;
 val _ = new_theory "ErrorValidation";
 
 val _ = Parse.hide "delta"; (* so that it can be used as a variable *)
-val _ = temp_overload_on("abs",``real$abs``);
-val _ = temp_overload_on("+",``realax$real_add``);
-val _ = temp_overload_on("-",``real$real_sub``);
-val _ = temp_overload_on("*",``realax$real_mul``);
-val _ = temp_overload_on("/",``real$/``);
+
+Overload abs[local] = “real$abs”
+
+val _ = realLib.prefer_real();
 
 val triangle_tac =
   irule triangle_trans \\ fs[REAL_ABS_TRIANGLE];

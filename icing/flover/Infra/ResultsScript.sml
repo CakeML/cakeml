@@ -1,25 +1,33 @@
+(**
+  A simple Result datatype to ease some implementations
+**)
 open stringTheory;
 open preambleFloVer;
 
 val _ = new_theory "Results";
 
-val _ = Datatype `
-  result = Succes 'a | Fail string | FailDet string 'a`;
+Datatype:
+  result = Succes 'a | Fail string | FailDet string 'a
+End
 
-val injectResult_def = Define `
+Definition injectResult_def:
   injectResult (Succes _) = T /\
-  injectResult _ = F`;
+  injectResult _ = F
+End
 
-val result_bind_def = Define `
+Definition result_bind_def:
   result_bind (Fail s) f = Fail s /\
   result_bind (FailDet s x) f = FailDet s x /\
-  result_bind (Succes x) f = f x`;
+  result_bind (Succes x) f = f x
+End
 
-val result_ignore_bind_def = Define `
-  result_ignore_bind m1 m2 = result_bind m1 (K m2) `;
+Definition result_ignore_bind_def:
+  result_ignore_bind m1 m2 = result_bind m1 (K m2)
+End
 
-val result_return_def = Define `
-  result_return x = Succes x`;
+Definition result_return_def:
+  result_return x = Succes x
+End
 
 val _ = export_rewrites ["result_return_def", "result_bind_def", "result_ignore_bind_def"]
 

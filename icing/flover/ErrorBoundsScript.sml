@@ -11,7 +11,8 @@ open preambleFloVer;
 val _ = new_theory "ErrorBounds";
 
 val _ = Parse.hide "delta"; (* so that it can be used as a variable *)
-val _ = temp_overload_on("abs",``real$abs``);
+
+Overload abs[local] = “real$abs”
 
 val triangle_tac =
   irule triangle_trans \\ rpt conj_tac \\ TRY (fs[REAL_ABS_TRIANGLE] \\ NO_TAC);

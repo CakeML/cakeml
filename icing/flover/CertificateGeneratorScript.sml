@@ -1,3 +1,8 @@
+(**
+  A simple, unverified generator for certificates.
+  To be used in conjunction with the certificate checker to first analyze
+  a kernel and then validate the analysis result
+**)
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory ExpressionsTheory
      FloverMapTheory TypeValidatorTheory CommandsTheory AbbrevsTheory
      ExpressionAbbrevsTheory;
@@ -5,7 +10,7 @@ open preambleFloVer;
 
 val _ = new_theory "CertificateGenerator";
 
-val CertificateGeneratorExp_def = Define `
+Definition CertificateGeneratorExp_def:
   CertificateGeneratorExp (f:real expr) (P:precond) (Gamma:typeMap)
     :(real expr # precond # typeMap # analysisResult) option =
     let
@@ -17,15 +22,18 @@ val CertificateGeneratorExp_def = Define `
         (case inferErrorbound f tMap ivMap FloverMapTree_empty of
         | SOME errMap => SOME (f,P,Gamma,errMap)
         | NONE => NONE)
-      | _, _ => NONE`;
+                    | _, _ => NONE
+End
 
-val getExp_def = Define `
-  getExp (f, P, Gamma, errMap) = f`;
+Definition getExp_def:
+  getExp (f, P, Gamma, errMap) = f
+End
 
-val getError_def = Define `
-  getError (f, P, Gamma, errMap) = FloverMapTree_find f errMap`;
+Definition getError_def:
+  getError (f, P, Gamma, errMap) = FloverMapTree_find f errMap
+End
 
-val CertificateGeneratorCmd_def = Define `
+Definition CertificateGeneratorCmd_def:
   CertificateGeneratorCmd (f:real cmd) (P:precond) (Gamma:typeMap)
     :(real cmd # precond # typeMap # analysisResult) option =
     let
@@ -37,12 +45,15 @@ val CertificateGeneratorCmd_def = Define `
         (case inferErrorboundCmd f tMap ivMap FloverMapTree_empty of
         | SOME errMap => SOME (f,P,Gamma,errMap)
         | NONE => NONE)
-      | _, _ => NONE`;
+                    | _, _ => NONE
+End
 
-val getCmd_def = Define `
-  getCmd (f, P, Gamma, errMap) = f`;
+Definition getCmd_def:
+  getCmd (f, P, Gamma, errMap) = f
+End
 
-val getError_def = Define `
-  getError (f, P, Gamma, errMap) = FloverMapTree_find (getRetExp f) errMap`;
+Definition getError_def:
+  getError (f, P, Gamma, errMap) = FloverMapTree_find (getRetExp f) errMap
+End
 
 val _ = export_theory ();
