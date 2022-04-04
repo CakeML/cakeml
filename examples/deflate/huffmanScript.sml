@@ -37,7 +37,7 @@ Definition get_freq_def:
 End
 
 Definition get_frequencies_def:
-  get_frequencies (input:α LZSS list) = get_freq input []
+  get_frequencies input = get_freq input []
 End
 
 Definition convert_frequencies_def:
@@ -66,7 +66,7 @@ Termination
 End
 
 Definition build_huffman_tree_def:
-  build_huffman_tree (s:α LZSS list) =
+  build_huffman_tree s =
   (let
      freqs = sort_frequencies (convert_frequencies (get_frequencies s))
    in
@@ -90,7 +90,7 @@ End
 
 Definition encode_def:
   encode [] ls = [] ∧
-  encode ((s::ss):α LZSS list) ls =
+  encode (s::ss) ls =
   let
     res = ALOOKUP ls s
   in
@@ -100,15 +100,16 @@ Definition encode_def:
 End
 
 Definition huff_enc_dyn_def:
-  huff_enc_dyn (l:α LZSS list) =
+  huff_enc_dyn l =
   let
     huff_tree = build_huffman_tree l;
+    li = MAP encode_LZSS_len l;
     assoc_list = get_huffman_codes huff_tree [] []
   in
-    (huff_tree, encode l assoc_list)
+    (huff_tree, encode li assoc_list)
 End
 
-EVAL “huff_enc_dyn [Lit "#a"; Lit "#a"; Lit "#b"; Lit "#c"; Lit "#c"; Lit "#c"; Lit "#d"]”;
+EVAL “huff_enc_dyn [Lit #"a"; Lit #"a"; Lit #"b"; Lit #"c"; Lit #"c"; Lit #"c"; Lit #"d"]”;
 
 
 
@@ -127,67 +128,31 @@ Definition decode_char_def:
 End
 
 Definition decode_def:
-  decode tree ((b::bs) :bool list) ([]   :bool list) :α LZSS list = (decode tree bs [b]) ∧
-  decode tree ([]      :bool list) (code :bool list) :α LZSS list = (
+  decode tree ((b::bs) :bool list) ([]   :bool list) = (decode tree bs [b]) ∧
+  decode tree ([]      :bool list) (code :bool list) = (
     let
       res = decode_char tree code
     in
       case res of
         NONE     => []
-      | SOME (r) => ([r]:α LZSS list)) ∧
-  decode tree ((b::bs) :bool list) (code :bool list) :α LZSS list = (
+      | SOME (r) => [r]) ∧
+  decode tree ((b::bs) :bool list) (code :bool list) = (
     let
       res = decode_char tree code
     in
       case res of
         NONE     => decode tree bs (code++[b])
-      | SOME (r) => ([r]:α LZSS list)++(decode tree bs [b]))
+      | SOME (r) => [r]++(decode tree bs [b]))
 End
 
 EVAL “let
-        (tree, code) = huff_enc_dyn [Lit "#a"; Lit "#a"; Lit "#b"; Lit "#c"; Lit "#c"; Lit "#c"; Lit "#d"]
+        (tree, code) = huff_enc_dyn [Lit #"a"; Lit #"a"; Lit #"b"; Lit #"c"; Lit #"c"; Lit #"c"; Lit #"d"]
       in
      decode tree code []”;
 
 Definition huffman_decoding_def:
-  huffman_decoding (tree, code) = decode tree code []
+  huffman_decoding (tree, code) =   decode tree code []
 End
-
-Definition huffman_enc_main_def:
-  huffman_enc_main s =
-  if huffman_decoding (huff_enc_dyn s) = s
-  then (huff_enc_dyn s, s, T)
-  else ((Empty, []), s, F)
-End
-
-Definition huffman_dec_main_def:
-  huffman_dec_main ((tree, code), s, b) =
-  if b
-  then (huffman_decoding (tree, code))
-  else s
-End
-
-(*
-Theorem huffman_inverse:
-  ∀s. huffman_dec_main (huffman_enc_main s) = s
-Proof
-
-
-  REWRITE_TAC[huffman_enc_main_def, huffman_dec_main_def]
-  \\ strip_tac
-  \\ CASE_TAC
-  \\ simp[]
-
-
-QED
-*)
-
-
-
-
-
-
-
 
 
 val _ = export_theory();

@@ -12,10 +12,10 @@ Scripts relevant to learning HOL
 [compressionScript.sml](compressionScript.sml):
 First simple compressor
 
-[deflateTableScript.sml](deflateTableScript.sml):
+[deflateScript.sml](deflateScript.sml):
 First simple compressor
 
-[fixHuffTreeScript.sml](fixHuffTreeScript.sml):
+[deflateTableScript.sml](deflateTableScript.sml):
 First simple compressor
 
 [huffmanOGScript.sml](huffmanOGScript.sml):
