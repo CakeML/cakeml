@@ -22,8 +22,8 @@ Definition step_n_cml_def:
 End
 
 Definition is_halt_cml_def:
-  is_halt_cml (Estep (env, st_ffi, Val v, [])) = T ∧
-  is_halt_cml (Estep (env, st_ffi, Val v, [Craise (), env'])) = T ∧
+  is_halt_cml (Estep (env, st_ffi, fp, Val v, [])) = T ∧
+  is_halt_cml (Estep (env, st_ffi, fp, Val v, [Craise (), env'])) = T ∧
   is_halt_cml (Eabort a) = T ∧
   is_halt_cml _ = F
 End
@@ -74,7 +74,8 @@ Inductive ctxt_frame_rel:
   ctxt_frame_rel (Clet vopt e) (Clet vopt () e) ∧
   ctxt_frame_rel (Ccon idopt vs es) (Ccon idopt vs () es) ∧
   ctxt_frame_rel (Ctannot ty) (Ctannot () ty) ∧
-  ctxt_frame_rel (Clannot ls) (Clannot () ls)
+  ctxt_frame_rel (Clannot ls) (Clannot () ls) ∧
+  ctxt_frame_rel (Coptimise oldSc sc) (Coptimise oldSc sc ())
 End
 
 Definition ctxt_rel_def:
@@ -84,9 +85,9 @@ End
 
 Inductive step_result_rel:
   (ctxt_rel cs1 cs2 ⇒
-    step_result_rel (Estep (env, st, ev, cs1)) (Estep (env, (st, ffi), ev, cs2))) ∧
+    step_result_rel (Estep (env, st, fp, ev, cs1)) (Estep (env, (st, ffi), fp, ev, cs2))) ∧
   step_result_rel Edone Estuck ∧
-  step_result_rel Etype_error (Eabort $ Rtype_error)
+  step_result_rel (Etype_error fp) (Eabort (fp, Rtype_error))
 End
 
 (***** Relating smallStep and itree-based semantics for declarations *****)
@@ -96,7 +97,8 @@ Definition dstate_rel_def:
     dst.refs = st.refs ∧
     dst.next_type_stamp = st.next_type_stamp ∧
     dst.next_exn_stamp = st.next_exn_stamp ∧
-    dst.eval_state = st.eval_state
+    dst.eval_state = st.eval_state ∧
+    dst.fp_state = st.fp_state
 End
 
 Inductive deval_rel:
@@ -112,7 +114,7 @@ Inductive dstep_result_rel:
       (itree_semantics$Dstep dst dev1 dcs) (smallStep$Dstep (st, dev2, dcs))) ∧
   dstep_result_rel Ddone Ddone ∧
   dstep_result_rel (Draise v) (Draise v) ∧
-  dstep_result_rel Dtype_error (Dabort $ Rtype_error)
+  dstep_result_rel (Dtype_error fp) (Dabort (fp, Rtype_error))
 End
 
 (***** Play out a particular trace prefix from a given itree, modelling the
@@ -144,7 +146,7 @@ Definition is_Dffi_def:
 End
 
 Definition get_ffi_def:
-  get_ffi (Estep (env, (st, ffi), ev, cs)) = SOME ffi ∧
+  get_ffi (Estep (env, (st, ffi), fp, ev, cs)) = SOME ffi ∧
   get_ffi _ = NONE
 End
 
@@ -188,7 +190,7 @@ val ditree_ss = simpLib.named_rewrites "ditree_ss" [
 
 Theorem step_n_same[simp]:
   (∀env n. step_n env n Ddone = Ddone) ∧
-  (∀env n. step_n env n Dtype_error = Dtype_error) ∧
+  (∀env n fp. step_n env n (Dtype_error fp) = (Dtype_error fp)) ∧
   (∀env n st ev l p dcs.  step_n env n (Dffi st ev l p dcs) = Dffi st ev l p dcs) ∧
   (∀env n v. step_n env n (Draise v) = Draise v) ∧
   (∀env n. step_n_cml env n Ddone = Ddone) ∧
@@ -231,20 +233,20 @@ QED
 Theorem cml_application_thm = smallStepPropsTheory.application_thm;
 
 Theorem application_not_Estuck:
-  application op env st_ffi vs cs ≠ Estuck
+  application op env st_ffi fp vs cs ≠ Estuck
 Proof
   rw[cml_application_thm] >>
   EVERY_CASE_TAC >> gvs[SF smallstep_ss]
 QED
 
 Theorem e_step_to_Estuck:
-  e_step (env, st_ffi, ev, cs) = Estuck ⇔
+  e_step (env, st_ffi, fp, ev, cs) = Estuck ⇔
   (∃v. ev = Val v ∧ cs = []) ∨
   (∃v env'. ev = Val v ∧ cs = [Craise (), env'])
 Proof
   reverse $ eq_tac
   >- (rw[] >> gvs[SF smallstep_ss]) >>
-  gvs[e_step_def] >> CASE_TAC >> gvs[]
+  gvs[e_step_def] >> TOP_CASE_TAC >> gvs[]
   >- (every_case_tac >> gvs[SF smallstep_ss, application_not_Estuck]) >>
   Cases_on `cs` >> gvs[SF smallstep_ss] >>
   every_case_tac >> gvs[application_not_Estuck]
@@ -318,13 +320,13 @@ Theorem small_eval_dec_eq_step_n_cml:
   (small_eval_dec env dst (st, Rval e) ⇔
     ∃n. step_n_cml env n (Dstep dst) = Dstep (st, Env e, [])) ∧
   (small_eval_dec env dst (st, Rerr (Rraise v)) ⇔
-    ∃n dev dcs.
-      step_n_cml env n (Dstep dst) = Dstep (st, dev, dcs) ∧
-      decl_step env (st, dev, dcs) = Draise v) ∧
+    ∃n dev dcs fp.
+      step_n_cml env n (Dstep dst) = Dstep (st with fp_state := fp, dev, dcs) ∧
+      decl_step env (st with fp_state := fp, dev, dcs) = Draise (st.fp_state, v)) ∧
   (small_eval_dec env dst (st, Rerr (Rabort err)) ⇔
-    ∃n dev dcs.
-      step_n_cml env n (Dstep dst) = Dstep (st, dev, dcs) ∧
-      decl_step env (st, dev, dcs) = Dabort err)
+    ∃n dev dcs fp.
+      step_n_cml env n (Dstep dst) = Dstep (st with fp_state:= fp, dev, dcs) ∧
+      decl_step env (st with fp_state := fp, dev, dcs) = Dabort (st.fp_state, err))
 Proof
   rw[small_eval_dec_def, decl_step_reln_eq_step_n_cml] >>
   eq_tac >> rw[PULL_EXISTS] >> rpt $ goal_assum drule
@@ -520,43 +522,82 @@ QED
 
 Theorem application_thm:
   ∀op env s vs c.
-    application op env s vs c =
-    if op = Opapp then
+    application op env s fp vs c =
+    if getOpClass op = FunApp then
       case do_opapp vs of
-      | NONE => Etype_error
-      | SOME (env,e) => Estep (env,s,Exp e,c)
+      | NONE => Etype_error (fix_fp_state c fp)
+      | SOME (env,e) => Estep (env,s,fp,Exp e,c)
     else if ∃n. op = FFI n then (
       case op of FFI n => (
         case vs of
           [Litv (StrLit conf); Loc lnum] => (
             case store_lookup lnum s of
               SOME (W8array ws) =>
-                if n = "" then Estep (env, s, Val $ Conv NONE [], c)
+                if n = "" then Estep (env, s, fp, Val $ Conv NONE [], c)
                 else Effi n (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws lnum env s c
-            | _ => Etype_error)
-        | _ => Etype_error)
+            | _ => Etype_error (fix_fp_state c fp))
+        | _ => Etype_error (fix_fp_state c fp))
       | _ => ARB)
-    else
+    else (case getOpClass op of
+    | Icing =>
+      (case do_app s op vs of
+         NONE => Etype_error (fix_fp_state c fp)
+       | SOME (s',r) =>
+        let fp_opt =
+          (if fp.canOpt = FPScope Opt then
+            case (do_fprw r (fp.opts 0) fp.rws) of
+            (* if it fails, just use the old value tree *)
+              NONE => r
+            | SOME r_opt => r_opt
+          else r)
+        in
+        let fpN = (if fp.canOpt = FPScope Opt then shift_fp_state fp else fp) in
+        let fp_res =
+          (if (isFpBool op)
+          then (case fp_opt of
+              Rval (FP_BoolTree fv) => Rval (Boolv (compress_bool fv))
+            | v => v
+            )
+          else fp_opt)
+        in
+          (case fp_res of
+              Rraise v => Estep (env,s', fpN, Val v,((Craise ,env)::c))
+            | Rval v => return env s' fpN v c))
+    | Reals =>
+      if fp.real_sem then
+      (case do_app s op vs of
+         SOME (s', Rraise v) => Estep (env, s', fp, Val v,((Craise ,env)::c))
+       | SOME (s', Rval v) => return env s' fp v c
+       | NONE => Etype_error (fix_fp_state c fp))
+      else Etype_error (fix_fp_state c (shift_fp_state fp))
+    | _ =>
       case do_app s op vs of
-      | NONE => Etype_error
-      | SOME (v1,Rval v') => return env v1 v' c
-      | SOME (v1,Rraise v) => Estep (env,v1,Val v,(Craise,env)::c)
+      | NONE => Etype_error (fix_fp_state c fp)
+      | SOME (v1,Rval v') => return env v1 fp v' c
+      | SOME (v1,Rraise v) => Estep (env,v1,fp,Val v,(Craise,env)::c))
 Proof
-  reverse $ rw[application_def] >> gvs[SF itree_ss] >>
-  TOP_CASE_TAC >> gvs[]
+  rpt strip_tac >> Cases_on ‘getOpClass op’ >> gs[] >>
+  TOP_CASE_TAC >> gs[application_def]
+  >- (
+    Cases_on ‘op’ >> gs[application_def] >> every_case_tac >> gs[do_app_def] >>
+    every_case_tac >> gs[])
+  >- (
+  Cases_on ‘op’ >> gs[application_def] >> every_case_tac >> gs[do_app_def] >>
+  pop_assum $ mp_tac >>
+  rpt (TOP_CASE_TAC >> gvs[SF itree_ss]) >> gs[store_alloc_def])
 QED
 
 Theorem application_FFI_results:
-  (application (FFI s) env st vs cs = Etype_error) ∨
-  (application (FFI s) env st vs cs = Estep (env, st, Val $ Conv NONE [], cs)) ∨
+  (application (FFI s) env st fp vs cs = Etype_error (fix_fp_state cs fp)) ∨
+  (application (FFI s) env st fp vs cs = Estep (env, st, fp, Val $ Conv NONE [], cs)) ∨
   ∃conf ws lnum.
-    (application (FFI s) env st vs cs) = Effi s conf ws lnum env st cs
+    (application (FFI s) env st fp vs cs) = Effi s conf ws lnum env st cs
 Proof
   rw[application_thm] >> every_case_tac >> gvs[]
 QED
 
 Theorem application_eq_Effi_fields:
-  application op env st vs cs = Effi s conf ws lnum env' st' cs' ⇒
+  application op env st fp vs cs = Effi s conf ws lnum env' st' cs' ⇒
   op = FFI s ∧ env = env' ∧ st = st' ∧ cs' = cs ∧
   ∃conf'.
     vs = [Litv $ StrLit conf'; Loc lnum] ∧
@@ -567,14 +608,14 @@ Proof
 QED
 
 Theorem application_not_Edone:
-  application op env st_ffi vs cs ≠ Edone
+  application op env st_ffi fp vs cs ≠ Edone
 Proof
   rw[application_thm] >>
   every_case_tac >> gvs[SF itree_ss]
 QED
 
 Theorem estep_to_Edone:
-  estep (env, st, ev, cs) = Edone ⇔
+  estep (env, st, fp, ev, cs) = Edone ⇔
   (∃v. ev = Val v ∧ cs = []) ∨
   (∃v env'. ev = Val v ∧ cs = [Craise, env'])
 Proof
@@ -745,4 +786,3 @@ QED
 (****************************************)
 
 val _ = export_theory();
-
