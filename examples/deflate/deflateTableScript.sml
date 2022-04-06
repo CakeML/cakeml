@@ -6,14 +6,14 @@ open preamble;
 open stringLib stringTheory;
 open rich_listTheory alistTheory listTheory;
 open sortingTheory arithmeticTheory;
-open LZSSrbTheory;
+open LZSSTheory;
 
 val _ = new_theory "deflateTable";
 
 
 (* (5-bit code value, number of extra bits after value, inclusive exclusive range for extra bits) *)
-Definition dist_table:
-  dist_table =
+Definition dist_table_def:
+  dist_table : (num # num # num) list =
   [ (0,   0,     1);
     (1,   0,     2);
     (2,   0,     3);
@@ -48,7 +48,7 @@ Definition dist_table:
 End
 
 (* (5-bit code value, number of extra bits after value, inclusive exclusive range for extra bits) *)
-Definition len_table:
+Definition len_table_def:
   len_table : (num # num # num) list =
   [ (257, 0,   3);
     (258, 0,   4);
@@ -82,21 +82,33 @@ Definition len_table:
 ]
 End
 
-Definition find_in_table:
+Definition find_in_table_def:
   find_in_table v [] prev = prev ∧
   find_in_table v (((curr, bits, value): num # num # num)::tab) prev  =
   if value <= v
-  then find_in_table v tab curr
+  then find_in_table v tab (curr, bits, value)
   else prev
 End
 
-EVAL “find_in_table 67 len_table ((λ (a, b, c). a) (HD len_table))”;
+Definition find_in_len_table_def:
+  find_in_len_table n = find_in_table n len_table (HD len_table)
+End
+
+Definition find_in_dist_table_def:
+  find_in_dist_table n = find_in_table n dist_table (HD dist_table)
+End
+
+EVAL “find_in_table 67 len_table (HD len_table)”;
 
 Definition encode_LZSS_len_def:
   encode_LZSS_len l : num =
   case l of
     Lit c => ORD c
-  | LenDist (l, d) => find_in_table l len_table ((λ (a, b, c). a) (HD len_table))
+  | LenDist (l, d) =>
+      let
+        (num, _, _) = find_in_len_table l
+      in
+        num
 End
 
 EVAL “encode_LZSS_len (Lit #"g")”;

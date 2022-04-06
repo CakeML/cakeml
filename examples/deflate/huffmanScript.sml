@@ -8,8 +8,6 @@ open optionTheory;
 open pairTheory;
 open arithmeticTheory;
 open ringBufferTheory;
-open LZSSrbTheory;
-open deflateTableTheory;
 
 val _ = new_theory"huffman";
 
@@ -27,10 +25,9 @@ Definition get_freq_def:
   get_freq []      ls = ls ∧
   get_freq (s::ss) ls =
   let
-    n = encode_LZSS_len s;
-    ls' = (case ALOOKUP ls n of
-             NONE => (n,1:num)::ls
-           | SOME n => AFUPDKEY n (λ a. a + 1) ls)
+    ls' = (case ALOOKUP ls s of
+             NONE => (s,1:num)::ls
+           | SOME v => AFUPDKEY s (λ a. a + 1) ls)
   in
     get_freq ss ls'
 End
@@ -54,6 +51,11 @@ End
 
 Definition create_tree_def:
   create_tree ((c,f)::[]) = [(c,f)] ∧
+  create_tree ((Leaf (c1:num),f1)::(Leaf (c2:num),f2)::ls) =
+  (let
+     nn = if c1 < c2 then (Node (Leaf c2)  (Leaf c1), f1+f2) else (Node (Leaf c1) (Leaf c2), f1+f2)
+   in
+    create_tree (sort_frequencies (nn::ls))) ∧
   create_tree ((c1,f1)::(c2,f2)::ls) =
   (let
      nn = (Node c1 c2, f1+f2)
@@ -102,13 +104,13 @@ Definition huff_enc_dyn_def:
   huff_enc_dyn l =
   let
     huff_tree = build_huffman_tree l;
-    li = MAP encode_LZSS_len l;
     assoc_list = get_huffman_codes huff_tree [] []
   in
     (huff_tree, assoc_list)
 End
 
-EVAL “huff_enc_dyn [Lit #"a"; Lit #"a"; Lit #"b"; Lit #"c"; Lit #"c"; Lit #"c"; Lit #"d"]”;
+(*EVAL “huff_enc_dyn ( MAP encode_LZSS_len  [Lit #"a"; Lit #"a"; Lit #"b"; Lit #"c"; Lit #"c"; Lit #"c"; Lit #"d"])”;*)
+EVAL “huff_enc_dyn (MAP ORD "aabcccd")”;
 
 
 

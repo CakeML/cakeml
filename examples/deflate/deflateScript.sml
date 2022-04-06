@@ -8,11 +8,17 @@ open rich_listTheory alistTheory listTheory;
 open sortingTheory arithmeticTheory;
 open LZSSTheory;
 open huffmanTheory;
+open deflateTableTheory;
 
 val _ = new_theory "deflate";
 
 Overload MAX_CODE_LENGTH = “16 :num”
 
+(******************************************
+*****                                ******
+*****     READ TREE FROM NUM LIST    ******
+*****                                ******
+******************************************)
 Definition bl_count_aux_def:
   bl_count_aux [] (bl: num list) = LUPDATE 0 0 bl ∧
   bl_count_aux (x::xs) bl =
@@ -80,14 +86,14 @@ Definition pad0_def:
 End
 
 Definition get_codes_from_len_def:
-  get_codes_from_len  [] n nc = [] ∧
-  get_codes_from_len (0::ls) n nc = get_codes_from_len ls (SUC n) nc ∧
-  get_codes_from_len (l::ls) n nc =
+  codes_from_len  [] n nc = [] ∧
+  codes_from_len (0::ls) n nc = codes_from_len ls (SUC n) nc ∧
+  codes_from_len (l::ls) n nc =
   let
     code = EL l nc;
     nc = LUPDATE (SUC code) l nc;
   in
-      (n, pad0 l (TN2BL code)) :: get_codes_from_len ls (SUC n) nc
+      (n, pad0 l (TN2BL code)) :: codes_from_len ls (SUC n) nc
 End
 
 EVAL “
@@ -95,10 +101,30 @@ EVAL “
    ls = [3;3;3;3;3;2;4;4];
    bl = bl_count ls;
    nc = next_code bl;
-   codes = get_codes_from_len ls 0 nc;
+   codes = codes_from_len ls 0 nc;
  in
    codes
    ”;
+
+Definition len_from_codes_def:
+  len_from_codes [] = [] ∧
+  len_from_codes ((n,bl)::ns) =
+  LENGTH bl :: len_from_codes ns
+End
+
+
+EVAL “ let
+   s = MAP ORD "abbbbcc";
+   (tree, as) = huff_enc_dyn s;
+   s_enc = encode s as;
+   as = QSORT (λ (a,_) (b,_). a < b) as;
+   ls = len_from_codes as;
+   bl = bl_count ls;
+   nc = next_code bl;
+   cs = codes_from_len ls 0 nc;
+   cs = MAP (λ (a,b). (CHR (a + 97) , b)) cs;
+ in
+   (s, as, cs)”;
 
 Definition fixed_huff_tree_def:
   fixed_huff_tree =
@@ -106,28 +132,35 @@ Definition fixed_huff_tree_def:
      ls = (REPLICATE 144 8) ++ (REPLICATE 112 9) ++ (REPLICATE 24 7) ++ (REPLICATE 8 8);
      bl = bl_count ls;
      nc = next_code bl;
-     codes = get_codes_from_len ls 0 nc;
+     codes = codes_from_len ls 0 nc;
    in
      codes
 End
 EVAL “fixed_huff_tree”;
 
 
+
+
+
 (******************************************
              Deflate encoding
 *******************************************)
+
+Definition deflate_encoding_def:
+  deflate_encoding s huff assoc = []
+End
 
 Definition deflate_encoding_main_def:
   deflate_encoding_main s =
   let
     lzList = LZSS_compress s;                        (* List of LZ data structure*)
-    (huff_tree, assoc_list) = huff_enc_dyn lzlist;   (* Tree has LZ structures, assoc_list has nums *)
-
+    lenList = MAP encode_LZSS_len lzList;
+    (huff_tree, assoc_list) = huff_enc_dyn lenList   (* Tree has LZ structures, assoc_list has nums *)
   in
-    deflate_encoding s huff_tree assoc_list;
+    deflate_encoding s huff_tree assoc_list
 End
 
-EVAL “deflate_encoding "hej hello hello hejsan"”;
+EVAL “deflate_encoding_main "hej hello hello hejsan"”;
 
 
 val _ = export_theory();
