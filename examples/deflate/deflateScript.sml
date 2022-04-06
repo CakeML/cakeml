@@ -106,6 +106,38 @@ EVAL “
    codes
    ”;
 
+Definition gen_zero_codes_def:
+  gen_zero_codes l 0 = APPEND [(0,[])] l ∧
+  gen_zero_codes (l: (num # bool list) list) (n: num) =
+  if (0 < n)
+  then (gen_zero_codes (APPEND [(n,[])] l) (n-1))
+  else (l)
+End
+
+EVAL “gen_zero_codes [] 285”;
+
+Definition complete_assoc_list_def:
+  complete_assoc_list gs [] = gs ∧
+  complete_assoc_list [] ls = [] ∧
+  complete_assoc_list ((n1,bl1)::gs) ((n2,bl2)::ls) =
+  if (n1 = n2)
+  then ([(n1, bl2)] ++ complete_assoc_list gs ls)
+  else ([(n1, bl1)] ++ complete_assoc_list gs ((n2,bl2)::ls))
+End
+
+
+EVAL “
+ let
+   ls = [3;3;3;3;3;2;4;4];
+   bl = bl_count ls;
+   nc = next_code bl;
+   codes = codes_from_len ls 0 nc;
+   gs = gen_zero_codes [] 285;
+ in
+   complete_assoc_list gs codes
+   ”;
+
+
 Definition len_from_codes_def:
   len_from_codes [] = [] ∧
   len_from_codes ((n,bl)::ns) =
