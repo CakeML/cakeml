@@ -112,19 +112,17 @@ Definition len_from_codes_def:
   LENGTH bl :: len_from_codes ns
 End
 
-
+(* EVAL that tests whether the tree we create from length list is equal to original tree *)
 EVAL “ let
    s = MAP ORD "abbbbcc";
    (tree, as) = huff_enc_dyn s;
    s_enc = encode s as;
    as = QSORT (λ (a,_) (b,_). a < b) as;
    ls = len_from_codes as;
-   bl = bl_count ls;
-   nc = next_code bl;
-   cs = codes_from_len ls 0 nc;
-   cs = MAP (λ (a,b). (CHR (a + 97) , b)) cs;
+   cs = codes_from_len ls 0 (next_code (bl_count ls));
+   cs = MAP (λ (a,b). (a + 97 , b)) cs;
  in
-   (s, as, cs)”;
+   (s, as, cs, as = cs)”;
 
 Definition fixed_huff_tree_def:
   fixed_huff_tree =
@@ -139,25 +137,30 @@ End
 EVAL “fixed_huff_tree”;
 
 
-
-
-
 (******************************************
              Deflate encoding
 *******************************************)
 
-Definition deflate_encoding_def:
-  deflate_encoding s huff assoc = []
+(* Encodes each LZSS *)
+Definition encode_LZSS_def:
+  encode_LZSS (Lit a) huff assoc = T ∧
+  encode_LZSS (LenDist (a, b)) huff assoc = F
 End
 
+Definition deflate_encoding_def:
+  deflate_encoding [] huff assoc = [] ∧
+  deflate_encoding (l::ls) huff assoc = encode_LZSS l huff assoc :: deflate_encoding ls huff assoc
+End
+
+(* Should handle block level logic *)
 Definition deflate_encoding_main_def:
   deflate_encoding_main s =
   let
-    lzList = LZSS_compress s;                        (* List of LZ data structure*)
+    lzList = LZSS_compress s;
     lenList = MAP encode_LZSS_len lzList;
-    (huff_tree, assoc_list) = huff_enc_dyn lenList   (* Tree has LZ structures, assoc_list has nums *)
+    (huff_tree, assoc_list) = huff_enc_dyn lenList
   in
-    deflate_encoding s huff_tree assoc_list
+    deflate_encoding lzList huff_tree assoc_list
 End
 
 EVAL “deflate_encoding_main "hej hello hello hejsan"”;
