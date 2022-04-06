@@ -10,7 +10,7 @@ val _ = new_theory "Abbrevs";
 For the moment we need only one interval type in HOL, since we do not have the
 problem of computability as we have it in Coq
 **)
-Type interval = “real#real”
+Type interval = “:real#real”
 
 Definition IVlo_def:
   IVlo (iv:interval) = FST iv
@@ -29,7 +29,7 @@ Type precond = “:num->interval”
 (**
   Abbreviation for the type of a variable environment, which should be a partial function
 **)
-Type env = “num -> real option”
+Type env = “:num -> real option”
 
 (**
   The empty environment must return NONE for every variable

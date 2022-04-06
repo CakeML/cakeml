@@ -13,9 +13,9 @@ We treat a function mapping an exprression arguing on fractions as value type
 to pairs of intervals on rationals and rational errors as the analysis result
 **)
 
-Overload fMap = ``:(real expr # 'a) binTree``
-Overload typeMap = ``:mType fMap``
-Overload analysisResult = ``:((real # real) # real) fMap``
+Type fMap = ``:(real expr # 'a) binTree``
+Type typeMap = ``:mType fMap``
+Type analysisResult = ``:((real # real) # real) fMap``
 
 Definition updDefVars_def:
   updDefVars (x:real expr) (m:mType) (defVars:real expr -> mType option)
