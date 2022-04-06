@@ -31,7 +31,6 @@ Termination
   \\ simp[MIN_DEF]
 End
 
-
 Theorem TAKE_EL_DROP:
   n < LENGTH l ∧ EL n l = a ⇒ l = TAKE n l ++ [a] ++ DROP (n + 1) l
 Proof
@@ -110,20 +109,6 @@ Definition LZmatchRB_def[simp]:
       else SOME $ LenDist (FST match, (li  - (SND match)))
 End
 
-
-(*
-Should rewrite to better account for inputstreams instead of strings
-*)
-
-(*
-add proof that checks that the lookahead always is the correct size
-*)
-
-(*
-Add invariant for the length and distance so that an illegal value can't be created
-*)
-
-
 Definition LZinit:
   LZinit s  =
   let
@@ -139,6 +124,7 @@ Definition LZinit:
   in
     (rb, s, look)
 End
+
 Definition LZcompRB_def:
   LZcompRB (rb : char ringBuffer) (s :string) look =
   if  look = 0 then []
@@ -161,6 +147,7 @@ Termination
   \\ rpt strip_tac
   \\ rpt (CASE_TAC \\ simp[])
 End
+
 Definition LZSSRB_compress_def:
   LZSSRB_compress s =
   let
@@ -171,27 +158,13 @@ End
 EVAL “LZinit "hej nej ne"”;
 EVAL “LZSSRB_compress "hej nej ne"”;
 EVAL “LZSS_decompress (LZSSRB_compress "hej nej ne")”;
-        (* "hejsan jag heter bert ert ert ert jag har lagt en fjert" *)
-
-(******************************************************
-*****                                             *****
-*****               Decopmression                 *****
-*****                                             *****
-******************************************************)
 
 
-
-
-
-
-
-
-
-(*
-Should rewrite the decompressor to use a ringbuffer to better account for inputstreams instead of strings
-*)
-
-
+(*******************************************************
+ *****                                             *****
+ *****               Decopmression                 *****
+ *****                                             *****
+ *******************************************************)
 
 Definition resolveLenDist_def[simp]:
   (resolveLenDist [] _ = NONE) ∧
@@ -220,17 +193,16 @@ Definition LZSS_decompress_def:
   LZSS_decompress s = LZdecompress [] s
 End
 
-
 EVAL “LZSSRB_compress "hejsan hejsan hejsan jag heter bert ert ert ert jag har lagt en fjert"”;
 
 EVAL “LZSS_decompress (LZSSRB_compress "hejsan hejsan hejsan jag heter bert ert ert ert jag har lagt en fjert")”;
 
 
-(******************************************************
-*****                                             *****
-*****              Main functions                 *****
-*****                                             *****
-******************************************************)
+(*******************************************************
+ *****                                             *****
+ *****              Main functions                 *****
+ *****                                             *****
+ *******************************************************)
 
 (*Definition LZSS_compress_main_def:
   LZSS_compress_main s =

@@ -6,13 +6,13 @@ open preamble;
 open stringLib stringTheory;
 open rich_listTheory alistTheory listTheory;
 open sortingTheory arithmeticTheory;
-open LZSSrbTheory;
+open LZSSTheory;
+open huffmanTheory;
 
 val _ = new_theory "deflate";
 
-
-
 Overload MAX_CODE_LENGTH = “16 :num”
+
 Definition bl_count_aux_def:
   bl_count_aux [] (bl: num list) = LUPDATE 0 0 bl ∧
   bl_count_aux (x::xs) bl =
@@ -111,6 +111,23 @@ Definition fixed_huff_tree_def:
      codes
 End
 EVAL “fixed_huff_tree”;
+
+
+(******************************************
+             Deflate encoding
+*******************************************)
+
+Definition deflate_encoding_main_def:
+  deflate_encoding_main s =
+  let
+    lzList = LZSS_compress s;                        (* List of LZ data structure*)
+    (huff_tree, assoc_list) = huff_enc_dyn lzlist;   (* Tree has LZ structures, assoc_list has nums *)
+
+  in
+    deflate_encoding s huff_tree assoc_list;
+End
+
+EVAL “deflate_encoding "hej hello hello hejsan"”;
 
 
 val _ = export_theory();

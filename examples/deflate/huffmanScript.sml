@@ -3,7 +3,6 @@ Script for Huffman encodings.
 *)
 
 open preamble;
-
 open listTheory  rich_listTheory;
 open optionTheory;
 open pairTheory;
@@ -106,7 +105,7 @@ Definition huff_enc_dyn_def:
     li = MAP encode_LZSS_len l;
     assoc_list = get_huffman_codes huff_tree [] []
   in
-    (huff_tree, encode li assoc_list)
+    (huff_tree, assoc_list)
 End
 
 EVAL “huff_enc_dyn [Lit #"a"; Lit #"a"; Lit #"b"; Lit #"c"; Lit #"c"; Lit #"c"; Lit #"d"]”;
@@ -115,7 +114,7 @@ EVAL “huff_enc_dyn [Lit #"a"; Lit #"a"; Lit #"b"; Lit #"c"; Lit #"c"; Lit #"c"
 
 (******************************************
              Huffman decoding
-*******************************************)
+*******************************************
 
 Definition decode_char_def:
   decode_char Empty _ = NONE ∧
@@ -154,5 +153,6 @@ Definition huffman_decoding_def:
   huffman_decoding (tree, code) =   decode tree code []
 End
 
+*)
 
 val _ = export_theory();
