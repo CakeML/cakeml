@@ -49,6 +49,10 @@ End
              Huffman tree
 *******************************************)
 
+(* SHOULD BE ADJUSTED ACCORDING TO THE FOLLOWING RULES
+- elements that have shorter codes are placed to the left of those with longer codes.
+- Among elements with codes of the same length, those that come first in the element set are placed to the left
+    *)
 Definition create_tree_def:
   create_tree ((c,f)::[]) = [(c,f)] ∧
   create_tree ((Leaf (c1:num),f1)::(Leaf (c2:num),f2)::ls) =
