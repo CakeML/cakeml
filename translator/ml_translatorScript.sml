@@ -2930,7 +2930,7 @@ Proof
     \\ disch_then (qspec_then `ck1'` assume_tac) \\ fs []
     \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS]
     \\ asm_exists_tac \\ fs [Mat_cases_def]
-    \\ fs [can_pmatch_all_def,evaluate_def, compress_def, pmatch_def,pat_bindings_def, compress_list_same_length]
+    \\ fs [can_pmatch_all_def,evaluate_def, compress_def, pmatch_def,pat_bindings_def]
     \\ fs [pmatch_list_MAP_Pvar,GSYM write_list_thm]
     \\ fs [state_component_equality])
   \\ fs [Eval_def,EXISTS_MEM,EXISTS_PROD,eval_rel_def]
