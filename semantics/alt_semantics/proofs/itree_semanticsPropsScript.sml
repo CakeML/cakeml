@@ -23,7 +23,7 @@ End
 
 Definition is_halt_cml_def:
   is_halt_cml (Estep (env, st_ffi, Val v, [])) = T ∧
-  is_halt_cml (Estep (env, st_ffi, Val v, [Craise (), env'])) = T ∧
+  is_halt_cml (Estep (env, st_ffi, Exn v, [])) = T ∧
   is_halt_cml (Eabort a) = T ∧
   is_halt_cml _ = F
 End
@@ -171,6 +171,7 @@ val dsmallstep_ss = simpLib.named_rewrites "dsmallstep_ss" [
     ];
 
 val itree_ss = simpLib.named_rewrites "itree_ss" [
+    itree_semanticsTheory.exn_continue_def,
     itree_semanticsTheory.continue_def,
     itree_semanticsTheory.return_def,
     itree_semanticsTheory.push_def,
@@ -240,14 +241,13 @@ QED
 Theorem e_step_to_Estuck:
   e_step (env, st_ffi, ev, cs) = Estuck ⇔
   (∃v. ev = Val v ∧ cs = []) ∨
-  (∃v env'. ev = Val v ∧ cs = [Craise (), env'])
+  (∃v env'. ev = Exn v ∧ cs = [])
 Proof
   reverse $ eq_tac
   >- (rw[] >> gvs[SF smallstep_ss]) >>
   gvs[e_step_def] >> CASE_TAC >> gvs[]
   >- (every_case_tac >> gvs[SF smallstep_ss, application_not_Estuck]) >>
-  Cases_on `cs` >> gvs[SF smallstep_ss] >>
-  every_case_tac >> gvs[application_not_Estuck]
+  gvs[AllCaseEqs(), SF smallstep_ss, application_not_Estuck]
 QED
 
 Theorem step_n_cml_eq_Dstep:
@@ -540,7 +540,7 @@ Theorem application_thm:
       case do_app s op vs of
       | NONE => Etype_error
       | SOME (v1,Rval v') => return env v1 v' c
-      | SOME (v1,Rraise v) => Estep (env,v1,Val v,(Craise,env)::c)
+      | SOME (v1,Rraise v) => Estep (env,v1,Exn v,c)
 Proof
   reverse $ rw[application_def] >> gvs[SF itree_ss] >>
   TOP_CASE_TAC >> gvs[]
@@ -576,7 +576,7 @@ QED
 Theorem estep_to_Edone:
   estep (env, st, ev, cs) = Edone ⇔
   (∃v. ev = Val v ∧ cs = []) ∨
-  (∃v env'. ev = Val v ∧ cs = [Craise, env'])
+  (∃v env'. ev = Exn v ∧ cs = [])
 Proof
   reverse $ eq_tac
   >- (rw[] >> gvs[SF itree_ss]) >>
@@ -614,13 +614,9 @@ Proof
     Cases_on `h` >> Cases_on `l` >> gvs[SF ditree_ss]
     ) >>
   Cases_on `dev` >> gvs[] >>
-  Cases_on `e` >> gvs[dstep_def]
-  >- (every_case_tac >> gvs[estep_to_Edone]) >>
-  Cases_on `l` >> gvs[dstep_def]
-  >- (every_case_tac >> gvs[]) >>
-  PairCases_on `h` >>
-  Cases_on `h0` >> Cases_on `t` >> gvs[dstep_def] >>
-  every_case_tac >> gvs[estep_to_Edone]
+  Cases_on `e` >> gvs[dstep_def] >>
+  Cases_on `l` >> gvs[dstep_def] >>
+  gvs[AllCaseEqs(), estep_to_Edone]
 QED
 
 Theorem is_halt_step_n_const:
