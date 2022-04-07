@@ -2437,7 +2437,8 @@ Proof
   \\ TOP_CASE_TAC
   >- (
     pop_assum mp_tac
-    \\ Cases_on`x`
+    \\ rename1 ‘do_app sffi op v1’
+    \\ Cases_on `sffi`
     \\ simp[Once do_app_def]
     \\ strip_tac
     \\ fs[CaseEq"list"] \\ rveq \\ fs[] \\ rveq \\ fs[]
@@ -2471,6 +2472,7 @@ Proof
          \\ TOP_CASE_TAC \\ fs[]
          \\ TOP_CASE_TAC \\ fs[]
          \\ fs[v_sim_LIST_REL] )
+    >- ( fs[do_app_def, store_alloc_def])
     >- ( fs[do_app_def] \\ TOP_CASE_TAC \\ fs[]
          \\ TOP_CASE_TAC \\ fs[]
          \\ TOP_CASE_TAC \\ fs[]
@@ -2542,6 +2544,9 @@ Proof
     fs[store_alloc_def, isPureOp_def] \\ rveq
     \\ irule LIST_REL_APPEND_suff \\ fs[]
     \\ simp[LIST_REL_REPLICATE_same] )
+  >- (
+    fs[store_alloc_def, isPureOp_def] \\ rveq
+    \\ irule LIST_REL_APPEND_suff \\ fs[])
   >- (
     fs[store_assign_def, store_v_same_type_def, isPureOp_def] \\ rveq
     \\ irule EVERY2_LUPDATE_same \\ fs[]
