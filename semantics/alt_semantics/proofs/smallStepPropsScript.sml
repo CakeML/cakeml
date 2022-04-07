@@ -18,7 +18,7 @@ Theorem application_thm:
       case do_app s op vs of
       | NONE => Eabort Rtype_error
       | SOME (v1,Rval v') => return env v1 v' c
-      | SOME (v1,Rerr (Rraise v)) => Estep (env,v1,Val v,(Craise (),env)::c)
+      | SOME (v1,Rerr (Rraise v)) => Estep (env,v1,Exn v,c)
       | SOME (v1,Rerr (Rabort a)) => Eabort a
 Proof
   srw_tac[][application_def] >>
@@ -151,12 +151,12 @@ Proof
   metis_tac [e_step_add_ctxt_help]
 QED
 
-Theorem e_step_raise:
-  !s env err c v env' env''.
+Theorem e_step_raise_lemma:
+  !s env err c v.
     EVERY (\c. ¬?pes env. c = (Chandle () pes, env)) c ∧
     (c ≠ [])
     ⇒
-    e_step_reln^* (env,s,Val v,(Craise (), env')::c) (env',s,Val v,[(Craise (), env')])
+    e_step_reln^* (env,s,Exn v,c) (env,s,Exn v,[])
 Proof
   induct_on `c` >>
   srw_tac[][] >>
@@ -168,6 +168,17 @@ Proof
   full_simp_tac(srw_ss())[] >>
   cases_on `o'` >>
   full_simp_tac(srw_ss())[]
+QED
+
+Theorem e_step_raise:
+  !s env err c v.
+    EVERY (\c. ¬?pes env. c = (Chandle () pes, env)) c ∧
+    (c ≠ [])
+    ⇒
+    e_step_reln^* (env,s,Val v,(Craise (), env')::c) (env',s,Exn v,[])
+Proof
+  rw[] >> simp[Once RTC_CASES1] >>
+  simp[e_step_reln_def, e_step_def, continue_def, e_step_raise_lemma]
 QED
 
 Theorem small_eval_err_add_ctxt:
@@ -186,14 +197,16 @@ Proof
       `e_step_reln^* (env,s,Exp e,c++c') (env',s',e',c''++c')`
         by metis_tac [e_step_add_ctxt] >>
       metis_tac [e_single_error_add_ctxt])
-  >- (`e_step_reln^* (env,s,Exp e,c++c') (env',s',Val v,(Craise (),env'')::c')`
+  >- (
+      `e_step_reln^* (env,s,Exp e,c++c') (env',s',Exn v, c')`
         by metis_tac [e_step_add_ctxt, APPEND] >>
       cases_on `c'` >>
       full_simp_tac(srw_ss())[] >-
        metis_tac [] >>
-      `e_step_reln^* (env',s',Val v,(Craise (),env'')::h::t) (env'',s',Val v,[(Craise (),env'')])`
-        by (match_mp_tac e_step_raise >> srw_tac[][]) >>
-      metis_tac [transitive_RTC, transitive_def])
+      `e_step_reln^* (env',s',Exn v,h::t) (env',s',Exn v,[])`
+        by (match_mp_tac e_step_raise_lemma >> srw_tac[][]) >>
+      metis_tac [transitive_RTC, transitive_def]
+      )
 QED
 
 Theorem small_eval_err_add_ctxt =
@@ -363,8 +376,8 @@ Inductive small_eval_list:
      small_eval_list env s2 es (s3, Rval vs)
      ⇒
      small_eval_list env s1 (e::es) (s3, Rval (v::vs))) ∧
-  (!s1 env e es env' s2 s3 v err_v env''.
-     e_step_reln^* (env,s1,Exp e,[]) (env',s3,Val err_v,[(Craise (),env'')]) ∨
+  (!s1 env e es env' s2 s3 v err_v.
+     e_step_reln^* (env,s1,Exp e,[]) (env',s3,Exn err_v,[]) ∨
      (e_step_reln^* (env,s1,Exp e,[]) (env',s2,Val v,[]) ∧
       small_eval_list env s2 es (s3, Rerr (Rraise err_v)))
      ⇒
@@ -436,33 +449,35 @@ Theorem small_eval_list_err:
                    do_con_check env.c cn (LENGTH vs' + 1 + LENGTH es) ∧
                    (r = (s3, Rerr (Rraise err_v))) ∧
                    e_step_reln^* (env,s1,e,[]) (env',s2,Val v,[]) ⇒
-                   ?env'' env'''. e_step_reln^* (env,s1,e,[(Ccon cn vs' () es,env)])
-                                             (env'',s3,Val err_v,[(Craise (), env''')]))
+                   ?env''. e_step_reln^* (env,s1,e,[(Ccon cn vs' () es,env)])
+                                             (env'',s3,Exn err_v,[]))
 Proof
   ho_match_mp_tac small_eval_list_ind >>
   srw_tac[][] >>
   `e_step_reln^* (env,s1,e',[(Ccon cn vs' () (e::es),env)])
-   (env''',s2,Val v',[(Ccon cn vs' () (e::es),env)])`
+   (env'',s2,Val v',[(Ccon cn vs' () (e::es),env)])`
     by metis_tac [e_step_add_ctxt, APPEND] >>
   `LENGTH vs' + 1 + 1 + LENGTH es = LENGTH vs' + 1 + SUC (LENGTH es)`
     by DECIDE_TAC >>
-  `e_step_reln (env''',s2,Val v',[(Ccon cn vs' () (e::es),env)])
+  `e_step_reln (env'',s2,Val v',[(Ccon cn vs' () (e::es),env)])
    (env,s2,Exp e,[(Ccon cn (v'::vs') () es,env)])`
     by srw_tac[][push_def,continue_def, e_step_reln_def, e_step_def] >>
   full_simp_tac(srw_ss())[]
   >- (`e_step_reln^* (env,s2,Exp e,[(Ccon cn (v'::vs') () es,env)])
-      (env',s3,Val err_v,[(Craise (), env'');(Ccon cn (v'::vs') () es,env)])`
+      (env',s3,Exn err_v,[(Ccon cn (v'::vs') () es,env)])`
         by metis_tac [e_step_add_ctxt,APPEND] >>
-      `e_step_reln^* (env',s3,Val err_v,[(Craise (), env'');(Ccon cn (v'::vs') () es,env)])
-       (env'',s3,Val err_v,[(Craise (), env'')])`
-        by (match_mp_tac e_step_raise >>
+      `e_step_reln^*
+        (env',s3,Exn err_v,[(Ccon cn (v'::vs') () es,env)])
+        (env',s3,Exn err_v,[])`
+        by (match_mp_tac e_step_raise_lemma >>
             srw_tac[][]) >>
-      metis_tac [RTC_SINGLE, transitive_RTC, transitive_def])
+      rpt (simp[Once RTC_CASES_RTC_TWICE] >> first_x_assum $ irule_at Any) >>
+      simp[])
   >- (`LENGTH (v'::vs') + 1 + LENGTH es = LENGTH vs' + 1 + SUC (LENGTH es)`
         by (full_simp_tac(srw_ss())[] >>
             DECIDE_TAC) >>
-      `?env''' env''. e_step_reln^* (env,s2,Exp e,[(Ccon cn (v'::vs') () es,env)])
-        (env'',s3,Val err_v, [(Craise (), env''')])`
+      `?env''. e_step_reln^* (env,s2,Exp e,[(Ccon cn (v'::vs') () es,env)])
+        (env'',s3,Exn err_v, [])`
         by metis_tac [] >>
       metis_tac [RTC_SINGLE, transitive_RTC, transitive_def])
 QED
@@ -532,8 +547,8 @@ Definition alt_small_eval_def:
   (alt_small_eval env s1 e c (s2, Rval v) ⇔
      ∃env'. e_step_reln^* (env,s1,e,c) (env',s2,Val v,[])) ∧
   (alt_small_eval env s1 e c (s2, Rerr (Rraise err_v)) ⇔
-     ∃env' env''.
-       e_step_reln^* (env,s1,e,c) (env',s2,Val err_v,[(Craise (), env'')])) ∧
+     ∃env'.
+       e_step_reln^* (env,s1,e,c) (env',s2,Exn err_v,[])) ∧
   (alt_small_eval env s1 e c (s2, Rerr (Rabort a)) ⇔
      ∃env' e' c'.
        e_step_reln^* (env,s1,e,c) (env',s2,e',c') ∧
@@ -548,7 +563,6 @@ Proof
   HO_MATCH_MP_TAC small_eval_match_ind >>
   srw_tac[][alt_small_eval_def]
   >- (qexists_tac `env` >>
-      qexists_tac `env` >>
       match_mp_tac RTC_SINGLE >>
       srw_tac[][e_step_reln_def, e_step_def, continue_def])
   >- (PairCases_on `r` >>
@@ -745,9 +759,10 @@ Theorem small_eval_list_app_error:
       res = (s',Rerr (Rraise v)) ⇒
       ∀op env0 v1 v0.
         ∃env' env''.
-          e_step_reln^* (env0,s,Val v1,[Capp op v0 () es,env]) (env',s',Val v,[(Craise (),env'')])
+          e_step_reln^* (env0,s,Val v1,[Capp op v0 () es,env]) (env',s',Exn v,[])
 Proof
-  ho_match_mp_tac (theorem"small_eval_list_strongind") >> simp[] >> srw_tac[][] >- (
+  ho_match_mp_tac (theorem"small_eval_list_strongind") >> simp[] >> srw_tac[][]
+  >- (
   srw_tac[][Once RTC_CASES1,e_step_reln_def,Once e_step_def,continue_def,push_def] >>
   imp_res_tac e_step_add_ctxt >>
   Q.PAT_ABBREV_TAC`ctx = [(Capp A B C D,env)]` >>
@@ -755,6 +770,7 @@ Proof
   srw_tac[][Once RTC_CASES_RTC_TWICE] >>
   first_assum(match_exists_tac o concl) >> srw_tac[][] >>
   srw_tac[][Once RTC_CASES1,e_step_reln_def,e_step_def,continue_def,Abbr`ctx`] >>
+  srw_tac[][Once RTC_CASES1,e_step_reln_def,e_step_def,continue_def] >>
   metis_tac[RTC_REFL]) >>
   srw_tac[][Once RTC_CASES1,e_step_reln_def,Once e_step_def,continue_def,push_def] >>
   srw_tac[][Once RTC_CASES_RTC_TWICE] >>
@@ -925,8 +941,7 @@ QED
 
 Theorem untyped_safety_exp_step:
   ∀env s e c.
-    (e_step (env,s,e,c) = Estuck) ⇔
-    (∃v. e = Val v) ∧ (c = [] ∨ ∃env. c = [(Craise (), env)])
+    (e_step (env,s,e,c) = Estuck) ⇔ (∃v. e = Val v ∨ e = Exn v) ∧ c = []
 Proof
   rw[e_step_def, continue_def, push_def, return_def] >>
   TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[] >>
@@ -1010,20 +1025,7 @@ Proof
   >- (gvs[decl_continue_def] >> every_case_tac >> gvs[])
   >- (
     pop_assum mp_tac >> simp[] >>
-    qpat_abbrev_tac `foo = e_step_result_CASE _ _ _ _` >>
-    TOP_CASE_TAC >> gvs[]
-    >- (
-      gvs[e_step_def, push_def, return_def] >>
-      every_case_tac >> gvs[] >> unabbrev_all_tac >> gvs[] >>
-      gvs[application_def] >> every_case_tac >> gvs[return_def]
-      ) >>
-    TOP_CASE_TAC >> gvs[] >- (every_case_tac >> gvs[]) >>
-    Cases_on `∃env. h::t = [Craise (), env]` >> gvs[] >>
-    qsuff_tac `foo ≠ Ddone` >- (rw[] >> every_case_tac >> gvs[]) >>
-    unabbrev_all_tac >> every_case_tac >> gvs[] >>
-    pop_assum mp_tac >> simp[] >>
-    simp[e_step_def, continue_def, push_def, return_def, application_def] >>
-    every_case_tac >> gvs[]
+    TOP_CASE_TAC >> gvs[AllCaseEqs()] >> rw[untyped_safety_exp_step]
     )
   >- (every_case_tac >> gvs[])
 QED
@@ -1206,7 +1208,7 @@ Theorem decl_step_to_Draise:
         pmatch (collapse_env env c).c st.refs p v [] = No_match ∧
         ex = bind_exn_v) ∨
       (∃env' v env'' locs p.
-        dev = ExpVal env' (Val v) [(Craise (), env'')] locs p ∧ ex = v)
+        dev = ExpVal env' (Exn v) [] locs p ∧ ex = v)
 Proof
   rw[] >> eq_tac >> rw[] >> gvs[decl_step_def] >>
   every_case_tac >> gvs[] >>
@@ -1577,19 +1579,7 @@ Theorem decl_step_ignore_clock:
   decl_step env (st,dev,dcs) = Dstep (st',dev',dcs') ⇒
   decl_step env (st with clock := clk,dev,dcs) = Dstep (st' with clock := clk,dev',dcs')
 Proof
-  Cases_on `dev` >> rw[decl_step_def]
-  >- (Cases_on `d` >> gvs[] >> every_case_tac >> gvs[])
-  >- (
-    Cases_on `e` >> gvs[] >- (every_case_tac >> gvs[]) >>
-    Cases_on `l = []` >> gvs[] >- (every_case_tac >> gvs[]) >>
-    Cases_on `∃env. l = [Craise (), env]` >> gvs[] >>
-    `∃env' refs' ffi' ev' ec'.
-      e_step (s,(st.refs,st.ffi),Val v,l) = Estep (env',(refs',ffi'),ev',ec') ∧
-      st' = st with <| refs := refs'; ffi := ffi' |> ∧
-      dev' = ExpVal env' ev' ec' l0 p ∧ dcs' = dcs` by gvs[AllCaseEqs()] >>
-    last_x_assum kall_tac >> every_case_tac >> gvs[]
-    )
-  >- (gvs[decl_continue_def] >> every_case_tac >> gvs[])
+  Cases_on `dev` >> rw[decl_step_def] >> gvs[decl_continue_def, AllCaseEqs()]
 QED
 
 Theorem RTC_decl_step_reln_ignore_clock:
@@ -1692,8 +1682,6 @@ Proof
   gvs[Abbr `stepe`] >> last_x_assum assume_tac >> last_x_assum mp_tac >>
   TOP_CASE_TAC >> gvs[]
   >- (unabbrev_all_tac >> gvs[] >> every_case_tac >> gvs[state_component_equality]) >>
-  TOP_CASE_TAC >> gvs[]
-  >- (every_case_tac >> gvs[state_component_equality]) >>
   every_case_tac >> gvs[Abbr `foo`, state_component_equality] >> rw[] >> gvs[] >>
   gvs[e_step_def, continue_def, application_thm, do_app_def, call_FFI_def,
       return_def, store_assign_def, store_lookup_def, store_v_same_type_def]
