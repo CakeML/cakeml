@@ -9,7 +9,6 @@ open optionTheory;
 open pairTheory;
 open arithmeticTheory;
 open ringBufferTheory;
-open LZSSrbTheory;
 
 val _ = new_theory"huffmanOG";
 
@@ -57,7 +56,7 @@ Definition create_tree_def:
   (let
      nn = (Node c1 c2, f1+f2)
    in
-    create_tree (sort_frequencies (nn::ls)))
+     create_tree (sort_frequencies (nn::ls)))
 Termination
   WF_REL_TAC ‘measure $ λ ls. LENGTH ls’
   \\ rw[sort_frequencies_def]
@@ -77,13 +76,13 @@ End
 *******************************************)
 
 Definition get_huffman_codes_def:
-    get_huffman_codes (Leaf c) code ls = (c,code)::ls ∧
-    get_huffman_codes (Node ltr rtr) code ls =
-    let
-      left = get_huffman_codes ltr (code++[T]) ls;
-      right = get_huffman_codes rtr (code++[F]) ls
-    in
-        (left++right)
+  get_huffman_codes (Leaf c) code ls = (c,code)::ls ∧
+  get_huffman_codes (Node ltr rtr) code ls =
+  let
+    left = get_huffman_codes ltr (code++[T]) ls;
+    right = get_huffman_codes rtr (code++[F]) ls
+  in
+    (left++right)
 End
 
 Definition encode_def:
@@ -127,25 +126,25 @@ End
 Definition decode_def:
   decode tree ((b::bs) :bool list) ([]   :bool list) :string = (decode tree bs [b]) ∧
   decode tree ([]      :bool list) (code :bool list) :string = (
-  let
-    res = decode_char tree code
-  in
-    case res of
-      NONE => []
-    | SOME (r:char) => [r:char]) ∧
+    let
+      res = decode_char tree code
+    in
+      case res of
+        NONE => []
+      | SOME (r:char) => [r:char]) ∧
   decode tree ((b::bs) :bool list) (code :bool list) :string = (
-  let
-    res = decode_char tree code
-  in
-    case res of
-      NONE => decode tree bs (code++[b])
-    | SOME (r:char) => [r]++(decode tree bs [b]))
+    let
+      res = decode_char tree code
+    in
+      case res of
+        NONE => decode tree bs (code++[b])
+      | SOME (r:char) => [r]++(decode tree bs [b]))
 End
 
 EVAL “let
         (tree, code) = huffman_encoding "abbbbbcddd"
       in
-     decode tree code []”;
+        decode tree code []”;
 
 Definition huffman_decoding_def:
   huffman_decoding (tree, code) = decode tree code []

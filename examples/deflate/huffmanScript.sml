@@ -82,15 +82,18 @@ Definition get_huffman_codes_def:
         (left++right)
 End
 
-Definition encode_def:
-  encode [] ls = [] ∧
-  encode (s::ss) ls =
+Definition encode1_def:
+  encode1 ls s =
   let
     res = ALOOKUP ls s
   in
     case res of
       NONE => []
-    | SOME b => b++encode ss ls
+    | SOME b => b
+End
+
+Definition encode_def:
+  encode ss ls = MAP (encode1 ls) ss
 End
 
 Definition huff_enc_dyn_def:
