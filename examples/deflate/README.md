@@ -15,9 +15,6 @@ First simple compressor
 [deflateScript.sml](deflateScript.sml):
 First simple compressor
 
-[deflateTableScript.sml](deflateTableScript.sml):
-First simple compressor
-
 [huffmanOGScript.sml](huffmanOGScript.sml):
 Script for Huffman encodings.
 
