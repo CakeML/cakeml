@@ -104,7 +104,7 @@ Definition huff_enc_dyn_def:
   huff_enc_dyn l =
   let
     huff_tree = build_huffman_tree l;
-    assoc_list = get_huffman_codes huff_tree [] []
+    assoc_list = get_huffman_codes huff_tree [] [];
   in
     (huff_tree, assoc_list)
 End

@@ -114,13 +114,22 @@ Definition gen_zero_codes_def:
   else (l)
 End
 
-Definition complete_assoc_list_def:
-  complete_assoc_list gs [] = gs ∧
-  complete_assoc_list [] ls = [] ∧
-  complete_assoc_list ((n1,bl1)::gs) ((n2,bl2)::ls) =
+Definition fill_assoc_list_def:
+  fill_assoc_list gs [] = gs ∧
+  fill_assoc_list [] ls = [] ∧
+  fill_assoc_list ((n1,bl1)::gs) ((n2,bl2)::ls) =
   if (n1 = n2)
-  then ([(n1, bl2)] ++ complete_assoc_list gs ls)
-  else ([(n1, bl1)] ++ complete_assoc_list gs ((n2,bl2)::ls))
+  then ([(n1, bl2)] ++ fill_assoc_list gs ls)
+  else ([(n1, bl1)] ++ fill_assoc_list gs ((n2,bl2)::ls))
+End
+
+Definition complete_assoc_list_def:
+  complete_assoc_list ls =
+  let
+    gs = gen_zero_codes [] 287;
+    as = QSORT (λ (a,_) (b,_). a < b) ls;
+  in
+    fill_assoc_list gs ls
 End
 
 Definition len_from_codes_def:
@@ -129,19 +138,20 @@ Definition len_from_codes_def:
   LENGTH bl :: len_from_codes ns
 End
 
+Definition all_lens_def:
+  all_lens as = len_from_codes (complete_assoc_list as)
+End
+
+
 (* EVAL that tests whether the tree we create from length list is equal to original tree *)
 EVAL “ let
    s = MAP ORD "abbbbd";
    (tree, as) = huff_enc_dyn s;
    s_enc = encode s as;
-   gs = gen_zero_codes [] 287;
-   as = QSORT (λ (a,_) (b,_). a < b) as;
-   as = complete_assoc_list gs as;
-   ls = len_from_codes as;
+   ls = all_lens as;
    cs = len_from_codes_inv ls 0 (next_code (bl_count ls));
-   cs = complete_assoc_list gs cs
  in
-   (as = cs)”;
+   (as, cs)”;
 
 Definition fixed_huff_tree_def:
   fixed_huff_tree =
