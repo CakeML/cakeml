@@ -651,7 +651,8 @@ Proof
         \\ rw [EVERY2_LUPDATE_same])
   \\ imp_res_tac LIST_REL_LENGTH
   \\ fs [LIST_REL_REPLICATE_same, EVERY2_LUPDATE_same, LIST_REL_APPEND_EQ]
-  \\ TRY (fs [LIST_REL_EL_EQN] \\ NO_TAC)
+  \\ TRY (Cases_on ‘ys’ using SNOC_CASES \\ gs[SNOC_APPEND, REVERSE_APPEND])
+  \\ TRY (fs [LIST_REL_EL_EQN, EVERY2_REVERSE1] \\ NO_TAC)
   \\ imp_res_tac fpSemPropsTheory.fp_translate_cases \\ rveq \\ gs[]
 QED
 
