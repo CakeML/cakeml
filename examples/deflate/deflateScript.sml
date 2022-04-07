@@ -14,11 +14,11 @@ val _ = new_theory "deflate";
 
 Overload MAX_CODE_LENGTH = “16 :num”
 
+
 (******************************************
-*****                                ******
-*****     READ TREE FROM NUM LIST    ******
-*****                                ******
+        Read tree from num list
 ******************************************)
+
 Definition bl_count_aux_def:
   bl_count_aux [] (bl: num list) = LUPDATE 0 0 bl ∧
   bl_count_aux (x::xs) bl =
