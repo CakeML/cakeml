@@ -85,15 +85,15 @@ Definition pad0_def:
   pad0 n bl = PAD_LEFT F n bl
 End
 
-Definition get_codes_from_len_def:
-  codes_from_len  [] n nc = [] ∧
-  codes_from_len (0::ls) n nc = codes_from_len ls (SUC n) nc ∧
-  codes_from_len (l::ls) n nc =
+Definition len_from_codes_inv_def:
+  len_from_codes_inv  [] n nc = [] ∧
+  len_from_codes_inv (0::ls) n nc = len_from_codes_inv ls (SUC n) nc ∧
+  len_from_codes_inv (l::ls) n nc =
   let
     code = EL l nc;
     nc = LUPDATE (SUC code) l nc;
   in
-      (n, pad0 l (TN2BL code)) :: codes_from_len ls (SUC n) nc
+      (n, pad0 l (TN2BL code)) :: len_from_codes_inv ls (SUC n) nc
 End
 
 EVAL “
@@ -101,40 +101,9 @@ EVAL “
    ls = [3;3;3;3;3;2;4;4];
    bl = bl_count ls;
    nc = next_code bl;
-   codes = codes_from_len ls 0 nc;
+   codes = len_from_codes_inv ls 0 nc;
  in
    codes
-   ”;
-
-Definition gen_zero_codes_def:
-  gen_zero_codes l 0 = APPEND [(0,[])] l ∧
-  gen_zero_codes (l: (num # bool list) list) (n: num) =
-  if (0 < n)
-  then (gen_zero_codes (APPEND [(n,[])] l) (n-1))
-  else (l)
-End
-
-EVAL “gen_zero_codes [] 285”;
-
-Definition complete_assoc_list_def:
-  complete_assoc_list gs [] = gs ∧
-  complete_assoc_list [] ls = [] ∧
-  complete_assoc_list ((n1,bl1)::gs) ((n2,bl2)::ls) =
-  if (n1 = n2)
-  then ([(n1, bl2)] ++ complete_assoc_list gs ls)
-  else ([(n1, bl1)] ++ complete_assoc_list gs ((n2,bl2)::ls))
-End
-
-
-EVAL “
- let
-   ls = [3;3;3;3;3;2;4;4];
-   bl = bl_count ls;
-   nc = next_code bl;
-   codes = codes_from_len ls 0 nc;
-   gs = gen_zero_codes [] 285;
- in
-   complete_assoc_list gs codes
    ”;
 
 
@@ -151,7 +120,7 @@ EVAL “ let
    s_enc = encode s as;
    as = QSORT (λ (a,_) (b,_). a < b) as;
    ls = len_from_codes as;
-   cs = codes_from_len ls 0 (next_code (bl_count ls));
+   cs = len_from_codes_inv ls 0 (next_code (bl_count ls));
    cs = MAP (λ (a,b). (a + 97 , b)) cs;
  in
    (s, as, cs, as = cs)”;
@@ -162,7 +131,7 @@ Definition fixed_huff_tree_def:
      ls = (REPLICATE 144 8) ++ (REPLICATE 112 9) ++ (REPLICATE 24 7) ++ (REPLICATE 8 8);
      bl = bl_count ls;
      nc = next_code bl;
-     codes = codes_from_len ls 0 nc;
+     codes = len_from_codes_inv ls 0 nc;
    in
      codes
 End
