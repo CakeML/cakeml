@@ -14,6 +14,7 @@ Definition isPureOp_def:
   isPureOp op =
     case op of
     | AallocEmpty => F
+    | AallocFixed => F
     | Aalloc => F
     | Aupdate => F
     | Aupdate_unsafe => F
@@ -122,7 +123,7 @@ Theorem isPureOp_same_ffi:
 Proof
   Cases_on `op` \\ rpt gen_tac \\ strip_tac
   \\ fs[isPureOp_simp, do_app_def, CaseEq"list", CaseEq"lit", CaseEq"option", CaseEq"v",
-        PULL_EXISTS, CaseEq"bool", CaseEq"word_size", CaseEq"eq_result", CaseEq"prod"]
+        PULL_EXISTS, CaseEq"bool", CaseEq"word_size", CaseEq"eq_result", CaseEq"prod", store_alloc_def]
 QED
 
 local

@@ -1,22 +1,9 @@
-Main implementation directory for PrincessCake(ML): Verified Compilation and
-Optimization of Floating-Point Programs
+Main implementation directory for the RealCake development, presented in
+"Verified Compilation and Optimization of Floating-Point Programs"
+
 ===========================================================================
 
-The development is known to compile with HOL4 commit:
-  52ffdc8f01c5cf044427bf6f3a12e8300e91765a
-
-Running the files in this directory requires a working version of
-[FloVer](https://gitlab.mpi-sws.org/AVA/FloVer).
-You need to download FloVer, compile its HOL4 development and store its
-directory as a shell variable:
-
-```
-git clone  https://gitlab.mpi-sws.org/AVA/FloVer FloVer
-export FLOVERDIR=<current directory>/FloVer/
-cd FloVer/hol4/ && $HOLDIR/bin/Holmake
-```
-
-Afterwards the content in the directory can be build with `Holmake`.
+Content in the directory can be build with `Holmake`.
 
 Files contained in this directory:
 
@@ -46,6 +33,9 @@ theorems.
 [floatToRealScript.sml](floatToRealScript.sml):
 Translation from CakeML floating-point computations to
 CakeML real-number computations.
+
+[flover](flover):
+# FloVer - A Certificate Checker for Roundoff Error Bounds
 
 [icingTacticsLib.sml](icingTacticsLib.sml):
 Tactic library for PrincessCake development
@@ -107,8 +97,8 @@ Implementation and correctness proof of the global constant lifting
 (Section 7.2)
 
 [pureExpsScript.sml](pureExpsScript.sml):
-predicate to check whether an expression is pure, i.e. does not use memory
-or the FFI
+Implements a predicate to check whether an expression is pure, i.e. does not
+use memory or the FFI
 
 [source_to_sourceProofsScript.sml](source_to_sourceProofsScript.sml):
 Overall correctness proofs for optimisation functions
