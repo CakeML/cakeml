@@ -129,24 +129,12 @@ Definition len_from_codes_def:
   LENGTH bl :: len_from_codes ns
 End
 
-EVAL “
- let
-   s = MAP ORD "abbbbd";
-   (tree, as) = huff_enc_dyn s;
-   s_enc = encode s as;
-   gs = gen_zero_codes [] 285;
-   as = QSORT (λ (a,_) (b,_). a < b) as;
-   as = complete_assoc_list gs as;
- in
-  (as, gs = as)
-   ”;
-
 (* EVAL that tests whether the tree we create from length list is equal to original tree *)
 EVAL “ let
    s = MAP ORD "abbbbd";
    (tree, as) = huff_enc_dyn s;
    s_enc = encode s as;
-   gs = gen_zero_codes [] 285;
+   gs = gen_zero_codes [] 287;
    as = QSORT (λ (a,_) (b,_). a < b) as;
    as = complete_assoc_list gs as;
    ls = len_from_codes as;
@@ -165,6 +153,7 @@ Definition fixed_huff_tree_def:
    in
      codes
 End
+
 EVAL “fixed_huff_tree”;
 
 
