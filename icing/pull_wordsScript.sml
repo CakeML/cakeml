@@ -1378,6 +1378,7 @@ Proof
     >> rewrite_tac $ single LIST_REL_REPLICATE_same
     >> strip_tac >> gs[])
   >- mem_tac
+  >- mem_tac
   >- (
     mem_tac
     >> TOP_CASE_TAC >> gs[]
