@@ -236,16 +236,20 @@ QED
 Theorem print_features_infer_st_invs:
   (! env ds st x st2. infer_ds env ds st = (Success x, st2) /\ P st ==> P st2) ==>
   (! s ds env inf_st x y.
-    add_err_message s ds (env, inf_st) = (x, y) /\ P inf_st ==>
+    printTweaks$add_err_message s ds (env, inf_st) = (x, y) /\ P inf_st ==>
         P (SND y))
   /\
   (! opts nm ds env inf_st x y.
-  add_print_from_opts nm opts (ds, (env, inf_st)) = (x, y) /\ P inf_st ==>
+  printTweaks$add_print_from_opts nm opts (ds, (env, inf_st)) = (x, y) /\ P inf_st ==>
     P (SND y))
   /\
   (! xs ds env inf_st x y.
-  add_prints_from_opts xs (ds, (env, inf_st)) = (x, y) /\ P inf_st ==>
+  printTweaks$add_prints_from_opts xs (ds, (env, inf_st)) = (x, y) /\ P inf_st ==>
     P (SND y))
+  /\
+  (! st ds x. printTweaks$add_print_features st ds = Success x /\
+    P (init_infer_state <| next_id := SND (SND st) |>) ==> P (SND (SND (SND x)))
+  )
 Proof
   disch_tac
   \\ rpt conj_asm1_tac
@@ -272,6 +276,14 @@ Proof
     \\ PairCases_on `tup`
     \\ gvs [markerTheory.Abbrev_def, Q.ISPEC `(_, _)` EQ_SYM_EQ]
     \\ res_tac \\ fs []
+  )
+  >- (
+    simp [pairTheory.FORALL_PROD, add_print_features_def]
+    \\ rw [exc_case_eq, pairTheory.pair_case_eq]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ gvs []
+    \\ res_tac
+    \\ fs []
   )
 QED
 
