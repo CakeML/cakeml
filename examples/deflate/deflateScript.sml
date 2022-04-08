@@ -98,40 +98,30 @@ Definition len_table_def:
 ]
 End
 
-Definition find_in_table_def:
-  find_in_table v [] prev = prev ∧
-  find_in_table v (((curr, bits, value): num # num # num)::tab) prev  =
+Definition find_level_in_table_def:
+  find_level_in_table v [] prev = prev ∧
+  find_level_in_table v (((curr, bits, value): num # num # num)::tab) prev  =
   if value <= v
-  then find_in_table v tab (curr, bits, value)
+  then find_level_in_table v tab (curr, bits, value)
   else prev
 End
 
-Definition find_in_len_table_def:
-  find_in_len_table n = find_in_table n len_table (HD len_table)
+Definition find_level_in_len_table_def:
+  find_level_in_len_table n = find_level_in_table n len_table (HD len_table)
 End
 
 Definition find_in_dist_table_def:
-  find_in_dist_table n = find_in_table n dist_table (HD dist_table)
+  find_level_in_dist_table n = find_level_in_table n dist_table (HD dist_table)
 End
 
 
-Definition find_in_table1_def:
-  find_in_table1 v [] = (0,0,0) ∧
-  find_in_table1 v (((curr, bits, value): num # num # num)::tab)  =
-  if curr = v
-  then (curr, bits, value)
-  else find_in_table1 v tab
+Definition find_code_in_table_def:
+  find_code_in_table v [] = (0,0,0) ∧
+  find_code_in_table v (((code, bits, value): num # num # num)::tab)  =
+  if v = code
+  then (code, bits, value)
+  else find_code_in_table v tab
 End
-
-Definition find_in_len_table1_def:
-  find_in_len_table1 n = find_in_table1 n len_table
-End
-
-Definition find_in_dist_table1_def:
-  find_in_dist_table1 n = find_in_table1 n dist_table
-End
-
-EVAL “find_in_dist_table1 2”;
 
 EVAL “find_in_table 67 len_table (HD len_table)”;
 
@@ -149,7 +139,7 @@ Definition encode_LZSS_len_def:
     Lit c => ORD c
   | LenDist (l, d) =>
       let
-        (num, _, _) = find_in_len_table l
+        (num, _, _) = find_level_in_len_table l
       in
         num
 End
@@ -163,8 +153,8 @@ Definition encode_LZSS_def:
   encode_LZSS (Lit c)  assoc = encode_single_huff_val assoc (ORD c) ∧
   encode_LZSS (LenDist (len, dist)) assoc =
   let
-    (lnum, lbits, lvalue) = find_in_len_table len;
-    (dnum, dbits, dvalue) = find_in_dist_table dist;
+    (lnum, lbits, lvalue) = find_level_in_len_table len;
+    (dnum, dbits, dvalue) = find_level_in_dist_table dist;
     enc_len = (encode_single_huff_val assoc lnum) ++ (pad0 lbits (TN2BL (len - lvalue)));
     enc_dist = (pad0 DIST_CODE_LENGTH (TN2BL dnum)) ++ (pad0 dbits (TN2BL (dist - dvalue)))
   in
@@ -206,9 +196,9 @@ End
 
 (* using num from decode_LZSS, parameter, find_in_table, read num calc len  *)
 Definition decode_LZSS_len_def:
-  decode_LZSS_len lznum bl =
+  decode_LZSS_len lzlen bl =
   let
-    (lnum, lbits, lvalue) = find_in_len_table1 lznum;
+    (lnum, lbits, lvalue) = find_code_in_table lzlen len_table;
     len = TBL2N (TAKE lbits bl) + lvalue;
   in
     (len, lbits)
@@ -216,9 +206,9 @@ End
 
 (* reads 5 bits, find_in_table, read num bits calc dist*)
 Definition decode_LZSS_dist_def:
-  decode_LZSS_dist lznum bl =
+  decode_LZSS_dist lzcode bl =
   let
-    (dnum, dbits, dvalue) = find_in_dist_table1 lznum;
+    (dnum, dbits, dvalue) = find_code_in_table lzcode dist_table;
     dist = TBL2N (TAKE dbits bl) + dvalue;
   in
     (dist, dbits)
