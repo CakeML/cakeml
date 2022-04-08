@@ -1,7 +1,7 @@
 (*
   Pure functions for the Int module.
 *)
-open preamble mlstringTheory
+open preamble mlstringTheory gcdTheory
 
 val _ = new_theory"mlint";
 
@@ -494,5 +494,23 @@ QED
 val int_cmp_def = Define `
   int_cmp i (j:int) = if i < j then LESS else
                       if j < i then GREATER else EQUAL`
+
+Definition num_gcd_def:
+  num_gcd a b = if a = 0n then b else num_gcd (b MOD a) a
+End
+
+Theorem num_gcd_eq_gcd:
+  num_gcd = gcd
+Proof
+  simp [FUN_EQ_THM]
+  \\ ho_match_mp_tac num_gcd_ind
+  \\ rw []
+  \\ once_rewrite_tac [GCD_EFFICIENTLY,num_gcd_def]
+  \\ rw []
+QED
+
+Definition int_gcd_def:
+  int_gcd (m:int) (n:int) = & num_gcd (Num (ABS m)) (Num (ABS n)) :int
+End
 
 val _ = export_theory();

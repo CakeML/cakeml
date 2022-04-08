@@ -151,19 +151,38 @@ val result = translate fromNatString_def;
 
 (* GCD *)
 
-val gcd = Define `
-  gcd a b = if a = 0n then b else gcd (b MOD a) a`
+val _ = ml_prog_update open_local_block;
 
-val _ = delete_const "gcd"; (* keeps induction thm *)
+val res = translate num_gcd_def;
 
-val res = translate GCD_EFFICIENTLY;
+val _ = ml_prog_update open_local_in_block;
 
-val gcd_side = prove(
-  ``!a b. gcd_side a b = T``,
-  recInduct (theorem "gcd_ind") \\ rw []
-  \\ once_rewrite_tac [theorem "gcd_side_def"]
+val num_gcd_side = prove(
+  ``!a b. num_gcd_side a b = T``,
+  recInduct num_gcd_ind \\ rw []
+  \\ once_rewrite_tac [theorem "num_gcd_side_def"]
   \\ fs [ADD1] \\ rw [] \\ fs [])
   |> update_precondition;
+
+val _ = (next_ml_names := ["gcd"]);
+val int_gcd_v_thm = translate int_gcd_def;
+
+Theorem gcd_v_thm:
+  (NUM --> NUM --> NUM) gcd$gcd int_gcd_v
+Proof
+  assume_tac int_gcd_v_thm
+  \\ fs [ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def]
+  \\ fs [ml_translatorTheory.NUM_def]
+  \\ rw [] \\ last_x_assum drule
+  \\ disch_then (strip_assume_tac o SPEC_ALL) \\ fs []
+  \\ first_assum $ irule_at Any
+  \\ rw [] \\ last_x_assum drule
+  \\ disch_then (qspec_then ‘refs''’ strip_assume_tac) \\ fs []
+  \\ first_assum $ irule_at Any
+  \\ fs [int_gcd_def,num_gcd_eq_gcd]
+QED
+
+val _ = add_user_proved_v_thm gcd_v_thm;
 
 (* compare *)
 
