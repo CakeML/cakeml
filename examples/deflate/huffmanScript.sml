@@ -82,8 +82,8 @@ Definition get_huffman_codes_def:
         (left++right)
 End
 
-Definition encode1_def:
-  encode1 ls s =
+Definition encode_single_huff_val_def:
+  encode_single_huff_val ls s =
   let
     res = ALOOKUP ls s
   in
@@ -92,8 +92,8 @@ Definition encode1_def:
     | SOME b => b
 End
 
-Definition encode_def:
-  encode ss ls = MAP (encode1 ls) ss
+Definition encode_huff_def:
+  encode ss ls = MAP (encode_single_huff_val ls) ss
 End
 
 Definition huff_enc_dyn_def:
@@ -249,7 +249,19 @@ End
 
 EVAL “next_code (bl_count [3;3;3;3;3;2;4;4])”;
 
+
+
 (*  From kraft_ineq  *)
+(* binary numbers in little-endian format *)
+Definition tbl2n_def[simp]:
+  tbl2n [] = 0n /\
+  tbl2n (T::t) = 2*tbl2n t + 1 /\
+  tbl2n (F::t) = 2*tbl2n t
+End
+
+(* binary numbers in big-endian format *)
+Overload TBL2N = “\l. tbl2n (REVERSE l)”
+
 Definition inv_tbl2n_def:
   inv_tbl2n 0n = [] /\
   inv_tbl2n a = if EVEN a then [F]++(inv_tbl2n (a DIV 2))

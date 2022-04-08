@@ -114,12 +114,34 @@ Definition find_in_dist_table_def:
   find_in_dist_table n = find_in_table n dist_table (HD dist_table)
 End
 
+
+Definition find_in_table1_def:
+  find_in_table1 v [] = (0,0,0) ∧
+  find_in_table1 v (((curr, bits, value): num # num # num)::tab)  =
+  if curr = v
+  then (curr, bits, value)
+  else find_in_table1 v tab
+End
+
+Definition find_in_len_table1_def:
+  find_in_len_table1 n = find_in_table1 n len_table
+End
+
+Definition find_in_dist_table1_def:
+  find_in_dist_table1 n = find_in_table1 n dist_table
+End
+
+EVAL “find_in_dist_table1 2”;
+
 EVAL “find_in_table 67 len_table (HD len_table)”;
 
 
 (******************************************
              Deflate encoding
 *******************************************)
+
+Overload DIST_CODE_LENGTH = “5:num”;
+Overload END_BLOCK = “256:num”;
 
 Definition encode_LZSS_len_def:
   encode_LZSS_len l : num =
@@ -138,19 +160,19 @@ EVAL “encode_LZSS_len (LenDist (20, 20))”;
 
 (* Encodes each LZSS *)
 Definition encode_LZSS_def:
-  encode_LZSS (Lit c)  assoc = encode1 assoc (ORD c) ∧
+  encode_LZSS (Lit c)  assoc = encode_single_huff_val assoc (ORD c) ∧
   encode_LZSS (LenDist (len, dist)) assoc =
   let
     (lnum, lbits, lvalue) = find_in_len_table len;
     (dnum, dbits, dvalue) = find_in_dist_table dist;
-    enc_len = (encode1 assoc lnum) ++ (pad0 lbits (TN2BL (len - lvalue)));
-    enc_dist = (pad0 5 (TN2BL dnum)) ++ (pad0 dbits (TN2BL (dist - dvalue)))
+    enc_len = (encode_single_huff_val assoc lnum) ++ (pad0 lbits (TN2BL (len - lvalue)));
+    enc_dist = (pad0 DIST_CODE_LENGTH (TN2BL dnum)) ++ (pad0 dbits (TN2BL (dist - dvalue)))
   in
       enc_len ++ enc_dist
 End
 
 EVAL “encode_LZSS (Lit #"g") fixed_huff_tree”;
-EVAL “encode_LZSS (LenDist (20, 20)) fixed_huff_tree”;
+EVAL “encode_LZSS (LenDist (3,3)) fixed_huff_tree”;
 
 
 Definition deflate_encoding_def:
@@ -167,10 +189,10 @@ Definition deflate_encoding_main_def:
     (*assoc_list = unique_huff_tree lenList*)
     assoc_list = fixed_huff_tree
   in
-    deflate_encoding lzList assoc_list
+    (lzList,deflate_encoding lzList assoc_list)
 End
 
-EVAL “deflate_encoding_main "hej hello hello hejsan"”;
+EVAL “deflate_encoding_main "hejhejhej"”;
 
 
 Definition find_decode_match_def:
@@ -180,41 +202,99 @@ Definition find_decode_match_def:
   then SOME (k,v)
   else find_decode_match s ts
 End
-(*
-(* use find_decode_match to find value stored if num < 256 then return Lit num
-   else create LenDist using decode_LZSS_len and decode_LZSS_dist *)
 
-Definition decode_LZSS_def:
-
-End
 
 (* using num from decode_LZSS, parameter, find_in_table, read num calc len  *)
 Definition decode_LZSS_len_def:
-
+  decode_LZSS_len lznum bl =
+  let
+    (lnum, lbits, lvalue) = find_in_len_table1 lznum;
+    len = TBL2N (TAKE lbits bl) + lvalue;
+  in
+    (len, lbits)
 End
 
 (* reads 5 bits, find_in_table, read num bits calc dist*)
 Definition decode_LZSS_dist_def:
+  decode_LZSS_dist lznum bl =
+  let
+    (dnum, dbits, dvalue) = find_in_dist_table1 lznum;
+    dist = TBL2N (TAKE dbits bl) + dvalue;
+  in
+    (dist, dbits)
+End
 
+
+(* use find_decode_match to find value stored if num < 256 then return Lit num
+   else create LenDist using decode_LZSS_len and decode_LZSS_dist *)
+Definition decode_LZSS_def:
+  decode_LZSS (lznum:num) bl =
+  case lznum < END_BLOCK of
+    T => (Lit $ CHR lznum, 0)
+  | F => let
+           (len, lbits) = decode_LZSS_len lznum bl;
+           lzcode = TBL2N (TAKE DIST_CODE_LENGTH (DROP lbits bl));
+           (dist, dbits) = decode_LZSS_dist lzcode (DROP (DIST_CODE_LENGTH + lbits) bl);
+         in
+           (LenDist (len, dist), lbits + DIST_CODE_LENGTH + dbits)
 End
 
 Definition deflate_decoding_def:
-  deflate_decoding bl assoc =
-  let
-    (lz, bl') = decode_LZSS bl assoc
-  in
-    lz :: deflate_decoding bl' assoc
+  deflate_decoding [] assoc acc = (acc, []) ∧
+  deflate_decoding bl assoc acc =
+  case find_decode_match bl assoc of
+    NONE => (acc, []) (* Something went wrong, huffman can't decode *)
+  | SOME (lznum, bits) =>
+      case lznum = END_BLOCK of
+        T => (acc, DROP (LENGTH bits) bl) (* End block *)
+      | F =>
+          case bits of
+            [] => (acc, DROP (LENGTH bits) bl)
+          | _ => (let
+                    (lz, extra_bits) = decode_LZSS lznum (DROP (LENGTH bits) bl)
+                  in
+                    deflate_decoding (DROP (extra_bits + (LENGTH bits)) bl) assoc (acc++[lz])  )
+Termination
+  WF_REL_TAC ‘measure $ λ (bl, assoc, acc). LENGTH bl’
+  \\ rw[find_decode_match_def, decode_LZSS_def, decode_LZSS_len_def, decode_LZSS_dist_def]
 End
+
+EVAL “
+ let
+   enc =  encode_LZSS (LenDist (3,3)) fixed_huff_tree;
+   (a, b) = deflate_decoding enc fixed_huff_tree [];
+ in
+   a
+”;
+
+
+
+
+
+
+
+
+
+EVAL “encode_LZSS (LenDist (3,3)) fixed_huff_tree”;
+
 
 Definition deflate_decoding_main_def:
-  deflate_decoding_main s =
+  deflate_decoding_main bl =
   let
-    lzList = deflate_decoding s fixed_huff_tree;
+    (lzList, bl') = deflate_decoding bl fixed_huff_tree [];
+
     res = LZSS_decompress lzList
   in
-    res
+    (lzList,res, bl')
 End
 
-EVAL “deflate_decoding_main s”
-*)
+EVAL “let
+        inp = "hejhejhej";
+        (lz1, enc) =  deflate_encoding_main inp;
+        (lz2, dec, rest) = deflate_decoding_main enc;
+      in
+        (inp, dec, lz1, lz2, rest)
+     ”;
+
+
 val _ = export_theory();
