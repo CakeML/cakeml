@@ -38,6 +38,10 @@ End
 
 Type ctxt = ``: ctxt_frame # v sem_env``
 
+Datatype:
+  exp_val_exn = Exp exp | Val v | Exn v
+End
+
 (* State for CEK-style expression evaluation
  * - constructor data
  * - the store
@@ -47,7 +51,7 @@ Type ctxt = ``: ctxt_frame # v sem_env``
  * - the context stack (continuation) of what to do once the current expression
  *   is finished.  Each entry has an environment for it's free variables *)
 
-Type small_state = ``: v sem_env # ('ffi, v) store_ffi # fpState # exp_or_val # ctxt list``
+Type small_state = ``: v sem_env # ('ffi, v) store_ffi # fpState # exp_val_exn # ctxt list``
 
 Datatype:
   e_step_result =
@@ -113,7 +117,7 @@ val _ = Define `
           else fp_opt)
         in
           (case fp_res of
-              Rerr (Rraise v) => Estep (env,s', fpN, Val v,((Craise () ,env)::c))
+              Rerr (Rraise v) => Estep (env,s', fpN, Exn v, c)
             | Rerr (Rabort a) => Eabort (fix_fp_state c fpN, a)
             | Rval v => return env s' fpN v c))
     | Reals =>
@@ -121,7 +125,7 @@ val _ = Define `
       (case do_app s op vs of
           SOME (s',r) =>
           (case r of
-              Rerr (Rraise v) => Estep (env,s', fp, Val v,((Craise () ,env)::c))
+              Rerr (Rraise v) => Estep (env,s',fp, Exn v,c)
             | Rerr (Rabort a) => Eabort (fix_fp_state c fp, a)
             | Rval v => return env s' fp v c
           )
@@ -131,7 +135,7 @@ val _ = Define `
       (case do_app s op vs of
           SOME (s',r) =>
           (case r of
-              Rerr (Rraise v) => Estep (env,s', fp, Val v,((Craise () ,env)::c))
+              Rerr (Rraise v) => Estep (env,s', fp, Exn v, c)
             | Rerr (Rabort a) => Eabort (fix_fp_state c fp, a)
             | Rval v => return env s' fp v c
           )
@@ -144,15 +148,7 @@ val _ = Define `
  ((continue:(v)store#'ffi ffi_state -> fpState -> v ->(ctxt_frame#(v)sem_env)list -> 'ffi e_step_result) s fp v cs=
    ((case cs of
       [] => Estuck
-    | (Craise () , env) :: c=>
-        (case c of
-            [] => Estuck
-          | ((Chandle ()  pes,env') :: c) =>
-              Estep (env,s,fp,Val v,((Cmat_check ()  pes v, env')::c))
-          | ((Coptimise oldSc sc (), env) :: c) =>
-              Estep (env, s, fp with canOpt := oldSc, Val v,((Craise (), env)::c))
-          | _::c => Estep (env,s,fp,Val v,((Craise () ,env)::c))
-        )
+    | (Craise () , env) :: c => Estep (env, s, fp,Exn v, c)
     | (Chandle ()  pes, env) :: c =>
         return env s fp v c
     | (Capp op vs ()  [], env) :: c =>
@@ -176,7 +172,7 @@ val _ = Define `
         else
           Eabort (fix_fp_state c fp, Rtype_error)
     | (Cmat ()  [] err_v, env) :: c =>
-        Estep (env, s, fp, Val err_v, ((Craise () , env) ::c))
+        Estep (env, s, fp, Exn err_v, c)
     | (Cmat ()  ((p,e)::pes) err_v, env) :: c =>
         if ALL_DISTINCT (pat_bindings p []) then
           (case pmatch env.c (FST s) p v [] of
@@ -218,7 +214,7 @@ val _ = Define `
 
 (*val e_step : forall 'ffi. small_state 'ffi -> e_step_result 'ffi*)
 val _ = Define `
- ((e_step:(v)sem_env#((v)store#'ffi ffi_state)#fpState#exp_or_val#(ctxt)list -> 'ffi e_step_result) (env, s, fp, ev, c)=
+ ((e_step:(v)sem_env#((v)store#'ffi ffi_state)#fpState#exp_val_exn#(ctxt)list -> 'ffi e_step_result) (env, s, fp, ev, c)=
    ((case ev of
       Val v  =>
         continue s fp v c
@@ -270,6 +266,14 @@ val _ = Define `
               let fpN = if fp.canOpt = Strict then fp else fp with canOpt := FPScope sc in
               push env s fpN e (Coptimise fp.canOpt sc ()) c
         )
+    | Exn v =>
+       case c of
+       | [] => Estuck
+       | (Chandle () pes, env') :: c =>
+            Estep (env, s, fp, Val v, (Cmat_check () pes v, env') :: c)
+       | (Coptimise oldSc sc (), env') :: c =>
+           Estep (env, s, fp with canOpt := oldSc , Exn v, c)
+       | _ :: c => Estep (env, s, fp, Exn v, c)
   )))`;
 
 
@@ -279,9 +283,8 @@ val _ = Define `
 (*val small_eval : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> list ctxt -> store_ffi 'ffi v * result v v -> bool*)
 
 val _ = Define `
- ((e_step_reln:(v)sem_env#('ffi,(v))store_ffi#fpState#exp_or_val#(ctxt)list ->(v)sem_env#('ffi,(v))store_ffi#fpState#exp_or_val#(ctxt)list -> bool) st1 st2=
+ ((e_step_reln:(v)sem_env#('ffi,(v))store_ffi#fpState#exp_val_exn#(ctxt)list ->(v)sem_env#('ffi,(v))store_ffi#fpState#exp_val_exn#(ctxt)list -> bool) st1 st2=
    (e_step st1 = Estep st2))`;
-
 
  val _ = Define `
 
@@ -289,7 +292,7 @@ val _ = Define `
    (? env'. (RTC (e_step_reln)) (env,s,fp,Exp e,c) (env',s',fp', Val v,[])))
 /\
 ((small_eval:(v)sem_env ->(v)store#'ffi ffi_state -> fpState -> exp ->(ctxt)list ->((v)store#'ffi ffi_state)#fpState#((v),(v))result -> bool) env s fp e c (s', fp', Rerr (Rraise v))=
-   (? env' env''. (RTC (e_step_reln)) (env,s,fp,Exp e,c) (env',s',fp',Val v,[(Craise () , env'')])))
+   (? env'. (RTC (e_step_reln)) (env,s,fp,Exp e,c) (env',s',fp', Exn v,[])))
 /\
 ((small_eval:(v)sem_env ->(v)store#'ffi ffi_state -> fpState -> exp ->(ctxt)list ->((v)store#'ffi ffi_state)#fpState#((v),(v))result -> bool) env s fp e c (s', fp', Rerr (Rabort a))=
    (? env' e' c' fp''.
@@ -323,7 +326,7 @@ Type decl_ctxt = ``: decl_ctxt_frame list``
 Datatype:
  decl_eval =
     Decl dec (* a declaration to evaluate *)
-  | ExpVal (v sem_env) exp_or_val (ctxt list) locs pat (* a Dlet under evaluation *)
+  | ExpVal (v sem_env) exp_val_exn (ctxt list) locs pat (* a Dlet under evaluation *)
   | Env (v sem_env)
  (* an environment to return to parent declaration *)
 End
@@ -441,7 +444,7 @@ val _ = Define `
             | Match_type_error => Dabort (st.fp_state, Rtype_error)
             )
           else Dabort (st.fp_state, Rtype_error)
-      | (Val v, ((Craise () , env')::[])) => Draise (st.fp_state, v)
+      | (Exn v, []) => Draise (st.fp_state, v)
       | _ =>
         (case e_step (env, (st.refs, st.ffi), st.fp_state, ev, ec) of
           Estep (env', (refs', ffi'), fp', ev', ec') =>

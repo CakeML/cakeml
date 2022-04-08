@@ -186,7 +186,10 @@ Inductive evaluate_state:
       ⇒ evaluate_state ck (env, s, Exp e, c) bv) ∧
 
   (evaluate_ctxts ck (s with clock := clk) c (Rval v) bv
-      ⇒ evaluate_state ck (env, s, Val v, c) bv)
+      ⇒ evaluate_state ck (env, s, Val v, c) bv) ∧
+
+  (evaluate_ctxts ck (s with clock := clk) c (Rerr (Rraise v)) bv
+      ⇒ evaluate_state ck (env, s, Exn v, c) bv)
 End
 
 Definition lift_dec_result_def:

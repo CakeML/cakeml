@@ -395,7 +395,7 @@ End
 
 Type "ctxt"[pp] = ``:ctxt_frame # v sem_env``;
 
-Type "small_state"[pp] = ``:v sem_env # v store # fpState # exp_or_val # ctxt list``;
+Type "small_state"[pp] = ``:v sem_env # v store # fpState # exp_val_exn # ctxt list``;
 
 Datatype:
   estep_result = Estep small_state
@@ -409,7 +409,6 @@ Definition push_def:
   push env s fp e c cs : estep_result = Estep (env, s, fp, Exp e, (c,env)::cs)
 End
 
-(* This is value_def in stateLang *)
 Definition return_def:
   return env s fp v c : estep_result = Estep (env, s, fp, Val v, c)
 End
@@ -465,12 +464,12 @@ Definition application_def:
           else fp_opt)
         in
           (case fp_res of
-              Rraise v => Estep (env,s', fpN, Val v,((Craise ,env)::c))
+              Rraise v => Estep (env,s', fpN, Exn v, c)
             | Rval v => return env s' fpN v c))
     | Reals =>
       if fp.real_sem then
       (case do_app s op vs of
-         SOME (s', Rraise v) => Estep (env, s', fp, Val v,((Craise ,env)::c))
+         SOME (s', Rraise v) => Estep (env, s', fp, Exn v, c)
        | SOME (s', Rval v) => return env s' fp v c
        | NONE => Etype_error (fix_fp_state c fp))
       else Etype_error (fix_fp_state c (shift_fp_state fp))
@@ -487,22 +486,14 @@ Definition application_def:
            | _ => Etype_error (fix_fp_state c fp))
          | _ =>
              (case do_app s op vs of
-                SOME (s', Rraise v) => Estep (env, s, fp, Val v,((Craise ,env)::c))
+                SOME (s', Rraise v) => Estep (env, s, fp, Exn v,c)
               | SOME (s', Rval v) => return env s' fp v c
               | NONE => Etype_error (fix_fp_state c fp) )
 End
 
-(* This is return_def in stateLang *)
 Definition continue_def:
   continue s fp v [] : estep_result = Edone ∧
-  continue s fp v ((Craise, env)::cs) = (
-    case cs of
-      [] => Edone
-    | (Chandle pes, env') :: c =>
-        Estep (env, s, fp, Val v, (Cmat_check pes v, env')::c)
-    | ((Coptimise oldSc sc, env) :: c) =>
-        Estep (env, s, fp with canOpt := oldSc, Val v,((Craise, env)::c))
-    | _::c => Estep (env, s, fp, Val v, (Craise, env)::c)) ∧
+  continue s fp v ((Craise, env)::cs) = Estep (env, s, fp, Exn v, cs) ∧
   continue s fp v ((Chandle pes, env)::c) = return env s fp v c ∧
   continue s fp v ((Capp op vs [], env) :: c) = application op env s fp (v::vs) c ∧
   continue s fp v ((Capp op vs (e::es), env) :: c) = push env s fp e (Capp op (v::vs) es) c ∧
@@ -520,7 +511,7 @@ Definition continue_def:
       Estep (env, s, fp, Val v, (Cmat pes err_v, env)::c)
     else Etype_error (fix_fp_state c fp)) ∧
   continue s fp v ((Cmat [] err_v, env) :: c) =
-    Estep (env, s, fp, Val err_v, (Craise, env)::c) ∧
+    Estep (env, s, fp, Exn err_v, c) ∧
   continue s fp v ((Cmat ((p,e)::pes) err_v, env) :: c) = (
     if ALL_DISTINCT (pat_bindings p []) then (
       case pmatch env.c s p v [] of
@@ -546,6 +537,15 @@ Definition continue_def:
   continue s fp v ((Clannot l, env) :: c) = return env s fp v c ∧
   continue s fp v ((Coptimise oldSc sc, env) :: c) =
     return env s (fp with canOpt := oldSc) (HD (do_fpoptimise sc [v])) c
+End
+
+Definition exn_continue_def:
+  exn_continue env s fp v [] = Edone ∧
+  exn_continue env s fp v ((Chandle pes, env') :: c) =
+    return env s fp v ((Cmat_check pes v, env') :: c) ∧
+  exn_continue env s fp v ((Coptimise oldSc sc, env') :: c) =
+    Estep (env, s, fp with canOpt := oldSc, Exn v, c) ∧
+  exn_continue env s fp v (_ :: c) = Estep (env, s, fp, Exn v, c)
 End
 
 Definition estep_def:
@@ -581,8 +581,9 @@ Definition estep_def:
   estep (env, s, fp, Exp $ Tannot e t, c) = push env s fp e (Ctannot t) c ∧
   estep (env, s, fp, Exp $ Lannot e l, c) = push env s fp e (Clannot l) c ∧
   estep (env, s, fp, Exp $ FpOptimise sc e, c) =
-    let fpN = if fp.canOpt = Strict then fp else fp with canOpt := FPScope sc in
-      push env s fpN e (Coptimise fp.canOpt sc) c
+    (let fpN = if fp.canOpt = Strict then fp else fp with canOpt := FPScope sc in
+      push env s fpN e (Coptimise fp.canOpt sc) c) ∧
+  estep (env, s, fp, Exn v, c) = exn_continue env s fp v c
 End
 
 
@@ -602,7 +603,7 @@ End
 Datatype:
   deval =
   | Decl dec
-  | ExpVal (v sem_env) (exp_or_val) (ctxt list) locs pat
+  | ExpVal (v sem_env) exp_val_exn (ctxt list) locs pat
   | Env (v sem_env)
 End
 
@@ -681,7 +682,7 @@ Definition dstep_def:
       | No_match => Draise (st.fp_state, bind_exn_v)
       | Match_type_error => Dtype_error st.fp_state
     else Dtype_error st.fp_state) ∧
-  dstep benv st (ExpVal env (Val v) [(Craise,env')] locs p) c = Draise (st.fp_state, v) ∧
+  dstep benv st (ExpVal env (Exn v) [] locs p) c = Draise (st.fp_state, v) ∧
   dstep benv st (ExpVal env ev ec locs p) c =
     case estep (env, st.refs, st.fp_state, ev, ec) of
     | Estep (env', refs', fp', ev', ec') =>

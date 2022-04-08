@@ -27,6 +27,7 @@ val dsmallstep_ss = simpLib.named_rewrites "dsmallstep_ss" [
     ];
 
 val itree_ss = simpLib.named_rewrites "itree_ss" [
+    itree_semanticsTheory.exn_continue_def,
     itree_semanticsTheory.continue_def,
     itree_semanticsTheory.return_def,
     itree_semanticsTheory.push_def,
@@ -123,13 +124,9 @@ Proof
     >- (simp[step_result_rel_cases, AllCaseEqs()] >> Cases_on `op` >> gvs[ctxt_rel_fix_fp_state]) >>
     PairCases_on `x` >> PairCases_on `x'` >> gvs[] >>
     gvs[result_rel_cases, SF smallstep_ss, SF itree_ss] >>
-    simp[step_result_rel_cases, AllCaseEqs()]
-    >- (qexists_tac `cs1` >> simp[] >> Cases_on `op` >> gvs[])
-    >- (
-      qexists_tac `(Craise,env)::cs1` >> simp[] >> Cases_on `op` >> gvs[] >>
-      gvs[ctxt_rel_def] >> simp[ctxt_frame_rel_cases] >>
-      gs[do_app_def, semanticPrimitivesTheory.do_app_def] >> every_case_tac >> gs[store_alloc_def]
-    ))
+    simp[step_result_rel_cases, AllCaseEqs()] >>
+    qexists_tac `cs1` >> simp[] >> Cases_on `op` >> gvs[] >>
+    gs[do_app_def, semanticPrimitivesTheory.do_app_def] >> every_case_tac >> gs[store_alloc_def])
   >- (
     rw[application_def, cml_application_thm] >>
     Cases_on `do_app (st,ffi) op vs` >> gvs[] >>
@@ -142,24 +139,23 @@ Proof
     gvs[result_rel_cases, SF smallstep_ss, SF itree_ss] >>
     simp[step_result_rel_cases, AllCaseEqs()]
     >- (qexists_tac `cs1` >> simp[isFpBool_def] >> Cases_on `op` >> gvs[] >>
-        Cases_on ‘do_fprw (Rval v) (fp.opts 0) fp.rws’ >> gs[] >>
-        first_x_assum $ irule_at Any >> gs[OPTREL_def, result_rel_cases] >>
+        Cases_on ‘semanticPrimitives$do_fprw (Rval v) (fp.opts 0) fp.rws’ >> gs[] >>
+        TRY $ first_x_assum $ irule_at Any >> gs[OPTREL_def, result_rel_cases] >>
         rpt VAR_EQ_TAC >|
         [ Cases_on ‘v’,
-          Cases_on ‘v'’,
-          all_tac, all_tac, all_tac, all_tac] >>
+          Cases_on ‘v'’] >>
         gs[do_fprw_def] >> every_case_tac >> gs[])
     >- (
-      qexists_tac `(Craise,env)::cs1` >> simp[] >> Cases_on `op` >> gvs[] >>
+      qexists_tac `cs1` >> simp[] >> Cases_on `op` >> gvs[] >>
       gvs[ctxt_rel_def] >> simp[ctxt_frame_rel_cases] >>
-      gs[do_app_def, semanticPrimitivesTheory.do_app_def] >> every_case_tac >> gs[store_alloc_def]
+      gs[do_app_def, semanticPrimitivesTheory.do_app_def] >> every_case_tac >>
+      gs[store_alloc_def]
     )
     >- (qexists_tac `cs1` >> simp[isFpBool_def] >> Cases_on `op` >> gvs[] >>
         gs[OPTREL_def, result_rel_cases] >> rpt VAR_EQ_TAC
         >- (Cases_on ‘v’ >> gs[])
         >- (Cases_on ‘v'’ >> gs[do_fprw_def] >> every_case_tac >> gs[]) >>
         gs[do_fprw_def] >> every_case_tac >> gs[])
-    >- (gs[ctxt_rel_def, ctxt_frame_rel_cases])
   )
   >- (
     rw[application_def, cml_application_thm]
@@ -198,11 +194,38 @@ Proof
   every_case_tac >> gvs[] >> rw[] >> gvs[ffi_state_component_equality]
 QED
 
+Theorem dstep_ExpVal_Exp:
+  dstep env st (ExpVal env' (Exp e) cs locs p) dcs =
+  case estep (env',st.refs,st.fp_state,Exp e,cs) of
+  | Estep (env',refs',fp', ev',ec') =>
+      dreturn (st with <| refs := refs'; fp_state := fp' |>) dcs (ExpVal env' ev' ec' locs p)
+  | Effi s ws1 ws2 n env'' refs'' ec'' =>
+    Dffi (st with refs := refs'') (s,ws1,ws2,n,env'',ec'') locs p dcs
+  | Edone => Ddone
+  | Etype_error fp => Dtype_error fp
+Proof
+  Cases_on `cs` >> rw[SF ditree_ss]
+QED
+
+Theorem decl_step_ExpVal_Exp:
+  decl_step env (st,ExpVal env' (Exp e) ec locs p,c) =
+  case e_step (env',(st.refs,st.ffi),st.fp_state,Exp e,ec) of
+    Estep (env',(refs',ffi'),fp',ev',ec') =>
+      Dstep
+        (st with <|refs := refs'; ffi := ffi'; fp_state := fp'|>,
+         ExpVal env' ev' ec' locs p,c)
+  | Eabort a => Dabort a
+  | Estuck => Ddone
+Proof
+  rw[decl_step_def] >> TOP_CASE_TAC >> simp[] >>
+  rpt TOP_CASE_TAC >> gs[]
+QED
+
 
 (******************** Relating non-FFI steps ********************)
 
 Triviality FST_THM:
-  FST = λ(x,y). x
+  FST = λ(x,y,z). x
 Proof
   rw[FUN_EQ_THM, UNCURRY]
 QED
@@ -215,13 +238,78 @@ Theorem step_result_rel_single:
     ∀ffi. get_ffi (e_step eb) = SOME ffi ⇒ get_ffi (Estep eb) = SOME ffi
 Proof
   rpt PairCases >> rename1 `_ (_ (env,st,fp,ev,cs1)) (_ (env',(st',ffi),fp',ev',cs2))` >>
-  gvs[e_step_def] >>
-  every_case_tac >> gvs[estep_def, step_result_rel_cases] >> strip_tac >>
-  gvs[SF smallstep_ss, SF itree_ss, ctxt_rel_def, ctxt_frame_rel_cases, get_ffi_def] >>
-  gvs[GSYM ctxt_frame_rel_cases, GSYM step_result_rel_cases]
-  >> TRY (irule ctxt_rel_fix_fp_state >> gs[ctxt_rel_def] >> NO_TAC)
+  gvs[e_step_def] >> reverse $ TOP_CASE_TAC >> gvs[]
   >- (
-    rename1 `application op _ _ _ _` >>
+    simp[Once step_result_rel_cases] >> strip_tac >> gvs[] >>
+    TOP_CASE_TAC >> gvs[]
+    >- (gvs[ctxt_rel_def, SF smallstep_ss, SF itree_ss, step_result_rel_cases]) >>
+    TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[] >>
+    gvs[ctxt_rel_def] >> gvs[GSYM ctxt_rel_def] >> gvs[ctxt_frame_rel_cases] >>
+    pairarg_tac >> gvs[SF smallstep_ss, SF itree_ss, step_result_rel_cases] >>
+    simp[ctxt_rel_def] >> simp[GSYM ctxt_rel_def] >> simp[ctxt_frame_rel_cases]
+    )
+  >- (
+    gvs[estep_def, step_result_rel_cases] >> strip_tac >>
+    gvs[SF smallstep_ss, SF itree_ss, ctxt_rel_def, ctxt_frame_rel_cases, get_ffi_def] >>
+    gvs[GSYM ctxt_frame_rel_cases, GSYM step_result_rel_cases] >>
+    CASE_TAC >- gvs[continue_def, get_ffi_def] >>
+    PairCases_on `h` >> gvs[] >> PairCases_on `x` >> gvs[] >>
+    rename1 `ctxt_frame_rel c1 c2` >> rename1 `(c1,env)` >>
+    rename1 `LIST_REL _ rest1 rest2` >>
+    Cases_on `c1` >> gvs[SF itree_ss, ctxt_frame_rel_cases] >>
+    gvs[GSYM ctxt_frame_rel_cases, get_ffi_def]
+    >- (
+      reverse CASE_TAC >>
+      gvs[PULL_EXISTS, EXISTS_PROD, get_ffi_def, SF itree_ss]
+      >- simp[ctxt_frame_rel_cases] >>
+      rename1 `application op _ _ _ vs _` >>
+      reverse $ Cases_on `∃s. op = FFI s` >> gvs[]
+      >- (
+        reverse $ rw[]
+        >- (
+          drule application_ffi_unchanged >>
+          Cases_on `application op env (st,ffi) fp vs rest2` >> gvs[get_ffi_def] >>
+          PairCases_on `p` >> disch_then drule >> gvs[get_ffi_def]
+          )
+        >- (
+          drule application_rel >> gvs[ctxt_rel_def] >> disch_then drule >>
+          disch_then $ qspecl_then [`vs`,`st`,‘fp’,`ffi`,`env`] assume_tac >>
+          gvs[step_result_rel_cases, ctxt_rel_def]
+          )
+        ) >>
+      qspecl_then [`vs`,`st`,`s`,‘fp’,`env`,`rest1`]
+        assume_tac $ GEN_ALL application_FFI_results >> gvs[] >>
+      csimp[] >> gvs[is_Effi_def, get_ffi_def]
+      >- (imp_res_tac $ SIMP_RULE std_ss [ctxt_rel_def] ctxt_rel_fix_fp_state >>
+          metis_tac[application_rel_FFI_type_error]) >>
+      imp_res_tac application_rel_FFI_step >> gvs[get_ffi_def]
+      )
+    >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases] >>
+        irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def, ctxt_frame_rel_cases])
+    >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases] >>
+        irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def, ctxt_frame_rel_cases])
+    >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases] >>
+        irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def, ctxt_frame_rel_cases])
+    >- (
+      CASE_TAC >> simp[SF itree_ss] >>
+      PairCases_on `h` >> simp[continue_def] >>
+      EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases] >>
+      irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def, ctxt_frame_rel_cases])
+    >- (
+      TOP_CASE_TAC >> gvs[SF itree_ss] >>
+      EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases] >>
+      irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def, ctxt_frame_rel_cases]
+      )
+    )
+  >- (
+    reverse $ every_case_tac >> gvs[estep_def, step_result_rel_cases] >> strip_tac >>
+    gvs[SF smallstep_ss, SF itree_ss, ctxt_rel_def, ctxt_frame_rel_cases, get_ffi_def] >>
+    gvs[GSYM ctxt_frame_rel_cases, GSYM step_result_rel_cases]
+    >- gvs[FST_THM, LAMBDA_PROD] >>
+    TRY (gvs[FST_THM, LAMBDA_PROD] >>
+        irule ctxt_rel_fix_fp_state >> gs[ctxt_rel_def, ctxt_frame_rel_cases] >> NO_TAC) >>
+    TRY (irule ctxt_rel_fix_fp_state >> gs[ctxt_rel_def] >> NO_TAC) >>
+    rename1 `application op _ _ _ _ _` >>
     reverse $ Cases_on `∃s. op = FFI s` >> gvs[]
     >- (
       reverse $ rw[]
@@ -235,72 +323,15 @@ Proof
         disch_then $ qspecl_then [`[]`,`st`,‘fp’,`ffi`,`env`] assume_tac >>
         gvs[step_result_rel_cases, ctxt_rel_def]
         )
-      ) >>
-    qspecl_then [`[]`,`st`,`s`,‘fp’,`env`,`cs1`]
-      assume_tac $ GEN_ALL application_FFI_results >> gvs[] >>
-    csimp[] >> gvs[is_Effi_def, get_ffi_def]
-    >- (imp_res_tac application_rel_FFI_type_error >> gs[] >>
+      )
+    >- (
+      qspecl_then [`[]`,`st`,`s`,‘fp’,`env`,`cs1`]
+        assume_tac $ GEN_ALL application_FFI_results >> gvs[] >>
+      csimp[] >> gvs[is_Effi_def, get_ffi_def]
+      >- (imp_res_tac application_rel_FFI_type_error >> gs[] >>
         irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def]) >>
-    imp_res_tac application_rel_FFI_step >> simp[get_ffi_def]
-    )
-  >- (gvs[FST_THM, LAMBDA_PROD] >>
-      irule ctxt_rel_fix_fp_state >> gs[ctxt_rel_def])
-  >- gvs[FST_THM, LAMBDA_PROD]
-  >- (
-    CASE_TAC >- gvs[continue_def, get_ffi_def] >>
-    PairCases_on `h` >> gvs[] >> PairCases_on `x` >> gvs[] >>
-    rename1 `ctxt_frame_rel c1 c2` >> rename1 `(c1,env)` >>
-    rename1 `LIST_REL _ rest1 rest2` >>
-    Cases_on `c1` >> gvs[SF itree_ss, ctxt_frame_rel_cases] >>
-    gvs[GSYM ctxt_frame_rel_cases, get_ffi_def]
-    >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases])
-    >- (
-      reverse CASE_TAC >>
-      gvs[PULL_EXISTS, EXISTS_PROD, get_ffi_def, SF itree_ss]
-      >- simp[ctxt_frame_rel_cases] >>
-      rename1 `application op _ _ _ vs _` >>
-      reverse $ Cases_on `∃s. op = FFI s` >> gvs[]
-      >- (
-        reverse $ rw[]
-        >- (
-          drule application_ffi_unchanged >>
-          Cases_on `application op env (st,ffi) fp vs rest2` >> gvs[get_ffi_def] >>
-          PairCases_on `p` >> disch_then drule >> gvs[get_ffi_def]
-           )
-        >- (
-          drule application_rel >> gvs[ctxt_rel_def] >> disch_then drule >>
-          disch_then $ qspecl_then [`vs`,`st`,‘fp’, `ffi`,`env`] assume_tac >>
-          gvs[step_result_rel_cases, ctxt_rel_def]
-          )
-        ) >>
-       qspecl_then [`vs`,`st`,`s`,‘fp’,`env`,`rest1`]
-                   assume_tac $ GEN_ALL application_FFI_results >> gvs[] >>
-       csimp[] >> gvs[is_Effi_def, get_ffi_def]
-       >- (imp_res_tac application_rel_FFI_type_error >> gs[] >>
-           irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def]) >>
-       imp_res_tac application_rel_FFI_step >> gvs[get_ffi_def]
-    )
-    >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases] >>
-        irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def, ctxt_frame_rel_cases])
-    >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases] >>
-        irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def, ctxt_frame_rel_cases])
-    >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases] >>
-        irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def, ctxt_frame_rel_cases])
-    >- (
-      CASE_TAC >> gvs[PULL_EXISTS, EXISTS_PROD, get_ffi_def, SF itree_ss]
-      >- simp[ctxt_frame_rel_cases] >>
-      CASE_TAC >>  gvs[SF itree_ss] >>
-      EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases] >>
-      irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def, ctxt_frame_rel_cases])
-    >- (
-    TOP_CASE_TAC >> gvs[SF itree_ss] >>
-    EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases] >>
-    irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def, ctxt_frame_rel_cases]
-    )
-  )
-  >- (
-    rename1 `application op _ _ _ _` >>
-    reverse $ Cases_on `∃s. op = FFI s` >> gvs[]
+      imp_res_tac application_rel_FFI_step >> simp[get_ffi_def]
+      )
     >- (
       reverse $ rw[]
       >- (
@@ -313,82 +344,24 @@ Proof
         disch_then $ qspecl_then [`[]`,`st`,‘fp’,`ffi`,`env`] assume_tac >>
         gvs[step_result_rel_cases, ctxt_rel_def]
         )
-      ) >>
-    qspecl_then [`[]`,`st`,`s`,‘fp’,`env`,`cs1`]
-      assume_tac $ GEN_ALL application_FFI_results >> gvs[] >>
-    csimp[] >> gvs[is_Effi_def, get_ffi_def]
-    >- (imp_res_tac application_rel_FFI_type_error >> gs[] >>
+      )
+    >- (
+      qspecl_then [`[]`,`st`,`s`,‘fp’,`env`,`cs1`]
+        assume_tac $ GEN_ALL application_FFI_results >> gvs[] >>
+      csimp[] >> gvs[is_Effi_def, get_ffi_def]
+      >- (imp_res_tac application_rel_FFI_type_error >> gs[] >>
         irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def]) >>
-    imp_res_tac application_rel_FFI_step >> simp[get_ffi_def]
-    )
-  >- (gvs[FST_THM, LAMBDA_PROD] >>
-      irule ctxt_rel_fix_fp_state >> gs[ctxt_rel_def])
-  >- (gvs[FST_THM, LAMBDA_PROD])
-  >- (
-    CASE_TAC >- gvs[continue_def, get_ffi_def] >>
-    PairCases_on `h` >> gvs[] >> PairCases_on `x` >> gvs[] >>
-    rename1 `ctxt_frame_rel c1 c2` >> rename1 `(c1,env)` >>
-    rename1 `LIST_REL _ rest1 rest2` >>
-    Cases_on `c1` >> gvs[SF itree_ss, ctxt_frame_rel_cases] >>
-    gvs[GSYM ctxt_frame_rel_cases, get_ffi_def]
-    >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases])
-    >- (
-      reverse CASE_TAC >>
-      gvs[PULL_EXISTS, EXISTS_PROD, get_ffi_def, SF itree_ss]
-      >- simp[ctxt_frame_rel_cases] >>
-      rename1 `application op _ _ _ vs _` >>
-      reverse $ Cases_on `∃s. op = FFI s` >> gvs[]
-      >- (
-        reverse $ rw[]
-        >- (
-          drule application_ffi_unchanged >>
-          Cases_on `application op env (st,ffi) fp vs rest2` >> gvs[get_ffi_def] >>
-          PairCases_on `p` >> disch_then drule >> gvs[get_ffi_def]
-           )
-        >- (
-          drule application_rel >> gvs[ctxt_rel_def] >> disch_then drule >>
-          disch_then $ qspecl_then [`vs`,`st`,‘fp’, `ffi`,`env`] assume_tac >>
-          gvs[step_result_rel_cases, ctxt_rel_def]
-          )
-        ) >>
-       qspecl_then [`vs`,`st`,`s`,‘fp’,`env`,`rest1`]
-                   assume_tac $ GEN_ALL application_FFI_results >> gvs[] >>
-       csimp[] >> gvs[is_Effi_def, get_ffi_def]
-       >- (imp_res_tac application_rel_FFI_type_error >> gs[] >>
-           irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def]) >>
-       imp_res_tac application_rel_FFI_step >> gvs[get_ffi_def]
-    )
-    >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases] >>
-        irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def, ctxt_frame_rel_cases])
-    >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases] >>
-        irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def, ctxt_frame_rel_cases])
-    >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases] >>
-        irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def, ctxt_frame_rel_cases])
-    >- (
-      CASE_TAC >> gvs[PULL_EXISTS, EXISTS_PROD, get_ffi_def, SF itree_ss]
-      >- simp[ctxt_frame_rel_cases] >>
-      CASE_TAC >>  gvs[SF itree_ss] >>
-      EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases] >>
-      irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def, ctxt_frame_rel_cases])
-    >- (
-    TOP_CASE_TAC >> gvs[SF itree_ss] >>
-    EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases] >>
-    irule $ GSYM ctxt_rel_fix_fp_state >> gs[ctxt_rel_def, ctxt_frame_rel_cases]
-    )
-  )
+      imp_res_tac application_rel_FFI_step >> simp[get_ffi_def]
+      ))
 QED
 
 Theorem is_Dffi_eq_is_Effi_single:
   is_Dffi (dstep env dsta (ExpVal env' ev cs l p) dcs) ⇔
   is_Effi (estep (env',dsta.refs,dsta.fp_state,ev,cs))
 Proof
-  Cases_on `ev` >> rw[SF ditree_ss, SF itree_ss]
-  >- (every_case_tac >> gvs[is_Effi_def, is_Dffi_def]) >>
-  Cases_on `cs` >> rw[SF ditree_ss, SF itree_ss, is_Effi_def, is_Dffi_def]
-  >- (every_case_tac >> gvs[]) >>
-  PairCases_on `h` >> Cases_on `h0` >> Cases_on `t` >>
-  rw[SF ditree_ss, SF itree_ss, is_Effi_def, is_Dffi_def] >>
-  every_case_tac >> gvs[]
+  Cases_on `ev` >> rw[SF ditree_ss, SF itree_ss] >>
+  Cases_on `cs` >> rw[SF ditree_ss, SF itree_ss, is_Effi_def, is_Dffi_def] >>
+  every_case_tac >> gvs[is_Effi_def, is_Dffi_def]
 QED
 
 Theorem dstep_result_rel_single:
@@ -413,34 +386,52 @@ Proof
     Cases_on `l` >> gvs[SF dsmallstep_ss, SF ditree_ss] >>
     simp[dstep_result_rel_cases, deval_rel_cases, dget_ffi_def]
     ) >>
-  Cases_on `ev` >> gvs[SF dsmallstep_ss, SF ditree_ss]
+  Cases_on `ev` >> gvs[]
   >- (
-    `¬is_Effi (estep (env',dsta.refs,dsta.fp_state,Exp e,cs))` by (
-      every_case_tac >> gvs[is_Effi_def, is_Dffi_def]) >>
+    `¬is_Effi (estep (env',dsta.refs,dsta.fp_state,Exp e,cs))` by gvs[is_Dffi_eq_is_Effi_single] >>
+    simp[dstep_ExpVal_Exp, decl_step_ExpVal_Exp] >>
     drule_at Any step_result_rel_single >>
     simp[Once step_result_rel_cases, PULL_EXISTS] >>
     disch_then drule >> disch_then $ qspec_then `db0.ffi` assume_tac >>
     rgs[dstate_rel_def, get_ffi_def] >>
     pop_assum mp_tac >> rw[step_result_rel_cases] >> gvs[dget_ffi_def, get_ffi_def] >>
     simp[dstep_result_rel_cases, deval_rel_cases, dstate_rel_def]
-    ) >>
-  Cases_on `cs` >> gvs[]
+    )
   >- (
-    gvs[ctxt_rel_def, SF dsmallstep_ss, SF ditree_ss, dstate_rel_def] >>
-    every_case_tac >> gvs[] >>
-    gvs[dstep_result_rel_cases, deval_rel_cases, dstate_rel_def, dget_ffi_def]
-    ) >>
-  gvs[ctxt_rel_def] >> gvs[GSYM ctxt_rel_def] >>
-  pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
-  gvs[is_Dffi_eq_is_Effi_single] >>
-  drule_at Any step_result_rel_single >> simp[FORALL_PROD] >>
-  simp[step_result_rel_cases, ctxt_rel_def] >>
-  simp[GSYM ctxt_rel_def, PULL_EXISTS, FORALL_PROD] >> disch_then drule_all >>
-  disch_then $ qspec_then `db0.ffi` mp_tac >> rw[] >> gvs[] >>
-  gvs[dstate_rel_def, dget_ffi_def, get_ffi_def] >>
-  every_case_tac >> gvs[ctxt_frame_rel_cases, SF ditree_ss] >>
-  Cases_on `t` >> gvs[ctxt_rel_def, SF ditree_ss] >>
-  gvs[dstep_result_rel_cases, dstate_rel_def, deval_rel_cases, ctxt_rel_def]
+    Cases_on `cs` >> gvs[]
+    >- (
+      gvs[ctxt_rel_def, SF dsmallstep_ss, SF ditree_ss, dstate_rel_def] >>
+      every_case_tac >> gvs[] >>
+      gvs[dstep_result_rel_cases, deval_rel_cases, dstate_rel_def, dget_ffi_def]
+      ) >>
+    gvs[ctxt_rel_def] >> gvs[GSYM ctxt_rel_def] >>
+    pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
+    gvs[is_Dffi_eq_is_Effi_single] >>
+    drule_at Any step_result_rel_single >> simp[FORALL_PROD] >>
+    simp[step_result_rel_cases, ctxt_rel_def] >>
+    simp[GSYM ctxt_rel_def, PULL_EXISTS, FORALL_PROD] >> disch_then drule_all >>
+    disch_then $ qspec_then `db0.ffi` mp_tac >> rw[] >> gvs[] >>
+    gvs[SF dsmallstep_ss, SF ditree_ss] >>
+    gvs[dstate_rel_def, dget_ffi_def, get_ffi_def] >>
+    gvs[dstep_result_rel_cases, dstate_rel_def, deval_rel_cases, ctxt_rel_def]
+    )
+  >- (
+    Cases_on `cs` >> gvs[]
+    >- (
+      gvs[ctxt_rel_def, SF dsmallstep_ss, SF ditree_ss, dstate_rel_def] >>
+      gvs[dstep_result_rel_cases]
+      ) >>
+    gvs[ctxt_rel_def] >> gvs[GSYM ctxt_rel_def] >>
+    pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
+    gvs[is_Dffi_eq_is_Effi_single] >>
+    drule_at Any step_result_rel_single >> simp[FORALL_PROD] >>
+    simp[step_result_rel_cases, ctxt_rel_def] >>
+    simp[GSYM ctxt_rel_def, PULL_EXISTS, FORALL_PROD] >> disch_then drule_all >>
+    disch_then $ qspec_then `db0.ffi` mp_tac >> rw[] >> gvs[] >>
+    gvs[SF dsmallstep_ss, SF ditree_ss] >>
+    gvs[dstate_rel_def, dget_ffi_def, get_ffi_def] >>
+    gvs[dstep_result_rel_cases, dstate_rel_def, deval_rel_cases, ctxt_rel_def]
+    )
 QED
 
 Theorem dstep_result_rel_n:
