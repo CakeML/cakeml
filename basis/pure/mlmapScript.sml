@@ -16,57 +16,73 @@ val _ = new_theory"mlmap"
 
 (* implementation definitions *)
 
-val _ = Datatype `
-  map = Map ('a -> 'a -> ordering) (('a, 'b) balanced_map)`;
+Datatype:
+  map = Map ('a -> 'a -> ordering) (('a, 'b) balanced_map)
+End
 
-val lookup_def = Define `
-  lookup (Map cmp t) k = balanced_map$lookup cmp k t`
+Definition lookup_def:
+  lookup (Map cmp t) k = balanced_map$lookup cmp k t
+End
 
-val insert_def = Define `
-  insert (Map cmp t) k v = Map cmp (balanced_map$insert cmp k v t)`
+Definition insert_def:
+  insert (Map cmp t) k v = Map cmp (balanced_map$insert cmp k v t)
+End
 
-val delete_def = Define `
-  delete (Map cmp t) k = Map cmp (balanced_map$delete cmp k t)`
+Definition delete_def:
+  delete (Map cmp t) k = Map cmp (balanced_map$delete cmp k t)
+End
 
-val null_def = Define `
-  null (Map cmp t) = balanced_map$null t`
+Definition null_def:
+  null (Map cmp t) = balanced_map$null t
+End
 
-val empty_def = Define `
-  empty cmp = Map cmp balanced_map$empty`
+Definition empty_def:
+  empty cmp = Map cmp balanced_map$empty
+End
 
-val union_def = Define `
-  union (Map cmp t1) (Map _ t2) = Map cmp (balanced_map$union cmp t1 t2)`
+Definition union_def:
+  union (Map cmp t1) (Map _ t2) = Map cmp (balanced_map$union cmp t1 t2)
+End
 
-val foldrWithKey_def = Define `
-  foldrWithKey f x (Map cmp t) = balanced_map$foldrWithKey f x t`;
+Definition foldrWithKey_def:
+  foldrWithKey f x (Map cmp t) = balanced_map$foldrWithKey f x t
+End
 
-val map_def = Define `
-  map f (Map cmp t) = Map cmp (balanced_map$map f t)`;
+Definition map_def:
+  map f (Map cmp t) = Map cmp (balanced_map$map f t)
+End
 
-val toAscList_def = Define `
-  toAscList (Map cmp t) = balanced_map$toAscList t`;
+Definition toAscList_def:
+  toAscList (Map cmp t) = balanced_map$toAscList t
+End
 
-val fromList_def = Define `
-  fromList cmp l = Map cmp (balanced_map$fromList cmp l)`;
+Definition fromList_def:
+  fromList cmp l = Map cmp (balanced_map$fromList cmp l)
+End
 
-val isSubmapBy_def = Define `
-  isSubmapBy f (Map cmp t1) (Map _ t2) = balanced_map$isSubmapOfBy cmp f t1 t2`
+Definition isSubmapBy_def:
+  isSubmapBy f (Map cmp t1) (Map _ t2) = balanced_map$isSubmapOfBy cmp f t1 t2
+End
 
-val isSubmap_def = Define `
-  isSubmap m1 m2 = isSubmapBy (=) m1 m2`;
+Definition isSubmap_def:
+  isSubmap m1 m2 = isSubmapBy (=) m1 m2
+End
 
 (* definitions for proofs *)
 
-val map_ok_def = Define `
-  map_ok (Map cmp t) <=> balanced_map$invariant cmp t /\ TotOrd cmp`;
+Definition map_ok_def:
+  map_ok (Map cmp t) <=> balanced_map$invariant cmp t /\ TotOrd cmp
+End
 
-val cmp_of_def = Define `
-  cmp_of (Map cmp t) = cmp`;
+Definition cmp_of_def:
+  cmp_of (Map cmp t) = cmp
+End
 
-val to_fmap_def = Define `
+Definition to_fmap_def:
   to_fmap (Map cmp Tip) = FEMPTY /\
   to_fmap (Map cmp (Bin s k v l r)) =
-    ((to_fmap (Map cmp l) ⊌ to_fmap (Map cmp r)) |+ (k,v))`;
+    ((to_fmap (Map cmp l) ⊌ to_fmap (Map cmp r)) |+ (k,v))
+End
 
 (* theorems *)
 
