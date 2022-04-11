@@ -56,6 +56,9 @@ local
         |> (fn th => MP th th1)
       end;
 
+val all_optimisation_proofs =
+  map (fn ((a,(b,c,d))) => (a,(b,c))) (DB.thy "icing_optimisationProofs");
+
 (* Automatically prove a is_perform_rewrites_correct theorem for the given plan *)
 fun mk_plan_correct_thm plan_list :(term * thm)=
   case plan_list of
@@ -88,7 +91,7 @@ fun mk_plan_correct_thm plan_list :(term * thm)=
           val corr_thms:thm list = rand p1
             |> dest_pair |> #2 (* extract the rewrites *)
             |> listSyntax.dest_list |> #1
-            |> map (fn t => (t, DB.apropos_in t (DB.thy "icing_optimisationProofs"))) (* Look up correctness theorems *)
+            |> map (fn t => (t, DB.apropos_in t  all_optimisation_proofs)) (* Look up correctness theorems *)
             |> map (fn (t, thms) =>
                 (print_term t; print (" has thm :\n"); map (fn d => print_thm (#1 (#2 d))) thms; print ("\n\n"); thms))
             |> map (fn datas => if (length datas <> 1)
@@ -188,6 +191,9 @@ local
       |> (fn th => MP th th1)
     end;
 
+val all_realid_proofs =
+  map (fn ((a,(b,c,d))) => (a,(b,c))) (DB.thy "icing_realIdProofs");
+
 (* Automatically prove a is_perform_rewrites_correct theorem for the given plan *)
 fun mk_plan_correct_thm plan_list :(term * thm)=
   case plan_list of
@@ -220,7 +226,7 @@ fun mk_plan_correct_thm plan_list :(term * thm)=
           val corr_thms:thm list = rand p1
             |> dest_pair |> #2 (* extract the rewrites *)
             |> listSyntax.dest_list |> #1
-            |> map (fn t => (t, DB.apropos_in t (DB.thy "icing_realIdProofs"))) (* Look up correctness theorems *)
+            |> map (fn t => (t, DB.apropos_in t all_realid_proofs)) (* Look up correctness theorems *)
             |> map (fn (t, thms) =>
                 (print_term t; print (":\n"); map (fn d => print_thm (#1 (#2 d))) thms; thms))
             |> map (fn datas => if (length datas <> 1)

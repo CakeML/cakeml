@@ -655,6 +655,7 @@ end;
 
   fun define_benchmark theAST_def theAST_pre_def checkError =
   let
+    val all_opts = map (fn ((a,(b,c,d))) => (a,(b,c))) (DB.thy "icing_optimisations")
     val checkError = false
     val theAST = theAST_def |> concl |> rhs
     val theAST_pre = theAST_pre_def |> concl |> rhs
@@ -667,7 +668,7 @@ end;
                       |> map (fn t => EVAL “case ^t of | Apply (_, rws) => rws | _ => [] ”
                                 |> concl |> rhs |> listSyntax.dest_list |> #1)
                       |> flatMap
-                      |> map (fn t => DB.apropos_in t (DB.thy "icing_optimisations"))
+                      |> map (fn t => DB.apropos_in t all_opts)
                       |> flatMap
                       |> map (#2 o #1)
                       |> dedup
@@ -1056,7 +1057,7 @@ end;
                  \\ rpt strip_tac
                  (* We will return a val but we do not know which one *)
                  \\ Q.REFINE_EXISTS_TAC ‘Val v’
-                 \\ simp[evaluate_to_heap_def, evaluate_ck_def, terminationTheory.evaluate_def]
+                 \\ simp[evaluate_to_heap_def, evaluate_ck_def, evaluateTheory.evaluate_def]
                  \\ ntac 2 (qexists_tac ‘EMPTY’)
                  \\ fs[emp_def, set_sepTheory.SPLIT_def, cfHeapsBaseTheory.SPLIT3_def,
                        set_sepTheory.SEP_EXISTS]
@@ -1234,7 +1235,7 @@ end;
                     |> DISCH_ALL |> SIMP_RULE std_ss [];
       val theAST_semantics =
         full_semantics_prog_thm |> ONCE_REWRITE_RULE[GSYM theAST_prog_def]
-        |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC, Once pull_words_correct_simp];
+        |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC] (* Once pull_words_correct_simp]*);
       val theAST_semantics_side_def = Define ‘
         theAST_semantics_side ^inps ^args ⇔
           all_float_string ^inp_list ^argList ∧
