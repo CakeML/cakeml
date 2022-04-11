@@ -214,40 +214,54 @@ Definition decode_LZSS_table_def:
     (lz, bits)
 End
 
+Definition decode_LZSS_lendist:
+  decode_LZSS_lendist lznum bl dist_tree =
+  let
+    (len, lbits) = decode_LZSS_table lznum bl len_table;
+    dist_res = find_decode_match bl dist_tree;
+    lz =  case dist_res of
+            NONE => (LenDist (len,0),0) (* Something went wrong, huffman can't decode *)
+          | SOME (dist_huff, bits) =>
+              let
+                (dist, dbits) = decode_LZSS_table dist_huff (DROP ((LENGTH bits) + lbits) bl) dist_table;
+              in
+                (LenDist (len, dist), lbits + (LENGTH bits) + dbits)
+  in
+    lz
+End
+
 Definition decode_LZSS_def:
   decode_LZSS (lznum:num) bl dist_tree =
   case lznum < END_BLOCK of
     T => (Lit $ CHR lznum, 0)
-  | F => let
-           (len, lbits) = decode_LZSS_table lznum bl len_table ;
-         in
-           case find_decode_match bl dist_tree of
-             NONE => (LenDist (len,0),0) (* Something went wrong, huffman can't decode *)
-           | SOME (dist_huff, bits) =>
-               let
-                 (dist, dbits) = decode_LZSS_table dist_huff (DROP ((LENGTH bits) + lbits) bl) dist_table;
-               in
-                 (LenDist (len, dist), lbits + (LENGTH bits) + dbits)
+  | F => decode_LZSS_lendist lznum bl dist_tree
+End
+
+Definition decode_check_end_block:
+  decode_check_end_block bl len_tree =
+  case find_decode_match bl len_tree of
+    NONE => (T, [], 0, []) (* Something went wrong, huffman can't decode *)
+  | SOME (lznum, bits) =>
+      case lznum = END_BLOCK of
+        T => (T, DROP (LENGTH bits) bl, END_BLOCK, bits) (* End block *)
+      | F => (F, bl, lznum, bits)
 End
 
 Definition deflate_decoding_def:
   deflate_decoding [] len_tree dist_tree acc = (acc, []) ∧
   deflate_decoding bl len_tree dist_tree acc =
-  case find_decode_match bl len_tree of
-    NONE => (acc, []) (* Something went wrong, huffman can't decode *)
-  | SOME (lznum, bits) =>
-      case lznum = END_BLOCK of
-        T => (acc, DROP (LENGTH bits) bl) (* End block *)
-      | F =>
-          case bits of
-            [] => (acc, DROP (LENGTH bits) bl)
-          | _ => (let
-                    (lz, extra_bits) = decode_LZSS lznum (DROP (LENGTH bits) bl) dist_tree
-                  in
-                    deflate_decoding (DROP (extra_bits + (LENGTH bits)) bl) len_tree dist_tree (acc++[lz])  )
+  case decode_check_end_block bl len_tree  of
+    (T, bl', _, _) => (acc, bl')
+  | (F, bl', lznum, bits) =>
+      case bits of
+        [] => (acc, bl)
+      | _ =>  (let
+                 (lz, extra_bits) = decode_LZSS lznum (DROP (LENGTH bits) bl) dist_tree
+               in
+                 deflate_decoding (DROP (extra_bits + (LENGTH bits)) bl) len_tree dist_tree (acc++[lz]))
 Termination
   WF_REL_TAC ‘measure $ λ (bl, len_tree, dist_tree, acc). LENGTH bl’
-  \\ rw[find_decode_match_def, decode_LZSS_def, decode_LZSS_table_def, decode_LZSS_def]
+  \\ rw[decode_check_end_block, find_decode_match_def, decode_LZSS_def, decode_LZSS_table_def, decode_LZSS_def]
 End
 
 Definition deflate_decoding_main_def:
