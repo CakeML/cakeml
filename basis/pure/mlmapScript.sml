@@ -36,6 +36,10 @@ Definition null_def:
   null (Map cmp t) = balanced_map$null t
 End
 
+Definition size_def:
+  size (Map cmp t) = balanced_map$size t
+End
+
 Definition empty_def:
   empty cmp = Map cmp balanced_map$empty
 End
@@ -44,12 +48,34 @@ Definition union_def:
   union (Map cmp t1) (Map _ t2) = Map cmp (balanced_map$union cmp t1 t2)
 End
 
+Definition unionWith_def:
+  unionWith f (Map cmp t1) (Map _ t2) =
+    Map cmp (balanced_map$unionWith cmp f t1 t2)
+End
+
+Definition unionWithKey_def:
+  unionWithKey f (Map cmp t1) (Map _ t2) =
+    Map cmp (balanced_map$unionWithKey cmp f t1 t2)
+End
+
 Definition foldrWithKey_def:
   foldrWithKey f x (Map cmp t) = balanced_map$foldrWithKey f x t
 End
 
+Definition filter_def:
+  filter p (Map cmp t) = Map cmp (balanced_map$filter p t)
+End
+
+Definition filterWithKey_def:
+  filterWithKey p (Map cmp t) = Map cmp (balanced_map$filterWithKey p t)
+End
+
 Definition map_def:
   map f (Map cmp t) = Map cmp (balanced_map$map f t)
+End
+
+Definition mapWithKey_def:
+  map f (Map cmp t) = Map cmp (balanced_map$mapWithKey f t)
 End
 
 Definition toAscList_def:
@@ -66,6 +92,14 @@ End
 
 Definition isSubmap_def:
   isSubmap m1 m2 = isSubmapBy (=) m1 m2
+End
+
+Definition all_def:
+  all f (Map cmp t) = balanced_map$every f t
+End
+
+Definition exists_def:
+  exists f (Map cmp t) = balanced_map$exists f t
 End
 
 (* definitions for proofs *)
@@ -190,6 +224,21 @@ Theorem empty_thm:
 Proof
   fs [empty_def,map_ok_def,balanced_mapTheory.empty_thm,
       to_fmap_def,balanced_mapTheory.empty_def,balanced_mapTheory.invariant_def]
+QED
+
+Theorem size_thm:
+  map_ok t ⇒
+    size t = FCARD (to_fmap t)
+Proof
+  Cases_on ‘t’
+  \\ rw [map_ok_def, size_def]
+  \\ drule_then assume_tac comparisonTheory.TotOrder_imp_good_cmp
+  \\ drule_all_then assume_tac balanced_mapTheory.size_thm \\ gs []
+  \\ simp [to_fmap_thm, FCARD_DEF, MAP_KEYS_def]
+  \\ irule INJ_CARD_IMAGE \\ gs []
+  \\ qmatch_goalsub_abbrev_tac ‘INJ _ x’
+  \\ qexists_tac ‘IMAGE (λx. {x}) x’
+  \\ simp [INJ_DEF]
 QED
 
 Theorem MAP_KEYS_sing_set:
@@ -320,7 +369,195 @@ Proof
   \\ `to_fmap f (union f b1 b2) = to_fmap f b1 ⊌ to_fmap f b2`
         by metis_tac [balanced_mapTheory.union_thm]
   \\ rfs [to_fmap_thm,MAP_KEYS_sing_set_FUNION,MAP_KEYS_sing_set]
-  \\simp[cmp_of_def]
+  \\ simp[cmp_of_def]
+QED
+
+Theorem FMERGE_WITH_KEY_MAP_KEYS:
+  FMERGE_WITH_KEY g (MAP_KEYS (λx. {x}) m1) (MAP_KEYS (λx. {x}) m2) =
+  MAP_KEYS (λx. {x}) (FMERGE_WITH_KEY (λk x y. g {k} x y) m1 m2)
+Proof
+  rw [finite_mapTheory.fmap_eq_flookup]
+  \\ qmatch_goalsub_abbrev_tac ‘MAP_KEYS ff’
+  \\ ‘∀x. INJ ff x UNIV’
+    by gs [INJ_DEF, Abbr ‘ff’]
+  \\ gs [Abbr ‘ff’]
+  \\ gs [FLOOKUP_FMERGE_WITH_KEY, FLOOKUP_MAP_KEYS]
+  \\ Cases_on ‘x’ \\ gs []
+  \\ reverse (Cases_on ‘t’) \\ gs []
+  >- (
+    ‘!y. x' INSERT x INSERT t' <> {y}’
+      by (fs [EXTENSION,IN_INSERT] \\ metis_tac [])
+    \\ gs [])
+  \\ ‘∀f1 v. x' = v ∧ f1 v ⇔ x' = v ∧ f1 x'’
+    by metis_tac []
+  \\ DEEP_INTRO_TAC some_intro \\ gs []
+  \\ DEEP_INTRO_TAC some_intro \\ gs []
+  \\ simp [FMERGE_WITH_KEY_DEF, FLOOKUP_DEF]
+  \\ rw [] \\ gs []
+QED
+
+Theorem unionWithKey_thm:
+  map_ok t1 ∧ map_ok t2 ∧ cmp_of t1 = cmp_of t2 ⇒
+  map_ok (unionWithKey f t1 t2) ∧
+  cmp_of (unionWithKey f t1 t2) = cmp_of t1 ∧
+  to_fmap (unionWithKey f t1 t2) =
+  FMERGE_WITH_KEY f (to_fmap t1) (to_fmap t2)
+Proof
+  Cases_on `t1` \\ Cases_on `t2` \\ fs [cmp_of_def]
+  \\ strip_tac \\ rveq
+  \\ fs [unionWithKey_def]
+  \\ rename [‘map_ok (Map f (unionWithKey f g b1 b2))’]
+  \\ ‘∀k1 k2 x y. f k1 k2 = Equal ⇒ g k1 x y = g k2 x y’
+    by fs [map_ok_def, totoTheory.TotOrd]
+  \\ conj_asm1_tac
+  THEN1
+   (fs [map_ok_def]
+    \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
+    \\ fs [balanced_mapTheory.unionWithKey_thm])
+  \\ fs [map_ok_def,unionWith_def]
+  \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
+  \\ fs [to_fmap_thm]
+  \\ qspecl_then [‘f’,‘g’,‘b1’,‘b2’] mp_tac balanced_mapTheory.unionWithKey_thm
+  \\ simp []
+  \\ strip_tac
+  \\ gs [to_fmap_thm, FMERGE_WITH_KEY_MAP_KEYS,MAP_KEYS_sing_set, SF ETA_ss]
+  \\ simp [cmp_of_def]
+QED
+
+Theorem unionWith_lemma:
+  unionWith f t1 t2 = unionWithKey (λk. f) t1 t2
+Proof
+  Cases_on ‘t1’ \\ Cases_on ‘t2’
+  \\ rw [unionWith_def, unionWithKey_def, balanced_mapTheory.unionWith_def,
+         SF ETA_ss]
+QED
+
+Theorem unionWith_thm:
+  map_ok t1 ∧ map_ok t2 ∧ cmp_of t1 = cmp_of t2 ⇒
+  map_ok (unionWith f t1 t2) ∧
+  cmp_of (unionWith f t1 t2) = cmp_of t1 ∧
+  to_fmap (unionWith f t1 t2) =
+  FMERGE_WITH_KEY (λk x y. f x y) (to_fmap t1) (to_fmap t2)
+Proof
+  simp [unionWith_lemma, unionWithKey_thm, SF ETA_ss]
+QED
+
+Theorem all_thm:
+  map_ok t ⇒
+    (all f t ⇔ ∀k v. lookup t k = SOME v ⇒ f k v)
+Proof
+  Cases_on ‘t’
+  \\ rw [map_ok_def, all_def, lookup_def]
+  \\ irule balanced_mapTheory.every_thm
+  \\ irule_at Any comparisonTheory.TotOrder_imp_good_cmp
+  \\ gs [comparisonTheory.resp_equiv_def, totoTheory.TotOrd, SF SFY_ss]
+QED
+
+Theorem exists_thm:
+  map_ok t ⇒
+    (exists f t ⇔ ∃k v. lookup t k = SOME v ∧ f k v)
+Proof
+  Cases_on ‘t’
+  \\ rw [map_ok_def, exists_def, balanced_mapTheory.exists_def, lookup_def]
+  \\ irule balanced_mapTheory.exists_thm
+  \\ irule_at Any comparisonTheory.TotOrder_imp_good_cmp
+  \\ gs [comparisonTheory.resp_equiv_def, totoTheory.TotOrd, SF SFY_ss]
+QED
+
+Theorem FDIFF_MAP_KEYS:
+  (∀x. x ∈ ks ⇒ SING x) ⇒
+  FDIFF (MAP_KEYS (λx. {x}) m) ks =
+  MAP_KEYS (λx. {x}) (FDIFF m (BIGUNION ks))
+Proof
+  rw [finite_mapTheory.fmap_eq_flookup]
+  \\ qmatch_goalsub_abbrev_tac ‘MAP_KEYS ff’
+  \\ ‘∀x. INJ ff x UNIV’
+    by gs [INJ_DEF, Abbr ‘ff’]
+  \\ gs [Abbr ‘ff’]
+  \\ gs [FLOOKUP_FDIFF, FLOOKUP_MAP_KEYS]
+  \\ DEEP_INTRO_TAC some_intro \\ gs []
+  \\ DEEP_INTRO_TAC some_intro \\ gs []
+  \\ rw [PULL_EXISTS] \\ DEEP_INTRO_TAC some_intro \\ gs []
+  \\ rw [FLOOKUP_FDIFF] \\ gs [flookup_thm, DISJ_EQ_IMP]
+  \\ res_tac \\ fs [SING_DEF] \\ rveq \\ gs []
+QED
+
+Theorem filterWithKey_thm:
+  map_ok t ⇒
+    map_ok (filterWithKey f t) ∧
+    to_fmap (filterWithKey f t) =
+    FDIFF (to_fmap t)
+          {k | (k,v) | FLOOKUP (to_fmap t) k = SOME v ∧ ¬f k v}
+Proof
+  Cases_on ‘t’
+  \\ simp [filterWithKey_def]
+  \\ strip_tac
+  \\ rename [‘map_ok (Map f (filterWithKey g b))’]
+  \\ ‘∀k1 k2 x. f k1 k2 = Equal ⇒ g k1 x = g k2 x’
+    by fs [map_ok_def, totoTheory.TotOrd]
+  \\ conj_asm1_tac
+  THEN1
+   (fs [map_ok_def]
+    \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
+    \\ fs [balanced_mapTheory.filterWithKey_thm])
+  \\ fs [map_ok_def,filterWithKey_def]
+  \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
+  \\ fs [to_fmap_thm]
+  \\ qspecl_then [‘g’,‘b’,‘f’] mp_tac balanced_mapTheory.filterWithKey_thm
+  \\ simp [] \\ strip_tac
+  \\ gs [to_fmap_thm, MAP_KEYS_sing_set]
+  \\ qmatch_asmsub_abbrev_tac ‘FDIFF (MAP_KEYS _ _) ks’
+  \\ ‘∀x. x ∈ ks ⇒ SING x’
+    by (gs [Abbr ‘ks’]
+        \\ qmatch_goalsub_abbrev_tac ‘MAP_KEYS ff’
+        \\ ‘∀x. INJ ff x UNIV’
+          by gs [INJ_DEF, Abbr ‘ff’]
+        \\ gs [Abbr ‘ff’]
+        \\ simp [FLOOKUP_MAP_KEYS, IN_DEF, LAMBDA_PROD, EXISTS_PROD,
+                 PULL_EXISTS]
+        \\ rpt gen_tac
+        \\ DEEP_INTRO_TAC some_intro \\ gs [])
+  \\ gs [FDIFF_MAP_KEYS,MAP_KEYS_sing_set,to_fmap_thm, Abbr ‘ks’]
+  \\ AP_TERM_TAC
+  \\ qmatch_goalsub_abbrev_tac ‘MAP_KEYS ff’
+  \\ ‘∀x. INJ ff x UNIV’
+    by gs [INJ_DEF, Abbr ‘ff’]
+  \\ gs [Abbr ‘ff’]
+  \\ simp [FLOOKUP_MAP_KEYS]
+  \\ rw [EXTENSION]
+  \\ eq_tac \\ rw [IN_DEF, LAMBDA_PROD, EXISTS_PROD]
+  >- (
+    qpat_x_assum ‘(some x. _) = _’ mp_tac
+    \\ DEEP_INTRO_TAC some_intro \\ gs []
+    \\ rw [] \\ gs []
+    \\ gvs [flookup_thm]
+    \\ ‘s ≠ {}’
+      by (strip_tac \\ gvs [])
+    \\ drule_then assume_tac CHOICE_DEF \\ gs [IN_DEF])
+  \\ rw [PULL_EXISTS]
+  \\ qexists_tac ‘{x}’ \\ simp []
+  \\ first_assum (irule_at Any)
+  \\ first_assum (irule_at Any)
+  \\ DEEP_INTRO_TAC some_intro \\ rw []
+  \\ gs [flookup_thm, IN_DEF]
+  \\ first_assum (irule_at Any) \\ rw []
+QED
+
+Theorem filter_lemma:
+  filter f t = filterWithKey (λk. f) t
+Proof
+  Cases_on ‘t’
+  \\ rw [filter_def, filterWithKey_def]
+  \\ rw [balanced_mapTheory.filter_def, SF ETA_ss]
+QED
+
+Theorem filter_thm:
+  map_ok t ⇒
+    map_ok (filter f t) ∧
+    to_fmap (filter f t) =
+    FDIFF (to_fmap t) {k | (k,v) | FLOOKUP (to_fmap t) k = SOME v ∧ ¬f v}
+Proof
+  simp [filter_lemma, filterWithKey_thm]
 QED
 
 Theorem lookup_thm:
@@ -339,6 +576,14 @@ Proof
   \\ `!f1 v. k = v /\ f1 v <=> k = v /\ f1 k` by metis_tac [] \\ fs []
   \\ Cases_on `k ∈ FDOM (to_fmap (Map f b))` \\ fs []
   \\ fs [FLOOKUP_DEF]
+QED
+
+Theorem filterWithKey_all:
+  map_ok t ⇒
+    all f (filterWithKey f t)
+Proof
+  rw [all_thm, filterWithKey_thm, lookup_thm]
+  \\ gs [FLOOKUP_FDIFF, IN_DEF, LAMBDA_PROD, EXISTS_PROD]
 QED
 
 Theorem MAP_FST_toAscList:
