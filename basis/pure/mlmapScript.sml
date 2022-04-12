@@ -75,7 +75,7 @@ Definition map_def:
 End
 
 Definition mapWithKey_def:
-  map f (Map cmp t) = Map cmp (balanced_map$mapWithKey f t)
+  mapWithKey f (Map cmp t) = Map cmp (balanced_map$mapWithKey f t)
 End
 
 Definition toAscList_def:
