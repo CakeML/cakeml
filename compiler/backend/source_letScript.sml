@@ -216,9 +216,13 @@ End
  * but the definition package does not like it.
  *)
 
-Definition push_fun_def:
-  (push_fun (Fun n z) =
-    let z = push_fun z in
+Definition fix_exp_def:
+  fix_exp x y = if exp_size_alt y ≤ exp_size_alt x then y else x
+End
+
+Definition push_fun_def[nocompute]:
+  (push_fun (Fun n w) =
+    let z = fix_exp w (push_fun w) in
     case dest_Let z of
     | SOME (NONE,x,y) =>
         if ¬free_in n [x] then
@@ -247,8 +251,45 @@ Definition push_fun_def:
   (push_fun (Letrec funs x) = Letrec funs (push_fun x)) ∧
   (push_fun x = x)
 Termination
-  cheat
+  rw [fix_exp_def, exp_size_alt_def, dest_Let_SOME, dest_Letrec_SOME]
+  \\ wf_rel_tac ‘measure exp_size_alt’ \\ rw [exp_size_alt_def]
+  \\ gs [exp_size_alt_def]
 End
+
+Theorem push_fun_size:
+  ∀x. exp_size_alt (push_fun x) ≤ exp_size_alt x
+Proof
+  ho_match_mp_tac push_fun_ind
+  \\ rw [fix_exp_def, exp_size_alt_def]
+  >~ [‘Fun n x’] >- (
+    simp [Once push_fun_def, fix_exp_def, exp_size_alt_def]
+    \\ TOP_CASE_TAC \\ gs []
+    >- (
+      TOP_CASE_TAC \\ gs [exp_size_alt_def]
+      \\ TOP_CASE_TAC \\ gs [exp_size_alt_def]
+      \\ IF_CASES_TAC \\ gs [exp_size_alt_def]
+      \\ gvs [dest_Letrec_SOME, exp_size_alt_def])
+    \\ TOP_CASE_TAC \\ gs [exp_size_alt_def]
+    \\ TOP_CASE_TAC \\ gs [exp_size_alt_def]
+    \\ TOP_CASE_TAC \\ gs [exp_size_alt_def]
+    >- (
+      IF_CASES_TAC \\ gs [exp_size_alt_def]
+      \\ gvs [dest_Let_SOME, exp_size_alt_def])
+    \\ IF_CASES_TAC \\ gs [exp_size_alt_def]
+    \\ IF_CASES_TAC \\ gs [exp_size_alt_def]
+    \\ gvs [dest_Let_SOME, exp_size_alt_def])
+  \\ simp [push_fun_def, exp_size_alt_def]
+QED
+
+Theorem push_fun_fix_exp:
+  fix_exp x (push_fun x) = push_fun x
+Proof
+  rw [fix_exp_def, push_fun_size]
+QED
+
+Theorem push_fun_def[compute] = REWRITE_RULE [push_fun_fix_exp] push_fun_def;
+
+Theorem push_fun_ind = REWRITE_RULE [push_fun_fix_exp] push_fun_ind;
 
 (*
 val test1 = EVAL “
@@ -289,6 +330,18 @@ Definition lift_let_def:
   (lift_let _ = NONE)
 End
 
+Definition lift_lets_def:
+  lift_lets sofar d =
+    case lift_let d of
+    | NONE => (REVERSE sofar, d)
+    | SOME (d1, d2) => lift_lets (d1::sofar) d2
+Termination
+  wf_rel_tac ‘measure (dec_size o SND)’
+  \\ Cases_on ‘d’ \\ rw [lift_let_def]
+  \\ gvs [CaseEqs ["option", "prod"], dec_size_def, exp_size_def,
+          dest_Let_SOME, dest_Letrec_SOME]
+End
+
 (* Apply the first step (push_fun) to a single declaration (in preparation for
  * calling lift_let).
  *)
@@ -300,20 +353,13 @@ Definition compile_dec_def:
   (compile_dec d = d)
 End
 
-(* Apply the optimization on a series of declarations.
- * It's not strictly necessary to put the Dlocal around the single declaration
- * that has been lifted, but I'd like to imagine it will help me somewhere else.
- *)
+(* Apply the optimization on a series of declarations. *)
 
 Definition compile_decs_def:
   (compile_decs [] = []) ∧
   (compile_decs (d::ds) =
-    let d = compile_dec d in
-    case lift_let d of
-    | NONE => d::compile_decs ds
-    | SOME (d1,d2) => compile_decs (d1::d2::ds))
-Termination
-  cheat
+    let (pre, d) = lift_lets [] (compile_dec d) in
+    Dlocal pre [d] :: compile_decs ds)
 End
 
 (*
