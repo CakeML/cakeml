@@ -82,7 +82,7 @@ Theorem reader_installed:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) (cl,inp)) ms0 ⇒
-   installed code 0 data 0 config.lab_conf.ffi_names (basis_ffi cl fs)
+   installed code 0 data 0 config.lab_conf.ffi_names
      (heap_regs ag32_backend_config.stack_conf.reg_names)
      (reader_machine_config) (FUNPOW Next (reader_startup_clock ms0 inp cl) ms0)
 Proof
@@ -98,7 +98,7 @@ Proof
   \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ conj_tac >- (EVAL_TAC)
-  \\ asm_exists_tac
+  \\ rpt $ goal_assum $ drule_at Any
   \\ simp[]
   \\ fs[ffi_names]
 QED
@@ -127,10 +127,10 @@ Theorem reader_extract_writes:
          err = extract_writes 2 events;
          refs = SND (init_reader () init_refs) in
      case reader (MAP (tokenize o str_prefix) (lines_of (implode inp))) refs of
-       (Failure (Fail e), refs) =>
+       (M_failure (Failure e), refs) =>
          (out = "") ∧
          (err = explode e)
-     | (Success (s, _), refs) =>
+     | (M_success (s, _), refs) =>
          (is_set_theory ^mem ==>
            (∀asl c.
               MEM (Sequent asl c) s.thms ⇒

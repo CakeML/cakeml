@@ -6558,7 +6558,7 @@ val IMP_state_rel_make_init = Q.prove(
    list_subset (find_ffi_names code) mc_conf.ffi_names ∧
     remove_labels clock mc_conf.target.config 0 LN mc_conf.ffi_names code =
       SOME (code2,labs) /\
-    good_init_state mc_conf ms ffi (prog_to_bytes code2)
+    good_init_state mc_conf ms (prog_to_bytes code2)
       cbspace t m dm io_regs cc_regs
       ==>
     state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
@@ -6584,8 +6584,9 @@ val IMP_state_rel_make_init = Q.prove(
         ccache_interfer_ok_def]
   \\ rfs[]
   \\ conj_tac >- (
-    rw[] \\ first_x_assum irule
-    \\ rw[] \\ asm_exists_tac \\ rw[] )
+    rw[] >> first_x_assum irule >> simp[] >>
+    gvs[call_FFI_def, AllCaseEqs()]
+    )
   \\ conj_tac >-
     (strip_tac >>
     pairarg_tac >> fs[]>>
@@ -6740,7 +6741,7 @@ val semantics_compile_lemma = Q.prove(
     lab_to_target$compile (c:'a lab_to_target$config) code = SOME (bytes,c') /\
     (* FFI is either given or computed *)
     c'.ffi_names = SOME mc_conf.ffi_names /\
-    good_init_state mc_conf ms ffi bytes cbspace t m dm io_regs cc_regs /\
+    good_init_state mc_conf ms bytes cbspace t m dm io_regs cc_regs /\
     semantics (make_init mc_conf ffi io_regs cc_regs t m dm ms code
       lab_to_target$compile (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
       coracle
@@ -6799,7 +6800,7 @@ Theorem semantics_compile:
    c.labels = LN ∧ c.pos = 0 ∧
    compile c code = SOME (bytes,c') ∧
    c'.ffi_names = SOME (mc_conf.ffi_names) /\
-   good_init_state mc_conf ms (ffi:'ffi ffi_state) bytes cbspace t m dm io_regs cc_regs ⇒
+   good_init_state mc_conf ms bytes cbspace t m dm io_regs cc_regs ⇒
    implements' T (machine_sem mc_conf ffi ms)
      {semantics
         (make_init mc_conf ffi io_regs cc_regs t m (dm ∩ byte_aligned) ms code

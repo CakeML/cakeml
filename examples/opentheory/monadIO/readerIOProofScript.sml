@@ -21,11 +21,11 @@ Theorem readLine_wrap_thm:
    readLine_wrap (l, s) refs = (res, refs')
    ==>
    ?ds x.
-     res = Success x /\
+     res = M_success x /\
      STATE (ds ++ defs) refs' /\
      !s. x = INR s ==> READER_STATE (ds ++ defs) s
 Proof
-  rw [readLine_wrap_def, handle_Fail_def, st_ex_bind_def,
+  rw [readLine_wrap_def, handle_Failure_def, st_ex_bind_def,
       st_ex_return_def, case_eq_thms]
   \\ fs []
   \\ metis_tac [readLine_thm, APPEND_NIL]
@@ -35,10 +35,10 @@ Theorem init_reader_wrap_thm:
    init_reader_wrap () init_refs = (res, refs')
    ==>
    ?defs x.
-     res = Success x /\
+     res = M_success x /\
      STATE defs refs'
 Proof
-  rw [init_reader_wrap_def, handle_Fail_def, st_ex_bind_def, st_ex_return_def,
+  rw [init_reader_wrap_def, handle_Failure_def, st_ex_bind_def, st_ex_return_def,
       case_eq_thms] \\ fs []
   \\ metis_tac [init_reader_ok]
 QED
@@ -48,7 +48,7 @@ QED
 (* ------------------------------------------------------------------------- *)
 
 Theorem ffi_msg_simp[simp]:
-   ffi_msg msg s = (Success (), s)
+   ffi_msg msg s = (M_success (), s)
 Proof
   rw [ffi_msg_def, st_ex_return_def]
 QED
@@ -60,7 +60,7 @@ Theorem readLines_thm:
      readLines s lines st = (res, st1)
      ==>
      ?ds x.
-       res = Success () /\
+       res = M_success () /\
        STATE (ds ++ defs) st1.holrefs
 Proof
   recInduct readLines_ind \\ rw []
@@ -78,7 +78,7 @@ Proof
     [ALL_TAC, imp_res_tac readLine_wrap_thm \\ fs []]
   \\ drule (GEN_ALL readLine_wrap_thm)
   \\ rpt (disch_then drule) \\ rw []
-  \\ fs [readLine_wrap_def, handle_Fail_def, st_ex_return_def,
+  \\ fs [readLine_wrap_def, handle_Failure_def, st_ex_return_def,
          st_ex_bind_def, case_eq_thms]
   \\ fs [bool_case_eq, COND_RATOR, case_eq_thms] \\ rw [] \\ fs []
   \\ drule (GEN_ALL next_line_thm) \\ rw []
@@ -98,7 +98,7 @@ QED
 Theorem readMain_thm:
    readMain () (c with holrefs := init_refs) = (res, c')
    ==>
-   res = Success () /\
+   res = M_success () /\
    ?ds. STATE ds c'.holrefs
 Proof
   rw [readMain_def, st_ex_bind_def, st_ex_return_def, case_eq_thms,
@@ -142,11 +142,11 @@ Theorem readLine_wrap_correct:
    process_line s refs line = res_p
    ==>
    case res of
-     Success (INL s) (* Error *) => res_p = (INR s, refs_out)
-   | Success (INR s) (* Ok *)    => res_p = (INL s, refs_out)
+     M_success (INL s) (* Error *) => res_p = (INR s, refs_out)
+   | M_success (INR s) (* Ok *)    => res_p = (INL s, refs_out)
    | _ => F (* Does not happen *)
 Proof
-  rw [readLine_wrap_def, handle_Fail_def, st_ex_bind_def, st_ex_return_def,
+  rw [readLine_wrap_def, handle_Failure_def, st_ex_bind_def, st_ex_return_def,
       process_line_def, case_eq_thms] \\ fs []
 QED
 
@@ -157,16 +157,16 @@ Theorem readLine_EQ:
    ==>
    t1 = t2 /\
    case res1 of
-     Success (INL e) => res2 = Failure (Fail e)
-   | Success (INR s) => res2 = Success s
+     M_success (INL e) => res2 = M_failure (Failure e)
+   | M_success (INR s) => res2 = M_success s
    | _ => F
 Proof
-  rw [readLine_wrap_def, st_ex_bind_def, st_ex_return_def, handle_Fail_def,
+  rw [readLine_wrap_def, st_ex_bind_def, st_ex_return_def, handle_Failure_def,
       case_eq_thms] \\ fs []
 QED
 
 Theorem readLine_wrap_invalid_line:
-   invalid_line h ==> readLine_wrap (h, s) c = (Success (INR s), c)
+   invalid_line h ==> readLine_wrap (h, s) c = (M_success (INR s), c)
 Proof
   rw [readLine_wrap_def, st_ex_return_def]
 QED
@@ -177,11 +177,11 @@ Theorem readLines_EQ:
      readLines line s c.holrefs = (res2, refs)
      ==>
      refs = c_out.holrefs /\
-     res1 = Success () /\
+     res1 = M_success () /\
      case res2 of
-       Success (s,_) =>
+       M_success (s,_) =>
          c_out.stdio = add_stdout c.stdio (msg_success s refs.the_context)
-     | Failure (Fail e) => c_out.stdio = add_stderr c.stdio e
+     | M_failure (Failure e) => c_out.stdio = add_stderr c.stdio e
      | _ => F
 Proof
   recInduct readLines_ind \\ rw []
@@ -190,7 +190,7 @@ Proof
   \\ `!x. x with holrefs := x.holrefs = x`
     by fs [state_refs_component_equality]
   \\ Cases_on `lines` \\ fs []
-  \\ fs [st_ex_return_def, st_ex_bind_def, handle_Fail_def, raise_Fail_def]
+  \\ fs [st_ex_return_def, st_ex_bind_def, handle_Failure_def, raise_Failure_def]
   \\ rw [print_def, print_err_def, liftM_def, context_def,
          get_the_context_def]
   \\ fs []
@@ -208,7 +208,7 @@ Theorem readFile_correct:
    readFile fname c = (res, c_out) /\
    read_file c.stdio c.holrefs fname = (succ, fs, refs, fstate)
    ==>
-   res = Success () /\ fs = c_out.stdio /\ refs = c_out.holrefs
+   res = M_success () /\ fs = c_out.stdio /\ refs = c_out.holrefs
 Proof
   rw [readFile_def, read_file_def, st_ex_bind_def, st_ex_return_def,
       case_eq_thms]
@@ -221,10 +221,10 @@ Theorem readMain_correct:
    readMain () c = (res, c_out) /\
    reader_main c.stdio c.holrefs (TL c.cl) = (succ, fs, refs, fstate)
    ==>
-   res = Success () /\ fs = c_out.stdio
+   res = M_success () /\ fs = c_out.stdio
 Proof
   simp [readMain_def, st_ex_bind_def, case_eq_thms, arguments_def, liftM_def,
-        print_err_def, init_reader_wrap_def, handle_Fail_def, st_ex_return_def,
+        print_err_def, init_reader_wrap_def, handle_Failure_def, st_ex_return_def,
         st_ex_bind_def]
   \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
   >- (rw [reader_main_def, state_refs_component_equality] \\ fs [])

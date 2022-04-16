@@ -80,7 +80,7 @@ val run_proof_arr = (append_prog o process_topdecs) `
        (list_delete_arr cls fml;
        Hashtable.delete hm c;
        run_proof_arr fml inds earr hm n mv rest))
-  | Add_1 c =>
+  | Add c =>
     let val earr = update_earliest_arr earr n c
         val mv = max mv (list_max_index c + 1)
         val u = hash_ins hm c n
@@ -146,7 +146,7 @@ Proof
     qexists_tac`emp`>>qexists_tac`h' \\ l`>>xsimpl>>
     pairarg_tac>>simp[]>>
     xsimpl)>>
-  (* "Add_1" case -- annoying... *)
+  (* "Add" case -- annoying... *)
   rpt xlet_autop>>
   xlet`POSTv uv.
        ARRAY fmlv fmllsv *
@@ -172,7 +172,7 @@ val run_proof_hash_arr = (append_prog o process_topdecs) `
     Del c =>
       (Hashtable.delete hm c;
        run_proof_hash_arr hm n rest)
-  | Add_1 c =>
+  | Add c =>
       (hash_ins hm c n;
       run_proof_hash_arr hm (n+1) rest))`
 
@@ -213,7 +213,7 @@ Proof
     DEP_REWRITE_TAC[DOMSUB_NOT_IN_DOM]>>
     fs[FDOM_FLOOKUP]>>
     xsimpl)>>
-  (* "Add_1" case -- annoying... *)
+  (* "Add" case -- annoying... *)
   xlet`POSTv uv.
        HASHTABLE (LIST_TYPE INT) (LIST_TYPE NUM) hash_func order_lists (hash_insert h' l n) hv`
   >- (

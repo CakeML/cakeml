@@ -33,6 +33,10 @@ Examples on the topic of doubling a number.
 [echoProgScript.sml](echoProgScript.sml):
 echo program example: print the command line arguments.
 
+[eval](eval):
+A simple example of using eval, to help work out the development of the
+bootstrapped compiler supporting eval.
+
 [filterProgScript.sml](filterProgScript.sml):
 Filter case study from CASE.
 

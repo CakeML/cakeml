@@ -1,4 +1,4 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics\
+INCLUDES = $(CAKEMLDIR)/misc lisp $(CAKEMLDIR)/semantics\
 					 $(CAKEMLDIR)/translator $(CAKEMLDIR)/translator/monadic\
 					 $(CAKEMLDIR)/basis $(CAKEMLDIR)/basis/pure\
 					 $(CAKEMLDIR)/characteristic ../monadic

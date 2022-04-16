@@ -42,6 +42,9 @@ Usage:  cake --help
 
 OPTIONS:
 
+  --repl        starts an interactive read-eval-print loop; all other
+                flags are ignored, when the --repl flag is present
+
   --reg_alg=N   N is a natural number that specifies the register
                 allocation algorithm to use:
                    0   - simple allocator, no spill heuristics

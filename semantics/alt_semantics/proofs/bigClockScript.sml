@@ -237,6 +237,18 @@ Proof
              big_unclocked_ignore, big_unclocked]
 QED
 
+Theorem big_clocked_unclocked_equiv_list:
+  !s env e s' r1.
+    evaluate_list F env s e (s', r1) =
+    ?c. evaluate_list T env (s with clock := c) e (s' with clock := 0,r1) ∧
+        (r1 ≠ Rerr (Rabort Rtimeout_error)) ∧
+        (s.clock = s'.clock)
+Proof
+  metis_tac [with_clock_clock, with_same_clock, add_clock,
+             big_unclocked_ignore, big_unclocked_unchanged, FST, SND,
+             with_clock_with_clock]
+QED
+
 Triviality wf_lem:
   WF (($< :(num->num->bool)) LEX measure exp_size)
 Proof
@@ -508,6 +520,16 @@ Proof
   metis_tac [big_clocked_total_lem, FST, SND, with_same_clock]
 QED
 
+Theorem big_clocked_list_total:
+  ∀es env s. ∃r. evaluate_list T env s es r
+Proof
+  Induct >> rw[Once evaluate_cases, SF DNF_ss] >>
+  qspecl_then [`s`,`env`,`h`] assume_tac big_clocked_total >> gvs[] >>
+  Cases_on `r` >> gvs[SF SFY_ss] >>
+  first_x_assum $ qspecl_then [`env`,`s'`] assume_tac >> gvs[] >>
+  PairCases_on `r` >> Cases_on `r1` >>  gvs[SF SFY_ss]
+QED
+
 Theorem big_clocked_timeout_0:
   (∀ck env ^s e r1.
      evaluate ck env s e r1 ⇒
@@ -625,5 +647,345 @@ Proof
   `s'.clock = 0 + s'.clock ∧ s.clock = (s.clock - s'.clock) + s'.clock:num` by decide_tac >>
   metis_tac [sub_from_counter]
 QED
+
+Theorem clocked_min_counter_list:
+  ∀s env e s' r'.
+    evaluate_list T env s e (s',r')
+  ⇒ evaluate_list T env (s with clock := s.clock - s'.clock) e (s' with clock := 0, r')
+Proof
+  rw[] >> irule $ cj 2 sub_from_counter >> simp[] >>
+  imp_res_tac clock_monotone >> gvs[]
+QED
+
+Theorem big_clocked_to_unclocked:
+  evaluate T env s e (s',r) ∧
+  r ≠ Rerr (Rabort Rtimeout_error) ⇒
+  evaluate F env s e (s' with clock := s.clock, r)
+Proof
+  rw[] >> drule clocked_min_counter >> rw[] >>
+  simp[big_clocked_unclocked_equiv] >> goal_assum drule
+QED
+
+Theorem big_clocked_to_unclocked_list:
+  ∀env s e r.
+  evaluate_list T env s e r ∧
+  SND r ≠ Rerr (Rabort Rtimeout_error) ⇒
+  evaluate_list F env s e (FST r with clock := s.clock, SND r)
+Proof
+  rw[] >> PairCases_on `r` >> gvs[] >>
+  drule clocked_min_counter_list >> rw[] >>
+  drule $ cj 2 big_unclocked_ignore >> simp[] >>
+  disch_then $ qspec_then `s.clock` mp_tac >>
+  qsuff_tac `s with clock := s.clock = s` >> rw[] >>
+  simp[state_component_equality]
+QED
+
+Theorem evaluate_decs_clocked_to_unclocked_lemma[local]:
+  (∀ck env (st:'ffi semanticPrimitives$state) d res.
+    evaluate_dec ck env st d res ⇒ ck ∧
+    SND res ≠ Rerr (Rabort Rtimeout_error)
+  ⇒ ∀c. evaluate_dec F env (st with clock := c) d
+          (FST res with clock := c, SND res)) ∧
+  (∀ck env (st:'ffi semanticPrimitives$state) ds res.
+    evaluate_decs ck env st ds res ⇒ ck ∧
+    SND res ≠ Rerr (Rabort Rtimeout_error)
+  ⇒ ∀c. evaluate_decs F env (st with clock := c) ds
+          (FST res with clock := c, SND res))
+Proof
+  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+  simp[Once evaluate_dec_cases, with_same_clock] >> gvs[]
+  >- (
+    drule $ cj 1 big_unclocked_ignore >> simp[] >>
+    disch_then $ irule_at Any >> simp[]
+    )
+  >- (
+    disj1_tac >> drule $ cj 1 big_unclocked_ignore >> simp[] >>
+    disch_then $ irule_at Any >> simp[]
+    )
+  >- (
+    disj1_tac >> drule $ cj 1 big_unclocked_ignore >> simp[] >>
+    disch_then $ irule_at Any >> simp[]
+    )
+  >- (
+    drule $ cj 1 big_unclocked_ignore >> simp[]
+    )
+  >- (irule_at Any EQ_REFL >> gvs[])
+  >- (
+    disj1_tac >> last_x_assum $ irule_at Any >> simp[]
+    )
+  >- (
+    disj2_tac >> irule_at Any EQ_REFL >>
+    last_x_assum $ irule_at Any >> first_x_assum irule >>
+    Cases_on `r` >> gvs[semanticPrimitivesTheory.combine_dec_result_def]
+    )
+QED
+
+Theorem evaluate_decs_clocked_to_unclocked =
+  evaluate_decs_clocked_to_unclocked_lemma |>
+  CONJUNCTS |> map (Q.SPEC `T`) |> LIST_CONJ |>
+  SIMP_RULE (srw_ss()) [FORALL_PROD, AND_IMP_INTRO];
+
+Theorem evaluate_decs_add_to_clock_lemma[local]:
+  (∀ck env (st:'ffi semanticPrimitives$state) d res.
+    evaluate_dec ck env st d res ⇒ ck ∧ SND res ≠ Rerr (Rabort Rtimeout_error)
+  ⇒ ∀extra. evaluate_dec T env (st with clock := st.clock + extra) d
+          (FST res with clock := (FST res).clock + extra, SND res)) ∧
+  (∀ck env (st:'ffi semanticPrimitives$state) ds res.
+    evaluate_decs ck env st ds res ⇒ ck ∧ SND res ≠ Rerr (Rabort Rtimeout_error)
+  ⇒ ∀extra. evaluate_decs T env (st with clock := st.clock + extra) ds
+          (FST res with clock := (FST res).clock + extra, SND res))
+Proof
+  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+  simp[Once evaluate_dec_cases] >> gvs[]
+  >- (
+    drule $ cj 1 add_to_counter >> simp[] >>
+    disch_then $ irule_at Any >> simp[]
+    )
+  >- (
+    disj1_tac >> drule $ cj 1 add_to_counter >> simp[] >>
+    disch_then $ irule_at Any >> simp[]
+    )
+  >- (
+    disj1_tac >> drule $ cj 1 add_to_counter >> simp[] >>
+    disch_then $ irule_at Any >> simp[]
+    )
+  >- (drule $ cj 1 add_to_counter >> simp[])
+  >- (irule_at Any EQ_REFL >> simp[])
+  >- (disj1_tac >> first_x_assum $ irule_at Any >> simp[])
+  >- (
+    disj2_tac >> irule_at Any EQ_REFL >>
+    first_x_assum $ irule_at Any >> simp[] >>
+    Cases_on `r` >> gvs[semanticPrimitivesTheory.combine_dec_result_def]
+    )
+QED
+
+Theorem evaluate_decs_add_to_clock =
+  evaluate_decs_add_to_clock_lemma |>
+  CONJUNCTS |> map (Q.SPEC `T`) |> LIST_CONJ |>
+  SIMP_RULE (srw_ss()) [FORALL_PROD, AND_IMP_INTRO];
+
+Theorem evaluate_decs_clock_mono_lemma[local]:
+  (∀ck env (st:'ffi semanticPrimitives$state) d res.
+    evaluate_dec ck env st d res ⇒ ck ⇒ (FST res).clock ≤ st.clock) ∧
+  (∀ck env (st:'ffi semanticPrimitives$state) ds res.
+    evaluate_decs ck env st ds res ⇒ ck ⇒ (FST res).clock ≤ st.clock)
+Proof
+  ho_match_mp_tac evaluate_dec_ind >> rw[] >> gvs[] >>
+  metis_tac[clock_monotone]
+QED
+
+Theorem evaluate_decs_clock_mono =
+  evaluate_decs_clock_mono_lemma |>
+  CONJUNCTS |> map (Q.SPEC `T`) |> LIST_CONJ |>
+  SIMP_RULE (srw_ss()) [FORALL_PROD, AND_IMP_INTRO];
+
+Theorem evaluate_decs_min_clock_lemma[local]:
+  (∀ck env (st:'ffi semanticPrimitives$state) d res.
+    evaluate_dec ck env st d res ⇒ ck ∧ SND res ≠ Rerr (Rabort Rtimeout_error) ⇒
+    ∀c. c ≤ st.clock ∧ c ≤ (FST res).clock
+  ⇒ evaluate_dec T env (st with clock := st.clock - c) d
+          (FST res with clock := (FST res).clock - c, SND res)) ∧
+  (∀ck env (st:'ffi semanticPrimitives$state) ds res.
+    evaluate_decs ck env st ds res ⇒ ck ∧ SND res ≠ Rerr (Rabort Rtimeout_error) ⇒
+    ∀c. c ≤ st.clock ∧ c ≤ (FST res).clock
+  ⇒ evaluate_decs T env (st with clock := st.clock - c) ds
+          (FST res with clock := (FST res).clock - c, SND res))
+Proof
+  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+  simp[Once evaluate_dec_cases] >> gvs[]
+  >- (
+    drule $ cj 1 sub_from_counter >> simp[] >>
+    disch_then $ irule_at Any >> simp[] >> gvs[LESS_EQ_EXISTS]
+    )
+  >- (
+    disj1_tac >> drule $ cj 1 sub_from_counter >> simp[] >>
+    disch_then $ irule_at Any >> simp[] >> gvs[LESS_EQ_EXISTS]
+    )
+  >- (
+    disj1_tac >> drule $ cj 1 sub_from_counter >> simp[] >>
+    disch_then $ irule_at Any >> simp[] >> gvs[LESS_EQ_EXISTS]
+    )
+  >- (
+    disj2_tac >> disj2_tac >> drule $ cj 1 sub_from_counter >> simp[] >>
+    disch_then $ irule_at Any >> simp[] >> gvs[LESS_EQ_EXISTS]
+    )
+  >- (irule_at Any EQ_REFL >> simp[])
+  >- (
+    disj1_tac >> ntac 2 (last_assum $ irule_at Any) >> simp[] >>
+    first_x_assum $ qspec_then `0` assume_tac >> gvs[] >>
+    imp_res_tac evaluate_decs_clock_mono >> gvs[]
+    )
+  >- (
+    disj2_tac >> irule_at Any EQ_REFL >>
+    ntac 2 (first_assum $ irule_at Any >> simp[]) >>
+    conj_asm1_tac >> gvs[]
+    >- (Cases_on `r` >> gvs[semanticPrimitivesTheory.combine_dec_result_def]) >>
+    first_x_assum $ qspec_then `0` assume_tac >> gvs[] >>
+    imp_res_tac evaluate_decs_clock_mono >> gvs[]
+    )
+QED
+
+Theorem evaluate_decs_min_clock:
+  (∀ck env (st:'ffi semanticPrimitives$state) d st' res.
+    evaluate_dec T env st d (st', res) ∧
+    res ≠ Rerr (Rabort Rtimeout_error)
+  ⇒ evaluate_dec T env (st with clock := st.clock - st'.clock) d
+      (st' with clock := 0, res)) ∧
+  (∀ck env (st:'ffi semanticPrimitives$state) ds st' res.
+    evaluate_decs T env st ds (st', res) ∧
+    res ≠ Rerr (Rabort Rtimeout_error)
+  ⇒ evaluate_decs T env (st with clock := st.clock - st'.clock) ds
+      (st' with clock := 0, res))
+Proof
+  rw[] >> imp_res_tac evaluate_decs_min_clock_lemma >> gvs[] >>
+  pop_assum $ qspec_then `st'.clock` mp_tac >> simp[] >>
+  disch_then irule >> metis_tac[evaluate_decs_clock_mono]
+QED
+
+Theorem evaluate_decs_unclocked_to_clocked_lemma[local]:
+  (∀ck env (st:'ffi semanticPrimitives$state) d res.
+    evaluate_dec ck env st d res ⇒ ¬ck
+  ⇒ ∃c c'. evaluate_dec T env (st with clock := c) d
+          (FST res with clock := c', SND res)) ∧
+  (∀ck env (st:'ffi semanticPrimitives$state) ds res.
+    evaluate_decs ck env st ds res ⇒ ¬ck
+  ⇒ ∃c c'. evaluate_decs T env (st with clock := c) ds
+          (FST res with clock := c', SND res))
+Proof
+  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+  simp[Once evaluate_dec_cases, with_same_clock] >> gvs[] >>
+  gvs[big_clocked_unclocked_equiv]
+  >- (goal_assum drule >> simp[])
+  >- (irule_at Any OR_INTRO_THM1 >> goal_assum drule >> simp[])
+  >- (irule_at Any OR_INTRO_THM1 >> goal_assum drule >> simp[])
+  >- (irule_at Any EQ_REFL)
+  >- (
+    irule_at Any OR_INTRO_THM2 >> irule_at Any OR_INTRO_THM2 >>
+    goal_assum drule >> simp[]
+    )
+  >- irule_at Any EQ_REFL
+  >- irule_at Any EQ_REFL
+  >- irule_at Any EQ_REFL
+  >- irule_at Any EQ_REFL
+  >- irule_at Any EQ_REFL
+  >- irule_at Any EQ_REFL
+  >- irule_at Any EQ_REFL
+  >- irule_at Any EQ_REFL
+  >- (irule_at Any EQ_REFL >> simp[] >> pop_assum $ irule_at Any)
+  >- (
+    irule_at Any OR_INTRO_THM1 >>
+    rename1 `evaluate_decs _ env (_ with clock := a) _ (_ with clock := b,_)` >>
+    rename1 `evaluate_decs _ _ (_ with clock := c) _ (_ with clock := d,_)` >>
+    last_x_assum assume_tac >>
+    drule $ cj 2 evaluate_decs_min_clock >> simp[] >> strip_tac >>
+    drule $ cj 2 evaluate_decs_add_to_clock >> simp[] >>
+    disch_then $ qspec_then `c` assume_tac >>
+    goal_assum drule >> goal_assum drule
+    )
+  >- (irule_at Any OR_INTRO_THM2 >> goal_assum drule)
+  >- irule_at Any EQ_REFL
+  >- (irule_at Any OR_INTRO_THM1 >> goal_assum drule)
+  >- (
+    irule_at Any OR_INTRO_THM2 >> irule_at Any EQ_REFL >>
+    rename1 `evaluate_dec _ env (_ with clock := a) _ (_ with clock := b,_)` >>
+    rename1 `evaluate_decs _ _ (_ with clock := c) _ (_ with clock := c',_)` >>
+    drule $ cj 1 evaluate_decs_min_clock >> simp[] >> strip_tac >>
+    drule $ cj 1 evaluate_decs_add_to_clock >> simp[] >>
+    disch_then $ qspec_then `c` assume_tac >>
+    goal_assum drule >> goal_assum drule
+    )
+QED
+
+Theorem evaluate_decs_unclocked_to_clocked =
+  evaluate_decs_unclocked_to_clocked_lemma |>
+  CONJUNCTS |> map (Q.SPEC `F`) |> LIST_CONJ |>
+  SIMP_RULE (srw_ss()) [FORALL_PROD, AND_IMP_INTRO];
+
+Triviality wf_dec_lem:
+  WF $ ($< : num -> num -> bool) LEX measure dec_size
+Proof
+  simp[WF_LEX]
+QED
+
+Triviality dec_ind = MATCH_MP WF_INDUCTION_THM wf_dec_lem;
+
+Theorem evaluate_decs_total_lemma:
+  ∀ds env ^s clk.
+    (∀clk' d env ^s. clk' < clk ⇒
+      ∃s' r. evaluate_dec T env (s with clock := clk') d (s', r)) ∧
+    (∀d env ^s. dec_size d < dec1_size ds ⇒
+      ∃s' r. evaluate_dec T env (s with clock := clk) d (s', r))
+  ⇒ ∃s' r. evaluate_decs T env (s with clock := clk) ds (s',r)
+Proof
+  Induct >> rw[] >> simp[Once evaluate_dec_cases] >>
+  gvs[SF DNF_ss, astTheory.dec_size_def] >>
+  first_assum $ qspecl_then [`h`,`env`,`s`] mp_tac >>
+  impl_tac >- simp[] >> strip_tac >> gvs[] >>
+  Cases_on `r` >> gvs[SF SFY_ss] >> disj2_tac >> goal_assum drule >>
+  simp[Once $ GSYM with_same_clock] >> last_x_assum irule >> rw[] >>
+  imp_res_tac evaluate_decs_clock_mono >> gvs[] >>
+  Cases_on `s'.clock = clk` >> gvs[]
+QED
+
+Theorem big_clocked_dec_total:
+  ∀env st d.  ∃r. evaluate_dec T env st d r
+Proof
+  qsuff_tac
+    `∀cd env st.
+      ∃st' r. evaluate_dec T env (st with clock := FST cd) (SND cd) (st', r)`
+  >- (
+    rw[] >> first_x_assum $ qspecl_then [`(st.clock, d)`,`env`,`st`] assume_tac >>
+    gvs[with_same_clock, SF SFY_ss]
+    ) >>
+  Induct using dec_ind >> rw[] >>
+  PairCases_on `cd` >> rename1 `clk,d` >> gvs[FORALL_PROD, LEX_DEF_THM, SF DNF_ss] >>
+  Cases_on `d` >> rw[Once evaluate_dec_cases, SF DNF_ss]
+  >- ( (* Dlet *)
+    Cases_on `ALL_DISTINCT (pat_bindings p [])` >> gvs[] >>
+    qspecl_then [`st with clock := clk`,`env`,`e`] assume_tac big_clocked_total >>
+    gvs[] >> Cases_on `r` >> gvs[SF SFY_ss] >>
+    Cases_on `pmatch env.c s'.refs p a []` >> gvs[SF SFY_ss]
+    )
+  >- rw[DISJ_EQ_IMP]
+  >- (
+    gvs[astTheory.dec_size_def] >>
+    drule_at Any evaluate_decs_total_lemma >>
+    disch_then $ qspecl_then [`l`,`env`,`st`] mp_tac >> impl_tac >> rw[] >>
+    Cases_on `r` >> gvs[SF SFY_ss]
+    )
+  >- (
+    gvs[astTheory.dec_size_def] >>
+    drule_at Any evaluate_decs_total_lemma >>
+    disch_then $ qspecl_then [`l`,`env`,`st`] mp_tac >> impl_tac >> rw[] >>
+    Cases_on `r` >> gvs[SF SFY_ss] >> disj1_tac >> goal_assum drule >>
+    dxrule $ cj 2 evaluate_decs_clock_mono >> rw[] >> gvs[] >>
+    simp[Once $ GSYM with_same_clock] >> irule evaluate_decs_total_lemma >>
+    rw[] >> Cases_on `s'.clock = clk` >> gvs[]
+    )
+  >- (
+    Cases_on `declare_env st.eval_state env` >> gvs[] >> PairCases_on `x` >> gvs[]
+    )
+QED
+
+Theorem big_clocked_decs_total:
+  ∀ds env st. ∃r. evaluate_decs T env st ds r
+Proof
+  Induct >> rw[] >> simp[Once evaluate_dec_cases, SF DNF_ss] >>
+  qspecl_then [`env`,`st`,`h`] assume_tac big_clocked_dec_total >> gvs[] >>
+  PairCases_on `r` >> Cases_on `r1` >> gvs[SF SFY_ss] >>
+  disj2_tac >> goal_assum dxrule >> metis_tac[PAIR]
+QED
+
+Theorem big_dec_unclocked_no_timeout:
+  (∀ck env ^s d r.
+    evaluate_dec ck env s d r ⇒ ¬ck ⇒ SND r ≠ Rerr (Rabort Rtimeout_error)) ∧
+  (∀ck env ^s ds r.
+    evaluate_decs ck env s ds r ⇒ ¬ck ⇒ SND r ≠ Rerr (Rabort Rtimeout_error))
+Proof
+  ho_match_mp_tac evaluate_dec_ind >> rw[] >> gvs[] >>
+  imp_res_tac big_unclocked >> gvs[] >>
+  Cases_on `r` >> gvs[combine_dec_result_def]
+QED
+
 
 val _ = export_theory ();

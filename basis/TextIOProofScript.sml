@@ -824,10 +824,12 @@ val instream_buffered_inv_def = Define `
       bactive = TAKE (w-r) (DROP r bcontent))`;
       (*(bactive = [] <=> r = w))*)
 
+Overload TypeStamp_InstreamBuffered = “TypeStamp "InstreamBuffered" 12”;
+
 val INSTREAM_BUFFERED_def = Define `
   INSTREAM_BUFFERED bactive is =
     SEP_EXISTS rr r wr w buff bcontent fd fdv.
-      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 31)) [fdv; rr; wr; buff]) /\
+      & (is = (Conv instreambuffered_con_stamp [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
@@ -837,7 +839,7 @@ val INSTREAM_BUFFERED_def = Define `
 val INSTREAM_BUFFERED_FD_def = Define `
   INSTREAM_BUFFERED_FD bactive fd is =
     SEP_EXISTS rr r wr w buff bcontent fdv.
-      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 31)) [fdv; rr; wr; buff]) /\
+      & (is = (Conv instreambuffered_con_stamp [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
@@ -847,7 +849,7 @@ val INSTREAM_BUFFERED_FD_def = Define `
 val INSTREAM_BUFFERED_BL_FD_def = Define `
   INSTREAM_BUFFERED_BL_FD bcontent bactive fd is =
     SEP_EXISTS rr r wr w buff fdv.
-      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 31)) [fdv; rr; wr; buff]) /\
+      & (is = (Conv instreambuffered_con_stamp [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
@@ -857,7 +859,7 @@ val INSTREAM_BUFFERED_BL_FD_def = Define `
 val INSTREAM_BUFFERED_BL_FD_RW_def = Define `
   INSTREAM_BUFFERED_BL_FD_RW bcontent bactive fd r w is =
     SEP_EXISTS rr wr buff fdv.
-      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 31)) [fdv; rr; wr; buff]) /\
+      & (is = (Conv instreambuffered_con_stamp [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
@@ -1541,7 +1543,7 @@ Proof
 QED
 
 val print_def = Define `
-  print s = (\fs. (Success (), add_stdout fs s))`
+  print s = (\fs. (M_success (), add_stdout fs s))`
 
 Theorem EvalM_print:
    Eval env exp (STRING_TYPE x) /\
@@ -1584,7 +1586,7 @@ Proof
 QED
 
 val print_err_def = Define `
-  print_err s = (\fs. (Success (), add_stderr fs s))`;
+  print_err s = (\fs. (M_success (), add_stderr fs s))`;
 
 Theorem EvalM_print_err:
    Eval env exp (STRING_TYPE x) /\
@@ -2189,6 +2191,7 @@ Proof
                         (W8ARRAY v' (REPLICATE (MIN 65535 (MAX (bsize+4) 1028)) 48w)) *
                         IOFS fs`
   >-(xref \\ fs[REF_NUM_def,MIN_DEF] \\ xsimpl)
+
   \\ xcon \\ fs[INSTREAM_BUFFERED_FD_def] \\ xsimpl
   \\ map_every qexists_tac [`4`, `4`]
   \\ fs[instream_buffered_inv_def,MAX_DEF] \\ xsimpl
@@ -2357,7 +2360,7 @@ QED
 
 Theorem b_refillBuffer_with_read_spec:
   !fd fdv fs content pos.
-  is = (Conv (SOME (TypeStamp "InstreamBuffered" 31)) [fdv; rr; wr; isbuff]) /\
+  is = (Conv instreambuffered_con_stamp [fdv; rr; wr; isbuff]) /\
   get_file_content fs fd = SOME(content, pos) ⇒
   get_mode fs fd = SOME ReadMode ⇒
   app (p:'ffi ffi_proj) TextIO_b_refillBuffer_with_read_v [is;]
@@ -5654,8 +5657,7 @@ Proof
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
-  \\ qpat_x_assum`is =
-   Conv (SOME (TypeStamp "InstreamBuffered" 31)) [fdv; rr; wr; buff]` mp_tac
+  \\ qpat_x_assum`is = Conv _ [fdv; rr; wr; buff]` mp_tac
   \\ rveq \\ strip_tac \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
@@ -6287,9 +6289,9 @@ QED
 
 val inputLinesFrom_def = Define `
   inputLinesFrom f =
-    (\fs. (Success (if inFS_fname fs f then
-                      SOME(all_lines fs f)
-                    else NONE), fs))`;
+    (\fs. (M_success (if inFS_fname fs f then
+                        SOME(all_lines fs f)
+                      else NONE), fs))`;
 
 Theorem EvalM_inputLinesFrom:
    Eval env exp (FILENAME f) /\
@@ -7435,9 +7437,9 @@ QED
 
 Definition b_inputAllTokensStdIn_def:
   b_inputAllTokensStdIn f g=
-  (\fs. (Success (SOME (MAP (MAP g o tokens f)
-                      (lines_of (implode (THE (stdin_content fs)))))),
-         fastForwardFD fs 0))
+  (\fs. (M_success (SOME (MAP (MAP g o tokens f)
+                        (lines_of (implode (THE (stdin_content fs)))))),
+           fastForwardFD fs 0))
 End
 
 (* Theorem EvalM_b_inputAllTokensStdIn: *)
@@ -7735,7 +7737,7 @@ QED
 
 Definition b_inputLinesStdIn_def:
   b_inputLinesStdIn =
-    λfs. (Success (lines_of (implode (THE (stdin_content fs)))), fastForwardFD fs 0)
+    λfs. (M_success (lines_of (implode (THE (stdin_content fs)))), fastForwardFD fs 0)
 End
 
 Theorem EvalM_b_inputLinesStdIn:

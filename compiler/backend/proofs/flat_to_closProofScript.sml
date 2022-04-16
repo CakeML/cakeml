@@ -1019,6 +1019,7 @@ QED
 
 Theorem op_arrays:
   op = Aalloc \/
+  op = AallocFixed \/
   op = Asub_unsafe \/
   op = Asub \/
   op = Alength \/
@@ -1047,6 +1048,14 @@ Proof
     \\ fs [FLOOKUP_UPDATE,EL_LUPDATE,EL_APPEND1,EL_APPEND2]
     \\ Cases_on `LENGTH s1.refs = i'` \\ fs [] \\ rveq \\ fs [] \\ rw []
     \\ qspec_tac (`Num i`,`j`) \\ Induct \\ fs [])
+  THEN1
+   (fs [] \\ rw []
+    \\ fs [state_rel_def,store_rel_def,EL_LUPDATE]
+    \\ strip_tac
+    \\ first_x_assum (qspec_then `i` mp_tac)
+    \\ IF_CASES_TAC
+    \\ fs [FLOOKUP_UPDATE,EL_LUPDATE,EL_APPEND1,EL_APPEND2]
+    \\ Cases_on `LENGTH s1.refs = i` \\ fs [] \\ rveq \\ fs [] \\ rw [])
   THEN1
    (imp_res_tac lookup_array \\ fs [GREATER_EQ,GSYM NOT_LESS,v_rel_def]
     \\ fs [bool_case_eq] \\ rveq \\ fs [integerTheory.int_le]

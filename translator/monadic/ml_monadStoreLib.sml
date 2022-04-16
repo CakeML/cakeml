@@ -266,7 +266,7 @@ fun create_store refs_init_list rarrays_init_list farrays_init_list =
           val e = mk_opref_expr init_name
           val eval_thm = REWRITE_RULE [ML_code_env_def]
                                       (derive_eval_thm false name e)
-          val _ = ml_prog_update (add_Dlet eval_thm name [])
+          val _ = ml_prog_update (add_Dlet eval_thm name)
           val ref_def = DB.fetch (current_theory()) (name ^ "_def")
         in
           (value_def, ref_def)
@@ -281,7 +281,7 @@ fun create_store refs_init_list rarrays_init_list farrays_init_list =
 
           val (array_v_def, array_loc_def, ref_def, eval_th) =
             derive_eval_thm_ALLOCATE_EMPTY_ARRAY init_name def
-          val _ = ml_prog_update(add_Dlet eval_th name [])
+          val _ = ml_prog_update(add_Dlet eval_th name)
         in
           (array_v_def, array_loc_def, ref_def)
         end
@@ -293,7 +293,7 @@ fun create_store refs_init_list rarrays_init_list farrays_init_list =
       fun create_farray (name, (n, def)) =
         let
           val (array_v_def, array_loc_def, eval_th) = derive_eval_thm_ALLOCATE_ARRAY name n def
-          val _ = ml_prog_update (add_Dlet eval_th name [])
+          val _ = ml_prog_update (add_Dlet eval_th name)
         in
           (array_v_def, array_loc_def)
         end

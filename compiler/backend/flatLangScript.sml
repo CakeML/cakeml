@@ -73,6 +73,7 @@ val _ = Datatype `
   | Vlength
   (* Array operations *)
   | Aalloc
+  | AallocFixed
   | Asub
   | Alength
   | Aupdate

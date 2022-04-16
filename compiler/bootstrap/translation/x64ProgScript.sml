@@ -271,7 +271,7 @@ else
   false
 
 val case_append = Q.prove(`
-  (case A ++ [B;C] ++ D of [] => E | ls => ls) = A++[B;C]++D`,
+  (case a ++ [b;c] ++ d of [] => x | ls => ls) = a++[b;c]++d`,
   EVERY_CASE_TAC>>fs[]);
 
 val x64_enc3_2_th =
@@ -287,7 +287,7 @@ val x64_simp3 =
 val x64_simp4 = x64_enc4 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
 
 val case_append2 = Q.prove(`
-  (case A ++ [B;C] of [] => E | ls => ls) = A++[B;C]`,
+  (case a ++ [b;c] of [] => e | ls => ls) = a++[b;c]`,
   EVERY_CASE_TAC>>fs[]);
 
 val x64_simp5 = x64_enc5 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |>

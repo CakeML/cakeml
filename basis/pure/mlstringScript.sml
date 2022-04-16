@@ -198,6 +198,12 @@ Proof
   rw[strcat_def,concat_def] \\ CASE_TAC \\ rw[]
 QED
 
+Theorem concat_append:
+  concat (xs ++ ys) = concat xs ^ concat ys
+Proof
+  Induct_on `xs` \\ simp [concat_cons]
+QED
+
 Theorem implode_STRCAT:
    !l1 l2.
     implode(STRCAT l1 l2) = implode l1 ^ implode l2
@@ -511,6 +517,54 @@ Theorem fields_length:
    !f s. LENGTH (fields f s) = (LENGTH (FILTER f (explode s)) + 1)
 Proof
   rw [fields_def, fields_aux_length]
+QED
+
+Definition str_findi_def:
+  str_findi P i s = if i < strlen s
+    then if P (strsub s i) then SOME i else str_findi P (i + 1) s
+    else NONE
+Termination
+  WF_REL_TAC `measure (\(P, i, s). strlen s - i)`
+End
+
+Theorem str_findi_range:
+  !P i s. str_findi P i s = SOME j ==> i <= j /\ j < strlen s
+Proof
+  recInduct str_findi_ind
+  \\ rpt gen_tac
+  \\ disch_tac
+  \\ simp [Once str_findi_def]
+  \\ rw []
+  \\ fs []
+QED
+
+Theorem OLEAST_LE_STEP:
+  (OLEAST j. i <= j /\ P j) = (if P i then SOME i
+    else (OLEAST j. i + 1 <= j /\ P j))
+Proof
+  rw []
+  \\ simp [whileTheory.OLEAST_EQ_SOME]
+  \\ qmatch_goalsub_abbrev_tac `opt1 = $OLEAST _`
+  \\ Cases_on `opt1`
+  \\ fs [whileTheory.OLEAST_EQ_SOME]
+  \\ rw []
+  \\ fs [LESS_EQ |> REWRITE_RULE [ADD1] |> GSYM, arithmeticTheory.LT_LE]
+  \\ CCONTR_TAC
+  \\ fs []
+  \\ metis_tac []
+QED
+
+Theorem str_findi_OLEAST:
+  !P i s. str_findi P i s = (OLEAST j. i <= j /\ j < strlen s /\ P (strsub s j))
+Proof
+  recInduct str_findi_ind
+  \\ rw []
+  \\ simp [Once OLEAST_LE_STEP]
+  \\ simp [Once str_findi_def]
+  \\ rw []
+  \\ fs []
+  \\ CCONTR_TAC
+  \\ fs []
 QED
 
 val isStringThere_aux_def = Define`
@@ -994,6 +1048,33 @@ Theorem collate_thm:
 Proof
   rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm, collate_aux_less_thm]
 QED
+
+Definition char_escape_seq_def:
+  char_escape_seq c =
+    if c = #"\t"
+    then SOME (strlit "\\t")
+    else if c = #"\n"
+    then SOME (strlit "\\n")
+    else if c = #"\\"
+    then SOME (strlit "\\\\")
+    else if c = #"\""
+    then SOME (strlit "\\\"")
+    else NONE
+End
+
+Definition char_escaped_def:
+  char_escaped c = case char_escape_seq c of
+    NONE => [c]
+  | SOME s => explode s
+End
+
+Definition escape_str_def:
+  escape_str s = implode ("\"" ++ FLAT (MAP char_escaped (explode s)) ++ "\"")
+End
+
+Definition escape_char_def:
+  escape_char c = implode ("#\"" ++ char_escaped c ++ "\"")
+End
 
 Theorem ALL_DISTINCT_MAP_implode:
    ALL_DISTINCT ls ⇒ ALL_DISTINCT (MAP implode ls)

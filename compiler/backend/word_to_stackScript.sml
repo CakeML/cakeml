@@ -11,7 +11,8 @@ open preamble asmTheory wordLangTheory stackLangTheory parmoveTheory
 
 val _ = new_theory "word_to_stack";
 
-val _ = Datatype `config = <| bitmaps : 'a word list ;
+(* bitmaps_length stores the current length of the bitmaps *)
+val _ = Datatype `config = <| bitmaps_length: num ;
                               stack_frame_size : num spt |>`;
 
 (* -- *)
@@ -176,13 +177,12 @@ val write_bitmap_def = Define `
       word_list (GENLIST (\x. MEM x names) f' ++ [T]) (dimindex(:'a) - 1)`
 
 val insert_bitmap_def = Define `
-  (insert_bitmap ws [] = (ws,0n)) /\
-  (insert_bitmap ws (x::xs) =
-     if isPREFIX ws (x::xs) then (x::xs,0)
-     else let (ys,n) = insert_bitmap ws xs in (x::ys,n+1))`
+  insert_bitmap ws (data,data_len) =
+    let l = LENGTH ws in
+      ((Append data (List ws), data_len + l), data_len)`
 
 val wLive_def = Define `
-  wLive (live:num_set) (bitmaps:'a word list) (k,f:num,f':num) =
+  wLive (live:num_set) (bitmaps:'a word app_list # num) (k,f:num,f':num) =
     if f = 0 then (Skip,bitmaps)
     else
       let (new_bitmaps,i) = insert_bitmap (write_bitmap live k f') bitmaps in
@@ -345,13 +345,16 @@ val compile_word_to_stack_def = Define `
      let (progs,fs,bitmaps) = compile_word_to_stack k progs bitmaps in
        ((i,prog)::progs,f::fs,bitmaps))`
 
-val compile_def = Define `
+Definition compile_def:
   compile asm_conf progs =
     let k = asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs) in
-    let (progs,fs,bitmaps) = compile_word_to_stack k progs [4w] in
+    let (progs,fs,bitmaps) = compile_word_to_stack k progs (List [4w], 1) in
     let sfs = fromAList (MAP (λ((i,_),n). (i,n)) (ZIP (progs,fs))) in
-      (<| bitmaps := bitmaps;
-          stack_frame_size := sfs |>, 0::fs, (raise_stub_location,raise_stub k) :: progs)`
+      (append (FST bitmaps),
+       <| bitmaps_length := SND bitmaps;
+          stack_frame_size := sfs |>, 0::fs,
+       (raise_stub_location,raise_stub k) :: progs)
+End
 
 val stub_names_def = Define`
   stub_names () = [

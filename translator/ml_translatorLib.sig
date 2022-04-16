@@ -20,6 +20,8 @@ sig
 
     val get_ml_prog_state : unit -> ml_progLib.ml_prog_state
 
+    val declare_new_ref : string -> term -> thm
+
     (* wrapper functions *)
 
     val mlDefine   : term quotation -> thm

@@ -2350,7 +2350,7 @@ Theorem select_reg_alloc_correct:
       !alg spillcosts k heu_moves tree forced.
     EVERY (\r1,r2. in_clash_tree tree r1 /\ in_clash_tree tree r2) forced ==>
     ?spcol livein flivein.
-    select_reg_alloc alg spillcosts k heu_moves tree forced = Success spcol /\
+    select_reg_alloc alg spillcosts k heu_moves tree forced = M_success spcol /\
     check_clash_tree (sp_default spcol) tree LN LN = SOME (livein, flivein) /\
     (!r. in_clash_tree tree r ==>
       r IN domain spcol /\
