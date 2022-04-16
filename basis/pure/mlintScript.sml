@@ -392,13 +392,44 @@ Proof
   \\ simp []
 QED
 
+Triviality fromString_hd:
+  HD (toString (i : num)) = c ==> isDigit c
+Proof
+  qspec_then `i` mp_tac EVERY_isDigit_num_to_dec_string
+  \\ Cases_on `toString i : string` \\ fs []
+  \\ rw []
+  \\ simp []
+QED
+
+Triviality toString_len:
+  STRLEN (toString (i : num)) + 1 ≥ 2
+Proof
+  Cases_on `toString i : string` \\ fs []
+QED
+
+Triviality toString_len_1:
+  ¬ (HD (toString (i:num)) = #"~") ∧
+  ¬ (HD (toString (i:num)) = #"-") ∧
+  ¬ (HD (toString (i:num)) = #"+")
+Proof
+  CCONTR_TAC>>fs[]>>
+  drule fromString_hd>>
+  EVAL_TAC
+QED
+
 Theorem fromString_int_to_string[simp]:
-   neg_char = #"~" \/ neg_char = #"-" ==>
-   fromString (int_to_string neg_char i) = SOME i
+  neg_char = #"~" \/ neg_char = #"-" ==>
+  fromString (int_to_string neg_char i) = SOME i
 Proof
   simp [int_to_string_thm,implode_def]
   \\ disch_tac
   \\ DEP_REWRITE_TAC [fromString_thm]
+  \\ CONJ_TAC >- (
+    rename1`toString s`
+    \\ Cases_on`toString s`>>simp[]
+    \\ rw [EVERY_isDigit_num_to_dec_string, EVERY_DROP]
+    \\ Cases_on`toString s`>>simp[]
+    \\ metis_tac[toString_len,toString_len_1])
   \\ rw [EVERY_isDigit_num_to_dec_string, EVERY_DROP]
   \\ gs [ASCIInumbersTheory.toNum_toString]
   \\ simp [Q.prove (`&(Num (ABS i)) = (if i < 0 then (- i) else i)`, intLib.COOPER_TAC)]
