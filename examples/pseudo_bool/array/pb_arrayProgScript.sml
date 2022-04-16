@@ -35,9 +35,11 @@ val r = translate format_failure_def;
 val r = translate OPTION_MAP2_DEF;
 
 val r = translate get_var_def;
+val r = translate listTheory.REV_DEF;
 val r = translate term_lt_def;
 val r = translate add_terms_def;
-val r = translate add_lists_def;
+val r = translate add_lists'_def;
+val r = translate add_lists'_thm;
 val r = translate add_def;
 
 val r = translate OPTION_MAP_DEF;

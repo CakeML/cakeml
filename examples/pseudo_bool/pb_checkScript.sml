@@ -1101,6 +1101,12 @@ Definition toks_fast_def:
   toks_fast s = MAP tokenize_fast (tokens blanks s)
 End
 
+val headertrm = rconc (EVAL``toks_fast (strlit"pseudo-Boolean proof version 1.2")``);
+
+Definition parse_header_line_fast_def:
+  parse_header_line_fast s = (s = ^headertrm)
+End
+
 (*
 val pbpraw = ``[
 strlit"  e 679 1 x121 1 ~x127 1 ~x134 1 x144 1 ~x153 1 ~x154 1 x159 1 x165 >= 1 ;"

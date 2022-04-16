@@ -990,14 +990,14 @@ Proof
   qexists_tac`A`>>qexists_tac`B`>>xsimpl
 QED
 
-val r = translate parse_header_line_def;
+val r = translate parse_header_line_fast_def;
 
 val check_header = process_topdecs`
   fun check_header fd =
     case TextIO.b_inputLineTokens fd blanks tokenize_fast of
       None => raise Fail (format_failure 0 "Unable to parse header")
     | Some s =>
-    if parse_header_line s then () else
+    if parse_header_line_fast s then () else
       raise Fail (format_failure 0 "Unable to parse header")` |> append_prog;
 
 Theorem check_header_spec:
@@ -1014,12 +1014,12 @@ Theorem check_header_spec:
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          &(case ss of [] => F
-         | (x::xs) => parse_header_line x))
+         | (x::xs) => parse_header_line_fast x))
       (λe.
          SEP_EXISTS k lines'.
            STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧
-            case ss of [] => T | (x::xs) => ¬parse_header_line x)))
+            case ss of [] => T | (x::xs) => ¬parse_header_line_fast x)))
 Proof
   xcf "check_header" (get_ml_prog_state ())>>
   Cases_on`ss`>>fs[]
@@ -1100,7 +1100,7 @@ Definition parse_pbp_def:
   parse_pbp strs =
   case MAP toks_fast strs of
     s::ss =>
-    if parse_header_line s then
+    if parse_header_line_fast s then
       parse_tops ss
     else NONE
   | [] => NONE

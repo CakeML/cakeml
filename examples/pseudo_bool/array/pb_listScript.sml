@@ -5,6 +5,116 @@ open preamble basis pb_checkTheory;
 
 val _ = new_theory "pb_list"
 
+(* Make an array representation of a constraint *)
+Definition expand_constraint_aux_def:
+  (expand_constraint_aux [] (lit_arr:int list) = (lit_arr,[])) ∧
+  (expand_constraint_aux ((n,l)::xs) lit_arr =
+    let (lit_arr', vs') = expand_constraint_aux xs lit_arr in
+    case l of
+      Neg v =>
+      let la = update_resize lit_arr' 0 (-(&n)) v in (la,v::vs')
+    | Pos v =>
+      let la = update_resize lit_arr' 0 (&n) v in (la,v::vs'))
+End
+
+Definition contract_constraint_aux_def:
+  (contract_constraint_aux lit_arr [] = []) ∧
+  (contract_constraint_aux lit_arr (v::vs) =
+    let n = any_el v lit_arr 0 in
+    if n < 0 then
+      (Num (-n), Neg v) :: contract_constraint_aux lit_arr vs
+    else
+      (Num (n), Pos v) :: contract_constraint_aux lit_arr vs)
+End
+
+Theorem any_el_update_resize:
+  any_el n (update_resize fml def v id) def =
+  if n = id then v else any_el n fml def
+Proof
+  rw[update_resize_def,any_el_ALT,EL_LUPDATE]>>fs[]>>
+  fs[EL_APPEND_EQN,EL_REPLICATE]>>
+  every_case_tac>>fs[]
+QED
+
+Theorem not_var_contract:
+  ∀vs la.
+  EVERY (\v.  v ≠ n) vs ⇒
+  contract_constraint_aux (update_resize la 0 q n) vs =
+  contract_constraint_aux la vs
+Proof
+  Induct>>
+  rw[]>>
+  simp[contract_constraint_aux_def]>>
+  simp[any_el_update_resize]
+QED
+
+Theorem expand_constraint_get_var:
+  ∀xs lit_arr lit_arr' vs'.
+  expand_constraint_aux xs lit_arr = (lit_arr',vs') ⇒
+  vs' = MAP (get_var o SND) xs
+Proof
+  Induct>>fs[expand_constraint_aux_def]>>
+  Cases>>fs[expand_constraint_aux_def]>>rw[]>>
+  pairarg_tac>>fs[]>>
+  first_x_assum drule>>fs[]>>
+  every_case_tac>>fs[]>>rw[]
+QED
+
+Theorem contract_expand_constraint_aux:
+  ∀xs lit_arr lit_arr' vs'.
+  SORTED term_lt xs ∧
+  EVERY (λ(c,l). c ≠ 0) xs ∧
+  expand_constraint_aux xs lit_arr = (lit_arr',vs') ⇒
+  contract_constraint_aux lit_arr' vs' = xs
+Proof
+  Induct>>fs[expand_constraint_aux_def,contract_constraint_aux_def]>>
+  Cases>>rw[]>>
+  fs[expand_constraint_aux_def,contract_constraint_aux_def]>>
+  pairarg_tac>>fs[]>>
+  drule SORTED_TL>>
+  strip_tac>>
+  fs[]>>
+  first_x_assum drule>>
+  `EVERY (\v. get_var v ≠ get_var r) (MAP SND xs)` by
+    (simp[EVERY_MAP]>>
+    qpat_x_assum`SORTED _ (_::_)` mp_tac>>
+    DEP_ONCE_REWRITE_TAC[SORTED_EQ]>>
+    simp[pb_constraintTheory.transitive_term_lt]>>
+    simp[EVERY_MEM,FORALL_PROD]>>
+    rw[]>>
+    CCONTR_TAC>>fs[]>>
+    first_x_assum drule>>
+    simp[])>>
+  every_case_tac>>fs[]>>rw[]
+  >> ( (* two subgoals *)
+    simp[contract_constraint_aux_def]>>
+    simp[any_el_update_resize]>>
+    match_mp_tac not_var_contract>>
+    drule expand_constraint_get_var>>
+    disch_then SUBST1_TAC>>
+    fs[EVERY_MAP])
+QED
+
+Definition expand_constraint_def:
+  (expand_constraint (PBC l n) lit_arr =
+    (n,expand_constraint_aux l lit_arr))
+End
+
+Definition contract_constraint_def:
+  (contract_constraint (n,lit_arr,vs) =
+    PBC (contract_constraint_aux lit_arr vs) n)
+End
+
+Theorem contract_expand_constraint:
+  compact c ⇒
+  contract_constraint (expand_constraint c lit_arr) = c
+Proof
+  Cases_on`c`>>rw[expand_constraint_def]>>
+  Cases_on`expand_constraint_aux l lit_arr`>>rw[contract_constraint_def]>>
+  drule contract_expand_constraint_aux>>
+  metis_tac[]
+QED
+
 Definition check_cutting_list_def:
   (check_cutting_list (fml: npbc option list) (Id n) =
     any_el n fml NONE) ∧
@@ -22,6 +132,63 @@ Definition check_cutting_list_def:
   (check_cutting_list fml (Weak c var) =
     OPTION_MAP (λc. weaken c var) (check_cutting_list fml c))
 End
+
+(* Multiply an expanded constraint by k *)
+Definition left_multiply_aux_def:
+  (left_multiply_aux (k:int) lit_arr [] = lit_arr) ∧
+  (left_multiply_aux k lit_arr (v::vs) =
+    let l = any_el v lit_arr 0 in
+    let la = left_multiply_aux k lit_arr vs in
+      update_resize la 0 (l * k) v)
+End
+
+Theorem left_multiply_aux_eq:
+  ∀vs lit_arr xs.
+  k ≠ 0 ⇒
+  contract_constraint_aux
+    (left_multiply_aux (&k) lit_arr vs) vs =
+  MAP (λ(c,v). (c * k,v)) (contract_constraint_aux lit_arr vs)
+Proof
+  Induct>>simp[contract_constraint_aux_def,left_multiply_aux_def]>>
+  rw[]>>fs[any_el_update_resize]>>
+  cheat
+QED
+
+Definition left_multiply_def:
+  left_multiply k (n,(lit_arr,vs)) =
+  if k = 0
+  then (0,(lit_arr,[]))
+  else
+    (n*k,(left_multiply_aux (&k) lit_arr vs,vs))
+End
+
+Definition left_check_cutting_list_def:
+  (left_check_cutting_list (fml: npbc option list) lit_arr (Id n) =
+    OPTION_MAP (λc. expand_constraint c lit_arr) (any_el n fml NONE)) ∧
+  (left_check_cutting_list fml lit_arr (Mul c k) =
+    OPTION_MAP (left_multiply k) (left_check_cutting_list fml lit_arr c))
+End
+
+Theorem contract_left_check_cutting_list:
+  ∀constr.
+  OPTION_MAP contract_constraint
+  (left_check_cutting_list fml lit_arr constr) =
+  check_cutting_list fml constr
+Proof
+  Induct>>rw[check_cutting_list_def,left_check_cutting_list_def]
+  >- (
+    simp[OPTION_MAP_COMPOSE, o_DEF,OPTION_MAP_CASE]>>
+    TOP_CASE_TAC>>DEP_REWRITE_TAC[contract_expand_constraint]>>
+    (* assume compactness for everything in fml *)
+    cheat)
+  >- (* Add = hard case *) cheat
+  >- (
+    fs[OPTION_MAP_COMPOSE, o_DEF,OPTION_MAP_CASE]>>
+    TOP_CASE_TAC>>fs[]>>
+    pop_assum sym_sub_tac>>simp[]>>
+    cheat)>>
+  cheat
+QED
 
 (* Copied from LPR *)
 val list_delete_list_def = Define`
@@ -193,15 +360,6 @@ Proof
   fs[fml_rel_def]>>
   rw[lookup_delete]>>
   fs[any_el_ALT,EL_LUPDATE]
-QED
-
-Theorem any_el_update_resize:
-  any_el n (update_resize fml NONE v id) NONE =
-  if n = id then v else any_el n fml NONE
-Proof
-  rw[update_resize_def,any_el_ALT,EL_LUPDATE]>>fs[]>>
-  fs[EL_APPEND_EQN,EL_REPLICATE]>>
-  every_case_tac>>fs[]
 QED
 
 Theorem fml_rel_update_resize:
