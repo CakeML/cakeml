@@ -14,9 +14,9 @@ val _ = set_grammar_ancestry [
   ];
 
 Theorem compile_semantics:
-  semantics_prog s env prog sem ∧
-  sem ≠ Fail ⇒
-    semantics_prog s env (compile_prog prog) sem
+  ¬semantics_prog s env prog Fail ∧
+  semantics_prog s env prog outcome ⇒
+    semantics_prog s env (compile_prog prog) outcome
 Proof
   rw [compile_prog_def]
   \\ irule source_letProofTheory.compile_semantics

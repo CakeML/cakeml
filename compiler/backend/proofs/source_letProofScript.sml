@@ -104,11 +104,11 @@ Proof
 QED
 
 Theorem compile_semantics:
-  semantics_prog s env prog sem ∧
-  sem ≠ Fail ⇒
-    semantics_prog s env (compile_decs prog) sem
+  ¬semantics_prog s env prog Fail ∧
+  semantics_prog s env prog outcome ⇒
+    semantics_prog s env (compile_decs prog) outcome
 Proof
-  Cases_on ‘sem’ \\ gs []
+  Cases_on ‘outcome’ \\ gs [SF CONJ_ss]
   >~ [‘Terminate outcome tr’] >- (
     rw [semantics_prog_def]
     \\ gs [evaluate_prog_with_clock_def]
