@@ -376,8 +376,7 @@ Proof
    fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
    rpt (pop_assum mp_tac) >>
    MAP_EVERY qid_spec_tac [‘vs’, ‘es’] >>
-   Induct >> fs []
-   >-  fs [OPT_MMAP_def] >>
+   Induct >>
    rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
    rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
    rename [‘_ = SOME vs’] >>
@@ -412,8 +411,7 @@ Proof
    pop_assum mp_tac >>
    pop_assum mp_tac >>
    MAP_EVERY qid_spec_tac [‘ws’, ‘es’] >>
-   Induct >> fs []
-   >- fs [OPT_MMAP_def] >>
+   Induct >> fs [] >>
    rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
    rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
    fs [])
@@ -455,8 +453,7 @@ Proof
    fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
    rpt (pop_assum mp_tac) >>
    MAP_EVERY qid_spec_tac [‘es’] >>
-   Induct >> fs []
-   >-  fs [OPT_MMAP_def] >>
+   Induct >> fs [] >>
    rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
    rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq  >>
    fs [] >>
@@ -496,8 +493,7 @@ Proof
     pop_assum mp_tac >>
     pop_assum mp_tac >>
     MAP_EVERY qid_spec_tac [‘es’] >>
-    Induct >> fs []
-    >- fs [OPT_MMAP_def] >>
+    Induct >> fs [] >>
     rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
     rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
     fs [] >>
@@ -510,8 +506,7 @@ Proof
    pop_assum mp_tac >>
    pop_assum mp_tac >>
    MAP_EVERY qid_spec_tac [‘ws’, ‘es’] >>
-   Induct >> fs []
-   >- fs [OPT_MMAP_def] >>
+   Induct >> fs [] >>
    rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
    rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
    fs [] >>

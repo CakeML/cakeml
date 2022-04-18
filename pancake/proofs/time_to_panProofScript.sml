@@ -1,5 +1,5 @@
 (*
-  Correctness proof for --
+  Correctness proof for timeLang to panLang
 *)
 
 open preamble
@@ -15,6 +15,8 @@ val _ = set_grammar_ancestry
         ["timeSem", "panSem",
          "pan_commonProps", "timeProps",
          "time_to_pan"];
+
+val _ = temp_delsimps ["OPT_MMAP_def"];
 
 (*
   FFI abstraction
