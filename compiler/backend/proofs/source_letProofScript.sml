@@ -4,13 +4,13 @@
 
 open preamble astTheory evaluateTheory evaluatePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     source_letTheory;
+     semanticsTheory source_letTheory;
 
 val _ = new_theory "source_letProof";
 
 val _ = set_grammar_ancestry [
   "source_let", "evaluate", "evaluateProps", "semanticPrimitives",
-  "semanticPrimitivesProps", "misc"
+  "semanticPrimitivesProps", "misc", "semantics"
   ];
 
 Theorem evaluate_lift_let:
@@ -46,8 +46,6 @@ Proof
     by rw [sem_env_component_equality, build_rec_env_merge]
   \\ gs []
 QED
-
-(* TODO duplicate from candle/prover/candle_prover_semanticsScript.sml *)
 
 Theorem lift_lets_is_prefix:
   ∀ds d ds1 ds2.
@@ -103,6 +101,28 @@ Proof
     \\ rw [] \\ gs [evaluate_decs_def]
     \\ gvs [CaseEqs ["prod", "result"], combine_dec_result_def])
   \\ gs [evaluate_lift_start, SF SFY_ss]
+QED
+
+Theorem compile_semantics:
+  semantics_prog s env prog sem ∧
+  sem ≠ Fail ⇒
+    semantics_prog s env (compile_decs prog) sem
+Proof
+  Cases_on ‘sem’ \\ gs []
+  >~ [‘Terminate outcome tr’] >- (
+    rw [semantics_prog_def]
+    \\ gs [evaluate_prog_with_clock_def]
+    \\ pairarg_tac \\ gvs []
+    \\ drule_all_then assume_tac compile_decs_correct
+    \\ qexists_tac ‘k’ \\ simp [])
+  >~ [‘Diverge tr’] >- (
+    rw [semantics_prog_def]
+    >- (
+      first_x_assum (qspec_then ‘k’ strip_assume_tac)
+      \\ gs [evaluate_prog_with_clock_def]
+      \\ rpt (pairarg_tac \\ gvs [])
+      \\ drule compile_decs_correct \\ rw [])
+    \\ cheat (* lprefix_lub stuff *))
 QED
 
 val _ = export_theory ();
