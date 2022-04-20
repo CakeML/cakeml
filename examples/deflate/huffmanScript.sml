@@ -109,55 +109,9 @@ End
 EVAL “huff_enc_dyn (MAP ORD "aabcccd")”;
 
 
-
-(******************************************
-             Huffman decoding
-*******************************************
-
-Definition decode_char_def:
-  decode_char Empty _ = NONE ∧
-  decode_char (Leaf c) [] = SOME c ∧
-  decode_char (Node ltr rtr) [] = NONE ∧
-  decode_char (Node ltr rtr) (x::xs) =
-  case x of
-    T => decode_char ltr xs
-  | F => decode_char rtr xs
-End
-
-Definition decode_def:
-  decode tree ((b::bs) :bool list) ([]   :bool list) = (decode tree bs [b]) ∧
-  decode tree ([]      :bool list) (code :bool list) = (
-    let
-      res = decode_char tree code
-    in
-      case res of
-        NONE     => []
-      | SOME (r) => [r]) ∧
-  decode tree ((b::bs) :bool list) (code :bool list) = (
-    let
-      res = decode_char tree code
-    in
-      case res of
-        NONE     => decode tree bs (code++[b])
-      | SOME (r) => [r]++(decode tree bs [b]))
-End
-
-EVAL “let
-        (tree, code) = huff_enc_dyn [Lit #"a"; Lit #"a"; Lit #"b"; Lit #"c"; Lit #"c"; Lit #"c"; Lit #"d"]
-      in
-     decode tree code []”;
-
-Definition huffman_decoding_def:
-  huffman_decoding (tree, code) =   decode tree code []
-End
-
-*)
-
-
 (******************************************
          Canonical huffman codes
 ******************************************)
-
 
 Definition gen_zero_codes_def:
   gen_zero_codes l 0 = APPEND [(0,[])] l ∧
@@ -166,8 +120,6 @@ Definition gen_zero_codes_def:
   then (gen_zero_codes (APPEND [(n,[])] l) (n-1))
   else (l)
 End
-
-
 
 Definition fill_assoc_list_def:
   fill_assoc_list gs [] = gs ∧
@@ -196,7 +148,6 @@ End
 Definition all_lens_def:
   all_lens as = len_from_codes (complete_assoc_list as)
 End
-
 
 Overload MAX_CODE_LENGTH = “16 :num”
 
@@ -248,8 +199,6 @@ Definition next_code_def:
 End
 
 EVAL “next_code (bl_count [3;3;3;3;3;2;4;4])”;
-
-
 
 (*  From kraft_ineq  *)
 (* binary numbers in little-endian format *)
@@ -305,7 +254,6 @@ EVAL “
    len_from_codes_inv ls
     ”;
 
-
 (* EVAL that tests whether the tree we create from length list is equal to original tree *)
 EVAL “ let
    s = MAP ORD "abbbbd";
@@ -315,11 +263,12 @@ EVAL “ let
  in
    (as, cs)”;
 
+
 (*****************************************
             Unique huff tree
 *****************************************)
 
-Definition unique_huff_codes_def:
+Definition unique_huff_tree_def:
   unique_huff_tree (l:num list)  =
   let
     huff_tree = build_huffman_tree l;
