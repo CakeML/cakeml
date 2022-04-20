@@ -193,23 +193,11 @@ Definition deflate_encoding_main_def:
           BTYPE = [T; F];
           lzList = LZSS_compress s;
           lenList = MAP encode_LZSS_len lzList;
-          (assoc_list, alphabet) = unique_huff_tree (MAP ORD s);
-          pad_alph = FLAT (MAP (pad0 9) (MAP TN2BL alphabet));
+          (assoc_list, alphabet) = unique_huff_tree lenList;
+          pad_alph = FLAT ( MAP (λa. (pad0 9 (TN2BL a))) alphabet);
         in
           (BTYPE++pad_alph++(deflate_encoding lzList assoc_list fixed_dist_tree)))
 End
-
-EVAL “ let
-         s = "abcde";
-         BTYPE = [T; F];
-         lzList = LZSS_compress s;
-         lenList = MAP encode_LZSS_len lzList;
-         (assoc_list, alphabet) = unique_huff_tree (MAP ORD s);
-         pad_alph = FLAT (MAP (pad0 9) (MAP TN2BL alphabet));
-         lengths = create_length_list (TAKE (288*9) pad_alph) [];
-       in
-         (lengths)”;
-
 
 Definition find_decode_match_def:
   find_decode_match s         []  = NONE ∧
@@ -279,10 +267,10 @@ Termination
 End
 
 Definition create_length_list_def:
-  create_length_list [] nl = nl ∧
-  create_length_list bl nl = create_length_list (DROP 9 bl) (nl++[TBL2N (TAKE 9 bl)])
+  create_length_list [] = [] ∧
+  create_length_list bl = TBL2N (TAKE 9 bl) :: create_length_list (DROP 9 bl)
 Termination
-  WF_REL_TAC ‘measure $ λ (bl, _). LENGTH bl’
+  WF_REL_TAC ‘measure $ λ (bl). LENGTH bl’
   \\ rw[]
 End
 
@@ -299,7 +287,7 @@ Definition deflate_decoding_main_def:
   else if b1 = T ∧ b2 = F
   then
     ( let
-        lengths = create_length_list (TAKE (288*9) bl) [];
+        lengths = create_length_list (TAKE (288*9) bl);
         codes = len_from_codes_inv lengths;
         (lzList, bl') = deflate_decoding (DROP (288*9) bl) codes fixed_dist_tree [];
         res = LZSS_decompress lzList;
@@ -315,7 +303,7 @@ EVAL “let
         enc =  deflate_encoding_main inp T;
         (dec, rest) = deflate_decoding_main enc;
       in
-        (inp, dec, rest)
+        (inp, dec)
      ”;
 
 (* Dynamic Huffman*)
@@ -324,7 +312,7 @@ EVAL “let
         enc =  deflate_encoding_main inp F;
         (dec, rest) = deflate_decoding_main enc;
       in
-        (inp, dec, rest)
+        (inp, dec)
      ”;
 
 
