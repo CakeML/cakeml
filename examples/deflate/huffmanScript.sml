@@ -221,7 +221,6 @@ Termination
   rw[DIV_LE_MONOTONE,DIV_LESS,DIV_LESS_EQ]
 End
 
-(* binary numbers in big-endian format *)
 Overload TN2BL = “\n. REVERSE (inv_tbl2n n)”
 
 Definition pad0_def:
@@ -276,7 +275,7 @@ Definition unique_huff_tree_def:
     ls = all_lens assoc_list;
     cs = len_from_codes_inv ls;
   in
-    cs
+    (cs, ls)
 End
 
 EVAL “unique_huff_tree (MAP ORD "aaaaccb")”;

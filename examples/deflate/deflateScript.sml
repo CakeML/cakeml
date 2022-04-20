@@ -160,7 +160,6 @@ End
 Definition encode_LZSS_def:
   encode_LZSS (Lit c) len_tree dist_tree = encode_single_huff_val len_tree (ORD c) ∧
   encode_LZSS (LenDist (len, dist)) len_tree dist_tree =
-
   let
     enc_len  = encode_LZSS_table len  (find_level_in_len_table)  len_tree;
     enc_dist = encode_LZSS_table dist (find_level_in_dist_table) dist_tree;
@@ -183,24 +182,34 @@ Definition deflate_encoding_main_def:
   case fix of
     T =>
       ( let
+          BTYPE = [F; T];
           lzList = LZSS_compress s;
           lenList = MAP encode_LZSS_len lzList;
           (len_tree, dist_tree) = (fixed_len_tree, fixed_dist_tree);
-          BTYPE = [F; T];
         in
           (BTYPE++(deflate_encoding lzList len_tree dist_tree)))
   | F =>
       ( let
+          BTYPE = [T; F];
           lzList = LZSS_compress s;
           lenList = MAP encode_LZSS_len lzList;
-          assoc_list = unique_huff_tree (MAP ORD s);
-          BTYPE = [T; F];
+          (assoc_list, alphabet) = unique_huff_tree (MAP ORD s);
+          pad_alph = FLAT (MAP (pad0 9) (MAP TN2BL alphabet));
         in
-          (BTYPE++(deflate_encoding lzList assoc_list fixed_dist_tree)))
+          (BTYPE++pad_alph++(deflate_encoding lzList assoc_list fixed_dist_tree)))
 End
 
-EVAL “deflate_encoding_main "hejhejhej" T”;
-EVAL “deflate_encoding_main "hejhejhej" F”;
+EVAL “ let
+         s = "abcde";
+         BTYPE = [T; F];
+         lzList = LZSS_compress s;
+         lenList = MAP encode_LZSS_len lzList;
+         (assoc_list, alphabet) = unique_huff_tree (MAP ORD s);
+         pad_alph = FLAT (MAP (pad0 9) (MAP TN2BL alphabet));
+         lengths = create_length_list (TAKE (288*9) pad_alph) [];
+       in
+         (lengths)”;
+
 
 Definition find_decode_match_def:
   find_decode_match s         []  = NONE ∧
@@ -269,22 +278,53 @@ Termination
   \\ rw[decode_check_end_block, find_decode_match_def, decode_LZSS_def, decode_LZSS_table_def, decode_LZSS_def]
 End
 
-Definition deflate_decoding_main_def:
-  deflate_decoding_main bl =
-  let
-    (len_tree, dist_tree) = (fixed_len_tree, fixed_dist_tree);
-    (lzList, bl') = deflate_decoding bl len_tree dist_tree [];
-    res = LZSS_decompress lzList
-  in
-    (res, bl')
+Definition create_length_list_def:
+  create_length_list [] nl = nl ∧
+  create_length_list bl nl = create_length_list (DROP 9 bl) (nl++[TBL2N (TAKE 9 bl)])
+Termination
+  WF_REL_TAC ‘measure $ λ (bl, _). LENGTH bl’
+  \\ rw[]
 End
 
+Definition deflate_decoding_main_def:
+  deflate_decoding_main (b1::b2::bl) =
+  if b1 = F ∧ b2 = T
+  then
+    ( let
+        (len_tree, dist_tree) = (fixed_len_tree, fixed_dist_tree);
+        (lzList, bl') = deflate_decoding bl len_tree dist_tree [];
+        res = LZSS_decompress lzList
+      in
+        (res, bl'))
+  else if b1 = T ∧ b2 = F
+  then
+    ( let
+        lengths = create_length_list (TAKE (288*9) bl) [];
+        codes = len_from_codes_inv lengths;
+        (lzList, bl') = deflate_decoding (DROP (288*9) bl) codes fixed_dist_tree [];
+        res = LZSS_decompress lzList;
+      in
+        (res, bl')
+    )
+  else ("", [])
+End
+
+(* Fixed Huffman *)
 EVAL “let
         inp = "hejhejhellohejsanhello";
         enc =  deflate_encoding_main inp T;
         (dec, rest) = deflate_decoding_main enc;
       in
-        (inp, dec,rest)
+        (inp, dec, rest)
+     ”;
+
+(* Dynamic Huffman*)
+EVAL “let
+        inp = "hejhejhellohejsanhello";
+        enc =  deflate_encoding_main inp F;
+        (dec, rest) = deflate_decoding_main enc;
+      in
+        (inp, dec, rest)
      ”;
 
 
