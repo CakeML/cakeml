@@ -19,17 +19,15 @@ Definition fixed_len_tree_def:
    in
      len_from_codes_inv ls
 End
-EVAL “fixed_len_tree”;
 
 Definition fixed_dist_tree:
   fixed_dist_tree = GENLIST (λ n. (n, pad0 5 (TN2BL n))) 32
 End
-EVAL “fixed_dist_tree”;
+
 
 (******************************************
                Deflate table
 *******************************************)
-
 
 (* (5-bit code value, number of extra bits after value, inclusive exclusive range for extra bits) *)
 Definition dist_table_def:
@@ -127,8 +125,6 @@ Definition find_code_in_table_def:
   else find_code_in_table v tab
 End
 
-EVAL “find_in_table 67 len_table (HD len_table)”;
-
 
 (******************************************
              Deflate encoding
@@ -149,7 +145,6 @@ End
 
 EVAL “encode_LZSS_len (Lit #"g")”;
 EVAL “encode_LZSS_len (LenDist (20, 20))”;
-
 
 Definition encode_LZSS_table_def:
   encode_LZSS_table n table_func tree  =
@@ -176,7 +171,6 @@ End
 EVAL “encode_LZSS (Lit #"g") fixed_len_tree”;
 EVAL “encode_LZSS (LenDist (3,3)) fixed_len_tree”;
 
-
 Definition deflate_encoding_def:
   deflate_encoding [] len_tree dist_tree = [] ∧
   deflate_encoding (l::ls) len_tree dist_tree =
@@ -185,17 +179,28 @@ End
 
 (* Should handle block level logic *)
 Definition deflate_encoding_main_def:
-  deflate_encoding_main s =
-  let
-    lzList = LZSS_compress s;
-    lenList = MAP encode_LZSS_len lzList;
-    (len_tree, dist_tree) = (fixed_len_tree, fixed_dist_tree);
-  in
-    deflate_encoding lzList len_tree dist_tree
+  deflate_encoding_main s fix =
+  case fix of
+    T =>
+      ( let
+          lzList = LZSS_compress s;
+          lenList = MAP encode_LZSS_len lzList;
+          (len_tree, dist_tree) = (fixed_len_tree, fixed_dist_tree);
+          BTYPE = [F; T];
+        in
+          (BTYPE++(deflate_encoding lzList len_tree dist_tree)))
+  | F =>
+      ( let
+          lzList = LZSS_compress s;
+          lenList = MAP encode_LZSS_len lzList;
+          assoc_list = unique_huff_tree (MAP ORD s);
+          BTYPE = [T; F];
+        in
+          (BTYPE++(deflate_encoding lzList assoc_list fixed_dist_tree)))
 End
 
-EVAL “deflate_encoding_main "hejhejhej"”;
-
+EVAL “deflate_encoding_main "hejhejhej" T”;
+EVAL “deflate_encoding_main "hejhejhej" F”;
 
 Definition find_decode_match_def:
   find_decode_match s         []  = NONE ∧
@@ -276,7 +281,7 @@ End
 
 EVAL “let
         inp = "hejhejhellohejsanhello";
-        enc =  deflate_encoding_main inp;
+        enc =  deflate_encoding_main inp T;
         (dec, rest) = deflate_decoding_main enc;
       in
         (inp, dec,rest)
