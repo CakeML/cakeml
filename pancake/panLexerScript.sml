@@ -2,6 +2,9 @@
  * The beginnings of a lexer for the Pancake language.
  *
  * We take significant inspiration from the Spark ADA development.
+ *
+ * Author: Craig McLaughlin
+ * Date: March--April 2022
  *)
 open HolKernel Parse boolLib bossLib stringLib numLib;
 
@@ -12,14 +15,17 @@ val _ = new_theory "panLexer";
 
 Datatype:
   keyword = SkipK | StoreK | StoreBK | IfK | ElseK | WhileK
-  | BrK | ContK | RaiseK | RetK | TicK
+  | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK
+  | LdsK | LdbK | BaseK
 End
 
 Datatype:
-  token = AndT | OrT | EqT | NeqT | LessT | LeqT | GreaterT | GeqT
-  | NotT | PlusT | MinusT | MulT | DivT | ModT
+  token = AndT | OrT | XorT
+  | EqT | NeqT | LessT | LeqT | GreaterT | GeqT
+  | NotT | PlusT | MinusT | MulT | DivT | ModT | HashT | DotT
+  | LslT | LsrT | AsrT | RorT
   | TrueT | FalseT | IntT int | IdentT string
-  | LParT | RParT | CommaT | SemiT | ColonT
+  | LParT | RParT | CommaT | SemiT | ColonT | DArrowT | AddrT
   | LBrakT | RBrakT | LCurT | RCurT
   | AssignT
   | KeywordT keyword
@@ -31,15 +37,15 @@ Datatype:
 End
 
 Definition isAtom_singleton_def:
-  isAtom_singleton c = MEM c "!+-*%(),;:[]{}"
+  isAtom_singleton c = MEM c "!+-&^|*%().,;:[]{}"
 End
 
 Definition isAtom_begin_group_def:
-  isAtom_begin_group c = MEM c "&|=<>"
+  isAtom_begin_group c = MEM c "#=<>"
 End
 
 Definition isAtom_in_group_def:
-  isAtom_in_group c = MEM c "&|=>"
+  isAtom_in_group c = MEM c "=<>"
 End
 
 Definition isAlphaNumOrWild_def:
@@ -48,20 +54,28 @@ End
 
 Definition get_token_def:
   get_token s =
-  if s = "&&" then AndT else
-  if s = "||" then OrT else
+  if s = "&" then AndT else
+  if s = "|" then OrT else
+  if s = "^" then XorT else
   if s = "==" then EqT else
   if s = "<>" then NeqT else
   if s = "<" then LessT else
   if s = "<=" then LeqT else
   if s = ">" then GreaterT else
   if s = ">=" then GeqT else
+  if s = "=>" then DArrowT else
   if s = "!" then NotT else
   if s = "+" then PlusT else
   if s = "-" then MinusT else
   if s = "*" then MulT else
   if s = "/" then DivT else
   if s = "%" then ModT else
+  if s = "#" then HashT else
+  if s = "." then DotT else
+  if s = "<<" then LslT else
+  if s = ">>>" then LsrT else
+  if s = ">>" then AsrT else
+  if s = "#>>" then RorT else
   if s = "(" then LParT else
   if s = ")" then RParT else
   if s = "," then CommaT else
@@ -88,9 +102,15 @@ Definition get_keyword_def:
   if s = "raise" then (KeywordT RaiseK) else
   if s = "return" then (KeywordT RetK) else
   if s = "tick" then (KeywordT TicK) else
+  if s = "var" then (KeywordT VarK) else
+  if s = "with" then (KeywordT WithK) else
+  if s = "handle" then (KeywordT HandleK) else
+  if s = "lds" then (KeywordT LdsK) else
+  if s = "ldb" then (KeywordT LdbK) else
+  if s = "@base" then (KeywordT BaseK) else
   if s = "true" then TrueT else
   if s = "false" then FalseT else
-  if s = "" then LexErrorT else
+  if isPREFIX "@" s ∨ s = "" then LexErrorT else
   IdentT s
 End
 
@@ -111,8 +131,8 @@ Definition read_while_def:
 End
 
 Theorem read_while_thm:
-  ∀P input s.∃s' rest. read_while P input s = (s', rest) ∧
-                        LENGTH rest ≤ LENGTH input
+  ∀P input s s' rest.
+     read_while P input s = (s', rest) ⇒ LENGTH rest ≤ LENGTH input
 Proof
   Induct_on `input` >> rw[read_while_def] >> gvs[]
   >> metis_tac[DECIDE “x ≤ y ⇒ x ≤ SUC y”]
@@ -138,8 +158,18 @@ Proof
   >> fs[LE]
 QED
 
+Definition next_loc_def:
+  next_loc n (POSN r c) = POSN r (c+n) ∧
+  next_loc n x = x
+End
+
+Definition next_line_def:
+  next_line (POSN r c) = POSN (r+1) 0 ∧
+  next_line x = x
+End
+
 Definition low_row_def:
-  loc_row n = <| row := n; col := 1 |>
+  loc_row n = POSN n 1
 End
 
 Definition next_atom_def:
@@ -168,7 +198,7 @@ Definition next_atom_def:
     else if isAtom_begin_group c then
       let (n, rest) = read_while isAtom_in_group cs [c] in
       SOME (SymA n, Locs loc (loc with col := loc.col + LENGTH n - 1), rest)
-    else if isAlpha c then (* read identifier *)
+    else if isAlpha c ∨ c = #"@" then (* read identifier *)
       let (n, rest) = read_while isAlphaNumOrWild cs [c] in
       SOME (WordA n, Locs loc (loc with col := loc.col + LENGTH n), rest)
     else (* input not recognised *)
@@ -184,35 +214,22 @@ Termination
 End
 
 Theorem next_atom_LESS:
-  ∀input l s l' rest. (next_atom input l = SOME (s, l', rest)) ⇒
-                           LENGTH rest < LENGTH input
+  ∀input l s l' rest.
+    next_atom input l = SOME (s, l', rest) ⇒ LENGTH rest < LENGTH input
 Proof
-  (* generalise statement after introducing the ‘input’ variable *)
-  recInduct next_atom_ind >> rw[next_atom_def] >| [
-
-    metis_tac[DECIDE “x < y ⇒ x < SUC y”],
-
-    metis_tac[DECIDE “x < y ⇒ x < SUC y”],
-
-    qspecl_then [‘isDigit’, ‘cs’, ‘STRING c ""’] mp_tac read_while_thm
-    >> strip_tac >> fs[] >> rw[],
-
-    qspecl_then [‘isDigit’, ‘cs’, ‘""’] mp_tac read_while_thm
-    >> strip_tac >> fs[] >> rw[],
-
-    Cases_on ‘skip_comment (TL cs) (loc with col := loc.col + 2)’
-    >> gvs[skip_comment_def] >> Cases_on ‘x’ >> fs[LE]
-    >> drule_then assume_tac skip_comment_thm
-    >> sg ‘STRLEN rest < STRLEN (TL cs)’ >> rw[]
-    >> sg ‘STRLEN (TL cs) < SUC (STRLEN cs)’ >> rw[LENGTH_TL]
-    >> Cases_on ‘cs’ >> simp[],
-(** End skip_comment *)
-
-    qspecl_then [‘isAtom_in_group’, ‘cs’, ‘STRING c ""’] mp_tac read_while_thm
-    >> strip_tac >> fs[] >> rw[],
-
-    qspecl_then [‘isAlphaNumOrWild’, ‘cs’, ‘STRING c ""’] mp_tac read_while_thm
-    >> strip_tac >> fs[] >> rw[]]
+  recInduct next_atom_ind >> rw[next_atom_def]
+  >- metis_tac[DECIDE “x < y ⇒ x < SUC y”]
+  >- metis_tac[DECIDE “x < y ⇒ x < SUC y”]
+  >- (pairarg_tac >> drule read_while_thm >> gvs[])
+  >- (pairarg_tac >> drule read_while_thm >> gvs[])
+  >- (gvs[CaseEqs ["option", "prod", "list"]]
+      >> drule_then assume_tac skip_comment_thm
+      >> sg ‘STRLEN rest < STRLEN (TL cs)’ >> rw[]
+      >> sg ‘STRLEN (TL cs) < SUC (STRLEN cs)’ >> rw[LENGTH_TL]
+      >> Cases_on ‘cs’ >> simp[])
+  >- (pairarg_tac >> drule read_while_thm >> gvs[])
+  >- (pairarg_tac >> drule read_while_thm >> gvs[])
+  >- (pairarg_tac >> drule read_while_thm >> gvs[])
 QED
 
 Definition next_token_def:
@@ -223,14 +240,34 @@ Definition next_token_def:
        SOME (token_of_atom atom, locs, rest)
 End
 
-
-
 Theorem next_token_LESS:
   ∀s l l' rest input. (next_token input l = SOME (s, l', rest)) ⇒
                                   LENGTH rest < LENGTH input
 Proof
-  cheat
+  rw[next_token_def, AllCaseEqs()] >> metis_tac[next_atom_LESS]
 QED
 
+Definition init_loc_def:
+  init_loc = POSN 1 1
+End
+
+Definition pancake_lex_aux_def:
+ pancake_lex_aux input loc =
+ (case next_token input loc of
+  | NONE => []
+  | SOME (token, Locs locB locE, rest) =>
+      (token, Locs locB locE) :: pancake_lex_aux rest (locE with col := locE.col + 1))
+Termination
+  WF_REL_TAC ‘measure (LENGTH o FST)’ >> rw[]
+  >> imp_res_tac next_token_LESS
+End
+
+Definition pancake_lex_def:
+  pancake_lex input = pancake_lex_aux input init_loc
+End
+
+(* Tests :
+   EVAL “pancake_ex "x + 1 --Then check y\n && y - 2 <= -3 || !z”;
+*)
 
 val _ = export_theory();
