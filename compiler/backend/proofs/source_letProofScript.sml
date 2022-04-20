@@ -122,7 +122,16 @@ Proof
       \\ gs [evaluate_prog_with_clock_def]
       \\ rpt (pairarg_tac \\ gvs [])
       \\ drule compile_decs_correct \\ rw [])
-    \\ cheat (* lprefix_lub stuff *))
+    \\ qmatch_asmsub_abbrev_tac ‘IMAGE f1’
+    \\ qmatch_goalsub_abbrev_tac ‘IMAGE f2’
+    \\ ‘f1 = f2’
+      suffices_by (rw [] \\ gs [])
+    \\ unabbrev_all_tac
+    \\ rw [FUN_EQ_THM]
+    \\ gs [evaluate_prog_with_clock_def]
+    \\ rpt (pairarg_tac \\ gs [])
+    \\ last_x_assum (qspec_then ‘k’ assume_tac) \\ gs []
+    \\ drule_at_then (Pos (el 2)) drule_all compile_decs_correct \\ rw [])
 QED
 
 val _ = export_theory ();
