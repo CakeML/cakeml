@@ -115,7 +115,8 @@ val () = computeLib.extend_compset
       ],
      computeLib.Defs
       [test_prog_def, test_prog_pp_def, basis_ienv_def,
-        add_print_from_opts_def
+        add_print_from_opts_def,
+        add_prints_from_opts_def
       ],
     computeLib.Tys
     [    ]
