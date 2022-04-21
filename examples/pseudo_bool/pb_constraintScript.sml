@@ -2,11 +2,13 @@
   Formalisation of normalised pseudo-boolean constraints
 *)
 
-open preamble pb_preconstraintTheory;
+open preamble;
 
 val _ = new_theory "pb_constraint";
 
 val _ = numLib.prefer_num();
+
+Type var = “:num”
 
 (*
   Normalized pseudoboolean constraints
@@ -14,7 +16,7 @@ val _ = numLib.prefer_num();
   An additional compactness assumption guarantees uniqueness
 *)
 Datatype:
-  npbc = PBC ((num # lit) list) num
+  npbc = PBC ((int # var) list) num
 End
 
 (* semantics *)
@@ -25,12 +27,14 @@ Definition b2n_def[simp]:
 End
 
 Definition eval_lit_def[simp]:
-  eval_lit w (Pos v) =     b2n (w v) ∧
-  eval_lit w (Neg v) = 1 - b2n (w v)
+  eval_lit w b (v:var) =
+  if b
+  then 1 - b2n (w v)
+  else b2n (w v)
 End
 
 Definition eval_term_def[simp]:
-  eval_term w (c,l) = c * eval_lit w l
+  eval_term w (c,v) = Num (ABS c) * eval_lit w (c < 0) v
 End
 
 Definition satisfies_npbc_def:
@@ -50,54 +54,44 @@ End
 
 (* compactness *)
 
-Definition get_var_def[simp]:
-  get_var (Pos n) = n ∧
-  get_var (Neg n) = n
-End
-
-Definition term_lt_def[simp]:
-  term_lt (_,l1) (_,l2) = (get_var l1 < get_var l2)
-End
-
-Definition term_le_def[simp]:
-  term_le (_,l1) (_,l2) = (get_var l1 <= get_var l2)
-End
-
 Definition compact_def[simp]:
   compact (PBC xs n) ⇔
-    SORTED term_lt xs ∧ (* implies that no var is mentioned twice *)
-    EVERY (λ(c,l). c ≠ 0) xs
+    SORTED $< (MAP SND xs) ∧ (* implies that no var is mentioned twice *)
+    EVERY (λc. c ≠ 0) (MAP FST xs)
 End
 
 (* addition -- implementation *)
 
+Definition offset_def:
+  offset c1 c2 =
+  if (c1 < 0) = (c2 < 0) then 0 else
+  let a1 = Num (ABS c1) in
+  let a2 = Num (ABS c2) in
+  if a1 <= a2 then a1 else a2
+End
+
 Definition add_terms_def:
-  add_terms (c1,Pos n) (c2,Pos _) zs k = ((c1+c2:num,Pos n)::zs,k:num) ∧
-  add_terms (c1,Neg n) (c2,Neg _) zs k = ((c1+c2,Neg n)::zs,k) ∧
-  add_terms (c1,Pos n) (c2,Neg _) zs k =
-    (if c1 = c2 then (zs,k+c1) else
-     if c1 < c2 then ((c2-c1,Neg n)::zs,k+c1) else
-                     ((c1-c2,Pos n)::zs,k+c2)) ∧
-  add_terms (c1,Neg n) (c2,Pos _) zs k =
-    (if c1 = c2 then (zs,k+c1) else
-     if c1 < c2 then ((c2-c1,Pos n)::zs,k+c1) else
-                     ((c1-c2,Neg n)::zs,k+c2))
+  add_terms c1 c2 v zs (k:num) =
+  let c = c1 + c2 in
+  if c = 0 then (zs, k + Num(ABS c1))
+  else
+    ((c1+c2,v)::zs, k+ offset c1 c2)
 End
 
 Definition add_lists_def:
   add_lists [] [] = ([],0) ∧
   add_lists xs [] = (xs,0) ∧
   add_lists [] ys = (ys,0) ∧
-  add_lists (x::xs) (y::ys) =
-    if term_lt x y then
-      let (zs,n) = add_lists xs (y::ys) in
-        (x::zs,n)
-    else if term_lt y x then
-      let (zs,n) = add_lists (x::xs) ys in
-        (y::zs,n)
-    else
+  add_lists ((c,x)::xs) ((d,y)::ys) =
+    if x < y then
+      let (zs,n) = add_lists xs ((d,y)::ys) in
+        ((c,x)::zs,n)
+    else if y < x then
+      let (zs,n) = add_lists ((c,x)::xs) ys in
+        ((d,y)::zs,n)
+    else (* x = y *)
       let (zs,n2) = add_lists xs ys in
-        add_terms x y zs n2
+        add_terms c d x zs n2
 End
 
 Definition add_def:
@@ -109,14 +103,21 @@ End
 (* addition -- proof *)
 
 Theorem add_terms_thm:
-  add_terms x y zs k = (zs1,d) ∧ ~term_lt x y ∧ ~term_lt y x ⇒
-  eval_term w x + eval_term w y + SUM (MAP (eval_term w) zs) + k =
+  add_terms x y v zs k = (zs1,d) ⇒
+  eval_term w (x,v) + eval_term w (y,v) + SUM (MAP (eval_term w) zs) + k =
   SUM (MAP (eval_term w) zs1) + d
 Proof
-  PairCases_on ‘x’ \\ PairCases_on ‘y’ \\ rw []
-  \\ ‘get_var y1 = get_var x1’ by fs [] \\ fs [] \\ gvs []
-  \\ Cases_on ‘x1’ \\ Cases_on ‘y1’ \\ gvs []
-  \\ gvs [add_terms_def,AllCaseEqs()] \\ Cases_on ‘w n’ \\ gvs []
+  rw[add_terms_def,AllCaseEqs(),offset_def]>>
+  Cases_on`x`>>Cases_on`y`>>gvs[]>>
+  TRY (
+    fs[integerTheory.INT_ADD_CALCULATE]>>
+    Cases_on`w v`>>gs[]>> NO_TAC)
+  >- (
+   Cases_on`w v`>>gs[]>>
+   intLib.ARITH_TAC)>>
+  `n < n'` by intLib.ARITH_TAC>>
+  simp[integerTheory.INT_ADD_CALCULATE]>>
+  Cases_on`w v`>>gs[]
 QED
 
 Theorem add_lists_thm:
@@ -126,12 +127,13 @@ Theorem add_lists_thm:
     SUM (MAP (eval_term w) zs) + d
 Proof
   ho_match_mp_tac add_lists_ind \\ rw [] \\ gvs [add_lists_def]
-  \\ Cases_on ‘term_lt x y’ \\ fs []
-  \\ Cases_on ‘term_lt y x’ \\ fs []
+  \\ Cases_on ‘x < y’ \\ fs []
+  \\ Cases_on ‘y < x’ \\ fs []
   \\ rpt (pairarg_tac \\ gvs [])
+  \\ `x = y` by gs[]
   \\ drule_all add_terms_thm
   \\ disch_then (qspec_then ‘w’ assume_tac)
-  \\ fs [SUM_APPEND]
+  \\ gs [SUM_APPEND]
 QED
 
 Theorem add_thm:
@@ -230,13 +232,11 @@ Definition add_lists'_def:
     case ys of
     | [] => (REV zs xs,n)
     | (y::ys1) =>
-      let (_,xl) = x in
-      let (_,yl) = y in
-      let xn = get_var xl in
-      let yn = get_var yl in
+      let (cx,xn) = x in
+      let (cy,yn) = y in
         if xn < yn then add_lists' xs1 ys (x::zs) n else
         if yn < xn then add_lists' xs ys1 (y::zs) n else
-          let (zs1,n1) = add_terms x y zs n in
+          let (zs1,n1) = add_terms cx cy xn zs n in
             add_lists' xs1 ys1 zs1 n1
 End
 
@@ -253,8 +253,9 @@ Proof
   \\ once_rewrite_tac [add_lists'_def]
   \\ Cases_on ‘xs’ \\ fs [add_lists_def,REV_REVERSE_LEM]
   \\ Cases_on ‘ys’ \\ fs [add_lists_def,REV_REVERSE_LEM]
-  \\ rename [‘term_lt h1 h2’]
+  \\ rename [‘add_lists (h1::_) (h2::_)’]
   \\ PairCases_on ‘h1’ \\ PairCases_on ‘h2’ \\ fs []
+  \\ fs [add_lists_def,REV_REVERSE_LEM]
   \\ rpt (IF_CASES_TAC \\ fs [])
   \\ rpt (pairarg_tac \\ fs [])
   \\ gvs [DefnBase.one_line_ify NONE add_terms_def,AllCaseEqs()]
@@ -263,8 +264,29 @@ QED
 (* division *)
 
 Definition div_ceiling_def:
-  div_ceiling m n = (m + (n - 1)) DIV n
+  div_ceiling (m:int) (n:num) =
+    (if m < 0
+    then m-(&n-1)
+    else m+(&n - 1)) quot &n
 End
+
+Theorem div_ceiling_sign:
+  n ≠ 0 ⇒
+  (div_ceiling m n < 0 ⇔ m < 0)
+Proof
+  rw[div_ceiling_def]>>
+  rw[integerTheory.int_quot]>>
+  Cases_on`m`>>fs[]
+  >-
+    intLib.COOPER_TAC
+  >- (
+    fs[integerTheory.int_sub,integerTheory.INT_ADD_CALCULATE]>>
+    `n' ≥ 1` by fs[]>>
+    qsuff_tac `0 <(n + n' -1) DIV n` >- fs[]>>
+    simp[X_LT_DIV]) >>
+  fs[integerTheory.int_sub,integerTheory.INT_ADD_CALCULATE]>>
+  every_case_tac>>fs[integerTheory.INT_ADD_CALCULATE]
+QED
 
 Theorem div_ceiling_le_x:
   k ≠ 0 ⇒ (div_ceiling n k ≤ m ⇔ n ≤ k * m)
@@ -300,19 +322,20 @@ QED
 
 Definition divide_def:
   divide (PBC l n) k =
-    PBC (MAP (λ(c,v). (div_ceiling c k, v)) l) (div_ceiling n k)
+    PBC (MAP (λ(c,v). (div_ceiling c k, v)) l) (n \\ k)
 End
 
 Theorem divide_thm:
   satisfies_npbc w c ∧ k ≠ 0 ⇒ satisfies_npbc w (divide c k)
 Proof
   Cases_on ‘c’ \\ fs [divide_def]
-  \\ rw [satisfies_npbc_def,GREATER_EQ,div_ceiling_le_x]
+  \\ rw [satisfies_npbc_def,GREATER_EQ,CEILING_DIV_LE_X]
   \\ irule LESS_EQ_TRANS
   \\ first_x_assum $ irule_at Any
   \\ Induct_on ‘l’ \\ fs [FORALL_PROD]
   \\ fs [LEFT_ADD_DISTRIB] \\ rw []
   \\ irule (DECIDE “m ≤ m1 ∧ n ≤ n1 ⇒ m+n ≤ m1+n1:num”)
+  \\ fs[]
   \\ fs [le_mult_div_ceiling]
 QED
 

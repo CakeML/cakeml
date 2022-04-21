@@ -73,7 +73,7 @@ val check_cutting_arr = process_topdecs`
       None =>
         raise Fail (format_failure lno ("invalid constraint id: " ^ Int.toString n))
     | Some c => c)
-  | Add_1 c1 c2 =>
+  | Add c1 c2 =>
     add (check_cutting_arr lno fml c1) (check_cutting_arr lno fml c2)
   | Mul c k =>
     multiply (check_cutting_arr lno fml c) k
@@ -83,7 +83,7 @@ val check_cutting_arr = process_topdecs`
     else raise Fail (format_failure lno ("divide by zero"))
   | Sat c =>
     saturate (check_cutting_arr lno fml c)
-  | Lit_1 l => Pbc [(1,l)] 0
+  | Lit l => Pbc [(1,l)] 0
   | Weak c var =>
     weaken (check_cutting_arr lno fml c) var` |> append_prog
 
