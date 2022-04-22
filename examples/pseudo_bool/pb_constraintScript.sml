@@ -152,65 +152,50 @@ QED
 Triviality add_lists_sorted_lemma:
   ∀l1 l2 h t d x.
     add_lists l1 l2 = (h::t,d) ∧
-    SORTED term_lt (x::l1) ∧
-    SORTED term_lt (x::l2) ⇒
-    term_lt x h
+    SORTED $< (x::MAP SND l1) ∧
+    SORTED $< (x::MAP SND l2) ⇒
+    x < SND h
 Proof
   ho_match_mp_tac add_lists_ind \\ rpt strip_tac
   \\ fs [add_lists_def]
   THEN1 gvs []
   THEN1 gvs []
-  \\ Cases_on ‘term_lt x y’ \\ fs []
-  \\ Cases_on ‘term_lt y x’ \\ fs []
+  \\ Cases_on ‘x < y’ \\ fs []
+  \\ Cases_on ‘y < x’ \\ fs []
   \\ rpt (pairarg_tac \\ gvs [])
   \\ gvs [AllCaseEqs(),add_terms_def |> DefnBase.one_line_ify NONE]
-  \\ PairCases_on ‘x'’ \\ gvs []
-  \\ rename [‘~(k1<k2)’]
-  \\ ‘k1 = k2’ by fs [] \\ gvs []
-  \\ ‘SORTED term_lt ((c1,Pos k1)::l2) ∧
-      SORTED term_lt ((c1,Neg k1)::l2)’ by
-   (Cases_on ‘l2’ \\ fs [SORTED_DEF,term_lt_def]
-    \\ Cases_on ‘h'’ \\ fs [term_lt_def])
-  \\ last_x_assum drule_all
-  \\ Cases_on ‘h’ \\ fs []
+  \\ ‘x = y’ by fs [] \\ gvs []
+  \\ last_x_assum drule_all \\ fs []
 QED
 
 Theorem add_lists_sorted:
    ∀l l' xs d.
-     EVERY (λ(c,l). c ≠ 0) l ∧ EVERY (λ(c,l). c ≠ 0) l' ∧
-     SORTED term_lt l ∧ SORTED term_lt l' ∧
+     EVERY (λc. c ≠ 0) (MAP FST l) ∧ EVERY (λc. c ≠ 0) (MAP FST l') ∧
+     SORTED $< (MAP SND l) ∧ SORTED $< (MAP SND l') ∧
      add_lists l l' = (xs,d) ⇒
-     SORTED term_lt xs ∧ EVERY (λ(c,l). c ≠ 0) xs
+     SORTED $< (MAP SND xs) ∧ EVERY (λc. c ≠ 0) (MAP FST xs)
 Proof
   ho_match_mp_tac add_lists_ind
   \\ REVERSE (rpt strip_tac)
   \\ fs [add_lists_def] \\ gvs []
   \\ imp_res_tac SORTED_TL
   THEN1
-   (Cases_on ‘term_lt x y’ \\ fs [] THEN1 (pairarg_tac \\ gvs [])
-    \\ Cases_on ‘term_lt y x’ \\ fs [] THEN1 (pairarg_tac \\ gvs [])
+   (Cases_on ‘x < y’ \\ fs [] THEN1 (pairarg_tac \\ gvs [])
+    \\ Cases_on ‘y < x’ \\ fs [] THEN1 (pairarg_tac \\ gvs [])
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [AllCaseEqs(),add_terms_def |> DefnBase.one_line_ify NONE])
-  \\ Cases_on ‘term_lt x y’ \\ fs []
+  \\ Cases_on ‘x < y’ \\ fs []
   THEN1
    (pairarg_tac \\ gvs [] \\ Cases_on ‘zs’ \\ fs []
     \\ drule add_lists_sorted_lemma \\ fs [])
-  \\ Cases_on ‘term_lt y x’ \\ fs []
+  \\ Cases_on ‘y < x’ \\ fs []
   THEN1
    (pairarg_tac \\ gvs [] \\ Cases_on ‘zs’ \\ fs []
     \\ drule add_lists_sorted_lemma \\ fs [])
   \\ rpt (pairarg_tac \\ gvs [])
-  \\ rename [‘get_var l1 < get_var l2’]
   \\ gvs [AllCaseEqs(),add_terms_def |> DefnBase.one_line_ify NONE]
   \\ Cases_on ‘zs’ \\ fs []
-  \\ rename [‘~(k1<k2)’]
-  \\ ‘k1 = k2’ by fs [] \\ gvs []
-  \\ ‘SORTED term_lt ((c,Pos k1)::l)’ by
-   (Cases_on ‘l’ \\ fs [SORTED_DEF,term_lt_def]
-    \\ Cases_on ‘h'’ \\ fs [term_lt_def])
-  \\ ‘SORTED term_lt ((c,Pos k1)::l')’ by
-   (Cases_on ‘l'’ \\ fs [SORTED_DEF,term_lt_def]
-    \\ Cases_on ‘h'’ \\ fs [term_lt_def])
+  \\ ‘x = y’ by fs [] \\ gvs []
   \\ drule_all add_lists_sorted_lemma
   \\ Cases_on ‘h’ \\ fs []
 QED
@@ -270,54 +255,48 @@ Definition div_ceiling_def:
     else m+(&n - 1)) quot &n
 End
 
+Theorem div_ceiling_compute:
+  k ≠ 0 ⇒
+  div_ceiling (&n) k = & (n \\ k) ∧
+  div_ceiling (-&n) k = - & (n \\ k)
+Proof
+  fs [div_ceiling_def,CEILING_DIV_def] \\ rw []
+  \\ Cases_on ‘k’ \\ fs []
+  \\ fs [ADD1,integerTheory.INT_ADD_CALCULATE,
+         integerTheory.INT_SUB_CALCULATE,DIV_EQ_X]
+  \\ rw []
+  \\ fs [ADD1,integerTheory.INT_ADD_CALCULATE,
+         integerTheory.INT_SUB_CALCULATE,DIV_EQ_X]
+  \\ qmatch_goalsub_abbrev_tac ‘_ DIV k’
+  \\ ‘0 < k’ by fs [Abbr‘k’]
+  \\ drule DIVISION
+  \\ disch_then $ qspec_then ‘n+n'’ mp_tac
+  \\ drule DIVISION
+  \\ disch_then $ qspec_then ‘n’ mp_tac
+  \\ strip_tac
+  \\ rewrite_tac [LEFT_ADD_DISTRIB,RIGHT_ADD_DISTRIB]
+  \\ decide_tac
+QED
+
 Theorem div_ceiling_sign:
   n ≠ 0 ⇒
   (div_ceiling m n < 0 ⇔ m < 0)
 Proof
-  rw[div_ceiling_def]>>
-  rw[integerTheory.int_quot]>>
-  Cases_on`m`>>fs[]
-  >-
-    intLib.COOPER_TAC
-  >- (
-    fs[integerTheory.int_sub,integerTheory.INT_ADD_CALCULATE]>>
-    `n' ≥ 1` by fs[]>>
-    qsuff_tac `0 <(n + n' -1) DIV n` >- fs[]>>
-    simp[X_LT_DIV]) >>
-  fs[integerTheory.int_sub,integerTheory.INT_ADD_CALCULATE]>>
-  every_case_tac>>fs[integerTheory.INT_ADD_CALCULATE]
+  Cases_on`m` \\ fs[div_ceiling_compute]
+  \\ fs [CEILING_DIV]
+  \\ rw [] \\ Cases_on ‘1 < n’
+  \\ gvs [DIV_EQ_0]
+  \\ ‘n = 1’ by fs [] \\ fs []
 QED
 
-Theorem div_ceiling_le_x:
-  k ≠ 0 ⇒ (div_ceiling n k ≤ m ⇔ n ≤ k * m)
+Theorem DIV_CEILING_EQ_0:
+  n ≠ 0 ⇒ (m \\ n = 0 ⇔ m = 0)
 Proof
-  fs [div_ceiling_def,DIV_LE_X,LEFT_ADD_DISTRIB]
-QED
-
-Theorem div_ceiling:
-  k ≠ 0 ⇒ div_ceiling n k = n DIV k + MIN (n MOD k) 1
-Proof
-  rewrite_tac [div_ceiling_def]
-  \\ strip_tac
-  \\ ‘0 < k’ by fs []
-  \\ drule_then (qspec_then ‘n’ mp_tac) DIVISION
-  \\ strip_tac
-  \\ qpat_x_assum ‘n = _’ (fn th => CONV_TAC (RATOR_CONV (SIMP_CONV std_ss [Once th])))
-  \\ rewrite_tac [GSYM ADD_ASSOC]
-  \\ asm_simp_tac std_ss [ADD_DIV_ADD_DIV]
-  \\ Cases_on ‘n MOD k = 0’ THEN1 fs [DIV_EQ_X]
-  \\ fs [DIV_EQ_X] \\ rw [MIN_DEF]
-QED
-
-Theorem le_mult_div_ceiling:
-  k ≠ 0 ⇒ n ≤ k * div_ceiling n k
-Proof
-  rw [div_ceiling,MIN_DEF]
-  \\ ‘0 < k’ by fs []
-  \\ drule_then (qspec_then ‘n’ mp_tac) DIVISION
-  \\ strip_tac
-  \\ qpat_x_assum ‘n = _’ (fn th => CONV_TAC (RATOR_CONV (SIMP_CONV std_ss [Once th])))
-  \\ fs [LEFT_ADD_DISTRIB]
+  fs [CEILING_DIV]
+  \\ Cases_on ‘m = 0’ \\ fs [ZERO_DIV]
+  \\ rw [] \\ Cases_on ‘1 < n’
+  \\ gvs [DIV_EQ_0]
+  \\ ‘n = 1’ by fs [] \\ fs []
 QED
 
 Definition divide_def:
@@ -335,18 +314,24 @@ Proof
   \\ Induct_on ‘l’ \\ fs [FORALL_PROD]
   \\ fs [LEFT_ADD_DISTRIB] \\ rw []
   \\ irule (DECIDE “m ≤ m1 ∧ n ≤ n1 ⇒ m+n ≤ m1+n1:num”)
-  \\ fs[]
-  \\ fs [le_mult_div_ceiling]
+  \\ fs[] \\ Cases_on ‘p_1’ \\ gvs [div_ceiling_compute,DIV_CEILING_EQ_0]
+  \\ fs [LE_MULT_CEILING_DIV]
 QED
 
-Theorem div_ceiling_ge_one:
-  m ≠ 0 ∧ n ≠ 0 ⇒ 1 ≤ div_ceiling m n
+Theorem div_ceiling_eq_0:
+  k ≠ 0 ⇒ (div_ceiling c k = 0 ⇔ c = 0)
 Proof
-  rw[div_ceiling_def]>>
-  Cases_on`m`>>fs[ADD1]>>
-  `0 < n` by fs[]>>
-  drule ADD_DIV_RWT>>
-  disch_then (fn th => DEP_REWRITE_TAC[th])>>fs[]
+  fs [div_ceiling_def]
+  \\ Cases_on ‘c = 0’ \\ fs []
+  \\ Cases_on ‘k’
+  \\ fs [ADD1,integerTheory.INT_ADD_CALCULATE,
+         integerTheory.INT_SUB_CALCULATE,DIV_EQ_X]
+  \\ Cases_on ‘c’
+  \\ fs [ADD1,integerTheory.INT_ADD_CALCULATE,
+         integerTheory.INT_SUB_CALCULATE,DIV_EQ_X]
+  \\ rw []
+  \\ fs [ADD1,integerTheory.INT_ADD_CALCULATE,
+         integerTheory.INT_SUB_CALCULATE,DIV_EQ_X]
 QED
 
 Theorem compact_divide:
@@ -360,18 +345,14 @@ Proof
   \\ fs[EVERY_MAP,EVERY_MEM]
   \\ rw[] \\ first_x_assum drule
   \\ pairarg_tac \\ fs[]
-  \\ strip_tac \\ imp_res_tac div_ceiling_ge_one
-  \\ fs[]
+  \\ fs[div_ceiling_eq_0]
 QED
 
 (* negation *)
-Definition negate_def[simp]:
-  negate (Pos n) = Neg n ∧
-  negate (Neg n) = Pos n
-End
 
 Definition not_def:
-  not (PBC l n) = PBC (MAP (I ## negate) l) (SUM (MAP FST l) + 1 - n)
+  not (PBC l n) = PBC (MAP (λ(c,l). (0 - c,l)) l)
+                      (SUM (MAP (λi. Num (ABS (FST i))) l) + 1 - n)
 End
 
 Theorem not_thm:
@@ -381,20 +362,19 @@ Proof
   \\ qid_spec_tac ‘n’
   \\ qid_spec_tac ‘l’
   \\ Induct \\ fs [FORALL_PROD] \\ rw []
-  \\ Cases_on ‘p_2’ \\ fs [negate_def]
-  \\ Cases_on ‘w n'’ \\ fs []
+  \\ Cases_on ‘w p_2’ \\ fs []
   \\ TRY (last_x_assum (fn th => rewrite_tac [GSYM th]) \\ gvs [] \\ NO_TAC)
-  \\ Cases_on ‘p_1 ≤ n’
-  \\ TRY (last_x_assum (qspec_then ‘n-p_1’ assume_tac) \\ gvs [] \\ NO_TAC)
-  \\ fs [GSYM NOT_LESS]
-  \\ last_x_assum (qspec_then ‘SUM (MAP (eval_term w) l)’ assume_tac) \\ gvs []
+  \\ Cases_on ‘p_1’ \\ gvs []
+  \\ Cases_on ‘n' ≤ n’ \\ fs []
+  \\ last_x_assum (qspec_then ‘n-n'’ assume_tac) \\ gvs []
 QED
 
 (* multiplication *)
+
 Definition multiply_def:
   multiply (PBC l n) k =
     if k = 0 then PBC [] 0 else
-      PBC (MAP (λ(c,v). (c * k, v)) l) (n * k)
+      PBC (MAP (λ(c,v). (c * & k, v)) l) (n * k)
 End
 
 Theorem multiply_thm:
@@ -410,6 +390,9 @@ Proof
   \\ first_x_assum $ irule_at Any
   \\ pop_assum kall_tac
   \\ Induct_on`l` \\ simp[] \\ Cases \\ rw[]
+  \\ Cases_on ‘q’ \\ gvs []
+  \\ fs [ADD1,integerTheory.INT_MUL_CALCULATE]
+  \\ Cases_on ‘k’ \\ fs [MULT_CLAUSES,LEFT_ADD_DISTRIB,RIGHT_ADD_DISTRIB]
 QED
 
 Theorem compact_multiply:
@@ -424,6 +407,7 @@ Proof
 QED
 
 (* saturation *)
+
 Definition saturate_def:
   saturate (PBC l n) =
     if n = 0 then PBC [] n
