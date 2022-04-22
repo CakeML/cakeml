@@ -49,7 +49,8 @@ Definition convert_frequencies_def:
 End
 
 Definition create_tree_def:
-  create_tree ((c,f)::[]) = [(c,f)] ∧
+  create_tree ((Leaf c, f)::[]) = Node (Leaf c) Empty ∧
+  create_tree ((c,f)::[]) = c ∧
   create_tree ((c1,f1)::(c2,f2)::ls) =
   (let
      nn = (Node c1 c2, f1+f2)
@@ -65,11 +66,11 @@ Definition build_huffman_tree_def:
   (let
      freqs = sort_frequencies (convert_frequencies (get_frequencies s))
    in
-     FST (HD (create_tree freqs)))
+     create_tree freqs)
 End
 
 (******************************************
-              Huffman encoding
+         Huffman encoding/decoding
 *******************************************)
 
 Definition get_huffman_codes_def:
@@ -93,7 +94,16 @@ Definition encode_single_huff_val_def:
 End
 
 Definition encode_huff_def:
-  encode ss ls = MAP (encode_single_huff_val ls) ss
+  encode ls ss = MAP (encode_single_huff_val ls) ss
+End
+
+
+Definition find_decode_match_def:
+  find_decode_match s         []  = NONE ∧
+  find_decode_match s ((k,v)::ts) =
+  if (IS_PREFIX s v)
+  then SOME (k,v)
+  else find_decode_match s ts
 End
 
 Definition huff_enc_dyn_def:
@@ -114,11 +124,7 @@ EVAL “huff_enc_dyn (MAP ORD "aabcccd")”;
 ******************************************)
 
 Definition gen_zero_codes_def:
-  gen_zero_codes l 0 = APPEND [(0,[])] l ∧
-  gen_zero_codes (l: (num # bool list) list) (n: num) =
-  if (0 < n)
-  then (gen_zero_codes (APPEND [(n,[])] l) (n-1))
-  else (l)
+  gen_zero_codes n = GENLIST (λ a. (a,[])) (SUC n)
 End
 
 Definition fill_assoc_list_def:
@@ -133,7 +139,8 @@ End
 Definition complete_assoc_list_def:
   complete_assoc_list ls =
   let
-    gs = gen_zero_codes [] 287;
+    max_val = FOLDL (λ a:num (b:num,_). if a < b then b else a) 0 ls;
+    gs = gen_zero_codes max_val;
     as = QSORT (λ (a,_) (b,_). a < b) ls;
   in
     fill_assoc_list gs as

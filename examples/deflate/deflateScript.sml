@@ -125,6 +125,116 @@ Definition find_code_in_table_def:
   else find_code_in_table v tab
 End
 
+Definition clen_position_def:
+  clen_position =
+  [16; 17; 18; 0; 8; 7; 9; 6; 10; 5; 11; 4; 12; 3; 13; 2; 14; 1; 15;]
+End
+
+(*********************************
+       Run length encoding
+*********************************)
+
+Definition rle_table_def:
+  rle_table : (num # num # num) =
+  (16,2,3)
+End
+
+Definition rle0_table_def:
+  rle0_table : (num # num # num) list =
+  [
+    (17, 3, 3);
+    (18, 7, 11)
+  ]
+End
+
+Definition find_repeat_def:
+  find_repeat     []  prev  n      = [(prev, n)] ∧
+  find_repeat ((l::ls):num list) prev (n:num) =
+  case l = prev of
+    T => if ((l = 0 ∧ n = 138) ∨ (l ≠ 0 ∨ n = 6))
+         then (l, n) :: find_repeat ls l 1
+         else find_repeat ls prev (SUC n)
+  | F => if n = 2
+         then (prev, 1)::(prev, 1)::(find_repeat ls l 1)
+         else (prev, n) :: find_repeat ls l 1
+End
+
+Definition encode_rle_aux_def:
+  encode_rle_aux [] tree = [] ∧
+  encode_rle_aux ((clen,r)::ls) tree =
+  if  r = 1
+  then (encode_single_huff_val tree clen) ++ encode_rle_aux ls tree
+  else  let
+         (code, bits, value) =  if clen = 0
+                                then find_level_in_table r rle0_table (HD rle0_table)
+                                else rle_table;
+         enc = (encode_single_huff_val tree code) ++ (pad0 bits (TN2BL (r - value)));
+       in
+         enc ++ encode_rle_aux ls tree
+End
+
+Definition encode_rle_def:
+  encode_rle (l::ls) tree = encode_rle_aux (find_repeat ls l 1) tree
+End
+
+Definition decode_repeating_def:
+  decode_repeating bl code prev =
+  case code < 16 of
+    T => ([code], 0)
+  | F => let
+           (code, bits, value) = if code = 16
+                                 then rle_table
+                                 else find_code_in_table code rle0_table;
+           clens = REPLICATE (TBL2N (TAKE bits bl) + value) prev;
+         in
+           (clens, bits)
+End
+
+EVAL “decode_repeating [T;F;F;F;F;T;T;T;T;F;F;F;F;F;F;F;F;F;F;F] 16 15”;
+
+Definition decode_rle_aux_def:
+  decode_rle_aux bl clens_rem tree acc prev =
+  if clens_rem <= 0
+  then (acc, bl)
+  else
+    case find_decode_match bl tree of
+      NONE => ([], []) (* Something went wrong, huffman can't find match *)
+    | SOME (code, bits) =>
+        case bits of
+          [] => ([], []) (* Something went wrong, huffman match should never be empty *)
+        | _ =>  (let
+                   (clens, extra_bits) = decode_repeating bl code prev;
+                 in
+                   decode_rle_aux
+                   (DROP (extra_bits + (LENGTH bits)) bl)
+                   (clens_rem - (1 + (LENGTH clens - 1))) (* Ugly shit that is there to satisfy the termination proof *)
+                   tree
+                   (acc++clens)
+                   (HD clens))
+Termination
+  WF_REL_TAC ‘measure $ λ (_, clens_rem, _, _, _). clens_rem’
+End
+
+Definition decode_rle_def:
+  decode_rle bl clens_rem tree =
+  case find_decode_match bl tree of
+    NONE => ([], []) (* Something went wrong, huffman can't find match *)
+  | SOME (code, bits) =>
+      case bits of
+        [] => ([], []) (* Something went wrong, huffman match should never be empty *)
+      | _ =>  decode_rle_aux (DROP (LENGTH bits) bl) (clens_rem - 1) tree [code] code
+                             (*The first is guaranteed to be a code length and not a repetition since there is no previous code to repeat yet*)
+End
+
+EVAL “
+ let
+   ls = [11;12;14;13;6;6;6;5;4;4;4;4;4;4;2;2;15;1;2;2;2;2];
+   (clen_tree, clen_alph) = unique_huff_tree ls;
+   enc = encode_rle ls clen_tree;
+   (output, rest) = decode_rle enc (LENGTH ls) clen_tree
+ in
+   (ls = output)
+”;
 
 (******************************************
              Deflate encoding
