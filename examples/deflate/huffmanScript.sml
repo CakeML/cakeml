@@ -74,13 +74,14 @@ End
 *******************************************)
 
 Definition get_huffman_codes_def:
-    get_huffman_codes (Leaf c) code ls = (c,code)::ls ∧
-    get_huffman_codes (Node ltr rtr) code ls =
-    let
-      left = get_huffman_codes ltr (code++[F]) ls;
-      right = get_huffman_codes rtr (code++[T]) ls
-    in
-        (left++right)
+  get_huffman_codes Empty          _    = [] ∧
+  get_huffman_codes (Leaf c)       code = [(c,code)] ∧
+  get_huffman_codes (Node ltr rtr) code =
+  let
+    left = get_huffman_codes ltr (code++[F]);
+    right = get_huffman_codes rtr (code++[T])
+  in
+    (left++right)
 End
 
 Definition encode_single_huff_val_def:
@@ -110,7 +111,7 @@ Definition huff_enc_dyn_def:
   huff_enc_dyn l =
   let
     huff_tree = build_huffman_tree l;
-    assoc_list = get_huffman_codes huff_tree [] [];
+    assoc_list = get_huffman_codes huff_tree [];
   in
     (huff_tree, assoc_list)
 End
@@ -278,12 +279,14 @@ Definition unique_huff_tree_def:
   unique_huff_tree (l:num list)  =
   let
     huff_tree = build_huffman_tree l;
-    assoc_list = get_huffman_codes huff_tree [] [];
+    assoc_list = get_huffman_codes huff_tree [];
     ls = all_lens assoc_list;
     cs = len_from_codes_inv ls;
   in
     (cs, ls)
 End
+
+EVAL “unique_huff_tree [5]”;
 
 EVAL “unique_huff_tree (MAP ORD "aaaaccb")”;
 
