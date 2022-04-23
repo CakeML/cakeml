@@ -2450,9 +2450,9 @@ QED
 
 Theorem state_co_inc_compile_has_flat_comp:
   compile c prog = SOME (b,bm,c') ==>
-  state_co (\c (env_id,decs). inc_compile env_id c decs) (cake_orac c' src config_tuple1 g) =
+  state_co (\c (env_id,decs:ast$dec list). inc_compile env_id c (f decs)) (cake_orac c' src config_tuple1 g) =
   pure_co (MAP (flat_pattern$compile_dec c.source_conf.pattern_cfg)) o
-  state_co (\c (env_id,decs). inc_compile_prog env_id c decs) (cake_orac c' src config_tuple1 g)
+  state_co (\c (env_id,decs). inc_compile_prog env_id c (f decs)) (cake_orac c' src config_tuple1 g)
 Proof
   simp [FUN_EQ_THM, state_co_def, pure_co_def, UNCURRY]
   \\ simp [source_to_flatTheory.inc_compile_def, source_to_flatTheory.compile_flat_def, UNCURRY]
@@ -2727,7 +2727,9 @@ Proof
   \\ simp [inc_config_to_config_inv]
 QED
 
-(* TODO here *)
+(* Had to add the source_to_source stuff to line up with the incremental
+ * compiler (I think...).
+ *)
 
 Theorem source_eval_semantics:
   ~ semantics_prog (add_eval_state ev s0) env prog Fail /\
@@ -2737,7 +2739,7 @@ Theorem source_eval_semantics:
   opt_eval_config_wf c' ev /\
   c.source_conf = prim_src_config ==>
   ? syntax_oracle.
-  semantics_prog (add_eval_state ev s0) env prog (flatSem$semantics
+  semantics_prog (add_eval_state ev s0) env (source_to_source$compile prog) (flatSem$semantics
     (mk_flat_install_conf
         (backend_from_flat_tuple_cc c)
         (cake_orac c' syntax_oracle (SND o config_tuple1) (\ps. ps.flat_prog)))
@@ -2748,9 +2750,10 @@ Proof
         (\(cfg, id, ds). (id, (THE ev).config_v (config_to_inc_config cfg), ds))
             o
         cake_orac c'
-            (\i. case get_oracle (THE ev) (add_eval_state ev s0) env prog i of
-                  SOME (id, (v : v), ds) => (id, ds)
-                | _ => ((0, 0), []))
+            (\i. case get_oracle (THE ev) (add_eval_state ev s0) env
+                   (source_to_source$compile prog) i of
+                   SOME (id, (v : v), ds) => (id, ds)
+                 | _ => ((0, 0), []))
             I (\ps. (ps.env_id,ps.source_prog))`
   \\ qabbrev_tac `es = put_oracle (THE ev) orac`
   \\ qexists_tac `(I ## SND) o ((source_evalProof$orac_s es).oracle)`
@@ -2761,8 +2764,8 @@ Proof
         (mk_flat_install_conf
             (pure_cc (MAP (flat_pattern$compile_dec prim_src_config.pattern_cfg))
                 (backend_from_flat_tuple_cc c))
-            (state_co (λc (env_id,decs). inc_compile_prog env_id c
-              (source_to_source$compile decs))
+            (state_co (λc (env_id,decs).
+                         inc_compile_prog env_id c (source_to_source$compile decs))
                 (cake_orac c' ((I ## SND) ∘ (source_evalProof$orac_s es).oracle)
                     config_tuple1 (\ps. (ps.env_id, ps.source_prog)))))
         (mk_flat_install_conf (backend_from_flat_tuple_cc c)
@@ -2775,10 +2778,14 @@ Proof
     \\ simp [GSYM source_to_flat_orac_eq]
   )
   \\ disch_tac
+  \\ ‘¬semantics_prog (add_eval_state ev s0) env (source_to_source$compile prog) Fail’
+    by metis_tac [semantics_prog_deterministic, semantics_prog_total,
+                  source_to_sourceProofTheory.compile_semantics]
   \\ qabbrev_tac `the_ev = THE ev`
   \\ Cases_on `ev` \\ fs []
   >- (
-    fs [add_eval_state_def]
+    irule source_to_sourceProofTheory.compile_semantics \\ gs []
+    \\ fs [add_eval_state_def]
     \\ irule source_to_flatProofTheory.compile_semantics
     \\ simp []
     \\ qexists_tac `NONE`
@@ -2789,7 +2796,7 @@ Proof
     \\ rveq \\ fs []
     \\ EVAL_TAC
   )
-  \\ fs [add_eval_state_def]
+  \\ gs [add_eval_state_def]
   \\ qspec_then `the_ev` (drule_then irule)
             (source_evalProofTheory.oracle_semantics_prog
         |> INST_TYPE [``:'a`` |-> ``:'z``] |> Q.GEN `ci`)
@@ -2818,6 +2825,9 @@ Proof
     \\ rw []
     \\ simp [config_to_inc_config_inv]
   )
+  \\ irule (source_to_sourceProofTheory.compile_semantics
+        |> Q.INST [`s` |-> `_ with <| eval_state := _|>`] |> SIMP_RULE (srw_ss ()) [])
+  \\ cheat (* TODO oracle is wrong? qsuff_tac is wrong? *) (*
   \\ irule (source_to_flatProofTheory.compile_semantics
         |> Q.INST [`s` |-> `_ with <| eval_state := _|>`] |> SIMP_RULE (srw_ss ()) [])
   \\ conj_tac
@@ -2942,6 +2952,7 @@ Proof
   \\ fs [prim_sem_env_eq]
   \\ rveq \\ fs []
   \\ EVAL_TAC
+   *)
 QED
 
 Theorem flat_semantics:
