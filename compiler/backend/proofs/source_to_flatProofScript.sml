@@ -5511,13 +5511,13 @@ QED
 (* not sure if this variant of the inc. compiler is the one we need *)
 Theorem monotonic_globals_state_co_compile:
   compile conf prog = (conf',p) ∧ FST (FST (orac 0)) = conf' ∧
-  is_state_oracle (\c (env_id, decs). inc_compile env_id c decs) orac ⇒
+  is_state_oracle (\c (env_id, decs). inc_compile env_id c (f decs)) orac ⇒
   oracle_monotonic
     (SET_OF_BAG ∘ elist_globals ∘ MAP flatProps$dest_Dlet ∘
       FILTER flatProps$is_Dlet ∘ SND) $<
     (SET_OF_BAG (elist_globals (MAP flatProps$dest_Dlet
       (FILTER flatProps$is_Dlet p))))
-    (state_co (\c (env_id, decs). inc_compile env_id c decs) orac)
+    (state_co (\c (env_id, decs). inc_compile env_id c (f decs)) orac)
 Proof
   rw []
   \\ irule (Q.ISPEC `\c. c.next.vidx` oracle_monotonic_state)
