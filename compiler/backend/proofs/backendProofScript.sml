@@ -3,6 +3,7 @@
 *)
 open preamble primSemEnvTheory semanticsPropsTheory
      backendTheory
+     source_to_sourceProofTheory
      source_to_flatProofTheory
      flat_to_closProofTheory
      clos_to_bvlProofTheory
@@ -487,7 +488,8 @@ Triviality compile_inc_progs_defs = LIST_CONJ
   [compile_inc_progs_def, keep_progs_T, quotient_pairTheory.PAIR_MAP_I]
 
 Theorem cake_orac_eqs:
-  state_co (\c (env_id, decs). inc_compile env_id c decs)
+  state_co (\c (env_id, decs). inc_compile env_id c
+    (source_to_source$compile decs))
     (cake_orac c' src config_tuple1 (\ps. (ps.env_id, ps.source_prog))) =
   cake_orac c' src (SND o config_tuple1) (\ps. ps.flat_prog)
   /\
@@ -945,7 +947,7 @@ QED
 
 Theorem cake_orac_source_is_state:
   is_state_oracle
-    (\c (env_id, decs). inc_compile env_id c decs)
+    (\c (env_id, decs). inc_compile env_id c (source_to_source$compile decs))
     (cake_orac c' syntax config_tuple1 (\ps. (ps.env_id, ps.source_prog)))
 Proof
   match_mp_tac is_state_oracle_cake_orac
@@ -2547,7 +2549,7 @@ Theorem backend_from_flat_tuple_cc_eq_compile_inc_progs:
   c.source_conf.pattern_cfg = prim_src_config.pattern_cfg ==>
   backend_from_flat_tuple_cc c (SND (config_tuple1 c'))
     (MAP (flat_pattern$compile_dec prim_src_config.pattern_cfg)
-      (SND (inc_compile_prog env_id src_cfg decs))) =
+      (SND (inc_compile_prog env_id src_cfg (source_to_source$compile decs)))) =
   let (c'', ps) = compile_inc_progs T c' (env_id, decs) in
     OPTION_MAP (\(bs, ws). (bs,
         MAP data_to_word_gcProof$upper_w2w ws,
@@ -2630,7 +2632,7 @@ Triviality cake_orac_extended_wf:
   compile (c : 'a config) prog = SOME (b,bm,c') /\
   opt_eval_config_wf c' (SOME ci) ==>
   orac_extended_wf (mk_compiler_fun_from_ci ci)
-    ((\(cfg,id,ds). (id, ci.config_v (config_to_inc_config cfg),ds)) ∘
+    ((\(cfg,id,ds). (id, ci.config_v (config_to_inc_config cfg), ds)) ∘
     cake_orac c' syntax I (λps. (ps.env_id,ps.source_prog)))
 Proof
   rw [source_evalProofTheory.orac_extended_wf_def, cake_orac_SUC]
@@ -2725,6 +2727,8 @@ Proof
   \\ simp [inc_config_to_config_inv]
 QED
 
+(* TODO here *)
+
 Theorem source_eval_semantics:
   ~ semantics_prog (add_eval_state ev s0) env prog Fail /\
   compile (c : 'a config) prog = SOME (b,bm,c') /\
@@ -2757,7 +2761,8 @@ Proof
         (mk_flat_install_conf
             (pure_cc (MAP (flat_pattern$compile_dec prim_src_config.pattern_cfg))
                 (backend_from_flat_tuple_cc c))
-            (state_co (λc (env_id,decs). inc_compile_prog env_id c decs)
+            (state_co (λc (env_id,decs). inc_compile_prog env_id c
+              (source_to_source$compile decs))
                 (cake_orac c' ((I ## SND) ∘ (source_evalProof$orac_s es).oracle)
                     config_tuple1 (\ps. (ps.env_id, ps.source_prog)))))
         (mk_flat_install_conf (backend_from_flat_tuple_cc c)
