@@ -134,21 +134,14 @@ Termination
 End
 
 Definition decode_rle_def:
-  decode_rle bl clens_rem tree =
-  case find_decode_match bl tree of
-    NONE => ([], []) (* Something went wrong, huffman can't find match *)
-  | SOME (code, bits) =>
-      case bits of
-        [] => ([], []) (* Something went wrong, huffman match should never be empty *)
-      | _ =>  decode_rle_aux (DROP (LENGTH bits) bl) (clens_rem - 1) tree [code] code
-                             (*The first is guaranteed to be a code length and not a repetition since there is no previous code to repeat yet*)
+  decode_rle bl clens_rem tree = decode_rle_aux bl clens_rem tree [] 0
 End
 
 EVAL “
  let
-   ls = [0;0;0;0;1;1;1;1;1;2;2;2;3];
+   ls = [0;0;0;0;1;1;1;1;1;2;2;2;3;2;5;7;7;7;7;7;7;3];
    (enc, clen_tree, clen_alph, r) = encode_rle ls;
-   (output, rest) = decode_rle_aux enc (LENGTH ls) clen_tree [] 0;
+   (output, rest) = decode_rle enc (LENGTH ls) clen_tree;
  in
    (ls = output)
 ”;

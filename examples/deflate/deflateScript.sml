@@ -343,12 +343,8 @@ EVAL “
    dist_tree' = len_from_codes_inv dist_alph';
    (lzList, bl''') = deflate_decoding  bl'' len_tree' dist_tree' [];
    res = LZSS_decompress lzList;
-
-   ls = [11;12;0;0;0;0;0;0;0;0;0;0;14;0;13;6;6;6;5;4;4;4;4;4;4;2;2;15;1;2;2;2;2];
-   (enc, clen_tree, clen_alph, _) = encode_rle ls;
-   (output, rest) = decode_rle enc (LENGTH ls) clen_tree;
  in
-   (ls, output)
+   (inp, res)
 ”;
 
 
