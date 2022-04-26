@@ -15,6 +15,9 @@ First simple compressor
 [deflateScript.sml](deflateScript.sml):
 First simple compressor
 
+[deflateTableScript.sml](deflateTableScript.sml):
+First simple compressor
+
 [huffmanOGScript.sml](huffmanOGScript.sml):
 Script for Huffman encodings.
 
@@ -23,6 +26,9 @@ Script for Huffman encodings.
 
 [ringBufferScript.sml](ringBufferScript.sml):
 Implementation written by Alexander Cox
+
+[rleScript.sml](rleScript.sml):
+Run length encoding
 
 [translation](translation):
 Translation scripts for puzzle encodings.
