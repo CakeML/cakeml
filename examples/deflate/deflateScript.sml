@@ -126,7 +126,7 @@ Definition find_code_in_table_def:
 End
 
 Definition clen_position_def:
-  clen_position =
+  clen_position : num list =
   [16; 17; 18; 0; 8; 7; 9; 6; 10; 5; 11; 4; 12; 3; 13; 2; 14; 1; 15;]
 End
 
@@ -147,50 +147,94 @@ Definition rle0_table_def:
   ]
 End
 
-Definition find_repeat_def:
-  find_repeat     []  prev  n      = [(prev, n)] ∧
-  find_repeat ((l::ls):num list) prev (n:num) =
-  case l = prev of
-    T => if ((l = 0 ∧ n = 138) ∨ (l ≠ 0 ∨ n = 6))
-         then (l, n) :: find_repeat ls l 1
-         else find_repeat ls prev (SUC n)
-  | F => if n = 2
-         then (prev, 1)::(prev, 1)::(find_repeat ls l 1)
-         else (prev, n) :: find_repeat ls l 1
+
+Definition add_repetition_def:
+  add_repetition clen r =
+  if  r = 1
+  then [(clen, r)]
+  else if clen = 0 ∧ 3 ≤ r
+  then let
+         (code, bits, value) = find_level_in_table r rle0_table (HD rle0_table);
+       in
+         [(code, r)]
+  else if 3 < r
+  then let
+         (code, bits, value) = rle_table;
+         r' = r-1;
+         n = (r'-3) DIV 6;
+         r'' = r' - 6*n;
+         base = if 6 < r''
+                then [(code,((r''-3)));(code, 3)]
+                else
+                  if  r'' = 0
+                  then []
+                  else [(code, r'')];
+       in (clen,1):: REPLICATE n (code, 6) ++ base
+  else REPLICATE r (clen, 1)
 End
 
+Definition find_repeat_def:
+  find_repeat      []            prev  n      = add_repetition prev n ∧
+  find_repeat ((l::ls):num list) prev (n:num) =
+  case l = prev of
+    T => if ((l = 0 ∧ n = 138) ∨ (l ≠ 0 ∧ 6 < n))
+         then (add_repetition l n) ++ find_repeat ls l 1
+         else find_repeat ls prev (SUC n)
+  | F => (add_repetition prev n) ++ find_repeat ls l 1
+End
+
+
 Definition encode_rle_aux_def:
-  encode_rle_aux [] tree = [] ∧
+  encode_rle_aux            []  tree = [] ∧
   encode_rle_aux ((clen,r)::ls) tree =
   if  r = 1
   then (encode_single_huff_val tree clen) ++ encode_rle_aux ls tree
   else  let
-         (code, bits, value) =  if clen = 0
-                                then find_level_in_table r rle0_table (HD rle0_table)
-                                else rle_table;
-         enc = (encode_single_huff_val tree code) ++ (pad0 bits (TN2BL (r - value)));
-       in
+          (code, bits, value) =  if clen = 16
+                                 then rle_table
+                                 else find_code_in_table clen rle0_table;
+          enc = (encode_single_huff_val tree clen) ++ (pad0 bits (TN2BL (r - value)));
+        in
          enc ++ encode_rle_aux ls tree
 End
 
 Definition encode_rle_def:
-  encode_rle (l::ls) tree = encode_rle_aux (find_repeat ls l 1) tree
+  encode_rle (l::ls) =
+  let
+    repeat = find_repeat ls l 1;
+    (repeat_tree, repeat_alph) = unique_huff_tree (MAP FST repeat);
+    enc = encode_rle_aux repeat repeat_tree;
+  in
+    (enc, repeat_tree, repeat_alph, repeat)
 End
+
+EVAL “
+ let
+   ls = [0;0;0;0;1;1;1;1;1;2;2;2;3];
+   (enc, clen_tree, clen_alph, r) = encode_rle ls;
+   (output, rest) = decode_rle enc (LENGTH ls) clen_tree
+ in
+   (ls, r, clen_tree, [],[],[],[],enc)
+”;
 
 Definition decode_repeating_def:
   decode_repeating bl code prev =
   case code < 16 of
-    T => ([code], 0)
-  | F => let
-           (code, bits, value) = if code = 16
-                                 then rle_table
-                                 else find_code_in_table code rle0_table;
-           clens = REPLICATE (TBL2N (TAKE bits bl) + value) prev;
-         in
-           (clens, bits)
+    T => ([code], 0, code)
+  | F => if code = 16
+         then
+           let
+             (code, bits, value) = rle_table;
+             clens = REPLICATE (TBL2N (TAKE bits bl) + value) prev;
+           in
+             (clens, bits, prev)
+         else
+           let
+             (code, bits, value) = find_code_in_table code rle0_table;
+             clens = REPLICATE (TBL2N (TAKE bits bl) + value) 0;
+           in
+             (clens, bits, 0)
 End
-
-EVAL “decode_repeating [T;F;F;F;F;T;T;T;T;F;F;F;F;F;F;F;F;F;F;F] 16 15”;
 
 Definition decode_rle_aux_def:
   decode_rle_aux bl clens_rem tree acc prev =
@@ -202,15 +246,15 @@ Definition decode_rle_aux_def:
     | SOME (code, bits) =>
         case bits of
           [] => ([], []) (* Something went wrong, huffman match should never be empty *)
-        | _ =>  (let
-                   (clens, extra_bits) = decode_repeating bl code prev;
+        | _  => (let
+                   (clens, extra_bits, new_prev) = decode_repeating (DROP (LENGTH bits) bl) code prev;
                  in
                    decode_rle_aux
                    (DROP (extra_bits + (LENGTH bits)) bl)
                    (clens_rem - (1 + (LENGTH clens - 1))) (* Ugly shit that is there to satisfy the termination proof *)
                    tree
                    (acc++clens)
-                   (HD clens))
+                   new_prev)
 Termination
   WF_REL_TAC ‘measure $ λ (_, clens_rem, _, _, _). clens_rem’
 End
@@ -228,42 +272,85 @@ End
 
 EVAL “
  let
-   ls = [11;12;14;13;6;6;6;5;4;4;4;4;4;4;2;2;15;1;2;2;2;2];
-   (clen_tree, clen_alph) = unique_huff_tree ls;
-   enc = encode_rle ls clen_tree;
-   (output, rest) = decode_rle enc (LENGTH ls) clen_tree
+   ls = [0;0;0;0;1;1;1;1;1;2;2;2;3];
+   (enc, clen_tree, clen_alph, r) = encode_rle ls;
+   (output, rest) = decode_rle_aux enc (LENGTH ls) clen_tree [] 0;
  in
-   (ls = output)
+   (ls, output, clen_tree, enc, r)
 ”;
 
 (******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
+******************************************
              Deflate encoding
 *******************************************)
 
 Overload END_BLOCK = “256:num”;
 
-Definition encode_LZSS_len_def:
-  encode_LZSS_len l : num =
+Definition find_LZSS_val_def:
+  find_LZSS_val l : num # num =
   case l of
-    Lit c => ORD c
+    Lit c => (ORD c, 0)
   | LenDist (l, d) =>
       let
-        (num, _, _) = find_level_in_len_table l
+        (lnum, _, _) = find_level_in_len_table l;
+        (dnum, _, _) = find_level_in_dist_table d;
       in
-        num
+        (lnum, dnum)
 End
-
-EVAL “encode_LZSS_len (Lit #"g")”;
-EVAL “encode_LZSS_len (LenDist (20, 20))”;
 
 Definition encode_LZSS_table_def:
   encode_LZSS_table n table_func tree  =
   let
     (code, bits, value) = table_func n;
-    enc = (encode_single_huff_val tree code) ++ (pad0 bits (TN2BL (n - value)));
   in
-    enc
-
+    (encode_single_huff_val tree code) ++ (pad0 bits (TN2BL (n - value)))
 End
 
 (* Encodes each LZSS *)
@@ -286,7 +373,51 @@ Definition deflate_encoding_def:
   encode_LZSS l len_tree dist_tree ++ deflate_encoding ls len_tree dist_tree
 End
 
-(* Should handle block level logic *)
+Definition split_len_dist:
+  split_len_dist       []  ls ds = (ls, ds) ∧
+  split_len_dist (lz::lzs) ls ds =
+  let
+    (a, b) = find_LZSS_val lz;
+  in
+    case a < 257 of
+      T => split_len_dist lzs (a::ls) ds
+    | F => split_len_dist lzs (a::ls) (b::ds)
+End
+
+EVAL “
+ let
+   lzList = LZSS_compress "hejsan hejsan";
+   (lenList, distList) = split_len_dist lzList [] [];
+ in
+   (lenList, distList)
+”;
+
+Definition max_fst_pair_def:
+  max_fst_pair ls : num = FOLDL (λ a (b,_). if a < b then b else a) (FST $ HD ls) ls
+End
+
+Definition encode_clen_pos_def:
+  encode_clen_pos alph = REVERSE $ FOLDL (λ ls i. (EL i alph)::ls ) [] clen_position
+End
+
+Definition trim_zeroes_end_def:
+  trim_zeroes_end (alph:num list) =
+  let
+    zeroes = FOLDL (λ n clen. if clen = 0 then n+1 else 0) 0 alph;
+  in
+    BUTLASTN zeroes alph
+End
+
+Definition encode_clen_alph_def:
+  encode_clen_alph (alph: num list) =
+  let
+    alph = trim_zeroes_end $ encode_clen_pos $ PAD_RIGHT 0 19 alph;
+    CLEN_bits = FLAT ( MAP (λa. (pad0 3 (TN2BL a))) alph);
+    NCLEN = LENGTH alph
+  in
+    (NCLEN, CLEN_bits)
+End
+
 Definition deflate_encoding_main_def:
   deflate_encoding_main s fix =
   case fix of
@@ -294,28 +425,41 @@ Definition deflate_encoding_main_def:
       ( let
           BTYPE = [F; T];
           lzList = LZSS_compress s;
-          lenList = MAP encode_LZSS_len lzList;
           (len_tree, dist_tree) = (fixed_len_tree, fixed_dist_tree);
         in
-          (BTYPE++(deflate_encoding lzList len_tree dist_tree)))
+          BTYPE++
+          (deflate_encoding lzList len_tree dist_tree)
+      )
   | F =>
-      ( let
-          BTYPE = [T; F];
-          lzList = LZSS_compress s;
-          lenList = MAP encode_LZSS_len lzList;
-          (assoc_list, alphabet) = unique_huff_tree lenList;
-          pad_alph = FLAT ( MAP (λa. (pad0 9 (TN2BL a))) alphabet);
-        in
-          (BTYPE++pad_alph++(deflate_encoding lzList assoc_list fixed_dist_tree)))
+      let
+        lzList = LZSS_compress s;
+        (lenList, distList) = split_len_dist lzList [] [];
+        (*    Build huffman tree for len/dist       *)
+        (len_tree,  len_alph)  = unique_huff_tree lenList;
+        (dist_tree, dist_alph) = unique_huff_tree distList;
+        (*    Build huffman tree for len/dist codelengths    *)
+        len_dist_alph = (len_alph ++ dist_alph);
+        (*    Encode len/dist codelengths                    *)
+        (lendist_alph_enc, clen_tree, clen_alph, _) = encode_rle len_dist_alph;
+        (NCLEN_num, CLEN_bits) = encode_clen_alph clen_alph;
+        (*    Setup header bits                              *)
+        BTYPE = [T; F];
+        NLIT  = pad0 5 $ TN2BL ((MIN (max_fst_pair len_tree) 257)  - 257);
+        NDIST = pad0 5 $ TN2BL ((max_fst_pair dist_tree) - 1);
+        NCLEN = pad0 4 $ TN2BL (NCLEN_num - 4);
+        header_bits = BTYPE ++ NLIT ++ NDIST ++ NCLEN;
+      in
+        header_bits ++
+        CLEN_bits ++
+        lendist_alph_enc ++
+        (deflate_encoding lzList len_tree dist_tree)
 End
 
-Definition find_decode_match_def:
-  find_decode_match s         []  = NONE ∧
-  find_decode_match s ((k,v)::ts) =
-  if (IS_PREFIX s v)
-  then SOME (k,v)
-  else find_decode_match s ts
-End
+EVAL “deflate_encoding_main "hejsan hejsan" F”;
+
+(************************************
+          Deflate Decoding
+************************************)
 
 Definition decode_LZSS_table_def:
   decode_LZSS_table lzvalue bl table =
@@ -376,12 +520,37 @@ Termination
   \\ rw[decode_check_end_block, find_decode_match_def, decode_LZSS_def, decode_LZSS_table_def, decode_LZSS_def]
 End
 
-Definition create_length_list_def:
-  create_length_list [] = [] ∧
-  create_length_list bl = TBL2N (TAKE 9 bl) :: create_length_list (DROP 9 bl)
-Termination
-  WF_REL_TAC ‘measure $ λ (bl). LENGTH bl’
-  \\ rw[]
+Definition read_dyn_header_def:
+  read_dyn_header bl =
+  let
+    NLIT = TBL2N (TAKE 5 bl) + 257;
+    bl = DROP 5 bl;
+    NDIST = TBL2N (TAKE 5 bl) + 1;
+    bl = DROP 5 bl;
+    NCLEN = TBL2N (TAKE 4 bl) + 4;
+    bl = DROP 4 bl;
+  in
+    (NLIT, NDIST, NCLEN, bl)
+End
+
+Definition read_clen_def:
+  read_clen bl 0 = [] ∧
+  read_clen bl (SUC CLEN) = TBL2N (TAKE 3 bl) :: read_clen (DROP 3 bl) CLEN
+End
+
+Definition recreate_clen_def:
+  recreate_clen []   _        res = res ∧
+  recreate_clen (cl::clen) (clp::clen_pos) res =
+  recreate_clen clen clen_pos (LUPDATE cl clp res)
+End
+
+Definition decode_clen_def:
+  decode_clen bl nclen =
+  let
+    clens = read_clen bl nclen;
+    clens = recreate_clen clens clen_position (GENLIST (λn. 0) 19);
+  in
+    (len_from_codes_inv clens, DROP (3*nclen) bl)
 End
 
 Definition deflate_decoding_main_def:
@@ -397,12 +566,19 @@ Definition deflate_decoding_main_def:
   else if b1 = T ∧ b2 = F
   then
     ( let
-        lengths = create_length_list (TAKE (288*9) bl);
-        codes = len_from_codes_inv lengths;
-        (lzList, bl') = deflate_decoding (DROP (288*9) bl) codes fixed_dist_tree [];
+        (NLIT, NDIST, NCLEN, bl) = read_dyn_header bl;
+        (clen_tree, bl') = decode_clen bl NCLEN;
+        (len_dist_alph, bl'') = decode_rle bl' (NLIT + NDIST) clen_tree;
+        len_alph = TAKE (NLIT + 257) len_dist_alph;
+        dist_alph = DROP (NLIT + 257) len_dist_alph;
+
+        len_tree = len_from_codes_inv len_alph;
+        dist_tree = len_from_codes_inv dist_alph;
+
+        (lzList, bl''') = deflate_decoding bl'' len_tree dist_tree [];
         res = LZSS_decompress lzList;
       in
-        (res, bl')
+        (res, bl''')
     )
   else ("", [])
 End
@@ -424,6 +600,50 @@ EVAL “let
       in
         (inp, dec)
      ”;
+
+EVAL “
+ let
+   inp = "hejsan hejsan";
+   lzList = LZSS_compress inp;
+   (lenList, distList) = split_len_dist lzList [] [];
+   (*    Build huffman tree for len/dist       *)
+   (len_tree,  len_alph)  = unique_huff_tree lenList;
+   (dist_tree, dist_alph) = unique_huff_tree distList;
+   (*    Build huffman tree for len/dist codelengths    *)
+   len_dist_alph = (len_alph ++ dist_alph);
+   (*    Encode len/dist codelengths                    *)
+   (lendist_alph_enc, clen_tree, clen_alph, _) = encode_rle len_dist_alph;
+   (NCLEN_num, CLEN_bits) = encode_clen_alph clen_alph;
+   (*    Setup header bits                              *)
+   BTYPE = [T; F];
+   NLIT  = pad0 5 $ TN2BL ((MIN (max_fst_pair len_tree) 257)  - 257);
+   NDIST = pad0 5 $ TN2BL ((max_fst_pair dist_tree) - 1);
+   NCLEN = pad0 4 $ TN2BL (NCLEN_num - 4);
+   header_bits = BTYPE ++ NLIT ++ NDIST ++ NCLEN;
+   enc = header_bits ++
+         CLEN_bits ++
+         lendist_alph_enc ++
+         (deflate_encoding lzList len_tree dist_tree);
+   enc = DROP 2 enc;
+   bl = enc;
+   (NLIT', NDIST', NCLEN', bl) = read_dyn_header bl;
+   (clen_tree', bl') = decode_clen bl NCLEN';
+   (len_dist_alph', bl'') = decode_rle bl' (NLIT' + NDIST') clen_tree';
+   (aa, ab) = decode_rle lendist_alph_enc (LENGTH len_dist_alph) clen_tree';
+   len_alph' = TAKE (NLIT' + 257) len_dist_alph';
+   dist_alph' = DROP (NLIT' + 257) len_dist_alph';
+   len_tree' = len_from_codes_inv len_alph';
+   dist_tree' = len_from_codes_inv dist_alph';
+   (lzList, bl''') = deflate_decoding  bl'' len_tree' dist_tree' [];
+   res = LZSS_decompress lzList;
+
+   ls = [11;12;0;0;0;0;0;0;0;0;0;0;14;0;13;6;6;6;5;4;4;4;4;4;4;2;2;15;1;2;2;2;2];
+   (enc, clen_tree, clen_alph, _) = encode_rle ls;
+   (output, rest) = decode_rle enc (LENGTH ls) clen_tree;
+ in
+   (ls, output)
+”;
+
 
 
 val _ = export_theory();
