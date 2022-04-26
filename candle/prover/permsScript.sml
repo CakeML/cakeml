@@ -621,6 +621,15 @@ Proof
     \\ strip_tac \\ gvs [])
 QED
 
+Theorem EVERY_perms_ok_optimise[local]:
+  ∀ sc vs ps.
+    EVERY (perms_ok ps) vs ⇒
+    EVERY (perms_ok ps) (do_fpoptimise sc vs)
+Proof
+  ho_match_mp_tac do_fpoptimise_ind \\ rpt conj_tac
+  \\ gs[do_fpoptimise_def, perms_ok_def]
+QED
+
 Theorem evaluate_perms_ok:
   (∀s:'ffi semanticPrimitives$state. ∀env xs s' res.
      EVERY (perms_ok_exp ps) xs ∧
@@ -777,15 +786,56 @@ Proof
     \\ Cases_on ‘op = Eval’ \\ gs []
     \\ ‘EVERY (λx. perms_ok_env ps (freevars x) env) xs’
       by gs [EVERY_perms_ok_env_BIGUNION, SF ETA_ss]
-    \\ gvs [CaseEqs ["result", "prod", "bool", "option"]]
-    \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms
-    \\ impl_tac
-    >- (
-      gs [perms_ok_state_def, SUBSET_DEF])
-    \\ strip_tac \\ gs []
-    \\ gs [perms_ok_state_def]
-    \\ rw [] \\ gs []
-    \\ first_x_assum (drule_then assume_tac) \\ gs [])
+    \\ Cases_on ‘getOpClass op’ \\ gs[]
+    >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[])
+    >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[])
+    >~ [‘Simple’] >- (
+      gvs [CaseEqs ["result", "prod", "bool", "option"]]
+      \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms
+      \\ impl_tac
+      >- (
+        gs [perms_ok_state_def, SUBSET_DEF])
+      \\ strip_tac \\ gs []
+      \\ gs [perms_ok_state_def]
+      \\ rw [] \\ gs []
+      \\ first_x_assum (drule_then assume_tac) \\ gs [])
+    >~ [‘Icing’] >- (
+      gvs [CaseEqs ["result", "prod", "bool", "option"]]
+      \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms
+      \\ impl_tac
+      >- (
+        gs [perms_ok_state_def, SUBSET_DEF])
+      \\ strip_tac \\ gs [shift_fp_opts_def]
+      \\ gs [perms_ok_state_def]
+      \\ rw [] \\ gs [Boolv_def]
+      >- (first_x_assum (drule_then assume_tac) \\ gs [])
+      >- (
+        rename1 ‘st2.fp_state.canOpt = FPScope Opt’
+        \\ Cases_on ‘do_fprw r (st2.fp_state.opts 0) st2.fp_state.rws’ \\ gs[]
+        \\ Cases_on ‘r’ \\ gs[do_fprw_def]
+        \\ Cases_on ‘a’ \\ gvs[CaseEqs["list","option"], perms_ok_def]
+        \\ TOP_CASE_TAC \\ gs[perms_ok_def])
+      >- (
+        Cases_on ‘r’ \\ gs[]
+        \\ Cases_on ‘a’ \\ gvs[CaseEqs["list","option"], perms_ok_def]
+        \\ TOP_CASE_TAC \\ gs[perms_ok_def])
+      >- (
+        rename1 ‘st2.fp_state.canOpt = FPScope Opt’
+        \\ Cases_on ‘do_fprw r (st2.fp_state.opts 0) st2.fp_state.rws’ \\ gs[]
+        \\ Cases_on ‘r’ \\ gs[do_fprw_def]
+        \\ Cases_on ‘a’ \\ gvs[CaseEqs["list","option"], perms_ok_def]
+        \\ TOP_CASE_TAC \\ gs[perms_ok_def])
+    )
+    >~ [‘Reals’] >- (
+      gvs [CaseEqs ["result", "prod", "bool", "option"], shift_fp_opts_def, perms_ok_state_def]
+      \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms
+      \\ impl_tac
+      >- (
+        gs [perms_ok_state_def, SUBSET_DEF])
+      \\ strip_tac \\ gs []
+      \\ gs [perms_ok_state_def]
+      \\ rw [] \\ gs []
+      \\ first_x_assum (drule_then assume_tac) \\ gs []))
   >~ [‘Log lop x y’] >- (
     gvs [evaluate_def, perms_ok_env_UNION, do_log_def,
          CaseEqs ["option", "exp_or_val", "result", "prod", "bool"]]
@@ -838,6 +888,12 @@ Proof
     gvs [evaluate_def, CaseEqs ["result", "prod"]])
   >~ [‘Lannot x l’] >- (
     gvs [evaluate_def, CaseEqs ["result", "prod"]])
+  >~ [‘FpOptimise sc e’] >- (
+    gvs [evaluate_def, CaseEqs ["result", "prod"]]
+    \\ last_x_assum mp_tac \\ reverse impl_tac
+    \\ TRY (
+      rw [] \\ gs[perms_ok_state_def, EVERY_perms_ok_optimise])
+    \\ gvs [perms_ok_exp_def])
   >~ [‘[]’] >- (
     gvs [evaluate_def])
   >~ [‘_::_’] >- (
