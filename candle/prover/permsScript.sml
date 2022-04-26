@@ -108,6 +108,15 @@ Inductive perms_ok:
 [~Litv:]
   (∀ps lit.
      perms_ok ps (Litv lit)) ∧
+[~FP_WordTree:]
+  (∀ fp.
+     perms_ok ps (FP_WordTree fp)) ∧
+[~FP_BoolTree:]
+  (∀ fp.
+     perms_ok ps (FP_BoolTree fp)) ∧
+[~Real:]
+  (∀ r.
+     perms_ok ps (Real r)) ∧
 [~Loc:]
   (∀ps loc.
      RefMention loc ∈ ps ⇒
@@ -132,7 +141,10 @@ Theorem perms_ok_def =
    “perms_ok ps (Recclosure env f n)”,
    “perms_ok ps (Loc loc)”,
    “perms_ok ps (Vectorv vs)”,
-   “perms_ok ps (Env env ns)”]
+   “perms_ok ps (Env env ns)”,
+   “perms_ok ps (FP_WordTree fp)”,
+   “perms_ok ps (FP_BoolTree fp)”,
+   “perms_ok ps (Real r)”]
   |> map (SIMP_CONV (srw_ss()) [Once perms_ok_cases])
   |> LIST_CONJ;
 
@@ -505,6 +517,19 @@ Proof
     rw [do_app_cases] \\ gs []
     \\ simp [Boolv_def]
     \\ rw [perms_ok_def])
+  \\ Cases_on ‘∃bop. op = Real_bop bop’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
+  \\ Cases_on ‘∃uop. op = Real_uop uop’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ rw [perms_ok_def])
+  \\ Cases_on ‘∃cmp. op = Real_cmp cmp’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [Boolv_def]
+    \\ rw [perms_ok_def])
   \\ Cases_on ‘∃opn. op = Opn opn’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -544,6 +569,18 @@ Proof
     \\ simp [EL_APPEND_EQN]
     \\ rw [] \\ gs []
     \\ gvs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
+  \\ Cases_on ‘op = FpFromWord’ \\ gs[]
+  >- (
+    rw [do_app_cases] \\ gs[]
+    \\ rw [perms_ok_def])
+  \\ Cases_on ‘op = FpToWord’ \\ gs[]
+  >- (
+    rw [do_app_cases] \\ gs[]
+    \\ rw [perms_ok_def])
+  \\ Cases_on ‘op = RealFromFP’ \\ gs[]
+  >- (
+    rw [do_app_cases] \\ gs[]
+    \\ rw [perms_ok_def])
   \\ Cases_on ‘op’ \\ gs []
 QED
 
