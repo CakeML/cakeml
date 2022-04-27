@@ -49,6 +49,7 @@ Definition convert_frequencies_def:
 End
 
 Definition create_tree_def:
+  create_tree [] = Empty ∧
   create_tree ((Leaf c, f)::[]) = Node (Leaf c) Empty ∧
   create_tree ((c,f)::[]) = c ∧
   create_tree ((c1,f1)::(c2,f2)::ls) =
@@ -170,7 +171,9 @@ new_bl = LUPDATE (SUC val) x bl
 End
 
 Definition bl_count_def:
-  bl_count l = bl_count_aux l (GENLIST (λ x. 0) MAX_CODE_LENGTH)
+  bl_count l = bl_count_aux l (GENLIST
+                               (λ x. 0)
+                               (FOLDL (λ e x. if e < x then x else e) (HD l) (TL l) + 1))
 End
 
 EVAL “bl_count [3;3;3;3;3;2;4;4]”;
@@ -287,6 +290,10 @@ Definition unique_huff_tree_def:
 End
 
 EVAL “unique_huff_tree [5]”;
+
+EVAL “unique_huff_tree []”;
+
+EVAL “len_from_codes_inv [0]”;
 
 EVAL “unique_huff_tree (MAP ORD "aaaaccb")”;
 
