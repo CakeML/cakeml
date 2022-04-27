@@ -117,10 +117,6 @@ Definition split_len_dist:
     | F => split_len_dist lzs (a::ls) (b::ds)
 End
 
-Definition max_fst_pair_def:
-  max_fst_pair ls : num = FOLDL (λ a (b,_). if a < b then b else a) (FST $ HD ls) ls
-End
-
 (***** Main encoder functions *****)
 Definition deflate_encoding_main_def:
   deflate_encoding_main s fix =
@@ -139,7 +135,7 @@ Definition deflate_encoding_main_def:
         lzList = LZSS_compress s;
         (lenList, distList) = split_len_dist lzList [] [];
         (*    Build huffman tree for len/dist       *)
-        (len_tree,  len_alph)  = unique_huff_tree lenList;
+        (len_tree,  len_alph)  = unique_huff_tree (256::lenList);
         (dist_tree, dist_alph) = unique_huff_tree distList;
         (*    Build huffman tree for len/dist codelengths    *)
         len_dist_alph = (len_alph ++ dist_alph);
@@ -148,8 +144,8 @@ Definition deflate_encoding_main_def:
         (NCLEN_num, CLEN_bits) = encode_clen_alph clen_alph;
         (*    Setup header bits                              *)
         BTYPE = [T; F];
-        NLIT  = pad0 5 $ TN2BL ((MIN (max_fst_pair len_tree) 257)  - 257);
-        NDIST = pad0 5 $ TN2BL ((max_fst_pair dist_tree) - 1);
+        NLIT  = pad0 5 $ TN2BL ((MAX (LENGTH len_alph) 257)  - 257);
+        NDIST = pad0 5 $ TN2BL ((LENGTH dist_alph) - 1);
         NCLEN = pad0 4 $ TN2BL (NCLEN_num - 4);
         header_bits = BTYPE ++ NLIT ++ NDIST ++ NCLEN;
       in
@@ -273,16 +269,14 @@ Definition deflate_decoding_main_def:
   else if b1 = T ∧ b2 = F
   then
     ( let
-        (NLIT, NDIST, NCLEN, bl) = read_dyn_header bl;
-        (clen_tree, bl') = decode_clen bl NCLEN;
-        (len_dist_alph, bl'') = decode_rle bl' (NLIT + NDIST) clen_tree;
-        len_alph = TAKE (NLIT + 257) len_dist_alph;
-        dist_alph = DROP (NLIT + 257) len_dist_alph;
-
-        len_tree = len_from_codes_inv len_alph;
-        dist_tree = len_from_codes_inv dist_alph;
-
-        (lzList, bl''') = deflate_decoding bl'' len_tree dist_tree [];
+        (NLIT', NDIST', NCLEN', bl) = read_dyn_header bl;
+        (clen_tree', bl') = decode_clen bl NCLEN';
+        (len_dist_alph', bl'') = decode_rle bl' (NLIT' + NDIST') clen_tree';
+        len_alph' = TAKE NLIT' len_dist_alph';
+        dist_alph' = DROP NLIT' len_dist_alph';
+        len_tree' = len_from_codes_inv len_alph';
+        dist_tree' = len_from_codes_inv dist_alph';
+        (lzList, bl''') = deflate_decoding  bl'' len_tree' dist_tree' [];
         res = LZSS_decompress lzList;
       in
         (res, bl''')
@@ -310,11 +304,11 @@ EVAL “let
 
 EVAL “
  let
-   inp = "hejsan hejsan";
+   inp = "aaabbaaa";
    lzList = LZSS_compress inp;
    (lenList, distList) = split_len_dist lzList [] [];
    (*    Build huffman tree for len/dist       *)
-   (len_tree,  len_alph)  = unique_huff_tree lenList;
+   (len_tree,  len_alph)  = unique_huff_tree (256::lenList);
    (dist_tree, dist_alph) = unique_huff_tree distList;
    (*    Build huffman tree for len/dist codelengths    *)
    len_dist_alph = (len_alph ++ dist_alph);
@@ -323,8 +317,8 @@ EVAL “
    (NCLEN_num, CLEN_bits) = encode_clen_alph clen_alph;
    (*    Setup header bits                              *)
    BTYPE = [T; F];
-   NLIT  = pad0 5 $ TN2BL ((MIN (max_fst_pair len_tree) 257)  - 257);
-   NDIST = pad0 5 $ TN2BL ((max_fst_pair dist_tree) - 1);
+   NLIT  = pad0 5 $ TN2BL ((MAX (LENGTH len_alph) 257)  - 257);
+   NDIST = pad0 5 $ TN2BL ((LENGTH dist_alph) - 1);
    NCLEN = pad0 4 $ TN2BL (NCLEN_num - 4);
    header_bits = BTYPE ++ NLIT ++ NDIST ++ NCLEN;
    enc = header_bits ++
@@ -336,13 +330,12 @@ EVAL “
    (NLIT', NDIST', NCLEN', bl) = read_dyn_header bl;
    (clen_tree', bl') = decode_clen bl NCLEN';
    (len_dist_alph', bl'') = decode_rle bl' (NLIT' + NDIST') clen_tree';
-   (aa, ab) = decode_rle lendist_alph_enc (LENGTH len_dist_alph) clen_tree';
-   len_alph' = TAKE (NLIT' + 257) len_dist_alph';
-   dist_alph' = DROP (NLIT' + 257) len_dist_alph';
+   len_alph' = TAKE NLIT' len_dist_alph';
+   dist_alph' = DROP NLIT' len_dist_alph';
    len_tree' = len_from_codes_inv len_alph';
    dist_tree' = len_from_codes_inv dist_alph';
-   (lzList, bl''') = deflate_decoding  bl'' len_tree' dist_tree' [];
-   res = LZSS_decompress lzList;
+   (lzList', bl''') = deflate_decoding  bl'' len_tree' dist_tree' [];
+   res = LZSS_decompress lzList';
  in
    (inp, res)
 ”;

@@ -116,10 +116,10 @@ Definition decode_rle_aux_def:
   then (acc, bl)
   else
     case find_decode_match bl tree of
-      NONE => ([], []) (* Something went wrong, huffman can't find match *)
+      NONE => ([2], []) (* Something went wrong, huffman can't find match *)
     | SOME (code, bits) =>
         case bits of
-          [] => ([], []) (* Something went wrong, huffman match should never be empty *)
+          [] => ([3], []) (* Something went wrong, huffman match should never be empty *)
         | _  => (let
                    (clens, extra_bits, new_prev) = decode_repeating (DROP (LENGTH bits) bl) code prev;
                  in
@@ -139,11 +139,11 @@ End
 
 EVAL “
  let
-   ls = [0;0;0;0;1;1;1;1;1;2;2;2;3;2;5;7;7;7;7;7;7;3];
+   ls = [0;0;0;0;1;1;1;1;10;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;2;2;2;7;7;7;7;7;7];
    (enc, clen_tree, clen_alph, r) = encode_rle ls;
    (output, rest) = decode_rle enc (LENGTH ls) clen_tree;
  in
-   (ls = output)
+   (ls, output)
 ”;
 
 val _ = export_theory();
