@@ -132,22 +132,22 @@ Definition deflate_encoding_main_def:
       )
   | F =>
       let
-        lzList = LZSS_compress s;
-        (lenList, distList) = split_len_dist lzList [] [];
-        (*    Build huffman tree for len/dist       *)
-        (len_tree,  len_alph)  = unique_huff_tree (256::lenList);
-        (dist_tree, dist_alph) = unique_huff_tree distList;
-        (*    Build huffman tree for len/dist codelengths    *)
-        len_dist_alph = (len_alph ++ dist_alph);
-        (*    Encode len/dist codelengths                    *)
-        (lendist_alph_enc, clen_tree, clen_alph, _) = encode_rle len_dist_alph;
-        (NCLEN_num, CLEN_bits) = encode_clen_alph clen_alph;
-        (*    Setup header bits                              *)
-        BTYPE = [T; F];
-        NLIT  = pad0 5 $ TN2BL ((MAX (LENGTH len_alph) 257)  - 257);
-        NDIST = pad0 5 $ TN2BL ((LENGTH dist_alph) - 1);
-        NCLEN = pad0 4 $ TN2BL (NCLEN_num - 4);
-        header_bits = BTYPE ++ NLIT ++ NDIST ++ NCLEN;
+           lzList = LZSS_compress s;
+           (lenList, distList) = split_len_dist lzList [] [];
+           (*    Build huffman tree for len/dist       *)
+           (len_tree,  len_alph)  = unique_huff_tree (256::lenList);
+           (dist_tree, dist_alph) = unique_huff_tree distList;
+           (*    Build huffman tree for len/dist codelengths    *)
+           len_dist_alph = (len_alph ++ dist_alph);
+           (*    Encode len/dist codelengths                    *)
+           (lendist_alph_enc, clen_tree, clen_alph, _) = encode_rle len_dist_alph;
+           (NCLEN_num, CLEN_bits) = encode_clen_alph clen_alph;
+           (*    Setup header bits                              *)
+           BTYPE = [T; F];
+           NLIT  = pad0 5 $ TN2BL ((MAX (LENGTH len_alph) 257)  - 257);
+           NDIST = pad0 5 $ TN2BL ((LENGTH dist_alph) - 1);
+           NCLEN = pad0 4 $ TN2BL (NCLEN_num - 4);
+           header_bits = BTYPE ++ NLIT ++ NDIST ++ NCLEN;
       in
         header_bits ++
         CLEN_bits ++
@@ -276,8 +276,8 @@ Definition deflate_decoding_main_def:
         dist_alph' = DROP NLIT' len_dist_alph';
         len_tree' = len_from_codes_inv len_alph';
         dist_tree' = len_from_codes_inv dist_alph';
-        (lzList, bl''') = deflate_decoding  bl'' len_tree' dist_tree' [];
-        res = LZSS_decompress lzList;
+        (lzList', bl''') = deflate_decoding  bl'' len_tree' dist_tree' [];
+        res = LZSS_decompress lzList';
       in
         (res, bl''')
     )
@@ -301,45 +301,5 @@ EVAL “let
       in
         (inp, dec)
      ”;
-
-EVAL “
- let
-   inp = "aaabbaaa";
-   lzList = LZSS_compress inp;
-   (lenList, distList) = split_len_dist lzList [] [];
-   (*    Build huffman tree for len/dist       *)
-   (len_tree,  len_alph)  = unique_huff_tree (256::lenList);
-   (dist_tree, dist_alph) = unique_huff_tree distList;
-   (*    Build huffman tree for len/dist codelengths    *)
-   len_dist_alph = (len_alph ++ dist_alph);
-   (*    Encode len/dist codelengths                    *)
-   (lendist_alph_enc, clen_tree, clen_alph, _) = encode_rle len_dist_alph;
-   (NCLEN_num, CLEN_bits) = encode_clen_alph clen_alph;
-   (*    Setup header bits                              *)
-   BTYPE = [T; F];
-   NLIT  = pad0 5 $ TN2BL ((MAX (LENGTH len_alph) 257)  - 257);
-   NDIST = pad0 5 $ TN2BL ((LENGTH dist_alph) - 1);
-   NCLEN = pad0 4 $ TN2BL (NCLEN_num - 4);
-   header_bits = BTYPE ++ NLIT ++ NDIST ++ NCLEN;
-   enc = header_bits ++
-         CLEN_bits ++
-         lendist_alph_enc ++
-         (deflate_encoding lzList len_tree dist_tree);
-   enc = DROP 2 enc;
-   bl = enc;
-   (NLIT', NDIST', NCLEN', bl) = read_dyn_header bl;
-   (clen_tree', bl') = decode_clen bl NCLEN';
-   (len_dist_alph', bl'') = decode_rle bl' (NLIT' + NDIST') clen_tree';
-   len_alph' = TAKE NLIT' len_dist_alph';
-   dist_alph' = DROP NLIT' len_dist_alph';
-   len_tree' = len_from_codes_inv len_alph';
-   dist_tree' = len_from_codes_inv dist_alph';
-   (lzList', bl''') = deflate_decoding  bl'' len_tree' dist_tree' [];
-   res = LZSS_decompress lzList';
- in
-   (inp, res)
-”;
-
-
 
 val _ = export_theory();
