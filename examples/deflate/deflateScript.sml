@@ -123,7 +123,7 @@ Definition deflate_encoding_main_def:
   case fix of
     T =>
       ( let
-          BTYPE = [F; T];
+          BTYPE = [T;F; T];
           lzList = LZSS_compress s;
           (len_tree, dist_tree) = (fixed_len_tree, fixed_dist_tree);
         in
@@ -143,7 +143,7 @@ Definition deflate_encoding_main_def:
            (lendist_alph_enc, clen_tree, clen_alph, _) = encode_rle len_dist_alph;
            (NCLEN_num, CLEN_bits) = encode_clen_alph clen_alph;
            (*    Setup header bits                              *)
-           BTYPE = [T; F];
+           BTYPE = [T;T; F];
            NLIT  = pad0 5 $ TN2BL ((MAX (LENGTH len_alph) 257)  - 257);
            NDIST = pad0 5 $ TN2BL ((LENGTH dist_alph) - 1);
            NCLEN = pad0 4 $ TN2BL (NCLEN_num - 4);
@@ -205,17 +205,23 @@ Definition decode_check_end_block:
 End
 
 Definition deflate_decoding_def:
-  deflate_decoding [] len_tree dist_tree acc = (acc, []) ∧
-  deflate_decoding bl len_tree dist_tree acc =
+  deflate_decoding [] len_tree dist_tree acc drop_bits = (acc, drop_bits) ∧
+  deflate_decoding bl len_tree dist_tree acc drop_bits =
   case decode_check_end_block bl len_tree  of
-    (T, bl', _, _) => (acc, bl')
+    (T, _, _, bits) => (acc, LENGTH bits + drop_bits)
   | (F, bl', lznum, bits) =>
       case bits of
-        [] => (acc, bl)
+        [] => (acc, drop_bits)
       | _ =>  (let
                  (lz, extra_bits) = decode_LZSS lznum (DROP (LENGTH bits) bl) dist_tree
                in
-                 deflate_decoding (DROP (extra_bits + (LENGTH bits)) bl) len_tree dist_tree (acc++[lz]))
+                 deflate_decoding
+                 (DROP (extra_bits + (LENGTH bits)) bl)
+                 len_tree
+                 dist_tree
+                 (acc++[lz])
+                 (drop_bits + extra_bits + LENGTH bits)
+              )
 Termination
   WF_REL_TAC ‘measure $ λ (bl, len_tree, dist_tree, acc). LENGTH bl’
   \\ rw[decode_check_end_block, find_decode_match_def, decode_LZSS_def, decode_LZSS_table_def, decode_LZSS_def]
@@ -252,54 +258,72 @@ Definition decode_clen_def:
     clens = read_clen bl nclen;
     clens = recreate_clen clens clen_position (GENLIST (λn. 0) 19);
   in
-    (len_from_codes_inv clens, DROP (3*nclen) bl)
+    (len_from_codes_inv clens, 3*nclen)
+End
+
+Definition decode_fixed_def:
+  decode_fixed bl =
+  let
+    (len_tree, dist_tree) = (fixed_len_tree, fixed_dist_tree);
+    (lzList, drop_bits) = deflate_decoding bl len_tree dist_tree [] 0;
+    res = LZSS_decompress lzList
+  in
+    (res, drop_bits)
+End
+
+Definition decode_dynamic_def:
+  decode_dynamic bl =
+  let
+    (NLIT', NDIST', NCLEN', bl) = read_dyn_header bl;
+    (clen_tree', bits) = decode_clen bl NCLEN';
+    bl' = DROP bits bl;
+    (len_dist_alph', bits') = decode_rle bl' (NLIT' + NDIST') clen_tree';
+    bl'' = DROP bits' bl';
+    len_alph' = TAKE NLIT' len_dist_alph';
+    dist_alph' = DROP NLIT' len_dist_alph';
+    len_tree' = len_from_codes_inv len_alph';
+    dist_tree' = len_from_codes_inv dist_alph';
+    (lzList', drop_bits'') = deflate_decoding  bl'' len_tree' dist_tree' [] 0;
+    res = LZSS_decompress lzList';
+  in
+    (res, drop_bits'')
 End
 
 (***** Main decoder function *****)
-Definition deflate_decoding_main_def:
-  deflate_decoding_main (b1::b2::bl) =
-  if b1 = F ∧ b2 = T
-  then
-    ( let
-        (len_tree, dist_tree) = (fixed_len_tree, fixed_dist_tree);
-        (lzList, bl') = deflate_decoding bl len_tree dist_tree [];
-        res = LZSS_decompress lzList
-      in
-        (res, bl'))
-  else if b1 = T ∧ b2 = F
-  then
-    ( let
-        (NLIT', NDIST', NCLEN', bl) = read_dyn_header bl;
-        (clen_tree', bl') = decode_clen bl NCLEN';
-        (len_dist_alph', bl'') = decode_rle bl' (NLIT' + NDIST') clen_tree';
-        len_alph' = TAKE NLIT' len_dist_alph';
-        dist_alph' = DROP NLIT' len_dist_alph';
-        len_tree' = len_from_codes_inv len_alph';
-        dist_tree' = len_from_codes_inv dist_alph';
-        (lzList', bl''') = deflate_decoding  bl'' len_tree' dist_tree' [];
-        res = LZSS_decompress lzList';
-      in
-        (res, bl''')
-    )
-  else ("", [])
+Definition decode_block_def:
+  decode_block (b0::b1::b2::bl) =
+  (let
+     (enc, drop_bits) = if b1 = F ∧ b2 = T
+                   then decode_fixed bl
+                   else if b1 = T ∧ b2 = F
+                   then decode_dynamic bl
+                   else ("", 0);
+   in
+     (if b0 = T
+      then enc
+      else enc ++ decode_block (DROP drop_bits bl))) ∧
+  decode_block ls = []
+Termination
+  WF_REL_TAC ‘measure $ λ (bl). LENGTH bl’
+  \\ rw[decode_fixed_def, decode_dynamic_def, deflate_decoding_def]
 End
 
 (* Fixed Huffman *)
 EVAL “let
         inp = "hejhejhellohejsanhello";
         enc =  deflate_encoding_main inp T;
-        (dec, rest) = deflate_decoding_main enc;
+        dec = decode_block enc;
       in
-        (inp, dec)
+        (inp, dec, inp=dec)
      ”;
 
 (* Dynamic Huffman*)
 EVAL “let
         inp = "hejhejhellohejsanhello";
         enc =  deflate_encoding_main inp F;
-        (dec, rest) = deflate_decoding_main enc;
+        dec = decode_block enc;
       in
-        (inp, dec)
+        (inp, dec, inp=dec)
      ”;
 
 val _ = export_theory();

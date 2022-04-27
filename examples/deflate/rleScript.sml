@@ -111,15 +111,15 @@ Definition decode_repeating_def:
 End
 
 Definition decode_rle_aux_def:
-  decode_rle_aux bl clens_rem tree acc prev =
+  decode_rle_aux bl clens_rem tree acc prev drop_bits =
   if clens_rem <= 0
-  then (acc, bl)
+  then (acc, drop_bits)
   else
     case find_decode_match bl tree of
-      NONE => ([2], []) (* Something went wrong, huffman can't find match *)
+      NONE => ([2], 0) (* Something went wrong, huffman can't find match *)
     | SOME (code, bits) =>
         case bits of
-          [] => ([3], []) (* Something went wrong, huffman match should never be empty *)
+          [] => ([3], 0) (* Something went wrong, huffman match should never be empty *)
         | _  => (let
                    (clens, extra_bits, new_prev) = decode_repeating (DROP (LENGTH bits) bl) code prev;
                  in
@@ -128,13 +128,15 @@ Definition decode_rle_aux_def:
                    (clens_rem - (1 + (LENGTH clens - 1))) (* Ugly shit that is there to satisfy the termination proof *)
                    tree
                    (acc++clens)
-                   new_prev)
+                   new_prev
+                   (drop_bits + (LENGTH bits) + extra_bits)
+                )
 Termination
   WF_REL_TAC ‘measure $ λ (_, clens_rem, _, _, _). clens_rem’
 End
 
 Definition decode_rle_def:
-  decode_rle bl clens_rem tree = decode_rle_aux bl clens_rem tree [] 0
+  decode_rle bl clens_rem tree = decode_rle_aux bl clens_rem tree [] 0 0
 End
 
 EVAL “
@@ -143,7 +145,7 @@ EVAL “
    (enc, clen_tree, clen_alph, r) = encode_rle ls;
    (output, rest) = decode_rle enc (LENGTH ls) clen_tree;
  in
-   (ls, output)
+   (ls, output, LENGTH ls * 8, rest)
 ”;
 
 val _ = export_theory();
