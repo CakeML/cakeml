@@ -15,6 +15,10 @@ val _ = new_theory "deflate";
 
 Overload END_BLOCK = “256:num”;
 
+(*Overload BLOCK_LENGTH = “16383:num”*)
+
+Overload BLOCK_LENGTH = “16:num”
+
 (******************************************
               Deflate fixed
 *******************************************)
@@ -118,44 +122,76 @@ Definition split_len_dist:
 End
 
 (***** Main encoder functions *****)
-Definition deflate_encoding_main_def:
-  deflate_encoding_main s fix =
-  case fix of
-    T =>
-      ( let
-          BTYPE = [T;F; T];
-          lzList = LZSS_compress s;
-          (len_tree, dist_tree) = (fixed_len_tree, fixed_dist_tree);
-        in
-          BTYPE++
-          (deflate_encoding lzList len_tree dist_tree)
-      )
-  | F =>
-      let
-           lzList = LZSS_compress s;
-           (lenList, distList) = split_len_dist lzList [] [];
-           (*    Build huffman tree for len/dist       *)
-           (len_tree,  len_alph)  = unique_huff_tree (256::lenList);
-           (dist_tree, dist_alph) = unique_huff_tree distList;
+
+Definition encode_uncompressed_def:
+  encode_uncompressed s : bool list =
+  let
+    rest_of_first_byte = [T;T;T;T;T];
+    LEN = pad0 16 $ TN2BL $ LENGTH s;
+    NLEN = MAP (λ b. if b = T then F else T) LEN;
+    input = FLAT $ MAP (λ n. pad0 8 $ TN2BL n) (REVERSE s);
+  in
+    rest_of_first_byte ++
+    LEN ++
+    NLEN ++
+    input
+End
+
+Definition encode_fixed_def:
+  encode_fixed lzList : bool list =
+  deflate_encoding lzList fixed_len_tree fixed_dist_tree ++
+  (encode_single_huff_val fixed_len_tree END_BLOCK)
+End
+
+Definition encode_dynamic_def:
+  encode_dynamic lzList len_tree len_alph dist_tree dist_alph : bool list =
+  let
            (*    Build huffman tree for len/dist codelengths    *)
            len_dist_alph = (len_alph ++ dist_alph);
            (*    Encode len/dist codelengths                    *)
            (lendist_alph_enc, clen_tree, clen_alph, _) = encode_rle len_dist_alph;
            (NCLEN_num, CLEN_bits) = encode_clen_alph clen_alph;
            (*    Setup header bits                              *)
-           BTYPE = [T;T; F];
            NLIT  = pad0 5 $ TN2BL ((MAX (LENGTH len_alph) 257)  - 257);
            NDIST = pad0 5 $ TN2BL ((LENGTH dist_alph) - 1);
            NCLEN = pad0 4 $ TN2BL (NCLEN_num - 4);
-           header_bits = BTYPE ++ NLIT ++ NDIST ++ NCLEN;
+           header_bits = NLIT ++ NDIST ++ NCLEN;
       in
         header_bits ++
         CLEN_bits ++
         lendist_alph_enc ++
-        (deflate_encoding lzList len_tree dist_tree)
+        (deflate_encoding lzList len_tree dist_tree) ++
+        (encode_single_huff_val len_tree END_BLOCK)
 End
 
-EVAL “deflate_encoding_main "hejsan hejsan" F”;
+Definition encode_block_def:
+  encode_block [] = [] ∧
+  encode_block s  =
+  let
+    block_input = TAKE (BLOCK_LENGTH) s;
+    s' = DROP (BLOCK_LENGTH) s;
+    lzList = LZSS_compress block_input;
+    (lenList, distList) = split_len_dist lzList [] [];
+    (*    Build huffman tree for len/dist       *)
+    (len_tree,  len_alph)  = unique_huff_tree (256::lenList);
+    (dist_tree, dist_alph) = unique_huff_tree distList;
+    longest_code = FOLDL (λ e x. if e < x then x else e) (HD len_alph) (TL len_alph);
+    BFINAL = if s' = [] then [T] else [F];
+    enc = if LENGTH dist_tree = 0
+          then
+            [F;F] ++ encode_uncompressed lenList
+          else
+            if 15 < longest_code
+            then [F;T] ++ encode_fixed lzList
+            else [T;F] ++ encode_dynamic lzList len_tree len_alph dist_tree dist_alph
+  in
+    BFINAL ++
+    enc ++
+    encode_block s'
+Termination
+  WF_REL_TAC ‘measure $ λ (s). LENGTH s’
+  \\ rw[encode_fixed_def, encode_dynamic_def, encode_uncompressed_def]
+End
 
 (************************************
           Deflate Decoding
@@ -261,6 +297,24 @@ Definition decode_clen_def:
     (len_from_codes_inv clens, 3*nclen)
 End
 
+(***** Main decoder function *****)
+
+Definition read_literals_def:
+  read_literals bl (0:num) = [] ∧
+  read_literals bl n = (CHR $ TBL2N $ (TAKE 8 bl)) :: (read_literals (DROP 8 bl) (n-1))
+End
+
+Definition decode_uncompressed_def:
+  decode_uncompressed bl =
+  let
+    bl' = DROP 5 bl;
+    LEN = TBL2N $ TAKE 16 bl';
+    bl'' = DROP 16 bl';
+    NLEN = TBL2N $ TAKE 16 bl'';
+  in
+    (read_literals (DROP 16 bl'') LEN, 5 + 2*16 + LEN*8)
+End
+
 Definition decode_fixed_def:
   decode_fixed bl =
   let
@@ -286,18 +340,19 @@ Definition decode_dynamic_def:
     (lzList', drop_bits'') = deflate_decoding  bl'' len_tree' dist_tree' [] 0;
     res = LZSS_decompress lzList';
   in
-    (res, drop_bits'')
+    (res, 5+5+4+bits+bits'+drop_bits'')
 End
 
-(***** Main decoder function *****)
 Definition decode_block_def:
   decode_block (b0::b1::b2::bl) =
   (let
-     (enc, drop_bits) = if b1 = F ∧ b2 = T
-                   then decode_fixed bl
-                   else if b1 = T ∧ b2 = F
-                   then decode_dynamic bl
-                   else ("", 0);
+     (enc, drop_bits) = if      b1 = F ∧ b2 = F
+                        then decode_uncompressed bl
+                        else if b1 = F ∧ b2 = T
+                        then decode_fixed bl
+                        else if b1 = T ∧ b2 = F
+                        then decode_dynamic bl
+                        else ("", 0);
    in
      (if b0 = T
       then enc
@@ -308,22 +363,49 @@ Termination
   \\ rw[decode_fixed_def, decode_dynamic_def, deflate_decoding_def]
 End
 
+
+(*
+Definition deflate_encode_main_def:
+  deflate_encode_main s =
+  if decode_block (encode_block s) = s
+  then encode_block s
+  else [T;T;T] ++ s
+End
+
+Definition deflate_decode_main_def:
+  deflate_decode_main s =
+  if IS_PREFIX [T;T;T] s
+  then DROP 3 s
+  else decode_block s
+End
+*)
+
+(* Uncompressed *)
+EVAL “let
+        inp = "asdfghjklqwertyu";
+        enc = encode_block inp;
+        out = decode_block enc;
+      in
+        (inp, out, inp=out)
+”
+
 (* Fixed Huffman *)
 EVAL “let
-        inp = "hejhejhellohejsanhello";
-        enc =  deflate_encoding_main inp T;
+        inp = "hejhejhenhohhh ";
+        inp = inp ++ inp;
+        enc =  encode_block inp;
         dec = decode_block enc;
       in
-        (inp, dec, inp=dec)
+        (inp, enc, dec, inp=dec)
      ”;
 
 (* Dynamic Huffman*)
 EVAL “let
-        inp = "hejhejhellohejsanhello";
-        enc =  deflate_encoding_main inp F;
+        inp = "hejhejhellohejsanhellohlohejhejhellohejsanhellohejhejhellohejsanhellohejhejhellohejsanhellohejhejhellohejsanhello";
+        enc =  encode_block inp;
         dec = decode_block enc;
       in
-        (inp, dec, inp=dec)
+        (TAKE 3 inp, inp, dec, inp=dec)
      ”;
 
 val _ = export_theory();
