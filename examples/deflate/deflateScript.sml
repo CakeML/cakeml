@@ -15,9 +15,8 @@ val _ = new_theory "deflate";
 
 Overload END_BLOCK = “256:num”;
 
-(*Overload BLOCK_LENGTH = “16383:num”*)
+Overload BLOCK_LENGTH = “16383:num”
 
-Overload BLOCK_LENGTH = “16:num”
 
 (******************************************
               Deflate fixed
@@ -381,31 +380,33 @@ End
 *)
 
 (* Uncompressed *)
-EVAL “let
-        inp = "asdfghjklqwertyu";
-        enc = encode_block inp;
-        out = decode_block enc;
-      in
-        (inp, out, inp=out)
-”
+EVAL “
+ let
+   inp = "asdfghjklqwertyu";
+   enc = encode_block inp;
+   dec = decode_block enc;
+ in
+   (inp, dec, inp=dec)
+”;
 
 (* Fixed Huffman *)
-EVAL “let
-        inp = "hejhejhenhohhh ";
-        inp = inp ++ inp;
-        enc =  encode_block inp;
-        dec = decode_block enc;
-      in
-        (inp, enc, dec, inp=dec)
-     ”;
+EVAL “
+ let
+   inp = "hejhejhenhohhhhejhejhenhohhh";
+   enc =  encode_block inp;
+   dec = decode_block enc;
+ in
+   (inp, dec, inp=dec)
+”;
 
 (* Dynamic Huffman*)
-EVAL “let
-        inp = "hejhejhellohejsanhellohlohejhejhellohejsanhellohejhejhellohejsanhellohejhejhellohejsanhellohejhejhellohejsanhello";
-        enc =  encode_block inp;
-        dec = decode_block enc;
-      in
-        (TAKE 3 inp, inp, dec, inp=dec)
-     ”;
+EVAL “
+ let
+   inp = "hejhejhellohejsanhellohlohejhejhellohejsanhellohejhejhellohejsanhellohejhejhellohejsanhellohejhejhellohejsanhello";
+   enc =  encode_block inp;
+   dec = decode_block enc;
+ in
+   (inp, dec, inp=dec)
+”;
 
 val _ = export_theory();

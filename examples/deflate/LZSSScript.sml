@@ -12,7 +12,10 @@ open ringBufferTheory;
 
 val _ = new_theory"LZSS";
 
-Overload LAST32k = “LASTN 32768”
+Overload LAST32k = “LASTN 32768”;
+
+Overload BUFFER_SIZE = “16383:num”;
+Overload LOOKAHEAD_SIZE = “258:num”;
 
 Definition matchLength_def[simp]:
   (matchLength s []:num = 0) ∧
@@ -281,7 +284,7 @@ Definition string_to_LZSS_def:
 *)
 
 Definition LZSS_compress_def:
-  LZSS_compress s = LZcomp s 0 258 258
+  LZSS_compress s = LZcomp s 0 BUFFER_SIZE LOOKAHEAD_SIZE
 End
 
 
