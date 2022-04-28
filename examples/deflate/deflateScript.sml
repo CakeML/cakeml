@@ -67,7 +67,7 @@ Definition encode_clen_alph_def:
     (NCLEN, CLEN_bits)
 End
 
-(***** Encode indiviual LZSS  *****)
+(***** help functions for encoder *****)
 Definition find_LZSS_val_def:
   find_LZSS_val l : num # num =
   case l of
@@ -80,6 +80,19 @@ Definition find_LZSS_val_def:
         (lnum, dnum)
 End
 
+Definition split_len_dist:
+  split_len_dist       []  ls ds = (ls, ds) ∧
+  split_len_dist (lz::lzs) ls ds =
+  let
+    (a, b) = find_LZSS_val lz;
+  in
+    case a < 257 of
+      T => split_len_dist lzs (a::ls) ds
+    | F => split_len_dist lzs (a::ls) (b::ds)
+End
+
+
+(***** Encode indiviual LZSS  *****)
 Definition encode_LZSS_table_def:
   encode_LZSS_table n table_func tree  =
   let
@@ -87,7 +100,6 @@ Definition encode_LZSS_table_def:
   in
     (encode_single_huff_val tree code) ++ (pad0 bits (TN2BL (n - value)))
 End
-
 
 Definition encode_LZSS_def:
   encode_LZSS (Lit c) len_tree dist_tree = encode_single_huff_val len_tree (ORD c) ∧
@@ -106,18 +118,6 @@ Definition deflate_encoding_def:
   deflate_encoding [] len_tree dist_tree = [] ∧
   deflate_encoding (l::ls) len_tree dist_tree =
   encode_LZSS l len_tree dist_tree ++ deflate_encoding ls len_tree dist_tree
-End
-
-(***** help functions for encoder *****)
-Definition split_len_dist:
-  split_len_dist       []  ls ds = (ls, ds) ∧
-  split_len_dist (lz::lzs) ls ds =
-  let
-    (a, b) = find_LZSS_val lz;
-  in
-    case a < 257 of
-      T => split_len_dist lzs (a::ls) ds
-    | F => split_len_dist lzs (a::ls) (b::ds)
 End
 
 (***** Main encoder functions *****)
