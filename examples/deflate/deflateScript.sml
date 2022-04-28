@@ -210,7 +210,7 @@ Definition decode_LZSS_lendist:
   decode_LZSS_lendist lznum bl dist_tree =
   let
     (len, lbits) = decode_LZSS_table lznum bl len_table;
-    dist_res = find_decode_match bl dist_tree;
+    dist_res = find_decode_match (DROP lbits bl) dist_tree;
     lz =  case dist_res of
             NONE => (LenDist (len,0),0) (* Something went wrong, huffman can't decode *)
           | SOME (dist_huff, bits) =>
@@ -261,6 +261,7 @@ Termination
   WF_REL_TAC ‘measure $ λ (bl, len_tree, dist_tree, acc). LENGTH bl’
   \\ rw[decode_check_end_block, find_decode_match_def, decode_LZSS_def, decode_LZSS_table_def, decode_LZSS_def]
 End
+
 
 (***** Decode header dynamic *****)
 Definition read_dyn_header_def:
