@@ -65,7 +65,7 @@ val r = translate
   (addPrintValsTheory.inf_t_to_ast_t_mono_def
    |> SIMP_RULE std_ss [Once (GSYM OPT_MAP_I)]);
 
-val r = translate addPrintValsTheory.print_of_val_def;
+val r = translate addPrintValsTheory.print_of_val_opts_def;
 
 val r = translate (DefnBase.one_line_ify NONE addPrintValsTheory.nsContents_def);
 
@@ -73,27 +73,60 @@ val r = translate
   (printTweaksTheory.add_print_features_def
    |> SIMP_RULE (srw_ss()) [inferTheory.init_infer_state_def]);
 
-val lemma1 = prove(“printtweaks_add_print_features_side x y = T”,
-  rw [fetch "-" "printtweaks_add_print_features_side_def",
-      fetch "-" "printtweaks_add_err_message_side_def"]
+(* handle many preconditions to do with inference st invariants t_wfs *)
+
+Triviality t_wfs_inv = print_features_infer_st_invs
+  |> Q.GEN `P` |> Q.ISPEC `\st. t_wfs st.subst`
+  |> SIMP_RULE (std_ss ++ SATISFY_ss) [inferPropsTheory.infer_d_wfs]
+
+val lemma1 = Q.prove(`t_wfs ((SND st).subst) ==>
+    printtweaks_add_err_message_side x y st`,
+  rw [fetch "-" "printtweaks_add_err_message_side_def"]
+  \\ fs [inferProgTheory.infer_d_side_thm])
+  |> update_precondition;
+
+val lemma2 = Q.prove(`!xs d_st. t_wfs ((SND (SND d_st)).subst) ==>
+    printtweaks_add_print_from_opts_side nm xs d_st`,
+  Induct
+  \\ simp [Once (fetch "-" "printtweaks_add_print_from_opts_side_def")]
+  \\ simp [FORALL_PROD, lemma1]
+  \\ rw []
+  \\ simp [inferProgTheory.infer_d_side_thm]
+  \\ imp_res_tac t_wfs_inv
+  \\ fs [])
+  |> update_precondition;
+
+val lemma3 = Q.prove(`!xs d_st. t_wfs ((SND (SND d_st)).subst) ==>
+    printtweaks_add_prints_from_opts_side xs d_st`,
+  Induct
+  \\ simp [Once (fetch "-" "printtweaks_add_prints_from_opts_side_def")]
+  \\ simp [FORALL_PROD, lemma2]
+  \\ rw []
+  \\ first_x_assum irule
+  \\ qmatch_goalsub_abbrev_tac `SND (SND tup)`
+  \\ PairCases_on `tup`
+  \\ gvs [markerTheory.Abbrev_def, Q.ISPEC `(_, _)` EQ_SYM_EQ]
+  \\ imp_res_tac t_wfs_inv
+  \\ fs [])
+  |> update_precondition;
+
+val lemma4 = Q.prove(`printtweaks_add_print_features_side x y = T`,
+  rw [fetch "-" "printtweaks_add_print_features_side_def"]
   \\ TRY (irule (inferProgTheory.infer_d_side_thm |> CONJUNCT2)) \\ fs []
-  \\ TRY (irule (inferPropsTheory.infer_d_wfs |> CONJUNCT2)) \\ fs []
-  \\ TRY (first_x_assum $ irule_at Any) \\ fs [])
+  \\ TRY (irule lemma3) \\ fs []
+  \\ TRY (irule lemma1) \\ fs []
+  \\ TRY (drule_then irule (inferPropsTheory.infer_d_wfs |> CONJUNCT2)) \\ fs [])
   |> update_precondition;
 
 val r = translate printTweaksTheory.add_print_then_read_def;
 
-val lemma2 = prove(“printtweaks_add_print_then_read_side x y = T”,
+val lemma5 = prove(“printtweaks_add_print_then_read_side x y = T”,
   rw [fetch "-" "printtweaks_add_print_then_read_side_def"]
-  \\ TRY (PairCases_on ‘x’)
-  \\ fs [printTweaksTheory.add_print_features_def,AllCaseEqs(),
-         fetch "-" "printtweaks_add_err_message_side_def",
-         printTweaksTheory.add_err_message_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ gvs [printTweaksTheory.add_print_features_def,AllCaseEqs()]
-  \\ imp_res_tac (inferPropsTheory.infer_d_wfs |> CONJUNCT2) \\ fs []
-  \\ irule (inferProgTheory.infer_d_side_thm |> CONJUNCT2) \\ fs [])
+  \\ TRY (irule (inferProgTheory.infer_d_side_thm |> CONJUNCT2)) \\ fs []
+  \\ imp_res_tac t_wfs_inv
+  \\ fs [])
   |> update_precondition;
+
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

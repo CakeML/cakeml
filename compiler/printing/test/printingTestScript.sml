@@ -114,7 +114,9 @@ val () = computeLib.extend_compset
       basicComputeLib.add_basic_compset
       ],
      computeLib.Defs
-      [test_prog_def, test_prog_pp_def, basis_ienv_def
+      [test_prog_def, test_prog_pp_def, basis_ienv_def,
+        add_print_from_opts_def,
+        add_prints_from_opts_def
       ],
     computeLib.Tys
     [    ]
@@ -138,30 +140,30 @@ val infer_example_st = infer_example |> dest_pair |> snd
 val _ = if can (match_term ``(infer$Success _, _)``) infer_example then () else
     (print_term infer_example; failwith ("type inference failed on example prog"))
 
-val _ = print "Fetching type-name info and adding print statements.\n"
+val _ = print "Fetching type-name info and getting print decs.\n";
 
 val example_prints_eval = EVAL ``val_prints ^basis_tn basis_ienv ^infer_example_ienv``
-val example_print_decs = concl example_prints_eval |> rhs |> dest_pair |> fst
+val example_print_data = concl example_prints_eval |> rhs |> dest_pair |> fst
+val example_print_decs_eval = EVAL ``FLAT (MAP SND ^example_print_data)``
+val example_print_decs = concl example_print_decs_eval |> rhs |> listSyntax.dest_list |> fst
 
-val _ = print "Type-checking extended program.\n"
+val _ = print "Type-checking print decs.\n";
 
-val infer_with_prints_eval = inf_eval
-    ``infer_ds (extend_dec_ienv ^infer_example_ienv basis_ienv)
-        ^example_print_decs ^infer_example_st``
-val infer_with_prints = concl infer_with_prints_eval |> rhs
+val dec_tc_evals = map (fn d => inf_eval ``infer_ds (extend_dec_ienv ^infer_example_ienv basis_ienv)
+        [^d] ^infer_example_st``) example_print_decs
 
-val _ = if can (match_term ``(infer$Success _, _)``) infer_with_prints then () else
-    (print_term infer_with_prints;
+val fails = filter (not o can (match_term ``(infer$Success _, _)``) o rhs o concl) dec_tc_evals
+val _ = if null fails then () else
+    (print_thm (hd fails);
         failwith ("type inference failed on example prog with prints"))
 
-val _ = print "Combining to single theorem.\n"
+val _ = print "Assembling canonical extended prog.\n";
 
-(* show the above is a step-by-step evaluation of add_print_features *)
 val assembled = ``add_print_features (^basis_tn, basis_ienv, basis_infer_st.next_id) test_prog``
   |> (SIMP_CONV (srw_ss ()) [add_print_features_def, LET_THM,
         REWRITE_RULE [GSYM test_prog_pp_def] with_pp_eval,
-        start_st_eval, infer_example_eval, example_prints_eval,
-        infer_with_prints_eval]
+        start_st_eval, infer_example_eval, example_prints_eval]
+    THENC inf_eval
   )
 
 val prog_rhs = assembled |> concl |> rhs

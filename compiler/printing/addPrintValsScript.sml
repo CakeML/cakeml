@@ -154,22 +154,26 @@ Definition inf_t_to_s_def:
   inf_t_to_s tn t = FST (inf_type_to_string_rec (type_con_name tn) t)
 End
 
-Definition print_of_val_def:
-  print_of_val ienv tn (nm, inf_t) =
-    let idl = Lit (StrLit (id_to_str nm)) in
+Definition print_of_val_opts_def:
+  print_of_val_opts ienv tn (nm, inf_t) =
+    let nm_str = id_to_str nm in
+    let idl = Lit (StrLit nm_str) in
     let tstr = Lit (StrLit (explode (inf_t_to_s tn inf_t))) in
-    Dlet unknown_loc Pany (App Opapp [Var (Short "print_pp");
-        (case inf_t_to_ast_t_mono ienv tn inf_t of
-          NONE => rpt_app (Var (Long "PrettyPrinter" (Short "val_hidden_type"))) [idl; tstr]
-        | SOME ast_t => rpt_app (Var (Long "PrettyPrinter" (Short "val_eq")))
-            [idl; pp_of_ast_t tn.pp_fixes ast_t; Var nm; tstr])])
+    let pp_hidden = Dlet unknown_loc Pany (App Opapp [Var (Short "print_pp");
+        rpt_app (Var (Long "PrettyPrinter" (Short "val_hidden_type"))) [idl; tstr]]) in
+    let pp_val = case inf_t_to_ast_t_mono ienv tn inf_t of
+          NONE => []
+        | SOME ast_t => [Dlet unknown_loc Pany (App Opapp [Var (Short "print_pp");
+            rpt_app (Var (Long "PrettyPrinter" (Short "val_eq")))
+                [idl; pp_of_ast_t tn.pp_fixes ast_t; Var nm; tstr]])] in
+    (nm_str, pp_val ++ [pp_hidden])
 End
 
 Definition val_prints_def:
   val_prints tn prev_ienv decs_ienv =
     let tn2 = update_type_names decs_ienv tn in
     let full_ienv = extend_dec_ienv decs_ienv prev_ienv in
-    let prints = MAP (print_of_val full_ienv tn2)
+    let prints = MAP (print_of_val_opts full_ienv tn2)
         (MAP (I ## SND) (REVERSE (nsContents (ns_nub decs_ienv.inf_v)))) in
     (prints, tn2)
 End
