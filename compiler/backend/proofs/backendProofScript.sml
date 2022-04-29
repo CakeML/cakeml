@@ -2816,7 +2816,7 @@ QED
 
 
 Theorem source_to_source_semantics_prog_oracle:
-  ~ semantics_prog (s0 with eval_state := insert_gen_oracle ev f orac es) env prog Fail ==>
+  !f. ~ semantics_prog (s0 with eval_state := insert_gen_oracle ev f orac es) env prog Fail ==>
   semantics_prog (s0 with eval_state := insert_gen_oracle ev f orac es) env prog res ==>
   semantics_prog (s0 with eval_state := insert_gen_oracle ev (source_to_source$compile o f) orac es) env prog res
 Proof
@@ -2830,7 +2830,7 @@ Theorem source_to_source_semantics_prog_oracle_intro:
   semantics_prog (s0 with eval_state := insert_gen_oracle ev I orac es) env prog res
 Proof
   metis_tac [semantics_prog_deterministic, semantics_prog_total,
-            source_to_source_semantics_prog_oracle]
+            Q.SPEC `I` source_to_source_semantics_prog_oracle, combinTheory.I_o_ID]
 QED
 
 Theorem source_eval_to_flat_semantics:
