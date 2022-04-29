@@ -1219,8 +1219,10 @@ Proof
 QED
 
 Overload shift_seq = “misc$shift_seq”
+
 Definition do_eval_oracle_def:
-  do_eval_oracle (f : compiler_fun) vs (orac : eval_oracle_fun) =
+  do_eval_oracle (f : compiler_fun) (g : dec list -> dec list) vs
+    (orac : eval_oracle_fun) =
   case vs of
     | [env_id_v; st_v; decs_v; st_v2; bs_v; ws_v] =>
       let (env_id, st, decs) = orac 0 in
@@ -1228,20 +1230,22 @@ Definition do_eval_oracle_def:
             v_to_word64_list ws_v of
         | (SOME (st_v2, c_bs, c_ws), SOME bs, SOME ws) =>
             if bs = c_bs /\ ws = c_ws /\ st_v2 = (FST (SND (orac 1)))
-            then SOME (env_id, shift_seq 1 orac, decs)
+            then SOME (env_id, shift_seq 1 orac, g decs)
             else NONE
         | _ => NONE
       )
     | _ => NONE
 End
 
-Definition insert_oracle_def:
-  insert_oracle ci orac es = case es of
+Definition insert_gen_oracle_def:
+  insert_gen_oracle ci g orac es = case es of
     | SOME (EvalOracle s) => SOME (EvalOracle (s with <|
-        custom_do_eval := do_eval_oracle (mk_compiler_fun_from_ci ci) ;
+        custom_do_eval := do_eval_oracle (mk_compiler_fun_from_ci ci) g;
         oracle := shift_seq (FST (FST (s.oracle 0))) orac |>))
     | _ => es
 End
+
+Overload insert_oracle[local] = ``\ci. insert_gen_oracle ci I``;
 
 Definition orac_agrees_def:
   orac_agrees orac es = case es of
@@ -1316,7 +1320,7 @@ Proof
   simp [is_record_def, Once do_eval_def]
   \\ disch_tac
   \\ fs [option_case_eq, eval_state_case_eq, pair_case_eq] \\ rveq \\ fs []
-  \\ fs [do_eval_def, add_env_generation_def, insert_oracle_def]
+  \\ fs [do_eval_def, add_env_generation_def, insert_gen_oracle_def]
   \\ fs [do_eval_record_def, list_case_eq, option_case_eq] \\ rveq \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
   \\ every_case_tac \\ fs []
@@ -1351,7 +1355,7 @@ Theorem insert_declare_env:
   (recorded_orac_wf (ci_comp ci) (orac_s es1).oracle ==>
     recorded_orac_wf (ci_comp ci) (orac_s es2).oracle)
 Proof
-  simp [is_record_def, declare_env_def, insert_oracle_def]
+  simp [is_record_def, declare_env_def, insert_gen_oracle_def]
   \\ every_case_tac \\ fs []
   \\ disch_tac
   \\ fs [] \\ rveq \\ fs []
@@ -1369,7 +1373,7 @@ Theorem reset_env_generation_orac_eqs:
     insert_oracle ci orac (reset_env_generation es1 es2)) ∧
   ((orac_s (reset_env_generation es2 es3)).oracle = (orac_s es3).oracle)
 Proof
-  simp [is_record_def, reset_env_generation_def, insert_oracle_def]
+  simp [is_record_def, reset_env_generation_def, insert_gen_oracle_def]
   \\ every_case_tac \\ fs []
   \\ simp [record_forward_def, orac_agrees_def]
 QED

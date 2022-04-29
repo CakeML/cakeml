@@ -1805,14 +1805,15 @@ QED
    part of the oracle sequence should be what is produced by repeatedly
    applying compile_prog *)
 Definition src_orac_step_invs_def:
-  src_orac_step_invs ci eval_state = (case (ci, eval_state) of
+  src_orac_step_invs ci (g : ast$dec list -> ast$dec list) eval_state =
+  (case (ci, eval_state) of
     | (NONE, NONE) => T
     | (SOME dec, SOME (EvalOracle s)) => (
     (!k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
         ?c x. dec state_v = SOME (c, x)) /\
     let c_orac = FST o THE o dec o FST o SND o s.oracle in
     (!k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
-        c_orac (SUC k) = FST (inc_compile_prog env_id (c_orac k) decs)))
+        c_orac (SUC k) = FST (inc_compile_prog env_id (c_orac k) (g decs))))
     | _ => F
   )
 End
@@ -1820,10 +1821,11 @@ End
 (* the flatLang oracle is derived from the source oracle by compile_prog,
    and the two compile oracles agree also *)
 Definition orac_rel_inner_def:
-  orac_rel_inner dec s (s_compiler : compiler_fun) c <=>
+  orac_rel_inner dec s (s_compiler : compiler_fun)
+        (g : ast$dec list -> ast$dec list) c <=>
     !k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
         let x = THE (dec state_v) in
-        let f_decs = SND (inc_compile_prog env_id (FST x) decs) in
+        let f_decs = SND (inc_compile_prog env_id (FST x) (g decs)) in
         c.compile_oracle k = (SND x, f_decs) /\
         (s_compiler (env_id, state_v, decs) <> NONE ==>
             ?bytes words f_st st_v2.
@@ -1833,18 +1835,18 @@ Definition orac_rel_inner_def:
 End
 
 Definition orac_rel_def:
-  orac_rel interp src_eval flat_eval <=> (case (interp, src_eval) of
+  orac_rel interp g src_eval flat_eval <=> (case (interp, src_eval) of
     | (_, NONE) => T
     | (SOME dec, SOME (EvalOracle s)) => (
     ? s_compiler.
-    s.custom_do_eval = source_evalProof$do_eval_oracle s_compiler /\
-    orac_rel_inner dec s s_compiler flat_eval
+    s.custom_do_eval = source_evalProof$do_eval_oracle s_compiler g /\
+    orac_rel_inner dec s s_compiler g flat_eval
       )
     | _ => F)
 End
 
 Theorem orac_rel_SOME_eval:
-  orac_rel interp (SOME eval_state) flat_eval ==>
+  orac_rel interp g (SOME eval_state) flat_eval ==>
   ? dec orac_st.
   interp = SOME dec /\ eval_state = EvalOracle orac_st
 Proof
@@ -1895,19 +1897,19 @@ Definition src_orac_gen_inv_def:
 End
 
 Definition src_orac_invs_def:
-  src_orac_invs interp genv eval_state <=>
-  src_orac_step_invs interp eval_state /\
+  src_orac_invs interp g genv eval_state <=>
+  src_orac_step_invs interp g eval_state /\
   src_orac_env_invs interp genv eval_state /\
   src_orac_gen_inv eval_state
 End
 
 Theorem src_orac_invs_weak:
-   src_orac_invs interp genv src_eval ∧
+   src_orac_invs interp g genv src_eval ∧
    genv.c ⊑ genv'.c ∧
    genv.tys ⊑ genv'.tys ∧
    subglobals genv.v genv'.v
    ⇒
-   src_orac_invs interp genv' src_eval
+   src_orac_invs interp g genv' src_eval
 Proof
   simp [src_orac_invs_def, src_orac_env_invs_def, src_orac_gen_inv_def]
   \\ every_case_tac \\ fs []
@@ -1983,14 +1985,14 @@ Definition eval_ref_inv_def:
 End
 
 Definition invariant_def:
-  invariant interp gen genv idxs s s_i1 ⇔
+  invariant interp g gen genv idxs s s_i1 ⇔
     genv_c_ok genv.c ∧
     genv_c_tys_ok genv.c genv.tys ∧
     s_rel genv s s_i1 ∧
     idx_range_rel interp genv s.next_type_stamp
          s.next_exn_stamp s.eval_state idxs ∧
-    src_orac_invs interp genv s.eval_state ∧
-    orac_rel interp s.eval_state s_i1.eval_config ∧
+    src_orac_invs interp g genv s.eval_state ∧
+    orac_rel interp g s.eval_state s_i1.eval_config ∧
     genv.v = s_i1.globals ∧
     eval_ref_inv (TAKE 1 s_i1.globals) (TAKE 1 s_i1.refs) ∧
     env_gen_inv gen ∧
@@ -2074,7 +2076,7 @@ QED
 
 Theorem can_pmatch_all_IMP_pmatch_rows:
   can_pmatch_all env.c st.refs (MAP FST pes) v /\
-  invariant interp gen genv idxs st s_i1 /\
+  invariant interp g gen genv idxs st s_i1 /\
   env_all_rel genv comp_map env env_i1 locals /\
   v_rel genv v v' ==>
   pmatch_rows
@@ -2101,28 +2103,28 @@ val s = mk_var("s",
   |> type_subst[alpha |-> ``:'ffi``]);
 
 Theorem invariant_globals:
-  invariant interp gen genv idxs s s_i1 ==> s_i1.globals = genv.v
+  invariant interp g gen genv idxs s s_i1 ==> s_i1.globals = genv.v
 Proof
   simp [invariant_def]
 QED
 
 Theorem invariant_genv_c_ok:
-  invariant interp gen genv idxs s s_i1 ==> genv_c_ok genv.c
+  invariant interp g gen genv idxs s s_i1 ==> genv_c_ok genv.c
 Proof
   simp [invariant_def]
 QED
 
 Theorem invariant_change_clock:
-   invariant interp gen genv env st1 st2 ⇒
-   invariant interp gen genv env (st1 with clock := k) (st2 with clock := k)
+   invariant interp g gen genv env st1 st2 ⇒
+   invariant interp g gen genv env (st1 with clock := k) (st2 with clock := k)
 Proof
   srw_tac[][invariant_def] >> full_simp_tac(srw_ss())[s_rel_cases]
 QED
 
 Theorem invariant_dec_clock:
-   invariant interp gen genv env st1 st2 ⇒
+   invariant interp g gen genv env st1 st2 ⇒
    st1.clock = st2.clock ∧
-   invariant interp gen genv env (dec_clock st1) (dec_clock st2)
+   invariant interp g gen genv env (dec_clock st1) (dec_clock st2)
 Proof
   simp [invariant_def, dec_clock_def, evaluateTheory.dec_clock_def]
   \\ simp [s_rel_cases]
@@ -2277,28 +2279,28 @@ Proof
 QED
 
 Theorem invariant_idx_range_shrink:
-  invariant interp gen genv (l_idx, r_idx, etc) st st' ∧
+  invariant interp g gen genv (l_idx, r_idx, etc) st st' ∧
   idx_prev l_idx l_idx' ∧ idx_prev l_idx' r_idx
   ⇒
-  invariant interp gen genv (l_idx', r_idx, etc) st st'
+  invariant interp g gen genv (l_idx', r_idx, etc) st st'
 Proof
   simp [invariant_def]
   \\ metis_tac [idx_range_shrink]
 QED
 
 Theorem invariant_idx_range_shrink_gen:
-  invariant interp gen genv (l_idx, r_idx, etc) st st' ∧
+  invariant interp g gen genv (l_idx, r_idx, etc) st st' ∧
   idx_prev l_idx l_idx' ∧ idx_prev l_idx' r_idx ∧
   (env_gen_inv gen ⇒ env_gen_inv gen')
   ⇒
-  invariant interp gen' genv (l_idx', r_idx, etc) st st'
+  invariant interp g gen' genv (l_idx', r_idx, etc) st st'
 Proof
   rw [invariant_def]
   \\ metis_tac [idx_range_shrink]
 QED
 
 Theorem pmatch_invariant:
-  invariant interp gen genv idxs st st' ∧
+  invariant interp g gen genv idxs st st' ∧
   env_all_rel genv comp_map2 env env' locals ∧
   comp_map2.c = comp_map.c ∧
   v_rel genv v v' ⇒
@@ -2569,7 +2571,7 @@ Proof
 QED
 
 Theorem invariant_make_varls:
-  invariant interp gen genv (idx, end_idx, others) st st' ∧
+  invariant interp g gen genv (idx, end_idx, others) st st' ∧
   idx.vidx = vidx ∧
   idx.vidx + LENGTH vars <= end_idx.vidx ∧
   vars = REVERSE (MAP FST env.v) ∧
@@ -2577,7 +2579,7 @@ Theorem invariant_make_varls:
   ⇒
   ?genv' st''.
   evaluate env st' [make_varls n t vidx vars] = (st'', Rval [Unitv]) ∧
-  invariant interp gen genv' (idx with vidx := idx.vidx + LENGTH vars, end_idx, others)
+  invariant interp g gen genv' (idx with vidx := idx.vidx + LENGTH vars, end_idx, others)
     st st'' ∧
   genv'.c = genv.c ∧
   genv'.tys = genv.tys ∧
@@ -2845,14 +2847,14 @@ Proof
 QED
 
 Triviality step_1:
-  src_orac_step_invs interp (SOME (EvalOracle es)) ==>
+  src_orac_step_invs interp g (SOME (EvalOracle es)) ==>
   ? i_f env_id0 st_v0 decs0 fdecs0 c0 x0 env_id1 st_v1 decs1 c1 x1.
   interp = SOME i_f /\
   es.oracle 0 = (env_id0, st_v0, decs0) /\
   es.oracle 1 = (env_id1, st_v1, decs1) /\
   i_f st_v0 = SOME (c0, x0) /\
   i_f st_v1 = SOME (c1, x1) /\
-  inc_compile_prog env_id0 c0 decs0 = (c1, fdecs0) /\
+  inc_compile_prog env_id0 c0 (g decs0) = (c1, fdecs0) /\
   src_orac_next_cfg (SOME i_f) (SOME (EvalOracle es)) = SOME c0
 Proof
   rw []
@@ -2878,7 +2880,7 @@ QED
 Theorem do_eval:
   !vs'.
   do_eval vs s.eval_state = SOME (env, decs, eval_state) /\
-  invariant interp gen genv idxs s t /\
+  invariant interp g gen genv idxs s t /\
   LIST_REL (v_rel genv) vs vs'
   ==>
   ?genv' env_id c decs' eval_config' c' idx end_idx fin_idx other.
@@ -2887,7 +2889,7 @@ Theorem do_eval:
   LENGTH vs' = 6 /\
   inc_compile_prog env_id c decs = (c', decs') /\
   decs' <> [] /\
-  invariant interp <|next := 0; generation := c.envs.next; envs := LN|> genv'
+  invariant interp g <|next := 0; generation := c.envs.next; envs := LN|> genv'
     (c.next, c'.next, idx_block idx end_idx ∪ other)
     (s with eval_state := eval_state) (t with <| eval_config := eval_config';
         globals := t.globals ++ REPLICATE (c'.next.vidx - c.next.vidx) NONE |>)
@@ -3077,8 +3079,8 @@ Proof
 QED
 
 Theorem invariant_end_eval:
-  invariant interp gen' genv (x, end_idx1, idx_block idx end_idx ∪ other) st st' ∧
-  invariant interp gen prev_genv (idx, end_idx, other) prev_st prev_st' ∧
+  invariant interp g gen' genv (x, end_idx1, idx_block idx end_idx ∪ other) st st' ∧
+  invariant interp g gen prev_genv (idx, end_idx, other) prev_st prev_st' ∧
   orac_forward_rel interp begin_eval_state st.eval_state ∧
   idx_prev end_idx end_idx1 ∧
   orac_config_envs_subspt interp prev_st.eval_state begin_eval_state ∧
@@ -3089,7 +3091,7 @@ Theorem invariant_end_eval:
     | _ => F
   )
   ⇒
-  invariant interp gen genv (idx, end_idx, other) (st with
+  invariant interp g gen genv (idx, end_idx, other) (st with
         eval_state := reset_env_generation prev_st.eval_state st.eval_state)
     st' ∧
   orac_forward_rel interp prev_st.eval_state
@@ -3201,7 +3203,7 @@ QED
 
 Theorem alloc_tags_invariant:
   alloc_tags idx.tidx (ctors : (string # ast_t list) list) = (ns, cids) ∧
-  invariant interp gen genv (idx, end_idx, os) st st' ∧
+  invariant interp g gen genv (idx, end_idx, os) st st' ∧
   global_env_inv genv comp_map {} env ∧
   ALL_DISTINCT (MAP FST ctors) ∧
   idx.tidx + 1 <= end_idx.tidx
@@ -3210,7 +3212,7 @@ Theorem alloc_tags_invariant:
   genv.c ⊑ genv'.c ∧
   genv.tys ⊑ genv'.tys ∧
   genv'.v = genv.v ∧
-  invariant interp gen genv' (idx with tidx := idx.tidx + 1, end_idx, os)
+  invariant interp g gen genv' (idx with tidx := idx.tidx + 1, end_idx, os)
     (st with next_type_stamp := st.next_type_stamp + 1)
     (st' with c updated_by $UNION {((idx',SOME idx.tidx),arity) |
                        (∃max. lookup arity cids = SOME max ∧ idx' < max)}) ∧
@@ -3389,7 +3391,7 @@ Proof
 QED
 
 Theorem invariant_IMP_s_rel:
-  invariant interp gen genv idx st st' ==> s_rel genv st st'
+  invariant interp g gen genv idx st st' ==> s_rel genv st st'
 Proof
   simp [invariant_def]
 QED
@@ -3432,7 +3434,7 @@ fun setup (q : term quotation, t : tactic) = let
 val compile_correct_setup = setup (`
   (∀ ^s env es s' r genv comp_map env_i1 ^s_i1 es_i1 locals t ts gen idxs.
     evaluate$evaluate s env es = (s', r) ∧
-    invariant interp gen genv idxs s s_i1 ∧
+    invariant interp g gen genv idxs s s_i1 ∧
     env_all_rel genv comp_map env env_i1 locals ∧
     LENGTH ts = LENGTH locals ∧
     env_gen_rel gen s.eval_state ∧
@@ -3444,7 +3446,7 @@ val compile_correct_setup = setup (`
     result_rel (LIST_REL o v_rel) genv' r r_i1 ∧
     s_rel genv' s' s'_i1 ∧
     (~ abort r ⇒
-      invariant interp gen genv' idxs s' s'_i1 ∧
+      invariant interp g gen genv' idxs s' s'_i1 ∧
       env_gen_rel gen s'.eval_state ∧
       orac_forward_rel interp s.eval_state s'.eval_state ∧
       genv.c ⊑ genv'.c ∧
@@ -3454,7 +3456,7 @@ val compile_correct_setup = setup (`
   (∀ ^s env v pes err_v genv comp_map s' r env_i1 ^s_i1 v_i1 pes_i1
          err_v_i1 locals t ts gen idxs.
     evaluate$evaluate_match s env v pes err_v = (s', r) ∧
-    invariant interp gen genv idxs s s_i1 ∧
+    invariant interp g gen genv idxs s s_i1 ∧
     env_all_rel genv comp_map env env_i1 locals ∧
     v_rel genv v v_i1 ∧
     LENGTH ts = LENGTH locals ∧
@@ -3469,7 +3471,7 @@ val compile_correct_setup = setup (`
     result_rel (LIST_REL o v_rel) genv' r r_i1 ∧
     s_rel genv' s' s'_i1 ∧
     (~ abort r ⇒
-      invariant interp gen genv' idxs s' s'_i1 ∧
+      invariant interp g gen genv' idxs s' s'_i1 ∧
       env_gen_rel gen s'.eval_state ∧
       orac_forward_rel interp s.eval_state s'.eval_state ∧
       genv.c ⊑ genv'.c ∧
@@ -3479,7 +3481,7 @@ val compile_correct_setup = setup (`
   (∀ ^s env ds s' r path t idx end_idx os comp_map ^s_i1 idx'
         comp_map' ds_i1 t' genv gen gen'.
     evaluate$evaluate_decs s env ds = (s',r) ∧
-    invariant interp gen genv (idx, end_idx, os) s s_i1 ∧
+    invariant interp g gen genv (idx, end_idx, os) s s_i1 ∧
     source_to_flat$compile_decs path t idx comp_map gen ds =
         (t', idx', comp_map', gen', ds_i1) ∧
     global_env_inv genv comp_map {} env ∧
@@ -3492,7 +3494,7 @@ val compile_correct_setup = setup (`
     flatSem$evaluate_decs s_i1 ds_i1 = (s1_i1,r_i1) ∧
     s_rel genv' s' s1_i1 ∧
     (~ abort r ⇒
-      invariant interp gen' genv' (idx', end_idx, os) s' s1_i1 ∧
+      invariant interp g gen' genv' (idx', end_idx, os) s' s1_i1 ∧
       orac_forward_rel interp s.eval_state s'.eval_state ∧
       genv.c ⊑ genv'.c ∧
       genv.tys ⊑ genv'.tys ∧
@@ -3714,9 +3716,9 @@ Proof
 QED
 
 Theorem invariant_change_eval_ref:
-  invariant interp gen genv idxs st st'
+  invariant interp g gen genv idxs st st'
   ==>
-  invariant interp gen genv idxs st
+  invariant interp g gen genv idxs st
     (st' with refs := Refv y :: TL st'.refs)
 Proof
   rw [invariant_def]
@@ -3725,7 +3727,7 @@ QED
 
 Theorem declare_env_store_env_id:
   declare_env st.eval_state env = SOME (x, es2) /\
-  invariant interp gen genv idxs st ^s_i1 /\
+  invariant interp g gen genv idxs st ^s_i1 /\
   env_gen_rel gen st.eval_state /\
   gen_id = gen.generation /\
   id = gen.next /\
@@ -3740,7 +3742,7 @@ Theorem declare_env_store_env_id:
   ?y.
   evaluate_decs s_i1 [store_env_id gen_id id] =
     (s_i1 with refs := Refv y :: TL s_i1.refs, NONE) /\
-  invariant interp (gen with next := gen.next + 1) genv idxs
+  invariant interp g (gen with next := gen.next + 1) genv idxs
     (st with eval_state := es2) s_i1
   /\
   (?xs. s_i1.globals = SOME (Loc 0) :: xs) /\
@@ -3951,7 +3953,7 @@ Proof
     \\ simp [libTheory.opt_bind_def]
     \\ asm_exists_tac
     \\ simp []
-    \\ drule_then (qsubterm_then `invariant _ _ _ _ _ _` mp_tac)
+    \\ drule_then (qsubterm_then `invariant _ _ _ _ _ _ _` mp_tac)
         invariant_change_eval_ref
     \\ simp []
     \\ metis_tac (invariant_IMP_s_rel :: trans_thms)
@@ -4039,7 +4041,7 @@ Proof
   rw [] >>
   reverse (fs [result_case_eq]) >> rveq >> fs []
   >- (
-    goal_assum (qsubterm_then `invariant _ _ _` mp_tac) >>
+    goal_assum (qsubterm_then `invariant _ _ _ _` mp_tac) >>
     fs [result_rel_cases] >> rveq >> fs [] >>
     every_case_tac >>
     simp [evaluate_def]
@@ -4049,7 +4051,7 @@ Proof
   >- (
     rveq >> fs [] >>
     fs [evaluate_def, do_if_def, do_log_def, bool_case_eq] >> rveq >> fs [] >>
-    goal_assum (qsubterm_then `invariant _ _ _` mp_tac) >>
+    goal_assum (qsubterm_then `invariant _ _ _ _` mp_tac) >>
     fs [invariant_def, v_rel_Bool_eqn, Boolv_11] >>
     drule_then (fn t => simp [t]) evaluate_Bool >>
     simp [result_rel_eqns, v_rel_Bool_eqn]
@@ -4060,7 +4062,7 @@ Proof
   first_x_assum (drule_then (drule_then drule)) >>
   disch_then (qspec_then ‘t’ mp_tac) >>
   rw [] >>
-  goal_assum (qsubterm_then `invariant _ _ _` mp_tac) >>
+  goal_assum (qsubterm_then `invariant _ _ _ _` mp_tac) >>
   fs [evaluate_def, do_if_def, do_log_def, bool_case_eq] >> rveq >> fs [] >>
   fs [invariant_def, v_rel_Bool_eqn, Boolv_11] >>
   metis_tac trans_thms
@@ -4084,7 +4086,7 @@ Proof
   disch_then (qspec_then ‘t’ mp_tac) >>
   rw [] >>
   imp_res_tac evaluatePropsTheory.evaluate_sing >>
-  goal_assum (qsubterm_then `invariant _ _ _` mp_tac) >>
+  goal_assum (qsubterm_then `invariant _ _ _ _` mp_tac) >>
   fs [semanticPrimitivesTheory.do_if_def, bool_case_eq] >> rveq >> fs [] >>
   fs [invariant_def, do_if_def] >>
   rfs [v_rel_Bool_eqn, Boolv_11] >>
@@ -4264,7 +4266,7 @@ Proof
 QED
 
 Triviality invariant_env_gen_inv:
-  invariant interp gen genv (idx,end_idx,os) s s_i1
+  invariant interp g gen genv (idx,end_idx,os) s s_i1
   ==>
   env_gen_inv gen
 Proof
@@ -4394,7 +4396,7 @@ Proof
   fs [match_result_rel_def] >>
   drule (CONJUNCT1 pmatch_bindings) >>
   rw [] >>
-  qpat_x_assum `invariant _ _ _ (_ with vidx := _, _, _) _ _` kall_tac >>
+  qpat_x_assum `invariant _ _ _ _ (_ with vidx := _, _, _) _ _` kall_tac >>
   drule invariant_make_varls >>
   disch_then (qsubterm_then `evaluate _ _ _` mp_tac) >>
   simp [] >>
@@ -4899,9 +4901,9 @@ Proof
 QED
 
 Definition precondition1_def:
-  precondition1 interp s1 env1 conf eval_conf prog ⇔
-  src_orac_step_invs interp s1.eval_state ∧
-  orac_rel interp s1.eval_state eval_conf ∧
+  precondition1 interp g s1 env1 conf eval_conf prog ⇔
+  src_orac_step_invs interp g s1.eval_state ∧
+  orac_rel interp g s1.eval_state eval_conf ∧
   (case src_orac_next_cfg interp s1.eval_state of
     | NONE => T
     | SOME cfg => cfg = FST (compile_prog conf prog)) ∧
@@ -4916,8 +4918,8 @@ Definition precondition1_def:
 End
 
 Theorem precondition1_change_clock:
-   precondition1 interp s1 env1 conf eval_conf prog ⇒
-   precondition1 interp (s1 with clock := k) env1 conf eval_conf prog
+   precondition1 interp g s1 env1 conf eval_conf prog ⇒
+   precondition1 interp g (s1 with clock := k) env1 conf eval_conf prog
 Proof
   rw [precondition1_def]
 QED
@@ -4946,10 +4948,10 @@ Proof
 QED
 
 Theorem invariant_begin_alloc_blanks:
-  precondition1 interp s1 env1 cfg eval_conf prog /\
+  precondition1 interp g s1 env1 cfg eval_conf prog /\
   cfg' = FST (compile_prog cfg prog) /\
   init_globs = SOME (Loc 0) :: REPLICATE (cfg'.next.vidx - 1) NONE ==>
-  invariant interp
+  invariant interp g
     <|next := 0; generation := cfg.envs.next; envs := LN|>
     (init_genv with v := init_globs)
     (cfg.next with vidx := 1, cfg'.next, {})
@@ -5002,7 +5004,7 @@ Proof
 QED
 
 Theorem compile_prog_correct:
-  precondition1 interp s env cfg eval_conf ds ∧
+  precondition1 interp g s env cfg eval_conf ds ∧
   compile_prog cfg ds = (cfg', ds') ∧
   evaluate_decs s env ds = (s', r) ∧
   r <> Rerr (Rabort Rtype_error)
@@ -5064,7 +5066,7 @@ val SND_eq = Q.prove(
   Cases_on`x`\\rw[]);
 
 Theorem compile_prog_semantics:
-  precondition1 interp s1 env1 conf eval_conf prog ⇒
+  precondition1 interp g s1 env1 conf eval_conf prog ⇒
    ¬semantics_prog s1 env1 prog Fail ⇒
    semantics_prog s1 env1 prog
       (semantics eval_conf s1.ffi
@@ -5186,7 +5188,7 @@ QED
 
 Definition precondition_def:
   precondition interp s env cfg ec prog <=>
-  ?ec1. precondition1 interp s env cfg ec1 prog /\
+  ?ec1 g. precondition1 interp g s env cfg ec1 prog /\
     flat_patternProof$install_conf_rel cfg.pattern_cfg ec1 ec
 End
 
