@@ -113,7 +113,8 @@ val array_appi_aux = process_topdecs
   `fun appi_aux f arr max n =
     if n = max
       then ()
-    else (f n (sub arr n); app_aux f arr max (n + 1))`
+    else (f n (sub arr n): unit;
+          appi_aux f arr max (n + 1))`
 
 val _ = append_prog array_appi_aux;
 
