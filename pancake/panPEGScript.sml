@@ -293,7 +293,8 @@ val test1 = time EVAL
                (SemiT,Locs (POSN 1 8) (POSN 1 8))]
               [] NONE [] done failed”
 
-val prog = "var x = 0 { var y = <1,2,3> { x = x + y.1; } }"
+val prog =
+  “pancake_lex "var x = 0 { var y = <1,2,3> { x = x + y.1; } }"”
 
 Definition parse_def:
   parse s =
