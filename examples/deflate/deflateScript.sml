@@ -364,50 +364,54 @@ Termination
 End
 
 
-(*
+(***********************************
+          Main functions
+***********************************)
+Definition bl2s_def:
+  bl2s [] = [] ∧
+  bl2s bl =
+  if LENGTH bl < 8
+  then [CHR $ TBL2N $ PAD_RIGHT F 8 $ TAKE 8 bl]
+  else (CHR $ TBL2N $ TAKE 8 bl) :: bl2s (DROP 8 bl)
+Termination
+  WF_REL_TAC ‘measure $ λ (bl). LENGTH bl’
+  \\ rw[]
+End
+
+Definition s2bl_def:
+  s2bl [] = [] ∧
+  s2bl (c::cs) = (pad0 8 $ TN2BL $ ORD c) ++ s2bl cs
+End
+
+Definition deflate_encode_def:
+  deflate_encode s = bl2s $ encode_block s
+End
+
+Definition deflate_decode_def:
+  deflate_decode s = decode_block $ s2bl s
+End
+
 Definition deflate_encode_main_def:
-  deflate_encode_main s =
-  if decode_block (encode_block s) = s
-  then encode_block s
-  else [T;T;T] ++ s
+  deflate_encode_main (s:string) =
+  if deflate_decode (deflate_encode s) = s
+  then "Compressed: " ++ deflate_encode s
+  else "Uncompressed: " ++ s
 End
 
 Definition deflate_decode_main_def:
   deflate_decode_main s =
-  if IS_PREFIX [T;T;T] s
-  then DROP 3 s
-  else decode_block s
+  if IS_PREFIX s "Compressed: "
+  then deflate_decode (DROP (LENGTH "Compressed: ") s)
+  else DROP (LENGTH "Uncompressed: ")  s
 End
-*)
 
-(* Uncompressed *)
-EVAL “
- let
-   inp = "asdfghjklqwertyu";
-   enc = encode_block inp;
-   dec = decode_block enc;
- in
-   (inp, dec, inp=dec)
-”;
-
-(* Fixed Huffman *)
-EVAL “
- let
-   inp = "hejhejhenhohhhhejhejhenhohhh";
-   enc =  encode_block inp;
-   dec = decode_block enc;
- in
-   (inp, dec, inp=dec)
-”;
-
-(* Dynamic Huffman*)
-EVAL “
- let
-   inp = "hejhejhellohejsanhellohlohejhejhellohejsanhellohejhejhellohejsanhellohejhejhellohejsanhellohejhejhellohejsanhello";
-   enc =  encode_block inp;
-   dec = decode_block enc;
- in
-   (inp, dec, inp=dec)
-”;
+Theorem deflate_main_inv:
+ ∀s. deflate_decode_main (deflate_encode_main s) = s
+Proof
+  REWRITE_TAC[deflate_decode_main_def, deflate_encode_main_def]
+  \\ strip_tac
+  \\ CASE_TAC
+  \\ simp[]
+QED
 
 val _ = export_theory();
