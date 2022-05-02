@@ -35,7 +35,7 @@ Datatype:
   | Mul constr num      (* Multiply by a constant factor *)
   | Div constr num      (* Divide by a constant factor *)
   | Sat constr          (* Saturation *)
-  | Lit lit             (* Literal axiom lit ≥ 0 *)
+  | Lit int num         (* Literal axiom lit ≥ 0 *)
   | Weak constr var     (* Addition of literal axioms until "var" disappears *)
 End
 

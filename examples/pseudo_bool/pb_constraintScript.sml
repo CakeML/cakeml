@@ -2,7 +2,7 @@
   Formalisation of normalised pseudo-boolean constraints
 *)
 
-open preamble;
+open preamble pb_preconstraintTheory;
 
 val _ = new_theory "pb_constraint";
 
@@ -10,11 +10,8 @@ val _ = numLib.prefer_num();
 
 Type var = “:num”
 
-(*
-  Normalized pseudoboolean constraints
-  PBC xs n represents constraint xs ≥ n
-  An additional compactness assumption guarantees uniqueness
-*)
+(* Normalized pseudoboolean constraints PBC xs n represents constraint xs ≥ n
+An additional compactness assumption guarantees uniqueness *)
 Datatype:
   npbc = PBC ((int # var) list) num
 End
@@ -408,14 +405,21 @@ QED
 
 (* saturation *)
 
+Definition abs_min_def:
+  abs_min c n =
+  if Num(ABS c)  ≤ n then
+    c
+  else if c < 0 then -&n else &n
+End
+
 Definition saturate_def:
   saturate (PBC l n) =
     if n = 0 then PBC [] n
-    else PBC (MAP (λ(c,v). (MIN c n, v)) l) n
+    else PBC (MAP (λ(c,v). (abs_min c n, v)) l) n
 End
 
 Theorem eval_lit_bool:
-  eval_lit w r = 0 ∨ eval_lit w r = 1
+  eval_lit w r n = 0 ∨ eval_lit w r n = 1
 Proof
   Cases_on`r` \\ rw[eval_lit_def]
   \\ Cases_on`w n` \\ rw[b2n_def]
@@ -428,14 +432,18 @@ Proof
   \\ rw [satisfies_npbc_def,GREATER_EQ]
   \\ `∀a.
       n ≤ SUM (MAP (eval_term w) l) + a ⇒
-      n ≤ SUM (MAP (eval_term w) (MAP (λ(c,v). (MIN c n,v)) l)) + a` by (
+      n ≤ SUM (MAP (eval_term w) (MAP (λ(c,v). (abs_min c n,v)) l)) + a` by (
     pop_assum kall_tac
     \\ Induct_on`l` \\ simp[] \\ Cases
-    \\ assume_tac eval_lit_bool
-    \\ fs[MIN_DEF] \\ rw[]
-    \\ ONCE_REWRITE_TAC[ADD_ASSOC]
+    \\ simp[]
+    \\ rw[]
+    \\ ONCE_REWRITE_TAC[ADD_COMM]
+    \\ ONCE_REWRITE_TAC[GSYM ADD_ASSOC]
     \\ first_x_assum match_mp_tac
-    \\ fs[])
+    \\ fs[abs_min_def]
+    \\ rw[] >> fs[]
+    \\ Cases_on`w r` \\ fs[b2n_def]
+    \\ rfs[] )
   \\ pop_assum (qspec_then`0` assume_tac) \\ fs[]
 QED
 
@@ -443,7 +451,9 @@ Theorem compact_saturate:
   compact c ⇒ compact (saturate c)
 Proof
   Cases_on ‘c’ \\ reverse (rw [saturate_def,compact_def])
-  THEN1 gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  THEN1 (
+    gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] \\
+    rw[abs_min_def] )
   \\ Induct_on ‘l’ \\ fs [FORALL_PROD]
   \\ Cases_on ‘l’ \\ fs []
   \\ Cases_on ‘t’ \\ fs []
@@ -452,10 +462,10 @@ QED
 
 Definition weaken_aux_def:
   (weaken_aux v [] n = ([],n)) ∧
-  (weaken_aux v ((c,l)::xs) n =
+  (weaken_aux v ((c:int,l)::xs) n =
     let (xs',n') = weaken_aux v xs n in
-    if get_var l = v then
-      (xs',n'-c)
+    if l = v then
+      (xs',n'-Num(ABS c))
     else
       ((c,l)::xs',n'))
 End
@@ -467,6 +477,7 @@ Definition weaken_def:
     PBC l' n'
 End
 
+
 Theorem weaken_aux_theorem:
   ∀v l n l' n' a.
   n ≤ SUM (MAP (eval_term w) l) + a ∧
@@ -476,10 +487,18 @@ Proof
   ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
   \\ pairarg_tac \\ fs[]
   \\ every_case_tac \\ fs[] \\ rw[]
-  \\ ( (* two subgoals *)
-    first_x_assum(qspec_then`a + c * eval_lit w l` assume_tac) \\ rfs[]
-    \\ `eval_lit w l = 0 ∨ eval_lit w l = 1` by fs[eval_lit_bool]
-    \\ fs[] )
+  \\ qmatch_goalsub_abbrev_tac`SUM A`
+  \\ TRY(qmatch_goalsub_abbrev_tac`B + SUM A`)
+  \\ TRY(qmatch_goalsub_abbrev_tac`SUM A + B`)
+  \\ qmatch_goalsub_abbrev_tac` _ ≤ rhs`
+  \\ `rhs = (a + B) + SUM A` by
+    (unabbrev_all_tac>>
+    simp[])
+  \\ pop_assum SUBST1_TAC
+  \\ first_x_assum match_mp_tac
+  \\ fs[]
+  \\ Cases_on`w l`
+  \\ fs[]
 QED
 
 (* set a = 0 *)
@@ -511,9 +530,9 @@ QED
 
 Theorem SORTED_weaken_aux:
   ∀v ls n ls' n'.
-  SORTED term_lt ls ∧
+  SORTED $< (MAP SND ls) ∧
   weaken_aux v ls n = (ls',n') ⇒
-  SORTED term_lt ls'
+  SORTED $< (MAP SND ls')
 Proof
   ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
   \\ pairarg_tac \\ fs[]
@@ -522,10 +541,8 @@ Proof
     metis_tac[SORTED_TL]
   \\ qpat_x_assum `SORTED _ (_ :: _)` mp_tac
   \\ DEP_REWRITE_TAC [SORTED_EQ] \\ rw[]
-  >-
-    simp[transitive_def,FORALL_PROD]
   \\ drule weaken_aux_contains
-  \\ metis_tac[]
+  \\ metis_tac[MEM_MAP]
 QED
 
 Theorem compact_weaken:
@@ -537,7 +554,7 @@ Proof
   >-
     metis_tac[SORTED_weaken_aux]
   \\ fs[EVERY_MEM,FORALL_PROD]
-  \\ metis_tac[weaken_aux_contains]
+  \\ metis_tac[weaken_aux_contains,MEM_MAP]
 QED
 
 (* clean up *)
@@ -605,19 +622,23 @@ QED
 
 Theorem clean_up_sorted:
   ∀xs ys d.
-    clean_up xs = (ys,d) ∧ EVERY (λ(c,l). c ≠ 0) xs ⇒
-    SORTED term_lt ys ∧ EVERY (λ(c,l). c ≠ 0) ys
+    clean_up xs = (ys,d) ∧ EVERY (λc. c ≠ 0) (MAP FST xs) ⇒
+    SORTED $< (MAP SND ys) ∧ EVERY (λc. c ≠ 0) (MAP FST ys)
 Proof
   ho_match_mp_tac clean_up_ind \\ rw []
   \\ gvs [clean_up_def]
   \\ rpt (pairarg_tac \\ full_simp_tac std_ss []) \\ gvs []
-  \\ drule_at (Pos last) add_lists_sorted
-  \\ impl_tac \\ rw [] \\ fs []
+  \\ simp[EVERY_MAP]
   \\ imp_res_tac EVERY_partition \\ gvs []
+  \\ fs[AND_IMP_INTRO]
+  \\ drule_at (Pos last) add_lists_sorted
+  \\ ntac 2 (last_x_assum mp_tac)
+  \\ fs[EVERY_MAP]
 QED
 
 (* substitution/instantiation *)
 
+(* TODO
 Definition assign_def:
   assign f (w:num->bool) (n:num) =
     case f n of
@@ -691,17 +712,24 @@ Definition subst_opt_aux_def:
       | SOME (INR n) => let x = (if is_Pos l then n else negate n) in
                           (old,(c,x)::new,k,F)
 End
+*)
 
 (* Computes the LHS term of the slack of a constraint under
   a partial assignment p (list of literals) *)
+(*
 Definition lslack_def:
   lslack (PBC ls num) p =
   SUM (MAP FST (FILTER (λ(a,b). ¬MEM (negate b) p) ls))
+End *)
+
+Definition lslack_def:
+  lslack ls =
+  SUM (MAP (Num o ABS o FST ) ls)
 End
 
 Definition check_contradiction_def:
   check_contradiction (PBC ls num) =
-  let l = lslack (PBC ls num) [] in
+  let l = lslack ls in
     l < num
 End
 
@@ -711,17 +739,15 @@ Theorem check_contradiction_unsat:
 Proof
   Cases_on`c`>>
   rw[check_contradiction_def,satisfies_npbc_def,lslack_def]>>
-  qmatch_asmsub_abbrev_tac`MAP FST lss`>>
-  `lss = l` by
-    fs[Abbr`lss`,FILTER_EQ_ID,EVERY_MEM,FORALL_PROD]>>
-  rw[]>>
-  `SUM (MAP (eval_term w) l) ≤ SUM (MAP FST l)` by
-      (match_mp_tac SUM_MAP_same_LE>>
+  fs[o_DEF]>>
+  qmatch_asmsub_abbrev_tac`SUM ll < n`>>
+  `SUM (MAP (eval_term w) l) ≤ SUM ll` by
+      (
+      fs[Abbr`ll`]>>
+      match_mp_tac SUM_MAP_same_LE>>
       fs[EVERY_MEM,FORALL_PROD]>>
       rw[]>>
-      rename1`eval_lit w r`>>
-      assume_tac eval_lit_bool>>
-      fs[])>>
+      Cases_on`w p_2`>>fs[])>>
   fs[]
 QED
 
@@ -745,6 +771,8 @@ Proof
   metis_tac[]
 QED
 
+
+(*
 Definition subst_opt_def:
   subst_opt f (PBC l n) =
     let (old,new,k,same) = subst_opt_aux f l in
@@ -848,6 +876,7 @@ Proof
   \\ Cases_on ‘l'’ \\ fs []
   \\ Cases_on ‘h'’ \\ fs []
 QED
+*)
 
 Definition sat_implies_def:
   sat_implies pbf pbf' ⇔
@@ -874,6 +903,7 @@ Proof
 QED
 
 (* Statement of Prop 1 from Gocht/Nordstrom AAAI-21 *)
+(*
 Theorem substitution_redundancy:
   c redundant_wrt f
   ⇔
@@ -896,6 +926,21 @@ Proof
   \\ first_x_assum $ irule_at (Pos last)
   \\ fs [satisfies_def,PULL_EXISTS,subst_thm]
 QED
+
+*)
+
+Definition get_var_def[simp]:
+  get_var (Pos n) = n ∧
+  get_var (Neg n) = n
+End
+
+Definition term_lt_def[simp]:
+  term_lt (_,l1) (_,l2) = (get_var l1 < get_var l2)
+End
+
+Definition term_le_def[simp]:
+  term_le (_,l1) (_,l2) = (get_var l1 <= get_var l2)
+End
 
 (* Ensure compact LHS in preconstraint form:
   sort by variables *)
@@ -980,22 +1025,6 @@ Proof
   fs[]
 QED
 
-Theorem eval_lit_INT[simp]:
-  &(eval_lit w r) = eval_lit w r
-Proof
-  Cases_on`r` \\ EVAL_TAC
-  \\ Cases_on`w n` \\ EVAL_TAC
-  \\ fs[]
-QED
-
-Theorem eval_lit_eq_flip:
-  q * eval_lit w r = q + (-q * eval_lit w (negate r))
-Proof
-  Cases_on`r` \\ EVAL_TAC
-  \\ Cases_on`w n` \\ EVAL_TAC
-  \\ fs[]
-QED
-
 Theorem iSUM_PERM:
   ∀l1 l2. PERM l1 l2 ⇒
   iSUM l1 = iSUM l2
@@ -1011,6 +1040,19 @@ Proof
   match_mp_tac iSUM_PERM>>
   match_mp_tac PERM_MAP>>
   metis_tac[QSORT_PERM,PERM_SYM]
+QED
+
+Definition negate_def[simp]:
+  negate (Pos n) = Neg n ∧
+  negate (Neg n) = Pos n
+End
+
+Theorem eval_lit_eq_flip:
+  q * eval_lit w r = q + (-q * eval_lit w (negate r))
+Proof
+  Cases_on`r` \\ EVAL_TAC
+  \\ Cases_on`w n` \\ EVAL_TAC
+  \\ fs[]
 QED
 
 Theorem compact_lhs_sound:
@@ -1043,18 +1085,26 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Definition mk_coeff_def:
+  (mk_coeff c (Pos v) = c) ∧
+  (mk_coeff c (Neg v) = -c:int)
+End
+
 Definition normalize_lhs_def:
   (normalize_lhs [] acc n = (REVERSE acc,n)) ∧
   (normalize_lhs ((x,l)::xs) acc n =
-    if x < 0 then normalize_lhs xs ((Num(-x),negate l)::acc) (n+x)
-    else if x > 0 then normalize_lhs xs ((Num x,l)::acc) n
+    let v = get_var l in
+    if x < 0 then
+      normalize_lhs xs ((mk_coeff x l,v)::acc) (n+x)
+    else if x > 0 then normalize_lhs xs ((mk_coeff x l,v)::acc) n
     else normalize_lhs xs acc n)
 End
 
 Theorem normalize_lhs_normalizes:
   ∀ls acc n ls' n'.
   normalize_lhs ls acc n = (ls',n') ⇒
-  iSUM (MAP (pb_preconstraint$eval_term w) ls) + &(SUM (MAP (eval_term w) acc)) + n = &(SUM (MAP (eval_term w) ls')) + n'
+  iSUM (MAP (pb_preconstraint$eval_term w) ls) + &(SUM (MAP (eval_term w) acc)) + n =
+  &(SUM (MAP (eval_term w) ls')) + n'
 Proof
   Induct>>rw[normalize_lhs_def,iSUM_def]
   >-
@@ -1065,19 +1115,23 @@ Proof
   first_x_assum drule>>
   simp[GSYM integerTheory.INT_ADD]
   >- (
-    `&(Num q * eval_lit w r) = q * eval_lit w r` by (
-      PURE_REWRITE_TAC[GSYM integerTheory.INT_MUL,eval_lit_INT]>>
-      fs[integerTheory.INT_NOT_LT,GSYM integerTheory.INT_OF_NUM]) >>
-    intLib.ARITH_TAC)
+    qmatch_goalsub_abbrev_tac`&SUM _ + qq`>>
+    `qq = q * eval_lit w r` by
+      (fs[Abbr`qq`]>>Cases_on`r`>>simp[mk_coeff_def]>>
+      Cases_on`w n''`>>simp[]>>
+      intLib.COOPER_TAC)>>
+    rw[] >>
+    rename1`A +B + C + D = E`>>
+    pop_assum mp_tac>> rpt (pop_assum kall_tac)>> intLib.ARITH_TAC)
   >- (
-    simp[Once eval_lit_eq_flip]>>
-    `-q * eval_lit w (negate r) = &(Num (-q) * eval_lit w (negate r))` by (
-      PURE_REWRITE_TAC[GSYM integerTheory.INT_MUL,eval_lit_INT]>>
-      `0 ≤ -q` by fs[]>>
-      pop_assum mp_tac>>
-      PURE_REWRITE_TAC[GSYM integerTheory.INT_OF_NUM]>>
-      simp[])>>
-    intLib.ARITH_TAC)
+    qmatch_goalsub_abbrev_tac`&SUM _ + qq`>>
+    `qq + q  = q * eval_lit w r` by (
+      fs[Abbr`qq`]>>Cases_on`r`>>simp[mk_coeff_def]>>
+      Cases_on`w n''`>>simp[]>>
+      intLib.ARITH_TAC)>>
+    rw[] >>
+    rename1`A +B + C + D = E`>>
+    ntac 2 (pop_assum mp_tac)>> rpt (pop_assum kall_tac)>> intLib.ARITH_TAC)
   >- (
     `q=0` by intLib.ARITH_TAC>>
     simp[])
@@ -1146,17 +1200,10 @@ QED
 Theorem normalize_lhs_compact1:
   ∀lhs acc n lhs' n'.
   normalize_lhs lhs acc n = (lhs',n') ∧
-  SORTED $< (MAP (get_var o SND) (REVERSE acc) ++ MAP (get_var o SND) lhs) ⇒
-  SORTED term_lt lhs'
+  SORTED $< (MAP SND (REVERSE acc) ++ MAP (get_var o SND) lhs) ⇒
+  SORTED $< (MAP SND lhs')
 Proof
-  Induct>>simp[normalize_lhs_def]
-  >- (
-    rw[GSYM MAP_REVERSE]>>
-    fs[sorted_map]>>
-    qmatch_asmsub_abbrev_tac`_ tlt _`>>
-    `tlt = term_lt` by
-      simp[Abbr`tlt`,FUN_EQ_THM,FORALL_PROD]>>
-    fs[])>>
+  Induct>>simp[normalize_lhs_def]>>
   Cases>>simp[normalize_lhs_def]>>rw[]>>
   first_x_assum match_mp_tac>>
   asm_exists_tac>>fs[]
@@ -1175,13 +1222,16 @@ QED
 Theorem normalize_lhs_compact2:
   ∀lhs acc n lhs' n'.
   normalize_lhs lhs acc n = (lhs',n') ∧
-  EVERY (λ(c,l). c ≠ 0) acc ⇒
-  EVERY (λ(c,l). c ≠ 0) lhs'
+  EVERY (λc. c ≠ 0) (MAP FST acc) ⇒
+  EVERY (λc. c ≠ 0) (MAP FST lhs')
 Proof
-  Induct>>simp[normalize_lhs_def]>>
+  Induct>>simp[normalize_lhs_def]
+  >-
+    simp[EVERY_MAP]>>
   Cases>>fs[normalize_lhs_def]>>rw[]>>
   first_x_assum match_mp_tac>>
   asm_exists_tac>>fs[]>>
+  Cases_on`r`>>fs[mk_coeff_def]>>
   intLib.ARITH_TAC
 QED
 
