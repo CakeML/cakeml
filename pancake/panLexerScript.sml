@@ -16,7 +16,7 @@ val _ = new_theory "panLexer";
 Datatype:
   keyword = SkipK | StoreK | StoreBK | IfK | ElseK | WhileK
   | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK
-  | LdsK | LdbK | BaseK
+  | LdsK | LdbK | BaseK | InK
 End
 
 Datatype:
@@ -103,6 +103,7 @@ Definition get_keyword_def:
   if s = "return" then (KeywordT RetK) else
   if s = "tick" then (KeywordT TicK) else
   if s = "var" then (KeywordT VarK) else
+  if s = "in" then (KeywordT InK) else
   if s = "with" then (KeywordT WithK) else
   if s = "handle" then (KeywordT HandleK) else
   if s = "lds" then (KeywordT LdsK) else
