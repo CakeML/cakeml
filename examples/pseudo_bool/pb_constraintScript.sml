@@ -638,7 +638,6 @@ QED
 
 (* substitution/instantiation *)
 
-(* TODO
 Definition assign_def:
   assign f (w:num->bool) (n:num) =
     case f n of
@@ -649,19 +648,18 @@ Definition assign_def:
 End
 
 Definition is_Pos_def[simp]:
-  is_Pos (Pos _) = T ∧
-  is_Pos (Neg _) = F
+  is_Pos (i:int) = (0 ≤ i)
 End
 
 Definition subst_aux_def:
   subst_aux f [] = ([],[],0) ∧
   subst_aux f ((c,l)::rest) =
     let (old,new,k) = subst_aux f rest in
-      case f (get_var l) of
+      case f l of
       | NONE => ((c,l)::old,new,k)
-      | SOME (INL b) => (old,new,if is_Pos l = b then k+c else k)
-      | SOME (INR n) => let x = (if is_Pos l then n else negate n) in
-                          (old,(c,x)::new,k)
+      | SOME (INL b) => (old,new,if is_Pos c = b then k + Num (ABS c) else k)
+      | SOME (INR (Pos n)) => (old,(c,n)::new,k)
+      | SOME (INR (Neg n)) => (old,(0-c,n)::new,k)
 End
 
 Definition subst_def:
@@ -677,45 +675,43 @@ Theorem subst_thm:
 Proof
   Cases_on ‘c’ \\ fs [satisfies_npbc_def,subst_def]
   \\ rpt (pairarg_tac \\ gvs [satisfies_npbc_def,GREATER_EQ])
-  \\ ‘∀l old new k.
+  \\ qsuff_tac
+    ‘∀l old new k.
         subst_aux f l = (old,new,k) ⇒
         SUM (MAP (eval_term (assign f w)) l) =
-        k + SUM (MAP (eval_term w) old ++ MAP (eval_term w) new)’ by
-    (Induct \\ fs [subst_aux_def,FORALL_PROD]
-     \\ pairarg_tac \\ fs []
-     \\ rw []
-     \\ Cases_on ‘f (get_var p_2)’ \\ gvs [assign_def]
-     THEN1 (Cases_on ‘p_2’ \\ fs [assign_def])
-     \\ Cases_on ‘x’ \\ gvs []
-     THEN1 (Cases_on ‘p_2’ \\ fs [assign_def] \\ Cases_on ‘x'’ \\ fs [])
-     \\ Cases_on ‘p_2’ \\ Cases_on ‘y’ \\ fs [assign_def]
-     \\ Cases_on ‘w n'’ \\ fs [SUM_APPEND])
-  \\ pop_assum $ drule_then assume_tac \\ fs [SUM_APPEND]
-  \\ drule_then (qspec_then ‘w’ assume_tac) clean_up_thm
-  \\ drule_then (qspec_then ‘w’ assume_tac) add_lists_thm
-  \\ gvs []
+        k + SUM (MAP (eval_term w) old ++ MAP (eval_term w) new)’
+  >-
+   (disch_then $ drule_then assume_tac \\ fs [SUM_APPEND]
+    \\ drule_then (qspec_then ‘w’ assume_tac) clean_up_thm
+    \\ drule_then (qspec_then ‘w’ assume_tac) add_lists_thm
+    \\ gvs [])
+  \\ Induct \\ fs [subst_aux_def,FORALL_PROD]
+  \\ pairarg_tac \\ fs []
+  \\ rw []
+  \\ Cases_on ‘p_1’   \\ gvs []
+  \\ every_case_tac \\ gvs [assign_def]
+  \\ Cases_on ‘w n'’ \\ fs [SUM_APPEND]
 QED
 
 (* The returned flag is T if any literal touched by the constraint is
-  itself assigned to T under the substitution *)
+   itself assigned to T under the substitution *)
 Definition subst_opt_aux_def:
   subst_opt_aux f [] = ([],[],0,T) ∧
   subst_opt_aux f ((c,l)::rest) =
     let (old,new,k,same) = subst_opt_aux f rest in
-      case f (get_var l) of
+      case f l of
       | NONE => ((c,l)::old,new,k,same)
       | SOME (INL b) =>
-        if is_Pos l = b then
-          (old,new, k+c, same)
+        if is_Pos c = b then
+          (old,new, k + Num (ABS c), same)
         else
           (old,new, k, F)
-      | SOME (INR n) => let x = (if is_Pos l then n else negate n) in
-                          (old,(c,x)::new,k,F)
+      | SOME (INR (Pos n)) => (old,(c,n)::new,k,F)
+      | SOME (INR (Neg n)) => (old,(0-c,n)::new,k,F)
 End
-*)
 
 (* Computes the LHS term of the slack of a constraint under
-  a partial assignment p (list of literals) *)
+   a partial assignment p (list of literals) *)
 (*
 Definition lslack_def:
   lslack (PBC ls num) p =
@@ -771,8 +767,6 @@ Proof
   metis_tac[]
 QED
 
-
-(*
 Definition subst_opt_def:
   subst_opt f (PBC l n) =
     let (old,new,k,same) = subst_opt_aux f l in
@@ -815,11 +809,10 @@ Proof
   \\ rpt strip_tac
   \\ rpt (pairarg_tac \\ fs [])
   \\ gvs [AllCaseEqs()]
+  \\ Cases_on ‘p_1’ \\ gvs []
   \\ first_x_assum drule
-  >-
-    (Cases_on`p_2`>>fs[assign_def]) >>
-  Cases_on`p_2`>>fs[assign_def]>>
-  Cases_on`w n`>>fs[]
+  \\ gvs [assign_def]
+  \\ Cases_on`w p_2` \\ gvs [assign_def]
 QED
 
 Theorem subst_opt_NONE:
@@ -852,8 +845,8 @@ Proof
   Cases_on ‘c’ \\ fs [compact_def,subst_def]
   \\ rpt (pairarg_tac \\ fs []) \\ strip_tac
   \\ qsuff_tac ‘∀l old new k.
-       SORTED term_lt l ∧ EVERY (λ(c,l). c ≠ 0) l ∧ subst_aux f l = (old,new,k) ⇒
-       SORTED term_lt old ∧ EVERY (λ(c,l). c ≠ 0) old ∧ EVERY (λ(c,l). c ≠ 0) new’
+       SORTED $< (MAP SND l) ∧ EVERY (λc. c ≠ 0) (MAP FST l) ∧ subst_aux f l = (old,new,k) ⇒
+       SORTED $< (MAP SND old) ∧ EVERY (λc. c ≠ 0) (MAP FST old) ∧ EVERY (λc. c ≠ 0) (MAP FST new)’
   THEN1
    (disch_then drule \\ fs [] \\ strip_tac
     \\ drule clean_up_sorted \\ fs [] \\ strip_tac
@@ -862,21 +855,20 @@ Proof
   \\ Induct \\ fs [subst_aux_def,FORALL_PROD]
   \\ rpt gen_tac \\ strip_tac
   \\ rpt (pairarg_tac \\ fs [])
-  \\ Cases_on ‘f (get_var p_2)’ \\ gvs []
+  \\ Cases_on ‘f p_2’ \\ gvs []
   \\ imp_res_tac sortingTheory.SORTED_TL \\ gvs [AllCaseEqs()]
   \\ Cases_on ‘old'’ \\ fs []
   \\ qpat_x_assum ‘subst_aux f l = (h::t,new,k)’ mp_tac
-  \\ qpat_x_assum ‘SORTED term_lt ((p_1,p_2)::l)’ mp_tac
+  \\ qpat_x_assum ‘SORTED $< (p_2::MAP SND l)’ mp_tac
   \\ EVERY (map qid_spec_tac [‘p_1’,‘p_2’,‘t’,‘h’,‘new’,‘k’,‘l’])
   \\ Induct \\ fs [subst_aux_def,FORALL_PROD] \\ rw []
   \\ pairarg_tac \\ gvs []
-  \\ Cases_on ‘f (get_var p_2')’ \\ gvs []
+  \\ Cases_on ‘f p_2'’ \\ gvs []
   \\ Cases_on ‘x’ \\ gvs []
   \\ first_x_assum irule
   \\ Cases_on ‘l'’ \\ fs []
-  \\ Cases_on ‘h'’ \\ fs []
+  \\ every_case_tac \\ gvs []
 QED
-*)
 
 Definition sat_implies_def:
   sat_implies pbf pbf' ⇔
@@ -903,7 +895,7 @@ Proof
 QED
 
 (* Statement of Prop 1 from Gocht/Nordstrom AAAI-21 *)
-(*
+
 Theorem substitution_redundancy:
   c redundant_wrt f
   ⇔
@@ -926,8 +918,6 @@ Proof
   \\ first_x_assum $ irule_at (Pos last)
   \\ fs [satisfies_def,PULL_EXISTS,subst_thm]
 QED
-
-*)
 
 Definition get_var_def[simp]:
   get_var (Pos n) = n ∧
@@ -1034,7 +1024,7 @@ Proof
 QED
 
 Theorem iSUM_QSORT_term_le[simp]:
-  iSUM (MAP (eval_term w) (QSORT term_le l)) =
+  iSUM (MAP (eval_term w) (QSORT $≤ l)) =
   iSUM (MAP (eval_term w) l)
 Proof
   match_mp_tac iSUM_PERM>>
