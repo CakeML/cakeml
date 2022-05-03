@@ -6,5 +6,8 @@ Compiles the simple compression schema
 [decompressionCompileScript.sml](decompressionCompileScript.sml):
 Compiles the simple decompression schema
 
-[testCompileScript.sml](testCompileScript.sml):
-Compiles the test
+[deflateDecodeCompileScript.sml](deflateDecodeCompileScript.sml):
+Compiles the simple compression schema
+
+[deflateEncodeCompileScript.sml](deflateEncodeCompileScript.sml):
+Compiles the simple compression schema
