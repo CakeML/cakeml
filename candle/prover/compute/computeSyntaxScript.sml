@@ -9,123 +9,33 @@ val _ = new_theory "computeSyntax";
 fun SIMPR ths = SIMP_RULE (srw_ss()) ths;
 fun SIMPC ths = SIMP_CONV (srw_ss()) ths;
 
+(* Numbers *)
+
 Overload num_ty = “Tyapp «num» []”;
-Overload "_0" = “Const «0» num_ty”
-Overload "_SUC" = “Const «SUC» (Fun num_ty num_ty)”;
-Overload "_BIT0" = “Const «BIT0» (Fun num_ty num_ty)”;
-Overload "_BIT1" = “Const «BIT1» (Fun num_ty num_ty)”;
+Overload "_0" = “Const «0» num_ty”;
+Overload "_SUC_TM" = “Const «SUC» (Fun num_ty num_ty)”;
+Overload "_SUC" = “λtm. Comb _SUC_TM tm”;
+Overload "_BIT0_TM" = “Const «BIT0» (Fun num_ty num_ty)”;
+Overload "_BIT0" = “λtm. Comb _BIT0_TM tm”;
+Overload "_BIT1_TM" = “Const «BIT1» (Fun num_ty num_ty)”;
+Overload "_BIT1" = “λtm. Comb _BIT1_TM tm”;
 Overload "_N" = “Var «n» num_ty”;
 Overload "_M" = “Var «m» num_ty”;
-Overload "_ADD" = “Const «+» (Fun num_ty (Fun num_ty num_ty))”;
+Overload "_ADD_TM" = “Const «+» (Fun num_ty (Fun num_ty num_ty))”;
+Overload "_ADD" = “λt1 t2. Comb (Comb _ADD_TM t1) t2”;
 
-(* All the necessary constants defined with the right types and
- * with the right defining equations (and some lemmas).
- *)
+(* Lists *)
 
-Definition numeral_thy_ok_def:
-  numeral_thy_ok thy ⇔
-    theory_ok thy ∧
-    (* Constants defined *)
-    term_ok (sigof thy) _BIT0 ∧
-    term_ok (sigof thy) _BIT1 ∧
-    term_ok (sigof thy) _0 ∧
-    term_ok (sigof thy) _SUC ∧
-    term_ok (sigof thy) _ADD ∧
-    (* BIT0, BIT1 *)
-    (thy,[]) |- Comb _BIT0 _N === Comb (Comb _ADD _N) _N ∧
-    (thy,[]) |- Comb _BIT1 _N === Comb _SUC (Comb _BIT0 _N) ∧
-    (* ADD *)
-    (thy,[]) |- Comb (Comb _ADD _0) _M === _M ∧
-    (thy,[]) |- Comb (Comb _ADD (Comb _SUC _N)) _M ===
-                Comb _SUC (Comb (Comb _ADD _N) _M)
-End
+Overload list_ty = “λty. Tyapp «list» [ty]”;
+Overload "_NIL" = “λty. Const «[]» (list_ty ty)”;
+Overload "_CONS_TM" = “λty. Const «::» (Fun ty (Fun (list_ty ty) (list_ty ty)))”;
+Overload "_CONS" = “λty h t. Comb (Comb (_CONS_TM ty) h) t”;
+Overload "_H" = “λty. Var «h» ty”;
+Overload "_T" = “λty. Var «t» (list_ty ty)”;
 
-Definition num2term_def:
-  num2term 0 = _0 ∧
-  num2term (SUC n) = Comb _SUC (num2term n)
-End
-
-Theorem num2term_typeof[local,simp]:
-  typeof (num2term n) = num_ty
-Proof
-  Induct_on ‘n’ \\ simp [num2term_def]
-QED
-
-Theorem num2term_has_type[local,simp]:
-  num2term n has_type num_ty
-Proof
-  Induct_on ‘n’ \\ rw [num2term_def]
-  \\ rw [Once has_type_cases]
-  \\ rw [Once has_type_cases]
-QED
-
-Theorem num2term_welltyped[local,simp]:
-  welltyped (num2term n)
-Proof
-  rw [welltyped_def, num2term_has_type, SF SFY_ss]
-QED
-
-Theorem num2term_term_ok[local,simp]:
-  numeral_thy_ok thy ⇒ term_ok (sigof thy) (num2term n)
-Proof
-  Induct_on ‘n’ \\ rw [numeral_thy_ok_def, term_ok_def, num2term_def]
-QED
-
-Theorem num2term_VSUBST[local,simp]:
-  ∀n. VSUBST is (num2term n) = num2term n
-Proof
-  Induct \\ rw [num2term_def, VSUBST_def]
-QED
-
-Definition num2bit_def:
-  num2bit n =
-    if n = 0 then
-      Comb _BIT0 _0
-    else
-      Comb (if n MOD 2 = 0 then _BIT0 else _BIT1) (num2bit (n DIV 2))
-Termination
-  wf_rel_tac ‘$<’ \\ intLib.ARITH_TAC
-End
-
-Theorem num2bit_typeof[local,simp]:
-  ∀n. typeof (num2bit n) = num_ty
-Proof
-  ho_match_mp_tac num2bit_ind \\ rw []
-  \\ rw [Once num2bit_def]
-QED
-
-Theorem num2bit_has_type[local,simp]:
-  ∀n. num2bit n has_type num_ty
-Proof
-  ho_match_mp_tac num2bit_ind \\ rw []
-  \\ rw [Once num2bit_def]
-  \\ rw [Once has_type_cases]
-  \\ rw [Once has_type_cases]
-  \\ rw [Once has_type_cases]
-QED
-
-Theorem num2bit_welltyped[local,simp]:
-  ∀n. welltyped (num2bit n)
-Proof
-  rw [welltyped_def, num2bit_has_type, SF SFY_ss]
-QED
-
-Theorem num2bit_term_ok[local,simp]:
-  numeral_thy_ok thy ⇒ term_ok (sigof thy) (num2bit n)
-Proof
-  rw [numeral_thy_ok_def]
-  \\ qid_spec_tac ‘n’
-  \\ ho_match_mp_tac num2bit_ind \\ rw []
-  \\ rw [Once num2bit_def, term_ok_def]
-QED
-
-Theorem num2bit_VSUBST[local,simp]:
-  ∀n. VSUBST is (num2bit n) = num2bit n
-Proof
-  ho_match_mp_tac num2bit_ind \\ rw []
-  \\ once_rewrite_tac [num2bit_def]
-  \\ rw [VSUBST_def]
-QED
+(* -------------------------------------------------------------------------
+ * Support
+ * ------------------------------------------------------------------------- *)
 
 Theorem trans_equation_simple[local]:
   (thy,[]) |- a === b ∧
@@ -178,9 +88,131 @@ Theorem replaceR1 =
 Theorem replaceR2 =
   UNDISCH_ALL replaceL2 |> MATCH_MP sym_equation |> DISCH_ALL;
 
+(* -------------------------------------------------------------------------
+ * Natural numbers
+ * ------------------------------------------------------------------------- *)
+
+(* All the necessary constants defined with the right types and
+ * with the right defining equations (and some lemmas).
+ *)
+
+Definition numeral_thy_ok_def:
+  numeral_thy_ok thy ⇔
+    theory_ok thy ∧
+    (* Constants defined *)
+    term_ok (sigof thy) _BIT0_TM ∧
+    term_ok (sigof thy) _BIT1_TM ∧
+    term_ok (sigof thy) _0 ∧
+    term_ok (sigof thy) _SUC_TM ∧
+    term_ok (sigof thy) _ADD_TM ∧
+    (* BIT0, BIT1 *)
+    (thy,[]) |- _BIT0 _N === _ADD _N _N ∧
+    (thy,[]) |- _BIT1 _N === _SUC (_BIT0 _N) ∧
+    (* ADD *)
+    (thy,[]) |- _ADD _0 _M === _M ∧
+    (thy,[]) |- _ADD (_SUC _N) _M === _SUC (_ADD _N _M)
+End
+
+Definition num2term_def:
+  num2term 0 = _0 ∧
+  num2term (SUC n) = _SUC (num2term n)
+End
+
+Theorem num2term_typeof[local,simp]:
+  typeof (num2term n) = num_ty
+Proof
+  Induct_on ‘n’ \\ simp [num2term_def]
+QED
+
+Theorem num2term_has_type[local,simp]:
+  num2term n has_type num_ty
+Proof
+  Induct_on ‘n’ \\ rw [num2term_def]
+  \\ rw [Once has_type_cases]
+  \\ rw [Once has_type_cases]
+QED
+
+Theorem num2term_welltyped[local,simp]:
+  welltyped (num2term n)
+Proof
+  rw [welltyped_def, num2term_has_type, SF SFY_ss]
+QED
+
+Theorem num2term_term_ok[local]:
+  numeral_thy_ok thy ⇒ term_ok (sigof thy) (num2term n)
+Proof
+  Induct_on ‘n’ \\ rw [numeral_thy_ok_def, term_ok_def, num2term_def]
+QED
+
+Theorem num2term_VSUBST[local,simp]:
+  ∀n. VSUBST is (num2term n) = num2term n
+Proof
+  Induct \\ rw [num2term_def, VSUBST_def]
+QED
+
+Definition num2bit_def:
+  num2bit n =
+    if n = 0 then
+      _BIT0 _0
+    else
+      Comb (if n MOD 2 = 0 then _BIT0_TM else _BIT1_TM) (num2bit (n DIV 2))
+Termination
+  wf_rel_tac ‘$<’ \\ intLib.ARITH_TAC
+End
+
+Theorem num2bit_eq:
+  num2bit n =
+    if n = 0 then _BIT0 _0 else
+    if n MOD 2 = 0 then _BIT0 (num2bit (n DIV 2))
+    else _BIT1 (num2bit (n DIV 2))
+Proof
+  rw [Once num2bit_def]
+  \\ rw [Once num2bit_def]
+QED
+
+Theorem num2bit_typeof[local,simp]:
+  ∀n. typeof (num2bit n) = num_ty
+Proof
+  ho_match_mp_tac num2bit_ind \\ rw []
+  \\ rw [Once num2bit_def]
+QED
+
+Theorem num2bit_has_type[local,simp]:
+  ∀n. num2bit n has_type num_ty
+Proof
+  ho_match_mp_tac num2bit_ind \\ rw []
+  \\ rw [Once num2bit_def]
+  \\ rw [Once has_type_cases]
+  \\ rw [Once has_type_cases]
+  \\ rw [Once has_type_cases]
+QED
+
+Theorem num2bit_welltyped[local,simp]:
+  ∀n. welltyped (num2bit n)
+Proof
+  rw [welltyped_def, num2bit_has_type, SF SFY_ss]
+QED
+
+Theorem num2bit_term_ok[local]:
+  numeral_thy_ok thy ⇒ term_ok (sigof thy) (num2bit n)
+Proof
+  rw [numeral_thy_ok_def]
+  \\ qid_spec_tac ‘n’
+  \\ ho_match_mp_tac num2bit_ind \\ rw []
+  \\ rw [Once num2bit_def, term_ok_def]
+QED
+
+Theorem num2bit_VSUBST[local,simp]:
+  ∀n. VSUBST is (num2bit n) = num2bit n
+Proof
+  ho_match_mp_tac num2bit_ind \\ rw []
+  \\ once_rewrite_tac [num2bit_def]
+  \\ rw [VSUBST_def]
+QED
+
 Theorem num2term_ADD:
   numeral_thy_ok thy ⇒
-    (thy,[]) |- num2term (m + n) === Comb (Comb _ADD (num2term m)) (num2term n)
+    (thy,[]) |- num2term (m + n) === _ADD (num2term m) (num2term n)
 Proof
   strip_tac \\ qid_spec_tac ‘m’
   \\ gs [numeral_thy_ok_def]
@@ -188,20 +220,18 @@ Proof
   >- (
     rw [num2term_def]
     \\ qabbrev_tac ‘M = num2term n’
-    \\ qpat_x_assum ‘_ |- _ (Comb _ADD _0) _M === _M’ assume_tac
+    \\ qpat_x_assum ‘_ |- _ADD _0 _M === _M’ assume_tac
     \\ drule_at_then (Pos (el 2)) (qspec_then ‘[M,_M]’ mp_tac) proves_INST
     \\ simp [VSUBST_def, REV_ASSOCD, equation_def, Abbr ‘M’, term_ok_def,
              num2term_term_ok, numeral_thy_ok_def, sym_equation])
   \\ rw [ADD_CLAUSES, num2term_def] \\ fs []
-  \\ qmatch_goalsub_abbrev_tac ‘Comb (Comb _ADD (Comb _SUC N)) M’
-  \\ ‘(thy,[]) |- Comb (Comb _ADD (Comb _SUC N)) _M ===
-                  Comb _SUC (Comb (Comb _ADD N) _M)’
-    by (qpat_x_assum ‘_ |- Comb (Comb _ADD _) _ === _’ assume_tac
+  \\ qmatch_goalsub_abbrev_tac ‘_ADD (_SUC N) M’
+  \\ ‘(thy,[]) |- _ADD (_SUC N) _M === _SUC (_ADD N _M)’
+    by (qpat_x_assum ‘_ |- _ADD _ _ === _’ assume_tac
         \\ drule_at_then (Pos (el 2)) (qspec_then ‘[N,_N]’ mp_tac) proves_INST
         \\ simp [VSUBST_def, REV_ASSOCD, equation_def, term_ok_def, Abbr ‘N’,
                  num2term_term_ok, numeral_thy_ok_def])
-  \\ ‘(thy,[]) |- Comb (Comb _ADD (Comb _SUC N)) M ===
-                  Comb _SUC (Comb (Comb _ADD N) M)’
+  \\ ‘(thy,[]) |- _ADD (_SUC N) M === _SUC (_ADD N M)’
     by (drule_at_then (Pos (el 2)) (qspec_then ‘[M,_M]’ mp_tac) proves_INST
         \\ simp [VSUBST_def, REV_ASSOCD, equation_def, term_ok_def, Abbr ‘M’,
                  num2term_term_ok, numeral_thy_ok_def, Abbr ‘N’])
@@ -222,23 +252,23 @@ Proof
   \\ gs [numeral_thy_ok_def]
   \\ rw [num2term_def, Once num2bit_def]
   >- (
-    qpat_assum ‘_ |- Comb _BIT0 _N === _’ assume_tac
-    \\ ‘(thy,[]) |- Comb _BIT0 _0 === Comb (Comb _ADD _0) _0’
+    qpat_assum ‘_ |- _BIT0 _N === _’ assume_tac
+    \\ ‘(thy,[]) |- _BIT0 _0 === _ADD _0 _0’
       by (drule_at_then (Pos (el 2)) (qspec_then ‘[_0,_N]’ mp_tac) proves_INST
           \\ simp [VSUBST_def, REV_ASSOCD, equation_def, Once has_type_rules])
     \\ irule trans_equation_simple
     \\ first_x_assum (irule_at Any)
-    \\ qpat_assum ‘_ |- Comb (Comb _ADD _0) _ === _’ assume_tac
+    \\ qpat_assum ‘_ |- _ADD _0 _ === _’ assume_tac
     \\ drule_at_then (Pos (el 2)) (qspec_then ‘[_0,_M]’ mp_tac) proves_INST
     \\ simp [VSUBST_def, REV_ASSOCD, equation_def, Once has_type_rules])
   >- (
     qabbrev_tac ‘N = num2term (n DIV 2)’
-    \\ ‘(thy,[]) |- Comb _BIT0 (num2bit (n DIV 2)) === Comb _BIT0 N’
+    \\ ‘(thy,[]) |- _BIT0 (num2bit (n DIV 2)) === _BIT0 N’
       by rw [MK_COMB_simple, proves_REFL]
     \\ irule trans_equation_simple
     \\ first_x_assum (irule_at Any)
-    \\ qpat_x_assum ‘_ |- Comb _BIT0 _N === _’ assume_tac
-    \\ ‘(thy,[]) |- Comb _BIT0 N === Comb (Comb _ADD N) N’
+    \\ qpat_x_assum ‘_ |- _BIT0 _N === _’ assume_tac
+    \\ ‘(thy,[]) |- _BIT0 N === _ADD N N’
       by (drule_at_then (Pos (el 2)) (qspec_then ‘[N,_N]’ mp_tac) proves_INST
           \\ simp [VSUBST_def, REV_ASSOCD, equation_def, term_ok_def, Abbr ‘N’,
                    num2term_term_ok, numeral_thy_ok_def])
@@ -249,13 +279,13 @@ Proof
     \\ gs [numeral_thy_ok_def]
     \\ ‘2 * (n DIV 2) = n’ by intLib.ARITH_TAC \\ gs [])
   >- (
-    qpat_assum ‘_ |- Comb _BIT1 _N === _’ assume_tac
+    qpat_assum ‘_ |- _BIT1 _N === _’ assume_tac
     \\ qabbrev_tac ‘N = num2term (n DIV 2)’
-    \\ ‘(thy,[]) |- Comb _BIT1 (num2bit (n DIV 2)) === Comb _BIT1 N’
+    \\ ‘(thy,[]) |- _BIT1 (num2bit (n DIV 2)) === _BIT1 N’
       by rw [MK_COMB_simple, proves_REFL]
     \\ irule trans_equation_simple
     \\ first_x_assum (irule_at Any)
-    \\ ‘(thy,[]) |- Comb _BIT1 N === Comb _SUC (Comb _BIT0 N)’
+    \\ ‘(thy,[]) |- _BIT1 N === _SUC (_BIT0 N)’
       by (drule_at_then (Pos (el 2)) (qspec_then ‘[N,_N]’ mp_tac) proves_INST
           \\ simp [VSUBST_def, REV_ASSOCD, equation_def, Once has_type_rules,
                    num2term_term_ok, numeral_thy_ok_def, Abbr ‘N’])
@@ -274,7 +304,7 @@ Proof
     \\ irule trans_equation_simple
     \\ irule_at Any ADD_num2term
     \\ simp [numeral_thy_ok_def]
-    \\ qpat_x_assum ‘_ |- Comb _BIT0 _N === _’ assume_tac
+    \\ qpat_x_assum ‘_ |- _BIT0 _N === _’ assume_tac
     \\ drule_at_then (Pos (el 2)) (qspec_then ‘[N,_N]’ mp_tac) proves_INST
     \\ simp [VSUBST_def, REV_ASSOCD, equation_def, term_ok_def, Abbr ‘N’,
              num2term_term_ok, numeral_thy_ok_def, sym_equation])
@@ -282,7 +312,7 @@ QED
 
 Theorem num2bit_ADD:
   numeral_thy_ok thy ⇒
-    (thy,[]) |- num2bit (m + n) === Comb (Comb _ADD (num2bit m)) (num2bit n)
+    (thy,[]) |- num2bit (m + n) === _ADD (num2bit m) (num2bit n)
 Proof
   strip_tac
   \\ drule_then assume_tac num2bit_num2term
@@ -293,9 +323,64 @@ Proof
   \\ irule trans_equation_simple
   \\ first_assum (irule_at Any)
   \\ irule trans_equation_simple
-  \\ qexists_tac ‘Comb (Comb _ADD (num2term m)) (num2term n)’
+  \\ qexists_tac ‘_ADD (num2term m) (num2term n)’
   \\ simp [num2term_ADD, numeral_thy_ok_def, MK_COMB_simple, proves_REFL,
            sym_equation]
+QED
+
+Theorem ADD_num2bit =
+  UNDISCH_ALL num2bit_ADD |> MATCH_MP sym_equation |> DISCH_ALL;
+
+(* -------------------------------------------------------------------------
+ * Lists
+ * ------------------------------------------------------------------------- *)
+
+Definition list_thy_ok_def:
+  list_thy_ok thy ⇔
+    theory_ok thy ∧
+    (∀ty. type_ok (tysof thy) ty ⇒ term_ok (sigof thy) (_NIL ty)) ∧
+    (∀ty. type_ok (tysof thy) ty ⇒ term_ok (sigof thy) (_CONS_TM ty))
+End
+
+Definition list2term_def:
+  list2term f ty [] = _NIL ty ∧
+  list2term f ty (h::t) = _CONS ty (f h) (list2term f ty t)
+End
+
+Theorem list2term_typeof[local,simp]:
+  (∀x. MEM x xs ⇒ typeof (f x) = ty) ⇒
+    typeof (list2term f ty xs) = list_ty ty
+Proof
+  Induct_on ‘xs’ \\ rw [list2term_def]
+QED
+
+Theorem list2term_has_type[local,simp]:
+  (∀x. MEM x xs ⇒ f x has_type ty) ⇒
+    list2term f ty xs has_type list_ty ty
+Proof
+  Induct_on ‘xs’ \\ rw [list2term_def]
+  \\ rw [Once has_type_cases]
+  \\ rw [Once has_type_cases]
+  \\ rw [Once has_type_cases]
+QED
+
+Theorem list2term_welltyped[local,simp]:
+  (∀x. MEM x xs ⇒ f x has_type ty) ⇒
+    welltyped (list2term f ty xs)
+Proof
+  rw [welltyped_def]
+  \\ irule_at Any list2term_has_type \\ gs []
+QED
+
+Theorem list2term_term_ok[local]:
+  list_thy_ok thy ⇒
+  type_ok (tysof thy) ty ∧
+  (∀x. MEM x xs ⇒ term_ok (sigof thy) (f x) ∧ typeof (f x) = ty) ⇒
+    term_ok (sigof thy) (list2term f ty xs)
+Proof
+  strip_tac \\ fs [list_thy_ok_def]
+  \\ Induct_on ‘xs’ \\ rw [list2term_def]
+  \\ rw [term_ok_def] \\ gs [term_ok_welltyped, SF SFY_ss, SF DNF_ss]
 QED
 
 val _ = export_theory ();
