@@ -311,119 +311,6 @@ val pr_CASE = Q.prove(
   `pair_CASE (x,y) f = f x y`,
   SRW_TAC [] []);
 
-<<<<<<< HEAD
-val op_apply = Q.prove(
-  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16
-          x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33
-          x34 x35 x36 x37 x38 x39 x40 x41 x42 x43 x44 x45 x46 x47 x48 x49 x50
-          x51 x52) y =
-         (ast$op_CASE op
-            (* Opn 1 *)
-            (\z. x1 z y)
-            (* Opb 1 *)
-            (\z. x2 z y)
-            (* Opw 2 *)
-            (\z1 z2. x3 z1 z2 y)
-            (* Shift 3 *)
-            (\z1 z2 z3. x4 z1 z2 z3 y)
-            (* Equality 0 *)
-            (x5 y)
-            (* FP_cmp 1 *)
-            (\z. x6 z y)
-            (* FP_uop 1 *)
-            (\z. x7 z y)
-            (* FP_bop 1 *)
-            (\z. x8 z y)
-            (* FP_top 1 *)
-            (\z. x9 z y)
-            (* FpFromWord *)
-            (x10 y)
-            (* FpToWord *)
-            (x11 y)
-            (* Real_cmp *)
-            (\z. x12 z y)
-            (* Real_uop*)
-            (\z. x13 z y)
-            (* Real_bop*)
-            (\z. x14 z y)
-            (* RealFromFP *)
-            (x15 y)
-            (* Opapp 0 *)
-            (x16 y)
-            (* Opassign 0 *)
-            (x17 y)
-            (* Opref 0 *)
-            (x18 y)
-            (* Opderef 0 *)
-            (x19 y)
-            (* Aw8alloc *)
-            (x20 y)
-            (* Aw8sub *)
-            (x21 y)
-            (* Aw8length*)
-            (x22 y)
-            (* Aw8update *)
-            (x23 y)
-            (* WfI 1 *)
-            (\z. x24 z y)
-            (* WtI 1 *)
-            (\z. x25 z y)
-            (* CopyStrStr *)
-            (x26 y)
-            (* CopyStrAw8 *)
-            (x27 y)
-            (* CopyAw8Str *)
-            (x28 y)
-            (* CopyAw8Aw8 *)
-            (x29 y)
-            (* Ord *)
-            (x30 y)
-            (* Chr *)
-            (x31 y)
-            (* Chopb 1 *)
-            (\z. x32 z y)
-            (* Implode *)
-            (x33 y)
-            (* Explode *)
-            (x34 y)
-            (* Strsub*)
-            (x35 y)
-            (* Strlen *)
-            (x36 y)
-            (* Strcat *)
-            (x37 y)
-            (* Vfromlist *)
-            (x38 y)
-            (* Vsub *)
-            (x39 y)
-            (* Vlength *)
-            (x40 y)
-            (* Aalloc *)
-            (x41 y)
-            (* AallocEmpty *)
-            (x42 y)
-            (* Asub *)
-            (x43 y)
-            (* Alength*)
-            (x44 y)
-            (* Aupdate *)
-            (x45 y)
-            (* Asub_unsafe *)
-            (x46 y)
-            (* Aupdate_unsafe *)
-            (x47 y)
-            (* Aw8sub_unsafe *)
-            (x48 y)
-            (* Aw8update_unsafe *)
-            (x49 y)
-            (* ListAppend *)
-            (x50 y)
-            (* ConfigGC *)
-            (x51 y)
-            (* FFI *)
-            (\z. x52 z y))`,
-  Cases THEN SRW_TAC [] []);
-=======
 val op_apply =
   let
     val ty = ``:ast$op``
@@ -433,7 +320,6 @@ val op_apply =
     val rthm2 = GEN f rthm
     val rthm3 = Q.ISPEC `\g. g (y : 'b)` rthm2
   in BETA_RULE rthm3 |> Q.GEN ‘x’ end;
->>>>>>> master
 
 val list_apply = Q.prove(
   `!op. (list_CASE op x1 x2) y =
