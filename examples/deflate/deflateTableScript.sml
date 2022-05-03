@@ -89,7 +89,7 @@ Definition find_level_in_len_table_def:
   find_level_in_len_table n = find_level_in_table n len_table (HD len_table)
 End
 
-Definition find_in_dist_table_def:
+Definition find_level_in_dist_table_def:
   find_level_in_dist_table n = find_level_in_table n dist_table (HD dist_table)
 End
 

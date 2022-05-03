@@ -31,7 +31,7 @@ Definition fixed_len_tree_def:
      len_from_codes_inv ls
 End
 
-Definition fixed_dist_tree:
+Definition fixed_dist_tree_def:
   fixed_dist_tree = GENLIST (λ n. (n, pad0 5 (TN2BL n))) 32
 End
 
@@ -80,7 +80,7 @@ Definition find_LZSS_val_def:
         (lnum, dnum)
 End
 
-Definition split_len_dist:
+Definition split_len_dist_def:
   split_len_dist       []  ls ds = (ls, ds) ∧
   split_len_dist (lz::lzs) ls ds =
   let
@@ -206,7 +206,7 @@ Definition decode_LZSS_table_def:
     (lz, bits)
 End
 
-Definition decode_LZSS_lendist:
+Definition decode_LZSS_lendist_def:
   decode_LZSS_lendist lznum bl dist_tree =
   let
     (len, lbits) = decode_LZSS_table lznum bl len_table;
@@ -229,7 +229,7 @@ Definition decode_LZSS_def:
   | F => decode_LZSS_lendist lznum bl dist_tree
 End
 
-Definition decode_check_end_block:
+Definition decode_check_end_block_def:
   decode_check_end_block bl len_tree =
   case find_decode_match bl len_tree of
     NONE => (T, [], 0, []) (* Something went wrong, huffman can't decode *)
@@ -259,7 +259,7 @@ Definition deflate_decoding_def:
               )
 Termination
   WF_REL_TAC ‘measure $ λ (bl, len_tree, dist_tree, acc). LENGTH bl’
-  \\ rw[decode_check_end_block, find_decode_match_def, decode_LZSS_def, decode_LZSS_table_def, decode_LZSS_def]
+  \\ rw[decode_check_end_block_def, find_decode_match_def, decode_LZSS_def, decode_LZSS_table_def, decode_LZSS_def]
 End
 
 
