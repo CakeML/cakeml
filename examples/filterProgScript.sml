@@ -475,7 +475,7 @@ val eval_thm = let
 
 val dummyarr_loc_def = fetch "-" "dummyarr_loc_def";
 
-val _ = ml_prog_update (add_Dlet eval_thm "dummyarr" []);
+val _ = ml_prog_update (add_Dlet eval_thm "dummyarr");
 
 val forward_matching_lines = process_topdecs`
 fun forward_loop inputarr =

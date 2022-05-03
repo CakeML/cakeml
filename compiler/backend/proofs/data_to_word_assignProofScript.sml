@@ -14,6 +14,7 @@ val _ = new_theory "data_to_word_assignProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = temp_delsimps ["DIV_NUMERAL_THM"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
@@ -5104,9 +5105,10 @@ Proof
   \\ disch_then (qspec_then `c` mp_tac)
   \\ `encode_header c (4 * tag) (LENGTH x) = SOME hd` by
    (fs [encode_header_def] \\ conj_tac THEN1
-     (fs [encode_header_def,dimword_def,labPropsTheory.good_dimindex_def]
-      \\ rfs [] \\ conj_tac \\ fs [] \\ rfs [DIV_LT_X]
-      \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV])
+     (qpat_x_assum ‘LENGTH _ < dimword _ DIV 16’ mp_tac
+      \\ qpat_x_assum ‘good_dimindex _’ mp_tac
+      \\ rpt (pop_assum kall_tac)
+      \\ simp[dimword_def, good_dimindex_def, DISJ_IMP_THM, X_LT_DIV])
     \\ fs [make_header_def,Abbr`hd`]
     \\ fs [WORD_MUL_LSL,word_mul_n2w,Smallnum_def,EXP_LEMMA1]
     \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)

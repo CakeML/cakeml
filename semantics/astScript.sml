@@ -107,6 +107,7 @@ Datatype:
   (* Array operations *)
   | Aalloc
   | AallocEmpty
+  | AallocFixed
   | Asub
   | Alength
   | Aupdate

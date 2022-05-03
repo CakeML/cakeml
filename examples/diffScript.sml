@@ -266,34 +266,6 @@ Proof
   >> fs[string_concat_empty,tokens_def,tokens_aux_def]
 QED
 
-val zero_pad_acc = Q.prove(
-`!n acc. STRCAT (zero_pad n "") acc = (zero_pad n acc)`,
-  Induct >> PURE_ONCE_REWRITE_TAC [zero_pad_def] >- fs[]
-  >> strip_tac >> first_assum(qspec_then `STRING #"0" acc` (assume_tac o GSYM))
-  >> fs[]);
-
-val simple_toChars_acc = Q.prove(
-`!n m acc. STRCAT (simple_toChars m n "") acc = (simple_toChars m n acc)`,
-  recInduct COMPLETE_INDUCTION >> rpt strip_tac >> fs[]
-  >> PURE_ONCE_REWRITE_TAC[simple_toChars_def]
-  >> rw[] >> PURE_ONCE_REWRITE_TAC[GSYM zero_pad_acc]
-  >> fs[] >> first_x_assum (qspec_then `n DIV 10` assume_tac) >> rfs[]
-  >> first_assum (qspecl_then [`m - 1`,`(STRING (toChar (n MOD 10)) acc)`] (assume_tac o GSYM))
-  >> fs[]);
-
-val toChars_acc = Q.prove(
-`!n m acc. STRCAT (toChars m n "") acc = (toChars m n acc)`,
-  recInduct COMPLETE_INDUCTION >> rpt strip_tac >> fs[]
-  >> PURE_ONCE_REWRITE_TAC[toChars_def]
-  >> rw[] >> PURE_ONCE_REWRITE_TAC[GSYM simple_toChars_acc]
-  >> fs[] >> PURE_ONCE_REWRITE_TAC[GSYM simple_toChars_acc]
-  >> fs[]
-  >> first_x_assum (qspec_then `n DIV maxSmall_DEC` assume_tac) >> rfs[maxSmall_DEC_def]
-  >> first_assum (qspecl_then [`n MOD maxSmall_DEC`,
-                               `STRCAT (simple_toChars padLen_DEC m "") acc`]
-                              (assume_tac o GSYM))
-  >> fs[maxSmall_DEC_def]);
-
 Theorem one_to_ten:
    !P. P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\ P 6 /\ P 7 /\ P 8 /\ P 9 /\ (!n. (n:num) >= 10 ==> P n) ==> !n. P n
 Proof
@@ -363,14 +335,7 @@ val num_le_10 = Q.prove(
 
 val tokens_toString = Q.prove(
 `tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") (toString (n:num)) = [toString n]`,
-  fs[Once toString_def,num_to_str_def] >> fs[TOKENS_eq_tokens_sym]
-  >> fs[implode_def,tokens_aux_def,toChar_def,str_def,strlen_def,maxSmall_DEC_def,toChars_thm]
-  >> every_case_tac >> fs[explode_thm,TOKENS_def]
-  >> TRY(pairarg_tac >> first_x_assum (assume_tac o GSYM)) >> fs[SPLITP] >> rfs[]
-  >> fs[SPLITP_num_toString,TOKENS_def,TOKENS_tostring]
-  >> TRY(fs[Once toString_def,num_to_str_def]
-         \\ fs[implode_def,tokens_def,tokens_aux_def
-              , toChar_def,str_def,maxSmall_DEC_def,toChars_thm]));
+  simp [toString_thm, num_to_str_thm, TOKENS_eq_tokens_sym, TOKENS_tostring]);
 
 val tokens_strcat = Q.prove(
 `l ≠ [] ==>
@@ -457,11 +422,11 @@ val patch_aux_nil = Q.prove(`patch_aux [] file remfl n = SOME file`,fs[patch_aux
 
 val line_numbers_not_empty = Q.prove(
   `!l n . line_numbers l n <> strlit ""`,
-  fs[line_numbers_def,toString_def,num_to_str_def
-    , str_def,implode_def,maxSmall_DEC_def,strcat_thm] >>
-  rw[] >> fs[] >> rw[Once toChars_def]
-  >> PURE_ONCE_REWRITE_TAC[simple_toChars_def] >> rw[Once zero_pad_def,padLen_DEC_def]
-  >> fs[Once(GSYM simple_toChars_acc),Once(GSYM zero_pad_acc),Once(GSYM toChars_acc)]);
+  fs[line_numbers_def, num_to_str_thm, implode_def]
+  \\ rw []
+  \\ simp_tac std_ss [GSYM explode_11, explode_strcat]
+  \\ simp []
+  );
 
 Theorem tokens_eq_sing:
    !s f. EVERY ($~ o f) (explode s) /\ s <> strlit "" ==> tokens f s = [s]

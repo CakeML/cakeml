@@ -3356,7 +3356,7 @@ QED
 *)
 
 Theorem stack_to_lab_compile_all_enc_ok:
-    EVERY (λ(n,p). stack_asm_name c p) prog ∧
+  EVERY (λ(n,p). stack_asm_name c p) prog ∧
   EVERY (λ(n,p). stack_asm_remove c p) prog ∧
   names_ok c1.reg_names (c:'a asm_config).reg_count c.avoid_regs ∧
   fixed_names c1.reg_names c ∧
@@ -3415,23 +3415,23 @@ Proof
 QED
 
 Theorem IMP_init_state_ok:
-     4 < kkk /\
-    (bitmaps:'a word list) = 4w::t ∧
-    good_dimindex (:α) /\
+   4 < kkk /\
+  (bitmaps:'a word list) = 4w::t ∧
+  good_dimindex (:α) /\
   (∀n.
     (λ((bm0,cfg),progs).
      EVERY
        (post_alloc_conventions kkk ∘ SND ∘ SND) progs ∧
      EVERY (flat_exp_conventions ∘ SND ∘ SND) progs ∧
      EVERY ((λy. raise_stub_location ≠ y) ∘ FST) progs ∧
-     (n = 0 ⇒ bm0 = bitmaps)) (word_oracle n)) ∧
+     (n = 0 ⇒ bm0 = LENGTH bitmaps)) (word_oracle n)) ∧
   stack_oracle =
   (λn.
    (λ((bm0,cfg),progs).
-      (λ(progs,fs,bm). (cfg,progs,DROP (LENGTH bm0) bm))
+      (λ(progs,fs,bm). (cfg,progs,append (FST bm)))
         (compile_word_to_stack
            kkk progs
-           bm0)) (word_oracle n)) ∧
+           (Nil, bm0))) (word_oracle n)) ∧
     (full_make_init sc dc max_heap stk stoff bitmaps p6 lab_st save_regs data_sp stack_oracle = (fmis,SOME xxx))
     ==>
     init_state_ok kkk fmis word_oracle

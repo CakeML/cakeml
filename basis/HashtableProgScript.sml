@@ -48,6 +48,14 @@ val hashtable_hashtable = (append_prog o process_topdecs)
     ('k -> int) (*Hash function*)
     ('k -> 'k -> ordering) (*Key compare function*)`
 
+val hashtable_ty_env = get_env (get_ml_prog_state());
+val stamp_eval = EVAL ``nsLookup (^hashtable_ty_env).c (Short "Hashtable")``
+val hashtable_con_stamp = rhs (concl stamp_eval)
+
+Definition hashtable_con_stamp_def:
+  hashtable_con_stamp = OPTION_MAP SND ^hashtable_con_stamp
+End
+
 val _ = ml_prog_update open_local_in_block;
 
 (* provides the Hashtable.hashtable name for the hashtable type *)

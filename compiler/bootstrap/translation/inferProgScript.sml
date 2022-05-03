@@ -241,6 +241,9 @@ Theorem ts_unify_side_def = Q.prove(`
   THEN FULL_SIMP_TAC std_ss [])
   |> update_precondition;
 
+val r = translate alist_nub_def;
+val r = translate (ns_nub_def |> DefnBase.one_line_ify NONE);
+
 val _ = save_thm("anub_ind",REWRITE_RULE[MEMBER_INTRO]miscTheory.anub_ind)
 val _ = translate (REWRITE_RULE[MEMBER_INTRO] miscTheory.anub_def)
 
@@ -393,6 +396,7 @@ val ty_var_name_side =
 
 val _ = translate infer_tTheory.commas_def;
 val _ = translate infer_tTheory.add_parens_def;
+val _ = translate infer_tTheory.inf_type_to_string_rec_def;
 val _ = translate infer_tTheory.inf_type_to_string_def;
 val _ = translate ns_to_alist_def;
 val _ = translate inf_env_to_types_string_def;

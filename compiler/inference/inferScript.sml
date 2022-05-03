@@ -106,11 +106,11 @@ add_constraint (l : loc_err_info) t1 t2 =
     dtcase t_unify st.subst t1 t2 of
       | NONE =>
           (Failure (l.loc, concat [implode "Type mismatch between ";
-                                   FST (inf_type_to_string l.err
-                                         (t_walkstar st.subst t1));
+                                   inf_type_to_string l.err
+                                         (t_walkstar st.subst t1);
                                    implode " and ";
-                                   FST (inf_type_to_string l.err
-                                         (t_walkstar st.subst t2))]), st)
+                                   inf_type_to_string l.err
+                                         (t_walkstar st.subst t2)]), st)
       | SOME s =>
           (Success (), st with <| subst := s |>)`;
 
@@ -403,6 +403,7 @@ val op_to_string_def = Define `
 (op_to_string Vlength = (implode "Vlength", 1)) ∧
 (op_to_string Aalloc = (implode "Aalloc", 2)) ∧
 (op_to_string AallocEmpty = (implode "AallocEmpty", 1)) ∧
+(op_to_string AallocFixed = (implode "AallocFixed", 1)) ∧
 (op_to_string Asub = (implode "Asub", 2)) ∧
 (op_to_string Alength = (implode "Alength", 1)) ∧
 (op_to_string Aupdate = (implode "Aupdate", 3)) ∧
@@ -543,6 +544,7 @@ constrain_op l op ts =
    | (Aupdate_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Aw8update_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
+   | (AallocFixed, _) => failwith l (implode "Unsafe ops do not have a type") (* not actually unsafe *)
    | (Eval, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Env_id, _) => failwith l (implode "Unsafe ops do not have a type")
    | _ => failwith l (op_n_args_msg op (LENGTH ts))
@@ -1116,7 +1118,7 @@ val inf_env_to_types_string_def = Define `
   inf_env_to_types_string s =
     let l = ns_to_alist (ns_nub s.inf_v) in
     let xs = MAP (\(n,_,t). concat [implode n; strlit ": ";
-                                    FST (inf_type_to_string s.inf_t t);
+                                    inf_type_to_string s.inf_t t;
                                     strlit "\n";]) l in
       (* QSORT mlstring_le *) REVERSE xs`
 

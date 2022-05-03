@@ -157,9 +157,9 @@ val repl_infertype_prog_def = Define`
            (init_infer_state <| next_uvar := 0; subst := FEMPTY;
                                 next_id := inf_state.next_id |>)
     of
-      (Success new_ienv, st) =>
-        Success <| ienv := new_ienv; next_id := st.next_id |>
-    | (Failure x, _) => Failure x`;
+      (M_success new_ienv, st) =>
+        M_success <| ienv := new_ienv; next_id := st.next_id |>
+    | (M_failure x, _) => M_failure x`;
 
 val repl_extend_inf_state_def = Define`
   repl_extend_inf_state inf_state new_stuff =
@@ -208,11 +208,11 @@ val rep_ast = process_topdecs`
           case lex_and_parse_TopLevel line of
             Some (TopLevelDecs prog) =>
               case repl_infertype_prog inf_state prog of
-                Failure (_, msg) =>
+                M_failure (_, msg) =>
                   (TextIO.print_err msg;
                    TextIO.print_err "\n";
                    Some state)
-              | Success new_stuff =>
+              | M_success new_stuff =>
                   case Some (magic_eval env prog)
                         handle e =>
                           (TextIO.print_err "Exception raised: ";
@@ -234,11 +234,11 @@ val rep_ast = process_topdecs`
           | Some (REPLCommand ("InstallPP", parsed_exp)) =>
               let val prog = add_repl_printer_name_dec parsed_exp in
                 case repl_infertype_prog inf_state prog of
-                  Failure (_, msg) =>
+                  M_failure (_, msg) =>
                     (TextIO.print_err "Printer does not typecheck: ";
                      TextIO.print_err msg;
                      Some state)
-                | Success new_stuff =>
+                | M_success new_stuff =>
                     case Some (magic_eval env prog)
                          handle _ => None
                     of

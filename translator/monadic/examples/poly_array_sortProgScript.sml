@@ -40,7 +40,7 @@ val _ = start_translation config;
 *******************************************************************************)
 
 Theorem Msub_Success:
-  ∀ l n e x . (Msub e n l = Success x) ⇔ n < LENGTH l ∧ (x = EL n l)
+  ∀ l n e x . (Msub e n l = M_success x) ⇔ n < LENGTH l ∧ (x = EL n l)
 Proof
   Induct >>
   simp[Once ml_monadBaseTheory.Msub_def] >>
@@ -51,7 +51,7 @@ Proof
 QED
 
 Theorem Mupdate_Success:
-  ∀ l n x e res . (Mupdate e x n l = Success res)
+  ∀ l n x e res . (Mupdate e x n l = M_success res)
   ⇔ (n < LENGTH l ∧ (res = LUPDATE x n l))
 Proof
   rw[] >>
@@ -307,7 +307,7 @@ val scan_upper_def = Define `
 
 Theorem scan_lower_index:
   ∀ cmp pivot lb s new_lb s' .
-    (scan_lower cmp pivot lb s = (Success new_lb, s'))
+    (scan_lower cmp pivot lb s = (M_success new_lb, s'))
   ⇒ lb < LENGTH s.arr ∧ lb ≤ new_lb ∧ new_lb < LENGTH s.arr
 Proof
   recInduct (theorem "scan_lower_ind") >>
@@ -323,7 +323,7 @@ QED
 
 Theorem scan_lower_state:
   ∀ cmp pivot lb s new_lb s' .
-    (scan_lower cmp pivot lb s = (Success new_lb, s'))
+    (scan_lower cmp pivot lb s = (M_success new_lb, s'))
   ⇒ (s = s') ∧ ¬ cmp (EL new_lb s.arr) pivot ∧
     (∀ index . lb ≤ index ∧ index < new_lb ⇒ cmp (EL index s.arr) pivot)
 Proof
@@ -345,7 +345,7 @@ QED
 
 Theorem scan_upper_index:
   ∀ cmp pivot ub s new_ub s' .
-    (scan_upper cmp pivot ub s = (Success new_ub, s'))
+    (scan_upper cmp pivot ub s = (M_success new_ub, s'))
   ⇒ (new_ub < ub ∨ ((new_ub = 0) ∧ (ub = 0))) ∧ new_ub ≤ LENGTH s.arr
 Proof
   recInduct (theorem "scan_upper_ind") >>
@@ -372,7 +372,7 @@ QED
 
 Theorem scan_upper_state:
   ∀ cmp pivot ub s new_ub s'.
-    (scan_upper cmp pivot ub s = (Success new_ub, s'))
+    (scan_upper cmp pivot ub s = (M_success new_ub, s'))
   ⇒ (s = s') ∧ (new_ub ≠ 0 ⇒ ¬ cmp pivot (EL new_ub s.arr)) ∧
     (∀ index . new_ub < index ∧ index < ub ⇒ cmp pivot (EL index s.arr))
 Proof
@@ -466,7 +466,7 @@ Theorem partition_helper_index:
     strict_weak_order cmp ∧
     ub ≤ LENGTH s.arr ∧ lb < ub ∧
     (∃ index . index ≥ lb ∧ index < ub ∧ ¬ cmp pivot (EL index s.arr)) ∧
-    (partition_helper cmp pivot lb ub s = (Success result, s'))
+    (partition_helper cmp pivot lb ub s = (M_success result, s'))
   ⇒ result ≥ lb ∧ result < ub ∧
     ¬ (cmp pivot (EL result s'.arr))
 Proof
@@ -479,11 +479,11 @@ Proof
   fs[ml_monadBaseTheory.st_ex_ignore_bind_def] >>
   fs[fetch "-" "arr_sub_def", ml_monadBaseTheory.Marray_sub_def] >>
   fs[fetch "-" "update_arr_def", ml_monadBaseTheory.Marray_update_def] >>
-  qpat_x_assum `(if _ then _ else _) _ = (Success _, _)` mp_tac >>
+  qpat_x_assum `(if _ then _ else _) _ = (M_success _, _)` mp_tac >>
   IF_CASES_TAC >> fs[] >>
   ntac 4 (reverse (FULL_CASE_TAC >> rveq >> fs[])) >>
-  rename1 `scan_upper _ _ _ _ = (Success new_ub, _)` >>
-  rename1 `scan_lower _ _ _ _ = (Success new_lb, _)` >>
+  rename1 `scan_upper _ _ _ _ = (M_success new_ub, _)` >>
+  rename1 `scan_lower _ _ _ _ = (M_success new_lb, _)` >>
   fs[NOT_LESS_EQUAL] >>
   imp_res_tac scan_lower_index >> imp_res_tac scan_upper_index >> fs[] >>
   imp_res_tac scan_lower_state >> fs[] >>
@@ -520,7 +520,7 @@ Theorem partition_helper_result:
   ∀ cmp pivot lb ub s result s' .
     strict_weak_order cmp ∧
     ub ≤ LENGTH s.arr ∧
-    (partition_helper cmp pivot lb ub s = (Success result, s'))
+    (partition_helper cmp pivot lb ub s = (M_success result, s'))
   ⇒ (∀ k . k > result ∧ k < ub ⇒ ¬ cmp (EL k s'.arr) pivot) ∧
     (∀ k . k ≥ lb ∧ k < result ⇒ cmp (EL k s'.arr) pivot) ∧
     (∀ k . k < lb ∨ k ≥ ub ⇒ (EL k s'.arr = EL k s.arr)) ∧
@@ -542,10 +542,10 @@ Proof
     rveq >> fs[] >>
     first_x_assum (qspec_then `<| arr := a'6' |>` mp_tac) >>
     fs[] >> strip_tac >>
-    rename1 `scan_upper _ _ _ _ = (Success new_ub, _)` >>
-    rename1 `scan_lower _ _ _ _ = (Success new_lb, _)` >>
-    rename1 `Msub _ new_ub _ = Success nub_elem` >>
-    rename1 `Msub _ new_lb _ = Success nlb_elem` >>
+    rename1 `scan_upper _ _ _ _ = (M_success new_ub, _)` >>
+    rename1 `scan_lower _ _ _ _ = (M_success new_lb, _)` >>
+    rename1 `Msub _ new_ub _ = M_success nub_elem` >>
+    rename1 `Msub _ new_lb _ = M_success nlb_elem` >>
     Cases_on `new_ub = 0` >> fs[] >>
     imp_res_tac scan_upper_state >> rveq >> fs[] >>
     imp_res_tac scan_lower_state >> rveq >> fs[] >>
@@ -578,8 +578,8 @@ Proof
   first_x_assum drule >>
   strip_tac >>
   rfs[] >>
-  rename1 `scan_upper _ _ _ _ = (Success new_ub, _)` >>
-  rename1 `scan_lower _ _ _ _ = (Success new_lb, _)` >>
+  rename1 `scan_upper _ _ _ _ = (M_success new_ub, _)` >>
+  rename1 `scan_lower _ _ _ _ = (M_success new_lb, _)` >>
   imp_res_tac scan_upper_state >> rveq >> fs[] >>
   imp_res_tac scan_lower_state >> rveq >> fs[] >>
   imp_res_tac scan_upper_index >> fs[] >>
@@ -592,7 +592,7 @@ Theorem partition_helper_range_shrink_upper:
     strict_weak_order cmp ∧
     ub ≤ LENGTH s.arr ∧ lb < ub ∧
     (∃ index . index ≥ lb ∧ index < ub - 1 ∧ (EL index s.arr = pivot)) ∧
-    (partition_helper cmp pivot lb ub s = (Success result, s'))
+    (partition_helper cmp pivot lb ub s = (M_success result, s'))
   ⇒ (result ≥ lb ∧ result < ub - 1)
 Proof
   rpt gen_tac >> strip_tac >>
@@ -604,8 +604,8 @@ Proof
   fs[fetch "-" "arr_sub_def", ml_monadBaseTheory.Marray_sub_def] >>
   fs[fetch "-" "update_arr_def", ml_monadBaseTheory.Marray_update_def] >>
   EVERY_CASE_TAC >> fs[] >>
-  rename1 `scan_upper _ _ _ _ = (Success new_ub, _)` >>
-  rename1 `scan_lower _ _ _ _ = (Success new_lb, _)`
+  rename1 `scan_upper _ _ _ _ = (M_success new_ub, _)` >>
+  rename1 `scan_lower _ _ _ _ = (M_success new_lb, _)`
   >- (
     strip_tac >>
     fs[Msub_Success, Mupdate_Success] >> rveq >>
@@ -668,7 +668,7 @@ val array_set_def = Define `
 
 Theorem array_set_aux_Success:
   ∀ l n s . (LENGTH (DROP n s.arr) = LENGTH l)
-  ⇒ ∃ result . (array_set_aux n l s = (Success (), result)) ∧
+  ⇒ ∃ result . (array_set_aux n l s = (M_success (), result)) ∧
     (DROP n result.arr = l) ∧
     (TAKE n s.arr = TAKE n result.arr) ∧
     (LENGTH s.arr = LENGTH result.arr)
@@ -693,7 +693,7 @@ QED
 
 Theorem array_set_Success:
   ∀ l s . (LENGTH l = LENGTH s.arr)
-  ⇒ ∃ s' . (array_set l s = (Success (), s')) ∧ (s'.arr = l)
+  ⇒ ∃ s' . (array_set l s = (M_success (), s')) ∧ (s'.arr = l)
 Proof
   rw[] >>
   fs[array_set_def] >>
@@ -723,7 +723,7 @@ val array_get_def = Define `
 
 Theorem array_get_aux_Success:
   ∀ length n s . (LENGTH s.arr = length)
-  ⇒ ∃ result . (array_get_aux length n s = (Success result, s)) ∧
+  ⇒ ∃ result . (array_get_aux length n s = (M_success result, s)) ∧
     (result = DROP n s.arr)
 Proof
   recInduct (theorem "array_get_aux_ind") >>
@@ -741,7 +741,7 @@ Proof
 QED
 
 Theorem array_get_Success:
-  ∀ s . array_get () s = (Success s.arr, s)
+  ∀ s . array_get () s = (M_success s.arr, s)
 Proof
   simp[Once array_get_def] >>
   fs[ml_monadBaseTheory.st_ex_bind_def] >>
@@ -781,7 +781,7 @@ Theorem quicksort_aux_result:
     strict_weak_order cmp ∧ upper < LENGTH s.arr ∧
     (∃index. index ≥ lower ∧ index < upper + 1 ∧
       ¬cmp (EL lower s.arr) (EL index s.arr)) ∧
-    (quicksort_aux cmp lower upper s = (Success result, s'))
+    (quicksort_aux cmp lower upper s = (M_success result, s'))
   ⇒ PERM s.arr s'.arr ∧
     (∀ k . k < lower ⇒ (EL k s.arr = EL k s'.arr)) ∧
     (∀ k . k > upper ∧ k < LENGTH s.arr ⇒ (EL k s.arr = EL k s'.arr)) ∧
@@ -804,7 +804,7 @@ Proof
     )
   >- (
     strip_tac >> fs[] >>
-    rename1 `partition_helper _ _ _ _ _ = (Success part_index, part_state)` >>
+    rename1 `partition_helper _ _ _ _ _ = (M_success part_index, part_state)` >>
     rename1 `quicksort_aux _ lower _ _ = (_, lsort_state)` >>
     rename1 `quicksort_aux _ _ upper _ = (_, final_state)` >>
     fs[Msub_Success] >>
@@ -955,7 +955,7 @@ Proof
     strip_tac >>
     rveq >> fs[Msub_Success] >>
     rveq >> fs[NOT_GREATER_EQ, LE_LT1, ADD1, NOT_LESS] >>
-    rename1 `partition_helper _ _ _ _ _ = (Success part_index, _)` >>
+    rename1 `partition_helper _ _ _ _ _ = (M_success part_index, _)` >>
     `upper + 1 ≤ LENGTH s.arr` by fs[] >>
     `lower < upper + 1` by fs[] >>
     drule partition_helper_index >>
@@ -995,7 +995,7 @@ val quicksort_def = Define `
 Theorem quicksort_result:
   ∀ l l' cmp s s' .
     strict_weak_order cmp ∧
-    (quicksort cmp l s = (Success l', s'))
+    (quicksort cmp l s = (M_success l', s'))
   ⇒ PERM l l' ∧ SORTED (λ x y . ¬ cmp y x) l'
 Proof
   rpt gen_tac >> strip_tac >>
@@ -1043,7 +1043,7 @@ val run_quicksort_def = Define `
 `;
 
 val qsort_def = Define `
-  qsort cmp l = case run_quicksort l cmp of Success result => result
+  qsort cmp l = case run_quicksort l cmp of M_success result => result
 `;
 
 
@@ -1057,7 +1057,7 @@ Theorem scan_lower_Success:
   ∀ cmp pivot lb s .
     strict_weak_order cmp ∧ lb < LENGTH s.arr ∧
     (∃ index . index ≥ lb ∧ index < LENGTH s.arr ∧ (EL index s.arr = pivot))
-  ⇒ ∃ result s' . (scan_lower cmp pivot lb s = (Success result, s'))
+  ⇒ ∃ result s' . (scan_lower cmp pivot lb s = (M_success result, s'))
 Proof
   recInduct (theorem "scan_lower_ind") >>
   rw[] >>
@@ -1090,7 +1090,7 @@ QED
 Theorem scan_upper_Success:
   ∀ cmp pivot ub s .
     ub ≤ LENGTH s.arr
-  ⇒ ∃ result s' . (scan_upper cmp pivot ub s = (Success result, s'))
+  ⇒ ∃ result s' . (scan_upper cmp pivot ub s = (M_success result, s'))
 Proof
   recInduct (theorem "scan_upper_ind") >>
   rw[] >>
@@ -1117,7 +1117,7 @@ Theorem partition_helper_Success:
     strict_weak_order cmp ∧
     ub ≤ LENGTH s.arr ∧
     (∃ index . index ≥ lb ∧ index < LENGTH s.arr ∧ (EL index s.arr = pivot))
-  ⇒ ∃ result s' . partition_helper cmp pivot lb ub s = (Success result, s')
+  ⇒ ∃ result s' . partition_helper cmp pivot lb ub s = (M_success result, s')
 Proof
   recInduct (theorem "partition_helper_ind") >>
   rw[] >>
@@ -1133,8 +1133,8 @@ Proof
   qspecl_then [`cmp`,`EL index s.arr`,`ub`,`s`] assume_tac scan_upper_Success >>
   rfs[] >>
   imp_res_tac scan_upper_state >> rveq >> fs[] >>
-  rename1 `scan_lower _ _ _ _ = (Success new_lb, _)` >>
-  rename1 `scan_upper _ _ _ _ = (Success new_ub, _)` >>
+  rename1 `scan_lower _ _ _ _ = (M_success new_lb, _)` >>
+  rename1 `scan_upper _ _ _ _ = (M_success new_ub, _)` >>
   imp_res_tac scan_lower_index >>
   imp_res_tac scan_upper_index >> fs[] >>
   Cases_on `new_ub = 0` >> fs[] >>
@@ -1174,7 +1174,7 @@ QED
 
 Theorem partition_helper_state_LENGTH:
   ∀ cmp pivot lb ub s result s'.
-    (partition_helper cmp pivot lb ub s = (Success result, s'))
+    (partition_helper cmp pivot lb ub s = (M_success result, s'))
   ⇒ (LENGTH s'.arr = LENGTH s.arr)
 Proof
   recInduct (theorem "partition_helper_ind") >>
@@ -1201,7 +1201,7 @@ Theorem quicksort_aux_Success:
   ∀ cmp lower upper s .
     strict_weak_order cmp ∧
     upper < LENGTH s.arr
-  ⇒ ∃ result s' . (quicksort_aux cmp lower upper s = (Success result, s')) ∧
+  ⇒ ∃ result s' . (quicksort_aux cmp lower upper s = (M_success result, s')) ∧
     (LENGTH s'.arr = LENGTH s.arr)
 Proof
   recInduct (theorem "quicksort_aux_ind") >>
@@ -1218,14 +1218,14 @@ Proof
     assume_tac partition_helper_Success >> rfs[] >>
   (* TODO why do we have to manually state the below? *)
   `∃ result s' . partition_helper cmp (EL lower s.arr) lower (upper + 1) s =
-    (Success result, s')` by
+    (M_success result, s')` by
       (first_x_assum match_mp_tac >> qexists_tac `lower` >> fs[]) >>
   fs[] >>
   reverse (IF_CASES_TAC) >> fs[]
   >- metis_tac[partition_helper_state_LENGTH]
   >- metis_tac[partition_helper_state_LENGTH]
   >>
-  `∃ s . (quicksort_aux cmp lower result s' = (Success (), s)) ∧
+  `∃ s . (quicksort_aux cmp lower result s' = (M_success (), s)) ∧
     (LENGTH s.arr = LENGTH s'.arr)` by (
       first_x_assum match_mp_tac >>
       imp_res_tac partition_helper_state_LENGTH >>
@@ -1244,7 +1244,7 @@ QED
 Theorem quicksort_Success:
   ∀ cmp l s .
     strict_weak_order cmp
-  ⇒ ∃ l' s' . quicksort cmp l s = (Success l', s')
+  ⇒ ∃ l' s' . quicksort cmp l s = (M_success l', s')
 Proof
   rw[] >> Cases_on `l` >> simp[quicksort_def] >>
   fs[ml_monadBaseTheory.st_ex_bind_def, ml_monadBaseTheory.st_ex_return_def,
@@ -1260,7 +1260,7 @@ QED
 Theorem run_quicksort_Success:
   ∀ cmp l . strict_weak_order cmp
   ⇒ ∃ l' .
-    (run_quicksort l cmp = (Success l')) ∧
+    (run_quicksort l cmp = (M_success l')) ∧
     PERM l l' ∧ SORTED (λ x y . ¬ cmp y x) l'
 Proof
   fs[run_quicksort_def, fetch "-" "run_init_state_def"] >>

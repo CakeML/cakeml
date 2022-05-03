@@ -1363,9 +1363,9 @@ val word_alloc_def = Define`
     NONE =>
       let (heu_moves,spillcosts) = get_heuristics alg fc prog in
       (dtcase select_reg_alloc alg spillcosts k heu_moves tree forced of
-        Success col =>
+        M_success col =>
           apply_colour (total_colour col) prog
-      | Failure _ => prog (*cannot happen*))
+      | M_failure _ => prog (*cannot happen*))
   | SOME col_prog =>
       col_prog`
 

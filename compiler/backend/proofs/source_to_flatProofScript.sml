@@ -1063,6 +1063,12 @@ val do_app = time Q.prove (
       full_simp_tac(srw_ss())[store_alloc_def] >>
       srw_tac[][sv_rel_cases, LIST_REL_REPLICATE_same, ADD1] >>
       metis_tac [LIST_REL_LENGTH, v_rel_lems])
+  >- ((* AallocFixed *)
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      full_simp_tac(srw_ss())[store_alloc_def] >>
+      srw_tac[][sv_rel_cases, LIST_REL_REPLICATE_same, ADD1] >>
+      metis_tac [LIST_REL_LENGTH, v_rel_lems])
   >- ((* Asub *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>

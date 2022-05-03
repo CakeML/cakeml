@@ -83,7 +83,7 @@ Theorem Arrow2:
 Proof
   strip_tac
   \\ ‘LENGTH s'.refs = LENGTH s.refs’
-    by (gvs [do_partial_app_def, CaseEqs ["v", "exp"], do_opapp_cases,
+    by (gvs [do_partial_app_def, AllCaseEqs(), do_opapp_cases,
              perms_ok_def]
         \\ drule evaluate_empty_perms
         \\ impl_tac \\ simp []
@@ -239,8 +239,8 @@ Theorem ArrowM1:
        f a refs = (r,refs2) ∧
        (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok refs2 loc s'.refs) ∧
        (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s'.refs loc = SOME r ⇒ ref_ok ctxt r) ∧
-       (∀x. r = Success x ⇒ ∃rv. res = Rval [rv] ∧ B x rv) ∧
-       (∀x. r = Failure x ⇒ ∃rv. res = Rerr (Rraise rv) ∧ D x rv))
+       (∀x. r = M_success x ⇒ ∃rv. res = Rval [rv] ∧ B x rv) ∧
+       (∀x. r = M_failure x ⇒ ∃rv. res = Rerr (Rraise rv) ∧ D x rv))
 Proof
   fs [ml_monad_translatorTheory.ArrowP_def,ml_monad_translatorTheory.PURE_def,PULL_EXISTS]
   \\ strip_tac \\ last_x_assum drule \\ fs []
@@ -326,8 +326,8 @@ Theorem ArrowM2:
        f a1 a2 refs = (r,refs2) ∧
        (∀loc. loc ∈ kernel_locs ⇒ kernel_loc_ok refs2 loc s'.refs) ∧
        (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s'.refs loc = SOME r ⇒ ref_ok ctxt r) ∧
-       (∀x. r = Success x ⇒ ∃rv. res = Rval [rv] ∧ B x rv) ∧
-       (∀x. r = Failure x ⇒ ∃rv. res = Rerr (Rraise rv) ∧ D x rv))
+       (∀x. r = M_success x ⇒ ∃rv. res = Rval [rv] ∧ B x rv) ∧
+       (∀x. r = M_failure x ⇒ ∃rv. res = Rerr (Rraise rv) ∧ D x rv))
 Proof
   strip_tac \\ irule ArrowM1 \\ fs [SF SFY_ss]
   \\ first_assum $ irule_at $ Pos hd
@@ -407,7 +407,7 @@ Proof
 QED
 
 Theorem HOL_EXN_TYPE_Fail_v_ok:
-  HOL_EXN_TYPE (Fail m) v ⇒ v_ok ctxt v
+  HOL_EXN_TYPE (Failure m) v ⇒ v_ok ctxt v
 Proof
   Cases_on ‘m’
   \\ rw [HOL_EXN_TYPE_def,ml_translatorTheory.STRING_TYPE_def]
@@ -469,6 +469,7 @@ Theorem inferred_ok:
       (∀vs. res = Rval vs ⇒ EVERY (v_ok ctxt') vs) ∧
       (∀v. res = Rerr (Rraise v) ⇒ v_ok ctxt' v)
 Proof
+
   rw [Once inferred_cases]
   >~ [‘TYPE ctxt ty’] >- (
     Cases_on ‘ty’ \\ gs [TYPE_TYPE_def, do_opapp_cases])
@@ -535,7 +536,7 @@ Proof
     \\ fs [SF SFY_ss]
     \\ Cases_on ‘r’ \\ fs []
     \\ imp_res_tac THM_IMP_v_ok \\ gvs []
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [types_v; v]’] >- (
     drule_all types_v_head \\ strip_tac \\ gvs[]
@@ -576,7 +577,7 @@ Proof
     \\ strip_tac
     \\ fs[SF SFY_ss]
     \\ Cases_on`r` \\ fs[NUM_v_ok, SF SFY_ss]
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [call_new_type_v; v]’] >- (
     drule_all call_new_type_v_head \\ strip_tac \\ gvs[]
@@ -597,7 +598,7 @@ Proof
       \\ simp[STRING_TYPE_perms_ok, INT_perms_ok, SF SFY_ss])
     \\ drule_all ArrowM1 \\ strip_tac \\ fs[]
     \\ disj2_tac
-    \\ reverse(Cases_on`0 <= pa1` \\ fs[holKernelTheory.raise_Fail_def])
+    \\ reverse(Cases_on`0 <= pa1` \\ fs[holKernelTheory.raise_Failure_def])
     >- (
       gvs[]
       \\ first_assum $ irule_at Any
@@ -611,7 +612,7 @@ Proof
       strip_tac \\ gvs[]
       \\ first_assum $ irule_at Any
       \\ simp[SF SFY_ss]
-      \\ rename1 `Failure ff`
+      \\ rename1 `M_failure ff`
       \\ Cases_on`ff` \\ gvs[]
       \\ drule_then irule HOL_EXN_TYPE_Fail_v_ok )
     \\ strip_tac \\ gvs[ml_translatorTheory.UNIT_TYPE_def,v_ok_Conv_NONE]
@@ -652,7 +653,7 @@ Proof
     \\ drule_all mk_type_thm \\ strip_tac
     \\ Cases_on`r` \\ fs[]
     >- metis_tac[TYPE_IMP_v_ok]
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [mk_vartype_v; v]’] >- (
     drule_all mk_vartype_v_head \\ strip_tac \\ gvs[]
@@ -690,7 +691,7 @@ Proof
       \\ drule_then irule LIST_TYPE_v_ok
       \\ fs[EVERY_MEM]
       \\ metis_tac[TYPE_IMP_v_ok])
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [dest_vartype_v; v]’] >- (
     drule_all dest_vartype_v_head \\ strip_tac \\ gvs[]
@@ -709,11 +710,11 @@ Proof
     \\ drule_all dest_vartype_thm \\ strip_tac
     \\ Cases_on ‘r’ \\ fs []
     >- rw[STRING_TYPE_v_ok, SF SFY_ss]
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss]
     \\ fs[holKernelTheory.dest_vartype_def]
     \\ Cases_on`ty` \\ fs[ml_monadBaseTheory.st_ex_return_def]
-    \\ fs[holKernelTheory.raise_Fail_def])
+    \\ fs[holKernelTheory.raise_Failure_def])
   >~ [‘do_opapp [is_type_v; v]’] >- (
     drule_all is_type_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
@@ -798,7 +799,7 @@ Proof
     \\ simp[EVERY_MEM, FORALL_PROD] \\ strip_tac
     \\ Cases_on`r` \\ fs[]
     >- (drule_at_then Any irule TYPE_IMP_v_ok \\ simp[SF SFY_ss])
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [new_constant_v; v]’] >- (
     drule_all new_constant_v_head \\ strip_tac \\ gvs[]
@@ -829,7 +830,7 @@ Proof
     >- (
       first_assum $ irule_at Any
       \\ fs[SF SFY_ss]
-      \\ rename1 `Failure ff`
+      \\ rename1 `M_failure ff`
       \\ Cases_on`ff` \\ gvs[]
       \\ drule_then irule HOL_EXN_TYPE_Fail_v_ok )
     \\ first_assum $ irule_at Any
@@ -971,7 +972,7 @@ Proof
     \\ strip_tac
     \\ Cases_on`r` \\ gvs[]
     >- simp[SF SFY_ss, TERM_IMP_v_ok]
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [mk_abs_v; v]’] >- (
     drule_all mk_abs_v_head \\ strip_tac \\ gvs[]
@@ -1001,7 +1002,7 @@ Proof
     \\ strip_tac
     \\ Cases_on`r` \\ fs[] \\ gvs[]
     \\ simp[SF SFY_ss, TERM_IMP_v_ok]
-    \\ rename1 ‘Failure ff’ \\ Cases_on ‘ff’ \\ fs []
+    \\ rename1 ‘M_failure ff’ \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [mk_comb_v; v]’] >- (
     drule_all mk_comb_v_head \\ strip_tac \\ gvs[]
@@ -1031,7 +1032,7 @@ Proof
     \\ strip_tac
     \\ Cases_on`r` \\ fs[] \\ gvs[]
     \\ simp[SF SFY_ss, TERM_IMP_v_ok]
-    \\ rename1 ‘Failure ff’ \\ Cases_on ‘ff’ \\ fs []
+    \\ rename1 ‘M_failure ff’ \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [dest_var_v; v]’] >- (
     drule_all dest_var_v_head \\ strip_tac \\ gvs[]
@@ -1053,7 +1054,7 @@ Proof
       drule_then irule PAIR_TYPE_v_ok
       \\ Cases_on`a` \\ simp[STRING_TYPE_v_ok,SF SFY_ss]
       \\ fs[] \\ simp[TYPE_IMP_v_ok, SF SFY_ss] )
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [dest_const_v; v]’] >- (
     drule_all dest_const_v_head \\ strip_tac \\ gvs[]
@@ -1075,12 +1076,12 @@ Proof
       drule_then irule PAIR_TYPE_v_ok
       \\ Cases_on`a` \\ simp[STRING_TYPE_v_ok,SF SFY_ss]
       \\ fs[] \\ simp[TYPE_IMP_v_ok, SF SFY_ss] )
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss]
     \\ qhdtm_x_assum`dest_const`mp_tac
     \\ simp[holKernelTheory.dest_const_def]
     \\ CASE_TAC \\ simp[ml_monadBaseTheory.st_ex_return_def]
-    \\ simp[holKernelTheory.raise_Fail_def])
+    \\ simp[holKernelTheory.raise_Failure_def])
   >~ [‘do_opapp [dest_comb_v; v]’] >- (
     drule_all dest_comb_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
@@ -1101,7 +1102,7 @@ Proof
       drule_then irule PAIR_TYPE_v_ok
       \\ Cases_on`a` \\ fs[]
       \\ simp[TERM_IMP_v_ok, SF SFY_ss] )
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [dest_abs_v; v]’] >- (
     drule_all dest_abs_v_head \\ strip_tac \\ gvs[]
@@ -1123,7 +1124,7 @@ Proof
       drule_then irule PAIR_TYPE_v_ok
       \\ Cases_on`a` \\ fs[]
       \\ simp[TERM_IMP_v_ok, SF SFY_ss] )
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [call_frees_v; v]’] >- (
     drule_all call_frees_v_head \\ strip_tac \\ gvs[]
@@ -1195,11 +1196,11 @@ Proof
     \\ drule_all rand_thm \\ strip_tac
     \\ Cases_on ‘r’ \\ fs []
     >- simp[TERM_IMP_v_ok, SF SFY_ss]
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss]
     \\ fs[holKernelTheory.rand_def]
     \\ Cases_on`tm` \\ fs[ml_monadBaseTheory.st_ex_return_def]
-    \\ fs[holKernelTheory.raise_Fail_def])
+    \\ fs[holKernelTheory.raise_Failure_def])
   >~ [‘do_opapp [rator_v; v]’] >- (
     drule_all rator_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
@@ -1217,11 +1218,11 @@ Proof
     \\ drule_all rator_thm \\ strip_tac
     \\ Cases_on ‘r’ \\ fs []
     >- simp[TERM_IMP_v_ok, SF SFY_ss]
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss]
     \\ fs[holKernelTheory.rator_def]
     \\ Cases_on`tm` \\ fs[ml_monadBaseTheory.st_ex_return_def]
-    \\ fs[holKernelTheory.raise_Fail_def])
+    \\ fs[holKernelTheory.raise_Failure_def])
   >~ [‘do_opapp [dest_eq_v; v]’] >- (
     drule_all dest_eq_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac ‘ctxt’ \\ fs [])
@@ -1242,7 +1243,7 @@ Proof
       drule_then irule PAIR_TYPE_v_ok
       \\ Cases_on`a` \\ fs[]
       \\ simp[TERM_IMP_v_ok, SF SFY_ss] )
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [dest_thm_v; v]’] >- (
     drule_all dest_thm_v_head \\ strip_tac \\ gvs[]
@@ -1298,7 +1299,7 @@ Proof
     \\ strip_tac \\ gvs[]
     \\ Cases_on ‘r’ \\ fs []
     \\ imp_res_tac THM_IMP_v_ok \\ gvs []
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [mk_comb_1_v; v]’] >- (
     drule_all mk_comb_1_v_head \\ strip_tac \\ gvs[]
@@ -1327,7 +1328,7 @@ Proof
     \\ strip_tac \\ gvs[]
     \\ Cases_on ‘r’ \\ fs []
     \\ imp_res_tac THM_IMP_v_ok \\ gvs []
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [assume_v; v]’] >- (
     drule_all assume_v_head \\ strip_tac \\ gvs[]
@@ -1346,7 +1347,7 @@ Proof
     \\ strip_tac \\ gvs[]
     \\ Cases_on ‘r’ \\ fs []
     \\ imp_res_tac THM_IMP_v_ok \\ gvs []
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   >~ [‘do_opapp [axioms_v; v]’] >- (
     drule_all axioms_v_head \\ strip_tac \\ gvs[]
@@ -1385,7 +1386,7 @@ Proof
     >- (
       first_assum $ irule_at Any
       \\ fs[SF SFY_ss]
-      \\ rename1 `Failure ff`
+      \\ rename1 `M_failure ff`
       \\ Cases_on`ff` \\ gvs[]
       \\ drule_then irule HOL_EXN_TYPE_Fail_v_ok )
     \\ first_assum $ irule_at Any
@@ -1409,7 +1410,7 @@ Proof
     >- (
       first_assum $ irule_at Any
       \\ fs[SF SFY_ss]
-      \\ rename1 `Failure ff`
+      \\ rename1 `M_failure ff`
       \\ Cases_on`ff` \\ gvs[]
       \\ drule_then irule HOL_EXN_TYPE_Fail_v_ok )
     \\ first_assum $ irule_at Any
@@ -1471,7 +1472,7 @@ Proof
     >- (
       first_assum $ irule_at Any
       \\ fs[SF SFY_ss]
-      \\ rename1 `Failure ff`
+      \\ rename1 `M_failure ff`
       \\ Cases_on`ff` \\ gvs[]
       \\ drule_then irule HOL_EXN_TYPE_Fail_v_ok )
     \\ Cases_on`a` \\ fs[]
@@ -1500,14 +1501,18 @@ Proof
     >- (
       first_assum $ irule_at Any
       \\ fs[SF SFY_ss]
-      \\ rename1 `Failure ff`
+      \\ rename1 `M_failure ff`
       \\ Cases_on`ff` \\ gvs[]
       \\ drule_then irule HOL_EXN_TYPE_Fail_v_ok )
     \\ first_assum $ irule_at Any
     \\ gvs[SF SFY_ss, THM_IMP_v_ok]
     \\ reverse conj_tac >- metis_tac[v_ok_APPEND, CONS_APPEND]
     \\ metis_tac[ref_ok_APPEND, CONS_APPEND])
+
   >~ [‘do_opapp [Kernel_print_thm_v; v]’] >- (
+
+
+
     drule_all Kernel_print_thm_v_head
     \\ strip_tac \\ gvs[]
     >- (first_assum $ irule_at Any \\ simp[])
@@ -1583,9 +1588,15 @@ Proof
     \\ PairCases_on`x` \\ simp[]
     \\ CASE_TAC >- ( strip_tac \\ gvs[] )
     \\ `∃v1 e1. x1 = Fun v1 e1`
-    by ( fs[do_opapp_def, thm_to_string_v_def] )
+    by (qpat_x_assum ‘do_opapp [thm_to_string_v; h] = SOME (x0,x1)’ mp_tac
+        \\ once_rewrite_tac [thm_to_string_v_def]
+        \\ rename [‘Closure eee _ (Fun _ xxx)’]
+        \\ EVAL_TAC \\ rw [] \\ gvs [])
     \\ `do_partial_app thm_to_string_v h = SOME (Closure x0 v1 e1)`
-    by ( fs[do_opapp_def, thm_to_string_v_def] \\ simp[do_partial_app_def] )
+    by (qpat_x_assum ‘do_opapp [thm_to_string_v; h] = SOME (x0,x1)’ mp_tac
+        \\ once_rewrite_tac [thm_to_string_v_def]
+        \\ rename [‘Closure eee _ (Fun _ xxx)’]
+        \\ EVAL_TAC \\ rw [] \\ gvs [])
     \\ simp[Once evaluate_def]
     \\ qmatch_goalsub_abbrev_tac`do_opapp xx`
     \\ Cases_on`do_opapp xx` \\ simp[]
@@ -1916,7 +1927,7 @@ Proof
       irule TERM_IMP_v_ok
       \\ first_assum $ irule_at $ Any
       \\ rw[] )
-    \\ rename1 ‘Failure ff’ \\ Cases_on ‘ff’ \\ fs []
+    \\ rename1 ‘M_failure ff’ \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   \\ Cases_on ‘f = inst_v’ \\ gvs [] >- (
     drule_all inst_v_head \\ strip_tac \\ gvs[]
@@ -1983,7 +1994,7 @@ Proof
     \\ strip_tac \\ gvs []
     \\ Cases_on ‘r’ \\ fs []
     \\ imp_res_tac THM_IMP_v_ok \\ gvs []
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   \\ Cases_on ‘f = eq_mp_v’ \\ gvs [] >- (
     drule_all_then strip_assume_tac eq_mp_v_head \\ gvs[]
@@ -2005,7 +2016,7 @@ Proof
     \\ strip_tac \\ gvs []
     \\ Cases_on ‘r’ \\ fs []
     \\ imp_res_tac THM_IMP_v_ok \\ gvs []
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   \\ Cases_on ‘f = deduct_antisym_rule_v’ \\ gvs [] >- (
     drule_all_then strip_assume_tac deduct_antisym_rule_v_head \\ gvs[]
@@ -2027,7 +2038,7 @@ Proof
     \\ strip_tac \\ gvs []
     \\ Cases_on ‘r’ \\ fs []
     \\ imp_res_tac THM_IMP_v_ok \\ gvs []
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   \\ Cases_on ‘f = inst_type_v’ \\ gvs [] >- (
     drule_all_then strip_assume_tac inst_type_v_head \\ gvs[]
@@ -2110,7 +2121,7 @@ Proof
     \\ strip_tac \\ gvs []
     \\ Cases_on ‘r’ \\ fs []
     \\ imp_res_tac THM_IMP_v_ok \\ gvs []
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   \\ Cases_on ‘f = trans_v’ \\ gvs [] >-
    (drule_all trans_v_head \\ strip_tac \\ gvs []
@@ -2135,7 +2146,7 @@ Proof
     \\ strip_tac \\ gvs []
     \\ Cases_on ‘r’ \\ fs []
     \\ imp_res_tac THM_IMP_v_ok \\ gvs []
-    \\ rename [‘Failure ff’] \\ Cases_on ‘ff’ \\ fs []
+    \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   \\ qsuff_tac ‘∃v1 v2 x. f = Closure v1 v2 x ∧ ∀n w. x ≠ Fun n w’
   THEN1 (strip_tac \\ fs [do_partial_app_def,AllCaseEqs()])

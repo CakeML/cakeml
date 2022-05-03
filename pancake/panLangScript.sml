@@ -44,6 +44,7 @@ Datatype:
       | Op binop (exp list)
       | Cmp cmp exp exp
       | Shift shift exp num
+      | BaseAddr
 End
 
 Datatype:

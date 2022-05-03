@@ -26,8 +26,6 @@ val _ = (use_full_type_names := false);
 
 val _ = hide "abs";
 
-val _ = ml_prog_update (open_module "Kernel");
-
 Type state = ``:'ffi semanticPrimitives$state``
 
 (* construct type refinement invariants *)
@@ -42,6 +40,14 @@ val _ = register_exn_type ``:hol_exn``;
 val _ = register_type ``:thm``;
 val _ = register_type ``:update``;
 val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
+
+(* add an abbreviation mapping hol_type to type for HOL Light *)
+
+val _ = ml_prog_update
+  (add_Dtabbrev “unknown_loc” “[]:string list” “"hol_type"”
+                “Atapp [] (Short "type")”);
+
+val _ = ml_prog_update (open_module "Kernel");
 
 val _ = ml_prog_update open_local_block;
 
@@ -61,6 +67,14 @@ val init_term_constants_def = Define `
 val init_axioms_def = Define `
   init_axioms = []:thm list`;
 
+Triviality init_axioms_alt:
+  init_axioms = case [Sequent [] (Var (strlit "") (Tyvar (strlit "")))] of
+                | [] => []
+                | (_ :: xs) => xs
+Proof
+  EVAL_TAC
+QED
+
 val init_context_def = Define `
   init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))`;
 
@@ -69,15 +83,15 @@ val refs_init_list = [
   set_the_type_constants_def),
   ("the_term_constants", init_term_constants_def, get_the_term_constants_def,
   set_the_term_constants_def),
-  ("the_axioms", init_axioms_def, get_the_axioms_def, set_the_axioms_def),
+  ("the_axioms", init_axioms_alt, get_the_axioms_def, set_the_axioms_def),
   ("the_context", init_context_def, get_the_context_def, set_the_context_def)
 ];
 
 val rarrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
 val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm) list;
 
-val raise_functions = [raise_Fail_def, raise_Clash_def];
-val handle_functions = [handle_Fail_def, handle_Clash_def];
+val raise_functions = [raise_Failure_def, raise_Clash_def];
+val handle_functions = [handle_Failure_def, handle_Clash_def];
 val exn_functions = zip raise_functions handle_functions;
 
 val store_hprop_name = "HOL_STORE";
@@ -443,12 +457,38 @@ val def = mk_const_def |> Q.SPEC ‘n’ |> check [‘n’,‘theta’] |> m_tra
 
 val _ = ml_prog_update open_local_block;
 
-val fdM_def = new_definition("fdM_def",``fdM = first_dup``)
-val fdM_intro = SYM fdM_def
-val fdM_ind = save_thm("fdM_ind",REWRITE_RULE[MEMBER_INTRO]first_dup_ind)
-val fdM_eqs = REWRITE_RULE[MEMBER_INTRO,fdM_intro]first_dup_def
-val def = fdM_eqs |> translate
-val def = REWRITE_RULE[fdM_intro]add_constants_def |> m_translate
+Definition check_for_dups_def:
+  check_for_dups ls cs =
+    case ls of
+    | [] => st_ex_return ()
+    | (x::xs) => if MEMBER x cs then
+                   raise_Failure
+                      («add_constants: » ^ x ^
+                       « appears twice or has already been declared»)
+                 else check_for_dups xs (x::cs)
+End
+
+Theorem add_constants_alt:
+  add_constants ls =
+       st_ex_bind get_the_term_constants (λcs.
+       st_ex_bind (check_for_dups (MAP FST ls) (MAP FST cs)) (λ_.
+         (set_the_term_constants (ls ++ cs))))
+Proof
+  fs [add_constants_def]
+  \\ AP_TERM_TAC \\ fs [FUN_EQ_THM]
+  \\ strip_tac
+  \\ qspec_tac (‘MAP FST cs’,‘ys’)
+  \\ qspec_tac (‘MAP FST ls’,‘xs’)
+  \\ Induct_on ‘xs’
+  \\ simp [Once first_dup_def,Once check_for_dups_def,st_ex_return_def,
+           st_ex_bind_def,MEMBER_INTRO]
+  \\ rw [] \\ fs [raise_Failure_def]
+  \\ simp [Once first_dup_def,st_ex_bind_def]
+QED
+
+val res = m_translate check_for_dups_def
+val res = m_translate add_constants_alt
+
 val def = add_def_def |> m_translate
 
 val _ = ml_prog_update open_local_in_block;
@@ -462,7 +502,7 @@ val def = add_type_def |> m_translate
 Definition call_new_type_def[simp]:
   call_new_type (n:mlstring, arity:int) =
     if 0 ≤ arity then new_type (n, Num (ABS arity))
-    else raise_Fail (strlit "negative arity")
+    else raise_Failure (strlit "negative arity")
 End
 
 val _ = next_ml_names := ["new_type_num"];
@@ -491,6 +531,7 @@ val def = inst_def |> check [‘tyin’,‘tm’] |> m_translate
 val _ = ml_prog_update open_local_block;
 
 val def = mk_eq_def |> check [‘l’,‘r’] |> m_translate
+val def = list_to_hypset_def |> translate
 
 val _ = ml_prog_update open_local_in_block;
 
@@ -524,9 +565,27 @@ val def = list_to_hypset_def |> translate
 
 val _ = ml_prog_update open_local_in_block;
 
-val def = m_translate axioms_def;
-val def = m_translate types_def;
-val def = m_translate constants_def;
+Triviality axioms_eq:
+  axioms u = one_CASE u get_the_axioms
+Proof
+  fs [axioms_def]
+QED
+
+Triviality types_eq:
+  types u = one_CASE u get_the_type_constants
+Proof
+  fs [types_def]
+QED
+
+Triviality constants_eq:
+  constants u = one_CASE u get_the_term_constants
+Proof
+  fs [constants_def]
+QED
+
+val def = m_translate axioms_eq;
+val def = m_translate types_eq;
+val def = m_translate constants_eq;
 
 (* The kernel module is closed in subsequent script files:
    ml_hol_kernelProgScript.sml and candle_kernelProgScript.sml *)
