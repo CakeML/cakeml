@@ -303,4 +303,202 @@ Definition parse_def:
     | _ => NONE
 End
 
+(** Properties for proving well-formedness of the Pancake grammar. *)
+
+val frange_image = Q.prove(
+  ‘FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)’,
+  simp[finite_mapTheory.FRANGE_DEF, pred_setTheory.EXTENSION]
+  >> metis_tac[]);
+
+val peg_range =
+    SIMP_CONV (srw_ss())
+              (FDOM_pancake_peg :: frange_image :: pancake_peg_applied)
+              “FRANGE pancake_peg.rules”
+
+val peg_start =
+  SIMP_CONV (srw_ss()) [pancake_peg_def] “pancake_peg.start”
+
+val wfpeg_rwts = wfpeg_cases
+                   |> ISPEC “pancake_peg”
+                   |> (fn th => map (fn t => Q.SPEC t th)
+                                    [‘seq e1 e2 f’, ‘choice e1 e2 f’,
+                                     ‘tok P f’, ‘any f’, ‘empty v’,
+                                     ‘not e v’, ‘rpt e f’, ‘choicel []’,
+                                     ‘choicel (h::t)’, ‘keep_tok t’,
+                                     ‘consume_tok t’, ‘keep_kw k’,
+                                     ‘consume_kw k’, ‘keep_word’,
+                                     ‘keep_ident’, ‘pegf e f’])
+                   |> map (CONV_RULE
+                           (RAND_CONV (SIMP_CONV (srw_ss())
+                                       [choicel_def, seql_def,
+                                        keep_tok_def, consume_tok_def,
+                                        keep_kw_def, consume_kw_def,
+                                        keep_word_def, keep_ident_def,
+                                        pegf_def])))
+
+val wfpeg_mknt = wfpeg_cases
+                  |> ISPEC “pancake_peg”
+                  |> Q.SPEC ‘mknt n’
+                  |> CONV_RULE (RAND_CONV
+                                (SIMP_CONV (srw_ss()) [mknt_def]))
+
+val peg0_rwts = peg0_cases
+                  |> ISPEC “pancake_peg” |> CONJUNCTS
+                  |> map (fn th => map (fn t => Q.SPEC t th)
+                                       [‘tok P f’, ‘choice e1 e2 f’,
+                                        ‘seq e1 e2 f’, ‘keep_tok t’,
+                                        ‘consume_tok t’, ‘keep_kw k’,
+                                        ‘consume_kw k’, ‘empty v’,
+                                        ‘not e v’, ‘rpt e f’])
+                  |> List.concat
+                  |> map (CONV_RULE
+                            (RAND_CONV (SIMP_CONV (srw_ss())
+                                                  [keep_tok_def, consume_tok_def,
+                                                   keep_kw_def, consume_kw_def])))
+
+val pegfail_t = ``pegfail``
+val peg0_rwts = let
+  fun filterthis th = let
+    val c = concl th
+    val (l,r) = dest_eq c
+    val (f,_) = strip_comb l
+  in
+    not (same_const pegfail_t f) orelse is_const r
+  end
+in
+  List.filter filterthis peg0_rwts
+end
+
+val pegnt_case_ths =
+  peg0_cases
+    |> ISPEC “pancake_peg”
+    |> CONJUNCTS
+    |> map (Q.SPEC ‘mknt n’)
+    |> map (CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [mknt_def])))
+
+Theorem peg0_pegf[simp]:
+  peg0 G (pegf s f) = peg0 G s
+Proof
+  simp[pegf_def]
+QED
+
+Theorem peg0_seql[simp]:
+  (peg0 G (seql [] f) ⇔ T) ∧
+  (peg0 G (seql (h::t) f) ⇔ peg0 G h ∧ peg0 G (seql t I))
+Proof
+  simp[seql_def]
+QED
+
+Theorem peg0_keep_tok[simp]:
+  peg0 G (keep_tok t) = F
+Proof
+  simp[keep_tok_def]
+QED
+
+Theorem peg0_consume_tok[simp]:
+  peg0 G (consume_tok t) = F
+Proof
+  simp[consume_tok_def]
+QED
+
+Theorem peg0_keep_kw[simp]:
+  peg0 G (keep_kw k) = F
+Proof
+  simp[keep_kw_def,peg0_keep_tok]
+QED
+
+Theorem peg0_consume_kw[simp]:
+  peg0 G (consume_kw k) = F
+Proof
+  simp[consume_kw_def,peg0_consume_tok]
+QED
+
+Theorem peg0_keep_word[simp]:
+  peg0 G keep_word = F
+Proof
+  simp[keep_word_def]
+QED
+
+Theorem peg0_keep_ident[simp]:
+  peg0 G keep_ident = F
+Proof
+  simp[keep_ident_def]
+QED
+
+Theorem peg0_choicel[simp]:
+  (peg0 G (choicel []) = F) ∧
+  (peg0 G (choicel (h::t)) ⇔
+     peg0 G h ∨ pegfail G h ∧ peg0 G (choicel t))
+Proof
+  simp[choicel_def]
+QED
+
+fun pegnt(t,acc) = let
+  val th =
+      Q.prove(‘¬peg0 pancake_peg (mknt ^t)’,
+            simp pegnt_case_ths >>
+            simp pancake_peg_applied >>
+            simp[FDOM_pancake_peg] >>
+            simp(peg0_rwts @ acc))
+  val nm = "peg0_" ^ term_to_string t
+  val th' = save_thm(nm, SIMP_RULE bool_ss [mknt_def] th)
+  val _ = export_rewrites [nm]
+in
+  th::acc
+end
+
+val topo_nts = [“AddOpsNT”, “MultOpsNT”,
+                “ShiftOpsNT”, “CmpOpsNT”,
+                “EqOpsNT”, “ShapeNT”,
+                “ShapeCombNT”, “LoadByteNT”,
+                “LoadNT”, “StructNT”,
+                “EBaseNT”, “ENotNT”, “EMultNT”,
+                “EAddNT”, “EShiftNT”, “ECmpNT”,
+                “EEqNT”, “EAndNT”, “EXorNT”,
+                “ExpNT”, “ArgListNT”, “ReturnNT”,
+                “RaiseNT”, “ExtCallNT”,
+                “HandleNT”, “RetNT”, “CallNT”,
+                “WhileNT”, “IfNT”, “StoreByteNT”,
+                “StoreNT”, “AssignNT”, “DecNT”,
+                “StmtNT”, “BlockNT”];
+
+(** All non-terminals except the top-level
+  * program nonterminal always consume input. *)
+val npeg0_rwts = List.foldl pegnt [] topo_nts
+
+fun wfnt(t,acc) = let
+  val th =
+    Q.prove(‘wfpeg pancake_peg (mknt ^t)’,
+          SIMP_TAC (srw_ss())
+                   (pancake_peg_applied @
+                    [wfpeg_mknt, FDOM_pancake_peg, try_def,
+                     seql_def, keep_tok_def, consume_tok_def,
+                     keep_kw_def, consume_kw_def, keep_word_def,
+                     keep_ident_def]) THEN
+          simp(wfpeg_rwts @ npeg0_rwts @ peg0_rwts @ acc))
+in
+  th::acc
+end;
+
+(** This time include the top-level program non-terminal which is
+  * well-formed. *)
+val pancake_wfpeg_thm = save_thm(
+  "pancake_wfpeg_thm",
+  LIST_CONJ (List.foldl wfnt [] (topo_nts @ [“ProgNT”])))
+
+val subexprs_mknt = Q.prove(
+  ‘subexprs (mknt n) = {mknt n}’,
+  simp[subexprs_def, mknt_def]);
+
+Theorem PEG_wellformed[simp]:
+   wfG pancake_peg
+Proof
+  simp[wfG_def, Gexprs_def, subexprs_def,
+       subexprs_mknt, peg_start, peg_range, DISJ_IMP_THM,FORALL_AND_THM,
+       choicel_def, seql_def, pegf_def, keep_tok_def, consume_tok_def,
+       keep_kw_def, consume_kw_def, keep_word_def, keep_ident_def,
+       try_def] >>
+  simp(pancake_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
+QED
+
 val _ = export_theory();
