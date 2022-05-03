@@ -392,7 +392,7 @@ Definition deflate_decode_def:
 End
 
 Definition deflate_encode_main_def:
-  deflate_encode_main (s:string) =
+  deflate_encode_main s =
   if deflate_decode (deflate_encode s) = s
   then "Compressed: " ++ deflate_encode s
   else "Uncompressed: " ++ s
@@ -405,6 +405,25 @@ Definition deflate_decode_main_def:
   else DROP (LENGTH "Uncompressed: ")  s
 End
 
+open miscTheory;
+
+Definition main_function_def:
+  main_function (s:mlstring) = List [implode (deflate_encode_main (explode s))]
+End
+
+Definition main_functiondec_def:
+  main_functiondec (s:mlstring) = List [implode (deflate_decode_main (explode s))]
+End
+
+EVAL “
+ let
+   s = "sdkjfnsdkjf";
+   enc  = main_function (implode s);
+   enc' = deflate_encode_main s;
+ in
+   (enc', main_functiondec $ HD $ misc$append enc, deflate_decode_main enc')
+”
+
 Theorem deflate_main_inv:
  ∀s. deflate_decode_main (deflate_encode_main s) = s
 Proof
@@ -413,5 +432,7 @@ Proof
   \\ CASE_TAC
   \\ simp[]
 QED
+
+
 
 val _ = export_theory();
