@@ -117,11 +117,13 @@ val pure_seq_intro = prove(“x = y ⇒ ∀z. x = pure_seq z y”, fs [pure_seq_
 fun mlstring_check s = “mlstring$strlen ^s”
 fun type_check ty = “case ^ty of Tyvar _ => () | _ => abc” |> subst [“abc:unit”|->“()”]
 fun term_check tm = “case ^tm of Const _ _ => () | _ => abc” |> subst [“abc:unit”|->“()”]
+fun thm_check th = “case ^th of Sequent _ _ => ()”
 
 val t1 = type_check “t1:type”
 val t2 = type_check “t2:type”
 val tm = term_check “tm:term”
 val tm' = term_check “tm':term”
+val th = thm_check “th:thm”
 
 Definition check_ty_def:
   check_ty [] = () ∧
@@ -131,6 +133,11 @@ End
 Definition check_tm_def:
   check_tm [] = () ∧
   check_tm (tm::l) = pure_seq ^tm (check_tm l)
+End
+
+Definition check_thm_def:
+  check_thm [] = () ∧
+  check_thm (th::l) = pure_seq ^th (check_thm l)
 End
 
 Definition check_ty_ty_def:
@@ -145,6 +152,7 @@ End
 
 fun ty_list_check ty = “check_ty ^ty”;
 fun tm_list_check tm = “check_tm ^tm”;
+fun thm_list_check th = “check_thm ^th”;
 fun ty_ty_list_check tyty = “check_ty_ty ^tyty”;
 fun tm_tm_list_check tmtm = “check_tm_tm ^tmtm”;
 
@@ -152,6 +160,7 @@ fun guess_check tm =
   if type_of tm = “:mlstring” then mlstring_check else
   if type_of tm = “:type” then type_check else
   if type_of tm = “:term” then term_check else
+  if type_of tm = “:thm” then thm_check else
   if type_of tm = “:type list” then ty_list_check else
   if type_of tm = “:term list” then tm_list_check else
   if type_of tm = “:(type # type) list” then ty_ty_list_check else
@@ -173,6 +182,7 @@ fun check [] def = SPEC_ALL def
 
 val res = translate check_ty_def;
 val res = translate check_tm_def;
+val res = translate check_thm_def;
 val res = translate check_ty_ty_def;
 val res = translate check_tm_tm_def;
 
