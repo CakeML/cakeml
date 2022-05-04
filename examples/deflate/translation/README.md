@@ -9,11 +9,8 @@ Encoding program for simple compression
 [decompressionProgScript.sml](decompressionProgScript.sml):
 Encoding program for simple decompression
 
-[deflateDecProgScript.sml](deflateDecProgScript.sml):
+[deflateDecodeProgScript.sml](deflateDecodeProgScript.sml):
 Encoding program for simple compression
 
-[deflateEncProgScript.sml](deflateEncProgScript.sml):
+[deflateEncodeProgScript.sml](deflateEncodeProgScript.sml):
 Encoding program for simple compression
-
-[testProgScript.sml](testProgScript.sml):
-Encoding program for testing

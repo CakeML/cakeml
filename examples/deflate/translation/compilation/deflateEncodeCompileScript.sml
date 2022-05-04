@@ -1,5 +1,5 @@
 (*
-  Compiles the simple compression schema
+  Compiles the binary for the Deflate Encoder
 *)
 
 open preamble compilationLib deflateEncodeProgTheory;

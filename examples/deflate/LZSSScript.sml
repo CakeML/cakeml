@@ -1,5 +1,5 @@
 (*
-Formalization written by Alexander Cox
+Formalization and implementation of LZSS
 *)
 
 open preamble;

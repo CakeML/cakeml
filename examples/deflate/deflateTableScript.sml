@@ -1,5 +1,5 @@
 (*
-First simple compressor
+Tables used in Deflate and definitions to interact with them
 *)
 
 open preamble;

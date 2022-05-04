@@ -1,5 +1,5 @@
 (*
-Script for Huffman encodings.
+Implementation of Huffman Trees and Canonical Huffman codes.
 *)
 
 open preamble;
@@ -49,18 +49,22 @@ Definition convert_frequencies_def:
 End
 
 Definition create_tree_def:
-  create_tree [] = Empty ∧
-  create_tree ((Leaf c, f)::[]) = Node (Leaf c) Empty ∧
-  create_tree ((c,f)::[]) = c ∧
-  create_tree ((c1,f1)::(c2,f2)::ls) =
-  (let
-     nn = (Node c1 c2, f1+f2)
-   in
-    create_tree (sort_frequencies (nn::ls)))
+  create_tree ls =
+  case ls of
+    []                     => Empty
+  | ((Empty, f)::[])       => Empty
+  | ((Leaf c, f)::[])      => Node (Leaf c) Empty
+  | ((Node ltr rtr,f)::[]) => Node ltr rtr
+  | ((c1,f1)::(c2,f2)::ls) =>
+      (let
+         nn = (Node c1 c2, f1+f2)
+       in
+         create_tree (sort_frequencies (nn::ls)))
 Termination
   WF_REL_TAC ‘measure $ λ ls. LENGTH ls’
   \\ rw[sort_frequencies_def]
 End
+
 
 Definition build_huffman_tree_def:
   build_huffman_tree s =
@@ -75,14 +79,16 @@ End
 *******************************************)
 
 Definition get_huffman_codes_def:
-  get_huffman_codes Empty          _    = [] ∧
-  get_huffman_codes (Leaf c)       code = [(c,code)] ∧
-  get_huffman_codes (Node ltr rtr) code =
-  let
-    left = get_huffman_codes ltr (code++[F]);
-    right = get_huffman_codes rtr (code++[T])
-  in
-    (left++right)
+  get_huffman_codes tree code =
+  case tree of
+    Empty          => []
+  | Leaf c         => [(c,code)]
+  | (Node ltr rtr) =>
+      (let
+         left = get_huffman_codes ltr (code++[F]);
+         right = get_huffman_codes rtr (code++[T])
+       in
+         (left++right))
 End
 
 Definition encode_single_huff_val_def:
@@ -161,55 +167,33 @@ End
 Overload MAX_CODE_LENGTH = “16 :num”
 
 Definition bl_count_aux_def:
-  bl_count_aux [] (bl: num list) = LUPDATE 0 0 bl ∧
-  bl_count_aux (x::xs) bl =
-  let
-val = EL x bl;
-new_bl = LUPDATE (SUC val) x bl
-  in
-    bl_count_aux xs new_bl
+  bl_count_aux      0      []  d = [1] ∧
+  bl_count_aux      0  (l::ls) d = SUC l :: ls ∧
+  bl_count_aux (SUC i)     []  d =     d :: bl_count_aux i [] d ∧
+  bl_count_aux (SUC i) (l::ls) d =     l :: bl_count_aux i ls d
 End
 
 Definition bl_count_def:
-  bl_count l = bl_count_aux l (GENLIST
-                               (λ x. 0)
-                               (FOLDL (λ e x. if e < x then x else e) (HD l) (TL l) + 1))
+  bl_count bl = 0 :: (TL $ FOLDL (λ ls b. bl_count_aux b ls 0 ) [] bl)
 End
-
-EVAL “bl_count [3;3;3;3;3;2;4;4]”;
+EVAL “next_code (bl_count [3;3;3;3;3;2;4;4])”;
 
 Definition next_code_aux_def:
-  next_code_aux max (n:num) (code:num) bl codes =
-  if n < max
-  then
-      let
-         code = (code + (EL (n-1) bl)) * 2
-       in
-         next_code_aux max (SUC n) code bl (SNOC code codes)
-  else
-      codes
-Termination
-  WF_REL_TAC ‘measure $ λ(max, s, _, _, _). max - s’
-End
-
-Definition index_largest_nonzero_def:
-  index_largest_nonzero ([]: num list) (ci:num) (hi:num) = hi ∧
-  index_largest_nonzero (x::xs) ci hi =
+  next_code_aux     []  prev :num list = [prev * 2] ∧
+  next_code_aux (x::xs) prev =
   let
-    i = if x = 0 then hi else ci
+    new = 2*(x + prev)
   in
-      index_largest_nonzero xs (1 + ci) i
+    new :: next_code_aux xs new
 End
 
 Definition next_code_def:
-  next_code (bl:num list) =
-  let
-    max = index_largest_nonzero bl 0 0
-  in
-    next_code_aux (max+1) 1 0 bl [0]
+  next_code ls = 0 :: next_code_aux ls 0
 End
 
+
 EVAL “next_code (bl_count [3;3;3;3;3;2;4;4])”;
+
 
 (*  From kraft_ineq  *)
 (* binary numbers in little-endian format *)
@@ -238,30 +222,32 @@ Definition pad0_def:
   pad0 n bl = PAD_LEFT F n bl
 End
 
-Definition len_from_codes_inv_aux_def:
-  len_from_codes_inv_aux  []     n nc = [] ∧
-  len_from_codes_inv_aux (0::ls) n nc = len_from_codes_inv_aux ls (SUC n) nc ∧
-  len_from_codes_inv_aux (l::ls) n nc =
-  let
-    code = EL l nc;
-    nc = LUPDATE (SUC code) l nc;
-  in
-      (n, pad0 l (TN2BL code)) :: len_from_codes_inv_aux ls (SUC n) nc
+Definition canonical_codes_aux_def:
+  canonical_codes_aux  []     n nc = [] ∧
+  canonical_codes_aux (0::ls) n nc = canonical_codes_aux ls (SUC n) nc ∧
+  canonical_codes_aux (l::ls) n nc =
+    case oEL l nc of
+      NONE => []
+    | SOME code =>
+        (n, pad0 l (TN2BL code)) :: canonical_codes_aux
+                                 ls
+                                 (SUC n)
+                                 (LUPDATE (SUC code) l nc)
 End
 
-Definition len_from_codes_inv_def:
-  len_from_codes_inv ls =
+Definition canonical_codes_def:
+  canonical_codes ls =
   let
     nc = next_code (bl_count ls)
   in
-    len_from_codes_inv_aux ls 0 nc
+    canonical_codes_aux ls 0 nc
 End
 
 EVAL “
  let
    ls = [3;3;3;3;3;2;4;4];
  in
-   len_from_codes_inv ls
+   canonical_codes ls
     ”;
 
 (* EVAL that tests whether the tree we create from length list is equal to original tree *)
@@ -269,7 +255,7 @@ EVAL “ let
    s = MAP ORD "abbbbd";
    (tree, as) = huff_enc_dyn s;
    ls = all_lens as;
-   cs = len_from_codes_inv ls;
+   cs = canonical_codes ls;
  in
    (as, cs)”;
 
@@ -284,7 +270,7 @@ Definition unique_huff_tree_def:
     huff_tree = build_huffman_tree l;
     assoc_list = get_huffman_codes huff_tree [];
     ls = all_lens assoc_list;
-    cs = len_from_codes_inv ls;
+    cs = canonical_codes ls;
   in
     (cs, ls)
 End
@@ -293,7 +279,7 @@ EVAL “unique_huff_tree [5]”;
 
 EVAL “unique_huff_tree []”;
 
-EVAL “len_from_codes_inv [0]”;
+EVAL “canonical_codes [0]”;
 
 EVAL “unique_huff_tree (MAP ORD "aaaaccb")”;
 

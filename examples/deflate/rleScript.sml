@@ -1,5 +1,5 @@
 (*
-Run length encoding
+Implementation of Deflate specific Run Length Encoding
 *)
 
 open preamble;
@@ -73,6 +73,7 @@ Definition encode_rle_aux_def:
 End
 
 Definition encode_rle_def:
+  encode_rle [] = ([], [], [], []) ∧
   encode_rle (l::ls) =
   let
     repeat = find_repeat ls l 1;

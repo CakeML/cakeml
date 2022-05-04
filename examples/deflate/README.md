@@ -1,10 +1,10 @@
 Scripts relevant to the formalisation of the DEFLATE algorithm
 
 [LZSSScript.sml](LZSSScript.sml):
-Formalization written by Alexander Cox
+Formalization and implementation of LZSS
 
 [LZSSrbScript.sml](LZSSrbScript.sml):
-Formalization written by Alexander Cox
+Formalization and implementation of LZSS using ringbuffer
 
 [LearningTests](LearningTests):
 Scripts relevant to learning HOL
@@ -13,22 +13,19 @@ Scripts relevant to learning HOL
 First simple compressor
 
 [deflateScript.sml](deflateScript.sml):
-First simple compressor
+Implementation of Deflate encoding and decoding
 
 [deflateTableScript.sml](deflateTableScript.sml):
-First simple compressor
-
-[huffmanOGScript.sml](huffmanOGScript.sml):
-Script for Huffman encodings.
+Tables used in Deflate and definitions to interact with them
 
 [huffmanScript.sml](huffmanScript.sml):
-Script for Huffman encodings.
+Implementation of Huffman Trees and Canonical Huffman codes.
 
 [ringBufferScript.sml](ringBufferScript.sml):
 Implementation written by Alexander Cox
 
 [rleScript.sml](rleScript.sml):
-Run length encoding
+Implementation of Deflate specific Run Length Encoding
 
 [translation](translation):
 Translation scripts for puzzle encodings.

@@ -1,5 +1,5 @@
 (*
-First simple compressor
+Implementation of Deflate encoding and decoding
 *)
 
 open preamble;
@@ -10,6 +10,7 @@ open LZSSTheory;
 open huffmanTheory;
 open rleTheory;
 open deflateTableTheory;
+
 
 val _ = new_theory "deflate";
 
@@ -28,7 +29,7 @@ Definition fixed_len_tree_def:
    let
      ls = (REPLICATE 144 8) ++ (REPLICATE 112 9) ++ (REPLICATE 24 7) ++ (REPLICATE 8 8);
    in
-     len_from_codes_inv ls
+     canonical_codes ls
 End
 
 Definition fixed_dist_tree_def:
@@ -46,7 +47,7 @@ Definition clen_position_def:
 End
 
 Definition encode_clen_pos_def:
-  encode_clen_pos alph = REVERSE $ FOLDL (λ ls i. (EL i alph)::ls ) [] clen_position
+  encode_clen_pos alph: num list = REVERSE $ FOLDL (λ ls i. (case oEL i alph of NONE => 0 | SOME c => c)::ls ) [] clen_position
 End
 
 Definition trim_zeroes_end_def:
@@ -102,13 +103,16 @@ Definition encode_LZSS_table_def:
 End
 
 Definition encode_LZSS_def:
-  encode_LZSS (Lit c) len_tree dist_tree = encode_single_huff_val len_tree (ORD c) ∧
-  encode_LZSS (LenDist (len, dist)) len_tree dist_tree =
-  let
-    enc_len  = encode_LZSS_table len  (find_level_in_len_table)  len_tree;
-    enc_dist = encode_LZSS_table dist (find_level_in_dist_table) dist_tree;
-  in
-      enc_len ++ enc_dist
+  encode_LZSS lz len_tree dist_tree =
+  case lz of
+    Lit c =>
+      encode_single_huff_val len_tree (ORD c)
+  | LenDist (len, dist) =>
+      let
+        enc_len  = encode_LZSS_table len  (find_level_in_len_table)  len_tree;
+        enc_dist = encode_LZSS_table dist (find_level_in_dist_table) dist_tree;
+      in
+        enc_len ++ enc_dist
 End
 
 EVAL “encode_LZSS (Lit #"g") fixed_len_tree”;
@@ -143,12 +147,8 @@ Definition encode_fixed_def:
 End
 
 Definition encode_dynamic_def:
-  encode_dynamic lzList len_tree len_alph dist_tree dist_alph : bool list =
+ encode_dynamic lzList len_tree len_alph dist_tree dist_alph clen_alph lendist_alph_enc : bool list =
   let
-           (*    Build huffman tree for len/dist codelengths    *)
-           len_dist_alph = (len_alph ++ dist_alph);
-           (*    Encode len/dist codelengths                    *)
-           (lendist_alph_enc, clen_tree, clen_alph, _) = encode_rle len_dist_alph;
            (NCLEN_num, CLEN_bits) = encode_clen_alph clen_alph;
            (*    Setup header bits                              *)
            NLIT  = pad0 5 $ TN2BL ((MAX (LENGTH len_alph) 257)  - 257);
@@ -174,15 +174,17 @@ Definition encode_block_def:
     (*    Build huffman tree for len/dist       *)
     (len_tree,  len_alph)  = unique_huff_tree (256::lenList);
     (dist_tree, dist_alph) = unique_huff_tree distList;
-    longest_code = FOLDL (λ e x. if e < x then x else e) (HD len_alph) (TL len_alph);
+    longest_code1 = FOLDL (λ e x. if e < x then x else e) 0 (len_alph ++ dist_alph);
+    (lendist_alph_enc, clen_tree, clen_alph, _) = encode_rle (len_alph ++ dist_alph);
+    longest_code2 = FOLDL (λ e x. if e < x then x else e) 0 clen_alph;
     BFINAL = if s' = [] then [T] else [F];
     enc = if LENGTH dist_tree = 0
           then
             [F;F] ++ encode_uncompressed lenList
           else
-            if 15 < longest_code
+            if (LENGTH block_input < 100 ∨ 15 < longest_code1 ∨ 7 < longest_code2)
             then [F;T] ++ encode_fixed lzList
-            else [T;F] ++ encode_dynamic lzList len_tree len_alph dist_tree dist_alph
+            else [T;F] ++ encode_dynamic lzList len_tree len_alph dist_tree dist_alph clen_alph lendist_alph_enc
   in
     BFINAL ++
     enc ++
@@ -283,7 +285,8 @@ Definition read_clen_def:
 End
 
 Definition recreate_clen_def:
-  recreate_clen []   _        res = res ∧
+  recreate_clen _ [] _ = [] ∧
+  recreate_clen [] _ res = res ∧
   recreate_clen (cl::clen) (clp::clen_pos) res =
   recreate_clen clen clen_pos (LUPDATE cl clp res)
 End
@@ -294,14 +297,15 @@ Definition decode_clen_def:
     clens = read_clen bl nclen;
     clens = recreate_clen clens clen_position (GENLIST (λn. 0) 19);
   in
-    (len_from_codes_inv clens, 3*nclen)
+    (canonical_codes clens, 3*nclen)
 End
 
 (***** Main decoder function *****)
 
 Definition read_literals_def:
-  read_literals bl (0:num) = [] ∧
-  read_literals bl n = (CHR $ TBL2N $ (TAKE 8 bl)) :: (read_literals (DROP 8 bl) (n-1))
+  read_literals [] _ = [] ∧
+  read_literals bl 0 = [] ∧
+  read_literals bl (SUC n) = (CHR $ (TBL2N $ (TAKE 8 bl)) MOD 256) :: (read_literals (DROP 8 bl) n)
 End
 
 Definition decode_uncompressed_def:
@@ -318,8 +322,7 @@ End
 Definition decode_fixed_def:
   decode_fixed bl =
   let
-    (len_tree, dist_tree) = (fixed_len_tree, fixed_dist_tree);
-    (lzList, drop_bits) = deflate_decoding bl len_tree dist_tree [] 0;
+    (lzList, drop_bits) = deflate_decoding bl fixed_len_tree fixed_dist_tree [] 0;
     res = LZSS_decompress lzList
   in
     (res, drop_bits)
@@ -335,8 +338,8 @@ Definition decode_dynamic_def:
     bl'' = DROP bits' bl';
     len_alph' = TAKE NLIT' len_dist_alph';
     dist_alph' = DROP NLIT' len_dist_alph';
-    len_tree' = len_from_codes_inv len_alph';
-    dist_tree' = len_from_codes_inv dist_alph';
+    len_tree' = canonical_codes len_alph';
+    dist_tree' = canonical_codes dist_alph';
     (lzList', drop_bits'') = deflate_decoding  bl'' len_tree' dist_tree' [] 0;
     res = LZSS_decompress lzList';
   in
@@ -370,9 +373,9 @@ End
 Definition bl2s_def:
   bl2s [] = [] ∧
   bl2s bl =
-  if LENGTH bl < 8
-  then [CHR $ TBL2N $ PAD_RIGHT F 8 $ TAKE 8 bl]
-  else (CHR $ TBL2N $ TAKE 8 bl) :: bl2s (DROP 8 bl)
+  if LENGTH bl ≤  8
+  then [CHR $ (TBL2N $ PAD_RIGHT F 8 bl) MOD 256]
+  else (CHR $ (TBL2N $ TAKE 8 bl) MOD 256 ) :: bl2s (DROP 8 bl)
 Termination
   WF_REL_TAC ‘measure $ λ (bl). LENGTH bl’
   \\ rw[]
@@ -405,25 +408,6 @@ Definition deflate_decode_main_def:
   else DROP (LENGTH "Uncompressed: ")  s
 End
 
-open miscTheory;
-
-Definition main_function_def:
-  main_function (s:mlstring) = List [implode (deflate_encode_main (explode s))]
-End
-
-Definition main_functiondec_def:
-  main_functiondec (s:mlstring) = List [implode (deflate_decode_main (explode s))]
-End
-
-EVAL “
- let
-   s = "sdkjfnsdkjf";
-   enc  = main_function (implode s);
-   enc' = deflate_encode_main s;
- in
-   (enc', main_functiondec $ HD $ misc$append enc, deflate_decode_main enc')
-”
-
 Theorem deflate_main_inv:
  ∀s. deflate_decode_main (deflate_encode_main s) = s
 Proof
@@ -432,7 +416,6 @@ Proof
   \\ CASE_TAC
   \\ simp[]
 QED
-
 
 
 val _ = export_theory();
