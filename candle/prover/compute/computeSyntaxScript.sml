@@ -96,6 +96,10 @@ Theorem replaceR2 =
  * with the right defining equations (and some lemmas).
  *)
 
+(* TODO: I think all term_ok's follow from the derivations
+ * (see proves_term_ok).
+ *)
+
 Definition numeral_thy_ok_def:
   numeral_thy_ok thy ⇔
     theory_ok thy ∧
