@@ -12,7 +12,7 @@ fun SIMPC ths = SIMP_CONV (srw_ss()) ths;
 (* Numbers *)
 
 Overload num_ty = “Tyapp «num» []”;
-Overload "_0" = “Const «0» num_ty”;
+Overload "_0" = “Const «_0» num_ty”;
 Overload "_SUC_TM" = “Const «SUC» (Fun num_ty num_ty)”;
 Overload "_SUC" = “λtm. Comb _SUC_TM tm”;
 Overload "_BIT0_TM" = “Const «BIT0» (Fun num_ty num_ty)”;
@@ -23,6 +23,8 @@ Overload "_N" = “Var «n» num_ty”;
 Overload "_M" = “Var «m» num_ty”;
 Overload "_ADD_TM" = “Const «+» (Fun num_ty (Fun num_ty num_ty))”;
 Overload "_ADD" = “λt1 t2. Comb (Comb _ADD_TM t1) t2”;
+Overload "_NUMERAL_TM" = “Const «NUMERAL» (Fun num_ty num_ty)”;
+Overload "_NUMERAL" = “λtm. Comb _NUMERAL_TM tm”;
 
 (* Lists *)
 
@@ -103,12 +105,6 @@ Theorem replaceR2 =
 Definition numeral_thy_ok_def:
   numeral_thy_ok thy ⇔
     theory_ok thy ∧
-    (* Constants defined *)
-    term_ok (sigof thy) _BIT0_TM ∧
-    term_ok (sigof thy) _BIT1_TM ∧
-    term_ok (sigof thy) _0 ∧
-    term_ok (sigof thy) _SUC_TM ∧
-    term_ok (sigof thy) _ADD_TM ∧
     (* BIT0, BIT1 *)
     (thy,[]) |- _BIT0 _N === _ADD _N _N ∧
     (thy,[]) |- _BIT1 _N === _SUC (_ADD _N _N) ∧
@@ -116,6 +112,20 @@ Definition numeral_thy_ok_def:
     (thy,[]) |- _ADD _0 _M === _M ∧
     (thy,[]) |- _ADD (_SUC _N) _M === _SUC (_ADD _N _M)
 End
+
+Theorem numeral_thy_ok_terms_ok:
+  numeral_thy_ok thy ⇒
+    term_ok (sigof thy) _ADD_TM ∧
+    term_ok (sigof thy) _0 ∧
+    term_ok (sigof thy) _SUC_TM ∧
+    term_ok (sigof thy) _BIT0_TM ∧
+    term_ok (sigof thy) _BIT1_TM
+Proof
+  simp [numeral_thy_ok_def] \\ strip_tac
+  \\ pop_assum kall_tac
+  \\ rpt (dxrule_then assume_tac proves_term_ok) \\ rfs []
+  \\ fs [equation_def, term_ok_def, SF SFY_ss]
+QED
 
 Definition num2term_def:
   num2term 0 = _0 ∧
@@ -145,7 +155,9 @@ QED
 Theorem num2term_term_ok[local]:
   numeral_thy_ok thy ⇒ term_ok (sigof thy) (num2term n)
 Proof
-  Induct_on ‘n’ \\ rw [numeral_thy_ok_def, term_ok_def, num2term_def]
+  strip_tac
+  \\ drule_then strip_assume_tac numeral_thy_ok_terms_ok
+  \\ Induct_on ‘n’ \\ rw [numeral_thy_ok_def, term_ok_def, num2term_def]
 QED
 
 Theorem num2term_VSUBST[local,simp]:
@@ -200,7 +212,8 @@ QED
 Theorem num2bit_term_ok:
   numeral_thy_ok thy ⇒ term_ok (sigof thy) (num2bit n)
 Proof
-  rw [numeral_thy_ok_def]
+  strip_tac
+  \\ drule_then strip_assume_tac numeral_thy_ok_terms_ok
   \\ qid_spec_tac ‘n’
   \\ ho_match_mp_tac num2bit_ind \\ rw []
   \\ rw [Once num2bit_def, term_ok_def]
@@ -219,6 +232,7 @@ Theorem num2term_ADD:
     (thy,[]) |- num2term (m + n) === _ADD (num2term m) (num2term n)
 Proof
   strip_tac \\ qid_spec_tac ‘m’
+  \\ drule_then strip_assume_tac numeral_thy_ok_terms_ok
   \\ gs [numeral_thy_ok_def]
   \\ Induct \\ simp []
   >- (
@@ -253,6 +267,7 @@ Theorem num2bit_num2term:
     ∀n. (thy,[]) |- num2bit n === num2term n
 Proof
   strip_tac \\ ho_match_mp_tac num2bit_ind \\ rw []
+  \\ drule_then strip_assume_tac numeral_thy_ok_terms_ok
   \\ gs [numeral_thy_ok_def]
   \\ rw [num2term_def, Once num2bit_def]
   >- (
@@ -316,6 +331,7 @@ Theorem num2bit_ADD:
     (thy,[]) |- num2bit (m + n) === _ADD (num2bit m) (num2bit n)
 Proof
   strip_tac
+  \\ drule_then strip_assume_tac numeral_thy_ok_terms_ok
   \\ drule_then assume_tac num2bit_num2term
   \\ first_assum (qspec_then ‘n’ assume_tac)
   \\ first_assum (qspec_then ‘m’ assume_tac)
