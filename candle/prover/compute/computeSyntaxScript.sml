@@ -174,14 +174,14 @@ Proof
   \\ rw [Once num2bit_def]
 QED
 
-Theorem num2bit_typeof[local,simp]:
+Theorem num2bit_typeof[simp]:
   ∀n. typeof (num2bit n) = num_ty
 Proof
   ho_match_mp_tac num2bit_ind \\ rw []
   \\ rw [Once num2bit_def]
 QED
 
-Theorem num2bit_has_type[local,simp]:
+Theorem num2bit_has_type[simp]:
   ∀n. num2bit n has_type num_ty
 Proof
   ho_match_mp_tac num2bit_ind \\ rw []
@@ -191,13 +191,13 @@ Proof
   \\ rw [Once has_type_cases]
 QED
 
-Theorem num2bit_welltyped[local,simp]:
+Theorem num2bit_welltyped[simp]:
   ∀n. welltyped (num2bit n)
 Proof
   rw [welltyped_def, num2bit_has_type, SF SFY_ss]
 QED
 
-Theorem num2bit_term_ok[local]:
+Theorem num2bit_term_ok:
   numeral_thy_ok thy ⇒ term_ok (sigof thy) (num2bit n)
 Proof
   rw [numeral_thy_ok_def]
