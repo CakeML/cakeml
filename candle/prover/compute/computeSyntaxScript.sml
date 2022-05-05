@@ -111,7 +111,7 @@ Definition numeral_thy_ok_def:
     term_ok (sigof thy) _ADD_TM ∧
     (* BIT0, BIT1 *)
     (thy,[]) |- _BIT0 _N === _ADD _N _N ∧
-    (thy,[]) |- _BIT1 _N === _SUC (_BIT0 _N) ∧
+    (thy,[]) |- _BIT1 _N === _SUC (_ADD _N _N) ∧
     (* ADD *)
     (thy,[]) |- _ADD _0 _M === _M ∧
     (thy,[]) |- _ADD (_SUC _N) _M === _SUC (_ADD _N _M)
@@ -283,13 +283,13 @@ Proof
     \\ gs [numeral_thy_ok_def]
     \\ ‘2 * (n DIV 2) = n’ by intLib.ARITH_TAC \\ gs [])
   >- (
-    qpat_assum ‘_ |- _BIT1 _N === _’ assume_tac
+    qpat_x_assum ‘_ |- _BIT1 _N === _’ assume_tac
     \\ qabbrev_tac ‘N = num2term (n DIV 2)’
     \\ ‘(thy,[]) |- _BIT1 (num2bit (n DIV 2)) === _BIT1 N’
       by rw [MK_COMB_simple, proves_REFL]
     \\ irule trans_equation_simple
     \\ first_x_assum (irule_at Any)
-    \\ ‘(thy,[]) |- _BIT1 N === _SUC (_BIT0 N)’
+    \\ ‘(thy,[]) |- _BIT1 N === _SUC (_ADD N N)’
       by (drule_at_then (Pos (el 2)) (qspec_then ‘[N,_N]’ mp_tac) proves_INST
           \\ simp [VSUBST_def, REV_ASSOCD, equation_def, Once has_type_rules,
                    num2term_term_ok, numeral_thy_ok_def, Abbr ‘N’])
@@ -307,11 +307,8 @@ Proof
     \\ pop_assum SUBST1_TAC
     \\ irule trans_equation_simple
     \\ irule_at Any ADD_num2term
-    \\ simp [numeral_thy_ok_def]
-    \\ qpat_x_assum ‘_ |- _BIT0 _N === _’ assume_tac
-    \\ drule_at_then (Pos (el 2)) (qspec_then ‘[N,_N]’ mp_tac) proves_INST
-    \\ simp [VSUBST_def, REV_ASSOCD, equation_def, term_ok_def, Abbr ‘N’,
-             num2term_term_ok, numeral_thy_ok_def, sym_equation])
+    \\ simp [proves_REFL, term_ok_def, Abbr ‘N’, num2term_term_ok,
+             numeral_thy_ok_def])
 QED
 
 Theorem num2bit_ADD:
@@ -393,7 +390,7 @@ QED
 
 Overload "_A" = “Tyvar «A»”;
 Overload "_FORALL_TM" = “Const «!» (Fun (Fun _A Bool) Bool)”;
-Overload "_FORALL" = “λtm. Comb _FORALL_TM tm ”;
+Overload "_FORALL" = “λv b. Comb _FORALL_TM (Abs v b)”;
 Overload "_P" = “Var «P» (Fun _A Bool)”;
 Overload "_Q" = “Var «Q» Bool”;
 Overload "_X" = “Var «x» _A”;
@@ -410,7 +407,7 @@ End
 
 Theorem FORALL_SPEC:
   bool_thy_ok thy ⇒
-    (thy,[]) |- _FORALL (Abs _X _Q) ⇒ (thy,[]) |- _Q
+    (thy,[]) |- _FORALL _X _Q ⇒ (thy,[]) |- _Q
 Proof
   cheat
 QED
