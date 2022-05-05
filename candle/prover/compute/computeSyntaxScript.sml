@@ -387,5 +387,33 @@ Proof
   \\ rw [term_ok_def] \\ gs [term_ok_welltyped, SF SFY_ss, SF DNF_ss]
 QED
 
+(* -------------------------------------------------------------------------
+ * Bool syntax
+ * ------------------------------------------------------------------------- *)
+
+Overload "_A" = “Tyvar «A»”;
+Overload "_FORALL_TM" = “Const «!» (Fun (Fun _A Bool) Bool)”;
+Overload "_FORALL" = “λtm. Comb _FORALL_TM tm ”;
+Overload "_P" = “Var «P» (Fun _A Bool)”;
+Overload "_Q" = “Var «Q» Bool”;
+Overload "_X" = “Var «x» _A”;
+Overload "_T" = “Const «T» Bool”;
+
+Definition bool_thy_ok_def:
+  bool_thy_ok thy ⇔
+    theory_ok thy ∧
+    term_ok (sigof thy) _FORALL_TM ∧
+    term_ok (sigof thy) _T ∧
+    (thy,[]) |- _T === (Abs _X _X === Abs _X _X) ∧
+    (thy,[]) |- _FORALL_TM === Abs _P (_P === Abs _X _T)
+End
+
+Theorem FORALL_SPEC:
+  bool_thy_ok thy ⇒
+    (thy,[]) |- _FORALL (Abs _X _Q) ⇒ (thy,[]) |- _Q
+Proof
+  cheat
+QED
+
 val _ = export_theory ();
 
