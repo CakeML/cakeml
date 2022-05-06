@@ -65,7 +65,7 @@ Definition num_thms_def:
   ]
 End
 
-Theorem num_thms = SIMP_RULE list_ss [] num_thms_def;
+Theorem num_thms_def = SIMP_RULE list_ss [] num_thms_def;
 
 Definition init_def:
   init ths = EVERY (λth. MEM th ths) num_thms
