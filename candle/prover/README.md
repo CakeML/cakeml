@@ -28,8 +28,8 @@ evaluate of Candle prover
 [candle_prover_semanticsScript.sml](candle_prover_semanticsScript.sml):
 Top-level soundness theorem for the Candle theorem prover.
 
-[computeSyntaxScript.sml](computeSyntaxScript.sml):
-Definitions of term embeddings for the Candle compute primitive.
+[compute](compute):
+A verified Candle compute primitive.
 
 [permsScript.sml](permsScript.sml):
 Permissions for CakeML values.
