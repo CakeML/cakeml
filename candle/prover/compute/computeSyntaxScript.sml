@@ -111,6 +111,8 @@ Theorem replaceR2 =
 Definition numeral_thy_ok_def:
   numeral_thy_ok thy ⇔
     theory_ok thy ∧
+    (* NUMERAL *)
+    (thy,[]) |- _NUMERAL _N === _N ∧
     (* BIT0, BIT1 *)
     (thy,[]) |- _BIT0 _N === _ADD _N _N ∧
     (thy,[]) |- _BIT1 _N === _SUC (_ADD _N _N) ∧
@@ -125,7 +127,8 @@ Theorem numeral_thy_ok_terms_ok:
     term_ok (sigof thy) _0 ∧
     term_ok (sigof thy) _SUC_TM ∧
     term_ok (sigof thy) _BIT0_TM ∧
-    term_ok (sigof thy) _BIT1_TM
+    term_ok (sigof thy) _BIT1_TM ∧
+    term_ok (sigof thy) _NUMERAL_TM
 Proof
   simp [numeral_thy_ok_def] \\ strip_tac
   \\ pop_assum kall_tac
@@ -174,23 +177,11 @@ QED
 
 Definition num2bit_def:
   num2bit n =
-    if n = 0 then
-      _BIT0 _0
-    else
-      Comb (if n MOD 2 = 0 then _BIT0_TM else _BIT1_TM) (num2bit (n DIV 2))
+    if n = 0 then _0 else
+    Comb (if n MOD 2 = 0 then _BIT0_TM else _BIT1_TM) (num2bit (n DIV 2))
 Termination
   wf_rel_tac ‘$<’ \\ intLib.ARITH_TAC
 End
-
-Theorem num2bit_eq:
-  num2bit n =
-    if n = 0 then _BIT0 _0 else
-    if n MOD 2 = 0 then _BIT0 (num2bit (n DIV 2))
-    else _BIT1 (num2bit (n DIV 2))
-Proof
-  rw [Once num2bit_def]
-  \\ rw [Once num2bit_def]
-QED
 
 Theorem num2bit_typeof[simp]:
   ∀n. typeof (num2bit n) = num_ty
@@ -275,17 +266,7 @@ Proof
   strip_tac \\ ho_match_mp_tac num2bit_ind \\ rw []
   \\ drule_then strip_assume_tac numeral_thy_ok_terms_ok
   \\ gs [numeral_thy_ok_def]
-  \\ rw [num2term_def, Once num2bit_def]
-  >- (
-    qpat_assum ‘_ |- _BIT0 _N === _’ assume_tac
-    \\ ‘(thy,[]) |- _BIT0 _0 === _ADD _0 _0’
-      by (drule_at_then (Pos (el 2)) (qspec_then ‘[_0,_N]’ mp_tac) proves_INST
-          \\ simp [VSUBST_def, REV_ASSOCD, equation_def, Once has_type_rules])
-    \\ irule trans_equation_simple
-    \\ first_x_assum (irule_at Any)
-    \\ qpat_assum ‘_ |- _ADD _0 _ === _’ assume_tac
-    \\ drule_at_then (Pos (el 2)) (qspec_then ‘[_0,_M]’ mp_tac) proves_INST
-    \\ simp [VSUBST_def, REV_ASSOCD, equation_def, Once has_type_rules])
+  \\ rw [num2term_def, Once num2bit_def, proves_REFL]
   >- (
     qabbrev_tac ‘N = num2term (n DIV 2)’
     \\ ‘(thy,[]) |- _BIT0 (num2bit (n DIV 2)) === _BIT0 N’
