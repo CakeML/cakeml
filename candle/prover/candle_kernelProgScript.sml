@@ -5,6 +5,7 @@ open preamble;
 open ml_translatorLib ml_monad_translatorLib ml_progLib ml_hol_kernel_funsProgTheory;
 open basisFunctionsLib print_thmTheory;
 open (* lisp: *) lisp_parsingTheory lisp_valuesTheory lisp_printingTheory;
+open (* compute: *) computeTheory;
 
 val _ = new_theory "candle_kernelProg";
 
@@ -71,6 +72,25 @@ val _ = (append_prog o process_topdecs) `
       #(kernel_ffi) str arr
     end;
 `
+
+(* compute primitive *)
+
+(* TODO Use the type check machinery for this. We need to move the code out of
+        the theory file it currently lives in. *)
+
+val _ = ml_prog_update open_local_block;
+
+val r = translate dest_num_def;      (* TODO use a PMATCH definition *)
+val r = translate dest_numeral_def;  (* TODO use a PMATCH definition *)
+val r = translate num_thms_def;
+val r = translate dest_binary_def;   (* TODO use a PMATCH definition *)
+val r = translate num2bit_def;
+
+val r = check [‘ths’] init_def |> translate;
+
+val _ = ml_prog_update open_local_in_block;
+
+val r = m_translate compute_add_def;
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
