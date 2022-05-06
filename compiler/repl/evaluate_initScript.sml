@@ -684,19 +684,6 @@ QED
 
 Theorem do_app_ok = SIMP_RULE (srw_ss()) [LET_THM] do_app_ok;
 
-
-val icing_rename_tac =
-  rename1 ‘evaluate st env (REVERSE es) = (st2, Rval vs)’
-  \\ ‘st2.fp_state.canOpt = Strict’
-    by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv
-        \\ gs[state_ok_def, state_rel_def]);
-
-val real_rename_tac =
-  rename1 ‘evaluate st env (REVERSE es) = (st2, Rval vs2)’
-  \\ ‘~ st2.fp_state.real_sem’
-    by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv
-        \\ gs[state_ok_def, state_rel_def]);
-
 Theorem evaluate_ok_Op:
   op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "App")
 Proof
@@ -708,8 +695,17 @@ Proof
   \\ Cases_on ‘getOpClass op’ \\ gs[Excl "getOpClass_def"]
   \\ gvs [CaseEqs ["prod", "result", "option"]]
   \\ dxrule_then assume_tac (iffRL EVERY_REVERSE)
-  \\ TRY icing_rename_tac
-  \\ TRY (real_rename_tac \\ gs[] \\ NO_TAC)
+  \\ TRY (
+    rename1 ‘evaluate st env (REVERSE es) = (st2, Rval vs)’
+    \\ ‘st2.fp_state.canOpt = Strict’
+      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv
+          \\ gs[state_ok_def, state_rel_def]))
+  \\ TRY (
+    rename1 ‘evaluate st env (REVERSE es) = (st2, Rval vs2)’
+    \\ ‘~ st2.fp_state.real_sem’
+      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv
+          \\ gs[state_ok_def, state_rel_def])
+    \\ gs[] \\ NO_TAC)
   \\ drule_all_then assume_tac do_app_ok \\ gs []
   \\ gs [env_ok_def]
   \\ drule_then assume_tac (CONJUNCT1 evaluate_next_type_stamp_mono)
