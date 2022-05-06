@@ -49,7 +49,7 @@ Overload "_T" = “Const «T» Bool”;
  * Support
  * ------------------------------------------------------------------------- *)
 
-Theorem trans_equation_simple[local]:
+Theorem trans_equation_simple:
   (thy,[]) |- a === b ∧
   (thy,[]) |- b === c ⇒
     (thy,[]) |- a === c
@@ -59,10 +59,10 @@ Proof
   \\ simp [ACONV_REFL, SF SFY_ss]
 QED
 
-Theorem MK_COMB_simple[local] =
+Theorem MK_COMB_simple =
   Q.SPECL [‘[]’,‘[]’] proves_MK_COMB |> SIMPR [PULL_EXISTS];
 
-Theorem replaceL1[local]:
+Theorem replaceL1:
   theory_ok thy ∧
   EVERY (term_ok (sigof thy)) [f; g; x] ∧
   typeof f = Fun (typeof x) ty ∧
@@ -78,7 +78,7 @@ Proof
            SF SFY_ss]
 QED
 
-Theorem replaceL2[local]:
+Theorem replaceL2:
   theory_ok thy ∧
   EVERY (term_ok (sigof thy)) [f;x;y] ∧
   typeof f = Fun (typeof x) ty ∧
@@ -216,12 +216,30 @@ Proof
   \\ rw [Once num2bit_def, term_ok_def]
 QED
 
-Theorem num2bit_VSUBST[local,simp]:
+Theorem num2bit_VSUBST[simp]:
   ∀n. VSUBST is (num2bit n) = num2bit n
 Proof
   ho_match_mp_tac num2bit_ind \\ rw []
   \\ once_rewrite_tac [num2bit_def]
   \\ rw [VSUBST_def]
+QED
+
+Theorem BIT0_0:
+  numeral_thy_ok thy ⇒
+    (thy,[]) |- _BIT0 _0 === _0
+Proof
+  strip_tac
+  \\ drule_then strip_assume_tac numeral_thy_ok_terms_ok
+  \\ gs [numeral_thy_ok_def]
+  \\ ‘(thy,[]) |- _BIT0 _0 === _ADD _0 _0’
+    by (qpat_x_assum ‘_ |- _BIT0 _N === _’ assume_tac
+        \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[_0,_N]’ mp_tac) proves_INST
+        \\ simp [VSUBST_def, REV_ASSOCD, equation_def, Once has_type_cases])
+  \\ irule trans_equation_simple
+  \\ first_x_assum (irule_at Any)
+  \\ qpat_x_assum ‘_ |- _ADD _0 _M === _M’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[_0,_M]’ mp_tac) proves_INST
+  \\ simp [VSUBST_def, REV_ASSOCD, equation_def, Once has_type_cases]
 QED
 
 Theorem num2term_ADD:
@@ -408,12 +426,14 @@ Proof
   \\ fs [equation_def, term_ok_def, SF SFY_ss]
 QED
 
+(*
 Theorem FORALL_SPEC:
   bool_thy_ok thy ⇒
     (thy,[]) |- _FORALL _X _Q ⇒ (thy,[]) |- _Q
 Proof
   cheat
 QED
+ *)
 
 val _ = export_theory ();
 
