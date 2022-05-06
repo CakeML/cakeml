@@ -150,17 +150,12 @@ Proof
   \\ simp [Once dest_num_def]
   \\ rw [CaseEqs ["term", "option", "bool"]]
   \\ simp [Once num2bit_def, proves_REFL] \\ gs []
-  >- (
-    IF_CASES_TAC \\ gs []
-    >- (
-      gs [Once num2bit_def, numeral_thy_ok_def]
-      \\ cheat (* _0 === r ⇒ _0 === _BIT0 r *)
-    )
-    >- (
-      cheat (* proves_MK_COMB *)
-      )
-  )
-  \\ cheat (* proves_MK_COMB *)
+  \\ rw [] \\ simp [MK_COMB_simple, proves_REFL]
+  \\ gs [Once num2bit_def]
+  \\ irule trans_equation_simple
+  \\ qexists_tac ‘_BIT0 _0’
+  \\ simp [sym_equation, BIT0_0, numeral_thy_ok_def]
+  \\ irule MK_COMB_simple \\ simp [proves_REFL]
 QED
 
 Theorem num2bit_dest_numeral:
@@ -236,24 +231,57 @@ Proof
         \\ qpat_x_assum ‘TERM _ (_ADD _ _)’ assume_tac
         \\ drule_all term_type \\ gs [])
   \\ gvs []
+  \\ fs [STATE_def]
+  \\ dxrule num2bit_dest_numeral \\ fs [] \\ strip_tac
+  \\ dxrule num2bit_dest_numeral \\ fs [] \\ strip_tac
+  \\ gvs []
+  \\ qmatch_asmsub_abbrev_tac ‘TERM ctxt _’
+  \\ ‘TERM ctxt l ∧ TERM ctxt r’
+    by gs [TERM_def, term_ok_def]
+  \\ ‘l has_type num_ty ∧ r has_type num_ty’
+    by gs [TERM_def, term_ok_def, WELLTYPED]
+  \\ ‘(thyof ctxt,[]) |- _NUMERAL l === l’
+    by (gs [numeral_thy_ok_def, TERM_def]
+        \\ qpat_x_assum ‘_ |- _NUMERAL _N === _’ assume_tac
+        \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[l,_N]’ mp_tac) proves_INST
+        \\ simp [VSUBST_def, holSyntaxLibTheory.REV_ASSOCD, equation_def])
+  \\ ‘(thyof ctxt,[]) |- _NUMERAL r === r’
+    by (gs [numeral_thy_ok_def, TERM_def]
+        \\ qpat_x_assum ‘_ |- _NUMERAL _N === _’ assume_tac
+        \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[r,_N]’ mp_tac) proves_INST
+        \\ simp [VSUBST_def, holSyntaxLibTheory.REV_ASSOCD, equation_def])
   \\ ‘(thyof ctxt,[]) |- _NUMERAL l === num2bit x ∧
       (thyof ctxt,[]) |- _NUMERAL r === num2bit y’
-    by (‘(thyof ctxt,[]) |- l === num2bit x ∧ (thyof ctxt,[]) |- r === num2bit y’
-          suffices_by cheat (* TODO trans *)
+    by (irule_at Any trans_equation_simple
+        \\ first_x_assum (irule_at Any)
+        \\ irule_at (Pos last) trans_equation_simple
+        \\ first_x_assum (irule_at Any)
         \\ gs [num2bit_dest_numeral, STATE_def, sym_equation])
   \\ ‘(thyof ctxt,[]) |- _ADD (_NUMERAL l) (_NUMERAL r) ===
                          _NUMERAL (num2bit (x + y))’
     suffices_by rw [equation_def]
-  \\ ‘(thyof ctxt,[]) |- _ADD (num2bit x) (_NUMERAL r) ===
-                         _NUMERAL (num2bit (x + y))’
-    suffices_by cheat (* TODO replacement *)
-  \\ ‘(thyof ctxt,[]) |- _ADD (num2bit x) (num2bit y) ===
-                         _NUMERAL (num2bit (x + y))’
-    suffices_by cheat (* TODO replacement *)
-  \\ ‘(thyof ctxt,[]) |- _ADD (num2bit x) (num2bit y) ===
-                         num2bit (x + y)’
-    suffices_by cheat (* TODO replacement, _NUMERAL x === x *)
-  \\ irule ADD_num2bit \\ gs []
+  \\ ‘theory_ok (thyof ctxt)’
+    by fs [numeral_thy_ok_def]
+  \\ drule_then assume_tac num2bit_term_ok
+  \\ ‘(thyof ctxt,[]) |- num2bit (x + y) === _NUMERAL (num2bit (x + y))’
+    by (gs [numeral_thy_ok_def, TERM_def]
+        \\ qpat_x_assum ‘_ |- _NUMERAL _N === _’ assume_tac
+        \\ dxrule_at_then (Pos (el 2))
+                          (qspec_then ‘[num2bit (x + y),_N]’ mp_tac)
+                          proves_INST
+        \\ simp [VSUBST_def, holSyntaxLibTheory.REV_ASSOCD, equation_def,
+                 sym_equation])
+  \\ irule trans_equation_simple
+  \\ first_x_assum (irule_at Any)
+  \\ irule replaceL1 \\ fs []
+  \\ qexists_tac ‘Comb _ADD_TM (num2bit x)’
+  \\ simp [term_ok_def] \\ fs [TERM_def]
+  \\ imp_res_tac term_ok_welltyped \\ fs []
+  \\ simp [MK_COMB_simple, proves_REFL, sym_equation]
+  \\ irule replaceL2 \\ fs []
+  \\ qexists_tac ‘num2bit y’
+  \\ simp [term_ok_def] \\ fs []
+  \\ simp [MK_COMB_simple, proves_REFL, sym_equation, ADD_num2bit]
 QED
 
 val _ = export_theory ();
