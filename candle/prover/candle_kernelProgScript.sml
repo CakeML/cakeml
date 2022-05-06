@@ -5,7 +5,7 @@ open preamble;
 open ml_translatorLib ml_monad_translatorLib ml_progLib ml_hol_kernel_funsProgTheory;
 open basisFunctionsLib print_thmTheory;
 open (* lisp: *) lisp_parsingTheory lisp_valuesTheory lisp_printingTheory;
-open (* compute: *) computeTheory;
+open (* compute: *) computeSyntaxTheory computeTheory;
 
 val _ = new_theory "candle_kernelProg";
 
@@ -80,13 +80,15 @@ val _ = (append_prog o process_topdecs) `
 
 val _ = ml_prog_update open_local_block;
 
-val r = translate dest_num_def;      (* TODO use a PMATCH definition *)
-val r = translate dest_numeral_def;  (* TODO use a PMATCH definition *)
-val r = translate num_thms_def;
-val r = translate dest_binary_def;   (* TODO use a PMATCH definition *)
+val r = translate dest_num_def;        (* TODO use a PMATCH definition *)
+val r = m_translate dest_numeral_def;  (* TODO use a PMATCH definition *)
+val r = translate (num_thms_def |> REWRITE_RULE [holSyntaxTheory.equation_def]);
+val r = m_translate dest_binary_def;   (* TODO use a PMATCH definition *)
 val r = translate num2bit_def;
 
-val r = check [‘ths’] init_def |> translate;
+val _ = use_mem_intro := true;
+val r = (* check [‘ths’] init_def |> *) init_def  |> translate;
+val _ = use_mem_intro := false;
 
 val _ = ml_prog_update open_local_in_block;
 
