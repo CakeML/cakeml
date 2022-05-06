@@ -35,6 +35,16 @@ Overload "_CONS" = “λty h t. Comb (Comb (_CONS_TM ty) h) t”;
 Overload "_H" = “λty. Var «h» ty”;
 Overload "_T" = “λty. Var «t» (list_ty ty)”;
 
+(* Bools *)
+
+Overload "_A" = “Tyvar «A»”;
+Overload "_FORALL_TM" = “Const «!» (Fun (Fun _A Bool) Bool)”;
+Overload "_FORALL" = “λv b. Comb _FORALL_TM (Abs v b)”;
+Overload "_P" = “Var «P» (Fun _A Bool)”;
+Overload "_Q" = “Var «Q» Bool”;
+Overload "_X" = “Var «x» _A”;
+Overload "_T" = “Const «T» Bool”;
+
 (* -------------------------------------------------------------------------
  * Support
  * ------------------------------------------------------------------------- *)
@@ -96,10 +106,6 @@ Theorem replaceR2 =
 
 (* All the necessary constants defined with the right types and
  * with the right defining equations (and some lemmas).
- *)
-
-(* TODO: I think all term_ok's follow from the derivations
- * (see proves_term_ok).
  *)
 
 Definition numeral_thy_ok_def:
@@ -401,16 +407,8 @@ Proof
 QED
 
 (* -------------------------------------------------------------------------
- * Bool syntax
+ * Bools
  * ------------------------------------------------------------------------- *)
-
-Overload "_A" = “Tyvar «A»”;
-Overload "_FORALL_TM" = “Const «!» (Fun (Fun _A Bool) Bool)”;
-Overload "_FORALL" = “λv b. Comb _FORALL_TM (Abs v b)”;
-Overload "_P" = “Var «P» (Fun _A Bool)”;
-Overload "_Q" = “Var «Q» Bool”;
-Overload "_X" = “Var «x» _A”;
-Overload "_T" = “Const «T» Bool”;
 
 Definition bool_thy_ok_def:
   bool_thy_ok thy ⇔
