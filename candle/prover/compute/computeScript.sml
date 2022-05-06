@@ -57,11 +57,10 @@ Definition num_thms_def:
   num_thms = MAP (Sequent []) [
     (* T_DEF      *) _T === (Abs _X _X === Abs _X _X);
     (* FORALL_DEF *) _FORALL_TM === Abs _P (_P === Abs _X _T);
-    (* BIT0       *) _FORALL _N (_BIT0 _N === _ADD _N _N);
-    (* BIT0_DEF.. *) _FORALL _N (_BIT1 _N === _SUC (_BIT0 _N));
-    (* ADD        *) _FORALL _M (_ADD _0 _M === _M);
-    (* ADD        *) _FORALL _N (_FORALL _M (_ADD (_SUC _N) _M ===
-                                             _SUC (_ADD _N _M)));
+    (* BIT0       *) _BIT0 _N === _ADD _N _N;
+    (* BIT1       *) _BIT1 _N === _SUC (_ADD _N _N);
+    (* ADD        *) _ADD _0 _M === _M;
+    (* ADD        *) _ADD (_SUC _N) _M === _SUC (_ADD _N _M);
   ]
 End
 
