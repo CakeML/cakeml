@@ -413,11 +413,19 @@ QED
 Definition bool_thy_ok_def:
   bool_thy_ok thy ⇔
     theory_ok thy ∧
-    term_ok (sigof thy) _FORALL_TM ∧
-    term_ok (sigof thy) _T ∧
     (thy,[]) |- _T === (Abs _X _X === Abs _X _X) ∧
     (thy,[]) |- _FORALL_TM === Abs _P (_P === Abs _X _T)
 End
+
+Theorem bool_thy_ok_terms_ok:
+  bool_thy_ok thy ⇒
+    term_ok (sigof thy) _T ∧
+    term_ok (sigof thy) _FORALL_TM
+Proof
+  simp [bool_thy_ok_def] \\ strip_tac
+  \\ rpt (dxrule_then assume_tac proves_term_ok) \\ rfs []
+  \\ fs [equation_def, term_ok_def, SF SFY_ss]
+QED
 
 Theorem FORALL_SPEC:
   bool_thy_ok thy ⇒
