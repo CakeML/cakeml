@@ -25,7 +25,8 @@ Theorem no_closures_IMP_concrete_v:
   (∀v. EVERY no_closures v ⇒ concrete_v_list v)
 Proof
   ho_match_mp_tac concrete_v_ind \\ rw []
-  \\ Cases_on ‘v’ \\ fs [ml_translatorTheory.no_closures_def, SF ETA_ss]
+  \\ Cases_on ‘v’
+  \\ fs [ml_translatorTheory.no_closures_def, SF ETA_ss, concrete_v_def]
 QED
 
 Triviality EqualityType_concrete_v:
