@@ -553,6 +553,18 @@ Proof
   \\ metis_tac[v_ok_TERM_TYPE_HEAD]
 QED
 
+Theorem v_ok_LIST_THM_TYPE_HEAD:
+  v_ok ctxt v ∧
+  LIST_TYPE_HEAD THM_TYPE_HEAD v ⇒
+    ∃ths. LIST_TYPE THM_TYPE ths v
+Proof
+  strip_tac
+  \\ irule v_ok_LIST_TYPE_HEAD
+  \\ first_assum (irule_at Any)
+  \\ first_assum (irule_at Any)
+  \\ rw [v_ok_THM_TYPE_HEAD, SF SFY_ss]
+QED
+
 Theorem v_ok_PAIR_TYPE_HEAD:
   v_ok ctxt v ∧
   (!v. v_ok ctxt v ∧ A_HEAD v ==> ?a. A a v) ∧
@@ -647,6 +659,16 @@ Proof
   \\ first_assum $ irule_at Any
   \\ first_assum $ irule_at Any
   \\ metis_tac[v_ok_TERM]
+QED
+
+Theorem v_ok_LIST_THM:
+  ∀ths v ctxt. LIST_TYPE THM_TYPE ths v ∧ v_ok ctxt v ⇒ EVERY (THM ctxt) ths
+Proof
+  rpt strip_tac
+  \\ irule v_ok_LIST
+  \\ first_assum (irule_at Any)
+  \\ first_assum (irule_at Any)
+  \\ rw [v_ok_THM, SF SFY_ss]
 QED
 
 Theorem v_ok_LIST_TYPE:
@@ -758,6 +780,14 @@ Proof
   rw []
   \\ drule_at Any LIST_TYPE_perms_ok
   \\ fs [TYPE_TYPE_perms_ok, SF SFY_ss]
+QED
+
+Theorem LIST_TYPE_THM_perms_ok:
+  ∀tm v. LIST_TYPE THM_TYPE th v ⇒ perms_ok ps v
+Proof
+  rw []
+  \\ drule_at Any LIST_TYPE_perms_ok
+  \\ fs [THM_TYPE_perms_ok, SF SFY_ss]
 QED
 
 Theorem UPDATE_TYPE_perms_ok:
