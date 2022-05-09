@@ -618,6 +618,9 @@ Definition concrete_v_def:
      | Litv _ => T
      | Conv v_ vs => concrete_v_list vs
      | Vectorv vs => concrete_v_list vs
+     | FP_WordTree fp => T
+     | FP_BoolTree fp => T
+     | Real r => T
      | _ => F) ∧
   (concrete_v_list [] ⇔ T) ∧
   (concrete_v_list (v::vs) ⇔ concrete_v v ∧ concrete_v_list vs)
