@@ -46,11 +46,11 @@ Definition dest_numeral_def:
       Comb (Const n t) r =>
         if Const n t = _NUMERAL_TM then
           case dest_num r of
-          | NONE => raise_Failure «dest_numeral»
-          | SOME n => st_ex_return n
+          | NONE => failwith «dest_numeral»
+          | SOME n => return n
         else
-          raise_Failure «dest_numeral»
-    | _ => raise_Failure «dest_numeral»
+          failwith «dest_numeral»
+    | _ => failwith «dest_numeral»
 End
 
 Definition num_thms_def:
