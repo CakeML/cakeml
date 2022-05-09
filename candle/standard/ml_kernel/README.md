@@ -23,3 +23,10 @@ The output is produced in a file called kernel_ml.txt.
 
 [print_thmScript.sml](print_thmScript.sml):
 Defines functions for turning a ctxt & thm to a string and back
+
+[runtime_checkLib.sml](runtime_checkLib.sml):
+Mechanism for adding runtime type checking annotations, used in the Candle
+prover soundness proofs.
+
+[runtime_checkScript.sml](runtime_checkScript.sml):
+Theorems and definitions to support adding runtime type checking annotations.
