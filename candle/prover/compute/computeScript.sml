@@ -195,7 +195,8 @@ Theorem compute_add_thm:
   TERM ctxt tm ⇒
   compute_add ths tm s = (res, s') ⇒
     s' = s ∧
-    ∀th. res = M_success th ⇒ THM ctxt th
+    (∀th. res = M_success th ⇒ THM ctxt th) ∧
+    (∀tm. res ≠ M_failure (Clash tm))
 Proof
   simp [compute_add_def, raise_Failure_def]
   \\ IF_CASES_TAC \\ gs [] \\ strip_tac
