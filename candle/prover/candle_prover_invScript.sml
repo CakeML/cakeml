@@ -14,7 +14,7 @@ val _ = new_theory "candle_prover_inv";
 
 val _ = set_grammar_ancestry [
   "candle_kernel_vals", "ast_extras", "evaluate", "namespaceProps", "perms",
-  "semanticPrimitivesProps", "misc"];
+  "holKernelProof", "semanticPrimitivesProps", "misc"];
 
 (* -------------------------------------------------------------------------
  * Expressions are safe if they do not construct anything with a name from the
