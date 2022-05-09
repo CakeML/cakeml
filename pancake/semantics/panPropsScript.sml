@@ -1298,5 +1298,19 @@ Proof
   gs []
 QED
 
+Theorem evaluate_invariants:
+  ∀p t res st.
+    evaluate (p,t) = (res,st) ⇒ st.memaddrs = t.memaddrs ∧ st.be = t.be ∧ st.eshapes = t.eshapes ∧ st.base_addr = t.base_addr
+Proof
+  Ho_Rewrite.PURE_REWRITE_TAC[FORALL_AND_THM,IMP_CONJ_THM] >> rpt conj_tac >>
+  recInduct evaluate_ind >>
+    (rw[Once evaluate_def]
+     >~ [‘While’]
+     >- (qpat_x_assum ‘evaluate _ = _’ (strip_assume_tac o ONCE_REWRITE_RULE[evaluate_def]) >>
+         gvs[AllCaseEqs(),empty_locals_def,ELIM_UNCURRY,dec_clock_def] >>
+         metis_tac[PAIR,FST,SND]) >>
+     gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,dec_clock_def,set_var_def] >>
+     metis_tac[PAIR,FST,SND])
+QED
 
 val _ = export_theory();
