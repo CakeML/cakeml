@@ -6,6 +6,7 @@ open preamble helperLib;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory sptreeTheory
      evaluateTheory namespacePropsTheory evaluatePropsTheory
      candle_kernel_valsTheory candle_kernelProgTheory;
+open candle_prover_invTheory;
 open permsTheory ml_hol_kernel_funsProgTheory ml_progLib ast_extrasTheory;
 
 val _ = new_theory "candle_kernel_perms";
@@ -847,28 +848,11 @@ Proof
   \\ rw[]
 QED
 
-Theorem num_thms_v[local] =
-  num_thms_v_thm
-  |> REWRITE_RULE [computeTheory.num_thms_def]
-  |> REWRITE_RULE [ml_translatorTheory.LIST_TYPE_def]
-  |> SIMP_RULE (srw_ss()++CONJ_ss) [PULL_EXISTS]
-
-Theorem THM_TYPE_match[local]:
-  THM_TYPE x v ⇔ ∃h c. x = Sequent h c ∧ THM_TYPE (Sequent h c) v
-Proof
-  Cases_on ‘x’ \\ simp []
-QED
-
 Theorem perms_ok_num_thms_v[simp]:
   perms_ok ps num_thms_v
 Proof
-  assume_tac num_thms_v \\ fs []
-  \\ gvs [THM_TYPE_match, THM_TYPE_def, TERM_TYPE_def,
-          ml_translatorTheory.LIST_TYPE_def]
-  \\ rpt (pop_assum mp_tac)
-  \\ EVAL_TAC \\ rw []
-  \\ qpat_x_assum ‘_ = num_thms_v’ (assume_tac o SYM) \\ simp []
-  \\ rw[perms_ok_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  irule LIST_TYPE_THM_perms_ok
+  \\ irule_at Any num_thms_v_thm
 QED
 
 Theorem perms_ok_init_v[simp]:
