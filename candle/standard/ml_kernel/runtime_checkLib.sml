@@ -32,6 +32,7 @@ fun guess_check tm =
   if type_of tm = “:thm” then thm_check else
   if type_of tm = “:type list” then ty_list_check else
   if type_of tm = “:term list” then tm_list_check else
+  if type_of tm = “:thm list” then thm_list_check else
   if type_of tm = “:(type # type) list” then ty_ty_list_check else
   if type_of tm = “:(term # term) list” then tm_tm_list_check else fail()
 
