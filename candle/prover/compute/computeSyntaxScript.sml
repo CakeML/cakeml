@@ -1,5 +1,5 @@
 (*
-  Definitions of term embeddings for the Candle compute primitive.
+   Definitions of term embeddings for the Candle compute primitive.
  *)
 
 open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory;
@@ -38,12 +38,32 @@ Overload "_T" = “λty. Var «t» (list_ty ty)”;
 (* Bools *)
 
 Overload "_A" = “Tyvar «A»”;
+Overload "_B" = “Tyvar «B»”;
 Overload "_FORALL_TM" = “Const «!» (Fun (Fun _A Bool) Bool)”;
 Overload "_FORALL" = “λv b. Comb _FORALL_TM (Abs v b)”;
 Overload "_P" = “Var «P» (Fun _A Bool)”;
 Overload "_Q" = “Var «Q» Bool”;
 Overload "_X" = “Var «x» _A”;
 Overload "_T" = “Const «T» Bool”;
+
+(* Pairs *)
+
+Overload pair_ty = “Tyapp «#» [_A; _B]”;
+Overload npr_ty = “Tyapp «npr» []”;
+Overload "_P1" = “Var «P1» pair_ty”;
+Overload "_P2" = “Var «P2» pair_ty”;
+Overload "_Q1" = “Var «Q1» pair_ty”;
+Overload "_Q2" = “Var «Q2» pair_ty”;
+Overload "_NPR_NUM_TM" = “Const «Npr_num» (Fun num_ty npr_ty)”;
+Overload "_NPR_PAIR_TM" = “Const «Npr_pair» (Fun npr_ty (Fun npr_ty npr_ty))”;
+Overload "_NPR_NUM" = “λtm. Comb _NPR_NUM_TM tm”;
+Overload "_NPR_PAIR" = “λt1 t2. Comb (Comb _NPR_PAIR_TM t1) t2”;
+Overload "_NPR_ADD_TM" = “Const «npr_add» (Fun npr_ty (Fun npr_ty npr_ty))”;
+Overload "_NPR_ADD" = “λt1 t2. Comb (Comb _NPR_ADD_TM t1) t2”;
+Overload "_NPR_FST_TM" = “Const «npr_fst» (Fun npr_ty npr_ty)”;
+Overload "_NPR_FST" = “λtm. Comb _NPR_FST_TM tm”;
+Overload "_NPR_SND_TM" = “Const «npr_snd» (Fun npr_ty npr_ty)”;
+Overload "_NPR_SND" = “λtm. Comb _NPR_SND_TM tm”;
 
 (* -------------------------------------------------------------------------
  * Support
@@ -434,6 +454,101 @@ Proof
   cheat
 QED
  *)
+
+(* -------------------------------------------------------------------------
+ * Pairs
+ * ------------------------------------------------------------------------- *)
+
+Datatype:
+  num_pair = Pair num_pair num_pair
+           | Num num
+End
+
+(* The semantics of 'ill-typed' operations on the num_pair type is as follows:
+ * return the number 0 (i.e. Num 0n).
+ *
+ *)
+
+Definition num_pair_thy_ok_def:
+  num_pair_thy_ok thy ⇔
+    numeral_thy_ok thy ∧
+    (* npr_add *)
+    (thy,[]) |- _NPR_ADD (_NPR_NUM _N) (_NPR_NUM _M) === _NPR_NUM (_ADD _N _M) ∧
+    (thy,[]) |- _NPR_ADD (_NPR_NUM _N) (_NPR_PAIR _P1 _Q1) === _NPR_NUM _N ∧
+    (thy,[]) |- _NPR_ADD (_NPR_PAIR _P1 _Q1) (_NPR_NUM _M) === _NPR_NUM _M ∧
+    (thy,[]) |- _NPR_ADD (_NPR_PAIR _P1 _Q1) (_NPR_PAIR _P2 _Q2) ===
+                _NPR_NUM _0 ∧
+    (* npr_fst *)
+    (thy,[]) |- _NPR_FST (_NPR_PAIR _P1 _Q1) === _P1 ∧
+    (thy,[]) |- _NPR_FST (_NPR_NUM _N) === _NPR_NUM _0 ∧
+    (* npr_snd *)
+    (thy,[]) |- _NPR_SND (_NPR_PAIR _P1 _Q1) === _Q1 ∧
+    (thy,[]) |- _NPR_SND (_NPR_NUM _N) === _NPR_NUM _0
+End
+
+Theorem num_pair_thy_ok_terms_ok:
+  num_pair_thy_ok thy ⇒
+    (* nums *)
+    term_ok (sigof thy) _ADD_TM ∧
+    term_ok (sigof thy) _0 ∧
+    term_ok (sigof thy) _SUC_TM ∧
+    term_ok (sigof thy) _BIT0_TM ∧
+    term_ok (sigof thy) _BIT1_TM ∧
+    term_ok (sigof thy) _NUMERAL_TM ∧
+    (* nprs *)
+    term_ok (sigof thy) _NPR_ADD_TM ∧
+    term_ok (sigof thy) _NPR_FST_TM ∧
+    term_ok (sigof thy) _NPR_SND_TM ∧
+    term_ok (sigof thy) _NPR_NUM_TM ∧
+    term_ok (sigof thy) _NPR_PAIR_TM
+Proof
+  simp [num_pair_thy_ok_def] \\ strip_tac
+  \\ dxrule_then strip_assume_tac numeral_thy_ok_terms_ok \\ gs []
+  \\ rpt (dxrule_then assume_tac proves_term_ok) \\ rfs []
+  \\ fs [equation_def, term_ok_def, SF SFY_ss]
+QED
+
+Definition npr2term_def:
+  npr2term (Num n) = _NPR_NUM (_NUMERAL (num2bit n)) ∧
+  npr2term (Pair p q) = _NPR_PAIR (npr2term p) (npr2term q)
+End
+
+Theorem npr2term_typeof[local,simp]:
+  typeof (npr2term np) = npr_ty
+Proof
+  Induct_on ‘np’ \\ simp [npr2term_def]
+QED
+
+Theorem npr2term_has_type[local,simp]:
+  npr2term np has_type npr_ty
+Proof
+  Induct_on ‘np’ \\ rw [npr2term_def]
+  \\ rw [Once has_type_cases]
+  \\ rw [Once has_type_cases]
+  \\ rw [Once has_type_cases]
+  \\ rw [Once has_type_cases]
+QED
+
+Theorem npr2term_welltyped[local,simp]:
+  welltyped (npr2term np)
+Proof
+  rw [welltyped_def, npr2term_has_type, SF SFY_ss]
+QED
+
+Theorem npr2term_term_ok[local]:
+  num_pair_thy_ok thy ⇒ term_ok (sigof thy) (npr2term np)
+Proof
+  strip_tac
+  \\ drule_then strip_assume_tac num_pair_thy_ok_terms_ok
+  \\ Induct_on ‘np’ \\ rw [term_ok_def, npr2term_def]
+  \\ fs [num_pair_thy_ok_def, num2bit_term_ok, SF SFY_ss]
+QED
+
+Theorem npr2term_VSUBST[local,simp]:
+  ∀np. VSUBST is (npr2term np) = npr2term np
+Proof
+  Induct \\ rw [npr2term_def, VSUBST_def]
+QED
 
 val _ = export_theory ();
 
