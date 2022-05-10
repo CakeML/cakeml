@@ -68,7 +68,9 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Tys
     [``:backend_common$tra``
     ]
-
+      (* ---- source_to_source ---- *)
+  ,computeLib.Defs (theory_computes "source_let")
+  ,computeLib.Defs (theory_computes "source_to_source")
   ,computeLib.Defs
     [ (* ---- source_to_flat ---- *)
      flatLangTheory.bool_id_def
