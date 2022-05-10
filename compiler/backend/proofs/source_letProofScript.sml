@@ -4,7 +4,7 @@
 
 open preamble astTheory evaluateTheory evaluatePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     semanticsTheory source_letTheory;
+     semanticsTheory source_letTheory source_evalProofTheory;
 
 val _ = new_theory "source_letProof";
 
@@ -132,6 +132,22 @@ Proof
     \\ rpt (pairarg_tac \\ gs [])
     \\ last_x_assum (qspec_then ‘k’ assume_tac) \\ gs []
     \\ drule_at_then (Pos (el 2)) drule_all compile_decs_correct \\ rw [])
+QED
+
+Theorem compile_semantics_oracle:
+  !f.
+  source_evalProof$is_insert_oracle ci f s.eval_state ∧
+  ¬ semantics_prog s env prog Fail ∧
+  semantics_prog s env prog outcome ⇒
+  semantics_prog (s with eval_state updated_by
+            source_evalProof$adjust_oracle ci (compile_decs ∘ f))
+        env prog outcome
+Proof
+  rw []
+  \\ irule adjust_oracle_semantics_prog
+  \\ rw []
+  \\ irule compile_decs_correct
+  \\ simp []
 QED
 
 val _ = export_theory ();

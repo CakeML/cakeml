@@ -2814,23 +2814,20 @@ Proof
             source_evalProofTheory.oracle_semantics_prog]
 QED
 
-
-Theorem source_to_source_semantics_prog_oracle:
-  !f. ~ semantics_prog (s0 with eval_state := insert_gen_oracle ev f orac es) env prog Fail ==>
-  semantics_prog (s0 with eval_state := insert_gen_oracle ev f orac es) env prog res ==>
-  semantics_prog (s0 with eval_state := insert_gen_oracle ev (source_to_source$compile o f) orac es) env prog res
+Triviality source_to_source_semantics_prog_oracle_intro:
+  ~ semantics_prog (s0 with eval_state := insert_gen_oracle ev I sf orac es) env prog Fail ==>
+  (~ semantics_prog (s0 with eval_state := insert_gen_oracle ev source_to_source$compile sf orac es) env prog Fail ==>
+      semantics_prog (s0 with eval_state := insert_gen_oracle ev source_to_source$compile sf orac es) env prog res) ==>
+  semantics_prog (s0 with eval_state := insert_gen_oracle ev I sf orac es) env prog res
 Proof
-  cheat
-QED
-
-Theorem source_to_source_semantics_prog_oracle_intro:
-  ~ semantics_prog (s0 with eval_state := insert_gen_oracle ev I orac es) env prog Fail ==>
-  (~ semantics_prog (s0 with eval_state := insert_gen_oracle ev source_to_source$compile orac es) env prog Fail ==>
-      semantics_prog (s0 with eval_state := insert_gen_oracle ev source_to_source$compile orac es) env prog res) ==>
-  semantics_prog (s0 with eval_state := insert_gen_oracle ev I orac es) env prog res
-Proof
-  metis_tac [semantics_prog_deterministic, semantics_prog_total,
-            Q.SPEC `I` source_to_source_semantics_prog_oracle, combinTheory.I_o_ID]
+  rw []
+  \\ `is_insert_oracle ev I (s0 with eval_state := insert_gen_oracle ev I sf orac es).eval_state`
+  by (
+    simp [source_evalProofTheory.is_insert_oracle_def] \\ irule_at Any EQ_REFL
+  )
+  \\ drule_then drule source_to_sourceProofTheory.compile_semantics_oracle
+  \\ simp [source_evalProofTheory.adjust_oracle_insert_gen_oracle]
+  \\ metis_tac [semantics_prog_deterministic, semantics_prog_total]
 QED
 
 Theorem source_eval_to_flat_semantics:
