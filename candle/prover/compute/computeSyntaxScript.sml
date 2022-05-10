@@ -476,7 +476,7 @@ Definition num_pair_thy_ok_def:
   num_pair_thy_ok thy ⇔
     numeral_thy_ok thy ∧
     (* npr_add *)
-    (thy,[]) |- _NPR_ADD (_NPR_NUM _N) (_NPR_NUM _M) === _NPR_NUM (_ADD _N _M) ∧
+    (thy,[]) |- _NPR_ADD (_NPR_NUM _M) (_NPR_NUM _N) === _NPR_NUM (_ADD _M _N) ∧
     (thy,[]) |- _NPR_ADD (_NPR_NUM _N) (_NPR_PAIR _P1 _Q1) === _NPR_NUM _N ∧
     (thy,[]) |- _NPR_ADD (_NPR_PAIR _P1 _Q1) (_NPR_NUM _M) === _NPR_NUM _M ∧
     (thy,[]) |- _NPR_ADD (_NPR_PAIR _P1 _Q1) (_NPR_PAIR _P2 _Q2) ===
@@ -561,9 +561,9 @@ Definition npr_eval_def:
   npr_eval (Pair p q) = Pair (npr_eval p) (npr_eval q) ∧
   npr_eval (Add p q) =
     (case npr_eval p, npr_eval q of
-    | Num n, Num m => Num (n + m)
-    | Num n, _ => Num n
-    | _, Num m => Num m
+    | Num m, Num n => Num (m + n)
+    | Num m, _ => Num m
+    | _, Num n => Num n
     | _ => Num 0) ∧
   npr_eval (Fst p) =
     (case npr_eval p of
