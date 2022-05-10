@@ -79,7 +79,9 @@ val _ = ml_prog_update open_local_block;
 
 val r = translate dest_num_def;          (* TODO dest_num_PMATCH     *)
 val r = m_translate dest_numeral_def;    (* TODO dest_numeral_PMATCH *)
-val r = translate (num_thms_def |> REWRITE_RULE [holSyntaxTheory.equation_def]);
+
+val r = num_thms_def |> EVAL_RULE |> translate;
+
 val r = m_translate dest_binary_PMATCH;
 val r = translate num2bit_def;
 
