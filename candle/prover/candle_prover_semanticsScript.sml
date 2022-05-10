@@ -208,7 +208,8 @@ Proof
   \\ simp [state_ok_def, candle_init_state_stamp]
   \\ irule_at Any STATE_init_refs
   \\ simp [candle_init_state_refs,kernel_locs]
-  \\ rw [LLOOKUP_EQ_EL, EL_APPEND_EQN, candle_init_state_def, refs_defs]
+  \\ rw [LLOOKUP_EQ_EL, EL_APPEND_EQN, candle_init_state_def, refs_defs,
+         num_thms_refs_def]
   \\ ‘loc = 0’ by fs []
   \\ fs [ref_ok_def]
 QED
