@@ -519,13 +519,13 @@ Definition npr2term_def:
   npr2term (Add p q) = _NPR_ADD (npr2term p) (npr2term q)
 End
 
-Theorem npr2term_typeof[local,simp]:
+Theorem npr2term_typeof[simp]:
   typeof (npr2term np) = npr_ty
 Proof
   Induct_on ‘np’ \\ simp [npr2term_def]
 QED
 
-Theorem npr2term_has_type[local,simp]:
+Theorem npr2term_has_type[simp]:
   npr2term np has_type npr_ty
 Proof
   Induct_on ‘np’ \\ rw [npr2term_def]
@@ -535,13 +535,13 @@ Proof
   \\ rw [Once has_type_cases]
 QED
 
-Theorem npr2term_welltyped[local,simp]:
+Theorem npr2term_welltyped[simp]:
   welltyped (npr2term np)
 Proof
   rw [welltyped_def, npr2term_has_type, SF SFY_ss]
 QED
 
-Theorem npr2term_term_ok[local]:
+Theorem npr2term_term_ok:
   num_pair_thy_ok thy ⇒ term_ok (sigof thy) (npr2term np)
 Proof
   strip_tac
@@ -550,11 +550,30 @@ Proof
   \\ fs [num_pair_thy_ok_def, num2bit_term_ok, SF SFY_ss]
 QED
 
-Theorem npr2term_VSUBST[local,simp]:
+Theorem npr2term_VSUBST[simp]:
   ∀np. VSUBST is (npr2term np) = npr2term np
 Proof
   Induct \\ rw [npr2term_def, VSUBST_def]
 QED
+
+Definition npr_eval_def:
+  npr_eval (Num n) = Num n ∧
+  npr_eval (Pair p q) = Pair (npr_eval p) (npr_eval q) ∧
+  npr_eval (Add p q) =
+    (case npr_eval p, npr_eval q of
+    | Num n, Num m => Num (n + m)
+    | Num n, _ => Num n
+    | _, Num m => Num m
+    | _ => Num 0) ∧
+  npr_eval (Fst p) =
+    (case npr_eval p of
+    | Pair p q => p
+    | _ => Num 0) ∧
+  npr_eval (Snd p) =
+    (case npr_eval p of
+    | Pair p q => q
+    | _ => Num 0)
+End
 
 val _ = export_theory ();
 
