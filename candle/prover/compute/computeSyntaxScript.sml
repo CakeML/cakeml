@@ -462,6 +462,9 @@ QED
 Datatype:
   num_pair = Pair num_pair num_pair
            | Num num
+           | Fst num_pair
+           | Snd num_pair
+           | Add num_pair num_pair
 End
 
 (* The semantics of 'ill-typed' operations on the num_pair type is as follows:
@@ -510,7 +513,10 @@ QED
 
 Definition npr2term_def:
   npr2term (Num n) = _NPR_NUM (_NUMERAL (num2bit n)) ∧
-  npr2term (Pair p q) = _NPR_PAIR (npr2term p) (npr2term q)
+  npr2term (Pair p q) = _NPR_PAIR (npr2term p) (npr2term q) ∧
+  npr2term (Fst p) = _NPR_FST (npr2term p) ∧
+  npr2term (Snd p) = _NPR_SND (npr2term p) ∧
+  npr2term (Add p q) = _NPR_ADD (npr2term p) (npr2term q)
 End
 
 Theorem npr2term_typeof[local,simp]:
