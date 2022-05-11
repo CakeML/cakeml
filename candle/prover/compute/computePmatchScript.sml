@@ -17,7 +17,7 @@ Theorem dest_num_PMATCH:
       case tm of
         Const n t => if tm = _0 then SOME 0 else NONE
       | Comb (Const nm t) r =>
-          (case dest_num r of
+          (dtcase dest_num r of
           | NONE => NONE
           | SOME n => if Const nm t = _BIT0_TM then SOME (2 * n)
                       else if Const nm t = _BIT1_TM then SOME (2 * n + 1)
@@ -34,15 +34,15 @@ Theorem dest_numeral_PMATCH:
       case tm of
         Comb (Const n t) r =>
           if Const n t = _NUMERAL_TM then
-            case dest_num r of
+            dtcase dest_num r of
             | NONE => raise_Failure «dest_numeral»
             | SOME n => st_ex_return n
           else
             raise_Failure «dest_numeral»
       | _ => raise_Failure «dest_numeral»
 Proof
-  CONV_TAC (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  \\ rw [Once dest_numeral_def]
+  rw [Once dest_numeral_def]
+  \\ CONV_TAC (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ rw []
 QED
 
 Theorem dest_binary_PMATCH:
@@ -56,6 +56,65 @@ Theorem dest_binary_PMATCH:
 Proof
   CONV_TAC (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ rw [Once dest_binary_def]
+QED
+
+Theorem dest_numeral_opt_PMATCH:
+  ∀tm.
+    dest_numeral_opt tm =
+      case tm of
+        Comb (Const n t) r =>
+          if Const n t = _NUMERAL_TM then
+            dtcase dest_num r of
+            | NONE => NONE
+            | SOME n => SOME n
+          else
+            NONE
+      | _ => NONE
+Proof
+  rw [Once dest_numeral_opt_def]
+  \\ CONV_TAC (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ rw []
+QED
+
+Theorem dest_cval_PMATCH:
+  ∀tm.
+    dest_cval tm =
+      case tm of
+        Comb (Const n t) r =>
+          if Const n t = _CVAL_NUM_TM then
+            dtcase dest_numeral_opt r of
+            | NONE => NONE
+            | SOME n => SOME (Num n)
+          else if Const n t = _CVAL_FST_TM then
+            dtcase dest_cval r of
+            | NONE => NONE
+            | SOME p => SOME (Fst p)
+          else if Const n t = _CVAL_SND_TM then
+            dtcase dest_cval r of
+            | NONE => NONE
+            | SOME p => SOME (Snd p)
+          else
+            NONE
+      | Comb (Comb (Const n t) l) r =>
+          if Const n t = _CVAL_PAIR_TM then
+            dtcase dest_cval l of
+            | NONE => NONE
+            | SOME p =>
+                dtcase dest_cval r of
+                | NONE => NONE
+                | SOME q => SOME (Pair p q)
+          else if Const n t = _CVAL_ADD_TM then
+            dtcase dest_cval l of
+            | NONE => NONE
+            | SOME p =>
+                dtcase dest_cval r of
+                | NONE => NONE
+                | SOME q => SOME (Add p q)
+          else
+            NONE
+      | _ => NONE
+Proof
+  rw [Once dest_cval_def]
+  \\ CONV_TAC (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ rw []
 QED
 
 val _ = export_theory ();
