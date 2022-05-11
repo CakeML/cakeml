@@ -480,7 +480,7 @@ Proof
   \\ Cases_on ‘f ∈ { call_type_subst_v; call_freesin_v; call_vfree_in_v;
                      call_variant_v; vsubst_v; inst_v; trans_v; abs_1_v; eq_mp_v;
                      deduct_antisym_rule_v; inst_type_v; inst_1_v; trans_v;
-                     compute_add_v; npr_compute_v}’ THEN1
+                     compute_add_v; compute_v}’ THEN1
    (gvs []
     \\ qpat_x_assum ‘do_opapp _ = _’ mp_tac
     \\ last_x_assum mp_tac
@@ -2165,11 +2165,11 @@ Proof
     \\ Cases_on ‘r’ \\ gvs [THM_IMP_v_ok, SF SFY_ss]
     \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
-  \\ Cases_on ‘f = npr_compute_v’ \\ gvs [] >- (
-    drule_all npr_compute_v_head \\ strip_tac \\ gvs[]
+  \\ Cases_on ‘f = compute_v’ \\ gvs [] >- (
+    drule_all compute_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac`ctxt` \\ fs[])
     \\ rename1 ‘do_opapp [g; w]’
-    \\ assume_tac npr_compute_v_thm
+    \\ assume_tac compute_v_thm
     \\ fs[state_ok_def]
     \\ drule_all_then strip_assume_tac v_ok_LIST_THM_TYPE_HEAD
     \\ drule_all_then strip_assume_tac v_ok_TERM_TYPE_HEAD
@@ -2181,7 +2181,7 @@ Proof
     \\ drule_all_then assume_tac v_ok_TERM
     \\ drule_all_then assume_tac v_ok_LIST_THM
     \\ strip_tac
-    \\ drule_all_then strip_assume_tac computeTheory.npr_compute_thm \\ rveq
+    \\ drule_all_then strip_assume_tac computeTheory.compute_thm \\ rveq
     >- ( first_assum $ irule_at $ Any \\ simp[SF SFY_ss] )
     \\ Cases_on ‘r’ \\ gvs [THM_IMP_v_ok, SF SFY_ss]
     \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []

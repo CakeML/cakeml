@@ -80,24 +80,24 @@ val _ = ml_prog_update open_local_block;
 val r = translate dest_num_def;          (* TODO dest_num_PMATCH         *)
 val r = m_translate dest_numeral_def;    (* TODO dest_numeral_PMATCH     *)
 val r = translate dest_numeral_opt_def;  (* TODO dest_numeral_opt_PMATCH *)
-val r = translate dest_npr_def;          (* TODO dest_npr_PMATCH         *)
+val r = translate dest_cval_def;         (* TODO dest_cval_PMATCH        *)
 
-val r = npr_thms_def |> EVAL_RULE |> translate;
+val r = compute_thms_def |> EVAL_RULE |> translate;
 
 val r = m_translate dest_binary_PMATCH;
 val r = translate num2bit_def;
 
 val _ = use_mem_intro := true;
-val r = check [‘ths’] init_def |> translate;
+val r = check [‘ths’] compute_init_def |> translate;
 val _ = use_mem_intro := false;
 
-val r = translate npr2term_def;
-val r = translate npr_eval_def;
+val r = translate cval2term_def;
+val r = translate compute_eval_def;
 
 val _ = ml_prog_update open_local_in_block;
 
 val r = check [‘ths’,‘tm’] compute_add_def |> m_translate;
-val r = check [‘ths’,‘tm’] npr_compute_def |> m_translate;
+val r = check [‘ths’,‘tm’] compute_def |> m_translate;
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);

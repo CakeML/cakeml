@@ -85,7 +85,7 @@ Definition kernel_funs_def:
 
     (* Compute additions *)
     compute_add_v;
-    npr_compute_v;
+    compute_v;
   }
 End
 
@@ -1625,8 +1625,8 @@ Proof
   prove_head_tac
 QED
 
-Theorem npr_compute_v_head:
-  do_partial_app npr_compute_v v = SOME g ∧
+Theorem compute_v_head:
+  do_partial_app compute_v v = SOME g ∧
   do_opapp [g; w] = SOME (env,exp) ∧
   evaluate ^s env [exp] = (s',res) ⇒
     ^safe_error_goal ∨

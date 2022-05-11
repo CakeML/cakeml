@@ -70,37 +70,37 @@ Definition dest_numeral_opt_def:
     | _ => NONE
 End
 
-Definition dest_npr_def:
-  dest_npr tm =
+Definition dest_cval_def:
+  dest_cval tm =
     case tm of
       Comb (Const n t) r =>
-        if Const n t = _NPR_NUM_TM then
+        if Const n t = _CVAL_NUM_TM then
           case dest_numeral_opt r of
           | NONE => NONE
           | SOME n => SOME (Num n)
-        else if Const n t = _NPR_FST_TM then
-          case dest_npr r of
+        else if Const n t = _CVAL_FST_TM then
+          case dest_cval r of
           | NONE => NONE
           | SOME p => SOME (Fst p)
-        else if Const n t = _NPR_SND_TM then
-          case dest_npr r of
+        else if Const n t = _CVAL_SND_TM then
+          case dest_cval r of
           | NONE => NONE
           | SOME p => SOME (Snd p)
         else
           NONE
     | Comb (Comb (Const n t) l) r =>
-        if Const n t = _NPR_PAIR_TM then
-          case dest_npr l of
+        if Const n t = _CVAL_PAIR_TM then
+          case dest_cval l of
           | NONE => NONE
           | SOME p =>
-              case dest_npr r of
+              case dest_cval r of
               | NONE => NONE
               | SOME q => SOME (Pair p q)
-        else if Const n t = _NPR_ADD_TM then
-          case dest_npr l of
+        else if Const n t = _CVAL_ADD_TM then
+          case dest_cval l of
           | NONE => NONE
           | SOME p =>
-              case dest_npr r of
+              case dest_cval r of
               | NONE => NONE
               | SOME q => SOME (Add p q)
         else
@@ -193,23 +193,23 @@ Proof
   \\ drule_all dest_num_num2bit \\ rw []
 QED
 
-Theorem npr2term_dest_numeral_opt:
+Theorem cval2term_dest_numeral_opt:
   dest_numeral_opt x = SOME y ∧
-  num_pair_thy_ok thy ⇒
-    (thy,[]) |- npr2term (Num y) === _NPR_NUM x
+  compute_thy_ok thy ⇒
+    (thy,[]) |- cval2term (Num y) === _CVAL_NUM x
 Proof
   simp [dest_numeral_opt_def]
   \\ CASE_TAC \\ gs []
   \\ TOP_CASE_TAC \\ gs []
   \\ CASE_TAC \\ gs [] \\ rw []
   \\ ‘numeral_thy_ok thy’
-    by gs [num_pair_thy_ok_def]
-  \\ drule_all dest_num_num2bit \\ rw [npr2term_def]
+    by gs [compute_thy_ok_def]
+  \\ drule_all dest_num_num2bit \\ rw [cval2term_def]
   \\ drule_then assume_tac num2bit_term_ok
   \\ irule replaceR2 \\ fs []
   \\ irule_at Any sym_equation
   \\ irule_at Any NUMERAL_eqn
-  \\ simp [num_pair_thy_ok_terms_ok]
+  \\ simp [compute_thy_ok_terms_ok]
   \\ ‘term_ok (sigof thy) t0 ∧ t0 has_type num_ty’
     by (drule proves_term_ok
         \\ fs [equation_def, term_ok_def, numeral_thy_ok_terms_ok]
@@ -218,34 +218,35 @@ Proof
            welltyped_def, numeral_thy_ok_terms_ok, SF SFY_ss]
   \\ irule MK_COMB_simple
   \\ simp [proves_REFL, term_ok_welltyped, WELLTYPED_LEMMA, Once term_ok_def,
-           welltyped_def, num_pair_thy_ok_terms_ok, SF SFY_ss]
+           welltyped_def, compute_thy_ok_terms_ok, SF SFY_ss]
   \\ irule trans_equation_simple
   \\ irule_at Any sym_equation
   \\ first_x_assum (irule_at Any)
   \\ rw [NUMERAL_eqn, sym_equation]
 QED
 
-Theorem dest_npr_thm:
-  num_pair_thy_ok thy ⇒
-    ∀x y. dest_npr x = SOME y ⇒
-          (thy,[]) |- npr2term y === x ∧
-          typeof x = npr_ty
+Theorem dest_cval_thm:
+  compute_thy_ok thy ⇒
+    ∀x y. dest_cval x = SOME y ⇒
+          (thy,[]) |- cval2term y === x ∧
+          typeof x = cval_ty
 Proof
   strip_tac
-  \\ ho_match_mp_tac dest_npr_ind \\ ntac 3 strip_tac
-  \\ simp [Once dest_npr_def]
+  \\ ho_match_mp_tac dest_cval_ind \\ ntac 3 strip_tac
+  \\ simp [Once dest_cval_def]
   \\ CASE_TAC \\ gs []
   \\ rpt TOP_CASE_TAC \\ gs []
-  \\ rw [] \\ gvs [CaseEqs ["option"], npr2term_def, npr2term_dest_numeral_opt,
-                   MK_COMB_simple, proves_REFL, num_pair_thy_ok_terms_ok]
+  \\ rw [] \\ gvs [CaseEqs ["option"], cval2term_def,
+                   cval2term_dest_numeral_opt, MK_COMB_simple, proves_REFL,
+                   compute_thy_ok_terms_ok]
 QED
 
 (* -------------------------------------------------------------------------
  * Theory initialization
  * ------------------------------------------------------------------------- *)
 
-Definition npr_thms_def:
-  npr_thms = MAP (Sequent []) [
+Definition compute_thms_def:
+  compute_thms = MAP (Sequent []) [
     (* T_DEF      *) _T === (Abs _X _X === Abs _X _X);
     (* FORALL_DEF *) _FORALL_TM === Abs _P (_P === Abs _X _T);
     (* NUMERAL    *) _NUMERAL _N === _N;
@@ -253,47 +254,47 @@ Definition npr_thms_def:
     (* BIT1       *) _BIT1 _N === _SUC (_ADD _N _N);
     (* ADD        *) _ADD _0 _M === _M;
     (* ADD        *) _ADD (_SUC _N) _M === _SUC (_ADD _N _M);
-    (* NPR_ADD    *) _NPR_ADD (_NPR_NUM _M) (_NPR_NUM _N) ===
-                       _NPR_NUM (_ADD _M _N);
-    (* NPR_ADD    *) _NPR_ADD (_NPR_NUM _N) (_NPR_PAIR _P1 _Q1) ===
-                       _NPR_NUM _N;
-    (* NPR_ADD    *) _NPR_ADD (_NPR_PAIR _P1 _Q1) (_NPR_NUM _M) ===
-                       _NPR_NUM _M;
-    (* NPR_ADD    *) _NPR_ADD (_NPR_PAIR _P1 _Q1) (_NPR_PAIR _P2 _Q2) ===
-                       _NPR_NUM (_NUMERAL _0);
-    (* NPR_FST    *) _NPR_FST (_NPR_PAIR _P1 _Q1) === _P1;
-    (* NPR_FST    *) _NPR_FST (_NPR_NUM _N) === _NPR_NUM (_NUMERAL _0);
-    (* NPR_SND    *) _NPR_SND (_NPR_PAIR _P1 _Q1) === _Q1;
-    (* NPR_SND    *) _NPR_SND (_NPR_NUM _N) === _NPR_NUM (_NUMERAL _0);
+    (* CVAL_ADD   *) _CVAL_ADD (_CVAL_NUM _M) (_CVAL_NUM _N) ===
+                     _CVAL_NUM (_ADD _M _N);
+    (* CVAL_ADD   *) _CVAL_ADD (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
+                     _CVAL_NUM _M;
+    (* CVAL_ADD   *) _CVAL_ADD (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
+                     _CVAL_NUM _N;
+    (* CVAL_ADD   *) _CVAL_ADD (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
+                     _CVAL_NUM (_NUMERAL _0);
+    (* CVAL_FST   *) _CVAL_FST (_CVAL_PAIR _P1 _Q1) === _P1;
+    (* CVAL_FST   *) _CVAL_FST (_CVAL_NUM _N) === _CVAL_NUM (_NUMERAL _0);
+    (* CVAL_SND   *) _CVAL_SND (_CVAL_PAIR _P1 _Q1) === _Q1;
+    (* CVAL_SND   *) _CVAL_SND (_CVAL_NUM _N) === _CVAL_NUM (_NUMERAL _0);
   ]
 End
 
-Theorem npr_thms_def = SIMP_RULE list_ss [] npr_thms_def;
+Theorem compute_thms_def = SIMP_RULE list_ss [] compute_thms_def;
 
-Definition init_def:
-  init ths = EVERY (λth. MEM th ths) npr_thms
+Definition compute_init_def:
+  compute_init ths = EVERY (λth. MEM th ths) compute_thms
 End
 
 Theorem init_thm:
-  init ths ∧
+  compute_init ths ∧
   EVERY (THM ctxt) ths ⇒
-    EVERY (THM ctxt) npr_thms
+    EVERY (THM ctxt) compute_thms
 Proof
-  rw [init_def, EVERY_MEM]
+  rw [compute_init_def, EVERY_MEM]
 QED
 
-Theorem init_thy_ok:
-  init ths ∧
+Theorem compute_init_thy_ok:
+  compute_init ths ∧
   STATE ctxt s ∧
   EVERY (THM ctxt) ths ⇒
-    num_pair_thy_ok (thyof ctxt) ∧
+    compute_thy_ok (thyof ctxt) ∧
     bool_thy_ok (thyof ctxt)
 Proof
   strip_tac
   \\ drule_all_then assume_tac init_thm
-  \\ gs [npr_thms_def, num_pair_thy_ok_def, numeral_thy_ok_def, bool_thy_ok_def,
-         STATE_def, CONTEXT_def, THM_def, extends_theory_ok, init_theory_ok,
-         SF SFY_ss]
+  \\ gs [compute_thms_def, compute_thy_ok_def, numeral_thy_ok_def,
+         bool_thy_ok_def, STATE_def, CONTEXT_def, THM_def, extends_theory_ok,
+         init_theory_ok, SF SFY_ss]
 QED
 
 (* -------------------------------------------------------------------------
@@ -302,7 +303,7 @@ QED
 
 Definition compute_add_def:
   compute_add ths tm =
-    if ¬ (init ths) then failwith «compute_add: no init» else
+    if ¬ (compute_init ths) then failwith «compute_add: no init» else
     do (l,r) <- dest_binary _ADD_TM tm;
        x <- dest_numeral l;
        y <- dest_numeral r;
@@ -323,10 +324,10 @@ Theorem compute_add_thm:
 Proof
   simp [compute_add_def, raise_Failure_def]
   \\ IF_CASES_TAC \\ gs [] \\ strip_tac
-  \\ drule_all_then strip_assume_tac init_thy_ok
-  \\ drule_then strip_assume_tac num_pair_thy_ok_terms_ok
+  \\ drule_all_then strip_assume_tac compute_init_thy_ok
+  \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
   \\ ‘theory_ok (thyof ctxt) ∧ numeral_thy_ok (thyof ctxt)’
-    by fs [num_pair_thy_ok_def, numeral_thy_ok_def]
+    by fs [compute_thy_ok_def, numeral_thy_ok_def]
   \\ simp [Once st_ex_bind_def, otherwise_def]
   \\ CASE_TAC \\ gs []
   \\ ‘TERM ctxt _ADD_TM’
@@ -412,56 +413,56 @@ QED
  * numpair eval
  * ------------------------------------------------------------------------- *)
 
-Definition npr_compute_def:
-  npr_compute ths tm =
-    if ¬ init ths then failwith «npr_compute: no init» else
-    case dest_npr tm of
-    | NONE => failwith «dest_npr: term is not a num_pair»
-    | SOME npr =>
+Definition compute_def:
+  compute ths tm =
+    if ¬ compute_init ths then failwith «Kernel.compute: no init» else
+    case dest_cval tm of
+    | NONE => failwith «Kernel.compute: term is not a compute_val»
+    | SOME cval =>
         do
-          res <<- npr2term (npr_eval npr);
+          res <<- cval2term (compute_eval cval);
           c <- mk_eq (tm, res);
           return (Sequent [] c)
         od
 End
 
-Theorem npr_compute_thm:
+Theorem compute_thm:
   STATE ctxt s ∧
   EVERY (THM ctxt) ths ∧
   TERM ctxt tm ⇒
-  npr_compute ths tm s = (res, s') ⇒
+  compute ths tm s = (res, s') ⇒
     s' = s ∧
     (∀th. res = M_success th ⇒ THM ctxt th) ∧
     (∀tm. res ≠ M_failure (Clash tm))
 Proof
   strip_tac
-  \\ simp [npr_compute_def, raise_Failure_def]
+  \\ simp [compute_def, raise_Failure_def]
   \\ IF_CASES_TAC \\ gs []
-  \\ drule_all_then strip_assume_tac init_thy_ok
-  \\ drule_then strip_assume_tac num_pair_thy_ok_terms_ok
+  \\ drule_all_then strip_assume_tac compute_init_thy_ok
+  \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
   \\ ‘theory_ok (thyof ctxt) ∧ numeral_thy_ok (thyof ctxt)’
-    by fs [num_pair_thy_ok_def, numeral_thy_ok_def]
+    by fs [compute_thy_ok_def, numeral_thy_ok_def]
   \\ CASE_TAC \\ gs []
   \\ simp [Once st_ex_bind_def, st_ex_return_def]
   \\ CASE_TAC \\ gs []
-  \\ rename [‘npr_eval np’]
-  \\ ‘TERM ctxt (npr2term (npr_eval np))’
-    by (drule npr2term_term_ok \\ simp [TERM_def])
+  \\ rename [‘compute_eval np’]
+  \\ ‘TERM ctxt (cval2term (compute_eval np))’
+    by (drule cval2term_term_ok \\ simp [TERM_def])
   \\ drule_all_then strip_assume_tac mk_eq_thm \\ gvs []
   \\ rename [‘mk_eq _ _ = (res,_)’]
   \\ ‘∀tm. res ≠ M_failure (Clash tm)’
     by (rpt strip_tac \\ fs [])
   \\ CASE_TAC \\ strip_tac \\ rveq \\ fs []
-  \\ drule_all_then strip_assume_tac dest_npr_thm
-  \\ ‘term_type tm = npr_ty’
+  \\ drule_all_then strip_assume_tac dest_cval_thm
+  \\ ‘term_type tm = cval_ty’
     by (fs [STATE_def]
         \\ qpat_x_assum ‘TERM ctxt tm’ assume_tac
         \\ drule_all term_type \\ gs [])
-  \\ ‘(thyof ctxt,[]) |- tm === npr2term (npr_eval np)’
+  \\ ‘(thyof ctxt,[]) |- tm === cval2term (compute_eval np)’
     suffices_by rw [equation_def, THM_def]
   \\ irule trans_equation_simple
   \\ irule_at (Pos last) sym_equation
-  \\ irule_at Any npr_eval_thm
+  \\ irule_at Any compute_eval_thm
   \\ gs [sym_equation]
 QED
 
