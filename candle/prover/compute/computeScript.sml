@@ -186,11 +186,43 @@ QED
 Theorem num2bit_dest_numeral:
   dest_numeral (_NUMERAL x) s = (M_success y, s') ∧
   numeral_thy_ok (thyof s.the_context) ⇒
-          s = s' ∧ (thyof s.the_context,[]) |- num2bit y === x
+    s = s' ∧ (thyof s.the_context,[]) |- num2bit y === x
 Proof
   simp [dest_numeral_def, st_ex_return_def, raise_Failure_def]
   \\ CASE_TAC \\ gs [] \\ rw []
   \\ drule_all dest_num_num2bit \\ rw []
+QED
+
+Theorem npr2term_dest_numeral_opt:
+  dest_numeral_opt x = SOME y ∧
+  num_pair_thy_ok thy ⇒
+    (thy,[]) |- npr2term (Num y) === _NPR_NUM x
+Proof
+  simp [dest_numeral_opt_def]
+  \\ CASE_TAC \\ gs []
+  \\ TOP_CASE_TAC \\ gs []
+  \\ CASE_TAC \\ gs [] \\ rw []
+  \\ ‘numeral_thy_ok thy’
+    by gs [num_pair_thy_ok_def]
+  \\ drule_all dest_num_num2bit \\ rw [npr2term_def]
+  \\ drule_then assume_tac num2bit_term_ok
+  \\ irule replaceR2 \\ fs []
+  \\ irule_at Any sym_equation
+  \\ irule_at Any NUMERAL_eqn
+  \\ simp [num_pair_thy_ok_terms_ok]
+  \\ ‘term_ok (sigof thy) t0 ∧ t0 has_type num_ty’
+    by (drule proves_term_ok
+        \\ fs [equation_def, term_ok_def, numeral_thy_ok_terms_ok]
+        \\ rw [] \\ fs [WELLTYPED])
+  \\ simp [term_ok_welltyped, WELLTYPED_LEMMA, Once term_ok_def,
+           welltyped_def, numeral_thy_ok_terms_ok, SF SFY_ss]
+  \\ irule MK_COMB_simple
+  \\ simp [proves_REFL, term_ok_welltyped, WELLTYPED_LEMMA, Once term_ok_def,
+           welltyped_def, num_pair_thy_ok_terms_ok, SF SFY_ss]
+  \\ irule trans_equation_simple
+  \\ irule_at Any sym_equation
+  \\ first_x_assum (irule_at Any)
+  \\ rw [NUMERAL_eqn, sym_equation]
 QED
 
 Theorem dest_npr_thm:
@@ -199,7 +231,13 @@ Theorem dest_npr_thm:
           (thy,[]) |- npr2term y === x ∧
           typeof x = npr_ty
 Proof
-  cheat
+  strip_tac
+  \\ ho_match_mp_tac dest_npr_ind \\ ntac 3 strip_tac
+  \\ simp [Once dest_npr_def]
+  \\ CASE_TAC \\ gs []
+  \\ rpt TOP_CASE_TAC \\ gs []
+  \\ rw [] \\ gvs [CaseEqs ["option"], npr2term_def, npr2term_dest_numeral_opt,
+                   MK_COMB_simple, proves_REFL, num_pair_thy_ok_terms_ok]
 QED
 
 (* -------------------------------------------------------------------------
