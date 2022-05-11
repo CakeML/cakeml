@@ -85,6 +85,7 @@ Definition kernel_funs_def:
 
     (* Compute additions *)
     compute_add_v;
+    npr_compute_v;
   }
 End
 
@@ -1615,6 +1616,17 @@ QED
 
 Theorem compute_add_v_head:
   do_partial_app compute_add_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env,exp) ∧
+  evaluate ^s env [exp] = (s',res) ⇒
+    ^safe_error_goal ∨
+    LIST_TYPE_HEAD THM_TYPE_HEAD v ∧
+    TERM_TYPE_HEAD w
+Proof
+  prove_head_tac
+QED
+
+Theorem npr_compute_v_head:
+  do_partial_app npr_compute_v v = SOME g ∧
   do_opapp [g; w] = SOME (env,exp) ∧
   evaluate ^s env [exp] = (s',res) ⇒
     ^safe_error_goal ∨
