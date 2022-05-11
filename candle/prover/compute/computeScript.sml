@@ -222,11 +222,11 @@ Definition npr_thms_def:
     (* NPR_ADD    *) _NPR_ADD (_NPR_PAIR _P1 _Q1) (_NPR_NUM _M) ===
                        _NPR_NUM _M;
     (* NPR_ADD    *) _NPR_ADD (_NPR_PAIR _P1 _Q1) (_NPR_PAIR _P2 _Q2) ===
-                       _NPR_NUM _0;
+                       _NPR_NUM (_NUMERAL _0);
     (* NPR_FST    *) _NPR_FST (_NPR_PAIR _P1 _Q1) === _P1;
-    (* NPR_FST    *) _NPR_FST (_NPR_NUM _N) === _NPR_NUM _0;
+    (* NPR_FST    *) _NPR_FST (_NPR_NUM _N) === _NPR_NUM (_NUMERAL _0);
     (* NPR_SND    *) _NPR_SND (_NPR_PAIR _P1 _Q1) === _Q1;
-    (* NPR_SND    *) _NPR_SND (_NPR_NUM _N) === _NPR_NUM _0;
+    (* NPR_SND    *) _NPR_SND (_NPR_NUM _N) === _NPR_NUM (_NUMERAL _0);
   ]
 End
 
