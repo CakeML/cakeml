@@ -141,6 +141,12 @@ Definition numeral_thy_ok_def:
     (thy,[]) |- _ADD (_SUC _N) _M === _SUC (_ADD _N _M)
 End
 
+Theorem numeral_thy_ok_theory_ok[simp]:
+  numeral_thy_ok thy ⇒ theory_ok thy
+Proof
+  rw [numeral_thy_ok_def]
+QED
+
 Theorem numeral_thy_ok_terms_ok:
   numeral_thy_ok thy ⇒
     term_ok (sigof thy) _ADD_TM ∧
@@ -154,6 +160,77 @@ Proof
   \\ pop_assum kall_tac
   \\ rpt (dxrule_then assume_tac proves_term_ok) \\ rfs []
   \\ fs [equation_def, term_ok_def, SF SFY_ss]
+QED
+
+(* The numeral_thy_ok theorems with object variables replaced with meta
+   variables.
+ *)
+
+Theorem NUMERAL_eqn:
+  numeral_thy_ok thy ∧
+  term_ok (sigof thy) n ∧
+  n has_type num_ty ⇒
+    (thy,[]) |- _NUMERAL n === n
+Proof
+  rw [numeral_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _NUMERAL x === x’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N]’ mp_tac) proves_INST
+  \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem BIT0_eqn:
+  numeral_thy_ok thy ∧
+  term_ok (sigof thy) n ∧
+  n has_type num_ty ⇒
+    (thy,[]) |- _BIT0 n === _ADD n n
+Proof
+  rw [numeral_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _BIT0 x === _ADD x x’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N]’ mp_tac) proves_INST
+  \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem BIT1_eqn:
+  numeral_thy_ok thy ∧
+  term_ok (sigof thy) n ∧
+  n has_type num_ty ⇒
+    (thy,[]) |- _BIT1 n === _SUC (_ADD n n)
+Proof
+  rw [numeral_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _BIT1 _ === _SUC _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N]’ mp_tac) proves_INST
+  \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem ADD_eqn:
+  numeral_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
+  m has_type num_ty ∧ n has_type num_ty ⇒
+    (thy,[]) |- _ADD _0 m === m ∧
+    (thy,[]) |- _ADD (_SUC n) m === _SUC (_ADD n m)
+Proof
+  rw [numeral_thy_ok_def]
+  >- (
+    qpat_x_assum ‘_ |- _ADD _0 _ === _’ assume_tac
+    \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M]’ mp_tac) proves_INST
+    \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def])
+  \\ qpat_x_assum ‘_ |- _ADD (_SUC _) _ === _SUC _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M; n,_N]’ mp_tac) proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem BIT0_0:
+  numeral_thy_ok thy ⇒
+    (thy,[]) |- _BIT0 _0 === _0
+Proof
+  strip_tac
+  \\ ‘term_ok (sigof thy) _0 ∧ _0 has_type num_ty’
+    by gs [numeral_thy_ok_terms_ok, has_type_rules]
+  \\ drule_all_then assume_tac BIT0_eqn
+  \\ irule trans_equation_simple
+  \\ first_x_assum (irule_at Any)
+  \\ drule_all ADD_eqn
+  \\ simp [ADD_eqn]
 QED
 
 Definition num2term_def:
@@ -244,54 +321,28 @@ Proof
   \\ rw [VSUBST_def]
 QED
 
-Theorem BIT0_0:
-  numeral_thy_ok thy ⇒
-    (thy,[]) |- _BIT0 _0 === _0
-Proof
-  strip_tac
-  \\ drule_then strip_assume_tac numeral_thy_ok_terms_ok
-  \\ gs [numeral_thy_ok_def]
-  \\ ‘(thy,[]) |- _BIT0 _0 === _ADD _0 _0’
-    by (qpat_x_assum ‘_ |- _BIT0 _N === _’ assume_tac
-        \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[_0,_N]’ mp_tac) proves_INST
-        \\ simp [VSUBST_def, REV_ASSOCD, equation_def, Once has_type_cases])
-  \\ irule trans_equation_simple
-  \\ first_x_assum (irule_at Any)
-  \\ qpat_x_assum ‘_ |- _ADD _0 _M === _M’ assume_tac
-  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[_0,_M]’ mp_tac) proves_INST
-  \\ simp [VSUBST_def, REV_ASSOCD, equation_def, Once has_type_cases]
-QED
-
 Theorem num2term_ADD:
   numeral_thy_ok thy ⇒
     (thy,[]) |- num2term (m + n) === _ADD (num2term m) (num2term n)
 Proof
-  strip_tac \\ qid_spec_tac ‘m’
-  \\ drule_then strip_assume_tac numeral_thy_ok_terms_ok
-  \\ gs [numeral_thy_ok_def]
+  strip_tac \\ irule sym_equation \\ qid_spec_tac ‘m’
   \\ Induct \\ simp []
   >- (
     rw [num2term_def]
     \\ qabbrev_tac ‘M = num2term n’
-    \\ qpat_x_assum ‘_ |- _ADD _0 _M === _M’ assume_tac
-    \\ drule_at_then (Pos (el 2)) (qspec_then ‘[M,_M]’ mp_tac) proves_INST
-    \\ simp [VSUBST_def, REV_ASSOCD, equation_def, Abbr ‘M’, term_ok_def,
-             num2term_term_ok, numeral_thy_ok_def, sym_equation])
+    \\ ‘term_ok (sigof thy) M ∧ M has_type num_ty’
+      by fs [Abbr ‘M’, num2term_term_ok]
+    \\ rw [ADD_eqn, SF SFY_ss])
   \\ rw [ADD_CLAUSES, num2term_def] \\ fs []
   \\ qmatch_goalsub_abbrev_tac ‘_ADD (_SUC N) M’
-  \\ ‘(thy,[]) |- _ADD (_SUC N) _M === _SUC (_ADD N _M)’
-    by (qpat_x_assum ‘_ |- _ADD _ _ === _’ assume_tac
-        \\ drule_at_then (Pos (el 2)) (qspec_then ‘[N,_N]’ mp_tac) proves_INST
-        \\ simp [VSUBST_def, REV_ASSOCD, equation_def, term_ok_def, Abbr ‘N’,
-                 num2term_term_ok, numeral_thy_ok_def])
-  \\ ‘(thy,[]) |- _ADD (_SUC N) M === _SUC (_ADD N M)’
-    by (drule_at_then (Pos (el 2)) (qspec_then ‘[M,_M]’ mp_tac) proves_INST
-        \\ simp [VSUBST_def, REV_ASSOCD, equation_def, term_ok_def, Abbr ‘M’,
-                 num2term_term_ok, numeral_thy_ok_def, Abbr ‘N’])
-  \\ irule trans_equation_simple
-  \\ irule_at (Pos last) sym_equation
-  \\ first_assum (irule_at Any)
-  \\ simp [MK_COMB_simple, proves_REFL]
+  \\ ‘term_ok (sigof thy) M ∧ M has_type num_ty ∧
+      term_ok (sigof thy) N ∧ N has_type num_ty’
+      by fs [Abbr ‘M’, Abbr ‘N’, num2term_term_ok]
+  \\ irule replaceR2
+  \\ first_x_assum (irule_at Any)
+  \\ csimp [numeral_thy_ok_terms_ok, term_ok_def, term_ok_welltyped,
+            num2term_term_ok, WELLTYPED_LEMMA, SF SFY_ss]
+  \\ rw [ADD_eqn, sym_equation, SF SFY_ss]
 QED
 
 Theorem ADD_num2term =
@@ -302,53 +353,55 @@ Theorem num2bit_num2term:
     ∀n. (thy,[]) |- num2bit n === num2term n
 Proof
   strip_tac \\ ho_match_mp_tac num2bit_ind \\ rw []
-  \\ drule_then strip_assume_tac numeral_thy_ok_terms_ok
-  \\ gs [numeral_thy_ok_def]
+  \\ ‘term_ok (sigof thy) _0 ∧ _0 has_type num_ty’
+    by fs [numeral_thy_ok_terms_ok, has_type_rules]
   \\ rw [num2term_def, Once num2bit_def, proves_REFL]
   >- (
     qabbrev_tac ‘N = num2term (n DIV 2)’
+    \\ ‘term_ok (sigof thy) N ∧ N has_type num_ty’
+      by fs [Abbr ‘N’, num2term_term_ok]
     \\ ‘(thy,[]) |- _BIT0 (num2bit (n DIV 2)) === _BIT0 N’
-      by rw [MK_COMB_simple, proves_REFL]
+      by rw [MK_COMB_simple, proves_REFL, numeral_thy_ok_terms_ok]
     \\ irule trans_equation_simple
     \\ first_x_assum (irule_at Any)
-    \\ qpat_x_assum ‘_ |- _BIT0 _N === _’ assume_tac
-    \\ ‘(thy,[]) |- _BIT0 N === _ADD N N’
-      by (drule_at_then (Pos (el 2)) (qspec_then ‘[N,_N]’ mp_tac) proves_INST
-          \\ simp [VSUBST_def, REV_ASSOCD, equation_def, term_ok_def, Abbr ‘N’,
-                   num2term_term_ok, numeral_thy_ok_def])
-    \\ irule trans_equation_simple
-    \\ first_x_assum (irule_at Any)
+    \\ ‘(thy,[]) |- _ADD N N === num2term n’
+      suffices_by (
+        strip_tac
+        \\ irule trans_equation_simple
+        \\ first_x_assum (irule_at Any)
+        \\ simp [BIT0_eqn])
     \\ fs [Abbr ‘N’]
-    \\ qspecl_then [‘thy’,‘n DIV 2’,‘n DIV 2’] mp_tac (GEN_ALL ADD_num2term)
-    \\ gs [numeral_thy_ok_def]
-    \\ ‘2 * (n DIV 2) = n’ by intLib.ARITH_TAC \\ gs [])
+    \\ ‘num2term n = num2term (n DIV 2 + n DIV 2)’
+      by (AP_TERM_TAC \\ intLib.ARITH_TAC)
+    \\ pop_assum SUBST1_TAC
+    \\ irule_at Any ADD_num2term \\ fs [])
   >- (
-    qpat_x_assum ‘_ |- _BIT1 _N === _’ assume_tac
-    \\ qabbrev_tac ‘N = num2term (n DIV 2)’
+    qabbrev_tac ‘N = num2term (n DIV 2)’
+    \\ ‘term_ok (sigof thy) N ∧ N has_type num_ty’
+      by fs [Abbr ‘N’, num2term_term_ok]
     \\ ‘(thy,[]) |- _BIT1 (num2bit (n DIV 2)) === _BIT1 N’
-      by rw [MK_COMB_simple, proves_REFL]
+      by rw [MK_COMB_simple, proves_REFL, numeral_thy_ok_terms_ok]
     \\ irule trans_equation_simple
     \\ first_x_assum (irule_at Any)
-    \\ ‘(thy,[]) |- _BIT1 N === _SUC (_ADD N N)’
-      by (drule_at_then (Pos (el 2)) (qspec_then ‘[N,_N]’ mp_tac) proves_INST
-          \\ simp [VSUBST_def, REV_ASSOCD, equation_def, Once has_type_rules,
-                   num2term_term_ok, numeral_thy_ok_def, Abbr ‘N’])
-    \\ irule trans_equation_simple
-    \\ first_x_assum (irule_at Any)
-    \\ ‘n = SUC (n DIV 2 + n DIV 2)’ by intLib.ARITH_TAC
-    \\ pop_assum (fn th => simp [SimpR “(===)”, Once th])
-    \\ simp [num2term_def]
+    \\ ‘(thy,[]) |- _SUC (_ADD N N) === num2term n’
+      suffices_by (
+        strip_tac
+        \\ irule trans_equation_simple
+        \\ first_x_assum (irule_at Any)
+        \\ simp [BIT1_eqn])
+    \\ ‘num2term n = _SUC (num2term (2 * (n DIV 2)))’
+      by (‘n = SUC (n DIV 2 + n DIV 2)’ by intLib.ARITH_TAC
+          \\ pop_assum (fn th => simp [SimpLHS, Once th])
+          \\ simp [num2term_def])
+    \\ pop_assum SUBST1_TAC
     \\ irule MK_COMB_simple
-    \\ ‘welltyped N ∧ typeof N = num_ty’
-      by gs [Abbr ‘N’]
-    \\ simp [proves_REFL]
+    \\ simp [term_ok_welltyped, WELLTYPED_LEMMA, proves_REFL,
+             numeral_thy_ok_terms_ok, SF SFY_ss]
+    \\ qunabbrev_tac ‘N’
     \\ ‘2 * (n DIV 2) = n DIV 2 + n DIV 2’
       by rw []
     \\ pop_assum SUBST1_TAC
-    \\ irule trans_equation_simple
-    \\ irule_at Any ADD_num2term
-    \\ simp [proves_REFL, term_ok_def, Abbr ‘N’, num2term_term_ok,
-             numeral_thy_ok_def])
+    \\ rw [ADD_num2term])
 QED
 
 Theorem num2bit_ADD:
@@ -356,18 +409,16 @@ Theorem num2bit_ADD:
     (thy,[]) |- num2bit (m + n) === _ADD (num2bit m) (num2bit n)
 Proof
   strip_tac
-  \\ drule_then strip_assume_tac numeral_thy_ok_terms_ok
   \\ drule_then assume_tac num2bit_num2term
   \\ first_assum (qspec_then ‘n’ assume_tac)
   \\ first_assum (qspec_then ‘m’ assume_tac)
   \\ first_x_assum (qspec_then ‘m + n’ assume_tac)
-  \\ gs [numeral_thy_ok_def]
   \\ irule trans_equation_simple
-  \\ first_assum (irule_at Any)
+  \\ first_x_assum (irule_at Any)
   \\ irule trans_equation_simple
   \\ qexists_tac ‘_ADD (num2term m) (num2term n)’
-  \\ simp [num2term_ADD, numeral_thy_ok_def, MK_COMB_simple, proves_REFL,
-           sym_equation]
+  \\ simp [num2term_ADD, MK_COMB_simple, proves_REFL, numeral_thy_ok_terms_ok,
+           num2term_term_ok, sym_equation]
 QED
 
 Theorem ADD_num2bit =
@@ -480,14 +531,123 @@ Definition num_pair_thy_ok_def:
     (thy,[]) |- _NPR_ADD (_NPR_NUM _N) (_NPR_PAIR _P1 _Q1) === _NPR_NUM _N ∧
     (thy,[]) |- _NPR_ADD (_NPR_PAIR _P1 _Q1) (_NPR_NUM _M) === _NPR_NUM _M ∧
     (thy,[]) |- _NPR_ADD (_NPR_PAIR _P1 _Q1) (_NPR_PAIR _P2 _Q2) ===
-                _NPR_NUM _0 ∧
+                _NPR_NUM (_NUMERAL _0) ∧
     (* npr_fst *)
     (thy,[]) |- _NPR_FST (_NPR_PAIR _P1 _Q1) === _P1 ∧
-    (thy,[]) |- _NPR_FST (_NPR_NUM _N) === _NPR_NUM _0 ∧
+    (thy,[]) |- _NPR_FST (_NPR_NUM _N) === _NPR_NUM (_NUMERAL _0) ∧
     (* npr_snd *)
     (thy,[]) |- _NPR_SND (_NPR_PAIR _P1 _Q1) === _Q1 ∧
-    (thy,[]) |- _NPR_SND (_NPR_NUM _N) === _NPR_NUM _0
+    (thy,[]) |- _NPR_SND (_NPR_NUM _N) === _NPR_NUM (_NUMERAL _0)
 End
+
+Theorem NPR_ADD_eqn1:
+  num_pair_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
+  m has_type num_ty ∧ n has_type num_ty ⇒
+    (thy,[]) |- _NPR_ADD (_NPR_NUM m) (_NPR_NUM n) === _NPR_NUM (_ADD m n)
+Proof
+  rw [num_pair_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _NPR_ADD _ _ === _NPR_NUM (_ADD _ _)’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N; m,_M]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem NPR_ADD_eqn2:
+  num_pair_thy_ok thy ∧
+  term_ok (sigof thy) n ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  n has_type num_ty ∧ p1 has_type npr_ty ∧ q1 has_type npr_ty ⇒
+    (thy,[]) |- _NPR_ADD (_NPR_NUM n) (_NPR_PAIR p1 q1) === _NPR_NUM n
+Proof
+  rw [num_pair_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _NPR_ADD x _ === x’ assume_tac
+  \\ dxrule_at_then (Pos (el 2))
+                    (qspec_then ‘[p1,_P1; q1,_Q1; n,_N]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem NPR_ADD_eqn3:
+  num_pair_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  m has_type num_ty ∧ p1 has_type npr_ty ∧ q1 has_type npr_ty⇒
+    (thy,[]) |- _NPR_ADD (_NPR_PAIR p1 q1) (_NPR_NUM m) === _NPR_NUM m
+Proof
+  rw [num_pair_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _NPR_ADD _ x === x’ assume_tac
+  \\ dxrule_at_then (Pos (el 2))
+                    (qspec_then ‘[p1,_P1; q1,_Q1; m,_M]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem NPR_ADD_eqn4:
+  num_pair_thy_ok thy ∧
+  term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  term_ok (sigof thy) p2 ∧ term_ok (sigof thy) q2 ∧
+  p1 has_type npr_ty ∧ q1 has_type npr_ty ∧
+  p2 has_type npr_ty ∧ q2 has_type npr_ty ⇒
+    (thy,[]) |- _NPR_ADD (_NPR_PAIR p1 q1) (_NPR_PAIR p2 q2) ===
+                _NPR_NUM (_NUMERAL _0)
+Proof
+  rw [num_pair_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _NPR_ADD _ _ === _NPR_NUM (_NUMERAL _0)’ assume_tac
+  \\ dxrule_at_then (Pos (el 2))
+                    (qspec_then ‘[p1,_P1; q1,_Q1; p2,_P2; q2,_Q2]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem NPR_FST_eqn1:
+  num_pair_thy_ok thy ∧
+  term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  p1 has_type npr_ty ∧ q1 has_type npr_ty ⇒
+    (thy,[]) |- _NPR_FST (_NPR_PAIR p1 q1) === p1
+Proof
+  rw [num_pair_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _NPR_FST (_NPR_PAIR x _) === x’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem NPR_FST_eqn2:
+  num_pair_thy_ok thy ∧
+  term_ok (sigof thy) n ∧ n has_type num_ty ⇒
+    (thy,[]) |- _NPR_FST (_NPR_NUM n) === _NPR_NUM (_NUMERAL_0)
+Proof
+  rw [num_pair_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _NPR_FST _ === _NPR_NUM (_NUMERAL _0)’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem NPR_SND_eqn1:
+  num_pair_thy_ok thy ∧
+  term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  p1 has_type npr_ty ∧ q1 has_type npr_ty ⇒
+    (thy,[]) |- _NPR_SND (_NPR_PAIR p1 q1) === q1
+Proof
+  rw [num_pair_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _NPR_SND (_NPR_PAIR _ x) === x’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem NPR_SND_eqn2:
+  num_pair_thy_ok thy ∧
+  term_ok (sigof thy) n ∧
+  n has_type num_ty ⇒
+    (thy,[]) |- _NPR_SND (_NPR_NUM n) === _NPR_NUM (_NUMERAL _0)
+Proof
+  rw [num_pair_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _NPR_SND _ === _NPR_NUM (_NUMERAL _0)’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
 
 Theorem num_pair_thy_ok_terms_ok:
   num_pair_thy_ok thy ⇒
@@ -509,6 +669,12 @@ Proof
   \\ dxrule_then strip_assume_tac numeral_thy_ok_terms_ok \\ gs []
   \\ rpt (dxrule_then assume_tac proves_term_ok) \\ rfs []
   \\ fs [equation_def, term_ok_def, SF SFY_ss]
+QED
+
+Theorem num_pair_thy_ok_theory_ok[simp]:
+  num_pair_thy_ok thy ⇒ theory_ok thy
+Proof
+  rw [num_pair_thy_ok_def]
 QED
 
 Definition npr2term_def:
@@ -575,43 +741,6 @@ Definition npr_eval_def:
     | _ => Num 0)
 End
 
-Theorem NUMERAL_eq:
-  numeral_thy_ok thy ∧
-  term_ok (sigof thy) n ∧
-  n has_type num_ty ⇒
-    ((thy,[]) |- _NUMERAL n === P ⇔ (thy,[]) |- n === P)
-Proof
-  rw [numeral_thy_ok_def]
-  \\ ‘(thy,[]) |- _NUMERAL n === n’
-    by (qpat_x_assum ‘_ |- _NUMERAL x === x’ assume_tac
-        \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N]’ mp_tac) proves_INST
-        \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def])
-  \\ rw [EQ_IMP_THM]
-  \\ irule_at Any trans_equation_simple
-  \\ first_assum (irule_at Any) \\ fs []
-  \\ rw [sym_equation]
-QED
-
-(* TODO Useful to have these rewrites with free variables instead of
- *      HOL variables (and in both directions) *)
-
-Theorem BIT0_eq:
-  numeral_thy_ok thy ∧
-  term_ok (sigof thy) n ∧
-  n has_type num_ty ⇒
-    ((thy,[]) |- _BIT0 n === P ⇔ (thy,[]) |- _ADD n n === P)
-Proof
-  rw [numeral_thy_ok_def]
-  \\ ‘(thy,[]) |- _BIT0 n === _ADD n n’
-    by (qpat_x_assum ‘_ |- _BIT0 x === _ADD x x’ assume_tac
-        \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N]’ mp_tac) proves_INST
-        \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def])
-  \\ rw [EQ_IMP_THM]
-  \\ irule_at Any trans_equation_simple
-  \\ first_assum (irule_at Any) \\ fs []
-  \\ rw [sym_equation]
-QED
-
 Definition npr_ground_def[simp]:
   npr_ground (Num n) = T ∧
   npr_ground (Pair p q) = (npr_ground p ∧ npr_ground q) ∧
@@ -631,166 +760,135 @@ Theorem npr_eval_thm:
     (thy,[]) |- npr2term (npr_eval np) === npr2term np
 Proof
   strip_tac \\ fs []
-  \\ ‘theory_ok thy’
-    by fs [num_pair_thy_ok_def, numeral_thy_ok_def]
   \\ Induct_on ‘np’ \\ rpt gen_tac
   >~ [‘Pair p q’] >- (
-    cheat
-  )
+    simp [npr_eval_def, npr2term_def, MK_COMB_simple, proves_REFL,
+          num_pair_thy_ok_terms_ok])
   >~ [‘Num n’] >- (
     simp [npr_eval_def, proves_REFL, npr2term_term_ok, SF SFY_ss])
   >~ [‘Fst p’] >- (
     simp [npr_eval_def]
-    \\ CASE_TAC \\ fs [npr2term_def, num_pair_thy_ok_def]
-    \\ cheat
-  )
+    \\ ‘npr_ground (npr_eval p)’
+      by irule npr_eval_ground
+    \\ Cases_on ‘∃p1 q1. npr_eval p = Pair p1 q1’ \\ gs []
+    >- (
+      gvs [npr2term_def]
+      \\ irule replaceR2 \\ first_x_assum (irule_at Any)
+      \\ simp [num_pair_thy_ok_terms_ok, npr2term_term_ok, term_ok_def]
+      \\ rw [NPR_FST_eqn1, npr2term_term_ok])
+    \\ ‘∃n. npr_eval p = Num n’
+      by (Cases_on ‘npr_eval p’ \\ gs [])
+    \\ gvs [npr2term_def] \\ simp [Once num2bit_def]
+    \\ irule replaceR2 \\ first_x_assum (irule_at Any)
+    \\ simp [num_pair_thy_ok_terms_ok, npr2term_term_ok, term_ok_def]
+    \\ conj_asm1_tac >- rfs [num_pair_thy_ok_def, num2bit_term_ok]
+    \\ rw [NPR_FST_eqn2, num_pair_thy_ok_terms_ok, term_ok_def,
+           Ntimes has_type_cases 2])
   >~ [‘Snd p’] >- (
     simp [npr_eval_def]
-    \\ CASE_TAC \\ fs [npr2term_def, num_pair_thy_ok_def]
-    \\ cheat
-  )
+    \\ ‘npr_ground (npr_eval p)’
+      by irule npr_eval_ground
+    \\ Cases_on ‘∃p1 q1. npr_eval p = Pair p1 q1’ \\ gs []
+    >- (
+      gvs [npr2term_def]
+      \\ irule replaceR2 \\ first_x_assum (irule_at Any)
+      \\ simp [num_pair_thy_ok_terms_ok, npr2term_term_ok, term_ok_def]
+      \\ rw [NPR_SND_eqn1, npr2term_term_ok])
+    \\ ‘∃n. npr_eval p = Num n’
+      by (Cases_on ‘npr_eval p’ \\ gs [])
+    \\ gvs [npr2term_def] \\ simp [Once num2bit_def]
+    \\ irule replaceR2 \\ first_x_assum (irule_at Any)
+    \\ simp [num_pair_thy_ok_terms_ok, npr2term_term_ok, term_ok_def]
+    \\ conj_asm1_tac >- rfs [num_pair_thy_ok_def, num2bit_term_ok]
+    \\ rw [NPR_SND_eqn2, num_pair_thy_ok_terms_ok, term_ok_def,
+           Ntimes has_type_cases 2])
   >~ [‘Add p q’] >- (
     simp [npr_eval_def]
     \\ Cases_on ‘∃m. npr_eval p = Num m’ \\ fs []
     >- (
       Cases_on ‘∃n. npr_eval q = Num n’ \\ fs []
       >- (
-        drule_then strip_assume_tac num_pair_thy_ok_terms_ok
-        \\ fs [npr2term_def, num_pair_thy_ok_def]
-        \\ qabbrev_tac ‘N = num2bit n’
-        \\ qabbrev_tac ‘M = num2bit m’
-        \\ ‘term_ok (sigof thy) M ∧ term_ok (sigof thy) N’
-          by simp [Abbr ‘M’, Abbr ‘N’, num2bit_term_ok]
-        \\ ‘M has_type num_ty ∧ N has_type num_ty’
-          by simp [Abbr ‘M’, Abbr ‘N’]
-        \\ ‘(thy,[]) |- _NPR_NUM (_NUMERAL (num2bit (m + n))) ===
-                        _NPR_NUM (_NUMERAL (_ADD M N))’
-          by simp [MK_COMB_simple, num_pair_thy_ok_def, proves_REFL,
-                   num2bit_ADD, num_pair_thy_ok_terms_ok, Abbr ‘M’, Abbr ‘N’]
+        gvs [npr2term_def]
+        \\ qmatch_asmsub_abbrev_tac ‘_ |- A === npr2term p’
+        \\ qmatch_asmsub_abbrev_tac ‘_ |- B === npr2term q’
+        \\ ‘(thy,[]) |- _NPR_NUM (_NUMERAL (num2bit (m + n))) === _NPR_ADD A B’
+          suffices_by (
+            rw [Abbr ‘A’, Abbr ‘B’]
+            \\ irule replaceR2 \\ first_x_assum (irule_at Any)
+            \\ simp [num_pair_thy_ok_terms_ok, npr2term_term_ok, term_ok_def]
+            \\ conj_asm1_tac >- rfs [num_pair_thy_ok_def, num2bit_term_ok]
+            \\ irule replaceL1 \\ simp []
+            \\ qexists_tac ‘Comb _NPR_ADD_TM (_NPR_NUM (_NUMERAL (num2bit m)))’
+            \\ simp [num_pair_thy_ok_terms_ok, npr2term_term_ok, term_ok_def,
+                     Once sym_equation]
+            \\ conj_asm1_tac >- rfs [num_pair_thy_ok_def, num2bit_term_ok]
+            \\ simp [MK_COMB_simple, proves_REFL, num_pair_thy_ok_terms_ok])
+        \\ unabbrev_all_tac
+        \\ ‘(thy,[]) |- _NPR_ADD (_NPR_NUM (num2bit m)) (_NPR_NUM (num2bit n))
+                    === _NPR_NUM (num2bit (m + n))’
+          suffices_by (
+            strip_tac \\ irule_at Any sym_equation
+            \\ irule replaceR2 \\ fs []
+            \\ irule_at Any sym_equation
+            \\ irule_at Any NUMERAL_eqn \\ fs []
+            \\ conj_asm1_tac >- rfs [num_pair_thy_ok_def]
+            \\ drule_then assume_tac num2bit_term_ok
+            \\ simp [num_pair_thy_ok_terms_ok, term_ok_def,
+                     Ntimes has_type_cases 2]
+            \\ irule trans_equation_simple
+            \\ irule_at Any sym_equation
+            \\ first_x_assum (irule_at Any)
+            \\ irule MK_COMB_simple \\ simp []
+            \\ rw [MK_COMB_simple, proves_REFL, num_pair_thy_ok_terms_ok,
+                   sym_equation, NUMERAL_eqn])
+        \\ ‘(thy,[]) |- _NPR_NUM (_ADD (num2bit m) (num2bit n)) ===
+                        _NPR_NUM (num2bit (m + n))’
+          by (irule MK_COMB_simple
+              \\ rw [num_pair_thy_ok_terms_ok, proves_REFL]
+              \\ irule ADD_num2bit \\ rfs [num_pair_thy_ok_def])
         \\ irule trans_equation_simple
         \\ first_x_assum (irule_at Any)
-        \\ ‘_ADD M N has_type num_ty’
-          by rw [Ntimes has_type_cases 3]
-        \\ ‘(thy,[]) |- _NUMERAL (_ADD M N) === _ADD M N’
-          by simp [NUMERAL_eq, Abbr ‘M’, Abbr ‘N’, proves_REFL,
-                   WELLTYPED_LEMMA, term_ok_def, SF SFY_ss]
-        \\ ‘(thy,[]) |- _NPR_NUM (_NUMERAL (_ADD M N)) === _NPR_NUM (_ADD M N)’
-          by simp [MK_COMB_simple, proves_REFL, num_pair_thy_ok_def,
-                   num_pair_thy_ok_terms_ok, Abbr ‘M’, Abbr ‘N’]
-        \\ ‘(thy,[]) |- _NUMERAL M === M’
-          by simp [NUMERAL_eq, proves_REFL]
-        \\ ‘(thy,[]) |- _NUMERAL N === N’
-          by simp [NUMERAL_eq, proves_REFL]
-        \\ irule trans_equation_simple
-        \\ first_x_assum (irule_at Any)
-        \\ irule replaceR2 \\ fs []
-        \\ qexists_tac ‘_NPR_NUM N’
-        \\ simp [term_ok_def, num_pair_thy_ok_def, npr2term_term_ok,
-                 term_ok_welltyped, WELLTYPED_LEMMA, SF SFY_ss]
-        \\ irule_at Any trans_equation_simple
-        \\ first_assum (irule_at (Pos (el 2)))
-        \\ irule_at Any MK_COMB_simple
-        \\ simp [proves_REFL, sym_equation, term_ok_welltyped,
-                 WELLTYPED_LEMMA, SF SFY_ss]
-        \\ irule_at Any replaceL1 \\ fs []
-        \\ qexists_tac ‘Comb _NPR_ADD_TM (_NPR_NUM M)’
-        \\ simp [term_ok_def, num_pair_thy_ok_def, npr2term_term_ok,
-                 num2bit_term_ok, MK_COMB_simple, proves_REFL,
-                 term_ok_welltyped, WELLTYPED_LEMMA, SF SFY_ss]
-        \\ irule_at Any MK_COMB_simple
-        \\ simp [proves_REFL, term_ok_welltyped, WELLTYPED_LEMMA, SF SFY_ss]
-        \\ irule_at Any trans_equation_simple
-        \\ qexists_tac ‘_NPR_NUM (_NUMERAL M)’
-        \\ simp [MK_COMB_simple, NUMERAL_eq, Once sym_equation, proves_REFL,
-                 WELLTYPED_LEMMA, term_ok_welltyped, SF SFY_ss]
-        \\ qpat_x_assum ‘_ |- _NPR_ADD (_NPR_NUM _) (_NPR_NUM _) === _’
-                        assume_tac
-        \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[N,_N; M,_M]’ mp_tac)
-                          proves_INST
-        \\ simp [VSUBST_def, equation_def, holSyntaxLibTheory.REV_ASSOCD,
-                 Abbr ‘N’, Abbr ‘M’]
-        \\ impl_tac \\ fs [] \\ rw [])
-      \\ ‘(thy,[]) |- npr2term (Num m) === npr2term (Add p q)’
-        suffices_by (CASE_TAC \\ gs [])
-      \\ fs [npr2term_def]
-      \\ drule_then strip_assume_tac num_pair_thy_ok_terms_ok
-      \\ drule_then assume_tac npr2term_term_ok
-      \\ fs [num_pair_thy_ok_def]
+        \\ rfs [NPR_ADD_eqn1, num_pair_thy_ok_def, num2bit_term_ok])
       \\ ‘npr_ground (npr_eval q)’
         by irule npr_eval_ground
       \\ ‘∃p1 q1. npr_eval q = Pair p1 q1’
         by (Cases_on ‘npr_eval q’ \\ fs [])
       \\ gvs [npr2term_def]
-      \\ irule sym_equation
-      \\ irule replaceL2 \\ fs []
+      \\ irule replaceR2 \\ fs []
       \\ qexists_tac ‘_NPR_PAIR (npr2term p1) (npr2term q1)’
       \\ simp [Once sym_equation, term_ok_def, npr2term_term_ok,
                num_pair_thy_ok_terms_ok, num_pair_thy_ok_def, SF SFY_ss]
       \\ qmatch_goalsub_abbrev_tac ‘_ |- _NPR_ADD _ (_NPR_PAIR N1 N2) ===
                                          _NPR_NUM M’
-      \\ ‘(thy,[]) |- _NPR_ADD (_NPR_NUM M) (_NPR_PAIR N1 N2) === _NPR_NUM M’
-        suffices_by (
-          strip_tac
-          \\ irule trans_equation_simple
-          \\ first_x_assum (irule_at Any)
-          \\ irule MK_COMB_simple
-          \\ simp [MK_COMB_simple, proves_REFL, npr2term_term_ok, Abbr ‘N1’,
-                   Abbr ‘N2’, Abbr ‘M’, term_ok_welltyped, num_pair_thy_ok_def,
-                   Once sym_equation, SF SFY_ss])
-      \\ qpat_x_assum
-        ‘_ |- _NPR_ADD (_NPR_NUM _) (_NPR_PAIR _ _) === _’ assume_tac
-      \\ dxrule_at_then (Pos (el 2))
-                        (qspec_then ‘[M,_N; N1,_P1; N2,_Q1]’ mp_tac)
-                        proves_INST
-      \\ simp [VSUBST_def, equation_def, holSyntaxLibTheory.REV_ASSOCD,
-               Abbr ‘M’, Abbr ‘N1’, Abbr ‘N2’]
-      \\ impl_tac \\ fs [] \\ dsimp []
-      \\ simp [num2bit_term_ok, term_ok_def]
-      \\ rw [Once has_type_cases]
-      \\ rw [Once has_type_cases])
+      \\ irule replaceL1 \\ fs []
+      \\ qexists_tac ‘Comb _NPR_ADD_TM (_NPR_NUM M)’
+      \\ ‘numeral_thy_ok thy’
+        by rfs [num_pair_thy_ok_def]
+      \\ drule_then assume_tac num2bit_term_ok
+      \\ simp [num_pair_thy_ok_terms_ok, term_ok_def, Abbr ‘M’, Abbr ‘N1’,
+               Abbr ‘N2’, npr2term_term_ok,  MK_COMB_simple, proves_REFL]
+      \\ rw [NPR_ADD_eqn2, num_pair_thy_ok_terms_ok, npr2term_term_ok,
+             Ntimes has_type_cases 2, term_ok_def])
     \\ Cases_on ‘∃n. npr_eval q = Num n’ \\ gs []
     >- (
-      ‘(thy,[]) |- npr2term (Num n) === npr2term (Add p q)’
-        suffices_by (CASE_TAC \\ gs [])
-      \\ fs [npr2term_def]
-      \\ drule_then strip_assume_tac num_pair_thy_ok_terms_ok
-      \\ drule_then assume_tac npr2term_term_ok
-      \\ fs [num_pair_thy_ok_def]
-      \\ ‘npr_ground (npr_eval p)’
+      ‘npr_ground (npr_eval p)’
         by irule npr_eval_ground
       \\ ‘∃p1 q1. npr_eval p = Pair p1 q1’
         by (Cases_on ‘npr_eval p’ \\ fs [])
       \\ gvs [npr2term_def]
-      \\ irule sym_equation
+      \\ ‘numeral_thy_ok thy’
+        by rfs [num_pair_thy_ok_def]
+      \\ drule_then assume_tac num2bit_term_ok
+      \\ irule replaceR2 \\ fs []
+      \\ last_x_assum (irule_at Any)
+      \\ simp [Once sym_equation, term_ok_def, npr2term_term_ok,
+               num_pair_thy_ok_terms_ok, num_pair_thy_ok_def, SF SFY_ss]
       \\ irule replaceL1 \\ fs []
       \\ qexists_tac ‘Comb _NPR_ADD_TM (_NPR_PAIR (npr2term p1) (npr2term q1))’
-      \\ simp [Once sym_equation, term_ok_def, npr2term_term_ok, MK_COMB_simple,
-               proves_REFL, num_pair_thy_ok_terms_ok, num_pair_thy_ok_def,
-               SF SFY_ss]
-      \\ qmatch_goalsub_abbrev_tac ‘_ |- _NPR_ADD (_NPR_PAIR N1 N2) _ ===
-                                         _NPR_NUM M’
-      \\ ‘(thy,[]) |- _NPR_ADD (_NPR_PAIR N1 N2) (_NPR_NUM M) === _NPR_NUM M’
-        suffices_by (
-          strip_tac
-          \\ irule trans_equation_simple
-          \\ first_x_assum (irule_at Any)
-          \\ irule MK_COMB_simple
-          \\ simp [MK_COMB_simple, proves_REFL, npr2term_term_ok, Abbr ‘N1’,
-                   Abbr ‘N2’, Abbr ‘M’, term_ok_welltyped, num_pair_thy_ok_def,
-                   Once sym_equation, SF SFY_ss])
-      \\ qpat_x_assum
-        ‘_ |- _NPR_ADD (_NPR_PAIR _ _) (_NPR_NUM _) === _’ assume_tac
-      \\ dxrule_at_then (Pos (el 2))
-                        (qspec_then ‘[M,_M; N1,_P1; N2,_Q1]’ mp_tac)
-                        proves_INST
-      \\ simp [VSUBST_def, equation_def, holSyntaxLibTheory.REV_ASSOCD,
-               Abbr ‘M’, Abbr ‘N1’, Abbr ‘N2’]
-      \\ impl_tac \\ fs [] \\ dsimp []
-      \\ simp [num2bit_term_ok, term_ok_def]
-      \\ rw [Once has_type_cases]
-      \\ rw [Once has_type_cases])
-    \\ ‘(thy,[]) |- npr2term (Num 0) === npr2term (Add p q)’
-      suffices_by (CASE_TAC \\ gs [] \\ CASE_TAC \\ gs [])
+      \\ simp [Once MK_COMB_simple, proves_REFL, term_ok_def, npr2term_term_ok,
+               num_pair_thy_ok_terms_ok, SF SFY_ss]
+      \\ rw [NPR_ADD_eqn3, num_pair_thy_ok_terms_ok, npr2term_term_ok,
+             Ntimes has_type_cases 2, term_ok_def])
     \\ ‘npr_ground (npr_eval p)’
       by irule npr_eval_ground
     \\ ‘∃p1 q1. npr_eval p = Pair p1 q1’
@@ -800,34 +898,16 @@ Proof
     \\ ‘∃p2 q2. npr_eval q = Pair p2 q2’
       by (Cases_on ‘npr_eval q’ \\ fs [])
     \\ gvs [npr2term_def] \\ simp [Once num2bit_def]
-    \\ irule sym_equation
-    \\ irule replaceL1 \\ fs []
+    \\ irule replaceR1 \\ fs []
     \\ qexists_tac ‘Comb _NPR_ADD_TM (_NPR_PAIR (npr2term p1) (npr2term q1))’
-    \\ simp [Once sym_equation, term_ok_def, npr2term_term_ok, MK_COMB_simple,
-             proves_REFL, num_pair_thy_ok_terms_ok, num_pair_thy_ok_def,
-             SF SFY_ss]
+    \\ simp [term_ok_def, npr2term_term_ok, Once MK_COMB_simple, proves_REFL,
+             num_pair_thy_ok_terms_ok, SF SFY_ss]
     \\ irule replaceL2 \\ fs []
-    \\ qexists_tac ‘_NPR_PAIR (npr2term p2) (npr2term q2)’
-    \\ simp [Once sym_equation, term_ok_def, npr2term_term_ok, MK_COMB_simple,
-             proves_REFL, num_pair_thy_ok_terms_ok, num_pair_thy_ok_def,
-             SF SFY_ss]
-    \\ drule_then strip_assume_tac num_pair_thy_ok_terms_ok
-    \\ drule_then assume_tac npr2term_term_ok
-    \\ fs [num_pair_thy_ok_def]
-    \\ qmatch_goalsub_abbrev_tac
-      ‘_ |- _NPR_ADD (_NPR_PAIR N1 N2) (_NPR_PAIR M1 M2) === _ ’
-    \\ irule replaceR2 \\ fs []
-    \\ qexists_tac ‘_0’
-    \\ simp [term_ok_def, sym_equation, NUMERAL_eq, proves_REFL, has_type_rules]
-    \\ irule sym_equation
-    \\ qpat_x_assum ‘_ |- _NPR_ADD (_NPR_PAIR _ _) (_NPR_PAIR _ _) === _’
-                    assume_tac
-    \\ dxrule_at_then (Pos (el 2))
-                      (qspec_then ‘[M1,_P2; M2,_Q2; N1,_P1; N2,_Q1]’ mp_tac)
-                      proves_INST
-    \\ simp [VSUBST_def, equation_def, REV_ASSOCD, Abbr ‘M1’, Abbr ‘M2’,
-             Abbr ‘N1’, Abbr ‘N2’]
-    \\ impl_tac \\ fs [] \\ dsimp [])
+    \\ first_x_assum (irule_at Any)
+    \\ simp [term_ok_def, npr2term_term_ok, Once MK_COMB_simple, proves_REFL,
+             num_pair_thy_ok_terms_ok, SF SFY_ss]
+    \\ rw [NPR_ADD_eqn4, num_pair_thy_ok_terms_ok, npr2term_term_ok,
+           Ntimes has_type_cases 2, term_ok_def])
 QED
 
 val _ = export_theory ();
