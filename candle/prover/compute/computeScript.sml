@@ -247,13 +247,13 @@ QED
 
 Definition compute_thms_def:
   compute_thms = MAP (Sequent []) [
-    (* T_DEF      *) _T === (Abs _X _X === Abs _X _X);
-    (* FORALL_DEF *) _FORALL_TM === Abs _P (_P === Abs _X _T);
+    (* T_DEF      *) _T === (Abs _p _p === Abs _p _p);
+    (* FORALL_DEF *) _FORALL_TM === Abs _P (_P === Abs _x _T);
     (* NUMERAL    *) _NUMERAL _N === _N;
     (* BIT0       *) _BIT0 _N === _ADD _N _N;
     (* BIT1       *) _BIT1 _N === _SUC (_ADD _N _N);
-    (* ADD        *) _ADD _0 _M === _M;
-    (* ADD        *) _ADD (_SUC _N) _M === _SUC (_ADD _N _M);
+    (* ADD        *) _ADD (_NUMERAL _0) _N === _N;
+    (* ADD        *) _ADD (_SUC _M) _N === _SUC (_ADD _M _N);
     (* CVAL_ADD   *) _CVAL_ADD (_CVAL_NUM _M) (_CVAL_NUM _N) ===
                      _CVAL_NUM (_ADD _M _N);
     (* CVAL_ADD   *) _CVAL_ADD (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
@@ -263,9 +263,9 @@ Definition compute_thms_def:
     (* CVAL_ADD   *) _CVAL_ADD (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
                      _CVAL_NUM (_NUMERAL _0);
     (* CVAL_FST   *) _CVAL_FST (_CVAL_PAIR _P1 _Q1) === _P1;
-    (* CVAL_FST   *) _CVAL_FST (_CVAL_NUM _N) === _CVAL_NUM (_NUMERAL _0);
+    (* CVAL_FST   *) _CVAL_FST (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0);
     (* CVAL_SND   *) _CVAL_SND (_CVAL_PAIR _P1 _Q1) === _Q1;
-    (* CVAL_SND   *) _CVAL_SND (_CVAL_NUM _N) === _CVAL_NUM (_NUMERAL _0);
+    (* CVAL_SND   *) _CVAL_SND (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0);
   ]
 End
 
@@ -303,7 +303,9 @@ QED
 
 Definition compute_add_def:
   compute_add ths tm =
-    if ¬ (compute_init ths) then failwith «compute_add: no init» else
+    if ¬ (compute_init ths) then
+      failwith «compute_add: wrong theorems provided for initialization»
+    else
     do (l,r) <- dest_binary _ADD_TM tm;
        x <- dest_numeral l;
        y <- dest_numeral r;
@@ -326,8 +328,7 @@ Proof
   \\ IF_CASES_TAC \\ gs [] \\ strip_tac
   \\ drule_all_then strip_assume_tac compute_init_thy_ok
   \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
-  \\ ‘theory_ok (thyof ctxt) ∧ numeral_thy_ok (thyof ctxt)’
-    by fs [compute_thy_ok_def, numeral_thy_ok_def]
+  \\ ‘theory_ok (thyof ctxt) ∧ numeral_thy_ok (thyof ctxt)’ by fs []
   \\ simp [Once st_ex_bind_def, otherwise_def]
   \\ CASE_TAC \\ gs []
   \\ ‘TERM ctxt _ADD_TM’
@@ -368,45 +369,22 @@ Proof
   \\ ‘l has_type num_ty ∧ r has_type num_ty’
     by gs [TERM_def, term_ok_def, WELLTYPED]
   \\ ‘(thyof ctxt,[]) |- _NUMERAL l === l’
-    by (gs [numeral_thy_ok_def, TERM_def]
-        \\ qpat_x_assum ‘_ |- _NUMERAL _N === _’ assume_tac
-        \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[l,_N]’ mp_tac) proves_INST
-        \\ simp [VSUBST_def, holSyntaxLibTheory.REV_ASSOCD, equation_def])
+    by gs [NUMERAL_eqn, TERM_def]
   \\ ‘(thyof ctxt,[]) |- _NUMERAL r === r’
-    by (gs [numeral_thy_ok_def, TERM_def]
-        \\ qpat_x_assum ‘_ |- _NUMERAL _N === _’ assume_tac
-        \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[r,_N]’ mp_tac) proves_INST
-        \\ simp [VSUBST_def, holSyntaxLibTheory.REV_ASSOCD, equation_def])
-  \\ ‘(thyof ctxt,[]) |- _NUMERAL l === num2bit x ∧
-      (thyof ctxt,[]) |- _NUMERAL r === num2bit y’
-    by (irule_at Any trans_equation_simple
-        \\ first_x_assum (irule_at Any)
-        \\ irule_at (Pos last) trans_equation_simple
-        \\ first_x_assum (irule_at Any)
-        \\ gs [num2bit_dest_numeral, STATE_def, sym_equation])
+    by gs [NUMERAL_eqn, TERM_def]
   \\ ‘(thyof ctxt,[]) |- _ADD (_NUMERAL l) (_NUMERAL r) ===
                          _NUMERAL (num2bit (x + y))’
     suffices_by rw [equation_def]
-  \\ drule_then assume_tac num2bit_term_ok
-  \\ ‘(thyof ctxt,[]) |- num2bit (x + y) === _NUMERAL (num2bit (x + y))’
-    by (gs [numeral_thy_ok_def, TERM_def]
-        \\ qpat_x_assum ‘_ |- _NUMERAL _N === _’ assume_tac
-        \\ dxrule_at_then (Pos (el 2))
-                          (qspec_then ‘[num2bit (x + y),_N]’ mp_tac)
-                          proves_INST
-        \\ simp [VSUBST_def, holSyntaxLibTheory.REV_ASSOCD, equation_def,
-                 sym_equation])
-  \\ irule trans_equation_simple
+  \\ resolve_then Any irule sym_equation replaceL1
   \\ first_x_assum (irule_at Any)
-  \\ irule replaceL1 \\ fs []
-  \\ qexists_tac ‘Comb _ADD_TM (num2bit x)’
-  \\ simp [term_ok_def] \\ fs [TERM_def]
-  \\ imp_res_tac term_ok_welltyped \\ fs []
-  \\ simp [MK_COMB_simple, proves_REFL, sym_equation]
-  \\ irule replaceL2 \\ fs []
-  \\ qexists_tac ‘num2bit y’
-  \\ simp [term_ok_def] \\ fs []
-  \\ simp [MK_COMB_simple, proves_REFL, sym_equation, ADD_num2bit]
+  \\ resolve_then Any irule sym_equation replaceL2
+  \\ first_x_assum (irule_at Any)
+  \\ irule replaceL1 \\ first_x_assum (irule_at Any)
+  \\ irule replaceL2 \\ first_x_assum (irule_at Any)
+  \\ ‘numeral_thy_ok (thyof ctxt)’ by fs []
+  \\ dxrule_then assume_tac num2bit_term_ok \\ fs []
+  \\ resolve_then Any irule trans_equation_simple sym_equation
+  \\ irule_at Any NUMERAL_eqn \\ rw [num2bit_ADD]
 QED
 
 (* -------------------------------------------------------------------------
@@ -415,7 +393,9 @@ QED
 
 Definition compute_def:
   compute ths tm =
-    if ¬ compute_init ths then failwith «Kernel.compute: no init» else
+    if ¬ compute_init ths then
+      failwith «Kernel.compute: wrong theorems provided for initialization»
+    else
     case dest_cval tm of
     | NONE => failwith «Kernel.compute: term is not a compute_val»
     | SOME cval =>
@@ -441,7 +421,7 @@ Proof
   \\ drule_all_then strip_assume_tac compute_init_thy_ok
   \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
   \\ ‘theory_ok (thyof ctxt) ∧ numeral_thy_ok (thyof ctxt)’
-    by fs [compute_thy_ok_def, numeral_thy_ok_def]
+    by fs []
   \\ CASE_TAC \\ gs []
   \\ simp [Once st_ex_bind_def, st_ex_return_def]
   \\ CASE_TAC \\ gs []
@@ -460,10 +440,8 @@ Proof
         \\ drule_all term_type \\ gs [])
   \\ ‘(thyof ctxt,[]) |- tm === cval2term (compute_eval np)’
     suffices_by rw [equation_def, THM_def]
-  \\ irule trans_equation_simple
-  \\ irule_at (Pos last) sym_equation
-  \\ irule_at Any compute_eval_thm
-  \\ gs [sym_equation]
+  \\ resolve_then Any irule trans_equation_simple sym_equation
+  \\ irule_at Any compute_eval_thm \\ rw []
 QED
 
 val _ = export_theory ();
