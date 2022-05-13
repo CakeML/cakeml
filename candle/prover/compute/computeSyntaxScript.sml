@@ -30,7 +30,7 @@ Overload "_NUMERAL" = “λtm. Comb _NUMERAL_TM tm”;
 
 Overload "_A" = “Tyvar «A»”;
 Overload "_FORALL_TM" = “Const «!» (Fun (Fun _A Bool) Bool)”;
-Overload "_p" = “Var «p» (Fun _A Bool)”;
+Overload "_p" = “Var «p» Bool”;
 Overload "_P" = “Var «P» (Fun _A Bool)”;
 Overload "_x" = “Var «x» _A”;
 Overload "_T" = “Const «T» Bool”;
