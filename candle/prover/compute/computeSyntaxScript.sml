@@ -476,6 +476,161 @@ Proof
   \\ drule proves_theory_ok \\ fs []
 QED
 
+Definition bool2term_def:
+  bool2term T = _T ∧
+  bool2term F = _F
+End
+
+Theorem bool2term_typeof[simp]:
+  typeof (bool2term b) = Bool
+Proof
+  Cases_on ‘b’ \\ rw [bool2term_def]
+QED
+
+Theorem bool2term_has_type[simp]:
+  bool2term b has_type Bool
+Proof
+  Cases_on ‘b’ \\ rw [bool2term_def]
+  \\ rw [has_type_rules]
+QED
+
+Theorem bool2term_welltyped[simp]:
+  welltyped (bool2term b)
+Proof
+  rw [welltyped_def, bool2term_has_type, SF SFY_ss]
+QED
+
+Theorem bool2term_term_ok[simp]:
+  bool_thy_ok thy ⇒ term_ok (sigof thy) (bool2term b)
+Proof
+  strip_tac
+  \\ drule_then strip_assume_tac bool_thy_ok_terms_ok
+  \\ Cases_on ‘b’ \\ rw [bool2term_def]
+QED
+
+Theorem bool2term_VSUBST[simp]:
+  ∀b. VSUBST is (bool2term b) = bool2term b
+Proof
+  Cases \\ rw [bool2term_def, VSUBST_def]
+QED
+
+(* -------------------------------------------------------------------------
+ * Strings and characters
+ * ------------------------------------------------------------------------- *)
+
+Definition string_thy_ok_def:
+  string_thy_ok thy ⇔
+    bool_thy_ok thy ∧
+    (thy,[]) |- _ASCII_TM === _ASCII_TM ∧
+    (thy,[]) |- _STR_NIL_TM === _STR_NIL_TM ∧
+    (thy,[]) |- _STR_CONS_TM === _STR_CONS_TM
+End
+
+Theorem string_thy_ok_terms_ok:
+  string_thy_ok thy ⇒
+    term_ok (sigof thy) _ASCII_TM ∧
+    term_ok (sigof thy) _STR_NIL_TM ∧
+    term_ok (sigof thy) _STR_CONS_TM ∧
+    term_ok (sigof thy) _T ∧
+    term_ok (sigof thy) _F ∧
+    term_ok (sigof thy) _AND_TM ∧
+    term_ok (sigof thy) _IMP_TM ∧
+    term_ok (sigof thy) _FORALL_TM
+Proof
+  simp [string_thy_ok_def] \\ strip_tac
+  \\ drule_then strip_assume_tac bool_thy_ok_terms_ok \\ fs []
+  \\ rpt (dxrule_then assume_tac proves_term_ok) \\ rfs []
+  \\ fs [equation_def, term_ok_def, SF SFY_ss]
+QED
+
+Theorem string_thy_ok_bool_thy_ok[simp]:
+  string_thy_ok thy ⇒ bool_thy_ok thy
+Proof
+  rw [string_thy_ok_def]
+QED
+
+Definition char2term_def:
+  char2term c =
+    _ASCII (bool2term ((ORD c DIV 128) MOD 2 = 1))
+           (bool2term ((ORD c DIV 64) MOD 2 = 1))
+           (bool2term ((ORD c DIV 32) MOD 2 = 1))
+           (bool2term ((ORD c DIV 16) MOD 2 = 1))
+           (bool2term ((ORD c DIV 8) MOD 2 = 1))
+           (bool2term ((ORD c DIV 4) MOD 2 = 1))
+           (bool2term ((ORD c DIV 2) MOD 2 = 1))
+           (bool2term (ORD c MOD 2 = 1))
+End
+
+Theorem char2term_typeof[simp]:
+  typeof (char2term c) = char_ty
+Proof
+  rw [char2term_def]
+QED
+
+Theorem char2term_has_type[simp]:
+  char2term c has_type char_ty
+Proof
+  rw [char2term_def] \\ rw [Ntimes has_type_cases 9]
+QED
+
+Theorem char2term_welltyped[simp]:
+  welltyped (char2term c)
+Proof
+  rw [welltyped_def, char2term_has_type, SF SFY_ss]
+QED
+
+Theorem char2term_term_ok:
+  string_thy_ok thy ⇒ term_ok (sigof thy) (char2term c)
+Proof
+  strip_tac
+  \\ drule_then strip_assume_tac string_thy_ok_terms_ok
+  \\ rw [char2term_def, term_ok_def, bool2term_term_ok]
+QED
+
+Theorem char2term_VSUBST[simp]:
+  VSUBST is (char2term c) = char2term c
+Proof
+  rw [char2term_def, VSUBST_def]
+QED
+
+Definition string2term_def:
+  string2term [] = _STR_NIL_TM ∧
+  string2term (c::cs) = _STR_CONS (char2term c) (string2term cs)
+End
+
+Theorem string2term_typeof[simp]:
+  typeof (string2term s) = string_ty
+Proof
+  Induct_on ‘s’ \\ rw [string2term_def]
+QED
+
+Theorem string2term_has_type[simp]:
+  string2term s has_type string_ty
+Proof
+  Induct_on ‘s’ \\ rw [string2term_def, has_type_rules]
+  \\ rw [Ntimes has_type_cases 3]
+QED
+
+Theorem string2term_welltyped[simp]:
+  welltyped (string2term s)
+Proof
+  rw [welltyped_def, string2term_has_type, SF SFY_ss]
+QED
+
+Theorem string2term_term_ok:
+  string_thy_ok thy ⇒ term_ok (sigof thy) (string2term s)
+Proof
+  strip_tac
+  \\ drule_then strip_assume_tac string_thy_ok_terms_ok
+  \\ Induct_on ‘s’ \\ rw [string2term_def, term_ok_def, char2term_term_ok]
+QED
+
+Theorem string2term_VSUBST[simp]:
+  ∀s. VSUBST is (string2term s) = string2term s
+Proof
+  Induct \\ rw [string2term_def, VSUBST_def]
+QED
+
 (* -------------------------------------------------------------------------
  * Compute values
  * ------------------------------------------------------------------------- *)
