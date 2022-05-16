@@ -677,7 +677,8 @@ Definition compute_thy_ok_def:
     (thy,[]) |- _CVAL_ADD (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
                 _CVAL_NUM (_NUMERAL _0) ∧
     (* if-then-else *)
-    (thy,[]) |- _CVAL_IF (_CVAL_NUM (_NUMERAL (_BIT1 _0))) _P1 _Q1 === _P1 ∧
+    (thy,[]) |- _CVAL_IF (_CVAL_NUM (_SUC _M)) _P1 _Q1 === _P1 ∧
+    (thy,[]) |- _CVAL_IF (_CVAL_PAIR _P2 _Q2) _P1 _Q1 === _P1 ∧
     (thy,[]) |- _CVAL_IF (_CVAL_NUM (_NUMERAL _0)) _P1 _Q1 === _Q1 ∧
     (* various, just to make sure these are real terms *)
     (thy,[]) |- _CVAL_VAR _S === _CVAL_VAR _S ∧
