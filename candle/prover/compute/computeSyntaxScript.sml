@@ -3,8 +3,11 @@
  *)
 
 open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory;
+open ml_monadBaseTheory ml_monadBaseLib;
 
 val _ = new_theory "computeSyntax";
+
+val _ = numLib.prefer_num ();
 
 fun SIMPR ths = SIMP_RULE (srw_ss()) ths;
 fun SIMPC ths = SIMP_CONV (srw_ss()) ths;
@@ -87,6 +90,9 @@ Overload "_CVAL_ADD" = “λt1 t2. Comb (Comb _CVAL_ADD_TM t1) t2”;
 Overload "_CVAL_APP_TM" =
   “Const «cval_app» (Fun string_ty (Fun cval_list_ty cval_ty))”;
 Overload "_CVAL_APP" = “λt1 t2. Comb (Comb _CVAL_APP_TM t1) t2”;
+Overload "_CVAL_IF_TM" =
+  “Const «cval_if» (Fun cval_ty (Fun cval_ty (Fun cval_ty cval_ty)))”;
+Overload "_CVAL_IF" = “λt1 t2 t3. Comb (Comb (Comb _CVAL_IF_TM t1) t2) t3”;
 
 (* -------------------------------------------------------------------------
  * Support
@@ -456,12 +462,20 @@ Theorem ADD_num2bit =
 Definition bool_thy_ok_def:
   bool_thy_ok thy ⇔
     (thy,[]) |- _T === (Abs _p _p === Abs _p _p) ∧
+    (thy,[]) |- _F === _FORALL _p (Abs _p _p) ∧
+    (thy,[]) |- _AND_TM ===
+                Abs _p (Abs _q (Abs _f (Comb (Comb _f _p) _q) ===
+                                Abs _f (Comb (Comb _f _T) _T))) ∧
+    (thy,[]) |- _IMP_TM === Abs _p (Abs _q (_AND _p _q === _p)) ∧
     (thy,[]) |- _FORALL_TM === Abs _P (_P === Abs _x _T)
 End
 
 Theorem bool_thy_ok_terms_ok:
   bool_thy_ok thy ⇒
     term_ok (sigof thy) _T ∧
+    term_ok (sigof thy) _F ∧
+    term_ok (sigof thy) _AND_TM ∧
+    term_ok (sigof thy) _IMP_TM ∧
     term_ok (sigof thy) _FORALL_TM
 Proof
   simp [bool_thy_ok_def] \\ strip_tac
@@ -638,8 +652,10 @@ QED
 Datatype:
   compute_val = Pair compute_val compute_val
               | Num num
-              | Fst compute_val
-              | Snd compute_val
+              | Var string
+              | App string (compute_val list)
+              | If compute_val compute_val compute_val
+                (* operations that rely on host-language features *)
               | Add compute_val compute_val
 End
 
@@ -650,6 +666,7 @@ End
 Definition compute_thy_ok_def:
   compute_thy_ok thy ⇔
     numeral_thy_ok thy ∧
+    string_thy_ok thy ∧
     (* cval_add *)
     (thy,[]) |- _CVAL_ADD (_CVAL_NUM _M) (_CVAL_NUM _N) ===
                 _CVAL_NUM (_ADD _M _N) ∧
@@ -659,12 +676,14 @@ Definition compute_thy_ok_def:
                 _CVAL_NUM _N ∧
     (thy,[]) |- _CVAL_ADD (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
                 _CVAL_NUM (_NUMERAL _0) ∧
-    (* cval_fst *)
-    (thy,[]) |- _CVAL_FST (_CVAL_PAIR _P1 _Q1) === _P1 ∧
-    (thy,[]) |- _CVAL_FST (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0) ∧
-    (* cval_snd *)
-    (thy,[]) |- _CVAL_SND (_CVAL_PAIR _P1 _Q1) === _Q1 ∧
-    (thy,[]) |- _CVAL_SND (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0)
+    (* if-then-else *)
+    (thy,[]) |- _CVAL_IF (_CVAL_NUM (_NUMERAL (_BIT1 _0))) _P1 _Q1 === _P1 ∧
+    (thy,[]) |- _CVAL_IF (_CVAL_NUM (_NUMERAL _0)) _P1 _Q1 === _Q1 ∧
+    (* various, just to make sure these are real terms *)
+    (thy,[]) |- _CVAL_VAR _S === _CVAL_VAR _S ∧
+    (thy,[]) |- _CVAL_APP _S _CS === _CVAL_APP _S _CS ∧
+    (thy,[]) |- _CVAL_CONS _P1 _CS === _CVAL_CONS _P1 _CS ∧
+    (thy,[]) |- _CVAL_NIL_TM === _CVAL_NIL_TM
 End
 
 Theorem CVAL_ADD_eqn1:
@@ -724,58 +743,18 @@ Proof
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_FST_eqn1:
-  compute_thy_ok thy ∧
-  term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_FST (_CVAL_PAIR p1 q1) === p1
-Proof
-  rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_FST (_CVAL_PAIR x _) === x’ assume_tac
-  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1]’ mp_tac)
-                    proves_INST
-  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
-QED
-
-Theorem CVAL_FST_eqn2:
-  compute_thy_ok thy ∧
-  term_ok (sigof thy) m ∧ m has_type num_ty ⇒
-    (thy,[]) |- _CVAL_FST (_CVAL_NUM m) === _CVAL_NUM (_NUMERAL_0)
-Proof
-  rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_FST _ === _CVAL_NUM (_NUMERAL _0)’ assume_tac
-  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M]’ mp_tac)
-                    proves_INST
-  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
-QED
-
-Theorem CVAL_SND_eqn1:
-  compute_thy_ok thy ∧
-  term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_SND (_CVAL_PAIR p1 q1) === q1
-Proof
-  rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_SND (_CVAL_PAIR _ x) === x’ assume_tac
-  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1]’ mp_tac)
-                    proves_INST
-  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
-QED
-
-Theorem CVAL_SND_eqn2:
-  compute_thy_ok thy ∧
-  term_ok (sigof thy) m ∧ m has_type num_ty ⇒
-    (thy,[]) |- _CVAL_SND (_CVAL_NUM m) === _CVAL_NUM (_NUMERAL _0)
-Proof
-  rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_SND _ === _CVAL_NUM (_NUMERAL _0)’ assume_tac
-  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M]’ mp_tac)
-                    proves_INST
-  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
-QED
-
 Theorem compute_thy_ok_terms_ok:
   compute_thy_ok thy ⇒
+    (* bools *)
+    term_ok (sigof thy) _T ∧
+    term_ok (sigof thy) _F ∧
+    term_ok (sigof thy) _AND_TM ∧
+    term_ok (sigof thy) _IMP_TM ∧
+    term_ok (sigof thy) _FORALL_TM ∧
+    (* strings *)
+    term_ok (sigof thy) _ASCII_TM ∧
+    term_ok (sigof thy) _STR_NIL_TM ∧
+    term_ok (sigof thy) _STR_CONS_TM ∧
     (* nums *)
     term_ok (sigof thy) _ADD_TM ∧
     term_ok (sigof thy) _0 ∧
@@ -785,13 +764,17 @@ Theorem compute_thy_ok_terms_ok:
     term_ok (sigof thy) _NUMERAL_TM ∧
     (* cvals *)
     term_ok (sigof thy) _CVAL_ADD_TM ∧
-    term_ok (sigof thy) _CVAL_FST_TM ∧
-    term_ok (sigof thy) _CVAL_SND_TM ∧
+    term_ok (sigof thy) _CVAL_APP_TM ∧
+    term_ok (sigof thy) _CVAL_VAR_TM ∧
     term_ok (sigof thy) _CVAL_NUM_TM ∧
-    term_ok (sigof thy) _CVAL_PAIR_TM
+    term_ok (sigof thy) _CVAL_IF_TM ∧
+    term_ok (sigof thy) _CVAL_PAIR_TM ∧
+    term_ok (sigof thy) _CVAL_NIL_TM ∧
+    term_ok (sigof thy) _CVAL_CONS_TM
 Proof
   simp [compute_thy_ok_def] \\ strip_tac
-  \\ dxrule_then strip_assume_tac numeral_thy_ok_terms_ok \\ gs []
+  \\ dxrule_then strip_assume_tac string_thy_ok_terms_ok
+  \\ dxrule_then strip_assume_tac numeral_thy_ok_terms_ok \\ fs []
   \\ rpt (dxrule_then assume_tac proves_term_ok) \\ rfs []
   \\ fs [equation_def, term_ok_def, SF SFY_ss]
 QED
@@ -802,95 +785,289 @@ Proof
   rw [compute_thy_ok_def]
 QED
 
-Definition cval2term_def:
-  cval2term (Num n) = _CVAL_NUM (_NUMERAL (num2bit n)) ∧
-  cval2term (Pair p q) = _CVAL_PAIR (cval2term p) (cval2term q) ∧
-  cval2term (Fst p) = _CVAL_FST (cval2term p) ∧
-  cval2term (Snd p) = _CVAL_SND (cval2term p) ∧
-  cval2term (Add p q) = _CVAL_ADD (cval2term p) (cval2term q)
-End
-
-Theorem cval2term_typeof[simp]:
-  typeof (cval2term np) = cval_ty
-Proof
-  Induct_on ‘np’ \\ simp [cval2term_def]
-QED
-
-Theorem cval2term_has_type[simp]:
-  cval2term np has_type cval_ty
-Proof
-  Induct_on ‘np’ \\ rw [cval2term_def]
-  \\ rw [Once has_type_cases]
-  \\ rw [Once has_type_cases]
-  \\ rw [Once has_type_cases]
-  \\ rw [Once has_type_cases]
-QED
-
-Theorem cval2term_welltyped[simp]:
-  welltyped (cval2term np)
-Proof
-  rw [welltyped_def, cval2term_has_type, SF SFY_ss]
-QED
-
-Theorem cval2term_term_ok:
-  compute_thy_ok thy ⇒ term_ok (sigof thy) (cval2term np)
-Proof
-  strip_tac
-  \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
-  \\ Induct_on ‘np’ \\ rw [term_ok_def, cval2term_def]
-  \\ fs [compute_thy_ok_def, num2bit_term_ok, SF SFY_ss]
-QED
-
-Theorem cval2term_VSUBST[simp]:
-  ∀np. VSUBST is (cval2term np) = cval2term np
-Proof
-  Induct \\ rw [cval2term_def, VSUBST_def]
-QED
-
-Definition compute_eval_def:
-  compute_eval (Num n) = Num n ∧
-  compute_eval (Pair p q) = Pair (compute_eval p) (compute_eval q) ∧
-  compute_eval (Add p q) =
-    (case compute_eval p, compute_eval q of
-    | Num m, Num n => Num (m + n)
-    | Num m, _ => Num m
-    | _, Num n => Num n
-    | _ => Num 0) ∧
-  compute_eval (Fst p) =
-    (case compute_eval p of
-    | Pair p q => p
-    | _ => Num 0) ∧
-  compute_eval (Snd p) =
-    (case compute_eval p of
-    | Pair p q => q
-    | _ => Num 0)
-End
-
-Definition cval_ground_def[simp]:
-  cval_ground (Num n) = T ∧
-  cval_ground (Pair p q) = (cval_ground p ∧ cval_ground q) ∧
-  cval_ground _ = F
-End
-
-Theorem compute_eval_ground:
-  cval_ground (compute_eval np)
-Proof
-  Induct_on ‘np’ \\ simp [compute_eval_def]
-  \\ CASE_TAC \\ gs []
-  \\ CASE_TAC \\ gs []
-QED
-
 Theorem compute_thy_ok_numeral_thy_ok[simp]:
   compute_thy_ok thy ⇒ numeral_thy_ok thy
 Proof
   rw [compute_thy_ok_def]
 QED
 
+Theorem compute_thy_ok_string_thy_ok[simp]:
+  compute_thy_ok thy ⇒ string_thy_ok thy
+Proof
+  rw [compute_thy_ok_def]
+QED
+
+Definition cval2term_def:
+  cval2term (Num n) = _CVAL_NUM (_NUMERAL (num2bit n)) ∧
+  cval2term (Pair p q) = _CVAL_PAIR (cval2term p) (cval2term q) ∧
+  cval2term (App s cs) = _CVAL_APP (string2term s) (cval_list2term cs) ∧
+  cval2term (Add p q) = _CVAL_ADD (cval2term p) (cval2term q) ∧
+  cval2term (Var s) = _CVAL_VAR (string2term s) ∧
+  cval2term (If p q r) = _CVAL_IF (cval2term p) (cval2term q) (cval2term r) ∧
+  cval_list2term [] = _CVAL_NIL_TM ∧
+  cval_list2term (h::t) = _CVAL_CONS (cval2term h) (cval_list2term t)
+End
+
+Theorem cval2term_typeof[simp]:
+  (∀cv. typeof (cval2term cv) = cval_ty) ∧
+  (∀cs. typeof (cval_list2term cs) = cval_list_ty)
+Proof
+  Induct \\ simp [cval2term_def]
+QED
+
+Theorem cval2term_has_type[simp]:
+  (∀cv. cval2term cv has_type cval_ty) ∧
+  (∀cs. cval_list2term cs has_type cval_list_ty)
+Proof
+  Induct \\ rw [cval2term_def]
+  \\ rw [Ntimes has_type_cases 3]
+  \\ rw [Ntimes has_type_cases 3]
+QED
+
+Theorem cval2term_welltyped[simp]:
+  (∀cv. welltyped (cval2term cv)) ∧
+  (∀cs. welltyped (cval_list2term cs))
+Proof
+  rw [welltyped_def, cval2term_has_type, SF SFY_ss]
+QED
+
+Theorem cval2term_term_ok:
+  compute_thy_ok thy ⇒
+    (∀cv. term_ok (sigof thy) (cval2term cv)) ∧
+    (∀cs. term_ok (sigof thy) (cval_list2term cs))
+Proof
+  strip_tac
+  \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
+  \\ Induct \\ rw [term_ok_def, cval2term_def]
+  \\ fs [compute_thy_ok_def, num2bit_term_ok, string2term_term_ok, SF SFY_ss]
+QED
+
+Theorem cval2term_VSUBST[simp]:
+  (∀cv. VSUBST is (cval2term cv) = cval2term cv) ∧
+  (∀cs. VSUBST is (cval_list2term cs) = cval_list2term cs)
+Proof
+  Induct \\ rw [cval2term_def, VSUBST_def]
+QED
+
+(* -------------------------------------------------------------------------
+ * Monadic interpreter
+ * ------------------------------------------------------------------------- *)
+
+Datatype:
+  cv_state = <| dummy : int; |>
+End
+
+Datatype:
+  cv_exn = Timeout | Type_error
+End
+
+Type M = “:(cv_state,'a,cv_exn) M”;
+
+val [("dummy", get_dummy_def, set_dummy_def)] =
+  define_monad_access_funs “:cv_state”;
+
+val [(raise_Timeout_def, handle_Timeout_def),
+     (raise_Type_error_def, handle_Type_error_def)] =
+  define_monad_exception_functions “:cv_exn” “:cv_state”;
+
+val st_ex_monadinfo : monadinfo = {
+  bind = “st_ex_bind”,
+  ignorebind = SOME “st_ex_ignore_bind”,
+  unit = “st_ex_return”,
+  fail = NONE,
+  choice = SOME “$otherwise”,
+  guard = NONE
+  };
+
+val _ = declare_monad ("st_ex", st_ex_monadinfo);
+val _ = enable_monadsyntax ();
+val _ = enable_monad "st_ex";
+
+Overload return[local] = “st_ex_return”;
+Overload timeout[local] = “raise_Timeout”;
+Overload error[local] = “raise_Type_error”;
+
+Definition check_def:
+  check P = if P then return () else error
+End
+
+Definition option_def:
+  option f x = case f x of SOME r => return r | _ => error
+End
+
+(* Interpreter for compute values.
+ *)
+
+Definition do_add_def:
+  do_add (Num m) (Num n) = return (Num (m + n)) ∧
+  do_add (Num m) _ = return (Num m) ∧
+  do_add _ (Num n) = return (Num n) ∧
+  do_add _ _ = return (Num 0)
+End
+
+Definition map_def:
+  map f [] = return [] ∧
+  map f (x::xs) =
+    do y <- f x;
+       ys <- map f xs;
+       return (y::ys)
+    od
+End
+
+Theorem map_CONG[defncong]:
+  ∀xs ys f g.
+    xs = ys ∧
+    (∀x. MEM x xs ⇒ f x = g x) ⇒
+      map f xs = map g ys
+Proof
+  simp [FUN_EQ_THM] \\ Induct \\ rw [map_def]
+  \\ once_rewrite_tac [st_ex_bind_def] \\ gs []
+  \\ CASE_TAC \\ gs []
+  \\ CASE_TAC \\ gs []
+  \\ ‘map f ys = map g ys’
+    suffices_by rw []
+  \\ rw [FUN_EQ_THM]
+QED
+
+Theorem map_LENGTH:
+  ∀xs f ys s s'.
+    map f xs s = (M_success ys, s') ⇒
+      LENGTH xs = LENGTH ys
+Proof
+  Induct \\ simp [map_def, st_ex_return_def]
+  \\ rpt gen_tac
+  \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
+  \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
+  \\ rw [] \\ fs [SF SFY_ss]
+QED
+
+Theorem map_MEM:
+  ∀xs f ys s s'.
+    map f xs s = (M_success ys, s') ⇒
+      ∀y. MEM y ys ⇒ ∃x r r'. MEM x xs ∧ f x r = (M_success y, r')
+Proof
+  Induct \\ simp [map_def, st_ex_return_def]
+  \\ rpt gen_tac
+  \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
+  \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
+  \\ strip_tac \\ gvs [SF SFY_ss, SF DNF_ss]
+QED
+
+Definition compute_eval_def:
+  compute_eval ck ceqs env cv =
+    case cv of
+    | Var s => option (ALOOKUP env) s
+    | Num n => return (Num n)
+    | Pair p q =>
+        do
+          x <- compute_eval ck ceqs env p;
+          y <- compute_eval ck ceqs env q;
+          return (Pair x y)
+        od
+    | Add p q =>
+        do
+          x <- compute_eval ck ceqs env p;
+          y <- compute_eval ck ceqs env q;
+          do_add x y
+        od
+    | App f cs =>
+        if ck = 0 then timeout else
+          do
+            (args,exp) <- option (ALOOKUP ceqs) f;
+            check (LENGTH args = LENGTH cs);
+            cs <- map (compute_eval ck ceqs env) cs;
+            compute_eval (ck - 1) ceqs (ZIP (args,cs)) exp
+          od
+    | If p q r =>
+        do
+          x <- compute_eval ck ceqs env p;
+          case x of
+          | Num 0 => compute_eval ck ceqs env q
+          | Num _ => compute_eval ck ceqs env p
+          | Pair _ _ => compute_eval ck ceqs env p
+          | _ => error
+        od
+Termination
+  wf_rel_tac ‘inv_image ($< LEX $<) (λ(ck,_,_,cv). (ck, compute_val_size cv))’
+End
+
+Definition cval_value_def[simp]:
+  cval_value (Num n) = T ∧
+  cval_value (Pair p q) = (cval_value p ∧ cval_value q) ∧
+  cval_value _ = F
+End
+
+Theorem do_add_value:
+  ∀x y s z s'.
+    do_add x y s = (M_success z, s') ⇒ cval_value z
+Proof
+  ho_match_mp_tac do_add_ind
+  \\ simp [do_add_def, st_ex_return_def]
+QED
+
+Theorem compute_eval_value:
+  ∀ck ceqs env cv s x s'.
+    EVERY cval_value (MAP SND env) ∧
+    compute_eval ck ceqs env cv s = (M_success x, s') ⇒ cval_value x
+Proof
+  ho_match_mp_tac compute_eval_ind \\ rw []
+  \\ qpat_x_assum ‘compute_eval _ _ _ _ _ = _’ mp_tac
+  \\ simp [Once compute_eval_def]
+  \\ TOP_CASE_TAC \\ gs []
+  >- ((* Pair *)
+    simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
+    \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
+    \\ CASE_TAC \\ gs [st_ex_return_def]
+    \\ rw [] \\ fs [SF SFY_ss])
+  >- ((* Num *)
+    rw [st_ex_return_def] \\ fs [])
+  >- ((* Var *)
+   simp [option_def, st_ex_return_def, raise_Type_error_def]
+   \\ CASE_TAC \\ rw [] \\ gs [EVERY_MEM]
+   \\ first_x_assum irule
+   \\ drule_then assume_tac ALOOKUP_MEM
+   \\ gs [MEM_MAP, EXISTS_PROD, SF SFY_ss])
+  >- ((* App *)
+    IF_CASES_TAC \\ gs [raise_Timeout_def]
+    \\ simp [option_def, raise_Type_error_def]
+    \\ simp [Once st_ex_bind_def, st_ex_return_def]
+    \\ CASE_TAC \\ gs [] \\ pairarg_tac \\ gvs []
+    \\ simp [check_def, raise_Type_error_def, st_ex_return_def,
+             st_ex_ignore_bind_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
+    \\ CASE_TAC \\ gs [] \\ rw []
+    \\ last_x_assum irule
+    \\ first_x_assum (irule_at Any)
+    \\ rename [‘map _ _ _ = (M_success ys, _)’]
+    \\ ‘LENGTH args = LENGTH ys’
+      by (drule map_LENGTH \\ simp [])
+    \\ drule_then (qspecl_then [‘I’,‘I’] mp_tac) MAP_ZIP
+    \\ rw [combinTheory.I_o_ID, EVERY_MEM]
+    \\ drule_all_then strip_assume_tac map_MEM \\ gs [SF SFY_ss])
+  >- ((* If *)
+    simp [Once st_ex_bind_def, raise_Type_error_def]
+    \\ TOP_CASE_TAC \\ gs [] \\ TOP_CASE_TAC \\ gs []
+    \\ TOP_CASE_TAC \\ gs [SF SFY_ss]
+    \\ TOP_CASE_TAC \\ gs [SF SFY_ss])
+  >- ((* Add *)
+    simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
+    \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
+    \\ rw [] \\ drule do_add_value \\ rw [])
+QED
+
 Theorem compute_eval_thm:
   compute_thy_ok thy ⇒
-    (thy,[]) |- cval2term (compute_eval np) === cval2term np
+    ∀ck ceqs env cv s res s'.
+      EVERY cval_value (MAP SND env) ∧
+      (* ∀f vars rhs. MEM (f,vars,rhs) eqs ⇒ (thy,[]) |- f x1 ... xN === rhs *)
+      compute_eval ck ceqs env cv s = (res, s') ⇒
+        s = s' ∧
+        ∀v. res = M_success v ⇒ (thy,[]) |- cval2term v === cval2term cv
 Proof
   strip_tac \\ fs []
+  \\ ho_match_mp_tac compute_eval_ind
+  \\ cheat (* TODO *) (*
   \\ Induct_on ‘np’ \\ rpt gen_tac
   >~ [‘Pair p q’] >- (
     simp [compute_eval_def, cval2term_def, MK_COMB_simple, proves_REFL,
@@ -1000,7 +1177,7 @@ Proof
     \\ gvs [cval2term_def] \\ simp [Once num2bit_def]
     \\ irule replaceR2 \\ first_x_assum (irule_at Any)
     \\ irule replaceL1 \\ first_x_assum (irule_at Any)
-    \\ rw [CVAL_ADD_eqn4, cval2term_term_ok, compute_thy_ok_terms_ok])
+    \\ rw [CVAL_ADD_eqn4, cval2term_term_ok, compute_thy_ok_terms_ok]) *)
 QED
 
 val _ = export_theory ();
