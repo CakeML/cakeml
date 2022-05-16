@@ -30,30 +30,63 @@ Overload "_NUMERAL" = “λtm. Comb _NUMERAL_TM tm”;
 
 Overload "_A" = “Tyvar «A»”;
 Overload "_FORALL_TM" = “Const «!» (Fun (Fun _A Bool) Bool)”;
+Overload "_FORALL" = “λv x. Comb _FORALL_TM (Abs v x)”;
 Overload "_p" = “Var «p» Bool”;
+Overload "_q" = “Var «q» Bool”;
+Overload "_f" = “Var «f» (Fun Bool (Fun Bool Bool))”;
 Overload "_P" = “Var «P» (Fun _A Bool)”;
 Overload "_x" = “Var «x» _A”;
 Overload "_T" = “Const «T» Bool”;
+Overload "_F" = “Const «F» Bool”;
+Overload "_AND_TM" = “Const «/\\» (Fun Bool (Fun Bool Bool))”;
+Overload "_AND" = “λt1 t2. Comb (Comb _AND_TM t1) t2”;
+Overload "_IMP_TM" = “Const «==>» (Fun Bool (Fun Bool Bool))”;
+Overload "_IMP" = “λt1 t2. Comb (Comb _IMP_TM t1) t2”;
+
+(* Characters and strings *)
+
+Overload char_ty = “Tyapp «char» []”;
+Overload string_ty = “Tyapp «list» [char_ty]”;
+Overload "_C" = “Var «c» char_ty”;
+Overload "_S" = “Var «s» string_ty”;
+Overload "_STR_NIL_TM" = “Const «[]» string_ty”;
+Overload "_STR_CONS_TM" =
+  “Const «::» (Fun char_ty (Fun string_ty string_ty))”;
+Overload "_STR_CONS" = “λt1 t2. Comb (Comb _STR_CONS_TM t1) t2”;
+
+Overload "_ASCII_TM" =
+  (rconc (EVAL “Const «ASCII» (FUNPOW (Fun Bool) 8 char_ty)”));
+Overload "_ASCII" =
+  “λt1 t2 t3 t4 t5 t6 t7 t8.
+   Comb (Comb (Comb (Comb (Comb (Comb (Comb (Comb _ASCII_TM t1) t2) t3) t4)
+                                                                t5) t6) t7) t8”;
 
 (* Pairs *)
 
 Overload cval_ty = “Tyapp «cval» []”;
+Overload cval_list_ty = “Tyapp «list» [cval_ty]”;
 Overload "_P1" = “Var «p1» cval_ty”;
 Overload "_P2" = “Var «p2» cval_ty”;
 Overload "_Q1" = “Var «q1» cval_ty”;
 Overload "_Q2" = “Var «q2» cval_ty”;
+Overload "_CS" = “Var «cs» cval_list_ty”;
+Overload "_CVAL_NIL_TM" = “Const «[]» cval_list_ty”;
+Overload "_CVAL_CONS_TM" =
+  “Const «::» (Fun cval_ty (Fun cval_list_ty cval_list_ty))”;
+Overload "_CVAL_CONS" = “λt1 t2. Comb (Comb _CVAL_CONS_TM t1) t2”;
 Overload "_CVAL_NUM_TM" = “Const «cval_num» (Fun num_ty cval_ty)”;
+Overload "_CVAL_NUM" = “λtm. Comb _CVAL_NUM_TM tm”;
 Overload "_CVAL_PAIR_TM" =
   “Const «cval_pair» (Fun cval_ty (Fun cval_ty cval_ty))”;
-Overload "_CVAL_NUM" = “λtm. Comb _CVAL_NUM_TM tm”;
 Overload "_CVAL_PAIR" = “λt1 t2. Comb (Comb _CVAL_PAIR_TM t1) t2”;
+Overload "_CVAL_VAR_TM" = “Const «cval_var» (Fun string_ty cval_ty)”
+Overload "_CVAL_VAR" = “λtm. Comb _CVAL_VAR_TM tm”
 Overload "_CVAL_ADD_TM" =
   “Const «cval_add» (Fun cval_ty (Fun cval_ty cval_ty))”;
 Overload "_CVAL_ADD" = “λt1 t2. Comb (Comb _CVAL_ADD_TM t1) t2”;
-Overload "_CVAL_FST_TM" = “Const «cval_fst» (Fun cval_ty cval_ty)”;
-Overload "_CVAL_FST" = “λtm. Comb _CVAL_FST_TM tm”;
-Overload "_CVAL_SND_TM" = “Const «cval_snd» (Fun cval_ty cval_ty)”;
-Overload "_CVAL_SND" = “λtm. Comb _CVAL_SND_TM tm”;
+Overload "_CVAL_APP_TM" =
+  “Const «cval_app» (Fun string_ty (Fun cval_list_ty cval_ty))”;
+Overload "_CVAL_APP" = “λt1 t2. Comb (Comb _CVAL_APP_TM t1) t2”;
 
 (* -------------------------------------------------------------------------
  * Support
