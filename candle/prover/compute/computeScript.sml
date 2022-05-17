@@ -179,50 +179,58 @@ Definition dest_cval_def:
   dest_cval tm =
     case list_dest_comb [] tm of
     | [Var n ty] => if ty = cval_ty then SOME (Var n) else NONE
-    | [Const n ty; arg] =>
-        if Const n ty = _CVAL_NUM_TM then
-          case dest_numeral_opt arg of
-          | NONE => NONE
-          | SOME n => SOME (Num n)
-        else
-          NONE
-    | [Const n ty; l; r] =>
-        if Const n ty = _CVAL_PAIR_TM then
-          case dest_cval l of
-          | NONE => NONE
-          | SOME p =>
-              case dest_cval r of
-              | NONE => NONE
-              | SOME q => SOME (Pair p q)
-        else if Const n ty = _CVAL_ADD_TM then
-          case dest_cval l of
-          | NONE => NONE
-          | SOME p =>
-              case dest_cval r of
-              | NONE => NONE
-              | SOME q => SOME (Add p q)
-        else
-          NONE
-    | [Const n ty; i; t; e] =>
-        if Const n ty = _CVAL_IF_TM then
-          case dest_cval i of
-          | NONE => NONE
-          | SOME p =>
-              case dest_cval t of
-              | NONE => NONE
-              | SOME q =>
-                  case dest_cval e of
-                  | NONE => NONE
-                  | SOME r => SOME (If p q r)
-        else
-          NONE
     | Const n ty :: args =>
-        (case mapOption dest_cval args of
-        | NONE => NONE
-        | SOME cvs =>
-            if ty = FUNPOW (Fun cval_ty) (LENGTH cvs) cval_ty then
-              SOME (App n cvs)
-            else NONE)
+        (case args of
+        | [arg] =>
+           if Const n ty = _CVAL_NUM_TM then
+             case dest_numeral_opt arg of
+             | NONE => NONE
+             | SOME n => SOME (Num n)
+           else if ty = Fun cval_ty cval_ty then
+             case dest_cval arg of
+             | NONE => NONE
+             | SOME cv => SOME (App n [cv])
+           else
+             NONE
+        | [l; r] =>
+            (case dest_cval l of
+            | NONE => NONE
+            | SOME p =>
+                case dest_cval r of
+                | NONE => NONE
+                | SOME q =>
+                    if Const n ty = _CVAL_PAIR_TM then
+                      SOME (Pair p q)
+                    else if Const n ty = _CVAL_ADD_TM then
+                       SOME (Add p q)
+                    else if ty = Fun cval_ty (Fun cval_ty cval_ty) then
+                      SOME (App n [p; q])
+                    else
+                      NONE)
+        | [i; t; e] =>
+            (case dest_cval i of
+            | NONE => NONE
+            | SOME p =>
+                case dest_cval t of
+                | NONE => NONE
+                | SOME q =>
+                    case dest_cval e of
+                    | NONE => NONE
+                    | SOME r =>
+                        if Const n ty = _CVAL_IF_TM then
+                          SOME (If p q r)
+                        else if ty = Fun cval_ty
+                                         (Fun cval_ty (Fun cval_ty cval_ty))
+                             then SOME (App n [p; q; r])
+                        else
+                          NONE)
+        | _ =>
+            (case mapOption dest_cval args of
+            | NONE => NONE
+            | SOME cvs =>
+                if ty = FUNPOW (Fun cval_ty) (LENGTH cvs) cval_ty then
+                  SOME (App n cvs)
+                else NONE))
     | _ => NONE
 Termination
   wf_rel_tac ‘measure term_size_alt’ \\ rw []
@@ -375,36 +383,42 @@ Proof
     \\ strip_tac \\ fs []
     \\ drule_then strip_assume_tac list_dest_comb_sing
     \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
-    \\ fs [cval2term_def, proves_REFL, term_ok_def, SF SFY_ss]
+    (* \\ fs [cval2term_def, proves_REFL, term_ok_def, SF SFY_ss] *)
     \\ cheat (* term_ok:ness for constants *))
   \\ TOP_CASE_TAC
-  >- ((* unary: num *)
+  >- ((* unary: num or app *)
     fs [CaseEqs ["list", "option", "bool"]]
     \\ strip_tac \\ gvs []
     \\ drule_then strip_assume_tac list_dest_comb_unary \\ gvs []
-    \\ fs [cval2term_dest_numeral_opt])
+    \\ gvs [cval2term_dest_numeral_opt] \\ gvs [cval2term_def]
+    \\ irule MK_COMB_simple \\ simp []
+    \\ irule proves_REFL \\ simp []
+    \\ cheat (* term_ok:ness for constants *))
   \\ TOP_CASE_TAC
-  >- ((* binary: add, pair *)
+  >- ((* binary: add, pair, app *)
     fs [CaseEqs ["list", "option", "bool"]]
     \\ strip_tac \\ gvs []
     \\ drule_then strip_assume_tac list_dest_comb_binary \\ gvs []
     \\ gvs [cval2term_def, MK_COMB_simple, proves_REFL,
-            compute_thy_ok_terms_ok])
+            compute_thy_ok_terms_ok]
+    \\ irule MK_COMB_simple \\ simp [numeralTheory.numeral_funpow]
+    \\ irule MK_COMB_simple \\ simp []
+    \\ irule proves_REFL \\ simp []
+    \\ cheat (* term_ok:ness for constants *))
   \\ TOP_CASE_TAC
   >- ((* ternary: if *)
     fs [CaseEqs ["list", "option", "bool"]]
     \\ strip_tac \\ gvs []
     \\ drule_then strip_assume_tac list_dest_comb_ternary \\ gvs []
     \\ gvs [cval2term_def]
+    \\ irule MK_COMB_simple \\ fs [numeralTheory.numeral_funpow]
     \\ irule MK_COMB_simple \\ fs []
-    \\ irule MK_COMB_simple \\ fs []
-    \\ irule MK_COMB_simple \\ fs [compute_thy_ok_terms_ok, proves_REFL])
+    \\ irule MK_COMB_simple \\ fs [compute_thy_ok_terms_ok, proves_REFL]
+    \\ cheat (* term_ok:ness for constants *))
       (* n-ary: app *)
-  \\ fs [CaseEqs ["list", "option", "bool"]]
+  \\ fs [CaseEqs ["list", "option", "bool"], SF ETA_ss]
   \\ strip_tac \\ gvs []
   \\ gvs [mapOption_def, CaseEq "option", SF DNF_ss]
-  \\ simp [cval2term_def]
-  \\ qmatch_asmsub_abbrev_tac ‘Const m ty’
   \\ cheat (* Annoying FOLDL case *)
 QED
 
