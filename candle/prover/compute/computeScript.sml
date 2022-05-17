@@ -70,33 +70,131 @@ Definition dest_numeral_opt_def:
     | _ => NONE
 End
 
+Definition list_dest_comb_def:
+  list_dest_comb sofar (Comb f x) = list_dest_comb (x::sofar) f ∧
+  list_dest_comb sofar tm = tm::sofar
+End
+
+(*
+EVAL “list_dest_comb [] (Comb (Comb (Comb (Const n t) b) c) d)”
+ *)
+
+Theorem list_dest_comb_not_nil[simp]:
+  ∀sofar tm. list_dest_comb sofar tm ≠ []
+Proof
+  ho_match_mp_tac list_dest_comb_ind
+  \\ rw [list_dest_comb_def]
+QED
+
+Theorem list_dest_comb_sing:
+  ∀s x y. list_dest_comb s x = [y] ⇒ s = [] ∧ x = y
+Proof
+  ho_match_mp_tac list_dest_comb_ind
+  \\ rw [list_dest_comb_def]
+QED
+
+Theorem list_dest_comb_unary:
+  ∀s x y z.
+    list_dest_comb s x = [y; z] ⇒
+      (s = [z] ∧ x = y) ∨ (s = [] ∧ x = Comb y z)
+Proof
+  ho_match_mp_tac list_dest_comb_ind
+  \\ rw [list_dest_comb_def]
+QED
+
+Theorem list_dest_comb_binary:
+  ∀s x y z w.
+    list_dest_comb s x = [y; z; w] ⇒
+      (s = [] ∧ x = Comb (Comb y z) w) ∨
+      (s = [w] ∧ x = Comb y z) ∨
+      (s = [z; w] ∧ x = y)
+Proof
+  ho_match_mp_tac list_dest_comb_ind
+  \\ rw [list_dest_comb_def] \\ gs [SF SFY_ss]
+QED
+
+Theorem list_dest_comb_ternary:
+  ∀s x y z w v.
+    list_dest_comb s x = [y; z; w; v] ⇒
+      (s = [] ∧ x = Comb (Comb (Comb y z) w) v) ∨
+      (s = [v] ∧ x = Comb (Comb y z) w) ∨
+      (s = [w; v] ∧ x = Comb y z) ∨
+      (s = [z; w; v] ∧ x = y)
+Proof
+  ho_match_mp_tac list_dest_comb_ind
+  \\ rw [list_dest_comb_def] \\ gs [SF SFY_ss]
+QED
+
+
+Definition term_size_alt_def:
+  term_size_alt (Comb s t) = term_size_alt s + term_size_alt t ∧
+  term_size_alt (Abs s t) = term_size_alt s + term_size_alt t ∧
+  term_size_alt _ = 1
+End
+
+Definition list_term_size_alt_def:
+  list_term_size_alt [] = 0 ∧
+  list_term_size_alt (x::xs) = term_size_alt x + list_term_size_alt xs
+End
+
+Theorem list_dest_comb_term_size[local]:
+  ∀sofar tm res.
+    list_dest_comb sofar tm = res ⇒
+      list_term_size_alt res = list_term_size_alt sofar + term_size_alt tm
+Proof
+  ho_match_mp_tac list_dest_comb_ind
+  \\ rw [list_dest_comb_def] \\ gs [list_term_size_alt_def, term_size_alt_def]
+QED
+
+Theorem list_term_size_MEM[local]:
+  MEM x xs ⇒ term_size_alt x ≤ list_term_size_alt xs
+Proof
+  Induct_on ‘xs’
+  \\ rw [list_term_size_alt_def] \\ fs []
+QED
+
+Definition mapOption_def:
+  mapOption f [] = SOME [] ∧
+  mapOption f (x::xs) =
+    case f x of
+    | NONE => NONE
+    | SOME y =>
+        case mapOption f xs of
+        | NONE => NONE
+        | SOME ys => SOME (y::ys)
+End
+
+Theorem mapOption_CONG[defncong]:
+  ∀xs ys f g.
+    xs = ys ∧
+    (∀x. MEM x xs ⇒ f x = g x) ⇒
+      mapOption f xs = mapOption g ys
+Proof
+  Induct \\ rw [] \\ rw [mapOption_def]
+  \\ TOP_CASE_TAC \\ gs [SF DNF_ss]
+  \\ first_x_assum drule_all \\ rw []
+QED
+
 Definition dest_cval_def:
   dest_cval tm =
-    case tm of
-      Comb (Const n t) r =>
-        if Const n t = _CVAL_NUM_TM then
-          case dest_numeral_opt r of
+    case list_dest_comb [] tm of
+    | [Var n ty] => if ty = cval_ty then SOME (Var n) else NONE
+    | [Const n ty; arg] =>
+        if Const n ty = _CVAL_NUM_TM then
+          case dest_numeral_opt arg of
           | NONE => NONE
           | SOME n => SOME (Num n)
-        else if Const n t = _CVAL_FST_TM then
-          case dest_cval r of
-          | NONE => NONE
-          | SOME p => SOME (Fst p)
-        else if Const n t = _CVAL_SND_TM then
-          case dest_cval r of
-          | NONE => NONE
-          | SOME p => SOME (Snd p)
         else
           NONE
-    | Comb (Comb (Const n t) l) r =>
-        if Const n t = _CVAL_PAIR_TM then
+    | [Const n ty; l; r] =>
+        if Const n ty = _CVAL_PAIR_TM then
           case dest_cval l of
           | NONE => NONE
           | SOME p =>
               case dest_cval r of
               | NONE => NONE
               | SOME q => SOME (Pair p q)
-        else if Const n t = _CVAL_ADD_TM then
+        else if Const n ty = _CVAL_ADD_TM then
           case dest_cval l of
           | NONE => NONE
           | SOME p =>
@@ -105,8 +203,35 @@ Definition dest_cval_def:
               | SOME q => SOME (Add p q)
         else
           NONE
+    | [Const n ty; i; t; e] =>
+        if Const n ty = _CVAL_IF_TM then
+          case dest_cval i of
+          | NONE => NONE
+          | SOME p =>
+              case dest_cval t of
+              | NONE => NONE
+              | SOME q =>
+                  case dest_cval e of
+                  | NONE => NONE
+                  | SOME r => SOME (If p q r)
+        else
+          NONE
+    | Const n ty :: args =>
+        (case mapOption dest_cval args of
+        | NONE => NONE
+        | SOME cvs =>
+            if ty = FUNPOW (Fun cval_ty) (LENGTH cvs) cval_ty then
+              SOME (App n cvs)
+            else NONE)
     | _ => NONE
+Termination
+  wf_rel_tac ‘measure term_size_alt’ \\ rw []
+  \\ drule_then assume_tac list_dest_comb_term_size
+  \\ gs [list_term_size_alt_def, term_size_alt_def]
+  \\ drule_then assume_tac list_term_size_MEM \\ gs []
 End
+
+(* TODO use term_size and list_size as measure instead *)
 
 Definition dest_binary_def:
   dest_binary tm' tm =
@@ -225,6 +350,8 @@ Proof
   \\ rw [NUMERAL_eqn, sym_equation]
 QED
 
+(* TODO All constants in the term need to be term_ok (sigof thy) *)
+
 Theorem dest_cval_thm:
   compute_thy_ok thy ⇒
     ∀x y. dest_cval x = SOME y ⇒
@@ -232,13 +359,53 @@ Theorem dest_cval_thm:
           typeof x = cval_ty
 Proof
   strip_tac
-  \\ ho_match_mp_tac dest_cval_ind \\ ntac 3 strip_tac
-  \\ simp [Once dest_cval_def]
-  \\ CASE_TAC \\ gs []
-  \\ rpt TOP_CASE_TAC \\ gs []
-  \\ rw [] \\ gvs [CaseEqs ["option"], cval2term_def,
-                   cval2term_dest_numeral_opt, MK_COMB_simple, proves_REFL,
-                   compute_thy_ok_terms_ok]
+  \\ ho_match_mp_tac dest_cval_ind
+  \\ ntac 3 strip_tac \\ simp [Once dest_cval_def]
+  \\ TOP_CASE_TAC
+  \\ TOP_CASE_TAC
+  >- ((* variable *)
+    fs [CaseEqs ["list", "option"]]
+    \\ strip_tac \\ gvs []
+    \\ drule_then strip_assume_tac list_dest_comb_sing
+    \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
+    \\ fs [cval2term_def, proves_REFL, term_ok_def, SF SFY_ss])
+  \\ TOP_CASE_TAC
+  >- ((* 0-ary *)
+    simp [mapOption_def]
+    \\ strip_tac \\ fs []
+    \\ drule_then strip_assume_tac list_dest_comb_sing
+    \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
+    \\ fs [cval2term_def, proves_REFL, term_ok_def, SF SFY_ss]
+    \\ cheat (* term_ok:ness for constants *))
+  \\ TOP_CASE_TAC
+  >- ((* unary: num *)
+    fs [CaseEqs ["list", "option", "bool"]]
+    \\ strip_tac \\ gvs []
+    \\ drule_then strip_assume_tac list_dest_comb_unary \\ gvs []
+    \\ fs [cval2term_dest_numeral_opt])
+  \\ TOP_CASE_TAC
+  >- ((* binary: add, pair *)
+    fs [CaseEqs ["list", "option", "bool"]]
+    \\ strip_tac \\ gvs []
+    \\ drule_then strip_assume_tac list_dest_comb_binary \\ gvs []
+    \\ gvs [cval2term_def, MK_COMB_simple, proves_REFL,
+            compute_thy_ok_terms_ok])
+  \\ TOP_CASE_TAC
+  >- ((* ternary: if *)
+    fs [CaseEqs ["list", "option", "bool"]]
+    \\ strip_tac \\ gvs []
+    \\ drule_then strip_assume_tac list_dest_comb_ternary \\ gvs []
+    \\ gvs [cval2term_def]
+    \\ irule MK_COMB_simple \\ fs []
+    \\ irule MK_COMB_simple \\ fs []
+    \\ irule MK_COMB_simple \\ fs [compute_thy_ok_terms_ok, proves_REFL])
+      (* n-ary: app *)
+  \\ fs [CaseEqs ["list", "option", "bool"]]
+  \\ strip_tac \\ gvs []
+  \\ gvs [mapOption_def, CaseEq "option", SF DNF_ss]
+  \\ simp [cval2term_def]
+  \\ qmatch_asmsub_abbrev_tac ‘Const m ty’
+  \\ cheat (* Annoying FOLDL case *)
 QED
 
 (* -------------------------------------------------------------------------
@@ -247,8 +414,6 @@ QED
 
 Definition compute_thms_def:
   compute_thms = MAP (Sequent []) [
-    (* T_DEF      *) _T === (Abs _p _p === Abs _p _p);
-    (* FORALL_DEF *) _FORALL_TM === Abs _P (_P === Abs _x _T);
     (* NUMERAL    *) _NUMERAL _N === _N;
     (* BIT0       *) _BIT0 _N === _ADD _N _N;
     (* BIT1       *) _BIT1 _N === _SUC (_ADD _N _N);
@@ -262,39 +427,34 @@ Definition compute_thms_def:
                      _CVAL_NUM _N;
     (* CVAL_ADD   *) _CVAL_ADD (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
                      _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_FST   *) _CVAL_FST (_CVAL_PAIR _P1 _Q1) === _P1;
-    (* CVAL_FST   *) _CVAL_FST (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_SND   *) _CVAL_SND (_CVAL_PAIR _P1 _Q1) === _Q1;
-    (* CVAL_SND   *) _CVAL_SND (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0);
+    (* CVAL_IF    *) _CVAL_IF (_CVAL_NUM (_SUC _M)) _P1 _Q1 === _P1;
+    (* CVAL_IF    *) _CVAL_IF (_CVAL_PAIR _P2 _Q2) _P1 _Q1 === _P1;
+    (* CVAL_IF    *) _CVAL_IF (_CVAL_NUM (_NUMERAL _0)) _P1 _Q1 === _Q1
   ]
 End
 
 Theorem compute_thms_def = SIMP_RULE list_ss [] compute_thms_def;
 
+(*
 Definition compute_init_def:
   compute_init ths = EVERY (λth. MEM th ths) compute_thms
 End
+ *)
 
-Theorem init_thm:
-  compute_init ths ∧
-  EVERY (THM ctxt) ths ⇒
-    EVERY (THM ctxt) compute_thms
-Proof
-  rw [compute_init_def, EVERY_MEM]
-QED
+Definition compute_init_def:
+  compute_init ths ⇔ ths = compute_thms
+End
 
 Theorem compute_init_thy_ok:
   compute_init ths ∧
   STATE ctxt s ∧
   EVERY (THM ctxt) ths ⇒
-    compute_thy_ok (thyof ctxt) ∧
-    bool_thy_ok (thyof ctxt)
+    compute_thy_ok (thyof ctxt)
 Proof
   strip_tac
-  \\ drule_all_then assume_tac init_thm
-  \\ gs [compute_thms_def, compute_thy_ok_def, numeral_thy_ok_def,
-         bool_thy_ok_def, STATE_def, CONTEXT_def, THM_def, extends_theory_ok,
-         init_theory_ok, SF SFY_ss]
+  \\ gvs [compute_init_def]
+  \\ gs [compute_thms_def, compute_thy_ok_def, numeral_thy_ok_def, STATE_def,
+         CONTEXT_def, THM_def, extends_theory_ok, init_theory_ok, SF SFY_ss]
 QED
 
 (* -------------------------------------------------------------------------
@@ -388,24 +548,47 @@ Proof
 QED
 
 (* -------------------------------------------------------------------------
- * numpair eval
+ * compute
  * ------------------------------------------------------------------------- *)
+
+(* TODO move *)
+Definition compute_init_state_def:
+  compute_init_state = <| dummy := 0 |>
+End
+
+(* TODO move *)
+Definition compute_eval_run_def:
+  compute_eval_run ck ceqs cv =
+    run (compute_eval ck ceqs [] cv) compute_init_state
+End
+
+Definition compute_default_clock:
+  compute_default_clock = 1000000000
+End
 
 Definition compute_def:
   compute ths tm =
-    if ¬ compute_init ths then
+    if ¬compute_init ths then
       failwith «Kernel.compute: wrong theorems provided for initialization»
     else
     case dest_cval tm of
     | NONE => failwith «Kernel.compute: term is not a compute_val»
     | SOME cval =>
         do
-          res <<- cval2term (compute_eval cval);
-          c <- mk_eq (tm, res);
-          return (Sequent [] c)
+          ceqs <<- []; (* TODO: get compute equations from ths *)
+          case compute_eval_run compute_default_clock ceqs cval of
+          | M_failure _ => failwith «Kernel.compute: timeout»
+          | M_success res =>
+              do
+                c <- mk_eq (tm, cval2term res);
+                return (Sequent [] c)
+              od
         od
 End
 
+(* TODO *)
+
+(*
 Theorem compute_thm:
   STATE ctxt s ∧
   EVERY (THM ctxt) ths ∧
@@ -443,6 +626,7 @@ Proof
   \\ resolve_then Any irule trans_equation_simple sym_equation
   \\ irule_at Any compute_eval_thm \\ rw []
 QED
+ *)
 
 val _ = export_theory ();
 
