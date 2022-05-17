@@ -228,7 +228,7 @@ Definition dest_cval_def:
             (case mapOption dest_cval args of
             | NONE => NONE
             | SOME cvs =>
-                if ty = FUNPOW (Fun cval_ty) (LENGTH cvs) cval_ty then
+                if ty = app_type (LENGTH cvs) then
                   SOME (App n cvs)
                 else NONE))
     | _ => NONE
@@ -362,9 +362,13 @@ QED
 
 Theorem dest_cval_thm:
   compute_thy_ok thy ⇒
-    ∀x y. dest_cval x = SOME y ⇒
-          (thy,[]) |- cval2term y === x ∧
-          typeof x = cval_ty
+    ∀tm cv.
+      dest_cval tm = SOME cv ⇒
+      (∀c n.
+        (c,n) ∈ cval_consts cv ⇒
+          term_ok (sigof thy) (Const c (app_type n))) ⇒
+        (thy,[]) |- cval2term cv === tm ∧
+        typeof tm = cval_ty
 Proof
   strip_tac
   \\ ho_match_mp_tac dest_cval_ind
@@ -383,17 +387,17 @@ Proof
     \\ strip_tac \\ fs []
     \\ drule_then strip_assume_tac list_dest_comb_sing
     \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
-    (* \\ fs [cval2term_def, proves_REFL, term_ok_def, SF SFY_ss] *)
-    \\ cheat (* term_ok:ness for constants *))
+    \\ strip_tac
+    \\ gvs [cval2term_def, cval_consts_def, app_type, proves_REFL])
   \\ TOP_CASE_TAC
   >- ((* unary: num or app *)
     fs [CaseEqs ["list", "option", "bool"]]
     \\ strip_tac \\ gvs []
     \\ drule_then strip_assume_tac list_dest_comb_unary \\ gvs []
     \\ gvs [cval2term_dest_numeral_opt] \\ gvs [cval2term_def]
-    \\ irule MK_COMB_simple \\ simp []
-    \\ irule proves_REFL \\ simp []
-    \\ cheat (* term_ok:ness for constants *))
+    \\ strip_tac
+    \\ gvs [cval_consts_def, app_type_def, SF DNF_ss]
+    \\ irule MK_COMB_simple \\ simp [proves_REFL])
   \\ TOP_CASE_TAC
   >- ((* binary: add, pair, app *)
     fs [CaseEqs ["list", "option", "bool"]]
@@ -401,24 +405,35 @@ Proof
     \\ drule_then strip_assume_tac list_dest_comb_binary \\ gvs []
     \\ gvs [cval2term_def, MK_COMB_simple, proves_REFL,
             compute_thy_ok_terms_ok]
-    \\ irule MK_COMB_simple \\ simp [numeralTheory.numeral_funpow]
+    \\ strip_tac \\ gvs [SF DNF_ss, cval_consts_def, app_type_def]
+    \\ irule MK_COMB_simple \\ gs [numeralTheory.numeral_funpow]
     \\ irule MK_COMB_simple \\ simp []
-    \\ irule proves_REFL \\ simp []
-    \\ cheat (* term_ok:ness for constants *))
+    \\ irule proves_REFL \\ simp [compute_thy_ok_terms_ok])
   \\ TOP_CASE_TAC
   >- ((* ternary: if *)
     fs [CaseEqs ["list", "option", "bool"]]
     \\ strip_tac \\ gvs []
     \\ drule_then strip_assume_tac list_dest_comb_ternary \\ gvs []
     \\ gvs [cval2term_def]
+    \\ strip_tac \\ gvs [cval_consts_def, app_type_def, SF DNF_ss]
     \\ irule MK_COMB_simple \\ fs [numeralTheory.numeral_funpow]
     \\ irule MK_COMB_simple \\ fs []
-    \\ irule MK_COMB_simple \\ fs [compute_thy_ok_terms_ok, proves_REFL]
-    \\ cheat (* term_ok:ness for constants *))
+    \\ irule MK_COMB_simple \\ fs [compute_thy_ok_terms_ok, proves_REFL])
       (* n-ary: app *)
   \\ fs [CaseEqs ["list", "option", "bool"], SF ETA_ss]
   \\ strip_tac \\ gvs []
-  \\ gvs [mapOption_def, CaseEq "option", SF DNF_ss]
+  \\ qmatch_asmsub_abbrev_tac ‘mapOption _ tms’
+  \\ rename [‘tms = a::b::c::d::e’]
+  \\ ‘∀tm. tm = a ∨ tm = b ∨ tm = c ∨ tm = d ∨ MEM tm e ⇔ MEM tm tms’
+    by gs [Abbr ‘tms’]
+  \\ fs []
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ strip_tac
+  \\ gvs [cval_consts_def, MEM_MAP, SF DNF_ss]
+  \\ ‘FOLDL Comb (Const m (app_type (LENGTH cvs))) tms = tm’
+    by cheat (* TODO running list_dest_comb in reverse *)
+  \\ gvs []
+  \\ simp [cval2term_def,FOLDL_MAP]
   \\ cheat (* Annoying FOLDL case *)
 QED
 
@@ -569,8 +584,42 @@ Definition compute_default_clock:
   compute_default_clock = 1000000000
 End
 
+(* A valid equation is:
+ *   [] |- const var1 ... varN = expr
+ * where:
+ * - var1 ... varN all have type cval_ty
+ * - expr contains only the variables var1 ... varN, and has type cval_ty
+ *)
+
+Definition check_var_def:
+  check_var (Var s ty) =
+    (if ty = cval_ty then return s else
+      failwith («Kernel.compute: ill-typed variable: » ^ s)) ∧
+  check_var _ =
+    failwith «Kernel.compute: non-variable argument on lhs of equation»
+End
+
+Definition check_eqn_def:
+  check_eqn (Sequent h c) =
+      do
+        if h = [] then return () else
+          failwith «Kernel.compute: non-empty hypotheses in equation»;
+        (ls,r) <- dest_eq c;
+        (f,vs) <- case list_dest_comb [] ls of
+                  | f::vs => return (f,vs)
+                  | _ => failwith «»;
+        (nm,ty) <- dest_const f ++
+                failwith «Kernel.compute: not a constant being applied on lhs»;
+        args <- map check_var vs;
+        (* TODO: check that r only contains variables in args *)
+        case dest_cval r of
+        | NONE => failwith «Kernel.compute: rhs is not a cval»
+        | SOME cv => return (nm,args,cv)
+      od
+End
+
 Definition compute_def:
-  compute ths tm =
+  compute ths ceqs tm =
     if ¬compute_init ths then
       failwith «Kernel.compute: wrong theorems provided for initialization»
     else
@@ -578,7 +627,7 @@ Definition compute_def:
     | NONE => failwith «Kernel.compute: term is not a compute_val»
     | SOME cval =>
         do
-          ceqs <<- []; (* TODO: get compute equations from ths *)
+          ceqs <- map check_eqn ceqs;
           case compute_eval_run compute_default_clock ceqs cval of
           | M_failure _ => failwith «Kernel.compute: timeout»
           | M_success res =>
