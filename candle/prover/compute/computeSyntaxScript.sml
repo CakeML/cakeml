@@ -849,6 +849,15 @@ Termination
   wf_rel_tac ‘inv_image ($< LEX $<) (λ(ck,_,_,cv). (ck, compute_val_size cv))’
 End
 
+Definition compute_init_state_def:
+  compute_init_state = <| dummy := 0 |>
+End
+
+Definition compute_eval_run_def:
+  compute_eval_run ck ceqs cv =
+    run (compute_eval ck ceqs [] cv) compute_init_state
+End
+
 Definition cval_value_def[simp]:
   cval_value (Num n) = T ∧
   cval_value (Pair p q) = (cval_value p ∧ cval_value q) ∧

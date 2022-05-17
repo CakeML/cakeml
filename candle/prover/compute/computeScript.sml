@@ -565,17 +565,6 @@ QED
  * compute
  * ------------------------------------------------------------------------- *)
 
-(* TODO move *)
-Definition compute_init_state_def:
-  compute_init_state = <| dummy := 0 |>
-End
-
-(* TODO move *)
-Definition compute_eval_run_def:
-  compute_eval_run ck ceqs cv =
-    run (compute_eval ck ceqs [] cv) compute_init_state
-End
-
 Definition compute_default_clock:
   compute_default_clock = 1000000000
 End
