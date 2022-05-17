@@ -1143,7 +1143,7 @@ Proof
   \\ impl_tac >-
    (fs [] \\ simp (find "repl_moduleProg_st" |> map (fst o snd))
     \\ simp (repl_prog_isPREFIX :: (find "refs_def" |> map (fst o snd)))
-    \\ fs [repl_prog_st_def])
+    \\ fs [repl_prog_st_def, ml_progTheory.init_state_def])
   \\ fs [repl_prog_st_def]
   \\ qpat_abbrev_tac ‘ppp = W8array _ :: _’ \\ pop_assum kall_tac
   \\ pop_assum kall_tac
