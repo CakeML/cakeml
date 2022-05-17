@@ -612,6 +612,17 @@ Proof
   rw [compute_thy_ok_def]
 QED
 
+Definition app_type_def:
+  app_type arity = FUNPOW (Fun cval_ty) arity cval_ty
+End
+
+Theorem app_type:
+  app_type 0 = cval_ty ∧
+  app_type (SUC n) = Fun cval_ty (app_type n)
+Proof
+  rw [app_type_def, FUNPOW_SUC]
+QED
+
 Definition cval2term_def:
   cval2term (Num n) = _CVAL_NUM (_NUMERAL (num2bit n)) ∧
   cval2term (Pair p q) = _CVAL_PAIR (cval2term p) (cval2term q) ∧
@@ -619,8 +630,7 @@ Definition cval2term_def:
   cval2term (If p q r) = _CVAL_IF (cval2term p) (cval2term q) (cval2term r) ∧
   cval2term (Var s) = Var s cval_ty ∧
   cval2term (App s cs) =
-    let fty = FUNPOW (Fun cval_ty) (LENGTH cs) cval_ty in
-    FOLDL Comb (Const s fty) (MAP cval2term cs)
+    FOLDL Comb (Const s (app_type (LENGTH cs))) (MAP cval2term cs)
 Termination
   wf_rel_tac ‘measure compute_val_size’
 End
@@ -631,7 +641,7 @@ Definition cval_consts_def:
   cval_consts (Pair p q) = cval_consts p ∪ cval_consts q ∧
   cval_consts (Add p q) = cval_consts p ∪ cval_consts q ∧
   cval_consts (If p q r) =  cval_consts p ∪ cval_consts q ∪ cval_consts r ∧
-  cval_consts (App s cs) = {s} ∪ BIGUNION (set (MAP cval_consts cs))
+  cval_consts (App s cs) = {s, LENGTH cs} ∪ BIGUNION (set (MAP cval_consts cs))
 Termination
   wf_rel_tac ‘measure compute_val_size’
 End
@@ -674,8 +684,9 @@ QED
 Theorem cval2term_term_ok:
   compute_thy_ok thy ⇒
     ∀cv.
-      (* TODO: unsure if this is enough (or even required): *)
-      (∀s. s ∈ cval_consts cv ⇒ ∃ty. term_ok (sigof thy) (Const s ty)) ⇒
+      (∀c n.
+        (c,n) ∈ cval_consts cv ⇒
+          term_ok (sigof thy) (Const s (app_type n))) ⇒
         term_ok (sigof thy) (cval2term cv)
 Proof
   strip_tac
@@ -692,7 +703,7 @@ Proof
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
   >~ [‘_CVAL_IF _ _ _ ’] >- (
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
-  \\ gvs [SF DNF_ss, MEM_MAP]
+  \\ gvs [FOLDL_MAP, MEM_MAP, SF SFY_ss, SF DNF_ss]
   \\ cheat
 QED
 
@@ -914,24 +925,19 @@ Theorem compute_eval_thm:
     ∀ck ceqs env cv s res s'.
       EVERY cval_value (MAP SND env) ∧
       compute_eval ck ceqs env cv s = (res, s') ⇒
-        s = s' ∧
         ∀v. res = M_success v ⇒
           (* RHS has HOL variables that must be substituted away.
              Give cval2term environment? *)
           (thy,[]) |- cval2term v === cval2term cv
 Proof
   strip_tac \\ fs []
-  \\ ho_match_mp_tac compute_eval_ind
-  \\ rpt gen_tac \\ strip_tac
-  \\ rpt gen_tac \\ strip_tac
+  \\ ho_match_mp_tac compute_eval_ind \\ rw []
   \\ qpat_x_assum ‘compute_eval _ _ _ _ _ = _’ mp_tac
   \\ simp [Once compute_eval_def]
   \\ Cases_on ‘∃p q. cv = Pair p q’ \\ gvs []
   >- (
-    simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
-    \\ reverse CASE_TAC \\ gs [] >- ( strip_tac \\ gvs [])
-    \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
-    \\ reverse CASE_TAC \\ gs [] >- ( strip_tac \\ gvs [])
+    simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
+    \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
     \\ rw [st_ex_return_def]
     \\ simp [cval2term_def, MK_COMB_simple, proves_REFL,
              compute_thy_ok_terms_ok, SF SFY_ss])
@@ -950,32 +956,32 @@ Proof
     \\ cheat (* TODO *))
   \\ Cases_on ‘∃p q r. cv = If p q r’ \\ gvs []
   >- (
-    simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
-    \\ reverse CASE_TAC \\ gs [] >- (strip_tac \\ gvs [])
-    \\ rpt CASE_TAC \\ gs [raise_Type_error_def] \\ rw [cval2term_def]
+    simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
+    \\ simp [raise_Type_error_def, cval2term_def]
+    \\ rpt CASE_TAC \\ gs [] \\ rw []
     \\ ‘term_ok (sigof thy) (cval2term q)’
       by cheat
     \\ ‘term_ok (sigof thy) (cval2term r)’
       by cheat
     >~ [‘Num 0’] >- (
-      first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
-      \\ first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
+      first_x_assum (drule_then strip_assume_tac) \\ gvs []
+      \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
       \\ irule replaceR3 \\ first_x_assum (irule_at Any)
       \\ irule replaceL2 \\ first_assum (irule_at Any)
       \\ simp [cval2term_def, Once num2bit_def]
       \\ irule_at Any CVAL_IF_eqn3 \\ gs []
       \\ drule proves_term_ok \\ simp [equation_def, term_ok_def])
     >~ [‘Pair x y’] >- (
-      first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
-      \\ first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
+      first_x_assum (drule_then strip_assume_tac) \\ gvs []
+      \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
       \\ irule replaceR3 \\ first_assum (irule_at Any)
       \\ irule replaceL1 \\ first_assum (irule_at Any)
       \\ fs [cval2term_def]
       \\ irule_at Any CVAL_IF_eqn2 \\ gs []
       \\ imp_res_tac proves_term_ok \\ fs [equation_def, term_ok_def])
     >~ [‘Num (SUC n)’] >- (
-      first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
-      \\ first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
+      first_x_assum (drule_then strip_assume_tac) \\ gvs []
+      \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
       \\ irule replaceR3 \\ first_x_assum (irule_at Any)
       \\ irule replaceL1 \\ first_assum (irule_at Any)
       \\ simp [cval2term_def]
@@ -995,18 +1001,15 @@ Proof
       \\ drule proves_term_ok \\ simp [equation_def, term_ok_def]))
   \\ Cases_on ‘∃p q. cv = Add p q’ \\ gvs []
   >- (
-    simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
-    \\ reverse CASE_TAC \\ gs [] >- (strip_tac \\ gvs [])
-    \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
-    \\ reverse CASE_TAC \\ gs [] >- (strip_tac \\ gvs [])
-    \\ rename [‘do_add x y s = (res,s')’] \\ strip_tac
-    \\ drule_then assume_tac do_add_thm \\ gvs [] \\ rw []
+    simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
+    \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
+    \\ rename [‘do_add x y s’] \\ strip_tac
     \\ Cases_on ‘∃m. x = Num m’ \\ fs []
     >- (
       Cases_on ‘∃n. y = Num n’ \\ fs []
       >- (
-        first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
-        \\ first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
+        first_x_assum (drule_then strip_assume_tac) \\ gvs []
+        \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
         \\ gvs [cval2term_def, do_add_def, st_ex_return_def]
         \\ qmatch_asmsub_abbrev_tac ‘_ |- A === cval2term p’
         \\ qmatch_asmsub_abbrev_tac ‘_ |- B === cval2term q’
@@ -1038,12 +1041,12 @@ Proof
         \\ irule_at Any ADD_num2bit
         \\ rw [CVAL_ADD_eqn1, sym_equation, compute_thy_ok_def,
                num2bit_term_ok])
-      \\ first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
+      \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
       \\ ‘cval_value y’
         by rw [compute_eval_value, SF SFY_ss]
       \\ ‘∃p1 q1. y = Pair p1 q1’
         by (Cases_on ‘y’ \\ fs [])
-      \\ first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
+      \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
       \\ gvs [cval2term_def, do_add_def, st_ex_return_def]
       \\ irule replaceR2 \\ first_x_assum (irule_at Any)
       \\ irule replaceL1 \\ first_x_assum (irule_at Any)
@@ -1055,8 +1058,8 @@ Proof
              compute_thy_ok_terms_ok, term_ok_def, Ntimes has_type_cases 2])
     \\ Cases_on ‘∃n. y = Num n’ \\ gs []
     >- (
-      first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
-      \\ first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
+      first_x_assum (drule_then strip_assume_tac) \\ gvs []
+      \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
       \\ gvs [cval2term_def, do_add_def, st_ex_return_def]
       \\ ‘cval_value x’
         by rw [compute_eval_value, SF SFY_ss]
@@ -1074,8 +1077,8 @@ Proof
       \\ rw [CVAL_ADD_eqn3, cval2term_term_ok, num2bit_term_ok, NUMERAL_eqn,
              num2bit_term_ok,
              compute_thy_ok_terms_ok, term_ok_def, Ntimes has_type_cases 2])
-    \\ first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
-    \\ first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
+    \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
+    \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
     \\ gvs [cval2term_def, do_add_def, st_ex_return_def]
     \\ ‘cval_value x’
       by rw [compute_eval_value, SF SFY_ss]
@@ -1094,7 +1097,26 @@ Proof
     \\ fs [] \\ rw [CVAL_ADD_eqn4, cval2term_term_ok, compute_thy_ok_terms_ok])
   \\ Cases_on ‘∃f cs. cv = App f cs’ \\ gvs []
   >- (
-    cheat)
+    IF_CASES_TAC \\ gs [raise_Timeout_def]
+    \\ simp [option_def, Once st_ex_bind_def, raise_Type_error_def,
+             st_ex_return_def]
+    \\ CASE_TAC \\ gs []
+    \\ pairarg_tac \\ gvs []
+    \\ simp [check_def, raise_Type_error_def, st_ex_return_def]
+    \\ simp [Once st_ex_ignore_bind_def] \\ IF_CASES_TAC \\ gs []
+    \\ simp [Once st_ex_bind_def]
+    \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs [] \\ rw []
+    \\ first_x_assum (drule_at Any) \\ simp []
+    \\ impl_keep_tac \\ rw []
+    >- (
+      drule_then assume_tac map_LENGTH \\ gs [MAP_ZIP]
+      \\ rw [EVERY_MEM]
+      \\ irule compute_eval_value
+      \\ first_x_assum (irule_at Any)
+      \\ cheat (* Theorem about map *))
+    \\ irule trans_equation_simple
+    \\ first_assum (irule_at Any)
+    \\ cheat (* looking up theorem in ceqs <-> app-eval *))
   \\ TOP_CASE_TAC \\ gs []
 QED
 
