@@ -712,7 +712,115 @@ Definition compute_def:
         od
 End
 
+Theorem map_check_var_thm:
+  ∀tms s res s'.
+    STATE ctxt s ∧
+    EVERY (TERM ctxt) tms ∧
+    map check_var tms s = (res, s') ⇒
+      s = s' ∧
+      (∀tm. res ≠ M_failure (Clash tm)) ∧
+      ∀ns.
+        res = M_success ns ⇒
+        LIST_REL (λtm n. tm = Var n cval_ty) tms ns
+Proof
+  Induct \\ simp [map_def, st_ex_return_def]
+  \\ rpt gen_tac
+  \\ strip_tac
+  \\ qpat_x_assum ‘_ = (res,_)’ mp_tac
+  \\ simp [Once st_ex_bind_def]
+  \\ CASE_TAC \\ gs []
+  \\ reverse CASE_TAC \\ gs []
+  >- (
+    strip_tac \\ gvs []
+    \\ Cases_on ‘h’ \\ gs [check_var_def, raise_Failure_def, st_ex_return_def]
+    \\ gvs [COND_RATOR, CaseEq "bool"])
+  \\ Cases_on ‘h’ \\ gs [check_var_def, raise_Failure_def, st_ex_return_def]
+  \\ gvs [COND_RATOR, CaseEq "bool"]
+  \\ simp [Once st_ex_bind_def]
+  \\ CASE_TAC \\ gs []
+  \\ first_x_assum drule_all \\ rw []
+  \\ gvs [CaseEq "exc"]
+QED
+
+Theorem check_eqn_thm:
+  compute_thy_ok (thyof ctxt) ∧
+  STATE ctxt s ∧
+  THM ctxt th ∧
+  check_eqn th s = (res, s') ⇒
+    s = s' ∧
+    (∀tm. res ≠ M_failure (Clash tm)) ∧
+    ∀f vs r.
+      res = M_success (f,vs,cv) ⇒
+      ∃l r. th = Sequent [] (l === r) ∧
+            list_dest_comb [] l = Const f (app_type (LENGTH vs))::
+                                  (MAP (λs. Var s cval_ty) vs) ∧
+            dest_cval r = SOME cv ∧
+            ∀v. v ∈ cval_vars cv ⇒ MEM v vs
+Proof
+  strip_tac
+  \\ qpat_x_assum ‘check_eqn _ _ = _’ mp_tac
+  \\ Cases_on ‘th’ \\ gvs [check_eqn_def]
+  \\ simp [st_ex_return_def, raise_Failure_def, st_ex_ignore_bind_def]
+  \\ IF_CASES_TAC \\ gs []
+  \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
+  \\ ‘TERM ctxt t’
+    by (fs [THM_def, TERM_def]
+        \\ drule proves_term_ok \\ rw [])
+  \\ drule_all_then strip_assume_tac dest_eq_thm \\ gvs []
+  \\ reverse CASE_TAC \\ gs [] >- (rw [] \\ strip_tac \\ gs [])
+  \\ pairarg_tac \\ gvs []
+  \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
+  \\ simp [otherwise_def, Once st_ex_bind_def]
+  \\ CASE_TAC \\ gs []
+  \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
+  \\ ‘TERM ctxt h ∧ EVERY (TERM ctxt) t’
+    by (fs [TERM_def]
+        \\ drule_then strip_assume_tac term_ok_FOLDL_Comb
+        \\ fs [EVERY_MEM, TERM_def])
+  \\ drule_all_then strip_assume_tac dest_const_thm \\ gvs []
+  \\ CASE_TAC \\ gs []
+  \\ pairarg_tac \\ gvs []
+  \\ simp [Once st_ex_bind_def]
+  \\ TOP_CASE_TAC
+  \\ drule_all_then strip_assume_tac map_check_var_thm \\ gvs []
+  \\ reverse TOP_CASE_TAC \\ gs [] >- (rpt strip_tac \\ gs [])
+  \\ TOP_CASE_TAC \\ gs []
+  \\ drule_then drule dest_cval_thm
+  \\ impl_tac >- fs [TERM_def]
+  \\ strip_tac
+  \\ IF_CASES_TAC \\ gs [GSYM equation_def] \\ rw []
+  \\ simp [equation_def]
+  \\ irule_at Any LIST_EQ \\ gvs [LIST_REL_EL_EQN, EL_MAP]
+  \\ gvs [EVERY_MEM, var_list_ok]
+  \\ rename [‘tm = Const f (app_type (LENGTH tms))’]
+  \\ qpat_x_assum ‘dest_const tm _ = _’ mp_tac
+  \\ simp [dest_const_def, raise_Failure_def, st_ex_return_def]
+  \\ CASE_TAC \\ gs [] \\ rw []
+  \\ rename [‘FOLDL _ (Const f ty) xs’]
+  \\ ‘LENGTH tms = LENGTH xs’
+    by fs [map_LENGTH, SF SFY_ss]
+  \\ gs [TERM_def]
+  \\ ‘typeof (FOLDL Comb (Const f ty) xs) = cval_ty’
+    by fs [term_ok_def, equation_def]
+  \\ ‘∀tm.
+        term_ok (sigof ctxt) tm ∧
+        (∀x. MEM x xs ⇒ term_ok (sigof ctxt) x ∧ typeof x = cval_ty) ∧
+        term_ok (sigof ctxt) (FOLDL Comb tm xs) ∧
+        typeof (FOLDL Comb tm xs) = cval_ty ⇒
+          typeof tm = app_type (LENGTH xs)’
+    suffices_by (
+      rw []
+      \\ first_x_assum (qspec_then ‘Const f ty’ assume_tac)
+      \\ gs [MEM_EL, PULL_EXISTS, SF SFY_ss])
+  \\ rpt (pop_assum kall_tac)
+  \\ Induct_on ‘xs’ \\ simp [app_type]
+  \\ rw [] \\ gs [SF DNF_ss]
+  \\ drule_then strip_assume_tac term_ok_FOLDL_Comb
+  \\ first_x_assum drule \\ gs [term_ok_def]
+QED
+
 Theorem map_check_eqn_thm:
+  compute_thy_ok (thyof ctxt) ⇒
   ∀ceqs s res s'.
     STATE ctxt s ∧
     EVERY (THM ctxt) ceqs ∧
@@ -729,7 +837,21 @@ Theorem map_check_eqn_thm:
               dest_cval r = SOME cv ∧
               ∀v. v ∈ cval_vars cv ⇒ MEM v vs
 Proof
-  cheat (* TODO *)
+  strip_tac
+  \\ Induct \\ simp [map_def, st_ex_return_def, raise_Failure_def]
+  \\ qx_gen_tac ‘th’
+  \\ rpt gen_tac \\ strip_tac
+  \\ qpat_x_assum ‘_ = (res,s')’ mp_tac
+  \\ simp [Once st_ex_bind_def]
+  \\ CASE_TAC \\ gs []
+  \\ drule_all_then strip_assume_tac check_eqn_thm \\ gvs []
+  \\ reverse CASE_TAC \\ gs [] >- (strip_tac \\ gvs [])
+  \\ rename [‘check_eqn _ _ = (M_success p, _)’]
+  \\ PairCases_on ‘p’ \\ fs []
+  \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
+  \\ first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
+  \\ CASE_TAC \\ gs [] \\ strip_tac \\ gvs []
+  \\ Cases \\ gs []
 QED
 
 Theorem map_check_consts_thm:
