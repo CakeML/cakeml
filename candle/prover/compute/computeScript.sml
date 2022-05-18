@@ -131,6 +131,13 @@ Proof
   \\ first_x_assum drule_all \\ rw []
 QED
 
+Theorem mapOption_LENGTH:
+  ∀xs ys. mapOption f xs = SOME ys ⇒ LENGTH xs = LENGTH ys
+Proof
+  Induct \\ rw [mapOption_def]
+  \\ gvs [CaseEq "option"]
+QED
+
 Definition dest_cval_def:
   dest_cval tm =
     case list_dest_comb [] tm of
@@ -334,7 +341,6 @@ Theorem dest_cval_thm:
         (thy,[]) |- cval2term cv === tm ∧
         typeof tm = cval_ty
 Proof
-
   strip_tac
   \\ ho_match_mp_tac dest_cval_ind
   \\ ntac 3 strip_tac \\ simp [Once dest_cval_def]
@@ -390,12 +396,43 @@ Proof
     by gs [Abbr ‘tms’]
   \\ fs []
   \\ ntac 2 (pop_assum kall_tac)
-  \\ simp [cval2term_def]
-  \\ strip_tac
-  \\ gvs [cval_consts_def, MEM_MAP, SF DNF_ss]
+  \\ strip_tac \\ gvs [cval_consts_def, MEM_MAP, SF DNF_ss]
   \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
   \\ simp [cval2term_def, FOLDL_MAP]
-  \\ cheat (* Annoying FOLDL case *)
+  \\ ‘∀tm tm'.
+        typeof tm = app_type (LENGTH tms) ∧
+        term_ok (sigof thy) tm ∧
+        (thy,[]) |- tm === tm' ⇒
+          (thy,[]) |- FOLDL (λx y. Comb x (cval2term y)) tm' cvs ===
+                      FOLDL Comb tm tms ∧
+          typeof (FOLDL Comb tm tms) = cval_ty’
+    suffices_by (
+      disch_then irule
+      \\ drule mapOption_LENGTH \\ gs []
+      \\ rw [proves_REFL])
+  \\ qpat_x_assum ‘list_dest_comb _ _ = _’ kall_tac
+  \\ qpat_x_assum ‘term_ok _ _’ kall_tac
+  \\ ntac 4 (pop_assum mp_tac)
+  \\ qid_spec_tac ‘tms’
+  \\ qid_spec_tac ‘cvs’
+  \\ Induct \\ Cases_on ‘tms’ \\ simp [mapOption_def, app_type, proves_REFL]
+  \\ simp [CaseEq "option"]
+  >- (
+    rw [sym_equation])
+  \\ ntac 8 strip_tac
+  \\ rename [‘mapOption dest_cval tms’]
+  \\ first_x_assum (qspec_then ‘tms’ assume_tac)
+  \\ gs [SF SFY_ss]
+  \\ first_x_assum irule \\ simp []
+  \\ gs [SF DNF_ss]
+  \\ conj_asm1_tac
+  >- (
+    qpat_x_assum ‘_ |- cval2term _ === _’ assume_tac
+    \\ drule proves_term_ok
+    \\ simp [term_ok_def, term_ok_welltyped, equation_def, SF SFY_ss])
+  \\ irule MK_COMB_simple
+  \\ pop_assum mp_tac
+  \\ simp [proves_term_ok, term_ok_welltyped, term_ok_def, sym_equation]
 QED
 
 (* -------------------------------------------------------------------------
