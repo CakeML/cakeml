@@ -75,56 +75,12 @@ Definition list_dest_comb_def:
   list_dest_comb sofar tm = tm::sofar
 End
 
-(*
-EVAL “list_dest_comb [] (Comb (Comb (Comb (Const n t) b) c) d)”
- *)
-
 Theorem list_dest_comb_not_nil[simp]:
   ∀sofar tm. list_dest_comb sofar tm ≠ []
 Proof
   ho_match_mp_tac list_dest_comb_ind
   \\ rw [list_dest_comb_def]
 QED
-
-Theorem list_dest_comb_sing:
-  ∀s x y. list_dest_comb s x = [y] ⇒ s = [] ∧ x = y
-Proof
-  ho_match_mp_tac list_dest_comb_ind
-  \\ rw [list_dest_comb_def]
-QED
-
-Theorem list_dest_comb_unary:
-  ∀s x y z.
-    list_dest_comb s x = [y; z] ⇒
-      (s = [z] ∧ x = y) ∨ (s = [] ∧ x = Comb y z)
-Proof
-  ho_match_mp_tac list_dest_comb_ind
-  \\ rw [list_dest_comb_def]
-QED
-
-Theorem list_dest_comb_binary:
-  ∀s x y z w.
-    list_dest_comb s x = [y; z; w] ⇒
-      (s = [] ∧ x = Comb (Comb y z) w) ∨
-      (s = [w] ∧ x = Comb y z) ∨
-      (s = [z; w] ∧ x = y)
-Proof
-  ho_match_mp_tac list_dest_comb_ind
-  \\ rw [list_dest_comb_def] \\ gs [SF SFY_ss]
-QED
-
-Theorem list_dest_comb_ternary:
-  ∀s x y z w v.
-    list_dest_comb s x = [y; z; w; v] ⇒
-      (s = [] ∧ x = Comb (Comb (Comb y z) w) v) ∨
-      (s = [v] ∧ x = Comb (Comb y z) w) ∨
-      (s = [w; v] ∧ x = Comb y z) ∨
-      (s = [z; w; v] ∧ x = y)
-Proof
-  ho_match_mp_tac list_dest_comb_ind
-  \\ rw [list_dest_comb_def] \\ gs [SF SFY_ss]
-QED
-
 
 Definition term_size_alt_def:
   term_size_alt (Comb s t) = term_size_alt s + term_size_alt t ∧
@@ -378,52 +334,50 @@ Theorem dest_cval_thm:
         (thy,[]) |- cval2term cv === tm ∧
         typeof tm = cval_ty
 Proof
+
   strip_tac
   \\ ho_match_mp_tac dest_cval_ind
   \\ ntac 3 strip_tac \\ simp [Once dest_cval_def]
   \\ TOP_CASE_TAC
   \\ TOP_CASE_TAC
   >- ((* variable *)
-    fs [CaseEqs ["list", "option"]]
-    \\ strip_tac \\ gvs []
-    \\ drule_then strip_assume_tac list_dest_comb_sing
+    fs [CaseEqs ["list", "option"]] \\ rw []
+    \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
     \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
     \\ fs [cval2term_def, proves_REFL, term_ok_def, SF SFY_ss])
   \\ TOP_CASE_TAC
   >- ((* 0-ary *)
     simp [mapOption_def]
-    \\ strip_tac \\ fs []
-    \\ drule_then strip_assume_tac list_dest_comb_sing
+    \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
+    \\ rw [app_type]
     \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
-    \\ strip_tac
     \\ gvs [cval2term_def, cval_consts_def, app_type, proves_REFL])
   \\ TOP_CASE_TAC
   >- ((* unary: num or app *)
     fs [CaseEqs ["list", "option", "bool"]]
-    \\ strip_tac \\ gvs []
-    \\ drule_then strip_assume_tac list_dest_comb_unary \\ gvs []
+    \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
+    \\ rw [] \\ fs []
     \\ gvs [cval2term_dest_numeral_opt] \\ gvs [cval2term_def]
-    \\ strip_tac
     \\ gvs [cval_consts_def, app_type_def, SF DNF_ss]
     \\ irule MK_COMB_simple \\ simp [proves_REFL])
   \\ TOP_CASE_TAC
   >- ((* binary: add, pair, app *)
     fs [CaseEqs ["list", "option", "bool"]]
-    \\ strip_tac \\ gvs []
-    \\ drule_then strip_assume_tac list_dest_comb_binary \\ gvs []
+    \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
+    \\ rw [] \\ fs []
     \\ gvs [cval2term_def, MK_COMB_simple, proves_REFL,
             compute_thy_ok_terms_ok]
-    \\ strip_tac \\ gvs [SF DNF_ss, cval_consts_def, app_type_def]
+    \\ gvs [SF DNF_ss, cval_consts_def, app_type_def]
     \\ irule MK_COMB_simple \\ gs [numeralTheory.numeral_funpow]
     \\ irule MK_COMB_simple \\ simp []
     \\ irule proves_REFL \\ simp [compute_thy_ok_terms_ok])
   \\ TOP_CASE_TAC
   >- ((* ternary: if *)
     fs [CaseEqs ["list", "option", "bool"]]
-    \\ strip_tac \\ gvs []
-    \\ drule_then strip_assume_tac list_dest_comb_ternary \\ gvs []
+    \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
+    \\ rw [] \\ fs []
     \\ gvs [cval2term_def]
-    \\ strip_tac \\ gvs [cval_consts_def, app_type_def, SF DNF_ss]
+    \\ gvs [cval_consts_def, app_type_def, SF DNF_ss]
     \\ irule MK_COMB_simple \\ fs [numeralTheory.numeral_funpow]
     \\ irule MK_COMB_simple \\ fs []
     \\ irule MK_COMB_simple \\ fs [compute_thy_ok_terms_ok, proves_REFL])
@@ -436,10 +390,11 @@ Proof
     by gs [Abbr ‘tms’]
   \\ fs []
   \\ ntac 2 (pop_assum kall_tac)
+  \\ simp [cval2term_def]
   \\ strip_tac
   \\ gvs [cval_consts_def, MEM_MAP, SF DNF_ss]
   \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
-  \\ simp [cval2term_def,FOLDL_MAP]
+  \\ simp [cval2term_def, FOLDL_MAP]
   \\ cheat (* Annoying FOLDL case *)
 QED
 
