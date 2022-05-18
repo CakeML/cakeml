@@ -578,9 +578,51 @@ QED
  * compute
  * ------------------------------------------------------------------------- *)
 
-Definition compute_default_clock:
-  compute_default_clock = 1000000000
+Definition const_list_def:
+  const_list (Var n) = [] ∧
+  const_list (Num n) = [] ∧
+  const_list (Pair x y) = const_list x ++ const_list y ∧
+  const_list (Add x y) = const_list x ++ const_list y ∧
+  const_list (If x y z) = const_list x ++ const_list y ++ const_list z ∧
+  const_list (App s xs) = (s,LENGTH xs)::FLAT (MAP const_list xs)
+Termination
+  wf_rel_tac ‘measure compute_val_size’
 End
+
+Theorem const_list_ok[local]:
+  ∀vs. set (const_list vs) = cval_consts vs
+Proof
+  ho_match_mp_tac const_list_ind
+  \\ rw [const_list_def, cval_consts_def]
+  \\ simp [Once EXTENSION]
+  \\ rw [MEM_FLAT, MEM_MAP, PULL_EXISTS]
+  \\ eq_tac \\ rw [DISJ_EQ_IMP] \\ gs []
+  \\ first_x_assum (drule_then assume_tac)
+  \\ first_x_assum (irule_at Any) \\ gs []
+QED
+
+Definition var_list_def:
+  var_list (Var n) = [n] ∧
+  var_list (Num n) = [] ∧
+  var_list (Pair x y) = var_list x ++ var_list y ∧
+  var_list (Add x y) = var_list x ++ var_list y ∧
+  var_list (If x y z) = var_list x ++ var_list y ++ var_list z ∧
+  var_list (App s xs) = FLAT (MAP var_list xs)
+Termination
+  wf_rel_tac ‘measure compute_val_size’
+End
+
+Theorem var_list_ok[local]:
+  ∀vs. set (var_list vs) = cval_vars vs
+Proof
+  ho_match_mp_tac var_list_ind
+  \\ rw [var_list_def, cval_vars_def]
+  \\ simp [Once EXTENSION]
+  \\ rw [MEM_FLAT, MEM_MAP, PULL_EXISTS]
+  \\ eq_tac \\ rw [DISJ_EQ_IMP] \\ gs []
+  \\ first_x_assum (drule_then assume_tac)
+  \\ first_x_assum (irule_at Any) \\ gs []
+QED
 
 (* A valid equation is:
  *   [] |- const var1 ... varN = expr
@@ -609,11 +651,19 @@ Definition check_eqn_def:
         (nm,ty) <- dest_const f ++
                 failwith «Kernel.compute: not a constant being applied on lhs»;
         args <- map check_var vs;
-        (* TODO: check that r only contains variables in args *)
         case dest_cval r of
         | NONE => failwith «Kernel.compute: rhs is not a cval»
-        | SOME cv => return (nm,args,cv)
+        | SOME cv =>
+            do
+              if EVERY (λv. MEM v args) (var_list cv) then return () else
+                failwith «Kernel.compute: rhs contains free variable»;
+              return (nm,args,cv)
+            od
       od
+End
+
+Definition compute_default_clock:
+  compute_default_clock = 1000000000
 End
 
 Definition compute_def:
@@ -626,6 +676,12 @@ Definition compute_def:
     | SOME cval =>
         do
           ceqs <- map check_eqn ceqs;
+          ars <<- MAP (λ(f,(n,r)). (f,LENGTH n)) ceqs;
+          map (λ(f,(n,r)).
+            if EVERY (λ(c,n). MEM (c,n) ars) (const_list r) then return () else
+              failwith («Kernel.compute: rhs of » ^ f ^ « has a constant » ^
+                        «with no equation associated to it.»))
+            ceqs;
           case compute_eval_run compute_default_clock ceqs cval of
           | M_failure _ => failwith «Kernel.compute: timeout»
           | M_success res =>
