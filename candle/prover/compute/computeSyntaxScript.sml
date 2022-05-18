@@ -662,17 +662,38 @@ Theorem cval2term_typeof[simp]:
 Proof
   ho_match_mp_tac cval2term_ind \\ rw []
   \\ simp [cval2term_def, FOLDL_MAP]
-  \\ cheat
+  \\ pop_assum mp_tac
+  \\ ‘∀tm.
+        typeof tm = app_type (LENGTH cs) ⇒
+          typeof (FOLDL (λx y. Comb x (cval2term y)) tm cs) = cval_ty ’
+    suffices_by rw [SF SFY_ss]
+  \\ Induct_on ‘cs’
+  \\ simp [app_type]
 QED
 
 Theorem cval2term_has_type[simp]:
   ∀cv. cval2term cv has_type cval_ty
 Proof
-  ho_match_mp_tac cval2term_ind \\ rw []
-  \\ simp [cval2term_def]
-  \\ rw [Ntimes has_type_cases 3]
-  \\ rw [Ntimes has_type_cases 3]
-  \\ cheat
+  ho_match_mp_tac cval2term_ind \\ rw [] \\ simp [cval2term_def]
+  >~ [‘_CVAL_NUM _’] >- (
+    rw [Ntimes has_type_cases 3]
+    \\ rw [Ntimes has_type_cases 3])
+  >~ [‘_CVAL_PAIR _ _’] >- (
+    rw [Ntimes has_type_cases 3])
+  >~ [‘_CVAL_ADD _ _’] >- (
+    rw [Ntimes has_type_cases 3])
+  >~ [‘_CVAL_IF _ _ _’] >- (
+    rw [Ntimes has_type_cases 3]
+    \\ rw [Ntimes has_type_cases 3])
+  >~ [‘Var _’] >- (
+    rw [has_type_rules])
+  \\ simp [FOLDL_MAP]
+  \\ ‘∀tm.
+        tm has_type app_type (LENGTH cs) ⇒
+          FOLDL (λx y. Comb x (cval2term y)) tm cs has_type cval_ty ’
+    suffices_by rw [has_type_rules, SF SFY_ss]
+  \\ Induct_on ‘cs’ \\ rw [app_type]
+  \\ gs [has_type_rules, SF SFY_ss, SF DNF_ss]
 QED
 
 Theorem cval2term_welltyped[simp]:
@@ -686,7 +707,7 @@ Theorem cval2term_term_ok:
     ∀cv.
       (∀c n.
         (c,n) ∈ cval_consts cv ⇒
-          term_ok (sigof thy) (Const s (app_type n))) ⇒
+          term_ok (sigof thy) (Const c (app_type n))) ⇒
         term_ok (sigof thy) (cval2term cv)
 Proof
   strip_tac
@@ -704,7 +725,18 @@ Proof
   >~ [‘_CVAL_IF _ _ _ ’] >- (
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
   \\ gvs [FOLDL_MAP, MEM_MAP, SF SFY_ss, SF DNF_ss]
-  \\ cheat
+  \\ ‘∀tm.
+        term_ok (sigof thy) tm ∧
+        tm has_type (app_type (LENGTH cs)) ⇒
+          term_ok (sigof thy) (FOLDL (λx y. Comb x (cval2term y)) tm cs)’
+    suffices_by rw [term_ok_def, has_type_rules]
+  \\ rpt (qpat_x_assum ‘term_ok _ _’ kall_tac)
+  \\ Induct_on ‘cs’
+  \\ rw [app_type, SF SFY_ss, SF DNF_ss]
+  \\ first_x_assum irule \\ fs [SF SFY_ss]
+  \\ simp [has_type_rules, cval2term_has_type, SF SFY_ss]
+  \\ simp [term_ok_def, term_ok_welltyped, SF SFY_ss]
+  \\ irule_at Any WELLTYPED_LEMMA \\ fs [SF SFY_ss]
 QED
 
 (* -------------------------------------------------------------------------
