@@ -358,7 +358,15 @@ Proof
   \\ rw [NUMERAL_eqn, sym_equation]
 QED
 
-(* TODO All constants in the term need to be term_ok (sigof thy) *)
+Theorem list_dest_comb_folds_back:
+  ∀sofar tm h t.
+    list_dest_comb sofar tm = h::t ⇒
+      ∃xs. t = xs ++ sofar ∧
+           FOLDL Comb h xs = tm
+Proof
+  ho_match_mp_tac list_dest_comb_ind
+  \\ rw [list_dest_comb_def] \\ gvs [FOLDL_APPEND]
+QED
 
 Theorem dest_cval_thm:
   compute_thy_ok thy ⇒
@@ -430,9 +438,7 @@ Proof
   \\ ntac 2 (pop_assum kall_tac)
   \\ strip_tac
   \\ gvs [cval_consts_def, MEM_MAP, SF DNF_ss]
-  \\ ‘FOLDL Comb (Const m (app_type (LENGTH cvs))) tms = tm’
-    by cheat (* TODO running list_dest_comb in reverse *)
-  \\ gvs []
+  \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
   \\ simp [cval2term_def,FOLDL_MAP]
   \\ cheat (* Annoying FOLDL case *)
 QED
