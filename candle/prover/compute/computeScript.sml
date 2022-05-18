@@ -666,8 +666,16 @@ Definition compute_default_clock:
   compute_default_clock = 1000000000
 End
 
+Definition check_consts_def:
+  check_consts ars fn rhs =
+    if EVERY (λ(c,n). MEM (c,n) ars) (const_list rhs) then return () else
+    failwith («Kernel.compute: rhs of » ^ fn ^ « has a constant » ^
+              «with no equation associated to it.»)
+End
+
 Definition compute_def:
   compute ths ceqs tm =
+    flip handle_Clash (λe. failwith «impossible» ) $
     if ¬compute_init ths then
       failwith «Kernel.compute: wrong theorems provided for initialization»
     else
@@ -677,11 +685,7 @@ Definition compute_def:
         do
           ceqs <- map check_eqn ceqs;
           ars <<- MAP (λ(f,(n,r)). (f,LENGTH n)) ceqs;
-          map (λ(f,(n,r)).
-            if EVERY (λ(c,n). MEM (c,n) ars) (const_list r) then return () else
-              failwith («Kernel.compute: rhs of » ^ f ^ « has a constant » ^
-                        «with no equation associated to it.»))
-            ceqs;
+          map (λ(f,(n,r)). check_consts ars f r) ceqs;
           case compute_eval_run compute_default_clock ceqs cval of
           | M_failure _ => failwith «Kernel.compute: timeout»
           | M_success res =>
@@ -692,47 +696,108 @@ Definition compute_def:
         od
 End
 
-(* TODO *)
+Theorem map_check_eqn_thm:
+  ∀ceqs s res s'.
+    STATE ctxt s ∧
+    EVERY (THM ctxt) ceqs ∧
+    map check_eqn ceqs s = (res, s') ⇒
+      s = s' ∧
+      (∀tm. res ≠ M_failure (Clash tm)) ∧
+      ∀eqs. res = M_success eqs ⇒
+        ∀n. n < LENGTH eqs ⇒
+            ∃f vs cv l r.
+              EL n eqs = (f,vs,cv) ∧
+              EL n ceqs = Sequent [] (l === r) ∧
+              list_dest_comb [] l = Const f (app_type (LENGTH vs))::
+                                    (MAP (λs. Var s cval_ty) vs) ∧
+              dest_cval r = SOME cv ∧
+              ∀v. v ∈ cval_vars cv ⇒ MEM v vs
+Proof
+  cheat (* TODO *)
+QED
 
-(*
+Theorem map_check_consts_thm:
+  ∀ceqs s res s'.
+    STATE ctxt s ∧
+    map (λ(f,(n,r)). check_consts ars f r) ceqs s = (res, s') ⇒
+      s = s' ∧
+      (∀tm. res ≠ M_failure (Clash tm)) ∧
+      ∀u. res = M_success u ⇒
+        ∀f vs cv.
+          MEM (f,vs,cv) ceqs ⇒ EVERY (λ(c,n). MEM (c,n) ars) (const_list cv)
+Proof
+  Induct \\ fs [map_def, check_consts_def, st_ex_return_def, raise_Failure_def]
+  \\ qx_gen_tac ‘h’ \\ PairCases_on ‘h’
+  \\ rpt gen_tac \\ strip_tac
+  \\ qpat_x_assum ‘_ = (res,s')’ mp_tac
+  \\ simp [Once st_ex_bind_def]
+  \\ reverse IF_CASES_TAC \\ gs [] >- rw []
+  \\ simp [Once st_ex_bind_def]
+  \\ CASE_TAC \\ gs []
+  \\ first_x_assum drule_all
+  \\ strip_tac \\ gvs []
+  \\ reverse CASE_TAC \\ gs [] \\ rw [] \\ gs [SF SFY_ss]
+QED
+
 Theorem compute_thm:
   STATE ctxt s ∧
   EVERY (THM ctxt) ths ∧
+  EVERY (THM ctxt) ceqs ∧
   TERM ctxt tm ⇒
-  compute ths tm s = (res, s') ⇒
+  compute ths ceqs tm s = (res, s') ⇒
     s' = s ∧
     (∀th. res = M_success th ⇒ THM ctxt th) ∧
     (∀tm. res ≠ M_failure (Clash tm))
 Proof
   strip_tac
-  \\ simp [compute_def, raise_Failure_def]
+  \\ simp [compute_def, handle_Clash_def, raise_Failure_def, st_ex_return_def]
   \\ IF_CASES_TAC \\ gs []
+  \\ gs []
   \\ drule_all_then strip_assume_tac compute_init_thy_ok
-  \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
+  (*\\ drule_then strip_assume_tac compute_thy_ok_terms_ok*)
   \\ ‘theory_ok (thyof ctxt) ∧ numeral_thy_ok (thyof ctxt)’
     by fs []
   \\ CASE_TAC \\ gs []
-  \\ simp [Once st_ex_bind_def, st_ex_return_def]
+  \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
+  \\ drule_all_then strip_assume_tac map_check_eqn_thm \\ gvs []
+  \\ reverse CASE_TAC \\ gs [] >- (CASE_TAC \\ gs [] \\ rw [])
+  \\ simp [st_ex_ignore_bind_def]
+  \\ qmatch_goalsub_abbrev_tac ‘map g a r’
+  \\ Cases_on ‘map g a r’ \\ gs []
+  \\ unabbrev_all_tac \\ gs []
+  \\ drule_all_then strip_assume_tac map_check_consts_thm \\ gvs []
+  \\ rename [‘map _ a r = (res,r)’]
+  \\ reverse (Cases_on ‘res’) \\ gs [] >- (CASE_TAC \\ gs [] \\ rw [])
+  \\ rename [‘compute_eval_run _ eqs cv’]
   \\ CASE_TAC \\ gs []
-  \\ rename [‘compute_eval np’]
-  \\ ‘TERM ctxt (cval2term (compute_eval np))’
+  \\ rename [‘compute_eval_run _ _ _ = M_success tm'’]
+  \\ drule dest_cval_thm
+  \\ disch_then drule
+  \\ impl_keep_tac
+  >- cheat (* TODO: All constants in dest_cval correspond to
+                    real constants in tm, and they should all look
+                    like (Const foo (app_type something))
+                    and they're all term_ok. perhaps try to remove this
+                    assumption from dest_cval_thm and assume term_ok there,
+                    instead *)
+  \\ strip_tac
+  \\ ‘cval_consts tm' = {}’
+    by cheat (* TODO: All constants are evaluated away *)
+  \\ ‘TERM ctxt (cval2term tm')’
     by (drule cval2term_term_ok \\ simp [TERM_def])
+  \\ simp [Once st_ex_bind_def]
+  \\ CASE_TAC \\ gs []
   \\ drule_all_then strip_assume_tac mk_eq_thm \\ gvs []
-  \\ rename [‘mk_eq _ _ = (res,_)’]
-  \\ ‘∀tm. res ≠ M_failure (Clash tm)’
-    by (rpt strip_tac \\ fs [])
-  \\ CASE_TAC \\ strip_tac \\ rveq \\ fs []
-  \\ drule_all_then strip_assume_tac dest_cval_thm
+  \\ reverse CASE_TAC >- (CASE_TAC \\ gs [] \\ rw [])
+  \\ rw []
   \\ ‘term_type tm = cval_ty’
     by (fs [STATE_def]
         \\ qpat_x_assum ‘TERM ctxt tm’ assume_tac
         \\ drule_all term_type \\ gs [])
-  \\ ‘(thyof ctxt,[]) |- tm === cval2term (compute_eval np)’
+  \\ ‘(thyof ctxt,[]) |- tm === cval2term tm'’
     suffices_by rw [equation_def, THM_def]
-  \\ resolve_then Any irule trans_equation_simple sym_equation
-  \\ irule_at Any compute_eval_thm \\ rw []
+  \\ cheat (* theorem about run_compute_eval *)
 QED
- *)
 
 val _ = export_theory ();
 
