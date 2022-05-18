@@ -331,13 +331,21 @@ Proof
   \\ rw [list_dest_comb_def] \\ gvs [FOLDL_APPEND]
 QED
 
+Theorem term_ok_FOLDL_Comb:
+  ∀tms tm.
+    term_ok sig (FOLDL Comb tm tms) ⇒
+      term_ok sig tm ∧
+      EVERY (term_ok sig) tms
+Proof
+  Induct \\ rw [term_ok_def]
+  \\ first_x_assum drule \\ rw [term_ok_def]
+QED
+
 Theorem dest_cval_thm:
   compute_thy_ok thy ⇒
     ∀tm cv.
       dest_cval tm = SOME cv ⇒
-      (∀c n.
-        (c,n) ∈ cval_consts cv ⇒
-          term_ok (sigof thy) (Const c (app_type n))) ⇒
+      term_ok (sigof thy) tm ⇒
         (thy,[]) |- cval2term cv === tm ∧
         typeof tm = cval_ty
 Proof
@@ -364,29 +372,39 @@ Proof
     \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
     \\ rw [] \\ fs []
     \\ gvs [cval2term_dest_numeral_opt] \\ gvs [cval2term_def]
-    \\ gvs [cval_consts_def, app_type_def, SF DNF_ss]
-    \\ irule MK_COMB_simple \\ simp [proves_REFL])
+    \\ rename [‘term_ok (sigof thy) tm ⇒ _’]
+    \\ ‘term_ok (sigof thy) tm’
+      by fs [term_ok_def]
+    \\ gvs [app_type_def]
+    \\ irule MK_COMB_simple \\ simp []
+    \\ irule proves_REFL \\ fs [term_ok_def, SF SFY_ss])
   \\ TOP_CASE_TAC
   >- ((* binary: add, pair, app *)
     fs [CaseEqs ["list", "option", "bool"]]
     \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
     \\ rw [] \\ fs []
-    \\ gvs [cval2term_def, MK_COMB_simple, proves_REFL,
-            compute_thy_ok_terms_ok]
-    \\ gvs [SF DNF_ss, cval_consts_def, app_type_def]
-    \\ irule MK_COMB_simple \\ gs [numeralTheory.numeral_funpow]
+    \\ rename [‘term_ok _ (Comb (Comb _ x) y)’]
+    \\ ‘term_ok (sigof thy) x ∧ term_ok (sigof thy) y’
+      by fs [term_ok_def]
+    \\ gvs [cval2term_def, MK_COMB_simple, proves_REFL, compute_thy_ok_terms_ok]
+    \\ simp [app_type_def, numeralTheory.numeral_funpow]
     \\ irule MK_COMB_simple \\ simp []
-    \\ irule proves_REFL \\ simp [compute_thy_ok_terms_ok])
+    \\ irule MK_COMB_simple \\ simp []
+    \\ irule proves_REFL
+    \\ fs [term_ok_def, SF SFY_ss])
   \\ TOP_CASE_TAC
   >- ((* ternary: if *)
     fs [CaseEqs ["list", "option", "bool"]]
     \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
     \\ rw [] \\ fs []
-    \\ gvs [cval2term_def]
-    \\ gvs [cval_consts_def, app_type_def, SF DNF_ss]
-    \\ irule MK_COMB_simple \\ fs [numeralTheory.numeral_funpow]
-    \\ irule MK_COMB_simple \\ fs []
-    \\ irule MK_COMB_simple \\ fs [compute_thy_ok_terms_ok, proves_REFL])
+    \\ rename [‘term_ok _ (Comb (Comb (Comb _ x) y) z)’]
+    \\ ‘term_ok (sigof thy) x ∧ term_ok (sigof thy) y ∧ term_ok (sigof thy) z’
+      by fs [term_ok_def]
+    \\ gvs [cval2term_def, app_type_def, numeralTheory.numeral_funpow]
+    \\ irule MK_COMB_simple \\ simp []
+    \\ irule MK_COMB_simple \\ simp []
+    \\ irule MK_COMB_simple
+    \\ fs [compute_thy_ok_terms_ok, term_ok_def, proves_REFL, SF SFY_ss])
       (* n-ary: app *)
   \\ fs [CaseEqs ["list", "option", "bool"], SF ETA_ss]
   \\ strip_tac \\ gvs []
@@ -396,7 +414,7 @@ Proof
     by gs [Abbr ‘tms’]
   \\ fs []
   \\ ntac 2 (pop_assum kall_tac)
-  \\ strip_tac \\ gvs [cval_consts_def, MEM_MAP, SF DNF_ss]
+  \\ strip_tac
   \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
   \\ simp [cval2term_def, FOLDL_MAP]
   \\ ‘∀tm tm'.
@@ -408,23 +426,21 @@ Proof
           typeof (FOLDL Comb tm tms) = cval_ty’
     suffices_by (
       disch_then irule
-      \\ drule mapOption_LENGTH \\ gs []
-      \\ rw [proves_REFL])
+      \\ drule_then assume_tac mapOption_LENGTH \\ gs []
+      \\ irule_at Any proves_REFL \\ fs []
+      \\ drule term_ok_FOLDL_Comb \\ rw [])
   \\ qpat_x_assum ‘list_dest_comb _ _ = _’ kall_tac
-  \\ qpat_x_assum ‘term_ok _ _’ kall_tac
-  \\ ntac 4 (pop_assum mp_tac)
+  \\ dxrule_then strip_assume_tac term_ok_FOLDL_Comb
+  \\ qpat_x_assum ‘term_ok _ (Const _ _)’ kall_tac
+  \\ ntac 3 (pop_assum mp_tac)
   \\ qid_spec_tac ‘tms’
   \\ qid_spec_tac ‘cvs’
-  \\ Induct \\ Cases_on ‘tms’ \\ simp [mapOption_def, app_type, proves_REFL]
-  \\ simp [CaseEq "option"]
-  >- (
-    rw [sym_equation])
-  \\ ntac 8 strip_tac
+  \\ Induct \\ Cases_on ‘tms’ \\ simp [mapOption_def, app_type, proves_REFL,
+                                       CaseEq "option", Once sym_equation]
+  \\ ntac 7 strip_tac
   \\ rename [‘mapOption dest_cval tms’]
   \\ first_x_assum (qspec_then ‘tms’ assume_tac)
-  \\ gs [SF SFY_ss]
-  \\ first_x_assum irule \\ simp []
-  \\ gs [SF DNF_ss]
+  \\ gs [SF SFY_ss] \\ first_x_assum irule \\ gs [SF DNF_ss]
   \\ conj_asm1_tac
   >- (
     qpat_x_assum ‘_ |- cval2term _ === _’ assume_tac
@@ -771,16 +787,9 @@ Proof
   \\ rename [‘compute_eval_run _ eqs cv’]
   \\ CASE_TAC \\ gs []
   \\ rename [‘compute_eval_run _ _ _ = M_success tm'’]
-  \\ drule dest_cval_thm
-  \\ disch_then drule
-  \\ impl_keep_tac
-  >- cheat (* TODO: All constants in dest_cval correspond to
-                    real constants in tm, and they should all look
-                    like (Const foo (app_type something))
-                    and they're all term_ok. perhaps try to remove this
-                    assumption from dest_cval_thm and assume term_ok there,
-                    instead *)
-  \\ strip_tac
+  \\ ‘term_ok (sigof (thyof ctxt)) tm’
+    by fs [TERM_def]
+  \\ drule_all_then strip_assume_tac dest_cval_thm
   \\ ‘cval_consts tm' = {}’
     by cheat (* TODO: All constants are evaluated away *)
   \\ ‘TERM ctxt (cval2term tm')’
