@@ -60,14 +60,17 @@ val r = translate pb_constraintTheory.get_var_def;
 val r = translate pb_constraintTheory.compact_lhs_def;
 val r = translate pb_constraintTheory.term_le_def;
 val r = translate pb_constraintTheory.negate_def;
+val r = translate pb_constraintTheory.mk_coeff_def;
 val r = translate pb_constraintTheory.normalize_lhs_def;
 
+(*
 val normalize_lhs_side_def = theorem "normalize_lhs_side_def";
 val normalize_lhs_side = Q.prove(
   `∀x y z. normalize_lhs_side x y z <=> T`,
   Induct>>rw[Once normalize_lhs_side_def]>>
   intLib.ARITH_TAC)
   |> update_precondition;
+ *)
 
 val r = translate pb_constraintTheory.pbc_to_npbc_def;
 

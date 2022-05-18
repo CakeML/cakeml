@@ -37,6 +37,8 @@ val r = translate OPTION_MAP2_DEF;
 val r = translate get_var_def;
 val r = translate listTheory.REV_DEF;
 val r = translate term_lt_def;
+
+val r = translate offset_def;
 val r = translate add_terms_def;
 val r = translate add_lists'_def;
 val r = translate add_lists'_thm;
@@ -51,15 +53,22 @@ val mul_k_def = Define`
 
 val r = translate mul_k_def;
 
+val r = translate IQ_def;
+
 val r = translate pb_constraintTheory.div_ceiling_def;
+
+val r = translate arithmeticTheory.CEILING_DIV_def ;
 val r = translate pb_constraintTheory.divide_def;
 
 val divide_side = Q.prove(
   `∀x y. divide_side x y ⇔ y ≠ 0`,
   Cases>>
   EVAL_TAC>>
-  rw[EQ_IMP_THM]) |> update_precondition
+  rw[EQ_IMP_THM]>>
+  intLib.ARITH_TAC
+  ) |> update_precondition
 
+val r = translate pb_constraintTheory.abs_min_def;
 val r = translate pb_constraintTheory.saturate_def;
 
 val r = translate pb_constraintTheory.weaken_aux_def;
@@ -83,13 +92,17 @@ val check_cutting_arr = process_topdecs`
     else raise Fail (format_failure lno ("divide by zero"))
   | Sat c =>
     saturate (check_cutting_arr lno fml c)
-  | Lit l => Pbc [(1,l)] 0
+  | Lit l =>
+    (case l of
+      Pos v => (Pbc [(1,v)] 0)
+    | Neg v => (Pbc [(~1,v)] 0))
   | Weak c var =>
     weaken (check_cutting_arr lno fml c) var` |> append_prog
 
 val PB_CHECK_CONSTR_TYPE_def = fetch "-" "PB_CHECK_CONSTR_TYPE_def";
 
 val PB_CONSTRAINT_NPBC_TYPE_def  = theorem "PB_CONSTRAINT_NPBC_TYPE_def"
+val PB_PRECONSTRAINT_LIT_TYPE_def = fetch "-" "PB_PRECONSTRAINT_LIT_TYPE_def";
 
 Theorem check_cutting_arr_spec:
   ∀constr constrv lno lnov fmlls fmllsv fmlv.
@@ -172,6 +185,7 @@ Proof
   >- ( (* Lit *)
     fs[check_cutting_list_def,PB_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
+    Cases_on`l`>>fs[PB_PRECONSTRAINT_LIT_TYPE_def]>>xmatch
     rpt xlet_autop>>
     xcon>>xsimpl>>
     simp[PB_CONSTRAINT_NPBC_TYPE_def,LIST_TYPE_def,PAIR_TYPE_def])
@@ -188,7 +202,7 @@ QED
 val result = translate sorted_insert_def;
 
 val r = translate pb_constraintTheory.negate_def;
-val r = translate (pb_constraintTheory.lslack_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
+val r = translate (pb_constraintTheory.lslack_def |> SIMP_RULE std_ss [MEMBER_INTRO, o_DEF]);
 val r = translate (pb_constraintTheory.check_contradiction_def |> SIMP_RULE std_ss[LET_DEF]);
 
 (* TODO:  can use Unsafe.update instead of Array.update *)
@@ -315,7 +329,7 @@ val check_pbpstep_arr = process_topdecs`
         (list_delete_arr ls fml; (fml, (False, (id, inds))))
       else
         raise Fail (format_failure lno ("Deletion not permitted for constraint index < " ^ Int.toString mindel))
-  | Con_1 c pf =>
+  | Con c pf =>
     let val fml_not_c = Array.updateResize fml None id (Some (not_1 c)) in
       (case check_pbpsteps_arr lno pf fml_not_c inds id (id+1) of
         (fml', (True, (id' ,inds'))) =>
@@ -359,7 +373,6 @@ Proof
   fs[EL_REPLICATE]
 QED
 
-val PB_PRECONSTRAINT_LIT_TYPE_def = fetch "-" "PB_PRECONSTRAINT_LIT_TYPE_def";
 val PB_CONSTRAINT_NPBC_TYPE_def = fetch "-" "PB_CONSTRAINT_NPBC_TYPE_def";
 
 Theorem NUM_no_closures:
@@ -394,13 +407,13 @@ Proof
 QED
 
 Theorem LIST_TYPE_no_closures:
-  (LIST_TYPE (PAIR_TYPE NUM PB_PRECONSTRAINT_LIT_TYPE) n v ⇒ no_closures v) ∧
-  (LIST_TYPE (PAIR_TYPE NUM PB_PRECONSTRAINT_LIT_TYPE) n v ∧
-   LIST_TYPE (PAIR_TYPE NUM PB_PRECONSTRAINT_LIT_TYPE) n' v' ⇒ (n=n' ⇔ v=v')) ∧
-  (LIST_TYPE (PAIR_TYPE NUM PB_PRECONSTRAINT_LIT_TYPE) n v ∧
-   LIST_TYPE (PAIR_TYPE NUM PB_PRECONSTRAINT_LIT_TYPE) n' v' ⇒ types_match v v')
+  (LIST_TYPE (PAIR_TYPE INT NUM) n v ⇒ no_closures v) ∧
+  (LIST_TYPE (PAIR_TYPE INT NUM) n v ∧
+   LIST_TYPE (PAIR_TYPE INT NUM) n' v' ⇒ (n=n' ⇔ v=v')) ∧
+  (LIST_TYPE (PAIR_TYPE INT NUM) n v ∧
+   LIST_TYPE (PAIR_TYPE INT NUM) n' v' ⇒ types_match v v')
 Proof
-  `EqualityType (LIST_TYPE (PAIR_TYPE NUM PB_PRECONSTRAINT_LIT_TYPE))` by
+  `EqualityType (LIST_TYPE (PAIR_TYPE INT NUM))` by
     (match_mp_tac EqualityType_LIST_TYPE>>
     metis_tac[EqualityType_PAIR_TYPE, EqualityType_NUM_BOOL,EqualityType_PB_PRECONSTRAINT_LIT_TYPE])>>
   pop_assum mp_tac>>

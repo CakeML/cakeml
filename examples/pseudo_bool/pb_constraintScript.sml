@@ -244,20 +244,35 @@ Proof
 QED
 
 (* division *)
+Definition IQ_def:
+  IQ (i:int) (j:int) =
+       if 0 < j then
+         if 0 ≤ i then &(Num i DIV Num j):int else -&(Num (-i) DIV Num j)
+       else if 0 ≤ i then -&(Num i DIV Num (-j))
+       else &(Num (-i) DIV Num (-j))
+End
 
 Definition div_ceiling_def:
   div_ceiling (m:int) (n:num) =
-    (if m < 0
-    then m-(&n-1)
-    else m+(&n - 1)) quot &n
+    IQ
+      (if m < 0
+      then m-(&n-1)
+      else m+ (&n - 1)) &n
 End
+
+Theorem IQ_quot:
+  j ≠ 0 ⇒
+  IQ i j = i quot j
+Proof
+  simp[integerTheory.int_quot,IQ_def]
+QED
 
 Theorem div_ceiling_compute:
   k ≠ 0 ⇒
   div_ceiling (&n) k = & (n \\ k) ∧
   div_ceiling (-&n) k = - & (n \\ k)
 Proof
-  fs [div_ceiling_def,CEILING_DIV_def] \\ rw []
+  fs [div_ceiling_def,CEILING_DIV_def,IQ_quot] \\ rw []
   \\ Cases_on ‘k’ \\ fs []
   \\ fs [ADD1,integerTheory.INT_ADD_CALCULATE,
          integerTheory.INT_SUB_CALCULATE,DIV_EQ_X]
@@ -279,7 +294,7 @@ Theorem div_ceiling_sign:
   n ≠ 0 ⇒
   (div_ceiling m n < 0 ⇔ m < 0)
 Proof
-  Cases_on`m` \\ fs[div_ceiling_compute]
+  Cases_on`m` \\ fs[div_ceiling_compute,IQ_quot]
   \\ fs [CEILING_DIV]
   \\ rw [] \\ Cases_on ‘1 < n’
   \\ gvs [DIV_EQ_0]
@@ -289,7 +304,7 @@ QED
 Theorem DIV_CEILING_EQ_0:
   n ≠ 0 ⇒ (m \\ n = 0 ⇔ m = 0)
 Proof
-  fs [CEILING_DIV]
+  fs [CEILING_DIV,IQ_quot]
   \\ Cases_on ‘m = 0’ \\ fs [ZERO_DIV]
   \\ rw [] \\ Cases_on ‘1 < n’
   \\ gvs [DIV_EQ_0]
@@ -318,7 +333,7 @@ QED
 Theorem div_ceiling_eq_0:
   k ≠ 0 ⇒ (div_ceiling c k = 0 ⇔ c = 0)
 Proof
-  fs [div_ceiling_def]
+  fs [div_ceiling_def,IQ_quot]
   \\ Cases_on ‘c = 0’ \\ fs []
   \\ Cases_on ‘k’
   \\ fs [ADD1,integerTheory.INT_ADD_CALCULATE,

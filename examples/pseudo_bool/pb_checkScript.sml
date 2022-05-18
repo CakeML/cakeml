@@ -35,7 +35,7 @@ Datatype:
   | Mul constr num      (* Multiply by a constant factor *)
   | Div constr num      (* Divide by a constant factor *)
   | Sat constr          (* Saturation *)
-  | Lit bool num         (* Literal axiom lit ≥ 0 *)
+  | Lit lit             (* Literal axiom lit ≥ 0 *)
   | Weak constr var     (* Addition of literal axioms until "var" disappears *)
 End
 
@@ -95,7 +95,8 @@ Definition check_cutting_def:
     else NONE) ∧
   (check_cutting fml (Sat c) =
     OPTION_MAP saturate (check_cutting fml c)) ∧
-  (check_cutting fml (Lit b v) = SOME (PBC [(if b then 1 else -1,v)] 0)) ∧
+  (check_cutting fml (Lit (Pos v)) = SOME (PBC [(1,v)] 0)) ∧
+  (check_cutting fml (Lit (Neg v)) = SOME (PBC [(-1,v)] 0)) ∧
   (check_cutting fml (Weak c var) =
     OPTION_MAP (λc. weaken c var) (check_cutting fml c))
 End
@@ -271,6 +272,7 @@ Proof
     metis_tac[])
   >- (
     (* literal case *)
+    Cases_on`l`>>fs[check_cutting_def]>>rveq>>
     EVAL_TAC)
   >- (
     (* weaken case *)
@@ -300,6 +302,7 @@ Proof
     metis_tac[compact_saturate])
   >- (
     (* literal case *)
+    Cases_on`l`>>fs[check_cutting_def]>>rveq>>
     EVAL_TAC)
   >- (
     (* weaken case *)
