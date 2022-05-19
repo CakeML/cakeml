@@ -562,17 +562,22 @@ val compile_inc_progs_def = Define`
     let (env_id,p) = p_tup in
     let ps = empty_progs with <| env_id := env_id; source_prog := p |> in
     let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
+    let _ = empty_ffi (strlit "finished: source_to_flat") in
     let ps = ps with <| flat_prog := keep_progs k p |> in
     let c = c with source_conf := c' in
     let p = flat_to_clos_inc_compile p in
+    let _ = empty_ffi (strlit "finished: flat_to_clos") in
     let ps = ps with <| clos_prog := (keep_progs k ## keep_progs k) p |> in
     let (c',p) = clos_to_bvl_compile_inc c.clos_conf p in
+    let _ = empty_ffi (strlit "finished: clos_to_bvl") in
     let c = c with clos_conf := c' in
     let ps = ps with <| bvl_prog := keep_progs k p |> in
     let (c', p) = bvl_to_bvi_compile_inc_all c.bvl_conf p in
+    let _ = empty_ffi (strlit "finished: bvl_to_bvi") in
     let c = c with <| bvl_conf := c' |> in
     let ps = ps with <| bvi_prog := keep_progs k p |> in
     let p = bvi_to_data_compile_prog p in
+    let _ = empty_ffi (strlit "finished: bvi_to_data") in
     let ps = ps with <| data_prog := keep_progs k p |> in
     let asm_c = c.lab_conf.asm_conf in
     let dc = ensure_fp_conf_ok asm_c c.data_conf in
@@ -580,9 +585,11 @@ val compile_inc_progs_def = Define`
     let reg_count1 = asm_c.reg_count - (5 + LENGTH asm_c.avoid_regs) in
     let p = MAP (\p. full_compile_single asm_c.two_reg_arith reg_count1
         c.word_to_word_conf.reg_alg asm_c (p, NONE)) p in
+    let _ = empty_ffi (strlit "finished: data_to_word") in
     let ps = ps with <| word_prog := keep_progs k p |> in
     let bm0 = c.word_conf.bitmaps_length in
     let (p, fs, bm) = compile_word_to_stack reg_count1 p (Nil, bm0) in
+    let _ = empty_ffi (strlit "finished: word_to_stack") in
     let cur_bm = append (FST bm) in
     let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in
     let ps = ps with <| stack_prog := keep_progs k p ; cur_bm := cur_bm |> in
@@ -590,8 +597,10 @@ val compile_inc_progs_def = Define`
     let p = stack_to_lab$compile_no_stubs
         c.stack_conf.reg_names c.stack_conf.jump asm_c.addr_offset
         reg_count2 p in
+    let _ = empty_ffi (strlit "finished: stack_to_lab") in
     let ps = ps with <| lab_prog := keep_progs k p |> in
     let target = lab_to_target$compile c.lab_conf (p:'a prog) in
+    let _ = empty_ffi (strlit "finished: lab_to_target") in
     let ps = ps with <| target_prog := OPTION_MAP
         (\(bytes, _). (bytes, cur_bm)) target |> in
     let c = c with lab_conf updated_by (case target of NONE => I
