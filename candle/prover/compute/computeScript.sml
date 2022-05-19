@@ -27,191 +27,6 @@ Overload return[local] = “st_ex_return”;
 Overload failwith[local] = “raise_Failure”;
 Overload handle[local] = “handle_Failure”;
 
-(* -------------------------------------------------------------------------
- * Destructuring
- * ------------------------------------------------------------------------- *)
-
-Definition dest_num_def:
-  dest_num tm =
-    case tm of
-      Const n t => if tm = _0 then SOME 0 else NONE
-    | Comb (Const nm t) r =>
-        (case dest_num r of
-        | NONE => NONE
-        | SOME n => if Const nm t = _BIT0_TM then SOME (2 * n)
-                    else if Const nm t = _BIT1_TM then SOME (2 * n + 1)
-                    else NONE)
-    | _ => NONE
-End
-
-Definition dest_numeral_def:
-  dest_numeral tm =
-    case tm of
-      Comb (Const n t) r =>
-        if Const n t = _NUMERAL_TM then
-          case dest_num r of
-          | NONE => failwith «dest_numeral»
-          | SOME n => return n
-        else
-          failwith «dest_numeral»
-    | _ => failwith «dest_numeral»
-End
-
-Definition dest_numeral_opt_def:
-  dest_numeral_opt tm =
-    case tm of
-      Comb (Const n t) r =>
-        if Const n t = _NUMERAL_TM then
-          case dest_num r of
-          | NONE => NONE
-          | SOME n => SOME n
-        else
-          NONE
-    | _ => NONE
-End
-
-Definition list_dest_comb_def:
-  list_dest_comb sofar (Comb f x) = list_dest_comb (x::sofar) f ∧
-  list_dest_comb sofar tm = tm::sofar
-End
-
-Theorem list_dest_comb_not_nil[simp]:
-  ∀sofar tm. list_dest_comb sofar tm ≠ []
-Proof
-  ho_match_mp_tac list_dest_comb_ind
-  \\ rw [list_dest_comb_def]
-QED
-
-Definition term_size_alt_def:
-  term_size_alt (Comb s t) = term_size_alt s + term_size_alt t ∧
-  term_size_alt (Abs s t) = term_size_alt s + term_size_alt t ∧
-  term_size_alt _ = 1
-End
-
-Definition list_term_size_alt_def:
-  list_term_size_alt [] = 0 ∧
-  list_term_size_alt (x::xs) = term_size_alt x + list_term_size_alt xs
-End
-
-Theorem list_dest_comb_term_size[local]:
-  ∀sofar tm res.
-    list_dest_comb sofar tm = res ⇒
-      list_term_size_alt res = list_term_size_alt sofar + term_size_alt tm
-Proof
-  ho_match_mp_tac list_dest_comb_ind
-  \\ rw [list_dest_comb_def] \\ gs [list_term_size_alt_def, term_size_alt_def]
-QED
-
-Theorem list_term_size_MEM[local]:
-  MEM x xs ⇒ term_size_alt x ≤ list_term_size_alt xs
-Proof
-  Induct_on ‘xs’
-  \\ rw [list_term_size_alt_def] \\ fs []
-QED
-
-Definition mapOption_def:
-  mapOption f [] = SOME [] ∧
-  mapOption f (x::xs) =
-    case f x of
-    | NONE => NONE
-    | SOME y =>
-        case mapOption f xs of
-        | NONE => NONE
-        | SOME ys => SOME (y::ys)
-End
-
-Theorem mapOption_CONG[defncong]:
-  ∀xs ys f g.
-    xs = ys ∧
-    (∀x. MEM x xs ⇒ f x = g x) ⇒
-      mapOption f xs = mapOption g ys
-Proof
-  Induct \\ rw [] \\ rw [mapOption_def]
-  \\ TOP_CASE_TAC \\ gs [SF DNF_ss]
-  \\ first_x_assum drule_all \\ rw []
-QED
-
-Theorem mapOption_LENGTH:
-  ∀xs ys. mapOption f xs = SOME ys ⇒ LENGTH xs = LENGTH ys
-Proof
-  Induct \\ rw [mapOption_def]
-  \\ gvs [CaseEq "option"]
-QED
-
-Definition dest_cval_def:
-  dest_cval tm =
-    case list_dest_comb [] tm of
-    | [Var n ty] => if ty = cval_ty then SOME (Var n) else NONE
-    | Const n ty :: args =>
-        (case args of
-        | [arg] =>
-           if Const n ty = _CVAL_NUM_TM then
-             case dest_numeral_opt arg of
-             | NONE => NONE
-             | SOME n => SOME (Num n)
-           else if ty = Fun cval_ty cval_ty then
-             case dest_cval arg of
-             | NONE => NONE
-             | SOME cv => SOME (App n [cv])
-           else
-             NONE
-        | [l; r] =>
-            (case dest_cval l of
-            | NONE => NONE
-            | SOME p =>
-                case dest_cval r of
-                | NONE => NONE
-                | SOME q =>
-                    if Const n ty = _CVAL_PAIR_TM then
-                      SOME (Pair p q)
-                    else if Const n ty = _CVAL_ADD_TM then
-                       SOME (Add p q)
-                    else if ty = Fun cval_ty (Fun cval_ty cval_ty) then
-                      SOME (App n [p; q])
-                    else
-                      NONE)
-        | [i; t; e] =>
-            (case dest_cval i of
-            | NONE => NONE
-            | SOME p =>
-                case dest_cval t of
-                | NONE => NONE
-                | SOME q =>
-                    case dest_cval e of
-                    | NONE => NONE
-                    | SOME r =>
-                        if Const n ty = _CVAL_IF_TM then
-                          SOME (If p q r)
-                        else if ty = Fun cval_ty
-                                         (Fun cval_ty (Fun cval_ty cval_ty))
-                             then SOME (App n [p; q; r])
-                        else
-                          NONE)
-        | _ =>
-            (case mapOption dest_cval args of
-            | NONE => NONE
-            | SOME cvs =>
-                if ty = app_type (LENGTH cvs) then
-                  SOME (App n cvs)
-                else NONE))
-    | _ => NONE
-Termination
-  wf_rel_tac ‘measure term_size_alt’ \\ rw []
-  \\ drule_then assume_tac list_dest_comb_term_size
-  \\ gs [list_term_size_alt_def, term_size_alt_def]
-  \\ drule_then assume_tac list_term_size_MEM \\ gs []
-End
-
-(* TODO use term_size and list_size as measure instead *)
-
-Definition dest_binary_def:
-  dest_binary tm' tm =
-    case tm of
-      Comb (Comb (Const n t) l) r =>
-        if tm' = Const n t then return (l, r)
-        else failwith «dest_binary»
-    | _ => failwith «dest_binary»
-End
 
 Theorem dest_binary_thm:
   STATE ctxt s ∧
@@ -736,8 +551,7 @@ Proof
     \\ gvs [COND_RATOR, CaseEq "bool"])
   \\ Cases_on ‘h’ \\ gs [check_var_def, raise_Failure_def, st_ex_return_def]
   \\ gvs [COND_RATOR, CaseEq "bool"]
-  \\ simp [Once st_ex_bind_def]
-  \\ CASE_TAC \\ gs []
+  \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
   \\ first_x_assum drule_all \\ rw []
   \\ gvs [CaseEq "exc"]
 QED
@@ -892,7 +706,6 @@ Proof
   \\ IF_CASES_TAC \\ gs []
   \\ gs []
   \\ drule_all_then strip_assume_tac compute_init_thy_ok
-  (*\\ drule_then strip_assume_tac compute_thy_ok_terms_ok*)
   \\ ‘theory_ok (thyof ctxt) ∧ numeral_thy_ok (thyof ctxt)’
     by fs []
   \\ CASE_TAC \\ gs []
@@ -912,8 +725,16 @@ Proof
   \\ ‘term_ok (sigof (thyof ctxt)) tm’
     by fs [TERM_def]
   \\ drule_all_then strip_assume_tac dest_cval_thm
-  \\ ‘cval_consts tm' = {}’
-    by cheat (* TODO: All constants are evaluated away *)
+  \\ gs [EVERY_MEM, MEM_EL, PULL_EXISTS]
+  \\ drule_then (drule_then (qspec_then ‘tm’ mp_tac)) compute_eval_run_thm
+  \\ impl_tac
+  >- (
+    rw []
+    \\ imp_res_tac map_LENGTH \\ gs []
+    \\ last_x_assum (drule_then strip_assume_tac) \\ gs []
+    \\ last_x_assum (drule_then strip_assume_tac) \\ gs []
+    \\ gs [THM_def, MEM_EL, SF SFY_ss])
+  \\ strip_tac \\ gvs []
   \\ ‘TERM ctxt (cval2term tm')’
     by (drule cval2term_term_ok \\ simp [TERM_def])
   \\ simp [Once st_ex_bind_def]
@@ -927,7 +748,8 @@ Proof
         \\ drule_all term_type \\ gs [])
   \\ ‘(thyof ctxt,[]) |- tm === cval2term tm'’
     suffices_by rw [equation_def, THM_def]
-  \\ cheat (* theorem about run_compute_eval *)
+  \\ resolve_then Any irule trans_equation_simple sym_equation
+  \\ first_x_assum (irule_at Any) \\ gs [sym_equation]
 QED
 
 val _ = export_theory ();
