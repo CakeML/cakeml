@@ -734,7 +734,7 @@ Theorem compile_inc_progs_for_eval_eq:
     let dc = ensure_fp_conf_ok asm_c' c.data_conf in
     let p = MAP (compile_part dc) p in
     let reg_count1 = asm_c'.reg_count - (5 + LENGTH asm_c'.avoid_regs) in
-    let p = MAP (\p. full_compile_single asm_c'.two_reg_arith reg_count1
+    let p = MAP (\p. full_compile_single_for_eval asm_c'.two_reg_arith reg_count1
         c.word_to_word_conf.reg_alg asm_c' (p, NONE)) p in
     let _ = empty_ffi (strlit "finished: data_to_word") in
     let bm0 = c.word_conf.bitmaps_length in
@@ -753,7 +753,7 @@ Theorem compile_inc_progs_for_eval_eq:
                                         | SOME (_, c') => K c') in
       OPTION_MAP (λx. (config_to_inc_config c,FST x,MAP upper_w2w cur_bm)) target
 Proof
-  fs [compile_inc_progs_for_eval_def,compile_inc_progs_def]
+  fs [compile_inc_progs_for_eval_def,compile_inc_progs_def, full_compile_single_for_eval_eq]
   \\ rpt (pairarg_tac \\ gvs [EVAL “(inc_config_to_config asm_c' inc_c).lab_conf.asm_conf”])
   \\ fs [optionTheory.OPTION_MAP_COMPOSE]
   \\ AP_THM_TAC
