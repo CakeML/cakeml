@@ -1498,41 +1498,18 @@ Proof
   \\ gs [MEM_MAP, EXISTS_PROD, PULL_EXISTS, SF SFY_ss]
 QED
 
-(* Here's how we can make use of this result to prove function application
- * correct:
- *
- * Substitution (maybe) distributes over the equality, so that we can lift
- * substitution outside.
- *
- *   |- cval2term (App f cs) === cval2term (subst (ZIP(as,bs)) exp)
- *
- *   |- cval2term (App f (MAP Var as)) === exp
- *   ~>
- *   |- VSUBST (MAP (λ(s,v).(cval2term v, Var s cval_ty)) (ZIP(as,bs)))
- *             (cval2term (App f (MAP Var as)) === exp)
- *   ~>
- *   |- VSUBST (MAP (λ(s,v).(cval2term v, Var s cval_ty)) (ZIP(as,bs)))
- *             (cval2term (App f (MAP Var as))) ===
- *      VSUBST (MAP (λ(s,v).(cval2term v, Var s cval_ty)) (ZIP(as,bs))) exp
- *   ~>
- *   |- VSUBST (MAP (λ(s,v).(cval2term v, Var s cval_ty)) (ZIP(as,bs)))
- *             (cval2term (App f (MAP Var as))) ===
- *      cval2term (subst (ZIP(as,bs)) exp)
- *   ~>
- *   |- cval2term (subst (ZIP(as,bs)) (App f (MAP Var as))) ===
- *      cval2term (subst (ZIP(as,bs)) exp)
- *   ~>
- *   |- cval2term (App f bs) ===
- *      cval2term (App f cs)
- *
- *   And this last equality should follow because each b is the result of
- *   evaluating a c? Idk.
- *
- *)
+Theorem VSUBST_FOLDL_Comb_push:
+  ∀tms t.
+    FOLDL Comb (VSUBST is t) (MAP (VSUBST is) tms) =
+    VSUBST is (FOLDL Comb t tms)
+Proof
+  Induct \\ rw [] \\ gs []
+  \\ simp [GSYM VSUBST_thm]
+QED
 
 Theorem subst_VSUBST:
   ∀env x.
-    EVERY (λv. cval_vars v = {})  (MAP SND env) ∧
+    EVERY (λv. cval_vars v = {}) (MAP SND env) ∧
     cval_vars x ⊆ set (MAP FST env) ⇒
       cval2term (subst env x) =
       VSUBST (MAP (λ(s,v). (cval2term v, Var s cval_ty)) env) (cval2term x)
@@ -1549,25 +1526,11 @@ Proof
                      (GEN_ALL ALOOKUP_MAP_3)
     \\ gs [ALOOKUP_MAP, SF SFY_ss])
   \\ gs [subst_def, cval2term_def, VSUBST_def, cval_vars_def, SF ETA_ss]
-  \\ cheat (* TODO *) (*
-  \\ qmatch_goalsub_abbrev_tac
-    ‘FOLDL _ tm (MAP cval2term (MAP (subst env) tms))’
-  \\ ‘VSUBST (MAP (λ(s,v). (cval2term v, Var s cval_ty)) env) tm = tm’
-    by rw [VSUBST_thm, Abbr ‘tm’]
-  \\ ‘∀t. MEM t tms ⇒
-        cval2term (subst env t) =
-        VSUBST (MAP (λ(s,v). (cval2term v, Var s cval_ty)) env) (cval2term t)’
-    by (rw []
-        \\ first_x_assum (irule_at Any)
-        \\ gvs [BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS])
-  \\ last_x_assum kall_tac
-  \\ qpat_x_assum ‘_ ⊆ _’ kall_tac
-  \\ rpt (qpat_x_assum ‘Abbrev _’ kall_tac)
-  \\ rpt (pop_assum mp_tac)
-  \\ qid_spec_tac ‘tm’
-  \\ qid_spec_tac ‘tms’
-  \\ Induct \\ simp []
-  \\ rw [SF DNF_ss] \\ gs [] *)
+  \\ gs [BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS]
+  \\ simp [GSYM VSUBST_FOLDL_Comb_push]
+  \\ simp [VSUBST_thm]
+  \\ AP_TERM_TAC
+  \\ simp [MAP_MAP_o, o_DEF, LAMBDA_PROD, MAP_EQ_f]
 QED
 
 Theorem subst_REVERSE:
@@ -1634,11 +1597,11 @@ Theorem compute_eval_thm:
       EVERY (λ(f,vs,cv).
         ALL_DISTINCT vs ∧
         ∃r. (thy,[]) |- FOLDL Comb (Const f (app_type (LENGTH vs)))
-                                 (MAP (λs. Var s cval_ty) vs) === r ∧
+                                   (MAP (λs. Var s cval_ty) vs) === r ∧
             dest_cval r = SOME cv ∧
             cval_vars cv ⊆ set vs) eqs ⇒
-            (thy,[]) |- cval2term cv === cval2term cv' ∧
-            cval_consts cv' = {}
+        (thy,[]) |- cval2term cv === cval2term cv' ∧
+        cval_consts cv' = {}
 Proof
   strip_tac \\ fs []
   \\ ho_match_mp_tac compute_eval_ind
