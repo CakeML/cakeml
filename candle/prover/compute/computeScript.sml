@@ -239,7 +239,9 @@ Definition check_eqn_def:
           failwith «Kernel.compute: non-empty hypotheses in equation»;
         (ls,r) <- dest_eq c;
         (f,vs) <- case list_dest_comb [] ls of
-                  | f::vs => return (f,vs)
+                  | f::vs =>
+                      if ALL_DISTINCT vs then return (f,vs)
+                      else failwith «Kernel.compute: variables not distinct»
                   | _ => failwith «»;
         (nm,ty) <- dest_const f ++
                 failwith «Kernel.compute: not a constant being applied on lhs»;
@@ -266,6 +268,34 @@ Definition check_consts_def:
               «with no equation associated to it.»)
 End
 
+Definition check_cval_closed_def:
+  check_cval_closed (Var n) = F ∧
+  check_cval_closed (Num n) = T ∧
+  check_cval_closed (Pair p q) =
+    EVERY check_cval_closed [p;q] ∧
+  check_cval_closed (Add p q) =
+    EVERY check_cval_closed [p;q] ∧
+  check_cval_closed (If p q r) =
+    EVERY check_cval_closed [p;q;r] ∧
+  check_cval_closed (App f cs) =
+    EVERY check_cval_closed cs
+Termination
+  wf_rel_tac ‘measure compute_val_size’ \\ rw [] \\ gs []
+End
+
+Theorem check_cval_closed_correct:
+  ∀v. check_cval_closed v ⇒ cval_vars v = {}
+Proof
+  ho_match_mp_tac check_cval_closed_ind
+  \\ rw [check_cval_closed_def, cval_vars_def]
+  \\ rw [DISJ_EQ_IMP] \\ gs [EVERY_MEM]
+  \\ simp [Once EXTENSION, EQ_IMP_THM, MEM_MAP, PULL_EXISTS]
+  \\ ‘∃c. MEM c cs’
+    by (Cases_on ‘cs’ \\ gs [SF DNF_ss])
+  \\ first_assum (irule_at Any)
+  \\ gs [SF SFY_ss]
+QED
+
 Definition compute_def:
   compute ths ceqs tm =
     flip handle_Clash (λe. failwith «impossible» ) $
@@ -276,6 +306,8 @@ Definition compute_def:
     | NONE => failwith «Kernel.compute: term is not a compute_val»
     | SOME cval =>
         do
+          if check_cval_closed cval then return () else
+            failwith «Kernel.compute: free variables in starting expression»;
           ceqs <- map check_eqn ceqs;
           ars <<- MAP (λ(f,(n,r)). (f,LENGTH n)) ceqs;
           map (λ(f,(n,r)). check_consts ars f r) ceqs;
@@ -327,7 +359,8 @@ Theorem check_eqn_thm:
     (∀tm. res ≠ M_failure (Clash tm)) ∧
     ∀f vs r.
       res = M_success (f,vs,cv) ⇒
-      ∃l r. th = Sequent [] (l === r) ∧
+      ∃l r. ALL_DISTINCT vs ∧
+            th = Sequent [] (l === r) ∧
             list_dest_comb [] l = Const f (app_type (LENGTH vs))::
                                   (MAP (λs. Var s cval_ty) vs) ∧
             dest_cval r = SOME cv ∧
@@ -346,6 +379,7 @@ Proof
   \\ reverse CASE_TAC \\ gs [] >- (rw [] \\ strip_tac \\ gs [])
   \\ pairarg_tac \\ gvs []
   \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
+  \\ IF_CASES_TAC \\ gs []
   \\ simp [otherwise_def, Once st_ex_bind_def]
   \\ CASE_TAC \\ gs []
   \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
@@ -360,6 +394,16 @@ Proof
   \\ TOP_CASE_TAC
   \\ drule_all_then strip_assume_tac map_check_var_thm \\ gvs []
   \\ reverse TOP_CASE_TAC \\ gs [] >- (rpt strip_tac \\ gs [])
+  \\ rename [‘LIST_REL _ xs ys’]
+  \\ ‘ALL_DISTINCT ys’
+    by (qpat_x_assum ‘ALL_DISTINCT xs’ mp_tac
+        \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+        \\ qid_spec_tac ‘ys’
+        \\ qid_spec_tac ‘xs’
+        \\ Induct \\ rw []
+        \\ gvs [LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS]
+        \\ gs [DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”])
+  \\ gvs [LIST_REL_EL_EQN]
   \\ TOP_CASE_TAC \\ gs []
   \\ drule_then drule dest_cval_thm
   \\ impl_tac >- fs [TERM_def]
@@ -406,6 +450,7 @@ Theorem map_check_eqn_thm:
       ∀eqs. res = M_success eqs ⇒
         ∀n. n < LENGTH eqs ⇒
             ∃f vs cv l r.
+              ALL_DISTINCT vs ∧
               EL n eqs = (f,vs,cv) ∧
               EL n ceqs = Sequent [] (l === r) ∧
               list_dest_comb [] l = Const f (app_type (LENGTH vs))::
@@ -471,6 +516,9 @@ Proof
   \\ ‘theory_ok (thyof ctxt) ∧ numeral_thy_ok (thyof ctxt)’
     by fs []
   \\ CASE_TAC \\ gs []
+  \\ simp [Once st_ex_ignore_bind_def]
+  \\ IF_CASES_TAC \\ gs []
+  \\ drule_then assume_tac check_cval_closed_correct
   \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
   \\ drule_all_then strip_assume_tac map_check_eqn_thm \\ gvs []
   \\ reverse CASE_TAC \\ gs [] >- (CASE_TAC \\ gs [] \\ rw [])
@@ -488,14 +536,21 @@ Proof
     by fs [TERM_def]
   \\ drule_all_then strip_assume_tac dest_cval_thm
   \\ gs [EVERY_MEM, MEM_EL, PULL_EXISTS]
-  \\ drule_then drule compute_eval_run_thm
+  \\ drule_then drule compute_eval_run_thm \\ simp []
   \\ impl_tac
-  >- (cheat (* TODO *) (*
-    rw []
+  >- (
+    gvs [EVERY_MEM, FORALL_PROD, MEM_EL, PULL_EXISTS]
+    \\ drule_then assume_tac proves_term_ok
+    \\ rgs [Once equation_def, term_ok_def]
+    \\ rw []
+    \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
+    \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
+    \\ first_x_assum (irule_at Any)
+    \\ first_x_assum (irule_at Any) \\ gs []
     \\ imp_res_tac map_LENGTH \\ gs []
-    \\ last_x_assum (drule_then strip_assume_tac) \\ gs []
-    \\ last_x_assum (drule_then strip_assume_tac) \\ gs []
-    \\ gs [THM_def, MEM_EL, SF SFY_ss] *))
+    \\ qpat_x_assum ‘∀n. _ ⇒ THM _ _’ drule
+    \\ rw [THM_def]
+    \\ gs [SUBSET_DEF, MEM_EL, SF SFY_ss])
   \\ strip_tac \\ gvs []
   \\ ‘TERM ctxt (cval2term tm')’
     by (drule cval2term_term_ok \\ simp [TERM_def])
