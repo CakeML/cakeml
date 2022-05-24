@@ -7,14 +7,15 @@ open import Ast
 open import Namespace
 open import SemanticPrimitives
 open import Ffi
+open import FpValTree FpSem
 
 (* The semantics is defined here using fix_clock so that HOL4 generates
  * provable termination conditions. However, after termination is proved, we
  * clean up the definition (in HOL4) to remove occurrences of fix_clock. *)
 
-let fix_clock s (s',res) =
+let fix_clock s (s', res) =
   (<| s' with clock = if s'.clock <= s.clock
-                     then s'.clock else s.clock |>,res)
+                     then s'.clock else s.clock |>, res)
 
 let dec_clock s = <| s with clock = s.clock - 1 |>
 
@@ -29,6 +30,14 @@ let rec
 list_result (Rval v) = Rval [v]
 and
 list_result (Rerr e) = Rerr e
+
+val do_real_check : forall 'ffi. bool -> result v v -> maybe (result v v)
+let do_real_check b r =
+  if b then Just r
+  else match r with
+  | Rval (Real r) -> Nothing
+  | _ -> Just r
+  end
 
 val evaluate : forall 'ffi. state 'ffi -> sem_env v -> list exp -> state 'ffi * result (list v) v
 val evaluate_match : forall 'ffi. state 'ffi -> sem_env v -> v -> list (pat * exp) -> v -> state 'ffi * result (list v) v
@@ -86,16 +95,17 @@ and
 evaluate st env [App op es] =
   match fix_clock st (evaluate st env (reverse es)) with
   | (st', Rval vs) ->
-      if op = Opapp then
+    match (getOpClass op) with
+    | FunApp ->
         match do_opapp (reverse vs) with
         | Just (env',e) ->
             if st'.clock = 0 then
               (st', Rerr (Rabort Rtimeout_error))
             else
-              evaluate (dec_clock st') env' [e]
+              evaluate (dec_clock st') env'  [e]
         | Nothing -> (st', Rerr (Rabort Rtype_error))
         end
-      else if op = Eval then
+     |EvalOp ->
         match fix_clock st' (do_eval_res (reverse vs) st') with
         | (st1, Rval (env1, decs)) ->
             if st1.clock = 0 then
@@ -115,11 +125,46 @@ evaluate st env [App op es] =
               end
         | (st1, Rerr e) -> (st1, Rerr e)
         end
-      else
+    | Simple ->
         match do_app (st'.refs,st'.ffi) op (reverse vs) with
-        | Just ((refs,ffi),r) -> (<| st' with refs = refs; ffi = ffi |>, list_result r)
         | Nothing -> (st', Rerr (Rabort Rtype_error))
+        | Just ((refs,ffi),r) ->
+            (<| st' with refs = refs; ffi = ffi |>, list_result r)
         end
+    | Icing ->
+      match do_app (st'.refs,st'.ffi) op (reverse vs) with
+      | Nothing -> (st', Rerr (Rabort Rtype_error))
+      | Just ((refs,ffi),r) ->
+        let fp_opt =
+          if (st'.fp_state.canOpt = FPScope Opt)
+          then
+            (match (do_fprw r (st'.fp_state.opts 0) (st'.fp_state.rws)) with
+            (* if it fails, just use the old value tree *)
+            | Nothing -> r
+            | Just r_opt -> r_opt
+            end)
+            (* If we cannot optimize, we should not allow matching on the structure in the oracle *)
+          else r
+        in
+        let stN = if (st'.fp_state.canOpt = FPScope Opt) then shift_fp_opts st' else st' in
+        let fp_res =
+          if (isFpBool op)
+          then match fp_opt with
+            | Rval (FP_BoolTree fv) -> Rval (Boolv (compress_bool fv))
+            | v -> v
+            end
+          else fp_opt
+        in ((<| stN with refs = refs; ffi = ffi |>), list_result fp_res)
+      end
+    | Reals ->
+      if (st'.fp_state.real_sem) then
+      match do_app (st'.refs,st'.ffi) op (reverse vs) with
+      | Nothing -> (st', Rerr (Rabort Rtype_error))
+      | Just ((refs,ffi),r) ->
+        (<| st' with refs = refs; ffi = ffi |>, list_result r)
+      end
+      else (shift_fp_opts st', Rerr (Rabort Rtype_error))
+    end
   | res -> res
   end
 and
@@ -127,7 +172,7 @@ evaluate st env [Log lop e1 e2] =
   match fix_clock st (evaluate st env [e1]) with
   | (st', Rval v1) ->
       match do_log lop (head v1) e2 with
-      | Just (Exp e) -> evaluate st' env [e]
+      | Just (Exp e) -> evaluate st' env  [e]
       | Just (Val v) -> (st', Rval [v])
       | Nothing -> (st', Rerr (Rabort Rtype_error))
       end
@@ -137,10 +182,10 @@ and
 evaluate st env [If e1 e2 e3] =
   match fix_clock st (evaluate st env [e1]) with
   | (st', Rval v) ->
-      match do_if (head v) e2 e3 with
-      | Just e -> evaluate st' env [e]
-      | Nothing -> (st', Rerr (Rabort Rtype_error))
-      end
+    match do_if (head v) e2 e3 with
+    | Just e -> evaluate st' env  [e]
+    | Nothing -> (st', Rerr (Rabort Rtype_error))
+    end
   | res -> res
   end
 and
@@ -155,7 +200,7 @@ evaluate st env [Mat e pes] =
 and
 evaluate st env [Let xo e1 e2] =
   match fix_clock st (evaluate st env [e1]) with
-  | (st', Rval v) -> evaluate st' <| env with v = nsOptBind xo (head v) env.v |> [e2]
+  | (st', Rval v) -> evaluate st' <| env with v = nsOptBind xo (head v) env.v |>  [e2]
   | res -> res
   end
 and
@@ -170,6 +215,20 @@ evaluate st env [Tannot e t] =
 and
 evaluate st env [Lannot e l] =
   evaluate st env [e]
+and
+evaluate st env [FpOptimise annot e] =
+  let newFpState =
+    if (st.fp_state.canOpt = Strict)
+    then st.fp_state
+    else <| st.fp_state with canOpt = FPScope annot|>
+  in
+    match fix_clock st (evaluate (<| st with fp_state = newFpState |>) env [e]) with
+    | (st', Rval vs) ->
+    (<| st' with fp_state = <| st'.fp_state with canOpt = st.fp_state.canOpt |> |>,
+        Rval (do_fpoptimise annot vs))
+    | (st', Rerr e) ->
+    (<| st' with fp_state = <| st'.fp_state with canOpt = st.fp_state.canOpt |> |>, Rerr e)
+    end
 and
 evaluate_match st env v [] err_v = (st, Rerr (Rraise err_v))
 and
@@ -188,12 +247,12 @@ evaluate_decs st env (d1::d2::ds) =
   match fix_clock st (evaluate_decs st env [d1]) with
   | (st1, Rval env1) ->
     match evaluate_decs st1 (extend_dec_env env1 env) (d2::ds) with
-    | (st2,r) -> (st2, combine_dec_result env1 r)
+    | (st2, r) -> (st2, combine_dec_result env1 r)
     end
   | res -> res
   end
 and
-evaluate_decs st env [Dlet locs p e] =
+ evaluate_decs st env [Dlet locs p e] =
   if allDistinct (pat_bindings p []) then
     match evaluate st env [e] with
     | (st', Rval v) ->
@@ -208,21 +267,21 @@ evaluate_decs st env [Dlet locs p e] =
   else
     (st, Rerr (Rabort Rtype_error))
 and
-evaluate_decs st env [Dletrec locs funs] =
+ evaluate_decs st env [Dletrec locs funs] =
   (st,
    if allDistinct (map (fun (x,y,z) -> x) funs) then
      Rval <| v = build_rec_env funs env nsEmpty; c = nsEmpty |>
    else
      Rerr (Rabort Rtype_error))
 and
-evaluate_decs st env [Dtype locs tds] =
+ evaluate_decs st env [Dtype locs tds] =
   if List.all check_dup_ctors tds then
     (<| st with next_type_stamp = st.next_type_stamp + List.length tds |>,
      Rval <| v = nsEmpty; c = build_tdefs st.next_type_stamp tds |>)
   else
     (st, Rerr (Rabort Rtype_error))
 and
-evaluate_decs st env [Dtabbrev locs tvs tn t] =
+ evaluate_decs st env [Dtabbrev locs tvs tn t] =
   (st, Rval <| v = nsEmpty; c = nsEmpty |>)
 and
 evaluate_decs st env [Denv n] =
@@ -236,7 +295,7 @@ evaluate_decs st env [Dexn locs cn ts] =
   (<| st with next_exn_stamp = st.next_exn_stamp + 1 |>,
    Rval <| v = nsEmpty; c = nsSing cn (length ts, ExnStamp st.next_exn_stamp) |>)
 and
-evaluate_decs st env [Dmod mn ds] =
+ evaluate_decs st env [Dmod mn ds] =
   match evaluate_decs st env ds with
   | (st', r) ->
       (st',

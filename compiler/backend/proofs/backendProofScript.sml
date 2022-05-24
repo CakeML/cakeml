@@ -393,7 +393,7 @@ Proof
 QED
 
 val cake_orac_config_inv_f =
-  ``(\(sc, cc, bc, mc). (sc.pattern_cfg, cc.max_app, cc.do_call, IS_SOME cc.known_conf,
+  ``(\ (sc, cc, bc, mc). (sc.pattern_cfg, cc.max_app, cc.do_call, IS_SOME cc.known_conf,
         known_static_conf cc.known_conf, cc.do_mti, bc.inline_size_limit,
         bc.split_main_at_seq, bc.exp_cut, mc))
     o (\c. (c.source_conf, c.clos_conf, c.bvl_conf, c.data_conf,
@@ -1557,7 +1557,7 @@ Proof
 QED
 
 Theorem oracle_monotonic_cake_orac_to_I:
-  oracle_monotonic (\(cfg, p). f (cfg_f cfg, p_f p)) R init_st
+  oracle_monotonic (\ (cfg, p). f (cfg_f cfg, p_f p)) R init_st
     (cake_orac c' syntax I I) ==>
   oracle_monotonic f R init_st (cake_orac c' syntax cfg_f p_f)
 Proof
@@ -2630,7 +2630,7 @@ Triviality cake_orac_extended_wf:
   compile (c : 'a config) prog = SOME (b,bm,c') /\
   opt_eval_config_wf c' (SOME ci) ==>
   orac_extended_wf (mk_compiler_fun_from_ci ci)
-    ((\(cfg,id,ds). (id, ci.config_v (config_to_inc_config cfg),ds)) ∘
+    ((\ (cfg,id,ds). (id, ci.config_v (config_to_inc_config cfg),ds)) ∘
     cake_orac c' syntax I (λps. (ps.env_id,ps.source_prog)))
 Proof
   rw [source_evalProofTheory.orac_extended_wf_def, cake_orac_SUC]
@@ -2741,7 +2741,7 @@ Theorem source_eval_semantics:
 Proof
   rw []
   \\ qabbrev_tac `orac =
-        (\(cfg, id, ds). (id, (THE ev).config_v (config_to_inc_config cfg), ds))
+        (\ (cfg, id, ds). (id, (THE ev).config_v (config_to_inc_config cfg), ds))
             o
         cake_orac c'
             (\i. case get_oracle (THE ev) (add_eval_state ev s0) env prog i of

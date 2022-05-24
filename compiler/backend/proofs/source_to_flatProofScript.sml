@@ -12,7 +12,7 @@ local open flat_elimProofTheory flat_patternProofTheory in end
 val _ = new_theory "source_to_flatProof";
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "getOpClass_def"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val grammar_ancestry =
@@ -229,6 +229,15 @@ Inductive v_rel:
     LIST_REL (v_rel genv) vs vs'
     ⇒
     v_rel genv (Vectorv vs) (Vectorv vs')) ∧
+  (* For floating-point value trees *)
+  (! genv fp w.
+    compress_word fp = w ==>
+    v_rel genv (FP_WordTree fp) (Litv (Word64 w))) /\
+  (!(genv:global_env) fp.
+    FLOOKUP (genv.c) (((if (compress_bool fp) then true_tag else false_tag),SOME bool_id), 0) =
+      SOME (TypeStamp (if (compress_bool fp) then "True" else "False") bool_type_num)
+    ⇒
+    v_rel genv (FP_BoolTree fp) (Boolv (compress_bool fp))) ∧
   (!genv.
     env_rel genv nsEmpty []) ∧
   (!genv x v env env' v'.
@@ -257,11 +266,74 @@ Inductive v_rel:
     global_env_inv genv comp_map shadowers env)
 End
 
+(*
+Theorem v_rel_eqns:
+   (!genv l v.
+    v_rel genv (Litv l) v ⇔
+      (v = Litv l)) ∧
+   (!genv vs v.
+    v_rel genv (Conv cn vs) v ⇔
+      ?vs' cn'.
+        LIST_REL (v_rel genv) vs vs' ∧
+        v = Conv cn' vs' ∧
+        case cn of
+        | NONE => cn' = NONE
+        | SOME cn =>
+          ?cn2. cn' = SOME cn2 ∧ FLOOKUP genv.c (cn2, LENGTH vs) = SOME cn) ∧
+   (!genv l v.
+    v_rel genv (Loc l) v ⇔
+      (v = Loc l)) ∧
+   (!genv vs v.
+    v_rel genv (Vectorv vs) v ⇔
+      ?vs'. LIST_REL (v_rel genv) vs vs' ∧ (v = Vectorv vs')) ∧
+   (!genv fp v.
+      v_rel genv (FP_WordTree fp) v <=>
+      v = Litv (Word64 (compress_word fp))) /\
+   (! genv fp v cn.
+      v_rel genv (FP_BoolTree fp) v <=>
+      FLOOKUP (genv.c) (((if (compress_bool fp) then true_tag else false_tag),SOME bool_id), 0) =
+        SOME (TypeStamp (if (compress_bool fp) then "True" else "False") bool_type_num) /\
+      v = Boolv (compress_bool fp)) /\
+   (!genv env'.
+    env_rel genv nsEmpty env' ⇔
+      env' = []) ∧
+   (!genv x v env env'.
+    env_rel genv (nsBind x v env) env' ⇔
+      ?v' env''. v_rel genv v v' ∧ env_rel genv env env'' ∧ env' = ((x,v')::env'')) ∧
+   (!genv comp_map shadowers env.
+    global_env_inv genv comp_map shadowers env ⇔
+      (!x v.
+       x ∉ IMAGE Short shadowers ∧
+       nsLookup env.v x = SOME v
+       ⇒
+       ?n v' t.
+         nsLookup comp_map.v x = SOME (Glob t n) ∧
+         n < LENGTH genv.v ∧
+         EL n genv.v = SOME v' ∧
+         v_rel genv v v') ∧
+      (!x arity stamp.
+        nsLookup env.c x = SOME (arity, stamp) ⇒
+        ∃cn. nsLookup comp_map.c x = SOME cn ∧
+          FLOOKUP genv.c (cn,arity) = SOME stamp))
+Proof
+  srw_tac[][semanticPrimitivesTheory.Boolv_def,flatSemTheory.Boolv_def] >>
+  srw_tac[][Once v_rel_cases] >>
+  srw_tac[][Q.SPECL[`genv`,`nsEmpty`](CONJUNCT1(CONJUNCT2 v_rel_cases))] >>
+  srw_tac[][flatSemTheory.Boolv_def, semanticPrimitivesTheory.Boolv_def] >>
+  every_case_tac >>
+  fs [genv_c_ok_def, has_bools_def] >>
+  TRY eq_tac >>
+  rw [] >>
+  metis_tac []
+*)
+
 Triviality v_rel_eqns =
   [``v_rel genv (Litv l) v``, ``v_rel genv (Conv cn vs) v``,
     ``v_rel genv (Loc l) v``, ``v_rel genv (Vectorv vs) v``,
     ``env_rel genv nsEmpty env'``, ``env_rel genv (nsBind x v env) env'``,
-    ``v_rel genv (Env e id) v``]
+    ``v_rel genv (Env e id) v``,
+    “v_rel genv (FP_WordTree fp) v”,
+    “v_rel genv (FP_BoolTree fp) v”]
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> map GEN_ALL
   |> LIST_CONJ
@@ -434,8 +506,7 @@ val v_rel_weakening = Q.prove (
     !genv'. genv.c = genv'.c ∧ genv.tys = genv'.tys ∧
         subglobals genv.v genv'.v ⇒ global_env_inv genv' comp_map shadowers env)`,
   ho_match_mp_tac v_rel_ind >>
-  srw_tac[][v_rel_eqns, subglobals_def]
-  >- fs [LIST_REL_EL_EQN]
+  srw_tac[][v_rel_eqns, subglobals_def] >> fs[]
   >- fs [LIST_REL_EL_EQN]
   >- fs [LIST_REL_EL_EQN]
   >- (srw_tac[][Once v_rel_cases] >>
@@ -620,6 +691,8 @@ Inductive s_rel:
   (!genv s s'.
     ~ NULL s'.refs ∧
     LIST_REL (sv_rel genv) s.refs (TL s'.refs) ∧
+    s.fp_state.canOpt = Strict ∧
+    ~ s.fp_state.real_sem ∧
     s.clock = s'.clock ∧
     s.ffi = s'.ffi ∧
     s'.c = FDOM genv.c
@@ -688,13 +761,35 @@ val do_eq = Q.prove (
   ntac 2 strip_tac >>
   ho_match_mp_tac semanticPrimitivesTheory.do_eq_ind >>
   rpt strip_tac >>
-  fs [semanticPrimitivesTheory.do_eq_def, flatSemTheory.do_eq_def, v_rel_more_eqns] >>
+  fs [Boolv_def, semanticPrimitivesTheory.do_eq_def, flatSemTheory.do_eq_def, v_rel_more_eqns] >>
   rveq >> fs [] >>
   rpt (irule COND_CONG >> rpt strip_tac) >>
   imp_res_tac LIST_REL_LENGTH >>
   fs [flatSemTheory.ctor_same_type_def,
     semanticPrimitivesTheory.ctor_same_type_def] >>
+  TRY (
+    rename1 ‘v_rel _ (Real r1) _’
+    >> qpat_x_assum ‘v_rel _ (Real _) _’ $ assume_tac o SIMP_RULE std_ss [Once v_rel_cases] >> gs[])
+  >~ [‘_ = Eq_val (compress_bool _ ⇔ compress_bool _)’]
+  >- (every_case_tac >> gs[]) >>
+  TRY (
+    rename1 ‘compress_bool v2’ >>
+    fs[semanticPrimitivesTheory.Boolv_def, flatSemTheory.Boolv_def, do_eq_def] >>
+    TRY (Cases_on `cn''` ORELSE Cases_on `cn'`) >> fs[] >>
+    TRY (fs[flatSemTheory.ctor_same_type_def, semanticPrimitivesTheory.ctor_same_type_def] >> NO_TAC) >>
+    rveq >> Cases_on ‘compress_bool v2’ >> gs[] >>
+    ((rename1 `TypeStamp "True" bool_type_num = ts /\ vs = []` >> Cases_on `ts = TypeStamp "True" bool_type_num`) ORELSE
+    (rename1 `TypeStamp "False" bool_type_num = ts /\ vs = []` >> Cases_on `ts = TypeStamp "False" bool_type_num`)) >>
+    Cases_on `vs = []` >> rveq >> fs[genv_c_ok_def, has_bools_def] >> rveq >>
+    TRY (res_tac >> fs[ctor_same_type_def, semanticPrimitivesTheory.ctor_same_type_def] >> EVAL_TAC >> NO_TAC) >>
+    (`(true_tag, SOME bool_id) <> (q,r)` by (CCONTR_TAC >> fs[]) ORELSE
+     `(false_tag, SOME bool_id) <> (q,r)` by (CCONTR_TAC >> fs[])) >>
+    fs[ctor_same_type_def] >>
+    COND_CASES_TAC >> gs[] >> rveq >> res_tac
+    >> Cases_on ‘ts’ >> gs[semanticPrimitivesTheory.ctor_same_type_def, ctor_same_type_def, same_type_def]
+       ) >>
   TRY every_case_tac >>
+  gs[lit_same_type_def] >>
   metis_tac [SOME_11, genv_c_ok_def
     |> SIMP_RULE (srw_ss()) [semanticPrimitivesTheory.ctor_same_type_def]]
   );
@@ -827,6 +922,7 @@ val do_app = time Q.prove (
     SND s1 = s1_i1.ffi ∧
     genv_c_ok genv.c ∧
     op ≠ AallocEmpty ∧
+    getOpClass op ≠ Reals ∧
     op ≠ Env_id
     ⇒
      ∃r_i1 s2_i1.
@@ -847,7 +943,7 @@ val do_app = time Q.prove (
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, Unitv_def]) >>
   pop_assum mp_tac >>
   Cases_on `op` >>
-  simp [astOp_to_flatOp_def]
+  simp [astOp_to_flatOp_def, astTheory.getOpClass_def]
   >- ((* Opn *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
@@ -860,11 +956,13 @@ val do_app = time Q.prove (
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases,v_rel_lems]
       \\ Cases_on`o'` \\ fs[opw8_lookup_def,opw64_lookup_def])
   >- ((* Shift *)
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases] >>
+      full_simp_tac(srw_ss())[v_rel_eqns] >>
+      fs[flatSemTheory.do_app_def] >>
       TRY (rename1 `shift8_lookup s11 w11 n11`) >>
       TRY (rename1 `shift64_lookup s11 w11 n11`) >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems]
-      \\ Cases_on`w11` \\ Cases_on`s11` \\ fs[shift8_lookup_def,shift64_lookup_def])
+      full_simp_tac(srw_ss())[v_rel_eqns]
+      \\ Cases_on`w11` \\ Cases_on`s11` \\ fs[shift8_lookup_def,shift64_lookup_def, result_rel_cases, Once v_rel_eqns])
   >- ((* Equality *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
@@ -873,16 +971,36 @@ val do_app = time Q.prove (
       metis_tac [Boolv_11, do_eq, eq_result_11, eq_result_distinct, v_rel_lems])
   >- ( (*FP_cmp *)
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      fs[v_rel_eqns, result_rel_cases, v_rel_lems])
+      imp_res_tac fpSemPropsTheory.fp_translate_cases >> rveq >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      TOP_CASE_TAC >> fs[genv_c_ok_def, has_bools_def] >>
+      fs[fpSemTheory.fp_cmp_comp_def, fpValTreeTheory.fp_cmp_def,
+         fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def])
   >- ( (*FP_uop *)
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      fs[v_rel_eqns, result_rel_cases, v_rel_lems])
+      imp_res_tac fpSemPropsTheory.fp_translate_cases >> rveq >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      fs[fpSemTheory.fp_uop_comp_def, fpValTreeTheory.fp_uop_def] >>
+      TOP_CASE_TAC >> fs[] >> rveq >>
+      fs[fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def, fpSemTheory.fp_uop_comp_def, v_rel_eqns])
   >- ( (*FP_bop *)
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      fs[v_rel_eqns, result_rel_cases, v_rel_lems])
+      imp_res_tac fpSemPropsTheory.fp_translate_cases >> rveq >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      fs[fpSemTheory.fp_bop_comp_def, fpValTreeTheory.fp_bop_def] >>
+      TOP_CASE_TAC >> fs[fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def, fpSemTheory.fp_bop_comp_def])
   >- ( (*FP_top *)
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      fs[v_rel_eqns, result_rel_cases, v_rel_lems])
+      imp_res_tac fpSemPropsTheory.fp_translate_cases >> rveq >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      fs[fpSemTheory.fp_top_comp_def, fpValTreeTheory.fp_top_def] >>
+      fs[fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def, fpSemTheory.fp_top_comp_def])
+  >- ( (*FpFromWord *)
+      rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems, fpSemTheory.compress_word_def])
+  >- ( (*FpToWord *)
+      rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems, fpSemTheory.compress_word_def])
   >- ((* Opapp *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
@@ -1563,7 +1681,7 @@ Proof
   srw_tac[][semanticPrimitivesTheory.pmatch_def, flatSemTheory.pmatch_def, compile_pat_def] >>
   full_simp_tac(srw_ss())[match_result_rel_def, flatSemTheory.pmatch_def, v_rel_eqns] >>
   imp_res_tac LIST_REL_LENGTH
-  >- (
+  >- (fs[compile_pat_def, v_rel_eqns] >> rveq >> fs[pmatch_def] >>
     TOP_CASE_TAC >- simp [match_result_rel_def] >>
     fs [] >>
     qmatch_assum_rename_tac `nsLookup _ _ = SOME p` >>
@@ -1652,6 +1770,14 @@ val evaluate_foldr_let_err = Q.prove (
   every_case_tac >>
   fs [opt_bind_lem, env_updated_lem]);
 
+Theorem v_rel_FP_BoolTree:
+  v_rel genv (FP_BoolTree fp) v ==>
+  v_rel genv (Boolv (compress_bool fp)) v
+Proof
+  rw[Once v_rel_cases, semanticPrimitivesTheory.Boolv_def, Boolv_def] >>
+  fs[Once v_rel_cases]
+QED
+
 val env_domain_eq_def = Define `
   env_domain_eq (var_map : source_to_flat$environment) (env : 'a sem_env)⇔
     nsDom var_map.v = nsDom env.v ∧
@@ -1668,6 +1794,36 @@ val env_domain_eq_append = Q.prove (
       nsLookup_nsAppend_some, nsLookup_nsDom, namespaceTheory.nsDomMod_def,
       EXTENSION, GSPECIFICATION, EXISTS_PROD] >>
   metis_tac [option_nchotomy, NOT_SOME_NONE, pair_CASES]);
+
+Theorem v_rel_do_fpoptimise:
+  ∀ vs vsF genv annot.
+    LIST_REL (v_rel genv) vs vsF ⇒
+    LIST_REL (v_rel genv) (do_fpoptimise annot vs) vsF
+Proof
+  measureInduct_on ‘semanticPrimitives$v1_size vs’ >> Cases_on ‘vs’ >>
+  fs[LIST_REL_def] >> rpt strip_tac
+  >- (
+   fs[do_fpoptimise_def]) >>
+  first_assum (qspec_then ‘t’ assume_tac) >>
+  fs[semanticPrimitivesTheory.v_size_def] >>
+  simp[Once fpSemPropsTheory.do_fpoptimise_cons] >>
+  Cases_on ‘h’ >> simp[do_fpoptimise_def] >>
+  fs[Once v_rel_cases]
+  >- (
+   first_x_assum (qspec_then ‘l’ assume_tac) >>
+   fs[semanticPrimitivesTheory.v_size_def] >>
+   simp[do_fpoptimise_length])
+  >- (
+   first_x_assum (qspec_then ‘l’ assume_tac) >>
+   fs[semanticPrimitivesTheory.v_size_def])
+  >- (
+   first_x_assum (qspec_then ‘l’ assume_tac) >>
+   fs[semanticPrimitivesTheory.v_size_def])
+  >- (
+   fs[fpSemTheory.compress_word_def])
+  >- (
+   fs[fpSemTheory.compress_bool_def])
+QED
 
 val global_env_inv_append = Q.prove (
   `!genv var_map1 var_map2 env1 env2.
@@ -2839,7 +2995,7 @@ Proof
 QED
 
 Triviality FST_SND_EQ_CASE:
-  FST = (\(a, b). a) /\ SND = (\(a, b). b)
+  FST = (\ (a, b). a) /\ SND = (\ (a, b). b)
 Proof
   simp [FUN_EQ_THM, FORALL_PROD]
 QED
@@ -3162,12 +3318,12 @@ Theorem alloc_tags1_imp:
   alloc_tags1 ctors = (ns, spt, tag_list) ∧
   ALL_DISTINCT (MAP FST ctors) ==>
   ? cn_tags.
-  ns = alist_to_ns (MAP (\(cn, tag, arity). (cn, tag)) cn_tags) ∧
+  ns = alist_to_ns (MAP (\ (cn, tag, arity). (cn, tag)) cn_tags) ∧
   set (MAP SND cn_tags) = {(tag, arity) |
     ∃max. lookup arity spt = SOME max ∧ tag < max} ∧
   tag_list = MAP SND cn_tags ∧
   ALL_DISTINCT tag_list ∧
-  LIST_REL (\(cn, ts) (cn', _, arity). cn = cn' ∧ arity = LENGTH ts)
+  LIST_REL (\ (cn, ts) (cn', _, arity). cn = cn' ∧ arity = LENGTH ts)
     ctors cn_tags ∧
   MAP FST ctors = MAP FST cn_tags
 Proof
@@ -3831,7 +3987,7 @@ Proof
   >- (
     (* empty array creation *)
     rw []
-    \\ fs [semanticPrimitivesTheory.do_app_def]
+    \\ fs [semanticPrimitivesTheory.do_app_def, astTheory.getOpClass_def]
     \\ every_case_tac \\ fs [] \\ rveq \\ fs []
     >- (
       drule (CONJUNCT1 evaluatePropsTheory.evaluate_length) >>
@@ -3873,8 +4029,8 @@ Proof
   )
   \\ Cases_on `op = Eval`
   >- (
-    rw []
-    \\ fs [evaluateTheory.do_eval_res_def]
+    rw[]
+    \\ fs [evaluateTheory.do_eval_res_def, astTheory.getOpClass_def]
     \\ fs [astOp_to_flatOp_def, evaluate_def, compile_exps_reverse,
         evaluate_decs_append, libTheory.opt_bind_def]
     \\ fs [list_case_eq, option_case_eq, pair_case_eq]
@@ -3959,7 +4115,7 @@ Proof
   \\ Cases_on `op = Opapp`
   >- (
     (* Opapp *)
-    fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq, option_case_eq] >>
+    fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq, option_case_eq, astTheory.getOpClass_def] >>
     rw [] >>
     rveq >> fs [] >>
     fs [astOp_to_flatOp_def, evaluate_def, compile_exps_reverse] >>
@@ -3986,7 +4142,7 @@ Proof
   )
   \\ Cases_on `op = Env_id`
   >- (
-    fs [option_case_eq, pair_case_eq, result_rel_eqns]
+    fs [option_case_eq, pair_case_eq, result_rel_eqns, astTheory.getOpClass_def]
     \\ rw []
     \\ fs [semanticPrimitivesTheory.do_app_def]
     \\ fs [case_eq_thms, semanticPrimitivesTheory.v_case_eq, pair_case_eq]
@@ -4001,6 +4157,15 @@ Proof
     \\ asm_exists_tac \\ fs []
     \\ fs [invariant_def, s_rel_cases]
   ) >>
+  Cases_on ‘getOpClass op’ >> gs[]
+  >- (Cases_on ‘op’ >> gs[astTheory.getOpClass_def])
+  >- (Cases_on ‘op’ >> gs[astTheory.getOpClass_def])
+  >~ [‘getOpClass op = Reals’]
+  >- (
+    fs[s_rel_cases] >>
+    ‘~ st'.fp_state.real_sem’
+      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv >> gs[]) >>
+    gs[]) >>
   fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, option_case_eq, pair_case_eq] >>
   rw [] >>
   rveq >> fs [] >>
@@ -4024,7 +4189,31 @@ Proof
   qexists_tac `genv2` >>
   simp [] >>
   conj_tac >> TRY (fs [result_rel_cases] \\ NO_TAC) >>
-  fs [invariant_def, s_rel_cases]
+  fs [invariant_def, s_rel_cases] >>
+  rpt (TOP_CASE_TAC >> gs[result_rel_cases, semanticPrimitivesTheory.Boolv_def, Boolv_def, v_rel_eqns]) >>
+  TRY COND_CASES_TAC >> gs[] >>
+  simp[ Once v_rel_rules]
+QED
+
+Triviality compile_correct_Scope:
+  ^(#get_goal compile_correct_setup ‘Case [FpOptimise _ _]’)
+Proof
+  rw[] >>
+  fs [pair_case_eq] >> fs [] >>
+  ‘invariant interp gen genv idxs (s with fp_state := s.fp_state) s_i1’
+  by (gs[invariant_def, s_rel_cases]) >>
+  first_x_assum $ drule_then $ drule_then drule >>
+  disch_then (qspec_then ‘t’ mp_tac) >>
+  simp [] >> strip_tac >>
+  rw [] >>
+  reverse (fs [result_case_eq]) >> rveq >> fs []
+  >- (
+    gs[] >>
+    goal_assum (qsubterm_then `invariant _ _ _` mp_tac) >>
+    fs [result_rel_cases] >> rveq >> fs [] >>
+    gs[s_rel_cases, invariant_def]) >>
+  qexists_tac ‘genv'’ >> gs[invariant_def, s_rel_cases, result_rel_cases] >>
+  irule v_rel_do_fpoptimise >> gs[]
 QED
 
 Triviality compile_correct_Log:
@@ -4796,7 +4985,8 @@ Proof
     compile_correct_pattern, compile_correct_empty_decs,
     compile_correct_cons_decs, compile_correct_Dlet, compile_correct_Dletrec,
     compile_correct_Dtype, compile_correct_Dtabbrev, compile_correct_Denv,
-    compile_correct_Dexn, compile_correct_Dmod, compile_correct_Dlocal]
+    compile_correct_Dexn, compile_correct_Dmod, compile_correct_Dlocal,
+    compile_correct_Scope]
   (* trivial cases *)
   \\ TRY (
     rw []
@@ -4805,6 +4995,7 @@ Proof
     \\ NO_TAC
   )
   \\ TRY (Cases_on`l`>>fs[evaluate_def,compile_exp_def])
+  \\ fs[s_rel_cases]
 QED
 
 Definition init_eval_state_ok_def:
@@ -4907,6 +5098,7 @@ Definition precondition1_def:
     | SOME cfg => cfg = FST (compile_prog conf prog)) ∧
   conf.next.vidx = 0 ∧
   s1.refs = [] ∧
+  s1.fp_state.canOpt = Strict ∧ ~ s1.fp_state.real_sem ∧
   init_global_env_inv init_genv conf.mod_env env1 ∧
   init_eval_state_ok s1.eval_state ∧
   idx_prev init_genv_next conf.next ∧

@@ -146,6 +146,7 @@ Proof
   \\ IF_CASES_TAC \\ fs[]
   \\ simp[semantics_def]
   \\ rpt (BasicProvers.CASE_TAC \\ simp[])
+  \\ fs[]
   \\ drule compile_tap_compile
   \\ rpt strip_tac
   \\ (backendProofTheory.compile_correct'

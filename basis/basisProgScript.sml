@@ -14,7 +14,7 @@ val eval_thm = let
   val state = get_ml_prog_state () |> ml_progLib.get_state
   val goal = list_mk_icomb (prim_mk_const {Thy="ml_prog", Name="eval_rel"},
     [state, env, print_e, state, mk_var ("x", v_ty)])
-  val lemma = goal |> (EVAL THENC SIMP_CONV(srw_ss())[])
+  val lemma = goal |> (EVAL THENC SIMP_CONV(srw_ss())[semanticPrimitivesTheory.state_component_equality])
   val v_thm = prove(mk_imp(lemma |> concl |> rand, goal),
     rpt strip_tac \\ rveq \\ match_mp_tac(#2(EQ_IMP_RULE lemma))
     \\ asm_simp_tac bool_ss [])
