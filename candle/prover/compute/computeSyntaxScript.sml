@@ -1893,7 +1893,7 @@ Proof
           \\ gs [equation_def, term_ok_def])
     \\ impl_keep_tac
     >- (
-      irule_at Any subst_closed'
+      irule_at Any closed_subst'
       \\ irule_at Any subst_term_ok
       \\ gvs [MAP_ZIP, EVERY_EL, PULL_EXISTS]
       \\ drule proves_term_ok \\ simp [equation_def, term_ok_def] \\ rw [])
