@@ -556,6 +556,7 @@ constrain_op l op ts =
    | (Real_bop _, _) => failwith l (implode "Reals do not have a type")
    | (Real_cmp _, _) => failwith l (implode "Reals do not have a type")
    | (RealFromFP, _) => failwith l (implode "Reals do not have a type")
+   | (RealFromIntProd, _) => failwith l (implode "Reals do not have a type")
    | (AallocFixed, _) => failwith l (implode "Unsafe ops do not have a type") (* not actually unsafe *)
    | (Eval, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Env_id, _) => failwith l (implode "Unsafe ops do not have a type")

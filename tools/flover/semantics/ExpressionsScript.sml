@@ -1,7 +1,7 @@
 (**
   Formalization of the base expression language for the flover framework
  **)
-open realTheory realLib sptreeTheory
+open realTheory realLib RealArith sptreeTheory intrealTheory;
 open AbbrevsTheory MachineTypeTheory
 open preambleFloVer;
 
@@ -96,6 +96,16 @@ Definition usedVars_def:
       | Fma e1 e2 e3 => union (usedVars e1) (union (usedVars e2) (usedVars e3))
       | Downcast m e1 => usedVars e1
       | _ => LN
+End
+
+Definition ratExp2realExp_def:
+  ratExp2realExp ((Const m (c,d)):(int#int) expr):real expr =
+  Const m ((real_of_int c) / (real_of_int d)) ∧
+  ratExp2realExp (Var x) = Var x ∧
+  ratExp2realExp (Unop u e1) = Unop u (ratExp2realExp e1) ∧
+  ratExp2realExp (Binop b e1 e2) = Binop b (ratExp2realExp e1) (ratExp2realExp e2) ∧
+  ratExp2realExp (Fma e1 e2 e3) = Fma (ratExp2realExp e1) (ratExp2realExp e2) (ratExp2realExp e3) ∧
+  ratExp2realExp (Downcast m e1) = Downcast m (ratExp2realExp e1)
 End
 
 val _ = export_theory();

@@ -46,6 +46,10 @@ Floating-Point range validator
 Connect FloVer's idealized machine semantics to 64-bit
 IEEE-754 floating-point semantics
 
+[IEEE_reverseScript.sml](IEEE_reverseScript.sml):
+Connect FloVer's idealized machine semantics to 64-bit
+IEEE-754 floating-point semantics
+
 [Infra](Infra):
 Infrastructural lemmas and formalizations for FloVer
 
