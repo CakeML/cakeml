@@ -2,10 +2,10 @@
   Pmatch definitions for functions in computeScript.sml.
  *)
 
-open preamble computeSyntaxTheory compute_evalTheory computeTheory;
+open preamble compute_syntaxTheory compute_evalTheory computeTheory;
 local open patternMatchesLib in end;
 
-val _ = new_theory "computePmatch";
+val _ = new_theory "compute_pmatch";
 
 val _ = numLib.prefer_num ();
 

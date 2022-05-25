@@ -4,7 +4,7 @@
 
 open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory
      holKernelTheory holKernelProofTheory;
-open compute_evalTheory computeSyntaxTheory computeSyntaxProofTheory;
+open compute_evalTheory compute_syntaxTheory compute_syntaxProofTheory;
 open ml_monadBaseTheory ml_monadBaseLib;
 
 val _ = new_theory "compute_evalProof";

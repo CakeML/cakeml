@@ -5,7 +5,7 @@
 
 open preamble holSyntaxTheory holSyntaxExtraTheory holKernelTheory
      holKernelProofTheory ml_monadBaseTheory;
-open computeSyntaxTheory computeSyntaxProofTheory;
+open compute_syntaxTheory compute_syntaxProofTheory;
 open compute_evalTheory compute_evalProofTheory;
 open computeTheory;
 

@@ -3,10 +3,10 @@
  *)
 
 open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory
-     holKernelTheory holKernelProofTheory computeSyntaxTheory;
+     holKernelTheory holKernelProofTheory compute_syntaxTheory;
 open ml_monadBaseTheory ml_monadBaseLib;
 
-val _ = new_theory "computeSyntaxProof";
+val _ = new_theory "compute_syntaxProof";
 
 val _ = numLib.prefer_num ();
 
