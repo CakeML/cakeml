@@ -1,0 +1,44 @@
+
+val writeFun = `
+  “(strlit "writeC",
+     [(strlit "ic", One)] :(mlstring # shape) list,
+     Dec (strlit "a") BaseAddr (
+       Dec (strlit "b") (Const 8w) (
+         Dec (strlit "c") (Op Add [BaseAddr;Const 16w]) (
+           Dec (strlit "d") (Const 1w) (      
+             FOLDR Seq (Return (Const 0w)) [
+               Store BaseAddr (Var (strlit "ic"));
+               ExtCall (strlit "out_morefun") (strlit "a")
+                       (strlit "b") (strlit "c") (strlit "d");
+             ])))): 64 panLang$prog
+    )”;
+
+---In Concrete Syntax---
+
+
+"writeC" [("ic",One)]
+var a = @base {
+ var b = 8
+  var c = @base + 16 {
+   var d = 1 {
+  #out_morefun(a,b,c,d);
+  str @base, ic;
+  return 0;
+}}}
+------------------------
+
+"main" []
+var mRes = 0 in
+  mRes = !writeC(1);
+  return 0;
+end
+
+val panProgTemplate=
+  “[(strlit "main",
+    [] :(mlstring # shape) list,
+    Dec (strlit "mRes") (Const 0w) (
+      FOLDR Seq (Return (Const 0w)) [
+        Call (Ret (strlit "mRes") NONE) (Label $ strlit "writeC") [Const 1w];        
+      ]
+    ) :64 panLang$prog
+    ); ^writeFun]” |> EVAL |> concl |> rhs;

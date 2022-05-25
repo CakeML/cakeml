@@ -17,12 +17,11 @@ Datatype:
             | ExtCallNT | RaiseNT | ReturnNT
             | ArgListNT
             | EXorNT | EAndNT | EEqNT | ECmpNT
-            | EShiftNT | EAddNT | EMultNT
-            | ENotNT | EDotT | EBaseNT
-            | StructNT | LoadNT | LoadByteNT
+            | EShiftNT | EAddNT
+            | EBaseNT
+            | StructNT | LoadNT | LoadByteNT | LabelNT
             | ShapeNT | ShapeCombNT
             | EqOpsNT | CmpOpsNT | ShiftOpsNT | AddOpsNT
-            | MultOpsNT
 End
 
 Definition mknt_def:
@@ -67,10 +66,16 @@ Definition keep_ident_def:
                        | _ => F) mkleaf
 End
 
-Definition keep_word_def:
-  keep_word = tok (λt. case t of
+Definition keep_int_def:
+  keep_int = tok (λt. case t of
                        | IntT _ => T
                        | _ => F) mkleaf
+End
+
+Definition keep_nat_def:
+  keep_nat = tok (λt. case t of
+                        IntT n => if n >= 0 then T else F
+                      | _ => F) mkleaf
 End
 
 Definition extract_sum_def:
@@ -161,47 +166,42 @@ Definition pancake_peg_def[nocompute]:
                                   FLAT]
                              (mksubtree ArgListNT));
         (INL ExpNT, seql [mknt EXorNT;
-                          rpt (seql [consume_tok OrT; mknt EXorNT] I)
+                          rpt (seql [keep_tok OrT; mknt EXorNT] I)
                               FLAT]
                          (mksubtree ExpNT));
         (INL EXorNT, seql [mknt EAndNT;
-                           rpt (seql [consume_tok XorT; mknt EAndNT] I)
+                           rpt (seql [keep_tok XorT; mknt EAndNT] I)
                                FLAT]
                           (mksubtree EXorNT));
         (INL EAndNT, seql [mknt EEqNT;
-                           rpt (seql [consume_tok AndT; mknt EEqNT] I)
+                           rpt (seql [keep_tok AndT; mknt EEqNT] I)
                                FLAT]
                           (mksubtree EAndNT));
         (INL EEqNT, seql [mknt ECmpNT;
-                          rpt (seql [mknt EqOpsNT; mknt ECmpNT] I)
-                              FLAT]
+                          try (seql [mknt EqOpsNT; mknt ECmpNT] I)]
                          (mksubtree EEqNT));
         (INL ECmpNT, seql [mknt EShiftNT;
-                           rpt (seql [mknt CmpOpsNT; mknt EShiftNT] I)
-                               FLAT]
+                           try (seql [mknt CmpOpsNT; mknt EShiftNT] I)]
                           (mksubtree ECmpNT));
         (INL EShiftNT, seql [mknt EAddNT;
-                             rpt (seql [mknt ShiftOpsNT; mknt EAddNT] I)
+                             rpt (seql [mknt ShiftOpsNT; keep_nat] I)
                                  FLAT]
                             (mksubtree EShiftNT));
-        (INL EAddNT, seql [mknt EMultNT;
-                           rpt (seql [mknt AddOpsNT; mknt EMultNT] I)
+        (INL EAddNT, seql [mknt EBaseNT;
+                           rpt (seql [mknt AddOpsNT; mknt EBaseNT] I)
                                FLAT]
                           (mksubtree EAddNT));
-        (INL EMultNT, seql [mknt ENotNT;
-                            rpt (seql [mknt MultOpsNT; mknt ENotNT] I)
-                                FLAT] (mksubtree EMultNT));
-        (INL ENotNT, seql [try (consume_tok NotT); mknt EBaseNT]
-                          (mksubtree ENotNT));
         (INL EBaseNT, seql [choicel [seql [consume_tok LParT;
                                            mknt ExpNT;
                                            consume_tok RParT] I;
-                                     keep_word; keep_ident;
+                                     keep_int; keep_ident; mknt LabelNT;
                                      mknt StructNT; mknt LoadNT;
                                      mknt LoadByteNT; keep_kw BaseK];
-                           rpt (seql [consume_tok DotT; keep_word] I)
-                               FLAT]
-                          (mksubtree EBaseNT));
+                            rpt (seql [consume_tok DotT; keep_nat] I)
+                                FLAT]
+                           (mksubtree EBaseNT));
+        (INL LabelNT, seql [consume_tok NotT; keep_ident]
+                           (mksubtree LabelNT));
         (INL StructNT, seql [consume_tok LessT; mknt ArgListNT;
                              consume_tok GreaterT]
                             (mksubtree StructNT));
@@ -209,7 +209,7 @@ Definition pancake_peg_def[nocompute]:
                           (mksubtree LoadNT));
         (INL LoadByteNT, seql [consume_kw LdbK; mknt ExpNT]
                               (mksubtree LoadByteNT));
-        (INL ShapeNT, choicel [keep_tok MulT;
+        (INL ShapeNT, choicel [keep_tok StarT;
                                seql [consume_tok LessT;
                                      mknt ShapeCombNT;
                                      consume_tok GreaterT] I]);
@@ -218,13 +218,10 @@ Definition pancake_peg_def[nocompute]:
                                      (mknt ShapeNT) (flip K)) FLAT]
                              (mksubtree ShapeCombNT));
         (INL EqOpsNT, choicel [keep_tok EqT; keep_tok NeqT]);
-        (INL CmpOpsNT, choicel [keep_tok LessT; keep_tok LeqT;
-                                keep_tok GreaterT; keep_tok GeqT]);
+        (INL CmpOpsNT, choicel [keep_tok LessT; keep_tok GeqT]);
         (INL ShiftOpsNT, choicel [keep_tok LslT; keep_tok LsrT;
                                   keep_tok AsrT; keep_tok RorT]);
-        (INL AddOpsNT, choicel [keep_tok PlusT; keep_tok MinusT]);
-        (INL MultOpsNT, choicel [keep_tok MulT; keep_tok DivT;
-                                 keep_tok ModT])]
+        (INL AddOpsNT, choicel [keep_tok PlusT; keep_tok MinusT])]
         |>
 End
 
@@ -326,15 +323,16 @@ val wfpeg_rwts = wfpeg_cases
                                      ‘not e v’, ‘rpt e f’, ‘choicel []’,
                                      ‘choicel (h::t)’, ‘keep_tok t’,
                                      ‘consume_tok t’, ‘keep_kw k’,
-                                     ‘consume_kw k’, ‘keep_word’,
-                                     ‘keep_ident’, ‘pegf e f’])
+                                     ‘consume_kw k’, ‘keep_int’,
+                                     ‘keep_nat’, ‘keep_ident’,
+                                     ‘pegf e f’])
                    |> map (CONV_RULE
                            (RAND_CONV (SIMP_CONV (srw_ss())
                                        [choicel_def, seql_def,
                                         keep_tok_def, consume_tok_def,
                                         keep_kw_def, consume_kw_def,
-                                        keep_word_def, keep_ident_def,
-                                        pegf_def])))
+                                        keep_int_def, keep_nat_def,
+                                        keep_ident_def, pegf_def])))
 
 val wfpeg_mknt = wfpeg_cases
                   |> ISPEC “pancake_peg”
@@ -413,10 +411,16 @@ Proof
   simp[consume_kw_def,peg0_consume_tok]
 QED
 
-Theorem peg0_keep_word[simp]:
-  peg0 G keep_word = F
+Theorem peg0_keep_int[simp]:
+  peg0 G keep_int = F
 Proof
-  simp[keep_word_def]
+  simp[keep_int_def]
+QED
+
+Theorem peg0_keep_nat[simp]:
+  peg0 G keep_int = F
+Proof
+  simp[keep_nat_def]
 QED
 
 Theorem peg0_keep_ident[simp]:
@@ -447,13 +451,11 @@ in
   th::acc
 end
 
-val topo_nts = [“AddOpsNT”, “MultOpsNT”,
-                “ShiftOpsNT”, “CmpOpsNT”,
+val topo_nts = [“AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”,
                 “EqOpsNT”, “ShapeNT”,
-                “ShapeCombNT”, “LoadByteNT”,
+                “ShapeCombNT”, “LabelNT”, “LoadByteNT”,
                 “LoadNT”, “StructNT”,
-                “EBaseNT”, “ENotNT”, “EMultNT”,
-                “EAddNT”, “EShiftNT”, “ECmpNT”,
+                “EBaseNT”, “EAddNT”, “EShiftNT”, “ECmpNT”,
                 “EEqNT”, “EAndNT”, “EXorNT”,
                 “ExpNT”, “ArgListNT”, “ReturnNT”,
                 “RaiseNT”, “ExtCallNT”,
@@ -473,8 +475,8 @@ fun wfnt(t,acc) = let
                    (pancake_peg_applied @
                     [wfpeg_mknt, FDOM_pancake_peg, try_def,
                      seql_def, keep_tok_def, consume_tok_def,
-                     keep_kw_def, consume_kw_def, keep_word_def,
-                     keep_ident_def]) THEN
+                     keep_kw_def, consume_kw_def, keep_int_def,
+                     keep_nat_def, keep_ident_def]) THEN
           simp(wfpeg_rwts @ npeg0_rwts @ peg0_rwts @ acc))
 in
   th::acc
@@ -491,13 +493,13 @@ val subexprs_mknt = Q.prove(
   simp[subexprs_def, mknt_def]);
 
 Theorem PEG_wellformed[simp]:
-   wfG pancake_peg
+  wfG pancake_peg
 Proof
   simp[wfG_def, Gexprs_def, subexprs_def,
        subexprs_mknt, peg_start, peg_range, DISJ_IMP_THM,FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, keep_tok_def, consume_tok_def,
-       keep_kw_def, consume_kw_def, keep_word_def, keep_ident_def,
-       try_def] >>
+       keep_kw_def, consume_kw_def, keep_int_def, keep_nat_def,
+       keep_ident_def, try_def] >>
   simp(pancake_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
 QED
 

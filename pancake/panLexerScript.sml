@@ -20,9 +20,9 @@ Datatype:
 End
 
 Datatype:
-  token = AndT | OrT | XorT
-  | EqT | NeqT | LessT | LeqT | GreaterT | GeqT
-  | NotT | PlusT | MinusT | MulT | DivT | ModT | HashT | DotT
+  token = AndT | OrT | XorT | NotT
+  | EqT | NeqT | LessT | GreaterT | GeqT
+  | PlusT | MinusT | HashT | DotT | StarT
   | LslT | LsrT | AsrT | RorT
   | TrueT | FalseT | IntT int | IdentT string
   | LParT | RParT | CommaT | SemiT | ColonT | DArrowT | AddrT
@@ -37,11 +37,11 @@ Datatype:
 End
 
 Definition isAtom_singleton_def:
-  isAtom_singleton c = MEM c "!+-&^|*%().,;:[]{}"
+  isAtom_singleton c = MEM c "!+-&^|*().,;:[]{}"
 End
 
 Definition isAtom_begin_group_def:
-  isAtom_begin_group c = MEM c "#=<>"
+  isAtom_begin_group c = MEM c "#=>"
 End
 
 Definition isAtom_in_group_def:
@@ -60,16 +60,13 @@ Definition get_token_def:
   if s = "==" then EqT else
   if s = "<>" then NeqT else
   if s = "<" then LessT else
-  if s = "<=" then LeqT else
   if s = ">" then GreaterT else
   if s = ">=" then GeqT else
   if s = "=>" then DArrowT else
   if s = "!" then NotT else
   if s = "+" then PlusT else
   if s = "-" then MinusT else
-  if s = "*" then MulT else
-  if s = "/" then DivT else
-  if s = "%" then ModT else
+  if s = "*" then StarT else
   if s = "#" then HashT else
   if s = "." then DotT else
   if s = "<<" then LslT else
