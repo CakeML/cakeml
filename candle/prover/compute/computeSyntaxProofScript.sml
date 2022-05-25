@@ -1,0 +1,741 @@
+(*
+   Proofs related to term embeddings for the Candle compute primitive.
+ *)
+
+open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory
+     holKernelTheory holKernelProofTheory computeSyntaxTheory;
+open ml_monadBaseTheory ml_monadBaseLib;
+
+val _ = new_theory "computeSyntaxProof";
+
+val _ = numLib.prefer_num ();
+
+fun SIMPR ths = SIMP_RULE (srw_ss()) ths;
+fun SIMPC ths = SIMP_CONV (srw_ss()) ths;
+
+(* -------------------------------------------------------------------------
+ * Support
+ * ------------------------------------------------------------------------- *)
+
+Theorem trans_equation_simple:
+  (thy,[]) |- a === b ∧
+  (thy,[]) |- b === c ⇒
+    (thy,[]) |- a === c
+Proof
+  rw []
+  \\ qspecl_then [‘t’,‘[]’,‘[]’] (irule o SIMPR []) trans_equation
+  \\ simp [ACONV_REFL, SF SFY_ss]
+QED
+
+Theorem MK_COMB_simple =
+  Q.SPECL [‘[]’,‘[]’] proves_MK_COMB |> SIMPR [PULL_EXISTS];
+
+Theorem replaceL1:
+  (thy,[]) |- x === y ∧
+  (thy,[]) |- Comb (Comb f x) r === z ⇒
+    (thy,[]) |- Comb (Comb f y) r === z
+Proof
+  rw []
+  \\ ‘theory_ok thy ∧
+      EVERY (term_ok (sigof thy)) [f;x;y;r;z] ∧
+      typeof x = typeof y ∧
+      (∃ty. typeof f = Fun (typeof y) (Fun (typeof r) ty))’
+    by (imp_res_tac proves_term_ok
+        \\ imp_res_tac proves_theory_ok
+        \\ gs [term_ok_def, equation_def])
+  \\ irule trans_equation_simple \\ fs []
+  \\ first_x_assum (irule_at Any)
+  \\ simp [MK_COMB_simple, Once sym_equation, term_ok_welltyped, proves_REFL,
+           SF SFY_ss]
+QED
+
+Theorem replaceL2:
+  (thy,[]) |- x === y ∧
+  (thy,[]) |- Comb f x === z ⇒
+    (thy,[]) |- Comb f y === z
+Proof
+  rw []
+  \\ ‘theory_ok thy ∧
+      EVERY (term_ok (sigof thy)) [f;x;y;z] ∧
+      typeof x = typeof y ∧
+      (∃ty. typeof f = Fun (typeof y) ty)’
+    by (imp_res_tac proves_term_ok
+        \\ imp_res_tac proves_theory_ok
+        \\ gs [term_ok_def, equation_def])
+  \\ irule trans_equation_simple
+  \\ first_assum (irule_at Any) \\ fs []
+  \\ simp [MK_COMB_simple, term_ok_welltyped, proves_REFL, sym_equation,
+           SF SFY_ss]
+QED
+
+Theorem replaceL3:
+  (thy,[]) |- x === y ∧
+  (thy,[]) |- Comb (Comb (Comb f x) s) t === z ⇒
+    (thy,[]) |- Comb (Comb (Comb f y) s) t === z
+Proof
+  rw []
+  \\ ‘theory_ok thy ∧
+      EVERY (term_ok (sigof thy)) [f;x;y;z;s;t] ∧
+      typeof x = typeof y ∧
+      (∃ty. typeof f = Fun (typeof y) (Fun (typeof s) (Fun (typeof t) ty)))’
+    by (imp_res_tac proves_term_ok
+        \\ imp_res_tac proves_theory_ok
+        \\ gs [term_ok_def, equation_def])
+  \\ irule trans_equation_simple
+  \\ first_assum (irule_at Any) \\ fs []
+  \\ simp [MK_COMB_simple, term_ok_welltyped, proves_REFL, sym_equation,
+           SF SFY_ss]
+QED
+
+Theorem replaceR1 =
+  UNDISCH_ALL replaceL1 |> MATCH_MP sym_equation |> DISCH_ALL;
+
+Theorem replaceR2 =
+  UNDISCH_ALL replaceL2 |> MATCH_MP sym_equation |> DISCH_ALL;
+
+Theorem replaceR3 =
+  UNDISCH_ALL replaceL3 |> MATCH_MP sym_equation |> DISCH_ALL;
+
+(* -------------------------------------------------------------------------
+ * Natural numbers
+ * ------------------------------------------------------------------------- *)
+
+(* All the necessary constants defined with the right types and
+ * with the right defining equations (and some lemmas).
+ *)
+
+Definition numeral_thy_ok_def:
+  numeral_thy_ok thy ⇔
+    (* NUMERAL *)
+    (thy,[]) |- _NUMERAL _N === _N ∧
+    (* BIT0, BIT1 *)
+    (thy,[]) |- _BIT0 _N === _ADD _N _N ∧
+    (thy,[]) |- _BIT1 _N === _SUC (_ADD _N _N) ∧
+    (* ADD *)
+    (thy,[]) |- _ADD (_NUMERAL _0) _N === _N ∧
+    (thy,[]) |- _ADD (_SUC _M) _N === _SUC (_ADD _M _N)
+End
+
+Theorem numeral_thy_ok_theory_ok[simp]:
+  numeral_thy_ok thy ⇒ theory_ok thy
+Proof
+  rw [numeral_thy_ok_def]
+  \\ drule proves_theory_ok \\ simp []
+QED
+
+Theorem numeral_thy_ok_terms_ok:
+  numeral_thy_ok thy ⇒
+    term_ok (sigof thy) _ADD_TM ∧
+    term_ok (sigof thy) _0 ∧
+    term_ok (sigof thy) _SUC_TM ∧
+    term_ok (sigof thy) _BIT0_TM ∧
+    term_ok (sigof thy) _BIT1_TM ∧
+    term_ok (sigof thy) _NUMERAL_TM
+Proof
+  simp [numeral_thy_ok_def] \\ strip_tac
+  \\ pop_assum kall_tac
+  \\ rpt (dxrule_then assume_tac proves_term_ok) \\ rfs []
+  \\ fs [equation_def, term_ok_def, SF SFY_ss]
+QED
+
+(* The numeral_thy_ok theorems with object variables replaced with meta
+   variables.
+ *)
+
+Theorem NUMERAL_eqn:
+  numeral_thy_ok thy ∧
+  term_ok (sigof thy) n ∧ n has_type num_ty ⇒
+    (thy,[]) |- _NUMERAL n === n
+Proof
+  rw [numeral_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _NUMERAL x === x’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N]’ mp_tac) proves_INST
+  \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem BIT0_eqn:
+  numeral_thy_ok thy ∧
+  term_ok (sigof thy) n ∧ n has_type num_ty ⇒
+    (thy,[]) |- _BIT0 n === _ADD n n
+Proof
+  rw [numeral_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _BIT0 x === _ADD x x’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N]’ mp_tac) proves_INST
+  \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem BIT1_eqn:
+  numeral_thy_ok thy ∧
+  term_ok (sigof thy) n ∧ n has_type num_ty ⇒
+    (thy,[]) |- _BIT1 n === _SUC (_ADD n n)
+Proof
+  rw [numeral_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _BIT1 _ === _SUC _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N]’ mp_tac) proves_INST
+  \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem ADD_eqn:
+  numeral_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
+  m has_type num_ty ∧ n has_type num_ty ⇒
+    (thy,[]) |- _ADD (_NUMERAL _0) n === n ∧
+    (thy,[]) |- _ADD (_SUC m) n === _SUC (_ADD m n)
+Proof
+  rw [numeral_thy_ok_def]
+  >- (
+    qpat_x_assum ‘_ |- _ADD (_NUMERAL _) _ === _’ assume_tac
+    \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N]’ mp_tac) proves_INST
+    \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def])
+  \\ qpat_x_assum ‘_ |- _ADD (_SUC _) _ === _SUC _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M; n,_N]’ mp_tac) proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem BIT0_0:
+  numeral_thy_ok thy ⇒
+    (thy,[]) |- _BIT0 _0 === _0
+Proof
+  strip_tac
+  \\ ‘term_ok (sigof thy) _0 ∧ _0 has_type num_ty’
+    by gs [numeral_thy_ok_terms_ok, term_ok_def, has_type_rules]
+  \\ drule_all_then assume_tac BIT0_eqn
+  \\ irule trans_equation_simple
+  \\ first_x_assum (irule_at Any)
+  \\ drule_all_then assume_tac (DISCH_ALL (CONJUNCT1 (UNDISCH_ALL ADD_eqn)))
+  \\ irule replaceL1
+  \\ irule_at Any NUMERAL_eqn \\ simp []
+QED
+
+(* -------------------------------------------------------------------------
+ * num2term, num2bit
+ * ------------------------------------------------------------------------- *)
+
+Theorem num2term_typeof[simp]:
+  typeof (num2term n) = num_ty
+Proof
+  Induct_on ‘n’ \\ simp [num2term_def]
+QED
+
+Theorem num2term_has_type[simp]:
+  num2term n has_type num_ty
+Proof
+  Induct_on ‘n’ \\ rw [num2term_def]
+  \\ rw [Once has_type_cases]
+  \\ rw [Once has_type_cases]
+QED
+
+Theorem num2term_welltyped[simp]:
+  welltyped (num2term n)
+Proof
+  rw [welltyped_def, num2term_has_type, SF SFY_ss]
+QED
+
+Theorem num2term_term_ok:
+  numeral_thy_ok thy ⇒ term_ok (sigof thy) (num2term n)
+Proof
+  strip_tac
+  \\ drule_then strip_assume_tac numeral_thy_ok_terms_ok
+  \\ Induct_on ‘n’ \\ rw [numeral_thy_ok_def, term_ok_def, num2term_def]
+QED
+
+Theorem num2term_VSUBST[simp]:
+  ∀n. VSUBST is (num2term n) = num2term n
+Proof
+  Induct \\ rw [num2term_def, VSUBST_def]
+QED
+
+Theorem num2bit_typeof[simp]:
+  ∀n. typeof (num2bit n) = num_ty
+Proof
+  ho_match_mp_tac num2bit_ind \\ rw []
+  \\ rw [Once num2bit_def]
+QED
+
+Theorem num2bit_has_type[simp]:
+  ∀n. num2bit n has_type num_ty
+Proof
+  ho_match_mp_tac num2bit_ind \\ rw []
+  \\ rw [Once num2bit_def]
+  \\ rw [Ntimes has_type_cases 3]
+QED
+
+Theorem num2bit_welltyped[simp]:
+  ∀n. welltyped (num2bit n)
+Proof
+  rw [welltyped_def, num2bit_has_type, SF SFY_ss]
+QED
+
+Theorem num2bit_term_ok:
+  numeral_thy_ok thy ⇒ term_ok (sigof thy) (num2bit n)
+Proof
+  strip_tac
+  \\ drule_then strip_assume_tac numeral_thy_ok_terms_ok
+  \\ qid_spec_tac ‘n’
+  \\ ho_match_mp_tac num2bit_ind \\ rw []
+  \\ rw [Once num2bit_def, term_ok_def]
+QED
+
+Theorem num2bit_VSUBST[simp]:
+  ∀n. VSUBST is (num2bit n) = num2bit n
+Proof
+  ho_match_mp_tac num2bit_ind \\ rw []
+  \\ once_rewrite_tac [num2bit_def]
+  \\ rw [VSUBST_def]
+QED
+
+Theorem num2term_ADD:
+  numeral_thy_ok thy ⇒
+    (thy,[]) |- num2term (m + n) === _ADD (num2term m) (num2term n)
+Proof
+  strip_tac \\ irule sym_equation \\ qid_spec_tac ‘m’
+  \\ Induct \\ simp []
+  >- (
+    rw [num2term_def]
+    \\ qabbrev_tac ‘M = num2term n’
+    \\ irule replaceL1
+    \\ irule_at Any NUMERAL_eqn
+    \\ simp [numeral_thy_ok_terms_ok, has_type_rules]
+    \\ ‘term_ok (sigof thy) M ∧ M has_type num_ty’
+      by fs [Abbr ‘M’, num2term_term_ok]
+    \\ rw [ADD_eqn, SF SFY_ss])
+  \\ rw [ADD_CLAUSES, num2term_def] \\ fs []
+  \\ qmatch_goalsub_abbrev_tac ‘_ADD (_SUC N) M’
+  \\ ‘term_ok (sigof thy) M ∧ M has_type num_ty ∧
+      term_ok (sigof thy) N ∧ N has_type num_ty’
+      by fs [Abbr ‘M’, Abbr ‘N’, num2term_term_ok]
+  \\ irule replaceR2
+  \\ first_x_assum (irule_at Any)
+  \\ csimp [numeral_thy_ok_terms_ok, term_ok_def, term_ok_welltyped,
+            num2term_term_ok, WELLTYPED_LEMMA, SF SFY_ss]
+  \\ rw [ADD_eqn, sym_equation, SF SFY_ss]
+QED
+
+Theorem ADD_num2term =
+  UNDISCH_ALL num2term_ADD |> MATCH_MP sym_equation |> DISCH_ALL;
+
+Theorem num2bit_num2term:
+  numeral_thy_ok thy ⇒
+    ∀n. (thy,[]) |- num2bit n === num2term n
+Proof
+  strip_tac \\ ho_match_mp_tac num2bit_ind \\ rw []
+  \\ ‘term_ok (sigof thy) _0 ∧ _0 has_type num_ty’
+    by fs [numeral_thy_ok_terms_ok, has_type_rules]
+  \\ rw [num2term_def, Once num2bit_def, proves_REFL]
+  >- (
+    qabbrev_tac ‘N = num2term (n DIV 2)’
+    \\ ‘term_ok (sigof thy) N ∧ N has_type num_ty’
+      by fs [Abbr ‘N’, num2term_term_ok]
+    \\ ‘(thy,[]) |- _BIT0 (num2bit (n DIV 2)) === _BIT0 N’
+      by rw [MK_COMB_simple, proves_REFL, numeral_thy_ok_terms_ok]
+    \\ irule trans_equation_simple
+    \\ first_x_assum (irule_at Any)
+    \\ ‘(thy,[]) |- _ADD N N === num2term n’
+      suffices_by (
+        strip_tac
+        \\ irule trans_equation_simple
+        \\ first_x_assum (irule_at Any)
+        \\ simp [BIT0_eqn])
+    \\ fs [Abbr ‘N’]
+    \\ ‘num2term n = num2term (n DIV 2 + n DIV 2)’
+      by (AP_TERM_TAC \\ intLib.ARITH_TAC)
+    \\ pop_assum SUBST1_TAC
+    \\ irule_at Any ADD_num2term \\ fs [])
+  >- (
+    qabbrev_tac ‘N = num2term (n DIV 2)’
+    \\ ‘term_ok (sigof thy) N ∧ N has_type num_ty’
+      by fs [Abbr ‘N’, num2term_term_ok]
+    \\ ‘(thy,[]) |- _BIT1 (num2bit (n DIV 2)) === _BIT1 N’
+      by rw [MK_COMB_simple, proves_REFL, numeral_thy_ok_terms_ok]
+    \\ irule trans_equation_simple
+    \\ first_x_assum (irule_at Any)
+    \\ ‘(thy,[]) |- _SUC (_ADD N N) === num2term n’
+      suffices_by (
+        strip_tac
+        \\ irule trans_equation_simple
+        \\ first_x_assum (irule_at Any)
+        \\ simp [BIT1_eqn])
+    \\ ‘num2term n = _SUC (num2term (2 * (n DIV 2)))’
+      by (‘n = SUC (n DIV 2 + n DIV 2)’ by intLib.ARITH_TAC
+          \\ pop_assum (fn th => simp [SimpLHS, Once th])
+          \\ simp [num2term_def])
+    \\ pop_assum SUBST1_TAC
+    \\ irule MK_COMB_simple
+    \\ simp [term_ok_welltyped, WELLTYPED_LEMMA, proves_REFL,
+             numeral_thy_ok_terms_ok, SF SFY_ss]
+    \\ qunabbrev_tac ‘N’
+    \\ ‘2 * (n DIV 2) = n DIV 2 + n DIV 2’
+      by rw []
+    \\ pop_assum SUBST1_TAC
+    \\ rw [ADD_num2term])
+QED
+
+Theorem num2bit_ADD:
+  numeral_thy_ok thy ⇒
+    (thy,[]) |- num2bit (m + n) === _ADD (num2bit m) (num2bit n)
+Proof
+  strip_tac
+  \\ irule trans_equation_simple
+  \\ irule_at Any num2bit_num2term
+  \\ irule_at Any replaceR1 \\ irule_at Any sym_equation
+  \\ irule_at Any num2bit_num2term
+  \\ irule_at Any replaceL2
+  \\ irule_at Any sym_equation \\ irule_at Any num2bit_num2term
+  \\ fs [ADD_num2term]
+QED
+
+Theorem ADD_num2bit =
+  UNDISCH_ALL num2bit_ADD |> MATCH_MP sym_equation |> DISCH_ALL;
+
+(* -------------------------------------------------------------------------
+ * Compute values
+ * ------------------------------------------------------------------------- *)
+
+Definition cval_consts_def:
+  cval_consts (Num n) = {} ∧
+  cval_consts (Var s) = {} ∧
+  cval_consts (Pair p q) = cval_consts p ∪ cval_consts q ∧
+  cval_consts (Fst p) = cval_consts p ∧
+  cval_consts (Snd p) = cval_consts p ∧
+  cval_consts (Binop bop p q) = cval_consts p ∪ cval_consts q ∧
+  cval_consts (If p q r) =  cval_consts p ∪ cval_consts q ∪ cval_consts r ∧
+  cval_consts (App s cs) = {s, LENGTH cs} ∪ BIGUNION (set (MAP cval_consts cs))
+Termination
+  wf_rel_tac ‘measure compute_val_size’
+End
+
+Definition cval_vars_def:
+  cval_vars (Num n) = {} ∧
+  cval_vars (Var s) = {s} ∧
+  cval_vars (Pair p q) = cval_vars p ∪ cval_vars q ∧
+  cval_vars (Fst p) = cval_vars p ∧
+  cval_vars (Snd p) = cval_vars p ∧
+  cval_vars (Binop bop p q) = cval_vars p ∪ cval_vars q ∧
+  cval_vars (If p q r) =  cval_vars p ∪ cval_vars q ∪ cval_vars r ∧
+  cval_vars (App s cs) = BIGUNION (set (MAP cval_vars cs))
+Termination
+  wf_rel_tac ‘measure compute_val_size’
+End
+
+(* The semantics of 'ill-typed' operations on the compute_val type is to
+ * return the number 0 (i.e. Num 0n).
+ *)
+
+Definition compute_thy_ok_def:
+  compute_thy_ok thy ⇔
+    numeral_thy_ok thy ∧
+    (* cval_add *)
+    (thy,[]) |- _CVAL_ADD (_CVAL_NUM _M) (_CVAL_NUM _N) ===
+                _CVAL_NUM (_ADD _M _N) ∧
+    (thy,[]) |- _CVAL_ADD (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
+                _CVAL_NUM _M ∧
+    (thy,[]) |- _CVAL_ADD (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
+                _CVAL_NUM _N ∧
+    (thy,[]) |- _CVAL_ADD (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
+                _CVAL_NUM (_NUMERAL _0) ∧
+    (* if-then-else *)
+    (thy,[]) |- _CVAL_IF (_CVAL_NUM (_SUC _M)) _P1 _Q1 === _P1 ∧
+    (thy,[]) |- _CVAL_IF (_CVAL_PAIR _P2 _Q2) _P1 _Q1 === _P1 ∧
+    (thy,[]) |- _CVAL_IF (_CVAL_NUM (_NUMERAL _0)) _P1 _Q1 === _Q1 ∧
+    (* fst, snd *)
+    (thy,[]) |- _CVAL_FST (_CVAL_PAIR _P1 _Q1) === _P1 ∧
+    (thy,[]) |- _CVAL_FST (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0) ∧
+    (thy,[]) |- _CVAL_SND (_CVAL_PAIR _P1 _Q1) === _Q1 ∧
+    (thy,[]) |- _CVAL_SND (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0)
+End
+
+Theorem CVAL_IF_eqn1:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  m has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
+    (thy,[]) |- _CVAL_IF (_CVAL_NUM (_SUC m)) p1 q1 === p1
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_IF (_CVAL_NUM (_SUC _)) _ _ === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1; m,_M]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CVAL_IF_eqn2:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  term_ok (sigof thy) p2 ∧ term_ok (sigof thy) q2 ∧
+  p1 has_type cval_ty ∧ q1 has_type cval_ty ∧
+  p2 has_type cval_ty ∧ q2 has_type cval_ty ⇒
+    (thy,[]) |- _CVAL_IF (_CVAL_PAIR p2 q2) p1 q1 === p1
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_IF (_CVAL_PAIR _ _ ) _ _ === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2))
+                    (qspec_then ‘[p1,_P1; q1,_Q1; p2,_P2; q2,_Q2]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CVAL_IF_eqn3:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
+    (thy,[]) |- _CVAL_IF (_CVAL_NUM (_NUMERAL _0)) p1 q1 === q1
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_IF (_CVAL_NUM (_NUMERAL _)) _ _ === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CVAL_ADD_eqn1:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
+  m has_type num_ty ∧ n has_type num_ty ⇒
+    (thy,[]) |- _CVAL_ADD (_CVAL_NUM m) (_CVAL_NUM n) === _CVAL_NUM (_ADD m n)
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_ADD _ _ === _CVAL_NUM (_ADD _ _)’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N; m,_M]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CVAL_ADD_eqn2:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  m has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
+    (thy,[]) |- _CVAL_ADD (_CVAL_NUM m) (_CVAL_PAIR p1 q1) === _CVAL_NUM m
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_ADD x _ === x’ assume_tac
+  \\ dxrule_at_then (Pos (el 2))
+                    (qspec_then ‘[p1,_P1; q1,_Q1; m,_M]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CVAL_ADD_eqn3:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) n ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  n has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
+    (thy,[]) |- _CVAL_ADD (_CVAL_PAIR p1 q1) (_CVAL_NUM n) === _CVAL_NUM n
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_ADD _ x === x’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1; n,_N]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CVAL_ADD_eqn4:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  term_ok (sigof thy) p2 ∧ term_ok (sigof thy) q2 ∧
+  p1 has_type cval_ty ∧ q1 has_type cval_ty ∧
+  p2 has_type cval_ty ∧ q2 has_type cval_ty ⇒
+    (thy,[]) |- _CVAL_ADD (_CVAL_PAIR p1 q1) (_CVAL_PAIR p2 q2) ===
+                _CVAL_NUM (_NUMERAL _0)
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_ADD _ _ === _CVAL_NUM (_NUMERAL _0)’ assume_tac
+  \\ dxrule_at_then (Pos (el 2))
+                    (qspec_then ‘[p1,_P1; q1,_Q1; p2,_P2; q2,_Q2]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CVAL_FST_eqn1:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
+    (thy,[]) |- _CVAL_FST (_CVAL_PAIR p1 q1) === p1
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_FST (_CVAL_PAIR _ _) === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CVAL_FST_eqn2:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ m has_type num_ty ⇒
+    (thy,[]) |- _CVAL_FST (_CVAL_NUM m) === _CVAL_NUM (_NUMERAL _0)
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_FST (_CVAL_NUM _) === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CVAL_SND_eqn1:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
+    (thy,[]) |- _CVAL_SND (_CVAL_PAIR p1 q1) === q1
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_SND (_CVAL_PAIR _ _) === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CVAL_SND_eqn2:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ m has_type num_ty ⇒
+    (thy,[]) |- _CVAL_SND (_CVAL_NUM m) === _CVAL_NUM (_NUMERAL _0)
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_SND (_CVAL_NUM _) === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem compute_thy_ok_terms_ok:
+  compute_thy_ok thy ⇒
+    (* nums *)
+    term_ok (sigof thy) _ADD_TM ∧
+    term_ok (sigof thy) _0 ∧
+    term_ok (sigof thy) _SUC_TM ∧
+    term_ok (sigof thy) _BIT0_TM ∧
+    term_ok (sigof thy) _BIT1_TM ∧
+    term_ok (sigof thy) _NUMERAL_TM ∧
+    (* cvals *)
+    term_ok (sigof thy) _CVAL_ADD_TM ∧
+    term_ok (sigof thy) _CVAL_NUM_TM ∧
+    term_ok (sigof thy) _CVAL_IF_TM ∧
+    term_ok (sigof thy) _CVAL_PAIR_TM ∧
+    term_ok (sigof thy) _CVAL_FST_TM ∧
+    term_ok (sigof thy) _CVAL_SND_TM ∧
+    (* types *)
+    type_ok (tysof thy) cval_ty
+Proof
+  simp [compute_thy_ok_def] \\ strip_tac
+  \\ dxrule_then strip_assume_tac numeral_thy_ok_terms_ok \\ fs []
+  \\ rpt (dxrule_then assume_tac proves_term_ok) \\ rfs []
+  \\ fs [equation_def, term_ok_def, SF SFY_ss]
+QED
+
+Theorem compute_thy_ok_theory_ok[simp]:
+  compute_thy_ok thy ⇒ theory_ok thy
+Proof
+  rw [compute_thy_ok_def]
+QED
+
+Theorem compute_thy_ok_numeral_thy_ok[simp]:
+  compute_thy_ok thy ⇒ numeral_thy_ok thy
+Proof
+  rw [compute_thy_ok_def]
+QED
+
+Theorem cval2term_typeof[simp]:
+  ∀cv. typeof (cval2term cv) = cval_ty
+Proof
+  ho_match_mp_tac cval2term_ind \\ rw []
+  \\ simp [cval2term_def, FOLDL_MAP]
+  >~ [‘bop2term _’] >- (
+    Cases_on ‘bop’ \\ gs [bop2term_def])
+  \\ pop_assum mp_tac
+  \\ ‘∀tm.
+        typeof tm = app_type (LENGTH cs) ⇒
+          typeof (FOLDL (λx y. Comb x (cval2term y)) tm cs) = cval_ty ’
+    suffices_by rw [SF SFY_ss]
+  \\ Induct_on ‘cs’
+  \\ simp [app_type]
+QED
+
+Theorem cval2term_has_type[simp]:
+  ∀cv. cval2term cv has_type cval_ty
+Proof
+  ho_match_mp_tac cval2term_ind \\ rw [] \\ simp [cval2term_def]
+  >~ [‘_CVAL_NUM _’] >- (
+    rw [Ntimes has_type_cases 3]
+    \\ rw [Ntimes has_type_cases 3])
+  >~ [‘_CVAL_FST _’] >- (
+    rw [Ntimes has_type_cases 3]
+    \\ rw [Ntimes has_type_cases 3])
+  >~ [‘_CVAL_SND _’] >- (
+    rw [Ntimes has_type_cases 3]
+    \\ rw [Ntimes has_type_cases 3])
+  >~ [‘_CVAL_PAIR _ _’] >- (
+    rw [Ntimes has_type_cases 3])
+  >~ [‘_CVAL_IF _ _ _’] >- (
+    rw [Ntimes has_type_cases 3]
+    \\ rw [Ntimes has_type_cases 3])
+  >~ [‘bop2term _ _ _’] >- (
+    Cases_on ‘bop’ \\ simp [bop2term_def]
+    \\ rw [Ntimes has_type_cases 3])
+  >~ [‘Var _’] >- (
+    rw [has_type_rules])
+  \\ simp [FOLDL_MAP]
+  \\ ‘∀tm.
+        tm has_type app_type (LENGTH cs) ⇒
+          FOLDL (λx y. Comb x (cval2term y)) tm cs has_type cval_ty ’
+    suffices_by rw [has_type_rules, SF SFY_ss]
+  \\ Induct_on ‘cs’ \\ rw [app_type]
+  \\ gs [has_type_rules, SF SFY_ss, SF DNF_ss]
+QED
+
+Theorem cval2term_welltyped[simp]:
+  ∀cv. welltyped (cval2term cv)
+Proof
+  rw [welltyped_def, cval2term_has_type, SF SFY_ss]
+QED
+
+Theorem bop2term_term_ok:
+  compute_thy_ok thy ⇒
+    typeof tm1 = cval_ty ∧ typeof tm2 = cval_ty ∧
+    term_ok (sigof thy) tm1 ∧ term_ok (sigof thy) tm2 ⇒
+      term_ok (sigof thy) (bop2term bop tm1 tm2)
+Proof
+  rw []
+  \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
+  \\ Cases_on ‘bop’ \\ gs [bop2term_def]
+  \\ simp [term_ok_def, term_ok_welltyped, SF SFY_ss]
+QED
+
+Theorem cval2term_term_ok:
+  compute_thy_ok thy ⇒
+    ∀cv.
+      (∀c n.
+        (c,n) ∈ cval_consts cv ⇒
+          term_ok (sigof thy) (Const c (app_type n))) ⇒
+        term_ok (sigof thy) (cval2term cv)
+Proof
+  strip_tac
+  \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
+  \\ ho_match_mp_tac cval2term_ind \\ rw []
+  \\ gs [cval2term_def, cval_consts_def]
+  >~ [‘Var s _’] >- (
+    simp [term_ok_def])
+  >~ [‘_CVAL_NUM _’] >- (
+    simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
+  >~ [‘_CVAL_FST _’] >- (
+    simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
+  >~ [‘_CVAL_SND _’] >- (
+    simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
+  >~ [‘_CVAL_PAIR _ _ ’] >- (
+    simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
+  >~ [‘bop2term _ _ _ ’] >- (
+    irule bop2term_term_ok \\ gs [])
+  >~ [‘_CVAL_IF _ _ _ ’] >- (
+    simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
+  \\ gvs [FOLDL_MAP, MEM_MAP, SF SFY_ss, SF DNF_ss]
+  \\ ‘∀tm.
+        term_ok (sigof thy) tm ∧
+        tm has_type (app_type (LENGTH cs)) ⇒
+          term_ok (sigof thy) (FOLDL (λx y. Comb x (cval2term y)) tm cs)’
+    suffices_by rw [term_ok_def, has_type_rules]
+  \\ rpt (qpat_x_assum ‘term_ok _ _’ kall_tac)
+  \\ Induct_on ‘cs’
+  \\ rw [app_type, SF SFY_ss, SF DNF_ss]
+  \\ first_x_assum irule \\ fs [SF SFY_ss]
+  \\ simp [has_type_rules, cval2term_has_type, SF SFY_ss]
+  \\ simp [term_ok_def, term_ok_welltyped, SF SFY_ss]
+  \\ irule_at Any WELLTYPED_LEMMA \\ fs [SF SFY_ss]
+QED
+
+val _ = export_theory ();
+
