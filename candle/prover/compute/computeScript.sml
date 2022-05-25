@@ -49,7 +49,11 @@ Definition compute_thms_def:
                      _CVAL_NUM (_NUMERAL _0);
     (* CVAL_IF    *) _CVAL_IF (_CVAL_NUM (_SUC _M)) _P1 _Q1 === _P1;
     (* CVAL_IF    *) _CVAL_IF (_CVAL_PAIR _P2 _Q2) _P1 _Q1 === _P1;
-    (* CVAL_IF    *) _CVAL_IF (_CVAL_NUM (_NUMERAL _0)) _P1 _Q1 === _Q1
+    (* CVAL_IF    *) _CVAL_IF (_CVAL_NUM (_NUMERAL _0)) _P1 _Q1 === _Q1;
+    (* CVAL_FST   *) _CVAL_FST (_CVAL_PAIR _P1 _Q1) === _P1;
+    (* CVAL_FST   *) _CVAL_FST (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0);
+    (* CVAL_SND   *) _CVAL_SND (_CVAL_PAIR _P1 _Q1) === _Q1;
+    (* CVAL_SND   *) _CVAL_SND (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0);
   ]
 End
 
@@ -175,7 +179,9 @@ Definition const_list_def:
   const_list (Var n) = [] ∧
   const_list (Num n) = [] ∧
   const_list (Pair x y) = const_list x ++ const_list y ∧
-  const_list (Add x y) = const_list x ++ const_list y ∧
+  const_list (Fst x) = const_list x ∧
+  const_list (Snd x) = const_list x ∧
+  const_list (Binop bop x y) = const_list x ++ const_list y ∧
   const_list (If x y z) = const_list x ++ const_list y ++ const_list z ∧
   const_list (App s xs) = (s,LENGTH xs)::FLAT (MAP const_list xs)
 Termination
@@ -198,7 +204,9 @@ Definition var_list_def:
   var_list (Var n) = [n] ∧
   var_list (Num n) = [] ∧
   var_list (Pair x y) = var_list x ++ var_list y ∧
-  var_list (Add x y) = var_list x ++ var_list y ∧
+  var_list (Fst x) = var_list x ∧
+  var_list (Snd x) = var_list x ∧
+  var_list (Binop bop x y) = var_list x ++ var_list y ∧
   var_list (If x y z) = var_list x ++ var_list y ++ var_list z ∧
   var_list (App s xs) = FLAT (MAP var_list xs)
 Termination
@@ -273,7 +281,11 @@ Definition check_cval_closed_def:
   check_cval_closed (Num n) = T ∧
   check_cval_closed (Pair p q) =
     EVERY check_cval_closed [p;q] ∧
-  check_cval_closed (Add p q) =
+  check_cval_closed (Fst p) =
+    check_cval_closed p ∧
+  check_cval_closed (Snd p) =
+    check_cval_closed p ∧
+  check_cval_closed (Binop bop p q) =
     EVERY check_cval_closed [p;q] ∧
   check_cval_closed (If p q r) =
     EVERY check_cval_closed [p;q;r] ∧
