@@ -20,8 +20,9 @@ Theorem compute_init_thy_ok:
 Proof
   strip_tac
   \\ gvs [compute_init_def]
-  \\ gs [compute_thms_def, compute_thy_ok_def, numeral_thy_ok_def, STATE_def,
-         CONTEXT_def, THM_def, extends_theory_ok, init_theory_ok, SF SFY_ss]
+  \\ gs [compute_thms_def, compute_thy_ok_def, numeral_thy_ok_def,
+         bool_thy_ok_def, STATE_def, CONTEXT_def, THM_def, extends_theory_ok,
+         init_theory_ok, SF SFY_ss]
 QED
 
 (* -------------------------------------------------------------------------

@@ -10,9 +10,20 @@ val _ = new_theory "compute_syntax";
 
 val _ = numLib.prefer_num ();
 
-(* Numbers *)
+
+(* Numbers, bools *)
 
 Overload num_ty = “Tyapp «num» []”;
+
+Overload "_X" = “Var «x» Bool”;
+Overload "_TRUE" = “Const «T» Bool”;
+Overload "_FALSE" = “Const «F» Bool”;
+Overload "_NOT_TM" = “Const «~» (Fun Bool Bool)”;
+Overload "_NOT" = “λtm. Comb _NOT_TM tm”;
+Overload "_COND_TM" =
+  “Const «COND» (Fun Bool (Fun num_ty (Fun num_ty num_ty)))”;
+Overload "_COND" = “λt t1 t2. Comb (Comb (Comb _COND_TM t) t1) t2”;
+
 Overload "_0" = “Const «_0» num_ty”;
 Overload "_SUC_TM" = “Const «SUC» (Fun num_ty num_ty)”;
 Overload "_SUC" = “λtm. Comb _SUC_TM tm”;
@@ -26,6 +37,8 @@ Overload "_ADD_TM" = “Const «+» (Fun num_ty (Fun num_ty num_ty))”;
 Overload "_ADD" = “λt1 t2. Comb (Comb _ADD_TM t1) t2”;
 Overload "_SUB_TM" = “Const «-» (Fun num_ty (Fun num_ty num_ty))”;
 Overload "_SUB" = “λt1 t2. Comb (Comb _SUB_TM t1) t2”;
+Overload "_LESS_TM" = “Const «<» (Fun num_ty (Fun num_ty Bool))”;
+Overload "_LESS" = “λt1 t2. Comb (Comb _LESS_TM t1) t2”;
 Overload "_NUMERAL_TM" = “Const «NUMERAL» (Fun num_ty num_ty)”;
 Overload "_NUMERAL" = “λtm. Comb _NUMERAL_TM tm”;
 
@@ -55,6 +68,9 @@ Overload "_CVAL_ADD" = “λt1 t2. Comb (Comb _CVAL_ADD_TM t1) t2”;
 Overload "_CVAL_SUB_TM" =
   “Const «cval_sub» (Fun cval_ty (Fun cval_ty cval_ty))”;
 Overload "_CVAL_SUB" = “λt1 t2. Comb (Comb _CVAL_SUB_TM t1) t2”;
+Overload "_CVAL_LESS_TM" =
+  “Const «cval_less» (Fun cval_ty (Fun cval_ty cval_ty))”;
+Overload "_CVAL_LESS" = “λt1 t2. Comb (Comb _CVAL_LESS_TM t1) t2”;
 Overload "_CVAL_APP_TM" =
   “Const «cval_app» (Fun string_ty (Fun cval_list_ty cval_ty))”;
 Overload "_CVAL_APP" = “λt1 t2. Comb (Comb _CVAL_APP_TM t1) t2”;
@@ -65,6 +81,15 @@ Overload "_CVAL_FST_TM" = “Const «cval_fst» (Fun cval_ty cval_ty)”;
 Overload "_CVAL_FST" = “λtm. Comb _CVAL_FST_TM tm”;
 Overload "_CVAL_SND_TM" = “Const «cval_snd» (Fun cval_ty cval_ty)”;
 Overload "_CVAL_SND" = “λtm. Comb _CVAL_SND_TM tm”;
+
+(* -------------------------------------------------------------------------
+ * Bools
+ * ------------------------------------------------------------------------- *)
+
+Definition bool2term_def:
+  bool2term F = _FALSE ∧
+  bool2term T = _TRUE
+End
 
 (* -------------------------------------------------------------------------
  * Natural numbers
@@ -88,7 +113,7 @@ End
  * ------------------------------------------------------------------------- *)
 
 Datatype:
-  binop = Add | Sub
+  binop = Add | Sub | Less
 End
 
 Datatype:
@@ -116,7 +141,8 @@ QED
 
 Definition bop2term_def:
   bop2term Add = _CVAL_ADD ∧
-  bop2term Sub = _CVAL_SUB
+  bop2term Sub = _CVAL_SUB ∧
+  bop2term Less = _CVAL_LESS
 End
 
 Definition cval2term_def:

@@ -219,7 +219,11 @@ Definition dest_cval_def:
                     if Const n ty = _CVAL_PAIR_TM then
                       SOME (Pair p q)
                     else if Const n ty = _CVAL_ADD_TM then
-                       SOME (Binop Add p q)
+                      SOME (Binop Add p q)
+                    else if Const n ty = _CVAL_SUB_TM then
+                      SOME (Binop Sub p q)
+                    else if Const n ty = _CVAL_LESS_TM then
+                      SOME (Binop Less p q)
                     else if ty = Fun cval_ty (Fun cval_ty cval_ty) then
                       SOME (App n [p; q])
                     else
@@ -265,9 +269,15 @@ Definition do_arith_def:
   do_arith opn _ _ = return (Num 0)
 End
 
+Definition do_reln_def:
+  do_reln opn (Num m) (Num n) = return (Num (if opn m n then SUC 0 else 0)) ∧
+  do_reln opn _ _ = return (Num 0)
+End
+
 Definition do_binop_def:
   do_binop Add p q = do_arith $+ p q ∧
-  do_binop Sub p q = do_arith $- p q
+  do_binop Sub p q = do_arith $- p q ∧
+  do_binop Less p q = do_reln $< p q
 End
 
 Definition do_fst_def:

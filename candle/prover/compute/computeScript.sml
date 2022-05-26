@@ -33,6 +33,11 @@ Overload handle[local] = “handle_Failure”;
 
 Definition compute_thms_def:
   compute_thms = MAP (Sequent []) [
+                     _NOT (_NOT _X) === _X;
+                     _TRUE === _NOT _FALSE;
+                     _FALSE === _NOT _TRUE;
+                     _COND _TRUE _M _N === _M;
+                     _COND _FALSE _M _N === _N;
     (* NUMERAL    *) _NUMERAL _N === _N;
     (* BIT0       *) _BIT0 _N === _ADD _N _N;
     (* BIT1       *) _BIT1 _N === _SUC (_ADD _N _N);
@@ -41,6 +46,9 @@ Definition compute_thms_def:
     (* SUB        *) _SUB (_NUMERAL _0) _N === _NUMERAL _0;
     (* SUB        *) _SUB _M (_NUMERAL _0) === _M;
     (* SUB        *) _SUB (_SUC _M) (_SUC _N) === _SUB _M _N;
+                     _LESS _M (_NUMERAL _0) === _FALSE;
+                     _LESS (_NUMERAL _0) (_SUC _N) === _TRUE;
+                     _LESS (_SUC _M) (_SUC _N) === _LESS _M _N;
     (* CVAL_ADD   *) _CVAL_ADD (_CVAL_NUM _M) (_CVAL_NUM _N) ===
                      _CVAL_NUM (_ADD _M _N);
     (* CVAL_ADD   *) _CVAL_ADD (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
@@ -56,6 +64,15 @@ Definition compute_thms_def:
     (* CVAL_SUB   *) _CVAL_SUB (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
                      _CVAL_NUM _N;
     (* CVAL_SUB   *) _CVAL_SUB (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
+                     _CVAL_NUM (_NUMERAL _0);
+    (* CVAL_LESS  *) _CVAL_LESS (_CVAL_NUM _M) (_CVAL_NUM _N) ===
+                     _CVAL_NUM (_COND (_LESS _M _N) (_SUC (_NUMERAL _0))
+                                                    (_NUMERAL _0));
+    (* CVAL_LESS  *) _CVAL_LESS (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
+                     _CVAL_NUM (_NUMERAL _0);
+    (* CVAL_LESS  *) _CVAL_LESS (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
+                     _CVAL_NUM (_NUMERAL _0);
+    (* CVAL_LESS  *) _CVAL_LESS (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
                      _CVAL_NUM (_NUMERAL _0);
     (* CVAL_IF    *) _CVAL_IF (_CVAL_NUM (_SUC _M)) _P1 _Q1 === _P1;
     (* CVAL_IF    *) _CVAL_IF (_CVAL_PAIR _P2 _Q2) _P1 _Q1 === _P1;
