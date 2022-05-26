@@ -24,6 +24,8 @@ Overload "_N" = “Var «n» num_ty”;
 Overload "_M" = “Var «m» num_ty”;
 Overload "_ADD_TM" = “Const «+» (Fun num_ty (Fun num_ty num_ty))”;
 Overload "_ADD" = “λt1 t2. Comb (Comb _ADD_TM t1) t2”;
+Overload "_SUB_TM" = “Const «-» (Fun num_ty (Fun num_ty num_ty))”;
+Overload "_SUB" = “λt1 t2. Comb (Comb _SUB_TM t1) t2”;
 Overload "_NUMERAL_TM" = “Const «NUMERAL» (Fun num_ty num_ty)”;
 Overload "_NUMERAL" = “λtm. Comb _NUMERAL_TM tm”;
 
@@ -50,6 +52,9 @@ Overload "_CVAL_VAR" = “λtm. Comb _CVAL_VAR_TM tm”
 Overload "_CVAL_ADD_TM" =
   “Const «cval_add» (Fun cval_ty (Fun cval_ty cval_ty))”;
 Overload "_CVAL_ADD" = “λt1 t2. Comb (Comb _CVAL_ADD_TM t1) t2”;
+Overload "_CVAL_SUB_TM" =
+  “Const «cval_sub» (Fun cval_ty (Fun cval_ty cval_ty))”;
+Overload "_CVAL_SUB" = “λt1 t2. Comb (Comb _CVAL_SUB_TM t1) t2”;
 Overload "_CVAL_APP_TM" =
   “Const «cval_app» (Fun string_ty (Fun cval_list_ty cval_ty))”;
 Overload "_CVAL_APP" = “λt1 t2. Comb (Comb _CVAL_APP_TM t1) t2”;
@@ -83,7 +88,7 @@ End
  * ------------------------------------------------------------------------- *)
 
 Datatype:
-  binop = Add
+  binop = Add | Sub
 End
 
 Datatype:
@@ -110,7 +115,8 @@ Proof
 QED
 
 Definition bop2term_def:
-  bop2term Add = _CVAL_ADD
+  bop2term Add = _CVAL_ADD ∧
+  bop2term Sub = _CVAL_SUB
 End
 
 Definition cval2term_def:

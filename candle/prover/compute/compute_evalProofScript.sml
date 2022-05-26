@@ -81,11 +81,11 @@ Definition cval_value_def[simp]:
   cval_value _ = F
 End
 
-Theorem do_add_value:
-  ∀x y s z s'.
-    do_add x y s = (M_success z, s') ⇒ cval_value z
+Theorem do_arith_value:
+  ∀opn x y s z s'.
+    do_arith opn x y s = (M_success z, s') ⇒ cval_value z
 Proof
-  ho_match_mp_tac do_add_ind \\ rw [do_add_def, st_ex_return_def] \\ fs []
+  ho_match_mp_tac do_arith_ind \\ rw [do_arith_def, st_ex_return_def] \\ fs []
 QED
 
 Theorem do_binop_value:
@@ -93,7 +93,7 @@ Theorem do_binop_value:
     do_binop bop x y s = (M_success z, s') ⇒ cval_value z
 Proof
   Cases \\ rw [do_binop_def]
-  \\ drule do_add_value \\ gs []
+  \\ drule do_arith_value \\ gs []
 QED
 
 Theorem compute_eval_value:
@@ -533,7 +533,7 @@ Proof
     >- (
       Cases_on ‘∃n. y = Num n’ \\ fs []
       >- (
-        gvs [do_add_def, st_ex_return_def, cval2term_def]
+        gvs [do_arith_def, st_ex_return_def, cval2term_def]
         \\ qmatch_asmsub_abbrev_tac ‘_ |- cval2term p === A’
         \\ qmatch_asmsub_abbrev_tac ‘_ |- cval2term q === B’
         \\ ‘(thy,[]) |- _CVAL_NUM (_NUMERAL (num2bit (m + n))) ===
@@ -571,7 +571,7 @@ Proof
         by rw [compute_eval_value, SF SFY_ss]
       \\ ‘∃p1 q1. y = Pair p1 q1’
         by (Cases_on ‘y’ \\ fs [])
-      \\ gvs [cval2term_def, do_add_def, st_ex_return_def]
+      \\ gvs [cval2term_def, do_arith_def, st_ex_return_def]
       \\ ‘term_ok (sigof thy) (cval2term p1) ∧
           term_ok (sigof thy) (cval2term q1)’
         by (drule_then assume_tac proves_term_ok
@@ -584,12 +584,12 @@ Proof
              compute_thy_ok_terms_ok, term_ok_def, Ntimes has_type_cases 2])
     \\ Cases_on ‘∃n. y = Num n’ \\ gs []
     >- (
-      gvs [cval2term_def, do_add_def, st_ex_return_def]
+      gvs [cval2term_def, do_arith_def, st_ex_return_def]
       \\ ‘cval_value x’
         by rw [compute_eval_value, SF SFY_ss]
       \\ ‘∃p1 q1. x = Pair p1 q1’
         by (Cases_on ‘x’ \\ fs [])
-      \\ gvs [cval2term_def, do_add_def, st_ex_return_def]
+      \\ gvs [cval2term_def, do_arith_def, st_ex_return_def]
       \\ ‘term_ok (sigof thy) (cval2term p1) ∧
           term_ok (sigof thy) (cval2term q1)’
         by (qpat_x_assum ‘_ |- _ === _CVAL_PAIR _ _’ assume_tac
@@ -602,7 +602,7 @@ Proof
       \\ rw [CVAL_ADD_eqn3, cval2term_term_ok, num2bit_term_ok, NUMERAL_eqn,
              num2bit_term_ok, compute_thy_ok_terms_ok, term_ok_def,
              Ntimes has_type_cases 2])
-    \\ gvs [cval2term_def, do_add_def, st_ex_return_def]
+    \\ gvs [cval2term_def, do_arith_def, st_ex_return_def]
     \\ ‘cval_value x’
       by rw [compute_eval_value, SF SFY_ss]
     \\ ‘∃p1 q1. x = Pair p1 q1’
@@ -611,7 +611,7 @@ Proof
       by rw [compute_eval_value, SF SFY_ss]
     \\ ‘∃p2 q2. y = Pair p2 q2’
       by (Cases_on ‘y’ \\ fs [])
-    \\ gvs [cval2term_def, do_add_def, st_ex_return_def]
+    \\ gvs [cval2term_def, do_arith_def, st_ex_return_def]
     \\ simp [Once num2bit_def]
     \\ ‘EVERY (term_ok (sigof thy) o cval2term) [p1;q1;p2;q2]’
       by (imp_res_tac proves_term_ok
@@ -621,6 +621,99 @@ Proof
     \\ resolve_then Any irule sym_equation replaceL1
     \\ first_x_assum (irule_at Any)
     \\ fs [] \\ rw [CVAL_ADD_eqn4, cval2term_term_ok, compute_thy_ok_terms_ok])
+  >~ [‘_CVAL_SUB _ _’] >- (
+    Cases_on ‘∃m. x = Num m’ \\ fs []
+    >- (
+      Cases_on ‘∃n. y = Num n’ \\ fs []
+      >- (
+        gvs [do_arith_def, st_ex_return_def, cval2term_def]
+        \\ qmatch_asmsub_abbrev_tac ‘_ |- cval2term p === A’
+        \\ qmatch_asmsub_abbrev_tac ‘_ |- cval2term q === B’
+        \\ ‘(thy,[]) |- _CVAL_NUM (_NUMERAL (num2bit (m - n))) ===
+                        _CVAL_SUB A B’
+          suffices_by (
+            rw [Abbr ‘A’, Abbr ‘B’]
+            \\ resolve_then Any irule sym_equation replaceL2
+            \\ first_x_assum (irule_at Any)
+            \\ resolve_then Any irule sym_equation replaceL1
+            \\ first_x_assum (irule_at Any)
+            \\ fs [cval2term_def, sym_equation])
+        \\ unabbrev_all_tac
+        \\ ‘(thy,[]) |- _CVAL_SUB (_CVAL_NUM (num2bit m))
+                                  (_CVAL_NUM (num2bit n)) ===
+                        _CVAL_NUM (num2bit (m - n))’
+          suffices_by (
+            strip_tac
+            \\ irule_at Any replaceL2
+            \\ resolve_then Any (irule_at Any) NUMERAL_eqn sym_equation
+            \\ fs [num2bit_term_ok]
+            \\ resolve_then Any irule trans_equation_simple sym_equation
+            \\ first_x_assum (irule_at Any)
+            \\ irule MK_COMB_simple \\ simp []
+            \\ irule_at Any MK_COMB_simple
+            \\ simp [proves_REFL, compute_thy_ok_terms_ok, sym_equation,
+                     cval2term_def]
+            \\ DEP_REWRITE_TAC [MK_COMB_simple]
+            \\ rw [compute_thy_ok_terms_ok, proves_REFL, NUMERAL_eqn,
+                   sym_equation, num2bit_term_ok])
+        \\ irule replaceR2
+        \\ irule_at Any SUB_num2bit
+        \\ rw [CVAL_SUB_eqn1, sym_equation, compute_thy_ok_def,
+               num2bit_term_ok])
+      \\ ‘cval_value y’
+        by rw [compute_eval_value, SF SFY_ss]
+      \\ ‘∃p1 q1. y = Pair p1 q1’
+        by (Cases_on ‘y’ \\ fs [])
+      \\ gvs [cval2term_def, do_arith_def, st_ex_return_def]
+      \\ ‘term_ok (sigof thy) (cval2term p1) ∧
+          term_ok (sigof thy) (cval2term q1)’
+        by (drule_then assume_tac proves_term_ok
+            \\ gs [term_ok_def, equation_def])
+      \\ resolve_then Any irule sym_equation replaceL2
+      \\ first_x_assum (irule_at Any)
+      \\ resolve_then Any irule sym_equation replaceL1
+      \\ first_x_assum (irule_at Any)
+      \\ rw [CVAL_SUB_eqn2, cval2term_term_ok, num2bit_term_ok, NUMERAL_eqn,
+             compute_thy_ok_terms_ok, term_ok_def, Ntimes has_type_cases 2])
+    \\ Cases_on ‘∃n. y = Num n’ \\ gs []
+    >- (
+      gvs [cval2term_def, do_arith_def, st_ex_return_def]
+      \\ ‘cval_value x’
+        by rw [compute_eval_value, SF SFY_ss]
+      \\ ‘∃p1 q1. x = Pair p1 q1’
+        by (Cases_on ‘x’ \\ fs [])
+      \\ gvs [cval2term_def, do_arith_def, st_ex_return_def]
+      \\ ‘term_ok (sigof thy) (cval2term p1) ∧
+          term_ok (sigof thy) (cval2term q1)’
+        by (qpat_x_assum ‘_ |- _ === _CVAL_PAIR _ _’ assume_tac
+            \\ drule_then assume_tac proves_term_ok
+            \\ gs [term_ok_def, equation_def])
+      \\ resolve_then Any irule sym_equation replaceL2
+      \\ first_x_assum (irule_at Any)
+      \\ resolve_then Any irule sym_equation replaceL1
+      \\ first_x_assum (irule_at Any)
+      \\ rw [CVAL_SUB_eqn3, cval2term_term_ok, num2bit_term_ok, NUMERAL_eqn,
+             num2bit_term_ok, compute_thy_ok_terms_ok, term_ok_def,
+             Ntimes has_type_cases 2])
+    \\ gvs [cval2term_def, do_arith_def, st_ex_return_def]
+    \\ ‘cval_value x’
+      by rw [compute_eval_value, SF SFY_ss]
+    \\ ‘∃p1 q1. x = Pair p1 q1’
+      by (Cases_on ‘x’ \\ fs [])
+    \\ ‘cval_value y’
+      by rw [compute_eval_value, SF SFY_ss]
+    \\ ‘∃p2 q2. y = Pair p2 q2’
+      by (Cases_on ‘y’ \\ fs [])
+    \\ gvs [cval2term_def, do_arith_def, st_ex_return_def]
+    \\ simp [Once num2bit_def]
+    \\ ‘EVERY (term_ok (sigof thy) o cval2term) [p1;q1;p2;q2]’
+      by (imp_res_tac proves_term_ok
+          \\ gs [term_ok_def, equation_def])
+    \\ resolve_then Any irule sym_equation replaceL2
+    \\ first_x_assum (irule_at Any)
+    \\ resolve_then Any irule sym_equation replaceL1
+    \\ first_x_assum (irule_at Any)
+    \\ fs [] \\ rw [CVAL_SUB_eqn4, cval2term_term_ok, compute_thy_ok_terms_ok])
 QED
 
 Theorem term_ok_bop2term:

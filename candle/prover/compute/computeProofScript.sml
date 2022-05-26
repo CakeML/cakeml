@@ -2,7 +2,6 @@
   Proof of correctness for the compute primitive.
  *)
 
-
 open preamble holSyntaxTheory holSyntaxExtraTheory holKernelTheory
      holKernelProofTheory ml_monadBaseTheory;
 open compute_syntaxTheory compute_syntaxProofTheory;

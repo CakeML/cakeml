@@ -258,15 +258,16 @@ End
 
 (* TODO use term_size and list_size as measure instead *)
 
-Definition do_add_def:
-  do_add (Num m) (Num n) = return (Num (m + n)) ∧
-  do_add (Num m) _ = return (Num m) ∧
-  do_add _ (Num n) = return (Num n) ∧
-  do_add _ _ = return (Num 0)
+Definition do_arith_def:
+  do_arith opn (Num m) (Num n) = return (Num (opn m n)) ∧
+  do_arith opn (Num m) _ = return (Num m) ∧
+  do_arith opn _ (Num n) = return (Num n) ∧
+  do_arith opn _ _ = return (Num 0)
 End
 
 Definition do_binop_def:
-  do_binop Add p q = do_add p q
+  do_binop Add p q = do_arith $+ p q ∧
+  do_binop Sub p q = do_arith $- p q
 End
 
 Definition do_fst_def:
