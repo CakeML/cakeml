@@ -148,6 +148,9 @@ Definition numeral_thy_ok_def:
     (thy,[]) |- _SUB (_NUMERAL _0) _N === _NUMERAL _0 ∧
     (thy,[]) |- _SUB _M (_NUMERAL _0) === _M ∧
     (thy,[]) |- _SUB (_SUC _M) (_SUC _N) === _SUB _M _N ∧
+    (* MUL *)
+    (thy,[]) |- _MUL (_NUMERAL _0) _N === _NUMERAL _0 ∧
+    (thy,[]) |- _MUL (_SUC _M) _N === _ADD _N (_MUL _M _N) ∧
     (* LESS *)
     (thy,[]) |- _LESS _M (_NUMERAL _0) === _FALSE ∧
     (thy,[]) |- _LESS (_NUMERAL _0) (_SUC _N) === _TRUE ∧
@@ -175,6 +178,7 @@ Theorem numeral_thy_ok_terms_ok:
     term_ok (sigof thy) _COND_TM ∧
     term_ok (sigof thy) _ADD_TM ∧
     term_ok (sigof thy) _SUB_TM ∧
+    term_ok (sigof thy) _MUL_TM ∧
     term_ok (sigof thy) _0 ∧
     term_ok (sigof thy) _SUC_TM ∧
     term_ok (sigof thy) _BIT0_TM ∧
@@ -302,6 +306,23 @@ Proof
     \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M]’ mp_tac) proves_INST
     \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def])
   \\ qpat_x_assum ‘_ |- _SUB (_SUC _) _ === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M; n,_N]’ mp_tac) proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem MUL_eqn:
+  numeral_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
+  m has_type num_ty ∧ n has_type num_ty ⇒
+    (thy,[]) |- _MUL (_NUMERAL _0) n === _NUMERAL _0 ∧
+    (thy,[]) |- _MUL (_SUC m) n === _ADD n (_MUL m n)
+Proof
+  rw [numeral_thy_ok_def]
+  >- (
+    qpat_x_assum ‘_ |- _MUL (_NUMERAL _) _ === _’ assume_tac
+    \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N]’ mp_tac) proves_INST
+    \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def])
+  \\ qpat_x_assum ‘_ |- _MUL (_SUC _) _ === _’ assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M; n,_N]’ mp_tac) proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
@@ -505,6 +526,33 @@ QED
 Theorem SUB_num2term =
   UNDISCH_ALL num2term_SUB |> MATCH_MP sym_equation |> DISCH_ALL;
 
+Theorem num2term_MUL:
+  numeral_thy_ok thy ⇒
+    (thy,[]) |- num2term (m * n) === _MUL (num2term m) (num2term n)
+Proof
+  strip_tac
+  \\ ‘∀m. (thy,[]) |-  _MUL (num2term m) (num2term n) === num2term (m * n)’
+    suffices_by rw [sym_equation]
+  \\ Induct \\ simp []
+  >- (
+    rw [num2term_def]
+    \\ qabbrev_tac ‘M = num2term n’
+    \\ irule replaceL1
+    \\ irule_at Any NUMERAL_eqn \\ simp [numeral_thy_ok_terms_ok]
+    \\ irule trans_equation_simple
+    \\ irule_at Any NUMERAL_eqn \\ simp [numeral_thy_ok_terms_ok]
+    \\ ‘term_ok (sigof thy) M ∧ M has_type num_ty’
+      by fs [Abbr ‘M’, num2term_term_ok, numeral_thy_ok_terms_ok]
+    \\ rw [MUL_eqn, SF SFY_ss])
+  \\ rw [MULT_SUC, num2term_def]
+  \\ irule trans_equation_simple \\ irule_at Any ADD_num2term \\ gs []
+  \\ irule replaceR2 \\ first_x_assum (irule_at Any)
+  \\ rw [MUL_eqn, sym_equation, num2term_term_ok]
+QED
+
+Theorem MUL_num2term =
+  UNDISCH_ALL num2term_MUL |> MATCH_MP sym_equation |> DISCH_ALL;
+
 Theorem num2bit_num2term:
   numeral_thy_ok thy ⇒
     ∀n. (thy,[]) |- num2bit n === num2term n
@@ -594,6 +642,23 @@ QED
 
 Theorem SUB_num2bit =
   UNDISCH_ALL num2bit_SUB |> MATCH_MP sym_equation |> DISCH_ALL;
+
+Theorem num2bit_MUL:
+  numeral_thy_ok thy ⇒
+    (thy,[]) |- num2bit (m * n) === _MUL (num2bit m) (num2bit n)
+Proof
+  strip_tac
+  \\ irule trans_equation_simple
+  \\ irule_at Any num2bit_num2term
+  \\ irule_at Any replaceR1 \\ irule_at Any sym_equation
+  \\ irule_at Any num2bit_num2term
+  \\ irule_at Any replaceL2
+  \\ irule_at Any sym_equation \\ irule_at Any num2bit_num2term
+  \\ fs [MUL_num2term]
+QED
+
+Theorem MUL_num2bit =
+  UNDISCH_ALL num2bit_MUL |> MATCH_MP sym_equation |> DISCH_ALL;
 
 (* -------------------------------------------------------------------------
  * bool2term
@@ -704,8 +769,17 @@ Definition compute_thy_ok_def:
     (thy,[]) |- _CVAL_SUB (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
                 _CVAL_NUM _M ∧
     (thy,[]) |- _CVAL_SUB (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
-                _CVAL_NUM _N ∧
+                _CVAL_NUM (_NUMERAL _0) ∧
     (thy,[]) |- _CVAL_SUB (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
+                _CVAL_NUM (_NUMERAL _0) ∧
+    (* cval_mul *)
+    (thy,[]) |- _CVAL_MUL (_CVAL_NUM _M) (_CVAL_NUM _N) ===
+                _CVAL_NUM (_MUL _M _N) ∧
+    (thy,[]) |- _CVAL_MUL (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
+                _CVAL_NUM (_NUMERAL _0) ∧
+    (thy,[]) |- _CVAL_MUL (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
+                _CVAL_NUM (_NUMERAL _0) ∧
+    (thy,[]) |- _CVAL_MUL (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
                 _CVAL_NUM (_NUMERAL _0) ∧
     (* cval_less *)
     (thy,[]) |- _CVAL_LESS (_CVAL_NUM _M) (_CVAL_NUM _N) ===
@@ -858,10 +932,12 @@ Theorem CVAL_SUB_eqn3:
   compute_thy_ok thy ∧
   term_ok (sigof thy) n ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
   n has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_SUB (_CVAL_PAIR p1 q1) (_CVAL_NUM n) === _CVAL_NUM n
+    (thy,[]) |- _CVAL_SUB (_CVAL_PAIR p1 q1) (_CVAL_NUM n) ===
+                _CVAL_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_SUB _ x === x’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CVAL_SUB (_CVAL_PAIR _ _) (_CVAL_NUM _) === _’
+                  assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1; n,_N]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
@@ -877,7 +953,71 @@ Theorem CVAL_SUB_eqn4:
                 _CVAL_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_SUB _ _ === _CVAL_NUM (_NUMERAL _0)’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CVAL_SUB (_CVAL_PAIR _ _) (_CVAL_PAIR _ _) === _’
+                  assume_tac
+  \\ dxrule_at_then (Pos (el 2))
+                    (qspec_then ‘[p1,_P1; q1,_Q1; p2,_P2; q2,_Q2]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CVAL_MUL_eqn1:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
+  m has_type num_ty ∧ n has_type num_ty ⇒
+    (thy,[]) |- _CVAL_MUL (_CVAL_NUM m) (_CVAL_NUM n) === _CVAL_NUM (_MUL m n)
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_MUL (_CVAL_NUM _) (_CVAL_NUM _) === _’
+                  assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N; m,_M]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CVAL_MUL_eqn2:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  m has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
+    (thy,[]) |- _CVAL_MUL (_CVAL_NUM m) (_CVAL_PAIR p1 q1) ===
+                _CVAL_NUM (_NUMERAL _0)
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_MUL (_CVAL_NUM _) (_CVAL_PAIR _ _) === _’
+                  assume_tac
+  \\ dxrule_at_then (Pos (el 2))
+                    (qspec_then ‘[p1,_P1; q1,_Q1; m,_M]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CVAL_MUL_eqn3:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) n ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  n has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
+    (thy,[]) |- _CVAL_MUL (_CVAL_PAIR p1 q1) (_CVAL_NUM n) ===
+                _CVAL_NUM (_NUMERAL _0)
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_MUL (_CVAL_PAIR _ _) (_CVAL_NUM _) === _’
+                  assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1; n,_N]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CVAL_MUL_eqn4:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  term_ok (sigof thy) p2 ∧ term_ok (sigof thy) q2 ∧
+  p1 has_type cval_ty ∧ q1 has_type cval_ty ∧
+  p2 has_type cval_ty ∧ q2 has_type cval_ty ⇒
+    (thy,[]) |- _CVAL_MUL (_CVAL_PAIR p1 q1) (_CVAL_PAIR p2 q2) ===
+                _CVAL_NUM (_NUMERAL _0)
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_MUL (_CVAL_PAIR _ _) (_CVAL_PAIR _ _) ===
+                        _CVAL_NUM (_NUMERAL _0)’ assume_tac
   \\ dxrule_at_then (Pos (el 2))
                     (qspec_then ‘[p1,_P1; q1,_Q1; p2,_P2; q2,_Q2]’ mp_tac)
                     proves_INST
@@ -1016,6 +1156,7 @@ Theorem compute_thy_ok_terms_ok:
     (* cvals *)
     term_ok (sigof thy) _CVAL_ADD_TM ∧
     term_ok (sigof thy) _CVAL_SUB_TM ∧
+    term_ok (sigof thy) _CVAL_MUL_TM ∧
     term_ok (sigof thy) _CVAL_LESS_TM ∧
     term_ok (sigof thy) _CVAL_NUM_TM ∧
     term_ok (sigof thy) _CVAL_IF_TM ∧

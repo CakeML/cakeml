@@ -37,6 +37,8 @@ Overload "_ADD_TM" = “Const «+» (Fun num_ty (Fun num_ty num_ty))”;
 Overload "_ADD" = “λt1 t2. Comb (Comb _ADD_TM t1) t2”;
 Overload "_SUB_TM" = “Const «-» (Fun num_ty (Fun num_ty num_ty))”;
 Overload "_SUB" = “λt1 t2. Comb (Comb _SUB_TM t1) t2”;
+Overload "_MUL_TM" = “Const «*» (Fun num_ty (Fun num_ty num_ty))”;
+Overload "_MUL" = “λt1 t2. Comb (Comb _MUL_TM t1) t2”;
 Overload "_LESS_TM" = “Const «<» (Fun num_ty (Fun num_ty Bool))”;
 Overload "_LESS" = “λt1 t2. Comb (Comb _LESS_TM t1) t2”;
 Overload "_NUMERAL_TM" = “Const «NUMERAL» (Fun num_ty num_ty)”;
@@ -68,6 +70,9 @@ Overload "_CVAL_ADD" = “λt1 t2. Comb (Comb _CVAL_ADD_TM t1) t2”;
 Overload "_CVAL_SUB_TM" =
   “Const «cval_sub» (Fun cval_ty (Fun cval_ty cval_ty))”;
 Overload "_CVAL_SUB" = “λt1 t2. Comb (Comb _CVAL_SUB_TM t1) t2”;
+Overload "_CVAL_MUL_TM" =
+  “Const «cval_mul» (Fun cval_ty (Fun cval_ty cval_ty))”;
+Overload "_CVAL_MUL" = “λt1 t2. Comb (Comb _CVAL_MUL_TM t1) t2”;
 Overload "_CVAL_LESS_TM" =
   “Const «cval_less» (Fun cval_ty (Fun cval_ty cval_ty))”;
 Overload "_CVAL_LESS" = “λt1 t2. Comb (Comb _CVAL_LESS_TM t1) t2”;
@@ -113,7 +118,7 @@ End
  * ------------------------------------------------------------------------- *)
 
 Datatype:
-  binop = Add | Sub | Less
+  binop = Add | Sub | Mul | Less
 End
 
 Datatype:
@@ -142,6 +147,7 @@ QED
 Definition bop2term_def:
   bop2term Add = _CVAL_ADD ∧
   bop2term Sub = _CVAL_SUB ∧
+  bop2term Mul = _CVAL_MUL ∧
   bop2term Less = _CVAL_LESS
 End
 
