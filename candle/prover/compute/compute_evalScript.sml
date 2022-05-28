@@ -224,6 +224,10 @@ Definition dest_cval_def:
                       SOME (Binop Sub p q)
                     else if Const n ty = _CVAL_MUL_TM then
                       SOME (Binop Mul p q)
+                    else if Const n ty = _CVAL_DIV_TM then
+                      SOME (Binop Div p q)
+                    else if Const n ty = _CVAL_MOD_TM then
+                      SOME (Binop Mod p q)
                     else if Const n ty = _CVAL_LESS_TM then
                       SOME (Binop Less p q)
                     else if ty = Fun cval_ty (Fun cval_ty cval_ty) then
@@ -280,6 +284,8 @@ Definition do_binop_def:
   do_binop Add p q = do_arith $+ p q ∧
   do_binop Sub p q = do_arith $- p q ∧
   do_binop Mul p q = do_arith $* p q ∧
+  do_binop Div p q = do_arith $SAFEDIV p q ∧
+  do_binop Mod p q = do_arith $SAFEMOD p q ∧
   do_binop Less p q = do_reln $< p q
 End
 

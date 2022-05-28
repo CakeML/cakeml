@@ -48,6 +48,14 @@ Definition compute_thms_def:
     (* SUB        *) _SUB (_SUC _M) (_SUC _N) === _SUB _M _N;
     (* MUL        *) _MUL (_NUMERAL _0) _N === _NUMERAL _0;
     (* MUL        *) _MUL (_SUC _M) _N === _ADD _N (_MUL _M _N);
+    (* DIV        *) _DIV _M _N ===
+                     _COND (_N === _NUMERAL _0) (_NUMERAL _0)
+                           (_COND (_LESS _M _N) (_NUMERAL _0)
+                                  (_SUC (_DIV (_SUB _M _N) _N)));
+    (* MOD        *) _MOD _M _N ===
+                     _COND (_N === _NUMERAL _0) _M
+                           (_COND (_LESS _M _N) _M
+                                  (_MOD (_SUB _M _N) _N));
     (* LESS       *) _LESS _M (_NUMERAL _0) === _FALSE;
     (* LESS       *) _LESS (_NUMERAL _0) (_SUC _N) === _TRUE;
     (* LESS       *) _LESS (_SUC _M) (_SUC _N) === _LESS _M _N;
@@ -75,6 +83,26 @@ Definition compute_thms_def:
                      _CVAL_NUM (_NUMERAL _0);
     (* CVAL_MUL   *) _CVAL_MUL (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
                      _CVAL_NUM (_NUMERAL _0);
+
+    (* CVAL_DIV   *) _CVAL_DIV (_CVAL_NUM _M) (_CVAL_NUM _N) ===
+                     _CVAL_NUM (_DIV _M _N);
+    (* CVAL_DIV   *) _CVAL_DIV (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
+                     _CVAL_NUM (_NUMERAL _0);
+    (* CVAL_DIV   *) _CVAL_DIV (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
+                     _CVAL_NUM (_NUMERAL _0);
+    (* CVAL_DIV   *) _CVAL_DIV (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
+                     _CVAL_NUM (_NUMERAL _0);
+
+    (* CVAL_MOD   *) _CVAL_MOD (_CVAL_NUM _M) (_CVAL_NUM _N) ===
+                     _CVAL_NUM (_MOD _M _N);
+    (* CVAL_MOD   *) _CVAL_MOD (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
+                     _CVAL_NUM _M;
+    (* CVAL_MOD   *) _CVAL_MOD (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
+                     _CVAL_NUM (_NUMERAL _0);
+    (* CVAL_MOD   *) _CVAL_MOD (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
+                     _CVAL_NUM (_NUMERAL _0);
+
+
     (* CVAL_LESS  *) _CVAL_LESS (_CVAL_NUM _M) (_CVAL_NUM _N) ===
                      _CVAL_NUM (_COND (_LESS _M _N) (_SUC (_NUMERAL _0))
                                                     (_NUMERAL _0));

@@ -10,7 +10,6 @@ val _ = new_theory "compute_syntax";
 
 val _ = numLib.prefer_num ();
 
-
 (* Numbers, bools *)
 
 Overload num_ty = “Tyapp «num» []”;
@@ -39,6 +38,10 @@ Overload "_SUB_TM" = “Const «-» (Fun num_ty (Fun num_ty num_ty))”;
 Overload "_SUB" = “λt1 t2. Comb (Comb _SUB_TM t1) t2”;
 Overload "_MUL_TM" = “Const «*» (Fun num_ty (Fun num_ty num_ty))”;
 Overload "_MUL" = “λt1 t2. Comb (Comb _MUL_TM t1) t2”;
+Overload "_MOD_TM" = “Const «MOD» (Fun num_ty (Fun num_ty num_ty))”;
+Overload "_MOD" = “λt1 t2. Comb (Comb _MOD_TM t1) t2”;
+Overload "_DIV_TM" = “Const «DIV» (Fun num_ty (Fun num_ty num_ty))”;
+Overload "_DIV" = “λt1 t2. Comb (Comb _DIV_TM t1) t2”;
 Overload "_LESS_TM" = “Const «<» (Fun num_ty (Fun num_ty Bool))”;
 Overload "_LESS" = “λt1 t2. Comb (Comb _LESS_TM t1) t2”;
 Overload "_NUMERAL_TM" = “Const «NUMERAL» (Fun num_ty num_ty)”;
@@ -73,6 +76,12 @@ Overload "_CVAL_SUB" = “λt1 t2. Comb (Comb _CVAL_SUB_TM t1) t2”;
 Overload "_CVAL_MUL_TM" =
   “Const «cval_mul» (Fun cval_ty (Fun cval_ty cval_ty))”;
 Overload "_CVAL_MUL" = “λt1 t2. Comb (Comb _CVAL_MUL_TM t1) t2”;
+Overload "_CVAL_MOD_TM" =
+  “Const «cval_mod» (Fun cval_ty (Fun cval_ty cval_ty))”;
+Overload "_CVAL_MOD" = “λt1 t2. Comb (Comb _CVAL_MOD_TM t1) t2”;
+Overload "_CVAL_DIV_TM" =
+  “Const «cval_div» (Fun cval_ty (Fun cval_ty cval_ty))”;
+Overload "_CVAL_DIV" = “λt1 t2. Comb (Comb _CVAL_DIV_TM t1) t2”;
 Overload "_CVAL_LESS_TM" =
   “Const «cval_less» (Fun cval_ty (Fun cval_ty cval_ty))”;
 Overload "_CVAL_LESS" = “λt1 t2. Comb (Comb _CVAL_LESS_TM t1) t2”;
@@ -118,7 +127,7 @@ End
  * ------------------------------------------------------------------------- *)
 
 Datatype:
-  binop = Add | Sub | Mul | Less
+  binop = Add | Sub | Mul | Div | Mod | Less
 End
 
 Datatype:
@@ -148,6 +157,8 @@ Definition bop2term_def:
   bop2term Add = _CVAL_ADD ∧
   bop2term Sub = _CVAL_SUB ∧
   bop2term Mul = _CVAL_MUL ∧
+  bop2term Div = _CVAL_DIV ∧
+  bop2term Mod = _CVAL_MOD ∧
   bop2term Less = _CVAL_LESS
 End
 
@@ -164,6 +175,20 @@ Definition cval2term_def:
 Termination
   wf_rel_tac ‘measure compute_val_size’
 End
+
+(* DIV and MOD definitions that are defined for zero (and as in HOL Light). *)
+
+Definition SAFEDIV_def:
+  SAFEDIV m n = if n = 0 then 0 else m DIV n
+End
+
+val _ = Parse.add_infix ("SAFEDIV", 500, HOLgrammars.LEFT);
+
+Definition SAFEMOD_def:
+  SAFEMOD m n = if n = 0 then m else m MOD n
+End
+
+val _ = Parse.add_infix ("SAFEMOD", 500, HOLgrammars.LEFT);
 
 val _ = export_theory ();
 
