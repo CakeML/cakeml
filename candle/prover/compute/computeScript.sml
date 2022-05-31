@@ -84,7 +84,6 @@ Definition compute_thms_def:
                      _CVAL_NUM (_NUMERAL _0);
     (* CVAL_MUL   *) _CVAL_MUL (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
                      _CVAL_NUM (_NUMERAL _0);
-
     (* CVAL_DIV   *) _CVAL_DIV (_CVAL_NUM _M) (_CVAL_NUM _N) ===
                      _CVAL_NUM (_DIV _M _N);
     (* CVAL_DIV   *) _CVAL_DIV (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
@@ -93,7 +92,6 @@ Definition compute_thms_def:
                      _CVAL_NUM (_NUMERAL _0);
     (* CVAL_DIV   *) _CVAL_DIV (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
                      _CVAL_NUM (_NUMERAL _0);
-
     (* CVAL_MOD   *) _CVAL_MOD (_CVAL_NUM _M) (_CVAL_NUM _N) ===
                      _CVAL_NUM (_MOD _M _N);
     (* CVAL_MOD   *) _CVAL_MOD (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
@@ -102,8 +100,6 @@ Definition compute_thms_def:
                      _CVAL_NUM (_NUMERAL _0);
     (* CVAL_MOD   *) _CVAL_MOD (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
                      _CVAL_NUM (_NUMERAL _0);
-
-
     (* CVAL_LESS  *) _CVAL_LESS (_CVAL_NUM _M) (_CVAL_NUM _N) ===
                      _CVAL_NUM (_COND (_LESS _M _N) (_SUC (_NUMERAL _0))
                                                     (_NUMERAL _0));
