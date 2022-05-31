@@ -693,6 +693,44 @@ QED
 Theorem MUL_num2term =
   UNDISCH_ALL num2term_MUL |> MATCH_MP sym_equation |> DISCH_ALL;
 
+Theorem bool2term_LESS_num2term:
+  numeral_thy_ok thy ⇒
+    (thy,[]) |- bool2term (m < n) === _LESS (num2term m) (num2term n)
+Proof
+  strip_tac
+  \\ ‘∀m n. (thy,[]) |-  _LESS (num2term m) (num2term n) === bool2term (m < n)’
+    suffices_by rw [sym_equation]
+  \\ Induct \\ simp []
+  >- (
+    Cases \\ rw [num2term_def, bool2term_def]
+    >- (
+      irule replaceL2 \\ irule_at Any NUMERAL_eqn
+      \\ irule_at Any (CONJUNCT1 (SIMPR [IMP_CONJ_THM, SF DNF_ss] LESS_eqn))
+      \\ qexists_tac ‘_0’ \\ gs [numeral_thy_ok_terms_ok])
+    \\ qmatch_goalsub_abbrev_tac ‘_SUC M’
+    \\ irule replaceL1
+    \\ irule_at Any NUMERAL_eqn \\ simp [numeral_thy_ok_terms_ok]
+    \\ ‘term_ok (sigof thy) M ∧ M has_type num_ty’
+      by fs [Abbr ‘M’, num2term_term_ok, numeral_thy_ok_terms_ok]
+    \\ rw [LESS_eqn, SF SFY_ss])
+  \\ Cases \\ gs [num2term_def, bool2term_def]
+  >- (
+    qmatch_goalsub_abbrev_tac ‘_LESS M _’
+    \\ irule replaceL2
+    \\ irule_at Any NUMERAL_eqn \\ simp [numeral_thy_ok_terms_ok]
+    \\ ‘term_ok (sigof thy) M ∧ M has_type num_ty’
+      by fs [Abbr ‘M’, num2term_term_ok, numeral_thy_ok_terms_ok]
+    \\ rw [LESS_eqn, SF SFY_ss])
+  \\ rename [‘m < n’]
+  \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+  \\ resolve_then Any irule sym_equation trans_equation_simple
+  \\ first_x_assum (irule_at Any)
+  \\ simp [LESS_eqn, sym_equation, num2term_term_ok]
+QED
+
+Theorem LESS_bool2term_num2term =
+  UNDISCH_ALL bool2term_LESS_num2term |> MATCH_MP sym_equation |> DISCH_ALL;
+
 Theorem DIV_num2term:
   numeral_thy_ok thy ⇒
     (thy,[]) |-_DIV (num2term m) (num2term n) === num2term (m SAFEDIV n)
@@ -750,52 +788,49 @@ Proof
     \\ irule_at Any (DISCH_ALL (CONJUNCT1 (UNDISCH_ALL COND_eqn)))
     \\ gs [numeral_thy_ok_terms_ok, num2term_term_ok, term_ok_def, proves_REFL])
   \\ rename [‘SUC m’]
-  \\ simp [SAFEMOD_def]
+  \\ gs [SAFEMOD_def]
   \\ IF_CASES_TAC \\ gs [num2term_def]
   >- ((* n = 0 *)
     irule replaceL2 \\ irule_at Any NUMERAL_eqn
     \\ gs [numeral_thy_ok_terms_ok, MOD_eqn1, num2term_term_ok])
-  \\ irule trans_equation_simple
-  \\ irule_at Any MOD_eqn
+  \\ irule trans_equation_simple \\ irule_at Any MOD_eqn
   \\ gs [num2term_term_ok]
+  \\ Cases_on ‘n’ \\ gs [num2term_def] \\ rename [‘_SUC (num2term n)’]
   \\ irule replaceL3
   \\ qexists_tac ‘_FALSE’
-  \\ conj_tac >- cheat
+  \\ conj_tac
+  >- (
+    irule sym_equation
+    \\ qmatch_goalsub_abbrev_tac ‘_SUC N’
+    \\ qspecl_then [‘thy’,‘N’,‘N’] (mp_tac o SIMPR [SF CONJ_ss])
+                   (GEN_ALL $ DISCH_ALL $ cj 3 $ UNDISCH_ALL EQ_eqn)
+    \\ rw [Abbr ‘N’, num2term_term_ok])
   \\ irule trans_equation_simple
   \\ irule_at Any (DISCH_ALL (CONJUNCT2 (UNDISCH_ALL COND_eqn)))
   \\ gs [numeral_thy_ok_terms_ok, num2term_term_ok, term_ok_def, proves_REFL]
-  \\ gs [SAFEMOD_def]
-  \\ Cases_on ‘n’ \\ gs [] \\ rename [‘SUC n’] \\ gs [num2term_def]
-  \\ Cases_on ‘m < n’ \\ gs []
+  \\ drule_then (qspecl_then [‘SUC n’,‘SUC m’] assume_tac)
+                bool2term_LESS_num2term
+  \\ Cases_on ‘m < n’ \\ gs [bool2term_def, num2term_def]
   >- (
-    ‘(thy,[]) |- _LESS (_SUC (num2term m)) (_SUC (num2term n)) === _TRUE’
-      by cheat
-    \\ resolve_then Any irule sym_equation replaceL3
-    \\ first_x_assum (irule_at Any)
+    irule replaceL3 \\ first_x_assum (irule_at Any)
     \\ irule trans_equation_simple
     \\ irule_at Any (DISCH_ALL (CONJUNCT1 (UNDISCH_ALL COND_eqn)))
     \\ gs [numeral_thy_ok_terms_ok, num2term_term_ok, term_ok_def, proves_REFL,
            num2term_def])
-  \\ ‘(thy,[]) |- _LESS (_SUC (num2term m)) (_SUC (num2term n)) === _FALSE’
-    by cheat
-  \\ resolve_then Any irule sym_equation replaceL3
-  \\ first_x_assum (irule_at Any)
+  \\ irule replaceL3 \\ first_x_assum (irule_at Any)
   \\ irule trans_equation_simple
   \\ irule_at Any (DISCH_ALL (CONJUNCT2 (UNDISCH_ALL COND_eqn)))
   \\ gs [numeral_thy_ok_terms_ok, num2term_term_ok, term_ok_def, proves_REFL,
          num2term_def]
-  \\ gs [PULL_FORALL]
+  \\ simp [Q.SPECL [‘SUC m’,‘SUC n’] SUB_MOD |> SIMPR [SUB] |> GSYM,
+           proves_REFL, num2term_term_ok]
   \\ resolve_then Any irule sym_equation replaceL1
   \\ irule_at Any (DISCH_ALL (cj 3 (UNDISCH_ALL SUB_eqn)))
   \\ gs [num2term_term_ok]
   \\ resolve_then Any irule sym_equation replaceL1
-  \\ irule_at Any SUB_num2term \\ gs []
-  \\ irule trans_equation_simple
-  \\ first_x_assum (qspecl_then [‘SUC m - SUC n’,‘SUC n’] mp_tac) \\ gs []
-  \\ simp [num2term_def]
-  \\ disch_then (irule_at Any)
-  \\ simp [Q.SPECL [‘SUC m’,‘SUC n’] SUB_MOD |> SIMPR [SUB],
-           proves_REFL, num2term_term_ok]
+  \\ irule_at Any SUB_num2term \\ gs [PULL_FORALL]
+  \\ first_x_assum (qspecl_then [‘SUC m - SUC n’,‘SUC n’] assume_tac)
+  \\ gs [num2term_def]
 QED
 
 Theorem num2term_MOD =
@@ -942,48 +977,6 @@ QED
 
 Theorem MOD_num2bit =
   UNDISCH_ALL num2bit_MOD |> MATCH_MP sym_equation |> DISCH_ALL;
-
-(* -------------------------------------------------------------------------
- * bool2term
- * ------------------------------------------------------------------------- *)
-
-Theorem bool2term_LESS_num2term:
-  numeral_thy_ok thy ⇒
-    (thy,[]) |- bool2term (m < n) === _LESS (num2term m) (num2term n)
-Proof
-  strip_tac
-  \\ ‘∀m n. (thy,[]) |-  _LESS (num2term m) (num2term n) === bool2term (m < n)’
-    suffices_by rw [sym_equation]
-  \\ Induct \\ simp []
-  >- (
-    Cases \\ rw [num2term_def, bool2term_def]
-    >- (
-      irule replaceL2 \\ irule_at Any NUMERAL_eqn
-      \\ irule_at Any (CONJUNCT1 (SIMPR [IMP_CONJ_THM, SF DNF_ss] LESS_eqn))
-      \\ qexists_tac ‘_0’ \\ gs [numeral_thy_ok_terms_ok])
-    \\ qmatch_goalsub_abbrev_tac ‘_SUC M’
-    \\ irule replaceL1
-    \\ irule_at Any NUMERAL_eqn \\ simp [numeral_thy_ok_terms_ok]
-    \\ ‘term_ok (sigof thy) M ∧ M has_type num_ty’
-      by fs [Abbr ‘M’, num2term_term_ok, numeral_thy_ok_terms_ok]
-    \\ rw [LESS_eqn, SF SFY_ss])
-  \\ Cases \\ gs [num2term_def, bool2term_def]
-  >- (
-    qmatch_goalsub_abbrev_tac ‘_LESS M _’
-    \\ irule replaceL2
-    \\ irule_at Any NUMERAL_eqn \\ simp [numeral_thy_ok_terms_ok]
-    \\ ‘term_ok (sigof thy) M ∧ M has_type num_ty’
-      by fs [Abbr ‘M’, num2term_term_ok, numeral_thy_ok_terms_ok]
-    \\ rw [LESS_eqn, SF SFY_ss])
-  \\ rename [‘m < n’]
-  \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
-  \\ resolve_then Any irule sym_equation trans_equation_simple
-  \\ first_x_assum (irule_at Any)
-  \\ simp [LESS_eqn, sym_equation, num2term_term_ok]
-QED
-
-Theorem LESS_bool2term_num2term =
-  UNDISCH_ALL bool2term_LESS_num2term |> MATCH_MP sym_equation |> DISCH_ALL;
 
 Theorem bool2term_LESS_num2bit:
   numeral_thy_ok thy ⇒
