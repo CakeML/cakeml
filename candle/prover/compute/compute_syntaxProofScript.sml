@@ -96,6 +96,14 @@ Theorem replaceR2 =
 Theorem replaceR3 =
   UNDISCH_ALL replaceL3 |> MATCH_MP sym_equation |> DISCH_ALL;
 
+Theorem DEDUCT_ANTISYM_simple:
+  (thy,[]) |- a ∧ (thy,[]) |- b ⇒ (thy,[]) |- a === b
+Proof
+  qspecl_then [‘a’,‘b’,‘[]’,‘[]’] (assume_tac o SIMPR [ACONV_REFL])
+                                  proves_DEDUCT_ANTISYM
+  \\ gs []
+QED
+
 (* -------------------------------------------------------------------------
  * Booleans
  * ------------------------------------------------------------------------- *)
@@ -103,11 +111,6 @@ Theorem replaceR3 =
 Definition bool_thy_ok_def:
   bool_thy_ok thy ⇔
     theory_ok thy ∧
-    (* NOT *)
-    (thy,[]) |- _NOT (_NOT _X) === _X ∧
-    (* T, F *)
-    (thy,[]) |- _TRUE === _NOT _FALSE ∧
-    (thy,[]) |- _FALSE === _NOT _TRUE ∧
     (* COND *)
     (thy,[]) |- _COND _TRUE _M _N === _M ∧
     (thy,[]) |- _COND _FALSE _M _N === _N
@@ -115,13 +118,11 @@ End
 
 Theorem bool_thy_ok_terms_ok:
   bool_thy_ok thy ⇒
-    term_ok (sigof thy) _NOT_TM ∧
     term_ok (sigof thy) _TRUE ∧
     term_ok (sigof thy) _FALSE ∧
     term_ok (sigof thy) _COND_TM
 Proof
   simp [bool_thy_ok_def] \\ strip_tac
-  \\ pop_assum kall_tac
   \\ rpt (dxrule_then assume_tac proves_term_ok) \\ rfs []
   \\ fs [equation_def, term_ok_def, SF SFY_ss]
 QED
@@ -170,7 +171,12 @@ Definition numeral_thy_ok_def:
     (* LESS *)
     (thy,[]) |- _LESS _M (_NUMERAL _0) === _FALSE ∧
     (thy,[]) |- _LESS (_NUMERAL _0) (_SUC _N) === _TRUE ∧
-    (thy,[]) |- _LESS (_SUC _M) (_SUC _N) === _LESS _M _N
+    (thy,[]) |- _LESS (_SUC _M) (_SUC _N) === _LESS _M _N ∧
+    (* EQ *)
+    (thy,[]) |- (_NUMERAL _0 === _NUMERAL _0) === _TRUE ∧
+    (thy,[]) |- (_NUMERAL _0 === _SUC _N) === _FALSE ∧
+    (thy,[]) |- (_SUC _M === _NUMERAL _0) === _FALSE ∧
+    (thy,[]) |- (_SUC _M === _SUC _N) === (_M === _N)
 End
 
 Theorem numeral_thy_ok_theory_ok[simp]:
@@ -188,7 +194,7 @@ QED
 
 Theorem numeral_thy_ok_terms_ok:
   numeral_thy_ok thy ⇒
-    term_ok (sigof thy) _NOT_TM ∧
+    (*term_ok (sigof thy) _NOT_TM ∧*)
     term_ok (sigof thy) _TRUE ∧
     term_ok (sigof thy) _FALSE ∧
     term_ok (sigof thy) _COND_TM ∧
@@ -197,6 +203,7 @@ Theorem numeral_thy_ok_terms_ok:
     term_ok (sigof thy) _MUL_TM ∧
     term_ok (sigof thy) _DIV_TM ∧
     term_ok (sigof thy) _MOD_TM ∧
+    term_ok (sigof thy) _LESS_TM ∧
     term_ok (sigof thy) _0 ∧
     term_ok (sigof thy) _SUC_TM ∧
     term_ok (sigof thy) _BIT0_TM ∧
@@ -367,6 +374,33 @@ Proof
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
+Theorem EQ_eqn:
+  numeral_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
+  m has_type num_ty ∧ n has_type num_ty ⇒
+    (thy,[]) |- (_NUMERAL _0 === _NUMERAL _0) === _TRUE ∧
+    (thy,[]) |- (_NUMERAL _0 === _SUC n) === _FALSE ∧
+    (thy,[]) |- (_SUC m === _NUMERAL _0) === _FALSE ∧
+    (thy,[]) |- (_SUC m === _SUC n) === (m === n)
+Proof
+  rw [numeral_thy_ok_def]
+  >- (
+    qpat_x_assum ‘_ |- (_NUMERAL _ === _SUC _) === _’ assume_tac
+    \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N]’ mp_tac) proves_INST
+    \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def])
+  >- (
+    qpat_x_assum ‘_ |- (_SUC _ === _NUMERAL _) === _’ assume_tac
+    \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M]’ mp_tac) proves_INST
+    \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def])
+  \\ qpat_x_assum ‘_ |- (_SUC _ === _SUC _) === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M;n,_N]’ mp_tac) proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+  \\ ‘Equal (typeof (_SUC m)) = Equal num_ty’ by gs []
+  \\ pop_assum (SUBST1_TAC o SYM) \\ simp [GSYM equation_def]
+  \\ ‘Equal (typeof m) = Equal num_ty’ by gs [WELLTYPED_LEMMA]
+  \\ pop_assum (SUBST1_TAC o SYM) \\ simp [GSYM equation_def]
+QED
+
 Theorem COND_eqn:
   bool_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
@@ -416,6 +450,62 @@ Proof
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N;m,_M]’ mp_tac) proves_INST
   \\ dsimp [VSUBST_thm, equation_def, REV_ASSOCD_def, SF DNF_ss]
   \\ drule_then assume_tac WELLTYPED_LEMMA \\ gs []
+QED
+
+(* TODO Move *)
+Theorem COND_has_type[simp]:
+  _COND p m n has_type num_ty ⇔
+  p has_type Bool ∧ m has_type num_ty ∧ n has_type num_ty
+Proof
+  rw [Ntimes has_type_cases 3]
+  \\ rw [Ntimes has_type_cases 3]
+QED
+
+(* TODO Move *)
+Theorem LESS_has_type[simp]:
+  _LESS m n has_type Bool ⇔ m has_type num_ty ∧ n has_type num_ty
+Proof
+  rw [Ntimes has_type_cases 3]
+QED
+
+(* TODO Move *)
+Theorem SUB_has_type[simp]:
+  _SUB m n has_type num_ty ⇔ m has_type num_ty ∧ n has_type num_ty
+Proof
+  rw [Ntimes has_type_cases 3]
+QED
+
+
+(* TODO Move *)
+Theorem MOD_has_type[simp]:
+  _MOD m n has_type num_ty ⇔ m has_type num_ty ∧ n has_type num_ty
+Proof
+  rw [Ntimes has_type_cases 3]
+QED
+
+(* TODO Move *)
+Theorem DIV_has_type[simp]:
+  _DIV m n has_type num_ty ⇔ m has_type num_ty ∧ n has_type num_ty
+Proof
+  rw [Ntimes has_type_cases 3]
+QED
+
+Theorem MOD_eqn1:
+  numeral_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ m has_type num_ty ⇒
+    (thy,[]) |- _MOD m (_NUMERAL _0) === m
+Proof
+  rw []
+  \\ irule trans_equation_simple
+  \\ drule_then (qspecl_then [‘_NUMERAL _0’,‘m’] mp_tac) MOD_eqn
+  \\ simp [numeral_thy_ok_terms_ok]
+  \\ disch_then (irule_at Any)
+  \\ resolve_then Any irule sym_equation replaceL3
+  \\ qexists_tac ‘_TRUE’
+  \\ conj_tac >- fs [numeral_thy_ok_def]
+  \\ irule (COND_eqn |> UNDISCH_ALL |> CONJUNCT1 |> DISCH_ALL) \\ gs []
+  \\ simp [term_ok_def, numeral_thy_ok_terms_ok, term_ok_welltyped,
+           WELLTYPED_LEMMA, SF SFY_ss]
 QED
 
 Theorem BIT0_0:
@@ -613,12 +703,99 @@ QED
 Theorem num2term_DIV =
   UNDISCH_ALL DIV_num2term |> MATCH_MP sym_equation |> DISCH_ALL;
 
-
 Theorem MOD_num2term:
   numeral_thy_ok thy ⇒
     (thy,[]) |-_MOD (num2term m) (num2term n) === num2term (m SAFEMOD n)
 Proof
-  cheat
+  strip_tac
+  \\ qid_spec_tac ‘n’ \\ qid_spec_tac ‘m’
+  \\ completeInduct_on ‘m’ \\ gen_tac
+  \\ Cases_on ‘m’
+  >- ((* m = 0 *)
+    simp [num2term_def, SAFEMOD_def]
+    \\ irule replaceL1 \\ irule_at Any NUMERAL_eqn
+    \\ irule_at Any trans_equation_simple \\ irule_at Any NUMERAL_eqn
+    \\ irule_at Any trans_equation_simple \\ irule_at Any MOD_eqn
+    \\ simp [term_ok_def, numeral_thy_ok_terms_ok, num2term_term_ok]
+    \\ Cases_on ‘n’ \\ gs [num2term_def]
+    >- (
+      ‘(thy,[]) |- (_0 === _NUMERAL _0) === (_NUMERAL _0 === _NUMERAL _0)’
+        by simp [DEDUCT_ANTISYM_simple, proves_REFL, NUMERAL_eqn, sym_equation,
+                 numeral_thy_ok_terms_ok]
+      \\ resolve_then Any irule sym_equation replaceL3
+      \\ first_x_assum (irule_at Any)
+      \\ irule replaceL3
+      \\ irule_at Any sym_equation
+      \\ qexists_tac ‘_TRUE’
+      \\ conj_tac >- fs [numeral_thy_ok_def]
+      \\ irule trans_equation_simple
+      \\ irule_at Any (DISCH_ALL (CONJUNCT1 (UNDISCH_ALL COND_eqn)))
+      \\ gs [numeral_thy_ok_terms_ok, term_ok_def, proves_REFL])
+    \\ irule replaceL3
+    \\ qexists_tac ‘_FALSE’
+    \\ conj_tac
+    >- (
+      irule sym_equation
+      \\ qmatch_goalsub_abbrev_tac ‘_SUC N’
+      \\ qspecl_then [‘thy’,‘N’,‘N’] (mp_tac o SIMPR [SF CONJ_ss])
+                     (GEN_ALL $ DISCH_ALL $ cj 3 $ UNDISCH_ALL EQ_eqn)
+      \\ rw [Abbr ‘N’, num2term_term_ok])
+    \\ irule trans_equation_simple
+    \\ irule_at Any (DISCH_ALL (CONJUNCT2 (UNDISCH_ALL COND_eqn)))
+    \\ gs [numeral_thy_ok_terms_ok, num2term_term_ok, term_ok_def, proves_REFL]
+    \\ resolve_then Any irule sym_equation replaceL3
+    \\ qexists_tac ‘_TRUE’
+    \\ irule_at Any (DISCH_ALL (cj 2 (UNDISCH_ALL LESS_eqn)))
+    \\ qexists_tac ‘_0’ \\ gs [numeral_thy_ok_terms_ok, num2term_term_ok]
+    \\ irule_at Any (DISCH_ALL (CONJUNCT1 (UNDISCH_ALL COND_eqn)))
+    \\ gs [numeral_thy_ok_terms_ok, num2term_term_ok, term_ok_def, proves_REFL])
+  \\ rename [‘SUC m’]
+  \\ simp [SAFEMOD_def]
+  \\ IF_CASES_TAC \\ gs [num2term_def]
+  >- ((* n = 0 *)
+    irule replaceL2 \\ irule_at Any NUMERAL_eqn
+    \\ gs [numeral_thy_ok_terms_ok, MOD_eqn1, num2term_term_ok])
+  \\ irule trans_equation_simple
+  \\ irule_at Any MOD_eqn
+  \\ gs [num2term_term_ok]
+  \\ irule replaceL3
+  \\ qexists_tac ‘_FALSE’
+  \\ conj_tac >- cheat
+  \\ irule trans_equation_simple
+  \\ irule_at Any (DISCH_ALL (CONJUNCT2 (UNDISCH_ALL COND_eqn)))
+  \\ gs [numeral_thy_ok_terms_ok, num2term_term_ok, term_ok_def, proves_REFL]
+  \\ gs [SAFEMOD_def]
+  \\ Cases_on ‘n’ \\ gs [] \\ rename [‘SUC n’] \\ gs [num2term_def]
+  \\ Cases_on ‘m < n’ \\ gs []
+  >- (
+    ‘(thy,[]) |- _LESS (_SUC (num2term m)) (_SUC (num2term n)) === _TRUE’
+      by cheat
+    \\ resolve_then Any irule sym_equation replaceL3
+    \\ first_x_assum (irule_at Any)
+    \\ irule trans_equation_simple
+    \\ irule_at Any (DISCH_ALL (CONJUNCT1 (UNDISCH_ALL COND_eqn)))
+    \\ gs [numeral_thy_ok_terms_ok, num2term_term_ok, term_ok_def, proves_REFL,
+           num2term_def])
+  \\ ‘(thy,[]) |- _LESS (_SUC (num2term m)) (_SUC (num2term n)) === _FALSE’
+    by cheat
+  \\ resolve_then Any irule sym_equation replaceL3
+  \\ first_x_assum (irule_at Any)
+  \\ irule trans_equation_simple
+  \\ irule_at Any (DISCH_ALL (CONJUNCT2 (UNDISCH_ALL COND_eqn)))
+  \\ gs [numeral_thy_ok_terms_ok, num2term_term_ok, term_ok_def, proves_REFL,
+         num2term_def]
+  \\ gs [PULL_FORALL]
+  \\ resolve_then Any irule sym_equation replaceL1
+  \\ irule_at Any (DISCH_ALL (cj 3 (UNDISCH_ALL SUB_eqn)))
+  \\ gs [num2term_term_ok]
+  \\ resolve_then Any irule sym_equation replaceL1
+  \\ irule_at Any SUB_num2term \\ gs []
+  \\ irule trans_equation_simple
+  \\ first_x_assum (qspecl_then [‘SUC m - SUC n’,‘SUC n’] mp_tac) \\ gs []
+  \\ simp [num2term_def]
+  \\ disch_then (irule_at Any)
+  \\ simp [Q.SPECL [‘SUC m’,‘SUC n’] SUB_MOD |> SIMPR [SUB],
+           proves_REFL, num2term_term_ok]
 QED
 
 Theorem num2term_MOD =
@@ -1401,6 +1578,7 @@ Theorem compute_thy_ok_terms_ok:
     term_ok (sigof thy) _MUL_TM ∧
     term_ok (sigof thy) _DIV_TM ∧
     term_ok (sigof thy) _MOD_TM ∧
+    term_ok (sigof thy) _LESS_TM ∧
     term_ok (sigof thy) _0 ∧
     term_ok (sigof thy) _SUC_TM ∧
     term_ok (sigof thy) _BIT0_TM ∧
