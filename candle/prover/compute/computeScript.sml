@@ -33,9 +33,6 @@ Overload handle[local] = “handle_Failure”;
 
 Definition compute_thms_def:
   compute_thms = MAP (Sequent []) [
-    (* NOT_ELIM   *) _NOT (_NOT _X) === _X;
-    (* T_NOT_F    *) _TRUE === _NOT _FALSE;
-    (* F_NOT_T    *) _FALSE === _NOT _TRUE;
     (* COND_TRUE  *) _COND _TRUE _M _N === _M;
     (* COND_FALSE *) _COND _FALSE _M _N === _N;
     (* NUMERAL    *) _NUMERAL _N === _N;
@@ -59,6 +56,10 @@ Definition compute_thms_def:
     (* LESS       *) _LESS _M (_NUMERAL _0) === _FALSE;
     (* LESS       *) _LESS (_NUMERAL _0) (_SUC _N) === _TRUE;
     (* LESS       *) _LESS (_SUC _M) (_SUC _N) === _LESS _M _N;
+    (* EQ         *) (_NUMERAL _0 === _NUMERAL _0) === _TRUE;
+    (* EQ         *) (_NUMERAL _0 === _SUC _N) === _FALSE;
+    (* EQ         *) (_SUC _M === _NUMERAL _0) === _FALSE;
+    (* EQ         *) (_SUC _M === _SUC _N) === (_M === _N);
     (* CVAL_ADD   *) _CVAL_ADD (_CVAL_NUM _M) (_CVAL_NUM _N) ===
                      _CVAL_NUM (_ADD _M _N);
     (* CVAL_ADD   *) _CVAL_ADD (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
