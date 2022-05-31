@@ -219,17 +219,21 @@ Definition rollback_def:
     (MAP ($+id_start) (COUNT_LIST (id_end-id_start))) fml
 End
 
+Definition subst_subst_fun_def:
+  subst_subst_fun s c = subst (subst_fun s) c
+End
+
 Definition extract_clauses_list_def:
-  (extract_clauses_list f def fml [] acc = SOME (REVERSE acc)) ∧
-  (extract_clauses_list f def fml (cpf::pfs) acc =
+  (extract_clauses_list s def fml [] acc = SOME (REVERSE acc)) ∧
+  (extract_clauses_list s def fml (cpf::pfs) acc =
     case cpf of
-      (NONE,pf) => extract_clauses_list f def fml pfs ((NONE,pf)::acc)
+      (NONE,pf) => extract_clauses_list s def fml pfs ((NONE,pf)::acc)
     | (SOME (INL n),pf) =>
       (case any_el n fml NONE of
         NONE => NONE
-      | SOME c => extract_clauses_list f def fml pfs ((SOME (subst f c),pf)::acc))
+      | SOME c => extract_clauses_list s def fml pfs ((SOME (subst_subst_fun s c),pf)::acc))
     | (SOME (INR u),pf) =>
-      extract_clauses_list f def fml pfs ((SOME (subst f def),pf)::acc))
+      extract_clauses_list s def fml pfs ((SOME (subst_subst_fun s def),pf)::acc))
 End
 
 (*
@@ -274,12 +278,17 @@ Definition reindex_def:
     i :: reindex fml is)
 End
 
+Definition subst_opt_subst_fun_def:
+  subst_opt_subst_fun s c = subst_opt (subst_fun s) c
+End
+
 Definition subst_indexes_def:
-  (subst_indexes f fml [] = []) ∧
-  (subst_indexes f fml (i::is) =
-    case OPTION_MAP f (any_el i fml NONE) of
-      NONE => subst_indexes f fml is
-    | SOME c => i::subst_indexes f fml is)
+  (subst_indexes s fml [] = []) ∧
+  (subst_indexes s fml (i::is) =
+    case any_el i fml NONE of NONE => subst_indexes s fml is
+    | SOME res =>
+    case subst_opt_subst_fun s res of NONE => subst_indexes s fml is
+    | SOME c => i::subst_indexes s fml is)
 End
 
 Definition check_pbpstep_list_def:
@@ -318,8 +327,7 @@ Definition check_pbpstep_list_def:
   | Red c s pfs =>
     (let rinds = reindex fml inds in
      let fml_not_c = update_resize fml NONE (SOME (not c)) id in
-     let w = subst_fun s in
-      case extract_clauses_list w c fml pfs [] of
+      case extract_clauses_list s c fml pfs [] of
         NONE => NONE
       | SOME cpfs =>
         case check_redundancy_list cpfs fml_not_c (sorted_insert id rinds) id (id+1) of
@@ -327,7 +335,7 @@ Definition check_pbpstep_list_def:
           let rfml = rollback fml' id id' in
           let pids = MAP FST pfs in
           if MEM (SOME (INR ())) (MAP FST pfs) ∧
-            EVERY (λid. MEM (SOME (INL id)) (MAP FST pfs)) (subst_indexes (subst_opt w) rfml rinds)
+            EVERY (λid. MEM (SOME (INL id)) (MAP FST pfs)) (subst_indexes s rfml rinds)
           then
             SOME(update_resize rfml NONE (SOME c) id', F, (id'+1), sorted_insert id' rinds)
           else NONE
@@ -778,53 +786,54 @@ QED
 Theorem fml_rel_extract_clauses_list:
   ∀ls f def fml fmlls acc.
   fml_rel fml fmlls ⇒
-  extract_clauses f def fml ls acc = extract_clauses_list f def fmlls ls acc
+  extract_clauses (subst_fun f) def fml ls acc = extract_clauses_list f def fmlls ls acc
 Proof
   Induct>>rw[extract_clauses_def,extract_clauses_list_def]>>
   every_case_tac>>fs[]>>
-  fs[fml_rel_def]>>
+  fs[fml_rel_def,subst_subst_fun_def]>>
   metis_tac[SOME_11,NOT_SOME_NONE]
 QED
 
 Theorem MEM_subst_indexes:
-  ∀inds i.
+  ∀inds i c.
   MEM i inds ∧
   any_el i fml NONE = SOME c ∧
-  f c = SOME res
+  subst_opt (subst_fun s) c = SOME res
   ⇒
-  MEM i (subst_indexes f fml inds)
+  MEM i (subst_indexes s fml inds)
 Proof
   Induct>>rw[subst_indexes_def]>>
   every_case_tac>>
-  simp[AllCaseEqs(),any_el_def]>>
-  rfs[]
+  fs[AllCaseEqs(),any_el_def]>>
+  rw[]>>
+  fs[subst_opt_subst_fun_def]
 QED
 
 Theorem fml_rel_check_pbpstep_list:
   (∀step fmlls inds mindel id fmlls' b id' inds' fml.
-  fml_rel fml fmlls ∧
-  ind_rel fmlls inds ∧
-  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-  mindel ≤ id ∧
-  check_pbpstep_list step fmlls inds mindel id = SOME (fmlls', b,id',inds') ⇒
-  if b then check_pbpstep step fml id = Unsat id'
-  else ∃fml'. check_pbpstep step fml id = Cont fml' id' ∧ fml_rel fml' fmlls') ∧
+    fml_rel fml fmlls ∧
+    ind_rel fmlls inds ∧
+    (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
+    mindel ≤ id ∧
+    check_pbpstep_list step fmlls inds mindel id = SOME (fmlls', b,id',inds') ⇒
+    if b then check_pbpstep step fml id = Unsat id'
+    else ∃fml'. check_pbpstep step fml id = Cont fml' id' ∧ fml_rel fml' fmlls') ∧
   (∀steps fmlls inds mindel id fmlls' b id' inds' fml.
-  fml_rel fml fmlls ∧
-  ind_rel fmlls inds ∧
-  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-  mindel ≤ id ∧
-  check_pbpsteps_list steps fmlls inds mindel id = SOME (fmlls', b,id',inds') ⇒
-  if b then check_pbpsteps steps fml id = Unsat id'
-  else ∃fml'. check_pbpsteps steps fml id = Cont fml' id' ∧ fml_rel fml' fmlls') ∧
+    fml_rel fml fmlls ∧
+    ind_rel fmlls inds ∧
+    (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
+    (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
+    mindel ≤ id ∧
+    check_pbpsteps_list steps fmlls inds mindel id = SOME (fmlls', b,id',inds') ⇒
+    if b then check_pbpsteps steps fml id = Unsat id'
+    else ∃fml'. check_pbpsteps steps fml id = Cont fml' id' ∧ fml_rel fml' fmlls') ∧
   (∀pfs fmlls inds mindel id fmlls' id' inds' fml.
-  fml_rel fml fmlls ∧
-  ind_rel fmlls inds ∧
-  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-  mindel ≤ id ∧
-  check_redundancy_list pfs fmlls inds mindel id = SOME (fmlls', id',inds') ⇒
-  ∃fml'. check_redundancy pfs fml id = Cont fml' id' ∧ fml_rel fml' fmlls')
+    fml_rel fml fmlls ∧
+    ind_rel fmlls inds ∧
+    (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
+    mindel ≤ id ∧
+    check_redundancy_list pfs fmlls inds mindel id = SOME (fmlls', id',inds') ⇒
+    ∃fml'. check_redundancy pfs fml id = Cont fml' id' ∧ fml_rel fml' fmlls')
 Proof
   ho_match_mp_tac check_pbpstep_list_ind>>
   rw[]
