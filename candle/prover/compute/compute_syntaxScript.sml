@@ -17,8 +17,6 @@ Overload num_ty = “Tyapp «num» []”;
 Overload "_X" = “Var «x» Bool”;
 Overload "_TRUE" = “Const «T» Bool”;
 Overload "_FALSE" = “Const «F» Bool”;
-Overload "_NOT_TM" = “Const «~» (Fun Bool Bool)”;
-Overload "_NOT" = “λtm. Comb _NOT_TM tm”;
 Overload "_COND_TM" =
   “Const «COND» (Fun Bool (Fun num_ty (Fun num_ty num_ty)))”;
 Overload "_COND" = “λt t1 t2. Comb (Comb (Comb _COND_TM t) t1) t2”;

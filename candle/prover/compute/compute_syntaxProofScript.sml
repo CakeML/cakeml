@@ -194,7 +194,6 @@ QED
 
 Theorem numeral_thy_ok_terms_ok:
   numeral_thy_ok thy ⇒
-    (*term_ok (sigof thy) _NOT_TM ∧*)
     term_ok (sigof thy) _TRUE ∧
     term_ok (sigof thy) _FALSE ∧
     term_ok (sigof thy) _COND_TM ∧
@@ -1561,7 +1560,6 @@ QED
 Theorem compute_thy_ok_terms_ok:
   compute_thy_ok thy ⇒
     (* bools *)
-    term_ok (sigof thy) _NOT_TM ∧
     term_ok (sigof thy) _TRUE ∧
     term_ok (sigof thy) _FALSE ∧
     term_ok (sigof thy) _COND_TM ∧
