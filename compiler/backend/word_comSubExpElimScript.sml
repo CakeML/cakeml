@@ -19,30 +19,36 @@ Mind map / TODO:
        One solution could be 
 *)        
         
-open preamble wordLangTheory boolTheory
+open preamble wordLangTheory boolTheory mlmapTheory
 
-Definition listEquality_def:
-  listEquality (hd1::tl1) (hd2::tl2) = (hd1=hd2 ∧ listEquality tl1 tl2) ∧
-  listEquality [] [] = T ∧
-  listEquality (hd1::tl1) [] = F ∧
-  listEquality [] (hd2::tl2) = F
+val _ = new_theory "comSubExpElim";
+                             
+(*
+  Can not figure out how to make `NotGE` work, HOL keep raising:
+  > The following variables are free in the right hand side of the proposed definition: "NotGE"
+  So I replaced it with `Greater`.
+*)
+Definition listCmp_def:
+  (listCmp ( (hd1:num) :: tl1) ( (hd2:num) :: tl2) = if hd1=hd2 then listCmp tl1 tl2 else if hd1>hd2 then Greater else Greater) ∧
+  (listCmp [] [] = Equal) ∧
+  (listCmp (hd1::tl1) [] = Greater) ∧
+  (listCmp [] (hd2::tl2) = Greater)
 End
 
-Theorem listEquality_correct:
-  ∀L1 L2. listEquality L1 L2 ⇔ L1 = L2
+Theorem listCmp_correct:
+  ∀L1 L2. (listCmp L1 L2 = Equal) ⇔ L1 = L2
 Proof
   strip_tac >>
   Induct_on ‘L1’
   >- (Cases_on ‘L2’
-      \\ rw[listEquality_def])
+      \\ rw[listCmp_def])
   >- (Cases_on ‘L2’
-      >- rw[listEquality_def]
+      >- rw[listCmp_def]
       >- (strip_tac >>
           Cases_on ‘h=h'’
-          \\ rw[listEquality_def]))
+          \\ rw[listCmp_def]))
 QED
         
-
 (*
 Principle:
   We keep track of a map containing all instructions already dealt with, and we explore the program to find instuctions matching one in the map.
@@ -59,7 +65,7 @@ Signification of the terms:
     b -> binop
     s -> string
 *)
-Definition instrToList_def:
+Definition comSubExpElim_def:
   instrToList regs instrs (Skip) = (regs, instrs, Skip) ∧
   instrToList regs instrs (Move r1 r2) = ((r1,r2)::regs, instrs, Move r1 r2) ∧
   instrToList regs instrs (Inst i) = (regs, instrs, Skip) ∧
