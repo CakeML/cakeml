@@ -116,6 +116,10 @@ Definition compute_thms_def:
     (* CVAL_FST   *) _CVAL_FST (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0);
     (* CVAL_SND   *) _CVAL_SND (_CVAL_PAIR _P1 _Q1) === _Q1;
     (* CVAL_SND   *) _CVAL_SND (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0);
+    (* CVAL_ISPAIR *) _CVAL_ISPAIR (_CVAL_PAIR _P1 _Q1) ===
+                      _CVAL_NUM (_SUC (_NUMERAL _0));
+    (* CVAL_ISPAIR *) _CVAL_ISPAIR (_CVAL_NUM _M) ===
+                      _CVAL_NUM (_NUMERAL _0);
   ]
 End
 
@@ -153,6 +157,7 @@ Definition const_list_def:
   const_list (Pair x y) = const_list x ++ const_list y ∧
   const_list (Fst x) = const_list x ∧
   const_list (Snd x) = const_list x ∧
+  const_list (Ispair x) = const_list x ∧
   const_list (Binop bop x y) = const_list x ++ const_list y ∧
   const_list (If x y z) = const_list x ++ const_list y ++ const_list z ∧
   const_list (App s xs) = (s,LENGTH xs)::FLAT (MAP const_list xs)
@@ -166,6 +171,7 @@ Definition var_list_def:
   var_list (Pair x y) = var_list x ++ var_list y ∧
   var_list (Fst x) = var_list x ∧
   var_list (Snd x) = var_list x ∧
+  var_list (Ispair x) = var_list x ∧
   var_list (Binop bop x y) = var_list x ++ var_list y ∧
   var_list (If x y z) = var_list x ++ var_list y ++ var_list z ∧
   var_list (App s xs) = FLAT (MAP var_list xs)
@@ -232,6 +238,8 @@ Definition check_cval_closed_def:
   check_cval_closed (Fst p) =
     check_cval_closed p ∧
   check_cval_closed (Snd p) =
+    check_cval_closed p ∧
+  check_cval_closed (Ispair p) =
     check_cval_closed p ∧
   check_cval_closed (Binop bop p q) =
     EVERY check_cval_closed [p;q] ∧

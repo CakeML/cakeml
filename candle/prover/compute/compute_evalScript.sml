@@ -205,6 +205,8 @@ Definition dest_cval_def:
                   SOME (Fst cv)
                 else if Const n ty = _CVAL_SND_TM then
                   SOME (Snd cv)
+                else if Const n ty = _CVAL_ISPAIR_TM then
+                  SOME (Ispair cv)
                 else
                  SOME (App n [cv])
            else
@@ -299,6 +301,11 @@ Definition do_snd_def:
   do_snd _ = return (Num 0)
 End
 
+Definition do_ispair_def:
+  do_ispair (Pair p q) = return (Num 1) ∧
+  do_ispair _ = return (Num 0)
+End
+
 Definition map_def:
   map f [] = return [] ∧
   map f (x::xs) =
@@ -371,6 +378,7 @@ Definition subst_def:
   subst env (Pair p q) = Pair (subst env p) (subst env q) ∧
   subst env (Fst p) = Fst (subst env p) ∧
   subst env (Snd p) = Snd (subst env p) ∧
+  subst env (Ispair p) = Ispair (subst env p) ∧
   subst env (Binop bop p q) = Binop bop (subst env p) (subst env q) ∧
   subst env (App f cs) = App f (MAP (subst env) cs) ∧
   subst env (If p q r) = If (subst env p) (subst env q) (subst env r)
@@ -407,6 +415,10 @@ Definition compute_eval_def:
     | Snd p =>
         do x <- compute_eval ck ceqs p;
            do_snd x
+        od
+    | Ispair p =>
+        do x <- compute_eval ck ceqs p;
+           do_ispair x
         od
     | Binop bop p q =>
         do

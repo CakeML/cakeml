@@ -1120,6 +1120,7 @@ Definition cval_consts_def:
   cval_consts (Pair p q) = cval_consts p ∪ cval_consts q ∧
   cval_consts (Fst p) = cval_consts p ∧
   cval_consts (Snd p) = cval_consts p ∧
+  cval_consts (Ispair p) = cval_consts p ∧
   cval_consts (Binop bop p q) = cval_consts p ∪ cval_consts q ∧
   cval_consts (If p q r) =  cval_consts p ∪ cval_consts q ∪ cval_consts r ∧
   cval_consts (App s cs) = {s, LENGTH cs} ∪ BIGUNION (set (MAP cval_consts cs))
@@ -1133,6 +1134,7 @@ Definition cval_vars_def:
   cval_vars (Pair p q) = cval_vars p ∪ cval_vars q ∧
   cval_vars (Fst p) = cval_vars p ∧
   cval_vars (Snd p) = cval_vars p ∧
+  cval_vars (Ispair p) = cval_vars p ∧
   cval_vars (Binop bop p q) = cval_vars p ∪ cval_vars q ∧
   cval_vars (If p q r) =  cval_vars p ∪ cval_vars q ∪ cval_vars r ∧
   cval_vars (App s cs) = BIGUNION (set (MAP cval_vars cs))
@@ -1210,7 +1212,12 @@ Definition compute_thy_ok_def:
     (thy,[]) |- _CVAL_FST (_CVAL_PAIR _P1 _Q1) === _P1 ∧
     (thy,[]) |- _CVAL_FST (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0) ∧
     (thy,[]) |- _CVAL_SND (_CVAL_PAIR _P1 _Q1) === _Q1 ∧
-    (thy,[]) |- _CVAL_SND (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0)
+    (thy,[]) |- _CVAL_SND (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0) ∧
+    (* cval_ispair *)
+    (thy,[]) |- _CVAL_ISPAIR (_CVAL_PAIR _P1 _Q1) ===
+                _CVAL_NUM (_SUC (_NUMERAL _0)) ∧
+    (thy,[]) |- _CVAL_ISPAIR (_CVAL_NUM _M) ===
+                _CVAL_NUM (_NUMERAL _0)
 End
 
 Theorem CVAL_IF_eqn1:
@@ -1675,6 +1682,32 @@ Proof
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
+Theorem CVAL_ISPAIR_eqn1:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
+    (thy,[]) |- _CVAL_ISPAIR (_CVAL_PAIR p1 q1) ===
+                _CVAL_NUM (_SUC (_NUMERAL _0))
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_ISPAIR (_CVAL_PAIR _ _) === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CVAL_ISPAIR_eqn2:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ m has_type num_ty ⇒
+    (thy,[]) |- _CVAL_ISPAIR (_CVAL_NUM m) === _CVAL_NUM (_NUMERAL _0)
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CVAL_ISPAIR (_CVAL_NUM _) === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
 Theorem compute_thy_ok_terms_ok:
   compute_thy_ok thy ⇒
     (* bools *)
@@ -1705,6 +1738,7 @@ Theorem compute_thy_ok_terms_ok:
     term_ok (sigof thy) _CVAL_PAIR_TM ∧
     term_ok (sigof thy) _CVAL_FST_TM ∧
     term_ok (sigof thy) _CVAL_SND_TM ∧
+    term_ok (sigof thy) _CVAL_ISPAIR_TM ∧
     (* types *)
     type_ok (tysof thy) cval_ty
 Proof
@@ -1762,6 +1796,8 @@ Proof
   >~ [‘_CVAL_SND _’] >- (
     rw [Ntimes has_type_cases 3]
     \\ rw [Ntimes has_type_cases 3])
+  >~ [‘_CVAL_ISPAIR _’] >- (
+    rw [Ntimes has_type_cases 3])
   >~ [‘_CVAL_PAIR _ _’] >- (
     rw [Ntimes has_type_cases 3])
   >~ [‘_CVAL_IF _ _ _’] >- (
@@ -1818,6 +1854,8 @@ Proof
   >~ [‘_CVAL_FST _’] >- (
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
   >~ [‘_CVAL_SND _’] >- (
+    simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
+  >~ [‘_CVAL_ISPAIR _’] >- (
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
   >~ [‘_CVAL_PAIR _ _ ’] >- (
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])

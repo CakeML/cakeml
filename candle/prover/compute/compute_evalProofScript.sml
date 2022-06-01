@@ -30,6 +30,14 @@ Proof
   Cases_on ‘p’ \\ rw [do_snd_def, cval_consts_def, st_ex_return_def]
 QED
 
+Theorem do_ispair_thm:
+  do_ispair p s = (res, s') ⇒
+    s = s' ∧
+    ∃q. res = M_success q ∧ cval_consts q ⊆ cval_consts p
+Proof
+  Cases_on ‘p’ \\ rw [do_ispair_def, cval_consts_def, st_ex_return_def]
+QED
+
 Theorem term_ok_FOLDL_Comb:
   ∀tms tm.
     term_ok sig (FOLDL Comb tm tms) ⇒
@@ -149,6 +157,11 @@ Proof
     \\ rename [‘do_snd p’]
     \\ Cases_on ‘p’ \\ gvs [do_snd_def, st_ex_return_def, SF SFY_ss]
     \\ first_x_assum drule \\ gs [])
+  >- ((* Ispair *)
+    simp [Once st_ex_bind_def, raise_Type_error_def]
+    \\ TOP_CASE_TAC \\ gs [] \\ TOP_CASE_TAC \\ gs [] \\ rw []
+    \\ rename [‘do_ispair p’]
+    \\ Cases_on ‘p’ \\ gvs [do_ispair_def, st_ex_return_def, SF SFY_ss])
   >- ((* Binop *)
     simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
     \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
@@ -289,7 +302,7 @@ Proof
     \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
     \\ gvs [cval2term_def, cval_consts_def, app_type, proves_REFL])
   \\ TOP_CASE_TAC
-  >- ((* unary: num, fst, snd or app *)
+  >- ((* unary: num, fst, snd, ispair or app *)
     fs [CaseEqs ["list", "option", "bool"]]
     \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
     \\ rw [] \\ fs []
@@ -1130,6 +1143,43 @@ Proof
     \\ simp [Once num2bit_def, SimpR “(===)”]
     \\ irule CVAL_SND_eqn2
     \\ simp [Ntimes has_type_cases 3]
+    \\ gs [term_ok_def, compute_thy_ok_terms_ok, num2bit_term_ok])
+  \\ Cases_on ‘∃p. cv = Ispair p’
+  >- (
+    pop_assum (CHOOSE_THEN SUBST_ALL_TAC) \\ fs [] \\ gvs [cval2term_def]
+    \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
+    \\ strip_tac
+    \\ drule_then strip_assume_tac do_ispair_thm \\ gvs []
+    \\ gs [term_ok_def, cval_vars_def]
+    \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
+    \\ rename [‘do_ispair p r = (M_success cv,_)’]
+    \\ drule_then assume_tac compute_eval_value
+    \\ drule_then assume_tac cval_value_no_consts
+    \\ Cases_on ‘∃p1 q1. p = Pair p1 q1’ \\ gvs []
+    >- (
+      gvs [do_ispair_def, st_ex_return_def, cval2term_def]
+      \\ resolve_then Any irule sym_equation replaceL2
+      \\ first_x_assum (irule_at Any)
+      \\ irule replaceR2 \\ qexists_tac ‘_NUMERAL (num2term 1)’
+      \\ simp [MK_COMB_simple, proves_REFL, numeral_thy_ok_terms_ok,
+               num2bit_num2term, Once sym_equation]
+      \\ once_rewrite_tac [ONE] \\ simp [num2term_def]
+      \\ irule replaceL2 \\ qexists_tac ‘_SUC (_NUMERAL _0)’
+      \\ resolve_then Any (irule_at Any) sym_equation replaceL2
+      \\ irule_at Any NUMERAL_eqn \\ gs [numeral_thy_ok_terms_ok]
+      \\ irule_at Any sym_equation \\ irule_at Any NUMERAL_eqn
+      \\ gs [numeral_thy_ok_terms_ok, Once sym_equation, CVAL_ISPAIR_eqn1,
+             cval2term_term_ok, cval_consts_def])
+    \\ ‘cv = Num 0’
+      by (Cases_on ‘p’ \\ gs [do_ispair_def, st_ex_return_def])
+    \\ drule_then assume_tac compute_eval_value
+    \\ ‘∃m. p = Num m’
+      by (Cases_on ‘p’ \\ gs [])
+    \\ gvs [cval2term_def]
+    \\ resolve_then Any irule sym_equation replaceL2
+    \\ first_x_assum (irule_at Any)
+    \\ simp [Once num2bit_def, SimpR “(===)”]
+    \\ irule CVAL_ISPAIR_eqn2 \\ gs []
     \\ gs [term_ok_def, compute_thy_ok_terms_ok, num2bit_term_ok])
   \\ Cases_on ‘∃s. cv = Var s’
   >- (

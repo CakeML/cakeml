@@ -93,6 +93,8 @@ Overload "_CVAL_FST_TM" = “Const «cval_fst» (Fun cval_ty cval_ty)”;
 Overload "_CVAL_FST" = “λtm. Comb _CVAL_FST_TM tm”;
 Overload "_CVAL_SND_TM" = “Const «cval_snd» (Fun cval_ty cval_ty)”;
 Overload "_CVAL_SND" = “λtm. Comb _CVAL_SND_TM tm”;
+Overload "_CVAL_ISPAIR_TM" = “Const «cval_ispair» (Fun cval_ty cval_ty)”;
+Overload "_CVAL_ISPAIR" = “λtm. Comb _CVAL_ISPAIR_TM tm”;
 
 (* -------------------------------------------------------------------------
  * Bools
@@ -134,9 +136,9 @@ Datatype:
               | Var mlstring
               | App mlstring (compute_val list)
               | If compute_val compute_val compute_val
-                (* operations that rely on host-language features *)
               | Fst compute_val
               | Snd compute_val
+              | Ispair compute_val
               | Binop binop compute_val compute_val
 End
 
@@ -165,6 +167,7 @@ Definition cval2term_def:
   cval2term (Pair p q) = _CVAL_PAIR (cval2term p) (cval2term q) ∧
   cval2term (Fst p) = _CVAL_FST (cval2term p) ∧
   cval2term (Snd p) = _CVAL_SND (cval2term p) ∧
+  cval2term (Ispair p) = _CVAL_ISPAIR (cval2term p) ∧
   cval2term (Binop bop p q) =  bop2term bop (cval2term p) (cval2term q) ∧
   cval2term (If p q r) = _CVAL_IF (cval2term p) (cval2term q) (cval2term r) ∧
   cval2term (Var s) = Var s cval_ty ∧
