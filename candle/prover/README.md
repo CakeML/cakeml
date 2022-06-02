@@ -31,5 +31,9 @@ Top-level soundness theorem for the Candle theorem prover.
 [compute](compute):
 A verified Candle compute primitive.
 
+[compute_syntax](compute_syntax):
+A simple functional first-order language used by the verified Candle compute
+primitive.
+
 [permsScript.sml](permsScript.sml):
 Permissions for CakeML values.
