@@ -6,11 +6,8 @@ INCLUDES = ../../../developers \
 	   ../../../translator/monadic \
 	   ../../../characteristic \
 	   ../../../basis \
-	   ../../standard/ml_kernel \
-	   ../../standard/monadic \
-	   ../../standard/semantics \
 	   ../../standard/syntax \
-	   ../compute_syntax
+	   ../../standard/monadic
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
