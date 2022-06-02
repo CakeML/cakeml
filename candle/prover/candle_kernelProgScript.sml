@@ -11,8 +11,7 @@ open runtime_checkTheory runtime_checkLib;
 
 val _ = new_theory "candle_kernelProg";
 
-val _ = set_grammar_ancestry [
-  "ml_hol_kernel_funsProg", "compute_syntax", "compute_eval", "compute"
+val _ = set_grammar_ancestry [ "ml_hol_kernel_funsProg", "compute"
   ];
 
 val _ = m_translation_extends "ml_hol_kernel_funsProg"
@@ -83,20 +82,32 @@ val _ = ml_prog_update open_local_block;
 val r = translate dest_num_PMATCH;
 val r = m_translate dest_numeral_PMATCH;
 val r = translate dest_numeral_opt_PMATCH;
-val r = translate dest_cval_PMATCH;
+val r = translate list_dest_comb_def;
+val r = translate mapOption_def;
+val r = translate app_type_def;
+val r = translate dest_cval_def;
+
+Theorem dest_cval_side[local]:
+  ∀x. dest_cval_side x
+Proof
+  ho_match_mp_tac dest_cval_ind \\ rw []
+  \\ once_rewrite_tac [fetch "-" "dest_cval_side_def"] \\ rw []
+QED
+
+val _ = update_precondition dest_cval_side;
 
 val r = compute_thms_def |> EVAL_RULE |> translate;
 
 val r = m_translate dest_binary_PMATCH;
 val r = translate num2bit_def;
 
-val _ = use_mem_intro := true;
+(*val _ = use_mem_intro := true;*)
 val r = check [‘ths’] compute_init_def |> translate;
-val _ = use_mem_intro := false;
+(*val _ = use_mem_intro := false;*)
 
+val r = translate FOLDL;
+val r = translate bop2term_def;
 val r = translate cval2term_def;
-
-val r = translate compute_eval_def; (* TODO PMATCH definition *)
 
 val _ = ml_prog_update open_local_in_block;
 
