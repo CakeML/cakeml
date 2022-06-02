@@ -84,7 +84,6 @@ val r = m_translate dest_numeral_PMATCH;
 val r = translate dest_numeral_opt_PMATCH;
 val r = translate list_dest_comb_def;
 val r = translate mapOption_def;
-val r = translate app_type_def;
 val r = translate dest_cval_def;
 
 Theorem dest_cval_side[local]:
@@ -99,13 +98,10 @@ val _ = update_precondition dest_cval_side;
 val r = compute_thms_def |> EVAL_RULE |> translate;
 
 val r = m_translate dest_binary_PMATCH;
-val r = translate num2bit_def;
 
 val r = check [‘ths’] compute_init_def |> translate;
 
 val r = translate FOLDL;
-val r = translate bop2term_def;
-val r = translate cval2term_def;
 
 val r = m_translate check_var_def;
 val r = translate check_cval_closed_def;

@@ -445,5 +445,12 @@ Definition compute_eval_run_def:
     run (compute_eval ck ceqs cv) compute_init_state
 End
 
+Definition compute_interp_def[simp]:
+  compute_interp ck ceqs cv =
+    case compute_eval_run ck ceqs cv of
+      M_failure _ => NONE
+    | M_success res => SOME res
+End
+
 val _ = export_theory ();
 

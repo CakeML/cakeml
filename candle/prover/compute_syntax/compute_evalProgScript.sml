@@ -68,6 +68,14 @@ val r = m_translate compute_eval_def;
 
 val r = translate compute_init_state_def;
 val r = m_translate_run compute_eval_run_def;
+val r = translate compute_interp_def;
+
+(* compute_syntax *)
+
+val r = translate num2bit_def;
+val r = translate app_type_def;
+val r = translate bop2term_def;
+val r = translate cval2term_def;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = (ml_translatorLib.clean_on_exit := true);
