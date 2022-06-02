@@ -3,7 +3,8 @@ primitive.
 
 
 [compute_evalProgScript.sml](compute_evalProgScript.sml):
-Local-mode translation of the compute_eval interpreter.
+Translation of the compute_eval interpreter into code using local state and
+exceptions.
 
 [compute_evalProofScript.sml](compute_evalProofScript.sml):
 Proofs about the interpreter function for the Candle compute primitive.
