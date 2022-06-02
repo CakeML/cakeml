@@ -191,16 +191,17 @@ Definition dest_cval_def:
     case list_dest_comb [] tm of
     | [Var n ty] => if ty = cval_ty then SOME (Var n) else NONE
     | Const n ty :: args =>
-        (case args of
+        (let vs = MAP dest_cval args in
+        case vs of
         | [arg] =>
-           if Const n ty = _CVAL_NUM_TM then
-             case dest_numeral_opt arg of
-             | NONE => NONE
-             | SOME n => SOME (Num n)
-           else if ty = Fun cval_ty cval_ty then
-             case dest_cval arg of
-             | NONE => NONE
-             | SOME cv =>
+            if Const n ty = _CVAL_NUM_TM then
+              case dest_numeral_opt (HD args) of
+              | NONE => NONE
+              | SOME n => SOME (Num n)
+            else if ty = Fun cval_ty cval_ty then
+              case arg of
+              | NONE => NONE
+              | SOME cv =>
                 if Const n ty = _CVAL_FST_TM then
                   SOME (Fst cv)
                 else if Const n ty = _CVAL_SND_TM then
@@ -209,52 +210,36 @@ Definition dest_cval_def:
                   SOME (Ispair cv)
                 else
                  SOME (App n [cv])
-           else
-             NONE
-        | [l; r] =>
-            (case dest_cval l of
-            | NONE => NONE
-            | SOME p =>
-                case dest_cval r of
-                | NONE => NONE
-                | SOME q =>
-                    if Const n ty = _CVAL_PAIR_TM then
-                      SOME (Pair p q)
-                    else if Const n ty = _CVAL_ADD_TM then
-                      SOME (Binop Add p q)
-                    else if Const n ty = _CVAL_SUB_TM then
-                      SOME (Binop Sub p q)
-                    else if Const n ty = _CVAL_MUL_TM then
-                      SOME (Binop Mul p q)
-                    else if Const n ty = _CVAL_DIV_TM then
-                      SOME (Binop Div p q)
-                    else if Const n ty = _CVAL_MOD_TM then
-                      SOME (Binop Mod p q)
-                    else if Const n ty = _CVAL_LESS_TM then
-                      SOME (Binop Less p q)
-                    else if ty = Fun cval_ty (Fun cval_ty cval_ty) then
-                      SOME (App n [p; q])
-                    else
-                      NONE)
-        | [i; t; e] =>
-            (case dest_cval i of
-            | NONE => NONE
-            | SOME p =>
-                case dest_cval t of
-                | NONE => NONE
-                | SOME q =>
-                    case dest_cval e of
-                    | NONE => NONE
-                    | SOME r =>
-                        if Const n ty = _CVAL_IF_TM then
-                          SOME (If p q r)
-                        else if ty = Fun cval_ty
-                                         (Fun cval_ty (Fun cval_ty cval_ty))
-                             then SOME (App n [p; q; r])
-                        else
-                          NONE)
-        | _ =>
-            (case mapOption dest_cval args of
+            else
+              NONE
+        | [SOME p; SOME q] =>
+            if Const n ty = _CVAL_PAIR_TM then
+              SOME (Pair p q)
+            else if Const n ty = _CVAL_ADD_TM then
+              SOME (Binop Add p q)
+            else if Const n ty = _CVAL_SUB_TM then
+              SOME (Binop Sub p q)
+            else if Const n ty = _CVAL_MUL_TM then
+              SOME (Binop Mul p q)
+            else if Const n ty = _CVAL_DIV_TM then
+              SOME (Binop Div p q)
+            else if Const n ty = _CVAL_MOD_TM then
+              SOME (Binop Mod p q)
+            else if Const n ty = _CVAL_LESS_TM then
+              SOME (Binop Less p q)
+            else if ty = Fun cval_ty (Fun cval_ty cval_ty) then
+              SOME (App n [p; q])
+            else
+              NONE
+        | [SOME p; SOME q; SOME r] =>
+            if Const n ty = _CVAL_IF_TM then
+              SOME (If p q r)
+            else if ty = Fun cval_ty (Fun cval_ty (Fun cval_ty cval_ty)) then
+              SOME (App n [p; q; r])
+            else
+              NONE
+        | args =>
+            (case mapOption I args of
             | NONE => NONE
             | SOME cvs =>
                 if ty = app_type (LENGTH cvs) then
@@ -398,53 +383,60 @@ Proof
 QED
 
 Definition compute_eval_def:
-  compute_eval ck ceqs cv =
-    case cv of
-    | Var s => error
-    | Num n => return (Num n)
-    | Pair p q =>
-        do
-          x <- compute_eval ck ceqs p;
-          y <- compute_eval ck ceqs q;
-          return (Pair x y)
-        od
-    | Fst p =>
-        do x <- compute_eval ck ceqs p;
-           do_fst x
-        od
-    | Snd p =>
-        do x <- compute_eval ck ceqs p;
-           do_snd x
-        od
-    | Ispair p =>
-        do x <- compute_eval ck ceqs p;
-           do_ispair x
-        od
-    | Binop bop p q =>
-        do
-          x <- compute_eval ck ceqs p;
-          y <- compute_eval ck ceqs q;
-          do_binop bop x y
-        od
-    | App f cs =>
-        if ck = 0 then timeout else
-          do
-            (args,exp) <- option (ALOOKUP ceqs) f;
-            check (LENGTH args = LENGTH cs);
-            cs <- map (compute_eval ck ceqs) cs;
-            compute_eval (ck - 1) ceqs (subst (ZIP (args,cs)) exp)
-          od
-    | If p q r =>
-        do
-          x <- compute_eval ck ceqs p;
-          case x of
-          | Num 0 => compute_eval ck ceqs r
-          | Num _ => compute_eval ck ceqs q
-          | Pair _ _ => compute_eval ck ceqs q
-          | _ => error
-        od
+  compute_eval ck ceqs (Var s) = error ∧
+  compute_eval ck ceqs (Num n) = return (Num n) ∧
+  compute_eval ck ceqs (Pair p q) =
+    do
+      x <- compute_eval ck ceqs p;
+      y <- compute_eval ck ceqs q;
+      return (Pair x y)
+    od ∧
+  compute_eval ck ceqs (Fst p) =
+    do x <- compute_eval ck ceqs p;
+       do_fst x
+    od ∧
+  compute_eval ck ceqs (Snd p) =
+    do x <- compute_eval ck ceqs p;
+       do_snd x
+    od ∧
+  compute_eval ck ceqs (Ispair p) =
+    do x <- compute_eval ck ceqs p;
+       do_ispair x
+    od ∧
+  compute_eval ck ceqs (Binop bop p q) =
+    do
+      x <- compute_eval ck ceqs p;
+      y <- compute_eval ck ceqs q;
+      do_binop bop x y
+    od ∧
+  compute_eval ck ceqs (App f cs) =
+    (if ck = 0 then timeout else
+      do
+        (args,exp) <- option (ALOOKUP ceqs) f;
+        check (LENGTH args = LENGTH cs);
+        cs <- compute_eval_list ck ceqs cs;
+        compute_eval (ck - 1) ceqs (subst (ZIP (args,cs)) exp)
+      od) ∧
+  compute_eval ck ceqs (If p q r) =
+    do
+      x <- compute_eval ck ceqs p;
+      case x of
+      | Num 0 => compute_eval ck ceqs r
+      | Num _ => compute_eval ck ceqs q
+      | Pair _ _ => compute_eval ck ceqs q
+      | _ => error
+    od ∧
+  compute_eval_list ck ceqs [] = return [] ∧
+  compute_eval_list ck ceqs (c::cs) =
+    do
+      x <- compute_eval ck ceqs c;
+      xs <- compute_eval_list ck ceqs cs;
+      return (x::xs)
+    od
 Termination
+  cheat (* was:
   wf_rel_tac ‘inv_image ($< LEX $<) (λ(ck,_,cv). (ck, compute_val_size cv))’
+              measure (list_size compute_val_size o SND o SND)’ *)
 End
 
 Definition compute_init_state_def:
