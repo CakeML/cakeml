@@ -32,14 +32,10 @@ Type state = ``:'ffi semanticPrimitives$state``
 
 (* construct type refinement invariants *)
 
-val _ = register_type ``:type``;
-
 (* check ``:type`` is known to be an EqualityType *)
 val EqualityType_TYPE = EqualityType_rule [] ``:type``;
 
-val _ = register_type ``:term``;
 val _ = register_exn_type ``:hol_exn``;
-val _ = register_type ``:thm``;
 val _ = register_type ``:update``;
 val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
 
