@@ -10,9 +10,6 @@ val _ = new_theory "compute_eval";
 
 val _ = numLib.prefer_num ();
 
-fun SIMPR ths = SIMP_RULE (srw_ss()) ths;
-fun SIMPC ths = SIMP_CONV (srw_ss()) ths;
-
 (* -------------------------------------------------------------------------
  * st_ex_monad setup
  * ------------------------------------------------------------------------- *)
@@ -434,9 +431,9 @@ Definition compute_eval_def:
       return (x::xs)
     od
 Termination
-  cheat (* was:
-  wf_rel_tac ‘inv_image ($< LEX $<) (λ(ck,_,cv). (ck, compute_val_size cv))’
-              measure (list_size compute_val_size o SND o SND)’ *)
+  wf_rel_tac ‘inv_image ($< LEX $<)
+             (λx. case x of INL (ck,_,cv) => (ck, compute_val_size cv)
+                          | INR (ck,_,cv) => (ck, compute_val1_size cv))’
 End
 
 Definition compute_init_state_def:
