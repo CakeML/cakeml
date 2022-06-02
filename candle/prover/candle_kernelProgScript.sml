@@ -101,18 +101,28 @@ val r = compute_thms_def |> EVAL_RULE |> translate;
 val r = m_translate dest_binary_PMATCH;
 val r = translate num2bit_def;
 
-(*val _ = use_mem_intro := true;*)
 val r = check [‘ths’] compute_init_def |> translate;
-(*val _ = use_mem_intro := false;*)
 
 val r = translate FOLDL;
 val r = translate bop2term_def;
 val r = translate cval2term_def;
 
+val r = m_translate check_var_def;
+val r = translate check_cval_closed_def;
+val r = translate var_list_def;
+val r = translate const_list_def;
+
+val _ = use_mem_intro := true;
+val r = m_translate check_consts_def;
+val r = m_translate check_eqn_def;
+val _ = use_mem_intro := false;
+
+val r = translate compute_default_clock; (* TODO _def *)
+
 val _ = ml_prog_update open_local_in_block;
 
 val r = check [‘ths’,‘tm’] compute_add_def |> m_translate;
-val r = check [‘ths’,‘tm’] compute_def |> m_translate;
+val r = check [‘ths’,‘ceqs’,‘tm’] compute_def |> m_translate;
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
