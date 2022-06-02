@@ -15,13 +15,14 @@ open basisProgTheory
 open holAxiomsSyntaxTheory (* for setting up the context *)
 local open holKernelPmatchTheory in end
 open runtime_checkTheory runtime_checkLib; (* Adds runtime type checks *)
+open compute_evalProgTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "ml_hol_kernel_funsProg";
-val _ = translation_extends "basisProg"
+val _ = translation_extends "compute_evalProg"
 
 val _ = (use_full_type_names := false);
 
