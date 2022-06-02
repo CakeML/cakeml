@@ -11,7 +11,7 @@ This directory contains the ARMv7-specific part of the compiler backend.
 This directory contains the ARMv8-specific part of the compiler backend.
 
 [arm8_asl](arm8_asl):
-This directory contains the ASL-derived ARMv8-specific part of the
+This directory contains proofs for the ASL-derived ARMv8-specific part of the
 compiler backend.
 
 [backendComputeLib.sml](backendComputeLib.sml):
@@ -107,9 +107,6 @@ This simple compiler phase tidies up after function inlining, in
 particular it turns `Let [x0; x1; ...] (Op op [Var 0; Var 1; ...])`
 into `Op op [x0; x1; ...]`, which enables further optimisation
 later, e.g. in bvi_tailrec.
-
-[clos_liftScript.sml](clos_liftScript.sml):
-TODO: placeholder for clos_lift pass
 
 [clos_mtiScript.sml](clos_mtiScript.sml):
 This compiler phase introduces multi-argument function applications

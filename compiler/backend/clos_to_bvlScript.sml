@@ -43,7 +43,6 @@ local open
   clos_mtiTheory
   clos_callTheory
   clos_knownTheory
-  clos_liftTheory
   clos_numberTheory
   clos_annotateTheory
 in (* clos-to-clos transformations *) end;
@@ -51,7 +50,7 @@ in (* clos-to-clos transformations *) end;
 val _ = new_theory "clos_to_bvl";
 val _ = set_grammar_ancestry [
   "backend_common",
-  "clos_mti", "clos_call", "clos_known", "clos_lift", "clos_number",
+  "clos_mti", "clos_call", "clos_known", "clos_number",
   "clos_annotate",
   "bvl_jump"
 ]
@@ -612,7 +611,6 @@ val _ = Datatype`
             ; start : num
             ; do_mti : bool
             ; known_conf : clos_known$config option
-            ; lift_n : num (* TODO placeholder name *)
             ; do_call : bool
             ; call_state : num_set # (num, num # closLang$exp) alist
             ; max_app : num
@@ -624,7 +622,6 @@ val default_config_def = Define`
     start := 1;
     do_mti := T;
     known_conf := SOME (clos_known$default_config 10);
-    lift_n := 0;
     do_call := T;
     call_state := (LN,[]);
     max_app := 10 |>`;
@@ -690,12 +687,10 @@ val compile_common_def = Define `
     let loc = if loc MOD 2 = 0 then loc else loc + 1 in
     let (n,es) = renumber_code_locs_list loc es in
     let (kc, es) = clos_known$compile c.known_conf es in
-    let (m, es) = clos_lift$compile c.lift_n es in
     let (es,g,aux) = clos_call$compile c.do_call es in
     let prog = chain_exps c.next_loc es ++ aux in
     let prog = clos_annotate$compile prog in
       (c with <| start := c.next_loc; next_loc := n; known_conf := kc;
-                 lift_n := m;
                  call_state := (g,aux) |>,
        prog)`;
 
