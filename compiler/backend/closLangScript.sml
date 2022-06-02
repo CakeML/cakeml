@@ -14,11 +14,17 @@ val _ = set_grammar_ancestry ["ast"]
 (* compilation from this language removes closures *)
 
 Datatype:
+  const = ConstCons num (const list)
+        | ConstInt int
+        | ConstStr mlstring
+        | ConstWord64 word64
+End
+
+Datatype:
   const_part = Con num (num list)
              | Int int
              | Str mlstring
              | W64 word64
-             | Lbl num
 End
 
 Datatype:
@@ -60,7 +66,8 @@ Datatype:
      | Equal         (* structural equality *)
      | EqualConst const_part (* equal to integer/string/word constant *)
      | Const int     (* integer *)
-     | Build (const_part list)  (* used to build large constants *)
+     | Constant const (* produces a constant value *)
+     | Build (const_part list)  (* implementation of Constant above *)
      | Add           (* + over the integers *)
      | Sub           (* - over the integers *)
      | Mult          (* * over the integers *)
@@ -116,7 +123,6 @@ val pure_op_def = Define `
       FFI _ => F
     | SetGlobal _ => F
     | AllocGlobal => F
-    | SetGlobalsPtr => F
     | (RefByte _) => F
     | RefArray => F
     | UpdateByte => F
@@ -157,8 +163,6 @@ val pure_def = tDefine "pure" `
 (* used in proofs about closLang, BVL, BVI and dataLang *)
 val assign_get_code_label_def = Define`
   (assign_get_code_label (closLang$Label x) = {x}) ∧
-  (assign_get_code_label (EqualConst p) = case p of Lbl l => {l} | _ => {}) ∧
-  (assign_get_code_label (Build ps) = { x | MEM (Lbl x) ps }) ∧
   (assign_get_code_label x = {})`
 
 Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp) list``
