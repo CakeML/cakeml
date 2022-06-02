@@ -60,66 +60,66 @@ Definition compute_thms_def:
     (* EQ         *) (_NUMERAL _0 === _SUC _N) === _FALSE;
     (* EQ         *) (_SUC _M === _NUMERAL _0) === _FALSE;
     (* EQ         *) (_SUC _M === _SUC _N) === (_M === _N);
-    (* CVAL_ADD   *) _CVAL_ADD (_CVAL_NUM _M) (_CVAL_NUM _N) ===
-                     _CVAL_NUM (_ADD _M _N);
-    (* CVAL_ADD   *) _CVAL_ADD (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
-                     _CVAL_NUM _M;
-    (* CVAL_ADD   *) _CVAL_ADD (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
-                     _CVAL_NUM _N;
-    (* CVAL_ADD   *) _CVAL_ADD (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
-                     _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_SUB   *) _CVAL_SUB (_CVAL_NUM _M) (_CVAL_NUM _N) ===
-                     _CVAL_NUM (_SUB _M _N);
-    (* CVAL_SUB   *) _CVAL_SUB (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
-                     _CVAL_NUM _M;
-    (* CVAL_SUB   *) _CVAL_SUB (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
-                     _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_SUB   *) _CVAL_SUB (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
-                     _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_MUL   *) _CVAL_MUL (_CVAL_NUM _M) (_CVAL_NUM _N) ===
-                     _CVAL_NUM (_MUL _M _N);
-    (* CVAL_MUL   *) _CVAL_MUL (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
-                     _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_MUL   *) _CVAL_MUL (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
-                     _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_MUL   *) _CVAL_MUL (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
-                     _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_DIV   *) _CVAL_DIV (_CVAL_NUM _M) (_CVAL_NUM _N) ===
-                     _CVAL_NUM (_DIV _M _N);
-    (* CVAL_DIV   *) _CVAL_DIV (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
-                     _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_DIV   *) _CVAL_DIV (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
-                     _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_DIV   *) _CVAL_DIV (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
-                     _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_MOD   *) _CVAL_MOD (_CVAL_NUM _M) (_CVAL_NUM _N) ===
-                     _CVAL_NUM (_MOD _M _N);
-    (* CVAL_MOD   *) _CVAL_MOD (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
-                     _CVAL_NUM _M;
-    (* CVAL_MOD   *) _CVAL_MOD (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
-                     _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_MOD   *) _CVAL_MOD (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
-                     _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_LESS  *) _CVAL_LESS (_CVAL_NUM _M) (_CVAL_NUM _N) ===
-                     _CVAL_NUM (_COND (_LESS _M _N) (_SUC (_NUMERAL _0))
+    (* CEXP_ADD   *) _CEXP_ADD (_CEXP_NUM _M) (_CEXP_NUM _N) ===
+                     _CEXP_NUM (_ADD _M _N);
+    (* CEXP_ADD   *) _CEXP_ADD (_CEXP_NUM _M) (_CEXP_PAIR _P1 _Q1) ===
+                     _CEXP_NUM _M;
+    (* CEXP_ADD   *) _CEXP_ADD (_CEXP_PAIR _P1 _Q1) (_CEXP_NUM _N) ===
+                     _CEXP_NUM _N;
+    (* CEXP_ADD   *) _CEXP_ADD (_CEXP_PAIR _P1 _Q1) (_CEXP_PAIR _P2 _Q2) ===
+                     _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_SUB   *) _CEXP_SUB (_CEXP_NUM _M) (_CEXP_NUM _N) ===
+                     _CEXP_NUM (_SUB _M _N);
+    (* CEXP_SUB   *) _CEXP_SUB (_CEXP_NUM _M) (_CEXP_PAIR _P1 _Q1) ===
+                     _CEXP_NUM _M;
+    (* CEXP_SUB   *) _CEXP_SUB (_CEXP_PAIR _P1 _Q1) (_CEXP_NUM _N) ===
+                     _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_SUB   *) _CEXP_SUB (_CEXP_PAIR _P1 _Q1) (_CEXP_PAIR _P2 _Q2) ===
+                     _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_MUL   *) _CEXP_MUL (_CEXP_NUM _M) (_CEXP_NUM _N) ===
+                     _CEXP_NUM (_MUL _M _N);
+    (* CEXP_MUL   *) _CEXP_MUL (_CEXP_NUM _M) (_CEXP_PAIR _P1 _Q1) ===
+                     _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_MUL   *) _CEXP_MUL (_CEXP_PAIR _P1 _Q1) (_CEXP_NUM _N) ===
+                     _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_MUL   *) _CEXP_MUL (_CEXP_PAIR _P1 _Q1) (_CEXP_PAIR _P2 _Q2) ===
+                     _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_DIV   *) _CEXP_DIV (_CEXP_NUM _M) (_CEXP_NUM _N) ===
+                     _CEXP_NUM (_DIV _M _N);
+    (* CEXP_DIV   *) _CEXP_DIV (_CEXP_NUM _M) (_CEXP_PAIR _P1 _Q1) ===
+                     _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_DIV   *) _CEXP_DIV (_CEXP_PAIR _P1 _Q1) (_CEXP_NUM _N) ===
+                     _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_DIV   *) _CEXP_DIV (_CEXP_PAIR _P1 _Q1) (_CEXP_PAIR _P2 _Q2) ===
+                     _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_MOD   *) _CEXP_MOD (_CEXP_NUM _M) (_CEXP_NUM _N) ===
+                     _CEXP_NUM (_MOD _M _N);
+    (* CEXP_MOD   *) _CEXP_MOD (_CEXP_NUM _M) (_CEXP_PAIR _P1 _Q1) ===
+                     _CEXP_NUM _M;
+    (* CEXP_MOD   *) _CEXP_MOD (_CEXP_PAIR _P1 _Q1) (_CEXP_NUM _N) ===
+                     _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_MOD   *) _CEXP_MOD (_CEXP_PAIR _P1 _Q1) (_CEXP_PAIR _P2 _Q2) ===
+                     _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_LESS  *) _CEXP_LESS (_CEXP_NUM _M) (_CEXP_NUM _N) ===
+                     _CEXP_NUM (_COND (_LESS _M _N) (_SUC (_NUMERAL _0))
                                                     (_NUMERAL _0));
-    (* CVAL_LESS  *) _CVAL_LESS (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
-                     _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_LESS  *) _CVAL_LESS (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
-                     _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_LESS  *) _CVAL_LESS (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
-                     _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_IF    *) _CVAL_IF (_CVAL_NUM (_SUC _M)) _P1 _Q1 === _P1;
-    (* CVAL_IF    *) _CVAL_IF (_CVAL_PAIR _P2 _Q2) _P1 _Q1 === _P1;
-    (* CVAL_IF    *) _CVAL_IF (_CVAL_NUM (_NUMERAL _0)) _P1 _Q1 === _Q1;
-    (* CVAL_FST   *) _CVAL_FST (_CVAL_PAIR _P1 _Q1) === _P1;
-    (* CVAL_FST   *) _CVAL_FST (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_SND   *) _CVAL_SND (_CVAL_PAIR _P1 _Q1) === _Q1;
-    (* CVAL_SND   *) _CVAL_SND (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0);
-    (* CVAL_ISPAIR *) _CVAL_ISPAIR (_CVAL_PAIR _P1 _Q1) ===
-                      _CVAL_NUM (_SUC (_NUMERAL _0));
-    (* CVAL_ISPAIR *) _CVAL_ISPAIR (_CVAL_NUM _M) ===
-                      _CVAL_NUM (_NUMERAL _0);
+    (* CEXP_LESS  *) _CEXP_LESS (_CEXP_NUM _M) (_CEXP_PAIR _P1 _Q1) ===
+                     _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_LESS  *) _CEXP_LESS (_CEXP_PAIR _P1 _Q1) (_CEXP_NUM _N) ===
+                     _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_LESS  *) _CEXP_LESS (_CEXP_PAIR _P1 _Q1) (_CEXP_PAIR _P2 _Q2) ===
+                     _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_IF    *) _CEXP_IF (_CEXP_NUM (_SUC _M)) _P1 _Q1 === _P1;
+    (* CEXP_IF    *) _CEXP_IF (_CEXP_PAIR _P2 _Q2) _P1 _Q1 === _P1;
+    (* CEXP_IF    *) _CEXP_IF (_CEXP_NUM (_NUMERAL _0)) _P1 _Q1 === _Q1;
+    (* CEXP_FST   *) _CEXP_FST (_CEXP_PAIR _P1 _Q1) === _P1;
+    (* CEXP_FST   *) _CEXP_FST (_CEXP_NUM _M) === _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_SND   *) _CEXP_SND (_CEXP_PAIR _P1 _Q1) === _Q1;
+    (* CEXP_SND   *) _CEXP_SND (_CEXP_NUM _M) === _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_ISPAIR *) _CEXP_ISPAIR (_CEXP_PAIR _P1 _Q1) ===
+                      _CEXP_NUM (_SUC (_NUMERAL _0));
+    (* CEXP_ISPAIR *) _CEXP_ISPAIR (_CEXP_NUM _M) ===
+                      _CEXP_NUM (_NUMERAL _0);
   ]
 End
 
@@ -162,7 +162,7 @@ Definition const_list_def:
   const_list (If x y z) = const_list x ++ const_list y ++ const_list z ∧
   const_list (App s xs) = (s,LENGTH xs)::FLAT (MAP const_list xs)
 Termination
-  wf_rel_tac ‘measure compute_val_size’
+  wf_rel_tac ‘measure compute_exp_size’
 End
 
 Definition var_list_def:
@@ -176,19 +176,19 @@ Definition var_list_def:
   var_list (If x y z) = var_list x ++ var_list y ++ var_list z ∧
   var_list (App s xs) = FLAT (MAP var_list xs)
 Termination
-  wf_rel_tac ‘measure compute_val_size’
+  wf_rel_tac ‘measure compute_exp_size’
 End
 
 (* A valid equation is:
  *   [] |- const var1 ... varN = expr
  * where:
- * - var1 ... varN all have type cval_ty
- * - expr contains only the variables var1 ... varN, and has type cval_ty
+ * - var1 ... varN all have type Cexp
+ * - expr contains only the variables var1 ... varN, and has type Cexp
  *)
 
 Definition check_var_def:
   check_var (Var s ty) =
-    (if ty = cval_ty then return s else
+    (if ty = Cexp then return s else
       failwith («Kernel.compute: ill-typed variable: » ^ s)) ∧
   check_var _ =
     failwith «Kernel.compute: non-variable argument on lhs of equation»
@@ -208,8 +208,8 @@ Definition check_eqn_def:
         (nm,ty) <- dest_const f ++
                 failwith «Kernel.compute: not a constant being applied on lhs»;
         args <- map check_var vs;
-        case dest_cval r of
-        | NONE => failwith «Kernel.compute: rhs is not a cval»
+        case dest_cexp r of
+        | NONE => failwith «Kernel.compute: rhs is not a cexp»
         | SOME cv =>
             do
               if EVERY (λv. MEM v args) (var_list cv) then return () else
@@ -230,25 +230,25 @@ Definition check_consts_def:
               «with no equation associated to it.»)
 End
 
-Definition check_cval_closed_def:
-  check_cval_closed (Var n) = F ∧
-  check_cval_closed (Num n) = T ∧
-  check_cval_closed (Pair p q) =
-    EVERY check_cval_closed [p;q] ∧
-  check_cval_closed (Fst p) =
-    check_cval_closed p ∧
-  check_cval_closed (Snd p) =
-    check_cval_closed p ∧
-  check_cval_closed (Ispair p) =
-    check_cval_closed p ∧
-  check_cval_closed (Binop bop p q) =
-    EVERY check_cval_closed [p;q] ∧
-  check_cval_closed (If p q r) =
-    EVERY check_cval_closed [p;q;r] ∧
-  check_cval_closed (App f cs) =
-    EVERY check_cval_closed cs
+Definition check_cexp_closed_def:
+  check_cexp_closed (Var n) = F ∧
+  check_cexp_closed (Num n) = T ∧
+  check_cexp_closed (Pair p q) =
+    EVERY check_cexp_closed [p;q] ∧
+  check_cexp_closed (Fst p) =
+    check_cexp_closed p ∧
+  check_cexp_closed (Snd p) =
+    check_cexp_closed p ∧
+  check_cexp_closed (Ispair p) =
+    check_cexp_closed p ∧
+  check_cexp_closed (Binop bop p q) =
+    EVERY check_cexp_closed [p;q] ∧
+  check_cexp_closed (If p q r) =
+    EVERY check_cexp_closed [p;q;r] ∧
+  check_cexp_closed (App f cs) =
+    EVERY check_cexp_closed cs
 Termination
-  wf_rel_tac ‘measure compute_val_size’ \\ rw [] \\ gs []
+  wf_rel_tac ‘measure compute_exp_size’ \\ rw [] \\ gs []
 End
 
 Definition compute_def:
@@ -257,20 +257,20 @@ Definition compute_def:
     if ¬compute_init ths then
       failwith «Kernel.compute: wrong theorems provided for initialization»
     else
-    case dest_cval tm of
-    | NONE => failwith «Kernel.compute: term is not a compute_val»
-    | SOME cval =>
+    case dest_cexp tm of
+    | NONE => failwith «Kernel.compute: term is not a compute_exp»
+    | SOME cexp =>
         do
-          if check_cval_closed cval then return () else
+          if check_cexp_closed cexp then return () else
             failwith «Kernel.compute: free variables in starting expression»;
           ceqs <- map check_eqn ceqs;
           ars <<- MAP (λ(f,(n,r)). (f,LENGTH n)) ceqs;
           map (λ(f,(n,r)). check_consts ars f r) ceqs;
-          case compute_interp compute_default_clock ceqs cval of
+          case compute_interp compute_default_clock ceqs cexp of
           | NONE => failwith «Kernel.compute: timeout»
           | SOME res =>
               do
-                c <- mk_eq (tm, cval2term res);
+                c <- mk_eq (tm, cexp2term res);
                 return (Sequent [] c)
               od
         od

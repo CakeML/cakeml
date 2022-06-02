@@ -1,5 +1,5 @@
 (*
-   Definitions of term embeddings for the Candle compute primitive.
+   Definitions of 'compute expressions' for the Candle compute primitive.
  *)
 
 open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory
@@ -11,89 +11,91 @@ val _ = numLib.prefer_num ();
 
 (* Numbers, bools *)
 
-Overload num_ty = “Tyapp «num» []”;
+Overload Num = “Tyapp «num» []”;
 
 Overload "_X" = “Var «x» Bool”;
 Overload "_TRUE" = “Const «T» Bool”;
 Overload "_FALSE" = “Const «F» Bool”;
 Overload "_COND_TM" =
-  “Const «COND» (Fun Bool (Fun num_ty (Fun num_ty num_ty)))”;
+  “Const «COND» (Fun Bool (Fun Num (Fun Num Num)))”;
 Overload "_COND" = “λt t1 t2. Comb (Comb (Comb _COND_TM t) t1) t2”;
 
-Overload "_0" = “Const «_0» num_ty”;
-Overload "_SUC_TM" = “Const «SUC» (Fun num_ty num_ty)”;
+Overload "_0" = “Const «_0» Num”;
+Overload "_SUC_TM" = “Const «SUC» (Fun Num Num)”;
 Overload "_SUC" = “λtm. Comb _SUC_TM tm”;
-Overload "_BIT0_TM" = “Const «BIT0» (Fun num_ty num_ty)”;
+Overload "_BIT0_TM" = “Const «BIT0» (Fun Num Num)”;
 Overload "_BIT0" = “λtm. Comb _BIT0_TM tm”;
-Overload "_BIT1_TM" = “Const «BIT1» (Fun num_ty num_ty)”;
+Overload "_BIT1_TM" = “Const «BIT1» (Fun Num Num)”;
 Overload "_BIT1" = “λtm. Comb _BIT1_TM tm”;
-Overload "_N" = “Var «n» num_ty”;
-Overload "_M" = “Var «m» num_ty”;
-Overload "_ADD_TM" = “Const «+» (Fun num_ty (Fun num_ty num_ty))”;
+Overload "_N" = “Var «n» Num”;
+Overload "_M" = “Var «m» Num”;
+Overload "_ADD_TM" = “Const «+» (Fun Num (Fun Num Num))”;
 Overload "_ADD" = “λt1 t2. Comb (Comb _ADD_TM t1) t2”;
-Overload "_SUB_TM" = “Const «-» (Fun num_ty (Fun num_ty num_ty))”;
+Overload "_SUB_TM" = “Const «-» (Fun Num (Fun Num Num))”;
 Overload "_SUB" = “λt1 t2. Comb (Comb _SUB_TM t1) t2”;
-Overload "_MUL_TM" = “Const «*» (Fun num_ty (Fun num_ty num_ty))”;
+Overload "_MUL_TM" = “Const «*» (Fun Num (Fun Num Num))”;
 Overload "_MUL" = “λt1 t2. Comb (Comb _MUL_TM t1) t2”;
-Overload "_MOD_TM" = “Const «MOD» (Fun num_ty (Fun num_ty num_ty))”;
+Overload "_MOD_TM" = “Const «MOD» (Fun Num (Fun Num Num))”;
 Overload "_MOD" = “λt1 t2. Comb (Comb _MOD_TM t1) t2”;
-Overload "_DIV_TM" = “Const «DIV» (Fun num_ty (Fun num_ty num_ty))”;
+Overload "_DIV_TM" = “Const «DIV» (Fun Num (Fun Num Num))”;
 Overload "_DIV" = “λt1 t2. Comb (Comb _DIV_TM t1) t2”;
-Overload "_LESS_TM" = “Const «<» (Fun num_ty (Fun num_ty Bool))”;
+Overload "_LESS_TM" = “Const «<» (Fun Num (Fun Num Bool))”;
 Overload "_LESS" = “λt1 t2. Comb (Comb _LESS_TM t1) t2”;
-Overload "_NUMERAL_TM" = “Const «NUMERAL» (Fun num_ty num_ty)”;
+Overload "_NUMERAL_TM" = “Const «NUMERAL» (Fun Num Num)”;
 Overload "_NUMERAL" = “λtm. Comb _NUMERAL_TM tm”;
 
-(* Pairs *)
+(* Compute expressions *)
 
-Overload cval_ty = “Tyapp «cval» []”;
-Overload cval_list_ty = “Tyapp «list» [cval_ty]”;
-Overload "_P1" = “Var «p1» cval_ty”;
-Overload "_P2" = “Var «p2» cval_ty”;
-Overload "_Q1" = “Var «q1» cval_ty”;
-Overload "_Q2" = “Var «q2» cval_ty”;
-Overload "_CS" = “Var «cs» cval_list_ty”;
-Overload "_CVAL_NIL_TM" = “Const «[]» cval_list_ty”;
-Overload "_CVAL_CONS_TM" =
-  “Const «::» (Fun cval_ty (Fun cval_list_ty cval_list_ty))”;
-Overload "_CVAL_CONS" = “λt1 t2. Comb (Comb _CVAL_CONS_TM t1) t2”;
-Overload "_CVAL_NUM_TM" = “Const «cval_num» (Fun num_ty cval_ty)”;
-Overload "_CVAL_NUM" = “λtm. Comb _CVAL_NUM_TM tm”;
-Overload "_CVAL_PAIR_TM" =
-  “Const «cval_pair» (Fun cval_ty (Fun cval_ty cval_ty))”;
-Overload "_CVAL_PAIR" = “λt1 t2. Comb (Comb _CVAL_PAIR_TM t1) t2”;
-Overload "_CVAL_VAR_TM" = “Const «cval_var» (Fun string_ty cval_ty)”
-Overload "_CVAL_VAR" = “λtm. Comb _CVAL_VAR_TM tm”
-Overload "_CVAL_ADD_TM" =
-  “Const «cval_add» (Fun cval_ty (Fun cval_ty cval_ty))”;
-Overload "_CVAL_ADD" = “λt1 t2. Comb (Comb _CVAL_ADD_TM t1) t2”;
-Overload "_CVAL_SUB_TM" =
-  “Const «cval_sub» (Fun cval_ty (Fun cval_ty cval_ty))”;
-Overload "_CVAL_SUB" = “λt1 t2. Comb (Comb _CVAL_SUB_TM t1) t2”;
-Overload "_CVAL_MUL_TM" =
-  “Const «cval_mul» (Fun cval_ty (Fun cval_ty cval_ty))”;
-Overload "_CVAL_MUL" = “λt1 t2. Comb (Comb _CVAL_MUL_TM t1) t2”;
-Overload "_CVAL_MOD_TM" =
-  “Const «cval_mod» (Fun cval_ty (Fun cval_ty cval_ty))”;
-Overload "_CVAL_MOD" = “λt1 t2. Comb (Comb _CVAL_MOD_TM t1) t2”;
-Overload "_CVAL_DIV_TM" =
-  “Const «cval_div» (Fun cval_ty (Fun cval_ty cval_ty))”;
-Overload "_CVAL_DIV" = “λt1 t2. Comb (Comb _CVAL_DIV_TM t1) t2”;
-Overload "_CVAL_LESS_TM" =
-  “Const «cval_less» (Fun cval_ty (Fun cval_ty cval_ty))”;
-Overload "_CVAL_LESS" = “λt1 t2. Comb (Comb _CVAL_LESS_TM t1) t2”;
-Overload "_CVAL_APP_TM" =
-  “Const «cval_app» (Fun string_ty (Fun cval_list_ty cval_ty))”;
-Overload "_CVAL_APP" = “λt1 t2. Comb (Comb _CVAL_APP_TM t1) t2”;
-Overload "_CVAL_IF_TM" =
-  “Const «cval_if» (Fun cval_ty (Fun cval_ty (Fun cval_ty cval_ty)))”;
-Overload "_CVAL_IF" = “λt1 t2 t3. Comb (Comb (Comb _CVAL_IF_TM t1) t2) t3”;
-Overload "_CVAL_FST_TM" = “Const «cval_fst» (Fun cval_ty cval_ty)”;
-Overload "_CVAL_FST" = “λtm. Comb _CVAL_FST_TM tm”;
-Overload "_CVAL_SND_TM" = “Const «cval_snd» (Fun cval_ty cval_ty)”;
-Overload "_CVAL_SND" = “λtm. Comb _CVAL_SND_TM tm”;
-Overload "_CVAL_ISPAIR_TM" = “Const «cval_ispair» (Fun cval_ty cval_ty)”;
-Overload "_CVAL_ISPAIR" = “λtm. Comb _CVAL_ISPAIR_TM tm”;
+Overload Cexp = “Tyapp «cexp» []”;
+Overload Cexp_list = “Tyapp «list» [Cexp]”;
+Overload "_P1" = “Var «p1» Cexp”;
+Overload "_P2" = “Var «p2» Cexp”;
+Overload "_Q1" = “Var «q1» Cexp”;
+Overload "_Q2" = “Var «q2» Cexp”;
+Overload "_CS" = “Var «cs» Cexp_list”;
+(*
+Overload "_CEXP_NIL_TM" = “Const «[]» Cexp_list”;
+Overload "_CEXP_CONS_TM" =
+  “Const «::» (Fun Cexp (Fun Cexp_list Cexp_list))”;
+Overload "_CEXP_CONS" = “λt1 t2. Comb (Comb _CEXP_CONS_TM t1) t2”;
+ *)
+Overload "_CEXP_NUM_TM" = “Const «Cexp_num» (Fun Num Cexp)”;
+Overload "_CEXP_NUM" = “λtm. Comb _CEXP_NUM_TM tm”;
+Overload "_CEXP_PAIR_TM" = “Const «Cexp_pair» (Fun Cexp (Fun Cexp Cexp))”;
+Overload "_CEXP_PAIR" = “λt1 t2. Comb (Comb _CEXP_PAIR_TM t1) t2”;
+
+Overload "_CEXP_VAR_TM" = “Const «Cexp_var» (Fun string_ty Cexp)”
+Overload "_CEXP_VAR" = “λtm. Comb _CEXP_VAR_TM tm”
+Overload "_CEXP_ADD_TM" =
+  “Const «Cexp_add» (Fun Cexp (Fun Cexp Cexp))”;
+Overload "_CEXP_ADD" = “λt1 t2. Comb (Comb _CEXP_ADD_TM t1) t2”;
+Overload "_CEXP_SUB_TM" =
+  “Const «Cexp_sub» (Fun Cexp (Fun Cexp Cexp))”;
+Overload "_CEXP_SUB" = “λt1 t2. Comb (Comb _CEXP_SUB_TM t1) t2”;
+Overload "_CEXP_MUL_TM" =
+  “Const «Cexp_mul» (Fun Cexp (Fun Cexp Cexp))”;
+Overload "_CEXP_MUL" = “λt1 t2. Comb (Comb _CEXP_MUL_TM t1) t2”;
+Overload "_CEXP_MOD_TM" =
+  “Const «Cexp_mod» (Fun Cexp (Fun Cexp Cexp))”;
+Overload "_CEXP_MOD" = “λt1 t2. Comb (Comb _CEXP_MOD_TM t1) t2”;
+Overload "_CEXP_DIV_TM" =
+  “Const «Cexp_div» (Fun Cexp (Fun Cexp Cexp))”;
+Overload "_CEXP_DIV" = “λt1 t2. Comb (Comb _CEXP_DIV_TM t1) t2”;
+Overload "_CEXP_LESS_TM" =
+  “Const «Cexp_less» (Fun Cexp (Fun Cexp Cexp))”;
+Overload "_CEXP_LESS" = “λt1 t2. Comb (Comb _CEXP_LESS_TM t1) t2”;
+Overload "_CEXP_APP_TM" =
+  “Const «Cexp_app» (Fun string_ty (Fun Cexp_list Cexp))”;
+Overload "_CEXP_APP" = “λt1 t2. Comb (Comb _CEXP_APP_TM t1) t2”;
+Overload "_CEXP_IF_TM" =
+  “Const «Cexp_if» (Fun Cexp (Fun Cexp (Fun Cexp Cexp)))”;
+Overload "_CEXP_IF" = “λt1 t2 t3. Comb (Comb (Comb _CEXP_IF_TM t1) t2) t3”;
+Overload "_CEXP_FST_TM" = “Const «Cexp_fst» (Fun Cexp Cexp)”;
+Overload "_CEXP_FST" = “λtm. Comb _CEXP_FST_TM tm”;
+Overload "_CEXP_SND_TM" = “Const «Cexp_snd» (Fun Cexp Cexp)”;
+Overload "_CEXP_SND" = “λtm. Comb _CEXP_SND_TM tm”;
+Overload "_CEXP_ISPAIR_TM" = “Const «Cexp_ispair» (Fun Cexp Cexp)”;
+Overload "_CEXP_ISPAIR" = “λtm. Comb _CEXP_ISPAIR_TM tm”;
 
 (* -------------------------------------------------------------------------
  * Bools
@@ -122,7 +124,7 @@ Termination
 End
 
 (* -------------------------------------------------------------------------
- * Compute values
+ * Compute expressions
  * ------------------------------------------------------------------------- *)
 
 Datatype:
@@ -130,50 +132,50 @@ Datatype:
 End
 
 Datatype:
-  compute_val = Pair compute_val compute_val
+  compute_exp = Pair compute_exp compute_exp
               | Num num
               | Var mlstring
-              | App mlstring (compute_val list)
-              | If compute_val compute_val compute_val
-              | Fst compute_val
-              | Snd compute_val
-              | Ispair compute_val
-              | Binop binop compute_val compute_val
+              | App mlstring (compute_exp list)
+              | If compute_exp compute_exp compute_exp
+              | Fst compute_exp
+              | Snd compute_exp
+              | Ispair compute_exp
+              | Binop binop compute_exp compute_exp
 End
 
 Definition app_type_def:
-  app_type arity = FUNPOW (Fun cval_ty) arity cval_ty
+  app_type arity = FUNPOW (Fun Cexp) arity Cexp
 End
 
 Theorem app_type:
-  app_type 0 = cval_ty ∧
-  app_type (SUC n) = Fun cval_ty (app_type n)
+  app_type 0 = Cexp ∧
+  app_type (SUC n) = Fun Cexp (app_type n)
 Proof
   rw [app_type_def, FUNPOW_SUC]
 QED
 
 Definition bop2term_def:
-  bop2term Add = _CVAL_ADD ∧
-  bop2term Sub = _CVAL_SUB ∧
-  bop2term Mul = _CVAL_MUL ∧
-  bop2term Div = _CVAL_DIV ∧
-  bop2term Mod = _CVAL_MOD ∧
-  bop2term Less = _CVAL_LESS
+  bop2term Add = _CEXP_ADD ∧
+  bop2term Sub = _CEXP_SUB ∧
+  bop2term Mul = _CEXP_MUL ∧
+  bop2term Div = _CEXP_DIV ∧
+  bop2term Mod = _CEXP_MOD ∧
+  bop2term Less = _CEXP_LESS
 End
 
-Definition cval2term_def:
-  cval2term (Num n) = _CVAL_NUM (_NUMERAL (num2bit n)) ∧
-  cval2term (Pair p q) = _CVAL_PAIR (cval2term p) (cval2term q) ∧
-  cval2term (Fst p) = _CVAL_FST (cval2term p) ∧
-  cval2term (Snd p) = _CVAL_SND (cval2term p) ∧
-  cval2term (Ispair p) = _CVAL_ISPAIR (cval2term p) ∧
-  cval2term (Binop bop p q) =  bop2term bop (cval2term p) (cval2term q) ∧
-  cval2term (If p q r) = _CVAL_IF (cval2term p) (cval2term q) (cval2term r) ∧
-  cval2term (Var s) = Var s cval_ty ∧
-  cval2term (App s cs) =
-    FOLDL Comb (Const s (app_type (LENGTH cs))) (MAP cval2term cs)
+Definition cexp2term_def:
+  cexp2term (Num n) = _CEXP_NUM (_NUMERAL (num2bit n)) ∧
+  cexp2term (Pair p q) = _CEXP_PAIR (cexp2term p) (cexp2term q) ∧
+  cexp2term (Fst p) = _CEXP_FST (cexp2term p) ∧
+  cexp2term (Snd p) = _CEXP_SND (cexp2term p) ∧
+  cexp2term (Ispair p) = _CEXP_ISPAIR (cexp2term p) ∧
+  cexp2term (Binop bop p q) =  bop2term bop (cexp2term p) (cexp2term q) ∧
+  cexp2term (If p q r) = _CEXP_IF (cexp2term p) (cexp2term q) (cexp2term r) ∧
+  cexp2term (Var s) = Var s Cexp ∧
+  cexp2term (App s cs) =
+    FOLDL Comb (Const s (app_type (LENGTH cs))) (MAP cexp2term cs)
 Termination
-  wf_rel_tac ‘measure compute_val_size’
+  wf_rel_tac ‘measure compute_exp_size’
 End
 
 (* DIV and MOD definitions that are defined for zero (and as in HOL Light). *)

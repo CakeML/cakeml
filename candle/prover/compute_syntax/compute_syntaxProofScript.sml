@@ -217,7 +217,7 @@ QED
 Theorem term_ok_NUMERAL[simp]:
   numeral_thy_ok thy ⇒
     term_ok (sigof thy) (_NUMERAL N) = (term_ok (sigof thy) N ∧
-                                        N has_type num_ty)
+                                        N has_type Num)
 Proof
   rw [EQ_IMP_THM]
   \\ gs [numeral_thy_ok_terms_ok, term_ok_def, term_ok_welltyped,
@@ -228,20 +228,20 @@ Proof
 QED
 
 Theorem NUMERAL_has_type[simp]:
-  _NUMERAL N has_type num_ty ⇔ N has_type num_ty
+  _NUMERAL N has_type Num ⇔ N has_type Num
 Proof
   rw [Ntimes has_type_cases 3]
 QED
 
 Theorem has_type_0[simp]:
-  _0 has_type num_ty
+  _0 has_type Num
 Proof
   rw [Ntimes has_type_cases 3]
 QED
 
 Theorem term_ok_SUC[simp]:
   numeral_thy_ok thy ⇒
-    term_ok (sigof thy) (_SUC N) = (term_ok (sigof thy) N ∧ N has_type num_ty)
+    term_ok (sigof thy) (_SUC N) = (term_ok (sigof thy) N ∧ N has_type Num)
 Proof
   rw [EQ_IMP_THM]
   \\ gs [numeral_thy_ok_terms_ok, term_ok_def, term_ok_welltyped,
@@ -252,7 +252,7 @@ Proof
 QED
 
 Theorem SUC_has_type[simp]:
-  _SUC N has_type num_ty ⇔ N has_type num_ty
+  _SUC N has_type Num ⇔ N has_type Num
 Proof
   rw [Ntimes has_type_cases 3]
 QED
@@ -263,7 +263,7 @@ QED
 
 Theorem NUMERAL_eqn:
   numeral_thy_ok thy ∧
-  term_ok (sigof thy) n ∧ n has_type num_ty ⇒
+  term_ok (sigof thy) n ∧ n has_type Num ⇒
     (thy,[]) |- _NUMERAL n === n
 Proof
   rw [numeral_thy_ok_def]
@@ -274,7 +274,7 @@ QED
 
 Theorem BIT0_eqn:
   numeral_thy_ok thy ∧
-  term_ok (sigof thy) n ∧ n has_type num_ty ⇒
+  term_ok (sigof thy) n ∧ n has_type Num ⇒
     (thy,[]) |- _BIT0 n === _ADD n n
 Proof
   rw [numeral_thy_ok_def]
@@ -285,7 +285,7 @@ QED
 
 Theorem BIT1_eqn:
   numeral_thy_ok thy ∧
-  term_ok (sigof thy) n ∧ n has_type num_ty ⇒
+  term_ok (sigof thy) n ∧ n has_type Num ⇒
     (thy,[]) |- _BIT1 n === _SUC (_ADD n n)
 Proof
   rw [numeral_thy_ok_def]
@@ -297,7 +297,7 @@ QED
 Theorem ADD_eqn:
   numeral_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
-  m has_type num_ty ∧ n has_type num_ty ⇒
+  m has_type Num ∧ n has_type Num ⇒
     (thy,[]) |- _ADD (_NUMERAL _0) n === n ∧
     (thy,[]) |- _ADD (_SUC m) n === _SUC (_ADD m n)
 Proof
@@ -314,7 +314,7 @@ QED
 Theorem SUB_eqn:
   numeral_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
-  m has_type num_ty ∧ n has_type num_ty ⇒
+  m has_type Num ∧ n has_type Num ⇒
     (thy,[]) |- _SUB (_NUMERAL _0) n === _NUMERAL _0 ∧
     (thy,[]) |- _SUB m (_NUMERAL _0) === m ∧
     (thy,[]) |- _SUB (_SUC m) (_SUC n) === _SUB m n
@@ -336,7 +336,7 @@ QED
 Theorem MUL_eqn:
   numeral_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
-  m has_type num_ty ∧ n has_type num_ty ⇒
+  m has_type Num ∧ n has_type Num ⇒
     (thy,[]) |- _MUL (_NUMERAL _0) n === _NUMERAL _0 ∧
     (thy,[]) |- _MUL (_SUC m) n === _ADD n (_MUL m n)
 Proof
@@ -353,7 +353,7 @@ QED
 Theorem LESS_eqn:
   numeral_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
-  m has_type num_ty ∧ n has_type num_ty ⇒
+  m has_type Num ∧ n has_type Num ⇒
     (thy,[]) |- _LESS m (_NUMERAL _0) === _FALSE ∧
     (thy,[]) |- _LESS (_NUMERAL _0) (_SUC n) === _TRUE ∧
     (thy,[]) |- _LESS (_SUC m) (_SUC n) === _LESS m n
@@ -375,7 +375,7 @@ QED
 Theorem EQ_eqn:
   numeral_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
-  m has_type num_ty ∧ n has_type num_ty ⇒
+  m has_type Num ∧ n has_type Num ⇒
     (thy,[]) |- (_NUMERAL _0 === _NUMERAL _0) === _TRUE ∧
     (thy,[]) |- (_NUMERAL _0 === _SUC n) === _FALSE ∧
     (thy,[]) |- (_SUC m === _NUMERAL _0) === _FALSE ∧
@@ -393,16 +393,16 @@ Proof
   \\ qpat_x_assum ‘_ |- (_SUC _ === _SUC _) === _’ assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M;n,_N]’ mp_tac) proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
-  \\ ‘Equal (typeof (_SUC m)) = Equal num_ty’ by gs []
+  \\ ‘Equal (typeof (_SUC m)) = Equal Num’ by gs []
   \\ pop_assum (SUBST1_TAC o SYM) \\ simp [GSYM equation_def]
-  \\ ‘Equal (typeof m) = Equal num_ty’ by gs [WELLTYPED_LEMMA]
+  \\ ‘Equal (typeof m) = Equal Num’ by gs [WELLTYPED_LEMMA]
   \\ pop_assum (SUBST1_TAC o SYM) \\ simp [GSYM equation_def]
 QED
 
 Theorem COND_eqn:
   bool_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
-  m has_type num_ty ∧ n has_type num_ty ⇒
+  m has_type Num ∧ n has_type Num ⇒
     (thy,[]) |- _COND _TRUE m n === m ∧
     (thy,[]) |- _COND _FALSE m n === n
 Proof
@@ -421,7 +421,7 @@ QED
 Theorem DIV_eqn:
   numeral_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
-  m has_type num_ty ∧ n has_type num_ty ⇒
+  m has_type Num ∧ n has_type Num ⇒
     (thy,[]) |- _DIV m n ===
                 _COND (n === _NUMERAL _0) (_NUMERAL _0)
                       (_COND (_LESS m n) (_NUMERAL _0)
@@ -437,7 +437,7 @@ QED
 Theorem MOD_eqn:
   numeral_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
-  m has_type num_ty ∧ n has_type num_ty ⇒
+  m has_type Num ∧ n has_type Num ⇒
     (thy,[]) |- _MOD m n ===
                 _COND (n === _NUMERAL _0) m
                       (_COND (_LESS m n) m
@@ -452,8 +452,8 @@ QED
 
 (* TODO Move *)
 Theorem COND_has_type[simp]:
-  _COND p m n has_type num_ty ⇔
-  p has_type Bool ∧ m has_type num_ty ∧ n has_type num_ty
+  _COND p m n has_type Num ⇔
+  p has_type Bool ∧ m has_type Num ∧ n has_type Num
 Proof
   rw [Ntimes has_type_cases 3]
   \\ rw [Ntimes has_type_cases 3]
@@ -461,14 +461,14 @@ QED
 
 (* TODO Move *)
 Theorem LESS_has_type[simp]:
-  _LESS m n has_type Bool ⇔ m has_type num_ty ∧ n has_type num_ty
+  _LESS m n has_type Bool ⇔ m has_type Num ∧ n has_type Num
 Proof
   rw [Ntimes has_type_cases 3]
 QED
 
 (* TODO Move *)
 Theorem SUB_has_type[simp]:
-  _SUB m n has_type num_ty ⇔ m has_type num_ty ∧ n has_type num_ty
+  _SUB m n has_type Num ⇔ m has_type Num ∧ n has_type Num
 Proof
   rw [Ntimes has_type_cases 3]
 QED
@@ -476,21 +476,21 @@ QED
 
 (* TODO Move *)
 Theorem MOD_has_type[simp]:
-  _MOD m n has_type num_ty ⇔ m has_type num_ty ∧ n has_type num_ty
+  _MOD m n has_type Num ⇔ m has_type Num ∧ n has_type Num
 Proof
   rw [Ntimes has_type_cases 3]
 QED
 
 (* TODO Move *)
 Theorem DIV_has_type[simp]:
-  _DIV m n has_type num_ty ⇔ m has_type num_ty ∧ n has_type num_ty
+  _DIV m n has_type Num ⇔ m has_type Num ∧ n has_type Num
 Proof
   rw [Ntimes has_type_cases 3]
 QED
 
 Theorem MOD_eqn1:
   numeral_thy_ok thy ∧
-  term_ok (sigof thy) m ∧ m has_type num_ty ⇒
+  term_ok (sigof thy) m ∧ m has_type Num ⇒
     (thy,[]) |- _MOD m (_NUMERAL _0) === m
 Proof
   rw []
@@ -508,7 +508,7 @@ QED
 
 Theorem DIV_eqn1:
   numeral_thy_ok thy ∧
-  term_ok (sigof thy) m ∧ m has_type num_ty ⇒
+  term_ok (sigof thy) m ∧ m has_type Num ⇒
     (thy,[]) |- _DIV m (_NUMERAL _0) === _NUMERAL _0
 Proof
   rw []
@@ -529,7 +529,7 @@ Theorem BIT0_0:
     (thy,[]) |- _BIT0 _0 === _0
 Proof
   strip_tac
-  \\ ‘term_ok (sigof thy) _0 ∧ _0 has_type num_ty’
+  \\ ‘term_ok (sigof thy) _0 ∧ _0 has_type Num’
     by gs [numeral_thy_ok_terms_ok, term_ok_def, has_type_rules]
   \\ drule_all_then assume_tac BIT0_eqn
   \\ irule trans_equation_simple
@@ -544,13 +544,13 @@ QED
  * ------------------------------------------------------------------------- *)
 
 Theorem num2term_typeof[simp]:
-  typeof (num2term n) = num_ty
+  typeof (num2term n) = Num
 Proof
   Induct_on ‘n’ \\ simp [num2term_def]
 QED
 
 Theorem num2term_has_type[simp]:
-  num2term n has_type num_ty
+  num2term n has_type Num
 Proof
   Induct_on ‘n’ \\ rw [num2term_def]
   \\ rw [Once has_type_cases]
@@ -578,14 +578,14 @@ Proof
 QED
 
 Theorem num2bit_typeof[simp]:
-  ∀n. typeof (num2bit n) = num_ty
+  ∀n. typeof (num2bit n) = Num
 Proof
   ho_match_mp_tac num2bit_ind \\ rw []
   \\ rw [Once num2bit_def]
 QED
 
 Theorem num2bit_has_type[simp]:
-  ∀n. num2bit n has_type num_ty
+  ∀n. num2bit n has_type Num
 Proof
   ho_match_mp_tac num2bit_ind \\ rw []
   \\ rw [Once num2bit_def]
@@ -628,13 +628,13 @@ Proof
     \\ irule replaceL1
     \\ irule_at Any NUMERAL_eqn
     \\ simp [numeral_thy_ok_terms_ok, has_type_rules]
-    \\ ‘term_ok (sigof thy) M ∧ M has_type num_ty’
+    \\ ‘term_ok (sigof thy) M ∧ M has_type Num’
       by fs [Abbr ‘M’, num2term_term_ok]
     \\ rw [ADD_eqn, SF SFY_ss])
   \\ rw [ADD_CLAUSES, num2term_def] \\ fs []
   \\ qmatch_goalsub_abbrev_tac ‘_ADD (_SUC N) M’
-  \\ ‘term_ok (sigof thy) M ∧ M has_type num_ty ∧
-      term_ok (sigof thy) N ∧ N has_type num_ty’
+  \\ ‘term_ok (sigof thy) M ∧ M has_type Num ∧
+      term_ok (sigof thy) N ∧ N has_type Num’
       by fs [Abbr ‘M’, Abbr ‘N’, num2term_term_ok]
   \\ irule replaceR2
   \\ first_x_assum (irule_at Any)
@@ -661,7 +661,7 @@ Proof
     \\ irule_at Any NUMERAL_eqn \\ simp [numeral_thy_ok_terms_ok]
     \\ irule trans_equation_simple
     \\ irule_at Any NUMERAL_eqn \\ simp [numeral_thy_ok_terms_ok]
-    \\ ‘term_ok (sigof thy) M ∧ M has_type num_ty’
+    \\ ‘term_ok (sigof thy) M ∧ M has_type Num’
       by fs [Abbr ‘M’, num2term_term_ok, numeral_thy_ok_terms_ok]
     \\ rw [SUB_eqn, SF SFY_ss])
   \\ Cases \\ gs [num2term_def]
@@ -669,7 +669,7 @@ Proof
     qabbrev_tac ‘M = _SUC (num2term m)’
     \\ irule replaceL2
     \\ irule_at Any NUMERAL_eqn \\ simp [numeral_thy_ok_terms_ok]
-    \\ ‘term_ok (sigof thy) M ∧ M has_type num_ty’
+    \\ ‘term_ok (sigof thy) M ∧ M has_type Num’
       by fs [Abbr ‘M’, num2term_term_ok, numeral_thy_ok_terms_ok]
     \\ rw [SUB_eqn, SF SFY_ss])
   \\ rename [‘m - n’]
@@ -697,7 +697,7 @@ Proof
     \\ irule_at Any NUMERAL_eqn \\ simp [numeral_thy_ok_terms_ok]
     \\ irule trans_equation_simple
     \\ irule_at Any NUMERAL_eqn \\ simp [numeral_thy_ok_terms_ok]
-    \\ ‘term_ok (sigof thy) M ∧ M has_type num_ty’
+    \\ ‘term_ok (sigof thy) M ∧ M has_type Num’
       by fs [Abbr ‘M’, num2term_term_ok, numeral_thy_ok_terms_ok]
     \\ rw [MUL_eqn, SF SFY_ss])
   \\ rw [MULT_SUC, num2term_def]
@@ -726,7 +726,7 @@ Proof
     \\ qmatch_goalsub_abbrev_tac ‘_SUC M’
     \\ irule replaceL1
     \\ irule_at Any NUMERAL_eqn \\ simp [numeral_thy_ok_terms_ok]
-    \\ ‘term_ok (sigof thy) M ∧ M has_type num_ty’
+    \\ ‘term_ok (sigof thy) M ∧ M has_type Num’
       by fs [Abbr ‘M’, num2term_term_ok, numeral_thy_ok_terms_ok]
     \\ rw [LESS_eqn, SF SFY_ss])
   \\ Cases \\ gs [num2term_def, bool2term_def]
@@ -734,7 +734,7 @@ Proof
     qmatch_goalsub_abbrev_tac ‘_LESS M _’
     \\ irule replaceL2
     \\ irule_at Any NUMERAL_eqn \\ simp [numeral_thy_ok_terms_ok]
-    \\ ‘term_ok (sigof thy) M ∧ M has_type num_ty’
+    \\ ‘term_ok (sigof thy) M ∧ M has_type Num’
       by fs [Abbr ‘M’, num2term_term_ok, numeral_thy_ok_terms_ok]
     \\ rw [LESS_eqn, SF SFY_ss])
   \\ rename [‘m < n’]
@@ -957,12 +957,12 @@ Theorem num2bit_num2term:
     ∀n. (thy,[]) |- num2bit n === num2term n
 Proof
   strip_tac \\ ho_match_mp_tac num2bit_ind \\ rw []
-  \\ ‘term_ok (sigof thy) _0 ∧ _0 has_type num_ty’
+  \\ ‘term_ok (sigof thy) _0 ∧ _0 has_type Num’
     by fs [numeral_thy_ok_terms_ok, has_type_rules]
   \\ rw [num2term_def, Once num2bit_def, proves_REFL]
   >- (
     qabbrev_tac ‘N = num2term (n DIV 2)’
-    \\ ‘term_ok (sigof thy) N ∧ N has_type num_ty’
+    \\ ‘term_ok (sigof thy) N ∧ N has_type Num’
       by fs [Abbr ‘N’, num2term_term_ok]
     \\ ‘(thy,[]) |- _BIT0 (num2bit (n DIV 2)) === _BIT0 N’
       by rw [MK_COMB_simple, proves_REFL, numeral_thy_ok_terms_ok]
@@ -981,7 +981,7 @@ Proof
     \\ irule_at Any ADD_num2term \\ fs [])
   >- (
     qabbrev_tac ‘N = num2term (n DIV 2)’
-    \\ ‘term_ok (sigof thy) N ∧ N has_type num_ty’
+    \\ ‘term_ok (sigof thy) N ∧ N has_type Num’
       by fs [Abbr ‘N’, num2term_term_ok]
     \\ ‘(thy,[]) |- _BIT1 (num2bit (n DIV 2)) === _BIT1 N’
       by rw [MK_COMB_simple, proves_REFL, numeral_thy_ok_terms_ok]
@@ -1113,264 +1113,264 @@ Theorem LESS_bool2term_num2bit =
  * Compute values
  * ------------------------------------------------------------------------- *)
 
-Definition cval_consts_def:
-  cval_consts (Num n) = {} ∧
-  cval_consts (Var s) = {} ∧
-  cval_consts (Pair p q) = cval_consts p ∪ cval_consts q ∧
-  cval_consts (Fst p) = cval_consts p ∧
-  cval_consts (Snd p) = cval_consts p ∧
-  cval_consts (Ispair p) = cval_consts p ∧
-  cval_consts (Binop bop p q) = cval_consts p ∪ cval_consts q ∧
-  cval_consts (If p q r) =  cval_consts p ∪ cval_consts q ∪ cval_consts r ∧
-  cval_consts (App s cs) = {s, LENGTH cs} ∪ BIGUNION (set (MAP cval_consts cs))
+Definition cexp_consts_def:
+  cexp_consts (Num n) = {} ∧
+  cexp_consts (Var s) = {} ∧
+  cexp_consts (Pair p q) = cexp_consts p ∪ cexp_consts q ∧
+  cexp_consts (Fst p) = cexp_consts p ∧
+  cexp_consts (Snd p) = cexp_consts p ∧
+  cexp_consts (Ispair p) = cexp_consts p ∧
+  cexp_consts (Binop bop p q) = cexp_consts p ∪ cexp_consts q ∧
+  cexp_consts (If p q r) =  cexp_consts p ∪ cexp_consts q ∪ cexp_consts r ∧
+  cexp_consts (App s cs) = {s, LENGTH cs} ∪ BIGUNION (set (MAP cexp_consts cs))
 Termination
-  wf_rel_tac ‘measure compute_val_size’
+  wf_rel_tac ‘measure compute_exp_size’
 End
 
-Definition cval_vars_def:
-  cval_vars (Num n) = {} ∧
-  cval_vars (Var s) = {s} ∧
-  cval_vars (Pair p q) = cval_vars p ∪ cval_vars q ∧
-  cval_vars (Fst p) = cval_vars p ∧
-  cval_vars (Snd p) = cval_vars p ∧
-  cval_vars (Ispair p) = cval_vars p ∧
-  cval_vars (Binop bop p q) = cval_vars p ∪ cval_vars q ∧
-  cval_vars (If p q r) =  cval_vars p ∪ cval_vars q ∪ cval_vars r ∧
-  cval_vars (App s cs) = BIGUNION (set (MAP cval_vars cs))
+Definition cexp_vars_def:
+  cexp_vars (Num n) = {} ∧
+  cexp_vars (Var s) = {s} ∧
+  cexp_vars (Pair p q) = cexp_vars p ∪ cexp_vars q ∧
+  cexp_vars (Fst p) = cexp_vars p ∧
+  cexp_vars (Snd p) = cexp_vars p ∧
+  cexp_vars (Ispair p) = cexp_vars p ∧
+  cexp_vars (Binop bop p q) = cexp_vars p ∪ cexp_vars q ∧
+  cexp_vars (If p q r) =  cexp_vars p ∪ cexp_vars q ∪ cexp_vars r ∧
+  cexp_vars (App s cs) = BIGUNION (set (MAP cexp_vars cs))
 Termination
-  wf_rel_tac ‘measure compute_val_size’
+  wf_rel_tac ‘measure compute_exp_size’
 End
 
-(* The semantics of 'ill-typed' operations on the compute_val type is to
+(* The semantics of 'ill-typed' operations on the compute_exp type is to
  * return the number 0 (i.e. Num 0n).
  *)
 
 Definition compute_thy_ok_def:
   compute_thy_ok thy ⇔
     numeral_thy_ok thy ∧
-    (* cval_add *)
-    (thy,[]) |- _CVAL_ADD (_CVAL_NUM _M) (_CVAL_NUM _N) ===
-                _CVAL_NUM (_ADD _M _N) ∧
-    (thy,[]) |- _CVAL_ADD (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
-                _CVAL_NUM _M ∧
-    (thy,[]) |- _CVAL_ADD (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
-                _CVAL_NUM _N ∧
-    (thy,[]) |- _CVAL_ADD (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
-                _CVAL_NUM (_NUMERAL _0) ∧
-    (* cval_sub *)
-    (thy,[]) |- _CVAL_SUB (_CVAL_NUM _M) (_CVAL_NUM _N) ===
-                _CVAL_NUM (_SUB _M _N) ∧
-    (thy,[]) |- _CVAL_SUB (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
-                _CVAL_NUM _M ∧
-    (thy,[]) |- _CVAL_SUB (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
-                _CVAL_NUM (_NUMERAL _0) ∧
-    (thy,[]) |- _CVAL_SUB (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
-                _CVAL_NUM (_NUMERAL _0) ∧
-    (* cval_mul *)
-    (thy,[]) |- _CVAL_MUL (_CVAL_NUM _M) (_CVAL_NUM _N) ===
-                _CVAL_NUM (_MUL _M _N) ∧
-    (thy,[]) |- _CVAL_MUL (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
-                _CVAL_NUM (_NUMERAL _0) ∧
-    (thy,[]) |- _CVAL_MUL (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
-                _CVAL_NUM (_NUMERAL _0) ∧
-    (thy,[]) |- _CVAL_MUL (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
-                _CVAL_NUM (_NUMERAL _0) ∧
-    (* cval_div *)
-    (thy,[]) |- _CVAL_DIV (_CVAL_NUM _M) (_CVAL_NUM _N) ===
-                _CVAL_NUM (_DIV _M _N) ∧
-    (thy,[]) |- _CVAL_DIV (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
-                _CVAL_NUM (_NUMERAL _0) ∧
-    (thy,[]) |- _CVAL_DIV (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
-                _CVAL_NUM (_NUMERAL _0) ∧
-    (thy,[]) |- _CVAL_DIV (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
-                _CVAL_NUM (_NUMERAL _0) ∧
-    (* cval_mod *)
-    (thy,[]) |- _CVAL_MOD (_CVAL_NUM _M) (_CVAL_NUM _N) ===
-                _CVAL_NUM (_MOD _M _N) ∧
-    (thy,[]) |- _CVAL_MOD (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
-                _CVAL_NUM _M ∧
-    (thy,[]) |- _CVAL_MOD (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
-                _CVAL_NUM (_NUMERAL _0) ∧
-    (thy,[]) |- _CVAL_MOD (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
-                _CVAL_NUM (_NUMERAL _0) ∧
-    (* cval_less *)
-    (thy,[]) |- _CVAL_LESS (_CVAL_NUM _M) (_CVAL_NUM _N) ===
-                _CVAL_NUM (_COND (_LESS _M _N) (_SUC (_NUMERAL _0))
+    (* Cexp_add *)
+    (thy,[]) |- _CEXP_ADD (_CEXP_NUM _M) (_CEXP_NUM _N) ===
+                _CEXP_NUM (_ADD _M _N) ∧
+    (thy,[]) |- _CEXP_ADD (_CEXP_NUM _M) (_CEXP_PAIR _P1 _Q1) ===
+                _CEXP_NUM _M ∧
+    (thy,[]) |- _CEXP_ADD (_CEXP_PAIR _P1 _Q1) (_CEXP_NUM _N) ===
+                _CEXP_NUM _N ∧
+    (thy,[]) |- _CEXP_ADD (_CEXP_PAIR _P1 _Q1) (_CEXP_PAIR _P2 _Q2) ===
+                _CEXP_NUM (_NUMERAL _0) ∧
+    (* Cexp_sub *)
+    (thy,[]) |- _CEXP_SUB (_CEXP_NUM _M) (_CEXP_NUM _N) ===
+                _CEXP_NUM (_SUB _M _N) ∧
+    (thy,[]) |- _CEXP_SUB (_CEXP_NUM _M) (_CEXP_PAIR _P1 _Q1) ===
+                _CEXP_NUM _M ∧
+    (thy,[]) |- _CEXP_SUB (_CEXP_PAIR _P1 _Q1) (_CEXP_NUM _N) ===
+                _CEXP_NUM (_NUMERAL _0) ∧
+    (thy,[]) |- _CEXP_SUB (_CEXP_PAIR _P1 _Q1) (_CEXP_PAIR _P2 _Q2) ===
+                _CEXP_NUM (_NUMERAL _0) ∧
+    (* Cexp_mul *)
+    (thy,[]) |- _CEXP_MUL (_CEXP_NUM _M) (_CEXP_NUM _N) ===
+                _CEXP_NUM (_MUL _M _N) ∧
+    (thy,[]) |- _CEXP_MUL (_CEXP_NUM _M) (_CEXP_PAIR _P1 _Q1) ===
+                _CEXP_NUM (_NUMERAL _0) ∧
+    (thy,[]) |- _CEXP_MUL (_CEXP_PAIR _P1 _Q1) (_CEXP_NUM _N) ===
+                _CEXP_NUM (_NUMERAL _0) ∧
+    (thy,[]) |- _CEXP_MUL (_CEXP_PAIR _P1 _Q1) (_CEXP_PAIR _P2 _Q2) ===
+                _CEXP_NUM (_NUMERAL _0) ∧
+    (* Cexp_div *)
+    (thy,[]) |- _CEXP_DIV (_CEXP_NUM _M) (_CEXP_NUM _N) ===
+                _CEXP_NUM (_DIV _M _N) ∧
+    (thy,[]) |- _CEXP_DIV (_CEXP_NUM _M) (_CEXP_PAIR _P1 _Q1) ===
+                _CEXP_NUM (_NUMERAL _0) ∧
+    (thy,[]) |- _CEXP_DIV (_CEXP_PAIR _P1 _Q1) (_CEXP_NUM _N) ===
+                _CEXP_NUM (_NUMERAL _0) ∧
+    (thy,[]) |- _CEXP_DIV (_CEXP_PAIR _P1 _Q1) (_CEXP_PAIR _P2 _Q2) ===
+                _CEXP_NUM (_NUMERAL _0) ∧
+    (* Cexp_mod *)
+    (thy,[]) |- _CEXP_MOD (_CEXP_NUM _M) (_CEXP_NUM _N) ===
+                _CEXP_NUM (_MOD _M _N) ∧
+    (thy,[]) |- _CEXP_MOD (_CEXP_NUM _M) (_CEXP_PAIR _P1 _Q1) ===
+                _CEXP_NUM _M ∧
+    (thy,[]) |- _CEXP_MOD (_CEXP_PAIR _P1 _Q1) (_CEXP_NUM _N) ===
+                _CEXP_NUM (_NUMERAL _0) ∧
+    (thy,[]) |- _CEXP_MOD (_CEXP_PAIR _P1 _Q1) (_CEXP_PAIR _P2 _Q2) ===
+                _CEXP_NUM (_NUMERAL _0) ∧
+    (* Cexp_less *)
+    (thy,[]) |- _CEXP_LESS (_CEXP_NUM _M) (_CEXP_NUM _N) ===
+                _CEXP_NUM (_COND (_LESS _M _N) (_SUC (_NUMERAL _0))
                                                (_NUMERAL _0)) ∧
-    (thy,[]) |- _CVAL_LESS (_CVAL_NUM _M) (_CVAL_PAIR _P1 _Q1) ===
-                _CVAL_NUM (_NUMERAL _0) ∧
-    (thy,[]) |- _CVAL_LESS (_CVAL_PAIR _P1 _Q1) (_CVAL_NUM _N) ===
-                _CVAL_NUM (_NUMERAL _0) ∧
-    (thy,[]) |- _CVAL_LESS (_CVAL_PAIR _P1 _Q1) (_CVAL_PAIR _P2 _Q2) ===
-                _CVAL_NUM (_NUMERAL _0) ∧
-    (* if-then-else *)
-    (thy,[]) |- _CVAL_IF (_CVAL_NUM (_SUC _M)) _P1 _Q1 === _P1 ∧
-    (thy,[]) |- _CVAL_IF (_CVAL_PAIR _P2 _Q2) _P1 _Q1 === _P1 ∧
-    (thy,[]) |- _CVAL_IF (_CVAL_NUM (_NUMERAL _0)) _P1 _Q1 === _Q1 ∧
-    (* fst, snd *)
-    (thy,[]) |- _CVAL_FST (_CVAL_PAIR _P1 _Q1) === _P1 ∧
-    (thy,[]) |- _CVAL_FST (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0) ∧
-    (thy,[]) |- _CVAL_SND (_CVAL_PAIR _P1 _Q1) === _Q1 ∧
-    (thy,[]) |- _CVAL_SND (_CVAL_NUM _M) === _CVAL_NUM (_NUMERAL _0) ∧
-    (* cval_ispair *)
-    (thy,[]) |- _CVAL_ISPAIR (_CVAL_PAIR _P1 _Q1) ===
-                _CVAL_NUM (_SUC (_NUMERAL _0)) ∧
-    (thy,[]) |- _CVAL_ISPAIR (_CVAL_NUM _M) ===
-                _CVAL_NUM (_NUMERAL _0)
+    (thy,[]) |- _CEXP_LESS (_CEXP_NUM _M) (_CEXP_PAIR _P1 _Q1) ===
+                _CEXP_NUM (_NUMERAL _0) ∧
+    (thy,[]) |- _CEXP_LESS (_CEXP_PAIR _P1 _Q1) (_CEXP_NUM _N) ===
+                _CEXP_NUM (_NUMERAL _0) ∧
+    (thy,[]) |- _CEXP_LESS (_CEXP_PAIR _P1 _Q1) (_CEXP_PAIR _P2 _Q2) ===
+                _CEXP_NUM (_NUMERAL _0) ∧
+    (* Cexp_if *)
+    (thy,[]) |- _CEXP_IF (_CEXP_NUM (_SUC _M)) _P1 _Q1 === _P1 ∧
+    (thy,[]) |- _CEXP_IF (_CEXP_PAIR _P2 _Q2) _P1 _Q1 === _P1 ∧
+    (thy,[]) |- _CEXP_IF (_CEXP_NUM (_NUMERAL _0)) _P1 _Q1 === _Q1 ∧
+    (* Cexp_fst, Cexp_snd *)
+    (thy,[]) |- _CEXP_FST (_CEXP_PAIR _P1 _Q1) === _P1 ∧
+    (thy,[]) |- _CEXP_FST (_CEXP_NUM _M) === _CEXP_NUM (_NUMERAL _0) ∧
+    (thy,[]) |- _CEXP_SND (_CEXP_PAIR _P1 _Q1) === _Q1 ∧
+    (thy,[]) |- _CEXP_SND (_CEXP_NUM _M) === _CEXP_NUM (_NUMERAL _0) ∧
+    (* Cexp_ispair *)
+    (thy,[]) |- _CEXP_ISPAIR (_CEXP_PAIR _P1 _Q1) ===
+                _CEXP_NUM (_SUC (_NUMERAL _0)) ∧
+    (thy,[]) |- _CEXP_ISPAIR (_CEXP_NUM _M) ===
+                _CEXP_NUM (_NUMERAL _0)
 End
 
-Theorem CVAL_IF_eqn1:
+Theorem CEXP_IF_eqn1:
   compute_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  m has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_IF (_CVAL_NUM (_SUC m)) p1 q1 === p1
+  m has_type Num ∧ p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_IF (_CEXP_NUM (_SUC m)) p1 q1 === p1
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_IF (_CVAL_NUM (_SUC _)) _ _ === _’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_IF (_CEXP_NUM (_SUC _)) _ _ === _’ assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1; m,_M]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_IF_eqn2:
+Theorem CEXP_IF_eqn2:
   compute_thy_ok thy ∧
   term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
   term_ok (sigof thy) p2 ∧ term_ok (sigof thy) q2 ∧
-  p1 has_type cval_ty ∧ q1 has_type cval_ty ∧
-  p2 has_type cval_ty ∧ q2 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_IF (_CVAL_PAIR p2 q2) p1 q1 === p1
+  p1 has_type Cexp ∧ q1 has_type Cexp ∧
+  p2 has_type Cexp ∧ q2 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_IF (_CEXP_PAIR p2 q2) p1 q1 === p1
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_IF (_CVAL_PAIR _ _ ) _ _ === _’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_IF (_CEXP_PAIR _ _ ) _ _ === _’ assume_tac
   \\ dxrule_at_then (Pos (el 2))
                     (qspec_then ‘[p1,_P1; q1,_Q1; p2,_P2; q2,_Q2]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_IF_eqn3:
+Theorem CEXP_IF_eqn3:
   compute_thy_ok thy ∧
   term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_IF (_CVAL_NUM (_NUMERAL _0)) p1 q1 === q1
+  p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_IF (_CEXP_NUM (_NUMERAL _0)) p1 q1 === q1
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_IF (_CVAL_NUM (_NUMERAL _)) _ _ === _’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_IF (_CEXP_NUM (_NUMERAL _)) _ _ === _’ assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_ADD_eqn1:
+Theorem CEXP_ADD_eqn1:
   compute_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
-  m has_type num_ty ∧ n has_type num_ty ⇒
-    (thy,[]) |- _CVAL_ADD (_CVAL_NUM m) (_CVAL_NUM n) === _CVAL_NUM (_ADD m n)
+  m has_type Num ∧ n has_type Num ⇒
+    (thy,[]) |- _CEXP_ADD (_CEXP_NUM m) (_CEXP_NUM n) === _CEXP_NUM (_ADD m n)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_ADD _ _ === _CVAL_NUM (_ADD _ _)’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_ADD _ _ === _CEXP_NUM (_ADD _ _)’ assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N; m,_M]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_ADD_eqn2:
+Theorem CEXP_ADD_eqn2:
   compute_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  m has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_ADD (_CVAL_NUM m) (_CVAL_PAIR p1 q1) === _CVAL_NUM m
+  m has_type Num ∧ p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_ADD (_CEXP_NUM m) (_CEXP_PAIR p1 q1) === _CEXP_NUM m
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_ADD x _ === x’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_ADD x _ === x’ assume_tac
   \\ dxrule_at_then (Pos (el 2))
                     (qspec_then ‘[p1,_P1; q1,_Q1; m,_M]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_ADD_eqn3:
+Theorem CEXP_ADD_eqn3:
   compute_thy_ok thy ∧
   term_ok (sigof thy) n ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  n has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_ADD (_CVAL_PAIR p1 q1) (_CVAL_NUM n) === _CVAL_NUM n
+  n has_type Num ∧ p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_ADD (_CEXP_PAIR p1 q1) (_CEXP_NUM n) === _CEXP_NUM n
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_ADD _ x === x’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_ADD _ x === x’ assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1; n,_N]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_ADD_eqn4:
+Theorem CEXP_ADD_eqn4:
   compute_thy_ok thy ∧
   term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
   term_ok (sigof thy) p2 ∧ term_ok (sigof thy) q2 ∧
-  p1 has_type cval_ty ∧ q1 has_type cval_ty ∧
-  p2 has_type cval_ty ∧ q2 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_ADD (_CVAL_PAIR p1 q1) (_CVAL_PAIR p2 q2) ===
-                _CVAL_NUM (_NUMERAL _0)
+  p1 has_type Cexp ∧ q1 has_type Cexp ∧
+  p2 has_type Cexp ∧ q2 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_ADD (_CEXP_PAIR p1 q1) (_CEXP_PAIR p2 q2) ===
+                _CEXP_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_ADD _ _ === _CVAL_NUM (_NUMERAL _0)’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_ADD _ _ === _CEXP_NUM (_NUMERAL _0)’ assume_tac
   \\ dxrule_at_then (Pos (el 2))
                     (qspec_then ‘[p1,_P1; q1,_Q1; p2,_P2; q2,_Q2]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_SUB_eqn1:
+Theorem CEXP_SUB_eqn1:
   compute_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
-  m has_type num_ty ∧ n has_type num_ty ⇒
-    (thy,[]) |- _CVAL_SUB (_CVAL_NUM m) (_CVAL_NUM n) === _CVAL_NUM (_SUB m n)
+  m has_type Num ∧ n has_type Num ⇒
+    (thy,[]) |- _CEXP_SUB (_CEXP_NUM m) (_CEXP_NUM n) === _CEXP_NUM (_SUB m n)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_SUB _ _ === _CVAL_NUM (_SUB _ _)’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_SUB _ _ === _CEXP_NUM (_SUB _ _)’ assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N; m,_M]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_SUB_eqn2:
+Theorem CEXP_SUB_eqn2:
   compute_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  m has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_SUB (_CVAL_NUM m) (_CVAL_PAIR p1 q1) === _CVAL_NUM m
+  m has_type Num ∧ p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_SUB (_CEXP_NUM m) (_CEXP_PAIR p1 q1) === _CEXP_NUM m
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_SUB x _ === x’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_SUB x _ === x’ assume_tac
   \\ dxrule_at_then (Pos (el 2))
                     (qspec_then ‘[p1,_P1; q1,_Q1; m,_M]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_SUB_eqn3:
+Theorem CEXP_SUB_eqn3:
   compute_thy_ok thy ∧
   term_ok (sigof thy) n ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  n has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_SUB (_CVAL_PAIR p1 q1) (_CVAL_NUM n) ===
-                _CVAL_NUM (_NUMERAL _0)
+  n has_type Num ∧ p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_SUB (_CEXP_PAIR p1 q1) (_CEXP_NUM n) ===
+                _CEXP_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_SUB (_CVAL_PAIR _ _) (_CVAL_NUM _) === _’
+  \\ qpat_x_assum ‘_ |- _CEXP_SUB (_CEXP_PAIR _ _) (_CEXP_NUM _) === _’
                   assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1; n,_N]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_SUB_eqn4:
+Theorem CEXP_SUB_eqn4:
   compute_thy_ok thy ∧
   term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
   term_ok (sigof thy) p2 ∧ term_ok (sigof thy) q2 ∧
-  p1 has_type cval_ty ∧ q1 has_type cval_ty ∧
-  p2 has_type cval_ty ∧ q2 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_SUB (_CVAL_PAIR p1 q1) (_CVAL_PAIR p2 q2) ===
-                _CVAL_NUM (_NUMERAL _0)
+  p1 has_type Cexp ∧ q1 has_type Cexp ∧
+  p2 has_type Cexp ∧ q2 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_SUB (_CEXP_PAIR p1 q1) (_CEXP_PAIR p2 q2) ===
+                _CEXP_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_SUB (_CVAL_PAIR _ _) (_CVAL_PAIR _ _) === _’
+  \\ qpat_x_assum ‘_ |- _CEXP_SUB (_CEXP_PAIR _ _) (_CEXP_PAIR _ _) === _’
                   assume_tac
   \\ dxrule_at_then (Pos (el 2))
                     (qspec_then ‘[p1,_P1; q1,_Q1; p2,_P2; q2,_Q2]’ mp_tac)
@@ -1378,92 +1378,29 @@ Proof
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_MUL_eqn1:
+Theorem CEXP_MUL_eqn1:
   compute_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
-  m has_type num_ty ∧ n has_type num_ty ⇒
-    (thy,[]) |- _CVAL_MUL (_CVAL_NUM m) (_CVAL_NUM n) === _CVAL_NUM (_MUL m n)
+  m has_type Num ∧ n has_type Num ⇒
+    (thy,[]) |- _CEXP_MUL (_CEXP_NUM m) (_CEXP_NUM n) === _CEXP_NUM (_MUL m n)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_MUL (_CVAL_NUM _) (_CVAL_NUM _) === _’
+  \\ qpat_x_assum ‘_ |- _CEXP_MUL (_CEXP_NUM _) (_CEXP_NUM _) === _’
                   assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N; m,_M]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_MUL_eqn2:
+Theorem CEXP_MUL_eqn2:
   compute_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  m has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_MUL (_CVAL_NUM m) (_CVAL_PAIR p1 q1) ===
-                _CVAL_NUM (_NUMERAL _0)
+  m has_type Num ∧ p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_MUL (_CEXP_NUM m) (_CEXP_PAIR p1 q1) ===
+                _CEXP_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_MUL (_CVAL_NUM _) (_CVAL_PAIR _ _) === _’
-                  assume_tac
-  \\ dxrule_at_then (Pos (el 2))
-                    (qspec_then ‘[p1,_P1; q1,_Q1; m,_M]’ mp_tac)
-                    proves_INST
-  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
-QED
-
-Theorem CVAL_MUL_eqn3:
-  compute_thy_ok thy ∧
-  term_ok (sigof thy) n ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  n has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_MUL (_CVAL_PAIR p1 q1) (_CVAL_NUM n) ===
-                _CVAL_NUM (_NUMERAL _0)
-Proof
-  rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_MUL (_CVAL_PAIR _ _) (_CVAL_NUM _) === _’
-                  assume_tac
-  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1; n,_N]’ mp_tac)
-                    proves_INST
-  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
-QED
-
-Theorem CVAL_MUL_eqn4:
-  compute_thy_ok thy ∧
-  term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  term_ok (sigof thy) p2 ∧ term_ok (sigof thy) q2 ∧
-  p1 has_type cval_ty ∧ q1 has_type cval_ty ∧
-  p2 has_type cval_ty ∧ q2 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_MUL (_CVAL_PAIR p1 q1) (_CVAL_PAIR p2 q2) ===
-                _CVAL_NUM (_NUMERAL _0)
-Proof
-  rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_MUL (_CVAL_PAIR _ _) (_CVAL_PAIR _ _) ===
-                        _CVAL_NUM (_NUMERAL _0)’ assume_tac
-  \\ dxrule_at_then (Pos (el 2))
-                    (qspec_then ‘[p1,_P1; q1,_Q1; p2,_P2; q2,_Q2]’ mp_tac)
-                    proves_INST
-  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
-QED
-
-Theorem CVAL_DIV_eqn1:
-  compute_thy_ok thy ∧
-  term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
-  m has_type num_ty ∧ n has_type num_ty ⇒
-    (thy,[]) |- _CVAL_DIV (_CVAL_NUM m) (_CVAL_NUM n) === _CVAL_NUM (_DIV m n)
-Proof
-  rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_DIV (_CVAL_NUM _) (_CVAL_NUM _) === _’
-                  assume_tac
-  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N; m,_M]’ mp_tac)
-                    proves_INST
-  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
-QED
-
-Theorem CVAL_DIV_eqn2:
-  compute_thy_ok thy ∧
-  term_ok (sigof thy) m ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  m has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_DIV (_CVAL_NUM m) (_CVAL_PAIR p1 q1) ===
-                _CVAL_NUM (_NUMERAL _0)
-Proof
-  rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_DIV (_CVAL_NUM _) (_CVAL_PAIR _ _) === _’
+  \\ qpat_x_assum ‘_ |- _CEXP_MUL (_CEXP_NUM _) (_CEXP_PAIR _ _) === _’
                   assume_tac
   \\ dxrule_at_then (Pos (el 2))
                     (qspec_then ‘[p1,_P1; q1,_Q1; m,_M]’ mp_tac)
@@ -1471,62 +1408,62 @@ Proof
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_DIV_eqn3:
+Theorem CEXP_MUL_eqn3:
   compute_thy_ok thy ∧
   term_ok (sigof thy) n ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  n has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_DIV (_CVAL_PAIR p1 q1) (_CVAL_NUM n) ===
-                _CVAL_NUM (_NUMERAL _0)
+  n has_type Num ∧ p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_MUL (_CEXP_PAIR p1 q1) (_CEXP_NUM n) ===
+                _CEXP_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_DIV (_CVAL_PAIR _ _) (_CVAL_NUM _) === _’
+  \\ qpat_x_assum ‘_ |- _CEXP_MUL (_CEXP_PAIR _ _) (_CEXP_NUM _) === _’
                   assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1; n,_N]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_DIV_eqn4:
+Theorem CEXP_MUL_eqn4:
   compute_thy_ok thy ∧
   term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
   term_ok (sigof thy) p2 ∧ term_ok (sigof thy) q2 ∧
-  p1 has_type cval_ty ∧ q1 has_type cval_ty ∧
-  p2 has_type cval_ty ∧ q2 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_DIV (_CVAL_PAIR p1 q1) (_CVAL_PAIR p2 q2) ===
-                _CVAL_NUM (_NUMERAL _0)
+  p1 has_type Cexp ∧ q1 has_type Cexp ∧
+  p2 has_type Cexp ∧ q2 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_MUL (_CEXP_PAIR p1 q1) (_CEXP_PAIR p2 q2) ===
+                _CEXP_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_DIV (_CVAL_PAIR _ _) (_CVAL_PAIR _ _) ===
-                        _CVAL_NUM (_NUMERAL _0)’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_MUL (_CEXP_PAIR _ _) (_CEXP_PAIR _ _) ===
+                        _CEXP_NUM (_NUMERAL _0)’ assume_tac
   \\ dxrule_at_then (Pos (el 2))
                     (qspec_then ‘[p1,_P1; q1,_Q1; p2,_P2; q2,_Q2]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_MOD_eqn1:
+Theorem CEXP_DIV_eqn1:
   compute_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
-  m has_type num_ty ∧ n has_type num_ty ⇒
-    (thy,[]) |- _CVAL_MOD (_CVAL_NUM m) (_CVAL_NUM n) === _CVAL_NUM (_MOD m n)
+  m has_type Num ∧ n has_type Num ⇒
+    (thy,[]) |- _CEXP_DIV (_CEXP_NUM m) (_CEXP_NUM n) === _CEXP_NUM (_DIV m n)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_MOD (_CVAL_NUM _) (_CVAL_NUM _) === _’
+  \\ qpat_x_assum ‘_ |- _CEXP_DIV (_CEXP_NUM _) (_CEXP_NUM _) === _’
                   assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N; m,_M]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_MOD_eqn2:
+Theorem CEXP_DIV_eqn2:
   compute_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  m has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_MOD (_CVAL_NUM m) (_CVAL_PAIR p1 q1) ===
-                _CVAL_NUM m
+  m has_type Num ∧ p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_DIV (_CEXP_NUM m) (_CEXP_PAIR p1 q1) ===
+                _CEXP_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_MOD (_CVAL_NUM _) (_CVAL_PAIR _ _) === _’
+  \\ qpat_x_assum ‘_ |- _CEXP_DIV (_CEXP_NUM _) (_CEXP_PAIR _ _) === _’
                   assume_tac
   \\ dxrule_at_then (Pos (el 2))
                     (qspec_then ‘[p1,_P1; q1,_Q1; m,_M]’ mp_tac)
@@ -1534,63 +1471,126 @@ Proof
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_MOD_eqn3:
+Theorem CEXP_DIV_eqn3:
   compute_thy_ok thy ∧
   term_ok (sigof thy) n ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  n has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_MOD (_CVAL_PAIR p1 q1) (_CVAL_NUM n) ===
-                _CVAL_NUM (_NUMERAL _0)
+  n has_type Num ∧ p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_DIV (_CEXP_PAIR p1 q1) (_CEXP_NUM n) ===
+                _CEXP_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_MOD (_CVAL_PAIR _ _) (_CVAL_NUM _) === _’
+  \\ qpat_x_assum ‘_ |- _CEXP_DIV (_CEXP_PAIR _ _) (_CEXP_NUM _) === _’
                   assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1; n,_N]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_MOD_eqn4:
+Theorem CEXP_DIV_eqn4:
   compute_thy_ok thy ∧
   term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
   term_ok (sigof thy) p2 ∧ term_ok (sigof thy) q2 ∧
-  p1 has_type cval_ty ∧ q1 has_type cval_ty ∧
-  p2 has_type cval_ty ∧ q2 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_MOD (_CVAL_PAIR p1 q1) (_CVAL_PAIR p2 q2) ===
-                _CVAL_NUM (_NUMERAL _0)
+  p1 has_type Cexp ∧ q1 has_type Cexp ∧
+  p2 has_type Cexp ∧ q2 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_DIV (_CEXP_PAIR p1 q1) (_CEXP_PAIR p2 q2) ===
+                _CEXP_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_MOD (_CVAL_PAIR _ _) (_CVAL_PAIR _ _) ===
-                        _CVAL_NUM (_NUMERAL _0)’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_DIV (_CEXP_PAIR _ _) (_CEXP_PAIR _ _) ===
+                        _CEXP_NUM (_NUMERAL _0)’ assume_tac
   \\ dxrule_at_then (Pos (el 2))
                     (qspec_then ‘[p1,_P1; q1,_Q1; p2,_P2; q2,_Q2]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_LESS_eqn1:
+Theorem CEXP_MOD_eqn1:
   compute_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
-  m has_type num_ty ∧ n has_type num_ty ⇒
-    (thy,[]) |- _CVAL_LESS (_CVAL_NUM m) (_CVAL_NUM n) ===
-                _CVAL_NUM (_COND (_LESS m n) (_SUC (_NUMERAL _0))
+  m has_type Num ∧ n has_type Num ⇒
+    (thy,[]) |- _CEXP_MOD (_CEXP_NUM m) (_CEXP_NUM n) === _CEXP_NUM (_MOD m n)
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CEXP_MOD (_CEXP_NUM _) (_CEXP_NUM _) === _’
+                  assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N; m,_M]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CEXP_MOD_eqn2:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  m has_type Num ∧ p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_MOD (_CEXP_NUM m) (_CEXP_PAIR p1 q1) ===
+                _CEXP_NUM m
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CEXP_MOD (_CEXP_NUM _) (_CEXP_PAIR _ _) === _’
+                  assume_tac
+  \\ dxrule_at_then (Pos (el 2))
+                    (qspec_then ‘[p1,_P1; q1,_Q1; m,_M]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CEXP_MOD_eqn3:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) n ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  n has_type Num ∧ p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_MOD (_CEXP_PAIR p1 q1) (_CEXP_NUM n) ===
+                _CEXP_NUM (_NUMERAL _0)
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CEXP_MOD (_CEXP_PAIR _ _) (_CEXP_NUM _) === _’
+                  assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1; n,_N]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CEXP_MOD_eqn4:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
+  term_ok (sigof thy) p2 ∧ term_ok (sigof thy) q2 ∧
+  p1 has_type Cexp ∧ q1 has_type Cexp ∧
+  p2 has_type Cexp ∧ q2 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_MOD (_CEXP_PAIR p1 q1) (_CEXP_PAIR p2 q2) ===
+                _CEXP_NUM (_NUMERAL _0)
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CEXP_MOD (_CEXP_PAIR _ _) (_CEXP_PAIR _ _) ===
+                        _CEXP_NUM (_NUMERAL _0)’ assume_tac
+  \\ dxrule_at_then (Pos (el 2))
+                    (qspec_then ‘[p1,_P1; q1,_Q1; p2,_P2; q2,_Q2]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem CEXP_LESS_eqn1:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
+  m has_type Num ∧ n has_type Num ⇒
+    (thy,[]) |- _CEXP_LESS (_CEXP_NUM m) (_CEXP_NUM n) ===
+                _CEXP_NUM (_COND (_LESS m n) (_SUC (_NUMERAL _0))
                                              (_NUMERAL _0))
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_LESS _ _ === _CVAL_NUM (_COND _ _ _)’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_LESS _ _ === _CEXP_NUM (_COND _ _ _)’ assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N; m,_M]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_LESS_eqn2:
+Theorem CEXP_LESS_eqn2:
   compute_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  m has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_LESS (_CVAL_NUM m) (_CVAL_PAIR p1 q1) ===
-                _CVAL_NUM (_NUMERAL _0)
+  m has_type Num ∧ p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_LESS (_CEXP_NUM m) (_CEXP_PAIR p1 q1) ===
+                _CEXP_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_LESS (_CVAL_NUM _) (_CVAL_PAIR _ _) === _’
+  \\ qpat_x_assum ‘_ |- _CEXP_LESS (_CEXP_NUM _) (_CEXP_PAIR _ _) === _’
                   assume_tac
   \\ dxrule_at_then (Pos (el 2))
                     (qspec_then ‘[p1,_P1; q1,_Q1; m,_M]’ mp_tac)
@@ -1598,110 +1598,110 @@ Proof
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_LESS_eqn3:
+Theorem CEXP_LESS_eqn3:
   compute_thy_ok thy ∧
   term_ok (sigof thy) n ∧ term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  n has_type num_ty ∧ p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_LESS (_CVAL_PAIR p1 q1) (_CVAL_NUM n) ===
-                _CVAL_NUM (_NUMERAL _0)
+  n has_type Num ∧ p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_LESS (_CEXP_PAIR p1 q1) (_CEXP_NUM n) ===
+                _CEXP_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_LESS (_CVAL_PAIR _ _) (_CVAL_NUM _) === _’
+  \\ qpat_x_assum ‘_ |- _CEXP_LESS (_CEXP_PAIR _ _) (_CEXP_NUM _) === _’
                   assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1; n,_N]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_LESS_eqn4:
+Theorem CEXP_LESS_eqn4:
   compute_thy_ok thy ∧
   term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
   term_ok (sigof thy) p2 ∧ term_ok (sigof thy) q2 ∧
-  p1 has_type cval_ty ∧ q1 has_type cval_ty ∧
-  p2 has_type cval_ty ∧ q2 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_LESS (_CVAL_PAIR p1 q1) (_CVAL_PAIR p2 q2) ===
-                _CVAL_NUM (_NUMERAL _0)
+  p1 has_type Cexp ∧ q1 has_type Cexp ∧
+  p2 has_type Cexp ∧ q2 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_LESS (_CEXP_PAIR p1 q1) (_CEXP_PAIR p2 q2) ===
+                _CEXP_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_LESS (_CVAL_PAIR _ _) (_CVAL_PAIR _ _) ===
-                        _CVAL_NUM (_NUMERAL _0)’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_LESS (_CEXP_PAIR _ _) (_CEXP_PAIR _ _) ===
+                        _CEXP_NUM (_NUMERAL _0)’ assume_tac
   \\ dxrule_at_then (Pos (el 2))
                     (qspec_then ‘[p1,_P1; q1,_Q1; p2,_P2; q2,_Q2]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_FST_eqn1:
+Theorem CEXP_FST_eqn1:
   compute_thy_ok thy ∧
   term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_FST (_CVAL_PAIR p1 q1) === p1
+  p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_FST (_CEXP_PAIR p1 q1) === p1
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_FST (_CVAL_PAIR _ _) === _’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_FST (_CEXP_PAIR _ _) === _’ assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_FST_eqn2:
+Theorem CEXP_FST_eqn2:
   compute_thy_ok thy ∧
-  term_ok (sigof thy) m ∧ m has_type num_ty ⇒
-    (thy,[]) |- _CVAL_FST (_CVAL_NUM m) === _CVAL_NUM (_NUMERAL _0)
+  term_ok (sigof thy) m ∧ m has_type Num ⇒
+    (thy,[]) |- _CEXP_FST (_CEXP_NUM m) === _CEXP_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_FST (_CVAL_NUM _) === _’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_FST (_CEXP_NUM _) === _’ assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_SND_eqn1:
+Theorem CEXP_SND_eqn1:
   compute_thy_ok thy ∧
   term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_SND (_CVAL_PAIR p1 q1) === q1
+  p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_SND (_CEXP_PAIR p1 q1) === q1
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_SND (_CVAL_PAIR _ _) === _’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_SND (_CEXP_PAIR _ _) === _’ assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_SND_eqn2:
+Theorem CEXP_SND_eqn2:
   compute_thy_ok thy ∧
-  term_ok (sigof thy) m ∧ m has_type num_ty ⇒
-    (thy,[]) |- _CVAL_SND (_CVAL_NUM m) === _CVAL_NUM (_NUMERAL _0)
+  term_ok (sigof thy) m ∧ m has_type Num ⇒
+    (thy,[]) |- _CEXP_SND (_CEXP_NUM m) === _CEXP_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_SND (_CVAL_NUM _) === _’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_SND (_CEXP_NUM _) === _’ assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_ISPAIR_eqn1:
+Theorem CEXP_ISPAIR_eqn1:
   compute_thy_ok thy ∧
   term_ok (sigof thy) p1 ∧ term_ok (sigof thy) q1 ∧
-  p1 has_type cval_ty ∧ q1 has_type cval_ty ⇒
-    (thy,[]) |- _CVAL_ISPAIR (_CVAL_PAIR p1 q1) ===
-                _CVAL_NUM (_SUC (_NUMERAL _0))
+  p1 has_type Cexp ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_ISPAIR (_CEXP_PAIR p1 q1) ===
+                _CEXP_NUM (_SUC (_NUMERAL _0))
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_ISPAIR (_CVAL_PAIR _ _) === _’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_ISPAIR (_CEXP_PAIR _ _) === _’ assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; q1,_Q1]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem CVAL_ISPAIR_eqn2:
+Theorem CEXP_ISPAIR_eqn2:
   compute_thy_ok thy ∧
-  term_ok (sigof thy) m ∧ m has_type num_ty ⇒
-    (thy,[]) |- _CVAL_ISPAIR (_CVAL_NUM m) === _CVAL_NUM (_NUMERAL _0)
+  term_ok (sigof thy) m ∧ m has_type Num ⇒
+    (thy,[]) |- _CEXP_ISPAIR (_CEXP_NUM m) === _CEXP_NUM (_NUMERAL _0)
 Proof
   rw [compute_thy_ok_def]
-  \\ qpat_x_assum ‘_ |- _CVAL_ISPAIR (_CVAL_NUM _) === _’ assume_tac
+  \\ qpat_x_assum ‘_ |- _CEXP_ISPAIR (_CEXP_NUM _) === _’ assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
@@ -1725,21 +1725,21 @@ Theorem compute_thy_ok_terms_ok:
     term_ok (sigof thy) _BIT0_TM ∧
     term_ok (sigof thy) _BIT1_TM ∧
     term_ok (sigof thy) _NUMERAL_TM ∧
-    (* cvals *)
-    term_ok (sigof thy) _CVAL_ADD_TM ∧
-    term_ok (sigof thy) _CVAL_SUB_TM ∧
-    term_ok (sigof thy) _CVAL_MUL_TM ∧
-    term_ok (sigof thy) _CVAL_DIV_TM ∧
-    term_ok (sigof thy) _CVAL_MOD_TM ∧
-    term_ok (sigof thy) _CVAL_LESS_TM ∧
-    term_ok (sigof thy) _CVAL_NUM_TM ∧
-    term_ok (sigof thy) _CVAL_IF_TM ∧
-    term_ok (sigof thy) _CVAL_PAIR_TM ∧
-    term_ok (sigof thy) _CVAL_FST_TM ∧
-    term_ok (sigof thy) _CVAL_SND_TM ∧
-    term_ok (sigof thy) _CVAL_ISPAIR_TM ∧
+    (* cexps *)
+    term_ok (sigof thy) _CEXP_ADD_TM ∧
+    term_ok (sigof thy) _CEXP_SUB_TM ∧
+    term_ok (sigof thy) _CEXP_MUL_TM ∧
+    term_ok (sigof thy) _CEXP_DIV_TM ∧
+    term_ok (sigof thy) _CEXP_MOD_TM ∧
+    term_ok (sigof thy) _CEXP_LESS_TM ∧
+    term_ok (sigof thy) _CEXP_NUM_TM ∧
+    term_ok (sigof thy) _CEXP_IF_TM ∧
+    term_ok (sigof thy) _CEXP_PAIR_TM ∧
+    term_ok (sigof thy) _CEXP_FST_TM ∧
+    term_ok (sigof thy) _CEXP_SND_TM ∧
+    term_ok (sigof thy) _CEXP_ISPAIR_TM ∧
     (* types *)
-    type_ok (tysof thy) cval_ty
+    type_ok (tysof thy) Cexp
 Proof
   simp [compute_thy_ok_def] \\ strip_tac
   \\ dxrule_then strip_assume_tac numeral_thy_ok_terms_ok
@@ -1766,40 +1766,40 @@ Proof
   rw [compute_thy_ok_def]
 QED
 
-Theorem cval2term_typeof[simp]:
-  ∀cv. typeof (cval2term cv) = cval_ty
+Theorem cexp2term_typeof[simp]:
+  ∀cv. typeof (cexp2term cv) = Cexp
 Proof
-  ho_match_mp_tac cval2term_ind \\ rw []
-  \\ simp [cval2term_def, FOLDL_MAP]
+  ho_match_mp_tac cexp2term_ind \\ rw []
+  \\ simp [cexp2term_def, FOLDL_MAP]
   >~ [‘bop2term _’] >- (
     Cases_on ‘bop’ \\ gs [bop2term_def])
   \\ pop_assum mp_tac
   \\ ‘∀tm.
         typeof tm = app_type (LENGTH cs) ⇒
-          typeof (FOLDL (λx y. Comb x (cval2term y)) tm cs) = cval_ty ’
+          typeof (FOLDL (λx y. Comb x (cexp2term y)) tm cs) = Cexp ’
     suffices_by rw [SF SFY_ss]
   \\ Induct_on ‘cs’
   \\ simp [app_type]
 QED
 
-Theorem cval2term_has_type[simp]:
-  ∀cv. cval2term cv has_type cval_ty
+Theorem cexp2term_has_type[simp]:
+  ∀cv. cexp2term cv has_type Cexp
 Proof
-  ho_match_mp_tac cval2term_ind \\ rw [] \\ simp [cval2term_def]
-  >~ [‘_CVAL_NUM _’] >- (
+  ho_match_mp_tac cexp2term_ind \\ rw [] \\ simp [cexp2term_def]
+  >~ [‘_CEXP_NUM _’] >- (
     rw [Ntimes has_type_cases 3]
     \\ rw [Ntimes has_type_cases 3])
-  >~ [‘_CVAL_FST _’] >- (
+  >~ [‘_CEXP_FST _’] >- (
     rw [Ntimes has_type_cases 3]
     \\ rw [Ntimes has_type_cases 3])
-  >~ [‘_CVAL_SND _’] >- (
+  >~ [‘_CEXP_SND _’] >- (
     rw [Ntimes has_type_cases 3]
     \\ rw [Ntimes has_type_cases 3])
-  >~ [‘_CVAL_ISPAIR _’] >- (
+  >~ [‘_CEXP_ISPAIR _’] >- (
     rw [Ntimes has_type_cases 3])
-  >~ [‘_CVAL_PAIR _ _’] >- (
+  >~ [‘_CEXP_PAIR _ _’] >- (
     rw [Ntimes has_type_cases 3])
-  >~ [‘_CVAL_IF _ _ _’] >- (
+  >~ [‘_CEXP_IF _ _ _’] >- (
     rw [Ntimes has_type_cases 3]
     \\ rw [Ntimes has_type_cases 3])
   >~ [‘bop2term _ _ _’] >- (
@@ -1810,21 +1810,21 @@ Proof
   \\ simp [FOLDL_MAP]
   \\ ‘∀tm.
         tm has_type app_type (LENGTH cs) ⇒
-          FOLDL (λx y. Comb x (cval2term y)) tm cs has_type cval_ty ’
+          FOLDL (λx y. Comb x (cexp2term y)) tm cs has_type Cexp ’
     suffices_by rw [has_type_rules, SF SFY_ss]
   \\ Induct_on ‘cs’ \\ rw [app_type]
   \\ gs [has_type_rules, SF SFY_ss, SF DNF_ss]
 QED
 
-Theorem cval2term_welltyped[simp]:
-  ∀cv. welltyped (cval2term cv)
+Theorem cexp2term_welltyped[simp]:
+  ∀cv. welltyped (cexp2term cv)
 Proof
-  rw [welltyped_def, cval2term_has_type, SF SFY_ss]
+  rw [welltyped_def, cexp2term_has_type, SF SFY_ss]
 QED
 
 Theorem bop2term_term_ok:
   compute_thy_ok thy ⇒
-    typeof tm1 = cval_ty ∧ typeof tm2 = cval_ty ∧
+    typeof tm1 = Cexp ∧ typeof tm2 = Cexp ∧
     term_ok (sigof thy) tm1 ∧ term_ok (sigof thy) tm2 ⇒
       term_ok (sigof thy) (bop2term bop tm1 tm2)
 Proof
@@ -1834,45 +1834,45 @@ Proof
   \\ simp [term_ok_def, term_ok_welltyped, SF SFY_ss]
 QED
 
-Theorem cval2term_term_ok:
+Theorem cexp2term_term_ok:
   compute_thy_ok thy ⇒
     ∀cv.
       (∀c n.
-        (c,n) ∈ cval_consts cv ⇒
+        (c,n) ∈ cexp_consts cv ⇒
           term_ok (sigof thy) (Const c (app_type n))) ⇒
-        term_ok (sigof thy) (cval2term cv)
+        term_ok (sigof thy) (cexp2term cv)
 Proof
   strip_tac
   \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
-  \\ ho_match_mp_tac cval2term_ind \\ rw []
-  \\ gs [cval2term_def, cval_consts_def]
+  \\ ho_match_mp_tac cexp2term_ind \\ rw []
+  \\ gs [cexp2term_def, cexp_consts_def]
   >~ [‘Var s _’] >- (
     simp [term_ok_def])
-  >~ [‘_CVAL_NUM _’] >- (
+  >~ [‘_CEXP_NUM _’] >- (
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
-  >~ [‘_CVAL_FST _’] >- (
+  >~ [‘_CEXP_FST _’] >- (
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
-  >~ [‘_CVAL_SND _’] >- (
+  >~ [‘_CEXP_SND _’] >- (
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
-  >~ [‘_CVAL_ISPAIR _’] >- (
+  >~ [‘_CEXP_ISPAIR _’] >- (
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
-  >~ [‘_CVAL_PAIR _ _ ’] >- (
+  >~ [‘_CEXP_PAIR _ _ ’] >- (
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
   >~ [‘bop2term _ _ _ ’] >- (
     irule bop2term_term_ok \\ gs [])
-  >~ [‘_CVAL_IF _ _ _ ’] >- (
+  >~ [‘_CEXP_IF _ _ _ ’] >- (
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
   \\ gvs [FOLDL_MAP, MEM_MAP, SF SFY_ss, SF DNF_ss]
   \\ ‘∀tm.
         term_ok (sigof thy) tm ∧
         tm has_type (app_type (LENGTH cs)) ⇒
-          term_ok (sigof thy) (FOLDL (λx y. Comb x (cval2term y)) tm cs)’
+          term_ok (sigof thy) (FOLDL (λx y. Comb x (cexp2term y)) tm cs)’
     suffices_by rw [term_ok_def, has_type_rules]
   \\ rpt (qpat_x_assum ‘term_ok _ _’ kall_tac)
   \\ Induct_on ‘cs’
   \\ rw [app_type, SF SFY_ss, SF DNF_ss]
   \\ first_x_assum irule \\ fs [SF SFY_ss]
-  \\ simp [has_type_rules, cval2term_has_type, SF SFY_ss]
+  \\ simp [has_type_rules, cexp2term_has_type, SF SFY_ss]
   \\ simp [term_ok_def, term_ok_welltyped, SF SFY_ss]
   \\ irule_at Any WELLTYPED_LEMMA \\ fs [SF SFY_ss]
 QED

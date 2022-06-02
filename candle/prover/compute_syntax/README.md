@@ -16,4 +16,4 @@ Interpreter function for the Candle compute primitive.
 Proofs related to term embeddings for the Candle compute primitive.
 
 [compute_syntaxScript.sml](compute_syntaxScript.sml):
-Definitions of term embeddings for the Candle compute primitive.
+Definitions of 'compute expressions' for the Candle compute primitive.

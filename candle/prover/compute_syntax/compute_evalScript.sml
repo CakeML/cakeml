@@ -183,55 +183,55 @@ Proof
   \\ gvs [CaseEq "option"]
 QED
 
-Definition dest_cval_def:
-  dest_cval tm =
+Definition dest_cexp_def:
+  dest_cexp tm =
     case list_dest_comb [] tm of
-    | [Var n ty] => if ty = cval_ty then SOME (Var n) else NONE
+    | [Var n ty] => if ty = Cexp then SOME (Var n) else NONE
     | Const n ty :: args =>
-        (let vs = MAP dest_cval args in
+        (let vs = MAP dest_cexp args in
         case vs of
         | [arg] =>
-            if Const n ty = _CVAL_NUM_TM then
+            if Const n ty = _CEXP_NUM_TM then
               case dest_numeral_opt (HD args) of
               | NONE => NONE
               | SOME n => SOME (Num n)
-            else if ty = Fun cval_ty cval_ty then
+            else if ty = Fun Cexp Cexp then
               case arg of
               | NONE => NONE
               | SOME cv =>
-                if Const n ty = _CVAL_FST_TM then
+                if Const n ty = _CEXP_FST_TM then
                   SOME (Fst cv)
-                else if Const n ty = _CVAL_SND_TM then
+                else if Const n ty = _CEXP_SND_TM then
                   SOME (Snd cv)
-                else if Const n ty = _CVAL_ISPAIR_TM then
+                else if Const n ty = _CEXP_ISPAIR_TM then
                   SOME (Ispair cv)
                 else
                  SOME (App n [cv])
             else
               NONE
         | [SOME p; SOME q] =>
-            if Const n ty = _CVAL_PAIR_TM then
+            if Const n ty = _CEXP_PAIR_TM then
               SOME (Pair p q)
-            else if Const n ty = _CVAL_ADD_TM then
+            else if Const n ty = _CEXP_ADD_TM then
               SOME (Binop Add p q)
-            else if Const n ty = _CVAL_SUB_TM then
+            else if Const n ty = _CEXP_SUB_TM then
               SOME (Binop Sub p q)
-            else if Const n ty = _CVAL_MUL_TM then
+            else if Const n ty = _CEXP_MUL_TM then
               SOME (Binop Mul p q)
-            else if Const n ty = _CVAL_DIV_TM then
+            else if Const n ty = _CEXP_DIV_TM then
               SOME (Binop Div p q)
-            else if Const n ty = _CVAL_MOD_TM then
+            else if Const n ty = _CEXP_MOD_TM then
               SOME (Binop Mod p q)
-            else if Const n ty = _CVAL_LESS_TM then
+            else if Const n ty = _CEXP_LESS_TM then
               SOME (Binop Less p q)
-            else if ty = Fun cval_ty (Fun cval_ty cval_ty) then
+            else if ty = Fun Cexp (Fun Cexp Cexp) then
               SOME (App n [p; q])
             else
               NONE
         | [SOME p; SOME q; SOME r] =>
-            if Const n ty = _CVAL_IF_TM then
+            if Const n ty = _CEXP_IF_TM then
               SOME (If p q r)
-            else if ty = Fun cval_ty (Fun cval_ty (Fun cval_ty cval_ty)) then
+            else if ty = Fun Cexp (Fun Cexp (Fun Cexp Cexp)) then
               SOME (App n [p; q; r])
             else
               NONE
@@ -365,7 +365,7 @@ Definition subst_def:
   subst env (App f cs) = App f (MAP (subst env) cs) ∧
   subst env (If p q r) = If (subst env p) (subst env q) (subst env r)
 Termination
-  wf_rel_tac ‘measure (compute_val_size o SND)’
+  wf_rel_tac ‘measure (compute_exp_size o SND)’
 End
 
 Theorem subst_empty[simp]:
@@ -432,8 +432,8 @@ Definition compute_eval_def:
     od
 Termination
   wf_rel_tac ‘inv_image ($< LEX $<)
-             (λx. case x of INL (ck,_,cv) => (ck, compute_val_size cv)
-                          | INR (ck,_,cv) => (ck, compute_val1_size cv))’
+             (λx. case x of INL (ck,_,cv) => (ck, compute_exp_size cv)
+                          | INR (ck,_,cv) => (ck, compute_exp1_size cv))’
 End
 
 Definition compute_init_state_def:

@@ -3,7 +3,8 @@
  *)
 
 open preamble;
-open ml_translatorTheory ml_hol_kernel_funsProgTheory candle_kernelProgTheory;
+open ml_translatorTheory ml_hol_kernel_funsProgTheory candle_kernelProgTheory
+     compute_evalProgTheory;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory
      namespacePropsTheory evaluatePropsTheory ast_extrasTheory
      holKernelProofTheory evaluateTheory permsTheory;
@@ -89,11 +90,11 @@ Definition kernel_funs_def:
   }
 End
 
-Theorem kernel_funs_v_def =
+val kernel_funs_v_def =
   kernel_funs_def |> concl |> rand |> find_terms is_const
   |> filter (fn tm => not (mem (fst (dest_const tm)) ["INSERT","EMPTY"]))
   |> map (fn c => DB.find (fst (dest_const c) ^ "_def"))
-  |> map (fn t => hd t |> snd |> fst)
+  |> map (fn t => last t |> snd |> fst)
   |> curry (op @) [constants_v_def]
   |> LIST_CONJ;
 
@@ -1746,3 +1747,4 @@ Proof
 QED
 
 val _ = export_theory ();
+

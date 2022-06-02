@@ -84,16 +84,16 @@ val r = m_translate dest_numeral_PMATCH;
 val r = translate dest_numeral_opt_PMATCH;
 val r = translate list_dest_comb_def;
 val r = translate mapOption_def;
-val r = translate dest_cval_def;
+val r = translate dest_cexp_def;
 
-Theorem dest_cval_side[local]:
-  ∀x. dest_cval_side x
+Theorem dest_cexp_side[local]:
+  ∀x. dest_cexp_side x
 Proof
-  ho_match_mp_tac dest_cval_ind \\ rw []
-  \\ once_rewrite_tac [fetch "-" "dest_cval_side_def"] \\ rw []
+  ho_match_mp_tac dest_cexp_ind \\ rw []
+  \\ once_rewrite_tac [fetch "-" "dest_cexp_side_def"] \\ rw []
 QED
 
-val _ = update_precondition dest_cval_side;
+val _ = update_precondition dest_cexp_side;
 
 val r = compute_thms_def |> EVAL_RULE |> translate;
 
@@ -102,7 +102,7 @@ val r = m_translate dest_binary_PMATCH;
 val r = check [‘ths’] compute_init_def |> translate;
 
 val r = m_translate check_var_def;
-val r = translate check_cval_closed_def;
+val r = translate check_cexp_closed_def;
 val r = translate var_list_def;
 val r = translate const_list_def;
 val r = m_translate map_def;

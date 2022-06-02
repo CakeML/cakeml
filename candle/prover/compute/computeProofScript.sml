@@ -68,7 +68,7 @@ Proof
   \\ strip_tac \\ rveq
   \\ CASE_TAC \\ fs []
   \\ rw [] \\ rw [THM_def]
-  \\ ‘term_type (_ADD (_NUMERAL l) (_NUMERAL r)) = num_ty’
+  \\ ‘term_type (_ADD (_NUMERAL l) (_NUMERAL r)) = Num’
     by (fs [STATE_def]
         \\ qpat_x_assum ‘TERM _ (_ADD _ _)’ assume_tac
         \\ drule_all term_type \\ gs [])
@@ -80,7 +80,7 @@ Proof
   \\ qmatch_asmsub_abbrev_tac ‘TERM ctxt _’
   \\ ‘TERM ctxt l ∧ TERM ctxt r’
     by gs [TERM_def, term_ok_def]
-  \\ ‘l has_type num_ty ∧ r has_type num_ty’
+  \\ ‘l has_type Num ∧ r has_type Num’
     by gs [TERM_def, term_ok_def, WELLTYPED]
   \\ ‘(thyof ctxt,[]) |- _NUMERAL l === l’
     by gs [NUMERAL_eqn, TERM_def]
@@ -106,10 +106,10 @@ QED
  * ------------------------------------------------------------------------- *)
 
 Theorem const_list_ok[local]:
-  ∀vs. set (const_list vs) = cval_consts vs
+  ∀vs. set (const_list vs) = cexp_consts vs
 Proof
   ho_match_mp_tac const_list_ind
-  \\ rw [const_list_def, cval_consts_def]
+  \\ rw [const_list_def, cexp_consts_def]
   \\ simp [Once EXTENSION]
   \\ rw [MEM_FLAT, MEM_MAP, PULL_EXISTS]
   \\ eq_tac \\ rw [DISJ_EQ_IMP] \\ gs []
@@ -118,10 +118,10 @@ Proof
 QED
 
 Theorem var_list_ok[local]:
-  ∀vs. set (var_list vs) = cval_vars vs
+  ∀vs. set (var_list vs) = cexp_vars vs
 Proof
   ho_match_mp_tac var_list_ind
-  \\ rw [var_list_def, cval_vars_def]
+  \\ rw [var_list_def, cexp_vars_def]
   \\ simp [Once EXTENSION]
   \\ rw [MEM_FLAT, MEM_MAP, PULL_EXISTS]
   \\ eq_tac \\ rw [DISJ_EQ_IMP] \\ gs []
@@ -129,11 +129,11 @@ Proof
   \\ first_x_assum (irule_at Any) \\ gs []
 QED
 
-Theorem check_cval_closed_correct:
-  ∀v. check_cval_closed v ⇒ cval_vars v = {}
+Theorem check_cexp_closed_correct:
+  ∀v. check_cexp_closed v ⇒ cexp_vars v = {}
 Proof
-  ho_match_mp_tac check_cval_closed_ind
-  \\ rw [check_cval_closed_def, cval_vars_def]
+  ho_match_mp_tac check_cexp_closed_ind
+  \\ rw [check_cexp_closed_def, cexp_vars_def]
   \\ rw [DISJ_EQ_IMP] \\ gs [EVERY_MEM]
   \\ simp [Once EXTENSION, EQ_IMP_THM, MEM_MAP, PULL_EXISTS]
   \\ ‘∃c. MEM c cs’
@@ -151,7 +151,7 @@ Theorem map_check_var_thm:
       (∀tm. res ≠ M_failure (Clash tm)) ∧
       ∀ns.
         res = M_success ns ⇒
-        LIST_REL (λtm n. tm = Var n cval_ty) tms ns
+        LIST_REL (λtm n. tm = Var n Cexp) tms ns
 Proof
   Induct \\ simp [map_def, st_ex_return_def]
   \\ rpt gen_tac
@@ -183,9 +183,9 @@ Theorem check_eqn_thm:
       ∃l r. ALL_DISTINCT vs ∧
             th = Sequent [] (l === r) ∧
             list_dest_comb [] l = Const f (app_type (LENGTH vs))::
-                                  (MAP (λs. Var s cval_ty) vs) ∧
-            dest_cval r = SOME cv ∧
-            ∀v. v ∈ cval_vars cv ⇒ MEM v vs
+                                  (MAP (λs. Var s Cexp) vs) ∧
+            dest_cexp r = SOME cv ∧
+            ∀v. v ∈ cexp_vars cv ⇒ MEM v vs
 Proof
   strip_tac
   \\ qpat_x_assum ‘check_eqn _ _ = _’ mp_tac
@@ -226,7 +226,7 @@ Proof
         \\ gs [DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”])
   \\ gvs [LIST_REL_EL_EQN]
   \\ TOP_CASE_TAC \\ gs []
-  \\ drule_then drule dest_cval_thm
+  \\ drule_then drule dest_cexp_thm
   \\ impl_tac >- fs [TERM_def]
   \\ strip_tac
   \\ IF_CASES_TAC \\ gs [GSYM equation_def] \\ rw []
@@ -241,13 +241,13 @@ Proof
   \\ ‘LENGTH tms = LENGTH xs’
     by fs [map_LENGTH, SF SFY_ss]
   \\ gs [TERM_def]
-  \\ ‘typeof (FOLDL Comb (Const f ty) xs) = cval_ty’
+  \\ ‘typeof (FOLDL Comb (Const f ty) xs) = Cexp’
     by fs [term_ok_def, equation_def]
   \\ ‘∀tm.
         term_ok (sigof ctxt) tm ∧
-        (∀x. MEM x xs ⇒ term_ok (sigof ctxt) x ∧ typeof x = cval_ty) ∧
+        (∀x. MEM x xs ⇒ term_ok (sigof ctxt) x ∧ typeof x = Cexp) ∧
         term_ok (sigof ctxt) (FOLDL Comb tm xs) ∧
-        typeof (FOLDL Comb tm xs) = cval_ty ⇒
+        typeof (FOLDL Comb tm xs) = Cexp ⇒
           typeof tm = app_type (LENGTH xs)’
     suffices_by (
       rw []
@@ -275,9 +275,9 @@ Theorem map_check_eqn_thm:
               EL n eqs = (f,vs,cv) ∧
               EL n ceqs = Sequent [] (l === r) ∧
               list_dest_comb [] l = Const f (app_type (LENGTH vs))::
-                                    (MAP (λs. Var s cval_ty) vs) ∧
-              dest_cval r = SOME cv ∧
-              ∀v. v ∈ cval_vars cv ⇒ MEM v vs
+                                    (MAP (λs. Var s Cexp) vs) ∧
+              dest_cexp r = SOME cv ∧
+              ∀v. v ∈ cexp_vars cv ⇒ MEM v vs
 Proof
   strip_tac
   \\ Induct \\ simp [map_def, st_ex_return_def, raise_Failure_def]
@@ -339,7 +339,7 @@ Proof
   \\ CASE_TAC \\ gs []
   \\ simp [Once st_ex_ignore_bind_def]
   \\ IF_CASES_TAC \\ gs []
-  \\ drule_then assume_tac check_cval_closed_correct
+  \\ drule_then assume_tac check_cexp_closed_correct
   \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
   \\ drule_all_then strip_assume_tac map_check_eqn_thm \\ gvs []
   \\ reverse CASE_TAC \\ gs [] >- (CASE_TAC \\ gs [] \\ rw [])
@@ -355,7 +355,7 @@ Proof
   \\ rename [‘compute_eval_run _ _ _ = M_success tm'’]
   \\ ‘term_ok (sigof (thyof ctxt)) tm’
     by fs [TERM_def]
-  \\ drule_all_then strip_assume_tac dest_cval_thm
+  \\ drule_all_then strip_assume_tac dest_cexp_thm
   \\ gs [EVERY_MEM, MEM_EL, PULL_EXISTS]
   \\ drule_then drule compute_eval_run_thm \\ simp []
   \\ impl_tac
@@ -373,18 +373,18 @@ Proof
     \\ rw [THM_def]
     \\ gs [SUBSET_DEF, MEM_EL, SF SFY_ss])
   \\ strip_tac \\ gvs []
-  \\ ‘TERM ctxt (cval2term tm')’
-    by (drule cval2term_term_ok \\ simp [TERM_def])
+  \\ ‘TERM ctxt (cexp2term tm')’
+    by (drule cexp2term_term_ok \\ simp [TERM_def])
   \\ simp [Once st_ex_bind_def]
   \\ CASE_TAC \\ gs []
   \\ drule_all_then strip_assume_tac mk_eq_thm \\ gvs []
   \\ reverse CASE_TAC >- (CASE_TAC \\ gs [] \\ rw [])
   \\ rw []
-  \\ ‘term_type tm = cval_ty’
+  \\ ‘term_type tm = Cexp’
     by (fs [STATE_def]
         \\ qpat_x_assum ‘TERM ctxt tm’ assume_tac
         \\ drule_all term_type \\ gs [])
-  \\ ‘(thyof ctxt,[]) |- tm === cval2term tm'’
+  \\ ‘(thyof ctxt,[]) |- tm === cexp2term tm'’
     suffices_by rw [equation_def, THM_def]
   \\ resolve_then Any irule trans_equation_simple sym_equation
   \\ first_x_assum (irule_at Any) \\ gs [sym_equation]
