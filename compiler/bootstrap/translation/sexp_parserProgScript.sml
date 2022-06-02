@@ -1,22 +1,20 @@
 (*
   Translate the alternative s-expression parser.
 *)
-open preamble explorerProgTheory
+open preamble decodeProgTheory
      ml_translatorLib ml_translatorTheory
      pegTheory simpleSexpTheory simpleSexpPEGTheory simpleSexpParseTheory fromSexpTheory
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = new_theory"sexp_parserProg";
-val _ = translation_extends "explorerProg";
+val _ = translation_extends "decodeProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "sexp_parserProg");
 val _ = ml_translatorLib.use_string_type true;
 
-(* TODO: this is duplicated in parserProgTheory *)
-val monad_unitbind_assert = Q.prove(
-  `!b x. monad_unitbind (assert b) x = if b then x else NONE`,
-  Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
+val monad_unitbind_assert = parserProgTheory.monad_unitbind_assert;
+
 Theorem OPTION_BIND_THM:
    !x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i
 Proof
@@ -273,6 +271,8 @@ val r = translate (fromSexpTheory.sexpop_def
 
 val r = translate fromSexpTheory.sexplop_def;
 
+val r = translate fromSexpTheory.sexpsc_def;
+
 val r = translate sexpexp_alt_def;
 
 val sexpexp_alt_side = Q.prove(
@@ -466,6 +466,7 @@ val _ = translate typesexp_def;
 val _ = translate patsexp_def;
 val _ = translate opsexp_def;
 val _ = translate lopsexp_def;
+val _ = translate scsexp_def;
 val _ = translate locssexp_def;
 val _ = translate expsexp_def;
 val _ = translate type_defsexp_def;

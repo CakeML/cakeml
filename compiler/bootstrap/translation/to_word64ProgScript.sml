@@ -3,14 +3,14 @@
 *)
 
 open preamble ml_translatorLib ml_translatorTheory
-     sexp_parserProgTheory std_preludeTheory
+     printingProgTheory std_preludeTheory
 local open backendTheory in end
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "to_word64Prog"
 
-val _ = translation_extends "sexp_parserProg";
+val _ = translation_extends "printingProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_word64Prog");
 val _ = ml_translatorLib.use_string_type true;

@@ -4,6 +4,9 @@ different phases of the compiler backend.
 [backendProofScript.sml](backendProofScript.sml):
 Composes the correctness theorems for all of the compiler phases.
 
+[backend_itreeProofScript.sml](backend_itreeProofScript.sml):
+Compiler correctness for the itree CakeML semantics
+
 [bvi_letProofScript.sml](bvi_letProofScript.sml):
 Correctness proof for bvi_let
 

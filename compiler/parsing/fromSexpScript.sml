@@ -283,9 +283,10 @@ Proof
   rw[SEXSTR_def,EQ_IMP_THM]
 QED
 
-val odestSEXSTR_def = Define`
+Definition odestSEXSTR_def[simp]:
   (odestSEXSTR (SX_STR s) = decode_control s) ∧
-  (odestSEXSTR _ = NONE)`;
+  (odestSEXSTR _ = NONE)
+End
 
 Theorem encode_control_remove:
    ∀s. EVERY isPrint s ∧ #"\\" ∉ set s ⇒ encode_control s = s
@@ -299,22 +300,28 @@ Proof
   rw[SEXSTR_def,encode_control_remove]
 QED
 
-val odestSXSTR_def = Define`
+Definition odestSXSTR_def[simp]:
   (odestSXSTR (SX_STR s) = SOME s) ∧
   (odestSXSTR _ = NONE)
-`;
+End
 
-val odestSXSYM_def = Define`
+Definition odestSXSYM_def[simp]:
   (odestSXSYM (SX_SYM s) = SOME s) ∧
   (odestSXSYM _ = NONE)
-`;
+End
 
-val odestSXNUM_def = Define`
+Definition odestSXNUM_def[simp]:
   (odestSXNUM (SX_NUM n) = SOME n) ∧
   (odestSXNUM _ = NONE)
-`;
+End
 
-val sexpopt_def = Define`
+Theorem odestSXNUM_SEXSTR[simp]:
+  odestSXNUM (SEXSTR str) = NONE
+Proof
+  simp[SEXSTR_def]
+QED
+
+Definition sexpopt_def:
   sexpopt p s =
     do
        nm <- odestSXSYM s ;
@@ -326,7 +333,7 @@ val sexpopt_def = Define`
       assert(nm = "SOME" ∧ LENGTH args = 1);
       lift SOME (p (HD args))
     od
-`;
+End
 
 val sexplist_def = Define`
   sexplist p s =
@@ -340,6 +347,16 @@ val sexplist_def = Define`
     | SX_SYM s => if s = "nil" then return [] else fail
     | _ => fail
 `;
+
+Theorem sexplist_thm[simp]:
+  sexplist p (SX_CONS h t) =
+    do ph <- p h ; pt <- sexplist p t; return (ph::pt) od ∧
+  (sexplist p (SX_SYM s) = if s = "nil" then return [] else fail) ∧
+  sexplist p (&n) = fail ∧
+  sexplist p (SX_STR str) = fail
+Proof
+  rpt strip_tac >> simp[Once sexplist_def]
+QED
 
 val sexppair_def = Define`
   sexppair p1 p2 s =
@@ -382,24 +399,29 @@ Proof
   Cases_on `m12` >> simp[]
 QED
 
+Theorem strip_sxcons_thm[simp]:
+  strip_sxcons ⟪ h • t ⟫ = lift (CONS h) (strip_sxcons t) ∧
+  strip_sxcons (&n) = NONE ∧
+  strip_sxcons (SX_STR str) = NONE ∧
+  strip_sxcons (SX_SYM s) = if s = "nil" then SOME [] else NONE
+Proof
+  rpt strip_tac >> simp[Once strip_sxcons_def]
+QED
+
 Theorem sexplist_CONG[defncong]:
    ∀s1 s2 p1 p2.
-      (s1 = s2) ∧ (∀e. sxMEM e s2 ⇒ p1 e = p2 e) ⇒
-      (sexplist p1 s1 = sexplist p2 s2)
+     s1 = s2 ∧ (∀e. sxMEM e s2 ⇒ p1 e = p2 e) ⇒
+     sexplist p1 s1 = sexplist p2 s2
 Proof
-  simp[sxMEM_def] >> Induct >> dsimp[Once strip_sxcons_def]
-  >- (ONCE_REWRITE_TAC [sexplist_def] >> simp[] >>
-      rename1 `strip_sxcons t` >> Cases_on `strip_sxcons t` >>
-      simp[]
-      >- (simp[strip_sxcons_FAIL_sexplist_FAIL, monad_bind_FAIL]) >>
-      map_every qx_gen_tac [`p1`, `p2`] >> strip_tac >>
-      Cases_on `p2 s2` >> simp[] >> fs[] >> metis_tac[]) >>
-  simp[sexplist_def]
+  simp[sxMEM_def, PULL_EXISTS] >> Induct >> simp[PULL_EXISTS] >> dsimp[] >>
+  rename [‘strip_sxcons s2 = SOME _’] >> Cases_on ‘strip_sxcons s2’ >> gvs[]
+  >- simp[monad_bind_FAIL, strip_sxcons_FAIL_sexplist_FAIL] >>
+  rpt strip_tac >> simp[] >> first_x_assum dxrule >> simp[]
 QED
 
 Overload guard[local] = ``λb m. monad_unitbind (assert b) m``
 
-val sexpid_def = tDefine "sexpid" `
+Definition sexpid_def:
   sexpid p s =
     do
        (nm, args) <- dstrip_sexp s;
@@ -408,14 +430,12 @@ val sexpid_def = tDefine "sexpid" `
         guard (nm = "Long" ∧ LENGTH args = 2)
               (lift2 Long (odestSEXSTR (EL 0 args)) (sexpid p (EL 1 args))))
     od
-`
- (simp [] >>
+Termination
   wf_rel_tac `measure (sexp_size o SND)` >>
-  rw [] >>
-  irule dstrip_sexp_size >>
-  rw [EL_MEM]);
+  simp[dstrip_sexp_SOME, LENGTH_EQ_NUM_compute, PULL_EXISTS, sexp_size_def]
+End
 
-val sexptype_def = tDefine "sexptype" `
+Definition sexptype_def:
   sexptype s =
     do
        (s, args) <- dstrip_sexp s ;
@@ -428,13 +448,15 @@ val sexptype_def = tDefine "sexptype" `
         guard (s = "Atapp" ∧ LENGTH args = 2)
               (lift2 Atapp (sexplist sexptype (EL 0 args))
                      (sexpid odestSEXSTR (EL 1 args))))
-    od `
-  (wf_rel_tac `measure sexp_size` >> rw[]
-   \\ fs[LENGTH_EQ_NUM_compute] \\ rw[] \\ fs[]
-   \\ metis_tac[sxMEM_sizelt,dstrip_sexp_size,MEM,LESS_TRANS]);
+    od
+Termination
+  wf_rel_tac `measure sexp_size` >>
+  simp[LENGTH_EQ_NUM_compute, dstrip_sexp_SOME, PULL_EXISTS, sexp_size_def] >>
+  rpt strip_tac >> drule sxMEM_sizelt >> simp[]
+End
 
 (* translator friendly version for bootstrapping *)
-val sexptype_alt_def = tDefine"sexptype_alt"`
+Definition sexptype_alt_def:
  (sexptype_alt s =
     case dstrip_sexp s of
     | NONE => NONE
@@ -458,15 +480,17 @@ val sexptype_alt_def = tDefine"sexptype_alt"`
        case sexptype_list d of
        | NONE => NONE
        | SOME t => SOME (h::t))
-    | _ => NONE)`
-  (wf_rel_tac`inv_image (measure sexp_size) (λx. case x of INL y => y | INR y => y)` \\ rw[] \\
-   imp_res_tac dstrip_sexp_size \\
-   fs[LENGTH_EQ_NUM_compute]);
-
-val sexptype_alt_ind = theorem"sexptype_alt_ind";
+    | _ => NONE)
+Termination
+  wf_rel_tac‘inv_image (measure sexp_size)
+                (λx. case x of INL y => y | INR y => y)’ \\ rw[] \\
+  imp_res_tac dstrip_sexp_size \\
+  fs[LENGTH_EQ_NUM_compute]
+End
 
 Theorem sexptype_alt_intro:
-   (∀s. sexptype s = sexptype_alt s) ∧ (∀s. sexptype_list s = sexplist sexptype s)
+  (∀s. sexptype s = sexptype_alt s) ∧
+  ∀s. sexptype_list s = sexplist sexptype s
 Proof
   ho_match_mp_tac sexptype_alt_ind \\ rw[]
   >- (
@@ -649,6 +673,21 @@ val sexpop_def = Define`
   if s = "FPbopFPMul" then SOME (FP_bop FP_Mul) else
   if s = "FPbopFPDiv" then SOME (FP_bop FP_Div) else
   if s = "FPtopFPFma" then SOME (FP_top FP_Fma) else
+  if s = "FpToWord" then SOME (FpToWord) else
+  if s = "FpFromWord" then SOME (FpFromWord) else
+  if s = "RealcmpRealLess" then SOME (Real_cmp realOps$Real_Less) else
+  if s = "RealcmpRealLessEqual" then SOME (Real_cmp realOps$Real_LessEqual) else
+  if s = "RealcmpRealGreater" then SOME (Real_cmp realOps$Real_Greater) else
+  if s = "RealcmpRealGreaterEqual" then SOME (Real_cmp realOps$Real_GreaterEqual) else
+  if s = "RealcmpRealEqual" then SOME (Real_cmp realOps$Real_Equal) else
+  if s = "RealuopRealAbs" then SOME (Real_uop realOps$Real_Abs) else
+  if s = "RealuopRealNeg" then SOME (Real_uop realOps$Real_Neg) else
+  if s = "RealuopRealSqrt" then SOME (Real_uop realOps$Real_Sqrt) else
+  if s = "RealbopRealAdd" then SOME (Real_bop realOps$Real_Add) else
+  if s = "RealbopRealSub" then SOME (Real_bop realOps$Real_Sub) else
+  if s = "RealbopRealMul" then SOME (Real_bop realOps$Real_Mul) else
+  if s = "RealbopRealDiv" then SOME (Real_bop realOps$Real_Div) else
+  if s = "RealFromFP" then SOME (RealFromFP) else
   if s = "Opapp" then SOME Opapp else
   if s = "Opassign" then SOME Opassign else
   if s = "Opref" then SOME Opref else
@@ -684,6 +723,7 @@ val sexpop_def = Define`
   if s = "ListAppend" then SOME ListAppend else
   if s = "Aalloc" then SOME Aalloc else
   if s = "AallocEmpty" then SOME AallocEmpty else
+  if s = "AallocFixed" then SOME AallocFixed else
   if s = "Asub" then SOME Asub else
   if s = "Alength" then SOME Alength else
   if s = "Aupdate" then SOME Aupdate else
@@ -737,6 +777,14 @@ Definition sexplocn_def:
     od
 End
 
+Definition sexpsc_def:
+  (sexpsc (SX_SYM s) =
+    if (s = "Opt") then SOME Opt
+    else if (s = "NoOpt") then SOME NoOpt
+    else NONE) /\
+  sexpsc _ = NONE
+End
+
 Definition sexpexp_def:
   sexpexp s =
     do
@@ -786,7 +834,11 @@ Definition sexpexp_def:
       guard (nm = "Lannot" ∧ LENGTH args = 2)
             (lift2 Lannot
               (sexpexp (EL 0 args))
-              (sexplocn (EL 1 args)))
+              (sexplocn (EL 1 args))) ++
+      guard (nm = "FpOptimise" /\ LENGTH args = 2)
+            (lift2 FpOptimise
+              (sexpsc (EL 0 args))
+              (sexpexp (EL 1 args)))
     od
 Termination
   WF_REL_TAC `measure sexp_size` >> simp[] >> rpt strip_tac
@@ -866,6 +918,9 @@ Definition sexpexp_alt_def:
           if nm = "Lannot" ∧ LENGTH args = 2 then
             OPTION_MAP2 Lannot (sexpexp_alt (EL 0 args))
               (sexplocn (EL 1 args))
+          else
+          if nm = "FpOptimise" /\ LENGTH args = 2 then
+            OPTION_MAP2 FpOptimise (sexpsc (EL 0 args)) (sexpexp_alt (EL 1 args))
           else NONE) ∧
    (sexpexp_list s =
       case s of
@@ -1114,10 +1169,16 @@ QED
 val listsexp_def = Define`
   listsexp = FOLDR SX_CONS nil`;
 
+Theorem listsexp_thm[simp]:
+  listsexp [] = nil ∧ listsexp (h::t) = SX_CONS h (listsexp t)
+Proof
+  simp[listsexp_def]
+QED
+
 Theorem listsexp_11[simp]:
    ∀ l1 l2. listsexp l1 = listsexp l2 ⇔ l1 = l2
 Proof
-  Induct >> gen_tac >> cases_on `l2` >> fs[listsexp_def]
+  Induct >> gen_tac >> cases_on `l2` >> fs[]
 QED
 
 val optsexp_def = Define`
@@ -1259,6 +1320,21 @@ val opsexp_def = Define`
   (opsexp (FP_bop FP_Mul) = SX_SYM "FPbopFPMul") ∧
   (opsexp (FP_bop FP_Div) = SX_SYM "FPbopFPDiv") ∧
   (opsexp (FP_top FP_Fma) = SX_SYM "FPtopFPFma") ∧
+  (opsexp (FpToWord) = SX_SYM "FpToWord") /\
+  (opsexp (FpFromWord) = SX_SYM "FpFromWord") /\
+  (opsexp (Real_cmp realOps$Real_Less) = SX_SYM "RealcmpRealLess") ∧
+  (opsexp (Real_cmp realOps$Real_LessEqual) = SX_SYM "RealcmpRealLessEqual") ∧
+  (opsexp (Real_cmp realOps$Real_Greater) = SX_SYM "RealcmpRealGreater") ∧
+  (opsexp (Real_cmp realOps$Real_GreaterEqual) = SX_SYM "RealcmpRealGreaterEqual") ∧
+  (opsexp (Real_cmp realOps$Real_Equal) = SX_SYM "RealcmpRealEqual") ∧
+  (opsexp (Real_uop realOps$Real_Abs) = SX_SYM "RealuopRealAbs") ∧
+  (opsexp (Real_uop realOps$Real_Neg) = SX_SYM "RealuopRealNeg") ∧
+  (opsexp (Real_uop realOps$Real_Sqrt) = SX_SYM "RealuopRealSqrt") ∧
+  (opsexp (Real_bop realOps$Real_Add) = SX_SYM "RealbopRealAdd") ∧
+  (opsexp (Real_bop realOps$Real_Sub) = SX_SYM "RealbopRealSub") ∧
+  (opsexp (Real_bop realOps$Real_Mul) = SX_SYM "RealbopRealMul") ∧
+  (opsexp (Real_bop realOps$Real_Div) = SX_SYM "RealbopRealDiv") ∧
+  (opsexp (RealFromFP) = SX_SYM "RealFromFP") ∧
   (opsexp Opapp = SX_SYM "Opapp") ∧
   (opsexp Opassign = SX_SYM "Opassign") ∧
   (opsexp Opref = SX_SYM "Opref") ∧
@@ -1294,6 +1370,7 @@ val opsexp_def = Define`
   (opsexp ListAppend = SX_SYM "ListAppend") ∧
   (opsexp Aalloc = SX_SYM "Aalloc") ∧
   (opsexp AallocEmpty = SX_SYM "AallocEmpty") ∧
+  (opsexp AallocFixed = SX_SYM "AallocFixed") ∧
   (opsexp Asub = SX_SYM "Asub") ∧
   (opsexp Alength = SX_SYM "Alength") ∧
   (opsexp Aupdate = SX_SYM "Aupdate") ∧
@@ -1310,8 +1387,9 @@ Proof
   Cases_on`op`>>rw[sexpop_def,opsexp_def]>>
   TRY(MAP_FIRST rename1 [
         ‘Opn c1’, ‘Opb c1’, ‘Opw c2 c1’, ‘Chopb c1’, ‘Shift c1 c2 _’,
-        ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, `FP_top c1`, ‘WordFromInt c1’,
-        ‘WordToInt c1’
+        ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, ‘FP_top c1’,
+        ‘WordFromInt c1’, ‘WordToInt c1’,
+        ‘Real_cmp c1’, ‘Real_bop c1’, ‘Real_uop c1’
       ] >>
       Cases_on`c1` >> rw[sexpop_def,opsexp_def] >>
       Cases_on`c2` >> rw[sexpop_def,opsexp_def]) >>
@@ -1336,6 +1414,17 @@ Proof
   map_every Cases_on [‘p1’, ‘p2’] >> simp[locnsexp_def, listsexp_def]
 QED
 
+Definition scsexp_def:
+  scsexp Opt = SX_SYM "Opt" /\
+  scsexp NoOpt = SX_SYM "NoOpt"
+End
+
+Theorem scsexp_11[simp]:
+  ! sc1 sc2. scsexp sc1 = scsexp sc2 <=> sc1 = sc2
+Proof
+  Cases \\ Cases \\ fs[scsexp_def]
+QED
+
 Definition locssexp_def:
   locssexp (Locs p1 p2) = listsexp (MAP locnsexp [p1;p2])
 End
@@ -1346,31 +1435,37 @@ Proof
   Cases \\ Cases \\ simp[locssexp_def]
 QED
 
-val expsexp_def = tDefine"expsexp"`
-  (expsexp (Raise e) = listsexp [SX_SYM "Raise"; expsexp e]) ∧
-  (expsexp (Handle e pes) = listsexp [SX_SYM "Handle"; expsexp e; listsexp (MAP (λ(p,e). SX_CONS (patsexp p) (expsexp e)) pes)]) ∧
-  (expsexp (Lit l) = listsexp [SX_SYM "Lit"; litsexp l]) ∧
-  (expsexp (Con cn es) = listsexp [SX_SYM "Con"; optsexp (OPTION_MAP idsexp cn); listsexp (MAP expsexp es)]) ∧
-  (expsexp (Var id) = listsexp [SX_SYM "Var"; idsexp id]) ∧
-  (expsexp (Fun x e) = listsexp [SX_SYM "Fun"; SEXSTR x; expsexp e]) ∧
-  (expsexp (App op es) = listsexp [SX_SYM "App"; opsexp op; listsexp (MAP expsexp es)]) ∧
-  (expsexp (Log lop e1 e2) = listsexp [SX_SYM "Log"; lopsexp lop; expsexp e1; expsexp e2]) ∧
-  (expsexp (If e1 e2 e3) = listsexp [SX_SYM "If"; expsexp e1; expsexp e2; expsexp e3]) ∧
-  (expsexp (Mat e pes) = listsexp [SX_SYM "Mat"; expsexp e; listsexp (MAP (λ(p,e). SX_CONS (patsexp p) (expsexp e)) pes)]) ∧
-  (expsexp (Let so e1 e2) = listsexp [SX_SYM "Let"; optsexp (OPTION_MAP SEXSTR so); expsexp e1; expsexp e2]) ∧
-  (expsexp (Letrec funs e) = listsexp
-    [SX_SYM "Letrec";
-     listsexp (MAP (λ(x,y,z). SX_CONS (SEXSTR x) (SX_CONS (SEXSTR y) (expsexp z))) funs);
-     expsexp e]) ∧
-  (expsexp (Tannot e t) = listsexp [SX_SYM "Tannot"; expsexp e; typesexp t]) ∧
-  (expsexp (Lannot e loc) = listsexp [SX_SYM "Lannot"; expsexp e; locssexp loc])`
-  (WF_REL_TAC`measure exp_size` >>
-   rpt conj_tac >> simp[] >>
-   (Induct_on`pes` ORELSE Induct_on`es` ORELSE Induct_on`funs`) >>
-   simp[exp_size_def] >> rw[] >> simp[exp_size_def] >>
-   res_tac >>
-   first_x_assum(strip_assume_tac o SPEC_ALL) >>
-   decide_tac);
+Definition expsexp_def:
+  expsexp (Raise e) = ⟪SX_SYM "Raise"; expsexp e⟫ ∧
+  expsexp (Handle e pes) =
+    ⟪SX_SYM "Handle"; expsexp e;
+     listsexp (MAP (λ(p,e). SX_CONS (patsexp p) (expsexp e)) pes)⟫ ∧
+  expsexp (Lit l) = listsexp [SX_SYM "Lit"; litsexp l] ∧
+  expsexp (Con cn es) =
+    listsexp [SX_SYM "Con"; optsexp (OPTION_MAP idsexp cn);
+              listsexp (MAP expsexp es)] ∧
+  expsexp (Var id) = listsexp [SX_SYM "Var"; idsexp id] ∧
+  expsexp (Fun x e) = listsexp [SX_SYM "Fun"; SEXSTR x; expsexp e] ∧
+  expsexp (App op es) =
+    listsexp [SX_SYM "App"; opsexp op; listsexp (MAP expsexp es)] ∧
+  expsexp (Log lop e1 e2) = ⟪SX_SYM "Log";lopsexp lop; expsexp e1; expsexp e2⟫ ∧
+  expsexp (If e1 e2 e3) = ⟪SX_SYM "If"; expsexp e1; expsexp e2; expsexp e3⟫ ∧
+  expsexp (Mat e pes) =
+    ⟪SX_SYM "Mat"; expsexp e;
+     listsexp (MAP (λ(p,e). SX_CONS (patsexp p) (expsexp e)) pes)⟫ ∧
+  expsexp (Let so e1 e2) =
+    ⟪SX_SYM "Let"; optsexp (OPTION_MAP SEXSTR so); expsexp e1; expsexp e2⟫ ∧
+  expsexp (Letrec funs e) =
+  ⟪SX_SYM "Letrec";
+   listsexp (MAP (λ(x,y,z). SX_CONS (SEXSTR x)
+                                     (SX_CONS (SEXSTR y) (expsexp z))) funs);
+   expsexp e⟫ ∧
+  expsexp (Tannot e t) = ⟪SX_SYM "Tannot"; expsexp e; typesexp t⟫ ∧
+  expsexp (Lannot e loc) = ⟪SX_SYM "Lannot"; expsexp e; locssexp loc⟫ ∧
+  expsexp (FpOptimise sc e) = listsexp [SX_SYM "FpOptimise"; scsexp sc; expsexp e]
+Termination
+  WF_REL_TAC`measure exp_size`
+End
 
 Theorem expsexp_11[simp]:
    ∀e1 e2. expsexp e1 = expsexp e2 ⇒ e1 = e2
@@ -1424,22 +1519,29 @@ Proof
   Induct_on `xs` \\ rw [list_size_def] \\ fs []
 QED
 
-val decsexp_def = tDefine "decsexp"`
-  (decsexp (Dlet locs p e) = listsexp [SX_SYM "Dlet"; locssexp locs; patsexp p; expsexp e]) ∧
-  (decsexp (Dletrec locs funs) =
-     listsexp [SX_SYM "Dletrec"; locssexp locs;
-               listsexp (MAP (λ(f,x,e). SX_CONS (SEXSTR f) (SX_CONS (SEXSTR x) (expsexp e))) funs)]) ∧
-  (decsexp (Dtype locs td) = listsexp [SX_SYM "Dtype"; locssexp locs; type_defsexp td]) ∧
-  (decsexp (Dtabbrev locs ns x t) = listsexp [SX_SYM "Dtabbrev"; locssexp locs; listsexp (MAP SEXSTR ns); SEXSTR x; typesexp t]) ∧
-  (decsexp (Denv name) = listsexp [SX_SYM "Denv"; SEXSTR name]) ∧
-  (decsexp (Dexn locs x ts) = listsexp [SX_SYM "Dexn"; locssexp locs; SEXSTR x; listsexp (MAP typesexp ts)]) ∧
-  (decsexp (Dmod name decs) = listsexp [SX_SYM "Dmod"; SEXSTR name; listsexp (MAP decsexp decs)]) ∧
-  decsexp (Dlocal ldecs decs) = listsexp [SX_SYM "Dlocal";
-        listsexp (MAP decsexp ldecs); listsexp (MAP decsexp decs)]`
-  ((wf_rel_tac`measure dec_size` \\ strip_tac)
-   \\ fs [dec1_size_eq]
-   \\ rpt (conj_tac ORELSE gen_tac ORELSE match_mp_tac mem_size_lemma)
-   \\ fs []);
+Definition decsexp_def:
+  decsexp (Dlet locs p e) =
+    ⟪SX_SYM "Dlet"; locssexp locs; patsexp p; expsexp e⟫ ∧
+  decsexp (Dletrec locs funs) =
+     listsexp [
+         SX_SYM "Dletrec";
+         locssexp locs;
+         listsexp
+           (MAP (λ(f,x,e). SX_CONS (SEXSTR f) (SX_CONS (SEXSTR x) (expsexp e)))
+            funs)] ∧
+  decsexp (Dtype locs td) = ⟪SX_SYM "Dtype"; locssexp locs; type_defsexp td⟫ ∧
+  decsexp (Dtabbrev locs ns x t) = ⟪SX_SYM "Dtabbrev"; locssexp locs; listsexp (MAP SEXSTR ns); SEXSTR x; typesexp t⟫ ∧
+  decsexp (Denv name) = ⟪SX_SYM "Denv"; SEXSTR name⟫ ∧
+  decsexp (Dexn locs x ts) =
+    ⟪SX_SYM "Dexn"; locssexp locs; SEXSTR x; listsexp (MAP typesexp ts)⟫ ∧
+  decsexp (Dmod name decs) =
+    ⟪SX_SYM "Dmod"; SEXSTR name; listsexp (MAP decsexp decs)⟫ ∧
+  decsexp (Dlocal ldecs decs) =
+    listsexp [SX_SYM "Dlocal"; listsexp (MAP decsexp ldecs);
+              listsexp (MAP decsexp decs)]
+Termination
+  wf_rel_tac`measure dec_size`
+End
 
 Theorem decsexp_11[simp]:
    ∀d1 d2. decsexp d1 = decsexp d2 ⇔ d1 = d2
@@ -1455,52 +1557,48 @@ QED
 (* round trip *)
 
 Theorem odestSXSTR_SOME[simp]:
-   odestSXSTR s = SOME y ⇔ (s = SX_STR y)
+   (odestSXSTR s = SOME y ⇔ s = SX_STR y) ∧
+   (SOME y = odestSXSTR s ⇔ s = SX_STR y)
+
 Proof
-  Cases_on`s`>>simp[odestSXSTR_def]
+  Cases_on`s`>>simp[odestSXSTR_def] >> simp[EQ_SYM_EQ]
 QED
 
 Theorem odestSEXSTR_SOME[simp]:
-   odestSEXSTR s = SOME y ⇔ (s = SEXSTR y)
+   (odestSEXSTR s = SOME y ⇔ s = SEXSTR y) ∧
+   (SOME y = odestSEXSTR s ⇔ s = SEXSTR y)
 Proof
   Cases_on`s`\\simp[odestSEXSTR_def,SEXSTR_def]
   \\ metis_tac[decode_encode_control,encode_decode_control]
 QED
 
+Theorem odestSXNUM_SOME[simp]:
+  (odestSXNUM s = SOME n ⇔ s = &n) ∧
+  (SOME n = odestSXNUM s ⇔ s = &n)
+Proof
+  Cases_on ‘s’ >> simp[]
+QED
+
 Theorem odestSXSTR_SX_STR[simp]:
    odestSXSTR (SX_STR s) = SOME s
 Proof
-  rw[odestSXSTR_def]
+  simp[]
 QED
 
 Theorem odestSEXSTR_SEXSTR[simp]:
    odestSEXSTR (SEXSTR s) = SOME s
-Proof
-  rw[odestSEXSTR_def]
+Proof simp[]
 QED
 
 Theorem odestSXNUM_SX_NUM[simp]:
    odestSXNUM (SX_NUM n) = SOME n
-Proof
-  EVAL_TAC
+Proof simp[]
 QED
 
 Theorem odestSXSYM_SX_SYM[simp]:
    odestSXSYM (SX_SYM s) = SOME s
 Proof
-  EVAL_TAC
-QED
-
-Theorem odestSXNUM_SX_STR[simp]:
-   odestSXNUM (SX_STR s) = NONE
-Proof
-  EVAL_TAC
-QED
-
-Theorem odestSXNUM_SEXSTR[simp]:
-   odestSXNUM (SEXSTR s) = NONE
-Proof
-  EVAL_TAC
+  simp[]
 QED
 
 Theorem odestSXSTR_listsexp[simp]:
@@ -1566,10 +1664,7 @@ Theorem sexplist_listsexp_imp:
    sexplist f (listsexp l1) = SOME l2 ⇒
    ∀n. n < LENGTH l1 ⇒ f (EL n l1) = SOME (EL n l2)
 Proof
-  qid_spec_tac`l2`>>
-  Induct_on`l1`>>simp[listsexp_def]>>simp[GSYM listsexp_def] >>
-  simp[Once sexplist_def,PULL_EXISTS] >> rw[] >>
-  Cases_on`n`>>simp[]
+  qid_spec_tac`l2`>> Induct_on`l1`>> simp[PULL_EXISTS, LT_SUC, DISJ_IMP_THM]
 QED
 
 Theorem sexpopt_optsexp[simp]:
@@ -1582,8 +1677,20 @@ QED
 Theorem sexpid_odestSEXSTR_idsexp[simp]:
    sexpid odestSEXSTR (idsexp i) = SOME i
 Proof
-  Induct_on `i` >> simp[idsexp_def] >>
-  rw [Once sexpid_def]
+  Induct_on `i` >> simp[idsexp_def, dstrip_sexp_def] >>
+  rw [Once sexpid_def, dstrip_sexp_def, EXISTS_PROD, strip_sxcons_def]
+QED
+
+Theorem dstrip_sexp_thm[simp]:
+  dstrip_sexp ⟪SX_SYM s • args⟫ = lift (λt. (s,t)) (strip_sxcons args) ∧
+  dstrip_sexp ⟪ &n • args⟫ = NONE ∧
+  dstrip_sexp ⟪SX_STR str • args⟫ = NONE ∧
+  dstrip_sexp ⟪ ⟪s1 • s2⟫ • args⟫ = NONE ∧
+  dstrip_sexp (&n) = NONE ∧
+  dstrip_sexp (SX_SYM s) = NONE ∧
+  dstrip_sexp (SX_STR str) = NONE
+Proof
+  simp[dstrip_sexp_def]
 QED
 
 Theorem sexptype_typesexp[simp]:
@@ -1594,7 +1701,7 @@ Proof
   conj_tac >- rw[Once sexptype_def,typesexp_def] >>
   conj_tac >- (rw[] \\ rw[Once sexptype_def,typesexp_def]) >>
   conj_tac \\ (
-  Induct_on`l`>>rw[typesexp_def] >- (
+  Induct>>rw[typesexp_def] >- (
     rw[Once sexptype_def,sexplist_listsexp_matchable] ) >> fs[] >>
   rw[Once sexptype_def] >>
   fsrw_tac[boolSimps.ETA_ss][] >>
@@ -1614,37 +1721,19 @@ val exists_g_tac =
 Theorem sexptype_def_type_defsexp[simp]:
    sexptype_def (type_defsexp l) = SOME l
 Proof
-  Induct_on`l` >> rw[type_defsexp_def] >> rw[sexptype_def_def] >>
-  match_mp_tac sexplist_listsexp_matchable >> simp[] >>
-  exists_g_tac >>
-  simp[] >>
-  qx_gen_tac`p`>>PairCases_on`p` >> simp[] >>
-  strip_tac >- (
-    rw[] >>
-    simp[sexppair_def] >>
-    match_mp_tac sexplist_listsexp_matchable >>
-    exists_g_tac >>
-    simp[] >>
-    qx_gen_tac`p`>>PairCases_on`p` >> simp[] >>
-    simp[sexppair_def] ) >>
-  fs[sexptype_def_def,type_defsexp_def] >>
-  imp_res_tac sexplist_listsexp_imp >>
-  fs[listTheory.MEM_EL] >>
-  first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-  pop_assum(assume_tac o SYM) >>
-  simp[rich_listTheory.EL_MAP]
+  rw[type_defsexp_def, sexptype_def_def] >>
+  irule sexplist_listsexp_matchable >>
+  irule_at Any EQ_REFL >> simp[FORALL_PROD, sexppair_def]
 QED
 
 Theorem sexplit_litsexp[simp]:
    sexplit (litsexp l) = SOME l
 Proof
   Cases_on`l`>>simp[sexplit_def,litsexp_def]
-  >- (
-    rw[] >> intLib.ARITH_TAC ) >>
+  >- (rw[] >> intLib.ARITH_TAC ) >>
   ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_8] >>
   ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_64] >>
-  ONCE_REWRITE_TAC[wordsTheory.w2n_lt] >>
-  rw[]
+  ONCE_REWRITE_TAC[wordsTheory.w2n_lt]
 QED
 
 Theorem sexppat_patsexp[simp]:
@@ -1685,6 +1774,12 @@ Proof
   Cases_on `l` >> rw[sexplocn_def,locssexp_def]
 QED
 
+Theorem sexpsc_scsexp[simp]:
+  sexpsc (scsexp sc) = SOME sc
+Proof
+  Cases_on `sc` >> fs[sexpsc_def, scsexp_def]
+QED
+
 Theorem sexpexp_expsexp[simp]:
    sexpexp (expsexp e) = SOME e
 Proof
@@ -1711,182 +1806,137 @@ Proof
   \\ simp[sexppair_def]
 QED
 
-Theorem sexpopt_SOME:
-   sexpopt f s = SOME opt ⇒
-   ∃x. s = optsexp x ∧
-       (case x of NONE => opt = NONE | SOME s => IS_SOME opt ∧ opt = f s)
+Theorem odestSXSYM_EQ_SOME[simp]:
+  (odestSXSYM s = SOME str ⇔ s = SX_SYM str) ∧
+  (SOME str = odestSXSYM s ⇔ s = SX_SYM str)
 Proof
-  rw[sexpopt_def]
-  \\ Cases_on`odestSXSYM s` \\ fs[dstrip_sexp_SOME] \\ rw[]
-  \\ fs[odestSXSYM_def] \\ simp[EXISTS_OPTION, optsexp_def, listsexp_def]
-  \\ fs[LENGTH_EQ_NUM_compute] \\ rw[] \\ fs[] \\ rw[]
-  >- (rename [‘f e1 = SOME _’] \\ qexists_tac `SOME e1` \\ fs [] \\ EVAL_TAC)
-  \\ rename[`odestSXSYM s = SOME _`] >> Cases_on `s`
-  \\ fs[odestSXSYM_def, dstrip_sexp_def]
-  \\ qexists_tac `NONE` \\ fs [] \\ EVAL_TAC
+  Cases_on‘s’ >> simp[odestSXSYM_def] >> metis_tac[]
+QED
+
+Theorem sexpopt_SOME:
+   sexpopt f s = SOME opt ⇔
+     opt = NONE ∧ s = SX_SYM "NONE" ∨
+     ∃x s0. opt = SOME x ∧ f s0 = SOME x ∧ s = listsexp [SX_SYM "SOME"; s0]
+Proof
+  simp[sexpopt_def, OPTION_CHOICE_EQUALS_OPTION, EXISTS_PROD,
+       LENGTH_EQ_NUM_compute, PULL_EXISTS, dstrip_sexp_SOME, SF CONJ_ss,
+       odestSXSYM_def, listsexp_def] >> metis_tac[]
 QED
 
 Theorem listsexp_MAP_EQ_f:
    (∀x. MEM x ls ⇒ f1 x = f2 x) ⇒
     listsexp (MAP f1 ls) = listsexp (MAP f2 ls)
 Proof
-  Induct_on`ls` >> simp[] >> fs[listsexp_def]
+  simp[MAP_CONG]
 QED
 
 Theorem sexplist_SOME:
-   sexplist f s = SOME ls ⇒ ∃l. s = listsexp l ∧ MAP f l = MAP SOME ls
+   sexplist f s = SOME ls ⇔ ∃l. s = listsexp l ∧ MAP f l = MAP SOME ls
 Proof
   map_every qid_spec_tac[`s`,`ls`] >>
-  Induct >> rw[] >- (
-    fs[Once sexplist_def] >>
-    every_case_tac >> fs[listsexp_def] ) >>
-  pop_assum mp_tac >>
-  simp[Once sexplist_def] >>
-  every_case_tac >> fs[] >> rw[] >>
-  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-  rw[] >>
-  rw[listsexp_def,SimpRHS] >>
-  simp[GSYM listsexp_def] >>
-  qmatch_assum_rename_tac`f a = return h` >>
-  qexists_tac`a::l` >> simp[listsexp_def]
+  Induct >> rw[]
+  >- simp[Once sexplist_def, AllCaseEqs(), listsexp_def] >>
+  simp[Once sexplist_def, AllCaseEqs(), PULL_EXISTS, MAP_EQ_CONS,
+       listsexp_def] >> metis_tac[]
 QED
 
 Theorem sexppair_SOME:
-   sexppair f1 f2 s = SOME p ⇒ ∃x y. f1 x = SOME (FST p) ∧ f2 y = SOME (SND p) ∧ s = SX_CONS x y
+   sexppair f1 f2 s = SOME p ⇔
+     ∃x y a b. f1 x = SOME a ∧ f2 y = SOME b ∧ s = SX_CONS x y ∧ p = (a,b)
 Proof
-  rw[sexppair_def]
-  \\ every_case_tac \\ fs[]
+  simp[sexppair_def, AllCaseEqs(), PULL_EXISTS] >> metis_tac[]
 QED
 
-Theorem OPTION_CHOICE_EQ_SOME:
-   OPTION_CHOICE m1 m2 = SOME x ⇔
-    m1 = SOME x ∨ m1 = NONE ∧ m2 = SOME x
-Proof
-  Cases_on `m1` >> simp[]
-QED
+Theorem OPTION_CHOICE_EQ_SOME = OPTION_CHOICE_EQUALS_OPTION
 
-Theorem dstrip_sexp_EQ_SOME:
-   dstrip_sexp s = SOME (nm, args) ⇔
-   ∃t. s = SX_CONS (SX_SYM nm) t ∧ strip_sxcons t = SOME args
+Theorem odestSXNUM_EQ_SOME[simp]:
+  (odestSXNUM s = SOME n ⇔ s = &n) ∧
+  (SOME n = odestSXNUM s ⇔ s = &n)
 Proof
-  Cases_on`s` >> simp[dstrip_sexp_def] >> every_case_tac >>
-  simp[] >> metis_tac[]
+  Cases_on ‘s’ >> simp[odestSXNUM_def]
 QED
 
 Theorem litsexp_sexplit:
-   ∀s l. sexplit s = SOME l ⇒ litsexp l = s
+  (sexplit s = SOME l ⇔ litsexp l = s) ∧
+  (SOME l = sexplit s ⇔ litsexp l = s)
 Proof
-  rw[sexplit_def]
-  \\ reverse(Cases_on`odestSXNUM s`) \\ fs[]
-  >- (
-    rw[litsexp_def]
-    \\ Cases_on`s` \\ fs[odestSXNUM_def] )
-  \\ reverse(Cases_on`odestSEXSTR s`) \\ fs[]
-  >- ( rw[litsexp_def])
-  \\ pairarg_tac
-  \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
-  \\ fs[OPTION_CHOICE_EQ_SOME, dstrip_sexp_EQ_SOME]
-  \\ rw[litsexp_def, listsexp_def]
-  \\ rename [‘odestSXNUM h1 = SOME n1’]
-  \\ Cases_on`h1` \\ fs[odestSXNUM_def]
+  simp[EQ_SYM_EQ] >>
+  simp[sexplit_def, OPTION_CHOICE_EQUALS_OPTION, dstrip_sexp_SOME, PULL_EXISTS,
+       OPTION_CHOICE_EQ_NONE, LENGTH_EQ_NUM_compute, SF CONJ_ss, odestSXNUM_def,
+       odestSEXSTR_def] >>
+  rpt gen_tac >> eq_tac >> rpt strip_tac >> gvs[litsexp_def, listsexp_def] >>
+  simp[SF CONJ_ss, litsexp_def] >>
+  Cases_on‘l’ >>
+  simp[litsexp_def, listsexp_def, PULL_EXISTS, AllCaseEqs(), SF CONJ_ss] >~
+  [‘i < 0i’] >- (Cases_on ‘i’ >> simp[]) >~
+  [‘w2n (c : word8)’]
+  >- (Cases_on ‘c’ using ranged_word_nchotomy >> gs[dimword_def]) >~
+  [‘w2n (w : word64)’]
+  >- (Cases_on ‘w’ using ranged_word_nchotomy >> gs[dimword_def])
 QED
 
 Theorem idsexp_sexpid_odestSEXSTR:
-   ∀y x. sexpid odestSEXSTR x = SOME y ⇒ x = idsexp y
+   ∀y x. sexpid odestSEXSTR x = SOME y ⇔ x = idsexp y
 Proof
-  Induct
-  \\ rw[Once sexpid_def]
-  \\ fs[dstrip_sexp_SOME] \\ rw[]
-  \\ fs[]
-  \\ fs[OPTION_CHOICE_EQ_SOME]
-  \\ rw[idsexp_def,listsexp_def]
-  \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
-  \\ fs[]
-  \\ fs[Once strip_sxcons_def]
-  \\ every_case_tac \\ fs[]
+  Induct >>
+  simp[Once sexpid_def, EXISTS_PROD, dstrip_sexp_SOME, PULL_EXISTS, idsexp_def,
+       OPTION_CHOICE_EQUALS_OPTION, LENGTH_EQ_NUM_compute]
 QED
 
-Theorem strip_sxcons_NIL[simp]:
-   strip_sxcons ⟪ ⟫ = SOME []
+Theorem idsexp_sexpid_odestSEXSTR'[simp]:
+  (sexpid odestSEXSTR x = SOME y ⇔ x = idsexp y) ∧
+  (SOME y = sexpid odestSEXSTR x ⇔ x = idsexp y)
 Proof
-  simp[Once strip_sxcons_def]
-QED
-
-Theorem strip_sxcons_SXCONS[simp]:
-   strip_sxcons (SX_CONS s1 s2) = lift (CONS s1) (strip_sxcons s2)
-Proof
-  simp[Once strip_sxcons_def]
+  simp[EQ_IMP_THM] >> metis_tac[idsexp_sexpid_odestSEXSTR]
 QED
 
 Theorem typesexp_sexptype:
-   ∀s t. sexptype s = SOME t ⇒ typesexp t = s
+   ∀s t. (sexptype s = SOME t ⇔ typesexp t = s) ∧
+         (SOME t = sexptype s ⇔ typesexp t = s)
 Proof
+  simp[EQ_SYM_EQ] >>
   ho_match_mp_tac(theorem"sexptype_ind")
+  \\ simp[dstrip_sexp_SOME, LENGTH_EQ_NUM_compute, PULL_EXISTS]
   \\ rw[]
-  \\ pop_assum mp_tac
-  \\ rw[Once sexptype_def]
-  \\ fs[dstrip_sexp_SOME,PULL_EXISTS]
-  \\ rw[]
-  \\ pairarg_tac \\ fs[] \\ rveq
-  \\ rename1`guard (nm = "Atvar" ∧ _) _`
-  \\ reverse (Cases_on `nm ∈ {"Atvar"; "Atfun"; "Attup"; "Atapp"}`) >- fs[]
-  \\ pop_assum mp_tac >> simp[]
-  \\ strip_tac \\ fs[typesexp_def, listsexp_def]
-  \\ fs[LENGTH_EQ_NUM_compute, PULL_EXISTS]
-  \\ rw[] \\ fs[]
-  \\ fs[GSYM listsexp_def]
-  \\ imp_res_tac idsexp_sexpid_odestSEXSTR \\ simp[]
-  \\ imp_res_tac sexplist_SOME \\ rw[]
-  \\ fs[LIST_EQ_REWRITE,EL_MAP]
-  \\ rfs[EL_MAP]
-  \\ rpt strip_tac \\ res_tac
-  \\ first_x_assum(MATCH_MP_TAC o MP_CANON)
-  \\ simp[sxMEM_def]
-  \\ metis_tac[MEM_EL]
+  \\ Cases_on ‘t’
+  \\ simp[Once sexptype_def, EXISTS_PROD, dstrip_sexp_SOME,
+          LENGTH_EQ_NUM_compute, PULL_EXISTS, OPTION_CHOICE_EQUALS_OPTION,
+          OPTION_CHOICE_EQ_NONE, typesexp_def]
+  \\ eq_tac >> strip_tac >> gvs[] >>
+  gvs[sexplist_SOME] >>
+  gvs[sexplist_SOME, LIST_EQ_REWRITE,EL_MAP, sxMEM_def, PULL_EXISTS, MEM_EL]
+QED
+
+Theorem patsexp_sexppat0:
+   ∀s p. sexppat s = SOME p ⇒ patsexp p = s
+Proof
+  ho_match_mp_tac (theorem"sexppat_ind") >>
+  simp[dstrip_sexp_SOME, PULL_EXISTS, LENGTH_EQ_NUM_compute] >>
+  gen_tac >> strip_tac >> ONCE_REWRITE_TAC [sexppat_def] >>
+  Cases >>
+  simp[OPTION_CHOICE_EQUALS_OPTION, OPTION_CHOICE_EQ_NONE, EXISTS_PROD,
+       dstrip_sexp_SOME, patsexp_def, PULL_EXISTS, LENGTH_EQ_NUM_compute,
+       litsexp_sexplit, sexpopt_SOME, typesexp_sexptype] >>
+  rpt (gen_tac ORELSE disch_then strip_assume_tac) >>
+  rw[] >> rw[optsexp_def] >>
+  gvs[sxMEM_def, PULL_EXISTS, sexplist_SOME, LIST_EQ_REWRITE, EL_MAP, MEM_EL]
 QED
 
 Theorem patsexp_sexppat:
-   ∀s p. sexppat s = SOME p ⇒ patsexp p = s
+  (sexppat s = SOME p ⇔ patsexp p = s) ∧
+  (SOME p = sexppat s ⇔ patsexp p = s)
 Proof
-  ho_match_mp_tac (theorem"sexppat_ind")
-  \\ rw[]
-  \\ pop_assum mp_tac
-  \\ rw[Once sexppat_def]
-  \\ fs[OPTION_CHOICE_EQ_SOME, patsexp_def]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[dstrip_sexp_SOME, OPTION_CHOICE_EQ_SOME] >>
-  rw[patsexp_def, listsexp_def]
-  \\ fs[LENGTH_EQ_NUM_compute]
-  \\ rw[] \\ fs[]
-  >- metis_tac[litsexp_sexplit]
-  >- metis_tac[litsexp_sexplit]
-  \\ imp_res_tac typesexp_sexptype
-  \\ fs[odestSEXSTR_def] \\ rveq
-  \\ imp_res_tac sexpopt_SOME \\ rw[]
-  \\ every_case_tac \\ fs[] \\ rw[]
-  \\ fs[optsexp_def, listsexp_def, sexpopt_def, odestSXSYM_def,
-        dstrip_sexp_def]
-  \\ rpt (pairarg_tac >> fs[])
-  \\ simp[idsexp_sexpid_odestSEXSTR]
-  \\ imp_res_tac sexplist_SOME \\ rw[]
-  \\ rw[listsexp_def] \\ AP_TERM_TAC
-  \\ fs[LIST_EQ_REWRITE,EL_MAP]
-  \\ rfs[EL_MAP] \\ rw[]
-  \\ first_x_assum(match_mp_tac o MP_CANON)
-  \\ simp[]
-  \\ simp[sxMEM_def]
-  \\ metis_tac[MEM_EL]
+  metis_tac[patsexp_sexppat0, sexppat_patsexp]
 QED
 
 Theorem opsexp_sexpop:
    sexpop s = SOME p ⇒ opsexp p = s
 Proof
   Cases_on`s` \\ rw[sexpop_def] \\ rw[opsexp_def]
-  \\ match1_tac(mg.aub`s_:sexp`,(fn(a,t)=>if is_var(t"s") then Cases_on`^(t"s")`\\fs[sexpop_def] else NO_TAC))
-  \\ match1_tac(mg.aub`s_:sexp`,(fn(a,t)=>if is_var(t"s") then Cases_on`^(t"s")`\\fs[sexpop_def] else NO_TAC))
-  \\ pop_assum mp_tac
-  \\ rpt IF_CASES_TAC \\ rw[]
-  \\ rw[opsexp_def, GSYM encode_decode_control]
+  \\ rename [‘sexpop  ⟪s1 • s2⟫ = SOME p’]
+  \\ Cases_on ‘s1’ \\ gvs[sexpop_def]
+  \\ Cases_on ‘s2’
+  \\ gvs[sexpop_def, AllCaseEqs(), opsexp_def, encode_decode_control]
 QED
 
 Theorem lopsexp_sexplop:
@@ -1895,160 +1945,104 @@ Proof
   Cases_on`s` \\ rw[sexplop_def] \\ rw[lopsexp_def]
 QED
 
-Theorem odestSXNUM_SXNUM:
-  odestSXNUM s = SOME n ⇒ s = &n
-Proof
-  Cases_on ‘s’ >> simp[odestSXNUM_def]
-QED
-
-Theorem locnsexp_sexplocpt:
+Theorem locnsexp_sexplocpt0:
   sexplocpt s = SOME z ⇒ locnsexp z = s
 Proof
   Cases_on ‘z’ >> Cases_on ‘s’ >>
   simp[locnsexp_def,sexplocpt_def, AllCaseEqs(), PULL_EXISTS,
-       LENGTH_EQ_NUM_compute, listsexp_def] >> rpt strip_tac >>
-  rpt (dxrule odestSXNUM_SXNUM) >> simp[]
+       LENGTH_EQ_NUM_compute, listsexp_def]
+QED
+
+Theorem locnsexp_sexplocpt[simp]:
+  (sexplocpt s = SOME z ⇔ locnsexp z = s) ∧
+  (SOME z = sexplocpt s ⇔ locnsexp z = s)
+Proof
+  metis_tac[locnsexp_sexplocpt0, sexplocpt_locnsexp]
 QED
 
 Theorem locnsexp_sexplocn:
-   sexplocn s = SOME z ⇒ locssexp z = s
+   (sexplocn s = SOME z ⇔ locssexp z = s) ∧
+   (SOME z = sexplocn s ⇔ locssexp z = s)
 Proof
   Cases_on`z` >>
   simp[sexplocn_def, locssexp_def, listsexp_def, LENGTH_EQ_NUM_compute,
-       PULL_EXISTS] >> metis_tac[locnsexp_sexplocpt]
+       PULL_EXISTS] >> metis_tac[]
+QED
+
+Theorem scsexp_sexpsc:
+  sexpsc s = SOME sc ==> scsexp sc = s
+Proof
+  Cases_on `s` \\ fs[sexpsc_def, scsexp_def]
+  \\ TOP_CASE_TAC
+  \\ rpt strip_tac \\ rveq \\ fs[sexpsc_def, scsexp_def]
+  \\ rveq \\ fs[scsexp_def]
 QED
 
 Theorem expsexp_sexpexp:
-   ∀s e. sexpexp s = SOME e ⇒ expsexp e = s
+  (sexpexp s = SOME e ⇔ expsexp e = s) ∧
+  (SOME e = sexpexp s ⇔ expsexp e = s)
 Proof
+  ‘∀s e. sexpexp s = SOME e ⇒ expsexp e = s’
+    suffices_by metis_tac[sexpexp_expsexp] >>
   ho_match_mp_tac (theorem"sexpexp_ind") >>
-  simp[OPTION_GUARD_EQ_THM, LENGTH_EQ_NUM_compute, PULL_EXISTS, dstrip_sexp_SOME]
+  simp[OPTION_GUARD_EQ_THM, LENGTH_EQ_NUM_compute, PULL_EXISTS,
+       dstrip_sexp_SOME]
   \\ rpt gen_tac \\ strip_tac \\ gen_tac
-  \\ simp[Once sexpexp_def, EXISTS_PROD, dstrip_sexp_EQ_SOME, PULL_EXISTS]
+  \\ simp[Once sexpexp_def, EXISTS_PROD, dstrip_sexp_SOME, PULL_EXISTS]
   \\ rpt gen_tac
   \\ rename1 `guard (nm = "Raise" ∧ _) _`
   \\ reverse (Cases_on `nm ∈ {"Raise"; "Handle"; "Lit"; "Con"; "Var"; "Fun";
                               "App"; "Log"; "If"; "Mat"; "Let"; "Letrec";
-                              "Lannot"; "Tannot" }`)
+                              "Lannot"; "Tannot"; "FpOptimise"}`)
   \\ pop_assum mp_tac
   \\ simp[]
   \\ rw[]
   \\ simp[expsexp_def]
-  \\ rw[]
-  \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
-  \\ fs[] \\ rw[]
-  \\ fs[listsexp_def] \\ fs[GSYM listsexp_def] \\ rpt conj_tac
-  \\ imp_res_tac typesexp_sexptype
-  \\ imp_res_tac locnsexp_sexplocn
-  >- (imp_res_tac sexplist_SOME \\ rw[]
-      \\ fs[LIST_EQ_REWRITE, EL_MAP]
-      \\ rfs[EL_MAP] \\ gen_tac \\ pairarg_tac \\ strip_tac \\ simp[]
-      \\ res_tac
-      \\ imp_res_tac sexppair_SOME \\ fs[] \\ rfs[] \\ conj_tac
-      >- (imp_res_tac patsexp_sexppat \\ rfs[])
-      \\ fs[sxMEM_def]
-      \\ metis_tac[MEM_EL])
-  >- imp_res_tac litsexp_sexplit
-  >- (imp_res_tac sexpopt_SOME \\ rw[] \\ every_case_tac \\ fs[]
-      \\ fs[sexpopt_def, optsexp_def, listsexp_def, odestSXSYM_def,
-            IS_SOME_EXISTS, dstrip_sexp_def] \\ rfs[]
-      \\ fs[strip_sxcons_def]
-      \\ rw[]
-      \\ imp_res_tac idsexp_sexpid_odestSEXSTR)
-  >- (imp_res_tac sexplist_SOME >> rw[] >>
-      fs[LIST_EQ_REWRITE, EL_MAP] >> rfs[EL_MAP, sxMEM_def] >>
-      metis_tac[MEM_EL])
-  >- (imp_res_tac idsexp_sexpid_odestSEXSTR >> metis_tac[])
-  >- (imp_res_tac opsexp_sexpop)
-  >- (imp_res_tac sexplist_SOME >> rw[] >>
-      fs[LIST_EQ_REWRITE, EL_MAP] >> rfs[EL_MAP, sxMEM_def] >>
-      metis_tac[MEM_EL])
-  >- (rfs[] >> fs[Once strip_sxcons_def] >> every_case_tac >> fs[] >>
-      rw[] >> fs[OPTION_APPLY_MAP3] >> rw[] >>
-      simp[expsexp_def, listsexp_def] >> imp_res_tac lopsexp_sexplop)
-  >- (rfs[] >> fs[Once strip_sxcons_def] >> every_case_tac >> fs[] >>
-      rw[] >> fs[OPTION_APPLY_MAP3] >> rw[] >>
-      simp[expsexp_def, listsexp_def])
-  >- (imp_res_tac sexplist_SOME \\ rw[]
-      \\ fs[LIST_EQ_REWRITE, EL_MAP]
-      \\ rfs[EL_MAP] \\ gen_tac \\ pairarg_tac \\ strip_tac \\ simp[]
-      \\ res_tac
-      \\ imp_res_tac sexppair_SOME \\ fs[] \\ rfs[] \\ conj_tac
-      >- (imp_res_tac patsexp_sexppat \\ rfs[])
-      \\ fs[sxMEM_def] \\ metis_tac[MEM_EL])
-  >- (rfs[] >> fs[Once strip_sxcons_def] >> every_case_tac >> fs[] >> rw[] >>
-      fs[OPTION_APPLY_MAP3] >> rw[] >> simp[expsexp_def, listsexp_def] >>
-      imp_res_tac sexpopt_SOME >> every_case_tac >> fs[] >> rw[] >>
-      fs[IS_SOME_EXISTS])
-  >- (imp_res_tac sexplist_SOME \\ rw[]
-      \\ fs[LIST_EQ_REWRITE, EL_MAP]
-      \\ rfs[EL_MAP] \\ gen_tac \\ pairarg_tac >> strip_tac >> simp[]
-      \\ res_tac
-      \\ imp_res_tac sexppair_SOME \\ fs[] \\ rfs[] \\ rw[]
-      \\ imp_res_tac sexppair_SOME \\ fs[] \\ rfs[] \\ rw[]
-      \\ fs[sxMEM_def] \\ metis_tac[MEM_EL])
+  \\ gvs[LENGTH_EQ_NUM_compute, listsexp_thm, litsexp_sexplit, opsexp_sexpop,
+         idsexp_sexpid_odestSEXSTR, typesexp_sexptype, locnsexp_sexplocn,
+         OPTION_APPLY_MAP3, expsexp_def, lopsexp_sexplop, sexpopt_SOME,
+         optsexp_def, scsexp_sexpsc] >>
+  gvs[sexplist_SOME, sxMEM_def, EL_MAP, LIST_EQ_REWRITE, MEM_EL, PULL_EXISTS] >>
+  rw[] >> pairarg_tac >> first_x_assum drule >>
+  simp[sexppair_SOME, PULL_EXISTS, patsexp_sexppat] >> metis_tac[]
 QED
 
 Theorem type_defsexp_sexptype_def:
-   sexptype_def s = SOME x ⇒ type_defsexp x = s
+   (sexptype_def s = SOME x ⇔ type_defsexp x = s) ∧
+   (SOME x = sexptype_def s ⇔ type_defsexp x = s)
 Proof
-  rw[sexptype_def_def,type_defsexp_def]
-  \\ imp_res_tac sexplist_SOME \\ rw[]
-  \\ fs[LIST_EQ_REWRITE,EL_MAP]
-  \\ rw[] \\ rfs[EL_MAP]
-  \\ res_tac
-  \\ imp_res_tac sexppair_SOME
-  \\ imp_res_tac sexppair_SOME
-  \\ fs[] \\ rveq \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ imp_res_tac sexplist_SOME \\ rw[]
-  \\ fs[LIST_EQ_REWRITE,EL_MAP]
-  \\ rw[] \\ rfs[EL_MAP]
-  \\ res_tac
-  \\ imp_res_tac sexppair_SOME
-  \\ fs[] \\ rveq \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ imp_res_tac sexplist_SOME \\ rw[]
-  \\ fs[LIST_EQ_REWRITE,EL_MAP]
-  \\ rw[] \\ rfs[EL_MAP]
-  \\ metis_tac[typesexp_sexptype]
+  simp[EQ_SYM_EQ] >> simp[EQ_IMP_THM] >>
+  rw[sexptype_def_def,type_defsexp_def] >>
+  gvs[sexplist_SOME, LIST_EQ_REWRITE, EL_MAP, sexppair_SOME, PULL_EXISTS,
+      EL_MAP, SF CONJ_ss, typesexp_sexptype] >>
+  rpt strip_tac >> pairarg_tac >> simp[] >>
+  first_x_assum $ drule_then strip_assume_tac >> simp[] >> gvs[] >>
+  simp[LIST_EQ_REWRITE, EL_MAP] >> rw[] >>
+  pairarg_tac >> simp[] >> first_x_assum $ drule_then strip_assume_tac >>
+  gvs[] >> simp[LIST_EQ_REWRITE, EL_MAP]
 QED
 
 Theorem decsexp_sexpdec:
-   ∀s d. sexpdec s = SOME d ⇒ decsexp d = s
+  (sexpdec s = SOME d ⇔ decsexp d = s) ∧
+  (SOME d = sexpdec s ⇔ decsexp d = s)
 Proof
+  ‘∀s d. sexpdec s = SOME d ⇒ decsexp d = s’
+    suffices_by metis_tac[sexpdec_decsexp]>>
   ho_match_mp_tac(theorem"sexpdec_ind")
   \\ ntac 3 strip_tac
   \\ rw[Once sexpdec_def]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[dstrip_sexp_SOME]
-  \\ rpt var_eq_tac
+  \\ pairarg_tac \\ gvs[dstrip_sexp_SOME]
   \\ rename1 `guard (nm = _ ∧ _) _`
   \\ Cases_on `nm ∈ {"Dlet"; "Dletrec"; "Dtype"; "Dtabbrev"; "Denv"; "Dexn"; "Dmod"}`
   \\ fs[]
-  \\ fs[decsexp_def, LENGTH_EQ_NUM_compute, listsexp_def]
-  \\ rveq \\ fs[OPTION_APPLY_MAP3,OPTION_APPLY_MAP4]
-  \\ rveq \\ rw[decsexp_def]
-  \\ rveq \\ fs[listsexp_def] \\ fs[GSYM listsexp_def]
-  \\ imp_res_tac patsexp_sexppat
-  \\ imp_res_tac expsexp_sexpexp
-  \\ imp_res_tac sexplist_SOME
-  \\ imp_res_tac type_defsexp_sexptype_def
-  \\ imp_res_tac typesexp_sexptype
-  \\ imp_res_tac locnsexp_sexplocn
-  \\ rw[]
-  \\ fs[LIST_EQ_REWRITE,EL_MAP]
-  \\ rw[] \\ rfs[EL_MAP]
-  \\ res_tac
-  \\ imp_res_tac sexppair_SOME
-  \\ imp_res_tac typesexp_sexptype
-  \\ fs[] \\ rveq \\ fs[]
-  >- (pairarg_tac \\ fs[]
-    \\ imp_res_tac sexppair_SOME
-    \\ fs[] \\ rveq \\ fs[]
-    \\ imp_res_tac expsexp_sexpexp)
-  \\ fs [sxMEM_def,listsexp_def]
-  \\ metis_tac[MEM_EL]
+  \\ fs[decsexp_def, LENGTH_EQ_NUM_compute]
+  \\ gvs[OPTION_APPLY_MAP3,OPTION_APPLY_MAP4,decsexp_def,expsexp_sexpexp,
+         locnsexp_sexplocn,patsexp_sexppat, type_defsexp_sexptype_def,
+         typesexp_sexptype] >>
+  gvs[sexplist_SOME, LIST_EQ_REWRITE, EL_MAP, sexppair_SOME, PULL_EXISTS,
+      typesexp_sexptype, sxMEM_def, MEM_EL] >>
+  rw[] >> pairarg_tac >>
+  first_x_assum $ drule_then strip_assume_tac >> gvs[expsexp_sexpexp]
 QED
 
 (* valid sexps *)
@@ -2069,18 +2063,16 @@ QED
 Theorem idsexp_valid[simp]:
    ∀i. valid_sexp (idsexp i)
 Proof
-  Induct \\ simp[idsexp_def] >>
-  rw []
-  \\ match_mp_tac listsexp_valid
-  \\ simp[]
-  \\ EVAL_TAC
+  Induct \\ REWRITE_TAC[idsexp_def] >> gen_tac >>
+  match_mp_tac listsexp_valid >>
+  simp[] \\ EVAL_TAC
 QED
 
 Theorem typesexp_valid[simp]:
    ∀t. valid_sexp (typesexp t)
 Proof
   ho_match_mp_tac(theorem"typesexp_ind")
-  \\ rw[typesexp_def]
+  \\ REWRITE_TAC[typesexp_def] >> rpt strip_tac
   \\ match_mp_tac listsexp_valid
   \\ simp[]
   \\ rpt conj_tac
@@ -2092,29 +2084,22 @@ QED
 Theorem litsexp_valid[simp]:
    ∀l. valid_sexp (litsexp l)
 Proof
-  Cases \\ rw[litsexp_def]
-  \\ match_mp_tac listsexp_valid
-  \\ rw[] \\ EVAL_TAC
+  Cases \\ rw[litsexp_def] \\ EVAL_TAC
 QED
 
 Theorem optsexp_valid:
    ∀x. (∀y. x = SOME y ⇒ valid_sexp y) ⇒ valid_sexp (optsexp x)
 Proof
-  Cases \\ rw[optsexp_def]
-  \\ TRY(match_mp_tac listsexp_valid) \\ rw[]
-  \\ EVAL_TAC
+  Cases \\ rw[optsexp_def] \\ EVAL_TAC
 QED
 
 Theorem patsexp_valid[simp]:
    ∀p. valid_sexp (patsexp p)
 Proof
   ho_match_mp_tac(theorem"patsexp_ind")
-  \\ rw[patsexp_def]
-  \\ match_mp_tac listsexp_valid
-  \\ rw[]
-  \\ TRY (match_mp_tac optsexp_valid \\ rw[] \\ rw[])
-  \\ TRY (match_mp_tac listsexp_valid \\ simp[EVERY_MAP,EVERY_MEM])
-  \\ EVAL_TAC
+  \\ rw[patsexp_def] \\ simp[] \\ TRY (EVAL_TAC >> NO_TAC)
+  \\ (irule optsexp_valid ORELSE irule listsexp_valid)
+  \\ simp[PULL_EXISTS, EVERY_MEM, MEM_MAP]
 QED
 
 Theorem type_defsexp_valid[simp]:
@@ -2140,6 +2125,7 @@ Proof
   \\ TRY(Cases_on`w`) \\ simp[opsexp_def]
   \\ TRY(Cases_on`s`) \\ simp[opsexp_def]
   \\ TRY(Cases_on`f`) \\ simp[opsexp_def]
+  \\ TRY(Cases_on`r`) \\ simp[opsexp_def]
   \\ EVAL_TAC
 QED
 
@@ -2159,33 +2145,32 @@ QED
 Theorem locssexp_valid[simp]:
    ∀l. valid_sexp (locssexp l)
 Proof
-  Cases \\ simp[locssexp_def, listsexp_valid]
+  Cases \\ simp[locssexp_def, listsexp_valid] \\ EVAL_TAC
+QED
+
+Theorem scsexp_valid[simp]:
+  ! sc. valid_sexp (scsexp sc)
+Proof
+  Cases \\ EVAL_TAC
 QED
 
 Theorem expsexp_valid[simp]:
    ∀e. valid_sexp (expsexp e)
 Proof
   ho_match_mp_tac(theorem"expsexp_ind")
-  \\ rw[expsexp_def]
-  \\ TRY(match_mp_tac listsexp_valid)
-  \\ rw[]
-  \\ TRY(EVAL_TAC \\ NO_TAC)
-  \\ TRY(match_mp_tac optsexp_valid \\ rw[] \\ rw[])
-  \\ TRY(match_mp_tac listsexp_valid \\ simp[EVERY_MAP,EVERY_MEM])
-  \\ simp[FORALL_PROD]
+  \\ rw[expsexp_def] \\ TRY (EVAL_TAC \\ NO_TAC)
+  \\ (irule listsexp_valid ORELSE irule optsexp_valid)
+  \\ simp[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
   \\ first_x_assum MATCH_ACCEPT_TAC
 QED
 
 Theorem decsexp_valid[simp]:
    ∀d. valid_sexp (decsexp d)
 Proof
-  ho_match_mp_tac dec_ind \\ rw[decsexp_def]
+  ho_match_mp_tac dec_ind \\ rw[decsexp_def] \\ TRY (EVAL_TAC \\ NO_TAC)
   \\ match_mp_tac listsexp_valid
   \\ rw[]
-  \\ TRY (EVAL_TAC \\ NO_TAC)
-  \\ match_mp_tac listsexp_valid
-  \\ simp[EVERY_MAP,EVERY_MEM]
-  \\ simp[FORALL_PROD]
+  \\ simp[EVERY_MAP,EVERY_MEM, FORALL_PROD]
 QED
 
 val _ = export_theory();

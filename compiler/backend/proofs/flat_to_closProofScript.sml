@@ -1019,6 +1019,7 @@ QED
 
 Theorem op_arrays:
   op = Aalloc \/
+  op = AallocFixed \/
   op = Asub_unsafe \/
   op = Asub \/
   op = Alength \/
@@ -1047,6 +1048,14 @@ Proof
     \\ fs [FLOOKUP_UPDATE,EL_LUPDATE,EL_APPEND1,EL_APPEND2]
     \\ Cases_on `LENGTH s1.refs = i'` \\ fs [] \\ rveq \\ fs [] \\ rw []
     \\ qspec_tac (`Num i`,`j`) \\ Induct \\ fs [])
+  THEN1
+   (fs [] \\ rw []
+    \\ fs [state_rel_def,store_rel_def,EL_LUPDATE]
+    \\ strip_tac
+    \\ first_x_assum (qspec_then `i` mp_tac)
+    \\ IF_CASES_TAC
+    \\ fs [FLOOKUP_UPDATE,EL_LUPDATE,EL_APPEND1,EL_APPEND2]
+    \\ Cases_on `LENGTH s1.refs = i` \\ fs [] \\ rveq \\ fs [] \\ rw [])
   THEN1
    (imp_res_tac lookup_array \\ fs [GREATER_EQ,GSYM NOT_LESS,v_rel_def]
     \\ fs [bool_case_eq] \\ rveq \\ fs [integerTheory.int_le]
@@ -1151,6 +1160,17 @@ Proof
   \\ CASE_TAC \\ fs []
 QED
 
+Theorem op_id:
+  op = Id ==>
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs[]
+  \\ fs[flatSemTheory.do_app_def] \\ Cases_on ‘vs’ \\ fs[]
+  \\ Cases_on ‘t'’ \\ fs[]
+  \\ rveq \\ fs[compile_op_def]
+  \\ fs[evaluate_def]
+QED
+
 Theorem op_eval:
   op = Eval ==>
   ^op_goal
@@ -1164,7 +1184,7 @@ Proof
   EVERY (map assume_tac
     [op_refs, op_chars, op_ints, op_words, op_str, op_shifts,
      op_floats, op_eq_gc, op_byte_arrays, op_vectors, op_arrays,
-     op_globals, op_blocks, op_ffi, op_byte_copy, op_eval])
+     op_globals, op_blocks, op_ffi, op_byte_copy, op_eval, op_id])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])
   \\ rpt strip_tac \\ fs [] \\ Cases_on `op` \\ fs []
 QED

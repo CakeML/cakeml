@@ -1,5 +1,7 @@
 INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs \
-					 .. ../../encoders/asm ../reg_alloc
+           $(CAKEMLDIR)/semantics/alt_semantics \
+           $(CAKEMLDIR)/semantics/alt_semantics/proofs \
+           .. ../../encoders/asm ../reg_alloc
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

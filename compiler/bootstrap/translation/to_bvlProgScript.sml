@@ -144,6 +144,9 @@ val clos_to_bvl_compile_side = Q.prove(`
          bvl_jump_jumplist_side])
   |> update_precondition;
 
+val r = translate clos_to_bvlTheory.extract_name_pmatch;
+val r = translate clos_to_bvlTheory.compile_inc_def;
+
 (* ------------------------------------------------------------------------- *)
 (* bvl_const                                                                 *)
 (* ------------------------------------------------------------------------- *)
@@ -289,6 +292,18 @@ Theorem bvl_inline_compile_prog_side = Q.prove(`
   \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
   \\ fs [bvl_inlineTheory.LENGTH_remove_ticks])
   |> update_precondition;
+
+Theorem bvl_inline_compile_inc_side = Q.prove(`
+  !a b c d e. bvl_inline_compile_inc_side a b c d e`,
+  rw [Once (fetch "-" "bvl_inline_compile_prog_side_def"),
+      Once (fetch "-" "bvl_inline_compile_inc_side_def"),
+      Once (fetch "-" "bvl_inline_optimise_side_def")]
+  \\ strip_tac
+  \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ fs [bvl_inlineTheory.LENGTH_remove_ticks])
+  |> update_precondition;
+
+val res = translate clos_to_bvlTheory.clos_to_bvl_compile_inc_def
 
 (* ------------------------------------------------------------------------- *)
 

@@ -14,6 +14,7 @@ val _ = new_theory "data_to_word_assignProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = temp_delsimps ["DIV_NUMERAL_THM"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
@@ -5104,9 +5105,10 @@ Proof
   \\ disch_then (qspec_then `c` mp_tac)
   \\ `encode_header c (4 * tag) (LENGTH x) = SOME hd` by
    (fs [encode_header_def] \\ conj_tac THEN1
-     (fs [encode_header_def,dimword_def,labPropsTheory.good_dimindex_def]
-      \\ rfs [] \\ conj_tac \\ fs [] \\ rfs [DIV_LT_X]
-      \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV])
+     (qpat_x_assum ‘LENGTH _ < dimword _ DIV 16’ mp_tac
+      \\ qpat_x_assum ‘good_dimindex _’ mp_tac
+      \\ rpt (pop_assum kall_tac)
+      \\ simp[dimword_def, good_dimindex_def, DISJ_IMP_THM, X_LT_DIV])
     \\ fs [make_header_def,Abbr`hd`]
     \\ fs [WORD_MUL_LSL,word_mul_n2w,Smallnum_def,EXP_LEMMA1]
     \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
@@ -10832,7 +10834,7 @@ Proof
     \\ fs [wordSemTheory.inst_def,wordSemTheory.get_var_def,lookup_insert,
            wordSemTheory.set_fp_var_def,wordSemTheory.get_fp_var_def,
            FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
-           fpSemTheory.fp_cmp_def]
+           fpSemTheory.fp_cmp_comp_def]
     \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma]
     \\ fs [lookup_insert,adjust_var_11]
     \\ conj_tac \\ TRY (rw [] \\ NO_TAC)
@@ -10868,7 +10870,7 @@ Proof
   \\ fs [wordSemTheory.inst_def,wordSemTheory.get_var_def,lookup_insert,
          wordSemTheory.set_fp_var_def,wordSemTheory.get_fp_var_def,
          FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
-         fpSemTheory.fp_cmp_def,extract_append_id]
+         fpSemTheory.fp_cmp_comp_def,extract_append_id]
   \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma]
   \\ fs [lookup_insert,adjust_var_11]
   \\ rpt (disch_then kall_tac)
@@ -10960,7 +10962,7 @@ Proof
     \\ fs [wordSemTheory.inst_def,wordSemTheory.get_var_def,lookup_insert,
            wordSemTheory.set_fp_var_def,wordSemTheory.get_fp_var_def,
            FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
-           fpSemTheory.fp_top_def]
+           fpSemTheory.fp_top_comp_def]
     \\ assume_tac(GEN_ALL evaluate_WriteWord64)
     \\ SEP_I_TAC "evaluate" \\ fs[]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
@@ -11026,7 +11028,7 @@ Proof
   \\ fs [wordSemTheory.inst_def,wordSemTheory.get_var_def,lookup_insert,
          wordSemTheory.set_fp_var_def,wordSemTheory.get_fp_var_def,
          FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
-         fpSemTheory.fp_top_def,WORD_MUL_LSL]
+         fpSemTheory.fp_top_comp_def,WORD_MUL_LSL]
   \\ rpt (disch_then kall_tac)
   \\ assume_tac(GEN_ALL evaluate_WriteWord64_on_32)
   \\ SEP_I_TAC "evaluate" \\ fs[option_le_max_right]
@@ -11113,7 +11115,7 @@ Proof
     \\ fs [wordSemTheory.inst_def,wordSemTheory.get_var_def,lookup_insert,
            wordSemTheory.set_fp_var_def,wordSemTheory.get_fp_var_def,
            FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
-           fpSemTheory.fp_bop_def]
+           fpSemTheory.fp_bop_comp_def]
     \\ assume_tac(GEN_ALL evaluate_WriteWord64)
     \\ SEP_I_TAC "evaluate" \\ fs[option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
@@ -11168,7 +11170,7 @@ Proof
   \\ fs [wordSemTheory.inst_def,wordSemTheory.get_var_def,lookup_insert,
          wordSemTheory.set_fp_var_def,wordSemTheory.get_fp_var_def,
          FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
-         fpSemTheory.fp_bop_def,WORD_MUL_LSL]
+         fpSemTheory.fp_bop_comp_def,WORD_MUL_LSL]
   \\ rpt (disch_then kall_tac)
   \\ assume_tac(GEN_ALL evaluate_WriteWord64_on_32)
   \\ SEP_I_TAC "evaluate" \\ fs[option_le_max_right]
@@ -11248,7 +11250,7 @@ Proof
     \\ fs [wordSemTheory.inst_def,wordSemTheory.get_var_def,lookup_insert,
            wordSemTheory.set_fp_var_def,wordSemTheory.get_fp_var_def,
            FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
-           fpSemTheory.fp_uop_def,fp_uop_inst_def]
+           fpSemTheory.fp_uop_comp_def,fp_uop_inst_def]
     \\ assume_tac(GEN_ALL evaluate_WriteWord64)
     \\ SEP_I_TAC "evaluate" \\ fs[option_le_max_right]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
@@ -11292,8 +11294,8 @@ Proof
   \\ fs [wordSemTheory.inst_def,wordSemTheory.get_var_def,lookup_insert,
          wordSemTheory.set_fp_var_def,wordSemTheory.get_fp_var_def,
          FLOOKUP_UPDATE,wordSemTheory.set_var_def,w2w_select_id,
-         fpSemTheory.fp_bop_def,WORD_MUL_LSL,
-         fpSemTheory.fp_uop_def,fp_uop_inst_def]
+         fpSemTheory.fp_bop_comp_def,WORD_MUL_LSL,
+         fpSemTheory.fp_uop_comp_def,fp_uop_inst_def]
   \\ rpt (disch_then kall_tac)
   \\ assume_tac(GEN_ALL evaluate_WriteWord64_on_32)
   \\ SEP_I_TAC "evaluate" \\ fs[option_le_max_right]

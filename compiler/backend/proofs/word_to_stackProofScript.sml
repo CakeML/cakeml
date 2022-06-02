@@ -5716,6 +5716,19 @@ Proof
   \\ rw [] \\ fs []
 QED
 
+(* ?
+Theorem insert_bitmap_append:
+  ∀bs xs new_bs i.
+    insert_bitmap xs (bs,n) = ((new_bs,n'),i) ⇒
+    ∃ys zs. new_bs = ys ++ xs ++ zs ∧ i = LENGTH ys
+Proof
+  Induct \\ rw [insert_bitmap_def]
+  \\ TRY (qexists_tac ‘[]’ \\ fs [IS_PREFIX_APPEND] \\ NO_TAC)
+  \\ pairarg_tac \\ gvs []
+  \\ res_tac \\ gvs []
+  \\ qexists_tac ‘h::ys'’ \\ fs []
+QED *)
+
 Theorem comp_Move_correct:
   ^(get_goal "Move")
 Proof

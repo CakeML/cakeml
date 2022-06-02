@@ -6,7 +6,9 @@ open import Pervasives_extra
 open import Pervasives
 open import Lib
 open import Namespace
+open import FpValTree
 open import FpSem
+open import RealOps
 
 (* Literal constants *)
 type lit =
@@ -52,6 +54,15 @@ type op =
   | FP_uop of fp_uop
   | FP_bop of fp_bop
   | FP_top of fp_top
+  (* Floating-point <-> word translations *)
+  | FpFromWord
+  | FpToWord
+  (* Real ops for verification *)
+  | Real_cmp of real_cmp
+  | Real_uop of real_uop
+  | Real_bop of real_bop
+  (* Translation from floating-points to reals for verification *)
+  | RealFromFP
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -106,6 +117,37 @@ type op =
   | Eval
   (* Get the identifier of an env object *)
   | Env_id
+
+(* Define operator classes, that allow to group their behavior later *)
+type op_class =
+  | EvalOp (* Eval primitive *)
+  | FunApp (* function application *)
+  | Simple (* arithmetic operation, no finite-precision/reals *)
+  | Icing (* 64-bit floating-points *)
+  | Reals (* real numbers *)
+
+val getOpClass : op -> op_class
+let getOpClass op =
+  match op with
+  | FP_cmp _ -> Icing
+  | FP_top _ -> Icing
+  | FP_bop _ -> Icing
+  | FP_uop _ -> Icing
+  | Real_cmp _ -> Reals
+  | Real_bop _ -> Reals
+  | Real_uop _ -> Reals
+  | RealFromFP -> Reals
+  | Opapp -> FunApp
+  | Eval -> EvalOp
+  | _ -> Simple
+end
+
+val isFpBool: op -> bool
+let isFpBool op =
+  match op with
+  | FP_cmp _ -> true
+  | _ -> false
+  end
 
 (* Logical operations *)
 type lop =
@@ -167,6 +209,8 @@ type exp =
   | Tannot of exp * ast_t
   (* Location annotated expressions, not expected in source programs *)
   | Lannot of exp * locs
+  (* Floating-point optimisations *)
+  | FpOptimise of fp_opt * exp
 
 type type_def = list (list tvarN * typeN * list (conN * list ast_t))
 

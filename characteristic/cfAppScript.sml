@@ -26,10 +26,12 @@ val evaluate_to_heap_def = Define `
     | Val v => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rval [v]) /\
                          st'.next_type_stamp = st.next_type_stamp /\
                          st'.next_exn_stamp = st.next_exn_stamp /\
+                         st.fp_state = st'.fp_state /\
                          st2heap p st' = heap)
     | Exn e => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rerr (Rraise e)) /\
                          st'.next_type_stamp = st.next_type_stamp /\
                          st'.next_exn_stamp = st.next_exn_stamp /\
+                         st.fp_state = st'.fp_state /\
                          st2heap p st' = heap)
     | FFIDiv name conf bytes => (∃ck st'.
       evaluate_ck ck st env [exp]
@@ -587,7 +589,7 @@ Proof
   \\ first_x_assum drule
   \\ fs[evaluate_ck_def]
   \\ fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS]
-  \\ disch_then( qspec_then`empty_state with <| refs := refs; ffi := ffi_st_x |>` mp_tac)
+  \\ disch_then( qspec_then`empty_state with <| refs := refs; ffi := ffi_st_x; fp_state := empty_state.fp_state|>` mp_tac)
   \\ rw [] \\ instantiate
   \\ rename1 `SPLIT (st2heap p st1) _`
   \\ drule_then (qspec_then `empty_state with <| clock := ck ;refs := refs |>` mp_tac)

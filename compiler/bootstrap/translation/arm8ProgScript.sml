@@ -10,6 +10,8 @@ open inliningLib;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
+val _ = set_grammar_ancestry ["arm8_target", "arm8"];
+
 val _ = new_theory "arm8Prog"
 
 val _ = translation_extends "x64Prog";
@@ -50,11 +52,11 @@ fun def_of_const tm = let
 val _ = (find_def_for_const := def_of_const);
 
 val IS_SOME_rw = Q.prove(`
-  (if IS_SOME A then B else C) =
-    case A of
-    SOME v => B
-  | NONE => C`,
-  Cases_on`A`>>rw[IS_SOME_DEF]);
+  (if IS_SOME a then b else c) =
+    case a of
+    SOME v => b
+  | NONE => c`,
+  Cases_on`a`>>rw[IS_SOME_DEF]);
 
 val v2w_rw = Q.prove(`
   v2w [P] = if P then 1w else 0w`,
@@ -66,23 +68,23 @@ val exh_machine_code = Q.prove(`
 ∀v f.
 (case
   case v of
-    (N,imms,immr) =>
-      ARM8 (f N imms immr)
+    (n,imms,immr) =>
+      ARM8 (f n imms immr)
 of
   ARM8 w => g w
 | BadCode v3 => h) =
-  case v of (N,imms,immr) =>
-  g( f N imms immr)`,
+  case v of (n,imms,immr) =>
+  g( f n imms immr)`,
   rw[]>>PairCases_on`v`>>rw[])
 
 val LIST_BIND_option = Q.prove(`
-  LIST_BIND (case P of NONE => A | SOME v => B v) f =
-  case P of NONE => LIST_BIND A f | SOME v => LIST_BIND (B v) f`,
+  LIST_BIND (case P of NONE => a | SOME v => b v) f =
+  case P of NONE => LIST_BIND a f | SOME v => LIST_BIND (b v) f`,
   Cases_on`P`>>rw[]);
 
 val LIST_BIND_pair = Q.prove(`
-  LIST_BIND (case P of (l,r) => A l r) f =
-  case P of (l,r) => LIST_BIND (A l r) f`,
+  LIST_BIND (case P of (l,r) => a l r) f =
+  case P of (l,r) => LIST_BIND (a l r) f`,
   Cases_on`P`>>rw[]);
 
 val notw = Q.prove(`
@@ -151,7 +153,7 @@ val binopimm = binopimm_aux |> CONJUNCTS |> map(fn th => th
 
 val binopimmth = reconstruct_case ``arm8_enc (Inst (Arith (Binop b n n0 (Imm c))))`` (rand o rator o rator o rator o rand o rand o rand) binopimm
 
-val binopth = reconstruct_case ``arm8_enc(Inst (Arith (Binop b n n0 r)))`` (rand o rand o rand o rand) [binopregth,binopimmth]
+val binopth = reconstruct_case ``arm8_enc(Inst (Arith (Binop b n n0 r)))`` (rand o rand o rand o rand) [binopregth,binopimmth];
 
 val shiftths =
   shift
@@ -165,14 +167,14 @@ val shiftths =
   |> map (fn th => th |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO])
 
 val shiftth = reconstruct_case ``arm8_enc(Inst (Arith (Shift s n n0 n1)))``
-  (rand o funpow 3 rator o funpow 3 rand) shiftths
+  (rand o funpow 3 rator o funpow 3 rand) shiftths;
 
 val arm8_enc1_3_aux = binopth :: shiftth :: map (fn th => th |>
 SIMP_RULE (srw_ss()) defaults |> wc_simp |> we_simp |> gconv |>
 SIMP_RULE std_ss [SHIFT_ZERO]) rest
 
 val arm8_enc1_3 = reconstruct_case ``arm8_enc (Inst (Arith a))`` (rand
-o rand o rand) arm8_enc1_3_aux
+o rand o rand) arm8_enc1_3_aux;
 
 val arm8_enc1_4_aux = el 4 arm8_enc1s |> SIMP_RULE (srw_ss() ++ LET_ss
   ++ DatatypeSimps.expand_type_quants_ss [``:64 addr``,``:memop``])
@@ -184,7 +186,7 @@ val arm8_enc1_4 = reconstruct_case
   ``arm8_enc (Inst (Mem m n a))``
   (rand o rand o rand) [reconstruct_case
   ``arm8_enc (Inst (Mem m n (Addr n' c)))``
-  (rand o rator o rator o rand o rand) arm8_enc1_4_aux]
+  (rand o rator o rator o rand o rand) arm8_enc1_4_aux];
 
 val arm8_enc1_5 = el 5 arm8_enc1s
 
@@ -200,7 +202,7 @@ val arm8_enc3_aux = arm8_enc3
   |> map (fn th => th
      |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss[``:cmp``])
                   (Q.ISPEC `LIST_BIND` COND_RAND:: COND_RATOR::defaults)
-     |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO])
+     |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]);
 
 val arm8_enc3_1 = el 1 arm8_enc3_aux
 val arm8_enc3_2 = el 2 arm8_enc3_aux
@@ -227,7 +229,7 @@ val arm8_simp5 = arm8_enc5 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults
 
 val arm8_simp6 = arm8_enc6 |> SIMP_RULE (srw_ss() ++ LET_ss)
 (Q.ISPEC`LIST_BIND`COND_RAND :: COND_RATOR ::word_mul_def :: defaults)
-|> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+|> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO];
 
 val arm8_enc_thm = reconstruct_case ``arm8_enc i`` rand
 [arm8_simp1,arm8_simp2,arm8_simp3,arm8_simp4,arm8_simp5,arm8_simp6]
@@ -266,47 +268,14 @@ fun specv64 v = INST_TYPE [v|->``:64``]
 val _ = translate (specv64 ``:'N`` EncodeBitMaskAux_def |> gconv |>
 SIMP_RULE std_ss [CountTrailing_eq, word_ror_eq_any_word64_ror])
 
-val log2_def = Define`
-  log2 n =
-  if n < 2 then 0n
-  else (log2 (n DIV 2)) + 1`
-
-val LOG2_log2 = Q.prove(`
-  ∀n. n ≠ 0 ⇒
-  log2 n = LOG2 n`,
-  ho_match_mp_tac (fetch "-" "log2_ind")>>rw[]>>
-  simp[Once log2_def,bitTheory.LOG2_def]>>
-  PURE_REWRITE_TAC [Once numeral_bitTheory.LOG_compute]>>
-  IF_CASES_TAC>>fs[ADD1,GSYM bitTheory.LOG2_def]>>
-  first_assum match_mp_tac>>
-  `2 ≤ n` by fs[]>>
-  drule bitTheory.DIV_GT0>>
-  fs[]);
-
-val hsb_compute = Q.prove(`
-  HighestSetBit (w:word7) =
-  if w = 0w then -1 else w2i(n2w(log2 (w2n w)):word7)`,
-  fs[word_log2_def,HighestSetBit_def]>>IF_CASES_TAC>>fs[]>>
-  `w2n w ≠ 0` by fs[]>>
-  metis_tac[LOG2_log2]);
-
-val v2w_Ones = Q.prove(`
-  (v2w (Ones n)):word6 = n2w (2 ** n -1)`,
-  rw[Ones_def]>>
-  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss][]>>
-  rewrite_tac [bitstringTheory.word_index_v2w,word_index_n2w] >>
-  simp [bitstringTheory.testbit, listTheory.PAD_LEFT,bitTheory.BIT_EXP_SUB1]>>
-  eq_tac>>
-  fs[EL_GENLIST]);
-
 val _ = translate bitstringTheory.zero_extend_def
 val _ = translate bitstringTheory.fixwidth_def
 val _ = translate bitstringTheory.field_def
-val _ = translate bitstringTheory.v2n_def
+val _ = translate bitstringTheory.v2n_def;
 
 (* TODO: already in lexerProg but not stored *)
 val l2n_side = Q.prove(`
-  ∀b a. a ≠ 0 ⇒ l2n_side a b`,
+  ∀b a. a ≠ 0 ⇒ lexerProg$l2n_side a b`,
   Induct>>
   rw[Once lexerProgTheory.l2n_side_def]) |> update_precondition;
 
@@ -342,7 +311,7 @@ val res = translate (specv64 ``:'M`` DecodeBitMasks_def |> SIMP_RULE
 val decodebitmasks_side = Q.prove(`
   decodebitmasks_side x ⇔ T`,
   PairCases_on`x`>>EVAL_TAC>>fs[] >>
-  simp_tac std_ss [GSYM LENGTH_NIL,LENGTH_GENLIST]) |> update_precondition
+  simp_tac std_ss [GSYM LENGTH_NIL,LENGTH_GENLIST]) |> update_precondition;
 
 val res = translate (INST_TYPE [``:'N``|->``:64``] EncodeBitMask_def
  |> SIMP_RULE std_ss [notw] |> gconv)

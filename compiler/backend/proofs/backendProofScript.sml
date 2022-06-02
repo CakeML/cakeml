@@ -55,6 +55,12 @@ QED
 
 (* -- *)
 
+Theorem backend_upper_w2w[simp]:
+  backend$upper_w2w = data_to_word_gcProof$upper_w2w
+Proof
+  fs [backendTheory.upper_w2w_def, data_to_word_gcProofTheory.upper_w2w_def, FUN_EQ_THM]
+QED
+
 val backend_config_ok_def = Define`
   backend_config_ok (c:'a config) ⇔
     c.source_conf = prim_src_config ∧
@@ -388,7 +394,7 @@ Proof
 QED
 
 val cake_orac_config_inv_f =
-  ``(\(sc, cc, bc, mc). (sc.pattern_cfg, cc.max_app, cc.do_call, IS_SOME cc.known_conf,
+  ``(\ (sc, cc, bc, mc). (sc.pattern_cfg, cc.max_app, cc.do_call, IS_SOME cc.known_conf,
         known_static_conf cc.known_conf, cc.do_mti, bc.inline_size_limit,
         bc.split_main_at_seq, bc.exp_cut, mc))
     o (\c. (c.source_conf, c.clos_conf, c.bvl_conf, c.data_conf,
@@ -1553,7 +1559,7 @@ Proof
 QED
 
 Theorem oracle_monotonic_cake_orac_to_I:
-  oracle_monotonic (\(cfg, p). f (cfg_f cfg, p_f p)) R init_st
+  oracle_monotonic (\ (cfg, p). f (cfg_f cfg, p_f p)) R init_st
     (cake_orac c' syntax I I) ==>
   oracle_monotonic f R init_st (cake_orac c' syntax cfg_f p_f)
 Proof
@@ -2470,6 +2476,7 @@ Proof
   Cases_on `opt_ev` \\ simp [add_eval_state_def]
 QED
 
+(* delete?
 Definition compile_inc_progs_for_eval_def:
   compile_inc_progs_for_eval asm_c x =
   let (env_id, inc_c', decs) = x in
@@ -2479,6 +2486,7 @@ Definition compile_inc_progs_for_eval_def:
             MAP data_to_word_gcProof$upper_w2w ws))
         ps.target_prog
 End
+*)
 
 Definition opt_eval_config_wf_def:
   opt_eval_config_wf c' (SOME ci) = (
@@ -2637,7 +2645,7 @@ Triviality cake_orac_extended_wf:
   compile (c : 'a config) prog = SOME (b,bm,c') /\
   opt_eval_config_wf c' (SOME ci) ==>
   orac_extended_wf (mk_compiler_fun_from_ci ci)
-    ((\(cfg,id,ds). (id, ci.config_v (config_to_inc_config cfg),ds)) ∘
+    ((\ (cfg,id,ds). (id, ci.config_v (config_to_inc_config cfg),ds)) ∘
     cake_orac c' syntax I (λps. (ps.env_id,ps.source_prog)))
 Proof
   rw [source_evalProofTheory.orac_extended_wf_def, cake_orac_SUC]
@@ -2748,7 +2756,7 @@ Theorem source_eval_semantics:
 Proof
   rw []
   \\ qabbrev_tac `orac =
-        (\(cfg, id, ds). (id, (THE ev).config_v (config_to_inc_config cfg), ds))
+        (\ (cfg, id, ds). (id, (THE ev).config_v (config_to_inc_config cfg), ds))
             o
         cake_orac c'
             (\i. case get_oracle (THE ev) (add_eval_state ev s0) env prog i of
@@ -2973,7 +2981,7 @@ Theorem compile_correct':
    ¬semantics_prog s env prog Fail ∧
    backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
    opt_eval_config_wf c' ev ∧
-   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names ffi (heap_regs c.stack_conf.reg_names) mc ms ⇒
+   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names (heap_regs c.stack_conf.reg_names) mc ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit'
          (is_safe_for_space ffi c prog (read_limits c mc ms))
@@ -3123,7 +3131,7 @@ Proof
   \\ disch_tac \\ fs []
   \\ fs [attach_bitmaps_def] \\ rveq \\ fs [] \\
   fs[targetSemTheory.installed_def] \\
-  qmatch_assum_abbrev_tac`good_init_state mc ms ffi bytes cbspace tar_st m dm io_regs cc_regs` \\
+  qmatch_assum_abbrev_tac`good_init_state mc ms bytes cbspace tar_st m dm io_regs cc_regs` \\
   qpat_x_assum`Abbrev(p7 = _)` mp_tac>>
   qmatch_goalsub_abbrev_tac`compile _ _ _ stk stoff`>>
   strip_tac \\
@@ -3355,11 +3363,12 @@ Proof
   `Fail ∉ y` by (fs [Abbr `y`] \\ fs [GSYM pure_co_def, simple_orac_eqs]) \\
   pop_assum mp_tac \\ simp[GSYM implements'_def] \\
   simp[Abbr`y`] \\
-  old_drule (GEN_ALL lab_to_targetProofTheory.semantics_compile) \\
+  old_drule $ GEN_ALL $
+    INST_TYPE [delta |-> ``:'ffi``] lab_to_targetProofTheory.semantics_compile \\
   disch_then(old_drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(optionSyntax.is_some o rhs))))) \\
   simp[Abbr`c4`] \\
   disch_then(old_drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``good_init_state`` o fst o strip_comb))))) \\
-  disch_then(qspec_then`lab_oracle`mp_tac)
+  disch_then(qspecl_then[`ffi`,`lab_oracle`]mp_tac)
   \\ old_drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_next_mono)
   \\ strip_tac
   \\ pop_assum(assume_tac o Abbrev_intro)
@@ -3759,7 +3768,7 @@ Theorem compile_correct:
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    ¬semantics_prog s env prog Fail ∧
    backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
-   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names ffi
+   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
         (heap_regs c.stack_conf.reg_names) mc ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)
@@ -3786,7 +3795,7 @@ Theorem compile_correct_is_safe_for_space:
   let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
   ¬semantics_prog s env prog Fail ∧
   backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
-  installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names ffi
+  installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
        (heap_regs c.stack_conf.reg_names) mc ms ⇒
   machine_sem (mc:(α,β,γ) machine_config) ffi ms =
   semantics_prog s env prog
@@ -3799,6 +3808,27 @@ Proof
   \\ rw [] \\ eq_tac \\ rw []
   \\ `?x. machine_sem mc ffi ms x` by metis_tac [targetPropsTheory.machine_sem_total]
   \\ fs [IN_DEF] \\ res_tac \\ fs []
+QED
+
+Definition the_EvalDecs_def:
+  the_EvalDecs (EvalDecs x) = x
+End
+
+Theorem compile_correct_eval:
+  compile c prog = SOME (bytes,bitmaps,c') ⇒
+   let (s0,env) = THE (prim_sem_env (ffi: 'ffi ffi_state)) in
+   ¬semantics_prog (add_eval_state ev s0) env prog Fail ∧ backend_config_ok c ∧
+   lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧ opt_eval_config_wf c' ev ∧
+   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
+     (heap_regs c.stack_conf.reg_names) mc ms ⇒
+   machine_sem mc ffi ms ⊆
+     extend_with_resource_limit
+       (semantics_prog (add_eval_state ev s0) env prog)
+Proof
+  fs [LET_THM] \\ pairarg_tac \\ rw []
+  \\ mp_tac compile_correct' \\ fs []
+  \\ rw [extend_with_resource_limit'_def]
+  \\ fs [extend_with_resource_limit_def,SUBSET_DEF]
 QED
 
 val _ = export_theory();

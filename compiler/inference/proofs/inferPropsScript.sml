@@ -852,12 +852,12 @@ rw [] >>
 res_tac >>
 fs [] >>
 TRY (cases_on `v'`) >>
-every_case_tac >>
+every_case_tac >> TRY (Cases_on `uop:fp_uop`) >>
 fs [success_eqns] >>
 rw [] >>
 fs [infer_st_rewrs] >>
-prove_tac [pure_add_constraints_append, pure_add_constraints_def,
-           infer_p_constraints, type_name_check_subst_state]
+TRY (prove_tac [pure_add_constraints_append, pure_add_constraints_def,
+           infer_p_constraints, type_name_check_subst_state])
 QED
 
 Theorem pure_add_constraints_wfs:
@@ -920,7 +920,7 @@ rw [infer_e_def, constrain_op_success, success_eqns, remove_pair_lem, GSYM FORAL
 rw [] >>
 res_tac >>
 fs [] >>
-every_case_tac >>
+every_case_tac >> TRY (Cases_on `uop:fp_uop`) >>
 fs [success_eqns]>>
 metis_tac [infer_p_next_uvar_mono, arithmeticTheory.LESS_EQ_TRANS,
            pair_CASES,type_name_check_subst_state,
@@ -985,7 +985,7 @@ fs [] >>
 TRY (cases_on `v'`) >>
 imp_res_tac infer_p_wfs >>
 fs [] >>
-every_case_tac >>
+every_case_tac >> TRY (cases_on `uop:fp_uop`) >>
 fs [success_eqns] >>
 rw [] >>
 fs [infer_st_rewrs] >>
@@ -1704,7 +1704,7 @@ Proof
      rw [] >>
      fs [infer_st_rewrs, EVERY_MAP, check_t_def, check_t_infer_db_subst] >>
      res_tac >>
-     fs [])
+     fs [count_def,ienv_val_ok_def])
  >- (res_tac >>
      fs [check_t_def] >>
      pop_assum match_mp_tac  >>
@@ -1782,6 +1782,9 @@ Theorem constrain_op_wfs:
 Proof
   rw [constrain_op_success, success_eqns] >>
   fs [] >>
+  every_case_tac >>
+  TRY (Cases_on `f`) >>
+  fs [op_to_string_def, success_eqns] >>
   rw [] >>
   fs [infer_st_rewrs, add_constraints_def, success_eqns] >>
   rw [] >>
@@ -1796,7 +1799,9 @@ Theorem constrain_op_check_t:
     check_t 0 (count st'.next_uvar) t
 Proof
   rw [constrain_op_success, success_eqns] >>
-  fs [] >>
+  every_case_tac >>
+  TRY (Cases_on `f`) >>
+  fs [op_to_string_def, success_eqns] >>
   rw [] >>
   fs [infer_st_rewrs, check_t_def]
 QED
@@ -1819,6 +1824,7 @@ Proof
    `!uvs tvs wz. check_t tvs uvs (Infer_Tapp [] (TC_word wz))` by rw [check_t_def] >>
    fs [constrain_op_success] >> rw [] >>
    fs [op_to_string_def, infer_st_rewrs]
+   \\ TRY (Cases_on `uop`)
    \\ TRY pairarg_tac >> fs [success_eqns]
    \\ imp_res_tac t_unify_wfs \\ rfs[fresh_uvar_success]
    \\ TRY (match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[])
@@ -3006,7 +3012,7 @@ imp_res_tac type_name_check_subst_state >>
 fs [] >>
 res_tac >>
 fs [] >>
-every_case_tac >>
+every_case_tac >> TRY (Cases_on `uop`) >>
 fs [success_eqns] >>
 metis_tac [infer_p_next_id_const,pair_CASES]
 QED
@@ -3759,6 +3765,7 @@ Proof
   simp[constrain_op_success,success_eqns]
   \\ strip_tac \\ rveq >>
   TRY pairarg_tac
+  \\ TRY (Cases_on `uop`)
   \\ fs[success_eqns, inf_set_tids_subset_def, inf_set_tids_def, LET_THM]
   \\ rpt(conj_tac >-(TRY(rename1`word_tc wz`\\Cases_on`wz`\\simp[word_tc_def])\\fs[prim_tids_def,prim_type_nums_def]))
   \\ TRY(TRY(rename1`word_tc wz`\\Cases_on`wz`\\simp[word_tc_def])\\fs[prim_tids_def,prim_type_nums_def]\\NO_TAC)
@@ -3770,6 +3777,7 @@ Proof
     (impl_tac >-(TRY(rename1`word_tc wz`\\Cases_on`wz`\\simp[word_tc_def])
                   \\fs[prim_tids_def,prim_type_nums_def]))
     \\ strip_tac \\ fs[])
+  \\ rveq \\ fs[inf_set_tids_def,prim_tids_def, prim_type_nums_def]
 QED
 
 Theorem infer_e_inf_set_tids:

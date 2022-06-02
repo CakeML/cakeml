@@ -143,7 +143,8 @@ val EvalM_def = Define `
       REFS_PRED H st s ==>
       ?s2 res st2 ck.
         evaluate (s with clock := ck) env [exp] = (s2,res) /\
-        P st (st2, res) /\ REFS_PRED_FRAME ro H (st, s) (st2, s2)`;
+        P st (st2, res) /\ REFS_PRED_FRAME ro H (st, s) (st2, s2) /\
+        s.fp_state = s2.fp_state`;
 
 (* refinement invariant for ``:('a, 'b, 'c) M`` *)
 Type M = ``:'a -> ('b, 'c) exc # 'a``
@@ -153,8 +154,8 @@ val MONAD_def = Define `
                                     (state1:'refs)
                                     (state2:'refs,res: (v list,v) result) =
     case (x state1, res) of
-      ((Success y, st), Rval [v]) => (st = state2) /\ a y v
-    | ((Failure e, st), Rerr (Rraise v)) => (st = state2) /\
+      ((M_success y, st), Rval [v]) => (st = state2) /\ a y v
+    | ((M_failure e, st), Rerr (Rraise v)) => (st = state2) /\
                                               b e v
     | _ => F`
 
@@ -185,7 +186,7 @@ Theorem EvalM_bind:
    (!z v. b z v ==> a2 z ==>
       EvalM ro (write name v env) (SND (x st)) e2
         (MONAD a c ((f z):('refs, 'a, 'c) M)) H) ==>
-   (a1 /\ !z. (CONTAINER(FST(x st) = Success z) ==> a2 z)) ==>
+   (a1 /\ !z. (CONTAINER(FST(x st) = M_success z) ==> a2 z)) ==>
    EvalM ro env st (Let (SOME name) e1 e2) (MONAD a c (ex_bind x f)) H
 Proof
   rw[EvalM_def,MONAD_def,st_ex_return_def,PULL_EXISTS, CONTAINER_def] \\ fs[]
@@ -218,6 +219,58 @@ Proof
   \\ TRY (Cases_on `e`) \\ fs []
   \\ imp_res_tac evaluate_sing \\ fs [] \\ rveq \\ fs []
   \\ imp_res_tac REFS_PRED_FRAME_trans
+QED
+
+(* bind ignore *)
+Theorem EvalM_bind_ignore:
+   (EvalM ro env st e1 (MONAD b c (x:('refs, 'b, 'c) M))
+          (H:('refs -> hprop) # 'ffi ffi_proj)) /\
+   (EvalM ro env (SND (x st)) e2 (MONAD a c (f:('refs, 'a, 'c) M)) H) ==>
+   EvalM ro env st (Let NONE e1 e2) (MONAD a c (st_ex_ignore_bind x f)) H
+Proof
+  rw[EvalM_def,MONAD_def,st_ex_return_def,PULL_EXISTS, CONTAINER_def] \\ fs[]
+  \\ last_x_assum drule \\ rw[]
+  \\ imp_res_tac REFS_PRED_FRAME_imp
+  \\ Cases_on `x st` \\ fs []
+  \\ rename1 `x st = (succ,new_state)`
+  \\ simp [evaluate_def,pair_case_eq,PULL_EXISTS]
+  \\ reverse (Cases_on `succ`) \\ fs []
+  THEN1
+   (Cases_on `res` \\ fs[] \\ rw [] \\ Cases_on `e`
+    \\ fs [st_ex_ignore_bind_def] \\ rveq \\ asm_exists_tac \\ fs [])
+  \\ fs[st_ex_ignore_bind_def]
+  \\ Cases_on `res` \\ fs []
+  \\ drule evaluate_sing \\ strip_tac \\ rveq \\ fs []
+  \\ last_x_assum drule \\ rw[]
+  \\ Cases_on `f new_state` \\ fs []
+  \\ drule evaluate_set_clock
+  \\ qpat_x_assum `evaluate _ _ _ = _` kall_tac
+  \\ disch_then (qspec_then `s2'.clock` mp_tac)
+  \\ impl_tac THEN1 (CCONTR_TAC \\ fs [] \\ EVERY_CASE_TAC \\ fs [])
+  \\ strip_tac \\ fs [] \\ pop_assum mp_tac
+  \\ drule evaluate_set_clock \\ fs []
+  \\ disch_then (qspec_then `ck1` mp_tac)
+  \\ rpt strip_tac \\ fs []
+  \\ asm_exists_tac \\ fs [write_def,namespaceTheory.nsOptBind_def]
+  \\ Cases_on `q` \\ fs []
+  \\ Cases_on `res'` \\ fs []
+  \\ TRY (Cases_on `e`) \\ fs []
+  \\ imp_res_tac evaluate_sing \\ fs [] \\ rveq \\ fs []
+  \\ imp_res_tac REFS_PRED_FRAME_trans
+QED
+
+Theorem EvalM_pure_seq:
+  Eval env e1 (c y) ∧
+  EvalM ro env st e2 (MONAD a b x) ^H ⇒
+  EvalM ro env st (Let NONE e1 e2) (MONAD a b (pure_seq y x)) ^H
+Proof
+  rw []
+  \\ ‘pure_seq y x = monad_ignore_bind (ex_return y) x’ by
+    fs [pure_seq_def,st_ex_ignore_bind_def,st_ex_return_def, FUN_EQ_THM]
+  \\ fs [] \\ irule EvalM_bind_ignore \\ fs []
+  \\ conj_tac
+  >- (qexists_tac ‘c’ \\ fs [EvalM_return])
+  \\ fs [st_ex_return_def]
 QED
 
 (* lift ro refinement invariants *)
@@ -269,6 +322,7 @@ val ArrowP_def = Define `
          !junk. ?st3 s3 res3 ck.
            evaluate (s1 with <| refs := s1.refs ++ junk ; clock := ck |>)
              env [exp] = (s3,res3) /\
+           s1.fp_state = s3.fp_state /\
            b (f x) st1 (st3,res3) /\
            REFS_PRED_FRAME ro H (st1, s1) (st3, s3)`;
 
@@ -278,7 +332,8 @@ val ArrowM_def = Define `
 
 val EvalM_Arrow_tac =
   rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,PULL_EXISTS,evaluate_def,
-     pair_case_eq,result_case_eq,PULL_EXISTS,EqSt_def,Eq_def]
+     pair_case_eq,result_case_eq,PULL_EXISTS,EqSt_def,Eq_def,
+     astTheory.getOpClass_def]
   \\ first_x_assum drule \\ strip_tac
   \\ drule REFS_PRED_FRAME_imp
   \\ disch_then drule \\ strip_tac
@@ -300,6 +355,7 @@ val EvalM_Arrow_tac =
   \\ qpat_x_assum `evaluate _ _ [x2] = _` assume_tac
   \\ drule evaluate_set_clock \\ fs []
   \\ disch_then (qspec_then `ck1` mp_tac) \\ strip_tac
+  \\ rewrite_tac [GSYM CONJ_ASSOC] \\ fs[PULL_EXISTS]
   \\ asm_exists_tac
   \\ `(s2' with <|clock := ck''; refs := s2'.refs|>) =
       s2' with <|clock := ck''|>` by fs [state_component_equality]
@@ -986,12 +1042,12 @@ Theorem EvalM_handle:
    handle_fun x1 x2 arity a2 bind_names a H.
   (!s E s1.
      CORRECT_CONS E ==>
-     x1 s = (Failure E, s1) ==>
+     x1 s = (M_failure E, s1) ==>
      handle_fun x1 x2 s = x2 E s1)
    ==>
   (!s.
     (!E s1.
-       CORRECT_CONS E ==> x1 s <> (Failure E, s1)) ==>
+       CORRECT_CONS E ==> x1 s <> (M_failure E, s1)) ==>
        handle_fun x1 x2 s = x1 s)
   ==>
   (!E ev. EXN_TYPE E ev ==>
@@ -1019,7 +1075,7 @@ Theorem EvalM_handle:
           (MONAD a EXN_TYPE (x2 E)) H)) ==>
      (!st' E.
         a1 /\
-        (CONTAINER (x1 st = (Failure E, st') /\ CORRECT_CONS E) ==> a2 st' E))
+        (CONTAINER (x1 st = (M_failure E, st') /\ CORRECT_CONS E) ==> a2 st' E))
     ==>
       EvalM ro env st
         (Handle exp1 [(Pcon (SOME cons_name)
@@ -1154,7 +1210,7 @@ Theorem EvalM_raise:
      LIST_CONJ (MAP (\(P,v). P v) (ZIP(EVAL_CONDS,values))) ==>
      EXN_TYPE E (Conv (SOME (ExnStamp stamp)) values))
   ==>
-  f st = (Failure E, st) ==>
+  f st = (M_failure E, st) ==>
   LENGTH exprs = arity ==>
   LENGTH EVAL_CONDS = arity ==>
   lookup_cons cons_name env = SOME (arity, ExnStamp stamp) ==>
@@ -1192,7 +1248,7 @@ Theorem EvalM_read_heap:
    !vname loc TYPE EXC_TYPE H get_var.
     (nsLookup env.v (Short vname) = SOME loc) ==>
     EvalM ro env st (App Opderef [Var (Short vname)])
-    (MONAD TYPE EXC_TYPE (λrefs. (Success (get_var refs), refs)))
+    (MONAD TYPE EXC_TYPE (λrefs. (M_success (get_var refs), refs)))
     ((λrefs. REF_REL TYPE loc (get_var refs) * H refs), (p:'ffi ffi_proj))
 Proof
   rw[EvalM_def, REF_REL_def]
@@ -1204,7 +1260,7 @@ Proof
   \\ imp_res_tac REF_EXISTS_LOC
   \\ rw[do_app_def]
   \\ fs[MONAD_def]
-  \\ rw[store_lookup_def,EL_APPEND1,EL_APPEND2]
+  \\ rw[store_lookup_def,EL_APPEND1,EL_APPEND2, astTheory.getOpClass_def]
   >-(
       qexists_tac `s`
       \\ imp_res_tac STATE_EXTRACT_FROM_HPROP_REF
@@ -1225,7 +1281,7 @@ Theorem EvalM_write_heap:
   CONTAINER (PINV st ==> PINV (set_var x st)) ==>
   Eval env exp (TYPE x) ==>
   EvalM ro env st (App Opassign [Var (Short vname); exp])
-  ((MONAD UNIT_TYPE EXC_TYPE) (λrefs. (Success (), set_var x refs)))
+  ((MONAD UNIT_TYPE EXC_TYPE) (λrefs. (M_success (), set_var x refs)))
   ((λrefs. REF_REL TYPE loc (get_var refs) * H refs * &PINV refs), p:'ffi ffi_proj)
 Proof
   rw[REF_REL_def]
@@ -1235,7 +1291,7 @@ Proof
   \\ `?loc'. loc = Loc loc'` by
         (fs[REFS_PRED_def, SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC] >>
                                    imp_res_tac REF_EXISTS_LOC >> rw[])
-  \\ rw[evaluate_def,PULL_EXISTS]
+  \\ rw[evaluate_def,PULL_EXISTS, astTheory.getOpClass_def]
   \\ fs [Eval_def]
   \\ last_x_assum (qspec_then `s.refs` strip_assume_tac)
   \\ drule evaluate_empty_state_IMP
@@ -1397,7 +1453,7 @@ Proof
   rw[]
   \\ fs[Eval_def]
   \\ rw[EvalM_def]
-  \\ fs [evaluate_def]
+  \\ fs [evaluate_def, astTheory.getOpClass_def]
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
   \\ first_x_assum (fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ fs [eval_rel_def]
@@ -1678,7 +1734,7 @@ Proof
   rw[]
   \\ fs[EvalM_def]
   \\ rw[evaluate_def]
-  \\ rw[do_app_def]
+  \\ rw[do_app_def, astTheory.getOpClass_def]
   \\ fs[REFS_PRED_def]
   \\ imp_res_tac STATE_REFS_EXTRACT
   \\ fs[GSYM STAR_ASSOC]
@@ -1765,7 +1821,7 @@ Theorem EvalM_Mref_assign:
   (MONAD UNIT_TYPE (\x v. F) (Mref_assign e (StoreRef r) x)) (STATE_REFS TYPE (ptrs1 ++ [rv] ++ ptrs2),p:'ffi ffi_proj)
 Proof
   rw[]
-  \\ fs[EvalM_def,evaluate_def]
+  \\ fs[EvalM_def,evaluate_def, astTheory.getOpClass_def]
   \\ fs[Eval_def] \\ rw []
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
   \\ first_x_assum (fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
@@ -1856,12 +1912,12 @@ Proof
   \\ fs[GSYM STAR_ASSOC]
   \\ imp_res_tac REF_EXISTS_LOC
   \\ rw[]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ imp_res_tac do_app_Opderef_REF
   \\ first_x_assum(qspecl_then [`[]`] ASSUME_TAC) \\ fs[with_same_refs]
   \\ ho_match_mp_tac (METIS_PROVE []
        ``(?x4 x1 x2 x3. P x1 x2 x3 x4) ==> (?x1 x2 x3 x4. P x1 x2 x3 x4)``)
-  \\ once_rewrite_tac [evaluate_def] \\ fs []
+  \\ once_rewrite_tac [evaluate_def, astTheory.getOpClass_def] \\ fs []
   \\ qexists_tac `s.clock` \\ fs [with_same_refs]
   \\ rw[Marray_length_def]
   \\ fs[MONAD_def]
@@ -1913,7 +1969,7 @@ Theorem EvalM_R_Marray_sub_subscript:
      ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
 Proof
   rw[EvalM_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC]
@@ -1966,7 +2022,7 @@ Theorem EvalM_R_Marray_sub_handle:
      ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
 Proof
   rw[EvalM_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC]
@@ -2033,7 +2089,7 @@ Theorem EvalM_R_Marray_update_subscript:
 Proof
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC]
   \\ imp_res_tac REF_EXISTS_LOC
@@ -2142,7 +2198,7 @@ Theorem EvalM_R_Marray_update_handle:
 Proof
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC]
   \\ imp_res_tac REF_EXISTS_LOC
@@ -2275,7 +2331,7 @@ Theorem EvalM_R_Marray_alloc:
 Proof
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
@@ -2356,7 +2412,7 @@ Theorem EvalM_F_Marray_length:
     ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
 Proof
   rw[EvalM_def]
-  \\ fs [evaluate_def]
+  \\ fs [evaluate_def, astTheory.getOpClass_def]
   \\ fs[REFS_PRED_def, ARRAY_REL_def]
   \\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
   \\ EXTRACT_PURE_FACTS_TAC
@@ -2399,7 +2455,7 @@ Proof
   \\ disch_then(qx_choose_then`k1`strip_assume_tac)
   \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
   \\ qexists_tac`k1` \\ fs[]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ first_x_assum (fn x => MATCH_MP do_app_Asub_ARRAY x |> ASSUME_TAC)
   \\ first_x_assum (qspec_then `refs'` assume_tac) \\ fs[]
   \\ Cases_on `n < LENGTH av`
@@ -2432,7 +2488,7 @@ Proof
   \\ first_assum (fn x => MATCH_MP ARRAY_EXISTS_LOC x |> ASSUME_TAC)
   \\ rw[]
   \\ imp_res_tac LIST_REL_LENGTH
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ last_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
@@ -2488,7 +2544,7 @@ Theorem EvalM_F_Marray_update_subscript:
 Proof
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ pop_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, ARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES]
   \\ EXTRACT_PURE_FACTS_TAC
@@ -2572,7 +2628,7 @@ Theorem EvalM_F_Marray_update_handle:
 Proof
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ pop_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, ARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES]
   \\ EXTRACT_PURE_FACTS_TAC
@@ -2699,14 +2755,14 @@ Proof
     \\ drule evaluate_set_clock \\ fs []
     \\ disch_then (qspec_then `ck` strip_assume_tac)
     \\ rename [`evaluate (s with clock := ck5)`]
-    \\ fs [evaluate_def]
+    \\ fs [evaluate_def, astTheory.getOpClass_def]
     \\ once_rewrite_tac [CONJ_COMM]
     \\ asm_exists_tac \\ fs []
     \\ qexists_tac `s2`
     \\ qexists_tac `ck5` \\ fs []
     \\ imp_res_tac REFS_PRED_FRAME_trans
     \\ fs [Mat_cases_def]
-    \\ fs [evaluate_def,pmatch_def,pat_bindings_def,can_pmatch_all_def]
+    \\ fs [evaluate_def, astTheory.getOpClass_def,pmatch_def,pat_bindings_def,can_pmatch_all_def]
     \\ drule pmatch_list_MAP_Pvar
     \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
     \\ fs [GSYM write_list_thm])
@@ -2725,7 +2781,7 @@ Proof
   \\ drule evaluate_set_clock \\ fs []
   \\ disch_then (qspec_then `ck` strip_assume_tac)
   \\ rename [`evaluate (s with clock := ck5)`]
-  \\ fs [evaluate_def]
+  \\ fs [evaluate_def, astTheory.getOpClass_def]
   \\ once_rewrite_tac [CONJ_COMM]
   \\ asm_exists_tac \\ fs []
   \\ qexists_tac `s2`
@@ -2766,7 +2822,7 @@ Proof
   \\ disch_then drule \\ fs []
   \\ simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ disch_then (fn th => rewrite_tac [th]) \\ fs []
-  \\ fs [evaluate_def,pmatch_def,pat_bindings_def]
+  \\ fs [evaluate_def, astTheory.getOpClass_def,pmatch_def,pat_bindings_def]
   \\ fs [good_cons_env_def,lookup_cons_def]
   \\ `same_type t t /\ same_ctor t t` by (Cases_on `t` \\ EVAL_TAC) \\ fs []
   \\ drule pmatch_list_MAP_Pvar
@@ -2872,7 +2928,7 @@ val evaluate_handle_mult_Rval = Q.prove(
      evaluate s env [handle_mult cons_names exp1 ename] = (s2, Rval res)`,
   Cases
   \\ rw[handle_mult_def]
-  \\ rw[evaluate_def]);
+  \\ rw[evaluate_def, astTheory.getOpClass_def]);
 
 val evaluate_handle_mult_Rabort = Q.prove(
   `!cons_names exp1 ename res s s2 env.
@@ -2881,7 +2937,7 @@ val evaluate_handle_mult_Rabort = Q.prove(
        (s2, Rerr (Rabort res))`,
   Cases
   \\ rw[handle_mult_def]
-  \\ rw[evaluate_def]);
+  \\ rw[evaluate_def, astTheory.getOpClass_def]);
 
 val EVERY_CONJ_1 = GSYM EVERY_CONJ |> SPEC_ALL |> EQ_IMP_RULE
                      |> fst |> PURE_REWRITE_RULE[GSYM AND_IMP_INTRO];
@@ -2898,7 +2954,7 @@ val evaluate_handle_all_Rval = Q.prove(
      evaluate s env [handle_all exp1 ename] = (s2, Rval res)`,
   Cases
   \\ rw[handle_all_def]
-  \\ rw[evaluate_def]);
+  \\ rw[evaluate_def, astTheory.getOpClass_def]);
 
 val evaluate_handle_all_Rabort = Q.prove(
   `!exp1 ename res s s2 env.
@@ -2906,26 +2962,26 @@ val evaluate_handle_all_Rabort = Q.prove(
      evaluate s env [handle_all exp1 ename] = (s2, Rerr (Rabort res))`,
   Cases
   \\ rw[handle_all_def]
-  \\ rw[evaluate_def]);
+  \\ rw[evaluate_def, astTheory.getOpClass_def]);
 
 val evaluate_Success_CONS = Q.prove(
   `evaluate s env [e] = (s', Rval [v]) ==>
-  lookup_cons (Short "Success") env = SOME (1,TypeStamp "Success" exc_stamp) ==>
-  evaluate s env [Con (SOME (Short "Success")) [e]] = (s', Rval [Conv (SOME (TypeStamp "Success" exc_stamp)) [v]])`,
+  lookup_cons (Short "M_success") env = SOME (1,TypeStamp "M_success" exc_stamp) ==>
+  evaluate s env [Con (SOME (Short "M_success")) [e]] = (s', Rval [Conv (SOME (TypeStamp "M_success" exc_stamp)) [v]])`,
   rw[]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ fs[lookup_cons_def]
   \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def]
   \\ fs[namespaceTheory.id_to_n_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ every_case_tac \\ fs []);
 
 val evaluate_Success_CONS_err = Q.prove(
   `evaluate s env [e] = (s', Rerr v) ==>
-  lookup_cons (Short "Success") env = SOME (1,TypeStamp "Success" exc_stamp) ==>
-  evaluate s env [Con (SOME (Short "Success")) [e]] = (s', Rerr v)`,
+  lookup_cons (Short "M_success") env = SOME (1,TypeStamp "M_success" exc_stamp) ==>
+  evaluate s env [Con (SOME (Short "M_success")) [e]] = (s', Rerr v)`,
   rw[]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ fs[lookup_cons_def]
   \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def]
   \\ fs[namespaceTheory.id_to_n_def]
@@ -2934,20 +2990,20 @@ val evaluate_Success_CONS_err = Q.prove(
 (* For the dynamic store initialisation *)
 (* It is not possible to use register_type here... *)
 val EXC_TYPE_aux_def = Define `
-       (EXC_TYPE_aux stamp a b (Failure x_2) v ⇔
-        ∃v2_1. v = Conv (SOME (TypeStamp "Failure" stamp)) [v2_1]
+       (EXC_TYPE_aux stamp a b (M_failure x_2) v ⇔
+        ∃v2_1. v = Conv (SOME (TypeStamp "M_failure" stamp)) [v2_1]
                         ∧ b x_2 v2_1) ∧
-       (EXC_TYPE_aux stamp a b (Success x_1) v ⇔
-        ∃v1_1. v = Conv (SOME (TypeStamp "Success" stamp)) [v1_1]
+       (EXC_TYPE_aux stamp a b (M_success x_1) v ⇔
+        ∃v1_1. v = Conv (SOME (TypeStamp "M_success" stamp)) [v1_1]
                         ∧ a x_1 v1_1)`;
 
 Theorem EvalM_to_EvalSt:
   ∀exc_stamp TYPE EXN_TYPE x exp H init_state env.
     EvalM T env init_state exp (MONAD TYPE EXN_TYPE x) H ⇒
-    lookup_cons (Short "Success") env = SOME (1, TypeStamp "Success" exc_stamp) ⇒
-    lookup_cons (Short "Failure") env = SOME (1, TypeStamp "Failure" exc_stamp) ⇒
+    lookup_cons (Short "M_success") env = SOME (1, TypeStamp "M_success" exc_stamp) ⇒
+    lookup_cons (Short "M_failure") env = SOME (1, TypeStamp "M_failure" exc_stamp) ⇒
     EvalSt env init_state
-      (handle_all (Con (SOME (Short "Success")) [exp]) "Failure")
+      (handle_all (Con (SOME (Short "M_success")) [exp]) "M_failure")
       (EXC_TYPE_aux exc_stamp TYPE EXN_TYPE (run x init_state)) H
 Proof
   rw[EvalM_def, EvalSt_def]
@@ -2958,7 +3014,7 @@ Proof
       imp_res_tac evaluate_sing \\ rveq \\ fs []
       \\ IMP_RES_TAC evaluate_Success_CONS
       \\ first_x_assum (fn x => MATCH_MP evaluate_handle_all_Rval x |> ASSUME_TAC)
-      \\ first_x_assum (qspec_then `"Failure"` ASSUME_TAC)
+      \\ first_x_assum (qspec_then `"M_failure"` ASSUME_TAC)
       \\ asm_exists_tac \\ fs []
       \\ fs[MONAD_def, run_def, EXC_TYPE_aux_def]
       \\ Cases_on `x init_state'`
@@ -2980,11 +3036,11 @@ Proof
   \\ Cases_on `q` \\ fs[]
   \\ LAST_ASSUM IMP_RES_TAC
   \\ qexists_tac `s2`
-  \\ qexists_tac `Conv (SOME (TypeStamp "Failure" exc_stamp)) [a]`
+  \\ qexists_tac `Conv (SOME (TypeStamp "M_failure" exc_stamp)) [a]`
   \\ qexists_tac `r`
   \\ qexists_tac `ck`
   \\ rw[handle_all_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def,
           write_def,lookup_cons_def,PULL_EXISTS,pat_bindings_def,pmatch_def,
           can_pmatch_all_def]
@@ -2998,7 +3054,7 @@ Theorem EvalSt_Let_Fun:
 Proof
   rw[EvalSt_def]
   \\ last_x_assum imp_res_tac
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ rw[namespaceTheory.nsOptBind_def]
   \\ fs[write_def, merge_env_def]
   \\ metis_tac[]
@@ -3040,7 +3096,7 @@ Theorem EvalSt_Letrec_Fun:
 Proof
   rw[EvalSt_def]
   \\ qpat_x_assum `!s. A` imp_res_tac
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ `<|v := build_rec_env funs env env.v; c := env.c|> =
       env with v := build_rec_env funs env env.v` by fs[sem_env_component_equality]
   \\ fs[]
@@ -3071,12 +3127,12 @@ QED
 val evaluate_Var_IMP = Q.prove(
  `evaluate s1 env [Var (Short name)] = (s2, Rval [v]) ==>
   nsLookup env.v (Short name) = SOME v`,
-  rw[evaluate_def] \\ every_case_tac \\ fs []);
+  rw[evaluate_def, astTheory.getOpClass_def] \\ every_case_tac \\ fs []);
 
 val evaluate_Var_same_state = Q.prove(
  `evaluate s1 env [Var (Short name)] = (s2, res) <=>
   evaluate s1 env [Var (Short name)] = (s2, res) /\ s2 = s1`,
-  EQ_TAC \\ rw[evaluate_def] \\ every_case_tac \\ fs []);
+  EQ_TAC \\ rw[evaluate_def, astTheory.getOpClass_def] \\ every_case_tac \\ fs []);
 
 Theorem EvalSt_Opref:
    !exp get_ref_exp get_ref loc_name TYPE st_name env H P st.
@@ -3087,7 +3143,7 @@ Theorem EvalSt_Opref:
       (Let (SOME loc_name) (App Opref [get_ref_exp]) exp) P (H,p)
 Proof
   rw[EvalSt_def]
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ fs[Eval_def]
   \\ fs[PULL_EXISTS]
   \\ last_x_assum (qspec_then `s.refs` strip_assume_tac)
@@ -3172,7 +3228,7 @@ Theorem EvalSt_AllocEmpty:
        (Let (SOME loc_name) (App Opref [App AallocEmpty [Con NONE []]]) exp)
          P (H,p)
 Proof
-  rw[EvalSt_def,evaluate_def]
+  rw[EvalSt_def,evaluate_def, astTheory.getOpClass_def]
   \\ fs[PULL_EXISTS]
   \\ fs[do_con_check_def, build_conv_def]
   \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
@@ -3240,12 +3296,12 @@ Theorem EvalSt_Alloc:
           ((\st. ARRAY_REL TYPE loc (get_farray st) * H st),p)) ==>
      EvalSt env st (Let (SOME loc_name) (App Aalloc [nexp; xexp]) exp) P (H,p)
 Proof
-  rw[EvalSt_def,evaluate_def]
+  rw[EvalSt_def,evaluate_def, astTheory.getOpClass_def]
   \\ fs[PULL_EXISTS]
   \\ fs[Eval_def]
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
-  \\ rw[evaluate_def]
+  \\ rw[evaluate_def, astTheory.getOpClass_def]
   \\ first_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
   \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
@@ -3316,7 +3372,7 @@ Theorem Eval_lookup_var:
    !env vname xv x TYPE. nsLookup env.v (Short vname) = SOME xv ==>
   (Eval env (Var (Short vname)) (TYPE x) <=> TYPE x xv)
 Proof
-  rw[Eval_def,eval_rel_def,evaluate_def,state_component_equality]
+  rw[Eval_def,eval_rel_def,evaluate_def, astTheory.getOpClass_def,state_component_equality]
 QED
 
 val nsBind_to_write = Q.prove(

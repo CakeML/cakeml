@@ -186,6 +186,9 @@ val r = translate bvl_to_bviTheory.compile_def;
 val _ = r |> hyp |> null orelse
         failwith "Unproved side condition in the translation of bvl_to_bviTheory.compile_def.";
 
+val r = translate bvl_to_bviTheory.compile_inc_def;
+val r = translate bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def;
+
 (* ------------------------------------------------------------------------- *)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;

@@ -936,19 +936,19 @@ Definition do_app_aux_def:
     | (FP_top t_op, ws) =>
         (case ws of
          | [Word64 w1; Word64 w2; Word64 w3] =>
-            (Rval (Word64 (fp_top t_op w1 w2 w3),s))
+            (Rval (Word64 (fp_top_comp t_op w1 w2 w3),s))
          | _ => Error)
     | (FP_bop bop, ws) =>
         (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop bop w1 w2),s))
+         | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop_comp bop w1 w2),s))
          | _ => Error)
     | (FP_uop uop, ws) =>
         (case ws of
-         | [Word64 w] => (Rval (Word64 (fp_uop uop w),s))
+         | [Word64 w] => (Rval (Word64 (fp_uop_comp uop w),s))
          | _ => Error)
     | (FP_cmp cmp, ws) =>
         (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp cmp w1 w2),s))
+         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp_comp cmp w1 w2),s))
          | _ => Error)
     | (BoundsCheckBlock,xs) =>
         (case xs of

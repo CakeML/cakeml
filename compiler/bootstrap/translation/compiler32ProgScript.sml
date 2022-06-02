@@ -96,6 +96,8 @@ val export_byte_to_string_side_def = prove(
 
 val res = translate split16_def;
 val res = translate preamble_def;
+val res = translate (data_buffer_def |> CONV_RULE (RAND_CONV EVAL));
+val res = translate (code_buffer_def |> CONV_RULE (RAND_CONV EVAL));
 
 (* val res = translate space_line_def; *)
 
@@ -387,4 +389,5 @@ val semantics_compiler32_prog =
   |> curry save_thm "semantics_compiler32_prog";
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)
 val _ = export_theory();

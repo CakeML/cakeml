@@ -955,6 +955,7 @@ val get_gen_size_def = Define `
      if w2n (bytes_in_word:'a word) * x < dimword (:'a)
      then bytes_in_word * n2w x
      else bytes_in_word * (-1w))`;
+
 val fp_cmp_inst_def = Define `
   fp_cmp_inst FP_Less = FPLess 3 0 1 /\
   fp_cmp_inst FP_LessEqual = FPLessEqual 3 0 1 /\
@@ -969,12 +970,12 @@ val fp_bop_inst_def = Define `
   fp_bop_inst FP_Add = FPAdd 0 0 1 /\
   fp_bop_inst FP_Sub = FPSub 0 0 1 /\
   fp_bop_inst FP_Mul = FPMul 0 0 1 /\
-  fp_bop_inst FP_Div = FPDiv 0 0 1`
+  fp_bop_inst FP_Div = FPDiv 0 0 1`;
 
 val fp_uop_inst_def = Define `
   fp_uop_inst FP_Neg = FPNeg 1 0 /\
   fp_uop_inst FP_Abs = FPAbs 1 0 /\
-  fp_uop_inst FP_Sqrt = FPSqrt 1 0`
+  fp_uop_inst FP_Sqrt = FPSqrt 1 0`;
 
 val arg1_def = Define `
   arg1 vs f x = dtcase vs of | [v1] => f v1 | _ => x`;

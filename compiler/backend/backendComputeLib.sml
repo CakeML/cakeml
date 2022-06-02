@@ -76,6 +76,11 @@ val add_backend_compset = computeLib.extend_compset
     ,miscTheory.enumerate_def
     ]
   ,computeLib.Defs (theory_computes "source_to_flat")
+  ,computeLib.Tys
+    [``:source_to_flat$environment``
+    ,``:source_to_flat$environment_generation_store``
+    ,``:source_to_flat$environment_store``
+    ]
       (* ---- flat_elim ---- *)
   ,computeLib.Defs (theory_computes "flat_elim")
   ,computeLib.Defs (theory_computes "flat_pattern")
@@ -97,7 +102,6 @@ val add_backend_compset = computeLib.extend_compset
     ,``:pattern_common$position``
     ,``:pattern_common$pmatchResult``
     ,``:pattern_common$matchResult``
-    ,``:source_to_flat$environment``
     ,``:source_to_flat$next_indices``
     ,``:source_to_flat$config``
     ]

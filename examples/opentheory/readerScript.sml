@@ -10,7 +10,7 @@ val st_ex_monadinfo : monadinfo = {
   bind = “st_ex_bind”,
   ignorebind = SOME “st_ex_ignore_bind”,
   unit = “st_ex_return”,
-  fail = SOME “raise_Fail”,
+  fail = SOME “raise_Failure”,
   choice = SOME “$otherwise”,
   guard = NONE
   };
@@ -20,7 +20,7 @@ val _ = enable_monadsyntax ();
 val _ = enable_monad "st_ex";
 
 Overload return[local] = “st_ex_return”;
-Overload failwith[local] = “raise_Fail”;
+Overload failwith[local] = “raise_Failure”;
 
 (* -------------------------------------------------------------------------
  * Commands.
@@ -353,9 +353,9 @@ End
 
 Definition BETA_CONV_def:
   BETA_CONV tm =
-    handle_Fail (BETA tm)
+    handle_Failure (BETA tm)
       (λe.
-        handle_Fail
+        handle_Failure
           (do
             (f, arg) <- dest_comb tm;
             (v, body) <- dest_abs f;
@@ -575,7 +575,7 @@ Definition readLine_def:
         do
           (obj,s) <- pop s; tm <- getTerm obj;
           (obj,s) <- pop s; n <- getName obj;
-          ty <- type_of tm;
+          ty <- call_type_of tm;
           eq <- mk_eq (mk_var(n,ty),tm);
           th <- new_basic_definition eq;
           return (push (Thm th) (push (Const n) s))
@@ -596,7 +596,7 @@ Definition readLine_def:
           (obj,s) <- pop s; rep <- getName obj;
           (obj,s) <- pop s; abs <- getName obj;
           (obj,s) <- pop s; nm <- getName obj;
-          (th1,th2) <- new_basic_type_definition nm abs rep th;
+          (th1,th2) <- new_basic_type_definition (nm, abs, rep, th);
           (_,a) <- dest_eq (concl th1);
           th1 <- ABS a th1;
           th2 <- SYM th2;
@@ -642,7 +642,7 @@ Definition readLine_def:
     | pragma =>
         do
           (obj,s) <- pop s;
-          nm <- handle_Fail (getName obj)
+          nm <- handle_Failure (getName obj)
                     (λe. return «bogus»);
           (* TODO Had to drop the debug pragma because of the rigidity
            * of the exception types: we inherit a single exception from
@@ -848,9 +848,9 @@ Definition readLines_def:
       []    => return (s, lines_read s)
     | l::ls =>
         do
-          s <- handle_Fail
+          s <- handle_Failure
                  (readLine s l)
-                 (λe. raise_Fail (line_Fail s e));
+                 (λe. raise_Failure (line_Fail s e));
           readLines (next_line s) ls
         od
 End
@@ -975,4 +975,3 @@ Proof
 QED
 
 val _ = export_theory()
-

@@ -6,11 +6,14 @@
 open preamble semanticsTheory namespacePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      evaluatePropsTheory evaluateTheory experimentalLib
+     fpOptTheory
 
 val _ = new_theory "source_evalProof";
 
 val _ = set_grammar_ancestry ["ast", "string",
     "semantics", "semanticPrimitivesProps"];
+
+val _ = temp_delsimps ["getOpClass_def"]
 
 (* The things the translator is expected to produce from the
    compiler definition etc. *)
@@ -200,7 +203,7 @@ Triviality nsSing_eq_bind = namespaceTheory.nsSing_def
     GSYM namespaceTheory.nsEmpty_def]
 
 Triviality pair_CASE_eq_pairarg:
-  pair_CASE p f = (\(x, y). f x y) p
+  pair_CASE p f = (\ (x, y). f x y) p
 Proof
   Cases_on `p` \\ simp []
 QED
@@ -223,14 +226,19 @@ Inductive v_rel:
   (env_rel (v_rel es) env env' ==>
     v_rel es (Recclosure env funs nm) (Recclosure env' funs nm)) /\
   (v_rel es (Litv l) (Litv l)) /\
-  (v_rel es (Loc n) (Loc n))
+  (v_rel es (Loc n) (Loc n)) ∧
+  (v_rel es (FP_BoolTree b) (FP_BoolTree b)) ∧
+  (v_rel es (FP_WordTree w) (FP_WordTree w)) ∧
+  (v_rel es (Real r) (Real r))
 End
 
 Theorem v_rel_l_simps =
   [``v_rel es (Litv l) v``, ``v_rel es (Conv cn vs) v``,
     ``v_rel es (Loc l) v``, ``v_rel es (Vectorv vs) v``,
     ``v_rel es (Env e id) v``, ``v_rel es (Recclosure env funs nm) v``,
-    ``v_rel es (Closure env nm x) v``]
+    ``v_rel es (Closure env nm x) v``,
+    “v_rel es (FP_BoolTree b) v”, “v_rel es (FP_WordTree w) v”,
+   “v_rel es (Real r) v”]
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> map GEN_ALL
   |> LIST_CONJ
@@ -507,9 +515,12 @@ Proof
   \\ imp_res_tac LIST_REL_LENGTH
   \\ imp_res_tac v_to_env_id_SOME
   \\ rveq \\ fs []
-  \\ fs [eq_result_case_eq, bool_case_eq]
+  \\ fs [Boolv_def, eq_result_case_eq, bool_case_eq]
   \\ fs [do_eq_def, nat_to_v_def, lit_same_type_def]
   \\ rw []
+  \\ TRY (Cases_on ‘ys’ ORELSE Cases_on ‘xs’ \\ gs[do_eq_def] \\ NO_TAC)
+  \\ qpat_x_assum `_ = Eq_val _` mp_tac
+  \\ rpt (COND_CASES_TAC \\ gs[])
 QED
 
 Theorem store_assign:
@@ -640,7 +651,9 @@ Proof
         \\ rw [EVERY2_LUPDATE_same])
   \\ imp_res_tac LIST_REL_LENGTH
   \\ fs [LIST_REL_REPLICATE_same, EVERY2_LUPDATE_same, LIST_REL_APPEND_EQ]
-  \\ TRY (fs [LIST_REL_EL_EQN] \\ NO_TAC)
+  \\ TRY (Cases_on ‘ys’ using SNOC_CASES \\ gs[SNOC_APPEND, REVERSE_APPEND])
+  \\ TRY (fs [LIST_REL_EL_EQN, EVERY2_REVERSE1] \\ NO_TAC)
+  \\ imp_res_tac fpSemPropsTheory.fp_translate_cases \\ rveq \\ gs[]
 QED
 
 Theorem pairarg_to_pair_map:
@@ -666,130 +679,6 @@ Proof
   ho_match_mp_tac v_rel_ind
   \\ rw []
   \\ fs [EVERY_EL, LIST_REL_EL_EQN, LIST_EQ_REWRITE]
-QED
-
-Theorem concrete_v_enc_option:
-  !opt. concrete_v (enc_option opt) = (!x. opt = SOME x ==> concrete_v x)
-Proof
-  Cases \\ simp [enc_option_def]
-QED
-
-Theorem concrete_v_enc_list:
-  !xs. concrete_v (enc_list xs) = EVERY concrete_v xs
-Proof
-  Induct \\ simp [enc_list_def]
-QED
-
-Theorem concrete_v_enc_id:
-  !id. concrete_v (enc_id id)
-Proof
-  Induct \\ simp [enc_id_def]
-QED
-
-Theorem concrete_v_enc_ast_t:
-  !ast_t. concrete_v (enc_ast_t ast_t)
-Proof
-  recInduct enc_ast_t_ind
-  \\ simp [enc_ast_t_def, concrete_v_enc_id]
-  \\ simp [concrete_v_enc_list, EVERY_MAP]
-  \\ simp [EVERY_MEM]
-QED
-
-Theorem concrete_v_enc_lit:
-  !lit. concrete_v (enc_lit lit)
-Proof
-  Cases
-  \\ simp [enc_lit_def]
-QED
-
-Theorem concrete_v_enc_pat:
-  !pat. concrete_v (enc_pat pat)
-Proof
-  recInduct enc_pat_ind
-  \\ simp [enc_pat_def, concrete_v_enc_ast_t,
-    concrete_v_enc_lit, concrete_v_enc_option]
-  \\ simp [concrete_v_enc_list, EVERY_MAP]
-  \\ simp [EVERY_MEM, PULL_EXISTS, concrete_v_enc_id]
-QED
-
-Theorem concrete_v_enc_lop:
-  !lop. concrete_v (enc_lop lop)
-Proof
-  Cases
-  \\ simp [enc_lop_def]
-QED
-
-Theorem concrete_v_enc_opn:
-  !opn. concrete_v (enc_opn opn)
-Proof
-  Cases
-  \\ simp [enc_opn_def]
-QED
-
-Theorem concrete_v_enc_opb:
-  !opb. concrete_v (enc_opb opb)
-Proof
-  Cases
-  \\ simp [enc_opb_def]
-QED
-
-Theorem concrete_v_enc_opw:
-  !opw. concrete_v (enc_opw opw)
-Proof
-  Cases
-  \\ simp [enc_opw_def]
-QED
-
-Theorem concrete_v_enc_word_size:
-  !word_size. concrete_v (enc_word_size word_size)
-Proof
-  Cases
-  \\ simp [enc_word_size_def]
-QED
-
-Theorem concrete_v_enc_shift:
-  !shift. concrete_v (enc_shift shift)
-Proof
-  Cases
-  \\ simp [enc_shift_def]
-QED
-
-Theorem concrete_v_enc_fp_cmp:
-  !fp_cmp. concrete_v (enc_fp_cmp fp_cmp)
-Proof
-  Cases
-  \\ simp [enc_fp_cmp_def]
-QED
-
-Theorem concrete_v_enc_fp_uop:
-  !fp_uop. concrete_v (enc_fp_uop fp_uop)
-Proof
-  Cases
-  \\ simp [enc_fp_uop_def]
-QED
-
-Theorem concrete_v_enc_fp_bop:
-  !fp_bop. concrete_v (enc_fp_bop fp_bop)
-Proof
-  Cases
-  \\ simp [enc_fp_bop_def]
-QED
-
-Theorem concrete_v_enc_fp_top:
-  !fp_top. concrete_v (enc_fp_top fp_top)
-Proof
-  Cases
-  \\ simp [enc_fp_top_def]
-QED
-
-Theorem concrete_v_enc_op:
-  !op. concrete_v (enc_op op)
-Proof
-  Cases
-  \\ simp [enc_op_def, concrete_v_enc_opn, concrete_v_enc_opb,
-    concrete_v_enc_opw, concrete_v_enc_word_size, concrete_v_enc_shift,
-    nat_to_v_def, concrete_v_enc_fp_cmp, concrete_v_enc_fp_uop,
-    concrete_v_enc_fp_bop, concrete_v_enc_fp_top]
 QED
 
 Theorem v_to_list_concrete:
@@ -892,7 +781,6 @@ Theorem do_eval_sim:
         (orac_s (reset_env_generation t.eval_state t2.eval_state))
   )
 Proof
-
   rw []
   \\ fs [do_eval_def, s_rel_def] \\ fs []
   \\ fs [list_case_eq, v_case_eq, option_case_eq, pair_case_eq]
@@ -1084,27 +972,7 @@ Proof
   rw []
   \\ reverse (fs [pair_case_eq, result_case_eq] \\ rveq \\ fs [])
   \\ insts_tac
-  \\ Cases_on `op = Opapp`
-  >- (
-    rveq \\ fs []
-    \\ imp_res_tac s_rel_clock
-    \\ fs [do_opapp_def]
-    \\ eval_cases_tac
-    \\ fs [listTheory.SWAP_REVERSE_SYM, CaseEq "v"] \\ rveq \\ fs []
-    \\ fs [listTheory.SWAP_REVERSE, miscTheory.FST_triple]
-    \\ eval_cases_tac
-    \\ insts_tac
-    \\ rfs [EVAL ``(dec_clock s).eval_state``]
-    \\ first_x_assum (qsubterm_then `evaluate _ _ _` mp_tac)
-    \\ impl_tac \\ rw [] \\ insts_tac
-    \\ irule env_rel_add_nsBind
-    \\ insts_tac
-    \\ simp [build_rec_env_merge, nsAppend_to_nsBindList]
-    \\ irule env_rel_add_nsBindList
-    \\ simp [LIST_REL_MAP1, SIMP_RULE (bool_ss ++ ETA_ss) [] LIST_REL_MAP2]
-    \\ simp [ELIM_UNCURRY, quotient_pairTheory.PAIR_REL_THM, EVERY2_refl]
-  )
-  \\ Cases_on `op = Eval`
+  \\ Cases_on `getOpClass op`
   >- (
     fs [do_eval_res_def, evaluate_def, do_con_check_def]
     \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
@@ -1125,6 +993,71 @@ Proof
     \\ first_x_assum drule \\ impl_tac
     \\ rw [] \\ insts_tac
   )
+  >- (
+    rveq \\ fs []
+    \\ imp_res_tac s_rel_clock
+    \\ fs [do_opapp_def]
+    \\ eval_cases_tac
+    \\ fs [listTheory.SWAP_REVERSE_SYM, CaseEq "v"] \\ rveq \\ fs []
+    \\ fs [listTheory.SWAP_REVERSE, miscTheory.FST_triple]
+    \\ eval_cases_tac
+    \\ insts_tac
+    \\ rfs [EVAL ``(dec_clock s).eval_state``]
+    \\ first_x_assum (qsubterm_then `evaluate _ _ _` mp_tac)
+    \\ impl_tac \\ rw [] \\ insts_tac
+    \\ irule env_rel_add_nsBind
+    \\ insts_tac
+    \\ simp [build_rec_env_merge, nsAppend_to_nsBindList]
+    \\ irule env_rel_add_nsBindList
+    \\ simp [LIST_REL_MAP1, SIMP_RULE (bool_ss ++ ETA_ss) [] LIST_REL_MAP2]
+    \\ simp [ELIM_UNCURRY, quotient_pairTheory.PAIR_REL_THM, EVERY2_refl]
+  )
+  >~ [‘getOpClass op = Icing’]
+  >- (
+    rveq \\ gs[CaseEq"option", CaseEq"prod"]
+    \\ drule_then (drule_then assume_tac) do_app_sim
+    \\ insts_tac
+    \\ ‘r ≠ Rerr (Rabort Rtype_error)’ by (every_case_tac \\ gs[do_fprw_def, CaseEq"result"])
+    \\ gs[s_rel_def] \\ rveq \\ gs[]
+    \\ COND_CASES_TAC \\ gs[]
+    \\ Cases_on ‘isFpBool op’ \\ gs[do_fprw_def, CaseEq"option"] \\ Cases_on ‘r’ \\ gs[]
+    >- (
+      Cases_on ‘a’ \\ gs[shift_fp_opts_def]
+      \\ rveq \\ gs[]
+      \\ simp[state_component_equality]
+      \\ Cases_on ‘st'.fp_state.opts 0’ \\ gs[rwAllWordTree_def, rwAllBoolTree_def]
+      \\ TRY (rename1 ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’
+              \\ Cases_on ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
+      \\ TRY (rename1 ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’
+              \\ Cases_on ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
+      \\ Cases_on ‘v''’ \\ gs[Boolv_def]
+      \\ TRY (rename1 ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’
+              \\ Cases_on ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’ \\ gs[v_to_env_id_def])
+      \\ TRY (rename1 ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’
+              \\ Cases_on ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
+      \\ COND_CASES_TAC \\ gs[v_to_env_id_def])
+    >- gs[shift_fp_opts_def, state_component_equality]
+    >- (
+      Cases_on ‘a’ \\ gs[shift_fp_opts_def]
+      \\ rveq \\ gs[]
+      \\ simp[state_component_equality]
+      \\ Cases_on ‘st'.fp_state.opts 0’ \\ gs[rwAllWordTree_def, rwAllBoolTree_def]
+      \\ TRY (rename1 ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’
+              \\ Cases_on ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
+      \\ TRY (rename1 ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’
+              \\ Cases_on ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
+      \\ Cases_on ‘v''’ \\ gs[Boolv_def]
+      \\ TRY (rename1 ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’
+              \\ Cases_on ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’ \\ gs[v_to_env_id_def])
+      \\ TRY (rename1 ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’
+              \\ Cases_on ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’ \\ gs[v_to_env_id_def]))
+    >- gs[shift_fp_opts_def, state_component_equality]
+    >- (
+      gs[shift_fp_opts_def, state_component_equality]
+      \\ Cases_on ‘a’ \\ gs[]
+      \\ TOP_CASE_TAC \\ gs[Boolv_def]
+      \\ COND_CASES_TAC \\ gs[v_to_env_id_def])
+    \\ gs[shift_fp_opts_def, state_component_equality])
   \\ eval_cases_tac
   \\ drule_then (drule_then assume_tac) do_app_sim
   \\ insts_tac
@@ -1311,6 +1244,76 @@ Proof
   \\ insts_tac
 QED
 
+Theorem do_fpoptimise_length:
+  LENGTH (do_fpoptimise annot l) = LENGTH l
+Proof
+  Induct_on ‘l’ >>
+  simp[Once fpSemPropsTheory.do_fpoptimise_cons, do_fpoptimise_def] >>
+  rpt strip_tac >> Cases_on ‘h’ >> fs[do_fpoptimise_def]
+QED
+
+Theorem do_fpoptimise_env_id:
+  v_to_env_id v = SOME id ⇒
+  ∃ v2. do_fpoptimise annot [v] = [v2] ∧ v_to_env_id v2 = SOME id
+Proof
+  gs[v_to_env_id_def, v_to_nat_def, CaseEq"v", CaseEq"list", CaseEq"option", CaseEq"lit"]
+  \\ rpt strip_tac \\ gs[do_fpoptimise_def]
+QED
+
+Theorem v_rel_do_fpoptimise:
+  ∀ vs vsF.
+    LIST_REL (v_rel R) vs vsF ⇒
+    LIST_REL (v_rel R) (do_fpoptimise annot vs) (do_fpoptimise annot vsF)
+Proof
+  measureInduct_on ‘semanticPrimitives$v1_size vs’ >> Cases_on ‘vs’
+  >> fs[LIST_REL_def] >> rpt strip_tac
+  >- (
+   fs[do_fpoptimise_def])
+  >> first_assum (qspec_then ‘t’ assume_tac)
+  >> fs[semanticPrimitivesTheory.v_size_def]
+  >> simp[Once fpSemPropsTheory.do_fpoptimise_cons]
+  >> Cases_on ‘h’ >> simp[do_fpoptimise_def]
+  >> fs[Once v_rel_cases]
+  >> first_x_assum (qspec_then ‘ys’ assume_tac)
+  >> simp[Once fpSemPropsTheory.do_fpoptimise_cons]
+  >> gs[do_fpoptimise_def]
+  >- (
+   first_x_assum $ qspec_then ‘l’ assume_tac
+   >> fs[semanticPrimitivesTheory.v_size_def])
+  >- (
+   first_x_assum $ qspec_then ‘l’ assume_tac
+   >> fs[semanticPrimitivesTheory.v_size_def])
+  >> imp_res_tac do_fpoptimise_env_id
+  >> first_x_assum $ qspec_then ‘annot’ strip_assume_tac >> gs[]
+QED
+
+Theorem list_rel_fpoptimise:
+  ∀ annot R v1 v2.
+    v_rel R v1 v2 ⇒
+    LIST_REL (v_rel R) (do_fpoptimise annot [v1]) (do_fpoptimise annot [v2])
+Proof
+  rpt strip_tac >> irule v_rel_do_fpoptimise
+  >> gs[LIST_REL_def]
+QED
+
+Triviality eval_simulation_Scope:
+  ^(#get_goal eval_simulation_setup `Case ([FpOptimise _ _])`)
+Proof
+  rpt disch_tac
+  \\ eval_cases_tac
+  \\ insts_tac
+  \\ first_x_assum $
+       qspec_then
+       ‘t with fp_state := if t.fp_state.canOpt = Strict then t.fp_state else t.fp_state with canOpt := FPScope annot’ mp_tac
+  \\ impl_tac
+  >- (
+    gs[s_rel_def] \\ qexists_tac ‘orac_s'’ \\ qexists_tac ‘refs'’ \\ gs[]
+  )
+  \\ strip_tac \\ gs[]
+  \\ fs [s_rel_def, state_component_equality]
+  \\ irule list_rel_fpoptimise \\ gs[orac_s_def]
+QED
+
 Theorem eval_simulation:
   ^(#concl eval_simulation_setup ())
 Proof
@@ -1318,7 +1321,8 @@ Proof
     eval_simulation_Denv, eval_simulation_Con, eval_simulation_Let,
     eval_simulation_Letrec, eval_simulation_match,
     eval_simulation_cons_decs, eval_simulation_Dletrec,
-    eval_simulation_Dtype, eval_simulation_Dexn, eval_simulation_Dlocal]
+    eval_simulation_Dtype, eval_simulation_Dexn, eval_simulation_Dlocal,
+    eval_simulation_Scope]
   \\ rpt disch_tac
   \\ insts_tac
   \\ TRY ( (
@@ -1343,6 +1347,7 @@ Proof
   )
 QED
 
+Overload shift_seq = “misc$shift_seq”
 Definition do_eval_oracle_def:
   do_eval_oracle (f : compiler_fun) vs (orac : eval_oracle_fun) =
   case vs of
@@ -1542,7 +1547,7 @@ Proof
   \\ fs []
   \\ simp [record_forward_refl]
   >- (
-    Cases_on `op = Eval` \\ Cases_on `op = Opapp` \\ fs []
+    Cases_on ‘getOpClass op’ \\ fs[]
     \\ full_simp_tac bool_ss [do_eval_res_def, bool_case_eq, pair_case_eq,
         option_case_eq, result_case_eq, dec_clock_def]
     \\ rveq \\ full_simp_tac bool_ss [PAIR_EQ]
@@ -1553,7 +1558,8 @@ Proof
     \\ TRY (drule_then (drule_then assume_tac) insert_declare_env)
     \\ fs [GSYM PULL_FORALL, reset_env_generation_orac_eqs]
     \\ rpt (drule_then irule record_forward_trans_sym)
-    \\ simp [record_forward_refl]
+    \\ simp [record_forward_refl, shift_fp_opts_def]
+    \\ COND_CASES_TAC \\ gs[shift_fp_opts_def]
   )
   \\ fs [pair_case_eq, option_case_eq, result_case_eq] \\ rveq \\ fs []
   \\ rpt (drule_then irule record_forward_trans_sym)
@@ -1636,16 +1642,7 @@ Triviality insert_oracle_correct_App:
 Proof
   rw []
   \\ fs [pair_case_eq, result_case_eq] \\ rveq \\ fs []
-  \\ fs [bool_case_eq] \\ rveq \\ fs []
-  >- (
-    (* Opapp *)
-    eval_cases_tac
-    \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] \\ rveq \\ fs []
-    \\ fs [dec_clock_def]
-    \\ imp_res_simp_tac evaluate_is_record_forward
-    \\ agrees_impl_tac
-    \\ simp []
-  )
+  \\ fs [bool_case_eq] \\ rveq \\ fs [] \\ Cases_on ‘getOpClass op’ \\ gs[]
   >- (
     (* Eval *)
     fs [do_eval_res_def, Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq]
@@ -1671,8 +1668,16 @@ Proof
     \\ simp [reset_env_generation_orac_eqs]
   )
   >- (
+    (* Opapp *)
     eval_cases_tac
+    \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] \\ rveq \\ fs []
+    \\ fs [dec_clock_def]
+    \\ imp_res_simp_tac evaluate_is_record_forward
+    \\ agrees_impl_tac
+    \\ simp []
   )
+  \\ eval_cases_tac
+  \\ Cases_on ‘st'.fp_state.canOpt = FPScope fpValTree$Opt’ \\ gs[shift_fp_opts_def]
 QED
 
 Triviality insert_oracle_correct_Denv:
@@ -1784,6 +1789,7 @@ Proof
   \\ rveq \\ fs []
   \\ simp [record_forward_refl]
   \\ fs [do_eval_res_def]
+  \\ TRY( rename1 ‘getOpClass op’ \\ Cases_on ‘getOpClass op’)
   \\ eval_cases_tac
   \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, dec_clock_def]
   \\ rveq \\ fs []
@@ -1799,7 +1805,9 @@ Proof
             \\ TRY DISJ2_TAC
             \\ drule_then irule record_forward_trans)
         \\ NO_TAC)
-  \\ simp [combine_dec_result_def]
+  \\ simp [combine_dec_result_def, shift_fp_opts_def]
+  \\ rename1 ‘st2.fp_state.canOpt = FpScope fpValTree$Opt’
+  \\ Cases_on ‘st2.fp_state.canOpt = FpScope fpValTree$Opt’ \\ gs[shift_fp_opts_def]
 QED
 
 (* Constructs the oracle from an evaluation by using the recorded

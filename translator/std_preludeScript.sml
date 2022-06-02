@@ -4,11 +4,9 @@
 *)
 
 open preamble astTheory libTheory semanticPrimitivesTheory whileTheory;
-open evaluateTheory ml_translatorLib ml_translatorTheory ml_progLib decProgTheory;
+open evaluateTheory ml_translatorLib ml_translatorTheory ml_progLib;
 
 val _ = new_theory "std_prelude";
-
-val _ = translation_extends "decProg";
 
 (* type registration *)
 
@@ -19,6 +17,7 @@ val _ = register_type ``:'a option``;
 val _ = register_type ``:'a list``;
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:'a + 'b``;
+val _ = register_type ``:'a app_list``;
 
 (* pair *)
 
@@ -122,8 +121,6 @@ val least_side_thm = Q.prove(
   THEN FULL_SIMP_TAC std_ss [OWHILE_def,FUNPOW_LEMMA,FUN_EQ_THM,EMPTY_DEF]
   THEN METIS_TAC [IS_SOME_DEF])
   |> update_precondition;
-
-val _ = save_thm("OPTION_TYPE_def",OPTION_TYPE_def);
 
 val _ = (print_asts := true);
 

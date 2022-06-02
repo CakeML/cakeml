@@ -218,6 +218,8 @@ val _ = translate (stack_to_labTheory.is_Seq_def |> spec32)
 
 val _ = translate (compile_def |> spec32)
 
+val _ = translate (stack_to_labTheory.compile_no_stubs_def |> spec32)
+
 open lab_filterTheory lab_to_targetTheory asmTheory
 open monadic_encTheory monadic_enc32Theory ml_monad_translatorLib;
 

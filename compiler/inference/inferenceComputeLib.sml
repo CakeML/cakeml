@@ -34,6 +34,7 @@ in
     ,check_ctors_def
     ,check_ctor_types_def
     ,inf_type_to_string_def
+    ,inf_type_to_string_rec_def
     ,infer_d_def
     ,infer_e_def
     ,infer_p_def
@@ -117,9 +118,8 @@ in
     ,infer_tTheory.type_ident_to_string_def
     ,mlintTheory.toString_def
     ,mlintTheory.toChar_def
-    ,mlintTheory.toChars_def
-    ,mlintTheory.simple_toChars_def
-    ,mlintTheory.zero_pad_def
+    ,mlintTheory.num_to_rev_chars_compute
+    ,mlintTheory.exp_for_dec_enc_def
     ,mlintTheory.maxSmall_DEC_def
     ,mlintTheory.padLen_DEC_def
     ,mlstringTheory.str_def
