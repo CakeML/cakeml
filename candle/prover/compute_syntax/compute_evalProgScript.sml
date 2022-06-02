@@ -75,6 +75,7 @@ val r = translate compute_interp_def;
 val r = translate num2bit_def;
 val r = translate app_type_def;
 val r = translate bop2term_def;
+val r = translate FOLDL;
 val r = translate cval2term_def;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;

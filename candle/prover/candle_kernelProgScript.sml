@@ -101,8 +101,6 @@ val r = m_translate dest_binary_PMATCH;
 
 val r = check [‘ths’] compute_init_def |> translate;
 
-val r = translate FOLDL;
-
 val r = m_translate check_var_def;
 val r = translate check_cval_closed_def;
 val r = translate var_list_def;
