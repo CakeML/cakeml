@@ -667,7 +667,6 @@ End
 
 Definition do_part_def:
   do_part m (Int i) s ts = (Number i, s, ts) ∧
-  do_part m (Lbl l) s ts = (CodePtr l, s, ts) ∧
   do_part m (W64 w) s ts = (Word64 w, s, ts) ∧
   do_part m (Con t ns) s ts =
     (if ns = [] then (Block 0 t [],s,ts)
@@ -767,10 +766,8 @@ Definition do_app_aux_def:
     | (CopyByte T, _)    => Rerr (Rabort Rtype_error)
     (* bvl part *)
     | (Build parts,[]) =>
-        (if EVERY (λp. ∀n. p = Lbl n ⇒ n IN domain s.code) parts then
-           (case do_build_const parts s.refs s.tstamps of
-            | (v,s1,ts1) => Rval (v,s with <| refs := s1 ; tstamps := ts1 |>))
-         else Error)
+        (case do_build_const parts s.refs s.tstamps of
+         | (v,s1,ts1) => Rval (v,s with <| refs := s1 ; tstamps := ts1 |>))
     | (Cons tag,xs) => (if xs = []
                         then Rval (Block 0 tag [],s)
                         else with_fresh_ts s 1

@@ -20,7 +20,6 @@ Definition part_space_req_def:
   part_space_req (Int i) =
     (if Num (ABS i) < 2**29 then 0 else num_size (Num (ABS i))) ∧
   part_space_req (Str s) = strlen s DIV 4 + 2 ∧
-  part_space_req (Lbl l) = 0 ∧
   part_space_req (Con t ns) =
     let l = LENGTH ns in if l = 0n then 0 else l+1
 End

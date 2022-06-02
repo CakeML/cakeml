@@ -129,7 +129,6 @@ val do_install_def = Define `
 
 Definition do_part_def:
   do_part m (Int i) refs = (Number i, refs) ∧
-  do_part m (Lbl l) refs = (CodePtr l, refs) ∧
   do_part m (W64 w) refs = (Word64 w, refs) ∧
   do_part m (Con t ns) refs = (Block t (MAP m ns), refs) ∧
   do_part m (Str t) refs =
@@ -174,9 +173,7 @@ val do_app_def = Define `
     | (Const i,[]) => Rval (Number i, s)
     | (Cons tag,xs) => Rval (Block tag xs, s)
     | (Build parts,[]) =>
-        (if EVERY (λp. ∀n. p = Lbl n ⇒ n IN domain s.code) parts then
-           let (v,rs) = do_build_const parts s.refs in Rval (v, s with refs := rs)
-         else Error)
+        (let (v,rs) = do_build_const parts s.refs in Rval (v, s with refs := rs))
     | (ConsExtend tag,Block _ xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then

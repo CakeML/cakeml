@@ -78,8 +78,7 @@ Definition part_hash_def:
   part_hash (Str s) =
     (mlstring$strlen s + 3 * SUM (MAP ORD (mlstring$explode s))) MOD PRIME ∧
   part_hash (W64 w) = (17 + w2n w) MOD PRIME ∧
-  part_hash (Con t ns) = (18 + 5 * t + 7 * SUM ns) MOD PRIME ∧
-  part_hash (Lbl n) = n MOD PRIME
+  part_hash (Con t ns) = (18 + 5 * t + 7 * SUM ns) MOD PRIME
 End
 
 Definition add_part_def:
@@ -93,19 +92,10 @@ Definition add_part_def:
           | SOME k => (n,k,aux,acc)
 End
 
-Datatype:
-  const = ConstCons num (const list)
-        | ConstInt int
-        | ConstStr mlstring
-        | ConstWord64 word64
-        | ConstLbl num
-End
-
 Definition add_parts_def:
   add_parts (ConstInt i) n aux acc = add_part n (Int i) aux acc ∧
   add_parts (ConstStr s) n aux acc = add_part n (Str s) aux acc ∧
   add_parts (ConstWord64 w) n aux acc = add_part n (W64 w) aux acc ∧
-  add_parts (ConstLbl l) n aux acc = add_part n (Lbl l) aux acc ∧
   add_parts (ConstCons t cs) n aux acc =
     (let (n, rs, aux, acc) = add_parts_list cs n aux acc in
        add_part n (Con (clos_tag_shift t) rs) aux acc) ∧
@@ -119,7 +109,6 @@ End
 Definition compile_const_def:
   compile_const (ConstInt i) = Const i ∧
   compile_const (ConstStr s) = Build [Str s] ∧
-  compile_const (ConstLbl s) = Build [Lbl s] ∧
   compile_const (ConstWord64 w) = Build [W64 w] ∧
   compile_const (ConstCons t cs) =
     if NULL cs then Cons (clos_tag_shift t) else
@@ -129,53 +118,11 @@ End
 
 (* / Constant flattening *)
 
-(* Extraction of constant *)
-
-Definition Fn_to_const_def:
-  Fn_to_const adj (Fn _ (SOME l) _ num_args _) = ConstCons closure_tag
-                                                   [ConstLbl (adj + l);
-                                                    ConstInt (& num_args)] ∧
-  Fn_to_const adj _ = ConstInt 0
-End
-
-Theorem Fn_to_const_pmatch:
-  Fn_to_const adj x =
-    case x of
-    | Fn _ (SOME l) _ num_args _ => ConstCons closure_tag
-                                      [ConstLbl (adj + l); ConstInt (& num_args)]
-    | _ => ConstInt 0
-Proof
-  Cases_on ‘x’ \\ fs [Fn_to_const_def]
-  \\ rename [‘Fn a b c d e’] \\ Cases_on ‘b’ \\ fs [Fn_to_const_def]
-QED
-
-Definition to_const_def: (* TODO: avoid exploding into so many cases *)
-  to_const adj (Op _ (Const i) _) = ConstInt i ∧
-  to_const adj (Op _ (Build [Str s]) _) = ConstStr s ∧
-  to_const adj (Op _ (Build [W64 w]) _) = ConstWord64 w ∧
-  to_const adj (Op _ (Cons t) xs) = ConstCons t (MAP (to_const adj) xs) ∧
-  to_const adj (Let _ _ x) = Fn_to_const adj x ∧
-  to_const adj _ = ConstInt 0
-Termination
-  WF_REL_TAC ‘measure $ exp_size o SND’
-End
-
-(* / Extraction of constant *)
-
 val num_added_globals_def = Define
-  `num_added_globals = 2n`;
+  `num_added_globals = 1n`;
 
 val partial_app_label_table_loc_def = Define
   `partial_app_label_table_loc = 0n`;
-
-val clos_mutable_glob_loc_def = Define
-  `clos_mutable_glob_loc = 1n`;
-
-Definition compile_build_def:
-  compile_build [Str s] = Build [Str s] ∧
-  compile_build [W64 w] = Build [W64 w] ∧
-  compile_build _ = Build []
-End
 
 val compile_op_def = Define`
   compile_op (Cons tag) = (Cons (clos_tag_shift tag)) ∧
@@ -187,9 +134,7 @@ val compile_op_def = Define`
   compile_op DerefByteVec = DerefByte ∧
   compile_op (SetGlobal n) = SetGlobal (n + num_added_globals) ∧
   compile_op (Global n) = Global (n + num_added_globals) ∧
-  compile_op SetGlobalsPtr = SetGlobal clos_mutable_glob_loc ∧
-  compile_op GlobalsPtr = Global clos_mutable_glob_loc ∧
-  compile_op (Build ps) = compile_build ps ∧
+  compile_op (Constant c) = compile_const c ∧
   compile_op x = x`
 val _ = export_rewrites["compile_op_def"];
 
@@ -206,9 +151,7 @@ Theorem compile_op_pmatch:
       | DerefByteVec => DerefByte
       | SetGlobal n => SetGlobal (n + num_added_globals)
       | Global n => Global (n + num_added_globals)
-      | SetGlobalsPtr => SetGlobal clos_mutable_glob_loc
-      | GlobalsPtr => Global clos_mutable_glob_loc
-      | Build ps => compile_build ps
+      | Constant c => compile_const c
       | x => x
 Proof
   rpt strip_tac
@@ -418,7 +361,7 @@ val init_code_def = Define `
 
 val init_globals_def = Define `
   init_globals max_app start_loc =
-    Let [Op AllocGlobal []; Op AllocGlobal []]
+    Let [Op AllocGlobal []]
     (Let
       [Op (SetGlobal partial_app_label_table_loc)
         [Op (Cons tuple_tag)
@@ -432,7 +375,7 @@ val init_globals_def = Define `
       (* Expect the real start of the program in code location 3 *)
       (Call 0 (SOME start_loc) []))`;
 
-Definition compile_exps_def:
+val compile_exps_def = tDefine "compile_exps" `
   (compile_exps max_app [] aux = ([],aux)) /\
   (compile_exps max_app ((x:closLang$exp)::y::xs) aux =
      let (c1,aux1) = compile_exps max_app [x] aux in
@@ -455,17 +398,12 @@ Definition compile_exps_def:
      let (c1,aux1) = compile_exps max_app [x1] aux in
        ([Tick (HD c1)], aux1)) /\
   (compile_exps max_app [Op t op xs] aux =
-     if t = IsConstant ∧ IS_SOME (dest_Cons op) then
-       let c = to_const (num_stubs max_app) (Op t op xs) in
-       let (_,aux1) = compile_exps max_app xs aux in
-         ([Op (compile_const c) []],aux1)
-     else
-       let (c1,aux1) = compile_exps max_app xs aux in
-         ([if op = Install then
-             Call 0 NONE [Op Install c1]
-           else
-             Op (compile_op op) c1]
-         ,aux1)) /\
+     let (c1,aux1) = compile_exps max_app xs aux in
+     ([if op = Install then
+         Call 0 NONE [Op Install c1]
+       else
+         Op (compile_op op) c1]
+     ,aux1)) /\
   (compile_exps max_app [App t loc_opt x1 xs2] aux =
      let (c1,aux1) = compile_exps max_app [x1] aux in
      let (c2,aux2) = compile_exps max_app xs2 aux1 in
@@ -515,19 +453,18 @@ Definition compile_exps_def:
        ([Handle (HD c1) (HD c2)], aux2)) /\
   (compile_exps max_app [Call t ticks dest xs] aux =
      let (c1,aux1) = compile_exps max_app xs aux in
-       ([Call ticks (SOME (dest + (num_stubs max_app))) c1],aux1))
-Termination
-  WF_REL_TAC `measure (list_size exp_size o FST o SND)` >>
-  srw_tac [ARITH_ss] [closLangTheory.exp_size_def,
-      closLangTheory.exp_size_eq,list_size_def]
-  \\ rename [‘MAP SND ll’]
-  \\ ‘list_size exp_size (MAP SND ll) ≤
-      list_size (pair_size (λx. x) exp_size) ll’ by
-    (qid_spec_tac ‘ll’ \\ Induct
-     \\ fs [closLangTheory.exp_size_def,FORALL_PROD,
-            closLangTheory.exp_size_eq,list_size_def,basicSizeTheory.pair_size_def]
-     \\ fs []) \\ fs []
-End
+       ([Call ticks (SOME (dest + (num_stubs max_app))) c1],aux1))`
+  (WF_REL_TAC `measure (exp3_size o FST o SND)` >>
+   srw_tac [ARITH_ss] [closLangTheory.exp_size_def] >>
+   `!l. closLang$exp3_size (MAP SND l) <= exp1_size l`
+            by (Induct_on `l` >>
+                rw [closLangTheory.exp_size_def] >>
+                PairCases_on `h` >>
+                full_simp_tac (srw_ss()++ARITH_ss) [closLangTheory.exp_size_def]) >>
+  pop_assum (qspec_then `v7` assume_tac) >>
+  decide_tac);
+
+val compile_exps_ind = theorem"compile_exps_ind";
 
 val compile_prog_def = Define`
   compile_prog max_app prog =
@@ -795,8 +732,6 @@ val clos_to_bvl_compile_inc_def = Define`
     let spt = option_val_approx_spt c.known_conf in
     let (spt, p) = known_compile_inc (known_static_conf c.known_conf) spt p in
     let c = c with <| known_conf := option_upd_val_spt spt c.known_conf |> in
-    let (m, p) = lift_compile_inc c.lift_n p in
-    let c = c with <| lift_n := m |> in
     let (c', p) = clos_call$cond_call_compile_inc c.do_call (FST c.call_state) p in
     let c = c with <| call_state := (c', []) |> in
     let p = clos_annotate$compile_inc p in

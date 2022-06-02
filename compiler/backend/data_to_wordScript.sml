@@ -1252,8 +1252,7 @@ Definition part_to_words_def:
        if k < 2 ** (dimindex (:α) − 4) ∧ k < 2 ** c.len_size
        then SOME ((T,(make_ptr c offset (0w:'a word) k)),
                   MAP (λw. (F,Word w)) (hd::ws))
-       else NONE) ∧
-  part_to_words c m (Lbl l) offset = SOME ((F,Loc l 0),[])
+       else NONE)
 End
 
 Definition parts_to_words_def:

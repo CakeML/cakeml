@@ -34,7 +34,6 @@ Type clos_co = ``:num -> 'c # clos_prog``
 val _ = Datatype `
   state =
     <| globals : (closSem$v option) list
-     ; mutable_global : closSem$v option
      ; refs    : num |-> closSem$v ref
      ; ffi     : 'ffi ffi_state
      ; clock   : num
@@ -157,6 +156,18 @@ Definition do_install_def:
        | _ => (Rerr(Rabort Rtype_error),s))
 End
 
+Definition make_const_def:
+  make_const (ConstInt i) = Number i ∧
+  make_const (ConstStr s) = ByteVector (MAP (n2w o ORD) (mlstring$explode s)) ∧
+  make_const (ConstWord64 w) = Word64 w ∧
+  make_const (ConstCons t cs) = Block t (MAP make_const cs)
+Termination
+  WF_REL_TAC ‘measure const_size’
+  \\ Induct_on ‘cs’ \\ rw []
+  \\ fs [const_size_def] \\ res_tac
+  \\ pop_assum (qspec_then ‘t’ assume_tac) \\ fs []
+End
+
 Definition do_app_def:
   do_app (op:closLang$op) (vs:closSem$v list) ^s =
     case (op,vs) of
@@ -171,18 +182,8 @@ Definition do_app_def:
          | _ => Error)
     | (AllocGlobal,[]) =>
         Rval (Unit, s with globals := s.globals ++ [NONE])
-    | (GlobalsPtr,[]) =>
-        (case s.mutable_global of
-          NONE => Error
-        | SOME v => (Rval(v,s)))
-    | (SetGlobalsPtr, [v]) =>
-        Rval (Unit, s with mutable_global := SOME v)
     | (Const i,[]) => Rval (Number i, s)
-    | (Build p,[]) =>
-        (case p of
-         | [Str t] => Rval (ByteVector (MAP (n2w o ORD) (mlstring$explode t)), s)
-         | [W64 w] => Rval (Word64 w, s)
-         | _ => Error)
+    | (Constant c,[]) => Rval (make_const c, s)
     | (Cons tag,xs) => Rval (Block tag xs, s)
     | (ConsExtend tag, Block _ xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ &LENGTH xs' < lower + len ∨
@@ -746,7 +747,6 @@ val initial_state_def = Define`
     compile := cc;
     compile_oracle := co;
     globals := [];
-    mutable_global := NONE;
     refs := FEMPTY
   |>`;
 

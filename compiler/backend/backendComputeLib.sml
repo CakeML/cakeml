@@ -288,7 +288,6 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [ (* ---- bvl_to_bvi ---- *)
-     bvl_to_bviTheory.update_Lbl_def
     ,bvl_to_bviTheory.destLet_def
     ,bvl_to_bviTheory.alloc_glob_count_def
     ,bvl_to_bviTheory.compile_prog_def

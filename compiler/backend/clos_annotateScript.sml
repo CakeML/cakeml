@@ -16,33 +16,9 @@ Definition const_0_def:
 End
 
 Definition no_overlap_def:
-  (no_overlap 0 l <=> T) /\
+  (no_overlap 0 l <=> T) ∧
   (no_overlap (SUC n) l <=>
      if has_var n l then F else no_overlap n l)
-End
-
-Definition NotConstant_def:
-  NotConstant = backend_common$Cons backend_common$None 0n
-End
-
-Overload IsConstant = “backend_common$None”
-
-Definition is_constant_def:
-  is_constant (Op t _ _) = (t = IsConstant) ∧
-  is_constant (Let t _ _) = (t = IsConstant) ∧
-  is_constant _ = F
-End
-
-Definition is_op_constant_def:
-  is_op_constant (Const i) xs = NULL xs ∧
-  is_op_constant (Build ps) xs = NULL xs ∧
-  is_op_constant (Cons t) xs = EVERY is_constant xs ∧
-  is_op_constant _ xs = F
-End
-
-Definition op_annotation_def:
-  op_annotation op xs =
-    if is_op_constant op xs then IsConstant else NotConstant
 End
 
 Definition alt_free_def:
@@ -61,10 +37,10 @@ Definition alt_free_def:
      let m = LENGTH xs in
      let (c2,l2) = alt_free [x2] in
        if no_overlap m l2 /\ EVERY pure xs then
-         ([Let NotConstant (REPLICATE m (const_0 t)) (HD c2)], Shift m l2)
+         ([Let t (REPLICATE m (const_0 t)) (HD c2)], Shift m l2)
        else
          let (c1,l1) = alt_free xs in
-           ([Let NotConstant c1 (HD c2)],mk_Union l1 (Shift (LENGTH xs) l2))) /\
+           ([Let t c1 (HD c2)],mk_Union l1 (Shift (LENGTH xs) l2))) /\
   (alt_free [Raise t x1] =
      let (c1,l1) = alt_free [x1] in
        ([Raise t (HD c1)],l1)) /\
@@ -73,7 +49,7 @@ Definition alt_free_def:
        ([Tick t (HD c1)],l1)) /\
   (alt_free [Op t op xs] =
      let (c1,l1) = alt_free xs in
-       ([Op (op_annotation op c1) op c1],l1)) /\
+       ([Op t op c1],l1)) /\
   (alt_free [App t loc_opt x1 xs2] =
      let (c1,l1) = alt_free [x1] in
      let (c2,l2) = alt_free xs2 in
@@ -81,11 +57,7 @@ Definition alt_free_def:
   (alt_free [Fn t loc _ num_args x1] =
      let (c1,l1) = alt_free [x1] in
      let l2 = Shift num_args l1 in
-     let free_vars = vars_to_list l2 in
-     let e = Fn t loc (SOME free_vars) num_args (HD c1) in
-       if NULL free_vars then
-         ([Let IsConstant [] e],l2)
-       else ([e],l2)) /\
+       ([Fn t loc (SOME (vars_to_list l2)) num_args (HD c1)],l2)) /\
   (alt_free [Letrec t loc _ fns x1] =
      let m = LENGTH fns in
      let (c2,l2) = alt_free [x1] in
@@ -106,11 +78,15 @@ Definition alt_free_def:
      let (c1,l1) = alt_free xs in
        ([Call t ticks dest c1],l1))
 Termination
-  WF_REL_TAC `measure (list_size exp_size)`
+  WF_REL_TAC `measure exp3_size`
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ simp[]
+  \\ rename1 `MEM ee xx`
+  \\ Induct_on `xx` \\ rpt strip_tac \\ lfs[exp_size_def] \\ res_tac
+  \\ simp[]
 End
 
 Triviality alt_free_LENGTH_LEMMA:
-  ∀xs. (case alt_free xs of (ys,s1) => (LENGTH xs = LENGTH ys))
+  !xs. (case alt_free xs of (ys,s1) => (LENGTH xs = LENGTH ys))
 Proof
   recInduct alt_free_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [alt_free_def]
@@ -121,9 +97,9 @@ Proof
 QED
 
 Theorem alt_free_LENGTH:
-  ∀xs ys l. (alt_free xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)
+   !xs ys l. (alt_free xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)
 Proof
-  rw [] \\ qspec_then ‘xs’ mp_tac alt_free_LENGTH_LEMMA \\ fs []
+  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL alt_free_LENGTH_LEMMA) \\ fs []
 QED
 
 Theorem alt_free_SING:
@@ -223,7 +199,9 @@ Definition shift_def:
      let c1 = shift xs m l i in
        ([Call t ticks dest c1]))
 Termination
-  WF_REL_TAC `measure (list_size exp_size o FST)`
+  WF_REL_TAC `measure (exp3_size o FST)`
+  \\ REPEAT STRIP_TAC
+  \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC
 End
 
 Theorem shift_LENGTH_LEMMA:
@@ -265,36 +243,5 @@ Definition compile_def:
   compile prog =
     MAP (λ(n,args,exp). (n,args, HD (annotate args [exp]))) prog
 End
-
-Definition compile_inc_def:
-  compile_inc (e,aux) = (annotate 0 e,clos_annotate$compile aux)
-End
-
-(* pmatch versions *)
-
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-
-Theorem is_constant_pmatch:
-  is_constant e =
-    case e of
-    | Op t _ _  => (t = IsConstant)
-    | Let t _ _ => (t = IsConstant)
-    | _         => F
-Proof
-  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  \\ Cases_on ‘e’ \\ fs [is_constant_def]
-QED
-
-Theorem is_op_constant_pmatch:
-  is_op_constant op xs =
-    case op of
-    | Const i  => NULL xs
-    | Build ps => NULL xs
-    | Cons t   => EVERY is_constant xs
-    | _        => F
-Proof
-  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  \\ Cases_on ‘op’ \\ fs [is_op_constant_def]
-QED
 
 val _ = export_theory();

@@ -185,11 +185,6 @@ val stubs_def = Define `
                    (SumListLength_location, SumListLength_code);
                    (ConcatByte_location, ConcatByte_code)]`;
 
-Definition update_Lbl_def:
-  update_Lbl f (Lbl l) = Lbl (f l) ∧
-  update_Lbl f x = x
-End
-
 Overload num_stubs[local] = ``backend_common$bvl_num_stubs``
 
 local val compile_op_quotation = `
@@ -246,8 +241,8 @@ local val compile_op_quotation = `
            (Let [Op (CopyByte F) [Op (Const 0) []; Var 0; Var 1; Var 2; Var 3]]
              (Var 1)))
     | Label l => Op (Label (bvl_num_stubs + bvl_to_bvi_namespaces * l)) c1
-    | Build ps => Op (Build (MAP (update_Lbl (λl. bvl_num_stubs + bvl_to_bvi_namespaces * l)) ps)) c1
-    | EqualConst p => Op (EqualConst (update_Lbl (λl. bvl_num_stubs + bvl_to_bvi_namespaces * l) p)) c1
+    | Build ps => Op (Build ps) c1
+    | EqualConst p => Op (EqualConst p) c1
     | _ => Op op c1`
 in
 val compile_op_def = Define compile_op_quotation;
