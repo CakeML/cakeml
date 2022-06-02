@@ -105,6 +105,7 @@ val r = m_translate check_var_def;
 val r = translate check_cval_closed_def;
 val r = translate var_list_def;
 val r = translate const_list_def;
+val r = m_translate map_def;
 
 val _ = use_mem_intro := true;
 val r = m_translate check_consts_def;
@@ -116,7 +117,9 @@ val r = translate compute_default_clock; (* TODO _def *)
 val _ = ml_prog_update open_local_in_block;
 
 val r = check [‘ths’,‘tm’] compute_add_def |> m_translate;
-val r = check [‘ths’,‘ceqs’,‘tm’] compute_def |> m_translate;
+val r = check [‘ths’,‘ceqs’,‘tm’] compute_def
+        |> SIMP_RULE(srw_ss()) [combinTheory.C_DEF]
+        |> m_translate;
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
