@@ -1,7 +1,7 @@
 structure expressionsLib = struct
 
-  open HolKernel Abbrev ExpressionsTheory;
-  open RealArith realTheory realLib integerTheory intLib;
+  open HolKernel Parse Abbrev ExpressionsTheory;
+  open RealArith realTheory realLib integerTheory intLib bossLib;
 
   exception FloVerException of string;
 
@@ -79,7 +79,7 @@ structure expressionsLib = struct
 
   fun realExp2ratExpConv t =
     let val t_rat = realExp2ratExp t in
-      EVAL “^t = ratExp2realExp ^t_rat” |> REWRITE_RULE [EQ_CLAUSES]
+      EVAL “^t = ratExp2realExp ^t_rat” |> Rewrite.REWRITE_RULE [boolTheory.EQ_CLAUSES]
     end;
 
 end;

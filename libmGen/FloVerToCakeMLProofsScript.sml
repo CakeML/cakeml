@@ -10,7 +10,7 @@ open fpValTreeTheory fpSemTheory realOpsTheory semanticPrimitivesTheory
 (* Icing *)
 open floatToRealTheory FloVerToCakeMLTheory CakeMLtoFloVerProofsTheory;
 (* FloVer *)
-open ExpressionsTheory ExpressionSemanticsTheory CommandsTheory
+open ResultsTheory ExpressionsTheory ExpressionSemanticsTheory CommandsTheory
      EnvironmentsTheory IEEE_connectionTheory IEEE_reverseTheory
      FloverMapTheory TypeValidatorTheory MachineTypeTheory;
 open preamble;
@@ -40,36 +40,52 @@ Definition toFloVerEnv_def:
        | SOME _ => NONE
 End
 
+Theorem validTypes_usedVars:
+  ∀ e Gamma x.
+    validTypes e Gamma ∧
+    x IN domain (usedVars e) ⇒
+  ∃ m. toRExpMap Gamma (Var x) = SOME m
+Proof
+  ho_match_mp_tac validTypes_ind >> rpt strip_tac
+  >> Cases_on ‘e’ >> gs[]
+  >- gs[validTypes_def, ExpressionAbbrevsTheory.toRExpMap_def, Once usedVars_def]
+  >- gs[Once usedVars_def]
+  >- (
+    first_x_assum irule
+    >> gs[Once validTypes_def, Once usedVars_def])
+  >~ [‘Binop b e1 e2’]
+  >- (
+    qpat_x_assum ‘validTypes _ _’ mp_tac
+    >> simp[Once validTypes_def] >> strip_tac >> gs[]
+    >> ‘x IN domain (usedVars e1) ∨ x IN domain (usedVars e2)’
+      by (qpat_x_assum ‘x IN domain _’ mp_tac >> simp[Once usedVars_def, domain_union])
+    >> gs[])
+  >~ [‘Fma e1 e2 e3’]
+  >- (
+    qpat_x_assum ‘validTypes _ _’ mp_tac
+    >> simp[Once validTypes_def] >> strip_tac >> gs[]
+    >> ‘x IN domain (usedVars e1) ∨ x IN domain (usedVars e2) ∨ x IN domain (usedVars e3)’
+      by (qpat_x_assum ‘x IN domain _’ mp_tac >> simp[Once usedVars_def, domain_union])
+    >> gs[])
+  >> first_x_assum irule
+  >> gs[Once usedVars_def, Once validTypes_def]
+QED
+
 Theorem approxEnv_toFloVerEnv:
-  ∀ (e:real expr) env P (Gamma:real expr -> mType option) (A:analysisResult).
+  ∀ (e:real expr) env P Gamma (A:analysisResult).
+  validTypes e Gamma ∧
   usedVars_P_sound (e:real expr) env P ⇒
-  approxEnv (toREnv (toFloVerEnv env e)) Gamma A (usedVars e) LN (toREnv (toFloVerEnv env e))
+  approxEnv (toREnv (toFloVerEnv env e)) (toRExpMap Gamma) A (usedVars e) LN (toREnv (toFloVerEnv env e))
 Proof
   rpt strip_tac >> irule approxEnv_refl >> rw [toFloVerEnv_def, toREnv_def]
   >- (
     CASE_TAC >> gs[domain_lookup]
     >- (CASE_TAC >> gs[])
     >> Cases_on ‘lookup x (usedVars e)’ >> gs[])
-  >- (cheat) (* Needs validTypes assumption *)
+  >- (drule validTypes_usedVars >> gs[])
   >> gs[domain_lookup, usedVars_P_sound_def]
-  >> res_tac >> gs[]
+ >> res_tac >> gs[]
 QED
-
-(*
-Theorem toFloVerEnv_rounded:
-  ∀ e flEnv P.
-    usedVars_P_sound e flEnv P ⇒
-    ∀ x v.
-      (toREnv (toFloVerEnv flEnv e)) x = SOME v ⇒
-      float_to_real ((real_to_float dmode v):(52,11) float) = v
-Proof
-  rw[toFloVerEnv_def, usedVars_P_sound_def]
-  >> gvs[CaseEqs ["option", "v", "lit"], domain_lookup,
-         fp64_to_real_def, real_to_fp64_def, fp64_to_float_float_to_fp64]
-  >> res_tac >> gvs[fp64_isFinite_def]
-  >> drule float_to_real_round_robin >> gs[]
-QED
-*)
 
 Theorem usedVars_P_sound_fVars_P_sound:
   usedVars_P_sound e flEnv P ⇒
@@ -277,14 +293,11 @@ Proof
   >- simp[usedVars_def]
   >- (Cases_on ‘v’ >> simp[ratExp2realExp_def]
       >> simp[usedVars_def])
-  >- (simp[Once usedVars_def] >> EVAL_TAC)
-  >- (simp[Once usedVars_def] >> EVAL_TAC)
-  >- (simp[Once usedVars_def] >> EVAL_TAC)
-  >- (simp[Once usedVars_def] >> EVAL_TAC)
+  >> simp[Once usedVars_def] >> EVAL_TAC
 QED
 
 Theorem FloVer_CakeML_sound_error:
-  ∀ e eReal progReal progFloat flEnv A P defVars Gamma env E_real E_float
+  ∀ e eReal progReal progFloat flEnv A P defVars Gamma env
       (st:'ffi semanticPrimitives$state).
     eReal = ratExp2realExp e ∧
     SOME progReal = toCmlRealExp e ∧
@@ -311,12 +324,19 @@ Theorem FloVer_CakeML_sound_error:
 Proof
   rpt strip_tac
   >> first_assum $ mp_then Any assume_tac usedVars_P_sound_fVars_P_sound
+  >> ‘validTypes eReal Gamma’ by (
+    qpat_x_assum ‘CertificateChecker _ _ _ _ = _’ mp_tac
+    >> simp[CertificateCheckerTheory.CertificateChecker_def]
+    >> TOP_CASE_TAC >> rw[]
+    >> irule getValidMap_top_correct
+    >> first_x_assum $ irule_at Any >> rpt strip_tac
+    >> gs[FloverMapTree_mem_def, FloverMapTree_empty_def, FloverMapTree_find_def])
   >> drule IEEE_reverseTheory.IEEE_connection_expr
   >> rpt $ disch_then drule >> gs[SUBSET_REFL]
   >> disch_then drule
   >> disch_then $ qspec_then ‘toFloVerEnv flEnv eReal’ mp_tac
   >> impl_tac
-  >- (drule approxEnv_toFloVerEnv >> gs[])
+  >- (drule_then drule approxEnv_toFloVerEnv >> gs[])
   >> rpt strip_tac
   >> first_x_assum $ irule_at Any
   >> qmatch_goalsub_abbrev_tac ‘evaluate newSt (env with v := toRspace _) [_]’
