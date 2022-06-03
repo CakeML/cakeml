@@ -90,7 +90,7 @@ Definition kernel_funs_def:
   }
 End
 
-val kernel_funs_v_def =
+Theorem kernel_funs_v_def =
   kernel_funs_def |> concl |> rand |> find_terms is_const
   |> filter (fn tm => not (mem (fst (dest_const tm)) ["INSERT","EMPTY"]))
   |> map (fn c => DB.find (fst (dest_const c) ^ "_def"))
