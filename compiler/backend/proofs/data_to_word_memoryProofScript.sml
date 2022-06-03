@@ -12561,8 +12561,7 @@ Definition build_part_words_def:
        if byte_len (:α) n < 2 ** (dimindex (:α) − 4) ∧
           byte_len (:α) n < 2 ** c.len_size
        then SOME (make_ptr c offset (0w:'a word) (byte_len (:α) n),MAP Word (hd::ws))
-       else NONE) ∧
-  build_part_words c m (Lbl l) offset = SOME (Loc l 0, [])
+       else NONE)
 End
 
 Definition build_words_def:
@@ -12658,16 +12657,6 @@ Proof
   \\ imp_res_tac do_part_SOME_IMP_SOME \\ gvs []
   \\ last_x_assum drule \\ strip_tac
   \\ fs [store_list_append]
-  \\ Cases_on ‘∃l. h = Lbl l’
-  THEN1
-   (gvs [do_part_def,AllCaseEqs()]
-    \\ gvs [build_part_words_def,data_spaceTheory.part_space_req_def]
-    \\ last_x_assum $ drule_then $ drule_then $ drule_then $ drule
-    \\ fs [store_list_def]
-    \\ disch_then irule \\ rw []
-    \\ irule memory_rel_IMP_MAP_UPDATE
-    \\ first_x_assum (qspec_then ‘ks’ assume_tac)
-    \\ fs [] \\ irule memory_rel_CodePtr \\ fs [])
   \\ Cases_on ‘∃t. h = Con t []’
   THEN1
    (gvs [do_part_def,AllCaseEqs()]
@@ -13072,8 +13061,7 @@ Definition good_loc_def:
 End
 
 Theorem const_parts_to_words_good_loc:
-  const_parts_to_words c parts = SOME ((y0,y1),y2) ∧
-  EVERY (λp. ∀n. p = Lbl n ⇒ n ∈ s) parts ⇒
+  const_parts_to_words c parts = SOME ((y0,y1),y2) ⇒
   good_loc s y1 ∧ EVERY (good_loc s ∘ SND) y2
 Proof
   fs [const_parts_to_words_def]

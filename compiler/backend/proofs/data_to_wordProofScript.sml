@@ -2167,7 +2167,49 @@ val word_get_code_labels_MemEqList = Q.prove(`
   word_get_code_labels (MemEqList b x) = {}`,
   Induct>>fs[MemEqList_def]);
 
-(*
+Triviality part_to_words_isWord:
+  ∀h c m i w ws.
+    part_to_words c m h i = SOME (w,ws) ∧
+    (∀n v. lookup n m = SOME v ⇒ isWord (SND v)) ⇒
+    EVERY isWord (MAP SND ws) ∧ isWord (SND w)
+Proof
+  Cases_on ‘h’ \\ fs [part_to_words_def] \\ rw []
+  \\ fs [wordSemTheory.isWord_def]
+  \\ EVERY_CASE_TAC \\ gvs [wordSemTheory.isWord_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ EVERY_CASE_TAC \\ gvs [wordSemTheory.isWord_def]
+  \\ gvs [encode_header_def,make_ptr_def]
+  \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,wordSemTheory.isWord_def,lookup_mem_def]
+  \\ rw [] \\ EVERY_CASE_TAC \\ gvs [wordSemTheory.isWord_def]
+  \\ res_tac \\ fs []
+QED
+
+Triviality parts_to_words_isWord:
+  ∀ps c w ws m n i.
+    parts_to_words c m n ps i = SOME (w,ws) ∧
+    (∀n v. lookup n m = SOME v ⇒ isWord (SND v)) ⇒
+    EVERY isWord (MAP SND ws) ∧ isWord (SND w)
+Proof
+  Induct
+  \\ fs [parts_to_words_def,lookup_mem_def]
+  \\ rw [] \\ EVERY_CASE_TAC \\ gvs [wordSemTheory.isWord_def]
+  \\ res_tac \\ fs []
+  \\ drule_all part_to_words_isWord
+  \\ fs [lookup_insert]
+  \\ metis_tac [SOME_11]
+QED
+
+Theorem const_parts_to_words_isWord:
+  ∀c ps w ws.
+    const_parts_to_words c ps = SOME (w,ws) ⇒
+    EVERY isWord (MAP SND ws) ∧ isWord (SND w)
+Proof
+  fs [const_parts_to_words_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ drule parts_to_words_isWord
+  \\ fs [lookup_def]
+QED
+
 Theorem word_get_code_labels_StoreAnyConsts[local]:
   const_parts_to_words c ps = SOME (w,ws) ⇒
   word_get_code_labels (StoreAnyConsts r1 r2 r3 ws w) = EMPTY
@@ -2186,7 +2228,6 @@ Proof
   \\ asm_rewrite_tac [EVERY_APPEND,MAP_APPEND]
   \\ rw [] \\ gvs []
 QED
-*)
 
 Triviality getWords_good_loc:
   ∀xs ys ws vs1 s.
@@ -2204,35 +2245,7 @@ Theorem const_parts_to_words_labels:
   word_get_code_labels (StoreAnyConsts (adjust_var w) 1 3 r q) ⊆
   closLang$assign_get_code_label (Build bs)
 Proof
-  strip_tac \\ PairCases_on ‘q’
-  \\ drule const_parts_to_words_good_loc
-  \\ fs [closLangTheory.assign_get_code_label_def]
-  \\ disch_then (qspec_then ‘{x | MEM (Lbl x) bs}’ mp_tac)
-  \\ impl_tac THEN1 (fs [EVERY_MEM] \\ Cases \\ fs [])
-  \\ pop_assum kall_tac
-  \\ strip_tac
-  \\ ‘good_loc {x | MEM (Lbl x) bs} (SND (q0,q1))’ by fs []
-  \\ rename [‘SND xx’]
-  \\ rename [‘StoreAnyConsts a n m r xx’]
-  \\ last_x_assum kall_tac
-  \\ rpt (pop_assum mp_tac)
-  \\ EVERY $ map qid_spec_tac $ rev [‘a’,‘n’,‘m’,‘r’,‘xx’]
-  \\ ho_match_mp_tac StoreAnyConsts_ind
-  \\ strip_tac \\ rpt gen_tac
-  THEN1
-   (fs [StoreAnyConsts_def]
-    \\ CASE_TAC \\ fs [good_loc_def]
-    \\ CASE_TAC \\ fs [good_loc_def])
-  \\ strip_tac
-  \\ fs [StoreAnyConsts_def]
-  \\ reverse CASE_TAC \\ fs [good_loc_def]
-  THEN1 (rw [] \\ fs [list_Seq_def])
-  \\pairarg_tac \\ fs []
-  \\ rpt strip_tac \\ fs []
-  \\ first_x_assum irule \\ fs []
-  \\ irule_at Any getWords_good_loc
-  \\ first_x_assum $ irule_at $ Pos hd
-  \\ fs [good_loc_def]
+  rw [] \\ drule word_get_code_labels_StoreAnyConsts \\ fs []
 QED
 
 (* slow... *)
@@ -2430,7 +2443,7 @@ Theorem data_to_word_good_handlers_incr:
 Proof
   simp[EVERY_MAP,LAMBDA_PROD,compile_part_def,data_to_word_comp_good_handlers]>>
   fs[EVERY_MEM,FORALL_PROD]
-QED;
+QED
 
 end
 

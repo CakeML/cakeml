@@ -196,7 +196,6 @@ val state_rel_def = Define `
     t.compile_oracle = state_co (ignore_table compile_inc) s.compile_oracle /\
     fmap_rel (ref_rel (v_rel s.max_app)) s.refs t.refs ∧
     EVERY2 (OPTREL (v_rel s.max_app)) s.globals t.globals /\
-    (OPTREL (v_rel s.max_app)) s.mutable_global t.mutable_global /\
     (∀n. SND (SND (s.compile_oracle n )) = [] ∧
          ¬contains_App_SOME s.max_app (FST(SND(s.compile_oracle n)))) /\
     s.code = FEMPTY ∧ t.code = FEMPTY`

@@ -139,7 +139,6 @@ val state_rel_def = Define `
     t.clock = s.clock /\
     t.ffi = s.ffi /\
     LIST_REL (v_rel_opt s.max_app) s.globals t.globals /\
-    (v_rel_opt s.max_app) s.mutable_global t.mutable_global /\
     FMAP_REL (ref_rel s.max_app) s.refs t.refs /\
     s.compile = pure_cc (compile_inc s.max_app) t.compile /\
     t.compile_oracle = pure_co (compile_inc s.max_app) o s.compile_oracle`;

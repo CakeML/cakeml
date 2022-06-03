@@ -244,4 +244,8 @@ Definition compile_def:
     MAP (λ(n,args,exp). (n,args, HD (annotate args [exp]))) prog
 End
 
+Definition compile_inc_def:
+  compile_inc (e,aux) = (annotate 0 e,clos_annotate$compile aux)
+End
+
 val _ = export_theory();
