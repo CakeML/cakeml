@@ -324,7 +324,7 @@ Theorem compute_thm:
   EVERY (THM ctxt) ths ∧
   EVERY (THM ctxt) ceqs ∧
   TERM ctxt tm ⇒
-  compute ths ceqs tm s = (res, s') ⇒
+  compute (ths,ceqs) tm s = (res, s') ⇒
     s' = s ∧
     (∀th. res = M_success th ⇒ THM ctxt th) ∧
     (∀tm. res ≠ M_failure (Clash tm))
