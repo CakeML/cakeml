@@ -1631,7 +1631,8 @@ Theorem compute_v_head:
   do_opapp [g; w] = SOME (env,exp) ∧
   evaluate ^s env [exp] = (s',res) ⇒
     ^safe_error_goal ∨
-    LIST_TYPE_HEAD THM_TYPE_HEAD v ∧
+    PAIR_TYPE_HEAD (LIST_TYPE_HEAD THM_TYPE_HEAD)
+                   (LIST_TYPE_HEAD THM_TYPE_HEAD) v ∧
     TERM_TYPE_HEAD w
 Proof
   prove_head_tac
