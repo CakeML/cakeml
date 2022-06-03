@@ -252,7 +252,7 @@ Termination
 End
 
 Definition compute_def:
-  compute ths ceqs tm =
+  compute (ths,ceqs) tm =
     flip handle_Clash (λe. failwith «impossible» ) $
     if ¬compute_init ths then
       failwith «Kernel.compute: wrong theorems provided for initialization»
