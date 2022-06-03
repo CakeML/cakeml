@@ -117,8 +117,9 @@ val r = translate compute_default_clock; (* TODO _def *)
 val _ = ml_prog_update open_local_in_block;
 
 val r = check [‘ths’,‘tm’] compute_add_def |> m_translate;
-val r = check [‘ths’,‘ceqs’,‘tm’] compute_def
+val r = compute_def
         |> SIMP_RULE(srw_ss()) [combinTheory.C_DEF]
+        |> check [‘ths’,‘ceqs’,‘tm’]
         |> m_translate;
 
 val _ = ml_prog_update close_local_blocks;
