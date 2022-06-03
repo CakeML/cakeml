@@ -15,6 +15,10 @@ val _ = set_grammar_ancestry [
   "candle_prover_inv", "ast_extras", "evaluate", "namespaceProps", "perms",
   "semanticPrimitivesProps", "misc"];
 
+val _ = temp_send_to_back_overload "If" {Name="If",Thy="compute_syntax"};
+val _ = temp_send_to_back_overload "App" {Name="App",Thy="compute_syntax"};
+val _ = temp_send_to_back_overload "Var" {Name="Var",Thy="compute_syntax"};
+
 Definition simple_exp_def:
   simple_exp = every_exp $ λx.
     case x of
