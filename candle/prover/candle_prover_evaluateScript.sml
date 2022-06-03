@@ -16,6 +16,10 @@ val _ = set_grammar_ancestry [
   "candle_kernel_funs", "ast_extras", "evaluate", "namespaceProps", "perms",
   "semanticPrimitivesProps", "misc"];
 
+val _ = temp_send_to_back_overload "If" {Name="If",Thy="compute_syntax"};
+val _ = temp_send_to_back_overload "App" {Name="App",Thy="compute_syntax"};
+val _ = temp_send_to_back_overload "Var" {Name="Var",Thy="compute_syntax"};
+
 Theorem pmatch_v_ok:
   (∀envC s p v ws env.
     pmatch envC s p v ws = Match env ∧
@@ -1042,3 +1046,4 @@ Proof
 QED
 
 val _ = export_theory ();
+
