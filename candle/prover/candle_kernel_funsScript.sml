@@ -2161,30 +2161,38 @@ Proof
     \\ drule_all_then assume_tac v_ok_TERM
     \\ drule_all_then assume_tac v_ok_LIST_THM
     \\ strip_tac
-    \\ drule_all_then strip_assume_tac computeTheory.compute_add_thm \\ rveq
+    \\ drule_all_then strip_assume_tac compute_add_thm \\ rveq
     >- ( first_assum $ irule_at $ Any \\ simp[SF SFY_ss] )
     \\ Cases_on ‘r’ \\ gvs [THM_IMP_v_ok, SF SFY_ss]
     \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   \\ Cases_on ‘f = compute_v’ \\ gvs [] >- (
+
     drule_all compute_v_head \\ strip_tac \\ gvs[]
     >- (qexists_tac`ctxt` \\ fs[])
     \\ rename1 ‘do_opapp [g; w]’
     \\ assume_tac compute_v_thm
     \\ fs[state_ok_def]
-    \\ drule_all_then strip_assume_tac v_ok_LIST_THM_TYPE_HEAD
+    \\ ‘∃pq. PAIR_TYPE (LIST_TYPE THM_TYPE) (LIST_TYPE THM_TYPE) pq v’
+      by (irule_at Any v_ok_PAIR_TYPE_HEAD
+          \\ first_x_assum (irule_at Any)
+          \\ first_x_assum (irule_at Any)
+          \\ simp [v_ok_LIST_THM_TYPE_HEAD, SF SFY_ss])
     \\ drule_all_then strip_assume_tac v_ok_TERM_TYPE_HEAD
     \\ drule ArrowM2
-    \\ rpt(disch_then drule)
-    \\ simp[SF SFY_ss, TERM_TYPE_perms_ok, LIST_TYPE_THM_perms_ok]
+    \\ rpt(disch_then drule) \\ simp []
+    \\ Cases_on ‘pq’ \\ gs [ml_translatorTheory.PAIR_TYPE_def]
+    \\ simp [Once perms_ok_def, TERM_TYPE_perms_ok, LIST_TYPE_THM_perms_ok,
+             SF SFY_ss]
     \\ strip_tac \\ gvs[]
-    \\ qexists_tac ‘ctxt’ \\ simp[]
+    \\ qexists_tac ‘ctxt’ \\ gs [v_ok_def]
     \\ drule_all_then assume_tac v_ok_TERM
-    \\ drule_all_then assume_tac v_ok_LIST_THM
+    \\ imp_res_tac v_ok_LIST_THM \\ gs [SF SFY_ss]
+    \\ drule_all_then strip_assume_tac compute_thm \\ gvs []
     \\ strip_tac
-    \\ drule_all_then strip_assume_tac computeTheory.compute_thm \\ rveq
     >- ( first_assum $ irule_at $ Any \\ simp[SF SFY_ss] )
-    \\ Cases_on ‘r’ \\ gvs [THM_IMP_v_ok, SF SFY_ss]
+    \\ rename [‘compute _ _ _ = (res1,_)’]
+    \\ Cases_on ‘res1’ \\ gvs [THM_IMP_v_ok, SF SFY_ss]
     \\ rename [‘M_failure ff’] \\ Cases_on ‘ff’ \\ fs []
     \\ fs [HOL_EXN_TYPE_Fail_v_ok, SF SFY_ss])
   \\ qsuff_tac ‘∃v1 v2 x. f = Closure v1 v2 x ∧ ∀n w. x ≠ Fun n w’
@@ -2194,3 +2202,4 @@ Proof
 QED
 
 val _ = export_theory ();
+
