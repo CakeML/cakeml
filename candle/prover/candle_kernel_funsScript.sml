@@ -6,7 +6,7 @@ open preamble helperLib;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory
      evaluateTheory namespacePropsTheory evaluatePropsTheory
      sptreeTheory holKernelProofTheory ml_hol_kernel_funsProgTheory
-     candle_kernel_permsTheory candle_kernelProgTheory;
+     candle_kernel_permsTheory candle_kernelProgTheory computeProofTheory;
 open permsTheory candle_kernel_valsTheory candle_prover_invTheory ast_extrasTheory;
 local open ml_progLib in end
 
@@ -1762,6 +1762,7 @@ Theorem kernel_vals_ok:
             (∀vs. res = Rval vs ⇒ EVERY (v_ok ctxt') vs) ∧
             (∀v. res = Rerr (Rraise v) ⇒ v_ok ctxt' v)
 Proof
+
   rw [Once v_ok_cases]
   >~ [‘inferred ctxt f’] >- (
     irule_at Any inferred_ok

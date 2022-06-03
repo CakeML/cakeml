@@ -6,8 +6,7 @@
 open preamble helperLib;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory
      evaluateTheory namespacePropsTheory evaluatePropsTheory
-     sptreeTheory candle_kernelProgTheory ml_hol_kernel_funsProgTheory
-     compute_evalProgTheory;
+     sptreeTheory candle_kernelProgTheory ml_hol_kernel_funsProgTheory;
 open permsTheory candle_kernel_valsTheory ast_extrasTheory;
 local open ml_progLib in end
 
