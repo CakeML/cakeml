@@ -84,6 +84,7 @@ val r = m_translate dest_numeral_PMATCH;
 val r = translate dest_numeral_opt_PMATCH;
 val r = translate list_dest_comb_def;
 val r = translate mapOption_def;
+val r = translate app_type_def;
 val r = translate dest_cexp_def;
 
 Theorem dest_cexp_side[local]:
@@ -108,7 +109,6 @@ val r = m_translate do_ispair_def;
 val r = translate subst_def;
 val r = m_translate compute_eval_def;
 val r = translate num2bit_def;
-val r = translate app_type_def;
 val r = translate bop2term_def;
 val r = translate FOLDL;
 val r = translate cexp2term_def;
