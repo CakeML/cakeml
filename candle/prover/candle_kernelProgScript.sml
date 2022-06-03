@@ -95,6 +95,24 @@ QED
 
 val _ = update_precondition dest_cexp_side;
 
+val r = m_translate option_def;
+val r = m_translate check_def;
+val r = m_translate do_arith_def;
+val r = m_translate do_reln_def;
+val r = translate SAFEMOD_def;
+val r = translate SAFEDIV_def;
+val r = m_translate do_binop_def;
+val r = m_translate do_fst_def;
+val r = m_translate do_snd_def;
+val r = m_translate do_ispair_def;
+val r = translate subst_def;
+val r = m_translate compute_eval_def;
+val r = translate num2bit_def;
+val r = translate app_type_def;
+val r = translate bop2term_def;
+val r = translate FOLDL;
+val r = translate cexp2term_def;
+
 val r = compute_thms_def |> EVAL_RULE |> translate;
 
 val r = m_translate dest_binary_PMATCH;

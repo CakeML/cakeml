@@ -334,6 +334,7 @@ Proof
   \\ IF_CASES_TAC \\ gs []
   \\ gs []
   \\ drule_all_then strip_assume_tac compute_init_thy_ok
+  \\ drule_then assume_tac compute_thy_ok_is_std_sig
   \\ ‘theory_ok (thyof ctxt) ∧ numeral_thy_ok (thyof ctxt)’
     by fs []
   \\ CASE_TAC \\ gs []
@@ -348,35 +349,38 @@ Proof
   \\ Cases_on ‘map g a r’ \\ gs []
   \\ unabbrev_all_tac \\ gs []
   \\ drule_all_then strip_assume_tac map_check_consts_thm \\ gvs []
-  \\ rename [‘map _ a r = (res,r)’]
+  \\ rename [‘map _ _ r = (res,r)’]
   \\ reverse (Cases_on ‘res’) \\ gs [] >- (CASE_TAC \\ gs [] \\ rw [])
-  \\ rename [‘compute_eval_run _ eqs cv’]
-  \\ CASE_TAC \\ gs []
-  \\ rename [‘compute_eval_run _ _ _ = M_success tm'’]
-  \\ ‘term_ok (sigof (thyof ctxt)) tm’
+  \\ rename [‘compute_eval _ eqs cv’]
+  \\ simp [Once st_ex_bind_def] \\ CASE_TAC
+  \\ ‘term_ok (sigof ctxt) tm’ (* meh what's up with the overloads? *)
     by fs [TERM_def]
-  \\ drule_all_then strip_assume_tac dest_cexp_thm
-  \\ gs [EVERY_MEM, MEM_EL, PULL_EXISTS]
-  \\ drule_then drule compute_eval_run_thm \\ simp []
+  \\ drule dest_cexp_thm \\ simp []
+  \\ disch_then (drule_all_then strip_assume_tac)
+  \\ ‘term_ok (sigof ctxt) (cexp2term cv)’
+    by (drule_then assume_tac proves_term_ok
+        \\ gvs [term_ok_clauses])
+  \\ drule (DISCH_ALL (CONJUNCT1 (UNDISCH_ALL compute_eval_thm)))
+  \\ disch_then drule \\ gs []
   \\ impl_tac
   >- (
-    gvs [EVERY_MEM, FORALL_PROD, MEM_EL, PULL_EXISTS]
-    \\ drule_then assume_tac proves_term_ok
-    \\ rgs [Once equation_def, term_ok_def]
-    \\ rw []
-    \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
+    gvs [EVERY_MEM, FORALL_PROD, MEM_EL, PULL_EXISTS] \\ rw []
+    \\ first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
     \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
+    \\ simp [cexp2term_def, MAP_MAP_o, o_DEF]
     \\ first_x_assum (irule_at Any)
-    \\ first_x_assum (irule_at Any) \\ gs []
     \\ imp_res_tac map_LENGTH \\ gs []
     \\ qpat_x_assum ‘∀n. _ ⇒ THM _ _’ drule
     \\ rw [THM_def]
     \\ gs [SUBSET_DEF, MEM_EL, SF SFY_ss])
   \\ strip_tac \\ gvs []
+  \\ reverse CASE_TAC \\ gs []
+  >- (CASE_TAC \\ gs [] \\ strip_tac \\ gvs [])
+  \\ rename [‘compute_eval _ _ _ _ = (M_success tm', _)’]
   \\ ‘TERM ctxt (cexp2term tm')’
-    by (drule cexp2term_term_ok \\ simp [TERM_def])
-  \\ simp [Once st_ex_bind_def]
-  \\ CASE_TAC \\ gs []
+    by (drule_then strip_assume_tac proves_term_ok
+        \\ gvs [term_ok_clauses, TERM_def])
+  \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
   \\ drule_all_then strip_assume_tac mk_eq_thm \\ gvs []
   \\ reverse CASE_TAC >- (CASE_TAC \\ gs [] \\ rw [])
   \\ rw []
@@ -389,7 +393,6 @@ Proof
   \\ resolve_then Any irule trans_equation_simple sym_equation
   \\ first_x_assum (irule_at Any) \\ gs [sym_equation]
 QED
-
 
 val _ = export_theory ();
 

@@ -266,13 +266,9 @@ Definition compute_def:
           ceqs <- map check_eqn ceqs;
           ars <<- MAP (λ(f,(n,r)). (f,LENGTH n)) ceqs;
           map (λ(f,(n,r)). check_consts ars f r) ceqs;
-          case compute_interp compute_default_clock ceqs cexp of
-          | NONE => failwith «Kernel.compute: timeout»
-          | SOME res =>
-              do
-                c <- mk_eq (tm, cexp2term res);
-                return (Sequent [] c)
-              od
+          res <- compute_eval compute_default_clock ceqs cexp;
+          c <- mk_eq (tm, cexp2term res);
+          return (Sequent [] c)
         od
 End
 

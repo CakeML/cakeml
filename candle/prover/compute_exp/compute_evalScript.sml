@@ -14,26 +14,11 @@ val _ = numLib.prefer_num ();
  * st_ex_monad setup
  * ------------------------------------------------------------------------- *)
 
-Datatype:
-  cv_state = <| dummy : int; |>
-End
-
-Datatype:
-  cv_exn = Timeout | Type_error
-End
-
-val [("dummy", get_dummy_def, set_dummy_def)] =
-  define_monad_access_funs “:cv_state”;
-
-val [(raise_Timeout_def, handle_Timeout_def),
-     (raise_Type_error_def, handle_Type_error_def)] =
-  define_monad_exception_functions “:cv_exn” “:cv_state”;
-
 val st_ex_monadinfo : monadinfo = {
   bind = “st_ex_bind”,
   ignorebind = SOME “st_ex_ignore_bind”,
   unit = “st_ex_return”,
-  fail = NONE,
+  fail = SOME “raise_Failure”,
   choice = SOME “$otherwise”,
   guard = NONE
   };
@@ -42,16 +27,11 @@ val _ = declare_monad ("st_ex", st_ex_monadinfo);
 val _ = enable_monadsyntax ();
 val _ = enable_monad "st_ex";
 
-(* cv_state / cv_exn monad *)
-
 Overload return[local] = “st_ex_return”;
-Overload timeout[local] = “raise_Timeout”;
-Overload error[local] = “raise_Type_error”;
-
-(* Candle monad *)
-
 Overload failwith[local] = “raise_Failure”;
 Overload handle[local] = “handle_Failure”;
+Overload error[local] = “raise_Failure «error»”;
+Overload timeout[local] = “raise_Failure «timeout»”;
 
 (* -------------------------------------------------------------------------
  * Destructuring
@@ -434,22 +414,6 @@ Termination
   wf_rel_tac ‘inv_image ($< LEX $<)
              (λx. case x of INL (ck,_,cv) => (ck, compute_exp_size cv)
                           | INR (ck,_,cv) => (ck, compute_exp1_size cv))’
-End
-
-Definition compute_init_state_def:
-  compute_init_state = <| dummy := 0 |>
-End
-
-Definition compute_eval_run_def:
-  compute_eval_run ck ceqs cv =
-    run (compute_eval ck ceqs cv) compute_init_state
-End
-
-Definition compute_interp_def[simp]:
-  compute_interp ck ceqs cv =
-    case compute_eval_run ck ceqs cv of
-      M_failure _ => NONE
-    | M_success res => SOME res
 End
 
 val _ = export_theory ();
