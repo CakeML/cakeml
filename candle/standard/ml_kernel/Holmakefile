@@ -7,7 +7,7 @@ INCLUDES = $(CAKEMLDIR)/misc\
 	   $(CAKEMLDIR)/basis/pure\
 	   $(CAKEMLDIR)/characteristic\
 	   ../monadic\
-	   ../../prover/compute_syntax
+	   ../../prover/compute_exp
 
 
 all: $(DEFAULT_TARGETS) README.md

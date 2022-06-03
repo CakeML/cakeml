@@ -10,7 +10,7 @@ INCLUDES = ../../../developers \
 	   ../../standard/monadic \
 	   ../../standard/semantics \
 	   ../../standard/syntax \
-	   ../compute_syntax
+	   ../compute_exp
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
