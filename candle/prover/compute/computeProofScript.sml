@@ -296,6 +296,16 @@ Proof
   \\ Cases \\ gs []
 QED
 
+Theorem check_consts_thm:
+  STATE ctxt s ∧
+  check_consts ars f r s = (res, s') ⇒
+    s = s' ∧
+    (∀tm. res ≠ M_failure (Clash tm)) ∧
+    ∀u. res = M_success u ⇒ EVERY (λ(c,n). MEM (c,n) ars) (const_list r)
+Proof
+  rw [check_consts_def, st_ex_return_def, raise_Failure_def]
+QED
+
 Theorem map_check_consts_thm:
   ∀ceqs s res s'.
     STATE ctxt s ∧
@@ -318,6 +328,27 @@ Proof
   \\ strip_tac \\ gvs []
   \\ reverse CASE_TAC \\ gs [] \\ rw [] \\ gs [SF SFY_ss]
 QED
+
+Theorem check_consts_ok:
+  ∀eqs cexp s u s'.
+    check_consts (MAP (λ(f,vs,x) . (f,LENGTH vs)) eqs) fn cexp s =
+      (M_success u, s') ⇒
+      cexp_consts_ok eqs cexp
+Proof
+  rw [check_consts_def, st_ex_return_def, raise_Failure_def]
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘eqs’
+  \\ qid_spec_tac ‘cexp’
+  \\ ho_match_mp_tac const_list_ind \\ rw []
+  \\ gs [const_list_def, cexp_consts_ok_def]
+  \\ gs [EVERY_MEM, MEM_MAP, MEM_FLAT, EXISTS_PROD, PULL_EXISTS, FORALL_PROD,
+         SF SFY_ss]
+QED
+
+(* The type check can cause all sorts of failures, but the 'compute_eval'
+ * function always succeeds or raises a «timeout» exception. (Unfortunately,
+ * this is shadowed by the failures raised by the 'compute' function.)
+ *)
 
 Theorem compute_thm:
   STATE ctxt s ∧
@@ -345,11 +376,16 @@ Proof
   \\ drule_all_then strip_assume_tac map_check_eqn_thm \\ gvs []
   \\ reverse CASE_TAC \\ gs [] >- (CASE_TAC \\ gs [] \\ rw [])
   \\ simp [st_ex_ignore_bind_def]
-  \\ qmatch_goalsub_abbrev_tac ‘map g a r’
-  \\ Cases_on ‘map g a r’ \\ gs []
+  \\ IF_CASES_TAC \\ gs []
+  \\ CASE_TAC \\ gs []
+  \\ drule_all_then strip_assume_tac check_consts_thm
+  \\ rename [‘check_consts _ _ _ _ = (res,_)’]
+  \\ reverse (Cases_on ‘res’) \\ gs [] >- (CASE_TAC \\ gs [] \\ rw [])
+  \\ qmatch_goalsub_abbrev_tac ‘map g a s’
+  \\ Cases_on ‘map g a s’ \\ gs []
   \\ unabbrev_all_tac \\ gs []
   \\ drule_all_then strip_assume_tac map_check_consts_thm \\ gvs []
-  \\ rename [‘map _ _ r = (res,r)’]
+  \\ rename [‘map _ _ s = (res,s)’]
   \\ reverse (Cases_on ‘res’) \\ gs [] >- (CASE_TAC \\ gs [] \\ rw [])
   \\ rename [‘compute_eval _ eqs cv’]
   \\ simp [Once st_ex_bind_def] \\ CASE_TAC
@@ -364,18 +400,23 @@ Proof
   \\ disch_then drule \\ gs []
   \\ impl_tac
   >- (
-    gvs [EVERY_MEM, FORALL_PROD, MEM_EL, PULL_EXISTS] \\ rw []
+    irule_at Any check_consts_ok
+    \\ first_assum (irule_at Any)
+    \\ gvs [EVERY_MEM, FORALL_PROD, MEM_EL, PULL_EXISTS] \\ rw []
     \\ first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
     \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
     \\ simp [cexp2term_def, MAP_MAP_o, o_DEF]
     \\ first_x_assum (irule_at Any)
     \\ imp_res_tac map_LENGTH \\ gs []
     \\ qpat_x_assum ‘∀n. _ ⇒ THM _ _’ drule
-    \\ rw [THM_def]
-    \\ gs [SUBSET_DEF, MEM_EL, SF SFY_ss])
+    \\ rw [THM_def] \\ gs [SUBSET_DEF, MEM_EL, SF SFY_ss]
+    \\ irule check_consts_ok
+    \\ drule_then strip_assume_tac map_thm
+    \\ gs [PULL_FORALL]
+    \\ first_x_assum drule \\ rw []
+    \\ first_assum (irule_at Any))
   \\ strip_tac \\ gvs []
-  \\ reverse CASE_TAC \\ gs []
-  >- (CASE_TAC \\ gs [] \\ strip_tac \\ gvs [])
+  \\ CASE_TAC \\ gs []
   \\ rename [‘compute_eval _ _ _ _ = (M_success tm', _)’]
   \\ ‘TERM ctxt (cexp2term tm')’
     by (drule_then strip_assume_tac proves_term_ok

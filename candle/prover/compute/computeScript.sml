@@ -264,7 +264,10 @@ Definition compute_def:
           if check_cexp_closed cexp then return () else
             failwith «Kernel.compute: free variables in starting expression»;
           ceqs <- map check_eqn ceqs;
+          if ALL_DISTINCT (MAP FST ceqs) then return () else
+            failwith «Kernel.compute: non-distinct function names in equations»;
           ars <<- MAP (λ(f,(n,r)). (f,LENGTH n)) ceqs;
+          check_consts ars «starting cexpr» cexp;
           map (λ(f,(n,r)). check_consts ars f r) ceqs;
           res <- compute_eval compute_default_clock ceqs cexp;
           c <- mk_eq (tm, cexp2term res);
