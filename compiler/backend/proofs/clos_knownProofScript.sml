@@ -653,8 +653,6 @@ Proof
     \\ rename1 `nn - LENGTH (ss:('a,'b) closSem$state).globals`
     \\ `nn = LENGTH ss.globals` by simp [] \\ fs [])
   THEN1
-    (fs[state_globals_approx_def] >> metis_tac[])
-  THEN1
    (rveq \\ fs [LIST_REL_EL_EQN])
   THEN1
    (fs [CaseEq"ffi_result"] \\ rveq
@@ -757,11 +755,6 @@ Proof
           Cases_on `nn < LENGTH ss.globals + 1` >> simp[] >>
           `nn - LENGTH ss.globals = 0` by simp[] >> simp[]) >>
       metis_tac[])
-  >- (* GlobalsPtr *)
-    fs[ssgc_free_def]
-  >- ( (* SetGlobalsPtr *)
-    rw[ssgc_free_def]>>fs[EVERY_DEF]>>
-    metis_tac[])
   >- (rename [‘ConsExtend’] >>
     dsimp [] >>
     rw [] >>
@@ -820,11 +813,14 @@ Proof
       >- (first_x_assum match_mp_tac >> fs[FLOOKUP_UPDATE,bool_case_eq] >> metis_tac[])
       >- (fs[ssgc_free_def,FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
       >- (last_x_assum match_mp_tac >> fs[])
-      >- (first_x_assum match_mp_tac >> fs[])
       >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[])
       >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[]))
   >- (rename [‘EqualConst’]
       \\ rw [] \\ fs [Boolv_def])
+  >- (rename [‘Constant c’]
+      \\ rw [] \\ qid_spec_tac ‘c’
+      \\ ho_match_mp_tac make_const_ind
+      \\ fs [make_const_def,EVERY_MEM,MEM_MAP,PULL_EXISTS])
   >> dsimp[]
 QED
 
@@ -2592,7 +2588,6 @@ val state_rel_def = Define `
     s.code = FEMPTY /\ t.code = FEMPTY /\
     s.clock = t.clock /\ s.ffi = t.ffi /\ s.max_app = t.max_app /\
     LIST_REL (OPTREL (v_rel c g)) s.globals t.globals /\
-    (OPTREL (v_rel c g)) s.mutable_global t.mutable_global /\
     fmap_rel (ref_rel c g) s.refs t.refs /\
     s.compile = state_cc (compile_inc c) t.compile  /\
     t.compile_oracle = state_co (compile_inc c) s.compile_oracle
@@ -2660,7 +2655,6 @@ Theorem state_rel_subspt:
 Proof
   rw [state_rel_def]
   THEN1 (irule LIST_REL_mono \\ metis_tac [OPTREL_MONO, v_rel_subspt])
-  THEN1 metis_tac [OPTREL_MONO, v_rel_subspt]
   THEN1 (irule fmap_rel_mono \\ metis_tac [ref_rel_subspt])
 QED
 
@@ -3350,18 +3344,6 @@ Proof
                  \\ drule oracle_gapprox_subspt_alt
                  \\ disch_then (qspec_then `kk1` mp_tac)
                  \\ simp [])
-          \\ conj_tac
-          THEN1 (
-            irule OPTREL_MONO
-            \\ qexists_tac `v_rel c (FST cfg)` \\ rw []
-            \\ irule v_rel_subspt
-            \\ qexists_tac `FST cfg` \\ simp []
-            \\ imp_res_tac evaluate_IMP_shift_seq
-            \\ fs [shift_seq_def]
-            \\ rename1 `s0.compile_oracle kk1 = (cfg, _, _)`
-            \\ drule oracle_gapprox_subspt_alt
-            \\ disch_then (qspec_then `kk1` mp_tac)
-            \\ simp [])
           \\ irule fmap_rel_mono
           \\ goal_assum (first_assum o mp_then Any mp_tac) \\ rw[]
           \\ irule ref_rel_subspt
@@ -3439,17 +3421,6 @@ Proof
         THEN1 (irule LIST_REL_mono
                \\ goal_assum (first_x_assum o mp_then Any mp_tac) \\ rw []
                \\ irule OPTREL_MONO
-               \\ goal_assum (first_x_assum o mp_then Any mp_tac) \\ rw []
-               \\ irule v_rel_subspt
-               \\ goal_assum (first_x_assum o mp_then Any mp_tac) \\ rw []
-               \\ imp_res_tac evaluate_IMP_shift_seq
-               \\ fs [shift_seq_def]
-               \\ rename1 `s0.compile_oracle kk1 = (cfg, _, _)`
-               \\ drule oracle_gapprox_subspt_alt
-               \\ disch_then (qspec_then `kk1` mp_tac)
-               \\ simp [])
-        \\ conj_tac
-        THEN1 (irule OPTREL_MONO
                \\ goal_assum (first_x_assum o mp_then Any mp_tac) \\ rw []
                \\ irule v_rel_subspt
                \\ goal_assum (first_x_assum o mp_then Any mp_tac) \\ rw []

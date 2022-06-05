@@ -339,7 +339,7 @@ Proof
   \\ fs [MAP_REVERSE,MAP_MAP_o,update_tag_def]
 QED
 
-(* connection to closSem
+(* connection to closSem *)
 
 Definition build_part'_def:
   build_part' mem (Int i) = Number i ∧
@@ -371,7 +371,5 @@ Proof
   \\ fs [FUN_EQ_THM] \\ fs [APPLY_UPDATE_THM]
   \\ rw [] \\ fs [make_const_def,MAP_MAP_o,o_DEF]
 QED
-
-*)
 
 val _ = export_theory();

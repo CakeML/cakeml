@@ -528,7 +528,21 @@ QED
 Theorem Boolv_11[simp]:
   closSem$Boolv b1 = Boolv b2 ⇔ b1 = b2
 Proof
-EVAL_TAC>>srw_tac[][]
+  EVAL_TAC>>srw_tac[][]
+QED
+
+Theorem do_eq_sym:
+  (∀x y. do_eq x y = do_eq y x) ∧
+  (∀x y. do_eq_list x y = do_eq_list y x)
+Proof
+  ho_match_mp_tac do_eq_ind \\ rw []
+  THEN1
+   (once_rewrite_tac [do_eq_def]
+    \\ Cases_on ‘x’ \\ Cases_on ‘y’ \\ gvs []
+    \\ rw [] \\ gvs [] \\ eq_tac \\ rw [])
+  \\ once_rewrite_tac [do_eq_def]
+  \\ asm_rewrite_tac []
+  \\ rpt (CASE_TAC \\ fs [])
 QED
 
 Theorem do_eq_list_rel:
@@ -934,6 +948,16 @@ val pure_correct = save_thm(
   "pure_correct",
   EVERY_pure_correct |> Q.SPECL [`[e]`, `env`, `s`]
                      |> SIMP_RULE (srw_ss()) [])
+
+Theorem evaluate_pure:
+  evaluate (xs,env,s) = (res,t:('c,'ffi) state) ∧ EVERY pure xs ⇒
+  ∃vs. res = Rval vs ∧ t = s ∨ res = Rerr (Rabort Rtype_error)
+Proof
+  strip_tac
+  \\ qspecl_then [‘xs’,‘env’,‘s’] mp_tac EVERY_pure_correct
+  \\ fs [] \\ Cases_on ‘res’ \\ fs []
+  \\ fs [] \\ Cases_on ‘e’ \\ fs []
+QED
 
 val pair_lam_lem = Q.prove (
 `!f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)`,

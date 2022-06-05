@@ -25,23 +25,23 @@ Proof
   \\ Cases_on ‘x’ \\ EVAL_TAC
 QED
 
-Definition dest_Build_def:
-  dest_Build (Build [Str s]) = SOME (Str s) ∧
-  dest_Build (Build [W64 w]) = SOME (W64 w) ∧
-  dest_Build _ = NONE
+Definition dest_Constant_def:
+  dest_Constant (Constant (ConstStr c)) = SOME (Str c) ∧
+  dest_Constant (Constant (ConstInt c)) = SOME (Int c) ∧
+  dest_Constant (Constant (ConstWord64 c)) = SOME (W64 c) ∧
+  dest_Constant _ = NONE
 End
 
-Theorem dest_Build_pmatch:
-  dest_Build x = case x of
-                 | Build [Str s] => SOME (Str s)
-                 | Build [W64 w] => SOME (W64 w)
-                 | _ => NONE
+Theorem dest_Constant_pmatch:
+  dest_Constant x = case x of
+                    | Constant (ConstStr c) => SOME (Str c)
+                    | Constant (ConstInt c) => SOME (Int c)
+                    | Constant (ConstWord64 c) => SOME (W64 c)
+                    | _ => NONE
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ Cases_on ‘x’ \\ EVAL_TAC
-  \\ Cases_on ‘l’ \\ fs [dest_Build_def]
-  \\ Cases_on ‘t’ \\ fs [dest_Build_def]
-  \\ Cases_on ‘h’ \\ fs [dest_Build_def]
+  \\ Cases_on ‘c’ \\ fs [dest_Constant_def]
 QED
 
 Definition dest_Cons_def:
@@ -134,7 +134,7 @@ End
 Overload dest_Op_Cons[local]     = “dest_Op dest_Cons”
 Overload dest_Op_Cons_Nil[local] = “dest_Op_Nil dest_Cons”
 Overload dest_Op_Const[local]    = “dest_Op_Nil dest_Const”
-Overload dest_Op_Build[local]    = “dest_Op_Nil dest_Build”
+Overload dest_Op_Constant[local]    = “dest_Op_Nil dest_Constant”
 
 Definition dest_Op_Consts_def:
   dest_Op_Consts x y =
@@ -224,15 +224,15 @@ Definition eq_direct_const_def:
          | NONE => NONE)
 End
 
-Definition eq_direct_build_def:
-  eq_direct_build x y =
-    dtcase dest_Op_Build x of
+Definition eq_direct_constant_def:
+  eq_direct_constant x y =
+    dtcase dest_Op_Constant x of
     | SOME p =>
-        (dtcase dest_Op_Build y of
+        (dtcase dest_Op_Constant y of
          | SOME q => SOME (MakeBool (q = p))
          | NONE => SOME (Op None (EqualConst p) [y]))
     | NONE =>
-        (dtcase dest_Op_Build y of
+        (dtcase dest_Op_Constant y of
          | SOME p => SOME (Op None (EqualConst p) [x])
          | NONE => NONE)
 End
@@ -241,7 +241,7 @@ Definition eq_direct_def:
   eq_direct x y =
     dtcase eq_direct_const x y of
     | SOME res => SOME res
-    | NONE => dtcase eq_direct_build x y of
+    | NONE => dtcase eq_direct_constant x y of
               | SOME res => SOME res
               | NONE => eq_direct_nil x y
 End
@@ -338,7 +338,7 @@ Definition dont_lift_def:
       dtcase dest_Op_Cons_Nil x of
       | SOME t => T
       | NONE =>
-        dtcase dest_Op_Build x of
+        dtcase dest_Op_Constant x of
         | SOME t => T
         | NONE => F
 End
@@ -400,14 +400,5 @@ Definition SmartOp_def:
     | NONE => closLang$Op tra op xs
     | SOME x => x
 End
-
-(*
-Definition SmartIf_def:
-  SmartIf tra x y z =
-    dtcase dest_Op_Cons x of
-    | SOME (t,xs) => if t = 0 then z else y
-    | NONE => If tra x y z
-End
-*)
 
 val _ = export_theory();

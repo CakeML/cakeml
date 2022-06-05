@@ -1813,7 +1813,7 @@ val names_nss_DIV_nss = prove(
 
 fun note_tac s g = (print ("compile_exps_correct: " ^ s ^ "\n"); ALL_TAC g);
 
-Theorem compile_exps_correct[local]:
+Theorem compile_exps_correct:
    !xs env s1 n res s2 (t1:('c,'ffi) bviSem$state) n2 ys aux b1.
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
      (compile_exps n xs = (ys,aux,n2)) /\
@@ -2928,7 +2928,7 @@ Proof
       note_tac "Op: EqualConst" \\ gvs[compile_op_def,bEvalOp_def]
       \\ Cases_on`REVERSE a` \\ fs[] \\ rw[]
       \\ Cases_on`t` \\ fs[] \\ rw[]
-      \\ gvs [AllCaseEqs(),update_Lbl_def]
+      \\ gvs [AllCaseEqs()]
       \\ imp_res_tac bvlPropsTheory.evaluate_IMP_LENGTH \\ gvs [bEval_def]
       \\ imp_res_tac bviPropsTheory.evaluate_IMP_LENGTH \\ gvs [iEval_def]
       \\ gvs [LENGTH_EQ_NUM_compute]
@@ -2952,30 +2952,19 @@ Proof
       \\ gvs [compile_exps_def,handle_ok_def,aux_code_installed_def]
       \\ qpat_x_assum ‘state_rel _ _ t1’ kall_tac
       \\ fs [bviSemTheory.do_app_def,do_app_aux_def,bvlSemTheory.do_app_def]
-      \\ ‘EVERY (λp. ∀n. p = Lbl n ⇒ n ∈ domain t1.code)
-            (MAP (update_Lbl (λl. num_stubs + l * nss)) parts)’ by
-       (fs [EVERY_MEM,MEM_MAP] \\ rpt strip_tac \\ res_tac \\ gvs []
-        \\ Cases_on ‘y’ \\ gvs [update_Lbl_def]
-        \\ res_tac \\ fs []
-        \\ fs [domain_lookup,state_rel_def]
-        \\ rename [‘_ = SOME vvv’] \\ PairCases_on ‘vvv’
-        \\ qpat_x_assum ‘∀n k m. _’ drule \\ strip_tac
-        \\ rpt (pairarg_tac \\ fs []))
       \\ asm_rewrite_tac [] \\ fs []
       \\ pairarg_tac \\ fs []
       \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
       \\ qexists_tac ‘c’ \\ fs []
       \\ fs [do_build_const_def]
-      \\ qabbrev_tac ‘ff = (λl. num_stubs + l * nss)’
       \\ rename [‘state_rel b2 s (inc_clock c t)’]
       \\ ‘∃m1 m2 l.
            (∀k. bv_ok s.refs (m1 k)) ∧
            (∀k. m2 k = adjust_bv b2 (m1 k)) ∧
            do_build m1 l parts s.refs = (q,rs) ∧
-           do_build m2 l (MAP (update_Lbl ff) parts) t.refs = (v,rs')’ by
+           do_build m2 l parts t.refs = (v,rs')’ by
        (qexists_tac ‘λx. Number 0’ \\ qexists_tac ‘λx. Number 0’
         \\ fs [adjust_bv_def,bv_ok_def] \\ first_x_assum $ irule_at Any \\ fs [])
-      \\ qunabbrev_tac ‘ff’
       \\ rpt (qpat_x_assum ‘do_build _ 0 _ _ = _’ kall_tac)
       \\ rpt strip_tac
       \\ qpat_x_assum ‘state_rel _ _ _’ assume_tac
@@ -2987,9 +2976,9 @@ Proof
         \\ fs [state_rel_def,bvi_to_bvl_def,bvl_to_bvi_def])
       \\ strip_tac
       \\ Cases_on ‘(∃i. h = Int i) ∨ (∃w. h = W64 w) ∨
-                   (∃n l. h = Con n l) ∨ (∃lll. h = Lbl lll)’
+                   (∃n l. h = Con n l)’
       THEN1
-       (rw [] \\ fs [update_Lbl_def,do_part_def] \\ rw [] \\ first_x_assum irule \\ fs []
+       (rw [] \\ fs [do_part_def] \\ rw [] \\ first_x_assum irule \\ fs []
         \\ first_x_assum $ irule_at (Pos last)
         \\ first_x_assum $ irule_at (Pos last)
         \\ qexists_tac ‘b2’
@@ -2997,7 +2986,7 @@ Proof
         \\ fs [MAP_MAP_o,o_DEF,MAP_EQ_f,bv_ok_def,EVERY_MEM,MEM_MAP]
         \\ fs [bv_ok_def] \\ rw [EVERY_MEM,MEM_MAP] \\ fs [])
       \\ ‘∃content. h = Str content’ by (Cases_on ‘h’ \\ fs []) \\ gvs []
-      \\ fs [update_Lbl_def,do_part_def] \\ rw []
+      \\ fs [do_part_def] \\ rw []
       \\ drule (GEN_ALL state_rel_add_bytearray)
       \\ qabbrev_tac ‘new_s = LEAST ptr. ptr ∉ FDOM s.refs’
       \\ qabbrev_tac ‘new_t = LEAST ptr. ptr ∉ FDOM t.refs’
@@ -3504,8 +3493,6 @@ Proof
       (imp_res_tac bvi_letProofTheory.evaluate_compile_exp \\ fs[]
       \\ Cases_on`e` \\ full_simp_tac(srw_ss())[]))
 QED
-
-val _ = save_thm("compile_exps_correct",compile_exps_correct);
 
 (* composed compiler correctness *)
 
@@ -4362,7 +4349,6 @@ Proof
   simp[bvl_to_bviTheory.compile_op_def, bvl_to_bviTheory.stubs_def, SUBSET_DEF]
   \\ every_case_tac \\ fs[closLangTheory.assign_get_code_label_def, REPLICATE_GENLIST, PULL_EXISTS, MAPi_GENLIST, MEM_GENLIST]
   \\ rw[] \\ fsrw_tac[DNF_ss][PULL_EXISTS]
-  \\ TRY (fs [MEM_MAP] \\ rename [‘update_Lbl _ ccc’] \\ Cases_on ‘ccc’ \\ fs [update_Lbl_def])
   \\ metis_tac[]
 QED
 

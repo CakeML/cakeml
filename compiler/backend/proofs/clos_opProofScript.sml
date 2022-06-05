@@ -44,15 +44,16 @@ Proof
   Cases_on ‘x’ \\ fs [dest_Const_def]
 QED
 
-Theorem dest_Build_thm:
-  dest_Build x = SOME i ⇔
-  ∃s w. x = Build [i] ∧ (i = Str s ∨ i = W64 w)
+Theorem dest_Constant_thm:
+  dest_Constant x = SOME i ⇔
+  ∃s w j.
+    x = Constant (ConstStr s) ∧ i = Str s ∨
+    x = Constant (ConstInt j) ∧ i = Int j ∨
+    x = Constant (ConstWord64 w) ∧ i = W64 w
 Proof
-  Cases_on ‘x’ \\ fs [dest_Build_def]
-  \\ Cases_on ‘l’ \\ fs [dest_Build_def]
-  \\ Cases_on ‘t’ \\ fs [dest_Build_def]
-  \\ Cases_on ‘h’ \\ fs [dest_Build_def]
-  \\ Cases_on ‘i’ \\ fs []
+  Cases_on ‘x’ \\ fs [dest_Constant_def]
+  \\ Cases_on ‘c’ \\ fs [dest_Constant_def]
+  \\ eq_tac \\ rw []
 QED
 
 Theorem dest_Cons_thm:
@@ -85,30 +86,23 @@ Proof
       \\ Cases_on ‘r1’ \\ gvs [do_eq_def,do_app_def]
       \\ rw [] \\ eq_tac \\ rw [])
     \\ EVAL_TAC \\ rw [] \\ fs [] \\ EVAL_TAC)
-  \\ reverse (Cases_on ‘eq_direct_build x y’) \\ fs []
+  \\ reverse (Cases_on ‘eq_direct_constant x y’) \\ fs []
   THEN1
-   (gvs [eq_direct_build_def,AllCaseEqs(),dest_Op_Nil_thm,dest_Build_thm]
-    \\ fs [evaluate_def,do_app_def]
-    \\ TRY
-     (Cases_on ‘evaluate ([x],env,s)’ \\ fs [] \\ Cases_on ‘q’ \\ fs []
-      \\ rw [] \\ fs [evaluate_def]
-      \\ imp_res_tac evaluate_SING \\ gvs []
-      \\ Cases_on ‘r1’ \\ gvs [do_eq_def,do_app_def] \\ eq_tac \\ rw[] \\ NO_TAC)
-    \\ TRY
-     (Cases_on ‘evaluate ([y],env,s)’ \\ fs [] \\ Cases_on ‘q’ \\ fs []
-      \\ rw [] \\ fs [evaluate_def]
-      \\ imp_res_tac evaluate_SING \\ gvs []
-      \\ Cases_on ‘r1’ \\ gvs [do_eq_def,do_app_def] \\ eq_tac \\ rw[] \\ NO_TAC)
+   (gvs [eq_direct_constant_def,AllCaseEqs(),dest_Op_Nil_thm,dest_Constant_thm]
+    \\ rw []
+    \\ fs [evaluate_def,do_app_def] \\ rw []
+    \\ gvs [AllCaseEqs(),PULL_EXISTS,make_const_def,do_eq_def]
     \\ fs [do_eq_def] \\ rw [evaluate_MakeBool]
-    \\ fs [do_eq_def] \\ rw [evaluate_MakeBool]
-    \\ eq_tac \\ rw [] \\ CCONTR_TAC
-    \\ rename [‘ss ≠ tt’]
-    \\ Cases_on ‘ss’ \\ Cases_on ‘tt’ \\ fs []
-    \\ pop_assum mp_tac
-    \\ pop_assum mp_tac
+    \\ imp_res_tac evaluate_SING \\ gvs []
+    \\ TRY (eq_tac \\ fs [] \\ NO_TAC)
+    \\ once_rewrite_tac [EQ_SYM_EQ]
+    \\ rename [‘MAP _ _ = MAP _ _ ⇔ t1 = t2’]
+    \\ Cases_on ‘t1’
+    \\ Cases_on ‘t2’ \\ fs []
+    \\ pop_assum kall_tac
     \\ qid_spec_tac ‘s’
     \\ qid_spec_tac ‘s'’
-    \\ Induct \\ fs [] \\ strip_tac \\ Cases \\ fs []
+    \\ Induct \\ Cases_on ‘s’ \\ fs []
     \\ fs [ORD_BOUND,ORD_11])
   \\ reverse (Cases_on ‘eq_direct_nil x y’) \\ fs []
   THEN1
@@ -132,17 +126,15 @@ Theorem dont_lift_thm:
   dont_lift x ⇔
   (∃t n. x = Op t (Cons n) []) ∨
   (∃t i. x = Op t (Const i) []) ∨
-  (∃t s. x = Op t (Build [Str s]) []) ∨
-  (∃t w. x = Op t (Build [W64 w]) [])
+  (∃t s. x = Op t (Constant (ConstStr s)) []) ∨
+  (∃t i. x = Op t (Constant (ConstInt i)) []) ∨
+  (∃t w. x = Op t (Constant (ConstWord64 w)) [])
 Proof
   Cases_on ‘x’ \\ fs [dont_lift_def,dest_Op_Nil_def,dest_Op_def]
-  \\ Cases_on ‘o'’ \\ fs [dest_Const_def,dest_Cons_def]
-  \\ Cases_on ‘l’ \\ fs [dest_Const_def,dest_Cons_def,dest_Build_def]
-  \\ rename [‘Build ll’]
-  \\ Cases_on ‘ll’ \\ fs [dest_Const_def,dest_Cons_def,dest_Build_def]
-  \\ rename [‘Build (hh::ll)’]
-  \\ Cases_on ‘ll’ \\ fs [dest_Const_def,dest_Cons_def,dest_Build_def]
-  \\ Cases_on ‘hh’ \\ fs [dest_Const_def,dest_Cons_def,dest_Build_def]
+  \\ Cases_on ‘o'’ \\ fs [dest_Const_def,dest_Cons_def,dest_Constant_def]
+  \\ Cases_on ‘l’ \\ fs [dest_Const_def,dest_Cons_def,dest_Constant_def]
+  \\ rename [‘Constant ll’]
+  \\ Cases_on ‘ll’ \\ fs [dest_Const_def,dest_Cons_def,dest_Constant_def]
 QED
 
 Theorem dont_lift_pure:
@@ -313,8 +305,9 @@ Inductive simple_exp:
   (∀t i. simple_exp (Var t i)) ∧
   (∀t x y z. simple_exp x ∧ simple_exp y ∧ simple_exp z ⇒ simple_exp (If t x y z)) ∧
   (∀t i. simple_exp (Op t (Const i) [])) ∧
-  (∀t i. simple_exp (Op t (Build [Str i]) [])) ∧
-  (∀t i. simple_exp (Op t (Build [W64 i]) [])) ∧
+  (∀t i. simple_exp (Op t (Constant (ConstInt i)) [])) ∧
+  (∀t i. simple_exp (Op t (Constant (ConstStr i)) [])) ∧
+  (∀t i. simple_exp (Op t (Constant (ConstWord64 i)) [])) ∧
   (∀t i xs. EVERY simple_exp xs ⇒ simple_exp (Op t (Cons i) xs)) ∧
   (∀t i x. simple_exp x ⇒ simple_exp (Op t (EqualConst (Int i)) [x])) ∧
   (∀t i x. simple_exp x ⇒ simple_exp (Op t (EqualConst (Str i)) [x])) ∧
@@ -401,9 +394,9 @@ QED
 Theorem eq_direct_simple_exp:
   eq_direct x y = SOME z ∧ simple_exp x ∧ simple_exp y ⇒ simple_exp z
 Proof
-  fs [eq_direct_def,AllCaseEqs(),eq_direct_const_def,eq_direct_nil_def,eq_direct_build_def]
+  fs [eq_direct_def,AllCaseEqs(),eq_direct_const_def,eq_direct_nil_def,eq_direct_constant_def]
   \\ rw [MakeBool_def] \\ simp [Once simple_exp_cases]
-  \\ gvs [dest_Op_Nil_thm,dest_Build_thm]
+  \\ gvs [dest_Op_Nil_thm,dest_Constant_thm]
 QED
 
 Theorem simple_exp_eq_pure_list:
@@ -702,7 +695,8 @@ Inductive red_rel:
     MEM op [Add;Sub;Mult;Div;Mod;Less;LessEq;Greater;GreaterEq;Equal;Const i;
             Cons tag; TagEq tag; TagLenEq t1 t2; LenEq n;
             EqualConst (Str s); EqualConst (W64 w); EqualConst (Int i);
-            ElemAt t1; Build [Str s]; Build [W64 w]] ⇒
+            ElemAt t1; Constant (ConstInt i); Constant (ConstStr s);
+            Constant (ConstWord64 w)] ⇒
     red_rel [Op t op xs] ys)
   ∧
   (red_rel [] [])
@@ -830,10 +824,10 @@ Proof
     \\ gvs [dont_lift_def,AllCaseEqs()]
     \\ Cases_on ‘dest_Op_Nil dest_Const x’ \\ gvs [dest_Op_Nil_thm]
     \\ Cases_on ‘dest_Op_Nil dest_Cons x’ \\ gvs [dest_Op_Nil_thm]
-    \\ Cases_on ‘dest_Op_Nil dest_Build x’ \\ gvs [dest_Op_Nil_thm]
+    \\ Cases_on ‘dest_Op_Nil dest_Constant x’ \\ gvs [dest_Op_Nil_thm]
     \\ gvs [dest_Cons_thm]
     \\ gvs [dest_Const_thm]
-    \\ gvs [dest_Build_thm]
+    \\ gvs [dest_Constant_thm]
     \\ simp [Once red_rel_cases]
     \\ simp [Once red_rel_cases])
   \\ Cases_on ‘dest_Op dest_Cons x’ \\ gvs []
@@ -864,10 +858,10 @@ Theorem eq_direct_red_rel:
 Proof
   rw [] \\ gvs [eq_direct_def,AllCaseEqs()]
   \\ gvs [eq_direct_const_def,AllCaseEqs()]
-  \\ gvs [eq_direct_build_def,AllCaseEqs()]
+  \\ gvs [eq_direct_constant_def,AllCaseEqs()]
   \\ gvs [eq_direct_nil_def,AllCaseEqs(),MakeBool_def]
   \\ irule_at Any red_rel_Op \\ fs []
-  \\ gvs [dest_Op_Nil_thm,dest_Cons_thm,dest_Const_thm,dest_Build_thm]
+  \\ gvs [dest_Op_Nil_thm,dest_Cons_thm,dest_Const_thm,dest_Constant_thm]
   \\ TRY (irule_at Any red_rel_multi \\ fs []
   \\ rpt (irule_at Any red_rel_Op \\ fs [])
   \\ fs [red_rel_nil]
@@ -1110,7 +1104,7 @@ Proof
   \\ rw [] \\ gvs []
   \\ reverse (Cases_on ‘eq_direct x y’ \\ fs [])
   THEN1
-   (gvs [eq_direct_def,eq_direct_const_def,eq_direct_nil_def,eq_direct_build_def,AllCaseEqs()]
+   (gvs [eq_direct_def,eq_direct_const_def,eq_direct_nil_def,eq_direct_constant_def,AllCaseEqs()]
     \\ gvs [dest_Op_Nil_thm]
     \\ full_simp_tac std_ss [fv1_def,fv_def,MakeBool_def])
   \\ Cases_on ‘dest_Op dest_Cons x’ \\ gvs []
@@ -1135,7 +1129,7 @@ Proof
   \\ disch_then kall_tac
   \\ reverse (Cases_on ‘eq_direct x y’) \\ fs [] \\ rw []
   THEN1
-   (gvs [eq_direct_def,AllCaseEqs(),eq_direct_nil_def,eq_direct_const_def,eq_direct_build_def]
+   (gvs [eq_direct_def,AllCaseEqs(),eq_direct_nil_def,eq_direct_const_def,eq_direct_constant_def]
     \\ pop_assum mp_tac
     \\ rewrite_tac [fv1_def,fv_def,MakeBool_def] \\ fs [])
   \\ gvs [eq_any_def,AllCaseEqs()]

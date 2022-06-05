@@ -1494,9 +1494,6 @@ QED
 
 (* semantics preservation *)
 
-val compile_inc_def = Define `
-  compile_inc (e,aux) = (annotate 0 e,clos_annotate$compile aux)`;
-
 Theorem semantics_annotate:
    semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap prog) co
      (pure_cc compile_inc cc) xs <> Fail ==>
