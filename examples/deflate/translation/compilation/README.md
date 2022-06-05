@@ -1,4 +1,4 @@
-Test readme prefix
+Scripts for compilation of Deflate
 
 [compressionCompileScript.sml](compressionCompileScript.sml):
 Compiles the simple compression schema
@@ -7,7 +7,10 @@ Compiles the simple compression schema
 Compiles the simple decompression schema
 
 [deflateDecodeCompileScript.sml](deflateDecodeCompileScript.sml):
-Compiles the simple compression schema
+Compiles the binary for the Deflate decoder
 
 [deflateEncodeCompileScript.sml](deflateEncodeCompileScript.sml):
-Compiles the simple compression schema
+Compiles the binary for the Deflate Encoder
+
+[tests](tests):
+Files used for testing deflate

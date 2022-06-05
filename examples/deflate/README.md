@@ -6,9 +6,6 @@ Formalization and implementation of LZSS
 [LZSSrbScript.sml](LZSSrbScript.sml):
 Formalization and implementation of LZSS using ringbuffer
 
-[LearningTests](LearningTests):
-Scripts relevant to learning HOL
-
 [compressionScript.sml](compressionScript.sml):
 First simple compressor
 
@@ -28,4 +25,4 @@ Implementation written by Alexander Cox
 Implementation of Deflate specific Run Length Encoding
 
 [translation](translation):
-Translation scripts for puzzle encodings.
+Translation scripts for Defalte.
