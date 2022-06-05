@@ -6766,7 +6766,7 @@ Proof
   rw [] \\ drule (Q.SPEC `j` backendPropsTheory.is_state_oracle_k)
   \\ rw []
   \\ fs []
-  \\ Cases_on `prog` \\ fs [closPropsTheory.ignore_table_def]
+  \\ Cases_on `prog` \\ fs [clos_numberTheory.ignore_table_def]
   \\ pairarg_tac \\ fs []
   \\ rveq \\ fs [GSYM arithmeticTheory.ADD1]
 QED
@@ -6802,6 +6802,18 @@ Proof
   rw [arithmeticTheory.LESS_OR_EQ]
   \\ imp_res_tac number_oracle_FST_strict_mono
   \\ fs []
+QED
+
+Theorem SND_SND_ignore_table:
+   SND (SND (ignore_table f st p)) = SND p
+Proof
+  Cases_on`p` \\ EVAL_TAC \\ pairarg_tac \\ fs[]
+QED
+
+Theorem FST_SND_ignore_table:
+   FST (SND (ignore_table f st p)) = SND (f st (FST p))
+Proof
+  Cases_on`p` \\ EVAL_TAC \\ pairarg_tac \\ fs[]
 QED
 
 Theorem renumber_code_locs_monotonic:
@@ -7033,17 +7045,17 @@ Proof
   \\ qpat_assum `compile c.known_conf _ = _`
     (fn t => conseq (map (fn t2 => MATCH_MP t2 t) known_co_facts2))
   \\ simp [backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co,
-        closPropsTheory.FST_SND_ignore_table,
-        closPropsTheory.SND_SND_ignore_table]
+        FST_SND_ignore_table,
+        SND_SND_ignore_table]
   \\ csimp []
   \\ fs [clos_knownProofTheory.syntax_oracle_ok_def,
         clos_knownProofTheory.syntax_ok_def]
   \\ csimp [FORALL_AND_THM, GSYM PULL_FORALL,
         Q.SPEC `IS_SOME x` IMP_CONJ_THM]
   \\ conseq (tl (BODY_CONJUNCTS every_Fn_vs_NONE_known_co))
-  \\ fs [backendPropsTheory.SND_state_co, closPropsTheory.SND_SND_ignore_table,
+  \\ fs [backendPropsTheory.SND_state_co, SND_SND_ignore_table,
         SND_cond_mti_compile_inc]
-  \\ fs [closPropsTheory.FST_SND_ignore_table, compile_inc_post_kcompile_def]
+  \\ fs [FST_SND_ignore_table, compile_inc_post_kcompile_def]
   \\ fs [PULL_EXISTS, GSYM boolTheory.RIGHT_EXISTS_IMP_THM,
         Q.SPEC `IS_SOME x` IMP_CONJ_THM]
   \\ drule_then (fn t => fs [t]) (Q.prove
@@ -7657,7 +7669,7 @@ Theorem number_compile_inc_req:
   ALL_DISTINCT (req_compile_inc_addrs [SUC] nprog) /\
   SND nprog = [] /\ can_extract (FST nprog)
 Proof
-  PairCases_on `prog` \\ fs [ignore_table_def]
+  PairCases_on `prog` \\ fs [clos_numberTheory.ignore_table_def]
   \\ fs [clos_numberTheory.compile_inc_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rpt disch_tac
@@ -7696,7 +7708,7 @@ Theorem MEM_number_req:
   SND prog = [] ==>
   n <= x /\ x < FST (clos_number$compile_inc n (FST prog))
 Proof
-  PairCases_on `prog` \\ Cases_on `prog1` \\ fs [ignore_table_def]
+  PairCases_on `prog` \\ Cases_on `prog1` \\ fs [clos_numberTheory.ignore_table_def]
   \\ fs [clos_numberTheory.compile_inc_def]
   \\ specl_args_of_then``renumber_code_locs_list``
         clos_numberProofTheory.renumber_code_locs_list_distinct mp_tac
@@ -8452,7 +8464,7 @@ Theorem compile_inc_phases_all_distinct:
     (clos_annotate$compile_inc
       (SND (clos_call$cond_call_compile_inc dc c_st
         (SND (clos_knownProof$known_co kc
-          (state_co (closProps$ignore_table clos_number$compile_inc) orac)
+          (state_co (ignore_table clos_number$compile_inc) orac)
             i)))))))
 Proof
   rw []
