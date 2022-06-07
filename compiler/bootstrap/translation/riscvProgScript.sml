@@ -94,7 +94,7 @@ val (binop::shift::rest) = el 3 riscv_enc1s |> SIMP_RULE (srw_ss() ++
 val (binopreg_aux::binopimm_aux::_) = binop |> SIMP_RULE (srw_ss() ++
   DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``])
   [FORALL_AND_THM] |> CONJUNCTS |> map (SIMP_RULE (srw_ss() ++ LET_ss
-  ++ DatatypeSimps.expand_type_quants_ss [``:binop``]) []);
+  ++ DatatypeSimps.expand_type_quants_ss [``:asm$binop``]) []);
 
 val binopreg = binopreg_aux |> CONJUNCTS |> map(fn th => th |>
   SIMP_RULE (srw_ss()++LET_ss) (defaults) |> wc_simp |> we_simp |>
