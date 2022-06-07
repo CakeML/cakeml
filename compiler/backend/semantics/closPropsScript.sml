@@ -2221,7 +2221,6 @@ Theorem simple_val_rel_do_app_rev:
     | Rval (y,t1) => ?x s1. vr x y /\ sr s1 t1 /\
                             do_app opp xs s = Rval (x,s1)
 Proof
-  cheat (*
   strip_tac
   \\ `?this_is_case. this_is_case opp` by (qexists_tac `K T` \\ fs [])
   \\ Cases_on `opp = ListAppend`
@@ -2240,7 +2239,7 @@ Proof
                opp = WordToInt \/ opp = ConfigGC \/
                (?n. opp = Label n) \/ (?n. opp = Cons n) \/
                (?i. opp = LessConstSmall i) \/ opp = LengthByteVec \/
-               (?i. opp = EqualInt i) \/ (?n. opp = TagEq n) \/
+               (?i. opp = EqualConst i) \/ (?n. opp = TagEq n) \/
                (?n. opp = LenEq n) \/
                (?n n1. opp = TagLenEq n n1) \/ opp = Install \/
                (?w oo k. opp = WordShift w oo k) \/
@@ -2248,7 +2247,7 @@ Proof
                (?w oo. opp = WordOp w oo) \/ opp = ConcatByteVec`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def]
+    \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def,AllCaseEqs()]
     \\ strip_tac \\ rveq
     \\ drule v_rel_to_list_ByteVector
     \\ rfs [simple_val_rel_alt] \\ rveq \\ fs []
@@ -2399,7 +2398,7 @@ Proof
     \\ fs [closSemTheory.Unit_def]
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes))
     \\ asm_exists_tac \\ fs [LIST_REL_REPLICATE_same])
-  \\ Cases_on `opp` \\ fs [] *)
+  \\ Cases_on `opp` \\ fs []
 QED
 
 Theorem simple_val_rel_do_app:

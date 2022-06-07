@@ -1594,7 +1594,10 @@ Proof
     every_case_tac \\ fs[v_rel_SIMP] \\ rw[]
     \\ full_simp_tac(srw_ss())[state_rel_def] >> res_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >>
     rw[] \\ fs[LIST_REL_EL_EQN])
-  >- cheat
+  >-
+   (gvs [AllCaseEqs(),PULL_EXISTS,v_rel_SIMP]
+    \\ gvs [state_rel_def]
+    \\ res_tac \\ gvs [])
   >- (
     Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
