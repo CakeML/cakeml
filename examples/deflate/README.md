@@ -4,7 +4,7 @@ Scripts relevant to the formalisation of the DEFLATE algorithm
 Formalization and implementation of LZSS
 
 [LZSSrbScript.sml](LZSSrbScript.sml):
-Formalization and implementation of LZSS using ringbuffer
+Implementation of LZSS using ringbuffer
 
 [compressionScript.sml](compressionScript.sml):
 First simple compressor

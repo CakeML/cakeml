@@ -1,5 +1,5 @@
 (*
-Formalization and implementation of LZSS using ringbuffer
+Implementation of LZSS using ringbuffer
 *)
 
 open preamble;
@@ -42,7 +42,6 @@ Proof
   gs[DROP_EL_CONS]
 QED
 
-(* PROOF HELP *)
 Definition matchLength_def[simp]:
   (matchLength s [] :num = 0) ∧
   (matchLength [] l = 0) ∧
@@ -155,10 +154,6 @@ Definition LZSSRB_compress_def:
   in
     LZcompRB rb remainder look
 End
-EVAL “LZinit "hej nej ne"”;
-EVAL “LZSSRB_compress "hej nej ne"”;
-EVAL “LZSS_decompress (LZSSRB_compress "hej nej ne")”;
-
 
 (*******************************************************
  *****                                             *****
@@ -192,42 +187,5 @@ End
 Definition LZSS_decompress_def:
   LZSS_decompress s = LZdecompress [] s
 End
-
-EVAL “LZSSRB_compress "hejsan hejsan hejsan jag heter bert ert ert ert jag har lagt en fjert"”;
-
-EVAL “LZSS_decompress (LZSSRB_compress "hejsan hejsan hejsan jag heter bert ert ert ert jag har lagt en fjert")”;
-
-
-(*******************************************************
- *****                                             *****
- *****              Main functions                 *****
- *****                                             *****
- *******************************************************)
-
-(*Definition LZSS_compress_main_def:
-  LZSS_compress_main s =
-  if LZSS_decompress (LZSS_compress s) = s
-  then (Lit #"C")::(LZSS_compress s)
-  else (Lit #"U")::s
-End
-
-Definition LZSS_decompress_main_def:
-  LZSS_decompress_main s =
-  if IS_PREFIX s (Lit #"C")
-  then LZSS_decompress (DROP (LENGTH 1 s))
-  else DROP 1 s
-End
-
-Theorem compress_main_inv:
- ∀s. LZSS_decompress_main (LZSS_compress_main s) = s
-Proof
-  REWRITE_TAC[decompress_main_def, compress_main_def]
-  \\ strip_tac
-  \\ CASE_TAC
-  \\ simp[]
-QED
-*)
-
-(* lookup data refinement *)
 
 val _ = export_theory();

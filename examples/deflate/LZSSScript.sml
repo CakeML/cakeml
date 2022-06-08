@@ -202,13 +202,6 @@ Proof
   drule getMatchInBounds >> simp[]
 QED
 
-(* new version which takes buffer size as a parameter and searches into lookahead
-
-s: vår buffer ++ allt vi inte hanterat
-split: hur långt vi kommit i s
-bufsize: hur långt bak vi får titta
-looksize: hur långt fram vi får titta *)
-
 Definition LZcomp_def:
   LZcomp s split bufSize lookSize =
   if LENGTH s ≤ split ∨ s = [] ∨ bufSize = 0 ∨ lookSize = 0 then []
@@ -233,8 +226,6 @@ Termination
   CASE_TAC >>
   simp[MAX_DEF,MIN_DEF]
 End
-
-EVAL “LZcomp "hej jag heter heter jag nej heterogen" 0 258 258”;
 
 Theorem LASTN_NILL[simp]:
   ∀n. LASTN n [] = []
@@ -267,21 +258,6 @@ Proof
   >- (gs[TAKE_APPEND1] >> simp[TAKE_APPEND]) >>
   gs[TAKE_APPEND2] >> simp[TAKE_APPEND]
 QED
-
-(*
-Definition LZSS_to_string_def:
-  LZSS_to_string [] = [] ∧
-  LZSS_to_string ((Lit a)::ss) =
-  "0" ++ a::LZSS_to_string ss ∧
-  LZSS_to_string ((LenDist (ml, md))::ss) =
-  "1" ++ num_to_dec_string ml ++ num_to_dec_string md ++ LZSS_to_string ss
-End
-
-Definition string_to_LZSS_def:
-  string_to_LZSS [] = [] ∧
-  string_to_LZSS (a::ss) = if a = #"0" then Lit HD ss else if
-                           End
-*)
 
 Definition LZSS_compress_def:
   LZSS_compress s = LZcomp s 0 BUFFER_SIZE LOOKAHEAD_SIZE
@@ -520,40 +496,6 @@ Theorem LZSS_decompressWindow: (*----- FAILS -----*)
 Proof
   strip_tac >> simp[LZSS_compress_def,LZSS_decompress_def,LZinit_def] >>
   simp[LZ_inv_thm]
-QED
-*)
-
-EVAL “LZSS_compress "hejsan jag heter bert ert ert ert jag har lagt en fjert "”;
-EVAL “LZSS_decompress (LZSS_compress "hejsan jag heter bert ert ert ert jag har lagt en fjert ")”;
-
-
-(******************************************************
-*****                                             *****
-*****              Main functions                 *****
-*****                                             *****
-******************************************************)
-
-(*Definition LZSS_compress_main_def:
-  LZSS_compress_main s =
-  if LZSS_decompress (LZSS_compress s) = s
-  then (Lit #"C")::(LZSS_compress s)
-  else (Lit #"U")::s
-End
-
-Definition LZSS_decompress_main_def:
-  LZSS_decompress_main s =
-  if IS_PREFIX s (Lit #"C")
-  then LZSS_decompress (DROP (LENGTH 1 s))
-  else DROP 1 s
-End
-
-Theorem compress_main_inv:
- ∀s. LZSS_decompress_main (LZSS_compress_main s) = s
-Proof
-  REWRITE_TAC[decompress_main_def, compress_main_def]
-  \\ strip_tac
-  \\ CASE_TAC
-  \\ simp[]
 QED
 *)
 
