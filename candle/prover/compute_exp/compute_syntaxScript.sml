@@ -14,11 +14,17 @@ val _ = numLib.prefer_num ();
 Overload Num = “Tyapp «num» []”;
 
 Overload "_X" = “Var «x» Bool”;
+Overload "_Y" = “Var «y» Bool”;
 Overload "_TRUE" = “Const «T» Bool”;
 Overload "_FALSE" = “Const «F» Bool”;
+(* COND on numbers: *)
 Overload "_COND_TM" =
   “Const «COND» (Fun Bool (Fun Num (Fun Num Num)))”;
 Overload "_COND" = “λt t1 t2. Comb (Comb (Comb _COND_TM t) t1) t2”;
+(* COND on booleans: *)
+Overload "_IF_TM" =
+  “Const «COND» (Fun Bool (Fun Bool (Fun Bool Bool)))”;
+Overload "_IF" = “λt t1 t2. Comb (Comb (Comb _IF_TM t) t1) t2”;
 
 Overload "_0" = “Const «_0» Num”;
 Overload "_SUC_TM" = “Const «SUC» (Fun Num Num)”;
@@ -96,6 +102,8 @@ Overload "_CEXP_SND_TM" = “Const «Cexp_snd» (Fun Cexp Cexp)”;
 Overload "_CEXP_SND" = “λtm. Comb _CEXP_SND_TM tm”;
 Overload "_CEXP_ISPAIR_TM" = “Const «Cexp_ispair» (Fun Cexp Cexp)”;
 Overload "_CEXP_ISPAIR" = “λtm. Comb _CEXP_ISPAIR_TM tm”;
+Overload "_CEXP_EQ_TM" = “Const «Cexp_eq» (Fun Cexp (Fun Cexp Cexp))”;
+Overload "_CEXP_EQ" = “λt1 t2. Comb (Comb _CEXP_EQ_TM t1) t2”;
 
 (* -------------------------------------------------------------------------
  * Bools
@@ -128,7 +136,7 @@ End
  * ------------------------------------------------------------------------- *)
 
 Datatype:
-  binop = Add | Sub | Mul | Div | Mod | Less
+  binop = Add | Sub | Mul | Div | Mod | Less | Eq
 End
 
 Datatype:
@@ -141,6 +149,12 @@ Datatype:
               | Snd compute_exp
               | Ispair compute_exp
               | Binop binop compute_exp compute_exp
+End
+
+Definition cexp_value_def[simp]:
+  cexp_value (Num n) = T ∧
+  cexp_value (Pair p q) = (cexp_value p ∧ cexp_value q) ∧
+  cexp_value _ = F
 End
 
 Definition app_type_def:
@@ -160,7 +174,8 @@ Definition bop2term_def:
   bop2term Mul = _CEXP_MUL ∧
   bop2term Div = _CEXP_DIV ∧
   bop2term Mod = _CEXP_MOD ∧
-  bop2term Less = _CEXP_LESS
+  bop2term Less = _CEXP_LESS ∧
+  bop2term Eq = _CEXP_EQ
 End
 
 Definition cexp2term_def:

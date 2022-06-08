@@ -75,5 +75,40 @@ Proof
   \\ CONV_TAC (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ rw []
 QED
 
+Theorem do_arith_PMATCH:
+  ∀t1 t2.
+    do_arith op t1 t2 =
+      case t1 of
+      | Num n =>
+        (case t2 of
+         | Num m => return (Num (op n m))
+         | _ => return (Num (op n 0)))
+      | _ =>
+        (case t2 of
+         | Num m => return (Num (op 0 m))
+         | _ => return (Num 0))
+Proof
+  rpt gen_tac
+  \\ CONV_TAC (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ Cases_on ‘t1’ \\ Cases_on ‘t2’
+  \\ rw [do_arith_def]
+QED
+
+Theorem do_reln_PMATCH:
+  ∀t1 t2.
+    do_reln op t1 t2 =
+      case t1 of
+      | Num n =>
+        (case t2 of
+         | Num m => return (Num (if op n m then SUC 0 else 0))
+         | _ => return (Num 0))
+      | _ => return (Num 0)
+Proof
+  rpt gen_tac
+  \\ CONV_TAC (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ Cases_on ‘t1’ \\ Cases_on ‘t2’
+  \\ rw [do_reln_def]
+QED
+
 val _ = export_theory ();
 

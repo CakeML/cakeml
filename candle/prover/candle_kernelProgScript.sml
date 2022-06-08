@@ -98,8 +98,11 @@ val _ = update_precondition dest_cexp_side;
 
 val r = m_translate option_def;
 val r = m_translate check_def;
-val r = m_translate do_arith_def;
-val r = m_translate do_reln_def;
+
+val r = m_translate do_arith_PMATCH;
+val r = m_translate do_reln_PMATCH;
+val r = m_translate do_eq_def;
+
 val r = translate SAFEMOD_def;
 val r = translate SAFEDIV_def;
 val r = m_translate do_binop_def;

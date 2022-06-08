@@ -959,6 +959,14 @@ Proof
   \\ rw[]
 QED
 
+Theorem perms_ok_do_eq_v[simp]:
+  perms_ok ps do_eq_v
+Proof
+  rw[perms_ok_def, do_eq_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
 Theorem perms_ok_do_binop_v[simp]:
   perms_ok ps do_binop_v
 Proof

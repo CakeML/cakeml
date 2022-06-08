@@ -204,6 +204,8 @@ Definition dest_cexp_def:
               SOME (Binop Mod p q)
             else if Const n ty = _CEXP_LESS_TM then
               SOME (Binop Less p q)
+            else if Const n ty = _CEXP_EQ_TM then
+              SOME (Binop Eq p q)
             else if ty = Fun Cexp (Fun Cexp Cexp) then
               SOME (App n [p; q])
             else
@@ -244,13 +246,18 @@ Definition do_reln_def:
   do_reln opn _ _ = return (Num 0)
 End
 
+Definition do_eq_def:
+  do_eq p q = return (Num (if p = q then SUC 0 else 0))
+End
+
 Definition do_binop_def:
   do_binop Add p q = do_arith $+ p q ∧
   do_binop Sub p q = do_arith $- p q ∧
   do_binop Mul p q = do_arith $* p q ∧
   do_binop Div p q = do_arith $SAFEDIV p q ∧
   do_binop Mod p q = do_arith $SAFEMOD p q ∧
-  do_binop Less p q = do_reln $< p q
+  do_binop Less p q = do_reln $< p q ∧
+  do_binop Eq p q = do_eq p q
 End
 
 Definition do_fst_def:

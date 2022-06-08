@@ -35,6 +35,8 @@ Definition compute_thms_def:
   compute_thms = MAP (Sequent []) [
     (* COND_TRUE  *) _COND _TRUE _M _N === _M;
     (* COND_FALSE *) _COND _FALSE _M _N === _N;
+    (* IF_TRUE    *) _IF _TRUE _X _Y === _X;
+    (* IF_FALSE   *) _IF _FALSE _X _Y === _Y;
     (* NUMERAL    *) _NUMERAL _N === _N;
     (* BIT0       *) _BIT0 _N === _ADD _N _N;
     (* BIT1       *) _BIT1 _N === _SUC (_ADD _N _N);
@@ -116,10 +118,19 @@ Definition compute_thms_def:
     (* CEXP_FST   *) _CEXP_FST (_CEXP_NUM _M) === _CEXP_NUM (_NUMERAL _0);
     (* CEXP_SND   *) _CEXP_SND (_CEXP_PAIR _P1 _Q1) === _Q1;
     (* CEXP_SND   *) _CEXP_SND (_CEXP_NUM _M) === _CEXP_NUM (_NUMERAL _0);
-    (* CEXP_ISPAIR *) _CEXP_ISPAIR (_CEXP_PAIR _P1 _Q1) ===
-                      _CEXP_NUM (_SUC (_NUMERAL _0));
-    (* CEXP_ISPAIR *) _CEXP_ISPAIR (_CEXP_NUM _M) ===
-                      _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_ISPAIR*) _CEXP_ISPAIR (_CEXP_PAIR _P1 _Q1) ===
+                     _CEXP_NUM (_SUC (_NUMERAL _0));
+    (* CEXP_ISPAIR*) _CEXP_ISPAIR (_CEXP_NUM _M) ===
+                     _CEXP_NUM (_NUMERAL _0);
+    (* CEXP_EQ    *) _CEXP_EQ _P1 _Q1 ===
+                     _CEXP_NUM (_COND (_P1 === _Q1)
+                                      (_SUC (_NUMERAL _0))
+                                      (_NUMERAL _0));
+    (* PAIR_EQ1   *) (_CEXP_PAIR _P1 _Q1 === _CEXP_PAIR _P2 _Q2) ===
+                     (_IF (_P1 === _P2) (_Q1 === _Q2) _FALSE);
+    (* PAIR_EQ2   *) (_CEXP_NUM _M === _CEXP_NUM _N) === (_M === _N);
+    (* PAIR_EQ3   *) (_CEXP_NUM _M === _CEXP_PAIR _P1 _Q1) === _FALSE;
+    (* PAIR_EQ4   *) (_CEXP_PAIR _P1 _Q1 === _CEXP_NUM _N) === _FALSE;
   ]
 End
 

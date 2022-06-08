@@ -86,6 +86,56 @@ Proof
            SF SFY_ss]
 QED
 
+Theorem replaceL_eq1:
+  (thy,[]) |- (x === x') ∧
+  (thy,[]) |- (x === y) === r ⇒
+    (thy,[]) |- (x' === y) === r
+Proof
+  rw []
+  \\ ‘theory_ok thy ∧
+      EVERY (term_ok (sigof thy)) [x;x';y;r] ∧
+      typeof x = typeof y ∧
+      typeof x' = typeof x ∧
+      typeof r = Bool ∧
+      type_ok (tysof thy) (typeof y)’
+    by (imp_res_tac proves_term_ok
+        \\ imp_res_tac proves_theory_ok
+        \\ gs [term_ok_def, equation_def, type_ok_def])
+  \\ irule trans_equation_simple
+  \\ first_assum (irule_at Any) \\ fs []
+  \\ CONV_TAC (PATH_CONV "rl" (SIMPC [equation_def]))
+  \\ CONV_TAC (PATH_CONV "rr" (SIMPC [equation_def]))
+  \\ irule MK_COMB_simple \\ gs [proves_REFL, term_ok_welltyped, SF SFY_ss]
+  \\ irule MK_COMB_simple \\ gs [proves_REFL, term_ok_welltyped, SF SFY_ss]
+  \\ rw [sym_equation] \\ irule proves_REFL \\ gs []
+  \\ gs [theory_ok_def, term_ok_clauses]
+QED
+
+Theorem replaceL_eq2:
+  (thy,[]) |- (x === x') ∧
+  (thy,[]) |- (y === x) === r ⇒
+    (thy,[]) |- (y === x') === r
+Proof
+  rw []
+  \\ ‘theory_ok thy ∧
+      EVERY (term_ok (sigof thy)) [x;x';y;r] ∧
+      typeof x = typeof y ∧
+      typeof x' = typeof x ∧
+      typeof r = Bool ∧
+      type_ok (tysof thy) (typeof y)’
+    by (imp_res_tac proves_term_ok
+        \\ imp_res_tac proves_theory_ok
+        \\ gs [term_ok_def, equation_def, type_ok_def])
+  \\ irule trans_equation_simple
+  \\ first_assum (irule_at Any) \\ fs []
+  \\ CONV_TAC (PATH_CONV "rl" (SIMPC [equation_def]))
+  \\ CONV_TAC (PATH_CONV "rr" (SIMPC [equation_def]))
+  \\ irule MK_COMB_simple \\ gs [proves_REFL, term_ok_welltyped, SF SFY_ss]
+  \\ rw [sym_equation]
+  \\ irule proves_REFL \\ gs []
+  \\ gs [theory_ok_def, term_ok_clauses, term_ok_welltyped, SF SFY_ss]
+QED
+
 Theorem replaceR1 =
   UNDISCH_ALL replaceL1 |> MATCH_MP sym_equation |> DISCH_ALL;
 
@@ -94,6 +144,12 @@ Theorem replaceR2 =
 
 Theorem replaceR3 =
   UNDISCH_ALL replaceL3 |> MATCH_MP sym_equation |> DISCH_ALL;
+
+Theorem replaceR_eq1 =
+  UNDISCH_ALL replaceL_eq1 |> MATCH_MP sym_equation |> DISCH_ALL;
+
+Theorem replaceR_eq2 =
+  UNDISCH_ALL replaceL_eq2 |> MATCH_MP sym_equation |> DISCH_ALL;
 
 Theorem DEDUCT_ANTISYM_simple:
   (thy,[]) |- a ∧ (thy,[]) |- b ⇒ (thy,[]) |- a === b
@@ -112,18 +168,21 @@ Definition bool_thy_ok_def:
     theory_ok thy ∧
     (* COND *)
     (thy,[]) |- _COND _TRUE _M _N === _M ∧
-    (thy,[]) |- _COND _FALSE _M _N === _N
+    (thy,[]) |- _COND _FALSE _M _N === _N ∧
+    (thy,[]) |- _IF _TRUE _X _Y === _X ∧
+    (thy,[]) |- _IF _FALSE _X _Y === _Y
 End
 
 Theorem bool_thy_ok_terms_ok:
   bool_thy_ok thy ⇒
     term_ok (sigof thy) _TRUE ∧
     term_ok (sigof thy) _FALSE ∧
-    term_ok (sigof thy) _COND_TM
+    term_ok (sigof thy) _COND_TM ∧
+    term_ok (sigof thy) _IF_TM
 Proof
   simp [bool_thy_ok_def] \\ strip_tac
   \\ rpt (dxrule_then assume_tac proves_term_ok) \\ rfs []
-  \\ fs [equation_def, term_ok_def, SF SFY_ss]
+  \\ gs [theory_ok_def, term_ok_clauses]
 QED
 
 Theorem bool_thy_ok_theory_ok[simp]:
@@ -196,6 +255,7 @@ Theorem numeral_thy_ok_terms_ok:
     term_ok (sigof thy) _TRUE ∧
     term_ok (sigof thy) _FALSE ∧
     term_ok (sigof thy) _COND_TM ∧
+    term_ok (sigof thy) _IF_TM ∧
     term_ok (sigof thy) _ADD_TM ∧
     term_ok (sigof thy) _SUB_TM ∧
     term_ok (sigof thy) _MUL_TM ∧
@@ -372,24 +432,42 @@ Proof
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
-Theorem EQ_eqn:
+Theorem EQ_eqn1:
+  numeral_thy_ok thy ⇒
+    (thy,[]) |- (_NUMERAL _0 === _NUMERAL _0) === _TRUE
+Proof
+  rw [numeral_thy_ok_def]
+QED
+
+Theorem EQ_eqn2:
+  numeral_thy_ok thy ∧
+  term_ok (sigof thy) n ∧ n has_type Num ⇒
+    (thy,[]) |- (_NUMERAL _0 === _SUC n) === _FALSE
+Proof
+  rw [numeral_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- (_NUMERAL _ === _SUC _) === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N]’ mp_tac) proves_INST
+  \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem EQ_eqn3:
+  numeral_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ m has_type Num ⇒
+    (thy,[]) |- (_SUC m === _NUMERAL _0) === _FALSE
+Proof
+  rw [numeral_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- (_SUC _ === _NUMERAL _) === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M]’ mp_tac) proves_INST
+  \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem EQ_eqn4:
   numeral_thy_ok thy ∧
   term_ok (sigof thy) m ∧ term_ok (sigof thy) n ∧
   m has_type Num ∧ n has_type Num ⇒
-    (thy,[]) |- (_NUMERAL _0 === _NUMERAL _0) === _TRUE ∧
-    (thy,[]) |- (_NUMERAL _0 === _SUC n) === _FALSE ∧
-    (thy,[]) |- (_SUC m === _NUMERAL _0) === _FALSE ∧
     (thy,[]) |- (_SUC m === _SUC n) === (m === n)
 Proof
   rw [numeral_thy_ok_def]
-  >- (
-    qpat_x_assum ‘_ |- (_NUMERAL _ === _SUC _) === _’ assume_tac
-    \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N]’ mp_tac) proves_INST
-    \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def])
-  >- (
-    qpat_x_assum ‘_ |- (_SUC _ === _NUMERAL _) === _’ assume_tac
-    \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M]’ mp_tac) proves_INST
-    \\ simp [VSUBST_def, equation_def, REV_ASSOCD_def])
   \\ qpat_x_assum ‘_ |- (_SUC _ === _SUC _) === _’ assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M;n,_N]’ mp_tac) proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
@@ -414,6 +492,25 @@ Proof
     \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def])
   \\ qpat_x_assum ‘_ |- _COND _FALSE _ _ === _’ assume_tac
   \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M; n,_N]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
+
+Theorem IF_eqn:
+  bool_thy_ok thy ∧
+  term_ok (sigof thy) x ∧ term_ok (sigof thy) y ∧
+  x has_type Bool ∧ y has_type Bool ⇒
+    (thy,[]) |- _IF _TRUE x y === x ∧
+    (thy,[]) |- _IF _FALSE x y === y
+Proof
+  rw [bool_thy_ok_def]
+  >- (
+    qpat_x_assum ‘_ |- _IF _TRUE _ _ === _’ assume_tac
+    \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[x,_X; y,_Y]’ mp_tac)
+                      proves_INST
+    \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def])
+  \\ qpat_x_assum ‘_ |- _IF _FALSE _ _ === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[x,_X; y,_Y]’ mp_tac)
                     proves_INST
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
@@ -472,7 +569,6 @@ Theorem SUB_has_type[simp]:
 Proof
   rw [Ntimes has_type_cases 3]
 QED
-
 
 (* TODO Move *)
 Theorem MOD_has_type[simp]:
@@ -747,6 +843,35 @@ QED
 Theorem LESS_bool2term_num2term =
   UNDISCH_ALL bool2term_LESS_num2term |> MATCH_MP sym_equation |> DISCH_ALL;
 
+Theorem bool2term_EQ_num2term:
+  numeral_thy_ok thy ⇒
+    (thy,[]) |- bool2term (m = n) === (num2term m === num2term n)
+Proof
+  strip_tac
+  \\ ‘∀m n. (thy,[]) |-  (num2term m === num2term n) === bool2term (m = n)’
+    suffices_by rw [sym_equation]
+  \\ Induct \\ simp []
+  >- (
+    Cases \\ rw [num2term_def, bool2term_def]
+    >- (
+      irule replaceL_eq1 \\ irule_at Any NUMERAL_eqn
+      \\ irule_at Any replaceL_eq2 \\ irule_at Any NUMERAL_eqn
+      \\ gs [numeral_thy_ok_terms_ok, EQ_eqn1])
+    \\ irule replaceL_eq1 \\ irule_at Any NUMERAL_eqn
+    \\ irule_at Any EQ_eqn2 \\ gs [num2term_term_ok, numeral_thy_ok_terms_ok])
+  \\ Cases \\ gs [num2term_def, bool2term_def]
+  >- (
+    irule replaceL_eq2 \\ irule_at Any NUMERAL_eqn
+    \\ irule_at Any EQ_eqn3 \\ gs [num2term_term_ok, numeral_thy_ok_terms_ok])
+  \\ rename [‘m = n’]
+  \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+  \\ irule trans_equation_simple \\ first_x_assum (irule_at Any)
+  \\ irule EQ_eqn4 \\ gs [num2term_term_ok]
+QED
+
+Theorem EQ_bool2term_num2term =
+  UNDISCH_ALL bool2term_EQ_num2term |> MATCH_MP sym_equation |> DISCH_ALL;
+
 Theorem SUB_DIV:
   ∀m n. 0 < n ∧ n ≤ m ⇒ SUC ((m - n) DIV n) = m DIV n
 Proof
@@ -791,10 +916,7 @@ Proof
     \\ conj_tac
     >- (
       irule sym_equation
-      \\ qmatch_goalsub_abbrev_tac ‘_SUC N’
-      \\ qspecl_then [‘thy’,‘N’,‘N’] (mp_tac o SIMPR [SF CONJ_ss])
-                     (GEN_ALL $ DISCH_ALL $ cj 3 $ UNDISCH_ALL EQ_eqn)
-      \\ rw [Abbr ‘N’, num2term_term_ok])
+      \\ irule EQ_eqn3 \\ gs [num2term_term_ok])
     \\ irule trans_equation_simple
     \\ irule_at Any (DISCH_ALL (CONJUNCT2 (UNDISCH_ALL COND_eqn)))
     \\ gs [numeral_thy_ok_terms_ok, num2term_term_ok, term_ok_def, proves_REFL]
@@ -821,10 +943,7 @@ Proof
   \\ conj_tac
   >- (
     irule sym_equation
-    \\ qmatch_goalsub_abbrev_tac ‘_SUC N’
-    \\ qspecl_then [‘thy’,‘N’,‘N’] (mp_tac o SIMPR [SF CONJ_ss])
-                   (GEN_ALL $ DISCH_ALL $ cj 3 $ UNDISCH_ALL EQ_eqn)
-    \\ rw [Abbr ‘N’, num2term_term_ok])
+    \\ irule EQ_eqn3 \\ gs [num2term_term_ok])
   \\ irule trans_equation_simple
   \\ irule_at Any (DISCH_ALL (CONJUNCT2 (UNDISCH_ALL COND_eqn)))
   \\ gs [numeral_thy_ok_terms_ok, num2term_term_ok, term_ok_def, proves_REFL]
@@ -890,10 +1009,7 @@ Proof
     \\ conj_tac
     >- (
       irule sym_equation
-      \\ qmatch_goalsub_abbrev_tac ‘_SUC N’
-      \\ qspecl_then [‘thy’,‘N’,‘N’] (mp_tac o SIMPR [SF CONJ_ss])
-                     (GEN_ALL $ DISCH_ALL $ cj 3 $ UNDISCH_ALL EQ_eqn)
-      \\ rw [Abbr ‘N’, num2term_term_ok])
+      \\ irule EQ_eqn3 \\ gs [num2term_term_ok])
     \\ irule trans_equation_simple
     \\ irule_at Any (DISCH_ALL (CONJUNCT2 (UNDISCH_ALL COND_eqn)))
     \\ gs [numeral_thy_ok_terms_ok, num2term_term_ok, term_ok_def, proves_REFL]
@@ -917,10 +1033,7 @@ Proof
   \\ conj_tac
   >- (
     irule sym_equation
-    \\ qmatch_goalsub_abbrev_tac ‘_SUC N’
-    \\ qspecl_then [‘thy’,‘N’,‘N’] (mp_tac o SIMPR [SF CONJ_ss])
-                   (GEN_ALL $ DISCH_ALL $ cj 3 $ UNDISCH_ALL EQ_eqn)
-    \\ rw [Abbr ‘N’, num2term_term_ok])
+    \\ irule EQ_eqn3 \\ gs [num2term_term_ok])
   \\ irule trans_equation_simple
   \\ irule_at Any (DISCH_ALL (CONJUNCT2 (UNDISCH_ALL COND_eqn)))
   \\ gs [numeral_thy_ok_terms_ok, num2term_term_ok, term_ok_def, proves_REFL]
@@ -1109,6 +1222,21 @@ QED
 Theorem LESS_bool2term_num2bit =
   UNDISCH_ALL bool2term_LESS_num2bit |> MATCH_MP sym_equation |> DISCH_ALL;
 
+Theorem bool2term_EQ_num2bit:
+  numeral_thy_ok thy ⇒
+    (thy,[]) |- bool2term (m = n) === (num2bit m === num2bit n)
+Proof
+  strip_tac
+  \\ resolve_then Any irule sym_equation replaceR_eq1
+  \\ irule_at Any num2bit_num2term \\ gs []
+  \\ resolve_then Any irule sym_equation replaceL_eq2
+  \\ irule_at Any num2bit_num2term \\ gs []
+  \\ fs [EQ_bool2term_num2term]
+QED
+
+Theorem EQ_bool2term_num2bit =
+  UNDISCH_ALL bool2term_EQ_num2bit |> MATCH_MP sym_equation |> DISCH_ALL;
+
 (* -------------------------------------------------------------------------
  * Compute values
  * ------------------------------------------------------------------------- *)
@@ -1216,7 +1344,16 @@ Definition compute_thy_ok_def:
     (thy,[]) |- _CEXP_ISPAIR (_CEXP_PAIR _P1 _Q1) ===
                 _CEXP_NUM (_SUC (_NUMERAL _0)) ∧
     (thy,[]) |- _CEXP_ISPAIR (_CEXP_NUM _M) ===
-                _CEXP_NUM (_NUMERAL _0)
+                _CEXP_NUM (_NUMERAL _0) ∧
+    (* Cexp_eq *)
+    (thy,[]) |- _CEXP_EQ _P1 _Q1 ===
+                _CEXP_NUM (_COND (_P1 === _Q1)(_SUC (_NUMERAL _0))
+                                              (_NUMERAL _0)) ∧
+    (thy,[]) |- (_CEXP_PAIR _P1 _Q1 === _CEXP_PAIR _P2 _Q2) ===
+                (_IF (_P1 === _P2) (_Q1 === _Q2) _FALSE) ∧
+    (thy,[]) |- (_CEXP_NUM _M === _CEXP_NUM _N) === (_M === _N) ∧
+    (thy,[]) |- (_CEXP_NUM _M === _CEXP_PAIR _P1 _Q1) === _FALSE ∧
+    (thy,[]) |- (_CEXP_PAIR _P1 _Q1 === _CEXP_NUM _N) === _FALSE
 End
 
 Theorem CEXP_IF_eqn1:
@@ -1707,12 +1844,104 @@ Proof
   \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
 QED
 
+Theorem CEXP_EQ_eqn1:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) p1 ∧ p1 has_type Cexp ∧
+  term_ok (sigof thy) q1 ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- _CEXP_EQ p1 q1 ===
+                _CEXP_NUM (_COND (p1 === q1)(_SUC (_NUMERAL _0))
+                                            (_NUMERAL _0))
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _CEXP_EQ _ _ === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1;q1,_Q1]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_thm, equation_def, REV_ASSOCD_def]
+  \\ dxrule WELLTYPED_LEMMA
+  \\ dxrule WELLTYPED_LEMMA
+  \\ simp []
+QED
+
+Theorem CEXP_EQ_eqn2:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) p1 ∧ p1 has_type Cexp ∧
+  term_ok (sigof thy) q1 ∧ q1 has_type Cexp ∧
+  term_ok (sigof thy) p2 ∧ p2 has_type Cexp ∧
+  term_ok (sigof thy) q2 ∧ q2 has_type Cexp ⇒
+    (thy,[]) |- (_CEXP_PAIR p1 q1 === _CEXP_PAIR p2 q2) ===
+                (_IF (p1 === p2) (q1 === q2) _FALSE)
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- (_CEXP_PAIR _ _ === _CEXP_PAIR _ _) === _’
+                  assume_tac
+  \\ dxrule_at_then (Pos (el 2))
+                    (qspec_then ‘[p1,_P1;q1,_Q1;p2,_P2;q2,_Q2]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_thm, equation_def, REV_ASSOCD_def]
+  \\ dxrule WELLTYPED_LEMMA
+  \\ dxrule WELLTYPED_LEMMA
+  \\ dxrule WELLTYPED_LEMMA
+  \\ dxrule WELLTYPED_LEMMA
+  \\ simp []
+QED
+
+Theorem CEXP_EQ_eqn3:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) n ∧ n has_type Num ∧
+  term_ok (sigof thy) m ∧ m has_type Num ⇒
+    (thy,[]) |- (_CEXP_NUM m === _CEXP_NUM n) === (m === n)
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- (_CEXP_NUM _ === _CEXP_NUM _) === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N;m,_M]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_thm, equation_def, REV_ASSOCD_def]
+  \\ dxrule WELLTYPED_LEMMA
+  \\ dxrule WELLTYPED_LEMMA
+  \\ simp []
+QED
+
+Theorem CEXP_EQ_eqn4:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) m ∧ m has_type Num ∧
+  term_ok (sigof thy) p1 ∧ p1 has_type Cexp ∧
+  term_ok (sigof thy) q1 ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- (_CEXP_NUM m === _CEXP_PAIR p1 q1) === _FALSE
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- (_CEXP_NUM _ === _CEXP_PAIR _ _) === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[m,_M;p1,_P1;q1,_Q1]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_thm, equation_def, REV_ASSOCD_def]
+  \\ dxrule WELLTYPED_LEMMA
+  \\ dxrule WELLTYPED_LEMMA
+  \\ simp []
+QED
+
+Theorem CEXP_EQ_eqn5:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) n ∧ n has_type Num ∧
+  term_ok (sigof thy) p1 ∧ p1 has_type Cexp ∧
+  term_ok (sigof thy) q1 ∧ q1 has_type Cexp ⇒
+    (thy,[]) |- (_CEXP_PAIR p1 q1 === _CEXP_NUM n) === _FALSE
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- (_CEXP_PAIR _ _ === _CEXP_NUM _) === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[n,_N;p1,_P1;q1,_Q1]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_thm, equation_def, REV_ASSOCD_def]
+  \\ dxrule WELLTYPED_LEMMA
+  \\ dxrule WELLTYPED_LEMMA
+  \\ simp []
+QED
+
 Theorem compute_thy_ok_terms_ok:
   compute_thy_ok thy ⇒
     (* bools *)
     term_ok (sigof thy) _TRUE ∧
     term_ok (sigof thy) _FALSE ∧
     term_ok (sigof thy) _COND_TM ∧
+    term_ok (sigof thy) _IF_TM ∧
     (* nums *)
     term_ok (sigof thy) _ADD_TM ∧
     term_ok (sigof thy) _SUB_TM ∧
@@ -1738,6 +1967,7 @@ Theorem compute_thy_ok_terms_ok:
     term_ok (sigof thy) _CEXP_FST_TM ∧
     term_ok (sigof thy) _CEXP_SND_TM ∧
     term_ok (sigof thy) _CEXP_ISPAIR_TM ∧
+    term_ok (sigof thy) _CEXP_EQ_TM ∧
     (* types *)
     type_ok (tysof thy) Cexp
 Proof
@@ -1875,6 +2105,107 @@ Proof
   \\ simp [has_type_rules, cexp2term_has_type, SF SFY_ss]
   \\ simp [term_ok_def, term_ok_welltyped, SF SFY_ss]
   \\ irule_at Any WELLTYPED_LEMMA \\ fs [SF SFY_ss]
+QED
+
+(* TODO move *)
+Theorem bool2term_term_ok[simp]:
+  bool_thy_ok thy ⇒
+    term_ok (sigof thy) (bool2term b)
+Proof
+  Cases_on ‘b’ \\ rw [bool2term_def]
+  \\ gs [bool_thy_ok_terms_ok]
+QED
+
+Theorem cexp_value_no_consts:
+  ∀v. cexp_value v ⇒ cexp_consts v = {}
+Proof
+  ho_match_mp_tac cexp_value_ind
+  \\ rw [cexp_value_def, cexp_consts_def]
+QED
+
+Theorem bool2term_EQ_cexpterm:
+  compute_thy_ok thy ⇒
+    cexp_value p ∧ cexp_value q ⇒
+    (thy,[]) |- bool2term (p = q) === (cexp2term p === cexp2term q)
+Proof
+  strip_tac
+  \\ ‘∀p q. cexp_value p ∧ cexp_value q ⇒
+              (thy,[]) |-  (cexp2term p === cexp2term q) === bool2term (p = q)’
+    suffices_by rw [sym_equation]
+  \\ ho_match_mp_tac cexp2term_ind \\ rw []
+  >~ [‘Num n’] >- (
+    rw [cexp2term_def]
+    \\ Cases_on ‘q = Num n’ \\ gvs [bool2term_def, cexp2term_def]
+    >- (
+      irule trans_equation_simple \\ irule_at Any CEXP_EQ_eqn3
+      \\ gs [num2bit_term_ok]
+      \\ resolve_then Any irule sym_equation replaceL_eq1
+      \\ irule_at Any NUMERAL_eqn
+      \\ resolve_then Any (irule_at Any) sym_equation replaceL_eq2
+      \\ irule_at Any NUMERAL_eqn
+      \\ irule_at Any trans_equation_simple
+      \\ irule_at Any EQ_bool2term_num2bit
+      \\ simp [bool2term_def, proves_REFL, num2bit_term_ok,
+               bool_thy_ok_terms_ok])
+    \\ Cases_on ‘∃m. q = Num m’ \\ gvs [cexp2term_def]
+    >- (
+      irule trans_equation_simple \\ irule_at Any CEXP_EQ_eqn3
+      \\ gs [num2bit_term_ok]
+      \\ resolve_then Any irule sym_equation replaceL_eq1
+      \\ irule_at Any NUMERAL_eqn
+      \\ resolve_then Any (irule_at Any) sym_equation replaceL_eq2
+      \\ irule_at Any NUMERAL_eqn
+      \\ irule_at Any trans_equation_simple
+      \\ irule_at Any EQ_bool2term_num2bit
+      \\ simp [bool2term_def, proves_REFL, num2bit_term_ok,
+               bool_thy_ok_terms_ok])
+    \\ ‘∃p1 q1. q = Pair p1 q1’
+      by (Cases_on ‘q’ \\ gs [])
+    \\ gvs [cexp2term_def]
+    \\ irule CEXP_EQ_eqn4
+    \\ gs [num2bit_term_ok, cexp_value_no_consts, cexp2term_term_ok])
+  >~ [‘Pair p1 q1’] >- (
+    gs [cexp2term_def]
+    \\ Cases_on ‘q = Pair p1 q1’ \\ gvs [bool2term_def, cexp2term_def]
+    >- (
+      irule trans_equation_simple \\ irule_at Any CEXP_EQ_eqn2
+      \\ gs [cexp2term_term_ok, cexp_value_no_consts]
+      \\ qpat_x_assum ‘cexp_value q1’ assume_tac
+      \\ first_x_assum (drule_then assume_tac)
+      \\ qpat_x_assum ‘cexp_value p1’ assume_tac
+      \\ first_x_assum (drule_then assume_tac)
+      \\ resolve_then Any irule sym_equation replaceL3
+      \\ first_x_assum (irule_at Any) \\ simp [bool2term_def]
+      \\ resolve_then Any irule sym_equation replaceL1
+      \\ first_x_assum (irule_at Any) \\ simp [bool2term_def]
+      \\ gs [numeral_thy_ok_terms_ok, has_type_rules, IF_eqn])
+    \\ Cases_on ‘∃p2 q2. q = Pair p2 q2’ \\ gvs [cexp2term_def]
+    >- (
+      first_x_assum (qspec_then ‘q2’ assume_tac)
+      \\ first_x_assum (qspec_then ‘p2’ assume_tac) \\ gs []
+      \\ irule trans_equation_simple \\ irule_at Any CEXP_EQ_eqn2
+      \\ gs [cexp2term_term_ok, cexp_value_no_consts]
+      \\ resolve_then Any irule sym_equation replaceL3
+      \\ first_x_assum (irule_at Any) \\ simp []
+      \\ resolve_then Any irule sym_equation replaceL1
+      \\ first_x_assum (irule_at Any) \\ simp []
+      \\ Cases_on ‘p2 = p1’ \\ Cases_on ‘q2 = q1’
+      \\ gs [numeral_thy_ok_terms_ok, bool2term_term_ok, has_type_rules,
+             IF_eqn, bool2term_def])
+    \\ ‘∃n. q = Num n’
+      by (Cases_on ‘q’ \\ gs [])
+    \\ gvs [cexp2term_def]
+    \\ irule CEXP_EQ_eqn5
+    \\ gs [num2bit_term_ok, cexp_value_no_consts, cexp2term_term_ok])
+QED
+
+Theorem EQ_bool2term_cexpterm:
+  compute_thy_ok thy ⇒
+    cexp_value p ∧ cexp_value q ⇒
+    (thy,[]) |- (cexp2term p === cexp2term q) === bool2term (p = q)
+Proof
+  rw [] \\ irule sym_equation
+  \\ rw [bool2term_EQ_cexpterm]
 QED
 
 val _ = export_theory ();
