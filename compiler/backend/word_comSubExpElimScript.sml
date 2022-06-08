@@ -19,14 +19,15 @@ Mind map / TODO:
            If so, we add r1 to group' in the second place.
            Else, we create a group=[r1;r2] that we add to map.
     -> !!! Case of function call we context conservation !!!
-       One solution could be
 *)
 
-open preamble wordLangTheory boolTheory mlmapTheory
+open preamble wordLangTheory wordsTheory boolTheory mlmapTheory sptreeTheory
 
-val _ = new_theory "comSubExpElim";
+val _ = new_theory "word_comSubExpElim";
 
-Type regsT = ``:num list list``
+Type regsE = ``:num list list``
+Type regsM = ``:num num_map``
+Type instrsM = ``:(num list,num)map``
 
 (* LIST COMPARISON *)
 
@@ -211,52 +212,124 @@ QED
 (* REGISTER TRANSFORMATIONS *)
 
 Definition canonicalRegs_def:
-  canonicalRegs (r:num) [] = r ∧
-  canonicalRegs r (hd::tl) =
-  if listLookup r hd
-    then HD hd
-    else canonicalRegs r tl
+  canonicalRegs (regsMap:num num_map) (r:num) =
+  case sptree$lookup r regsMap of
+  | SOME r' => r'
+  | NONE => r
 End
 
-Definition canonicalExp_def:
-  canonicalExp e regs = e
+Definition canonicalImmReg_def:
+  canonicalImmReg regsMap (Reg r) = Reg (canonicalRegs regsMap r) ∧
+  canonicalImmReg regsMap (Imm w) = Imm w
 End
 
-Definition canonicalMultExp_def:
-  canonicalMultExp [] regs = [] ∧
-  canonicalMultExp (hd::tl) regs = (canonicalExp hd regs)::(canonicalMultExp tl regs)
+Definition canonicalMultRegs_def:
+  canonicalMultRegs regsMap [] = [] ∧
+  canonicalMultRegs regsMap (hd::tl) =
+    (canonicalRegs regsMap hd)::(canonicalMultRegs regsMap tl)
 End
 
 Definition canonicalMoveRegs_def:
-  canonicalMoveRegs [] regs = ([], regs) ∧
-  canonicalMoveRegs ((r1,r2)::tl) regs =
-    let r2' = canonicalRegs r2 regs in
-    let regs' = regsUpdate r1 r2' regs in
-    let (tl', regs'') = canonicalMoveRegs tl regs' in
-    (r1,r2')::tl', regs''
+  canonicalMoveRegs regsEq regsMap [] = (regsEq, regsMap, []) ∧
+  canonicalMoveRegs regsEq regsMap ((r1,r2)::tl) =
+    let r2' = canonicalRegs regsMap r2 in
+    let regsEq' = regsUpdate r2' r1 regsEq in
+    let regsMap' = sptree$insert r1 r2' regsMap in
+    let (regsEq'', regsMap'', tl') = canonicalMoveRegs regsEq' regsMap' tl in
+      regsEq'', regsMap'', (r1,r2')::tl'
 End
 
 Definition canonicalExp_def:
-  canonicalExp (Const w) regs = Const w ∧
-  canonicalExp (Var r) regs = Var (canonicalRegs r regs) ∧
-  canonicalExp (Lookup s) regs = Lookup s ∧
-  canonicalExp (Load e) regs = Load (canonicalExp e regs) ∧
-  canonicalExp (Op op nl) regs = Op op (canonicalMultExp nl regs) ∧
-  canonicalExp (Shift s e n) regs = Shift s (canonicalExp e regs) n
+  canonicalExp regsMap e = e
+End
+
+Definition canonicalMultExp_def:
+  canonicalMultExp regsMap [] = [] ∧
+  canonicalMultExp regsMap (hd::tl) =
+    (canonicalExp regsMap hd)::(canonicalMultExp regsMap tl)
+End
+
+Definition canonicalExp_def:
+  canonicalExp regsMap (Const w) = Const w ∧
+  canonicalExp regsMap (Var r) = Var (canonicalRegs regsMap r) ∧
+  canonicalExp regsMap (Lookup s) = Lookup s ∧
+  canonicalExp regsMap (Load e) = Load (canonicalExp regsMap e) ∧
+  canonicalExp regsMap (Op op nl) = Op op (canonicalMultExp regsMap nl) ∧
+  canonicalExp regsMap (Shift s e n) = Shift s (canonicalExp regsMap e) n
+End
+
+Definition canonicalArith_def:
+  canonicalArith regsMap (Binop op r1 r2 r3) =
+    Binop op r1 (canonicalRegs regsMap r2) (canonicalImmReg regsMap r3) ∧
+  canonicalArith regsMap (Shift s r1 r2 n) =
+    Shift s (canonicalRegs regsMap r1) (canonicalRegs regsMap r2) n ∧
+  canonicalArith regsMap (Div r1 r2 r3) =
+    Div r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
+  canonicalArith regsMap (LongMul r1 r2 r3 r4) =
+    LongMul r1 r2 (canonicalRegs regsMap r3) (canonicalRegs regsMap r4) ∧
+  canonicalArith regsMap (LongDiv r1 r2 r3 r4 r5) =
+    LongDiv r1 r2 (canonicalRegs regsMap r3) (canonicalRegs regsMap r4) (canonicalRegs regsMap r5) ∧
+  canonicalArith regsMap (AddCarry r1 r2 r3 r4) =
+    AddCarry r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) r4 ∧
+  canonicalArith regsMap (AddOverflow r1 r2 r3 r4) =
+    AddOverflow r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) r4 ∧
+  canonicalArith regsMap (SubOverflow r1 r2 r3 r4) =
+    SubOverflow r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) r4
+End
+
+Definition canonicalFp_def:
+  canonicalFp regsMap (FPLess r1 r2 r3) =
+    FPLess r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
+  canonicalFp regsMap (FPLessEqual r1 r2 r3) =
+    FPLessEqual r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
+  canonicalFp regsMap (FPEqual r1 r2 r3) =
+    FPEqual r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
+  canonicalFp regsMap (FPAbs r1 r2) =
+    FPAbs r1 (canonicalRegs regsMap r2) ∧
+  canonicalFp regsMap (FPNeg r1 r2) =
+    FPNeg r1 (canonicalRegs regsMap r2) ∧
+  canonicalFp regsMap (FPSqrt r1 r2) =
+    FPSqrt r1 (canonicalRegs regsMap r2) ∧
+  canonicalFp regsMap (FPAdd r1 r2 r3) =
+    FPAdd r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
+  canonicalFp regsMap (FPSub r1 r2 r3) =
+    FPSub r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
+  canonicalFp regsMap (FPMul r1 r2 r3) =
+    FPMul r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
+  canonicalFp regsMap (FPDiv r1 r2 r3) =
+    FPDiv r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
+  canonicalFp regsMap (FPFma r1 r2 r3) =
+    FPFma r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
+  canonicalFp regsMap (FPMov r1 r2) =
+    FPMov r1 (canonicalRegs regsMap r2) ∧
+  canonicalFp regsMap (FPMovToReg r1 r2 r3) =
+    FPMovToReg r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
+  canonicalFp regsMap (FPMovFromReg r1 r2 r3) =
+    FPMovFromReg r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
+  canonicalFp regsMap (FPToInt r1 r2) =
+    FPToInt r1 (canonicalRegs regsMap r2) ∧
+  canonicalFp regsMap (FPFromInt r1 r2) =
+    FPFromInt r1 (canonicalRegs regsMap r2)
 End
 
 (* SEEN INSTRUCTIONS MEMORY *)
 
-(* TODO *)
 Definition wordToNum_def:
-  wordToNum w = (0:num)
+  wordToNum w = w2n w
 End
 
+Theorem wordToNum_unique:
+  ∀w1 w2. w1 = w2 ⇔ wordToNum w1 = wordToNum w2
+Proof
+  rw[wordToNum_def]
+QED
+
+
 Definition shiftToNum_def:
-  shiftToNum Lsl = (69:num) ∧
-  shiftToNum Lsr = 70 ∧
-  shiftToNum Asr = 71 ∧
-  shiftToNum Ror = 72
+  shiftToNum Lsl = (38:num) ∧
+  shiftToNum Lsr = 39 ∧
+  shiftToNum Asr = 40 ∧
+  shiftToNum Ror = 41
 End
 
 Theorem shiftToNum_unique:
@@ -268,6 +341,26 @@ Proof
   rw[shiftToNum_def])
 QED
 
+
+Definition arithOpToNum_def:
+  arithOpToNum Add = (33:num) ∧
+  arithOpToNum Sub = 34 ∧
+  arithOpToNum And = 35 ∧
+  arithOpToNum Or = 36 ∧
+  arithOpToNum Xor = 37
+End
+
+Theorem arithOpToNum_unique:
+  ∀op1 op2. op1 = op2 ⇔ arithOpToNum op1 = arithOpToNum op2
+Proof
+  rpt strip_tac >>
+  Cases_on ‘op1’ \\
+  (Cases_on ‘op2’ \\
+  rw[arithOpToNum_def])
+QED
+
+
+(*
 Definition storeNameToNumList_def:
   storeNameToNumList NextFree = [(51:num)] ∧
   storeNameToNumList EndOfHeap = [52] ∧
@@ -288,68 +381,94 @@ Definition storeNameToNumList_def:
   storeNameToNumList BitmapBufferEnd = [67] ∧
   storeNameToNumList (Temp w) = [68; wordToNum w]
 End
-
-Definition arithOpToNum_def:
-  arithOpToNum Add = (46:num) ∧
-  arithOpToNum Sub = 47 ∧
-  arithOpToNum And = 48 ∧
-  arithOpToNum Or = 49 ∧
-  arithOpToNum Xor = 50
-End
-
-Theorem arithOpToNum_unique:
-  ∀op1 op2. op1 = op2 ⇔ arithOpToNum op1 = arithOpToNum op2
+Theorem storeNameToNumList_unique:
+  ∀n1 n2. n1 = n2 ⇔ storeNameToNumList n1 = storeNameToNumList n2
 Proof
   rpt strip_tac >>
-  Cases_on ‘op1’ \\
-  (Cases_on ‘op2’ \\
-  rw[arithOpToNum_def])
+  Cases_on ‘n1’ \\
+  (Cases_on ‘n2’ \\
+  rw[storeNameToNumList_def, wordToNum_unique])
 QED
-        
-
 Definition expListToNumList_def:
-  expListToNumList el = []
+  expListToNumList [] = [(38:num)] ∧
+  expListToNumList ((Const w)::tl) = 40::(wordToNum w)::(expListToNumList tl) ∧
+  expListToNumList ((Var r)::tl) = 41::(r+100)::(expListToNumList tl) ∧
+  expListToNumList ((Lookup n)::tl) = 42::(storeNameToNumList n) ++ expListToNumList tl ∧
+  expListToNumList ((Load e)::tl) = 43::(expListToNumList [e]) ++ expListToNumList tl ∧
+  expListToNumList ((Op op el)::tl) = [44; arithOpToNum op] ++ (expListToNumList el) ++ expListToNumList tl ∧
+  expListToNumList ((Shift s e r)::tl) = 45::(shiftToNum s)::(expListToNumList [e]) ++ [r+100] ++ expListToNumList tl
 End
-
+Definition expToNumList_def:
+  expToNumList e = expListToNumList [e]
+End
+Definition expListToNumList_def:
+  expListToNumList (hd::tl) = (expToNumList hd) ++ 39::(expListToNumList tl)
+End
 Definition expToNumList_def:
   expToNumList (Const w) = [40; wordToNum w] ∧
   expToNumList (Var r) = [41; r+100] ∧
   expToNumList (Lookup n) = 42::(storeNameToNumList n) ∧
   expToNumList (Load e) = 43::(expToNumList e) ∧
-  expToNumList (Op op el) = [44; arithOpToNum op] ++ (expListToNumList el) ∧
+  expToNumList (Op op []) = [38] ∧
+  expToNumList (Op op (hd::tl)) = [arithOpToNum op] ++ (expToNumList hd) ++ (expToNumList (Op op tl)) ∧
   expToNumList (Shift s e r) = [45; shiftToNum s] ++ (expToNumList e) ++ [r+100]
 End
-        
-(* !!!! Op has exp list, need to end list by unique id too !!!! *)
-Definition expListToNumList_def:
-  expListToNumList [] = [(38:num)] ∧
-  expListToNumList (hd::tl) = (expToNumList hd) ++ 39::(expListToNumList tl)
-End
+Theorem expToNumList_unique:
+  ∀e1 e2. e1 = e2 ⇔ expToNumList e1 = expToNumList e2
+Proof ho_match_mp_tac expToNumList_ind
+  strip_tac >>
+  Induct_on ‘e1’ \\
+  (Cases_on ‘e2’ \\
+   rw[expToNumList_def, wordToNum_unique, storeNameToNumList_unique, arithOpToNum_unique, shiftToNum_unique])
+   decide_tac
+   Cases_on ‘l’
+QED
+*)
 
 Definition regImmToNumList_def:
-  regImmToNumList (Reg r) = [36; r+100] ∧
-  regImmToNumList (Imm w) = [37; wordToNum w]
+  regImmToNumList (Reg r) = [31; r+100] ∧
+  regImmToNumList (Imm w) = [32; wordToNum w]
 End
+
+Theorem regImmToNumList_unique:
+  ∀ri1 ri2. ri1 = ri2 ⇔ regImmToNumList ri1 = regImmToNumList ri2
+Proof
+  rpt strip_tac >>
+  Cases_on ‘ri1’ \\
+  (Cases_on ‘ri2’ \\
+  rw[regImmToNumList_def, wordToNum_unique])
+QED
+
 
 Definition arithToNumList_def:
-  arithToNumList (Binop op r1 r2 ri) = [28; arithOpToNum op; r1+100; r2+100] ++ regImmToNumList ri ∧
-  arithToNumList (LongMul r1 r2 r3 r4) = [29; r1+100; r2+100; r3+100; r4+100] ∧
-  arithToNumList (LongDiv r1 r2 r3 r4 r5) = [30; r1+100; r2+100; r3+100; r4+100; r5+100] ∧
-  arithToNumList (Shift s r1 r2 n) = [31; shiftToNum s; r1+100; r2+100; n] ∧
-  arithToNumList (Div r1 r2 r3) = [32; r1+100; r2+100; r3+100] ∧
-  arithToNumList (AddCarry r1 r2 r3 r4) = [33; r1+100; r2+100; r3+100; r4+100] ∧
-  arithToNumList (AddOverflow r1 r2 r3 r4) = [34; r1+100; r2+100; r3+100; r4+100] ∧
-  arithToNumList (SubOverflow r1 r2 r3 r4) = [35; r1+100; r2+100; r2+100; r4+100]
+  arithToNumList (Binop op r1 r2 ri) = [23; arithOpToNum op; r2+100] ++ regImmToNumList ri ∧
+  arithToNumList (LongMul r1 r2 r3 r4) = [24; r3+100; r4+100] ∧
+  arithToNumList (LongDiv r1 r2 r3 r4 r5) = [25; r3+100; r4+100; r5+100] ∧
+  arithToNumList (Shift s r1 r2 n) = [26; shiftToNum s; r2+100; n] ∧
+  arithToNumList (Div r1 r2 r3) = [27; r2+100; r3+100] ∧
+  arithToNumList (AddCarry r1 r2 r3 r4) = [28; r2+100; r3+100] ∧
+  arithToNumList (AddOverflow r1 r2 r3 r4) = [29; r2+100; r3+100] ∧
+  arithToNumList (SubOverflow r1 r2 r3 r4) = [30; r2+100; r3+100]
 End
+(*
+Theorem arithToNumList_unique:
+  ∀a1 a2. a1 = a2 ⇔ arithToNumList a1 = arithToNumList a2
+Proof
+  rpt strip_tac >>
+  Cases_on ‘a1’ \\
+  (Cases_on ‘a2’ \\
+  rw[arithToNumList_def, regImmToNumList_unique, shiftToNum_unique, arithOpToNum_unique])
+QED
+*)
 
 Definition memOpToNum_def:
-  memOpToNum Load = (24:num) ∧
-  memOpToNum Load8 = 25 ∧
-  memOpToNum Store = 26 ∧
-  memOpToNum Store8 = 27
+  memOpToNum Load = (19:num) ∧
+  memOpToNum Load8 = 20 ∧
+  memOpToNum Store = 21 ∧
+  memOpToNum Store8 = 22
 End
 
-Theorem memOpToNum_def:
+Theorem memOpToNum_unique:
   ∀op1 op2. op1 = op2 ⇔ memOpToNum op1 = memOpToNum op2
 Proof
   rpt strip_tac >>
@@ -358,42 +477,67 @@ Proof
   rw[memOpToNum_def])
 QED
 
-Definition fpToNumList_def:
-  fpToNumList (FPLess r1 r2 r3) = [8; r1+100; r2+100; r3+100] ∧
-  fpToNumList (FPLessEqual r1 r2 r3) = [9; r1+100; r2+100; r3+100] ∧
-  fpToNumList (FPEqual r1 r2 r3) = [10; r1+100; r2+100; r3+100] ∧
-  fpToNumList (FPAbs r1 r2) = [11; r1+100; r2+100] ∧
-  fpToNumList (FPNeg r1 r2) = [12; r1+100; r2+100] ∧
-  fpToNumList (FPSqrt r1 r2) = [13; r1+100; r2+100] ∧
-  fpToNumList (FPAdd r1 r2 r3) = [14; r1+100; r2+100; r3+100] ∧
-  fpToNumList (FPSub r1 r2 r3) = [15; r1+100; r2+100; r3+100] ∧
-  fpToNumList (FPMul r1 r2 r3) = [16; r1+100; r2+100; r3+100] ∧
-  fpToNumList (FPDiv r1 r2 r3) = [17; r1+100; r2+100; r3+100] ∧
-  fpToNumList (FPFma r1 r2 r3) = [18; r1+100; r2+100; r3+100] ∧
-  fpToNumList (FPMov r1 r2) = [19; r1+100; r2+100] ∧
-  fpToNumList (FPMovToReg r1 r2 r3) = [20; r1+100; r2+100; r3+100] ∧
-  fpToNumList (FPMovFromReg r1 r2 r3) = [21; r1+100; r2+100; r3+100] ∧
-  fpToNumList (FPToInt r1 r2) = [22; r1+100; r2+100] ∧
-  fpToNumList (FPFromInt r1 r2) = [23; r1+100; r2+100]
-End
 
-Theorem fpToNumList_def:
-  ∀fp1 fp2. fp1 = fp2 ⇔ fpToNumList fp1 = fpToNumList fp2
+Definition fpToNumList_def:
+  fpToNumList (FPLess r1 r2 r3) = [3; r2+100; r3+100] ∧
+  fpToNumList (FPLessEqual r1 r2 r3) = [4; r2+100; r3+100] ∧
+  fpToNumList (FPEqual r1 r2 r3) = [5; r2+100; r3+100] ∧
+  fpToNumList (FPAbs r1 r2) = [6; r2+100] ∧
+  fpToNumList (FPNeg r1 r2) = [7; r2+100] ∧
+  fpToNumList (FPSqrt r1 r2) = [8; r2+100] ∧
+  fpToNumList (FPAdd r1 r2 r3) = [9; r2+100; r3+100] ∧
+  fpToNumList (FPSub r1 r2 r3) = [10; r2+100; r3+100] ∧
+  fpToNumList (FPMul r1 r2 r3) = [11; r2+100; r3+100] ∧
+  fpToNumList (FPDiv r1 r2 r3) = [12; r2+100; r3+100] ∧
+  fpToNumList (FPFma r1 r2 r3) = [13; r1+100; r2+100; r3+100] ∧ (* List never matched again *)
+  fpToNumList (FPMov r1 r2) = [14; r2+100] ∧
+  fpToNumList (FPMovToReg r1 r2 r3) = [15; r2+100; r3+100] ∧
+  fpToNumList (FPMovFromReg r1 r2 r3) = [16; r2+100; r3+100] ∧
+  fpToNumList (FPToInt r1 r2) = [17; r2+100] ∧
+  fpToNumList (FPFromInt r1 r2) = [18; r2+100]
+End
+(*
+Theorem fpToNumList_unique:
+  ∀fp1 fp2. fpToNumList fp1 = fpToNumList fp2 ⇒ ∃r r'
 Proof
   rpt strip_tac >>
   Cases_on ‘fp1’ \\
   (Cases_on ‘fp2’ \\
   rw[fpToNumList_def])
 QED
+*)
 
+(*
+Definition addrToNumList_def:
+  addrToNumList (Addr r w) = [r+100; wordToNum w]
+End
+Theorem addrToNumList_unique:
+  ∀a1 a2. a1 = a2 ⇔ addrToNumList a1 = addrToNumList a2
+Proof
+  rpt strip_tac >>
+  Cases_on ‘a1’ \\
+  (Cases_on ‘a2’ \\
+  rw[addrToNumList_def, wordToNum_unique])
+QED
+*)
 
 Definition instToNumList_def:
-  instToNumList (Skip) = [3] ∧
-  instToNumList (Const r w) = [4;r+100; wordToNum w] ∧
-  instToNumList (Arith a) = 5::(arithToNumList a) ∧
-  instToNumList (Mem op r (Addr r' w)) = [6; memOpToNum op; r+100; r'+100; wordToNum w] ∧
-  instToNumList (FP fp) = 7::(fpToNumList fp)
+  instToNumList (Skip) = [1] ∧
+  instToNumList (Const r w) = [2;wordToNum w] ∧
+  instToNumList (Arith a) = arithToNumList a ∧
+  instToNumList (FP fp) = fpToNumList fp
 End
+(*
+Theorem instToNumList_unique:
+  ∀i1 i2. i1 = i2 ⇔ instToNumList i1 = instToNumList i2
+Proof
+  rpt strip_tac >>
+  Cases_on ‘i1’ \\
+  (Cases_on ‘i2’ \\
+   rw[instToNumList_def, wordToNum_unique, arithToNumList_unique,
+      memOpToNum_unique, addrToNumList_unique, fpToNumList_unique])
+QED
+*)
 
 (*
 Principle:
@@ -401,61 +545,72 @@ Each unique instruction is converted to a unique num list.
 Numbers between 0 and 99 corresponds to a unique identifier of an instruction.
 Numbers above 99 corresponds to a register or a word value.
 *)
-(* TODO : rename instruction numbers such that each is unique *)
+(* TODO : redo the rename of instruction numbers such that each is unique *)
 Definition progToNumList_def:
-  progToNumList (Assign r e) = 0::(expToNumList e) ∧
-  progToNumList (LocValue r1 r2) = [1; r1 + 100; r2 + 100] ∧
-  progToNumList (Inst i) = 2::(instToNumList i) ∧
-  progToNumList (Skip) = [3] ∧
-  progToNumList (Move _ _) = [4] ∧
-  progToNumList (Get _ _) = [5] ∧
-  progToNumList (Set _ _) = [6] ∧
-  progToNumList (Store _ _) = [7] ∧
-  progToNumList (MustTerminate _) = [8] ∧
-  progToNumList (Call _ _ _ _) = [9] ∧
-  progToNumList (Seq _ _) = [10] ∧
-  progToNumList (If _ _ _ _ _) = [11] ∧
-  progToNumList (Alloc _ _) = [12] ∧
-  progToNumList (Raise _) = [13] ∧
-  progToNumList (Return _ _) = [14] ∧
-  progToNumList (Tick) = [15] ∧
-  progToNumList (OpCurrHeap _ _ _) = [16] ∧
-  progToNumList (Install _ _ _ _ _) = [17] ∧
-  progToNumList (CodeBufferWrite _ _) = [18] ∧
-  progToNumList (DataBufferWrite _ _) = [19] ∧
-  progToNumList (FFI _ _ _ _ _ _) = [20]
+  progToNumList (Inst i) = 0::(instToNumList i)
 End
-
 (*
 Theorem progToNumList_unique:
-  ∀p1 p2. (p1 = p2) ⇔ (progToNumList p1 = progToNumList p2)
+  ∀p1 p2. (∃i. p1 = Inst i)∧(∃i. p2 = Inst i) ⇒
+              (p1 = p2 ⇔ progToNumList p1 = progToNumList p2)
 Proof
-  
-strip_tac
-Induct_on ‘p1’
-  \\(strip_tac >>
-     eq_tac >>
-       rw[] >>
-       Cases_on ‘p2’ \\ rw[progToNumList_def])
-
-        
-  >- Induct_on ‘p1’
-  \\Cases_on ‘progToNumList p2’
-  \\rw[wordToNum_def, shiftToNum_def, storeNameToNumList_def, arithOpToNum_def, expListToNumList_def, expToNumList_def, expListToNumList_def, regImmToNumList_def, arithToNumList_def, memOpToNum_def, fpToNumList_def, instToNumList_def, progToNumList_def]
-
+  rw[progToNumList_def, instToNumList_unique]
 QED
-
-wordToNum_def, shiftToNum_def, storeNameToNumList_def, arithOpToNum_def, expListToNumList_def, expToNumList_def, expListToNumList_def, regImmToNumList_def, arithToNumList_def, memOpToNum_def, fpToNumList_def, instToNumList_def, progToNumList_def
 *)
 
-               
-(* TODO *)
+Definition firstRegOfArith_def:
+  firstRegOfArith (Binop _ r _ _) = r ∧
+  firstRegOfArith (Shift _ r _ _) = r ∧
+  firstRegOfArith (Div r _ _) = r ∧
+  firstRegOfArith (LongMul r _ _ _) = r ∧
+  firstRegOfArith (LongDiv r _ _ _ _) = r ∧
+  firstRegOfArith (AddCarry r _ _ _) = r ∧
+  firstRegOfArith (AddOverflow r _ _ _) = r ∧
+  firstRegOfArith (SubOverflow r _ _ _) = r
+End
+
+Definition firstRegOfFp_def:
+  firstRegOfFp (FPLess r _ _) = r ∧
+  firstRegOfFp (FPLessEqual r _ _) = r ∧
+  firstRegOfFp (FPEqual r _ _) = r ∧
+  firstRegOfFp (FPAbs r _) = r ∧
+  firstRegOfFp (FPNeg r _) = r ∧
+  firstRegOfFp (FPSqrt r _) = r ∧
+  firstRegOfFp (FPAdd r _ _) = r ∧
+  firstRegOfFp (FPSub r _ _) = r ∧
+  firstRegOfFp (FPMul r _ _) = r ∧
+  firstRegOfFp (FPDiv r _ _) = r ∧
+  firstRegOfFp (FPFma r _ _) = r ∧
+  firstRegOfFp (FPMov r _) = r ∧
+  firstRegOfFp (FPMovToReg r _ _) = r ∧
+  firstRegOfFp (FPMovFromReg r _ _) = r ∧
+  firstRegOfFp (FPToInt r _) = r ∧
+  firstRegOfFp (FPFromInt r _) = r
+End
+
 Definition comSubExpElimInst_def:
-  comSubExpElimInst regs instrs Skip = (regs, instrs, Inst Skip) ∧
-  comSubExpElimInst regs instrs (Const r w) = (regs, instrs, Inst Skip) ∧
-  comSubExpElimInst regs instrs (Arith a) = (regs, instrs, Inst Skip) ∧
-  comSubExpElimInst regs instrs (Mem op r addr) = (regs, instrs, Inst Skip) ∧
-  comSubExpElimInst regs instrs (FP f) = (regs, instrs, Inst Skip)
+  (comSubExpElimInst (n:num) (regsEq:regsE) (regsMap:regsM) (instrs:instrsM) Skip = (n, regsEq, regsMap, instrs, Inst Skip)) ∧
+  (comSubExpElimInst n regsEq regsMap instrs (Const r w) =
+            let i = instToNumList (Const r w) in
+            case mlmap$lookup instrs i of
+            | SOME r' => (n+1, regsUpdate r' r regsEq, insert r r' regsMap, instrs, Move 0 [(r,r')])
+            | NONE    => (n, regsEq, regsMap, insert instrs i r, Inst (Const r w))) ∧
+  (comSubExpElimInst n regsEq regsMap instrs (Arith a) =
+            let a' = canonicalArith regsMap a in
+            let r = firstRegOfArith a' in
+            let i = instToNumList (Arith a') in
+            case mlmap$lookup instrs i of
+            | SOME r' => (n+1, regsUpdate r' r regsEq, insert r r' regsMap, instrs, Move 0 [(r,r')])
+            | NONE    => (n, regsEq, regsMap, insert instrs i r, Inst (Arith a'))) ∧
+  (comSubExpElimInst n regsEq regsMap instrs (Mem op r (Addr r' w)) =
+            (n, regsEq, regsMap, instrs, Inst (Mem op (canonicalRegs regsMap r) (Addr (canonicalRegs regsMap r') w)))) ∧
+  (comSubExpElimInst n regsEq regsMap instrs ((FP f):'a inst) =
+            let f' = canonicalFp regsMap f in
+            let r = firstRegOfFp f' in
+            let i = instToNumList ((FP f'):'a inst) in
+            case mlmap$lookup instrs i of
+            | SOME r' => (n+1, regsUpdate r' r regsEq, insert r r' regsMap, instrs, Move 0 [(r,r')])
+            | NONE    => (n, regsEq, regsMap, insert instrs i r, Inst (FP f')))
 End
 
 (*
@@ -478,65 +633,85 @@ Signification of the terms:
     b -> binop
     s -> string
 *)
-(* TODO *)
 Definition comSubExpElim_def:
-  (comSubExpElim (regs:regsT) (instrs:(num list,num)map) (Skip) =
-                (regs, instrs, Skip)) ∧
-  (comSubExpElim regs instrs (Move r rs) =
-            let (rs', regs') = canonicalMoveRegs rs regs in
-                (regs', instrs, Move r rs')) ∧
-  (comSubExpElim regs instrs (Inst i) =
-            let (regs', instrs', p) = comSubExpElimInst regs instrs i in
-                (regs', instrs', p)) ∧
-  (comSubExpElim regs instrs (Assign r e) =
-            let e' = canonicalExp e regs in
-            let i = progToNumList (Assign r e') in
-            case lookup instrs i of
-              |NONE => (regs, insert instrs i r, Assign r e')
-              |SOME r' => (regsUpdate r r' regs, instrs, Move 0 [(r,r')])) ∧
-  (comSubExpElim regs instrs (Get r x) =
-                (regs, instrs, Get r x)) ∧
-  (comSubExpElim regs instrs (Set x e) =
-            let e' = canonicalExp e regs in
-                (regs, instrs, Set x e')) ∧
-  (comSubExpElim regs instrs (Store e r) =
-                (regs, instrs, Store e r)) ∧
-  (comSubExpElim regs instrs (MustTerminate p) =
-            let (regs', instrs', p') = comSubExpElim regs instrs p in
-                (regs', instrs', MustTerminate p')) ∧
-  (comSubExpElim regs instrs (Call arg1 arg2 arg3 arg4) =
-                (regs, instrs, Call arg1 arg2 arg3 arg4)) ∧
-
-  (comSubExpElim regs instrs (Seq p1 p2) =
-            let (regs1, instrs1, p1') = comSubExpElim regs instrs p1 in
-            let (regs2, instrs2, p2') = comSubExpElim regs1 instrs1 p2 in
-                (regs2, instrs2, Seq p1' p2')) ∧
-  (comSubExpElim regs instrs (If c r1 r2 p1 p2) =
-                (regs, instrs, If c r1 r2 p1 p2)) ∧
-
-  (comSubExpElim regs instrs (Alloc r m) =
-                (regs, instrs, Alloc r m)) ∧
-  (comSubExpElim regs instrs (Raise r) =
-            let r' = canonicalRegs r regs in
-                (regs, instrs, Raise r')) ∧
-  (comSubExpElim regs instrs (Return r1 r2) =
-            let r1' = canonicalRegs r1 regs in
-            let r2' = canonicalRegs r2 regs in
-                (regs, instrs, Return r1' r2')) ∧
-  (comSubExpElim regs instrs (Tick) = (regs, instrs, Tick)) ∧
-  (comSubExpElim regs instrs (OpCurrHeap b r1 r2) =
-            let r2' = canonicalRegs r2 regs in
-                (regs, instrs, OpCurrHeap b r1 r2')) ∧
-  (comSubExpElim regs instrs (LocValue r1 r2) =
-                (regs, instrs, LocValue r1 r2)) ∧
-  (comSubExpElim regs instrs (Install r1 r2 r3 r4 m) =
-                (regs, instrs, Install r1 r2 r3 r4 m)) ∧
-  (comSubExpElim regs instrs (CodeBufferWrite r1 r2) =
-                (regs, instrs, CodeBufferWrite r1 r2)) ∧
-  (comSubExpElim regs instrs (DataBufferWrite r1 r2) =
-                (regs, instrs, DataBufferWrite r1 r2)) ∧
-  (comSubExpElim regs instrs (FFI s r1 r2 r3 r4 m) =
-                (regs, instrs, FFI s r1 r2 r3 r4 m))
+  (comSubExpElim (n:num) (regsEq:regsE) (regsMap:regsM) (instrs:instrsM) (Skip) =
+                (n, regsEq, regsMap, instrs, Skip)) ∧
+  (comSubExpElim n regsEq regsMap instrs (Move r rs) =
+            let (regsEq', regsMap', rs') = canonicalMoveRegs regsEq regsMap rs in
+                (n, regsEq', regsMap', instrs, Move r rs')) ∧
+  (comSubExpElim n regsEq regsMap instrs (Inst i) =
+            let (n', regsEq', regsMap', instrs', p) = comSubExpElimInst n regsEq regsMap instrs i in
+                (n', regsEq', regsMap', instrs', p)) ∧
+  (comSubExpElim n regsEq regsMap instrs (Assign r e) =
+            let e' = canonicalExp regsMap e in
+                (n, regsEq, regsMap, instrs, Assign r e')) ∧
+  (comSubExpElim n regsEq regsMap instrs (Get r x) =
+                (n, regsEq, regsMap, instrs, Get r x)) ∧
+  (comSubExpElim n regsEq regsMap instrs (Set x e) =
+            let e' = canonicalExp regsMap e in
+                (n, regsEq, regsMap, instrs, Set x e')) ∧
+  (comSubExpElim n regsEq regsMap instrs (Store e r) =
+            let r' = canonicalRegs regsMap r in
+                (n, regsEq, regsMap, instrs, Store e r')) ∧
+  (comSubExpElim n regsEq regsMap instrs (MustTerminate p) =
+            let (n', regsEq', regsMap', instrs', p') = comSubExpElim n regsEq regsMap instrs p in
+                (n', regsEq', regsMap', instrs', MustTerminate p')) ∧
+  (comSubExpElim n regsEq regsMap instrs (Call ret dest args handler) =
+            let args' = canonicalMultRegs regsMap args in
+                (n, [], LN, empty listCmp, Call ret dest args' handler)) ∧
+  (comSubExpElim n regsEq regsMap instrs (Seq p1 p2) =
+            let (n', regsEq1, regsMap1, instrs1, p1') = comSubExpElim n regsEq regsMap instrs p1 in
+            let (n'', regsEq2, regsMap2, instrs2, p2') = comSubExpElim n' regsEq1 regsMap1 instrs1 p2 in
+                (n'', regsEq2, regsMap2, instrs2, Seq p1' p2')) ∧
+  (comSubExpElim n regsEq regsMap instrs (If c r1 r2 p1 p2) =
+            let r1' = canonicalRegs regsMap r1 in
+            let r2' = canonicalImmReg regsMap r2 in
+            let (n', regsEq', regsMap', instrs', p1') = comSubExpElim n regsEq regsMap instrs p1 in
+            let (n'', regsEq', regsMap', instrs', p2') = comSubExpElim n' regsEq regsMap instrs p2 in
+                (n'', regsEq, regsMap, instrs, If c r1' r2' p1' p2')) ∧
+  (comSubExpElim n regsEq regsMap instrs (Alloc r m) =
+                (n, regsEq, regsMap, instrs, Alloc r m)) ∧
+  (comSubExpElim n regsEq regsMap instrs (Raise r) =
+            let r' = canonicalRegs regsMap r in
+                (n, regsEq, regsMap, instrs, Raise r')) ∧
+  (comSubExpElim n regsEq regsMap instrs (Return r1 r2) =
+            let r1' = canonicalRegs regsMap r1 in
+            let r2' = canonicalRegs regsMap r2 in
+                (n, regsEq, regsMap, instrs, Return r1' r2')) ∧
+  (comSubExpElim n regsEq regsMap instrs (Tick) =
+                (n, regsEq, regsMap, instrs, Tick)) ∧
+  (comSubExpElim n regsEq regsMap instrs (OpCurrHeap b r1 r2) =
+            let r2' = canonicalRegs regsMap r2 in
+                (n, regsEq, regsMap, instrs, OpCurrHeap b r1 r2')) ∧
+  (comSubExpElim n regsEq regsMap instrs (LocValue r1 l) =
+                (n, regsEq, regsMap, instrs, LocValue r1 l)) ∧
+  (comSubExpElim n regsEq regsMap instrs (Install p l dp dl m) =
+                (n, regsEq, regsMap, instrs, Install p l dp dl m)) ∧
+  (comSubExpElim n regsEq regsMap instrs (CodeBufferWrite r1 r2) =
+                (n, regsEq, regsMap, instrs, CodeBufferWrite r1 r2)) ∧
+  (comSubExpElim n regsEq regsMap instrs (DataBufferWrite r1 r2) =
+                (n, regsEq, regsMap, instrs, DataBufferWrite r1 r2)) ∧
+  (comSubExpElim n regsEq regsMap instrs (FFI s p1 l1 p2 l2 m) =
+                (n, regsEq, regsMap, instrs, FFI s p1 l1 p2 l2 m))
 End
+
+Definition optSubExp_def:
+  optSubExp p = comSubExpElim 0 [] LN (empty listCmp) p
+End
+
+(*
+EVAL “optSubExp (Seq (Inst (Arith (Binop Add 3 1 (Reg 2)))) (Inst (Arith (Binop Add 4 1 (Reg 2)))))”
+
+EVAL “optSubExp
+    (Seq
+      (Inst (Arith (Binop Add 3 1 (Reg 2))))
+    (Seq
+      (Inst (Arith (Binop Add 4 1 (Reg 2))))
+    (Seq
+      (Inst (Arith (Binop Sub 5 1 (Reg 3))))
+      (Inst (Arith (Binop Sub 6 1 (Reg 4))))
+    )))
+”
+*)
 
 val _ = export_theory ();
