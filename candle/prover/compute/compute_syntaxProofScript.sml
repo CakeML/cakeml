@@ -1245,9 +1245,7 @@ Definition cexp_consts_def:
   cexp_consts (Num n) = {} ∧
   cexp_consts (Var s) = {} ∧
   cexp_consts (Pair p q) = cexp_consts p ∪ cexp_consts q ∧
-  cexp_consts (Fst p) = cexp_consts p ∧
-  cexp_consts (Snd p) = cexp_consts p ∧
-  cexp_consts (Ispair p) = cexp_consts p ∧
+  cexp_consts (Uop uop p) = cexp_consts p ∧
   cexp_consts (Binop bop p q) = cexp_consts p ∪ cexp_consts q ∧
   cexp_consts (If p q r) =  cexp_consts p ∪ cexp_consts q ∪ cexp_consts r ∧
   cexp_consts (App s cs) = {s, LENGTH cs} ∪ BIGUNION (set (MAP cexp_consts cs))
@@ -1259,9 +1257,7 @@ Definition cexp_vars_def:
   cexp_vars (Num n) = {} ∧
   cexp_vars (Var s) = {s} ∧
   cexp_vars (Pair p q) = cexp_vars p ∪ cexp_vars q ∧
-  cexp_vars (Fst p) = cexp_vars p ∧
-  cexp_vars (Snd p) = cexp_vars p ∧
-  cexp_vars (Ispair p) = cexp_vars p ∧
+  cexp_vars (Uop uop p) = cexp_vars p ∧
   cexp_vars (Binop bop p q) = cexp_vars p ∪ cexp_vars q ∧
   cexp_vars (If p q r) =  cexp_vars p ∪ cexp_vars q ∪ cexp_vars r ∧
   cexp_vars (App s cs) = BIGUNION (set (MAP cexp_vars cs))
@@ -2003,6 +1999,8 @@ Proof
   \\ simp [cexp2term_def, FOLDL_MAP]
   >~ [‘bop2term _’] >- (
     Cases_on ‘bop’ \\ gs [bop2term_def])
+  >~ [‘uop2term _’] >- (
+    Cases_on ‘uop’ \\ gs [uop2term_def])
   \\ pop_assum mp_tac
   \\ ‘∀tm.
         typeof tm = app_type (LENGTH cs) ⇒
@@ -2019,14 +2017,9 @@ Proof
   >~ [‘_CEXP_NUM _’] >- (
     rw [Ntimes has_type_cases 3]
     \\ rw [Ntimes has_type_cases 3])
-  >~ [‘_CEXP_FST _’] >- (
-    rw [Ntimes has_type_cases 3]
+  >~ [‘uop2term _’] >- (
+    Cases_on ‘uop’ \\ simp [uop2term_def]
     \\ rw [Ntimes has_type_cases 3])
-  >~ [‘_CEXP_SND _’] >- (
-    rw [Ntimes has_type_cases 3]
-    \\ rw [Ntimes has_type_cases 3])
-  >~ [‘_CEXP_ISPAIR _’] >- (
-    rw [Ntimes has_type_cases 3])
   >~ [‘_CEXP_PAIR _ _’] >- (
     rw [Ntimes has_type_cases 3])
   >~ [‘_CEXP_IF _ _ _’] >- (
@@ -2064,6 +2057,18 @@ Proof
   \\ simp [term_ok_def, term_ok_welltyped, SF SFY_ss]
 QED
 
+Theorem uop2term_term_ok:
+  compute_thy_ok thy ⇒
+    typeof tm = Cexp ∧
+    term_ok (sigof thy) tm ⇒
+      term_ok (sigof thy) (uop2term uop tm)
+Proof
+  rw []
+  \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
+  \\ Cases_on ‘uop’ \\ gs [uop2term_def]
+  \\ simp [term_ok_def, term_ok_welltyped, SF SFY_ss]
+QED
+
 Theorem cexp2term_term_ok:
   compute_thy_ok thy ⇒
     ∀cv.
@@ -2080,12 +2085,8 @@ Proof
     simp [term_ok_def])
   >~ [‘_CEXP_NUM _’] >- (
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
-  >~ [‘_CEXP_FST _’] >- (
-    simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
-  >~ [‘_CEXP_SND _’] >- (
-    simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
-  >~ [‘_CEXP_ISPAIR _’] >- (
-    simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
+  >~ [‘uop2term _’] >- (
+    irule uop2term_term_ok \\ gs [])
   >~ [‘_CEXP_PAIR _ _ ’] >- (
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
   >~ [‘bop2term _ _ _ ’] >- (

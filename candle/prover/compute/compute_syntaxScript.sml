@@ -140,14 +140,16 @@ Datatype:
 End
 
 Datatype:
+  uop = Fst | Snd | Ispair
+End
+
+Datatype:
   compute_exp = Pair compute_exp compute_exp
               | Num num
               | Var mlstring
               | App mlstring (compute_exp list)
               | If compute_exp compute_exp compute_exp
-              | Fst compute_exp
-              | Snd compute_exp
-              | Ispair compute_exp
+              | Uop uop compute_exp
               | Binop binop compute_exp compute_exp
 End
 
@@ -178,12 +180,16 @@ Definition bop2term_def:
   bop2term Eq = _CEXP_EQ
 End
 
+Definition uop2term_def:
+  uop2term Fst = _CEXP_FST ∧
+  uop2term Snd = _CEXP_SND ∧
+  uop2term Ispair = _CEXP_ISPAIR
+End
+
 Definition cexp2term_def:
   cexp2term (Num n) = _CEXP_NUM (_NUMERAL (num2bit n)) ∧
   cexp2term (Pair p q) = _CEXP_PAIR (cexp2term p) (cexp2term q) ∧
-  cexp2term (Fst p) = _CEXP_FST (cexp2term p) ∧
-  cexp2term (Snd p) = _CEXP_SND (cexp2term p) ∧
-  cexp2term (Ispair p) = _CEXP_ISPAIR (cexp2term p) ∧
+  cexp2term (Uop uop p) = uop2term uop (cexp2term p) ∧
   cexp2term (Binop bop p q) =  bop2term bop (cexp2term p) (cexp2term q) ∧
   cexp2term (If p q r) = _CEXP_IF (cexp2term p) (cexp2term q) (cexp2term r) ∧
   cexp2term (Var s) = Var s Cexp ∧

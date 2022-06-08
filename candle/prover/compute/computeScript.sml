@@ -166,9 +166,7 @@ Definition const_list_def:
   const_list (Var n) = [] ∧
   const_list (Num n) = [] ∧
   const_list (Pair x y) = const_list x ++ const_list y ∧
-  const_list (Fst x) = const_list x ∧
-  const_list (Snd x) = const_list x ∧
-  const_list (Ispair x) = const_list x ∧
+  const_list (Uop uop x) = const_list x ∧
   const_list (Binop bop x y) = const_list x ++ const_list y ∧
   const_list (If x y z) = const_list x ++ const_list y ++ const_list z ∧
   const_list (App s xs) = (s,LENGTH xs)::FLAT (MAP const_list xs)
@@ -180,9 +178,7 @@ Definition var_list_def:
   var_list (Var n) = [n] ∧
   var_list (Num n) = [] ∧
   var_list (Pair x y) = var_list x ++ var_list y ∧
-  var_list (Fst x) = var_list x ∧
-  var_list (Snd x) = var_list x ∧
-  var_list (Ispair x) = var_list x ∧
+  var_list (Uop uop x) = var_list x ∧
   var_list (Binop bop x y) = var_list x ++ var_list y ∧
   var_list (If x y z) = var_list x ++ var_list y ++ var_list z ∧
   var_list (App s xs) = FLAT (MAP var_list xs)
@@ -246,11 +242,7 @@ Definition check_cexp_closed_def:
   check_cexp_closed (Num n) = T ∧
   check_cexp_closed (Pair p q) =
     EVERY check_cexp_closed [p;q] ∧
-  check_cexp_closed (Fst p) =
-    check_cexp_closed p ∧
-  check_cexp_closed (Snd p) =
-    check_cexp_closed p ∧
-  check_cexp_closed (Ispair p) =
+  check_cexp_closed (Uop uop p) =
     check_cexp_closed p ∧
   check_cexp_closed (Binop bop p q) =
     EVERY check_cexp_closed [p;q] ∧

@@ -62,6 +62,10 @@ Proof
             term_ok_def, SF SFY_ss])
   \\ gs [subst_def, cexp2term_def, EVERY_MEM, MEM_MAP, EXISTS_PROD, PULL_EXISTS,
          term_ok_def, SF SFY_ss]
+  >~ [‘uop2term uop _’] >- (
+    Cases_on ‘uop’
+    \\ gs [subst_def, cexp2term_def, EVERY_MEM, MEM_MAP, EXISTS_PROD,
+           uop2term_def, PULL_EXISTS, term_ok_def, SF SFY_ss])
   >~ [‘bop2term bop _ _’] >- (
     Cases_on ‘bop’
     \\ gs [subst_def, cexp2term_def, EVERY_MEM, MEM_MAP, EXISTS_PROD,
@@ -125,23 +129,15 @@ Proof
     \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
     \\ CASE_TAC \\ gs [st_ex_return_def]
     \\ rw [] \\ fs [SF SFY_ss])
-  >- ((* Fst *)
+  >- ((* Uop *)
     simp [Once st_ex_bind_def]
     \\ TOP_CASE_TAC \\ gs [] \\ TOP_CASE_TAC \\ gs [] \\ rw []
-    \\ rename [‘do_fst p’]
-    \\ Cases_on ‘p’ \\ gvs [do_fst_def, st_ex_return_def, SF SFY_ss]
-    \\ first_x_assum drule \\ gs [])
-  >- ((* Snd *)
-    simp [Once st_ex_bind_def]
-    \\ TOP_CASE_TAC \\ gs [] \\ TOP_CASE_TAC \\ gs [] \\ rw []
-    \\ rename [‘do_snd p’]
-    \\ Cases_on ‘p’ \\ gvs [do_snd_def, st_ex_return_def, SF SFY_ss]
-    \\ first_x_assum drule \\ gs [])
-  >- ((* Ispair *)
-    simp [Once st_ex_bind_def]
-    \\ TOP_CASE_TAC \\ gs [] \\ TOP_CASE_TAC \\ gs [] \\ rw []
-    \\ rename [‘do_ispair p’]
-    \\ Cases_on ‘p’ \\ gvs [do_ispair_def, st_ex_return_def, SF SFY_ss])
+    \\ first_x_assum (drule_then assume_tac) \\ gs []
+    \\ rename [‘do_uop p’]
+    \\ Cases_on ‘p’ \\ gvs [do_uop_def]
+    \\ rename [‘_ a r = (M_success x,_)’]
+    \\ Cases_on ‘a’ \\ gs [do_fst_def, do_snd_def, do_ispair_def,
+                           st_ex_return_def])
   >- ((* Binop *)
     simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
     \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
@@ -301,11 +297,11 @@ Proof
     \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
     \\ gvs [cexp2term_def, cexp_consts_def, app_type, proves_REFL])
   \\ TOP_CASE_TAC
-  >- ((* unary: num, fst, snd, ispair or app *)
+  >- ((* unary: num, uop or app *)
     fs [CaseEqs ["list", "option", "bool"]]
     \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
     \\ rw [] \\ fs []
-    \\ gvs [cexp2term_dest_numeral_opt] \\ gvs [cexp2term_def]
+    \\ gvs [cexp2term_dest_numeral_opt] \\ gvs [cexp2term_def, uop2term_def]
     \\ rename [‘term_ok (sigof thy) tm ⇒ _’]
     \\ ‘term_ok (sigof thy) tm’
       by fs [term_ok_def]
@@ -460,6 +456,12 @@ Theorem VSUBST_bop2term[simp]:
   VSUBST is (bop2term bop x y) = bop2term bop (VSUBST is x) (VSUBST is y)
 Proof
   Cases_on ‘bop’ \\ gs [bop2term_def, VSUBST_thm]
+QED
+
+Theorem VSUBST_uop2term[simp]:
+  VSUBST is (uop2term uop x) = uop2term uop (VSUBST is x)
+Proof
+  Cases_on ‘uop’ \\ gs [uop2term_def, VSUBST_thm]
 QED
 
 Theorem subst_VSUBST:
@@ -1215,11 +1217,102 @@ Proof
     \\ gs [numeral_thy_ok_terms_ok])
 QED
 
+Theorem do_uop_thm:
+  compute_thy_ok thy ⇒
+    term_ok (sigof thy) (cexp2term p) ∧
+    (thy,[]) |- cexp2term p === cexp2term x ∧ cexp_value x ∧
+    do_uop uop x s = (res, s') ⇒
+      s' = s ∧
+      ∃cv. res = M_success cv ∧
+           (thy,[]) |- uop2term uop (cexp2term p)=== cexp2term cv
+Proof
+  ntac 2 strip_tac
+  \\ Cases_on ‘uop’ \\ gs [uop2term_def, do_uop_def]
+  >~ [‘_CEXP_FST p’] >- (
+    drule_then strip_assume_tac do_fst_thm \\ gvs []
+    \\ rename [‘do_fst p r = (M_success cv,_)’]
+    \\ drule_then assume_tac cexp_value_no_consts
+    \\ Cases_on ‘∃p1 q1. p = Pair p1 q1’ \\ gvs []
+    >- (
+      gvs [do_fst_def, st_ex_return_def, cexp2term_def]
+      \\ resolve_then Any irule sym_equation replaceL2
+      \\ first_x_assum (irule_at Any)
+      \\ gs [CEXP_FST_eqn1, cexp2term_term_ok, cexp_consts_def])
+    \\ ‘cv = Num 0’
+      by (Cases_on ‘p’ \\ gs [do_fst_def, st_ex_return_def])
+    \\ ‘∃m. p = Num m’
+      by (Cases_on ‘p’ \\ gs [])
+    \\ gvs [cexp2term_def]
+    \\ resolve_then Any irule sym_equation replaceL2
+    \\ first_x_assum (irule_at Any)
+    \\ simp [Once num2bit_def, SimpR “(===)”]
+    \\ irule CEXP_FST_eqn2
+    \\ simp [Ntimes has_type_cases 3]
+    \\ gs [term_ok_def, compute_thy_ok_terms_ok, num2bit_term_ok])
+  >~ [‘_CEXP_SND p’] >- (
+    drule_then strip_assume_tac do_snd_thm \\ gvs []
+    \\ rename [‘do_snd p r = (M_success cv,_)’]
+    \\ drule_then assume_tac cexp_value_no_consts
+    \\ Cases_on ‘∃p1 q1. p = Pair p1 q1’ \\ gvs []
+    >- (
+      gvs [do_snd_def, st_ex_return_def, cexp2term_def]
+      \\ resolve_then Any irule sym_equation replaceL2
+      \\ first_x_assum (irule_at Any)
+      \\ gs [CEXP_SND_eqn1, cexp2term_term_ok, cexp_consts_def])
+    \\ ‘cv = Num 0’
+      by (Cases_on ‘p’ \\ gs [do_snd_def, st_ex_return_def])
+    \\ ‘∃m. p = Num m’
+      by (Cases_on ‘p’ \\ gs [])
+    \\ gvs [cexp2term_def]
+    \\ resolve_then Any irule sym_equation replaceL2
+    \\ first_x_assum (irule_at Any)
+    \\ simp [Once num2bit_def, SimpR “(===)”]
+    \\ irule CEXP_SND_eqn2
+    \\ simp [Ntimes has_type_cases 3]
+    \\ gs [term_ok_def, compute_thy_ok_terms_ok, num2bit_term_ok])
+  >~ [‘_CEXP_ISPAIR p’] >- (
+    drule_then strip_assume_tac do_ispair_thm \\ gvs []
+    \\ rename [‘do_ispair p r = (M_success cv,_)’]
+    \\ drule_then assume_tac cexp_value_no_consts
+    \\ Cases_on ‘∃p1 q1. p = Pair p1 q1’ \\ gvs []
+    >- (
+      gvs [do_ispair_def, st_ex_return_def, cexp2term_def]
+      \\ resolve_then Any irule sym_equation replaceL2
+      \\ first_x_assum (irule_at Any)
+      \\ irule replaceR2 \\ qexists_tac ‘_NUMERAL (num2term 1)’
+      \\ simp [MK_COMB_simple, proves_REFL, numeral_thy_ok_terms_ok,
+               num2bit_num2term, Once sym_equation]
+      \\ once_rewrite_tac [ONE] \\ simp [num2term_def]
+      \\ irule replaceL2 \\ qexists_tac ‘_SUC (_NUMERAL _0)’
+      \\ resolve_then Any (irule_at Any) sym_equation replaceL2
+      \\ irule_at Any NUMERAL_eqn \\ gs [numeral_thy_ok_terms_ok]
+      \\ irule_at Any sym_equation \\ irule_at Any NUMERAL_eqn
+      \\ gs [numeral_thy_ok_terms_ok, Once sym_equation, CEXP_ISPAIR_eqn1,
+             cexp2term_term_ok, cexp_consts_def])
+    \\ ‘cv = Num 0’
+      by (Cases_on ‘p’ \\ gs [do_ispair_def, st_ex_return_def])
+    \\ ‘∃m. p = Num m’
+      by (Cases_on ‘p’ \\ gs [])
+    \\ gvs [cexp2term_def]
+    \\ resolve_then Any irule sym_equation replaceL2
+    \\ first_x_assum (irule_at Any)
+    \\ simp [Once num2bit_def, SimpR “(===)”]
+    \\ irule CEXP_ISPAIR_eqn2 \\ gs []
+    \\ gs [term_ok_def, compute_thy_ok_terms_ok, num2bit_term_ok])
+QED
+
 Theorem term_ok_bop2term:
   term_ok sig (bop2term bop tm1 tm2) ⇒
     term_ok sig tm1 ∧ term_ok sig tm2
 Proof
   Cases_on ‘bop’ \\ rw [term_ok_def, bop2term_def]
+QED
+
+Theorem term_ok_uop2term:
+  term_ok sig (uop2term uop tm) ⇒
+    term_ok sig tm
+Proof
+  Cases_on ‘uop’ \\ rw [term_ok_def, uop2term_def]
 QED
 
 Theorem compute_eval_list_map:
@@ -1239,13 +1332,13 @@ QED
 Definition cexp_consts_ok_def:
   cexp_consts_ok eqs (Var s) = T ∧
   cexp_consts_ok eqs (Num n) = T ∧
-  cexp_consts_ok eqs (Pair p q) = (cexp_consts_ok eqs p ∧ cexp_consts_ok eqs q) ∧
+  cexp_consts_ok eqs (Pair p q) =
+    (cexp_consts_ok eqs p ∧ cexp_consts_ok eqs q) ∧
   cexp_consts_ok eqs (If p q r) =
     (cexp_consts_ok eqs p ∧ cexp_consts_ok eqs q ∧ cexp_consts_ok eqs r) ∧
-  cexp_consts_ok eqs (Fst p) = cexp_consts_ok eqs p ∧
-  cexp_consts_ok eqs (Snd p) = cexp_consts_ok eqs p ∧
-  cexp_consts_ok eqs (Ispair p) = cexp_consts_ok eqs p ∧
-  cexp_consts_ok eqs (Binop bop p q) = (cexp_consts_ok eqs p ∧ cexp_consts_ok eqs q) ∧
+  cexp_consts_ok eqs (Uop uop p) = cexp_consts_ok eqs p ∧
+  cexp_consts_ok eqs (Binop bop p q) =
+    (cexp_consts_ok eqs p ∧ cexp_consts_ok eqs q) ∧
   cexp_consts_ok eqs (App f cs) =
     (MEM (f,LENGTH cs) (MAP (λ(f,n,x). (f,LENGTH n)) eqs) ∧
      EVERY (cexp_consts_ok eqs) cs)
@@ -1333,98 +1426,15 @@ Proof
     \\ reverse CASE_TAC \\ gs []
     \\ strip_tac \\ gvs []
     \\ fs [cexp2term_def, term_ok_def, MK_COMB_simple, proves_REFL, SF SFY_ss])
-  >~ [‘Fst p’] >- (
-    gvs [cexp2term_def, term_ok_clauses, cexp_vars_def, cexp_consts_ok_def]
+  >~ [‘Uop uop p’] >- (
+    gvs [cexp2term_def, cexp_vars_def, cexp_consts_ok_def]
+    \\ drule_then strip_assume_tac term_ok_uop2term
     \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
     \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
     \\ CASE_TAC \\ gs []
-    \\ strip_tac
-    \\ drule_then strip_assume_tac do_fst_thm \\ gvs []
-    \\ rename [‘do_fst p r = (M_success cv,_)’]
-    \\ drule_then assume_tac (CONJUNCT1 compute_eval_value)
-    \\ drule_then assume_tac cexp_value_no_consts
-    \\ Cases_on ‘∃p1 q1. p = Pair p1 q1’ \\ gvs []
-    >- (
-      gvs [do_fst_def, st_ex_return_def, cexp2term_def]
-      \\ resolve_then Any irule sym_equation replaceL2
-      \\ first_x_assum (irule_at Any)
-      \\ gs [CEXP_FST_eqn1, cexp2term_term_ok, cexp_consts_def])
-    \\ ‘cv = Num 0’
-      by (Cases_on ‘p’ \\ gs [do_fst_def, st_ex_return_def])
-    \\ drule_then assume_tac (CONJUNCT1 compute_eval_value)
-    \\ ‘∃m. p = Num m’
-      by (Cases_on ‘p’ \\ gs [])
-    \\ gvs [cexp2term_def]
-    \\ resolve_then Any irule sym_equation replaceL2
-    \\ first_x_assum (irule_at Any)
-    \\ simp [Once num2bit_def, SimpR “(===)”]
-    \\ irule CEXP_FST_eqn2
-    \\ simp [Ntimes has_type_cases 3]
-    \\ gs [term_ok_def, compute_thy_ok_terms_ok, num2bit_term_ok])
-  >~ [‘Snd p’] >- (
-    gvs [cexp2term_def, term_ok_clauses, cexp_vars_def, cexp_consts_ok_def]
-    \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
-    \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
-    \\ CASE_TAC \\ gs []
-    \\ strip_tac
-    \\ drule_then strip_assume_tac do_snd_thm \\ gvs []
-    \\ rename [‘do_snd p r = (M_success cv,_)’]
-    \\ drule_then assume_tac (CONJUNCT1 compute_eval_value)
-    \\ drule_then assume_tac cexp_value_no_consts
-    \\ Cases_on ‘∃p1 q1. p = Pair p1 q1’ \\ gvs []
-    >- (
-      gvs [do_snd_def, st_ex_return_def, cexp2term_def]
-      \\ resolve_then Any irule sym_equation replaceL2
-      \\ first_x_assum (irule_at Any)
-      \\ gs [CEXP_SND_eqn1, cexp2term_term_ok, cexp_consts_def])
-    \\ ‘cv = Num 0’
-      by (Cases_on ‘p’ \\ gs [do_snd_def, st_ex_return_def])
-    \\ drule_then assume_tac (CONJUNCT1 compute_eval_value)
-    \\ ‘∃m. p = Num m’
-      by (Cases_on ‘p’ \\ gs [])
-    \\ gvs [cexp2term_def]
-    \\ resolve_then Any irule sym_equation replaceL2
-    \\ first_x_assum (irule_at Any)
-    \\ simp [Once num2bit_def, SimpR “(===)”]
-    \\ irule CEXP_SND_eqn2
-    \\ simp [Ntimes has_type_cases 3]
-    \\ gs [term_ok_def, compute_thy_ok_terms_ok, num2bit_term_ok])
-  >~ [‘Ispair p’] >- (
-    gvs [cexp2term_def, term_ok_clauses, cexp_vars_def, cexp_consts_ok_def]
-    \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
-    \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
-    \\ CASE_TAC \\ gs []
-    \\ strip_tac
-    \\ drule_then strip_assume_tac do_ispair_thm \\ gvs []
-    \\ rename [‘do_ispair p r = (M_success cv,_)’]
-    \\ drule_then assume_tac (CONJUNCT1 compute_eval_value)
-    \\ drule_then assume_tac cexp_value_no_consts
-    \\ Cases_on ‘∃p1 q1. p = Pair p1 q1’ \\ gvs []
-    >- (
-      gvs [do_ispair_def, st_ex_return_def, cexp2term_def]
-      \\ resolve_then Any irule sym_equation replaceL2
-      \\ first_x_assum (irule_at Any)
-      \\ irule replaceR2 \\ qexists_tac ‘_NUMERAL (num2term 1)’
-      \\ simp [MK_COMB_simple, proves_REFL, numeral_thy_ok_terms_ok,
-               num2bit_num2term, Once sym_equation]
-      \\ once_rewrite_tac [ONE] \\ simp [num2term_def]
-      \\ irule replaceL2 \\ qexists_tac ‘_SUC (_NUMERAL _0)’
-      \\ resolve_then Any (irule_at Any) sym_equation replaceL2
-      \\ irule_at Any NUMERAL_eqn \\ gs [numeral_thy_ok_terms_ok]
-      \\ irule_at Any sym_equation \\ irule_at Any NUMERAL_eqn
-      \\ gs [numeral_thy_ok_terms_ok, Once sym_equation, CEXP_ISPAIR_eqn1,
-             cexp2term_term_ok, cexp_consts_def])
-    \\ ‘cv = Num 0’
-      by (Cases_on ‘p’ \\ gs [do_ispair_def, st_ex_return_def])
-    \\ drule_then assume_tac (CONJUNCT1 compute_eval_value)
-    \\ ‘∃m. p = Num m’
-      by (Cases_on ‘p’ \\ gs [])
-    \\ gvs [cexp2term_def]
-    \\ resolve_then Any irule sym_equation replaceL2
-    \\ first_x_assum (irule_at Any)
-    \\ simp [Once num2bit_def, SimpR “(===)”]
-    \\ irule CEXP_ISPAIR_eqn2 \\ gs []
-    \\ gs [term_ok_def, compute_thy_ok_terms_ok, num2bit_term_ok])
+    \\ rename [‘do_uop uop x s’] \\ strip_tac
+    \\ imp_res_tac (CONJUNCT1 compute_eval_value)
+    \\ drule_all_then strip_assume_tac do_uop_thm \\ gs [])
   >~ [‘If p q r’] >- (
     gvs [cexp2term_def, term_ok_clauses, cexp_vars_def, cexp_consts_ok_def]
     \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []

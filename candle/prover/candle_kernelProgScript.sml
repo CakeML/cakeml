@@ -109,10 +109,12 @@ val r = m_translate do_binop_def;
 val r = m_translate do_fst_def;
 val r = m_translate do_snd_def;
 val r = m_translate do_ispair_def;
+val r = m_translate do_uop_def;
 val r = translate subst_def;
 val r = m_translate compute_eval_def;
 val r = translate num2bit_def;
 val r = translate bop2term_def;
+val r = translate uop2term_def;
 val r = translate FOLDL;
 val r = translate cexp2term_def;
 

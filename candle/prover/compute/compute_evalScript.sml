@@ -180,11 +180,11 @@ Definition dest_cexp_def:
               | NONE => NONE
               | SOME cv =>
                 if Const n ty = _CEXP_FST_TM then
-                  SOME (Fst cv)
+                  SOME (Uop Fst cv)
                 else if Const n ty = _CEXP_SND_TM then
-                  SOME (Snd cv)
+                  SOME (Uop Snd cv)
                 else if Const n ty = _CEXP_ISPAIR_TM then
-                  SOME (Ispair cv)
+                  SOME (Uop Ispair cv)
                 else
                  SOME (App n [cv])
             else
@@ -275,6 +275,12 @@ Definition do_ispair_def:
   do_ispair _ = return (Num 0)
 End
 
+Definition do_uop_def:
+  do_uop Fst p = do_fst p ∧
+  do_uop Snd p = do_snd p ∧
+  do_uop Ispair p = do_ispair p
+End
+
 Definition map_def:
   map f [] = return [] ∧
   map f (x::xs) =
@@ -345,9 +351,7 @@ Definition subst_def:
      | SOME cv => cv) ∧
   subst env (Num n) = Num n ∧
   subst env (Pair p q) = Pair (subst env p) (subst env q) ∧
-  subst env (Fst p) = Fst (subst env p) ∧
-  subst env (Snd p) = Snd (subst env p) ∧
-  subst env (Ispair p) = Ispair (subst env p) ∧
+  subst env (Uop uop p) = Uop uop (subst env p) ∧
   subst env (Binop bop p q) = Binop bop (subst env p) (subst env q) ∧
   subst env (App f cs) = App f (MAP (subst env) cs) ∧
   subst env (If p q r) = If (subst env p) (subst env q) (subst env r)
@@ -375,17 +379,9 @@ Definition compute_eval_def:
       y <- compute_eval ck ceqs q;
       return (Pair x y)
     od ∧
-  compute_eval ck ceqs (Fst p) =
+  compute_eval ck ceqs (Uop uop p) =
     do x <- compute_eval ck ceqs p;
-       do_fst x
-    od ∧
-  compute_eval ck ceqs (Snd p) =
-    do x <- compute_eval ck ceqs p;
-       do_snd x
-    od ∧
-  compute_eval ck ceqs (Ispair p) =
-    do x <- compute_eval ck ceqs p;
-       do_ispair x
+       do_uop uop x
     od ∧
   compute_eval ck ceqs (Binop bop p q) =
     do
