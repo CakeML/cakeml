@@ -98,7 +98,7 @@ examples/compilation/x64
 examples/compilation/x64/proofs
 examples/compilation/ag32
 examples/compilation/ag32/proofs
-examples/cost
+# examples/cost
 examples/lpr_checker
 examples/lpr_checker/array
 examples/lpr_checker/array/compilation
