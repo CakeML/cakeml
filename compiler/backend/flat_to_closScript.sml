@@ -252,6 +252,7 @@ End
 
 Definition SmartCons_def:
   SmartCons t tag xs =
+    if NULL xs then Op t (Cons tag) [] else
     dtcase dest_Constants xs of
     | NONE => Op t (Cons tag) xs
     | SOME cs => Op t (Constant (ConstCons tag (REVERSE cs))) []

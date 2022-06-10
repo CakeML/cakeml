@@ -442,7 +442,7 @@ QED
 Theorem evaluate_SmartCons:
   evaluate ([SmartCons t tag xs],db,s) = evaluate ([Op t (Cons tag) xs],db,s)
 Proof
-  fs [SmartCons_def] \\ CASE_TAC \\ fs []
+  rw [SmartCons_def] \\ TRY CASE_TAC \\ fs [NULL_EQ]
   \\ fs [evaluate_def,do_app_def,make_const_def]
   \\ imp_res_tac dest_Constants_evaluate
   \\ fs [SF ETA_ss,MAP_REVERSE]
@@ -1734,7 +1734,7 @@ QED
 Theorem set_globals_SmartCons:
   set_globals (SmartCons t tag xs) = elist_globals xs
 Proof
-  fs [SmartCons_def] \\ CASE_TAC \\ fs [op_gbag_def]
+  rw [SmartCons_def] \\ TRY CASE_TAC \\ fs [op_gbag_def,NULL_EQ]
   \\ drule dest_Constants_IMP
   \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘xs’
   \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs []
@@ -1744,7 +1744,7 @@ QED
 Theorem esgc_free_SmartCons:
   esgc_free (SmartCons t tag xs) = EVERY esgc_free xs
 Proof
-  fs [SmartCons_def] \\ CASE_TAC \\ fs [esgc_free_def]
+  rw [SmartCons_def] \\ TRY CASE_TAC \\ fs [esgc_free_def,NULL_EQ]
   \\ drule dest_Constants_IMP
   \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘xs’
   \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs []
@@ -1891,7 +1891,7 @@ Theorem contains_App_SOME_SmartCons:
   contains_App_SOME max_app [SmartCons t tag xs] =
   contains_App_SOME max_app xs
 Proof
-  fs [SmartCons_def] \\ CASE_TAC \\ fs [contains_App_SOME_def]
+  rw [SmartCons_def] \\ TRY CASE_TAC \\ fs [contains_App_SOME_def,NULL_EQ]
   \\ drule dest_Constants_IMP
   \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘xs’
   \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs [contains_App_SOME_def]
@@ -1906,7 +1906,7 @@ Theorem every_Fn_vs_NONE_SmartCons:
   every_Fn_vs_NONE [SmartCons t tag xs] =
   every_Fn_vs_NONE xs
 Proof
-  fs [SmartCons_def] \\ CASE_TAC \\ fs [every_Fn_vs_NONE_def]
+  rw [SmartCons_def] \\ TRY CASE_TAC \\ fs [every_Fn_vs_NONE_def,NULL_EQ]
   \\ drule dest_Constants_IMP
   \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘xs’
   \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs [every_Fn_vs_NONE_def]
@@ -1917,7 +1917,7 @@ QED
 Theorem no_mti_SmartCons:
   no_mti (SmartCons t tag xs) = EVERY no_mti xs
 Proof
-  fs [SmartCons_def] \\ CASE_TAC \\ fs [no_mti_def,SF ETA_ss]
+  rw [SmartCons_def] \\ TRY CASE_TAC \\ fs [no_mti_def,SF ETA_ss,NULL_EQ]
   \\ drule dest_Constants_IMP
   \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘xs’
   \\ Induct \\ fs [] \\ rw [] \\ res_tac \\ fs [no_mti_def]
