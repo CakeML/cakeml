@@ -11,7 +11,7 @@ This directory contains the ARMv7-specific part of the compiler backend.
 This directory contains the ARMv8-specific part of the compiler backend.
 
 [arm8_asl](arm8_asl):
-This directory contains the ASL-derived ARMv8-specific part of the
+This directory contains proofs for the ASL-derived ARMv8-specific part of the
 compiler backend.
 
 [backendComputeLib.sml](backendComputeLib.sml):
@@ -313,6 +313,11 @@ This is the compiler's regsiter allocator. It supports different modes:
 The bignum library used by the CakeML compiler. Note that the
 implementation is automatically generated from a shallow embedding
 that is part of the HOL distribution in mc_multiwordTheory.
+
+[word_comSubExpElimScript.sml](word_comSubExpElimScript.sml):
+This file is a Work in Progress.
+It gives some functions and verification proofs about a Common Sub-Expression
+Elimination occuring right atfer the SSA-like renaming.
 
 [word_depthScript.sml](word_depthScript.sml):
 Computes the call graph for wordLang program with an acyclic call

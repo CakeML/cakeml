@@ -1,8 +1,7 @@
 (*
   Compiles a program to wordLang
 *)
-open preamble compilationLib basis
-
+open preamble compilationLib basis word_comSubExpElimTheory
 val _ = new_theory "to_wordCompile"
 
 val _ = (max_print_depth := 500);
@@ -72,4 +71,64 @@ Theorem foldr_example =
 Theorem foldr_example_ssa =
   comp_to_ssa true "foldr" foldr_prog_def;
 
+val tm = foldr_example_ssa |> concl |> rand
+
+Definition test_def:
+  test p = let (n,regsEq, regsMap, instrs, p') = comSubExpElim 0 [] LN (empty listCmp) p in p'
+End
+
+Definition progCmp_def:
+  progCmp p1 p2 =
+    if p1=p2
+      then []
+      else case (p1,p2) of
+           | (wordLang$Seq p11 p12, wordLang$Seq p21 p22) => (progCmp p11 p21) ++ (progCmp p12 p22)
+           | (wordLang$If _ _ _ p11 p12, wordLang$If _ _ _ p21 p22) => (progCmp p11 p21) ++ (progCmp p12 p22)
+           | (_,_) => [(p1,p2)]
+End
+
+(*
+Definition prog1_def:
+  prog1 =
+        Move 1 [(37,0); (41,2); (45,4); (49,6)] ▸
+        If Equal 41 (Imm 2w)
+          (Inst (Const 53 18w) ▸ Move 0 [(2,45)] ▸ Return 37 2 ▸
+           Move 1 [(181,37); (177,49)] ▸ Inst (Const 185 0w) ▸
+           Inst (Const 189 0w) ▸ Inst (Const 193 0w) ▸ Move 1 [(197,53)] ▸
+           Inst (Const 201 0w) ▸ Move 1 [(205,41)] ▸ Move 1 [(209,45)] ▸
+           Inst (Const 213 0w) ▸ Inst (Const 217 0w))
+          (Inst (Const 57 2w) ▸ Move 0 [(61,41)] ▸
+           Inst (Arith (Shift Lsr 65 61 9)) ▸ OpCurrHeap Add 69 65 ▸
+           Inst (Mem Load 73 (Addr 69 8w)) ▸ Move 0 [(77,41)] ▸
+           Inst (Arith (Shift Lsr 81 77 9)) ▸ OpCurrHeap Add 85 81 ▸
+           Inst (Mem Load 89 (Addr 85 16w)) ▸
+           Move 1 [(95,37); (99,49); (103,73)] ▸
+           Move 0 [(2,89); (4,45); (6,49)] ▸
+           Call
+             (SOME
+                (2,insert 95 () (insert 99 () (insert 103 () LN)),
+                 Move 1 [(109,95); (113,99); (117,103)] ▸ Move 0 [(121,2)],
+                 249,2)) (SOME 249) [2; 4; 6] NONE ▸ Move 0 [(125,113)] ▸
+           Inst (Arith (Shift Lsr 129 125 9)) ▸ OpCurrHeap Add 133 129 ▸
+           Inst (Mem Load 137 (Addr 133 16w)) ▸
+           If Equal 137 (Imm 4w)
+             (Inst (Const 141 18w) ▸ Move 0 [(145,113)] ▸
+              Inst (Arith (Shift Lsr 149 145 9)) ▸ OpCurrHeap Add 153 149 ▸
+              Inst (Mem Load 157 (Addr 153 8w)) ▸
+              Move 0 [(0,109); (2,121); (4,117); (6,113); (8,157)] ▸
+              Call NONE NONE [0; 2; 4; 6; 8] NONE ▸
+              Move 1 [(169,153); (165,141)] ▸ Move 1 [(173,157)])
+             (Inst (Const 161 2w) ▸
+              Move 0 [(0,109); (2,121); (4,117); (6,113)] ▸
+              Call NONE (SOME 69) [0; 2; 4; 6] NONE ▸
+              Move 1 [(169,133); (165,161)] ▸ Inst (Const 173 0w)) ▸
+           Move 1 [(181,109); (177,113)] ▸ Move 1 [(185,137)] ▸
+           Move 1 [(189,117)] ▸ Move 1 [(193,121)] ▸ Inst (Const 197 0w) ▸
+           Move 1 [(201,173)] ▸ Inst (Const 205 0w) ▸ Inst (Const 209 0w) ▸
+           Move 1 [(213,165)] ▸ Move 1 [(217,169)])
+End
+
+
+EVAL “progCmp ^tm (test ^tm)”
+*)
 val _ = export_theory ();
