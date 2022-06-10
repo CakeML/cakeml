@@ -198,8 +198,6 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.add_part_def
     ,clos_to_bvlTheory.add_parts_def
     ,clos_to_bvlTheory.compile_const_def
-    ,clos_to_bvlTheory.Fn_to_const_def
-    ,clos_to_bvlTheory.to_const_def
     ,clos_to_bvlTheory.recc_Let0_def
     ,clos_to_bvlTheory.partial_app_fn_location_def
     ,clos_to_bvlTheory.default_config_def
@@ -214,7 +212,6 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.generate_generic_app_def
     ,clos_to_bvlTheory.num_added_globals_def
     ,clos_to_bvlTheory.partial_app_label_table_loc_def
-    ,clos_to_bvlTheory.clos_mutable_glob_loc_def
     ,clos_to_bvlTheory.partial_app_fn_location_code_def
     ,clos_to_bvlTheory.init_globals_def
     ,clos_to_bvlTheory.mk_cl_call_def
@@ -229,7 +226,6 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.mk_label_def
     ,clos_to_bvlTheory.compile_op_def
     ,clos_to_bvlTheory.mk_const_def
-    ,bvlTheory.Bool_def
     ,clos_to_bvlTheory.compile_exps_def
     ,clos_to_bvlTheory.code_merge_def
     ,clos_to_bvlTheory.code_split_def
@@ -237,7 +233,6 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.make_name_alist_def
     ,clos_to_bvlTheory.get_src_names_def
     ,clos_to_bvlTheory.add_src_names_def
-    ,clos_to_bvlTheory.compile_build_def
       (* ---- bvl_inline ---- *)
     ,bvl_inlineTheory.tick_inline_def
     ,bvl_inlineTheory.is_small_aux_def
@@ -288,7 +283,7 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [ (* ---- bvl_to_bvi ---- *)
-    ,bvl_to_bviTheory.destLet_def
+     bvl_to_bviTheory.destLet_def
     ,bvl_to_bviTheory.alloc_glob_count_def
     ,bvl_to_bviTheory.compile_prog_def
     ,bvl_to_bviTheory.compile_list_def
