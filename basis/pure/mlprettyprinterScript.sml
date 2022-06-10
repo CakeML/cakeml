@@ -85,7 +85,7 @@ End
 
 Definition pp_val_hidden_type_def:
   pp_val_hidden_type nm ty = PP_Data F
-    (List [strlit "val "; nm; strlit ": <hidden type "; ty; strlit ">\n"])
+    (List [strlit "val "; nm; strlit " <not printable> : "; ty; strlit "\n"])
 End
 
 Definition pp_failure_message_def:

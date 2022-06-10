@@ -1206,45 +1206,51 @@ End
  * which is a bit annoying but it hardly matters.
  *)
 
-(* Builds a pattern match for a match expression. The third part of each tuple
- * is SOME when there's a guard-expression present. Each guard expression
- * duplicates the rest of the match expression.
- *
+(* Builds a pattern match expression that allocates a closure each time a guard
+ * expression is encountered. N.B. this expects a call with pattern rows in
+ * reverse order.
  *)
 
-Definition build_pmatch_def:
-  build_pmatch bv cn [] = [] ∧
-  build_pmatch bv cn ((pat,body,NONE)::rest) =
-    (pat,body)::build_pmatch bv cn rest ∧
-  build_pmatch bv cn ((pat,body,SOME guard)::rest) =
-    let rs = build_pmatch bv cn rest in
-      (pat,If guard body (cn (Var (Short bv)) rs))::rs
+Definition SmartMat_def:
+  SmartMat (Var x) [Pany, y] = y ∧
+  SmartMat x ps = Mat x ps
 End
 
-(* If a pattern is guarded then we need to bind the expression we match on
- * to a variable (to only execute its effects once) so that the guard can
- * refer to it.
- *)
+Definition build_pmatch_def:
+  build_pmatch mvar match_fn acc [] =
+    match_fn (Var (Short mvar)) acc ∧
+  build_pmatch mvar match_fn acc ((pat,exp,NONE)::ps) =
+    build_pmatch mvar match_fn ((pat,exp)::acc) ps ∧
+  build_pmatch mvar match_fn acc ((pat,exp,SOME guard)::ps) =
+    let mexp = match_fn (Var (Short mvar)) acc in
+    let clos = Let (SOME " p") (Fun " u" mexp) in
+    let call = App Opapp [Var (Short " p"); Con NONE []] in
+    let mat = match_fn (Var (Short mvar))
+                       [(pat,If guard exp call); (Pany,call)] in
+      build_pmatch mvar match_fn [Pany,clos mat] ps
+End
 
 Definition build_match_def:
-  build_match x pmatch =
-    if EXISTS (λ(p,x,g). case g of SOME _ => T | _ => F) pmatch then
-      Let (SOME "") x (Mat (Var (Short "")) (build_pmatch "" Mat pmatch))
+  build_match x rows =
+    if EXISTS (λ(p,x,g). case g of SOME _ => T | _ => F) rows then
+      Let (SOME "") x (build_pmatch "" SmartMat [] (REVERSE rows))
     else
-      Mat x (build_pmatch "" Mat pmatch)
+      Mat x (MAP (λ(p,x,g). (p,x)) rows)
 End
 
 Definition build_handle_def:
-  build_handle x pmatch =
-    if EXISTS (λ(p,x,g). case g of SOME _ => T | _ => F) pmatch then
-      Let (SOME "") x (Handle (Var (Short "")) (build_pmatch "" Handle pmatch))
+  build_handle x rows =
+    if EXISTS (λ(p,x,g). case g of SOME _ => T | _ => F) rows then
+      let exn = Var (Short "") in
+      (Handle exn [
+        Pany,build_pmatch "" SmartMat [] ((Pany,Raise exn,NONE)::REVERSE rows)])
     else
-      Handle x (build_pmatch "" Handle pmatch)
+      Handle x (MAP (λ(p,x,g). (p,x)) rows)
 End
 
 Definition build_function_def:
-  build_function pmatch =
-    Fun "" (Mat (Var (Short "")) (build_pmatch "" Mat pmatch))
+  build_function rows =
+    Fun ""  (build_pmatch "" SmartMat [] (REVERSE rows))
 End
 
 (* Flatten the row-alternatives in a pattern-match.
@@ -2763,6 +2769,21 @@ Definition ptree_Start_def:
     else
       fail (locs, «Expected the start non-terminal»)
 End
+
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
+
+Theorem SmartMat_PMATCH:
+  ∀v ps.
+    SmartMat v ps =
+      case v, ps of
+        Var x, [Pany, y] => y
+      | _, _ => Mat v ps
+Proof
+  CONV_TAC (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ Cases_on ‘v’ \\ Cases_on ‘ps’ \\ simp [SmartMat_def]
+  \\ rename [‘(h::t)’]
+  \\ PairCases_on ‘h’ \\ rpt CASE_TAC \\ simp [SmartMat_def]
+QED
 
 val _ = export_theory ();
 

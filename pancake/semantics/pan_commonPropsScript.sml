@@ -62,8 +62,7 @@ Theorem opt_mmap_mem_defined:
     MEM n m
 Proof
   Induct >> rw [] >>
-  fs [OPT_MMAP_def] >> rveq
-  >- fs [MEM] >>
+  fs [OPT_MMAP_def] >> rveq >>
   res_tac >> fs []
 QED
 

@@ -25,4 +25,4 @@ Correctness proof for --
 Correctness proof for --
 
 [time_to_panProofScript.sml](time_to_panProofScript.sml):
-Correctness proof for --
+Correctness proof for timeLang to panLang

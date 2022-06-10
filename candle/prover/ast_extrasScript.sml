@@ -48,6 +48,9 @@ Definition every_exp_def[simp]:
   (every_exp f (Lannot e l) <=>
     f (Lannot e l) /\
     every_exp f e) /\
+  (every_exp f (FpOptimise sc e) <=>
+    f (FpOptimise sc e) /\
+    every_exp f e) /\
   (every_exp f e <=> f e)
 Termination
   WF_REL_TAC `measure (exp_size o SND)`
@@ -131,7 +134,8 @@ Definition freevars_def[simp]:
                                        {Short fn; Short vn}) f)) ∪
        (freevars x DIFF set (MAP (Short o FST) f))) ∧
   freevars (Tannot x t) = freevars x ∧
-  freevars (Lannot x l) = freevars x
+  freevars (Lannot x l) = freevars x ∧
+  freevars (FpOptimise sc e) = freevars e
 Termination
   wf_rel_tac ‘measure exp_size’
 End
@@ -148,4 +152,3 @@ Definition do_partial_app_def:
 End
 
 val _ = export_theory ();
-

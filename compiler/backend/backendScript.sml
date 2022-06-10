@@ -725,33 +725,42 @@ Theorem compile_inc_progs_for_eval_eq:
     let c = inc_config_to_config asm_c' inc_c in
     let p = source_to_source$compile p in
     let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
+    let _ = empty_ffi (strlit "finished: source_to_flat") in
     let c = c with source_conf := c' in
     let p = flat_to_clos_inc_compile p in
+    let _ = empty_ffi (strlit "finished: flat_to_clos") in
     let (c',p) = clos_to_bvl_compile_inc c.clos_conf p in
+    let _ = empty_ffi (strlit "finished: clos_to_bvl") in
     let c = c with clos_conf := c' in
     let (c', p) = bvl_to_bvi_compile_inc_all c.bvl_conf p in
+    let _ = empty_ffi (strlit "finished: bvl_to_bvi") in
     let c = c with <| bvl_conf := c' |> in
     let p = bvi_to_data_compile_prog p in
+    let _ = empty_ffi (strlit "finished: bvi_to_data") in
     let asm_c = c.lab_conf.asm_conf in
     let dc = ensure_fp_conf_ok asm_c' c.data_conf in
     let p = MAP (compile_part dc) p in
     let reg_count1 = asm_c'.reg_count - (5 + LENGTH asm_c'.avoid_regs) in
-    let p = MAP (\p. full_compile_single asm_c'.two_reg_arith reg_count1
+    let p = MAP (\p. full_compile_single_for_eval asm_c'.two_reg_arith reg_count1
         c.word_to_word_conf.reg_alg asm_c' (p, NONE)) p in
+    let _ = empty_ffi (strlit "finished: data_to_word") in
     let bm0 = c.word_conf.bitmaps_length in
     let (p, fs, bm) = compile_word_to_stack reg_count1 p (Nil, bm0) in
+    let _ = empty_ffi (strlit "finished: word_to_stack") in
     let cur_bm = append (FST bm) in
     let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in
     let reg_count2 = asm_c'.reg_count - (3 + LENGTH asm_c'.avoid_regs) in
     let p = stack_to_lab$compile_no_stubs
         c.stack_conf.reg_names c.stack_conf.jump asm_c'.addr_offset
         reg_count2 p in
+    let _ = empty_ffi (strlit "finished: stack_to_lab") in
     let target = lab_to_target$compile c.lab_conf (p:'a prog) in
+    let _ = empty_ffi (strlit "finished: lab_to_target") in
     let c = c with lab_conf updated_by (case target of NONE => I
                                         | SOME (_, c') => K c') in
       OPTION_MAP (λx. (config_to_inc_config c,FST x,MAP upper_w2w cur_bm)) target
 Proof
-  fs [compile_inc_progs_for_eval_def,compile_inc_progs_def]
+  fs [compile_inc_progs_for_eval_def,compile_inc_progs_def, full_compile_single_for_eval_eq]
   \\ rpt (pairarg_tac \\ gvs [EVAL “(inc_config_to_config asm_c' inc_c).lab_conf.asm_conf”])
   \\ fs [optionTheory.OPTION_MAP_COMPOSE]
   \\ AP_THM_TAC

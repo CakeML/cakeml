@@ -394,7 +394,7 @@ Proof
 QED
 
 val cake_orac_config_inv_f =
-  ``(\(sc, cc, bc, mc). (sc.pattern_cfg, cc.max_app, cc.do_call, IS_SOME cc.known_conf,
+  ``(\ (sc, cc, bc, mc). (sc.pattern_cfg, cc.max_app, cc.do_call, IS_SOME cc.known_conf,
         known_static_conf cc.known_conf, cc.do_mti, bc.inline_size_limit,
         bc.split_main_at_seq, bc.exp_cut, mc))
     o (\c. (c.source_conf, c.clos_conf, c.bvl_conf, c.data_conf,
@@ -1587,7 +1587,7 @@ Proof
 QED
 
 Theorem oracle_monotonic_cake_orac_to_I:
-  oracle_monotonic (\(cfg, p). f (cfg_f cfg, p_f p)) R init_st
+  oracle_monotonic (\ (cfg, p). f (cfg_f cfg, p_f p)) R init_st
     (cake_orac c' syntax I I) ==>
   oracle_monotonic f R init_st (cake_orac c' syntax cfg_f p_f)
 Proof
@@ -2846,7 +2846,7 @@ Theorem source_eval_to_flat_semantics:
 Proof
   rw []
   \\ qabbrev_tac `orac =
-        (\(cfg, id, ds). (id, (THE ev).config_v (config_to_inc_config cfg), ds))
+        (\ (cfg, id, ds). (id, (THE ev).config_v (config_to_inc_config cfg), ds))
             o
         cake_orac c'
             (\i. case get_oracle (THE ev) (add_eval_state ev s0) env prog i of

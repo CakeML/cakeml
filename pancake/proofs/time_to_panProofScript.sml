@@ -1,5 +1,5 @@
 (*
-  Correctness proof for --
+  Correctness proof for timeLang to panLang
 *)
 
 open preamble
@@ -15,6 +15,8 @@ val _ = set_grammar_ancestry
         ["timeSem", "panSem",
          "pan_commonProps", "timeProps",
          "time_to_pan"];
+
+val _ = temp_delsimps ["OPT_MMAP_def"];
 
 (*
   FFI abstraction
@@ -3880,35 +3882,79 @@ QED
 Theorem byte_aligned_ba_step:
   ∀ba.
   good_dimindex (:'a) ∧ byte_align (ba:'a word) = ba ⇒
-  byte_align (ba + (case dimindex (:α) of 32 => 4w | 64 => 8w):'a word)
-              = ba + (case dimindex (:α) of 32 => 4w | 64 => 8w)
+  byte_align (ba + bytes_in_word)
+              = ba + bytes_in_word
 Proof
   rw[good_dimindex_def]>>
   gs [byte_align_def] >>
   gs[Once (GSYM aligned_def)]>>
   drule align_add_aligned_gen>>
   rw[]>>
-  first_x_assum (qspec_then ‘case dimindex (:α) of 32 => 4w | 64 => 8w’ assume_tac)>>
+  first_x_assum (qspec_then ‘bytes_in_word’ assume_tac)>>
   gs[]>>
   EVAL_TAC>>
   gs [dimword_def, fcp_n2w] >>
   EVAL_TAC
 QED
 
-
 Theorem byte_aligned_ba_rounded:
   ∀ba x.
   good_dimindex (:'a) ∧ byte_align (ba:'a word) = ba ∧
-  w2n x < (case dimindex (:α) of 32 => 4 | 64 => 8) ⇒
+  w2n x < w2n (bytes_in_word:'a word) ⇒
   byte_align (ba + x:'a word) = ba
 Proof
-  rw[good_dimindex_def]>>
+  rw[good_dimindex_def, bytes_in_word_def]>>gs[dimword_def]>>
   gs [byte_align_def] >>
   gs[Once (GSYM aligned_def)]>>
   drule align_add_aligned_gen>>
   rw[]>>
   first_assum (qspec_then ‘x’ assume_tac)>>
   fs[lt_align_eq_0]
+QED
+
+Theorem read_bytearray_bytes_in_word:
+  ∀m adrs be ba.
+    good_dimindex (:'a) ∧ byte_align (ba:'a word) = ba ∧
+    ba ∈ adrs ∧ (∃w. m ba = Word w) ⇒
+    ∃bytes.
+      read_bytearray (ba:'a word) (w2n (bytes_in_word:'a word))
+                     (mem_load_byte m adrs be) = SOME bytes
+Proof
+  rw[]>>
+  drule_then assume_tac byte_aligned_ba_rounded>>
+  first_x_assum (qspec_then ‘ba’ assume_tac)>>
+  gs[GSYM PULL_FORALL]>>
+  fs[good_dimindex_def, bytes_in_word_def] >> rw[] >>gs[dimword_def]>>
+  ‘8 = SUC (SUC (SUC (SUC 4)))’ by simp[]>>
+  ‘4 = SUC (SUC (SUC (SUC 0)))’ by simp[]>>
+  asm_rewrite_tac[GSYM ADD_SUC]>>
+  rewrite_tac[read_bytearray_def]>>
+  fs[mem_load_byte_def]>>
+  gs[dimword_def]
+QED
+
+Theorem read_bytearray_prepend:
+  ∀m adrs be ba sz.
+    good_dimindex (:'a) ∧
+    byte_align (ba:'a word) = ba ∧
+    ba ∈ adrs ∧ (∃w. m ba = Word w) ∧
+    (∃bs. read_bytearray (ba + bytes_in_word:'a word) sz
+                         (mem_load_byte m adrs be) = SOME bs) ⇒
+    ∃bytes.
+      read_bytearray (ba:'a word) (sz + w2n (bytes_in_word:'a word))
+                     (mem_load_byte m adrs be) = SOME bytes
+Proof
+  rw[]>>
+  drule_then assume_tac byte_aligned_ba_rounded>>
+  first_x_assum (qspec_then ‘ba’ assume_tac)>>
+  gs[GSYM PULL_FORALL]>>
+  fs[good_dimindex_def, bytes_in_word_def] >> rw[] >>gs[dimword_def]>>
+  ‘8 = SUC (SUC (SUC (SUC 4)))’ by simp[]>>
+  ‘4 = SUC (SUC (SUC (SUC 0)))’ by simp[]>>
+  asm_rewrite_tac[GSYM ADD_SUC]>>
+  rewrite_tac[read_bytearray_def]>>
+  fs[mem_load_byte_def]>>
+  gs[dimword_def]
 QED
 
 (* good be more generic, but its a trivial theorem *)
@@ -3923,138 +3969,16 @@ Theorem read_bytearray_some_bytes_for_ffi:
       read_bytearray (ba:'a word) (w2n (ffiBufferSize:'a word))
                      (mem_load_byte m adrs be) = SOME bytes
 Proof
-  rw [] >>
-  qspec_then ‘ba’ assume_tac byte_aligned_ba_step>>gs[]>>
-  qspec_then ‘ba’ assume_tac byte_aligned_ba_rounded>>
-  qspec_then ‘ba +
-              if dimindex (:α) = 32 then 4w
-              else if dimindex (:α) = 64 then 8w
-              else ARB’ assume_tac byte_aligned_ba_rounded>>
-  gs [good_dimindex_def]
-  >- (
-    gs [ffiBufferSize_def, bytes_in_word_def] >>
-    ‘8 MOD dimword (:α) = 8’ by gs [dimword_def] >>
-    gs [] >>
-    pop_assum kall_tac >>
-    qmatch_goalsub_abbrev_tac ‘read_bytearray _ n _’ >>
-    pop_assum (mp_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    rpt (pop_assum mp_tac) >>
-    MAP_EVERY qid_spec_tac [‘m’, ‘adrs’, ‘be’, ‘w’, ‘w'’, ‘n’] >>
-    Induct
-    >- (rw [] >> fs []) >>
-    rpt gen_tac >>
-    rpt strip_tac >>
-    rewrite_tac [read_bytearray_def] >>
-    cases_on ‘n’ >- fs [] >>
-    rewrite_tac [read_bytearray_def] >>
-    cases_on ‘n'’ >- fs [] >>
-    rewrite_tac [read_bytearray_def] >>
-    cases_on ‘n’ >- fs [] >>
-    rewrite_tac [read_bytearray_def] >>
-    cases_on ‘n'’ >- fs [] >>
-    rewrite_tac [read_bytearray_def] >>
-    cases_on ‘n’ >- fs [] >>
-    rewrite_tac [read_bytearray_def] >>
-    cases_on ‘n'’ >- fs [] >>
-    rewrite_tac [read_bytearray_def] >>
-    cases_on ‘n’ >- fs [] >>
-    rewrite_tac [read_bytearray_def] >>
-    fs [] >>
-    cases_on ‘n'’ >> fs [] >>
-    fs [mem_load_byte_def] >>
-    ‘byte_align (ba + 0w:'a word) = ba ∧
-     byte_align (ba + 1w:'a word) = ba ∧
-     byte_align (ba + 2w:'a word) = ba ∧
-     byte_align (ba + 3w:'a word) = ba ∧
-     byte_align (ba + 4w:'a word) = ba + 4w ∧
-     byte_align (ba + 5w:'a word) = ba + 4w ∧
-     byte_align (ba + 6w:'a word) = ba + 4w ∧
-     byte_align (ba + 7w:'a word) = ba + 4w’ by (
-      strip_tac>>fs[]>>
-      gs[good_dimindex_def]>>
-      rw[]>>
-      TRY (gs[good_dimindex_def, dimword_def])>>
-      qmatch_goalsub_abbrev_tac ‘byte_align (ba + x)’>>
-      ‘x = 4w + (x-4w)’ by (unabbrev_all_tac>>simp[])>>
-      ‘byte_align (ba + (x - 4w) + 4w) = ba + 4w’ by (
-        unabbrev_all_tac>>gs[good_dimindex_def, dimword_def])>>
-      fs[]) >>
-    fs [read_bytearray_def]) >>
-  gs [ffiBufferSize_def, bytes_in_word_def] >>
-  ‘16 MOD dimword (:α) = 16’ by gs [dimword_def] >>
-  gs [] >>
-  pop_assum kall_tac >>
-  qmatch_goalsub_abbrev_tac ‘read_bytearray _ n _’ >>
-  pop_assum (mp_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-  rpt (pop_assum mp_tac) >>
-  MAP_EVERY qid_spec_tac [‘m’, ‘adrs’, ‘be’, ‘w’, ‘w'’, ‘n’] >>
-  Induct
-  >- (rw [] >> fs []) >>
-  rpt gen_tac >>
-  rpt strip_tac >>
-  rewrite_tac [read_bytearray_def] >>
-  cases_on ‘n’ >- fs [] >>
-  rewrite_tac [read_bytearray_def] >>
-  cases_on ‘n'’ >- fs [] >>
-  rewrite_tac [read_bytearray_def] >>
-  cases_on ‘n’ >- fs [] >>
-  rewrite_tac [read_bytearray_def] >>
-  cases_on ‘n'’ >- fs [] >>
-  rewrite_tac [read_bytearray_def] >>
-  cases_on ‘n’ >- fs [] >>
-  rewrite_tac [read_bytearray_def] >>
-  cases_on ‘n'’ >- fs [] >>
-  rewrite_tac [read_bytearray_def] >>
-  cases_on ‘n’ >- fs [] >>
-  rewrite_tac [read_bytearray_def] >>
-  cases_on ‘n'’ >- fs [] >>
-  rewrite_tac [read_bytearray_def] >>
-  cases_on ‘n’ >- fs [] >>
-  rewrite_tac [read_bytearray_def] >>
-  cases_on ‘n'’ >- fs [] >>
-  rewrite_tac [read_bytearray_def] >>
-  cases_on ‘n’ >- fs [] >>
-  rewrite_tac [read_bytearray_def] >>
-  cases_on ‘n'’ >- fs [] >>
-  rewrite_tac [read_bytearray_def] >>
-  cases_on ‘n’ >- fs [] >>
-  rewrite_tac [read_bytearray_def] >>
-  cases_on ‘n'’ >- fs [] >>
-  rewrite_tac [read_bytearray_def] >>
-  cases_on ‘n’ >- fs [] >>
-  rewrite_tac [read_bytearray_def] >>
-  fs [] >>
-  cases_on ‘n'’ >> fs [] >>
-  fs [mem_load_byte_def] >>
-  ‘byte_align (ba + 0w:'a word) = ba ∧
-   byte_align (ba + 1w:'a word) = ba ∧
-   byte_align (ba + 2w:'a word) = ba ∧
-   byte_align (ba + 3w:'a word) = ba ∧
-   byte_align (ba + 4w:'a word) = ba ∧
-   byte_align (ba + 5w:'a word) = ba ∧
-   byte_align (ba + 6w:'a word) = ba ∧
-   byte_align (ba + 7w:'a word) = ba’ by (
-                strip_tac>>fs[]>>
-  gs[good_dimindex_def]>>
   rw[]>>
-  gs[good_dimindex_def, dimword_def])>>
-  ‘byte_align (ba + 08w:'a word) = ba + 8w ∧
-   byte_align (ba + 09w:'a word) = ba + 8w ∧
-   byte_align (ba + 10w:'a word) = ba + 8w ∧
-   byte_align (ba + 11w:'a word) = ba + 8w ∧
-   byte_align (ba + 12w:'a word) = ba + 8w ∧
-   byte_align (ba + 13w:'a word) = ba + 8w ∧
-   byte_align (ba + 14w:'a word) = ba + 8w ∧
-   byte_align (ba + 15w:'a word) = ba + 8w’ by (
-  strip_tac>>fs[]>>
-  gs[good_dimindex_def]>>
-  rw[]>>
-  qmatch_goalsub_abbrev_tac ‘byte_align (ba + x)’>>
-  ‘x = 8w + (x-8w)’ by (unabbrev_all_tac>>simp[])>>
-  ‘byte_align (ba + (x - 8w) + 8w) = ba + 8w’ by (
-    unabbrev_all_tac>>gs[good_dimindex_def, dimword_def])>>
-  fs[])>>
-  fs [read_bytearray_def]
+  ‘good_dimindex (:'a) ⇒
+   w2n (ffiBufferSize:'a word) = w2n (bytes_in_word:'a word) +
+                                 w2n (bytes_in_word:'a word)’
+    by (gs[ffiBufferSize_def, good_dimindex_def, bytes_in_word_def]>>
+        rw[]>>gs[dimword_def])>>
+  first_x_assum (drule_then assume_tac)>>
+  asm_rewrite_tac[]>>
+  irule read_bytearray_prepend>>
+  rw[read_bytearray_bytes_in_word, byte_aligned_ba_step]
 QED
 
 Theorem ffi_abs_mono:
