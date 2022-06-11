@@ -106,12 +106,20 @@ val reducible_pats = [
   ``Fun_body _``
 ]
 
-val reduce_conv =
+val old_reduce_conv =
     DEPTH_CONV (
       List.foldl (fn (pat, conv) => (eval_pat pat) ORELSEC conv)
                  ALL_CONV reducible_pats
     ) THENC
     (simp_conv [])
+
+val reduce_conv =
+    (DEPTH_CONV (
+      List.foldl (fn (pat, conv) => (eval_pat pat) ORELSEC conv)
+                 ALL_CONV reducible_pats
+    )) THENC
+    (STRIP_QUANT_CONV (simp_conv []))
+    THENC (SIMP_CONV (list_ss) [])
 
 val reduce_tac = CONV_TAC reduce_conv
 
@@ -211,13 +219,13 @@ fun xcf_with_defs name f_defs =
       CONV_TAC (DEPTH_CONV naryClosure_repack_conv) \\
       irule app_of_cf THEN
       CONJ_TAC THEN1 eval_tac THEN
-      CONJ_TAC THEN1 eval_tac THEN simp [cf_def]
+      CONJ_TAC THEN1 eval_tac THEN PURE_REWRITE_TAC[cf_def]
 
     val Recclosure_tac =
       CONV_TAC (DEPTH_CONV (REWR_CONV (GSYM letrec_pull_params_repack))) \\
       irule app_rec_of_cf THEN
       CONJ_TAC THEN1 eval_tac THEN
-        rpt(CHANGED_TAC(simp[Once cf_def] \\ reduce_tac))\\
+        rpt(CHANGED_TAC(PURE_ONCE_REWRITE_TAC[cf_def] \\ reduce_tac))\\
         CONV_TAC (
           DEPTH_CONV (
             REWR_CONV letrec_pull_params_repack THENC
