@@ -219,7 +219,8 @@ fun xcf_with_defs name f_defs =
       CONV_TAC (DEPTH_CONV naryClosure_repack_conv) \\
       irule app_of_cf THEN
       CONJ_TAC THEN1 eval_tac THEN
-      CONJ_TAC THEN1 eval_tac THEN PURE_REWRITE_TAC[cf_def]
+      CONJ_TAC THEN1 eval_tac THEN
+      rpt(CHANGED_TAC(PURE_ONCE_REWRITE_TAC[cf_def] \\ reduce_tac))
 
     val Recclosure_tac =
       CONV_TAC (DEPTH_CONV (REWR_CONV (GSYM letrec_pull_params_repack))) \\
