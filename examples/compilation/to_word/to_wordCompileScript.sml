@@ -74,7 +74,7 @@ Theorem foldr_example_ssa =
 val tm = foldr_example_ssa |> concl |> rand
 
 Definition test_def:
-  test p = let (n,regsEq, regsMap, instrs, p') = comSubExpElim 0 [] LN (empty listCmp) p in p'
+  test p = word_cse p
 End
 
 Definition progCmp_def:

@@ -212,104 +212,110 @@ QED
 (* REGISTER TRANSFORMATIONS *)
 
 Definition canonicalRegs_def:
-  canonicalRegs (regsMap:num num_map) (r:num) =
-  case sptree$lookup r regsMap of
+  canonicalRegs (instMap:regsM) (ochMap:regsM) (r:num) =
+  case sptree$lookup r instMap of
   | SOME r' => r'
-  | NONE => r
+  | NONE => case sptree$lookup r ochMap of
+            | NONE => r
+            | SOME r' => r'
 End
 
 Definition canonicalImmReg_def:
-  canonicalImmReg regsMap (Reg r) = Reg (canonicalRegs regsMap r) ∧
-  canonicalImmReg regsMap (Imm w) = Imm w
+  canonicalImmReg instMap ochMap (Reg r) = Reg (canonicalRegs instMap ochMap r) ∧
+  canonicalImmReg instMap ochMap (Imm w) = Imm w
 End
 
 Definition canonicalMultRegs_def:
-  canonicalMultRegs regsMap [] = [] ∧
-  canonicalMultRegs regsMap (hd::tl) =
-    (canonicalRegs regsMap hd)::(canonicalMultRegs regsMap tl)
+  canonicalMultRegs instMap ochMap[] = [] ∧
+  canonicalMultRegs instMap ochMap (hd::tl) =
+    (canonicalRegs instMap ochMap hd)::(canonicalMultRegs instMap ochMap tl)
 End
 
 Definition canonicalMoveRegs_def:
-  canonicalMoveRegs regsEq regsMap [] = (regsEq, regsMap, []) ∧
-  canonicalMoveRegs regsEq regsMap ((r1,r2)::tl) =
-    let r2' = canonicalRegs regsMap r2 in
-    let regsEq' = regsUpdate r2' r1 regsEq in
-    let regsMap' = sptree$insert r1 r2' regsMap in
-    let (regsEq'', regsMap'', tl') = canonicalMoveRegs regsEq' regsMap' tl in
-      regsEq'', regsMap'', (r1,r2')::tl'
+  canonicalMoveRegs instEq instMap ochMap [] = (instEq, instMap, ochMap, []) ∧
+  canonicalMoveRegs instEq instMap ochMap ((r1,r2)::tl) =
+    case sptree$lookup r2 ochMap of
+    | SOME r2' => let ochMap' = sptree$insert r1 r2' ochMap in
+                  let (instEq', instMap', ochMap'', tl') = canonicalMoveRegs instEq instMap ochMap' tl in
+                    (instEq', instMap', ochMap'', (r1,r2')::tl')
+    | NONE     => let r2' = (case sptree$lookup r2 instMap of SOME r => r | NONE => r2) in
+                  let instEq' = regsUpdate r2' r1 instEq in
+                  let instMap' = sptree$insert r1 r2' instMap in
+                  let (instEq'', instMap'', ochMap', tl') = canonicalMoveRegs instEq' instMap' ochMap tl in
+                    (instEq'', instMap'', ochMap', (r1,r2')::tl')
 End
 
 Definition canonicalExp_def:
-  canonicalExp regsMap e = e
+  canonicalExp instMap ochMap e = e
 End
 
 Definition canonicalMultExp_def:
-  canonicalMultExp regsMap [] = [] ∧
-  canonicalMultExp regsMap (hd::tl) =
-    (canonicalExp regsMap hd)::(canonicalMultExp regsMap tl)
+  canonicalMultExp instMap ochMap [] = [] ∧
+  canonicalMultExp instMap ochMap (hd::tl) =
+    (canonicalExp instMap ochMap hd)::(canonicalMultExp instMap ochMap tl)
 End
 
 Definition canonicalExp_def:
-  canonicalExp regsMap (Const w) = Const w ∧
-  canonicalExp regsMap (Var r) = Var (canonicalRegs regsMap r) ∧
-  canonicalExp regsMap (Lookup s) = Lookup s ∧
-  canonicalExp regsMap (Load e) = Load (canonicalExp regsMap e) ∧
-  canonicalExp regsMap (Op op nl) = Op op (canonicalMultExp regsMap nl) ∧
-  canonicalExp regsMap (Shift s e n) = Shift s (canonicalExp regsMap e) n
+  canonicalExp instMap ochMap (Const w) = Const w ∧
+  canonicalExp instMap ochMap (Var r) = Var (canonicalRegs instMap ochMap r) ∧
+  canonicalExp instMap ochMap (Lookup s) = Lookup s ∧
+  canonicalExp instMap ochMap (Load e) = Load (canonicalExp instMap ochMap e) ∧
+  canonicalExp instMap ochMap (Op op nl) = Op op (canonicalMultExp instMap ochMap nl) ∧
+  canonicalExp instMap ochMap (Shift s e n) = Shift s (canonicalExp instMap ochMap e) n
 End
 
 Definition canonicalArith_def:
-  canonicalArith regsMap (Binop op r1 r2 r3) =
-    Binop op r1 (canonicalRegs regsMap r2) (canonicalImmReg regsMap r3) ∧
-  canonicalArith regsMap (Shift s r1 r2 n) =
-    Shift s (canonicalRegs regsMap r1) (canonicalRegs regsMap r2) n ∧
-  canonicalArith regsMap (Div r1 r2 r3) =
-    Div r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
-  canonicalArith regsMap (LongMul r1 r2 r3 r4) =
-    LongMul r1 r2 (canonicalRegs regsMap r3) (canonicalRegs regsMap r4) ∧
-  canonicalArith regsMap (LongDiv r1 r2 r3 r4 r5) =
-    LongDiv r1 r2 (canonicalRegs regsMap r3) (canonicalRegs regsMap r4) (canonicalRegs regsMap r5) ∧
-  canonicalArith regsMap (AddCarry r1 r2 r3 r4) =
-    AddCarry r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) r4 ∧
-  canonicalArith regsMap (AddOverflow r1 r2 r3 r4) =
-    AddOverflow r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) r4 ∧
-  canonicalArith regsMap (SubOverflow r1 r2 r3 r4) =
-    SubOverflow r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) r4
+  canonicalArith instMap ochMap (Binop op r1 r2 r3) =
+    Binop op r1 (canonicalRegs instMap ochMap r2) (canonicalImmReg instMap ochMap r3) ∧
+  canonicalArith instMap ochMap (Shift s r1 r2 n) =
+    Shift s (canonicalRegs instMap ochMap r1) (canonicalRegs instMap ochMap r2) n ∧
+  canonicalArith instMap ochMap (Div r1 r2 r3) =
+    Div r1 (canonicalRegs instMap ochMap r2) (canonicalRegs instMap ochMap r3) ∧
+  canonicalArith instMap ochMap (LongMul r1 r2 r3 r4) =
+    LongMul r1 r2 (canonicalRegs instMap ochMap r3) (canonicalRegs instMap ochMap r4) ∧
+  canonicalArith instMap ochMap (LongDiv r1 r2 r3 r4 r5) =
+    LongDiv r1 r2 (canonicalRegs instMap ochMap r3) (canonicalRegs instMap ochMap r4) (canonicalRegs instMap ochMap r5) ∧
+  canonicalArith instMap ochMap (AddCarry r1 r2 r3 r4) =
+    AddCarry r1 (canonicalRegs instMap ochMap r2) (canonicalRegs instMap ochMap r3) r4 ∧
+  canonicalArith instMap ochMap (AddOverflow r1 r2 r3 r4) =
+    AddOverflow r1 (canonicalRegs instMap ochMap r2) (canonicalRegs instMap ochMap r3) r4 ∧
+  canonicalArith instMap ochMap (SubOverflow r1 r2 r3 r4) =
+    SubOverflow r1 (canonicalRegs instMap ochMap r2) (canonicalRegs instMap ochMap r3) r4
 End
 
 Definition canonicalFp_def:
-  canonicalFp regsMap (FPLess r1 r2 r3) =
-    FPLess r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
-  canonicalFp regsMap (FPLessEqual r1 r2 r3) =
-    FPLessEqual r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
-  canonicalFp regsMap (FPEqual r1 r2 r3) =
-    FPEqual r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
-  canonicalFp regsMap (FPAbs r1 r2) =
-    FPAbs r1 (canonicalRegs regsMap r2) ∧
-  canonicalFp regsMap (FPNeg r1 r2) =
-    FPNeg r1 (canonicalRegs regsMap r2) ∧
-  canonicalFp regsMap (FPSqrt r1 r2) =
-    FPSqrt r1 (canonicalRegs regsMap r2) ∧
-  canonicalFp regsMap (FPAdd r1 r2 r3) =
-    FPAdd r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
-  canonicalFp regsMap (FPSub r1 r2 r3) =
-    FPSub r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
-  canonicalFp regsMap (FPMul r1 r2 r3) =
-    FPMul r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
-  canonicalFp regsMap (FPDiv r1 r2 r3) =
-    FPDiv r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
-  canonicalFp regsMap (FPFma r1 r2 r3) =
-    FPFma r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
-  canonicalFp regsMap (FPMov r1 r2) =
-    FPMov r1 (canonicalRegs regsMap r2) ∧
-  canonicalFp regsMap (FPMovToReg r1 r2 r3) =
-    FPMovToReg r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
-  canonicalFp regsMap (FPMovFromReg r1 r2 r3) =
-    FPMovFromReg r1 (canonicalRegs regsMap r2) (canonicalRegs regsMap r3) ∧
-  canonicalFp regsMap (FPToInt r1 r2) =
-    FPToInt r1 (canonicalRegs regsMap r2) ∧
-  canonicalFp regsMap (FPFromInt r1 r2) =
-    FPFromInt r1 (canonicalRegs regsMap r2)
+  canonicalFp instMap ochMap (FPLess r1 r2 r3) =
+    FPLess r1 (canonicalRegs instMap ochMap r2) (canonicalRegs instMap ochMap r3) ∧
+  canonicalFp instMap ochMap (FPLessEqual r1 r2 r3) =
+    FPLessEqual r1 (canonicalRegs instMap ochMap r2) (canonicalRegs instMap ochMap r3) ∧
+  canonicalFp instMap ochMap (FPEqual r1 r2 r3) =
+    FPEqual r1 (canonicalRegs instMap ochMap r2) (canonicalRegs instMap ochMap r3) ∧
+  canonicalFp instMap ochMap (FPAbs r1 r2) =
+    FPAbs r1 (canonicalRegs instMap ochMap r2) ∧
+  canonicalFp instMap ochMap (FPNeg r1 r2) =
+    FPNeg r1 (canonicalRegs instMap ochMap r2) ∧
+  canonicalFp instMap ochMap (FPSqrt r1 r2) =
+    FPSqrt r1 (canonicalRegs instMap ochMap r2) ∧
+  canonicalFp instMap ochMap (FPAdd r1 r2 r3) =
+    FPAdd r1 (canonicalRegs instMap ochMap r2) (canonicalRegs instMap ochMap r3) ∧
+  canonicalFp instMap ochMap (FPSub r1 r2 r3) =
+    FPSub r1 (canonicalRegs instMap ochMap r2) (canonicalRegs instMap ochMap r3) ∧
+  canonicalFp instMap ochMap (FPMul r1 r2 r3) =
+    FPMul r1 (canonicalRegs instMap ochMap r2) (canonicalRegs instMap ochMap r3) ∧
+  canonicalFp instMap ochMap (FPDiv r1 r2 r3) =
+    FPDiv r1 (canonicalRegs instMap ochMap r2) (canonicalRegs instMap ochMap r3) ∧
+  canonicalFp instMap ochMap (FPFma r1 r2 r3) =
+    FPFma r1 (canonicalRegs instMap ochMap r2) (canonicalRegs instMap ochMap r3) ∧
+  canonicalFp instMap ochMap (FPMov r1 r2) =
+    FPMov r1 (canonicalRegs instMap ochMap r2) ∧
+  canonicalFp instMap ochMap (FPMovToReg r1 r2 r3) =
+    FPMovToReg r1 (canonicalRegs instMap ochMap r2) (canonicalRegs instMap ochMap r3) ∧
+  canonicalFp instMap ochMap (FPMovFromReg r1 r2 r3) =
+    FPMovFromReg r1 (canonicalRegs instMap ochMap r2) (canonicalRegs instMap ochMap r3) ∧
+  canonicalFp instMap ochMap (FPToInt r1 r2) =
+    FPToInt r1 (canonicalRegs instMap ochMap r2) ∧
+  canonicalFp instMap ochMap (FPFromInt r1 r2) =
+    FPFromInt r1 (canonicalRegs instMap ochMap r2)
 End
 
 (* SEEN INSTRUCTIONS MEMORY *)
@@ -547,7 +553,8 @@ Numbers above 99 corresponds to a register or a word value.
 *)
 (* TODO : redo the rename of instruction numbers such that each is unique *)
 Definition progToNumList_def:
-  progToNumList (Inst i) = 0::(instToNumList i)
+  progToNumList (Inst i) = 0::(instToNumList i) ∧
+  progToNumList (OpCurrHeap op r1 r2) = [1; arithOpToNum op; r2+100]
 End
 (*
 Theorem progToNumList_unique:
@@ -589,28 +596,28 @@ Definition firstRegOfFp_def:
 End
 
 Definition comSubExpElimInst_def:
-  (comSubExpElimInst (n:num) (regsEq:regsE) (regsMap:regsM) (instrs:instrsM) Skip = (n, regsEq, regsMap, instrs, Inst Skip)) ∧
-  (comSubExpElimInst n regsEq regsMap instrs (Const r w) =
+  (comSubExpElimInst (n:num) (instEq:regsE) (instMap:regsM) (instInstrs:instrsM) (ochMap:regsM) Skip = (n, instEq, instMap, instInstrs, Inst Skip)) ∧
+  (comSubExpElimInst n instEq instMap instInstrs ochMap (Const r w) =
             let i = instToNumList (Const r w) in
-            case mlmap$lookup instrs i of
-            | SOME r' => (n+1, regsUpdate r' r regsEq, insert r r' regsMap, instrs, Move 0 [(r,r')])
-            | NONE    => (n, regsEq, regsMap, insert instrs i r, Inst (Const r w))) ∧
-  (comSubExpElimInst n regsEq regsMap instrs (Arith a) =
-            let a' = canonicalArith regsMap a in
+            case mlmap$lookup instInstrs i of
+            | SOME r' => (n+1, regsUpdate r' r instEq, insert r r' instMap, instInstrs, Move 0 [(r,r')])
+            | NONE    => (n, instEq, instMap, insert instInstrs i r, Inst (Const r w))) ∧
+  (comSubExpElimInst n instEq instMap instInstrs ochMap (Arith a) =
+            let a' = canonicalArith instMap ochMap a in
             let r = firstRegOfArith a' in
             let i = instToNumList (Arith a') in
-            case mlmap$lookup instrs i of
-            | SOME r' => (n+1, regsUpdate r' r regsEq, insert r r' regsMap, instrs, Move 0 [(r,r')])
-            | NONE    => (n, regsEq, regsMap, insert instrs i r, Inst (Arith a'))) ∧
-  (comSubExpElimInst n regsEq regsMap instrs (Mem op r (Addr r' w)) =
-            (n, regsEq, regsMap, instrs, Inst (Mem op (canonicalRegs regsMap r) (Addr (canonicalRegs regsMap r') w)))) ∧
-  (comSubExpElimInst n regsEq regsMap instrs ((FP f):'a inst) =
-            let f' = canonicalFp regsMap f in
+            case mlmap$lookup instInstrs i of
+            | SOME r' => (n+1, regsUpdate r' r instEq, insert r r' instMap, instInstrs, Move 0 [(r,r')])
+            | NONE    => (n, instEq, instMap, insert instInstrs i r, Inst (Arith a'))) ∧
+  (comSubExpElimInst n instEq instMap instInstrs ochMap (Mem op r (Addr r' w)) =
+            (n, instEq, instMap, instInstrs, Inst (Mem op (canonicalRegs instMap ochMap r) (Addr (canonicalRegs instMap ochMap r') w)))) ∧
+  (comSubExpElimInst n instEq instMap instInstrs ochMap ((FP f):'a inst) =
+            let f' = canonicalFp instMap ochMap f in
             let r = firstRegOfFp f' in
             let i = instToNumList ((FP f'):'a inst) in
-            case mlmap$lookup instrs i of
-            | SOME r' => (n+1, regsUpdate r' r regsEq, insert r r' regsMap, instrs, Move 0 [(r,r')])
-            | NONE    => (n, regsEq, regsMap, insert instrs i r, Inst (FP f')))
+            case mlmap$lookup instInstrs i of
+            | SOME r' => (n+1, regsUpdate r' r instEq, insert r r' instMap, instInstrs, Move 0 [(r,r')])
+            | NONE    => (n, instEq, instMap, insert instInstrs i r, Inst (FP f')))
 End
 
 (*
@@ -634,75 +641,78 @@ Signification of the terms:
     s -> string
 *)
 Definition comSubExpElim_def:
-  (comSubExpElim (n:num) (regsEq:regsE) (regsMap:regsM) (instrs:instrsM) (Skip) =
-                (n, regsEq, regsMap, instrs, Skip)) ∧
-  (comSubExpElim n regsEq regsMap instrs (Move r rs) =
-            let (regsEq', regsMap', rs') = canonicalMoveRegs regsEq regsMap rs in
-                (n, regsEq', regsMap', instrs, Move r rs')) ∧
-  (comSubExpElim n regsEq regsMap instrs (Inst i) =
-            let (n', regsEq', regsMap', instrs', p) = comSubExpElimInst n regsEq regsMap instrs i in
-                (n', regsEq', regsMap', instrs', p)) ∧
-  (comSubExpElim n regsEq regsMap instrs (Assign r e) =
-            let e' = canonicalExp regsMap e in
-                (n, regsEq, regsMap, instrs, Assign r e')) ∧
-  (comSubExpElim n regsEq regsMap instrs (Get r x) =
-                (n, regsEq, regsMap, instrs, Get r x)) ∧
-  (comSubExpElim n regsEq regsMap instrs (Set x e) =
-            let e' = canonicalExp regsMap e in
-                (n, regsEq, regsMap, instrs, Set x e')) ∧
-  (comSubExpElim n regsEq regsMap instrs (Store e r) =
-            let r' = canonicalRegs regsMap r in
-                (n, regsEq, regsMap, instrs, Store e r')) ∧
-  (comSubExpElim n regsEq regsMap instrs (MustTerminate p) =
-            let (n', regsEq', regsMap', instrs', p') = comSubExpElim n regsEq regsMap instrs p in
-                (n', regsEq', regsMap', instrs', MustTerminate p')) ∧
-  (comSubExpElim n regsEq regsMap instrs (Call ret dest args handler) =
-            let args' = canonicalMultRegs regsMap args in
-                (n, [], LN, empty listCmp, Call ret dest args' handler)) ∧
-  (comSubExpElim n regsEq regsMap instrs (Seq p1 p2) =
-            let (n', regsEq1, regsMap1, instrs1, p1') = comSubExpElim n regsEq regsMap instrs p1 in
-            let (n'', regsEq2, regsMap2, instrs2, p2') = comSubExpElim n' regsEq1 regsMap1 instrs1 p2 in
-                (n'', regsEq2, regsMap2, instrs2, Seq p1' p2')) ∧
-  (comSubExpElim n regsEq regsMap instrs (If c r1 r2 p1 p2) =
-            let r1' = canonicalRegs regsMap r1 in
-            let r2' = canonicalImmReg regsMap r2 in
-            let (n', regsEq', regsMap', instrs', p1') = comSubExpElim n regsEq regsMap instrs p1 in
-            let (n'', regsEq', regsMap', instrs', p2') = comSubExpElim n' regsEq regsMap instrs p2 in
-                (n'', regsEq, regsMap, instrs, If c r1' r2' p1' p2')) ∧
-  (comSubExpElim n regsEq regsMap instrs (Alloc r m) =
-                (n, regsEq, regsMap, instrs, Alloc r m)) ∧
-  (comSubExpElim n regsEq regsMap instrs (Raise r) =
-            let r' = canonicalRegs regsMap r in
-                (n, regsEq, regsMap, instrs, Raise r')) ∧
-  (comSubExpElim n regsEq regsMap instrs (Return r1 r2) =
-            let r1' = canonicalRegs regsMap r1 in
-            let r2' = canonicalRegs regsMap r2 in
-                (n, regsEq, regsMap, instrs, Return r1' r2')) ∧
-  (comSubExpElim n regsEq regsMap instrs (Tick) =
-                (n, regsEq, regsMap, instrs, Tick)) ∧
-  (comSubExpElim n regsEq regsMap instrs (OpCurrHeap b r1 r2) =
-            let r2' = canonicalRegs regsMap r2 in
-                (n, regsEq, regsMap, instrs, OpCurrHeap b r1 r2')) ∧
-  (comSubExpElim n regsEq regsMap instrs (LocValue r1 l) =
-                (n, regsEq, regsMap, instrs, LocValue r1 l)) ∧
-  (comSubExpElim n regsEq regsMap instrs (Install p l dp dl m) =
-                (n, regsEq, regsMap, instrs, Install p l dp dl m)) ∧
-  (comSubExpElim n regsEq regsMap instrs (CodeBufferWrite r1 r2) =
-                (n, regsEq, regsMap, instrs, CodeBufferWrite r1 r2)) ∧
-  (comSubExpElim n regsEq regsMap instrs (DataBufferWrite r1 r2) =
-                (n, regsEq, regsMap, instrs, DataBufferWrite r1 r2)) ∧
-  (comSubExpElim n regsEq regsMap instrs (FFI s p1 l1 p2 l2 m) =
-                (n, regsEq, regsMap, instrs, FFI s p1 l1 p2 l2 m))
+  (comSubExpElim (n:num) (instEq:regsE) (instMap:regsM) (instInstrs:instrsM) (ochMap:regsM) (ochInstrs:instrsM) (Skip) =
+                (n, instEq, instMap, instInstrs, ochMap, ochInstrs, Skip)) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (Move r rs) =
+            let (instEq', instMap', ochMap', rs') = canonicalMoveRegs instEq instMap ochMap rs in
+                (n, instEq', instMap', instInstrs, ochMap', ochInstrs, Move r rs')) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (Inst i) =
+            let (n', instEq', instMap', instInstrs', p) = comSubExpElimInst n instEq instMap instInstrs ochMap i in
+                (n', instEq', instMap', instInstrs', ochMap, ochInstrs, p)) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (Assign r e) =
+            let e' = canonicalExp instMap ochMap e in
+                (n, instEq, instMap, instInstrs, ochMap, ochInstrs, Assign r e')) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (Get r x) =
+                (n, instEq, instMap, instInstrs, ochMap, ochInstrs, Get r x)) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (Set x e) =
+            let e' = canonicalExp instMap ochMap e in
+                (n, instEq, instMap, instInstrs, LN, empty listCmp, Set x e')) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (Store e r) =
+            let r' = canonicalRegs instMap ochMap r in
+                (n, instEq, instMap, instInstrs, ochMap, ochInstrs, Store e r')) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (MustTerminate p) =
+            let (n', instEq', instMap', instInstrs', ochMap', ochInstrs', p') = comSubExpElim n instEq instMap instInstrs ochMap ochInstrs p in
+                (n', instEq', instMap', instInstrs', ochMap', ochInstrs', MustTerminate p')) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (Call ret dest args handler) =
+                (n, [], LN, empty listCmp, LN, empty listCmp, Call ret dest args handler)) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (Seq p1 p2) =
+            let (n1, regsEq1, regsMap1, instrs1, ochMap1, ochInstrs1, p1') = comSubExpElim n instEq instMap instInstrs ochMap ochInstrs p1 in
+            let (n2, regsEq2, regsMap2, instrs2, ochMap2, ochInstrs2, p2') = comSubExpElim n1 regsEq1 regsMap1 instrs1 ochMap1 ochInstrs1 p2 in
+                (n2, regsEq2, regsMap2, instrs2, ochMap2, ochInstrs2, Seq p1' p2')) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (If c r1 r2 p1 p2) =
+            let r1' = canonicalRegs instMap ochMap r1 in
+            let r2' = canonicalImmReg instMap ochMap r2 in
+            let (n1, instEq1, instMap1, instInstrs1, ochMap1, ochInstrs1, p1') = comSubExpElim n instEq instMap instInstrs ochMap ochInstrs p1 in
+            let (n2, instEq2, instMap2, instInstrs2, ochMap2, ochInstrs2, p2') = comSubExpElim n1 instEq instMap instInstrs ochMap ochInstrs p2 in
+                (n2, [], LN, empty listCmp, LN, empty listCmp, If c r1' r2' p1' p2')) ∧
+                (* We don't know what happen in the IF. Intersection would be the best. *)
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (Alloc r m) =
+                (n, instEq, instMap, instInstrs, LN, empty listCmp, Alloc r m)) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (Raise r) =
+            let r' = canonicalRegs instMap ochMap r in
+                (n, instEq, instMap, instInstrs, ochMap, ochInstrs, Raise r')) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (Return r1 r2) =
+            let r1' = canonicalRegs instMap ochMap r1 in
+            let r2' = canonicalRegs instMap ochMap r2 in
+                (n, instEq, instMap, instInstrs, ochMap, ochInstrs, Return r1' r2')) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (Tick) =
+                (n, instEq, instMap, instInstrs, ochMap, ochInstrs, Tick)) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs ((OpCurrHeap b r1 r2):'a prog) =
+            let r2' = canonicalRegs instMap ochMap r2 in
+            let pL = progToNumList ((OpCurrHeap b r1 r2'):'a prog) in
+            case lookup ochInstrs pL of
+            | NONE => (n, instEq, instMap, instInstrs, ochMap, insert ochInstrs pL r1, OpCurrHeap b r1 r2')
+            | SOME r1' => (n+1, instEq, instMap, instInstrs, insert r1 r1' ochMap, ochInstrs, Move 0 [(r1, r1')])) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (LocValue r1 l) =
+                (n, instEq, instMap, instInstrs, ochMap, ochInstrs, LocValue r1 l)) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (Install p l dp dl m) =
+                (n, instEq, instMap, instInstrs, ochMap, ochInstrs, Install p l dp dl m)) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (CodeBufferWrite r1 r2) =
+                (n, instEq, instMap, instInstrs, ochMap, ochInstrs, CodeBufferWrite r1 r2)) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (DataBufferWrite r1 r2) =
+                (n, instEq, instMap, instInstrs, ochMap, ochInstrs, DataBufferWrite r1 r2)) ∧
+  (comSubExpElim n instEq instMap instInstrs ochMap ochInstrs (FFI s p1 l1 p2 l2 m) =
+                (n, instEq, instMap, instInstrs, ochMap, ochInstrs, FFI s p1 l1 p2 l2 m))
 End
 
-Definition optSubExp_def:
-  optSubExp p = comSubExpElim 0 [] LN (empty listCmp) p
+Definition word_cse_def:
+  word_cse p = let (_,_,_,_,_,_,p') = comSubExpElim 0 [] LN (empty listCmp) LN (empty listCmp) p in p'
 End
 
 (*
-EVAL “optSubExp (Seq (Inst (Arith (Binop Add 3 1 (Reg 2)))) (Inst (Arith (Binop Add 4 1 (Reg 2)))))”
+EVAL “word_cse (Seq (Inst (Arith (Binop Add 3 1 (Reg 2)))) (Inst (Arith (Binop Add 4 1 (Reg 2)))))”
 
-EVAL “optSubExp
+EVAL “word_cse
     (Seq
       (Inst (Arith (Binop Add 3 1 (Reg 2))))
     (Seq
