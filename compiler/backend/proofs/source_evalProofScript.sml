@@ -2331,13 +2331,16 @@ Proof
   >~ [`Case [App _ _]`] >- (
     rpt (gen_tac ORELSE disch_tac)
     \\ (fs [pair_case_eq, result_case_eq] \\ rveq \\ fs [])
-    \\ reverse (Cases_on `op = Eval`)
+    \\ reverse (Cases_on `getOpClass op = EvalOp`)
     >- (
-      fs [bool_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ]
+      fs [astTheory.op_class_case_eq]
+      \\ fs [bool_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ]
       \\ gvs []
       \\ fs [option_case_eq, pair_case_eq, bool_case_eq, result_case_eq]
       \\ insts_tac
       \\ fs [dec_clock_def]
+      (* sigh @ fp cases *)
+      \\ rw [] \\ fs [shift_fp_opts_def]
     )
     (* Eval *)
     \\ fs [do_eval_res_def]
