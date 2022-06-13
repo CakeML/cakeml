@@ -4202,7 +4202,7 @@ Triviality compile_correct_Scope:
 Proof
   rw[] >>
   fs [pair_case_eq] >> fs [] >>
-  ‘invariant interp gen genv idxs (s with fp_state := s.fp_state) s_i1’
+  ‘invariant interp g gen genv idxs (s with fp_state := s.fp_state) s_i1’
   by (gs[invariant_def, s_rel_cases]) >>
   first_x_assum $ drule_then $ drule_then drule >>
   disch_then (qspec_then ‘t’ mp_tac) >>
@@ -4211,7 +4211,7 @@ Proof
   reverse (fs [result_case_eq]) >> rveq >> fs []
   >- (
     gs[] >>
-    goal_assum (qsubterm_then `invariant _ _ _` mp_tac) >>
+    goal_assum (qsubterm_then `invariant _ _ _ _` mp_tac) >>
     fs [result_rel_cases] >> rveq >> fs [] >>
     gs[s_rel_cases, invariant_def]) >>
   qexists_tac ‘genv'’ >> gs[invariant_def, s_rel_cases, result_rel_cases] >>
