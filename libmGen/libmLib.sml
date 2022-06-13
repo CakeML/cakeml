@@ -30,8 +30,8 @@ struct
   val zero_eq = GSYM $ Q.SPEC ‘1’ REAL_DIV_LZERO
 
   (** For debugging the implement function
-  val certDef = cosDeg3Theory.cos_example_def
-  val certValid = cosDeg3Theory.err_sound_thm
+  val certDef = sinDeg3Theory.sin_example_def
+  val certValid = sinDeg3Theory.err_sound_thm
   **)
 
   (** implement produce CakeML code for elementary functions Input: f, a math function to be implemented in CakeML with an error bound
@@ -79,7 +79,7 @@ struct
       |> ml_progLib.get_env
     val _ = append_prog theFunction;
     val st = get_ml_prog_state();
-    val theFunction_v_def = DB.find_in "cos_v_def" $ DB.thy (Theory.current_theory())|> hd |> #2 |> #1
+    val theFunction_v_def = DB.find_in (cmlFname ^ "_v_def") $ DB.thy (Theory.current_theory())|> hd |> #2 |> #1
     val do_opapp_thm = “do_opapp [^(fetch_v cmlFname st); v]”
                       |> SIMP_CONV std_ss [theFunction_v_def]
                       |> CONV_RULE $ RHS_CONV EVAL
