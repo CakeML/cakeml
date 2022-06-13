@@ -11,9 +11,8 @@ val tm = foldr_example_ssa |> concl |> dest_eq |> snd
 val tm' = “let p = word_cse ^tm in
            remove_dead p LN”
 
-EVAL tm'
+val res = EVAL tm';
 
-EVAL “word_cse ^tm”
-
+val res2 = EVAL “word_cse ^tm”;
 
 val _ = export_theory();
