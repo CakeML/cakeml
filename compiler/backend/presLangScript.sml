@@ -348,6 +348,7 @@ val clos_op_to_display_def = Define `
     | GlobalsPtr => empty_item (strlit "GlobalsPtr")
     | SetGlobalsPtr => empty_item (strlit "SetGlobalsPtr")
     | Cons num => item_with_num (strlit "Cons") num
+    | Constant _ => empty_item(strlit "Constant")
     | ConsExtend num => item_with_num (strlit "ConsExtend") num
     | Build _ => empty_item(strlit "Build")
     | El => empty_item (strlit "El")
