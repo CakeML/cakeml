@@ -309,6 +309,7 @@ val r = translate (backendTheory.inc_config_to_config_def |> spec64);
 val r = translate (backendTheory.config_to_inc_config_def |> spec64);
 val r = translate (word_to_wordTheory.compile_single_def |> spec64);
 val r = translate (word_to_wordTheory.full_compile_single_def |> spec64);
+val r = translate (word_to_wordTheory.full_compile_single_for_eval_def |> spec64);
 val _ = (next_ml_names := ["compiler_for_eval"]);
 val r = translate compiler_for_eval_alt;
 

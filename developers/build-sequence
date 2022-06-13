@@ -113,6 +113,9 @@ examples/sat_encodings
 examples/sat_encodings/case_studies
 examples/sat_encodings/translation
 examples/sat_encodings/translation/compilation
+examples/deflate
+examples/deflate/translation
+examples/deflate/translation/compilation
 
 translator/okasaki-examples
 translator/other-examples
