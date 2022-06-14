@@ -123,8 +123,8 @@ Theorem check_cutting_arr_spec:
       ARRAY fmlv fmllsv *
         & (Fail_exn e ∧ check_cutting_list fmlls constr = NONE)))
 Proof
-  Induct_on`constr`>>
-  xcf"check_cutting_arr"(get_ml_prog_state ())
+  Induct_on`constr` >> rw[]>>
+  xcf "check_cutting_arr" (get_ml_prog_state ())
   >- ( (* Id *)
     fs[check_cutting_list_def,PB_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
@@ -1048,7 +1048,7 @@ Proof
         xsimpl>>
         first_x_assum (irule_at Any)>>xsimpl>>
         first_x_assum (irule_at Any)>>xsimpl>>
-        simp[EqualityType_NUM_BOOL,all_goals_def])
+        simp[EqualityType_NUM_BOOL,all_goals_def])>>
       IF_CASES_TAC>>fs[]
       >- (
         xif>>asm_exists_tac>>xsimpl>>
