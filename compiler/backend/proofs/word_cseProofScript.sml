@@ -2,11 +2,11 @@
   Correctness proof for word_cse
 *)
 open preamble alistTheory;
-open wordLangTheory wordSemTheory wordPropsTheory word_simpTheory word_comSubExpElimTheory;
+open wordLangTheory wordSemTheory wordPropsTheory word_simpTheory word_cseTheory;
 
 val _ = new_theory "word_cseProof";
 
-val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_comSubExpElim"];
+val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_cse"];
 
 (* setting up the goal *)
 
@@ -15,7 +15,7 @@ val goal = “
      ∀res s' n instEq instMap instInstrs ochMap ochInstrs
         n' instEq' instMap' instInstrs' ochMap' ochInstrs'.
      evaluate (p, s) = (res, s') ∧ flat_exp_conventions p ∧
-     comSubExpElim n instEq instMap instInstrs ochMap ochInstrs p  =
+     word_cse n instEq instMap instInstrs ochMap ochInstrs p  =
        (n', instEq', instMap', instInstrs', ochMap', ochInstrs', p') ⇒
      evaluate (p', s) = (res, s')”
 
@@ -34,19 +34,23 @@ end
 Theorem comp_Skip_correct:
   ^(get_goal "Skip")
 Proof
-  cheat
+  rpt strip_tac \\
+  fs[word_cse_def]
 QED
 
 Theorem comp_Alloc_correct:
   ^(get_goal "Alloc")
 Proof
-  cheat
+  rpt strip_tac \\
+  fs[word_cse_def]
 QED
 
 Theorem comp_Move_correct:
   ^(get_goal "Move")
 Proof
   cheat
+  rpt strip_tac
+      rw[word_cse_def]
 QED
 
 Theorem comp_Inst_correct:
@@ -64,13 +68,15 @@ QED
 Theorem comp_Get_correct:
   ^(get_goal "Get")
 Proof
-  cheat
+  rpt strip_tac \\
+  fs[word_cse_def]
 QED
 
 Theorem comp_Set_correct:
   ^(get_goal "wordLang$Set")
 Proof
-  cheat
+  rpt strip_tac \\
+  fs[word_cse_def]
 QED
 
 Theorem comp_OpCurrHeap_correct:
@@ -88,7 +94,8 @@ QED
 Theorem comp_Tick_correct:
   ^(get_goal "Tick")
 Proof
-  cheat
+  rpt strip_tac \\
+  fs[word_cse_def]
 QED
 
 Theorem comp_MustTerminate_correct:
@@ -112,7 +119,8 @@ QED
 Theorem comp_Raise_correct:
   ^(get_goal "wordLang$Raise")
 Proof
-  cheat
+  rpt strip_tac \\
+  fs[word_cse_def]
 QED
 
 Theorem comp_If_correct:
@@ -124,31 +132,36 @@ QED
 Theorem comp_LocValue_correct:
   ^(get_goal "wordLang$LocValue")
 Proof
-  cheat
+  rpt strip_tac \\
+  fs[word_cse_def]
 QED
 
 Theorem comp_Install_correct:
   ^(get_goal "wordLang$Install")
 Proof
-  cheat
+  rpt strip_tac \\
+  fs[word_cse_def]
 QED
 
 Theorem comp_CodeBufferWrite_correct:
   ^(get_goal "wordLang$CodeBufferWrite")
 Proof
-  cheat
+  rpt strip_tac \\
+  fs[word_cse_def]
 QED
 
 Theorem comp_DataBufferWrite_correct:
   ^(get_goal "wordLang$DataBufferWrite")
 Proof
-  cheat
+  rpt strip_tac \\
+  fs[word_cse_def]
 QED
 
 Theorem comp_FFI_correct:
   ^(get_goal "wordLang$FFI")
 Proof
-  cheat
+  rpt strip_tac \\
+  fs[word_cse_def]
 QED
 
 Theorem comp_Call_correct:
