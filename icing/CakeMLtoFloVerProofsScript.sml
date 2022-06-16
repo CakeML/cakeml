@@ -11,7 +11,7 @@ open ExpressionsTheory ExpressionSemanticsTheory CommandsTheory
      EnvironmentsTheory IEEE_connectionTheory
      FloverMapTheory TypeValidatorTheory;
 (* Icing *)
-open fpSemTheory source_to_sourceTheory CakeMLtoFloVerTheory
+open fpSemTheory source_to_source2Theory CakeMLtoFloVerTheory
      CakeMLtoFloVerLemsTheory floatToRealTheory floatToRealProofsTheory;
 open preamble;
 

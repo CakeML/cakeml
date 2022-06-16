@@ -5,7 +5,7 @@
 **)
 open semanticPrimitivesTheory evaluateTheory icing_rewriterTheory
      icing_optimisationsTheory fpOptTheory fpValTreeTheory
-     source_to_sourceTheory;
+     source_to_source2Theory;
 
 open preamble;
 

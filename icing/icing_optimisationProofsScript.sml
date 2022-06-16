@@ -5,14 +5,14 @@
   application of the optimisation.
   Real-valued identity proofs are in icing_realIdProofsScript.sml.
   The overall correctness proof for a particular run of the optimiser
-  from source_to_sourceScript is build using the automation in
+  from source_to_source2Script is build using the automation in
   icing_optimisationsLib and the general theorems from
-  source_to_sourceProofsScript.
+  source_to_source2ProofsScript.
 *)
 open bossLib ml_translatorLib;
 open semanticPrimitivesTheory evaluatePropsTheory;
 open fpValTreeTheory fpSemPropsTheory fpOptTheory fpOptPropsTheory
-     icing_optimisationsTheory icing_rewriterTheory source_to_sourceProofsTheory
+     icing_optimisationsTheory icing_rewriterTheory source_to_source2ProofsTheory
      floatToRealTheory floatToRealProofsTheory evaluateTheory
      pureExpsTheory binary_ieeeTheory;
 
@@ -605,7 +605,7 @@ QED
 (**
   Optimisation simulation proofs
   In combination with the automation from icing_optimisationsLib and the
-  correctness proofs from source_to_sourceProofs, we automatically
+  correctness proofs from source_to_source2Proofs, we automatically
   construct backwards simulation proofs for a run of the optimiser
 **)
 

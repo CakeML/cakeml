@@ -3,14 +3,14 @@
   Each optimisation is defined in icing_optimisationsScript.
   This file proves that optimisations  are real-valued identities.
   The overall real-number simluation proof for a particular run of the optimiser
-  from source_to_sourceScript is build using the automation in
+  from source_to_source2Script is build using the automation in
   icing_optimisationsLib and the general theorems from
-  source_to_sourceProofsScript.
+  source_to_source2ProofsScript.
 *)
 open bossLib ml_translatorLib;
 open semanticPrimitivesTheory evaluatePropsTheory;
 open fpValTreeTheory fpSemPropsTheory fpOptTheory fpOptPropsTheory
-     icing_optimisationsTheory icing_rewriterTheory source_to_sourceProofsTheory
+     icing_optimisationsTheory icing_rewriterTheory source_to_source2ProofsTheory
      floatToRealTheory floatToRealProofsTheory icing_optimisationProofsTheory
      evaluateTheory pureExpsTheory binary_ieeeTheory realLib realTheory RealArith;
 

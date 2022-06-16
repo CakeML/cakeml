@@ -1,11 +1,11 @@
 (*
   Overall correctness proofs for optimisation functions
-  defined in source_to_sourceScript.sml.
+  defined in source_to_source2Script.sml.
   To prove a particular run correct, they are combined
   using the automation in icing_optimisationsLib.sml with
   the local correctness theorems from icing_optimisationProofsScript.sml.
 *)
-open icing_rewriterTheory icing_rewriterProofsTheory source_to_sourceTheory
+open icing_rewriterTheory icing_rewriterProofsTheory source_to_source2Theory
      fpOptTheory fpOptPropsTheory
      fpSemPropsTheory semanticPrimitivesTheory evaluateTheory
      semanticsTheory semanticsPropsTheory pureExpsTheory floatToRealTheory
@@ -16,7 +16,7 @@ open icingTacticsLib preamble;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"];
 
-val _ = new_theory "source_to_sourceProofs";
+val _ = new_theory "source_to_source2Proofs";
 
 (**
   Helper theorems and definitions

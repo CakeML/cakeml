@@ -6,7 +6,7 @@ open semanticPrimitivesTheory evaluateTheory
      icing_rewriterTheory icing_optimisationsTheory
      icing_optimisationProofsTheory fpOptTheory fpValTreeTheory
      namespacePropsTheory ml_progTheory
-     optPlannerTheory source_to_sourceTheory source_to_sourceProofsTheory;
+     optPlannerTheory source_to_source2Theory source_to_source2ProofsTheory;
 
 open preamble;
 
