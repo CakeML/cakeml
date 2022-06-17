@@ -291,10 +291,35 @@ val _ = translate mllistTheory.list_compare_def;
 val _ = ml_prog_update open_local_block;
 val res = translate sortingTheory.PART_DEF;
 val res = translate sortingTheory.PARTITION_DEF;
+Definition qsort_acc_def:
+  qsort_acc ord [] acc = acc ∧
+  qsort_acc ord (x::xs) acc =
+    let (l1,l2) = PARTITION (λy. ord y x) xs in
+      qsort_acc ord l1 (x::qsort_acc ord l2 acc)
+Termination
+  WF_REL_TAC ‘measure $ λ(ord,xs,acc). LENGTH xs’
+  \\ fs [sortingTheory.PARTITION_DEF] \\ rw []
+  \\ imp_res_tac sortingTheory.PART_LENGTH \\ fs []
+End
+val res = translate qsort_acc_def;
 val _ = ml_prog_update open_local_in_block;
 
+Triviality qsort_acc:
+  ∀ord xs acc. qsort_acc ord xs acc = QSORT ord xs ++ acc
+Proof
+  ho_match_mp_tac qsort_acc_ind \\ rw []
+  \\ simp [Once QSORT_DEF,Once qsort_acc_def]
+  \\ pairarg_tac \\ fs []
+QED
+
+Triviality qsort_acc_thm:
+  QSORT ord xs = qsort_acc ord xs []
+Proof
+  simp [qsort_acc]
+QED
+
 val _ = next_ml_names := ["sort"];
-val res = translate sortingTheory.QSORT_DEF;
+val res = translate qsort_acc_thm;
 
 val _ =  ml_prog_update close_local_blocks;
 val _ =  ml_prog_update (close_module NONE);
