@@ -13,7 +13,21 @@ val _ = set_grammar_ancestry ["ast"]
 
 (* compilation from this language removes closures *)
 
-val _ = Datatype `
+Datatype:
+  const = ConstCons num (const list)
+        | ConstInt int
+        | ConstStr mlstring
+        | ConstWord64 word64
+End
+
+Datatype:
+  const_part = Con num (num list)
+             | Int int
+             | Str mlstring
+             | W64 word64
+End
+
+Datatype:
   op = Global num    (* load global var with index *)
      | SetGlobal num (* assign a value to a global *)
      | AllocGlobal   (* make space for a new global *)
@@ -38,7 +52,6 @@ val _ = Datatype `
      | CopyByte bool (* copy a slice of a byte array, T means target should be allocated *)
      | ListAppend    (* appends two lists *)
      | FromList num  (* convert list to packed Block *)
-     | String string (* create a ByteVector from a constant *)
      | FromListByte  (* convert list of chars to ByteVector *)
      | ToListByte    (* convert ByteVector to list of chars *)
      | LengthByteVec (* get length of ByteVector *)
@@ -51,8 +64,10 @@ val _ = Datatype `
      | Label num     (* constructs a CodePtr *)
      | FFI string    (* calls the FFI *)
      | Equal         (* structural equality *)
-     | EqualInt int  (* equal to integer constant *)
+     | EqualConst const_part (* equal to integer/string/word constant *)
      | Const int     (* integer *)
+     | Constant const (* produces a constant value *)
+     | Build (const_part list)  (* implementation of Constant above *)
      | Add           (* + over the integers *)
      | Sub           (* - over the integers *)
      | Mult          (* * over the integers *)
@@ -76,9 +91,10 @@ val _ = Datatype `
      | BoundsCheckByte bool (* T = loose (<=) bound *)
      | LessConstSmall num
      | ConfigGC
-     | Install`
+     | Install
+End
 
-val _ = Datatype `
+Datatype:
   exp = Var tra num
       | If tra exp exp exp
       | Let tra (exp list) exp
@@ -89,7 +105,8 @@ val _ = Datatype `
       | App tra (num option) exp (exp list)
       | Fn mlstring (num option) (num list option) num exp
       | Letrec (mlstring list) (num option) (num list option) ((num # exp) list) exp
-      | Op tra op (exp list) `;
+      | Op tra op (exp list)
+End
 
 val exp_size_def = definition"exp_size_def";
 

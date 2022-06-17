@@ -225,7 +225,7 @@ Overload bignum_limit[local] =
         2 * il + 2 * jl``
 
 (* Gives an upper bound to the memory consuption of an operation *)
-val space_consumed_def = Define `
+Definition space_consumed_def:
   (space_consumed ^s (ConsExtend tag) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
    LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) + 1
   ) /\
@@ -263,7 +263,7 @@ val space_consumed_def = Define `
    | NONE => 0
   ) /\
   (space_consumed s (op:closLang$op) (vs:v list) = 0:num)
-`
+End
 
 val vb_size_def = tDefine"vb_size"`
   (vb_size (Block ts t ls) = 1 + t + SUM (MAP vb_size ls) + LENGTH ls) ∧
@@ -504,6 +504,27 @@ val with_fresh_ts_def = Define`
                          | NONE    => f 0 s
 `;
 
+Definition lim_safe_part_def[simp]:
+  (lim_safe_part lims (Con tag xs) ⇔ if xs = []
+                             then tag < 2 ** (arch_size lims) DIV 16
+                             else
+                               LENGTH xs < 2 ** lims.length_limit /\
+                               LENGTH xs < 2 ** (arch_size lims - 4) /\
+                               4 * tag < 2 ** (arch_size lims) DIV 16 /\
+                               4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)) ∧
+  (lim_safe_part lims (Int i) ⇔
+     (if small_num lims.arch_64_bit i
+      then T else
+        let il = bignum_size lims.arch_64_bit i in
+          il <= 2 ** lims.length_limit)) ∧
+  (lim_safe_part lims (Str s) ⇔
+     (let i = strlen s in
+        i DIV (arch_size lims DIV 8) < 2 ** (arch_size lims) DIV arch_size lims /\
+        i DIV (arch_size lims DIV 8) + 1 < 2 ** lims.length_limit /\
+        small_num lims.arch_64_bit (& i))) ∧
+  (lim_safe_part lims (W64 w) ⇔ 1 < lims.length_limit)
+End
+
 Definition lim_safe_def[simp]:
   (lim_safe lims (Cons tag) xs = if xs = []
                              then tag < 2 ** (arch_size lims) DIV 16
@@ -599,6 +620,9 @@ Definition lim_safe_def[simp]:
    (LENGTH xs < 2 ** lims.length_limit /\
     LENGTH xs < 2 ** arch_size lims DIV 16)
   )
+∧ (lim_safe lims (Build parts) _ =
+   EVERY (lim_safe_part lims) parts
+  )
 ∧ (lim_safe lims WordToInt _ =
    (1 < lims.length_limit)
   )
@@ -641,7 +665,32 @@ Definition check_lim_def:
                                s.safe_for_space)
 End
 
-val do_app_aux_def = Define `
+Definition do_part_def:
+  do_part m (Int i) s ts = (Number i, s, ts) ∧
+  do_part m (W64 w) s ts = (Word64 w, s, ts) ∧
+  do_part m (Con t ns) s ts =
+    (if ns = [] then (Block 0 t [],s,ts)
+                else case ts of
+                     | NONE => (Block 0 t (MAP m ns),s,ts)
+                     | SOME n => (Block n t (MAP m ns),s,SOME (n+1:num))) ∧
+  do_part m (Str t) s ts =
+    let ptr = (LEAST ptr. ¬(ptr IN domain s)) in
+    let bytes = MAP (n2w o ORD) (mlstring$explode t) in
+      (RefPtr ptr, insert ptr (ByteArray T bytes) s, ts)
+End
+
+Definition do_build_def:
+  do_build m i [] s ts = (m (i-1), s, ts) ∧
+  do_build m i (p::rest) s ts =
+    let (x,s1,ts1) = do_part m p s ts in
+      do_build ((i =+ x) m) (i+1) rest s1 ts1
+End
+
+Definition do_build_const_def:
+  do_build_const xs s ts = do_build (λx. Number 0) 0 xs s ts
+End
+
+Definition do_app_aux_def:
   do_app_aux op ^vs ^s =
     case (op,vs) of
     (* bvi part *)
@@ -712,13 +761,15 @@ val do_app_aux_def = Define `
             else Rerr (Rabort Rtype_error)
           | _ => Rerr (Rabort Rtype_error))
     | (AllocGlobal, _)   => Rerr (Rabort Rtype_error)
-    | (String _, _)      => Rerr (Rabort Rtype_error)
     | (FromListByte, _)  => Rerr (Rabort Rtype_error)
     | (ConcatByteVec, _) => Rerr (Rabort Rtype_error)
     | (CopyByte T, _)    => Rerr (Rabort Rtype_error)
     (* bvl part *)
+    | (Build parts,[]) =>
+        (case do_build_const parts s.refs s.tstamps of
+         | (v,s1,ts1) => Rval (v,s with <| refs := s1 ; tstamps := ts1 |>))
     | (Cons tag,xs) => (if xs = []
-                        then  Rval (Block 0 tag [],s)
+                        then Rval (Block 0 tag [],s)
                         else with_fresh_ts s 1
                                (λts s'. Rval (Block ts tag xs,
                                               check_lim s' (LENGTH xs))))
@@ -806,9 +857,15 @@ val do_app_aux_def = Define `
         Rval (Boolv (LENGTH xs = l),s)
     | (TagLenEq n l,[Block _ tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
-    | (EqualInt i,[x1]) =>
-        (case x1 of
-         | Number j => Rval (Boolv (i = j), s)
+    | (EqualConst p,[x1]) =>
+        (case p of
+         | Int i => (case x1 of Number j => Rval (Boolv (i = j), s) | _ => Error)
+         | W64 i => (case x1 of Word64 j => Rval (Boolv (i = j), s) | _ => Error)
+         | Str i => (case x1 of RefPtr p =>
+                       (case lookup p s.refs of SOME (ByteArray T j) =>
+                          Rval (Boolv (j = MAP (n2w ∘ ORD) (explode i)), s)
+                        | _ => Error)
+                     | _ => Error)
          | _ => Error)
     | (Equal,[x1;x2]) =>
         (case do_eq s.refs x1 x2 of
@@ -917,7 +974,8 @@ val do_app_aux_def = Define `
                          then Rval (Boolv (i < &n),s) else Error
          | _ => Error)
     | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
-    | _ => Error`;
+    | _ => Error
+End
 
 Overload do_app_safe =
   ``λop vs s. if allowed_op op (LENGTH vs)
@@ -933,7 +991,6 @@ Overload do_app_peak =
               then s.peak_heap_length
               else if MEM op [Greater; GreaterEq] then s.peak_heap_length
               else do_space_peak op vs s``
-
 
 val do_app_def = Define `
   do_app op vs ^s =
@@ -1194,15 +1251,15 @@ End
 
 val evaluate_ind = theorem"evaluate_ind";
 
-val evaluate_safe_def = Define`
+Definition evaluate_safe_def:
   evaluate_safe c s = let (x,s1) = evaluate (c,s)
                       in s1.safe_for_space
-`;
+End
 
-val evaluate_peak_def = Define`
+Definition evaluate_peak_def:
   evaluate_peak c s = let (x,s1) = evaluate (c,s)
                       in s1.peak_heap_length
-`;
+End
 
 (* We prove that the clock never increases. *)
 
@@ -1228,14 +1285,14 @@ Proof
 QED
 
 Theorem do_app_clock:
-   (dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock
+  (dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock
 Proof
   rw[ do_app_def
     , do_app_aux_def
     , do_space_def
     , consume_space_def
     , do_install_def
-    , case_eq_thms
+    , AllCaseEqs()
     , PULL_EXISTS
     , with_fresh_ts_def
     , UNCURRY

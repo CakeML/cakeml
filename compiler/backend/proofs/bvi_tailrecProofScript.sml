@@ -1095,11 +1095,16 @@ Proof
   \\ fs[do_app_aux_def]
   \\ fs[state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def]
   \\ fs[AllCaseEqs()]
+  \\ TRY(pairarg_tac \\ fs[])
+  \\ gvs []
+  \\ imp_res_tac code_rel_domain
+  \\ gvs [EVERY_MEM,SUBSET_DEF]
+  \\ rw [] \\ res_tac \\ fs []
 QED
 
 Theorem state_rel_do_app_err:
    bviSem$do_app op vs s = Rerr e ∧
-   state_rel s t ∧ op ≠ Install ∧ (∀n. op ≠ Label n)
+   state_rel s t ∧ op ≠ Install ∧ (∀n. op ≠ Label n) ∧ (∀n. op ≠ Build n)
    ⇒
    bviSem$do_app op vs t = Rerr e
 Proof
@@ -1111,6 +1116,7 @@ Proof
   \\ fs[bvi_to_bvl_def]
   \\ fs[bvlSemTheory.do_app_def]
   \\ TOP_CASE_TAC \\ fs[]
+  \\ TRY(pairarg_tac \\ gvs[])
   \\ fs[case_eq_thms,do_app_aux_def]
   \\ fs[AllCaseEqs()]
 QED
@@ -1703,6 +1709,17 @@ Proof
         imp_res_tac code_rel_domain \\
         fs[SUBSET_DEF] \\
         fs[case_eq_thms] \\ rveq \\ fs[] ) \\ fs[]
+      \\ Cases_on`∃n. op = Build n`
+      >-
+       (fs[] \\ rveq \\
+        fs[do_app_def,do_app_aux_def,bvlSemTheory.do_app_def] \\
+        imp_res_tac state_rel_code_rel \\
+        imp_res_tac code_rel_domain \\
+        fs[SUBSET_DEF] \\
+        fs[case_eq_thms] \\ rveq \\ fs[] \\
+        rpt (pairarg_tac \\ fs []) \\ gvs [state_rel_def] \\
+        gvs [bvl_to_bvi_def,bvi_to_bvl_def] \\
+        gvs [EVERY_MEM] \\ rw [] \\ res_tac \\ fs []) \\ fs[]
       \\ fs[case_eq_thms] \\ rveq \\ fs[]
       \\ imp_res_tac state_rel_do_app \\ fs[]
       \\ imp_res_tac state_rel_do_app_err \\ fs[])

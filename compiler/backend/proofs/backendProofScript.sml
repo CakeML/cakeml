@@ -125,6 +125,7 @@ val mc_init_ok_def = Define`
   find_name c.stack_conf.reg_names 1 = mc.ptr_reg ∧
   find_name c.stack_conf.reg_names 0 =
     (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ∧
+  c.data_conf.be = mc.target.config.big_endian ∧
   (* the next four are implied by injectivity of find_name *)
   (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ≠ mc.len_reg ∧
   (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ≠ mc.ptr_reg ∧
@@ -1342,8 +1343,8 @@ Proof
   \\ qexists_tac `0` \\ simp []
 QED
 
-Theorem data_to_word_stubs_above_raise_stub:
-  EVERY (λn. n > raise_stub_location) (MAP FST (data_to_word$stubs (:'a) dc))
+Theorem data_to_word_stubs_above_store_consts_stub:
+  EVERY (λn. n > store_consts_stub_location) (MAP FST (data_to_word$stubs (:'a) dc))
 Proof
   EVAL_TAC
 QED
@@ -1353,7 +1354,7 @@ Theorem to_word_labels_ok:
   ==>
   let (_, p, _) = to_word c prog in
   ALL_DISTINCT (MAP FST p) /\
-  EVERY (λn. n > raise_stub_location) (MAP FST p) /\
+  EVERY (λn. n > store_consts_stub_location) (MAP FST p) /\
   EVERY (λ(n,m,p).
     let labs = wordProps$extract_labels p in
     EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧ ALL_DISTINCT labs) p
@@ -1367,10 +1368,10 @@ Proof
      |> C (specl_args_of_then``data_to_word$compile``)mp_tac)
   \\ rpt disch_tac \\ fs []
   \\ drule to_data_labels_ok
-  \\ simp [data_to_word_stubs_above_raise_stub]
+  \\ simp [data_to_word_stubs_above_store_consts_stub]
   \\ simp [ALL_DISTINCT_APPEND, EVERY_MEM, ALL_DISTINCT_MAP_FST_stubs]
   \\ metis_tac [prim_recTheory.LESS_REFL, MAP_FST_stubs_bound,
-    LESS_LESS_EQ_TRANS, (EVAL ``raise_stub_location < data_num_stubs``),
+    LESS_LESS_EQ_TRANS, (EVAL ``store_consts_stub_location < data_num_stubs``),
     arithmeticTheory.GREATER_DEF]
 QED
 
@@ -1398,6 +1399,7 @@ Proof
   \\ RES_THEN mp_tac
   \\ EVAL_TAC
   \\ simp []
+  \\ gvs []
 QED
 
 Theorem oracle_monotonic_slice:
@@ -1684,6 +1686,7 @@ Proof
     \\ qspecl_then [`word_p`, `c2.lab_conf.asm_conf`] mp_tac
         (GEN_ALL word_to_stack_compile_lab_pres)
     \\ simp [EVAL ``raise_stub_location < SUC data_num_stubs``]
+    \\ simp [EVAL ``store_consts_stub_location < SUC data_num_stubs``]
     \\ disch_tac
     \\ qpat_x_assum `compile _.data_conf _ _ _ = _` mp_tac
     \\ (data_to_word_compile_lab_pres
@@ -2472,6 +2475,18 @@ Theorem add_eval_state_ffi:
 Proof
   Cases_on `opt_ev` \\ simp [add_eval_state_def]
 QED
+
+(* delete?
+Definition compile_inc_progs_for_eval_def:
+  compile_inc_progs_for_eval asm_c x =
+  let (env_id, inc_c', decs) = x in
+  let c' = inc_config_to_config asm_c inc_c' in
+  let (c'', ps) = compile_inc_progs T c' (env_id, decs) in
+    OPTION_MAP (\(bs, ws). (config_to_inc_config c'', bs,
+            MAP data_to_word_gcProof$upper_w2w ws))
+        ps.target_prog
+End
+*)
 
 Definition opt_eval_config_wf_def:
   opt_eval_config_wf c' (SOME ci) = (
@@ -3296,6 +3311,17 @@ Proof
     conj_tac >- (
       simp [stack_to_labProofTheory.full_make_init_def,
             stack_allocProofTheory.make_init_def,
+            stack_removeProofTheory.make_init_any_def,
+            stack_removeProofTheory.make_init_opt_def,AllCaseEqs()]
+      \\ TOP_CASE_TAC \\ fs []
+      \\ fs [stack_removeProofTheory.make_init_opt_def,CaseEq"option",pair_case_eq] \\ rveq
+      \\ fs [stack_namesProofTheory.make_init_def,stack_to_labProofTheory.make_init_def,
+             lab_to_targetProofTheory.make_init_def,mc_init_ok_def,
+             stack_removeProofTheory.init_reduce_def]
+      \\ imp_res_tac stackPropsTheory.evaluate_consts \\ fs [])>>
+    conj_tac >- (
+      simp [stack_to_labProofTheory.full_make_init_def,
+            stack_allocProofTheory.make_init_def,
             stack_removeProofTheory.make_init_any_def]
       \\ TOP_CASE_TAC \\ fs []
       \\ fs [stack_removeProofTheory.make_init_opt_def,CaseEq"option",pair_case_eq] \\ rveq
@@ -3474,6 +3500,7 @@ Proof
         \\ decide_tac )>>
       (* simple syntactic thing *)
       simp[EVERY_FST_SND]>>
+      CONJ_TAC>- EVAL_TAC>>
       CONJ_TAC>- EVAL_TAC>>
       `!k. data_num_stubs<= k ⇒ stack_num_stubs <=k` by
         (EVAL_TAC>>fs[])>>
@@ -3666,8 +3693,16 @@ Proof
       \\ fs [Abbr `data_oracle`] \\ fs [cake_orac_0, config_tuple2_def]
       \\ first_x_assum (qspecl_then [`n`] mp_tac)
       \\ simp [EVERY_MEM]
-      \\ metis_tac [EVAL ``data_num_stubs <= raise_stub_location``]
+      \\ metis_tac [EVAL ``data_num_stubs <= raise_stub_location``,
+                    EVAL ``data_num_stubs <= store_consts_stub_location``]
     ) \\
+    conj_tac >- (
+      qunabbrev_tac`t_code` \\
+      imp_res_tac data_to_word_names \\
+      simp[ALOOKUP_NONE] \\
+      conj_tac >- EVAL_TAC \\
+      strip_tac \\ fs[EVERY_MEM] \\
+      res_tac \\ pop_assum mp_tac >> EVAL_TAC) \\
     conj_tac >- (
       qunabbrev_tac`t_code` \\
       imp_res_tac data_to_word_names \\

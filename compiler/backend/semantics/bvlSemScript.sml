@@ -127,10 +127,32 @@ val do_install_def = Define `
             | _ => Rerr(Rabort Rtype_error))
        | _ => Rerr(Rabort Rtype_error))`;
 
+Definition do_part_def:
+  do_part m (Int i) refs = (Number i, refs) ∧
+  do_part m (W64 w) refs = (Word64 w, refs) ∧
+  do_part m (Con t ns) refs = (Block t (MAP m ns), refs) ∧
+  do_part m (Str t) refs =
+    let ptr = (LEAST ptr. ¬(ptr IN FDOM refs)) in
+    let bytes = MAP (n2w o ORD) (mlstring$explode t) in
+      (RefPtr ptr, refs |+ (ptr,(ByteArray T bytes):v ref))
+End
+
+Definition do_build_def:
+  do_build m i [] refs = (m (i-1), refs) ∧
+  do_build m i (p::rest) refs =
+    let (x,refs1) = do_part m p refs in
+      do_build ((i =+ x) m) (i+1) rest refs1
+End
+
+Definition do_build_const_def:
+  do_build_const xs refs = do_build (λx. Number 0) 0 xs refs
+End
+
 (* same as closSem$do_app, except:
     - LengthByteVec and DerefByteVec are removed
     - FromListByte, ToListByte, String, ConcatByteVec, and
       CopyByte work on ByteArrays rather than ByteVectors
+    - Build now has full semantics, i.e. can handle all cases
     - Label is added *)
 
 val do_app_def = Define `
@@ -142,7 +164,7 @@ val do_app_def = Define `
          | _ => Error)
     | (SetGlobal n,[v]) =>
         (case get_global n s.globals of
-         | SOME NONE => Rval (Unit,
+         | SOME _ => Rval (Unit,
              s with globals := (LUPDATE (SOME v) n s.globals))
          | _ => Error)
     | (AllocGlobal,[]) =>
@@ -150,6 +172,8 @@ val do_app_def = Define `
     | (Install,vs) => do_install vs s
     | (Const i,[]) => Rval (Number i, s)
     | (Cons tag,xs) => Rval (Block tag xs, s)
+    | (Build parts,[]) =>
+        (let (v,rs) = do_build_const parts s.refs in Rval (v, s with refs := rs))
     | (ConsExtend tag,Block _ xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then
@@ -233,10 +257,6 @@ val do_app_def = Define `
         (case v_to_list lv of
          | SOME vs => Rval (Block n vs, s)
          | _ => Error)
-    | (String str,[]) =>
-      let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
-        Rval (RefPtr ptr, s with refs := s.refs |+
-          (ptr,ByteArray T (MAP (n2w o ORD) str)))
     | (FromListByte,[lv]) =>
         (case some ns. v_to_list lv = SOME (MAP (Number o $&) ns) ∧ EVERY (λn. n < 256) ns of
           | SOME ns => let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
@@ -271,9 +291,15 @@ val do_app_def = Define `
         Rval (Boolv (LENGTH xs = l),s)
     | (TagLenEq n l,[Block tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
-    | (EqualInt i,[x1]) =>
-        (case x1 of
-         | Number j => Rval (Boolv (i = j), s)
+    | (EqualConst p,[x1]) =>
+        (case p of
+         | Int i => (case x1 of Number j => Rval (Boolv (i = j), s) | _ => Error)
+         | W64 i => (case x1 of Word64 j => Rval (Boolv (i = j), s) | _ => Error)
+         | Str i => (case x1 of RefPtr p =>
+                       (case FLOOKUP s.refs p of SOME (ByteArray T j) =>
+                          Rval (Boolv (j = MAP (n2w ∘ ORD) (explode i)), s)
+                        | _ => Error)
+                     | _ => Error)
          | _ => Error)
     | (Equal,[x1;x2]) =>
         (case do_eq s.refs x1 x2 of
@@ -506,7 +532,7 @@ Theorem do_app_const:
                        s2.compile = s1.compile /\
                        s2.compile_oracle = s1.compile_oracle)
 Proof
-  rw[do_app_def,case_eq_thms,PULL_EXISTS,do_install_def,UNCURRY] \\ rw[]
+  rw[do_app_def,AllCaseEqs(),PULL_EXISTS,do_install_def,UNCURRY] \\ rw[]
 QED
 
 Theorem bvl_do_app_Ref[simp]:
