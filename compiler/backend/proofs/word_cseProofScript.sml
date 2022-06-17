@@ -12,11 +12,11 @@ val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_cse"];
 
 val goal = “
    λ(p:'a wordLang$prog,s:('a,'c,'ffi) wordSem$state).
-     ∀res s' n instEq instMap instInstrs ochMap ochInstrs
-        n' instEq' instMap' instInstrs' ochMap' ochInstrs'.
+     ∀res s' data p'
+          data'.
      evaluate (p, s) = (res, s') ∧ flat_exp_conventions p ∧
-     word_cse n instEq instMap instInstrs ochMap ochInstrs p  =
-       (n', instEq', instMap', instInstrs', ochMap', ochInstrs', p') ⇒
+     word_cse data p  =
+       (data', p') ⇒
      evaluate (p', s) = (res, s')”
 
 local
@@ -49,8 +49,10 @@ Theorem comp_Move_correct:
   ^(get_goal "Move")
 Proof
   cheat
+(*
   rpt strip_tac
       rw[word_cse_def]
+*)
 QED
 
 Theorem comp_Inst_correct:
@@ -101,7 +103,14 @@ QED
 Theorem comp_MustTerminate_correct:
   ^(get_goal "MustTerminate")
 Proof
-  cheat
+  rpt strip_tac \\
+  gs[word_cse_def] \\
+  pairarg_tac \\ gvs [evaluate_def,flat_exp_conventions_def] \\
+  gvs [AllCaseEqs()] \\
+  pairarg_tac \\ gvs [] \\
+  pairarg_tac \\ gvs [] \\
+  first_x_assum drule \\
+  gvs []
 QED
 
 Theorem comp_Seq_correct:
@@ -113,13 +122,12 @@ QED
 Theorem comp_Return_correct:
   ^(get_goal "Return")
 Proof
-  cheat
+  fs[word_cse_def]
 QED
 
 Theorem comp_Raise_correct:
   ^(get_goal "wordLang$Raise")
 Proof
-  rpt strip_tac \\
   fs[word_cse_def]
 QED
 

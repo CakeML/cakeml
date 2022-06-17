@@ -36,15 +36,11 @@ val _ = Datatype `knowledge = <| n:num;
                                  ochMap:regsM;
                                  ochInstrs:instrsM |>`;
 
-Definition test_def:
-  test (data:knowledge) = data with <|n := 10|>
-End
+(* add a (all_names:num_set) ⇒ when seeing a new register, add it in all_names
+if a register is affected and is in all_names, throw everything
 
-Definition test2_def:
-  test2 (data:knowledge) = data.n
-End
-
-EVAL “test2 (test (<|n:=0;instEq:=[];instMap:=LN;instInstrs:=empty listCmp;ochMap:=LN;ochInstrs:=empty listCmp|>))”;
+!!! even registers !!!
+*)
 
 (* LIST COMPARISON *)
 
@@ -256,7 +252,8 @@ End
 Definition canonicalMultRegs_def:
   canonicalMultRegs data [] = [] ∧
   canonicalMultRegs data (hd::tl) =
-    (canonicalRegs data hd)::(canonicalMultRegs data tl)
+  (canonicalRegs data hd)::(canonicalMultRegs data tl)
+(* rewrite with a map *)
 End
 
 Definition canonicalMoveRegs_def:
@@ -273,10 +270,13 @@ Definition canonicalMoveRegs_def:
                     (data', (r1,r2')::tl')
 End
 
+(* make a lookup_data to wrap case matching
+lookup_any x sp d = lookup x sp otherwise return d*)
+
 Definition canonicalMoveRegs2_def:
   canonicalMoveRegs2 data [] = (data, []) ∧
   canonicalMoveRegs2 data ((r1,r2)::tl) =
-    if (?r. 2*r = r1 ∨ 2*r = r2)
+    if (EVEN r1 ∨ EVEN r2)
       then let (data', tl') = canonicalMoveRegs2 data tl in
                (data', (r1,r2)::tl')
       else
@@ -290,6 +290,12 @@ Definition canonicalMoveRegs2_def:
                       let (data', tl') = canonicalMoveRegs2 (data with <| instEq:=instEq'; instMap:=instMap' |>) tl in
                         (data', (r1,r2')::tl')
 End
+
+(*
+Move [(1,2);(2,3);(3,1)]
+Move [(1,can 2);(2,can 3);(3,can 1)]
+Knowledge : 1 ⇔ can 2 / 2 ⇔ can 3 / 3 ⇔ can 1
+*)
 
 Definition canonicalExp_def:
   canonicalExp data e = e
@@ -581,7 +587,7 @@ Definition instToNumList_def:
 End
 (*
 Theorem instToNumList_unique:
-  ∀i1 i2. i1 = i2 ⇔ instToNumList i1 = instToNumList i2
+  ∀i1 i2. instToNumList i1 = instToNumList i2 ⇒ ∀n. setDest i1 n = setDest i2 n
 Proof
   rpt strip_tac >>
   Cases_on ‘i1’ \\
@@ -609,6 +615,10 @@ Theorem progToNumList_unique:
 Proof
   rw[progToNumList_def, instToNumList_unique]
 QED
+*)
+(*
+Theorem progToNumList_:
+  ∀p1 p2. (
 *)
 
 Definition firstRegOfArith_def:
@@ -693,11 +703,11 @@ Definition word_cse_def:
   (word_cse (data:knowledge) (Skip) =
                 (data, Skip)) ∧
   (word_cse data (Move r rs) =
-            let (data', rs') = canonicalMoveRegs data rs in
-                (data, Move r rs')) ∧
+            let (data', rs') = canonicalMoveRegs2 data rs in
+                (data', Move r rs')) ∧
   (word_cse data (Inst i) =
             let (data', p) = word_cseInst data i in
-                (data, p)) ∧
+                (data', p)) ∧
   (word_cse data (Assign r e) =
                 (data, Assign r e)) ∧
   (word_cse data (Get r x) =
@@ -750,9 +760,9 @@ Definition word_cse_def:
 End
 
 (*
-EVAL “word_cse (Seq (Inst (Arith (Binop Add 3 1 (Reg 2)))) (Inst (Arith (Binop Add 4 1 (Reg 2)))))”
+EVAL “word_cse empty_data (Seq (Inst (Arith (Binop Add 3 1 (Reg 2)))) (Inst (Arith (Binop Add 4 1 (Reg 2)))))”
 
-EVAL “word_cse
+EVAL “word_cse empty_data
     (Seq
       (Inst (Arith (Binop Add 3 1 (Reg 2))))
     (Seq
