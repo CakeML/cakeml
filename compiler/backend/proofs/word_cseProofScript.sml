@@ -8,16 +8,20 @@ val _ = new_theory "word_cseProof";
 
 val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_cse"];
 
+Definition data_inv_def:
+  data_inv (data:knowledge) (s:('a,'c,'ffi) wordSem$state) = T
+End
+
 (* setting up the goal *)
 
 val goal = “
    λ(p:'a wordLang$prog,s:('a,'c,'ffi) wordSem$state).
-     ∀res s' data p'
-          data'.
-     evaluate (p, s) = (res, s') ∧ flat_exp_conventions p ∧
-     word_cse data p  =
-       (data', p') ⇒
-     evaluate (p', s) = (res, s')”
+     ∀res s' data p' data'.
+       evaluate (p, s) = (res, s') ∧ flat_exp_conventions p ∧
+       data_inv data s ∧
+       word_cse data p  = (data', p') ⇒
+         evaluate (p', s) = (res, s') ∧
+         (res = NONE ⇒ data_inv data' s')”
 
 local
   val gst = goal |> Ho_Rewrite.PURE_ONCE_REWRITE_CONV [Once PFORALL_THM] |> concl |> rhs
@@ -50,8 +54,8 @@ Theorem comp_Move_correct:
 Proof
   cheat
 (*
-  rpt strip_tac
-      rw[word_cse_def]
+  rpt strip_tac \\
+  rw[word_cse_def]
 *)
 QED
 
@@ -116,7 +120,20 @@ QED
 Theorem comp_Seq_correct:
   ^(get_goal "wordLang$Seq")
 Proof
-  cheat
+  rpt gen_tac \\
+  strip_tac \\
+  rpt gen_tac \\
+  strip_tac \\
+  gvs[word_cse_def, evaluate_def, flat_exp_conventions_def] \\
+  rpt (pairarg_tac \\ gvs []) \\
+  reverse(gvs [AllCaseEqs(),evaluate_def])
+  >- (pairarg_tac \\ gvs [] \\
+      first_x_assum drule_all \\ gs []) \\
+  pairarg_tac \\ gvs [] \\
+  first_x_assum drule_all \\ gs [] \\
+  strip_tac \\ gvs [] \\
+  first_x_assum drule_all \\
+  fs []
 QED
 
 Theorem comp_Return_correct:
@@ -175,7 +192,7 @@ QED
 Theorem comp_Call_correct:
   ^(get_goal "wordLang$Call")
 Proof
-  cheat
+  fs[word_cse_def]
 QED
 
 Theorem comp_correct:
