@@ -37,6 +37,10 @@ Correctness proof for clos_annotate
 [clos_callProofScript.sml](clos_callProofScript.sml):
 Correctness proof for clos_call
 
+[clos_constantProofScript.sml](clos_constantProofScript.sml):
+Some functions that flatten a closLang/BVL/BVI/dataLang const tree
+into a sequence of operations that share common data.
+
 [clos_fvsProofScript.sml](clos_fvsProofScript.sml):
 Correctness proof for clos_fvs
 

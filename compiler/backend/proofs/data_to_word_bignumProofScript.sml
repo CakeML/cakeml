@@ -243,6 +243,11 @@ Proof
   \\ every_case_tac \\ fs []
 QED
 
+Triviality b2n_not:
+  (if c then 0 else 1) = b2n (~c)
+Proof
+  Cases_on ‘c’ \\ EVAL_TAC
+QED
 
 Theorem LongDiv1_thm':
    !k n1 n2 m i1 i2 (t2:('a,'c,'ffi) wordSem$state)
@@ -342,11 +347,9 @@ Proof
   \\ qmatch_goalsub_abbrev_tac `insert 12 (Word new_z)`
   \\ `z' = new_z /\ c1' = new_c` by
    (unabbrev_all_tac \\ pop_assum mp_tac
+    \\ simp [b2n_not]
     \\ simp [multiwordTheory.single_add_def] \\ strip_tac \\ rveq
-    \\ qpat_abbrev_tac `ppp = if b2w c1 = 0w then 0 else 1n`
-    \\ qsuff_tac `ppp = b2n c1`
-    THEN1 (fs [] \\ Cases_on `c1` \\ EVAL_TAC)
-    \\ unabbrev_all_tac \\ Cases_on `c1` \\ EVAL_TAC \\ fs [] \\ NO_TAC)
+    \\ fs [multiwordTheory.b2w_def])
   \\ fs [list_Seq_def,eq_eval]
   \\ qmatch_goalsub_abbrev_tac `evaluate (LongDiv1_code c,t3)`
   \\ strip_tac \\ first_x_assum drule
@@ -459,10 +462,7 @@ Proof
   \\ `z' = new_z /\ c1' = new_c` by
    (unabbrev_all_tac \\ pop_assum mp_tac
     \\ simp [multiwordTheory.single_add_def] \\ strip_tac \\ rveq
-    \\ qpat_abbrev_tac `ppp = if b2w c1 = 0w then 0 else 1n`
-    \\ qsuff_tac `ppp = b2n c1`
-    THEN1 (fs [] \\ Cases_on `c1` \\ EVAL_TAC)
-    \\ unabbrev_all_tac \\ Cases_on `c1` \\ EVAL_TAC \\ fs [] \\ NO_TAC)
+    \\ simp [b2n_not] \\ fs [multiwordTheory.b2w_def])
   \\ fs [list_Seq_def,eq_eval]
   \\ qmatch_goalsub_abbrev_tac `evaluate (LongDiv1_code c,t3)`
   \\ strip_tac \\ first_x_assum drule
@@ -2352,6 +2352,11 @@ Proof
   \\ Cases_on `max_depth l x'` \\ fs [OPTION_MAP2_DEF]
 QED
 
+Theorem evaluate_Assign_Const =
+  “wordSem$evaluate (Assign n (Const w), s)”
+  |> SIMP_CONV std_ss [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,
+                       wordSemTheory.set_var_def];
+
 Theorem eval_Call_Arith:
    !index r.
       state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) [] locs /\
@@ -2420,7 +2425,7 @@ Proof
   \\ ntac 4 (TOP_CASE_TAC \\ fs [])
   \\ rveq \\ fs [Arith_code_def]
   \\ simp [Once wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,
-           EVAL ``evaluate (Assign n (Const w), s)``]
+           evaluate_Assign_Const]
   \\ pairarg_tac \\ fs []
   \\ pop_assum mp_tac
   \\ pairarg_tac \\ fs []
@@ -2428,6 +2433,7 @@ Proof
   \\ qpat_abbrev_tac `pat = wordSem$evaluate _`
   \\ Cases_on `pat`
   \\ pop_assum (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])
+  \\ fs []
   \\ drule max_depth_Call_NONE
   \\ Cases_on `q' = SOME Error`
   THEN1 (fs [] \\ rw [] \\ fs [])

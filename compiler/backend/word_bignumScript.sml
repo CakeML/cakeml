@@ -462,7 +462,7 @@ val SeqIndex_def = Define `
               :'a wordLang$prog`
 
 val div_location_def = Define `
-  div_location = 21n`;
+  div_location = 23n`;
 
 val DivCode_def = Define `
   DivCode l1 l2 n1 n2 n3 n4 n5 =

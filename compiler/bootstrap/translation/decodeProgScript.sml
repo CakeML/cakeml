@@ -68,6 +68,30 @@ Theorem IsTypeRep_BACKEND_INC_CONFIG_v:
   IsTypeRep BACKEND_INC_CONFIG_v BACKEND_INC_CONFIG_TYPE
 Proof
   irule_at Any (fetch_v_fun “:backend$inc_config” |> snd |> hd) \\ fs []
+  \\ irule_at Any (fetch_v_fun “:bvl_to_bvi$config” |> snd |> hd) \\ fs []
+  \\ irule_at Any (fetch_v_fun “:clos_to_bvl$config” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:'a num_map” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:'a # 'b” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:'a option” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:'a num_map” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:'a # 'b” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:clos_known$config” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:closLang$exp” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:bvl$exp” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:closLang$op” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:'a num_map” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:clos_known$val_approx” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:closLang$exp” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:closLang$op” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:unit” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:num” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:closLang$const_part” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:closLang$const” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:word64” |> snd |> hd) \\ fs []
 QED
 
 Theorem EqualityType_BACKEND_INC_CONFIG_TYPE =
@@ -85,11 +109,22 @@ QED
 
 val res = translate dec_next_def;
 val res = translate chars_to_nums_def;
+val res = translate num_list_enc_decTheory.mlstring_dec_def;
+val res = translate (mlstring_dec'_def |> REWRITE_RULE [GSYM mlstringTheory.implode_def]);
+
+Theorem list_dec'_eq_MAP:
+  ∀f t. list_dec' f t = MAP f (list_dec' I t)
+Proof
+  Cases_on ‘t’ \\ fs [list_dec'_def]
+QED
+
+val res = translate num_list_enc_decTheory.list_dec'_def;
+val res = translate (const_dec'_def |> DefnBase.one_line_ify NONE
+                     |> ONCE_REWRITE_RULE [list_dec'_eq_MAP]);
 
 val res = translate const_dec_def;
 val res = translate unit_dec_def;
 val res = translate num_dec_def;
-val res = translate num_list_enc_decTheory.list_dec'_def;
 val res = translate list_dec_def;
 val res = translate bool_dec_def;
 val res = translate int_dec_def;
@@ -98,7 +133,6 @@ val res = translate (word_dec_def |> INST_TYPE [alpha|->“:8”]);
 val _ = next_ml_names := ["word64_dec"];
 val res = translate (word_dec_def |> INST_TYPE [alpha|->“:64”]);
 val res = translate char_dec_def;
-val res = translate num_list_enc_decTheory.mlstring_dec_def;
 val res = translate prod_dec_def;
 val res = translate option_dec_def;
 val res = translate sum_dec_def;
@@ -144,17 +178,10 @@ val res = translate word_to_word_config_dec_def;
 val res = translate (word_to_stack_config_dec_def |> INST_TYPE [alpha|->“:64”]);
 val res = translate stack_to_lab_config_dec_def;
 
-val res = translate (mlstring_dec'_def |> REWRITE_RULE [GSYM mlstringTheory.implode_def]);
 val res = translate tap_config_dec'_def;
 val res = translate tap_config_dec_def;
 
 val res = translate (closLang_op_dec'_def |> DefnBase.one_line_ify NONE);
-
-Theorem list_dec'_eq_MAP:
-  ∀f t. list_dec' f t = MAP f (list_dec' I t)
-Proof
-  Cases_on ‘t’ \\ fs [list_dec'_def]
-QED
 
 val def = bvl_exp_dec'_def |> DefnBase.one_line_ify NONE
           |> ONCE_REWRITE_RULE [list_dec'_eq_MAP]

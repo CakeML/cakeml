@@ -179,8 +179,8 @@ local val SmartOp2_quotation = `
     else if op = Equal then
       dtcase (dest_simple x1, dest_simple x2) of
       | (SOME i, SOME j) => Bool (j = i)
-      | (SOME i, _) => Op (EqualInt i) [x2]
-      | (_, SOME i) => Op (EqualInt i) [x1]
+      | (SOME i, _) => Op (EqualConst (Int i)) [x2]
+      | (_, SOME i) => Op (EqualConst (Int i)) [x1]
       | _ => default
     else if op = El then
       dtcase dest_simple x1 of
@@ -203,17 +203,17 @@ QED
 end
 
 
-
 Definition dest_EqualInt_def:
-  dest_EqualInt (EqualInt i) = SOME i ∧
+  dest_EqualInt (EqualConst (Int i)) = SOME i ∧
   dest_EqualInt _ = NONE
 End
 
 Theorem dest_EqualInt_pmatch:
-  dest_EqualInt x = case x of EqualInt i => SOME i | _ => NONE
+  dest_EqualInt x = case x of EqualConst (Int i) => SOME i | _ => NONE
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ Cases_on ‘x’ \\ EVAL_TAC
+  \\ rename [‘EqualConst cc’] \\ Cases_on ‘cc’ \\ EVAL_TAC
 QED
 
 Definition SmartOp1_def:

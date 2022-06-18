@@ -125,7 +125,7 @@ val v_to_words_def = Define `
 
 val s = ``s:('c,'ffi)closSem$state``;
 
-val do_install_def = Define `
+Definition do_install_def:
   do_install vs ^s =
       (case vs of
        | [v1;v2] =>
@@ -153,9 +153,22 @@ val do_install_def = Define `
                   | _ => (Rerr(Rabort Rtype_error),s))
                   else (Rerr(Rabort Rtype_error),s))
             | _ => (Rerr(Rabort Rtype_error),s))
-       | _ => (Rerr(Rabort Rtype_error),s))`;
+       | _ => (Rerr(Rabort Rtype_error),s))
+End
 
-val do_app_def = Define `
+Definition make_const_def:
+  make_const (ConstInt i) = Number i ∧
+  make_const (ConstStr s) = ByteVector (MAP (n2w o ORD) (mlstring$explode s)) ∧
+  make_const (ConstWord64 w) = Word64 w ∧
+  make_const (ConstCons t cs) = Block t (MAP make_const cs)
+Termination
+  WF_REL_TAC ‘measure const_size’
+  \\ Induct_on ‘cs’ \\ rw []
+  \\ fs [const_size_def] \\ res_tac
+  \\ pop_assum (qspec_then ‘t’ assume_tac) \\ fs []
+End
+
+Definition do_app_def:
   do_app (op:closLang$op) (vs:closSem$v list) ^s =
     case (op,vs) of
     | (Global n,[]:closSem$v list) =>
@@ -170,6 +183,7 @@ val do_app_def = Define `
     | (AllocGlobal,[]) =>
         Rval (Unit, s with globals := s.globals ++ [NONE])
     | (Const i,[]) => Rval (Number i, s)
+    | (Constant c,[]) => Rval (make_const c, s)
     | (Cons tag,xs) => Rval (Block tag xs, s)
     | (ConsExtend tag, Block _ xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ &LENGTH xs' < lower + len ∨
@@ -241,7 +255,6 @@ val do_app_def = Define `
         (case v_to_list lv of
          | SOME vs => Rval (Block n vs, s)
          | _ => Error)
-    | (String str',[]) => Rval (ByteVector (MAP (n2w o ORD) str'),s)
     | (FromListByte,[lv]) =>
         (case some ns. v_to_list lv = SOME (MAP (Number o $&) ns) ∧ EVERY (λn. n < 256) ns of
          | SOME ns => Rval (ByteVector (MAP n2w ns), s)
@@ -285,8 +298,14 @@ val do_app_def = Define `
         Rval (Boolv (LENGTH xs = l),s)
     | (TagLenEq n l,[Block tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
-    | (EqualInt i,[Number j]) =>
-        Rval (Boolv (i = j), s)
+    | (EqualConst p,[x1]) =>
+        (case p of
+         | Int i => (case x1 of Number j => Rval (Boolv (i = j), s) | _ => Error)
+         | W64 i => (case x1 of Word64 j => Rval (Boolv (i = j), s) | _ => Error)
+         | Str i => (case x1 of
+                     | ByteVector j => Rval (Boolv (j = MAP (n2w ∘ ORD) (explode i)), s)
+                     | _ => Error)
+         | _ => Error)
     | (Equal,[x1;x2]) =>
         (case do_eq x1 x2 of
          | Eq_val b => Rval (Boolv b, s)
@@ -384,21 +403,26 @@ val do_app_def = Define `
     | (LessConstSmall n,[Number i]) =>
         (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then Rval (Boolv (i < &n),s) else Error)
     | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
-    | _ => Error`;
+    | _ => Error
+End
 
-val dec_clock_def = Define `
-dec_clock n ^s = s with clock := s.clock - n`;
+Definition dec_clock_def:
+  dec_clock n ^s = s with clock := s.clock - n
+End
 
-val LESS_EQ_dec_clock = Q.prove(
-  `(r:('c,'ffi) closSem$state).clock <= (dec_clock n s).clock ==> r.clock <= s.clock`,
-  SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
+Triviality LESS_EQ_dec_clock:
+  (r:('c,'ffi) closSem$state).clock <= (dec_clock n s).clock ==> r.clock <= s.clock
+Proof
+  SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC
+QED
 
-val find_code_def = Define `
+Definition find_code_def:
   find_code p args code =
     case FLOOKUP code p of
     | NONE => NONE
     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp)
-                                                 else NONE`
+                                                 else NONE
+End
 
 (* The evaluation is defined as a clocked functional version of
    a conventional big-step operational semantics. *)
@@ -508,7 +532,7 @@ val appkind_thms = { nchotomy = TypeBase.nchotomy_of ``:app_kind``,
 val word_size_thms = { nchotomy = TypeBase.nchotomy_of ``:word_size``,
                      case_def = TypeBase.case_def_of ``:word_size`` }
 
-val case_eq_thms = LIST_CONJ (map prove_case_eq_thm
+val case_eq_thms = LIST_CONJ (CaseEq"const_part" :: map prove_case_eq_thm
   [op_thms, list_thms, option_thms, v_thms, ref_thms,
    result_thms, error_result_thms, eq_result_thms, appkind_thms, word_size_thms])
 

@@ -119,6 +119,7 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Tys
     [``:closLang$exp``
     ,``:closLang$op``
+    ,``:closLang$const_part``
     ,``:clos_known$val_approx``
     ,``:clos_known$globalOpt``
     ,``:clos_known$inliningDecision``
@@ -142,9 +143,10 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_mtiTheory.collect_args_def
     ,clos_mtiTheory.collect_apps_def
     ,clos_mtiTheory.compile_def
-      (* ---- clos_number ---- *)
+       (* ---- clos_number ---- *)
     ,clos_numberTheory.renumber_code_locs_def
     ]
+  ,computeLib.Defs (theory_computes "clos_annotate")
   ,computeLib.Defs
     [clos_callTheory.calls_def
     ,clos_callTheory.free_def
@@ -154,15 +156,6 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_callTheory.calls_list_def
     ,clos_callTheory.insert_each_compute
     ,clos_callTheory.GENLIST_Var_def
-      (* ---- clos_annotate ---- *)
-    ,clos_annotateTheory.get_var_def
-    ,clos_annotateTheory.shifted_env_def
-    ,clos_annotateTheory.annotate_def
-    ,clos_annotateTheory.shift_def
-    ,clos_annotateTheory.compile_def
-    ,clos_annotateTheory.const_0_def
-    ,clos_annotateTheory.no_overlap_compute
-    ,clos_annotateTheory.alt_free_def
       (* ---- clos_known---- *)
     ,clos_knownTheory.get_size_sc_aux_def
     ,clos_knownTheory.get_size_sc_def
@@ -203,6 +196,10 @@ val add_backend_compset = computeLib.extend_compset
     ,backend_commonTheory.bool_to_tag_def
     ,bvlTheory.mk_tick_def
     ,bvlTheory.Bool_def
+    ,clos_to_bvlTheory.part_hash_def
+    ,clos_to_bvlTheory.add_part_def
+    ,clos_to_bvlTheory.add_parts_def
+    ,clos_to_bvlTheory.compile_const_def
     ,clos_to_bvlTheory.recc_Let0_def
     ,clos_to_bvlTheory.partial_app_fn_location_def
     ,clos_to_bvlTheory.default_config_def
@@ -231,7 +228,6 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.mk_label_def
     ,clos_to_bvlTheory.compile_op_def
     ,clos_to_bvlTheory.mk_const_def
-    ,bvlTheory.Bool_def
     ,clos_to_bvlTheory.compile_exps_def
     ,clos_to_bvlTheory.code_merge_def
     ,clos_to_bvlTheory.code_split_def
@@ -388,6 +384,8 @@ val add_backend_compset = computeLib.extend_compset
       (* ---- data_space ---- *)
     ,data_spaceTheory.pMakeSpace_def
     ,data_spaceTheory.space_def
+    ,data_spaceTheory.num_size_def
+    ,data_spaceTheory.part_space_req_def
     ,data_spaceTheory.op_space_req_def
     ,data_spaceTheory.compile_def
       (* ---- data_live ---- *)
@@ -398,6 +396,7 @@ val add_backend_compset = computeLib.extend_compset
     [ (* wordLang *)
      ``:'a wordLang$exp``
     ,``:'a wordLang$prog``
+    ,``:'a wordLang$word_loc``
       (* word_bignum *)
     ,``:word_bignum$address``
     ,``:'a word_bignum$mini``
@@ -415,7 +414,27 @@ val add_backend_compset = computeLib.extend_compset
     ,wordLangTheory.max_var_inst_def
     ,wordLangTheory.max_var_exp_def
     ,wordLangTheory.raise_stub_location_eq
+    ,wordLangTheory.store_consts_stub_location_eq
       (* ---- data_to_word ---- *)
+    ,byteTheory.byte_index_def
+    ,byteTheory.set_byte_32
+    ,byteTheory.set_byte_64
+    ,byteTheory.bytes_in_word_def
+    ,byteTheory.bytes_to_word_def
+    ,byteTheory.words_of_bytes_def
+    ,data_to_wordTheory.getWords_def
+    ,data_to_wordTheory.StoreAnyConsts_def
+    ,data_to_wordTheory.lookup_mem_def
+    ,data_to_wordTheory.byte_len_def
+    ,data_to_wordTheory.make_byte_header_def
+    ,data_to_wordTheory.get_lowerbits_def
+    ,data_to_wordTheory.make_cons_ptr_def
+    ,data_to_wordTheory.make_ptr_def
+    ,data_to_wordTheory.write_bytes_def
+    ,data_to_wordTheory.small_int_def
+    ,data_to_wordTheory.part_to_words_def
+    ,data_to_wordTheory.parts_to_words_def
+    ,data_to_wordTheory.const_parts_to_words_def
     ,data_to_wordTheory.adjust_var_def
     ,data_to_wordTheory.adjust_set_def
     ,data_to_wordTheory.Unit_def
@@ -519,7 +538,7 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.AddNumSize_def
     ,multiwordTheory.n2mw_def
     ,multiwordTheory.i2mw_def
-    ,data_to_wordTheory.bignum_words_def
+    ,data_to_wordTheory.get_Word_def
     ,data_to_wordTheory.Smallnum_def
     ,data_to_wordTheory.MemEqList_def
     ,data_to_wordTheory.arg1_def
@@ -725,6 +744,9 @@ val add_backend_compset = computeLib.extend_compset
     ,backend_commonTheory.stack_num_stubs_def
     ,stackLangTheory.gc_stub_location_eq
       (* ---- word_to_stack ---- *)
+    ,word_to_stackTheory.chunk_to_bits_def
+    ,word_to_stackTheory.chunk_to_bitmap_def
+    ,word_to_stackTheory.const_words_to_bitmap_def
     ,word_to_stackTheory.wReg1_def
     ,word_to_stackTheory.wReg2_def
     ,word_to_stackTheory.wRegImm2_def
@@ -748,6 +770,7 @@ val add_backend_compset = computeLib.extend_compset
     ,word_to_stackTheory.StackArgs_def
     ,word_to_stackTheory.comp_def
     ,word_to_stackTheory.raise_stub_def
+    ,word_to_stackTheory.store_consts_stub_def
     ,word_to_stackTheory.stub_names_def
     ,word_to_stackTheory.compile_prog_def
     ,word_to_stackTheory.compile_word_to_stack_def
@@ -790,6 +813,8 @@ val add_backend_compset = computeLib.extend_compset
     ,stack_allocTheory.word_gen_gc_move_loop_code_def
     ,stack_allocTheory.clear_top_inst_def
       (* ---- stack_remove ---- *)
+    ,stack_removeTheory.copy_each_def
+    ,stack_removeTheory.copy_loop_def
     ,stack_removeTheory.max_stack_alloc_def
     ,stack_removeTheory.upshift_def
     ,stack_removeTheory.compile_def

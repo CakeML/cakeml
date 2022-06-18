@@ -348,7 +348,9 @@ val clos_op_to_display_def = Define `
     | GlobalsPtr => empty_item (strlit "GlobalsPtr")
     | SetGlobalsPtr => empty_item (strlit "SetGlobalsPtr")
     | Cons num => item_with_num (strlit "Cons") num
+    | Constant _ => empty_item(strlit "Constant")
     | ConsExtend num => item_with_num (strlit "ConsExtend") num
+    | Build _ => empty_item(strlit "Build")
     | El => empty_item (strlit "El")
     | LengthBlock => empty_item (strlit "LengthBlock")
     | Length => empty_item (strlit "Length")
@@ -361,7 +363,6 @@ val clos_op_to_display_def = Define `
     | CopyByte b => Item NONE (strlit "CopyByte") [bool_to_display b]
     | ListAppend => empty_item (strlit "ListAppend")
     | FromList num => item_with_num (strlit "FromList") num
-    | closLang$String s => Item NONE (strlit "String") [string_imp s]
     | FromListByte => empty_item (strlit "FromListByte")
     | ToListByte => empty_item (strlit "ToListByte")
     | LengthByteVec => empty_item (strlit "LengthByteVec")
@@ -375,7 +376,7 @@ val clos_op_to_display_def = Define `
     | Label num => item_with_num (strlit "Label") num
     | FFI s => Item NONE (strlit "FFI") [string_imp s]
     | Equal => empty_item (strlit "Equal")
-    | EqualInt i => Item NONE (strlit "EqualInt") [int_to_display i]
+    | EqualConst c => Item NONE (strlit "EqualConst") [] (* TODO: fix *)
     | Const i => Item NONE (strlit "Const") [int_to_display i]
     | Add => empty_item (strlit "Add")
     | Sub => empty_item (strlit "Sub")
@@ -663,6 +664,7 @@ val stack_prog_to_display_def = Define`
          asm_reg_imm_to_display to; stack_prog_to_display x]
     | JumpLower n1 n2 n3 => item_with_nums «JumpLower» [n1; n2; n3]
     | Alloc n => item_with_num «Alloc» n
+    | StoreConsts n1 n2 _ => item_with_nums «StoreConsts» [n1; n2]
     | Raise n => item_with_num «Raise» n
     | Return n1 n2 => item_with_nums «Return» [n1; n2]
     | FFI nm cp cl ap al ra => Item NONE «FFI»
@@ -778,6 +780,8 @@ val word_prog_to_display_def = tDefine "word_prog_to_display" `
     [word_prog_to_display p1; word_prog_to_display p2]) /\
   (word_prog_to_display (Alloc n ns) = Item NONE (strlit "Alloc")
     [num_to_display n; num_set_to_display ns]) /\
+  (word_prog_to_display (StoreConsts a b c d ws) = Item NONE (strlit "StoreConsts")
+    [num_to_display a; num_to_display b; num_to_display c; num_to_display d] (* TODO: include ws *)) /\
   (word_prog_to_display (Raise n) = item_with_num (strlit "Raise") n) /\
   (word_prog_to_display (Return n1 n2) = item_with_nums (strlit "Return") [n1; n2]) /\
   (word_prog_to_display Tick = empty_item (strlit "Tick")) /\

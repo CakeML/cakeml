@@ -528,7 +528,7 @@ QED
 Theorem Boolv_11[simp]:
   closSem$Boolv b1 = Boolv b2 ⇔ b1 = b2
 Proof
-EVAL_TAC>>srw_tac[][]
+  EVAL_TAC>>srw_tac[][]
 QED
 
 Theorem do_eq_sym:
@@ -1499,13 +1499,11 @@ Proof
   simp[TAKE_APPEND2] >> Cases_on `l2` >> full_simp_tac(srw_ss())[]
 QED
 
-(*
 Theorem dec_clock_with_clock[simp]:
-   (closSem$dec_clock (s:('a,'b) closSem$state) with clock := y) = (s with clock := y)
+   ((dec_clock n s) with clock := y) = (s with clock := y)
 Proof
   EVAL_TAC
 QED
-*)
 
 fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 val case_eq_thms = pair_case_eq::bool_case_eq::list_case_eq::option_case_eq::map (prove_case_eq_thm o get_thms)
@@ -1514,7 +1512,7 @@ val case_eq_thms = pair_case_eq::bool_case_eq::list_case_eq::option_case_eq::map
 Theorem do_app_ffi_error_IMP:
    do_app op vs s = Rerr (Rabort (Rffi_error f)) ==> ?i. op = FFI i
 Proof
-  fs [case_eq_thms,do_app_def] \\ rw [] \\ fs []
+  fs [case_eq_thms,do_app_def] \\ rw [] \\ fs [AllCaseEqs()]
 QED
 
 Theorem do_app_add_to_clock:
@@ -1542,6 +1540,7 @@ Proof
   \\ fs [case_eq_thms]
   \\ rpt strip_tac \\ fs []
   \\ rveq \\ simp [do_app_def]
+  \\ fs [AllCaseEqs()]
 QED
 
 Theorem do_install_add_to_clock:
@@ -1728,7 +1727,7 @@ Theorem do_app_never_timesout[simp]:
    do_app op args s ≠ Rerr (Rabort Rtimeout_error)
 Proof
   Cases_on `op` >> Cases_on `args` >>
-  simp[do_app_def, case_eq_thms, bool_case_eq, pair_case_eq]
+  simp[do_app_def, case_eq_thms, bool_case_eq, pair_case_eq, AllCaseEqs()]
 QED
 
 Theorem evaluate_timeout_clocks0:
@@ -2232,14 +2231,15 @@ Proof
     \\ metis_tac [simple_val_rel_list, simple_val_rel_APPEND, vr_list_NONE])
   \\ Cases_on `opp = Add \/ opp = Sub \/ opp = Mult \/ opp = Div \/ opp = Mod \/
                opp = Less \/ opp = LessEq \/ opp = Greater \/ opp = GreaterEq \/
-               opp = LengthBlock \/ (?i. opp = Const i) \/ opp = WordFromInt \/
-               (?f. opp = FP_cmp f) \/ (?s. opp = String s) \/
+               opp = LengthBlock \/ (?i. opp = Const i) \/
+               (?c. opp = Build c) \/ opp = WordFromInt \/
+               (?f. opp = FP_cmp f) \/
                (?f. opp = FP_uop f) \/ (opp = BoundsCheckBlock) \/
                (?f. opp = FP_bop f) \/ (?f. opp = FP_top f) \/
                opp = WordToInt \/ opp = ConfigGC \/
                (?n. opp = Label n) \/ (?n. opp = Cons n) \/
                (?i. opp = LessConstSmall i) \/ opp = LengthByteVec \/
-               (?i. opp = EqualInt i) \/ (?n. opp = TagEq n) \/
+               (?i. opp = EqualConst i) \/ (?n. opp = TagEq n) \/
                (?n. opp = LenEq n) \/
                (?n n1. opp = TagLenEq n n1) \/ opp = Install \/
                (?w oo k. opp = WordShift w oo k) \/
@@ -2247,13 +2247,22 @@ Proof
                (?w oo. opp = WordOp w oo) \/ opp = ConcatByteVec`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def]
+    \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def,AllCaseEqs()]
     \\ strip_tac \\ rveq
     \\ drule v_rel_to_list_ByteVector
     \\ rfs [simple_val_rel_alt] \\ rveq \\ fs []
     \\ rpt strip_tac \\ rveq \\ fs []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ TRY (res_tac \\ fs [isClos_cases] \\ NO_TAC))
+  \\ Cases_on `∃c. opp = Constant c`
+  THEN1
+   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def]
+    \\ rpt strip_tac \\ gvs []
+    \\ qid_spec_tac ‘c’
+    \\ recInduct make_const_ind
+    \\ fs [make_const_def,simple_val_rel_def]
+    \\ Induct \\ fs [])
   \\ Cases_on `opp = Length \/ (?b. opp = BoundsCheckByte b) \/
                opp = BoundsCheckArray \/ opp = LengthByte \/
                opp = DerefByteVec \/ opp = DerefByte \/

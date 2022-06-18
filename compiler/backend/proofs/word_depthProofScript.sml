@@ -245,6 +245,8 @@ Proof
     \\ Cases_on `max_depth_graphs s.stack_size ns ns funs funs2`
     \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
     \\ fs [MAX_DEF])
+  THEN1 (* StoreConsts *)
+   (gvs [wordSemTheory.evaluate_def,AllCaseEqs()])
   THEN1 (* Move *)
    (fs [wordSemTheory.evaluate_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs [])

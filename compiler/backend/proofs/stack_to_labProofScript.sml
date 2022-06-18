@@ -1147,6 +1147,10 @@ Proof
     srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
     full_simp_tac(srw_ss())[state_rel_def] ) >>
   conj_tac >- (
+    rename [`StoreConsts`] >>
+    srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
+    full_simp_tac(srw_ss())[state_rel_def] ) >>
+  conj_tac >- (
     rename [`Inst`] >>
     srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
     Cases_on`inst i s`>>full_simp_tac(srw_ss())[]>>rpt var_eq_tac>>simp[]>>
@@ -3369,7 +3373,7 @@ Theorem stack_to_lab_compile_all_enc_ok:
   c.valid_imm (INL Add) 4w ∧ c.valid_imm (INL Add) 8w ∧
   (∀s. addr_offset_ok c (store_offset s)) ∧ reg_name 10 c ∧
   reg_name (sp + 2) c ∧ reg_name (sp + 1) c ∧ reg_name sp c  ∧
-  conf_ok (:'a) c2 ⇒
+  conf_ok (:'a) c2 ∧ sp ≠ 0 ⇒
   all_enc_ok_pre c (compile c1 c2 c3 sp c.addr_offset prog)
 Proof
   rw[stack_to_labTheory.compile_def]>>
@@ -3424,6 +3428,7 @@ Theorem IMP_init_state_ok:
        (post_alloc_conventions kkk ∘ SND ∘ SND) progs ∧
      EVERY (flat_exp_conventions ∘ SND ∘ SND) progs ∧
      EVERY ((λy. raise_stub_location ≠ y) ∘ FST) progs ∧
+     EVERY ((λy. store_consts_stub_location ≠ y) ∘ FST) progs ∧
      (n = 0 ⇒ bm0 = LENGTH bitmaps)) (word_oracle n)) ∧
   stack_oracle =
   (λn.
@@ -3776,7 +3781,8 @@ val get_code_labels_comp = Q.prove(
   `!a b c p. get_code_labels (comp a b c p) SUBSET (stack_err_lab,0) INSERT get_code_labels p`,
   HO_MATCH_MP_TAC stack_removeTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ once_rewrite_tac [stack_removeTheory.comp_def]
-  \\ rw[] \\ fs [get_code_labels_def,stackLangTheory.list_Seq_def]
+  \\ rw[] \\ fs [get_code_labels_def,stackLangTheory.list_Seq_def,
+                 stack_removeTheory.copy_loop_def,stack_removeTheory.copy_each_def]
   \\ every_case_tac \\ fs [] \\
   TRY(rw[]>>match_mp_tac SUBSET_TRANS>> asm_exists_tac>>fs[]>>
   metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS])
@@ -3856,7 +3862,8 @@ val stack_remove_get_code_labels_comp = Q.prove(
   get_code_labels (comp a b c p) SUBSET (stack_err_lab,0) INSERT get_code_labels p`,
   HO_MATCH_MP_TAC stack_removeTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ once_rewrite_tac [stack_removeTheory.comp_def]
-  \\ rw[] \\ fs [get_code_labels_def,stackLangTheory.list_Seq_def]
+  \\ rw[] \\ fs [get_code_labels_def,stackLangTheory.list_Seq_def,
+                 stack_removeTheory.copy_loop_def,stack_removeTheory.copy_each_def]
   \\ every_case_tac \\ fs [] \\
   TRY(rw[]>>match_mp_tac SUBSET_TRANS>> asm_exists_tac>>fs[]>>
   metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS])
@@ -3899,7 +3906,8 @@ val stack_remove_stack_get_handler_labels_comp = Q.prove(
   stack_get_handler_labels m p`,
   HO_MATCH_MP_TAC stack_removeTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ once_rewrite_tac [stack_removeTheory.comp_def]
-  \\ rw[] \\ fs [stack_get_handler_labels_def,stackLangTheory.list_Seq_def]
+  \\ rw[] \\ fs [stack_get_handler_labels_def,stackLangTheory.list_Seq_def,
+                 stack_removeTheory.copy_loop_def,stack_removeTheory.copy_each_def]
   \\ every_case_tac \\ fs []
   >- (
     completeInduct_on`n`>>
@@ -4034,7 +4042,7 @@ Proof
       fs[stack_allocTheory.stubs_def]
     >>
       metis_tac[]
-QED;
+QED
 
 (*
   The same theorem, but for the incremental version
@@ -4053,7 +4061,7 @@ Proof
   drule (stack_alloc_get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
   rw[]>>
   metis_tac[]
-QED;
+QED
 
 Theorem IN_get_code_labels_comp_top_lemma:
   !i q p_1 p_2.
@@ -4070,7 +4078,7 @@ Proof
   \\ once_rewrite_tac [stack_rawcallTheory.comp_top_def] \\ fs []
   \\ simp [Once stack_rawcallTheory.comp_def] \\ fs []
   THEN1 (every_case_tac \\ fs [] \\ metis_tac [])
-  THENL [all_tac,metis_tac []]
+  THENL [all_tac,metis_tac [],metis_tac []]
   \\ rename [`comp_seq p1 p2`]
   \\ Cases_on `comp_seq p1 p2 i (Seq (comp i p1) (comp i p2)) =
                (Seq (comp i p1) (comp i p2))`

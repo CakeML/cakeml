@@ -1996,7 +1996,7 @@ val co_ok_def = Define `
     if k = 0 then T else
       let g = FST (FST (co 0)) in
       let (cfg,exp,aux) = co 0 in
-      let (g',exp',aux1) = compile_inc g (exp,aux) in
+      let (g',exp',aux1) = clos_call$compile_inc g (exp,aux) in
         FST (FST (co 1)) = g' /\
         make_g g code = SOME (full_gs 0) /\
         (∀i. subg (full_gs 0) (full_gs i)) /\
@@ -2048,8 +2048,8 @@ val code_inv_def = Define `
   code_inv g1_opt l1 (s_code:num |-> num # closLang$exp)
         s_cc s_co t_code t_cc t_co <=>
     s_code = FEMPTY /\
-    s_cc = state_cc compile_inc t_cc /\
-    t_co = state_co compile_inc s_co /\
+    s_cc = state_cc clos_call$compile_inc t_cc /\
+    t_co = state_co clos_call$compile_inc s_co /\
     (?g aux. wfg (g, aux) /\
         FST (FST (s_co 0)) = g /\
         oracle_monotonic (set o code_locs o FST o SND) (<)
@@ -4427,7 +4427,7 @@ val nth_code_def = Define `
   nth_code code co 0 = code /\
   nth_code code co (SUC k) =
     let (cfg,exp,aux) = co 0 in
-    let (g',exp',aux') = compile_inc (FST cfg) (exp,aux) in
+    let (g',exp',aux') = clos_call$compile_inc (FST cfg) (exp,aux) in
       nth_code (code |++ aux') (shift_seq 1 co) k`
 
 (* TODO: move *)

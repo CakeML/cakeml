@@ -9,17 +9,17 @@ val _ = new_theory "data_live";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-val is_pure_def = Define `
+Definition is_pure_def:
   (is_pure (SetGlobal _) = F) /\
   (is_pure SetGlobalsPtr = F) /\
   (is_pure Ref = F) /\
   (is_pure (RefByte _) = F) /\
   (is_pure RefArray = F) /\
+  (is_pure (Build _) = F) /\
   (is_pure Update = F) /\
   (is_pure UpdateByte = F) /\
   (is_pure FromListByte = F) /\
   (is_pure (CopyByte _) = F) /\
-  (is_pure (String _) = F) /\
   (is_pure (Cons _) = F) /\
   (is_pure (ConsExtend _) = F) /\
   (is_pure (FFI _) = F) /\
@@ -43,7 +43,8 @@ val is_pure_def = Define `
   (is_pure (FP_bop _) = F) /\
   (is_pure (FP_top _) = F) /\
   (is_pure ConfigGC = F) /\
-  (is_pure _ = T)`
+  (is_pure _ = T)
+End
 
 Theorem is_pure_pmatch:
   !op.
@@ -53,12 +54,12 @@ Theorem is_pure_pmatch:
     | SetGlobalsPtr => F
     | Ref => F
     | RefByte _ => F
+    | Build _ => F
     | RefArray => F
     | Update => F
     | UpdateByte => F
     | FromListByte => F
     | CopyByte _ => F
-    | String _ => F
     | Cons _ => F
     | ConsExtend _ => F
     | FFI _ => F
@@ -89,7 +90,7 @@ Proof
   >> every_case_tac >> fs[is_pure_def]
 QED
 
-val compile_def = Define `
+Definition compile_def:
   (compile Skip live = (Skip,live)) /\
   (compile (Return n) live = (Return n, insert n () LN)) /\
   (compile (Raise n) live = (Raise n, insert n () LN)) /\
@@ -124,6 +125,7 @@ val compile_def = Define `
      let l0 = union (delete n live) (delete v l3) in
      let l1 = inter names l0 in
      let l2 = list_insert vs l1 in
-       (Call (SOME (n,l1)) dest vs (SOME (v,d)),l2))`;
+       (Call (SOME (n,l1)) dest vs (SOME (v,d)),l2))
+End
 
 val _ = export_theory();
