@@ -30,11 +30,12 @@ Type regsM = ``:num num_map``
 Type instrsM = ``:(num list,num)map``
 
 val _ = Datatype `knowledge = <| n:num;
-                                 instEq:regsE;
-                                 instMap:regsM;
-                                 instInstrs:instrsM;
-                                 ochMap:regsM;
-                                 ochInstrs:instrsM |>`;
+                                 inst_eq:regsE;
+                                 inst_map:regsM;
+                                 inst_instrs:instrsM;
+                                 och_map:regsM;
+                                 och_instrs:instrsM;
+                                 all_names:num_set |>`;
 
 (* add a (all_names:num_set) ⇒ when seeing a new register, add it in all_names
 if a register is affected and is in all_names, throw everything
@@ -70,11 +71,12 @@ QED
 
 Definition empty_data_def:
   empty_data = <| n:=0;
-                  instEq:=[];
-                  instMap:=LN;
-                  instInstrs:=empty listCmp;
-                  ochMap:=LN;
-                  ochInstrs:=empty listCmp |>
+                  inst_eq:=[];
+                  inst_map:=LN;
+                  inst_instrs:=empty listCmp;
+                  och_map:=LN;
+                  och_instrs:=empty listCmp;
+                  all_names:=LN |>
 End
 
 (* REGISTERS EQUIVALENCE MEMORY *)
@@ -237,11 +239,14 @@ QED
 
 Definition canonicalRegs_def:
   canonicalRegs (data:knowledge) (r:num) =
-  case sptree$lookup r data.instMap of
+  lookup_any r data.inst_map (lookup_any r data.och_map r)
+(*
+  case sptree$lookup r data.inst_map of
   | SOME r' => r'
-  | NONE => case sptree$lookup r data.ochMap of
+  | NONE => case sptree$lookup r data.och_map of
             | NONE => r
             | SOME r' => r'
+*)
 End
 
 Definition canonicalImmReg_def:
@@ -250,44 +255,44 @@ Definition canonicalImmReg_def:
 End
 
 Definition canonicalMultRegs_def:
-  canonicalMultRegs data [] = [] ∧
-  canonicalMultRegs data (hd::tl) =
-  (canonicalRegs data hd)::(canonicalMultRegs data tl)
-(* rewrite with a map *)
+  canonicalMultRegs (data:knowledge) (regs:num list) = MAP (canonicalRegs data) regs
 End
 
 Definition canonicalMoveRegs_def:
   canonicalMoveRegs data [] = (data, []) ∧
   canonicalMoveRegs data ((r1,r2)::tl) =
-    case sptree$lookup r2 data.ochMap of
-    | SOME r2' => let ochMap' = sptree$insert r1 r2' data.ochMap in
-                  let (data', tl') = canonicalMoveRegs (data with ochMap:=ochMap') tl in
+    if sptree$lookup r1 data.all_names ≠ NONE then (empty_data, ((r1,r2)::tl)) else
+    case sptree$lookup r2 data.och_map of
+    | SOME r2' => let och_map' = sptree$insert r1 r2' data.och_map in
+                  let (data', tl') = canonicalMoveRegs (data with och_map:=och_map') tl in
                     (data', (r1,r2')::tl')
-    | NONE     => let r2' = (case sptree$lookup r2 data.instMap of SOME r => r | NONE => r2) in
-                  let instEq' = regsUpdate r2' r1 data.instEq in
-                  let instMap' = sptree$insert r1 r2' data.instMap in
-                  let (data', tl') = canonicalMoveRegs (data with <| instEq:=instEq'; instMap:=instMap' |>) tl in
+    | NONE     => let r2' = (case sptree$lookup r2 data.inst_map of SOME r => r | NONE => r2) in
+                  let inst_eq' = regsUpdate r2' r1 data.inst_eq in
+                  let inst_map' = sptree$insert r1 r2' data.inst_map in
+                  let (data', tl') = canonicalMoveRegs (data with <| inst_eq:=inst_eq'; inst_map:=inst_map' |>) tl in
                     (data', (r1,r2')::tl')
 End
 
 (* make a lookup_data to wrap case matching
-lookup_any x sp d = lookup x sp otherwise return d*)
+lookup_any x sp d = lookup x sp otherwise return d
+To discuss*)
 
 Definition canonicalMoveRegs2_def:
   canonicalMoveRegs2 data [] = (data, []) ∧
   canonicalMoveRegs2 data ((r1,r2)::tl) =
+    if sptree$lookup r1 data.all_names ≠ NONE then (empty_data, ((r1,r2)::tl)) else
     if (EVEN r1 ∨ EVEN r2)
       then let (data', tl') = canonicalMoveRegs2 data tl in
                (data', (r1,r2)::tl')
       else
-        case sptree$lookup r2 data.ochMap of
-        | SOME r2' => let ochMap' = sptree$insert r1 r2' data.ochMap in
-                      let (data', tl') = canonicalMoveRegs2 (data with ochMap:=ochMap') tl in
+        case sptree$lookup r2 data.och_map of
+        | SOME r2' => let och_map' = sptree$insert r1 r2' data.och_map in
+                      let (data', tl') = canonicalMoveRegs2 (data with och_map:=och_map') tl in
                         (data', (r1,r2')::tl')
-        | NONE     => let r2' = (case sptree$lookup r2 data.instMap of SOME r => r | NONE => r2) in
-                      let instEq' = regsUpdate r2' r1 data.instEq in
-                      let instMap' = sptree$insert r1 r2' data.instMap in
-                      let (data', tl') = canonicalMoveRegs2 (data with <| instEq:=instEq'; instMap:=instMap' |>) tl in
+        | NONE     => let r2' = (case sptree$lookup r2 data.inst_map of SOME r => r | NONE => r2) in
+                      let inst_eq' = regsUpdate r2' r1 data.inst_eq in
+                      let inst_map' = sptree$insert r1 r2' data.inst_map in
+                      let (data', tl') = canonicalMoveRegs2 (data with <| inst_eq:=inst_eq'; inst_map:=inst_map' |>) tl in
                         (data', (r1,r2')::tl')
 End
 
@@ -654,28 +659,31 @@ End
 Definition word_cseInst_def:
   (word_cseInst (data:knowledge) Skip = (data, Inst Skip)) ∧
   (word_cseInst data (Const r w) =
+    if sptree$lookup r data.all_names ≠ NONE then (empty_data, Inst (Const r w)) else
             let i = instToNumList (Const r w) in
-            case mlmap$lookup data.instInstrs i of
-            | SOME r' => (data with <| n:=data.n+1; instEq:=regsUpdate r' r data.instEq; instMap:=insert r r' data.instMap |>, Move 0 [(r,r')])
-            | NONE    => (data with instInstrs:=insert data.instInstrs i r, Inst (Const r w))) ∧
+            case mlmap$lookup data.inst_instrs i of
+            | SOME r' => (data with <| n:=data.n+1; inst_eq:=regsUpdate r' r data.inst_eq; inst_map:=insert r r' data.inst_map |>, Move 0 [(r,r')])
+            | NONE    => (data with inst_instrs:=insert data.inst_instrs i r, Inst (Const r w))) ∧
   (word_cseInst data (Arith a) =
             let a' = canonicalArith data a in
             let r = firstRegOfArith a' in
+            if sptree$lookup r data.all_names ≠ NONE then (empty_data, Inst (Arith a')) else
             let i = instToNumList (Arith a') in
-            case mlmap$lookup data.instInstrs i of
-            | SOME r' => (data with <| n:=data.n+1; instEq:=regsUpdate r' r data.instEq; instMap:=insert r r' data.instMap |>, Move 0 [(r,r')])
-            | NONE    => (data with instInstrs:=insert data.instInstrs i r, Inst (Arith a'))) ∧
+            case mlmap$lookup data.inst_instrs i of
+            | SOME r' => (data with <| n:=data.n+1; inst_eq:=regsUpdate r' r data.inst_eq; inst_map:=insert r r' data.inst_map |>, Move 0 [(r,r')])
+            | NONE    => (data with inst_instrs:=insert data.inst_instrs i r, Inst (Arith a'))) ∧
   (word_cseInst data (Mem op r (Addr r' w)) =
+    if sptree$lookup r data.all_names ≠ NONE then (empty_data, Inst (Mem op r (Addr r' w))) else
             (data, Inst (Mem op (canonicalRegs data r) (Addr (canonicalRegs data r') w)))) ∧
   (word_cseInst data ((FP f):'a inst) =
             (data, Inst (FP f)))
   (* Not relevant: issue with fp regs having same id as regs, possible confusion
-            let f' = canonicalFp instMap ochMap f in
+            let f' = canonicalFp inst_map och_map f in
             let r = firstRegOfFp f' in
             let i = instToNumList ((FP f'):'a inst) in
-            case mlmap$lookup instInstrs i of
-            | SOME r' => (n+1, regsUpdate r' r instEq, insert r r' instMap, instInstrs, Move 0 [(r,r')])
-            | NONE    => (n, instEq, instMap, insert instInstrs i r, Inst (FP f')))
+            case mlmap$lookup inst_instrs i of
+            | SOME r' => (n+1, regsUpdate r' r inst_eq, insert r r' inst_map, inst_instrs, Move 0 [(r,r')])
+            | NONE    => (n, inst_eq, inst_map, insert inst_instrs i r, Inst (FP f')))
   *)
 End
 
@@ -714,7 +722,7 @@ Definition word_cse_def:
                 (data, Get r x)) ∧
   (word_cse data (Set x e) =
             let e' = canonicalExp data e in
-                (data with <|ochMap:=LN; ochInstrs:=empty listCmp|>, Set x e')) ∧
+                (data with <|och_map:=LN; och_instrs:=empty listCmp|>, Set x e')) ∧
   (word_cse data (Store e r) =
                 (data, Store e r)) ∧
   (word_cse data (MustTerminate p) =
@@ -730,11 +738,11 @@ Definition word_cse_def:
             let r1' = canonicalRegs data r1 in
             let r2' = canonicalImmReg data r2 in
             let (data1, p1') = word_cse data p1 in
-            let (data2, p2') = word_cse (data with n:=data1.n) p2 in
-                (empty_data with n:=data2.n, If c r1' r2' p1' p2')) ∧
+            let (data2, p2') = word_cse data p2 in
+                (empty_data, If c r1' r2' p1' p2')) ∧
                 (* We don't know what happen in the IF. Intersection would be the best. *)
   (word_cse data (Alloc r m) =
-                (data with <| ochMap:=LN; ochInstrs:=empty listCmp |>, Alloc r m)) ∧
+                (data with <| och_map:=LN; och_instrs:=empty listCmp |>, Alloc r m)) ∧
   (word_cse data (Raise r) =
                 (data, Raise r)) ∧
   (word_cse data (Return r1 r2) =
@@ -742,11 +750,12 @@ Definition word_cse_def:
   (word_cse data (Tick) =
                 (data, Tick)) ∧
   (word_cse data ((OpCurrHeap b r1 r2):'a prog) =
+    if sptree$lookup r1 data.all_names ≠ NONE then (empty_data, OpCurrHeap b r1 r2) else
             let r2' = canonicalRegs data r2 in
             let pL = progToNumList ((OpCurrHeap b r1 r2'):'a prog) in
-            case lookup data.ochInstrs pL of
-            | NONE => (data with ochInstrs:=(insert data.ochInstrs pL r1), OpCurrHeap b r1 r2')
-            | SOME r1' => (data with <| n:=data.n+1; ochMap:=(insert r1 r1' data.ochMap) |>, Move 0 [(r1, r1')])) ∧
+            case lookup data.och_instrs pL of
+            | NONE => (data with och_instrs:=(insert data.och_instrs pL r1), OpCurrHeap b r1 r2')
+            | SOME r1' => (data with <| n:=data.n+1; och_map:=(insert r1 r1' data.och_map) |>, Move 0 [(r1, r1')])) ∧
   (word_cse data (LocValue r1 l) =
                 (data, LocValue r1 l)) ∧
   (word_cse data (Install p l dp dl m) =
@@ -758,6 +767,7 @@ Definition word_cse_def:
   (word_cse data (FFI s p1 l1 p2 l2 m) =
                 (data, FFI s p1 l1 p2 l2 m))
 End
+
 
 (*
 EVAL “word_cse empty_data (Seq (Inst (Arith (Binop Add 3 1 (Reg 2)))) (Inst (Arith (Binop Add 4 1 (Reg 2)))))”
