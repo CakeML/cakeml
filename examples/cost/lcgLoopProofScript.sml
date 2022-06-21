@@ -2118,6 +2118,8 @@ Theorem data_safe_lcgLoop_code[local]:
   (s.tstamps = SOME ts) ∧
   (∀ts'. ts ≤ ts' ⇒ IS_NONE (lookup ts' (seen_of_heap s))) ∧
   (1 < s.limits.length_limit) ∧
+  0 < 2 ** arch_size s.limits DIV 16 ∧
+  1 < arch_size s.limits − 4 ∧
   (coeff_bounds a c m ∧ x < m ) ∧
   (lookup_lcgLoop s.code = SOME (4,lcgLoop_body))
   ⇒ data_safe (evaluate (lcgLoop_body, s))
@@ -2217,12 +2219,12 @@ in
   (* Do we care about peak heap? *)
   \\ qmatch_goalsub_abbrev_tac `state_peak_heap_length_fupd (K pkheap3) _`
   \\ pop_assum kall_tac
-  (* 17 :≡ (Cons 0,[],NONE) *)
-  \\ strip_assign \\ still_safe
-  (* 18 :≡ (Const 10,[],NONE) *)
+  (* 17 :≡ (Build [Int 10; Con 0 []; Con 0 [0; 1]],[],NONE) *)
   \\ strip_assign
-  (* 19 :≡ (Cons 0,[18; 17],NONE); *)
-  \\ strip_assign \\ still_safe
+  \\ simp[data_spaceTheory.part_space_req_def]
+  \\ eval_goalsub_tac “do_build_const _ _ _”
+  \\ simp[]
+  \\ still_safe
   (* stack_max *)
   \\ max_is ‘MAX smax (lsize + sstack)’
   \\ qmatch_goalsub_abbrev_tac ‘bind _ n2l_rest’
@@ -2305,7 +2307,7 @@ in
   >- simp[data_safe_def]
   \\ simp[pop_env_def,set_var_def]
   \\ eval_goalsub_tac “state_locals_fupd _ _”>>
-  (* call_put_chars (21,⦕ 1; 2; 3; 14 ⦖) [20] NONE; *)
+  (* call_put_chars (19,⦕ 1; 2; 3; 14 ⦖) [20] NONE; *)
   simp[Once bind_def]>>
   simp [ call_def      , find_code_def  , push_env_def
    , get_vars_def  , call_env_def   , dec_clock_def
@@ -2588,12 +2590,52 @@ in
   strip_makespace
   \\ simp[]
   \\ drop_state >>
-  (* 17 :≡ (Cons 0,[],NONE) *)
-  (* 18 :≡ (Const 10,[],NONE) *)
-  (* 19 :≡ (Cons 0,[18; 17],NONE); *)
-  strip_assign>> drop_state>>
-  strip_assign>> drop_state>>
-  strip_assign>> drop_state>>
+  (* 17 :≡ (Build [Int 10; Con 0 []; Con 0 [0; 1]],[],NONE) *)
+  strip_assign
+  \\ simp[data_spaceTheory.part_space_req_def]
+  \\ eval_goalsub_tac “do_build_const _ _ _”
+  \\ simp[]
+  \\ drop_state>>
+  every_case_tac>> simp[check_lim_def] >>
+  (
+    simp[bind_def,call_def]>>
+    every_case_tac>>simp[]>>
+    simp[tailcall_def,set_var_def]>>
+    rename1` _ _ _ tt.code tt.stack_frame_sizes`>>
+    `(subspt s.code tt.code) ∧ (tt.clock ≤ s.clock)` by
+      (imp_res_tac evaluate_mono>>
+      fs[dec_clock_def]>>
+      qpat_x_assum`pop_env _ = _` mp_tac>>
+      qpat_x_assum`pop_env _ = _` mp_tac>>
+      simp[pop_env_def]>>every_case_tac>>simp[state_component_equality]>>
+      fs[set_var_def]>>
+      metis_tac[subspt_trans])>>
+    every_case_tac>>simp[]>>
+    pop_assum mp_tac>>fs[find_code_def]>>
+    fs[subspt_lookup]>>
+    first_x_assum drule>>
+    rw[]>>
+    simp[call_env_def,dec_clock_def]>>
+    qmatch_goalsub_abbrev_tac`(lcgLoop_body,ttt)`>>
+    first_x_assum(qspec_then`ttt` mp_tac)>>
+    impl_tac >-
+      fs[Abbr`ttt`]>>
+    simp[to_shallow_thm]>>
+    simp[Abbr`ttt`]>>
+    rename1`fromList qq`>>
+    `∃aa bb cc dd. qq = [aa;bb;cc;dd]` by (
+      fs[get_vars_def]>>
+      qpat_x_assum`_ = SOME qq` mp_tac>>
+      rpt(pop_assum kall_tac)>>
+      every_case_tac>>simp[]>>
+      rw[])>>
+    simp[fromList_def]>>
+    disch_then(qspecl_then[`aa`,`bb`,`cc`,`dd`] assume_tac)>>fs[])
+  \\ strip_assign
+  \\ simp[data_spaceTheory.part_space_req_def]
+  \\ eval_goalsub_tac “do_build_const _ _ _”
+  \\ simp[]
+  \\ drop_state>>
   every_case_tac>> simp[check_lim_def] >>
   (
     simp[bind_def,call_def]>>
