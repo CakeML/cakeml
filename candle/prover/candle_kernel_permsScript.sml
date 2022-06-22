@@ -994,10 +994,10 @@ Proof
   \\ rw[]
 QED
 
-Theorem perms_ok_abs_1_v[simp]:
-  perms_ok kernel_perms abs_1_v
+Theorem perms_ok_abs_v[simp]:
+  perms_ok kernel_perms abs_v
 Proof
-  rw[perms_ok_def, abs_1_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  rw[perms_ok_def, abs_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED

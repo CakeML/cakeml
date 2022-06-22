@@ -479,7 +479,7 @@ Proof
     Cases_on ‘th’ \\ gs [THM_TYPE_def, do_opapp_cases])
   \\ rename [‘f ∈ kernel_funs’]
   \\ Cases_on ‘f ∈ { call_type_subst_v; call_freesin_v; call_vfree_in_v;
-                     call_variant_v; vsubst_v; inst_v; trans_v; abs_1_v; eq_mp_v;
+                     call_variant_v; vsubst_v; inst_v; trans_v; abs_v; eq_mp_v;
                      deduct_antisym_rule_v; inst_type_v; inst_1_v; trans_v }’ THEN1
    (gvs []
     \\ qpat_x_assum ‘do_opapp _ = _’ mp_tac
@@ -1974,10 +1974,10 @@ Proof
     \\ irule TERM_IMP_v_ok
     \\ first_assum $ irule_at $ Any
     \\ rw[])
-  \\ Cases_on ‘f = abs_1_v’ \\ gvs [] >- (
-    drule_all_then strip_assume_tac abs_1_v_head \\ gvs[]
+  \\ Cases_on ‘f = abs_v’ \\ gvs [] >- (
+    drule_all_then strip_assume_tac abs_v_head \\ gvs[]
     >- (first_assum $ irule_at Any \\ rw[])
-    \\ assume_tac abs_1_v_thm
+    \\ assume_tac abs_v_thm
     \\ drule_then drule v_ok_TERM_TYPE_HEAD \\ strip_tac
     \\ drule_then drule v_ok_THM_TYPE_HEAD \\ strip_tac
     \\ fs[state_ok_def]
