@@ -4,7 +4,7 @@
 open semanticPrimitivesTheory evaluateTheory
      icing_rewriterTheory icing_optimisationsTheory
      icing_optimisationProofsTheory fpOptTheory fpValTreeTheory
-     optPlannerTheory source_to_sourceTheory source_to_sourceProofsTheory
+     optPlannerTheory source_to_source2Theory source_to_source2ProofsTheory
      floatToRealProofsTheory icing_realIdProofsTheory;
 
 open preamble;

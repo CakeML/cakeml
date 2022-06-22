@@ -466,7 +466,7 @@ Theorem data_safe_all:
        all_x64_conf
        all_prog
        (* (s_size,h_size) *)
-       (56,81) (* Tightest values *)
+       (56,103) (* Tightest values *)
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -518,13 +518,13 @@ in
  \\ strip_makespace
  \\ ntac 47 strip_assign
  \\ make_tailcall
- \\ ntac 3
+ \\ ntac 14
     (strip_call
     \\ ntac 9 strip_assign
     \\ make_if
     \\ UNABBREV_ALL_TAC)
  \\ ntac 6 strip_assign
- \\ ntac 3
+ \\ ntac 14
     (open_tailcall
     \\ ntac 4 strip_assign
     \\ make_if
@@ -539,12 +539,11 @@ in
   \\ strip_makespace
   \\ ntac 3 strip_assign
   \\ make_tailcall
-  \\ ntac 2
-     (strip_makespace
-     \\ ntac 4 strip_assign
+  \\ ntac 13
+     (TRY strip_makespace
+     \\ ntac 4 (TRY strip_assign)
      \\ make_tailcall)
-  \\ strip_makespace
-  \\ ntac 17 strip_assign
+  \\ strip_assign
   \\ qmatch_goalsub_abbrev_tac `f (state_locals_fupd _ _)`
   \\ qmatch_goalsub_abbrev_tac `f s`
   \\ irule data_safe_res
@@ -579,7 +578,7 @@ in
                         backend_commonTheory.bool_to_tag_def])
       \\ conj_tac >- EVAL_TAC
       \\ conj_tac >- EVAL_TAC
-      \\ conj_tac >- (EVAL_TAC \\ metis_tac [])
+      \\ conj_tac >- (EVAL_TAC \\ rw[] \\ rw[lookup_def])
       \\ conj_tac >- EVAL_TAC
       \\ simp[frame_lookup,code_lookup,foldl_body_def,all_clos_0_body_def,all_0_body_def])
   \\ simp[ to_shallow_thm, to_shallow_def, initial_state_def,foldl_body_def ]

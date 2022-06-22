@@ -33,27 +33,6 @@ Proof
   \\ gvs [LPREFIX_LCONS, SF SFY_ss]
 QED
 
-(* TODO move to evaluateProps (or wherever evaluate_decs_cons is)
- *)
-
-Theorem evaluate_decs_append:
-  ∀ds1 s env ds2.
-    evaluate_decs s env (ds1 ++ ds2) =
-    case evaluate_decs s env ds1 of
-      (s1,Rval env1) =>
-        (case evaluate_decs s1 (extend_dec_env env1 env) ds2 of
-           (s2,r) => (s2,combine_dec_result env1 r))
-    | (s1,Rerr v7) => (s1,Rerr v7)
-Proof
-  Induct \\ rw []
-  >- (
-    rw [extend_dec_env_def, combine_dec_result_def]
-    \\ rpt CASE_TAC)
-  \\ once_rewrite_tac [evaluate_decs_cons] \\ simp []
-  \\ gs [combine_dec_result_def, extend_dec_env_def]
-  \\ rpt CASE_TAC \\ gs []
-QED
-
 (* -------------------------------------------------------------------------
  * - The basis program:
  *   basis, basis_env, basis_state
