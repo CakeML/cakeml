@@ -8,7 +8,7 @@ open preambleFloVer;
 
 val _ = new_theory "ExpressionSemantics";
 
-Overload abs = “real$abs”
+Overload abs = “realax$abs”
 
 (**
   Define a perturbation function to ease writing of basic definitions
