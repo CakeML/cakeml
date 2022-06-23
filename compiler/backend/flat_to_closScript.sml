@@ -139,8 +139,8 @@ Definition compile_op_def:
                                     (Raise t (Op t (Cons div_tag) []))
                                     (Op t Mod [Var t 0; Var t 1]))
     | GlobalVarAlloc n => Let t xs (AllocGlobals t n)
-    | GlobalVarInit n => Op t (SetGlobal n) xs
-    | GlobalVarLookup n => Op t (Global n) xs
+    | GlobalVarInit n => Op t (SetGlobal (n+1)) xs
+    | GlobalVarLookup n => Op t (Global (n+1)) xs
     | Equality => Op t Equal xs
     | FFI n => Op t (FFI n) xs
     | ListAppend => Op t ListAppend xs
@@ -301,6 +301,22 @@ Definition compile_decs_def:
   compile_decs [] = [] /\
   compile_decs ((Dlet e)::xs) = compile [] [e] ++ compile_decs xs /\
   compile_decs (_::xs) = compile_decs xs
+End
+
+Definition clos_interpreter_def:
+  clos_interpreter = Op None (Cons 0) [] (* TODO: implement *)
+End
+
+Definition compile_init_def:
+  compile_init =
+    Let None [Op None AllocGlobal [];
+              Fn (mlstring$strlit "clos_interpreter") NONE NONE 1 clos_interpreter]
+      (Op None (SetGlobal 0) [Var None 1])
+End
+
+Definition compile_prog_def:
+  compile_prog xs =
+    compile_init :: compile_decs xs
 End
 
 Definition inc_compile_decs_def:
