@@ -1,7 +1,7 @@
 (*
   Peephole optimisations used by PrincessCake
   This file defines all the optimisations that are can be used by the
-  PrincessCake optimiser, defined in source_to_sourceScript.sml .
+  PrincessCake optimiser, defined in source_to_source2Script.sml .
   The local correctness proofs for each optimisation are in the file
   icing_optimisationProofsScript.
 *)

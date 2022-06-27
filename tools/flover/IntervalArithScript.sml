@@ -10,9 +10,9 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = new_theory "IntervalArith";
 
-Overload abs[local] = “real$abs”
-Overload max[local] = “real$max”
-Overload min[local] = “real$min”
+Overload abs[local] = “realax$abs”
+Overload max[local] = “realax$max”
+Overload min[local] = “realax$min”
 
 (**
   Define validity of an interval, requiring that the lower bound is less than or equal to the upper bound.

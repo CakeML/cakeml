@@ -65,6 +65,11 @@ val _ = use_long_names:=true;
 (* clos_to_bvl                                                               *)
 (* ------------------------------------------------------------------------- *)
 
+val r = translate clos_to_bvlTheory.add_part_def;
+val r = translate clos_to_bvlTheory.add_parts_def;
+val r = translate (clos_to_bvlTheory.compile_const_def |> DefnBase.one_line_ify NONE);
+val r = translate clos_to_bvlTheory.compile_op_pmatch;
+
 val r = translate clos_to_bvlTheory.compile_common_def;
 val r = translate clos_to_bvlTheory.compile_def;
 

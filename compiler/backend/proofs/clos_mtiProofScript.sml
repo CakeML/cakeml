@@ -125,7 +125,7 @@ val FMAP_REL_def = Define `
 (* state relation *)
 
 Theorem SND_compile_inc[simp]:
-   SND (compile_inc max_app p) = []
+   SND (clos_mti$compile_inc max_app p) = []
 Proof
   Cases_on`p` \\ EVAL_TAC
 QED
@@ -140,8 +140,8 @@ val state_rel_def = Define `
     t.ffi = s.ffi /\
     LIST_REL (v_rel_opt s.max_app) s.globals t.globals /\
     FMAP_REL (ref_rel s.max_app) s.refs t.refs /\
-    s.compile = pure_cc (compile_inc s.max_app) t.compile /\
-    t.compile_oracle = pure_co (compile_inc s.max_app) o s.compile_oracle`;
+    s.compile = pure_cc (clos_mti$compile_inc s.max_app) t.compile /\
+    t.compile_oracle = pure_co (clos_mti$compile_inc s.max_app) o s.compile_oracle`;
 
 (* evaluation theorem *)
 
@@ -513,7 +513,7 @@ val do_install_inst =
   |> Q.INST [`sr`|->`\r t. (r.max_app = s.max_app) /\ state_rel r t`,
         `cr`|->`code_rel s.max_app`]
   |> SIMP_RULE bool_ss [simple_val_rel, simple_state_rel]
-  |> Q.SPEC `compile_inc s.max_app`
+  |> Q.SPEC `clos_mti$compile_inc s.max_app`
 
 val do_install_lemma = prove(
   ``state_rel s t /\ LIST_REL (v_rel s.max_app) xs ys ==>
@@ -1501,14 +1501,14 @@ QED
 
 Theorem semantics_intro_multi:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc (compile_inc max_app) cc) xs <> Fail ==>
+     co (pure_cc (clos_mti$compile_inc max_app) cc) xs <> Fail ==>
    (∀n. SND (SND (co n)) = [] ∧ EVERY no_mti (FST (SND (co n)))) ∧
    1 <= max_app /\ EVERY no_mti xs ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      (pure_co (compile_inc max_app) ∘ co) cc
      (intro_multi max_app xs) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc (compile_inc max_app) cc) xs
+     co (pure_cc (clos_mti$compile_inc max_app) cc) xs
 Proof
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
@@ -1516,9 +1516,9 @@ Proof
   \\ drule (intro_multi_correct |> SIMP_RULE std_ss [])
   \\ fs []
   \\ disch_then (qspec_then `initial_state ffi max_app FEMPTY
-       (pure_co (compile_inc max_app) ∘ co) cc k` mp_tac)
+       (pure_co (clos_mti$compile_inc max_app) ∘ co) cc k` mp_tac)
   \\ impl_tac
-  THEN1 (fs [state_rel_def,initial_state_def,FMAP_REL_def])
+  THEN1 (fs [state_rel_def,initial_state_def,FMAP_REL_def, v_rel_opt_def])
   \\ strip_tac \\ fs []
   \\ qexists_tac `0`
   \\ fs [] \\ fs [state_rel_def]
@@ -1528,8 +1528,8 @@ QED
 
 Theorem semantics_compile:
    semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
-   cc1 = (if do_mti then pure_cc (compile_inc max_app) else I) cc ∧
-   co1 = (if do_mti then pure_co (compile_inc max_app) else I) o co ∧
+   cc1 = (if do_mti then pure_cc (clos_mti$compile_inc max_app) else I) cc ∧
+   co1 = (if do_mti then pure_co (clos_mti$compile_inc max_app) else I) o co ∧
    (do_mti ⇒ (∀n. SND (SND (co n)) = [] ∧ EVERY no_mti (FST (SND (co n)))) ∧
         1 ≤ max_app ∧ EVERY no_mti xs) ⇒
    semantics ffi max_app FEMPTY co1 cc (compile do_mti max_app xs) =

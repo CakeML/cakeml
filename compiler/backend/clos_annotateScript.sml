@@ -11,15 +11,17 @@ val _ = set_grammar_ancestry ["closLang","db_vars","misc"]
 
 (* alt_free calculates free variable annotations, and replaces unused lets with dummies *)
 
-val const_0_def = Define `
-  const_0 t = Op t (Const 0) []`;
+Definition const_0_def:
+  const_0 t = Op t (Const 0) []
+End
 
-val no_overlap_def = Define `
-  (no_overlap 0 l <=> T) /\
+Definition no_overlap_def:
+  (no_overlap 0 l <=> T) ∧
   (no_overlap (SUC n) l <=>
-     if has_var n l then F else no_overlap n l)`
+     if has_var n l then F else no_overlap n l)
+End
 
-val alt_free_def = tDefine "alt_free" `
+Definition alt_free_def:
   (alt_free [] = ([],Empty)) /\
   (alt_free ((x:closLang$exp)::y::xs) =
      let (c1,l1) = alt_free [x] in
@@ -74,29 +76,30 @@ val alt_free_def = tDefine "alt_free" `
        ([Handle t (HD c1) (HD c2)],mk_Union l1 (Shift 1 l2))) /\
   (alt_free [Call t ticks dest xs] =
      let (c1,l1) = alt_free xs in
-       ([Call t ticks dest c1],l1))`
- (WF_REL_TAC `measure exp3_size`
+       ([Call t ticks dest c1],l1))
+Termination
+  WF_REL_TAC `measure exp3_size`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ simp[]
   \\ rename1 `MEM ee xx`
   \\ Induct_on `xx` \\ rpt strip_tac \\ lfs[exp_size_def] \\ res_tac
-  \\ simp[]);
+  \\ simp[]
+End
 
-val alt_free_ind = theorem "alt_free_ind";
-
-val alt_free_LENGTH_LEMMA = Q.prove(
-  `!xs. (case alt_free xs of (ys,s1) => (LENGTH xs = LENGTH ys))`,
+Triviality alt_free_LENGTH_LEMMA:
+  !xs. (case alt_free xs of (ys,s1) => (LENGTH xs = LENGTH ys))
+Proof
   recInduct alt_free_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [alt_free_def]
   \\ SRW_TAC [] [] \\ SRW_TAC [] []
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
   \\ REV_FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ rw [])
-  |> SIMP_RULE std_ss [] |> SPEC_ALL;
+  \\ rw []
+QED
 
 Theorem alt_free_LENGTH:
    !xs ys l. (alt_free xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)
 Proof
-  REPEAT STRIP_TAC \\ MP_TAC alt_free_LENGTH_LEMMA \\ fs []
+  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL alt_free_LENGTH_LEMMA) \\ fs []
 QED
 
 Theorem alt_free_SING:
@@ -130,15 +133,17 @@ QED
 
 (* shift renames variables to use only those in the annotations *)
 
-val get_var_def = Define `
+Definition get_var_def:
   get_var m l i v =
-    if v < l then v else l + zlookup i (v - l)`;
+    if v < l then v else l + zlookup i (v - l)
+End
 
-val shifted_env_def = Define `
+Definition shifted_env_def:
   (shifted_env n [] = LN) /\
-  (shifted_env n (x::xs) = insert x (n:num) (shifted_env (n+1) xs))`;
+  (shifted_env n (x::xs) = insert x (n:num) (shifted_env (n+1) xs))
+End
 
-val shift_def = tDefine "shift" `
+Definition shift_def:
   (shift [] (m:num) (l:num) (i:num num_map) = []) /\
   (shift ((x:closLang$exp)::y::xs) m l i =
      let c1 = shift [x] m l i in
@@ -192,12 +197,12 @@ val shift_def = tDefine "shift" `
        ([Handle t (HD c1) (HD c2)])) /\
   (shift [Call t ticks dest xs] m l i =
      let c1 = shift xs m l i in
-       ([Call t ticks dest c1]))`
- (WF_REL_TAC `measure (exp3_size o FST)`
+       ([Call t ticks dest c1]))
+Termination
+  WF_REL_TAC `measure (exp3_size o FST)`
   \\ REPEAT STRIP_TAC
-  \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC);
-
-val shift_ind = theorem "shift_ind";
+  \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC
+End
 
 Theorem shift_LENGTH_LEMMA:
    !xs m l i. LENGTH (shift xs m l i) = LENGTH xs
@@ -224,19 +229,23 @@ QED
 Theorem HD_shift[simp]:
   LENGTH (shift [x] m l i) = 1 ∧
   [HD (shift [x] m l i)] = shift [x] m l i
-Proof STRIP_ASSUME_TAC shift_SING \\ fs []
+Proof
+  STRIP_ASSUME_TAC shift_SING \\ fs []
 QED
 
 (* main functions *)
 
-val annotate_def = Define `
-  annotate arity xs = shift (FST (alt_free xs)) 0 arity LN`;
+Definition annotate_def:
+  annotate arity xs = shift (FST (alt_free xs)) 0 arity LN
+End
 
-val compile_def = Define `
+Definition compile_def:
   compile prog =
-    MAP (λ(n,args,exp). (n,args, HD (annotate args [exp]))) prog`
+    MAP (λ(n,args,exp). (n,args, HD (annotate args [exp]))) prog
+End
 
-val compile_inc_def = Define `
-  compile_inc (e,aux) = (annotate 0 e,clos_annotate$compile aux)`;
+Definition compile_inc_def:
+  compile_inc (e,aux) = (annotate 0 e,clos_annotate$compile aux)
+End
 
 val _ = export_theory();

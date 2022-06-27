@@ -90,7 +90,52 @@ fun format_def def = def
 
 val r = translate (format_def ag32_jump_constant_def);
 
-val r = translate (format_def ag32_enc_def);
+val ag32_enc_thm = (format_def ag32_enc_def);
+
+val cases_defs = LIST_CONJ
+  [TypeBase.case_def_of “:'a asm$inst”,
+   TypeBase.case_def_of “:asm$cmp”,
+   TypeBase.case_def_of “:asm$memop”,
+   TypeBase.case_def_of “:asm$binop”,
+   TypeBase.case_def_of “:ast$shift”,
+   TypeBase.case_def_of “:asm$fp”,
+   TypeBase.case_def_of “:'a asm$arith”,
+   TypeBase.case_def_of “:'a asm$addr”,
+   TypeBase.case_def_of “:'a asm$reg_imm”,
+   TypeBase.case_def_of “:'a asm$asm”];
+
+val d1 = Define ‘ag32_enc_Const n c = ag32_enc (Inst (Const n c))’
+  |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘ag32_enc_JumpCmp_Imm cmp r i a =
+                          ag32_enc (JumpCmp cmp r (Imm i) a)’
+  |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘ag32_enc_JumpCmp_Reg cmp r i a =
+                          ag32_enc (JumpCmp cmp r (Reg i) a)’
+  |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘ag32_enc_Loc i a =
+                          ag32_enc (Loc i a)’
+  |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘ag32_enc_Mem_Store a b c =
+                    ag32_enc (Inst (Mem Store a (Addr b c)))’
+  |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘ag32_enc_Mem_Store8 a b c =
+                    ag32_enc (Inst (Mem Store8 a (Addr b c)))’
+  |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘ag32_enc_Mem_Load a b c =
+                    ag32_enc (Inst (Mem Load a (Addr b c)))’
+  |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘ag32_enc_Mem_Load8 a b c =
+                    ag32_enc (Inst (Mem Load8 a (Addr b c)))’
+  |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘ag32_enc_Binop_Imm bop r1 r2 i =
+                    ag32_enc (Inst (Arith (Binop bop r1 r2 (Imm i))))’
+  |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
+
+val def = ag32_enc_thm |> SIMP_RULE std_ss [APPEND] |> SIMP_RULE std_ss [GSYM d1];
+
+val res = CONJUNCTS d1 |> map SPEC_ALL |> map translate;
+
+val res = translate def;
 
 val r = translate (format_def ag32_config_def);
 

@@ -110,7 +110,7 @@ Definition eval_def:
       | _ => NONE) /\
   (eval s (Cmp cmp e1 e2) =
     case (eval s e1, eval s e2) of
-     | (SOME (Word w1), SOME (Word w2)) => SOME (Word (v2w [word_cmp cmp w1 w2]))
+     | (SOME (Word w1), SOME (Word w2)) => SOME (Word (bitstring$v2w [word_cmp cmp w1 w2]))
      | _ => NONE) /\
   (eval s (Shift sh e n) =
     case eval s e of

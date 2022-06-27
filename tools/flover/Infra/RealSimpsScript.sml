@@ -7,8 +7,8 @@ open preambleFloVer;
 
 val _ = new_theory "RealSimps";
 
-Overload abs[local] = “real$abs”
-Overload max[local] = “real$max”
+Overload abs[local] = “realax$abs”
+Overload max[local] = “realax$max”
 
 Theorem abs_leq_zero[simp]:
   !v. abs v <= 0 <=> v = 0

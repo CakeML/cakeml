@@ -18,7 +18,7 @@ val _ = new_theory "ErrorValidation";
 
 val _ = Parse.hide "delta"; (* so that it can be used as a variable *)
 
-Overload abs[local] = “real$abs”
+Overload abs[local] = “realax$abs”
 
 val _ = realLib.prefer_real();
 

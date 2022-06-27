@@ -11,7 +11,7 @@ open semanticPrimitivesTheory evaluateTheory
 
 open preamble;
 
-val _ = new_theory "source_to_source";
+val _ = new_theory "source_to_source2";
 
 (**
   Rewriter configuration

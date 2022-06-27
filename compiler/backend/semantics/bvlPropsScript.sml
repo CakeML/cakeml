@@ -75,7 +75,7 @@ Theorem do_app_Rval_swap:
           clock := x1.clock; ffi := x1.ffi |>)
 Proof
   rw[do_app_cases_val] \\ rfs[SUBSET_DEF] \\ fs []
-  \\ strip_tac \\ res_tac \\ fs []
+  \\ gvs [EVERY_MEM] \\ rw [] \\ res_tac \\ fs []
 QED
 
 Theorem do_app_with_code:
@@ -108,6 +108,9 @@ Theorem do_app_Rerr_swap:
           ffi := s1.ffi|> ) = Rerr e
 Proof
   Cases_on `op` \\ rw[do_app_cases_err] \\ rfs[SUBSET_DEF] \\ fs []
+  \\ TRY (strip_tac \\ res_tac \\ fs [])
+  \\ gvs [EXISTS_MEM]
+  \\ last_x_assum $ irule_at Any \\ fs []
   \\ strip_tac \\ res_tac \\ fs []
 QED
 
@@ -119,7 +122,8 @@ Theorem do_app_with_code_err_not_Install:
                          ; compile_oracle := co |>) = Rerr e
 Proof
   rw [Once do_app_cases_err] >> rw [do_app_def] >> fs [SUBSET_DEF] >>
-  fs [do_install_def,case_eq_thms,UNCURRY]
+  fs [do_install_def,case_eq_thms,UNCURRY] >>
+  gvs [EVERY_MEM,EXISTS_MEM]
 QED
 
 Theorem do_app_with_code_err:
@@ -131,6 +135,7 @@ Proof
   fs [do_install_def,case_eq_thms,UNCURRY] >>
   rveq \\ fs [PULL_EXISTS]
   \\ CCONTR_TAC \\ fs []
+  THEN1 gvs [EVERY_MEM,EXISTS_MEM]
   \\ rename1 `s.compile _ args = _`
   \\ qpat_x_assum `args = _` (fn th => fs [GSYM th])
   \\ Cases_on `s.compile (FST (s.compile_oracle 0)) args` \\ fs []
@@ -494,6 +499,7 @@ Proof
   \\ rveq \\ asm_simp_tac (srw_ss()) [do_app_def]
   \\ fs [] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
   \\ fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+  \\ gvs [EVERY_MEM,EXISTS_MEM]
 QED
 
 Theorem evaluate_add_clock:
@@ -706,7 +712,7 @@ Proof
 QED
 
 Theorem evaluate_genlist_vars_rev:
-   !skip env n st.
+  ∀skip env n st.
     n + skip ≤ LENGTH env ⇒
     evaluate (REVERSE (GENLIST (λarg. Var (arg + skip)) n), env, st) =
     (Rval (REVERSE (TAKE n (DROP skip env))), st)
@@ -720,12 +726,23 @@ Proof
   metis_tac [evaluate_var_reverse]
 QED
 
+Triviality do_build_SUBSET:
+  ∀m n parts refs q rs.
+    do_build m n parts refs = (q,rs) ⇒ FDOM refs SUBSET FDOM rs
+Proof
+  Induct_on ‘parts’ \\ fs [do_build_def,do_part_def]
+  \\ Cases \\ fs [do_build_def,do_part_def]
+  \\ fs [SUBSET_DEF] \\ rw [] \\ res_tac
+  \\ fs [FDOM_FUPDATE]
+QED
+
 Theorem do_app_refs_SUBSET:
-   (do_app op a r = Rval (q,t)) ==> FDOM r.refs SUBSET FDOM t.refs
+  (do_app op a r = Rval (q,t)) ==> FDOM r.refs SUBSET FDOM t.refs
 Proof
   rw [do_app_cases_val] >>
   fs [SUBSET_DEF,IN_INSERT,dec_clock_def,do_install_def] >>
-  fs [UNCURRY] >> every_case_tac >> fs [] \\ rw [] \\ fs []
+  fs [UNCURRY] >> every_case_tac >> fs [] \\ rw [] \\ fs [do_build_const_def]
+  \\ imp_res_tac do_build_SUBSET \\ fs [SUBSET_DEF]
 QED
 
 val evaluate_refs_SUBSET_lemma = Q.prove(

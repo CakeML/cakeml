@@ -19,9 +19,9 @@ val _ = temp_delsimps ["RMUL_LEQNORM"]
 
 val _ = Parse.hide "delta"; (* so that it can be used as a variable *)
 
-Overload abs[local] = “real$abs”
-Overload max[local] = “real$max”
-Overload min[local] = “real$min”
+Overload abs[local] = “realax$abs”
+Overload max[local] = “realax$max”
+Overload min[local] = “realax$min”
 
 (** Define a global iteration count for square roots **)
 Definition ITERCOUNT_def:

@@ -5,7 +5,7 @@ structure supportLib =
 struct
 
 open compilerTheory fromSexpTheory cfTacticsLib ml_translatorLib;
-open source_to_sourceTheory source_to_sourceProofsTheory CakeMLtoFloVerTheory
+open source_to_source2Theory source_to_source2ProofsTheory CakeMLtoFloVerTheory
      CakeMLtoFloVerProofsTheory icing_optimisationProofsTheory
      cfSupportTheory;
 open astToSexprLib fromSexpTheory basis_ffiTheory cfHeapsBaseTheory basis;

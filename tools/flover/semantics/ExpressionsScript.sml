@@ -7,7 +7,7 @@ open preambleFloVer;
 
 val _ = new_theory "Expressions";
 
-Overload abs = “real$abs”
+Overload abs = “realax$abs”
 
 (**
   expressions will use binary operators.

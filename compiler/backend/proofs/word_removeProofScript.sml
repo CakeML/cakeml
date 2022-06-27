@@ -96,6 +96,12 @@ Proof
   rw[set_var_def]
 QED
 
+Theorem unset_var_compile_state[simp]:
+   unset_var x (compile_state clk c s) = compile_state clk c (unset_var x s)
+Proof
+  rw[unset_var_def]
+QED
+
 Theorem set_fp_var_compile_state[simp]:
    set_fp_var x y (compile_state clk c s) = compile_state clk c (set_fp_var x y s)
 Proof
@@ -216,28 +222,22 @@ Proof
 QED
 
 Theorem word_remove_correct:
-   ∀prog st res rst.
-    evaluate (prog,st) = (res,rst) ∧
-    st.compile = (λcfg. c cfg o (MAP (I ## I ## remove_must_terminate))) ∧
-    res ≠ SOME Error ⇒
-    ∃clk.
-      evaluate (remove_must_terminate prog, compile_state clk c st) =
-        (res, compile_state 0 c rst)
+  ∀prog st res rst.
+  evaluate (prog,st) = (res,rst) ∧
+  st.compile = (λcfg. c cfg o (MAP (I ## I ## remove_must_terminate))) ∧
+  res ≠ SOME Error ⇒
+  ∃clk.
+     evaluate (remove_must_terminate prog, compile_state clk c st) =
+     (res, compile_state 0 c rst)
 Proof
   recInduct evaluate_ind
   \\ rw[evaluate_def,remove_must_terminate_def]
-  \\ TRY ( (* Seq *)
-    qmatch_goalsub_rename_tac`remove_must_terminate _` \\
-    pairarg_tac \\ fs[] \\
-    reverse(fs[case_eq_thms] \\ rveq \\ fs[])
-    >- ( qexists_tac`clk` \\ fs[] \\ NO_TAC ) \\
-    qpat_x_assum`(res,rst) = _`(assume_tac o SYM) \\ fs[] \\
-    `s1.compile = s.compile` by (imp_res_tac evaluate_consts \\ fs[]) \\ fs[] \\
-    qexists_tac`clk + clk'` \\ fs[] \\
-    imp_res_tac (GEN_ALL evaluate_add_clock) \\ fs[] \\
-    first_x_assum(qspec_then`clk'`mp_tac) \\ fs[] \\
-    fs[compile_state_def] \\ NO_TAC )
-  \\ TRY ( (* MustTerminate *)
+  \\ TRY (
+     fs[case_eq_thms] \\ rveq \\
+     fs[domain_map] \\
+     rpt(pairarg_tac \\ fs[]) \\
+     metis_tac[] >> NO_TAC)
+  THEN1 ( (* MustTerminate *)
     qmatch_goalsub_rename_tac`remove_must_terminate _` \\
     pairarg_tac \\ fs[] \\
     fs[case_eq_thms] \\ rveq \\ fs[] \\
@@ -249,12 +249,18 @@ Proof
     fs[compile_state_def] \\
     qexists_tac`clk + MustTerminate_limit (:'a) - s1.clock` \\
     fs[] \\ NO_TAC)
-  \\ TRY (
-     fs[case_eq_thms] \\ rveq \\
-     fs[domain_map] \\
-     rpt(pairarg_tac \\ fs[]) \\
-     metis_tac[] >> NO_TAC)
-  \\ TRY ( (* Install *)
+  THEN1 ( (* Seq *)
+    qmatch_goalsub_rename_tac`remove_must_terminate _` \\
+    pairarg_tac \\ fs[] \\
+    reverse(fs[case_eq_thms] \\ rveq \\ fs[])
+    >- ( qexists_tac`clk` \\ fs[] \\ NO_TAC ) \\
+    qpat_x_assum`(res,rst) = _`(assume_tac o SYM) \\ fs[] \\
+    `s1.compile = s.compile` by (imp_res_tac evaluate_consts \\ fs[]) \\ fs[] \\
+    qexists_tac`clk + clk'` \\ fs[] \\
+    imp_res_tac (GEN_ALL evaluate_add_clock) \\ fs[] \\
+    first_x_assum(qspec_then`clk'`mp_tac) \\ fs[] \\
+    fs[compile_state_def] \\ NO_TAC )
+  THEN1 ( (* Install *)
     fs[case_eq_thms] \\ rveq \\
     pairarg_tac \\ fs[] \\
     pairarg_tac \\ fs[] \\
@@ -263,91 +269,91 @@ Proof
     qexists_tac`0` \\
     simp[compile_state_def,state_component_equality,FUN_EQ_THM,map_union,map_fromAList] \\
     rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\ simp[FUN_EQ_THM,FORALL_PROD] \\ NO_TAC) \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    qpat_x_assum`_ = (res,rst)`mp_tac \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[]
-    >- (
-      fs[case_eq_thms] \\
-      strip_tac \\ fs[] \\ rveq
-      >- metis_tac[]
-      \\ rfs[]
-      \\ fs[compile_state_def,dec_clock_def,call_env_def]
-      \\ qexists_tac`clk` \\ fs[] )
-    \\ split_pair_case_tac \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[]
-    >- (
-      strip_tac \\ rveq \\ fs[] \\
-      qexists_tac`0` \\ fs[] \\
-      fs[add_ret_loc_def] ) \\
-    fs[add_ret_loc_def] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    rfs[] \\
-    TOP_CASE_TAC \\ fs[] \\ rveq \\
+  TOP_CASE_TAC \\ fs[] \\
+  TOP_CASE_TAC \\ fs[] \\
+  qpat_x_assum`_ = (res,rst)`mp_tac \\
+  TOP_CASE_TAC \\ fs[] \\
+  TOP_CASE_TAC \\ fs[] \\
+  TOP_CASE_TAC \\ fs[] \\
+  TOP_CASE_TAC \\ fs[]
+  >- (
+    fs[case_eq_thms] \\
+    strip_tac \\ fs[] \\ rveq
+    >- metis_tac[]
+    \\ rfs[]
+    \\ fs[compile_state_def,dec_clock_def,call_env_def]
+    \\ qexists_tac`clk` \\ fs[] )
+  \\ split_pair_case_tac \\ fs[] \\
+  TOP_CASE_TAC \\ fs[] \\
+  TOP_CASE_TAC \\ fs[] \\
+  TOP_CASE_TAC \\ fs[]
+  >- (
+    strip_tac \\ rveq \\ fs[] \\
+    qexists_tac`0` \\ fs[] \\
+    fs[add_ret_loc_def] ) \\
+  fs[add_ret_loc_def] \\
+  TOP_CASE_TAC \\ fs[] \\
+  TOP_CASE_TAC \\ fs[] \\
+  rfs[] \\
+  TOP_CASE_TAC \\ fs[] \\ rveq \\
+  simp[Once case_eq_thms]
+  >- (
     simp[Once case_eq_thms]
-    >- (
-      simp[Once case_eq_thms]
-      \\ strip_tac \\ fs[]
-      \\ rveq \\ fs[]
-      \\ pop_assum mp_tac
-      \\ IF_CASES_TAC \\ fs[]
-      \\ strip_tac \\ fs[] \\ rfs[]
-      \\ imp_res_tac pop_env_const
-      \\ imp_res_tac evaluate_consts \\ fs[] \\ rfs[]
-      \\ qexists_tac`clk + clk'`
-      \\ imp_res_tac evaluate_add_clock \\ fs[]
-      \\ pop_assum kall_tac
-      \\ first_x_assum(qspec_then`clk'`mp_tac)
-      \\ qmatch_goalsub_abbrev_tac`remove_must_terminate _,sa`
-      \\ strip_tac
-      \\ qmatch_goalsub_abbrev_tac`remove_must_terminate _,sb`
-      \\ `sa = sb` by (
-        unabbrev_all_tac
-        \\ simp[dec_clock_def]
-        \\ simp[state_component_equality] )
-      \\ rw[]
-      \\ fs[compile_state_def] )
-    >- (
-      strip_tac \\ fs[] \\ rveq \\ fs[]
-      >- (
-        fs[dec_clock_def]
-        \\ qexists_tac`clk` \\ fs[]
-        \\ qmatch_goalsub_abbrev_tac`remove_must_terminate _,sa`
-        \\ qmatch_asmsub_abbrev_tac`remove_must_terminate _,sb`
-        \\ `sa = sb` by ( unabbrev_all_tac \\ simp[state_component_equality] )
-        \\ rw[] )
-      \\ split_pair_case_tac \\ fs[] \\ rveq \\ fs[]
-      \\ pop_assum mp_tac \\ simp[Once case_eq_thms]
-      \\ simp[Once case_eq_thms]
-      \\ strip_tac \\ rveq \\ fs[]
-      \\ pop_assum(assume_tac o SYM) \\ fs[]
-      \\ imp_res_tac evaluate_consts \\ fs[] \\ rfs[]
-      \\ qexists_tac`clk + clk'`
-      \\ imp_res_tac evaluate_add_clock \\ fs[]
-      \\ pop_assum kall_tac
-      \\ first_x_assum(qspec_then`clk'`mp_tac)
-      \\ qmatch_goalsub_abbrev_tac`remove_must_terminate _,sa`
-      \\ strip_tac
-      \\ qmatch_goalsub_abbrev_tac`remove_must_terminate _,sb`
-      \\ `sa = sb` by (
-        unabbrev_all_tac
-        \\ simp[dec_clock_def]
-        \\ simp[state_component_equality] )
-      \\ rw[]
-      \\ fs[compile_state_def] )
-    \\ strip_tac \\ rveq \\ fs[]
-    \\ fs[dec_clock_def]
-    \\ qexists_tac`clk` \\ fs[]
+    \\ strip_tac \\ fs[]
+    \\ rveq \\ fs[]
+    \\ pop_assum mp_tac
+    \\ IF_CASES_TAC \\ fs[]
+    \\ strip_tac \\ fs[] \\ rfs[]
+    \\ imp_res_tac pop_env_const
+    \\ imp_res_tac evaluate_consts \\ fs[] \\ rfs[]
+    \\ qexists_tac`clk + clk'`
+    \\ imp_res_tac evaluate_add_clock \\ fs[]
+    \\ pop_assum kall_tac
+    \\ first_x_assum(qspec_then`clk'`mp_tac)
     \\ qmatch_goalsub_abbrev_tac`remove_must_terminate _,sa`
-    \\ qmatch_asmsub_abbrev_tac`remove_must_terminate _,sb`
-    \\ `sa = sb` by ( unabbrev_all_tac \\ simp[state_component_equality] )
+    \\ strip_tac
+    \\ qmatch_goalsub_abbrev_tac`remove_must_terminate _,sb`
+    \\ `sa = sb` by (
+      unabbrev_all_tac
+      \\ simp[dec_clock_def]
+      \\ simp[state_component_equality] )
     \\ rw[]
+    \\ fs[compile_state_def] )
+  >- (
+    strip_tac \\ fs[] \\ rveq \\ fs[]
+    >- (
+      fs[dec_clock_def]
+      \\ qexists_tac`clk` \\ fs[]
+      \\ qmatch_goalsub_abbrev_tac`remove_must_terminate _,sa`
+      \\ qmatch_asmsub_abbrev_tac`remove_must_terminate _,sb`
+      \\ `sa = sb` by ( unabbrev_all_tac \\ simp[state_component_equality] )
+      \\ rw[] )
+    \\ split_pair_case_tac \\ fs[] \\ rveq \\ fs[]
+    \\ pop_assum mp_tac \\ simp[Once case_eq_thms]
+    \\ simp[Once case_eq_thms]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ pop_assum(assume_tac o SYM) \\ fs[]
+    \\ imp_res_tac evaluate_consts \\ fs[] \\ rfs[]
+    \\ qexists_tac`clk + clk'`
+    \\ imp_res_tac evaluate_add_clock \\ fs[]
+    \\ pop_assum kall_tac
+    \\ first_x_assum(qspec_then`clk'`mp_tac)
+    \\ qmatch_goalsub_abbrev_tac`remove_must_terminate _,sa`
+    \\ strip_tac
+    \\ qmatch_goalsub_abbrev_tac`remove_must_terminate _,sb`
+    \\ `sa = sb` by (
+      unabbrev_all_tac
+      \\ simp[dec_clock_def]
+      \\ simp[state_component_equality] )
+    \\ rw[]
+    \\ fs[compile_state_def] )
+  \\ strip_tac \\ rveq \\ fs[]
+  \\ fs[dec_clock_def]
+  \\ qexists_tac`clk` \\ fs[]
+  \\ qmatch_goalsub_abbrev_tac`remove_must_terminate _,sa`
+  \\ qmatch_asmsub_abbrev_tac`remove_must_terminate _,sb`
+  \\ `sa = sb` by ( unabbrev_all_tac \\ simp[state_component_equality] )
+  \\ rw[]
 QED
 
 (* syntactic preservation all in one go *)

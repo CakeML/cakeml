@@ -18,7 +18,7 @@ open preambleFloVer;
 
 val _ = new_theory "FPRangeValidator";
 
-Overload abs[local] = “real$abs”
+Overload abs[local] = “realax$abs”
 
 Definition FPRangeValidator_def:
   FPRangeValidator (e:real expr) A typeMap dVars =

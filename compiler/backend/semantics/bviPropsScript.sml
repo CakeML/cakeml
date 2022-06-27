@@ -469,8 +469,9 @@ Theorem do_app_with_code:
 Proof
   rw [do_app_def,do_app_aux_def,case_eq_thms,pair_case_eq]
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
+  \\ TRY (pairarg_tac \\ fs [])
   \\ rw[] \\ fs[] \\ rw[] \\ fs[case_eq_thms,pair_case_eq] \\ rw[]
-  \\ fs[SUBSET_DEF]
+  \\ fs[SUBSET_DEF,EVERY_MEM] \\ rw [] \\ fs []
 QED
 
 Theorem do_app_with_code_err:
@@ -480,71 +481,18 @@ Theorem do_app_with_code_err:
 Proof
   rw [do_app_def,do_app_aux_def,case_eq_thms,pair_case_eq]
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
+  \\ TRY (pairarg_tac \\ fs [])
   \\ rw[] \\ fs[] \\ rw[] \\ fs[case_eq_thms,pair_case_eq] \\ rw[]
-  \\ fs[SUBSET_DEF] \\ strip_tac \\ res_tac
+  \\ fs[SUBSET_DEF] \\ TRY (strip_tac \\ res_tac)
+  \\ fs [EXISTS_MEM] \\ metis_tac []
 QED
-
-(*
-Theorem find_code_add_code:
-   bvlSem$find_code dest a (fromAList code) = SOME x ⇒
-   find_code dest a (fromAList (code ++ extra)) = SOME x
-Proof
-  Cases_on`dest`>>srw_tac[][bvlSemTheory.find_code_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
-  full_simp_tac(srw_ss())[lookup_fromAList,ALOOKUP_APPEND] >> srw_tac[][]
-QED
-
-Theorem evaluate_add_code:
-   ∀xs env s r s'.
-    evaluate (xs,env,s) = (r,s') ∧ r ≠ Rerr (Rabort Rtype_error) ∧
-    s.code = fromAList code
-    ⇒
-    evaluate (xs,env,s with code := fromAList (code ++ extra)) =
-      (r,s' with code := fromAList (code ++ extra))
-Proof
-  recInduct evaluate_ind >>
-  srw_tac[][evaluate_def] >>
-  TRY (
-    rename1`Boolv T = HD _` >>
-    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    rpt(IF_CASES_TAC >> full_simp_tac(srw_ss())[]) >>
-    TRY(qpat_x_assum`_ = HD _`(assume_tac o SYM))>>full_simp_tac(srw_ss())[]>>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    imp_res_tac evaluate_code_const >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-    (qpat_x_assum`_ = HD _`(assume_tac o SYM))>>full_simp_tac(srw_ss())[] ) >>
-  TRY (
-    rename1`bviSem$do_app` >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    imp_res_tac evaluate_code_const >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac do_app_code >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-    TRY (
-      drule (GEN_ALL do_app_with_code) >>
-      disch_then(qspec_then`fromAList (code ++ extra)`mp_tac) >>
-      simp[domain_fromAList] >> NO_TAC) >>
-    drule (GEN_ALL do_app_with_code_err) >>
-    disch_then(qspec_then`fromAList (code++extra)`mp_tac) >>
-    simp[] >> NO_TAC) >>
-  TRY (
-    rename1`bvlSem$find_code` >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >>
-    rpt var_eq_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-    imp_res_tac evaluate_code_const >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-    imp_res_tac find_code_add_code >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-    srw_tac[][] >> NO_TAC) >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  imp_res_tac evaluate_code_const >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]
-QED
-*)
 
 Theorem do_app_aux_with_clock:
    do_app_aux op vs (s with clock := c) =
    OPTION_MAP (OPTION_MAP (λ(x,y). (x,y with clock := c))) (do_app_aux op vs s)
 Proof
-  srw_tac[][do_app_aux_def] >>
-  every_case_tac >> fs[]
+  Cases_on ‘do_app_aux op vs (s with clock := c)’ \\ fs []
+  \\ gvs [do_app_aux_def,AllCaseEqs()]
 QED
 
 Theorem do_app_change_clock:
@@ -553,6 +501,7 @@ Theorem do_app_change_clock:
 Proof
   rw[do_app_def,do_app_aux_with_clock,case_eq_thms,pair_case_eq,PULL_EXISTS]
   \\ imp_res_tac bvlPropsTheory.do_app_change_clock
+  \\ TRY (pairarg_tac \\ fs [])
   \\ fs[bvi_to_bvl_def,bvl_to_bvi_def]
   \\ fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs []
 QED
@@ -564,6 +513,7 @@ Proof
   rw[do_app_def,do_app_aux_with_clock,case_eq_thms,pair_case_eq,PULL_EXISTS]
   \\ imp_res_tac bvlPropsTheory.do_app_change_clock_err
   \\ fs[bvi_to_bvl_def,bvl_to_bvi_def]
+  \\ TRY (pairarg_tac \\ fs [])
   \\ fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs []
   \\ fs [state_component_equality]
 QED

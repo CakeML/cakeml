@@ -80,16 +80,17 @@ Proof
   rw[perms_ok_def, ListProgTheory.every_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
 QED
 
-Theorem perms_ok_part_v[simp]:
-  perms_ok ps ListProg$part_v
+Theorem perms_ok_qsort_part_v[simp]:
+  perms_ok ps ListProg$qsort_part_v
 Proof
-  rw[perms_ok_def, ListProgTheory.part_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  rw[perms_ok_def, ListProgTheory.qsort_part_v_def, astTheory.pat_bindings_def,
+     perms_ok_env_def]
 QED
 
-Theorem perms_ok_partition_1_v[simp]:
-  perms_ok ps ListProg$partition_1_v
+Theorem perms_ok_qsort_acc_v[simp]:
+  perms_ok ps ListProg$qsort_acc_v
 Proof
-  rw[perms_ok_def, ListProgTheory.partition_1_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  rw[perms_ok_def, ListProgTheory.qsort_acc_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
   \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED

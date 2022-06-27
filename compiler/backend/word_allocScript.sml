@@ -239,6 +239,16 @@ val ssa_cc_trans_def = Define`
     let ren_ls2 = MAP (option_lookup ssa) ls_2 in
     let (ren_ls1,ssa',na') = list_next_var_rename ls_1 ssa na in
       (Move pri (ZIP(ren_ls1,ren_ls2)),ssa',na')) ∧
+  (ssa_cc_trans (StoreConsts a b c d ws) ssa na =
+    let c1 = option_lookup ssa c in
+    let d1 = option_lookup ssa d in
+    let (d2,ssa',na') = next_var_rename d ssa na in
+    let (c2,ssa'',na'') = next_var_rename c ssa' na' in
+    let prog = Seq (Move 0 [(4,c1);(6,d1)])
+      (Seq (StoreConsts 0 2 4 6 ws)
+           (Move 0 [(c2,4);(d2,6)])) in
+    (prog, ssa'',na'')
+  ) ∧
   (ssa_cc_trans (Inst i) ssa na =
     let (i',ssa',na') = ssa_cc_trans_inst i ssa na in
       (i',ssa',na')) ∧
@@ -483,6 +493,8 @@ val apply_colour_def = Define `
     LocValue (f r) l1) ∧
   (apply_colour f (Alloc num numset) =
     Alloc (f num) (apply_nummap_key f numset)) ∧
+  (apply_colour f (StoreConsts a b c d ws) =
+    StoreConsts (f a) (f b) (f c) (f d) ws) ∧
   (apply_colour f (Raise num) = Raise (f num)) ∧
   (apply_colour f (Return num1 num2) = Return (f num1) (f num2)) ∧
   (apply_colour f Tick = Tick) ∧
@@ -613,6 +625,8 @@ val get_live_def = Define`
        dtcase ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live) ∧
   (get_live (Alloc num numset) live = insert num () numset) ∧
+  (get_live (StoreConsts a b c d ws) live =
+    insert c () (insert d () (delete a (delete b live)))) ∧
   (get_live (Install r1 r2 r3 r4 numset) live =
     list_insert [r1;r2;r3;r4] numset) ∧
   (get_live (CodeBufferWrite r1 r2) live =
@@ -622,6 +636,8 @@ val get_live_def = Define`
   (get_live (FFI ffi_index ptr1 len1 ptr2 len2 numset) live =
    insert ptr1 () (insert len1 ()
      (insert ptr2 () (insert len2 () numset)))) ∧
+  (get_live (StoreConsts a b c d ws) live =
+     (insert c () (insert d () live))) ∧
   (get_live (Raise num) live = insert num () live) ∧
   (get_live (Return num1 num2) live = insert num1 () (insert num2 () live)) ∧
   (get_live Tick live = live) ∧
@@ -744,6 +760,7 @@ val get_writes_def = Define`
   (get_writes (LocValue r l1) = insert r () LN) ∧
   (get_writes (Install r1 _ _ _ _) = insert r1 () LN) ∧
   (get_writes (OpCurrHeap b r1 _) = insert r1 () LN) ∧
+  (get_writes (StoreConsts a b c d _) = insert a () (insert b () (insert c () (insert d () LN)))) ∧
   (get_writes prog = LN)`
 
 Theorem get_writes_pmatch:
@@ -757,6 +774,7 @@ Theorem get_writes_pmatch:
     | LocValue r l1 => insert r () LN
     | Install r1 _ _ _ _ => insert r1 () LN
     | OpCurrHeap b r1 _ => insert r1 () LN
+    | StoreConsts a b c d _ => insert a () (insert b () (insert c () (insert d () LN)))
     | prog => LN
 Proof
   rpt strip_tac
@@ -765,7 +783,7 @@ Proof
 QED
 
 (* Old representation *)
-val get_clash_sets_def = Define`
+(* val get_clash_sets_def = Define`
   (get_clash_sets (Seq s1 s2) live =
     let (hd,ls) = get_clash_sets s2 live in
     let (hd',ls') = get_clash_sets s1 hd in
@@ -798,6 +816,7 @@ val get_clash_sets_def = Define`
   (get_clash_sets prog live =
     let i_set = union (get_writes prog) live in
       (get_live prog live,[i_set]))`
+*)
 
 (* Potentially more efficient liveset representation for checking / allocation*)
 val get_delta_inst_def = Define`
@@ -876,6 +895,7 @@ val get_clash_tree_def = Define`
   (get_clash_tree (LocValue r l1) = Delta [r] []) ∧
   (get_clash_tree (Set n exp) = Delta [] (get_reads_exp exp)) ∧
   (get_clash_tree (OpCurrHeap b dst src) = Delta [dst] [src]) ∧
+  (get_clash_tree (StoreConsts a b c d ws) = Delta [a;b;c;d] [c;d]) ∧
   (get_clash_tree (Call ret dest args h) =
     let args_set = numset_list_insert args LN in
     dtcase ret of

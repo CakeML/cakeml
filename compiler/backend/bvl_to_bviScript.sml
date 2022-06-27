@@ -39,27 +39,10 @@ QED
 
 val large_int = ``268435457:int`` (* 2**28-1 *)
 
-val compile_int_def = tDefine "compile_int" `
+Definition compile_int_def:
   compile_int (i:int) =
-    if 0 <= i then
-      if i <= ^large_int then
-        (Op (Const i) []:bvi$exp)
-      else
-        let x = compile_int (i / ^large_int) in
-        let y = Op (Const (i % ^large_int)) [] in
-        let n = Op (Const ^large_int) [] in
-          Op Add [Op Mult [x; n]; y]
-    else
-      if -^large_int <= i then
-        Op (Const i) []
-      else
-        let i = 0 - i in
-        let x = compile_int (i / ^large_int) in
-        let y = Op (Const (0 - (i % ^large_int))) [] in
-        let n = Op (Const (0 - ^large_int)) [] in
-          Op Add [Op Mult [x; n]; y]`
- (WF_REL_TAC `measure (Num o ABS)`
-  \\ REPEAT STRIP_TAC \\ intLib.COOPER_TAC)
+    bvi$Op (if -^large_int ≤ i ∧ i ≤ ^large_int then Const i else Build [Int i]) []
+End
 
 val alloc_glob_count_def = tDefine "alloc_glob_count" `
   (alloc_glob_count [] = 0:num) /\
@@ -163,7 +146,7 @@ val FromListByte_code_def = Define`
 
 val ToListByte_code_def = Define`
   ToListByte_code = (3n, (* list, current index, byte array *)
-    If (Op (EqualInt 0i) [Var 1]) (Var 0)
+    If (Op (EqualConst (Int 0i)) [Var 1]) (Var 0)
       (Let [Op Sub [Op (Const 1) []; Var 1]]
       (Let [Op DerefByte [Var 0; Var 3]]
         (Call 0 (SOME ToListByte_location)
@@ -226,10 +209,6 @@ local val compile_op_quotation = `
                          Call 0 (SOME ListLength_location)
                            [Var 1; Op (Const 0) []] NONE;
                          Var 0; Var 1])
-    | String s =>
-        Let [Op (RefByte T) [Op (Const 0) c1; compile_int (&(LENGTH s))]]
-          (Let (MAPi (λn c. Op UpdateByte [Op (Const &(ORD c)) []; compile_int (&n); Var 0]) s)
-            (Var (LENGTH s)))
     | FromListByte =>
         Let (if NULL c1 then [Op (Const 0) []] else c1)
           (Call 0 (SOME FromListByte_location)
@@ -262,6 +241,8 @@ local val compile_op_quotation = `
            (Let [Op (CopyByte F) [Op (Const 0) []; Var 0; Var 1; Var 2; Var 3]]
              (Var 1)))
     | Label l => Op (Label (bvl_num_stubs + bvl_to_bvi_namespaces * l)) c1
+    | Build ps => Op (Build ps) c1
+    | EqualConst p => Op (EqualConst p) c1
     | _ => Op op c1`
 in
 val compile_op_def = Define compile_op_quotation;

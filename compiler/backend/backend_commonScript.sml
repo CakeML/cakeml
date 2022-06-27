@@ -82,27 +82,32 @@ val mk_union_def = Define`
 val bool_to_tag_def = Define`
   bool_to_tag b = if b then true_tag else false_tag`
 
-
 val stack_num_stubs_def = Define`
-  stack_num_stubs = 4n`;
+  stack_num_stubs = 5n`;
 
 val word_num_stubs_def = Define`
-  word_num_stubs = stack_num_stubs + 1 (* raise *)`;
+  word_num_stubs = stack_num_stubs + 1 (* raise *) + 1 (* store consts *)`;
 
 val data_num_stubs_def = Define`
-  data_num_stubs = word_num_stubs + (* general: *) 30 + (* dummy to make it odd *) 0 + (* bignum: *) 23 `;
+  data_num_stubs = word_num_stubs + (* general: *) 30 + (* bignum: *) 23 `;
 
 val bvl_num_stubs_def = Define`
-  bvl_num_stubs = data_num_stubs + 8 + (* dummy to make it a multiple of 3 *) 0
+  bvl_num_stubs = data_num_stubs + 8 + (* dummy to make it a multiple of 3 *) 1
 `;
 
 val bvl_to_bvi_namespaces_def = Define`
   bvl_to_bvi_namespaces = 3n`;
 
-Theorem bvl_num_stub_MOD:
-   bvl_num_stubs MOD bvl_to_bvi_namespaces = 0
+Theorem data_num_stubs_EVEN:
+  EVEN data_num_stubs
 Proof
-EVAL_TAC
+  EVAL_TAC
+QED
+
+Theorem bvl_num_stub_MOD:
+  bvl_num_stubs MOD bvl_to_bvi_namespaces = 0
+Proof
+  EVAL_TAC
 QED
 
 (* shift values, per dimindex(:α) *)
