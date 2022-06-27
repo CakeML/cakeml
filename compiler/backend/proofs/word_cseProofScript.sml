@@ -10,9 +10,28 @@ val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_cse"];
 
 Definition data_inv_def:
   data_inv (data:knowledge) (s:('a,'c,'ffi) wordSem$state) ⇔
-    (∀r v. lookup r data.inst_map = SOME v ⇒ get_var r s = get_var v s) ∧
-    (∀r v. lookup r data.och_map = SOME v ⇒ get_var r s = get_var v s)
+    (∀r v. lookup r data.inst_map = SOME v ⇒
+           get_var r s = get_var v s ∧
+           v IN domain data.all_names ∧ r IN domain data.all_names) ∧
+    (∀r v. lookup r data.och_map = SOME v ⇒
+           get_var r s = get_var v s ∧
+           v IN domain data.all_names ∧ r IN domain data.all_names) ∧
+    (∀n c v. lookup data.inst_instrs (instToNumList (Const n c)) = SOME v ⇒
+             lookup v s.locals = SOME (Word c) ∧
+             v IN domain data.all_names) ∧
+    (∀(a:'a arith) v. lookup data.inst_instrs (instToNumList (Arith a)) = SOME v ⇒
+                      get_var v s = get_var (firstRegOfArith a) s ∧
+                      v IN domain data.all_names ∧ firstRegOfArith a IN domain data.all_names) ∧
+    map_ok data.inst_instrs
+    (*
+    (∀r (c:'a word) x v. lookup data.inst_instrs (instToNumList (Const r c)) = SOME x ⇒
+           x IN domain data.all_names ∧ get_var x s = SOME (Word c)) ∧
+    (∀r v (a:'a arith). lookup data.inst_instrs (instToNumList (Arith a)) = SOME v ∧ firstRegOfArith a = r ⇒
+             get_var r s = get_var v s ∧
+             r IN domain data.all_names ∧ v IN domain data.all_names)
+     *)
 End
+(* domain_lookup lookup_insert*)
 
 Theorem canonicalRegs_correct[simp]:
   ∀data r s. data_inv data s ⇒ get_var (canonicalRegs data r) s = get_var r s
@@ -22,6 +41,56 @@ Proof
   fs [lookup_any_def] \\
   Cases_on ‘lookup r data.inst_map’ \\ fs [] \\
   Cases_on ‘lookup r data.och_map’ \\ fs []
+QED
+
+Theorem canonicalArith_correct[simp]:
+  ∀data s a. data_inv data s ⇒ inst (Arith (canonicalArith data a)) s = inst (Arith a) s
+Proof
+  cheat
+QED
+
+Theorem firstRegOfArith_canonicalArith[simp]:
+  ∀data a. firstRegOfArith (canonicalArith data a) = firstRegOfArith a
+Proof
+  rpt gen_tac \\ Cases_on ‘a’ \\ gvs [firstRegOfArith_def, canonicalArith_def]
+QED
+
+
+(* Some usefull proofs to automize *)
+
+Theorem lookup_empty[simp]:
+  ∀l. lookup (empty listCmp) l = NONE
+Proof
+  gen_tac
+  \\ gvs [mlmapTheory.lookup_def, balanced_mapTheory.lookup_def,
+          mlmapTheory.empty_def, balanced_mapTheory.empty_def]
+QED
+
+Theorem data_inv_insert_all_names[simp]:
+  ∀data s r. data_inv data s ⇒ data_inv (data with all_names:=insert r () data.all_names) s
+Proof
+  rpt gen_tac
+  \\ gvs [data_inv_def]
+  \\ rpt strip_tac
+  \\ first_x_assum drule_all \\ rw []
+QED
+
+Theorem TotOrd_listCmp[simp]:
+  TotOrd listCmp
+Proof
+  cheat
+QED
+
+Theorem map_ok_empty[simp]:
+  map_ok (empty listCmp)
+Proof
+  gvs [mlmapTheory.empty_thm]
+QED
+
+Theorem map_ok_insert[simp]:
+  ∀m l v. map_ok m ⇒ map_ok (insert m l v)
+Proof
+  gvs [mlmapTheory.insert_thm]
 QED
 
 (* setting up the goal *)
@@ -56,10 +125,7 @@ QED
 Theorem comp_Alloc_correct:
   ^(get_goal "Alloc")
 Proof
-  gvs[word_cse_def, data_inv_def, lookup_def, evaluate_def] \\
-  gvs [AllCaseEqs()] \\
-  cheat
-  (* TODO make alloc forget everything for now *)
+  gvs[word_cse_def, data_inv_def, empty_data_def, sptreeTheory.lookup_def]
 QED
 
 Theorem comp_Move_correct:
@@ -75,7 +141,127 @@ QED
 Theorem comp_Inst_correct:
   ^(get_goal "Inst")
 Proof
-  cheat
+  rpt gen_tac
+  \\ strip_tac
+  \\ Cases_on ‘i’
+  >- (* Skip *)
+   ( gvs [evaluate_def, data_inv_def, word_cse_def, word_cseInst_def,
+          inst_def, flat_exp_conventions_def]
+     \\ strip_tac
+     \\ rw [] \\ gvs []
+     \\ first_x_assum (drule_at Any) \\ gvs [] )
+
+  >- (* Const *)
+   ( gvs [evaluate_def, word_cse_def, word_cseInst_def, data_inv_def]
+     \\ Cases_on ‘is_seen n data’ \\ gvs [evaluate_def]
+     >- gvs [data_inv_def, empty_data_def, lookup_def]
+     \\ gvs [is_seen_def] \\ Cases_on ‘lookup n data.all_names’ \\ gvs []
+     \\ Cases_on ‘lookup data.inst_instrs (instToNumList (Const n c))’ \\ gvs[evaluate_def]
+     >- ( Cases_on ‘inst (Const n c) s’ \\ gvs [data_inv_def, inst_def, assign_def]
+          \\ Cases_on ‘word_exp s (Const c)’
+          \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, word_exp_def]
+          \\ strip_tac
+          >- (rpt gen_tac \\ Cases_on ‘r=n’ \\ Cases_on ‘v=n’ \\ gvs []
+              \\ strip_tac \\ first_x_assum drule_all \\ rw [])
+          \\ strip_tac
+          >- (rpt gen_tac \\ Cases_on ‘r=n’ \\ Cases_on ‘v=n’ \\ gvs []
+              \\ strip_tac \\ first_x_assum drule_all \\ rw [])
+          \\ strip_tac
+          >- ( rpt gen_tac \\ gvs [mlmapTheory.lookup_insert]
+               \\ Cases_on ‘c = c'’ \\ gvs [instToNumList_def, wordToNum_def]
+               \\ strip_tac \\ first_x_assum drule_all
+               \\ strip_tac
+               \\ Cases_on ‘v = n’ \\ gvs [])
+          \\ rpt gen_tac \\ gvs [instToNumList_def, arithToNumList_def, mlmapTheory.lookup_insert]
+          \\ strip_tac
+          \\ first_assum drule_all
+          \\ strip_tac
+          \\ Cases_on ‘v=n’ \\ gvs []
+          \\ Cases_on ‘firstRegOfArith a = n’ \\ gvs []
+        )
+     \\ Cases_on ‘inst (Const n c) s’ \\ gvs [inst_def, assign_def, word_exp_def]
+     \\ strip_tac
+     >- (first_x_assum drule_all \\ strip_tac
+         \\ gvs [get_vars_def, get_var_def, set_vars_def, alist_insert_def, set_var_def])
+     \\ strip_tac
+     >- (first_x_assum drule_all \\ strip_tac
+         \\ rpt gen_tac
+         \\ gvs [sptreeTheory.lookup_insert]
+         \\ Cases_on ‘r = n’ \\ strip_tac \\ gvs []
+         >- (Cases_on ‘n=v’ \\ gvs [set_var_def, get_var_def, lookup_insert])
+         \\ gvs [set_var_def, get_var_def, lookup_insert]
+         \\ first_x_assum drule_all \\ strip_tac \\ gvs []
+         \\ Cases_on ‘v = n’ \\ gvs [domain_lookup])
+     \\ strip_tac
+     >- (first_x_assum drule_all \\ strip_tac
+         \\ rpt gen_tac \\ strip_tac
+         \\ first_x_assum drule_all \\ strip_tac \\ gvs []
+         \\ gvs [set_var_def, get_var_def, lookup_insert]
+         \\ Cases_on ‘r = n’ \\ Cases_on ‘v = n’ \\ gvs [domain_lookup])
+     \\ rpt gen_tac \\ strip_tac
+     >- (first_assum drule_all \\ strip_tac \\ rpt gen_tac \\ strip_tac \\ first_x_assum drule_all
+         \\ strip_tac \\ gvs [set_var_def, lookup_insert, domain_lookup]
+         \\ Cases_on ‘v=n’ \\ gvs [] )
+     \\ first_assum drule_all \\ strip_tac \\ rpt gen_tac \\ strip_tac \\ first_x_assum drule_all
+     \\ strip_tac \\ gvs [set_var_def, get_var_def, lookup_insert, domain_lookup]
+     \\ Cases_on ‘v = n’ \\ gvs []
+     \\ Cases_on ‘firstRegOfArith a = n’ \\ gvs []
+   )
+
+  >- (* Arith *)
+   ( gvs [word_cse_def, word_cseInst_def]
+     \\ pairarg_tac \\ gvs []
+     \\ Cases_on ‘is_seen (firstRegOfArith a) data’ \\ gvs []
+     >- gvs [data_inv_def, empty_data_def, lookup_def]
+     \\ Cases_on ‘lookup data.inst_instrs (instToNumList (Arith (canonicalArith data a)))’ \\ gvs [evaluate_def]
+     >- ( strip_tac \\ cases_on ‘inst (Arith a) s’ \\ gvs []
+          \\ gvs [data_inv_def]
+          \\ strip_tac
+          >- (rpt gen_tac \\ strip_tac \\ first_x_assum drule_all \\ strip_tac
+              \\ Cases_on ‘a’ \\ gvs [inst_def, assign_def]
+              >- (Cases_on ‘word_exp s (Op b [Var n0; case r' of Reg r3 => Var r3 | Imm w => Const w])’
+                  \\ gvs [get_var_def, set_var_def, lookup_insert]
+                  \\ Cases_on ‘r=n’ \\ Cases_on ‘v=n’ \\ gvs [word_exp_def]
+                  \\ gvs [firstRegOfArith_def, is_seen_def, domain_lookup])
+              >- (Cases_on ‘word_exp s (Shift s'' (Var n0) n1)’
+                  \\ gvs [get_var_def, set_var_def, lookup_insert]
+                  \\ Cases_on ‘r=n’ \\ Cases_on ‘v=n’ \\ gvs [word_exp_def]
+                  \\ gvs [firstRegOfArith_def, is_seen_def, domain_lookup])
+              >- (Cases_on ‘get_vars [n1; n0] s’ \\ gvs [get_var_def, set_var_def]
+                  \\ Cases_on ‘x’ \\ gvs []
+                  \\ Cases_on ‘t’ \\ gvs []
+                  \\ Cases_on ‘h'’ \\ gvs []
+                  \\ Cases_on ‘h’ \\ gvs []
+                  \\ Cases_on ‘t'’ \\ gvs []
+                  \\ gvs [lookup_insert]
+                  \\ Cases_on ‘r=n’ \\ Cases_on ‘v=n’ \\ gvs []
+                  \\ gvs [firstRegOfArith_def, is_seen_def, domain_lookup])
+              >- (Cases_on ‘get_vars [n1; n2] s’
+                  \\ gvs [get_var_def, set_var_def, lookup_insert]
+                  \\ Cases_on ‘x’ \\ gvs []
+                  \\ Cases_on ‘t’ \\ gvs []
+                  \\ Cases_on ‘h'’ \\ gvs []
+                  \\ Cases_on ‘h’ \\ gvs []
+                  \\ Cases_on ‘t'’ \\ gvs []
+                         \\ gvs [lookup_insert]
+                  \\ Cases_on ‘r=n’ \\ Cases_on ‘v=n’ \\ gvs [word_exp_def]
+                  \\ gvs [firstRegOfArith_def, is_seen_def, domain_lookup]
+                  \\ Cases_on ‘r=n0’ \\ Cases_on ‘v=n0’ \\ gvs [word_exp_def]
+                  \\ gvs [firstRegOfArith_def, is_seen_def, domain_lookup]
+                  \\ cheat)
+              >- (cheat)
+              >- (cheat)
+              >- (cheat)
+              >- (cheat)
+             )
+          \\ cheat)
+     \\ cheat
+   )
+  >- (* Mem *)
+   ( Cases_on ‘a’
+   \\ gvs [evaluate_def, word_cse_def, word_cseInst_def, data_inv_def, empty_data_def, lookup_def] )
+  >- (* FP *)
+   ( gvs [evaluate_def, word_cse_def, word_cseInst_def, data_inv_def, empty_data_def, lookup_def] )
 QED
 
 Theorem comp_Assign_correct:
@@ -87,10 +273,18 @@ QED
 Theorem comp_Get_correct:
   ^(get_goal "Get")
 Proof
-  gvs[word_cse_def, data_inv_def, evaluate_def] \\
-  gvs[AllCaseEqs(), PULL_EXISTS] \\
-  cheat
+  gvs[word_cse_def, data_inv_def, evaluate_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ Cases_on ‘is_seen v data’ \\ gvs [evaluate_def]
+  >- gvs [empty_data_def, lookup_def, lookup_empty, sptreeTheory.lookup_def]
+  \\ strip_tac
+  \\ Cases_on ‘FLOOKUP s.store name’ \\ gvs[]
+  \\ fs [get_var_def, set_var_def]
+  \\ fs [lookup_insert, is_seen_def]
+  \\ Cases_on ‘lookup v data.all_names’ \\ gvs [domain_lookup]
+  \\ metis_tac [NOT_NONE_SOME]
 QED
+(* similare cases : Loc *)
 
 Theorem comp_Set_correct:
   ^(get_goal "wordLang$Set")
@@ -116,7 +310,8 @@ Theorem comp_Tick_correct:
 Proof
   gvs[word_cse_def, data_inv_def, evaluate_def] \\
   rw [] \\
-  fs [get_var_def, dec_clock_def]
+  fs [get_var_def, dec_clock_def] \\
+  first_x_assum drule_all \\ gs []
 QED
 
 Theorem comp_MustTerminate_correct:
@@ -129,14 +324,15 @@ Proof
   pairarg_tac \\ gvs [evaluate_def,flat_exp_conventions_def] \\
   gvs [AllCaseEqs()] \\
   strip_tac
-  >- gvs [evaluate_def] \\
+  >- (gvs [evaluate_def] \\
+      pairarg_tac \\ gvs []) \\
   pairarg_tac \\ gvs [] \\
   first_x_assum (drule_at Any) \\
   impl_tac
-  >- fs [data_inv_def, get_var_def] \\
+  >- fs [data_inv_def, get_var_def, SF SFY_ss] \\
   fs [evaluate_def] \\
   rw [] \\
-  gvs [AllCaseEqs(), data_inv_def, get_var_def]
+  gvs [AllCaseEqs(), data_inv_def, get_var_def, SF SFY_ss]
 QED
 
 Theorem comp_Seq_correct:
@@ -172,7 +368,6 @@ Proof
   fs[word_cse_def, evaluate_def, flat_exp_conventions_def]
   \\ rw []
   \\ gvs [AllCaseEqs()]
-
 QED
 
 Theorem comp_If_correct:
@@ -196,8 +391,16 @@ QED
 Theorem comp_LocValue_correct:
   ^(get_goal "wordLang$LocValue")
 Proof
-  gvs[word_cse_def, data_inv_def]
-  \\ cheat
+  gvs[word_cse_def, data_inv_def, evaluate_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ Cases_on ‘is_seen r data’ \\ gvs [evaluate_def]
+  >- gvs [empty_data_def, lookup_def]
+  \\ strip_tac
+  \\ Cases_on ‘l1 ∈ domain s.code’ \\ gvs[]
+  \\ fs [get_var_def, set_var_def]
+  \\ fs [lookup_insert, is_seen_def]
+  \\ Cases_on ‘lookup r data.all_names’ \\ gvs [domain_lookup]
+  \\ metis_tac [NOT_NONE_SOME]
 QED
 
 (* DATA EMPTY *)
@@ -205,31 +408,37 @@ QED
 Theorem comp_Install_correct:
   ^(get_goal "wordLang$Install")
 Proof
-  gvs[word_cse_def, data_inv_def]
+  gvs[word_cse_def, data_inv_def, empty_data_def, lookup_def]
 QED
 
 Theorem comp_CodeBufferWrite_correct:
   ^(get_goal "wordLang$CodeBufferWrite")
 Proof
-  gvs[word_cse_def, data_inv_def]
+  gvs[word_cse_def, data_inv_def, empty_data_def, lookup_def]
 QED
 
 Theorem comp_DataBufferWrite_correct:
   ^(get_goal "wordLang$DataBufferWrite")
 Proof
-  gvs[word_cse_def, data_inv_def]
+  gvs[word_cse_def, data_inv_def, empty_data_def, lookup_def]
 QED
 
 Theorem comp_FFI_correct:
   ^(get_goal "wordLang$FFI")
 Proof
-  gvs[word_cse_def, data_inv_def, evaluate_def]
+  gvs[word_cse_def, data_inv_def, empty_data_def, lookup_def]
 QED
 
 Theorem comp_Call_correct:
   ^(get_goal "wordLang$Call")
 Proof
-  fs[word_cse_def]
+  rpt gen_tac
+  \\ strip_tac
+  \\ rpt gen_tac
+  \\ cheat
+(* never end
+  gvs[word_cse_def, data_inv_def, empty_data_def, lookup_def]
+ *)
 QED
 
 (* DATA EMPTY *)
