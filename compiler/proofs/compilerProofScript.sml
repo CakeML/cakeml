@@ -115,7 +115,7 @@ Theorem compile_correct_gen:
         (semantics st prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
         ∀ms.
-          installed code cbspace data data_sp c.lab_conf.ffi_names st.sem_st.ffi
+          installed code cbspace data data_sp c.lab_conf.ffi_names
             (heap_regs cc.backend_config.stack_conf.reg_names) mc ms
             ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
@@ -146,6 +146,7 @@ Proof
   \\ IF_CASES_TAC \\ fs[]
   \\ simp[semantics_def]
   \\ rpt (BasicProvers.CASE_TAC \\ simp[])
+  \\ fs[]
   \\ drule compile_tap_compile
   \\ rpt strip_tac
   \\ (backendProofTheory.compile_correct'
@@ -188,7 +189,7 @@ Theorem compile_correct_lemma:
         (semantics_init ffi prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
         ∀ms.
-          installed code cbspace data data_sp c.lab_conf.ffi_names ffi (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
+          installed code cbspace data data_sp c.lab_conf.ffi_names (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit'
                 (is_safe_for_space ffi cc
@@ -238,7 +239,7 @@ Theorem compile_correct_safe_for_space:
         ∀ms.
           is_safe_for_space ffi cc (prelude ++ source_decs)              (* cost semantics *)
             (read_limits cc mc ms) ∧
-          installed code cbspace data data_sp c.lab_conf.ffi_names ffi
+          installed code cbspace data data_sp c.lab_conf.ffi_names
             (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
           machine_sem mc ffi ms = behaviours                             (* <-- equality *)
 Proof
@@ -272,7 +273,7 @@ Theorem compile_correct = Q.prove(`
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         ∀ms.
-          installed code cbspace data data_sp c.lab_conf.ffi_names ffi
+          installed code cbspace data data_sp c.lab_conf.ffi_names
             (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
           machine_sem mc ffi ms ⊆
             extend_with_resource_limit behaviours

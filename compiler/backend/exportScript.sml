@@ -47,6 +47,9 @@ val preamble_tm =
        "# define makesym(name,base,len) _makesym name, base, len";
        "#endif";
        "";
+       "#define DATA_BUFFER_SIZE    65536";
+       "#define CODE_BUFFER_SIZE  5242880";
+       "";
        "     .file        \"cake.S\"";
        ""])`` |> EVAL |> rconc;
 val preamble_def = Define`preamble = ^preamble_tm`;
@@ -60,6 +63,28 @@ val data_section_def = Define`data_section word_directive =
         "cdecl(cml_stackend): " ++ word_directive ++ " 0";
         "     .p2align 3";
         "cake_bitmaps:"]`;
+
+Definition data_buffer_def:
+  data_buffer =
+     MAP (\n. strlit (n ++ "\n"))
+       ["     .globl cdecl(cake_bitmaps_buffer_begin)";
+        "cdecl(cake_bitmaps_buffer_begin):";
+        "     .space DATA_BUFFER_SIZE";
+        "     .globl cdecl(cake_bitmaps_buffer_end)";
+        "cdecl(cake_bitmaps_buffer_end):"]
+End
+
+Definition code_buffer_def:
+  code_buffer =
+     MAP (\n. strlit (n ++ "\n"))
+       ["     .globl cdecl(cake_codebuffer_begin)";
+        "cdecl(cake_codebuffer_begin):";
+        "     .space CODE_BUFFER_SIZE";
+        "     .p2align 12";
+        "     .globl cdecl(cake_codebuffer_end)";
+        "cdecl(cake_codebuffer_end):";
+        "     .space 4096"]
+End
 
 val comm_strlit_def = Define `comm_strlit = strlit ","`;
 val newl_strlit_def = Define `newl_strlit = strlit "\n"`;

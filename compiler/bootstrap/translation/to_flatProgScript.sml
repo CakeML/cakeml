@@ -1,14 +1,14 @@
 (*
   Translate backend phases up to and including flatLang.
 *)
-open preamble ml_translatorLib ml_translatorTheory basisProgTheory
+open preamble ml_translatorLib ml_translatorTheory decProgTheory
 
 local open source_to_flatTheory in end;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = new_theory "to_flatProg";
-val _ = translation_extends "basisProg";
+val _ = translation_extends "decProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_flatProg");
 
@@ -99,6 +99,14 @@ val res = translate source_to_flatTheory.compile_prog_def;
 
 val _ = (length (hyp res) = 0)
         orelse failwith "Unproved side condition: source_to_flat_compile_prog";
+(* ------------------------------------------------------------------------- *)
+(* source_to_source                                                          *)
+(* ------------------------------------------------------------------------- *)
+
+val res = translate source_to_sourceTheory.compile_def;
+
+val _ = (length (hyp res) = 0)
+        orelse failwith "Unproved side condition: source_to_source_compile";
 
 (* ------------------------------------------------------------------------- *)
 (* flat_elim                                                                 *)
@@ -143,6 +151,8 @@ val res = translate flat_patternTheory.compile_dec_def;
 val res = translate source_to_flatTheory.compile_flat_def;
 
 val res = translate source_to_flatTheory.compile_def;
+
+val res = translate source_to_flatTheory.inc_compile_def;
 
 (* ------------------------------------------------------------------------- *)
 

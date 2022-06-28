@@ -106,11 +106,11 @@ add_constraint (l : loc_err_info) t1 t2 =
     dtcase t_unify st.subst t1 t2 of
       | NONE =>
           (Failure (l.loc, concat [implode "Type mismatch between ";
-                                   FST (inf_type_to_string l.err
-                                         (t_walkstar st.subst t1));
+                                   inf_type_to_string l.err
+                                         (t_walkstar st.subst t1);
                                    implode " and ";
-                                   FST (inf_type_to_string l.err
-                                         (t_walkstar st.subst t2))]), st)
+                                   inf_type_to_string l.err
+                                         (t_walkstar st.subst t2)]), st)
       | SOME s =>
           (Success (), st with <| subst := s |>)`;
 
@@ -372,6 +372,12 @@ val op_to_string_def = Define `
 (op_to_string (FP_bop _) = (implode "FP_bop", 2)) ∧
 (op_to_string (FP_uop _) = (implode "FP_uop", 1)) ∧
 (op_to_string (FP_cmp _) = (implode "FP_cmp", 2)) ∧
+(op_to_string (FpToWord) = (implode "FpToWord", 1)) /\
+(op_to_string (FpFromWord) = (implode "FpFromWord", 1)) /\
+(op_to_string (Real_bop _) = (implode "Real_bop", 2)) ∧
+(op_to_string (Real_uop _) = (implode "Real_uop", 1)) ∧
+(op_to_string (Real_cmp _) = (implode "Real_cmp", 2)) ∧
+(op_to_string (RealFromFP) = (implode "RealFromFP", 1)) ∧
 (op_to_string (Shift _ _ _) = (implode "Shift", 1)) ∧
 (op_to_string Equality = (implode "Equality", 2)) ∧
 (op_to_string Opapp = (implode "Opapp", 2)) ∧
@@ -403,6 +409,7 @@ val op_to_string_def = Define `
 (op_to_string Vlength = (implode "Vlength", 1)) ∧
 (op_to_string Aalloc = (implode "Aalloc", 2)) ∧
 (op_to_string AallocEmpty = (implode "AallocEmpty", 1)) ∧
+(op_to_string AallocFixed = (implode "AallocFixed", 1)) ∧
 (op_to_string Asub = (implode "Asub", 2)) ∧
 (op_to_string Alength = (implode "Alength", 1)) ∧
 (op_to_string Aupdate = (implode "Aupdate", 3)) ∧
@@ -422,11 +429,13 @@ op_simple_constraints op =
    | Opn _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tint_num)
    | Opb _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tbool_num)
    | Opw wz opw => (T, [Tem (word_tc wz); Tem (word_tc wz)], Tem (word_tc wz))
-   | FP_top _ => (T, [Tem Tword64_num; Tem Tword64_num; Tem Tword64_num],
-        Tem Tword64_num)
-   | FP_bop _ => (T, [Tem Tword64_num; Tem Tword64_num], Tem Tword64_num)
-   | FP_uop _ => (T, [Tem Tword64_num], Tem Tword64_num)
-   | FP_cmp _ => (T, [Tem Tword64_num; Tem Tword64_num], Tem Tbool_num)
+   | FP_top _ => (T, [Tem Tdouble_num; Tem Tdouble_num; Tem Tdouble_num],
+        Tem Tdouble_num)
+   | FP_bop _ => (T, [Tem Tdouble_num; Tem Tdouble_num], Tem Tdouble_num)
+   | FP_uop _ => (T, [Tem Tdouble_num], Tem Tdouble_num)
+   | FP_cmp _ => (T, [Tem Tdouble_num; Tem Tdouble_num], Tem Tbool_num)
+   | FpFromWord => (T, [Tem Tword64_num], Tem Tdouble_num)
+   | FpToWord => (T, [Tem Tdouble_num], Tem Tword64_num)
    | Shift wz _ _ => (T, [Tem (word_tc wz)], Tem (word_tc wz))
    | Aw8alloc => (T, [Tem Tint_num; Tem Tword8_num], Tem Tword8array_num)
    | Aw8sub => (T, [Tem Tword8array_num; Tem Tint_num], Tem Tword8_num)
@@ -543,6 +552,11 @@ constrain_op l op ts =
    | (Aupdate_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Aw8update_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
+   | (Real_uop _, _) => failwith l (implode "Reals do not have a type")
+   | (Real_bop _, _) => failwith l (implode "Reals do not have a type")
+   | (Real_cmp _, _) => failwith l (implode "Reals do not have a type")
+   | (RealFromFP, _) => failwith l (implode "Reals do not have a type")
+   | (AallocFixed, _) => failwith l (implode "Unsafe ops do not have a type") (* not actually unsafe *)
    | (Eval, _) => failwith l (implode "Unsafe ops do not have a type")
    | (Env_id, _) => failwith l (implode "Unsafe ops do not have a type")
    | _ => failwith l (op_n_args_msg op (LENGTH ts))
@@ -566,10 +580,11 @@ Theorem constrain_op_error_msg_sanity:
   constrain_op l op args s = (Failure (l',msg), s')
   ⇒
   IS_PREFIX (explode msg) "Type mismatch" \/
-  IS_PREFIX (explode msg) "Unsafe"
+  IS_PREFIX (explode msg) "Unsafe" \/
+  IS_PREFIX (explode msg) "Real"
 Proof
  rpt strip_tac >>
- qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2` >>
+ qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2 \/ IS_PREFIX _ m3` >>
  cases_on `op` >>
  fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
  gvs [LENGTH_EQ_NUM_compute] >>
@@ -715,6 +730,8 @@ val infer_e_def = tDefine "infer_e" `
      () <- add_constraint l t' (infer_type_subst [] t'');
      return t'
    od) ∧
+(infer_e l ienv (FpOptimise annot e) =
+  infer_e l ienv e) /\
 (infer_e l ienv (Lannot e new_l) =
   infer_e (l with loc := SOME new_l) ienv e) ∧
 (infer_es l ienv [] =
@@ -1116,7 +1133,7 @@ val inf_env_to_types_string_def = Define `
   inf_env_to_types_string s =
     let l = ns_to_alist (ns_nub s.inf_v) in
     let xs = MAP (\(n,_,t). concat [implode n; strlit ": ";
-                                    FST (inf_type_to_string s.inf_t t);
+                                    inf_type_to_string s.inf_t t;
                                     strlit "\n";]) l in
       (* QSORT mlstring_le *) REVERSE xs`
 

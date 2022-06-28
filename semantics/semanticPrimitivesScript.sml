@@ -3,7 +3,7 @@
   primitive operations) used in the semantics.
 *)
 open HolKernel Parse boolLib bossLib;
-open libTheory astTheory namespaceTheory ffiTheory fpSemTheory;
+open libTheory astTheory namespaceTheory ffiTheory fpValTreeTheory fpSemTheory realOpsTheory;
 
 val _ = numLib.prefer_num();
 
@@ -42,8 +42,21 @@ Datatype:
   | Recclosure (v sem_env) ((varN # varN # exp) list) varN
   | Loc num
   | Vectorv (v list)
+  | FP_WordTree fp_word_val
+  | FP_BoolTree fp_bool_val
+  | Real real
   (* Environment value for Eval, and its numeric identifier *)
   | Env (v sem_env) (num # num)
+End
+
+(* The runtime semantics should be able to deal with constants too, thus we add
+   a translation function from word constants to value trees *)
+(*val fp_translate: v -> maybe v*)
+Definition fp_translate_def:
+  fp_translate (Litv (Word64 w)) = (SOME (FP_WordTree (Fp_const w))) ∧
+  fp_translate (FP_WordTree v) = (SOME (FP_WordTree v)) ∧
+  fp_translate (FP_BoolTree v) = (SOME (FP_BoolTree v)) ∧
+  fp_translate _=  NONE
 End
 
 Type env_ctor = ``: (modN, conN, (num # stamp)) namespace``
@@ -76,11 +89,15 @@ val _ = Define ‘fp_uop_type_num = 13’
 val _ = Define ‘fp_bop_type_num = 14’
 val _ = Define ‘fp_top_type_num = 15’
 val _ = Define ‘fp_cmp_type_num = 16’
-val _ = Define ‘op_type_num     = 17’
-val _ = Define ‘locn_type_num   = 18’
-val _ = Define ‘locs_type_num   = 19’
-val _ = Define ‘exp_type_num    = 20’
-val _ = Define ‘dec_type_num    = 21’
+val _ = Define ‘real_uop_type_num = 17’
+val _ = Define ‘real_bop_type_num = 18’
+val _ = Define ‘real_cmp_type_num = 19’
+val _ = Define ‘op_type_num     = 20’
+val _ = Define ‘locn_type_num   = 21’
+val _ = Define ‘locs_type_num   = 22’
+val _ = Define ‘fp_opt_num      = 23’
+val _ = Define ‘exp_type_num    = 24’
+val _ = Define ‘dec_type_num    = 25’
 
 (* The result of evaluation *)
 Datatype:
@@ -155,6 +172,29 @@ Type compiler_args = ``: ((num # num) # v # dec list)``
 Type compiler_fun = ``: compiler_args ->
      (v # word8 list # word64 list)option``
 
+(*
+   State component encapsulating Icing optimizations and rewriter oracle.
+   rws := list of rewrites allowed to be applied by the semantics
+   opts := oracle that decides which rewrites are applied next
+   choices := global counter how many rewriting steps have been done
+   canOpt := flag indicating whether evaluation has stepped below an "opt" scope
+*)
+Datatype:
+ optChoice =
+    Strict (* strict 64-bit floating-point semantics, ignores annotations *)
+ | FPScope fp_opt (* currently under scope *)
+End
+
+Datatype:
+ fpState =
+  <| rws: fp_rw list
+   ; opts: num -> rewrite_app list
+   ; choices: num
+   ; canOpt : optChoice
+   ; real_sem : bool
+   |>
+End
+
 Datatype:
  eval_decs_state =
   <|
@@ -195,6 +235,7 @@ Datatype:
    ; ffi : 'ffi ffi_state
    ; next_type_stamp : num
    ; next_exn_stamp : num
+   ; fp_state : fpState
    ; eval_state :  eval_state option
    |>
 End
@@ -252,6 +293,27 @@ Definition ctor_same_type_def:
      (NONE,NONE) => T
    | (SOME stamp1,SOME stamp2) => same_type stamp1 stamp2
    | _ => F
+End
+
+Definition Boolv_def:
+  Boolv b =
+    if b then Conv (SOME (TypeStamp "True" bool_type_num)) []
+         else Conv (SOME (TypeStamp "False" bool_type_num)) []
+End
+
+Definition compress_def:
+ compress (FP_WordTree fp) = (Litv (Word64 (compress_word fp))) ∧
+ compress (FP_BoolTree fp) = (Boolv (compress_bool fp)) ∧
+ compress (Real r) = (Real r) ∧
+ compress (Litv l) =  (Litv l) ∧
+ compress (Conv ts vs) = (Conv ts (compress_list vs)) ∧
+ compress (Closure env x e) = (Closure env x e) ∧
+ compress (Env env n) =  (Env env n) ∧
+ compress (Recclosure env es x) = (Recclosure env es x) ∧
+ compress (Loc n) =  (Loc n) ∧
+ compress (Vectorv vs) = (Vectorv (compress_list vs)) ∧
+ compress_list [] = [] ∧
+ compress_list (v::vs) = (compress v)::(compress_list vs)
 End
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
@@ -351,6 +413,31 @@ Definition do_eq_def:
   do_eq (Closure v8 v9 v10) (Recclosure v11 v12 v13) = Eq_val T ∧
   do_eq (Recclosure v14 v15 v16) (Closure v17 v18 v19) = Eq_val T ∧
   do_eq (Recclosure v20 v21 v22) (Recclosure v23 v24 v25) = Eq_val T ∧
+  do_eq (FP_BoolTree v1) (FP_BoolTree v2) = (Eq_val (compress_bool v1 <=> compress_bool v2)) ∧
+  do_eq (FP_BoolTree v1) (Conv cn2 vs2)=
+   (case Boolv (compress_bool v1) of
+    Conv cn1 vs1 =>
+    if (cn1 = cn2) /\ (LENGTH vs1 = LENGTH vs2) then
+      do_eq_list vs1 vs2
+      else if ctor_same_type cn1 cn2 then
+         Eq_val F
+      else
+        Eq_type_error
+  | _ => Eq_type_error) ∧
+  do_eq (Conv cn1 vs1) (FP_BoolTree v2)=
+   (case Boolv (compress_bool v2) of
+    Conv cn2 vs2 =>
+    if (cn1 = cn2) /\ (LENGTH vs1 = LENGTH vs2) then
+      do_eq_list vs1 vs2
+      else if ctor_same_type cn1 cn2 then
+         Eq_val F
+      else
+        Eq_type_error
+  | _ => Eq_type_error) ∧
+  do_eq (FP_WordTree v1) (FP_WordTree v2) = (Eq_val (compress_word v1 = compress_word v2)) ∧
+  do_eq (Litv (Word64 w1)) (FP_WordTree v2) = (Eq_val (w1 = compress_word v2)) ∧
+  do_eq (FP_WordTree v1) (Litv (Word64 w2)) = (Eq_val (compress_word v1 = w2)) ∧
+  do_eq (Real r1) (Real r2) =  (Eq_val (r1 = r2)) ∧
   do_eq (Env v26 (gen1,id1)) (Env v27 (gen2,id2)) =
     Eq_val (gen1 = gen2 ∧ id1 = id2) ∧
   do_eq _ _ = Eq_type_error ∧
@@ -363,6 +450,7 @@ Definition do_eq_def:
 Termination
   WF_REL_TAC `inv_image $< (λx. case x of INL (v1,v2) => v_size v1
                                         | INR (vs1,vs2) => list_size v_size vs1)`
+  >> Cases_on ‘compress_bool v1’ >> gs[Boolv_def, listTheory.list_size_def]
 End
 
 (* Do an application *)
@@ -431,341 +519,9 @@ Definition v_to_id_def:
   v_to_id _ = NONE
 End
 
-
-(*val enc_pair : v -> v -> v*)
-val _ = Define `
- ((enc_pair:v -> v -> v) v1 v2=  (Conv NONE [v1; v2]))`;
-
-
-Definition enc_list_def:
-  ((enc_list:(v)list -> v) []=
-     (Conv (SOME (TypeStamp "[]" list_type_num)) []))
-/\
-  ((enc_list:(v)list -> v) (x::xs)=
-     (Conv (SOME (TypeStamp "::" list_type_num)) [x; enc_list xs]))
+Definition nat_to_v_def:
+  nat_to_v n = Litv (IntLit (&n))
 End
-
-(*val enc_option : maybe v -> v*)
- val _ = Define `
-
-  ((enc_option:(v)option -> v) NONE=
-     (Conv (SOME (TypeStamp "None" option_type_num)) []))
-/\
-  ((enc_option:(v)option -> v) (SOME x)=
-     (Conv (SOME (TypeStamp "Some" option_type_num)) [x]))`;
-
-
-(*val enc_lit : lit -> v*)
- val _ = Define `
-
-  ((enc_lit:lit -> v) (Word64 w)=
-     (Conv (SOME (TypeStamp "Word64" lit_type_num)) [Litv (Word64 w)]))
-/\
-  ((enc_lit:lit -> v) (Word8 b)=
-     (Conv (SOME (TypeStamp "Word8" lit_type_num)) [Litv (Word8 b)]))
-/\
-  ((enc_lit:lit -> v) (StrLit s)=
-     (Conv (SOME (TypeStamp "Strlit" lit_type_num)) [Litv (StrLit s)]))
-/\
-  ((enc_lit:lit -> v) (Char c)=
-     (Conv (SOME (TypeStamp "Char" lit_type_num)) [Litv (Char c)]))
-/\
-  ((enc_lit:lit -> v) (IntLit i)=
-     (Conv (SOME (TypeStamp "Intlit" lit_type_num)) [Litv (IntLit i)]))`;
-
-
-Definition enc_id_def:
-  ((enc_id:((string),(string))id -> v) (Short s)=
-     (Conv (SOME (TypeStamp "Short" id_type_num)) [Litv (StrLit s)]))
-/\
-  ((enc_id:((string),(string))id -> v) (Long s i)=
-     (Conv (SOME (TypeStamp "Long" id_type_num)) [Litv (StrLit s); enc_id i]))
-End
-
-Definition enc_ast_t_def:
-  ((enc_ast_t:ast_t -> v) (Atapp x y)=
-     (Conv (SOME (TypeStamp "Atapp" ast_t_type_num))
-      [enc_list (MAP enc_ast_t x); enc_id y]))
-/\
-  ((enc_ast_t:ast_t -> v) (Attup x)=
-     (Conv (SOME (TypeStamp "Attup" ast_t_type_num))
-      [enc_list (MAP enc_ast_t x)]))
-/\
-  ((enc_ast_t:ast_t -> v) (Atfun x_3 x_2)=
-     (Conv (SOME (TypeStamp "Atfun" ast_t_type_num))
-      [enc_ast_t x_3; enc_ast_t x_2]))
-/\
-  ((enc_ast_t:ast_t -> v) (Atvar x_1)=
-     (Conv (SOME (TypeStamp "Atvar" ast_t_type_num)) [Litv (StrLit x_1)]))
-Termination
-  WF_REL_TAC `measure ast_t_size`
-End
-
-Definition enc_pat_def:
-  ((enc_pat:pat -> v) (Ptannot x_9 x_8)=
-     (Conv (SOME (TypeStamp "Ptannot" pat_type_num))
-      [enc_pat x_9; enc_ast_t x_8]))
-/\
-  ((enc_pat:pat -> v) (Pref x_7)=
-     (Conv (SOME (TypeStamp "Pref" pat_type_num))
-      [enc_pat x_7]))
-/\
-  ((enc_pat:pat -> v) (Pas x_6 x_5)=
-     (Conv (SOME (TypeStamp "Pas" pat_type_num))
-      [enc_pat x_6; Litv (StrLit x_5)]))
-/\
-  ((enc_pat:pat -> v) (Pcon x_4 x_3)=
-     (Conv (SOME (TypeStamp "Pcon" pat_type_num))
-      [enc_option (OPTION_MAP enc_id x_4); enc_list (MAP enc_pat x_3)]))
-/\
-  ((enc_pat:pat -> v) (Plit x_2)=
-     (Conv (SOME (TypeStamp "Plit" pat_type_num))
-      [enc_lit x_2]))
-/\
-  ((enc_pat:pat -> v) (Pvar x_1)=
-     (Conv (SOME (TypeStamp "Pvar" pat_type_num))
-      [Litv (StrLit x_1)]))
-/\
-  ((enc_pat:pat -> v) Pany=
-     (Conv (SOME (TypeStamp "Pany" pat_type_num)) []))
-Termination
-  WF_REL_TAC ‘measure pat_size’
-End
-
-(*val enc_lop : lop -> v*)
- val _ = Define `
-
-  ((enc_lop:lop -> v) Or=  (Conv (SOME (TypeStamp "Or" lop_type_num)) []))
-/\
-  ((enc_lop:lop -> v) And=  (Conv (SOME (TypeStamp "And" lop_type_num)) []))`;
-
-
-(*val enc_opn : opn -> v*)
- val _ = Define `
-
-  ((enc_opn:opn -> v) Modulo=  (Conv (SOME (TypeStamp "Modulo" opn_type_num)) []))
-/\
-  ((enc_opn:opn -> v) Divide=  (Conv (SOME (TypeStamp "Divide" opn_type_num)) []))
-/\
-  ((enc_opn:opn -> v) Times=  (Conv (SOME (TypeStamp "Times" opn_type_num)) []))
-/\
-  ((enc_opn:opn -> v) Minus=  (Conv (SOME (TypeStamp "Minus" opn_type_num)) []))
-/\
-  ((enc_opn:opn -> v) Plus=  (Conv (SOME (TypeStamp "Plus" opn_type_num)) []))`;
-
-
-(*val enc_opb : opb -> v*)
- val _ = Define `
-
-  ((enc_opb:opb -> v) Geq=  (Conv (SOME (TypeStamp "Geq" opb_type_num)) []))
-/\
-  ((enc_opb:opb -> v) Leq=  (Conv (SOME (TypeStamp "Leq" opb_type_num)) []))
-/\
-  ((enc_opb:opb -> v) Gt=  (Conv (SOME (TypeStamp "Gt" opb_type_num)) []))
-/\
-  ((enc_opb:opb -> v) Lt=  (Conv (SOME (TypeStamp "Lt" opb_type_num)) []))`;
-
-
-(*val enc_opw : opw -> v*)
- val _ = Define `
-
-  ((enc_opw:opw -> v) Sub=  (Conv (SOME (TypeStamp "Sub" opw_type_num)) []))
-/\
-  ((enc_opw:opw -> v) Add=  (Conv (SOME (TypeStamp "Add" opw_type_num)) []))
-/\
-  ((enc_opw:opw -> v) Xor=  (Conv (SOME (TypeStamp "Xor" opw_type_num)) []))
-/\
-  ((enc_opw:opw -> v) Orw=  (Conv (SOME (TypeStamp "Orw" opw_type_num)) []))
-/\
-  ((enc_opw:opw -> v) Andw=  (Conv (SOME (TypeStamp "Andw" opw_type_num)) []))`;
-
-
-(*val enc_shift : shift -> v*)
- val _ = Define `
-
-  ((enc_shift:shift -> v) Ror=  (Conv (SOME (TypeStamp "Ror" shift_type_num)) []))
-/\
-  ((enc_shift:shift -> v) Asr=  (Conv (SOME (TypeStamp "Asr" shift_type_num)) []))
-/\
-  ((enc_shift:shift -> v) Lsr=  (Conv (SOME (TypeStamp "Lsr" shift_type_num)) []))
-/\
-  ((enc_shift:shift -> v) Lsl=  (Conv (SOME (TypeStamp "Lsl" shift_type_num)) []))`;
-
-
-(*val enc_word_size : word_size -> v*)
- val _ = Define `
-
-  ((enc_word_size:word_size -> v) W64=  (Conv (SOME (TypeStamp "W64" word_size_type_num)) []))
-/\
-  ((enc_word_size:word_size -> v) W8=  (Conv (SOME (TypeStamp "W8" word_size_type_num)) []))`;
-
-
-(*val enc_fp_uop : fp_uop -> v*)
- val _ = Define `
-
-  ((enc_fp_uop:fp_uop -> v) FP_Sqrt=  (Conv (SOME (TypeStamp "Fp_sqrt" fp_uop_type_num)) []))
-/\
-  ((enc_fp_uop:fp_uop -> v) FP_Neg=  (Conv (SOME (TypeStamp "Fp_neg" fp_uop_type_num)) []))
-/\
-  ((enc_fp_uop:fp_uop -> v) FP_Abs=  (Conv (SOME (TypeStamp "Fp_abs" fp_uop_type_num)) []))`;
-
-
-(*val enc_fp_bop : fp_bop -> v*)
- val _ = Define `
-
-  ((enc_fp_bop:fp_bop -> v) FP_Div=  (Conv (SOME (TypeStamp "Fp_div" fp_bop_type_num)) []))
-/\
-  ((enc_fp_bop:fp_bop -> v) FP_Mul=  (Conv (SOME (TypeStamp "Fp_mul" fp_bop_type_num)) []))
-/\
-  ((enc_fp_bop:fp_bop -> v) FP_Sub=  (Conv (SOME (TypeStamp "Fp_sub" fp_bop_type_num)) []))
-/\
-  ((enc_fp_bop:fp_bop -> v) FP_Add=  (Conv (SOME (TypeStamp "Fp_add" fp_bop_type_num)) []))`;
-
-
-(*val enc_fp_top : fp_top -> v*)
- val _ = Define `
-
-  ((enc_fp_top:fp_top -> v) FP_Fma=  (Conv (SOME (TypeStamp "Fp_fma" fp_top_type_num)) []))`;
-
-
-(*val enc_fp_cmp : fp_cmp -> v*)
- val _ = Define `
-
-  ((enc_fp_cmp:fp_cmp -> v) FP_Equal=
-     (Conv (SOME (TypeStamp "Fp_equal" fp_cmp_type_num)) []))
-/\
-  ((enc_fp_cmp:fp_cmp -> v) FP_GreaterEqual=
-     (Conv (SOME (TypeStamp "Fp_greaterequal" fp_cmp_type_num)) []))
-/\
-  ((enc_fp_cmp:fp_cmp -> v) FP_Greater=
-     (Conv (SOME (TypeStamp "Fp_greater" fp_cmp_type_num)) []))
-/\
-  ((enc_fp_cmp:fp_cmp -> v) FP_LessEqual=
-     (Conv (SOME (TypeStamp "Fp_lessequal" fp_cmp_type_num)) []))
-/\
-  ((enc_fp_cmp:fp_cmp -> v) FP_Less=
-     (Conv (SOME (TypeStamp "Fp_less" fp_cmp_type_num)) []))`;
-
-
-(*val nat_to_v : nat -> v*)
-val _ = Define `
- ((nat_to_v:num -> v) n=  (Litv (IntLit (int_of_num n))))`;
-
-
-(*val enc_op : op -> v*)
- val _ = Define `
-
-  ((enc_op:op -> v) Eval=  (Conv (SOME (TypeStamp "Eval" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Env_id=  (Conv (SOME (TypeStamp "Env_id" op_type_num)) []))
-/\
-  ((enc_op:op -> v) (FFI x_15)=
-     (Conv (SOME (TypeStamp "Ffi" op_type_num)) [Litv (StrLit x_15)]))
-/\
-  ((enc_op:op -> v) ConfigGC=  (Conv (SOME (TypeStamp "Configgc" op_type_num)) []))
-/\
-  ((enc_op:op -> v) ListAppend=  (Conv (SOME (TypeStamp "Listappend" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Aupdate=  (Conv (SOME (TypeStamp "Aupdate" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Alength=  (Conv (SOME (TypeStamp "Alength" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Asub=  (Conv (SOME (TypeStamp "Asub" op_type_num)) []))
-/\
-  ((enc_op:op -> v) AallocEmpty=  (Conv (SOME (TypeStamp "Aallocempty" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Aalloc=  (Conv (SOME (TypeStamp "Aalloc" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Aupdate_unsafe=
-     (Conv (SOME (TypeStamp "Aupdate_unsafe" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Asub_unsafe=  (Conv (SOME (TypeStamp "Asub_unsafe" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Vlength=  (Conv (SOME (TypeStamp "Vlength" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Vsub=  (Conv (SOME (TypeStamp "Vsub" op_type_num)) []))
-/\
-  ((enc_op:op -> v) VfromList=  (Conv (SOME (TypeStamp "Vfromlist" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Strcat=  (Conv (SOME (TypeStamp "Strcat" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Strlen=  (Conv (SOME (TypeStamp "Strlen" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Strsub=  (Conv (SOME (TypeStamp "Strsub" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Explode=  (Conv (SOME (TypeStamp "Explode" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Implode=  (Conv (SOME (TypeStamp "Implode" op_type_num)) []))
-/\
-  ((enc_op:op -> v) (Chopb x_14)=
-     (Conv (SOME (TypeStamp "Chopb" op_type_num)) [enc_opb x_14]))
-/\
-  ((enc_op:op -> v) Chr=  (Conv (SOME (TypeStamp "Chr_1" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Ord=  (Conv (SOME (TypeStamp "Ord" op_type_num)) []))
-/\
-  ((enc_op:op -> v) CopyAw8Aw8=  (Conv (SOME (TypeStamp "Copyaw8aw8" op_type_num)) []))
-/\
-  ((enc_op:op -> v) CopyAw8Str=  (Conv (SOME (TypeStamp "Copyaw8str" op_type_num)) []))
-/\
-  ((enc_op:op -> v) CopyStrAw8=  (Conv (SOME (TypeStamp "Copystraw8" op_type_num)) []))
-/\
-  ((enc_op:op -> v) CopyStrStr=  (Conv (SOME (TypeStamp "Copystrstr" op_type_num)) []))
-/\
-  ((enc_op:op -> v) (WordToInt x_13)=
-     (Conv (SOME (TypeStamp "Wordtoint" op_type_num)) [enc_word_size x_13]))
-/\
-  ((enc_op:op -> v) (WordFromInt x_12)=
-     (Conv (SOME (TypeStamp "Wordfromint" op_type_num)) [enc_word_size x_12]))
-/\
-  ((enc_op:op -> v) Aw8update=  (Conv (SOME (TypeStamp "Aw8update" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Aw8length=  (Conv (SOME (TypeStamp "Aw8length" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Aw8sub=  (Conv (SOME (TypeStamp "Aw8sub" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Aw8alloc=  (Conv (SOME (TypeStamp "Aw8alloc" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Aw8sub_unsafe=  (Conv (SOME (TypeStamp "Aw8sub_unsafe" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Aw8update_unsafe=
-     (Conv (SOME (TypeStamp "Aw8update_unsafe" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Opderef=  (Conv (SOME (TypeStamp "Opderef" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Opref=  (Conv (SOME (TypeStamp "Opref" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Opassign=  (Conv (SOME (TypeStamp "Opassign" op_type_num)) []))
-/\
-  ((enc_op:op -> v) Opapp=  (Conv (SOME (TypeStamp "Opapp" op_type_num)) []))
-/\
-  ((enc_op:op -> v) (FP_top x_11)=
-     (Conv (SOME (TypeStamp "Fp_top" op_type_num)) [enc_fp_top x_11]))
-/\
-  ((enc_op:op -> v) (FP_bop x_10)=
-     (Conv (SOME (TypeStamp "Fp_bop" op_type_num)) [enc_fp_bop x_10]))
-/\
-  ((enc_op:op -> v) (FP_uop x_9)=
-     (Conv (SOME (TypeStamp "Fp_uop" op_type_num)) [enc_fp_uop x_9]))
-/\
-  ((enc_op:op -> v) (FP_cmp x_8)=
-     (Conv (SOME (TypeStamp "Fp_cmp" op_type_num)) [enc_fp_cmp x_8]))
-/\
-  ((enc_op:op -> v) Equality=  (Conv (SOME (TypeStamp "Equality" op_type_num)) []))
-/\
-  ((enc_op:op -> v) (Shift x_7 x_6 x_5)=
-     (Conv (SOME (TypeStamp "Shift" op_type_num))
-      [enc_word_size x_7; enc_shift x_6; nat_to_v x_5]))
-/\
-  ((enc_op:op -> v) (Opw x_4 x_3)=
-     (Conv (SOME (TypeStamp "Opw" op_type_num)) [enc_word_size x_4; enc_opw x_3]))
-/\
-  ((enc_op:op -> v) (Opb x_2)=
-     (Conv (SOME (TypeStamp "Opb" op_type_num)) [enc_opb x_2]))
-/\
-  ((enc_op:op -> v) (Opn x_1)=
-     (Conv (SOME (TypeStamp "Opn" op_type_num)) [enc_opn x_1]))`;
-
 
 Definition maybe_all_list_def:
   maybe_all_list v =
@@ -862,6 +618,9 @@ Definition concrete_v_def:
      | Litv _ => T
      | Conv v_ vs => concrete_v_list vs
      | Vectorv vs => concrete_v_list vs
+     | FP_WordTree fp => T
+     | FP_BoolTree fp => T
+     | Real r => T
      | _ => F) ∧
   (concrete_v_list [] ⇔ T) ∧
   (concrete_v_list (v::vs) ⇔ concrete_v v ∧ concrete_v_list vs)
@@ -913,6 +672,7 @@ Definition do_eval_def:
 End
 
 (* conclude an Eval generation *)
+
 Definition reset_env_generation_def:
   reset_env_generation prior_es es =
     case (prior_es,es) of
@@ -1004,16 +764,10 @@ End
 Definition shift64_lookup_def:
   shift64_lookup sh =
     case sh of
-    |  Lsl => word_lsl
+    | Lsl => word_lsl
     | Lsr => word_lsr
     | Asr => word_asr
     | Ror => word_ror : word64 -> num -> word64
-End
-
-Definition Boolv_def:
-  Boolv b =
-    if b then Conv (SOME (TypeStamp "True" bool_type_num)) []
-         else Conv (SOME (TypeStamp "False" bool_type_num)) []
 End
 
 Datatype:
@@ -1021,6 +775,40 @@ Datatype:
 End
 
 Type store_ffi = “: 'v store # 'ffi ffi_state”
+
+Definition do_fprw_def:
+ do_fprw (v:(v,v) result) fp_opt fp_rws=
+   (case (v, fp_opt) of
+    (Rval (FP_BoolTree fv), rws) =>
+    (case rwAllBoolTree rws fp_rws fv of
+      NONE => NONE
+    | SOME fv_opt => SOME (Rval (FP_BoolTree fv_opt))
+    )
+  | (Rval (FP_WordTree fv), rws) =>
+    (case rwAllWordTree rws fp_rws fv of
+      NONE => NONE
+    | SOME fv_opt => SOME (Rval (FP_WordTree fv_opt))
+    )
+  | (Rval r, [] ) => SOME v
+  | (_, _) => NONE)
+End
+
+Definition do_fpoptimise_def:
+ do_fpoptimise sc [] = [] ∧
+ do_fpoptimise sc [Litv l] = [Litv l] ∧
+ do_fpoptimise sc [Conv st vs] = [Conv st (do_fpoptimise sc vs)] ∧
+ do_fpoptimise sc [Closure env x e] = [Closure env x e] ∧
+ do_fpoptimise sc [Recclosure env ls x] = [Recclosure env ls x] ∧
+ do_fpoptimise sc [Loc n] = [Loc n] ∧
+ do_fpoptimise sc [Vectorv vs] = [Vectorv (do_fpoptimise sc vs)] ∧
+ do_fpoptimise sc [Real r]=  [Real r]  ∧
+ do_fpoptimise sc [FP_WordTree fp] = [FP_WordTree (Fp_wopt sc fp)] ∧
+ do_fpoptimise sc [FP_BoolTree fp] = [FP_BoolTree (Fp_bopt sc fp)] ∧
+ do_fpoptimise sc [Env env n] = [Env env n] ∧
+ do_fpoptimise sc (v::vs) = (do_fpoptimise sc [v]) ++ (do_fpoptimise sc vs)
+Termination
+  WF_REL_TAC `measure (\ (_, l). v1_size l)` \\ fs[]
+End
 
 Definition do_app_def:
   do_app (s: v store_v list, t: 'ffi ffi_state) op vs =
@@ -1041,18 +829,57 @@ Definition do_app_def:
         SOME ((s,t), Rval (Litv (Word8 (opw8_lookup op w1 w2))))
     | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) =>
         SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
-    | (FP_top t_op, [Litv (Word64 w1); Litv (Word64 w2); Litv (Word64 w3)]) =>
-        SOME ((s,t), Rval (Litv (Word64 (fp_top t_op w1 w2 w3))))
-    | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) =>
-        SOME ((s,t),Rval (Litv (Word64 (fp_bop bop w1 w2))))
-    | (FP_uop uop, [Litv (Word64 w)]) =>
-        SOME ((s,t),Rval (Litv (Word64 (fp_uop uop w))))
-    | (FP_cmp cmp, [Litv (Word64 w1); Litv (Word64 w2)]) =>
-        SOME ((s,t),Rval (Boolv (fp_cmp cmp w1 w2)))
+    | (Opw W64 op, [FP_WordTree w1; Litv (Word64 w2)]) =>
+        let wr1 = (compress_word w1) in
+          SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op wr1 w2))))
+    | (Opw W64 op, [Litv (Word64 w1); FP_WordTree w2]) =>
+        let wr2 = (compress_word w2) in
+          SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 wr2))))
+    | (Opw W64 op, [FP_WordTree w1; FP_WordTree w2]) =>
+        let wr1 = (compress_word w1) in
+        let wr2 = (compress_word w2) in
+          SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op wr1 wr2))))
+    | (FP_top t_op, [v1; v2; v3]) =>
+        (case (fp_translate v1, fp_translate v2, fp_translate v3) of
+          (SOME (FP_WordTree w1), SOME (FP_WordTree w2), SOME (FP_WordTree w3)) =>
+          SOME ((s,t), Rval (FP_WordTree (fp_top t_op w1 w2 w3)))
+        | _ => NONE
+        )
+    | (FP_bop bop, [v1; v2]) =>
+        (case (fp_translate v1, fp_translate v2) of
+          (SOME (FP_WordTree w1), SOME (FP_WordTree w2)) =>
+          SOME ((s,t),Rval (FP_WordTree (fp_bop bop w1 w2)))
+        | _ => NONE
+        )
+    | (FP_uop uop, [v1]) =>
+        (case (fp_translate v1) of
+          (SOME (FP_WordTree w1)) =>
+          SOME ((s,t),Rval (FP_WordTree (fp_uop uop w1)))
+        | _ => NONE
+        )
+    | (FP_cmp cmp, [v1; v2]) =>
+        (case (fp_translate v1, fp_translate v2) of
+          (SOME (FP_WordTree w1), SOME (FP_WordTree w2)) =>
+          SOME ((s,t),Rval (FP_BoolTree (fp_cmp cmp w1 w2)))
+        | _ => NONE
+        )
+    | (FpToWord, [FP_WordTree v1]) => SOME ((s,t), Rval (Litv (Word64 (compress_word v1))))
+    | (FpFromWord, [Litv (Word64 v1)]) => (SOME ((s,t), Rval (FP_WordTree (Fp_const v1))))
+    | (Real_cmp cmp, [Real v1; Real v2]) =>
+        SOME ((s,t), Rval (Boolv (real_cmp cmp v1 v2)))
+    | (Real_bop bop, [Real v1; Real v2]) =>
+        SOME ((s,t), Rval (Real (real_bop bop v1 v2)))
+    | (Real_uop uop, [Real v1]) =>
+        SOME ((s,t), Rval (Real (real_uop uop v1)))
+    | (RealFromFP, [Litv (Word64 fp)]) =>
+        SOME ((s,t), Rval (Real (fp64_to_real fp)))
     | (Shift W8 op n, [Litv (Word8 w)]) =>
         SOME ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) =>
         SOME ((s,t), Rval (Litv (Word64 (shift64_lookup op w n))))
+    | (Shift W64 op n, [FP_WordTree w1]) =>
+        let wr1 = (compress_word w1) in
+          (SOME ((s,t), Rval (Litv (Word64 (shift64_lookup op wr1 n)))))
     | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
@@ -1151,6 +978,9 @@ Definition do_app_def:
         SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
     | (WordToInt W64, [Litv (Word64 w)]) =>
         SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
+    | (WordToInt W64, [FP_WordTree v]) =>
+        let w = (compress_word v) in
+          SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME ((s,t),
         (case copy_array (EXPLODE str,off) len NONE of
@@ -1265,6 +1095,11 @@ Definition do_app_def:
             SOME ((s',t), Rval (Loc lnum))
     | (AallocEmpty, [Conv NONE []]) =>
         let (s',lnum) = (store_alloc (Varray []) s) in
+          SOME ((s',t), Rval (Loc lnum))
+    | (AallocFixed, vs) =>
+        let (s',lnum) =
+          (store_alloc (Varray vs) s)
+        in
           SOME ((s',t), Rval (Loc lnum))
     | (Asub, [Loc lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
@@ -1402,5 +1237,18 @@ Definition extend_dec_env_def:
   extend_dec_env new_env (env: v sem_env) =
     <|c := nsAppend new_env.c env.c; v := nsAppend new_env.v env.v|>
 End
+
+Definition shift_fp_opts_def:
+  shift_fp_opts s =
+  (s with <| fp_state :=
+             s.fp_state with <|
+                opts := (\ x . s.fp_state.opts (x + 1));
+                choices := (s.fp_state.choices + 1)
+             |>
+          |>)
+End
+
+val _ = set_fixity "+++" (Infixl 480);
+Overload "+++" = “extend_dec_env”;
 
 val _ = export_theory()

@@ -344,6 +344,32 @@ Proof
   \\ metis_tac[LESS_EQ_CASES,evaluate_add_clock_io_events_mono]
 QED
 
+Theorem machine_sem_unique:
+  machine_sem mc ffi ms b1 ∧ machine_sem mc ffi ms b2 ⇒ b1 = b2
+Proof
+  rw[DefnBase.one_line_ify NONE machine_sem_def] >>
+  Cases_on `b1` >> gvs[] >> Cases_on `b2` >> gvs[]
+  >- imp_res_tac unique_lprefix_lub
+  >- (last_x_assum $ qspec_then `k` assume_tac >> gvs[])
+  >- (last_x_assum $ qspec_then `k` assume_tac >> gvs[])
+  >- (last_x_assum $ qspec_then `k` assume_tac >> gvs[])
+  >- (
+    Cases_on `k < k'` >> gvs[LESS_OR_EQ, NOT_LESS] >>
+    imp_res_tac LESS_ADD >> gvs[] >> imp_res_tac evaluate_add_clock >> gvs[]
+    )
+  >- (
+    qmatch_asmsub_abbrev_tac `FST ev = Error` >> PairCases_on `ev` >> gvs[] >>
+    Cases_on `k < k'` >> gvs[LESS_OR_EQ, NOT_LESS] >>
+    imp_res_tac LESS_ADD >> gvs[] >> imp_res_tac evaluate_add_clock >> gvs[]
+    )
+  >- (last_x_assum $ qspec_then `k` assume_tac >> gvs[])
+  >- (
+    qmatch_asmsub_abbrev_tac `FST ev = Error` >> PairCases_on `ev` >> gvs[] >>
+    Cases_on `k < k'` >> gvs[LESS_OR_EQ, NOT_LESS] >>
+    imp_res_tac LESS_ADD >> gvs[] >> imp_res_tac evaluate_add_clock >> gvs[]
+    )
+QED
+
 Theorem read_ffi_bytearray_IMP_SUBSET_prog_addresses:
    (read_ffi_bytearray mc a l ms = SOME bytes) ==>
     all_words (mc.target.get_reg ms a) (LENGTH bytes) SUBSET

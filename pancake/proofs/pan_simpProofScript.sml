@@ -376,8 +376,7 @@ Proof
    fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
    rpt (pop_assum mp_tac) >>
    MAP_EVERY qid_spec_tac [‘vs’, ‘es’] >>
-   Induct >> fs []
-   >-  fs [OPT_MMAP_def] >>
+   Induct >>
    rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
    rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
    rename [‘_ = SOME vs’] >>
@@ -412,8 +411,7 @@ Proof
    pop_assum mp_tac >>
    pop_assum mp_tac >>
    MAP_EVERY qid_spec_tac [‘ws’, ‘es’] >>
-   Induct >> fs []
-   >- fs [OPT_MMAP_def] >>
+   Induct >> fs [] >>
    rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
    rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
    fs [])
@@ -422,10 +420,10 @@ Proof
    fs [panSemTheory.eval_def] >>
    fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
    fs []) >>
-  rpt gen_tac >> strip_tac >>
+  rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.eval_def] >>
   fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
-  fs []
+  fs [state_rel_def, state_component_equality]
 QED
 
 
@@ -455,8 +453,7 @@ Proof
    fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
    rpt (pop_assum mp_tac) >>
    MAP_EVERY qid_spec_tac [‘es’] >>
-   Induct >> fs []
-   >-  fs [OPT_MMAP_def] >>
+   Induct >> fs [] >>
    rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
    rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq  >>
    fs [] >>
@@ -496,8 +493,7 @@ Proof
     pop_assum mp_tac >>
     pop_assum mp_tac >>
     MAP_EVERY qid_spec_tac [‘es’] >>
-    Induct >> fs []
-    >- fs [OPT_MMAP_def] >>
+    Induct >> fs [] >>
     rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
     rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
     fs [] >>
@@ -510,8 +506,7 @@ Proof
    pop_assum mp_tac >>
    pop_assum mp_tac >>
    MAP_EVERY qid_spec_tac [‘ws’, ‘es’] >>
-   Induct >> fs []
-   >- fs [OPT_MMAP_def] >>
+   Induct >> fs [] >>
    rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
    rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
    fs [] >>
@@ -524,7 +519,7 @@ Proof
    fs [] >>
    imp_res_tac compile_eval_correct >>
    fs []) >>
-  rpt gen_tac >> strip_tac >>
+  rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.eval_def] >>
   fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
   fs [] >>

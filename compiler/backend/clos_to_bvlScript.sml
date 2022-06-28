@@ -69,6 +69,55 @@ Proof
   EVAL_TAC >> rw[] >> simp[]
 QED
 
+(* Constant flattening *)
+
+Overload PRIME[local] = “999983:num”;
+
+Definition part_hash_def:
+  part_hash (Int i) = Num (ABS i) MOD PRIME ∧
+  part_hash (Str s) =
+    (mlstring$strlen s + 3 * SUM (MAP ORD (mlstring$explode s))) MOD PRIME ∧
+  part_hash (W64 w) = (17 + w2n w) MOD PRIME ∧
+  part_hash (Con t ns) = (18 + 5 * t + 7 * SUM ns) MOD PRIME
+End
+
+Definition add_part_def:
+  add_part n p aux acc =
+    let h = part_hash p in
+      dtcase lookup h aux of
+      | NONE => (n+1n,n,insert h [(p,n)] aux,p::acc)
+      | SOME bucket =>
+          dtcase ALOOKUP bucket p of
+          | NONE => (n+1n,n,insert h ((p,n)::bucket) aux,p::acc)
+          | SOME k => (n,k,aux,acc)
+End
+
+Definition add_parts_def:
+  add_parts (ConstInt i) n aux acc = add_part n (Int i) aux acc ∧
+  add_parts (ConstStr s) n aux acc = add_part n (Str s) aux acc ∧
+  add_parts (ConstWord64 w) n aux acc = add_part n (W64 w) aux acc ∧
+  add_parts (ConstCons t cs) n aux acc =
+    (let (n, rs, aux, acc) = add_parts_list cs n aux acc in
+       add_part n (Con (clos_tag_shift t) rs) aux acc) ∧
+  add_parts_list [] n aux acc = (n,[],aux,acc) ∧
+  add_parts_list (c::cs) n aux acc =
+    let (n,r,aux,acc) = add_parts c n aux acc in
+    let (n,rs,aux,acc) = add_parts_list cs n aux acc in
+      (n,r::rs,aux,acc)
+End
+
+Definition compile_const_def:
+  compile_const (ConstInt i) = Const i ∧
+  compile_const (ConstStr s) = Build [Str s] ∧
+  compile_const (ConstWord64 w) = Build [W64 w] ∧
+  compile_const (ConstCons t cs) =
+    if NULL cs then Cons (clos_tag_shift t) else
+      let (n, rs, aux, acc) = add_parts_list cs 0 LN [] in
+        Build (REVERSE ((Con (clos_tag_shift t) rs)::acc))
+End
+
+(* / Constant flattening *)
+
 val num_added_globals_def = Define
   `num_added_globals = 1n`;
 
@@ -85,6 +134,7 @@ val compile_op_def = Define`
   compile_op DerefByteVec = DerefByte ∧
   compile_op (SetGlobal n) = SetGlobal (n + num_added_globals) ∧
   compile_op (Global n) = Global (n + num_added_globals) ∧
+  compile_op (Constant c) = compile_const c ∧
   compile_op x = x`
 val _ = export_rewrites["compile_op_def"];
 
@@ -101,6 +151,7 @@ Theorem compile_op_pmatch:
       | DerefByteVec => DerefByte
       | SetGlobal n => SetGlobal (n + num_added_globals)
       | Global n => Global (n + num_added_globals)
+      | Constant c => compile_const c
       | x => x
 Proof
   rpt strip_tac
@@ -642,13 +693,29 @@ val compile_def = Define `
     let c = c with start := num_stubs c.max_app - 1 in
       (c, code_sort prog', func_names)`;
 
-(* TODO: there needs to be a PMATCH version of this for translation *)
 val extract_name_def = Define `
   extract_name [] = (0,[]) /\
   extract_name (x :: xs) =
     dtcase (some n. ?t. x = Op t (Const (& n)) []) of
     | NONE => (0,x::xs)
     | SOME n => (n, if xs = [] then [x] else xs)`;
+
+Theorem extract_name_pmatch:
+  extract_name xs =
+    dtcase xs of
+    | [] => (0,xs)
+    | (x::xs) =>
+      case x of
+        (Op t (Const i) []) => (if i < 0 then (0,x::xs) else
+                                 (Num (ABS i), if xs = [] then [x] else xs))
+      | _ => (0,x::xs)
+Proof
+  Cases_on ‘xs’ \\ fs [extract_name_def]
+  \\ Cases_on ‘h’ \\ fs []
+  \\ Cases_on ‘l’ \\ fs []
+  \\ Cases_on ‘o'’ \\ fs []
+  \\ Cases_on ‘i’ \\ fs []
+QED
 
 val compile_inc_def = Define `
   compile_inc max_app (es,prog) =
@@ -669,6 +736,6 @@ val clos_to_bvl_compile_inc_def = Define`
     let c = c with <| call_state := (c', []) |> in
     let p = clos_annotate$compile_inc p in
     let p = clos_to_bvl$compile_inc c.max_app p in
-    (c, p)`;
+      (c, p)`;
 
 val _ = export_theory()

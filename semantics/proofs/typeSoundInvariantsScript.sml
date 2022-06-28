@@ -48,7 +48,7 @@ Type ctMap = ``:(stamp, (tvarN list # t list # type_ident)) fmap``
 val ctMap_ok_def = Define `
   ctMap_ok ctMap ⇔
     (* No free variables in the range *)
-    FEVERY (\(stamp,(tvs,ts, _)). EVERY (check_freevars 0 tvs) ts) ctMap ∧
+    FEVERY (\ (stamp,(tvs,ts, _)). EVERY (check_freevars 0 tvs) ts) ctMap ∧
     (* Exceptions have type exception, and no type variables *)
     (!ex tvs ts ti. FLOOKUP ctMap (ExnStamp ex) = SOME (tvs, ts, ti) ⇒
       tvs = [] ∧ ti = Texn_num) ∧
@@ -85,6 +85,10 @@ Inductive type_v:
     type_v tvs ctMap tenvS (Litv (Word8 w)) Tword8) ∧
   (!tvs ctMap tenvS w.
     type_v tvs ctMap tenvS (Litv (Word64 w)) Tword64) ∧
+  (!tvs ctMap tenvS v.
+    type_v tvs ctMap tenvS (FP_WordTree v) Tdouble) /\
+  (!tvs ctMap tenvS r.
+    type_v tvs ctMap tenvS (Real r) Treal) /\
   (!tvs ctMap tenvS vs tvs' stamp ts' ts ti.
     EVERY (check_freevars tvs []) ts' ∧
     LENGTH tvs' = LENGTH ts' ∧

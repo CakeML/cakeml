@@ -18,6 +18,9 @@ Compilation of the CakeML examples to different architectures.
 [cost](cost):
 Preliminary data-cost examples
 
+[deflate](deflate):
+Scripts relevant to the formalisation of the DEFLATE algorithm
+
 [diffProgScript.sml](diffProgScript.sml):
 diff example: find a patch representing the difference between two files.
 
@@ -32,6 +35,10 @@ Examples on the topic of doubling a number.
 
 [echoProgScript.sml](echoProgScript.sml):
 echo program example: print the command line arguments.
+
+[eval](eval):
+A simple example of using eval, to help work out the development of the
+bootstrapped compiler supporting eval.
 
 [filterProgScript.sml](filterProgScript.sml):
 Filter case study from CASE.

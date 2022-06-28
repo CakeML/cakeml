@@ -755,13 +755,13 @@ Proof
           Cases_on `nn < LENGTH ss.globals + 1` >> simp[] >>
           `nn - LENGTH ss.globals = 0` by simp[] >> simp[]) >>
       metis_tac[])
-  >- (
+  >- (rename [‘ConsExtend’] >>
     dsimp [] >>
     rw [] >>
     irule EVERY_TAKE >>
     irule EVERY_DROP >>
     simp [])
-  >- (simp[PULL_FORALL] \\ rw []
+  >- (rename [‘El’] \\ simp[PULL_FORALL] \\ rw []
       \\ fs [ssgc_free_def] \\ res_tac
       \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
       \\ fs [EVERY_EL] \\ rw [] \\ res_tac \\ fs [])
@@ -772,22 +772,23 @@ Proof
       rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
       >- first_assum MATCH_ACCEPT_TAC >> fs[] >>
       simp[FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
-  >- (simp[ssgc_free_def] >>
+  >- (rename [‘RefArray’] \\ simp[ssgc_free_def] >>
       rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
       >- first_assum MATCH_ACCEPT_TAC >> fs[] >>
       dsimp[FLOOKUP_UPDATE, bool_case_eq, EVERY_REPLICATE] >> metis_tac[])
-  >- (simp[ssgc_free_def] >>
+  >- (rename [‘UpdateByte’] \\ simp[ssgc_free_def] >>
       rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
       >- first_assum MATCH_ACCEPT_TAC >> fs[] >>
       dsimp[FLOOKUP_UPDATE, bool_case_eq, EVERY_REPLICATE] >> metis_tac[])
-  >- (dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
-  >- ((* ListAppend *)
+  >- (rename [‘CopyByte’]
+      \\ dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
+  >- (rename [‘ListAppend’] \\
       rw [] \\ fs []
       \\ match_mp_tac list_to_v_EVERY_APPEND
       \\ simp [vsgc_free_def]
       \\ asm_exists_tac \\ fs []
       \\ asm_exists_tac \\ fs [])
-  >- ((* FromList *)
+  >- (rename [‘FromList’] \\
       simp[PULL_FORALL] >> rpt gen_tac >> rename1 `v_to_list v = SOME vs` >>
       map_every qid_spec_tac [`vs`, `v`] >> ho_match_mp_tac value_ind >>
       simp[v_to_list_def] >> Cases >>
@@ -796,23 +797,30 @@ Proof
       simp[v_to_list_def] >>
       rename1 `closSem$Block _ (v1::v2::vs)` >> Cases_on `vs` >>
       simp[v_to_list_def, case_eq_thms, PULL_EXISTS, PULL_FORALL])
-  >- (rw [] \\ rpt (pop_assum kall_tac)
+  >- (rename [‘ToListByte’] \\ rw [] \\ rpt (pop_assum kall_tac)
       \\ Induct_on `bs` \\ fs [list_to_v_def])
-  >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
-  >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >>
+  >- (rename [‘Ref’]
+      \\ dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
+  >- (rename [‘Update’] \\ dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >>
       rpt strip_tac
       >- metis_tac[]
       >- (irule IMP_EVERY_LUPDATE >> simp[] >> metis_tac[])
       >- metis_tac[]
       >- metis_tac[]
       >- metis_tac[])
-  >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >>
+  >- (rename [‘FFI’] \\ dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >>
       rpt strip_tac >> PURE_FULL_CASE_TAC >> fs [] >> rveq
       >- (first_x_assum match_mp_tac >> fs[FLOOKUP_UPDATE,bool_case_eq] >> metis_tac[])
       >- (fs[ssgc_free_def,FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
-      >- (first_x_assum match_mp_tac >> fs[])
+      >- (last_x_assum match_mp_tac >> fs[])
       >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[])
       >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[]))
+  >- (rename [‘EqualConst’]
+      \\ rw [] \\ fs [Boolv_def])
+  >- (rename [‘Constant c’]
+      \\ rw [] \\ qid_spec_tac ‘c’
+      \\ ho_match_mp_tac make_const_ind
+      \\ fs [make_const_def,EVERY_MEM,MEM_MAP,PULL_EXISTS])
   >> dsimp[]
 QED
 
@@ -5492,364 +5500,5 @@ Proof
   \\ rw[]
   \\ rw[Once clos_knownTheory.mk_Ticks_def]
 QED
-
-
-
-(*
-val val_approx_bodies_def = tDefine"val_approx_bodies_def"`
-  val_approx_bodies [] = [] ∧
-  val_approx_bodies [ClosNoInline _ _] = [] ∧
-  val_approx_bodies [Clos _ _ body _] = [body] ∧
-  val_approx_bodies [Tuple _ ls] = val_approx_bodies ls ∧
-  val_approx_bodies [_] = [] ∧
-  val_approx_bodies (x::ls) = val_approx_bodies [x] ++ val_approx_bodies ls`
- (wf_rel_tac`measure val_approx1_size`);
-
-val val_approx_bodies_def =
-  val_approx_bodies_def
-  |> SIMP_RULE(srw_ss()++ETA_ss)[]
-  |> curry save_thm "val_approx_bodies_def[simp,compute]";
-
-Theorem val_approx_bodies_cons:
-   val_approx_bodies (x::ys) = val_approx_bodies [x] ++ val_approx_bodies ys
-Proof
-  Cases_on`ys` \\ rw[]
-QED
-
-Theorem val_approx_bodies_append:
-   ∀l1 l2. val_approx_bodies (l1 ++ l2) = val_approx_bodies l1 ++ val_approx_bodies l2
-Proof
-  Induct
-  \\ rw[Once val_approx_bodies_cons]
-  \\ rw[Once val_approx_bodies_cons,SimpRHS]
-QED
-
-Theorem val_approx_bodies_map:
-   ∀xs. val_approx_bodies (MAP f xs) = FLAT (MAP (λx. val_approx_bodies [f x]) xs)
-Proof
-  Induct \\ rw[] \\ rw[Once val_approx_bodies_cons]
-QED
-
-Theorem app_call_dests_val_approx_bodies_merge:
-   ∀a1 a2. app_call_dests x (val_approx_bodies [merge a1 a2]) ⊆
-           app_call_dests x (val_approx_bodies [a1]) ∪
-           app_call_dests x (val_approx_bodies [a2])
-Proof
-  recInduct merge_ind \\ rw[]
-  \\ simp[Once(app_call_dests_map |> Q.ISPEC`ls:closLang$exp list`
-               |> Q.GEN`f` |> Q.SPEC`I` |> SIMP_RULE (srw_ss()) [])]
-  \\ fs[MAP2_MAP, val_approx_bodies_map]
-  \\ simp[SUBSET_DEF, MEM_MAP, MEM_FLAT, PULL_EXISTS]
-  \\ rw[MEM_ZIP] \\ fs[]
-  \\ first_x_assum(qspecl_then[`EL n xs`,`EL n ys`]mp_tac)
-  \\ impl_tac >- metis_tac[MEM_EL]
-  \\ simp[Once(app_call_dests_map |> Q.ISPEC`ls:closLang$exp list`
-               |> Q.GEN`f` |> Q.SPEC`I` |> SIMP_RULE (srw_ss()) [])]
-  \\ simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS]
-  \\ disch_then drule \\ rw[] >| [disj1_tac, disj2_tac]
-  \\ pop_assum mp_tac
-  \\ simp[Once(app_call_dests_map |> Q.ISPEC`ls:closLang$exp list`
-               |> Q.GEN`f` |> Q.SPEC`I` |> SIMP_RULE (srw_ss()) [])]
-  \\ rw[MEM_MAP]
-  \\ simp[Once(val_approx_bodies_map |> Q.ISPEC`ls:val_approx list`
-               |> Q.GEN`f` |> Q.SPEC`I` |> SIMP_RULE (srw_ss()) [])]
-  \\ simp[Once(app_call_dests_map |> Q.ISPEC`ls:closLang$exp list`
-               |> Q.GEN`f` |> Q.SPEC`I` |> SIMP_RULE (srw_ss()) [])]
-  \\ rw[MEM_MAP, MEM_FLAT, PULL_EXISTS]
-  \\ asm_exists_tac \\ rw[]
-  \\ metis_tac[MEM_EL]
-QED
-*)
-
-(*
-val val_approx_dests_def = tDefine"val_approx_dests_def"`
-  val_approx_dests a [] = {} ∧
-  val_approx_dests a [ClosNoInline loc _] = {loc} ∧
-  val_approx_dests a [Clos loc _ body _] = loc INSERT app_call_dests a [body] ∧
-  val_approx_dests a [Tuple _ ls] = val_approx_dests a ls ∧
-  val_approx_dests a [_] = {} ∧
-  val_approx_dests a (x::ls) = val_approx_dests a [x] ∪ val_approx_dests a ls`
- (wf_rel_tac`measure (val_approx1_size o SND)`);
-
-val val_approx_dests_def =
-  val_approx_dests_def
-  |> SIMP_RULE(srw_ss()++ETA_ss)[]
-  |> curry save_thm "val_approx_dests_def[simp,compute]";
-
-Theorem val_approx_dests_cons:
-   val_approx_dests a (x::ys) = val_approx_dests a [x] ∪ val_approx_dests a ys
-Proof
-  Cases_on`ys` \\ rw[]
-QED
-
-Theorem val_approx_dests_append:
-   ∀l1 l2. val_approx_dests a (l1 ++ l2) = val_approx_dests a l1 ∪ val_approx_dests a l2
-Proof
-  Induct
-  \\ rw[Once val_approx_dests_cons]
-  \\ rw[Once val_approx_dests_cons,SimpRHS]
-  \\ rw[UNION_ASSOC]
-QED
-
-Theorem val_approx_dests_reverse:
-   ∀ls. val_approx_dests x (REVERSE ls) = val_approx_dests x ls
-Proof
-  Induct \\ simp[val_approx_dests_append]
-  \\ simp[Once val_approx_dests_cons, SimpRHS]
-  \\ rw[EXTENSION] \\ metis_tac[]
-QED
-
-Theorem val_approx_dests_map:
-   ∀xs. val_approx_dests a (MAP f xs) = BIGUNION (set (MAP (λx. val_approx_dests a [f x]) xs))
-Proof
-  Induct \\ rw[] \\ rw[Once val_approx_dests_cons]
-QED
-
-Theorem val_approx_dests_replicate:
-   val_approx_dests x (REPLICATE n y) = if 0 < n then val_approx_dests x [y] else {}
-Proof
-  `n = LENGTH (GENLIST ARB n)` by simp[]
-  \\ pop_assum SUBST1_TAC
-  \\ simp[GSYM MAP_K_REPLICATE]
-  \\ simp[val_approx_dests_map]
-  \\ simp[Once EXTENSION, PULL_EXISTS, MEM_MAP, MEM_GENLIST]
-  \\ rw[] \\ metis_tac[]
-QED
-
-Theorem val_approx_dests_merge:
-   ∀x y. val_approx_dests a [merge x y] ⊆ val_approx_dests a [x] ∪ val_approx_dests a [y]
-Proof
-  recInduct clos_knownTheory.merge_ind
-  \\ rw[clos_knownTheory.merge_def]
-  \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP, MAP2_MAP, FORALL_PROD, MEM_ZIP]
-  \\ rw[] \\ fs[MEM_EL, PULL_EXISTS]
-  \\ fs[val_approx_dests_map, MEM_MAP]
-  \\ rfs[MEM_ZIP] \\ rw[] \\ fs[]
-  \\ first_x_assum drule \\ simp[]
-  \\ disch_then drule
-  \\ disch_then drule
-  \\ rw[] >| [disj1_tac , disj2_tac ]
-  \\ simp[Once(val_approx_dests_map |> Q.ISPEC`ls:val_approx list`
-               |> Q.GEN`f` |> Q.SPEC`I` |> SIMP_RULE (srw_ss()) [])]
-  \\ rw[MEM_MAP, MEM_EL, PULL_EXISTS]
-  \\ metis_tac[]
-QED
-
-val val_approx_dests_to_sing =
-  (val_approx_dests_map |> Q.ISPEC`ls:val_approx list`
-               |> Q.GEN`f` |> Q.SPEC`I` |> SIMP_RULE (srw_ss()) [])
-
-Theorem app_call_dests_mk_Ticks[simp]:
-   ∀a b c d. app_call_dests x [mk_Ticks a b c d] = app_call_dests x [d]
-Proof
-  recInduct clos_knownTheory.mk_Ticks_ind
-  \\ rw[]
-  \\ rw[Once clos_knownTheory.mk_Ticks_def]
-QED
-
-Theorem known_app_call_dests:
-   ∀a b c d e f.
-    known a b c d = (e,f)
-    ⇒
-    app_call_dests x (MAP FST e) ∪
-    val_approx_dests x (MAP SND e) ∪
-    val_approx_dests x (toList f)
-    ⊆
-    app_call_dests x b ∪
-    val_approx_dests x c ∪
-    val_approx_dests x (toList d)
-Proof
-  recInduct clos_knownTheory.known_ind
-  \\ rpt conj_tac
-  \\ simp[clos_knownTheory.known_def]
-  \\ TRY (gen_tac \\ rpt gen_tac \\ strip_tac)
-  \\ TRY (gen_tac \\ rpt gen_tac \\ strip_tac)
-  \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
-  >- (
-    fs[app_call_dests_append, val_approx_dests_append]
-    \\ fs[SUBSET_DEF] \\ metis_tac[] )
-  \\ imp_res_tac known_sing_EQ_E \\ rveq \\ fs[]
-  >- (
-    rw[any_el_ALT]
-    \\ pop_assum mp_tac
-    \\ qid_spec_tac`v`
-    \\ Induct_on`vs`
-    \\ simp[]
-    \\ gen_tac \\ Cases \\ simp[]
-    \\ rw[Once val_approx_dests_cons, SimpR``(SUBSET)``, app_call_dests_append]
-    \\ fs[SUBSET_DEF] \\ metis_tac[] )
-  >- (
-    rveq
-    \\ simp[GSYM CONJ_ASSOC]
-    \\ conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-    \\ conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-    \\ conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-    \\ reverse conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-    \\ match_mp_tac SUBSET_TRANS
-    \\ qspecl_then[`x`,`a2`,`a3`]mp_tac (Q.GEN`a`val_approx_dests_merge)
-    \\ strip_tac
-    \\ asm_exists_tac
-    \\ fs[SUBSET_DEF] \\ metis_tac[] )
-  >- (
-    rveq \\ fs[val_approx_dests_append, app_call_dests_append]
-    \\ fs[SUBSET_DEF] \\ metis_tac[] )
-  >- (
-    rveq
-    \\ simp[GSYM CONJ_ASSOC]
-    \\ conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-    \\ fs[Q.SPEC`Other`(Q.GEN`x`val_approx_dests_cons)]
-    \\ conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-    \\ reverse conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-    \\ match_mp_tac SUBSET_TRANS
-    \\ qspecl_then[`x`,`a1`,`a2`]mp_tac (Q.GEN`a`val_approx_dests_merge)
-    \\ strip_tac
-    \\ asm_exists_tac
-    \\ fs[SUBSET_DEF] \\ metis_tac[] )
-  >- ( rw[] \\ fs[SUBSET_DEF] \\ metis_tac[] )
-  >- (
-    Cases_on`op` \\ fs[isGlobal_def, known_op_def, NULL_EQ]
-    \\ fs[CaseEq"bool", CaseEq"option", CaseEq"list", CaseEq"val_approx"] \\ rveq \\ fs[gO_destApx_def]
-    \\ fs[Once SWAP_REVERSE_SYM, val_approx_dests_append]
-    >- (
-      qpat_x_assum`_ ⊆ _`mp_tac
-      \\ simp[Once(val_approx_dests_map |> Q.ISPEC`ls:val_approx list`
-                   |> Q.GEN`f` |> Q.SPEC`I` |> SIMP_RULE (srw_ss()) [])]
-      \\ simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_toList]
-      \\ strip_tac
-      \\ conj_tac
-      >- ( rw[] \\ every_case_tac \\ fs[] )
-      \\ rw[]
-      \\ first_x_assum drule
-      \\ disch_then drule
-      \\ rw[] )
-    >- (
-      simp[Once(val_approx_dests_map |> Q.ISPEC`ls:val_approx list`
-                 |> Q.GEN`f` |> Q.SPEC`I` |> SIMP_RULE (srw_ss()) [])]
-      \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP, MEM_toList, lookup_insert]
-      \\ rw[]
-      \\ first_x_assum irule
-      \\ simp[Once val_approx_dests_to_sing, MEM_MAP, PULL_EXISTS, MEM_toList]
-      \\ metis_tac[] )
-    >- (
-      simp[Once val_approx_dests_to_sing]
-      \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP, MEM_toList, lookup_insert]
-      \\ rw[]
-      >- (
-        (val_approx_dests_merge |> SIMP_RULE(srw_ss())[SUBSET_DEF] |> drule)
-        \\ reverse(rw[]) >- metis_tac[]
-        \\ first_x_assum irule
-        \\ simp[Once val_approx_dests_to_sing, MEM_MAP, PULL_EXISTS, MEM_toList]
-        \\ metis_tac[] )
-      \\ first_x_assum irule
-      \\ simp[Once val_approx_dests_to_sing, MEM_MAP, PULL_EXISTS, MEM_toList]
-      \\ metis_tac[] )
-    >- fs[val_approx_dests_reverse]
-    >- (
-      qmatch_goalsub_rename_tac`EL _ ls`
-      \\ qpat_x_assum`val_approx_dests _ ls ⊆ _`mp_tac
-      \\ simp[Once val_approx_dests_to_sing, MEM_MAP, PULL_EXISTS, MEM_toList]
-      \\ simp[SUBSET_DEF, PULL_EXISTS, MEM_MAP, MEM_toList]
-      \\ simp[MEM_EL, PULL_EXISTS]
-      \\ rw[]
-      \\ first_x_assum irule
-      \\ goal_assum(first_assum o mp_then Any mp_tac)
-      \\ intLib.COOPER_TAC )
-    )
-  >-  (
-    rveq
-    \\ fs[CaseEq"inliningDecision"] \\ rveq \\ fs[]
-    >- (
-      Cases_on`loc_opt` \\ rw[]
-      \\ fs[SUBSET_DEF] \\ metis_tac[] )
-    >- (
-      IF_CASES_TAC \\ fs[]
-      >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-      \\ reverse conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-      \\ reverse conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-      \\ reverse conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-      \\ fs[decide_inline_def, CaseEq"val_approx", CaseEq"bool"] \\ rveq \\ fs[]
-      \\ fs[SUBSET_DEF] \\ metis_tac[] )
-    >- (
-      rpt(pairarg_tac \\ fs[])
-      \\ imp_res_tac known_sing_EQ_E \\ fs[] \\ rveq
-      \\ fs[decide_inline_def, CaseEq"val_approx"] \\ rveq \\ fs[]
-      \\ fs[CaseEq"bool"] \\ rveq \\ fs[app_call_dests_append, val_approx_dests_append]
-      \\ rw[] \\ fs[SUBSET_DEF] \\ metis_tac[] ))
-  >- (
-    rveq
-    \\ fs[val_approx_dests_append, val_approx_dests_replicate]
-    \\ PURE_CASE_TAC \\ fs[]
-    \\ fs[clos_approx_def]
-    \\ PURE_CASE_TAC \\ fs[]
-    \\ fs[SUBSET_DEF] )
-  >- (
-    rveq
-    \\ fs[val_approx_dests_append, app_call_dests_append, val_approx_dests_replicate]
-    \\ PURE_CASE_TAC \\ fs[val_approx_dests_replicate, clos_gen_noinline_eq]
-    >- (
-      reverse conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-      \\ reverse conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-      \\ reverse conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-      \\ simp[Once(app_call_dests_map |> Q.ISPEC`ls:closLang$exp list`
-                   |> Q.GEN`f` |> Q.SPEC`I` |> SIMP_RULE (srw_ss()) [])]
-      \\ fs[SUBSET_DEF, MEM_MAP, PULL_EXISTS, FORALL_PROD]
-      \\ rw[]
-      \\ first_x_assum drule
-      \\ qmatch_goalsub_abbrev_tac`known aa bb cc dd`
-      \\ Cases_on`known aa bb cc dd`
-      \\ unabbrev_all_tac \\ fs[] \\ rw[]
-      \\ imp_res_tac known_sing_EQ_E \\ fs[] \\ rveq
-      \\ simp[Once(app_call_dests_map |> Q.ISPEC`ls:closLang$exp list`
-                   |> Q.GEN`f` |> Q.SPEC`I` |> SIMP_RULE (srw_ss()) [])]
-      \\ simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-      \\ metis_tac[] )
-    \\ last_x_assum mp_tac
-    \\ qmatch_goalsub_abbrev_tac`val_approx_dests x gn`
-    \\ `val_approx_dests x gn = {}`
-    by (
-      simp[Once val_approx_dests_to_sing]
-      \\ simp[Abbr`gn`, MAP_GENLIST, Once EXTENSION, MEM_GENLIST]
-      \\ Cases_on`LENGTH fns` \\ simp[]
-      \\ metis_tac[prim_recTheory.LESS_0] )
-    \\ fs[]
-    \\ strip_tac
-    \\ reverse conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-    \\ reverse conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-    \\ reverse conj_tac >- ( fs[SUBSET_DEF] \\ metis_tac[] )
-    \\ simp[Once(app_call_dests_map |> Q.ISPEC`ls:closLang$exp list`
-                 |> Q.GEN`f` |> Q.SPEC`I` |> SIMP_RULE (srw_ss()) [])]
-    \\ fs[SUBSET_DEF, MEM_MAP, PULL_EXISTS, FORALL_PROD]
-    \\ rw[]
-    \\ first_x_assum drule
-    \\ qmatch_goalsub_abbrev_tac`known aa bb cc dd`
-    \\ Cases_on`known aa bb cc dd`
-    \\ unabbrev_all_tac \\ fs[] \\ rw[]
-    \\ imp_res_tac known_sing_EQ_E \\ fs[] \\ rveq
-    \\ simp[Once(app_call_dests_map |> Q.ISPEC`ls:closLang$exp list`
-                 |> Q.GEN`f` |> Q.SPEC`I` |> SIMP_RULE (srw_ss()) [])]
-    \\ simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-    \\ metis_tac[] )
-QED
-
-Theorem compile_locs:
-   clos_known$compile b number_code = (kc,known_code) /\
-    call_dests number_code = ∅ /\ app_dests number_code = ∅ /\
-    (case b of SOME x => (∀n. val_approx_dests (SOME n) (toList x.val_approx_spt) = {}) | _ => T) ==>
-    call_dests known_code = ∅ /\
-    app_dests known_code ⊆ set (code_locs known_code)
-Proof
-  strip_tac
-  \\ Cases_on`b` \\ fs[clos_knownTheory.compile_def]
-  \\ rveq \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ rveq \\ fs[]
-  \\ simp[clos_letopProofTheory.code_locs_let_op,
-          clos_ticksProofTheory.code_locs_remove_ticks]
-  \\ drule (GEN_ALL known_app_call_dests)
-  \\ disch_then(fn th => assume_tac (SPEC``SOME T`` th) \\ assume_tac (SPEC``SOME F`` th))
-  \\ fs[] \\ rfs[]
-  \\ ...
-QED
-*)
 
 val _ = export_theory();

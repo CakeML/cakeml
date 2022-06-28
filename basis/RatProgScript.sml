@@ -4,10 +4,11 @@
 open preamble ml_translatorLib ml_translatorTheory ml_progLib
      mlvectorTheory IntProgTheory basisFunctionsLib
      ratLib gcdTheory ratTheory
+local open PrettyPrinterProgTheory in end
 
 val _ = new_theory"RatProg"
 
-val _ = translation_extends "IntProg";
+val _ = translation_extends "PrettyPrinterProg";
 
 val _ = ml_prog_update open_local_block;
 
@@ -435,7 +436,7 @@ val Eval_RAT_MIN = translate rat_min_def;
 
 val Eval_REAL_MIN = Q.prove(
   `!v. (RAT_TYPE --> RAT_TYPE --> RAT_TYPE) rat_min v ==>
-       (REAL_TYPE --> REAL_TYPE --> REAL_TYPE) real$min v`,
+       (REAL_TYPE --> REAL_TYPE --> REAL_TYPE) realax$min v`,
   match_mp_tac RAT_RAT_RAT
   \\ fs [realTheory.min_def,rat_min_def,real_of_rat_le,ratTheory.rat_leq_def]
   \\ rw [] \\ rfs [])
@@ -447,7 +448,7 @@ val Eval_RAT_MAX = translate rat_max_def;
 
 val Eval_REAL_MAX = Q.prove(
   `!v. (RAT_TYPE --> RAT_TYPE --> RAT_TYPE) rat_max v ==>
-       (REAL_TYPE --> REAL_TYPE --> REAL_TYPE) real$max v`,
+       (REAL_TYPE --> REAL_TYPE --> REAL_TYPE) realax$max v`,
   match_mp_tac RAT_RAT_RAT
   \\ fs [realTheory.max_def,rat_max_def,real_of_rat_le,
          ratTheory.rat_leq_def,rat_gre_def]
@@ -751,6 +752,13 @@ val toString_def = Define `
 
 val _ = (next_ml_names := ["toString"]);
 val v = translate toString_def;
+
+Definition pp_rat_def:
+  pp_rat r = mlprettyprinter$pp_token (toString r)
+End
+
+val _ = (next_ml_names := ["pp_rat"]);
+val v = translate pp_rat_def;
 
 Definition pair_num_def:
   pair_num (RatPair i n) = i

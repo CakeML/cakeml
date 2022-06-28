@@ -39,11 +39,12 @@ Datatype:
    (* | GetAddr decname *)
       | Struct (exp list)
       | Field index exp
-      | Load shape exp
+      | Load shape exp (* exp: start addr of value with given shape *)
       | LoadByte exp
       | Op binop (exp list)
       | Cmp cmp exp exp
       | Shift shift exp num
+      | BaseAddr
 End
 
 Datatype:

@@ -36,6 +36,24 @@ val bare_compiler_eval = computeLib.CBV_CONV bare_compiler_cs
 
 fun REWR_CONV_BETA th tm = Thm.Beta (REWR_CONV th tm)
 
+local
+  val uninteresting_consts =
+    [``ZERO``, ``BIT1``, ``BIT2``,``NUMERAL``,``CHR``,``int_of_num``,“int_neg”,
+     ``n2w``];
+in
+  fun interesting tm =
+    if TypeBase.is_constructor tm then false else
+    if can (first (fn pat => can (match_term pat) tm))
+         uninteresting_consts then false else true;
+end
+
+(*
+
+  lab_prog_def
+  |> concl |> rand |> find_terms is_const |> filter interesting
+
+*)
+
 val num_threads = ref 8
 val chunk_size = ref 50
 
@@ -211,9 +229,9 @@ fun compile_to_word_0 data_prog_def to_data_thm =
 fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
   let
     (* TODO: don't look up definition *)
-    val word_0_c_def = definition"word_0_c_def"
-    val word_0_p_def = definition"word_0_p_def"
-    val word_0_names_def = definition"word_0_names_def"
+    val word_0_c_def = definition"word_0_c_def" handle HOL_ERR _ => TRUTH
+    val word_0_p_def = definition"word_0_p_def" handle HOL_ERR _ => TRUTH
+    val word_0_names_def = definition"word_0_names_def" handle HOL_ERR _ => TRUTH
     val word_0_abbrevs = [word_0_c_def, word_0_p_def, word_0_names_def]
 
     val cs = compilation_compset()
@@ -515,10 +533,10 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
            REWR_CONV from_stack_def THENC
            RAND_CONV (RATOR_CONV eval) THENC
            REWR_CONV_BETA LET_THM THENC
-           RAND_CONV (REWR_CONV stack_to_labTheory.compile_def))))
+           RATOR_CONV (RAND_CONV (REWR_CONV stack_to_labTheory.compile_def)))))
 
     val stack_rawcall_compile =
-      (stack_to_lab_thmA |> concl |> rand |> rand |> rand);
+      (stack_to_lab_thmA |> concl |> rand |> rator |> rand |> rand);
 
     val rawcall_thm = time_with_size (term_size o rand o concl) "stack_rawcall"
                         eval stack_rawcall_compile;
@@ -533,8 +551,8 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
 
     val stack_to_lab_thmA' =
       stack_to_lab_thmA
-      |> (CONV_RULE(PATH_CONV "rrr" (K rawcall_thm') THENC
-                    PATH_CONV "rr" (REWR_CONV_BETA LET_THM)))
+      |> (CONV_RULE(PATH_CONV "rlrr" (K rawcall_thm') THENC
+                    PATH_CONV "rlr" (REWR_CONV_BETA LET_THM)))
 
     (* stack_alloc *)
 
@@ -554,7 +572,7 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
 
     val stack_to_lab_thm0 =
       stack_to_lab_thmA'
-      |> (CONV_RULE(PATH_CONV "rrr" (
+      |> (CONV_RULE(PATH_CONV "rlrr" (
                REWR_CONV stack_allocTheory.compile_def THENC
                FORK_CONV(eval,
                  RAND_CONV(REWR_CONV stack_prog_def) THENC
@@ -562,17 +580,19 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
                listLib.APPEND_CONV)))
 
     val stack_alloc_prog_def =
-      mk_abbrev"stack_alloc_prog"(stack_to_lab_thm0 |> rconc |> rand |> rand)
+      mk_abbrev"stack_alloc_prog"(stack_to_lab_thm0 |> rconc |> rator |> rand |> rand)
     val temp_defs = (mk_abbrev_name"stack_alloc_prog") :: temp_defs
 
     val stack_to_lab_thm1 =
       stack_to_lab_thm0
-      |> CONV_RULE(RAND_CONV(
-           RAND_CONV (
+      |> CONV_RULE(
+        RAND_CONV(
+           RATOR_CONV (
+             RAND_CONV(
              RAND_CONV(REWR_CONV(SYM stack_alloc_prog_def)) THENC
-             REWR_CONV_BETA LET_THM)))
+             REWR_CONV_BETA LET_THM))))
 
-    val tm5 = stack_to_lab_thm1 |> rconc |> rand
+    val tm5 = stack_to_lab_thm1 |> rconc |> rator |> rand
 
     val stack_remove_thm0 =
       tm5 |>
@@ -614,15 +634,16 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
     val stack_to_lab_thm2 =
       stack_to_lab_thm1
       |> CONV_RULE(RAND_CONV(
+           RATOR_CONV(
            RAND_CONV(
              REWR_CONV stack_remove_thm THENC
              RAND_CONV(REWR_CONV(SYM stack_remove_prog_def)) THENC
              REWR_CONV_BETA LET_THM THENC
              RAND_CONV(RATOR_CONV(RAND_CONV eval)) THENC
              REWR_CONV_BETA LET_THM THENC
-             RAND_CONV(REWR_CONV stack_namesTheory.compile_def))))
+             RAND_CONV(REWR_CONV stack_namesTheory.compile_def)))))
 
-    val tm7 = stack_to_lab_thm2 |> rconc |> rand |> rand
+    val tm7 = stack_to_lab_thm2 |> rconc |> rator |> rand |> rand
 
     val prog_comp_nm_tm = tm7 |> rator |> rand
 
@@ -650,10 +671,10 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
 
     val stack_to_lab_thm3 =
       stack_to_lab_thm2
-      |> CONV_RULE(RAND_CONV(RAND_CONV(
-           RAND_CONV(REWR_CONV stack_names_thm))))
+      |> CONV_RULE(RAND_CONV(RATOR_CONV(RAND_CONV(
+           RAND_CONV(REWR_CONV stack_names_thm)))))
 
-    val tm8 = stack_to_lab_thm3 |> rconc |> rand
+    val tm8 = stack_to_lab_thm3 |> rconc |> rator |> rand
 
     val prog_to_section_tm = tm8 |> rator |> rand
 
@@ -669,15 +690,15 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
 
     val stack_to_lab_thm4 =
       stack_to_lab_thm3
-      |> CONV_RULE(RAND_CONV(RAND_CONV(
+      |> CONV_RULE(RAND_CONV(RATOR_CONV(RAND_CONV(
            RAND_CONV(REWR_CONV stack_names_prog_def) THENC
-           map_ths_conv ths)))
+           map_ths_conv ths))))
 
-    val lab_prog_def = mk_abbrev lab_prog_name (stack_to_lab_thm4 |> rconc |> rand);
+    val lab_prog_def = mk_abbrev lab_prog_name (stack_to_lab_thm4 |> rconc |> rator |> rand);
 
     val stack_to_lab_thm =
       stack_to_lab_thm4 |>
-      CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM lab_prog_def))))
+      CONV_RULE(RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(SYM lab_prog_def)))))
 
     val () = List.app delete_binding temp_defs
 
@@ -974,12 +995,20 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
     val () = computeLib.extend_compset[computeLib.Defs[word_prog2_def]] cs;
 
       (* slow; cannot parallelise easily due to bitmaps accumulator *)
-      val from_word_thm =
+      val from_word_thm' =
         from_word_0_thm1'
         |> CONV_RULE(RAND_CONV(
              REWR_CONV from_word_def THENC
              REWR_CONV LET_THM THENC
-             RAND_CONV(timez "word_to_stack" eval) THENC
+             RAND_CONV(timez "word_to_stack" eval)))
+(*
+from_word_thm'
+ |> concl
+ |> funpow 1670 rand
+*)
+      val from_word_thm =
+        from_word_thm'
+        |> CONV_RULE(RAND_CONV(
              PAIRED_BETA_CONV THENC
              REWR_CONV_BETA LET_THM))
 
@@ -991,10 +1020,10 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
              REWR_CONV from_stack_def THENC
              RAND_CONV (RATOR_CONV eval) THENC
              REWR_CONV_BETA LET_THM THENC
-             RAND_CONV (REWR_CONV stack_to_labTheory.compile_def))))
+             (RATOR_CONV o RAND_CONV) (REWR_CONV stack_to_labTheory.compile_def))))
 
       val stack_rawcall_compile =
-        (stack_to_lab_thmA |> concl |> rand |> rand |> rand);
+        (stack_to_lab_thmA |> concl |> rand |> rator |> rand |> rand);
 
       val rawcall_thm = time_with_size (term_size o rand o concl) "stack_rawcall"
                           eval stack_rawcall_compile;
@@ -1009,8 +1038,8 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
       val stack_to_lab_thmA' =
         stack_to_lab_thmA
-        |> (CONV_RULE(PATH_CONV "rrr" (K rawcall_thm') THENC
-                      PATH_CONV "rr" (REWR_CONV_BETA LET_THM)))
+        |> (CONV_RULE(PATH_CONV "rlrr" (K rawcall_thm') THENC
+                      PATH_CONV "rlr" (REWR_CONV_BETA LET_THM)))
 
       (* stack_alloc *)
 
@@ -1030,7 +1059,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
       val stack_to_lab_thm0 =
         stack_to_lab_thmA'
-        |> (CONV_RULE(PATH_CONV "rrr" (
+        |> (CONV_RULE(PATH_CONV "rlrr" (
                  REWR_CONV stack_allocTheory.compile_def THENC
                  FORK_CONV(eval,
                    RAND_CONV(REWR_CONV stack_prog_def) THENC
@@ -1038,17 +1067,17 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
                  listLib.APPEND_CONV)))
 
       val stack_alloc_prog_def =
-        mk_abbrev"stack_alloc_prog"(stack_to_lab_thm0 |> rconc |> rand |> rand)
+        mk_abbrev"stack_alloc_prog"(stack_to_lab_thm0 |> rconc |> rator |> rand |> rand)
       val temp_defs = (mk_abbrev_name"stack_alloc_prog") :: temp_defs
 
       val stack_to_lab_thm1 =
         stack_to_lab_thm0
         |> CONV_RULE(RAND_CONV(
-             RAND_CONV (
-               RAND_CONV(REWR_CONV(SYM stack_alloc_prog_def)) THENC
+             (RATOR_CONV o RAND_CONV) (
+               RAND_CONV (REWR_CONV(SYM stack_alloc_prog_def)) THENC
                REWR_CONV_BETA LET_THM)))
 
-      val tm5 = stack_to_lab_thm1 |> rconc |> rand
+      val tm5 = stack_to_lab_thm1 |> rconc |> rator |> rand
 
       val stack_remove_thm0 =
         tm5 |>
@@ -1090,7 +1119,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       val stack_to_lab_thm2 =
         stack_to_lab_thm1
         |> CONV_RULE(RAND_CONV(
-             RAND_CONV(
+             (RATOR_CONV o RAND_CONV)(
                REWR_CONV stack_remove_thm THENC
                RAND_CONV(REWR_CONV(SYM stack_remove_prog_def)) THENC
                REWR_CONV_BETA LET_THM THENC
@@ -1098,7 +1127,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
                REWR_CONV_BETA LET_THM THENC
                RAND_CONV(REWR_CONV stack_namesTheory.compile_def))))
 
-      val tm7 = stack_to_lab_thm2 |> rconc |> rand |> rand
+      val tm7 = stack_to_lab_thm2 |> rconc |> rator |> rand |> rand
 
       val prog_comp_nm_tm = tm7 |> rator |> rand
 
@@ -1126,10 +1155,10 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
       val stack_to_lab_thm3 =
         stack_to_lab_thm2
-        |> CONV_RULE(RAND_CONV(RAND_CONV(
+        |> CONV_RULE(RAND_CONV((RATOR_CONV o RAND_CONV)(
              RAND_CONV(REWR_CONV stack_names_thm))))
 
-      val tm8 = stack_to_lab_thm3 |> rconc |> rand
+      val tm8 = stack_to_lab_thm3 |> rconc |> rator |> rand
 
       val prog_to_section_tm = tm8 |> rator |> rand
 
@@ -1145,15 +1174,15 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
       val stack_to_lab_thm4 =
         stack_to_lab_thm3
-        |> CONV_RULE(RAND_CONV(RAND_CONV(
+        |> CONV_RULE(RAND_CONV((RATOR_CONV o RAND_CONV)(
              RAND_CONV(REWR_CONV stack_names_prog_def) THENC
              map_ths_conv ths)))
 
-      val lab_prog_def = mk_abbrev lab_prog_name (stack_to_lab_thm4 |> rconc |> rand);
+      val lab_prog_def = mk_abbrev lab_prog_name (stack_to_lab_thm4 |> rconc |> rator |> rand);
 
       val stack_to_lab_thm =
         stack_to_lab_thm4 |>
-        CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM lab_prog_def))))
+        CONV_RULE(RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(SYM lab_prog_def)))))
 
       val () = List.app delete_binding temp_defs
 
@@ -1244,6 +1273,8 @@ val export_defs = [
   ,exportTheory.comma_cat_def
   ,exportTheory.comm_strlit_def
   ,exportTheory.data_section_def
+  ,exportTheory.data_buffer_def
+  ,exportTheory.code_buffer_def
   ,exportTheory.preamble_def];
 
 val arm7_export_defs = [
@@ -1280,10 +1311,14 @@ val (emit_symbols_tm,mk_emit_symbols,dest_emit_symbols,is_emit_symbols) =
 val (SmartAppend_tm,mk_SmartAppend,dest_SmartAppend,is_SmartAppend) = HolKernel.syntax_fns2 "misc" "SmartAppend"
 val (split16_tm,mk_split16,dest_split16,is_split16) = HolKernel.syntax_fns2 "export" "split16"
 
+(*
 fun format_byte s = String.concat("0x"::(if String.size s < 2 then ["0",s] else [s]))
 
 fun byte_to_string i = i |> Int.fmt StringCvt.HEX |> format_byte
+                       handle Overflow => ("byte_to_string overflowed!!!!"; raise Overflow)
 fun word_to_string i = i |> Int.fmt StringCvt.DEC
+                       handle Overflow => ("word_to_string overflowed!!!!"; raise Overflow)
+*)
 
 fun split16_to_app_list f [] = Nil
   | split16_to_app_list f xs =
@@ -1311,11 +1346,26 @@ fun split16_def_to_app_list term_to_app_list eval f def =
   in split16_to_app_list apply_f ls end
 *)
 
-fun split16_ml_to_app_list (prefix,to_string) def =
+val ty8  = ``:8``
+val ty32 = ``:32``
+val ty64 = ``:64``
+
+fun str_of_n2w tm = let
+  val (n,ty) = wordsSyntax.dest_n2w tm
+  val s = Arbnum.toHexString (numSyntax.dest_numeral n)
+  val l = (if ty = ty8  then  2:int else
+           if ty = ty32 then  8:int else
+           if ty = ty64 then 16:int else
+             failwith("str_of_num: size not supported"))
+  val _ = size s <= l orelse failwith "str_of_num: too long"
+  val s = if l = 2 andalso size s = 1 then "0" ^ s else s
+  in "0x" ^ s end
+
+fun split16_ml_to_app_list prefix def =
   let
     val (ls,ty) = listSyntax.dest_list(rconc def)
-    val ints = map wordsSyntax.uint_of_word ls
-  in split16_to_app_list (words_line prefix to_string) ints end
+    val nums = map str_of_n2w ls
+  in split16_to_app_list (words_line prefix I) nums end
 
 fun emit_symbols_to_app_list tm =
   let
@@ -1340,6 +1390,10 @@ fun emit_symbols_to_app_list tm =
     List (mapi emit_symbol ls)
   end
 
+(*
+data_def |> concl |> rand |> listSyntax.dest_list
+*)
+
 fun term_to_app_list word_directive eval code_def data_def =
   let
     fun ttal tm =
@@ -1347,13 +1401,9 @@ fun term_to_app_list word_directive eval code_def data_def =
       else if is_split16 tm then
         let
           val (f,x) = dest_split16 tm
-        in if same_const x (lhs(concl code_def))
-           (*
-           then split16_def_to_app_list ttal eval f code_def
-           else split16_def_to_app_list ttal eval f data_def
-           *)
-           then split16_ml_to_app_list ("\t.byte ",byte_to_string) code_def
-           else split16_ml_to_app_list ("\t."^word_directive^" ",word_to_string) data_def
+        in (if same_const x (lhs(concl code_def))
+            then split16_ml_to_app_list "\t.byte " code_def
+            else split16_ml_to_app_list ("\t."^word_directive^" ") data_def)
         end
       else if is_List tm then
         dest_List tm |> listSyntax.dest_list |> #1
@@ -1408,7 +1458,9 @@ fun eval_export word_directive target_export_defs code_def data_def syms_tm ffi_
          lhs(concl data_def),
          syms_tm])
     val app_list = eval eval_export_tm |> rconc
-    in print_app_list out (term_to_app_list word_directive eval code_def data_def app_list) end
+    in print_app_list out
+         (term_to_app_list word_directive eval code_def data_def app_list)
+    end
 
 fun cbv_to_bytes word_directive add_encode_compset backend_config_def names_def target_export_defs
       stack_to_lab_thm lab_prog_def
@@ -1494,9 +1546,10 @@ val cbv_to_bytes_x64 =
     x64_export_defs
 
 (*
-val (word_directive,add_encode_compset,backend_config_def,names_def,target_export_defs) =
-    ("quad",ag32_targetLib.add_ag32_encode_compset,
-     ag32_backend_config_def,ag32_names_def,ag32_export_defs)
+val (word_directive, add_encode_compset, backend_config_def,
+     names_def, target_export_defs) =
+    ("quad", x64_targetLib.add_x64_encode_compset,
+     x64_backend_config_def, x64_names_def, x64_export_defs);
 *)
 
 val intermediate_prog_prefix = ref ""
@@ -1532,9 +1585,11 @@ val compile_arm8  = compile arm8_backend_config_def  cbv_to_bytes_arm8
 val compile_mips  = compile mips_backend_config_def  cbv_to_bytes_mips
 val compile_riscv = compile riscv_backend_config_def cbv_to_bytes_riscv
 val compile_ag32  = compile ag32_backend_config_def  cbv_to_bytes_ag32
-val compile_x64   = compile x64_backend_config_def   cbv_to_bytes_x64
+val compile_x64   = compile x64_backend_config_def cbv_to_bytes_x64
 
 (*
+
+val hello_prog_def = Define `hello_prog = []:ast$dec list`;
 
 val (backend_config_def,cbv_to_bytes,name,prog_def) =
     (x64_backend_config_def,cbv_to_bytes_x64,"hello",hello_prog_def)

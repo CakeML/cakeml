@@ -104,7 +104,7 @@ Definition compTerm_def:
                decs
                [(«ptr1»,Const 0w);
                 («len1»,Const 0w);
-                («ptr2»,Const ffiBufferAddr);
+                («ptr2»,BaseAddr (* Const ffiBufferAddr *));
                 («len2»,Const ffiBufferSize)
                ] (Seq
                   (ExtCall (num_to_str outsig) «ptr1» «len1» «ptr2» «len2»)
@@ -288,7 +288,7 @@ Definition start_controller_def:
      («sysTime», Const 0w);
      («ptr1», Const 0w);
      («len1», Const 0w);
-     («ptr2», Const ffiBufferAddr);
+     («ptr2», BaseAddr (* Const ffiBufferAddr) *));
      («len2», Const ffiBufferSize);
      («taskRet»,
       Struct [Struct (emptyConsts clksLength);

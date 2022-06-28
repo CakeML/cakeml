@@ -82,15 +82,18 @@ Proof
   Cases_on`pp` \\ EVAL_TAC
 QED
 
-val lookup_IMP_lookup_compile = Q.prove(
-  `lookup dest s.code = SOME x /\ dest ≠ gc_stub_location ==>
+Theorem lookup_IMP_lookup_compile[local]:
+   lookup dest s.code = SOME x /\
+   dest ≠ gc_stub_location ==>
     ?m1 n1. lookup dest (fromAList (compile c (toAList s.code))) =
-            SOME (FST (comp m1 n1 x))`,
+            SOME (FST (comp m1 n1 x))
+Proof
   full_simp_tac(srw_ss())[lookup_fromAList,compile_def] \\ srw_tac[][ALOOKUP_APPEND]
   \\ `ALOOKUP (stubs c) dest = NONE` by
     (full_simp_tac(srw_ss())[stubs_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac) \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[prog_comp_lemma] \\ full_simp_tac(srw_ss())[ALOOKUP_MAP_2,ALOOKUP_toAList]
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
 val map_bitmap_APPEND = Q.prove(
   `!x q stack p0 p1.
@@ -5075,14 +5078,14 @@ QED
 
 Theorem loc_check_compile:
    loc_check s.code (l1,l2) /\
-    (!k prog. lookup k s.code = SOME prog ==> k ≠ gc_stub_location) ==>
+    (!k prog. lookup k s.code = SOME prog ==>
+              k ≠ gc_stub_location) ==>
     loc_check (fromAList (compile c (toAList s.code))) (l1,l2)
 Proof
   fs [loc_check_def,domain_lookup] \\ rw [] \\ fs []
   \\ fs [compile_def,lookup_fromAList,ALOOKUP_def,stubs_def]
   THEN1
-   (CASE_TAC \\ fs [ALOOKUP_MAP]
-    \\ disj1_tac
+   (res_tac \\ disj1_tac
     \\ `ALOOKUP (toAList s.code) l1 = SOME v` by fs [ALOOKUP_toAList]
     \\ pop_assum mp_tac
     \\ qspec_tac (`toAList s.code`,`xs`)
@@ -5163,12 +5166,34 @@ val inst_correct = Q.prove(`
     fs[set_var_def,state_component_equality]>>
     metis_tac[SUBMAP_FUPDATE_both]));
 
+Theorem ALOOKUP_prog_comp:
+  ∀xs a y.
+    ALOOKUP xs a = SOME y ⇒
+    ALOOKUP (MAP prog_comp xs) a = SOME (FST (comp a (next_lab y 2) y))
+Proof
+  Induct \\ fs [ALOOKUP_def,FORALL_PROD]
+  \\ rw [prog_comp_def] \\ fs []
+QED
+
+Theorem lookup_fromAList_prog_comp:
+  lookup x s.code = SOME p ⇒
+  lookup x (fromAList (MAP prog_comp (toAList s.code))) =
+    SOME (FST (comp x (next_lab p 2) p))
+Proof
+  fs [lookup_fromAList] \\ rw []
+  \\ irule ALOOKUP_prog_comp
+  \\ fs [ALOOKUP_toAList]
+QED
+
 Theorem comp_correct:
    !p (s:('a,'c,'b)stackSem$state) r t m n c regs.
      evaluate (p,s) = (r,t) /\ r <> SOME Error /\ alloc_arg p /\
-     (!k prog. lookup k s.code = SOME prog ==> k ≠ gc_stub_location /\ alloc_arg prog) /\
-     (∀n k p. MEM (k,p) (FST (SND (s.compile_oracle n))) ⇒ k ≠ gc_stub_location ∧ alloc_arg p) /\
-     s.gc_fun = word_gc_fun c ∧
+     (!k prog. lookup k s.code = SOME prog ==>
+               k ≠ gc_stub_location /\
+               alloc_arg prog) /\
+     (∀n k p. MEM (k,p) (FST (SND (s.compile_oracle n))) ⇒
+              k ≠ gc_stub_location /\ alloc_arg p) /\
+     s.gc_fun = word_gc_fun c ∧ s.use_alloc ∧
      LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
      s.regs SUBMAP regs /\
      s.use_stack ∧ (* Necessary for the data buffer oracle *)
@@ -5223,6 +5248,34 @@ Proof
     \\ strip_tac \\ qexists_tac `ck` \\ fs []
     \\ fs [state_component_equality,Abbr`f2`]
     \\ metis_tac[alloc_length_stack,alloc_const])
+  \\ conj_tac THEN1 (* StoreConsts *)
+   (rename [‘StoreConsts’] \\ rpt strip_tac
+    \\ gvs[evaluate_def,get_var_def,AllCaseEqs()]
+    \\ fs[Once comp_def,evaluate_def,compile_def]
+    \\ TOP_CASE_TAC \\ fs [evaluate_def,check_store_consts_opt_def]
+    \\ fs [store_const_sem_def]
+    THEN1
+     (qexists_tac ‘0’
+      \\ fs [dec_clock_def,set_var_def,AllCaseEqs(),get_var_def,PULL_EXISTS]
+      \\ imp_res_tac FLOOKUP_SUBMAP \\ fs [FLOOKUP_UPDATE,set_var_def]
+      \\ gvs [unset_var_def,state_component_equality]
+      \\ fs [SUBMAP_DEF,FAPPLY_FUPDATE_THM]
+      \\ rw [] \\ fs []
+      \\ qpat_x_assum ‘_ = t.regs’ (fs o single o GSYM)
+      \\ fs [DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM])
+    \\ res_tac \\ fs [stubs_def,find_code_def,fromAList_def,lookup_insert]
+    \\ drule lookup_fromAList_prog_comp \\ fs []
+    \\ disch_then kall_tac
+    \\ qexists_tac ‘1’ \\ fs [dec_clock_def,set_var_def]
+    \\ fs [EVAL “(comp x n (Seq (StoreConsts t1 t2 NONE) (Return 0 0)))”]
+    \\ fs [evaluate_def,store_const_sem_def,get_var_def,AllCaseEqs(),
+           check_store_consts_opt_def,FLOOKUP_UPDATE]
+    \\ gvs []
+    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs [FLOOKUP_UPDATE,set_var_def]
+    \\ gvs [unset_var_def,state_component_equality]
+    \\ fs [SUBMAP_DEF,FAPPLY_FUPDATE_THM]
+    \\ rw [] \\ fs []
+    \\ fs [DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM])
   \\ conj_tac (* Inst *) >- (
     rpt strip_tac
     \\ fs[Once comp_def,evaluate_def]
@@ -5463,7 +5516,7 @@ Proof
      \\ simp [comp_def] \\ fs [evaluate_def]
      \\ fs [CaseEq"option"]
      \\ drule lookup_IMP_lookup_compile
-     \\ impl_tac THEN1 (res_tac \\ fs [])
+     \\ impl_tac THEN1 metis_tac []
      \\ strip_tac \\ fs []
      \\ Cases_on `prog` \\ fs [dest_Seq_def]
      \\ rveq \\ fs []
@@ -5696,15 +5749,12 @@ Proof
   \\ conj_tac (* FFI *) >- (
     rpt strip_tac
     \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
+    \\ gvs [AllCaseEqs(),get_var_def]
     \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
     \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def,LET_DEF]
     \\ fs[] \\ rw[]
     \\ simp[markerTheory.Abbrev_def]
     \\ fs[] \\ rveq \\ fs[]
-    \\ qmatch_goalsub_abbrev_tac `a1 ⊑ _`
-    \\ qpat_x_assum `_ = a1` (assume_tac o GSYM)
-    \\ simp[]
     \\ match_mp_tac SUBMAP_DRESTRICT_MONOTONE
     \\ simp[])
   \\ rpt strip_tac
@@ -5736,12 +5786,14 @@ val with_same_regs_lemma = Q.prove(
 val _ = augment_srw_ss[rewrites[with_same_regs_lemma]];
 
 Theorem compile_semantics:
-   (!k prog. lookup k s.code = SOME prog ==> k <> gc_stub_location /\ alloc_arg prog) /\
-    (∀n k p.  MEM (k,p) (FST (SND (s.compile_oracle n))) ⇒ k ≠ gc_stub_location ∧ alloc_arg p) /\
+   (!k prog. lookup k s.code = SOME prog ==>
+             k <> gc_stub_location ∧ alloc_arg prog) /\
+    (∀n k p.  MEM (k,p) (FST (SND (s.compile_oracle n))) ⇒
+              k ≠ gc_stub_location ∧ alloc_arg p) /\
    (s:('a,'c,'b)stackSem$state).gc_fun = (word_gc_fun c:α gc_fun_type) /\
    LENGTH s.bitmaps + LENGTH s.data_buffer.buffer + s.data_buffer.space_left < dimword (:α) − 1 ∧
    LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:α) /\
-   s.use_stack ∧
+   s.use_stack ∧ s.use_alloc ∧
    s.compile = (λc. compile_rest c o (MAP prog_comp)) /\
    semantics start s <> Fail
    ==>
@@ -5755,7 +5807,7 @@ Theorem compile_semantics:
                       use_alloc := F |>) =
    semantics start s
 Proof
-  simp[GSYM AND_IMP_INTRO] >> ntac 6 strip_tac >>
+  simp[GSYM AND_IMP_INTRO] >> ntac 7 strip_tac >>
   simp[semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   DEEP_INTRO_TAC some_intro >> full_simp_tac(srw_ss())[] >>
@@ -5905,8 +5957,10 @@ Proof
 QED
 
 Theorem make_init_semantics:
-   (!k prog. ALOOKUP code k = SOME prog ==> k <> gc_stub_location /\ alloc_arg prog) /\
-   (∀n k p.  MEM (k,p) (FST (SND (oracle n))) ⇒ k ≠ gc_stub_location ∧ alloc_arg p) /\
+   (!k prog. ALOOKUP code k = SOME prog ==>
+             k <> gc_stub_location ∧ alloc_arg prog) /\
+   (∀n k p.  MEM (k,p) (FST (SND (oracle n))) ⇒
+             k <> gc_stub_location ∧ alloc_arg p) /\
    s.use_stack ∧ s.use_store ∧ ~s.use_alloc /\ s.code = fromAList (compile c code) /\
    s.compile_oracle = (I ## MAP prog_comp ## I) o oracle /\
    LENGTH s.bitmaps + LENGTH s.data_buffer.buffer + s.data_buffer.space_left < dimword (:α) − 1 ∧
@@ -6022,7 +6076,7 @@ Proof
         imp_res_tac extract_labels_next_lab>>fs[])
   >>
   TRY
-  (rpt(pairarg_tac>>fs[])>>rveq>>fs[extract_labels_def]>>
+  (rpt(pairarg_tac>>fs[])>>rveq>>gvs[extract_labels_def,AllCaseEqs()]>>
   qpat_x_assum`A<=nl` mp_tac>>
   simp[Once next_lab_thm])>>
   (strip_tac>>
@@ -6055,7 +6109,7 @@ Proof
     fs[stack_asm_name_def,stack_asm_remove_def])
   >>
     rpt(pairarg_tac>>fs[])>>rw[]>>
-    fs[stack_asm_name_def,stack_asm_remove_def]
+    gvs[stack_asm_name_def,stack_asm_remove_def,AllCaseEqs()]
 QED
 
 Theorem stack_alloc_stack_asm_convs:

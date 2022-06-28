@@ -18,10 +18,10 @@ val _ = ParseExtras.tight_equality()
 
 (* Note: This globally hides constants over the reals that gets imported through machine_ieeeTheory *)
 
-val _ = remove_ovl_mapping "max" {Name="max", Thy="real"}
-val _ = remove_ovl_mapping "min" {Name="min", Thy="real"}
+val _ = remove_ovl_mapping "max" {Name="max", Thy="realax"}
+val _ = remove_ovl_mapping "min" {Name="min", Thy="realax"}
 val _ = remove_ovl_mapping "pos" {Name="pos", Thy="real"}
-val _ = remove_ovl_mapping "abs" {Name="abs", Thy="real"}
+val _ = remove_ovl_mapping "abs" {Name="abs", Thy="realax"}
 val _ = remove_ovl_mapping "inf" {Name="inf", Thy="real"}
 
 (* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
@@ -2209,9 +2209,8 @@ Theorem domain_fromList2:
    ∀q. domain(fromList2 q) = set(GENLIST (λx. 2n*x) (LENGTH q))
 Proof
   rw[EXTENSION,domain_lookup,lookup_fromList2,MEM_GENLIST,
-     lookup_fromList,EVEN_EXISTS]
-  \\ rw[EQ_IMP_THM] \\ rename1`2 * m`
-  \\ qspecl_then[`2`,`m`]mp_tac MULT_DIV \\ simp[]
+     lookup_fromList,EVEN_EXISTS, PULL_EXISTS, SF CONJ_ss] \\
+  metis_tac[]
 QED
 
 Theorem UNCURRY_eq_pair:

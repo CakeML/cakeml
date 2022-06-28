@@ -12,7 +12,7 @@ local open flat_elimProofTheory flat_patternProofTheory in end
 val _ = new_theory "source_to_flatProof";
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "getOpClass_def"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val grammar_ancestry =
@@ -229,6 +229,15 @@ Inductive v_rel:
     LIST_REL (v_rel genv) vs vs'
     ⇒
     v_rel genv (Vectorv vs) (Vectorv vs')) ∧
+  (* For floating-point value trees *)
+  (! genv fp w.
+    compress_word fp = w ==>
+    v_rel genv (FP_WordTree fp) (Litv (Word64 w))) /\
+  (!(genv:global_env) fp.
+    FLOOKUP (genv.c) (((if (compress_bool fp) then true_tag else false_tag),SOME bool_id), 0) =
+      SOME (TypeStamp (if (compress_bool fp) then "True" else "False") bool_type_num)
+    ⇒
+    v_rel genv (FP_BoolTree fp) (Boolv (compress_bool fp))) ∧
   (!genv.
     env_rel genv nsEmpty []) ∧
   (!genv x v env env' v'.
@@ -257,11 +266,74 @@ Inductive v_rel:
     global_env_inv genv comp_map shadowers env)
 End
 
+(*
+Theorem v_rel_eqns:
+   (!genv l v.
+    v_rel genv (Litv l) v ⇔
+      (v = Litv l)) ∧
+   (!genv vs v.
+    v_rel genv (Conv cn vs) v ⇔
+      ?vs' cn'.
+        LIST_REL (v_rel genv) vs vs' ∧
+        v = Conv cn' vs' ∧
+        case cn of
+        | NONE => cn' = NONE
+        | SOME cn =>
+          ?cn2. cn' = SOME cn2 ∧ FLOOKUP genv.c (cn2, LENGTH vs) = SOME cn) ∧
+   (!genv l v.
+    v_rel genv (Loc l) v ⇔
+      (v = Loc l)) ∧
+   (!genv vs v.
+    v_rel genv (Vectorv vs) v ⇔
+      ?vs'. LIST_REL (v_rel genv) vs vs' ∧ (v = Vectorv vs')) ∧
+   (!genv fp v.
+      v_rel genv (FP_WordTree fp) v <=>
+      v = Litv (Word64 (compress_word fp))) /\
+   (! genv fp v cn.
+      v_rel genv (FP_BoolTree fp) v <=>
+      FLOOKUP (genv.c) (((if (compress_bool fp) then true_tag else false_tag),SOME bool_id), 0) =
+        SOME (TypeStamp (if (compress_bool fp) then "True" else "False") bool_type_num) /\
+      v = Boolv (compress_bool fp)) /\
+   (!genv env'.
+    env_rel genv nsEmpty env' ⇔
+      env' = []) ∧
+   (!genv x v env env'.
+    env_rel genv (nsBind x v env) env' ⇔
+      ?v' env''. v_rel genv v v' ∧ env_rel genv env env'' ∧ env' = ((x,v')::env'')) ∧
+   (!genv comp_map shadowers env.
+    global_env_inv genv comp_map shadowers env ⇔
+      (!x v.
+       x ∉ IMAGE Short shadowers ∧
+       nsLookup env.v x = SOME v
+       ⇒
+       ?n v' t.
+         nsLookup comp_map.v x = SOME (Glob t n) ∧
+         n < LENGTH genv.v ∧
+         EL n genv.v = SOME v' ∧
+         v_rel genv v v') ∧
+      (!x arity stamp.
+        nsLookup env.c x = SOME (arity, stamp) ⇒
+        ∃cn. nsLookup comp_map.c x = SOME cn ∧
+          FLOOKUP genv.c (cn,arity) = SOME stamp))
+Proof
+  srw_tac[][semanticPrimitivesTheory.Boolv_def,flatSemTheory.Boolv_def] >>
+  srw_tac[][Once v_rel_cases] >>
+  srw_tac[][Q.SPECL[`genv`,`nsEmpty`](CONJUNCT1(CONJUNCT2 v_rel_cases))] >>
+  srw_tac[][flatSemTheory.Boolv_def, semanticPrimitivesTheory.Boolv_def] >>
+  every_case_tac >>
+  fs [genv_c_ok_def, has_bools_def] >>
+  TRY eq_tac >>
+  rw [] >>
+  metis_tac []
+*)
+
 Triviality v_rel_eqns =
   [``v_rel genv (Litv l) v``, ``v_rel genv (Conv cn vs) v``,
     ``v_rel genv (Loc l) v``, ``v_rel genv (Vectorv vs) v``,
     ``env_rel genv nsEmpty env'``, ``env_rel genv (nsBind x v env) env'``,
-    ``v_rel genv (Env e id) v``]
+    ``v_rel genv (Env e id) v``,
+    “v_rel genv (FP_WordTree fp) v”,
+    “v_rel genv (FP_BoolTree fp) v”]
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> map GEN_ALL
   |> LIST_CONJ
@@ -434,8 +506,7 @@ val v_rel_weakening = Q.prove (
     !genv'. genv.c = genv'.c ∧ genv.tys = genv'.tys ∧
         subglobals genv.v genv'.v ⇒ global_env_inv genv' comp_map shadowers env)`,
   ho_match_mp_tac v_rel_ind >>
-  srw_tac[][v_rel_eqns, subglobals_def]
-  >- fs [LIST_REL_EL_EQN]
+  srw_tac[][v_rel_eqns, subglobals_def] >> fs[]
   >- fs [LIST_REL_EL_EQN]
   >- fs [LIST_REL_EL_EQN]
   >- (srw_tac[][Once v_rel_cases] >>
@@ -620,6 +691,8 @@ Inductive s_rel:
   (!genv s s'.
     ~ NULL s'.refs ∧
     LIST_REL (sv_rel genv) s.refs (TL s'.refs) ∧
+    s.fp_state.canOpt = Strict ∧
+    ~ s.fp_state.real_sem ∧
     s.clock = s'.clock ∧
     s.ffi = s'.ffi ∧
     s'.c = FDOM genv.c
@@ -688,13 +761,35 @@ val do_eq = Q.prove (
   ntac 2 strip_tac >>
   ho_match_mp_tac semanticPrimitivesTheory.do_eq_ind >>
   rpt strip_tac >>
-  fs [semanticPrimitivesTheory.do_eq_def, flatSemTheory.do_eq_def, v_rel_more_eqns] >>
+  fs [Boolv_def, semanticPrimitivesTheory.do_eq_def, flatSemTheory.do_eq_def, v_rel_more_eqns] >>
   rveq >> fs [] >>
   rpt (irule COND_CONG >> rpt strip_tac) >>
   imp_res_tac LIST_REL_LENGTH >>
   fs [flatSemTheory.ctor_same_type_def,
     semanticPrimitivesTheory.ctor_same_type_def] >>
+  TRY (
+    rename1 ‘v_rel _ (Real r1) _’
+    >> qpat_x_assum ‘v_rel _ (Real _) _’ $ assume_tac o SIMP_RULE std_ss [Once v_rel_cases] >> gs[])
+  >~ [‘_ = Eq_val (compress_bool _ ⇔ compress_bool _)’]
+  >- (every_case_tac >> gs[]) >>
+  TRY (
+    rename1 ‘compress_bool v2’ >>
+    fs[semanticPrimitivesTheory.Boolv_def, flatSemTheory.Boolv_def, do_eq_def] >>
+    TRY (Cases_on `cn''` ORELSE Cases_on `cn'`) >> fs[] >>
+    TRY (fs[flatSemTheory.ctor_same_type_def, semanticPrimitivesTheory.ctor_same_type_def] >> NO_TAC) >>
+    rveq >> Cases_on ‘compress_bool v2’ >> gs[] >>
+    ((rename1 `TypeStamp "True" bool_type_num = ts /\ vs = []` >> Cases_on `ts = TypeStamp "True" bool_type_num`) ORELSE
+    (rename1 `TypeStamp "False" bool_type_num = ts /\ vs = []` >> Cases_on `ts = TypeStamp "False" bool_type_num`)) >>
+    Cases_on `vs = []` >> rveq >> fs[genv_c_ok_def, has_bools_def] >> rveq >>
+    TRY (res_tac >> fs[ctor_same_type_def, semanticPrimitivesTheory.ctor_same_type_def] >> EVAL_TAC >> NO_TAC) >>
+    (`(true_tag, SOME bool_id) <> (q,r)` by (CCONTR_TAC >> fs[]) ORELSE
+     `(false_tag, SOME bool_id) <> (q,r)` by (CCONTR_TAC >> fs[])) >>
+    fs[ctor_same_type_def] >>
+    COND_CASES_TAC >> gs[] >> rveq >> res_tac
+    >> Cases_on ‘ts’ >> gs[semanticPrimitivesTheory.ctor_same_type_def, ctor_same_type_def, same_type_def]
+       ) >>
   TRY every_case_tac >>
+  gs[lit_same_type_def] >>
   metis_tac [SOME_11, genv_c_ok_def
     |> SIMP_RULE (srw_ss()) [semanticPrimitivesTheory.ctor_same_type_def]]
   );
@@ -827,6 +922,7 @@ val do_app = time Q.prove (
     SND s1 = s1_i1.ffi ∧
     genv_c_ok genv.c ∧
     op ≠ AallocEmpty ∧
+    getOpClass op ≠ Reals ∧
     op ≠ Env_id
     ⇒
      ∃r_i1 s2_i1.
@@ -847,7 +943,7 @@ val do_app = time Q.prove (
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, Unitv_def]) >>
   pop_assum mp_tac >>
   Cases_on `op` >>
-  simp [astOp_to_flatOp_def]
+  simp [astOp_to_flatOp_def, astTheory.getOpClass_def]
   >- ((* Opn *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
@@ -860,11 +956,13 @@ val do_app = time Q.prove (
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases,v_rel_lems]
       \\ Cases_on`o'` \\ fs[opw8_lookup_def,opw64_lookup_def])
   >- ((* Shift *)
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases] >>
+      full_simp_tac(srw_ss())[v_rel_eqns] >>
+      fs[flatSemTheory.do_app_def] >>
       TRY (rename1 `shift8_lookup s11 w11 n11`) >>
       TRY (rename1 `shift64_lookup s11 w11 n11`) >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems]
-      \\ Cases_on`w11` \\ Cases_on`s11` \\ fs[shift8_lookup_def,shift64_lookup_def])
+      full_simp_tac(srw_ss())[v_rel_eqns]
+      \\ Cases_on`w11` \\ Cases_on`s11` \\ fs[shift8_lookup_def,shift64_lookup_def, result_rel_cases, Once v_rel_eqns])
   >- ((* Equality *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
@@ -873,16 +971,36 @@ val do_app = time Q.prove (
       metis_tac [Boolv_11, do_eq, eq_result_11, eq_result_distinct, v_rel_lems])
   >- ( (*FP_cmp *)
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      fs[v_rel_eqns, result_rel_cases, v_rel_lems])
+      imp_res_tac fpSemPropsTheory.fp_translate_cases >> rveq >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      TOP_CASE_TAC >> fs[genv_c_ok_def, has_bools_def] >>
+      fs[fpSemTheory.fp_cmp_comp_def, fpValTreeTheory.fp_cmp_def,
+         fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def])
   >- ( (*FP_uop *)
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      fs[v_rel_eqns, result_rel_cases, v_rel_lems])
+      imp_res_tac fpSemPropsTheory.fp_translate_cases >> rveq >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      fs[fpSemTheory.fp_uop_comp_def, fpValTreeTheory.fp_uop_def] >>
+      TOP_CASE_TAC >> fs[] >> rveq >>
+      fs[fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def, fpSemTheory.fp_uop_comp_def, v_rel_eqns])
   >- ( (*FP_bop *)
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      fs[v_rel_eqns, result_rel_cases, v_rel_lems])
+      imp_res_tac fpSemPropsTheory.fp_translate_cases >> rveq >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      fs[fpSemTheory.fp_bop_comp_def, fpValTreeTheory.fp_bop_def] >>
+      TOP_CASE_TAC >> fs[fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def, fpSemTheory.fp_bop_comp_def])
   >- ( (*FP_top *)
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      fs[v_rel_eqns, result_rel_cases, v_rel_lems])
+      imp_res_tac fpSemPropsTheory.fp_translate_cases >> rveq >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      fs[fpSemTheory.fp_top_comp_def, fpValTreeTheory.fp_top_def] >>
+      fs[fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def, fpSemTheory.fp_top_comp_def])
+  >- ( (*FpFromWord *)
+      rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems, fpSemTheory.compress_word_def])
+  >- ( (*FpToWord *)
+      rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems, fpSemTheory.compress_word_def])
   >- ((* Opapp *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
@@ -1058,6 +1176,12 @@ val do_app = time Q.prove (
       srw_tac[][] >>
       metis_tac [LIST_REL_LENGTH])
   >- ((* Aalloc *)
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      full_simp_tac(srw_ss())[store_alloc_def] >>
+      srw_tac[][sv_rel_cases, LIST_REL_REPLICATE_same, ADD1] >>
+      metis_tac [LIST_REL_LENGTH, v_rel_lems])
+  >- ((* AallocFixed *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       full_simp_tac(srw_ss())[store_alloc_def] >>
@@ -1557,7 +1681,7 @@ Proof
   srw_tac[][semanticPrimitivesTheory.pmatch_def, flatSemTheory.pmatch_def, compile_pat_def] >>
   full_simp_tac(srw_ss())[match_result_rel_def, flatSemTheory.pmatch_def, v_rel_eqns] >>
   imp_res_tac LIST_REL_LENGTH
-  >- (
+  >- (fs[compile_pat_def, v_rel_eqns] >> rveq >> fs[pmatch_def] >>
     TOP_CASE_TAC >- simp [match_result_rel_def] >>
     fs [] >>
     qmatch_assum_rename_tac `nsLookup _ _ = SOME p` >>
@@ -1646,6 +1770,14 @@ val evaluate_foldr_let_err = Q.prove (
   every_case_tac >>
   fs [opt_bind_lem, env_updated_lem]);
 
+Theorem v_rel_FP_BoolTree:
+  v_rel genv (FP_BoolTree fp) v ==>
+  v_rel genv (Boolv (compress_bool fp)) v
+Proof
+  rw[Once v_rel_cases, semanticPrimitivesTheory.Boolv_def, Boolv_def] >>
+  fs[Once v_rel_cases]
+QED
+
 val env_domain_eq_def = Define `
   env_domain_eq (var_map : source_to_flat$environment) (env : 'a sem_env)⇔
     nsDom var_map.v = nsDom env.v ∧
@@ -1662,6 +1794,36 @@ val env_domain_eq_append = Q.prove (
       nsLookup_nsAppend_some, nsLookup_nsDom, namespaceTheory.nsDomMod_def,
       EXTENSION, GSPECIFICATION, EXISTS_PROD] >>
   metis_tac [option_nchotomy, NOT_SOME_NONE, pair_CASES]);
+
+Theorem v_rel_do_fpoptimise:
+  ∀ vs vsF genv annot.
+    LIST_REL (v_rel genv) vs vsF ⇒
+    LIST_REL (v_rel genv) (do_fpoptimise annot vs) vsF
+Proof
+  measureInduct_on ‘semanticPrimitives$v1_size vs’ >> Cases_on ‘vs’ >>
+  fs[LIST_REL_def] >> rpt strip_tac
+  >- (
+   fs[do_fpoptimise_def]) >>
+  first_assum (qspec_then ‘t’ assume_tac) >>
+  fs[semanticPrimitivesTheory.v_size_def] >>
+  simp[Once fpSemPropsTheory.do_fpoptimise_cons] >>
+  Cases_on ‘h’ >> simp[do_fpoptimise_def] >>
+  fs[Once v_rel_cases]
+  >- (
+   first_x_assum (qspec_then ‘l’ assume_tac) >>
+   fs[semanticPrimitivesTheory.v_size_def] >>
+   simp[do_fpoptimise_length])
+  >- (
+   first_x_assum (qspec_then ‘l’ assume_tac) >>
+   fs[semanticPrimitivesTheory.v_size_def])
+  >- (
+   first_x_assum (qspec_then ‘l’ assume_tac) >>
+   fs[semanticPrimitivesTheory.v_size_def])
+  >- (
+   fs[fpSemTheory.compress_word_def])
+  >- (
+   fs[fpSemTheory.compress_bool_def])
+QED
 
 val global_env_inv_append = Q.prove (
   `!genv var_map1 var_map2 env1 env2.
@@ -1799,14 +1961,15 @@ QED
    part of the oracle sequence should be what is produced by repeatedly
    applying compile_prog *)
 Definition src_orac_step_invs_def:
-  src_orac_step_invs ci eval_state = (case (ci, eval_state) of
+  src_orac_step_invs ci (g : ast$dec list -> ast$dec list) eval_state =
+  (case (ci, eval_state) of
     | (NONE, NONE) => T
     | (SOME dec, SOME (EvalOracle s)) => (
     (!k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
         ?c x. dec state_v = SOME (c, x)) /\
     let c_orac = FST o THE o dec o FST o SND o s.oracle in
     (!k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
-        c_orac (SUC k) = FST (inc_compile_prog env_id (c_orac k) decs)))
+        c_orac (SUC k) = FST (inc_compile_prog env_id (c_orac k) (g decs))))
     | _ => F
   )
 End
@@ -1814,10 +1977,11 @@ End
 (* the flatLang oracle is derived from the source oracle by compile_prog,
    and the two compile oracles agree also *)
 Definition orac_rel_inner_def:
-  orac_rel_inner dec s (s_compiler : compiler_fun) c <=>
+  orac_rel_inner dec s (s_compiler : compiler_fun)
+        (g : ast$dec list -> ast$dec list) c <=>
     !k env_id state_v decs. s.oracle k = (env_id, state_v, decs) ==>
         let x = THE (dec state_v) in
-        let f_decs = SND (inc_compile_prog env_id (FST x) decs) in
+        let f_decs = SND (inc_compile_prog env_id (FST x) (g decs)) in
         c.compile_oracle k = (SND x, f_decs) /\
         (s_compiler (env_id, state_v, decs) <> NONE ==>
             ?bytes words f_st st_v2.
@@ -1827,18 +1991,18 @@ Definition orac_rel_inner_def:
 End
 
 Definition orac_rel_def:
-  orac_rel interp src_eval flat_eval <=> (case (interp, src_eval) of
+  orac_rel interp g src_eval flat_eval <=> (case (interp, src_eval) of
     | (_, NONE) => T
     | (SOME dec, SOME (EvalOracle s)) => (
     ? s_compiler.
-    s.custom_do_eval = source_evalProof$do_eval_oracle s_compiler /\
-    orac_rel_inner dec s s_compiler flat_eval
+    s.custom_do_eval = source_evalProof$do_eval_oracle s_compiler g /\
+    orac_rel_inner dec s s_compiler g flat_eval
       )
     | _ => F)
 End
 
 Theorem orac_rel_SOME_eval:
-  orac_rel interp (SOME eval_state) flat_eval ==>
+  orac_rel interp g (SOME eval_state) flat_eval ==>
   ? dec orac_st.
   interp = SOME dec /\ eval_state = EvalOracle orac_st
 Proof
@@ -1889,19 +2053,19 @@ Definition src_orac_gen_inv_def:
 End
 
 Definition src_orac_invs_def:
-  src_orac_invs interp genv eval_state <=>
-  src_orac_step_invs interp eval_state /\
+  src_orac_invs interp g genv eval_state <=>
+  src_orac_step_invs interp g eval_state /\
   src_orac_env_invs interp genv eval_state /\
   src_orac_gen_inv eval_state
 End
 
 Theorem src_orac_invs_weak:
-   src_orac_invs interp genv src_eval ∧
+   src_orac_invs interp g genv src_eval ∧
    genv.c ⊑ genv'.c ∧
    genv.tys ⊑ genv'.tys ∧
    subglobals genv.v genv'.v
    ⇒
-   src_orac_invs interp genv' src_eval
+   src_orac_invs interp g genv' src_eval
 Proof
   simp [src_orac_invs_def, src_orac_env_invs_def, src_orac_gen_inv_def]
   \\ every_case_tac \\ fs []
@@ -1977,14 +2141,14 @@ Definition eval_ref_inv_def:
 End
 
 Definition invariant_def:
-  invariant interp gen genv idxs s s_i1 ⇔
+  invariant interp g gen genv idxs s s_i1 ⇔
     genv_c_ok genv.c ∧
     genv_c_tys_ok genv.c genv.tys ∧
     s_rel genv s s_i1 ∧
     idx_range_rel interp genv s.next_type_stamp
          s.next_exn_stamp s.eval_state idxs ∧
-    src_orac_invs interp genv s.eval_state ∧
-    orac_rel interp s.eval_state s_i1.eval_config ∧
+    src_orac_invs interp g genv s.eval_state ∧
+    orac_rel interp g s.eval_state s_i1.eval_config ∧
     genv.v = s_i1.globals ∧
     eval_ref_inv (TAKE 1 s_i1.globals) (TAKE 1 s_i1.refs) ∧
     env_gen_inv gen ∧
@@ -2068,7 +2232,7 @@ QED
 
 Theorem can_pmatch_all_IMP_pmatch_rows:
   can_pmatch_all env.c st.refs (MAP FST pes) v /\
-  invariant interp gen genv idxs st s_i1 /\
+  invariant interp g gen genv idxs st s_i1 /\
   env_all_rel genv comp_map env env_i1 locals /\
   v_rel genv v v' ==>
   pmatch_rows
@@ -2095,28 +2259,28 @@ val s = mk_var("s",
   |> type_subst[alpha |-> ``:'ffi``]);
 
 Theorem invariant_globals:
-  invariant interp gen genv idxs s s_i1 ==> s_i1.globals = genv.v
+  invariant interp g gen genv idxs s s_i1 ==> s_i1.globals = genv.v
 Proof
   simp [invariant_def]
 QED
 
 Theorem invariant_genv_c_ok:
-  invariant interp gen genv idxs s s_i1 ==> genv_c_ok genv.c
+  invariant interp g gen genv idxs s s_i1 ==> genv_c_ok genv.c
 Proof
   simp [invariant_def]
 QED
 
 Theorem invariant_change_clock:
-   invariant interp gen genv env st1 st2 ⇒
-   invariant interp gen genv env (st1 with clock := k) (st2 with clock := k)
+   invariant interp g gen genv env st1 st2 ⇒
+   invariant interp g gen genv env (st1 with clock := k) (st2 with clock := k)
 Proof
   srw_tac[][invariant_def] >> full_simp_tac(srw_ss())[s_rel_cases]
 QED
 
 Theorem invariant_dec_clock:
-   invariant interp gen genv env st1 st2 ⇒
+   invariant interp g gen genv env st1 st2 ⇒
    st1.clock = st2.clock ∧
-   invariant interp gen genv env (dec_clock st1) (dec_clock st2)
+   invariant interp g gen genv env (dec_clock st1) (dec_clock st2)
 Proof
   simp [invariant_def, dec_clock_def, evaluateTheory.dec_clock_def]
   \\ simp [s_rel_cases]
@@ -2271,28 +2435,28 @@ Proof
 QED
 
 Theorem invariant_idx_range_shrink:
-  invariant interp gen genv (l_idx, r_idx, etc) st st' ∧
+  invariant interp g gen genv (l_idx, r_idx, etc) st st' ∧
   idx_prev l_idx l_idx' ∧ idx_prev l_idx' r_idx
   ⇒
-  invariant interp gen genv (l_idx', r_idx, etc) st st'
+  invariant interp g gen genv (l_idx', r_idx, etc) st st'
 Proof
   simp [invariant_def]
   \\ metis_tac [idx_range_shrink]
 QED
 
 Theorem invariant_idx_range_shrink_gen:
-  invariant interp gen genv (l_idx, r_idx, etc) st st' ∧
+  invariant interp g gen genv (l_idx, r_idx, etc) st st' ∧
   idx_prev l_idx l_idx' ∧ idx_prev l_idx' r_idx ∧
   (env_gen_inv gen ⇒ env_gen_inv gen')
   ⇒
-  invariant interp gen' genv (l_idx', r_idx, etc) st st'
+  invariant interp g gen' genv (l_idx', r_idx, etc) st st'
 Proof
   rw [invariant_def]
   \\ metis_tac [idx_range_shrink]
 QED
 
 Theorem pmatch_invariant:
-  invariant interp gen genv idxs st st' ∧
+  invariant interp g gen genv idxs st st' ∧
   env_all_rel genv comp_map2 env env' locals ∧
   comp_map2.c = comp_map.c ∧
   v_rel genv v v' ⇒
@@ -2563,7 +2727,7 @@ Proof
 QED
 
 Theorem invariant_make_varls:
-  invariant interp gen genv (idx, end_idx, others) st st' ∧
+  invariant interp g gen genv (idx, end_idx, others) st st' ∧
   idx.vidx = vidx ∧
   idx.vidx + LENGTH vars <= end_idx.vidx ∧
   vars = REVERSE (MAP FST env.v) ∧
@@ -2571,7 +2735,7 @@ Theorem invariant_make_varls:
   ⇒
   ?genv' st''.
   evaluate env st' [make_varls n t vidx vars] = (st'', Rval [Unitv]) ∧
-  invariant interp gen genv' (idx with vidx := idx.vidx + LENGTH vars, end_idx, others)
+  invariant interp g gen genv' (idx with vidx := idx.vidx + LENGTH vars, end_idx, others)
     st st'' ∧
   genv'.c = genv.c ∧
   genv'.tys = genv.tys ∧
@@ -2833,20 +2997,20 @@ Proof
 QED
 
 Triviality FST_SND_EQ_CASE:
-  FST = (\(a, b). a) /\ SND = (\(a, b). b)
+  FST = (\ (a, b). a) /\ SND = (\ (a, b). b)
 Proof
   simp [FUN_EQ_THM, FORALL_PROD]
 QED
 
 Triviality step_1:
-  src_orac_step_invs interp (SOME (EvalOracle es)) ==>
+  src_orac_step_invs interp g (SOME (EvalOracle es)) ==>
   ? i_f env_id0 st_v0 decs0 fdecs0 c0 x0 env_id1 st_v1 decs1 c1 x1.
   interp = SOME i_f /\
   es.oracle 0 = (env_id0, st_v0, decs0) /\
   es.oracle 1 = (env_id1, st_v1, decs1) /\
   i_f st_v0 = SOME (c0, x0) /\
   i_f st_v1 = SOME (c1, x1) /\
-  inc_compile_prog env_id0 c0 decs0 = (c1, fdecs0) /\
+  inc_compile_prog env_id0 c0 (g decs0) = (c1, fdecs0) /\
   src_orac_next_cfg (SOME i_f) (SOME (EvalOracle es)) = SOME c0
 Proof
   rw []
@@ -2872,7 +3036,7 @@ QED
 Theorem do_eval:
   !vs'.
   do_eval vs s.eval_state = SOME (env, decs, eval_state) /\
-  invariant interp gen genv idxs s t /\
+  invariant interp g gen genv idxs s t /\
   LIST_REL (v_rel genv) vs vs'
   ==>
   ?genv' env_id c decs' eval_config' c' idx end_idx fin_idx other.
@@ -2881,7 +3045,7 @@ Theorem do_eval:
   LENGTH vs' = 6 /\
   inc_compile_prog env_id c decs = (c', decs') /\
   decs' <> [] /\
-  invariant interp <|next := 0; generation := c.envs.next; envs := LN|> genv'
+  invariant interp g <|next := 0; generation := c.envs.next; envs := LN|> genv'
     (c.next, c'.next, idx_block idx end_idx ∪ other)
     (s with eval_state := eval_state) (t with <| eval_config := eval_config';
         globals := t.globals ++ REPLICATE (c'.next.vidx - c.next.vidx) NONE |>)
@@ -3071,8 +3235,8 @@ Proof
 QED
 
 Theorem invariant_end_eval:
-  invariant interp gen' genv (x, end_idx1, idx_block idx end_idx ∪ other) st st' ∧
-  invariant interp gen prev_genv (idx, end_idx, other) prev_st prev_st' ∧
+  invariant interp g gen' genv (x, end_idx1, idx_block idx end_idx ∪ other) st st' ∧
+  invariant interp g gen prev_genv (idx, end_idx, other) prev_st prev_st' ∧
   orac_forward_rel interp begin_eval_state st.eval_state ∧
   idx_prev end_idx end_idx1 ∧
   orac_config_envs_subspt interp prev_st.eval_state begin_eval_state ∧
@@ -3083,7 +3247,7 @@ Theorem invariant_end_eval:
     | _ => F
   )
   ⇒
-  invariant interp gen genv (idx, end_idx, other) (st with
+  invariant interp g gen genv (idx, end_idx, other) (st with
         eval_state := reset_env_generation prev_st.eval_state st.eval_state)
     st' ∧
   orac_forward_rel interp prev_st.eval_state
@@ -3156,12 +3320,12 @@ Theorem alloc_tags1_imp:
   alloc_tags1 ctors = (ns, spt, tag_list) ∧
   ALL_DISTINCT (MAP FST ctors) ==>
   ? cn_tags.
-  ns = alist_to_ns (MAP (\(cn, tag, arity). (cn, tag)) cn_tags) ∧
+  ns = alist_to_ns (MAP (\ (cn, tag, arity). (cn, tag)) cn_tags) ∧
   set (MAP SND cn_tags) = {(tag, arity) |
     ∃max. lookup arity spt = SOME max ∧ tag < max} ∧
   tag_list = MAP SND cn_tags ∧
   ALL_DISTINCT tag_list ∧
-  LIST_REL (\(cn, ts) (cn', _, arity). cn = cn' ∧ arity = LENGTH ts)
+  LIST_REL (\ (cn, ts) (cn', _, arity). cn = cn' ∧ arity = LENGTH ts)
     ctors cn_tags ∧
   MAP FST ctors = MAP FST cn_tags
 Proof
@@ -3195,7 +3359,7 @@ QED
 
 Theorem alloc_tags_invariant:
   alloc_tags idx.tidx (ctors : (string # ast_t list) list) = (ns, cids) ∧
-  invariant interp gen genv (idx, end_idx, os) st st' ∧
+  invariant interp g gen genv (idx, end_idx, os) st st' ∧
   global_env_inv genv comp_map {} env ∧
   ALL_DISTINCT (MAP FST ctors) ∧
   idx.tidx + 1 <= end_idx.tidx
@@ -3204,7 +3368,7 @@ Theorem alloc_tags_invariant:
   genv.c ⊑ genv'.c ∧
   genv.tys ⊑ genv'.tys ∧
   genv'.v = genv.v ∧
-  invariant interp gen genv' (idx with tidx := idx.tidx + 1, end_idx, os)
+  invariant interp g gen genv' (idx with tidx := idx.tidx + 1, end_idx, os)
     (st with next_type_stamp := st.next_type_stamp + 1)
     (st' with c updated_by $UNION {((idx',SOME idx.tidx),arity) |
                        (∃max. lookup arity cids = SOME max ∧ idx' < max)}) ∧
@@ -3383,7 +3547,7 @@ Proof
 QED
 
 Theorem invariant_IMP_s_rel:
-  invariant interp gen genv idx st st' ==> s_rel genv st st'
+  invariant interp g gen genv idx st st' ==> s_rel genv st st'
 Proof
   simp [invariant_def]
 QED
@@ -3426,7 +3590,7 @@ fun setup (q : term quotation, t : tactic) = let
 val compile_correct_setup = setup (`
   (∀ ^s env es s' r genv comp_map env_i1 ^s_i1 es_i1 locals t ts gen idxs.
     evaluate$evaluate s env es = (s', r) ∧
-    invariant interp gen genv idxs s s_i1 ∧
+    invariant interp g gen genv idxs s s_i1 ∧
     env_all_rel genv comp_map env env_i1 locals ∧
     LENGTH ts = LENGTH locals ∧
     env_gen_rel gen s.eval_state ∧
@@ -3438,7 +3602,7 @@ val compile_correct_setup = setup (`
     result_rel (LIST_REL o v_rel) genv' r r_i1 ∧
     s_rel genv' s' s'_i1 ∧
     (~ abort r ⇒
-      invariant interp gen genv' idxs s' s'_i1 ∧
+      invariant interp g gen genv' idxs s' s'_i1 ∧
       env_gen_rel gen s'.eval_state ∧
       orac_forward_rel interp s.eval_state s'.eval_state ∧
       genv.c ⊑ genv'.c ∧
@@ -3448,7 +3612,7 @@ val compile_correct_setup = setup (`
   (∀ ^s env v pes err_v genv comp_map s' r env_i1 ^s_i1 v_i1 pes_i1
          err_v_i1 locals t ts gen idxs.
     evaluate$evaluate_match s env v pes err_v = (s', r) ∧
-    invariant interp gen genv idxs s s_i1 ∧
+    invariant interp g gen genv idxs s s_i1 ∧
     env_all_rel genv comp_map env env_i1 locals ∧
     v_rel genv v v_i1 ∧
     LENGTH ts = LENGTH locals ∧
@@ -3463,7 +3627,7 @@ val compile_correct_setup = setup (`
     result_rel (LIST_REL o v_rel) genv' r r_i1 ∧
     s_rel genv' s' s'_i1 ∧
     (~ abort r ⇒
-      invariant interp gen genv' idxs s' s'_i1 ∧
+      invariant interp g gen genv' idxs s' s'_i1 ∧
       env_gen_rel gen s'.eval_state ∧
       orac_forward_rel interp s.eval_state s'.eval_state ∧
       genv.c ⊑ genv'.c ∧
@@ -3473,7 +3637,7 @@ val compile_correct_setup = setup (`
   (∀ ^s env ds s' r path t idx end_idx os comp_map ^s_i1 idx'
         comp_map' ds_i1 t' genv gen gen'.
     evaluate$evaluate_decs s env ds = (s',r) ∧
-    invariant interp gen genv (idx, end_idx, os) s s_i1 ∧
+    invariant interp g gen genv (idx, end_idx, os) s s_i1 ∧
     source_to_flat$compile_decs path t idx comp_map gen ds =
         (t', idx', comp_map', gen', ds_i1) ∧
     global_env_inv genv comp_map {} env ∧
@@ -3486,7 +3650,7 @@ val compile_correct_setup = setup (`
     flatSem$evaluate_decs s_i1 ds_i1 = (s1_i1,r_i1) ∧
     s_rel genv' s' s1_i1 ∧
     (~ abort r ⇒
-      invariant interp gen' genv' (idx', end_idx, os) s' s1_i1 ∧
+      invariant interp g gen' genv' (idx', end_idx, os) s' s1_i1 ∧
       orac_forward_rel interp s.eval_state s'.eval_state ∧
       genv.c ⊑ genv'.c ∧
       genv.tys ⊑ genv'.tys ∧
@@ -3708,9 +3872,9 @@ Proof
 QED
 
 Theorem invariant_change_eval_ref:
-  invariant interp gen genv idxs st st'
+  invariant interp g gen genv idxs st st'
   ==>
-  invariant interp gen genv idxs st
+  invariant interp g gen genv idxs st
     (st' with refs := Refv y :: TL st'.refs)
 Proof
   rw [invariant_def]
@@ -3719,7 +3883,7 @@ QED
 
 Theorem declare_env_store_env_id:
   declare_env st.eval_state env = SOME (x, es2) /\
-  invariant interp gen genv idxs st ^s_i1 /\
+  invariant interp g gen genv idxs st ^s_i1 /\
   env_gen_rel gen st.eval_state /\
   gen_id = gen.generation /\
   id = gen.next /\
@@ -3734,7 +3898,7 @@ Theorem declare_env_store_env_id:
   ?y.
   evaluate_decs s_i1 [store_env_id gen_id id] =
     (s_i1 with refs := Refv y :: TL s_i1.refs, NONE) /\
-  invariant interp (gen with next := gen.next + 1) genv idxs
+  invariant interp g (gen with next := gen.next + 1) genv idxs
     (st with eval_state := es2) s_i1
   /\
   (?xs. s_i1.globals = SOME (Loc 0) :: xs) /\
@@ -3825,7 +3989,7 @@ Proof
   >- (
     (* empty array creation *)
     rw []
-    \\ fs [semanticPrimitivesTheory.do_app_def]
+    \\ fs [semanticPrimitivesTheory.do_app_def, astTheory.getOpClass_def]
     \\ every_case_tac \\ fs [] \\ rveq \\ fs []
     >- (
       drule (CONJUNCT1 evaluatePropsTheory.evaluate_length) >>
@@ -3867,8 +4031,8 @@ Proof
   )
   \\ Cases_on `op = Eval`
   >- (
-    rw []
-    \\ fs [evaluateTheory.do_eval_res_def]
+    rw[]
+    \\ fs [evaluateTheory.do_eval_res_def, astTheory.getOpClass_def]
     \\ fs [astOp_to_flatOp_def, evaluate_def, compile_exps_reverse,
         evaluate_decs_append, libTheory.opt_bind_def]
     \\ fs [list_case_eq, option_case_eq, pair_case_eq]
@@ -3945,7 +4109,7 @@ Proof
     \\ simp [libTheory.opt_bind_def]
     \\ asm_exists_tac
     \\ simp []
-    \\ drule_then (qsubterm_then `invariant _ _ _ _ _ _` mp_tac)
+    \\ drule_then (qsubterm_then `invariant _ _ _ _ _ _ _` mp_tac)
         invariant_change_eval_ref
     \\ simp []
     \\ metis_tac (invariant_IMP_s_rel :: trans_thms)
@@ -3953,7 +4117,7 @@ Proof
   \\ Cases_on `op = Opapp`
   >- (
     (* Opapp *)
-    fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq, option_case_eq] >>
+    fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq, option_case_eq, astTheory.getOpClass_def] >>
     rw [] >>
     rveq >> fs [] >>
     fs [astOp_to_flatOp_def, evaluate_def, compile_exps_reverse] >>
@@ -3980,7 +4144,7 @@ Proof
   )
   \\ Cases_on `op = Env_id`
   >- (
-    fs [option_case_eq, pair_case_eq, result_rel_eqns]
+    fs [option_case_eq, pair_case_eq, result_rel_eqns, astTheory.getOpClass_def]
     \\ rw []
     \\ fs [semanticPrimitivesTheory.do_app_def]
     \\ fs [case_eq_thms, semanticPrimitivesTheory.v_case_eq, pair_case_eq]
@@ -3995,6 +4159,15 @@ Proof
     \\ asm_exists_tac \\ fs []
     \\ fs [invariant_def, s_rel_cases]
   ) >>
+  Cases_on ‘getOpClass op’ >> gs[]
+  >- (Cases_on ‘op’ >> gs[astTheory.getOpClass_def])
+  >- (Cases_on ‘op’ >> gs[astTheory.getOpClass_def])
+  >~ [‘getOpClass op = Reals’]
+  >- (
+    fs[s_rel_cases] >>
+    ‘~ st'.fp_state.real_sem’
+      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv >> gs[]) >>
+    gs[]) >>
   fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, option_case_eq, pair_case_eq] >>
   rw [] >>
   rveq >> fs [] >>
@@ -4018,7 +4191,31 @@ Proof
   qexists_tac `genv2` >>
   simp [] >>
   conj_tac >> TRY (fs [result_rel_cases] \\ NO_TAC) >>
-  fs [invariant_def, s_rel_cases]
+  fs [invariant_def, s_rel_cases] >>
+  rpt (TOP_CASE_TAC >> gs[result_rel_cases, semanticPrimitivesTheory.Boolv_def, Boolv_def, v_rel_eqns]) >>
+  TRY COND_CASES_TAC >> gs[] >>
+  simp[ Once v_rel_rules]
+QED
+
+Triviality compile_correct_Scope:
+  ^(#get_goal compile_correct_setup ‘Case [FpOptimise _ _]’)
+Proof
+  rw[] >>
+  fs [pair_case_eq] >> fs [] >>
+  ‘invariant interp g gen genv idxs (s with fp_state := s.fp_state) s_i1’
+  by (gs[invariant_def, s_rel_cases]) >>
+  first_x_assum $ drule_then $ drule_then drule >>
+  disch_then (qspec_then ‘t’ mp_tac) >>
+  simp [] >> strip_tac >>
+  rw [] >>
+  reverse (fs [result_case_eq]) >> rveq >> fs []
+  >- (
+    gs[] >>
+    goal_assum (qsubterm_then `invariant _ _ _ _` mp_tac) >>
+    fs [result_rel_cases] >> rveq >> fs [] >>
+    gs[s_rel_cases, invariant_def]) >>
+  qexists_tac ‘genv'’ >> gs[invariant_def, s_rel_cases, result_rel_cases] >>
+  irule v_rel_do_fpoptimise >> gs[]
 QED
 
 Triviality compile_correct_Log:
@@ -4033,7 +4230,7 @@ Proof
   rw [] >>
   reverse (fs [result_case_eq]) >> rveq >> fs []
   >- (
-    goal_assum (qsubterm_then `invariant _ _ _` mp_tac) >>
+    goal_assum (qsubterm_then `invariant _ _ _ _` mp_tac) >>
     fs [result_rel_cases] >> rveq >> fs [] >>
     every_case_tac >>
     simp [evaluate_def]
@@ -4043,7 +4240,7 @@ Proof
   >- (
     rveq >> fs [] >>
     fs [evaluate_def, do_if_def, do_log_def, bool_case_eq] >> rveq >> fs [] >>
-    goal_assum (qsubterm_then `invariant _ _ _` mp_tac) >>
+    goal_assum (qsubterm_then `invariant _ _ _ _` mp_tac) >>
     fs [invariant_def, v_rel_Bool_eqn, Boolv_11] >>
     drule_then (fn t => simp [t]) evaluate_Bool >>
     simp [result_rel_eqns, v_rel_Bool_eqn]
@@ -4054,7 +4251,7 @@ Proof
   first_x_assum (drule_then (drule_then drule)) >>
   disch_then (qspec_then ‘t’ mp_tac) >>
   rw [] >>
-  goal_assum (qsubterm_then `invariant _ _ _` mp_tac) >>
+  goal_assum (qsubterm_then `invariant _ _ _ _` mp_tac) >>
   fs [evaluate_def, do_if_def, do_log_def, bool_case_eq] >> rveq >> fs [] >>
   fs [invariant_def, v_rel_Bool_eqn, Boolv_11] >>
   metis_tac trans_thms
@@ -4078,7 +4275,7 @@ Proof
   disch_then (qspec_then ‘t’ mp_tac) >>
   rw [] >>
   imp_res_tac evaluatePropsTheory.evaluate_sing >>
-  goal_assum (qsubterm_then `invariant _ _ _` mp_tac) >>
+  goal_assum (qsubterm_then `invariant _ _ _ _` mp_tac) >>
   fs [semanticPrimitivesTheory.do_if_def, bool_case_eq] >> rveq >> fs [] >>
   fs [invariant_def, do_if_def] >>
   rfs [v_rel_Bool_eqn, Boolv_11] >>
@@ -4258,7 +4455,7 @@ Proof
 QED
 
 Triviality invariant_env_gen_inv:
-  invariant interp gen genv (idx,end_idx,os) s s_i1
+  invariant interp g gen genv (idx,end_idx,os) s s_i1
   ==>
   env_gen_inv gen
 Proof
@@ -4388,7 +4585,7 @@ Proof
   fs [match_result_rel_def] >>
   drule (CONJUNCT1 pmatch_bindings) >>
   rw [] >>
-  qpat_x_assum `invariant _ _ _ (_ with vidx := _, _, _) _ _` kall_tac >>
+  qpat_x_assum `invariant _ _ _ _ (_ with vidx := _, _, _) _ _` kall_tac >>
   drule invariant_make_varls >>
   disch_then (qsubterm_then `evaluate _ _ _` mp_tac) >>
   simp [] >>
@@ -4790,7 +4987,8 @@ Proof
     compile_correct_pattern, compile_correct_empty_decs,
     compile_correct_cons_decs, compile_correct_Dlet, compile_correct_Dletrec,
     compile_correct_Dtype, compile_correct_Dtabbrev, compile_correct_Denv,
-    compile_correct_Dexn, compile_correct_Dmod, compile_correct_Dlocal]
+    compile_correct_Dexn, compile_correct_Dmod, compile_correct_Dlocal,
+    compile_correct_Scope]
   (* trivial cases *)
   \\ TRY (
     rw []
@@ -4799,6 +4997,7 @@ Proof
     \\ NO_TAC
   )
   \\ TRY (Cases_on`l`>>fs[evaluate_def,compile_exp_def])
+  \\ fs[s_rel_cases]
 QED
 
 Definition init_eval_state_ok_def:
@@ -4893,14 +5092,15 @@ Proof
 QED
 
 Definition precondition1_def:
-  precondition1 interp s1 env1 conf eval_conf prog ⇔
-  src_orac_step_invs interp s1.eval_state ∧
-  orac_rel interp s1.eval_state eval_conf ∧
+  precondition1 interp g s1 env1 conf eval_conf prog ⇔
+  src_orac_step_invs interp g s1.eval_state ∧
+  orac_rel interp g s1.eval_state eval_conf ∧
   (case src_orac_next_cfg interp s1.eval_state of
     | NONE => T
     | SOME cfg => cfg = FST (compile_prog conf prog)) ∧
   conf.next.vidx = 0 ∧
   s1.refs = [] ∧
+  s1.fp_state.canOpt = Strict ∧ ~ s1.fp_state.real_sem ∧
   init_global_env_inv init_genv conf.mod_env env1 ∧
   init_eval_state_ok s1.eval_state ∧
   idx_prev init_genv_next conf.next ∧
@@ -4910,8 +5110,8 @@ Definition precondition1_def:
 End
 
 Theorem precondition1_change_clock:
-   precondition1 interp s1 env1 conf eval_conf prog ⇒
-   precondition1 interp (s1 with clock := k) env1 conf eval_conf prog
+   precondition1 interp g s1 env1 conf eval_conf prog ⇒
+   precondition1 interp g (s1 with clock := k) env1 conf eval_conf prog
 Proof
   rw [precondition1_def]
 QED
@@ -4940,10 +5140,10 @@ Proof
 QED
 
 Theorem invariant_begin_alloc_blanks:
-  precondition1 interp s1 env1 cfg eval_conf prog /\
+  precondition1 interp g s1 env1 cfg eval_conf prog /\
   cfg' = FST (compile_prog cfg prog) /\
   init_globs = SOME (Loc 0) :: REPLICATE (cfg'.next.vidx - 1) NONE ==>
-  invariant interp
+  invariant interp g
     <|next := 0; generation := cfg.envs.next; envs := LN|>
     (init_genv with v := init_globs)
     (cfg.next with vidx := 1, cfg'.next, {})
@@ -4996,7 +5196,7 @@ Proof
 QED
 
 Theorem compile_prog_correct:
-  precondition1 interp s env cfg eval_conf ds ∧
+  precondition1 interp g s env cfg eval_conf ds ∧
   compile_prog cfg ds = (cfg', ds') ∧
   evaluate_decs s env ds = (s', r) ∧
   r <> Rerr (Rabort Rtype_error)
@@ -5058,7 +5258,7 @@ val SND_eq = Q.prove(
   Cases_on`x`\\rw[]);
 
 Theorem compile_prog_semantics:
-  precondition1 interp s1 env1 conf eval_conf prog ⇒
+  precondition1 interp g s1 env1 conf eval_conf prog ⇒
    ¬semantics_prog s1 env1 prog Fail ⇒
    semantics_prog s1 env1 prog
       (semantics eval_conf s1.ffi
@@ -5180,7 +5380,7 @@ QED
 
 Definition precondition_def:
   precondition interp s env cfg ec prog <=>
-  ?ec1. precondition1 interp s env cfg ec1 prog /\
+  ?ec1 g. precondition1 interp g s env cfg ec1 prog /\
     flat_patternProof$install_conf_rel cfg.pattern_cfg ec1 ec
 End
 
@@ -5505,13 +5705,13 @@ QED
 (* not sure if this variant of the inc. compiler is the one we need *)
 Theorem monotonic_globals_state_co_compile:
   compile conf prog = (conf',p) ∧ FST (FST (orac 0)) = conf' ∧
-  is_state_oracle (\c (env_id, decs). inc_compile env_id c decs) orac ⇒
+  is_state_oracle (\c (env_id, decs). inc_compile env_id c (f decs)) orac ⇒
   oracle_monotonic
     (SET_OF_BAG ∘ elist_globals ∘ MAP flatProps$dest_Dlet ∘
       FILTER flatProps$is_Dlet ∘ SND) $<
     (SET_OF_BAG (elist_globals (MAP flatProps$dest_Dlet
       (FILTER flatProps$is_Dlet p))))
-    (state_co (\c (env_id, decs). inc_compile env_id c decs) orac)
+    (state_co (\c (env_id, decs). inc_compile env_id c (f decs)) orac)
 Proof
   rw []
   \\ irule (Q.ISPEC `\c. c.next.vidx` oracle_monotonic_state)

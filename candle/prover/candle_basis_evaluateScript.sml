@@ -18,7 +18,11 @@ val _ = set_grammar_ancestry [
 Definition simple_exp_def:
   simple_exp = every_exp $ λx.
     case x of
-      App op xs => op = VfromList ∨ op = Aw8alloc
+      App op xs => (case op of
+        VfromList => T
+      | Aw8alloc => T
+      | Opb _ => T
+      | _ => F)
     | Lit lit => T
     | Var v => T
     | Con opt xs => T
@@ -205,16 +209,38 @@ Theorem evaluate_basis_v_ok_App:
   ^(get_goal "App")
 Proof
   rw [evaluate_def]
-  \\ gvs [CaseEqs ["option", "prod", "semanticPrimitives$result"], SF SFY_ss]
-  \\ gvs [do_app_cases, v_ok_def]
+  \\ Cases_on ‘getOpClass op’
+  \\ gvs [CaseEqs ["bool", "option", "prod", "semanticPrimitives$result"], SF SFY_ss]
+  >- (Cases_on ‘op’ \\ gs[])
+  >- (Cases_on ‘op’ \\ gs[])
+  >- (Cases_on ‘op’ \\ gs[])
+  >- (Cases_on ‘op’ \\ gs[])
   >- (
-    irule v_ok_v_to_list
-    \\ first_assum (irule_at Any)
-    \\ first_x_assum irule \\ gs []
-    \\ gs [post_state_ok_def])
-  \\ gvs [store_alloc_def, post_state_ok_def]
-  \\ strip_tac
-  \\ first_x_assum (drule_all_then assume_tac) \\ gs []
+    gvs [do_app_cases, Boolv_def]
+    \\ rw [v_ok_def]
+    >- (
+      gvs [store_alloc_def, post_state_ok_def]
+      \\ strip_tac
+      \\ first_x_assum (drule_all_then assume_tac) \\ gs []
+    )
+    >- (
+      irule v_ok_v_to_list
+      \\ first_assum (irule_at Any)
+      \\ first_x_assum irule \\ gs []
+      \\ gs [post_state_ok_def]))
+  >- (Cases_on ‘op’ \\ gs[])
+  >- (Cases_on ‘op’ \\ gs[])
+QED
+
+Theorem evaluate_basis_v_ok_FpOptimise:
+  ^(get_goal "FpOptimise")
+Proof
+  rw [evaluate_def]
+  \\ gvs [CaseEqs ["bool", "option", "prod", "semanticPrimitives$result"], SF SFY_ss]
+  >- (irule EVERY_v_ok_do_fpoptimise \\ first_assum irule \\ gs[simple_exp_def])
+  >- (Cases_on ‘e'’ \\ gs[] \\ first_assum irule \\ gs[simple_exp_def])
+  >- (irule EVERY_v_ok_do_fpoptimise \\ first_assum irule \\ gs[simple_exp_def])
+  >- (Cases_on ‘e'’ \\ gs[] \\ first_assum irule \\ gs[simple_exp_def])
 QED
 
 Theorem evaluate_basis_v_ok_decs_Nil:
@@ -370,6 +396,7 @@ Proof
   \\ rewrite_tac [evaluate_basis_v_ok_Nil, evaluate_basis_v_ok_Cons,
                   evaluate_basis_v_ok_Lit, evaluate_basis_v_ok_Con,
                   evaluate_basis_v_ok_Var, evaluate_basis_v_ok_App,
+                  evaluate_basis_v_ok_FpOptimise,
                   evaluate_basis_v_ok_decs_Nil,
                   evaluate_basis_v_ok_decs_Cons,
                   evaluate_basis_v_ok_decs_Dlet,

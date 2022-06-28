@@ -2,7 +2,7 @@
   Definition of CakeML abstract syntax (AST).
 *)
 open HolKernel Parse boolLib bossLib;
-open namespaceTheory fpSemTheory;
+open namespaceTheory fpSemTheory fpValTreeTheory realOpsTheory;
 
 val _ = numLib.prefer_num();
 
@@ -37,7 +37,6 @@ Datatype:
   shift = Lsl | Lsr | Asr | Ror
 End
 
-
 (* Module names *)
 Type modN = “:string”
 
@@ -71,6 +70,15 @@ Datatype:
   | FP_uop fp_uop
   | FP_bop fp_bop
   | FP_top fp_top
+  (* Floating-point <-> word translations *)
+  | FpFromWord
+  | FpToWord
+  (* Real ops for verification *)
+  | Real_cmp real_cmp
+  | Real_uop real_uop
+  | Real_bop real_bop
+  (* Translation from floating-points to reals for verification *)
+  | RealFromFP
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -107,6 +115,7 @@ Datatype:
   (* Array operations *)
   | Aalloc
   | AallocEmpty
+  | AallocFixed
   | Asub
   | Alength
   | Aupdate
@@ -125,6 +134,35 @@ Datatype:
   | Eval
   (* Get the identifier of an env object *)
   | Env_id
+End
+
+(* Define operator classes, that allow to group their behavior later *)
+Datatype:
+ op_class =
+    EvalOp (* Eval primitive *)
+  | FunApp (* function application *)
+  | Simple (* arithmetic operation, no finite-precision/reals *)
+  | Icing (* 64-bit floating-points *)
+  | Reals (* real numbers *)
+End
+Definition getOpClass_def[simp]:
+ getOpClass op =
+ case op of
+   FP_cmp _ => Icing
+  | FP_top _ => Icing
+  | FP_bop _ => Icing
+  | FP_uop _ => Icing
+  | Real_cmp _ => Reals
+  | Real_bop _ => Reals
+  | Real_uop _ => Reals
+  | RealFromFP => Reals
+  | Opapp => FunApp
+  | Eval => EvalOp
+  | _ => Simple
+End
+
+Definition isFpBool_def:
+  isFpBool op = case op of FP_cmp _ => T | _ => F
 End
 
 (* Logical operations *)
@@ -192,6 +230,8 @@ Datatype:
   | Tannot exp ast_t
   (* Location annotated expressions, not expected in source programs *)
   | Lannot exp locs
+  (* Floating-point optimisations *)
+  | FpOptimise fp_opt exp
 End
 
 Type type_def = ``: ( tvarN list # typeN # (conN # ast_t list) list) list``

@@ -132,9 +132,9 @@ Theorem ArrowP_MONAD_to_app:
      app (p : 'ffi ffi_proj) fv [xv] (H refs)
      (POSTve
         (\rv. SEP_EXISTS refs' r. H refs' *
-              &(f x refs = (Success r, refs')) * &(B r rv))
+              &(f x refs = (M_success r, refs')) * &(B r rv))
         (\ev. SEP_EXISTS refs' e. H refs' *
-              &(f x refs = (Failure e, refs')) * &(C e ev)))
+              &(f x refs = (M_failure e, refs')) * &(C e ev)))
 Proof
   rw [app_def, app_basic_def, ArrowP_def, EqSt_def, PURE_def]
   \\ fs [PULL_EXISTS]
@@ -172,9 +172,9 @@ Theorem ArrowP_MONAD_EqSt_to_app:
      app (p : 'ffi ffi_proj) fv [xv] (H refs)
      (POSTve
           (\rv. SEP_EXISTS refs' r. H refs' *
-                &(f x refs = (Success r, refs')) * &(B r rv))
+                &(f x refs = (M_success r, refs')) * &(B r rv))
           (\ev. SEP_EXISTS refs' e. H refs' *
-                &(f x refs = (Failure e, refs')) * &(C e ev)))
+                &(f x refs = (M_failure e, refs')) * &(C e ev)))
 Proof
   rw [app_def, app_basic_def, ArrowP_def, EqSt_def, PURE_def]
   \\ fs [PULL_EXISTS]
@@ -248,11 +248,11 @@ QED
 
 Theorem EvalM_from_app_gen:
    !(eff_v:v) ARG_TYPE EXC_TYPE P.
-   (!x s. ?r t. f x s = (Success r, t)) /\
+   (!x s. ?r t. f x s = (M_success r, t)) /\
    (!x xv s ret new_s.
      P s ==>
      ARG_TYPE x xv ==>
-     (f x s = (Success ret, new_s)) ==>
+     (f x s = (M_success ret, new_s)) ==>
      app (p: 'ffi ffi_proj) fun_v [xv] (H s)
        (POSTv rv. &RET_TYPE ret rv * (H new_s)))
    ==>
@@ -281,7 +281,7 @@ Proof
   \\ rpt (disch_then drule) \\ rw []
   \\ fs [cfHeapsBaseTheory.POSTv_def, cfHeapsBaseTheory.POST_def]
   \\ FULL_CASE_TAC \\ fs [set_sepTheory.cond_def]
-  \\ rw [evaluate_def, PULL_EXISTS]
+  \\ rw [evaluate_def, astTheory.getOpClass_def, PULL_EXISTS]
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ rename1 `RET_TYPE r val`
   \\ qexists_tac `Rval [val]` \\ fs [PULL_EXISTS]
@@ -345,10 +345,10 @@ QED
 
 Theorem EvalM_from_app:
    !(eff_v:v) ARG_TYPE EXC_TYPE.
-   (!x s. ?r t. f x s = (Success r, t)) /\
+   (!x s. ?r t. f x s = (M_success r, t)) /\
    (!x xv s ret new_s.
      ARG_TYPE x xv ==>
-     (f x s = (Success ret, new_s)) ==>
+     (f x s = (M_success ret, new_s)) ==>
      app (p: 'ffi ffi_proj) fun_v [xv] (H s)
        (POSTv rv. &RET_TYPE ret rv * (H new_s)))
    ==>
@@ -365,11 +365,11 @@ QED
 
 Theorem EvalM_from_app_unit_gen:
    !(eff_v:v) EXC_TYPE P.
-   (!s. ?r t. f s = (Success r, t)) /\
+   (!s. ?r t. f s = (M_success r, t)) /\
    (!xv s ret new_s.
      P s ==>
      UNIT_TYPE () xv ==>
-     (f s = (Success ret, new_s)) ==>
+     (f s = (M_success ret, new_s)) ==>
      app (p: 'ffi ffi_proj) fun_v [xv] (H s)
        (POSTv rv. &RET_TYPE ret rv * (H new_s)))
    ==>
@@ -397,7 +397,7 @@ Proof
   \\ rpt (disch_then drule) \\ rw []
   \\ fs [cfHeapsBaseTheory.POSTv_def, cfHeapsBaseTheory.POST_def]
   \\ FULL_CASE_TAC \\ fs [set_sepTheory.cond_def]
-  \\ rw [evaluate_def, PULL_EXISTS]
+  \\ rw [evaluate_def, astTheory.getOpClass_def, PULL_EXISTS]
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ rename1 `RET_TYPE r val`
   \\ qexists_tac `Rval [val]` \\ fs [PULL_EXISTS]
@@ -460,10 +460,10 @@ QED
 
 Theorem EvalM_from_app_unit:
    !(eff_v:v) EXC_TYPE.
-   (!s. ?r t. f s = (Success r, t)) /\
+   (!s. ?r t. f s = (M_success r, t)) /\
    (!xv s ret new_s.
      UNIT_TYPE () xv ==>
-     (f s = (Success ret, new_s)) ==>
+     (f s = (M_success ret, new_s)) ==>
      app (p: 'ffi ffi_proj) fun_v [xv] (H s)
        (POSTv rv. &RET_TYPE ret rv * (H new_s)))
    ==>

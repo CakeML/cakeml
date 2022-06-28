@@ -86,6 +86,8 @@ val astOp_to_flatOp_def = Define `
   | FP_uop uop => flatLang$FP_uop uop
   | FP_bop bop => flatLang$FP_bop bop
   | FP_top t_op => flatLang$FP_top t_op
+  | FpFromWord => Id
+  | FpToWord => Id
   | Equality => flatLang$Equality
   | Opapp => flatLang$Opapp
   | Opassign => flatLang$Opassign
@@ -113,6 +115,7 @@ val astOp_to_flatOp_def = Define `
   | Vsub => flatLang$Vsub
   | Vlength => flatLang$Vlength
   | Aalloc => flatLang$Aalloc
+  | AallocFixed => flatLang$AallocFixed
   | Asub => flatLang$Asub
   | Alength => flatLang$Alength
   | Aupdate => flatLang$Aupdate
@@ -230,6 +233,8 @@ Definition compile_exp_def:
   (compile_exp t env (Tannot e _) = compile_exp t env e) ∧
   (* When encountering a Lannot, we update the trace we are passing *)
   (compile_exp t env (Lannot e (Locs st en)) = compile_exp t env e) ∧
+  (* remove FPOptimise annotations *)
+  (compile_exp t env (FpOptimise sc e) = compile_exp t env e) /\
   (compile_exps t env [] = []) ∧
   (compile_exps t env (e::es) =
      compile_exp t env e :: compile_exps t env es) ∧

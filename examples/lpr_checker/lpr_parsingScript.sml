@@ -103,14 +103,9 @@ Proof
   fs[EVERY_REVERSE]
 QED
 
-(* Printing a parsed clause back *)
-val toStdString_def = Define`
-  toStdString i =
-    if 0i ≤ i ∧ i < 10 then
-      str (toChar (Num (ABS i)))
-    else
-      implode ((if i < 0i then "-" else "")++
-               (toChars (Num (ABS i) MOD maxSmall_DEC) (Num (ABS i) DIV maxSmall_DEC) ""))`;
+Definition toStdString_def:
+  toStdString i = int_to_string #"-" i
+End
 
 val print_clause_def = Define`
   (print_clause [] = strlit "0\n") ∧
@@ -126,66 +121,27 @@ Proof
   simp[GSYM mlstringTheory.TOKENS_eq_tokens]
 QED
 
-(* TODO: Copied from mlintTheory *)
-Theorem toStdString_thm:
-   toStdString i = implode ((if i < 0i then "-" else "") ++ num_to_dec_string (Num (ABS i)))
-Proof
-  rw[toStdString_def]
-  >- (`F` by intLib.COOPER_TAC)
-  >- (
-    rw[mlstringTheory.str_def]
-    \\ AP_TERM_TAC
-    \\ `Num (ABS i) < 10` by intLib.COOPER_TAC
-    \\ simp[toChar_HEX]
-    \\ simp[ASCIInumbersTheory.num_to_dec_string_def]
-    \\ simp[ASCIInumbersTheory.n2s_def]
-    \\ simp[Once numposrepTheory.n2l_def])
-  \\ (
-    AP_TERM_TAC \\ simp[]
-    \\ `0 < maxSmall_DEC` by EVAL_TAC
-    \\ simp[toChars_thm]
-    \\ qspec_then`maxSmall_DEC`mp_tac DIVISION
-    \\ simp[] )
-QED
-
 Theorem fromString_toStdString[simp]:
    !i:int. fromString (toStdString i) = SOME i
 Proof
-  rw [toStdString_thm, mlstringTheory.implode_def]
-  \\ qmatch_goalsub_abbrev_tac `strlit sss`
-  \\ qspec_then `sss` mp_tac fromString_thm
-  THEN1
-   (reverse impl_tac THEN1
-     (fs [Abbr`sss`,toString_thm,ASCIInumbersTheory.toNum_toString]
-      \\ rw [] \\ last_x_assum mp_tac \\ intLib.COOPER_TAC)
-    \\ fs [Abbr `sss`,EVERY_isDigit_num_to_dec_string])
-  \\ `HD sss ≠ #"~" ∧ HD sss ≠ #"-" ∧ HD sss ≠ #"+"` by
-   (fs [Abbr `sss`]
-    \\ qspec_then `Num (ABS i)` mp_tac EVERY_isDigit_num_to_dec_string
-    \\ Cases_on `num_to_dec_string (Num (ABS i))`
-    \\ fs []
-    \\ CCONTR_TAC \\ fs [] \\ rveq  \\ fs [isDigit_def])
-  \\ fs [Abbr `sss`,EVERY_isDigit_num_to_dec_string]
-  \\ fs [toString_thm,ASCIInumbersTheory.toNum_toString]
-  \\ rw [] \\ last_x_assum mp_tac \\ intLib.COOPER_TAC
+  simp [toStdString_def]
+QED
+
+Triviality isDigit_not_blanks:
+  isDigit c ==> ~ blanks c
+Proof
+  CCONTR_TAC \\ fs [blanks_def] \\ fs [isDigit_def]
 QED
 
 Theorem tokens_blanks_toStdString:
   tokens blanks (toStdString h) = [toStdString h]
 Proof
   match_mp_tac tokens_unchanged>>
-  rw[toStdString_thm]
-  >- EVAL_TAC
-  >- (
-    `EVERY isDigit (num_to_dec_string(Num(ABS h)))` by fs[ASCIInumbersTheory.EVERY_isDigit_num_to_dec_string]>>
-    pop_assum mp_tac >> match_mp_tac MONO_EVERY>>
-    EVAL_TAC>>rw[])
-  >- (
-    `EVERY isDigit (num_to_dec_string(Num(ABS h)))` by fs[ASCIInumbersTheory.EVERY_isDigit_num_to_dec_string]>>
-    pop_assum mp_tac >> match_mp_tac MONO_EVERY>>
-    EVAL_TAC>>rw[])
-  >>
-  Cases_on`num_to_dec_string(Num(ABS h))`>>fs[]
+  simp [toStdString_def, int_to_string_thm, NULL_EQ] >>
+  rw [EVAL ``blanks #"-"``] >>
+  irule listTheory.EVERY_MONOTONIC >>
+  irule_at Any ASCIInumbersTheory.EVERY_isDigit_num_to_dec_string >>
+  simp [isDigit_not_blanks]
 QED
 
 Theorem tokens_print_clause_nonempty:
@@ -276,6 +232,7 @@ Proof
   `tokens blanks (strlit "cnf") = [strlit "cnf"]` by EVAL_TAC>>
   `tokens blanks (strlit "") = []` by EVAL_TAC>>
   simp[tokenize_def,parse_header_line_def]>>
+  simp[tokens_blanks_toStdString]>>
   EVAL_TAC>>
   simp[integerTheory.INT_POS, integerTheory.INT_GE_CALCULATE]
 QED

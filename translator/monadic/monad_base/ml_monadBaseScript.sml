@@ -13,7 +13,7 @@ val _ = hide "state";
  * 'c is the type of exceptions *)
 
 val _ = Datatype `
-  exc = Success 'a | Failure 'b`;
+  exc = M_success 'a | M_failure 'b`;
 
 Type M = ``:'a -> ('b, 'c) exc # 'a``
 
@@ -31,15 +31,15 @@ val st_ex_bind_def = Define `
   (st_ex_bind : (α, β, γ) M -> (β -> (α, δ, γ) M) -> (α, δ, γ) M) x f =
     λs.
       dtcase x s of
-        (Success y,s) => f y s
-      | (Failure x,s) => (Failure x,s)`;
+        (M_success y,s) => f y s
+      | (M_failure x,s) => (M_failure x,s)`;
 
 val st_ex_ignore_bind_def = Define `
   (st_ex_ignore_bind : (α, β, γ) M -> (α, δ, γ) M -> (α, δ, γ) M) x f =
     λ s .
       dtcase x s of
-        (Success y, s) => f s
-      | (Failure x, s) => (Failure x, s)`;
+        (M_success y, s) => f s
+      | (M_failure x, s) => (M_failure x, s)`;
 
 
 (*
@@ -52,7 +52,7 @@ val st_ex_ignore_bind_def = Define `
 Theorem st_ex_ignore_bind_CONG:
   ∀ x s x' s' f f'.
     (x = x') ∧ (s = s') ∧
-    (∀ y s''. (x' s' = (Success y, s'')) ⇒ (f s'' = f' s''))
+    (∀ y s''. (x' s' = (M_success y, s'')) ⇒ (f s'' = f' s''))
   ⇒ (st_ex_ignore_bind x f s =
       st_ex_ignore_bind x' f' s')
 Proof
@@ -66,7 +66,7 @@ DefnBase.export_cong "st_ex_ignore_bind_CONG";
 Theorem st_ex_bind_CONG:
   ∀ x s x' s' f f'.
     (x = x') ∧ (s = s') ∧
-    (∀ y s''. (x' s' = (Success y, s'')) ⇒ (f y s'' = f' y s''))
+    (∀ y s''. (x' s' = (M_success y, s'')) ⇒ (f y s'' = f' y s''))
   ⇒ (st_ex_bind x f s = st_ex_bind x' f' s')
 Proof
   rw[st_ex_bind_def] >>
@@ -79,7 +79,7 @@ DefnBase.export_cong "st_ex_bind_CONG";
 
 val st_ex_return_def = Define `
   (st_ex_return (*: α -> (β, α, γ) M*)) x =
-    λs. (Success x, s)`;
+    λs. (M_success x, s)`;
 
 Overload monad_bind[local] = ``st_ex_bind``
 Overload monad_unitbind[local] = ``st_ex_ignore_bind``
@@ -91,8 +91,8 @@ val _ = add_infix ("otherwise", 400, HOLgrammars.RIGHT);
 val otherwise_def = Define `
   x otherwise y =
     λs. dtcase ((x : ('a, 'b, 'c) M) s) of
-          (Success y, s) => (Success y, s)
-        | (Failure e, s) => (y : ('a, 'b, 'c) M) s`;
+          (M_success y, s) => (M_success y, s)
+        | (M_failure e, s) => (y : ('a, 'b, 'c) M) s`;
 
 val can_def = Define `
   can f x = (do f x ; return T od
@@ -108,11 +108,11 @@ val _ = Datatype `
 val Msub_def = Define `
   Msub e (n : num) l =
     dtcase l of
-      [] => Failure e
-    | x::l' => if n = 0 then Success x else Msub e (n-1) l'`;
+      [] => M_failure e
+    | x::l' => if n = 0 then M_success x else Msub e (n-1) l'`;
 
 Theorem Msub_eq:
-   !l n e. n < LENGTH l ==> (Msub e n l = Success (EL n l))
+   !l n e. n < LENGTH l ==> (Msub e n l = M_success (EL n l))
 Proof
   Induct
   \\ rw[Once Msub_def]
@@ -121,7 +121,7 @@ Proof
 QED
 
 Theorem Msub_exn_eq:
-   !l n e. n >= LENGTH l ==> (Msub e n l = Failure e)
+   !l n e. n >= LENGTH l ==> (Msub e n l = M_failure e)
 Proof
   Induct
   \\ rw[Once Msub_def]
@@ -133,17 +133,17 @@ QED
 val Mupdate_def = Define `
   Mupdate e x (n : num) l =
     dtcase l of
-      [] => Failure e
+      [] => M_failure e
     | x'::l' =>
         if n = 0 then
-          Success (x::l')
+          M_success (x::l')
         else
           (dtcase Mupdate e x (n-1) l' of
-             Success l'' => Success (x'::l'')
+             M_success l'' => M_success (x'::l'')
            | other => other)`;
 
 Theorem Mupdate_eq:
-   !l n x e. n < LENGTH l ==> (Mupdate e x n l = Success (LUPDATE x n l))
+   !l n x e. n < LENGTH l ==> (Mupdate e x n l = M_success (LUPDATE x n l))
 Proof
   Induct
   \\ rw[Once Mupdate_def, LUPDATE_def]
@@ -152,7 +152,7 @@ Proof
 QED
 
 Theorem Mupdate_exn_eq:
-   !l n x e. n >= LENGTH l ==> (Mupdate e x n l = Failure e)
+   !l n x e. n >= LENGTH l ==> (Mupdate e x n l = M_failure e)
 Proof
   Induct
   \\ rw[Once Mupdate_def, LUPDATE_def]
@@ -179,7 +179,7 @@ QED
 (* User functions *)
 val Marray_length_def = Define `
   Marray_length get_arr =
-    \s. (Success (LENGTH (get_arr s)), s)`;
+    \s. (M_success (LENGTH (get_arr s)), s)`;
 
 val Marray_sub_def = Define `
   Marray_sub get_arr e n =
@@ -188,20 +188,20 @@ val Marray_sub_def = Define `
 val Marray_update_def = Define `
   Marray_update get_arr set_arr e n x =
     \s. dtcase Mupdate e x n (get_arr s) of
-          Success a => (Success(), set_arr a s)
-        | Failure e => (Failure e, s)`;
+          M_success a => (M_success(), set_arr a s)
+        | M_failure e => (M_failure e, s)`;
 
 val Marray_alloc_def = Define `
   Marray_alloc set_arr n x =
-    \s. (Success (), set_arr (REPLICATE n x) s)`;
+    \s. (M_success (), set_arr (REPLICATE n x) s)`;
 
 val Marray_resize_def = Define `
   Marray_resize get_arr set_arr n x =
-    \s. (Success (), set_arr (array_resize n x (get_arr s)) s)`;
+    \s. (M_success (), set_arr (array_resize n x (get_arr s)) s)`;
 
 (* Dynamic allocated references *)
 val Mref_def = Define `
-  Mref cons x = \s. (Success (StoreRef (LENGTH s)), cons x::s)`;
+  Mref cons x = \s. (M_success (StoreRef (LENGTH s)), cons x::s)`;
 
 val dref_def = Define `
   dref n = \s. EL (LENGTH s - n - 1) s`;
@@ -209,8 +209,8 @@ val dref_def = Define `
 val Mdref_aux_def = Define `
   Mdref_aux e (n:num) =
     \s. dtcase s of
-          [] => Failure e
-        | x::s => if n = 0 then Success x else Mdref_aux e (n-1) s`;
+          [] => M_failure e
+        | x::s => if n = 0 then M_success x else Mdref_aux e (n-1) s`;
 
 val Mdref_def = Define `
   Mdref e (StoreRef n) =
@@ -220,25 +220,25 @@ val Mpop_ref_def = Define `
   Mpop_ref e =
     \(r, s). dtcase s of
                x::s => (r, s)
-             | [] => (Failure e, s)`;
+             | [] => (M_failure e, s)`;
 
 val Mref_assign_aux_def = Define `
   Mref_assign_aux e (n:num) x =
     \s. dtcase s of
           x'::s =>
             if n = 0 then
-              Success (x::s)
+              M_success (x::s)
             else
               (dtcase Mref_assign_aux e (n-1) x s of
-                 Success s => Success (x'::s)
+                 M_success s => M_success (x'::s)
                | other => other)
-        | [] => Failure e`;
+        | [] => M_failure e`;
 
 val Mref_assign_def = Define `
   Mref_assign e (StoreRef n) x =
     \s. dtcase Mref_assign_aux e (LENGTH s - n - 1) x s of
-          Success s => (Success (), s)
-        | Failure e => (Failure e, s)`;
+          M_success s => (M_success (), s)
+        | M_failure e => (M_failure e, s)`;
 
 val ref_assign_def = Define `
   ref_assign n x = \s. LUPDATE x (LENGTH s - n - 1) s`;
@@ -265,7 +265,7 @@ Theorem Mdref_eq:
    !state n.
      n < LENGTH state
      ==>
-     (Mdref e (StoreRef n) state = (Success(dref n state), state))
+     (Mdref e (StoreRef n) state = (M_success(dref n state), state))
 Proof
   Induct
   \\ rw[Once Mdref_def, Once Mdref_aux_def]
@@ -287,7 +287,7 @@ Theorem Mref_assign_aux_eq:
      n < LENGTH state
      ==>
      (Mref_assign_aux e (LENGTH state - n - 1) x state =
-      Success (ref_assign n x state))
+      M_success (ref_assign n x state))
 Proof
   Induct
   \\ rw[Once Mref_assign_aux_def, Once ref_assign_def]
@@ -308,7 +308,7 @@ Theorem Mref_assign_eq:
    !state e n x.
      n < LENGTH state
      ==>
-     (Mref_assign e (StoreRef n) x state = (Success(), ref_assign n x state))
+     (Mref_assign e (StoreRef n) x state = (M_success(), ref_assign n x state))
 Proof
   rw[Once Mref_assign_def]
   \\ IMP_RES_TAC Mref_assign_aux_eq
@@ -318,15 +318,15 @@ QED
 val ref_bind_def = Define `
   ref_bind create f pop =
     \s. dtcase create s of
-          (Success x, s) => pop (f x s)
-        | (Failure x, s) => (Failure x, s)`;
+          (M_success x, s) => pop (f x s)
+        | (M_failure x, s) => (M_failure x, s)`;
 
 (* TODO: use that *)
 val Mget_ref_def = Define `
-  Mget_ref get_var = \s. (Success (get_var s), s)`;
+  Mget_ref get_var = \s. (M_success (get_var s), s)`;
 
 val Mset_ref_def = Define `
-  Mset_ref set_var x = \s. (Success (), set_var x s)`;
+  Mset_ref set_var x = \s. (M_success (), set_var x s)`;
 
 val _ = ParseExtras.temp_tight_equality ();
 
@@ -335,16 +335,16 @@ val st_ex_return_success = Q.prove(
   `!v st r st'.
      st_ex_return v st = (r, st')
      <=>
-     r = Success v ∧ st' = st`,
+     r = M_success v ∧ st' = st`,
   rw [st_ex_return_def] \\ metis_tac[]);
 
 val st_ex_bind_success = Q.prove (
   `!f g st st' v.
-     st_ex_bind f g st = (Success v, st')
+     st_ex_bind f g st = (M_success v, st')
      <=>
      ?v' st''.
-       f st = (Success v', st'') /\
-       g v' st'' = (Success v, st')`,
+       f st = (M_success v', st'') /\
+       g v' st'' = (M_success v, st')`,
   rw [st_ex_bind_def] >>
   cases_on `f st` >>
   rw [] >>
@@ -352,10 +352,10 @@ val st_ex_bind_success = Q.prove (
   rw []);
 
 val otherwise_success = Q.prove(
-  `(x otherwise y) s = (Success v, s')
+  `(x otherwise y) s = (M_success v, s')
    <=>
-   x s = (Success v, s') \/
-   ?e s''. x s = (Failure e, s'') /\ y s'' = (Success v, s')`,
+   x s = (M_success v, s') \/
+   ?e s''. x s = (M_failure e, s'') /\ y s'' = (M_success v, s')`,
   fs[otherwise_def]
   \\ EQ_TAC
   >> DISCH_TAC
@@ -364,9 +364,9 @@ val otherwise_success = Q.prove(
   >> fs[]);
 
 val otherwise_failure = Q.prove(
-  `(x otherwise y) s = (Failure e, s')
+  `(x otherwise y) s = (M_failure e, s')
    <=>
-   ?e' s''. x s = (Failure e', s'') /\ y s'' = (Failure e, s')`,
+   ?e' s''. x s = (M_failure e', s'') /\ y s'' = (M_failure e, s')`,
   fs[otherwise_def]
   \\ EQ_TAC
   >> DISCH_TAC
@@ -377,13 +377,13 @@ val otherwise_failure = Q.prove(
 val otherwise_eq = Q.prove(
   `(x otherwise y) s = (r, s')
    <=>
-   (?v. ((x s = (Success v, s') /\ r = Success v) \/
-         (?e s''. x s = (Failure e, s'') /\
-                  y s'' = (Success v, s') /\
-                  r = Success v))) \/
-   (?e e' s''. x s = (Failure e', s'') /\
-               y s'' = (Failure e, s') /\
-               r = Failure e)`,
+   (?v. ((x s = (M_success v, s') /\ r = M_success v) \/
+         (?e s''. x s = (M_failure e, s'') /\
+                  y s'' = (M_success v, s') /\
+                  r = M_success v))) \/
+   (?e e' s''. x s = (M_failure e', s'') /\
+               y s'' = (M_failure e, s') /\
+               r = M_failure e)`,
   Cases_on `x s`
   \\ Cases_on `r`
   \\ fs[otherwise_success, otherwise_failure]
@@ -391,7 +391,7 @@ val otherwise_eq = Q.prove(
   \\ metis_tac[]);
 
 val can_success = Q.prove(
-  `can f x s = (Failure e, s') <=> F`,
+  `can f x s = (M_failure e, s') <=> F`,
   rw[can_def, otherwise_def, st_ex_ignore_bind_def]
   \\ Cases_on `f x s`
   \\ Cases_on `q`
@@ -402,13 +402,13 @@ val Marray_length_success = Q.prove(
   `!get_arr s r s'.
      Marray_length get_arr s = (r, s')
      <=>
-     r = Success (LENGTH (get_arr s)) /\
+     r = M_success (LENGTH (get_arr s)) /\
      s' = s`,
   rw[Marray_length_def] \\ metis_tac[]);
 
 val Marray_sub_success = Q.prove(
   `!get_arr e n s v s'.
-     Marray_sub get_arr e n s = (Success v, s')
+     Marray_sub get_arr e n s = (M_success v, s')
      <=>
      n < LENGTH (get_arr s) /\ v = EL n (get_arr s) /\ s' = s`,
   rw[Marray_sub_def]
@@ -421,7 +421,7 @@ val Marray_sub_success = Q.prove(
 
 val Marray_sub_failure = Q.prove(
   `!get_arr e n s e' s'.
-     Marray_sub get_arr e n s = (Failure e', s')
+     Marray_sub get_arr e n s = (M_failure e', s')
      <=>
      n >= LENGTH (get_arr s) /\ e' = e /\ s' = s`,
   rw[Marray_sub_def]
@@ -435,15 +435,15 @@ val Marray_sub_failure = Q.prove(
 val Marray_sub_eq = Q.prove(
   `Marray_sub get_arr e n s = (r, s')
    <=>
-   (n < LENGTH (get_arr s) /\ s' = s /\ r = Success (EL n (get_arr s))) \/
-   (n >= LENGTH (get_arr s) /\ s' = s /\ r = Failure e)`,
+   (n < LENGTH (get_arr s) /\ s' = s /\ r = M_success (EL n (get_arr s))) \/
+   (n >= LENGTH (get_arr s) /\ s' = s /\ r = M_failure e)`,
   Cases_on `r`
   >> fs[Marray_sub_success, Marray_sub_failure]
   >> metis_tac[]);
 
 val Marray_update_success = Q.prove(
   `!get_arr set_arr e n x s s'.
-     Marray_update get_arr set_arr e n x s = (Success v, s')
+     Marray_update get_arr set_arr e n x s = (M_success v, s')
      <=>
      n < LENGTH (get_arr s) /\
      v = () /\
@@ -457,7 +457,7 @@ val Marray_update_success = Q.prove(
 
 val Marray_update_failure = Q.prove(
   `!get_arr set_arr e e' n x s s'.
-     Marray_update get_arr set_arr e n x s = (Failure e', s')
+     Marray_update get_arr set_arr e n x s = (M_failure e', s')
      <=>
      n >= LENGTH (get_arr s) /\
      e' = e /\
@@ -474,10 +474,10 @@ val Marray_update_eq = Q.prove(
    <=>
    (n < LENGTH (get_arr s) /\
     s' = set_arr (LUPDATE x n (get_arr s)) s /\
-    r = Success ()) \/
+    r = M_success ()) \/
    (n >= LENGTH (get_arr s) /\
     s' = s /\
-    r = Failure e)`,
+    r = M_failure e)`,
   Cases_on `r`
   >> Cases_on `n < LENGTH (get_arr s)`
   >> fs[Marray_update_success, Marray_update_failure]
@@ -486,7 +486,7 @@ val Marray_update_eq = Q.prove(
 val Marray_alloc_success = Q.prove(
   `Marray_alloc set_arr n x s = (r, s')
    <=>
-   r = Success () /\
+   r = M_success () /\
    s' = set_arr (REPLICATE n x) s`,
   rw[Marray_alloc_def]
   \\ EQ_TAC

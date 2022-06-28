@@ -2651,48 +2651,24 @@ fun single_line_def def = let
   val lemma  = def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
   val def_tm = (subst [const|->mk_comb(v,oneSyntax.one_tm)] (concl lemma))
   val _ = Pmatch.with_classic_heuristic quietDefine [ANTIQUOTE def_tm]
+(*
+  val qDefine = TotalDefn.qDefine "generated_definition[notuserdef]"
+  val _ = Pmatch.with_classic_heuristic qDefine [ANTIQUOTE def_tm]
+*)
   fun find_def name =
     Theory.current_definitions ()
     |> first (fn (s,_) => s = name) |> snd
-  val curried = find_def "generated_definition_curried_def"
-  val c = curried |> SPEC_ALL |> concl |> dest_eq |> snd |> rand
-  val c2 = curried |> SPEC_ALL |> concl |> dest_eq |> fst
-  val c1 = curried |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
-  val tupled = find_def "generated_definition_tupled_primitive_def"
   val ind = fetch "-" "generated_definition_ind"
+  val _ = (delete_const "generated_definition" handle HOL_ERR e => ())
+  val _ = (Theory.delete_binding "generated_definition_def" handle HOL_ERR e => ())
+  val _ = (Theory.delete_binding "generated_definition_ind" handle HOL_ERR e => ())
   val tys = ind |> concl |> dest_forall |> fst |> type_of |> dest_type |> snd
   val vv = mk_var("very unlikely name",el 2 tys)
   val ind = ind |> SPEC (mk_abs(mk_var("x",hd tys),vv))
                 |> CONV_RULE (DEPTH_CONV BETA_CONV)
                 |> CONV_RULE (RAND_CONV (SIMP_CONV std_ss []))
                 |> GEN vv
-  val cc = tupled |> concl |> dest_eq |> fst
-  val (v,tm) = tupled |> concl |> rand |> rand |> dest_abs
-  val (a,tm) = dest_abs tm
-  val tm = (REWRITE_CONV [GSYM FALSE_def,GSYM TRUE_def] THENC
-            SIMP_CONV std_ss [Once pair_case_def,GSYM curried]) (subst [a|->c,v|->cc] tm)
-           |> concl |> rand |> rand
-  val vs = free_vars tm
-  val goal = mk_eq(mk_CONTAINER c2, mk_CONTAINER tm)
-  val pre_tm =
-    if not (can (find_term is_arb) goal) then T else let
-      val vs = curried |> SPEC_ALL |> concl |> dest_eq |> fst |> dest_args |> tl
-      val pre_tm = pattern_complete def vs
-      in pre_tm end
-  val vs = filter (fn x => not (tmem x vs)) (free_vars goal)
-  val goal = subst (map (fn v => v |-> oneSyntax.one_tm) vs) goal
-  val goal = subst [mk_comb(c1,oneSyntax.one_tm)|->const] goal
-  val goal = mk_imp(pre_tm,goal)
-  val lemma = auto_prove "single_line_def-2" (goal,
-    SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,TRUE_def,FALSE_def] \\ SRW_TAC [] []
-    \\ BasicProvers.EVERY_CASE_TAC
-    \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [def]))
-    \\ SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,TRUE_def,FALSE_def]
-    \\ SRW_TAC [] [LET_THM]
-    \\ CONV_TAC (DEPTH_CONV ETA_CONV)
-    \\ POP_ASSUM MP_TAC \\ REWRITE_TAC [PRECONDITION_def])
-    |> REWRITE_RULE [EVAL (mk_PRECONDITION T)]
-    |> UNDISCH_ALL |> CONV_RULE (BINOP_CONV (REWR_CONV CONTAINER_def))
+  val lemma = DefnBase.one_line_ify NONE def
   in (lemma,SOME ind) end end
   handle HOL_ERR _ => failwith("Preprocessor failed: unable to reduce definition to single line.")
 
@@ -4543,7 +4519,7 @@ fun translate_options options def =
                        |> MATCH_MP evaluate_empty_state_IMP
         val var_str = ml_fname
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
-        val _ = ml_prog_update (add_Dlet eval_thm var_str [])
+        val _ = ml_prog_update (add_Dlet eval_thm var_str)
         val _ = add_v_thms (fname,var_str,v_thm,pre_def)
         val v_thm = v_thm |> DISCH_ALL
                     |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
@@ -4713,7 +4689,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
       v_thm_temp
       |> PURE_REWRITE_RULE[GSYM curr_refs_eq]
       |> MATCH_MP evaluate_empty_state_IMP
-    val state' = add_Dlet eval_thm ml_fname [] state
+    val state' = add_Dlet eval_thm ml_fname state
     val _ = replace_v_thm tm v_thm
     val _ = save_thm(fname ^ "_v_thm", v_thm)
   in state' end
@@ -4844,5 +4820,41 @@ fun mltDefine name q tac = let
   val _ = print_thm (D th)
   val _ = print "\n\n"
   in def end;
+
+(*
+val name = "hello"
+val tm = ``1:num``
+*)
+fun declare_new_ref name tm = let
+  val init_val_th = hol2deep tm
+  val ml_thm = get_ml_prog_state ()
+                 |> ml_progLib.clean_state
+                 |> ml_progLib.get_thm
+  val state_tm = ml_thm |> concl |> rand
+  val env_tm = MATCH_MP ML_code_Dlet_var ml_thm
+    |> REWRITE_RULE [ML_code_env_def]
+    |> SPEC_ALL |> concl |> rand |> rator |> rand |> rand
+  val env_var = init_val_th |> concl |> rator |> rator |> rand
+  val init_val_th1 = INST [env_var|->env_tm] init_val_th |> D |> clean_assumptions
+  val _ = MP (D init_val_th1) TRUTH handle HOL_ERR _ =>
+          failwith "translate_new_ref failed: translation of init value has preconditions"
+  val th = MATCH_MP new_ref_thm init_val_th1
+  val th = CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) th
+  val th = MP th TRUTH handle HOL_ERR _ =>
+          failwith "translate_new_ref failed: init value not simple enough to prove no refs changed during evaluation of init value"
+  val lemma = ISPEC state_tm (Q.GEN `s` evaluate_empty_state_IMP)
+  val s_refs_pat =  evaluate_empty_state_IMP |> concl |> rand |> rator |> rand
+      |> rator |> rand |> rand |> rator |> rand
+  val tm = find_term (can (match_term s_refs_pat)) (concl lemma)
+  val rw_lemma = EVAL tm
+  val lemma1 = PURE_REWRITE_RULE [rw_lemma] lemma
+  val th = th |> SPEC (rw_lemma |> concl |> rand)
+  val res = new_specification(name ^ "_def",[name ^ "_init_val",name ^ "_loc"],th)
+  val eval_rel_thm = CONJUNCT1 res
+  val v_def = CONJUNCT2 res
+  val th = MATCH_MP lemma1 eval_rel_thm |> PURE_REWRITE_RULE [APPEND]
+  (* add_Dlet th name (get_ml_prog_state ()) *)
+  val _ = ml_prog_update (add_Dlet th name)
+  in save_thm(name ^ "_def",v_def) end
 
 end
