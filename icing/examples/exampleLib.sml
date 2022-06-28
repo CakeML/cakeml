@@ -8,8 +8,8 @@ struct
   (* open (* data_monadTheory*) (* compilationLib; *) *)
   open FloverMapTheory RealIntervalInferenceTheory ErrorIntervalInferenceTheory
        CertificateCheckerTheory;
-  open floatToRealProofsTheory source_to_sourceTheory CakeMLtoFloVerTheory
-       source_to_sourceProofsTheory cfSupportTheory optPlannerTheory
+  open floatToRealProofsTheory source_to_source2Theory CakeMLtoFloVerTheory
+       source_to_source2ProofsTheory cfSupportTheory optPlannerTheory
        icing_realIdProofsTheory optPlannerProofsTheory pull_wordsTheory
        new_backendProofTheory;
   open machine_ieeeTheory binary_ieeeTheory realTheory realLib RealArith sptreeTheory;
@@ -19,8 +19,8 @@ struct
 
   val _ = ParseExtras.temp_tight_equality();
   val _ = set_grammar_ancestry ["semanticPrimitives", "floatToRealProofs",
-                                "source_to_source", "CakeMLtoFloVer",
-                                "source_to_sourceProofs", "cfSupport", "optPlanner",
+                                "source_to_source2", "CakeMLtoFloVer",
+                                "source_to_source2Proofs", "cfSupport", "optPlanner",
                                 "icing_realIdProofs", "optPlannerProofs", "pull_words"];
 
   fun flatMap (ll:'a list list) =
@@ -685,7 +685,7 @@ end;
     EVAL
       (Parse.Term ‘
         MAP SND (stos_pass_with_plans_decs theOpts theAST_plan theAST)’));
-  val _ = if Term.compare (theAST_opt_result |> concl |> rhs,“[source_to_source$Success]”) <> EQUAL
+  val _ = if Term.compare (theAST_opt_result |> concl |> rhs,“[source_to_source2$Success]”) <> EQUAL
           then raise ERR ("Failed optimization with error:"^
                           (Parse.thm_to_string theAST_opt_result)) ""
           else ()

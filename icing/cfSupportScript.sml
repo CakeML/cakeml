@@ -3,7 +3,7 @@
 **)
 open basis_ffiTheory cfHeapsBaseTheory basis;
 open cfTacticsLib ml_translatorLib;
-open source_to_sourceTheory CakeMLtoFloVerTheory CakeMLtoFloVerProofsTheory;
+open source_to_source2Theory CakeMLtoFloVerTheory CakeMLtoFloVerProofsTheory;
 open preamble;
 
 val _ = new_theory "cfSupport";

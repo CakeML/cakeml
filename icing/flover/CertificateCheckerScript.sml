@@ -14,7 +14,7 @@ open preambleFloVer;
 
 val _ = new_theory "CertificateChecker";
 
-Overload abs[local] = “real$abs”;
+Overload abs[local] = “realax$abs”;
 
 (** Certificate checking function **)
 Definition CertificateChecker_def:

@@ -5,7 +5,7 @@
 structure icing_optimisationsLib =
 struct
 
-open floatToRealProofsTheory icing_realIdProofsTheory source_to_sourceProofsTheory
+open floatToRealProofsTheory icing_realIdProofsTheory source_to_source2ProofsTheory
      listTheory Portable;
 open preamble;
 
@@ -74,17 +74,17 @@ fun mk_plan_correct_thm plan_list :(term * thm)=
         val dtype_comb = rator p1
        in
         (* Simple case: "Label s" --> can be appended to the correctness theorem *)
-        if (Term.compare(dtype_comb, “source_to_source$Label”) = EQUAL)
+        if (Term.compare(dtype_comb, “source_to_source2$Label”) = EQUAL)
         then
           (full_plan,
               MP (Q.SPECL [‘^(rand p1)’, ‘^rec_plan’] is_perform_rewrites_correct_label) rec_thm)
         (* Simple case: "Expected e" --> can be appended to the correctness theorem *)
-        else if (Term.compare(dtype_comb, “source_to_source$Expected”) = EQUAL)
+        else if (Term.compare(dtype_comb, “source_to_source2$Expected”) = EQUAL)
         then (full_plan,
               MP (Q.SPECL [‘^(rand p1)’, ‘^rec_plan’] is_perform_rewrites_correct_expected) rec_thm)
         else (* Must be an Apply (path, rws) now *)
         let
-          val _ = if (Term.compare(dtype_comb, “source_to_source$Apply”) <> EQUAL)
+          val _ = if (Term.compare(dtype_comb, “source_to_source2$Apply”) <> EQUAL)
                   then raise Feedback.mk_HOL_ERR "" "" "Internal err, expected Apply" else ()
           val (pth, rws) = rand p1 |> dest_pair
           (* corr_thms = list of is_rewriteFPexp_correct theorems *)
@@ -209,17 +209,17 @@ fun mk_plan_correct_thm plan_list :(term * thm)=
         val dtype_comb = rator p1
        in
         (* Simple case: "Label s" --> can be appended to the correctness theorem *)
-        if (Term.compare(dtype_comb, “source_to_source$Label”) = EQUAL)
+        if (Term.compare(dtype_comb, “source_to_source2$Label”) = EQUAL)
         then
           (full_plan,
               MP (Q.SPECL [‘^(rand p1)’, ‘^rec_plan’] is_perform_rewrites_correct_label_real_id) rec_thm)
         (* Simple case: "Expected e" --> can be appended to the correctness theorem *)
-        else if (Term.compare(dtype_comb, “source_to_source$Expected”) = EQUAL)
+        else if (Term.compare(dtype_comb, “source_to_source2$Expected”) = EQUAL)
         then (full_plan,
               MP (Q.SPECL [‘^(rand p1)’, ‘^rec_plan’] is_perform_rewrites_correct_expected_real_id) rec_thm)
         else (* Must be an Apply (path, rws) now *)
         let
-          val _ = if (Term.compare(dtype_comb, “source_to_source$Apply”) <> EQUAL)
+          val _ = if (Term.compare(dtype_comb, “source_to_source2$Apply”) <> EQUAL)
                   then raise Feedback.mk_HOL_ERR "" "" "Internal err, expected Apply" else ()
           val (pth, rws) = rand p1 |> dest_pair
           (* corr_thms = list of is_rewriteFPexp_correct theorems *)

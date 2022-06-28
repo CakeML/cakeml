@@ -13,7 +13,7 @@ open preambleFloVer;
 
 val _ = new_theory "IEEE_connection";
 
-Overload abs[local] = “real$abs”
+Overload abs[local] = “realax$abs”
 
 val _ = diminish_srw_ss ["RMULCANON_ss","RMULRELNORM_ss"]
 

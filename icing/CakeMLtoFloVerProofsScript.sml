@@ -11,7 +11,7 @@ open ExpressionsTheory ExpressionSemanticsTheory CommandsTheory
      EnvironmentsTheory IEEE_connectionTheory
      FloverMapTheory TypeValidatorTheory;
 (* Icing *)
-open fpSemTheory source_to_sourceTheory CakeMLtoFloVerTheory
+open fpSemTheory source_to_source2Theory CakeMLtoFloVerTheory
      CakeMLtoFloVerLemsTheory floatToRealTheory floatToRealProofsTheory;
 open preamble;
 
@@ -278,7 +278,7 @@ Proof
     \\ rewrite_tac [REAL_LDISTRIB, REAL_MUL_RID, real_sub, REAL_NEG_ADD,
                     REAL_ADD_ASSOC]
     \\ fs[ABS_NEG, ABS_MUL]
-    \\ irule REAL_LE_TRANS \\ qexists_tac ‘1 * real$abs v’
+    \\ irule REAL_LE_TRANS \\ qexists_tac ‘1 * realax$abs v’
     \\ reverse conj_tac >- fs[]
     \\ rewrite_tac [REAL_MUL_ASSOC]
     \\ irule REAL_LE_RMUL_IMP \\ fs[ABS_POS])
@@ -1789,7 +1789,7 @@ Theorem CakeML_FloVer_infer_error:
       (empty_state, Rval [FP_WordTree fp2] ) /\
     compress_word fp = compress_word fp2 ∧
     (* the roundoff error is sound *)
-     real$abs (fp64_to_real (compress_word fp) - r) ≤ err
+     realax$abs (fp64_to_real (compress_word fp) - r) ≤ err
 Proof
   rpt strip_tac \\ fs[checkErrorbounds_succeeds_def] \\ imp_res_tac getFloVerVarMap_is_unique
   \\ qpat_x_assum `computeErrorbounds _ _ _ = SOME _` mp_tac
@@ -2040,7 +2040,7 @@ Theorem CakeML_FloVer_sound_error:
     (env with v := extend_env_with_vars (REVERSE theVars) (REVERSE vs) env.v) [body] =
       (empty_state with fp_state := empty_state.fp_state with canOpt := FPScope NoOpt, Rval [FP_WordTree fp] ) /\
     (* the roundoff error is sound *)
-     real$abs (fp64_to_real (compress_word fp) - r) ≤ err
+     realax$abs (fp64_to_real (compress_word fp) - r) ≤ err
 Proof
   rpt strip_tac
   \\ fs[isOkError_succeeds_def, isOkError_def, CaseEq "prod", CaseEq"option"]

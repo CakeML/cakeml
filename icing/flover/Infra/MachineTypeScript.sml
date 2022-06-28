@@ -10,7 +10,7 @@ open preambleFloVer;
 
 val _ = new_theory "MachineType";
 
-Overload abs[local] = “real$abs”
+Overload abs[local] = “realax$abs”
 
 val _ = monadsyntax.enable_monadsyntax();
 val _ = List.app monadsyntax.enable_monad ["option"];

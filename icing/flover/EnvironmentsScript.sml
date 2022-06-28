@@ -10,7 +10,7 @@ open preambleFloVer;
 
 val _ = new_theory "Environments";
 
-Overload abs[local] = “real$abs”
+Overload abs[local] = “realax$abs”
 
 Definition approxEnv_def:
   approxEnv E1 Gamma absEnv (fVars:num_set) (dVars:num_set) E2 =

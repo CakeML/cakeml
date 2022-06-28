@@ -47,9 +47,9 @@ This file proves the low-level correctness theorems for a single
 application of the optimisation.
 Real-valued identity proofs are in icing_realIdProofsScript.sml.
 The overall correctness proof for a particular run of the optimiser
-from source_to_sourceScript is build using the automation in
+from source_to_source2Script is build using the automation in
 icing_optimisationsLib and the general theorems from
-source_to_sourceProofsScript.
+source_to_source2ProofsScript.
 
 [icing_optimisationsLib.sml](icing_optimisationsLib.sml):
 Library defining HOL4 automation that builds an optimiser
@@ -58,7 +58,7 @@ correctness theorem for an optimisation plan.
 [icing_optimisationsScript.sml](icing_optimisationsScript.sml):
 Peephole optimisations used by PrincessCake
 This file defines all the optimisations that are can be used by the
-PrincessCake optimiser, defined in source_to_sourceScript.sml .
+PrincessCake optimiser, defined in source_to_source2Script.sml .
 The local correctness proofs for each optimisation are in the file
 icing_optimisationProofsScript.
 
@@ -67,9 +67,9 @@ Real-number identity proofs for Icing optimisations supported by CakeML
 Each optimisation is defined in icing_optimisationsScript.
 This file proves that optimisations  are real-valued identities.
 The overall real-number simluation proof for a particular run of the optimiser
-from source_to_sourceScript is build using the automation in
+from source_to_source2Script is build using the automation in
 icing_optimisationsLib and the general theorems from
-source_to_sourceProofsScript.
+source_to_source2ProofsScript.
 
 [icing_rewriterProofsScript.sml](icing_rewriterProofsScript.sml):
 Correctness proofs for the expression rewriting function
@@ -100,14 +100,14 @@ Implementation and correctness proof of the global constant lifting
 Implements a predicate to check whether an expression is pure, i.e. does not
 use memory or the FFI
 
-[source_to_sourceProofsScript.sml](source_to_sourceProofsScript.sml):
+[source_to_source2ProofsScript.sml](source_to_source2ProofsScript.sml):
 Overall correctness proofs for optimisation functions
-defined in source_to_sourceScript.sml.
+defined in source_to_source2Script.sml.
 To prove a particular run correct, they are combined
 using the automation in icing_optimisationsLib.sml with
 the local correctness theorems from icing_optimisationProofsScript.sml.
 
-[source_to_sourceScript.sml](source_to_sourceScript.sml):
+[source_to_source2Script.sml](source_to_source2Script.sml):
 This file defines the PrincessCake optimiser as a source to source pass.
 Function ‵stos_pass_with_plans‵ corresponds to ‵applyOpts‵
 from the paper.

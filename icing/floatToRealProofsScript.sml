@@ -3,7 +3,7 @@
   computations. Needed to prove simulations in the end-to-end correctness
   theorems.
 *)
-open icing_rewriterTheory source_to_sourceTheory fpOptTheory fpOptPropsTheory
+open icing_rewriterTheory source_to_source2Theory fpOptTheory fpOptPropsTheory
      fpSemPropsTheory semanticPrimitivesTheory evaluateTheory
      semanticsTheory semanticsPropsTheory pureExpsTheory floatToRealTheory
      evaluatePropsTheory fpSemPropsTheory mllistTheory;
@@ -929,7 +929,7 @@ Theorem isPureExp_no_optimisations:
     isPurePatExpList (MAP (λ(p,e). (p,(no_optimisations cfg) e)) pes))
 Proof
   ho_match_mp_tac isPureExp_ind>>
-  rw[isPureExp_def, source_to_sourceTheory.no_optimisations_def]>>fs[] >>
+  rw[isPureExp_def, source_to_source2Theory.no_optimisations_def]>>fs[] >>
   `(λa. (no_optimisations cfg) a) = (no_optimisations cfg)` by
       simp[FUN_EQ_THM]>>
   simp[]

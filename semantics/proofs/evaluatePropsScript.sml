@@ -665,6 +665,24 @@ Proof
  >> simp [combine_dec_result_def, sem_env_component_equality]
 QED
 
+Theorem evaluate_decs_append:
+  ∀ds1 s env ds2.
+    evaluate_decs s env (ds1 ++ ds2) =
+    case evaluate_decs s env ds1 of
+      (s1,Rval env1) =>
+        (case evaluate_decs s1 (extend_dec_env env1 env) ds2 of
+           (s2,r) => (s2,combine_dec_result env1 r))
+    | (s1,Rerr v7) => (s1,Rerr v7)
+Proof
+  Induct \\ rw []
+  >- (
+    rw [extend_dec_env_def, combine_dec_result_def]
+    \\ rpt CASE_TAC)
+  \\ once_rewrite_tac [evaluate_decs_cons] \\ simp []
+  \\ gs [combine_dec_result_def, extend_dec_env_def]
+  \\ rpt CASE_TAC \\ gs []
+QED
+
 Theorem evaluate_match_list_result:
    evaluate_match s e v p er = (s',r) ⇒
    ∃r'. r = list_result r'

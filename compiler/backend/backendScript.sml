@@ -5,6 +5,7 @@
 *)
 
 open preamble
+     source_to_sourceTheory
      source_to_flatTheory
      flat_to_closTheory
      clos_to_bvlTheory
@@ -45,6 +46,8 @@ val attach_bitmaps_def = Define `
 
 val compile_tap_def = Define`
   compile_tap c p =
+    let p = source_to_source$compile p in
+    let _ = empty_ffi (strlit "finished: source_to_source") in
     let (c',p) = source_to_flat$compile c.source_conf p in
     let td = tap_flat c.tap_conf p [] in
     let _ = empty_ffi (strlit "finished: source_to_flat") in
@@ -89,6 +92,7 @@ val compile_def = Define`
 
 val to_flat_def = Define`
   to_flat c p =
+    let p = source_to_source$compile p in
     let (c',p) = source_to_flat$compile c.source_conf p in
     let c = c with source_conf := c' in
     (c,p)`;
@@ -268,6 +272,7 @@ val from_flat_def = Define`
 
 val from_source_def = Define`
   from_source c p =
+  let p = source_to_source$compile p in
   let (c',p) = source_to_flat$compile c.source_conf p in
   let c = c with source_conf := c' in
   from_flat c p`;
@@ -561,6 +566,7 @@ val compile_inc_progs_def = Define`
   compile_inc_progs k c p_tup =
     let (env_id,p) = p_tup in
     let ps = empty_progs with <| env_id := env_id; source_prog := p |> in
+    let p = source_to_source$compile p in
     let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
     let ps = ps with <| flat_prog := keep_progs k p |> in
     let c = c with source_conf := c' in
@@ -717,6 +723,7 @@ QED
 Theorem compile_inc_progs_for_eval_eq:
   compile_inc_progs_for_eval asm_c' (env_id,inc_c,p) =
     let c = inc_config_to_config asm_c' inc_c in
+    let p = source_to_source$compile p in
     let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
     let _ = empty_ffi (strlit "finished: source_to_flat") in
     let c = c with source_conf := c' in
