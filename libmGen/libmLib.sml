@@ -47,20 +47,13 @@ struct
     val floverExpTm = floverExpThm |> rhs o concl
     val floverFloatExpThm = EVAL “toFloVerFloatExp ^floverExpTm” |> ONCE_REWRITE_RULE [zero_eq]
     val floverFloatExpTm = floverFloatExpThm |> rhs o concl
-    val floverRatExpThm = realExp2ratExpConv floverFloatExpTm
-    val floverRatExpTm = floverRatExpThm |> rhs o concl |> rand
     val floverExpRatEqThm = EVAL “poly2FloVer ^thePoly = toREval ^floverFloatExpTm”
       |> SIMP_RULE std_ss []
-    val floverToCmlRealThm = EVAL “toCmlRealExp ^floverRatExpTm”
     val floverToCmlFloatThm = EVAL “toCmlFloatProg ^floverFloatExpTm”
                         |> SIMP_RULE std_ss [machine_ieeeTheory.float_to_fp64_def]
                         |> REWRITE_RULE [binary_ieeeTheory.real_to_float_def,
                                          binary_ieeeTheory.float_round_def]
                         |> CONV_RULE $ RHS_CONV EVAL
-    val floverToCMLReal_sound_thm =
-      FloVer_to_CML_real_sim |> REWRITE_RULE [GSYM AND_IMP_INTRO]
-      |> REV_MATCH_MP floverRatExpThm
-      |> REV_MATCH_MP $ GSYM floverToCmlRealThm
     val is64BitEvalThm = EVAL “is64BitEval ^floverFloatExpTm” |> SIMP_RULE std_ss []
     val noDowncastThm = EVAL “noDowncast ^floverFloatExpTm” |> SIMP_RULE std_ss []
     val theEnv = EVAL “FloverMapTree_insert (Var 0) M64 FloverMapTree_empty” |> rhs o concl
@@ -105,7 +98,6 @@ struct
       |> REV_MATCH_MP thePoly_nonzero
       |> REV_MATCH_MP thePoly_getThm
       |> REV_MATCH_MP P_zero
-      |> REV_MATCH_MP floverRatExpThm
       |> REV_MATCH_MP is64BitEvalThm
       |> REV_MATCH_MP noDowncastThm
       |> REV_MATCH_MP is64BitEnvThm
@@ -115,7 +107,6 @@ struct
       |> REV_MATCH_MP $ SIMP_RULE std_ss [GSYM AND_IMP_INTRO] certValid
       |> REV_MATCH_MP find_thm
       |> REV_MATCH_MP $ GSYM floverToCmlFloatThm
-      |> REV_MATCH_MP $ GSYM floverToCmlRealThm
       |> REV_MATCH_MP do_opapp_thm
       |> Q.SPEC ‘^theEnv_before’
       |> SIMP_RULE std_ss [ml_progTheory.merge_env_def, namespaceTheory.nsAppend_def, nsBind_nsAppend]

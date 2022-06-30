@@ -1,0 +1,3 @@
+A libm-generator for CakeML that uses Dandelion and FloVer from `tools`
+to prove a specification that relates CakeML code to the real-valued elementary
+function.

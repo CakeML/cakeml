@@ -96,99 +96,6 @@ Proof
   >> res_tac >> gs[domain_lookup, fp64_to_real_def]
 QED
 
-Definition real_env_rel_def:
-  real_env_rel (E:num -> word64 option) env vars =
-  ∀ x.
-    x IN vars ⇒
-    ∃ fp.
-      nsLookup env (Short $ STRCAT "x" (toString x)) = SOME (FP_WordTree fp) ∧
-      E x = SOME (compress_word fp)
-End
-
-Theorem FloVer_to_CML_real_sim:
-  ∀ e eReal prog st E env flEnv Gamma r fVars.
-    eReal = ratExp2realExp e ∧
-    SOME prog = toCmlRealExp e ∧
-    st.fp_state.real_sem ∧
-    real_env_rel E flEnv fVars ∧
-    domain $ usedVars e SUBSET fVars ∧
-    eval_expr (toREnv E) (toRTMap $ toRExpMap Gamma) (toREval eReal) r REAL ⇒
-    evaluate st (env with v := toRspace (nsAppend flEnv env.v)) [prog] =
-      (st, Rval [Real r])
-Proof
-  ho_match_mp_tac toCmlRealExp_ind >> rw[toCmlRealExp_def, ratExp2realExp_def]
-  >> gs[eval_expr_cases, toREval_def]
-  >> simp[Once evaluate_def]
-  >- (
-    gvs[real_env_rel_def, toREnv_def, CaseEqs["option", "v", "lit"]]
-    >> ‘i IN fVars’ by gs[Once usedVars_def, SUBSET_DEF]
-    >> res_tac
-    >> gvs[toRspace_def, namespacePropsTheory.nsLookup_nsMap,
-            namespacePropsTheory.nsLookup_nsAppend_some, fp64_to_real_def])
-  >- gvs[perturb_def, evaluate_def, do_app_def, state_component_equality]
-  >- (
-    gvs[CaseEq"option", evaluate_def]
-    >> rename1 ‘isCompat mR REAL’
-    >> Cases_on ‘mR’ >> gs[isCompat_def]
-    >> ‘domain (usedVars e) SUBSET fVars’ by (
-      qpat_x_assum ‘domain _ SUBSET _’ mp_tac
-      >> simp[Once usedVars_def])
-    >> last_x_assum $ drule_then drule
-    >> rpt $ disch_then drule
-    >> disch_then $ qspec_then ‘env’ assume_tac
-    >> gs[do_app_def, real_uop_def, getRealUop_def, evalUnop_def,
-          state_component_equality])
-  >- (
-    gvs[CaseEq"option", evaluate_def]
-    >> rename1 ‘isJoin mR1 mR2 REAL’
-    >> ‘mR1 = REAL ∧ mR2 = REAL’
-       by (
-         conj_tac >> irule eval_expr_real
-         >> once_rewrite_tac[CONJ_COMM] >> asm_exists_tac >> fs[]
-         >> rpt strip_tac
-         >> Cases_on ‘x’
-         >> fs[ExpressionAbbrevsTheory.toRTMap_def, option_case_eq])
-    >> rveq
-    >> rename1 ‘domain (usedVars (Binop bop e1 e2)) SUBSET fVars’
-    >> ‘domain (usedVars e1) SUBSET fVars ∧
-        domain (usedVars e2) SUBSET fVars’ by (
-      qpat_x_assum ‘domain _ SUBSET _’ mp_tac
-      >> simp[Once usedVars_def, domain_union])
-    >> rename1 ‘abs deltaOp ≤ mTypeToR REAL _’
-    >> ‘deltaOp = 0’ by gs[mTypeToR_def]
-    >> gvs[]
-    >> ntac 2 (
-      last_x_assum $ drule_then drule
-      >> rpt $ disch_then drule >> disch_then $ qspec_then ‘env’ assume_tac)
-    >> simp[Once evaluate_def, do_app_def, state_component_equality]
-    >> Cases_on ‘bop’
-    >> simp[real_bop_def, bopToRealBop_def, perturb_def, evalBinop_def])
-  >- (
-    gvs[CaseEq"option", evaluate_def]
-    >> rename1 ‘isJoin3 mR1 mR2 mR3 REAL’
-    >> ‘mR1 = REAL ∧ mR2 = REAL ∧ mR3 = REAL’
-       by (
-         rpt conj_tac >> irule eval_expr_real
-         >> once_rewrite_tac[CONJ_COMM] >> asm_exists_tac >> fs[]
-         >> rpt strip_tac
-         >> Cases_on ‘x’
-         >> fs[ExpressionAbbrevsTheory.toRTMap_def, option_case_eq])
-    >> rveq
-    >> rename1 ‘domain (usedVars (Fma e1 e2 e3)) SUBSET fVars’
-    >> ‘domain (usedVars e1) SUBSET fVars ∧ domain (usedVars e2) SUBSET fVars ∧
-        domain (usedVars e3) SUBSET fVars’ by (
-      qpat_x_assum ‘domain _ SUBSET _’ mp_tac
-      >> simp[Once usedVars_def, domain_union])
-    >> rename1 ‘abs deltaOp ≤ mTypeToR REAL _’
-    >> ‘deltaOp = 0’ by gs[mTypeToR_def]
-    >> gvs[]
-    >> ntac 3 (
-      last_x_assum $ drule_then drule
-      >> rpt $ disch_then drule >> disch_then $ qspec_then ‘env’ assume_tac)
-    >> simp[evaluate_def, do_app_def, state_component_equality, real_bop_def,
-            bopToRealBop_def, perturb_def, evalFma_def, evalBinop_def])
-QED
-
 Definition float_env_rel_def:
   float_env_rel (E:num -> word64 option) env vars =
   ∀ x v.
@@ -297,10 +204,8 @@ Proof
 QED
 
 Theorem FloVer_CakeML_sound_error:
-  ∀ e eReal progReal progFloat flEnv A P defVars Gamma env
+  ∀ eReal progFloat flEnv A P defVars Gamma env
       (st:'ffi semanticPrimitives$state).
-    eReal = ratExp2realExp e ∧
-    SOME progReal = toCmlRealExp e ∧
     SOME progFloat = toCmlFloatProg eReal ∧
     is64BitEval eReal ∧ noDowncast eReal ∧
     is64BitEnv defVars ∧
@@ -309,14 +214,9 @@ Theorem FloVer_CakeML_sound_error:
   ∃ r fp err iv.
     FloverMapTree_find eReal A = SOME (iv,err) ∧
     (* the CakeML code returns a valid floating-point word *)
-    evaluate (empty_state with fp_state :=
-                empty_state.fp_state with
-                  <| real_sem := T; canOpt := FPScope NoOpt |>)
-             (env with v := toRspace (nsAppend flEnv env.v))
-             [progReal] =
-    (empty_state with fp_state :=
-       empty_state.fp_state with <| real_sem := T; canOpt := FPScope NoOpt |>,
-     Rval [Real r]) /\
+    eval_expr (toREnv (toFloVerEnv flEnv eReal))
+              (λ e. SOME REAL)
+              (toREval eReal) r REAL ∧
     evaluate st (env with v := (nsAppend flEnv env.v)) [progFloat] =
       (st, Rval [FP_WordTree fp]) /\
     (* the roundoff error is sound *)
@@ -339,23 +239,9 @@ Proof
   >- (drule_then drule approxEnv_toFloVerEnv >> gs[])
   >> rpt strip_tac
   >> first_x_assum $ irule_at Any
-  >> qmatch_goalsub_abbrev_tac ‘evaluate newSt (env with v := toRspace _) [_]’
-  >> ‘newSt.fp_state.real_sem’ by (unabbrev_all_tac >> gs[])
-  >> drule $ INST_TYPE [alpha |-> “:unit”] FloVer_to_CML_real_sim
-  >> rpt $ disch_then drule
-  >> disch_then $
-       qspecl_then [‘toFloVerEnv flEnv (ratExp2realExp e)’, ‘env’, ‘flEnv’,
-                    ‘Gamma’, ‘vR'’, ‘domain (usedVars e)’] mp_tac
-  >> impl_tac
-  >- (
-    rpt conj_tac >> gs[real_env_rel_def]
-    >> rpt strip_tac >> gs[usedVars_P_sound_def, usedVars_ratExp2realExp]
-    >> res_tac >> first_assum $ irule_at Any
-    >> gs[toFloVerEnv_def, domain_lookup])
-  >> disch_then $ irule_at Any
   >> drule $ INST_TYPE [alpha|-> “:'ffi”] FloVer_to_CML_float_sim_strong
-  >> disch_then $ qspecl_then [‘st’,‘toFloVerEnv flEnv (ratExp2realExp e)’, ‘env’,
-                               ‘flEnv’, ‘vF’, ‘domain $ usedVars (ratExp2realExp e)’] mp_tac
+  >> disch_then $ qspecl_then [‘st’,‘toFloVerEnv flEnv eReal’, ‘env’,
+                               ‘flEnv’, ‘vF’, ‘domain $ usedVars eReal’] mp_tac
   >> impl_tac
   >- (
     unabbrev_all_tac
@@ -363,6 +249,13 @@ Proof
     >> first_assum $ irule_at Any >> gs[])
   >> strip_tac
   >> gvs[]
+  >> first_x_assum $ irule_at Any
+  >> irule ExpressionSemanticsTheory.swap_gamma_eval_weak
+  >> first_x_assum $ irule_at Any
+  >> rpt gen_tac
+  >> Cases_on ‘e’
+  >> gs[ExpressionAbbrevsTheory.toRTMap_def]
+  >> TOP_CASE_TAC >> gs[]
 QED
 
 val _ = export_theory();

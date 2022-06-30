@@ -34,7 +34,6 @@ Theorem theFunSpec_thm_general:
     ply ≠ [] ∧
     cert.poly = ply ∧
     P 0 = (lo,hi) ∧
-    exp = ratExp2realExp expRat ∧
     is64BitEval exp ∧
     noDowncast exp ∧
     is64BitEnv Gamma ∧
@@ -44,7 +43,6 @@ Theorem theFunSpec_thm_general:
           realax$abs (optionGet (interp (cert.transc) [("x", x)]) - evalPoly ply x) ≤ delta) ∧
     FloverMapTree_find exp A = SOME (iv, err) ∧
     SOME prog = toCmlFloatProg exp ∧
-    SOME progReal = toCmlRealExp expRat ∧
     do_opapp [fun_v; v] =
       SOME (env2, prog) ∧
     env2 = env with v := nsAppend (Bind [("x0", v)] []) env.v ∧
@@ -96,53 +94,15 @@ Proof
   >> ‘evalPoly ply (fp64_to_real fp) = r’ suffices_by gs[]
   >> rewrite_tac[evalPoly_Flover_eval_bisim]
   >> gs[]
-  >> first_assum $ mp_then Any mp_tac CertificateCheckerTheory.Certificate_checking_is_sound
-  >> disch_then $ qspecl_then
-                [‘λ x. if x = 0 then SOME (fp64_to_real fp) else NONE’,
-                 ‘λ x. if x = 0 then SOME (fp64_to_real fp) else NONE’,
-                 ‘usedVars (ratExp2realExp expRat)’] mp_tac
-  >> gs[fpSemTheory.compress_word_def] >> impl_tac
-  >- (
-    gs[EnvironmentsTheory.approxEnv_def, MachineTypeTheory.computeError_pos]
-    >> ‘getValidMap Gamma (ratExp2realExp expRat) FloverMapTree_empty = Succes typeAnn’
-       by (
-          qpat_x_assum ‘CertificateChecker _ _ _ _ = _’ mp_tac
-          >> gs[CertificateCheckerTheory.CertificateChecker_def]
-          >> rpt (TOP_CASE_TAC \\ gs[]))
-    >> pop_assum $ mp_then Any mp_tac TypeValidatorTheory.getValidMap_top_correct
-    >> impl_tac >- (EVAL_TAC >> gs[])
-    >> disch_then $ mp_then Any mp_tac TypeValidatorTheory.validTypes_defined_usedVars
-    >> gs[ExpressionAbbrevsTheory.toRExpMap_def])
-  >> rpt strip_tac
-  >> first_x_assum $ mp_then Any mp_tac (INST_TYPE [“:'a”|->“:unit”] FloVer_to_CML_real_sim)
-  >> disch_then drule
-  >> disch_then $ qspec_then ‘(empty_state with
-           fp_state :=
-             empty_state.fp_state with
-             <|canOpt := FPScope NoOpt; real_sem := T|>)’ mp_tac
+  >> ‘toREnv (toFloVerEnv flEnv exp') = λ v. if v = 0 then SOME (fp64_to_real fp) else NONE’
+     by (
+       unabbrev_all_tac
+       >> gs[FUN_EQ_THM, IEEE_connectionTheory.toREnv_def, toFloVerEnv_def]
+       >> rpt strip_tac
+       >> Cases_on ‘v' = 0’ >> gs[]
+       >> gs[lookup_def, namespaceTheory.nsLookup_def,
+             machine_ieeeTheory.fp64_to_real_def, fpSemTheory.compress_word_def])
   >> gs[]
-  >> disch_then $ qspecl_then [‘(λx:num. if x = 0 then SOME fp else NONE)’, ‘env’,
-                               ‘flEnv’, ‘typeAnn’, ‘vR'’,
-                               ‘domain $ usedVars expRat’] mp_tac
-  >> impl_tac
-  >- (
-    gs[] >> conj_tac
-    >- (
-      gs[real_env_rel_def, usedVars_ratExp2realExp]
-      >> unabbrev_all_tac
-      >> gs[namespaceTheory.nsLookup_def, fpSemTheory.compress_word_def])
-    >> ‘toREnv (λ x. if x = 0 then SOME fp else NONE) =
-        λ x. if x = 0 then SOME (fp64_to_real fp) else NONE’ suffices_by gs[]
-    >> gs[FUN_EQ_THM] >> rpt strip_tac >> gs[IEEE_connectionTheory.toREnv_def]
-    >> TOP_CASE_TAC >> gs[machine_ieeeTheory.fp64_to_real_def])
-  >> strip_tac
-  >> gvs[]
-  >> irule ExpressionSemanticsTheory.swap_gamma_eval_weak
-  >> first_x_assum $ irule_at Any
-  >> rpt gen_tac
-  >> Cases_on ‘e’
-  >> gs[ExpressionAbbrevsTheory.toRTMap_def]
-  >> TOP_CASE_TAC >> gs[]
 QED
 
 val _ = export_theory();
