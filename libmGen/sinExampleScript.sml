@@ -1,3 +1,6 @@
+(*
+  Example libm function generated from sine certificate of Dandelion
+*)
 open libmLib sinDeg3Theory;
 
 val _ = new_theory "sinExample";

@@ -1,3 +1,6 @@
+(*
+  Example libm function generated from cosine certificate of Dandelion
+*)
 open libmLib cosDeg3Theory;
 
 val _ = new_theory "cosExample";

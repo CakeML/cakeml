@@ -1074,15 +1074,15 @@ Proof
        by (match_mp_tac REAL_LE_RMUL_IMP \\ fs[])
   \\ `- (err1 * err2) <= err1 * err2`
         by (fs[REAL_NEG_LMUL] \\ match_mp_tac REAL_LE_RMUL_IMP
-            \\ REAL_ASM_ARITH_TAC)
-  \\ `0 <= maxAbs (e1lo, e1hi) * err2` by REAL_ASM_ARITH_TAC
-  \\ `0 <= maxAbs (invertInterval (e2lo, e2hi)) * err1` by REAL_ASM_ARITH_TAC
+            \\ OLD_REAL_ASM_ARITH_TAC)
+  \\ `0 <= maxAbs (e1lo, e1hi) * err2` by OLD_REAL_ASM_ARITH_TAC
+  \\ `0 <= maxAbs (invertInterval (e2lo, e2hi)) * err1` by OLD_REAL_ASM_ARITH_TAC
   \\ `maxAbs (e1lo, e1hi) * err2 <=
       maxAbs (e1lo, e1hi) * err2 + maxAbs (invertInterval (e2lo, e2hi)) * err1`
-       by (REAL_ASM_ARITH_TAC)
+       by (OLD_REAL_ASM_ARITH_TAC)
   \\ `maxAbs (e1lo, e1hi) * err2 + maxAbs (invertInterval(e2lo, e2hi)) * err1 <=
       maxAbs (e1lo, e1hi) * err2 + maxAbs (invertInterval (e2lo, e2hi)) * err1 + err1 * err2`
-       by REAL_ASM_ARITH_TAC
+       by OLD_REAL_ASM_ARITH_TAC
    (* Case distinction for divisor range
       positive or negative in float and real valued execution *)
   \\ fs [IVlo_def, IVhi_def, widenInterval_def, contained_def, noDivzero_def]
@@ -1091,32 +1091,32 @@ Proof
         by (match_mp_tac err_prop_inversion_neg \\ qexists_tac `e2lo` \\simp[])
       \\ fs [widenInterval_def, IVlo_def, IVhi_def]
       \\ `minAbsFun (e2lo - err2, e2hi + err2) = - (e2hi + err2)`
-           by (match_mp_tac minAbs_negative_iv_is_hi \\ REAL_ASM_ARITH_TAC)
+           by (match_mp_tac minAbs_negative_iv_is_hi \\ OLD_REAL_ASM_ARITH_TAC)
       \\ simp[]
       \\ qpat_x_assum `minAbsFun _ = _ ` kall_tac
-      \\ `nF1 <= err1 + nR1` by REAL_ASM_ARITH_TAC
-      \\ `nR1 - err1 <= nF1` by REAL_ASM_ARITH_TAC
+      \\ `nF1 <= err1 + nR1` by OLD_REAL_ASM_ARITH_TAC
+      \\ `nR1 - err1 <= nF1` by OLD_REAL_ASM_ARITH_TAC
       \\ `(nR2 - nF2 > 0 /\ nR2 - nF2 <= err2) \/ (nR2 - nF2 <= 0 /\ - (nR2 - nF2) <= err2)`
-           by REAL_ASM_ARITH_TAC
+           by OLD_REAL_ASM_ARITH_TAC
       (* Positive case for abs (nR2 - nF2) <= err2 *)
-      >- (`nF2 < nR2` by REAL_ASM_ARITH_TAC
+      >- (`nF2 < nR2` by OLD_REAL_ASM_ARITH_TAC
           \\ qpat_x_assum `nF2 < nR2` (fn thm => assume_tac (ONCE_REWRITE_RULE [GSYM REAL_LT_NEG] thm))
-          \\ `inv (- nF2) < inv (- nR2)` by (match_mp_tac REAL_LT_INV \\ REAL_ASM_ARITH_TAC)
-          \\ `inv (- nF2) = - (inv nF2)` by (match_mp_tac (GSYM REAL_NEG_INV) \\ REAL_ASM_ARITH_TAC)
-          \\ `inv (- nR2) = - (inv nR2)` by (match_mp_tac (GSYM REAL_NEG_INV) \\ REAL_ASM_ARITH_TAC)
+          \\ `inv (- nF2) < inv (- nR2)` by (match_mp_tac REAL_LT_INV \\ OLD_REAL_ASM_ARITH_TAC)
+          \\ `inv (- nF2) = - (inv nF2)` by (match_mp_tac (GSYM REAL_NEG_INV) \\ OLD_REAL_ASM_ARITH_TAC)
+          \\ `inv (- nR2) = - (inv nR2)` by (match_mp_tac (GSYM REAL_NEG_INV) \\ OLD_REAL_ASM_ARITH_TAC)
           \\ rpt (qpat_x_assum `inv (- _) = - (inv _)`
                    (fn thm => rule_assum_tac (fn hyp => REWRITE_RULE [thm] hyp)))
-          \\ `inv nR2 < inv nF2` by REAL_ASM_ARITH_TAC
+          \\ `inv nR2 < inv nF2` by OLD_REAL_ASM_ARITH_TAC
           \\ qpat_x_assum `- _ < - _` kall_tac
-          \\ `inv nR2 - inv nF2 < 0` by REAL_ASM_ARITH_TAC
+          \\ `inv nR2 - inv nF2 < 0` by OLD_REAL_ASM_ARITH_TAC
           \\ `- (nR2⁻¹ − nF2⁻¹) ≤ err2 * ((e2hi + err2) * (e2hi + err2))⁻¹`
-               by REAL_ASM_ARITH_TAC
+               by OLD_REAL_ASM_ARITH_TAC
           \\ `inv nF2 <= inv nR2 + err2 * inv ((e2hi + err2) * (e2hi + err2))`
-               by REAL_ASM_ARITH_TAC
+               by OLD_REAL_ASM_ARITH_TAC
           \\ `inv nR2 - err2 * inv ((e2hi + err2) * (e2hi + err2)) <= inv nF2`
-               by REAL_ASM_ARITH_TAC
+               by OLD_REAL_ASM_ARITH_TAC
           (* Next do a case distinction for the absolute value *)
-          \\ `! (x:real). ((abs x = x) /\ 0 <= x) \/ ((abs x = - x) /\ x < 0)` by REAL_ASM_ARITH_TAC
+          \\ `! (x:real). ((abs x = x) /\ 0 <= x) \/ ((abs x = - x) /\ x < 0)` by OLD_REAL_ASM_ARITH_TAC
           \\ qpat_x_assum `!x. A /\ B \/ C`
                (fn thm =>
                    qspec_then `(nR1:real / nR2:real) - (nF1:real / nF2:real)`
@@ -1131,7 +1131,7 @@ Proof
                   \\ conj_tac
                   >- (fs[REAL_LE_LADD]
                       \\ match_mp_tac REAL_MUL_LE_COMPAT_NEG_L
-                      \\ conj_tac \\ REAL_ASM_ARITH_TAC)
+                      \\ conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                   >- (qabbrev_tac `err_inv = (err2 * ((e2hi + err2) * (e2hi + err2))⁻¹)`
                       \\ qspecl_then [`inv nR2 - err_inv`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
                       >- (match_mp_tac REAL_LE_TRANS
@@ -1140,30 +1140,30 @@ Proof
                           >- (fs [REAL_LE_ADD]
                               \\ once_rewrite_tac [REAL_MUL_COMM]
                               \\ match_mp_tac REAL_MUL_LE_COMPAT_NEG_L
-                              \\ conj_tac \\ TRY REAL_ASM_ARITH_TAC
+                              \\ conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC
                               \\ fs [REAL_LE_NEG])
                           >- (`nR1 * inv nR2 + - (nR1 + err1) * (inv nR2 - err_inv) =
                                nR1 * err_inv + - (inv nR2) * err1 + err1 * err_inv`
-                                by REAL_ASM_ARITH_TAC
+                                by OLD_REAL_ASM_ARITH_TAC
                               \\ simp[REAL_NEG_MUL2]
                               \\ qspecl_then [`inv ((e2hi + err2) * (e2hi + err2))`,`err2`]
                                    (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM
                               \\ qunabbrev_tac `err_inv`
                               \\ match_mp_tac REAL_LE_ADD2
-            \\ conj_tac \\ TRY REAL_ASM_ARITH_TAC
+            \\ conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC
             \\ match_mp_tac REAL_LE_ADD2
-            \\ conj_tac \\ TRY REAL_ASM_ARITH_TAC
+            \\ conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC
             \\ match_mp_tac REAL_LE_RMUL_IMP
-            \\ conj_tac \\ REAL_ASM_ARITH_TAC))
+            \\ conj_tac \\ OLD_REAL_ASM_ARITH_TAC))
           >- (match_mp_tac REAL_LE_TRANS
                           \\ qexists_tac `nR1 * inv nR2 + - (nR1 + - err1) * (inv nR2 - err_inv)`
                           \\ conj_tac
         >- (fs [REAL_LE_ADD]
                               \\ match_mp_tac REAL_LE_RMUL_IMP
-            \\ conj_tac \\ REAL_ASM_ARITH_TAC)
+            \\ conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
         >- (`nR1 * inv nR2 + - (nR1 + - err1) * (inv nR2 - err_inv) =
              nR1 * err_inv + inv nR2 * err1 - err1 * err_inv`
-                                by REAL_ASM_ARITH_TAC
+                                by OLD_REAL_ASM_ARITH_TAC
                                \\ simp[REAL_NEG_MUL2]
              \\ qspecl_then [`inv ((e2hi + err2) * (e2hi + err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM
@@ -1172,19 +1172,19 @@ Proof
              \\ match_mp_tac REAL_LE_ADD2
              \\ conj_tac
              >- (match_mp_tac REAL_LE_ADD2
-                                   \\ conj_tac \\ TRY REAL_ASM_ARITH_TAC
+                                   \\ conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC
            \\ match_mp_tac REAL_LE_RMUL_IMP
-           \\ conj_tac \\ REAL_ASM_ARITH_TAC)
+           \\ conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
              >- (simp [REAL_NEG_LMUL]
                                    \\ match_mp_tac REAL_LE_RMUL_IMP
-           \\ conj_tac \\ REAL_ASM_ARITH_TAC)))))
+           \\ conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))))
         (* 0 <= - nF1 *)
         >- (match_mp_tac REAL_LE_TRANS
                   \\ qexists_tac `nR1 * inv nR2 + - nF1 * (inv nR2 + err2 * inv ((e2hi + err2) * (e2hi + err2)))`
                   \\ conj_tac
       >- (fs[REAL_LE_LADD]
                       \\ match_mp_tac REAL_LE_LMUL_IMP
-                      \\ conj_tac \\ REAL_ASM_ARITH_TAC)
+                      \\ conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
       >- (qabbrev_tac `err_inv = (err2 * ((e2hi + err2) * (e2hi + err2))⁻¹)`
                       \\ qspecl_then [`inv nR2 + err_inv`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
                       >- (match_mp_tac REAL_LE_TRANS
@@ -1193,11 +1193,11 @@ Proof
                     >- (fs [REAL_LE_ADD] \\
                       once_rewrite_tac [REAL_MUL_COMM] \\
                       match_mp_tac REAL_MUL_LE_COMPAT_NEG_L\\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       fs [REAL_LE_NEG])
                     >- (`nR1 * inv nR2 + - (nR1 + err1) * (inv nR2 + err_inv) =
                         - nR1 * err_inv + - (inv nR2) * err1 - err1 * err_inv`
-                          by REAL_ASM_ARITH_TAC \\
+                          by OLD_REAL_ASM_ARITH_TAC \\
                       simp[REAL_NEG_MUL2] \\
                       qspecl_then [`inv ((e2hi + err2) * (e2hi + err2))`,`err2`]
                         (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
@@ -1206,31 +1206,31 @@ Proof
                       match_mp_tac REAL_LE_ADD2 \\
                       conj_tac
                       >- (match_mp_tac REAL_LE_ADD2 \\
-                        conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                        conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                         match_mp_tac REAL_LE_RMUL_IMP \\
-                        conj_tac \\ REAL_ASM_ARITH_TAC)
+                        conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                       >- (simp [REAL_NEG_LMUL] \\
                         match_mp_tac REAL_LE_RMUL_IMP \\
-                        conj_tac \\ REAL_ASM_ARITH_TAC)))
+                        conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))
                   >- (match_mp_tac REAL_LE_TRANS \\
                     qexists_tac `nR1 * inv nR2 + - (nR1 + - err1) * (inv nR2 + err_inv)` \\
                     conj_tac
                     >- (fs [REAL_LE_ADD] \\
                       match_mp_tac REAL_LE_RMUL_IMP \\
-                      conj_tac \\ REAL_ASM_ARITH_TAC)
+                      conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                     >- (`nR1 * inv nR2 + - (nR1 + - err1) * (inv nR2 + err_inv) =
                         - nR1 * err_inv + inv nR2 * err1 + err1 * err_inv`
-                          by REAL_ASM_ARITH_TAC \\
+                          by OLD_REAL_ASM_ARITH_TAC \\
                       simp[REAL_NEG_MUL2] \\
                       qspecl_then [`inv ((e2hi + err2) * (e2hi + err2))`,`err2`]
                         (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
                       qunabbrev_tac `err_inv` \\
                       match_mp_tac REAL_LE_ADD2 \\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       match_mp_tac REAL_LE_ADD2 \\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       match_mp_tac REAL_LE_RMUL_IMP \\
-                      conj_tac \\ REAL_ASM_ARITH_TAC)))))
+                      conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))))
             (* Case 2: Absolute value negative *)
             >- (fs[real_sub, real_div, REAL_NEG_LMUL, REAL_NEG_ADD] \\
               qspecl_then [`nF1`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
@@ -1240,7 +1240,7 @@ Proof
                 conj_tac
                 >- (fs[REAL_LE_LADD] \\
                   match_mp_tac REAL_MUL_LE_COMPAT_NEG_L \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                 >- (qabbrev_tac `err_inv = (err2 * ((e2hi + err2) * (e2hi + err2))⁻¹)` \\
                   qspecl_then [`inv nR2 - err_inv`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
                   >- (match_mp_tac REAL_LE_TRANS \\
@@ -1249,31 +1249,31 @@ Proof
                     >- (fs [REAL_LE_ADD] \\
                        once_rewrite_tac [REAL_MUL_COMM] \\
                       match_mp_tac REAL_MUL_LE_COMPAT_NEG_L\\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       fs [REAL_LE_NEG])
                     >- (`- nR1 * inv nR2 + (nR1 - err1) * (inv nR2 - err_inv) =
                        - nR1 * err_inv + - (inv nR2) * err1 + err1 * err_inv`
-                          by REAL_ASM_ARITH_TAC \\
+                          by OLD_REAL_ASM_ARITH_TAC \\
                       simp[REAL_NEG_MUL2] \\
                       qspecl_then [`inv ((-e2hi + -err2) * (-e2hi + -err2))`,`err2`]
                         (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
                       qunabbrev_tac `err_inv` \\
                       match_mp_tac REAL_LE_ADD2 \\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       match_mp_tac REAL_LE_ADD2 \\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       fs [GSYM REAL_NEG_ADD, REAL_NEG_MUL2] \\
                       match_mp_tac REAL_LE_RMUL_IMP \\
-                      conj_tac \\ REAL_ASM_ARITH_TAC))
+                      conj_tac \\ OLD_REAL_ASM_ARITH_TAC))
                   >- (match_mp_tac REAL_LE_TRANS \\
                     qexists_tac `- nR1 * inv nR2 + (nR1 + err1) * (inv nR2 - err_inv)` \\
                     conj_tac
                     >- (fs [REAL_LE_ADD] \\
                       match_mp_tac REAL_LE_RMUL_IMP \\
-                      conj_tac \\ REAL_ASM_ARITH_TAC)
+                      conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                     >- (`- nR1 * inv nR2 + (nR1 + err1) * (inv nR2 - err_inv) =
                        - nR1 * err_inv + inv nR2 * err1 - err1 * err_inv`
-                          by REAL_ASM_ARITH_TAC \\
+                          by OLD_REAL_ASM_ARITH_TAC \\
                       simp[REAL_NEG_MUL2] \\
                       qspecl_then [`inv ((-e2hi + -err2) * (-e2hi + -err2))`,`err2`]
                         (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
@@ -1282,20 +1282,20 @@ Proof
                       match_mp_tac REAL_LE_ADD2 \\
                       conj_tac
                       >- (match_mp_tac REAL_LE_ADD2 \\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       fs [GSYM REAL_NEG_ADD, REAL_NEG_MUL2] \\
                       match_mp_tac REAL_LE_RMUL_IMP \\
-                      conj_tac \\ REAL_ASM_ARITH_TAC)
+                      conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                       >- (fs [GSYM REAL_NEG_ADD, REAL_NEG_MUL2, REAL_NEG_LMUL] \\
                         match_mp_tac REAL_LE_RMUL_IMP \\
-                        conj_tac \\ REAL_ASM_ARITH_TAC)))))
+                        conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))))
               (* 0 <= - nF1 *)
               >- (match_mp_tac REAL_LE_TRANS \\
                 qexists_tac `- nR1 * inv nR2 + nF1 * (inv nR2 + err2 * inv ((e2hi + err2) * (e2hi + err2)))` \\
                 conj_tac
                 >- (fs[REAL_LE_LADD] \\
                   match_mp_tac REAL_LE_LMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                 >- (qabbrev_tac `err_inv = (err2 * ((e2hi + err2) * (e2hi + err2))⁻¹)` \\
                   qspecl_then [`inv nR2 + err_inv`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
                   >- (match_mp_tac REAL_LE_TRANS \\
@@ -1304,11 +1304,11 @@ Proof
                     >- (fs [REAL_LE_ADD] \\
                       once_rewrite_tac [REAL_MUL_COMM] \\
                       match_mp_tac REAL_MUL_LE_COMPAT_NEG_L\\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       fs [REAL_LE_NEG])
                     >- (`- nR1 * inv nR2 + (nR1 - err1) * (inv nR2 + err_inv) =
                         nR1 * err_inv + - (inv nR2) * err1 - err1 * err_inv`
-                          by REAL_ASM_ARITH_TAC \\
+                          by OLD_REAL_ASM_ARITH_TAC \\
                       simp[REAL_NEG_MUL2] \\
                       qspecl_then [`inv ((-e2hi + -err2) * (-e2hi + -err2))`,`err2`]
                         (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
@@ -1317,51 +1317,51 @@ Proof
                       match_mp_tac REAL_LE_ADD2 \\
                       conj_tac
                       >- (match_mp_tac REAL_LE_ADD2 \\
-                        conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                        conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                         fs [GSYM REAL_NEG_ADD, REAL_NEG_MUL2, REAL_NEG_LMUL] \\
                         match_mp_tac REAL_LE_RMUL_IMP \\
-                        conj_tac \\ REAL_ASM_ARITH_TAC)
+                        conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                       >- (fs [GSYM REAL_NEG_ADD, REAL_NEG_MUL2, REAL_NEG_LMUL, REAL_NEG_LMUL] \\
                         match_mp_tac REAL_LE_RMUL_IMP \\
-                        conj_tac \\ REAL_ASM_ARITH_TAC)))
+                        conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))
                   >- (match_mp_tac REAL_LE_TRANS \\
                     qexists_tac `- nR1 * inv nR2 + (nR1 + err1) * (inv nR2 + err_inv)` \\
                     conj_tac
                     >- (fs [REAL_LE_ADD] \\
                       match_mp_tac REAL_LE_RMUL_IMP \\
-                      conj_tac \\ REAL_ASM_ARITH_TAC)
+                      conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                     >- (`- nR1 * inv nR2 + (nR1 + err1) * (inv nR2 + err_inv) =
                         nR1 * err_inv + inv nR2 * err1 + err1 * err_inv`
-                          by REAL_ASM_ARITH_TAC \\
+                          by OLD_REAL_ASM_ARITH_TAC \\
                       simp[REAL_NEG_MUL2] \\
                       qspecl_then [`inv ((-e2hi + -err2) * (-e2hi + -err2))`,`err2`]
                         (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
                       qunabbrev_tac `err_inv` \\
                       match_mp_tac REAL_LE_ADD2 \\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       match_mp_tac REAL_LE_ADD2 \\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       fs [GSYM REAL_NEG_ADD, REAL_NEG_MUL2, REAL_NEG_LMUL] \\
                       match_mp_tac REAL_LE_RMUL_IMP \\
-                      conj_tac \\ REAL_ASM_ARITH_TAC))))))
+                      conj_tac \\ OLD_REAL_ASM_ARITH_TAC))))))
           (* Negative case for abs (nR2 - nF2) <= err2 *)
           >- (fs [GSYM REAL_NEG_ADD, REAL_NEG_MUL2, REAL_NEG_LMUL] \\
-            `nR2 <= nF2` by REAL_ASM_ARITH_TAC \\
+            `nR2 <= nF2` by OLD_REAL_ASM_ARITH_TAC \\
             qpat_x_assum `nR2 <= nF2` (fn thm => assume_tac (ONCE_REWRITE_RULE [GSYM REAL_LE_NEG] thm)) \\
-            `inv (- nR2) <= inv (- nF2)` by (match_mp_tac REAL_INV_LE_ANTIMONO_IMPR \\ REAL_ASM_ARITH_TAC) \\
-            `inv (- nR2) = - (inv nR2)` by (match_mp_tac (GSYM REAL_NEG_INV) \\ REAL_ASM_ARITH_TAC) \\
-            `inv (- nF2) = - (inv nF2)` by (match_mp_tac (GSYM REAL_NEG_INV) \\ REAL_ASM_ARITH_TAC) \\
+            `inv (- nR2) <= inv (- nF2)` by (match_mp_tac REAL_INV_LE_ANTIMONO_IMPR \\ OLD_REAL_ASM_ARITH_TAC) \\
+            `inv (- nR2) = - (inv nR2)` by (match_mp_tac (GSYM REAL_NEG_INV) \\ OLD_REAL_ASM_ARITH_TAC) \\
+            `inv (- nF2) = - (inv nF2)` by (match_mp_tac (GSYM REAL_NEG_INV) \\ OLD_REAL_ASM_ARITH_TAC) \\
             rpt (
                   qpat_x_assum `inv (- _) = - (inv _)`
                 (fn thm => rule_assum_tac (fn hyp => REWRITE_RULE [thm] hyp))) \\
-            `inv nF2 <= inv nR2` by REAL_ASM_ARITH_TAC \\
+            `inv nF2 <= inv nR2` by OLD_REAL_ASM_ARITH_TAC \\
             qpat_x_assum `- _ <= - _` kall_tac \\
-            `0 <= inv nR2 - inv nF2` by REAL_ASM_ARITH_TAC \\
-            `(nR2⁻¹ − nF2⁻¹) ≤ err2 * ((e2hi + err2) * (e2hi + err2))⁻¹` by REAL_ASM_ARITH_TAC \\
-            `inv nF2 <= inv nR2 + err2 * inv ((e2hi + err2) * (e2hi + err2))` by REAL_ASM_ARITH_TAC \\
-            `inv nR2 - err2 * inv ((e2hi + err2) * (e2hi + err2)) <= inv nF2` by REAL_ASM_ARITH_TAC \\
+            `0 <= inv nR2 - inv nF2` by OLD_REAL_ASM_ARITH_TAC \\
+            `(nR2⁻¹ − nF2⁻¹) ≤ err2 * ((e2hi + err2) * (e2hi + err2))⁻¹` by OLD_REAL_ASM_ARITH_TAC \\
+            `inv nF2 <= inv nR2 + err2 * inv ((e2hi + err2) * (e2hi + err2))` by OLD_REAL_ASM_ARITH_TAC \\
+            `inv nR2 - err2 * inv ((e2hi + err2) * (e2hi + err2)) <= inv nF2` by OLD_REAL_ASM_ARITH_TAC \\
             (* Next do a case distinction for the absolute value *)
-            `! (x:real). ((abs x = x) /\ 0 <= x) \/ ((abs x = - x) /\ x < 0)` by REAL_ASM_ARITH_TAC \\
+            `! (x:real). ((abs x = x) /\ 0 <= x) \/ ((abs x = - x) /\ x < 0)` by OLD_REAL_ASM_ARITH_TAC \\
             qpat_x_assum `!x. A /\ B \/ C`
               (fn thm => qspec_then `(nR1:real / nR2:real) - (nF1:real / nF2:real)` DISJ_CASES_TAC thm) \\
             fs[real_sub, real_div, REAL_NEG_LMUL, REAL_NEG_ADD, realTheory.abs]
@@ -1373,7 +1373,7 @@ Proof
                 conj_tac
                 >- (fs[REAL_LE_LADD] \\
                   match_mp_tac REAL_MUL_LE_COMPAT_NEG_L \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                 >- (qabbrev_tac `err_inv = (err2 * ((e2hi + err2) * (e2hi + err2))⁻¹)` \\
                   qspecl_then [`inv nR2 - err_inv`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
                   >- (match_mp_tac REAL_LE_TRANS \\
@@ -1382,30 +1382,30 @@ Proof
                     >- (fs [REAL_LE_ADD] \\
                       once_rewrite_tac [REAL_MUL_COMM] \\
                       match_mp_tac REAL_MUL_LE_COMPAT_NEG_L\\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       fs [REAL_LE_NEG])
                     >- (`nR1 * inv nR2 + - (nR1 + err1) * (inv nR2 - err_inv) =
                         nR1 * err_inv + - (inv nR2) * err1 + err1 * err_inv`
-                          by REAL_ASM_ARITH_TAC \\
+                          by OLD_REAL_ASM_ARITH_TAC \\
                       simp[REAL_NEG_MUL2] \\
                       qspecl_then [`inv ((e2hi + err2) * (e2hi + err2))`,`err2`]
                         (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
                       qunabbrev_tac `err_inv` \\
                       match_mp_tac REAL_LE_ADD2 \\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       match_mp_tac REAL_LE_ADD2 \\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       match_mp_tac REAL_LE_RMUL_IMP \\
-                      conj_tac \\ REAL_ASM_ARITH_TAC))
+                      conj_tac \\ OLD_REAL_ASM_ARITH_TAC))
                   >- (match_mp_tac REAL_LE_TRANS \\
                     qexists_tac `nR1 * inv nR2 + - (nR1 + - err1) * (inv nR2 - err_inv)` \\
                     conj_tac
                     >- (fs [REAL_LE_ADD] \\
                       match_mp_tac REAL_LE_RMUL_IMP \\
-                      conj_tac \\ REAL_ASM_ARITH_TAC)
+                      conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                     >- (`nR1 * inv nR2 + - (nR1 + - err1) * (inv nR2 - err_inv) =
                         nR1 * err_inv + inv nR2 * err1 - err1 * err_inv`
-                          by REAL_ASM_ARITH_TAC \\
+                          by OLD_REAL_ASM_ARITH_TAC \\
                       simp[REAL_NEG_MUL2] \\
                       qspecl_then [`inv ((e2hi + err2) * (e2hi + err2))`,`err2`]
                         (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
@@ -1414,19 +1414,19 @@ Proof
                       match_mp_tac REAL_LE_ADD2 \\
                       conj_tac
                       >- (match_mp_tac REAL_LE_ADD2 \\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       match_mp_tac REAL_LE_RMUL_IMP \\
-                      conj_tac \\ REAL_ASM_ARITH_TAC)
+                      conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                       >- (simp [REAL_NEG_LMUL] \\
                         match_mp_tac REAL_LE_RMUL_IMP \\
-                        conj_tac \\ REAL_ASM_ARITH_TAC)))))
+                        conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))))
               (* 0 <= - nF1 *)
               >- (match_mp_tac REAL_LE_TRANS \\
                 qexists_tac `nR1 * inv nR2 + - nF1 * (inv nR2 + err2 * inv ((e2hi + err2) * (e2hi + err2)))` \\
                 conj_tac
                 >- (fs[REAL_LE_LADD] \\
                   match_mp_tac REAL_LE_LMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                 >- (qabbrev_tac `err_inv = (err2 * ((e2hi + err2) * (e2hi + err2))⁻¹)` \\
                   qspecl_then [`inv nR2 + err_inv`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
                   >- (match_mp_tac REAL_LE_TRANS \\
@@ -1435,11 +1435,11 @@ Proof
                     >- (fs [REAL_LE_ADD] \\
                       once_rewrite_tac [REAL_MUL_COMM] \\
                       match_mp_tac REAL_MUL_LE_COMPAT_NEG_L\\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       fs [REAL_LE_NEG])
                     >- (`nR1 * inv nR2 + - (nR1 + err1) * (inv nR2 + err_inv) =
                         - nR1 * err_inv + - (inv nR2) * err1 - err1 * err_inv`
-                          by REAL_ASM_ARITH_TAC \\
+                          by OLD_REAL_ASM_ARITH_TAC \\
                       simp[REAL_NEG_MUL2] \\
                       qspecl_then [`inv ((e2hi + err2) * (e2hi + err2))`,`err2`]
                         (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
@@ -1448,31 +1448,31 @@ Proof
                       match_mp_tac REAL_LE_ADD2 \\
                       conj_tac
                       >- (match_mp_tac REAL_LE_ADD2 \\
-                        conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                        conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                         match_mp_tac REAL_LE_RMUL_IMP \\
-                        conj_tac \\ REAL_ASM_ARITH_TAC)
+                        conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                       >- (simp [REAL_NEG_LMUL] \\
                         match_mp_tac REAL_LE_RMUL_IMP \\
-                        conj_tac \\ REAL_ASM_ARITH_TAC)))
+                        conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))
                   >- (match_mp_tac REAL_LE_TRANS \\
                     qexists_tac `nR1 * inv nR2 + - (nR1 + - err1) * (inv nR2 + err_inv)` \\
                     conj_tac
                     >- (fs [REAL_LE_ADD] \\
                       match_mp_tac REAL_LE_RMUL_IMP \\
-                      conj_tac \\ REAL_ASM_ARITH_TAC)
+                      conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                     >- (`nR1 * inv nR2 + - (nR1 + - err1) * (inv nR2 + err_inv) =
                         - nR1 * err_inv + inv nR2 * err1 + err1 * err_inv`
-                          by REAL_ASM_ARITH_TAC \\
+                          by OLD_REAL_ASM_ARITH_TAC \\
                       simp[REAL_NEG_MUL2] \\
                       qspecl_then [`inv ((e2hi + err2) * (e2hi + err2))`,`err2`]
                         (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
                       qunabbrev_tac `err_inv` \\
                       match_mp_tac REAL_LE_ADD2 \\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       match_mp_tac REAL_LE_ADD2 \\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       match_mp_tac REAL_LE_RMUL_IMP \\
-                      conj_tac \\ REAL_ASM_ARITH_TAC)))))
+                      conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))))
             (* Case 2: Absolute value negative *)
             >- (qspecl_then [`nF1`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
               (* nF1 < 0 *)
@@ -1481,7 +1481,7 @@ Proof
                 conj_tac
                 >- (fs[REAL_LE_LADD] \\
                   match_mp_tac REAL_MUL_LE_COMPAT_NEG_L \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                 >- (qabbrev_tac `err_inv = (err2 * ((e2hi + err2) * (e2hi + err2))⁻¹)` \\
                   qspecl_then [`inv nR2 - err_inv`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
                   >- (match_mp_tac REAL_LE_TRANS \\
@@ -1490,30 +1490,30 @@ Proof
                     >- (fs [REAL_LE_ADD] \\
                        once_rewrite_tac [REAL_MUL_COMM] \\
                       match_mp_tac REAL_MUL_LE_COMPAT_NEG_L\\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       fs [REAL_LE_NEG])
                     >- (`- nR1 * inv nR2 + (nR1 - err1) * (inv nR2 - err_inv) =
                        - nR1 * err_inv + - (inv nR2) * err1 + err1 * err_inv`
-                          by REAL_ASM_ARITH_TAC \\
+                          by OLD_REAL_ASM_ARITH_TAC \\
                       simp[REAL_NEG_MUL2] \\
                       qspecl_then [`inv ((e2hi + err2) * (e2hi + err2))`,`err2`]
                         (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
                       qunabbrev_tac `err_inv` \\
                       match_mp_tac REAL_LE_ADD2 \\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       match_mp_tac REAL_LE_ADD2 \\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       match_mp_tac REAL_LE_RMUL_IMP \\
-                      conj_tac \\ REAL_ASM_ARITH_TAC))
+                      conj_tac \\ OLD_REAL_ASM_ARITH_TAC))
                   >- (match_mp_tac REAL_LE_TRANS \\
                     qexists_tac `- nR1 * inv nR2 + (nR1 + err1) * (inv nR2 - err_inv)` \\
                     conj_tac
                     >- (fs [REAL_LE_ADD] \\
                       match_mp_tac REAL_LE_RMUL_IMP \\
-                      conj_tac \\ REAL_ASM_ARITH_TAC)
+                      conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                     >- (`- nR1 * inv nR2 + (nR1 + err1) * (inv nR2 - err_inv) =
                        - nR1 * err_inv + inv nR2 * err1 - err1 * err_inv`
-                          by REAL_ASM_ARITH_TAC \\
+                          by OLD_REAL_ASM_ARITH_TAC \\
                       simp[REAL_NEG_MUL2] \\
                       qspecl_then [`inv ((e2hi + err2) * (e2hi + err2))`,`err2`]
                         (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
@@ -1522,19 +1522,19 @@ Proof
                       match_mp_tac REAL_LE_ADD2 \\
                       conj_tac
                       >- (match_mp_tac REAL_LE_ADD2 \\
-                        conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                        conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                         match_mp_tac REAL_LE_RMUL_IMP \\
-                        conj_tac \\ REAL_ASM_ARITH_TAC)
+                        conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                       >- (fs [GSYM REAL_NEG_ADD, REAL_NEG_MUL2, REAL_NEG_LMUL] \\
                         match_mp_tac REAL_LE_RMUL_IMP \\
-                        conj_tac \\ REAL_ASM_ARITH_TAC)))))
+                        conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))))
               (* 0 <= - nF1 *)
               >- (match_mp_tac REAL_LE_TRANS \\
                 qexists_tac `- nR1 * inv nR2 + nF1 * (inv nR2 + err2 * inv ((e2hi + err2) * (e2hi + err2)))` \\
                 conj_tac
                 >- (fs[REAL_LE_LADD] \\
                   match_mp_tac REAL_LE_LMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                 >- (qabbrev_tac `err_inv = (err2 * ((e2hi + err2) * (e2hi + err2))⁻¹)` \\
                   qspecl_then [`inv nR2 + err_inv`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
                   >- (match_mp_tac REAL_LE_TRANS \\
@@ -1543,11 +1543,11 @@ Proof
                     >- (fs [REAL_LE_ADD] \\
                       once_rewrite_tac [REAL_MUL_COMM] \\
                       match_mp_tac REAL_MUL_LE_COMPAT_NEG_L\\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       fs [REAL_LE_NEG])
                     >- (`- nR1 * inv nR2 + (nR1 - err1) * (inv nR2 + err_inv) =
                         nR1 * err_inv + - (inv nR2) * err1 - err1 * err_inv`
-                          by REAL_ASM_ARITH_TAC \\
+                          by OLD_REAL_ASM_ARITH_TAC \\
                       simp[REAL_NEG_MUL2] \\
                       qspecl_then [`inv ((e2hi + err2) * (e2hi + err2))`,`err2`]
                         (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
@@ -1556,42 +1556,42 @@ Proof
                       match_mp_tac REAL_LE_ADD2 \\
                       conj_tac
                       >- (match_mp_tac REAL_LE_ADD2 \\
-                        conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                        conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                         match_mp_tac REAL_LE_RMUL_IMP \\
-                        conj_tac \\ REAL_ASM_ARITH_TAC)
+                        conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                       >- (fs [REAL_NEG_LMUL] \\
                         match_mp_tac REAL_LE_RMUL_IMP \\
-                        conj_tac \\ REAL_ASM_ARITH_TAC)))
+                        conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))
                   >- (match_mp_tac REAL_LE_TRANS \\
                     qexists_tac `- nR1 * inv nR2 + (nR1 + err1) * (inv nR2 + err_inv)` \\
                     conj_tac
                     >- (fs [REAL_LE_ADD] \\
                       match_mp_tac REAL_LE_RMUL_IMP \\
-                      conj_tac \\ REAL_ASM_ARITH_TAC)
+                      conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                     >- (`- nR1 * inv nR2 + (nR1 + err1) * (inv nR2 + err_inv) =
                         nR1 * err_inv + inv nR2 * err1 + err1 * err_inv`
-                          by REAL_ASM_ARITH_TAC \\
+                          by OLD_REAL_ASM_ARITH_TAC \\
                       simp[REAL_NEG_MUL2] \\
                       qspecl_then [`inv ((e2hi + err2) * (e2hi + err2))`,`err2`]
                         (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
                       qunabbrev_tac `err_inv` \\
                       match_mp_tac REAL_LE_ADD2 \\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       match_mp_tac REAL_LE_ADD2 \\
-                      conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                      conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                       match_mp_tac REAL_LE_RMUL_IMP \\
-                      conj_tac \\ REAL_ASM_ARITH_TAC)))))))
+                      conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))))))
   >- (CCONTR_TAC \\
       rule_assum_tac (fn thm => REWRITE_RULE[IVlo_def, IVhi_def, widenInterval_def] thm) \\
-      `e2lo <= e2hi` by REAL_ASM_ARITH_TAC \\
-      `e2lo <= e2hi + err2` by REAL_ASM_ARITH_TAC \\
-      `e2lo <= e2hi + err2` by REAL_ASM_ARITH_TAC \\
-      REAL_ASM_ARITH_TAC)
+      `e2lo <= e2hi` by OLD_REAL_ASM_ARITH_TAC \\
+      `e2lo <= e2hi + err2` by OLD_REAL_ASM_ARITH_TAC \\
+      `e2lo <= e2hi + err2` by OLD_REAL_ASM_ARITH_TAC \\
+      OLD_REAL_ASM_ARITH_TAC)
   >- (CCONTR_TAC \\
       rule_assum_tac (fn thm => REWRITE_RULE[IVlo_def, IVhi_def, widenInterval_def] thm) \\
-      `e2lo <= e2hi` by REAL_ASM_ARITH_TAC \\
-      `e2lo - err2 <= e2hi` by REAL_ASM_ARITH_TAC \\
-      REAL_ASM_ARITH_TAC)
+      `e2lo <= e2hi` by OLD_REAL_ASM_ARITH_TAC \\
+      `e2lo - err2 <= e2hi` by OLD_REAL_ASM_ARITH_TAC \\
+      OLD_REAL_ASM_ARITH_TAC)
 (* The range of the divisor lies in the range from 0 to infinity *)
   >- (rule_assum_tac
       (fn thm =>
@@ -1602,22 +1602,22 @@ Proof
                    fs[contained_def, IVlo_def, IVhi_def]) \\
      fs [widenInterval_def, IVlo_def, IVhi_def, invertInterval_def] \\
      `minAbsFun (e2lo - err2, e2hi + err2) = (e2lo - err2)`
-               by (match_mp_tac minAbs_positive_iv_is_lo \\ REAL_ASM_ARITH_TAC) \\
+               by (match_mp_tac minAbs_positive_iv_is_lo \\ OLD_REAL_ASM_ARITH_TAC) \\
      simp[] \\
      qpat_x_assum `minAbsFun _ = _ ` kall_tac \\
-     `nF1 <= err1 + nR1` by REAL_ASM_ARITH_TAC \\
-     `nR1 - err1 <= nF1` by REAL_ASM_ARITH_TAC \\
+     `nF1 <= err1 + nR1` by OLD_REAL_ASM_ARITH_TAC \\
+     `nR1 - err1 <= nF1` by OLD_REAL_ASM_ARITH_TAC \\
      `(nR2 - nF2 > 0 /\ nR2 - nF2 <= err2) \/ (nR2 - nF2 <= 0 /\ - (nR2 - nF2) <= err2)`
-               by REAL_ASM_ARITH_TAC
+               by OLD_REAL_ASM_ARITH_TAC
     (* Positive case for abs (nR2 - nF2) <= err2 *)
-    >- (`nF2 < nR2` by REAL_ASM_ARITH_TAC \\
-      `inv nR2 < inv nF2` by (match_mp_tac REAL_LT_INV \\ TRY REAL_ASM_ARITH_TAC) \\
-      `inv nR2 - inv nF2 < 0` by REAL_ASM_ARITH_TAC \\
-      `nR2⁻¹ − nF2⁻¹ ≤ err2 * ((e2lo - err2) * (e2lo - err2))⁻¹` by REAL_ASM_ARITH_TAC \\
-      `inv nF2 <= inv nR2 + err2 * inv ((e2lo - err2) * (e2lo - err2))` by REAL_ASM_ARITH_TAC \\
-      `inv nR2 - err2 * inv ((e2lo - err2) * (e2lo - err2)) <= inv nF2` by REAL_ASM_ARITH_TAC \\
+    >- (`nF2 < nR2` by OLD_REAL_ASM_ARITH_TAC \\
+      `inv nR2 < inv nF2` by (match_mp_tac REAL_LT_INV \\ TRY OLD_REAL_ASM_ARITH_TAC) \\
+      `inv nR2 - inv nF2 < 0` by OLD_REAL_ASM_ARITH_TAC \\
+      `nR2⁻¹ − nF2⁻¹ ≤ err2 * ((e2lo - err2) * (e2lo - err2))⁻¹` by OLD_REAL_ASM_ARITH_TAC \\
+      `inv nF2 <= inv nR2 + err2 * inv ((e2lo - err2) * (e2lo - err2))` by OLD_REAL_ASM_ARITH_TAC \\
+      `inv nR2 - err2 * inv ((e2lo - err2) * (e2lo - err2)) <= inv nF2` by OLD_REAL_ASM_ARITH_TAC \\
       (* Next do a case distinction for the absolute value *)
-      `! (x:real). ((abs x = x) /\ 0 <= x) \/ ((abs x = - x) /\ x < 0)` by REAL_ASM_ARITH_TAC \\
+      `! (x:real). ((abs x = x) /\ 0 <= x) \/ ((abs x = - x) /\ x < 0)` by OLD_REAL_ASM_ARITH_TAC \\
       qpat_x_assum `!x. A /\ B \/ C`
         (fn thm => qspec_then `(nR1:real / nR2:real) - (nF1:real / nF2:real)` DISJ_CASES_TAC thm)
       \\ fs[realTheory.abs]
@@ -1630,7 +1630,7 @@ Proof
           conj_tac
           >- (fs[REAL_LE_LADD] \\
             match_mp_tac REAL_MUL_LE_COMPAT_NEG_L \\
-            conj_tac \\ REAL_ASM_ARITH_TAC)
+            conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
           >- (qabbrev_tac `err_inv = (err2 * ((e2lo - err2) * (e2lo - err2))⁻¹)` \\
             qspecl_then [`inv nR2 - err_inv`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
             >- (match_mp_tac REAL_LE_TRANS \\
@@ -1639,31 +1639,31 @@ Proof
               >- (fs [REAL_LE_ADD] \\
                 once_rewrite_tac [REAL_MUL_COMM] \\
                 match_mp_tac REAL_MUL_LE_COMPAT_NEG_L\\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 fs [REAL_LE_NEG])
               >- (`nR1 * inv nR2 + - (nR1 + err1) * (inv nR2 - err_inv) =
                   nR1 * err_inv + - (inv nR2) * err1 + err1 * err_inv`
-                    by REAL_ASM_ARITH_TAC \\
+                    by OLD_REAL_ASM_ARITH_TAC \\
                 simp[REAL_NEG_MUL2] \\
                 qspecl_then [`inv ((e2lo + - err2) * (e2lo + - err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
                 qunabbrev_tac `err_inv` \\
                 match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 simp[GSYM real_sub] \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC))
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC))
             >- (match_mp_tac REAL_LE_TRANS \\
               qexists_tac `nR1 * inv nR2 + - (nR1 + - err1) * (inv nR2 - err_inv)` \\
               conj_tac
               >- (fs [REAL_LE_ADD] \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC)
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
               >- (`nR1 * inv nR2 + - (nR1 + - err1) * (inv nR2 - err_inv) =
                   nR1 * err_inv + inv nR2 * err1 - err1 * err_inv`
-                    by REAL_ASM_ARITH_TAC \\
+                    by OLD_REAL_ASM_ARITH_TAC \\
                 simp[REAL_NEG_MUL2] \\
                 qspecl_then [`inv ((e2lo + -err2) * (e2lo + -err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
@@ -1672,19 +1672,19 @@ Proof
                 match_mp_tac REAL_LE_ADD2 \\
                 conj_tac
                 >- (match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC)
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                 >- (simp [REAL_NEG_LMUL] \\
                   match_mp_tac REAL_LE_RMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)))))
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))))
         (* 0 <= - nF1 *)
         >- (match_mp_tac REAL_LE_TRANS \\
           qexists_tac `nR1 * inv nR2 + - nF1 * (inv nR2 + err2 * inv ((e2lo - err2) * (e2lo - err2)))` \\
           conj_tac
           >- (fs[REAL_LE_LADD] \\
             match_mp_tac REAL_LE_LMUL_IMP \\
-            conj_tac \\ REAL_ASM_ARITH_TAC)
+            conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
           >- (qabbrev_tac `err_inv = (err2 * ((e2lo - err2) * (e2lo - err2))⁻¹)` \\
             qspecl_then [`inv nR2 + err_inv`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
             >- (match_mp_tac REAL_LE_TRANS \\
@@ -1693,11 +1693,11 @@ Proof
               >- (fs [REAL_LE_ADD] \\
                 once_rewrite_tac [REAL_MUL_COMM] \\
                 match_mp_tac REAL_MUL_LE_COMPAT_NEG_L\\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 fs [REAL_LE_NEG])
               >- (`nR1 * inv nR2 + - (nR1 + err1) * (inv nR2 + err_inv) =
                   - nR1 * err_inv + - (inv nR2) * err1 - err1 * err_inv`
-                    by REAL_ASM_ARITH_TAC \\
+                    by OLD_REAL_ASM_ARITH_TAC \\
                 simp[REAL_NEG_MUL2] \\
                 qspecl_then [`inv ((e2lo + -err2) * (e2lo + -err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
@@ -1706,32 +1706,32 @@ Proof
                 match_mp_tac REAL_LE_ADD2 \\
                 conj_tac
                 >- (match_mp_tac REAL_LE_ADD2 \\
-                  conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                  conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                   match_mp_tac REAL_LE_RMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                 >- (simp [REAL_NEG_LMUL] \\
                   match_mp_tac REAL_LE_RMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)))
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))
             >- (match_mp_tac REAL_LE_TRANS \\
               qexists_tac `nR1 * inv nR2 + - (nR1 + - err1) * (inv nR2 + err_inv)` \\
               conj_tac
               >- (fs [REAL_LE_ADD] \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC)
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
               >- (`nR1 * inv nR2 + - (nR1 + - err1) * (inv nR2 + err_inv) =
                   - nR1 * err_inv + inv nR2 * err1 + err1 * err_inv`
-                    by REAL_ASM_ARITH_TAC \\
+                    by OLD_REAL_ASM_ARITH_TAC \\
                 simp[REAL_NEG_MUL2] \\
                 qspecl_then [`inv ((e2lo + -err2) * (e2lo + -err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
                 qunabbrev_tac `err_inv` \\
                 match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 simp [GSYM real_sub] \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC)))))
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))))
       (* Case 2: Absolute value negative *)
       >- (fs[real_sub, real_div, REAL_NEG_LMUL, REAL_NEG_ADD] \\
         qspecl_then [`nF1`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
@@ -1741,7 +1741,7 @@ Proof
           conj_tac
           >- (fs[REAL_LE_LADD] \\
             match_mp_tac REAL_MUL_LE_COMPAT_NEG_L \\
-            conj_tac \\ REAL_ASM_ARITH_TAC)
+            conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
           >- (qabbrev_tac `err_inv = (err2 * ((e2lo - err2) * (e2lo - err2))⁻¹)` \\
             qspecl_then [`inv nR2 - err_inv`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
             >- (match_mp_tac REAL_LE_TRANS \\
@@ -1750,31 +1750,31 @@ Proof
               >- (fs [REAL_LE_ADD] \\
                  once_rewrite_tac [REAL_MUL_COMM] \\
                 match_mp_tac REAL_MUL_LE_COMPAT_NEG_L\\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 fs [REAL_LE_NEG])
               >- (`- nR1 * inv nR2 + (nR1 - err1) * (inv nR2 - err_inv) =
                  - nR1 * err_inv + - (inv nR2) * err1 + err1 * err_inv`
-                    by REAL_ASM_ARITH_TAC \\
+                    by OLD_REAL_ASM_ARITH_TAC \\
                 simp[REAL_NEG_MUL2] \\
                 qspecl_then [`inv ((e2lo + -err2) * (e2lo + -err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
                 qunabbrev_tac `err_inv` \\
                 match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 simp [GSYM real_sub] \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC))
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC))
             >- (match_mp_tac REAL_LE_TRANS \\
               qexists_tac `- nR1 * inv nR2 + (nR1 + err1) * (inv nR2 - err_inv)` \\
               conj_tac
               >- (fs [REAL_LE_ADD] \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC)
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
               >- (`- nR1 * inv nR2 + (nR1 + err1) * (inv nR2 - err_inv) =
                  - nR1 * err_inv + inv nR2 * err1 - err1 * err_inv`
-                    by REAL_ASM_ARITH_TAC \\
+                    by OLD_REAL_ASM_ARITH_TAC \\
                 simp[REAL_NEG_MUL2] \\
                 qspecl_then [`inv ((e2lo + -err2) * (e2lo + -err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
@@ -1783,20 +1783,20 @@ Proof
                 match_mp_tac REAL_LE_ADD2 \\
                 conj_tac
                 >- (match_mp_tac REAL_LE_ADD2 \\
-                  conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                  conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                   fs [GSYM REAL_NEG_ADD, REAL_NEG_MUL2] \\
                   match_mp_tac REAL_LE_RMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                 >- (fs [GSYM REAL_NEG_ADD, REAL_NEG_MUL2, REAL_NEG_LMUL] \\
                   match_mp_tac REAL_LE_RMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)))))
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))))
         (* 0 <= - nF1 *)
         >- (match_mp_tac REAL_LE_TRANS \\
           qexists_tac `- nR1 * inv nR2 + nF1 * (inv nR2 + err2 * inv ((e2lo - err2) * (e2lo - err2)))` \\
           conj_tac
           >- (fs[REAL_LE_LADD] \\
             match_mp_tac REAL_LE_LMUL_IMP \\
-            conj_tac \\ REAL_ASM_ARITH_TAC)
+            conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
           >- (qabbrev_tac `err_inv = (err2 * ((e2lo - err2) * (e2lo - err2))⁻¹)` \\
             qspecl_then [`inv nR2 + err_inv`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
             >- (match_mp_tac REAL_LE_TRANS \\
@@ -1805,11 +1805,11 @@ Proof
               >- (fs [REAL_LE_ADD] \\
                 once_rewrite_tac [REAL_MUL_COMM] \\
                 match_mp_tac REAL_MUL_LE_COMPAT_NEG_L\\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 fs [REAL_LE_NEG])
               >- (`- nR1 * inv nR2 + (nR1 - err1) * (inv nR2 + err_inv) =
                   nR1 * err_inv + - (inv nR2) * err1 - err1 * err_inv`
-                    by REAL_ASM_ARITH_TAC \\
+                    by OLD_REAL_ASM_ARITH_TAC \\
                 simp[REAL_NEG_MUL2] \\
                 qspecl_then [`inv ((e2lo + -err2) * (e2lo + -err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
@@ -1818,42 +1818,42 @@ Proof
                 match_mp_tac REAL_LE_ADD2 \\
                 conj_tac
                 >- (match_mp_tac REAL_LE_ADD2 \\
-                  conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                  conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                   match_mp_tac REAL_LE_RMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                 >- (fs [REAL_NEG_LMUL] \\
                   match_mp_tac REAL_LE_RMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)))
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))
             >- (match_mp_tac REAL_LE_TRANS \\
               qexists_tac `- nR1 * inv nR2 + (nR1 + err1) * (inv nR2 + err_inv)` \\
               conj_tac
               >- (fs [REAL_LE_ADD] \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC)
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
               >- (`- nR1 * inv nR2 + (nR1 + err1) * (inv nR2 + err_inv) =
                   nR1 * err_inv + inv nR2 * err1 + err1 * err_inv`
-                    by REAL_ASM_ARITH_TAC \\
+                    by OLD_REAL_ASM_ARITH_TAC \\
                 simp[REAL_NEG_MUL2] \\
                 qspecl_then [`inv ((e2lo + -err2) * (e2lo + -err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
                 qunabbrev_tac `err_inv` \\
                 match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 simp [GSYM real_sub] \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC))))))
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC))))))
     (* Negative case for abs (nR2 - nF2) <= err2 *)
     >- (fs [GSYM REAL_NEG_ADD, REAL_NEG_MUL2, REAL_NEG_LMUL] \\
-      `nR2 <= nF2` by REAL_ASM_ARITH_TAC \\
-      `inv nF2 <= inv nR2` by (match_mp_tac REAL_INV_LE_ANTIMONO_IMPR \\ REAL_ASM_ARITH_TAC) \\
-      `0 <= inv nR2 - inv nF2` by REAL_ASM_ARITH_TAC \\
-      `(nR2⁻¹ − nF2⁻¹) ≤ err2 * ((e2lo - err2) * (e2lo - err2))⁻¹` by REAL_ASM_ARITH_TAC \\
-      `inv nF2 <= inv nR2 + err2 * inv ((e2lo - err2) * (e2lo - err2))` by REAL_ASM_ARITH_TAC \\
-      `inv nR2 - err2 * inv ((e2lo - err2) * (e2lo - err2)) <= inv nF2` by REAL_ASM_ARITH_TAC \\
+      `nR2 <= nF2` by OLD_REAL_ASM_ARITH_TAC \\
+      `inv nF2 <= inv nR2` by (match_mp_tac REAL_INV_LE_ANTIMONO_IMPR \\ OLD_REAL_ASM_ARITH_TAC) \\
+      `0 <= inv nR2 - inv nF2` by OLD_REAL_ASM_ARITH_TAC \\
+      `(nR2⁻¹ − nF2⁻¹) ≤ err2 * ((e2lo - err2) * (e2lo - err2))⁻¹` by OLD_REAL_ASM_ARITH_TAC \\
+      `inv nF2 <= inv nR2 + err2 * inv ((e2lo - err2) * (e2lo - err2))` by OLD_REAL_ASM_ARITH_TAC \\
+      `inv nR2 - err2 * inv ((e2lo - err2) * (e2lo - err2)) <= inv nF2` by OLD_REAL_ASM_ARITH_TAC \\
       (* Next do a case distinction for the absolute value *)
-      `! (x:real). ((abs x = x) /\ 0 <= x) \/ ((abs x = - x) /\ x < 0)` by REAL_ASM_ARITH_TAC \\
+      `! (x:real). ((abs x = x) /\ 0 <= x) \/ ((abs x = - x) /\ x < 0)` by OLD_REAL_ASM_ARITH_TAC \\
       qpat_x_assum `!x. A /\ B \/ C`
         (fn thm => qspec_then `(nR1:real / nR2:real) - (nF1:real / nF2:real)` DISJ_CASES_TAC thm) \\
       fs[real_sub, real_div, REAL_NEG_LMUL, REAL_NEG_ADD, realTheory.abs]
@@ -1865,7 +1865,7 @@ Proof
           conj_tac
           >- (fs[REAL_LE_LADD] \\
             match_mp_tac REAL_MUL_LE_COMPAT_NEG_L \\
-            conj_tac \\ REAL_ASM_ARITH_TAC)
+            conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
           >- (qabbrev_tac `err_inv = (err2 * ((e2lo - err2) * (e2lo - err2))⁻¹)` \\
             qspecl_then [`inv nR2 - err_inv`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
             >- (match_mp_tac REAL_LE_TRANS \\
@@ -1874,31 +1874,31 @@ Proof
               >- (fs [REAL_LE_ADD] \\
                 once_rewrite_tac [REAL_MUL_COMM] \\
                 match_mp_tac REAL_MUL_LE_COMPAT_NEG_L\\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 fs [REAL_LE_NEG])
               >- (`nR1 * inv nR2 + - (nR1 + err1) * (inv nR2 - err_inv) =
                   nR1 * err_inv + - (inv nR2) * err1 + err1 * err_inv`
-                    by REAL_ASM_ARITH_TAC \\
+                    by OLD_REAL_ASM_ARITH_TAC \\
                 simp[REAL_NEG_MUL2] \\
                 qspecl_then [`inv ((e2lo + -err2) * (e2lo + -err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
                 qunabbrev_tac `err_inv` \\
                 match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 simp [GSYM real_sub] \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC))
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC))
             >- (match_mp_tac REAL_LE_TRANS \\
               qexists_tac `nR1 * inv nR2 + - (nR1 + - err1) * (inv nR2 - err_inv)` \\
               conj_tac
               >- (fs [REAL_LE_ADD] \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC)
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
               >- (`nR1 * inv nR2 + - (nR1 + - err1) * (inv nR2 - err_inv) =
                   nR1 * err_inv + inv nR2 * err1 - err1 * err_inv`
-                    by REAL_ASM_ARITH_TAC \\
+                    by OLD_REAL_ASM_ARITH_TAC \\
                 simp[REAL_NEG_MUL2] \\
                 qspecl_then [`inv ((e2lo + -err2) * (e2lo + -err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
@@ -1907,19 +1907,19 @@ Proof
                 match_mp_tac REAL_LE_ADD2 \\
                 conj_tac
                 >- (match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC)
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                 >- (simp [REAL_NEG_LMUL] \\
                   match_mp_tac REAL_LE_RMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)))))
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))))
         (* 0 <= - nF1 *)
         >- (match_mp_tac REAL_LE_TRANS \\
           qexists_tac `nR1 * inv nR2 + - nF1 * (inv nR2 + err2 * inv ((e2lo - err2) * (e2lo - err2)))` \\
           conj_tac
           >- (fs[REAL_LE_LADD] \\
             match_mp_tac REAL_LE_LMUL_IMP \\
-            conj_tac \\ REAL_ASM_ARITH_TAC)
+            conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
           >- (qabbrev_tac `err_inv = (err2 * ((e2lo - err2) * (e2lo - err2))⁻¹)` \\
             qspecl_then [`inv nR2 + err_inv`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
             >- (match_mp_tac REAL_LE_TRANS \\
@@ -1928,11 +1928,11 @@ Proof
               >- (fs [REAL_LE_ADD] \\
                 once_rewrite_tac [REAL_MUL_COMM] \\
                 match_mp_tac REAL_MUL_LE_COMPAT_NEG_L\\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 fs [REAL_LE_NEG])
               >- (`nR1 * inv nR2 + - (nR1 + err1) * (inv nR2 + err_inv) =
                   - nR1 * err_inv + - (inv nR2) * err1 - err1 * err_inv`
-                    by REAL_ASM_ARITH_TAC \\
+                    by OLD_REAL_ASM_ARITH_TAC \\
                 simp[REAL_NEG_MUL2] \\
                 qspecl_then [`inv ((e2lo + -err2) * (e2lo + -err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
@@ -1941,32 +1941,32 @@ Proof
                 match_mp_tac REAL_LE_ADD2 \\
                 conj_tac
                 >- (match_mp_tac REAL_LE_ADD2 \\
-                  conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                  conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                   match_mp_tac REAL_LE_RMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                 >- (simp [REAL_NEG_LMUL] \\
                   match_mp_tac REAL_LE_RMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)))
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))
             >- (match_mp_tac REAL_LE_TRANS \\
               qexists_tac `nR1 * inv nR2 + - (nR1 + - err1) * (inv nR2 + err_inv)` \\
               conj_tac
               >- (fs [REAL_LE_ADD] \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC)
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
               >- (`nR1 * inv nR2 + - (nR1 + - err1) * (inv nR2 + err_inv) =
                   - nR1 * err_inv + inv nR2 * err1 + err1 * err_inv`
-                    by REAL_ASM_ARITH_TAC \\
+                    by OLD_REAL_ASM_ARITH_TAC \\
                 simp[REAL_NEG_MUL2] \\
                 qspecl_then [`inv ((e2lo + -err2) * (e2lo + -err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
                 qunabbrev_tac `err_inv` \\
                 match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 simp [GSYM real_sub] \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC)))))
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))))
       (* Case 2: Absolute value negative *)
       >- (qspecl_then [`nF1`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
         (* nF1 < 0 *)
@@ -1975,7 +1975,7 @@ Proof
           conj_tac
           >- (fs[REAL_LE_LADD] \\
             match_mp_tac REAL_MUL_LE_COMPAT_NEG_L \\
-            conj_tac \\ REAL_ASM_ARITH_TAC)
+            conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
           >- (qabbrev_tac `err_inv = (err2 * ((e2lo - err2) * (e2lo - err2))⁻¹)` \\
             qspecl_then [`inv nR2 - err_inv`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
             >- (match_mp_tac REAL_LE_TRANS \\
@@ -1984,31 +1984,31 @@ Proof
               >- (fs [REAL_LE_ADD] \\
                  once_rewrite_tac [REAL_MUL_COMM] \\
                 match_mp_tac REAL_MUL_LE_COMPAT_NEG_L\\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 fs [REAL_LE_NEG])
               >- (`- nR1 * inv nR2 + (nR1 - err1) * (inv nR2 - err_inv) =
                  - nR1 * err_inv + - (inv nR2) * err1 + err1 * err_inv`
-                    by REAL_ASM_ARITH_TAC \\
+                    by OLD_REAL_ASM_ARITH_TAC \\
                 simp[REAL_NEG_MUL2] \\
                 qspecl_then [`inv ((e2lo + -err2) * (e2lo + -err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
                 qunabbrev_tac `err_inv` \\
                 match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 simp [GSYM real_sub] \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC))
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC))
             >- (match_mp_tac REAL_LE_TRANS \\
               qexists_tac `- nR1 * inv nR2 + (nR1 + err1) * (inv nR2 - err_inv)` \\
               conj_tac
               >- (fs [REAL_LE_ADD] \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC)
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
               >- (`- nR1 * inv nR2 + (nR1 + err1) * (inv nR2 - err_inv) =
                  - nR1 * err_inv + inv nR2 * err1 - err1 * err_inv`
-                    by REAL_ASM_ARITH_TAC \\
+                    by OLD_REAL_ASM_ARITH_TAC \\
                 simp[REAL_NEG_MUL2] \\
                 qspecl_then [`inv ((e2lo + -err2) * (e2lo + -err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
@@ -2017,19 +2017,19 @@ Proof
                 match_mp_tac REAL_LE_ADD2 \\
                 conj_tac
                 >- (match_mp_tac REAL_LE_ADD2 \\
-                  conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                  conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                   match_mp_tac REAL_LE_RMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                 >- (fs [GSYM REAL_NEG_ADD, REAL_NEG_MUL2, REAL_NEG_LMUL] \\
                   match_mp_tac REAL_LE_RMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)))))
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))))
         (* 0 <= - nF1 *)
         >- (match_mp_tac REAL_LE_TRANS \\
           qexists_tac `- nR1 * inv nR2 + nF1 * (inv nR2 + err2 * inv ((e2lo - err2) * (e2lo - err2)))` \\
           conj_tac
           >- (fs[REAL_LE_LADD] \\
             match_mp_tac REAL_LE_LMUL_IMP \\
-            conj_tac \\ REAL_ASM_ARITH_TAC)
+            conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
           >- (qabbrev_tac `err_inv = (err2 * ((e2lo - err2) * (e2lo - err2))⁻¹)` \\
             qspecl_then [`inv nR2 + err_inv`, `0`] DISJ_CASES_TAC REAL_LTE_TOTAL
             >- (match_mp_tac REAL_LE_TRANS \\
@@ -2038,11 +2038,11 @@ Proof
               >- (fs [REAL_LE_ADD] \\
                 once_rewrite_tac [REAL_MUL_COMM] \\
                 match_mp_tac REAL_MUL_LE_COMPAT_NEG_L\\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 fs [REAL_LE_NEG])
               >- (`- nR1 * inv nR2 + (nR1 - err1) * (inv nR2 + err_inv) =
                   nR1 * err_inv + - (inv nR2) * err1 - err1 * err_inv`
-                    by REAL_ASM_ARITH_TAC \\
+                    by OLD_REAL_ASM_ARITH_TAC \\
                 simp[REAL_NEG_MUL2] \\
                 qspecl_then [`inv ((e2lo + -err2) * (e2lo + -err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
@@ -2051,32 +2051,32 @@ Proof
                 match_mp_tac REAL_LE_ADD2 \\
                 conj_tac
                 >- (match_mp_tac REAL_LE_ADD2 \\
-                  conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                  conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                   match_mp_tac REAL_LE_RMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
                 >- (fs [REAL_NEG_LMUL] \\
                   match_mp_tac REAL_LE_RMUL_IMP \\
-                  conj_tac \\ REAL_ASM_ARITH_TAC)))
+                  conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))
             >- (match_mp_tac REAL_LE_TRANS \\
               qexists_tac `- nR1 * inv nR2 + (nR1 + err1) * (inv nR2 + err_inv)` \\
               conj_tac
               >- (fs [REAL_LE_ADD] \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC)
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC)
               >- (`- nR1 * inv nR2 + (nR1 + err1) * (inv nR2 + err_inv) =
                   nR1 * err_inv + inv nR2 * err1 + err1 * err_inv`
-                    by REAL_ASM_ARITH_TAC \\
+                    by OLD_REAL_ASM_ARITH_TAC \\
                 simp[REAL_NEG_MUL2] \\
                 qspecl_then [`inv ((e2lo + -err2) * (e2lo + -err2))`,`err2`]
                   (fn thm => once_rewrite_tac [thm]) REAL_MUL_COMM \\
                 qunabbrev_tac `err_inv` \\
                 match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 match_mp_tac REAL_LE_ADD2 \\
-                conj_tac \\ TRY REAL_ASM_ARITH_TAC \\
+                conj_tac \\ TRY OLD_REAL_ASM_ARITH_TAC \\
                 simp [GSYM real_sub] \\
                 match_mp_tac REAL_LE_RMUL_IMP \\
-                conj_tac \\ REAL_ASM_ARITH_TAC)))))))
+                conj_tac \\ OLD_REAL_ASM_ARITH_TAC)))))))
 QED
 
 Theorem validErrorboundCorrectDiv:

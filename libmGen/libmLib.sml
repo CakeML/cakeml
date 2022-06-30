@@ -1,3 +1,6 @@
+(*
+  Implementation of automatic generation of libm functions
+*)
 structure libmLib =
 struct
 
@@ -8,30 +11,21 @@ struct
        basisProgTheory basis_ffiTheory cfHeapsBaseTheory basis cfTacticsLib
        ml_translatorLib cfSupportTheory;
   open libmTheory;
+  open binary_ieeeLib;
 
   val _ = translation_extends "basisProg";
-
-  (** Literal SML level copy of Dandelions supported datatypes **)
-  datatype mf = Exp | Sin | Cos | Atn | Sqrt | Log
 
   exception libmGenException of string;
 
   val approxSteps = “16:num”; (** TODO: make this a parameter ? **)
 
-  fun mfToSollya (f:mf) : string =
-  case f of
-    Exp => "exp"
-  | Sin => "sin"
-  | Cos => "cos"
-  | Atn => "atan"
-  | Sqrt => "sqrt"
-  | Log => "log";
-
   val zero_eq = GSYM $ Q.SPEC ‘1’ REAL_DIV_LZERO
 
+  val _ = Globals.max_print_depth := 20;
+
   (** For debugging the implement function
-  val certDef = sinDeg3Theory.sin_example_def
-  val certValid = sinDeg3Theory.err_sound_thm
+  val certDef = cosDeg3Theory.cos_example_def
+  val certValid = cosDeg3Theory.err_sound_thm
   **)
 
   (** implement produce CakeML code for elementary functions Input: f, a math function to be implemented in CakeML with an error bound
@@ -46,17 +40,27 @@ struct
     val certValid = validateCert certDef approxSteps
     val thePoly = certValid |> SPEC_ALL |> concl |> dest_imp |> snd
                   |> rator |> rand |> rand |> rand |> rator |> rand
+    val theTransc = EVAL “^(certDef |> rhs o concl).transc”
+    val thePoly_nonzero = EVAL “^thePoly <> []” |> SIMP_RULE std_ss []
+    val thePoly_getThm = EVAL “^(certDef |> rhs o concl).poly = ^thePoly” |> SIMP_RULE std_ss []
     val floverExpThm = EVAL “poly2FloVer ^thePoly” |> ONCE_REWRITE_RULE [zero_eq]
-    val floverPoly_bisimThm =
-      SPEC thePoly evalPoly_Flover_eval_bisim |> REWRITE_RULE [floverExpThm]
     val floverExpTm = floverExpThm |> rhs o concl
     val floverFloatExpThm = EVAL “toFloVerFloatExp ^floverExpTm” |> ONCE_REWRITE_RULE [zero_eq]
     val floverFloatExpTm = floverFloatExpThm |> rhs o concl
     val floverRatExpThm = realExp2ratExpConv floverFloatExpTm
     val floverRatExpTm = floverRatExpThm |> rhs o concl |> rand
+    val floverExpRatEqThm = EVAL “poly2FloVer ^thePoly = toREval ^floverFloatExpTm”
+      |> SIMP_RULE std_ss []
     val floverToCmlRealThm = EVAL “toCmlRealExp ^floverRatExpTm”
     val floverToCmlFloatThm = EVAL “toCmlFloatProg ^floverFloatExpTm”
                         |> SIMP_RULE std_ss [machine_ieeeTheory.float_to_fp64_def]
+                        |> REWRITE_RULE [binary_ieeeTheory.real_to_float_def,
+                                         binary_ieeeTheory.float_round_def]
+                        |> CONV_RULE $ RHS_CONV EVAL
+    val floverToCMLReal_sound_thm =
+      FloVer_to_CML_real_sim |> REWRITE_RULE [GSYM AND_IMP_INTRO]
+      |> REV_MATCH_MP floverRatExpThm
+      |> REV_MATCH_MP $ GSYM floverToCmlRealThm
     val is64BitEvalThm = EVAL “is64BitEval ^floverFloatExpTm” |> SIMP_RULE std_ss []
     val noDowncastThm = EVAL “noDowncast ^floverFloatExpTm” |> SIMP_RULE std_ss []
     val theEnv = EVAL “FloverMapTree_insert (Var 0) M64 FloverMapTree_empty” |> rhs o concl
@@ -64,15 +68,22 @@ struct
     val P = EVAL “getPrecondFromCert ^(certDef |> rhs o concl)”
     val P_zero = EVAL “^(P |> rhs o concl) 0”
     val usedVarsThm = EVAL “usedVars ^floverFloatExpTm”
-    val ivbounds  = EVAL “inferIntervalbounds ^floverFloatExpTm ^(P |> rhs o concl) FloverMapTree_empty” |> rhs o concl |> optionSyntax.dest_some
-    val typeMap = EVAL “case getValidMap ^theEnv ^floverFloatExpTm FloverMapTree_empty of Succes G => G” |> rhs o concl
-    val errbounds = EVAL “inferErrorbound ^floverFloatExpTm ^typeMap ^ivbounds FloverMapTree_empty” |> rhs o concl |> optionSyntax.dest_some
+    val ivbounds  =
+      EVAL “inferIntervalbounds ^floverFloatExpTm ^(P |> rhs o concl) FloverMapTree_empty”
+      |> rhs o concl |> optionSyntax.dest_some
+    val typeMap =
+      EVAL “case getValidMap ^theEnv ^floverFloatExpTm FloverMapTree_empty of Succes G => G”
+      |> rhs o concl
+    val errbounds =
+      EVAL “inferErrorbound ^floverFloatExpTm ^typeMap ^ivbounds FloverMapTree_empty”
+      |> rhs o concl |> optionSyntax.dest_some
     val cc_valid = EVAL “CertificateChecker ^floverFloatExpTm ^errbounds ^(P |> rhs o concl) ^theEnv”
     val find_thm = EVAL “FloverMapTree_find ^floverFloatExpTm ^errbounds”
+    val floverToCmlFloatTm = floverToCmlFloatThm |> rhs o concl |> optionSyntax.dest_some
     val theFunction =
       (** FIXME: inject name?? **)
       “[Dlet unknown_loc (Pvar ^(stringSyntax.fromMLstring cmlFname)) (Fun "x0"
-            (^(floverToCmlFloatThm |> rhs o concl |> optionSyntax.dest_some)))]”
+            ^floverToCmlFloatTm)]”
     val theEnv_before = get_ml_prog_state()
       |> ml_progLib.clean_state
       |> ml_progLib.remove_snocs
@@ -83,8 +94,16 @@ struct
     val do_opapp_thm = “do_opapp [^(fetch_v cmlFname st); v]”
                       |> SIMP_CONV std_ss [theFunction_v_def]
                       |> CONV_RULE $ RHS_CONV EVAL
+    val theEnv_term = theEnv_before |> SIMP_CONV std_ss [ml_progTheory.merge_env_def, namespaceTheory.nsAppend_def, nsBind_nsAppend] |> rhs o concl
+    val mkEnv_def = Define ‘mkEnv v = ^theEnv_term with v := nsAppend (Bind [("x0", v)] []) ^(theEnv_term).v’
+    val approxErr_def = Define ‘approxErr = ^(certValid |> SPEC_ALL |> concl |> rand |> rand)’
+    val roundoffErr_def = Define ‘roundoffErr = ^(find_thm |> rhs o concl |> optionSyntax.dest_some |> dest_pair |> snd)’
+    val theCMLprog_def = Define ‘theCMLprog = ^floverToCmlFloatTm’
     in
       MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] theFunSpec_thm_general) P
+      |> REV_MATCH_MP floverExpRatEqThm
+      |> REV_MATCH_MP thePoly_nonzero
+      |> REV_MATCH_MP thePoly_getThm
       |> REV_MATCH_MP P_zero
       |> REV_MATCH_MP floverRatExpThm
       |> REV_MATCH_MP is64BitEvalThm
@@ -92,15 +111,18 @@ struct
       |> REV_MATCH_MP is64BitEnvThm
       |> REV_MATCH_MP usedVarsThm
       |> REV_MATCH_MP cc_valid
+      |> REWRITE_RULE [theTransc]
+      |> REV_MATCH_MP $ SIMP_RULE std_ss [GSYM AND_IMP_INTRO] certValid
       |> REV_MATCH_MP find_thm
       |> REV_MATCH_MP $ GSYM floverToCmlFloatThm
       |> REV_MATCH_MP $ GSYM floverToCmlRealThm
       |> REV_MATCH_MP do_opapp_thm
       |> Q.SPEC ‘^theEnv_before’
-      |> CONV_RULE $ RATOR_CONV EVAL
       |> SIMP_RULE std_ss [ml_progTheory.merge_env_def, namespaceTheory.nsAppend_def, nsBind_nsAppend]
       |> CONV_RULE $ RATOR_CONV EVAL
       |> SIMP_RULE std_ss []
+      |> CONV_RULE $ RATOR_CONV EVAL
+      |> SIMP_RULE std_ss [GSYM mkEnv_def, GSYM approxErr_def, GSYM roundoffErr_def, GSYM theCMLprog_def]
     end
   end;
 

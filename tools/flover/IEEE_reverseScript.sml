@@ -14,7 +14,7 @@ open preambleFloVer;
 
 val _ = new_theory "IEEE_reverse";
 
-Overload abs[local] = “real$abs”
+Overload abs[local] = “realax$abs”
 
 Definition toFlExp_def:
   toFlExp ((Var v):real expr) = Var v ∧
@@ -55,11 +55,6 @@ Proof
   (* Just for simplicity, could also prove that condition is true... *)
   \\ TOP_CASE_TAC \\ gs[]
 QED
-
-(** Some eval test
-EVAL “float_to_real ((real_to_float roundTiesToEven (float_to_real <|Sign := 1w; Exponent := 0w:word11; Significand := 0w:52 word |>)):(52,11) float”
-|> CONV_RULE (RHS_CONV $ RAND_CONV $ binary_ieeeLib.float_round_CONV)
-**)
 
 Theorem eval_expr_gives_IEEE_reverse:
   !(e:real expr) E1 E2 Gamma vR A fVars dVars.
@@ -141,15 +136,26 @@ Proof
            \\ irule REAL_LT_TRANS
            \\ first_assum $ irule_at Any
            \\ fs[minExponentPos_def])
-          \\ rpt conj_tac >- gs[]
+          \\ rpt conj_tac
           >~ [‘1 < INT_MAX (:11)’] >- gs[]
-          \\ irule REAL_LET_TRANS \\ qexists_tac ‘2 / 2 pow (INT_MAX (:11) - 1)’
-          \\ reverse conj_tac
-          >- (pop_assum $ mp_tac \\ REAL_ARITH_TAC)
-          \\ gs[threshold_def]
-          \\ rewrite_tac [REAL_INV_1OVER] \\ EVAL_TAC)
-      \\ rpt strip_tac \\ qexists_tac ‘e’ \\ gs[]
-      \\ TOP_CASE_TAC \\ gs[minExponentPos_def])
+          >- (
+            irule REAL_LTE_TRANS
+            \\ first_assum $ irule_at Any
+            \\ simp[threshold_def]
+            \\ rewrite_tac[REAL_INV_1OVER]
+            \\ EVAL_TAC)
+          \\ irule REAL_LTE_TRANS \\ qexists_tac ‘2 / 2 pow (INT_MAX (:11) - 1)’
+          \\ reverse conj_tac >- gs[]
+          \\ pop_assum $ mp_tac \\ REAL_ARITH_TAC)
+      \\ rpt strip_tac \\ TOP_CASE_TAC \\ gs[minExponentPos_def]
+      >- (
+        qexists_tac ‘-v’ \\ gs[]
+        \\ irule REAL_LE_TRANS \\ first_x_assum $ irule_at Any
+        \\ gs[])
+      \\ qexists_tac ‘float_to_real ((round roundTiesToEven v):(52,11) float) - v’ \\ gs[]
+      \\ conj_tac >- REAL_ARITH_TAC
+      \\ irule REAL_LE_TRANS \\ first_x_assum $ irule_at Any
+      \\ gs[])
     >- (gvs[denormal_def] \\ qexists_tac ‘0’ \\ gs[mTypeToR_pos])
   )
   >- (

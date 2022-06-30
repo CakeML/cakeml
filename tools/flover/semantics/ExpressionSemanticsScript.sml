@@ -355,4 +355,25 @@ Proof
   \\ metis_tac[]
 QED
 
+Theorem swap_gamma_eval_weak:
+  ∀ e E vR m Gamma1 Gamma2.
+    (∀ e m. Gamma1 e = SOME m ⇒ Gamma2 e = SOME m) ∧
+    eval_expr E Gamma1 e vR m ⇒
+    eval_expr E Gamma2 e vR m
+Proof
+  Induct_on `e` \\ fs[eval_expr_cases] \\ rpt strip_tac
+  >- metis_tac[]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- (
+    res_tac
+    >> rpt $ first_x_assum $ irule_at Any
+    >> gs[])
+  >- (
+    res_tac
+    >> rpt $ first_x_assum $ irule_at Any
+    >> gs[])
+  >- metis_tac[]
+QED
+
 val _ = export_theory();

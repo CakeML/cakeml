@@ -320,7 +320,7 @@ Theorem FloVer_CakeML_sound_error:
     evaluate st (env with v := (nsAppend flEnv env.v)) [progFloat] =
       (st, Rval [FP_WordTree fp]) /\
     (* the roundoff error is sound *)
-     real$abs (r - fp64_to_real (compress_word fp)) ≤ err
+     realax$abs (r - fp64_to_real (compress_word fp)) ≤ err
 Proof
   rpt strip_tac
   >> first_assum $ mp_then Any assume_tac usedVars_P_sound_fVars_P_sound
