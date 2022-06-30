@@ -1,7 +1,7 @@
 (*
   Correctness proof for word_cse
 *)
-open preamble alistTheory;
+open preamble alistTheory totoTheory;
 open wordLangTheory wordSemTheory wordPropsTheory word_simpTheory word_cseTheory;
 
 val _ = new_theory "word_cseProof";
@@ -43,10 +43,32 @@ Proof
   Cases_on ‘lookup r data.och_map’ \\ fs []
 QED
 
+Theorem canonicalRegs_correct_bis[simp]:
+  ∀data r s. data_inv data s ⇒ lookup (canonicalRegs data r) s.locals = lookup r s.locals
+Proof
+  rpt strip_tac
+  \\ gvs [data_inv_def, canonicalRegs_def]
+  \\ fs [lookup_any_def]
+  \\ Cases_on ‘lookup r data.inst_map’ \\ fs [get_var_def]
+  \\ Cases_on ‘lookup r data.och_map’ \\ fs [get_var_def]
+QED
+
 Theorem canonicalArith_correct[simp]:
   ∀data s a. data_inv data s ⇒ inst (Arith (canonicalArith data a)) s = inst (Arith a) s
 Proof
-  cheat
+  rpt gen_tac
+  \\ strip_tac
+  \\ Cases_on ‘a’ \\ gvs [canonicalArith_def, inst_def, assign_def, word_exp_def, the_words_def]
+  \\ cheat
+QED
+
+Theorem canonicalExp_correct[simp]:
+  ∀data s exp. data_inv data s ⇒ word_exp s (canonicalExp data exp) = word_exp s exp
+Proof
+  gen_tac \\ gen_tac
+  \\ Cases_on ‘exp’
+  \\ rpt gen_tac \\ strip_tac
+  \\ gvs [canonicalExp_def, word_exp_def]
 QED
 
 Theorem firstRegOfArith_canonicalArith[simp]:
@@ -54,7 +76,6 @@ Theorem firstRegOfArith_canonicalArith[simp]:
 Proof
   rpt gen_tac \\ Cases_on ‘a’ \\ gvs [firstRegOfArith_def, canonicalArith_def]
 QED
-
 
 (* Some usefull proofs to automize *)
 
@@ -66,6 +87,31 @@ Proof
           mlmapTheory.empty_def, balanced_mapTheory.empty_def]
 QED
 
+Theorem not_in_all_names_impl:
+  ∀r data s. data_inv data s ⇒ ¬is_seen r data ⇒ lookup r data.inst_map = NONE ∧ lookup r data.och_map = NONE
+Proof
+  rpt strip_tac
+  \\ gvs [data_inv_def, is_seen_def] \\ Cases_on ‘lookup r data.all_names’ \\ gvs []
+  >- (Cases_on ‘lookup r data.inst_map’ \\ gvs [] \\ first_x_assum drule_all \\ strip_tac \\ gvs [domain_lookup])
+  \\ Cases_on ‘lookup r data.och_map’ \\ gvs [] \\ first_x_assum drule_all \\ strip_tac \\ gvs [domain_lookup]
+QED
+
+Theorem data_inv_locals:
+  ∀data s. data_inv data s ⇒ data_inv data (s with locals := s.locals)
+Proof
+  rpt gen_tac
+  \\ gvs [data_inv_def, get_var_def] \\ strip_tac \\ gvs []
+  \\ rpt strip_tac \\ first_x_assum drule_all \\ strip_tac \\ gvs []
+QED
+
+Theorem not_seen_data_inv_insert[simp]:
+  ∀data s r v. ¬is_seen r data ⇒ data_inv data (s with locals := insert r v s.locals) = data_inv data s
+Proof
+  rpt strip_tac
+  \\ eq_tac
+  \\ cheat
+QED
+
 Theorem data_inv_insert_all_names[simp]:
   ∀data s r. data_inv data s ⇒ data_inv (data with all_names:=insert r () data.all_names) s
 Proof
@@ -75,10 +121,55 @@ Proof
   \\ first_x_assum drule_all \\ rw []
 QED
 
+Theorem listCmpEq_correct:
+  ∀L1 L2. listCmp L1 L2 = Equal ⇔ L1 = L2
+Proof
+  strip_tac
+  \\Induct_on ‘L1’
+    >- (Cases_on ‘L2’
+        \\ rw[listCmp_def])
+    >- (Cases_on ‘L2’
+        >- rw[listCmp_def]
+        >- (strip_tac >>
+            Cases_on ‘h=h'’
+            \\ rw[listCmp_def]))
+QED
+
+Theorem antisym_listCmp:
+  ∀x y. listCmp x y = Greater ⇔ listCmp y x = Less
+Proof
+  gen_tac \\ Induct_on ‘x’
+  >- (Cases_on ‘y’ \\ gvs [listCmp_def])
+  \\ rpt gen_tac
+  \\ Cases_on ‘y’ \\ gvs [listCmp_def]
+  \\ Cases_on ‘h=h'’ \\ gvs []
+  \\ Cases_on ‘h>h'’ \\ gvs []
+QED
+
+Theorem transit_listCmp:
+  ∀x y z. listCmp x y = Less ∧ listCmp y z = Less ⇒ listCmp x z = Less
+Proof
+  gen_tac
+  \\ Induct_on ‘x’
+  >- (Cases_on ‘y’ \\ Cases_on ‘z’ \\ gvs [listCmp_def])
+  \\ rpt gen_tac \\ strip_tac
+  \\ Cases_on ‘y’ \\ Cases_on ‘z’ \\ gvs [listCmp_def]
+  \\ Cases_on ‘h=h'’ \\ Cases_on ‘h'=h''’ \\ gvs [listCmp_def]
+  >- (‘listCmp x t = Less ∧ listCmp t t' = Less’ by gvs []
+      \\ first_x_assum drule_all \\ gvs [])
+  \\ Cases_on ‘h>h'’ \\ Cases_on ‘h'>h''’ \\ gvs []
+QED
+
 Theorem TotOrd_listCmp[simp]:
   TotOrd listCmp
 Proof
-  cheat
+  gvs [TotOrd, listCmpEq_correct, antisym_listCmp, transit_listCmp, SF SFY_ss]
+QED
+
+Theorem map_ok_insert[simp]:
+  ∀m l v. map_ok m ⇒ map_ok (insert m l v)
+Proof
+  gvs [mlmapTheory.insert_thm]
 QED
 
 Theorem map_ok_empty[simp]:
@@ -87,10 +178,10 @@ Proof
   gvs [mlmapTheory.empty_thm]
 QED
 
-Theorem map_ok_insert[simp]:
-  ∀m l v. map_ok m ⇒ map_ok (insert m l v)
+Theorem data_inv_empty[simp]:
+  ∀s. data_inv empty_data s
 Proof
-  gvs [mlmapTheory.insert_thm]
+  gvs [data_inv_def, empty_data_def, lookup_def]
 QED
 
 (* setting up the goal *)
@@ -100,6 +191,7 @@ val goal = “
    ∀res s' data p' data'.
      evaluate (p, s) = (res, s') ∧ flat_exp_conventions p ∧
      data_inv data s ∧
+     res ≠ SOME Error ∧
      word_cse data p  = (data', p') ⇒
      evaluate (p', s) = (res, s') ∧
      (res = NONE ⇒ data_inv data' s')”
@@ -128,14 +220,56 @@ Proof
   gvs[word_cse_def, data_inv_def, empty_data_def, sptreeTheory.lookup_def]
 QED
 
+Theorem MAP_FST_lemma[local]:
+  ∀moves. MAP FST (MAP (λ(a,b). (a,canonicalRegs data b)) moves) = MAP FST moves
+Proof
+  Induct \\ gvs []
+  \\ gen_tac \\ Cases_on ‘h’ \\ gvs []
+QED
+
+Theorem MAP_SND_lemma[local]:
+  ∀moves x.
+    get_vars (MAP SND moves) s = SOME x ∧ data_inv data s ⇒
+    get_vars (MAP SND (MAP (λ(a,b). (a,canonicalRegs data b)) moves)) s = SOME x
+Proof
+  Induct \\ gvs []
+  \\ rpt strip_tac
+  \\ Cases_on ‘h’ \\ gvs [get_vars_def]
+  \\ Cases_on ‘get_var r s’ \\ gvs []
+  \\ Cases_on ‘get_vars (MAP SND moves) s’ \\ gvs []
+QED
+
 Theorem comp_Move_correct:
   ^(get_goal "Move")
 Proof
-  cheat
-(*
-  rpt strip_tac \\
-  rw[word_cse_def]
-*)
+  gen_tac \\ gen_tac
+  \\ gvs [evaluate_def, word_cse_def]
+  \\ rpt gen_tac
+  \\ Cases_on ‘ALL_DISTINCT (MAP FST moves)’ \\ strip_tac \\ gvs [flat_exp_conventions_def]
+  \\ pairarg_tac \\ gvs []
+  \\ gvs [canonicalMoveRegs3_def]
+  \\ ‘rs' = MAP (λ(a,b). (a,canonicalRegs data b)) moves’ by gvs [AllCaseEqs()]
+  \\ gvs [evaluate_def, MAP_FST_lemma]
+  \\ Cases_on ‘get_vars (MAP SND moves) s’ \\ gvs []
+  \\ drule_all MAP_SND_lemma
+  \\ strip_tac \\ gvs []
+  \\ gvs [AllCaseEqs()]
+  (*\\ gvs [EVERY_MEM, FORALL_PROD]*)
+  \\ pop_assum kall_tac
+  \\ pop_assum kall_tac
+  \\ rpt (pop_assum mp_tac)
+  \\ qid_spec_tac ‘data’
+  \\ qid_spec_tac ‘s’
+  \\ qid_spec_tac ‘moves’
+  \\ Induct
+  >- gvs [set_vars_def, canonicalMoveRegs_aux_def, alist_insert_def, data_inv_locals]
+  \\ rpt strip_tac
+  \\ gvs []
+  \\ Cases_on ‘h’ \\ gvs []
+  \\ gvs [canonicalMoveRegs_aux_def]
+  \\ Cases_on ‘EVEN q’ \\ gvs [set_vars_def]
+
+  \\ cheat
 QED
 
 Theorem comp_Inst_correct:
@@ -289,8 +423,16 @@ QED
 Theorem comp_Set_correct:
   ^(get_goal "wordLang$Set")
 Proof
-  cheat
-  (*gvs[word_cse_def, data_inv_def]*)
+  rpt gen_tac
+  \\ strip_tac
+  \\ gvs [word_cse_def, evaluate_def]
+  \\ Cases_on ‘exp’ \\ gvs [flat_exp_conventions_def]
+  \\ Cases_on ‘v=CurrHeap’ \\ gvs [evaluate_def]
+  \\ Cases_on ‘v = Handler ∨ v = BitmapBase’ \\ gvs [word_exp_def]
+  \\ strip_tac
+  \\ Cases_on ‘lookup n s.locals’ \\ gvs [set_store_def, get_var_def]
+  \\ gvs [data_inv_def, get_var_def]
+  \\ rpt strip_tac \\ first_x_assum drule_all \\ gvs []
 QED
 
 Theorem comp_OpCurrHeap_correct:
@@ -317,22 +459,20 @@ QED
 Theorem comp_MustTerminate_correct:
   ^(get_goal "MustTerminate")
 Proof
-  rpt gen_tac \\
-  strip_tac \\
-  rpt gen_tac \\
-  gs[word_cse_def] \\
-  pairarg_tac \\ gvs [evaluate_def,flat_exp_conventions_def] \\
-  gvs [AllCaseEqs()] \\
-  strip_tac
-  >- (gvs [evaluate_def] \\
-      pairarg_tac \\ gvs []) \\
-  pairarg_tac \\ gvs [] \\
-  first_x_assum (drule_at Any) \\
-  impl_tac
-  >- fs [data_inv_def, get_var_def, SF SFY_ss] \\
-  fs [evaluate_def] \\
-  rw [] \\
-  gvs [AllCaseEqs(), data_inv_def, get_var_def, SF SFY_ss]
+  rpt gen_tac
+  \\ strip_tac
+  \\ rpt gen_tac
+  \\ gs[word_cse_def]
+  \\ pairarg_tac \\ gvs [evaluate_def,flat_exp_conventions_def]
+  \\ gvs [AllCaseEqs()]
+  \\ strip_tac
+  \\ pairarg_tac \\ gvs []
+  \\ first_x_assum (drule_at Any)
+  \\ impl_tac
+  >- (gvs [data_inv_def, get_var_def, SF SFY_ss] \\ Cases_on ‘res' = SOME TimeOut’ \\ gvs [])
+  \\ gvs [evaluate_def]
+  \\ rw []
+  \\ gvs [AllCaseEqs(), data_inv_def, get_var_def, SF SFY_ss]
 QED
 
 Theorem comp_Seq_correct:
@@ -437,7 +577,7 @@ Proof
   \\ rpt gen_tac
   \\ cheat
 (* never end
-  gvs[word_cse_def, data_inv_def, empty_data_def, lookup_def]
+  gvs [data_inv_def]
  *)
 QED
 

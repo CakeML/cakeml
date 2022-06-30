@@ -55,20 +55,6 @@ Definition listCmp_def:
   (listCmp [] (hd2::tl2) = Less)
 End
 
-Theorem listCmpEq_correct:
-  ∀L1 L2. listCmp L1 L2 = Equal ⇔ L1 = L2
-Proof
-  strip_tac
-  \\Induct_on ‘L1’
-    >- (Cases_on ‘L2’
-        \\ rw[listCmp_def])
-    >- (Cases_on ‘L2’
-        >- rw[listCmp_def]
-        >- (strip_tac >>
-            Cases_on ‘h=h'’
-            \\ rw[listCmp_def]))
-QED
-
 Definition empty_data_def:
   empty_data = <| n:=0;
                   inst_eq:=[];
@@ -200,23 +186,26 @@ Move [(1,can 2);(2,can 3);(3,can 1)]
 Knowledge : 1 ⇔ can 2 / 2 ⇔ can 3 / 3 ⇔ can 1
 *)
 
-Definition canonicalExp_def:
-  canonicalExp data e = e
+Definition canonicalMoveRegs_aux_def:
+  canonicalMoveRegs_aux data [] = data ∧
+  canonicalMoveRegs_aux data ((r1,r2)::tl) =
+    if EVEN r1 then canonicalMoveRegs_aux data tl
+    else let och_map' = sptree$insert r1 r2 data.och_map in
+         let all_names' = sptree$insert r1 () data.all_names in
+         let data' = data with <| och_map := och_map'; all_names := all_names' |> in
+           canonicalMoveRegs_aux data' tl
 End
 
-Definition canonicalMultExp_def:
-  canonicalMultExp data [] = [] ∧
-  canonicalMultExp data (hd::tl) =
-    (canonicalExp data hd)::(canonicalMultExp data tl)
+Definition canonicalMoveRegs3_def:
+  canonicalMoveRegs3 data moves =
+  let moves' = MAP (λ(a,b). (a, canonicalRegs data b)) moves in
+    if EXISTS (λ(a,b). is_seen a data) moves then (empty_data, moves')
+    else (canonicalMoveRegs_aux data moves', moves')
 End
 
 Definition canonicalExp_def:
-  canonicalExp data (Const w) = Const w ∧
   canonicalExp data (Var r) = Var (canonicalRegs data r) ∧
-  canonicalExp data (Lookup s) = Lookup s ∧
-  canonicalExp data (Load e) = Load (canonicalExp data e) ∧
-  canonicalExp data (Op op nl) = Op op (canonicalMultExp data nl) ∧
-  canonicalExp data (Shift s e n) = Shift s (canonicalExp data e) n
+  canonicalExp data exp = exp
 End
 
 Definition canonicalArith_def:
@@ -613,7 +602,7 @@ Definition word_cse_def:
   (word_cse (data:knowledge) (Skip) =
                 (data, Skip)) ∧
   (word_cse data (Move r rs) =
-            let (data', rs') = canonicalMoveRegs2 data rs in
+            let (data', rs') = canonicalMoveRegs3 data rs in
                 (data', Move r rs')) ∧
   (word_cse data (Inst i) =
             let (data', p) = word_cseInst data i in
@@ -624,7 +613,10 @@ Definition word_cse_def:
             if is_seen r data then (empty_data, Get r x) else (data, Get r x)) ∧
   (word_cse data (Set x e) =
             let e' = canonicalExp data e in
-                (data with <|och_map:=LN; och_instrs:=empty listCmp|>, Set x e')) ∧
+            if x = CurrHeap then
+                (empty_data, Set x e')
+            else
+                (data, Set x e'))∧
   (word_cse data (Store e r) =
                 (data, Store e r)) ∧
   (word_cse data (MustTerminate p) =
