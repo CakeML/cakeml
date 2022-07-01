@@ -176,11 +176,11 @@ Knowledge : 1 ⇔ can 2 / 2 ⇔ can 3 / 3 ⇔ can 1
 Definition canonicalMoveRegs_aux_def:
   canonicalMoveRegs_aux data [] = data ∧
   canonicalMoveRegs_aux data ((r1,r2)::tl) =
-    if EVEN r1 then canonicalMoveRegs_aux data tl
-    else let map' = sptree$insert r1 r2 data.map in
-         let all_names' = sptree$insert r1 () data.all_names in
-         let data' = data with <| map := map'; all_names := all_names' |> in
-           canonicalMoveRegs_aux data' tl
+    if EVEN r1 ∨ EVEN r2 then canonicalMoveRegs_aux data tl
+    else let data' = canonicalMoveRegs_aux data tl in
+         let map' = sptree$insert r1 r2 data'.map in
+         let all_names' = sptree$insert r1 () data'.all_names in
+           data' with <| map := map'; all_names := all_names' |>
 End
 
 Definition canonicalMoveRegs3_def:
@@ -483,9 +483,8 @@ Numbers between 0 and 99 corresponds to a unique identifier of an instruction.
 Numbers above 99 corresponds to a register or a word value.
 *)
 (* TODO : redo the rename of instruction numbers such that each is unique *)
-Definition progToNumList_def:
-  progToNumList (Inst i) = 0::(instToNumList i) ∧
-  progToNumList (OpCurrHeap op r1 r2) = [1; arithOpToNum op; r2+100]
+Definition OpCurrHeapToNumList_def:
+  OpCurrHeapToNumList op r2 = [1; arithOpToNum op; r2+100]
 End
 (*
 Theorem progToNumList_unique:
@@ -530,29 +529,54 @@ Definition firstRegOfFp_def:
   firstRegOfFp (FPFromInt r _) = r
 End
 
+
+Definition add_to_data_aux_def:
+  add_to_data_aux data r i x =
+    case mlmap$lookup data.instrs i of
+    | SOME r' => (data with <| eq:=regsUpdate r' r data.eq; map:=insert r r' data.map; all_names:=insert r () data.all_names |>, Move 0 [(r,r')])
+    | NONE    => (data with <| instrs:=insert data.instrs i r; all_names:=insert r () data.all_names |>, x)
+End
+
+Definition add_to_data_def:
+  add_to_data data r x =
+  let i = instToNumList x in
+    add_to_data_aux data r i (Inst x)
+End
+
+Definition is_store_def:
+  is_store Load = F ∧
+  is_store Load8 = F ∧
+  is_store Store = T ∧
+  is_store Store8 = T
+End
+
+Definition is_complex_def:
+  is_complex (Binop _ _ _ _) = F ∧
+  is_complex (Div _ _ _) = F ∧
+  is_complex (Shift _ _ _ _) = F ∧
+  is_complex _ = T
+End
+
 Definition word_cseInst_def:
   (word_cseInst (data:knowledge) Skip = (data, Inst Skip)) ∧
   (word_cseInst data (Const r w) =
    if is_seen r data then (empty_data, Inst (Const r w)) else
-            let data = data with <| all_names:=insert r () data.all_names |> in
-            let i = instToNumList (Const r w) in
-            case mlmap$lookup data.instrs i of
-            | SOME r' => (data with <| eq:=regsUpdate r' r data.eq; map:=insert r r' data.map |>, Move 0 [(r,r')])
-            | NONE    => (data with instrs:=insert data.instrs i r, Inst (Const r w))) ∧
+     add_to_data data r (Const r w)) ∧
   (word_cseInst data (Arith a) =
-            let r = firstRegOfArith a in
-            if is_seen r data then (empty_data, Inst (Arith a)) else
-            let a' = canonicalArith data a in
-            let i = instToNumList (Arith a') in
-            case mlmap$lookup data.instrs i of
-            | SOME r' => (data with <| eq:=regsUpdate r' r data.eq; map:=insert r r' data.map; all_names:=insert r () data.all_names |>, Move 0 [(r,r')])
-            | NONE    => (data with <| instrs:=insert data.instrs i r; all_names:=insert r () data.all_names |>, Inst (Arith a'))) ∧
+   let r = firstRegOfArith a in
+     let a' = canonicalArith data a in
+       if is_seen r data ∨ is_complex a' then
+         (empty_data, Inst (Arith a'))
+       else
+         add_to_data data r (Arith a')) ∧
   (word_cseInst data (Mem op r (Addr r' w)) =
-                (empty_data, Inst (Mem op r (Addr r' w)))
-   (* !!! meaning difference of r between Load and Store
-    if sptree$lookup r data.all_names ≠ NONE then (empty_data, Inst (Mem op r (Addr r' w))) else
-            (data, Inst (Mem op (canonicalRegs data r) (Addr (canonicalRegs data r') w)))
-   *) ) ∧
+   if is_store op then
+     (data, Inst (Mem op (canonicalRegs data r) (Addr (canonicalRegs data r') w)))
+   else
+     if is_seen r data then
+       (empty_data, Inst (Mem op r (Addr (canonicalRegs data r') w)))
+     else
+       (data, Inst (Mem op r (Addr (canonicalRegs data r') w))) ) ∧
   (word_cseInst data ((FP f):'a inst) =
             (empty_data, Inst (FP f)))
   (* Not relevant: issue with fp regs having same id as regs, possible confusion
@@ -562,7 +586,7 @@ Definition word_cseInst_def:
             case mlmap$lookup inst_instrs i of
             | SOME r' => (n+1, regsUpdate r' r inst_eq, insert r r' inst_map, inst_instrs, Move 0 [(r,r')])
             | NONE    => (n, inst_eq, inst_map, insert inst_instrs i r, Inst (FP f')))
-  *)
+   *)
 End
 
 (*
@@ -632,11 +656,9 @@ Definition word_cse_def:
                 (data, Tick)) ∧
   (word_cse data ((OpCurrHeap b r1 r2):'a prog) =
     if sptree$lookup r1 data.all_names ≠ NONE then (empty_data, OpCurrHeap b r1 r2) else
-            let r2' = canonicalRegs data r2 in
-            let pL = progToNumList ((OpCurrHeap b r1 r2'):'a prog) in
-            case lookup data.instrs pL of
-            | NONE => (data with instrs:=(insert data.instrs pL r1), OpCurrHeap b r1 r2')
-            | SOME r1' => (data with <| map:=(insert r1 r1' data.map) |>, Move 0 [(r1, r1')])) ∧
+      let r2' = canonicalRegs data r2 in
+        let pL = OpCurrHeapToNumList b r2' in
+          add_to_data_aux data r1 pL (OpCurrHeap b r1 r2')) ∧
   (word_cse data (LocValue r l) =
                 if is_seen r data then (empty_data, LocValue r l) else (data, LocValue r l)) ∧
   (word_cse data (Install p l dp dl m) =

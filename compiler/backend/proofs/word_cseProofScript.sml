@@ -18,11 +18,14 @@ Definition data_inv_def:
              lookup v s.locals = SOME (Word c) ∧
              v IN domain data.all_names) ∧
     (∀(a:'a arith) v. lookup data.instrs (instToNumList (Arith a)) = SOME v ⇒
-                      get_var v s = get_var (firstRegOfArith a) s ∧
-                      v IN domain data.all_names ∧ firstRegOfArith a IN domain data.all_names) ∧
-    (∀op src dst v. lookup data.instrs (progToNumList (OpCurrHeap op dst src : 'a prog)) = SOME v ⇒
-                    get_var v s = get_var dst s ∧
-                    v IN domain data.all_names ∧ dst IN domain data.all_names) ∧
+                      v IN domain data.all_names ∧
+                      ¬is_complex a ∧
+                      ∃w. get_var v s = SOME w ∧
+                          evaluate (Inst (Arith a), s) = (NONE, set_var (firstRegOfArith a) w s)) ∧
+    (∀op src v. lookup data.instrs (OpCurrHeapToNumList op src) = SOME v ⇒
+                v IN domain data.all_names ∧
+                ∃w. word_exp s (Op op [Var src; Lookup CurrHeap]) = SOME w ∧
+                    get_var v s = SOME w) ∧
     map_ok data.instrs
     (*
     (∀r (c:'a word) x v. lookup data.inst_instrs (instToNumList (Const r c)) = SOME x ⇒
@@ -58,7 +61,10 @@ Proof
   rpt gen_tac
   \\ strip_tac
   \\ Cases_on ‘a’ \\ gvs [canonicalArith_def, inst_def, assign_def, word_exp_def, the_words_def]
-  \\ cheat
+  >- (Cases_on ‘lookup n0 s.locals’ \\ gvs []
+      \\ Cases_on ‘x’ \\ gvs []
+      \\ Cases_on ‘r’ \\ gvs [canonicalImmReg_def, word_exp_def])
+  \\ gvs [get_vars_def]
 QED
 
 Theorem canonicalExp_correct[simp]:
@@ -94,19 +100,18 @@ Proof
   \\ Cases_on ‘lookup r data.map’ \\ gvs [] \\ first_x_assum drule_all \\ strip_tac \\ gvs [domain_lookup]
 QED
 
-Theorem data_inv_locals:
-  ∀data s. data_inv data s ⇒ data_inv data (s with locals := s.locals)
+Theorem data_inv_locals[simp]:
+  ∀s. s with locals := s.locals = s
 Proof
   rpt gen_tac
-  \\ gvs [data_inv_def, get_var_def] \\ strip_tac \\ gvs []
-  \\ rpt strip_tac \\ first_x_assum drule_all \\ strip_tac \\ gvs []
+  \\ gvs [state_component_equality]
 QED
 
 Theorem not_seen_data_inv_alist_insert[simp]:
   ∀data s l r v.
     ¬is_seen r data ⇒
-    data_inv data (s with locals := insert r v l) =
-    data_inv data (s with locals := l)
+    data_inv data (s with locals := l) ⇒
+    data_inv data (s with locals := insert r v l)
 Proof
   rpt strip_tac
   \\ cheat
@@ -244,11 +249,25 @@ Theorem data_inv_insert[local]:
   ¬MEM q (MAP FST moves) ⇒
   ¬is_seen q data ⇒
   data_inv (canonicalMoveRegs_aux data (MAP (λ(a,b). (a,canonicalRegs data b)) moves))
-           (s with locals := insert q h (alist_insert (MAP FST moves) t s.locals)) =
+           (s with locals := alist_insert (MAP FST moves) t s.locals) ⇒
   data_inv (canonicalMoveRegs_aux data (MAP (λ(a,b). (a,canonicalRegs data b)) moves))
-           (s with locals := alist_insert (MAP FST moves) t s.locals)
+           (s with locals := insert q h (alist_insert (MAP FST moves) t s.locals))
 Proof
-  cheat
+  Induct
+  >- gvs [alist_insert_def, canonicalMoveRegs_aux_def]
+  \\ rpt strip_tac
+  \\ Cases_on ‘h’ \\ gvs []
+  \\ Cases_on ‘t’ \\ gvs []
+  >- (‘∀data s q h.
+       ¬MEM q (MAP FST moves) ⇒
+       ¬is_seen q data ⇒
+       data_inv (canonicalMoveRegs_aux data (MAP (λ(a,b). (a,canonicalRegs data b)) moves))
+                (s with locals := alist_insert (MAP FST moves) [] s.locals) ⇒
+       data_inv (canonicalMoveRegs_aux data (MAP (λ(a,b). (a,canonicalRegs data b)) moves))
+                (s with locals := insert q h (alist_insert (MAP FST moves) [] s.locals))’
+        by gvs [] \\ cheat)
+  \\ cheat
+     (* may be false, may need more assumptions like ‘get_vars (MAP SND moves) s = t’ *)
 QED
 
 Theorem comp_Move_correct:
@@ -275,13 +294,15 @@ Proof
   \\ rpt strip_tac
   \\ Cases_on ‘h’ \\ gvs []
   \\ gvs [canonicalMoveRegs_aux_def]
-  \\ Cases_on ‘EVEN q’ \\ gvs [set_vars_def]
-  >- (rpt gen_tac
+  \\ IF_CASES_TAC
+  >- (pop_assum kall_tac
+      \\ gvs [set_vars_def]
+      \\ rpt gen_tac
       \\ Cases_on ‘x’ \\ gvs [alist_insert_def]
       >- (gvs [get_vars_def]
           \\ Cases_on ‘get_var r s’ \\ gvs []
           \\ Cases_on ‘get_vars (MAP SND (MAP (λ(a,b). (a,canonicalRegs data b)) moves)) s’ \\ gvs [])
-      \\ gvs [data_inv_insert]
+      \\ irule data_inv_insert \\ gvs []
       \\ last_x_assum irule \\ gvs [get_vars_def]
       \\ Cases_on ‘get_var r s’ \\ gvs []
       \\ Cases_on ‘get_vars (MAP SND (MAP (λ(a,b). (a,canonicalRegs data b)) moves)) s’ \\ gvs []
@@ -290,9 +311,34 @@ Proof
       \\ Induct_on ‘moves’ \\ gvs []
       \\ rpt strip_tac
       \\ Cases_on ‘get_vars (SND h'::MAP SND moves) s’ \\ gvs []
-  )
-  \\ Cases_on ‘x’ \\ gvs [alist_insert_def]
-  \\ gvs [get_vars_def]
+     )
+
+  \\ gvs [set_vars_def, get_vars_def, AllCaseEqs()]
+  \\ gvs [alist_insert_def]
+
+  \\ qabbrev_tac ‘data1 = data with <|map := insert q (canonicalRegs data r) data.map;
+                                      all_names := insert q () data.all_names|>’
+
+  \\ qsuff_tac ‘data_inv
+                (canonicalMoveRegs_aux
+                 (data with
+                  <|map := insert q (canonicalRegs data r) data.map;
+                    all_names := insert q () data.all_names|>)
+                 (MAP (λ(a,b). (a,canonicalRegs data b)) moves))
+                ((s with locals := insert q x' s.locals) with
+                 locals := (alist_insert (MAP FST moves) xs (s with locals := insert q x' s.locals).locals))’
+  >- cheat (* easier *)
+  \\ cheat
+
+     (*
+  \\ last_x_assum irule
+
+  \\ ‘data_inv (data with <|map := insert q (canonicalRegs data r) data.map; all_names := insert q () data.all_names|>)
+               (s with locals := insert q x' s.locals)’ by cheat
+  \\ last_x_assum drule
+  \\ disch_then (qspec_then ‘xs’ mp_tac)
+  \\ impl_tac
+
   \\ Cases_on ‘get_var r s’ \\ gvs []
   \\ Cases_on ‘get_vars (MAP SND (MAP (λ(a,b). (a,canonicalRegs data b)) moves)) s’ \\ gvs []
   \\ gvs [data_inv_def] \\ rpt strip_tac
@@ -301,6 +347,7 @@ Proof
       \\ Cases_on ‘v = q’ \\ gvs [] \\ cheat)
   (* Proof hard stuck *)
   \\ cheat
+     *)
 QED
 
 Theorem comp_Inst_correct:
@@ -342,7 +389,7 @@ Proof
               \\ Cases_on ‘v=n’ \\ gvs []
               \\ Cases_on ‘firstRegOfArith a = n’ \\ gvs [])
           \\ rpt gen_tac \\ strip_tac
-          \\ gvs [mlmapTheory.lookup_insert, instToNumList_def, progToNumList_def]
+          \\ gvs [mlmapTheory.lookup_insert, instToNumList_def, OpCurrHeapToNumList_def]
           \\ first_x_assum drule_all \\ strip_tac \\ gvs []
         )
      \\ Cases_on ‘inst (Const n c) s’ \\ gvs [inst_def, assign_def, word_exp_def]
@@ -446,7 +493,11 @@ Proof
   \\ fs [get_var_def, set_var_def]
   \\ fs [lookup_insert, is_seen_def]
   \\ Cases_on ‘lookup v data.all_names’ \\ gvs [domain_lookup]
-  \\ metis_tac [NOT_NONE_SOME]
+  \\ strip_tac
+  >- metis_tac [NOT_NONE_SOME]
+  \\ strip_tac
+  >- metis_tac [NOT_NONE_SOME]
+  \\ cheat
 QED
 (* similare cases : Loc *)
 
@@ -472,7 +523,7 @@ Proof
   \\ gvs [evaluate_def, word_cse_def]
   \\ Cases_on ‘word_exp s (Op b [Var src; Lookup CurrHeap])’ \\ gvs []
   \\ Cases_on ‘lookup dst data.all_names ≠ NONE’ \\ gvs [evaluate_def]
-  \\ Cases_on ‘lookup data.instrs (progToNumList (OpCurrHeap b dst (canonicalRegs data src)))’
+  \\ Cases_on ‘lookup data.instrs (OpCurrHeapToNumList b (canonicalRegs data src))’
   \\ gvs [evaluate_def, word_exp_def]
   >- (gvs [the_words_def]
       \\ Cases_on ‘lookup src s.locals’ \\ gvs []
