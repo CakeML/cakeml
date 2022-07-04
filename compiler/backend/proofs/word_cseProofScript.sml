@@ -364,29 +364,28 @@ Proof
      \\ first_x_assum (drule_at Any) \\ gvs [] )
 
   >- (* Const *)
-   ( gvs [evaluate_def, word_cse_def, word_cseInst_def, data_inv_def]
+   ( gvs [evaluate_def, word_cse_def, word_cseInst_def]
      \\ Cases_on ‘is_seen n data’ \\ gvs [evaluate_def]
-     >- gvs [data_inv_def, empty_data_def, lookup_def]
      \\ gvs [is_seen_def] \\ Cases_on ‘lookup n data.all_names’ \\ gvs []
      \\ Cases_on ‘lookup data.instrs (instToNumList (Const n c))’ \\ gvs[evaluate_def]
-     >- ( Cases_on ‘inst (Const n c) s’ \\ gvs [data_inv_def, inst_def, assign_def]
-          \\ Cases_on ‘word_exp s (Const c)’
-          \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, word_exp_def]
+     >- ( Cases_on ‘inst (Const n c) s’ \\ gvs [evaluate_def, add_to_data_def, add_to_data_aux_def]
+          \\ gvs [inst_def, assign_def]
+          \\ Cases_on ‘word_exp s (Const c)’ \\ gvs [data_inv_def]
           \\ strip_tac
-          >- (rpt gen_tac \\ Cases_on ‘r=n’ \\ Cases_on ‘v=n’ \\ gvs []
+          >- (rpt gen_tac \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup]
+              \\ Cases_on ‘r=n’ \\ Cases_on ‘v=n’ \\ gvs []
               \\ strip_tac \\ first_x_assum drule_all \\ rw [])
           \\ strip_tac
-          >- (rpt gen_tac \\ gvs [mlmapTheory.lookup_insert]
-              \\ Cases_on ‘c = c'’ \\ gvs [instToNumList_def, wordToNum_def]
+          >- (rpt gen_tac \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup]
+              \\ Cases_on ‘c = c'’ \\ gvs [instToNumList_def, wordToNum_def, mlmapTheory.lookup_insert, word_exp_def]
               \\ strip_tac \\ first_x_assum drule_all
-              \\ strip_tac
-              \\ Cases_on ‘v = n’ \\ gvs [])
+              \\ strip_tac \\ Cases_on ‘v = n’ \\ gvs [])
           \\ strip_tac
           >- (rpt gen_tac \\ gvs [instToNumList_def, arithToNumList_def, mlmapTheory.lookup_insert]
-              \\ strip_tac
-              \\ first_assum drule_all
-              \\ strip_tac
-              \\ Cases_on ‘v=n’ \\ gvs []
+              \\ strip_tac \\ first_assum drule_all \\ strip_tac
+              \\ Cases_on ‘v=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup]
+
+
               \\ Cases_on ‘firstRegOfArith a = n’ \\ gvs [])
           \\ rpt gen_tac \\ strip_tac
           \\ gvs [mlmapTheory.lookup_insert, instToNumList_def, OpCurrHeapToNumList_def]
@@ -513,7 +512,21 @@ Proof
   \\ strip_tac
   \\ Cases_on ‘lookup n s.locals’ \\ gvs [set_store_def, get_var_def]
   \\ gvs [data_inv_def, get_var_def]
-  \\ rpt strip_tac \\ first_x_assum drule_all \\ gvs []
+  \\ strip_tac
+  >- (rpt gen_tac \\ strip_tac \\ first_x_assum drule_all \\ strip_tac \\ gvs [])
+  \\ strip_tac
+  >- (rpt gen_tac \\ strip_tac \\ first_x_assum drule_all \\ strip_tac \\ gvs [])
+  \\ strip_tac
+  >- (rpt gen_tac \\ strip_tac \\ first_x_assum drule_all \\ strip_tac \\ gvs []
+      \\ Cases_on ‘a’ \\ gvs [is_complex_def, firstRegOfArith_def]
+      >- (gvs [evaluate_def, inst_def, assign_def] \\ Cases_on ‘r’ \\ gvs [word_exp_def, the_words_def]
+          \\ gvs [AllCaseEqs()]
+          \\ gvs [set_var_def, state_component_equality])
+      \\ gvs [evaluate_def, inst_def, assign_def] \\ gvs [word_exp_def, the_words_def, get_vars_def, get_var_def]
+      \\ gvs [AllCaseEqs()]
+      \\ gvs [set_var_def, state_component_equality])
+  \\ rpt gen_tac \\ strip_tac \\ first_x_assum drule_all \\ strip_tac
+  \\ gvs [word_exp_def, the_words_def, FLOOKUP_UPDATE]
 QED
 
 Theorem comp_OpCurrHeap_correct:
@@ -552,10 +565,16 @@ QED
 Theorem comp_Tick_correct:
   ^(get_goal "Tick")
 Proof
-  gvs[word_cse_def, data_inv_def, evaluate_def] \\
-  rw [] \\
-  fs [get_var_def, dec_clock_def] \\
-  first_x_assum drule_all \\ gs []
+  rpt gen_tac \\ strip_tac
+  \\ gvs[word_cse_def, evaluate_def]
+  \\ Cases_on ‘s.clock = 0’ \\ gvs []
+  \\ fs [get_var_def, dec_clock_def, data_inv_def]
+  \\ rw []
+  \\ first_assum drule_all \\ gs []
+  \\ first_x_assum drule_all \\ strip_tac
+  \\ Cases_on ‘a’ \\ gvs [is_complex_def]
+  \\ gvs [evaluate_def, inst_def, firstRegOfArith_def, word_exp_def, the_words_def]
+  \\ gvs [AllCaseEqs()]
 QED
 
 Theorem comp_MustTerminate_correct:
