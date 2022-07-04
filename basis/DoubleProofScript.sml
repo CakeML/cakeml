@@ -61,12 +61,43 @@ Definition string2Double_def:
   string2Double (s:string) (df:doubleFuns) = (df.fromString (explode (prepareString (strlit s))))
 End
 
+Theorem double_fromWord_spec:
+  WORD w v ⇒
+  app (p:'ffi ffi_proj) Double_fromWord_v [v]
+      (emp)
+      (POSTv v. cond (v = FP_WordTree $ Fp_const w))
+Proof
+  xcf_with_def "fromWord" Double_fromWord_v_def
+  \\ gs[cf_fpfromword_def, local_def, emp_def] \\ rpt strip_tac
+  \\ qexists_tac ‘GC’ \\ qexists_tac ‘emp’
+  \\ gs[emp_def, GC_def, set_sepTheory.SEP_EXISTS, set_sepTheory.STAR_def,
+        SPLIT_def, WORD_def, app_fpfromword_def]
+  \\ qexists_tac ‘(λ v. λ h. v = Val $ FP_WordTree $ Fp_const w) *+ GC’
+  \\ rpt conj_tac
+  >- (qexists_tac ‘λ x. T’ \\ gs[])
+  >- (
+    qexists_tac ‘w’ \\ gs[exp2v_def] \\ rpt conj_tac
+    >- EVAL_TAC
+    >- (
+      gs[set_sepTheory.SEP_IMP_def, STARPOST_def, GC_def]
+      \\ rpt strip_tac \\ gs[set_sepTheory.STAR_def]
+      \\ qexists_tac ‘EMPTY’ \\ qexists_tac ‘s’ \\ gs[SPLIT_def, SEP_EXISTS]
+      \\ asm_exists_tac \\ gs[])
+    \\ gs[SEP_IMPPOSTv_inv_def, SEP_IMPPOSTe_def, SEP_IMPPOSTf_def,
+          SEP_IMPPOSTd_def, SEP_IMP_def, STARPOST_def, set_sepTheory.STAR_def])
+  >- (
+    rw[SEP_IMPPOST_def, SEP_IMP_def, POSTv_def, STARPOST_def, POST_def,
+       set_sepTheory.STAR_def]
+    \\ gvs[cond_def, GC_def, SEP_EXISTS, SPLIT_def]
+    \\ qexists_tac ‘λ x. y v'’ \\ gs[])
+QED
+
 Theorem double_fromString_spec:
   ! s sv.
   STRING_TYPE (strlit s) sv ==>
   app (p:'ffi ffi_proj) Double_fromString_v [sv]
     (DoubleIO df)
-    (POSTv v. cond (WORD (string2Double s df) v) * DoubleIO df)
+    (POSTv v. cond (v = FP_WordTree $ Fp_const $ string2Double s df) * DoubleIO df)
 Proof
   xcf_with_def "Double.fromString" Double_fromString_v_def
   \\ reverse (Cases_on `doubleFuns_ok df`)
@@ -75,26 +106,25 @@ Proof
   \\ ntac 3 (xlet_auto >- (fs[] \\ xsimpl))
   \\ rename [`W8ARRAY iobuff`]
   \\ xlet `POSTv v. W8ARRAY iobuff (into_bytes 8 (df.fromString (explode (prepareString (strlit s))))) * DoubleIO df`
-  >- (fs[DoubleIO_def, IOx_def, double_ffi_part_def, IO_def, mk_ffi_next_def]
-      \\ xpull \\ xffi \\ xsimpl
-      \\ fs[STRING_TYPE_def] \\ rveq
-      \\ qexists_tac `MAP (n2w o ORD) (explode (prepareString (strlit s)))` \\ fs[MAP_MAP_o]
-      \\ qexists_tac `emp`
-      \\ xsimpl
-      \\ rewrite_tac [one_one_eq] \\ fs[]
-      \\ conj_tac
-      >- (fs[MAP_CHR_w2n_n2w_ORD_id, STRING_TYPE_def, prepareString_def]
-          \\ gs[STRING_TYPE_def, translate_thm, implode_def])
-      \\ fs[mk_ffi_next_def, ffi_fromString_def]
-      \\ xsimpl
-      \\ rewrite_tac [one_one_eq] \\ fs[MAP_MAP_o, MAP_CHR_w2n_n2w_ORD_id])
-  \\ ntac 8
+  >- (
+    fs[DoubleIO_def, IOx_def, double_ffi_part_def, IO_def, mk_ffi_next_def]
+    \\ xpull \\ xffi \\ xsimpl
+    \\ fs[STRING_TYPE_def] \\ rveq
+    \\ qexists_tac `MAP (n2w o ORD) (explode (prepareString (strlit s)))` \\ fs[MAP_MAP_o]
+    \\ qexists_tac `emp`
+    \\ xsimpl
+    \\ rewrite_tac [one_one_eq] \\ fs[]
+    \\ conj_tac
+    >- (
+      fs[MAP_CHR_w2n_n2w_ORD_id, STRING_TYPE_def, prepareString_def]
+      \\ gs[STRING_TYPE_def, translate_thm, implode_def])
+    \\ fs[mk_ffi_next_def, ffi_fromString_def]
+    \\ xsimpl
+    \\ rewrite_tac [one_one_eq] \\ fs[MAP_MAP_o, MAP_CHR_w2n_n2w_ORD_id])
+  \\ ntac 9
     (xlet_auto
     >- (xsimpl \\ TRY (qexists_tac `df`) \\ fs[into_bytes_len]))
-  \\ xapp
-  \\ xsimpl
-  \\ ntac 8 (asm_exists_tac\\ fs[])
-  \\ rpt strip_tac
+  \\ xapp \\ xsimpl
   \\ Cases_on `df` \\ fs[doubleFuns_ok_def, WORD_def, concat_all_into_bytes_id]
 QED
 
@@ -177,17 +207,48 @@ Proof
   Induct_on `s1` \\ fs[TAKE]
 QED
 
+Theorem double_toWord_spec:
+  v = FP_WordTree fp ⇒
+  app (p:'ffi ffi_proj) Double_toWord_v [v]
+      (emp)
+      (POSTv v. cond (WORD (compress_word fp) v))
+Proof
+  xcf_with_def "toWord" Double_toWord_v_def
+  \\ gs[cf_fptoword_def, local_def, emp_def] \\ rpt strip_tac
+  \\ qexists_tac ‘GC’ \\ qexists_tac ‘emp’
+  \\ gs[emp_def, GC_def, set_sepTheory.SEP_EXISTS, set_sepTheory.STAR_def,
+        SPLIT_def, WORD_def, app_fptoword_def]
+  \\ qexists_tac ‘(λ v. λ h. v = Val $ Litv $ Word64 $ compress_word fp) *+ GC’
+  \\ rpt conj_tac
+  >- (qexists_tac ‘λ x. T’ \\ gs[])
+  >- (
+    qexists_tac ‘fp’ \\ gs[exp2v_def] \\ rpt conj_tac
+    >- EVAL_TAC
+    >- (
+      gs[set_sepTheory.SEP_IMP_def, STARPOST_def, GC_def]
+      \\ rpt strip_tac \\ gs[set_sepTheory.STAR_def]
+      \\ qexists_tac ‘EMPTY’ \\ qexists_tac ‘s’ \\ gs[SPLIT_def, SEP_EXISTS]
+      \\ asm_exists_tac \\ gs[])
+    \\ gs[SEP_IMPPOSTv_inv_def, SEP_IMPPOSTe_def, SEP_IMPPOSTf_def,
+          SEP_IMPPOSTd_def, SEP_IMP_def, STARPOST_def, set_sepTheory.STAR_def])
+  >- (
+    rw[SEP_IMPPOST_def, SEP_IMP_def, POSTv_def, STARPOST_def, POST_def,
+       set_sepTheory.STAR_def]
+    \\ gvs[cond_def, GC_def, SEP_EXISTS, SPLIT_def]
+    \\ qexists_tac ‘λ x. y v'’ \\ gs[])
+QED
+
 Theorem double_toString_spec:
-  ! (w:word64) wv.
-  WORD w wv ==>
-  app (p:'ffi ffi_proj) Double_toString_v [wv]
-    (DoubleIO df)
-    (POSTv v. cond (STRING_TYPE (implode (df.toString w)) v) * DoubleIO df)
+  ! (w:word64) fp.
+    compress_word fp = w ⇒
+    app (p:'ffi ffi_proj) Double_toString_v [FP_WordTree fp]
+        (DoubleIO df)
+        (POSTv v. cond (STRING_TYPE (implode (df.toString w)) v) * DoubleIO df)
 Proof
   xcf_with_def "Double.toString" Double_toString_v_def
   \\ reverse (Cases_on `doubleFuns_ok df`)
   >- (fs[DoubleIO_def] \\ xpull)
-  \\ ntac 18 (xlet_auto >- (fs[] \\ xsimpl))
+  \\ ntac 19 (xlet_auto >- (fs[] \\ xsimpl))
   \\ rename [`W8ARRAY iobuff`]
   \\ fs[concat_all_bytes_i]
   \\ qabbrev_tac `res_str = df.toString w`
@@ -202,42 +263,46 @@ Proof
   \\ qabbrev_tac `final_str = (MAP (n2w o ORD) (res_str ++ [CHR 0]) ++
                     DROP (LENGTH res_str + 1) updBuf):word8 list`
   \\ xlet `POSTv v. W8ARRAY iobuff final_str * DoubleIO df`
-  >- (fs[DoubleIO_def, IOx_def, double_ffi_part_def, IO_def, mk_ffi_next_def]
-      \\ xpull \\ xffi \\ xsimpl
-      \\ qexists_tac `emp`
-      \\ fs [SEP_CLAUSES, one_one_eq]
-      \\ fs [mk_ffi_next_def, ffi_toString_def]
-      \\ unabbrev_all_tac
-      \\ fs [EVAL ``REPLICATE 256 x``]
-      \\ fs [EL_LUPDATE, HD_LUPDATE]
-      \\ fs[concat_all_bytes_i]
-      \\ xsimpl \\ fs[one_one_eq])
+  >- (
+    fs[DoubleIO_def, IOx_def, double_ffi_part_def, IO_def, mk_ffi_next_def]
+    \\ xpull \\ xffi \\ xsimpl
+    \\ qexists_tac `emp`
+    \\ fs [SEP_CLAUSES, one_one_eq]
+    \\ fs [mk_ffi_next_def, ffi_toString_def]
+    \\ unabbrev_all_tac
+    \\ fs [EVAL ``REPLICATE 256 x``]
+    \\ fs [EL_LUPDATE, HD_LUPDATE]
+    \\ fs[concat_all_bytes_i]
+    \\ xsimpl \\ fs[one_one_eq])
   \\ xlet `POSTv v. W8ARRAY iobuff final_str *
           DoubleIO df *
           cond (OPTION_TYPE (PAIR_TYPE NUM WORD8) (findi is_0_byte final_str) v)`
-    >- (xapp \\ xsimpl
-        \\ qexists_tac `is_0_byte` \\ fs[is_0_byte_v_thm])
+    >- (
+      xapp \\ xsimpl
+      \\ qexists_tac `is_0_byte` \\ fs[is_0_byte_v_thm])
   \\ IMP_RES_TAC toString_has_0byte
   \\ first_x_assum (qspecl_then [`w`, `df.toString w`] assume_tac)
   \\ fs[]
   \\ xlet_auto \\ fs[]
-  >- (xsimpl
-      \\ unabbrev_all_tac
-      \\ fs[concat_all_bytes_i])
+  >- (
+    xsimpl
+    \\ unabbrev_all_tac
+    \\ fs[concat_all_bytes_i])
   \\ xlet_auto >- xsimpl
   \\ xapp \\ xsimpl
   \\ once_rewrite_tac [CONJ_COMM] \\ rewrite_tac [GSYM CONJ_ASSOC]
   \\ asm_exists_tac \\ fs[]
   \\ rpt conj_tac
-  >- (rpt strip_tac
-      \\ fs[STRING_TYPE_def, mlstringTheory.implode_def]
-      \\ `findi is_0_byte final_str = SOME (STRLEN (df.toString w), 0w)`
-          by (unabbrev_all_tac \\ fs[])
-      \\ fs[]
-      \\ `TAKE (STRLEN (df.toString w)) final_str = MAP (n2w o ORD) (df.toString w)`
-        by (unabbrev_all_tac \\ fs[concat_all_bytes_i, TAKE_STRLEN_id2])
-      \\ unabbrev_all_tac \\ fs[]
-      \\ fs[MAP_MAP_o, MAP_CHR_w2n_n2w_ORD_id])
+  >- (
+    rpt strip_tac
+    \\ fs[STRING_TYPE_def, mlstringTheory.implode_def]
+    \\ `findi is_0_byte final_str = SOME (STRLEN (df.toString w), 0w)`
+      by (unabbrev_all_tac \\ fs[])
+    \\ fs[]
+    \\ `TAKE (STRLEN (df.toString w)) final_str = MAP (n2w o ORD) (df.toString w)`
+      by (unabbrev_all_tac \\ fs[concat_all_bytes_i, TAKE_STRLEN_id2])
+    \\ unabbrev_all_tac \\ fs[]
+    \\ fs[MAP_MAP_o, MAP_CHR_w2n_n2w_ORD_id])
   \\ unabbrev_all_tac
   \\ fs[]
 QED
