@@ -380,7 +380,7 @@ QED
 Theorem strip_sxcons_FAIL_sexplist_FAIL:
    ∀s. (strip_sxcons s = NONE) ⇒ (sexplist p s = NONE)
 Proof
-  Induct >> simp[Once strip_sxcons_def, Once sexplist_def] >>
+  Induct >> simp[Once sexplist_def] >>
   metis_tac[TypeBase.nchotomy_of ``:α option``]
 QED
 
@@ -405,7 +405,7 @@ Theorem strip_sxcons_thm[simp]:
   strip_sxcons (SX_STR str) = NONE ∧
   strip_sxcons (SX_SYM s) = if s = "nil" then SOME [] else NONE
 Proof
-  rpt strip_tac >> simp[Once strip_sxcons_def]
+  rpt strip_tac >> simp[]
 QED
 
 Theorem sexplist_CONG[defncong]:
