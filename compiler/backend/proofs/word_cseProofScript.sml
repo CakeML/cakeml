@@ -365,58 +365,87 @@ Proof
 
   >- (* Const *)
    ( gvs [evaluate_def, word_cse_def, word_cseInst_def]
-     \\ Cases_on ‘is_seen n data’ \\ gvs [evaluate_def]
-     \\ gvs [is_seen_def] \\ Cases_on ‘lookup n data.all_names’ \\ gvs []
+     \\ pairarg_tac \\ gvs []
+     \\ Cases_on ‘is_seen n data’ \\ gvs [evaluate_def, add_to_data_def, add_to_data_aux_def]
      \\ Cases_on ‘lookup data.instrs (instToNumList (Const n c))’ \\ gvs[evaluate_def]
-     >- ( Cases_on ‘inst (Const n c) s’ \\ gvs [evaluate_def, add_to_data_def, add_to_data_aux_def]
-          \\ gvs [inst_def, assign_def]
-          \\ Cases_on ‘word_exp s (Const c)’ \\ gvs [data_inv_def]
+     >- ( gvs [inst_def, assign_def, word_exp_def, data_inv_def]
           \\ strip_tac
-          >- (rpt gen_tac \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup]
-              \\ Cases_on ‘r=n’ \\ Cases_on ‘v=n’ \\ gvs []
-              \\ strip_tac \\ first_x_assum drule_all \\ rw [])
+          >- (rpt gen_tac \\ strip_tac \\ first_x_assum drule_all \\ strip_tac
+              \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup]
+              \\ Cases_on ‘r=n’ \\ Cases_on ‘v=n’ \\ gvs [is_seen_def])
           \\ strip_tac
-          >- (rpt gen_tac \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup]
+          >- (rpt gen_tac \\ gvs [set_var_def, lookup_insert, domain_lookup]
               \\ Cases_on ‘c = c'’ \\ gvs [instToNumList_def, wordToNum_def, mlmapTheory.lookup_insert, word_exp_def]
               \\ strip_tac \\ first_x_assum drule_all
-              \\ strip_tac \\ Cases_on ‘v = n’ \\ gvs [])
+              \\ strip_tac \\ Cases_on ‘v = n’ \\ gvs [is_seen_def])
           \\ strip_tac
           >- (rpt gen_tac \\ gvs [instToNumList_def, arithToNumList_def, mlmapTheory.lookup_insert]
               \\ strip_tac \\ first_assum drule_all \\ strip_tac
-              \\ Cases_on ‘v=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup]
-
-
-              \\ Cases_on ‘firstRegOfArith a = n’ \\ gvs [])
-          \\ rpt gen_tac \\ strip_tac
-          \\ gvs [mlmapTheory.lookup_insert, instToNumList_def, OpCurrHeapToNumList_def]
-          \\ first_x_assum drule_all \\ strip_tac \\ gvs []
+              \\ Cases_on ‘v=n’
+              >- gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def]
+              \\ Cases_on ‘a’ \\ gvs [is_complex_def, get_var_def, set_var_def, lookup_insert]
+              >- (last_x_assum kall_tac
+                  \\ last_x_assum kall_tac
+                  \\ last_x_assum kall_tac
+                  \\ last_x_assum kall_tac
+                  \\ last_x_assum kall_tac
+                  \\ Cases_on ‘n0=n’
+                  \\ Cases_on ‘r=Reg n’
+                  >- (cheat)
+                  >- (cheat)
+                  >- (cheat)
+                  >- (cheat)
+                 )
+              >- (last_x_assum kall_tac
+                  \\ last_x_assum kall_tac
+                  \\ last_x_assum kall_tac
+                  \\ last_x_assum kall_tac
+                  \\ last_x_assum kall_tac
+                  \\ Cases_on ‘n0=n’
+                  >- (cheat)
+                  >- (cheat)
+                 )
+              \\ last_x_assum kall_tac
+              \\ last_x_assum kall_tac
+              \\ last_x_assum kall_tac
+              \\ last_x_assum kall_tac
+              \\ last_x_assum kall_tac
+              \\ Cases_on ‘n0=n’
+              \\ Cases_on ‘n1=n’
+              >- (cheat)
+              >- (cheat)
+              >- (cheat)
+              >- (cheat)
+             )
+        \\ cheat
         )
-     \\ Cases_on ‘inst (Const n c) s’ \\ gvs [inst_def, assign_def, word_exp_def]
+     \\ Cases_on ‘inst (Const n c) s’ \\ gvs [inst_def, assign_def, word_exp_def, data_inv_def]
      \\ strip_tac
      >- (first_x_assum drule_all \\ strip_tac
          \\ gvs [get_vars_def, get_var_def, set_vars_def, alist_insert_def, set_var_def])
      \\ strip_tac
      >- (first_x_assum drule_all \\ strip_tac
          \\ rpt gen_tac
-         \\ gvs [sptreeTheory.lookup_insert]
+         \\ gvs [lookup_insert]
          \\ Cases_on ‘r = n’ \\ strip_tac \\ gvs []
          >- (Cases_on ‘n=v’ \\ gvs [set_var_def, get_var_def, lookup_insert])
          \\ gvs [set_var_def, get_var_def, lookup_insert]
          \\ first_x_assum drule_all \\ strip_tac \\ gvs []
-         \\ Cases_on ‘v = n’ \\ gvs [domain_lookup])
+         \\ Cases_on ‘v = n’ \\ gvs [domain_lookup, is_seen_def])
      \\ strip_tac
      >- (first_assum drule_all \\ strip_tac \\ rpt gen_tac \\ strip_tac \\ first_x_assum drule_all
-         \\ strip_tac \\ gvs [set_var_def, lookup_insert, domain_lookup]
+         \\ strip_tac \\ gvs [set_var_def, lookup_insert, domain_lookup, is_seen_def]
          \\ Cases_on ‘v=n’ \\ gvs [] )
      \\ strip_tac
      >- (first_assum drule_all \\ strip_tac \\ rpt gen_tac \\ strip_tac \\ first_x_assum drule_all
-         \\ strip_tac \\ gvs [set_var_def, get_var_def, lookup_insert, domain_lookup]
+         \\ strip_tac \\ gvs [set_var_def, get_var_def, lookup_insert, domain_lookup, is_seen_def]
          \\ Cases_on ‘v = n’ \\ gvs []
-         \\ Cases_on ‘firstRegOfArith a = n’ \\ gvs [])
+         \\ cheat)
      \\ first_x_assum drule_all \\ strip_tac
      \\ rpt gen_tac \\ strip_tac
      \\ first_x_assum drule_all \\ strip_tac \\ gvs[get_var_def, set_var_def, lookup_insert]
-     \\ Cases_on ‘v=n’ \\ Cases_on ‘dst=n’ \\ gvs [domain_lookup]
+     \\ Cases_on ‘v=n’ \\ Cases_on ‘src=n’ \\ gvs [domain_lookup]
+     \\ cheat
    )
 
   >- (* Arith *)
