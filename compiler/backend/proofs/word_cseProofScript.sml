@@ -670,24 +670,44 @@ Proof
   \\ gvs [AllCaseEqs()]
 QED
 
+Theorem data_inv_clock:
+  ∀data s c td. data_inv data s ⇒ data_inv data (s with <|clock := c; termdep := td |>)
+Proof
+  rpt gen_tac \\ strip_tac \\ gvs [data_inv_def]
+  \\ rpt conj_tac
+  >- (rpt gen_tac \\ strip_tac \\ first_x_assum drule \\ strip_tac
+      \\ gvs [get_var_def])
+  >- (rpt gen_tac \\ strip_tac \\ first_x_assum drule \\ strip_tac
+      \\ gvs [])
+  >- (rpt gen_tac \\ strip_tac \\ first_x_assum drule \\ strip_tac
+      \\ gvs [get_var_def, set_var_def]
+      \\ Cases_on ‘a’ \\ gvs [evaluate_def, inst_def, assign_def, word_exp_def, is_complex_def]
+      >- (Cases_on ‘r’ \\ gvs [word_exp_def, set_var_def, firstRegOfArith_def, AllCaseEqs()]
+          \\ gvs [state_component_equality])
+      >- (gvs [set_var_def, firstRegOfArith_def, AllCaseEqs()] \\ gvs [state_component_equality])
+      \\ gvs [get_vars_def, get_var_def, AllCaseEqs(), set_var_def]
+      \\ gvs [state_component_equality])
+  \\ rpt gen_tac \\ strip_tac \\ first_x_assum drule \\ strip_tac
+  \\ gvs [get_var_def, word_exp_def]
+QED
+
 Theorem comp_MustTerminate_correct:
   ^(get_goal "MustTerminate")
 Proof
   rpt gen_tac
   \\ strip_tac
   \\ rpt gen_tac
+  \\ strip_tac
   \\ gs[word_cse_def]
   \\ pairarg_tac \\ gvs [evaluate_def,flat_exp_conventions_def]
   \\ gvs [AllCaseEqs()]
-  \\ strip_tac
+  \\ pairarg_tac \\ gvs []
   \\ pairarg_tac \\ gvs []
   \\ first_x_assum (drule_at Any)
+  \\ Cases_on ‘res'' = SOME TimeOut’ \\ gvs []
   \\ impl_tac
-  >- (gvs [data_inv_def, get_var_def, SF SFY_ss] \\ Cases_on ‘res' = SOME TimeOut’ \\ gvs [] \\ cheat)
-  \\ gvs [evaluate_def]
-  \\ rw []
-  \\ gvs [AllCaseEqs(), data_inv_def, get_var_def, SF SFY_ss]
-  \\ cheat
+  >- gvs [data_inv_clock]
+  \\ rpt (strip_tac \\ gvs [data_inv_clock])
 QED
 
 Theorem comp_Seq_correct:
