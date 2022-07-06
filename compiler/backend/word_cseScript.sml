@@ -173,21 +173,21 @@ Move [(1,can 2);(2,can 3);(3,can 1)]
 Knowledge : 1 ⇔ can 2 / 2 ⇔ can 3 / 3 ⇔ can 1
 *)
 
-Definition canonicalMoveRegs_aux_def:
-  canonicalMoveRegs_aux data [] = data ∧
-  canonicalMoveRegs_aux data ((r1,r2)::tl) =
-    if EVEN r1 ∨ EVEN r2 then canonicalMoveRegs_aux data tl
-    else let data' = canonicalMoveRegs_aux data tl in
-         let map' = sptree$insert r1 r2 data'.map in
-         let all_names' = sptree$insert r1 () data'.all_names in
-           data' with <| map := map'; all_names := all_names' |>
+Definition map_insert_def:
+  map_insert [] m = m ∧
+  map_insert ((x,y)::xs) m =
+    insert x y (map_insert xs m)
 End
 
 Definition canonicalMoveRegs3_def:
   canonicalMoveRegs3 data moves =
   let moves' = MAP (λ(a,b). (a, canonicalRegs data b)) moves in
     if EXISTS (λ(a,b). is_seen a data) moves then (empty_data, moves')
-    else (canonicalMoveRegs_aux data moves', moves')
+    else
+      let xs = FILTER (λ(a,b).  ¬EVEN a ∧ ¬EVEN b) moves' in
+      let a_n = list_insert (MAP FST xs) data.all_names in
+      let m = map_insert xs data.map in
+        (data with <| all_names := a_n; map := m |>, moves')
 End
 
 Definition canonicalExp_def:
@@ -255,29 +255,12 @@ Definition wordToNum_def:
   wordToNum w = w2n w
 End
 
-Theorem wordToNum_unique:
-  ∀w1 w2. w1 = w2 ⇔ wordToNum w1 = wordToNum w2
-Proof
-  rw[wordToNum_def]
-QED
-
-
 Definition shiftToNum_def:
   shiftToNum Lsl = (38:num) ∧
   shiftToNum Lsr = 39 ∧
   shiftToNum Asr = 40 ∧
   shiftToNum Ror = 41
 End
-
-Theorem shiftToNum_unique:
-  ∀s1 s2. s1 = s2 ⇔ shiftToNum s1 = shiftToNum s2
-Proof
-  rpt strip_tac >>
-  Cases_on ‘s1’ \\
-  (Cases_on ‘s2’ \\
-  rw[shiftToNum_def])
-QED
-
 
 Definition arithOpToNum_def:
   arithOpToNum Add = (33:num) ∧
@@ -287,94 +270,10 @@ Definition arithOpToNum_def:
   arithOpToNum Xor = 37
 End
 
-Theorem arithOpToNum_unique:
-  ∀op1 op2. op1 = op2 ⇔ arithOpToNum op1 = arithOpToNum op2
-Proof
-  rpt strip_tac >>
-  Cases_on ‘op1’ \\
-  (Cases_on ‘op2’ \\
-  rw[arithOpToNum_def])
-QED
-
-
-(*
-Definition storeNameToNumList_def:
-  storeNameToNumList NextFree = [(51:num)] ∧
-  storeNameToNumList EndOfHeap = [52] ∧
-  storeNameToNumList TriggerGC = [53] ∧
-  storeNameToNumList HeapLength = [54] ∧
-  storeNameToNumList ProgStart = [55] ∧
-  storeNameToNumList BitmapBase = [56] ∧
-  storeNameToNumList CurrHeap = [57] ∧
-  storeNameToNumList OtherHeap = [58] ∧
-  storeNameToNumList AllocSize = [59] ∧
-  storeNameToNumList Globals = [60] ∧
-  storeNameToNumList GlobReal = [61] ∧
-  storeNameToNumList Handler = [62] ∧
-  storeNameToNumList GenStart = [63] ∧
-  storeNameToNumList CodeBuffer = [64] ∧
-  storeNameToNumList CodeBufferEnd = [65] ∧
-  storeNameToNumList BitmapBuffer = [66] ∧
-  storeNameToNumList BitmapBufferEnd = [67] ∧
-  storeNameToNumList (Temp w) = [68; wordToNum w]
-End
-Theorem storeNameToNumList_unique:
-  ∀n1 n2. n1 = n2 ⇔ storeNameToNumList n1 = storeNameToNumList n2
-Proof
-  rpt strip_tac >>
-  Cases_on ‘n1’ \\
-  (Cases_on ‘n2’ \\
-  rw[storeNameToNumList_def, wordToNum_unique])
-QED
-Definition expListToNumList_def:
-  expListToNumList [] = [(38:num)] ∧
-  expListToNumList ((Const w)::tl) = 40::(wordToNum w)::(expListToNumList tl) ∧
-  expListToNumList ((Var r)::tl) = 41::(r+100)::(expListToNumList tl) ∧
-  expListToNumList ((Lookup n)::tl) = 42::(storeNameToNumList n) ++ expListToNumList tl ∧
-  expListToNumList ((Load e)::tl) = 43::(expListToNumList [e]) ++ expListToNumList tl ∧
-  expListToNumList ((Op op el)::tl) = [44; arithOpToNum op] ++ (expListToNumList el) ++ expListToNumList tl ∧
-  expListToNumList ((Shift s e r)::tl) = 45::(shiftToNum s)::(expListToNumList [e]) ++ [r+100] ++ expListToNumList tl
-End
-Definition expToNumList_def:
-  expToNumList e = expListToNumList [e]
-End
-Definition expListToNumList_def:
-  expListToNumList (hd::tl) = (expToNumList hd) ++ 39::(expListToNumList tl)
-End
-Definition expToNumList_def:
-  expToNumList (Const w) = [40; wordToNum w] ∧
-  expToNumList (Var r) = [41; r+100] ∧
-  expToNumList (Lookup n) = 42::(storeNameToNumList n) ∧
-  expToNumList (Load e) = 43::(expToNumList e) ∧
-  expToNumList (Op op []) = [38] ∧
-  expToNumList (Op op (hd::tl)) = [arithOpToNum op] ++ (expToNumList hd) ++ (expToNumList (Op op tl)) ∧
-  expToNumList (Shift s e r) = [45; shiftToNum s] ++ (expToNumList e) ++ [r+100]
-End
-Theorem expToNumList_unique:
-  ∀e1 e2. e1 = e2 ⇔ expToNumList e1 = expToNumList e2
-Proof ho_match_mp_tac expToNumList_ind
-  strip_tac >>
-  Induct_on ‘e1’ \\
-  (Cases_on ‘e2’ \\
-   rw[expToNumList_def, wordToNum_unique, storeNameToNumList_unique, arithOpToNum_unique, shiftToNum_unique])
-   decide_tac
-   Cases_on ‘l’
-QED
-*)
-
 Definition regImmToNumList_def:
   regImmToNumList (Reg r) = [31; r+100] ∧
   regImmToNumList (Imm w) = [32; wordToNum w]
 End
-
-Theorem regImmToNumList_unique:
-  ∀ri1 ri2. ri1 = ri2 ⇔ regImmToNumList ri1 = regImmToNumList ri2
-Proof
-  rpt strip_tac >>
-  Cases_on ‘ri1’ \\
-  (Cases_on ‘ri2’ \\
-  rw[regImmToNumList_def, wordToNum_unique])
-QED
 
 
 Definition arithToNumList_def:
@@ -387,16 +286,6 @@ Definition arithToNumList_def:
   arithToNumList (AddOverflow r1 r2 r3 r4) = [29; r2+100; r3+100] ∧
   arithToNumList (SubOverflow r1 r2 r3 r4) = [30; r2+100; r3+100]
 End
-(*
-Theorem arithToNumList_unique:
-  ∀a1 a2. a1 = a2 ⇔ arithToNumList a1 = arithToNumList a2
-Proof
-  rpt strip_tac >>
-  Cases_on ‘a1’ \\
-  (Cases_on ‘a2’ \\
-  rw[arithToNumList_def, regImmToNumList_unique, shiftToNum_unique, arithOpToNum_unique])
-QED
-*)
 
 Definition memOpToNum_def:
   memOpToNum Load = (19:num) ∧
@@ -404,16 +293,6 @@ Definition memOpToNum_def:
   memOpToNum Store = 21 ∧
   memOpToNum Store8 = 22
 End
-
-Theorem memOpToNum_unique:
-  ∀op1 op2. op1 = op2 ⇔ memOpToNum op1 = memOpToNum op2
-Proof
-  rpt strip_tac >>
-  Cases_on ‘op1’ \\
-  (Cases_on ‘op2’ \\
-  rw[memOpToNum_def])
-QED
-
 
 Definition fpToNumList_def:
   fpToNumList (FPLess r1 r2 r3) = [3; r2+100; r3+100] ∧
@@ -433,30 +312,6 @@ Definition fpToNumList_def:
   fpToNumList (FPToInt r1 r2) = [17; r2+100] ∧
   fpToNumList (FPFromInt r1 r2) = [18; r2+100]
 End
-(*
-Theorem fpToNumList_unique:
-  ∀fp1 fp2. fpToNumList fp1 = fpToNumList fp2 ⇒ ∃r r'
-Proof
-  rpt strip_tac >>
-  Cases_on ‘fp1’ \\
-  (Cases_on ‘fp2’ \\
-  rw[fpToNumList_def])
-QED
-*)
-
-(*
-Definition addrToNumList_def:
-  addrToNumList (Addr r w) = [r+100; wordToNum w]
-End
-Theorem addrToNumList_unique:
-  ∀a1 a2. a1 = a2 ⇔ addrToNumList a1 = addrToNumList a2
-Proof
-  rpt strip_tac >>
-  Cases_on ‘a1’ \\
-  (Cases_on ‘a2’ \\
-  rw[addrToNumList_def, wordToNum_unique])
-QED
-*)
 
 Definition instToNumList_def:
   instToNumList (Skip) = [1] ∧
@@ -464,17 +319,6 @@ Definition instToNumList_def:
   instToNumList (Arith a) = 3::(arithToNumList a) ∧
   instToNumList (FP fp) = 4::(fpToNumList fp)
 End
-(*
-Theorem instToNumList_unique:
-  ∀i1 i2. instToNumList i1 = instToNumList i2 ⇒ ∀n. setDest i1 n = setDest i2 n
-Proof
-  rpt strip_tac >>
-  Cases_on ‘i1’ \\
-  (Cases_on ‘i2’ \\
-   rw[instToNumList_def, wordToNum_unique, arithToNumList_unique,
-      memOpToNum_unique, addrToNumList_unique, fpToNumList_unique])
-QED
-*)
 
 (*
 Principle:
@@ -486,18 +330,6 @@ Numbers above 99 corresponds to a register or a word value.
 Definition OpCurrHeapToNumList_def:
   OpCurrHeapToNumList op r2 = [1; arithOpToNum op; r2+100]
 End
-(*
-Theorem progToNumList_unique:
-  ∀p1 p2. (∃i. p1 = Inst i)∧(∃i. p2 = Inst i) ⇒
-              (p1 = p2 ⇔ progToNumList p1 = progToNumList p2)
-Proof
-  rw[progToNumList_def, instToNumList_unique]
-QED
-*)
-(*
-Theorem progToNumList_:
-  ∀p1 p2. (
-*)
 
 Definition firstRegOfArith_def:
   firstRegOfArith (Binop _ r _ _) = r ∧
@@ -529,6 +361,13 @@ Definition firstRegOfFp_def:
   firstRegOfFp (FPFromInt r _) = r
 End
 
+Definition are_reads_seen_def:
+  are_reads_seen (Binop _ _ r1 (Reg r2)) data = (is_seen r1 data ∧ is_seen r2 data) ∧
+  are_reads_seen (Binop _ _ r1 (Imm _)) data = (is_seen r1 data) ∧
+  are_reads_seen (Div _ r1 r2) data = (is_seen r1 data ∧ is_seen r2 data) ∧
+  are_reads_seen (Shift _ _ r _) data = is_seen r data ∧
+  are_reads_seen _ data = T
+End
 
 Definition add_to_data_aux_def:
   add_to_data_aux data r i x =
@@ -560,13 +399,13 @@ End
 Definition word_cseInst_def:
   (word_cseInst (data:knowledge) Skip = (data, Inst Skip)) ∧
   (word_cseInst data (Const r w) =
-   if is_seen r data then (empty_data, Inst (Const r w)) else
+   if is_seen r data then (empty_data with all_names:=data.all_names, Inst (Const r w)) else
      add_to_data data r (Const r w)) ∧
   (word_cseInst data (Arith a) =
    let r = firstRegOfArith a in
      let a' = canonicalArith data a in
-       if is_seen r data ∨ is_complex a' then
-         (empty_data, Inst (Arith a'))
+       if is_seen r data ∨ is_complex a' ∨ ¬are_reads_seen a' data then
+         (empty_data with all_names:=data.all_names, Inst (Arith a'))
        else
          add_to_data data r (Arith a')) ∧
   (word_cseInst data (Mem op r (Addr r' w)) =
@@ -574,11 +413,11 @@ Definition word_cseInst_def:
      (data, Inst (Mem op (canonicalRegs data r) (Addr (canonicalRegs data r') w)))
    else
      if is_seen r data then
-       (empty_data, Inst (Mem op r (Addr (canonicalRegs data r') w)))
+       (empty_data with all_names:=data.all_names, Inst (Mem op r (Addr (canonicalRegs data r') w)))
      else
        (data, Inst (Mem op r (Addr (canonicalRegs data r') w))) ) ∧
   (word_cseInst data ((FP f):'a inst) =
-            (empty_data, Inst (FP f)))
+            (empty_data with all_names:=data.all_names, Inst (FP f)))
   (* Not relevant: issue with fp regs having same id as regs, possible confusion
             let f' = canonicalFp inst_map och_map f in
             let r = firstRegOfFp f' in
@@ -621,11 +460,11 @@ Definition word_cse_def:
   (word_cse data (Assign r e) =
                 (data, Assign r e)) ∧
   (word_cse data (Get r x) =
-            if is_seen r data then (empty_data, Get r x) else (data, Get r x)) ∧
+            if is_seen r data then (empty_data with all_names:=data.all_names, Get r x) else (data, Get r x)) ∧
   (word_cse data (Set x e) =
             let e' = canonicalExp data e in
             if x = CurrHeap then
-                (empty_data, Set x e')
+                (empty_data with all_names:=data.all_names, Set x e')
             else
                 (data, Set x e'))∧
   (word_cse data (Store e r) =
@@ -644,10 +483,10 @@ Definition word_cse_def:
             let r2' = canonicalImmReg data r2 in
             let (data1, p1') = word_cse data p1 in
             let (data2, p2') = word_cse data p2 in
-                (empty_data, If c r1' r2' p1' p2')) ∧
+                (empty_data with all_names:=data.all_names, If c r1' r2' p1' p2')) ∧
                 (* We don't know what happen in the IF. Intersection would be the best. *)
   (word_cse data (Alloc r m) =
-                (empty_data, Alloc r m)) ∧
+                (empty_data with all_names:=data.all_names, Alloc r m)) ∧
   (word_cse data (Raise r) =
                 (data, Raise r)) ∧
   (word_cse data (Return r1 r2) =
@@ -655,20 +494,20 @@ Definition word_cse_def:
   (word_cse data (Tick) =
                 (data, Tick)) ∧
   (word_cse data ((OpCurrHeap b r1 r2):'a prog) =
-    if sptree$lookup r1 data.all_names ≠ NONE then (empty_data, OpCurrHeap b r1 r2) else
+    if is_seen r1 data ∨ ¬is_seen r2 data then (empty_data, OpCurrHeap b r1 r2) else
       let r2' = canonicalRegs data r2 in
         let pL = OpCurrHeapToNumList b r2' in
           add_to_data_aux data r1 pL (OpCurrHeap b r1 r2')) ∧
   (word_cse data (LocValue r l) =
-                if is_seen r data then (empty_data, LocValue r l) else (data, LocValue r l)) ∧
+                if is_seen r data then (empty_data with all_names:=data.all_names, LocValue r l) else (data, LocValue r l)) ∧
   (word_cse data (Install p l dp dl m) =
-                (empty_data, Install p l dp dl m)) ∧
+                (empty_data with all_names:=data.all_names, Install p l dp dl m)) ∧
   (word_cse data (CodeBufferWrite r1 r2) =
-                (empty_data, CodeBufferWrite r1 r2)) ∧
+                (empty_data with all_names:=data.all_names, CodeBufferWrite r1 r2)) ∧
   (word_cse data (DataBufferWrite r1 r2) =
-                (empty_data, DataBufferWrite r1 r2)) ∧
+                (empty_data with all_names:=data.all_names, DataBufferWrite r1 r2)) ∧
   (word_cse data (FFI s p1 l1 p2 l2 m) =
-                (empty_data, FFI s p1 l1 p2 l2 m))
+                (empty_data with all_names:=data.all_names, FFI s p1 l1 p2 l2 m))
 End
 
 
