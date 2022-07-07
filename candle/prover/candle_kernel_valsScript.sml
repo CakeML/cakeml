@@ -68,7 +68,7 @@ Definition kernel_funs_def:
     refl_v;
     trans_v;
     mk_comb_1_v;
-    abs_1_v;
+    abs_v;
     beta_v;
     assume_v;
     eq_mp_v;
@@ -93,9 +93,11 @@ Theorem kernel_funs_v_def =
   kernel_funs_def |> concl |> rand |> find_terms is_const
   |> filter (fn tm => not (mem (fst (dest_const tm)) ["INSERT","EMPTY"]))
   |> map (fn c => DB.find (fst (dest_const c) ^ "_def"))
-  |> map (fn t => last t |> snd |> fst)
-  |> curry (op @) [constants_v_def]
+  |> map (fn t => hd t |> snd |> fst)
+  |> curry (op @) [constants_v_def,abs_v_def]
   |> LIST_CONJ;
+
+Theorem abs_v_def[compute] = abs_v_def;
 
 Definition kernel_locs_def:
   kernel_locs =
@@ -1481,8 +1483,8 @@ Proof
   prove_head_tac
 QED
 
-Theorem abs_1_v_head:
-  do_partial_app abs_1_v v = SOME g ∧
+Theorem abs_v_head:
+  do_partial_app abs_v v = SOME g ∧
   do_opapp [g; w] = SOME (env, exp) ∧
   evaluate ^s env [exp] = (s', res) ⇒
     ^safe_error_goal ∨
@@ -1747,4 +1749,3 @@ Proof
 QED
 
 val _ = export_theory ();
-

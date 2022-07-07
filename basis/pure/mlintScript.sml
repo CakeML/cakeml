@@ -372,12 +372,9 @@ Proof
   \\ qspec_then`Num n`assume_tac EVERY_isDigit_num_to_dec_string
   \\ Cases_on`num_to_dec_string (Num n)` \\ fs[]
   \\ rw[]
-  \\ TRY ( qhdtm_x_assum`isDigit`mp_tac \\ EVAL_TAC \\ NO_TAC )
-  \\ mp_tac ASCIInumbersTheory.num_dec_string
-  \\ simp[FUN_EQ_THM]
-  \\ disch_then(qspec_then`Num n`mp_tac)
-  \\ simp[]
-  \\ simp[integerTheory.INT_OF_NUM]
+  \\ gs[stringTheory.isDigit_def]
+  \\ qpat_x_assum ‘toString _ = _’ (SUBST1_TAC o SYM)
+  \\ simp[toNum_toString, integerTheory.INT_OF_NUM]
 QED
 
 Triviality fromString_helper:

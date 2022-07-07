@@ -2,7 +2,7 @@
   Specification of CakeML's type system.
 *)
 open HolKernel Parse boolLib bossLib;
-open (* libTheory *) astTheory namespaceTheory semanticPrimitivesTheory;
+open (* libTheory *) fpValTreeTheory astTheory namespaceTheory semanticPrimitivesTheory;
 
 val _ = numLib.prefer_num();
 
@@ -67,12 +67,18 @@ val _ = Define `
 val _ = Define `
  ((Tword8array_num:num) : type_ident= (( 13 : num)))`;
 
+val _ = Define `
+ ((Tdouble_num:num) : type_ident= (( 14 : num)))`;
+
+val _ = Define `
+ ((Treal_num:num) : type_ident= (( 15 : num)))`;
+
 
 (* The numbers for the primitive types *)
 val _ = Define `
  ((prim_type_nums:(num)list)=
    ([Tarray_num; Tchar_num; Texn_num; Tfn_num; Tint_num; Tref_num; Tstring_num; Ttup_num;
-   Tvector_num; Tword64_num; Tword8_num; Tword8array_num]))`;
+   Tvector_num; Tword64_num; Tword8_num; Tword8array_num; Tdouble_num; Treal_num]))`;
 
 
 val _ = Define `
@@ -116,6 +122,12 @@ val _ = Define `
 
 val _ = Define `
  ((Tword8array:t)=  (Tapp [] Tword8array_num))`;
+
+val _ = Define `
+ ((Tdouble:t)=  (Tapp [] Tdouble_num))`;
+
+val _ = Define `
+ ((Treal:t)=  (Tapp [] Treal_num))`;
 
 
 (* Check that the free type variables are in the given list. Every deBruijn
@@ -333,10 +345,16 @@ val _ = Define `
     | (Opb _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tbool)
     | (Opw W8 _, [t1; t2]) => (t1 = Tword8) /\ (t2 = Tword8) /\ (t = Tword8)
     | (Opw W64 _, [t1; t2]) => (t1 = Tword64) /\ (t2 = Tword64) /\ (t = Tword64)
-    | (FP_top _, [t1; t2; t3]) => (t1 = Tword64) /\ (t2 = Tword64) /\ (t3 = Tword64) /\ (t = Tword64)
-    | (FP_bop _, [t1; t2]) => (t1 = Tword64) /\ (t2 = Tword64) /\ (t = Tword64)
-    | (FP_uop _, [t1]) =>  (t1 = Tword64) /\ (t = Tword64)
-    | (FP_cmp _, [t1; t2]) =>  (t1 = Tword64) /\ (t2 = Tword64) /\ (t = Tbool)
+    | (FP_top _, [t1; t2; t3]) => (t1 = Tdouble) /\ (t2 = Tdouble) /\ (t3 = Tdouble) /\ (t = Tdouble)
+    | (FP_bop _, [t1; t2]) => (t1 = Tdouble) /\ (t2 = Tdouble) /\ (t = Tdouble)
+    | (FP_uop _, [t1]) =>  ((t1 = Tdouble) /\ (t = Tdouble))
+    | (FP_cmp _, [t1; t2]) =>  (t1 = Tdouble) /\ (t2 = Tdouble) /\ (t = Tbool)
+    | (FpToWord, [t1]) => (t1 = Tdouble) /\ (t = Tword64)
+    | (FpFromWord, [t1]) => (t1 = Tword64) /\ (t = Tdouble)
+    | (Real_cmp _, [t1; t2]) => F (* t1 = Treal && t2 = Treal && t = Tbool *)
+    | (Real_bop _, [t1; t2]) => F (* t1 = Treal && t2 = Treal && t = Treal *)
+    | (Real_uop _, [t1]) => F (* t1 = Treal && t = Treal *)
+    | (RealFromFP, [t1]) => F
     | (Shift W8 _ _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
     | (Shift W64 _ _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
     | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
@@ -679,6 +697,11 @@ type_e tenv tenvE (Tannot e t) (type_name_subst tenv.t t))
 (type_e tenv tenvE e t)
 ==>
 type_e tenv tenvE (Lannot e l) t)
+
+/\ (! tenv tenvE e opt t.
+(type_e tenv tenvE e t)
+==>
+type_e tenv tenvE (FpOptimise opt e) t)
 
 /\ (! tenv tenvE.
 T

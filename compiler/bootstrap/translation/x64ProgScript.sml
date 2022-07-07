@@ -301,7 +301,204 @@ wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |>bconv
 val x64_enc_thm = reconstruct_case ``x64_enc i`` rand
 [x64_simp1,x64_simp2,x64_simp3,x64_simp4,x64_simp5,x64_simp6]
 
-val res = translate (GEN_ALL x64_enc_thm)
+val cases_defs = LIST_CONJ
+  [TypeBase.case_def_of “:'a asm$inst”,
+   TypeBase.case_def_of “:asm$cmp”,
+   TypeBase.case_def_of “:asm$memop”,
+   TypeBase.case_def_of “:asm$binop”,
+   TypeBase.case_def_of “:ast$shift”,
+   TypeBase.case_def_of “:asm$fp”,
+   TypeBase.case_def_of “:'a asm$arith”,
+   TypeBase.case_def_of “:'a asm$addr”,
+   TypeBase.case_def_of “:'a asm$reg_imm”,
+   TypeBase.case_def_of “:'a asm$asm”];
+
+val d1 = Define ‘x64_enc_Const n c = x64_enc (Inst (Const n c))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Skip = x64_enc (Inst Skip)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Loc n c = x64_enc (Loc n c)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Call c = x64_enc (Call c)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpCmp_NotTest_Imm n c c0 =
+                           x64_enc (JumpCmp NotTest n (Imm c) c0)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpCmp_NotLess_Imm n c c0 =
+                           x64_enc (JumpCmp NotLess n (Imm c) c0)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpCmp_NotLower_Imm n c c0 =
+                           x64_enc (JumpCmp NotLower n (Imm c) c0)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpCmp_NotEqual_Imm n c c0 =
+                           x64_enc (JumpCmp NotEqual n (Imm c) c0)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpCmp_Test_Imm n c c0 =
+                           x64_enc (JumpCmp Test n (Imm c) c0)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpCmp_Less_Imm n c c0 =
+                           x64_enc (JumpCmp Less n (Imm c) c0)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpCmp_Lower_Imm n c c0 =
+                           x64_enc (JumpCmp Lower n (Imm c) c0)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpCmp_Equal_Imm n c c0 =
+                           x64_enc (JumpCmp Equal n (Imm c) c0)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpCmp_NotTest_Reg n c c0 =
+                           x64_enc (JumpCmp NotTest n (Reg c) c0)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpCmp_NotLess_Reg n c c0 =
+                           x64_enc (JumpCmp NotLess n (Reg c) c0)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpCmp_NotLower_Reg n c c0 =
+                           x64_enc (JumpCmp NotLower n (Reg c) c0)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpCmp_NotEqual_Reg n c c0 =
+                           x64_enc (JumpCmp NotEqual n (Reg c) c0)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpCmp_Test_Reg n c c0 =
+                           x64_enc (JumpCmp Test n (Reg c) c0)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpCmp_Less_Reg n c c0 =
+                           x64_enc (JumpCmp Less n (Reg c) c0)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpCmp_Lower_Reg n c c0 =
+                           x64_enc (JumpCmp Lower n (Reg c) c0)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpCmp_Equal_Reg n c c0 =
+                           x64_enc (JumpCmp Equal n (Reg c) c0)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Jump c =
+                           x64_enc (Jump c)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_JumpReg c =
+                           x64_enc (JumpReg c)’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Mem_Store a b c =
+                    x64_enc (Inst (Mem Store a (Addr b c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Mem_Store8 a b c =
+                    x64_enc (Inst (Mem Store8 a (Addr b c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Mem_Load a b c =
+                    x64_enc (Inst (Mem Load a (Addr b c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Mem_Load8 a b c =
+                    x64_enc (Inst (Mem Load8 a (Addr b c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_SubOverflow a c d =
+                    x64_enc (Inst (Arith (SubOverflow a a c d)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_AddOverflow a c d =
+                    x64_enc (Inst (Arith (AddOverflow a a c d)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_AddCarry a c d =
+                    x64_enc (Inst (Arith (AddCarry a a c d)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_LongMul a =
+                    x64_enc (Inst (Arith (LongMul a a a a)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_LongDiv a =
+                    x64_enc (Inst (Arith (LongDiv a a a a a)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Div a b c =
+                    x64_enc (Inst (Arith (Div a b c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Shift_Ror a c =
+                    x64_enc (Inst (Arith (Shift Ror a a c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Shift_Asr a c =
+                    x64_enc (Inst (Arith (Shift Asr a a c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Shift_Lsr a c =
+                    x64_enc (Inst (Arith (Shift Lsr a a c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Shift_Lsl a c =
+                    x64_enc (Inst (Arith (Shift Lsl a a c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Add_Imm a c =
+                    x64_enc (Inst (Arith (Binop Add a a (Imm c))))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Sub_Imm a c =
+                    x64_enc (Inst (Arith (Binop Sub a a (Imm c))))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_And_Imm a c =
+                    x64_enc (Inst (Arith (Binop And a a (Imm c))))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Or_Imm a c =
+                    x64_enc (Inst (Arith (Binop Or a a (Imm c))))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Xor_Imm a c =
+                    x64_enc (Inst (Arith (Binop Xor a a (Imm c))))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Add_Reg a c =
+                    x64_enc (Inst (Arith (Binop Add a a (Reg c))))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Sub_Reg a c =
+                    x64_enc (Inst (Arith (Binop Sub a a (Reg c))))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_And_Reg a c =
+                    x64_enc (Inst (Arith (Binop And a a (Reg c))))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Or_Reg a b c =
+                    x64_enc (Inst (Arith (Binop Or a b (Reg c))))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Xor_Reg a c =
+                    x64_enc (Inst (Arith (Binop Xor a a (Reg c))))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+
+val d1 = CONJ d1 $ Define ‘x64_enc_FPLess a b c =
+                    x64_enc (Inst (FP (FPLess a b c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_FPLessEqual a b c =
+                    x64_enc (Inst (FP (FPLessEqual a b c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_FPEqual a b c =
+                    x64_enc (Inst (FP (FPEqual a b c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_FPAbs a b =
+                    x64_enc (Inst (FP (FPAbs a b)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_FPNeg a b =
+                    x64_enc (Inst (FP (FPNeg a b)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_FPSqrt a b =
+                    x64_enc (Inst (FP (FPSqrt a b)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_FPAdd a c =
+                    x64_enc (Inst (FP (FPAdd a a c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_FPSub a c =
+                    x64_enc (Inst (FP (FPSub a a c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_FPMul a c =
+                    x64_enc (Inst (FP (FPMul a a c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_FPDiv a c =
+                    x64_enc (Inst (FP (FPDiv a a c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_FPMov a b =
+                    x64_enc (Inst (FP (FPMov a b)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_FPMovToReg a b =
+                    x64_enc (Inst (FP (FPMovToReg a a b)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_FPMovFromReg a b =
+                    x64_enc (Inst (FP (FPMovFromReg a b b)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_FPToInt a b =
+                    x64_enc (Inst (FP (FPToInt a b)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_FPFromInt a b =
+                    x64_enc (Inst (FP (FPFromInt a b)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+
+val def = x64_enc_thm |> SIMP_RULE std_ss [APPEND] |> SIMP_RULE std_ss [GSYM d1];
+
+val res = CONJUNCTS d1 |> map SPEC_ALL |> map translate;
+
+val res = translate def;
 
 Theorem x64_config_v_thm = translate (x64_config_def |> gconv);
 

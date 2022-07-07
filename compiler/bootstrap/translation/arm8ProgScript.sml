@@ -316,7 +316,158 @@ val decodebitmasks_side = Q.prove(`
 val res = translate (INST_TYPE [``:'N``|->``:64``] EncodeBitMask_def
  |> SIMP_RULE std_ss [notw] |> gconv)
 
-val res = translate arm8_enc_thm
+val cases_defs = LIST_CONJ
+  [TypeBase.case_def_of “:'a asm$inst”,
+   TypeBase.case_def_of “:asm$cmp”,
+   TypeBase.case_def_of “:asm$memop”,
+   TypeBase.case_def_of “:asm$binop”,
+   TypeBase.case_def_of “:ast$shift”,
+   TypeBase.case_def_of “:asm$fp”,
+   TypeBase.case_def_of “:'a asm$arith”,
+   TypeBase.case_def_of “:'a asm$addr”,
+   TypeBase.case_def_of “:'a asm$reg_imm”,
+   TypeBase.case_def_of “:'a asm$asm”];
+
+val d1 = Define ‘arm8_enc_Const n c = arm8_enc (Inst (Const n c))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Skip = arm8_enc (Inst Skip)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Loc n c = arm8_enc (Loc n c)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Call c = arm8_enc (Call c)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpCmp_NotTest_Imm n c c0 =
+                           arm8_enc (JumpCmp NotTest n (Imm c) c0)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpCmp_NotLess_Imm n c c0 =
+                           arm8_enc (JumpCmp NotLess n (Imm c) c0)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpCmp_NotLower_Imm n c c0 =
+                           arm8_enc (JumpCmp NotLower n (Imm c) c0)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpCmp_NotEqual_Imm n c c0 =
+                           arm8_enc (JumpCmp NotEqual n (Imm c) c0)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpCmp_Test_Imm n c c0 =
+                           arm8_enc (JumpCmp Test n (Imm c) c0)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpCmp_Less_Imm n c c0 =
+                           arm8_enc (JumpCmp Less n (Imm c) c0)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpCmp_Lower_Imm n c c0 =
+                           arm8_enc (JumpCmp Lower n (Imm c) c0)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpCmp_Equal_Imm n c c0 =
+                           arm8_enc (JumpCmp Equal n (Imm c) c0)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpCmp_NotTest_Reg n c c0 =
+                           arm8_enc (JumpCmp NotTest n (Reg c) c0)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpCmp_NotLess_Reg n c c0 =
+                           arm8_enc (JumpCmp NotLess n (Reg c) c0)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpCmp_NotLower_Reg n c c0 =
+                           arm8_enc (JumpCmp NotLower n (Reg c) c0)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpCmp_NotEqual_Reg n c c0 =
+                           arm8_enc (JumpCmp NotEqual n (Reg c) c0)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpCmp_Test_Reg n c c0 =
+                           arm8_enc (JumpCmp Test n (Reg c) c0)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpCmp_Less_Reg n c c0 =
+                           arm8_enc (JumpCmp Less n (Reg c) c0)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpCmp_Lower_Reg n c c0 =
+                           arm8_enc (JumpCmp Lower n (Reg c) c0)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpCmp_Equal_Reg n c c0 =
+                           arm8_enc (JumpCmp Equal n (Reg c) c0)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Jump c =
+                           arm8_enc (Jump c)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_JumpReg c =
+                           arm8_enc (JumpReg c)’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Store a b c =
+                    arm8_enc (Inst (Mem Store a (Addr b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Store8 a b c =
+                    arm8_enc (Inst (Mem Store8 a (Addr b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Load a b c =
+                    arm8_enc (Inst (Mem Load a (Addr b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Load8 a b c =
+                    arm8_enc (Inst (Mem Load8 a (Addr b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_SubOverflow a b c d =
+                    arm8_enc (Inst (Arith (SubOverflow a b c d)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_AddOverflow a b c d =
+                    arm8_enc (Inst (Arith (AddOverflow a b c d)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_AddCarry a b c d =
+                    arm8_enc (Inst (Arith (AddCarry a b c d)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_LongMul a b c d =
+                    arm8_enc (Inst (Arith (LongMul a b c d)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_LongDiv a b c d e =
+                    arm8_enc (Inst (Arith (LongDiv a b c d e)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Div a b c =
+                    arm8_enc (Inst (Arith (Div a b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Shift_Ror a b c =
+                    arm8_enc (Inst (Arith (Shift Ror a b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Shift_Asr a b c =
+                    arm8_enc (Inst (Arith (Shift Asr a b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Shift_Lsr a b c =
+                    arm8_enc (Inst (Arith (Shift Lsr a b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Shift_Lsl a b c =
+                    arm8_enc (Inst (Arith (Shift Lsl a b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Add_Imm a b c =
+                    arm8_enc (Inst (Arith (Binop Add a b (Imm c))))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Sub_Imm a b c =
+                    arm8_enc (Inst (Arith (Binop Sub a b (Imm c))))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_And_Imm a b c =
+                    arm8_enc (Inst (Arith (Binop And a b (Imm c))))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Or_Imm a b c =
+                    arm8_enc (Inst (Arith (Binop Or a b (Imm c))))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Xor_Imm a b c =
+                    arm8_enc (Inst (Arith (Binop Xor a b (Imm c))))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Add_Reg a b c =
+                    arm8_enc (Inst (Arith (Binop Add a b (Reg c))))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Sub_Reg a b c =
+                    arm8_enc (Inst (Arith (Binop Sub a b (Reg c))))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_And_Reg a b c =
+                    arm8_enc (Inst (Arith (Binop And a b (Reg c))))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Or_Reg a b c =
+                    arm8_enc (Inst (Arith (Binop Or a b (Reg c))))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_Xor_Reg a b c =
+                    arm8_enc (Inst (Arith (Binop Xor a b (Reg c))))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+
+val def = arm8_enc_thm |> SIMP_RULE std_ss [APPEND] |> SIMP_RULE std_ss [GSYM d1];
+
+val res = CONJUNCTS d1 |> map SPEC_ALL |> map translate;
+
+val res = translate def;
 
 val _ = translate (valid_immediate_def |> SIMP_RULE bool_ss
 [IN_INSERT,NOT_IN_EMPTY]|> econv)

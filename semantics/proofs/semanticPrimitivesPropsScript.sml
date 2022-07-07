@@ -252,7 +252,7 @@ Theorem do_opapp_cases:
   (?v2 env'' funs n' n'' e.
     (vs = [Recclosure env'' funs n'; v2]) ∧
     (find_recfun n' funs = SOME (n'',e)) ∧
-    (ALL_DISTINCT (MAP (\(f,x,e). f) funs)) ∧
+    (ALL_DISTINCT (MAP (\ (f,x,e). f) funs)) ∧
     (env' = env'' with <| v :=  nsBind n'' v2 (build_rec_env funs env'' env''.v) |> ∧ (v = e))))
 Proof
   gvs [AllCaseEqs(),do_opapp_def] \\ rpt strip_tac \\ gvs [] >>
@@ -337,6 +337,59 @@ Proof
   PairCases_on `s` >>
   srw_tac[][do_app_def] >>
   gvs [AllCaseEqs(),store_alloc_def]
+QED
+
+Theorem do_app_ffi_unchanged:
+  ∀st ffi op vs st' ffi' res.
+    (∀s. op ≠ FFI s) ∧
+    do_app (st, ffi) op vs = SOME ((st', ffi'), res)
+  ⇒ ffi = ffi'
+Proof
+  rpt gen_tac >> simp[do_app_def] >>
+  every_case_tac >> gvs[store_alloc_def]
+QED
+
+Theorem do_app_ffi_changed:
+  do_app (st, ffi) op vs = SOME ((st', ffi'), res) ∧
+  ffi ≠ ffi' ⇒
+  ∃s conf lnum ws ffi_st ws'.
+    op = FFI s ∧
+    vs = [Litv (StrLit conf); Loc lnum] ∧
+    store_lookup lnum st = SOME (W8array ws) ∧
+    s ≠ "" ∧
+    ffi.oracle s ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
+      Oracle_return ffi_st ws' ∧
+    LENGTH ws = LENGTH ws' ∧
+    st' = LUPDATE (W8array ws') lnum st ∧
+    ffi'.oracle = ffi.oracle ∧
+    ffi'.ffi_state = ffi_st ∧
+    ffi'.io_events =
+      ffi.io_events ++
+        [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))]
+Proof
+  simp[do_app_def] >> every_case_tac >> gvs[store_alloc_def, store_assign_def] >>
+  strip_tac >> gvs[call_FFI_def] >>
+  every_case_tac >> gvs[]
+QED
+
+Theorem do_app_not_timeout:
+  do_app s op vs = SOME (s', Rerr (Rabort a))
+  ⇒
+  a ≠ Rtimeout_error
+Proof
+  Cases_on `s` >>
+  srw_tac[][do_app_cases] >>
+  every_case_tac >>
+  srw_tac[][]
+QED
+
+Theorem do_app_type_error:
+  do_app s op es = SOME (x,Rerr (Rabort a)) ⇒ x = s
+Proof
+  PairCases_on `s` >>
+  srw_tac[][do_app_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[LET_THM,UNCURRY] >>
+  every_case_tac >> full_simp_tac(srw_ss())[]
 QED
 
 val build_rec_env_help_lem = Q.prove (
@@ -621,7 +674,7 @@ QED
 
 Theorem find_recfun_el:
    !f funs x e n.
-    ALL_DISTINCT (MAP (\(f,x,e). f) funs) ∧
+    ALL_DISTINCT (MAP (\ (f,x,e). f) funs) ∧
     n < LENGTH funs ∧
     EL n funs = (f,x,e)
     ⇒
@@ -667,6 +720,7 @@ val FV_def = tDefine "FV"`
   (FV (Letrec defs b) = FV_defs defs ∪ FV b DIFF set (MAP (Short o FST) defs)) ∧
   (FV (Tannot e t) = FV e) ∧
   (FV (Lannot e l) = FV e) ∧
+  (FV (FpOptimise sc e) = FV e) ∧
   (FV_list [] = {}) ∧
   (FV_list (e::es) = FV e ∪ FV_list es) ∧
   (FV_pes [] = {}) ∧

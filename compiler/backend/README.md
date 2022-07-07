@@ -11,7 +11,7 @@ This directory contains the ARMv7-specific part of the compiler backend.
 This directory contains the ARMv8-specific part of the compiler backend.
 
 [arm8_asl](arm8_asl):
-This directory contains the ASL-derived ARMv8-specific part of the
+This directory contains proofs for the ASL-derived ARMv8-specific part of the
 compiler backend.
 
 [backendComputeLib.sml](backendComputeLib.sml):
@@ -254,6 +254,10 @@ intermediate language.
 
 [serialiser](serialiser):
 Proofs and automation for serialising HOL values.
+
+[source_letScript.sml](source_letScript.sml):
+This is a source-to-source transformation that lifts Let/Letrec expressions
+out of Dlet/Dletrecs when they are independent of function arguments.
 
 [source_to_flatScript.sml](source_to_flatScript.sml):
 This is the compiler phase that translates the CakeML source

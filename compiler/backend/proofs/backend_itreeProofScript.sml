@@ -85,7 +85,10 @@ val (_,start_env) =
 
 Definition start_dstate_def:
   start_dstate : dstate =
-    <| refs := []; next_type_stamp := 2; next_exn_stamp := 4; eval_state := NONE |>
+  <| refs := []; next_type_stamp := 2; next_exn_stamp := 4; eval_state := NONE;
+     fp_state := <| rws := []; opts := (λ x. []); choices := 0; canOpt := Strict;
+                    real_sem := F |>
+  |>
 End
 
 Definition start_env_def:

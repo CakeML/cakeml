@@ -118,15 +118,6 @@ val r = translate bvi_tailrecTheory.compile_prog_def;
 (* ------------------------------------------------------------------------- *)
 
 val r = translate bvl_to_bviTheory.compile_int_def;
-
-val bvl_to_bvi_compile_int_side = Q.prove(`
-  ∀x. bvl_to_bvi_compile_int_side x ⇔ T`,
-  completeInduct_on`Num(ABS x)`>>
-  simp[Once (fetch "-" "bvl_to_bvi_compile_int_side_def")]>>
-  rw[]>>fs[PULL_FORALL]>>
-  first_assum MATCH_MP_TAC>>
-  intLib.COOPER_TAC) |> update_precondition;
-
 val r = translate bvl_to_bviTheory.compile_aux_def;
 
 (* TODO: better way to translate Boolean pmatch patterns *)
@@ -138,7 +129,7 @@ val r = translate bvl_to_bviTheory.compile_aux_def;
 val def = bvl_to_bviTheory.compile_op_pmatch;
 val rows = def |> SPEC_ALL |> concl |> rhs |> rand
            |> listSyntax.dest_list |> #1
-val bad_row = rows |> List.rev |> el 3
+val bad_row = rows |> List.rev |> el 5
 val default_row = rows |> last
 val (_,_,default_exp) = patternMatchesSyntax.dest_PMATCH_ROW default_row
 val (pat,guard,exp) = patternMatchesSyntax.dest_PMATCH_ROW bad_row

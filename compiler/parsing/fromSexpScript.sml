@@ -380,7 +380,7 @@ QED
 Theorem strip_sxcons_FAIL_sexplist_FAIL:
    ∀s. (strip_sxcons s = NONE) ⇒ (sexplist p s = NONE)
 Proof
-  Induct >> simp[Once strip_sxcons_def, Once sexplist_def] >>
+  Induct >> simp[Once sexplist_def] >>
   metis_tac[TypeBase.nchotomy_of ``:α option``]
 QED
 
@@ -405,7 +405,7 @@ Theorem strip_sxcons_thm[simp]:
   strip_sxcons (SX_STR str) = NONE ∧
   strip_sxcons (SX_SYM s) = if s = "nil" then SOME [] else NONE
 Proof
-  rpt strip_tac >> simp[Once strip_sxcons_def]
+  rpt strip_tac >> simp[]
 QED
 
 Theorem sexplist_CONG[defncong]:
@@ -673,6 +673,21 @@ val sexpop_def = Define`
   if s = "FPbopFPMul" then SOME (FP_bop FP_Mul) else
   if s = "FPbopFPDiv" then SOME (FP_bop FP_Div) else
   if s = "FPtopFPFma" then SOME (FP_top FP_Fma) else
+  if s = "FpToWord" then SOME (FpToWord) else
+  if s = "FpFromWord" then SOME (FpFromWord) else
+  if s = "RealcmpRealLess" then SOME (Real_cmp realOps$Real_Less) else
+  if s = "RealcmpRealLessEqual" then SOME (Real_cmp realOps$Real_LessEqual) else
+  if s = "RealcmpRealGreater" then SOME (Real_cmp realOps$Real_Greater) else
+  if s = "RealcmpRealGreaterEqual" then SOME (Real_cmp realOps$Real_GreaterEqual) else
+  if s = "RealcmpRealEqual" then SOME (Real_cmp realOps$Real_Equal) else
+  if s = "RealuopRealAbs" then SOME (Real_uop realOps$Real_Abs) else
+  if s = "RealuopRealNeg" then SOME (Real_uop realOps$Real_Neg) else
+  if s = "RealuopRealSqrt" then SOME (Real_uop realOps$Real_Sqrt) else
+  if s = "RealbopRealAdd" then SOME (Real_bop realOps$Real_Add) else
+  if s = "RealbopRealSub" then SOME (Real_bop realOps$Real_Sub) else
+  if s = "RealbopRealMul" then SOME (Real_bop realOps$Real_Mul) else
+  if s = "RealbopRealDiv" then SOME (Real_bop realOps$Real_Div) else
+  if s = "RealFromFP" then SOME (RealFromFP) else
   if s = "Opapp" then SOME Opapp else
   if s = "Opassign" then SOME Opassign else
   if s = "Opref" then SOME Opref else
@@ -762,6 +777,14 @@ Definition sexplocn_def:
     od
 End
 
+Definition sexpsc_def:
+  (sexpsc (SX_SYM s) =
+    if (s = "Opt") then SOME Opt
+    else if (s = "NoOpt") then SOME NoOpt
+    else NONE) /\
+  sexpsc _ = NONE
+End
+
 Definition sexpexp_def:
   sexpexp s =
     do
@@ -811,7 +834,11 @@ Definition sexpexp_def:
       guard (nm = "Lannot" ∧ LENGTH args = 2)
             (lift2 Lannot
               (sexpexp (EL 0 args))
-              (sexplocn (EL 1 args)))
+              (sexplocn (EL 1 args))) ++
+      guard (nm = "FpOptimise" /\ LENGTH args = 2)
+            (lift2 FpOptimise
+              (sexpsc (EL 0 args))
+              (sexpexp (EL 1 args)))
     od
 Termination
   WF_REL_TAC `measure sexp_size` >> simp[] >> rpt strip_tac
@@ -891,6 +918,9 @@ Definition sexpexp_alt_def:
           if nm = "Lannot" ∧ LENGTH args = 2 then
             OPTION_MAP2 Lannot (sexpexp_alt (EL 0 args))
               (sexplocn (EL 1 args))
+          else
+          if nm = "FpOptimise" /\ LENGTH args = 2 then
+            OPTION_MAP2 FpOptimise (sexpsc (EL 0 args)) (sexpexp_alt (EL 1 args))
           else NONE) ∧
    (sexpexp_list s =
       case s of
@@ -1290,6 +1320,21 @@ val opsexp_def = Define`
   (opsexp (FP_bop FP_Mul) = SX_SYM "FPbopFPMul") ∧
   (opsexp (FP_bop FP_Div) = SX_SYM "FPbopFPDiv") ∧
   (opsexp (FP_top FP_Fma) = SX_SYM "FPtopFPFma") ∧
+  (opsexp (FpToWord) = SX_SYM "FpToWord") /\
+  (opsexp (FpFromWord) = SX_SYM "FpFromWord") /\
+  (opsexp (Real_cmp realOps$Real_Less) = SX_SYM "RealcmpRealLess") ∧
+  (opsexp (Real_cmp realOps$Real_LessEqual) = SX_SYM "RealcmpRealLessEqual") ∧
+  (opsexp (Real_cmp realOps$Real_Greater) = SX_SYM "RealcmpRealGreater") ∧
+  (opsexp (Real_cmp realOps$Real_GreaterEqual) = SX_SYM "RealcmpRealGreaterEqual") ∧
+  (opsexp (Real_cmp realOps$Real_Equal) = SX_SYM "RealcmpRealEqual") ∧
+  (opsexp (Real_uop realOps$Real_Abs) = SX_SYM "RealuopRealAbs") ∧
+  (opsexp (Real_uop realOps$Real_Neg) = SX_SYM "RealuopRealNeg") ∧
+  (opsexp (Real_uop realOps$Real_Sqrt) = SX_SYM "RealuopRealSqrt") ∧
+  (opsexp (Real_bop realOps$Real_Add) = SX_SYM "RealbopRealAdd") ∧
+  (opsexp (Real_bop realOps$Real_Sub) = SX_SYM "RealbopRealSub") ∧
+  (opsexp (Real_bop realOps$Real_Mul) = SX_SYM "RealbopRealMul") ∧
+  (opsexp (Real_bop realOps$Real_Div) = SX_SYM "RealbopRealDiv") ∧
+  (opsexp (RealFromFP) = SX_SYM "RealFromFP") ∧
   (opsexp Opapp = SX_SYM "Opapp") ∧
   (opsexp Opassign = SX_SYM "Opassign") ∧
   (opsexp Opref = SX_SYM "Opref") ∧
@@ -1342,8 +1387,9 @@ Proof
   Cases_on`op`>>rw[sexpop_def,opsexp_def]>>
   TRY(MAP_FIRST rename1 [
         ‘Opn c1’, ‘Opb c1’, ‘Opw c2 c1’, ‘Chopb c1’, ‘Shift c1 c2 _’,
-        ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, `FP_top c1`, ‘WordFromInt c1’,
-        ‘WordToInt c1’
+        ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, ‘FP_top c1’,
+        ‘WordFromInt c1’, ‘WordToInt c1’,
+        ‘Real_cmp c1’, ‘Real_bop c1’, ‘Real_uop c1’
       ] >>
       Cases_on`c1` >> rw[sexpop_def,opsexp_def] >>
       Cases_on`c2` >> rw[sexpop_def,opsexp_def]) >>
@@ -1366,6 +1412,17 @@ Theorem locnsexp_11[simp]:
   locnsexp p1 = locnsexp p2 ⇔ p1 = p2
 Proof
   map_every Cases_on [‘p1’, ‘p2’] >> simp[locnsexp_def, listsexp_def]
+QED
+
+Definition scsexp_def:
+  scsexp Opt = SX_SYM "Opt" /\
+  scsexp NoOpt = SX_SYM "NoOpt"
+End
+
+Theorem scsexp_11[simp]:
+  ! sc1 sc2. scsexp sc1 = scsexp sc2 <=> sc1 = sc2
+Proof
+  Cases \\ Cases \\ fs[scsexp_def]
 QED
 
 Definition locssexp_def:
@@ -1404,7 +1461,8 @@ Definition expsexp_def:
                                      (SX_CONS (SEXSTR y) (expsexp z))) funs);
    expsexp e⟫ ∧
   expsexp (Tannot e t) = ⟪SX_SYM "Tannot"; expsexp e; typesexp t⟫ ∧
-  expsexp (Lannot e loc) = ⟪SX_SYM "Lannot"; expsexp e; locssexp loc⟫
+  expsexp (Lannot e loc) = ⟪SX_SYM "Lannot"; expsexp e; locssexp loc⟫ ∧
+  expsexp (FpOptimise sc e) = listsexp [SX_SYM "FpOptimise"; scsexp sc; expsexp e]
 Termination
   WF_REL_TAC`measure exp_size`
 End
@@ -1716,6 +1774,12 @@ Proof
   Cases_on `l` >> rw[sexplocn_def,locssexp_def]
 QED
 
+Theorem sexpsc_scsexp[simp]:
+  sexpsc (scsexp sc) = SOME sc
+Proof
+  Cases_on `sc` >> fs[sexpsc_def, scsexp_def]
+QED
+
 Theorem sexpexp_expsexp[simp]:
    sexpexp (expsexp e) = SOME e
 Proof
@@ -1905,6 +1969,15 @@ Proof
        PULL_EXISTS] >> metis_tac[]
 QED
 
+Theorem scsexp_sexpsc:
+  sexpsc s = SOME sc ==> scsexp sc = s
+Proof
+  Cases_on `s` \\ fs[sexpsc_def, scsexp_def]
+  \\ TOP_CASE_TAC
+  \\ rpt strip_tac \\ rveq \\ fs[sexpsc_def, scsexp_def]
+  \\ rveq \\ fs[scsexp_def]
+QED
+
 Theorem expsexp_sexpexp:
   (sexpexp s = SOME e ⇔ expsexp e = s) ∧
   (SOME e = sexpexp s ⇔ expsexp e = s)
@@ -1920,7 +1993,7 @@ Proof
   \\ rename1 `guard (nm = "Raise" ∧ _) _`
   \\ reverse (Cases_on `nm ∈ {"Raise"; "Handle"; "Lit"; "Con"; "Var"; "Fun";
                               "App"; "Log"; "If"; "Mat"; "Let"; "Letrec";
-                              "Lannot"; "Tannot" }`)
+                              "Lannot"; "Tannot"; "FpOptimise"}`)
   \\ pop_assum mp_tac
   \\ simp[]
   \\ rw[]
@@ -1928,7 +2001,7 @@ Proof
   \\ gvs[LENGTH_EQ_NUM_compute, listsexp_thm, litsexp_sexplit, opsexp_sexpop,
          idsexp_sexpid_odestSEXSTR, typesexp_sexptype, locnsexp_sexplocn,
          OPTION_APPLY_MAP3, expsexp_def, lopsexp_sexplop, sexpopt_SOME,
-         optsexp_def] >>
+         optsexp_def, scsexp_sexpsc] >>
   gvs[sexplist_SOME, sxMEM_def, EL_MAP, LIST_EQ_REWRITE, MEM_EL, PULL_EXISTS] >>
   rw[] >> pairarg_tac >> first_x_assum drule >>
   simp[sexppair_SOME, PULL_EXISTS, patsexp_sexppat] >> metis_tac[]
@@ -2052,6 +2125,7 @@ Proof
   \\ TRY(Cases_on`w`) \\ simp[opsexp_def]
   \\ TRY(Cases_on`s`) \\ simp[opsexp_def]
   \\ TRY(Cases_on`f`) \\ simp[opsexp_def]
+  \\ TRY(Cases_on`r`) \\ simp[opsexp_def]
   \\ EVAL_TAC
 QED
 
@@ -2072,6 +2146,12 @@ Theorem locssexp_valid[simp]:
    ∀l. valid_sexp (locssexp l)
 Proof
   Cases \\ simp[locssexp_def, listsexp_valid] \\ EVAL_TAC
+QED
+
+Theorem scsexp_valid[simp]:
+  ! sc. valid_sexp (scsexp sc)
+Proof
+  Cases \\ EVAL_TAC
 QED
 
 Theorem expsexp_valid[simp]:

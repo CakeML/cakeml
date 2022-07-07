@@ -3,6 +3,8 @@
 *)
 open import Pervasives
 open import Lib
+open import FpOpt
+open import FpValTree
 
 open import {hol} `machine_ieeeTheory`
 open import {isabelle} `IEEE_Floating_Point.FP64`
@@ -11,15 +13,14 @@ type rounding
 declare hol target_rep type rounding = `rounding`
 declare isabelle target_rep type rounding = `roundmode`
 
-type fp_cmp = FP_Less | FP_LessEqual | FP_Greater | FP_GreaterEqual | FP_Equal
-type fp_uop = FP_Abs | FP_Neg | FP_Sqrt
-type fp_bop = FP_Add | FP_Sub | FP_Mul | FP_Div
-type fp_top = | FP_Fma
 declare {isabelle} rename type fp_cmp = fp_cmp_op
 declare {isabelle} rename type fp_uop = fp_uop_op
 declare {isabelle} rename type fp_bop = fp_bop_op
 declare {isabelle} rename type fp_top = fp_top_op
 
+(**
+  This defines the floating-point semantics operating on 64-bit words
+**)
 val fp64_lessThan     : word64 -> word64 -> bool
 val fp64_lessEqual    : word64 -> word64 -> bool
 val fp64_greaterThan  : word64 -> word64 -> bool
@@ -35,6 +36,10 @@ declare isabelle    target_rep function fp64_lessEqual = `fp64_lessEqual`
 declare isabelle    target_rep function fp64_greaterThan = `fp64_greaterThan`
 declare isabelle    target_rep function fp64_greaterEqual = `fp64_greaterEqual`
 declare isabelle    target_rep function fp64_equal = `fp64_equal`
+
+val fp64_isNan      :word64 -> bool
+declare hol         target_rep function fp64_isNan = `fp64_isNan`
+declare isabelle    target_rep function fp64_isNan = `fp64_isNan`
 
 val fp64_abs    : word64 -> word64
 val fp64_negate : word64 -> word64
@@ -67,8 +72,8 @@ val roundTiesToEven : rounding
 declare hol    target_rep function roundTiesToEven = `roundTiesToEven`
 declare isabelle    target_rep function roundTiesToEven = `To_nearest`
 
-val fp_cmp : fp_cmp -> word64 -> word64 -> bool
-let fp_cmp fop = match fop with
+val fp_cmp_comp : fp_cmp -> word64 -> word64 -> bool
+let fp_cmp_comp fop = match fop with
   | FP_Less -> fp64_lessThan
   | FP_LessEqual -> fp64_lessEqual
   | FP_Greater -> fp64_greaterThan
@@ -76,15 +81,22 @@ let fp_cmp fop = match fop with
   | FP_Equal -> fp64_equal
 end
 
-val fp_uop : fp_uop -> word64 -> word64
-let fp_uop fop = match fop with
-  | FP_Abs -> fp64_abs
-  | FP_Neg -> fp64_negate
-  | FP_Sqrt -> fp64_sqrt roundTiesToEven
+(*
+val fp_pred_comp : fp_pred -> word64 -> bool
+let fp_pred_comp fp = match fp with
+  | FP_NaN -> fp64_isNan
+end
+*)
+
+val fp_uop_comp : fp_uop -> word64 -> word64
+let fp_uop_comp fop w = match fop with
+  | FP_Abs -> fp64_abs w
+  | FP_Neg -> fp64_negate w
+  | FP_Sqrt -> fp64_sqrt roundTiesToEven w
 end
 
-val fp_bop : fp_bop -> word64 -> word64 -> word64
-let fp_bop fop = match fop with
+val fp_bop_comp : fp_bop -> word64 -> word64 -> word64
+let fp_bop_comp fop = match fop with
   | FP_Add -> fp64_add roundTiesToEven
   | FP_Sub -> fp64_sub roundTiesToEven
   | FP_Mul -> fp64_mul roundTiesToEven
@@ -93,7 +105,30 @@ end
 
 let fpfma v1 v2 v3 = fp64_mul_add roundTiesToEven v2 v3 v1
 
-val fp_top : fp_top -> word64 -> word64 -> word64 -> word64
-let fp_top fop = match fop with
+val fp_top_comp : fp_top -> word64 -> word64 -> word64 -> word64
+let fp_top_comp fop = match fop with
   | FP_Fma -> fpfma
 end
+
+val fp_opt_comp: forall 'v. fp_opt -> 'v -> 'v
+let fp_opt_comp sc v = match sc with
+  | Opt -> v
+  | NoOpt -> v
+end
+
+(* Compression function for value trees,
+   evaluating lazy trees into word64 or bool *)
+val compress_word: fp_word_val -> word64
+let rec compress_word (Fp_const w1) = w1
+    and compress_word (Fp_uop u1 v1) = fp_uop_comp u1 (compress_word v1)
+    and compress_word (Fp_bop b v1 v2) =
+        fp_bop_comp b (compress_word v1) (compress_word v2)
+    and compress_word (Fp_top t v1 v2 v3) =
+        (fp_top_comp t (compress_word v1) (compress_word v2) (compress_word v3))
+    and compress_word (Fp_wopt sc v) = compress_word v
+
+val compress_bool : fp_bool_val -> bool
+let rec (* compress_bool (Fp_pred p v1) = fp_pred_comp p (compress_word v1)
+    and *) compress_bool (Fp_cmp cmp v1 v2) =
+        fp_cmp_comp cmp (compress_word v1) (compress_word v2)
+    and compress_bool (Fp_bopt sc v) = compress_bool v

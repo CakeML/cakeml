@@ -111,6 +111,15 @@ Inductive v_ok:
 [~Lit:]
   (∀ctxt lit.
      v_ok ctxt (Litv lit)) ∧
+[~FP_WordTree:]
+  (∀ ctxt fp.
+     v_ok ctxt (FP_WordTree fp)) ∧
+[~FP_BoolTree:]
+  (∀ ctxt fp.
+     v_ok ctxt (FP_BoolTree fp)) ∧
+[~Real:]
+  (∀ ctxt r.
+     v_ok ctxt (Real r)) ∧
 [~Loc:]
   (∀ctxt loc.
      loc ∉ kernel_locs ⇒
@@ -169,6 +178,9 @@ Theorem v_ok_def =
    “v_ok ctxt (Recclosure env f n)”,
    “v_ok ctxt (Vectorv vs)”,
    “v_ok ctxt (Litv lit)”,
+   “v_ok ctxt (FP_WordTree fp)”,
+   “v_ok ctxt (FP_BoolTree fp)”,
+   “v_ok ctxt (Real r)”,
    “v_ok ctxt (Loc loc)”,
    “v_ok ctxt (Env env ns)”]
   |> map (SIMP_CONV (srw_ss()) [Once v_ok_cases])
