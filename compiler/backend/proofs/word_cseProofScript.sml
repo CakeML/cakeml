@@ -109,6 +109,55 @@ Proof
   \\ gvs [state_component_equality]
 QED
 
+Theorem insert_eq:
+  ∀(n1:num) n2 v1 v2 l. insert n1 v1 l = insert n1 v2 l ⇔ v1 = v2
+Proof
+  rpt strip_tac \\ eq_tac \\ gvs [] \\ strip_tac
+  \\ ‘lookup n1 (insert n1 v1 l) = lookup n1 (insert n1 v2 l)’ by asm_rewrite_tac []
+  \\ gvs []
+QED
+
+Theorem evaluate_arith_insert[simp]:
+  ∀a w s r v. ¬is_seen r data ⇒
+              ¬is_complex a ⇒
+              are_reads_seen a data ⇒
+              evaluate (Inst (Arith a), s) = (NONE, set_var (firstRegOfArith a) w s) ⇒
+                evaluate (Inst (Arith a), set_var r v s) =
+                (NONE, set_var (firstRegOfArith a) w (set_var r v s))
+Proof
+  rpt strip_tac
+  \\ Cases_on ‘a’ \\ gvs [is_complex_def, are_reads_seen_def]
+  >- (Cases_on ‘r'’ \\ gvs [are_reads_seen_def]
+      \\ gvs [evaluate_def, inst_def, assign_def, word_exp_def, the_words_def]
+      >- (Cases_on ‘n0=r’ \\ gvs [set_var_def, lookup_insert]
+          \\ Cases_on ‘n'=r’ \\ gvs [AllCaseEqs(), firstRegOfArith_def]
+          \\ gvs [state_component_equality]
+          \\ gvs [insert_eq])
+      \\ Cases_on ‘n0=r’ \\ gvs [set_var_def, lookup_insert]
+      \\ gvs [AllCaseEqs(), firstRegOfArith_def]
+      \\ gvs [state_component_equality]
+      \\ gvs [insert_eq])
+  >- (gvs [evaluate_def, inst_def, assign_def, word_exp_def, the_words_def]
+      \\ Cases_on ‘lookup n0 s.locals’ \\ gvs []
+      \\ Cases_on ‘x’ \\ gvs []
+      \\ Cases_on ‘OPTION_MAP Word (word_sh s' c n1)’ \\ gvs []
+      \\ gvs [set_var_def, lookup_insert]
+      \\ Cases_on ‘n0=r’ \\ gvs []
+      \\ gvs [state_component_equality, firstRegOfArith_def]
+      \\ gvs [insert_eq])
+  \\ gvs [evaluate_def, inst_def, assign_def]
+  \\ gvs [get_vars_def, get_var_def, set_var_def, lookup_insert]
+  \\ Cases_on ‘n1=r’ \\ gvs []
+  \\ Cases_on ‘n0=r’ \\ gvs []
+  \\ Cases_on ‘lookup n1 s.locals’ \\ gvs []
+  \\ Cases_on ‘lookup n0 s.locals’ \\ gvs []
+  \\ Cases_on ‘x'’ \\ gvs []
+  \\ Cases_on ‘x’ \\ gvs []
+  \\ Cases_on ‘c' = 0w’ \\ gvs []
+  \\ gvs [state_component_equality, firstRegOfArith_def]
+  \\ gvs [insert_eq]
+QED
+
 Theorem not_seen_data_inv_alist_insert[simp]:
   ∀data s l r v.
     ¬is_seen r data ⇒
@@ -116,7 +165,19 @@ Theorem not_seen_data_inv_alist_insert[simp]:
     data_inv data (s with locals := insert r v l)
 Proof
   rpt strip_tac
-  \\ cheat
+  \\ gvs [data_inv_def]
+  \\ rpt conj_tac
+  \\ rpt gen_tac \\ strip_tac \\ first_x_assum drule \\ strip_tac
+  >- (gvs [get_var_def, lookup_insert, domain_lookup, is_seen_def]
+      \\ Cases_on ‘r'=r’ \\ Cases_on ‘v'=r’ \\ gvs [])
+  >- (Cases_on ‘v'=r’ \\ gvs [lookup_insert, domain_lookup, is_seen_def])
+  >- (Cases_on ‘v'=r’ \\ gvs [get_var_def, lookup_insert, is_seen_def, domain_lookup]
+      \\ assume_tac evaluate_arith_insert \\ gvs [is_seen_def]
+      \\ last_x_assum drule \\ strip_tac
+      \\ first_x_assum drule \\ strip_tac
+      \\ gvs [set_var_def])
+  \\ Cases_on ‘v'=r’ \\ gvs [get_var_def, lookup_insert, is_seen_def, domain_lookup]
+  \\ Cases_on ‘src=r’ \\ gvs [word_exp_def, lookup_insert]
 QED
 
 Theorem are_reads_seen_insert[simp]:
@@ -626,7 +687,43 @@ Theorem comp_OpCurrHeap_correct:
   ^(get_goal "OpCurrHeap")
 Proof
   rpt gen_tac \\ strip_tac
-  \\ gvs [evaluate_def, word_cse_def]
+  \\ gvs [word_cse_def]
+  \\ Cases_on ‘is_seen dst data’ \\ gvs []
+  \\ Cases_on ‘is_seen src data’ \\ gvs []
+  \\ gvs [add_to_data_aux_def]
+  \\ Cases_on ‘lookup data.instrs (OpCurrHeapToNumList b (canonicalRegs data src))’ \\ gvs []
+  >- (gvs [evaluate_def, word_exp_def]
+      \\ strip_tac \\ gvs []
+      \\ gvs [AllCaseEqs()]
+      \\ gvs [data_inv_def]
+      \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
+      >- (first_x_assum drule \\ strip_tac
+          \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def]
+          \\ Cases_on ‘r=dst’ \\ Cases_on ‘v=dst’ \\ gvs [])
+      >- (gvs [mlmapTheory.lookup_insert, OpCurrHeapToNumList_def, instToNumList_def]
+          \\ gvs [the_words_def, AllCaseEqs()]
+          \\ first_x_assum drule \\ strip_tac \\ gvs []
+          \\ Cases_on ‘v=dst’ \\ gvs [set_var_def, lookup_insert, domain_lookup, is_seen_def])
+      >- (gvs [mlmapTheory.lookup_insert, OpCurrHeapToNumList_def, instToNumList_def]
+          \\ first_x_assum drule \\ strip_tac \\ gvs []
+          \\ Cases_on ‘a’ \\ gvs [is_complex_def, are_reads_seen_def, is_seen_def]
+          >- (Cases_on ‘r’ \\ gvs [are_reads_seen_def, is_seen_def]
+              \\ gvs [lookup_insert]
+              \\ Cases_on ‘n0=dst’ \\ gvs []
+              \\ gvs [get_var_def, set_var_def, lookup_insert]
+              \\ Cases_on ‘v=dst’ \\ gvs [domain_lookup]
+              \\ gvs [evaluate_def, inst_def, assign_def, word_exp_def, lookup_insert]
+              \\ gvs [AllCaseEqs(), set_var_def, firstRegOfArith_def]
+              \\ gvs [state_component_equality]
+              >- (Cases_on ‘n'=dst’ \\ gvs [] \\ cheat)
+              \\ cheat
+             )
+          >- (gvs [lookup_insert, get_var_def, set_var_def, evaluate_def, firstRegOfArith_def]
+              \\ Cases_on ‘n0=dst’ \\ gvs []
+              \\ Cases_on ‘v=dst’ \\ gvs [inst_def, assign_def, word_exp_def, the_words_def]
+              \\ gvs [lookup_insert, AllCaseEqs()]
+              \\ gvs [set_var_def, state_component_equality]
+      )
   \\ Cases_on ‘word_exp s (Op b [Var src; Lookup CurrHeap])’ \\ gvs []
   \\ Cases_on ‘lookup dst data.all_names ≠ NONE’ \\ gvs [evaluate_def]
   \\ Cases_on ‘lookup data.instrs (OpCurrHeapToNumList b (canonicalRegs data src))’
