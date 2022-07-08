@@ -888,11 +888,28 @@ Proof
              assign_def, word_exp_def, set_var_def, get_var_def, get_vars_def]
      \\ first_assum drule \\ pop_assum kall_tac \\ strip_tac
      \\ gvs [set_vars_def, alist_insert_def, evaluate_def, inst_def,
-             assign_def, word_exp_def, set_var_def, get_var_def, get_vars_def])
+             assign_def, word_exp_def, set_var_def, get_var_def, get_vars_def]
+    )
 
   >- (* Mem *)
    ( Cases_on ‘a’
-   \\ gvs [evaluate_def, word_cse_def, word_cseInst_def, data_inv_def, empty_data_def, lookup_def] \\ cheat)
+     \\ gvs [word_cse_def, word_cseInst_def]
+     \\ Cases_on ‘is_store m’ \\ gvs []
+     >- (Cases_on ‘m’ \\ gvs [is_store_def, evaluate_def, inst_def, word_exp_def, the_words_def]
+         \\ gvs [AllCaseEqs()]
+         \\ gvs [mem_store_def, data_inv_def, get_var_def, set_var_def]
+         \\ reverse(rpt conj_tac)
+         \\ rpt strip_tac \\ first_x_assum drule \\ strip_tac \\ gvs [word_exp_def]
+         \\ reverse(Cases_on ‘a'’)
+         \\ gvs [is_complex_def, evaluate_def, inst_def, assign_def, get_vars_def,
+                 get_var_def, firstRegOfArith_def, set_var_def, AllCaseEqs()]
+         \\ gvs [state_component_equality, word_exp_def]
+         \\ Cases_on ‘r’ \\ gvs [word_exp_def, the_words_def])
+     \\ Cases_on ‘is_seen n data’ \\ gvs []
+     \\ Cases_on ‘m’ \\ gvs [is_store_def, evaluate_def, inst_def, word_exp_def, the_words_def]
+     \\ gvs [AllCaseEqs()]
+     \\ gvs [set_var_def]
+     )
   >- (* FP *)
    ( gvs [evaluate_def, word_cse_def, word_cseInst_def, data_inv_def, empty_data_def, lookup_def] )
 QED
