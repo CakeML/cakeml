@@ -182,10 +182,12 @@ End
 Definition canonicalMoveRegs3_def:
   canonicalMoveRegs3 data moves =
   let moves' = MAP (λ(a,b). (a, canonicalRegs data b)) moves in
-    if EXISTS (λ(a,b). is_seen a data) moves then (empty_data, moves')
+    if EXISTS (λ(a,b). is_seen a data) moves ∨
+       ¬EVERY (λ(a,b). EVEN b ∨ is_seen b data) moves
+    then (empty_data, moves')
     else
       let xs = FILTER (λ(a,b).  ¬EVEN a ∧ ¬EVEN b) moves' in
-      let a_n = list_insert (MAP FST xs) data.all_names in
+      let a_n = list_insert (FILTER ODD (MAP FST moves)) data.all_names in
       let m = map_insert xs data.map in
         (data with <| all_names := a_n; map := m |>, moves')
 End
