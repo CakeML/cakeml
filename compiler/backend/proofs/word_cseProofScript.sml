@@ -78,6 +78,12 @@ Proof
   \\ gvs [canonicalExp_def, word_exp_def]
 QED
 
+Theorem wordToNum_unique[simp]:
+  ∀c1 c2. wordToNum c1 = wordToNum c2 ⇔ c1 = c2
+Proof
+  gvs [wordToNum_def]
+QED
+
 Theorem arithOpToNum_eq[simp]:
   ∀op1 op2. arithOpToNum op1 = arithOpToNum op2 ⇔ op1 = op2
 Proof
@@ -197,6 +203,22 @@ Proof
       \\ Cases_on ‘lookup n' data.all_names’ \\ gvs []
       \\ Cases_on ‘n0=r’ \\ gvs []
       \\ Cases_on ‘n'=r’ \\ gvs [])
+  \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
+  \\ Cases_on ‘lookup n1 data.all_names’ \\ gvs []
+QED
+
+Theorem are_reads_seen_insert_bis[simp]:
+  ∀a data r n l. are_reads_seen a data ⇒
+               are_reads_seen a (data with <| instrs:=insert data.instrs l r;
+                                              all_names:=insert n () data.all_names |>)
+Proof
+  rpt gen_tac \\ strip_tac
+  \\ Cases_on ‘a’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
+  >- (Cases_on ‘r'’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
+      \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
+      \\ Cases_on ‘n0=n’ \\ gvs []
+      \\ Cases_on ‘lookup n'' data.all_names’ \\ gvs []
+      \\ Cases_on ‘n''=r’ \\ gvs [])
   \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
   \\ Cases_on ‘lookup n1 data.all_names’ \\ gvs []
 QED
@@ -374,13 +396,24 @@ QED
 Theorem lookup_map_insert:
   ∀xs r. lookup r (map_insert xs m) = case ALOOKUP xs r of NONE => lookup r m | SOME r' => SOME r'
 Proof
-  cheat
+  Induct
+  >- gvs [map_insert_def, ALOOKUP_def]
+  \\ rpt gen_tac
+  \\ Cases_on ‘h’ \\ gvs [map_insert_def, lookup_insert]
+  \\ Cases_on ‘r=q’ \\ gvs []
 QED
 
 Theorem get_set_vars_lemma:
-  ∀xs xs' x y s. ¬MEM x xs ∧ ¬MEM y xs ⇒ get_var x (set_vars xs xs' s) = get_var y (set_vars xs xs' s)
+  ∀xs xs' x y s. ¬MEM x xs ∧ ¬MEM y xs ⇒
+                 get_var x s = get_var y s ⇒
+                 get_var x (set_vars xs xs' s) = get_var y (set_vars xs xs' s)
 Proof
-  cheat
+  Induct
+  >- rw [set_vars_def, alist_insert_def]
+  \\ rpt strip_tac
+  \\ Cases_on ‘xs'’
+  >- rw [set_vars_def, alist_insert_def]
+  \\ gvs [set_vars_def, alist_insert_def, get_var_def, lookup_insert]
 QED
 
 Theorem comp_Move_correct:
@@ -481,6 +514,34 @@ Proof
      *)
 QED
 
+Theorem data_inv_unchanged_map:
+∀data s n r v. data_inv data s ⇒
+               ¬is_seen n data ⇒
+               lookup r data.map = SOME v ⇒
+               get_var r (set_var n x s) = get_var v (set_var n x s) ∧
+               (v = n ∨ v ∈ domain data.all_names) ∧
+               (r = n ∨ r ∈ domain data.all_names)
+Proof
+  rpt gen_tac \\ strip_tac \\ strip_tac \\ strip_tac
+  \\ gvs [data_inv_def]
+  \\ last_x_assum drule \\ strip_tac
+  \\ Cases_on ‘r=n’ \\ Cases_on ‘v=n’
+  \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def]
+QED
+
+Theorem data_inv_unchanged_const:
+∀data s n1 n2 n c v. data_inv data s ⇒
+                     ¬is_seen n2 data ⇒
+                     lookup data.instrs (instToNumList (Const n c)) = SOME n1 ⇒
+                     lookup n1 (set_var n2 v s).locals = SOME (Word c) ∧
+                     (n1 = n2 ∨ n1 ∈ domain data.all_names)
+Proof
+  rpt gen_tac \\ strip_tac \\ strip_tac \\ strip_tac
+  \\ gvs [data_inv_def]
+  \\ last_x_assum drule \\ strip_tac
+  \\ Cases_on ‘n1=n2’ \\ gvs [set_var_def, lookup_insert, domain_lookup, is_seen_def]
+QED
+
 Theorem comp_Inst_correct:
   ^(get_goal "Inst")
 Proof
@@ -495,7 +556,56 @@ Proof
      \\ first_x_assum (drule_at Any) \\ gvs [] )
 
   >- (* Const *)
-   ( gvs [evaluate_def, word_cse_def, word_cseInst_def]
+   ( gvs [word_cse_def, word_cseInst_def, evaluate_def, inst_def, assign_def]
+     \\ Cases_on ‘word_exp s (Const c)’ \\ gvs []
+     \\ Cases_on ‘is_seen n data’ \\ gvs [evaluate_def, inst_def, assign_def]
+     \\ gvs [add_to_data_def, add_to_data_aux_def]
+     \\ Cases_on ‘lookup data.instrs (instToNumList (Const n c))’
+     \\ gvs [evaluate_def, inst_def, assign_def]
+     >- (gvs [data_inv_def]
+         \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
+         >- (first_x_assum drule \\ strip_tac
+             \\ Cases_on ‘r=n’ \\ Cases_on ‘v=n’
+             \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
+         >- (Cases_on ‘c=c'’ \\ gvs [mlmapTheory.lookup_insert, instToNumList_def]
+             >- gvs [set_var_def, lookup_insert, word_exp_def]
+             \\ gvs [] \\ first_x_assum drule \\ strip_tac
+             \\ Cases_on ‘v=n’ \\ gvs [set_var_def, lookup_insert, domain_lookup, is_seen_def])
+         >- (gvs [instToNumList_def, mlmapTheory.lookup_insert]
+             \\ first_x_assum drule \\ strip_tac \\ gvs []
+             \\ qexists_tac ‘w’ \\ gvs []
+             \\ drule_all evaluate_arith_insert \\ strip_tac
+             \\ Cases_on ‘v=n’
+             \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
+         \\ gvs [instToNumList_def, OpCurrHeapToNumList_def, mlmapTheory.lookup_insert]
+         \\ first_x_assum drule \\ strip_tac
+         \\ Cases_on ‘src=n’ \\ gvs [is_seen_def, lookup_insert]
+         \\ Cases_on ‘v=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup]
+         \\ gvs [word_exp_def, the_words_def, lookup_insert])
+     \\ gvs [data_inv_def]
+     \\ first_assum drule \\ pop_assum kall_tac \\ strip_tac
+     \\ gvs [get_vars_def, get_var_def, set_vars_def, alist_insert_def, set_var_def, word_exp_def]
+     \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
+     >- (Cases_on ‘r=n’ \\ Cases_on ‘v=n’ \\ gvs [lookup_insert, domain_lookup, is_seen_def]
+         \\ first_x_assum drule \\ strip_tac \\ gvs [is_seen_def])
+     >- (first_x_assum drule \\ strip_tac \\ Cases_on ‘v=n’ \\ gvs [lookup_insert, domain_lookup, is_seen_def])
+     >- (first_x_assum drule \\ strip_tac \\ gvs []
+         \\ ‘evaluate (Inst (Arith a),s) = (NONE, set_var (firstRegOfArith a) w s)’ by gvs [set_var_def]
+         \\ drule_all evaluate_arith_insert \\ strip_tac \\ gvs [set_var_def]
+         \\ Cases_on ‘v=n’ \\ gvs [lookup_insert, domain_lookup, is_seen_def]
+         \\ Cases_on ‘a’ \\ gvs [is_complex_def]
+         >- (Cases_on ‘r’ \\ gvs [are_reads_seen_def, is_seen_def]
+             \\ Cases_on ‘n0=n’ \\ gvs [lookup_insert]
+             \\ Cases_on ‘n''=n’ \\ gvs [])
+         \\ gvs [are_reads_seen_def, is_seen_def]
+         \\ Cases_on ‘n0=n’ \\ gvs [lookup_insert]
+         \\ Cases_on ‘n1=n’ \\ gvs [])
+     \\ first_x_assum drule \\ strip_tac \\ gvs []
+     \\ Cases_on ‘v=n’ \\ Cases_on ‘src=n’ \\ gvs [lookup_insert, domain_lookup, is_seen_def]
+   )
+
+
+
      \\ pairarg_tac \\ gvs []
      \\ Cases_on ‘is_seen n data’ \\ gvs [evaluate_def, add_to_data_def, add_to_data_aux_def]
      \\ Cases_on ‘lookup data.instrs (instToNumList (Const n c))’ \\ gvs[evaluate_def]
@@ -644,20 +754,12 @@ QED
 Theorem comp_Get_correct:
   ^(get_goal "Get")
 Proof
-  gvs[word_cse_def, data_inv_def, evaluate_def]
-  \\ rpt gen_tac \\ strip_tac
-  \\ Cases_on ‘is_seen v data’ \\ gvs [evaluate_def]
-  >- gvs [empty_data_def, lookup_def, lookup_empty, sptreeTheory.lookup_def]
+  rpt gen_tac \\ strip_tac
+  \\ gvs [word_cse_def]
+  \\ Cases_on ‘is_seen v data’ \\ gvs []
   \\ strip_tac
-  \\ Cases_on ‘FLOOKUP s.store name’ \\ gvs[]
-  \\ fs [get_var_def, set_var_def]
-  \\ fs [lookup_insert, is_seen_def]
-  \\ Cases_on ‘lookup v data.all_names’ \\ gvs [domain_lookup]
-  \\ strip_tac
-  >- metis_tac [NOT_NONE_SOME]
-  \\ strip_tac
-  >- metis_tac [NOT_NONE_SOME]
-  \\ cheat
+  \\ gvs [evaluate_def, AllCaseEqs()]
+  \\ gvs [set_var_def]
 QED
 (* similare cases : Loc *)
 
@@ -918,16 +1020,12 @@ QED
 Theorem comp_LocValue_correct:
   ^(get_goal "wordLang$LocValue")
 Proof
-  gvs[word_cse_def, data_inv_def, evaluate_def]
-  \\ rpt gen_tac \\ strip_tac
-  \\ Cases_on ‘is_seen r data’ \\ gvs [evaluate_def]
-  >- gvs [empty_data_def, lookup_def]
+  rpt gen_tac \\ strip_tac
+  \\ gvs [word_cse_def]
+  \\ Cases_on ‘is_seen v data’ \\ gvs []
   \\ strip_tac
-  \\ Cases_on ‘l1 ∈ domain s.code’ \\ gvs[]
-  \\ fs [get_var_def, set_var_def]
-  \\ fs [lookup_insert, is_seen_def]
-  \\ Cases_on ‘lookup r data.all_names’ \\ gvs [domain_lookup]
-  \\ metis_tac [NOT_NONE_SOME]
+  \\ gvs [evaluate_def, AllCaseEqs()]
+  \\ gvs [set_var_def]
 QED
 
 (* DATA EMPTY *)
