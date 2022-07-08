@@ -1,42 +1,24 @@
 (*
   Formalization of the subgraph isomorphism problem
 *)
-open preamble pb_preconstraintTheory;
+open preamble graph_basicTheory pb_preconstraintFreeTheory;
 
 val _ = new_theory "subgraph_iso";
-
-(* Graph: num (number of vertices)
-          (num,num) list (edges) *)
-
-Type graph = ``:num # (num#num) list``;
-
-(* Maybe need more constraints *)
-Definition good_graph_def:
-  good_graph ((v,e):graph) ⇔
-  (∀a b. MEM (a,b) e ⇒ a < v ∧ b < v ∧ MEM (b,a) e)
-End
 
 Definition has_subgraph_iso_def:
   has_subgraph_iso ((vp,ep):graph) ((vt,et):graph) ⇔
   ∃f.
     INJ f (count vp) (count vt) ∧
-    (∀a b. MEM (a,b) ep ⇒ MEM (f a, f b) et)
+    (∀a b. is_edge ep a b ⇒ is_edge et (f a) (f b))
 End
 
-Definition index_def:
-  index (vt:num) xp xt =
-  xp*vt + xt
-End
-
-Definition neighbours_def:
-  neighbours v e =
-  MAP FST (FILTER (λ(x,y). y=v) e)
-End
+(* tuple (p,t) represents variable x_{p,t} *)
+Type map_var = ``:num # num``
 
 (* a in vp *)
 Definition has_mapping_def:
-  has_mapping a vt =
-  Equal (GENLIST (λv. (1, Pos (index vt a v))) vt) 1
+  has_mapping (a:num) vt =
+  Equal (GENLIST (λv. (1, Pos (a,v))) vt) 1
 End
 
 Definition all_has_mapping_def:
@@ -45,23 +27,25 @@ Definition all_has_mapping_def:
 End
 
 Definition one_one_def:
-  one_one u vp vt =
-  GreaterEqual (GENLIST (λb. (1, Neg (index vt b u))) vp) (&vp-1)
+  one_one u vp =
+  GreaterEqual (GENLIST (λb. (1, Neg (b,u))) vp) (&vp-1)
 End
 
 Definition all_one_one_def:
   all_one_one vp vt =
-  GENLIST (λu. one_one u vp vt) vt
+  GENLIST (λu. one_one u vp) vt
 End
 
 Definition edge_map_def:
-  edge_map (a,b) u vt et =
-  GreaterEqual ( (1,Neg(index vt a u)) :: MAP (λv. (1,Pos(index vt b v))) (neighbours u et) ) 1
+  edge_map (a:num,b:num) (u:num) et =
+  GreaterEqual ( (1,Neg (a,u)) :: MAP (λv. (1,Pos (b,v))) (neighbours et u) ) 1
 End
 
 Definition all_edge_map_def:
   all_edge_map (vp,ep) (vt,et) =
-  FLAT (GENLIST (λu. MAP (λ(a,b). edge_map (a,b) u vt et) ep) vt)
+  FLAT (GENLIST (λu.
+    FLAT (GENLIST (λa.
+      MAP (λb. edge_map (a,b) u et) (neighbours ep a)) vp)) vt)
 End
 
 Definition encode_def:
@@ -69,30 +53,15 @@ Definition encode_def:
   all_has_mapping vp vt ++ all_one_one vp vt ++ all_edge_map (vp,ep) (vt,et)
 End
 
-(* move to pb_preconstraint *)
-Definition satisfiable_def:
-  satisfiable pbf ⇔
-  ∃w. satisfies w pbf
-End
-
-Definition unindex_def:
-  unindex n vt =
-  (n DIV vt, n MOD vt)
-End
-
-Theorem unindex_index:
-  v < vt ⇒
-  unindex (index vt a v) vt = (a,v)
+Theorem iSUM_zero:
+  (∀x. MEM x ls ⇒ x ≥ 0) ⇒
+  iSUM ls ≥ 0
 Proof
-  rw[index_def,unindex_def]>>
-  REWRITE_TAC[Once ADD_COMM]>>
-  metis_tac [DIV_MULT]
-QED
-
-Theorem GENLIST_if:
-  GENLIST f k = GENLIST (λn. if n < k then f n else ARB) k
-Proof
-  simp[LIST_EQ]
+  Induct_on`ls`>> rw[iSUM_def]>>
+  fs[]>>
+  first_x_assum(qspec_then`h` assume_tac)>>
+  fs[]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem b2i_eq_1[simp]:
@@ -111,38 +80,6 @@ Theorem b2i_geq_zero[simp]:
   b2i b ≥ 0
 Proof
   Cases_on`b`>>simp[]
-QED
-
-Theorem iSUM_zero:
-  (∀x. MEM x ls ⇒ x ≥ 0) ⇒
-  iSUM ls ≥ 0
-Proof
-  Induct_on`ls`>> rw[iSUM_def]>>
-  fs[]>>
-  first_x_assum(qspec_then`h` assume_tac)>>
-  fs[]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem iSUM_geq:
-  ∀ls.
-  (∀x. MEM x ls ⇒ x ≥ 0) ∧
-  (∃x. MEM x ls ∧ x ≥ n)
-  ⇒
-  iSUM ls ≥ n
-Proof
-  Induct>>rw[iSUM_def]
-  >- (
-    `iSUM ls ≥ 0` by
-      (irule iSUM_zero>>
-      metis_tac[])>>
-    intLib.ARITH_TAC)>>
-  gs[]>>
-  last_x_assum mp_tac>>
-  impl_tac >- metis_tac[]>>
-  first_x_assum(qspec_then`h` assume_tac)>>
-  fs[]>>
-  intLib.ARITH_TAC
 QED
 
 Theorem b2i_iSUM_eq_0:
@@ -168,19 +105,6 @@ Proof
   >-
     (Cases_on`j`>>fs[])>>
   first_x_assum (qspec_then`SUC j` mp_tac)>>fs[]
-QED
-
-Theorem iSUM_geq_1:
-  iSUM ls ≥ 1 /\
-  (∀x. MEM x ls ⇒ ∃y. x = b2i y) ⇒
-    ∃i. i < LENGTH ls ∧ EL i ls  = 1
-Proof
-  Induct_on`ls`>>rw[iSUM_def]>>fs[]>>
-  first_assum(qspec_then`h` assume_tac)>>fs[]>>
-  Cases_on`y`>>fs[]>>
-  simp[]
-  >- (qexists_tac`0`>>rw[])>>
-  qexists_tac`SUC i`>>rw[]
 QED
 
 Theorem iSUM_eq_1:
@@ -279,6 +203,40 @@ Proof
   first_x_assum(qspec_then`SUC j` assume_tac)>>gs[]
 QED
 
+Theorem iSUM_geq:
+  ∀ls.
+  (∀x. MEM x ls ⇒ x ≥ 0) ∧
+  (∃x. MEM x ls ∧ x ≥ n)
+  ⇒
+  iSUM ls ≥ n
+Proof
+  Induct>>rw[iSUM_def]
+  >- (
+    `iSUM ls ≥ 0` by
+      (irule iSUM_zero>>
+      metis_tac[])>>
+    intLib.ARITH_TAC)>>
+  gs[]>>
+  last_x_assum mp_tac>>
+  impl_tac >- metis_tac[]>>
+  first_x_assum(qspec_then`h` assume_tac)>>
+  fs[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_geq_1:
+  iSUM ls ≥ 1 /\
+  (∀x. MEM x ls ⇒ ∃y. x = b2i y) ⇒
+    ∃i. i < LENGTH ls ∧ EL i ls  = 1
+Proof
+  Induct_on`ls`>>rw[iSUM_def]>>fs[]>>
+  first_assum(qspec_then`h` assume_tac)>>fs[]>>
+  Cases_on`y`>>fs[]>>
+  simp[]
+  >- (qexists_tac`0`>>rw[])>>
+  qexists_tac`SUC i`>>rw[]
+QED
+
 Theorem encode_correct:
   good_graph (vp,ep) ∧
   good_graph (vt,et) ∧
@@ -289,16 +247,13 @@ Proof
   >- (
     fs[has_subgraph_iso_def]>>
     simp[satisfiable_def]>>
-    qexists_tac` λn. let (a,u) = unindex n vt in f a = u` >>
+    qexists_tac` λ(a,u). f a = u` >>
     rw[encode_def]
     >- (
       rename1`all_has_mapping`>>
       simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,has_mapping_def]>>
       rw[]>>
       simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
-      simp[Once GENLIST_if,unindex_index]>>
-      simp[GSYM GENLIST_if]>>
-      res_tac>>
       DEP_REWRITE_TAC[iSUM_eq_1]>>
       CONJ_TAC>-
         (simp[MEM_GENLIST]>>metis_tac[])>>
@@ -309,8 +264,6 @@ Proof
       simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def]>>
       rw[]>>
       simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
-      simp[Once GENLIST_if,unindex_index]>>
-      simp[GSYM GENLIST_if]>>
       fs[INJ_DEF]>>
       qmatch_goalsub_abbrev_tac`iSUM ls`>>
       `vp = LENGTH ls` by
@@ -328,44 +281,41 @@ Proof
       simp[])
     >- (
       rename1`all_edge_map`>>
-      (* all_edge_map *)
       simp[all_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT,edge_map_def]>>
       rw[]>>
-      gvs[MEM_MAP]>>
-      simp[neighbours_def,MAP_MAP_o,o_DEF]>>
-      Cases_on`y`>>
+      gvs[MEM_FLAT,MEM_GENLIST,MEM_MAP]>>
+      fs[MEM_neighbours]>>
       simp[satisfies_pbc_def,MAP_MAP_o,o_DEF]>>
-      simp[unindex_index]>>
-      reverse (Cases_on`f q = u`>>rw[]>>simp[iSUM_def])
+      `b < vp` by
+        (fs[good_graph_def,is_edge_def]>>
+        metis_tac[MEM_neighbours])>>
+      reverse (Cases_on`f a = u`>>rw[]>>simp[iSUM_def])
       >- (
         simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
         match_mp_tac iSUM_zero>>
-        simp[MEM_MAP]>>
+        simp[MEM_MAP,MEM_neighbours]>>
         rw[]>>
         simp[])>>
-      res_tac>>
-      fs[good_graph_def]>>
-      simp[LAMBDA_PROD]>>
+      simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
       match_mp_tac iSUM_geq>>rw[]
       >-
         (fs[MEM_MAP]>>pairarg_tac>>simp[])>>
       simp[MEM_MAP,MEM_FILTER,LAMBDA_PROD,PULL_EXISTS,EXISTS_PROD]>>
-      qexists_tac`f r`>>simp[]>>
-      DEP_REWRITE_TAC[unindex_index]>>simp[]>>
-      metis_tac[]))>>
+      qexists_tac`f b`>>simp[]>>
+      simp[MEM_neighbours]))>>
   fs[satisfiable_def,has_subgraph_iso_def]>>
-  qexists_tac`λn. @m. m < vt ∧ w (index vt n m)`>>
+  qexists_tac`λn. @m. m < vt ∧ w (n,m)`>>
   fs[satisfies_def,encode_def,SF DNF_ss]>>
   `∀n. n < vp ⇒
-    ∃m. m < vt ∧ w (index vt n m) ∧
-    ∀m'. m' < vt ∧ w (index vt n m') ⇔ m = m'` by (
+    ∃m. m < vt ∧ w (n,m) ∧
+    ∀m'. m' < vt ∧ w (n,m') ⇔ m = m'` by (
     fs[all_has_mapping_def,MEM_GENLIST,has_mapping_def,PULL_EXISTS]>>
     rw[]>>
     first_x_assum drule>>
     simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
     DEP_REWRITE_TAC[iSUM_eq_1]>>
-    CONJ_TAC>-
-      (simp[MEM_GENLIST]>>metis_tac[])>>
+    CONJ_TAC>- (
+      simp[MEM_GENLIST]>>metis_tac[])>>
     rw[]>>gs[EL_GENLIST]>>
     asm_exists_tac>>fs[]>>
     CCONTR_TAC>>gs[]>>
@@ -398,31 +348,78 @@ Proof
     disch_then(qspec_then`n` mp_tac)>>
     simp[])>>
   fs[good_graph_def]>>
-  res_tac>>
-  res_tac>>
+  `a < vp ∧ b < vp` by
+    (fs[is_edge_def]>>
+    metis_tac[])>>
+  first_assum(qspec_then`a` mp_tac)>>
+  first_x_assum(qspec_then`b` drule)>>
+  simp[]>>
+  rw[]>>
   gvs[]>>
   fs[all_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT,edge_map_def,PULL_EXISTS,MEM_MAP,FORALL_PROD]>>
-  qpat_x_assum`MEM _ _ ` assume_tac>>
+  `is_edge ep b a` by
+    fs[is_edge_def]>>
   first_x_assum (drule_at (Pos (el 2)))>>
   disch_then (qspec_then`m` mp_tac)>>
-  simp[neighbours_def,satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD]>>
+  simp[satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,MEM_neighbours]>>
+  disch_then drule>>
   strip_tac>>
+  gs[]>>
   drule iSUM_geq_1>>
   simp[MEM_MAP,PULL_EXISTS,MEM_FILTER,FORALL_PROD]>>
   impl_tac >- metis_tac[]>>
   strip_tac>>
   gs[EL_MAP]>>
-  qmatch_asmsub_abbrev_tac`_ ee = 1`>>
-  `MEM ee et` by
-    (unabbrev_all_tac>>
-    metis_tac[EL_MEM,MEM_FILTER])>>
-  pairarg_tac>>fs[]>>
-  `p2 = m` by (
+  qmatch_asmsub_abbrev_tac`(a,ee)`>>
+  `m' = ee` by (
     unabbrev_all_tac>>
-    imp_res_tac EL_MEM>>
-    gs[MEM_FILTER])>>
-  fs[]>>
-  metis_tac[]
+    metis_tac[MEM_EL,MEM_neighbours,is_edge_def])>>
+  rw[]>>
+  `MEM ee (neighbours et m)` by
+    metis_tac[EL_MEM,Abbr`ee`]>>
+  fs[MEM_neighbours]>>
+  metis_tac[is_edge_def]
+QED
+
+(* An injection *)
+Definition index_def:
+  index (vp:num) (xp,xt) = xt*vp + xp
+End
+
+Definition full_encode_def:
+  full_encode (vp,ep) (vt,et) =
+  MAP (map_pbc (index vp)) (encode (vp,ep) (vt,et))
+End
+
+Theorem index_inj:
+  a < vp ∧ a' < vp ∧
+  index vp (a,v) = index vp (a',v') ⇒
+  a = a' ∧ v = v'
+Proof
+  strip_tac>>
+  CONJ_ASM1_TAC>> fs [index_def] >>
+  pop_assum (mp_tac o Q.AP_TERM `λn. n MOD vp`)>>simp[]
+QED
+
+Theorem full_encode_correct:
+  good_graph (vp,ep) ∧
+  good_graph (vt,et) ∧
+  full_encode (vp,ep) (vt,et) = constraints ⇒
+  (has_subgraph_iso (vp,ep) (vt,et) ⇔ satisfiable (set constraints))
+Proof
+  rw[full_encode_def]>>
+  simp[LIST_TO_SET_MAP]>>
+  DEP_REWRITE_TAC[satisfiable_INJ_iff]>>
+  rw[]
+  >- (
+    simp[pbf_vars_def,encode_def]>>
+    simp[INJ_DEF,PULL_EXISTS]>>
+    EVAL_TAC>>
+    rw[]>>
+    gvs[MEM_FLAT,MEM_GENLIST,pbc_vars_def,MEM_MAP,lit_var_def]>>
+    every_case_tac>>fs[good_graph_def,is_edge_def]>>
+    metis_tac[index_inj])>>
+  metis_tac[encode_correct]
 QED
 
 val _ = export_theory();

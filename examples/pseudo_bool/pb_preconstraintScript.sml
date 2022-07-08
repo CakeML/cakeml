@@ -12,7 +12,7 @@ val _ = numLib.prefer_num();
 Type var = “:num”
 
 Datatype:
-  lit = Pos var | Neg num
+  lit = Pos var | Neg var
 End
 
 (*
