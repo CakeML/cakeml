@@ -13,7 +13,6 @@ Datatype:
   | Mapped num num (* x_{f,g} *)
 End
 
-
 (*
   Given graphs G_p := (vp,ep) , G_t := (vt,et)
   f is an injective partial map from v_p to v_t
@@ -502,7 +501,7 @@ Proof
       fs[MEM_neighbours]>>
       simp[satisfies_pbc_def,MAP_MAP_o,o_DEF]>>
       `b < vp` by
-        (fs[good_graph_def,is_edge_def]>>
+        (fs[good_graph_def,is_edge_thm]>>
         metis_tac[])>>
       simp[]>>
       reverse (Cases_on`b ∈ vs`)>>fs[]
@@ -630,7 +629,7 @@ Proof
     gvs[]>>
     fs[all_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT,edge_map_def,PULL_EXISTS,MEM_MAP,FORALL_PROD]>>
     `is_edge ep b a` by
-      fs[is_edge_def]>>
+      fs[is_edge_thm]>>
     first_x_assum (drule_at (Pos (el 2)))>>
     disch_then (qspec_then`m` mp_tac)>>
     simp[satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,MEM_neighbours]>>
@@ -645,12 +644,12 @@ Proof
     qmatch_asmsub_abbrev_tac`Mapped _ ee`>>
     `m' = ee` by (
       unabbrev_all_tac>>
-      metis_tac[MEM_EL,MEM_neighbours,is_edge_def])>>
+      metis_tac[MEM_EL,MEM_neighbours,is_edge_thm])>>
     rw[]>>
     `MEM ee (neighbours et m)` by
       metis_tac[EL_MEM,Abbr`ee`]>>
     fs[MEM_neighbours]>>
-    metis_tac[is_edge_def])
+    metis_tac[is_edge_thm])
   >- (
     fs[Abbr`dom`,good_graph_def]>>
     first_assum(qspec_then`a` mp_tac)>>
@@ -1233,7 +1232,7 @@ Proof
       fs[MEM_neighbours]>>
       simp[satisfies_pbc_def,MAP_MAP_o,o_DEF]>>
       `b < vp` by
-        (fs[good_graph_def,is_edge_def]>>
+        (fs[good_graph_def,is_edge_thm]>>
         metis_tac[])>>
       simp[]>>
       reverse (Cases_on`b ∈ vs`)>>fs[]
@@ -1399,7 +1398,7 @@ Proof
     gvs[]>>
     fs[all_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT,edge_map_def,PULL_EXISTS,MEM_MAP,FORALL_PROD]>>
     `is_edge ep b a` by
-      fs[is_edge_def]>>
+      fs[is_edge_thm]>>
     first_x_assum (drule_at (Pos (el 2)))>>
     disch_then (qspec_then`m` mp_tac)>>
     simp[satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,MEM_neighbours]>>
@@ -1414,12 +1413,12 @@ Proof
     qmatch_asmsub_abbrev_tac`Mapped _ ee`>>
     `m' = ee` by (
       unabbrev_all_tac>>
-      metis_tac[MEM_EL,MEM_neighbours,is_edge_def])>>
+      metis_tac[MEM_EL,MEM_neighbours,is_edge_thm])>>
     rw[]>>
     `MEM ee (neighbours et m)` by
       metis_tac[EL_MEM,Abbr`ee`]>>
     fs[MEM_neighbours]>>
-    metis_tac[is_edge_def])
+    metis_tac[is_edge_thm])
   >- (
     fs[Abbr`dom`,good_graph_def]>>
     first_assum(qspec_then`a` mp_tac)>>
@@ -1446,5 +1445,23 @@ Proof
       metis_tac[EL_MEM,Abbr`ee`]>>
     fs[MEM_not_neighbours])
 QED
+
+val pattern = ``(5, fromAList [(0,[1;3;4]); (1,[0;3;4]);  (2,[3]); (3,[0;1;2]); (4,[0;1])]):graph``
+val target = ``(5, fromAList [(0,[1;3;4]); (1,[0;3;4]);  (2,[3]); (3,[0;1;2]); (4,[0;1])]):graph``
+
+val pattern = ``(1, fromAList []):graph``
+
+Definition enc_string_def:
+  (enc_string (Walk f g k) =
+    concat [strlit"walk_";toString f;strlit"_";toString g;strlit"_";toString k]) ∧
+  (enc_string (Aux f h g k) =
+    concat [strlit"aux_";toString f;strlit"_";toString h;strlit"_";toString g;strlit"_";toString k]) ∧
+  (enc_string (Unmapped f) =
+    concat [strlit"unmapped_";toString f]) ∧
+  (enc_string (Mapped f g) =
+    concat [strlit"mapped_";toString f;strlit"_";toString g])
+End
+
+val _ = EVAL``MAP (pbc_string enc_string) (encode_full ^pattern ^pattern 1)``
 
 val _ = export_theory();

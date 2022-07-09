@@ -2,7 +2,7 @@
   Formalisation of (un-normalised) pseudo-boolean constraints with 'a type
 *)
 
-open preamble;
+open preamble mlintTheory;
 
 val _ = new_theory "pb_preconstraintFree";
 
@@ -241,5 +241,20 @@ Theorem satisfiable_INJ_iff:
 Proof
   metis_tac[satisfiable_INJ,satisfiable_map_pbf]
 QED
+
+Definition lit_string_def:
+  (lit_string f (Pos v) = f v) ∧
+  (lit_string f (Neg v) = strlit "~" ^ f v)
+End
+
+Definition lhs_string_def:
+  lhs_string f xs =
+  concat (MAP(λ(c,l). concat [int_to_string #"-" c; strlit " " ; lit_string f l]) xs)
+End
+
+Definition pbc_string_def:
+  (pbc_string f (Equal xs i) = concat [lhs_string f xs; strlit " = "; int_to_string #"-" i]) ∧
+  (pbc_string f (GreaterEqual xs i) = concat [lhs_string f xs; strlit " >= "; int_to_string #"-" i])
+End
 
 val _ = export_theory();

@@ -287,7 +287,7 @@ Proof
       fs[MEM_neighbours]>>
       simp[satisfies_pbc_def,MAP_MAP_o,o_DEF]>>
       `b < vp` by
-        (fs[good_graph_def,is_edge_def]>>
+        (fs[good_graph_def,is_edge_thm]>>
         metis_tac[MEM_neighbours])>>
       reverse (Cases_on`f a = u`>>rw[]>>simp[iSUM_def])
       >- (
@@ -349,7 +349,7 @@ Proof
     simp[])>>
   fs[good_graph_def]>>
   `a < vp ∧ b < vp` by
-    (fs[is_edge_def]>>
+    (fs[is_edge_thm]>>
     metis_tac[])>>
   first_assum(qspec_then`a` mp_tac)>>
   first_x_assum(qspec_then`b` drule)>>
@@ -358,7 +358,7 @@ Proof
   gvs[]>>
   fs[all_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT,edge_map_def,PULL_EXISTS,MEM_MAP,FORALL_PROD]>>
   `is_edge ep b a` by
-    fs[is_edge_def]>>
+    fs[is_edge_thm]>>
   first_x_assum (drule_at (Pos (el 2)))>>
   disch_then (qspec_then`m` mp_tac)>>
   simp[satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,MEM_neighbours]>>
@@ -373,12 +373,12 @@ Proof
   qmatch_asmsub_abbrev_tac`(a,ee)`>>
   `m' = ee` by (
     unabbrev_all_tac>>
-    metis_tac[MEM_EL,MEM_neighbours,is_edge_def])>>
+    metis_tac[MEM_EL,MEM_neighbours,is_edge_thm])>>
   rw[]>>
   `MEM ee (neighbours et m)` by
     metis_tac[EL_MEM,Abbr`ee`]>>
   fs[MEM_neighbours]>>
-  metis_tac[is_edge_def]
+  metis_tac[is_edge_thm]
 QED
 
 (* An injection *)
@@ -417,7 +417,7 @@ Proof
     EVAL_TAC>>
     rw[]>>
     gvs[MEM_FLAT,MEM_GENLIST,pbc_vars_def,MEM_MAP,lit_var_def]>>
-    every_case_tac>>fs[good_graph_def,is_edge_def]>>
+    every_case_tac>>fs[good_graph_def,is_edge_thm]>>
     metis_tac[index_inj])>>
   metis_tac[encode_correct]
 QED
