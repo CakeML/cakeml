@@ -1047,11 +1047,6 @@ Proof
   metis_tac[QSORT_PERM,PERM_SYM]
 QED
 
-Definition negate_def[simp]:
-  negate (Pos n) = Neg n ∧
-  negate (Neg n) = Pos n
-End
-
 Theorem eval_lit_eq_flip:
   q * eval_lit w r = q + (-q * eval_lit w (negate r))
 Proof

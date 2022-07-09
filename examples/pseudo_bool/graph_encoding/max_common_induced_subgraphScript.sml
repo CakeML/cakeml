@@ -1,30 +1,18 @@
 (*
   Formalization of the maximum common induced subgraph problem
 *)
-open preamble pb_preconstraintTheory;
+open preamble graph_basicTheory pb_preconstraintFreeTheory;
 
 val _ = new_theory "max_common_induced_subgraph";
 
-(* Graph: (V : num , E : (num list) num_map)
-  V number of vertices
-  E edge list representation *)
-
-Type graph = ``:num # (num list) num_map``;
-
-(* Edge from a -> b in edge list representation e *)
-Definition is_edge_def:
-  is_edge e a b ⇔
-  ∃ns.
-  lookup a e = SOME ns ∧ MEM b ns
+Datatype:
+  enc =
+    Walk num num num (* Walk f g k indicates a walk of length 2^k from f to g *)
+  | Aux num num num num (* Aux f g h k are auxiliaries used to encode Walk *)
+  | Unmapped num (* x_{f,bot} *)
+  | Mapped num num (* x_{f,g} *)
 End
 
-(* Well-formed, undirected *)
-Definition good_graph_def:
-  good_graph ((v,e):graph) ⇔
-  ∀a ns.
-    lookup a e = SOME ns ⇒ a < v ∧
-    ∀b. is_edge e a b ⇒ is_edge e b a
-End
 
 (*
   Given graphs G_p := (vp,ep) , G_t := (vt,et)
@@ -41,115 +29,77 @@ Definition injective_partial_map_def:
   (∀a b. a ∈ vs ∧ b ∈ vs ∧ ¬(is_edge ep a b) ⇒ ¬ is_edge et (f a) (f b))
 End
 
-Definition is_path_def:
-  (is_path ep [] ⇔ T) ∧
-  (is_path ep [p] ⇔ T) ∧
-  (is_path ep (x::y::ps) ⇔
-    is_edge ep x y ∧ is_path ep (y::ps))
+Definition is_walk_def:
+  (is_walk ep a b [] ⇔ is_edge ep a b) ∧
+  (is_walk ep a b (p::ps) ⇔ (is_edge ep a p ∧ is_walk ep p b ps))
 End
 
 (* The vertex subset vs is connected *)
 Definition connected_subgraph_def:
   connected_subgraph vs ep ⇔
   ∀a b. a ∈ vs ∧ b ∈ vs ⇒
-  ∃path.
-    set path ⊆ vs ∧
-    is_path ep path
+  ∃walk.
+    set walk ⊆ vs ∧
+    is_walk ep a b walk
 End
-
-Definition index_def:
-  index (vp:num) xp xt_opt =
-  case xt_opt of
-    NONE => xp
-  | SOME xt => (xt+1)*vp + xp
-End
-
-Definition unindex_def:
-  unindex n vp =
-  if n < vp then (n, NONE)
-  else
-    (n MOD vp, SOME (n DIV vp - 1))
-End
-
-Theorem unindex_index:
-  xp < vp ⇒
-  unindex (index vp xp xt_opt) vp = (xp,xt_opt)
-Proof
-  rw[index_def,unindex_def]>>
-  every_case_tac>>fs[]>>
-  REWRITE_TAC[Once ADD_COMM, Once MULT_COMM]>>
-  DEP_REWRITE_TAC[DIV_MULT]>>
-  simp[]
-QED
 
 (* For each a in vp, either a is unassigned or a is assigned to exactly one vertex
   v in vt *)
 Definition has_mapping_def:
-  has_mapping a vp vt =
+  has_mapping a vt =
   Equal (
-    (1, Pos (index vp a NONE)) ::
-    GENLIST (λv. (1, Pos (index vp a (SOME v)))) vt) 1
+    (1, Pos (Unmapped a)) ::
+    GENLIST (λv. (1, Pos (Mapped a v))) vt) 1
 End
 
 Definition all_has_mapping_def:
   all_has_mapping vp vt =
-  GENLIST (λa. has_mapping a vp vt) vp
+  GENLIST (λa. has_mapping a vt) vp
 End
 
 Definition one_one_def:
-  one_one u vp vt =
-  GreaterEqual (GENLIST (λb. (1, Neg (index vp b (SOME u)))) vp) (&vp-1)
+  one_one u vp =
+  GreaterEqual (GENLIST (λb. (1, Neg (Mapped b u))) vp) (&vp-1)
 End
 
 Definition all_one_one_def:
   all_one_one vp vt =
-  GENLIST (λu. one_one u vp vt) vt
-End
-
-Definition neighbours_def:
-  neighbours v e =
-  case lookup v e of NONE => [] | SOME ns => ns
-End
-
-Definition not_neighbours_def:
-  not_neighbours (v:num) e vs =
-  let n = neighbours v e in
-  FILTER (λu. ¬ MEM u n) (COUNT_LIST vs)
+  GENLIST (λu. one_one u vp) vt
 End
 
 Definition edge_map_def:
-  edge_map (a,b) u vp vt et =
+  edge_map (a,b) u et =
   GreaterEqual (
-    (1,Neg(index vp a (SOME u))) ::
-    (1,Pos(index vp b NONE)) ::
-    MAP (λv. (1,Pos(index vp b (SOME v)))) (neighbours u et) ) 1
+    (1,Neg (Mapped a u)) ::
+    (1,Pos (Unmapped b)) ::
+    MAP (λv. (1,Pos (Mapped b v))) (neighbours et u) ) 1
 End
 
 Definition all_edge_map_def:
   all_edge_map (vp,ep) (vt,et) =
   FLAT (GENLIST (λu.
     FLAT (GENLIST (λa.
-      MAP (λb. edge_map (a,b) u vp vt et) (neighbours a ep)) vp)) vt)
+      MAP (λb. edge_map (a,b) u et) (neighbours ep a)) vp)) vt)
 End
 
 Definition not_edge_map_def:
-  not_edge_map (a,b) u vp vt et =
+  not_edge_map (a,b) u vt et =
   GreaterEqual (
-    (1,Neg(index vp a (SOME u))) ::
-    (1,Pos(index vp b NONE)) ::
-    MAP (λv. (1,Pos(index vp b (SOME v)))) (not_neighbours u et vt) ) 1
+    (1,Neg (Mapped a u)) ::
+    (1,Pos (Unmapped b)) ::
+    MAP (λv. (1,Pos (Mapped b v))) (not_neighbours (vt,et) u) ) 1
 End
 
 Definition all_not_edge_map_def:
   all_not_edge_map (vp,ep) (vt,et) =
   FLAT (GENLIST (λu.
     FLAT (GENLIST (λa.
-      MAP (λb. not_edge_map (a,b) u vp vt et) (not_neighbours a ep vp)) vp)) vt)
+      MAP (λb. not_edge_map (a,b) u vt et) (not_neighbours (vp,ep) a)) vp)) vt)
 End
 
 Definition k_size_def:
   k_size vp k =
-  GreaterEqual (GENLIST (λb. (1, Neg (index vp b NONE))) vp) &k
+  GreaterEqual (GENLIST (λb. (1, Neg (Unmapped b))) vp) &k
 End
 
 Definition encode_def:
@@ -161,16 +111,10 @@ Definition encode_def:
   all_not_edge_map (vp,ep) (vt,et)
 End
 
-(* move to pb_preconstraint *)
-Definition satisfiable_def:
-  satisfiable pbf ⇔
-  ∃w. satisfies w pbf
-End
-
-Theorem GENLIST_if:
-  GENLIST f k = GENLIST (λn. if n < k then f n else ARB) k
+Theorem b2i_geq_1[simp]:
+  b2i b ≥ 1 ⇔ b
 Proof
-  simp[LIST_EQ]
+  Cases_on`b`>>fs[]
 QED
 
 Theorem b2i_eq_1[simp]:
@@ -185,10 +129,24 @@ Proof
   Cases_on`b`>>fs[]
 QED
 
+Theorem neg_b2i_eq_1[simp]:
+  1 - b2i b = 1 ⇔ ¬b
+Proof
+  Cases_on`b`>>fs[]
+QED
+
 Theorem b2i_geq_zero[simp]:
   b2i b ≥ 0
 Proof
-  Cases_on`b`>>simp[]
+  Cases_on`b`>>
+  simp[]
+QED
+
+Theorem b2i_add_one_geq_one[simp]:
+  1+ b2i b ≥ 1
+Proof
+  Cases_on`b`>>
+  simp[]
 QED
 
 Theorem iSUM_zero:
@@ -372,24 +330,6 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem MEM_neighbours:
-  MEM b (neighbours a ep) ⇔
-  is_edge ep a b
-Proof
-  rw[neighbours_def,is_edge_def]>>
-  every_case_tac>>fs[]
-QED
-
-Theorem MEM_not_neighbours:
-  MEM b (not_neighbours a ep vp) ⇔
-  b < vp ∧
-  ¬is_edge ep a b
-Proof
-  rw[not_neighbours_def,MEM_FILTER,is_edge_def,neighbours_def]>>
-  every_case_tac>>fs[MEM_COUNT_LIST]>>
-  metis_tac[]
-QED
-
 Theorem iSUM_SNOC:
   ∀ls.
   iSUM (SNOC x ls) = x + iSUM ls
@@ -511,16 +451,15 @@ Proof
   >- (
     fs[injective_partial_map_def]>>
     simp[satisfiable_def]>>
-    qexists_tac`λn. let (a,u_opt) = unindex n vp in
-      case u_opt of
-        NONE => a ∉ vs
-      | SOME u => a ∈ vs ∧ f a = u` >>
+    qexists_tac`λenc.
+      case enc of
+        Unmapped a => a ∉ vs
+      | Mapped a u => a ∈ vs ∧ f a = u
+      | _ => ARB` >>
     rw[encode_def]
     >- (
       rename1`k_size`>>
       simp[k_size_def,satisfies_pbc_def,MAP_GENLIST, o_DEF]>>
-      simp[Once GENLIST_if,unindex_index]>>
-      simp[GSYM GENLIST_if]>>
       simp[neg_b2i]>>
       metis_tac[iSUM_GENLIST_geq_k_rev])
     >- (
@@ -528,8 +467,6 @@ Proof
       simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,has_mapping_def]>>
       rw[]>>
       simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
-      simp[Once GENLIST_if,unindex_index]>>
-      simp[GSYM GENLIST_if]>>
       simp[iSUM_def]>>
       Cases_on`a ∈ vs`>>simp[]
       >- ( (* a ∈ vs *)
@@ -544,8 +481,6 @@ Proof
       simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def]>>
       rw[]>>
       simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
-      simp[Once GENLIST_if,unindex_index]>>
-      simp[GSYM GENLIST_if]>>
       fs[INJ_DEF]>>
       qmatch_goalsub_abbrev_tac`iSUM ls`>>
       `vp = LENGTH ls` by
@@ -558,10 +493,7 @@ Proof
         metis_tac[])>>
       rw[]>>
       gs[EL_GENLIST]>>
-      Cases_on`j ∈ vs`>>fs[]>>
-      `(f j ≠ u)` by
-        metis_tac[]>>
-      simp[])
+      metis_tac[])
     >- (
       rename1`all_edge_map`>>
       simp[all_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT,edge_map_def]>>
@@ -572,7 +504,7 @@ Proof
       `b < vp` by
         (fs[good_graph_def,is_edge_def]>>
         metis_tac[])>>
-      simp[unindex_index]>>
+      simp[]>>
       reverse (Cases_on`b ∈ vs`)>>fs[]
       >- (
         simp[iSUM_def,iSUM_MAP_const]>>
@@ -605,7 +537,6 @@ Proof
       gvs[MEM_FLAT,MEM_GENLIST,MEM_MAP]>>
       fs[MEM_not_neighbours]>>
       simp[satisfies_pbc_def,MAP_MAP_o,o_DEF]>>
-      simp[unindex_index]>>
       reverse (Cases_on`b ∈ vs`)>>fs[]
       >- (
         simp[iSUM_def,iSUM_MAP_const]>>
@@ -624,7 +555,6 @@ Proof
         >-
           (fs[MEM_MAP]>>pairarg_tac>>simp[])>>
         simp[MEM_MAP,MEM_FILTER,LAMBDA_PROD,PULL_EXISTS,EXISTS_PROD,MEM_not_neighbours]>>
-        qexists_tac`f b`>>simp[]>>
         fs[INJ_DEF])>>
       simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
       match_mp_tac iSUM_zero>>
@@ -632,8 +562,8 @@ Proof
       rw[]>>
       simp[]))>>
   fs[satisfiable_def,injective_partial_map_def]>>
-  qexists_tac`λn. @m. m < vt ∧ w (index vp n (SOME m))`>>
-  qabbrev_tac`dom = {n | n < vp ∧ ¬ w (index vp n NONE)}`>>
+  qexists_tac`λn. @m. m < vt ∧ w (Mapped n m)`>>
+  qabbrev_tac`dom = {n | n < vp ∧ ¬ w (Unmapped n)}`>>
   qexists_tac `dom`>>
   simp[]>>
   CONJ_TAC>-
@@ -648,9 +578,9 @@ Proof
     `ls1 = ls2` by
       (unabbrev_all_tac>>simp[LIST_EQ])>>
     fs[])>>
-  `∀n. n < vp ∧ ¬w (index vp n NONE) ⇒
-   ∃m. m < vt ∧ w (index vp n (SOME m)) ∧
-   ∀m'. m' < vt ∧ w (index vp n (SOME m')) ⇔ m = m'` by (
+  `∀n. n < vp ∧ ¬w (Unmapped n) ⇒
+   ∃m. m < vt ∧ w (Mapped n m) ∧
+   ∀m'. m' < vt ∧ w (Mapped n m') ⇔ m = m'` by (
      fs[all_has_mapping_def,MEM_GENLIST,has_mapping_def,PULL_EXISTS]>>
      rw[]>>
      first_x_assum drule>>
@@ -712,12 +642,12 @@ Proof
     impl_tac >- metis_tac[]>>
     strip_tac>>
     gs[EL_MAP]>>
-    qmatch_asmsub_abbrev_tac`index _ _ (SOME ee)`>>
+    qmatch_asmsub_abbrev_tac`Mapped _ ee`>>
     `m' = ee` by (
       unabbrev_all_tac>>
       metis_tac[MEM_EL,MEM_neighbours,is_edge_def])>>
     rw[]>>
-    `MEM ee (neighbours m et)` by
+    `MEM ee (neighbours et m)` by
       metis_tac[EL_MEM,Abbr`ee`]>>
     fs[MEM_neighbours]>>
     metis_tac[is_edge_def])
@@ -738,12 +668,781 @@ Proof
     impl_tac >- metis_tac[]>>
     strip_tac>>
     gs[EL_MAP]>>
-    qmatch_asmsub_abbrev_tac`index _ _ (SOME ee)`>>
-    ` m = ee` by (
+    qmatch_asmsub_abbrev_tac`Mapped b ee`>>
+    `m = ee` by (
       unabbrev_all_tac>>
       metis_tac[MEM_EL,MEM_not_neighbours])>>
     rw[]>>
-    `MEM ee (not_neighbours m' et vt)` by
+    `MEM ee (not_neighbours (vt,et) m')` by
+      metis_tac[EL_MEM,Abbr`ee`]>>
+    fs[MEM_not_neighbours])
+QED
+
+Theorem satisfies_pbc_geq_1:
+  satisfies_pbc w (GreaterEqual xs 1) ∧
+  EVERY ($= 1) (MAP FST xs) ⇒
+  ∃x. MEM x (MAP SND xs)  ∧ eval_lit w x = 1
+Proof
+  rw[satisfies_pbc_def]>>
+  drule iSUM_geq_1>>
+  impl_tac>- (
+    fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,EXISTS_PROD]>>
+    strip_tac>>Cases>>simp[]>>
+    strip_tac>>first_x_assum drule>>simp[]
+    >- metis_tac[]>>
+    rw[]>>
+    qexists_tac`(¬ (w a))`>>
+    Cases_on`w a`>>simp[])>>
+  rw[]>>
+  rfs[EL_MAP]>>
+  qexists_tac `SND (EL i xs)`>>fs[MEM_MAP]>>
+  Cases_on`EL i xs`>>rfs[EVERY_MEM,MEM_MAP]
+  >- metis_tac[EL_MEM,SND]>>
+  fs[PULL_EXISTS]>>
+  first_x_assum(qspec_then`EL i xs` mp_tac)>>fs[]>>
+  metis_tac[MEM_EL]
+QED
+
+(* Encode variable x <-> y_1 ∧ y_2 ...., where y_i are literals *)
+Definition iff_and_def:
+  iff_and x ys =
+    GreaterEqual ((1, Pos x)::MAP (λy.(1, negate y)) ys) 1::
+    MAP (λy.
+      GreaterEqual [(1, Neg x); (1,y)] 1) ys
+End
+
+Theorem eval_lit_negate:
+  eval_lit w (negate x) = 1 - eval_lit w x
+Proof
+  Cases_on`x`>>simp[]
+QED
+
+Theorem iff_and:
+  satisfies w (set (iff_and x ys)) ⇒
+  (w x ⇔ EVERY (λy. eval_lit w y = 1) ys)
+Proof
+  rw[iff_and_def]>>
+  fs[satisfies_pbc_def,satisfies_def,MEM_MAP,PULL_EXISTS]>>
+  rw[EQ_IMP_THM]
+  >- (
+    rw[EVERY_MEM]>>first_x_assum drule>>
+    Cases_on`y`>>Cases_on`w a`>>simp[iSUM_def])>>
+  drule iSUM_geq_1>>
+  impl_tac>- (
+    rw[MEM_MAP]>- metis_tac[]>>
+    Cases_on`y'`>>simp[]
+    >- (
+      qexists_tac`(¬ (w a))`>>
+      Cases_on`w a`>>simp[])>>
+    metis_tac[])>>
+  rw[]>>Cases_on`i`>>
+  gs[MAP_MAP_o,EL_MAP]>>
+  fs[EVERY_EL,eval_lit_negate]>>
+  first_x_assum drule>>
+  rw[]>>gvs[]
+QED
+
+(* Encode variable x <-> y_1 ∨ y_2 ...., where y_i are literals *)
+Definition iff_or_def:
+  iff_or x ys =
+    GreaterEqual ((1, Neg x)::MAP (λy.(1, y)) ys) 1::
+    MAP (λy.
+      GreaterEqual [(1, Pos x); (1, negate y)] 1) ys
+End
+
+Theorem iff_or:
+  satisfies w (set (iff_or x ys)) ⇒
+  (w x ⇔ EXISTS (λy. eval_lit w y = 1) ys)
+Proof
+  rw[iff_or_def]>>
+  fs[satisfies_pbc_def,satisfies_def,MEM_MAP,PULL_EXISTS]>>
+  rw[EQ_IMP_THM]
+  >- (
+    drule iSUM_geq_1>>
+    impl_tac>- (
+      rw[] >- (qexists_tac`F`>>simp[])>>
+      gvs[MEM_MAP]>>
+      Cases_on`y'`>>simp[]
+      >- metis_tac[]>>
+      qexists_tac`¬ (w a)`>>
+      Cases_on`w a`>>simp[])>>
+    rw[]>>Cases_on`i`>>gs[]>>
+    gs[MAP_MAP_o,EL_MAP]>>
+    simp[EXISTS_MEM,MEM_EL]>>
+    metis_tac[EL_MEM])>>
+  fs[EXISTS_MEM]>>
+  first_x_assum drule>>simp[iSUM_def,eval_lit_negate]>>
+  Cases_on`w x`>>simp[]
+QED
+
+Theorem iff_or_satisfies:
+  (w x ⇔ EXISTS (λy. eval_lit w y = 1) ys) ⇒
+  satisfies w (set (iff_or x ys))
+Proof
+  rw[iff_or_def]>>
+  fs[satisfies_pbc_def,satisfies_def,MEM_MAP,PULL_EXISTS]>>rw[]
+  >- (
+    Cases_on`w x`>>gs[iSUM_def]
+    >- (
+      fs[EXISTS_MEM]>>
+      match_mp_tac iSUM_geq>>simp[MEM_MAP,PULL_EXISTS]>>
+      first_x_assum (irule_at Any)>>rw[]>>
+      Cases_on`y'`>>Cases_on`w a`>>simp[])>>
+    qmatch_goalsub_abbrev_tac`b2i A`>>
+    `~A` by simp[Abbr`A`,NOT_EXISTS]>>
+    simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
+    match_mp_tac iSUM_zero>>
+    simp[MEM_MAP]>>
+    rw[]>>
+    simp[]>>
+    Cases_on`y'`>>Cases_on`w a`>>simp[])>>
+  Cases_on`w x`>>gs[iSUM_def]
+  >-
+    (Cases_on`y`>>Cases_on`w a`>>simp[])>>
+  fs[EVERY_MEM]>>
+  first_x_assum drule>>
+  Cases_on`y`>>Cases_on`w a`>>simp[]>>
+  qmatch_goalsub_abbrev_tac`b2i A`>>Cases_on`A`>>simp[]
+QED
+
+(* encoding for the base case f-g *)
+Definition walk_base_def:
+  walk_base ep f g =
+  if is_edge ep f g then
+    (* x_{f,g}^1 <-> !x_f,bot ∧ !x_g,bot *)
+    iff_and (Walk f g 0) [Neg (Unmapped f); Neg (Unmapped g)]
+  else
+    [GreaterEqual [(1,Neg (Walk f g 0))] 1]
+End
+
+Definition walk_aux_def:
+  walk_aux f g h k =
+    (* x_{f,h,g}^k <->  ∧ x_{h,g}^{k-1} *)
+    iff_and (Aux f h g k) [Pos (Walk f h (k-1)) ; Pos (Walk h g (k-1))]
+End
+
+Definition walk_ind_def:
+  walk_ind f g k vp =
+  iff_or (Walk f g k)
+    (Pos (Walk f g (k-1)) ::
+    GENLIST (λh. Pos (Aux f h g k)) vp)
+End
+
+(* x_{f,g}^k <-> x_{f,g}^{k-1} ∨ x_{f,h,g}^k  *)
+
+(* TODO: do not repeat symmetric constraints *)
+Definition walk_k_def:
+  (walk_k (vp,ep) 0 =
+    FLAT (GENLIST (λf.
+      FLAT (GENLIST (λg. walk_base ep f g) vp)) vp)) ∧
+  (walk_k (vp,ep) k =
+    FLAT (GENLIST (λf.
+      FLAT (GENLIST (λg.
+        FLAT (GENLIST (λh.
+          walk_aux f g h k) vp) ++
+        walk_ind f g k vp) vp)) vp)  ++
+    walk_k (vp,ep) (k-1)
+  )
+End
+
+Theorem is_walk_append:
+  ∀walk a b c.
+  is_walk ep a b walk ∧
+  is_walk ep b c walk' ⇒
+  is_walk ep a c (walk++[b]++walk')
+Proof
+  Induct>>rw[is_walk_def]>>fs[]
+QED
+
+Theorem is_walk_TAKE:
+  ∀walk i a b.
+  i < LENGTH walk ∧
+  is_walk ep a b walk ⇒
+  is_walk ep a (EL i walk) (TAKE i walk)
+Proof
+  Induct>>rw[] >>
+  Cases_on`i`>>fs[is_walk_def]>>
+  first_x_assum match_mp_tac>>
+  metis_tac[]
+QED
+
+Theorem is_walk_DROP:
+  ∀walk i a b.
+  i < LENGTH walk ∧
+  is_walk ep a b walk ⇒
+  is_walk ep (EL i walk) b (DROP (i+1) walk)
+Proof
+  Induct>>rw[] >>
+  Cases_on`i`>>fs[is_walk_def]>>
+  simp[ADD1]>>first_x_assum match_mp_tac>>
+  metis_tac[]
+QED
+
+Theorem satisfies_walk_k:
+  ∀k f g.
+  satisfies w (set (walk_k (vp,ep) k)) ∧
+  f < vp ∧ g < vp ⇒
+  (w (Walk f g k) ⇔
+    ¬ (w (Unmapped f)) ∧ ¬ (w (Unmapped g)) ∧
+    ∃walk.
+      EVERY (λp. p < vp ∧ ¬ (w (Unmapped p))) walk ∧
+      is_walk ep f g walk ∧ LENGTH walk < 2**k)
+Proof
+  Induct>>rw[]>>fs[walk_k_def,satisfies_def]
+  >- (
+    fs[MEM_FLAT,MEM_GENLIST,PULL_EXISTS,is_walk_def]>>
+    pop_assum mp_tac>>
+    first_x_assum drule>>
+    rw[]>>
+    first_x_assum drule>>
+    simp[walk_base_def]>>rw[]
+    >- (
+      drule (SIMP_RULE std_ss [satisfies_def] iff_and)>>
+      simp[])>>
+    fs[satisfies_pbc_def]>>
+    CCONTR_TAC>>fs[iSUM_def])>>
+  fs[SF DNF_ss]>>
+  fs[MEM_FLAT,MEM_GENLIST,PULL_EXISTS]>>
+  pop_assum mp_tac>>
+  first_x_assum drule>>
+  rw[]>>
+  first_x_assum drule>>
+  rw[]>>
+  fs[SF DNF_ss]>>
+  fs[walk_ind_def]>>
+  drule (SIMP_RULE std_ss [satisfies_def] iff_or)>>
+  pop_assum kall_tac>>
+  rw[]>>
+  pop_assum kall_tac>>
+  simp[EXISTS_GENLIST]>>
+  rw[EQ_IMP_THM]
+  >- (
+    (* there is already a walk of length 2**k *)
+    simp[]>>
+    asm_exists_tac>>simp[]>>
+    fs[ADD1]>>
+    `2 ** k ≤ 2 ** (k+1)` by fs[]>>
+    simp[])
+  >- (
+    (* there is a walk via some h *)
+    first_x_assum drule>>
+    strip_tac>>fs[walk_aux_def]>>
+    drule (SIMP_RULE std_ss [satisfies_def] iff_and)>>
+    pop_assum kall_tac>>
+    rw[]>>simp[]>>
+    imp_res_tac is_walk_append>>
+    qexists_tac`walk++[h]++walk'`>>simp[]>>
+    simp[EXP] )>>
+  (* converse *)
+  simp[]>>
+  Cases_on`LENGTH walk < 2 ** k`
+  >-  metis_tac[]>>
+  DISJ2_TAC>>
+  qexists_tac`EL (2**k-1) walk`>>
+  fs[EVERY_EL]>>
+  first_assum(qspec_then`2**k-1` mp_tac)>>
+  impl_tac >- (Cases_on`walk`>>fs[])>>
+  strip_tac>>simp[]>>
+  first_x_assum drule>>
+  strip_tac>>fs[walk_aux_def]>>
+  drule (SIMP_RULE std_ss [satisfies_def] iff_and)>>
+  pop_assum kall_tac>>
+  rw[]>>simp[]
+  >- (
+    qexists_tac`TAKE (2 ** k − 1) walk`>>
+    fs[EL_TAKE]>>
+    match_mp_tac is_walk_TAKE>>
+    fs[]>>Cases_on`walk`>>fs[]>>
+    metis_tac[])>>
+  qexists_tac`DROP (2**k) walk`>>
+  fs[EL_DROP,ADD1,EXP]>>
+  `2 ** k - 1 < LENGTH walk` by fs[]>>
+  drule is_walk_DROP>>
+  simp[]>>
+  metis_tac[]
+QED
+
+Definition is_path_def:
+  is_path ep a b path ⇔
+  is_walk ep a b path ∧
+  ¬MEM a path ∧ ¬MEM b path ∧ ALL_DISTINCT path
+End
+
+Theorem connected_path:
+  ∀a b ep.
+  is_walk ep a b walk ⇒
+  ∃path.
+    set path ⊆ set walk ∧
+    is_path ep a b path
+Proof
+  completeInduct_on`LENGTH walk`>>fs[PULL_FORALL,AND_IMP_INTRO]>>
+  rw[]>>
+  Cases_on`MEM a walk`
+  >- (
+    fs[MEM_EL]>>
+    drule is_walk_DROP>>
+    disch_then drule>>
+    strip_tac>>
+    first_x_assum (drule_at Any)>>
+    simp[]>> strip_tac>>
+    gs[SUBSET_DEF,MEM_DROP,PULL_EXISTS]>>
+    metis_tac[MEM_EL])>>
+  Cases_on`MEM b walk`
+  >- (
+    fs[MEM_EL]>>
+    drule is_walk_TAKE>>
+    disch_then drule>>
+    strip_tac>>
+    first_x_assum (drule_at Any)>>
+    simp[]>> strip_tac>>
+    gs[SUBSET_DEF,PULL_EXISTS]>>
+    metis_tac[MEM_TAKE])>>
+  Cases_on`ALL_DISTINCT walk`
+  >-
+    metis_tac[is_path_def,SUBSET_DEF]>>
+  fs[EL_ALL_DISTINCT_EL_EQ,EQ_IMP_THM]>>
+  wlog_tac`n1 < n2`[`n1`,`n2`]
+  >- (
+    first_x_assum match_mp_tac>>
+    `n2 < n1` by fs[]>>
+    metis_tac[])>>
+  qpat_x_assum`n1 < LENGTH _` assume_tac>>
+  drule is_walk_TAKE>>
+  disch_then drule>>
+  qpat_x_assum`n2 < _` assume_tac>>
+  drule is_walk_DROP>>
+  disch_then drule>>
+  rw[]>>
+  imp_res_tac is_walk_append >>
+  ntac 4 (pop_assum kall_tac)>>
+  first_x_assum (drule_at Any)>>
+  simp[]>>
+  strip_tac>>
+  gs[SUBSET_DEF,PULL_EXISTS,MEM_DROP]>>
+  metis_tac[MEM_TAKE,MEM_EL]
+QED
+
+Definition encode_connected_def:
+  encode_connected (vp,ep) =
+  let k = LOG 2 (vp*2-1) in
+  walk_k (vp,ep) k ++
+  FLAT (GENLIST (λf.
+    (GENLIST (λg.
+      GreaterEqual [(1, Pos(Unmapped f));(1, Pos(Unmapped g));(1, Pos(Walk f g k))] 1) vp)) vp)
+End
+
+Definition encode_full_def:
+  encode_full (vp,ep) (vt,et) k =
+  encode (vp,ep) (vt,et) k ++
+  encode_connected (vp,ep)
+End
+
+Theorem walk_k_free:
+  ∀k c.
+  MEM c (walk_k (v,e) k) ∧
+  (∀f. w' (Unmapped f) = w (Unmapped f)) ∧
+  (∀l f g.
+    w' (Walk f g l) = if l <= k then w (Walk f g l) else w' (Walk f g l)) ∧
+  (∀l f g h.
+    w' (Aux f h g l) = if l <= k then w (Aux f h g l) else w' (Aux f h g l)) ⇒
+  satisfies_pbc w c ⇒ satisfies_pbc w' c
+Proof
+  Induct>>rw[walk_k_def]>>
+  gvs[MEM_FLAT,MEM_GENLIST]
+  >- (
+    fs[walk_base_def]>>every_case_tac>>
+    gvs[iff_and_def,satisfies_pbc_def]>>
+    first_x_assum(qspec_then`0` kall_tac)>>
+    first_x_assum(qspec_then`0` assume_tac)>>
+    fs[])
+  >- (
+    gvs[walk_aux_def,iff_and_def,satisfies_pbc_def]>>
+    first_x_assum(qspec_then`SUC k` mp_tac)>>
+    first_x_assum(qspec_then`k` mp_tac)>>
+    simp[])
+  >- (
+    gvs[walk_ind_def,iff_or_def,satisfies_pbc_def]>>
+    first_x_assum(qspec_then`SUC k` mp_tac)>>
+    first_assum(qspec_then`SUC k` mp_tac)>>
+    first_x_assum(qspec_then`k` mp_tac)>>
+    gvs[MAP_MAP_o,o_DEF,MAP_GENLIST,MEM_GENLIST,satisfies_pbc_def])>>
+  fs[AND_IMP_INTRO]>>
+  first_x_assum match_mp_tac>>fs[]>>
+  rw[]
+  >-
+    (last_x_assum(qspecl_then[`l`,`f`,`g`] assume_tac)>>rfs[])>>
+  last_x_assum(qspecl_then[`l`,`f`,`g`,`h`] assume_tac)>>rfs[]
+QED
+
+Theorem mk_satisfies_walk_k:
+  ∀k. ∃w'.
+  satisfies w' (set (walk_k (v,e) k)) ∧
+  ∀x. case x of
+    Unmapped f => w x = w' x
+  | Mapped f g => w x = w' x
+  | Walk f g l => k < l ⇒ w x = w' x
+  | Aux f h g l => k < l ⇒ w x = w' x
+Proof
+  Induct>>rw[walk_k_def,satisfies_def]
+  >- (
+    qexists_tac`λn.
+        case n of
+        Walk f g k =>
+          if k = 0 then
+            if is_edge e f g then ¬ (w (Unmapped f)) ∧ ¬ (w (Unmapped g))
+            else F
+          else w n
+      | _ => w n`>>
+    rw[]
+    >- (
+      gvs[MEM_FLAT,MEM_GENLIST,walk_base_def]>>
+      every_case_tac>>fs[]>>rw[]
+      >- (
+        gvs[iff_and_def,satisfies_pbc_def,iSUM_def]>>
+        Cases_on`w (Unmapped f)`>>
+        Cases_on`w (Unmapped g)`>>simp[])
+      >>
+      simp[satisfies_pbc_def,iSUM_def])>>
+    every_case_tac>>simp[])>>
+  qexists_tac`λn.
+        case n of
+        Walk f g l =>
+          if l = SUC k then
+            w' (Walk f g k) ∨
+            ∃h. h < v ∧ w' (Walk f h k) ∧ w' (Walk h g k)
+          else w' n
+      | Aux f h g l =>
+          if l = SUC k then
+            (w' (Walk f h k) ∧ w' (Walk h g k))
+          else w' n
+      | _ => w' n`>>
+  rw[]
+  >- (
+    ntac 2 (last_x_assum kall_tac)>>
+    gvs[MEM_FLAT,MEM_GENLIST]
+    >- (
+      gvs[walk_aux_def]>>
+      gvs[iff_and_def,satisfies_pbc_def,iSUM_def]>>
+      Cases_on`w' (Walk f h k)`>>Cases_on`w' (Walk h g k)`>>fs[])>>
+    gvs[walk_ind_def]>>
+    pop_assum mp_tac>>
+    match_mp_tac (SIMP_RULE std_ss [satisfies_def] iff_or_satisfies)>>simp[]>>
+    simp[EXISTS_MEM,MEM_GENLIST,PULL_EXISTS])
+  >- (
+    first_x_assum drule>>
+    match_mp_tac walk_k_free>>simp[]>>
+    asm_exists_tac>>rw[]>>fs[])
+  >- (
+    pop_assum(qspec_then`x` assume_tac)>>
+    every_case_tac>>simp[])
+QED
+
+Theorem mk_satisfies_walk_k_alt:
+  ∀k. ∃w'.
+  satisfies w' (set (walk_k (v,e) k)) ∧
+  (∀f. w' (Unmapped f) = w (Unmapped f)) ∧
+  (∀f g. w' (Mapped f g) = w (Mapped f g))
+Proof
+  rw[]>>assume_tac (mk_satisfies_walk_k |> SPEC_ALL)>>fs[]>>
+  asm_exists_tac>>
+  rw[]
+  >-
+    (first_x_assum(qspec_then`Unmapped f` assume_tac)>>fs[])>>
+  first_x_assum(qspec_then`Mapped f g` assume_tac)>>fs[]
+QED
+
+Theorem ALL_DISTINCT_LENGTH_bound:
+  set ls ⊆ count n ∧
+  ALL_DISTINCT ls ⇒
+  LENGTH ls <= n
+Proof
+  rw[]>>drule ALL_DISTINCT_CARD_LIST_TO_SET>>
+  strip_tac>>
+  `FINITE (count n)` by fs[]>>
+  drule CARD_SUBSET>>
+  disch_then drule>>simp[]
+QED
+
+Theorem encode_full_correct:
+  good_graph (vp,ep) ∧
+  good_graph (vt,et) ∧
+  encode_full (vp,ep) (vt,et) k = constraints ⇒
+  (
+    (∃f vs.
+      injective_partial_map f vs k (vp,ep) (vt,et) ∧
+      connected_subgraph vs ep) ⇔
+    satisfiable (set constraints)
+  )
+Proof
+  rw[EQ_IMP_THM]
+  >- (
+    fs[injective_partial_map_def]>>
+    simp[satisfiable_def]>>
+    rw[encode_full_def,encode_def,encode_connected_def]>>
+    qabbrev_tac`w = λenc.
+      case enc of
+        Unmapped a => a ∉ vs
+      | Mapped a u => a ∈ vs ∧ f a = u
+      | _ => ARB`>>
+    qspecl_then [`w`,`vp`,`ep`,`LOG 2 (2 * vp − 1)`] assume_tac (GEN_ALL mk_satisfies_walk_k_alt)>>
+    fs[Abbr`w`]>>
+    qexists_tac`w'`>>simp[]>>
+    rw[]
+    >- (
+      rename1`k_size`>>
+      simp[k_size_def,satisfies_pbc_def,MAP_GENLIST, o_DEF]>>
+      simp[neg_b2i]>>
+      metis_tac[iSUM_GENLIST_geq_k_rev])
+    >- (
+      rename1`all_has_mapping`>>
+      simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,has_mapping_def]>>
+      rw[]>>
+      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
+      simp[iSUM_def]>>
+      Cases_on`a ∈ vs`>>simp[]
+      >- ( (* a ∈ vs *)
+        DEP_REWRITE_TAC[iSUM_eq_1]>>
+        CONJ_TAC>-
+          (simp[MEM_GENLIST]>>metis_tac[])>>
+        qexists_tac`f a`>>
+        CONJ_ASM1_TAC>>fs[EL_GENLIST,INJ_DEF]) >>
+      simp[iSUM_GENLIST_const])
+    >- (
+      rename1`all_one_one`>>
+      simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def]>>
+      rw[]>>
+      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
+      fs[INJ_DEF]>>
+      qmatch_goalsub_abbrev_tac`iSUM ls`>>
+      `vp = LENGTH ls` by
+        simp[Abbr`ls`]>>
+      simp[]>>
+      DEP_REWRITE_TAC[iSUM_sub_b2i_geq]>>
+      simp[Abbr`ls`]>>
+      CONJ_TAC>- (
+        simp[MEM_GENLIST]>>
+        metis_tac[])>>
+      rw[]>>
+      gs[EL_GENLIST]>>
+      metis_tac[])
+    >- (
+      rename1`all_edge_map`>>
+      simp[all_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT,edge_map_def]>>
+      rw[]>>
+      gvs[MEM_FLAT,MEM_GENLIST,MEM_MAP]>>
+      fs[MEM_neighbours]>>
+      simp[satisfies_pbc_def,MAP_MAP_o,o_DEF]>>
+      `b < vp` by
+        (fs[good_graph_def,is_edge_def]>>
+        metis_tac[])>>
+      simp[]>>
+      reverse (Cases_on`b ∈ vs`)>>fs[]
+      >- (
+        simp[iSUM_def,iSUM_MAP_const]>>
+        Cases_on`a ∈ vs ∧ f a = u`>>simp[])>>
+      reverse (Cases_on`f a = u`>>rw[]>>simp[iSUM_def])
+      >- (
+        simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
+        match_mp_tac iSUM_zero>>
+        simp[MEM_MAP,MEM_neighbours]>>
+        rw[]>>
+        simp[])>>
+      Cases_on`a ∈ vs`>>fs[]
+      >- (
+        match_mp_tac iSUM_geq>>
+        rw[]
+        >-
+          (fs[MEM_MAP]>>pairarg_tac>>simp[])>>
+        simp[MEM_MAP,MEM_FILTER,LAMBDA_PROD,PULL_EXISTS,EXISTS_PROD,MEM_neighbours]>>
+        qexists_tac`f b`>>simp[]>>
+        fs[INJ_DEF])>>
+      simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
+      match_mp_tac iSUM_zero>>
+      simp[MEM_MAP,MEM_neighbours]>>
+      rw[]>>
+      simp[])
+    >- (
+      rename1`all_not_edge_map`>>
+      simp[all_not_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT,not_edge_map_def]>>
+      rw[]>>
+      gvs[MEM_FLAT,MEM_GENLIST,MEM_MAP]>>
+      fs[MEM_not_neighbours]>>
+      simp[satisfies_pbc_def,MAP_MAP_o,o_DEF]>>
+      reverse (Cases_on`b ∈ vs`)>>fs[]
+      >- (
+        simp[iSUM_def,iSUM_MAP_const]>>
+        Cases_on`a ∈ vs ∧ f a = u`>>simp[])>>
+      reverse (Cases_on`f a = u`>>rw[]>>simp[iSUM_def])
+      >- (
+        simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
+        match_mp_tac iSUM_zero>>
+        simp[MEM_MAP,MEM_not_neighbours]>>
+        rw[]>>
+        simp[])>>
+      Cases_on`a ∈ vs`>>fs[]
+      >- (
+        match_mp_tac iSUM_geq>>
+        rw[]
+        >-
+          (fs[MEM_MAP]>>pairarg_tac>>simp[])>>
+        simp[MEM_MAP,MEM_FILTER,LAMBDA_PROD,PULL_EXISTS,EXISTS_PROD,MEM_not_neighbours]>>
+        fs[INJ_DEF])>>
+      simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
+      match_mp_tac iSUM_zero>>
+      simp[MEM_MAP,MEM_not_neighbours]>>
+      rw[]>>
+      simp[])
+    >- (
+      (* connectedness *)
+      simp[satisfies_def,MEM_FLAT,MEM_GENLIST,PULL_EXISTS,satisfies_pbc_def]>>
+      rw[]>>
+      reverse (Cases_on`f' ∈ vs`)>>simp[iSUM_def]
+      >- (
+        qmatch_goalsub_abbrev_tac`b2i A + b2i B`>>
+        Cases_on`A`>>Cases_on`B`>>simp[])>>
+      reverse (Cases_on`g ∈ vs`)>>simp[iSUM_def]>>
+      drule satisfies_walk_k>>
+      disch_then(qspecl_then[`f'`,`g`] assume_tac)>>gs[]>>
+      fs[connected_subgraph_def]>>
+      first_x_assum(qspecl_then[`f'`,`g`] assume_tac)>>gs[]>>
+      first_x_assum(qspecl_then[`f'`,`g`] assume_tac)>>gs[]>>
+      drule connected_path>>strip_tac>>
+      fs[is_path_def]>>
+      qexists_tac`path`>>simp[]>>rw[]
+      >- (
+        fs[SUBSET_DEF,EVERY_MEM])>>
+        `LENGTH (f'::path) <= vp` by
+          (match_mp_tac ALL_DISTINCT_LENGTH_bound>>
+          fs[]>>metis_tac[SUBSET_TRANS])>>
+        `LENGTH path < vp` by fs[]>>
+        `vp ≤ 2 ** LOG 2 (2 * vp − 1)` by
+          (qspecl_then[`2`,`(2 * vp − 1)`] mp_tac logrootTheory.LOG>>
+          simp[]>>rw[]>>
+          fs[EXP])>>
+        simp[]))>>
+  fs[satisfiable_def,injective_partial_map_def]>>
+  qexists_tac`λn. @m. m < vt ∧ w (Mapped n m)`>>
+  qabbrev_tac`dom = {n | n < vp ∧ ¬ w (Unmapped n)}`>>
+  qexists_tac `dom`>>
+  simp[]>>
+  reverse CONJ_TAC >- (
+    fs[satisfies_def,encode_full_def,SF DNF_ss,encode_connected_def]>>
+    fs[MEM_FLAT,MEM_GENLIST,PULL_EXISTS,satisfies_pbc_def]>>
+    rw[connected_subgraph_def,Abbr`dom`]>>
+    first_x_assum(qspecl_then[`a`,`b`] assume_tac)>>fs[]>>
+    gs[iSUM_def]>>
+    drule (SIMP_RULE std_ss [satisfies_def] satisfies_walk_k)>>
+    disch_then(qspecl_then[`a`,`b`] assume_tac)>>
+    gs[]>>
+    qexists_tac`walk`>>fs[SUBSET_DEF,EVERY_MEM])>>
+  CONJ_TAC>-
+    simp[Abbr`dom`,SUBSET_DEF]>>
+  fs[satisfies_def,encode_full_def,encode_def,SF DNF_ss]>>
+  CONJ_TAC>- (
+    fs[k_size_def,satisfies_pbc_def,MAP_GENLIST,o_DEF,neg_b2i]>>
+    match_mp_tac iSUM_GENLIST_geq_k>>
+    qexists_tac`vp`>>fs[Abbr`dom`,SUBSET_DEF]>>
+    qmatch_asmsub_abbrev_tac`iSUM ls1`>>
+    qmatch_goalsub_abbrev_tac`iSUM ls2`>>
+    `ls1 = ls2` by
+      (unabbrev_all_tac>>simp[LIST_EQ])>>
+    fs[])>>
+  `∀n. n < vp ∧ ¬w (Unmapped n) ⇒
+   ∃m. m < vt ∧ w (Mapped n m) ∧
+   ∀m'. m' < vt ∧ w (Mapped n m') ⇔ m = m'` by (
+     fs[all_has_mapping_def,MEM_GENLIST,has_mapping_def,PULL_EXISTS]>>
+     rw[]>>
+     first_x_assum drule>>
+     simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
+     simp[iSUM_def]>>
+     DEP_REWRITE_TAC[iSUM_eq_1]>>
+     CONJ_TAC>-
+       (simp[MEM_GENLIST]>>metis_tac[])>>
+     rw[]>>gs[EL_GENLIST]>>
+     asm_exists_tac>>fs[]>>
+     CCONTR_TAC>>gs[]>>
+     Cases_on`i=m'`>>gs[]>>
+     first_x_assum drule>>
+     fs[])>>
+  rw[]
+  >- (
+    fs[Abbr`dom`]>>
+    rw[INJ_DEF]
+    >- (
+      first_x_assum drule>>strip_tac>>
+      rfs[])>>
+    fs[all_one_one_def,MEM_GENLIST,PULL_EXISTS,one_one_def]>>
+    res_tac>>
+    gvs[]>>
+    last_x_assum drule>>
+    simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
+    qmatch_goalsub_abbrev_tac`iSUM ls`>>
+    `vp = LENGTH ls` by
+      simp[Abbr`ls`]>>
+    simp[]>>
+    DEP_REWRITE_TAC[iSUM_sub_b2i_geq]>>
+    simp[Abbr`ls`]>>
+    CONJ_TAC>- (
+      simp[MEM_GENLIST]>>
+      metis_tac[])>>
+    rw[]>>
+    first_x_assum drule>>
+    simp[EL_GENLIST]>>
+    disch_then(qspec_then`n` mp_tac)>>
+    simp[])
+  >- (
+    fs[Abbr`dom`,good_graph_def]>>
+    first_assum(qspec_then`a` mp_tac)>>
+    first_x_assum(qspec_then`b` drule)>>
+    simp[]>>
+    rw[]>>
+    gvs[]>>
+    fs[all_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT,edge_map_def,PULL_EXISTS,MEM_MAP,FORALL_PROD]>>
+    `is_edge ep b a` by
+      fs[is_edge_def]>>
+    first_x_assum (drule_at (Pos (el 2)))>>
+    disch_then (qspec_then`m` mp_tac)>>
+    simp[satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,MEM_neighbours]>>
+    disch_then drule>>
+    strip_tac>>
+    gs[]>>
+    drule iSUM_geq_1>>
+    simp[MEM_MAP,PULL_EXISTS,MEM_FILTER,FORALL_PROD]>>
+    impl_tac >- metis_tac[]>>
+    strip_tac>>
+    gs[EL_MAP]>>
+    qmatch_asmsub_abbrev_tac`Mapped _ ee`>>
+    `m' = ee` by (
+      unabbrev_all_tac>>
+      metis_tac[MEM_EL,MEM_neighbours,is_edge_def])>>
+    rw[]>>
+    `MEM ee (neighbours et m)` by
+      metis_tac[EL_MEM,Abbr`ee`]>>
+    fs[MEM_neighbours]>>
+    metis_tac[is_edge_def])
+  >- (
+    fs[Abbr`dom`,good_graph_def]>>
+    first_assum(qspec_then`a` mp_tac)>>
+    first_x_assum(qspec_then`b` drule)>>
+    simp[]>>
+    rw[]>>
+    gvs[]>>
+    fs[all_not_edge_map_def,satisfies_def,MEM_FLAT,MEM_GENLIST,PULL_EXISTS,MEM_MAP,MEM_not_neighbours,not_edge_map_def]>>
+    first_x_assum (drule_at (Pos (el 4)))>>
+    disch_then (qspec_then`m'` mp_tac)>>
+    simp[satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD]>>
+    strip_tac>>
+    drule iSUM_geq_1>>
+    simp[MEM_MAP,PULL_EXISTS,MEM_FILTER,FORALL_PROD]>>
+    impl_tac >- metis_tac[]>>
+    strip_tac>>
+    gs[EL_MAP]>>
+    qmatch_asmsub_abbrev_tac`Mapped b ee`>>
+    `m = ee` by (
+      unabbrev_all_tac>>
+      metis_tac[MEM_EL,MEM_not_neighbours])>>
+    rw[]>>
+    `MEM ee (not_neighbours (vt,et) m')` by
       metis_tac[EL_MEM,Abbr`ee`]>>
     fs[MEM_not_neighbours])
 QED
