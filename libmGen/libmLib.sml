@@ -17,7 +17,7 @@ struct
 
   exception libmGenException of string;
 
-  val approxSteps = “16:num”; (** TODO: make this a parameter ? **)
+  val approxSteps = “20:num”; (** TODO: make this a parameter ? **)
 
   val zero_eq = GSYM $ Q.SPEC ‘1’ REAL_DIV_LZERO
 
@@ -91,6 +91,8 @@ struct
     val mkEnv_def = Define ‘mkEnv v = ^theEnv_term with v := nsAppend (Bind [("x0", v)] []) ^(theEnv_term).v’
     val approxErr_def = Define ‘approxErr = ^(certValid |> SPEC_ALL |> concl |> rand |> rand)’
     val roundoffErr_def = Define ‘roundoffErr = ^(find_thm |> rhs o concl |> optionSyntax.dest_some |> dest_pair |> snd)’
+    val fullErr_tm = EVAL“approxErr + roundoffErr”|> rhs o concl
+    val fullErr_def = Define ‘fullErr = ^fullErr_tm’
     val theCMLprog_def = Define ‘theCMLprog = ^floverToCmlFloatTm’
     in
       MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] theFunSpec_thm_general) P
